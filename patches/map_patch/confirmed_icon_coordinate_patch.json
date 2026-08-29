@@ -1,0 +1,56 @@
+{
+  "name": "full_map_icon_and_hitbox_scaling_confirmed_006",
+  "status": "confirmed_at_3440x1440",
+  "source_sha256": "D7DD19449F1BA2DE1D91D19E1BAA4BE15A7480AE4C9ED7F986DE5E2424E97909",
+  "output_sha256": "3C73627AEEE967BD780AFEA108A6AB2EC4EA6EAF345E15727E081F945506DBD2",
+  "dimensions": {
+    "window": [3440, 1440],
+    "map_canvas": [1720, 720],
+    "marker_overlay": [1478, 720],
+    "original_marker_domain": [440, 256]
+  },
+  "redirected_calls": [
+    {"va": "0x006946F4", "original_target": "0x00578E00", "wrapper_offset": "0x000"},
+    {"va": "0x00694A39", "original_target": "0x005791B0", "wrapper_offset": "0x080"},
+    {"va": "0x00694AAC", "original_target": "0x005791B0", "wrapper_offset": "0x080"}
+  ],
+  "dimension_immediates": [
+    {"va": "0x00695082", "expected": "B8 01 00 00", "replacement": "C6 05 00 00"},
+    {"va": "0x0069508A", "expected": "00 01 00 00", "replacement": "D0 02 00 00"}
+  ],
+  "hit_test": {
+    "vtable_slot_va": "0x0075477C",
+    "expected_target": "0x00693300",
+    "wrapper_offset": "0x100",
+    "formula_x": "mouse_x - (window_width - canvas_width) / 2",
+    "formula_y": "mouse_y - (window_height - canvas_height) / 2 + 14"
+  },
+  "new_section": {
+    "name": ".kui",
+    "characteristics": "0x60000020",
+    "payload_size": 298,
+    "coordinate_payload_sha256": "0268B45FDC1DA208A2157575F35CD69A6E5A2E4B3CDADF24D7D587B592334A07",
+    "combined_payload_sha256": "590CCB7709059A4AD6C0669625B9C6AC2BAAF8A49BDA16D42C903FE7664E3DAB"
+  },
+  "excluded_changes": [
+    "shared area-map float constants",
+    "world-to-map bounds",
+    "map-to-world bounds",
+    "fog-grid scale constants",
+    "gameplay minimap conversion paths",
+    "module-authored map-note waypoint positions"
+  ],
+  "stock_ebon_hawk_validation": {
+    "marker_domain": [440, 256],
+    "note_centers": {
+      "port_crew_quarters": [131, 98],
+      "cargo_hold": [144, 172],
+      "cockpit": [228, 17],
+      "swoop_hangar": [284, 182],
+      "starboard_crew_quarters": [319, 92],
+      "engine_room": [217, 244],
+      "exit_ramp": [274, 110]
+    },
+    "finding": "The clean executable already places the engine-room and swoop-hangar notes outside the annotated room centers; candidate 006 preserves these module-authored positions while aligning marker hitboxes with their rendered centers."
+  }
+}

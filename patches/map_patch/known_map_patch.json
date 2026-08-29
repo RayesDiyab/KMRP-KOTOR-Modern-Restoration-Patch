@@ -1,0 +1,81 @@
+{
+  "schema_version": 1,
+  "image_base": "0x00400000",
+  "reference_executable_sha256": "52AD3AE43E6D5B7ADFCE3AA240E7B26214CFE61BA9C3D9AF121DA065643E3B53",
+  "patched_executable_sha256": "D7DD19449F1BA2DE1D91D19E1BAA4BE15A7480AE4C9ED7F986DE5E2424E97909",
+  "verified_patches": [
+    {
+      "name": "map_render_width",
+      "va": "0x0069505C",
+      "original": "00 02 00 00",
+      "patched": "B8 06 00 00",
+      "value_original": 512,
+      "value_patched": 1720,
+      "purpose": "Map render width"
+    },
+    {
+      "name": "map_render_height",
+      "va": "0x00695064",
+      "original": "00 01 00 00",
+      "patched": "D0 02 00 00",
+      "value_original": 256,
+      "value_patched": 720,
+      "purpose": "Map render height"
+    },
+    {
+      "name": "map_centering_x",
+      "va": "0x006928B3",
+      "original": "80 02 00 00",
+      "patched": "BE 0A 00 00",
+      "value_original": 640,
+      "value_patched": 2750,
+      "purpose": "Horizontal input to (GUI size - map size) / 2"
+    },
+    {
+      "name": "map_centering_y",
+      "va": "0x006928C3",
+      "original": "E0 01 00 00",
+      "patched": "78 05 00 00",
+      "value_original": 480,
+      "value_patched": 1400,
+      "purpose": "Vertical input to (GUI size - map size) / 2"
+    }
+  ],
+  "investigation_probes": [
+    {
+      "name": "icon_size_immediate",
+      "va": "0x0069405A",
+      "reported_original": "20",
+      "reported_test": "28",
+      "result": "Player arrow became slightly larger"
+    },
+    {
+      "name": "selected_icon_x_adjustment",
+      "va": "0x00694719",
+      "reported_original_signed": -10,
+      "reported_test_signed": 127,
+      "result": "Selected yellow icon moved horizontally"
+    },
+    {
+      "name": "selected_icon_y_adjustment",
+      "va": "0x00694725",
+      "reported_original_signed": -10,
+      "reported_test_signed": 127,
+      "result": "Selected yellow icon moved vertically"
+    },
+    {
+      "name": "initialization_width_probe",
+      "va": "0x0069507E",
+      "reported_original": "B8 06 00 00",
+      "reported_test": "B8 01 00 00",
+      "result": "No observed icon-position effect"
+    },
+    {
+      "name": "initialization_height_probe",
+      "va": "0x00695086",
+      "reported_original": "D0 02 00 00",
+      "reported_test": "00 01 00 00",
+      "result": "No observed icon-position effect"
+    }
+  ]
+}

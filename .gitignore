@@ -1,0 +1,25 @@
+# Proprietary game binaries and analysis artifacts
+*.exe
+*.dll
+*.bif
+*.key
+*.erf
+*.rim
+*.mod
+*.sav
+reverse-engineering/binaries/*
+!reverse-engineering/binaries/README.md
+
+# Debugger output
+*.dd32
+*.dd64
+*.dmp
+*.trace32
+*.trace64
+*.1337
+
+# Generated logs and temporary files
+logs/
+tmp/
+build/
+*.log
