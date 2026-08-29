@@ -50,10 +50,19 @@ SECTION_NAME = b".kfs\0\0\0\0"
 SECTION_CHARACTERISTICS = 0xE0000020  # code | execute | read | write
 
 MAX_TRACKED_FONTS = 64
+# Two independent scale constants. The font-metric scale is normally left at 1.0
+# now that font sizing is done in the atlases' own TXI metrics instead
+# (tools/build_scaled_fonts.py) -- scaling CAurFontInfo at runtime happened one
+# frame too late, after the engine had already measured and centred the text,
+# which shifted the first screen drawn each session. List-row heights have no
+# such ordering problem (the hook rewrites a row's height as the row is built,
+# and nothing has measured it beforehand), so that scaling stays here and needs
+# its own constant rather than sharing the font one.
 OFF_SCALE_CONST = 0x000
-OFF_DEDUP_COUNT = 0x004
-OFF_DEDUP_ARRAY = 0x008
-OFF_SCALE_FN = OFF_DEDUP_ARRAY + MAX_TRACKED_FONTS * 4  # 0x108
+OFF_ROW_SCALE_CONST = 0x004
+OFF_DEDUP_COUNT = 0x008
+OFF_DEDUP_ARRAY = 0x00C
+OFF_SCALE_FN = OFF_DEDUP_ARRAY + MAX_TRACKED_FONTS * 4  # 0x10C
 
 TEXTOUTA_VA = 0x004A1770
 TEXTOUTA_ORIGINAL = bytes.fromhex("6A FF 68 5C 7E 71 00 64 A1 00 00 00 00")
@@ -247,12 +256,18 @@ def main() -> int:
     parser.add_argument("source", type=Path)
     parser.add_argument("output", type=Path)
     parser.add_argument("--scale", type=float, required=True, help="Uniform font-metric scale factor, e.g. 2.0")
+    parser.add_argument("--row-scale", type=float, default=None,
+                        help="List-row height scale factor (defaults to --scale)")
     args = parser.parse_args()
 
     if args.source.resolve() == args.output.resolve():
         raise ValueError("Output must be a separate executable")
+    if args.row_scale is None:
+        args.row_scale = args.scale
     if not 0.1 <= args.scale <= 8.0:
         raise ValueError("Scale must be between 0.1 and 8.0")
+    if not 0.1 <= args.row_scale <= 8.0:
+        raise ValueError("Row scale must be between 0.1 and 8.0")
 
     image = PEImage(args.source)
     data = bytearray(image.data)
@@ -290,9 +305,14 @@ def main() -> int:
     draw_stub_va = textout_stub_va + len(textout_stub)
     draw_stub = build_draw_stub(draw_stub_va, scale_fn_va)
     list_row_stub_va = draw_stub_va + len(draw_stub)
-    list_row_stub = build_list_row_stub(list_row_stub_va, new_va + OFF_SCALE_CONST)
+    list_row_stub = build_list_row_stub(list_row_stub_va, new_va + OFF_ROW_SCALE_CONST)
 
-    header = struct.pack("<f", args.scale) + struct.pack("<I", 0) + b"\0" * (MAX_TRACKED_FONTS * 4)
+    header = (
+        struct.pack("<f", args.scale)
+        + struct.pack("<f", args.row_scale)
+        + struct.pack("<I", 0)
+        + b"\0" * (MAX_TRACKED_FONTS * 4)
+    )
     assert len(header) == OFF_SCALE_FN
     payload = header + scale_fn + textout_stub + draw_stub + list_row_stub
 
@@ -371,7 +391,7 @@ def main() -> int:
     print(f"TextOutA stub                   VA 0x{textout_stub_va:08X}")
     print(f"Draw stub                       VA 0x{draw_stub_va:08X}")
     print(f"List-row stub                   VA 0x{list_row_stub_va:08X}")
-    print(f"Scale factor: {args.scale}")
+    print(f"Font scale factor: {args.scale}   list-row scale factor: {args.row_scale}")
     print(f"Wrote {args.output}")
     print(f"SHA-256: {output.sha256}")
     return 0
