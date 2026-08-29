@@ -1,0 +1,72 @@
+{
+  "name": "font_scale_and_list_row_height_confirmed_002",
+  "status": "confirmed_at_3440x1440",
+  "build_tool": "tools/build_font_scale_wrapper.py",
+  "cli": "python tools/build_font_scale_wrapper.py SOURCE OUTPUT --scale 2.0",
+  "source_sha256": "D8F0EEBF470660FFBB0DBE9D6953774B937F73F92260FA2D3427189D8B7F6ADE",
+  "output_sha256": "B4C49441FEA3EF7E2239BD4C2B3FD522D8B3C00C8950D200F40527547CA3E1B5",
+  "scale_factor": 2.0,
+  "reference": "https://github.com/J0-o/KotorUniResPatch (\"2x Font\", \"2x List Item Height\") — independently re-verified against our own executable before use, not copied blindly",
+  "caur_font_info_fields": {
+    "font_height": "+0x04 (float, normalized, not raw pixels)",
+    "baseline_height": "+0x08 (float)",
+    "texture_width": "+0x0C (float)",
+    "spacing_r": "+0x10 (float)",
+    "spacing_b": "+0x14 (float)"
+  },
+  "hooks": [
+    {
+      "name": "CAurFont::TextOutA",
+      "va": "0x004A1770",
+      "original": "6A FF 68 5C 7E 71 00 64 A1 00 00 00 00",
+      "patched": "E9 FF C9 3C 00 90 90 90 90 90 90 90 90",
+      "font_info_source": "[ecx+0x18] directly"
+    },
+    {
+      "name": "CAurGUIStringInternal::Draw",
+      "va": "0x0045A850",
+      "original": "83 EC 4C 89 4C 24 04",
+      "patched": "E9 41 39 41 00 90 90",
+      "font_info_source": "[ecx+0x18] safe-pointer -> vtable+0x38 getter"
+    },
+    {
+      "name": "generic_list_row_height_setup",
+      "va": "0x00417992",
+      "original": "8B 40 0C 89 41 0C 8B 4C 24 6C",
+      "patched": "E9 2A 68 45 00 90 90 90 90 90",
+      "shared_by": ["save/load list", "journal quest list", "graphics resolution popup rows"],
+      "scaling_method": "fild/fmul/fistp on the integer height value, reusing the same embedded scale constant as the font hooks (single source of truth)"
+    }
+  ],
+  "new_section": {
+    "name": ".kfs",
+    "characteristics": "0xE0000020",
+    "note": "code|execute|read|write, unlike the read-only .kui map section — needs write access for the mutable dedup table",
+    "layout": {
+      "0x000": "scale constant (float32)",
+      "0x004": "dedup count (uint32)",
+      "0x008": "64-slot pointer dedup table (256 bytes)",
+      "0x108": "shared scale_fontinfo subroutine",
+      "after": "TextOutA stub, then Draw stub, then list-row stub"
+    }
+  },
+  "dedup_design": {
+    "why_required": "TextOutA and Draw run every rendered frame; CAurFontInfo instances are shared/persistent and mutated in place. Without de-duplication the fields would be multiplied again on every call and grow without bound within seconds.",
+    "max_tracked_fonts": 64,
+    "behavior_on_overflow": "silently stops scaling new (never-before-seen) CAurFontInfo instances once 64 distinct pointers are tracked; already-scaled instances are unaffected"
+  },
+  "excluded_changes": [
+    "dialogue letterbox sizing (separate patch, see confirmed_letterbox_patch.json)",
+    "computer.gui / computercamera.gui positioning (GUI resource fix, not an executable hook)",
+    "per-glyph advance-width tables, if any exist separately from CAurFontInfo (unconfirmed, see reverse-engineering/font.md Known unknowns)"
+  ],
+  "validation": {
+    "method": "manual playtest screenshots at 3440x1440, not automated",
+    "screens_confirmed": [
+      "main menu", "HUD", "load-game list", "equip", "inventory",
+      "character sheet", "powers", "skills", "store",
+      "dialogue-choice list", "map confirm popup"
+    ],
+    "not_yet_validated": "any resolution other than 3440x1440"
+  }
+}

@@ -1,0 +1,63 @@
+{
+  "name": "dialogue_letterbox_height_confirmed_003",
+  "status": "confirmed_at_3440x1440",
+  "build_tool": "tools/build_letterbox_scale_wrapper.py",
+  "cli": "python tools/build_letterbox_scale_wrapper.py SOURCE OUTPUT",
+  "source_sha256": "B4C49441FEA3EF7E2239BD4C2B3FD522D8B3C00C8950D200F40527547CA3E1B5",
+  "output_sha256": "CDE41D99FA2DA70C294893A4FF47EAB9A4EAE848303695C18410B3846401170C",
+  "reference": "https://github.com/J0-o/KotorUniResPatch (\"Scaled Letterbox\") — independently re-verified against our own executable before use",
+  "root_cause": "Vanilla derives the dialogue letterbox bar height from screen WIDTH: barHeight = round((screenHeight - round(screenWidth * scale)) * 0.5), using aspect-scalar floats at 0x00755788 (and 0x00755AE4 for one call site). At ultrawide, screenWidth*scale approaches/exceeds screenHeight, producing an undersized bar independent of any font-scale patch.",
+  "formula": "barHeight = round(screenHeight / 6), computed as (field + 3) / 6 via signed integer division (add-half-divisor rounding)",
+  "hooks": [
+    {"name": "SetTop constructor path", "va": "0x006A74D2", "kind": "inline", "original_length": 48, "replacement_length": 17},
+    {"name": "SetBottom constructor path", "va": "0x006A7560", "kind": "inline", "original_length": 50, "replacement_length": 19},
+    {"name": "Nested message/dialog owner root height", "va": "0x006A7943", "kind": "inline", "original_length": 41, "replacement_length": 22},
+    {"name": "Later message refresh path", "va": "0x006A7B59", "kind": "inline", "original_length": 48, "replacement_length": 27},
+    {"name": "CSWGuiDialogCinematic bottom root top", "va": "0x006A7F3D", "kind": "inline", "original_length": 48, "replacement_length": 29},
+    {"name": "Dialogue owner constructor bottom root placement", "va": "0x006A8C4C", "kind": "inline", "original_length": 44, "replacement_length": 27, "note": "uses aspect scalar at 0x00755AE4 instead of 0x00755788 in the original code"},
+    {
+      "name": "CSWGuiDialog::SetRect LB_REPLIES height",
+      "va": "0x006A7CD0",
+      "kind": "trampoline",
+      "original_length": 28,
+      "replacement_length": 58,
+      "stub_va_at_candidate_003": "0x0086F000",
+      "resume_va": "0x006A7CEC",
+      "note": "Sizes the reply-choice listbox to rootHeight - repliesLocalTop so the listbox viewport, scrollbar, and clickable rows match the scaled letterbox."
+    },
+    {
+      "name": "CSWGuiDialogCinematic::SetReplies",
+      "va": "0x006A8E1D",
+      "kind": "trampoline",
+      "original_length": 9,
+      "replacement_length": 42,
+      "stub_va_at_candidate_003": "0x0086F03F",
+      "resume_va": "0x006A8E26",
+      "note": "Has an internal conditional branch using a push-address;ret idiom to reach 0x006A8E75 (a DIFFERENT address than the trampoline's own resume_va) for one of its two paths — this replicates the original 'test bit; je 0x006A8E75' logic exactly. Both destinations were manually traced and confirmed correct; do not simplify this stub without re-deriving the branch."
+    },
+    {
+      "name": "CSWGuiDialogCinematic old-height baseline",
+      "va": "0x006A7F71",
+      "kind": "inline",
+      "original_length": 3,
+      "replacement_length": 3,
+      "original": "8B 7E 10",
+      "patched": "6A 64 5F",
+      "note": "Forces the previous-dialog-root-height baseline to a literal 100 (0x64) before subtracting it from the new message height, instead of reading a stale value left over from a prior reply-box height expansion."
+    }
+  ],
+  "new_section": {
+    "name": ".klb",
+    "characteristics": "0x60000020",
+    "note": "code|execute|read, read-only — no mutable state needed for this patch, unlike .kfs"
+  },
+  "excluded_changes": [
+    "font scale / list-row height (separate patch, see confirmed_font_scale_patch.json)",
+    "computer.gui / computercamera.gui positioning"
+  ],
+  "validation": {
+    "method": "manual playtest screenshots at 3440x1440 across multiple dialogue scenes",
+    "confirmed": "dialogue subtitle text and the numbered reply-choice list both render without bottom-clipping; no further intermittent non-display reports after this candidate",
+    "not_yet_validated": "any resolution other than 3440x1440"
+  }
+}
