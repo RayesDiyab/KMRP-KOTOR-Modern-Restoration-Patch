@@ -23,3 +23,7 @@ logs/
 tmp/
 build/
 *.log
+
+# Python bytecode
+__pycache__/
+*.pyc

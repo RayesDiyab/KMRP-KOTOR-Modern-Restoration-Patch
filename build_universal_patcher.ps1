@@ -4,6 +4,8 @@ param(
     [string]$GoldOverride = ".\assets\override-3440x1440",
     [string]$UpstreamGuiRoot = ".\third_party\kotor-high-resolution-menus-1.5",
     [string]$IconPath = ".\app\patcher\favicon.ico",
+    [string]$TexturePack = "..\TexturePacks\swpc_tex_gui.erf",
+    [string]$HdFonts = ".\assets\hd-fonts",
     [switch]$ReuseResources
 )
 
@@ -29,6 +31,8 @@ $resolvedGold = (Resolve-Path -LiteralPath (Join-Path $projectRoot $GoldExe)).Pa
 $resolvedGoldOverride = (Resolve-Path -LiteralPath (Join-Path $projectRoot $GoldOverride)).Path
 $resolvedUpstream = (Resolve-Path -LiteralPath (Join-Path $projectRoot $UpstreamGuiRoot)).Path
 $resolvedIcon = (Resolve-Path -LiteralPath (Join-Path $projectRoot $IconPath)).Path
+$resolvedTexturePack = (Resolve-Path -LiteralPath (Join-Path $projectRoot $TexturePack)).Path
+$resolvedHdFonts = (Resolve-Path -LiteralPath (Join-Path $projectRoot $HdFonts)).Path
 $geometry = (Resolve-Path -LiteralPath (Join-Path $projectRoot "assets\resolution-geometry.json")).Path
 
 New-Item -ItemType Directory -Force -Path $buildDir, $distDir | Out-Null
@@ -40,7 +44,7 @@ if ($LASTEXITCODE -ne 0) {
 
 if (-not $ReuseResources) {
     & $python (Join-Path $projectRoot "tools\prepare_universal_resources.py") `
-        $geometry $resolvedUpstream $resolvedGoldOverride $resourceDir
+        $geometry $resolvedUpstream $resolvedGoldOverride $resourceDir $resolvedTexturePack $resolvedHdFonts
     if ($LASTEXITCODE -ne 0) {
         throw "Universal interface resource generation failed"
     }

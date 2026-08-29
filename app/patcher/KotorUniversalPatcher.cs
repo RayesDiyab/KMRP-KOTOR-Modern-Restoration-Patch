@@ -33,9 +33,9 @@ namespace KotorUniversalUI
     {
         internal const string ResourceName = "KotorUniversalUI.goldpatch";
         internal const string SourceHash = "761F9466F456A83909036BAEBB5C43167D722387BE66E54617BA20A8C49E9886";
-        internal const string TargetHash = "D8F0EEBF470660FFBB0DBE9D6953774B937F73F92260FA2D3427189D8B7F6ADE";
+        internal const string TargetHash = "3BB2F07A336C5A65C71992FCB341C2E7BFA00566EDD45E86C973E676A30222D6";
         internal const long SourceLength = 4042752;
-        internal const long TargetLength = 4046848;
+        internal const long TargetLength = 4055040;
         internal const string PatchVersion = "2.0.0-universal";
 
         private readonly List<PatchChunk> chunks;
@@ -222,8 +222,73 @@ namespace KotorUniversalUI
 
     internal static class ResolutionPatch
     {
-        private static readonly long[] WidthOffsets = { 0x0000AA65, 0x001F0C65, 0x0028C4E3 };
+        private static readonly long[] WidthOffsets = { 0x0000AA65, 0x001F0C65 };
         private static readonly long[] HeightOffsets = { 0x0000AA85, 0x001F0C6F };
+
+        // 0x0028C4E3 (VA 0x0068C4E3) is a THIRD width comparison, deliberately NOT included
+        // above. It's the last live branch of the HUD minimap-variant (mipc*.gui) selector:
+        // vanilla compares the live screen width against a handful of hardcoded pixel widths
+        // to choose which mipc*.gui HUD layout to load (the other two branches are already
+        // zeroed/disabled in gold, matching the community "Resolution Unlocker" fix, so they
+        // never match). Previously this field was included in WidthOffsets, which made
+        // ResolutionPatch overwrite it with resolution.Width every build -- making the
+        // comparison "liveWidth == liveWidth", tautologically true, so EVERY resolution ever
+        // shipped force-loaded mipc210x7.gui (the one file hand-corrected for 3440x1440)
+        // regardless of actual aspect ratio, corrupting minimap/HUD icon layout at every other
+        // resolution (confirmed: 1920x1080's journal/cash/item icons and the combat message
+        // box both end up overlapping the oversized minimap frame). Leaving this field
+        // untouched keeps gold's own baked-in value (3440) permanently, so the comparison is
+        // now "liveWidth == 3440": mipc210x7.gui still loads correctly at 3440x1440 (the only
+        // resolution it was ever hand-tuned for), while every other resolution now correctly
+        // falls through to vanilla's own generic default branch (mipc28x6.gui) instead of the
+        // wrong ultra-wide-specific file.
+
+        // Negated screen-width/height reference constants used by two shared widget-geometry
+        // recentering helpers (vanilla 0x0040B690 / 0x0040BA20) called from essentially every
+        // non-main-menu/non-HUD GUI screen. They compute
+        //   newX = originalX - (liveScreenWidth  - DESIGN_WIDTH)  / 2
+        //   newY = originalY - (liveScreenHeight - DESIGN_HEIGHT) / 2
+        // The gold reference build baked in its own resolution (-3440/-1440) as DESIGN_WIDTH/
+        // DESIGN_HEIGHT instead of leaving these resolution-agnostic, so the recentering was a
+        // no-op only at exactly 3440x1440 and drifted proportionally to distance from it at any
+        // other resolution -- the general PC-screen click-offset bug. Found via
+        // generate_gold_delta.py's changed_ranges() surfacing these as previously-undocumented
+        // gold-delta chunks, then confirmed by disassembly (tools/build_click_fix_wrapper.py).
+        private static readonly long[] NegativeWidthOffsets = { 0x0000B6C7, 0x0000BA6C };
+        private static readonly long[] NegativeHeightOffsets = { 0x0000B6DA, 0x0000BA83 };
+
+        // The .kfs section (tools/build_font_scale_wrapper.py, baked into the gold
+        // reference) holds two 32-bit float scale constants at its very start.
+        //
+        // Text size itself is NOT scaled here any more: doing it at runtime mutated the
+        // shared CAurFontInfo metrics on first draw, one frame after the engine had
+        // already measured and centred the text with the unscaled values, which visibly
+        // shifted the first screen drawn each session. Font sizing now happens in the
+        // font atlases' own TXI metrics instead (tools/build_scaled_fonts.py, shipped per
+        // resolution in the GUI archives), so the values are correct before anything
+        // measures them. Gold therefore ships the font constant at 1.0 and it stays there.
+        //
+        // Generic list-row heights keep scaling at runtime: that hook rewrites a row's
+        // height as the row is constructed, with nothing having measured it beforehand,
+        // so it has no such ordering problem. Rows must grow with the text or entries
+        // overlap (originally seen on the save/load list), so this constant is rescaled
+        // per resolution using the same height-proportional rule as the font TXIs and the
+        // HUD geometry. Clamped at 1.0 so short screens keep vanilla row heights.
+        // Text (and therefore row) size grows linearly with screen height: 1.25x at
+        // 1080p, 1.75x at 1440p, 2.75x at 2160p. The -0.25 offset holds the scaling a
+        // little under a pure height ratio, which read as too large in play-testing.
+        // Clamped at 1.0, which takes effect below 900px, so short screens keep vanilla
+        // sizing rather than shrinking below it.
+        private const long RowScaleOffset = 0x003DD004;
+        private const float GoldRowScale = 1.75f;
+        private const float ScaleHeightDivisor = 720.0f;
+        private const float ScaleOffset = 0.25f;
+
+        internal static float ScaleForHeight(int height)
+        {
+            float scale = height / ScaleHeightDivisor - ScaleOffset;
+            return scale < 1.0f ? 1.0f : scale;
+        }
 
         internal static void Apply(byte[] executable, ResolutionChoice resolution)
         {
@@ -234,12 +299,30 @@ namespace KotorUniversalUI
                 ReplaceInt32(executable, offset, 3440, resolution.Width, "screen width");
             foreach (long offset in HeightOffsets)
                 ReplaceInt32(executable, offset, 1440, resolution.Height, "screen height");
+            ReplaceSingle(executable, RowScaleOffset, GoldRowScale, ScaleForHeight(resolution.Height),
+                "list-row scale");
+            foreach (long offset in NegativeWidthOffsets)
+                ReplaceInt32(executable, offset, -3440, -resolution.Width, "click-fix width reference");
+            foreach (long offset in NegativeHeightOffsets)
+                ReplaceInt32(executable, offset, -1440, -resolution.Height, "click-fix height reference");
             ReplaceInt32(executable, 0x002928B3, 2750, resolution.CenteringWidth, "map horizontal centering");
             ReplaceInt32(executable, 0x002928C3, 1400, resolution.CenteringHeight, "map vertical centering");
             ReplaceInt32(executable, 0x0029505C, 1720, resolution.CanvasWidth, "map canvas width");
             ReplaceInt32(executable, 0x00295064, 720, resolution.CanvasHeight, "map canvas height");
             ReplaceInt32(executable, 0x00295082, 1478, resolution.OverlayWidth, "marker overlay width");
             ReplaceInt32(executable, 0x0029508A, 720, resolution.CanvasHeight, "marker overlay height");
+        }
+
+        private static void ReplaceSingle(byte[] data, long offset, float expected, float replacement, string label)
+        {
+            if (offset < 0 || offset + 4 > data.LongLength)
+                throw new InvalidDataException("The " + label + " patch address is outside the executable.");
+            int index = checked((int)offset);
+            float actual = BitConverter.ToSingle(data, index);
+            if (actual != expected)
+                throw new InvalidDataException("The " + label + " patch did not match the verified gold build.");
+            byte[] value = BitConverter.GetBytes(replacement);
+            Buffer.BlockCopy(value, 0, data, index, value.Length);
         }
 
         private static void ReplaceInt32(byte[] data, long offset, int expected, int replacement, string label)
