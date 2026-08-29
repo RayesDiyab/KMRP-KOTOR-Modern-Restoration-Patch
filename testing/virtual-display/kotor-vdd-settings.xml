@@ -1,0 +1,83 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  KOTOR Universal UI virtual-display test profile.
+  One monitor, one 60 Hz mode per patcher resolution (48 total).
+-->
+<vdd_settings>
+  <monitors>
+    <count>1</count>
+  </monitors>
+  <gpu>
+    <friendlyname>NVIDIA GeForce RTX 3080</friendlyname>
+  </gpu>
+  <global />
+  <resolutions>
+    <!-- 4:3 -->
+    <resolution><width>800</width><height>600</height><refresh_rate>60</refresh_rate></resolution>
+    <resolution><width>960</width><height>720</height><refresh_rate>60</refresh_rate></resolution>
+    <resolution><width>1024</width><height>768</height><refresh_rate>60</refresh_rate></resolution>
+    <resolution><width>1280</width><height>960</height><refresh_rate>60</refresh_rate></resolution>
+    <resolution><width>1400</width><height>1050</height><refresh_rate>60</refresh_rate></resolution>
+    <resolution><width>1440</width><height>1080</height><refresh_rate>60</refresh_rate></resolution>
+    <resolution><width>1600</width><height>1200</height><refresh_rate>60</refresh_rate></resolution>
+    <resolution><width>1856</width><height>1392</height><refresh_rate>60</refresh_rate></resolution>
+    <resolution><width>1920</width><height>1440</height><refresh_rate>60</refresh_rate></resolution>
+    <resolution><width>2048</width><height>1536</height><refresh_rate>60</refresh_rate></resolution>
+    <resolution><width>3200</width><height>2400</height><refresh_rate>60</refresh_rate></resolution>
+    <resolution><width>4096</width><height>3072</height><refresh_rate>60</refresh_rate></resolution>
+
+    <!-- 16:10 -->
+    <resolution><width>1024</width><height>640</height><refresh_rate>60</refresh_rate></resolution>
+    <resolution><width>1152</width><height>720</height><refresh_rate>60</refresh_rate></resolution>
+    <resolution><width>1280</width><height>800</height><refresh_rate>60</refresh_rate></resolution>
+    <resolution><width>1440</width><height>900</height><refresh_rate>60</refresh_rate></resolution>
+    <resolution><width>1680</width><height>1050</height><refresh_rate>60</refresh_rate></resolution>
+    <resolution><width>1920</width><height>1200</height><refresh_rate>60</refresh_rate></resolution>
+    <resolution><width>2048</width><height>1280</height><refresh_rate>60</refresh_rate></resolution>
+    <resolution><width>2304</width><height>1440</height><refresh_rate>60</refresh_rate></resolution>
+    <resolution><width>2560</width><height>1600</height><refresh_rate>60</refresh_rate></resolution>
+    <resolution><width>2880</width><height>1800</height><refresh_rate>60</refresh_rate></resolution>
+    <resolution><width>3840</width><height>2400</height><refresh_rate>60</refresh_rate></resolution>
+    <resolution><width>5120</width><height>3200</height><refresh_rate>60</refresh_rate></resolution>
+
+    <!-- 16:9 -->
+    <resolution><width>1024</width><height>576</height><refresh_rate>60</refresh_rate></resolution>
+    <resolution><width>1152</width><height>648</height><refresh_rate>60</refresh_rate></resolution>
+    <resolution><width>1280</width><height>720</height><refresh_rate>60</refresh_rate></resolution>
+    <resolution><width>1360</width><height>768</height><refresh_rate>60</refresh_rate></resolution>
+    <resolution><width>1366</width><height>768</height><refresh_rate>60</refresh_rate></resolution>
+    <resolution><width>1600</width><height>900</height><refresh_rate>60</refresh_rate></resolution>
+    <resolution><width>1920</width><height>1080</height><refresh_rate>60</refresh_rate></resolution>
+    <resolution><width>2048</width><height>1152</height><refresh_rate>60</refresh_rate></resolution>
+    <resolution><width>2560</width><height>1440</height><refresh_rate>60</refresh_rate></resolution>
+    <resolution><width>3840</width><height>2160</height><refresh_rate>60</refresh_rate></resolution>
+    <resolution><width>5120</width><height>2880</height><refresh_rate>60</refresh_rate></resolution>
+    <resolution><width>6016</width><height>3384</height><refresh_rate>60</refresh_rate></resolution>
+    <resolution><width>7680</width><height>4320</height><refresh_rate>60</refresh_rate></resolution>
+    <resolution><width>8192</width><height>4608</height><refresh_rate>60</refresh_rate></resolution>
+    <resolution><width>15360</width><height>8640</height><refresh_rate>60</refresh_rate></resolution>
+
+    <!-- 21:9 family as supplied by the patcher catalog -->
+    <resolution><width>1280</width><height>1080</height><refresh_rate>60</refresh_rate></resolution>
+    <resolution><width>2560</width><height>1080</height><refresh_rate>60</refresh_rate></resolution>
+    <resolution><width>3440</width><height>1440</height><refresh_rate>60</refresh_rate></resolution>
+    <resolution><width>3840</width><height>1600</height><refresh_rate>60</refresh_rate></resolution>
+    <resolution><width>5120</width><height>2160</height><refresh_rate>60</refresh_rate></resolution>
+
+    <!-- 32:9 -->
+    <resolution><width>1920</width><height>540</height><refresh_rate>60</refresh_rate></resolution>
+    <resolution><width>3840</width><height>1080</height><refresh_rate>60</refresh_rate></resolution>
+    <resolution><width>5120</width><height>1440</height><refresh_rate>60</refresh_rate></resolution>
+    <resolution><width>7680</width><height>2160</height><refresh_rate>60</refresh_rate></resolution>
+  </resolutions>
+  <options>
+    <CustomEdid>false</CustomEdid>
+    <PreventSpoof>false</PreventSpoof>
+    <EdidCeaOverride>false</EdidCeaOverride>
+    <HardwareCursor>true</HardwareCursor>
+    <SDR10bit>false</SDR10bit>
+    <HDRPlus>false</HDRPlus>
+    <logging>false</logging>
+    <debuglogging>false</debuglogging>
+  </options>
+</vdd_settings>
