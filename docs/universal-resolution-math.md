@@ -4,9 +4,16 @@
 
 The universal patcher starts from the supported editable `swkotor.exe`, applies the already play-tested 3440×1440 gold transformation, and then replaces only the verified resolution-dependent values. It also updates `swkotor.ini` and installs the matching high-resolution GUI set plus the shared HD artwork.
 
-The original 3440×1440 patcher is frozen separately. Selecting 3440×1440 in the universal patcher produces the same executable SHA-256 as that gold build:
+The original 3440×1440 patcher is frozen separately as
+`D8F0EEBF470660FFBB0DBE9D6953774B937F73F92260FA2D3427189D8B7F6ADE`.
 
-`D8F0EEBF470660FFBB0DBE9D6953774B937F73F92260FA2D3427189D8B7F6ADE`
+**Selecting 3440×1440 in the universal patcher no longer reproduces that
+hash**, and has not since the font workstream landed. The gold snapshot has
+moved on to `swkotor_gold_v6_wrapfix.exe`
+(`171D084E8F58AB40B778D97A3378B1A54E24F10EA02D2053A6A78B913318A7B8`), which
+adds the font-scale, list-row, dialogue-letterbox and word-wrap fixes on top of
+the map/marker patch. The resolution math below is unchanged by that; only the
+baseline executable differs. See `docs/font-scaling.md` for the gold lineage.
 
 ## Resolution inputs
 

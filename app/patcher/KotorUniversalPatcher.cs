@@ -33,10 +33,10 @@ namespace KotorUniversalUI
     {
         internal const string ResourceName = "KotorUniversalUI.goldpatch";
         internal const string SourceHash = "761F9466F456A83909036BAEBB5C43167D722387BE66E54617BA20A8C49E9886";
-        internal const string TargetHash = "3BB2F07A336C5A65C71992FCB341C2E7BFA00566EDD45E86C973E676A30222D6";
+        internal const string TargetHash = "171D084E8F58AB40B778D97A3378B1A54E24F10EA02D2053A6A78B913318A7B8";
         internal const long SourceLength = 4042752;
         internal const long TargetLength = 4055040;
-        internal const string PatchVersion = "2.0.0-universal";
+        internal const string PatchVersion = "2.1.0-universal-wrapfix";
 
         private readonly List<PatchChunk> chunks;
 
@@ -282,7 +282,12 @@ namespace KotorUniversalUI
         private const long RowScaleOffset = 0x003DD004;
         private const float GoldRowScale = 1.75f;
         private const float ScaleHeightDivisor = 720.0f;
-        private const float ScaleOffset = 0.25f;
+        // Text sizing is height/720 with no offset: 1.00x at 720p, 1.50x at
+        // 1080p, 2.00x at 1440p, 3.00x at 2160p. An earlier -0.25 offset made
+        // 1440p and 2160p read as 1.75x/2.75x, which play-tested too small.
+        // MUST stay in step with font_scale_for() in
+        // tools/prepare_universal_resources.py, which sizes the atlas metrics.
+        private const float ScaleOffset = 0.0f;
 
         internal static float ScaleForHeight(int height)
         {

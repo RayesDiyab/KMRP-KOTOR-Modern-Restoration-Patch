@@ -124,9 +124,13 @@ def scale_txi(txi: str, scale: float) -> str:
 def export_fonts(erf_path: Path, output_dir: Path, scale: float, textures: bool = True) -> list[Path]:
     """Write scaled `.txi` files, and optionally the `.tga` atlases beside them.
 
-    The engine honours a standalone Override `.txi` against the packed `.tpc`
-    texture, so the metric change alone needs no artwork -- confirmed in game.
-    Textures are only required when the atlas itself is being replaced.
+    **A standalone `.txi` in Override does NOT take effect.** With the artwork
+    still inside the packed `.tpc`, the engine uses that file's own embedded
+    metrics and the scaled `.txi` is ignored -- text simply never changes size.
+    Playtested: shipping only the `.txi` for 17 of the 18 fonts left every menu
+    at stock size. The unmodified atlas has to be written beside it for the
+    override to win, so pass `textures=True` unless the caller is supplying its
+    own artwork for that resref.
     """
     erf = read_erf(erf_path)
     output_dir.mkdir(parents=True, exist_ok=True)
@@ -144,7 +148,20 @@ def export_fonts(erf_path: Path, output_dir: Path, scale: float, textures: bool 
             tpc.convert(TPCTextureFormat.RGBA)
             mipmap = tpc.get(0)
             tga = output_dir / f"{name}.tga"
-            write_tga(tga, mipmap.width, mipmap.height, bytes(mipmap.data))
+            # A decoded TPC's first row is the BOTTOM of the image, while
+            # write_tga takes top-down input (it reverses what it is given to
+            # produce the game's bottom-up file layout). Handing it the TPC rows
+            # untouched mirrors the atlas vertically, so every glyph lookup lands
+            # on the wrong row and all text renders as unreadable symbols.
+            # Verified by rendering 'A' out of the result: only bottom-up source
+            # rows, read back with an inverted v, form the letter.
+            stride = mipmap.width * 4
+            pixels = bytes(mipmap.data)
+            top_down = b"".join(
+                pixels[y * stride:(y + 1) * stride]
+                for y in range(mipmap.height - 1, -1, -1)
+            )
+            write_tga(tga, mipmap.width, mipmap.height, top_down)
             written.append(tga)
         txi = output_dir / f"{name}.txi"
         txi.write_bytes(scale_txi(raw_txi(original), scale).encode("ascii"))

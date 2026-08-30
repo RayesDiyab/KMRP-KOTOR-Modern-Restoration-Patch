@@ -12,7 +12,7 @@ from pathlib import Path
 
 from apply_gold_hud_proportions import apply_proportions
 from build_menubg_texture import build_texture_for_gui
-from build_scaled_fonts import export_font_txis, scale_txi
+from build_scaled_fonts import export_font_txis, export_fonts, scale_txi
 from fix_hud_menubg import fix_menubg_file
 from scale_hud_minimap import patch_gui
 from transfer_gold_gui_geometry import transfer_geometry
@@ -25,11 +25,65 @@ MENUBG_TEXTURE_NAME = "lbl_mileftbot.tga"
 # ScaleForHeight, which scales list-row heights by the same rule so rows always grow
 # with the text: 1.25x at 1080p, 1.75x at 1440p, 2.75x at 2160p, clamped at 1.0.
 FONT_HEIGHT_DIVISOR = 720.0
-FONT_SCALE_OFFSET = 0.25
+# No offset: 1.00x at 720p, 1.50x at 1080p, 2.00x at 1440p, 3.00x at 2160p.
+# An earlier -0.25 gave 1.75x/2.75x at 1440p/2160p, which play-tested too small.
+FONT_SCALE_OFFSET = 0.0
+
+# The HD atlases under assets/hd-fonts are rendered at the LARGEST scale any
+# resolution asks for, so every resolution scales them *down* rather than up.
+# The engine draws one texel per pixel, so an atlas stretched past the size it
+# was rasterised at is simply blurry -- baking at the top of the range and
+# shrinking keeps every resolution crisp. Must match the --scale that
+# tools/build_font_from_ttf.py was run with to produce assets/hd-fonts.
+HD_FONT_BAKE_SCALE = 3.0
+
+# Per-glyph letter spacing, in pixels, added by the engine on top of each
+# glyph's own advance (`advance = (uvWidth * texturewidth + spacingR) * 100`).
+#
+# The shared atlas is rasterised once and bilinear-downscaled for every
+# resolution below the top of the curve; that resampling, followed by the
+# engine's alpha threshold, renders ink roughly 2% wider than the pure ratio.
+# The extra width comes out of the gap between letters, and since it is a
+# near-constant number of pixels it hurts small text proportionally most --
+# measured, menu text at 1080p had a gap/ink ratio of 0.098 against 0.126 at
+# 1440p, i.e. visibly cramped.
+#
+# The amount needed is MEASURED per font and per scale, not modelled: the
+# baseline ratios are not monotonic in how hard the atlas is downscaled (menu
+# text measures 0.114 at 720p, 0.098 at 1080p, 0.126 at 1440p, 0.120 at 2160p),
+# because what actually varies is integer rounding of each glyph's advance at
+# each specific pixel size. A smooth `f = scale / bake` curve chases that noise
+# and overshoots badly at small sizes -- one measured a 720p menu at 0.198
+# against a 0.120 target. `tools/measure_letter_spacing.py` solves for the
+# correction that returns each font to its own ratio at the native baked size
+# and writes `assets/letter-spacing.json`; in practice only the menu font at
+# 1080p needs anything (0.35px), which is why a flat constant was visibly wrong
+# at other resolutions.
+#
+# This is a pixel-space correction, so it must NOT be scaled with the
+# resolution the way the other metrics are -- hence `spacingR` is overwritten
+# after `scale_txi` rather than passed through it.
+LETTER_SPACING_FILE = "letter-spacing.json"
+
+
+def letter_spacing_for(table: dict, resref: str, scale: float) -> float:
+    """Measured pixels of extra per-glyph spacing for this font at this scale."""
+    return float(table.get(resref.lower(), {}).get(f"{scale:.4f}", 0.0))
 
 
 def font_scale_for(height: int) -> float:
     return max(1.0, height / FONT_HEIGHT_DIVISOR - FONT_SCALE_OFFSET)
+
+
+def apply_letter_spacing(txi: str, pixels: float) -> str:
+    """Force `spacingR` to a fixed pixel amount, overriding any scaled value."""
+    lines = []
+    for line in txi.splitlines():
+        if line.split(" ", 1)[0] == "spacingR":
+            lines.append(f"spacingR {pixels / 100.0:g}")
+        else:
+            lines.append(line)
+    return "\n".join(lines) + "\n"
 
 
 GROUPS = {
@@ -115,7 +169,29 @@ def main() -> int:
     hd_font_atlases = sorted(args.hd_fonts.glob("*.tga"))
     if not hd_font_atlases:
         raise ValueError(f"No HD font atlases found in {args.hd_fonts}")
-    write_zip(args.output / "override-common.zip", common_tga_files + hd_font_atlases)
+    hd_font_stems = {path.stem.lower() for path in hd_font_atlases}
+
+    # Measured per-font, per-scale letter spacing (see LETTER_SPACING_FILE).
+    spacing_path = args.hd_fonts.parent / LETTER_SPACING_FILE
+    if not spacing_path.exists():
+        raise ValueError(
+            f"{spacing_path} is missing -- regenerate it with "
+            f"tools/measure_letter_spacing.py after re-baking the atlases")
+    letter_spacing = {k.lower(): v for k, v in
+                      json.loads(spacing_path.read_text(encoding="ascii")).items()}
+
+    with tempfile.TemporaryDirectory(prefix="kotor-stock-fonts-") as stock_name:
+        # Stock artwork for every font we are NOT replacing. A scaled `.txi` alone
+        # does NOT take effect: with the artwork left inside the packed `.tpc` the
+        # engine keeps that file's embedded metrics and the text never changes size.
+        # Shipping the unmodified atlas beside the scaled `.txi` is what makes the
+        # override win, so these 17 keep the authentic KOTOR typeface and still
+        # scale. The artwork is resolution-independent, so it ships once here.
+        stock_fonts = export_fonts(args.texture_pack, Path(stock_name), 1.0, textures=True)
+        stock_atlases = [path for path in stock_fonts
+                         if path.suffix.lower() == ".tga" and path.stem.lower() not in hd_font_stems]
+        write_zip(args.output / "override-common.zip",
+                  common_tga_files + hd_font_atlases + stock_atlases)
 
     catalog_lines = ["# category\twidth\theight\tcanvasWidth\tcanvasHeight\toverlayWidth\tcenteringWidth\tcenteringHeight"]
     for category, resolutions in GROUPS.items():
@@ -233,12 +309,27 @@ def main() -> int:
                 for atlas in hd_font_atlases:
                     metrics = atlas.with_suffix(".txi")
                     scaled = font_dir / metrics.name
+                    # These metrics already carry HD_FONT_BAKE_SCALE, so undo it
+                    # before applying this resolution's own scale -- otherwise the
+                    # baked-in enlargement would be multiplied a second time.
                     scaled.write_bytes(
-                        scale_txi(metrics.read_text(encoding="ascii"), scale).encode("ascii")
+                        apply_letter_spacing(
+                            scale_txi(
+                                metrics.read_text(encoding="ascii"),
+                                scale / HD_FONT_BAKE_SCALE,
+                            ),
+                            letter_spacing_for(letter_spacing, atlas.stem, scale),
+                        ).encode("ascii")
                     )
                     packaged_files.append(scaled)
                     replaced.add(atlas.stem.lower())
-                for path in export_font_txis(args.texture_pack, font_dir, scale):
+                # Into a SEPARATE directory: export_font_txis writes a file for every
+                # one of the 18 resrefs, so pointing it at font_dir would silently
+                # overwrite the HD metrics written above -- shipping stock coordinates
+                # against the HD atlas, whose glyphs sit at completely different
+                # positions, which renders as unreadable garbage.
+                stock_dir = font_dir / "stock"
+                for path in export_font_txis(args.texture_pack, stock_dir, scale):
                     if path.stem.lower() not in replaced:
                         packaged_files.append(path)
 

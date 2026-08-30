@@ -4,10 +4,9 @@
 
 KOTOR renders UI and dialogue text at a fixed pixel size regardless of
 resolution, so it is unreadably small at 3440x1440 and above. This is a
-separate workstream from the map/marker patch (`universal-resolution-math.md`)
-and, as of this writing, is **not yet integrated into the Universal Patcher**
-— see "Integration status" below before assuming a fresh install gets any of
-this.
+separate workstream from the map/marker patch (`universal-resolution-math.md`).
+It **is** now fully integrated into the Universal Patcher — see "Integration
+status" below for the gold snapshot and hash constants involved.
 
 Full technical detail (addresses, struct layout, byte sequences):
 `reverse-engineering/font.md`. Investigation log:
@@ -16,9 +15,11 @@ Machine-readable patch specs: `patches/font_patch/*.json`.
 
 ## What it does
 
-Three independent executable-side fixes, each its own standalone build
-script, chained together by running one against the previous script's
-output:
+Four independent executable-side fixes, each its own standalone build script,
+chained by running one against the previous script's output. **Note that fix 1
+is now inert**: text sizing moved to the font atlases' own TXI metrics, so the
+`.kfs` font-metric constant is permanently 1.0 and only its list-row constant
+(fix 2) still does anything.
 
 1. **Font scale** (`tools/build_font_scale_wrapper.py --scale N`). Hooks
    `CAurFont::TextOutA` and `CAurGUIStringInternal::Draw` and multiplies the
@@ -41,7 +42,14 @@ output:
    this replaces that at 9 call sites with a height-derived formula. Adds a
    new `.klb` PE section.
 
-A fourth, separate fix touches a `.gui` **data** file rather than the
+4. **Word-wrap forward progress**
+   (`tools/build_wrap_progress_fix.py`). The line-breaker restarts an
+   unbreakable line at the position it began at, looping forever and
+   exhausting memory — any enlarged font hits this via narrow, space-less
+   labels. A 16-byte **in-place** replacement at `0x0045A5E0`; adds no PE
+   section. Full analysis in `reverse-engineering/font-atlases.md`.
+
+A fifth, separate fix touches a `.gui` **data** file rather than the
 executable: `computer.gui`'s terminal-screen controls were shifted left of
 the terminal prop's actual on-screen position (unrelated to font size — a
 pre-existing gap in the gold GUI correction pass). Fixed by hand in a KOTOR
@@ -50,69 +58,126 @@ GUI editor and registered in `GOLD_GEOMETRY_TEMPLATES`
 mechanism that already carries the gold GUI corrections to all 48
 resolutions now also carries this one.
 
-## Reproducing the current live candidate
+## Building the patcher
 
-Chained from the pristine gold 3440x1440 exe (`D8F0EEBF...`):
+The gold snapshot already contains every executable fix, so the normal build is
+one command — but **pass `-GoldExe` explicitly**, because the script's default
+still points at the obsolete `D8F0EEBF` snapshot:
 
 ```powershell
-python tools\build_font_scale_wrapper.py GOLD_EXE stage1.exe --scale 2.0
-python tools\build_letterbox_scale_wrapper.py stage1.exe candidate_003.exe
+.\build_universal_patcher.ps1 -GoldExe ".\build\universal-patcher\swkotor_gold_v6_wrapfix.exe"
 ```
 
-Current confirmed-live chain (most recent last):
+To roll a *new* executable fix into the gold, run its build script against the
+current gold, then update both hash constants (see "Integration status") before
+rebuilding:
+
+```powershell
+python tools\build_wrap_progress_fix.py OLD_GOLD.exe NEW_GOLD.exe
+```
+
+Gold lineage (most recent last):
 
 | Stage | SHA-256 | What it adds |
 | --- | --- | --- |
 | Gold (pristine) | `D8F0EEBF470660FFBB0DBE9D6953774B937F73F92260FA2D3427189D8B7F6ADE` | map/marker patch only |
 | Candidate 001 | `DEE9CF8F2A7A3837F59D1781E57045AA93CEF6A3258EA9CE9CDE041F410712F1` | + font scale (2.0x) |
 | Candidate 002 | `B4C49441FEA3EF7E2239BD4C2B3FD522D8B3C00C8950D200F40527547CA3E1B5` | + list-row height |
-| Candidate 003 (live) | `CDE41D99FA2DA70C294893A4FF47EAB9A4EAE848303695C18410B3846401170C` | + dialogue letterbox |
+| Candidate 003 | `CDE41D99FA2DA70C294893A4FF47EAB9A4EAE848303695C18410B3846401170C` | + dialogue letterbox |
+| `swkotor_gold_v5_rows175.exe` | `3BB2F07A336C5A65C71992FCB341C2E7BFA00566EDD45E86C973E676A30222D6` | + resolution-aware list-row curve |
+| **`swkotor_gold_v6_wrapfix.exe`** | `171D084E8F58AB40B778D97A3378B1A54E24F10EA02D2053A6A78B913318A7B8` | + word-wrap forward progress |
 
 `Override/computer.gui` on the live install is also already the corrected
 version (also copied into `assets/override-3440x1440/computer.gui`).
 
-## Integration status — read this before assuming a fresh install has these fixes
+## Integration status — all shipped (superseded the old "not integrated" warning)
 
-**None of the three executable hooks above are part of the Universal
-Patcher's shipped "gold" delta.** `generate_gold_delta.py` diffs the clean
-exe against `swkotor_gold_final_D8F0EEBF.exe` — a snapshot that predates all
-font work in this document. Rebuilding the Universal Patcher today (as was
-done to pick up the `computer.gui` fix, see below) reproduces only the
-map/marker patch plus whatever's in `assets/override-3440x1440/` — **not**
-the font scale, list-row, or letterbox executable hooks, for any resolution
-including 3440x1440.
+Every executable hook in this document **is** now part of the Universal
+Patcher's gold delta, along with a fourth added later (the word-wrap
+forward-progress fix). The gold reference snapshot moved twice:
 
-Concretely: `dist/KOTOR_Universal_UI_Patcher.exe`
-(`A018BA7FAA83F56F866303452D9ED016D9F650ABF02534550F11C96D9CE48C15`, rebuilt
-after the `computer.gui` fix) will install the corrected `computer.gui`
-everywhere, but a user selecting any resolution through it — including
-3440x1440 — will get small, unscaled text and the original narrow-bar
-letterbox. The only place these font-side fixes currently exist is the one
-live install they were built and tested against by hand.
+| snapshot | sections | contains |
+| --- | --- | --- |
+| `swkotor_gold_final_D8F0EEBF.exe` | `.kui` | map/marker only — **obsolete, do not build against it** |
+| `swkotor_gold_v5_rows175.exe` | `.kui .klb .kfs` | + letterbox, font scale, list-row |
+| **`swkotor_gold_v6_wrapfix.exe`** | `.kui .klb .kfs` | + word-wrap fix (in-place, adds no section) |
 
-**Recommended next step** (not yet done): fold `candidate_003.exe`'s changes
-into a new gold reference snapshot so `generate_gold_delta.py` picks them up
-automatically — or, more in line with how `ResolutionPatch` already
-generalizes the map patch per-resolution in `KotorUniversalPatcher.cs`, add
-equivalent hook-application code there directly rather than relying on a
-byte-identical gold snapshot (the font/list-row/letterbox hooks don't
-actually vary by resolution the way the map fields do, so they may not even
-need per-resolution parameterization beyond what's already in `--scale`).
-Either way, this needs a decision before it's built, not an assumption.
+Current gold `171D084E8F58AB40B778D97A3378B1A54E24F10EA02D2053A6A78B913318A7B8`.
+
+**`build_universal_patcher.ps1` still *defaults* `-GoldExe` to the obsolete
+`D8F0EEBF` snapshot.** Always pass `-GoldExe` explicitly, and confirm which
+file is current by matching `GoldPatch.TargetHash` in
+`app/patcher/KotorUniversalPatcher.cs` against a file on disk rather than
+trusting the script's default.
+
+Changing the gold requires updating **two** hash constants together or the
+build fails: `TargetHash` in `KotorUniversalPatcher.cs` and
+`EXPECTED_GOLD_SHA256` in `tools/generate_gold_delta.py`. The latter's guard is
+deliberate — it is what catches a stale or unexpected gold, and it did.
+
+A live install's hash will not match the gold: the patcher writes
+per-resolution constants on top, so `live = gold + ResolutionPatch`.
+
+**Font sizing no longer uses the runtime `--scale` constant.** It rides on the
+atlases' TXI metrics per resolution, via `font_scale_for(height) =
+max(1.0, height/720)` in `prepare_universal_resources.py`, mirrored by
+`ResolutionPatch.ScaleForHeight` in `KotorUniversalPatcher.cs` for list-row
+heights. The `.kfs` section's font-metric constant is permanently 1.0; its
+list-row constant is still live. **Both copies of that formula must change
+together.**
+
+### Regenerating the font assets
+
+Two manual steps feed the build, both committed rather than run by it (the
+build must stay pure-stdlib — Pillow installed from Bash is invisible to the
+PowerShell interpreter that `build_universal_patcher.ps1` uses):
+
+```powershell
+# 1. bake the atlases.  Note the two DIFFERENT scales.
+python tools\build_font_from_ttf.py assets\fonts\OldRepublic.ttf   ..\TexturePacks\swpc_tex_gui.erf assets\hd-fonts --fonts <the 17 menu resrefs> --scale 3.0
+python tools\build_font_from_ttf.py assets\fonts\Arimo-Medium.ttf ..\TexturePacks\swpc_tex_gui.erf assets\hd-fonts --fonts fnt_d16x16b --scale 2.526316
+
+# 2. re-measure letter spacing -- baking invalidates the table
+python tools\measure_letter_spacing.py assets\hd-fonts assets\letter-spacing.json
+```
+
+`fnt_d16x16b`'s `2.526316` is `3.0 x 16/19`, cancelling vanilla's 19px-vs-16px
+size difference so descriptions and menus match. **Baking it at plain 3.0
+silently restores that mismatch.** The build refuses to run if
+`letter-spacing.json` is absent, rather than shipping zero spacing.
 
 ## Validation status
 
-- **Manually play-tested at 3440x1440**: font scale, list-row height,
-  dialogue letterbox, and `computer.gui` positioning. All confirmed via
-  direct screenshots during play across many screens (see
-  `reverse-engineering/experiments/005-font-scale-investigation.md` for the
-  full list).
-- **Structurally checked only, not play-tested**: the `computer.gui`
-  geometry transfer at 1920x1080 (confirmed every control lands fully
-  on-screen; not confirmed to look correct in an actual running game at that
-  resolution).
-- **Not checked at all**: any resolution other than 3440x1440 for the three
-  executable hooks; `computercamera.gui`'s positioning; a resolution-aware
-  formula for the scale factor itself (every candidate used a fixed `2.0`,
-  chosen because it matches KPM's own known-reasonable value, not derived
-  from first principles).
+- **Play-tested and confirmed at 3440x1440** (current build): the word-wrap
+  crash fix (Inventory opens on the item that previously crashed the game),
+  crisp menu and dialogue text, matched description/menu sizes, dialogue
+  subtitles and reply lists, message log, skills and inventory panels.
+- **Play-tested at 3440x1440 (earlier gold)**: font scale, list-row height,
+  dialogue letterbox, `computer.gui` positioning — see
+  `reverse-engineering/experiments/005-font-scale-investigation.md`.
+- **Verified by measurement against the shipped archives**, not assumed:
+  - Every embedded resource appears **byte-verbatim** in the built `.exe`.
+  - Each of the 18 atlases was matched back to the typeface it was rendered
+    from by extracting glyphs and diffing against candidate renders —
+    17 → Old Republic, `fnt_d16x16b` → Arimo Medium, all zero-pixel exact.
+  - **0 of 94** glyphs clipped at their cell edge in either font, on either
+    side — including glyphs whose ink starts left of the pen origin.
+  - Letter spacing consistent across resolutions after the measured
+    correction: menu gap/ink 0.126 / 0.110 / 0.124 / 0.120 at
+    720p / 1080p / 1440p / 2160p (was 0.098 at 1080p against 0.126 at 1440p).
+  - Description and menu text render at identical heights at 1080p, 1440p,
+    3440x1440 and 2160p.
+  - Per-resolution scale: 720p 1.00x, 1080p 1.50x, 1440p 2.00x, 2160p 3.00x.
+
+**Reusable check when touching fonts:** rasterise the TTF at the atlas's own
+glyph height and diff every glyph against the atlas. Zero difference means the
+shipped bitmaps really came from the font you think. Two separate bugs (the
+left-side-bearing shift and the clipped ink) were caught only because this
+check returned "not exact" and that was chased rather than shrugged at.
+- **Known broken**: item **stack-count numbers** vanish at any scale above
+  1.0. Their label is 21x19px, built in engine code (present in no `.gui`), so
+  scaled glyphs both overflow it horizontally and clip vertically. See
+  `reverse-engineering/font-atlases.md` for the analysis and the two candidate
+  fixes.
+- **Not checked at all**: resolutions other than the spot-checks above;
+  `computercamera.gui`'s positioning.
