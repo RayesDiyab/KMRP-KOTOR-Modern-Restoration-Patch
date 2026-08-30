@@ -1,5 +1,9 @@
 # Font & Dialogue-Layout Reverse-Engineering Notes
 
+**See also `font-atlases.md`** for the later HD-font-atlas work: the 18 font
+resrefs, the packed/proportional atlas format, the "one texel per pixel"
+rendering rule, and which resref renders which screen (in progress).
+
 ## Scope
 
 This covers the font-size and dialogue-letterbox investigation that followed
@@ -170,12 +174,14 @@ the `screenHeight / 6` letterbox ratio; the 64-slot dedup table size
 distinct font objects in the game may be much smaller than 64, but this has
 not been enumerated).
 
-**Not yet derived — do not assume:** any resolution-aware *formula* for the
-font scale factor itself. Every candidate so far used a fixed `--scale 2.0`
-CLI argument, chosen because it matches KPM's own known-reasonable value at
-3440x1440 — not because a `screen_height / N`-style relationship has been
-established. Deriving that formula (or determining that discrete tiers are
-more appropriate) is unstarted work.
+**Resolution-aware scale formula — now established** (was "not yet derived"):
+`max(1.0, height / 720)`, i.e. 1.00x at 720p, 1.50x at 1080p, 2.00x at 1440p,
+3.00x at 2160p. Chosen with the user against real screenshots, not derived from
+first principles — an earlier `- 0.25` offset gave 1.75x/2.75x at 1440p/2160p,
+which play-tested too small. It lives in **two** places that must stay in
+step: `font_scale_for` in `tools/prepare_universal_resources.py` (atlas TXI
+metrics) and `ResolutionPatch.ScaleForHeight` in
+`app/patcher/KotorUniversalPatcher.cs` (list-row heights).
 
 ## Known unknowns
 
@@ -190,8 +196,14 @@ more appropriate) is unstarted work.
   confirmed by direct play at 3440x1440. The `computer.gui` transfer was
   checked for structural sanity (no off-screen controls) at 1920x1080 but
   not play-tested there.
-- **The three executable hooks above are not yet part of the Universal
-  Patcher's shipped "gold" delta** — see `docs/font-scaling.md`'s
-  integration-gap note. They currently exist only as standalone scripts
-  applied by hand to one live install.
+- ~~The three executable hooks are not part of the shipped gold delta.~~
+  **Resolved** — all are in the gold snapshot
+  (`swkotor_gold_v6_wrapfix.exe`), together with a fourth fix found later: the
+  word-wrap forward-progress patch at `0x0045A5E0`, which any enlarged font
+  needs to avoid an infinite line-breaking loop. See
+  `reverse-engineering/font-atlases.md` for that analysis and
+  `docs/font-scaling.md` for the build/hash procedure.
+- The font-scale hook's own constant is now permanently 1.0: text sizing moved
+  to the atlases' TXI metrics and is resolution-aware. The `.kfs` section's
+  *list-row* constant is still live.
 - `computercamera.gui`'s alignment, mentioned above, unverified.

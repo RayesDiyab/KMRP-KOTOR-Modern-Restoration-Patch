@@ -4,18 +4,42 @@ The standalone universal patcher is built at `dist/KOTOR_Universal_UI_Patcher.ex
 It supports 48 selectable resolutions across 4:3, 16:10, 16:9, 21:9, and
 32:9. See `docs/universal-resolution-math.md` for the executable fields,
 coordinate math, GUI packaging, reproduction steps, and validation status.
-See `docs/font-scaling.md` for the separate font/dialogue-letterbox/list-row
-scaling work — **read its "Integration status" section before assuming the
-Universal Patcher includes it; as of this writing it does not.**
+See `docs/font-scaling.md` for the font/dialogue-letterbox/list-row scaling
+work, which **is** part of the Universal Patcher — its "Integration status"
+section covers the gold snapshot and the hash constants involved.
 
 The completed 3440×1440-only gold patcher remains frozen at
 `releases/3440x1440-gold-final/KOTOR_UI_Gold_Patcher_3440x1440_FINAL.exe`.
 Third-party attribution and licensing notes are in `THIRD_PARTY_NOTICES.md`.
 
 This directory is the source workspace for the resolution-independent KOTOR UI
-patcher. Phase 0 (a safe, repeatable map/marker fix) is complete and confirmed
-by play-test. The current workstream is font/dialogue-layout scaling; see
-`docs/font-scaling.md`.
+patcher. Phase 0 (map/marker) and the font/dialogue-layout scaling workstream
+are both complete and play-test confirmed.
+
+## Engine bugs found and fixed
+
+Each of these was diagnosed against the executable and is now part of the
+shipped gold delta. Full analysis in `reverse-engineering/font-atlases.md`.
+
+| Symptom | Cause | Fix |
+| --- | --- | --- |
+| **Inventory crashes** on items with long descriptions | `CAurGUIString`'s line-breaker restarts an unbreakable line at the position it began at. Its only guard compares against the start of the *string*, not the current *line*, so it loops forever appending entries until the allocator fails, then writes through NULL. Any enlarged font trips it via the 21px stack-count label, whose text is a bare number with no space to break on — vanilla clears that label by exactly **one pixel**. | 16-byte **in-place** patch at `0x0045A5E0` comparing against the line start and snapping the cursor to `lineStart+1`, guaranteeing forward progress. No new PE section. `tools/build_wrap_progress_fix.py` |
+| Text stayed **unreadably small** at high resolutions | Vanilla renders UI text at a fixed pixel size regardless of resolution. | Per-resolution TXI metrics, `max(1.0, height/720)`. |
+| Dialogue letterbox **too small at ultrawide** | Bar height derived from screen *width*. | Height-derived formula at 9 call sites (`.klb` section). |
+| List rows **overlapped** with bigger text | Row height copied verbatim, never scaled. | Resolution-aware row scale (`.kfs` section). |
+
+Bugs in this project's own tooling, fixed along the way and worth not
+repeating: glyphs shifted a pixel left (left side bearing must equal the
+outline's `xMin`, not 0); every stock atlas mirrored vertically (a decoded
+TPC's first row is the image's *bottom*, but `write_tga` takes top-down input);
+ink sliced at the cell edge on **both** sides (a glyph's cell width **is** its
+advance in this format — there is no side bearing to overhang into, and glyphs
+like `j`, `w`, `(`, `Y` start left of the pen origin); a scaled `.txi` alone
+silently doing nothing (the `.tga` must ship beside it or the packed `.tpc`'s
+embedded metrics win); and letter spacing that reads cramped at some
+resolutions — corrected from **measurement** per font and scale, because the
+underlying variation is advance-rounding noise rather than anything a smooth
+formula can track.
 
 ## Current status
 
@@ -25,15 +49,30 @@ by play-test. The current workstream is font/dialogue-layout scaling; see
   resolutions structurally; only 3440x1440 and one full 1920x1080 install
   have been play-tested end-to-end — see `docs/universal-resolution-math.md`
   for exact validation status per resolution.
-- **Font scaling, list-row height, and dialogue letterbox**: three
-  standalone executable patches (`tools/build_font_scale_wrapper.py`,
-  bundled list-row hook, `tools/build_letterbox_scale_wrapper.py`), plus a
-  `computer.gui` positioning fix already folded into the Universal Patcher's
-  GUI pipeline. All four are play-test confirmed at 3440x1440. **The three
-  executable-side fixes are not yet part of the Universal Patcher's shipped
-  gold delta** — see `docs/font-scaling.md`.
-- The user-tested live `swkotor.exe` is frozen as the gold build with SHA-256
-  `D8F0EEBF470660FFBB0DBE9D6953774B937F73F92260FA2D3427189D8B7F6ADE`.
+- **Font scaling, list-row height, dialogue letterbox, and word-wrap
+  forward progress**: four executable patches, plus a `computer.gui`
+  positioning fix, **all now folded into the Universal Patcher's gold delta**
+  — a fresh install gets them automatically. Text size is resolution-aware
+  (`max(1.0, height/720)`: 1.00x at 720p, 1.50x at 1080p, 2.00x at
+  1440p, 3.00x at 2160p) and rides on the font atlases' TXI metrics rather
+  than a runtime constant. See `docs/font-scaling.md`.
+- **Fonts**: all 18 atlases are rendered from vector outlines and scaled *down*
+  per resolution, so text is crisp everywhere (2160p renders at the native
+  baked size). Descriptions and dialogue subtitles use **Arimo Medium**
+  (Apache); menus, item names and buttons use **Old Republic**. Both render at
+  matched heights — vanilla makes the description font 19% larger, and that is
+  deliberately cancelled. No font file is distributed: the patcher embeds only
+  rendered TGA atlases, so the TTFs in `assets/fonts/` are build inputs.
+  Attribution and the licensing decision on Old Republic are in
+  `THIRD_PARTY_NOTICES.md` and `reverse-engineering/font-atlases.md`.
+- **Known broken**: item stack-count numbers vanish at any scale above 1.0 —
+  their label is built in engine code at a fixed 21x19px, so enlarged glyphs
+  both overflow and clip. Analysis and candidate fixes in
+  `reverse-engineering/font-atlases.md`.
+- The current gold snapshot is `swkotor_gold_v6_wrapfix.exe`, SHA-256
+  `171D084E8F58AB40B778D97A3378B1A54E24F10EA02D2053A6A78B913318A7B8`.
+  `D8F0EEBF...` is the **obsolete** original gold — `build_universal_patcher.ps1`
+  still defaults `-GoldExe` to it, so always pass that argument explicitly.
 - A strict source-to-gold Windows patcher is available in `dist/`. It embeds
   only the 4.7 KB byte delta, creates a verified backup, supports restore, and
   refuses unknown executables.
