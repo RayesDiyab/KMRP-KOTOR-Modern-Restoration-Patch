@@ -134,6 +134,40 @@ The same condition, `content taller than the box`, produced three separate
 visible symptoms — gutter on the wrong side, and a top gap — all from builder B
 being missed. One branch, several faces.
 
+## Open: a small top gap on some Quest Items descriptions
+
+Read live at 3440x1440 (x32dbg attached to the patched game), the quest-item
+description pane `questitem.gui LB_ITEM_DESCRIPTION`:
+
+| field | value |
+| --- | --- |
+| client rect `+0x28C` | `{left 1741, top 208, width 1002, height 991}` |
+| `PADDING` `+0x2C0` | 72 |
+| flags `+0x2BC` | `0xFFFE98A0` — bit `0x10` clear, so the bar is on the right |
+| row height `+0x2B4` | 96 |
+| item count `+0x2A0` / `+0x2AC` | 1 / 1 |
+| **the item's rect** `[+0x2A8]` | **`{left 0, top 0, width 930, height 96}`** |
+| item control `+0x5C` sub-rect | `{0, 0, 930, 96}` |
+
+`width = 1002 - 72` confirms the gutter, and **left and top are both 0** — so for
+that item the geometry was already correct and the offset, if any, is inside the
+item's own drawing rather than in the rect the listbox hands it.
+
+Two caveats on this reading, both worth respecting before acting on it:
+
+- it is **one** sample, and the item measured may have been one *without* the
+  gap. The next session should break with `[esi+294]==3EA` on the builder-A stub
+  (that pane's content width) while a **known-gapped** entry is selected.
+- the pane took **builder A**, not B: `rowHeight` 96 against a 991-tall box, so
+  the content fits and the scrolling path was never entered. A breakpoint on
+  builder B's entry recorded `hit_count = 0` across the whole screen.
+
+Note also that this pane's `SCROLLBAR/EXTENT/LEFT` is **628**, nowhere near its
+box (1737..2817), where every other description pane places it at its own right
+edge. The bar is positioned from the control's rect at `0x00418215`, not from
+that field, so it should be inert — but it is authored wrong and worth ruling
+out.
+
 ## Method that works
 
 1. **Find the field, not the pixels.** Start from the `.gui` field name, find
