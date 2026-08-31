@@ -210,31 +210,43 @@ Each of these was tested in isolation, in game:
 | fonts / textures | innocent -- Override with assets but no `.gui` files does not grow |
 | `.kfs` list-row scale | innocent |
 
-### The accumulator
+### The accumulator, and the fix
 
-The rows go through the **generic** listbox layout, same as the inventory:
+Two sites inflate the row height on every layout pass:
 
 ```
-0041B1D6  mov [esi+0x2B4], ebx    ; reset to 0 at populate
-0041B1F4  call [edx+4]            ; item->SetRect(rect from [listbox+0x2A8] array)
-0041B202  call [edx+0x34]         ; item->GetHeight()
-0041B20D  mov [esi+0x2B4], eax    ; keep the max
-...
-0041B507  add ebp, edx            ; rect.height = [esi+0x2B4] + [esp+0x18]
-0041B522  mov [esp+0x2C], ebp     ; and that goes back into the rows
+0041B465  idiv ecx              ; eax = how many rows fit in the box
+0041B488  mov [esp+18], eax     ; ...stashed
+0041B4FD  mov ebp,[esi+2B4]     ; ebp = listbox row height, in PIXELS
+0041B507  add ebp, edx          ; + that COUNT        <-- type confusion
+0041B522  mov [esp+2C], ebp     ; becomes the row's rect height
+0041B52C  lea edx,[ebp+1]       ; +1px on the first `ebx` rows
 ```
 
-`[+0x2B4]` *is* reset per populate, but it is immediately re-derived from
-`max(item->height)` over **reused** row objects that still carry the previous
-pass's inflated height. Sampled live, the increment at `0x0041B507` was
-`edx = 41`.
+**A row count is added to a row height.** Either would be harmless if discarded,
+but the layout writes the inflated rect back into the row controls, and the next
+pass recomputes `[listbox+0x2B4] = max(item->height)` (`0x0041B20D`) over those
+same reused rows. `[+0x2B4]` *is* reset to 0 at `0x0041B1D6` each populate --
+which is what made this so hard to see -- but the max immediately reads the
+inflated value back out of rows that were never rebuilt.
 
-> **There is more than one accumulation path.** NOPing `add ebp, edx` at
-> `0x0041B507` (`03 EA` -> `90 90`) only *slowed* the growth; it did not stop
-> it. `0x0041B1C6` (`test al, 8` on the flags at `[listbox+0x2BC]`) selects
-> between layout paths and is the next thing to understand -- it looks like the
-> engine's equivalent of reone's `protoMatchContent`, which decides whether rows
-> size to their content or to the protoitem's fixed height.
+`tools/build_listbox_growth_fix.py` patches both, and is now part of the gold
+build (v9):
+
+| VA | file | was | now |
+| --- | --- | --- | --- |
+| `0x0041B507` | `0x0001B507` | `03 EA` (`add ebp,edx`) | `90 90` |
+| `0x0041B52C` | `0x0001B52C` | `8D 55 01` (`lea edx,[ebp+1]`) | `8D 55 00` |
+
+Row *positions* still advance normally -- that uses a separate accumulator in
+`edi` -- so lists lay out as before and simply stop growing. Verified in game:
+`[listbox+0x2B4]` holds at 40 across repeated Powers clicks, where it previously
+went 42 -> 56 -> 126.
+
+**This also unblocked the original goal.** Scaling the feat/power chain row
+height (`0x002CD8D9` / `0x002CDB79`, vanilla 40) produced runaway growth before,
+because it was feeding a broken loop; with the loop fixed it scales cleanly and
+is now in `RowSizeGroups`.
 
 ### Method note
 
