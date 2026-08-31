@@ -22,6 +22,9 @@ namespace KotorUniversalUI
     /// patcher: 200 icons x 48 resolutions is pure duplication, and the source art
     /// is on the user's disk already.
     ///
+    /// Names another archive already installs are skipped: `reserved` carries them
+    /// in, so this can never write a file the patcher also ships.
+    ///
     /// Only the uncompressed icons are handled. The pack's large textures are
     /// DXT-compressed (a non-zero dataSize), but every `i_*` / `ip_*` icon stores
     /// raw pixels, so no decompressor is needed. Anything unexpected is skipped.
@@ -57,7 +60,8 @@ namespace KotorUniversalUI
         /// modified texture pack must not stop the patch, it just means the icons
         /// stay vanilla-sized.
         /// </summary>
-        internal static MemoryStream TryBuild(string executablePath, double scale)
+        internal static MemoryStream TryBuild(string executablePath, double scale,
+                                              ICollection<string> reserved)
         {
             try
             {
@@ -73,6 +77,15 @@ namespace KotorUniversalUI
                     string name = entry.Key;
                     if (!(name.StartsWith("i_", StringComparison.Ordinal) ||
                           name.StartsWith("ip_", StringComparison.Ordinal)))
+                        continue;
+
+                    // Never claim a name another archive installs. The `i_` prefix
+                    // is not exclusive to ability icons: the shared archive ships
+                    // i_checkbox01/02.tga, so without this the same path was
+                    // written twice and recorded in the manifest twice, and restore
+                    // then refused to run because the file on disk no longer
+                    // matched the FIRST of its two records.
+                    if (reserved != null && reserved.Contains(name + ".tga"))
                         continue;
 
                     byte[] tga = TryConvert(pack, entry.Value[0], entry.Value[1], scale);

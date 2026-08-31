@@ -878,6 +878,7 @@ namespace KotorUniversalUI
                 Directory.CreateDirectory(backupRoot);
 
             List<OverrideRecord> processed = new List<OverrideRecord>();
+            HashSet<string> processedPaths = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
             string[] resources =
             {
                 CommonResourceName,
@@ -888,8 +889,21 @@ namespace KotorUniversalUI
             // pure duplication, and the source art is already on disk. Null when
             // the pack is missing or the resolution needs no enlargement, in which
             // case the icons simply stay vanilla-sized.
+            HashSet<string> shipped = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+            foreach (string resourceName in resources)
+            {
+                using (Stream listing = Assembly.GetExecutingAssembly().GetManifestResourceStream(resourceName))
+                {
+                    if (listing == null)
+                        throw new InvalidDataException("The matching interface files are missing from this patcher.");
+                    using (ZipArchive listingArchive = new ZipArchive(listing, ZipArchiveMode.Read, false))
+                        foreach (ZipArchiveEntry listed in listingArchive.Entries)
+                            if (!String.IsNullOrEmpty(listed.Name))
+                                shipped.Add(NormalizeRelativePath(listed.FullName));
+                }
+            }
             MemoryStream generatedIcons = AbilityIconGenerator.TryBuild(
-                executablePath, ResolutionPatch.ScaleForHeight(resolution.Height));
+                executablePath, ResolutionPatch.ScaleForHeight(resolution.Height), shipped);
 
             try
             {
@@ -935,6 +949,15 @@ namespace KotorUniversalUI
                                 if (!known.TryGetValue(relative, out record))
                                     throw new InvalidDataException("The installed interface belongs to a different resolution. Restore it before selecting another resolution.");
                             }
+                            else if (known.TryGetValue(relative, out record))
+                            {
+                                // Already installed by an earlier archive in this
+                                // same run. Keep the original record -- its
+                                // HadOriginal/OriginalHash describe the user's file,
+                                // and a second record would make the backup folder
+                                // hold the patcher's own file and stop restore.
+                                record.InstalledHash = String.Empty;
+                            }
                             else
                             {
                                 record = new OverrideRecord();
@@ -951,6 +974,7 @@ namespace KotorUniversalUI
                                         throw new IOException("An interface file could not be backed up safely: " + relative);
                                 }
                                 records.Add(record);
+                                known.Add(relative, record);
                             }
 
                             string temporary = target + ".kotor-ui-new-" + Guid.NewGuid().ToString("N") + ".tmp";
@@ -968,7 +992,8 @@ namespace KotorUniversalUI
                                 else if (record.InstalledHash != installedHash)
                                     throw new InvalidDataException("The installed interface belongs to a different resolution. Restore it before selecting another resolution.");
 
-                                processed.Add(record);
+                                if (processedPaths.Add(relative))
+                                    processed.Add(record);
                                 if (File.Exists(target))
                                     File.Replace(temporary, target, null, true);
                                 else
@@ -1042,7 +1067,7 @@ namespace KotorUniversalUI
                 return;
             }
 
-            List<OverrideRecord> records = ReadManifest(manifestPath);
+            List<OverrideRecord> records = CollapseDuplicates(ReadManifest(manifestPath));
             SafeProgress(progress, 8, "Checking installed interface files…");
             for (int recordIndex = 0; recordIndex < records.Count; recordIndex++)
             {
@@ -1082,6 +1107,37 @@ namespace KotorUniversalUI
             if (Directory.Exists(backupRoot))
                 Directory.Delete(backupRoot, true);
             SafeReport(report, "Restored the previous Override files.");
+        }
+
+        /// <summary>
+        /// Collapses repeated records for one path, which patchers up to 2.5.0
+        /// could write: the generated icons claimed `i_*`, so i_checkbox01/02.tga
+        /// were installed by two archives and recorded twice. Restore then compared
+        /// the file against the FIRST record and refused, reporting the file as
+        /// changed after patching when nothing had touched it.
+        ///
+        /// The first record describes the user's own file (HadOriginal/OriginalHash)
+        /// -- the second's "original" is the patcher's own freshly written file.
+        /// The last record describes what is on disk, because its archive wrote
+        /// last. Keep each from the record that actually knows it.
+        /// </summary>
+        private static List<OverrideRecord> CollapseDuplicates(List<OverrideRecord> records)
+        {
+            Dictionary<string, OverrideRecord> first =
+                new Dictionary<string, OverrideRecord>(StringComparer.OrdinalIgnoreCase);
+            List<OverrideRecord> collapsed = new List<OverrideRecord>();
+            foreach (OverrideRecord record in records)
+            {
+                OverrideRecord existing;
+                if (first.TryGetValue(record.RelativePath, out existing))
+                    existing.InstalledHash = record.InstalledHash;
+                else
+                {
+                    first.Add(record.RelativePath, record);
+                    collapsed.Add(record);
+                }
+            }
+            return collapsed;
         }
 
         private static void RollbackRecords(string overrideRoot, string backupRoot, List<OverrideRecord> records)
