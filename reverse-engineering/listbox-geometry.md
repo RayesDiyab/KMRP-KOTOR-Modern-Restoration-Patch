@@ -75,7 +75,7 @@ than the original instructions occupy*: replace the run with `jmp stub`, re-enco
 the same instructions with room to grow, `jmp` back. `jmp` preserves `esp`, so
 `[esp+NN]` references in the stub stay valid.
 
-## Known regression, still open
+## Gold v12 — the gutter follows the scrollbar
 
 Gold v11 made `rect.width = contentWidth - PADDING` for **every** listbox, while
 `rect.left` stayed `PADDING` unconditionally. For a list with the bar on the left
@@ -91,8 +91,13 @@ The gutter should follow the scrollbar. In both cases
 rect.left = (LEFTSCROLLBAR ? PADDING : 0)
 ```
 
-`0x0041B46D` has no slack for a `test`+branch (the surrounding instructions are
-packed), so this needs the `.ksc` trampoline pattern above.
+`0x0041B46D` has no slack for a `test`+branch, so gold v12
+(`tools/build_gutter_side_fix.py`) replaces the 12 bytes at `0x0041B46D` with a
+jump into a `.kgs` stub that tests bit `0x10` of `[esi+0x2BC]` and writes either
+`edi` or zero to `[esp+0x20]`, then falls through to the unchanged
+`rect.top = 0` and jumps back to `0x0041B479`. `edi` is deliberately left
+holding `PADDING`: `0x0041B48C` still needs it for the width and `0x0041B4A1`
+for the row-top chain.
 
 ## Method that works
 
