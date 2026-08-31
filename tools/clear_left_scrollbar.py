@@ -21,9 +21,9 @@ Clearing the flag moves the bar to the right edge, where it only appears when
 the pane actually scrolls, and gives the text its full width back. The reserved
 width is still subtracted, so nothing overflows.
 
-Applied to message/dialogue panes and plain text lists. Lists whose rows have
-an icon column keep their left bar: it sits beside the icons by design, and
-several of those were positioned by hand.
+Applied only to message/dialogue panes. Lists whose rows have an icon column
+keep their left bar: it sits beside the icons by design, and several of those
+were positioned by hand.
 """
 
 from __future__ import annotations
@@ -43,24 +43,6 @@ LISTBOX_CONTROLTYPE = 11
 MESSAGE_LISTBOXES = {
     "LB_MESSAGE", "LB_MESSAGES", "LB_DIALOG", "LB_REPLIES",
 }
-
-# Plain text lists with the same wasted margin: a column of labels and nothing
-# else, so the bar has no icons to sit beside. LB_OPTIONS covers optfeedback and
-# debug, LB_MODULES all five mainmenu aspect variants.
-# Tags are matched upper-cased, so these must be too: the GUIs spell them
-# LST_EventList and LST_AIState.
-TEXT_LISTBOXES = {
-    "LB_OPTIONS", "LB_MODULES", "LB_GAMES", "LB_MOVIES",
-    "LB_RESOLUTIONS", "LST_EVENTLIST", "LST_AISTATE",
-}
-
-# Not included, on purpose: every list whose rows have an icon column keeps its
-# left bar, because it sits beside the icons by design and several were placed
-# by hand -- LB_ITEMS, LB_ABILITY, LB_FEATS, LB_POWERS, LB_SHOPITEMS,
-# LB_INVITEMS, LB_SKILLS, and the HUD action queues LB_ACTIONS0-5. equip.gui's
-# LB_DESC is the one description pane with the flag set; it was reviewed in game
-# and left as authored.
-DEFAULT_LISTBOXES = MESSAGE_LISTBOXES | TEXT_LISTBOXES
 
 
 def apply(struct, tags: set[str], changed: list) -> None:
@@ -84,7 +66,7 @@ def clear_left_scrollbar(source: Path, dest: Path,
                          tags: set[str] | None = None) -> list:
     gff = read_gff(source)
     changed: list = []
-    apply(gff.root, tags if tags is not None else DEFAULT_LISTBOXES, changed)
+    apply(gff.root, tags if tags is not None else MESSAGE_LISTBOXES, changed)
     write_gff(gff, dest, ResourceType.GUI)
     return changed
 
@@ -94,7 +76,7 @@ def main() -> int:
     parser.add_argument("source", type=Path)
     parser.add_argument("dest", type=Path)
     parser.add_argument("--tags", default=None,
-                        help="comma-separated listbox tags; default is the message and text panes")
+                        help="comma-separated listbox tags; default is the message panes")
     args = parser.parse_args()
     tags = ({t.strip().upper() for t in args.tags.split(",")}
             if args.tags else None)
