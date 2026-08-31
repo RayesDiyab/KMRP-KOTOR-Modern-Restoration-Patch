@@ -91,31 +91,61 @@ The gutter should follow the scrollbar. In both cases
 rect.left = (LEFTSCROLLBAR ? PADDING : 0)
 ```
 
-`0x0041B46D` has no slack for a `test`+branch, so gold v12
-(`tools/build_gutter_side_fix.py`) replaces the 12 bytes at `0x0041B46D` with a
-jump into a `.kgs` stub that tests bit `0x10` of `[esi+0x2BC]` and writes either
-`edi` or zero to `[esp+0x20]`, then falls through to the unchanged
-`rect.top = 0` and jumps back to `0x0041B479`. `edi` is deliberately left
-holding `PADDING`: `0x0041B48C` still needs it for the width and `0x0041B4A1`
-for the row-top chain.
+### There are TWO rect builders
+
+`0x0041B140` lays out the rows when the content **fits**. When it does not,
+`0x0041B3CB` hands off to a second routine at **`0x0041A2D0`** which lays the
+single item out on its own, with its own copy of the same arithmetic at
+`[esp+0x1C..0x28]`:
+
+```
+0041A2EB  movzx edi, byte [esi+0x2C0]   ; PADDING
+0041A2F2  lea   eax, [edi+edi]
+0041A2F5  sub   ecx, eax                ; width = content - 2*PADDING
+0041A2F7  test  ebx, ebx                ; flags consumed by the je at 0x0041A30D
+0041A2F9  mov   [esp+0x1C], edi         ; left  = PADDING
+0041A2FD  mov   [esp+0x24], ecx
+0041A3D0  call  [edx+4]                 ; item->SetRect(rect at [esp+0x1C])
+```
+
+Its guard at `0x0041B3B0` compares `PADDING + rowHeight` against the box height,
+so builder B is exactly the **"content too tall to fit"** case — a pane that
+needs a scrollbar. Patching only builder A left the gutter wrong on precisely
+those descriptions long enough to scroll, and right on every shorter one. The
+bug was located from that observation: *the symptom tracked a condition*, and
+the condition named the branch.
+
+Gold v12 (`tools/build_gutter_side_fix.py`) trampolines **both** into one `.kgs`
+section. Two constraints:
+
+- `edi` must survive holding `PADDING` — `0x0041B48C` reads it for the width and
+  `0x0041B4A1` for the row-top chain — so the zero goes straight to the stack
+  slot rather than by clearing the register.
+- `test ebx, ebx` is re-issued **last** in builder B's stub: the `je` at
+  `0x0041A30D` consumes its flags and only `mov`s sit between.
 
 ## Method that works
 
 1. **Find the field, not the pixels.** Start from the `.gui` field name, find
    where the GFF loader stores it, then hardware-watchpoint that offset in a live
    process to catch every reader.
-2. **Grep for *every* write, not the first.** The single most expensive mistake
+2. **Assume there is a second copy of the code.** Two independent instances of
+   this: three pitch computations where I patched one, and two whole rect
+   builders where I patched one. A fix that works on some cases and not others
+   is the signature — find what separates them and the condition names the
+   branch you missed.
+3. **Grep for *every* write, not the first.** The single most expensive mistake
    in this work: patching the first matching site and assuming it is the only
    one. `0x0041B1C4` is overwritten by `0x0041B26B` four instructions later, and
    the loop that actually places rows uses a third site at `0x0041B553`. Three
    failed play-tests before a grep for every write to the pitch stack slot
    (`[esp+0x14]`) found them all.
-3. **Measure numerically. Never judge by eye.** Read `[listbox+0x2B4]`,
+4. **Measure numerically. Never judge by eye.** Read `[listbox+0x2B4]`,
    `+0x2C0`, the rect array — do not count pixels in a screenshot. Two false
    negatives from eyeballing a small UI misdirected an entire session.
-4. **Poke memory before writing bytes.** Change the field in the debugger and
+5. **Poke memory before writing bytes.** Change the field in the debugger and
    look, then patch.
-5. **Watch the encodings.** `83 /r ib` sign-extends above 127; if a constant has
+6. **Watch the encodings.** `83 /r ib` sign-extends above 127; if a constant has
    to scale with resolution it needs the imm32 form and therefore a trampoline.
 
 ### Debugger traps
