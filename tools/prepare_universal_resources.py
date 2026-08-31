@@ -16,7 +16,6 @@ from build_scaled_fonts import export_font_txis, export_fonts, scale_txi
 from fix_hud_menubg import fix_menubg_file
 from scale_hud_minimap import patch_gui
 from transfer_gold_gui_geometry import transfer_geometry
-from clear_left_scrollbar import clear_left_scrollbar
 from scale_listbox_padding import LIST_GUTTER_AT_UNIT_SCALE, scale_listbox_padding
 from scale_row_icon_frames import FRAME_RESREFS, export_frames
 
@@ -330,11 +329,6 @@ def main() -> int:
                     scale_listbox_padding(gutter_file, gutter_file,
                                           font_scale_for(height), LIST_LISTBOXES,
                                           unit_gutter=LIST_GUTTER_AT_UNIT_SCALE)
-                    # Message panes reserve a left margin the width of their
-                    # scrollbar whether or not one is drawn -- 68-73px here,
-                    # since upstream scaled vanilla's ~16px bars. See
-                    # tools/clear_left_scrollbar.py.
-                    clear_left_scrollbar(gutter_file, gutter_file)
                     packaged_files[index] = gutter_file
 
                 # Generate this resolution's button-row background art from the
