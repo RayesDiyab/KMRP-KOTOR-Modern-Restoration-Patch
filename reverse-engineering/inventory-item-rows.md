@@ -204,6 +204,49 @@ or written as a non-square rect from registers.
 > and prompt removal. Weigh that against the payoff, which is icon size on two
 > tabs.
 
+## Cross-checked against the open-source reimplementations
+
+Three projects reimplement this engine and are the best available "how is it
+programmed" reference: **reone** (github.com/seedhartha/reone), **KotOR.js**
+(github.com/KobaltBlu/KotOR.js) and **xoreos** (github.com/xoreos/xoreos).
+
+**reone independently confirms the model derived here.** Its
+`ImageButton::render` (`src/libs/gui/control/imagebutton.cpp`) does:
+
+```cpp
+borderOffset.x += _extent.height;                                 // text left offset = row height
+glm::ivec2 size(_extent.width - _extent.height, _extent.height);  // text width = width - height
+pass.drawImage(*iconFrame,   {left, top}, {_extent.height, _extent.height});
+pass.drawImage(*iconTexture, {left, top}, {_extent.height, _extent.height});
+```
+
+That is exactly the layout read out of the binary — icon square of side N, text
+starting at N, text width `rowWidth - N` — where the original hardcodes N as
+56/42/56. **The icon size and the row height are conceptually the same
+quantity**, which is why patching only the icon constant produced overlap, and
+why scaling them together is correct rather than merely empirical.
+
+reone also confirms `lbl_hex_3` as K1's row icon frame (TSL uses
+`uibit_eqp_itm1`), matching the frame-scaling work here.
+
+### On Powers/Feats specifically, there is no reference implementation
+
+- **reone** does not implement those tabs. `AbilitiesMenu::onGUILoaded`
+  explicitly calls `setDisabled(true)` on `BTN_SKILLS`, `BTN_POWERS` and
+  `BTN_FEATS`; only the Skills list is populated.
+- **xoreos** has only chargen GUIs for KotOR, no in-game abilities menu.
+- **KotOR.js** implements it for **TSL only**. Its model (`GUIFeatItem.ts`) is
+  that each row is a feat *chain* — a root feat with no prerequisites, plus
+  every feat whose `prereqFeat1`/`prereqFeat2` points back to it — with
+  `extent.height = 45` hardcoded, `iconHeight = extent.height`, and
+  `arrowHeight = iconHeight / 2`.
+
+The chain structure matches what K1 renders. The sizing does **not** appear to
+be implemented the same way in K1: there is no arrow-texture xref anywhere in
+the abilities panel, and a binary-wide scan for "size constant, then halved"
+(the `iconHeight / 2` signature) returns zero sites. So K1's feat tree lives
+outside the abilities panel code and sizes itself by some other means.
+
 ## Known loose end
 
 `lbl_hex_3.tga`, the row's icon frame art, is **56x56** — the same number as the
