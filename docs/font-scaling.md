@@ -65,7 +65,7 @@ one command — but **pass `-GoldExe` explicitly**, because the script's default
 still points at the obsolete `D8F0EEBF` snapshot:
 
 ```powershell
-.\build_universal_patcher.ps1 -GoldExe ".\build\universal-patcher\swkotor_gold_v6_wrapfix.exe"
+.\build_universal_patcher.ps1 -GoldExe ".\build\universal-patcher\swkotor_gold_v9_listbox.exe"
 ```
 
 To roll a *new* executable fix into the gold, run its build script against the
@@ -85,7 +85,9 @@ Gold lineage (most recent last):
 | Candidate 002 | `B4C49441FEA3EF7E2239BD4C2B3FD522D8B3C00C8950D200F40527547CA3E1B5` | + list-row height |
 | Candidate 003 | `CDE41D99FA2DA70C294893A4FF47EAB9A4EAE848303695C18410B3846401170C` | + dialogue letterbox |
 | `swkotor_gold_v5_rows175.exe` | `3BB2F07A336C5A65C71992FCB341C2E7BFA00566EDD45E86C973E676A30222D6` | + resolution-aware list-row curve |
-| **`swkotor_gold_v6_wrapfix.exe`** | `171D084E8F58AB40B778D97A3378B1A54E24F10EA02D2053A6A78B913318A7B8` | + word-wrap forward progress |
+| `swkotor_gold_v6_wrapfix.exe` | `171D084E8F58AB40B778D97A3378B1A54E24F10EA02D2053A6A78B913318A7B8` | + word-wrap forward progress |
+| `swkotor_gold_v8_stackcount.exe` | `879DBCBEAAF6ACEB22E7D95BB8D1566DA955D65B2F3AC07F8D3E08D450308AED` | + wrap guard vs LINE start, short-string guards NOPed |
+| **`swkotor_gold_v9_listbox.exe`** | `4BC5AC6826D60A5BC02095F7D35E06D086AF743B05F35D7AA9288FDCB0D32EB7` | + listbox row-growth fix (`build_listbox_growth_fix.py`) |
 
 `Override/computer.gui` on the live install is also already the corrected
 version (also copied into `assets/override-3440x1440/computer.gui`).
@@ -100,9 +102,10 @@ forward-progress fix). The gold reference snapshot moved twice:
 | --- | --- | --- |
 | `swkotor_gold_final_D8F0EEBF.exe` | `.kui` | map/marker only — **obsolete, do not build against it** |
 | `swkotor_gold_v5_rows175.exe` | `.kui .klb .kfs` | + letterbox, font scale, list-row |
-| **`swkotor_gold_v6_wrapfix.exe`** | `.kui .klb .kfs` | + word-wrap fix (in-place, adds no section) |
+| `swkotor_gold_v6_wrapfix.exe` | `.kui .klb .kfs` | + word-wrap fix (in-place, adds no section) |
+| **`swkotor_gold_v9_listbox.exe`** | `.kui .klb .kfs .kwl` | + stack-count guards, + listbox row-growth fix (both in-place) |
 
-Current gold `171D084E8F58AB40B778D97A3378B1A54E24F10EA02D2053A6A78B913318A7B8`.
+Current gold `4BC5AC6826D60A5BC02095F7D35E06D086AF743B05F35D7AA9288FDCB0D32EB7`.
 
 **`build_universal_patcher.ps1` still *defaults* `-GoldExe` to the obsolete
 `D8F0EEBF` snapshot.** Always pass `-GoldExe` explicitly, and confirm which
@@ -148,10 +151,17 @@ padding/advance logic in `build_font_from_ttf.py` and re-bake.
 
 ## Validation status
 
-- **Play-tested and confirmed at 3440x1440** (current build): the word-wrap
-  crash fix (Inventory opens on the item that previously crashed the game),
-  crisp menu and dialogue text, matched description/menu sizes, dialogue
-  subtitles and reply lists, message log, skills and inventory panels.
+- **Play-tested on a CLEAN install at 3440x1440** (current build, gold v9,
+  patcher `45762554F88927BC9853D3E850F29504C56CCCBEECB3AA7E9B1538FCCFC076AC`):
+  a fresh retail game patched end-to-end, all screens confirmed working.
+  Specifically re-verified after the listbox growth fix, because it touches code
+  shared by every list: **save/load, journal, inventory and messages unchanged**,
+  and Powers/Feats rows now stable across repeated tab clicks.
+- **Play-tested and confirmed at 3440x1440**: the word-wrap crash fix (Inventory
+  opens on the item that previously crashed the game), crisp menu and dialogue
+  text, matched description/menu sizes, dialogue subtitles and reply lists,
+  message log, skills and inventory panels; the description-box gutter; and
+  scaled rows/icons on the inventory, abilities, store and powers/feats lists.
 - **Play-tested at 3440x1440 (earlier gold)**: font scale, list-row height,
   dialogue letterbox, `computer.gui` positioning — see
   `reverse-engineering/experiments/005-font-scale-investigation.md`.
@@ -162,9 +172,10 @@ padding/advance logic in `build_font_from_ttf.py` and re-bake.
     17 → Old Republic, `fnt_d16x16b` → Arimo Medium, all zero-pixel exact.
   - **0 of 94** glyphs clipped at their cell edge in either font, on either
     side — including glyphs whose ink starts left of the pen origin.
-  - Letter spacing consistent across resolutions after the measured
-    correction: menu gap/ink 0.126 / 0.110 / 0.124 / 0.120 at
-    720p / 1080p / 1440p / 2160p (was 0.098 at 1080p against 0.126 at 1440p).
+  - (Removed: an earlier gap/ink "letter spacing" figure here was produced by a
+    simulation that fed `spacingR` into the glyph advance. The renderer does not
+    read `spacingR` at all — see `reverse-engineering/font-atlases.md` — so the
+    number measured the model, not the game.)
   - Description and menu text render at identical heights at 1080p, 1440p,
     3440x1440 and 2160p.
   - Per-resolution scale: 720p 1.00x, 1080p 1.50x, 1440p 2.00x, 2160p 3.00x.
