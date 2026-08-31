@@ -94,6 +94,14 @@ def build_stubs(stub_va: int) -> tuple[bytes, int]:
     stub += b"\x2B\xCF"                                      # sub ecx, edi
     stub += _gutter(0x1C)
     stub += b"\x89\x4C\x24\x24"                              # mov [esp+0x24], ecx
+    # Builder B derives rect.top from edi as well: `sub ebx, edi` at 0x0041A35D
+    # on the bottom-anchored branch, and `sub edi, eax` at 0x0041A381 otherwise,
+    # which leaves top = PADDING when unscrolled. Builder A writes top = 0, so a
+    # pane long enough to scroll gained a PADDING-tall gap above its first line
+    # while a short one did not. Clearing edi here fixes both branches at once --
+    # those two subtractions are its only remaining readers. It must come before
+    # the `test`, which sets the flags 0x0041A30D consumes.
+    stub += b"\x33\xFF"                                      # xor edi, edi
     stub += b"\x85\xDB"                                      # test ebx, ebx  (flags for 0x41A30D)
     at = stub_va + len(stub)
     stub += b"\xE9" + struct.pack("<i", SCROLL_RESUME - (at + 5))
