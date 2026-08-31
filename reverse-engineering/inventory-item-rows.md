@@ -176,6 +176,34 @@ font, yet changing it has no visible effect — the engine substitutes its own.
 This matches the caution in `font-atlases.md` about treating a `FONT` field as a
 hint rather than proof.
 
+## Powers and Feats: unsolved, and what has been ruled out
+
+The Abilities screen's Skills tab uses the 42 row class above, but its **Powers
+and Feats tabs do not** — patching 42 scales Skills only, confirmed in game.
+Those two tabs still render at vanilla size and **no fix is known**.
+
+Everything below is a hard result, not an inference. Do not re-run these.
+
+| tested | result |
+| --- | --- |
+| the listbox row-height path (`0x0041B202`) | **never reached.** A conditional breakpoint there logged `hit_count = 0` across repeated Feats↔Powers switches, so the grid is not laid out as listbox rows at all and `RowSizeGroups` can never reach it |
+| `LB_ABILITY.PROTOITEM.EXTENT.HEIGHT` 40 → 100 | nothing |
+| icon **texture** size, `ip_*` upscaled 32 → 64 | nothing. Proven loaded, not ignored: deleting the files mid-session turned those icons **white**, so the game was actively reading them. The icons are NOT drawn at texture size |
+| square-rect constants, immediate pairs | zero in the entire `.text` |
+| square-rect constants via a register (the inventory pattern) | 18 sites binary-wide, **none** in the abilities panel; the three 32px ones belong to the journal, map and save/load screens |
+| `mov reg,imm ; cmp ; jle` icon signature | only abilities' 42 (Skills), inventory's 56, store's 56 |
+
+So the size is neither a listbox property, nor the GUI, nor the texture, nor a
+square constant. It is presumably computed — from the tree's column/row layout,
+or written as a non-square rect from registers.
+
+> **Next approach, if it is ever worth it:** breakpoint the texture draw call
+> and filter for the icon, then walk back to the rect. This is a **per-frame hot
+> path** — the two apparent "freezes" earlier in this project were both stale
+> conditional breakpoints in hot code, so this needs a tightly scoped condition
+> and prompt removal. Weigh that against the payoff, which is icon size on two
+> tabs.
+
 ## Known loose end
 
 `lbl_hex_3.tga`, the row's icon frame art, is **56x56** — the same number as the
