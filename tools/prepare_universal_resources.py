@@ -16,7 +16,7 @@ from build_scaled_fonts import export_font_txis, export_fonts, scale_txi
 from fix_hud_menubg import fix_menubg_file
 from scale_hud_minimap import patch_gui
 from transfer_gold_gui_geometry import transfer_geometry
-from scale_listbox_padding import scale_listbox_padding
+from scale_listbox_padding import LIST_GUTTER_AT_UNIT_SCALE, scale_listbox_padding
 from scale_row_icon_frames import FRAME_RESREFS, export_frames
 
 
@@ -110,9 +110,8 @@ ASPECT_FOLDERS = {
 
 # Single-item description panes: one wrapped paragraph beside a scrollbar. These
 # are the controls the missing gutter actually disfigures, and LB_DESCRIPTION is
-# the one confirmed by play-test. Multi-row lists (LB_ITEMS, LB_REPLIES,
-# LB_MESSAGES) are deliberately excluded until it is confirmed that PADDING does
-# not also affect vertical row spacing, which would cost them visible rows.
+# the one confirmed by play-test. Selection lists get their own, much smaller
+# gutter below -- see LIST_LISTBOXES.
 DESCRIPTION_LISTBOXES = {
     "LB_DESCRIPTION", "LB_DESC", "LBL_ITEM_DESCRIPTION",
     # questitem.gui names its pane LB_ITEM_DESCRIPTION -- journal.gui's is
@@ -121,9 +120,22 @@ DESCRIPTION_LISTBOXES = {
     # LB_DESC_LS is the same shape as LB_DESC.
     "LB_ITEM_DESCRIPTION", "LB_DESC_LS",
     # Deliberately NOT included: LB_MESSAGE (computer, confirm), LB_MESSAGES
-    # (messages) and LB_DIALOG. Those are multi-line logs, and PADDING is added to
-    # every row's height, so it would space out every line of the log rather than
-    # just insetting a paragraph.
+    # (messages) and LB_DIALOG. Those are multi-line logs -- a paragraph-sized
+    # gutter beside a wall of short lines reads as a broken margin.
+}
+
+# Multi-row selection lists. The gutter here sits beside an icon column, not a
+# paragraph, so it is a quarter of the description one (25px at 3440x1440,
+# chosen in game). Only usable since gold v11 made PADDING a pure left inset:
+# before that it also set row pitch, inset the right edge and pushed the first
+# row down. See tools/build_listbox_padding_fix.py.
+#
+# Restricted to lists with an icon column, which is what the gap is for.
+# Text-only lists (LB_GAMES, LB_MODULES, LB_OPTIONS, LB_RESOLUTIONS,
+# LST_EventList) and the message logs are left at their authored values.
+LIST_LISTBOXES = {
+    "LB_ITEMS", "LB_ABILITY", "LB_FEATS", "LB_POWERS",
+    "LB_SHOPITEMS", "LB_INVITEMS",
 }
 
 GOLD_GEOMETRY_TEMPLATES = {
@@ -313,6 +325,10 @@ def main() -> int:
                     gutter_file = gutter_dir / path.name
                     scale_listbox_padding(path, gutter_file, font_scale_for(height),
                                           DESCRIPTION_LISTBOXES)
+                    # Selection lists, at their own smaller scale.
+                    scale_listbox_padding(gutter_file, gutter_file,
+                                          font_scale_for(height), LIST_LISTBOXES,
+                                          unit_gutter=LIST_GUTTER_AT_UNIT_SCALE)
                     packaged_files[index] = gutter_file
 
                 # Generate this resolution's button-row background art from the
