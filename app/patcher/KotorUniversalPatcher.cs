@@ -316,6 +316,33 @@ namespace KotorUniversalUI
         // is exactly what the first inventory attempt did (confirmed in game).
         // Details and the full call chain in
         // reverse-engineering/inventory-item-rows.md.
+        // The item STACK-COUNT label, built inside the inventory row's SetRect
+        // (0x006B5270) and present in no .gui file. It is geometrically locked to
+        // the icon: width 21 for one or two digits and 42 for three or more
+        // (`and ecx,21` / `add ecx,21` after a `strlen <= 2` test), height 19, and
+        // a top offset of 37 -- and 37 + 19 = 56, the vanilla icon size, so the
+        // label is bottom-right-aligned inside the icon box.
+        //
+        // Scaling the icon without scaling this leaves a 21x19 label in the corner
+        // of a box twice the size, which -- together with an enlarged font, where
+        // the widest two-digit pair needs 22px -- is why stack counts vanished.
+        //
+        // Three of the four are imm8 operands (`and`/`add` with a sign-extended
+        // byte), so a value above 127 would encode as NEGATIVE. The scale for this
+        // group is therefore clamped so the largest of them (37) stays <= 127;
+        // above roughly 2470p the label stops growing rather than wrapping to
+        // garbage. Keeping one clamp for the whole group keeps the four values
+        // geometrically consistent with each other.
+        private const float StackCountMaxScale = 127f / 37f;   // ~3.43
+        // {file offset, operand size in bytes, vanilla value}
+        private static readonly int[][] StackCountSites =
+        {
+            new[] { 0x002B5332, 4, 19 },   // mov [esp+2C], 19    label height
+            new[] { 0x002B5339, 1, 21 },   // and ecx, 21         width, 1-2 digits
+            new[] { 0x002B533C, 1, 21 },   // add ecx, 21         width, 3+ digits
+            new[] { 0x002B5351, 1, 37 },   // add eax, 37         top offset
+        };
+
         private static readonly int[][] RowSizeGroups =
         {
             new[] { 56, 0x002B527F, 0x002B4FA9, 0x002B55E3 },   // inventory
@@ -362,6 +389,15 @@ namespace KotorUniversalUI
             ReplaceSingle(executable, RowScaleOffset, GoldRowScale, ScaleForHeight(resolution.Height),
                 "list-row scale");
             float rowSizeScale = ScaleForHeight(resolution.Height);
+            float stackScale = Math.Min(rowSizeScale, StackCountMaxScale);
+            foreach (int[] site in StackCountSites)
+            {
+                int scaled = (int)Math.Round(site[2] * stackScale);
+                if (site[1] == 4)
+                    ReplaceInt32(executable, site[0], site[2], scaled, "stack-count label");
+                else
+                    ReplaceSByte(executable, site[0], site[2], scaled, "stack-count label");
+            }
             foreach (int[] group in RowSizeGroups)
             {
                 int goldSize = group[0];
@@ -391,6 +427,18 @@ namespace KotorUniversalUI
                 throw new InvalidDataException("The " + label + " patch did not match the verified gold build.");
             byte[] value = BitConverter.GetBytes(replacement);
             Buffer.BlockCopy(value, 0, data, index, value.Length);
+        }
+
+        private static void ReplaceSByte(byte[] data, long offset, int expected, int replacement, string label)
+        {
+            if (offset < 0 || offset >= data.LongLength)
+                throw new InvalidDataException("The " + label + " patch address is outside the executable.");
+            if (replacement < 0 || replacement > 127)
+                throw new InvalidDataException("The " + label + " value would not fit a signed byte operand.");
+            int index = checked((int)offset);
+            if (data[index] != (byte)expected)
+                throw new InvalidDataException("The " + label + " patch did not match the verified gold build.");
+            data[index] = (byte)replacement;
         }
 
         private static void ReplaceInt32(byte[] data, long offset, int expected, int replacement, string label)

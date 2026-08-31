@@ -185,10 +185,8 @@ glyph height and diff every glyph against the atlas. Zero difference means the
 shipped bitmaps really came from the font you think. Two separate bugs (the
 left-side-bearing shift and the clipped ink) were caught only because this
 check returned "not exact" and that was chased rather than shrugged at.
-- **Known broken**: item **stack-count numbers** vanish at any scale above
-  1.0. Their label is 21x19px, built in engine code (present in no `.gui`), so
-  scaled glyphs both overflow it horizontally and clip vertically. See
-  `reverse-engineering/font-atlases.md` for the analysis and the two candidate
-  fixes.
+- **Item stack-count numbers**: fixed — the label is built in the inventory
+  row's `SetRect`, bottom-right-aligned inside the icon box, and now scales
+  with it. See `reverse-engineering/font-atlases.md`.
 - **Not checked at all**: resolutions other than the spot-checks above;
   `computercamera.gui`'s positioning.
