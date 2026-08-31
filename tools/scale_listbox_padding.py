@@ -46,6 +46,18 @@ LISTBOX_CONTROLTYPE = 11
 # which cleared the scrollbar but read as cramped.
 GUTTER_AT_UNIT_SCALE = 36.0
 
+# Selection lists want a much smaller gutter than description panes: it sits
+# beside an icon column rather than a paragraph, and 25px at 3440x1440 was
+# chosen in game. This only became usable once the exe stopped tying three other
+# effects to the same byte -- see tools/build_listbox_padding_fix.py. Before that
+# patch, PADDING on a multi-row list also spaced the rows apart, inset the right
+# edge and pushed the first row down, which is why these tags were excluded.
+LIST_GUTTER_AT_UNIT_SCALE = 12.5
+
+
+def list_gutter_for(scale: float) -> int:
+    return int(round(LIST_GUTTER_AT_UNIT_SCALE * scale))
+
 
 def gutter_for(scale: float) -> int:
     return int(round(GUTTER_AT_UNIT_SCALE * scale))
@@ -67,10 +79,18 @@ def apply(struct, gutter: int, tags: set[str] | None, changed: list) -> None:
 
 
 def scale_listbox_padding(source: Path, dest: Path, scale: float,
-                          tags: set[str] | None = None) -> list:
+                          tags: set[str] | None = None,
+                          unit_gutter: float | None = None) -> list:
+    """Set the gutter on `tags` (every listbox when None) for this scale.
+
+    `unit_gutter` overrides GUTTER_AT_UNIT_SCALE, so selection lists can take a
+    smaller gutter than description panes in a second pass over the same file.
+    """
+    gutter = (gutter_for(scale) if unit_gutter is None
+              else int(round(unit_gutter * scale)))
     gff = read_gff(source)
     changed: list = []
-    apply(gff.root, gutter_for(scale), tags, changed)
+    apply(gff.root, gutter, tags, changed)
     write_gff(gff, dest, ResourceType.GUI)
     return changed
 
@@ -82,11 +102,15 @@ def main() -> int:
     parser.add_argument("--scale", type=float, required=True)
     parser.add_argument("--tags", default=None,
                         help="comma-separated listbox tags; default is every listbox")
+    parser.add_argument("--unit-gutter", type=float, default=None,
+                        help=f"pixels at scale 1.0 (default {GUTTER_AT_UNIT_SCALE}; "
+                             f"selection lists ship {LIST_GUTTER_AT_UNIT_SCALE})")
     args = parser.parse_args()
     tags = ({t.strip().upper() for t in args.tags.split(",")}
             if args.tags else None)
     for tag, before, after in scale_listbox_padding(args.source, args.dest,
-                                                    args.scale, tags):
+                                                    args.scale, tags,
+                                                    args.unit_gutter):
         print(f"{tag:<24} PADDING {before} -> {after}")
     return 0
 
