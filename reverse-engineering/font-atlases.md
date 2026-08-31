@@ -315,12 +315,49 @@ go. That is the whole bug; it was never a font-generator problem.
 | width, 3+ digits | `0x002B533C` | **imm8** | 21 |
 | top offset | `0x002B5351` | **imm8** | 37 |
 
-`StackCountSites` in `KotorUniversalPatcher.cs` scales all four together. Three
-are **imm8** operands, so a value above 127 would sign-extend NEGATIVE; the
-scale for this group is clamped at `127/37` (~3.43) so the largest stays in
-range. Above roughly 2470p the label stops growing rather than wrapping to
-garbage, and one clamp for the whole group keeps the four values consistent
-with each other. Play-test confirmed at 3440x1440.
+### Why it needed a trampoline
+
+Three of the four operands were **imm8** (`83 /r ib`), sign-extended, so nothing
+above 127 could be encoded. Clamping kept them legal but broke the geometry at
+the top end: at 7680x4320 the icon is 336px while the top offset would stop at
+127, floating the label partway up the icon instead of sitting in its corner.
+The imm32 forms (`81 /r id`, `05 id`) are three bytes longer each and there is
+no slack to grow into.
+
+`tools/build_stack_count_fix.py` therefore relocates the whole 32-byte run at
+`0x006B5336`-`0x006B5355` into a `.ksc` stub, instruction-for-instruction, with
+imm32 operands:
+
+```
+006B5336  jmp 0x00871000          ; + 27 nops
+...
+00871000  dec ecx
+00871001  and ecx, imm32          ; width, 1-2 digits
+00871007  add ecx, imm32          ; width, 3+ digits
+0087100D  mov eax, ecx
+0087100F  mov ecx, [esp+20]
+00871013  sub edx, eax
+00871015  mov [esp+28], eax
+00871019  mov eax, [esp+24]
+0087101D  add ecx, edx
+0087101F  add eax, imm32          ; top offset
+00871024  mov [esp+20], ecx
+00871028  jmp 0x006B5356
+```
+
+`jmp` preserves `esp`, so the stub's `[esp+NN]` references remain valid. Gold
+v10 adds the `.ksc` section.
+
+| what | file offset | operand | vanilla |
+| --- | --- | --- | --- |
+| label height | `0x002B5332` | imm32, in place | 19 |
+| width, 1-2 digits | `0x003DF003` | imm32, `.ksc` | 21 |
+| width, 3+ digits | `0x003DF009` | imm32, `.ksc` | 21 |
+| top offset | `0x003DF020` | imm32, `.ksc` | 37 |
+
+`StackCountSites` in `KotorUniversalPatcher.cs` scales all four with no clamp:
+114/126/222 at 7680x4320, and it still decodes correctly at 15360x8640
+(228/252/444).
 
 ## Verifying an atlas
 

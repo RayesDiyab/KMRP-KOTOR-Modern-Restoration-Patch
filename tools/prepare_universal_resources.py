@@ -115,13 +115,23 @@ ASPECT_FOLDERS = {
 # not also affect vertical row spacing, which would cost them visible rows.
 DESCRIPTION_LISTBOXES = {
     "LB_DESCRIPTION", "LB_DESC", "LBL_ITEM_DESCRIPTION",
+    # questitem.gui names its pane LB_ITEM_DESCRIPTION -- journal.gui's is
+    # LBL_ITEM_DESCRIPTION. One missing letter meant the quest-item description
+    # got no gutter and clipped under its scrollbar, found in play. upgrade.gui's
+    # LB_DESC_LS is the same shape as LB_DESC.
+    "LB_ITEM_DESCRIPTION", "LB_DESC_LS",
+    # Deliberately NOT included: LB_MESSAGE (computer, confirm), LB_MESSAGES
+    # (messages) and LB_DIALOG. Those are multi-line logs, and PADDING is added to
+    # every row's height, so it would space out every line of the log rather than
+    # just insetting a paragraph.
 }
 
 GOLD_GEOMETRY_TEMPLATES = {
     "abchrgen.gui", "barkbubble.gui", "computer.gui", "confirm.gui",
     "container.gui", "custpnl.gui", "equip.gui", "ftchrgen.gui",
     "galaxymap.gui", "inventory.gui", "journal.gui", "loadscreen.gui",
-    "map.gui", "messages.gui", "pause.gui", "saveload.gui", "tooltip6x4.gui",
+    "map.gui", "messages.gui", "pause.gui", "questitem.gui", "saveload.gui",
+    "tooltip6x4.gui",
 }
 
 
@@ -375,6 +385,7 @@ def main() -> int:
                 packaged_files.extend(
                     export_frames(args.texture_pack, temp_dir / "frames",
                                   font_scale_for(height)))
+
 
                 write_zip(args.output / f"gui-{resolution}.zip", packaged_files)
 
