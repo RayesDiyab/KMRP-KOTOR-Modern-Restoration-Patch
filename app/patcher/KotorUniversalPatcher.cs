@@ -321,6 +321,17 @@ namespace KotorUniversalUI
             new[] { 56, 0x002B527F, 0x002B4FA9, 0x002B55E3 },   // inventory
             new[] { 42, 0x002AB8EF, 0x002ACB20 },               // abilities: skills/powers/feats
             new[] { 56, 0x002C265F, 0x002C2A23 },               // store / merchant
+            // The Abilities screen's Powers and Feats tabs are NOT listbox rows and
+            // share nothing with the three above -- each row is a feat/power
+            // progression chain, built at 0x006CD8CD / 0x006CDB6D as a hardcoded
+            // 242x40 rect and laid out by 0x006CCE30 (the chain row's SetRect,
+            // which also draws the lbl_skarr arrows and the lbl_indent backing).
+            // Only the HEIGHT is scaled: it drives the icon squares inside the row,
+            // and doubling it alone was confirmed in game. The width (242, at
+            // 0x002CD8D1/0x002CDB71) and the arrow square (32, at 0x002CCE5F) are
+            // deliberately left alone -- untested, and the listbox appears to
+            // stretch the row's width itself.
+            new[] { 40, 0x002CD8D9, 0x002CDB79 },               // abilities: powers/feats chain rows
         };
 
         private const long RowScaleOffset = 0x003DD004;

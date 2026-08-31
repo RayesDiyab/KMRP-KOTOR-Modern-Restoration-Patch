@@ -176,33 +176,82 @@ font, yet changing it has no visible effect — the engine substitutes its own.
 This matches the caution in `font-atlases.md` about treating a `FONT` field as a
 hint rather than proof.
 
-## Powers and Feats: unsolved, and what has been ruled out
+## Powers and Feats: a vanilla listbox bug that high resolution exposes
 
-The Abilities screen's Skills tab uses the 42 row class above, but its **Powers
-and Feats tabs do not** — patching 42 scales Skills only, confirmed in game.
-Those two tabs still render at vanilla size and **no fix is known**.
+The Abilities screen's Skills tab uses the 42 row class above; **Powers and
+Feats do not**. Their rows are feat/power *progression chains*, and their height
+**accumulates on every rebuild** until it hits a ceiling.
 
-Everything below is a hard result, not an inference. Do not re-run these.
+### What it is
 
-| tested | result |
+Measured numerically out of `[listbox+0x2B4]` (not judged by eye): **42 -> 56 ->
+126** over successive clicks of the Powers tab. Re-clicking the *same* tab is
+enough; closing the whole menu resets it, because the accumulator lives on the
+listbox object and dies with the screen.
+
+**This is vanilla behaviour, not something this project introduced.** The
+upstream high-resolution-menus `abilities.gui` for 3440x1440 is
+**byte-identical to the packed vanilla file** (same SHA-256, 14906 bytes) and
+still grows. What changes at high resolution is the *ceiling*: growth is clamped
+by the box, so at 800x600 the clamp binds immediately and nothing is visible,
+while a 1324x510 `LB_ABILITY` has room to ratchet. Shrinking `LB_ABILITY` back
+to vanilla's extent visibly lowered the ceiling -- that is the clamp moving.
+
+### Ruled out by direct experiment
+
+Each of these was tested in isolation, in game:
+
+| suspect | result |
 | --- | --- |
-| the listbox row-height path (`0x0041B202`) | **never reached.** A conditional breakpoint there logged `hit_count = 0` across repeated Feats↔Powers switches, so the grid is not laid out as listbox rows at all and `RowSizeGroups` can never reach it |
-| `LB_ABILITY.PROTOITEM.EXTENT.HEIGHT` 40 → 100 | nothing |
-| icon **texture** size, `ip_*` upscaled 32 → 64 | nothing. Proven loaded, not ignored: deleting the files mid-session turned those icons **white**, so the game was actively reading them. The icons are NOT drawn at texture size |
-| square-rect constants, immediate pairs | zero in the entire `.text` |
-| square-rect constants via a register (the inventory pattern) | 18 sites binary-wide, **none** in the abilities panel; the three 32px ones belong to the journal, map and save/load screens |
-| `mov reg,imm ; cmp ; jle` icon signature | only abilities' 42 (Skills), inventory's 56, store's 56 |
+| our exe row/icon constants (abilities 42->84) | innocent -- patched into an otherwise vanilla game, no growth |
+| our `LB_DESC` `PADDING` = 24 | innocent -- zeroed, still grows |
+| `LB_ABILITY.PROTOITEM.BORDER.DIMENSION` (=14, matched the increment) | innocent -- zeroed, still grows. The 14 was coincidence |
+| the pykotor GFF rewrite of our `.gui` files | innocent -- pristine upstream file still grows |
+| fonts / textures | innocent -- Override with assets but no `.gui` files does not grow |
+| `.kfs` list-row scale | innocent |
 
-So the size is neither a listbox property, nor the GUI, nor the texture, nor a
-square constant. It is presumably computed — from the tree's column/row layout,
-or written as a non-square rect from registers.
+### The accumulator
 
-> **Next approach, if it is ever worth it:** breakpoint the texture draw call
-> and filter for the icon, then walk back to the rect. This is a **per-frame hot
-> path** — the two apparent "freezes" earlier in this project were both stale
-> conditional breakpoints in hot code, so this needs a tightly scoped condition
-> and prompt removal. Weigh that against the payoff, which is icon size on two
-> tabs.
+The rows go through the **generic** listbox layout, same as the inventory:
+
+```
+0041B1D6  mov [esi+0x2B4], ebx    ; reset to 0 at populate
+0041B1F4  call [edx+4]            ; item->SetRect(rect from [listbox+0x2A8] array)
+0041B202  call [edx+0x34]         ; item->GetHeight()
+0041B20D  mov [esi+0x2B4], eax    ; keep the max
+...
+0041B507  add ebp, edx            ; rect.height = [esi+0x2B4] + [esp+0x18]
+0041B522  mov [esp+0x2C], ebp     ; and that goes back into the rows
+```
+
+`[+0x2B4]` *is* reset per populate, but it is immediately re-derived from
+`max(item->height)` over **reused** row objects that still carry the previous
+pass's inflated height. Sampled live, the increment at `0x0041B507` was
+`edx = 41`.
+
+> **There is more than one accumulation path.** NOPing `add ebp, edx` at
+> `0x0041B507` (`03 EA` -> `90 90`) only *slowed* the growth; it did not stop
+> it. `0x0041B1C6` (`test al, 8` on the flags at `[listbox+0x2BC]`) selects
+> between layout paths and is the next thing to understand -- it looks like the
+> engine's equivalent of reone's `protoMatchContent`, which decides whether rows
+> size to their content or to the protoitem's fixed height.
+
+### Method note
+
+Two debugger traps produced false results here, both worth avoiding:
+
+1. **x64dbg removes a `singleshot` breakpoint on its first hit even when the
+   condition evaluates false.** A conditional singleshot at `0x0041B202` was
+   silently deleted by an unrelated hit, and its `hit_count = 0` was recorded
+   here as proof that the grid never reaches the listbox row path. That was
+   wrong -- the rows demonstrably do. Use non-singleshot breakpoints when
+   conditions are involved.
+2. **Do not judge growth by eye when the UI is rendering small.** Tests run with
+   the `.gui` files parked drew the screen as a tiny centred box (vanilla GUI
+   coordinates against a resolution-patched exe); a few pixels of growth there
+   is invisible, and two "no growth" readings taken that way were false
+   negatives that misdirected the whole exe-vs-assets bisect. Read
+   `[listbox+0x2B4]` numerically instead.
 
 ## Cross-checked against the open-source reimplementations
 
