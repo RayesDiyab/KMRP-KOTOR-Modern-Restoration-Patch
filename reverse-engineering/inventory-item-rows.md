@@ -189,13 +189,25 @@ Measured numerically out of `[listbox+0x2B4]` (not judged by eye): **42 -> 56 ->
 enough; closing the whole menu resets it, because the accumulator lives on the
 listbox object and dies with the screen.
 
-**This is vanilla behaviour, not something this project introduced.** The
-upstream high-resolution-menus `abilities.gui` for 3440x1440 is
-**byte-identical to the packed vanilla file** (same SHA-256, 14906 bytes) and
-still grows. What changes at high resolution is the *ceiling*: growth is clamped
-by the box, so at 800x600 the clamp binds immediately and nothing is visible,
-while a 1324x510 `LB_ABILITY` has room to ratchet. Shrinking `LB_ABILITY` back
-to vanilla's extent visibly lowered the ceiling -- that is the clamp moving.
+**Very probably vanilla behaviour rather than something this project
+introduced -- but read the caveat.** Growth is clamped by the box height, so a
+small box clamps on the first pass and nothing is visible, while a 1324x510
+`LB_ABILITY` has room to ratchet. Shrinking `LB_ABILITY` back to vanilla's
+extent visibly lowered the ceiling, which is that clamp moving. Every patch this
+project makes was also eliminated by direct experiment (table below), and the
+accumulator itself is plainly a type confusion in stock engine code.
+
+> **Correction.** An earlier version of this document claimed the upstream
+> `abilities.gui` was "byte-identical to the packed vanilla file" and cited that
+> as proof the bug is BioWare's. **That evidence was wrong.** pykotor's
+> `Installation.resource()` searches Override *before* the BIFs, so the
+> "extracted vanilla" file was really the upstream file that had just been
+> installed into Override -- it was compared against itself. The real BIF file
+> differs (same length, extents edited in place). The conclusion still looks
+> right on the clamp reasoning, but it is an inference, not a proof: no test ever
+> ran stock-BIF geometry in a box large enough to ratchet. **When reading a
+> "vanilla" resource for comparison, read it from the BIF explicitly via
+> `chitin_resources()`, never through `Installation.resource()`.**
 
 ### Ruled out by direct experiment
 

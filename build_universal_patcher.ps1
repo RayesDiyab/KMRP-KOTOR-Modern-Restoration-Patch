@@ -73,6 +73,7 @@ Get-ChildItem -LiteralPath $resourceDir -Filter "gui-*.zip" | Sort-Object Name |
     $compilerArgs += "/resource:$($_.FullName),KotorUniversalUI.override.gui.$resolution"
 }
 $compilerArgs += (Join-Path $projectRoot "app\patcher\KotorUniversalPatcher.cs")
+$compilerArgs += (Join-Path $projectRoot "app\patcher\AbilityIconGenerator.cs")
 
 & $compiler $compilerArgs
 if ($LASTEXITCODE -ne 0) {

@@ -33,10 +33,10 @@ namespace KotorUniversalUI
     {
         internal const string ResourceName = "KotorUniversalUI.goldpatch";
         internal const string SourceHash = "761F9466F456A83909036BAEBB5C43167D722387BE66E54617BA20A8C49E9886";
-        internal const string TargetHash = "4BC5AC6826D60A5BC02095F7D35E06D086AF743B05F35D7AA9288FDCB0D32EB7";
+        internal const string TargetHash = "8F338C0DC903989A50FA644E8EAD1E1D8F7AF395631B1289F7F311CA0AEB8AD2";
         internal const long SourceLength = 4042752;
-        internal const long TargetLength = 4059136;
-        internal const string PatchVersion = "2.4.0-listbox-growth";
+        internal const long TargetLength = 4063232;
+        internal const string PatchVersion = "2.5.0-stack-label";
 
         private readonly List<PatchChunk> chunks;
 
@@ -317,37 +317,38 @@ namespace KotorUniversalUI
         // Details and the full call chain in
         // reverse-engineering/inventory-item-rows.md.
         // The item STACK-COUNT label, built inside the inventory row's SetRect
-        // (0x006B5270) and present in no .gui file. It is geometrically locked to
-        // the icon: width 21 for one or two digits and 42 for three or more
-        // (`and ecx,21` / `add ecx,21` after a `strlen <= 2` test), height 19, and
-        // a top offset of 37 -- and 37 + 19 = 56, the vanilla icon size, so the
-        // label is bottom-right-aligned inside the icon box.
+        // (0x006B5270) and present in no .gui file. It is bottom-right-aligned
+        // INSIDE the icon box: height 19, width 21 for one or two digits and 42 for
+        // three or more (`and ecx,21` / `add ecx,21` after a `strlen <= 2` test),
+        // top offset 37 -- and 37 + 19 = 56, the vanilla icon size. Scaling the icon
+        // without these left a 21x19 label in the corner of a box twice the size,
+        // and an enlarged font needs 22px for the widest two-digit pair, so the
+        // digits vanished entirely.
         //
-        // Scaling the icon without scaling this leaves a 21x19 label in the corner
-        // of a box twice the size, which -- together with an enlarged font, where
-        // the widest two-digit pair needs 22px -- is why stack counts vanished.
-        //
-        // Three of the four are imm8 operands (`and`/`add` with a sign-extended
-        // byte), so a value above 127 would encode as NEGATIVE. The scale for this
-        // group is therefore clamped so the largest of them (37) stays <= 127;
-        // above roughly 2470p the label stops growing rather than wrapping to
-        // garbage. Keeping one clamp for the whole group keeps the four values
-        // geometrically consistent with each other.
-        private const float StackCountMaxScale = 127f / 37f;   // ~3.43
+        // The width and top operands were originally imm8 (sign-extended), which
+        // capped them at 127 -- at 7680x4320 the icon is 336px while the top offset
+        // would have stopped at 127, floating the label partway up the icon instead
+        // of sitting in its corner. tools/build_stack_count_fix.py relocates that
+        // arithmetic into a `.ksc` stub with imm32 operands (gold v10), so all four
+        // scale without limit and no clamp is needed.
         // {file offset, operand size in bytes, vanilla value}
         private static readonly int[][] StackCountSites =
         {
-            new[] { 0x002B5332, 4, 19 },   // mov [esp+2C], 19    label height
-            new[] { 0x002B5339, 1, 21 },   // and ecx, 21         width, 1-2 digits
-            new[] { 0x002B533C, 1, 21 },   // add ecx, 21         width, 3+ digits
-            new[] { 0x002B5351, 1, 37 },   // add eax, 37         top offset
+            new[] { 0x002B5332, 4, 19 },   // mov [esp+2C], 19  label height (in place)
+            new[] { 0x003DF003, 4, 21 },   // and ecx, 21       width, 1-2 digits (.ksc)
+            new[] { 0x003DF009, 4, 21 },   // add ecx, 21       width, 3+ digits (.ksc)
+            new[] { 0x003DF020, 4, 37 },   // add eax, 37       top offset       (.ksc)
         };
 
+        // {expected vanilla value, value to scale from, offsets...}. The two differ
+        // only for the feat/power chain rows, which read too small at the vanilla
+        // 40 once everything around them grew -- 50 was chosen by eye in game
+        // (100px at 3440x1440) and is a deliberate design choice, not a measurement.
         private static readonly int[][] RowSizeGroups =
         {
-            new[] { 56, 0x002B527F, 0x002B4FA9, 0x002B55E3 },   // inventory
-            new[] { 42, 0x002AB8EF, 0x002ACB20 },               // abilities: skills/powers/feats
-            new[] { 56, 0x002C265F, 0x002C2A23 },               // store / merchant
+            new[] { 56, 56, 0x002B527F, 0x002B4FA9, 0x002B55E3 },   // inventory
+            new[] { 42, 42, 0x002AB8EF, 0x002ACB20 },               // abilities: skills tab
+            new[] { 56, 56, 0x002C265F, 0x002C2A23 },               // store / merchant
             // The Abilities screen's Powers and Feats tabs are NOT listbox rows and
             // share nothing with the three above -- each row is a feat/power
             // progression chain, built at 0x006CD8CD / 0x006CDB6D as a hardcoded
@@ -358,7 +359,7 @@ namespace KotorUniversalUI
             // 0x002CD8D1/0x002CDB71) and the arrow square (32, at 0x002CCE5F) are
             // deliberately left alone -- untested, and the listbox appears to
             // stretch the row's width itself.
-            new[] { 40, 0x002CD8D9, 0x002CDB79 },               // abilities: powers/feats chain rows
+            new[] { 40, 50, 0x002CD8D9, 0x002CDB79 },               // abilities: powers/feats chain rows (1.25x)
         };
 
         private const long RowScaleOffset = 0x003DD004;
@@ -389,21 +390,16 @@ namespace KotorUniversalUI
             ReplaceSingle(executable, RowScaleOffset, GoldRowScale, ScaleForHeight(resolution.Height),
                 "list-row scale");
             float rowSizeScale = ScaleForHeight(resolution.Height);
-            float stackScale = Math.Min(rowSizeScale, StackCountMaxScale);
             foreach (int[] site in StackCountSites)
-            {
-                int scaled = (int)Math.Round(site[2] * stackScale);
-                if (site[1] == 4)
-                    ReplaceInt32(executable, site[0], site[2], scaled, "stack-count label");
-                else
-                    ReplaceSByte(executable, site[0], site[2], scaled, "stack-count label");
-            }
+                ReplaceInt32(executable, site[0], site[2],
+                             (int)Math.Round(site[2] * rowSizeScale), "stack-count label");
+
             foreach (int[] group in RowSizeGroups)
             {
-                int goldSize = group[0];
-                int scaled = (int)Math.Round(goldSize * rowSizeScale);
-                for (int i = 1; i < group.Length; i++)
-                    ReplaceInt32(executable, group[i], goldSize, scaled, "list row/icon size");
+                int expected = group[0];
+                int scaled = (int)Math.Round(group[1] * rowSizeScale);
+                for (int i = 2; i < group.Length; i++)
+                    ReplaceInt32(executable, group[i], expected, scaled, "list row/icon size");
             }
             foreach (long offset in NegativeWidthOffsets)
                 ReplaceInt32(executable, offset, -3440, -resolution.Width, "click-fix width reference");
@@ -427,18 +423,6 @@ namespace KotorUniversalUI
                 throw new InvalidDataException("The " + label + " patch did not match the verified gold build.");
             byte[] value = BitConverter.GetBytes(replacement);
             Buffer.BlockCopy(value, 0, data, index, value.Length);
-        }
-
-        private static void ReplaceSByte(byte[] data, long offset, int expected, int replacement, string label)
-        {
-            if (offset < 0 || offset >= data.LongLength)
-                throw new InvalidDataException("The " + label + " patch address is outside the executable.");
-            if (replacement < 0 || replacement > 127)
-                throw new InvalidDataException("The " + label + " value would not fit a signed byte operand.");
-            int index = checked((int)offset);
-            if (data[index] != (byte)expected)
-                throw new InvalidDataException("The " + label + " patch did not match the verified gold build.");
-            data[index] = (byte)replacement;
         }
 
         private static void ReplaceInt32(byte[] data, long offset, int expected, int replacement, string label)
@@ -899,14 +883,30 @@ namespace KotorUniversalUI
                 CommonResourceName,
                 GuiResourcePrefix + resolution.Key
             };
+            // Feat/power icons are built here from the game's own texture pack
+            // rather than embedded: 200 icons x 48 resolutions would add ~57 MB of
+            // pure duplication, and the source art is already on disk. Null when
+            // the pack is missing or the resolution needs no enlargement, in which
+            // case the icons simply stay vanilla-sized.
+            MemoryStream generatedIcons = AbilityIconGenerator.TryBuild(
+                executablePath, ResolutionPatch.ScaleForHeight(resolution.Height));
 
             try
             {
-                for (int resourceIndex = 0; resourceIndex < resources.Length; resourceIndex++)
+                int archiveCount = resources.Length + (generatedIcons != null ? 1 : 0);
+                for (int resourceIndex = 0; resourceIndex < archiveCount; resourceIndex++)
                 {
-                    Stream resource = Assembly.GetExecutingAssembly().GetManifestResourceStream(resources[resourceIndex]);
-                    if (resource == null)
-                        throw new InvalidDataException("The matching interface files are missing from this patcher.");
+                    Stream resource;
+                    if (resourceIndex < resources.Length)
+                    {
+                        resource = Assembly.GetExecutingAssembly().GetManifestResourceStream(resources[resourceIndex]);
+                        if (resource == null)
+                            throw new InvalidDataException("The matching interface files are missing from this patcher.");
+                    }
+                    else
+                    {
+                        resource = generatedIcons;
+                    }
                     using (resource)
                     using (ZipArchive archive = new ZipArchive(resource, ZipArchiveMode.Read, false))
                     {
