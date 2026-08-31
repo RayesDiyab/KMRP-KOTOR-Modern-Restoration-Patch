@@ -40,11 +40,11 @@ from pykotor.resource.type import ResourceType
 
 LISTBOX_CONTROLTYPE = 11
 
-# Gutter in pixels at font scale 1.0 (720p), scaled linearly from there. 20
-# yields the 40 confirmed by play-test at 3440x1440, where the scale is 2.0.
-# The earlier 12 (24px there) cleared the scrollbar but read as cramped; 40 was
-# chosen in game from a 40/56/72 comparison.
-GUTTER_AT_UNIT_SCALE = 20.0
+# Gutter in pixels at font scale 1.0 (720p), scaled linearly from there. 36
+# yields the 72 confirmed by play-test at 3440x1440, where the scale is 2.0.
+# Chosen in game from a 40/56/72 comparison against the original 12 (24px there),
+# which cleared the scrollbar but read as cramped.
+GUTTER_AT_UNIT_SCALE = 36.0
 
 
 def gutter_for(scale: float) -> int:
