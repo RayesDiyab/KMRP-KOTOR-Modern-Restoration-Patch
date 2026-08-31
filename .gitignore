@@ -27,3 +27,6 @@ build/
 # Python bytecode
 __pycache__/
 *.pyc
+
+# Hand-edit backups of Override GUI files
+*.gui.bak

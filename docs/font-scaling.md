@@ -128,23 +128,23 @@ together.**
 
 ### Regenerating the font assets
 
-Two manual steps feed the build, both committed rather than run by it (the
-build must stay pure-stdlib — Pillow installed from Bash is invisible to the
-PowerShell interpreter that `build_universal_patcher.ps1` uses):
+Baking the atlases is a manual step, committed rather than run by the build
+(the build must stay pure-stdlib — Pillow installed from Bash is invisible to
+the PowerShell interpreter that `build_universal_patcher.ps1` uses):
 
 ```powershell
-# 1. bake the atlases.  Note the two DIFFERENT scales.
 python tools\build_font_from_ttf.py assets\fonts\OldRepublic.ttf   ..\TexturePacks\swpc_tex_gui.erf assets\hd-fonts --fonts <the 17 menu resrefs> --scale 3.0
 python tools\build_font_from_ttf.py assets\fonts\Arimo-Medium.ttf ..\TexturePacks\swpc_tex_gui.erf assets\hd-fonts --fonts fnt_d16x16b --scale 2.526316
-
-# 2. re-measure letter spacing -- baking invalidates the table
-python tools\measure_letter_spacing.py assets\hd-fonts assets\letter-spacing.json
 ```
 
-`fnt_d16x16b`'s `2.526316` is `3.0 x 16/19`, cancelling vanilla's 19px-vs-16px
-size difference so descriptions and menus match. **Baking it at plain 3.0
-silently restores that mismatch.** The build refuses to run if
-`letter-spacing.json` is absent, rather than shipping zero spacing.
+Note the two DIFFERENT scales. `fnt_d16x16b`'s `2.526316` is `3.0 x 16/19`,
+cancelling vanilla's 19px-vs-16px size difference so descriptions and menus
+match. **Baking it at plain 3.0 silently restores that mismatch.**
+
+Rendered letter spacing is fixed at bake time, in the glyph cell widths — the
+`spacingR` metric is **not** a typographic control (see below), so there is no
+spacing table to regenerate. To adjust how tightly letters sit, change the
+padding/advance logic in `build_font_from_ttf.py` and re-bake.
 
 ## Validation status
 

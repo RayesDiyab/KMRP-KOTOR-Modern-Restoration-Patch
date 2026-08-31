@@ -19,14 +19,18 @@ are both complete and play-test confirmed.
 ## Engine bugs found and fixed
 
 Each of these was diagnosed against the executable and is now part of the
-shipped gold delta. Full analysis in `reverse-engineering/font-atlases.md`.
+shipped gold delta. Full analysis in `reverse-engineering/font-atlases.md`;
+the inventory row/icon trace has its own writeup in
+`reverse-engineering/inventory-item-rows.md`.
 
 | Symptom | Cause | Fix |
 | --- | --- | --- |
-| **Inventory crashes** on items with long descriptions | `CAurGUIString`'s line-breaker restarts an unbreakable line at the position it began at. Its only guard compares against the start of the *string*, not the current *line*, so it loops forever appending entries until the allocator fails, then writes through NULL. Any enlarged font trips it via the 21px stack-count label, whose text is a bare number with no space to break on — vanilla clears that label by exactly **one pixel**. | 16-byte **in-place** patch at `0x0045A5E0` comparing against the line start and snapping the cursor to `lineStart+1`, guaranteeing forward progress. No new PE section. `tools/build_wrap_progress_fix.py` |
+| **Inventory crashes** on items with long descriptions | `CAurGUIString`'s line-breaker restarts an unbreakable line at the position it began at. Its only guard compares against the start of the *string*, not the current *line*, so it loops forever appending entries until the allocator fails, then writes through NULL. Any enlarged font trips it via the 21px stack-count label, whose text is a bare number with no space to break on — vanilla clears that label by exactly **one pixel**. | 16-byte **in-place** patch at `0x0045A5E0` comparing against the line start, plus a `.kwl` stub that consumes an unbreakable line whole and rejoins the engine at `0x0045A785` (snapping to `lineStart+1` terminates but emits one character per line, which `Draw`'s vertical centring then pushes off the control). Two short-string guards at `0x0045A3B7`/`0x0045A3DC` are NOPed with it. `tools/build_wrap_progress_fix.py` |
 | Text stayed **unreadably small** at high resolutions | Vanilla renders UI text at a fixed pixel size regardless of resolution. | Per-resolution TXI metrics, `max(1.0, height/720)`. |
 | Dialogue letterbox **too small at ultrawide** | Bar height derived from screen *width*. | Height-derived formula at 9 call sites (`.klb` section). |
 | List rows **overlapped** with bigger text | Row height copied verbatim, never scaled. | Resolution-aware row scale (`.kfs` section). |
+| Description text ran **under the scrollbar** | Two separate defects. The engine's line measurement truncates each glyph advance to an integer and so under-measures a line by ~3% (1202 vs 1238 read live), letting it clip; and vanilla left the listbox `PADDING` gutter at 0 on six description panes while never scaling the small values it did set elsewhere. | `spacingR` raised to a flat 0.5px per glyph as a **wrap margin** — it feeds the line-breaker at `0x0045A5C9` but *not* the renderer at `0x0045A806`, so it costs no visible letter spacing; plus a resolution-scaled `PADDING` gutter (`tools/scale_listbox_padding.py`). |
+| Inventory, Abilities and Store rows and **icons stayed vanilla-sized** | Rows and icons size from hardcoded constants in the exe (56 inventory, 42 abilities, 56 store), independent of resolution and font. `PROTOITEM`'s own `EXTENT.HEIGHT` is parsed into the control and then never used for the row, so no GUI edit can reach it. | All seven sites scaled by `max(1.0, height/720)` (`RowSizeGroups`). They are reached only by the inventory item row, so unlike the `.kfs` list-row float they cannot disturb save/load or the journal. Full trace in `reverse-engineering/inventory-item-rows.md`. |
 
 Bugs in this project's own tooling, fixed along the way and worth not
 repeating: glyphs shifted a pixel left (left side bearing must equal the
@@ -36,10 +40,10 @@ ink sliced at the cell edge on **both** sides (a glyph's cell width **is** its
 advance in this format — there is no side bearing to overhang into, and glyphs
 like `j`, `w`, `(`, `Y` start left of the pen origin); a scaled `.txi` alone
 silently doing nothing (the `.tga` must ship beside it or the packed `.tpc`'s
-embedded metrics win); and letter spacing that reads cramped at some
-resolutions — corrected from **measurement** per font and scale, because the
-underlying variation is advance-rounding noise rather than anything a smooth
-formula can track.
+embedded metrics win); and a whole letter-spacing mechanism built on a false premise (`spacingR`
+feeds only the line-breaker, never the renderer — so the table that tuned it
+per font and scale was silently moving wrap points and nothing else; the
+cramped text it was meant to fix was actually cured by the atlas rebuild).
 
 ## Current status
 
@@ -69,8 +73,9 @@ formula can track.
   their label is built in engine code at a fixed 21x19px, so enlarged glyphs
   both overflow and clip. Analysis and candidate fixes in
   `reverse-engineering/font-atlases.md`.
-- The current gold snapshot is `swkotor_gold_v6_wrapfix.exe`, SHA-256
-  `171D084E8F58AB40B778D97A3378B1A54E24F10EA02D2053A6A78B913318A7B8`.
+- The current gold snapshot is
+  `build/universal-patcher/swkotor_gold_v8_stackcount.exe`, SHA-256
+  `879DBCBEAAF6ACEB22E7D95BB8D1566DA955D65B2F3AC07F8D3E08D450308AED`.
   `D8F0EEBF...` is the **obsolete** original gold — `build_universal_patcher.ps1`
   still defaults `-GoldExe` to it, so always pass that argument explicitly.
 - A strict source-to-gold Windows patcher is available in `dist/`. It embeds

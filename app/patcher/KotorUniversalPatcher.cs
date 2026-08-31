@@ -33,10 +33,10 @@ namespace KotorUniversalUI
     {
         internal const string ResourceName = "KotorUniversalUI.goldpatch";
         internal const string SourceHash = "761F9466F456A83909036BAEBB5C43167D722387BE66E54617BA20A8C49E9886";
-        internal const string TargetHash = "171D084E8F58AB40B778D97A3378B1A54E24F10EA02D2053A6A78B913318A7B8";
+        internal const string TargetHash = "879DBCBEAAF6ACEB22E7D95BB8D1566DA955D65B2F3AC07F8D3E08D450308AED";
         internal const long SourceLength = 4042752;
-        internal const long TargetLength = 4055040;
-        internal const string PatchVersion = "2.1.0-universal-wrapfix";
+        internal const long TargetLength = 4059136;
+        internal const string PatchVersion = "2.3.0-universal-stackcount";
 
         private readonly List<PatchChunk> chunks;
 
@@ -279,6 +279,50 @@ namespace KotorUniversalUI
         // little under a pure height ratio, which read as too large in play-testing.
         // Clamped at 1.0, which takes effect below 900px, so short screens keep vanilla
         // sizing rather than shrinking below it.
+        // Inventory item rows size themselves from THREE hardcoded 56s, all
+        // independent of resolution and of the font -- which is why enlarged text
+        // left the rows and their icons stranded at vanilla size, and why nothing
+        // in inventory.gui could move them (PROTOITEM's own 100px EXTENT.HEIGHT is
+        // read into the control and then never used for the row).
+        //
+        //   0x002B527F  mov edi,56              icon box 56x56, text left offset,
+        //                                       and text width = row width - 56
+        //   0x002B4FA9  mov [esp+0x1C],56       row height -> CSWGuiInGameItemEntry::SetRect
+        //   0x002B55E3  mov [esp+0x18],56       row height, second layout path
+        //
+        // The height ones feed row+0x10, which the listbox harvests as
+        // `[listbox+0x2B4] = max(item->height)` and then uses as every row's rect
+        // height; row pitch is that plus the GUI's PADDING byte. Patching only the
+        // icon constant therefore grows the icons INTO the row below -- all three
+        // must move together. Traced and confirmed live under x32dbg.
+        //
+        // Scaled by the same height rule as the fonts so rows grow with the text.
+        // Unlike RowScaleOffset these are reached only by the inventory item row,
+        // so they cannot disturb the save/load, journal or resolution lists.
+        // Three screens build their list rows from the same class shape, each with
+        // its own hardcoded size: the first constant is the row's square icon box
+        // (and therefore the text's left offset and width), the rest are the row
+        // HEIGHT handed to SetRect. Found by scanning for the shape rather than the
+        // value -- `mov <reg>,imm ; cmp <reg2>,<reg> ; jle` locates the icon site in
+        // each row class, and `mov [esp+X],imm` right before `call [<reg>+4]`
+        // locates the height sites.
+        //
+        //   inventory  56  0x002B527F icon   0x002B4FA9 + 0x002B55E3 height
+        //   abilities  42  0x002AB8EF icon   0x002ACB20 height
+        //   store      56  0x002C265F icon   0x002C2A23 height
+        //
+        // All are imm32, so they take any scale. Each group's icon and height MUST
+        // move together: patching the icon alone grows it into the row below, which
+        // is exactly what the first inventory attempt did (confirmed in game).
+        // Details and the full call chain in
+        // reverse-engineering/inventory-item-rows.md.
+        private static readonly int[][] RowSizeGroups =
+        {
+            new[] { 56, 0x002B527F, 0x002B4FA9, 0x002B55E3 },   // inventory
+            new[] { 42, 0x002AB8EF, 0x002ACB20 },               // abilities: skills/powers/feats
+            new[] { 56, 0x002C265F, 0x002C2A23 },               // store / merchant
+        };
+
         private const long RowScaleOffset = 0x003DD004;
         private const float GoldRowScale = 1.75f;
         private const float ScaleHeightDivisor = 720.0f;
@@ -306,6 +350,14 @@ namespace KotorUniversalUI
                 ReplaceInt32(executable, offset, 1440, resolution.Height, "screen height");
             ReplaceSingle(executable, RowScaleOffset, GoldRowScale, ScaleForHeight(resolution.Height),
                 "list-row scale");
+            float rowSizeScale = ScaleForHeight(resolution.Height);
+            foreach (int[] group in RowSizeGroups)
+            {
+                int goldSize = group[0];
+                int scaled = (int)Math.Round(goldSize * rowSizeScale);
+                for (int i = 1; i < group.Length; i++)
+                    ReplaceInt32(executable, group[i], goldSize, scaled, "list row/icon size");
+            }
             foreach (long offset in NegativeWidthOffsets)
                 ReplaceInt32(executable, offset, -3440, -resolution.Width, "click-fix width reference");
             foreach (long offset in NegativeHeightOffsets)

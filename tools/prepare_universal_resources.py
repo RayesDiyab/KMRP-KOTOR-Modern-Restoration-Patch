@@ -16,6 +16,8 @@ from build_scaled_fonts import export_font_txis, export_fonts, scale_txi
 from fix_hud_menubg import fix_menubg_file
 from scale_hud_minimap import patch_gui
 from transfer_gold_gui_geometry import transfer_geometry
+from scale_listbox_padding import scale_listbox_padding
+from scale_row_icon_frames import FRAME_RESREFS, export_frames
 
 
 MENUBG_TEXTURE_NAME = "lbl_mileftbot.tga"
@@ -37,38 +39,32 @@ FONT_SCALE_OFFSET = 0.0
 # tools/build_font_from_ttf.py was run with to produce assets/hd-fonts.
 HD_FONT_BAKE_SCALE = 3.0
 
-# Per-glyph letter spacing, in pixels, added by the engine on top of each
-# glyph's own advance (`advance = (uvWidth * texturewidth + spacingR) * 100`).
+# `spacingR` is added to each glyph's advance ONLY where the engine measures
+# text for line breaking (`fadd [edi+0x10]` at 0x0045A5C9). The path that
+# actually draws the glyphs (0x0045A806) does not read it. **Proven in game**:
+# raising it from 0.02px to 0.4px stopped long descriptions being clipped and
+# left the visible letter spacing completely unchanged.
 #
-# The shared atlas is rasterised once and bilinear-downscaled for every
-# resolution below the top of the curve; that resampling, followed by the
-# engine's alpha threshold, renders ink roughly 2% wider than the pure ratio.
-# The extra width comes out of the gap between letters, and since it is a
-# near-constant number of pixels it hurts small text proportionally most --
-# measured, menu text at 1080p had a gap/ink ratio of 0.098 against 0.126 at
-# 1440p, i.e. visibly cramped.
+# That makes it a wrap-safety margin, not a typographic control. It is needed
+# because the engine's own line measurement UNDERESTIMATES: comparing the
+# per-line widths it stores against the widths implied by the atlas's glyph
+# advances, it runs consistently ~3% low (203 vs 208, 106 vs 109, 1202 vs
+# 1238 -- read live out of the description listbox). It truncates each glyph's
+# advance to an integer, losing up to a pixel per character, so a long line it
+# believes fits in the 1293px content area really renders ~39px wider and the
+# last word is sliced off at the clip edge. Vanilla text rarely reached the
+# limit, so the bug only shows once the font is enlarged.
 #
-# The amount needed is MEASURED per font and per scale, not modelled: the
-# baseline ratios are not monotonic in how hard the atlas is downscaled (menu
-# text measures 0.114 at 720p, 0.098 at 1080p, 0.126 at 1440p, 0.120 at 2160p),
-# because what actually varies is integer rounding of each glyph's advance at
-# each specific pixel size. A smooth `f = scale / bake` curve chases that noise
-# and overshoots badly at small sizes -- one measured a 720p menu at 0.198
-# against a 0.120 target. `tools/measure_letter_spacing.py` solves for the
-# correction that returns each font to its own ratio at the native baked size
-# and writes `assets/letter-spacing.json`; in practice only the menu font at
-# 1080p needs anything (0.35px), which is why a flat constant was visibly wrong
-# at other resolutions.
-#
-# This is a pixel-space correction, so it must NOT be scaled with the
-# resolution the way the other metrics are -- hence `spacingR` is overwritten
-# after `scale_txi` rather than passed through it.
-LETTER_SPACING_FILE = "letter-spacing.json"
+# Half a pixel per glyph covers the average truncation loss regardless of font
+# size -- the error is bounded by one pixel per character whatever the scale --
+# so a flat value is right here and does not need to scale with resolution.
+# `spacingR` is written AFTER `scale_txi` for exactly that reason.
+LETTER_SPACING_PX = 0.5
 
 
-def letter_spacing_for(table: dict, resref: str, scale: float) -> float:
-    """Measured pixels of extra per-glyph spacing for this font at this scale."""
-    return float(table.get(resref.lower(), {}).get(f"{scale:.4f}", 0.0))
+def letter_spacing_for(scale: float) -> float:
+    """Pixels of per-glyph wrap margin. Affects line breaking only, not drawing."""
+    return LETTER_SPACING_PX
 
 
 def font_scale_for(height: int) -> float:
@@ -110,6 +106,15 @@ ASPECT_FOLDERS = {
     "16:9": "16-by-9",
     "21:9": "21-by-9",
     "32:9": "32-by-9",
+}
+
+# Single-item description panes: one wrapped paragraph beside a scrollbar. These
+# are the controls the missing gutter actually disfigures, and LB_DESCRIPTION is
+# the one confirmed by play-test. Multi-row lists (LB_ITEMS, LB_REPLIES,
+# LB_MESSAGES) are deliberately excluded until it is confirmed that PADDING does
+# not also affect vertical row spacing, which would cost them visible rows.
+DESCRIPTION_LISTBOXES = {
+    "LB_DESCRIPTION", "LB_DESC", "LBL_ITEM_DESCRIPTION",
 }
 
 GOLD_GEOMETRY_TEMPLATES = {
@@ -160,9 +165,25 @@ def main() -> int:
     # width/pitch relative to LBL_MENUBG's span, which differs per resolution.
     # It must appear in exactly one archive -- OverrideOperations.Install rejects
     # the same relative path carrying different content across the two archives.
-    common_tga_files = [path for path in tga_files if path.name.lower() != MENUBG_TEXTURE_NAME]
-    if len(common_tga_files) != len(tga_files) - 1:
-        raise ValueError(f"Expected exactly one {MENUBG_TEXTURE_NAME} among the shared TGA assets")
+    # The hex icon frames behind list-row item icons are a TILED fill sized to the
+    # row's icon box. That box is now scaled per resolution (RowSizeGroups in
+    # KotorUniversalPatcher.cs), so 56px art tiles 2x2 at 1440p and draws four
+    # borders per row -- seen in game. They therefore ship per resolution, scaled
+    # to match, and must NOT go in the shared archive.
+    frame_tga_names = {f"{name}.tga" for name in FRAME_RESREFS}
+    common_tga_files = [path for path in tga_files
+                        if path.name.lower() != MENUBG_TEXTURE_NAME
+                        and path.name.lower() not in frame_tga_names]
+    menubg_count = sum(1 for path in tga_files if path.name.lower() == MENUBG_TEXTURE_NAME)
+    if menubg_count != 1:
+        raise ValueError(f"Expected exactly one {MENUBG_TEXTURE_NAME} among the shared TGA assets, "
+                         f"found {menubg_count}")
+    excluded_frames = sorted(path.name.lower() for path in tga_files
+                             if path.name.lower() in frame_tga_names)
+    if len(common_tga_files) != len(tga_files) - 1 - len(excluded_frames):
+        raise ValueError("Shared TGA exclusion did not remove the expected files")
+    print(f"Shared TGAs: {len(common_tga_files)} "
+          f"(per-resolution instead: {MENUBG_TEXTURE_NAME}, {', '.join(excluded_frames)})")
     # The HD font atlases are byte-identical at every resolution -- only their TXI
     # metrics differ -- so they ship once here rather than being duplicated into all
     # 48 per-resolution archives.
@@ -170,15 +191,6 @@ def main() -> int:
     if not hd_font_atlases:
         raise ValueError(f"No HD font atlases found in {args.hd_fonts}")
     hd_font_stems = {path.stem.lower() for path in hd_font_atlases}
-
-    # Measured per-font, per-scale letter spacing (see LETTER_SPACING_FILE).
-    spacing_path = args.hd_fonts.parent / LETTER_SPACING_FILE
-    if not spacing_path.exists():
-        raise ValueError(
-            f"{spacing_path} is missing -- regenerate it with "
-            f"tools/measure_letter_spacing.py after re-baking the atlases")
-    letter_spacing = {k.lower(): v for k, v in
-                      json.loads(spacing_path.read_text(encoding="ascii")).items()}
 
     with tempfile.TemporaryDirectory(prefix="kotor-stock-fonts-") as stock_name:
         # Stock artwork for every font we are NOT replacing. A scaled `.txi` alone
@@ -277,6 +289,22 @@ def main() -> int:
                     else:
                         packaged_files.append(gui_file)
 
+                # Whichever branch produced them, every .gui gets its description
+                # panes' scrollbar gutter scaled for this resolution. `PADDING` is
+                # a horizontal inset the engine subtracts from the wrap width;
+                # vanilla left it at 0 on six description boxes and never scaled it
+                # on the ones it did set, so enlarged text runs right up under the
+                # scrollbar. Confirmed in game -- see tools/scale_listbox_padding.py.
+                gutter_dir = temp_dir / "gutter"
+                gutter_dir.mkdir(exist_ok=True)
+                for index, path in enumerate(packaged_files):
+                    if path.suffix.lower() != ".gui":
+                        continue
+                    gutter_file = gutter_dir / path.name
+                    scale_listbox_padding(path, gutter_file, font_scale_for(height),
+                                          DESCRIPTION_LISTBOXES)
+                    packaged_files[index] = gutter_file
+
                 # Generate this resolution's button-row background art from the
                 # mipc*.gui file the engine will actually load at this
                 # resolution. The in-executable variant selector compares the
@@ -318,7 +346,7 @@ def main() -> int:
                                 metrics.read_text(encoding="ascii"),
                                 scale / HD_FONT_BAKE_SCALE,
                             ),
-                            letter_spacing_for(letter_spacing, atlas.stem, scale),
+                            letter_spacing_for(scale),
                         ).encode("ascii")
                     )
                     packaged_files.append(scaled)
@@ -331,7 +359,22 @@ def main() -> int:
                 stock_dir = font_dir / "stock"
                 for path in export_font_txis(args.texture_pack, stock_dir, scale):
                     if path.stem.lower() not in replaced:
+                        # The wrap margin is not specific to our own atlases: the
+                        # engine truncates every glyph advance, so an enlarged stock
+                        # font clips its last word just the same.
+                        path.write_bytes(
+                            apply_letter_spacing(
+                                path.read_text(encoding="ascii"),
+                                letter_spacing_for(scale),
+                            ).encode("ascii")
+                        )
                         packaged_files.append(path)
+
+                # Hex icon frames at this resolution's row-icon size, so the
+                # tiled fill stays exactly one tile (see scale_row_icon_frames).
+                packaged_files.extend(
+                    export_frames(args.texture_pack, temp_dir / "frames",
+                                  font_scale_for(height)))
 
                 write_zip(args.output / f"gui-{resolution}.zip", packaged_files)
 
