@@ -384,43 +384,59 @@ a **manual asset step whose output is committed** — do not add it to the build
 pipeline, which must stay pure-stdlib (see the PIL/PowerShell gotcha in
 `docs/font-scaling.md`).
 
-## Letter spacing: measured per font and scale, not modelled
+## `spacingR` controls word wrap, not letter spacing
 
-Text from the shared atlas reads tighter at some sizes than others. Menu text
-measured a gap/ink ratio of **0.098 at 1080p against 0.126 at 1440p** — visibly
-cramped, and reported from play.
+**Proven in game, and it overturns what this document previously claimed.**
+Raising `spacingR` for `fnt_d16x16b` at 3440x1440 from 0.02px to 0.40px — a
+change larger than any value the old spacing table ever emitted — stopped long
+item descriptions being clipped and left the visible letter spacing *completely
+unchanged*. Confirmed from play: "fixed and width is unchanged".
 
-The obvious explanation — that downsampling the atlas fattens the ink and eats
-the gap — is **wrong**, or at least not the whole story. Baseline ratios run
-0.114 at 720p, 0.098 at 1080p, 0.126 at 1440p, 0.120 at 2160p: **not monotonic**
-in how hard the atlas is downscaled. What actually varies is integer rounding of
-each glyph's advance landing differently at each specific pixel size. A smooth
-`f = scale / bake` curve therefore fits noise, and one that was tried overshot
-hard at the small end (720p menus at **0.198** against a 0.120 target, dialogue
-at 0.271).
+The disassembly agrees, and says why:
 
-`tools/measure_letter_spacing.py` measures instead. For every font and every one
-of the 23 distinct scales the resolution list asks for, it reconstructs how the
-engine will rasterise the atlas at that size, measures mean ink width and the
-gap that follows, and solves for the `spacingR` that returns the ratio to that
-font's own value **at the native baked size** — where nothing is resampled, so
-that ratio is the typeface's true design spacing. It only ever loosens.
+| site | reads `spacingR`? |
+|---|---|
+| `0x0045A5C9` — line-breaker, accumulating a candidate line's width (`fadd [edi+0x10]`) | **yes** |
+| `0x0045A806` — `Draw`, advancing the pen between glyphs | **no** |
 
-The answer turns out to be sparse: **only the menu font at 1080p needs anything
-(0.35px)**. Everything else already sits at or above its native ratio. That is
-exactly why a flat constant looked wrong — it loosened 1440p, which was already
-correct.
+So `spacingR` is a **wrap-safety margin**. Rendered letter spacing comes from
+the glyph cell widths in the atlas UV rects, and is fixed at bake time by
+`build_font_from_ttf.py`; `spacingR` cannot influence it at all.
 
-Result is committed as `assets/letter-spacing.json` (`{resref: {scale: px}}`)
-and read by `prepare_universal_resources.py`, keeping the build pure-stdlib.
-`spacingR` is written **after** `scale_txi`, never through it: this is a
-pixel-space correction, and scaling it with the resolution would reintroduce
-the very thing it fixes.
+### What the margin is for
 
-> **Re-baking the atlases invalidates the table.** Re-run
-> `measure_letter_spacing.py` afterwards. The build fails with an explicit
-> message if `letter-spacing.json` is missing rather than silently shipping
-> zeros.
+The engine's line measurement *underestimates*. Read live out of the
+description listbox, its stored per-line widths against the widths implied by
+the atlas advances:
+
+| engine | true | error |
+|---|---|---|
+| 203 | 208 | −2.4% |
+| 106 | 109 | −2.8% |
+| 1202 | 1238 | −2.9% |
+
+It truncates each glyph advance to an integer, losing up to a pixel per
+character. A long line it believes fits the 1293px content area really renders
+~39px wider, and the last word is sliced off at the clip edge — under the
+scrollbar, which is what made it look like a gutter bug. Vanilla text rarely
+reached the limit, so it only surfaces once the font is enlarged.
+
+`LETTER_SPACING_PX = 0.5` in `prepare_universal_resources.py` covers the
+average truncation loss. The error is bounded by one pixel per character
+*whatever the font size*, so a flat value is correct here and must **not** scale
+with resolution — which is why `spacingR` is written **after** `scale_txi`, not
+through it. It is applied to the stock 17 fonts too: they are enlarged by the
+same metrics and clip the same way.
+
+> **Superseded:** an earlier `tools/measure_letter_spacing.py` and
+> `assets/letter-spacing.json` tuned `spacingR` per font and scale to correct a
+> gap/ink ratio (menu text measured 0.098 at 1080p against 0.126 at 1440p).
+> The ratio measurements were real, but they came from a simulation that
+> included `spacingR` in the advance — which the game's renderer does not. That
+> table was silently changing wrap points and nothing else. Both files are
+> deleted. The cramped-text complaint that motivated them was genuinely fixed,
+> but by the atlas rebuild landing alongside it: correct left-side bearings,
+> `GLYPH_PADDING = 4`, and the guaranteed non-zero advance.
 
 ### Hand-refining the font (the intended finishing step)
 
@@ -510,3 +526,48 @@ never fetched or verified.
 Redistributing the extracted vanilla atlases is the same class of act as the
 existing `assets/override-*` art this project already ships; it is noted here
 only so the decision is explicit rather than accidental.
+
+## Inventory item rows are engine-built, not PROTOITEM clones
+
+The inventory list does not size its rows from the GUI file. Established by
+play-test at 3440x1440 -- every one of these left the list at exactly 15 rows in
+an 868px box (~57.9px pitch):
+
+| changed | result |
+| --- | --- |
+| `LB_ITEMS.PROTOITEM.EXTENT.HEIGHT` 100 -> 200 | nothing |
+| `LB_ITEMS.PROTOITEM.BORDER.INNEROFFSET` 10 -> 40 | nothing |
+| `LB_ITEMS.PROTOITEM.BORDER.DIMENSION` 14 -> 40 | thick frames, row text vanished, **pitch unchanged** |
+| `.kfs` row-scale float 2.0 -> 3.0 | **save/load rows grew, inventory untouched** |
+| `dialogfont16x16` fontheight x2 (atlas shipped) | nothing, anywhere on screen |
+
+The last two are the informative ones. The `.kfs` hook at `0x00417992` really is
+only the *generic* composite row path. And `dialogfont16x16` is what
+`inventory.gui` declares as `LB_ITEMS`'s PROTOITEM font, yet changing it does
+nothing -- so the engine substitutes its own.
+
+### The row class
+
+Traced statically from the `LB_ITEMS` tag string (`0x00751A14`):
+
+| what | where |
+| --- | --- |
+| inventory panel binds `LB_ITEMS` | `0x006B36B5`, stored at panel `+0x564` (`LB_DESCRIPTION` -> `+0x844`) |
+| panel's row-object array / count / capacity | `+0x1DC0` / `+0x1DC4` / `+0x1DC8` |
+| row allocation + construction | `0x006B4502` (`new`) then ctor `0x006B7EE0` |
+| row class vtable | `0x007568F8` |
+| row layout, vtable `+0xA0` | `0x006B4DB0` |
+| row sub-structs | `+0x80` border, `+0xF4` hilight, `+0x16C`, `+0x1DC` icon frame (fill `lbl_hex_3`) |
+
+`0x006B4DB0` receives the protoitem's border/hilight/text sub-objects
+(`proto+0x6C`, `+0xE0`, `+0x154`, fetched via the listbox's vtable `+0x58`) and a
+computed **width** of `panel[+0x7F8] - 2*panel[+0x824]` -- and **no height**. It
+copies those sub-structs and installs `lbl_hex_3` as the icon frame; it contains
+no size arithmetic at all. So both the row height and the icon rect are set
+somewhere else, most likely when the listbox positions its children.
+
+> **SOLVED** — see `inventory-item-rows.md`. Rows and icons size from three
+> hardcoded `56`s at file offsets `0x002B527F`, `0x002B4FA9` and `0x002B55E3`;
+> all three are now scaled per resolution by the Universal Patcher. The
+> breakpoint route (row ctor `0x006B7EE0`, layout `0x006B4DB0`) is what found
+> them, and the method is written up there.
