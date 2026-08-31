@@ -33,7 +33,7 @@ namespace KotorUniversalUI
     {
         internal const string ResourceName = "KotorUniversalUI.goldpatch";
         internal const string SourceHash = "761F9466F456A83909036BAEBB5C43167D722387BE66E54617BA20A8C49E9886";
-        internal const string TargetHash = "B1EDAD13CE0CFC10369376D2A2DD92A7773F4CAEACB7A4FAD34132F7BD10EDEE";
+        internal const string TargetHash = "E14431A281CAC0C341B7BCE7185170C8A4E7C99CC962AC8E8F03A15620EED1E0";
         internal const long SourceLength = 4042752;
         internal const long TargetLength = 4067328;
         internal const string PatchVersion = "2.5.0-stack-label";

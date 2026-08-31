@@ -123,6 +123,16 @@ section. Two constraints:
   slot rather than by clearing the register.
 - `test ebx, ebx` is re-issued **last** in builder B's stub: the `je` at
   `0x0041A30D` consumes its flags and only `mov`s sit between.
+- Builder B derives `rect.top` from `edi` as well — `sub ebx, edi` at
+  `0x0041A35D` on the bottom-anchored branch, `sub edi, eax` at `0x0041A381`
+  otherwise — leaving `top = PADDING` when unscrolled, where builder A writes
+  `0`. So a pane long enough to scroll also gained a `PADDING`-tall gap above
+  its first line. The stub clears `edi` after storing the left edge, which fixes
+  both branches: those two subtractions are its only remaining readers.
+
+The same condition, `content taller than the box`, produced three separate
+visible symptoms — gutter on the wrong side, and a top gap — all from builder B
+being missed. One branch, several faces.
 
 ## Method that works
 
