@@ -288,13 +288,39 @@ turning a clean NULL dereference into a 33-million-element write into a
 patching a grow/copy helper, clamp the copy bound and the capacity together or
 not at all.**
 
-**Still open — stack counts disappear when scaled.** The 21x19 label exists in
-no `.gui` file (every 1080p GUI scanned; nothing under 60x40 matches), so it is
-built in engine code and cannot be widened by editing geometry. At 1.75x its
-glyphs are ~33px inside a fixed 19px label, so it clips away regardless of
-wrapping. Fixing it needs either locating where that label is constructed and
-scaling its extent, or a wrap patch that renders the run unwrapped/overflowing
-instead of breaking it.
+**Fixed — the stack-count label is built in the inventory row's `SetRect`.**
+It appears in no `.gui` file because it is constructed at `0x006B5270`, right
+after the icon, and is geometrically locked to it:
+
+```
+006B531F  call 0x5E5790          ; strlen of the count text
+006B5326  cmp eax, 2             ; one or two digits?
+006B532E  mov [esp+2C], 0x13     ; height = 19
+006B5337  and ecx, 0x15          ; width = 21   (<= 2 digits)
+006B533A  add ecx, 0x15          ;      or 42   (3+ digits)
+006B5343  sub edx, eax           ; left += iconSize - width   (right-aligned)
+006B534F  add eax, 0x25          ; top  += 37                 (bottom-aligned)
+```
+
+`37 + 19 = 56`, the vanilla icon size — the label sits in the bottom-right
+corner of the icon box. Scaling the icon to 112 without scaling this left a
+21x19 label in the corner of a box twice the size, and with an enlarged font
+(the widest two-digit pair needs 22px in a 21px box) the digits had nowhere to
+go. That is the whole bug; it was never a font-generator problem.
+
+| what | file offset | operand | vanilla |
+| --- | --- | --- | --- |
+| label height | `0x002B5332` | imm32 | 19 |
+| width, 1-2 digits | `0x002B5339` | **imm8** | 21 |
+| width, 3+ digits | `0x002B533C` | **imm8** | 21 |
+| top offset | `0x002B5351` | **imm8** | 37 |
+
+`StackCountSites` in `KotorUniversalPatcher.cs` scales all four together. Three
+are **imm8** operands, so a value above 127 would sign-extend NEGATIVE; the
+scale for this group is clamped at `127/37` (~3.43) so the largest stays in
+range. Above roughly 2470p the label stops growing rather than wrapping to
+garbage, and one clamp for the whole group keeps the four values consistent
+with each other. Play-test confirmed at 3440x1440.
 
 ## Verifying an atlas
 

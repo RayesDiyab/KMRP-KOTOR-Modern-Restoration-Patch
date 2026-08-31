@@ -32,6 +32,7 @@ the inventory row/icon trace has its own writeup in
 | Description text ran **under the scrollbar** | Two separate defects. The engine's line measurement truncates each glyph advance to an integer and so under-measures a line by ~3% (1202 vs 1238 read live), letting it clip; and vanilla left the listbox `PADDING` gutter at 0 on six description panes while never scaling the small values it did set elsewhere. | `spacingR` raised to a flat 0.5px per glyph as a **wrap margin** — it feeds the line-breaker at `0x0045A5C9` but *not* the renderer at `0x0045A806`, so it costs no visible letter spacing; plus a resolution-scaled `PADDING` gutter (`tools/scale_listbox_padding.py`). |
 | Inventory, Abilities and Store rows and **icons stayed vanilla-sized** | Rows and icons size from hardcoded constants in the exe (56 inventory, 42 abilities, 56 store), independent of resolution and font. `PROTOITEM`'s own `EXTENT.HEIGHT` is parsed into the control and then never used for the row, so no GUI edit can reach it. | All seven sites scaled by `max(1.0, height/720)` (`RowSizeGroups`). They are reached only by the inventory item row, so unlike the `.kfs` list-row float they cannot disturb save/load or the journal. Full trace in `reverse-engineering/inventory-item-rows.md`. |
 | List rows **grew every time a list was re-populated** | `CAurGUIListBox`'s variable-height layout adds a row *count* to a row *height* (`add ebp,edx` at `0x0041B507`, where `edx` is the result of an `idiv` counting how many rows fit), then writes the inflated rect back into reused row controls that the next pass re-reads via `max(item->height)`. A **vanilla BioWare bug** — reproduced with a `.gui` byte-identical to the original. Invisible at low resolution because growth is clamped by box height; a large box lets it ratchet (measured 42 → 56 → 126 on the Powers tab). | Both inflation sites neutralised in the gold build (`tools/build_listbox_growth_fix.py`). Row positions are unaffected — they use a separate accumulator. |
+| Item **stack-count numbers vanished** once the font was enlarged | The label is built in the inventory row's `SetRect` (`0x006B5270`), not in any `.gui`, and is bottom-right-aligned inside the icon box — 21x19 at a top offset of 37, where `37 + 19 = 56` is the vanilla icon size. Scaling the icon left the label behind, and the widest two-digit pair needs 22px in a 21px box. | All four constants scale with the icon (`StackCountSites`); three are imm8 operands so the group's scale is clamped at `127/37` to stop them sign-extending negative. |
 
 Bugs in this project's own tooling, fixed along the way and worth not
 repeating: glyphs shifted a pixel left (left side bearing must equal the
@@ -70,10 +71,11 @@ cramped text it was meant to fix was actually cured by the atlas rebuild).
   rendered TGA atlases, so the TTFs in `assets/fonts/` are build inputs.
   Attribution and the licensing decision on Old Republic are in
   `THIRD_PARTY_NOTICES.md` and `reverse-engineering/font-atlases.md`.
-- **Known broken**: item stack-count numbers vanish at any scale above 1.0 —
-  their label is built in engine code at a fixed 21x19px, so enlarged glyphs
-  both overflow and clip. Analysis and candidate fixes in
-  `reverse-engineering/font-atlases.md`.
+- **Item stack-count numbers**: fixed. The label is built in the inventory
+  row's `SetRect` (in no `.gui` file) and is bottom-right-aligned inside the
+  icon box — `37 + 19 = 56`, the vanilla icon size — so scaling the icon left it
+  behind. All four of its constants now scale with the icon (`StackCountSites`),
+  clamped so the three imm8 operands cannot sign-extend negative.
 - The current gold snapshot is
   `build/universal-patcher/swkotor_gold_v9_listbox.exe`, SHA-256
   `4BC5AC6826D60A5BC02095F7D35E06D086AF743B05F35D7AA9288FDCB0D32EB7`.
