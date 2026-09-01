@@ -146,7 +146,7 @@ dominant lever: the noise is evaluated nine times per buffer pixel, so halving i
 quadruples the cost.
 
 At full design scale (a 1980 x 420 header, the worst case) the shipping settings
-render in **23.5 ms average**, against a 46.8 ms frame budget -- a 40 ms
+render in **22.3 ms average**, against a 46.8 ms frame budget -- a 40 ms
 WinForms timer lands on Windows' 15.6 ms granularity and therefore fires every
 ~46.8 ms, or about 21 fps. Measured in the running application, the effect costs
 about **40% of one core** while the window is focused and idle.
@@ -174,7 +174,9 @@ above the flat window colour, `blown` the share saturated past luminance 200:
 | Off-screen source, blue ramp | 33.7% | 0.0% | rgb 17, 34, 61 | 115.1 |
 | Blue ramp turned up hard | 87.5% | 8.4% | rgb 70, 97, 126 | 103.0 |
 | Grey ramp, long reach | 91.9% | 0.0% | rgb 33, 39, 48 | 106.1 |
-| Shipping: wispy, extinction curve | 97.1% | **0.0%** | rgb 33, 39, 48 | **106.6** |
+| Wispy, extinction curve | 97.1% | 0.0% | rgb 33, 39, 48 | 106.6 |
+| White plume with a front | 73.2% | 0.0% | rgb 67, 72, 80 | 108.3 |
+| Shipping: plus per-column variation | 75.6% | **0.0%** | rgb 68, 73, 81 | **101.9** |
 
 Three separate failures are recorded there, and each was caught by a number rather
 than by eye:
@@ -185,6 +187,43 @@ than by eye:
   rgb 185, 192, 205, so the same coverage now blows out nothing at all;
 - reaching further down the bar is what costs legibility, not density as such.
   Coverage nearly tripled, from 33.7% to 91.9%, for only nine points of contrast.
+
+### Matching the reference clip
+
+The look is modelled on a stock white-smoke plate: near-opaque white entering at the
+top edge, a ragged billowing front roughly a third of the way down, and fine wisps
+trailing below it. Three things were needed, none of which a smooth vertical falloff
+can produce:
+
+- **A front, not a fade.** The vertical profile is solid above a boundary and decays
+  exponentially below it, and the boundary height is itself noise. That is what makes
+  the edge billow rather than sit on a line. It is continuous at the boundary --
+  `exp(0)` is 1 -- so there is no seam.
+- **The vertical shape multiplies optical thickness, not the final value.** Scaling
+  the result only dims the plume; scaling thickness lets the top genuinely saturate
+  toward opaque while the wisps below stay thin.
+- **Anisotropic noise.** Features are stretched along v so tendrils hang downward.
+  This is easy to overdo: at `NoiseAspectY` 0.45 the plume stops reading as smoke and
+  becomes a comb of vertical streaks. 0.80 keeps the downward bias without it.
+
+### Non-uniformity
+
+A front alone still descends to roughly one depth and falls straight down. Three
+further fields, all slow noise in u, break that up: each column gets its own trail
+falloff (`ReachVariation`), its own sideways lean that grows with depth
+(`LateralDrift`, so a tendril leans further the further it falls and neighbouring
+columns lean opposite ways), and its own density (`PatchDepth`).
+
+`reachSD` measures this: the standard deviation, across columns, of the lowest row
+the smoke actually reaches. The front noise alone gives 31.6 px; the three added
+fields take it to 54.1 px, about 13% of the header height.
+
+All three depend on u and time but not on v, so they are evaluated once per column
+rather than once per pixel -- 198 noise samples a frame instead of 198 x 42. Hoisting
+the front calculation the same way paid for all three: frame time is unchanged at
+22.1 ms. Note that pushing the variation harder can *lower* `reachSD`: dropping
+`ReachScale` to 2.2 makes the variation broader and lower-frequency, so fewer
+independent regions fit across the width and the per-column spread falls.
 
 ### Slabs versus wisps
 
@@ -207,6 +246,7 @@ raise the buffer resolution, and that is measurably wrong here:
 | --- | --- | --- | --- |
 | `Downscale` 8 -> 3 | 22.9 -> 71.3 ms | 1.49 -> 1.58 | 92.4% -> 90.5% |
 | `NoiseScale` 2.4 -> 12 | 22.9 -> 25.3 ms | 1.49 -> 2.58 | 92.4% -> 80.1% |
+| Adding the ragged front | no change | 4.34 -> 8.36 | 63.1% -> 36.5% |
 
 Tripling the cost bought 6% more detail; the noise scale bought 73% more for 2 ms.
 Detail is limited by feature size, not by buffer resolution. Because of that,

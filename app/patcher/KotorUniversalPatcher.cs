@@ -2381,14 +2381,41 @@ namespace KotorUniversalUI
         // Feature size. This is the dial that decides whether the plume reads as drifting
         // slabs or as see-through wisps; it was 2.4, where the finest octave had features
         // about 100px across and the smoke looked like a moving mass.
-        private const float NoiseScale = 12.0F;
+        private const float NoiseScale = 8.0F;
         private const float FbmGain = 0.5F;     // octave falloff; higher keeps finer wisps
-        private const float WarpStrength = 1.25F;
+        private const float WarpStrength = 1.6F;
         private const float FlowSpeed = 0.055F;   // how fast the plume travels downward
         private const float EvolveSpeed = 0.09F;  // how fast it boils in place
         private const float Threshold = 0.26F;    // noise level where smoke begins
         private const float DensityGain = 3.3F;
-        private const float VerticalFalloff = 0.8F;
+
+        // Tendrils hang downward, so the noise is sampled anisotropically: features are
+        // stretched along v. At 1.0 the plume is isotropic and reads as clouds; pushed
+        // as far as 0.45 it stops looking like smoke and starts looking like a comb of
+        // vertical streaks.
+        private const float NoiseAspectY = 0.80F;
+
+        // The plume is dense at the top edge and breaks into wisps below a ragged front.
+        // The front height is itself noise, which is what makes it billow instead of
+        // sitting at a fixed line -- a smooth vertical falloff has no boundary at all.
+        private const float FrontBase = 0.34F;    // mean height of the boundary
+        private const float FrontWobble = 0.24F;  // how far the boundary billows
+        private const float FrontScale = 5.0F;    // lateral size of the billows
+        private const float FrontDrift = 0.05F;   // how fast the boundary slides sideways
+        private const float TrailFalloff = 4.2F;  // how fast the wisps die below the front
+
+        // Smoke is not uniform, so none of the above is applied evenly across the width.
+        // Each column gets its own reach, its own sideways lean, and its own density, all
+        // driven by slow noise in u. Without this the plume descends to a single depth
+        // everywhere and falls straight down, which reads as an effect rather than as smoke.
+        private const float ReachVariation = 0.75F; // +/- share of TrailFalloff per column
+        private const float ReachScale = 3.0F;
+        private const float ReachDrift = 0.03F;
+        private const float LateralDrift = 3.0F;    // how far a tendril leans as it falls
+        private const float DriftScale = 2.5F;
+        private const float DriftSpeed = 0.02F;
+        private const float PatchDepth = 0.09F;     // how much the smoke threshold varies
+        private const float PatchScale = 1.8F;
 
         private const float BloomWeight = 0.55F;
         private const int BloomRadius = 2;
@@ -2403,14 +2430,13 @@ namespace KotorUniversalUI
         private const float MoteSizeSpan = 0.0115F;
         private const float MoteAlpha = 1.0F;
 
-        // The emission ramp, darkest to brightest. Grey smoke, with only a slight cool
-        // lift so it sits with the rest of the palette instead of reading as a neutral
-        // grey patch. An earlier saturated-blue ramp made the plume look like coloured
-        // gas rather than lit smoke.
+        // The emission ramp, darkest to brightest: white smoke, with only a slight cool
+        // lift so it sits with the rest of the palette. A saturated-blue ramp made the
+        // plume look like coloured gas rather than lit smoke.
         private static readonly float[] RampStop = { 0.00F, 0.30F, 0.62F, 1.00F };
-        private static readonly int[] RampR = { 8, 48, 110, 185 };
-        private static readonly int[] RampG = { 10, 53, 117, 192 };
-        private static readonly int[] RampB = { 14, 62, 130, 205 };
+        private static readonly int[] RampR = { 10, 72, 168, 240 };
+        private static readonly int[] RampG = { 12, 76, 173, 245 };
+        private static readonly int[] RampB = { 16, 84, 182, 250 };
 
         private readonly int[] perm = new int[512];
         private readonly Random random = new Random(20260901);
@@ -2419,6 +2445,7 @@ namespace KotorUniversalUI
         private int width, height;
         private float[] field;
         private float[] scratch;
+        private float[] colFront, colReach, colShear, colPatch;
         private byte[] pixels;
         private Bitmap buffer;
         private Bitmap moteSprite;
@@ -2497,6 +2524,10 @@ namespace KotorUniversalUI
                 height = h;
                 field = new float[w * h];
                 scratch = new float[w * h];
+                colFront = new float[w];
+                colReach = new float[w];
+                colShear = new float[w];
+                colPatch = new float[w];
                 pixels = new byte[w * h * 4];
                 buffer = new Bitmap(w, h, PixelFormat.Format32bppArgb);
             }
@@ -2524,11 +2555,26 @@ namespace KotorUniversalUI
         private void RenderSmoke(int w, int h, float aspect)
         {
             float evolve = time * EvolveSpeed;
+
+            // Per-column variation, hoisted out of the pixel loop: it depends on u and
+            // time but not on v, so evaluating it per column instead of per pixel costs
+            // w noise samples a frame rather than w*h.
+            for (int x = 0; x < w; x++)
+            {
+                float cu = (x + 0.5F) / w;
+                colFront[x] = FrontBase + FrontWobble
+                    * Noise(cu * FrontScale + time * FrontDrift, 7.3F, evolve);
+                float reach = Noise(cu * ReachScale + time * ReachDrift, 21.5F, evolve * 0.4F);
+                colReach[x] = Math.Max(0.6F, TrailFalloff * (1F + ReachVariation * 2F * reach));
+                colShear[x] = LateralDrift
+                    * Noise(cu * DriftScale + time * DriftSpeed, 33.1F, evolve * 0.4F);
+                colPatch[x] = PatchDepth
+                    * Noise(cu * PatchScale + time * 0.03F, 51.7F, evolve * 0.3F);
+            }
+
             for (int y = 0; y < h; y++)
             {
                 float v = (y + 0.5F) / h;
-                // The smoke thins with depth just as the light does.
-                float shape = (float)Math.Exp(-v * VerticalFalloff);
 
                 for (int x = 0; x < w; x++)
                 {
@@ -2541,9 +2587,19 @@ namespace KotorUniversalUI
                         continue;
                     }
 
-                    // Sample the plume in a frame that travels downward with it.
-                    float nx = u * NoiseScale * aspect;
-                    float ny = (v - time * FlowSpeed) * NoiseScale;
+                    // Solid above the front, decaying into wisps below it, at a rate
+                    // that differs column by column. The front is continuous at the
+                    // boundary (exp(0) == 1), so there is no seam.
+                    float below = v - colFront[x];
+                    float shape = below <= 0F ? 1F
+                        : (float)Math.Exp(-below * colReach[x]);
+
+                    // Sample the plume in a frame that travels downward with it. The
+                    // lateral offset grows with depth, so a tendril leans further the
+                    // further it falls, and neighbouring columns lean different ways.
+                    float nx = u * NoiseScale * aspect
+                        + colShear[x] * (below <= 0F ? 0F : below);
+                    float ny = (v - time * FlowSpeed) * NoiseScale * NoiseAspectY;
 
                     // Domain warp: offset the lookup by another noise field. This is what
                     // curdles the plume instead of leaving it as smooth drifting fog.
@@ -2558,7 +2614,7 @@ namespace KotorUniversalUI
                     // approaches full opacity without ever reaching it, which is both how
                     // light actually attenuates through a medium and what keeps the smoke
                     // see-through.
-                    float thickness = n * 0.5F + 0.5F - Threshold;
+                    float thickness = (n * 0.5F + 0.5F - (Threshold - colPatch[x])) * shape;
                     if (thickness <= 0F)
                     {
                         field[y * w + x] = 0F;
@@ -2566,7 +2622,7 @@ namespace KotorUniversalUI
                     }
                     float dens = 1F - (float)Math.Exp(-thickness * DensityGain);
 
-                    field[y * w + x] = dens * shape * lit * Exposure;
+                    field[y * w + x] = dens * lit * Exposure;
                 }
             }
         }
