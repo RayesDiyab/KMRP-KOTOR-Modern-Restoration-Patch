@@ -2173,7 +2173,13 @@ namespace KotorUniversalUI
         internal const string Version = "v1.0.0";
         // The header is measured from the brand artwork rather than fixed, so widening
         // the window scales the lockup and the card follows it down.
-        private const double BrandWidthFraction = 0.54;
+        private const double BrandWidthFraction = 0.42;
+        // The card is a fixed 3:2 rectangle rather than something that stretches to the
+        // window's edges: on a wide window a full-width row leaves a desert between a
+        // step's subtitle and its control. Its height is fully determined by the row
+        // heights below, so the width follows from the ratio.
+        private const double CardAspect = 1.5;
+        private const int StepHeight = 96;
         private readonly int headerHeight;
         private readonly int brandWidth;
         private readonly int brandHeight;
@@ -2201,9 +2207,9 @@ namespace KotorUniversalUI
         internal MainForm()
         {
             Text = ShortName + " – " + AppName;
-            ClientSize = new Size(1680, 900);
-            MinimumSize = new Size(1696, 700);
-            MaximumSize = new Size(1696, Screen.PrimaryScreen.WorkingArea.Height);
+            ClientSize = new Size(2100, 900);
+            MinimumSize = new Size(2116, 700);
+            MaximumSize = new Size(2116, Screen.PrimaryScreen.WorkingArea.Height);
             MaximizeBox = false;
             StartPosition = FormStartPosition.CenterScreen;
             AutoScaleMode = AutoScaleMode.Dpi;
@@ -2231,9 +2237,13 @@ namespace KotorUniversalUI
             pathBox = new TextBox();
             pathBox.TextChanged += delegate { RefreshStatus(); };
 
+            // Height is the sum of the fixed pieces: four steps, the gap above the primary
+            // button, the button, the gap above Restore, Restore, and the bottom padding.
+            int cardHeight = 4 * StepHeight + 22 + 58 + 24 + 40 + 26;
+            int cardWidth = (int)Math.Round(cardHeight * CardAspect);
             CardPanel card = new CardPanel();
-            card.SetBounds(28, headerHeight, ClientSize.Width - 56, 470);
-            card.Anchor = AnchorStyles.Top | AnchorStyles.Left | AnchorStyles.Right;
+            card.SetBounds((ClientSize.Width - cardWidth) / 2, headerHeight, cardWidth, cardHeight);
+            card.Anchor = AnchorStyles.Top;
             Controls.Add(card);
 
             stepFolder = NewStep(card, 0, UiTheme.Glyph.Folder, "1. Select Game Folder",
@@ -2316,8 +2326,8 @@ namespace KotorUniversalUI
             logLink.VisitedLinkColor = UiTheme.Accent;
             logLink.LinkBehavior = LinkBehavior.HoverUnderline;
             logLink.BackColor = Color.Transparent;
-            logLink.SetBounds(52, card.Bottom + 20, 240, 22);
-            logLink.Anchor = AnchorStyles.Top | AnchorStyles.Left;
+            logLink.SetBounds(card.Left + 8, card.Bottom + 20, 240, 22);
+            logLink.Anchor = AnchorStyles.Top;
             logLink.LinkClicked += OpenLogClicked;
             Controls.Add(logLink);
 
@@ -2330,8 +2340,8 @@ namespace KotorUniversalUI
             credit.LinkBehavior = LinkBehavior.HoverUnderline;
             credit.BackColor = Color.Transparent;
             credit.TextAlign = ContentAlignment.MiddleRight;
-            credit.SetBounds(ClientSize.Width - 252, card.Bottom + 20, 220, 22);
-            credit.Anchor = AnchorStyles.Top | AnchorStyles.Right;
+            credit.SetBounds(card.Right - 228, card.Bottom + 20, 220, 22);
+            credit.Anchor = AnchorStyles.Top;
             credit.LinkClicked += delegate { OpenCreatorPage(); };
             Controls.Add(credit);
 
