@@ -146,7 +146,7 @@ dominant lever: the noise is evaluated nine times per buffer pixel, so halving i
 quadruples the cost.
 
 At full design scale (a 1980 x 420 header, the worst case) the shipping settings
-render in **22.1 ms average, 27.1 ms max**, against a 46.8 ms frame budget -- a 40 ms
+render in **22.5 ms average**, against a 46.8 ms frame budget -- a 40 ms
 WinForms timer lands on Windows' 15.6 ms granularity and therefore fires every
 ~46.8 ms, or about 21 fps. Measured in the running application, the effect costs
 about **40% of one core** while the window is focused and idle.
@@ -165,18 +165,39 @@ lengthen the timer interval -- the plume is slow enough to survive a lower frame
 ### Measured settings
 
 Averaged over 59 frames of steady state on a rendered 1980 x 420 header, with the
-brand composited exactly as the form composites it:
+brand composited exactly as the form composites it. `Lit` is the share of the header
+above the flat window colour, `blown` the share saturated past luminance 200:
 
-| Candidate | Lit | Mean lit pixel | Wordmark contrast |
-| --- | --- | --- | --- |
-| Point source behind the crest, dense | 65.1% | rgb 45, 71, 105 | **17.9** |
-| Shipping: off-screen source, full width | 33.7% | rgb 17, 34, 61 | **115.1** |
+| Candidate | Lit | Blown | Mean lit pixel | Wordmark contrast |
+| --- | --- | --- | --- | --- |
+| Point source behind the crest | 65.1% | -- | rgb 45, 71, 105 | **17.9** |
+| Off-screen source, blue ramp | 33.7% | 0.0% | rgb 17, 34, 61 | 115.1 |
+| Blue ramp turned up hard | 87.5% | 8.4% | rgb 70, 97, 126 | 103.0 |
+| Shipping: grey ramp, long reach | 91.9% | **0.0%** | rgb 33, 39, 48 | **106.1** |
 
-Wordmark contrast is the luminance gap between the silver letters and the ground
-immediately behind them; ink is separated from ground by blue-minus-red, since the
-letters are neutral and the plume is strongly blue. The point-source version scored
-17.9 and would have swallowed the wordmark. Any future change to the light model
-should be checked against this number, not against a screenshot.
+Three separate failures are recorded there, and each was caught by a number rather
+than by eye:
+
+- the point source scored 17.9 and would have swallowed the wordmark;
+- turning the blue ramp up to cover the bar saturated 8.4% of the header into a flat
+  pale band, because the blue ramp tops out near white. The grey ramp tops out at
+  rgb 185, 192, 205, so the same coverage now blows out nothing at all;
+- reaching further down the bar is what costs legibility, not density as such.
+  Coverage nearly tripled, from 33.7% to 91.9%, for only nine points of contrast.
+
+### Two measurement traps
+
+**The contrast metric is colour-dependent and was rebuilt.** It originally separated
+letters from ground by blue-minus-red, which works only while the plume is blue. Grey
+smoke is the same hue as the silver letters, so that test silently stops measuring
+anything. The mask is now built once from a composite rendered with no plume behind
+it, which is independent of whatever colour the smoke happens to be.
+
+**Screen capture of this header is misleading.** GDI capture preserves the BGRA alpha
+channel, and drawing the 32-bit ARGB buffer zeroes destination alpha across the whole
+header rect, so a recording shows the header as transparent -- white, in most viewers.
+Encode captures through `format=rgb24` to discard alpha. On screen it is always
+correct; the desktop compositor ignores per-pixel alpha for ordinary windows.
 
 ## Window sizing and smooth proportional resize
 

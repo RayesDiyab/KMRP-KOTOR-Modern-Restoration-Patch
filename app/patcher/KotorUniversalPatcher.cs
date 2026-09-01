@@ -2363,8 +2363,8 @@ namespace KotorUniversalUI
         // The lamp is off-screen, above the top edge, and spans the whole bar: the source
         // is never visible, only what it lights. A localised source was tried first and
         // read as a glowing ball behind the crest.
-        private const float TopFalloff = 2.4F;      // how fast the light dies with depth
-        private const float TopStrength = 1.45F;
+        private const float TopFalloff = 0.7F;      // how fast the light dies with depth
+        private const float TopStrength = 1.10F;
         private const float ShaftScale = 3.2F;      // lateral width of the descending shafts
         private const float ShaftStrength = 0.55F;  // how much of the light is shaped into shafts
         private const float ShaftDrift = 0.035F;    // how fast the shafts slide sideways
@@ -2379,14 +2379,14 @@ namespace KotorUniversalUI
         private const float WarpStrength = 1.25F;
         private const float FlowSpeed = 0.055F;   // how fast the plume travels downward
         private const float EvolveSpeed = 0.09F;  // how fast it boils in place
-        private const float Threshold = 0.40F;    // noise level where smoke begins
-        private const float DensityGain = 2.5F;
-        private const float VerticalFalloff = 2.6F;
+        private const float Threshold = 0.26F;    // noise level where smoke begins
+        private const float DensityGain = 3.3F;
+        private const float VerticalFalloff = 0.8F;
 
         private const float BloomWeight = 0.55F;
         private const int BloomRadius = 2;
-        private const float Exposure = 1.20F;
-        private const float MaxAlpha = 0.90F;
+        private const float Exposure = 0.80F;
+        private const float MaxAlpha = 0.80F;
         private const int MoteCount = 90;
         // Mote radius as a fraction of the header height. These are drawn at full
         // resolution rather than into the smoke buffer: at Downscale 8 a mote was
@@ -2396,12 +2396,14 @@ namespace KotorUniversalUI
         private const float MoteSizeSpan = 0.0115F;
         private const float MoteAlpha = 1.0F;
 
-        // The emission ramp, darkest to brightest. Blue counterpart of the reference's
-        // black to olive to gold to white-hot core.
+        // The emission ramp, darkest to brightest. Grey smoke, with only a slight cool
+        // lift so it sits with the rest of the palette instead of reading as a neutral
+        // grey patch. An earlier saturated-blue ramp made the plume look like coloured
+        // gas rather than lit smoke.
         private static readonly float[] RampStop = { 0.00F, 0.30F, 0.62F, 1.00F };
-        private static readonly int[] RampR = { 6, 24, 104, 210 };
-        private static readonly int[] RampG = { 20, 88, 178, 238 };
-        private static readonly int[] RampB = { 58, 190, 250, 255 };
+        private static readonly int[] RampR = { 8, 48, 110, 185 };
+        private static readonly int[] RampG = { 10, 53, 117, 192 };
+        private static readonly int[] RampB = { 14, 62, 130, 205 };
 
         private readonly int[] perm = new int[512];
         private readonly Random random = new Random(20260901);
