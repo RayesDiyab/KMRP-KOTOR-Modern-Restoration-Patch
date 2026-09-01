@@ -2429,6 +2429,18 @@ namespace KotorUniversalUI
         private const float MoteSizeMin = 0.0045F;
         private const float MoteSizeSpan = 0.0115F;
         private const float MoteAlpha = 1.0F;
+        // Motes are blue rather than taking the smoke's white, so they read as embers of
+        // light in the plume instead of brighter specks of the same smoke.
+        private const int MoteR = 110;
+        private const int MoteG = 180;
+        private const int MoteB = 255;
+        // The sprite carries a tight core inside a wide halo, so the drawn rectangle is
+        // larger than the core. One draw per mote still, rather than a separate halo
+        // pass. Keep this in step with the lobe widths in BuildMote: the two together
+        // decide the glow's size, and the cost is the square of this number, so an
+        // oversized sprite with narrow lobes pays for transparent pixels. At 4.5 with
+        // the original lobes, 70% of every sprite was empty and the pass cost 13 ms.
+        private const float MoteGlowScale = 2.4F;
 
         // The emission ramp, darkest to brightest: white smoke, with only a slight cool
         // lift so it sits with the rest of the palette. A saturated-blue ramp made the
@@ -2672,14 +2684,14 @@ namespace KotorUniversalUI
                 if (bright > 1F)
                     bright = 1F;
 
-                moteMatrix.Matrix00 = RampR[3] / 255F;
-                moteMatrix.Matrix11 = RampG[3] / 255F;
-                moteMatrix.Matrix22 = RampB[3] / 255F;
+                moteMatrix.Matrix00 = MoteR / 255F;
+                moteMatrix.Matrix11 = MoteG / 255F;
+                moteMatrix.Matrix22 = MoteB / 255F;
                 moteMatrix.Matrix33 = bright;
                 moteMatrix.Matrix44 = 1F;
                 moteAttributes.SetColorMatrix(moteMatrix);
 
-                float radius = m.Size * area.Height;
+                float radius = m.Size * MoteGlowScale * area.Height;
                 float cx = area.Left + mx * area.Width;
                 float cy = area.Top + my * area.Height;
                 Rectangle dest = new Rectangle(
@@ -2691,8 +2703,11 @@ namespace KotorUniversalUI
             target.InterpolationMode = previous;
         }
 
-        /// <summary>A hard-ish core inside a soft halo, so a mote still reads as a point
-        /// of light at three pixels across instead of dissolving into a smudge.</summary>
+        /// <summary>A tight bright core inside a wide soft halo -- two gaussian lobes
+        /// rather than one falloff. The narrow lobe keeps the mote a definite point of
+        /// light at a few pixels across; the broad lobe is the glow around it. Drawing
+        /// one sprite that contains both is cheaper than a separate halo pass, and the
+        /// core stays small because the narrow lobe is a small fraction of the sprite.</summary>
         private static Bitmap BuildMote(int size)
         {
             Bitmap bitmap = new Bitmap(size, size, PixelFormat.Format32bppArgb);
@@ -2707,8 +2722,12 @@ namespace KotorUniversalUI
                     float dx = (x - centre) / centre;
                     float dy = (y - centre) / centre;
                     double d = Math.Sqrt(dx * dx + dy * dy);
-                    double a = d >= 1.0 ? 0.0
-                        : 0.35 * Math.Pow(1.0 - d, 2.0) + 0.65 * Math.Pow(Math.Max(0.0, 1.0 - d * 2.6), 2.0);
+                    double core = Math.Exp(-(d * d) / (2 * 0.1875 * 0.1875));
+                    double halo = Math.Exp(-(d * d) / (2 * 0.55 * 0.55));
+                    // Taper to exactly zero at the rim, or the square sprite shows its
+                    // edges once the alpha is scaled up.
+                    double edge = d >= 1.0 ? 0.0 : Math.Pow(1.0 - d, 1.5);
+                    double a = Math.Min(1.0, 0.85 * core + 0.30 * halo) * edge;
                     int at = y * data.Stride + x * 4;
                     px[at] = 255;
                     px[at + 1] = 255;
