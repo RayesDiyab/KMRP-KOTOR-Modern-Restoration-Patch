@@ -69,6 +69,16 @@ $compilerArgs = @(
     "/resource:$(Join-Path $resourceDir 'GPL-3.0-KOTOR-High-Resolution-Menus.txt'),KotorUniversalUI.license.highresolutionmenus"
 )
 
+# Hand-supplied step icons are optional: any that are missing fall back to the
+# vector glyphs drawn in the patcher, so a partial set still builds.
+foreach ($iconName in @("folder", "shield", "monitor", "tools")) {
+    $iconPath = Join-Path $projectRoot "app\patcher\icons\$iconName.png"
+    if (Test-Path -LiteralPath $iconPath) {
+        $compilerArgs += "/resource:$iconPath,KotorUniversalUI.icon.$iconName"
+        Write-Host "  icon: $iconName"
+    }
+}
+
 Get-ChildItem -LiteralPath $resourceDir -Filter "gui-*.zip" | Sort-Object Name | ForEach-Object {
     $resolution = $_.BaseName.Substring(4)
     $compilerArgs += "/resource:$($_.FullName),KotorUniversalUI.override.gui.$resolution"

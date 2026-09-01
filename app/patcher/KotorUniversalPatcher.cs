@@ -7,6 +7,7 @@ using System.Globalization;
 using System.IO;
 using System.IO.Compression;
 using System.Drawing.Drawing2D;
+using System.Drawing.Imaging;
 using System.Drawing.Text;
 using System.Reflection;
 using System.Runtime.InteropServices;
@@ -1657,6 +1658,62 @@ namespace KotorUniversalUI
 
         internal enum Glyph { Folder, Shield, Monitor, Tools }
 
+        // Hand-drawn icons, when supplied. Each is stored as white ink on transparency, so
+        // a colour matrix multiplies it straight to GlyphInk -- the colour stays one
+        // constant here instead of being baked into the artwork. Steps without a supplied
+        // icon fall back to DrawGlyph, so a partial set still builds and still looks whole.
+        private static readonly Dictionary<Glyph, Image> IconArt = new Dictionary<Glyph, Image>();
+        private static bool iconsLoaded;
+
+        private static Image IconFor(Glyph glyph)
+        {
+            if (!iconsLoaded)
+            {
+                iconsLoaded = true;
+                string[] names = { "folder", "shield", "monitor", "tools" };
+                Glyph[] keys = { Glyph.Folder, Glyph.Shield, Glyph.Monitor, Glyph.Tools };
+                for (int i = 0; i < names.Length; i++)
+                {
+                    try
+                    {
+                        using (Stream stream = Assembly.GetExecutingAssembly()
+                                   .GetManifestResourceStream("KotorUniversalUI.icon." + names[i]))
+                            if (stream != null)
+                                IconArt[keys[i]] = Image.FromStream(stream);
+                    }
+                    catch { }
+                }
+            }
+            Image art;
+            return IconArt.TryGetValue(glyph, out art) ? art : null;
+        }
+
+        /// <summary>Draws a supplied icon tinted to `color`, or returns false if there is
+        /// none for this step.</summary>
+        internal static bool DrawIconArt(Graphics g, Glyph glyph, Rectangle circle, Color color)
+        {
+            Image art = IconFor(glyph);
+            if (art == null)
+                return false;
+
+            int side = (int)Math.Round(circle.Width * 0.563F);
+            Rectangle box = new Rectangle(circle.X + (circle.Width - side) / 2,
+                                          circle.Y + (circle.Height - side) / 2, side, side);
+            using (ImageAttributes tint = new ImageAttributes())
+            {
+                ColorMatrix matrix = new ColorMatrix(new float[][] {
+                    new float[] { color.R / 255F, 0, 0, 0, 0 },
+                    new float[] { 0, color.G / 255F, 0, 0, 0 },
+                    new float[] { 0, 0, color.B / 255F, 0, 0 },
+                    new float[] { 0, 0, 0, 1, 0 },
+                    new float[] { 0, 0, 0, 0, 1 } });
+                tint.SetColorMatrix(matrix);
+                g.InterpolationMode = InterpolationMode.HighQualityBicubic;
+                g.DrawImage(art, box, 0, 0, art.Width, art.Height, GraphicsUnit.Pixel, tint);
+            }
+            return true;
+        }
+
         internal static GraphicsPath RoundedRect(Rectangle r, int radius)
         {
             int d = Math.Max(1, radius * 2);
@@ -2082,7 +2139,8 @@ namespace KotorUniversalUI
                 g.FillEllipse(disc, circle);
             using (Pen ring = new Pen(UiTheme.BadgeEdge))
                 g.DrawEllipse(ring, circle);
-            UiTheme.DrawGlyph(g, Icon, circle, UiTheme.GlyphInk);
+            if (!UiTheme.DrawIconArt(g, Icon, circle, UiTheme.GlyphInk))
+                UiTheme.DrawGlyph(g, Icon, circle, UiTheme.GlyphInk);
 
             using (SolidBrush text = new SolidBrush(UiTheme.Text))
             using (Font f = UiTheme.DisplayFont(16F, FontStyle.Bold))
