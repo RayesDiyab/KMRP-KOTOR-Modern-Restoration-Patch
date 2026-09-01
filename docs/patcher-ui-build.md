@@ -108,48 +108,75 @@ pixels and grouped optically with its label.
 
 ## Header ambience
 
-A slow blue haze drifts upward behind the brand lockup. It is generated in code by
-`SmokeField` -- a particle simulation drawn with GDI+ -- not imported from any
-stock asset, so there is no third-party licence attached to it.
+Light enters the top bar from a source above the window, lights a volume of drifting
+smoke, and small motes fall through it. It is generated in code by `LightField` --
+procedural noise plus a particle pass -- not imported from any stock asset, so no
+third-party licence is attached to it.
 
-Each frame accumulates soft radial blobs into a quarter-resolution buffer which is
-then scaled up. The interpolation blur on the way out is the softness the effect
-wants, so the upscaler does the expensive work instead of large gradient fills. One
-white blob sprite is built once and reused for every particle, tinted and faded
-through a single reused `ColorMatrix`, so a steady-state frame allocates nothing.
-The blob's falloff is written pixel by pixel rather than with a `PathGradientBrush`,
-which leaves a visible ring at low alpha.
+The source itself is deliberately off-screen and spans the full width. An earlier
+version put a point source behind the crest; it read as a glowing ball, and it cost
+the wordmark its legibility (see the table below). With the light entering from above
+the top edge instead, it has died away by the time it reaches the letters, so density
+and legibility stopped competing.
 
-The field is painted before the brand image and clipped to the header strip, so it
-passes behind the crest and wordmark and never wastes upscaling under the card. It
-runs on a 40 ms timer that invalidates only the header rectangle, and it stops
-entirely while a patch is running, during the snapshot resize, when minimised, and
-when the window is not active.
+### How it is built
 
-Two things are easy to get wrong and were both measured rather than judged by eye:
+The billowing structure is fBm noise rather than sprites, because soft blobs cannot
+produce the fractal, curdled edge that reads as smoke. The turbulence comes from
+**domain warping**: the noise field is sampled at coordinates that are themselves
+offset by another noise field, which folds the plume into itself instead of leaving
+it as smooth drifting fog. Perlin gradient noise, not value noise -- value noise
+shows axis-aligned blocking once it is warped.
 
-- ageing must be tied to distance travelled (`Age += seconds * Speed / TravelSpan`),
-  not to a flat rate. A flat rate kills every particle after the same short rise
-  regardless of its speed, so the plume dies mid-strip and never reaches the
-  wordmark -- which showed up as a top-to-bottom coverage ratio of 0.00 to 0.08.
-- the plume must thin with height as well as with age, or the particles, which grow
-  as they age, pile up at the top exactly where the wordmark sits.
+The smoke, the light falloff, and the descending shafts accumulate into one scalar
+emission buffer at `1/Downscale` resolution. A single bloom pass and a single colour
+ramp then light all of them consistently, and the buffer is upscaled, which supplies
+the final softening for free. The ramp is the blue counterpart of the reference's
+black to olive to gold to white-hot core.
 
-The constants were tuned against a rendered 1160 x 220 header averaged over 181
-frames of steady state. The shipping values produce:
+Motes are drawn **after** the upscale, at full resolution. They were originally
+accumulated into the smoke buffer, but at `Downscale = 8` a mote is clamped to a
+single buffer pixel, so it could not be made smaller and upscaled into a soft 16px
+disc. Drawing them separately decouples their size from the buffer resolution.
 
-| Measure | Value |
-| --- | --- |
-| Header area lit above the window colour | 17.5% |
-| Mean lit pixel | rgb 10, 17, 28 (window is 7, 12, 21) |
-| Peak brightness delta | 56 average, 86 maximum |
-| Top-half to bottom-half coverage | 1.00 |
+### Cost
 
-For scale, the first untuned attempt lit 97.7% of the header at a mean of
-rgb 27, 48, 75 -- a blue wash rather than a haze. Re-tuning is a matter of changing
-`Count`, `PeakAlpha`, `RadiusSpan`, `HeightFade`, `TravelSpan`, and `FadeOutAt` and
-re-measuring; a single-frame screenshot is not a reliable check, because coverage
-and distribution swing widely frame to frame at this particle count.
+This is per-pixel CPU work, so it is measured, not assumed. `Downscale` is the
+dominant lever: the noise is evaluated nine times per buffer pixel, so halving it
+quadruples the cost.
+
+At full design scale (a 1980 x 420 header, the worst case) the shipping settings
+render in **22.1 ms average, 27.1 ms max**, against a 46.8 ms frame budget -- a 40 ms
+WinForms timer lands on Windows' 15.6 ms granularity and therefore fires every
+~46.8 ms, or about 21 fps. Measured in the running application, the effect costs
+about **40% of one core** while the window is focused and idle.
+
+Two things were required to get it that low, and both should be kept:
+
+- the scaled brand is cached as a bitmap. The header repaints on every animation
+  frame, and re-running a 650 x 350 bicubic resize per frame cost more than the plume
+  itself -- removing it took the process from 57% of a core to 40%;
+- the effect stops entirely while a patch is running, during the snapshot resize,
+  when minimised, and when the window is not active.
+
+If it needs to be cheaper still, raise `Downscale`, drop `Octaves` from 3 to 2, or
+lengthen the timer interval -- the plume is slow enough to survive a lower frame rate.
+
+### Measured settings
+
+Averaged over 59 frames of steady state on a rendered 1980 x 420 header, with the
+brand composited exactly as the form composites it:
+
+| Candidate | Lit | Mean lit pixel | Wordmark contrast |
+| --- | --- | --- | --- |
+| Point source behind the crest, dense | 65.1% | rgb 45, 71, 105 | **17.9** |
+| Shipping: off-screen source, full width | 33.7% | rgb 17, 34, 61 | **115.1** |
+
+Wordmark contrast is the luminance gap between the silver letters and the ground
+immediately behind them; ink is separated from ground by blue-minus-red, since the
+letters are neutral and the plume is strongly blue. The point-source version scored
+17.9 and would have swallowed the wordmark. Any future change to the light model
+should be checked against this number, not against a screenshot.
 
 ## Window sizing and smooth proportional resize
 
