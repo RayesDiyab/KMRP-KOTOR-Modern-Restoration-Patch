@@ -912,6 +912,46 @@ namespace KotorUniversalUI
             try
             {
                 int archiveCount = resources.Length + (generatedIcons != null ? 1 : 0);
+
+                // Each archive gets a slice of the 18-94 band proportional to its size.
+                // The ranges used to be hardcoded as "18 to 88 for the first, 88 to 94 for
+                // anything else", which was written when there were two archives. There are
+                // three: the common artwork, the resolution layout, and the generated
+                // ability icons. The second and third therefore shared one range, and the
+                // bar visibly fell back from 94% to 88% when the icons began installing.
+                long[] archiveBytes = new long[archiveCount];
+                long totalArchiveBytes = 0;
+                for (int sizingIndex = 0; sizingIndex < archiveCount; sizingIndex++)
+                {
+                    if (sizingIndex < resources.Length)
+                    {
+                        using (Stream sizing = Assembly.GetExecutingAssembly()
+                            .GetManifestResourceStream(resources[sizingIndex]))
+                        {
+                            if (sizing == null)
+                                continue;
+                            using (ZipArchive sizingArchive =
+                                new ZipArchive(sizing, ZipArchiveMode.Read, false))
+                                foreach (ZipArchiveEntry sized in sizingArchive.Entries)
+                                    if (!String.IsNullOrEmpty(sized.Name))
+                                        archiveBytes[sizingIndex] += sized.Length;
+                        }
+                    }
+                    else if (generatedIcons != null)
+                    {
+                        // Left open and rewound: this stream is installed from below.
+                        generatedIcons.Position = 0;
+                        using (ZipArchive sizingArchive =
+                            new ZipArchive(generatedIcons, ZipArchiveMode.Read, true))
+                            foreach (ZipArchiveEntry sized in sizingArchive.Entries)
+                                if (!String.IsNullOrEmpty(sized.Name))
+                                    archiveBytes[sizingIndex] += sized.Length;
+                        generatedIcons.Position = 0;
+                    }
+                    totalArchiveBytes += archiveBytes[sizingIndex];
+                }
+
+                long bytesBeforeArchive = 0;
                 for (int resourceIndex = 0; resourceIndex < archiveCount; resourceIndex++)
                 {
                     Stream resource;
@@ -935,8 +975,16 @@ namespace KotorUniversalUI
                                 totalBytes += archiveEntry.Length;
                         }
                         long completedBytes = 0;
-                        SafeProgress(progress, resourceIndex == 0 ? 18 : 88,
-                            resourceIndex == 0 ? "Installing interface artwork…" : "Installing resolution layout…");
+                        int rangeStart = (int)(18 + 76L * bytesBeforeArchive
+                            / Math.Max(1L, totalArchiveBytes));
+                        int rangeLength = (int)(76L * archiveBytes[resourceIndex]
+                            / Math.Max(1L, totalArchiveBytes));
+                        string stage = resourceIndex >= resources.Length
+                            ? "Installing ability icons…"
+                            : (resourceIndex == 0
+                                ? "Installing interface artwork…"
+                                : "Installing resolution layout…");
+                        SafeProgress(progress, rangeStart, stage);
 
                         foreach (ZipArchiveEntry entry in archive.Entries)
                         {
@@ -1006,12 +1054,9 @@ namespace KotorUniversalUI
                                     throw new IOException("An interface file could not be installed safely: " + relative);
 
                                 completedBytes += entry.Length;
-                                int rangeStart = resourceIndex == 0 ? 18 : 88;
-                                int rangeLength = resourceIndex == 0 ? 70 : 6;
                                 int percent = rangeStart + (int)Math.Min((long)rangeLength,
                                     completedBytes * rangeLength / Math.Max(1L, totalBytes));
-                                SafeProgress(progress, percent,
-                                    resourceIndex == 0 ? "Installing interface artwork…" : "Installing resolution layout…");
+                                SafeProgress(progress, percent, stage);
                             }
                             finally
                             {
@@ -1020,6 +1065,7 @@ namespace KotorUniversalUI
                             }
                         }
                     }
+                    bytesBeforeArchive += archiveBytes[resourceIndex];
                 }
 
                 if (existingInstallation && processed.Count != records.Count)
@@ -3020,6 +3066,18 @@ namespace KotorUniversalUI
         private volatile int desiredHeaderW, desiredHeaderH;
         private Bitmap headerFront, headerBack;
         private readonly object headerSwap = new object();
+
+        // Frame timing, kept so a stutter can be attributed instead of guessed at.
+        // `interval` is how far apart the render thread finished consecutive frames;
+        // `latency` is how long a finished frame then waited before the UI thread put it
+        // on screen. A smooth animation needs both to be steady -- if intervals are even
+        // but latencies spike, frames are being produced on time and held up behind other
+        // messages, which is a different problem with a different fix.
+        private const int TimingSamples = 400;
+        private readonly double[] frameIntervals = new double[TimingSamples];
+        private readonly double[] frameLatencies = new double[TimingSamples];
+        private int timingWrite;
+        private long frameReadyStamp;
         // 60ms, which Windows' 15.6ms timer granularity rounds to 62.4ms -- 16 fps,
         // against 46.8ms and 21.4 fps at the previous 40ms. A quarter fewer frames for a
         // quarter less CPU. See the mote fall speed, which was slowed to match: the two
@@ -3072,6 +3130,15 @@ namespace KotorUniversalUI
             // Keep old scaled fonts alive until the resize/paint burst has gone idle.
             // ~25fps is plenty for a slow haze, and the field only ever invalidates the
             // header strip, so a frame costs one small bitmap and one upscale.
+            KeyPreview = true;
+            KeyDown += delegate(object sender, KeyEventArgs args)
+            {
+                if (args.KeyCode == Keys.F12)
+                {
+                    DumpFrameTimings();
+                    args.Handled = true;
+                }
+            };
             HandleCreated += delegate
             {
                 if (renderThread != null)
@@ -3672,6 +3739,15 @@ namespace KotorUniversalUI
                             headerFront = headerBack;
                             headerBack = spare;
                         }
+                        long readyAt = Stopwatch.GetTimestamp();
+                        if (frameReadyStamp != 0)
+                        {
+                            int slot = timingWrite % TimingSamples;
+                            frameIntervals[slot] =
+                                (readyAt - frameReadyStamp) * 1000.0 / Stopwatch.Frequency;
+                            frameLatencies[slot] = -1;
+                        }
+                        frameReadyStamp = readyAt;
                         if (IsHandleCreated && !IsDisposed)
                             BeginInvoke((MethodInvoker)PresentHeader);
                     }
@@ -3688,6 +3764,48 @@ namespace KotorUniversalUI
             }
         }
 
+        /// <summary>Writes the recent frame timings to the log. Bound to F12 so a stutter
+        /// can be captured while it is happening -- scroll the dropdown, press F12, read
+        /// the log. Even intervals with spiking latencies mean frames are made on time and
+        /// held up on the way to the screen.</summary>
+        private void DumpFrameTimings()
+        {
+            int have = Math.Min(timingWrite, TimingSamples);
+            if (have < 5)
+                return;
+            double iSum = 0, iMax = 0, lSum = 0, lMax = 0;
+            int counted = 0;
+            for (int i = 0; i < have; i++)
+            {
+                double interval = frameIntervals[i], latency = frameLatencies[i];
+                if (interval <= 0 || latency < 0)
+                    continue;
+                counted++;
+                iSum += interval;
+                lSum += latency;
+                if (interval > iMax) iMax = interval;
+                if (latency > lMax) lMax = latency;
+            }
+            if (counted == 0)
+                return;
+            double iMean = iSum / counted, lMean = lSum / counted, iVar = 0;
+            for (int i = 0; i < have; i++)
+            {
+                if (frameIntervals[i] <= 0 || frameLatencies[i] < 0)
+                    continue;
+                double d = frameIntervals[i] - iMean;
+                iVar += d * d;
+            }
+            string line = String.Format(CultureInfo.InvariantCulture,
+                "frame timing over {0} frames: interval mean {1:0.0} ms, max {2:0.0} ms, " +
+                "sd {3:0.0} ms; present latency mean {4:0.0} ms, max {5:0.0} ms",
+                counted, iMean, iMax, Math.Sqrt(iVar / counted), lMean, lMax);
+            try { PatchOperations.AppendLog(pathBox.Text.Trim(), line); }
+            catch { }
+            MessageBox.Show(this, line, "Frame timing", MessageBoxButtons.OK,
+                MessageBoxIcon.Information);
+        }
+
         /// <summary>Runs on the UI thread when a frame is ready. Update() rather than
         /// waiting for WM_PAINT, which is the lowest priority message there is and would be
         /// starved by the same wheel-message flood this design exists to survive.</summary>
@@ -3695,6 +3813,10 @@ namespace KotorUniversalUI
         {
             if (IsDisposed || Disposing || WindowState == FormWindowState.Minimized)
                 return;
+            int slot = timingWrite % TimingSamples;
+            frameLatencies[slot] = frameReadyStamp == 0 ? 0
+                : (Stopwatch.GetTimestamp() - frameReadyStamp) * 1000.0 / Stopwatch.Frequency;
+            timingWrite++;
             Invalidate(new Rectangle(0, 0, ClientSize.Width, LiveHeaderHeight()));
             Update();
         }
@@ -3774,6 +3896,8 @@ namespace KotorUniversalUI
                     if (headerFront != null) { headerFront.Dispose(); headerFront = null; }
                     if (headerBack != null) { headerBack.Dispose(); headerBack = null; }
                 }
+                rowBrush.Dispose();
+                rowSelectedBrush.Dispose();
                 light.Dispose();
                 if (scaledBrand != null)
                     scaledBrand.Dispose();
@@ -3826,13 +3950,18 @@ namespace KotorUniversalUI
             return label;
         }
 
+        private readonly SolidBrush rowBrush = new SolidBrush(UiTheme.Field);
+        private readonly SolidBrush rowSelectedBrush = new SolidBrush(UiTheme.AccentDark);
+
         private void ResolutionDrawItem(object sender, DrawItemEventArgs e)
         {
             if (e.Index < 0)
                 return;
             bool selected = (e.State & DrawItemState.Selected) == DrawItemState.Selected;
-            using (SolidBrush back = new SolidBrush(selected ? UiTheme.AccentDark : UiTheme.Field))
-                e.Graphics.FillRectangle(back, e.Bounds);
+            // Cached brushes: a wheel notch repaints several rows, and allocating and
+            // finalising a GDI+ brush per row adds up while the list is being scrolled
+            // fast enough to back the message queue up.
+            e.Graphics.FillRectangle(selected ? rowSelectedBrush : rowBrush, e.Bounds);
             int leftPadding = Math.Max(2, (int)Math.Round(10 * uiScale));
             int rightPadding = Math.Max(2, (int)Math.Round(12 * uiScale));
             Rectangle textBounds = new Rectangle(
