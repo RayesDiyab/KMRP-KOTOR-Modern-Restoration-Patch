@@ -2188,6 +2188,8 @@ namespace KotorUniversalUI
         // the drawn width is not the visible width -- measured on the artwork: the R's right
         // edge sits at 0.9774.
         private const double WordmarkInkRight = 0.9774;
+        private const double WordmarkInkLeft = 0.0216;
+        private const string Tagline = "M O D E R N .   R E S T O R E D .   S I M P L E .";
         private readonly int headerHeight;
         private readonly int brandWidth;
         private readonly int brandHeight;
@@ -2208,6 +2210,7 @@ namespace KotorUniversalUI
         private readonly Panel optionsHost;           // reserved: future checkboxes land here
         private readonly LinkLabel logLink;
         private Image brand;
+        private Font taglineFont;      // sized so the tagline matches the wordmark's width
         private bool startupPromptShown;
         private bool operationRunning;
         private string lastDetail = String.Empty;
@@ -2242,7 +2245,7 @@ namespace KotorUniversalUI
             brandWidth = (int)Math.Round(cardWidth * BrandCardFraction);
             brandHeight = brand == null ? 150
                 : (int)Math.Round(brand.Height * (brandWidth / (double)brand.Width));
-            headerHeight = 14 + brandHeight + 46;
+            headerHeight = 14 + brandHeight + 56;
 
             // The window's side margin is not a free choice: it is set equal to the gap
             // between the end of the wordmark and the card's edge, so the lockup, the card
@@ -2463,14 +2466,31 @@ namespace KotorUniversalUI
                 taglineTop = 14 + brandHeight + 2;
             }
 
-            using (StringFormat sf = new StringFormat())
-            using (Font f = new Font("Segoe UI", 10.5F, FontStyle.Bold))
+            // The tagline is set to the width of the wordmark's ink, not the width of the
+            // brand image: the artwork carries transparent margin and glow past the last
+            // letter, so matching the image would leave the tagline visibly wider.
+            // GenericTypographic, not the default: the default format pads either side of
+            // the string, so measuring with it makes the tagline come out ~3% narrow and
+            // off-centre. Typographic reports the glyphs themselves.
+            using (StringFormat sf = new StringFormat(StringFormat.GenericTypographic))
             using (SolidBrush ink = new SolidBrush(UiTheme.Accent))
             {
                 sf.Alignment = StringAlignment.Center;
-                sf.FormatFlags = StringFormatFlags.NoWrap;
-                g.DrawString("M O D E R N .   R E S T O R E D .   S I M P L E .", f, ink,
-                    new RectangleF(0, taglineTop, ClientSize.Width, 26), sf);
+                sf.FormatFlags |= StringFormatFlags.NoWrap;
+
+                if (taglineFont == null)
+                {
+                    double target = (WordmarkInkRight - WordmarkInkLeft) * brandWidth;
+                    using (Font probe = new Font("Segoe UI", 20F, FontStyle.Bold))
+                    {
+                        float measured = g.MeasureString(Tagline, probe, Int32.MaxValue, sf).Width;
+                        float size = measured > 1F ? (float)(20.0 * target / measured) : 10.5F;
+                        taglineFont = new Font("Segoe UI", Math.Max(6F, size), FontStyle.Bold);
+                    }
+                }
+
+                g.DrawString(Tagline, taglineFont, ink,
+                    new RectangleF(0, taglineTop, ClientSize.Width, taglineFont.Height + 8), sf);
             }
         }
 
