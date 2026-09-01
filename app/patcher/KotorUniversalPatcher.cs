@@ -2201,9 +2201,9 @@ namespace KotorUniversalUI
         internal MainForm()
         {
             Text = ShortName + " – " + AppName;
-            ClientSize = new Size(1120, 900);
-            MinimumSize = new Size(1136, 700);
-            MaximumSize = new Size(1136, Screen.PrimaryScreen.WorkingArea.Height);
+            ClientSize = new Size(1680, 900);
+            MinimumSize = new Size(1696, 700);
+            MaximumSize = new Size(1696, Screen.PrimaryScreen.WorkingArea.Height);
             MaximizeBox = false;
             StartPosition = FormStartPosition.CenterScreen;
             AutoScaleMode = AutoScaleMode.Dpi;
