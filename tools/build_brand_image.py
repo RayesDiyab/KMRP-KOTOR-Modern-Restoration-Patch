@@ -42,6 +42,7 @@ from __future__ import annotations
 import argparse
 from pathlib import Path
 
+import numpy as np
 from PIL import Image, ImageDraw, ImageFilter, ImageFont
 
 
@@ -51,7 +52,15 @@ FONT = Path(r"C:\Windows\Fonts\georgia.ttf")
 CAP = 150                     # cap height of the rendered wordmark, in output pixels
 TRACKING_RATIO = 0.297        # measured: 17.2px tracking at 58px cap
 CREST_WIDTH_RATIO = 2.45      # measured: 142px wide at 58px cap
-CREST_FADE_RATIO = 0.42       # the crest dies out this far (in caps) above the cap line
+# Measured: the crest's wings fade out just above the cap line (-0.03 cap), while
+# the saber runs on down THROUGH the letters to the baseline (+0.98 cap), showing
+# 6-14 bright pixels per row in the gaps between glyphs. So the artwork's bottom
+# sits on the baseline and the veil dims it as it passes behind the text.
+WING_BOTTOM_AT = 0.25         # where the wings' lower tips land, in caps below the cap line.
+                              # 0.00 puts them exactly on it, which is where the reference has
+                              # them; a little lower lets the tips dip behind the letters and
+                              # dim there, which is what was asked for
+CREST_FADE_SPAN = 1.30        # the veil reaches nothing this many caps below the cap line
 BEVEL_TAU_RATIO = 0.048       # bevel decay length / cap height, fitted to the
                               # reference's luminance-vs-depth profile
 OUTLINE_RATIO = 0.008         # outline half-width / cap height (1px at cap 58)
@@ -165,8 +174,8 @@ def build(crest_path: Path, out: Path) -> None:
     # so give it that much room and let the fade do the rest.
     probe, span = draw_wordmark((cap * 12, cap * 6), size_px, cap, cap * 4)
     width = int(span + cap * 1.6)
-    height = int(cap * 3.4)
-    baseline_y = int(height - cap * 0.45)
+    height = int(cap * 4.2)
+    baseline_y = int(height - cap * 0.9)
 
     letters, _ = draw_wordmark((width, height), size_px, cap, baseline_y)
     lbox = letters.getbbox()
@@ -185,9 +194,18 @@ def build(crest_path: Path, out: Path) -> None:
     crest_h = int(crest.height * crest_w / crest.width)
     crest = crest.resize((crest_w, crest_h), Image.LANCZOS)
 
-    fade_end = cap_top + int(CREST_FADE_RATIO * cap)      # where the crest has gone
-    crest_top = fade_end - crest_h
-    fade_span = max(1, int(cap * 0.9))                    # measured: dies over ~0.35 cap, softened
+    # Anchor by the artwork's own anatomy: find where the wings stop and only the
+    # hilt continues, and land that on the cap line, which is where the reference
+    # puts it. Everything below is the hilt passing behind the letters.
+    ink = np.asarray(crest.split()[3]) > 55
+    widths = np.array([np.count_nonzero(r) and (np.nonzero(r)[0].max() - np.nonzero(r)[0].min() + 1) or 0
+                       for r in ink])
+    wide = np.nonzero(widths > 0.55 * widths.max())[0]
+    wing_bottom = (wide.max() + 1) / crest_h if wide.size else 0.85
+
+    crest_top = int(cap_top + WING_BOTTOM_AT * cap - wing_bottom * crest_h)
+    fade_end = cap_top + int(CREST_FADE_SPAN * cap)
+    fade_span = max(1, int(cap * CREST_FADE_SPAN * 1.35))
     top_soft = int(cap * 0.7)
 
     veil = Image.new("L", crest.size, 0)
@@ -220,8 +238,6 @@ def build(crest_path: Path, out: Path) -> None:
     #     depth 6  122                       depth 10+ ~118
     # So: a bright lit edge decaying to a plateau. Fitting 165 -> 118 through
     # depth 3 = 134 gives tau = 2.8px at cap 58, i.e. 0.048 x cap.
-    import numpy as np
-
     alpha = np.asarray(letters).astype(np.float32) / 255.0
     solid = alpha > 0.5
     depth = np.zeros(alpha.shape, dtype=np.float32)
