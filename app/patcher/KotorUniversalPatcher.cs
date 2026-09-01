@@ -2161,7 +2161,7 @@ namespace KotorUniversalUI
             SetStyle(ControlStyles.AllPaintingInWmPaint | ControlStyles.OptimizedDoubleBuffer |
                      ControlStyles.UserPaint | ControlStyles.ResizeRedraw |
                      ControlStyles.SupportsTransparentBackColor, true);
-            BackColor = Color.Transparent;
+            BackColor = UiTheme.Card;
         }
 
         protected override void OnTextChanged(EventArgs e)
@@ -2244,7 +2244,11 @@ namespace KotorUniversalUI
         {
             SetStyle(ControlStyles.AllPaintingInWmPaint | ControlStyles.OptimizedDoubleBuffer |
                      ControlStyles.UserPaint | ControlStyles.ResizeRedraw | ControlStyles.SupportsTransparentBackColor, true);
-            BackColor = Color.Transparent;
+            // Opaque, not transparent. A transparent control inherits its parent's
+            // background, which has not been painted yet while the window fades in, so
+            // these appeared as white rectangles during the open animation. Every pill
+            // sits on a Card-coloured surface, so this is what is behind it anyway.
+            BackColor = UiTheme.Card;
             Cursor = Cursors.Hand;
             Height = 44;
         }
@@ -3149,23 +3153,7 @@ namespace KotorUniversalUI
             // Keep old scaled fonts alive until the resize/paint burst has gone idle.
             // ~25fps is plenty for a slow haze, and the field only ever invalidates the
             // header strip, so a frame costs one small bitmap and one upscale.
-            HandleCreated += delegate
-            {
-                if (renderThread != null)
-                    return;
-                desiredHeaderW = Math.Max(1, ClientSize.Width);
-                desiredHeaderH = Math.Max(1, ScaleDesign(headerHeight));
-                presentHwnd = Handle;
-                EnsureHeaderOverlay(desiredHeaderW, desiredHeaderH);
-                UpdatePresentMode();
-                renderRunning = true;
-                renderThread = new System.Threading.Thread(RenderLoop);
-                renderThread.IsBackground = true;
-                // Below normal: the plume must never win a scheduling contest against the
-                // UI thread, or against the file work during a patch.
-                renderThread.Priority = System.Threading.ThreadPriority.BelowNormal;
-                renderThread.Start();
-            };
+
 
             fontRetireTimer = new Timer();
             fontRetireTimer.Interval = 750;
@@ -3299,7 +3287,7 @@ namespace KotorUniversalUI
             // a matter of dropping a checkbox in and growing the card, not a redesign.
             optionsHost = new Panel();
             optionsHost.SetBounds(0, 4 * 96, card.Width, 0);
-            optionsHost.BackColor = Color.Transparent;
+            optionsHost.BackColor = UiTheme.Card;
             optionsHost.Anchor = AnchorStyles.Top | AnchorStyles.Left | AnchorStyles.Right;
             card.Controls.Add(optionsHost);
 
@@ -3326,7 +3314,7 @@ namespace KotorUniversalUI
             logLink.ActiveLinkColor = Color.White;
             logLink.VisitedLinkColor = UiTheme.Accent;
             logLink.LinkBehavior = LinkBehavior.HoverUnderline;
-            logLink.BackColor = Color.Transparent;
+            logLink.BackColor = UiTheme.Window;
             logLink.TextAlign = ContentAlignment.MiddleLeft;
             logLink.SetBounds(card.Left + 8, card.Bottom + 14, 240, 34);
             logLink.Anchor = AnchorStyles.Top;
@@ -3340,7 +3328,7 @@ namespace KotorUniversalUI
             credit.ActiveLinkColor = UiTheme.Accent;
             credit.VisitedLinkColor = UiTheme.TextFaint;
             credit.LinkBehavior = LinkBehavior.HoverUnderline;
-            credit.BackColor = Color.Transparent;
+            credit.BackColor = UiTheme.Window;
             credit.TextAlign = ContentAlignment.MiddleRight;
             credit.SetBounds(card.Right - 228, card.Bottom + 14, 220, 34);
             credit.Anchor = AnchorStyles.Top;
@@ -3364,10 +3352,6 @@ namespace KotorUniversalUI
             RefreshStatus();
             resizeReady = true;
 
-            Shown += delegate
-            {
-                FitInitialSizeToWorkingArea();
-            };
             Activated += delegate { RefreshStatus(); };
             FormClosing += delegate(object sender, FormClosingEventArgs e)
             {
@@ -3377,6 +3361,41 @@ namespace KotorUniversalUI
                 MessageBox.Show(this, "Please wait for the current operation to finish.", "Patcher is working",
                     MessageBoxButtons.OK, MessageBoxIcon.Information);
             };
+        }
+
+        /// <summary>Everything that has to be settled before the window is displayed.
+        /// The fit used to run on Shown, which meant the window appeared at its full
+        /// design size and then snapped to the fitted size in front of the user.</summary>
+        protected override void OnLoad(EventArgs e)
+        {
+            base.OnLoad(e);
+            FitInitialSizeToWorkingArea();
+
+            presentHwnd = Handle;
+            desiredHeaderW = Math.Max(1, ClientSize.Width);
+            desiredHeaderH = Math.Max(1, ScaleDesign(headerHeight));
+            EnsureHeaderOverlay(desiredHeaderW, desiredHeaderH);
+            // One frame composed up front, so the very first paint already carries the
+            // plume instead of showing a flat header that pops a frame later.
+            ComposeFrame(desiredHeaderW, desiredHeaderH);
+            UpdatePresentMode();
+        }
+
+        /// <summary>Started only once the window has been shown and painted. Presenting
+        /// straight to the window before WinForms has drawn the client area leaves the
+        /// header sitting over unpainted desktop.</summary>
+        protected override void OnShown(EventArgs e)
+        {
+            base.OnShown(e);
+            if (renderThread != null)
+                return;
+            renderRunning = true;
+            renderThread = new System.Threading.Thread(RenderLoop);
+            renderThread.IsBackground = true;
+            // Below normal: the plume must never win a scheduling contest against the UI
+            // thread, or against the file work during a patch.
+            renderThread.Priority = System.Threading.ThreadPriority.BelowNormal;
+            renderThread.Start();
         }
 
         protected override void OnResize(EventArgs e)
@@ -3687,41 +3706,8 @@ namespace KotorUniversalUI
                     try
                     {
                         light.Step(seconds);
-                        if (headerBack == null || headerBack.Width != w || headerBack.Height != h)
-                        {
-                            if (headerBack != null)
-                                headerBack.Dispose();
-                            headerBack = new Bitmap(w, h, PixelFormat.Format32bppPArgb);
-                        }
-                        using (Graphics g = Graphics.FromImage(headerBack))
-                        {
-                            g.Clear(UiTheme.Window);
-                            light.Render(g, new Rectangle(0, 0, w, h));
-                            // The frame leaves this thread complete, so presenting it is a
-                            // single opaque blit with nothing left for the UI thread to
-                            // draw on top.
-                            lock (overlayLock)
-                            {
-                                if (headerOverlay != null)
-                                {
-                                    if (headerOverlay.Width == w && headerOverlay.Height == h)
-                                        g.DrawImageUnscaled(headerOverlay, 0, 0);
-                                    else
-                                    {
-                                        g.InterpolationMode = InterpolationMode.HighQualityBilinear;
-                                        g.DrawImage(headerOverlay, 0, 0, w, h);
-                                    }
-                                }
-                            }
-                        }
-                        // The surfaces are swapped, never shared: the UI thread reads the
-                        // front while this thread draws the back.
-                        lock (headerSwap)
-                        {
-                            Bitmap spare = headerFront;
-                            headerFront = headerBack;
-                            headerBack = spare;
-                        }
+                        ComposeFrame(w, h);
+
                         IntPtr hwnd = presentHwnd;
                         if (allowDirectPresent && hwnd != IntPtr.Zero)
                             PresentDirect(hwnd, w, h);
@@ -3819,6 +3805,46 @@ namespace KotorUniversalUI
             allowDirectPresent = !resizePreviewActive
                 && WindowState != FormWindowState.Minimized
                 && !IsDisposed;
+        }
+
+        /// <summary>Draws one finished header -- background, plume, then the baked brand
+        /// overlay -- into the back surface and swaps it to the front. The frame leaves
+        /// here complete, so presenting it is a single opaque blit with nothing left for
+        /// the UI thread to draw on top.</summary>
+        private void ComposeFrame(int w, int h)
+        {
+            if (headerBack == null || headerBack.Width != w || headerBack.Height != h)
+            {
+                if (headerBack != null)
+                    headerBack.Dispose();
+                headerBack = new Bitmap(w, h, PixelFormat.Format32bppPArgb);
+            }
+            using (Graphics g = Graphics.FromImage(headerBack))
+            {
+                g.Clear(UiTheme.Window);
+                light.Render(g, new Rectangle(0, 0, w, h));
+                lock (overlayLock)
+                {
+                    if (headerOverlay != null)
+                    {
+                        if (headerOverlay.Width == w && headerOverlay.Height == h)
+                            g.DrawImageUnscaled(headerOverlay, 0, 0);
+                        else
+                        {
+                            g.InterpolationMode = InterpolationMode.HighQualityBilinear;
+                            g.DrawImage(headerOverlay, 0, 0, w, h);
+                        }
+                    }
+                }
+            }
+            // The surfaces are swapped, never shared: the UI thread reads the front while
+            // the render thread draws the back.
+            lock (headerSwap)
+            {
+                Bitmap spare = headerFront;
+                headerFront = headerBack;
+                headerBack = spare;
+            }
         }
 
         /// <summary>Runs on the UI thread when a frame is ready. Update() rather than
