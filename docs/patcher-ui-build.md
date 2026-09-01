@@ -75,9 +75,18 @@ things were making it look borrowed from somewhere else:
   failure state it is comes from the chip on the right of the step, the way it does
   for every other step, and each body line stands on its own.
 
-The guidance is **one line**, on the step's own subtitle. It used to be three stacked
-restatements -- the subtitle, a heading, and a path line -- which made step 2 tall
-enough to push the rest of the flow off the card.
+The guidance is **one line**, on the step's own subtitle, and the badge on the right
+stands alone with no words beside it -- the subtitle already says which failure it is
+and what to do, so repeating it in the chip was the same duplication in a smaller
+font. `StateLabel` draws the badge at 48 design pixels instead of 32 when its text is
+empty, which is why the state labels are 56 tall rather than 36.
+
+Spacing inside the step is measured ink-to-ink, not from control boxes: the fonts
+carry different internal leading, so box positions do not predict the visual gap. On a
+render at uiScale 0.868 the title-to-subtitle gap was 11px and the subtitle-to-buttons
+gap 5px; moving the button strip from y84 to y91 makes both 11. The guidance used to be three
+stacked restatements -- the subtitle, a heading, and a path line -- which made step 2
+tall enough to push the rest of the flow off the card.
 
 That reclaimed height pays for **step 3 staying in the flow**, dimmed, so the card
 never collapses into a shorter, different-looking product. `StepRow.Dimmed` draws the
