@@ -3308,7 +3308,7 @@ namespace KotorUniversalUI
             logLink = new LinkLabel();
             logLink.Text = Version + "   ·   Open Log";
             logLink.LinkArea = new LinkArea(Version.Length + 7, 8);
-            logLink.Font = new Font("Segoe UI", 15.5F);
+            logLink.Font = new Font("Segoe UI Semibold", 15.5F);
             logLink.ForeColor = UiTheme.TextFaint;
             logLink.LinkColor = UiTheme.Accent;
             logLink.ActiveLinkColor = Color.White;
@@ -3323,7 +3323,7 @@ namespace KotorUniversalUI
 
             LinkLabel credit = new LinkLabel();
             credit.Text = "Created by RaymanGT";
-            credit.Font = new Font("Segoe UI", 15.5F);
+            credit.Font = new Font("Segoe UI Semibold", 15.5F);
             credit.LinkColor = UiTheme.TextFaint;
             credit.ActiveLinkColor = UiTheme.Accent;
             credit.VisitedLinkColor = UiTheme.TextFaint;
