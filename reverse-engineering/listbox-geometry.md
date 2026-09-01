@@ -134,7 +134,7 @@ The same condition, `content taller than the box`, produced three separate
 visible symptoms — gutter on the wrong side, and a top gap — all from builder B
 being missed. One branch, several faces.
 
-## Resolved: the top gap on some descriptions is a leading newline
+## Gold v13 — the top gap was a leading newline in the string
 
 Not geometry. Read out of the live text control for Brejik's Arm Band
 (x32dbg, 3440x1440), the description string at `textControl+0xEC` begins with
@@ -169,10 +169,29 @@ appeared on some items and not others, on both the inventory and quest-item
 panes.
 
 Vanilla behaviour: at 800x600 that blank line is ~16px and passes unnoticed; at
-3440x1440 with the enlarged font it is ~40px. **Left as-is by the user's call** —
-it is BioWare's quirk, not something this project introduced, and fixing it
-would mean either changing where the string is composed or skipping leading
-newlines in the text control.
+3440x1440 with the enlarged font it is ~40px.
+
+**Fixed in gold v13** (`tools/build_leading_newline_fix.py`). Traced with a
+hardware write breakpoint on the text control's string pointer:
+
+```
+0055F340  the description builder (properties + prose)
+006B3D80  call 0x415E00        ; hand the built string to the control
+00415E08  call 0x5E5C50        ; CExoString assign -- the write that was caught
+00415E0D  mov eax, [esi+0x50]  ; <- hooked; esi is the CExoString
+```
+
+`0x00415E00` is the GUI text setter, so one hook covers every GUI text control,
+and it runs at **set** time — which matters, because the line-breaker
+(`0x0045A5C9`) and the renderer (`0x0045A806`) are separate passes over the same
+string; trimming in only one would make them disagree about where lines start.
+
+`[esi+0]` is the char pointer and `[esi+4]` the buffer **capacity**, not a
+length — confirmed at `0x005E5C78`, where the assign compares the incoming
+length against it to decide whether to reuse the buffer. The string is
+NUL-terminated, so the stub shifts it down in place and loops to strip repeats,
+with nothing else to update. The five bytes at `0x00415E0D` are exactly a
+`jmp rel32`, so no padding was needed.
 
 The alignment encoding, derived from controls whose appearance is known
 (`LBL_CREDITS_VALUE` = `0x14` is right-aligned; `MAIN_TITLE_LBL` = `0x12` is
