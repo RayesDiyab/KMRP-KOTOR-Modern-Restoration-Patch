@@ -158,6 +158,20 @@ One thing was required to get it that low and should be kept:
   long as the window is open, background included; if that ever needs reducing, halve
   the timer rate when the window is not active rather than stopping it.
 
+The animation is driven by a `System.Threading.Timer` marshalled onto the UI thread
+through `BeginInvoke`, **not** by a `System.Windows.Forms.Timer`. That distinction is
+load-bearing: a Forms timer is `SetTimer`, and WM_TIMER is synthesized by Windows only
+when the thread's message queue is otherwise empty -- the lowest priority message
+there is, alongside WM_PAINT. Spinning the mouse wheel over the resolution dropdown
+floods the queue with WM_MOUSEWHEEL and the list's own paint traffic, and the
+animation starves. A posted `BeginInvoke` message is not queue-synthesized, is not
+starved, and is dispatched by the nested modal loops that dropdowns and menus run.
+`Invalidate` is followed by `Update()` for the same reason: WM_PAINT would be starved
+by the same flood.
+
+Ticks are dropped rather than queued if one is still outstanding, so a busy UI thread
+cannot accumulate a backlog of frames to catch up on.
+
 The simulation never stops. `Step` runs on every tick regardless of window state, so
 the plume is never frozen in time and never resumes from a stale frame; only painting
 is ever skipped, and only when the window is minimised, where Windows delivers no

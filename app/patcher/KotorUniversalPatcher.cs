@@ -3004,7 +3004,9 @@ namespace KotorUniversalUI
         // resampled on every one of them: a 650x350 bicubic resize per frame cost more
         // than the plume itself. Scaled once per size, then blitted.
         private Bitmap scaledBrand;
-        private readonly Timer smokeTimer;
+        private System.Threading.Timer animationTimer;
+        private int animationTickQueued;
+        private const int AnimationIntervalMs = 40;
         private int smokeLastTick;
         private Font taglineFont;      // sized so the tagline matches the wordmark's width
         private bool operationRunning;
@@ -3053,22 +3055,21 @@ namespace KotorUniversalUI
             // Keep old scaled fonts alive until the resize/paint burst has gone idle.
             // ~25fps is plenty for a slow haze, and the field only ever invalidates the
             // header strip, so a frame costs one small bitmap and one upscale.
-            smokeTimer = new Timer();
-            smokeTimer.Interval = 40;
+            // Deliberately NOT a System.Windows.Forms.Timer. That is SetTimer, and WM_TIMER
+            // is synthesized by Windows only when the thread's message queue is otherwise
+            // empty -- it is the lowest priority message there is, alongside WM_PAINT.
+            // Spinning the wheel over the resolution dropdown floods the queue with
+            // WM_MOUSEWHEEL and the list's own paint traffic, and the animation starves.
+            // A threading timer marshalled through BeginInvoke posts a real message, which
+            // is not queue-synthesized, is not starved, and is dispatched by the nested
+            // modal loops that dropdowns and menus run.
             smokeLastTick = Environment.TickCount;
-            smokeTimer.Tick += delegate
+            HandleCreated += delegate
             {
-                int now = Environment.TickCount;
-                float seconds = Math.Min(0.25F, Math.Max(0F, (now - smokeLastTick) / 1000F));
-                smokeLastTick = now;
-                // The simulation always advances, so the plume is never frozen in time
-                // and never resumes from a stale frame. Painting is what gets skipped.
-                light.Step(seconds);
-                if (WindowState == FormWindowState.Minimized)
-                    return;
-                Invalidate(new Rectangle(0, 0, ClientSize.Width, LiveHeaderHeight()));
+                if (animationTimer == null)
+                    animationTimer = new System.Threading.Timer(
+                        AnimationTimerFired, null, AnimationIntervalMs, AnimationIntervalMs);
             };
-            smokeTimer.Start();
 
             fontRetireTimer = new Timer();
             fontRetireTimer.Interval = 750;
@@ -3612,6 +3613,48 @@ namespace KotorUniversalUI
             retiredFonts.Clear();
         }
 
+        /// <summary>Fired on a pool thread. Hands the work to the UI thread and drops the
+        /// tick entirely if one is still outstanding, so a busy UI thread cannot accumulate
+        /// a backlog of frames to catch up on.</summary>
+        private void AnimationTimerFired(object state)
+        {
+            if (System.Threading.Interlocked.Exchange(ref animationTickQueued, 1) == 1)
+                return;
+            try
+            {
+                if (IsHandleCreated && !IsDisposed)
+                    BeginInvoke((MethodInvoker)AnimationTick);
+                else
+                    System.Threading.Interlocked.Exchange(ref animationTickQueued, 0);
+            }
+            catch
+            {
+                // The handle can go away between the check and the call while closing.
+                System.Threading.Interlocked.Exchange(ref animationTickQueued, 0);
+            }
+        }
+
+        private void AnimationTick()
+        {
+            System.Threading.Interlocked.Exchange(ref animationTickQueued, 0);
+            if (IsDisposed || Disposing)
+                return;
+
+            int now = Environment.TickCount;
+            float seconds = Math.Min(0.25F, Math.Max(0F, (now - smokeLastTick) / 1000F));
+            smokeLastTick = now;
+            // The simulation always advances, so the plume is never frozen in time and
+            // never resumes from a stale frame. Painting is what gets skipped.
+            light.Step(seconds);
+            if (WindowState == FormWindowState.Minimized)
+                return;
+
+            Invalidate(new Rectangle(0, 0, ClientSize.Width, LiveHeaderHeight()));
+            // Paint now rather than waiting for WM_PAINT, which is low priority and would
+            // be starved by the same message flood that this timer was moved to avoid.
+            Update();
+        }
+
         /// <summary>Height of the header as it is currently being painted. While a resize
         /// preview is up, uiScale still holds its pre-resize value and the snapshot is
         /// being stretched, so the header's on-screen height is the captured height scaled
@@ -3643,8 +3686,11 @@ namespace KotorUniversalUI
                 scaledFonts.Clear();
                 if (taglineFont != null)
                     taglineFont.Dispose();
-                smokeTimer.Stop();
-                smokeTimer.Dispose();
+                if (animationTimer != null)
+                {
+                    animationTimer.Dispose();
+                    animationTimer = null;
+                }
                 light.Dispose();
                 if (scaledBrand != null)
                     scaledBrand.Dispose();
