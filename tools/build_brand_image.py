@@ -74,7 +74,7 @@ WING_BOTTOM_AT = 0.50         # where the wings' lower tips land, in caps below 
 # So the fade is anchored to the crest bottom and only its LENGTH is a parameter.
 # Measured on the reference for shape: the wings hold ~0.85 of peak down to
 # -0.24 cap, fall to 0.53 by the cap line, and are gone just below.
-FADE_START_ABOVE_WING = 1.00  # caps above the wing line where dimming begins. It has to start
+FADE_START_ABOVE_WING = 1.32  # caps above the wing line where dimming begins. It has to start
                               # well above: the wings end at 85% of the crest's height, so a fade
                               # that only begins at the wing line covers just the hilt and leaves
                               # the wings at full brightness -- which is why earlier attempts read
