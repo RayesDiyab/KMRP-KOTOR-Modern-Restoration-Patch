@@ -51,8 +51,8 @@ FONT = Path(r"C:\Windows\Fonts\georgia.ttf")
 
 CAP = 150                     # cap height of the rendered wordmark, in output pixels
 TRACKING_RATIO = 0.297        # measured: 17.2px tracking at 58px cap
-CREST_WIDTH_RATIO = 3.19      # 2.45 is the measured reference width (142px at 58px cap);
-                              # 3.19 is that +30%. Height follows, since the aspect is fixed,
+CREST_WIDTH_RATIO = 3.43      # 2.45 is the measured reference width (142px at 58px cap);
+                              # 3.43 is that +40%. Height follows, since the aspect is fixed,
                               # and the crest grows upward because it is anchored by its wing
                               # line rather than its bounding box.
 # Measured: the crest's wings fade out just above the cap line (-0.03 cap), while
