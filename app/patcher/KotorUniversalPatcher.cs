@@ -3020,6 +3020,11 @@ namespace KotorUniversalUI
         private float nativeFontScale = 1F;
         private Bitmap resizePreview;
         private bool resizePreviewActive;
+        // The brand and tagline, baked transparent at the moment the resize began,
+        // so the header can keep animating live underneath them while the rest of
+        // the window stays a frozen snapshot.
+        private Bitmap resizeHeaderLayer;
+        private int resizeHeaderHeight;
         private readonly List<Control> resizePreviewControls = new List<Control>();
         private bool resizeReady;
         private bool enforcingAspect;
@@ -3056,10 +3061,12 @@ namespace KotorUniversalUI
                 int now = Environment.TickCount;
                 float seconds = Math.Min(0.25F, Math.Max(0F, (now - smokeLastTick) / 1000F));
                 smokeLastTick = now;
-                if (!SmokeShouldRun())
-                    return;
+                // The simulation always advances, so the plume is never frozen in time
+                // and never resumes from a stale frame. Painting is what gets skipped.
                 light.Step(seconds);
-                Invalidate(new Rectangle(0, 0, ClientSize.Width, ScaleDesign(headerHeight)));
+                if (WindowState == FormWindowState.Minimized)
+                    return;
+                Invalidate(new Rectangle(0, 0, ClientSize.Width, LiveHeaderHeight()));
             };
             smokeTimer.Start();
 
@@ -3375,6 +3382,33 @@ namespace KotorUniversalUI
 
             resizePreview = preview;
             resizePreviewActive = true;
+
+            resizeHeaderHeight = ScaleDesign(headerHeight);
+            if (resizeHeaderLayer != null)
+                resizeHeaderLayer.Dispose();
+            resizeHeaderLayer = null;
+            try
+            {
+                resizeHeaderLayer = new Bitmap(Math.Max(1, ClientSize.Width),
+                    Math.Max(1, resizeHeaderHeight), PixelFormat.Format32bppArgb);
+                using (Graphics hg = Graphics.FromImage(resizeHeaderLayer))
+                {
+                    hg.Clear(Color.Transparent);
+                    hg.SmoothingMode = SmoothingMode.AntiAlias;
+                    // Not ClearType: subpixel hinting against transparency produces
+                    // coloured fringes once the layer is composited.
+                    hg.TextRenderingHint = TextRenderingHint.AntiAliasGridFit;
+                    PaintBrandLayer(hg, ClientSize.Width);
+                }
+            }
+            catch
+            {
+                if (resizeHeaderLayer != null)
+                {
+                    resizeHeaderLayer.Dispose();
+                    resizeHeaderLayer = null;
+                }
+            }
             resizePreviewControls.Clear();
             foreach (Control child in Controls)
             {
@@ -3408,6 +3442,11 @@ namespace KotorUniversalUI
                 {
                     resizePreview.Dispose();
                     resizePreview = null;
+                }
+                if (resizeHeaderLayer != null)
+                {
+                    resizeHeaderLayer.Dispose();
+                    resizeHeaderLayer = null;
                 }
 
                 if (!operationRunning)
@@ -3573,24 +3612,23 @@ namespace KotorUniversalUI
             retiredFonts.Clear();
         }
 
+        /// <summary>Height of the header as it is currently being painted. While a resize
+        /// preview is up, uiScale still holds its pre-resize value and the snapshot is
+        /// being stretched, so the header's on-screen height is the captured height scaled
+        /// by how far the window has been dragged -- which can be taller than the capture.
+        /// Invalidating the captured height instead would leave a stale band behind when
+        /// the window grows.</summary>
+        private int LiveHeaderHeight()
+        {
+            if (resizePreviewActive && resizePreview != null && resizePreview.Height > 0)
+                return Math.Max(1, (int)Math.Round(
+                    resizeHeaderHeight * (double)ClientSize.Height / resizePreview.Height));
+            return ScaleDesign(headerHeight);
+        }
+
         private int ScaleDesign(int value)
         {
             return Math.Max(1, (int)Math.Round(value * uiScale));
-        }
-
-        /// <summary>The animation keeps running while a patch is in progress and while the
-        /// window is in the background. Patching is on a BackgroundWorker and only touches
-        /// the UI thread through ReportProgress, so painting the header does not delay the
-        /// file work and the file work does not stall the animation.
-        ///
-        /// Two cases still stop it, and both are correctness rather than politeness: during
-        /// the snapshot resize the header is a scaled bitmap rather than live paint, so
-        /// animating would fight the snapshot; and a minimised window paints nothing a user
-        /// can see.</summary>
-        private bool SmokeShouldRun()
-        {
-            return !resizePreviewActive
-                && WindowState != FormWindowState.Minimized;
         }
 
         protected override void Dispose(bool disposing)
@@ -3614,6 +3652,8 @@ namespace KotorUniversalUI
                     brand.Dispose();
                 if (resizePreview != null)
                     resizePreview.Dispose();
+                if (resizeHeaderLayer != null)
+                    resizeHeaderLayer.Dispose();
             }
             base.Dispose(disposing);
         }
@@ -3691,6 +3731,43 @@ namespace KotorUniversalUI
                 e.Graphics.PixelOffsetMode = PixelOffsetMode.HighSpeed;
                 e.Graphics.DrawImage(resizePreview, ClientRectangle,
                     0, 0, resizePreview.Width, resizePreview.Height, GraphicsUnit.Pixel);
+
+                // The snapshot exists because re-laying out the card's child controls on
+                // every mouse move is expensive. The header has no child controls at all,
+                // so it can be repainted live over the frozen frame: background, plume,
+                // then the brand layer baked when the resize began. Stretching that layer
+                // costs one bilinear blit, where rebuilding it would mean a bicubic
+                // resample of the artwork per frame -- the thing the brand cache exists
+                // to avoid.
+                if (resizeHeaderLayer != null && resizePreview.Height > 0)
+                {
+                    // An exception thrown out of a paint handler mid-drag would surface as
+                    // a JIT dialog, so a failure here drops the layer and the window falls
+                    // back to the plain frozen snapshot for the rest of the resize.
+                    try
+                    {
+                        int headerNow = LiveHeaderHeight();
+                        if (headerNow > 0)
+                        {
+                            Rectangle live = new Rectangle(0, 0, ClientSize.Width, headerNow);
+                            e.Graphics.CompositingMode = CompositingMode.SourceOver;
+                            e.Graphics.CompositingQuality = CompositingQuality.HighSpeed;
+                            GraphicsState held = e.Graphics.Save();
+                            e.Graphics.SetClip(live);
+                            using (SolidBrush back = new SolidBrush(UiTheme.Window))
+                                e.Graphics.FillRectangle(back, live);
+                            light.Render(e.Graphics, live);
+                            e.Graphics.InterpolationMode = InterpolationMode.HighQualityBilinear;
+                            e.Graphics.DrawImage(resizeHeaderLayer, live);
+                            e.Graphics.Restore(held);
+                        }
+                    }
+                    catch
+                    {
+                        resizeHeaderLayer.Dispose();
+                        resizeHeaderLayer = null;
+                    }
+                }
                 return;
             }
 
@@ -3712,6 +3789,14 @@ namespace KotorUniversalUI
             light.Render(g, header);
             g.Restore(clipped);
 
+            PaintBrandLayer(g, ClientSize.Width);
+        }
+
+        /// <summary>The brand lockup and tagline, without the background or the plume.
+        /// Split out so the resize path can bake exactly this into a transparent layer
+        /// and composite it over live smoke.</summary>
+        private void PaintBrandLayer(Graphics g, int clientWidth)
+        {
             // The crest and the metallic wordmark are one baked lockup, so the crest's
             // fade lines up with the letters exactly as it was composed.
             int scaledBrandWidth = Math.Max(1, (int)Math.Round(brandWidth * uiScale));
@@ -3734,7 +3819,7 @@ namespace KotorUniversalUI
                         bg.DrawImage(brand, 0, 0, scaledBrandWidth, scaledBrandHeight);
                     }
                 }
-                g.DrawImageUnscaled(scaledBrand, (ClientSize.Width - scaledBrandWidth) / 2, brandTop);
+                g.DrawImageUnscaled(scaledBrand, (clientWidth - scaledBrandWidth) / 2, brandTop);
                 taglineTop = brandTop + scaledBrandHeight + Math.Max(1, (int)Math.Round(2 * uiScale));
             }
 
@@ -3764,7 +3849,7 @@ namespace KotorUniversalUI
                 }
 
                 g.DrawString(Tagline, taglineFont, ink,
-                    new RectangleF(0, taglineTop, ClientSize.Width,
+                    new RectangleF(0, taglineTop, clientWidth,
                         taglineFont.Height + Math.Max(2, (int)Math.Round(8 * uiScale))), sf);
             }
         }
