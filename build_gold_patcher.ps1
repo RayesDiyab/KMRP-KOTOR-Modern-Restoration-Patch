@@ -2,7 +2,7 @@ param(
     [string]$SourceExe = "..\swkotornopatch.exe",
     [string]$GoldExe = "..\swkotor_gold_final_D8F0EEBF.exe",
     [string]$OverrideSource = ".\assets\override-3440x1440",
-    [string]$IconPath = ".\app\patcher\favicon.ico"
+    [string]$IconPath = ".\favicon.ico"
 )
 
 $ErrorActionPreference = "Stop"

@@ -60,12 +60,11 @@ resolutions now also carries this one.
 
 ## Building the patcher
 
-The gold snapshot already contains every executable fix, so the normal build is
-one command — but **pass `-GoldExe` explicitly**, because the script's default
-still points at the obsolete `D8F0EEBF` snapshot:
+The gold snapshot already contains every executable fix, and the universal
+build script defaults to the current gold-v13 file:
 
 ```powershell
-.\build_universal_patcher.ps1 -GoldExe ".\build\universal-patcher\swkotor_gold_v9_listbox.exe"
+.\build_universal_patcher.ps1
 ```
 
 To roll a *new* executable fix into the gold, run its build script against the
@@ -87,7 +86,11 @@ Gold lineage (most recent last):
 | `swkotor_gold_v5_rows175.exe` | `3BB2F07A336C5A65C71992FCB341C2E7BFA00566EDD45E86C973E676A30222D6` | + resolution-aware list-row curve |
 | `swkotor_gold_v6_wrapfix.exe` | `171D084E8F58AB40B778D97A3378B1A54E24F10EA02D2053A6A78B913318A7B8` | + word-wrap forward progress |
 | `swkotor_gold_v8_stackcount.exe` | `879DBCBEAAF6ACEB22E7D95BB8D1566DA955D65B2F3AC07F8D3E08D450308AED` | + wrap guard vs LINE start, short-string guards NOPed |
-| **`swkotor_gold_v9_listbox.exe`** | `4BC5AC6826D60A5BC02095F7D35E06D086AF743B05F35D7AA9288FDCB0D32EB7` | + listbox row-growth fix (`build_listbox_growth_fix.py`) |
+| `swkotor_gold_v9_listbox.exe` | `4BC5AC6826D60A5BC02095F7D35E06D086AF743B05F35D7AA9288FDCB0D32EB7` | + listbox row-growth fix (`build_listbox_growth_fix.py`) |
+| `swkotor_gold_v10_stacklabel.exe` | `8F338C0DC903989A50FA644E8EAD1E1D8F7AF395631B1289F7F311CA0AEB8AD2` | + scalable stack-count label arithmetic in `.ksc` |
+| `swkotor_gold_v11_listpad.exe` | `485924D364A8A419B61076CAACD2AAC0F0115E8ECD2D27AEA29D0656FA0AAC2D` | + horizontal-only listbox padding |
+| `swkotor_gold_v12_gutterside.exe` | `3556664D46BE5203923C7C1CF3752445254CBA61479619A96774DA5019758A0C` | + gutter follows the scrollbar side in both builders |
+| **`swkotor_gold_v13_leadingnl.exe`** | `145F46FE85AF5934D6EE55C3D6BD5E54354762B5AFF3078C3875BC054EDE9C90` | + leading-newline removal when GUI text is assigned |
 
 `Override/computer.gui` on the live install is also already the corrected
 version (also copied into `assets/override-3440x1440/computer.gui`).
@@ -95,23 +98,25 @@ version (also copied into `assets/override-3440x1440/computer.gui`).
 ## Integration status — all shipped (superseded the old "not integrated" warning)
 
 Every executable hook in this document **is** now part of the Universal
-Patcher's gold delta, along with a fourth added later (the word-wrap
-forward-progress fix). The gold reference snapshot moved twice:
+Patcher's gold delta. The gold reference continued through the listbox,
+stack-label, gutter, and leading-newline investigations:
 
 | snapshot | sections | contains |
 | --- | --- | --- |
 | `swkotor_gold_final_D8F0EEBF.exe` | `.kui` | map/marker only — **obsolete, do not build against it** |
 | `swkotor_gold_v5_rows175.exe` | `.kui .klb .kfs` | + letterbox, font scale, list-row |
 | `swkotor_gold_v6_wrapfix.exe` | `.kui .klb .kfs` | + word-wrap fix (in-place, adds no section) |
-| **`swkotor_gold_v9_listbox.exe`** | `.kui .klb .kfs .kwl` | + stack-count guards, + listbox row-growth fix (both in-place) |
+| `swkotor_gold_v9_listbox.exe` | `.kui .klb .kfs .kwl` | + stack-count guards, + listbox row-growth fix |
+| `swkotor_gold_v10_stacklabel.exe` | `.kui .klb .kfs .kwl .ksc` | + unbounded stack-label geometry |
+| `swkotor_gold_v11_listpad.exe` | previous + in-place edits | + horizontal-only listbox padding |
+| `swkotor_gold_v12_gutterside.exe` | previous + `.kgs` | + scrollbar-side-aware gutter |
+| **`swkotor_gold_v13_leadingnl.exe`** | previous + `.ktn` | + leading-newline removal |
 
-Current gold `4BC5AC6826D60A5BC02095F7D35E06D086AF743B05F35D7AA9288FDCB0D32EB7`.
-
-**`build_universal_patcher.ps1` still *defaults* `-GoldExe` to the obsolete
-`D8F0EEBF` snapshot.** Always pass `-GoldExe` explicitly, and confirm which
-file is current by matching `GoldPatch.TargetHash` in
-`app/patcher/KotorUniversalPatcher.cs` against a file on disk rather than
-trusting the script's default.
+Current gold: `swkotor_gold_v13_leadingnl.exe`,
+`145F46FE85AF5934D6EE55C3D6BD5E54354762B5AFF3078C3875BC054EDE9C90`.
+`build_universal_patcher.ps1` now defaults to that file. Still confirm any
+future gold change by matching `GoldPatch.TargetHash` in
+`app/patcher/KotorUniversalPatcher.cs` against the file on disk.
 
 Changing the gold requires updating **two** hash constants together or the
 build fails: `TargetHash` in `KotorUniversalPatcher.cs` and
@@ -151,8 +156,8 @@ padding/advance logic in `build_font_from_ttf.py` and re-bake.
 
 ## Validation status
 
-- **Play-tested on a CLEAN install at 3440x1440** (current build, gold v9,
-  patcher `45762554F88927BC9853D3E850F29504C56CCCBEECB3AA7E9B1538FCCFC076AC`):
+- **Play-tested on a CLEAN install at 3440x1440** through the gold-v13
+  workstream:
   a fresh retail game patched end-to-end, all screens confirmed working.
   Specifically re-verified after the listbox growth fix, because it touches code
   shared by every list: **save/load, journal, inventory and messages unchanged**,

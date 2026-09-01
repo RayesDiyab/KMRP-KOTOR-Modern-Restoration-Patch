@@ -3,7 +3,7 @@ param(
     [string]$GoldExe = ".\build\universal-patcher\swkotor_gold_v13_leadingnl.exe",
     [string]$GoldOverride = ".\assets\override-3440x1440",
     [string]$UpstreamGuiRoot = ".\third_party\kotor-high-resolution-menus-1.5",
-    [string]$IconPath = ".\app\patcher\favicon.ico",
+    [string]$IconPath = ".\favicon.ico",
     [string]$TexturePack = "..\TexturePacks\swpc_tex_gui.erf",
     [string]$HdFonts = ".\assets\hd-fonts",
     [switch]$ReuseResources
@@ -69,9 +69,9 @@ $compilerArgs = @(
     "/resource:$(Join-Path $resourceDir 'GPL-3.0-KOTOR-High-Resolution-Menus.txt'),KotorUniversalUI.license.highresolutionmenus"
 )
 
-# Hand-supplied step icons are optional: any that are missing fall back to the
-# vector glyphs drawn in the patcher, so a partial set still builds.
-foreach ($iconName in @("folder", "shield", "monitor", "tools")) {
+# Hand-supplied UI icons are optional: step icons fall back to vector glyphs,
+# while the verified label simply falls back to text if its artwork is absent.
+foreach ($iconName in @("folder", "shield", "monitor", "tools", "verified")) {
     $iconPath = Join-Path $projectRoot "app\patcher\icons\$iconName.png"
     if (Test-Path -LiteralPath $iconPath) {
         $compilerArgs += "/resource:$iconPath,KotorUniversalUI.icon.$iconName"
@@ -89,6 +89,30 @@ $compilerArgs += (Join-Path $projectRoot "app\patcher\AbilityIconGenerator.cs")
 & $compiler $compilerArgs
 if ($LASTEXITCODE -ne 0) {
     throw "Universal patcher compilation failed"
+}
+
+# Explorer aggressively caches executable icons by path. KMRP is rebuilt in place,
+# so notify the shell that this exact file changed instead of leaving the previous
+# build's artwork visible until Windows eventually expires its cache entry.
+try {
+    if (-not ("KmrpShellRefresh" -as [type])) {
+        Add-Type -TypeDefinition @"
+using System;
+using System.Runtime.InteropServices;
+public static class KmrpShellRefresh
+{
+    [DllImport("shell32.dll", CharSet = CharSet.Unicode)]
+    public static extern void SHChangeNotify(uint eventId, uint flags,
+        string item1, IntPtr item2);
+}
+"@
+    }
+    # SHCNE_UPDATEITEM | SHCNF_PATHW | SHCNF_FLUSH
+    [KmrpShellRefresh]::SHChangeNotify(0x00002000, 0x00001005,
+        $outputExe, [IntPtr]::Zero)
+}
+catch {
+    Write-Warning "The patcher was built, but Explorer's icon view could not be refreshed: $($_.Exception.Message)"
 }
 
 $hash = Get-FileHash -Algorithm SHA256 -LiteralPath $outputExe

@@ -7,6 +7,9 @@ coordinate math, GUI packaging, reproduction steps, and validation status.
 See `docs/font-scaling.md` for the font/dialogue-letterbox/list-row scaling
 work, which **is** part of the Universal Patcher — its "Integration status"
 section covers the gold snapshot and the hash constants involved.
+See `docs/patcher-ui-build.md` for the desktop UI state machine, proportional
+resize implementation, supplied-icon pipeline, embedded resources, build
+process, transaction safety, and release checklist.
 
 The completed 3440×1440-only gold patcher remains frozen at
 `releases/3440x1440-gold-final/KOTOR_UI_Gold_Patcher_3440x1440_FINAL.exe`.
@@ -77,13 +80,16 @@ cramped text it was meant to fix was actually cured by the atlas rebuild).
   behind. All four of its constants now scale with the icon (`StackCountSites`),
   clamped so the three imm8 operands cannot sign-extend negative.
 - The current gold snapshot is
-  `build/universal-patcher/swkotor_gold_v9_listbox.exe`, SHA-256
-  `4BC5AC6826D60A5BC02095F7D35E06D086AF743B05F35D7AA9288FDCB0D32EB7`.
-  `D8F0EEBF...` is the **obsolete** original gold — `build_universal_patcher.ps1`
-  still defaults `-GoldExe` to it, so always pass that argument explicitly.
-- A strict source-to-gold Windows patcher is available in `dist/`. It embeds
-  only the 4.7 KB byte delta, creates a verified backup, supports restore, and
-  refuses unknown executables.
+  `build/universal-patcher/swkotor_gold_v13_leadingnl.exe`, SHA-256
+  `145F46FE85AF5934D6EE55C3D6BD5E54354762B5AFF3078C3875BC054EDE9C90`.
+  The universal build script defaults to this file. Gold v13 includes the map,
+  marker, font, dialogue, list-row, wrap-progress, stack-label, listbox gutter,
+  scrollbar-side, and leading-newline fixes documented in
+  `reverse-engineering/listbox-geometry.md`.
+- The standalone Windows patcher in `dist/` embeds the verified executable
+  delta, all 48 GUI archives, common Override assets, font atlases, branding,
+  icons, and license notice. It creates verified backups, supports full
+  EXE/INI/Override restore, and refuses unknown executables.
 - This directory is now tracked in a private git repository
   (`github.com/RayesDiyab/kotor-universal-ui`).
 
@@ -91,6 +97,13 @@ cramped text it was meant to fix was actually cured by the atlas rebuild).
 
 ```powershell
 .\build_gold_patcher.ps1
+```
+
+Build the shipping 48-resolution patcher with:
+
+```powershell
+python .\tools\prepare_app_icons.py  # requires Pillow; only when source icons change
+.\build_universal_patcher.ps1
 ```
 
 The supported clean source SHA-256 is

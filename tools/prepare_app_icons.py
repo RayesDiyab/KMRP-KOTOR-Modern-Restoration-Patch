@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Turn the hand-supplied step icons in `App icons/` into embeddable resources.
+"""Turn the hand-supplied UI icons in `App icons/` into embeddable resources.
 
 The source art is a silhouette on transparency -- the ink's own colour does not
 matter, only its alpha. Each icon is cropped to its visible ink, scaled into the
@@ -16,6 +16,7 @@ whatever is convenient:
     shield / verify      -> step 2
     monitor / display / screen / resolution -> step 3
     tool / wrench / patch / apply           -> step 4
+    verified / success                      -> verified status label
 
 Anything unmatched is reported and skipped; any step without an icon falls back
 to the vector glyph drawn in UiTheme.DrawGlyph, so a partial set still builds.
@@ -38,6 +39,7 @@ CENTER_TOLERANCE = 1.0
 LANCZOS = Image.Resampling.LANCZOS if hasattr(Image, "Resampling") else Image.LANCZOS
 
 KEYWORDS = (
+    ("verified", ("verified-label", "verified", "success")),
     ("folder", ("folder", "directory", "game")),
     ("shield", ("shield", "verify", "check")),
     ("monitor", ("monitor", "display", "screen", "resolution")),
@@ -145,7 +147,7 @@ def main() -> int:
         )
 
     missing = [step for step, _ in KEYWORDS if step not in seen]
-    print(f"\n{len(seen)} of 4 icons supplied.")
+    print(f"\n{len(seen)} of {len(KEYWORDS)} icons supplied.")
     if missing:
         print("still drawn as vectors: " + ", ".join(missing))
     return 0
