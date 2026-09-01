@@ -63,6 +63,18 @@ PATCH_SITES = (
     (0x0041B48C, "8d043f2bc8", "2bcf33ff90",
      "lea eax,[edi+edi]; sub ecx,eax -> sub ecx,edi; xor edi,edi; nop"
      "   (right inset once, not twice; row tops start at 0)"),
+    # The two "does the content fit?" tests, which choose between the row
+    # layout and the single-item scrolling layout at 0x0041A2D0. Both compute
+    # PADDING + rowHeight and compare it against the box height, so a pane whose
+    # text fits can still be routed to the scrolling layout -- which then
+    # bottom-anchors it and leaves a gap on top. Measured live: an equipped
+    # robe's description, rowHeight 320 in a 342-tall box, tested as 72 + 320 =
+    # 392 > 342 and came out 22px down the box. PADDING is a horizontal inset
+    # now, so it has no business in a vertical fit test.
+    (0x0041B339, "03c2", "8bc2",
+     "add eax,edx -> mov eax,edx   (fit test: rowHeight alone)"),
+    (0x0041B3AE, "03c2", "8bc2",
+     "add eax,edx -> mov eax,edx   (fit test: rowHeight alone)"),
 )
 
 
