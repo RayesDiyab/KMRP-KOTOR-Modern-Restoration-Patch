@@ -52,8 +52,17 @@ CAP = 150                     # cap height of the rendered wordmark, in output p
 TRACKING_RATIO = 0.297        # measured: 17.2px tracking at 58px cap
 CREST_WIDTH_RATIO = 2.45      # measured: 142px wide at 58px cap
 CREST_FADE_RATIO = 0.42       # the crest dies out this far (in caps) above the cap line
-RIM_LIFT_RATIO = 0.06         # bevel width / cap height; solved by sweeping against the
-                              # reference's brightness distribution (see FACE)
+BEVEL_TAU_RATIO = 0.048       # bevel decay length / cap height, fitted to the
+                              # reference's luminance-vs-depth profile
+OUTLINE_RATIO = 0.008         # outline half-width / cap height (1px at cap 58)
+# Measured off the reference's luminance-vs-depth profile: the lit edge peaks at
+# 163 (depth 1) and the interior settles at 118 (depth 10+). The FACE and RIM
+# ramps carry the hue; these fix their level, so the two cannot drift apart.
+EDGE_LUM = 195.0             # fitted, not the raw 163 measured at depth 1: that sample is
+                             # diluted by antialiasing, so the underlying edge is brighter
+PLATEAU_LUM = 118.0
+SIDE_LIGHT = 0.75            # left-edge lighting relative to the top edge; swept against the
+                             # reference (mean luminance 130.6 vs 132.1, lit edge 160.3 vs 163.1)
 SUPERSAMPLE = 3
 
 # Stroke interior, sampled per height band as the mean of pixels above that band's
@@ -204,38 +213,66 @@ def build(crest_path: Path, out: Path) -> None:
     # --- the wordmark ------------------------------------------------------
     glyph_h = baseline - cap_top
 
-    drop = letters.filter(ImageFilter.GaussianBlur(cap * 0.05))
-    shadow = Image.new("RGBA", canvas.size, OUTLINE + (0,))
-    shadow.putalpha(drop.point(lambda v: int(v * 0.8)))
-    canvas.alpha_composite(shadow, (0, int(cap * 0.03)))
+    # --- shading: a bevel measured off the reference ----------------------
+    # For every glyph pixel the reference's luminance depends on how far it sits
+    # below its own stroke's top edge, not on absolute height:
+    #     depth 0  102 (outline/antialias)   depth 1  163   depth 3  134
+    #     depth 6  122                       depth 10+ ~118
+    # So: a bright lit edge decaying to a plateau. Fitting 165 -> 118 through
+    # depth 3 = 134 gives tau = 2.8px at cap 58, i.e. 0.048 x cap.
+    import numpy as np
 
-    grow = letters.filter(ImageFilter.MaxFilter(2 * max(1, int(cap * 0.016)) + 1))
+    alpha = np.asarray(letters).astype(np.float32) / 255.0
+    solid = alpha > 0.5
+    depth = np.zeros(alpha.shape, dtype=np.float32)
+    run = np.zeros(alpha.shape[1], dtype=np.float32)
+    for y in range(alpha.shape[0]):
+        row = solid[y]
+        run = np.where(row, run + 1.0, 0.0)
+        depth[y] = np.maximum(run - 1.0, 0.0)
+
+    # A bevel is lit from above AND from the left -- the reference's overall mean
+    # luminance (132.1) sits well above its depth plateau (118), which only works
+    # if the vertical edges are lit too. Weighted below the top edge.
+    side = np.zeros(alpha.shape, dtype=np.float32)
+    run = np.zeros(alpha.shape[0], dtype=np.float32)
+    for x in range(alpha.shape[1]):
+        col = solid[:, x]
+        run = np.where(col, run + 1.0, 0.0)
+        side[:, x] = np.maximum(run - 1.0, 0.0)
+
+    tau = max(1.0, BEVEL_TAU_RATIO * cap)
+    lit = np.maximum(np.exp(-depth / tau), SIDE_LIGHT * np.exp(-side / tau))[..., None]
+
+    t = np.clip((np.arange(alpha.shape[0]) - cap_top) / max(1, glyph_h), 0.0, 1.0)
+    def levelled(stops, target_lum):
+        arr = np.asarray(ramp(alpha.shape[0], stops), dtype=np.float32).reshape(-1, 3)
+        mean = arr.max(axis=1).mean()
+        return (arr * (target_lum / max(1e-6, mean))).reshape(-1, 1, 3)
+
+    plate_col = levelled(FACE, PLATEAU_LUM)
+    edge_col = levelled(RIM, EDGE_LUM)
+    # `ramp` spans the glyph, so index it by the same normalised height.
+    idx = np.clip((t * (alpha.shape[0] - 1)).astype(int), 0, alpha.shape[0] - 1)
+    plate_col = plate_col[idx]
+    edge_col = edge_col[idx]
+
+    shaded = plate_col * (1.0 - lit) + edge_col * lit
+    rgb = np.clip(shaded, 0, 255).astype(np.uint8)
+    face_img = Image.fromarray(rgb, "RGB").convert("RGBA")
+    face_img.putalpha(letters)
+
+    # A hairline outline only -- the reference's is one pixel at cap 58.
+    grow = letters.filter(ImageFilter.MaxFilter(2 * max(1, int(cap * OUTLINE_RATIO)) + 1))
     edge = Image.new("RGBA", canvas.size, OUTLINE + (255,))
     edge.putalpha(grow)
+
+    drop = letters.filter(ImageFilter.GaussianBlur(cap * 0.035))
+    shadow = Image.new("RGBA", canvas.size, OUTLINE + (0,))
+    shadow.putalpha(drop.point(lambda v: int(v * 0.7)))
+    canvas.alpha_composite(shadow, (0, int(cap * 0.025)))
     canvas.alpha_composite(edge)
-
-    face = ramp(glyph_h, FACE).resize((width, glyph_h), Image.NEAREST).convert("RGBA")
-    plate = Image.new("RGBA", canvas.size, (0, 0, 0, 0))
-    plate.paste(face, (0, cap_top))
-    plate.putalpha(letters)
-    canvas.alpha_composite(plate)
-
-    lift = max(1, int(cap * RIM_LIFT_RATIO))
-    up = Image.new("L", canvas.size, 0); up.paste(letters, (0, -lift))
-    top_edge = Image.composite(letters, Image.new("L", canvas.size, 0),
-                               Image.eval(up, lambda v: 255 - v))
-    rim = ramp(glyph_h, RIM).resize((width, glyph_h), Image.NEAREST).convert("RGBA")
-    rim_plate = Image.new("RGBA", canvas.size, (0, 0, 0, 0))
-    rim_plate.paste(rim, (0, cap_top))
-    rim_plate.putalpha(top_edge)
-    canvas.alpha_composite(rim_plate)
-
-    down = Image.new("L", canvas.size, 0); down.paste(letters, (0, lift))
-    bottom_edge = Image.composite(letters, Image.new("L", canvas.size, 0),
-                                  Image.eval(down, lambda v: 255 - v))
-    dark = Image.new("RGBA", canvas.size, (18, 32, 52, 255))
-    dark.putalpha(bottom_edge.point(lambda v: int(v * 0.7)))
-    canvas.alpha_composite(dark)
+    canvas.alpha_composite(face_img)
 
     canvas = canvas.resize((width // SUPERSAMPLE, height // SUPERSAMPLE), Image.LANCZOS)
     box = canvas.getbbox()
