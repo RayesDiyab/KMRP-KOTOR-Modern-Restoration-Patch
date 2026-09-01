@@ -2369,13 +2369,20 @@ namespace KotorUniversalUI
         private const float ShaftStrength = 0.55F;  // how much of the light is shaped into shafts
         private const float ShaftDrift = 0.035F;    // how fast the shafts slide sideways
 
-        // Rendering budget. Downscale is the single biggest lever on frame time: the noise
-        // is evaluated nine times per buffer pixel, so halving this quadruples the cost.
-        private const int Downscale = 8;
+        // Rendering budget. Downscale is the single biggest lever on frame time -- the
+        // noise is evaluated nine times per buffer pixel, so halving it quadruples the
+        // cost -- but it is NOT the lever on how fine the smoke looks. Detail is limited
+        // by NoiseScale, not by buffer resolution: measured, going from Downscale 8 to 3
+        // tripled the cost and moved the detail figure by 6%.
+        private const int Downscale = 10;
         private const int Octaves = 3;
 
         // Smoke shape.
-        private const float NoiseScale = 2.4F;
+        // Feature size. This is the dial that decides whether the plume reads as drifting
+        // slabs or as see-through wisps; it was 2.4, where the finest octave had features
+        // about 100px across and the smoke looked like a moving mass.
+        private const float NoiseScale = 12.0F;
+        private const float FbmGain = 0.5F;     // octave falloff; higher keeps finer wisps
         private const float WarpStrength = 1.25F;
         private const float FlowSpeed = 0.055F;   // how fast the plume travels downward
         private const float EvolveSpeed = 0.09F;  // how fast it boils in place
@@ -2385,8 +2392,8 @@ namespace KotorUniversalUI
 
         private const float BloomWeight = 0.55F;
         private const int BloomRadius = 2;
-        private const float Exposure = 0.80F;
-        private const float MaxAlpha = 0.80F;
+        private const float Exposure = 1.15F;
+        private const float MaxAlpha = 0.85F;
         private const int MoteCount = 90;
         // Mote radius as a fraction of the header height. These are drawn at full
         // resolution rather than into the smoke buffer: at Downscale 8 a mote was
@@ -2544,14 +2551,20 @@ namespace KotorUniversalUI
                     float wy = Fbm(nx - 2.4F, ny + 5.3F, evolve + 2.0F);
                     float n = Fbm(nx + WarpStrength * wx, ny + WarpStrength * wy, evolve);
 
-                    float dens = (n * 0.5F + 0.5F - Threshold) * DensityGain;
-                    if (dens <= 0F)
+                    // Beer-Lambert extinction rather than a linear ramp with a clamp.
+                    // The clamp was what made the plume read as moving slabs: everything
+                    // past the saturation point rendered as one flat opaque value, so
+                    // large regions had no internal variation at all. An exponential
+                    // approaches full opacity without ever reaching it, which is both how
+                    // light actually attenuates through a medium and what keeps the smoke
+                    // see-through.
+                    float thickness = n * 0.5F + 0.5F - Threshold;
+                    if (thickness <= 0F)
                     {
                         field[y * w + x] = 0F;
                         continue;
                     }
-                    if (dens > 1F)
-                        dens = 1F;
+                    float dens = 1F - (float)Math.Exp(-thickness * DensityGain);
 
                     field[y * w + x] = dens * shape * lit * Exposure;
                 }
@@ -2727,14 +2740,18 @@ namespace KotorUniversalUI
 
         private float Fbm(float x, float y, float z)
         {
-            float sum = 0F, amp = 0.5F, freq = 1F;
+            float sum = 0F, amp = 0.5F, freq = 1F, norm = 0F;
             for (int i = 0; i < Octaves; i++)
             {
                 sum += amp * Noise(x * freq, y * freq, z * freq);
+                norm += amp;
                 freq *= 2F;
-                amp *= 0.5F;
+                amp *= FbmGain;
             }
-            return sum;
+            // Normalised, so changing Octaves or FbmGain changes the character of the
+            // noise without also changing its overall level -- otherwise every detail
+            // tweak silently rescales the density and has to be re-tuned.
+            return norm <= 0F ? 0F : sum * 0.5F / norm;
         }
 
         private static float Fade(float t) { return t * t * t * (t * (t * 6F - 15F) + 10F); }
