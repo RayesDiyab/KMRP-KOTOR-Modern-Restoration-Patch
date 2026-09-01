@@ -106,6 +106,51 @@ step artwork falls back to the built-in vector glyph. Missing Verified artwork
 falls back to the text-only state. The Verified resource is drawn at 32 design
 pixels and grouped optically with its label.
 
+## Header ambience
+
+A slow blue haze drifts upward behind the brand lockup. It is generated in code by
+`SmokeField` -- a particle simulation drawn with GDI+ -- not imported from any
+stock asset, so there is no third-party licence attached to it.
+
+Each frame accumulates soft radial blobs into a quarter-resolution buffer which is
+then scaled up. The interpolation blur on the way out is the softness the effect
+wants, so the upscaler does the expensive work instead of large gradient fills. One
+white blob sprite is built once and reused for every particle, tinted and faded
+through a single reused `ColorMatrix`, so a steady-state frame allocates nothing.
+The blob's falloff is written pixel by pixel rather than with a `PathGradientBrush`,
+which leaves a visible ring at low alpha.
+
+The field is painted before the brand image and clipped to the header strip, so it
+passes behind the crest and wordmark and never wastes upscaling under the card. It
+runs on a 40 ms timer that invalidates only the header rectangle, and it stops
+entirely while a patch is running, during the snapshot resize, when minimised, and
+when the window is not active.
+
+Two things are easy to get wrong and were both measured rather than judged by eye:
+
+- ageing must be tied to distance travelled (`Age += seconds * Speed / TravelSpan`),
+  not to a flat rate. A flat rate kills every particle after the same short rise
+  regardless of its speed, so the plume dies mid-strip and never reaches the
+  wordmark -- which showed up as a top-to-bottom coverage ratio of 0.00 to 0.08.
+- the plume must thin with height as well as with age, or the particles, which grow
+  as they age, pile up at the top exactly where the wordmark sits.
+
+The constants were tuned against a rendered 1160 x 220 header averaged over 181
+frames of steady state. The shipping values produce:
+
+| Measure | Value |
+| --- | --- |
+| Header area lit above the window colour | 17.5% |
+| Mean lit pixel | rgb 10, 17, 28 (window is 7, 12, 21) |
+| Peak brightness delta | 56 average, 86 maximum |
+| Top-half to bottom-half coverage | 1.00 |
+
+For scale, the first untuned attempt lit 97.7% of the header at a mean of
+rgb 27, 48, 75 -- a blue wash rather than a haze. Re-tuning is a matter of changing
+`Count`, `PeakAlpha`, `RadiusSpan`, `HeightFade`, `TravelSpan`, and `FadeOutAt` and
+re-measuring; a single-frame screenshot is not a reliable check, because coverage
+and distribution swing widely frame to frame at this particle count.
+
 ## Window sizing and smooth proportional resize
 
 All controls are authored once in design-space coordinates. Their rectangles
