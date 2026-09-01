@@ -2171,7 +2171,12 @@ namespace KotorUniversalUI
         internal const string AppName = "KOTOR Modern Restoration Patch";
         internal const string ShortName = "KMRP";
         internal const string Version = "v1.0.0";
-        private const int HeaderHeight = 388;
+        // The header is measured from the brand artwork rather than fixed, so widening
+        // the window scales the lockup and the card follows it down.
+        private const double BrandWidthFraction = 0.54;
+        private readonly int headerHeight;
+        private readonly int brandWidth;
+        private readonly int brandHeight;
         private const string CreatorUrl = "https://deadlystream.com/profile/68365-raymangt/";
 
         private readonly TextBox pathBox;              // data holder; the path is shown in step 1's subtitle
@@ -2196,9 +2201,9 @@ namespace KotorUniversalUI
         internal MainForm()
         {
             Text = ShortName + " – " + AppName;
-            ClientSize = new Size(960, 900);
-            MinimumSize = new Size(976, 700);
-            MaximumSize = new Size(976, Screen.PrimaryScreen.WorkingArea.Height);
+            ClientSize = new Size(1120, 900);
+            MinimumSize = new Size(1136, 700);
+            MaximumSize = new Size(1136, Screen.PrimaryScreen.WorkingArea.Height);
             MaximizeBox = false;
             StartPosition = FormStartPosition.CenterScreen;
             AutoScaleMode = AutoScaleMode.Dpi;
@@ -2218,11 +2223,16 @@ namespace KotorUniversalUI
             }
             catch { brand = null; }
 
+            brandWidth = (int)Math.Round(ClientSize.Width * BrandWidthFraction);
+            brandHeight = brand == null ? 150
+                : (int)Math.Round(brand.Height * (brandWidth / (double)brand.Width));
+            headerHeight = 14 + brandHeight + 46;
+
             pathBox = new TextBox();
             pathBox.TextChanged += delegate { RefreshStatus(); };
 
             CardPanel card = new CardPanel();
-            card.SetBounds(28, HeaderHeight, ClientSize.Width - 56, 470);
+            card.SetBounds(28, headerHeight, ClientSize.Width - 56, 470);
             card.Anchor = AnchorStyles.Top | AnchorStyles.Left | AnchorStyles.Right;
             Controls.Add(card);
 
@@ -2414,9 +2424,9 @@ namespace KotorUniversalUI
             g.TextRenderingHint = TextRenderingHint.ClearTypeGridFit;
 
             using (LinearGradientBrush sky = new LinearGradientBrush(
-                       new Rectangle(0, 0, Math.Max(1, ClientSize.Width), HeaderHeight),
+                       new Rectangle(0, 0, Math.Max(1, ClientSize.Width), headerHeight),
                        UiTheme.GlowTop, UiTheme.Window, 90F))
-                g.FillRectangle(sky, 0, 0, ClientSize.Width, HeaderHeight);
+                g.FillRectangle(sky, 0, 0, ClientSize.Width, headerHeight);
 
             // The crest and the metallic wordmark are one baked lockup, so the crest's
             // fade lines up with the letters exactly as it was composed.
@@ -2424,8 +2434,6 @@ namespace KotorUniversalUI
             if (brand != null)
             {
                 g.InterpolationMode = InterpolationMode.HighQualityBicubic;
-                int brandWidth = 520;
-                int brandHeight = (int)Math.Round(brand.Height * (brandWidth / (double)brand.Width));
                 g.DrawImage(brand, (ClientSize.Width - brandWidth) / 2, 14, brandWidth, brandHeight);
                 taglineTop = 14 + brandHeight + 2;
             }
