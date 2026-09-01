@@ -60,26 +60,30 @@ WING_BOTTOM_AT = 0.25         # where the wings' lower tips land, in caps below 
                               # 0.00 puts them exactly on it, which is where the reference has
                               # them; a little lower lets the tips dip behind the letters and
                               # dim there, which is what was asked for
-# Measured on the reference: the wings hold ~0.85 of peak brightness until
-# -0.24 cap, then fall to 0.53 by the cap line and are gone just below it. So the
-# fade is a short smooth ramp, not a long linear one. Expressed relative to the
-# wing line so it travels with WING_BOTTOM_AT.
-FADE_FROM = -0.15             # caps relative to the wing line: dimming starts here
-FADE_TO = 1.00                # ...and reaches nothing here. A full cap of travel, so the
-                              # crest visibly darkens as it crosses the letters instead of
-                              # stopping at them
-BEVEL_TAU_RATIO = 0.048       # bevel decay length / cap height, fitted to the
-                              # reference's luminance-vs-depth profile
-OUTLINE_RATIO = 0.008         # outline half-width / cap height (1px at cap 58)
-# Measured off the reference's luminance-vs-depth profile: the lit edge peaks at
-# 163 (depth 1) and the interior settles at 118 (depth 10+). The FACE and RIM
-# ramps carry the hue; these fix their level, so the two cannot drift apart.
-EDGE_LUM = 195.0             # fitted, not the raw 163 measured at depth 1: that sample is
-                             # diluted by antialiasing, so the underlying edge is brighter
-PLATEAU_LUM = 118.0
-SIDE_LIGHT = 0.75            # left-edge lighting relative to the top edge; swept against the
-                             # reference (mean luminance 130.6 vs 132.1, lit edge 160.3 vs 163.1)
+# The fade must END at the crest's own bottom edge, or the artwork runs out while
+# the veil is still part-way and there is no visible fade at all. That was the bug:
+# FADE_TO sat 1.00 cap below the wing line, but the crest only reaches 0.36 cap
+# below it, so the veil never got past 57% and the crest simply stopped, at full
+# brightness, behind the letters.
+#
+# So the fade is anchored to the crest bottom and only its LENGTH is a parameter.
+# Measured on the reference for shape: the wings hold ~0.85 of peak down to
+# -0.24 cap, fall to 0.53 by the cap line, and are gone just below.
+FADE_START_ABOVE_WING = 1.00  # caps above the wing line where dimming begins. It has to start
+                              # well above: the wings end at 85% of the crest's height, so a fade
+                              # that only begins at the wing line covers just the hilt and leaves
+                              # the wings at full brightness -- which is why earlier attempts read
+                              # as no fade at all.
 SUPERSAMPLE = 3
+
+BEVEL_TAU_RATIO = 0.048       # bevel decay length / cap height, fitted to the reference's
+                              # luminance-vs-depth profile (163 at depth 1 -> 118 by depth 10)
+OUTLINE_RATIO = 0.008         # outline half-width / cap height (one pixel at cap 58)
+EDGE_LUM = 195.0              # fitted, not the raw 163 measured at depth 1: that sample is
+                              # diluted by antialiasing, so the underlying edge is brighter
+PLATEAU_LUM = 118.0           # measured interior level at depth 10+
+SIDE_LIGHT = 0.75             # left-edge lighting relative to the top edge; swept against the
+                              # reference (mean luminance 130.6 vs 132.1, lit edge 160.3 vs 163.1)
 
 # Stroke interior, sampled per height band as the mean of pixels above that band's
 # 70th luminance percentile -- i.e. the lit face of the stroke, with the dark
@@ -212,8 +216,8 @@ def build(crest_path: Path, out: Path) -> None:
 
     crest_top = int(cap_top + WING_BOTTOM_AT * cap - wing_bottom * crest_h)
     wing_line = cap_top + WING_BOTTOM_AT * cap
-    fade_from = wing_line + FADE_FROM * cap
-    fade_to = wing_line + FADE_TO * cap
+    fade_to = crest_top + crest_h          # the crest's own bottom: the fade must finish here
+    fade_from = wing_line - FADE_START_ABOVE_WING * cap
     top_soft = int(cap * 0.7)
 
     veil = Image.new("L", crest.size, 0)
