@@ -1,6 +1,6 @@
 # KOTOR Universal UI & Map Patcher
 
-The standalone universal patcher is built at `dist/KOTOR_Universal_UI_Patcher.exe`.
+The standalone universal patcher is built at `dist/KMRP.exe`.
 It supports 48 selectable resolutions across 4:3, 16:10, 16:9, 21:9, and
 32:9. See `docs/universal-resolution-math.md` for the executable fields,
 coordinate math, GUI packaging, reproduction steps, and validation status.

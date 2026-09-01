@@ -15,7 +15,7 @@ $buildDir = Join-Path $projectRoot "build\universal-patcher"
 $resourceDir = Join-Path $buildDir "resources"
 $distDir = Join-Path $projectRoot "dist"
 $patchResource = Join-Path $buildDir "gold.kup"
-$outputExe = Join-Path $distDir "KOTOR_Universal_UI_Patcher.exe"
+$outputExe = Join-Path $distDir "KMRP.exe"
 $python = "C:\Python314\python.exe"
 $compiler = "C:\Windows\Microsoft.NET\Framework\v4.0.30319\csc.exe"
 
@@ -65,6 +65,7 @@ $compilerArgs = @(
     "/resource:$patchResource,KotorUniversalUI.goldpatch",
     "/resource:$(Join-Path $resourceDir 'override-common.zip'),KotorUniversalUI.override.common",
     "/resource:$(Join-Path $resourceDir 'resolutions.tsv'),KotorUniversalUI.resolutions",
+    "/resource:$(Join-Path $projectRoot 'app\patcher\brand.png'),KotorUniversalUI.brand",
     "/resource:$(Join-Path $resourceDir 'GPL-3.0-KOTOR-High-Resolution-Menus.txt'),KotorUniversalUI.license.highresolutionmenus"
 )
 

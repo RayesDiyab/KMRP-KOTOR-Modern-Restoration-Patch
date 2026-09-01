@@ -6,7 +6,10 @@ using System.Drawing;
 using System.Globalization;
 using System.IO;
 using System.IO.Compression;
+using System.Drawing.Drawing2D;
+using System.Drawing.Text;
 using System.Reflection;
+using System.Runtime.InteropServices;
 using System.Security.Cryptography;
 using System.Text;
 using System.Text.RegularExpressions;
@@ -1637,6 +1640,78 @@ namespace KotorUniversalUI
         internal static readonly Color Disabled = Color.FromArgb(47, 56, 67);
         internal static readonly Color DisabledText = Color.FromArgb(139, 151, 164);
 
+        // The dark-glass palette the new shell is drawn with.
+        internal static readonly Color GlowTop = Color.FromArgb(16, 26, 40);
+        internal static readonly Color Card = Color.FromArgb(17, 24, 33);
+        internal static readonly Color CardHover = Color.FromArgb(24, 34, 46);
+        internal static readonly Color CardEdge = Color.FromArgb(35, 48, 63);
+        internal static readonly Color Hairline = Color.FromArgb(28, 39, 52);
+        internal static readonly Color Badge = Color.FromArgb(25, 35, 47);
+        internal static readonly Color BadgeEdge = Color.FromArgb(38, 54, 71);
+        internal static readonly Color Field = Color.FromArgb(13, 20, 28);
+        internal static readonly Color AccentLit = Color.FromArgb(96, 178, 255);
+        internal static readonly Color TextFaint = Color.FromArgb(122, 138, 154);
+
+        internal enum Glyph { Folder, Shield, Monitor, Tools }
+
+        internal static GraphicsPath RoundedRect(Rectangle r, int radius)
+        {
+            int d = Math.Max(1, radius * 2);
+            GraphicsPath path = new GraphicsPath();
+            path.AddArc(r.X, r.Y, d, d, 180, 90);
+            path.AddArc(r.Right - d, r.Y, d, d, 270, 90);
+            path.AddArc(r.Right - d, r.Bottom - d, d, d, 0, 90);
+            path.AddArc(r.X, r.Bottom - d, d, d, 90, 90);
+            path.CloseFigure();
+            return path;
+        }
+
+        /// <summary>Step icons, drawn rather than shipped, so the patcher stays a single file.</summary>
+        internal static void DrawGlyph(Graphics g, Glyph glyph, Rectangle circle, Color color)
+        {
+            float s = circle.Width / 46F;
+            float cx = circle.X + circle.Width / 2F;
+            float cy = circle.Y + circle.Height / 2F;
+            using (Pen pen = new Pen(color, 1.7F * s))
+            {
+                pen.StartCap = LineCap.Round;
+                pen.EndCap = LineCap.Round;
+                pen.LineJoin = LineJoin.Round;
+                if (glyph == Glyph.Folder)
+                {
+                    g.DrawLines(pen, new PointF[] {
+                        new PointF(cx - 9 * s, cy + 6 * s), new PointF(cx - 9 * s, cy - 6 * s),
+                        new PointF(cx - 3 * s, cy - 6 * s), new PointF(cx - 1 * s, cy - 3.5F * s),
+                        new PointF(cx + 9 * s, cy - 3.5F * s), new PointF(cx + 9 * s, cy + 6 * s) });
+                    g.DrawLine(pen, cx - 9 * s, cy + 6 * s, cx + 9 * s, cy + 6 * s);
+                }
+                else if (glyph == Glyph.Shield)
+                {
+                    g.DrawLines(pen, new PointF[] {
+                        new PointF(cx, cy - 8 * s), new PointF(cx + 7 * s, cy - 5 * s),
+                        new PointF(cx + 7 * s, cy + 1 * s), new PointF(cx, cy + 8 * s),
+                        new PointF(cx - 7 * s, cy + 1 * s), new PointF(cx - 7 * s, cy - 5 * s) });
+                    g.DrawLines(pen, new PointF[] {
+                        new PointF(cx - 3.2F * s, cy), new PointF(cx - 0.8F * s, cy + 2.6F * s),
+                        new PointF(cx + 3.6F * s, cy - 2.6F * s) });
+                }
+                else if (glyph == Glyph.Monitor)
+                {
+                    g.DrawRectangle(pen, cx - 9 * s, cy - 7 * s, 18 * s, 12 * s);
+                    g.DrawLine(pen, cx - 4 * s, cy + 8 * s, cx + 4 * s, cy + 8 * s);
+                    g.DrawLine(pen, cx, cy + 5 * s, cx, cy + 8 * s);
+                }
+                else
+                {
+                    g.DrawLine(pen, cx - 7 * s, cy + 7 * s, cx + 2 * s, cy - 2 * s);
+                    g.DrawLines(pen, new PointF[] {
+                        new PointF(cx + 1 * s, cy - 3 * s), new PointF(cx + 4 * s, cy - 7 * s),
+                        new PointF(cx + 8 * s, cy - 6 * s), new PointF(cx + 8 * s, cy - 2 * s),
+                        new PointF(cx + 4 * s, cy - 1 * s), new PointF(cx + 1 * s, cy - 3 * s) });
+                }
+            }
+        }
+
         internal static Font DisplayFont(float size, FontStyle style)
         {
             try { return new Font("Bahnschrift SemiCondensed", size, style); }
@@ -1854,103 +1929,323 @@ namespace KotorUniversalUI
         }
     }
 
+    /// <summary>A rounded, faintly lit card. The whole UI sits on one of these.</summary>
+    internal sealed class CardPanel : Panel
+    {
+        internal int Radius = 14;
+        internal Color Fill = UiTheme.Card;
+        internal Color Edge = UiTheme.CardEdge;
+
+        internal CardPanel()
+        {
+            SetStyle(ControlStyles.AllPaintingInWmPaint | ControlStyles.OptimizedDoubleBuffer |
+                     ControlStyles.UserPaint | ControlStyles.ResizeRedraw, true);
+            BackColor = Color.Transparent;
+        }
+
+        protected override void OnPaint(PaintEventArgs e)
+        {
+            e.Graphics.SmoothingMode = SmoothingMode.AntiAlias;
+            Rectangle r = new Rectangle(0, 0, Width - 1, Height - 1);
+            using (GraphicsPath path = UiTheme.RoundedRect(r, Radius))
+            using (SolidBrush fill = new SolidBrush(Fill))
+            using (Pen edge = new Pen(Edge))
+            {
+                e.Graphics.FillPath(fill, path);
+                e.Graphics.DrawPath(edge, path);
+            }
+        }
+    }
+
+    /// <summary>One numbered step: a lit glyph badge, a title, a subtitle, and room on
+    /// the right for whatever that step needs (a button, a dropdown, a status word).</summary>
+    internal sealed class StepRow : Panel
+    {
+        internal string Title = String.Empty;
+        internal string Subtitle = String.Empty;
+        internal UiTheme.Glyph Icon = UiTheme.Glyph.Folder;
+        internal bool DrawSeparator = true;
+
+        internal StepRow()
+        {
+            SetStyle(ControlStyles.AllPaintingInWmPaint | ControlStyles.OptimizedDoubleBuffer |
+                     ControlStyles.UserPaint | ControlStyles.ResizeRedraw, true);
+            BackColor = Color.Transparent;
+            Height = 96;
+        }
+
+        internal void SetSubtitle(string value)
+        {
+            if (Subtitle == value)
+                return;
+            Subtitle = value;
+            Invalidate();
+        }
+
+        protected override void OnPaint(PaintEventArgs e)
+        {
+            Graphics g = e.Graphics;
+            g.SmoothingMode = SmoothingMode.AntiAlias;
+            g.TextRenderingHint = TextRenderingHint.ClearTypeGridFit;
+
+            if (DrawSeparator)
+                using (Pen line = new Pen(UiTheme.Hairline))
+                    g.DrawLine(line, 26, Height - 1, Width - 26, Height - 1);
+
+            int badge = 46;
+            Rectangle circle = new Rectangle(28, (Height - badge) / 2, badge, badge);
+            using (SolidBrush disc = new SolidBrush(UiTheme.Badge))
+                g.FillEllipse(disc, circle);
+            using (Pen ring = new Pen(UiTheme.BadgeEdge))
+                g.DrawEllipse(ring, circle);
+            UiTheme.DrawGlyph(g, Icon, circle, UiTheme.Accent);
+
+            using (SolidBrush text = new SolidBrush(UiTheme.Text))
+            using (Font f = UiTheme.DisplayFont(13.5F, FontStyle.Bold))
+                g.DrawString(Title, f, text, 92, Height / 2 - 24);
+            using (SolidBrush text = new SolidBrush(UiTheme.TextMuted))
+            using (Font f = new Font("Segoe UI", 9.5F))
+                g.DrawString(Subtitle, f, text, 92, Height / 2 + 2);
+        }
+    }
+
+    /// <summary>Flat pill button. `Primary` gets the lit gradient, everything else the
+    /// quiet outline used for Restore.</summary>
+    internal sealed class PillButton : Control
+    {
+        internal bool Primary;
+        private bool hover;
+        private bool down;
+
+        internal PillButton()
+        {
+            SetStyle(ControlStyles.AllPaintingInWmPaint | ControlStyles.OptimizedDoubleBuffer |
+                     ControlStyles.UserPaint | ControlStyles.ResizeRedraw | ControlStyles.SupportsTransparentBackColor, true);
+            BackColor = Color.Transparent;
+            Cursor = Cursors.Hand;
+            Height = 44;
+        }
+
+        protected override void OnMouseEnter(EventArgs e) { hover = true; Invalidate(); base.OnMouseEnter(e); }
+        protected override void OnMouseLeave(EventArgs e) { hover = false; down = false; Invalidate(); base.OnMouseLeave(e); }
+        protected override void OnMouseDown(MouseEventArgs e) { down = true; Invalidate(); base.OnMouseDown(e); }
+        protected override void OnMouseUp(MouseEventArgs e) { down = false; Invalidate(); base.OnMouseUp(e); }
+        protected override void OnEnabledChanged(EventArgs e) { Invalidate(); base.OnEnabledChanged(e); }
+
+        protected override void OnPaint(PaintEventArgs e)
+        {
+            Graphics g = e.Graphics;
+            g.SmoothingMode = SmoothingMode.AntiAlias;
+            g.TextRenderingHint = TextRenderingHint.ClearTypeGridFit;
+            Rectangle r = new Rectangle(0, 0, Width - 1, Height - 1);
+
+            using (GraphicsPath path = UiTheme.RoundedRect(r, 8))
+            {
+                if (!Enabled)
+                {
+                    using (SolidBrush fill = new SolidBrush(UiTheme.Disabled))
+                        g.FillPath(fill, path);
+                }
+                else if (Primary)
+                {
+                    Color top = down ? UiTheme.AccentDark : (hover ? UiTheme.AccentLit : UiTheme.Accent);
+                    Color bottom = down ? UiTheme.AccentDark : UiTheme.AccentStrong;
+                    using (LinearGradientBrush fill = new LinearGradientBrush(
+                               new Rectangle(0, 0, Math.Max(1, Width), Math.Max(1, Height)), top, bottom, 90F))
+                        g.FillPath(fill, path);
+                }
+                else
+                {
+                    using (SolidBrush fill = new SolidBrush(hover ? UiTheme.CardHover : UiTheme.Card))
+                        g.FillPath(fill, path);
+                    using (Pen edge = new Pen(hover ? UiTheme.Accent : UiTheme.CardEdge))
+                        g.DrawPath(edge, path);
+                }
+            }
+
+            Color ink = !Enabled ? UiTheme.DisabledText : (Primary ? Color.White : UiTheme.Text);
+            using (StringFormat sf = new StringFormat())
+            using (SolidBrush brush = new SolidBrush(ink))
+            using (Font f = UiTheme.DisplayFont(Primary ? 13F : 10.5F, FontStyle.Bold))
+            {
+                sf.Alignment = StringAlignment.Center;
+                sf.LineAlignment = StringAlignment.Center;
+                g.DrawString(Text, f, brush, new RectangleF(0, 0, Width, Height), sf);
+            }
+        }
+    }
+
+    /// <summary>A hairline progress track that only shows itself while something is running.</summary>
+    internal sealed class ThinProgress : Control
+    {
+        private int percent;
+
+        internal ThinProgress()
+        {
+            SetStyle(ControlStyles.AllPaintingInWmPaint | ControlStyles.OptimizedDoubleBuffer |
+                     ControlStyles.UserPaint | ControlStyles.ResizeRedraw |
+                     ControlStyles.SupportsTransparentBackColor, true);
+            BackColor = Color.Transparent;
+            Height = 4;
+        }
+
+        internal int Percent
+        {
+            get { return percent; }
+            set
+            {
+                int clamped = Math.Max(0, Math.Min(100, value));
+                if (clamped == percent)
+                    return;
+                percent = clamped;
+                Invalidate();
+            }
+        }
+
+        protected override void OnPaint(PaintEventArgs e)
+        {
+            Graphics g = e.Graphics;
+            g.SmoothingMode = SmoothingMode.AntiAlias;
+            using (GraphicsPath track = UiTheme.RoundedRect(new Rectangle(0, 0, Width - 1, Height - 1), Height / 2))
+            using (SolidBrush back = new SolidBrush(UiTheme.Badge))
+                g.FillPath(back, track);
+            int filled = (int)Math.Round(Width * percent / 100.0);
+            if (filled <= 1)
+                return;
+            using (GraphicsPath bar = UiTheme.RoundedRect(new Rectangle(0, 0, filled - 1, Height - 1), Height / 2))
+            using (LinearGradientBrush fill = new LinearGradientBrush(
+                       new Rectangle(0, 0, Math.Max(1, filled), Height), UiTheme.Accent, UiTheme.AccentStrong, 0F))
+                g.FillPath(fill, bar);
+        }
+    }
+
+    /// <summary>ComboBox with the system's light border painted over, plus our own chevron.
+    /// `FlatStyle.Flat` still draws a Windows border and drop button, so the only way to a
+    /// dark field short of reimplementing selection is to repaint after WM_PAINT.</summary>
+    internal sealed class DarkCombo : ComboBox
+    {
+        private const int WM_PAINT = 0x000F;
+
+        internal DarkCombo()
+        {
+            DropDownStyle = ComboBoxStyle.DropDownList;
+            FlatStyle = FlatStyle.Flat;
+            DrawMode = DrawMode.OwnerDrawFixed;
+            BackColor = UiTheme.Field;
+            ForeColor = UiTheme.Text;
+            ItemHeight = 26;
+            IntegralHeight = false;
+            DropDownHeight = 320;
+        }
+
+        protected override void WndProc(ref Message m)
+        {
+            base.WndProc(ref m);
+            if (m.Msg != WM_PAINT)
+                return;
+            using (Graphics g = Graphics.FromHwnd(Handle))
+            {
+                g.SmoothingMode = SmoothingMode.AntiAlias;
+                int button = 30;
+                using (SolidBrush fill = new SolidBrush(UiTheme.Field))
+                    g.FillRectangle(fill, Width - button, 1, button - 1, Height - 2);
+                using (Pen edge = new Pen(UiTheme.CardEdge))
+                    g.DrawRectangle(edge, 0, 0, Width - 1, Height - 1);
+                float cx = Width - button / 2F - 2;
+                float cy = Height / 2F - 1;
+                using (Pen chevron = new Pen(UiTheme.TextMuted, 1.6F))
+                {
+                    chevron.StartCap = LineCap.Round;
+                    chevron.EndCap = LineCap.Round;
+                    g.DrawLines(chevron, new PointF[] {
+                        new PointF(cx - 4.5F, cy - 2F), new PointF(cx, cy + 2.5F), new PointF(cx + 4.5F, cy - 2F) });
+                }
+            }
+        }
+    }
+
     internal sealed class MainForm : Form
     {
         private delegate void UiOperation(Action<string> report, Action<int, string> progress);
 
-        private readonly TextBox pathBox;
-        private readonly ComboBox resolutionBox;
-        private readonly RichTextBox statusBox;
-        private readonly KotorProgressBar progressBar;
-        private readonly Label progressLabel;
-        private readonly Button patchButton;
-        private readonly Button restoreButton;
-        private readonly Button downloadButton;
-        private readonly Button browseButton;
-        private readonly Button logButton;
-        private readonly Button exitButton;
+        internal const string AppName = "KOTOR Modern Restoration Patch";
+        internal const string ShortName = "KMRP";
+        internal const string Version = "v1.0.0";
+        private const int HeaderHeight = 388;
+        private const string CreatorUrl = "https://deadlystream.com/profile/68365-raymangt/";
+
+        private readonly TextBox pathBox;              // data holder; the path is shown in step 1's subtitle
+        private readonly DarkCombo resolutionBox;
+        private readonly ThinProgress progressBar;
+        private readonly PillButton patchButton;
+        private readonly PillButton restoreButton;
+        private readonly PillButton browseButton;
+        private readonly StepRow stepFolder;
+        private readonly StepRow stepVerify;
+        private readonly StepRow stepResolution;
+        private readonly StepRow stepApply;
+        private readonly Label verifyState;
+        private readonly Label applyState;
+        private readonly Panel optionsHost;           // reserved: future checkboxes land here
+        private readonly LinkLabel logLink;
+        private Image brand;
         private bool startupPromptShown;
         private bool operationRunning;
+        private string lastDetail = String.Empty;
 
         internal MainForm()
         {
-            Text = "KOTOR Universal UI Patcher — RaymanGT";
-            ClientSize = new Size(780, 490);
-            MinimumSize = new Size(760, 465);
-            MaximumSize = new Size(1100, Screen.PrimaryScreen.WorkingArea.Height);
+            Text = ShortName + " – " + AppName;
+            ClientSize = new Size(960, 900);
+            MinimumSize = new Size(976, 700);
+            MaximumSize = new Size(976, Screen.PrimaryScreen.WorkingArea.Height);
             MaximizeBox = false;
             StartPosition = FormStartPosition.CenterScreen;
             AutoScaleMode = AutoScaleMode.Dpi;
-            ShowIcon = true;
-            try { Icon = Icon.ExtractAssociatedIcon(Application.ExecutablePath); }
-            catch { }
+            DoubleBuffered = true;
             Font = new Font("Segoe UI", 9F);
             BackColor = UiTheme.Window;
             ForeColor = UiTheme.Text;
-
-            Label title = new Label();
-            title.Text = "KOTOR UNIVERSAL UI PATCHER";
-            title.Font = UiTheme.DisplayFont(18F, FontStyle.Bold);
-            title.ForeColor = UiTheme.Accent;
-            title.SetBounds(28, 18, 490, 40);
-            title.Anchor = AnchorStyles.Top | AnchorStyles.Left | AnchorStyles.Right;
-            Controls.Add(title);
-
-            LinkLabel author = new LinkLabel();
-            author.Text = "Created by RaymanGT";
-            author.Font = UiTheme.DisplayFont(9F, FontStyle.Regular);
-            author.LinkColor = UiTheme.Gold;
-            author.ActiveLinkColor = Color.White;
-            author.VisitedLinkColor = UiTheme.Gold;
-            author.LinkBehavior = LinkBehavior.HoverUnderline;
-            author.TextAlign = ContentAlignment.MiddleRight;
-            author.SetBounds(522, 23, 230, 26);
-            author.Anchor = AnchorStyles.Top | AnchorStyles.Right;
-            author.LinkClicked += delegate { OpenCreatorPage(); };
-            Controls.Add(author);
-
-            Label explanation = new Label();
-            explanation.Text = "Set up KOTOR for the display you actually play on.\r\n" +
-                "Choose a resolution and the patcher will match the game, menus, map, and HUD.";
-            explanation.ForeColor = UiTheme.TextMuted;
-            explanation.SetBounds(30, 64, 722, 42);
-            explanation.Anchor = AnchorStyles.Top | AnchorStyles.Left | AnchorStyles.Right;
-            Controls.Add(explanation);
-
-            Panel accentRule = new Panel();
-            accentRule.BackColor = UiTheme.Border;
-            accentRule.SetBounds(30, 108, 722, 1);
-            accentRule.Anchor = AnchorStyles.Top | AnchorStyles.Left | AnchorStyles.Right;
-            Controls.Add(accentRule);
-
-            Label fileLabel = new Label();
-            fileLabel.Text = "KOTOR executable";
-            fileLabel.SetBounds(30, 116, 150, 22);
-            Controls.Add(fileLabel);
+            try { Icon = Icon.ExtractAssociatedIcon(Application.ExecutablePath); }
+            catch { }
+            HandleCreated += delegate { UseDarkTitleBar(Handle); };
+            try
+            {
+                using (Stream stream = Assembly.GetExecutingAssembly()
+                           .GetManifestResourceStream("KotorUniversalUI.brand"))
+                    if (stream != null)
+                        brand = Image.FromStream(stream);
+            }
+            catch { brand = null; }
 
             pathBox = new TextBox();
-            pathBox.SetBounds(30, 140, 620, 27);
-            pathBox.Anchor = AnchorStyles.Top | AnchorStyles.Left | AnchorStyles.Right;
-            pathBox.BackColor = UiTheme.PanelDeep;
-            pathBox.ForeColor = UiTheme.Text;
             pathBox.TextChanged += delegate { RefreshStatus(); };
-            Controls.Add(pathBox);
 
-            browseButton = NewButton("BROWSE...", 662, 138, 90, 31);
+            CardPanel card = new CardPanel();
+            card.SetBounds(28, HeaderHeight, ClientSize.Width - 56, 470);
+            card.Anchor = AnchorStyles.Top | AnchorStyles.Left | AnchorStyles.Right;
+            Controls.Add(card);
+
+            stepFolder = NewStep(card, 0, UiTheme.Glyph.Folder, "1. Select Game Folder",
+                "Choose your Knights of the Old Republic folder.");
+            browseButton = new PillButton();
+            browseButton.Text = "Browse";
+            browseButton.SetBounds(card.Width - 154, 26, 118, 42);
             browseButton.Anchor = AnchorStyles.Top | AnchorStyles.Right;
-            browseButton.Click += BrowseClicked;
-            Controls.Add(browseButton);
+            browseButton.Click += delegate { BrowseForExecutable(this); };
+            stepFolder.Controls.Add(browseButton);
 
-            Label resolutionLabel = new Label();
-            resolutionLabel.Text = "Target resolution";
-            resolutionLabel.SetBounds(30, 184, 120, 22);
-            Controls.Add(resolutionLabel);
+            stepVerify = NewStep(card, 1, UiTheme.Glyph.Shield, "2. Verify Executable",
+                "Checking for the required executable.");
+            verifyState = NewStateLabel(stepVerify, card.Width);
 
-            resolutionBox = new ComboBox();
-            resolutionBox.DropDownStyle = ComboBoxStyle.DropDownList;
-            resolutionBox.SetBounds(154, 181, 286, 28);
-            resolutionBox.IntegralHeight = false;
-            resolutionBox.DropDownHeight = 320;
+            stepResolution = NewStep(card, 2, UiTheme.Glyph.Monitor, "3. Choose Resolution",
+                "Select the resolution you want to patch for.");
+            resolutionBox = new DarkCombo();
+            resolutionBox.Font = new Font("Segoe UI", 10.5F);
+            resolutionBox.SetBounds(card.Width - 434, 30, 398, 34);
+            resolutionBox.Anchor = AnchorStyles.Top | AnchorStyles.Right;
+            resolutionBox.DrawItem += ResolutionDrawItem;
             int preferredResolution = 0;
             List<ResolutionChoice> resolutions = ResolutionCatalog.Load();
             for (int index = 0; index < resolutions.Count; index++)
@@ -1959,65 +2254,78 @@ namespace KotorUniversalUI
                 if (resolutions[index].Width == 3440 && resolutions[index].Height == 1440)
                     preferredResolution = index;
             }
-            resolutionBox.SelectedIndex = preferredResolution;
-            resolutionBox.BackColor = UiTheme.PanelDeep;
-            resolutionBox.ForeColor = UiTheme.Text;
+            if (resolutionBox.Items.Count > 0)
+                resolutionBox.SelectedIndex = preferredResolution;
             resolutionBox.SelectedIndexChanged += delegate { RefreshStatus(); };
-            Controls.Add(resolutionBox);
+            stepResolution.Controls.Add(resolutionBox);
 
-            downloadButton = NewButton("GET EDITABLE EXE", 566, 178, 186, 34);
-            downloadButton.Anchor = AnchorStyles.Top | AnchorStyles.Right;
-            downloadButton.Click += delegate { CompatibilityDialog.OpenDownloadPage(this); };
-            Controls.Add(downloadButton);
+            stepApply = NewStep(card, 3, UiTheme.Glyph.Tools, "4. Apply Patch",
+                "Patches will be applied to make KOTOR modern-ready.");
+            stepApply.DrawSeparator = false;
+            applyState = NewStateLabel(stepApply, card.Width);
 
-            statusBox = new RichTextBox();
-            statusBox.ReadOnly = true;
-            statusBox.TabStop = false;
-            statusBox.DetectUrls = false;
-            statusBox.ScrollBars = RichTextBoxScrollBars.Vertical;
-            statusBox.BorderStyle = BorderStyle.FixedSingle;
-            statusBox.BackColor = UiTheme.Panel;
-            statusBox.ForeColor = UiTheme.Text;
-            statusBox.SetBounds(30, 226, 722, 124);
-            statusBox.Anchor = AnchorStyles.Top | AnchorStyles.Bottom | AnchorStyles.Left | AnchorStyles.Right;
-            Controls.Add(statusBox);
+            // Reserved for optional toggles (16:9 HUD safe zone on 21:9/32:9, and so on).
+            // Empty and zero-height today; giving it a home now means adding one later is
+            // a matter of dropping a checkbox in and growing the card, not a redesign.
+            optionsHost = new Panel();
+            optionsHost.SetBounds(0, 4 * 96, card.Width, 0);
+            optionsHost.BackColor = Color.Transparent;
+            optionsHost.Anchor = AnchorStyles.Top | AnchorStyles.Left | AnchorStyles.Right;
+            card.Controls.Add(optionsHost);
 
-            progressLabel = new Label();
-            progressLabel.Text = "Ready";
-            progressLabel.ForeColor = UiTheme.TextMuted;
-            progressLabel.SetBounds(30, 359, 722, 20);
-            progressLabel.Anchor = AnchorStyles.Bottom | AnchorStyles.Left | AnchorStyles.Right;
-            Controls.Add(progressLabel);
-
-            progressBar = new KotorProgressBar();
-            progressBar.Minimum = 0;
-            progressBar.Maximum = 100;
-            progressBar.Value = 0;
-            progressBar.SetBounds(30, 382, 722, 13);
-            progressBar.Anchor = AnchorStyles.Bottom | AnchorStyles.Left | AnchorStyles.Right;
-            Controls.Add(progressBar);
-
-            patchButton = NewButton("PATCH GAME", 30, 414, 180, 48);
-            patchButton.Anchor = AnchorStyles.Bottom | AnchorStyles.Left;
-            UiTheme.StyleButton(patchButton, true);
-            patchButton.Font = UiTheme.DisplayFont(10F, FontStyle.Bold);
+            patchButton = new PillButton();
+            patchButton.Primary = true;
+            patchButton.Text = "Start Patching";
+            patchButton.SetBounds(112, optionsHost.Bottom + 22, card.Width - 224, 58);
+            patchButton.Anchor = AnchorStyles.Top | AnchorStyles.Left | AnchorStyles.Right;
             patchButton.Click += PatchClicked;
-            Controls.Add(patchButton);
+            card.Controls.Add(patchButton);
 
-            restoreButton = NewButton("RESTORE ORIGINAL", 220, 414, 180, 48);
-            restoreButton.Anchor = AnchorStyles.Bottom | AnchorStyles.Left;
+            progressBar = new ThinProgress();
+            progressBar.SetBounds(112, patchButton.Bottom + 10, card.Width - 224, 4);
+            progressBar.Anchor = AnchorStyles.Top | AnchorStyles.Left | AnchorStyles.Right;
+            progressBar.Visible = false;
+            card.Controls.Add(progressBar);
+
+            restoreButton = new PillButton();
+            restoreButton.Text = "Restore Original";
+            restoreButton.SetBounds(112, patchButton.Bottom + 24, card.Width - 224, 40);
+            restoreButton.Anchor = AnchorStyles.Top | AnchorStyles.Left | AnchorStyles.Right;
             restoreButton.Click += RestoreClicked;
-            Controls.Add(restoreButton);
+            card.Controls.Add(restoreButton);
 
-            logButton = NewButton("OPEN LOG", 410, 414, 130, 48);
-            logButton.Anchor = AnchorStyles.Bottom | AnchorStyles.Left;
-            logButton.Click += OpenLogClicked;
-            Controls.Add(logButton);
+            card.Height = restoreButton.Bottom + 26;
 
-            exitButton = NewButton("EXIT", 572, 414, 180, 48);
-            exitButton.Anchor = AnchorStyles.Bottom | AnchorStyles.Right;
-            exitButton.Click += delegate { Close(); };
-            Controls.Add(exitButton);
+            logLink = new LinkLabel();
+            logLink.Text = Version + "   ·   Open Log";
+            logLink.LinkArea = new LinkArea(Version.Length + 6, 8);
+            logLink.Font = new Font("Segoe UI", 9F);
+            logLink.ForeColor = UiTheme.TextFaint;
+            logLink.LinkColor = UiTheme.Accent;
+            logLink.ActiveLinkColor = Color.White;
+            logLink.VisitedLinkColor = UiTheme.Accent;
+            logLink.LinkBehavior = LinkBehavior.HoverUnderline;
+            logLink.BackColor = Color.Transparent;
+            logLink.SetBounds(52, card.Bottom + 20, 240, 22);
+            logLink.Anchor = AnchorStyles.Top | AnchorStyles.Left;
+            logLink.LinkClicked += OpenLogClicked;
+            Controls.Add(logLink);
+
+            LinkLabel credit = new LinkLabel();
+            credit.Text = "Created by RaymanGT";
+            credit.Font = new Font("Segoe UI", 9F);
+            credit.LinkColor = UiTheme.TextFaint;
+            credit.ActiveLinkColor = UiTheme.Accent;
+            credit.VisitedLinkColor = UiTheme.TextFaint;
+            credit.LinkBehavior = LinkBehavior.HoverUnderline;
+            credit.BackColor = Color.Transparent;
+            credit.TextAlign = ContentAlignment.MiddleRight;
+            credit.SetBounds(ClientSize.Width - 252, card.Bottom + 20, 220, 22);
+            credit.Anchor = AnchorStyles.Top | AnchorStyles.Right;
+            credit.LinkClicked += delegate { OpenCreatorPage(); };
+            Controls.Add(credit);
+
+            ClientSize = new Size(ClientSize.Width, credit.Bottom + 24);
 
             pathBox.Text = FindDefaultExecutable();
             RefreshStatus();
@@ -2041,13 +2349,96 @@ namespace KotorUniversalUI
             };
         }
 
-        private static Button NewButton(string text, int x, int y, int width, int height)
+        [DllImport("dwmapi.dll")]
+        private static extern int DwmSetWindowAttribute(IntPtr window, int attribute, ref int value, int size);
+
+        /// <summary>Ask the shell for a dark title bar. Attribute 20 on Windows 11 and later
+        /// builds of 10, 19 on the first that supported it; both are ignored elsewhere.</summary>
+        private static void UseDarkTitleBar(IntPtr handle)
         {
-            Button button = new Button();
-            button.Text = text;
-            button.SetBounds(x, y, width, height);
-            UiTheme.StyleButton(button, false);
-            return button;
+            int on = 1;
+            try
+            {
+                if (DwmSetWindowAttribute(handle, 20, ref on, sizeof(int)) != 0)
+                    DwmSetWindowAttribute(handle, 19, ref on, sizeof(int));
+            }
+            catch { }
+        }
+
+        private StepRow NewStep(CardPanel card, int index, UiTheme.Glyph icon, string title, string subtitle)
+        {
+            StepRow row = new StepRow();
+            row.Icon = icon;
+            row.Title = title;
+            row.Subtitle = subtitle;
+            row.SetBounds(0, index * 96, card.Width, 96);
+            row.Anchor = AnchorStyles.Top | AnchorStyles.Left | AnchorStyles.Right;
+            card.Controls.Add(row);
+            return row;
+        }
+
+        private static Label NewStateLabel(StepRow row, int cardWidth)
+        {
+            Label label = new Label();
+            label.Font = UiTheme.DisplayFont(11F, FontStyle.Bold);
+            label.ForeColor = UiTheme.TextMuted;
+            label.BackColor = Color.Transparent;
+            label.TextAlign = ContentAlignment.MiddleRight;
+            label.SetBounds(cardWidth - 330, 34, 294, 28);
+            label.Anchor = AnchorStyles.Top | AnchorStyles.Right;
+            row.Controls.Add(label);
+            return label;
+        }
+
+        private void ResolutionDrawItem(object sender, DrawItemEventArgs e)
+        {
+            if (e.Index < 0)
+                return;
+            bool selected = (e.State & DrawItemState.Selected) == DrawItemState.Selected;
+            using (SolidBrush back = new SolidBrush(selected ? UiTheme.AccentDark : UiTheme.Field))
+                e.Graphics.FillRectangle(back, e.Bounds);
+            using (SolidBrush ink = new SolidBrush(UiTheme.Text))
+            using (StringFormat sf = new StringFormat())
+            {
+                sf.LineAlignment = StringAlignment.Center;
+                e.Graphics.DrawString(resolutionBox.Items[e.Index].ToString(), e.Font, ink,
+                    new RectangleF(e.Bounds.X + 10, e.Bounds.Y, e.Bounds.Width - 12, e.Bounds.Height), sf);
+            }
+        }
+
+        protected override void OnPaint(PaintEventArgs e)
+        {
+            base.OnPaint(e);
+            Graphics g = e.Graphics;
+            g.SmoothingMode = SmoothingMode.AntiAlias;
+            g.TextRenderingHint = TextRenderingHint.ClearTypeGridFit;
+
+            using (LinearGradientBrush sky = new LinearGradientBrush(
+                       new Rectangle(0, 0, Math.Max(1, ClientSize.Width), HeaderHeight),
+                       UiTheme.GlowTop, UiTheme.Window, 90F))
+                g.FillRectangle(sky, 0, 0, ClientSize.Width, HeaderHeight);
+
+            // The crest and the metallic wordmark are one baked lockup, so the crest's
+            // fade lines up with the letters exactly as it was composed.
+            int taglineTop = 30;
+            if (brand != null)
+            {
+                g.InterpolationMode = InterpolationMode.HighQualityBicubic;
+                int brandWidth = 520;
+                int brandHeight = (int)Math.Round(brand.Height * (brandWidth / (double)brand.Width));
+                g.DrawImage(brand, (ClientSize.Width - brandWidth) / 2, 14, brandWidth, brandHeight);
+                taglineTop = 14 + brandHeight + 2;
+            }
+
+            using (StringFormat sf = new StringFormat())
+            using (Font f = new Font("Segoe UI", 10.5F, FontStyle.Bold))
+            using (SolidBrush ink = new SolidBrush(UiTheme.Accent))
+            {
+                sf.Alignment = StringAlignment.Center;
+                sf.FormatFlags = StringFormatFlags.NoWrap;
+                g.DrawString("M O D E R N .   R E S T O R E D .   S I M P L E .", f, ink,
+                    new RectangleF(0, taglineTop, ClientSize.Width, 26), sf);
+            }
         }
 
         private void OpenCreatorPage()
@@ -2055,13 +2446,13 @@ namespace KotorUniversalUI
             try
             {
                 ProcessStartInfo start = new ProcessStartInfo();
-                start.FileName = "https://deadlystream.com/files/file/2288-kotor-3440x1440-enhanced-hudui-and-menus/";
+                start.FileName = CreatorUrl;
                 start.UseShellExecute = true;
                 Process.Start(start);
             }
             catch (Exception ex)
             {
-                MessageBox.Show(this, ex.Message, "Unable to open RaymanGT mod page",
+                MessageBox.Show(this, ex.Message, "Unable to open the creator's page",
                     MessageBoxButtons.OK, MessageBoxIcon.Error);
             }
         }
@@ -2091,16 +2482,11 @@ namespace KotorUniversalUI
             RefreshStatus();
         }
 
-        private void BrowseClicked(object sender, EventArgs e)
-        {
-            BrowseForExecutable(this);
-        }
-
         private void BrowseForExecutable(IWin32Window owner)
         {
             using (OpenFileDialog dialog = new OpenFileDialog())
             {
-                dialog.Title = "Select the editable swkotor.exe";
+                dialog.Title = "Select swkotor.exe in your KOTOR folder";
                 dialog.Filter = "KOTOR executable (swkotor.exe)|swkotor.exe|Executable files (*.exe)|*.exe|All files (*.*)|*.*";
                 if (File.Exists(pathBox.Text))
                     dialog.InitialDirectory = Path.GetDirectoryName(Path.GetFullPath(pathBox.Text));
@@ -2109,11 +2495,16 @@ namespace KotorUniversalUI
             }
         }
 
+        private void SetState(Label label, string text, Color color)
+        {
+            label.Text = text;
+            label.ForeColor = color;
+        }
+
         private void RefreshStatus()
         {
-            if (statusBox == null || patchButton == null || restoreButton == null)
+            if (patchButton == null || restoreButton == null || applyState == null)
                 return;
-
             if (operationRunning)
                 return;
 
@@ -2123,66 +2514,49 @@ namespace KotorUniversalUI
             try { iniExists = File.Exists(IniOperations.PathForExecutable(target)); }
             catch { }
 
+            string folder = null;
+            try { folder = File.Exists(target) ? Path.GetDirectoryName(Path.GetFullPath(target)) : null; }
+            catch { }
+            stepFolder.SetSubtitle(String.IsNullOrEmpty(folder)
+                ? "Choose your Knights of the Old Republic folder."
+                : folder);
+
             bool executableReady = state == ExecutableState.SupportedClean || state == ExecutableState.Gold;
             patchButton.Enabled = executableReady && iniExists;
             restoreButton.Enabled = PatchOperations.CanRestore(target);
-            downloadButton.Visible = !executableReady;
 
-            string heading;
-            string detail;
-            Color stateColor;
-            if (state == ExecutableState.SupportedClean)
-            {
-                ResolutionChoice selected = resolutionBox.SelectedItem as ResolutionChoice;
-                string selectedText = selected == null ? "the selected resolution" : selected.Width.ToString(CultureInfo.InvariantCulture) +
-                    " × " + selected.Height.ToString(CultureInfo.InvariantCulture);
-                heading = iniExists ? "READY TO PATCH" : "SWKOTOR.INI REQUIRED";
-                detail = iniExists ?
-                    "Everything is ready for " + selectedText + ". Choose PATCH GAME to install the matching interface. " + IniOperations.Describe(target) :
-                    "The executable is compatible, but swkotor.ini is missing beside it. Launch the game once, then check again.";
-                stateColor = iniExists ? UiTheme.Success : UiTheme.Warning;
-            }
-            else if (state == ExecutableState.Gold)
-            {
-                heading = "GAME ALREADY PATCHED";
-                detail = iniExists ?
-                    "The installed resolution is protected. To choose a different one, restore the original first, then patch again." :
-                    "The executable is patched, but swkotor.ini is missing beside it.";
-                stateColor = iniExists ? UiTheme.Success : UiTheme.Warning;
-            }
+            if (state == ExecutableState.SupportedClean || state == ExecutableState.Gold)
+                SetState(verifyState, "✓  Verified", UiTheme.Success);
             else if (state == ExecutableState.Missing)
-            {
-                heading = "SELECT SWKOTOR.EXE";
-                detail = "Choose the executable in your KOTOR installation. If it is the retail GOG/Steam file, use GET EDITABLE EXE first.";
-                stateColor = UiTheme.Warning;
-            }
+                SetState(verifyState, "Not found", UiTheme.Warning);
             else if (state == ExecutableState.Unsupported)
+                SetState(verifyState, "Not the editable exe", UiTheme.Warning);
+            else
+                SetState(verifyState, "Unable to verify", UiTheme.Error);
+
+            if (state == ExecutableState.Gold)
             {
-                heading = "EDITABLE EXECUTABLE REQUIRED";
-                detail = "This is not the editable swkotor.exe required by the patcher. Replace it with the Deadly Stream version, then return and check again. No files will be changed until the correct file is selected.";
-                stateColor = UiTheme.Warning;
+                SetState(applyState, "Patched", UiTheme.Success);
+                lastDetail = iniExists
+                    ? "The installed resolution is protected. To choose a different one, restore the original first."
+                    : "The executable is patched, but swkotor.ini is missing beside it.";
+            }
+            else if (executableReady && iniExists)
+            {
+                SetState(applyState, "Ready to patch", UiTheme.Accent);
+                lastDetail = IniOperations.Describe(target);
+            }
+            else if (executableReady)
+            {
+                SetState(applyState, "swkotor.ini required", UiTheme.Warning);
+                lastDetail = "Launch the game once so it writes swkotor.ini beside the executable, then check again.";
             }
             else
             {
-                heading = "UNABLE TO VERIFY FILE";
-                detail = PatchOperations.Describe(target);
-                stateColor = UiTheme.Error;
+                SetState(applyState, "Not patched", UiTheme.TextMuted);
+                lastDetail = PatchOperations.Describe(target);
             }
-
-            statusBox.Clear();
-            statusBox.SelectionColor = stateColor;
-            statusBox.SelectionFont = new Font("Segoe UI Semibold", 10F, FontStyle.Bold);
-            statusBox.AppendText(heading + "\r\n");
-            statusBox.SelectionColor = UiTheme.Text;
-            statusBox.SelectionFont = new Font("Segoe UI", 9F, FontStyle.Regular);
-            statusBox.AppendText(detail);
-
-            patchButton.BackColor = patchButton.Enabled ? UiTheme.AccentStrong : UiTheme.Disabled;
-            patchButton.ForeColor = patchButton.Enabled ? UiTheme.PanelDeep : UiTheme.DisabledText;
-            patchButton.FlatAppearance.BorderColor = patchButton.Enabled ? UiTheme.Accent : UiTheme.Disabled;
-            restoreButton.BackColor = restoreButton.Enabled ? UiTheme.Panel : UiTheme.Disabled;
-            restoreButton.ForeColor = restoreButton.Enabled ? UiTheme.Text : UiTheme.DisabledText;
-            restoreButton.FlatAppearance.BorderColor = restoreButton.Enabled ? UiTheme.Border : UiTheme.Disabled;
+            stepApply.SetSubtitle(lastDetail);
         }
 
         private void PatchClicked(object sender, EventArgs e)
@@ -2214,10 +2588,12 @@ namespace KotorUniversalUI
                 return;
 
             string target = pathBox.Text.Trim();
-            progressBar.Value = 0;
-            progressLabel.Text = name == "Patch" ? "Preparing to patch…  0%" : "Preparing to restore…  0%";
+            progressBar.Percent = 0;
+            progressBar.Visible = true;
             operationRunning = true;
             SetBusyState(true);
+            SetState(applyState, name == "Patch" ? "Patching…" : "Restoring…", UiTheme.Accent);
+            stepApply.SetSubtitle(name == "Patch" ? "Preparing to patch…" : "Preparing to restore…");
 
             BackgroundWorker worker = new BackgroundWorker();
             worker.WorkerReportsProgress = true;
@@ -2240,29 +2616,33 @@ namespace KotorUniversalUI
             worker.ProgressChanged += delegate(object sender, ProgressChangedEventArgs e)
             {
                 int percent = Math.Max(0, Math.Min(100, e.ProgressPercentage));
-                progressBar.Value = percent;
+                progressBar.Percent = percent;
                 string message = e.UserState as string;
-                progressLabel.Text = (String.IsNullOrWhiteSpace(message) ? "Working…" : message) +
-                    "  " + percent.ToString(CultureInfo.InvariantCulture) + "%";
+                stepApply.SetSubtitle((String.IsNullOrWhiteSpace(message) ? "Working…" : message) +
+                    "   " + percent.ToString(CultureInfo.InvariantCulture) + "%");
             };
             worker.RunWorkerCompleted += delegate(object sender, RunWorkerCompletedEventArgs e)
             {
                 operationRunning = false;
                 SetBusyState(false);
-                RefreshStatus();
 
                 if (e.Error != null)
                 {
-                    progressBar.Value = 0;
-                    progressLabel.Text = name + " stopped — no incomplete changes were left behind";
+                    progressBar.Percent = 0;
+                    progressBar.Visible = false;
+                    RefreshStatus();
+                    SetState(applyState, "Error", UiTheme.Error);
+                    stepApply.SetSubtitle(name + " stopped — no incomplete changes were left behind.");
                     try { PatchOperations.AppendLog(target, name + " failed: " + e.Error); } catch { }
                     MessageBox.Show(this, e.Error.Message, name + " blocked", MessageBoxButtons.OK, MessageBoxIcon.Error);
                     return;
                 }
 
-                progressBar.Value = 100;
-                progressLabel.Text = name + " complete  100%";
+                progressBar.Percent = 100;
                 string result = e.Result as string;
+                RefreshStatus();
+                SetState(applyState, name == "Patch" ? "Patched successfully" : "Restored successfully", UiTheme.Success);
+                stepApply.SetSubtitle(result ?? (name + " completed."));
                 MessageBox.Show(this, result ?? (name + " completed."), name + " successful",
                     MessageBoxButtons.OK, MessageBoxIcon.Information);
             };
@@ -2271,24 +2651,21 @@ namespace KotorUniversalUI
 
         private void SetBusyState(bool busy)
         {
-            pathBox.Enabled = !busy;
             resolutionBox.Enabled = !busy;
             browseButton.Enabled = !busy;
             patchButton.Enabled = !busy;
             restoreButton.Enabled = !busy;
-            downloadButton.Enabled = !busy;
-            logButton.Enabled = !busy;
-            exitButton.Enabled = !busy;
+            logLink.Enabled = !busy;
             UseWaitCursor = busy;
         }
 
-        private void OpenLogClicked(object sender, EventArgs e)
+        private void OpenLogClicked(object sender, LinkLabelLinkClickedEventArgs e)
         {
             try
             {
                 string logPath = PatchOperations.LogPath(pathBox.Text.Trim());
                 if (!File.Exists(logPath))
-                    File.WriteAllText(logPath, "KOTOR Universal UI Patcher log\r\n", new UTF8Encoding(false));
+                    File.WriteAllText(logPath, AppName + " log\r\n", new UTF8Encoding(false));
                 Process.Start(logPath);
             }
             catch (Exception ex)
@@ -2346,12 +2723,20 @@ namespace KotorUniversalUI
             }
             catch (Exception ex)
             {
-                if (args != null && args.Length != 0)
+                // Log startup failures for the window too, not just the CLI -- a GUI that
+                // exits with code 1 and no trace is impossible to diagnose.
+                try
+                {
+                    File.WriteAllText(Path.Combine(AppDomain.CurrentDomain.BaseDirectory,
+                        "KMRP.startup-error.log"), ex.ToString(), new UTF8Encoding(false));
+                }
+                catch { }
+                if (args == null || args.Length == 0)
                 {
                     try
                     {
-                        File.WriteAllText(Path.Combine(Environment.CurrentDirectory,
-                            "KOTOR_Universal_UI_Patcher.cli-error.log"), ex.ToString(), new UTF8Encoding(false));
+                        MessageBox.Show(ex.ToString(), "KMRP could not start",
+                            MessageBoxButtons.OK, MessageBoxIcon.Error);
                     }
                     catch { }
                 }
