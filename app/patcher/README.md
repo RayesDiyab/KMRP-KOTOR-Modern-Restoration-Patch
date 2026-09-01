@@ -1,6 +1,6 @@
 # KOTOR Universal UI patcher
 
-`KMRP.exe` is the single-file installer for all 48
+`KMRP - KOTOR Modern Restoration Patch.exe` is the single-file installer for all 48
 supported resolutions. It contains the executable update, shared interface
 artwork, and every matching GUI set, so no companion folders need to be
 shipped. The earlier 3440 × 1440-only gold patcher remains frozen under
@@ -71,9 +71,9 @@ For a C#/icon-only iteration after a successful full resource build:
 Automation-only command-line modes are also available:
 
 ```text
-KMRP.exe --apply clean.exe output.exe 1920x1080
-KMRP.exe --in-place swkotor.exe 1920x1080
-KMRP.exe --restore swkotor.exe
+"KMRP - KOTOR Modern Restoration Patch.exe" --apply clean.exe output.exe 1920x1080
+"KMRP - KOTOR Modern Restoration Patch.exe" --in-place swkotor.exe 1920x1080
+"KMRP - KOTOR Modern Restoration Patch.exe" --restore swkotor.exe
 ```
 
 `--in-place` performs the complete installation. `--restore` restores the EXE,
