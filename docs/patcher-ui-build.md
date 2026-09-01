@@ -472,6 +472,33 @@ header rect, so a recording shows the header as transparent -- white, in most vi
 Encode captures through `format=rgb24` to discard alpha. On screen it is always
 correct; the desktop compositor ignores per-pixel alpha for ordinary windows.
 
+## Startup
+
+The window must be complete the moment it is displayed. Three separate things broke
+that, and all three are only visible in a screen recording of the launch:
+
+- **The initial fit ran on `Shown`.** The window appeared at its full design size,
+  1980 x 900, and then snapped to the fitted size in front of the user. It now runs in
+  `OnLoad`, before the window is displayed.
+- **The render thread started on `HandleCreated`.** At that point WinForms has not
+  painted the client area, so the thread blitted a finished header over an unpainted
+  body and the window briefly showed the desktop through its own card. It now starts
+  in `OnShown`, and `OnLoad` composes one frame up front through `ComposeFrame` so the
+  very first paint already carries the plume rather than popping in a frame later.
+- **Transparent child controls flashed white.** `Color.Transparent` in WinForms means
+  "inherit the parent's background", and during the window-open fade there is no
+  painted parent to inherit, so `PillButton`, `StateLabel`, the options host and the
+  footer links rendered as white rectangles. They now carry the opaque colour that is
+  actually behind them -- `UiTheme.Card` for anything on the card, `UiTheme.Window` for
+  the footer.
+
+Do not extend that last change to `CardPanel` or `StepRow`. Both deliberately stay
+transparent: the card is a rounded rectangle, and a step row spans the full card width,
+so an opaque background on either would square off the card's corners.
+
+Measured across the frames of the open animation, the near-white area inside the window
+fell from a peak of 20.6% to 0.17%, and the residue is the silver wordmark.
+
 ## Window sizing and smooth proportional resize
 
 All controls are authored once in design-space coordinates. Their rectangles
