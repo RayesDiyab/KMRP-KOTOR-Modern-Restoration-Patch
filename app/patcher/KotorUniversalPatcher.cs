@@ -2182,6 +2182,11 @@ namespace KotorUniversalUI
         // heights below, so the width follows from the ratio.
         private const double CardAspect = 2.25;   // 1.5 was the first pass; this is 50% wider
         private const int StepHeight = 96;
+        // Where the wordmark's ink actually ends inside the brand image, as a fraction of
+        // its width. The PNG carries transparent margin and glow beyond the last letter, so
+        // the drawn width is not the visible width -- measured on the artwork: the R's right
+        // edge sits at 0.9774.
+        private const double WordmarkInkRight = 0.9774;
         private readonly int headerHeight;
         private readonly int brandWidth;
         private readonly int brandHeight;
@@ -2209,9 +2214,6 @@ namespace KotorUniversalUI
         internal MainForm()
         {
             Text = ShortName + " – " + AppName;
-            ClientSize = new Size(2100, 900);
-            MinimumSize = new Size(2116, 700);
-            MaximumSize = new Size(2116, Screen.PrimaryScreen.WorkingArea.Height);
             MaximizeBox = false;
             StartPosition = FormStartPosition.CenterScreen;
             AutoScaleMode = AutoScaleMode.Dpi;
@@ -2240,6 +2242,18 @@ namespace KotorUniversalUI
             brandHeight = brand == null ? 150
                 : (int)Math.Round(brand.Height * (brandWidth / (double)brand.Width));
             headerHeight = 14 + brandHeight + 46;
+
+            // The window's side margin is not a free choice: it is set equal to the gap
+            // between the end of the wordmark and the card's edge, so the lockup, the card
+            // and the window frame all breathe at the same rhythm. Both the card and the
+            // lockup are centred, so that gap is cardWidth/2 minus how far the ink reaches
+            // past the lockup's own centre.
+            int gapInsideCard = (int)Math.Round(cardWidth / 2.0
+                                                - (WordmarkInkRight - 0.5) * brandWidth);
+            int clientWidth = cardWidth + 2 * gapInsideCard;
+            ClientSize = new Size(clientWidth, 900);
+            MinimumSize = new Size(clientWidth + 16, 700);
+            MaximumSize = new Size(clientWidth + 16, Screen.PrimaryScreen.WorkingArea.Height);
 
             pathBox = new TextBox();
             pathBox.TextChanged += delegate { RefreshStatus(); };
