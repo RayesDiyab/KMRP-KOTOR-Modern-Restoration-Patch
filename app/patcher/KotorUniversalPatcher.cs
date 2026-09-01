@@ -3078,17 +3078,6 @@ namespace KotorUniversalUI
         private volatile IntPtr presentHwnd;
         private volatile bool allowDirectPresent;
 
-        // Frame timing, kept so a stutter can be attributed instead of guessed at.
-        // `interval` is how far apart the render thread finished consecutive frames;
-        // `latency` is how long a finished frame then waited before the UI thread put it
-        // on screen. A smooth animation needs both to be steady -- if intervals are even
-        // but latencies spike, frames are being produced on time and held up behind other
-        // messages, which is a different problem with a different fix.
-        private const int TimingSamples = 400;
-        private readonly double[] frameIntervals = new double[TimingSamples];
-        private readonly double[] frameLatencies = new double[TimingSamples];
-        private int timingWrite;
-        private long frameReadyStamp;
         // 60ms, which Windows' 15.6ms timer granularity rounds to 62.4ms -- 16 fps,
         // against 46.8ms and 21.4 fps at the previous 40ms. A quarter fewer frames for a
         // quarter less CPU. See the mote fall speed, which was slowed to match: the two
@@ -3137,15 +3126,6 @@ namespace KotorUniversalUI
             // Keep old scaled fonts alive until the resize/paint burst has gone idle.
             // ~25fps is plenty for a slow haze, and the field only ever invalidates the
             // header strip, so a frame costs one small bitmap and one upscale.
-            KeyPreview = true;
-            KeyDown += delegate(object sender, KeyEventArgs args)
-            {
-                if (args.KeyCode == Keys.F12)
-                {
-                    DumpFrameTimings();
-                    args.Handled = true;
-                }
-            };
             HandleCreated += delegate
             {
                 if (renderThread != null)
@@ -3738,29 +3718,11 @@ namespace KotorUniversalUI
                             headerFront = headerBack;
                             headerBack = spare;
                         }
-                        long readyAt = Stopwatch.GetTimestamp();
-                        if (frameReadyStamp != 0)
-                        {
-                            int slot = timingWrite % TimingSamples;
-                            frameIntervals[slot] =
-                                (readyAt - frameReadyStamp) * 1000.0 / Stopwatch.Frequency;
-                            frameLatencies[slot] = -1;
-                        }
-                        frameReadyStamp = readyAt;
-
                         IntPtr hwnd = presentHwnd;
                         if (allowDirectPresent && hwnd != IntPtr.Zero)
-                        {
                             PresentDirect(hwnd, w, h);
-                            int slot = timingWrite % TimingSamples;
-                            frameLatencies[slot] =
-                                (Stopwatch.GetTimestamp() - readyAt) * 1000.0 / Stopwatch.Frequency;
-                            timingWrite++;
-                        }
                         else if (IsHandleCreated && !IsDisposed)
-                        {
                             BeginInvoke((MethodInvoker)PresentHeader);
-                        }
                     }
                     catch
                     {
@@ -3855,48 +3817,6 @@ namespace KotorUniversalUI
                 && !IsDisposed;
         }
 
-        /// <summary>Writes the recent frame timings to the log. Bound to F12 so a stutter
-        /// can be captured while it is happening -- scroll the dropdown, press F12, read
-        /// the log. Even intervals with spiking latencies mean frames are made on time and
-        /// held up on the way to the screen.</summary>
-        private void DumpFrameTimings()
-        {
-            int have = Math.Min(timingWrite, TimingSamples);
-            if (have < 5)
-                return;
-            double iSum = 0, iMax = 0, lSum = 0, lMax = 0;
-            int counted = 0;
-            for (int i = 0; i < have; i++)
-            {
-                double interval = frameIntervals[i], latency = frameLatencies[i];
-                if (interval <= 0 || latency < 0)
-                    continue;
-                counted++;
-                iSum += interval;
-                lSum += latency;
-                if (interval > iMax) iMax = interval;
-                if (latency > lMax) lMax = latency;
-            }
-            if (counted == 0)
-                return;
-            double iMean = iSum / counted, lMean = lSum / counted, iVar = 0;
-            for (int i = 0; i < have; i++)
-            {
-                if (frameIntervals[i] <= 0 || frameLatencies[i] < 0)
-                    continue;
-                double d = frameIntervals[i] - iMean;
-                iVar += d * d;
-            }
-            string line = String.Format(CultureInfo.InvariantCulture,
-                "frame timing over {0} frames: interval mean {1:0.0} ms, max {2:0.0} ms, " +
-                "sd {3:0.0} ms; present latency mean {4:0.0} ms, max {5:0.0} ms",
-                counted, iMean, iMax, Math.Sqrt(iVar / counted), lMean, lMax);
-            try { PatchOperations.AppendLog(pathBox.Text.Trim(), line); }
-            catch { }
-            MessageBox.Show(this, line, "Frame timing", MessageBoxButtons.OK,
-                MessageBoxIcon.Information);
-        }
-
         /// <summary>Runs on the UI thread when a frame is ready. Update() rather than
         /// waiting for WM_PAINT, which is the lowest priority message there is and would be
         /// starved by the same wheel-message flood this design exists to survive.</summary>
@@ -3904,10 +3824,6 @@ namespace KotorUniversalUI
         {
             if (IsDisposed || Disposing || WindowState == FormWindowState.Minimized)
                 return;
-            int slot = timingWrite % TimingSamples;
-            frameLatencies[slot] = frameReadyStamp == 0 ? 0
-                : (Stopwatch.GetTimestamp() - frameReadyStamp) * 1000.0 / Stopwatch.Frequency;
-            timingWrite++;
             Invalidate(new Rectangle(0, 0, ClientSize.Width, LiveHeaderHeight()));
             Update();
         }

@@ -200,9 +200,12 @@ whenever the header size changes -- fonts and scaled artwork cannot be touched f
 the render thread. Direct presentation is disabled while a resize preview is up,
 where the UI thread owns the frame, and while minimised.
 
-Press **F12** to write the current frame timings to the log. Capture them while the
-symptom is happening; even intervals with spiking latencies mean the problem is in
-presentation, not generation.
+The instrumentation that produced those numbers was removed once it had done its job,
+so a stray keypress in a released build cannot raise a dialog full of frame times. If
+this ever needs diagnosing again, restore it from commit `63545f6`: it recorded both
+figures into ring buffers and dumped mean, max and standard deviation to the log. The
+lesson worth keeping is that the two must be measured separately -- three fixes were
+aimed at frame generation when generation was never the problem.
 
 Two earlier attempts at this failed and are worth not repeating. A
 `System.Windows.Forms.Timer` is `SetTimer`, and WM_TIMER is synthesized by Windows
