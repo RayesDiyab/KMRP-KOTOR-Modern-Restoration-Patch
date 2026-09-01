@@ -134,11 +134,6 @@ ramp then light all of them consistently, and the buffer is upscaled, which supp
 the final softening for free. The ramp is the blue counterpart of the reference's
 black to olive to gold to white-hot core.
 
-Motes are drawn **after** the upscale, at full resolution. They were originally
-accumulated into the smoke buffer, but at `Downscale = 8` a mote is clamped to a
-single buffer pixel, so it could not be made smaller and upscaled into a soft 16px
-disc. Drawing them separately decouples their size from the buffer resolution.
-
 ### Cost
 
 This is per-pixel CPU work, so it is measured, not assumed. `Downscale` is the
@@ -146,7 +141,7 @@ dominant lever: the noise is evaluated nine times per buffer pixel, so halving i
 quadruples the cost.
 
 At full design scale (a 1980 x 420 header, the worst case) the shipping settings
-render in **22.3 ms average**, against a 46.8 ms frame budget -- a 40 ms
+render in **25.9 ms average**, against a 46.8 ms frame budget -- a 40 ms
 WinForms timer lands on Windows' 15.6 ms granularity and therefore fires every
 ~46.8 ms, or about 21 fps. Measured in the running application, the effect costs
 about **40% of one core** while the window is focused and idle.
@@ -176,7 +171,7 @@ above the flat window colour, `blown` the share saturated past luminance 200:
 | Grey ramp, long reach | 91.9% | 0.0% | rgb 33, 39, 48 | 106.1 |
 | Wispy, extinction curve | 97.1% | 0.0% | rgb 33, 39, 48 | 106.6 |
 | White plume with a front | 73.2% | 0.0% | rgb 67, 72, 80 | 108.3 |
-| Shipping: plus per-column variation | 75.6% | **0.0%** | rgb 68, 73, 81 | **101.9** |
+| Shipping: plus per-column variation | 75.8% | **0.0%** | rgb 68, 73, 81 | **101.8** |
 
 Three separate failures are recorded there, and each was caught by a number rather
 than by eye:
@@ -205,6 +200,24 @@ can produce:
 - **Anisotropic noise.** Features are stretched along v so tendrils hang downward.
   This is easy to overdo: at `NoiseAspectY` 0.45 the plume stops reading as smoke and
   becomes a comb of vertical streaks. 0.80 keeps the downward bias without it.
+
+### Motes
+
+The falling motes are blue rather than taking the smoke's white, so they read as
+embers of light in the plume rather than as brighter specks of the same smoke. Each
+is one sprite carrying two gaussian lobes -- a tight core inside a wide halo -- so
+the glow costs one draw per mote rather than a separate halo pass.
+
+`MoteGlowScale` and the lobe widths in `BuildMote` have to be kept in step, because
+between them they decide both the glow's size and its cost, and the cost is the
+square of the scale. The first version drew at 4.5x the core radius with lobes only
+0.30 wide, so roughly 70% of every sprite was transparent: the mote pass cost 17.4 ms
+of a 35.7 ms frame. Widening the lobes and shrinking the sprite to 2.4x is visually
+identical and costs 7.6 ms.
+
+Motes are drawn at full resolution, after the smoke buffer is upscaled. Accumulated
+into the buffer instead they were clamped to a single buffer pixel, so they could not
+be made smaller and were upscaled into a soft 16px disc.
 
 ### Non-uniformity
 
