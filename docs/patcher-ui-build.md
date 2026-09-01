@@ -48,8 +48,11 @@ The primary button has one identity at a time:
 - a verified patched install with complete backups produces
   **Restore Original**;
 - an unresolved executable or game setup keeps the action disabled;
-- while work is running, all mutation controls are disabled and the progress
-  strip reports the current stage.
+- while work is running, all mutation controls are disabled and the primary
+  button becomes the progress surface: a pale illuminated-blue fill advances
+  inside the rounded button while its centred label shows the current stage and
+  percentage. Step 4 keeps one calm, stable instruction with no percentage or
+  file-level detail.
 
 The success state is deliberately idempotent. Refocusing, clicking, or
 reactivating the window calls `RefreshStatus()`, but a gold install is rebuilt
