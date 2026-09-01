@@ -1664,6 +1664,8 @@ namespace KotorUniversalUI
         // icon fall back to DrawGlyph, so a partial set still builds and still looks whole.
         private static readonly Dictionary<Glyph, Image> IconArt = new Dictionary<Glyph, Image>();
         private static bool iconsLoaded;
+        private static Image verifiedArt;
+        private static bool verifiedArtLoaded;
 
         private static Image IconFor(Glyph glyph)
         {
@@ -1710,6 +1712,42 @@ namespace KotorUniversalUI
                 tint.SetColorMatrix(matrix);
                 g.InterpolationMode = InterpolationMode.HighQualityBicubic;
                 g.DrawImage(art, box, 0, 0, art.Width, art.Height, GraphicsUnit.Pixel, tint);
+            }
+            return true;
+        }
+
+        /// <summary>Draw the supplied verified-status badge, tinted with the semantic
+        /// success colour. The caller keeps the icon and label optically grouped.</summary>
+        internal static bool DrawVerifiedArt(Graphics g, Rectangle box, Color color)
+        {
+            if (!verifiedArtLoaded)
+            {
+                verifiedArtLoaded = true;
+                try
+                {
+                    using (Stream stream = Assembly.GetExecutingAssembly()
+                               .GetManifestResourceStream("KotorUniversalUI.icon.verified"))
+                    using (Image source = stream == null ? null : Image.FromStream(stream))
+                        if (source != null)
+                            verifiedArt = new Bitmap(source);
+                }
+                catch { }
+            }
+            if (verifiedArt == null)
+                return false;
+
+            using (ImageAttributes tint = new ImageAttributes())
+            {
+                ColorMatrix matrix = new ColorMatrix(new float[][] {
+                    new float[] { color.R / 255F, 0, 0, 0, 0 },
+                    new float[] { 0, color.G / 255F, 0, 0, 0 },
+                    new float[] { 0, 0, color.B / 255F, 0, 0 },
+                    new float[] { 0, 0, 0, 1, 0 },
+                    new float[] { 0, 0, 0, 0, 1 } });
+                tint.SetColorMatrix(matrix);
+                g.InterpolationMode = InterpolationMode.HighQualityBicubic;
+                g.DrawImage(verifiedArt, box, 0, 0, verifiedArt.Width, verifiedArt.Height,
+                    GraphicsUnit.Pixel, tint);
             }
             return true;
         }
@@ -2023,13 +2061,84 @@ namespace KotorUniversalUI
                 UiTheme.DrawGlyph(g, Icon, circle, UiTheme.GlyphInk);
 
             using (SolidBrush text = new SolidBrush(UiTheme.Text))
-            using (Font f = UiTheme.DisplayFont(18F * scale, FontStyle.Bold))
+            using (Font f = UiTheme.DisplayFont(22F * scale, FontStyle.Bold))
                 g.DrawString(Title, f, text, contentLeft,
                     headerHeight / 2 - (int)Math.Round(30 * scale));
             using (SolidBrush text = new SolidBrush(UiTheme.TextMuted))
-            using (Font f = new Font("Segoe UI", Math.Max(6F, 13F * scale)))
+            using (Font f = new Font("Segoe UI", Math.Max(6F, 16.5F * scale)))
                 g.DrawString(Subtitle, f, text, contentLeft,
                     headerHeight / 2 + (int)Math.Round(4 * scale));
+        }
+    }
+
+    /// <summary>A right-aligned step status. Verified states can pair the supplied
+    /// badge with their text as one compact unit instead of relying on a text glyph.</summary>
+    internal sealed class StateLabel : Control
+    {
+        internal float UiScale = 1F;
+        private bool showVerifiedIcon;
+
+        internal bool ShowVerifiedIcon
+        {
+            get { return showVerifiedIcon; }
+            set
+            {
+                if (showVerifiedIcon == value)
+                    return;
+                showVerifiedIcon = value;
+                Invalidate();
+            }
+        }
+
+        internal StateLabel()
+        {
+            SetStyle(ControlStyles.AllPaintingInWmPaint | ControlStyles.OptimizedDoubleBuffer |
+                     ControlStyles.UserPaint | ControlStyles.ResizeRedraw |
+                     ControlStyles.SupportsTransparentBackColor, true);
+            BackColor = Color.Transparent;
+        }
+
+        protected override void OnTextChanged(EventArgs e)
+        {
+            Invalidate();
+            base.OnTextChanged(e);
+        }
+
+        protected override void OnForeColorChanged(EventArgs e)
+        {
+            Invalidate();
+            base.OnForeColorChanged(e);
+        }
+
+        protected override void OnPaint(PaintEventArgs e)
+        {
+            base.OnPaint(e);
+            TextFormatFlags flags = TextFormatFlags.SingleLine | TextFormatFlags.VerticalCenter |
+                TextFormatFlags.NoPadding | TextFormatFlags.NoPrefix;
+            Size textSize = TextRenderer.MeasureText(e.Graphics, Text, Font,
+                new Size(Int32.MaxValue, Math.Max(1, Height)), flags);
+            int textWidth = Math.Min(Width, textSize.Width);
+
+            if (showVerifiedIcon)
+            {
+                int iconSize = Math.Max(12, (int)Math.Round(32 * UiScale));
+                int gap = Math.Max(4, (int)Math.Round(8 * UiScale));
+                int groupWidth = Math.Min(Width, iconSize + gap + textWidth);
+                int left = Math.Max(0, Width - groupWidth);
+                Rectangle iconBox = new Rectangle(left, Math.Max(0, (Height - iconSize) / 2),
+                    iconSize, iconSize);
+                if (UiTheme.DrawVerifiedArt(e.Graphics, iconBox, ForeColor))
+                {
+                    Rectangle textBox = new Rectangle(iconBox.Right + gap, 0,
+                        Math.Max(1, Width - iconBox.Right - gap), Height);
+                    TextRenderer.DrawText(e.Graphics, Text, Font, textBox, ForeColor,
+                        flags | TextFormatFlags.Left);
+                    return;
+                }
+            }
+
+            TextRenderer.DrawText(e.Graphics, Text, Font, ClientRectangle, ForeColor,
+                flags | TextFormatFlags.Right);
         }
     }
 
@@ -2093,7 +2202,7 @@ namespace KotorUniversalUI
             }
 
             Color ink = !Enabled ? UiTheme.DisabledText : (Primary ? Color.White : UiTheme.Text);
-            float baseTextSize = TextSize > 0F ? TextSize : (Primary ? 14F : 11.5F);
+            float baseTextSize = TextSize > 0F ? TextSize : (Primary ? 18F : 15.5F);
             using (StringFormat sf = new StringFormat())
             using (SolidBrush brush = new SolidBrush(ink))
             using (Font f = UiTheme.DisplayFont(Math.Max(6F, baseTextSize * scale), FontStyle.Bold))
@@ -2270,9 +2379,9 @@ namespace KotorUniversalUI
         private readonly StepRow stepVerify;
         private readonly StepRow stepResolution;
         private readonly StepRow stepApply;
-        private readonly Label verifyState;
-        private readonly Label resolutionState;
-        private readonly Label applyState;
+        private readonly StateLabel verifyState;
+        private readonly StateLabel resolutionState;
+        private readonly StateLabel applyState;
         private readonly CardPanel verificationRecovery;
         private readonly Label verificationTitle;
         private readonly Label verificationBody;
@@ -2294,10 +2403,18 @@ namespace KotorUniversalUI
         private Size designClientSize;
         private Size lastClientSize;
         private float uiScale = 1F;
+        private float nativeFontScale = 1F;
+        private Bitmap resizePreview;
+        private bool resizePreviewActive;
+        private readonly List<Control> resizePreviewControls = new List<Control>();
         private bool resizeReady;
         private bool enforcingAspect;
-        private const float MinimumUiScale = 0.60F;
-        private const float StartupWorkingAreaFraction = 0.80F;
+        private bool initialFitApplied;
+        private const float MinimumUiScale = 0.35F;
+        private const int ReferenceWorkingWidth = 1920;
+        private const int ReferenceWorkingHeight = 1040;
+        private const int ReferenceWindowWidth = 1300;
+        private const int ReferenceWindowHeight = 700;
 
         internal MainForm()
         {
@@ -2308,7 +2425,9 @@ namespace KotorUniversalUI
             StartPosition = FormStartPosition.CenterScreen;
             AutoScaleMode = AutoScaleMode.Dpi;
             DoubleBuffered = true;
-            Font = new Font("Segoe UI", 9F);
+            SetStyle(ControlStyles.OptimizedDoubleBuffer | ControlStyles.AllPaintingInWmPaint |
+                ControlStyles.ResizeRedraw, true);
+            Font = new Font("Segoe UI", 11F);
             BackColor = UiTheme.Window;
             ForeColor = UiTheme.Text;
             // WinForms can queue a LinkLabel paint while a resize is replacing its font.
@@ -2364,7 +2483,7 @@ namespace KotorUniversalUI
                 "Choose your Knights of the Old Republic folder.");
             browseButton = new PillButton();
             browseButton.Text = "Browse";
-            browseButton.TextSize = 14F;
+            browseButton.TextSize = 18F;
             browseButton.SetBounds(card.Width - 168, 24, 132, 48);
             browseButton.Anchor = AnchorStyles.Top | AnchorStyles.Right;
             browseButton.Click += delegate { BrowseForExecutable(this); };
@@ -2388,7 +2507,7 @@ namespace KotorUniversalUI
 
             verificationTitle = new Label();
             verificationTitle.Text = "Editable swkotor.exe required";
-            verificationTitle.Font = UiTheme.DisplayFont(15F, FontStyle.Bold);
+            verificationTitle.Font = UiTheme.DisplayFont(19F, FontStyle.Bold);
             verificationTitle.ForeColor = UiTheme.Warning;
             verificationTitle.BackColor = Color.Transparent;
             verificationTitle.SetBounds(20, 12, verificationRecovery.Width - 40, 30);
@@ -2396,7 +2515,7 @@ namespace KotorUniversalUI
             verificationRecovery.Controls.Add(verificationTitle);
 
             verificationBody = new Label();
-            verificationBody.Font = new Font("Segoe UI", 12F);
+            verificationBody.Font = new Font("Segoe UI", 15F);
             verificationBody.ForeColor = UiTheme.TextMuted;
             verificationBody.BackColor = Color.Transparent;
             verificationBody.AutoEllipsis = true;
@@ -2405,7 +2524,7 @@ namespace KotorUniversalUI
             verificationRecovery.Controls.Add(verificationBody);
 
             verificationPath = new Label();
-            verificationPath.Font = new Font("Segoe UI", 10.5F);
+            verificationPath.Font = new Font("Segoe UI", 14.5F);
             verificationPath.ForeColor = UiTheme.TextFaint;
             verificationPath.BackColor = Color.Transparent;
             verificationPath.AutoEllipsis = true;
@@ -2435,7 +2554,7 @@ namespace KotorUniversalUI
             stepResolution = NewStep(card, 2, UiTheme.Glyph.Monitor, "3. Choose Resolution",
                 "Select the resolution you want to patch for.");
             resolutionBox = new DarkCombo();
-            resolutionBox.Font = new Font("Segoe UI Semibold", 13.5F, FontStyle.Regular);
+            resolutionBox.Font = new Font("Segoe UI Semibold", 17F, FontStyle.Regular);
             resolutionBox.SetBounds(card.Width - 448, 26, 412, 44);
             resolutionBox.Anchor = AnchorStyles.Top | AnchorStyles.Right;
             resolutionBox.DrawItem += ResolutionDrawItem;
@@ -2490,34 +2609,35 @@ namespace KotorUniversalUI
 
             logLink = new LinkLabel();
             logLink.Text = Version + "   ·   Open Log";
-            logLink.LinkArea = new LinkArea(Version.Length + 6, 8);
-            logLink.Font = new Font("Segoe UI", 9F);
+            logLink.LinkArea = new LinkArea(Version.Length + 7, 8);
+            logLink.Font = new Font("Segoe UI", 15.5F);
             logLink.ForeColor = UiTheme.TextFaint;
             logLink.LinkColor = UiTheme.Accent;
             logLink.ActiveLinkColor = Color.White;
             logLink.VisitedLinkColor = UiTheme.Accent;
             logLink.LinkBehavior = LinkBehavior.HoverUnderline;
             logLink.BackColor = Color.Transparent;
-            logLink.SetBounds(card.Left + 8, card.Bottom + 20, 240, 22);
+            logLink.TextAlign = ContentAlignment.MiddleLeft;
+            logLink.SetBounds(card.Left + 8, card.Bottom + 14, 240, 34);
             logLink.Anchor = AnchorStyles.Top;
             logLink.LinkClicked += OpenLogClicked;
             Controls.Add(logLink);
 
             LinkLabel credit = new LinkLabel();
             credit.Text = "Created by RaymanGT";
-            credit.Font = new Font("Segoe UI", 9F);
+            credit.Font = new Font("Segoe UI", 15.5F);
             credit.LinkColor = UiTheme.TextFaint;
             credit.ActiveLinkColor = UiTheme.Accent;
             credit.VisitedLinkColor = UiTheme.TextFaint;
             credit.LinkBehavior = LinkBehavior.HoverUnderline;
             credit.BackColor = Color.Transparent;
             credit.TextAlign = ContentAlignment.MiddleRight;
-            credit.SetBounds(card.Right - 228, card.Bottom + 20, 220, 22);
+            credit.SetBounds(card.Right - 228, card.Bottom + 14, 220, 34);
             credit.Anchor = AnchorStyles.Top;
             credit.LinkClicked += delegate { OpenCreatorPage(); };
             Controls.Add(credit);
 
-            ClientSize = new Size(ClientSize.Width, credit.Bottom + 24);
+            ClientSize = new Size(ClientSize.Width, credit.Bottom + 18);
 
             // Every element keeps a design-space rectangle. Resizing reapplies those
             // rectangles at one uniform scale, so type, spacing, icons, hit targets and
@@ -2533,8 +2653,11 @@ namespace KotorUniversalUI
             pathBox.Text = FindDefaultExecutable();
             RefreshStatus();
             resizeReady = true;
-            FitInitialSizeToWorkingArea();
 
+            Shown += delegate
+            {
+                FitInitialSizeToWorkingArea();
+            };
             Activated += delegate { RefreshStatus(); };
             FormClosing += delegate(object sender, FormClosingEventArgs e)
             {
@@ -2571,7 +2694,10 @@ namespace KotorUniversalUI
             {
                 if (ClientSize != proportional)
                     ClientSize = proportional;
-                ApplyUniformScale(scale);
+                if (resizePreviewActive)
+                    Invalidate();
+                else
+                    ApplyUniformScale(scale);
                 lastClientSize = ClientSize;
             }
             finally
@@ -2580,26 +2706,139 @@ namespace KotorUniversalUI
             }
         }
 
+        protected override void OnResizeBegin(EventArgs e)
+        {
+            base.OnResizeBegin(e);
+            BeginResizePreview();
+        }
+
+        protected override void OnResizeEnd(EventArgs e)
+        {
+            EndResizePreview();
+            base.OnResizeEnd(e);
+        }
+
+        private void BeginResizePreview()
+        {
+            if (!resizeReady || resizePreviewActive || ClientSize.Width <= 0 || ClientSize.Height <= 0)
+                return;
+
+            // Finish any pending state/paint work before freezing the visual frame. This
+            // prevents a partially painted recovery panel from becoming the resize preview.
+            if (!operationRunning)
+                RefreshStatus();
+            Refresh();
+
+            Bitmap preview = null;
+            try
+            {
+                preview = new Bitmap(ClientSize.Width, ClientSize.Height,
+                    System.Drawing.Imaging.PixelFormat.Format32bppPArgb);
+                using (Graphics capture = Graphics.FromImage(preview))
+                {
+                    Point clientOrigin = PointToScreen(Point.Empty);
+                    capture.CopyFromScreen(clientOrigin, Point.Empty, ClientSize,
+                        CopyPixelOperation.SourceCopy);
+                }
+            }
+            catch
+            {
+                if (preview != null)
+                    preview.Dispose();
+                return;
+            }
+
+            resizePreview = preview;
+            resizePreviewActive = true;
+            resizePreviewControls.Clear();
+            foreach (Control child in Controls)
+            {
+                if (!child.Visible)
+                    continue;
+                resizePreviewControls.Add(child);
+                child.Visible = false;
+            }
+            Invalidate();
+        }
+
+        private void EndResizePreview()
+        {
+            if (!resizePreviewActive)
+                return;
+
+            try
+            {
+                float finalScale = Math.Max(MinimumUiScale,
+                    ClientSize.Width / (float)Math.Max(1, designClientSize.Width));
+                ApplyUniformScale(finalScale);
+            }
+            finally
+            {
+                resizePreviewActive = false;
+                foreach (Control child in resizePreviewControls)
+                    child.Visible = true;
+                resizePreviewControls.Clear();
+
+                if (resizePreview != null)
+                {
+                    resizePreview.Dispose();
+                    resizePreview = null;
+                }
+
+                if (!operationRunning)
+                    RefreshStatus();
+                Invalidate(true);
+                foreach (Control child in Controls)
+                    child.Invalidate(true);
+                Update();
+            }
+        }
+
         private void FitInitialSizeToWorkingArea()
         {
-            Rectangle workArea = Screen.FromPoint(Cursor.Position).WorkingArea;
+            if (initialFitApplied)
+                return;
+            initialFitApplied = true;
+
+            Rectangle workArea = Screen.FromHandle(Handle).WorkingArea;
             int nonClientWidth = Math.Max(0, Width - ClientSize.Width);
             int nonClientHeight = Math.Max(0, Height - ClientSize.Height);
-            float availableWidth = Math.Max(1F,
-                workArea.Width * StartupWorkingAreaFraction - nonClientWidth);
-            float availableHeight = Math.Max(1F,
-                workArea.Height * StartupWorkingAreaFraction - nonClientHeight);
-            float startupScale = Math.Min(1F, Math.Min(
-                availableWidth / Math.Max(1, designClientSize.Width),
-                availableHeight / Math.Max(1, designClientSize.Height)));
-            startupScale = Math.Max(MinimumUiScale, startupScale);
 
-            if (startupScale >= 0.995F)
-                return;
+            // The user's approved 1080p composition is a centred 1300x700 window.
+            // Scale that physical footprint uniformly from the active monitor's usable
+            // dimensions. On ultrawide displays the height becomes the limiting axis,
+            // which keeps the patcher comfortably sized instead of stretching with width.
+            float referenceUiScale = Math.Min(
+                Math.Max(1F, ReferenceWindowWidth - nonClientWidth) /
+                    Math.Max(1, designClientSize.Width),
+                Math.Max(1F, ReferenceWindowHeight - nonClientHeight) /
+                    Math.Max(1, designClientSize.Height));
+            float monitorScale = Math.Min(
+                workArea.Width / (float)ReferenceWorkingWidth,
+                workArea.Height / (float)ReferenceWorkingHeight);
+            float startupScale = referenceUiScale * monitorScale;
+
+            // Always retain a small safety margin for the taskbar and unusual aspect ratios.
+            float fitScale = Math.Min(
+                Math.Max(1F, workArea.Width * 0.94F - nonClientWidth) /
+                    Math.Max(1, designClientSize.Width),
+                Math.Max(1F, workArea.Height * 0.94F - nonClientHeight) /
+                    Math.Max(1, designClientSize.Height));
+            startupScale = Math.Min(startupScale, fitScale);
+            startupScale = Math.Max(MinimumUiScale, startupScale);
 
             ClientSize = new Size(
                 Math.Max(1, (int)Math.Round(designClientSize.Width * startupScale)),
                 Math.Max(1, (int)Math.Round(designClientSize.Height * startupScale)));
+            Location = new Point(
+                workArea.Left + Math.Max(0, (workArea.Width - Width) / 2),
+                workArea.Top + Math.Max(0, (workArea.Height - Height) / 2));
+
+            // The initial fit changes every control after the first shown frame. Repaint
+            // the resolved state immediately so the recovery panel never waits for a click.
+            if (!operationRunning)
+                RefreshStatus();
+            Refresh();
         }
 
         private void CaptureDesignLayout(Control parent)
@@ -2607,7 +2846,8 @@ namespace KotorUniversalUI
             foreach (Control child in parent.Controls)
             {
                 designBounds[child] = child.Bounds;
-                if (child is Label || child is LinkLabel || child is ComboBox || child is TextBox)
+                if (child is Label || child is LinkLabel || child is ComboBox || child is TextBox ||
+                    child is StateLabel)
                     designFonts[child] = new FontTemplate(child.Font);
                 CaptureDesignLayout(child);
             }
@@ -2616,31 +2856,32 @@ namespace KotorUniversalUI
         private void ApplyUniformScale(float scale)
         {
             uiScale = Math.Max(MinimumUiScale, scale);
-            SuspendLayout();
+            SuspendLayoutTree(this);
             try
             {
-                ApplyControlScale(this, uiScale);
+                bool updateNativeFonts = Math.Abs(uiScale - nativeFontScale) >= 0.01F;
+                ApplyControlScale(this, uiScale, updateNativeFonts);
+                if (updateNativeFonts)
+                    nativeFontScale = uiScale;
                 if (taglineFont != null)
                 {
                     taglineFont.Dispose();
                     taglineFont = null;
                 }
-                if (!operationRunning)
-                    RefreshStatus();
-                Invalidate(true);
             }
             finally
             {
-                ResumeLayout(false);
+                ResumeLayoutTree(this);
+                Invalidate(true);
             }
         }
 
-        private void ApplyControlScale(Control parent, float scale)
+        private void ApplyControlScale(Control parent, float scale, bool updateNativeFonts)
         {
             foreach (Control child in parent.Controls)
             {
                 FontTemplate template;
-                if (designFonts.TryGetValue(child, out template))
+                if (updateNativeFonts && designFonts.TryGetValue(child, out template))
                 {
                     Font replacement = template.Create(scale);
                     Font previous;
@@ -2672,8 +2913,11 @@ namespace KotorUniversalUI
                 DarkCombo darkCombo = child as DarkCombo;
                 if (darkCombo != null)
                     darkCombo.SetUiScale(scale);
+                StateLabel stateLabel = child as StateLabel;
+                if (stateLabel != null)
+                    stateLabel.UiScale = scale;
 
-                ApplyControlScale(child, scale);
+                ApplyControlScale(child, scale, updateNativeFonts);
             }
 
             if (retiredFonts.Count > 0)
@@ -2681,6 +2925,20 @@ namespace KotorUniversalUI
                 fontRetireTimer.Stop();
                 fontRetireTimer.Start();
             }
+        }
+
+        private static void SuspendLayoutTree(Control parent)
+        {
+            parent.SuspendLayout();
+            foreach (Control child in parent.Controls)
+                SuspendLayoutTree(child);
+        }
+
+        private static void ResumeLayoutTree(Control parent)
+        {
+            foreach (Control child in parent.Controls)
+                ResumeLayoutTree(child);
+            parent.ResumeLayout(false);
         }
 
         private void DisposeRetiredFonts()
@@ -2709,6 +2967,8 @@ namespace KotorUniversalUI
                     taglineFont.Dispose();
                 if (brand != null)
                     brand.Dispose();
+                if (resizePreview != null)
+                    resizePreview.Dispose();
             }
             base.Dispose(disposing);
         }
@@ -2741,13 +3001,11 @@ namespace KotorUniversalUI
             return row;
         }
 
-        private static Label NewStateLabel(StepRow row, int cardWidth)
+        private static StateLabel NewStateLabel(StepRow row, int cardWidth)
         {
-            Label label = new Label();
-            label.Font = UiTheme.DisplayFont(14.5F, FontStyle.Bold);
+            StateLabel label = new StateLabel();
+            label.Font = UiTheme.DisplayFont(18F, FontStyle.Bold);
             label.ForeColor = UiTheme.TextMuted;
-            label.BackColor = Color.Transparent;
-            label.TextAlign = ContentAlignment.MiddleRight;
             label.SetBounds(cardWidth - 340, 30, 300, 36);
             label.Anchor = AnchorStyles.Top | AnchorStyles.Right;
             row.Controls.Add(label);
@@ -2780,6 +3038,17 @@ namespace KotorUniversalUI
 
         protected override void OnPaint(PaintEventArgs e)
         {
+            if (resizePreviewActive && resizePreview != null)
+            {
+                e.Graphics.CompositingMode = CompositingMode.SourceCopy;
+                e.Graphics.CompositingQuality = CompositingQuality.HighSpeed;
+                e.Graphics.InterpolationMode = InterpolationMode.Bilinear;
+                e.Graphics.PixelOffsetMode = PixelOffsetMode.HighSpeed;
+                e.Graphics.DrawImage(resizePreview, ClientRectangle,
+                    0, 0, resizePreview.Width, resizePreview.Height, GraphicsUnit.Pixel);
+                return;
+            }
+
             base.OnPaint(e);
             Graphics g = e.Graphics;
             g.SmoothingMode = SmoothingMode.AntiAlias;
@@ -2888,8 +3157,9 @@ namespace KotorUniversalUI
             }
         }
 
-        private void SetState(Label label, string text, Color color)
+        private void SetState(StateLabel label, string text, Color color)
         {
+            label.ShowVerifiedIcon = false;
             label.Text = text;
             label.ForeColor = color;
         }
@@ -2968,7 +3238,10 @@ namespace KotorUniversalUI
             actionButton.Enabled = actionIsRestore || (executableReady && iniExists);
 
             if (state == ExecutableState.SupportedClean || state == ExecutableState.Gold)
-                SetState(verifyState, "✓  Verified", UiTheme.Success);
+            {
+                SetState(verifyState, "Verified", UiTheme.Success);
+                verifyState.ShowVerifiedIcon = true;
+            }
             else if (state == ExecutableState.Missing)
                 SetState(verifyState, "Editable EXE needed", UiTheme.Warning);
             else if (state == ExecutableState.Unsupported)
@@ -3013,20 +3286,24 @@ namespace KotorUniversalUI
 
             if (state == ExecutableState.Gold)
             {
-                SetState(applyState, "Patched", UiTheme.Success);
-                lastDetail = iniExists
-                    ? "The installed resolution is protected. To choose a different one, restore the original first."
-                    : "The executable is patched, but swkotor.ini is missing beside it.";
+                SetState(applyState, "Patched successfully", UiTheme.Success);
+                int readyWidth;
+                int readyHeight;
+                lastDetail = PatchOperations.TryReadInstalledResolution(target, out readyWidth, out readyHeight)
+                    ? "KOTOR is ready to play at " +
+                        readyWidth.ToString(CultureInfo.InvariantCulture) + " × " +
+                        readyHeight.ToString(CultureInfo.InvariantCulture) + "."
+                    : "KOTOR is ready to play.";
             }
             else if (executableReady && iniExists)
             {
                 SetState(applyState, "Ready to patch", UiTheme.Accent);
-                lastDetail = IniOperations.Describe(target);
+                lastDetail = "Everything is ready. Choose a resolution and start patching.";
             }
             else if (executableReady)
             {
-                SetState(applyState, "swkotor.ini required", UiTheme.Warning);
-                lastDetail = "Launch the game once so it writes swkotor.ini beside the executable, then check again.";
+                SetState(applyState, "Game setup needed", UiTheme.Warning);
+                lastDetail = "Launch KOTOR once, close it, then return here and check again.";
             }
             else
             {

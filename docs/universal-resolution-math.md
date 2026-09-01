@@ -8,12 +8,14 @@ The original 3440×1440 patcher is frozen separately as
 `D8F0EEBF470660FFBB0DBE9D6953774B937F73F92260FA2D3427189D8B7F6ADE`.
 
 **Selecting 3440×1440 in the universal patcher no longer reproduces that
-hash**, and has not since the font workstream landed. The gold snapshot has
-moved on to `swkotor_gold_v6_wrapfix.exe`
-(`171D084E8F58AB40B778D97A3378B1A54E24F10EA02D2053A6A78B913318A7B8`), which
-adds the font-scale, list-row, dialogue-letterbox and word-wrap fixes on top of
-the map/marker patch. The resolution math below is unchanged by that; only the
-baseline executable differs. See `docs/font-scaling.md` for the gold lineage.
+historical hash.** The current baseline is
+`swkotor_gold_v13_leadingnl.exe`
+(`145F46FE85AF5934D6EE55C3D6BD5E54354762B5AFF3078C3875BC054EDE9C90`). It
+adds the font, dialogue, row, wrap-progress, stack-label, listbox-padding,
+scrollbar-side, and leading-newline fixes on top of the map/marker patch. The
+resolution math below is unchanged by that; only the baseline executable
+differs. See `docs/font-scaling.md` and
+`reverse-engineering/listbox-geometry.md` for the gold lineage.
 
 ## Resolution inputs
 
