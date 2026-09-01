@@ -3330,7 +3330,12 @@ namespace KotorUniversalUI
             credit.LinkBehavior = LinkBehavior.HoverUnderline;
             credit.BackColor = UiTheme.Window;
             credit.TextAlign = ContentAlignment.MiddleRight;
-            credit.SetBounds(card.Right - 228, card.Bottom + 14, 220, 34);
+            // 260 wide, not 220. "Created by RaymanGT" measures 218px in Segoe UI but
+            // 228px in Semibold, so the old box clipped it: a LinkLabel wraps rather than
+            // ellipsises, and at 34 tall only the first line showed. The headroom also
+            // covers the hinting differences that stop glyph widths scaling perfectly
+            // linearly with point size. The right edge is unchanged at card.Right - 8.
+            credit.SetBounds(card.Right - 268, card.Bottom + 14, 260, 34);
             credit.Anchor = AnchorStyles.Top;
             credit.LinkClicked += delegate { OpenCreatorPage(); };
             Controls.Add(credit);
