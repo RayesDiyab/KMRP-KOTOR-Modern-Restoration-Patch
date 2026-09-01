@@ -56,10 +56,12 @@ CREST_WIDTH_RATIO = 2.45      # measured: 142px wide at 58px cap
 # the saber runs on down THROUGH the letters to the baseline (+0.98 cap), showing
 # 6-14 bright pixels per row in the gaps between glyphs. So the artwork's bottom
 # sits on the baseline and the veil dims it as it passes behind the text.
-WING_BOTTOM_AT = 0.25         # where the wings' lower tips land, in caps below the cap line.
+WING_BOTTOM_AT = 0.62         # where the wings' lower tips land, in caps below the cap line.
                               # 0.00 puts them exactly on it, which is where the reference has
-                              # them; a little lower lets the tips dip behind the letters and
-                              # dim there, which is what was asked for
+                              # them. The crest is 2.45 caps tall, so each 0.245 here moves it
+                              # 10% of its own height; 0.62 sits it 15% lower than the 0.25 that
+                              # first dipped the tips behind the letters. The fade is anchored to
+                              # this line, so it travels with it.
 # The fade must END at the crest's own bottom edge, or the artwork runs out while
 # the veil is still part-way and there is no visible fade at all. That was the bug:
 # FADE_TO sat 1.00 cap below the wing line, but the crest only reaches 0.36 cap
