@@ -2173,12 +2173,14 @@ namespace KotorUniversalUI
         internal const string Version = "v1.0.0";
         // The header is measured from the brand artwork rather than fixed, so widening
         // the window scales the lockup and the card follows it down.
-        private const double BrandWidthFraction = 0.42;
+        // The lockup is sized against the card, not the window, so the two read as one
+        // block: half the card's width, centred on it.
+        private const double BrandCardFraction = 0.5;
         // The card is a fixed 3:2 rectangle rather than something that stretches to the
         // window's edges: on a wide window a full-width row leaves a desert between a
         // step's subtitle and its control. Its height is fully determined by the row
         // heights below, so the width follows from the ratio.
-        private const double CardAspect = 1.5;
+        private const double CardAspect = 2.25;   // 1.5 was the first pass; this is 50% wider
         private const int StepHeight = 96;
         private readonly int headerHeight;
         private readonly int brandWidth;
@@ -2229,7 +2231,12 @@ namespace KotorUniversalUI
             }
             catch { brand = null; }
 
-            brandWidth = (int)Math.Round(ClientSize.Width * BrandWidthFraction);
+            // Height is the sum of the fixed pieces: four steps, the gap above the primary
+            // button, the button, the gap above Restore, Restore, and the bottom padding.
+            int cardHeight = 4 * StepHeight + 22 + 58 + 24 + 40 + 26;
+            int cardWidth = (int)Math.Round(cardHeight * CardAspect);
+
+            brandWidth = (int)Math.Round(cardWidth * BrandCardFraction);
             brandHeight = brand == null ? 150
                 : (int)Math.Round(brand.Height * (brandWidth / (double)brand.Width));
             headerHeight = 14 + brandHeight + 46;
@@ -2237,10 +2244,6 @@ namespace KotorUniversalUI
             pathBox = new TextBox();
             pathBox.TextChanged += delegate { RefreshStatus(); };
 
-            // Height is the sum of the fixed pieces: four steps, the gap above the primary
-            // button, the button, the gap above Restore, Restore, and the bottom padding.
-            int cardHeight = 4 * StepHeight + 22 + 58 + 24 + 40 + 26;
-            int cardWidth = (int)Math.Round(cardHeight * CardAspect);
             CardPanel card = new CardPanel();
             card.SetBounds((ClientSize.Width - cardWidth) / 2, headerHeight, cardWidth, cardHeight);
             card.Anchor = AnchorStyles.Top;
