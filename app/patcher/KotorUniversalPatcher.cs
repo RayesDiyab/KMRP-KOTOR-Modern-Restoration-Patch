@@ -1623,7 +1623,7 @@ namespace KotorUniversalUI
 
     internal static class UiTheme
     {
-        internal static readonly Color Window = Color.FromArgb(11, 16, 24);
+        internal static readonly Color Window = Color.FromArgb(4, 8, 16);
         internal static readonly Color Panel = Color.FromArgb(20, 29, 40);
         internal static readonly Color PanelDeep = Color.FromArgb(7, 14, 23);
         internal static readonly Color PanelHover = Color.FromArgb(28, 49, 63);
@@ -1640,17 +1640,20 @@ namespace KotorUniversalUI
         internal static readonly Color Disabled = Color.FromArgb(47, 56, 67);
         internal static readonly Color DisabledText = Color.FromArgb(139, 151, 164);
 
-        // The dark-glass palette the new shell is drawn with.
-        internal static readonly Color GlowTop = Color.FromArgb(16, 26, 40);
-        internal static readonly Color Card = Color.FromArgb(17, 24, 33);
-        internal static readonly Color CardHover = Color.FromArgb(24, 34, 46);
-        internal static readonly Color CardEdge = Color.FromArgb(35, 48, 63);
-        internal static readonly Color Hairline = Color.FromArgb(28, 39, 52);
-        internal static readonly Color Badge = Color.FromArgb(25, 35, 47);
-        internal static readonly Color BadgeEdge = Color.FromArgb(38, 54, 71);
-        internal static readonly Color Field = Color.FromArgb(13, 20, 28);
+        // Sampled off the reference: the surround is near-black navy, the card a step
+        // lighter and bluer, and the glyph stroke a bright cornflower.
+        internal static readonly Color Card = Color.FromArgb(13, 21, 34);
+        internal static readonly Color CardHover = Color.FromArgb(19, 30, 47);
+        internal static readonly Color CardEdge = Color.FromArgb(31, 46, 69);
+        internal static readonly Color Hairline = Color.FromArgb(23, 34, 52);
+        internal static readonly Color Badge = Color.FromArgb(18, 28, 44);
+        internal static readonly Color BadgeEdge = Color.FromArgb(30, 45, 68);
+        internal static readonly Color Field = Color.FromArgb(9, 15, 26);
         internal static readonly Color AccentLit = Color.FromArgb(96, 178, 255);
         internal static readonly Color TextFaint = Color.FromArgb(122, 138, 154);
+        // The step glyphs get their own colour rather than reusing Accent, so retuning the
+        // primary button never drags the icons with it.
+        internal static readonly Color GlyphInk = Color.FromArgb(92, 165, 250);
 
         internal enum Glyph { Folder, Shield, Monitor, Tools }
 
@@ -1666,48 +1669,129 @@ namespace KotorUniversalUI
             return path;
         }
 
-        /// <summary>Step icons, drawn rather than shipped, so the patcher stays a single file.</summary>
+        /// <summary>Maps a point given in an icon's unit box onto its placed rectangle.</summary>
+        private static PointF P(RectangleF b, float u, float v)
+        {
+            return new PointF(b.X + u * b.Width, b.Y + v * b.Height);
+        }
+
+        /// <summary>The icon's box inside a badge. Measured off the reference set: the ink
+        /// spans 0.563 of the disc's diameter, and each glyph has its own aspect.</summary>
+        private static RectangleF IconBox(Rectangle circle, float aspect)
+        {
+            float w = circle.Width * 0.563F;
+            float h = w / aspect;
+            return new RectangleF(circle.X + (circle.Width - w) / 2F,
+                                  circle.Y + (circle.Height - h) / 2F, w, h);
+        }
+
+        /// <summary>Step icons, drawn rather than shipped, so the patcher stays a single
+        /// file. Every coordinate below was measured off the reference artwork by scanning
+        /// ink runs row by row and normalising to each glyph's own bounding box -- including
+        /// the details that are easy to get wrong from memory, such as the monitor's stand
+        /// being two neck strokes rather than one, and the shield being a peaked crest
+        /// rather than a rounded dome.</summary>
         internal static void DrawGlyph(Graphics g, Glyph glyph, Rectangle circle, Color color)
         {
-            float s = circle.Width / 46F;
-            float cx = circle.X + circle.Width / 2F;
-            float cy = circle.Y + circle.Height / 2F;
-            using (Pen pen = new Pen(color, 1.7F * s))
+            float stroke = Math.Max(1.4F, circle.Width * 0.052F);
+            using (Pen pen = new Pen(color, stroke))
             {
                 pen.StartCap = LineCap.Round;
                 pen.EndCap = LineCap.Round;
                 pen.LineJoin = LineJoin.Round;
+
                 if (glyph == Glyph.Folder)
                 {
-                    g.DrawLines(pen, new PointF[] {
-                        new PointF(cx - 9 * s, cy + 6 * s), new PointF(cx - 9 * s, cy - 6 * s),
-                        new PointF(cx - 3 * s, cy - 6 * s), new PointF(cx - 1 * s, cy - 3.5F * s),
-                        new PointF(cx + 9 * s, cy - 3.5F * s), new PointF(cx + 9 * s, cy + 6 * s) });
-                    g.DrawLine(pen, cx - 9 * s, cy + 6 * s, cx + 9 * s, cy + 6 * s);
+                    // 190x164 in the reference. A tab at the top left, a diagonal shoulder
+                    // to the body's top edge at 0.20, a seam across the full width at 0.30,
+                    // and an inner line at 0.80 spanning 0.24..0.86.
+                    RectangleF b = IconBox(circle, 190F / 164F);
+                    using (GraphicsPath back = new GraphicsPath())
+                    {
+                        back.AddLine(P(b, 0.02F, 0.34F), P(b, 0.02F, 0.10F));
+                        back.AddLine(P(b, 0.02F, 0.10F), P(b, 0.07F, 0.02F));
+                        back.AddLine(P(b, 0.07F, 0.02F), P(b, 0.35F, 0.02F));
+                        back.AddLine(P(b, 0.35F, 0.02F), P(b, 0.46F, 0.19F));
+                        back.AddLine(P(b, 0.46F, 0.19F), P(b, 0.94F, 0.19F));
+                        back.AddLine(P(b, 0.94F, 0.19F), P(b, 0.98F, 0.26F));
+                        g.DrawPath(pen, back);
+                    }
+                    using (GraphicsPath front = new GraphicsPath())
+                    {
+                        front.AddLine(P(b, 0.02F, 0.30F), P(b, 0.98F, 0.30F));
+                        front.AddLine(P(b, 0.98F, 0.30F), P(b, 0.98F, 0.92F));
+                        front.AddArc(b.X + 0.86F * b.Width, b.Y + 0.86F * b.Height,
+                                     0.12F * b.Width, 0.13F * b.Height, 0, 90);
+                        front.AddLine(P(b, 0.92F, 0.99F), P(b, 0.08F, 0.99F));
+                        front.AddArc(b.X + 0.02F * b.Width, b.Y + 0.86F * b.Height,
+                                     0.12F * b.Width, 0.13F * b.Height, 90, 90);
+                        front.AddLine(P(b, 0.02F, 0.92F), P(b, 0.02F, 0.30F));
+                        g.DrawPath(pen, front);
+                    }
+                    g.DrawLine(pen, P(b, 0.24F, 0.80F), P(b, 0.86F, 0.80F));
                 }
                 else if (glyph == Glyph.Shield)
                 {
-                    g.DrawLines(pen, new PointF[] {
-                        new PointF(cx, cy - 8 * s), new PointF(cx + 7 * s, cy - 5 * s),
-                        new PointF(cx + 7 * s, cy + 1 * s), new PointF(cx, cy + 8 * s),
-                        new PointF(cx - 7 * s, cy + 1 * s), new PointF(cx - 7 * s, cy - 5 * s) });
-                    g.DrawLines(pen, new PointF[] {
-                        new PointF(cx - 3.2F * s, cy), new PointF(cx - 0.8F * s, cy + 2.6F * s),
-                        new PointF(cx + 3.6F * s, cy - 2.6F * s) });
+                    // 182x212 -- taller than wide, and peaked: a point at the top centre,
+                    // shoulders sweeping out to the full width by 0.25, then curving in to a
+                    // point at the bottom.
+                    RectangleF b = IconBox(circle, 182F / 212F);
+                    using (GraphicsPath shield = new GraphicsPath())
+                    {
+                        shield.AddLine(P(b, 0.50F, 0.01F), P(b, 0.04F, 0.22F));
+                        shield.AddBezier(P(b, 0.04F, 0.22F), P(b, 0.04F, 0.52F),
+                                         P(b, 0.18F, 0.84F), P(b, 0.50F, 0.99F));
+                        shield.AddBezier(P(b, 0.50F, 0.99F), P(b, 0.82F, 0.84F),
+                                         P(b, 0.96F, 0.52F), P(b, 0.96F, 0.22F));
+                        shield.AddLine(P(b, 0.96F, 0.22F), P(b, 0.50F, 0.01F));
+                        g.DrawPath(pen, shield);
+                    }
                 }
                 else if (glyph == Glyph.Monitor)
                 {
-                    g.DrawRectangle(pen, cx - 9 * s, cy - 7 * s, 18 * s, 12 * s);
-                    g.DrawLine(pen, cx - 4 * s, cy + 8 * s, cx + 4 * s, cy + 8 * s);
-                    g.DrawLine(pen, cx, cy + 5 * s, cx, cy + 8 * s);
+                    // 199x177. Screen to 0.78, then TWO neck strokes at 0.445 and 0.56
+                    // running to 0.93, then a base bar spanning 0.23..0.76.
+                    RectangleF b = IconBox(circle, 199F / 177F);
+                    using (GraphicsPath screen = RoundedRect(
+                               new Rectangle((int)(b.X + 0.02F * b.Width), (int)(b.Y + 0.02F * b.Height),
+                                             (int)(0.96F * b.Width), (int)(0.76F * b.Height)),
+                               (int)Math.Max(2F, 0.06F * b.Width)))
+                        g.DrawPath(pen, screen);
+                    // The reference puts the two neck struts at 0.445 and 0.560. At our icon
+                    // size that is barely 4px apart and two round-capped strokes merge into
+                    // one blob, losing the very detail that distinguishes this stand. Opened
+                    // to 0.40/0.60 so both struts still read -- a deliberate departure from
+                    // the measurement, because the measurement does not survive the scale.
+                    g.DrawLine(pen, P(b, 0.40F, 0.78F), P(b, 0.40F, 0.93F));
+                    g.DrawLine(pen, P(b, 0.60F, 0.78F), P(b, 0.60F, 0.93F));
+                    g.DrawLine(pen, P(b, 0.23F, 0.97F), P(b, 0.76F, 0.97F));
                 }
                 else
                 {
-                    g.DrawLine(pen, cx - 7 * s, cy + 7 * s, cx + 2 * s, cy - 2 * s);
-                    g.DrawLines(pen, new PointF[] {
-                        new PointF(cx + 1 * s, cy - 3 * s), new PointF(cx + 4 * s, cy - 7 * s),
-                        new PointF(cx + 8 * s, cy - 6 * s), new PointF(cx + 8 * s, cy - 2 * s),
-                        new PointF(cx + 4 * s, cy - 1 * s), new PointF(cx + 1 * s, cy - 3 * s) });
+                    // 189x197. A screwdriver from the top left down to the bottom right,
+                    // crossing a spanner whose open jaw is at the top right.
+                    RectangleF b = IconBox(circle, 189F / 197F);
+                    // Screwdriver: handle at the top left as a closed blade shape, shaft down
+                    // to a tip at the bottom right.
+                    using (GraphicsPath handle = new GraphicsPath())
+                    {
+                        handle.AddLine(P(b, 0.00F, 0.12F), P(b, 0.12F, 0.00F));
+                        handle.AddLine(P(b, 0.12F, 0.00F), P(b, 0.38F, 0.22F));
+                        handle.AddLine(P(b, 0.38F, 0.22F), P(b, 0.26F, 0.34F));
+                        handle.CloseFigure();
+                        g.DrawPath(pen, handle);
+                    }
+                    g.DrawLine(pen, P(b, 0.27F, 0.25F), P(b, 0.94F, 0.94F));
+                    // Spanner: shaft from the bottom left up to an open jaw at the top right.
+                    g.DrawLine(pen, P(b, 0.06F, 0.94F), P(b, 0.62F, 0.38F));
+                    using (GraphicsPath jaw = new GraphicsPath())
+                    {
+                        // A narrower gap than a plain C: 80 degrees, opening up and to the
+                        // right, away from the shaft, so it reads as a jaw and not a letter.
+                        jaw.AddArc(b.X + 0.54F * b.Width, b.Y + 0.04F * b.Height,
+                                   0.42F * b.Width, 0.42F * b.Height, 25, 280);
+                        g.DrawPath(pen, jaw);
+                    }
                 }
             }
         }
@@ -1992,20 +2076,20 @@ namespace KotorUniversalUI
                 using (Pen line = new Pen(UiTheme.Hairline))
                     g.DrawLine(line, 26, Height - 1, Width - 26, Height - 1);
 
-            int badge = 46;
+            int badge = 64;
             Rectangle circle = new Rectangle(28, (Height - badge) / 2, badge, badge);
             using (SolidBrush disc = new SolidBrush(UiTheme.Badge))
                 g.FillEllipse(disc, circle);
             using (Pen ring = new Pen(UiTheme.BadgeEdge))
                 g.DrawEllipse(ring, circle);
-            UiTheme.DrawGlyph(g, Icon, circle, UiTheme.Accent);
+            UiTheme.DrawGlyph(g, Icon, circle, UiTheme.GlyphInk);
 
             using (SolidBrush text = new SolidBrush(UiTheme.Text))
-            using (Font f = UiTheme.DisplayFont(13.5F, FontStyle.Bold))
-                g.DrawString(Title, f, text, 92, Height / 2 - 24);
+            using (Font f = UiTheme.DisplayFont(16F, FontStyle.Bold))
+                g.DrawString(Title, f, text, 100, Height / 2 - 28);
             using (SolidBrush text = new SolidBrush(UiTheme.TextMuted))
-            using (Font f = new Font("Segoe UI", 9.5F))
-                g.DrawString(Subtitle, f, text, 92, Height / 2 + 2);
+            using (Font f = new Font("Segoe UI", 11.5F))
+                g.DrawString(Subtitle, f, text, 100, Height / 2 + 3);
         }
     }
 
@@ -2133,7 +2217,7 @@ namespace KotorUniversalUI
             DrawMode = DrawMode.OwnerDrawFixed;
             BackColor = UiTheme.Field;
             ForeColor = UiTheme.Text;
-            ItemHeight = 26;
+            ItemHeight = 30;
             IntegralHeight = false;
             DropDownHeight = 320;
         }
@@ -2182,7 +2266,7 @@ namespace KotorUniversalUI
         // heights below -- four steps, the gap above the action button, the button, and
         // the bottom padding -- so the width follows from the ratio.
         private const double CardAspect = 2.25;   // 1.5 was the first pass; this is 50% wider
-        private const int StepHeight = 96;
+        private const int StepHeight = 108;
         // Where the wordmark's ink actually ends inside the brand image, as a fraction of
         // its width. The PNG carries transparent margin and glow beyond the last letter, so
         // the drawn width is not the visible width -- measured on the artwork: the R's right
@@ -2271,7 +2355,7 @@ namespace KotorUniversalUI
                 "Choose your Knights of the Old Republic folder.");
             browseButton = new PillButton();
             browseButton.Text = "Browse";
-            browseButton.SetBounds(card.Width - 154, 26, 118, 42);
+            browseButton.SetBounds(card.Width - 168, 24, 132, 48);
             browseButton.Anchor = AnchorStyles.Top | AnchorStyles.Right;
             browseButton.Click += delegate { BrowseForExecutable(this); };
             stepFolder.Controls.Add(browseButton);
@@ -2283,8 +2367,8 @@ namespace KotorUniversalUI
             stepResolution = NewStep(card, 2, UiTheme.Glyph.Monitor, "3. Choose Resolution",
                 "Select the resolution you want to patch for.");
             resolutionBox = new DarkCombo();
-            resolutionBox.Font = new Font("Segoe UI", 10.5F);
-            resolutionBox.SetBounds(card.Width - 434, 30, 398, 34);
+            resolutionBox.Font = new Font("Segoe UI", 12F);
+            resolutionBox.SetBounds(card.Width - 448, 28, 412, 40);
             resolutionBox.Anchor = AnchorStyles.Top | AnchorStyles.Right;
             resolutionBox.DrawItem += ResolutionDrawItem;
             int preferredResolution = 0;
@@ -2418,11 +2502,11 @@ namespace KotorUniversalUI
         private static Label NewStateLabel(StepRow row, int cardWidth)
         {
             Label label = new Label();
-            label.Font = UiTheme.DisplayFont(11F, FontStyle.Bold);
+            label.Font = UiTheme.DisplayFont(13F, FontStyle.Bold);
             label.ForeColor = UiTheme.TextMuted;
             label.BackColor = Color.Transparent;
             label.TextAlign = ContentAlignment.MiddleRight;
-            label.SetBounds(cardWidth - 330, 34, 294, 28);
+            label.SetBounds(cardWidth - 340, 32, 300, 32);
             label.Anchor = AnchorStyles.Top | AnchorStyles.Right;
             row.Controls.Add(label);
             return label;
@@ -2451,10 +2535,9 @@ namespace KotorUniversalUI
             g.SmoothingMode = SmoothingMode.AntiAlias;
             g.TextRenderingHint = TextRenderingHint.ClearTypeGridFit;
 
-            using (LinearGradientBrush sky = new LinearGradientBrush(
-                       new Rectangle(0, 0, Math.Max(1, ClientSize.Width), headerHeight),
-                       UiTheme.GlowTop, UiTheme.Window, 90F))
-                g.FillRectangle(sky, 0, 0, ClientSize.Width, headerHeight);
+            // No gradient behind the header: the only fade in this area should be the
+            // crest's own, baked into the artwork. A background ramp read as a second,
+            // competing fade.
 
             // The crest and the metallic wordmark are one baked lockup, so the crest's
             // fade lines up with the letters exactly as it was composed.
