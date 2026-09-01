@@ -1710,8 +1710,7 @@ namespace KotorUniversalUI
         // icon fall back to DrawGlyph, so a partial set still builds and still looks whole.
         private static readonly Dictionary<Glyph, Image> IconArt = new Dictionary<Glyph, Image>();
         private static bool iconsLoaded;
-        private static Image verifiedArt;
-        private static bool verifiedArtLoaded;
+        private static readonly Dictionary<string, Image> StatusArt = new Dictionary<string, Image>();
 
         private static Image IconFor(Glyph glyph)
         {
@@ -1764,22 +1763,25 @@ namespace KotorUniversalUI
 
         /// <summary>Draw the supplied verified-status badge, tinted with the semantic
         /// success colour. The caller keeps the icon and label optically grouped.</summary>
-        internal static bool DrawVerifiedArt(Graphics g, Rectangle box, Color color)
+        /// <summary>Draws a supplied status label -- "verified" or "missing" -- tinted to
+        /// `color`, or returns false if that artwork was not shipped, in which case the
+        /// state falls back to text alone.</summary>
+        internal static bool DrawStatusArt(Graphics g, string name, Rectangle box, Color color)
         {
-            if (!verifiedArtLoaded)
+            Image art;
+            if (!StatusArt.TryGetValue(name, out art))
             {
-                verifiedArtLoaded = true;
                 try
                 {
                     using (Stream stream = Assembly.GetExecutingAssembly()
-                               .GetManifestResourceStream("KotorUniversalUI.icon.verified"))
+                               .GetManifestResourceStream("KotorUniversalUI.icon." + name))
                     using (Image source = stream == null ? null : Image.FromStream(stream))
-                        if (source != null)
-                            verifiedArt = new Bitmap(source);
+                        art = source == null ? null : new Bitmap(source);
                 }
-                catch { }
+                catch { art = null; }
+                StatusArt[name] = art;
             }
-            if (verifiedArt == null)
+            if (art == null)
                 return false;
 
             using (ImageAttributes tint = new ImageAttributes())
@@ -1792,8 +1794,7 @@ namespace KotorUniversalUI
                     new float[] { 0, 0, 0, 0, 1 } });
                 tint.SetColorMatrix(matrix);
                 g.InterpolationMode = InterpolationMode.HighQualityBicubic;
-                g.DrawImage(verifiedArt, box, 0, 0, verifiedArt.Width, verifiedArt.Height,
-                    GraphicsUnit.Pixel, tint);
+                g.DrawImage(art, box, 0, 0, art.Width, art.Height, GraphicsUnit.Pixel, tint);
             }
             return true;
         }
@@ -2047,6 +2048,22 @@ namespace KotorUniversalUI
     /// the right for whatever that step needs (a button, a dropdown, a status word).</summary>
     internal sealed class StepRow : Panel
     {
+        private bool dimmed;
+
+        /// <summary>A step that is part of the flow but cannot be acted on yet. Drawn in
+        /// muted ink so it reads as waiting rather than as available.</summary>
+        internal bool Dimmed
+        {
+            get { return dimmed; }
+            set
+            {
+                if (dimmed == value)
+                    return;
+                dimmed = value;
+                Invalidate();
+            }
+        }
+
         internal const int HeaderHeight = 96;
         internal const int ContentLeft = 120;
         internal string Title = String.Empty;
@@ -2103,14 +2120,15 @@ namespace KotorUniversalUI
                 g.FillEllipse(disc, circle);
             using (Pen ring = new Pen(UiTheme.BadgeEdge))
                 g.DrawEllipse(ring, circle);
-            if (!UiTheme.DrawIconArt(g, Icon, circle, UiTheme.GlyphInk))
-                UiTheme.DrawGlyph(g, Icon, circle, UiTheme.GlyphInk);
+            Color ink = dimmed ? UiTheme.TextFaint : UiTheme.GlyphInk;
+            if (!UiTheme.DrawIconArt(g, Icon, circle, ink))
+                UiTheme.DrawGlyph(g, Icon, circle, ink);
 
-            using (SolidBrush text = new SolidBrush(UiTheme.Text))
+            using (SolidBrush text = new SolidBrush(dimmed ? UiTheme.TextFaint : UiTheme.Text))
             using (Font f = UiTheme.DisplayFont(22F * scale, FontStyle.Bold))
                 g.DrawString(Title, f, text, contentLeft,
                     headerHeight / 2 - (int)Math.Round(30 * scale));
-            using (SolidBrush text = new SolidBrush(UiTheme.TextMuted))
+            using (SolidBrush text = new SolidBrush(dimmed ? UiTheme.TextFaint : UiTheme.TextMuted))
             using (Font f = new Font("Segoe UI", Math.Max(6F, 16.5F * scale)))
                 g.DrawString(Subtitle, f, text, contentLeft,
                     headerHeight / 2 + (int)Math.Round(4 * scale));
@@ -2121,17 +2139,19 @@ namespace KotorUniversalUI
     /// badge with their text as one compact unit instead of relying on a text glyph.</summary>
     internal sealed class StateLabel : Control
     {
-        internal float UiScale = 1F;
-        private bool showVerifiedIcon;
+        internal enum StatusBadge { None, Verified, Missing }
 
-        internal bool ShowVerifiedIcon
+        internal float UiScale = 1F;
+        private StatusBadge badge;
+
+        internal StatusBadge Badge
         {
-            get { return showVerifiedIcon; }
+            get { return badge; }
             set
             {
-                if (showVerifiedIcon == value)
+                if (badge == value)
                     return;
-                showVerifiedIcon = value;
+                badge = value;
                 Invalidate();
             }
         }
@@ -2165,7 +2185,7 @@ namespace KotorUniversalUI
                 new Size(Int32.MaxValue, Math.Max(1, Height)), flags);
             int textWidth = Math.Min(Width, textSize.Width);
 
-            if (showVerifiedIcon)
+            if (badge != StatusBadge.None)
             {
                 int iconSize = Math.Max(12, (int)Math.Round(32 * UiScale));
                 int gap = Math.Max(4, (int)Math.Round(8 * UiScale));
@@ -2173,7 +2193,8 @@ namespace KotorUniversalUI
                 int left = Math.Max(0, Width - groupWidth);
                 Rectangle iconBox = new Rectangle(left, Math.Max(0, (Height - iconSize) / 2),
                     iconSize, iconSize);
-                if (UiTheme.DrawVerifiedArt(e.Graphics, iconBox, ForeColor))
+                string art = badge == StatusBadge.Verified ? "verified" : "missing";
+                if (UiTheme.DrawStatusArt(e.Graphics, art, iconBox, ForeColor))
                 {
                     Rectangle textBox = new Rectangle(iconBox.Right + gap, 0,
                         Math.Max(1, Width - iconBox.Right - gap), Height);
@@ -3042,9 +3063,6 @@ namespace KotorUniversalUI
         private readonly StateLabel resolutionState;
         private readonly StateLabel applyState;
         private readonly CardPanel verificationRecovery;
-        private readonly Label lockedStepsNote;
-        private readonly Label verificationBody;
-        private readonly Label verificationPath;
         private readonly PillButton downloadExecutableButton;
         private readonly PillButton chooseExecutableButton;
         private readonly PillButton checkExecutableButton;
@@ -3216,62 +3234,29 @@ namespace KotorUniversalUI
             verificationRecovery.Fill = UiTheme.Card;
             verificationRecovery.Edge = UiTheme.Card;
             verificationRecovery.Radius = 10;
-            verificationRecovery.SetBounds(StepRow.ContentLeft, 84, card.Width - StepRow.ContentLeft - 36, 124);
+            verificationRecovery.SetBounds(StepRow.ContentLeft, 84, card.Width - StepRow.ContentLeft - 36, 48);
             verificationRecovery.Anchor = AnchorStyles.Top | AnchorStyles.Left | AnchorStyles.Right;
             verificationRecovery.Visible = false;
             stepVerify.Controls.Add(verificationRecovery);
 
-            verificationBody = new Label();
-            verificationBody.Font = new Font("Segoe UI", 15F);
-            verificationBody.ForeColor = UiTheme.TextMuted;
-            verificationBody.BackColor = Color.Transparent;
-            verificationBody.AutoEllipsis = true;
-            verificationBody.SetBounds(0, 2, verificationRecovery.Width, 26);
-            verificationBody.Anchor = AnchorStyles.Top | AnchorStyles.Left | AnchorStyles.Right;
-            verificationRecovery.Controls.Add(verificationBody);
-
-            verificationPath = new Label();
-            verificationPath.Font = new Font("Segoe UI", 14.5F);
-            verificationPath.ForeColor = UiTheme.TextFaint;
-            verificationPath.BackColor = Color.Transparent;
-            verificationPath.AutoEllipsis = true;
-            verificationPath.SetBounds(0, 30, verificationRecovery.Width, 24);
-            verificationPath.Anchor = AnchorStyles.Top | AnchorStyles.Left | AnchorStyles.Right;
-            verificationRecovery.Controls.Add(verificationPath);
-
             downloadExecutableButton = new PillButton();
             downloadExecutableButton.Primary = true;
             downloadExecutableButton.Text = "Get Editable EXE";
-            downloadExecutableButton.SetBounds(0, 64, 230, 48);
+            downloadExecutableButton.SetBounds(0, 0, 230, 48);
             downloadExecutableButton.Click += delegate { OpenEditableExecutablePage(); };
             verificationRecovery.Controls.Add(downloadExecutableButton);
 
             chooseExecutableButton = new PillButton();
             chooseExecutableButton.Text = "Choose Editable EXE";
-            chooseExecutableButton.SetBounds(242, 64, 218, 48);
+            chooseExecutableButton.SetBounds(242, 0, 218, 48);
             chooseExecutableButton.Click += delegate { BrowseForExecutable(this); };
             verificationRecovery.Controls.Add(chooseExecutableButton);
 
             checkExecutableButton = new PillButton();
             checkExecutableButton.Text = "Check Again";
-            checkExecutableButton.SetBounds(472, 64, 164, 48);
+            checkExecutableButton.SetBounds(472, 0, 164, 48);
             checkExecutableButton.Click += delegate { RefreshStatus(); };
             verificationRecovery.Controls.Add(checkExecutableButton);
-
-            // Steps 3 and 4 are hidden until the executable verifies -- there is no room
-            // for them beside the expanded recovery area, and neither can be acted on yet.
-            // Hiding them silently made the card look like a two-step tool that had nothing
-            // to do with the four-step one, so the remaining steps are named instead.
-            lockedStepsNote = new Label();
-            lockedStepsNote.Text = "Steps 3 and 4 unlock once the editable executable is verified.";
-            lockedStepsNote.Font = new Font("Segoe UI", 15F);
-            lockedStepsNote.ForeColor = UiTheme.TextFaint;
-            lockedStepsNote.BackColor = Color.Transparent;
-            lockedStepsNote.SetBounds(StepRow.ContentLeft, 340,
-                card.Width - StepRow.ContentLeft - 36, 28);
-            lockedStepsNote.Anchor = AnchorStyles.Top | AnchorStyles.Left | AnchorStyles.Right;
-            lockedStepsNote.Visible = false;
-            card.Controls.Add(lockedStepsNote);
 
             stepResolution = NewStep(card, 2, UiTheme.Glyph.Monitor, "3. Choose Resolution",
                 "Select the resolution you want to patch for.");
@@ -3885,6 +3870,27 @@ namespace KotorUniversalUI
             return ScaleDesign(headerHeight);
         }
 
+        /// <summary>Moves a step in design space and applies it at the current scale.
+        /// The design rectangle is the source of truth -- ApplyControlScale restores every
+        /// control from it on each rescale -- so moving a control means moving that, not
+        /// just its live bounds.</summary>
+        private void PlaceStep(Control step, int designTop)
+        {
+            Rectangle logical;
+            if (!designBounds.TryGetValue(step, out logical))
+                return;
+            if (logical.Y != designTop)
+            {
+                logical.Y = designTop;
+                designBounds[step] = logical;
+            }
+            step.SetBounds(
+                (int)Math.Round(logical.X * uiScale),
+                (int)Math.Round(logical.Y * uiScale),
+                Math.Max(1, (int)Math.Round(logical.Width * uiScale)),
+                Math.Max(1, (int)Math.Round(logical.Height * uiScale)));
+        }
+
         private int ScaleDesign(int value)
         {
             return Math.Max(1, (int)Math.Round(value * uiScale));
@@ -4175,7 +4181,7 @@ namespace KotorUniversalUI
 
         private void SetState(StateLabel label, string text, Color color)
         {
-            label.ShowVerifiedIcon = false;
+            label.Badge = StateLabel.StatusBadge.None;
             label.Text = text;
             label.ForeColor = color;
         }
@@ -4184,12 +4190,20 @@ namespace KotorUniversalUI
         {
             bool needsRecovery = !executableReady;
             verificationRecovery.Visible = needsRecovery;
-            stepResolution.Visible = executableReady;
+            // Step 3 stays in the flow while the executable is unresolved, dimmed and
+            // without its dropdown, so the card does not collapse into a different,
+            // shorter product. Step 4 has no room, and the action button below already
+            // stands for it.
+            stepResolution.Visible = true;
+            stepResolution.Dimmed = needsRecovery;
+            resolutionBox.Visible = executableReady;
             stepApply.Visible = executableReady;
-            lockedStepsNote.Visible = needsRecovery;
-            stepVerify.Height = ScaleDesign(needsRecovery
-                ? StepRow.HeaderHeight + 124
-                : StepRow.HeaderHeight);
+
+            int verifyHeight = needsRecovery
+                ? StepRow.HeaderHeight + 60
+                : StepRow.HeaderHeight;
+            stepVerify.Height = ScaleDesign(verifyHeight);
+            PlaceStep(stepResolution, StepRow.HeaderHeight + verifyHeight);
 
             if (!needsRecovery)
             {
@@ -4200,22 +4214,16 @@ namespace KotorUniversalUI
                 return;
             }
 
-            stepVerify.SetSubtitle("The editable swkotor.exe is required before KMRP can patch the game.");
-            // A missing default candidate often points beside the portable patcher itself.
-            // Do not expose that internal fallback as though the user selected it.
-            verificationPath.Text = !String.IsNullOrWhiteSpace(target) && File.Exists(target)
-                ? target
-                : "Editable swkotor.exe not selected.";
 
-            // No heading and no colour here: which state this is comes from the chip on
-            // the right of the step, the way it does for every other step. These lines
-            // each stand on their own, so a heading only restated the step title.
+            // One line, on the step's own subtitle. This used to be three stacked
+            // restatements -- the subtitle, a heading, and a path line -- which made the
+            // step tall enough to push the rest of the flow off the card.
             if (state == ExecutableState.Missing)
-                verificationBody.Text = "Download the editable version, place it in your KOTOR folder, then choose it here.";
+                stepVerify.SetSubtitle("Download the editable swkotor.exe, then choose it here.");
             else if (state == ExecutableState.Unsupported)
-                verificationBody.Text = "This copy cannot be patched. Replace it with the editable swkotor.exe, then check again.";
+                stepVerify.SetSubtitle("This copy cannot be patched. Replace it, then check again.");
             else
-                verificationBody.Text = "KMRP could not read this file. Choose another swkotor.exe and try again.";
+                stepVerify.SetSubtitle("This file could not be read. Choose another swkotor.exe.");
 
             stepVerify.Invalidate();
         }
@@ -4248,14 +4256,20 @@ namespace KotorUniversalUI
             if (state == ExecutableState.SupportedClean || state == ExecutableState.Gold)
             {
                 SetState(verifyState, "Verified", UiTheme.Success);
-                verifyState.ShowVerifiedIcon = true;
+                verifyState.Badge = StateLabel.StatusBadge.Verified;
             }
-            else if (state == ExecutableState.Missing)
-                SetState(verifyState, "Editable EXE needed", UiTheme.Warning);
-            else if (state == ExecutableState.Unsupported)
-                SetState(verifyState, "Not the editable exe", UiTheme.Warning);
             else
-                SetState(verifyState, "Unable to verify", UiTheme.Error);
+            {
+                // Every unresolved state carries the missing badge: the chip beside it
+                // says which one it is, and the badge says the step is not satisfied.
+                if (state == ExecutableState.Missing)
+                    SetState(verifyState, "Editable EXE needed", UiTheme.Warning);
+                else if (state == ExecutableState.Unsupported)
+                    SetState(verifyState, "Not the editable exe", UiTheme.Warning);
+                else
+                    SetState(verifyState, "Unable to verify", UiTheme.Error);
+                verifyState.Badge = StateLabel.StatusBadge.Missing;
+            }
 
             UpdateVerificationRecovery(state, target, executableReady);
 
@@ -4266,7 +4280,10 @@ namespace KotorUniversalUI
             stepResolution.SetSubtitle(patchComplete
                 ? "Installed resolution."
                 : "Select the resolution you want to patch for.");
-            resolutionBox.Visible = !patchComplete;
+            // Also gated on the executable: step 3 is shown dimmed while verification is
+            // outstanding, and a live dropdown inside a dimmed row invites a click that
+            // does nothing.
+            resolutionBox.Visible = !patchComplete && executableReady;
             resolutionState.Visible = patchComplete;
 
             if (patchComplete)

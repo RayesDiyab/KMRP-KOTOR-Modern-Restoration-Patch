@@ -75,12 +75,23 @@ things were making it look borrowed from somewhere else:
   failure state it is comes from the chip on the right of the step, the way it does
   for every other step, and each body line stands on its own.
 
-Steps 3 and 4 stay hidden here: there is no vertical room for them beside the expanded
-recovery area, and neither can be acted on until the executable verifies. Hiding them
-silently made the card look like a two-step tool unrelated to the four-step one, so a
-muted line names them instead. Restoring them properly would mean a compact StepRow
-mode and a taller card, and the card height is what drives the window width through
-`CardAspect`.
+The guidance is **one line**, on the step's own subtitle. It used to be three stacked
+restatements -- the subtitle, a heading, and a path line -- which made step 2 tall
+enough to push the rest of the flow off the card.
+
+That reclaimed height pays for **step 3 staying in the flow**, dimmed, so the card
+never collapses into a shorter, different-looking product. `StepRow.Dimmed` draws the
+icon, title and subtitle in `TextFaint`; measured, the title drops from peak ink
+luminance 242 to 136. The resolution dropdown is hidden while dimmed, because a live
+control inside a dimmed row invites a click that does nothing. Step 4 has no room, and
+the action button below already stands for it.
+
+Two things to know if this is edited again. `resolutionBox.Visible` is set in two
+places -- the recovery update and the general status refresh -- and the second runs
+last, so both must agree or the dropdown reappears inside the dimmed row. And moving a
+step means moving its entry in `designBounds`, not just its live bounds, because
+`ApplyControlScale` restores every control from that dictionary on each rescale; that
+is what `PlaceStep` is for.
 
 ### User-facing language boundary
 
@@ -109,7 +120,7 @@ roles, and Segoe UI for body text. The current design-space sizes are:
 - recovery title/body/path: 19 / 15 / 14.5 pt;
 - footer links and credit: 15.5 pt.
 
-The four step sources and the Verified source live in `App icons/`. Run:
+The four step sources, the Verified source and the Missing source live in `App icons/`. Run:
 
 ```powershell
 python .\tools\prepare_app_icons.py

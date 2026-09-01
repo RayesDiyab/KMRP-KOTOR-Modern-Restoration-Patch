@@ -17,6 +17,7 @@ whatever is convenient:
     monitor / display / screen / resolution -> step 3
     tool / wrench / patch / apply           -> step 4
     verified / success                      -> verified status label
+    missing / misssing / absent             -> missing status label
 
 Anything unmatched is reported and skipped; any step without an icon falls back
 to the vector glyph drawn in UiTheme.DrawGlyph, so a partial set still builds.
@@ -40,6 +41,9 @@ LANCZOS = Image.Resampling.LANCZOS if hasattr(Image, "Resampling") else Image.LA
 
 KEYWORDS = (
     ("verified", ("verified-label", "verified", "success")),
+    # "misssing" is the spelling of the supplied file. Matching only "missing" would
+    # skip it silently, which is exactly the failure this classifier makes easy.
+    ("missing", ("misssing", "missing", "absent", "required")),
     ("folder", ("folder", "directory", "game")),
     ("shield", ("shield", "verify", "check")),
     ("monitor", ("monitor", "display", "screen", "resolution")),

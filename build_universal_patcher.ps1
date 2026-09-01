@@ -71,7 +71,7 @@ $compilerArgs = @(
 
 # Hand-supplied UI icons are optional: step icons fall back to vector glyphs,
 # while the verified label simply falls back to text if its artwork is absent.
-foreach ($iconName in @("folder", "shield", "monitor", "tools", "verified")) {
+foreach ($iconName in @("folder", "shield", "monitor", "tools", "verified", "missing")) {
     $iconPath = Join-Path $projectRoot "app\patcher\icons\$iconName.png"
     if (Test-Path -LiteralPath $iconPath) {
         $compilerArgs += "/resource:$iconPath,KotorUniversalUI.icon.$iconName"
