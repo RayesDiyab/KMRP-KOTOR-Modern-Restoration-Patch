@@ -551,6 +551,27 @@ The in-place patch path is deliberately conservative:
 7. back up conflicting Override files and record introduced files;
 8. write the patch manifest and installed resolution.
 
+Every file replacement goes through `FileGuard.Replace`, never `File.Replace`
+directly. `File.Replace` has to **delete** the destination, which fails with "the file
+to be replaced cannot be removed" while any process holds a handle opened without
+FILE_SHARE_DELETE -- antivirus scanning a file moments after it was written is the
+usual cause, and a restore rewrites 662 Override files plus the INI, which leaves a
+scanner busy in exactly that folder. It was reproduced as a patch failing immediately
+after a restore.
+
+`FileGuard` clears the read-only attribute, retries six times with a delay doubling
+from 60 ms, and then falls back to overwriting the destination in place: `Replace`
+needs to delete the file, whereas copying only needs to open it for writing, which a
+reader holding FILE_SHARE_WRITE still permits. That fallback gives up atomicity, which
+is safe here only because every caller verifies the result by hash afterwards, so a
+partial write is caught and rolled back rather than mistaken for success. If even that
+fails the exception carries a message naming the file and what to close, instead of the
+localised OS text.
+
+Verified against the shipping class with a lock held deliberately: no lock replaces in
+4 ms; a reader without share-delete -- the reported failure -- retries and then succeeds
+by overwrite; an exclusive lock is refused with the actionable message.
+
 Failure rolls back changes made by the current operation. Restore verifies the
 backup records, restores the EXE and INI, restores replaced Override files, and
 removes files introduced by KMRP.
