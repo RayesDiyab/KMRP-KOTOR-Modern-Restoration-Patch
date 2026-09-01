@@ -146,7 +146,7 @@ dominant lever: the noise is evaluated nine times per buffer pixel, so halving i
 quadruples the cost.
 
 At full design scale (a 1980 x 420 header, the worst case) the shipping settings
-render in **22.5 ms average**, against a 46.8 ms frame budget -- a 40 ms
+render in **23.5 ms average**, against a 46.8 ms frame budget -- a 40 ms
 WinForms timer lands on Windows' 15.6 ms granularity and therefore fires every
 ~46.8 ms, or about 21 fps. Measured in the running application, the effect costs
 about **40% of one core** while the window is focused and idle.
@@ -173,7 +173,8 @@ above the flat window colour, `blown` the share saturated past luminance 200:
 | Point source behind the crest | 65.1% | -- | rgb 45, 71, 105 | **17.9** |
 | Off-screen source, blue ramp | 33.7% | 0.0% | rgb 17, 34, 61 | 115.1 |
 | Blue ramp turned up hard | 87.5% | 8.4% | rgb 70, 97, 126 | 103.0 |
-| Shipping: grey ramp, long reach | 91.9% | **0.0%** | rgb 33, 39, 48 | **106.1** |
+| Grey ramp, long reach | 91.9% | 0.0% | rgb 33, 39, 48 | 106.1 |
+| Shipping: wispy, extinction curve | 97.1% | **0.0%** | rgb 33, 39, 48 | **106.6** |
 
 Three separate failures are recorded there, and each was caught by a number rather
 than by eye:
@@ -184,6 +185,41 @@ than by eye:
   rgb 185, 192, 205, so the same coverage now blows out nothing at all;
 - reaching further down the bar is what costs legibility, not density as such.
   Coverage nearly tripled, from 33.7% to 91.9%, for only nine points of contrast.
+
+### Slabs versus wisps
+
+Two things made the plume read as drifting solid masses rather than smoke, and
+neither was obvious from looking at it:
+
+**Density was clamped.** `density` was computed linearly and then clamped to 1, so
+everything past the saturation point rendered as one flat opaque value and large
+regions had no internal variation at all. It now uses Beer-Lambert extinction,
+`1 - exp(-thickness * DensityGain)`, which approaches full opacity without reaching
+it. That is both how light actually attenuates through a medium and what keeps the
+smoke see-through.
+
+**`NoiseScale` was far too low, and resolution was the wrong suspect.** At 2.4 the
+finest octave had features roughly 100 px across -- far coarser than the buffer could
+already resolve -- so the plume had no fine structure to show. The instinct is to
+raise the buffer resolution, and that is measurably wrong here:
+
+| Change | Frame time | Detail | Slab |
+| --- | --- | --- | --- |
+| `Downscale` 8 -> 3 | 22.9 -> 71.3 ms | 1.49 -> 1.58 | 92.4% -> 90.5% |
+| `NoiseScale` 2.4 -> 12 | 22.9 -> 25.3 ms | 1.49 -> 2.58 | 92.4% -> 80.1% |
+
+Tripling the cost bought 6% more detail; the noise scale bought 73% more for 2 ms.
+Detail is limited by feature size, not by buffer resolution. Because of that,
+`Downscale` was then *raised* from 8 to 10 to pay for the finer noise, which holds
+frame time where it was and still keeps most of the gain.
+
+`detail` is the mean local luminance slope over lit pixels and `slab` the share of
+lit pixels flatter than a threshold, both sampled at an 8 px stride. The stride
+matters: measured between adjacent pixels, both figures describe the bilinear
+upscale rather than the smoke, and report everything as flat regardless of settings.
+Note also that `slab` conflates dim with flat -- dropping `MaxAlpha` shrinks every
+luminance slope and makes the metric look worse while the structure is unchanged, so
+compare it only between renders of similar brightness.
 
 ### Two measurement traps
 
