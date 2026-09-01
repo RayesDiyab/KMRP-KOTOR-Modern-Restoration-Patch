@@ -141,7 +141,7 @@ dominant lever: the noise is evaluated nine times per buffer pixel, so halving i
 quadruples the cost.
 
 At full design scale (a 1980 x 420 header, the worst case) the shipping settings
-render in **25.9 ms average**, against a 46.8 ms frame budget -- a 40 ms
+render in **20.2 ms average**, against a 46.8 ms frame budget -- a 40 ms
 WinForms timer lands on Windows' 15.6 ms granularity and therefore fires every
 ~46.8 ms, or about 21 fps. Measured in the running application, the effect costs
 about **40% of one core** while the window is focused and idle.
@@ -164,6 +164,38 @@ would fight the snapshot; and a minimised window paints nothing anyone can see.
 
 If it needs to be cheaper still, raise `Downscale`, drop `Octaves` from 3 to 2, or
 lengthen the timer interval -- the plume is slow enough to survive a lower frame rate.
+
+### Where the frame time goes
+
+Attribute before optimising. `LightField` carries per-stage timers (`SmokeMs`,
+`BloomMs`, `MapMs`, `BlitMs`, `MotesMs`) for exactly this. At full design scale:
+
+| Stage | Before | After | |
+| --- | --- | --- | --- |
+| Upscale blit | 10.9 ms | 9.9 ms | only the rows containing smoke are scaled |
+| Motes | 8.9 ms | 3.9 ms | pre-tinted sprites instead of a per-draw ColorMatrix |
+| Smoke noise | 9.0 ms | 6.1 ms | `Downscale` 10 to 12 |
+| Bloom + ramp | 0.2 ms | 0.2 ms | already negligible |
+| **Total** | **29.0 ms** | **20.2 ms** | |
+
+Two results worth keeping in mind:
+
+- **A per-draw `ColorMatrix` is expensive.** Tinting each mote through
+  `ImageAttributes` put GDI+ on a slow blit path. The colour never varies -- only the
+  brightness -- so 24 pre-tinted sprites at fixed alpha levels replace it, with no
+  visible banding on something this small and soft. That alone was more than half the
+  saving.
+- **`InterpolationMode.Bilinear` is not faster than `HighQualityBilinear` here, it is
+  six times slower** -- 10.9 ms to 66.5 ms. The reasoning that the "high quality"
+  prefilter only matters when minifying is sound and completely wrong in practice:
+  GDI+ has an optimised implementation for the HighQuality modes at this
+  magnification. The comment in `Render` says so; do not "optimise" it back.
+
+Measured in the running application, the effect costs about 34-36% of one core,
+which on a 16-thread machine is roughly 2% of total CPU. If it needs to be cheaper
+still, the untouched lever is the frame rate: the timer is 40 ms, which Windows
+rounds to ~46.8 ms, and the plume is slow enough to survive 60 ms. Halving the rate
+while the window is unfocused is the other option.
 
 ### Measured settings
 

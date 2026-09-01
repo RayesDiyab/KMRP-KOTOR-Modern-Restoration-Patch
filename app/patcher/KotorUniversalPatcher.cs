@@ -2374,7 +2374,7 @@ namespace KotorUniversalUI
         // cost -- but it is NOT the lever on how fine the smoke looks. Detail is limited
         // by NoiseScale, not by buffer resolution: measured, going from Downscale 8 to 3
         // tripled the cost and moved the detail figure by 6%.
-        private const int Downscale = 10;
+        private const int Downscale = 12;
         private const int Octaves = 3;
 
         // Smoke shape.
@@ -2431,9 +2431,9 @@ namespace KotorUniversalUI
         private const float MoteAlpha = 1.0F;
         // Motes are blue rather than taking the smoke's white, so they read as embers of
         // light in the plume instead of brighter specks of the same smoke.
-        private const int MoteR = 110;
-        private const int MoteG = 180;
-        private const int MoteB = 255;
+        private const byte MoteR = 110;
+        private const byte MoteG = 180;
+        private const byte MoteB = 255;
         // The sprite carries a tight core inside a wide halo, so the drawn rectangle is
         // larger than the core. One draw per mote still, rather than a separate halo
         // pass. Keep this in step with the lobe widths in BuildMote: the two together
@@ -2441,6 +2441,7 @@ namespace KotorUniversalUI
         // oversized sprite with narrow lobes pays for transparent pixels. At 4.5 with
         // the original lobes, 70% of every sprite was empty and the pass cost 13 ms.
         private const float MoteGlowScale = 2.4F;
+        private const int MoteLevels = 24;   // pre-tinted brightness steps
 
         // The emission ramp, darkest to brightest: white smoke, with only a slight cool
         // lift so it sits with the rest of the palette. A saturated-blue ramp made the
@@ -2460,11 +2461,12 @@ namespace KotorUniversalUI
         private float[] colFront, colReach, colShear, colPatch;
         private byte[] pixels;
         private Bitmap buffer;
-        private Bitmap moteSprite;
-        private readonly ImageAttributes moteAttributes = new ImageAttributes();
-        private readonly ColorMatrix moteMatrix = new ColorMatrix();
+        private Bitmap[] moteSprites;
         private float time;
         private double lastRenderMs;
+        // Per-stage timings, so the cost can be attributed rather than guessed at.
+        private double msSmoke, msBloom, msMap, msBlit, msMotes;
+        private int filledRows;   // deepest buffer row holding any smoke
 
         internal LightField()
         {
@@ -2490,6 +2492,11 @@ namespace KotorUniversalUI
 
         /// <summary>Milliseconds spent in the last Render, for the frame-budget check.</summary>
         internal double LastRenderMs { get { return lastRenderMs; } }
+        internal double SmokeMs { get { return msSmoke; } }
+        internal double BloomMs { get { return msBloom; } }
+        internal double MapMs { get { return msMap; } }
+        internal double BlitMs { get { return msBlit; } }
+        internal double MotesMs { get { return msMotes; } }
 
         private void Respawn(Mote m, bool scatter)
         {
@@ -2545,21 +2552,52 @@ namespace KotorUniversalUI
             }
 
             float aspect = area.Width / (float)area.Height;
+            double freq = Stopwatch.Frequency / 1000.0;
+            long t0 = Stopwatch.GetTimestamp();
             RenderSmoke(w, h, aspect);
+            long t1 = Stopwatch.GetTimestamp();
             Bloom(w, h);
+            long t2 = Stopwatch.GetTimestamp();
             MapToPixels(w, h);
+            long t3 = Stopwatch.GetTimestamp();
 
             BitmapData data = buffer.LockBits(new Rectangle(0, 0, w, h),
                 ImageLockMode.WriteOnly, PixelFormat.Format32bppArgb);
             Marshal.Copy(pixels, 0, data.Scan0, pixels.Length);
             buffer.UnlockBits(data);
 
+            // HighQualityBilinear, counter-intuitively, is the fast path here. Plain
+            // InterpolationMode.Bilinear was tried on the theory that the "high quality"
+            // prefilter only matters when minifying: it made this stage six times slower,
+            // 10.9 ms to 66.5 ms. GDI+ has an optimised implementation for the
+            // HighQuality modes at this kind of magnification. Do not "optimise" it back.
+            //
+            // Only the rows that actually contain smoke are scaled. The plume occupies
+            // roughly the top half of the header and the rest of the buffer is empty, so
+            // blitting the whole thing spends most of its time magnifying zeroes.
+            int rows = Math.Min(h, filledRows);
             InterpolationMode previous = target.InterpolationMode;
             target.InterpolationMode = InterpolationMode.HighQualityBilinear;
-            target.DrawImage(buffer, area);
+            if (rows > 0)
+            {
+                int destHeight = (int)Math.Ceiling(rows * area.Height / (double)h);
+                if (destHeight > area.Height)
+                    destHeight = area.Height;
+                target.DrawImage(buffer,
+                    new Rectangle(area.X, area.Y, area.Width, destHeight),
+                    0, 0, w, rows, GraphicsUnit.Pixel);
+            }
             target.InterpolationMode = previous;
+            long t4 = Stopwatch.GetTimestamp();
 
             RenderMotes(target, area);
+            long t5 = Stopwatch.GetTimestamp();
+
+            msSmoke = (t1 - t0) / freq;
+            msBloom = (t2 - t1) / freq;
+            msMap = (t3 - t2) / freq;
+            msBlit = (t4 - t3) / freq;
+            msMotes = (t5 - t4) / freq;
 
             lastRenderMs = (Stopwatch.GetTimestamp() - started) * 1000.0 / Stopwatch.Frequency;
         }
@@ -2659,8 +2697,12 @@ namespace KotorUniversalUI
         /// colour matrix, so the pass allocates nothing.</summary>
         private void RenderMotes(Graphics target, Rectangle area)
         {
-            if (moteSprite == null)
-                moteSprite = BuildMote(64);
+            if (moteSprites == null)
+            {
+                moteSprites = new Bitmap[MoteLevels];
+                for (int i = 0; i < MoteLevels; i++)
+                    moteSprites[i] = BuildMote(48, (i + 1) / (float)MoteLevels);
+            }
 
             InterpolationMode previous = target.InterpolationMode;
             target.InterpolationMode = InterpolationMode.Bilinear;
@@ -2684,12 +2726,12 @@ namespace KotorUniversalUI
                 if (bright > 1F)
                     bright = 1F;
 
-                moteMatrix.Matrix00 = MoteR / 255F;
-                moteMatrix.Matrix11 = MoteG / 255F;
-                moteMatrix.Matrix22 = MoteB / 255F;
-                moteMatrix.Matrix33 = bright;
-                moteMatrix.Matrix44 = 1F;
-                moteAttributes.SetColorMatrix(moteMatrix);
+                // Pick a pre-tinted sprite rather than tinting at draw time. A
+                // per-draw ColorMatrix puts GDI+ on a slow blit path, and the colour
+                // never varies -- only the brightness, which quantises to these levels
+                // without any visible banding on something this small and this soft.
+                int level = (int)(bright * (MoteLevels - 1) + 0.5F);
+                if (level < 0) level = 0; else if (level >= MoteLevels) level = MoteLevels - 1;
 
                 float radius = m.Size * MoteGlowScale * area.Height;
                 float cx = area.Left + mx * area.Width;
@@ -2697,8 +2739,7 @@ namespace KotorUniversalUI
                 Rectangle dest = new Rectangle(
                     (int)(cx - radius), (int)(cy - radius),
                     Math.Max(2, (int)(radius * 2)), Math.Max(2, (int)(radius * 2)));
-                target.DrawImage(moteSprite, dest, 0, 0, moteSprite.Width, moteSprite.Height,
-                    GraphicsUnit.Pixel, moteAttributes);
+                target.DrawImage(moteSprites[level], dest);
             }
             target.InterpolationMode = previous;
         }
@@ -2708,7 +2749,7 @@ namespace KotorUniversalUI
         /// light at a few pixels across; the broad lobe is the glow around it. Drawing
         /// one sprite that contains both is cheaper than a separate halo pass, and the
         /// core stays small because the narrow lobe is a small fraction of the sprite.</summary>
-        private static Bitmap BuildMote(int size)
+        private static Bitmap BuildMote(int size, float level)
         {
             Bitmap bitmap = new Bitmap(size, size, PixelFormat.Format32bppArgb);
             BitmapData data = bitmap.LockBits(new Rectangle(0, 0, size, size),
@@ -2727,11 +2768,11 @@ namespace KotorUniversalUI
                     // Taper to exactly zero at the rim, or the square sprite shows its
                     // edges once the alpha is scaled up.
                     double edge = d >= 1.0 ? 0.0 : Math.Pow(1.0 - d, 1.5);
-                    double a = Math.Min(1.0, 0.85 * core + 0.30 * halo) * edge;
+                    double a = Math.Min(1.0, 0.85 * core + 0.30 * halo) * edge * level;
                     int at = y * data.Stride + x * 4;
-                    px[at] = 255;
-                    px[at + 1] = 255;
-                    px[at + 2] = 255;
+                    px[at] = MoteB;
+                    px[at + 1] = MoteG;
+                    px[at + 2] = MoteR;
                     px[at + 3] = (byte)Math.Max(0, Math.Min(255, (int)(a * 255)));
                 }
             }
@@ -2781,6 +2822,7 @@ namespace KotorUniversalUI
         private void MapToPixels(int w, int h)
         {
             int count = w * h;
+            int deepest = 0;
             for (int i = 0; i < count; i++)
             {
                 int at = i * 4;
@@ -2795,6 +2837,7 @@ namespace KotorUniversalUI
                 }
                 if (e > 1F)
                     e = 1F;
+                deepest = i / w;
 
                 int stop = 0;
                 while (stop < RampStop.Length - 2 && e > RampStop[stop + 1])
@@ -2811,6 +2854,7 @@ namespace KotorUniversalUI
                 if (a > 1F) a = 1F;
                 pixels[at + 3] = (byte)(a * MaxAlpha * 255F);
             }
+            filledRows = Math.Min(h, deepest + 2);   // one row of margin for the upscale
         }
 
         private float Fbm(float x, float y, float z)
@@ -2870,12 +2914,13 @@ namespace KotorUniversalUI
                 buffer.Dispose();
                 buffer = null;
             }
-            if (moteSprite != null)
+            if (moteSprites != null)
             {
-                moteSprite.Dispose();
-                moteSprite = null;
+                for (int i = 0; i < moteSprites.Length; i++)
+                    if (moteSprites[i] != null)
+                        moteSprites[i].Dispose();
+                moteSprites = null;
             }
-            moteAttributes.Dispose();
         }
     }
 
