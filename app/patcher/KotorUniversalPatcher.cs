@@ -2176,10 +2176,11 @@ namespace KotorUniversalUI
         // The lockup is sized against the card, not the window, so the two read as one
         // block: half the card's width, centred on it.
         private const double BrandCardFraction = 0.5;
-        // The card is a fixed 3:2 rectangle rather than something that stretches to the
+        // The card is a fixed rectangle rather than something that stretches to the
         // window's edges: on a wide window a full-width row leaves a desert between a
         // step's subtitle and its control. Its height is fully determined by the row
-        // heights below, so the width follows from the ratio.
+        // heights below -- four steps, the gap above the action button, the button, and
+        // the bottom padding -- so the width follows from the ratio.
         private const double CardAspect = 2.25;   // 1.5 was the first pass; this is 50% wider
         private const int StepHeight = 96;
         // Where the wordmark's ink actually ends inside the brand image, as a fraction of
@@ -2195,8 +2196,8 @@ namespace KotorUniversalUI
         private readonly TextBox pathBox;              // data holder; the path is shown in step 1's subtitle
         private readonly DarkCombo resolutionBox;
         private readonly ThinProgress progressBar;
-        private readonly PillButton patchButton;
-        private readonly PillButton restoreButton;
+        private readonly PillButton actionButton;
+        private bool actionIsRestore;
         private readonly PillButton browseButton;
         private readonly StepRow stepFolder;
         private readonly StepRow stepVerify;
@@ -2235,7 +2236,7 @@ namespace KotorUniversalUI
 
             // Height is the sum of the fixed pieces: four steps, the gap above the primary
             // button, the button, the gap above Restore, Restore, and the bottom padding.
-            int cardHeight = 4 * StepHeight + 22 + 58 + 24 + 40 + 26;
+            int cardHeight = 4 * StepHeight + 30 + 76 + 40;
             int cardWidth = (int)Math.Round(cardHeight * CardAspect);
 
             brandWidth = (int)Math.Round(cardWidth * BrandCardFraction);
@@ -2310,28 +2311,25 @@ namespace KotorUniversalUI
             optionsHost.Anchor = AnchorStyles.Top | AnchorStyles.Left | AnchorStyles.Right;
             card.Controls.Add(optionsHost);
 
-            patchButton = new PillButton();
-            patchButton.Primary = true;
-            patchButton.Text = "Start Patching";
-            patchButton.SetBounds(112, optionsHost.Bottom + 22, card.Width - 224, 58);
-            patchButton.Anchor = AnchorStyles.Top | AnchorStyles.Left | AnchorStyles.Right;
-            patchButton.Click += PatchClicked;
-            card.Controls.Add(patchButton);
+            // One action, whose identity follows the executable's state: patch a clean
+            // install, restore a patched one. Two permanently visible buttons meant one of
+            // them was always disabled, which reads as something being broken rather than
+            // as a step that does not apply yet.
+            actionButton = new PillButton();
+            actionButton.Primary = true;
+            actionButton.Text = "Start Patching";
+            actionButton.SetBounds(80, optionsHost.Bottom + 30, card.Width - 160, 76);
+            actionButton.Anchor = AnchorStyles.Top | AnchorStyles.Left | AnchorStyles.Right;
+            actionButton.Click += ActionClicked;
+            card.Controls.Add(actionButton);
 
             progressBar = new ThinProgress();
-            progressBar.SetBounds(112, patchButton.Bottom + 10, card.Width - 224, 4);
+            progressBar.SetBounds(80, actionButton.Bottom + 14, card.Width - 160, 4);
             progressBar.Anchor = AnchorStyles.Top | AnchorStyles.Left | AnchorStyles.Right;
             progressBar.Visible = false;
             card.Controls.Add(progressBar);
 
-            restoreButton = new PillButton();
-            restoreButton.Text = "Restore Original";
-            restoreButton.SetBounds(112, patchButton.Bottom + 24, card.Width - 224, 40);
-            restoreButton.Anchor = AnchorStyles.Top | AnchorStyles.Left | AnchorStyles.Right;
-            restoreButton.Click += RestoreClicked;
-            card.Controls.Add(restoreButton);
-
-            card.Height = restoreButton.Bottom + 26;
+            card.Height = actionButton.Bottom + 40;
 
             logLink = new LinkLabel();
             logLink.Text = Version + "   ·   Open Log";
@@ -2538,7 +2536,7 @@ namespace KotorUniversalUI
 
         private void RefreshStatus()
         {
-            if (patchButton == null || restoreButton == null || applyState == null)
+            if (actionButton == null || applyState == null)
                 return;
             if (operationRunning)
                 return;
@@ -2557,8 +2555,9 @@ namespace KotorUniversalUI
                 : folder);
 
             bool executableReady = state == ExecutableState.SupportedClean || state == ExecutableState.Gold;
-            patchButton.Enabled = executableReady && iniExists;
-            restoreButton.Enabled = PatchOperations.CanRestore(target);
+            actionIsRestore = PatchOperations.CanRestore(target);
+            actionButton.Text = actionIsRestore ? "Restore Original" : "Start Patching";
+            actionButton.Enabled = actionIsRestore || (executableReady && iniExists);
 
             if (state == ExecutableState.SupportedClean || state == ExecutableState.Gold)
                 SetState(verifyState, "✓  Verified", UiTheme.Success);
@@ -2592,6 +2591,14 @@ namespace KotorUniversalUI
                 lastDetail = PatchOperations.Describe(target);
             }
             stepApply.SetSubtitle(lastDetail);
+        }
+
+        private void ActionClicked(object sender, EventArgs e)
+        {
+            if (actionIsRestore)
+                RestoreClicked(sender, e);
+            else
+                PatchClicked(sender, e);
         }
 
         private void PatchClicked(object sender, EventArgs e)
@@ -2688,8 +2695,7 @@ namespace KotorUniversalUI
         {
             resolutionBox.Enabled = !busy;
             browseButton.Enabled = !busy;
-            patchButton.Enabled = !busy;
-            restoreButton.Enabled = !busy;
+            actionButton.Enabled = !busy;
             logLink.Enabled = !busy;
             UseWaitCursor = busy;
         }
