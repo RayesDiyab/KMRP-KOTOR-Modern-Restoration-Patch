@@ -2502,7 +2502,13 @@ namespace KotorUniversalUI
         {
             m.X = (float)random.NextDouble();
             m.Y = scatter ? (float)random.NextDouble() : -(float)random.NextDouble() * 0.12F;
-            m.Fall = 0.045F + (float)random.NextDouble() * 0.11F;
+            // Scaled by 0.75 alongside the drop from 21.4 fps to 16 fps, so the distance
+            // a mote covers between frames is unchanged and the motion stays as smooth as
+            // it was. The fastest mote moves about 2.6px per frame either way, against a
+            // bright core 1.5 to 5.2px across; much past that and it reads as a dot
+            // reappearing rather than travelling. Ageing is tied to Fall, so a slower mote
+            // also ages slower and still reaches the same depth before it dies.
+            m.Fall = 0.0338F + (float)random.NextDouble() * 0.0825F;
             m.Drift = 0.012F + (float)random.NextDouble() * 0.035F;
             m.Phase = (float)(random.NextDouble() * Math.PI * 2);
             m.Size = MoteSizeMin + (float)random.NextDouble() * MoteSizeSpan;
@@ -3006,7 +3012,11 @@ namespace KotorUniversalUI
         private Bitmap scaledBrand;
         private System.Threading.Timer animationTimer;
         private int animationTickQueued;
-        private const int AnimationIntervalMs = 40;
+        // 60ms, which Windows' 15.6ms timer granularity rounds to 62.4ms -- 16 fps,
+        // against 46.8ms and 21.4 fps at the previous 40ms. A quarter fewer frames for a
+        // quarter less CPU. See the mote fall speed, which was slowed to match: the two
+        // must move together or the fastest motes start stepping.
+        private const int AnimationIntervalMs = 60;
         private int smokeLastTick;
         private Font taglineFont;      // sized so the tagline matches the wordmark's width
         private bool operationRunning;

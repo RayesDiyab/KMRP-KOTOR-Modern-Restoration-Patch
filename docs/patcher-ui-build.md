@@ -224,11 +224,30 @@ Two results worth keeping in mind:
   GDI+ has an optimised implementation for the HighQuality modes at this
   magnification. The comment in `Render` says so; do not "optimise" it back.
 
-Measured in the running application, the effect costs about 34-36% of one core,
-which on a 16-thread machine is roughly 2% of total CPU. If it needs to be cheaper
-still, the untouched lever is the frame rate: the timer is 40 ms, which Windows
-rounds to ~46.8 ms, and the plume is slow enough to survive 60 ms. Halving the rate
-while the window is unfocused is the other option.
+### Frame rate
+
+The timer asks for 60 ms, which Windows' 15.6 ms granularity rounds to 62.4 ms, or
+16 fps. It was 40 ms, rounded to 46.8 ms and 21.4 fps. Measured in the running
+application, that took the effect from about 40% of one core to 28%.
+
+`AnimationIntervalMs` and the mote fall speed must change together. Motes are the
+fastest thing on screen and the only part near the threshold where motion stops
+reading as travel: at a 364 px header the fastest covers ~2.6 px per frame while its
+bright core is 1.5 to 5.2 px across, so a small fast mote is already moving close to
+its own width per frame. Dropping the frame rate without slowing them would have
+taken that to 3.5 px, past the point where a mote reads as reappearing somewhere else
+rather than moving. The fall speed was scaled by 0.75 alongside the 0.748 change in
+frame interval, so distance per frame is unchanged. Ageing is tied to `Fall`, so
+slower motes also age slower and still reach the same depth before dying.
+
+The smoke itself is nowhere near that threshold -- 0.94 px per frame before, 1.25
+after -- so it was left alone.
+
+Verified after the change: 15.9 fps measured against 16.0 predicted, from the
+duplicate-frame rate in a 29.75 fps capture.
+
+If it ever needs to be cheaper still, the remaining lever is throttling further while
+the window is unfocused.
 
 ### Measured settings
 
