@@ -177,6 +177,33 @@ scrolled, and the animation stuttered there. Measured per thread after the move:
 
 Total CPU is unchanged at about 28%; what changed is where it is spent.
 
+**Frames are presented straight to the window from the render thread**, not posted to
+the UI thread. Posting them put every frame in the message queue behind whatever was
+already there. Measured while scrolling the resolution dropdown, with the render
+thread already off the UI thread:
+
+| | Value |
+| --- | --- |
+| Frame interval | mean 61.9 ms, sd **1.0 ms** |
+| Present latency | mean 0.9-7.2 ms, max **61.8 ms** |
+
+Frames were being produced within a millisecond of perfect and then waiting up to a
+full frame period to reach the screen. That is the stutter, and no amount of further
+optimising the render loop would have touched it -- the two numbers separate the two
+possible causes, which is why they are recorded separately.
+
+`PresentDirect` takes its own device context for the window and blits one opaque
+bitmap, serialised against the UI thread through the same lock the surfaces are
+swapped under. It requires the frame to be complete, so the render thread also
+composites the brand and tagline, baked to a transparent overlay by the UI thread
+whenever the header size changes -- fonts and scaled artwork cannot be touched from
+the render thread. Direct presentation is disabled while a resize preview is up,
+where the UI thread owns the frame, and while minimised.
+
+Press **F12** to write the current frame timings to the log. Capture them while the
+symptom is happening; even intervals with spiking latencies mean the problem is in
+presentation, not generation.
+
 Two earlier attempts at this failed and are worth not repeating. A
 `System.Windows.Forms.Timer` is `SetTimer`, and WM_TIMER is synthesized by Windows
 only when the thread's message queue is otherwise empty -- the lowest priority

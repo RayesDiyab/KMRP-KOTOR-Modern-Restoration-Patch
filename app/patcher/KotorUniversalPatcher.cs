@@ -1293,7 +1293,7 @@ namespace KotorUniversalUI
         internal static string LogPath(string targetPath)
         {
             string directory = Path.GetDirectoryName(Path.GetFullPath(targetPath));
-            return Path.Combine(directory, "KOTOR_UI_Gold_Patcher.log");
+            return Path.Combine(directory, "KMRP.log");
         }
 
         internal static string ManifestPath(string targetPath)
@@ -3066,6 +3066,17 @@ namespace KotorUniversalUI
         private volatile int desiredHeaderW, desiredHeaderH;
         private Bitmap headerFront, headerBack;
         private readonly object headerSwap = new object();
+        // The brand and tagline on transparency, composited into each frame by the render
+        // thread. The render thread cannot draw them itself -- fonts and the scaled artwork
+        // belong to the UI thread -- so they are baked here whenever the size changes.
+        private Bitmap headerOverlay;
+        private readonly object overlayLock = new object();
+        // Presentation goes straight to the window from the render thread. Posting through
+        // BeginInvoke put every frame in the message queue behind whatever else was there;
+        // measured while scrolling the resolution dropdown, frames were produced with 1.0 ms
+        // of jitter but waited up to 61.8 ms to reach the screen, which is a whole frame.
+        private volatile IntPtr presentHwnd;
+        private volatile bool allowDirectPresent;
 
         // Frame timing, kept so a stutter can be attributed instead of guessed at.
         // `interval` is how far apart the render thread finished consecutive frames;
@@ -3097,10 +3108,6 @@ namespace KotorUniversalUI
         private float nativeFontScale = 1F;
         private Bitmap resizePreview;
         private bool resizePreviewActive;
-        // The brand and tagline, baked transparent at the moment the resize began,
-        // so the header can keep animating live underneath them while the rest of
-        // the window stays a frozen snapshot.
-        private Bitmap resizeHeaderLayer;
         private int resizeHeaderHeight;
         private readonly List<Control> resizePreviewControls = new List<Control>();
         private bool resizeReady;
@@ -3145,6 +3152,9 @@ namespace KotorUniversalUI
                     return;
                 desiredHeaderW = Math.Max(1, ClientSize.Width);
                 desiredHeaderH = Math.Max(1, ScaleDesign(headerHeight));
+                presentHwnd = Handle;
+                EnsureHeaderOverlay(desiredHeaderW, desiredHeaderH);
+                UpdatePresentMode();
                 renderRunning = true;
                 renderThread = new System.Threading.Thread(RenderLoop);
                 renderThread.IsBackground = true;
@@ -3468,31 +3478,7 @@ namespace KotorUniversalUI
             resizePreviewActive = true;
 
             resizeHeaderHeight = ScaleDesign(headerHeight);
-            if (resizeHeaderLayer != null)
-                resizeHeaderLayer.Dispose();
-            resizeHeaderLayer = null;
-            try
-            {
-                resizeHeaderLayer = new Bitmap(Math.Max(1, ClientSize.Width),
-                    Math.Max(1, resizeHeaderHeight), PixelFormat.Format32bppArgb);
-                using (Graphics hg = Graphics.FromImage(resizeHeaderLayer))
-                {
-                    hg.Clear(Color.Transparent);
-                    hg.SmoothingMode = SmoothingMode.AntiAlias;
-                    // Not ClearType: subpixel hinting against transparency produces
-                    // coloured fringes once the layer is composited.
-                    hg.TextRenderingHint = TextRenderingHint.AntiAliasGridFit;
-                    PaintBrandLayer(hg, ClientSize.Width);
-                }
-            }
-            catch
-            {
-                if (resizeHeaderLayer != null)
-                {
-                    resizeHeaderLayer.Dispose();
-                    resizeHeaderLayer = null;
-                }
-            }
+            UpdatePresentMode();
             resizePreviewControls.Clear();
             foreach (Control child in Controls)
             {
@@ -3518,6 +3504,7 @@ namespace KotorUniversalUI
             finally
             {
                 resizePreviewActive = false;
+                UpdatePresentMode();
                 foreach (Control child in resizePreviewControls)
                     child.Visible = true;
                 resizePreviewControls.Clear();
@@ -3527,11 +3514,7 @@ namespace KotorUniversalUI
                     resizePreview.Dispose();
                     resizePreview = null;
                 }
-                if (resizeHeaderLayer != null)
-                {
-                    resizeHeaderLayer.Dispose();
-                    resizeHeaderLayer = null;
-                }
+
 
                 if (!operationRunning)
                     RefreshStatus();
@@ -3730,6 +3713,22 @@ namespace KotorUniversalUI
                         {
                             g.Clear(UiTheme.Window);
                             light.Render(g, new Rectangle(0, 0, w, h));
+                            // The frame leaves this thread complete, so presenting it is a
+                            // single opaque blit with nothing left for the UI thread to
+                            // draw on top.
+                            lock (overlayLock)
+                            {
+                                if (headerOverlay != null)
+                                {
+                                    if (headerOverlay.Width == w && headerOverlay.Height == h)
+                                        g.DrawImageUnscaled(headerOverlay, 0, 0);
+                                    else
+                                    {
+                                        g.InterpolationMode = InterpolationMode.HighQualityBilinear;
+                                        g.DrawImage(headerOverlay, 0, 0, w, h);
+                                    }
+                                }
+                            }
                         }
                         // The surfaces are swapped, never shared: the UI thread reads the
                         // front while this thread draws the back.
@@ -3748,8 +3747,20 @@ namespace KotorUniversalUI
                             frameLatencies[slot] = -1;
                         }
                         frameReadyStamp = readyAt;
-                        if (IsHandleCreated && !IsDisposed)
+
+                        IntPtr hwnd = presentHwnd;
+                        if (allowDirectPresent && hwnd != IntPtr.Zero)
+                        {
+                            PresentDirect(hwnd, w, h);
+                            int slot = timingWrite % TimingSamples;
+                            frameLatencies[slot] =
+                                (Stopwatch.GetTimestamp() - readyAt) * 1000.0 / Stopwatch.Frequency;
+                            timingWrite++;
+                        }
+                        else if (IsHandleCreated && !IsDisposed)
+                        {
                             BeginInvoke((MethodInvoker)PresentHeader);
+                        }
                     }
                     catch
                     {
@@ -3762,6 +3773,86 @@ namespace KotorUniversalUI
                 int rest = (int)Math.Round(AnimationIntervalMs - spent);
                 System.Threading.Thread.Sleep(rest > 1 ? rest : 1);
             }
+        }
+
+        /// <summary>Blits the finished frame straight to the window from the render
+        /// thread, bypassing the message queue entirely. Legal from a non-UI thread: this
+        /// takes its own device context for the window and draws one opaque bitmap into it.
+        /// It is serialised against the UI thread through the same lock the surfaces are
+        /// swapped under, so the two never draw at once. Disabled while a resize preview is
+        /// up, where the UI thread owns the frame, and while minimised.</summary>
+        private void PresentDirect(IntPtr hwnd, int w, int h)
+        {
+            try
+            {
+                lock (headerSwap)
+                {
+                    if (headerFront == null)
+                        return;
+                    using (Graphics g = Graphics.FromHwnd(hwnd))
+                    {
+                        g.CompositingMode = CompositingMode.SourceCopy;
+                        g.DrawImageUnscaled(headerFront, 0, 0);
+                    }
+                }
+            }
+            catch
+            {
+                // The window can be destroyed underneath this; the next frame re-checks.
+            }
+        }
+
+        /// <summary>Bakes the brand and tagline onto transparency at the current header
+        /// size. Runs on the UI thread because it needs the scaled artwork and the fonts;
+        /// the render thread only composites the result.</summary>
+        private void EnsureHeaderOverlay(int w, int h)
+        {
+            if (w < 1 || h < 1)
+                return;
+            lock (overlayLock)
+            {
+                if (headerOverlay != null && headerOverlay.Width == w && headerOverlay.Height == h)
+                    return;
+            }
+            Bitmap baked = null;
+            try
+            {
+                baked = new Bitmap(w, h, PixelFormat.Format32bppArgb);
+                using (Graphics g = Graphics.FromImage(baked))
+                {
+                    g.Clear(Color.Transparent);
+                    g.SmoothingMode = SmoothingMode.AntiAlias;
+                    // Not ClearType: subpixel hinting against transparency leaves coloured
+                    // fringes once the layer is composited.
+                    g.TextRenderingHint = TextRenderingHint.AntiAliasGridFit;
+                    PaintBrandLayer(g, w);
+                }
+            }
+            catch
+            {
+                if (baked != null)
+                {
+                    baked.Dispose();
+                    baked = null;
+                }
+            }
+            if (baked == null)
+                return;
+            lock (overlayLock)
+            {
+                if (headerOverlay != null)
+                    headerOverlay.Dispose();
+                headerOverlay = baked;
+            }
+        }
+
+        /// <summary>Direct presentation is off while the UI thread owns the frame -- during
+        /// a resize preview -- and while minimised.</summary>
+        private void UpdatePresentMode()
+        {
+            allowDirectPresent = !resizePreviewActive
+                && WindowState != FormWindowState.Minimized
+                && !IsDisposed;
         }
 
         /// <summary>Writes the recent frame timings to the log. Bound to F12 so a stutter
@@ -3905,8 +3996,10 @@ namespace KotorUniversalUI
                     brand.Dispose();
                 if (resizePreview != null)
                     resizePreview.Dispose();
-                if (resizeHeaderLayer != null)
-                    resizeHeaderLayer.Dispose();
+                lock (overlayLock)
+                {
+                    if (headerOverlay != null) { headerOverlay.Dispose(); headerOverlay = null; }
+                }
             }
             base.Dispose(disposing);
         }
@@ -3997,11 +4090,10 @@ namespace KotorUniversalUI
                 // costs one bilinear blit, where rebuilding it would mean a bicubic
                 // resample of the artwork per frame -- the thing the brand cache exists
                 // to avoid.
-                if (resizeHeaderLayer != null && resizePreview.Height > 0)
+                if (resizePreview.Height > 0)
                 {
                     // An exception thrown out of a paint handler mid-drag would surface as
-                    // a JIT dialog, so a failure here drops the layer and the window falls
-                    // back to the plain frozen snapshot for the rest of the resize.
+                    // a JIT dialog, so a failure here just leaves the plain frozen snapshot.
                     try
                     {
                         int headerNow = LiveHeaderHeight();
@@ -4011,18 +4103,10 @@ namespace KotorUniversalUI
                             GraphicsState held = e.Graphics.Save();
                             e.Graphics.SetClip(live);
                             BlitHeader(e.Graphics, live);
-                            e.Graphics.CompositingMode = CompositingMode.SourceOver;
-                            e.Graphics.CompositingQuality = CompositingQuality.HighSpeed;
-                            e.Graphics.InterpolationMode = InterpolationMode.HighQualityBilinear;
-                            e.Graphics.DrawImage(resizeHeaderLayer, live);
                             e.Graphics.Restore(held);
                         }
                     }
-                    catch
-                    {
-                        resizeHeaderLayer.Dispose();
-                        resizeHeaderLayer = null;
-                    }
+                    catch { }
                 }
                 return;
             }
@@ -4040,9 +4124,11 @@ namespace KotorUniversalUI
             // rather than over them. Clipped to the header strip: below it the card covers
             // everything anyway, so drawing there would only be wasted upscaling.
             Rectangle header = new Rectangle(0, 0, ClientSize.Width, ScaleDesign(headerHeight));
+            EnsureHeaderOverlay(header.Width, header.Height);
+            UpdatePresentMode();
+            // The frame already contains the brand and tagline: the render thread composites
+            // them, so a repaint here is one blit rather than a re-render of the lockup.
             BlitHeader(g, header);
-
-            PaintBrandLayer(g, ClientSize.Width);
         }
 
         /// <summary>The brand lockup and tagline, without the background or the plume.
