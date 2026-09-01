@@ -59,6 +59,29 @@ reactivating the window calls `RefreshStatus()`, but a gold install is rebuilt
 into the same `Patched successfully` state and the same installed-resolution
 message. There is no second post-click "protected resolution" message.
 
+### The verification recovery state
+
+When the editable executable is missing or wrong, step 2 expands to carry the recovery
+actions. It has to look like the same product as the rest of the card, and three
+things were making it look borrowed from somewhere else:
+
+- it was a **darker fill inside its own border**, a second level of nesting that
+  appears nowhere else in the UI. It now uses the card's own fill and edge, so it
+  reads as part of step 2 rather than as a panel within a panel;
+- its content was **indented inside that box**, breaking the left alignment every
+  other row shares. It now starts at the same content left as the step titles;
+- it carried a **bold amber heading**, the only warm colour in the product, restating
+  what the step title and subtitle had already said twice. The heading is gone. Which
+  failure state it is comes from the chip on the right of the step, the way it does
+  for every other step, and each body line stands on its own.
+
+Steps 3 and 4 stay hidden here: there is no vertical room for them beside the expanded
+recovery area, and neither can be acted on until the executable verifies. Hiding them
+silently made the card look like a two-step tool unrelated to the four-step one, so a
+muted line names them instead. Restoring them properly would mean a compact StepRow
+mode and a taller card, and the card height is what drives the window width through
+`CardAspect`.
+
 ### User-facing language boundary
 
 The main card explains the next action and avoids implementation details:
