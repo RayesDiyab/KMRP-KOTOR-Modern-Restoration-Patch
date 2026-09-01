@@ -146,13 +146,21 @@ WinForms timer lands on Windows' 15.6 ms granularity and therefore fires every
 ~46.8 ms, or about 21 fps. Measured in the running application, the effect costs
 about **40% of one core** while the window is focused and idle.
 
-Two things were required to get it that low, and both should be kept:
+One thing was required to get it that low and should be kept:
 
 - the scaled brand is cached as a bitmap. The header repaints on every animation
   frame, and re-running a 650 x 350 bicubic resize per frame cost more than the plume
   itself -- removing it took the process from 57% of a core to 40%;
-- the effect stops entirely while a patch is running, during the snapshot resize,
-  when minimised, and when the window is not active.
+- the effect keeps running while a patch is in progress and while the window is in
+  the background. Patching is on a `BackgroundWorker` and reaches the UI thread only
+  through `ReportProgress`, so painting the header does not delay the file work and
+  the file work does not stall the animation. It costs roughly 40% of a core for as
+  long as the window is open, background included; if that ever needs reducing, halve
+  the timer rate when the window is not active rather than stopping it.
+
+Only two cases stop it, and both are correctness rather than politeness: during the
+snapshot resize the header is a scaled bitmap rather than live paint, so animating
+would fight the snapshot; and a minimised window paints nothing anyone can see.
 
 If it needs to be cheaper still, raise `Downscale`, drop `Octaves` from 3 to 2, or
 lengthen the timer interval -- the plume is slow enough to survive a lower frame rate.
