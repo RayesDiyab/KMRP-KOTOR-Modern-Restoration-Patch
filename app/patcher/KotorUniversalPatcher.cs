@@ -3073,7 +3073,6 @@ namespace KotorUniversalUI
         private readonly StateLabel applyState;
         private readonly CardPanel verificationRecovery;
         private readonly PillButton downloadExecutableButton;
-        private readonly PillButton chooseExecutableButton;
         private readonly PillButton checkExecutableButton;
         private readonly Panel optionsHost;           // reserved: future checkboxes land here
         private readonly LinkLabel logLink;
@@ -3243,15 +3242,12 @@ namespace KotorUniversalUI
             downloadExecutableButton.Click += delegate { OpenEditableExecutablePage(); };
             verificationRecovery.Controls.Add(downloadExecutableButton);
 
-            chooseExecutableButton = new PillButton();
-            chooseExecutableButton.Text = "Choose Editable EXE";
-            chooseExecutableButton.SetBounds(242, 0, 218, 48);
-            chooseExecutableButton.Click += delegate { BrowseForExecutable(this); };
-            verificationRecovery.Controls.Add(chooseExecutableButton);
-
             checkExecutableButton = new PillButton();
             checkExecutableButton.Text = "Check Again";
-            checkExecutableButton.SetBounds(472, 0, 164, 48);
+            // Directly beside Get Editable EXE: the third button here was "Choose
+            // Editable EXE", which duplicated step 1's Browse -- the folder picker already
+            // selects the executable, and Check Again re-verifies it.
+            checkExecutableButton.SetBounds(242, 0, 164, 48);
             checkExecutableButton.Click += delegate { RefreshStatus(); };
             verificationRecovery.Controls.Add(checkExecutableButton);
 
@@ -4261,11 +4257,11 @@ namespace KotorUniversalUI
             // restatements -- the subtitle, a heading, and a path line -- which made the
             // step tall enough to push the rest of the flow off the card.
             if (state == ExecutableState.Missing)
-                stepVerify.SetSubtitle("Download the editable swkotor.exe, then choose it here.");
+                stepVerify.SetSubtitle("Put the editable swkotor.exe in your KOTOR folder, then check again.");
             else if (state == ExecutableState.Unsupported)
                 stepVerify.SetSubtitle("This copy cannot be patched. Replace it, then check again.");
             else
-                stepVerify.SetSubtitle("This file could not be read. Choose another swkotor.exe.");
+                stepVerify.SetSubtitle("This file could not be read. Replace it, then check again.");
 
             stepVerify.Invalidate();
         }

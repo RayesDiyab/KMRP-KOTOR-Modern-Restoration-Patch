@@ -11,7 +11,7 @@ build and verification workflow. Resolution and game-engine math remain in
 `build_universal_patcher.ps1` produces one portable executable:
 
 ```text
-dist/KMRP.exe
+dist/KMRP - KOTOR Modern Restoration Patch.exe
 ```
 
 No companion asset folder is required. The executable embeds:
@@ -585,7 +585,7 @@ Both `build_universal_patcher.ps1` and `build_gold_patcher.ps1` use the
 project-root `favicon.ico`. `app/patcher/favicon.ico` is retained as a
 synchronised compatibility copy, not as an independent source of truth.
 After compilation the universal builder sends `SHCNE_UPDATEITEM` for the output
-path so Explorer is prompted to refresh an icon cached for `dist/KMRP.exe`.
+path so Explorer is prompted to refresh an icon cached for `dist/KMRP - KOTOR Modern Restoration Patch.exe`.
 
 The final build prints the output path and SHA-256. A build's KMRP hash is not a
 stable project constant because compiler metadata can change; record the hash
@@ -593,10 +593,12 @@ next to a release artifact rather than in source-level architecture docs.
 
 ## Command-line modes
 
+The shipped name contains spaces, so quote it on the command line.
+
 ```text
-KMRP.exe --apply clean.exe output.exe WIDTHxHEIGHT
-KMRP.exe --in-place swkotor.exe WIDTHxHEIGHT
-KMRP.exe --restore swkotor.exe
+"KMRP - KOTOR Modern Restoration Patch.exe" --apply clean.exe output.exe WIDTHxHEIGHT
+"KMRP - KOTOR Modern Restoration Patch.exe" --in-place swkotor.exe WIDTHxHEIGHT
+"KMRP - KOTOR Modern Restoration Patch.exe" --restore swkotor.exe
 ```
 
 `--apply` changes only the output executable. `--in-place` performs the full
@@ -620,4 +622,4 @@ the resolution in the legacy `--apply` and `--in-place` forms selects
    or JIT errors.
 8. Patch a clean install, verify the EXE/INI/Override contents, launch the game,
    then restore and compare all backups.
-9. Record the final `dist/KMRP.exe` SHA-256 in the release directory.
+9. Record the final `dist/KMRP - KOTOR Modern Restoration Patch.exe` SHA-256 in the release directory.

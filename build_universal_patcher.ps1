@@ -15,7 +15,7 @@ $buildDir = Join-Path $projectRoot "build\universal-patcher"
 $resourceDir = Join-Path $buildDir "resources"
 $distDir = Join-Path $projectRoot "dist"
 $patchResource = Join-Path $buildDir "gold.kup"
-$outputExe = Join-Path $distDir "KMRP.exe"
+$outputExe = Join-Path $distDir "KMRP - KOTOR Modern Restoration Patch.exe"
 $python = "C:\Python314\python.exe"
 $compiler = "C:\Windows\Microsoft.NET\Framework\v4.0.30319\csc.exe"
 
