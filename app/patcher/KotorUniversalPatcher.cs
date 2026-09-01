@@ -2149,8 +2149,24 @@ namespace KotorUniversalUI
         internal bool Primary;
         internal float TextSize;
         internal float UiScale = 1F;
+        private int progressPercent = -1;
         private bool hover;
         private bool down;
+
+        /// <summary>-1 restores the normal button. Values from 0 through 100 draw
+        /// a clipped, illuminated progress fill inside the existing button shell.</summary>
+        internal int ProgressPercent
+        {
+            get { return progressPercent; }
+            set
+            {
+                int clamped = value < 0 ? -1 : Math.Max(0, Math.Min(100, value));
+                if (clamped == progressPercent)
+                    return;
+                progressPercent = clamped;
+                Invalidate();
+            }
+        }
 
         internal PillButton()
         {
@@ -2175,11 +2191,51 @@ namespace KotorUniversalUI
             g.TextRenderingHint = TextRenderingHint.ClearTypeGridFit;
             Rectangle r = new Rectangle(0, 0, Width - 1, Height - 1);
             float scale = Math.Max(0.1F, UiScale);
+            bool progressActive = progressPercent >= 0;
 
             using (GraphicsPath path = UiTheme.RoundedRect(r,
                        Math.Max(1, (int)Math.Round(8 * scale))))
             {
-                if (!Enabled)
+                if (progressActive)
+                {
+                    using (LinearGradientBrush baseFill = new LinearGradientBrush(
+                               new Rectangle(0, 0, Math.Max(1, Width), Math.Max(1, Height)),
+                               UiTheme.AccentDark, Color.FromArgb(0, 112, 151), 90F))
+                        g.FillPath(baseFill, path);
+
+                    int filled = (int)Math.Round(Width * progressPercent / 100.0);
+                    if (filled > 0)
+                    {
+                        GraphicsState state = g.Save();
+                        g.SetClip(path);
+                        Rectangle fillBox = new Rectangle(0, 0, Math.Max(1, filled), Height);
+                        using (LinearGradientBrush fill = new LinearGradientBrush(fillBox,
+                                   Color.FromArgb(116, 171, 193), Color.FromArgb(59, 132, 162), 90F))
+                            g.FillRectangle(fill, fillBox);
+
+                        int shineHeight = Math.Max(1, (int)Math.Round(Height * 0.48));
+                        using (LinearGradientBrush shine = new LinearGradientBrush(
+                                   new Rectangle(0, 0, Math.Max(1, filled), shineHeight),
+                                   Color.FromArgb(34, 255, 255, 255),
+                                   Color.FromArgb(0, 255, 255, 255), 90F))
+                            g.FillRectangle(shine, 0, 0, filled, shineHeight);
+
+                        if (filled < Width)
+                        {
+                            using (Pen leadingEdge = new Pen(Color.FromArgb(145, 170, 205, 220),
+                                       Math.Max(1F, 1.4F * scale)))
+                                g.DrawLine(leadingEdge, filled,
+                                    Math.Max(3, (int)Math.Round(6 * scale)), filled,
+                                    Height - Math.Max(3, (int)Math.Round(6 * scale)));
+                        }
+                        g.Restore(state);
+                    }
+
+                    using (Pen edge = new Pen(Color.FromArgb(105, 119, 177, 202),
+                               Math.Max(1F, scale)))
+                        g.DrawPath(edge, path);
+                }
+                else if (!Enabled)
                 {
                     using (SolidBrush fill = new SolidBrush(UiTheme.Disabled))
                         g.FillPath(fill, path);
@@ -2201,60 +2257,23 @@ namespace KotorUniversalUI
                 }
             }
 
-            Color ink = !Enabled ? UiTheme.DisabledText : (Primary ? Color.White : UiTheme.Text);
+            Color ink = progressActive ? Color.White :
+                (!Enabled ? UiTheme.DisabledText : (Primary ? Color.White : UiTheme.Text));
             float baseTextSize = TextSize > 0F ? TextSize : (Primary ? 18F : 15.5F);
             using (StringFormat sf = new StringFormat())
-            using (SolidBrush brush = new SolidBrush(ink))
             using (Font f = UiTheme.DisplayFont(Math.Max(6F, baseTextSize * scale), FontStyle.Bold))
             {
                 sf.Alignment = StringAlignment.Center;
                 sf.LineAlignment = StringAlignment.Center;
+                if (progressActive)
+                {
+                    using (SolidBrush shadow = new SolidBrush(Color.FromArgb(115, 0, 39, 58)))
+                        g.DrawString(Text, f, shadow,
+                            new RectangleF(0, Math.Max(1F, scale), Width, Height), sf);
+                }
+                using (SolidBrush brush = new SolidBrush(ink))
                 g.DrawString(Text, f, brush, new RectangleF(0, 0, Width, Height), sf);
             }
-        }
-    }
-
-    /// <summary>A hairline progress track that only shows itself while something is running.</summary>
-    internal sealed class ThinProgress : Control
-    {
-        private int percent;
-
-        internal ThinProgress()
-        {
-            SetStyle(ControlStyles.AllPaintingInWmPaint | ControlStyles.OptimizedDoubleBuffer |
-                     ControlStyles.UserPaint | ControlStyles.ResizeRedraw |
-                     ControlStyles.SupportsTransparentBackColor, true);
-            BackColor = Color.Transparent;
-            Height = 4;
-        }
-
-        internal int Percent
-        {
-            get { return percent; }
-            set
-            {
-                int clamped = Math.Max(0, Math.Min(100, value));
-                if (clamped == percent)
-                    return;
-                percent = clamped;
-                Invalidate();
-            }
-        }
-
-        protected override void OnPaint(PaintEventArgs e)
-        {
-            Graphics g = e.Graphics;
-            g.SmoothingMode = SmoothingMode.AntiAlias;
-            using (GraphicsPath track = UiTheme.RoundedRect(new Rectangle(0, 0, Width - 1, Height - 1), Height / 2))
-            using (SolidBrush back = new SolidBrush(UiTheme.Badge))
-                g.FillPath(back, track);
-            int filled = (int)Math.Round(Width * percent / 100.0);
-            if (filled <= 1)
-                return;
-            using (GraphicsPath bar = UiTheme.RoundedRect(new Rectangle(0, 0, filled - 1, Height - 1), Height / 2))
-            using (LinearGradientBrush fill = new LinearGradientBrush(
-                       new Rectangle(0, 0, Math.Max(1, filled), Height), UiTheme.Accent, UiTheme.AccentStrong, 0F))
-                g.FillPath(fill, bar);
         }
     }
 
@@ -2371,7 +2390,6 @@ namespace KotorUniversalUI
 
         private readonly TextBox pathBox;              // data holder; the path is shown in step 1's subtitle
         private readonly DarkCombo resolutionBox;
-        private readonly ThinProgress progressBar;
         private readonly PillButton actionButton;
         private bool actionIsRestore;
         private readonly PillButton browseButton;
@@ -2452,7 +2470,7 @@ namespace KotorUniversalUI
             catch { brand = null; }
 
             // Height is the sum of the fixed pieces: four steps, the gap above the primary
-            // button, the button, the gap above Restore, Restore, and the bottom padding.
+            // action, the action button, and the bottom padding.
             int cardHeight = 4 * StepHeight + 30 + 76 + 40;
             int cardWidth = (int)Math.Round(cardHeight * CardAspect);
 
@@ -2598,12 +2616,6 @@ namespace KotorUniversalUI
             actionButton.Anchor = AnchorStyles.Top | AnchorStyles.Left | AnchorStyles.Right;
             actionButton.Click += ActionClicked;
             card.Controls.Add(actionButton);
-
-            progressBar = new ThinProgress();
-            progressBar.SetBounds(80, actionButton.Bottom + 14, card.Width - 160, 4);
-            progressBar.Anchor = AnchorStyles.Top | AnchorStyles.Left | AnchorStyles.Right;
-            progressBar.Visible = false;
-            card.Controls.Add(progressBar);
 
             card.Height = actionButton.Bottom + 40;
 
@@ -3177,7 +3189,7 @@ namespace KotorUniversalUI
             if (!needsRecovery)
             {
                 stepVerify.SetSubtitle(state == ExecutableState.Gold
-                    ? "Patched executable detected."
+                    ? "KOTOR Modern Restoration Patch detected."
                     : "Compatible editable executable detected.");
                 stepVerify.Invalidate();
                 return;
@@ -3298,7 +3310,7 @@ namespace KotorUniversalUI
             else if (executableReady && iniExists)
             {
                 SetState(applyState, "Ready to patch", UiTheme.Accent);
-                lastDetail = "Everything is ready. Choose a resolution and start patching.";
+                lastDetail = "Everything is ready. Start patching when ready.";
             }
             else if (executableReady)
             {
@@ -3350,12 +3362,14 @@ namespace KotorUniversalUI
                 return;
 
             string target = pathBox.Text.Trim();
-            progressBar.Percent = 0;
-            progressBar.Visible = true;
+            actionButton.ProgressPercent = 0;
+            actionButton.Text = name == "Patch" ? "Preparing patch…   0%" : "Preparing restore…   0%";
             operationRunning = true;
             SetBusyState(true);
             SetState(applyState, name == "Patch" ? "Patching…" : "Restoring…", UiTheme.Accent);
-            stepApply.SetSubtitle(name == "Patch" ? "Preparing to patch…" : "Preparing to restore…");
+            stepApply.SetSubtitle(name == "Patch"
+                ? "KMRP is updating your game. Please wait."
+                : "KMRP is restoring your original files. Please wait.");
 
             BackgroundWorker worker = new BackgroundWorker();
             worker.WorkerReportsProgress = true;
@@ -3378,20 +3392,19 @@ namespace KotorUniversalUI
             worker.ProgressChanged += delegate(object sender, ProgressChangedEventArgs e)
             {
                 int percent = Math.Max(0, Math.Min(100, e.ProgressPercentage));
-                progressBar.Percent = percent;
+                actionButton.ProgressPercent = percent;
                 string message = e.UserState as string;
-                stepApply.SetSubtitle((String.IsNullOrWhiteSpace(message) ? "Working…" : message) +
-                    "   " + percent.ToString(CultureInfo.InvariantCulture) + "%");
+                actionButton.Text = (String.IsNullOrWhiteSpace(message) ? "Working…" : message) +
+                    "   " + percent.ToString(CultureInfo.InvariantCulture) + "%";
             };
             worker.RunWorkerCompleted += delegate(object sender, RunWorkerCompletedEventArgs e)
             {
+                actionButton.ProgressPercent = -1;
                 operationRunning = false;
                 SetBusyState(false);
 
                 if (e.Error != null)
                 {
-                    progressBar.Percent = 0;
-                    progressBar.Visible = false;
                     RefreshStatus();
                     SetState(applyState, "Error", UiTheme.Error);
                     stepApply.SetSubtitle(name + " stopped — no incomplete changes were left behind.");
@@ -3400,7 +3413,6 @@ namespace KotorUniversalUI
                     return;
                 }
 
-                progressBar.Percent = 100;
                 string result = e.Result as string;
                 RefreshStatus();
                 SetState(applyState, name == "Patch" ? "Patched successfully" : "Restored successfully", UiTheme.Success);

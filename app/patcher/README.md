@@ -37,6 +37,9 @@ guide in Step 2. It links directly to the required
 on Deadly Stream. **Start Patching** remains disabled until a compatible
 executable and the initial game configuration are available. Once patched, the
 same button becomes **Restore Original** when the verified backups exist.
+While patching or restoring, that button becomes an in-button progress display:
+its pale-blue fill advances left to right and its label carries the current
+stage and percentage. Step 4 itself remains stable and uncluttered.
 
 Both build scripts use the project-root `favicon.ico` for the Windows
 application and window icon. The main window resizes at a locked aspect ratio:
