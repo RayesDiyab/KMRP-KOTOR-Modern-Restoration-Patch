@@ -2335,83 +2335,140 @@ namespace KotorUniversalUI
         }
     }
 
-    /// <summary>Soft blue haze drifting up behind the header artwork.
+    /// <summary>A lit volumetric plume. A light source sits behind the crest, luminous
+    /// smoke billows down and outward from it, and dust motes fall through the beam.
     ///
-    /// Deliberately cheap. Particles are accumulated into a quarter-resolution buffer and
-    /// scaled up: the interpolation blur on the way out is the same softness the effect
-    /// wants, so the expensive part is done by the upscaler rather than by drawing large
-    /// gradients. One white blob sprite is rendered once and reused for every particle,
-    /// tinted and faded through a single reused ColorMatrix, so a frame allocates nothing.
+    /// The billowing structure is procedural fBm noise, not sprites: soft blobs cannot
+    /// produce the fractal, curdled edge that reads as real smoke. The turbulence comes
+    /// from domain warping -- the noise field is sampled at coordinates that are themselves
+    /// offset by another noise field, which is what folds the plume into itself instead of
+    /// leaving it looking like drifting fog.
     ///
-    /// It stops when the window is not active and while a patch is running -- an ambient
-    /// flourish has no business competing with file I/O for the CPU.</summary>
-    internal sealed class SmokeField : IDisposable
+    /// Everything is accumulated into one scalar emission buffer at reduced resolution: the
+    /// smoke, the source glow, the downward cone, and the motes all add into the same
+    /// field, so a single bloom pass and a single colour ramp light all of them
+    /// consistently, and the motes glow because they are genuinely part of the lit volume
+    /// rather than dots pasted on top. The buffer is then upscaled, which supplies the
+    /// final softening for free.
+    ///
+    /// The cost is per-pixel CPU work, so resolution and octave count are the two dials
+    /// that matter for frame time; both are measured rather than guessed.</summary>
+    internal sealed class LightField : IDisposable
     {
-        private sealed class Particle
+        private sealed class Mote
         {
-            internal float X, Y, Radius, Speed, Drift, Phase, Life, Age, Seed;
+            internal float X, Y, Fall, Drift, Phase, Size, Age, Life, Seed;
         }
 
-        // Tuned against a rendered 1160x220 header, averaged over 181 frames of steady
-        // state rather than eyeballed on one frame. The shipping numbers give 17.5% of the
-        // strip lit, a mean of rgb 10,17,28 over a window of 7,12,21, a peak brightness
-        // delta of 56 (max 86, so nothing flares behind the wordmark), and an even
-        // top-to-bottom distribution of 1.00. The first attempt lit 97% of the strip.
-        private const int Count = 46;
-        private const int Downscale = 4;
-        private const float TravelSpan = 1.8F;   // header-heights a particle rises before dying
-        private const float FadeOutAt = 0.6F;    // fraction of life spent at full strength
-        private const float PeakAlpha = 0.14F;
-        private const float RadiusSpan = 0.95F;  // radius as a fraction of the header height
-        private const float HeightFade = 0.8F;   // how much the plume thins as it rises
+        // The lamp is off-screen, above the top edge, and spans the whole bar: the source
+        // is never visible, only what it lights. A localised source was tried first and
+        // read as a glowing ball behind the crest.
+        private const float TopFalloff = 2.4F;      // how fast the light dies with depth
+        private const float TopStrength = 1.45F;
+        private const float ShaftScale = 3.2F;      // lateral width of the descending shafts
+        private const float ShaftStrength = 0.55F;  // how much of the light is shaped into shafts
+        private const float ShaftDrift = 0.035F;    // how fast the shafts slide sideways
 
-        private readonly Particle[] particles = new Particle[Count];
+        // Rendering budget. Downscale is the single biggest lever on frame time: the noise
+        // is evaluated nine times per buffer pixel, so halving this quadruples the cost.
+        private const int Downscale = 8;
+        private const int Octaves = 3;
+
+        // Smoke shape.
+        private const float NoiseScale = 2.4F;
+        private const float WarpStrength = 1.25F;
+        private const float FlowSpeed = 0.055F;   // how fast the plume travels downward
+        private const float EvolveSpeed = 0.09F;  // how fast it boils in place
+        private const float Threshold = 0.40F;    // noise level where smoke begins
+        private const float DensityGain = 2.5F;
+        private const float VerticalFalloff = 2.6F;
+
+        private const float BloomWeight = 0.55F;
+        private const int BloomRadius = 2;
+        private const float Exposure = 1.20F;
+        private const float MaxAlpha = 0.90F;
+        private const int MoteCount = 90;
+        // Mote radius as a fraction of the header height. These are drawn at full
+        // resolution rather than into the smoke buffer: at Downscale 8 a mote was
+        // clamped to a single buffer pixel, so it could not be made any smaller and
+        // upscaled to a soft 16px disc.
+        private const float MoteSizeMin = 0.0045F;
+        private const float MoteSizeSpan = 0.0115F;
+        private const float MoteAlpha = 1.0F;
+
+        // The emission ramp, darkest to brightest. Blue counterpart of the reference's
+        // black to olive to gold to white-hot core.
+        private static readonly float[] RampStop = { 0.00F, 0.30F, 0.62F, 1.00F };
+        private static readonly int[] RampR = { 6, 24, 104, 210 };
+        private static readonly int[] RampG = { 20, 88, 178, 238 };
+        private static readonly int[] RampB = { 58, 190, 250, 255 };
+
+        private readonly int[] perm = new int[512];
         private readonly Random random = new Random(20260901);
-        private readonly ImageAttributes attributes = new ImageAttributes();
-        private readonly ColorMatrix matrix = new ColorMatrix();
-        private Bitmap blob;
-        private Bitmap buffer;
-        private Color tint = Color.FromArgb(64, 150, 255);
+        private readonly Mote[] motes = new Mote[MoteCount];
 
-        internal SmokeField()
+        private int width, height;
+        private float[] field;
+        private float[] scratch;
+        private byte[] pixels;
+        private Bitmap buffer;
+        private Bitmap moteSprite;
+        private readonly ImageAttributes moteAttributes = new ImageAttributes();
+        private readonly ColorMatrix moteMatrix = new ColorMatrix();
+        private float time;
+        private double lastRenderMs;
+
+        internal LightField()
         {
-            for (int i = 0; i < Count; i++)
+            int[] source = new int[256];
+            for (int i = 0; i < 256; i++)
+                source[i] = i;
+            for (int i = 255; i > 0; i--)
             {
-                particles[i] = new Particle();
-                Respawn(particles[i], true);
+                int j = random.Next(i + 1);
+                int swap = source[i];
+                source[i] = source[j];
+                source[j] = swap;
+            }
+            for (int i = 0; i < 512; i++)
+                perm[i] = source[i & 255];
+
+            for (int i = 0; i < MoteCount; i++)
+            {
+                motes[i] = new Mote();
+                Respawn(motes[i], true);
             }
         }
 
-        internal Color Tint { set { tint = value; } }
+        /// <summary>Milliseconds spent in the last Render, for the frame-budget check.</summary>
+        internal double LastRenderMs { get { return lastRenderMs; } }
 
-        private void Respawn(Particle p, bool scatter)
+        private void Respawn(Mote m, bool scatter)
         {
-            p.X = (float)random.NextDouble();
-            p.Y = scatter ? (float)random.NextDouble() : 1.05F + (float)random.NextDouble() * 0.15F;
-            p.Radius = 0.10F + (float)random.NextDouble() * 0.22F;
-            p.Speed = 0.060F + (float)random.NextDouble() * 0.135F;
-            p.Drift = 0.010F + (float)random.NextDouble() * 0.030F;
-            p.Phase = (float)(random.NextDouble() * Math.PI * 2);
-            p.Life = 1F;
-            p.Age = scatter ? (float)random.NextDouble() : 0F;
-            p.Seed = 0.55F + (float)random.NextDouble() * 0.45F;
+            m.X = (float)random.NextDouble();
+            m.Y = scatter ? (float)random.NextDouble() : -(float)random.NextDouble() * 0.12F;
+            m.Fall = 0.045F + (float)random.NextDouble() * 0.11F;
+            m.Drift = 0.012F + (float)random.NextDouble() * 0.035F;
+            m.Phase = (float)(random.NextDouble() * Math.PI * 2);
+            m.Size = MoteSizeMin + (float)random.NextDouble() * MoteSizeSpan;
+            m.Life = 1F;
+            m.Age = scatter ? (float)random.NextDouble() : 0F;
+            m.Seed = 0.45F + (float)random.NextDouble() * 0.55F;
         }
 
-        /// <summary>Advances by `seconds`. Ages are normalised, so the motion is
-        /// frame-rate independent and a dropped frame does not jump the field.</summary>
         internal void Step(float seconds)
         {
-            for (int i = 0; i < Count; i++)
+            time += seconds;
+            for (int i = 0; i < MoteCount; i++)
             {
-                Particle p = particles[i];
-                // Ageing is tied to distance travelled, not to a flat rate: otherwise every
-                // particle dies after the same short rise regardless of its speed, and the
-                // plume never reaches the top of the header.
-                p.Age += seconds * p.Speed / TravelSpan;
-                p.Y -= seconds * p.Speed;
-                p.Phase += seconds * 0.6F;
-                if (p.Age >= p.Life || p.Y < -0.35F)
-                    Respawn(p, false);
+                Mote m = motes[i];
+                // Motes age by how far they have fallen, so a slow mote is not killed
+                // early and the fall reaches the bottom of the header.
+                m.Age += seconds * m.Fall / 1.15F;
+                m.Y += seconds * m.Fall;
+                m.Phase += seconds * 0.7F;
+                if (m.Age >= m.Life || m.Y > 1.25F)
+                    Respawn(m, false);
             }
         }
 
@@ -2419,76 +2476,158 @@ namespace KotorUniversalUI
         {
             if (area.Width < 8 || area.Height < 8)
                 return;
+            long started = Stopwatch.GetTimestamp();
 
             int w = Math.Max(8, area.Width / Downscale);
             int h = Math.Max(8, area.Height / Downscale);
-            if (buffer == null || buffer.Width != w || buffer.Height != h)
+            if (buffer == null || width != w || height != h)
             {
                 if (buffer != null)
                     buffer.Dispose();
+                width = w;
+                height = h;
+                field = new float[w * h];
+                scratch = new float[w * h];
+                pixels = new byte[w * h * 4];
                 buffer = new Bitmap(w, h, PixelFormat.Format32bppArgb);
             }
-            if (blob == null)
-                blob = BuildBlob(96);
 
-            using (Graphics g = Graphics.FromImage(buffer))
-            {
-                g.Clear(Color.Transparent);
-                g.InterpolationMode = InterpolationMode.Bilinear;
-                g.CompositingQuality = CompositingQuality.HighSpeed;
-                g.SmoothingMode = SmoothingMode.None;
+            float aspect = area.Width / (float)area.Height;
+            RenderSmoke(w, h, aspect);
+            Bloom(w, h);
+            MapToPixels(w, h);
 
-                for (int i = 0; i < Count; i++)
-                {
-                    Particle p = particles[i];
-                    // Fade in quickly and out slowly, so nothing pops into or out of
-                    // existence and the dissipation reads as the slower half of the motion.
-                    float t = p.Age / Math.Max(0.001F, p.Life);
-                    float fade = t < 0.15F ? t / 0.15F
-                        : (t > FadeOutAt ? 1F - (t - FadeOutAt) / (1F - FadeOutAt) : 1F);
-                    if (fade <= 0F)
-                        continue;
-
-                    // Thin with height as well as with age: a plume that keeps its full
-                    // weight all the way up crowds the wordmark, which sits at the top.
-                    float rise = Math.Min(1F, Math.Max(0F, p.Y + 0.15F));
-                    rise = (1F - HeightFade) + HeightFade * rise * rise;
-                    float alpha = fade * p.Seed * PeakAlpha * rise;
-                    matrix.Matrix00 = tint.R / 255F;
-                    matrix.Matrix11 = tint.G / 255F;
-                    matrix.Matrix22 = tint.B / 255F;
-                    matrix.Matrix33 = alpha;
-                    matrix.Matrix44 = 1F;
-                    attributes.SetColorMatrix(matrix);
-
-                    float radius = (p.Radius * (0.7F + t * 0.9F)) * h * RadiusSpan;
-                    float x = (p.X + (float)Math.Sin(p.Phase) * p.Drift) * w;
-                    float y = p.Y * h;
-                    Rectangle dest = new Rectangle(
-                        (int)(x - radius), (int)(y - radius),
-                        (int)(radius * 2), (int)(radius * 2));
-                    if (dest.Bottom < 0 || dest.Top > h || dest.Right < 0 || dest.Left > w)
-                        continue;
-                    g.DrawImage(blob, dest, 0, 0, blob.Width, blob.Height,
-                        GraphicsUnit.Pixel, attributes);
-                }
-            }
+            BitmapData data = buffer.LockBits(new Rectangle(0, 0, w, h),
+                ImageLockMode.WriteOnly, PixelFormat.Format32bppArgb);
+            Marshal.Copy(pixels, 0, data.Scan0, pixels.Length);
+            buffer.UnlockBits(data);
 
             InterpolationMode previous = target.InterpolationMode;
             target.InterpolationMode = InterpolationMode.HighQualityBilinear;
             target.DrawImage(buffer, area);
             target.InterpolationMode = previous;
+
+            RenderMotes(target, area);
+
+            lastRenderMs = (Stopwatch.GetTimestamp() - started) * 1000.0 / Stopwatch.Frequency;
         }
 
-        /// <summary>One white radial blob, opaque at the centre and transparent at the rim.
-        /// Built by hand rather than with a PathGradientBrush so the falloff is a smooth
-        /// square curve -- GDI+'s own gradient leaves a visible ring at low alpha.</summary>
-        private static Bitmap BuildBlob(int size)
+        private void RenderSmoke(int w, int h, float aspect)
+        {
+            float evolve = time * EvolveSpeed;
+            for (int y = 0; y < h; y++)
+            {
+                float v = (y + 0.5F) / h;
+                // The smoke thins with depth just as the light does.
+                float shape = (float)Math.Exp(-v * VerticalFalloff);
+
+                for (int x = 0; x < w; x++)
+                {
+                    float u = (x + 0.5F) / w;
+
+                    float lit = LightAt(u, v);
+                    if (lit < 0.004F)
+                    {
+                        field[y * w + x] = 0F;
+                        continue;
+                    }
+
+                    // Sample the plume in a frame that travels downward with it.
+                    float nx = u * NoiseScale * aspect;
+                    float ny = (v - time * FlowSpeed) * NoiseScale;
+
+                    // Domain warp: offset the lookup by another noise field. This is what
+                    // curdles the plume instead of leaving it as smooth drifting fog.
+                    float wx = Fbm(nx + 3.1F, ny + 1.7F, evolve);
+                    float wy = Fbm(nx - 2.4F, ny + 5.3F, evolve + 2.0F);
+                    float n = Fbm(nx + WarpStrength * wx, ny + WarpStrength * wy, evolve);
+
+                    float dens = (n * 0.5F + 0.5F - Threshold) * DensityGain;
+                    if (dens <= 0F)
+                    {
+                        field[y * w + x] = 0F;
+                        continue;
+                    }
+                    if (dens > 1F)
+                        dens = 1F;
+
+                    field[y * w + x] = dens * shape * lit * Exposure;
+                }
+            }
+        }
+
+        /// <summary>Light entering from above the top edge, across the full width, dying
+        /// with depth. Broken into irregular descending shafts so it reads as light coming
+        /// through something rather than as a flat gradient -- the shafts are what make the
+        /// effect visible while the source itself stays off-screen.</summary>
+        private float LightAt(float u, float v)
+        {
+            if (v < 0F)
+                v = 0F;
+            float fall = (float)Math.Exp(-v * TopFalloff);
+            float s = Noise(u * ShaftScale + time * ShaftDrift, 11.7F, 3.9F) * 0.5F + 0.5F;
+            float shaft = 1F - ShaftStrength + ShaftStrength * s * s;
+            return TopStrength * fall * shaft;
+        }
+
+        /// <summary>Motes are drawn at full resolution, after the smoke buffer has been
+        /// upscaled, so their size is independent of Downscale and they stay crisp
+        /// against the soft plume. One cached sprite is tinted per mote through a reused
+        /// colour matrix, so the pass allocates nothing.</summary>
+        private void RenderMotes(Graphics target, Rectangle area)
+        {
+            if (moteSprite == null)
+                moteSprite = BuildMote(64);
+
+            InterpolationMode previous = target.InterpolationMode;
+            target.InterpolationMode = InterpolationMode.Bilinear;
+            for (int i = 0; i < MoteCount; i++)
+            {
+                Mote m = motes[i];
+                float t = m.Age / Math.Max(0.001F, m.Life);
+                float fade = t < 0.12F ? t / 0.12F : (t > 0.45F ? 1F - (t - 0.45F) / 0.55F : 1F);
+                if (fade <= 0F)
+                    continue;
+
+                float mx = m.X + (float)Math.Sin(m.Phase) * m.Drift;
+                float my = m.Y;
+                if (my < -0.05F || my > 1.05F)
+                    continue;
+
+                // A mote is only as bright as the light reaching it.
+                float bright = fade * m.Seed * LightAt(mx, my) * MoteAlpha;
+                if (bright <= 0.004F)
+                    continue;
+                if (bright > 1F)
+                    bright = 1F;
+
+                moteMatrix.Matrix00 = RampR[3] / 255F;
+                moteMatrix.Matrix11 = RampG[3] / 255F;
+                moteMatrix.Matrix22 = RampB[3] / 255F;
+                moteMatrix.Matrix33 = bright;
+                moteMatrix.Matrix44 = 1F;
+                moteAttributes.SetColorMatrix(moteMatrix);
+
+                float radius = m.Size * area.Height;
+                float cx = area.Left + mx * area.Width;
+                float cy = area.Top + my * area.Height;
+                Rectangle dest = new Rectangle(
+                    (int)(cx - radius), (int)(cy - radius),
+                    Math.Max(2, (int)(radius * 2)), Math.Max(2, (int)(radius * 2)));
+                target.DrawImage(moteSprite, dest, 0, 0, moteSprite.Width, moteSprite.Height,
+                    GraphicsUnit.Pixel, moteAttributes);
+            }
+            target.InterpolationMode = previous;
+        }
+
+        /// <summary>A hard-ish core inside a soft halo, so a mote still reads as a point
+        /// of light at three pixels across instead of dissolving into a smudge.</summary>
+        private static Bitmap BuildMote(int size)
         {
             Bitmap bitmap = new Bitmap(size, size, PixelFormat.Format32bppArgb);
             BitmapData data = bitmap.LockBits(new Rectangle(0, 0, size, size),
                 ImageLockMode.WriteOnly, PixelFormat.Format32bppArgb);
-            byte[] pixels = new byte[data.Stride * size];
+            byte[] px = new byte[data.Stride * size];
             float centre = (size - 1) / 2F;
             for (int y = 0; y < size; y++)
             {
@@ -2497,25 +2636,152 @@ namespace KotorUniversalUI
                     float dx = (x - centre) / centre;
                     float dy = (y - centre) / centre;
                     double d = Math.Sqrt(dx * dx + dy * dy);
-                    double falloff = d >= 1.0 ? 0.0 : (1.0 - d) * (1.0 - d);
-                    byte a = (byte)Math.Max(0, Math.Min(255, (int)(falloff * 255)));
+                    double a = d >= 1.0 ? 0.0
+                        : 0.35 * Math.Pow(1.0 - d, 2.0) + 0.65 * Math.Pow(Math.Max(0.0, 1.0 - d * 2.6), 2.0);
                     int at = y * data.Stride + x * 4;
-                    pixels[at] = 255;        // premultiplied later by the colour matrix
-                    pixels[at + 1] = 255;
-                    pixels[at + 2] = 255;
-                    pixels[at + 3] = a;
+                    px[at] = 255;
+                    px[at + 1] = 255;
+                    px[at + 2] = 255;
+                    px[at + 3] = (byte)Math.Max(0, Math.Min(255, (int)(a * 255)));
                 }
             }
-            Marshal.Copy(pixels, 0, data.Scan0, pixels.Length);
+            Marshal.Copy(px, 0, data.Scan0, px.Length);
             bitmap.UnlockBits(data);
             return bitmap;
         }
 
+        /// <summary>Separable box blur added back over the original. Two narrow passes are
+        /// cheaper than one wide one and land close enough to a gaussian for a glow.</summary>
+        private void Bloom(int w, int h)
+        {
+            int r = BloomRadius;
+            float inv = 1F / (2 * r + 1);
+
+            for (int y = 0; y < h; y++)
+            {
+                int row = y * w;
+                for (int x = 0; x < w; x++)
+                {
+                    float sum = 0F;
+                    for (int k = -r; k <= r; k++)
+                    {
+                        int sx = x + k;
+                        if (sx < 0) sx = 0; else if (sx >= w) sx = w - 1;
+                        sum += field[row + sx];
+                    }
+                    scratch[row + x] = sum * inv;
+                }
+            }
+            for (int x = 0; x < w; x++)
+            {
+                for (int y = 0; y < h; y++)
+                {
+                    float sum = 0F;
+                    for (int k = -r; k <= r; k++)
+                    {
+                        int sy = y + k;
+                        if (sy < 0) sy = 0; else if (sy >= h) sy = h - 1;
+                        sum += scratch[sy * w + x];
+                    }
+                    field[y * w + x] += sum * inv * BloomWeight;
+                }
+            }
+        }
+
+        private void MapToPixels(int w, int h)
+        {
+            int count = w * h;
+            for (int i = 0; i < count; i++)
+            {
+                int at = i * 4;
+                float e = field[i];
+                if (e <= 0.002F)
+                {
+                    pixels[at] = 0;
+                    pixels[at + 1] = 0;
+                    pixels[at + 2] = 0;
+                    pixels[at + 3] = 0;
+                    continue;
+                }
+                if (e > 1F)
+                    e = 1F;
+
+                int stop = 0;
+                while (stop < RampStop.Length - 2 && e > RampStop[stop + 1])
+                    stop++;
+                float span = RampStop[stop + 1] - RampStop[stop];
+                float f = span <= 0F ? 0F : (e - RampStop[stop]) / span;
+                if (f < 0F) f = 0F; else if (f > 1F) f = 1F;
+
+                pixels[at] = (byte)(RampB[stop] + (RampB[stop + 1] - RampB[stop]) * f);
+                pixels[at + 1] = (byte)(RampG[stop] + (RampG[stop + 1] - RampG[stop]) * f);
+                pixels[at + 2] = (byte)(RampR[stop] + (RampR[stop + 1] - RampR[stop]) * f);
+                // Alpha rises faster than colour so thin smoke is tinted, not merely dim.
+                float a = e * 1.35F;
+                if (a > 1F) a = 1F;
+                pixels[at + 3] = (byte)(a * MaxAlpha * 255F);
+            }
+        }
+
+        private float Fbm(float x, float y, float z)
+        {
+            float sum = 0F, amp = 0.5F, freq = 1F;
+            for (int i = 0; i < Octaves; i++)
+            {
+                sum += amp * Noise(x * freq, y * freq, z * freq);
+                freq *= 2F;
+                amp *= 0.5F;
+            }
+            return sum;
+        }
+
+        private static float Fade(float t) { return t * t * t * (t * (t * 6F - 15F) + 10F); }
+        private static float Lerp(float a, float b, float t) { return a + (b - a) * t; }
+
+        private static float Grad(int hash, float x, float y, float z)
+        {
+            int h = hash & 15;
+            float u = h < 8 ? x : y;
+            float v = h < 4 ? y : (h == 12 || h == 14 ? x : z);
+            return ((h & 1) == 0 ? u : -u) + ((h & 2) == 0 ? v : -v);
+        }
+
+        /// <summary>Perlin improved gradient noise. Gradient rather than value noise:
+        /// value noise leaves visible axis-aligned blocking once it is warped.</summary>
+        private float Noise(float x, float y, float z)
+        {
+            int xi = (int)Math.Floor(x) & 255;
+            int yi = (int)Math.Floor(y) & 255;
+            int zi = (int)Math.Floor(z) & 255;
+            x -= (float)Math.Floor(x);
+            y -= (float)Math.Floor(y);
+            z -= (float)Math.Floor(z);
+            float u = Fade(x), v = Fade(y), t = Fade(z);
+
+            int a = perm[xi] + yi, aa = perm[a] + zi, ab = perm[a + 1] + zi;
+            int b = perm[xi + 1] + yi, ba = perm[b] + zi, bb = perm[b + 1] + zi;
+
+            return Lerp(
+                Lerp(Lerp(Grad(perm[aa], x, y, z), Grad(perm[ba], x - 1, y, z), u),
+                     Lerp(Grad(perm[ab], x, y - 1, z), Grad(perm[bb], x - 1, y - 1, z), u), v),
+                Lerp(Lerp(Grad(perm[aa + 1], x, y, z - 1), Grad(perm[ba + 1], x - 1, y, z - 1), u),
+                     Lerp(Grad(perm[ab + 1], x, y - 1, z - 1), Grad(perm[bb + 1], x - 1, y - 1, z - 1), u), v),
+                t);
+        }
+
         public void Dispose()
         {
-            if (buffer != null) { buffer.Dispose(); buffer = null; }
-            if (blob != null) { blob.Dispose(); blob = null; }
-            attributes.Dispose();
+            if (buffer != null)
+            {
+                buffer.Dispose();
+                buffer = null;
+            }
+            if (moteSprite != null)
+            {
+                moteSprite.Dispose();
+                moteSprite = null;
+            }
+            moteAttributes.Dispose();
         }
     }
 
@@ -2594,7 +2860,11 @@ namespace KotorUniversalUI
         private readonly Panel optionsHost;           // reserved: future checkboxes land here
         private readonly LinkLabel logLink;
         private Image brand;
-        private readonly SmokeField smoke = new SmokeField();
+        private readonly LightField light = new LightField();
+        // The header repaints on every animation frame, so the brand must not be
+        // resampled on every one of them: a 650x350 bicubic resize per frame cost more
+        // than the plume itself. Scaled once per size, then blitted.
+        private Bitmap scaledBrand;
         private readonly Timer smokeTimer;
         private int smokeLastTick;
         private Font taglineFont;      // sized so the tagline matches the wordmark's width
@@ -2639,7 +2909,6 @@ namespace KotorUniversalUI
             // Keep old scaled fonts alive until the resize/paint burst has gone idle.
             // ~25fps is plenty for a slow haze, and the field only ever invalidates the
             // header strip, so a frame costs one small bitmap and one upscale.
-            smoke.Tint = UiTheme.GlyphInk;
             smokeTimer = new Timer();
             smokeTimer.Interval = 40;
             smokeLastTick = Environment.TickCount;
@@ -2650,7 +2919,7 @@ namespace KotorUniversalUI
                 smokeLastTick = now;
                 if (!SmokeShouldRun())
                     return;
-                smoke.Step(seconds);
+                light.Step(seconds);
                 Invalidate(new Rectangle(0, 0, ClientSize.Width, ScaleDesign(headerHeight)));
             };
             smokeTimer.Start();
@@ -3196,7 +3465,9 @@ namespace KotorUniversalUI
                     taglineFont.Dispose();
                 smokeTimer.Stop();
                 smokeTimer.Dispose();
-                smoke.Dispose();
+                light.Dispose();
+                if (scaledBrand != null)
+                    scaledBrand.Dispose();
                 if (brand != null)
                     brand.Dispose();
                 if (resizePreview != null)
@@ -3296,7 +3567,7 @@ namespace KotorUniversalUI
             Rectangle header = new Rectangle(0, 0, ClientSize.Width, ScaleDesign(headerHeight));
             GraphicsState clipped = g.Save();
             g.SetClip(header);
-            smoke.Render(g, header);
+            light.Render(g, header);
             g.Restore(clipped);
 
             // The crest and the metallic wordmark are one baked lockup, so the crest's
@@ -3307,9 +3578,21 @@ namespace KotorUniversalUI
             int taglineTop = Math.Max(1, (int)Math.Round(30 * uiScale));
             if (brand != null)
             {
-                g.InterpolationMode = InterpolationMode.HighQualityBicubic;
-                g.DrawImage(brand, (ClientSize.Width - scaledBrandWidth) / 2,
-                    brandTop, scaledBrandWidth, scaledBrandHeight);
+                if (scaledBrand == null || scaledBrand.Width != scaledBrandWidth
+                    || scaledBrand.Height != scaledBrandHeight)
+                {
+                    if (scaledBrand != null)
+                        scaledBrand.Dispose();
+                    scaledBrand = new Bitmap(scaledBrandWidth, scaledBrandHeight,
+                        PixelFormat.Format32bppArgb);
+                    using (Graphics bg = Graphics.FromImage(scaledBrand))
+                    {
+                        bg.InterpolationMode = InterpolationMode.HighQualityBicubic;
+                        bg.PixelOffsetMode = PixelOffsetMode.HighQuality;
+                        bg.DrawImage(brand, 0, 0, scaledBrandWidth, scaledBrandHeight);
+                    }
+                }
+                g.DrawImageUnscaled(scaledBrand, (ClientSize.Width - scaledBrandWidth) / 2, brandTop);
                 taglineTop = brandTop + scaledBrandHeight + Math.Max(1, (int)Math.Round(2 * uiScale));
             }
 
