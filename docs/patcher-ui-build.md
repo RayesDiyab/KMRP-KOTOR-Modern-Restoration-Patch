@@ -151,16 +151,35 @@ One thing was required to get it that low and should be kept:
 - the scaled brand is cached as a bitmap. The header repaints on every animation
   frame, and re-running a 650 x 350 bicubic resize per frame cost more than the plume
   itself -- removing it took the process from 57% of a core to 40%;
-- the effect keeps running while a patch is in progress and while the window is in
-  the background. Patching is on a `BackgroundWorker` and reaches the UI thread only
+- the effect keeps running while a patch is in progress, while the window is in the
+  background, and through a live resize. Patching is on a `BackgroundWorker` and reaches the UI thread only
   through `ReportProgress`, so painting the header does not delay the file work and
   the file work does not stall the animation. It costs roughly 40% of a core for as
   long as the window is open, background included; if that ever needs reducing, halve
   the timer rate when the window is not active rather than stopping it.
 
-Only two cases stop it, and both are correctness rather than politeness: during the
-snapshot resize the header is a scaled bitmap rather than live paint, so animating
-would fight the snapshot; and a minimised window paints nothing anyone can see.
+The simulation never stops. `Step` runs on every tick regardless of window state, so
+the plume is never frozen in time and never resumes from a stale frame; only painting
+is ever skipped, and only when the window is minimised, where Windows delivers no
+paint to the client area and rendering would be invisible work.
+
+**The header animates during a live resize too.** The snapshot exists because
+re-laying out the card's child controls on every mouse move is expensive -- but the
+header has no child controls, so it can be repainted live over the frozen frame. At
+`BeginResizePreview` the brand and tagline are baked into a transparent layer; each
+resize frame then paints background, plume, and that layer stretched over the top.
+Stretching the baked layer is one bilinear blit, where rebuilding it would mean a
+bicubic resample of the artwork per frame -- exactly what the brand cache exists to
+avoid. The layer is drawn with `AntiAliasGridFit` rather than ClearType, because
+subpixel hinting against transparency leaves coloured fringes once composited.
+
+Two details matter there. `uiScale` still holds its pre-resize value while a preview
+is up, so the header's on-screen height is the captured height scaled by how far the
+window has been dragged; `LiveHeaderHeight()` is the single source of that number, so
+the invalidate rectangle and the paint cannot drift apart and leave a stale band when
+the window grows. And the whole live-header block is wrapped in a catch that drops the
+layer and reverts to the plain snapshot: an exception escaping a paint handler
+mid-drag would surface as a JIT dialog.
 
 If it needs to be cheaper still, raise `Downscale`, drop `Octaves` from 3 to 2, or
 lengthen the timer interval -- the plume is slow enough to survive a lower frame rate.
