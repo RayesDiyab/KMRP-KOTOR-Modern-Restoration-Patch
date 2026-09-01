@@ -158,19 +158,38 @@ One thing was required to get it that low and should be kept:
   long as the window is open, background included; if that ever needs reducing, halve
   the timer rate when the window is not active rather than stopping it.
 
-The animation is driven by a `System.Threading.Timer` marshalled onto the UI thread
-through `BeginInvoke`, **not** by a `System.Windows.Forms.Timer`. That distinction is
-load-bearing: a Forms timer is `SetTimer`, and WM_TIMER is synthesized by Windows only
-when the thread's message queue is otherwise empty -- the lowest priority message
-there is, alongside WM_PAINT. Spinning the mouse wheel over the resolution dropdown
-floods the queue with WM_MOUSEWHEEL and the list's own paint traffic, and the
-animation starves. A posted `BeginInvoke` message is not queue-synthesized, is not
-starved, and is dispatched by the nested modal loops that dropdowns and menus run.
-`Invalidate` is followed by `Update()` for the same reason: WM_PAINT would be starved
-by the same flood.
+### Threading
 
-Ticks are dropped rather than queued if one is still outstanding, so a busy UI thread
-cannot accumulate a backlog of frames to catch up on.
+Frames are generated on a private `BelowNormal` thread into an off-screen surface;
+the UI thread only blits the finished frame and draws the brand over it. Two
+double-buffered surfaces are swapped under a lock, so the UI thread reads the front
+while the render thread draws the back and neither ever touches the other's bitmap.
+
+This was not the original design and the reason for it is worth keeping. Painting the
+plume inline cost the UI thread about 20 ms of every 62 ms frame. That is fine on an
+idle window, but it leaves too little headroom to also service a dropdown being
+scrolled, and the animation stuttered there. Measured per thread after the move:
+
+| Thread | Share of one core |
+| --- | --- |
+| Render thread | 22.9% |
+| UI thread | 5.5% |
+
+Total CPU is unchanged at about 28%; what changed is where it is spent.
+
+Two earlier attempts at this failed and are worth not repeating. A
+`System.Windows.Forms.Timer` is `SetTimer`, and WM_TIMER is synthesized by Windows
+only when the thread's message queue is otherwise empty -- the lowest priority
+message there is, alongside WM_PAINT. A wheel-scroll flood starves it completely, so
+the animation stopped dead over the dropdown. Moving to a `System.Threading.Timer`
+marshalled through `BeginInvoke` fixed the stopping, because a posted message is not
+queue-synthesized and is dispatched by the nested modal loops dropdowns run -- but it
+did not fix the stutter, because the expensive work was still on the UI thread.
+`Invalidate` is still followed by `Update()` for the same starvation reason.
+
+Timing comes from a `Stopwatch`, not `Environment.TickCount`: TickCount advances in
+~15.6 ms steps, so at a 62 ms frame it quantises the delta by nearly a quarter and
+the plume pulses.
 
 The simulation never stops. `Step` runs on every tick regardless of window state, so
 the plume is never frozen in time and never resumes from a stale frame; only painting
