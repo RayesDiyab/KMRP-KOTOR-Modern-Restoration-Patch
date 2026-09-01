@@ -774,14 +774,13 @@ namespace KotorUniversalUI
             {
                 WriteBytesNew(temporaryPath, data);
                 if (File.Exists(path))
-                    File.Replace(temporaryPath, path, null, true);
+                    FileGuard.Replace(temporaryPath, path);
                 else
                     File.Move(temporaryPath, path);
             }
             finally
             {
-                if (File.Exists(temporaryPath))
-                    File.Delete(temporaryPath);
+                FileGuard.Discard(temporaryPath);
             }
         }
 
@@ -1047,7 +1046,7 @@ namespace KotorUniversalUI
                                 if (processedPaths.Add(relative))
                                     processed.Add(record);
                                 if (File.Exists(target))
-                                    File.Replace(temporary, target, null, true);
+                                    FileGuard.Replace(temporary, target);
                                 else
                                     File.Move(temporary, target);
                                 if (GoldPatch.HashFile(target) != record.InstalledHash)
@@ -1283,6 +1282,102 @@ namespace KotorUniversalUI
         }
     }
 
+    /// <summary>Replacing a file is not as atomic in practice as File.Replace suggests.
+    /// Replace has to delete the destination, and that fails with "the file to be replaced
+    /// cannot be removed" while any process holds a handle opened without
+    /// FILE_SHARE_DELETE. Antivirus scanning a file moments after it was written is the
+    /// usual cause, along with the search indexer, Explorer preview handlers, and the game
+    /// or an editor having the file open. All of those are transient or actionable, and
+    /// none of them should abort a patch outright.</summary>
+    internal static class FileGuard
+    {
+        private const int Attempts = 6;
+
+        internal static void Replace(string temporaryPath, string targetPath)
+        {
+            int delay = 60;
+            for (int attempt = 1; attempt <= Attempts; attempt++)
+            {
+                try
+                {
+                    ClearReadOnly(targetPath);
+                    File.Replace(temporaryPath, targetPath, null, true);
+                    return;
+                }
+                catch (IOException)
+                {
+                    if (attempt == Attempts)
+                        break;
+                }
+                catch (UnauthorizedAccessException)
+                {
+                    if (attempt == Attempts)
+                        break;
+                }
+                // Doubling from 60ms gives up after about four seconds, which clears a
+                // scanner comfortably without leaving the user watching a frozen bar.
+                System.Threading.Thread.Sleep(delay);
+                delay *= 2;
+            }
+
+            // Last resort: overwrite the destination instead of replacing it. Replace needs
+            // to delete the file; copying only needs to open it for writing, which a reader
+            // holding FILE_SHARE_WRITE still permits. Every caller verifies the result by
+            // hash afterwards, so a partial write is caught and rolled back rather than
+            // being mistaken for success.
+            try
+            {
+                ClearReadOnly(targetPath);
+                File.Copy(temporaryPath, targetPath, true);
+                Discard(temporaryPath);
+                return;
+            }
+            catch (IOException error)
+            {
+                throw new IOException(InUseMessage(targetPath), error);
+            }
+            catch (UnauthorizedAccessException error)
+            {
+                throw new IOException(InUseMessage(targetPath), error);
+            }
+        }
+
+        /// <summary>Deletes a scratch file without ever throwing. A throw from a finally
+        /// block replaces the exception that is actually being reported.</summary>
+        internal static void Discard(string path)
+        {
+            try
+            {
+                if (File.Exists(path))
+                {
+                    ClearReadOnly(path);
+                    File.Delete(path);
+                }
+            }
+            catch { }
+        }
+
+        private static void ClearReadOnly(string path)
+        {
+            try
+            {
+                if (!File.Exists(path))
+                    return;
+                FileAttributes attributes = File.GetAttributes(path);
+                if ((attributes & FileAttributes.ReadOnly) != 0)
+                    File.SetAttributes(path, attributes & ~FileAttributes.ReadOnly);
+            }
+            catch { }
+        }
+
+        private static string InUseMessage(string path)
+        {
+            return Path.GetFileName(path) + " is being used by another program, so it " +
+                "could not be updated. Close KOTOR, Steam, and any editor with the file " +
+                "open, then try again.";
+        }
+    }
+
     internal static class PatchOperations
     {
         internal static string BackupPath(string targetPath)
@@ -1444,7 +1539,7 @@ namespace KotorUniversalUI
                 byte[] target = patch.Apply(source, resolution);
                 string targetHash = GoldPatch.HashBytes(target);
                 WriteVerifiedFile(temporaryPath, target, targetHash);
-                File.Replace(temporaryPath, targetPath, null, true);
+                FileGuard.Replace(temporaryPath, targetPath);
                 installed = true;
 
                 if (GoldPatch.HashFile(targetPath) != targetHash)
@@ -1535,7 +1630,7 @@ namespace KotorUniversalUI
                     throw new IOException("Temporary restore verification failed.");
                 OverrideOperations.Restore(targetPath, report, progress);
                 SafeProgress(progress, 90, "Restoring the game executable…");
-                File.Replace(temporaryPath, targetPath, null, true);
+                FileGuard.Replace(temporaryPath, targetPath);
                 if (GoldPatch.HashFile(targetPath) != GoldPatch.SourceHash)
                     throw new IOException("Post-restore verification failed.");
                 SafeProgress(progress, 94, "Restoring display settings…");
