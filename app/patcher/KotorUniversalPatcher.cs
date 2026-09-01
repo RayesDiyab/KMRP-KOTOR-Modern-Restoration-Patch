@@ -3533,16 +3533,19 @@ namespace KotorUniversalUI
             return Math.Max(1, (int)Math.Round(value * uiScale));
         }
 
-        /// <summary>The haze is decoration, so it yields to everything real: it stops while
-        /// a patch is running (the CPU belongs to the file work), during the snapshot resize
-        /// (the header is a scaled bitmap, not live paint), when the window is minimised,
-        /// and when it is not the active window.</summary>
+        /// <summary>The animation keeps running while a patch is in progress and while the
+        /// window is in the background. Patching is on a BackgroundWorker and only touches
+        /// the UI thread through ReportProgress, so painting the header does not delay the
+        /// file work and the file work does not stall the animation.
+        ///
+        /// Two cases still stop it, and both are correctness rather than politeness: during
+        /// the snapshot resize the header is a scaled bitmap rather than live paint, so
+        /// animating would fight the snapshot; and a minimised window paints nothing a user
+        /// can see.</summary>
         private bool SmokeShouldRun()
         {
-            return !operationRunning
-                && !resizePreviewActive
-                && WindowState != FormWindowState.Minimized
-                && Form.ActiveForm == this;
+            return !resizePreviewActive
+                && WindowState != FormWindowState.Minimized;
         }
 
         protected override void Dispose(bool disposing)
