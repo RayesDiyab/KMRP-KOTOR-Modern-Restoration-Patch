@@ -37,7 +37,7 @@ authored `EXTENT/WIDTH`** — a `.gui` number, not a code constant.
 Builds each row's rect and calls the row's `SetRect` (vtable `+0x04`). The rect
 lives at `[esp+0x20..0x2C]` = `{left, top, width, height}`.
 
-`PADDING` (`[listbox+0x2C0]`, a **byte**) is read here for four different jobs:
+`PADDING` (`[listbox+0x2C0]`, a **byte**) is read for **six** different jobs:
 
 | what | where | vanilla |
 | --- | --- | --- |
@@ -45,10 +45,27 @@ lives at `[esp+0x20..0x2C]` = `{left, top, width, height}`.
 | `rect.width` | `0x0041B48C` | `= contentWidth - 2*PADDING` |
 | first row's top | `0x0041B4A1` | chain starts at `PADDING` |
 | row **pitch** | `0x0041B1C4`, `0x0041B26B`, `0x0041B553` | `= rowHeight + PADDING` |
+| the "does it fit?" test | `0x0041B339`, `0x0041B3AE` | `PADDING + rowHeight` vs box height |
 
 So raising `PADDING` to get a left gutter also spaced the rows apart, inset the
 right edge and pushed the whole list down. That is why the field was unusable on
 multi-row lists before gold v11.
+
+## Gold lineage
+
+| version | tool | what it does |
+| --- | --- | --- |
+| v10 | `build_stack_count_fix.py` | stack-count label into `.ksc` with imm32 operands |
+| v11 | `build_listbox_padding_fix.py` | `PADDING` becomes a purely horizontal left inset — 3 pitch sites, the width/top site, and both fit tests |
+| v12 | `build_gutter_side_fix.py` | the gutter follows the scrollbar, in **both** rect builders (`.kgs`) |
+| v13 | `build_leading_newline_fix.py` | strip leading newlines from GUI text at set time (`.ktn`) |
+
+Each takes the previous gold as input. `TargetLength` is **4071424** and lives in
+`GoldPatch.TargetLength`; `TargetHash`, `EXPECTED_GOLD_SHA256` in
+`generate_gold_delta.py`, and `-GoldExe` in `build_universal_patcher.ps1` all
+move together. Getting one out of step is caught by the patcher's own startup
+check, which has fired twice in this work — reproduce it against the built
+`gold.kup` before shipping rather than after.
 
 ## The patches
 
@@ -60,8 +77,10 @@ multi-row lists before gold v11.
 | `0x0041B26B` | `03 f9` `add edi,ecx` | `8b f9` `mov edi,ecx` | pitch (visible-row divisor) |
 | `0x0041B553` | `03 cd` `add ecx,ebp` | `8b cd` `mov ecx,ebp` | pitch (advances each row top) |
 | `0x0041B48C` | `8d 04 3f 2b c8` | `2b cf 33 ff 90` | `sub ecx,edi ; xor edi,edi ; nop` |
+| `0x0041B339` | `03 c2` `add eax,edx` | `8b c2` `mov eax,edx` | fit test uses rowHeight alone |
+| `0x0041B3AE` | `03 c2` `add eax,edx` | `8b c2` `mov eax,edx` | fit test uses rowHeight alone |
 
-That last one does two things in five bytes: subtracts `PADDING` once instead of
+The `0x0041B48C` entry does two things in five bytes: subtracts `PADDING` once instead of
 twice (no right inset), then clears the register the row-top chain starts from
 (no gap above row 1). `edi`'s only earlier use, `rect.left`, is already stored.
 
@@ -202,28 +221,69 @@ centred):
 | `0x01` / `0x02` / `0x04` | left / centre / right |
 | `0x08` / `0x10` / `0x20` | top / middle / bottom |
 
+## The fit test — why a description that fits was scrolled anyway
+
+The two guards at `0x0041B339` and `0x0041B3AE` decide between the row layout
+and the single-item scrolling layout at `0x0041A2D0`:
+
+```
+0041B39B  movzx eax, byte [esi+0x2C0]   ; PADDING
+0041B3A2  mov   edx, [esi+0x2B4]        ; rowHeight
+0041B3AE  add   eax, edx                ; PADDING + rowHeight
+0041B3B0  cmp   eax, ecx                ; vs the box's content height
+0041B3B2  jle   0x41B3D8                ; fits -> builder A
+0041B3CB  call  0x41A2D0                ; does not -> builder B
+```
+
+Adding `PADDING` to a **height** made sense in vanilla, where `PADDING` was row
+pitch. Since gold v11 it is a horizontal inset, so it has no business here — and
+it opens a window where a pane whose text genuinely fits is routed to the
+scrolling layout anyway. Builder B then bottom-anchors a single page
+(`0x0041A35B`: `top = contentHeight - rowHeight`), which pushes the text down.
+
+Measured live, an **equipped** robe in the inventory:
+
+| field | value |
+| --- | --- |
+| client rect `+0x28C` | `{1724, 764, 1346, 342}` |
+| row height `+0x2B4` | 320 — the text *fits* in 342 |
+| `PADDING` `+0x2C0` | 72 |
+| scroll position `+0x2C2` | 1 |
+| the test | `72 + 320 = 392 > 342` → builder B |
+| resulting top | `342 - 320` = **22px of gap** |
+
+The user's repro named the mechanism exactly: equipping a robe adds property
+lines, which grows `rowHeight` into the `contentHeight - PADDING < rowHeight <=
+contentHeight` window. Unequip it and it drops below, takes builder A, and sits
+flush. Both guards now use `rowHeight` alone.
+
 ## Method that works
 
 1. **Find the field, not the pixels.** Start from the `.gui` field name, find
    where the GFF loader stores it, then hardware-watchpoint that offset in a live
    process to catch every reader.
-2. **Assume there is a second copy of the code.** Two independent instances of
+2. **A repro that names a condition is worth more than any amount of staring.**
+   "only when the robe is equipped, and only in the inventory" located a
+   two-byte bug that four rounds of reading disassembly had missed: equipping
+   grows the text into a narrow window where a fit test is wrong. Ask for the
+   condition, then find the branch that tests it.
+3. **Assume there is a second copy of the code.** Two independent instances of
    this: three pitch computations where I patched one, and two whole rect
    builders where I patched one. A fix that works on some cases and not others
    is the signature — find what separates them and the condition names the
    branch you missed.
-3. **Grep for *every* write, not the first.** The single most expensive mistake
+4. **Grep for *every* write, not the first.** The single most expensive mistake
    in this work: patching the first matching site and assuming it is the only
    one. `0x0041B1C4` is overwritten by `0x0041B26B` four instructions later, and
    the loop that actually places rows uses a third site at `0x0041B553`. Three
    failed play-tests before a grep for every write to the pitch stack slot
    (`[esp+0x14]`) found them all.
-4. **Measure numerically. Never judge by eye.** Read `[listbox+0x2B4]`,
+5. **Measure numerically. Never judge by eye.** Read `[listbox+0x2B4]`,
    `+0x2C0`, the rect array — do not count pixels in a screenshot. Two false
    negatives from eyeballing a small UI misdirected an entire session.
-5. **Poke memory before writing bytes.** Change the field in the debugger and
+6. **Poke memory before writing bytes.** Change the field in the debugger and
    look, then patch.
-6. **Watch the encodings.** `83 /r ib` sign-extends above 127; if a constant has
+7. **Watch the encodings.** `83 /r ib` sign-extends above 127; if a constant has
    to scale with resolution it needs the imm32 form and therefore a trampoline.
 
 ### Debugger traps
