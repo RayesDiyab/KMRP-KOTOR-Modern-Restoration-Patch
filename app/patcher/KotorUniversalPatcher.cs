@@ -3010,14 +3010,21 @@ namespace KotorUniversalUI
         // resampled on every one of them: a 650x350 bicubic resize per frame cost more
         // than the plume itself. Scaled once per size, then blitted.
         private Bitmap scaledBrand;
-        private System.Threading.Timer animationTimer;
-        private int animationTickQueued;
+        // The plume is generated on its own thread into an off-screen surface; the UI
+        // thread only blits the finished frame. Painting it inline cost the UI thread
+        // about 20 ms of every 62 ms frame -- fine on an idle window, but not enough
+        // headroom left to also service a dropdown being scrolled, which is what made the
+        // animation stutter there.
+        private System.Threading.Thread renderThread;
+        private volatile bool renderRunning;
+        private volatile int desiredHeaderW, desiredHeaderH;
+        private Bitmap headerFront, headerBack;
+        private readonly object headerSwap = new object();
         // 60ms, which Windows' 15.6ms timer granularity rounds to 62.4ms -- 16 fps,
         // against 46.8ms and 21.4 fps at the previous 40ms. A quarter fewer frames for a
         // quarter less CPU. See the mote fall speed, which was slowed to match: the two
         // must move together or the fastest motes start stepping.
         private const int AnimationIntervalMs = 60;
-        private int smokeLastTick;
         private Font taglineFont;      // sized so the tagline matches the wordmark's width
         private bool operationRunning;
         private string lastDetail = String.Empty;
@@ -3065,20 +3072,19 @@ namespace KotorUniversalUI
             // Keep old scaled fonts alive until the resize/paint burst has gone idle.
             // ~25fps is plenty for a slow haze, and the field only ever invalidates the
             // header strip, so a frame costs one small bitmap and one upscale.
-            // Deliberately NOT a System.Windows.Forms.Timer. That is SetTimer, and WM_TIMER
-            // is synthesized by Windows only when the thread's message queue is otherwise
-            // empty -- it is the lowest priority message there is, alongside WM_PAINT.
-            // Spinning the wheel over the resolution dropdown floods the queue with
-            // WM_MOUSEWHEEL and the list's own paint traffic, and the animation starves.
-            // A threading timer marshalled through BeginInvoke posts a real message, which
-            // is not queue-synthesized, is not starved, and is dispatched by the nested
-            // modal loops that dropdowns and menus run.
-            smokeLastTick = Environment.TickCount;
             HandleCreated += delegate
             {
-                if (animationTimer == null)
-                    animationTimer = new System.Threading.Timer(
-                        AnimationTimerFired, null, AnimationIntervalMs, AnimationIntervalMs);
+                if (renderThread != null)
+                    return;
+                desiredHeaderW = Math.Max(1, ClientSize.Width);
+                desiredHeaderH = Math.Max(1, ScaleDesign(headerHeight));
+                renderRunning = true;
+                renderThread = new System.Threading.Thread(RenderLoop);
+                renderThread.IsBackground = true;
+                // Below normal: the plume must never win a scheduling contest against the
+                // UI thread, or against the file work during a patch.
+                renderThread.Priority = System.Threading.ThreadPriority.BelowNormal;
+                renderThread.Start();
             };
 
             fontRetireTimer = new Timer();
@@ -3623,46 +3629,107 @@ namespace KotorUniversalUI
             retiredFonts.Clear();
         }
 
-        /// <summary>Fired on a pool thread. Hands the work to the UI thread and drops the
-        /// tick entirely if one is still outstanding, so a busy UI thread cannot accumulate
-        /// a backlog of frames to catch up on.</summary>
-        private void AnimationTimerFired(object state)
+        /// <summary>Generates frames on a private thread and hands each finished surface to
+        /// the UI thread to blit. Everything expensive -- the noise, the upscale, the mote
+        /// sprites -- happens here, so the UI thread cost of a frame is one opaque blit
+        /// rather than the whole render.
+        ///
+        /// Timing comes from a Stopwatch, not Environment.TickCount. TickCount advances in
+        /// ~15.6 ms steps, so at a 62 ms frame it quantises the delta by nearly a quarter
+        /// and the plume pulses.</summary>
+        private void RenderLoop()
         {
-            if (System.Threading.Interlocked.Exchange(ref animationTickQueued, 1) == 1)
-                return;
-            try
+            Stopwatch clock = Stopwatch.StartNew();
+            double last = 0;
+            while (renderRunning)
             {
-                if (IsHandleCreated && !IsDisposed)
-                    BeginInvoke((MethodInvoker)AnimationTick);
-                else
-                    System.Threading.Interlocked.Exchange(ref animationTickQueued, 0);
-            }
-            catch
-            {
-                // The handle can go away between the check and the call while closing.
-                System.Threading.Interlocked.Exchange(ref animationTickQueued, 0);
+                double now = clock.Elapsed.TotalSeconds;
+                float seconds = (float)Math.Min(0.25, Math.Max(0.0, now - last));
+                last = now;
+
+                int w = desiredHeaderW, h = desiredHeaderH;
+                if (w > 0 && h > 0)
+                {
+                    try
+                    {
+                        light.Step(seconds);
+                        if (headerBack == null || headerBack.Width != w || headerBack.Height != h)
+                        {
+                            if (headerBack != null)
+                                headerBack.Dispose();
+                            headerBack = new Bitmap(w, h, PixelFormat.Format32bppPArgb);
+                        }
+                        using (Graphics g = Graphics.FromImage(headerBack))
+                        {
+                            g.Clear(UiTheme.Window);
+                            light.Render(g, new Rectangle(0, 0, w, h));
+                        }
+                        // The surfaces are swapped, never shared: the UI thread reads the
+                        // front while this thread draws the back.
+                        lock (headerSwap)
+                        {
+                            Bitmap spare = headerFront;
+                            headerFront = headerBack;
+                            headerBack = spare;
+                        }
+                        if (IsHandleCreated && !IsDisposed)
+                            BeginInvoke((MethodInvoker)PresentHeader);
+                    }
+                    catch
+                    {
+                        // The handle can disappear mid-frame while closing. The loop exits
+                        // on renderRunning either way.
+                    }
+                }
+
+                double spent = (clock.Elapsed.TotalSeconds - now) * 1000.0;
+                int rest = (int)Math.Round(AnimationIntervalMs - spent);
+                System.Threading.Thread.Sleep(rest > 1 ? rest : 1);
             }
         }
 
-        private void AnimationTick()
+        /// <summary>Runs on the UI thread when a frame is ready. Update() rather than
+        /// waiting for WM_PAINT, which is the lowest priority message there is and would be
+        /// starved by the same wheel-message flood this design exists to survive.</summary>
+        private void PresentHeader()
         {
-            System.Threading.Interlocked.Exchange(ref animationTickQueued, 0);
-            if (IsDisposed || Disposing)
+            if (IsDisposed || Disposing || WindowState == FormWindowState.Minimized)
                 return;
-
-            int now = Environment.TickCount;
-            float seconds = Math.Min(0.25F, Math.Max(0F, (now - smokeLastTick) / 1000F));
-            smokeLastTick = now;
-            // The simulation always advances, so the plume is never frozen in time and
-            // never resumes from a stale frame. Painting is what gets skipped.
-            light.Step(seconds);
-            if (WindowState == FormWindowState.Minimized)
-                return;
-
             Invalidate(new Rectangle(0, 0, ClientSize.Width, LiveHeaderHeight()));
-            // Paint now rather than waiting for WM_PAINT, which is low priority and would
-            // be starved by the same message flood that this timer was moved to avoid.
             Update();
+        }
+
+        /// <summary>Blits the most recent finished frame, and tells the render thread what
+        /// size to produce next. SourceCopy because the surface is opaque -- it carries its
+        /// own background -- which makes this a straight copy rather than an alpha blend.</summary>
+        private void BlitHeader(Graphics g, Rectangle area)
+        {
+            desiredHeaderW = Math.Max(1, area.Width);
+            desiredHeaderH = Math.Max(1, area.Height);
+            lock (headerSwap)
+            {
+                if (headerFront == null)
+                {
+                    using (SolidBrush back = new SolidBrush(UiTheme.Window))
+                        g.FillRectangle(back, area);
+                    return;
+                }
+                CompositingMode previousMode = g.CompositingMode;
+                InterpolationMode previousInterp = g.InterpolationMode;
+                g.CompositingMode = CompositingMode.SourceCopy;
+                if (headerFront.Width == area.Width && headerFront.Height == area.Height)
+                {
+                    g.DrawImageUnscaled(headerFront, area.X, area.Y);
+                }
+                else
+                {
+                    // Only transiently, while the render thread catches up with a resize.
+                    g.InterpolationMode = InterpolationMode.Bilinear;
+                    g.DrawImage(headerFront, area);
+                }
+                g.CompositingMode = previousMode;
+                g.InterpolationMode = previousInterp;
+            }
         }
 
         /// <summary>Height of the header as it is currently being painted. While a resize
@@ -3696,10 +3763,16 @@ namespace KotorUniversalUI
                 scaledFonts.Clear();
                 if (taglineFont != null)
                     taglineFont.Dispose();
-                if (animationTimer != null)
+                renderRunning = false;
+                if (renderThread != null)
                 {
-                    animationTimer.Dispose();
-                    animationTimer = null;
+                    renderThread.Join(500);
+                    renderThread = null;
+                }
+                lock (headerSwap)
+                {
+                    if (headerFront != null) { headerFront.Dispose(); headerFront = null; }
+                    if (headerBack != null) { headerBack.Dispose(); headerBack = null; }
                 }
                 light.Dispose();
                 if (scaledBrand != null)
@@ -3806,13 +3879,11 @@ namespace KotorUniversalUI
                         if (headerNow > 0)
                         {
                             Rectangle live = new Rectangle(0, 0, ClientSize.Width, headerNow);
-                            e.Graphics.CompositingMode = CompositingMode.SourceOver;
-                            e.Graphics.CompositingQuality = CompositingQuality.HighSpeed;
                             GraphicsState held = e.Graphics.Save();
                             e.Graphics.SetClip(live);
-                            using (SolidBrush back = new SolidBrush(UiTheme.Window))
-                                e.Graphics.FillRectangle(back, live);
-                            light.Render(e.Graphics, live);
+                            BlitHeader(e.Graphics, live);
+                            e.Graphics.CompositingMode = CompositingMode.SourceOver;
+                            e.Graphics.CompositingQuality = CompositingQuality.HighSpeed;
                             e.Graphics.InterpolationMode = InterpolationMode.HighQualityBilinear;
                             e.Graphics.DrawImage(resizeHeaderLayer, live);
                             e.Graphics.Restore(held);
@@ -3840,10 +3911,7 @@ namespace KotorUniversalUI
             // rather than over them. Clipped to the header strip: below it the card covers
             // everything anyway, so drawing there would only be wasted upscaling.
             Rectangle header = new Rectangle(0, 0, ClientSize.Width, ScaleDesign(headerHeight));
-            GraphicsState clipped = g.Save();
-            g.SetClip(header);
-            light.Render(g, header);
-            g.Restore(clipped);
+            BlitHeader(g, header);
 
             PaintBrandLayer(g, ClientSize.Width);
         }
