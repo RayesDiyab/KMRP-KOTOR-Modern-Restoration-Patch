@@ -2187,15 +2187,20 @@ namespace KotorUniversalUI
 
             if (badge != StatusBadge.None)
             {
-                int iconSize = Math.Max(12, (int)Math.Round(32 * UiScale));
-                int gap = Math.Max(4, (int)Math.Round(8 * UiScale));
-                int groupWidth = Math.Min(Width, iconSize + gap + textWidth);
+                // With no text the badge carries the state on its own, so it is drawn
+                // larger and alone. The step's subtitle already says what is wrong.
+                bool iconOnly = String.IsNullOrEmpty(Text);
+                int iconSize = Math.Max(12, (int)Math.Round((iconOnly ? 48F : 32F) * UiScale));
+                int gap = iconOnly ? 0 : Math.Max(4, (int)Math.Round(8 * UiScale));
+                int groupWidth = Math.Min(Width, iconSize + gap + (iconOnly ? 0 : textWidth));
                 int left = Math.Max(0, Width - groupWidth);
                 Rectangle iconBox = new Rectangle(left, Math.Max(0, (Height - iconSize) / 2),
                     iconSize, iconSize);
                 string art = badge == StatusBadge.Verified ? "verified" : "missing";
                 if (UiTheme.DrawStatusArt(e.Graphics, art, iconBox, ForeColor))
                 {
+                    if (iconOnly)
+                        return;
                     Rectangle textBox = new Rectangle(iconBox.Right + gap, 0,
                         Math.Max(1, Width - iconBox.Right - gap), Height);
                     TextRenderer.DrawText(e.Graphics, Text, Font, textBox, ForeColor,
@@ -3234,7 +3239,11 @@ namespace KotorUniversalUI
             verificationRecovery.Fill = UiTheme.Card;
             verificationRecovery.Edge = UiTheme.Card;
             verificationRecovery.Radius = 10;
-            verificationRecovery.SetBounds(StepRow.ContentLeft, 84, card.Width - StepRow.ContentLeft - 36, 48);
+            // 91, not 84: the gap between the subtitle and these buttons is then the same
+            // as the gap between the step title and the subtitle. Measured ink-to-ink,
+            // because the fonts carry different internal leading and box positions do not
+            // predict the visual gap.
+            verificationRecovery.SetBounds(StepRow.ContentLeft, 91, card.Width - StepRow.ContentLeft - 36, 48);
             verificationRecovery.Anchor = AnchorStyles.Top | AnchorStyles.Left | AnchorStyles.Right;
             verificationRecovery.Visible = false;
             stepVerify.Controls.Add(verificationRecovery);
@@ -3969,7 +3978,9 @@ namespace KotorUniversalUI
             StateLabel label = new StateLabel();
             label.Font = UiTheme.DisplayFont(18F, FontStyle.Bold);
             label.ForeColor = UiTheme.TextMuted;
-            label.SetBounds(cardWidth - 340, 30, 300, 36);
+            // Tall enough for the icon-only badge; still centred on the header centre
+            // line, so the text states sit exactly where they did.
+            label.SetBounds(cardWidth - 340, 20, 300, 56);
             label.Anchor = AnchorStyles.Top | AnchorStyles.Right;
             row.Controls.Add(label);
             return label;
@@ -4200,7 +4211,7 @@ namespace KotorUniversalUI
             stepApply.Visible = executableReady;
 
             int verifyHeight = needsRecovery
-                ? StepRow.HeaderHeight + 60
+                ? StepRow.HeaderHeight + 67
                 : StepRow.HeaderHeight;
             stepVerify.Height = ScaleDesign(verifyHeight);
             PlaceStep(stepResolution, StepRow.HeaderHeight + verifyHeight);
@@ -4262,12 +4273,10 @@ namespace KotorUniversalUI
             {
                 // Every unresolved state carries the missing badge: the chip beside it
                 // says which one it is, and the badge says the step is not satisfied.
-                if (state == ExecutableState.Missing)
-                    SetState(verifyState, "Editable EXE needed", UiTheme.Warning);
-                else if (state == ExecutableState.Unsupported)
-                    SetState(verifyState, "Not the editable exe", UiTheme.Warning);
-                else
-                    SetState(verifyState, "Unable to verify", UiTheme.Error);
+                // No words here: the badge alone marks the step unsatisfied, and the
+                // step's own subtitle already says which failure it is and what to do.
+                SetState(verifyState, String.Empty,
+                    state == ExecutableState.Error ? UiTheme.Error : UiTheme.Warning);
                 verifyState.Badge = StateLabel.StatusBadge.Missing;
             }
 
