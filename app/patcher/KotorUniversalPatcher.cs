@@ -3042,7 +3042,7 @@ namespace KotorUniversalUI
         private readonly StateLabel resolutionState;
         private readonly StateLabel applyState;
         private readonly CardPanel verificationRecovery;
-        private readonly Label verificationTitle;
+        private readonly Label lockedStepsNote;
         private readonly Label verificationBody;
         private readonly Label verificationPath;
         private readonly PillButton downloadExecutableButton;
@@ -3209,29 +3209,24 @@ namespace KotorUniversalUI
             // executable is unresolved, this panel expands Step 2 into the space normally
             // used by Steps 3 and 4; there is no interrupting modal and no taller window.
             verificationRecovery = new CardPanel();
-            verificationRecovery.Fill = UiTheme.PanelDeep;
-            verificationRecovery.Edge = UiTheme.CardEdge;
+            // Same fill and edge as the card it sits in, so it reads as part of step 2
+            // rather than as a panel within a panel. Every other step is a single flat
+            // row; a sunken bordered box here was the main reason this state looked like
+            // it came from a different application.
+            verificationRecovery.Fill = UiTheme.Card;
+            verificationRecovery.Edge = UiTheme.Card;
             verificationRecovery.Radius = 10;
-            verificationRecovery.SetBounds(StepRow.ContentLeft, 88, card.Width - StepRow.ContentLeft - 36, 184);
+            verificationRecovery.SetBounds(StepRow.ContentLeft, 84, card.Width - StepRow.ContentLeft - 36, 124);
             verificationRecovery.Anchor = AnchorStyles.Top | AnchorStyles.Left | AnchorStyles.Right;
             verificationRecovery.Visible = false;
             stepVerify.Controls.Add(verificationRecovery);
-
-            verificationTitle = new Label();
-            verificationTitle.Text = "Editable swkotor.exe required";
-            verificationTitle.Font = UiTheme.DisplayFont(19F, FontStyle.Bold);
-            verificationTitle.ForeColor = UiTheme.Warning;
-            verificationTitle.BackColor = Color.Transparent;
-            verificationTitle.SetBounds(20, 12, verificationRecovery.Width - 40, 30);
-            verificationTitle.Anchor = AnchorStyles.Top | AnchorStyles.Left | AnchorStyles.Right;
-            verificationRecovery.Controls.Add(verificationTitle);
 
             verificationBody = new Label();
             verificationBody.Font = new Font("Segoe UI", 15F);
             verificationBody.ForeColor = UiTheme.TextMuted;
             verificationBody.BackColor = Color.Transparent;
             verificationBody.AutoEllipsis = true;
-            verificationBody.SetBounds(20, 45, verificationRecovery.Width - 40, 26);
+            verificationBody.SetBounds(0, 2, verificationRecovery.Width, 26);
             verificationBody.Anchor = AnchorStyles.Top | AnchorStyles.Left | AnchorStyles.Right;
             verificationRecovery.Controls.Add(verificationBody);
 
@@ -3240,28 +3235,43 @@ namespace KotorUniversalUI
             verificationPath.ForeColor = UiTheme.TextFaint;
             verificationPath.BackColor = Color.Transparent;
             verificationPath.AutoEllipsis = true;
-            verificationPath.SetBounds(20, 75, verificationRecovery.Width - 40, 24);
+            verificationPath.SetBounds(0, 30, verificationRecovery.Width, 24);
             verificationPath.Anchor = AnchorStyles.Top | AnchorStyles.Left | AnchorStyles.Right;
             verificationRecovery.Controls.Add(verificationPath);
 
             downloadExecutableButton = new PillButton();
             downloadExecutableButton.Primary = true;
             downloadExecutableButton.Text = "Get Editable EXE";
-            downloadExecutableButton.SetBounds(20, 116, 230, 48);
+            downloadExecutableButton.SetBounds(0, 64, 230, 48);
             downloadExecutableButton.Click += delegate { OpenEditableExecutablePage(); };
             verificationRecovery.Controls.Add(downloadExecutableButton);
 
             chooseExecutableButton = new PillButton();
             chooseExecutableButton.Text = "Choose Editable EXE";
-            chooseExecutableButton.SetBounds(262, 116, 218, 48);
+            chooseExecutableButton.SetBounds(242, 64, 218, 48);
             chooseExecutableButton.Click += delegate { BrowseForExecutable(this); };
             verificationRecovery.Controls.Add(chooseExecutableButton);
 
             checkExecutableButton = new PillButton();
             checkExecutableButton.Text = "Check Again";
-            checkExecutableButton.SetBounds(492, 116, 164, 48);
+            checkExecutableButton.SetBounds(472, 64, 164, 48);
             checkExecutableButton.Click += delegate { RefreshStatus(); };
             verificationRecovery.Controls.Add(checkExecutableButton);
+
+            // Steps 3 and 4 are hidden until the executable verifies -- there is no room
+            // for them beside the expanded recovery area, and neither can be acted on yet.
+            // Hiding them silently made the card look like a two-step tool that had nothing
+            // to do with the four-step one, so the remaining steps are named instead.
+            lockedStepsNote = new Label();
+            lockedStepsNote.Text = "Steps 3 and 4 unlock once the editable executable is verified.";
+            lockedStepsNote.Font = new Font("Segoe UI", 15F);
+            lockedStepsNote.ForeColor = UiTheme.TextFaint;
+            lockedStepsNote.BackColor = Color.Transparent;
+            lockedStepsNote.SetBounds(StepRow.ContentLeft, 340,
+                card.Width - StepRow.ContentLeft - 36, 28);
+            lockedStepsNote.Anchor = AnchorStyles.Top | AnchorStyles.Left | AnchorStyles.Right;
+            lockedStepsNote.Visible = false;
+            card.Controls.Add(lockedStepsNote);
 
             stepResolution = NewStep(card, 2, UiTheme.Glyph.Monitor, "3. Choose Resolution",
                 "Select the resolution you want to patch for.");
@@ -4176,8 +4186,9 @@ namespace KotorUniversalUI
             verificationRecovery.Visible = needsRecovery;
             stepResolution.Visible = executableReady;
             stepApply.Visible = executableReady;
+            lockedStepsNote.Visible = needsRecovery;
             stepVerify.Height = ScaleDesign(needsRecovery
-                ? StepRow.HeaderHeight * 3
+                ? StepRow.HeaderHeight + 124
                 : StepRow.HeaderHeight);
 
             if (!needsRecovery)
@@ -4196,24 +4207,15 @@ namespace KotorUniversalUI
                 ? target
                 : "Editable swkotor.exe not selected.";
 
+            // No heading and no colour here: which state this is comes from the chip on
+            // the right of the step, the way it does for every other step. These lines
+            // each stand on their own, so a heading only restated the step title.
             if (state == ExecutableState.Missing)
-            {
-                verificationTitle.Text = "Editable swkotor.exe required";
-                verificationTitle.ForeColor = UiTheme.Warning;
                 verificationBody.Text = "Download the editable version, place it in your KOTOR folder, then choose it here.";
-            }
             else if (state == ExecutableState.Unsupported)
-            {
-                verificationTitle.Text = "Editable executable required";
-                verificationTitle.ForeColor = UiTheme.Warning;
                 verificationBody.Text = "This copy cannot be patched. Replace it with the editable swkotor.exe, then check again.";
-            }
             else
-            {
-                verificationTitle.Text = "Executable could not be verified";
-                verificationTitle.ForeColor = UiTheme.Error;
                 verificationBody.Text = "KMRP could not read this file. Choose another swkotor.exe and try again.";
-            }
 
             stepVerify.Invalidate();
         }
