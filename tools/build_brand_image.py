@@ -60,7 +60,14 @@ WING_BOTTOM_AT = 0.25         # where the wings' lower tips land, in caps below 
                               # 0.00 puts them exactly on it, which is where the reference has
                               # them; a little lower lets the tips dip behind the letters and
                               # dim there, which is what was asked for
-CREST_FADE_SPAN = 1.30        # the veil reaches nothing this many caps below the cap line
+# Measured on the reference: the wings hold ~0.85 of peak brightness until
+# -0.24 cap, then fall to 0.53 by the cap line and are gone just below it. So the
+# fade is a short smooth ramp, not a long linear one. Expressed relative to the
+# wing line so it travels with WING_BOTTOM_AT.
+FADE_FROM = -0.15             # caps relative to the wing line: dimming starts here
+FADE_TO = 1.00                # ...and reaches nothing here. A full cap of travel, so the
+                              # crest visibly darkens as it crosses the letters instead of
+                              # stopping at them
 BEVEL_TAU_RATIO = 0.048       # bevel decay length / cap height, fitted to the
                               # reference's luminance-vs-depth profile
 OUTLINE_RATIO = 0.008         # outline half-width / cap height (1px at cap 58)
@@ -204,17 +211,22 @@ def build(crest_path: Path, out: Path) -> None:
     wing_bottom = (wide.max() + 1) / crest_h if wide.size else 0.85
 
     crest_top = int(cap_top + WING_BOTTOM_AT * cap - wing_bottom * crest_h)
-    fade_end = cap_top + int(CREST_FADE_SPAN * cap)
-    fade_span = max(1, int(cap * CREST_FADE_SPAN * 1.35))
+    wing_line = cap_top + WING_BOTTOM_AT * cap
+    fade_from = wing_line + FADE_FROM * cap
+    fade_to = wing_line + FADE_TO * cap
     top_soft = int(cap * 0.7)
 
     veil = Image.new("L", crest.size, 0)
     vd = veil.load()
     for y in range(crest_h):
         gy = crest_top + y
-        v = 255.0
-        if gy > fade_end - fade_span:
-            v *= max(0.0, 1.0 - (gy - (fade_end - fade_span)) / fade_span)
+        if gy <= fade_from:
+            v = 255.0
+        elif gy >= fade_to:
+            v = 0.0
+        else:
+            k = (gy - fade_from) / max(1e-6, fade_to - fade_from)
+            v = 255.0 * (1.0 - (k * k * (3.0 - 2.0 * k)))     # smoothstep, so it eases out
         if gy < top_soft:
             v *= max(0.0, gy / max(1, top_soft))
         for x in range(crest_w):
