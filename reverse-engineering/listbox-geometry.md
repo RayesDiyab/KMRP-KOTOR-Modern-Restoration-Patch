@@ -134,39 +134,54 @@ The same condition, `content taller than the box`, produced three separate
 visible symptoms — gutter on the wrong side, and a top gap — all from builder B
 being missed. One branch, several faces.
 
-## Open: a small top gap on some Quest Items descriptions
+## Resolved: the top gap on some descriptions is a leading newline
 
-Read live at 3440x1440 (x32dbg attached to the patched game), the quest-item
-description pane `questitem.gui LB_ITEM_DESCRIPTION`:
+Not geometry. Read out of the live text control for Brejik's Arm Band
+(x32dbg, 3440x1440), the description string at `textControl+0xEC` begins with
+`0A`:
+
+```
+0A 44 61 6D 61 67 65 ...   "
+Damage Resistance: Resist 5/- vs. Slashing
+
+Brejik's arm band, ..."
+```
+
+Everything around it measured correct:
 
 | field | value |
 | --- | --- |
-| client rect `+0x28C` | `{left 1741, top 208, width 1002, height 991}` |
+| client rect `+0x28C` | `{1759, 774, 1311, 322}` |
 | `PADDING` `+0x2C0` | 72 |
-| flags `+0x2BC` | `0xFFFE98A0` — bit `0x10` clear, so the bar is on the right |
-| row height `+0x2B4` | 96 |
-| item count `+0x2A0` / `+0x2AC` | 1 / 1 |
-| **the item's rect** `[+0x2A8]` | **`{left 0, top 0, width 930, height 96}`** |
-| item control `+0x5C` sub-rect | `{0, 0, 930, 96}` |
+| flags `+0x2BC` | `0x25109820` — bit `0x10` clear, bar on the right |
+| row height `+0x2B4` | 160 = 4 lines x 40 |
+| item rect `[+0x2A8]` | `{0, 0, 1239, 160}` — `1311 - 72` |
+| item control `+0x5C` sub-rect | `{0, 0, 1239, 160}` |
+| text control `+0xD4` | rect `{0,0,1239,160}`, font `fnt_d16x16b`, string ptr `+0xEC` |
+| `PROTOITEM/TEXT/ALIGNMENT` | `9` = left + **top** |
 
-`width = 1002 - 72` confirms the gutter, and **left and top are both 0** — so for
-that item the geometry was already correct and the offset, if any, is inside the
-item's own drawing rather than in the rect the listbox hands it.
+So the listbox hands the text a perfect rect and the text itself starts with an
+empty line. The game composes a description by prefixing `
+` to each property
+line, so an item whose description opens with a property block gets a blank
+first line and one composed differently does not — which is exactly why the gap
+appeared on some items and not others, on both the inventory and quest-item
+panes.
 
-Two caveats on this reading, both worth respecting before acting on it:
+Vanilla behaviour: at 800x600 that blank line is ~16px and passes unnoticed; at
+3440x1440 with the enlarged font it is ~40px. **Left as-is by the user's call** —
+it is BioWare's quirk, not something this project introduced, and fixing it
+would mean either changing where the string is composed or skipping leading
+newlines in the text control.
 
-- it is **one** sample, and the item measured may have been one *without* the
-  gap. The next session should break with `[esi+294]==3EA` on the builder-A stub
-  (that pane's content width) while a **known-gapped** entry is selected.
-- the pane took **builder A**, not B: `rowHeight` 96 against a 991-tall box, so
-  the content fits and the scrolling path was never entered. A breakpoint on
-  builder B's entry recorded `hit_count = 0` across the whole screen.
+The alignment encoding, derived from controls whose appearance is known
+(`LBL_CREDITS_VALUE` = `0x14` is right-aligned; `MAIN_TITLE_LBL` = `0x12` is
+centred):
 
-Note also that this pane's `SCROLLBAR/EXTENT/LEFT` is **628**, nowhere near its
-box (1737..2817), where every other description pane places it at its own right
-edge. The bar is positioned from the control's rect at `0x00418215`, not from
-that field, so it should be inert — but it is authored wrong and worth ruling
-out.
+| bits | meaning |
+| --- | --- |
+| `0x01` / `0x02` / `0x04` | left / centre / right |
+| `0x08` / `0x10` / `0x20` | top / middle / bottom |
 
 ## Method that works
 
