@@ -4,6 +4,11 @@ How the engine turns a `.gui` listbox into rows on screen, which field controls
 which margin, and the method for finding the next one. Everything here was read
 out of `swkotornopatch.exe` or a live process — no inference unless labelled.
 
+> **Scope.** This file covers listboxes. They are 81 of the 640 text-bearing
+> controls in the game; the other 559 -- labels, buttons, toggles -- have no
+> `PADDING` field and share none of this code. For changing gaps *uniformly*
+> across both families, start from [text-padding.md](text-padding.md).
+
 **The single most important fact: there is one code path.** `CAurGUIListBox`
 lays out *every* listbox in the game — inventory, journal, store, the message
 logs, the HUD action queues. A margin that looks wrong on one screen is not a
