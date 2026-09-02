@@ -108,19 +108,27 @@ def scale_popup(source: Path, dest: Path, factor: float,
 # The icon stays 32: its texture is 32x32 and the control TILES rather than
 # scales, so a 64px icon draws as four copies. Confirmed in play.
 TUNED = {
-    # A wider panel is the key. The OK button is anchored just below LB_MESSAGE,
-    # so the gap between the last line of text and the button is only as large as
-    # the slack left in the box. With a narrow box the text overflows it and the
-    # button ends up almost touching the text.
+    # Measured in play at 3440x1440 rather than derived by scaling.
     #
-    # Widening the box until the text fits without the engine's auto-fit loop
-    # solves both problems at once: no overflow means no clipping, and a box
-    # taller than the text leaves a real gap above the button.
-    "TGuiPanel":  (900, 520),          # size only; the panel is recentred
-    "LB_MESSAGE": (60, 24, 780, 210),  # equal 60px margins either side
+    # The OK button is anchored ~29px below LB_MESSAGE's bottom edge, and the
+    # text starts ~30px into the box (the icon pushes it down), so
+    #     gap = LB_MESSAGE height - text height - 1
+    # With a 4-line message the text is ~116px, so 160 gives ~43px of gap.
+    # A box shorter than the text makes it overflow, which switches the engine's
+    # auto-fit loop back on and brings the horizontal clipping with it.
+    "TGuiPanel":  (900, 470),
+    "LB_MESSAGE": (60, 24, 780, 160),
     "BTN_OK":     (60, 300, 780, 80),
     "BTN_CANCEL": (60, 400, 780, 80),
 }
+
+# The listbox lays text out inside `width - scrollbar - 2*border - PADDING`, so
+# PADDING pulls the WRAP edge in while the text is still CLIPPED at the control
+# edge. That difference is the slack the engine's own line measurement needs:
+# it truncates each glyph's advance and runs ~3% short, so a line it believes
+# fits renders wider and loses its last character. 30px covers ~3% of this
+# box's 780px width.
+MESSAGE_PADDING = 30
 
 
 def apply_tuned(source: Path, dest: Path) -> list:
@@ -145,6 +153,10 @@ def apply_tuned(source: Path, dest: Path) -> list:
         for child in controls:
             tag = child.acquire("TAG", "")
             child_extent = child.acquire("EXTENT", None)
+            if tag == "LB_MESSAGE":
+                was = child.acquire("PADDING", 0)
+                child.set_int32("PADDING", MESSAGE_PADDING)
+                changed.append(("LB_MESSAGE.PADDING", was, MESSAGE_PADDING))
             if child_extent is not None and tag in TUNED and tag != "TGuiPanel":
                 before = tuple(child_extent.get_int32(f)
                                for f in ("LEFT", "TOP", "WIDTH", "HEIGHT"))
