@@ -1,43 +1,50 @@
 #!/usr/bin/env python3
-"""Give every listbox a top inset, so text doesn't start hard against the box.
+"""Give every listbox a top inset, so text doesn't start hard against the frame.
 
-Gold v11 (`build_listbox_padding_fix.py`) made `PADDING` a purely horizontal
-inset. One of the three things it removed was the *vertical* one: vanilla
-started the first row `PADDING` pixels down, but since the same byte also set
-row pitch, raising it to open a top gap also spaced every row apart. v11 forced
-the row-top chain's seed to zero instead, which is correct but leaves the first
-line flush with the top of the content rect.
+Gold v11 made `PADDING` purely horizontal; one of the things it dropped was
+vanilla's top inset, because the same byte also set row pitch, so opening a top
+gap also spaced every row apart. Gold v12 then moved each builder's `rect.top`
+into its `.kgs` stub. That is where a top inset belongs, and this patch sets it
+there -- as a constant independent of `PADDING`, so the row spacing cannot come
+back with it.
 
-This restores a top inset as an **independent constant**, so it cannot bring the
-row spacing back. Two sites, because there are two rect builders:
+**Both stubs, because there are two rect builders** (see
+`reverse-engineering/listbox-geometry.md`): `0x0041B140` lays out rows when the
+content fits, `0x0041A2D0` lays out a single item when it does not. Patching one
+insets short panes and not scrolling ones -- the same asymmetry that originally
+exposed builder B.
 
-**Builder A** -- the content-fits path, patched in place, no size change:
+The rects sit at different stack offsets in the two builders:
 
-    0041B48C  sub ecx, edi          ; right inset, once   (left alone)
-    0041B48E  xor edi, edi   90     ; v11's zero seed
-              ->  6A KK 5F          ; push KK / pop edi
+    builder A   [esp+0x20 .. 0x2C] = {left, top, width, height}
+    builder B   [esp+0x1C .. 0x28] = {left, top, width, height}
 
-Three bytes for three. `push imm8` sign-extends, so the range is 0..127, and
-neither instruction touches flags. `edi` then flows to `0x0041B4A1`'s
-`sub edi, ecx`, which seeds the row-top chain, so row 1 lands at `KK`.
+**Builder A** writes its top directly, so the inset is just its immediate:
 
-**Builder B** -- the scrolling path, whose equivalent zero lives inside the
-`.kgs` stub that `build_gutter_side_fix.py` writes:
+    00872017  mov dword [esp+0x24], 0    ->  mov dword [esp+0x24], KK
 
-    xor edi, edi ; test ebx, ebx ; jmp 0x0041A301
-    ->  push KK ; pop edi ; test ebx, ebx ; jmp 0x0041A301
+An imm32 already, so no size change and no register touched.
 
-One byte longer, taken from the section's padding, with the jump displacement
-recomputed. `edi` is read there by `sub ebx, edi` at `0x0041A35D` and
-`sub edi, eax` at `0x0041A381`, the bottom-anchored and normal branches, so both
-pick the inset up. The `test` stays last: `0x0041A30D`'s `je` consumes its
-flags, and push/pop do not disturb them.
+**Builder B** never writes `[esp+0x20]`. Its top is derived from `edi` by
+`sub ebx, edi` at `0x0041A35D` (bottom-anchored branch) and `sub edi, eax` at
+`0x0041A381` (otherwise), which is why v12's stub clears `edi` there. Seeding it
+with the inset instead reaches both branches:
 
-Patching only Builder A would inset short panes and not scrolling ones -- which
-is exactly the asymmetry that located Builder B in the first place.
+    00872041  xor edi, edi   ->  push KK ; pop edi
 
-Requires an executable that already carries the v11 padding fix and the `.kgs`
-gutter fix; it refuses otherwise rather than guessing.
+One byte longer, taken from the section's padding, jump displacement recomputed.
+`test ebx, ebx` stays last -- `0x0041A30D`'s `je` consumes its flags, and
+push/pop do not disturb them. This runs after `sub ecx, edi` and the gutter
+store, `edi`'s last two readers as `PADDING`.
+
+**Do not do this in `.text` instead.** An earlier attempt replaced v11's
+`xor edi, edi` at `0x0041B48E` with the same push/pop. That register is not
+spare: `0x0041B48C` reads it for the width and `0x0041B4A1` seeds the row-top
+chain from it, which is precisely why v12 wrote the zero to the stack slot
+rather than clearing the register. The game crashed on launch. Both levers are
+in `.kgs`; `.text` is left alone, and this tool verifies it is still v11's.
+
+Requires an executable carrying gold v11 and v12; it refuses otherwise.
 """
 
 from __future__ import annotations
@@ -49,12 +56,15 @@ from pathlib import Path
 from verify_map_patch import PEImage
 
 
-# Builder A: v11 leaves `xor edi, edi` + `nop` here.
-FIT_VA = 0x0041B48E
-FIT_ORIGINAL = bytes.fromhex("33ff90")
+# v11's zero seed. Must still be intact: this patch does NOT touch it.
+V11_SEED_VA = 0x0041B48E
+V11_SEED = bytes.fromhex("33ff90")
 
-# Builder B: the tail of the second .kgs stub.
-SCROLL_TAIL = bytes.fromhex("33ff85dbe9")     # xor edi,edi; test ebx,ebx; jmp rel32
+# Builder A's `mov dword [esp+0x24], imm32` inside the .kgs fit stub.
+FIT_TOP = bytes.fromhex("c744242400000000")
+
+# Builder B's seed, and where its stub returns to.
+SCROLL_TAIL = bytes.fromhex("33ff85dbe9")     # xor edi,edi ; test ebx,ebx ; jmp rel32
 SCROLL_RESUME = 0x0041A301
 
 
@@ -69,42 +79,44 @@ def main() -> int:
     if args.source.resolve() == args.output.resolve():
         raise SystemExit("Output must be a separate executable")
     if not 0 <= args.top_inset <= 127:
-        raise SystemExit("--top-inset must be 0..127 (it is encoded as push imm8)")
+        raise SystemExit("--top-inset must be 0..127 (builder B encodes it as push imm8)")
 
     image = PEImage(args.source)
     data = bytearray(image.data)
 
-    # --- Builder A -------------------------------------------------------
-    actual, offset, section = image.read_va(FIT_VA, len(FIT_ORIGINAL))
-    if actual != FIT_ORIGINAL:
+    seed, _, _ = image.read_va(V11_SEED_VA, len(V11_SEED))
+    if seed != V11_SEED:
         raise SystemExit(
-            f"0x{FIT_VA:08X}: expected {FIT_ORIGINAL.hex(' ')} (gold v11's zero seed), "
-            f"found {actual.hex(' ')} in {section}. Refusing to patch.")
-    data[offset:offset + 3] = b"\x6A" + bytes([args.top_inset]) + b"\x5F"
-    print(f"builder A  0x{FIT_VA:08X}  file 0x{offset:08X}  "
-          f"xor edi,edi -> push {args.top_inset} / pop edi")
+            f"0x{V11_SEED_VA:08X}: expected gold v11's {V11_SEED.hex(' ')}, found "
+            f"{seed.hex(' ')}. That register must stay zero -- see this module's docstring.")
 
-    # --- Builder B -------------------------------------------------------
     kgs = next((s for s in image.sections if s.name == ".kgs"), None)
     if kgs is None:
-        raise SystemExit("Source has no .kgs section: apply build_gutter_side_fix.py first")
+        raise SystemExit("Source has no .kgs section: apply build_gutter_side_fix.py (v12) first")
     kgs_va = image.image_base + kgs.virtual_address
     stub, kgs_offset, _ = image.read_va(kgs_va, kgs.virtual_size)
+
+    # --- Builder A: the fit stub's rect.top immediate ---------------------
+    at = stub.find(FIT_TOP)
+    if at < 0 or stub.find(FIT_TOP, at + 1) >= 0:
+        raise SystemExit("Expected exactly one 'mov [esp+0x24], 0' in .kgs")
+    struct.pack_into("<i", data, kgs_offset + at + 4, args.top_inset)
+    print(f"builder A  0x{kgs_va + at:08X}  mov [esp+0x24], 0 -> {args.top_inset}")
+
+    # --- Builder B: seed edi with the inset -------------------------------
     at = stub.find(SCROLL_TAIL)
     if at < 0 or stub.find(SCROLL_TAIL, at + 1) >= 0:
         raise SystemExit("Expected exactly one 'xor edi,edi; test ebx,ebx; jmp' tail in .kgs")
     if kgs.virtual_size + 1 > kgs.raw_size:
         raise SystemExit("No padding left in .kgs to grow the stub by one byte")
-
     jmp_va = kgs_va + at + 5                       # push(2) + pop(1) + test(2)
-    tail = (b"\x6A" + bytes([args.top_inset]) + b"\x5F"     # push KK ; pop edi
-            + b"\x85\xDB"                                    # test ebx, ebx
+    tail = (b"\x6A" + bytes([args.top_inset]) + b"\x5F"
+            + b"\x85\xDB"
             + b"\xE9" + struct.pack("<i", SCROLL_RESUME - (jmp_va + 5)))
     data[kgs_offset + at:kgs_offset + at + len(SCROLL_TAIL) + 4] = tail
-    print(f"builder B  0x{kgs_va + at:08X}  file 0x{kgs_offset + at:08X}  "
-          f"same, +1 byte, jmp 0x{SCROLL_RESUME:08X} rebased")
+    print(f"builder B  0x{kgs_va + at:08X}  xor edi,edi -> push {args.top_inset} / pop edi"
+          f"  (+1 byte, jmp rebased)")
 
-    # Grow .kgs's VirtualSize by the one byte the stub gained.
     pe_offset = struct.unpack_from("<I", data, 0x3C)[0]
     coff = pe_offset + 4
     section_count = struct.unpack_from("<H", data, coff + 2)[0]
@@ -121,16 +133,16 @@ def main() -> int:
     args.output.write_bytes(data)
 
     out = PEImage(args.output)
-    check, _, sec = out.read_va(FIT_VA, 3)
-    if check != b"\x6A" + bytes([args.top_inset]) + b"\x5F" or sec != ".text":
-        raise SystemExit("Verification failed: builder A")
+    check, _, sec = out.read_va(V11_SEED_VA, len(V11_SEED))
+    if check != V11_SEED or sec != ".text":
+        raise SystemExit("Verification failed: v11's seed in .text must be untouched")
     check, _, sec = out.read_va(kgs_va + at, len(tail))
     if check != tail or sec != ".kgs":
         raise SystemExit("Verification failed: builder B")
 
     print()
     print(f"{'top inset':<20} {args.top_inset} px")
-    print(f"{'new file length':<20} {len(data)}")
+    print(f"{'.text':<20} untouched")
     print(f"{'SHA-256':<20} {out.sha256}")
     return 0
 
