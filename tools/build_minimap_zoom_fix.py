@@ -36,6 +36,10 @@ viewport centre, before the normalisation:
     arg3 = arg3 * W / 120
     arg4 = arg4 * W / 120
 
+then clamps the position to `[W - arg3, 0]` so the map still covers the viewport.
+Without that the area's edge drew as black: the engine limits its own pan on the
+vanilla 120px basis and stops short once the viewport is larger.
+
 At a vanilla 120 viewport this is the identity, so the patch cannot change
 anything the vanilla game already draws correctly.
 
@@ -101,16 +105,44 @@ ARG3 = 0x1C
 ARG4 = 0x20
 
 
-def _scale_slot(slot: int, centred: bool) -> bytes:
-    """eax = slot; (optionally about the centre) * W / 120; store back."""
+def _scale_size(slot: int) -> bytes:
+    """[esp+slot] *= W / 120."""
     out = bytearray()
     out += b"\x8B\x44\x24" + bytes([slot])          # mov  eax, [esp+slot]
-    if centred:
-        out += b"\x2B\xC6"                          # sub  eax, esi
-    out += b"\xF7\xEB"                              # imul ebx            edx:eax = eax*W
-    out += b"\xF7\xF9"                              # idiv ecx            eax = /120
-    if centred:
-        out += b"\x03\xC6"                          # add  eax, esi
+    out += b"\xF7\xEB"                              # imul ebx      edx:eax = eax*W
+    out += b"\xF7\xF9"                              # idiv ecx      eax = /120
+    out += b"\x89\x44\x24" + bytes([slot])          # mov  [esp+slot], eax
+    return bytes(out)
+
+
+def _scale_position(slot: int, size_slot: int) -> bytes:
+    """[esp+slot] scaled about the viewport centre, then clamped so the map still
+    covers the viewport.
+
+    The clamp is the whole reason the map stops going black at the area's edge.
+    The engine limits its own pan on the vanilla 120px basis, so once the viewport
+    is larger it stops short: at a 270px viewport the map's right edge lands at
+    102px and the remaining 168px draws as nothing. Clamping to
+    `[viewport - scaledSize, 0]` keeps the map covering the viewport.
+
+    The range can never invert, so no guard is needed: the scaled map is
+    512*W/120 = 4.26x the viewport wide and 256*W/120 = 2.13x tall, both always
+    larger than the viewport itself.
+    """
+    out = bytearray()
+    out += b"\x8B\x44\x24" + bytes([slot])          # mov  eax, [esp+slot]
+    out += b"\x2B\xC6"                              # sub  eax, esi   (- centre)
+    out += b"\xF7\xEB"                              # imul ebx
+    out += b"\xF7\xF9"                              # idiv ecx
+    out += b"\x03\xC6"                              # add  eax, esi   (+ centre)
+    out += b"\x85\xC0"                              # test eax, eax
+    out += b"\x7E\x02"                              # jle  +2
+    out += b"\x33\xC0"                              # xor  eax, eax   upper clamp = 0
+    out += b"\x8B\xD3"                              # mov  edx, ebx   viewport
+    out += b"\x2B\x54\x24" + bytes([size_slot])     # sub  edx, [esp+size]
+    out += b"\x3B\xC2"                              # cmp  eax, edx
+    out += b"\x7D\x02"                              # jge  +2
+    out += b"\x8B\xC2"                              # mov  eax, edx   lower clamp
     out += b"\x89\x44\x24" + bytes([slot])          # mov  [esp+slot], eax
     return bytes(out)
 
@@ -171,10 +203,11 @@ def build_stub(stub_va: int) -> bytes:
     ok_at = len(body)
     struct.pack_into("<i", body, ok_fixup, ok_at - (ok_fixup + 4))
 
-    body += _scale_slot(ARG1, centred=True)
-    body += _scale_slot(ARG2, centred=True)
-    body += _scale_slot(ARG3, centred=False)
-    body += _scale_slot(ARG4, centred=False)
+    # Sizes first: the position clamp reads the scaled size back off the stack.
+    body += _scale_size(ARG3)
+    body += _scale_size(ARG4)
+    body += _scale_position(ARG1, ARG3)
+    body += _scale_position(ARG2, ARG4)
 
     restore_at = len(body)
     body += b"\x8B\xC3"                                            # mov eax, ebx  (W)
