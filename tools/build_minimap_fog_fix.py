@@ -240,7 +240,7 @@ def main() -> int:
     print()
     print(f"{'zoom basis':<20} {args.zoom_basis} map units")
     print(f"{'new file length':<20} {len(data)}")
-    print(f"{'SHA-256':<20} {out.sha256}")
+    print(f"{'SHA-256':<20} {out.sha256}   <- GoldPatch.TargetHash / EXPECTED_GOLD_SHA256")
     return 0
 
 
