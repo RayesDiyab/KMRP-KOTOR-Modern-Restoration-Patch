@@ -37,10 +37,10 @@ namespace KotorUniversalUI
     {
         internal const string ResourceName = "KotorUniversalUI.goldpatch";
         internal const string SourceHash = "761F9466F456A83909036BAEBB5C43167D722387BE66E54617BA20A8C49E9886";
-        internal const string TargetHash = "1F1684A5DC8BC440B2C8FF0194873315EDD39DE1C1039CB2E73861A4B3732504";
+        internal const string TargetHash = "79356D1A92637C1B5C619B530FDA742A622A330E19AD628DBA19464202425048";
         internal const long SourceLength = 4042752;
         internal const long TargetLength = 4079616;
-        internal const string PatchVersion = "2.6.0-minimap";
+        internal const string PatchVersion = "2.7.0-popup";
 
         private readonly List<PatchChunk> chunks;
 
@@ -348,6 +348,33 @@ namespace KotorUniversalUI
         // only for the feat/power chain rows, which read too small at the vanilla
         // 40 once everything around them grew -- 50 was chosen by eye in game
         // (100px at 3440x1440) and is a deliberate design choice, not a measurement.
+        // The shared message popup (confirm.gui and every tutorial hint) sizes
+        // itself in code, not from its .gui, so its geometry has to scale with the
+        // font the same way the .gui layout does -- see scale_message_popup.py,
+        // whose TUNED table is the matching half of this. Gold bakes the values
+        // play-tested at 3440x1440, i.e. font scale 2.0; the second column is the
+        // scale-1.0 base, so at 1440p this reproduces gold exactly.
+        //
+        // Each cap has TWO sites. Patching one leaves the other clamping -- the
+        // same "there is always a second copy" pattern as gold v11's three row
+        // pitch sites and v12's two rect builders.
+        private static readonly int[][] PopupSizeGroups =
+        {
+            //     gold, base@1.0, offsets...
+            new[] {  900,  450, 0x002256E3, 0x00225759 },   // auto-fit height stop
+            // The width cap is what fixes clipped message text: the auto-fit loop
+            // widens the popup 40 units at a time to fit its message, but only
+            // while the panel is narrower than this. Authored 440 for 640x480, so
+            // at any HD size the panel already exceeds it and the loop never runs.
+            new[] { 1600,  800, 0x002256DC, 0x002256F6 },   // auto-fit width cap
+            // The icon rect and the inset the message text is pushed down by. They
+            // must move together or the text runs under the icon -- and the rect
+            // must match the shipped tut_*.tga size (export_tutorial_icons.py),
+            // because the engine draws GUI textures one texel per pixel: a smaller
+            // texture TILES, a larger one is CROPPED.
+            new[] {  128,   64, 0x00226F95, 0x0022540D },   // icon rect, message inset
+        };
+
         private static readonly int[][] RowSizeGroups =
         {
             new[] { 56, 56, 0x002B527F, 0x002B4FA9, 0x002B55E3 },   // inventory
@@ -404,6 +431,14 @@ namespace KotorUniversalUI
                 int scaled = (int)Math.Round(group[1] * rowSizeScale);
                 for (int i = 2; i < group.Length; i++)
                     ReplaceInt32(executable, group[i], expected, scaled, "list row/icon size");
+            }
+
+            foreach (int[] group in PopupSizeGroups)
+            {
+                int expected = group[0];
+                int scaled = (int)Math.Round(group[1] * rowSizeScale);
+                for (int i = 2; i < group.Length; i++)
+                    ReplaceInt32(executable, group[i], expected, scaled, "message popup size");
             }
             foreach (long offset in NegativeWidthOffsets)
                 ReplaceInt32(executable, offset, -3440, -resolution.Width, "click-fix width reference");

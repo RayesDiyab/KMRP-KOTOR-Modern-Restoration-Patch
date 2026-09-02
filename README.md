@@ -80,13 +80,15 @@ cramped text it was meant to fix was actually cured by the atlas rebuild).
   behind. All four of its constants now scale with the icon (`StackCountSites`),
   clamped so the three imm8 operands cannot sign-extend negative.
 - The current gold snapshot is
-  `build/universal-patcher/swkotor_gold_v14_minimap.exe`, SHA-256
-  `1F1684A5DC8BC440B2C8FF0194873315EDD39DE1C1039CB2E73861A4B3732504`.
-  The universal build script defaults to this file. Gold v14 includes the map,
+  `build/universal-patcher/swkotor_gold_v15_popup.exe`, SHA-256
+  `79356D1A92637C1B5C619B530FDA742A622A330E19AD628DBA19464202425048`.
+  The universal build script defaults to this file. Gold v15 includes the map,
   marker, font, dialogue, list-row, wrap-progress, stack-label, listbox gutter,
   scrollbar-side, and leading-newline fixes documented in
   `reverse-engineering/listbox-geometry.md`, plus the HUD minimap content zoom
-  and the matching fog grid documented in `reverse-engineering/map.md`.
+  and the matching fog grid documented in `reverse-engineering/map.md`, plus the
+  shared message popup's auto-fit caps and icon rect documented in
+  `reverse-engineering/message-popup.md`.
 - The standalone Windows patcher in `dist/` embeds the verified executable
   delta, all 48 GUI archives, common Override assets, font atlases, branding,
   icons, and license notice. It creates verified backups, supports full

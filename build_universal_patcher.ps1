@@ -1,6 +1,6 @@
 param(
     [string]$SourceExe = "..\swkotornopatch.exe",
-    [string]$GoldExe = ".\build\universal-patcher\swkotor_gold_v14_minimap.exe",
+    [string]$GoldExe = ".\build\universal-patcher\swkotor_gold_v15_popup.exe",
     [string]$GoldOverride = ".\assets\override-3440x1440",
     [string]$UpstreamGuiRoot = ".\third_party\kotor-high-resolution-menus-1.5",
     [string]$IconPath = ".\favicon.ico",
@@ -85,6 +85,7 @@ Get-ChildItem -LiteralPath $resourceDir -Filter "gui-*.zip" | Sort-Object Name |
 }
 $compilerArgs += (Join-Path $projectRoot "app\patcher\KotorUniversalPatcher.cs")
 $compilerArgs += (Join-Path $projectRoot "app\patcher\AbilityIconGenerator.cs")
+$compilerArgs += (Join-Path $projectRoot "app\patcher\AssemblyInfo.cs")
 
 & $compiler $compilerArgs
 if ($LASTEXITCODE -ne 0) {

@@ -138,14 +138,46 @@ TUNED = {
 MESSAGE_PADDING = 30
 
 
-def apply_tuned(source: Path, dest: Path) -> list:
-    """Write the tuned layout, keeping the panel's centre where it was."""
+# The scale the TUNED table above was measured at: 3440x1440, whose font scale
+# is 1440/720 = 2.0. Every other resolution takes TUNED * (scale / TUNED_SCALE).
+#
+# Font scale is the right basis rather than screen width or a ratio against the
+# stock file. What the popup has to hold is TEXT, and the text is sized by the
+# font atlases' TXI metrics, which scale by exactly max(1.0, height/720) -- so a
+# popup scaled the same way holds the same number of lines at every resolution.
+# The in-executable caps and the icon rect are scaled by the same rule in
+# ResolutionPatch (PopupSizeGroups), which is what keeps the three in step.
+#
+# A proportional transfer against the stock file was the alternative, and it is
+# wrong here: upstream sizes this popup by SCREEN WIDTH (870px at 1920x1080,
+# 1740 at 3840x1080) while gold deliberately shrank it, so transferring gold's
+# ratio onto 800x600 gives a 209px popup -- narrower than vanilla's own 363.
+TUNED_SCALE = 2.0
+
+
+def scaled_layout(scale: float) -> tuple[dict, int]:
+    """The TUNED table and its padding at `scale`. Absolute, so it is idempotent."""
+    factor = scale / TUNED_SCALE
+    layout = {tag: tuple(round_half_up(v * factor) for v in values)
+              for tag, values in TUNED.items()}
+    return layout, round_half_up(MESSAGE_PADDING * factor)
+
+
+def apply_tuned(source: Path, dest: Path, scale: float = TUNED_SCALE) -> list:
+    """Write the tuned layout at `scale`, keeping the panel's centre where it was.
+
+    Centre preservation is idempotent once applied -- re-running on the output
+    reproduces it byte for byte -- so this may be run over either a stock file or
+    an already-tuned one. That matters because the gold override now holds the
+    hand-tuned 3440x1440 copy.
+    """
     gui = read_gff(source)
     root = gui.root
     extent = root.acquire("EXTENT", None)
     left, top = extent.get_int32("LEFT"), extent.get_int32("TOP")
     width, height = extent.get_int32("WIDTH"), extent.get_int32("HEIGHT")
-    new_w, new_h = TUNED["TGuiPanel"]
+    layout, padding = scaled_layout(scale)
+    new_w, new_h = layout["TGuiPanel"]
     new_l = round_half_up(left + (width - new_w) / 2)
     new_t = round_half_up(top + (height - new_h) / 2)
     changed = [("TGuiPanel", (left, top, width, height), (new_l, new_t, new_w, new_h))]
@@ -162,12 +194,12 @@ def apply_tuned(source: Path, dest: Path) -> list:
             child_extent = child.acquire("EXTENT", None)
             if tag == "LB_MESSAGE":
                 was = child.acquire("PADDING", 0)
-                child.set_int32("PADDING", MESSAGE_PADDING)
-                changed.append(("LB_MESSAGE.PADDING", was, MESSAGE_PADDING))
-            if child_extent is not None and tag in TUNED and tag != "TGuiPanel":
+                child.set_int32("PADDING", padding)
+                changed.append(("LB_MESSAGE.PADDING", was, padding))
+            if child_extent is not None and tag in layout and tag != "TGuiPanel":
                 before = tuple(child_extent.get_int32(f)
                                for f in ("LEFT", "TOP", "WIDTH", "HEIGHT"))
-                after = TUNED[tag]
+                after = layout[tag]
                 for field, value in zip(("LEFT", "TOP", "WIDTH", "HEIGHT"), after):
                     child_extent.set_int32(field, value)
                 child.set_struct("EXTENT", child_extent)
@@ -215,6 +247,9 @@ def main() -> int:
                         help="vertical scale; defaults to --factor")
     parser.add_argument("--tuned", action="store_true",
                         help="use the play-tested layout instead of scaling factors")
+    parser.add_argument("--scale", type=float, default=TUNED_SCALE,
+                        help="font scale to size the tuned layout for "
+                             f"(default {TUNED_SCALE}, i.e. 3440x1440)")
     parser.add_argument("--button-gap", type=int, default=0,
                         help="extra space between the message and the buttons, in panel "
                              "units; the panel grows by the same amount")
@@ -226,7 +261,7 @@ def main() -> int:
         raise SystemExit("--height-factor must be between 1.0 and 6.0")
 
     if args.tuned:
-        changed = apply_tuned(args.source, args.output)
+        changed = apply_tuned(args.source, args.output, args.scale)
     else:
         changed = scale_popup(args.source, args.output, args.factor, args.height_factor,
                               args.button_gap)
