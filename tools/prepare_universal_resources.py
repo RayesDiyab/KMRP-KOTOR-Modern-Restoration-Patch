@@ -17,6 +17,8 @@ from fix_hud_menubg import fix_menubg_file
 from scale_hud_minimap import patch_gui
 from transfer_gold_gui_geometry import transfer_geometry
 from scale_listbox_padding import LIST_GUTTER_AT_UNIT_SCALE, scale_listbox_padding
+from scale_message_popup import apply_tuned as apply_popup_layout
+from export_tutorial_icons import export_tutorial_icons
 from scale_row_icon_frames import FRAME_RESREFS, export_frames
 
 
@@ -138,8 +140,12 @@ LIST_LISTBOXES = {
     "LB_SHOPITEMS", "LB_INVITEMS",
 }
 
+# confirm.gui is deliberately NOT here. It is the shared message popup, and its
+# layout is generated from the play-tested table in scale_message_popup.py at
+# every resolution instead -- see the branch in the per-resolution loop, and the
+# TUNED_SCALE comment for why a ratio transfer is the wrong tool for this one.
 GOLD_GEOMETRY_TEMPLATES = {
-    "abchrgen.gui", "barkbubble.gui", "computer.gui", "confirm.gui",
+    "abchrgen.gui", "barkbubble.gui", "computer.gui",
     "container.gui", "custpnl.gui", "equip.gui", "ftchrgen.gui",
     "galaxymap.gui", "inventory.gui", "journal.gui", "loadscreen.gui",
     "map.gui", "messages.gui", "pause.gui", "questitem.gui", "saveload.gui",
@@ -161,6 +167,10 @@ def main() -> int:
     parser.add_argument("output", type=Path)
     parser.add_argument("texture_pack", type=Path,
                         help="TexturePacks/swpc_tex_gui.erf, source of the stock font metrics")
+    parser.add_argument("--shared-assets", type=Path,
+                        default=Path(__file__).resolve().parents[1] / "assets" / "override-common",
+                        help="resolution-independent files copied straight into "
+                             "override-common.zip (currently tutorial.2da)")
     parser.add_argument("hd_fonts", type=Path,
                         help="Pre-rendered HD font atlases (assets/hd-fonts)")
     args = parser.parse_args()
@@ -224,8 +234,17 @@ def main() -> int:
         stock_fonts = export_fonts(args.texture_pack, Path(stock_name), 1.0, textures=True)
         stock_atlases = [path for path in stock_fonts
                          if path.suffix.lower() == ".tga" and path.stem.lower() not in hd_font_stems]
+        # Resolution-independent data files. tutorial.2da is the stock table with
+        # its `icon` column repointed at the popup's private tut_* copies (see
+        # tools/export_tutorial_icons.py); it is committed rather than generated
+        # because building it needs to read the game's BIFs, which this build
+        # does not have a path to.
+        shared_data = sorted(args.shared_assets.glob("*")) if args.shared_assets.is_dir() else []
+        if not shared_data:
+            raise ValueError(f"No shared data files found in {args.shared_assets}")
+        print(f"Shared data: {', '.join(path.name for path in shared_data)}")
         write_zip(args.output / "override-common.zip",
-                  common_tga_files + hd_font_atlases + stock_atlases)
+                  common_tga_files + hd_font_atlases + stock_atlases + shared_data)
 
     catalog_lines = ["# category\twidth\theight\tcanvasWidth\tcanvasHeight\toverlayWidth\tcenteringWidth\tcenteringHeight"]
     for category, resolutions in GROUPS.items():
@@ -254,12 +273,21 @@ def main() -> int:
                 temp_dir = Path(temp_name)
                 packaged_files: list[Path] = []
                 for gui_file in gui_files:
+                    name = gui_file.name.lower()
+                    patched = temp_dir / gui_file.name
+                    if name == "confirm.gui":
+                        # The shared message popup, sized for THIS resolution's
+                        # font scale. Handled ahead of the 3440x1440 passthrough
+                        # below because it applies at every resolution including
+                        # that one: the layout is absolute, so running it over
+                        # the already-tuned gold copy reproduces it exactly.
+                        apply_popup_layout(gui_file, patched, font_scale_for(height))
+                        packaged_files.append(patched)
+                        continue
                     if resolution == "3440x1440":
                         packaged_files.append(gui_file)
                         continue
 
-                    name = gui_file.name.lower()
-                    patched = temp_dir / gui_file.name
                     if name == "mipc210x7.gui":
                         # This is the ONE mipc variant actually hand-corrected at
                         # 3440x1440 (assets/override-3440x1440/mipc210x7.gui) --
@@ -409,6 +437,14 @@ def main() -> int:
                 packaged_files.extend(
                     export_frames(args.texture_pack, temp_dir / "frames",
                                   font_scale_for(height)))
+
+                # The message popup's icons, at this resolution's icon rect (the
+                # rect is scaled by ResolutionPatch's PopupSizeGroups). The engine
+                # draws GUI textures one texel per pixel, so a mismatch TILES or
+                # CROPS -- hence per resolution, not in the shared archive.
+                packaged_files.extend(
+                    export_tutorial_icons(args.texture_pack, temp_dir / "tuticons",
+                                          font_scale_for(height)))
 
 
                 write_zip(args.output / f"gui-{resolution}.zip", packaged_files)

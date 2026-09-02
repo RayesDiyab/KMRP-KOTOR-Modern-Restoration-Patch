@@ -58,7 +58,10 @@ is how the mistake surfaced. **`0x00625413` is left vanilla.**
 
 ### 1. Executable — five in-place `imm32` rewrites
 
-`tools/build_message_popup_size.py`. No size change, no new section; verified in
+`tools/build_message_popup_size.py`, folded into **gold v15**
+(`79356D1A…`, 4,079,616 bytes, length unchanged). Gold bakes the values
+play-tested at 3440x1440; `ResolutionPatch` rescales all six per resolution
+(see *Every resolution* below). No size change, no new section; verified in
 the installed exe (`EFA167CD403EDECD…`, 4,079,616 bytes, all nine `.k??` sections
 reading back).
 
@@ -70,6 +73,13 @@ reading back).
 | `0x006256F4` | `cmp ecx, 0x1B8` | `cmp ecx, 0x640` | second width site |
 | `0x00626F94` | `mov eax, 0x20` | `mov eax, 0x80` | the icon control's rect, 32 → 128 |
 | `0x0062540C` | `mov edx, 0x20` | `mov edx, 0x80` | the matching message offset; must move with the rect |
+
+Gold binaries are not tracked (`build/` is ignored), so v15 is reproduced from
+v14 with:
+
+```bash
+python tools/build_message_popup_size.py build/universal-patcher/swkotor_gold_v14_minimap.exe build/universal-patcher/swkotor_gold_v15_popup.exe --height-cap 900 --width-cap 1600 --icon-size 128
+```
 
 **The width cap is the fix for clipped text.** The auto-fit loop widens the popup
 40 units at a time to fit its message, but only while the panel is narrower than
@@ -120,8 +130,18 @@ under a `tut_` prefix and the 2DA is repointed at them; every other use of the
 originals is untouched. All seven HUD icons verified byte-identical to the
 shipped archive.
 
-Nearest-neighbour on exact multiples (these are hard-edged glyphs), Lanczos
-otherwise. Source sizes were 32x32 x6 and 48x48 x7.
+Nearest-neighbour on exact multiples (these are hard-edged glyphs), bilinear
+otherwise.
+
+**Correction.** This first recorded the sources as 32x32 x6 and 48x48 x7. That
+was measured through an `Installation`, which resolves Override **first** -- so
+seven of the reads were KMRP's own scaled HUD icons, not the stock art, and the
+generator was compounding its own output. Read from the stock texture pack they
+are a clean **32x32 x6 and 64x64 x7**, so the seven now upscale by an exact
+integer factor instead of being resampled from an intermediate size. Six of the
+thirteen came out byte-identical either way; the other seven are sharper.
+`export_tutorial_icons.py` therefore reads the pack directly and never an
+`Installation`.
 
 ### 4. A TGA writer bug fixed along the way
 
@@ -129,6 +149,52 @@ The icons came out upside down. `app/patcher/AbilityIconGenerator.cs` already
 states the rule -- *"TPC pixel rows run bottom-up, and so does the TGA we write,
 so no [flip]"* -- and the writer reversed the rows anyway. Fixed here and in
 `build_padded_minimap_atlases.py`, which carried the same bug.
+
+## Every resolution
+
+Everything above was tuned at 3440x1440. It ships at all 48 resolutions by
+scaling against **font scale**, `max(1.0, height/720)` -- the same rule the font
+atlases' TXI metrics use, mirrored in `ScaleForHeight`. That is the right basis
+because what the popup has to hold is *text*, and the text is sized by that rule:
+a popup scaled the same way holds the same number of lines everywhere. 3440x1440
+is font scale 2.0, so every tuned number above is stored as its half.
+
+| what | scale 1.0 | at 3440x1440 | where |
+| --- | --- | --- | --- |
+| panel | 450x188 | 900x375 | `TUNED` in `scale_message_popup.py` |
+| `LB_MESSAGE` | 30,12,390,75 | 60,24,780,150 | same |
+| `PADDING` | 15 | 30 | same |
+| auto-fit height stop | 450 | 900 | `PopupSizeGroups` |
+| auto-fit width cap | 800 | 1600 | `PopupSizeGroups` |
+| icon rect + message inset | 64 | 128 | `PopupSizeGroups` |
+| icon texture | 64px | 128px | `export_tutorial_icons.py` |
+
+The three have to move together: the width cap must exceed the panel or the
+auto-fit loop cannot run and the text clips again, and the icon texture must
+equal the icon rect or it tiles or crops. Verified by reading the six patch sites
+back out of executables the patcher actually produced at 800x600, 1280x720,
+1920x1080, 3440x1440, 3840x2160 and 15360x8640 -- every one consistent, cap
+always above panel width.
+
+**A ratio transfer would have been wrong here**, which is why `confirm.gui` was
+removed from `GOLD_GEOMETRY_TEMPLATES`. That mechanism transfers gold's
+proportional correction onto each resolution's own stock file, and it suits GUIs
+that upstream authored consistently. Upstream sizes *this* popup by screen
+**width** (870px at 1920x1080, 1740 at 3840x1080, both 1080-tall) while gold
+deliberately shrank it, so transferring gold's ratio onto 800x600 yields a 209px
+popup -- narrower than vanilla's own 363, for text that has not shrunk. The
+generated layout gives 450 there instead.
+
+`confirm.gui` is generated for **every** resolution including 3440x1440, ahead of
+the branch that otherwise passes gold's files through untouched. The layout is
+absolute rather than relative, so re-running it over the already-tuned gold copy
+reproduces that copy byte for byte -- checked, and it is what makes it safe for
+gold to hold the hand-tuned file.
+
+The 13 icons ship **per resolution** in `gui-<res>.zip`, because their size is
+tied to the scaled rect; `tutorial.2da` is resolution-independent and ships once
+in `override-common.zip`. They are in exactly one archive each, which is what
+keeps the restore manifest sound.
 
 ## Verified, and not
 
