@@ -127,7 +127,7 @@ def _scale_slot(slot: int, centred: bool) -> bytes:
     return bytes(out)
 
 
-def build_stub(stub_va: int, basis: int = BASE_VIEWPORT) -> bytes:
+def build_stub(stub_va: int, basis: int = BASE_VIEWPORT, padded: bool = False) -> bytes:
     """`basis` is how many map units the minimap window spans.
 
     120 is vanilla. A smaller value zooms in, which shrinks the black band at an
@@ -142,7 +142,6 @@ def build_stub(stub_va: int, basis: int = BASE_VIEWPORT) -> bytes:
     other basis that identity does not hold, so the branch is left out rather
     than emitted wrong.
     """
-    padded = basis == BASE_VIEWPORT
     min_viewport = basis + 1
     body = bytearray()
 
@@ -254,8 +253,12 @@ def main() -> int:
     parser.add_argument("--zoom-basis", type=int, default=BASE_VIEWPORT,
                         help="map units the minimap window spans; 120 is vanilla, "
                              "lower zooms in and shrinks the black band at area edges")
+    parser.add_argument("--padded-atlas", action="store_true",
+                        help="also accept the 632x632 padded atlas from build_padded_minimap_atlases.py")
     args = parser.parse_args()
 
+    if args.padded_atlas and args.zoom_basis != BASE_VIEWPORT:
+        raise SystemExit("--padded-atlas only folds out its content offset at basis 120")
     if not 16 <= args.zoom_basis <= 126:
         raise SystemExit("--zoom-basis must be 16..126 (the gate compares against an imm8)")
 
@@ -289,7 +292,7 @@ def main() -> int:
     new_rva = align(last.virtual_address + max(last.virtual_size, last.raw_size),
                     section_alignment)
     stub_va = image.image_base + new_rva
-    stub = build_stub(stub_va, args.zoom_basis)
+    stub = build_stub(stub_va, args.zoom_basis, args.padded_atlas)
 
     patch = b"\xE9" + struct.pack("<i", stub_va - (SITE_VA + 5))
     patch += b"\x90" * (len(ORIGINAL) - len(patch))
