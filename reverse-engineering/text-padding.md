@@ -187,6 +187,10 @@ top gap and others did not.
 
 ## Family C: the shared message popup — `confirm.gui`
 
+> The popup's own layout -- how it sizes itself, where the button and icon land,
+> and every change KMRP makes to it -- is documented separately in
+> [message-popup.md](message-popup.md).
+
 **Corrected 2026-09-02.** This section previously said the tutorial popup was
 built in code with no `.gui`. That was wrong, and the way it was wrong is worth
 keeping.
