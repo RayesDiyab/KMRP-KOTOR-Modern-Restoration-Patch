@@ -50,14 +50,14 @@ with the remainder below and right -- more than the window can ever reach.
 from __future__ import annotations
 
 import argparse
+import struct
 import sys
 from pathlib import Path
 
 import numpy as np
 
-from pykotor.resource.formats.tpc import TPC, TPCTextureFormat, read_tpc, write_tpc
+from pykotor.resource.formats.tpc import TPCTextureFormat, read_tpc
 from pykotor.resource.formats.erf import read_erf
-from pykotor.resource.type import ResourceType
 
 
 DEFAULT_ERF = Path(r"C:\Star Wars - KotOR\TexturePacks\swpc_tex_gui.erf")
@@ -128,9 +128,19 @@ def load_atlases(erf_path: Path):
 
 
 def write_tga(path: Path, pixels: np.ndarray) -> None:
-    tpc = TPC()
-    tpc.set_single(pixels.tobytes(), TPCTextureFormat.RGBA, pixels.shape[1], pixels.shape[0])
-    write_tpc(tpc, path, ResourceType.TGA)
+    """Uncompressed 32-bit TGA, bottom-up, exactly as the game's own assets are.
+
+    pykotor writes descriptor 0x28 -- top-left origin. Every TGA the game ships,
+    and every one KMRP ships, is 0x08: bottom-left, the TGA default. A loader
+    that ignores the origin bit reads a 0x28 file upside down, which for a padded
+    atlas displaces the content by 256 texels and hides the map completely. So
+    emit the convention the rest of the game uses rather than rely on the bit
+    being honoured.
+    """
+    height, width = pixels.shape[:2]
+    header = struct.pack("<BBBHHBHHHHBB", 0, 0, 2, 0, 0, 0, 0, 0, width, height, 32, 0x08)
+    bgra = pixels[..., [2, 1, 0, 3]]
+    path.write_bytes(header + bgra[::-1].tobytes())
 
 
 def verify(path: Path, expected: np.ndarray) -> None:
