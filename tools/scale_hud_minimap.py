@@ -153,13 +153,21 @@ def read_view(gui, source: Path) -> tuple[int, int, int, int]:
     raise ValueError(f"{source}: no LBL_MAPVIEW control")
 
 
-def patch_gui(source: Path, output: Path, screen_height: int) -> bool:
+def patch_gui(source: Path, output: Path, screen_height: int,
+              map_surface: int | None = None) -> bool:
     gui = read_gff(source)
     controls = gui.root.get_list("CONTROLS")
     if controls is None:
         raise ValueError(f"{source} has no root CONTROLS list")
 
     targets = derive_extents(clamp_view(scaled_view(screen_height), guard_left_edge(gui)))
+    if map_surface is not None:
+        # LBL_MAP's extent is both the destination rect and the source rect, so
+        # it must equal the atlas exactly or the sampler overruns and wraps.
+        # Only pass this alongside atlases padded to the same square canvas by
+        # build_padded_minimap_atlases.py, and an exe built by
+        # build_minimap_zoom_fix.py, which folds out the content offset.
+        targets["LBL_MAP"] = (6, 6, map_surface, map_surface)
     found: set[str] = set()
 
     for control in controls:
@@ -190,11 +198,15 @@ def main() -> int:
     parser.add_argument("source", type=Path)
     parser.add_argument("output", type=Path)
     parser.add_argument("screen_height", type=int)
+    parser.add_argument("--map-surface", type=int, default=None,
+                        help="set LBL_MAP to this square extent, for padded atlases")
     args = parser.parse_args()
-    changed = patch_gui(args.source, args.output, args.screen_height)
+    changed = patch_gui(args.source, args.output, args.screen_height, args.map_surface)
     print(f"Wrote {args.output} ({'changed' if changed else 'unchanged'})")
     for tag, values in scaled_extents(args.screen_height).items():
         print(f"{tag}: {values}")
+    if args.map_surface is not None:
+        print(f"LBL_MAP: (6, 6, {args.map_surface}, {args.map_surface})")
     return 0
 
 
