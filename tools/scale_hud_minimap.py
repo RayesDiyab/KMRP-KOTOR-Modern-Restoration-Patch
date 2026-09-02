@@ -9,6 +9,16 @@ but becomes progressively smaller at 2160p and above.
 LBL_MAP is deliberately left untouched.  It is the engine-owned 512x256 map
 surface whose retail-sized domain prevents the vertical texture-wrap
 duplication bug.  Only the visible viewport and its decorative border scale.
+
+Re-tested 2026-09-02 and the constraint still holds.  Every other GUI variant
+ships LBL_MAP at 512x512 and only mipc210x7 -- the one the game loads at
+3440x1440 -- uses 512x256, which is half the vertical margin the others get.
+That costs a black band of up to ~9% of the minimap's height when the player
+stands at an area's vertical extreme, because a 256-tall surface magnified to
+match the viewport is only 2.13x it, against 4.27x for a 512-tall one.  Raising
+this one field to 512 does remove the band and keeps the position marker
+correct -- and immediately brings the duplication bug back.  One byte, observed
+in game, twice now.  Do not raise it again without solving the wrap first.
 """
 
 from __future__ import annotations

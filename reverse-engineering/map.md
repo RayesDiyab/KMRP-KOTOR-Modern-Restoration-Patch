@@ -285,3 +285,37 @@ the band -- measured, it moved y from -330 to -306 -- but the engine keeps the
 player arrow pinned at the viewport centre, so the map slides 24px out from under
 the marker. Vanilla does not clamp, and the arrow is only correct while it does
 not.
+
+### The residual black band, and why it stays
+
+Corrected: the earlier claim that the band matches vanilla was wrong. It compared
+against a 256-tall map surface, but vanilla's is 512. Measured at the same spot
+(player 80.9% down the surface):
+
+| | surface | black |
+| --- | --- | --- |
+| true vanilla 800x600 (`mipc8x6`, 512x512) | 512 | **0%** |
+| ours unpatched at 3440x1440 (`mipc210x7`, 512x256) | 256 | 31.9% |
+| ours with the `.kmz` zoom | 256 | 9.2% |
+| `mipc210x7` raised to 512x512 | 512 | **0%** |
+
+The cause is that `mipc210x7.gui` alone ships `LBL_MAP` at 512x**256** where all
+nine other variants use 512x512. Magnified to match the viewport, a 256-tall
+surface is only 2.13x it, against vanilla's 4.27x, so the player cannot stay
+centred near an area's vertical extreme.
+
+**Raising it to 512 was tested in game on 2026-09-02.** It removes the band and
+keeps the marker correct -- and reintroduces the vertical texture-wrap
+duplication bug that the 512x256 value exists to avoid. Reverted. The constraint
+is real and now confirmed twice.
+
+So the band is the price of the wrap workaround, not a fault in the zoom patch,
+which improves it from 31.9% to 9.2%. Removing it properly needs one of:
+
+* fixing the wrap itself -- if the duplication is the texture sampler repeating
+  rather than clamping, patching that render state would allow a 512x512 surface
+  and remove the band outright. Not investigated;
+* clamping the pan **and** moving the player arrow by the same delta, so the map
+  covers the viewport without the marker drifting. That needs a second hook on
+  the arrow control (`hud+0x5F40` / `hud+0x6098`) and writable state shared with
+  the `.kmz` stub, and it deviates from vanilla framing by design.
