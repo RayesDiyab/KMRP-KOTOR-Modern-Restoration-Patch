@@ -13,8 +13,15 @@ the same size:
 
 `tutorial.2da`'s `icon` column names 13 distinct textures across its 43 rows, and
 they are not one size: five `lbl_icn_*3` at 32x32 (only in the GUI texture pack),
-seven at 48x48, and `i_attack` at 64x64. This normalises every one to a single
-edge so a larger rect shows exactly one icon whatever the row selects.
+seven HUD status icons, and `i_attack`.
+
+**Eight of the thirteen are shared.** `i_attack` is a feat icon that
+`scale_ability_icons.py` already sizes for the Abilities chain rows, and the
+seven `lbl_i*` are HUD status icons KMRP ships in `override-common.zip`.
+Enlarging those in place would break them everywhere else they appear. So this
+writes the scaled copies under a **new prefix** and rewrites `tutorial.2da`'s
+`icon` column to point at them -- the popup gets big icons and nothing else in
+the game changes.
 
 Nearest-neighbour on exact multiples, deliberately: these are small, hard-edged
 HUD glyphs with flat colour and a 1px outline, and smooth filtering turns them to
@@ -47,15 +54,22 @@ def write_tga(path: Path, pixels: np.ndarray) -> None:
     height, width = pixels.shape[:2]
     header = struct.pack("<BBBHHBHHHHBB", 0, 0, 2, 0, 0, 0, 0, 0, width, height, 32, 0x08)
     bgra = pixels[..., [2, 1, 0, 3]]
-    path.write_bytes(header + bgra[::-1].tobytes())
+    # No row flip. TPC pixel rows already run bottom-up, and descriptor 0x08
+    # is bottom-up too, so reversing them writes the image upside down --
+    # exactly what AbilityIconGenerator.cs notes: "TPC pixel rows run
+    # bottom-up, and so does the TGA we write, so no [flip]". Seen in play
+    # as upside-down tutorial icons.
+    path.write_bytes(header + bgra.tobytes())
 
 
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     parser.add_argument("game", type=Path)
     parser.add_argument("output", type=Path)
-    parser.add_argument("--size", type=int, default=64,
+    parser.add_argument("--size", type=int, default=128,
                         help="edge every icon is normalised to; must equal the icon rect")
+    parser.add_argument("--prefix", default="tut_",
+                        help="resref prefix for the popup's private copies (16 char limit)")
     args = parser.parse_args()
 
     if not 32 <= args.size <= 256:
@@ -76,6 +90,7 @@ def main() -> int:
     args.output.mkdir(parents=True, exist_ok=True)
     written = 0
     sizes: dict[tuple[int, int], int] = {}
+    renamed: dict[str, str] = {}
     for name in names:
         res = inst.resource(name, ResourceType.TPC) or inst.resource(name, ResourceType.TGA)
         data = res.data if res is not None else from_pack.get(name)
@@ -97,13 +112,26 @@ def main() -> int:
             out = np.asarray(Image.fromarray(px).resize((args.size, args.size), Image.LANCZOS))
             how = "lanczos"
 
-        write_tga(args.output / f"{name}.tga", out)
-        print(f"  {name:22s} {mip.width}x{mip.height} -> {args.size}x{args.size}  ({how})")
+        new_name = args.prefix + name.replace("lbl_icn_", "").replace("lbl_i", "").replace("i_", "")
+        if len(new_name) > 16:
+            raise SystemExit(f"resref {new_name!r} exceeds the 16 character limit")
+        renamed[name] = new_name
+        write_tga(args.output / f"{new_name}.tga", out)
+        print(f"  {name:22s} {mip.width}x{mip.height} -> {args.size}x{args.size}"
+              f"  ({how})  as {new_name}")
         written += 1
 
     print()
     print("source sizes: " + ", ".join(f"{w}x{h} x{n}" for (w, h), n in sorted(sizes.items())))
     print(f"wrote {written} icons to {args.output}")
+    # Rewrite the 2DA so only the popup uses the enlarged copies.
+    from pykotor.resource.formats.twoda import write_2da
+    for row in table:
+        cur = str(row.get_string("icon") or "").strip().lower()
+        if cur in renamed:
+            row.set_string("icon", renamed[cur])
+    write_2da(table, args.output / "tutorial.2da", ResourceType.TwoDA)
+    print(f"wrote tutorial.2da repointed at the {args.prefix}* copies")
     print(f"Pair with build_message_popup_size.py --icon-size {args.size}")
     return 0
 

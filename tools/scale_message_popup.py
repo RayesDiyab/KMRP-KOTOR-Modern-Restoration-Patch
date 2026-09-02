@@ -110,16 +110,21 @@ def scale_popup(source: Path, dest: Path, factor: float,
 TUNED = {
     # Measured in play at 3440x1440 rather than derived by scaling.
     #
-    # The OK button is anchored ~29px below LB_MESSAGE's bottom edge, and the
-    # text starts ~30px into the box (the icon pushes it down), so
-    #     gap = LB_MESSAGE height - text height - 1
-    # With a 4-line message the text is ~116px, so 160 gives ~43px of gap.
-    # A box shorter than the text makes it overflow, which switches the engine's
-    # auto-fit loop back on and brings the horizontal clipping with it.
-    "TGuiPanel":  (900, 470),
-    "LB_MESSAGE": (60, 24, 780, 160),
-    "BTN_OK":     (60, 300, 780, 80),
-    "BTN_CANCEL": (60, 400, 780, 80),
+    # OK sits at LB_MESSAGE's bottom edge and the text starts at its top, so
+    #     gap above OK = LB_MESSAGE height - text height
+    # A 4-line message is ~116px, so 150 leaves ~34px. The box must stay taller
+    # than the text: if it overflows, the engine's auto-fit loop switches back on
+    # and the horizontal clipping returns with it.
+    #
+    # Panel height is then set to just clear the button. The icon pushes the
+    # message down by its own size (message.top += icon), so with a 128px icon
+    # the box runs 152..302 and the button 302..382; 420 leaves a small margin.
+    # The confirm box has no icon, so everything sits 128px higher there and its
+    # second button still fits.
+    "TGuiPanel":  (900, 420),
+    "LB_MESSAGE": (60, 24, 780, 150),
+    "BTN_OK":     (60, 320, 780, 80),
+    "BTN_CANCEL": (60, 410, 780, 80),
 }
 
 # The listbox lays text out inside `width - scrollbar - 2*border - PADDING`, so
