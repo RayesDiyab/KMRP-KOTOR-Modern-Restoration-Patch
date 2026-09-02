@@ -113,7 +113,20 @@ def main() -> int:
     tail = (b"\x6A" + bytes([args.top_inset]) + b"\x5F"
             + b"\x85\xDB"
             + b"\xE9" + struct.pack("<i", SCROLL_RESUME - (jmp_va + 5)))
-    data[kgs_offset + at:kgs_offset + at + len(SCROLL_TAIL) + 4] = tail
+    # The new tail is one byte longer than the old, and that byte comes from the
+    # section's zero padding -- so OVERWRITE ten bytes rather than replacing the
+    # old nine. Assigning a longer bytes to a shorter bytearray slice inserts,
+    # which slides every following section's raw data by a byte and silently
+    # wrecks .ktn, .kmz and .kfg. That crashed the game on launch, faulting
+    # inside the displaced .ktn hook, and the length assert below is what would
+    # have caught it.
+    if data[kgs_offset + at + len(SCROLL_TAIL) + 4] != 0:
+        raise SystemExit("The byte after the stub is not padding; refusing to grow into it")
+    before = len(data)
+    data[kgs_offset + at:kgs_offset + at + len(tail)] = tail
+    if len(data) != before:
+        raise SystemExit(f"Patch changed the file length ({before} -> {len(data)}); "
+                         "section raw offsets would all be wrong")
     print(f"builder B  0x{kgs_va + at:08X}  xor edi,edi -> push {args.top_inset} / pop edi"
           f"  (+1 byte, jmp rebased)")
 
