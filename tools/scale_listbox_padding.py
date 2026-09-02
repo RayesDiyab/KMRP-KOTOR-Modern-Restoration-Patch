@@ -80,26 +80,33 @@ def gutter_for(scale: float) -> int:
 
 
 def apply(struct, gutter: int, tags: set[str] | None, changed: list,
-          exclude: set[str] | None = None) -> None:
+          exclude: set[str] | None = None, force: bool = False) -> None:
     if struct.acquire("CONTROLTYPE", None) == LISTBOX_CONTROLTYPE:
         tag = struct.acquire("TAG", "")
         if (tags is None or tag.upper() in tags) and not (
                 exclude and tag.upper() in exclude):
-            # Never REDUCE a gutter an author deliberately set larger.
+            # Never REDUCE a gutter an author deliberately set larger -- unless
+            # `force`, which is how a value hand-set on a specific gold file
+            # overrides a broader tier applied before it. Without that escape the
+            # broader tier silently wins and the hand-set value is lost: equip.gui
+            # LB_DESC was hand-set to 20 and the 72 description tier kept it at 72,
+            # with nothing reported, because 20 < 72.
             current = struct.acquire("PADDING", 0) or 0
-            if current < gutter:
-                struct.set_int32("PADDING", gutter)
-                changed.append((tag, current, gutter))
+            if force or current < gutter:
+                if current != gutter:
+                    struct.set_int32("PADDING", gutter)
+                    changed.append((tag, current, gutter))
     controls = struct.acquire("CONTROLS", None)
     if controls is not None:
         for child in controls:
-            apply(child, gutter, tags, changed, exclude)
+            apply(child, gutter, tags, changed, exclude, force)
 
 
 def scale_listbox_padding(source: Path, dest: Path, scale: float,
                           tags: set[str] | None = None,
                           unit_gutter: float | None = None,
-                          exclude: set[str] | None = None) -> list:
+                          exclude: set[str] | None = None,
+                          force: bool = False) -> list:
     """Set the gutter on `tags` (every listbox when None) for this scale.
 
     `unit_gutter` overrides GUTTER_AT_UNIT_SCALE, so selection lists can take a
@@ -109,7 +116,7 @@ def scale_listbox_padding(source: Path, dest: Path, scale: float,
               else int(round(unit_gutter * scale)))
     gff = read_gff(source)
     changed: list = []
-    apply(gff.root, gutter, tags, changed, exclude)
+    apply(gff.root, gutter, tags, changed, exclude, force)
     write_gff(gff, dest, ResourceType.GUI)
     return changed
 

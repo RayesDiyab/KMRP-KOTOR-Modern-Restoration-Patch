@@ -144,6 +144,18 @@ LIST_LISTBOXES = {
 # layout is generated from the play-tested table in scale_message_popup.py at
 # every resolution instead -- see the branch in the per-resolution loop, and the
 # TUNED_SCALE comment for why a ratio transfer is the wrong tool for this one.
+# Gutters hand-set on the gold 3440x1440 files, kept per FILE because every one
+# of these tags is shared with a file that must NOT inherit the value:
+# LB_MESSAGE is also confirm.gui's, which the popup layout owns; LB_REPLIES is
+# also dialog.gui's; and LB_DESC is in 18 files at 72 where only equip.gui was
+# hand-set to 20. Stored at unit scale so they still scale per resolution rather
+# than pinning a 3440x1440 pixel count at every size, and applied LAST so they
+# win over the broader tiers above.
+HAND_TUNED_GUTTERS = {
+    "computer.gui": [({"LB_MESSAGE"}, 20.0), ({"LB_REPLIES"}, 5.0)],
+    "equip.gui": [({"LB_DESC"}, 10.0)],
+}
+
 GOLD_GEOMETRY_TEMPLATES = {
     "abchrgen.gui", "barkbubble.gui", "computer.gui",
     "container.gui", "custpnl.gui", "equip.gui", "ftchrgen.gui",
@@ -365,6 +377,11 @@ def main() -> int:
                     # alone reads as partial rather than uniform. Wire it in only
                     # as part of a pass that also covers labels and buttons --
                     # see reverse-engineering/text-padding.md.
+                    # Last, so a hand-set gutter wins over the tiers above.
+                    for tags, unit in HAND_TUNED_GUTTERS.get(path.name.lower(), ()):
+                        scale_listbox_padding(gutter_file, gutter_file,
+                                              font_scale_for(height), tags,
+                                              unit_gutter=unit, force=True)
                     packaged_files[index] = gutter_file
 
                 # Generate this resolution's button-row background art from the
