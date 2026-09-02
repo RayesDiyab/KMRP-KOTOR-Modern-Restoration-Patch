@@ -917,6 +917,11 @@ namespace KotorUniversalUI
 
             List<OverrideRecord> processed = new List<OverrideRecord>();
             HashSet<string> processedPaths = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+            // relative path -> hash written during THIS run, so a genuine
+            // two-archives-disagree conflict is still caught while an ordinary
+            // content update is not mistaken for one.
+            Dictionary<string, string> writtenThisRun =
+                new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
             string[] resources =
             {
                 CommonResourceName,
@@ -1030,22 +1035,36 @@ namespace KotorUniversalUI
                             Directory.CreateDirectory(targetDirectory);
 
                             OverrideRecord record;
-                            if (existingInstallation)
+                            if (known.TryGetValue(relative, out record))
                             {
-                                if (!known.TryGetValue(relative, out record))
-                                    throw new InvalidDataException("The installed interface belongs to a different resolution. Restore it before selecting another resolution.");
-                            }
-                            else if (known.TryGetValue(relative, out record))
-                            {
-                                // Already installed by an earlier archive in this
-                                // same run. Keep the original record -- its
-                                // HadOriginal/OriginalHash describe the user's file,
-                                // and a second record would make the backup folder
-                                // hold the patcher's own file and stop restore.
-                                record.InstalledHash = String.Empty;
+                                if (!existingInstallation)
+                                {
+                                    // Already installed by an earlier archive in this
+                                    // same run. Keep the original record -- its
+                                    // HadOriginal/OriginalHash describe the user's file,
+                                    // and a second record would make the backup folder
+                                    // hold the patcher's own file and stop restore.
+                                    record.InstalledHash = String.Empty;
+                                }
                             }
                             else
                             {
+                                // Not in the manifest. On a fresh install that is every
+                                // file; over an EXISTING install it is a file a newer
+                                // build added -- tutorial.2da and the thirteen tut_*.tga
+                                // popup icons arrived exactly this way in 2.7.0.
+                                //
+                                // This used to throw "belongs to a different resolution",
+                                // which was the wrong diagnosis and, worse, a permanent
+                                // block on ever shipping a NEW Override file to anyone
+                                // who already had the patch installed: the only way out
+                                // was a full restore. A real resolution mismatch is
+                                // already caught upstream in ApplyInPlace, which compares
+                                // the installed resolution against the requested one
+                                // before any of this runs, so nothing is lost by treating
+                                // an unknown path as what it is -- a new file, backed up
+                                // first if the user already had one.
+                                //
                                 record = new OverrideRecord();
                                 record.RelativePath = relative;
                                 record.HadOriginal = File.Exists(target);
@@ -1054,10 +1073,26 @@ namespace KotorUniversalUI
                                 {
                                     string backup = SafeDestination(backupRoot, relative);
                                     Directory.CreateDirectory(Path.GetDirectoryName(backup));
-                                    File.Copy(target, backup, false);
-                                    record.OriginalHash = GoldPatch.HashFile(backup);
-                                    if (record.OriginalHash != GoldPatch.HashFile(target))
-                                        throw new IOException("An interface file could not be backed up safely: " + relative);
+                                    if (File.Exists(backup))
+                                    {
+                                        // A backup with no manifest record: an earlier
+                                        // install was interrupted after copying this file
+                                        // but before the manifest was written. The file
+                                        // already on disk is the OLDER one, so it is the
+                                        // better claim to being the user's original --
+                                        // keep it and adopt its hash. Overwriting it with
+                                        // the current file would destroy the original,
+                                        // and File.Copy(false) used to just throw and
+                                        // leave the install permanently stuck.
+                                        record.OriginalHash = GoldPatch.HashFile(backup);
+                                    }
+                                    else
+                                    {
+                                        File.Copy(target, backup, false);
+                                        record.OriginalHash = GoldPatch.HashFile(backup);
+                                        if (record.OriginalHash != GoldPatch.HashFile(target))
+                                            throw new IOException("An interface file could not be backed up safely: " + relative);
+                                    }
                                 }
                                 records.Add(record);
                                 known.Add(relative, record);
@@ -1073,10 +1108,29 @@ namespace KotorUniversalUI
                                     output.Flush(true);
                                 }
                                 string installedHash = GoldPatch.HashFile(temporary);
-                                if (String.IsNullOrEmpty(record.InstalledHash))
-                                    record.InstalledHash = installedHash;
-                                else if (record.InstalledHash != installedHash)
-                                    throw new InvalidDataException("The installed interface belongs to a different resolution. Restore it before selecting another resolution.");
+                                // Guard the one thing this can actually catch: the SAME
+                                // relative path arriving from two archives in THIS run
+                                // with different content, which silently breaks restore
+                                // (see the override-manifest duplicate fixed 2026-08-31).
+                                //
+                                // It used to compare against record.InstalledHash, which
+                                // over an existing installation is the hash from the
+                                // PREVIOUS build -- so every file whose content changed
+                                // tripped it and no update could ever be installed
+                                // without a full restore first. That is not a duplicate;
+                                // it is the update working.
+                                string writtenEarlier;
+                                if (writtenThisRun.TryGetValue(relative, out writtenEarlier))
+                                {
+                                    if (writtenEarlier != installedHash)
+                                        throw new InvalidDataException("Two interface archives disagree about " +
+                                            relative + ". This build is inconsistent; please report it.");
+                                }
+                                else
+                                {
+                                    writtenThisRun.Add(relative, installedHash);
+                                }
+                                record.InstalledHash = installedHash;
 
                                 if (processedPaths.Add(relative))
                                     processed.Add(record);
@@ -1102,10 +1156,18 @@ namespace KotorUniversalUI
                     bytesBeforeArchive += archiveBytes[resourceIndex];
                 }
 
-                if (existingInstallation && processed.Count != records.Count)
-                    throw new InvalidDataException("The installed interface belongs to a different resolution. Restore it before selecting another resolution.");
-                if (!existingInstallation)
-                    WriteManifest(manifestPath, records);
+                // A record this run did not touch is a file an older build shipped and
+                // this one no longer does. It stays on disk and keeps its record, so
+                // restore still puts the user's original back -- which is exactly what
+                // should happen. This used to throw, which meant a build could never
+                // drop a file either. A genuine resolution mismatch is caught upstream
+                // in ApplyInPlace before any of this runs.
+                //
+                // The manifest is now rewritten on updates as well as fresh installs.
+                // Previously it was written only for a fresh install, so files a newer
+                // build ADDED (tutorial.2da and the tut_*.tga popup icons, 2.7.0) got
+                // no record at all and restore would have left them behind in Override.
+                WriteManifest(manifestPath, records);
                 SafeProgress(progress, 95, "Finishing interface setup…");
                 SafeReport(report, "Installed " + records.Count.ToString(CultureInfo.InvariantCulture) +
                     " interface files for " + resolution.Width.ToString(CultureInfo.InvariantCulture) + " × " +
