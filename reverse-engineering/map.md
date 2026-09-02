@@ -332,7 +332,7 @@ edge than half the viewport. Only the filler differs:
 
 | `LBL_MAP` extent | texture | missing rows show as |
 | --- | --- | --- |
-| 512x512 (vanilla, and 9 of 10 variants) | 512x256 | the texture repeating -- duplicated map |
+| 512x512 (vanilla, and 9 of 10 variants) | 512x256 | a second draw of the same map -- duplicated |
 | 512x256 (`mipc210x7`) | 512x256 | nothing -- black |
 
 So "vanilla is not black" is true but misleading: vanilla fills that space with
@@ -449,3 +449,62 @@ so the grid zooms by the same 2.25 the map does, and the shift recentres it.
 
 For us that is one more wrapper around the call at `0x0068AC9F` -- not a change
 to `0x00688100` itself, which is shared. Not yet built.
+
+## Measured under x64dbg, 2026-09-02: the fog fix, and two corrections
+
+Attached to the running `.kmz` + `.kfg` build at 3440x1440, viewport index 1 =
+270x270 (the minimap).
+
+**The duplication is two draw calls, not a sampler wrap.** Breaking at
+`0x0045992A` with `[esp+0x10] == 512` caught two hits in one frame:
+
+| hit | x | y | w | h |
+| --- | --- | --- | --- | --- |
+| 1 | -70 | -72 | 512 | 256 |
+| 2 | -70 | **+184** | 512 | 256 |
+
+`+184 = -72 + 256`, exactly one texture height down. The engine tiles the
+512x256 atlas down the 512-tall control rather than letting a sampler repeat it.
+Everything previously written here about UV overrun and address modes was wrong
+about the mechanism, though right about the outcome.
+
+**`LBL_MAP`'s height does not set that rect.** The GUI on disk was verified as
+512x512 at the time of the capture and the rect still arrived as `h = 256`: the
+height is the atlas's own. What the extent controls is how many tiles get
+emitted. So `mipc210x7`'s 512x256 suppressed the second draw, which is why it
+showed black where the others show a duplicate.
+
+**The `.kfg` fog wrapper does what it was derived to do.** During the fog draw:
+
+| read | value |
+| --- | --- |
+| `hud+0x6088` / `hud+0x608C` | **120**, 120 -- the basis, substituted |
+| pan point behind the argument pointer | **(-145, -147)** = (-70, -72) - 75 |
+
+and the fog's own numbers, from the stack inside `0x00688100`:
+
+| | |
+| --- | --- |
+| grid | A = 20 cells across, B = 11 down |
+| `440/A`, `256/B` | 22.0 and 23.2727 map units per cell |
+| tile size | 88.0 x 93.0909 map units |
+
+Screen pixels per unit, which is the only figure that decides whether the fog
+matches the map:
+
+| | |
+| --- | --- |
+| map | 512 texels -> 1152 px after the stub = **2.25 px/texel** |
+| fog, horizontal | 88.0 / 120 * 270 = 198 px per tile / 88 = **2.25 px/unit** |
+| fog, vertical | 93.0909 / 120 * 270 = 209.4 px per tile / 93.09 = **2.25 px/unit** |
+
+Identical on both axes, so the fog occupies exactly the fraction of the minimap
+it does in vanilla -- about 5.5 cells across the view either way. It reads as
+coarser only because a cell is 49.5 x 52.4 screen pixels instead of 22 x 23.3.
+The cells are also not square (22 wide by 23.27 tall here), which comes from the
+per-area grid dimensions, not from any patch.
+
+**Still open: the fog domain is 440 units wide, the atlas is 512.** If an area's
+map content actually reaches texel 511 the fog under-covers the right ~14% --
+too narrow, not too wide. Vanilla-inherited, unchanged by any of this work, and
+untested. Symptom to watch for: fog that stops short of the map's right edge.

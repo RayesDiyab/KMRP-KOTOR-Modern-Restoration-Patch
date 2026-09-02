@@ -48,7 +48,9 @@ available at the call:
   * the active viewport is square and between 121 and 2048 -- the minimap is
     square, a full-screen viewport is not;
   * the source rect is exactly the map atlas: width 512, height 256 or 512,
-    which is what `LBL_MAP` is in every shipped GUI variant.
+    which is the atlas's own size. (Measured 2026-09-02: this height comes
+    from the texture, not from `LBL_MAP`'s extent -- with the extent at 512
+    the rect still arrives as 256.)
 
 If any test fails the stub restores `eax`/`edx` and falls through to the
 untouched vanilla path. The worst case is that the patch does nothing, which is
