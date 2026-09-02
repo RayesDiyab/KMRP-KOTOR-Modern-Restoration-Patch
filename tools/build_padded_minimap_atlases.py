@@ -144,7 +144,12 @@ def write_tga(path: Path, pixels: np.ndarray) -> None:
     height, width = pixels.shape[:2]
     header = struct.pack("<BBBHHBHHHHBB", 0, 0, 2, 0, 0, 0, 0, 0, width, height, 32, 0x08)
     bgra = pixels[..., [2, 1, 0, 3]]
-    path.write_bytes(header + bgra[::-1].tobytes())
+    # No row flip. TPC pixel rows already run bottom-up, and descriptor 0x08
+    # is bottom-up too, so reversing them writes the image upside down --
+    # exactly what AbilityIconGenerator.cs notes: "TPC pixel rows run
+    # bottom-up, and so does the TGA we write, so no [flip]". Seen in play
+    # as upside-down tutorial icons.
+    path.write_bytes(header + bgra.tobytes())
 
 
 def verify(path: Path, expected: np.ndarray) -> None:
