@@ -68,3 +68,19 @@ Chakra Petch (SIL OFL), Montserrat (SIL OFL), Rajdhani, Exo 2, Nimbus Sans L
 ITC Blair was considered but is a commercial Monotype/ITC face; it was neither
 obtained nor used.
 
+
+## KotorUniResPatch (KPM), J0-o
+
+`https://github.com/J0-o/KotorUniResPatch`. No licence file is published in the
+repository (checked 2026-09-02, `LICENSE` returns 404).
+
+No code is copied from it. Its `Scaled Map + Minimap` module independently
+identified `0x00459920` as the HUD minimap's image-draw normaliser, and named the
+surrounding functions; reading it confirmed our own disassembly and, more
+usefully, showed that the function is shared with other draws and must be gated
+before it is altered. Our `tools/build_minimap_zoom_fix.py` is an independent
+implementation: a hand-written x86 stub gated on viewport geometry and source
+size, where KPM uses a DLL with detours and a flag set around the draw. The
+arithmetic differs too — KPM scales by an integer `round(height/600)` and sets
+the viewport to match, whereas ours derives the factor from the viewport the GUI
+actually produced.
