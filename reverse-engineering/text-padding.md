@@ -242,9 +242,50 @@ answered backwards -- the constructor chain names the file outright.
 | `BTN_CANCEL` | (32, 148, 435, 46) | (48, 222, 653, 69) |
 
 `LB_MESSAGE` at 46px is about one line of the enlarged font, which is why a
-four-line tutorial message scrolls inside a sliver. If the goal is specifically
-*more visible text* rather than a bigger box, give the message its own larger
-share instead of scaling everything uniformly.
+four-line tutorial message scrolls inside a sliver.
+
+### The popup does not use its authored height
+
+Scaling `confirm.gui` makes the box **wider but not taller**. The popup
+re-lays itself out every time it is shown, in `0x006253A0`, starting from the
+rects the base constructor cached at `[esi+0x95C]` (panel) and `[esi+0x96C]`
+(message) and then growing to fit the text -- against constants compiled in:
+
+```
+006256DA  cmp ecx, 0x1B8       ; width  cap 440
+006256E2  cmp eax, 0x118       ; height cap 280   <- pins the height
+006256ED  cmp eax, 0xA0        ; only grow past 160
+006256F4  cmp ecx, 0x1B8       ; width cap again
+006256FC  add [esp+0x38], 40   ; grow height one step
+00625705  add ecx, 40          ; grow width one step
+00625758  cmp eax, 0x118       ; height cap, SECOND site
+```
+
+**The height cap has two sites.** Patching one leaves the other clamping -- the
+same "there is always a second copy" pattern as v11's three row-pitch sites and
+v12's two rect builders.
+
+The buttons auto-size too: each starts at width `0x64` and grows by `0xA` until
+its label fits (`0x006254AC` onward), after which the panel width is widened to
+match. So button geometry in the `.gui` is a starting point, not a result.
+
+### The icon is not in the `.gui`
+
+The base constructor creates it and gives it a fixed rect:
+
+```
+00626F94  mov eax, 0x20        ; icon width and height = 32
+00626FB5  mov [esp+0x1c], 10   ; top = 10, left = 0
+00626FBD  call [eax+4]         ; SetRect on [esi+0x1b4]
+```
+
+and the layout function insets the message by the same 32 when an icon is shown
+(`0x0062540C  mov edx, 0x20`). **Both must move together** or the text runs
+under the icon. Its texture comes from `tutorial.2da`'s `Icon` column, which is
+why no `.gui` control names it.
+
+`tools/build_message_popup_size.py` raises the height cap and the icon, five
+in-place `imm32` rewrites with no size change.
 
 ## The procedure for a uniform result
 
