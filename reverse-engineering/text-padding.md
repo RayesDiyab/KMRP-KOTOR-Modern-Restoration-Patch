@@ -109,8 +109,10 @@ No `PADDING`. The available levers, in the order worth trying:
 its text. It is per-control, so 559 edits, and it moves the frame too. Use only
 for one-off fixes.
 
-**2. `BORDER.INNEROFFSET` — the likely lever, not yet verified.** Loaded by the
-GUI reader and stored on the border object:
+**2. `BORDER.INNEROFFSET` — a real geometric inset, but clamped. Partly
+measured, not finished.**
+
+Loaded by the GUI reader and stored on the border object:
 
 ```
 00415503  push 0x0073E354       ; "INNEROFFSET"
@@ -118,17 +120,47 @@ GUI reader and stored on the border object:
 00415514  mov [ebx+0x18], eax   ; -> border+0x18
 ```
 
-Authors use it deliberately — buttons carry 9, 4, 14 and 10; labels carry 12 and
-−5; toggles ±4 — so it does *something*. What it does geometrically is
-**unverified**, and one negative result exists: set on a listbox's
-`LB_DESCRIPTION` alongside `PADDING`, it changed nothing. That may mean it is
-ignored on listboxes specifically rather than generally.
+A hardware read watchpoint on `border+0x18` (2026-09-02, live, `optionsmain`
+loading) found its reader inside `0x00415240`:
 
-To settle it, follow the project's own method: hardware-watchpoint `border+0x18`
-on a live control and catch every reader. Do that before writing any patch —
-if `INNEROFFSET` already insets text on labels and buttons, uniformity is a
-`.gui` change with no exe patch at all, which is by far the best outcome
-available here.
+```
+00415360  mov eax, [esi+0x18]   ; INNEROFFSET
+00415368  mov [esp+0x10], eax
+0041536C  sub edi, eax          ; one axis -= INNEROFFSET
+0041536E  call 0x00414CD0       ; on the object at border+0x14 (the edge)
+00415373  cmp [esp+0x10], eax   ; INNEROFFSET vs whatever that returned
+00415377  jge 0x0041537E        ; -> take the smaller
+0041538E  sub ebx, eax          ; the other axis -= it
+```
+
+So it **is** a symmetric two-axis inset, not decoration. `0x00415240` is called
+twice from `0x00417A79` and `0x00417A86` — once per axis — and the pair is
+combined at `0x0040A4A0` and handed to a virtual call on `control+0x154`.
+
+**But it is clamped**, and the clamp appears to bind hard. Forcing every
+`INNEROFFSET` to 60 at load time (breakpoint at `0x00415514` with
+`command_text: eax=0x3C`, no break) did **not** move text everywhere the way a
+free 60px inset would. Most text still rendered at its normal position; only a
+few boxes came out empty. That is the signature of `min(INNEROFFSET, edge)`
+where `edge` is small or zero for most controls.
+
+The obvious candidate for `edge` is `BORDER.DIMENSION`, the frame artwork's
+thickness — 0 on most controls, 6 on the option buttons, 32 on `BTN_DIFFLEFT`.
+It would also explain the one negative result on record: `INNEROFFSET` set on a
+listbox's `LB_DESCRIPTION`, which has `DIMENSION = 0`, did nothing at all.
+
+**Unfinished. To close it**, break at `0x00415373` and read the pair — `[esp+0x10]`
+is the requested inset, `eax` is the clamp — across several controls, then
+correlate against each one's `BORDER.DIMENSION`. That single reading decides
+everything downstream:
+
+* if the clamp is `DIMENSION`, then `INNEROFFSET` alone cannot pad family B, and
+  uniform padding needs `DIMENSION` raised too (which changes the frame artwork)
+  or an exe patch on the clamp;
+* if the clamp is something else that is usually generous, family B is a pure
+  `.gui` change and no exe patch is needed anywhere.
+
+Until that is measured, do not build anything on `INNEROFFSET`.
 
 **3. `TEXT.ALIGNMENT` — positions, does not pad.** Bits, derived from controls
 whose appearance is known:
@@ -181,9 +213,12 @@ top gap and others did not.
 
 ## Open questions
 
-* **What does `BORDER.INNEROFFSET` actually do, and on which control types?**
-  The single most valuable unknown here — it decides whether family B needs an
-  exe patch at all. Anchor: `border+0x18`, stored at `0x00415514`.
+* **What clamps `BORDER.INNEROFFSET`?** It is a real two-axis inset (measured);
+  what caps it is not. Break at `0x00415373`, read `[esp+0x10]` against `eax`,
+  correlate with `BORDER.DIMENSION`. This is the one measurement standing
+  between here and a uniform result, and it is about ten minutes of work.
 * **Is there any bottom-padding lever?** None found for either family.
-* **`BORDER.DIMENSION`** is the frame artwork's edge thickness (0, 1, 2, 4, 6
-  and 16 in the shipped files). Whether it also insets text is untested.
+* **`BORDER.DIMENSION`** is the frame artwork's edge thickness (0, 1, 2, 4, 6,
+  16 and 32 in the shipped files). It is the prime suspect for the
+  `INNEROFFSET` clamp above; whether it also insets text on its own is
+  untested.
