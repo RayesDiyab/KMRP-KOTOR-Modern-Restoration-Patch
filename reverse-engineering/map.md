@@ -344,3 +344,40 @@ The band is therefore not fixable by any render-state change. The only remaining
 option that removes it is clamping the pan **and** moving the player arrow by the
 same delta, which shows slightly less map than vanilla in exchange for never
 showing a gap.
+
+### A backdrop behind the minimap: mechanism proven, parked
+
+Researched and tested 2026-09-02. xoreos, a clean-room reimplementation of the
+same engine, builds the minimap as
+`_mapQuad("lbl_map" + map, 0, 0, 512, 256)` under `glm::ortho(0, 120, 0, 120, ...)`
+and positions it with a plain `translate(-(relX * 435) + 60, -(256 - relY*256) + 60, 0)`.
+Three things follow: the map quad really is 512x256, the `+ 60` is the 120px
+viewport's centre -- the same `centre - player*factor` pan seen in the
+disassembly -- and there is **no clamping anywhere**. Letting the map run past the
+viewport is authentic; vanilla's 512x512 control, which repeats the texture into
+that space, is the anomaly. `relX * 435` also shows the map content is ~435-440px
+wide inside the 512px texture, matching KPM's `AreaMapViewportWidth = 440`.
+
+That reframes the black as something to *fill* rather than geometry to fight.
+Two candidates were tested in game:
+
+* **`LBL_MAPVIEW` fill** -- setting its `BORDER.FILL` ResRef does nothing. The
+  engine treats that control purely as a viewport and never paints its fill.
+  Every shipped variant leaves the ResRef empty, vanilla included.
+* **`LBL_MAPBORDER` fill** -- **works.** It is drawn *behind* the map, so painting
+  its transparent interior puts that artwork where the black was. `lbl_minimap.tga`
+  is 184x184 and 95.7% transparent, a thin ring of rgb(80,117,248); filling the
+  interior via a flood fill from the centre is enough.
+
+The catch, and why it is parked rather than shipped: the area map textures are
+themselves mostly transparent -- only the walkable geometry is painted -- so the
+backdrop shows through across the **whole** minimap, not only past the map's edge.
+It is therefore a decision about what the minimap's empty space looks like, not a
+localised edge fix. A first attempt at rgb(12,24,52) with rgb(46,88,165) lines
+every 12px read as a grid laid over the map. Subtler variants (near-black navy
+with and without lines) were built but not adopted; the black was kept.
+
+If this is revisited, the mechanism is settled and only the artwork is open. Fill
+`lbl_minimap.tga`'s interior and ship it through `override-common.zip` so every
+resolution picks it up -- no exe patch, no clamping, no arrow desync, and vanilla
+framing is preserved.
