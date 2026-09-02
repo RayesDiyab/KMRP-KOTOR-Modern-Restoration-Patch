@@ -53,14 +53,28 @@ ICON_RECT_SITE = 0x00626F94                      # mov eax, imm32   (B8 ...)
 ICON_INSET_SITE = 0x0062540C                     # mov edx, imm32   (BA ...)
 ICON_ORIGINAL = 0x20                             # 32
 
-# The icon branch shifts the message right to clear the icon AND widens it by the
-# same amount, so the right edge moves out by twice the icon size and overflows
-# the panel -- the message text is clipped mid-word. Vanilla behaviour, visible
-# at 32 and worse at any larger icon. Narrowing instead of widening keeps the
-# right edge where the .gui put it.
+# The icon branch, with the stack slots read correctly. After `push edi` at
+# 0x006253F9, [esp+N] means pre-push [esp+N-4]:
+#
+#   00625404  mov ebx, [esp+0x2c]   -> panel.height  += icon
+#   00625408  mov edi, [esp+0x34]   -> message.top   += icon
+#   00625415  mov edx, [esp+0x24]   -> panel.top     -= 16
+#
+# The icon sits at the top and the message is pushed DOWN to clear it. An earlier
+# reading of this as "message.width += icon" was wrong, and turning the add into
+# a sub moved the text up over the icon. Left here as an option only so the
+# mistake is documented; do not enable it.
 ICON_WIDEN_SITE = 0x00625413
-ICON_WIDEN_ORIGINAL = bytes.fromhex("03fa")      # add edi, edx
-ICON_WIDEN_PATCHED = bytes.fromhex("2bfa")       # sub edi, edx
+ICON_WIDEN_ORIGINAL = bytes.fromhex("03fa")      # add edi, edx  (message.top += icon)
+ICON_WIDEN_PATCHED = bytes.fromhex("2bfa")       # sub edi, edx  -- WRONG, text rides up
+
+# The auto-fit loop grows the popup WIDER to fit its text, 40 units at a time,
+# but only while the panel is narrower than this. Authored for 640x480, so at any
+# HD size the panel already exceeds it and the loop never runs -- which is why
+# the message text is clipped mid-word. Raising it re-enables the auto-fit.
+WIDTH_CAP_SITES = (0x006256DA, 0x006256F4)       # cmp ecx, imm32   (81 F9 ...)
+WIDTH_CAP_ORIGINAL = 0x1B8                       # 440
+WIDTH_CAP_OPCODE = bytes.fromhex("81f9")         # cmp ecx, imm32
 
 
 def patch_imm32(data: bytearray, image: PEImage, va: int, opcode: bytes,
@@ -82,8 +96,11 @@ def main() -> int:
                         help="max popup height in authored units (vanilla 280)")
     parser.add_argument("--icon-size", type=int, default=48,
                         help="icon edge in authored units (vanilla 32)")
-    parser.add_argument("--keep-icon-overflow", action="store_true",
-                        help="leave the message widening as vanilla has it, text clipping included")
+    parser.add_argument("--width-cap", type=int, default=1200,
+                        help="widen-to-fit limit (vanilla 440, below any HD panel so the "
+                             "auto-fit never runs and text clips)")
+    parser.add_argument("--break-icon-offset", action="store_true",
+                        help=argparse.SUPPRESS)
     args = parser.parse_args()
 
     if args.source.resolve() == args.output.resolve():
@@ -92,6 +109,8 @@ def main() -> int:
         raise SystemExit("--height-cap must be 280..1200")
     if not 32 <= args.icon_size <= 256:
         raise SystemExit("--icon-size must be 32..256")
+    if not 440 <= args.width_cap <= 4096:
+        raise SystemExit("--width-cap must be 440..4096")
 
     image = PEImage(args.source)
     data = bytearray(image.data)
@@ -105,7 +124,11 @@ def main() -> int:
     patch_imm32(data, image, ICON_INSET_SITE, b"\xBA", ICON_ORIGINAL, args.icon_size,
                 "icon inset for text")
 
-    if not args.keep_icon_overflow:
+    for va in WIDTH_CAP_SITES:
+        patch_imm32(data, image, va, WIDTH_CAP_OPCODE, WIDTH_CAP_ORIGINAL, args.width_cap,
+                    "width cap (auto-fit)")
+
+    if args.break_icon_offset:
         actual, offset, section = image.read_va(ICON_WIDEN_SITE, len(ICON_WIDEN_ORIGINAL))
         if actual != ICON_WIDEN_ORIGINAL:
             raise SystemExit(
@@ -127,7 +150,11 @@ def main() -> int:
         check, _, _ = out.read_va(va, len(opcode) + 4)
         if check[:len(opcode)] != opcode or struct.unpack("<I", check[len(opcode):])[0] != value:
             raise SystemExit(f"Verification failed at 0x{va:08X}")
-    if not args.keep_icon_overflow:
+    for va in WIDTH_CAP_SITES:
+        check, _, _ = out.read_va(va, 6)
+        if check[:2] != WIDTH_CAP_OPCODE or struct.unpack("<I", check[2:])[0] != args.width_cap:
+            raise SystemExit(f"Verification failed at 0x{va:08X}")
+    if args.break_icon_offset:
         check, _, _ = out.read_va(ICON_WIDEN_SITE, len(ICON_WIDEN_PATCHED))
         if check != ICON_WIDEN_PATCHED:
             raise SystemExit(f"Verification failed at 0x{ICON_WIDEN_SITE:08X}")
