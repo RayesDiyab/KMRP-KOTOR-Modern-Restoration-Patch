@@ -369,9 +369,19 @@ Two candidates were tested in game:
   is 184x184 and 95.7% transparent, a thin ring of rgb(80,117,248); filling the
   interior via a flood fill from the centre is enough.
 
-The catch, and why it is parked rather than shipped: the area map textures are
-themselves mostly transparent -- only the walkable geometry is painted -- so the
-backdrop shows through across the **whole** minimap, not only past the map's edge.
+**Corrected 2026-09-02: the premise below was wrong.** The area atlases are not
+transparent. Measured over `swpc_tex_gui.erf`, 91 of the 92 are alpha 255
+everywhere; the 95.7%-transparent figure was `lbl_minimap.tga`, the border ring,
+not the maps. What the border experiment actually showed, per the in-game report,
+is grid **around** the view and black where the map ends -- i.e. the fill never
+reaches inside `LBL_MAPVIEW`'s clip at all. Either way the route is dead, and for
+a simpler reason than recorded: nothing drawn behind an opaque map can appear
+past its edge.
+
+The original, mistaken reasoning is kept below for the record: the area map
+textures are themselves mostly transparent -- only the walkable geometry is
+painted -- so the backdrop shows through across the **whole** minimap, not only
+past the map's edge.
 It is therefore a decision about what the minimap's empty space looks like, not a
 localised edge fix. A first attempt at rgb(12,24,52) with rgb(46,88,165) lines
 every 12px read as a grid laid over the map. Subtler variants (near-black navy
@@ -381,3 +391,61 @@ If this is revisited, the mechanism is settled and only the artwork is open. Fil
 `lbl_minimap.tga`'s interior and ship it through `override-common.zip` so every
 resolution picks it up -- no exe patch, no clamping, no arrow desync, and vanilla
 framing is preserved.
+
+## The padded atlas -- the route that is actually shaped like the hole
+
+Built 2026-09-02, awaiting playtest. Three coupled pieces:
+
+* `tools/build_padded_minimap_atlases.py` paints a 632x632 canvas, drops the
+  stock 512-wide content in at (60, 60) and fills the surround. 92 area atlases;
+  the 5 `lbl_map*` HUD icons are excluded by name;
+* `LBL_MAP`'s extent becomes 632x632 (`scale_hud_minimap.py --map-surface 632`),
+  so the source rect equals the texture exactly. No overrun, so no wrap, so no
+  duplication -- the constraint that forced 512x256 is gone rather than traded;
+* the `.kmz` stub gains a second accepted geometry. For a 632x632 rect it adds
+  back zero instead of the viewport centre, which subtracts exactly the 60-unit
+  content offset: `60 * W / 120` is `W / 2`, the centre itself. So the map
+  content lands on the identical screen pixels, and the player arrow -- which the
+  engine pins to the viewport centre and never moves -- stays correct. That is
+  the property candidate 006's pan clamp lacked.
+
+60 map units is half the 120-unit window, the furthest the view can ever reach
+past the content, so the margin covers every edge of every area. Verified
+arithmetically against the x64dbg capture: at a 270 viewport with pan x = -70,
+the stock path gives content at -326 and the padded path gives rect -461 with
+content at -461 + 135 = -326. Identical, with no rounding drift, since the
+`idiv` truncation happens before an integer offset in both.
+
+The stub accepts both geometries, so one exe works with a padded or unpadded GUI.
+At a 120 viewport it is still the identity.
+
+## The fog grid -- `0x00688100`, a separate draw with its own basis
+
+Found 2026-09-02 while investigating a report that explored ground re-fogs once
+it leaves the centre of the view. `0x0068AC9F` calls `0x00688100`, which walks
+the explored bitset (`sar eax, 5` then `test [edx+eax*4], ecx` with
+`and ecx, 0x8000001F`) and emits one quad per unexplored 4-unit tile. Its
+coordinates come from
+
+    [0x00747748] = 440.0     the area map's viewport width
+    [0x007455D4] = 256.0     ... and height
+
+divided by `[edi+0x6088]` / `[edi+0x608C]`, the live minimap viewport. Both
+constants are exactly KPM's `AreaMapViewportWidth` / `AreaMapViewportHeight`.
+
+**The fog therefore has a scale basis entirely independent of the map's.** The
+map is sized by `LBL_MAP`'s extent against the viewport at `0x00459920`; the fog
+is sized by 440x256 against the same viewport here. In vanilla, at a 120
+viewport, the two agree. Enlarging `LBL_MAPVIEW` to 270 shrinks both by 2.25, so
+they still agree -- which is why an unpatched KMRP build looks consistent, merely
+zoomed out. The `.kmz` patch then restores the *map* to vanilla's ratio and
+leaves the fog at 1/2.25 of it, so the two desynchronise.
+
+KPM handles precisely this in `beginHudMinimapGridZoom` / `endHudMinimapGridZoom`:
+around the grid draw it pins the two constants to 440/256, writes 120 into
+`hud+0x6088` and `hud+0x608C`, and shifts the rect by `(viewport - 120) / 2`,
+restoring afterwards. A smaller divisor makes the normalised coordinates larger,
+so the grid zooms by the same 2.25 the map does, and the shift recentres it.
+
+For us that is one more wrapper around the call at `0x0068AC9F` -- not a change
+to `0x00688100` itself, which is shared. Not yet built.

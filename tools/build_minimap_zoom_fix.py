@@ -92,17 +92,29 @@ MAX_VIEWPORT = 2048
 ATLAS_WIDTH = 512
 ATLAS_HEIGHTS = (256, 512)
 
-# Argument slots, relative to esp after the stub's three pushes. The site is
+# The padded atlas built by build_padded_minimap_atlases.py: the stock 512-wide
+# content sitting at (60, 60) in a 632x632 canvas, so the minimap window can
+# never reach past it. See "The padded atlas" in this module's docstring.
+PADDED_SURFACE = 632
+PADDED_MARGIN = 60
+
+# Argument slots, relative to esp after the stub's four pushes. The site is
 # entered by jmp, so esp is still the value the original `push ecx` left: arg1
-# sits at [esp+8] there, and 12 bytes of pushes move it to [esp+0x14].
-ARG1 = 0x14
-ARG2 = 0x18
-ARG3 = 0x1C
-ARG4 = 0x20
+# sits at [esp+8] there, and 16 bytes of pushes move it to [esp+0x18].
+ARG1 = 0x18
+ARG2 = 0x1C
+ARG3 = 0x20
+ARG4 = 0x24
 
 
 def _scale_slot(slot: int, centred: bool) -> bytes:
-    """eax = slot; (optionally about the centre) * W / 120; store back."""
+    """eax = slot; (optionally about the centre) * W / 120; store back.
+
+    Centred slots subtract the viewport centre (esi) before scaling and add
+    back whatever edi holds: esi for the stock atlas, so the rect scales about
+    the centre, or zero for the padded atlas, which is exactly the 60-unit
+    content offset -- 60 * W / 120 is W / 2, the centre itself.
+    """
     out = bytearray()
     out += b"\x8B\x44\x24" + bytes([slot])          # mov  eax, [esp+slot]
     if centred:
@@ -110,7 +122,7 @@ def _scale_slot(slot: int, centred: bool) -> bytes:
     out += b"\xF7\xEB"                              # imul ebx            edx:eax = eax*W
     out += b"\xF7\xF9"                              # idiv ecx            eax = /120
     if centred:
-        out += b"\x03\xC6"                          # add  eax, esi
+        out += b"\x03\xC7"                          # add  eax, edi
     out += b"\x89\x44\x24" + bytes([slot])          # mov  [esp+slot], eax
     return bytes(out)
 
@@ -149,27 +161,48 @@ def build_stub(stub_va: int) -> bytes:
     body += b"\x3D" + struct.pack("<I", MAX_VIEWPORT)              # cmp eax, 2048
     jcc_out(b"\x0F\x8F")                                           # jg  out
 
-    body += b"\x53\x51\x56"                                        # push ebx, ecx, esi
+    body += b"\x53\x51\x56\x57"                                    # push ebx, ecx, esi, edi
     body += b"\x8B\xD8"                                            # mov  ebx, eax   (W)
     body += b"\xB9" + struct.pack("<I", BASE_VIEWPORT)             # mov  ecx, 120
     body += b"\x8B\xF3"                                            # mov  esi, ebx
     body += b"\xD1\xEE"                                            # shr  esi, 1     (c)
+    body += b"\x8B\xFE"                                            # mov  edi, esi   (add-back)
 
-    # Gate 2: the source rect is exactly the map atlas.
+    ok_fixups: list[int] = []
+
+    def jcc_ok(opcode: bytes) -> None:
+        body.extend(opcode)
+        ok_fixups.append(len(body))
+        body.extend(b"\x00\x00\x00\x00")
+
+    # Gate 2: the source rect is a map atlas -- either the stock one, or the
+    # padded 632x632 canvas. Anything else falls through to vanilla.
     body += b"\x8B\x44\x24" + bytes([ARG3])                        # mov eax, [esp+arg3]
     body += b"\x3D" + struct.pack("<I", ATLAS_WIDTH)               # cmp eax, 512
+    stock_fixup = len(body) + 2
+    body += b"\x0F\x84" + b"\x00\x00\x00\x00"                      # je  stock
+    body += b"\x3D" + struct.pack("<I", PADDED_SURFACE)            # cmp eax, 632
     jcc_restore(b"\x0F\x85")                                       # jne restore
+
+    # Padded: square canvas, and the content offset is folded in by adding back
+    # zero rather than the centre (60 * W / 120 == W / 2 == the centre).
+    body += b"\x8B\x44\x24" + bytes([ARG4])                        # mov eax, [esp+arg4]
+    body += b"\x3D" + struct.pack("<I", PADDED_SURFACE)            # cmp eax, 632
+    jcc_restore(b"\x0F\x85")                                       # jne restore
+    body += b"\x33\xFF"                                            # xor edi, edi
+    jcc_ok(b"\xE9")                                                # jmp ok
+
+    stock_at = len(body)
+    struct.pack_into("<i", body, stock_fixup, stock_at - (stock_fixup + 4))
     body += b"\x8B\x44\x24" + bytes([ARG4])                        # mov eax, [esp+arg4]
     body += b"\x3D" + struct.pack("<I", ATLAS_HEIGHTS[0])          # cmp eax, 256
-    ok_at = None
-    body += b"\x0F\x84"                                            # je  ok
-    ok_fixup = len(body)
-    body += b"\x00\x00\x00\x00"
+    jcc_ok(b"\x0F\x84")                                            # je  ok
     body += b"\x3D" + struct.pack("<I", ATLAS_HEIGHTS[1])          # cmp eax, 512
     jcc_restore(b"\x0F\x85")                                       # jne restore
 
     ok_at = len(body)
-    struct.pack_into("<i", body, ok_fixup, ok_at - (ok_fixup + 4))
+    for fixup in ok_fixups:
+        struct.pack_into("<i", body, fixup, ok_at - (fixup + 4))
 
     body += _scale_slot(ARG1, centred=True)
     body += _scale_slot(ARG2, centred=True)
@@ -179,7 +212,7 @@ def build_stub(stub_va: int) -> bytes:
     restore_at = len(body)
     body += b"\x8B\xC3"                                            # mov eax, ebx  (W)
     body += b"\x8B\xD3"                                            # mov edx, ebx  (H == W)
-    body += b"\x5E\x59\x5B"                                        # pop esi, ecx, ebx
+    body += b"\x5F\x5E\x59\x5B"                                    # pop edi, esi, ecx, ebx
 
     out_at = len(body)
     body += b"\xE9" + struct.pack("<i", RESUME_VA - (here() + 5))
