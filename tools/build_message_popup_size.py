@@ -53,6 +53,15 @@ ICON_RECT_SITE = 0x00626F94                      # mov eax, imm32   (B8 ...)
 ICON_INSET_SITE = 0x0062540C                     # mov edx, imm32   (BA ...)
 ICON_ORIGINAL = 0x20                             # 32
 
+# The icon branch shifts the message right to clear the icon AND widens it by the
+# same amount, so the right edge moves out by twice the icon size and overflows
+# the panel -- the message text is clipped mid-word. Vanilla behaviour, visible
+# at 32 and worse at any larger icon. Narrowing instead of widening keeps the
+# right edge where the .gui put it.
+ICON_WIDEN_SITE = 0x00625413
+ICON_WIDEN_ORIGINAL = bytes.fromhex("03fa")      # add edi, edx
+ICON_WIDEN_PATCHED = bytes.fromhex("2bfa")       # sub edi, edx
+
 
 def patch_imm32(data: bytearray, image: PEImage, va: int, opcode: bytes,
                 expect: int, value: int, label: str) -> None:
@@ -73,6 +82,8 @@ def main() -> int:
                         help="max popup height in authored units (vanilla 280)")
     parser.add_argument("--icon-size", type=int, default=48,
                         help="icon edge in authored units (vanilla 32)")
+    parser.add_argument("--keep-icon-overflow", action="store_true",
+                        help="leave the message widening as vanilla has it, text clipping included")
     args = parser.parse_args()
 
     if args.source.resolve() == args.output.resolve():
@@ -94,6 +105,16 @@ def main() -> int:
     patch_imm32(data, image, ICON_INSET_SITE, b"\xBA", ICON_ORIGINAL, args.icon_size,
                 "icon inset for text")
 
+    if not args.keep_icon_overflow:
+        actual, offset, section = image.read_va(ICON_WIDEN_SITE, len(ICON_WIDEN_ORIGINAL))
+        if actual != ICON_WIDEN_ORIGINAL:
+            raise SystemExit(
+                f"0x{ICON_WIDEN_SITE:08X}: expected {ICON_WIDEN_ORIGINAL.hex(' ')}, found "
+                f"{actual.hex(' ')} in {section}. Refusing to patch.")
+        data[offset:offset + len(ICON_WIDEN_PATCHED)] = ICON_WIDEN_PATCHED
+        print(f"  0x{ICON_WIDEN_SITE:08X}  {'message width vs icon':24s} "
+              f"add edi,edx -> sub edi,edx")
+
     if len(data) != before:
         raise SystemExit(f"Patch changed the file length ({before} -> {len(data)})")
     args.output.write_bytes(data)
@@ -106,6 +127,10 @@ def main() -> int:
         check, _, _ = out.read_va(va, len(opcode) + 4)
         if check[:len(opcode)] != opcode or struct.unpack("<I", check[len(opcode):])[0] != value:
             raise SystemExit(f"Verification failed at 0x{va:08X}")
+    if not args.keep_icon_overflow:
+        check, _, _ = out.read_va(ICON_WIDEN_SITE, len(ICON_WIDEN_PATCHED))
+        if check != ICON_WIDEN_PATCHED:
+            raise SystemExit(f"Verification failed at 0x{ICON_WIDEN_SITE:08X}")
     # Every pre-existing stub section must still read back, per exe-patching.md.
     for section in out.sections:
         if section.name.startswith(".k"):
