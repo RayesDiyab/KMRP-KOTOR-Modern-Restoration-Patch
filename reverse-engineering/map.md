@@ -179,3 +179,69 @@ full-map scaling or hit-test error.
   and overlay sizes are generated for 3440x1440.
 - Whether an optional, compatibility-safe Ebon Hawk waypoint correction should
   be shipped separately from the universal EXE patch.
+
+## HUD minimap content zoom — `0x00459920`
+
+The gameplay minimap's frame scales with the GUI (`tools/scale_hud_minimap.py`
+grows `LBL_MAPVIEW` to 270x270 in `mipc210x7.gui` at 3440x1440) but the map drawn
+inside it does not zoom to the player: you see the whole area with a tiny marker.
+
+`0x00459920` normalises a pixel rect into 0..1 UV and hands it to a virtual draw.
+Disassembled from the editable exe (`761F9466...`, file offset `0x00059920`):
+
+```
+00459920  push  ecx
+00459921  mov   eax, [0x7BB4D0]            ; early bypass flag
+00459926  test  eax, eax
+00459928  jne   0x004599A5                 ; -> pop ecx / ret 0x20
+0045992A  movsx eax, word [0x7B9460]       ; active render viewport index
+00459931  lea   eax, [eax+eax*4]           ; * 5
+00459934  shl   eax, 1                     ; * 10 = entry stride
+00459936  movsx edx, word [eax+0x7B946E]   ; viewport height
+0045993D  movsx eax, word [eax+0x7B946C]   ; viewport width
+...                                        ; fild / fdiv per argument
+004599A2  call  [edx+0x14]                 ; 4 floats + 4 raw args
+004599A6  ret   0x20                       ; thiscall, ecx = this, 8 stack dwords
+```
+
+The four stack arguments normalise as `arg1/W`, `arg2/H`, `arg3/W`, `arg4/H` —
+that is `(x, y, width, height)` over the **active render viewport**, not over the
+screen. So the zoom is decided by the destination rect's size *relative to the
+viewport*. Vanilla sizes that rect on a 120px basis; enlarging the viewport to
+270 without enlarging the rect is precisely "zoomed out".
+
+`0x007B946C` / `0x007B946E` are the width/height of a viewport table entry,
+10-byte stride, indexed by the word at `0x007B9460` — the same table the font
+metrics work touched.
+
+**This function is not minimap-specific.** Candidate 004 (2026-08-29) replaced
+the viewport lookup with the live screen resolution unconditionally and broke
+unrelated screens; it was reverted. Any fix here has to prove it is looking at
+the minimap before changing anything.
+
+`tools/build_minimap_zoom_fix.py` (section `.kmz`) scales the destination rect by
+`viewportWidth / 120` about the viewport centre, behind two gates: the active
+viewport must be square and 121..2048, and the source rect must be exactly the
+map atlas (width 512, height 256 or 512, which is what `LBL_MAP` is in every
+shipped GUI variant). Failing either gate it restores `eax`/`edx` and falls
+through to untouched vanilla code, so the worst case is that it does nothing.
+
+At a 120px viewport the arithmetic is the identity, so it cannot alter anything
+vanilla already draws correctly. Reproducing the vanilla ratio of 512/120 =
+4.2667:
+
+| viewport | unpatched ratio | patched `arg3` | patched ratio | error |
+| --- | --- | --- | --- | --- |
+| 120 | 4.2667 | — (gate rejects) | 4.2667 | 0% |
+| 140 | 3.6571 | 597 | 4.2643 | -0.056% |
+| 188 | 2.7234 | 802 | 4.2660 | -0.017% |
+| 270 | 1.8963 | 1152 | 4.2667 | 0% |
+| 405 | 1.2642 | 1728 | 4.2667 | 0% |
+
+Residual error is integer truncation in `idiv`.
+
+**Unverified at runtime.** Whether the engine actually sets the render viewport
+to the enlarged `LBL_MAPVIEW` size during the minimap draw has not been observed
+live. If it does not, the gates reject and the patch is inert — which is why it
+is built to fail that way. This needs a playtest before it goes near the gold
+chain.
