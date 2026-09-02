@@ -54,6 +54,22 @@ GUTTER_AT_UNIT_SCALE = 36.0
 # edge and pushed the first row down, which is why these tags were excluded.
 LIST_GUTTER_AT_UNIT_SCALE = 12.5
 
+# Everything else -- message logs, text-only selection lists -- gets a small
+# baseline so no box renders text hard against its frame. These were previously
+# left at their authored values (often 0: messages.gui LB_DIALOG, LB_MESSAGES 5,
+# computer/confirm LB_MESSAGE 2-3), on the reasoning that a paragraph-sized
+# gutter beside a wall of short lines reads as a broken margin. That is right
+# about 72px and wrong about zero, so they get their own much smaller tier
+# rather than an exclusion. Applied with tags=None, and `apply` never reduces a
+# gutter, so the 72 and 25 tiers set before it stand.
+BASELINE_GUTTER_AT_UNIT_SCALE = 10.0
+
+# The HUD's combat action queue. These are listboxes, but of icons, not text:
+# a gutter would shift the queue rather than open a margin. They appear in the
+# mipc*.gui HUD variants (not mipc210x7, which has none) and are the only
+# non-text listboxes the baseline pass would otherwise reach.
+BASELINE_EXCLUDED = {f"LB_ACTIONS{i}" for i in range(6)}
+
 
 def list_gutter_for(scale: float) -> int:
     return int(round(LIST_GUTTER_AT_UNIT_SCALE * scale))
@@ -63,10 +79,12 @@ def gutter_for(scale: float) -> int:
     return int(round(GUTTER_AT_UNIT_SCALE * scale))
 
 
-def apply(struct, gutter: int, tags: set[str] | None, changed: list) -> None:
+def apply(struct, gutter: int, tags: set[str] | None, changed: list,
+          exclude: set[str] | None = None) -> None:
     if struct.acquire("CONTROLTYPE", None) == LISTBOX_CONTROLTYPE:
         tag = struct.acquire("TAG", "")
-        if tags is None or tag.upper() in tags:
+        if (tags is None or tag.upper() in tags) and not (
+                exclude and tag.upper() in exclude):
             # Never REDUCE a gutter an author deliberately set larger.
             current = struct.acquire("PADDING", 0) or 0
             if current < gutter:
@@ -75,12 +93,13 @@ def apply(struct, gutter: int, tags: set[str] | None, changed: list) -> None:
     controls = struct.acquire("CONTROLS", None)
     if controls is not None:
         for child in controls:
-            apply(child, gutter, tags, changed)
+            apply(child, gutter, tags, changed, exclude)
 
 
 def scale_listbox_padding(source: Path, dest: Path, scale: float,
                           tags: set[str] | None = None,
-                          unit_gutter: float | None = None) -> list:
+                          unit_gutter: float | None = None,
+                          exclude: set[str] | None = None) -> list:
     """Set the gutter on `tags` (every listbox when None) for this scale.
 
     `unit_gutter` overrides GUTTER_AT_UNIT_SCALE, so selection lists can take a
@@ -90,7 +109,7 @@ def scale_listbox_padding(source: Path, dest: Path, scale: float,
               else int(round(unit_gutter * scale)))
     gff = read_gff(source)
     changed: list = []
-    apply(gff.root, gutter, tags, changed)
+    apply(gff.root, gutter, tags, changed, exclude)
     write_gff(gff, dest, ResourceType.GUI)
     return changed
 

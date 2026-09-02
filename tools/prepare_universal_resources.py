@@ -16,7 +16,8 @@ from build_scaled_fonts import export_font_txis, export_fonts, scale_txi
 from fix_hud_menubg import fix_menubg_file
 from scale_hud_minimap import patch_gui
 from transfer_gold_gui_geometry import transfer_geometry
-from scale_listbox_padding import LIST_GUTTER_AT_UNIT_SCALE, scale_listbox_padding
+from scale_listbox_padding import (BASELINE_EXCLUDED, BASELINE_GUTTER_AT_UNIT_SCALE,
+                                   LIST_GUTTER_AT_UNIT_SCALE, scale_listbox_padding)
 from scale_row_icon_frames import FRAME_RESREFS, export_frames
 
 
@@ -329,6 +330,13 @@ def main() -> int:
                     scale_listbox_padding(gutter_file, gutter_file,
                                           font_scale_for(height), LIST_LISTBOXES,
                                           unit_gutter=LIST_GUTTER_AT_UNIT_SCALE)
+                    # Baseline for every remaining listbox -- message logs and
+                    # text-only lists -- so nothing renders against its frame.
+                    # Runs last and never reduces, so the two tiers above stand.
+                    scale_listbox_padding(gutter_file, gutter_file,
+                                          font_scale_for(height), None,
+                                          unit_gutter=BASELINE_GUTTER_AT_UNIT_SCALE,
+                                          exclude=BASELINE_EXCLUDED)
                     packaged_files[index] = gutter_file
 
                 # Generate this resolution's button-row background art from the
