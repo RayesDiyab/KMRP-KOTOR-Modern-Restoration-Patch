@@ -10,7 +10,7 @@ control and they share no layout code:
 | --- | --- | --- | --- |
 | **listboxes** (type 11) | 81 | descriptions, message logs, selection lists | **yes**, `+0x2C0` |
 | **plain text controls** (types 4, 6, 7) | 559 with text | labels (310), buttons (231), toggles (18) | **no** |
-| **built in code** | 43 known | the tutorial popups — no `.gui` file exists | **no** — see Family C |
+| **shared message popup** | 1 file, many uses | `confirm.gui` — the confirm box *and* all 43 tutorial popups | its `LB_MESSAGE` does |
 
 Surveyed across all 82 shipped `.gui` files. Only listboxes have a `PADDING`
 field at all; the other 559 carry nothing but `EXTENT` and `BORDER`.
@@ -185,42 +185,66 @@ top gap and others did not.
 
 ---
 
-## Family C: built in code, with no `.gui` at all
+## Family C: the shared message popup — `confirm.gui`
 
-Some text boxes are not backed by a `.gui` file and cannot be changed by editing
-one. The **tutorial popup** is the known member, confirmed live 2026-09-02.
+**Corrected 2026-09-02.** This section previously said the tutorial popup was
+built in code with no `.gui`. That was wrong, and the way it was wrong is worth
+keeping.
 
-`0x0040A680` is load-GUI-by-name: callers build a `CExoString` from a literal
-(`push <name>; call 0x00406D80`) then `mov ecx, esi; call 0x0040A680`. Breaking
-there on a fresh process — a fresh one matters, because a loaded GUI is cached
-and never reloads — caught every chargen screen in order:
+`confirm.gui` is not only the Yes/No confirm box. It backs the engine's shared
+message-popup class, whose constructor loads it by name:
 
-    classsel, maincg, qorcpnl, quickpnl, custpnl, portcust, abchrgen
+```
+00626DF0  <message popup base ctor>
+00626EB0  push 0x0074FDA4      ; "confirm"
+00626EBE  call 0x00406D80      ; CExoString
+00626ECA  call 0x0040A680      ; load GUI by name
+```
 
-and then **nothing** when the tutorial popup appeared over the Attributes
-screen. So the popup never loads a `.gui`; its controls are constructed in code.
+The **tutorial popups** derive from that class -- their constructor at
+`0x006AA100` calls it -- so the "The attributes of your character apply
+bonuses..." box on entering a chargen step *is* `confirm.gui` with different
+text. Its body comes from `tutorial.2da`, read at `0x006AA724` through the table
+the manager holds at `[manager+0x118]`, using the columns `Message%i` and `Icon`
+(one row per trigger, 43 rows). Row 16 is `Enter_Attribute_Screen`,
+`Message0` = strref 41884, `Icon` = `lbl_icn_char3`.
 
-Its content comes from `tutorial.2da`, one row per trigger:
+**Why the wrong conclusion happened, so it is not repeated.** Breaking on
+`0x0040A680` caught every chargen screen -- `classsel`, `maincg`, `qorcpnl`,
+`quickpnl`, `custpnl`, `portcust`, `abchrgen` -- and nothing when the popup
+appeared, which read as "no GUI is loaded for it". The real reason is that the
+popup class is **constructed once per session**, so `confirm.gui` is loaded
+during startup and reused forever after. The breakpoint had been armed at the
+main menu, deliberately, to skip the startup loads -- and the one load that
+mattered was in exactly the window that was skipped.
 
-| column | example (row 16) |
-| --- | --- |
-| `label` | `Enter_Attribute_Screen` |
-| `message0` | strref 41884 — the body text |
-| `icon` | `lbl_icn_char3` — the small icon above the message |
+Two lessons: **a GUI that loads once will not appear in a breakpoint armed
+later**, and *absence* of a load is only evidence if the window covers the whole
+process lifetime. Static tracing found in minutes what the runtime test had
+answered backwards -- the constructor chain names the file outright.
 
-That table is loaded at `0x005C2624` (`push "tutorial"`) and kept at
-`[manager+0x118]`. 43 rows, so 43 of these popups exist across the game.
+**Consequences for changing it.**
 
-This explains several dead ends worth not repeating: no `.gui` has an icon slot
-plus a scrollable message plus a small centred OK; none references strref 41884;
-and there is no tutorial GUI name among the game's 84 (82 in Override plus
-`startscreen` and `statussummary` in the BIFs).
+* Editing `confirm.gui` mid-session does nothing. The game must be restarted.
+* Anything done to it hits the confirm box *and* all 43 tutorial popups, which
+  is usually what is wanted -- both were authored for 640x480 and never grown.
+* Its children are **panel-relative**: `TGuiPanel` sits at (935, 630) while
+  children start at (32, 30). Scale panel and children by the same factor and
+  move the panel to keep its centre.
 
-**Consequence for padding.** A code-built box has no `EXTENT`, `PADDING` or
-`BORDER` to edit, so families A and B do not reach it. Making the tutorial popup
-match would need the construction code itself patched. Check for this family
-before concluding a padding pass is complete: the fastest test is the breakpoint
-above on a fresh process — if a box appears without a load, it is code-built.
+`tools/scale_message_popup.py` does exactly that. At 1.5x:
+
+| control | before | after |
+| --- | --- | --- |
+| `TGuiPanel` | (935, 630, 496, 201) | (811, 580, 744, 302) |
+| `LB_MESSAGE` | (32, 30, 434, 46) | (48, 45, 651, 69) |
+| `BTN_OK` | (32, 90, 435, 46) | (48, 135, 653, 69) |
+| `BTN_CANCEL` | (32, 148, 435, 46) | (48, 222, 653, 69) |
+
+`LB_MESSAGE` at 46px is about one line of the enlarged font, which is why a
+four-line tutorial message scrolls inside a sliver. If the goal is specifically
+*more visible text* rather than a bigger box, give the message its own larger
+share instead of scaling everything uniformly.
 
 ## The procedure for a uniform result
 
