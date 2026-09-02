@@ -312,10 +312,35 @@ is real and now confirmed twice.
 So the band is the price of the wrap workaround, not a fault in the zoom patch,
 which improves it from 31.9% to 9.2%. Removing it properly needs one of:
 
-* fixing the wrap itself -- if the duplication is the texture sampler repeating
-  rather than clamping, patching that render state would allow a 512x512 surface
-  and remove the band outright. Not investigated;
+* ~~fixing the wrap itself~~ -- **investigated 2026-09-02 and ruled out.** The
+  area map textures are natively 512x**256**: of the 97 `lbl_map*` entries in
+  `swpc_tex_gui.erf`, 90 are 512x256, and the only 512x512 ones are the generic
+  `lbl_map` fallback and a single outlier. There is no map below row 256 to
+  reveal, so no sampler state can produce it. Clamping instead of repeating would
+  replace the duplicated strip with a smear of the bottom row -- different
+  garbage, not more map;
 * clamping the pan **and** moving the player arrow by the same delta, so the map
   covers the viewport without the marker drifting. That needs a second hook on
   the arrow control (`hud+0x5F40` / `hud+0x6098`) and writable state shared with
   the `.kmz` stub, and it deviates from vanilla framing by design.
+
+### What the band actually is
+
+The missing rows are identical in vanilla and here -- at the measured position,
+11 rows of map that do not exist, because the player stands closer to the map's
+edge than half the viewport. Only the filler differs:
+
+| `LBL_MAP` extent | texture | missing rows show as |
+| --- | --- | --- |
+| 512x512 (vanilla, and 9 of 10 variants) | 512x256 | the texture repeating -- duplicated map |
+| 512x256 (`mipc210x7`) | 512x256 | nothing -- black |
+
+So "vanilla is not black" is true but misleading: vanilla fills that space with
+wrong data. `mipc210x7`'s 512x256 is the more honest of the two, and is why the
+duplication bug was closed that way. Ours is more visible only because the
+minimap is 2.25x larger, not because more map is missing.
+
+The band is therefore not fixable by any render-state change. The only remaining
+option that removes it is clamping the pan **and** moving the player arrow by the
+same delta, which shows slightly less map than vanilla in exchange for never
+showing a gap.
