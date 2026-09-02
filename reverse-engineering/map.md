@@ -240,8 +240,48 @@ vanilla already draws correctly. Reproducing the vanilla ratio of 512/120 =
 
 Residual error is integer truncation in `idiv`.
 
-**Unverified at runtime.** Whether the engine actually sets the render viewport
-to the enlarged `LBL_MAPVIEW` size during the minimap draw has not been observed
-live. If it does not, the gates reject and the patch is inert — which is why it
-is built to fail that way. This needs a playtest before it goes near the gold
-chain.
+### Confirmed under x64dbg, 3440x1440, player near an area's south edge
+
+Everything above was inferred statically and is now measured. Attached to the
+running patched exe (base `0x00400000`, no relocation):
+
+| read | where | value |
+| --- | --- | --- |
+| HUD minimap rect | `[esi+0x6080..0x608C]` at `0x0068ABB0` | left 2, top 2, **270 x 270** |
+| viewport index | `[0x007B9460]` | 1 |
+| viewport entry 0 | `0x007B946C` | 3440 x 1440 (the full screen) |
+| viewport entry 1 | `0x007B9476` | **270 x 270** (the minimap) |
+| args in | `[esp+8..0x14]` at `0x0045992A` | x -70, y -72, w 512, h 256 |
+| args out | same, after the stub | x -326, y -306, w 1152, h 576 |
+
+Three things follow.
+
+**The engine already knows the viewport is 270.** The HUD rect carries the GUI's
+`LBL_MAPVIEW` value, and the pan at `0x0068ABB0` centres on `[esi+0x6088]/2` =
+135. There is no "120px basis" anywhere in this path and nothing needs telling
+the real size. An earlier theory to the contrary was wrong.
+
+**The gate design is validated.** Viewport entry 0 is the full screen at
+3440x1440, not square, so the square test rejects it; entry 1 is the minimap at
+270x270. The two are genuinely distinguishable at the call.
+
+**Black at an area's edge is vanilla behaviour, not a regression.** From the
+measured args the player is 207px down a 256px map, 49px above its bottom edge.
+At that spot the black band is:
+
+| | black |
+| --- | --- |
+| true vanilla, 800x600, 120px view | 11px = **9.2%** |
+| unpatched at 3440x1440 | 86px = 31.9% |
+| the `.kmz` patch | 24.8px = **9.2%** |
+
+The patch reproduces vanilla's proportion exactly. It reads as worse only because
+the minimap is 2.25x larger on screen. A map surface 256px tall cannot fill a
+270px viewport when the player stands near its edge, in any version.
+
+**Do not "fix" it by clamping the pan.** That was tried as candidate 006 and
+reverted. Clamping the scaled position to `[viewport - scaledSize, 0]` does remove
+the band -- measured, it moved y from -330 to -306 -- but the engine keeps the
+player arrow pinned at the viewport centre, so the map slides 24px out from under
+the marker. Vanilla does not clamp, and the arrow is only correct while it does
+not.
