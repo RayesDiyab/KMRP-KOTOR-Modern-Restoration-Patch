@@ -10,9 +10,13 @@ onto the map is therefore always *player +/- 60 map units*. The atlases are
 the window extends past the atlas and there is nothing left to draw.
 
 Vanilla hides that by declaring `LBL_MAP` at 512x512 over a 512x256 texture: the
-source rect overruns V, the sampler repeats, and the overrun is filled with a
-second copy of the map. That is the vertical duplication bug. KMRP closed it by
+engine then emits a second draw one texture-height down, filling the gap with a
+copy of the map. That is the vertical duplication bug. KMRP closed it by
 declaring 512x256 instead, which trades the duplicate for black.
+
+(Corrected 2026-09-02: this was recorded as a sampler wrap. Measured under
+x64dbg it is two separate draw calls -- see `reverse-engineering/map.md`. This
+tool is research, not shipped: the atlas route was dropped.)
 
 **The fix.** Neither. Give the atlas a real margin: paint a 632x632 canvas, drop
 the original content in at (60, 60), and fill the surround. `LBL_MAP` becomes
