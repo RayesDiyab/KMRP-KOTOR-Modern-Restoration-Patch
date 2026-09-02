@@ -46,7 +46,9 @@ def round_half_up(value: float) -> int:
     return int(Decimal(str(value)).quantize(Decimal("1"), rounding=ROUND_HALF_UP))
 
 
-def scale_popup(source: Path, dest: Path, factor: float) -> list:
+def scale_popup(source: Path, dest: Path, factor: float,
+                height_factor: float | None = None) -> list:
+    fy = factor if height_factor is None else height_factor
     gui = read_gff(source)
     root = gui.root
     extent = root.acquire("EXTENT", None)
@@ -55,7 +57,7 @@ def scale_popup(source: Path, dest: Path, factor: float) -> list:
 
     left, top = extent.get_int32("LEFT"), extent.get_int32("TOP")
     width, height = extent.get_int32("WIDTH"), extent.get_int32("HEIGHT")
-    new_w, new_h = round_half_up(width * factor), round_half_up(height * factor)
+    new_w, new_h = round_half_up(width * factor), round_half_up(height * fy)
     # Keep the panel's centre where it was, so the popup does not drift.
     new_l = round_half_up(left + (width - new_w) / 2)
     new_t = round_half_up(top + (height - new_h) / 2)
@@ -76,7 +78,10 @@ def scale_popup(source: Path, dest: Path, factor: float) -> list:
             if child_extent is not None:
                 before = tuple(child_extent.get_int32(f)
                                for f in ("LEFT", "TOP", "WIDTH", "HEIGHT"))
-                after = tuple(round_half_up(v * factor) for v in before)
+                after = (round_half_up(before[0] * factor),
+                         round_half_up(before[1] * fy),
+                         round_half_up(before[2] * factor),
+                         round_half_up(before[3] * fy))
                 for field, value in zip(("LEFT", "TOP", "WIDTH", "HEIGHT"), after):
                     child_extent.set_int32(field, value)
                 child.set_struct("EXTENT", child_extent)
@@ -94,14 +99,19 @@ def main() -> int:
     parser.add_argument("source", type=Path)
     parser.add_argument("output", type=Path)
     parser.add_argument("--factor", type=float, default=1.5,
-                        help="uniform scale for the panel and every child (default 1.5)")
+                        help="horizontal scale for the panel and every child (default 1.5)")
+    parser.add_argument("--height-factor", type=float, default=None,
+                        help="vertical scale; defaults to --factor")
     args = parser.parse_args()
 
     if not 1.0 <= args.factor <= 4.0:
         raise SystemExit("--factor must be between 1.0 and 4.0")
+    if args.height_factor is not None and not 1.0 <= args.height_factor <= 6.0:
+        raise SystemExit("--height-factor must be between 1.0 and 6.0")
 
-    changed = scale_popup(args.source, args.output, args.factor)
-    print(f"scaled {args.source.name} by {args.factor}x -> {args.output}")
+    changed = scale_popup(args.source, args.output, args.factor, args.height_factor)
+    fy = args.factor if args.height_factor is None else args.height_factor
+    print(f"scaled {args.source.name} by {args.factor}x wide, {fy}x tall -> {args.output}")
     for tag, before, after in changed:
         print(f"  {tag:14s} {before} -> {after}")
     print()
