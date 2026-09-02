@@ -25,8 +25,8 @@ No companion asset folder is required. The executable embeds:
 
 The supported editable executable is identified by SHA-256
 `761F9466F456A83909036BAEBB5C43167D722387BE66E54617BA20A8C49E9886`.
-The current gold-v13 reference is 4,071,424 bytes with SHA-256
-`145F46FE85AF5934D6EE55C3D6BD5E54354762B5AFF3078C3875BC054EDE9C90`.
+The current gold-v14 reference is 4,079,616 bytes with SHA-256
+`1F1684A5DC8BC440B2C8FF0194873315EDD39DE1C1039CB2E73861A4B3732504`.
 The constants in `GoldPatch`, `tools/generate_gold_delta.py`, and the default
 `-GoldExe` argument in `build_universal_patcher.ps1` must always move together.
 

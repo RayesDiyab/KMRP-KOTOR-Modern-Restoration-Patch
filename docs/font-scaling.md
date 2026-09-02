@@ -90,7 +90,8 @@ Gold lineage (most recent last):
 | `swkotor_gold_v10_stacklabel.exe` | `8F338C0DC903989A50FA644E8EAD1E1D8F7AF395631B1289F7F311CA0AEB8AD2` | + scalable stack-count label arithmetic in `.ksc` |
 | `swkotor_gold_v11_listpad.exe` | `485924D364A8A419B61076CAACD2AAC0F0115E8ECD2D27AEA29D0656FA0AAC2D` | + horizontal-only listbox padding |
 | `swkotor_gold_v12_gutterside.exe` | `3556664D46BE5203923C7C1CF3752445254CBA61479619A96774DA5019758A0C` | + gutter follows the scrollbar side in both builders |
-| **`swkotor_gold_v13_leadingnl.exe`** | `145F46FE85AF5934D6EE55C3D6BD5E54354762B5AFF3078C3875BC054EDE9C90` | + leading-newline removal when GUI text is assigned |
+| `swkotor_gold_v13_leadingnl.exe` | `145F46FE85AF5934D6EE55C3D6BD5E54354762B5AFF3078C3875BC054EDE9C90` | + leading-newline removal when GUI text is assigned |
+| **`swkotor_gold_v14_minimap.exe`** | `1F1684A5DC8BC440B2C8FF0194873315EDD39DE1C1039CB2E73861A4B3732504` | + HUD minimap zoom (`.kmz`) and fog-grid zoom (`.kfg`) |
 
 `Override/computer.gui` on the live install is also already the corrected
 version (also copied into `assets/override-3440x1440/computer.gui`).
@@ -110,10 +111,11 @@ stack-label, gutter, and leading-newline investigations:
 | `swkotor_gold_v10_stacklabel.exe` | `.kui .klb .kfs .kwl .ksc` | + unbounded stack-label geometry |
 | `swkotor_gold_v11_listpad.exe` | previous + in-place edits | + horizontal-only listbox padding |
 | `swkotor_gold_v12_gutterside.exe` | previous + `.kgs` | + scrollbar-side-aware gutter |
-| **`swkotor_gold_v13_leadingnl.exe`** | previous + `.ktn` | + leading-newline removal |
+| `swkotor_gold_v13_leadingnl.exe` | previous + `.ktn` | + leading-newline removal |
+| **`swkotor_gold_v14_minimap.exe`** | previous + `.kmz` `.kfg` | + minimap content zoom, + fog grid matched to it |
 
-Current gold: `swkotor_gold_v13_leadingnl.exe`,
-`145F46FE85AF5934D6EE55C3D6BD5E54354762B5AFF3078C3875BC054EDE9C90`.
+Current gold: `swkotor_gold_v14_minimap.exe`,
+`1F1684A5DC8BC440B2C8FF0194873315EDD39DE1C1039CB2E73861A4B3732504`.
 `build_universal_patcher.ps1` now defaults to that file. Still confirm any
 future gold change by matching `GoldPatch.TargetHash` in
 `app/patcher/KotorUniversalPatcher.cs` against the file on disk.

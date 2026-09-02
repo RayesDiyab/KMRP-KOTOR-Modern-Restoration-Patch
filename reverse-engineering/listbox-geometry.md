@@ -64,8 +64,9 @@ multi-row lists before gold v11.
 | v11 | `build_listbox_padding_fix.py` | `PADDING` becomes a purely horizontal left inset — 3 pitch sites, the width/top site, and both fit tests |
 | v12 | `build_gutter_side_fix.py` | the gutter follows the scrollbar, in **both** rect builders (`.kgs`) |
 | v13 | `build_leading_newline_fix.py` | strip leading newlines from GUI text at set time (`.ktn`) |
+| v14 | `build_minimap_zoom_fix.py`, `build_minimap_fog_fix.py` | HUD minimap zoomed to the player (`.kmz`) and its fog grid matched to it (`.kfg`) — see [map.md](map.md) |
 
-Each takes the previous gold as input. `TargetLength` is **4071424** and lives in
+Each takes the previous gold as input. `TargetLength` is **4079616** and lives in
 `GoldPatch.TargetLength`; `TargetHash`, `EXPECTED_GOLD_SHA256` in
 `generate_gold_delta.py`, and `-GoldExe` in `build_universal_patcher.ps1` all
 move together. Getting one out of step is caught by the patcher's own startup

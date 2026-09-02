@@ -1,6 +1,6 @@
 param(
     [string]$SourceExe = "..\swkotornopatch.exe",
-    [string]$GoldExe = ".\build\universal-patcher\swkotor_gold_v13_leadingnl.exe",
+    [string]$GoldExe = ".\build\universal-patcher\swkotor_gold_v14_minimap.exe",
     [string]$GoldOverride = ".\assets\override-3440x1440",
     [string]$UpstreamGuiRoot = ".\third_party\kotor-high-resolution-menus-1.5",
     [string]$IconPath = ".\favicon.ico",

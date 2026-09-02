@@ -9,10 +9,11 @@ The original 3440×1440 patcher is frozen separately as
 
 **Selecting 3440×1440 in the universal patcher no longer reproduces that
 historical hash.** The current baseline is
-`swkotor_gold_v13_leadingnl.exe`
-(`145F46FE85AF5934D6EE55C3D6BD5E54354762B5AFF3078C3875BC054EDE9C90`). It
+`swkotor_gold_v14_minimap.exe`
+(`1F1684A5DC8BC440B2C8FF0194873315EDD39DE1C1039CB2E73861A4B3732504`). It
 adds the font, dialogue, row, wrap-progress, stack-label, listbox-padding,
-scrollbar-side, and leading-newline fixes on top of the map/marker patch. The
+scrollbar-side, leading-newline, minimap-zoom and fog-grid fixes on top of the
+map/marker patch. The
 resolution math below is unchanged by that; only the baseline executable
 differs. See `docs/font-scaling.md` and
 `reverse-engineering/listbox-geometry.md` for the gold lineage.
