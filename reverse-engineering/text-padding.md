@@ -10,6 +10,7 @@ control and they share no layout code:
 | --- | --- | --- | --- |
 | **listboxes** (type 11) | 81 | descriptions, message logs, selection lists | **yes**, `+0x2C0` |
 | **plain text controls** (types 4, 6, 7) | 559 with text | labels (310), buttons (231), toggles (18) | **no** |
+| **built in code** | 43 known | the tutorial popups — no `.gui` file exists | **no** — see Family C |
 
 Surveyed across all 82 shipped `.gui` files. Only listboxes have a `PADDING`
 field at all; the other 559 carry nothing but `EXTENT` and `BORDER`.
@@ -183,6 +184,43 @@ geometry — that was v13's finding, and it is why some item descriptions had a
 top gap and others did not.
 
 ---
+
+## Family C: built in code, with no `.gui` at all
+
+Some text boxes are not backed by a `.gui` file and cannot be changed by editing
+one. The **tutorial popup** is the known member, confirmed live 2026-09-02.
+
+`0x0040A680` is load-GUI-by-name: callers build a `CExoString` from a literal
+(`push <name>; call 0x00406D80`) then `mov ecx, esi; call 0x0040A680`. Breaking
+there on a fresh process — a fresh one matters, because a loaded GUI is cached
+and never reloads — caught every chargen screen in order:
+
+    classsel, maincg, qorcpnl, quickpnl, custpnl, portcust, abchrgen
+
+and then **nothing** when the tutorial popup appeared over the Attributes
+screen. So the popup never loads a `.gui`; its controls are constructed in code.
+
+Its content comes from `tutorial.2da`, one row per trigger:
+
+| column | example (row 16) |
+| --- | --- |
+| `label` | `Enter_Attribute_Screen` |
+| `message0` | strref 41884 — the body text |
+| `icon` | `lbl_icn_char3` — the small icon above the message |
+
+That table is loaded at `0x005C2624` (`push "tutorial"`) and kept at
+`[manager+0x118]`. 43 rows, so 43 of these popups exist across the game.
+
+This explains several dead ends worth not repeating: no `.gui` has an icon slot
+plus a scrollable message plus a small centred OK; none references strref 41884;
+and there is no tutorial GUI name among the game's 84 (82 in Override plus
+`startscreen` and `statussummary` in the BIFs).
+
+**Consequence for padding.** A code-built box has no `EXTENT`, `PADDING` or
+`BORDER` to edit, so families A and B do not reach it. Making the tutorial popup
+match would need the construction code itself patched. Check for this family
+before concluding a padding pass is complete: the fastest test is the breakpoint
+above on a fresh process — if a box appears without a load, it is code-built.
 
 ## The procedure for a uniform result
 
