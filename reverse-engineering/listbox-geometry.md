@@ -94,6 +94,11 @@ than the original instructions occupy*: replace the run with `jmp stub`, re-enco
 the same instructions with room to grow, `jmp` back. `jmp` preserves `esp`, so
 `[esp+NN]` references in the stub stay valid.
 
+The invariants that pattern relies on -- and the ways breaking one crashes the
+game somewhere entirely unrelated -- are in
+[exe-patching.md](exe-patching.md). Read it before editing an executable that
+already carries other sections, which by gold v11 is all of them.
+
 ## Gold v12 — the gutter follows the scrollbar
 
 Gold v11 made `rect.width = contentWidth - PADDING` for **every** listbox, while
@@ -285,6 +290,17 @@ flush. Both guards now use `rowHeight` alone.
    look, then patch.
 7. **Watch the encodings.** `83 /r ib` sign-extends above 127; if a constant has
    to scale with resolution it needs the imm32 form and therefore a trampoline.
+8. **A fault in a hook you did not touch is not a clue about that hook.** It is
+   the signature of shifted section raw offsets. A one-byte insertion in `.kgs`
+   crashed the game inside gold v13's `.ktn` stub at `0x00415E16`, and two
+   rounds went into explaining how a listbox edit could corrupt a string before
+   a byte-level diff against the working build showed every later section
+   displaced by one. Diff the two binaries before theorising:
+   `len(a) == len(b)` is the whole answer when it is this.
+9. **Bisect under the debugger, not in playtests.** `init "<exe>", "", "<dir>"`
+   launches the game with nobody touching it; two `run`s and a `state` say
+   whether it survived. Build each independent edit alone when a combined one
+   fails -- three runs here beat one wrong theory.
 
 ### Debugger traps
 
