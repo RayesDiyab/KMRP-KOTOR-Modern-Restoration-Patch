@@ -127,7 +127,23 @@ def _scale_slot(slot: int, centred: bool) -> bytes:
     return bytes(out)
 
 
-def build_stub(stub_va: int) -> bytes:
+def build_stub(stub_va: int, basis: int = BASE_VIEWPORT) -> bytes:
+    """`basis` is how many map units the minimap window spans.
+
+    120 is vanilla. A smaller value zooms in, which shrinks the black band at an
+    area's edge: the band is `1/2 - d/basis` of the view, where `d` is the
+    player's distance in map units from the atlas edge. It cannot remove it --
+    measured over the 90 stock 512x256 atlases, the drawn map runs to the atlas
+    boundary in 85 of them, so `d` reaches 0 and the band reaches half the view
+    at any basis. Less map is visible in exchange.
+
+    The padded-atlas branch is emitted only at basis 120, where its content
+    offset folds exactly into the centre term (60 * W / 120 == W / 2). At any
+    other basis that identity does not hold, so the branch is left out rather
+    than emitted wrong.
+    """
+    padded = basis == BASE_VIEWPORT
+    min_viewport = basis + 1
     body = bytearray()
 
     def here() -> int:
@@ -156,14 +172,14 @@ def build_stub(stub_va: int) -> bytes:
     # Gate 1: a square viewport in the minimap's size range.
     body += b"\x3B\xC2"                                            # cmp eax, edx
     jcc_out(b"\x0F\x85")                                           # jne out
-    body += b"\x83\xF8" + bytes([MIN_VIEWPORT])                    # cmp eax, 121
+    body += b"\x83\xF8" + bytes([min_viewport])                    # cmp eax, basis+1
     jcc_out(b"\x0F\x8C")                                           # jl  out
     body += b"\x3D" + struct.pack("<I", MAX_VIEWPORT)              # cmp eax, 2048
     jcc_out(b"\x0F\x8F")                                           # jg  out
 
     body += b"\x53\x51\x56\x57"                                    # push ebx, ecx, esi, edi
     body += b"\x8B\xD8"                                            # mov  ebx, eax   (W)
-    body += b"\xB9" + struct.pack("<I", BASE_VIEWPORT)             # mov  ecx, 120
+    body += b"\xB9" + struct.pack("<I", basis)                     # mov  ecx, basis
     body += b"\x8B\xF3"                                            # mov  esi, ebx
     body += b"\xD1\xEE"                                            # shr  esi, 1     (c)
     body += b"\x8B\xFE"                                            # mov  edi, esi   (add-back)
@@ -179,21 +195,24 @@ def build_stub(stub_va: int) -> bytes:
     # padded 632x632 canvas. Anything else falls through to vanilla.
     body += b"\x8B\x44\x24" + bytes([ARG3])                        # mov eax, [esp+arg3]
     body += b"\x3D" + struct.pack("<I", ATLAS_WIDTH)               # cmp eax, 512
-    stock_fixup = len(body) + 2
-    body += b"\x0F\x84" + b"\x00\x00\x00\x00"                      # je  stock
-    body += b"\x3D" + struct.pack("<I", PADDED_SURFACE)            # cmp eax, 632
-    jcc_restore(b"\x0F\x85")                                       # jne restore
+    if padded:
+        stock_fixup = len(body) + 2
+        body += b"\x0F\x84" + b"\x00\x00\x00\x00"                  # je  stock
+        body += b"\x3D" + struct.pack("<I", PADDED_SURFACE)        # cmp eax, 632
+        jcc_restore(b"\x0F\x85")                                   # jne restore
 
-    # Padded: square canvas, and the content offset is folded in by adding back
-    # zero rather than the centre (60 * W / 120 == W / 2 == the centre).
-    body += b"\x8B\x44\x24" + bytes([ARG4])                        # mov eax, [esp+arg4]
-    body += b"\x3D" + struct.pack("<I", PADDED_SURFACE)            # cmp eax, 632
-    jcc_restore(b"\x0F\x85")                                       # jne restore
-    body += b"\x33\xFF"                                            # xor edi, edi
-    jcc_ok(b"\xE9")                                                # jmp ok
+        # Padded: square canvas, and the content offset is folded in by adding
+        # back zero rather than the centre (60 * W / 120 == W / 2 == the centre).
+        body += b"\x8B\x44\x24" + bytes([ARG4])                    # mov eax, [esp+arg4]
+        body += b"\x3D" + struct.pack("<I", PADDED_SURFACE)        # cmp eax, 632
+        jcc_restore(b"\x0F\x85")                                   # jne restore
+        body += b"\x33\xFF"                                        # xor edi, edi
+        jcc_ok(b"\xE9")                                            # jmp ok
 
-    stock_at = len(body)
-    struct.pack_into("<i", body, stock_fixup, stock_at - (stock_fixup + 4))
+        stock_at = len(body)
+        struct.pack_into("<i", body, stock_fixup, stock_at - (stock_fixup + 4))
+    else:
+        jcc_restore(b"\x0F\x85")                                   # jne restore
     body += b"\x8B\x44\x24" + bytes([ARG4])                        # mov eax, [esp+arg4]
     body += b"\x3D" + struct.pack("<I", ATLAS_HEIGHTS[0])          # cmp eax, 256
     jcc_ok(b"\x0F\x84")                                            # je  ok
@@ -232,7 +251,13 @@ def main() -> int:
     parser = argparse.ArgumentParser()
     parser.add_argument("source", type=Path)
     parser.add_argument("output", type=Path)
+    parser.add_argument("--zoom-basis", type=int, default=BASE_VIEWPORT,
+                        help="map units the minimap window spans; 120 is vanilla, "
+                             "lower zooms in and shrinks the black band at area edges")
     args = parser.parse_args()
+
+    if not 16 <= args.zoom_basis <= 126:
+        raise SystemExit("--zoom-basis must be 16..126 (the gate compares against an imm8)")
 
     if args.source.resolve() == args.output.resolve():
         raise SystemExit("Output must be a separate executable")
@@ -264,7 +289,7 @@ def main() -> int:
     new_rva = align(last.virtual_address + max(last.virtual_size, last.raw_size),
                     section_alignment)
     stub_va = image.image_base + new_rva
-    stub = build_stub(stub_va)
+    stub = build_stub(stub_va, args.zoom_basis)
 
     patch = b"\xE9" + struct.pack("<i", stub_va - (SITE_VA + 5))
     patch += b"\x90" * (len(ORIGINAL) - len(patch))
@@ -297,6 +322,7 @@ def main() -> int:
 
     print(f"{'stub (.kmz)':<20} VA 0x{stub_va:08X}  file 0x{stub_file_offset:08X}  {len(stub)} bytes")
     print()
+    print(f"{'zoom basis':<20} {args.zoom_basis} map units  (vanilla 120, zoom x{120 / args.zoom_basis:.2f})")
     print(f"{'new file length':<20} {len(data)}")
     print(f"{'SHA-256':<20} {out.sha256}")
     return 0
