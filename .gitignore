@@ -61,3 +61,9 @@ build-inputs/*
 
 # Machine-specific build settings (build.local.example.ps1 is the template).
 build.local.ps1
+
+# Third-party mods downloaded for comparison only. Kept locally so their code can
+# be inspected; not redistributed here.
+third_party/K1-Area-Map-Fixes-*.zip
+third_party/k1-area-map-fixes-*/
+third_party/Vanilla Maps HD (K1)/

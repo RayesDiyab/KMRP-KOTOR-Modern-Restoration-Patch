@@ -40,11 +40,30 @@ The size patch is considered prior verified work. Phase 0 no longer starts by
 rediscovering it; it verifies the bytes and uses the patched map as the baseline
 for icon and button investigation.
 
-The release candidate restores the four shared constructor immediates to their
-retail values (512x256 render and 440x256 marker domains). Only the full-map
-constructor call at `0x00633102` is redirected to a wrapper that assigns the
-1720x720 domains and child rectangles to that instance. This prevents the
-enlarged full-map dimensions from leaking into the gameplay minimap.
+**Corrected 2026-09-03 against the shipped binary.** The paragraph that stood
+here described experiment 004's split -- the four shared constructor immediates
+restored to retail, with only the full-map constructor call at `0x00633102`
+redirected to a wrapper. **Gold v15 does neither of those things.** Read out of
+`swkotor_gold_v15_popup.exe`:
+
+| VA | clean | gold v15 |
+| --- | --- | --- |
+| `0x0069505C` render width | 512 | **1720** |
+| `0x00695064` render height | 256 | **720** |
+| `0x00695082` marker domain width | 440 | **1478** |
+| `0x0069508A` marker domain height | 256 | **720** |
+| `0x00633102` constructor call | `e8 49 1c 06 00` | **byte-identical, not redirected** |
+
+So the enlarged domains are set globally rather than per instance, and the 004
+split was superseded -- the gameplay minimap is kept correct by the later HUD
+minimap content zoom (`.kmz`) and fog grid (`.kfg`) work documented below, plus
+the per-resolution `mipc*.gui` scaling, rather than by isolating the full-map
+constructor. `experiments/004-global-dimension-split.md` remains accurate as a
+record of what was tried at the time; it is not a description of what ships.
+
+The lesson is the one this project keeps relearning: a document describing a
+release candidate stops being true the moment the design moves on, and only a
+diff against the shipped binary catches it.
 
 ## Key functions
 
@@ -101,6 +120,65 @@ Its coordinate-wrapper entry points are `0x0086D000` and `0x0086D080`. A third
 wrapper at `0x0086D100` translates centered full-window mouse coordinates into
 overlay-local space before tail-jumping to the original custom hit test at
 `0x00693300`. Vtable slot `0x0075477C` is redirected to this wrapper.
+
+### What the wrappers actually compute
+
+Disassembled out of gold v15 rather than restated from the design note. Both
+coordinate wrappers are the same shape:
+
+```asm
+call 0x578E00              ; the vanilla conversion, unchanged
+imul eax, [ebx+0x0C]       ; x live canvas width   (1478)
+add  eax, 0xDC             ; +220, half of 440, to round rather than truncate
+idiv 0x1B8                 ; / 440   -- the vanilla domain
+imul eax, [ebx+0x10]       ; x live canvas height  (720)
+add  eax, 0x80             ; +128, half of 256
+idiv 0x100                 ; / 256
+```
+
+The vanilla routine still divides by the two shared float constants at
+`0x00747748` (440.0) and `0x007455D4` (256.0); **KMRP leaves both untouched**
+and rescales the *result* instead. Because the target size is read from the
+object at run time (`[ebx+0x0C]`, `[ebx+0x10]`) and not baked in as a constant,
+one gold binary serves every resolution.
+
+The hit-test wrapper derives its centring the same way:
+
+```asm
+edx = [eax+0x0C] - [eax+0x108C]   ; canvasW - viewportW
+edx >>= 1
+[esp+4] -= edx                     ; mouse X
+edx = [eax+0x10] - [eax+0x1090]   ; canvasH - viewportH
+edx >>= 1
+edx += 0x0E                        ; the +14 Y correction
+[esp+8] -= edx
+jmp 0x693300                       ; the original custom hit test
+```
+
+That matters for one specific question. There is a **second** pair of centring
+immediates at `0x00692959` / `0x0069296B`, in the function at `0x00692930`,
+with instruction-for-instruction the same shape as the draw-path pair at
+`0x006928B3` / `0x006928C3` -- and KMRP leaves it at the vanilla 640/480. It is
+**not** a missed second copy: `0x00692930` is referenced exactly once in the
+image, as a pointer at `0x00754870`, which is not the area map's hit-test slot.
+The area map's slot is `0x0075477C`, and gold redirects it (`0x00693300` ->
+`0x0086D100`). The inverse transform therefore never reads a design-size
+constant at all, so the vanilla value in that path is inert.
+
+### Independent corroboration
+
+*K1 Area Map Fixes 1.0.0* (Derslok, GPL-3.0) solves the same problem in the same
+executable and reached the same diagnosis independently: the constants the area
+map divides by are shared with the HUD minimap, and editing them in place
+"turns the minimap black". Its fix writes scaled private copies at `0x0078CC00`
+and redirects only the map's own operands -- a *pre*-scale where KMRP
+*post*-scales. Same destination, opposite order.
+
+The two mods are mutually exclusive: both append their added data at file offset
+`0x3DB000` (the first byte past the end of the clean image), both refuse an
+executable they do not recognise, and their marker hooks land byte-adjacent to
+KMRP's writes in the same three functions. The one thing that mod has which KMRP
+does not is a 250-entry map-note correction table keyed on world position.
 
 The marker controls store their rectangles in overlay-local coordinates. Their
 rendering is centered with the 1720x720 map canvas, while the original overlay

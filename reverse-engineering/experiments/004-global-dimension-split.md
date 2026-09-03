@@ -1,5 +1,10 @@
 # Experiment 004: Split Full-Map and HUD Map Dimensions
 
+> **Superseded.** This records what was tried, not what ships. Gold v15 sets the
+> four constructor immediates globally and leaves `0x00633102` unredirected; the
+> gameplay minimap is kept correct by the later `.kmz` / `.kfg` work instead.
+> Verified against the shipped binary on 2026-09-03 -- see `../map.md`.
+
 ## Goal
 
 Keep the universal marker-coordinate and hit-test fix while preventing the
