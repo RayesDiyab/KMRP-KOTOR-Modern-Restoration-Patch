@@ -1,5 +1,10 @@
 # Map Reverse-Engineering Notes
 
+> This file is the **lab record**: what was tried, what failed, and what was
+> disproved, in the order it happened. For the finished mechanism -- every byte
+> KMRP writes for the map, the per-resolution domain tables, and the precision
+> analysis -- see **[map-scaling.md](map-scaling.md)**.
+
 ## Baseline executables
 
 | Role | File | SHA-256 | Version |
