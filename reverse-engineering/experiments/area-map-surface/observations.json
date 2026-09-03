@@ -11,7 +11,12 @@
   "runtime": {
     "method": "x64dbg, software breakpoint at VA 0x006944A8, live process",
     "date": "2026-09-03",
-    "icon_container_rect": {"left": 0, "top": 0, "width": 1478, "height": 720},
+    "icon_container_rect": {
+      "left": 0,
+      "top": 0,
+      "width": 1478,
+      "height": 720
+    },
     "grid_columns": 20,
     "grid_rows": 11,
     "note": "The rect is read from [ebx+0x04..0x10]. ebx is the icon container, the object whose size is written by the immediate at VA 0x00695082. It is the MARKER OVERLAY, not the map canvas."
@@ -30,23 +35,60 @@
   "screen_measurements": {
     "method": "tools/measure_map_screen.py on 3440x1440 full-screen PNG captures",
     "captures": [
-      {"name": "map-fogfix.png", "grid_divisor": 1478, "divisor_source": "private float in .kfg",
-       "predicted_pitch": 73.9, "measured_pitch": 74.0,
-       "grid_first": 851, "grid_last": 2333, "grid_width": 1483,
-       "strip_first": 2334, "strip_last": 2575, "strip_width": 242},
-      {"name": "map-fog-v19b.png", "grid_divisor": 1720, "divisor_source": "private float in .kfg",
-       "predicted_pitch": 86.0, "measured_pitch": 86.0,
-       "grid_first": 851, "grid_last": 2325, "grid_width": 1475,
-       "strip_first": 2334, "strip_last": 2575, "strip_width": 242},
-      {"name": "fog-test-1720.png", "grid_divisor": 1720, "divisor_source": "float in allocated page, live memory patch",
-       "predicted_pitch": 86.0, "measured_pitch": 86.0,
-       "grid_first": 851, "grid_last": 2325, "grid_width": 1475,
-       "strip_first": 2334, "strip_last": 2575, "strip_width": 242},
-      {"name": "map-derslok-consts.png", "grid_divisor": 1478, "divisor_source": "fidivr [ebx+0x0C], gold v19",
-       "centring_x": 3440, "centring_y": 1440,
-       "predicted_pitch": 73.9, "measured_pitch": 74.0,
-       "grid_first": 511, "grid_last": 1988, "grid_width": 1478,
-       "strip_first": 1989, "strip_last": 2230, "strip_width": 242}
+      {
+        "name": "map-fogfix.png",
+        "grid_divisor": 1478,
+        "divisor_source": "private float in .kfg",
+        "predicted_pitch": 73.9,
+        "measured_pitch": 74.0,
+        "grid_first": 851,
+        "grid_last": 2333,
+        "grid_width": 1483,
+        "strip_first": 2334,
+        "strip_last": 2575,
+        "strip_width": 242
+      },
+      {
+        "name": "map-fog-v19b.png",
+        "grid_divisor": 1720,
+        "divisor_source": "private float in .kfg",
+        "predicted_pitch": 86.0,
+        "measured_pitch": 86.0,
+        "grid_first": 851,
+        "grid_last": 2325,
+        "grid_width": 1475,
+        "strip_first": 2334,
+        "strip_last": 2575,
+        "strip_width": 242
+      },
+      {
+        "name": "fog-test-1720.png",
+        "grid_divisor": 1720,
+        "divisor_source": "float in allocated page, live memory patch",
+        "predicted_pitch": 86.0,
+        "measured_pitch": 86.0,
+        "grid_first": 851,
+        "grid_last": 2325,
+        "grid_width": 1475,
+        "strip_first": 2334,
+        "strip_last": 2575,
+        "strip_width": 242
+      },
+      {
+        "name": "map-derslok-consts.png",
+        "grid_divisor": 1478,
+        "divisor_source": "fidivr [ebx+0x0C], gold v19",
+        "centring_x": 3440,
+        "centring_y": 1440,
+        "predicted_pitch": 73.9,
+        "measured_pitch": 74.0,
+        "grid_first": 511,
+        "grid_last": 1988,
+        "grid_width": 1478,
+        "strip_first": 1989,
+        "strip_last": 2230,
+        "strip_width": 242
+      }
     ]
   },
   "derived": {
@@ -57,16 +99,106 @@
   },
   "atlas": {
     "method": "pykotor read of swpc_tex_gui.erf, and of the installed HD override",
-    "vanilla_lbl_mapm26ab": {"size": "512x256", "columns_past_440_mean": 33.6, "columns_past_440_max": 115},
-    "hd_override_lbl_mapm26ab": {"size": "2048x1024", "columns_past_440_mean": 33.9, "columns_past_440_max": 151},
+    "vanilla_lbl_mapm26ab": {
+      "size": "512x256",
+      "columns_past_440_mean": 33.6,
+      "columns_past_440_max": 115
+    },
+    "hd_override_lbl_mapm26ab": {
+      "size": "2048x1024",
+      "columns_past_440_mean": 33.9,
+      "columns_past_440_max": 151
+    },
     "conclusion": "The atlas carries real picture past column 440 in BOTH vanilla and the HD pack. The strip is not caused by the HD map textures."
   },
   "disproved": [
-    {"claim": "The 1720 private-float build (v19b) never took effect.",
-     "disproof": "map-fog-v19b.png measures a pitch of exactly 86.0 = 1720/20. It took effect; it simply did not move the strip."},
-    {"claim": "The strip is caused by the HD map textures.",
-     "disproof": "The vanilla 512x256 atlas has the same content past column 440 (mean 33.6 vs 33.9)."},
-    {"claim": "The grid divisor controls where the grid ends.",
-     "disproof": "Divisors 1478 and 1720 both produce a grid clipped at ~1478 and a strip of exactly 242 px."}
-  ]
+    {
+      "claim": "The 1720 private-float build (v19b) never took effect.",
+      "disproof": "map-fog-v19b.png measures a pitch of exactly 86.0 = 1720/20. It took effect; it simply did not move the strip."
+    },
+    {
+      "claim": "The strip is caused by the HD map textures.",
+      "disproof": "The vanilla 512x256 atlas has the same content past column 440 (mean 33.6 vs 33.9)."
+    },
+    {
+      "claim": "The grid divisor controls where the grid ends.",
+      "disproof": "Divisors 1478 and 1720 both produce a grid clipped at ~1478 and a strip of exactly 242 px."
+    }
+  ],
+  "frame_art": {
+    "method": "tools/measure_map_screen.py reports off-pitch bright runs as grid.rejected_runs. Runs present in both captures with the canvas in different places are fixed art; runs that move with the canvas are drawn with it.",
+    "fog-test-1720": {
+      "canvas": [
+        851,
+        2575
+      ],
+      "rejected_runs": [
+        [
+          566,
+          808
+        ],
+        [
+          826,
+          841
+        ],
+        [
+          2580,
+          2588
+        ],
+        [
+          2598,
+          2613
+        ]
+      ]
+    },
+    "map-derslok-consts": {
+      "canvas": [
+        511,
+        2230
+      ],
+      "rejected_runs": [
+        [
+          2231,
+          2239
+        ],
+        [
+          2580,
+          2588
+        ],
+        [
+          2598,
+          2613
+        ]
+      ]
+    },
+    "conclusion": "2580-2613 is present in both, unmoved, while the canvas moved 340 px: fixed frame art, interior right edge about 2580. Frame interior is therefore about 860..2580 = 1720 px = screenWidth // 2, which is exactly KMRP's canvas width. Option A (a 2365-wide map) would overflow it.",
+    "caveat": "Measured at 3440x1440 only. Whether frameInterior == screenWidth // 2 holds at other resolutions is UNTESTED."
+  },
+  "recommended_fix": {
+    "name": "Option D",
+    "rule": "canvas = (screenWidth // 2) * 512/440; overlay = canvas * 440/512 = screenWidth // 2; canvasHeight = overlayHeight = screenHeight // 2",
+    "at_3440x1440": {
+      "canvas": [
+        2001,
+        720
+      ],
+      "overlay": [
+        1720,
+        720
+      ],
+      "LBL_Map": [
+        860,
+        374,
+        1720,
+        720
+      ],
+      "centring": [
+        3440,
+        1440
+      ],
+      "cropped_surplus_px": 281
+    },
+    "effect": "Visible map content grows from 1478 to 1720 px (+16.4%) and fills the frame; the strip is cropped by LBL_Map exactly as vanilla crops its 72 columns.",
+    "status": "NOT BUILT, NOT TESTED"
+  }
 }

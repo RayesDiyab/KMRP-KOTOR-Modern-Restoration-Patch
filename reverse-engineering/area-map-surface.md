@@ -155,17 +155,17 @@ less firmly established than the horizontal.**
 
 ## 4. What this means for the fix
 
-Two candidates. Neither is implemented yet; this section is a plan, not a record
-of shipped behaviour.
+Four candidates, none implemented yet; this section is a plan, not a record of
+shipped behaviour. **Option D is the recommendation.**
 
 **Option A — adopt the k1hrm/hires_patcher geometry.** Set canvas and overlay to
 `w·512/640` / `w·440/640`, and both centring immediates to the screen size.
 `LBL_Map` then already matches the overlay at all 49 resolutions and no GUI file
 changes at all. The visible map grows by 1/0.625 = 60% horizontally.
-**Open risk:** the frame art around the map measures roughly 1782 px of interior
-at 3440x1440, narrower than the 2365 the map would become. Whether the map is
-drawn behind that art (and so visually cropped by it) or over it is
-**not established** and must be tested before this option is chosen.
+**Rejected:** the frame art's interior measures about 1720 px at 3440x1440
+(established below), so a 2365-wide map would overflow it by roughly 645 px.
+This option needs the frame art regenerated too, which nothing in the build
+currently does.
 
 **Option B — keep KMRP's canvas, make `LBL_Map` crop it.** Keep
 `canvas = screen//2`, set `centringX/Y = screenWidth/Height`, and set `LBL_Map`
@@ -175,8 +175,57 @@ to the overlay size positioned where the map should sit:
 centred; the strip is cropped away exactly as vanilla crops it. Costs a GUI
 transform across 48 resolutions plus the two centring immediates.
 
-Option B is the smaller, better-understood change. Option A is the more faithful
-one and needs the frame-art question answered first.
+**The frame-art question is now answered, and it rules Option A out.** The
+measurement tool reports the bright runs it rejected as off-pitch. Comparing two
+captures whose canvas sits in different places:
+
+| capture | canvas (grid.first -> strip.last) | rejected bright runs |
+| --- | --- | --- |
+| `fog-test-1720` | 851 -> 2575 | 826-841, **2580-2588, 2598-2613** |
+| `map-derslok-consts` | 511 -> 2230 | 2231-2239, **2580-2588, 2598-2613** |
+
+The runs at 2580-2613 are in both, unmoved, while the canvas moved 340 px: that
+is the fixed frame art, interior right edge about 2580. The runs that *did* move
+(826-841, 2231-2239) hug the canvas edge and are drawn with it. So the frame's
+interior is roughly 860..2580 = **1720 px = `screen // 2`** — KMRP's canvas is
+sized to the frame. Option A's 2365-wide map would overflow it by ~645 px.
+
+**Option D — make the map *content* fill the frame.** This is the recommended
+one. Today the visible content is the overlay, 1478 px, inside a 1720 px frame:
+the map is 242 px short of its own box, which is the same 242 that shows as the
+strip. Size the canvas so that the *content* — the 440/512 of it that carries
+picture — is exactly the frame width:
+
+```
+canvas  = frameWidth · 512/440          = 1720 · 512/440 = 2001
+overlay = canvas · 440/512              = 1720            (KMRP's existing formula, unchanged)
+LBL_Map = ((screenW − overlay)/2, (screenH − canvasH)/2 + 14, overlay, canvasH)
+        = (860, 374, 1720, 720)
+centringX, centringY = screenW, screenH = 3440, 1440
+```
+
+The 281 px of canvas surplus is cropped by `LBL_Map` exactly as vanilla crops
+its 72. The visible map **grows 16.4%**, from 1478 to 1720, and fills its frame
+for the first time — which is the same defect K1AMF's README describes as "the
+area map ... fills the map screen instead of sitting small in one corner", in a
+milder form. KMRP's overlay rule `overlay = canvas · 440/512` is untouched, so
+the marker chain and the `fidivr [ebx+0x0C]` grid follow automatically.
+
+The general rule, with `frameWidth = screenWidth // 2` as measured:
+
+```
+canvas  = (screenWidth // 2) · 512/440,  canvasHeight = screenHeight // 2
+overlay = screenWidth // 2,              overlayHeight = canvasHeight
+```
+
+**Untested.** Option D has not been built or run. `frameWidth == screen // 2` is
+measured at 3440x1440 only; it is the value KMRP already uses for the canvas at
+every resolution, but whether the frame art actually matches it at other
+resolutions has not been checked. Confirm that before shipping.
+
+Option B is the smallest change but leaves 242 px of empty frame. Option D
+costs the same machinery as B — the two centring immediates, the canvas
+immediate, and an `LBL_Map` transform — and additionally fills the box.
 
 ## 5. What is deliberately not changed
 
