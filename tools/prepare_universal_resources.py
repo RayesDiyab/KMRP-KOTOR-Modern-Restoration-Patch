@@ -200,6 +200,11 @@ def main() -> int:
     parser.add_argument("output", type=Path)
     parser.add_argument("texture_pack", type=Path,
                         help="TexturePacks/swpc_tex_gui.erf, source of the stock font metrics")
+    parser.add_argument("--bundled-override", type=Path, nargs="*", default=[],
+                        help="Third-party Override mods bundled with their authors' "
+                             "permission. Every *.tga beneath each directory goes into "
+                             "override-common.zip. See THIRD_PARTY_NOTICES.md; omit to "
+                             "ship without them.")
     parser.add_argument("--shared-assets", type=Path,
                         default=Path(__file__).resolve().parents[1] / "assets" / "override-common",
                         help="resolution-independent files copied straight into "
@@ -276,8 +281,40 @@ def main() -> int:
         if not shared_data:
             raise ValueError(f"No shared data files found in {args.shared_assets}")
         print(f"Shared data: {', '.join(path.name for path in shared_data)}")
+
+        # Third-party Override mods, bundled with permission. Separate inputs rather
+        # than dropped into the gold override, so the 240-asset assertion above keeps
+        # meaning "our own shared art" and each mod's provenance stays legible.
+        #
+        # These are not optional at install time: they are art, they replace nothing of
+        # ours, and OverrideOperations backs up whatever they displace, so a restore
+        # puts the player's own files back.
+        bundled = []
+        seen = {path.name.lower(): "KMRP shared art" for path in common_tga_files}
+        for source in args.bundled_override:
+            if not source.is_dir():
+                raise ValueError(f"Bundled Override mod not found: {source}")
+            files = sorted(source.rglob("*.tga"))
+            if not files:
+                raise ValueError(f"No .tga files under {source}")
+            for path in files:
+                key = path.name.lower()
+                # OverrideOperations.Install refuses the same relative path carrying
+                # different content across archives, and one mod silently shadowing
+                # another would be worse than a build failure.
+                if key in seen:
+                    raise ValueError(f"{path.name} appears in both {seen[key]} "
+                                     f"and {source.name}")
+                seen[key] = source.name
+            bundled.extend(files)
+            # A mod whose files sit in its own Override/ subfolder would otherwise
+            # report as "Override", which names nothing.
+            label = (source.parent.name if source.name.lower() == "override"
+                     else source.name)
+            print(f"Bundled Override: {len(files):4} files from {label}")
+
         write_zip(args.output / "override-common.zip",
-                  common_tga_files + hd_font_atlases + stock_atlases + shared_data)
+                  common_tga_files + hd_font_atlases + stock_atlases + shared_data + bundled)
 
     catalog_lines = ["# category\twidth\theight\tcanvasWidth\tcanvasHeight\toverlayWidth\tcenteringWidth\tcenteringHeight"]
     # Progress for the build script's bar: it turns "[done/total] label" lines

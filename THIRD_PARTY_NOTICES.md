@@ -7,6 +7,32 @@
 > anything untested labelled as untested.
 
 
+## Party Portraits
+
+Party and player portrait artwork is **Party Portraits** by **MadDerp**, bundled with
+the author's permission and installed as part of KMRP's Override payload:
+
+169 `.tga` files, shipped unmodified. The mod also offers the same portraits as
+`.tpc` and its ReadMe says to install one format or the other; KMRP ships the TGAs,
+matching the rest of the Override payload.
+
+Vendored at `third_party/Included/Party Portraits by MadDerp/`.
+
+## KOTOR 1 HD Icon Pack
+
+Interface icon artwork is the **KOTOR1 HD Icon Pack 1.0** by **JackInTheBox**, bundled
+with the author's permission:
+
+351 `.tga` files from the mod's `Override` folder, shipped unmodified. The optional
+`BonusICON` variants the mod also offers are **not** included.
+
+Vendored at
+`third_party/Included/KOTOR1 HD ICON PACK ver1.0 1.0.0 by JackInTheBox/`.
+
+Both of the above are **not optional**: they are artwork, they replace none of KMRP's
+own files, and `OverrideOperations` backs up whatever they displace, so restoring KMRP
+puts the player's previous files back.
+
 ## K1 Area Map Fixes
 
 The 250-entry map-note correction table is from **K1 Area Map Fixes** by **Derslok**,

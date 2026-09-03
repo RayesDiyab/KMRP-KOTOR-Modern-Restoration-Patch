@@ -16,6 +16,11 @@ param(
     [string]$GoldExe = ".\build\kmrp\swkotor_gold_v21_mapnotes.exe",
     [string]$GoldOverride = ".\assets\override-3440x1440",
     [string]$UpstreamGuiRoot = ".\third_party\Included\kotor-high-resolution-menus-1.5",
+    # Third-party Override mods bundled with their authors' permission.
+    [string[]]$BundledOverride = @(
+        ".\third_party\Included\Party Portraits by MadDerp",
+        ".\third_party\Included\KOTOR1 HD ICON PACK ver1.0 1.0.0 by JackInTheBox\Override"
+    ),
     [string]$IconPath = ".\assets\branding\favicon.ico",
     [string]$HdFonts = ".\assets\hd-fonts",
     [switch]$ReuseResources,
@@ -183,6 +188,7 @@ $resolvedUpstream = (Resolve-Path -LiteralPath (Resolve-InputPath $UpstreamGuiRo
 $resolvedIcon = (Resolve-Path -LiteralPath (Resolve-InputPath $IconPath)).Path
 $resolvedHdFonts = (Resolve-Path -LiteralPath (Resolve-InputPath $HdFonts)).Path
 $geometry = (Resolve-Path -LiteralPath (Resolve-InputPath "assets\resolution-geometry.json")).Path
+$resolvedBundled = @($BundledOverride | ForEach-Object { (Resolve-Path -LiteralPath (Resolve-InputPath $_)).Path })
 
 Write-Detail ("source exe   {0}  ({1:n0} bytes)" -f (Split-Path -Leaf $resolvedSource), (Get-Item $resolvedSource).Length)
 Write-Detail ("gold exe     {0}" -f (Split-Path -Leaf $resolvedGold))
@@ -201,10 +207,18 @@ Complete-Step ("{0:n0} KB" -f ((Get-Item $patchResource).Length / 1KB))
 # ---------------------------------------------------------------- 3. resources
 if (-not $ReuseResources) {
     Start-Step "Generating interface resources for every resolution"
-    Invoke-Tool -Exe $Python -Label "resolution" -FailureMessage "Interface resource generation failed" -Arguments @(
+    # Built as a variable rather than inline: `-Arguments @(...) + $list` binds only
+    # the array literal and silently drops the rest, which shipped a build with none
+    # of the bundled Override mods in it.
+    $resourceArgs = @(
         (Join-Path $projectRoot "tools\prepare_universal_resources.py"),
         $geometry, $resolvedUpstream, $resolvedGoldOverride, $resourceDir,
         $resolvedTexturePack, $resolvedHdFonts)
+    if ($resolvedBundled.Count -gt 0) {
+        $resourceArgs += "--bundled-override"
+        $resourceArgs += $resolvedBundled
+    }
+    Invoke-Tool -Exe $Python -Label "resolution" -FailureMessage "Interface resource generation failed" -Arguments $resourceArgs
     $archives = @(Get-ChildItem -LiteralPath $resourceDir -Filter "gui-*.zip")
     Complete-Step ("{0} resolution archives" -f $archives.Count)
 } else {

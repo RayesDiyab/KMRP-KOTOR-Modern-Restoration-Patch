@@ -2800,6 +2800,9 @@ namespace Kmrp
         }
 
         internal const int HeaderHeight = 96;
+        /// <summary>How much taller step 2 becomes when it must offer the recovery
+        /// buttons. The card reserves this so the layout never has to grow.</summary>
+        internal const int RecoveryExtra = 67;
         internal const int ContentLeft = 120;
         internal string Title = String.Empty;
         internal string Subtitle = String.Empty;
@@ -3931,6 +3934,9 @@ namespace Kmrp
             int switchWidth = Math.Max(8, (int)Math.Round(64 * scale));
             int switchHeight = Math.Max(6, (int)Math.Round(32 * scale));
             int gutter = Math.Max(1, (int)Math.Round(18 * scale));
+            // The author sits further in than the switch's right edge, so the credit and
+            // the control are not flush with each other.
+            int authorInset = pad + Math.Max(1, (int)Math.Round(22 * scale));
 
             // Two lines. Title and author share the first and are centred on each other;
             // the description and the switch share the second. The description stops
@@ -3955,9 +3961,11 @@ namespace Kmrp
                 if (!String.IsNullOrEmpty(Author))
                 {
                     // Centred on the title's own box, so the two sit on one optical line
-                    // whatever the two fonts' ascents do.
-                    g.DrawString(Author, authorFont, authorInk, new RectangleF(
-                        pad, titleTop, Math.Max(1, Width - 2 * pad), titleHeight + 2),
+                    // whatever the two fonts' ascents do. Held further off the right edge
+                    // than the switch is, so the credit does not crowd the control.
+                    g.DrawString("by " + Author, authorFont, authorInk, new RectangleF(
+                        pad, titleTop,
+                        Math.Max(1, Width - pad - authorInset), titleHeight + 2),
                         rightAlign);
                 }
 
@@ -4354,7 +4362,15 @@ namespace Kmrp
             // the two always agree, whatever the row height becomes.
             const int ActionHeight = 76;
             const int ActionGap = 12;
-            actionButton.SetBounds(80, optionsHost.Bottom + 30,
+            // Step 2 grows by RecoveryExtra when it has to show the "get the editable
+            // exe" buttons, and the steps below it move down. That room is reserved here
+            // rather than found later: the card is a fixed height and the action row sits
+            // a fixed distance from its bottom, so nothing below the card -- the footer,
+            // the window, the settings view that covers it -- ever has to resize.
+            //
+            // Before this, only step 3 was repositioned and everything under it kept its
+            // place, so in the recovery state step 3 landed on top of step 4.
+            actionButton.SetBounds(80, optionsHost.Bottom + 30 + StepRow.RecoveryExtra,
                                    card.Width - 160 - ActionGap - ActionHeight, ActionHeight);
             actionButton.Anchor = AnchorStyles.Top | AnchorStyles.Left | AnchorStyles.Right;
             actionButton.Click += ActionClicked;
@@ -4440,10 +4456,29 @@ namespace Kmrp
             };
             settingsView.Controls.Add(markerToggle);
 
+            // Two actions, sharing the row the single Back button used to have. Restore
+            // Defaults is Subtle so Back stays the obvious way out.
+            int settingsRowTop = card.Height - 116;
+            int settingsRowWidth = (card.Width - 160 - 12) / 2;
+
+            PillButton settingsDefaults = new PillButton();
+            settingsDefaults.Subtle = true;
+            settingsDefaults.Text = "Restore Defaults";
+            settingsDefaults.SetBounds(80, settingsRowTop, settingsRowWidth, 76);
+            settingsDefaults.Anchor = AnchorStyles.Top | AnchorStyles.Left;
+            settingsDefaults.Click += delegate
+            {
+                // Every component back on, which is what "recommended" means here.
+                driverToggle.Checked = true;
+                markerToggle.Checked = true;
+            };
+            settingsView.Controls.Add(settingsDefaults);
+
             PillButton settingsBack = new PillButton();
             settingsBack.Text = "Back";
-            settingsBack.SetBounds(80, card.Height - 116, card.Width - 160, 76);
-            settingsBack.Anchor = AnchorStyles.Top | AnchorStyles.Left | AnchorStyles.Right;
+            settingsBack.SetBounds(settingsDefaults.Right + 12, settingsRowTop,
+                                   settingsRowWidth, 76);
+            settingsBack.Anchor = AnchorStyles.Top | AnchorStyles.Right;
             settingsBack.Click += delegate { ShowSettings(false); };
             settingsView.Controls.Add(settingsBack);
 
@@ -5487,10 +5522,12 @@ namespace Kmrp
             stepApply.Visible = executableReady;
 
             int verifyHeight = needsRecovery
-                ? StepRow.HeaderHeight + 67
+                ? StepRow.HeaderHeight + StepRow.RecoveryExtra
                 : StepRow.HeaderHeight;
             stepVerify.Height = ScaleDesign(verifyHeight);
-            PlaceStep(stepResolution, StepRow.HeaderHeight + verifyHeight);
+            int below = StepRow.HeaderHeight + verifyHeight;
+            PlaceStep(stepResolution, below);
+            PlaceStep(stepApply, below + StepRow.HeaderHeight);
 
             if (!needsRecovery)
             {

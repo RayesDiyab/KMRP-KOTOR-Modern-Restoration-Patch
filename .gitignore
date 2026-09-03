@@ -91,6 +91,23 @@ third_party/Included/*
 # map-note correction table, which gold bakes into .kmn. Its licence and the author's
 # own technical notes ship with it so the data's provenance travels with the data. His
 # compiled patcher and its 32 MB of dependencies are NOT redistributed and stay ignored.
+# Bundled Override art, shipped inside the patcher with their authors' permission.
+# Only what we actually redistribute: the icon pack's optional BonusICON variants and
+# the portraits' duplicate .tpc set are not shipped and stay ignored.
+!third_party/Included/Party Portraits by MadDerp/
+third_party/Included/Party Portraits by MadDerp/*
+!third_party/Included/Party Portraits by MadDerp/ReadMe.txt
+!third_party/Included/Party Portraits by MadDerp/Portraits NPC/
+third_party/Included/Party Portraits by MadDerp/Portraits NPC/*
+!third_party/Included/Party Portraits by MadDerp/Portraits NPC/tga/
+!third_party/Included/Party Portraits by MadDerp/Portraits PLAYER/
+third_party/Included/Party Portraits by MadDerp/Portraits PLAYER/*
+!third_party/Included/Party Portraits by MadDerp/Portraits PLAYER/tga/
+!third_party/Included/KOTOR1 HD ICON PACK*/
+third_party/Included/KOTOR1 HD ICON PACK*/*
+!third_party/Included/KOTOR1 HD ICON PACK*/README.txt
+!third_party/Included/KOTOR1 HD ICON PACK*/Override/
+
 !third_party/Included/K1-Area-Map-Fixes-*/
 third_party/Included/K1-Area-Map-Fixes-*/*
 !third_party/Included/K1-Area-Map-Fixes-*/More info/
