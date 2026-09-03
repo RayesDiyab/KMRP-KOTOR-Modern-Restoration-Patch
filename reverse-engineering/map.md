@@ -171,6 +171,103 @@ The area map's slot is `0x0075477C`, and gold redirects it (`0x00693300` ->
 `0x0086D100`). The inverse transform therefore never reads a design-size
 constant at all, so the vanilla value in that path is inert.
 
+### The map-note coordinate chain, end to end
+
+Every step below was disassembled from the clean executable or from gold,
+corroborated against an independent clean-room reimplementation, and then
+checked numerically against positions this file had already recorded. Nothing
+here is inferred.
+
+**1. Input.** A map note is a waypoint in the module's `.git` with a map-note
+flag; its `XPosition` / `YPosition` are world coordinates. `ebo_m12aa` has 63
+waypoints, 33 of them map notes.
+
+**2. World to map pixel — `0x00578E00`.** Reads everything it needs from the map
+object, not from globals:
+
+```asm
+00578E10  mov   eax, [esi+0x10]      ; NorthAxis
+00578E17  jne / 00578E30 / 00578E49  ; three branches, each fmul [0x740CBC]
+                                     ; -- the axis swap / negate cases
+00578E61  fsub  dword ptr [esi+0x20] ; world - origin        (X; Y uses +0x24)
+00578E64  fdiv  dword ptr [esi+0x18] ; / world-units-per-pixel  (Y uses +0x1C)
+00578E67  fadd  dword ptr [0x73E9AC] ; + 0.5  -> round, not truncate
+00578E6D  call  0x006FAE8C           ; float -> int
+00578E99  cmp   ecx, 0x1B8           ; bounds check, 440
+00578EA5  cmp   eax, 0x100           ; bounds check, 256
+00578EAD  mov   eax, 1               ; 1 = on the map, 0 = off it
+```
+
+The scale is a **per-object field**, and the 440/256 here are range tests. The
+function returns a success flag; the caller skips the note entirely when it is 0.
+
+**3. Corroboration.** reone (`src/libs/game/gui/map.cpp`, clean-room, no
+decompilation) computes the same transform from the `.are` `Map` struct:
+
+```cpp
+scaleX = (_mapPoint1.x - _mapPoint2.x) / (_worldPoint1.x - _worldPoint2.x);
+result.x = (world.x - _worldPoint1.x) * scaleX + _mapPoint1.x;
+```
+
+Algebraically identical to the engine's per-object form -- `[esi+0x18]` is that
+scale reciprocal and `[esi+0x20]` that origin, both computed at map load from
+`MapPt1/2` and `WorldPt1/2`. reone also confirms what the three `NorthAxis`
+branches do: cases 0 and 1 pass through, cases 2 and 3 **swap the axes**.
+
+**4. Numeric proof.** Taking `ebo_m12aa`'s `.are` calibration
+(`MapPt1 = 0.2682, 0.3593`, `MapPt2 = 0.6114, 0.7222`,
+`WorldPt1 = 19.3, 56.2`, `WorldPt2 = 65.4, 26.3`, `NorthAxis = 0`), applying the
+transform to all 33 note positions and multiplying by 440 x 256 reproduces
+**all seven** of the stock marker centres recorded earlier in this file, to
+sub-pixel accuracy:
+
+| note | computed | recorded |
+| --- | --- | --- |
+| Port crew quarters | (130.8, 98.1) | (131, 98) |
+| Cargo hold | (144.4, 171.7) | (144, 172) |
+| Cockpit | (227.7, 17.5) | (228, 17) |
+| Swoop hangar | (284.0, 181.4) | (284, 182) |
+| Starboard crew quarters | (319.3, 91.9) | (319, 92) |
+| Engine room | (216.8, 244.0) | (217, 244) |
+| Exit ramp | (274.0, 110.0) | (274, 110) |
+
+That closes the loop: the recorded centres were read off the screen, and they
+fall out of the module data plus the transform above.
+
+**5. KMRP's wrapper.** Gold replaces the `call 0x00578E00` at `0x006946F4` with
+`0x0086D000`, which calls the original and then, only on success, rescales:
+
+```
+x = (x * [ebx+0x0C] + 220) / 440      [ebx+0x0C] = 1478
+y = (y * [ebx+0x10] + 128) / 256      [ebx+0x10] =  720
+```
+
+**6. What the caller does with it.** Vanilla, and unchanged by gold:
+
+```asm
+0069470D  mov  eax, [esp+0x20]   ; X
+00694711  mov  ecx, [esp+0x10]   ; Y
+00694718  add  eax, -0x0A        ; X - 10
+00694724  add  ecx, -0x0A        ; Y - 10
+0069471F  mov  eax, 0x14         ; 20
+0069472B  [esp+0x30] = 20        ; a 20x20 icon centred on the point
+```
+
+So the wrapper's output **is** the final icon rectangle. Nothing else rescales
+it afterwards. The note icon stays 20x20 in gold; the player arrow is the one
+marker gold does resize, at `0x0069405B`, `0x20` -> `0x28`.
+
+**7. Which makes the lattice unavoidable in this design.** Step 2 rounds to an
+integer in 440x256 space and step 5 multiplies that integer up, so a note can
+only land on multiples of 1478/440 = 3.36 px horizontally and 720/256 = 2.81 px
+vertically. See the precision section above.
+
+**Not part of this chain:** the `fdivr [0x747748]` / `fdivr [0x7455D4]` pair at
+`0x006944A8` / `0x006944C4`. Those are `fild` of a stack counter followed by a
+**reverse** divide -- they compute *440 / n* and *256 / n* as ratios during the
+icon container's grid setup, not a coordinate normalisation. An earlier reading
+of this file treated them as part of the marker path; they are not.
+
 ### Marker coordinate precision, and the lattice it costs
 
 Every statement here was read out of the binaries; the arithmetic follows from
