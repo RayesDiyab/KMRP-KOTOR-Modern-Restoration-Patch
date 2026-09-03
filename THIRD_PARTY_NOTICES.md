@@ -7,6 +7,35 @@
 > anything untested labelled as untested.
 
 
+## K1 Area Map Fixes
+
+The 250-entry map-note correction table is from **K1 Area Map Fixes** by **Derslok**,
+used with the author's permission:
+
+https://deadlystream.com/files/file/3062-k1-area-map-fixes/
+
+Licensed under the **GNU General Public License version 3**. A copy travels with the
+data at:
+
+`third_party/Included/K1-Area-Map-Fixes-1.0.0 by derslok/More info/LICENSE`
+
+**Only the data is used.** `note_table.bin` -- 250 entries of four little-endian
+floats, each a note's shipped world position and Derslok's hand-measured correction --
+is baked into KMRP's `.kmn` section, SHA-256
+`880a325d982d74df496b02782faefdd3ae3802efbba030b9fbccc967cc0ccaa5`, unmodified. The
+lookup that reads it is KMRP's own, and none of his code, his scaling work or his
+patcher is included or derived from. His `TECHNICAL.txt` ships beside the table so the
+data's provenance travels with it.
+
+Separately, and predating this: his published research identified the two area-map
+tile-size operands and the 440:512 atlas relationship that KMRP's own map scaling is
+built on. That is acknowledged in
+[`reverse-engineering/area-map-surface.md`](reverse-engineering/area-map-surface.md).
+
+The correction can be turned off under *Advanced Settings*; see
+[`docs/third-party-driver-compat.md`](docs/third-party-driver-compat.md) for how the
+optional components are installed.
+
 ## K1 Modern Driver Compatibility
 
 **K1 Modern Driver Compatibility 1.2.0** by **Synchro** is redistributed inside the
@@ -19,7 +48,7 @@ https://deadlystream.com/files/file/3048-k1-modern-driver-compatibility-patch
 Licensed under the **Mozilla Public License 2.0**. The licence text ships inside the
 patcher and a copy is preserved at:
 
-`third_party/Included/k1-modern-driver-compatibility-1.2.0/LICENSE`
+`third_party/Included/k1-modern-driver-compatibility-1.2.0 by Synchro/LICENSE`
 
 The two shipped binaries -- `dinput8.dll` and `k1-modern-driver-compatibility.asi` --
 are the author's released standalone build, unmodified and byte-for-byte identical to

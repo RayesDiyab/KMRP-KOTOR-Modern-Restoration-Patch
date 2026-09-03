@@ -1,0 +1,149 @@
+K1 Area Map Fixes - what this patcher writes, byte for byte
+===========================================================
+
+Published so that a collision with another executable patcher is diagnosable
+by someone who is not us, and so that a determined user can undo or reproduce
+the work by hand. k1hrm publishes its offsets for the same reason; this is that
+precedent, followed.
+
+THE BUILD THIS DESCRIBES
+------------------------
+The "KOTOR Editable Executable" (4,042,752 bytes) after UniWS and after KotOR
+High Resolution Menus (k1hrm) 1.5 have both been run on it. The patcher refuses
+any other size. GOG's own retail v1.03 swkotor.exe is this same file byte for
+byte - confirmed by direct comparison, the only difference is 16 bytes of
+unused PE header padding - so it's accepted directly with no unlocking step.
+The 4-CD retail build hasn't been measured and the patcher still refuses to
+guess at it.
+
+After this patcher runs, the file is 4,050,944 bytes - 8 KB larger. That growth
+is step 5 below and is the only change to the file's size.
+
+TWO ADDRESS CONVENTIONS, AND WHY YOU MUST NOT MIX THEM
+------------------------------------------------------
+Numbers below are labelled VA (virtual address, what a disassembler shows) or
+FILE (byte offset into swkotor.exe, what a hex editor shows).
+
+For everything in the original sections,   FILE = VA - 0x400000.
+For the reserved region in step 5 it is    FILE = VA - 0x492000,
+because that region lives in a section this patcher extends. The exe is only
+0x3DD000 bytes long, so subtracting 0x400000 from 0x86D000 lands past the end
+of the file and finds nothing. Both numbers are given for it below.
+
+WHAT IS WRITTEN
+---------------
+
+0. k1hrm's Area Map centring constants - ONLY IF k1hrm LEFT THEM VANILLA
+
+   FILE 0x2928B3, 0x292959   int16, X   vanilla 640 -> your width
+   FILE 0x2928C3, 0x29296B   int16, Y   vanilla 480 -> your height
+
+   These four are k1hrm's, not ours. Its hires_patcher.pl writes them; its
+   compiled hires_patcher.exe - the one its own .bat and readme point Windows
+   users at - does not. Left vanilla, the engine draws the Area Map
+   ((W-640)/2, (H-480)/2) pixels off its box.
+
+   This patcher writes them only when they hold exactly 640/480 AND the canvas
+   constants already prove k1hrm ran at your resolution. Any other value is
+   refused rather than guessed at. Recorded in installed.json as its own step;
+   Uninstall.bat puts 640/480 back, which restores k1hrm's broken state, not a
+   fixed one.
+
+1. Map scale (the Area Map filling its box) + the private float copies
+
+   16 scale constants inside the Area Map draw path are rewritten for your
+   resolution. The two shared floats the map divides by -
+
+   VA 0x747748  (440.0)   FILE 0x347748
+   VA 0x7455D4  (256.0)   FILE 0x3455D4
+
+   - are NOT rewritten. They are shared with the HUD minimap, and editing them
+   in place turns the minimap black. Instead, scaled copies are written to
+   private slots and only the Area Map's own operands are redirected at them:
+
+   VA 0x78CC00  FILE 0x38CC00   private X float
+   VA 0x78CC04  FILE 0x38CC04   private Y float
+   (VA 0x78CC00-0x78CC0F / FILE 0x38CC00-0x38CC0F is reserved for these.)
+
+1b. Marker icon size - ONLY AT RESOLUTIONS THAT NEED IT
+
+   15 immediates covering all three marker kinds - map notes, the player arrow
+   and party members - are multiplied by
+
+       s = clamp(ceil(min(kx, ky) / (1600/480) - 0.25), 1, 8)
+
+   where kx = width/640 and ky = height/480. s is 1 at 2560x1600 and below,
+   and at s = 1 not one byte is written. Across k1hrm's 49 resolution sets:
+   36 unchanged, 9 at x2, 3 at x3, 1 at x6.
+
+   The three marker materials are mm_barrow (player arrow), lbl_mapcircle
+   (unselected note, and party - they share it) and whitetarget (selected
+   note). They are ordinary textures and resample cleanly.
+
+2-3. Three marker calibration caves, in spare .text
+
+   hook (5 bytes, jmp)          cave
+   VA 0x6946D3  FILE 0x2946D3   VA 0x73C1D0  FILE 0x33C1D0   map-note markers
+   VA 0x694A42  FILE 0x294A42   VA 0x73C20C  FILE 0x33C20C   party markers
+   VA 0x694AB1  FILE 0x294AB1   VA 0x73C232  FILE 0x33C232   player arrow
+
+   Total cave region occupied: VA 0x73C1D0-0x73C2A9, FILE 0x33C1D0-0x33C2A9.
+   Every byte of it read 0x00 before this patcher ran, and the patcher refuses
+   if it does not.
+
+4. 8 KB reserved at the end of .rsrc
+
+   VA 0x86D000   FILE 0x3DB000   0x2000 bytes
+   First 16 bytes: the ASCII magic K1MAPNTS then 8 reserved bytes.
+
+   The section's virtual and raw sizes and SizeOfImage are grown to match. No
+   other section header changes, and the PE CheckSum field is deliberately left
+   alone (see COMPATIBILITY.txt).
+
+5. The map-note correction table and its match routine
+
+   250 corrections, 16 bytes each = 4,000 bytes, written into the region above
+   at FILE 0x3DB010 onward.
+   Table sha256 880a325d982d74df496b02782faefdd3ae3802efbba030b9fbccc967cc0ccaa5
+
+   Each entry is four little-endian floats: the note's stored world X and Y as
+   BioWare shipped them (the lookup key), and the corrected X and Y.
+
+   The match routine is assembled into the cave region and hooked in at
+
+   VA 0x6946EF  FILE 0x2946EF   5-byte jmp, resuming at VA 0x6946F4
+
+   It compares the note's stored position against the table and substitutes the
+   corrected pair on a hit. A note not in the table is left exactly as it was,
+   so the patch is inert for every note it does not correct.
+
+   The keys are world positions, not module or index numbers, which is why the
+   table survives mods that edit module files. Verified against Kotor 1
+   Community Patch 1.10.0: of the 4,064 waypoints K1CP touches or leaves,
+   it moves 35, none of which is a map note, and all 250 corrections still
+   match afterwards.
+
+AFTER WRITING
+-------------
+The patcher re-reads the file from disk and runs 21 checks against it,
+including a check that no byte outside the ranges listed above changed. If any
+check fails it says so and points you at the backup; it does not report success
+on an unverified write.
+
+VERIFYING BY HAND
+-----------------
+The install record installed.json - in %LOCALAPPDATA%\K1AreaMapFixes, beside
+the backup it names - lists every step, its offsets, the sha256 of the exe
+before and after, and the relative path to the backup. Uninstall.bat restores
+that backup; it does not attempt to undo the changes byte by byte.
+
+Both live outside this folder deliberately: the mod folder is a download, and
+people delete downloads. Set K1AMF_HOME to put the pair somewhere else.
+
+REPRODUCING THIS FROM SOURCE
+----------------------------
+The patcher carries no byte-level constants of its own. Every offset above
+lives in the same modules the project's own development and verification tools
+use (tools\hires_patch.py, tools\pe_space.py, tools\note_table_patch.py), so a
+shipped patcher and a verified binary cannot drift apart. The source is in
+this release under "More info\source\".

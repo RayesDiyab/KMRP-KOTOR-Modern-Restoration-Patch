@@ -37,10 +37,10 @@ namespace Kmrp
     {
         internal const string ResourceName = "Kmrp.goldpatch";
         internal const string SourceHash = "761F9466F456A83909036BAEBB5C43167D722387BE66E54617BA20A8C49E9886";
-        internal const string TargetHash = "ACD521B80E48B4D5A0CA043187C2D21BA1745E299D7FDD5CBA7514D525A24713";
+        internal const string TargetHash = "9ACE45023EAB9063803136E6C312E5E87DD85E07E33CCB5525C04DCA38C478DC";
         internal const long SourceLength = 4042752;
-        internal const long TargetLength = 4079616;
-        internal const string PatchVersion = "2.9.1-hittest";
+        internal const long TargetLength = 4083712;
+        internal const string PatchVersion = "2.10.0-mapnotes";
 
         private readonly List<PatchChunk> chunks;
 
@@ -108,6 +108,11 @@ namespace Kmrp
             if (HashBytes(target) != TargetHash)
                 throw new InvalidDataException("The game update could not be verified.");
             ResolutionPatch.Apply(target, resolution);
+            // The map-note corrections are data in .kmn plus a lookup the wrapper always
+            // calls; the flag is what decides whether the lookup does anything. Gold ships
+            // it enabled, so this only ever has to clear it.
+            if (!KmrpSettings.MarkerFixes)
+                ResolutionPatch.WriteInt32(target, ResolutionPatch.MapNoteFlagOffset, 0);
             return target;
         }
 
@@ -544,6 +549,17 @@ namespace Kmrp
                 throw new InvalidDataException("The " + label + " field held " + found +
                     " where " + expected + " was expected.");
             data[offset] = unchecked((byte)(sbyte)replacement);
+        }
+
+        /// <summary>FILE offset of the .kmn enable flag. Non-zero applies Derslok's 250
+        /// map-note position corrections; zero makes the lookup return immediately, so the
+        /// table is inert rather than absent. See tools/build_map_note_table.py.</summary>
+        internal const long MapNoteFlagOffset = 0x003E4000;
+
+        internal static void WriteInt32(byte[] data, long offset, int value)
+        {
+            byte[] encoded = BitConverter.GetBytes(value);
+            Buffer.BlockCopy(encoded, 0, data, checked((int)offset), encoded.Length);
         }
 
         private static void ReplaceInt32(byte[] data, long offset, int expected, int replacement, string label)
@@ -2174,8 +2190,16 @@ namespace Kmrp
             try
             {
                 string manifestPath = ManifestPath(targetPath);
-                if (!File.Exists(manifestPath) || new FileInfo(targetPath).Length != GoldPatch.TargetLength)
+                if (!File.Exists(manifestPath))
                     return false;
+                // Deliberately NOT gated on GoldPatch.TargetLength. This answers "is this
+                // an install KMRP made", which has to stay true for an install made by an
+                // *earlier* build -- that is exactly when a restore or an upgrade is
+                // needed. Gold v21 added a section and grew the executable by 4,096 bytes,
+                // and the length gate then rejected every v20 install before its sidecar
+                // was even read: Restore refused with "not created by this patcher", and
+                // because the upgrade path calls Restore, upgrading was impossible.
+                // The sidecar hash below is the real evidence and is strictly stronger.
                 string json = File.ReadAllText(manifestPath, Encoding.UTF8);
                 if (!Regex.IsMatch(json, "\\\"state\\\"\\s*:\\s*\\\"patched\\\"",
                     RegexOptions.IgnoreCase | RegexOptions.CultureInvariant))
@@ -2250,6 +2274,9 @@ namespace Kmrp
         internal static readonly Color Field = Color.FromArgb(9, 15, 26);
         internal static readonly Color AccentLit = Color.FromArgb(96, 178, 255);
         internal static readonly Color TextFaint = Color.FromArgb(122, 138, 154);
+        // Attribution ink. Desaturated silver-blue: readable against the card, clearly
+        // secondary to Accent (42,198,239) so a credit never reads as a control.
+        internal static readonly Color AuthorInk = Color.FromArgb(146, 170, 200);
         // The step glyphs get their own colour rather than reusing Accent, so retuning the
         // primary button never drags the icons with it.
         internal static readonly Color GlyphInk = Color.FromArgb(92, 165, 250);
@@ -3753,8 +3780,11 @@ namespace Kmrp
         // docs/third-party-driver-compat.md for what shipping it actually changes.
         private const bool DriverCompatibilityDefault = true;
 
+        private const bool MarkerFixesDefault = true;
+
         private static bool loaded;
         private static bool driverCompatibility = DriverCompatibilityDefault;
+        private static bool markerFixes = MarkerFixesDefault;
 
         internal static string SettingsPath
         {
@@ -3779,6 +3809,20 @@ namespace Kmrp
             }
         }
 
+        /// <summary>Apply Derslok's map-note position corrections (K1 Area Map Fixes).</summary>
+        internal static bool MarkerFixes
+        {
+            get { Load(); return markerFixes; }
+            set
+            {
+                Load();
+                if (markerFixes == value)
+                    return;
+                markerFixes = value;
+                Save();
+            }
+        }
+
         private static void Load()
         {
             if (loaded)
@@ -3795,6 +3839,12 @@ namespace Kmrp
                     RegexOptions.IgnoreCase | RegexOptions.CultureInvariant);
                 if (match.Success)
                     driverCompatibility = String.Equals(match.Groups[1].Value, "true",
+                        StringComparison.OrdinalIgnoreCase);
+                Match markers = Regex.Match(json,
+                    "\\\"markerFixes\\\"\\s*:\\s*(true|false)",
+                    RegexOptions.IgnoreCase | RegexOptions.CultureInvariant);
+                if (markers.Success)
+                    markerFixes = String.Equals(markers.Groups[1].Value, "true",
                         StringComparison.OrdinalIgnoreCase);
             }
             catch { }
@@ -3828,6 +3878,9 @@ namespace Kmrp
         internal float UiScale = 1F;
         internal string Title = "";
         internal string Detail = "";
+        /// <summary>Who wrote the component. Set right of the title, never folded into
+        /// the description.</summary>
+        internal string Author = "";
         internal event EventHandler CheckedChanged;
 
         internal bool Checked
@@ -3877,27 +3930,47 @@ namespace Kmrp
             int pad = Math.Max(1, (int)Math.Round(20 * scale));
             int switchWidth = Math.Max(8, (int)Math.Round(64 * scale));
             int switchHeight = Math.Max(6, (int)Math.Round(32 * scale));
-            int textRight = Width - pad - switchWidth - Math.Max(1, (int)Math.Round(18 * scale));
+            int gutter = Math.Max(1, (int)Math.Round(18 * scale));
 
+            // Two lines. Title and author share the first and are centred on each other;
+            // the description and the switch share the second. The description stops
+            // short of the switch so the row never looks crowded.
             using (Font titleFont = new Font("Segoe UI Semibold", Math.Max(6F, 17F * scale)))
+            using (Font authorFont = new Font("Segoe UI", Math.Max(6F, 13.5F * scale)))
             using (Font detailFont = new Font("Segoe UI", Math.Max(6F, 13.5F * scale)))
             using (SolidBrush titleInk = new SolidBrush(UiTheme.Text))
+            using (SolidBrush authorInk = new SolidBrush(UiTheme.AuthorInk))
             using (SolidBrush detailInk = new SolidBrush(UiTheme.TextMuted))
+            using (StringFormat rightAlign = new StringFormat())
             {
+                rightAlign.Alignment = StringAlignment.Far;
+                rightAlign.LineAlignment = StringAlignment.Center;
+                rightAlign.FormatFlags = StringFormatFlags.NoWrap;
+
                 int titleHeight = (int)Math.Ceiling(titleFont.GetHeight(g));
+                float titleTop = pad * 0.72F;
                 g.DrawString(Title, titleFont, titleInk, new RectangleF(
-                    pad, pad * 0.72F, Math.Max(1, textRight - pad), titleHeight + 2));
+                    pad, titleTop, Math.Max(1, Width - 2 * pad), titleHeight + 2));
+
+                if (!String.IsNullOrEmpty(Author))
+                {
+                    // Centred on the title's own box, so the two sit on one optical line
+                    // whatever the two fonts' ascents do.
+                    g.DrawString(Author, authorFont, authorInk, new RectangleF(
+                        pad, titleTop, Math.Max(1, Width - 2 * pad), titleHeight + 2),
+                        rightAlign);
+                }
+
                 RectangleF detailBox = new RectangleF(
-                    pad, pad * 0.72F + titleHeight + Math.Max(1, 3 * scale),
-                    Math.Max(1, textRight - pad),
-                    Math.Max(1, Height - pad * 1.4F - titleHeight));
+                    pad, titleTop + titleHeight + Math.Max(1, 2 * scale),
+                    Math.Max(1, Width - 2 * pad - switchWidth - gutter),
+                    Math.Max(1, Height - titleTop - titleHeight - pad * 0.5F));
                 g.DrawString(Detail, detailFont, detailInk, detailBox);
             }
 
-            // The switch. Filled and accented when on, hollow and muted when off, so the
-            // state survives being read at a glance and without colour.
+            // The switch sits on the description's line, hard right, under the author.
             Rectangle track = new Rectangle(Width - pad - switchWidth,
-                                            (Height - switchHeight) / 2,
+                                            Height - pad - switchHeight,
                                             switchWidth, switchHeight);
             using (GraphicsPath path = UiTheme.RoundedRect(track, switchHeight / 2))
             {
@@ -4048,6 +4121,7 @@ namespace Kmrp
         private readonly PillButton settingsButton;
         private readonly CardPanel settingsView;
         private readonly OptionToggle driverToggle;
+        private readonly OptionToggle markerToggle;
         private readonly List<Control> mainViewControls = new List<Control>();
         private Timer fadeTimer;
         private FadeOverlay fadeOverlay;
@@ -4339,21 +4413,32 @@ namespace Kmrp
             settingsView.Controls.Add(settingsSubtitle);
 
             driverToggle = new OptionToggle();
-            driverToggle.Title = "Modern driver compatibility";
+            driverToggle.Title = "Modern Driver Compatibility";
+            driverToggle.Author = "Synchro";
             driverToggle.Detail =
-                "Installs K1 Modern Driver Compatibility by Synchro, which restores the "
-                + "lighting, fog, soft shadows and screen effects the game only draws on "
-                + "2003-era hardware, and stops the grass tearing across the sky. Two "
-                + "files are added to the game folder; swkotor.exe is not touched. "
-                + "Turn this off to leave your graphics exactly as they are.";
+                "Restores modern GPU rendering features and fixes driver-related visual issues.";
             driverToggle.Checked = KmrpSettings.DriverCompatibility;
-            driverToggle.SetBounds(36, settingsSubtitle.Bottom + 18, card.Width - 72, 132);
+            driverToggle.SetBounds(36, settingsSubtitle.Bottom + 18, card.Width - 72, 92);
             driverToggle.Anchor = AnchorStyles.Top | AnchorStyles.Left | AnchorStyles.Right;
             driverToggle.CheckedChanged += delegate
             {
                 KmrpSettings.DriverCompatibility = driverToggle.Checked;
             };
             settingsView.Controls.Add(driverToggle);
+
+            markerToggle = new OptionToggle();
+            markerToggle.Title = "Area Map Marker Fixes";
+            markerToggle.Author = "Derslok";
+            markerToggle.Detail =
+                "Corrects misplaced area-map marker positions across the game.";
+            markerToggle.Checked = KmrpSettings.MarkerFixes;
+            markerToggle.SetBounds(36, driverToggle.Bottom + 12, card.Width - 72, 92);
+            markerToggle.Anchor = AnchorStyles.Top | AnchorStyles.Left | AnchorStyles.Right;
+            markerToggle.CheckedChanged += delegate
+            {
+                KmrpSettings.MarkerFixes = markerToggle.Checked;
+            };
+            settingsView.Controls.Add(markerToggle);
 
             PillButton settingsBack = new PillButton();
             settingsBack.Text = "Back";

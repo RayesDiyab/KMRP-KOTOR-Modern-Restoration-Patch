@@ -13,7 +13,7 @@ param(
     [string]$Python,
 
     # In-repository inputs. These always move with the project.
-    [string]$GoldExe = ".\build\kmrp\swkotor_gold_v20_hittest.exe",
+    [string]$GoldExe = ".\build\kmrp\swkotor_gold_v21_mapnotes.exe",
     [string]$GoldOverride = ".\assets\override-3440x1440",
     [string]$UpstreamGuiRoot = ".\third_party\Included\kotor-high-resolution-menus-1.5",
     [string]$IconPath = ".\assets\branding\favicon.ico",
@@ -235,9 +235,9 @@ $compilerArgs = @(
     # The bundled K1 Modern Driver Compatibility standalone build (Synchro, MPL-2.0),
     # written into the game folder when the user leaves that option on. Two files, and
     # neither touches swkotor.exe -- see docs/third-party-driver-compat.md.
-    "/resource:$(Join-Path $projectRoot 'third_party\Included\k1-modern-driver-compatibility-1.2.0\dinput8.dll'),Kmrp.drivercompat.dinput8",
-    "/resource:$(Join-Path $projectRoot 'third_party\Included\k1-modern-driver-compatibility-1.2.0\k1-modern-driver-compatibility.asi'),Kmrp.drivercompat.asi",
-    "/resource:$(Join-Path $projectRoot 'third_party\Included\k1-modern-driver-compatibility-1.2.0\LICENSE'),Kmrp.license.drivercompat"
+    "/resource:$(Join-Path $projectRoot 'third_party\Included\k1-modern-driver-compatibility-1.2.0 by Synchro\dinput8.dll'),Kmrp.drivercompat.dinput8",
+    "/resource:$(Join-Path $projectRoot 'third_party\Included\k1-modern-driver-compatibility-1.2.0 by Synchro\k1-modern-driver-compatibility.asi'),Kmrp.drivercompat.asi",
+    "/resource:$(Join-Path $projectRoot 'third_party\Included\k1-modern-driver-compatibility-1.2.0 by Synchro\LICENSE'),Kmrp.license.drivercompat"
 )
 
 # Hand-supplied UI icons are optional: step icons fall back to vector glyphs,

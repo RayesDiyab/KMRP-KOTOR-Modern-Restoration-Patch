@@ -86,6 +86,23 @@ third_party/Included/*
 # the patcher with the author's permission. The negations for the binaries are needed
 # because the global *.dll rule above would otherwise drop the proxy DLL from the
 # release we distribute. See docs/third-party-driver-compat.md.
-!third_party/Included/k1-modern-driver-compatibility-1.2.0/
+!third_party/Included/k1-modern-driver-compatibility-1.2.0 by Synchro/
+# K1 Area Map Fixes (Derslok, GPL-3.0). We redistribute ONE file from it: the 250-entry
+# map-note correction table, which gold bakes into .kmn. Its licence and the author's
+# own technical notes ship with it so the data's provenance travels with the data. His
+# compiled patcher and its 32 MB of dependencies are NOT redistributed and stay ignored.
+!third_party/Included/K1-Area-Map-Fixes-*/
+third_party/Included/K1-Area-Map-Fixes-*/*
+!third_party/Included/K1-Area-Map-Fixes-*/More info/
+third_party/Included/K1-Area-Map-Fixes-*/More info/*
+!third_party/Included/K1-Area-Map-Fixes-*/More info/LICENSE
+!third_party/Included/K1-Area-Map-Fixes-*/More info/TECHNICAL.txt
+!third_party/Included/K1-Area-Map-Fixes-*/More info/source/
+third_party/Included/K1-Area-Map-Fixes-*/More info/source/*
+!third_party/Included/K1-Area-Map-Fixes-*/More info/source/data/
+third_party/Included/K1-Area-Map-Fixes-*/More info/source/data/*
+!third_party/Included/K1-Area-Map-Fixes-*/More info/source/data/note_table.bin
+!third_party/Included/K1-Area-Map-Fixes-*/More info/source/data/note_table.json
+
 !third_party/Included/k1-modern-driver-compatibility-*/dinput8.dll
 !third_party/Included/k1-modern-driver-compatibility-*/*.asi
