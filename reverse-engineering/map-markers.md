@@ -17,15 +17,18 @@ and a patcher-produced executable. Where something is untested it says so.
 
 ## The build this describes
 
-Clean `swkotor.exe`, 4,042,752 bytes, SHA-256 `761F9466…C49E9886`. Gold v20
-(`ACD521B8…`), 4,079,616 bytes, length unchanged by every edit in this document.
+Clean `swkotor.exe`, 4,042,752 bytes, SHA-256 `761F9466…C49E9886`. Gold v21
+(`9ACE4502…`), 4,083,712 bytes — 4,096 longer than gold v20, which is the `.kmn`
+section section 7 adds. Everything in sections 1-6 is length-neutral.
 
 Sections 1-4 are in-place immediate rewrites and use `FILE = VA − 0x400000`.
-Sections 5 and 6 involve the injected `.kui` section, where the convention is
-**`FILE = VA − 0x492000`** — mixing the two produces offsets that land nowhere.
+Sections 5 to 7 involve the injected `.kui` and `.kmn` sections, where the
+convention is **`FILE = VA − 0x492000`** — mixing the two produces offsets that
+land nowhere.
 
 Scope note: this is the whole marker subsystem — how big a marker is drawn
-(§1-4), where it is drawn (§5), and where it can be clicked (§6). The map
+(§1-4), where it is drawn (§5), where it can be clicked (§6), and correcting
+where the game thinks it belongs in the first place (§7). The map
 *surface* those three sit on is
 [`area-map-surface.md`](area-map-surface.md); the per-resolution domain
 derivation is [`map-scaling.md`](map-scaling.md).
@@ -253,7 +256,168 @@ a different field from the `[ebx+0x0C]` of §5, which is the overlay on the icon
 container. An earlier version of this document's sibling described `+0x0C` as one
 thing in both places; they are different objects.
 
-## 7. Two limits, both measured
+## 7. Correcting where a note *should* be: the 250-entry table
+
+Sections 5 and 6 put a marker where the game says it goes. This one is about the
+game saying the wrong thing.
+
+BioWare shipped **250 map notes whose stored world position does not match their
+subject**, so the marker sits beside the door, terminal or container it points
+at. It is a 2003 content bug, present in every unmodded install, and nothing to
+do with resolution — it is equally wrong at 640x480.
+
+**The corrections are not ours.** They were measured by hand by **Derslok** for
+*K1 Area Map Fixes*, GPL-3.0, and are used with his permission. KMRP takes the
+data and nothing else: no code, and none of his scaling work, which would fight
+[`area-map-surface.md`](area-map-surface.md)'s. See
+[`../THIRD_PARTY_NOTICES.md`](../THIRD_PARTY_NOTICES.md).
+
+### 7.1 The table
+
+`note_table.bin`, 250 entries of 16 bytes, SHA-256
+`880a325d982d74df496b02782faefdd3ae3802efbba030b9fbccc967cc0ccaa5`. Each entry
+is four little-endian floats:
+
+| offset | meaning |
+| --- | --- |
+| `+0x00` | the note's shipped world X — the lookup key |
+| `+0x04` | the note's shipped world Y — the lookup key |
+| `+0x08` | the corrected X |
+| `+0x0C` | the corrected Y |
+
+Keyed on world position rather than module or index, which is what lets it
+survive mods that edit module files. Derslok verified it against KOTOR 1
+Community Patch 1.10.0; that check is his, recorded in his `TECHNICAL.txt`, and
+**we have not repeated it**.
+
+### 7.2 Where it lives
+
+A new `.kmn` section, because his own patcher reserves VA `0x0086D000` for the
+table and **that is exactly where KMRP's `.kui` already is** — the one real
+collision between the two projects.
+
+| VA | FILE | size | contents |
+| --- | --- | --- | --- |
+| `0x00876000` | `0x003E4000` | 4 | enable flag; non-zero applies the corrections |
+| `0x00876004` | `0x003E4004` | 4 | entry count, so code and documentation cannot drift |
+| `0x00876008` | `0x003E4008` | 8 | `KMRPNOTE` |
+| `0x00876010` | `0x003E4010` | 4000 | the table |
+| `0x00876FB0` | `0x003E4FB0` | 78 | the lookup |
+
+`FILE = VA − 0x492000` for `.kmn`, as for every appended section.
+
+### 7.3 Why there is no new hook
+
+Derslok's patcher hooks `0x006946EF` and assembles a match routine into a code
+cave at `0x0073C1D0`. KMRP does not need to: it already redirects the **very next
+instruction**. The world position is built as a three-float vector on the stack
+immediately before the call §5 already owns:
+
+```asm
+006946DF  sub  esp, 0xC          ; room for the vector
+006946E2  mov  edx, esp
+006946E4  mov  [edx], ecx        ; X, from [esi]
+006946E9  mov  [edx+4], ecx      ; Y, from [esi+4]
+006946EF  mov  [edx+8], ecx      ; Z          <- where his patcher hooks
+006946F2  mov  ecx, eax          ; this
+006946F4  call 0x00578E00        <- where KMRP already hooks (see section 5)
+```
+
+By the time the wrapper at `0x0086D000` runs, that vector is its own first two
+arguments, `[ebp+8]` and `[ebp+0x0C]`; the wrapper's `ret 0x14` confirms the five
+dwords. So the substitution happens inside code KMRP already owns.
+
+**Consequences worth stating:** no vanilla byte outside the wrapper changes, his
+code cave at `0x0073C1D0` is never written, and there is no second hook. Both
+were verified against gold: KMRP changes 0 of the 218 bytes of that cave and 0 of
+the 5 bytes at `0x006946EF`.
+
+The wrapper gains nine bytes and stays inside its 128-byte slot:
+
+```asm
+0086D000  push ebp
+0086D001  mov  ebp, esp
+0086D003  push esi
+0086D004  lea  eax, [ebp+8]      ; &vector          <- added
+0086D007  push eax               ;                  <- added
+0086D008  call 0x00876FB0        ; the lookup       <- added
+0086D00D  push [ebp+0x18]        ; ... unchanged from here on
+```
+
+### 7.4 The lookup
+
+```asm
+00876FB0  push ebp / mov ebp,esp / push ebx / push esi / push edi / push ecx
+00876FB7  mov  esi, [ebp+8]          ; &vector
+00876FBA  cmp  dword ptr [0x876000], 0
+00876FC1  je   0x876FF6              ; disabled: return untouched
+00876FC7  mov  edi, 0x876010         ; the table
+00876FCC  mov  ecx, 0xFA             ; 250
+00876FD1  mov  eax, [esi]            ; key X
+00876FD3  mov  ebx, [esi+4]          ; key Y
+00876FD6  cmp  eax, [edi]            ; scan:
+00876FD8  jne  0x876FEC
+00876FDA  cmp  ebx, [edi+4]
+00876FDD  jne  0x876FEC
+00876FDF  mov  edx, [edi+8]  / mov [esi], edx        ; corrected X
+00876FE4  mov  edx, [edi+0xC] / mov [esi+4], edx     ; corrected Y
+00876FEA  jmp  0x876FF6
+00876FEC  add  edi, 0x10             ; advance:
+00876FEF  dec  ecx
+00876FF0  jne  0x876FD6
+00876FF6  pop ecx / pop edi / pop esi / pop ebx / pop ebp / ret 4
+```
+
+**`ecx` is preserved deliberately.** The call site loads it with the `this`
+pointer at `0x006946F2` and the vanilla routine still needs it; clobbering it is
+the obvious way to break this. `ebx`, `esi` and `edi` are saved because the
+wrapper's own body uses them. Only `eax` and `edx` are lost, and the wrapper
+reloads both.
+
+**Matching is bitwise**, on the two key floats as dwords. The value compared was
+loaded from the same module field the table was measured from, so equality is
+exact; an epsilon would only add the risk of matching a neighbouring note. A note
+that is not in the table is left exactly as it was, so this is inert for
+everything it does not correct.
+
+**Cost:** up to 250 iterations of a 6-instruction loop per note per draw. Notes
+are drawn a handful at a time on a screen the player has explicitly opened.
+
+### 7.5 The toggle
+
+Gold always carries the table and the lookup. The **flag** decides whether the
+lookup does anything, and `ResolutionPatch` clears it when the user turns *Area
+Map Marker Fixes* off under Advanced Settings. Turning it off leaves the data
+present and inert rather than absent, so the two builds differ by one byte and
+nothing else has to move.
+
+Verified by patching the same clean source twice:
+
+```
+markerFixes on    flag=1   table sha256 880a325d982d74df   len 4083712
+markerFixes off   flag=0   table sha256 880a325d982d74df   len 4083712
+bytes differing between the two executables: 1, at FILE 0x3E4000
+```
+
+### 7.6 A correction, and what caught it
+
+The first build had the loop-back displacement as `-34` where it should be `-32`,
+which sent `jne` two bytes **into** `mov ebx, [esi+4]` — a jump into the middle of
+an instruction, which would have executed garbage the moment a note was drawn.
+
+It never ran. `tools/build_map_note_table.py` disassembles the routine it just
+assembled and prints it, and the target read `0x876FD4` where the scan block
+starts at `0x876FD6`. Hand-assembled displacements are worth this check every
+time: the wrong one is not obviously wrong to read.
+
+### 7.7 Untested
+
+**Nothing here has been confirmed in play.** The bytes are verified — section,
+flag, table hash, wrapper splice, and the assembled routine — but no map note has
+been looked at in game before and after. The 250 corrections are Derslok's
+measurements, taken on trust; we have re-derived none of them.
+
+## 8. Two limits, both measured
 
 **The imm8 ceiling.** Sizes are `imm32` and unbounded, but every centring offset
 is `add r32, imm8`. The largest is the arrow's `size/2`, so the factor is clamped
@@ -267,7 +431,7 @@ gold v10 — which is not worth a section for one resolution nobody has.
 so the rectangle sits half a pixel off centre. Unavoidable with integer
 rectangles, and it disappears again at even sizes.
 
-## 8. What is deliberately not changed
+## 9. What is deliberately not changed
 
 * **The textures themselves.** `mm_barrow`, `lbl_mapcircle` and `whitetarget` are
   drawn stretched into the scaled rectangle. The engine draws GUI textures one
@@ -280,7 +444,7 @@ rectangles, and it disappears again at even sizes.
 * **The note icon's 20×20 aspect.** All four rectangles are square in vanilla and
   stay square.
 
-## 9. Verifying by hand
+## 10. Verifying by hand
 
 ```powershell
 & '.\dist\KMRP - KOTOR Modern Restoration Patch.exe' --apply `
@@ -314,3 +478,18 @@ At 3440x1440 under gold v20 it must be **860** (`= LBL_Map.left = screenWidth/4`
 719 means the wrapper is still centring on the canvas and clicks are 141 px right
 of the pointer. Attaching steals focus, so click once to give it back to the game
 before the click you want to measure.
+
+Check the map-note table survived the build, and that the toggle is the only
+difference between an enabled and a disabled install:
+
+```bash
+python -c "import struct,hashlib; d=open('swkotor.exe','rb').read(); print(struct.unpack_from('<I',d,0x003E4000)[0], hashlib.sha256(d[0x003E4010:0x003E4010+4000]).hexdigest())"
+```
+
+The flag is 1 when *Area Map Marker Fixes* is on and 0 when it is off; the table
+hash is `880a325d982d74df496b02782faefdd3ae3802efbba030b9fbccc967cc0ccaa5` either
+way. Patch the same clean source twice with the setting flipped and the two
+executables must differ by exactly one byte, at `0x3E4000`.
+
+`tools/build_map_note_table.py` disassembles the lookup it assembles and prints
+it; read that output rather than trusting the displacements.
