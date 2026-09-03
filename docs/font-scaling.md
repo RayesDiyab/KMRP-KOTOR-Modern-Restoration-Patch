@@ -101,7 +101,8 @@ Gold lineage (most recent last):
 | `swkotor_gold_v14_minimap.exe` | `1F1684A5DC8BC440B2C8FF0194873315EDD39DE1C1039CB2E73861A4B3732504` | + HUD minimap zoom (`.kmz`) and fog-grid zoom (`.kfg`) |
 | `swkotor_gold_v15_popup.exe` | `79356D1A92637C1B5C619B530FDA742A622A330E19AD628DBA19464202425048` | + message-popup caps and icon rect (in-place, adds no section) |
 | `swkotor_gold_v18_markers.exe` | `0AA1A76D0A98F84D16CD7F5B9C183501B9CA06E8C92E063223DEC6C46C9E47AE` | + area map marker sizes and centring, all 14 sites (in-place) |
-| **`swkotor_gold_v19_areafog.exe`** | `D4D4B793F333732D31FBD6D1C66778D527CD15D0DE20894DAC25E88132943A1E` | + area map fog grid stepped by the live surface size (in-place) |
+| `swkotor_gold_v19_areafog.exe` | `D4D4B793F333732D31FBD6D1C66778D527CD15D0DE20894DAC25E88132943A1E` | + area map fog grid stepped by the live surface size (in-place) |
+| **`swkotor_gold_v20_hittest.exe`** | `ACD521B80E48B4D5A0CA043187C2D21BA1745E299D7FDD5CBA7514D525A24713` | + area map hit test centred on the overlay, not the canvas (in-place) |
 
 `Override/computer.gui` on the live install is also already the corrected
 version (also copied into `assets/override-3440x1440/computer.gui`).
@@ -125,10 +126,11 @@ stack-label, gutter, and leading-newline investigations:
 | `swkotor_gold_v14_minimap.exe` | previous + `.kmz` `.kfg` | + minimap content zoom, + fog grid matched to it |
 | `swkotor_gold_v15_popup.exe` | previous + in-place edits | + message-popup auto-fit caps and icon rect |
 | `swkotor_gold_v18_markers.exe` | previous + in-place edits | + map marker sizes and centring |
-| **`swkotor_gold_v19_areafog.exe`** | previous + in-place edits | + area map fog grid spans the whole map surface |
+| `swkotor_gold_v19_areafog.exe` | previous + in-place edits | + area map fog grid spans the whole map surface |
+| **`swkotor_gold_v20_hittest.exe`** | previous + in-place edits | + map clicks land where you point |
 
-Current gold: `swkotor_gold_v19_areafog.exe`,
-`D4D4B793F333732D31FBD6D1C66778D527CD15D0DE20894DAC25E88132943A1E`.
+Current gold: `swkotor_gold_v20_hittest.exe`,
+`ACD521B80E48B4D5A0CA043187C2D21BA1745E299D7FDD5CBA7514D525A24713`.
 `build_kmrp.ps1` now defaults to that file. Still confirm any
 future gold change by matching `GoldPatch.TargetHash` in
 `src/patcher/KmrpPatcher.cs` against the file on disk.

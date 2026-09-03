@@ -17,10 +17,18 @@ and a patcher-produced executable. Where something is untested it says so.
 
 ## The build this describes
 
-Clean `swkotor.exe`, 4,042,752 bytes, SHA-256 `761F9466…C49E9886`. Gold v18
-(`0AA1A76D…`), 4,079,616 bytes, length unchanged by these edits — every site here
-is an in-place immediate rewrite. `FILE = VA − 0x400000` throughout; nothing in
-this document lives in an appended section.
+Clean `swkotor.exe`, 4,042,752 bytes, SHA-256 `761F9466…C49E9886`. Gold v20
+(`ACD521B8…`), 4,079,616 bytes, length unchanged by every edit in this document.
+
+Sections 1-4 are in-place immediate rewrites and use `FILE = VA − 0x400000`.
+Sections 5 and 6 involve the injected `.kui` section, where the convention is
+**`FILE = VA − 0x492000`** — mixing the two produces offsets that land nowhere.
+
+Scope note: this is the whole marker subsystem — how big a marker is drawn
+(§1-4), where it is drawn (§5), and where it can be clicked (§6). The map
+*surface* those three sit on is
+[`area-map-surface.md`](area-map-surface.md); the per-resolution domain
+derivation is [`map-scaling.md`](map-scaling.md).
 
 ## 1. Three markers, four draw paths
 
@@ -130,7 +138,122 @@ defensible arithmetic and it **play-tested too large**: 3.36× at 3440×1440 giv
 font rule wins. The proportional rule is not wrong, it is answering a question
 nobody asked.
 
-## 5. Two limits, both measured
+## 5. Where a marker goes: the coordinate chain
+
+Size and position are separate problems with separate fixes. The engine converts
+a world position into a marker position in three steps:
+
+```asm
+006946F4  call 0x00578E00        ; world -> map pixel, map notes      (redirected)
+00694A39  call 0x005791B0        ; world -> map pixel, party members  (redirected)
+00694AAC  call 0x005791B0        ; world -> map pixel, player arrow   (redirected)
+```
+
+All three return an **integer in vanilla's 440x256 space**, because the area's
+`MapPt1/2` calibration is baked into that space by the `.are` loader. On an
+enlarged map that answer is 3.9x too small.
+
+KMRP redirects those three call sites into two wrappers in `.kui`. Each calls the
+untouched vanilla routine and rescales only a successful result:
+
+```asm
+call 0x578E00 / 0x5791B0   ; the vanilla routine, unmodified
+test eax, eax
+je   skip                  ; off the map: leave the values alone
+imul eax, [ebx+0x0C]       ; x live overlay width
+add  eax, 0xDC             ; +220, half of 440, so it rounds
+idiv 0x1B8                 ; / 440
+imul eax, [ebx+0x10]       ; x live overlay height
+add  eax, 0x80             ; +128, half of 256
+idiv 0x100                 ; / 256
+```
+
+| VA | FILE | original target | redirected to | purpose |
+| --- | --- | --- | --- | --- |
+| `0x006946F4` | `0x2946F4` | `0x00578E00` | `0x0086D000` | world objects and map notes |
+| `0x00694A39` | `0x294A39` | `0x005791B0` | `0x0086D080` | party markers |
+| `0x00694AAC` | `0x294AAC` | `0x005791B0` | `0x0086D080` | player arrow |
+
+**The scale factors are read from the object at run time**, not written per
+resolution, which is why one gold binary serves all 48. `[ebx+0x0C]` is the
+marker overlay width — **measured live with x64dbg at 1478 under gold v19 and
+1720 under gold v20**, not 1720-at-v19 as `map.md`'s field table used to claim.
+
+This costs precision, because the vanilla routine rounds to an integer in 440x256
+space *before* the wrapper runs. The resulting lattice is
+`overlayWidth / 440` by `overlayHeight / 256`, i.e. 3.9 x 2.8 px at 3440x1440
+under gold v20 — constant in proportion at 1/440 of the map's width, so the
+worst-case error is 0.11% either way. `map-scaling.md` §6 records why that trade
+was taken and what removing it would cost.
+
+## 6. Clicking a marker: the hit test
+
+A marker you can see but cannot click is only half-fixed, and this half broke
+twice.
+
+The area map has a custom hit test at `0x00693300`, reached through vtable slot
+`0x0075477C`. The engine hands it **window** mouse coordinates while drawing the
+map into a canvas that is inset within that window, so the two disagree. KMRP
+redirects the slot to a wrapper at `0x0086D100` (FILE `0x3DB100`) that subtracts
+the inset and tail-jumps into the original.
+
+| VA | FILE | original | redirected to |
+| --- | --- | --- | --- |
+| `0x0075477C` | `0x35477C` | `0x00693300` | `0x0086D100` |
+
+Gold v20:
+
+```asm
+0086D100  mov  eax, [ecx+0x34]     ; the owning CUIMap
+0086D103  test eax, eax
+0086D105  je   0x0086D128          ; no map: pass the coordinates through
+0086D107  mov  edx, [eax+0x0C]     ; window width, 3440
+0086D10A  sar  edx, 1              ; 1720
+0086D10C  sar  edx, 1              ; 860   = LBL_Map.left
+0086D112  sub  [esp+4], edx        ; mouse x
+0086D116  mov  edx, [eax+0x10]     ; window height, 1440
+0086D119  sub  edx, [eax+0x1090]   ; - canvas height, 720
+0086D11F  sar  edx, 1              ; 360
+0086D121  add  edx, 0x0E           ; +14, the renderer's top inset
+0086D124  sub  [esp+8], edx        ; mouse y  = 374 = LBL_Map.top
+0086D128  jmp  0x00693300
+```
+
+**Why X and Y are computed differently.** The inset is `LBL_Map.left` and
+`LBL_Map.top`, and those are placed by the **overlay**, not the canvas. Vertically
+the overlay and canvas heights are equal (`screenHeight // 2`), so centring on
+either gives the same number and the original `(window − canvas) / 2` form is
+still correct. Horizontally they differ — the canvas is wider and `LBL_Map` crops
+the overhang — so that form is wrong. Since
+[`area-map-surface.md`](area-map-surface.md) fixes `overlay = screenWidth // 2`,
+the X inset collapses to `(W − W/2) / 2 = W / 4`, two shifts and no field lookup.
+It is exact at odd widths too: 1366 -> 683 -> 341, and
+`(1366 − 683) / 2 = 341`.
+
+**Correction, gold v20.** Through gold v19 the X half read
+
+```asm
+0086D107  mov edx, [eax+0x0C]      ; 3440
+0086D10A  sub edx, [eax+0x108C]    ; - CANVAS width 2001
+0086D110  sar edx, 1               ; = 719, but LBL_Map.left is 860
+```
+
+which assumed the canvas is centred in the window. That held until
+`area-map-surface.md`'s Option D set `centringX = screenWidth`, putting the canvas
+origin at `LBL_Map.left` instead. **Measured live:** a click at screen
+(1445, 913) reached the wrapper as (1651, 766) and left as (932, 392) — an inset
+of 719, against the 860 required. Clicks landed **141 px** to the right of the
+pointer, exactly `(canvas − overlay) / 2 = (2001 − 1720) / 2`. Eleven bytes were
+replaced by eleven (`tools/build_hit_test_center_fix.py`), so the wrapper did not
+move and the vtable slot was not touched. **Re-measured after the fix: `edx` =
+860.**
+
+Note that `[eax+0x0C]` on *this* object is the **window** width, not the overlay —
+a different field from the `[ebx+0x0C]` of §5, which is the overlay on the icon
+container. An earlier version of this document's sibling described `+0x0C` as one
+thing in both places; they are different objects.
+
+## 7. Two limits, both measured
 
 **The imm8 ceiling.** Sizes are `imm32` and unbounded, but every centring offset
 is `add r32, imm8`. The largest is the arrow's `size/2`, so the factor is clamped
@@ -144,7 +267,7 @@ gold v10 — which is not worth a section for one resolution nobody has.
 so the rectangle sits half a pixel off centre. Unavoidable with integer
 rectangles, and it disappears again at even sizes.
 
-## 6. What is deliberately not changed
+## 8. What is deliberately not changed
 
 * **The textures themselves.** `mm_barrow`, `lbl_mapcircle` and `whitetarget` are
   drawn stretched into the scaled rectangle. The engine draws GUI textures one
@@ -157,7 +280,7 @@ rectangles, and it disappears again at even sizes.
 * **The note icon's 20×20 aspect.** All four rectangles are square in vanilla and
   stay square.
 
-## 7. Verifying by hand
+## 9. Verifying by hand
 
 ```powershell
 & '.\dist\KMRP - KOTOR Modern Restoration Patch.exe' --apply `
@@ -179,3 +302,15 @@ rect.
 
 **Untested:** every resolution other than 3440×1440 has been verified by reading
 the bytes back, not by looking at the game.
+
+Check the hit-test inset, which is the one number that silently breaks when the
+map surface moves:
+
+```
+x64dbg: bp 0x0086D112, open the area map, click anywhere on it, read edx
+```
+
+At 3440x1440 under gold v20 it must be **860** (`= LBL_Map.left = screenWidth/4`).
+719 means the wrapper is still centring on the canvas and clicks are 141 px right
+of the pointer. Attaching steals focus, so click once to give it back to the game
+before the click you want to measure.

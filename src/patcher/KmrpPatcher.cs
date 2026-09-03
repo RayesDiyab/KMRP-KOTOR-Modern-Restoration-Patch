@@ -37,10 +37,10 @@ namespace Kmrp
     {
         internal const string ResourceName = "Kmrp.goldpatch";
         internal const string SourceHash = "761F9466F456A83909036BAEBB5C43167D722387BE66E54617BA20A8C49E9886";
-        internal const string TargetHash = "D4D4B793F333732D31FBD6D1C66778D527CD15D0DE20894DAC25E88132943A1E";
+        internal const string TargetHash = "ACD521B80E48B4D5A0CA043187C2D21BA1745E299D7FDD5CBA7514D525A24713";
         internal const long SourceLength = 4042752;
         internal const long TargetLength = 4079616;
-        internal const string PatchVersion = "2.9.0-areafog";
+        internal const string PatchVersion = "2.9.1-hittest";
 
         private readonly List<PatchChunk> chunks;
 
@@ -1662,27 +1662,27 @@ namespace Kmrp
                 if (TryReadInstalledResolution(targetPath, out installedWidth, out installedHeight) &&
                     (installedWidth != width || installedHeight != height))
                     throw new InvalidOperationException("Restore the current interface first, then patch the new resolution.");
-                IniEditState existingIniState = null;
-                OverrideEditState existingOverrideState = null;
-                try
+
+                // A sidecar that matches the bytes on disk proves only that nothing has
+                // edited the executable since this patcher wrote it -- not that those bytes
+                // came from *this* build. Reinstalling a newer KMRP over an older one used
+                // to be skipped on that evidence alone: the sidecar was rewritten to say the
+                // install was current while the old executable stayed exactly as it was.
+                // Recompute what this build would produce from the clean backup and compare;
+                // anything else is an earlier build and has to come out before this goes in.
+                if (IsCurrentBuildInstall(targetPath, currentHash, resolution))
                 {
-                    SafeProgress(progress, 12, "Updating display settings…");
-                    existingIniState = IniOperations.Configure(targetPath, width, height, report);
-                    existingOverrideState = OverrideOperations.Install(targetPath, resolution, report, progress);
-                    SafeProgress(progress, 98, "Saving patch information…");
-                    WriteManifest(targetPath, BackupPath(targetPath), false, width, height, currentHash);
-                    SafeProgress(progress, 100, "Patch complete");
-                    SafeReport(report, "KOTOR is ready to play at " +
-                        width.ToString(CultureInfo.InvariantCulture) + " × " +
-                        height.ToString(CultureInfo.InvariantCulture) + ".");
+                    RefreshInstalledResolution(targetPath, resolution, width, height, currentHash, report, progress);
+                    return;
                 }
-                catch
-                {
-                    OverrideOperations.Rollback(existingOverrideState);
-                    IniOperations.Rollback(existingIniState);
-                    throw;
-                }
-                return;
+
+                SafeProgress(progress, 6, "Removing the earlier build…");
+                SafeReport(report, "The installed files came from an earlier build of this patcher. " +
+                    "Restoring the original game files before applying this one.");
+                Restore(targetPath, report, null);
+                currentHash = GoldPatch.HashFile(targetPath);
+                if (currentHash != GoldPatch.SourceHash)
+                    throw new InvalidDataException("The earlier build could not be removed, so no changes were made.");
             }
             if (currentHash != GoldPatch.SourceHash || new FileInfo(targetPath).Length != GoldPatch.SourceLength)
                 throw new InvalidDataException("This swkotor.exe is not supported. No changes were made.");
@@ -1886,9 +1886,105 @@ namespace Kmrp
                     width.ToString(CultureInfo.InvariantCulture) + "x" +
                     height.ToString(CultureInfo.InvariantCulture) + "\"") + ",\r\n" +
                 "  \"sourceSha256\": \"" + GoldPatch.SourceHash + "\",\r\n" +
+                "  \"goldTargetSha256\": \"" + GoldPatch.TargetHash + "\",\r\n" +
                 "  \"patchedSha256\": \"" + executableHash + "\"\r\n" +
                 "}\r\n";
             File.WriteAllText(ManifestPath(targetPath), json, new UTF8Encoding(false));
+        }
+
+        // The refresh path for an install this build already produced: the executable is
+        // already the right bytes, so only the INI and the override files are rewritten.
+        private static void RefreshInstalledResolution(string targetPath, ResolutionChoice resolution,
+            int width, int height, string currentHash, Action<string> report, Action<int, string> progress)
+        {
+            IniEditState existingIniState = null;
+            OverrideEditState existingOverrideState = null;
+            try
+            {
+                SafeProgress(progress, 12, "Updating display settings…");
+                existingIniState = IniOperations.Configure(targetPath, width, height, report);
+                existingOverrideState = OverrideOperations.Install(targetPath, resolution, report, progress);
+                SafeProgress(progress, 98, "Saving patch information…");
+                WriteManifest(targetPath, BackupPath(targetPath), false, width, height, currentHash);
+                SafeProgress(progress, 100, "Patch complete");
+                SafeReport(report, "KOTOR is ready to play at " +
+                    width.ToString(CultureInfo.InvariantCulture) + " × " +
+                    height.ToString(CultureInfo.InvariantCulture) + ".");
+            }
+            catch
+            {
+                OverrideOperations.Rollback(existingOverrideState);
+                IniOperations.Rollback(existingIniState);
+                throw;
+            }
+        }
+
+        // True when the bytes on disk are the ones this build would write for this
+        // resolution. The authoritative test rebuilds them from the clean backup, so it
+        // never has to trust the sidecar about which build wrote the file. Throws when the
+        // install is known to come from a different build but the backup needed to replace
+        // it is gone: that cannot be repaired in place, and calling such an install current
+        // is exactly what let a stale executable survive a reinstall.
+        private static bool IsCurrentBuildInstall(string targetPath, string actualHash, ResolutionChoice resolution)
+        {
+            string expectedHash;
+            if (TryComputeCurrentBuildHash(targetPath, resolution, out expectedHash))
+                return String.Equals(expectedHash, actualHash, StringComparison.OrdinalIgnoreCase);
+
+            string recordedGold = ReadManifestGoldTarget(targetPath);
+            if (recordedGold.Length != 0 &&
+                !String.Equals(recordedGold, GoldPatch.TargetHash, StringComparison.OrdinalIgnoreCase))
+                throw new InvalidDataException("The installed interface came from a different build of this " +
+                    "patcher, and the clean backup needed to replace it is missing or unusable. Reinstall the " +
+                    "original swkotor.exe, then patch again.");
+
+            // Nothing to rebuild from and nothing saying the build differs: leave the
+            // install alone rather than tearing down something that may well be correct.
+            return true;
+        }
+
+        // Applies this build's gold delta and resolution constants to the verified clean
+        // backup, giving the hash the installed executable must have. False when there is
+        // no usable backup to compute it from.
+        private static bool TryComputeCurrentBuildHash(string targetPath, ResolutionChoice resolution,
+            out string expectedHash)
+        {
+            expectedHash = String.Empty;
+            try
+            {
+                string backupPath = BackupPath(targetPath);
+                if (!File.Exists(backupPath) || new FileInfo(backupPath).Length != GoldPatch.SourceLength)
+                    return false;
+                byte[] source = File.ReadAllBytes(backupPath);
+                if (GoldPatch.HashBytes(source) != GoldPatch.SourceHash)
+                    return false;
+                expectedHash = GoldPatch.HashBytes(GoldPatch.Load().Apply(source, resolution));
+                return true;
+            }
+            catch
+            {
+                return false;
+            }
+        }
+
+        // The gold hash of the build that last patched this install, or an empty string
+        // when the sidecar is missing, unreadable, or predates the field.
+        private static string ReadManifestGoldTarget(string targetPath)
+        {
+            try
+            {
+                string manifestPath = ManifestPath(targetPath);
+                if (!File.Exists(manifestPath))
+                    return String.Empty;
+                Match value = Regex.Match(File.ReadAllText(manifestPath, Encoding.UTF8),
+                    "\\\"goldTargetSha256\\\"\\s*:\\s*\\\"([0-9A-Fa-f]{64})\\\"",
+                    RegexOptions.CultureInvariant);
+                return value.Success ? value.Groups[1].Value : String.Empty;
+            }
+            catch
+            {
+                return String.Empty;
+            }
         }
 
         private static bool IsVerifiedPatchedInstall(string targetPath, string actualHash)

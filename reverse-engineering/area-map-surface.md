@@ -223,6 +223,20 @@ measured at 3440x1440 only; it is the value KMRP already uses for the canvas at
 every resolution, but whether the frame art actually matches it at other
 resolutions has not been checked. Confirm that before shipping.
 
+**Shipped in gold v20 (2026-09-03).** Option D is implemented:
+`tools/analyze_resolution_guis.py` derives the geometry,
+`tools/prepare_universal_resources.py` rewrites `LBL_Map` per resolution. Read
+back from the installed executable and `Override\map.gui` at 3440x1440:
+`[3440, 1440, 2001, 720, 1720, 720]` and `LBL_Map (860, 374, 1720, 720)`.
+Verified in game on Manaan West Central: grid pitch 86.0 = 1720/20 exactly, grid
+spans 851->2588, **no strip**.
+
+It also broke the marker hit test, which assumed the canvas was centred in the
+window — clicks landed 141 px right of the pointer until gold v20's wrapper fix.
+That is recorded in [`map-markers.md`](map-markers.md) §6, and it is the reason
+this document and that one have to be read together: moving the surface moves
+what you can click on it.
+
 Option B is the smallest change but leaves 242 px of empty frame. Option D
 costs the same machinery as B — the two centring immediates, the canvas
 immediate, and an `LBL_Map` transform — and additionally fills the box.
