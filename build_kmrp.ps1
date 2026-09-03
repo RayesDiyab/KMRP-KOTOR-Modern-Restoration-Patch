@@ -244,6 +244,7 @@ $compilerArgs = @(
     "/resource:$patchResource,Kmrp.goldpatch",
     "/resource:$(Join-Path $resourceDir 'override-common.zip'),Kmrp.override.common",
     "/resource:$(Join-Path $resourceDir 'resolutions.tsv'),Kmrp.resolutions",
+    "/resource:$(Join-Path $resourceDir 'bundled-override.txt'),Kmrp.bundled",
     "/resource:$(Join-Path $projectRoot 'src\patcher\brand.png'),Kmrp.brand",
     "/resource:$(Join-Path $resourceDir 'GPL-3.0-KOTOR-High-Resolution-Menus.txt'),Kmrp.license.highresolutionmenus",
     # The bundled K1 Modern Driver Compatibility standalone build (Synchro, MPL-2.0),

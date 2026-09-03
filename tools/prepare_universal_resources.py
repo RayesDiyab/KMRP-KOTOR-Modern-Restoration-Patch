@@ -326,6 +326,14 @@ def main() -> int:
         write_zip(args.output / "override-common.zip",
                   common_tga_files + hd_font_atlases + stock_atlases + shared_data + bundled)
 
+        # The names of the bundled art, so the installer can tell it apart from our
+        # own files and defer to whatever is already in Override. K1CP, for one,
+        # replaces two icons the HD pack also ships; art we merely bundle should
+        # never win over a mod the player installed on purpose.
+        (args.output / "bundled-override.txt").write_text(
+            chr(10).join(path.name for path in bundled) + chr(10),
+            encoding="utf-8")
+
     catalog_lines = ["# category\twidth\theight\tcanvasWidth\tcanvasHeight\toverlayWidth\tcenteringWidth\tcenteringHeight"]
     # Progress for the build script's bar: it turns "[done/total] label" lines
     # into bar updates. This is the long stage -- 48 resolutions of GUI and

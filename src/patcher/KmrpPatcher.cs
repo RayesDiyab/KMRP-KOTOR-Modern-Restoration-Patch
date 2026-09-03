@@ -1144,6 +1144,44 @@ namespace Kmrp
         private const string GuiResourcePrefix = "Kmrp.override.gui.";
         private const string ManifestHeader = "KUIOVERRIDE1";
 
+        private static HashSet<string> bundledNames;
+
+        /// <summary>The bundled third-party art -- Party Portraits, the HD Icon Pack --
+        /// as opposed to KMRP's own interface files.
+        ///
+        /// These defer to whatever is already in Override. K1CP, for example, replaces
+        /// `ia_class8_004.tga` and `ia_class9_003.tga`, which the HD Icon Pack also
+        /// ships; art we merely bundle should never overwrite a mod the player installed
+        /// on purpose. KMRP's own files are not in this set and install as always --
+        /// a blanket "skip what exists" would let any stray file suppress the interface
+        /// this patcher exists to deliver.</summary>
+        private static HashSet<string> BundledNames()
+        {
+            if (bundledNames != null)
+                return bundledNames;
+            bundledNames = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+            try
+            {
+                using (Stream stream = Assembly.GetExecutingAssembly()
+                           .GetManifestResourceStream("Kmrp.bundled"))
+                {
+                    if (stream != null)
+                        using (StreamReader reader = new StreamReader(stream, Encoding.UTF8))
+                        {
+                            string line;
+                            while ((line = reader.ReadLine()) != null)
+                            {
+                                line = line.Trim();
+                                if (line.Length > 0)
+                                    bundledNames.Add(line);
+                            }
+                        }
+                }
+            }
+            catch { }
+            return bundledNames;
+        }
+
         internal static string OverridePath(string executablePath)
         {
             return Path.Combine(Path.GetDirectoryName(Path.GetFullPath(executablePath)), "Override");
@@ -1194,6 +1232,7 @@ namespace Kmrp
             // content update is not mistaken for one.
             Dictionary<string, string> writtenThisRun =
                 new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+            int deferred = 0;
             string[] resources =
             {
                 CommonResourceName,
@@ -1303,6 +1342,18 @@ namespace Kmrp
                                 continue;
                             string relative = NormalizeRelativePath(entry.FullName);
                             string target = SafeDestination(overrideRoot, relative);
+
+                            // Bundled art yields to a file already there that we did not
+                            // put there. Not recorded either, so restore leaves it alone.
+                            if (!known.ContainsKey(relative)
+                                && BundledNames().Contains(Path.GetFileName(relative))
+                                && File.Exists(target))
+                            {
+                                deferred++;
+                                completedBytes += entry.Length;
+                                continue;
+                            }
+
                             string targetDirectory = Path.GetDirectoryName(target);
                             Directory.CreateDirectory(targetDirectory);
 
@@ -1439,6 +1490,9 @@ namespace Kmrp
                 // Previously it was written only for a fresh install, so files a newer
                 // build ADDED (tutorial.2da and the tut_*.tga popup icons, 2.7.0) got
                 // no record at all and restore would have left them behind in Override.
+                if (deferred > 0)
+                    SafeReport(report, "Left " + deferred +
+                        " bundled art file(s) alone: another mod already provides them.");
                 WriteManifest(manifestPath, records);
                 SafeProgress(progress, 95, "Finishing interface setup…");
                 SafeReport(report, "Installed " + records.Count.ToString(CultureInfo.InvariantCulture) +
