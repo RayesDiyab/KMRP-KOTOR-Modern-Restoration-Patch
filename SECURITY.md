@@ -23,7 +23,7 @@ by **Restore Original**.
 
 Report suspected security issues, and any bug that can **destroy or fail to
 restore** a player's files, privately — open a
-[GitHub security advisory](https://github.com/RayesDiyab/kotor-universal-ui/security/advisories/new)
+[GitHub security advisory](https://github.com/RayesDiyab/KMRP-KOTOR-Modern-Restoration-Patch/security/advisories/new)
 rather than a public issue, so it can be fixed before it is described publicly.
 
 Please include the patcher version (Properties → Details on the executable),

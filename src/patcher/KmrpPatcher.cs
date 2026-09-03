@@ -37,10 +37,10 @@ namespace Kmrp
     {
         internal const string ResourceName = "Kmrp.goldpatch";
         internal const string SourceHash = "761F9466F456A83909036BAEBB5C43167D722387BE66E54617BA20A8C49E9886";
-        internal const string TargetHash = "0AA1A76D0A98F84D16CD7F5B9C183501B9CA06E8C92E063223DEC6C46C9E47AE";
+        internal const string TargetHash = "D4D4B793F333732D31FBD6D1C66778D527CD15D0DE20894DAC25E88132943A1E";
         internal const long SourceLength = 4042752;
         internal const long TargetLength = 4079616;
-        internal const string PatchVersion = "2.8.2-markers";
+        internal const string PatchVersion = "2.9.0-areafog";
 
         private readonly List<PatchChunk> chunks;
 

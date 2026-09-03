@@ -55,7 +55,7 @@ an individual is officially representing the community in public spaces.
 
 Instances of abusive, harassing, or otherwise unacceptable behaviour may be
 reported to the maintainer by opening a
-[private security advisory](https://github.com/RayesDiyab/kotor-universal-ui/security/advisories/new),
+[private security advisory](https://github.com/RayesDiyab/KMRP-KOTOR-Modern-Restoration-Patch/security/advisories/new),
 which is not publicly visible. All complaints will be reviewed and investigated
 promptly and fairly.
 

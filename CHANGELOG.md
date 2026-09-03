@@ -123,4 +123,4 @@ Gold snapshot `swkotor_gold_v14_minimap.exe`
   letterbox.
 - Verified backup and restore for the executable, INI and Override folder.
 
-[Unreleased]: https://github.com/RayesDiyab/kotor-universal-ui/compare/master...HEAD
+[Unreleased]: https://github.com/RayesDiyab/KMRP-KOTOR-Modern-Restoration-Patch/compare/master...HEAD
