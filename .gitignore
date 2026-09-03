@@ -62,23 +62,30 @@ build-inputs/*
 # Machine-specific build settings (build.local.example.ps1 is the template).
 build.local.ps1
 
-# Third-party mods downloaded for comparison only. Kept locally so their code can
-# be inspected; NOT redistributed here -- we have no permission to. The patterns are
-# depth-independent because these were reorganised into third_party/Included/ and the
-# old fixed-depth rules silently stopped matching, which staged ~800 files of other
-# people's work for commit. Anything that lands in third_party is ignored by default
-# and un-ignored deliberately, below.
-third_party/**/K1-Area-Map-Fixes-*/
-third_party/**/K1-Area-Map-Fixes-*.zip
-third_party/**/k1-area-map-fixes-*/
-third_party/**/Vanilla Maps HD (K1)/
-third_party/**/Vanilla Maps HD (K1).zip
-third_party/**/KoToR1IconMOD/
-third_party/**/KoToR1IconMOD.rar
+# third_party is an ALLOWLIST, not a denylist.
+#
+# Mods are dropped in here for comparison, and we have no permission to redistribute
+# most of them. Two denylists in a row failed: the first was fixed-depth and stopped
+# matching when everything moved into Included/, staging ~800 files of other people's
+# work; the second listed the mods present at the time and missed the next one added,
+# which reached a commit. So everything is ignored by default and each redistributable
+# is named explicitly below. A new mod dropped in here is invisible to git until
+# someone deliberately un-ignores it.
+#
+# Note the shape: git will not look inside an excluded directory, so each level has to
+# be re-included before the level below it can be excluded.
+third_party/*
+!third_party/Included/
+third_party/Included/*
 
-# Vendored redistributable: the K1 Modern Driver Compatibility standalone build
-# (Synchro, MPL-2.0), shipped inside the patcher with the author's permission. The
-# global *.dll rule above would otherwise drop the proxy DLL from the release we
-# distribute. See docs/third-party-driver-compat.md.
+# KOTOR High Resolution Menus (ndix UR, GPL-3.0) -- the per-resolution GUI layouts
+# KMRP derives from and ships. See THIRD_PARTY_NOTICES.md.
+!third_party/Included/kotor-high-resolution-menus-1.5/
+
+# K1 Modern Driver Compatibility standalone build (Synchro, MPL-2.0), shipped inside
+# the patcher with the author's permission. The negations for the binaries are needed
+# because the global *.dll rule above would otherwise drop the proxy DLL from the
+# release we distribute. See docs/third-party-driver-compat.md.
+!third_party/Included/k1-modern-driver-compatibility-1.2.0/
 !third_party/Included/k1-modern-driver-compatibility-*/dinput8.dll
 !third_party/Included/k1-modern-driver-compatibility-*/*.asi

@@ -2315,6 +2315,50 @@ namespace Kmrp
 
         /// <summary>Draw the supplied verified-status badge, tinted with the semantic
         /// success colour. The caller keeps the icon and label optically grouped.</summary>
+        /// <summary>Draws supplied artwork as a solid-colour silhouette taken from its
+        /// alpha channel.
+        ///
+        /// `DrawStatusArt` *multiplies* the source by the tint, which only works when the
+        /// artwork is white -- and every icon that predates this one is. The settings gear
+        /// is black line art on transparency, and multiplying black by anything leaves
+        /// black, so it would have been invisible on a dark button. This replaces the RGB
+        /// outright and keeps alpha, so the shape and its antialiasing come from the
+        /// artwork while the colour comes from the caller. It is equivalent to the
+        /// multiply for white art, and correct for any other.</summary>
+        internal static bool DrawIconMask(Graphics g, string name, Rectangle box, Color color)
+        {
+            Image art;
+            if (!StatusArt.TryGetValue(name, out art))
+            {
+                try
+                {
+                    using (Stream stream = Assembly.GetExecutingAssembly()
+                               .GetManifestResourceStream("Kmrp.icon." + name))
+                    using (Image source = stream == null ? null : Image.FromStream(stream))
+                        art = source == null ? null : new Bitmap(source);
+                }
+                catch { art = null; }
+                StatusArt[name] = art;
+            }
+            if (art == null)
+                return false;
+
+            using (ImageAttributes attributes = new ImageAttributes())
+            {
+                ColorMatrix matrix = new ColorMatrix(new float[][] {
+                    new float[] { 0, 0, 0, 0, 0 },
+                    new float[] { 0, 0, 0, 0, 0 },
+                    new float[] { 0, 0, 0, 0, 0 },
+                    new float[] { 0, 0, 0, 1, 0 },
+                    new float[] { color.R / 255F, color.G / 255F, color.B / 255F, 0, 1 } });
+                attributes.SetColorMatrix(matrix);
+                g.InterpolationMode = InterpolationMode.HighQualityBicubic;
+                g.PixelOffsetMode = PixelOffsetMode.HighQuality;
+                g.DrawImage(art, box, 0, 0, art.Width, art.Height, GraphicsUnit.Pixel, attributes);
+            }
+            return true;
+        }
+
         /// <summary>Draws a supplied status label -- "verified" or "missing" -- tinted to
         /// `color`, or returns false if that artwork was not shipped, in which case the
         /// state falls back to text alone.</summary>
@@ -2775,6 +2819,9 @@ namespace Kmrp
         /// edge, and muted ink until hovered. For actions that sit under the primary one
         /// and must not compete with it.</summary>
         internal bool Subtle;
+        /// <summary>Name of an embedded icon to draw centred instead of a label. The art
+        /// is used as a silhouette, so it may be any colour -- see DrawIconMask.</summary>
+        internal string IconName;
         internal float TextSize;
         internal float UiScale = 1F;
         private int progressPercent = -1;
@@ -2894,6 +2941,17 @@ namespace Kmrp
                 (!Enabled ? UiTheme.DisabledText
                     : (Primary ? Color.White
                         : (Subtle && !hover ? UiTheme.TextMuted : UiTheme.Text)));
+
+            if (!String.IsNullOrEmpty(IconName))
+            {
+                // Square icon buttons: the glyph is centred and sized against the shorter
+                // side, so the button stays legible at any scale.
+                int side = (int)Math.Round(Math.Min(Width, Height) * 0.46F);
+                Rectangle iconBox = new Rectangle((Width - side) / 2, (Height - side) / 2,
+                                                  Math.Max(1, side), Math.Max(1, side));
+                UiTheme.DrawIconMask(g, IconName, iconBox, ink);
+                return;
+            }
             float baseTextSize = TextSize > 0F ? TextSize : (Primary ? 18F : 15.5F);
             using (StringFormat sf = new StringFormat())
             using (Font f = UiTheme.DisplayFont(Math.Max(6F, baseTextSize * scale), FontStyle.Bold))
@@ -3731,15 +3789,18 @@ namespace Kmrp
                                             switchWidth, switchHeight);
             using (GraphicsPath path = UiTheme.RoundedRect(track, switchHeight / 2))
             {
-                using (SolidBrush fill = new SolidBrush(isChecked ? UiTheme.AccentDark : UiTheme.Field))
+                using (SolidBrush fill = new SolidBrush(isChecked ? UiTheme.AccentStrong : UiTheme.Disabled))
                     g.FillPath(fill, path);
                 using (Pen edge = new Pen(isChecked ? UiTheme.Accent : UiTheme.CardEdge))
                     g.DrawPath(edge, path);
             }
+            // The knob is white in both states, as on iOS: the state is carried by the
+            // track -- blue when on, grey when off -- and a white knob stays legible on
+            // either without becoming a second colour to decode.
             int knob = switchHeight - Math.Max(2, (int)Math.Round(8 * scale));
             int knobX = isChecked ? track.Right - knob - (switchHeight - knob) / 2
                                   : track.Left + (switchHeight - knob) / 2;
-            using (SolidBrush knobInk = new SolidBrush(isChecked ? UiTheme.Accent : UiTheme.DisabledText))
+            using (SolidBrush knobInk = new SolidBrush(isChecked ? Color.White : UiTheme.TextMuted))
                 g.FillEllipse(knobInk, knobX, track.Y + (switchHeight - knob) / 2, knob, knob);
         }
     }
@@ -3872,7 +3933,7 @@ namespace Kmrp
         private readonly StateLabel applyState;
         private readonly CardPanel verificationRecovery;
         private readonly CardPanel mainCard;
-        private readonly PillButton advancedButton;
+        private readonly PillButton settingsButton;
         private readonly CardPanel settingsView;
         private readonly OptionToggle driverToggle;
         private readonly List<Control> mainViewControls = new List<Control>();
@@ -4102,29 +4163,33 @@ namespace Kmrp
             actionButton = new PillButton();
             actionButton.Primary = true;
             actionButton.Text = "Start Patching";
-            actionButton.SetBounds(80, optionsHost.Bottom + 30, card.Width - 160, 76);
+            // The action row is one unit: the primary, a small gap, then a square
+            // settings button of the same height. The square is sized from that height so
+            // the two always agree, whatever the row height becomes.
+            const int ActionHeight = 76;
+            const int ActionGap = 12;
+            actionButton.SetBounds(80, optionsHost.Bottom + 30,
+                                   card.Width - 160 - ActionGap - ActionHeight, ActionHeight);
             actionButton.Anchor = AnchorStyles.Top | AnchorStyles.Left | AnchorStyles.Right;
             actionButton.Click += ActionClicked;
             card.Controls.Add(actionButton);
 
-            // Secondary, and directly under the primary action rather than floating in
-            // the header: it belongs to the flow, it is visibly optional, and it does not
-            // compete with Start Patching. Narrower and shorter than the primary for the
-            // same reason.
-            advancedButton = new PillButton();
-            advancedButton.Subtle = true;
-            advancedButton.Text = "Advanced Settings";
-            advancedButton.TextSize = 15F;
-            int advancedWidth = 340;
-            advancedButton.SetBounds((card.Width - advancedWidth) / 2,
-                                     actionButton.Bottom + 16, advancedWidth, 46);
-            // Top only, so the uniform-scale pass keeps it centred rather than stretching
-            // it the way the primary button stretches.
-            advancedButton.Anchor = AnchorStyles.Top;
-            advancedButton.Click += delegate { ShowSettings(true); };
-            card.Controls.Add(advancedButton);
+            // Secondary, and square: same height and radius as the primary so it reads as
+            // part of the same row, but card-filled with a muted border rather than the
+            // lit gradient, so it never competes with Start Patching.
+            settingsButton = new PillButton();
+            settingsButton.Subtle = true;
+            settingsButton.IconName = "Settings";
+            settingsButton.SetBounds(actionButton.Right + ActionGap, actionButton.Top,
+                                     ActionHeight, ActionHeight);
+            settingsButton.Anchor = AnchorStyles.Top | AnchorStyles.Right;
+            settingsButton.Click += delegate { ShowSettings(true); };
+            card.Controls.Add(settingsButton);
 
-            card.Height = advancedButton.Bottom + 32;
+            ToolTip settingsTip = new ToolTip();
+            settingsTip.SetToolTip(settingsButton, "Advanced Settings");
+
+            card.Height = actionButton.Bottom + 40;
 
             // --- Settings -------------------------------------------------------
             // The settings view occupies the card, hidden until asked for. It is a
@@ -4140,7 +4205,7 @@ namespace Kmrp
             card.Controls.Add(settingsView);
 
             Label settingsTitle = new Label();
-            settingsTitle.Text = "Settings";
+            settingsTitle.Text = "Advanced Settings";
             settingsTitle.Font = new Font("Segoe UI Semibold", 24F);
             settingsTitle.ForeColor = UiTheme.Text;
             settingsTitle.BackColor = UiTheme.Card;
@@ -4148,6 +4213,18 @@ namespace Kmrp
             settingsTitle.SetBounds(36, 24, card.Width - 72, 48);
             settingsTitle.Anchor = AnchorStyles.Top | AnchorStyles.Left | AnchorStyles.Right;
             settingsView.Controls.Add(settingsTitle);
+
+            Label settingsSubtitle = new Label();
+            settingsSubtitle.Text =
+                "The recommended KMRP components are enabled by default. "
+                + "Change them only if you want something different.";
+            settingsSubtitle.Font = new Font("Segoe UI", 14F);
+            settingsSubtitle.ForeColor = UiTheme.TextMuted;
+            settingsSubtitle.BackColor = UiTheme.Card;
+            settingsSubtitle.TextAlign = ContentAlignment.MiddleLeft;
+            settingsSubtitle.SetBounds(36, settingsTitle.Bottom + 2, card.Width - 72, 30);
+            settingsSubtitle.Anchor = AnchorStyles.Top | AnchorStyles.Left | AnchorStyles.Right;
+            settingsView.Controls.Add(settingsSubtitle);
 
             driverToggle = new OptionToggle();
             driverToggle.Title = "Modern driver compatibility";
@@ -4158,7 +4235,7 @@ namespace Kmrp
                 + "files are added to the game folder; swkotor.exe is not touched. "
                 + "Turn this off to leave your graphics exactly as they are.";
             driverToggle.Checked = KmrpSettings.DriverCompatibility;
-            driverToggle.SetBounds(36, settingsTitle.Bottom + 16, card.Width - 72, 132);
+            driverToggle.SetBounds(36, settingsSubtitle.Bottom + 18, card.Width - 72, 132);
             driverToggle.Anchor = AnchorStyles.Top | AnchorStyles.Left | AnchorStyles.Right;
             driverToggle.CheckedChanged += delegate
             {
@@ -4896,9 +4973,7 @@ namespace Kmrp
             FinishFade();
 
             Bitmap outgoing = CaptureCard();
-            foreach (Control child in mainViewControls)
-                child.Visible = !show;
-            settingsView.Visible = show;
+            ApplyViewState();
             Bitmap incoming = CaptureCard();
 
             if (outgoing == null || incoming == null)
@@ -5349,6 +5424,26 @@ namespace Kmrp
                 lastDetail = PatchOperations.Describe(target);
             }
             stepApply.SetSubtitle(lastDetail);
+
+            // RefreshStatus decides what the *steps* look like, and says nothing about
+            // which view is on screen. It runs on Activated, so without this the settings
+            // view was thrown away every time the window regained focus -- click another
+            // window, come back, and the main page had returned underneath you.
+            ApplyViewState();
+        }
+
+        /// <summary>Make the current view match `settingsOpen`.
+        ///
+        /// The single place that decides which of the two views is visible, so no other
+        /// code has to remember. Only the card's direct children are touched: everything
+        /// RefreshStatus toggles lives inside a step row and is hidden with its parent.</summary>
+        private void ApplyViewState()
+        {
+            if (settingsView == null)
+                return;   // still constructing
+            for (int i = 0; i < mainViewControls.Count; i++)
+                mainViewControls[i].Visible = !settingsOpen;
+            settingsView.Visible = settingsOpen;
         }
 
         private void ActionClicked(object sender, EventArgs e)

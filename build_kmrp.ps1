@@ -242,7 +242,7 @@ $compilerArgs = @(
 
 # Hand-supplied UI icons are optional: step icons fall back to vector glyphs,
 # while the verified label simply falls back to text if its artwork is absent.
-$iconNames = @("folder", "shield", "monitor", "tools", "verified", "missing")
+$iconNames = @("folder", "shield", "monitor", "tools", "verified", "missing", "Settings")
 $iconCount = 0
 foreach ($iconName in $iconNames) {
     $iconPath = Join-Path $projectRoot "src\patcher\icons\$iconName.png"
