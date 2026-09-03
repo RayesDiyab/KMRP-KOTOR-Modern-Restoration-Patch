@@ -37,10 +37,10 @@ namespace Kmrp
     {
         internal const string ResourceName = "Kmrp.goldpatch";
         internal const string SourceHash = "761F9466F456A83909036BAEBB5C43167D722387BE66E54617BA20A8C49E9886";
-        internal const string TargetHash = "0633694EB9350360E290A189A4E53259929EBCC5B8F5A87266B1755D38E8DE78";
+        internal const string TargetHash = "0AA1A76D0A98F84D16CD7F5B9C183501B9CA06E8C92E063223DEC6C46C9E47AE";
         internal const long SourceLength = 4042752;
         internal const long TargetLength = 4079616;
-        internal const string PatchVersion = "2.8.0-markers";
+        internal const string PatchVersion = "2.8.2-markers";
 
         private readonly List<PatchChunk> chunks;
 
@@ -364,28 +364,38 @@ namespace Kmrp
         // exactly the factor the overlay grew -- 20 px on a 440-wide overlay is 4.5%
         // of the map, the same 20 px on 1478 is 1.4%.
         //
-        // The factor is the overlay's own: overlayWidth / 440, which reduces to
-        // canvasWidth / 512 and so to screenWidth / 1024. Gold v16 bakes the
-        // 3440x1440 values; the second column is vanilla, i.e. factor 1.0.
+        // The factor is ScaleForHeight -- max(1, height/720), the same rule the fonts
+        // and list rows use -- giving a 2x marker at 1440p. Full proportional scaling
+        // against the overlay (screenWidth/1024, 3.36x at 3440x1440) was tried first
+        // and play-tested too large. Gold bakes the 3440x1440 values; the second
+        // column is vanilla, i.e. factor 1.0.
+        //
+        // There are TWO map-note paths: 0x0069470B branches on whether the note is
+        // the selected one, and each side builds its own rectangle. Scaling only the
+        // selected side leaves every other note at vanilla size, which is what the
+        // first attempt shipped.
         //
         // Every marker's centring offset is -size/2 and MUST move with its size, or
         // the icon drifts off the point it marks.
         private static readonly int[][] MarkerSizeSites =
         {
             //     gold, vanilla, imm32 offsets...
-            new[] {   67,   20, 0x00294720 },   // map note size
-            new[] {   54,   16, 0x00294A13 },   // party marker size
-            new[] {  107,   32, 0x00294AC4 },   // player arrow size
-            new[] {  107,   32, 0x0029405B },   // player arrow control extent
+            new[] {   40,   20, 0x00294720 },   // map note size, selected
+            new[] {   28,   14, 0x00294763 },   // map note size, UNSELECTED
+            new[] {   32,   16, 0x00294A13 },   // party marker size
+            new[] {   64,   32, 0x00294AC4 },   // player arrow size
+            new[] {   64,   32, 0x0029405B },   // mm_barrow control extent
+            new[] {   32,   16, 0x002940DC },   // lbl_mapcircle control extent
         };
 
         // Same, for the `add r32, imm8` centring offsets. These are signed bytes,
         // so the factor is clamped at 127/16 -- see MarkerScaleForWidth.
         private static readonly int[][] MarkerOffsetSites =
         {
-            new[] {  -34,  -10, 0x0029471A, 0x00294726 },   // map note centre X, Y
-            new[] {  -27,   -8, 0x00294A53, 0x00294A56 },   // party centre X, Y
-            new[] {  -54,  -16, 0x00294AD0, 0x00294AD4 },   // arrow centre Y, X
+            new[] {  -20,  -10, 0x0029471A, 0x00294726 },   // note, selected
+            new[] {  -14,   -7, 0x00294777, 0x0029477A },   // note, UNSELECTED
+            new[] {  -16,   -8, 0x00294A53, 0x00294A56 },   // party
+            new[] {  -32,  -16, 0x00294AD0, 0x00294AD4 },   // arrow
         };
 
         // The largest offset is the arrow's size/2, and it has to fit in a signed
@@ -396,11 +406,9 @@ namespace Kmrp
         // gold v10.
         private const float MarkerMaxScale = 127.0f / 16.0f;
 
-        internal static float MarkerScaleForWidth(int width)
+        internal static float MarkerScaleForHeight(int height)
         {
-            int canvas = width / 2;
-            float scale = (float)Math.Round(canvas * 440.0 / 512.0) / 440.0f;
-            if (scale < 0.1f) scale = 0.1f;
+            float scale = ScaleForHeight(height);
             return scale > MarkerMaxScale ? MarkerMaxScale : scale;
         }
 
@@ -487,7 +495,7 @@ namespace Kmrp
                     ReplaceInt32(executable, group[i], expected, scaled, "message popup size");
             }
 
-            float markerScale = MarkerScaleForWidth(resolution.Width);
+            float markerScale = MarkerScaleForHeight(resolution.Height);
             foreach (int[] group in MarkerSizeSites)
             {
                 int scaled = (int)Math.Round(group[1] * markerScale);

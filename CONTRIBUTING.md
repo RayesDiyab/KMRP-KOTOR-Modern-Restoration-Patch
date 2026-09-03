@@ -76,9 +76,16 @@ breaking them:
   every later section and every offset with it. Assert the length afterwards.
 - **Verification must re-read every `.k??` section**, not just the one you
   touched. A fault in a section you did not edit means offsets have shifted.
-- **Assume there is a second copy.** Height caps, row pitch, rect builders and
-  width caps have each turned out to have two or three sites. Patching one and
-  leaving the others is the most common failure mode in this codebase.
+- **Assume there is a second copy — and a third.** Height caps, row pitch, rect
+  builders and width caps have each turned out to have two or three sites.
+  Patching one and leaving the others is the most common failure mode in this
+  codebase. **Finding a site means the search is incomplete, not finished:**
+  disassemble the whole enclosing function, follow *every conditional branch*,
+  and look for parallel constructions. The map markers took three attempts — a
+  map note has separate selected and unselected draw paths, and two marker
+  textures each carry their own control extent — ending at fourteen sites, with
+  each missed layer found only after a play-test said the change had not worked.
+  Report the count and how you established it, not just the change.
 - **Disassemble stubs from the raw bytes** you wrote, not from the assembly you
   intended to write.
 

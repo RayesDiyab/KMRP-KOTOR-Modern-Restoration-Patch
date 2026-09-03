@@ -13,7 +13,7 @@ param(
     [string]$Python,
 
     # In-repository inputs. These always move with the project.
-    [string]$GoldExe = ".\build\kmrp\swkotor_gold_v16_markers.exe",
+    [string]$GoldExe = ".\build\kmrp\swkotor_gold_v18_markers.exe",
     [string]$GoldOverride = ".\assets\override-3440x1440",
     [string]$UpstreamGuiRoot = ".\third_party\kotor-high-resolution-menus-1.5",
     [string]$IconPath = ".\assets\branding\favicon.ico",

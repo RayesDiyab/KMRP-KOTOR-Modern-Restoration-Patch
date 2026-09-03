@@ -27,12 +27,14 @@ so they must move together or the icon drifts off the point it marks.
     player arrow 0x00694AC3  mov edx, 0x20   size 32
                  0x00694ACE  add ecx, -0x10  centre Y
                  0x00694AD2  add eax, -0x10  centre X
-    arrow extent 0x0069405A  mov eax, 0x20   the arrow control's own width and
-                                             height, no paired offset
+    arrow extent 0x0069405A  mov eax, 0x20   mm_barrow control, width and height,
+                                             no paired offset
+    circle extent 0x006940DB mov eax, 0x10   lbl_mapcircle control, ditto
 
-**The factor.** `overlayWidth / 440`, which reduces exactly to
-`canvasWidth / 512` and so to `screenWidth / 1024`. Using the overlay's own
-derivation keeps markers at vanilla's proportion of the map at every resolution.
+**The factor.** `max(1, height / 720)`, the same rule the fonts and list rows
+use, giving a 2x marker at 1440p. Full proportional scaling against the overlay
+(`screenWidth / 1024`, 3.36x at 3440x1440) was tried first and play-tested too
+large.
 
 **The imm8 ceiling.** The sizes are `imm32` and take any value, but every
 centring offset is an `add r32, imm8` -- three bytes, range -128..127. The
@@ -55,14 +57,18 @@ from verify_map_patch import PEImage
 # (VA, opcode bytes, vanilla value, encoding) for every marker geometry site.
 # "imm32" is a mov with a 4-byte operand; "imm8" is `add r32, imm8`.
 SIZE_SITES = (
-    (0x0069471F, bytes.fromhex("b8"), 20, "map note size"),
+    (0x0069471F, bytes.fromhex("b8"), 20, "map note size (selected)"),
+    (0x00694762, bytes.fromhex("b8"), 14, "map note size (unselected)"),
     (0x00694A12, bytes.fromhex("bf"), 16, "party marker size"),
     (0x00694AC3, bytes.fromhex("ba"), 32, "player arrow size"),
-    (0x0069405A, bytes.fromhex("b8"), 32, "player arrow control extent"),
+    (0x0069405A, bytes.fromhex("b8"), 32, "mm_barrow control extent"),
+    (0x006940DB, bytes.fromhex("b8"), 16, "lbl_mapcircle control extent"),
 )
 OFFSET_SITES = (
-    (0x00694718, bytes.fromhex("83c0"), -10, "map note centre X"),
-    (0x00694724, bytes.fromhex("83c1"), -10, "map note centre Y"),
+    (0x00694718, bytes.fromhex("83c0"), -10, "map note centre X (selected)"),
+    (0x00694724, bytes.fromhex("83c1"), -10, "map note centre Y (selected)"),
+    (0x00694775, bytes.fromhex("83c1"), -7, "map note centre X (unselected)"),
+    (0x00694778, bytes.fromhex("83c2"), -7, "map note centre Y (unselected)"),
     (0x00694A51, bytes.fromhex("83c0"), -8, "party marker centre X"),
     (0x00694A54, bytes.fromhex("83c2"), -8, "party marker centre Y"),
     (0x00694ACE, bytes.fromhex("83c1"), -16, "player arrow centre Y"),
@@ -77,11 +83,18 @@ MAX_OFFSET = 127            # add r32, imm8
 MAX_FACTOR = MAX_OFFSET / 16.0
 
 
-def factor_for(width: int) -> float:
-    """Marker scale for a screen width: overlayWidth / 440, clamped."""
-    canvas = width // 2
-    overlay = round(canvas * 440 / 512)
-    return min(overlay / 440.0, MAX_FACTOR)
+def factor_for(height: int) -> float:
+    """Marker scale: the same max(1, height/720) the rest of KMRP uses.
+
+    Full proportional scaling -- overlayWidth/440, i.e. screenWidth/1024 -- was
+    tried first and play-tested too large: 3.36x at 3440x1440 gave 67 px notes.
+    Keeping vanilla's *fraction of the map* turns out not to be what the map
+    wants, because the map is read at a glance rather than studied. The font
+    rule gives a 2x marker at 1440p, which is what looked right, and has the
+    side benefit of being the one scale rule this project already uses
+    everywhere else.
+    """
+    return min(max(1.0, height / 720.0), MAX_FACTOR)
 
 
 def patch(data: bytearray, image: PEImage, factor: float, verbose: bool = True) -> None:
@@ -119,8 +132,8 @@ def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     parser.add_argument("source", type=Path)
     parser.add_argument("output", type=Path)
-    parser.add_argument("--width", type=int, default=3440,
-                        help="screen width the baked values are for (default 3440)")
+    parser.add_argument("--height", type=int, default=1440,
+                        help="screen height the baked values are for (default 1440)")
     args = parser.parse_args()
 
     if args.output.resolve() == args.source.resolve():
@@ -129,8 +142,8 @@ def main() -> int:
     image = PEImage(args.source)
     data = bytearray(image.data)
     before = len(data)
-    factor = factor_for(args.width)
-    print(f"marker scale for {args.width}px wide: {factor:.4f}"
+    factor = factor_for(args.height)
+    print(f"marker scale for {args.height}px tall: {factor:.4f}"
           f"{'  (clamped by the imm8 ceiling)' if factor >= MAX_FACTOR else ''}\n")
     patch(data, image, factor)
 
