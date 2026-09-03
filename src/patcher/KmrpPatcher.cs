@@ -37,10 +37,10 @@ namespace Kmrp
     {
         internal const string ResourceName = "Kmrp.goldpatch";
         internal const string SourceHash = "761F9466F456A83909036BAEBB5C43167D722387BE66E54617BA20A8C49E9886";
-        internal const string TargetHash = "79356D1A92637C1B5C619B530FDA742A622A330E19AD628DBA19464202425048";
+        internal const string TargetHash = "0633694EB9350360E290A189A4E53259929EBCC5B8F5A87266B1755D38E8DE78";
         internal const long SourceLength = 4042752;
         internal const long TargetLength = 4079616;
-        internal const string PatchVersion = "2.7.0-popup";
+        internal const string PatchVersion = "2.8.0-markers";
 
         private readonly List<PatchChunk> chunks;
 
@@ -358,6 +358,52 @@ namespace Kmrp
         // Each cap has TWO sites. Patching one leaves the other clamping -- the
         // same "there is always a second copy" pattern as gold v11's three row
         // pitch sites and v12's two rect builders.
+        // Area map marker geometry. The overlay markers are drawn on grows with the
+        // screen (canvasWidth x 440/512 by canvasHeight), but these rectangles were
+        // built from vanilla immediates, so relative to the map they shrank by
+        // exactly the factor the overlay grew -- 20 px on a 440-wide overlay is 4.5%
+        // of the map, the same 20 px on 1478 is 1.4%.
+        //
+        // The factor is the overlay's own: overlayWidth / 440, which reduces to
+        // canvasWidth / 512 and so to screenWidth / 1024. Gold v16 bakes the
+        // 3440x1440 values; the second column is vanilla, i.e. factor 1.0.
+        //
+        // Every marker's centring offset is -size/2 and MUST move with its size, or
+        // the icon drifts off the point it marks.
+        private static readonly int[][] MarkerSizeSites =
+        {
+            //     gold, vanilla, imm32 offsets...
+            new[] {   67,   20, 0x00294720 },   // map note size
+            new[] {   54,   16, 0x00294A13 },   // party marker size
+            new[] {  107,   32, 0x00294AC4 },   // player arrow size
+            new[] {  107,   32, 0x0029405B },   // player arrow control extent
+        };
+
+        // Same, for the `add r32, imm8` centring offsets. These are signed bytes,
+        // so the factor is clamped at 127/16 -- see MarkerScaleForWidth.
+        private static readonly int[][] MarkerOffsetSites =
+        {
+            new[] {  -34,  -10, 0x0029471A, 0x00294726 },   // map note centre X, Y
+            new[] {  -27,   -8, 0x00294A53, 0x00294A56 },   // party centre X, Y
+            new[] {  -54,  -16, 0x00294AD0, 0x00294AD4 },   // arrow centre Y, X
+        };
+
+        // The largest offset is the arrow's size/2, and it has to fit in a signed
+        // byte, so the scale cannot exceed 127/16. That binds only above ~8130 px
+        // wide: of the 48 shipped resolutions 8192x4608 and 15360x8640 get
+        // slightly under-scaled markers, still correctly centred. Lifting it needs
+        // the adds widened to imm32 in a stub, as the stack-count label needed in
+        // gold v10.
+        private const float MarkerMaxScale = 127.0f / 16.0f;
+
+        internal static float MarkerScaleForWidth(int width)
+        {
+            int canvas = width / 2;
+            float scale = (float)Math.Round(canvas * 440.0 / 512.0) / 440.0f;
+            if (scale < 0.1f) scale = 0.1f;
+            return scale > MarkerMaxScale ? MarkerMaxScale : scale;
+        }
+
         private static readonly int[][] PopupSizeGroups =
         {
             //     gold, base@1.0, offsets...
@@ -440,6 +486,22 @@ namespace Kmrp
                 for (int i = 2; i < group.Length; i++)
                     ReplaceInt32(executable, group[i], expected, scaled, "message popup size");
             }
+
+            float markerScale = MarkerScaleForWidth(resolution.Width);
+            foreach (int[] group in MarkerSizeSites)
+            {
+                int scaled = (int)Math.Round(group[1] * markerScale);
+                if (scaled < 1) scaled = 1;
+                for (int i = 2; i < group.Length; i++)
+                    ReplaceInt32(executable, group[i], group[0], scaled, "map marker size");
+            }
+            foreach (int[] group in MarkerOffsetSites)
+            {
+                int scaled = -(int)Math.Round(-group[1] * markerScale);
+                if (scaled > -1) scaled = -1;
+                for (int i = 2; i < group.Length; i++)
+                    ReplaceSByte(executable, group[i], group[0], scaled, "map marker centring");
+            }
             foreach (long offset in NegativeWidthOffsets)
                 ReplaceInt32(executable, offset, -3440, -resolution.Width, "click-fix width reference");
             foreach (long offset in NegativeHeightOffsets)
@@ -462,6 +524,18 @@ namespace Kmrp
                 throw new InvalidDataException("The " + label + " patch did not match the verified gold build.");
             byte[] value = BitConverter.GetBytes(replacement);
             Buffer.BlockCopy(value, 0, data, index, value.Length);
+        }
+
+        private static void ReplaceSByte(byte[] data, long offset, int expected, int replacement, string label)
+        {
+            if (replacement < -128 || replacement > 127)
+                throw new InvalidDataException("The " + label + " value " + replacement +
+                    " does not fit in a signed byte.");
+            sbyte found = unchecked((sbyte)data[offset]);
+            if (found != expected)
+                throw new InvalidDataException("The " + label + " field held " + found +
+                    " where " + expected + " was expected.");
+            data[offset] = unchecked((byte)(sbyte)replacement);
         }
 
         private static void ReplaceInt32(byte[] data, long offset, int expected, int replacement, string label)

@@ -14,6 +14,14 @@ All notable changes to KMRP are recorded here. The format follows
 
 ## [Unreleased]
 
+### Fixed
+- **Area map markers no longer shrink as the map grows.** Map note, party and
+  player-arrow rectangles were built from vanilla immediates while the marker
+  overlay scaled with the screen, so at 3440x1440 they were 3.4x smaller
+  relative to the map than in vanilla. All ten sites — three sizes, six centring
+  offsets and the arrow's control extent — now scale by the overlay's own
+  factor. Gold v16.
+
 ### Added
 - Repository documentation set: `LICENSE` (GPL-3.0), `CONTRIBUTING.md`,
   `CODE_OF_CONDUCT.md`, `SECURITY.md`, this changelog, issue and pull request

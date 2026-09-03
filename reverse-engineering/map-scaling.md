@@ -15,7 +15,7 @@ The clean **4,042,752-byte** `swkotor.exe`, SHA-256
 Editable Executable after UniWS and KotOR High Resolution Menus 1.5, which is
 also GOG's retail v1.03. KMRP refuses anything else.
 
-Gold v15 (`79356D1A…`) is 4,079,616 bytes: the clean image plus nine appended
+Gold v16 (`0633694E…`) is 4,079,616 bytes: the clean image plus nine appended
 sections. `ResolutionPatch` then rewrites a small set of constants in place for
 the selected resolution, changing no lengths.
 
@@ -102,12 +102,21 @@ carried to the patcher through `resolutions.tsv`.
 | `0x00695064` | `0x295064` | 4 | 256 | canvas height |
 | `0x00695082` | `0x295082` | 4 | 440 | marker overlay width |
 | `0x0069508A` | `0x29508A` | 4 | 256 | marker overlay height |
+| `0x0069471F` | `0x294720` | 4 | 20 | map note size |
+| `0x00694718` | `0x29471A` | 1 | -10 | map note centring X |
+| `0x00694724` | `0x294726` | 1 | -10 | map note centring Y |
+| `0x00694A12` | `0x294A13` | 4 | 16 | party marker size |
+| `0x00694A51` | `0x294A53` | 1 | -8 | party centring X |
+| `0x00694A54` | `0x294A56` | 1 | -8 | party centring Y |
+| `0x00694AC3` | `0x294AC4` | 4 | 32 | player arrow size |
+| `0x00694ACE` | `0x294AD0` | 1 | -16 | player arrow centring Y |
+| `0x00694AD2` | `0x294AD4` | 1 | -16 | player arrow centring X |
+| `0x0069405A` | `0x29405B` | 4 | 32 | player arrow control extent |
 
 **In place, fixed in gold:**
 
 | VA | FILE | size | change | purpose |
 | --- | --- | --- | --- | --- |
-| `0x0069405B` | `0x29405B` | 1 | `0x20` -> `0x28` | player arrow size, 32 -> 40 |
 | `0x0068C4E3` | `0x28C4E3` | 4 | `0x400` -> `0xD70` | `mipc*.gui` variant selector: compare against 3440, not 1024 |
 
 **Call sites redirected into appended sections:**
@@ -182,6 +191,39 @@ still read the originals. Other patchers that rewrite the map's scale constants
 in place must give the map private copies of those floats to stop the minimap
 turning black; KMRP has nothing to privatise because it modifies nothing shared.
 
+## 5a. Marker sizes
+
+The overlay grows with the screen, but until gold v16 the marker rectangles were
+built from vanilla immediates, so relative to the map they shrank by exactly the
+factor the overlay grew: a 20 px note is 4.5% of a 440-wide overlay and 1.4% of
+a 1478-wide one. Only the arrow control extent had ever been touched, 32 -> 40,
+a 1.25x bump against a 3.36x overlay.
+
+All ten sites now scale by the overlay's own factor, `overlayWidth / 440`, which
+reduces to `screenWidth / 1024`. Each marker's centring offset is `-size/2` and
+moves with its size, or the icon drifts off the point it marks.
+
+| resolution | note | party | arrow | note as % of map |
+| --- | --- | --- | --- | --- |
+| *vanilla* | 20 | 16 | 32 | 4.55% |
+| 800x600 | 16 | 13 | 25 | 4.65% |
+| 1920x1080 | 38 | 30 | 60 | 4.61% |
+| 3440x1440 | 67 | 54 | 107 | 4.53% |
+| 7680x4320 | 150 | 120 | 240 | 4.55% |
+| 15360x8640 | 159 | 127 | 254 | 2.41% (clamped) |
+
+**The imm8 ceiling.** Sizes are `imm32` and take any value, but every centring
+offset is `add r32, imm8` -- three bytes, -128..127. The largest is the arrow's
+`size/2`, so the factor is clamped at `127/16 = 7.9375`. That binds only above
+~8130 px wide: **8192x4608 and 15360x8640** get under-scaled markers, still
+correctly centred. Lifting it needs those adds widened to `imm32` in a stub, the
+way the stack-count label was in gold v10.
+
+**Half-pixel asymmetry.** When a scaled size is odd, `-size/2` is not an
+integer and the rectangle sits half a pixel off centre -- 25 px arrow with a -13
+offset, for instance. Unavoidable with integer rects, and it disappears again at
+even sizes.
+
 ## 6. Precision: the lattice this design costs
 
 The conversion rounds to an integer in 440x256 space *before* the wrapper runs,
@@ -225,7 +267,6 @@ check.
 * `0x00578E00`, `0x005791B0`, `0x00579090` — the conversion routines themselves.
   Called, never modified.
 * `0x00633102` — the map screen's constructor call. Left as `call 0x694D50`.
-* `0x0069471F` — the note icon stays 20x20; only the player arrow is resized.
 * `0x00692959` / `0x0069296B` — a second pair of centring immediates with the
   same instruction shape as the draw pair, left at the vanilla 640/480. This is
   **not** a missed second copy: `0x00692930` is referenced once in the image, at
