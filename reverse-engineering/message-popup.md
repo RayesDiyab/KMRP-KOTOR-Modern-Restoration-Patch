@@ -1,5 +1,12 @@
 # The shared message popup: what was changed and why
 
+> **Documentation standard.** This document follows
+> [`docs/documentation-standard.md`](../docs/documentation-standard.md). Read it before editing
+> this file, and check the result still meets it — measured claims only, every
+> site tabulated, rejected alternatives and corrections kept visible, and
+> anything untested labelled as untested.
+
+
 The box that carries the tutorial hints ("The attributes of your character apply
 bonuses or penalties…") and the game's Yes/No confirmations. Every value below
 was read back out of the installed files after the change; nothing here is

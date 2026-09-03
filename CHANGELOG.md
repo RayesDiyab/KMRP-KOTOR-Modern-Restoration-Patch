@@ -1,5 +1,12 @@
 # Changelog
 
+> **Documentation standard.** This document follows
+> [`docs/documentation-standard.md`](docs/documentation-standard.md). Read it before editing
+> this file, and check the result still meets it — measured claims only, every
+> site tabulated, rejected alternatives and corrections kept visible, and
+> anything untested labelled as untested.
+
+
 All notable changes to KMRP are recorded here. The format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 

@@ -1,5 +1,12 @@
 # List rows and item icons: how they are sized, and how we found out
 
+> **Documentation standard.** This document follows
+> [`docs/documentation-standard.md`](../docs/documentation-standard.md). Read it before editing
+> this file, and check the result still meets it — measured claims only, every
+> site tabulated, rejected alternatives and corrections kept visible, and
+> anything untested labelled as untested.
+
+
 The Inventory, Abilities and Store lists size their rows and item icons from
 **hardcoded constants in the executable** — 56, 42 and 56 respectively. Nothing
 in the `.gui` files can change them. This document

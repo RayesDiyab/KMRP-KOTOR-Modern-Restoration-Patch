@@ -1,5 +1,12 @@
 # KOTOR Universal UI Patcher v2.0.0
 
+> **Documentation standard.** This document follows
+> [`docs/documentation-standard.md`](../../docs/documentation-standard.md). Read it before editing
+> this file, and check the result still meets it — measured claims only, every
+> site tabulated, rejected alternatives and corrections kept visible, and
+> anything untested labelled as untested.
+
+
 This is the standalone 48-resolution build. No companion files are required.
 
 Before patching, place the Deadly Stream editable `swkotor.exe` in the game

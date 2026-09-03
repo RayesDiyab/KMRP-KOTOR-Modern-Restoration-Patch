@@ -1,5 +1,12 @@
 # Listbox geometry: where every margin comes from
 
+> **Documentation standard.** This document follows
+> [`docs/documentation-standard.md`](../docs/documentation-standard.md). Read it before editing
+> this file, and check the result still meets it — measured claims only, every
+> site tabulated, rejected alternatives and corrections kept visible, and
+> anything untested labelled as untested.
+
+
 How the engine turns a `.gui` listbox into rows on screen, which field controls
 which margin, and the method for finding the next one. Everything here was read
 out of `swkotornopatch.exe` or a live process — no inference unless labelled.

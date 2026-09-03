@@ -1,5 +1,12 @@
 # Experiment 004: Split Full-Map and HUD Map Dimensions
 
+> **Documentation standard.** This document follows
+> [`docs/documentation-standard.md`](../../docs/documentation-standard.md). Read it before editing
+> this file, and check the result still meets it — measured claims only, every
+> site tabulated, rejected alternatives and corrections kept visible, and
+> anything untested labelled as untested.
+
+
 > **Superseded.** This records what was tried, not what ships. Gold v15 sets the
 > four constructor immediates globally and leaves `0x00633102` unredirected; the
 > gameplay minimap is kept correct by the later `.kmz` / `.kfg` work instead.

@@ -1,5 +1,9 @@
 # The documentation standard
 
+> **This file _is_ the standard.** Every other document in this repository
+> is held to it, and each one links back here. Changing the rules here
+> changes what the rest of the documentation has to meet.
+
 Every document in this repository is held to this. It exists because a third-party
 patcher for the same executable ships a `TECHNICAL.txt` listing every offset it
 writes, so that a collision is diagnosable by someone who is not its author — and

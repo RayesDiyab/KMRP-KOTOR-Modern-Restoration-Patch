@@ -1,5 +1,12 @@
 # KMRP application
 
+> **Documentation standard.** This document follows
+> [`docs/documentation-standard.md`](../../docs/documentation-standard.md). Read it before editing
+> this file, and check the result still meets it — measured claims only, every
+> site tabulated, rejected alternatives and corrections kept visible, and
+> anything untested labelled as untested.
+
+
 `KMRP - KOTOR Modern Restoration Patch.exe` is the single-file installer for all 48
 supported resolutions. It contains the executable update, shared interface
 artwork, and every matching GUI set, so no companion folders need to be

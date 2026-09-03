@@ -1,5 +1,12 @@
 # Padding and gaps: every kind of box, both axes
 
+> **Documentation standard.** This document follows
+> [`docs/documentation-standard.md`](../docs/documentation-standard.md). Read it before editing
+> this file, and check the result still meets it — measured claims only, every
+> site tabulated, rejected alternatives and corrections kept visible, and
+> anything untested labelled as untested.
+
+
 How to change the space between a box's frame and the text inside it, for every
 control type in the game, so the result is uniform rather than partial.
 

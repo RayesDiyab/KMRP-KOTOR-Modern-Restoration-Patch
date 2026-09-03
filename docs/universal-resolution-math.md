@@ -1,5 +1,12 @@
 # Universal resolution patching
 
+> **Documentation standard.** This document follows
+> [`docs/documentation-standard.md`](documentation-standard.md). Read it before editing
+> this file, and check the result still meets it — measured claims only, every
+> site tabulated, rejected alternatives and corrections kept visible, and
+> anything untested labelled as untested.
+
+
 ## What this build does
 
 KMRP starts from the supported editable `swkotor.exe`, applies the already play-tested 3440×1440 gold transformation, and then replaces only the verified resolution-dependent values. It also updates `swkotor.ini` and installs the matching high-resolution GUI set plus the shared HD artwork.

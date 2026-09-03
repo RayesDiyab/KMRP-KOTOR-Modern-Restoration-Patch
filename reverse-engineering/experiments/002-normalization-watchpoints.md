@@ -1,5 +1,12 @@
 # Experiment 002: Normalization Fields and Blue-Icon Path
 
+> **Documentation standard.** This document follows
+> [`docs/documentation-standard.md`](../../docs/documentation-standard.md). Read it before editing
+> this file, and check the result still meets it — measured claims only, every
+> site tabulated, rejected alternatives and corrections kept visible, and
+> anything untested labelled as untested.
+
+
 ## Goal
 
 Find the instructions that write and read the map object's `+0x0C` and `+0x10`

@@ -1,5 +1,12 @@
 # KOTOR virtual-display test environment
 
+> **Documentation standard.** This document follows
+> [`docs/documentation-standard.md`](../../docs/documentation-standard.md). Read it before editing
+> this file, and check the result still meets it — measured claims only, every
+> site tabulated, rejected alternatives and corrections kept visible, and
+> anything untested labelled as untested.
+
+
 This profile exposes the 48 resolutions supported by the KMRP
 Patcher on one virtual Windows monitor. Every mode runs at 60 Hz to keep the
 driver mode table small and stable.

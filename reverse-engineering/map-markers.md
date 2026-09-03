@@ -1,11 +1,16 @@
 # Area map markers: what KMRP writes, byte for byte
 
+> **Documentation standard.** This document follows
+> [`docs/documentation-standard.md`](../docs/documentation-standard.md). Read it before editing
+> this file, and check the result still meets it — measured claims only, every
+> site tabulated, rejected alternatives and corrections kept visible, and
+> anything untested labelled as untested.
+
+
 The icons drawn *on* the area map — map notes, party members and the player
 arrow. `map-scaling.md` covers the map surface itself and the coordinate chain
 that decides *where* a marker goes; this covers *what is drawn there* and how big
 it is.
-
-*Written to [docs/documentation-standard.md](../docs/documentation-standard.md).*
 
 Everything below was disassembled from the clean executable or read out of gold
 and a patcher-produced executable. Where something is untested it says so.

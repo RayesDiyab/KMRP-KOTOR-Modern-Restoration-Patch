@@ -1,5 +1,12 @@
 # Map Reverse-Engineering Notes
 
+> **Documentation standard.** This document follows
+> [`docs/documentation-standard.md`](../docs/documentation-standard.md). Read it before editing
+> this file, and check the result still meets it — measured claims only, every
+> site tabulated, rejected alternatives and corrections kept visible, and
+> anything untested labelled as untested.
+
+
 > This file is the **lab record**: what was tried, what failed, and what was
 > disproved, in the order it happened. For the finished mechanism -- every byte
 > KMRP writes for the map, the per-resolution domain tables, and the precision

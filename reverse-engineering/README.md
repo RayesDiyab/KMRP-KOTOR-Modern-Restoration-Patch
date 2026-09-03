@@ -1,5 +1,12 @@
 # Reverse-engineering notes
 
+> **Documentation standard.** This document follows
+> [`docs/documentation-standard.md`](../docs/documentation-standard.md). Read it before editing
+> this file, and check the result still meets it — measured claims only, every
+> site tabulated, rejected alternatives and corrections kept visible, and
+> anything untested labelled as untested.
+
+
 How KOTOR's interface actually works, read out of the executable at runtime and
 from the disassembly. One document per subsystem.
 

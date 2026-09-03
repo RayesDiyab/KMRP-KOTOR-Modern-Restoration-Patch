@@ -1,5 +1,12 @@
 # Font and dialogue-layout scaling
 
+> **Documentation standard.** This document follows
+> [`docs/documentation-standard.md`](documentation-standard.md). Read it before editing
+> this file, and check the result still meets it — measured claims only, every
+> site tabulated, rejected alternatives and corrections kept visible, and
+> anything untested labelled as untested.
+
+
 ## What this is
 
 KOTOR renders UI and dialogue text at a fixed pixel size regardless of

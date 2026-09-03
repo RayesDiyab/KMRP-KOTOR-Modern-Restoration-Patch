@@ -1,5 +1,12 @@
 # Font Atlas System Reference
 
+> **Documentation standard.** This document follows
+> [`docs/documentation-standard.md`](../docs/documentation-standard.md). Read it before editing
+> this file, and check the result still meets it — measured claims only, every
+> site tabulated, rejected alternatives and corrections kept visible, and
+> anything untested labelled as untested.
+
+
 Covers the HD font work that followed the TXI-metric font-scaling fix in
 `font.md`: what the 18 font atlases in `TexturePacks/swpc_tex_gui.erf` are,
 how the format actually works (established by measurement, not

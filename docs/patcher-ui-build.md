@@ -1,5 +1,12 @@
 # Patcher UI, asset, and build architecture
 
+> **Documentation standard.** This document follows
+> [`docs/documentation-standard.md`](documentation-standard.md). Read it before editing
+> this file, and check the result still meets it — measured claims only, every
+> site tabulated, rejected alternatives and corrections kept visible, and
+> anything untested labelled as untested.
+
+
 This document describes the shipping Windows patcher in
 `src/patcher/KmrpPatcher.cs`, the assets compiled into it, and the
 build and verification workflow. Resolution and game-engine math remain in

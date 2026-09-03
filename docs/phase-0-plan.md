@@ -1,5 +1,12 @@
 # Phase 0: Map Fix Proof Plan
 
+> **Documentation standard.** This document follows
+> [`docs/documentation-standard.md`](documentation-standard.md). Read it before editing
+> this file, and check the result still meets it — measured claims only, every
+> site tabulated, rejected alternatives and corrections kept visible, and
+> anything untested labelled as untested.
+
+
 ## Goal
 
 Preserve and verify the known executable patch that enlarges and centers the map,

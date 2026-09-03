@@ -1,5 +1,12 @@
 # Testing support
 
+> **Documentation standard.** This document follows
+> [`docs/documentation-standard.md`](../docs/documentation-standard.md). Read it before editing
+> this file, and check the result still meets it — measured claims only, every
+> site tabulated, rejected alternatives and corrections kept visible, and
+> anything untested labelled as untested.
+
+
 Material for checking KMRP at resolutions the build machine's monitor cannot
 display. There is no automated test suite: verification here is done by patching
 at a resolution and comparing the result against what the tooling intended.

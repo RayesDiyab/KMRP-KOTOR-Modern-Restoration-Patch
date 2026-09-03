@@ -1,5 +1,12 @@
 # Patching the executable: the rules, and the ways it goes wrong silently
 
+> **Documentation standard.** This document follows
+> [`docs/documentation-standard.md`](../docs/documentation-standard.md). Read it before editing
+> this file, and check the result still meets it — measured claims only, every
+> site tabulated, rejected alternatives and corrections kept visible, and
+> anything untested labelled as untested.
+
+
 Twenty tools in `tools/` edit `swkotor.exe`, most by adding a `.k??` section and
 trampolining into it. They share a small set of invariants. Breaking one does
 not produce an error — it produces a game that crashes somewhere unrelated, or
