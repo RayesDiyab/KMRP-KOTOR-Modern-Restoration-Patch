@@ -29,6 +29,12 @@ being a sampler wrap. This is not clutter; it is what stops the same dead end
 being explored twice. If you disprove something, write it down next to the thing
 it disproves.
 
+**Documentation has a standard, and it is written down.** Before creating or
+updating any document, read [docs/documentation-standard.md](docs/documentation-standard.md).
+It defines what counts as a measured claim, how offsets are tabulated, why
+rejected alternatives and corrections stay visible, and the checklist to run
+before committing. The benchmark is `reverse-engineering/map-scaling.md`.
+
 **Corrections belong in the document, not only in the commit.** If a document
 states something that later proves wrong, correct the document *and* say what
 the earlier reading was and why it was wrong.

@@ -5,6 +5,8 @@ arrow. `map-scaling.md` covers the map surface itself and the coordinate chain
 that decides *where* a marker goes; this covers *what is drawn there* and how big
 it is.
 
+*Written to [docs/documentation-standard.md](../docs/documentation-standard.md).*
+
 Everything below was disassembled from the clean executable or read out of gold
 and a patcher-produced executable. Where something is untested it says so.
 

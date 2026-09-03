@@ -5,6 +5,8 @@ someone who is not us, and so that a determined person can reproduce or undo the
 work by hand. Everything here was read out of the binaries with a disassembler,
 or computed from values read out of them. Where something is untested it says so.
 
+*Written to [docs/documentation-standard.md](../docs/documentation-standard.md).*
+
 `map.md` is the lab record — what was tried, what failed, what was disproved.
 This is the reference for the map surface and the coordinate chain.
 **[map-markers.md](map-markers.md)** is the reference for the icons drawn on it.

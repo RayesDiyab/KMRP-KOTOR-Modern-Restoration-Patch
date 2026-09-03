@@ -5,6 +5,7 @@ Design and build documentation. Engine analysis lives one level over, in
 
 | Document | What it covers |
 | --- | --- |
+| [documentation-standard.md](documentation-standard.md) | **The standard every document here is held to.** Read before writing or updating one: what counts as measured, how sites are tabulated, why rejected alternatives and corrections stay visible, and the checklist to run before committing. |
 | [universal-resolution-math.md](universal-resolution-math.md) | How one patcher covers 48 resolutions: the executable fields that hold screen geometry, the coordinate math, how the per-resolution GUI archives are packaged, reproduction steps, and **which resolutions have actually been play-tested** as opposed to generated. |
 | [font-scaling.md](font-scaling.md) | The font, dialogue-letterbox and list-row scaling work, and the **gold snapshot chain** — every reference executable with its SHA-256 and what it added. Start here to rebuild or verify a gold snapshot. |
 | [patcher-ui-build.md](patcher-ui-build.md) | The Windows patcher itself: UI state machine, proportional resize, icon pipeline, embedded resources, build process, transaction safety, and the release checklist. |
