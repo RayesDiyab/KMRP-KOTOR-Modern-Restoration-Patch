@@ -63,7 +63,22 @@ build-inputs/*
 build.local.ps1
 
 # Third-party mods downloaded for comparison only. Kept locally so their code can
-# be inspected; not redistributed here.
-third_party/K1-Area-Map-Fixes-*.zip
-third_party/k1-area-map-fixes-*/
-third_party/Vanilla Maps HD (K1)/
+# be inspected; NOT redistributed here -- we have no permission to. The patterns are
+# depth-independent because these were reorganised into third_party/Included/ and the
+# old fixed-depth rules silently stopped matching, which staged ~800 files of other
+# people's work for commit. Anything that lands in third_party is ignored by default
+# and un-ignored deliberately, below.
+third_party/**/K1-Area-Map-Fixes-*/
+third_party/**/K1-Area-Map-Fixes-*.zip
+third_party/**/k1-area-map-fixes-*/
+third_party/**/Vanilla Maps HD (K1)/
+third_party/**/Vanilla Maps HD (K1).zip
+third_party/**/KoToR1IconMOD/
+third_party/**/KoToR1IconMOD.rar
+
+# Vendored redistributable: the K1 Modern Driver Compatibility standalone build
+# (Synchro, MPL-2.0), shipped inside the patcher with the author's permission. The
+# global *.dll rule above would otherwise drop the proxy DLL from the release we
+# distribute. See docs/third-party-driver-compat.md.
+!third_party/Included/k1-modern-driver-compatibility-*/dinput8.dll
+!third_party/Included/k1-modern-driver-compatibility-*/*.asi

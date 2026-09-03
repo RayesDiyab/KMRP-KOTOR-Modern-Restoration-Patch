@@ -298,7 +298,7 @@ At 3440x1440 gold v19 this prints `[2750, 1400, 1720, 720, 1478, 720]`.
 Confirm `LBL_Map` equals the hires_patcher overlay at every shipped resolution:
 
 ```bash
-python tools/dump_gui_extents.py third_party/kotor-high-resolution-menus-1.5/16-by-9/gui.1280x720/map.gui
+python tools/dump_gui_extents.py third_party/Included/kotor-high-resolution-menus-1.5/16-by-9/gui.1280x720/map.gui
 # LBL_Map extent=(190, 177, 880, 384);  1280*440/640 = 880,  720*256/480 = 384
 ```
 

@@ -1,0 +1,144 @@
+[metadata]
+# GOG, Steam and CD 1.03; one address table covers all three. Also in the manifest.
+target_versions = [
+    "9C10E0450A6EECA417E036E3CDE7474FED1F0A92AAB018446D156944DEA91435",
+    "34E6D971C034222A417995D8E1E8FDD9F8781795C9C289BD86C499A439F34C88",
+    "761F9466F456A83909036BAEBB5C43167D722387BE66E54617BA20A8C49E9886",
+]
+# KOTOR 1 / swkotor.exe
+# ARB fragment path.
+#
+# The four detours each replace a call site rather than a function, because
+# skip_original_bytes only skips the stolen bytes. Hooking a function entry would land
+# partway into a function we do not want executed. Two of them skip the original outright;
+# the soft shadow one calls it from the handler, because that function does setup we want.
+#
+# The three simple hooks below are CubeMapFix and SoftShadowsFix folded in. Both stand on
+# their own, but this patch supersedes them: it already replaces the fragment
+# implementation those two capabilities feed, and shipping them separately would leave a
+# user to discover the ordering themselves. The manifest conflicts with both.
+
+[[hooks]]
+# GLRender::InitExtensions, the CheckExtension call for "GL_ATI_fragment_shader".
+# We answer instead, from GL_ARB_fragment_program, so the ATI arm is taken on drivers
+# that never had ATI_fragment_shader. EAX is excluded from restore so the handler's
+# verdict survives the wrapper; the game reads AL two instructions later.
+#   004367CF  68 2C F4 73 00   push "GL_ATI_fragment_shader"
+#   004367D4  E8 A7 91 02 00   call CheckExtension     <- replaced
+#   004367D9  83 C4 08         add  esp, 8             (cdecl, still balances)
+#   004367DC  84 C0            test al, al
+address = 0x004367D4
+type = "detour"
+function = "ARB_FragmentPathAvailable"
+original_bytes = [0xE8, 0xA7, 0x91, 0x02, 0x00]
+skip_original_bytes = true
+exclude_from_restore = ["eax"]
+
+[[hooks]]
+# Tail of the same arm: the InitializeATIFragmentShaders call. By this point
+# InitExtensions has set EnablePixelShaders (0x007A47E0) and the two constant setters
+# (0x007A6820, 0x007A47DC) to the stock ATI functions, so this is where we build our
+# programs and take those pointers over. Skipping the call also stops the stock ATI
+# shader construction, which would otherwise run glGenFragmentShadersATI and friends
+# on a driver that has no such entry points.
+#   004373BD  E8 1E 21 04 00   call InitializeATIFragmentShaders   <- replaced
+#   004373C2  E9 22 01 00 00   jmp  done
+address = 0x004373BD
+type = "detour"
+function = "ARB_InstallFragmentPath"
+original_bytes = [0xE8, 0x1E, 0x21, 0x04, 0x00]
+skip_original_bytes = true
+exclude_from_restore = []
+
+[[hooks]]
+# InitializeFrameBufferModifications, the InitializeFrameBufferModificationFragmentShadersATI
+# call. That function builds eight ATI shaders for the post-processing effects and stores
+# their handles in globals the effect renderers bind later. It never goes through
+# EnablePixelShaders, so taking over the dispatcher left every framebuffer effect dead.
+# We build ARB equivalents and write our own handles into the same globals.
+#   00428859  E8 32 EC FF FF   call InitializeFrameBufferModificationFragmentShadersATI
+#   0042885E  8B 0D D4 D1 78 00  mov ecx, [0x0078D1D4]
+address = 0x00428859
+type = "detour"
+function = "ARB_InstallFrameBufferShaders"
+original_bytes = [0xE8, 0x32, 0xEC, 0xFF, 0xFF]
+skip_original_bytes = true
+exclude_from_restore = []
+
+[[hooks]]
+# Initialize, the InitializeImageSpaceSoftShadows call. That function builds one ATI
+# shader, softShadowShaderATI, which BloomFilter and FrameBufferModificationPixelShaders
+# both bind. Without it the bloom chain composites unshaded and blows the screen out.
+# Our handler runs the original first, for its pbuffer and render texture setup, then
+# replaces the handle.
+#   0044DF8E  E8 2D 8D FD FF   call InitializeImageSpaceSoftShadows
+address = 0x0044DF8E
+type = "detour"
+function = "ARB_InstallSoftShadowShader"
+original_bytes = [0xE8, 0x2D, 0x8D, 0xFD, 0xFF]
+skip_original_bytes = true
+exclude_from_restore = []
+
+# --- folded in from CubeMapFix ---
+# InitExtensions searches the driver's GL_EXTENSIONS for "GL_EXT_texture_cube_map".
+# Intel's Windows driver exposes cube maps only under the ARB name, so the check fails,
+# EXT_TEXTURE_CUBE_MAP_BIT stays clear, AurCubeMapAvailable reports false, and every
+# env-mapped surface drops to GL_SPHERE_MAP texgen. Both names are 23 bytes, the literal
+# has a single xref, and ARB, EXT and core GL 1.3 define identical enums with no entry
+# points, so searching for the ARB spelling is equivalent everywhere it already worked.
+[[hooks]]
+address = 0x00740968
+type = "simple"
+original_bytes = [
+    0x47, 0x4C, 0x5F, 0x45, 0x58, 0x54, 0x5F, 0x74, 0x65, 0x78, 0x74, 0x75,
+    0x72, 0x65, 0x5F, 0x63, 0x75, 0x62, 0x65, 0x5F, 0x6D, 0x61, 0x70,
+]
+replacement_bytes = [
+    0x47, 0x4C, 0x5F, 0x41, 0x52, 0x42, 0x5F, 0x74, 0x65, 0x78, 0x74, 0x75,
+    0x72, 0x65, 0x5F, 0x63, 0x75, 0x62, 0x65, 0x5F, 0x6D, 0x61, 0x70,
+]
+
+# --- folded in from SoftShadowsFix ---
+# AurATISoftShadowsAvailable early-outs on a lock flag at 0x007BB860 that only
+# AurATIUnlockSoftShadowsForHotFix ever sets, and that runs only when the ini carries
+# AllowSoftShadows=1. Removing the early-out lets the real capability test decide, which
+# is the check that was always meant to gate this. Nothing is forced true: hardware
+# without the extensions still reports false.
+#   0045F7E7  75 03   jnz 0x0045F7EC   -> jmp, so the flag test never returns early
+[[hooks]]
+address = 0x0045F7E7
+type = "simple"
+original_bytes = [0x75, 0x03]
+replacement_bytes = [0xEB, 0x03]
+
+# Same flag, second consumer: the ATI branch inside AurCheckSoftShadowsAvailable. The
+# instruction after the patched bytes reloads ECX, so the stale flag value the nops leave
+# in the register is never read.
+#   0045FA6C  74 36   jz 0x0045FAA4    -> nops, so the branch is never skipped
+[[hooks]]
+address = 0x0045FA6C
+type = "simple"
+original_bytes = [0x74, 0x36]
+replacement_bytes = [0x90, 0x90]
+
+# `PartTriMesh::GetRenderPath` returns `6 - getATIFragmentShadersDisabled()` for a mesh that
+# carries a bump map and tangent bases and is not lightmapped. Case 5 is `RenderBumpMapped`,
+# which dispatches mode `0x06`; case 6 is `RenderBumpmapFallback`, which draws the mesh with
+# its texture and no bump lighting. So the fallback is chosen exactly when ATI fragment
+# shaders are available, which this patch guarantees everywhere, and `bumpShinyA` never ran.
+#
+# Only a GeForce ever took case 5, reaching it through `GL_NV_register_combiners`. A Radeon
+# 8500 took the fallback for the same reason a patched machine does. Forcing 5 gives every
+# vendor the bump lighting, which is the same argument as running one fragment path
+# everywhere. Confirmed on the Hutts in the Taris cantinas.
+#   00470EB6  E8 E5 E6 FE FF   call getATIFragmentShadersDisabled
+#   00470EBB  F6 D8            neg al
+#   00470EBD  1B C0            sbb eax, eax
+#   00470EBF  83 C0 06         add eax, 6     -> mov eax, 5 and pad
+#   00470EC2  8B F8            mov edi, eax   (dead, EDI is popped below; EAX is the return)
+[[hooks]]
+address = 0x00470EB6
+type = "simple"
+original_bytes = [0xE8, 0xE5, 0xE6, 0xFE, 0xFF, 0xF6, 0xD8, 0x1B, 0xC0, 0x83, 0xC0, 0x06]
+replacement_bytes = [0xB8, 0x05, 0x00, 0x00, 0x00, 0x90, 0x90, 0x90, 0x90, 0x90, 0x90, 0x90]
+

@@ -7,6 +7,28 @@
 > anything untested labelled as untested.
 
 
+## K1 Modern Driver Compatibility
+
+**K1 Modern Driver Compatibility 1.2.0** by **Synchro** is redistributed inside the
+patcher, with the author's permission, and installed into the game folder unless the
+user turns it off under *Advanced Settings*.
+
+https://codeberg.org/Synchro/kotor-modern-driver-compatibility
+https://deadlystream.com/files/file/3048-k1-modern-driver-compatibility-patch
+
+Licensed under the **Mozilla Public License 2.0**. The licence text ships inside the
+patcher and a copy is preserved at:
+
+`third_party/Included/k1-modern-driver-compatibility-1.2.0/LICENSE`
+
+The two shipped binaries -- `dinput8.dll` and `k1-modern-driver-compatibility.asi` --
+are the author's released standalone build, unmodified and byte-for-byte identical to
+the published release, so they can be hashed against it. No KMRP code is derived from
+K1DC, and none of its code is altered. It does not modify `swkotor.exe`.
+
+What it writes, and the check showing it does not collide with anything KMRP writes,
+is documented in [`docs/third-party-driver-compat.md`](docs/third-party-driver-compat.md).
+
 ## KOTOR High Resolution Menus
 
 The per-resolution GUI layouts are derived from **KOTOR High Resolution Menus 1.5** by ndix UR:
@@ -15,7 +37,7 @@ https://deadlystream.com/files/file/1159-kotor-high-resolution-menus/
 
 The upstream package includes the GNU General Public License version 3. A copy is preserved at:
 
-`third_party/kotor-high-resolution-menus-1.5/LICENSE.txt`
+`third_party/Included/kotor-high-resolution-menus-1.5/LICENSE.txt`
 
 The original archive and generation scripts are retained in the project so the bundled layouts can be reproduced and audited.
 

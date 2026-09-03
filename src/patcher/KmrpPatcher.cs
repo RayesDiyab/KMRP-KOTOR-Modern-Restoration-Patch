@@ -948,6 +948,180 @@ namespace Kmrp
         internal string ExecutablePath;
     }
 
+    /// <summary>Installs and removes the bundled K1 Modern Driver Compatibility patch.
+    ///
+    /// K1DC is by Synchro, MPL-2.0, and is shipped here as the standalone build the
+    /// author publishes for exactly this case: an executable another patcher has already
+    /// modified, which his Patch Manager will not recognise. See
+    /// docs/third-party-driver-compat.md.
+    ///
+    /// It is two files dropped beside swkotor.exe -- a `dinput8.dll` proxy that Windows
+    /// loads at startup, and the `.asi` payload it loads in turn. **The executable is
+    /// never touched.** K1DC patches its eight sites in memory at run time and checks
+    /// only those, which is why it does not care that KMRP has changed 680 bytes
+    /// elsewhere. Verified against gold: all eight sites still hold the exact bytes his
+    /// `kotor1.hooks.toml` declares, and none overlaps anything KMRP writes.
+    ///
+    /// A separate manifest from the Override one because these files live in the game
+    /// folder rather than Override, and because the choice to install them is the user's
+    /// and can differ between two installs of the same KMRP build.</summary>
+    internal static class DriverCompatOperations
+    {
+        private sealed class InstalledFile
+        {
+            internal string Name;
+            internal string Hash;
+        }
+
+        // Resource name -> file name in the game folder.
+        private static readonly string[] ResourceNames = { "Kmrp.drivercompat.dinput8", "Kmrp.drivercompat.asi" };
+        private static readonly string[] FileNames = { "dinput8.dll", "k1-modern-driver-compatibility.asi" };
+
+        internal const string Version = "1.2.0";
+
+        private static string ManifestPath(string executablePath)
+        {
+            return Path.Combine(Path.GetDirectoryName(Path.GetFullPath(executablePath)),
+                                "KMRP_DriverCompat.manifest");
+        }
+
+        internal static bool Available
+        {
+            get
+            {
+                for (int i = 0; i < ResourceNames.Length; i++)
+                    using (Stream stream = Assembly.GetExecutingAssembly()
+                               .GetManifestResourceStream(ResourceNames[i]))
+                        if (stream == null)
+                            return false;
+                return true;
+            }
+        }
+
+        /// <summary>Write both files into the game folder, unless something already
+        /// occupies one of those names that we did not put there.</summary>
+        internal static void Install(string executablePath, Action<string> report)
+        {
+            if (!Available)
+                return;
+            string folder = Path.GetDirectoryName(Path.GetFullPath(executablePath));
+            List<InstalledFile> installed = new List<InstalledFile>();
+
+            for (int i = 0; i < FileNames.Length; i++)
+            {
+                string target = Path.Combine(folder, FileNames[i]);
+                // Never clobber a file we did not write. A user may already run a
+                // different ASI loader, or K1DC installed by hand, and silently replacing
+                // either would be both destructive and undiagnosable.
+                if (File.Exists(target) && !WasInstalledByUs(executablePath, FileNames[i], target))
+                {
+                    SafeReport(report, "Left the existing " + FileNames[i] +
+                        " alone; the driver compatibility patch was not installed.");
+                    return;
+                }
+            }
+
+            for (int i = 0; i < FileNames.Length; i++)
+            {
+                string target = Path.Combine(folder, FileNames[i]);
+                using (Stream stream = Assembly.GetExecutingAssembly()
+                           .GetManifestResourceStream(ResourceNames[i]))
+                using (FileStream output = File.Create(target))
+                    stream.CopyTo(output);
+                InstalledFile record = new InstalledFile();
+                record.Name = FileNames[i];
+                record.Hash = GoldPatch.HashFile(target);
+                installed.Add(record);
+            }
+
+            WriteManifest(executablePath, installed);
+            SafeReport(report, "Installed K1 Modern Driver Compatibility " + Version +
+                " (by Synchro). swkotor.exe was not modified.");
+        }
+
+        /// <summary>Remove both files, if we installed them and nothing has changed them
+        /// since. Always safe to call: no manifest means nothing to do.</summary>
+        internal static void Restore(string executablePath, Action<string> report)
+        {
+            string manifestPath = ManifestPath(executablePath);
+            if (!File.Exists(manifestPath))
+                return;
+
+            string folder = Path.GetDirectoryName(Path.GetFullPath(executablePath));
+            List<InstalledFile> records = ReadManifest(manifestPath);
+            int removed = 0;
+            int kept = 0;
+            foreach (InstalledFile record in records)
+            {
+                string target = Path.Combine(folder, record.Name);
+                if (!File.Exists(target))
+                    continue;
+                if (GoldPatch.HashFile(target) != record.Hash)
+                {
+                    // Changed since we wrote it -- upgraded by hand, most likely. Leave
+                    // it, and say so, rather than deleting someone else's newer copy.
+                    kept++;
+                    continue;
+                }
+                File.Delete(target);
+                removed++;
+            }
+
+            File.Delete(manifestPath);
+            if (removed > 0)
+                SafeReport(report, "Removed the bundled driver compatibility patch.");
+            if (kept > 0)
+                SafeReport(report, "Left " + kept +
+                    " driver compatibility file(s) in place because they changed after install.");
+        }
+
+        private static bool WasInstalledByUs(string executablePath, string name, string target)
+        {
+            string manifestPath = ManifestPath(executablePath);
+            if (!File.Exists(manifestPath))
+                return false;
+            foreach (InstalledFile record in ReadManifest(manifestPath))
+                if (String.Equals(record.Name, name, StringComparison.OrdinalIgnoreCase))
+                    return GoldPatch.HashFile(target) == record.Hash;
+            return false;
+        }
+
+        private static void WriteManifest(string executablePath, List<InstalledFile> files)
+        {
+            StringBuilder text = new StringBuilder();
+            text.Append("version\t").Append(Version).Append("\r\n");
+            foreach (InstalledFile record in files)
+                text.Append(record.Name).Append('\t').Append(record.Hash).Append("\r\n");
+            File.WriteAllText(ManifestPath(executablePath), text.ToString(), new UTF8Encoding(false));
+        }
+
+        private static List<InstalledFile> ReadManifest(string manifestPath)
+        {
+            List<InstalledFile> records = new List<InstalledFile>();
+            try
+            {
+                foreach (string line in File.ReadAllLines(manifestPath, Encoding.UTF8))
+                {
+                    string[] parts = line.Split('\t');
+                    if (parts.Length != 2 || parts[0] == "version")
+                        continue;
+                    InstalledFile record = new InstalledFile();
+                    record.Name = parts[0];
+                    record.Hash = parts[1];
+                    records.Add(record);
+                }
+            }
+            catch { }
+            return records;
+        }
+
+        private static void SafeReport(Action<string> report, string message)
+        {
+            if (report != null)
+                report(message);
+        }
+    }
+
     internal static class OverrideOperations
     {
         private const string CommonResourceName = "Kmrp.override.common";
@@ -1727,6 +1901,8 @@ namespace Kmrp
                 SafeProgress(progress, 15, "Updating display settings…");
                 iniState = IniOperations.Configure(targetPath, width, height, report);
                 overrideState = OverrideOperations.Install(targetPath, resolution, report, progress);
+                if (KmrpSettings.DriverCompatibility)
+                    DriverCompatOperations.Install(targetPath, report);
                 SafeProgress(progress, 98, "Saving patch information…");
                 WriteManifest(targetPath, backupPath, false, width, height, targetHash);
                 SafeProgress(progress, 100, "Patch complete");
@@ -1784,6 +1960,7 @@ namespace Kmrp
             if (currentHash == GoldPatch.SourceHash)
             {
                 OverrideOperations.Restore(targetPath, report, progress);
+                DriverCompatOperations.Restore(targetPath, report);
                 SafeProgress(progress, 92, "Restoring display settings…");
                 IniOperations.Restore(targetPath, report);
                 SafeProgress(progress, 98, "Saving restore information…");
@@ -1808,6 +1985,7 @@ namespace Kmrp
                 if (GoldPatch.HashFile(temporaryPath) != GoldPatch.SourceHash)
                     throw new IOException("Temporary restore verification failed.");
                 OverrideOperations.Restore(targetPath, report, progress);
+                DriverCompatOperations.Restore(targetPath, report);
                 SafeProgress(progress, 90, "Restoring the game executable…");
                 FileGuard.Replace(temporaryPath, targetPath);
                 if (GoldPatch.HashFile(targetPath) != GoldPatch.SourceHash)
@@ -1904,6 +2082,10 @@ namespace Kmrp
                 SafeProgress(progress, 12, "Updating display settings…");
                 existingIniState = IniOperations.Configure(targetPath, width, height, report);
                 existingOverrideState = OverrideOperations.Install(targetPath, resolution, report, progress);
+                if (KmrpSettings.DriverCompatibility)
+                    DriverCompatOperations.Install(targetPath, report);
+                else
+                    DriverCompatOperations.Restore(targetPath, report);
                 SafeProgress(progress, 98, "Saving patch information…");
                 WriteManifest(targetPath, BackupPath(targetPath), false, width, height, currentHash);
                 SafeProgress(progress, 100, "Patch complete");
@@ -2589,6 +2771,10 @@ namespace Kmrp
     internal sealed class PillButton : Control
     {
         internal bool Primary;
+        /// <summary>A quieter secondary: a muted blue resting border instead of the card
+        /// edge, and muted ink until hovered. For actions that sit under the primary one
+        /// and must not compete with it.</summary>
+        internal bool Subtle;
         internal float TextSize;
         internal float UiScale = 1F;
         private int progressPercent = -1;
@@ -2698,13 +2884,16 @@ namespace Kmrp
                 {
                     using (SolidBrush fill = new SolidBrush(hover ? UiTheme.CardHover : UiTheme.Card))
                         g.FillPath(fill, path);
-                    using (Pen edge = new Pen(hover ? UiTheme.Accent : UiTheme.CardEdge))
+                    using (Pen edge = new Pen(hover ? UiTheme.Accent
+                               : (Subtle ? UiTheme.Border : UiTheme.CardEdge)))
                         g.DrawPath(edge, path);
                 }
             }
 
             Color ink = progressActive ? Color.White :
-                (!Enabled ? UiTheme.DisabledText : (Primary ? Color.White : UiTheme.Text));
+                (!Enabled ? UiTheme.DisabledText
+                    : (Primary ? Color.White
+                        : (Subtle && !hover ? UiTheme.TextMuted : UiTheme.Text)));
             float baseTextSize = TextSize > 0F ? TextSize : (Primary ? 18F : 15.5F);
             using (StringFormat sf = new StringFormat())
             using (Font f = UiTheme.DisplayFont(Math.Max(6F, baseTextSize * scale), FontStyle.Bold))
@@ -3376,6 +3565,246 @@ namespace Kmrp
         }
     }
 
+    /// <summary>The handful of choices a user can make about what KMRP installs.
+    ///
+    /// Kept beside the user's profile rather than next to the executable, because the
+    /// patcher is a single file people run from Downloads and we want a choice to survive
+    /// being re-downloaded. Written as JSON by hand and read back with a regex, the same
+    /// way the install sidecar is handled -- one bool does not justify a serializer, and
+    /// the compiler this project uses has no JSON in the framework it targets.
+    ///
+    /// Every read is defensive: a missing file, an unreadable folder or a malformed value
+    /// all fall back to the shipped default rather than throwing. A settings file is never
+    /// worth failing a patch over.</summary>
+    internal static class KmrpSettings
+    {
+        // Opt-out, not opt-in: the driver patch is the right default for almost everyone,
+        // and the people who most need it are the least likely to know it exists. See
+        // docs/third-party-driver-compat.md for what shipping it actually changes.
+        private const bool DriverCompatibilityDefault = true;
+
+        private static bool loaded;
+        private static bool driverCompatibility = DriverCompatibilityDefault;
+
+        internal static string SettingsPath
+        {
+            get
+            {
+                string root = Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData);
+                return Path.Combine(Path.Combine(root, "KMRP"), "settings.json");
+            }
+        }
+
+        /// <summary>Install the bundled modern-driver-compatibility patch alongside KMRP.</summary>
+        internal static bool DriverCompatibility
+        {
+            get { Load(); return driverCompatibility; }
+            set
+            {
+                Load();
+                if (driverCompatibility == value)
+                    return;
+                driverCompatibility = value;
+                Save();
+            }
+        }
+
+        private static void Load()
+        {
+            if (loaded)
+                return;
+            loaded = true;
+            try
+            {
+                string path = SettingsPath;
+                if (!File.Exists(path))
+                    return;
+                string json = File.ReadAllText(path, Encoding.UTF8);
+                Match match = Regex.Match(json,
+                    "\\\"driverCompatibility\\\"\\s*:\\s*(true|false)",
+                    RegexOptions.IgnoreCase | RegexOptions.CultureInvariant);
+                if (match.Success)
+                    driverCompatibility = String.Equals(match.Groups[1].Value, "true",
+                        StringComparison.OrdinalIgnoreCase);
+            }
+            catch { }
+        }
+
+        private static void Save()
+        {
+            try
+            {
+                string path = SettingsPath;
+                string folder = Path.GetDirectoryName(path);
+                if (!Directory.Exists(folder))
+                    Directory.CreateDirectory(folder);
+                string json = "{\r\n" +
+                    "  \"driverCompatibility\": " +
+                    (driverCompatibility ? "true" : "false") + "\r\n" +
+                    "}\r\n";
+                File.WriteAllText(path, json, new UTF8Encoding(false));
+            }
+            catch { }
+        }
+    }
+
+    /// <summary>One switchable option: a title, a paragraph of explanation, and a pill
+    /// switch on the right. Painted rather than a CheckBox so it carries the same ink and
+    /// radius as the rest of the card.</summary>
+    internal sealed class OptionToggle : Control
+    {
+        private bool hover;
+        private bool isChecked = true;
+        internal float UiScale = 1F;
+        internal string Title = "";
+        internal string Detail = "";
+        internal event EventHandler CheckedChanged;
+
+        internal bool Checked
+        {
+            get { return isChecked; }
+            set
+            {
+                if (isChecked == value)
+                    return;
+                isChecked = value;
+                Invalidate();
+                if (CheckedChanged != null)
+                    CheckedChanged(this, EventArgs.Empty);
+            }
+        }
+
+        internal OptionToggle()
+        {
+            SetStyle(ControlStyles.AllPaintingInWmPaint | ControlStyles.OptimizedDoubleBuffer |
+                     ControlStyles.UserPaint | ControlStyles.ResizeRedraw, true);
+            BackColor = UiTheme.Card;
+            Cursor = Cursors.Hand;
+            TabStop = false;
+        }
+
+        protected override void OnMouseEnter(EventArgs e) { hover = true; Invalidate(); base.OnMouseEnter(e); }
+        protected override void OnMouseLeave(EventArgs e) { hover = false; Invalidate(); base.OnMouseLeave(e); }
+        protected override void OnClick(EventArgs e) { Checked = !Checked; base.OnClick(e); }
+
+        protected override void OnPaint(PaintEventArgs e)
+        {
+            Graphics g = e.Graphics;
+            g.SmoothingMode = SmoothingMode.AntiAlias;
+            g.TextRenderingHint = TextRenderingHint.ClearTypeGridFit;
+            float scale = Math.Max(0.1F, UiScale);
+            int radius = Math.Max(1, (int)Math.Round(10 * scale));
+            Rectangle body = new Rectangle(0, 0, Width - 1, Height - 1);
+
+            using (GraphicsPath path = UiTheme.RoundedRect(body, radius))
+            {
+                using (SolidBrush fill = new SolidBrush(hover ? UiTheme.CardHover : UiTheme.Badge))
+                    g.FillPath(fill, path);
+                using (Pen edge = new Pen(hover ? UiTheme.Border : UiTheme.CardEdge))
+                    g.DrawPath(edge, path);
+            }
+
+            int pad = Math.Max(1, (int)Math.Round(20 * scale));
+            int switchWidth = Math.Max(8, (int)Math.Round(64 * scale));
+            int switchHeight = Math.Max(6, (int)Math.Round(32 * scale));
+            int textRight = Width - pad - switchWidth - Math.Max(1, (int)Math.Round(18 * scale));
+
+            using (Font titleFont = new Font("Segoe UI Semibold", Math.Max(6F, 17F * scale)))
+            using (Font detailFont = new Font("Segoe UI", Math.Max(6F, 13.5F * scale)))
+            using (SolidBrush titleInk = new SolidBrush(UiTheme.Text))
+            using (SolidBrush detailInk = new SolidBrush(UiTheme.TextMuted))
+            {
+                int titleHeight = (int)Math.Ceiling(titleFont.GetHeight(g));
+                g.DrawString(Title, titleFont, titleInk, new RectangleF(
+                    pad, pad * 0.72F, Math.Max(1, textRight - pad), titleHeight + 2));
+                RectangleF detailBox = new RectangleF(
+                    pad, pad * 0.72F + titleHeight + Math.Max(1, 3 * scale),
+                    Math.Max(1, textRight - pad),
+                    Math.Max(1, Height - pad * 1.4F - titleHeight));
+                g.DrawString(Detail, detailFont, detailInk, detailBox);
+            }
+
+            // The switch. Filled and accented when on, hollow and muted when off, so the
+            // state survives being read at a glance and without colour.
+            Rectangle track = new Rectangle(Width - pad - switchWidth,
+                                            (Height - switchHeight) / 2,
+                                            switchWidth, switchHeight);
+            using (GraphicsPath path = UiTheme.RoundedRect(track, switchHeight / 2))
+            {
+                using (SolidBrush fill = new SolidBrush(isChecked ? UiTheme.AccentDark : UiTheme.Field))
+                    g.FillPath(fill, path);
+                using (Pen edge = new Pen(isChecked ? UiTheme.Accent : UiTheme.CardEdge))
+                    g.DrawPath(edge, path);
+            }
+            int knob = switchHeight - Math.Max(2, (int)Math.Round(8 * scale));
+            int knobX = isChecked ? track.Right - knob - (switchHeight - knob) / 2
+                                  : track.Left + (switchHeight - knob) / 2;
+            using (SolidBrush knobInk = new SolidBrush(isChecked ? UiTheme.Accent : UiTheme.DisabledText))
+                g.FillEllipse(knobInk, knobX, track.Y + (switchHeight - knob) / 2, knob, knob);
+        }
+    }
+
+    /// <summary>Cross-fades one view of the card into another.
+    ///
+    /// Both states are captured as bitmaps and this control paints the incoming one
+    /// solid with the outgoing one over it at falling alpha. Painting two opaque bitmaps
+    /// avoids WinForms' transparent-control behaviour entirely -- a genuinely translucent
+    /// control samples its parent's background, which is exactly the thing being
+    /// animated, and flickers.</summary>
+    internal sealed class FadeOverlay : Control
+    {
+        private readonly Bitmap outgoing;
+        private readonly Bitmap incoming;
+        private float progress;
+
+        internal FadeOverlay(Bitmap outgoingView, Bitmap incomingView)
+        {
+            outgoing = outgoingView;
+            incoming = incomingView;
+            SetStyle(ControlStyles.AllPaintingInWmPaint | ControlStyles.OptimizedDoubleBuffer |
+                     ControlStyles.UserPaint, true);
+            TabStop = false;
+        }
+
+        internal float Progress
+        {
+            get { return progress; }
+            set
+            {
+                progress = value < 0F ? 0F : (value > 1F ? 1F : value);
+                Invalidate();
+            }
+        }
+
+        protected override void OnPaint(PaintEventArgs e)
+        {
+            Graphics g = e.Graphics;
+            Rectangle box = new Rectangle(0, 0, Width, Height);
+            if (incoming != null)
+                g.DrawImage(incoming, box, 0, 0, incoming.Width, incoming.Height, GraphicsUnit.Pixel);
+            if (outgoing == null || progress >= 1F)
+                return;
+            using (ImageAttributes attributes = new ImageAttributes())
+            {
+                ColorMatrix matrix = new ColorMatrix();
+                matrix.Matrix33 = 1F - progress;
+                attributes.SetColorMatrix(matrix);
+                g.DrawImage(outgoing, box, 0, 0, outgoing.Width, outgoing.Height,
+                            GraphicsUnit.Pixel, attributes);
+            }
+        }
+
+        protected override void Dispose(bool disposing)
+        {
+            if (disposing)
+            {
+                if (outgoing != null) outgoing.Dispose();
+                if (incoming != null) incoming.Dispose();
+            }
+            base.Dispose(disposing);
+        }
+    }
+
     internal sealed class MainForm : Form
     {
         private delegate void UiOperation(Action<string> report, Action<int, string> progress);
@@ -3442,6 +3871,14 @@ namespace Kmrp
         private readonly StateLabel resolutionState;
         private readonly StateLabel applyState;
         private readonly CardPanel verificationRecovery;
+        private readonly CardPanel mainCard;
+        private readonly PillButton advancedButton;
+        private readonly CardPanel settingsView;
+        private readonly OptionToggle driverToggle;
+        private readonly List<Control> mainViewControls = new List<Control>();
+        private Timer fadeTimer;
+        private FadeOverlay fadeOverlay;
+        private bool settingsOpen;
         private readonly PillButton downloadExecutableButton;
         private readonly PillButton checkExecutableButton;
         private readonly Panel optionsHost;           // reserved: future checkboxes land here
@@ -3567,6 +4004,7 @@ namespace Kmrp
             pathBox.TextChanged += delegate { RefreshStatus(); };
 
             CardPanel card = new CardPanel();
+            mainCard = card;
             card.SetBounds((ClientSize.Width - cardWidth) / 2, headerHeight, cardWidth, cardHeight);
             card.Anchor = AnchorStyles.Top;
             Controls.Add(card);
@@ -3669,7 +4107,77 @@ namespace Kmrp
             actionButton.Click += ActionClicked;
             card.Controls.Add(actionButton);
 
-            card.Height = actionButton.Bottom + 40;
+            // Secondary, and directly under the primary action rather than floating in
+            // the header: it belongs to the flow, it is visibly optional, and it does not
+            // compete with Start Patching. Narrower and shorter than the primary for the
+            // same reason.
+            advancedButton = new PillButton();
+            advancedButton.Subtle = true;
+            advancedButton.Text = "Advanced Settings";
+            advancedButton.TextSize = 15F;
+            int advancedWidth = 340;
+            advancedButton.SetBounds((card.Width - advancedWidth) / 2,
+                                     actionButton.Bottom + 16, advancedWidth, 46);
+            // Top only, so the uniform-scale pass keeps it centred rather than stretching
+            // it the way the primary button stretches.
+            advancedButton.Anchor = AnchorStyles.Top;
+            advancedButton.Click += delegate { ShowSettings(true); };
+            card.Controls.Add(advancedButton);
+
+            card.Height = advancedButton.Bottom + 32;
+
+            // --- Settings -------------------------------------------------------
+            // The settings view occupies the card, hidden until asked for. It is a
+            // sibling of the step rows rather than a separate window so the cross-fade
+            // has something to fade between and the window never changes size.
+            // A CardPanel, not a plain Panel: it covers the card completely, so a
+            // square one squared off the card's rounded corners for as long as settings
+            // was open. This paints the same radius, fill and edge.
+            settingsView = new CardPanel();
+            settingsView.SetBounds(0, 0, card.Width, card.Height);
+            settingsView.Anchor = AnchorStyles.Top | AnchorStyles.Left | AnchorStyles.Right;
+            settingsView.Visible = false;
+            card.Controls.Add(settingsView);
+
+            Label settingsTitle = new Label();
+            settingsTitle.Text = "Settings";
+            settingsTitle.Font = new Font("Segoe UI Semibold", 24F);
+            settingsTitle.ForeColor = UiTheme.Text;
+            settingsTitle.BackColor = UiTheme.Card;
+            settingsTitle.TextAlign = ContentAlignment.MiddleLeft;
+            settingsTitle.SetBounds(36, 24, card.Width - 72, 48);
+            settingsTitle.Anchor = AnchorStyles.Top | AnchorStyles.Left | AnchorStyles.Right;
+            settingsView.Controls.Add(settingsTitle);
+
+            driverToggle = new OptionToggle();
+            driverToggle.Title = "Modern driver compatibility";
+            driverToggle.Detail =
+                "Installs K1 Modern Driver Compatibility by Synchro, which restores the "
+                + "lighting, fog, soft shadows and screen effects the game only draws on "
+                + "2003-era hardware, and stops the grass tearing across the sky. Two "
+                + "files are added to the game folder; swkotor.exe is not touched. "
+                + "Turn this off to leave your graphics exactly as they are.";
+            driverToggle.Checked = KmrpSettings.DriverCompatibility;
+            driverToggle.SetBounds(36, settingsTitle.Bottom + 16, card.Width - 72, 132);
+            driverToggle.Anchor = AnchorStyles.Top | AnchorStyles.Left | AnchorStyles.Right;
+            driverToggle.CheckedChanged += delegate
+            {
+                KmrpSettings.DriverCompatibility = driverToggle.Checked;
+            };
+            settingsView.Controls.Add(driverToggle);
+
+            PillButton settingsBack = new PillButton();
+            settingsBack.Text = "Back";
+            settingsBack.SetBounds(80, card.Height - 116, card.Width - 160, 76);
+            settingsBack.Anchor = AnchorStyles.Top | AnchorStyles.Left | AnchorStyles.Right;
+            settingsBack.Click += delegate { ShowSettings(false); };
+            settingsView.Controls.Add(settingsBack);
+
+            // Everything the settings view replaces. Captured after the card is fully
+            // populated so nothing is missed, and excluding the settings view itself.
+            foreach (Control child in card.Controls)
+                if (child != settingsView)
+                    mainViewControls.Add(child);
 
             logLink = new LinkLabel();
             logLink.Text = Version + "   ·   Open Log";
@@ -4021,6 +4529,9 @@ namespace Kmrp
                 StateLabel stateLabel = child as StateLabel;
                 if (stateLabel != null)
                     stateLabel.UiScale = scale;
+                OptionToggle optionToggle = child as OptionToggle;
+                if (optionToggle != null)
+                    optionToggle.UiScale = scale;
 
                 ApplyControlScale(child, scale, updateNativeFonts);
             }
@@ -4306,6 +4817,7 @@ namespace Kmrp
         {
             if (disposing)
             {
+                FinishFade();
                 fontRetireTimer.Stop();
                 fontRetireTimer.Dispose();
                 DisposeRetiredFonts();
@@ -4356,6 +4868,101 @@ namespace Kmrp
                     DwmSetWindowAttribute(handle, 19, ref on, sizeof(int));
             }
             catch { }
+        }
+
+
+        /// <summary>Swap the card between the steps and the settings view, cross-fading.
+        ///
+        /// Both states are rendered to bitmaps and a FadeOverlay is laid over the card
+        /// while the alpha runs down; the real controls are swapped underneath it before
+        /// the animation starts, so when the overlay goes away the live view is already
+        /// in place and there is no second repaint to see.
+        ///
+        /// About 160 ms, which is long enough to read as a transition and short enough
+        /// that a user clicking the gear twice in a row does not queue up a wait. A
+        /// second call while one is running finishes the first immediately rather than
+        /// stacking overlays.</summary>
+        private void ShowSettings(bool show)
+        {
+            // Already there, or already going there: do nothing. Without this, pressing
+            // the button twice restarted the fade from the top and stacked a second
+            // overlay on the first, which looked like a stutter and leaked a timer.
+            if (show == settingsOpen)
+                return;
+            settingsOpen = show;
+
+            // Any fade still running is finished instantly rather than cancelled, so the
+            // control tree is in a settled state before the next capture.
+            FinishFade();
+
+            Bitmap outgoing = CaptureCard();
+            foreach (Control child in mainViewControls)
+                child.Visible = !show;
+            settingsView.Visible = show;
+            Bitmap incoming = CaptureCard();
+
+            if (outgoing == null || incoming == null)
+            {
+                if (outgoing != null) outgoing.Dispose();
+                if (incoming != null) incoming.Dispose();
+                return;
+            }
+
+            fadeOverlay = new FadeOverlay(outgoing, incoming);
+            fadeOverlay.SetBounds(0, 0, mainCard.Width, mainCard.Height);
+            mainCard.Controls.Add(fadeOverlay);
+            fadeOverlay.BringToFront();
+
+            const int stepMs = 16;
+            const float perStep = stepMs / 160F;
+            fadeTimer = new Timer();
+            fadeTimer.Interval = stepMs;
+            fadeTimer.Tick += delegate
+            {
+                if (fadeOverlay == null)
+                {
+                    FinishFade();
+                    return;
+                }
+                fadeOverlay.Progress = fadeOverlay.Progress + perStep;
+                if (fadeOverlay.Progress >= 1F)
+                    FinishFade();
+            };
+            fadeTimer.Start();
+        }
+
+        /// <summary>Tear down any running cross-fade, leaving the live controls showing.
+        /// Safe to call when none is running.</summary>
+        private void FinishFade()
+        {
+            if (fadeTimer != null)
+            {
+                fadeTimer.Stop();
+                fadeTimer.Dispose();
+                fadeTimer = null;
+            }
+            if (fadeOverlay != null)
+            {
+                mainCard.Controls.Remove(fadeOverlay);
+                fadeOverlay.Dispose();
+                fadeOverlay = null;
+            }
+        }
+
+        /// <summary>The card as it currently looks, or null if it cannot be rendered.
+        /// DrawToBitmap fails on a control with no handle or a zero dimension, neither of
+        /// which is worth aborting a view switch over.</summary>
+        private Bitmap CaptureCard()
+        {
+            try
+            {
+                if (mainCard == null || mainCard.Width <= 0 || mainCard.Height <= 0)
+                    return null;
+                Bitmap shot = new Bitmap(mainCard.Width, mainCard.Height);
+                mainCard.DrawToBitmap(shot, new Rectangle(0, 0, mainCard.Width, mainCard.Height));
+                return shot;
+            }
+            catch { return null; }
         }
 
         private StepRow NewStep(CardPanel card, int index, UiTheme.Glyph icon, string title, string subtitle)

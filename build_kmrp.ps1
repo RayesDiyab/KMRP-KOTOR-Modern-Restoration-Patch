@@ -15,7 +15,7 @@ param(
     # In-repository inputs. These always move with the project.
     [string]$GoldExe = ".\build\kmrp\swkotor_gold_v20_hittest.exe",
     [string]$GoldOverride = ".\assets\override-3440x1440",
-    [string]$UpstreamGuiRoot = ".\third_party\kotor-high-resolution-menus-1.5",
+    [string]$UpstreamGuiRoot = ".\third_party\Included\kotor-high-resolution-menus-1.5",
     [string]$IconPath = ".\assets\branding\favicon.ico",
     [string]$HdFonts = ".\assets\hd-fonts",
     [switch]$ReuseResources,
@@ -231,7 +231,13 @@ $compilerArgs = @(
     "/resource:$(Join-Path $resourceDir 'override-common.zip'),Kmrp.override.common",
     "/resource:$(Join-Path $resourceDir 'resolutions.tsv'),Kmrp.resolutions",
     "/resource:$(Join-Path $projectRoot 'src\patcher\brand.png'),Kmrp.brand",
-    "/resource:$(Join-Path $resourceDir 'GPL-3.0-KOTOR-High-Resolution-Menus.txt'),Kmrp.license.highresolutionmenus"
+    "/resource:$(Join-Path $resourceDir 'GPL-3.0-KOTOR-High-Resolution-Menus.txt'),Kmrp.license.highresolutionmenus",
+    # The bundled K1 Modern Driver Compatibility standalone build (Synchro, MPL-2.0),
+    # written into the game folder when the user leaves that option on. Two files, and
+    # neither touches swkotor.exe -- see docs/third-party-driver-compat.md.
+    "/resource:$(Join-Path $projectRoot 'third_party\Included\k1-modern-driver-compatibility-1.2.0\dinput8.dll'),Kmrp.drivercompat.dinput8",
+    "/resource:$(Join-Path $projectRoot 'third_party\Included\k1-modern-driver-compatibility-1.2.0\k1-modern-driver-compatibility.asi'),Kmrp.drivercompat.asi",
+    "/resource:$(Join-Path $projectRoot 'third_party\Included\k1-modern-driver-compatibility-1.2.0\LICENSE'),Kmrp.license.drivercompat"
 )
 
 # Hand-supplied UI icons are optional: step icons fall back to vector glyphs,

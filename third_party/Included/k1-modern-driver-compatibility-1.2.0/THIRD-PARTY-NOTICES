@@ -1,0 +1,128 @@
+Third party notices
+===================
+
+The standalone release of this patch redistributes one binary that is not built from
+this repository: the `dinput8.dll` beside the patch, which in this archive is under
+"Copy into game folder" and which the source tree keeps at vendor/dinput8.dll.
+
+It is Ultimate ASI Loader, taken unmodified from its own release. The patch itself is
+under the Mozilla Public License 2.0 and is unaffected by anything below; these terms
+apply to that one file.
+
+    Component:  Ultimate ASI Loader
+    Version:    v9.7.4
+    Source:     https://github.com/ThirteenAG/Ultimate-ASI-Loader
+    Obtained:   https://github.com/ThirteenAG/Ultimate-ASI-Loader/releases/download/v9.7.4/Ultimate-ASI-Loader-NoPDB.zip
+    SHA-256:    ec2f4824eca58dd40f425756a4a7cec77b8e381f21d11d7c846ec4b339b617ab
+
+That file links several other projects into itself, so their terms travel with it. Each
+was confirmed present in the binary rather than assumed: the loader exports
+Direct3DCreate8, and MemoryModule names itself in the image.
+
+
+-------------------------------------------------------------------------------
+Ultimate ASI Loader
+https://github.com/ThirteenAG/Ultimate-ASI-Loader
+-------------------------------------------------------------------------------
+
+MIT License
+
+Copyright (c) 2023 ThirteenAG
+
+Permission is hereby granted, free of charge, to any person obtaining a copy of this
+software and associated documentation files (the "Software"), to deal in the Software
+without restriction, including without limitation the rights to use, copy, modify,
+merge, publish, distribute, sublicense, and/or sell copies of the Software, and to
+permit persons to whom the Software is furnished to do so, subject to the following
+conditions:
+
+The above copyright notice and this permission notice shall be included in all copies
+or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED,
+INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS FOR A
+PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT
+HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF
+CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE
+OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
+
+
+-------------------------------------------------------------------------------
+MemoryModule
+https://github.com/fancycode/MemoryModule
+-------------------------------------------------------------------------------
+
+Licensed under the Mozilla Public License 2.0, the same licence as this patch. The
+full text is in the LICENSE file beside this one.
+
+Section 3.2 of that licence asks that recipients be told how to obtain the source. It
+is at the address above, at no charge.
+
+
+-------------------------------------------------------------------------------
+injector
+https://github.com/ThirteenAG/injector
+-------------------------------------------------------------------------------
+
+Copyright (C) 2012-2014 LINK/2012 <dma_2012@hotmail.com>
+
+This software is provided 'as-is', without any express or implied warranty. In no
+event will the authors be held liable for any damages arising from the use of this
+software.
+
+Permission is granted to anyone to use this software for any purpose, including
+commercial applications, and to alter it and redistribute it freely, subject to the
+following restrictions:
+
+1. The origin of this software must not be misrepresented; you must not claim that you
+   wrote the original software. If you use this software in a product, an
+   acknowledgment in the product documentation would be appreciated but is not
+   required.
+2. Altered source versions must be plainly marked as such, and must not be
+   misrepresented as being the original software.
+3. This notice may not be removed or altered from any source distribution.
+
+
+-------------------------------------------------------------------------------
+d3d8to9
+https://github.com/crosire/d3d8to9
+-------------------------------------------------------------------------------
+
+Copyright (C) 2015 Patrick Mours. All rights reserved.
+
+Redistribution and use in source and binary forms, with or without modification, are
+permitted provided that the following conditions are met:
+
+1. Redistributions of source code must retain the above copyright notice, this list of
+   conditions and the following disclaimer.
+2. Redistributions in binary form must reproduce the above copyright notice, this list
+   of conditions and the following disclaimer in the documentation and/or other
+   materials provided with the distribution.
+
+THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS" AND ANY
+EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED WARRANTIES
+OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT
+SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT,
+INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED
+TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR
+BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN
+CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY
+WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+
+
+-------------------------------------------------------------------------------
+Also carried by the loader
+-------------------------------------------------------------------------------
+
+The loader's build also draws on miniz and on the Direct3D 9 headers in minidx9. Their
+terms are in the loader's own repository, under external/, at the revision its release
+was built from.
+
+
+-------------------------------------------------------------------------------
+Updating the vendored loader
+-------------------------------------------------------------------------------
+
+Replace vendor/dinput8.dll from a release of the project above, then update the
+version, URL and checksum at the top of this file. The checksum is what makes it
+possible to say later exactly which build was shipped.
