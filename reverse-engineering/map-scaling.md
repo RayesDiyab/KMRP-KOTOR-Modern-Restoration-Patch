@@ -243,7 +243,13 @@ check.
 
 * `0x00747748` (440.0f) and `0x007455D4` (256.0f) — shared with the HUD path
   (`0x00688153` / `0x00688161`) as well as the map's icon loop
-  (`0x006944A8` / `0x006944C4`). Never written.
+  (`0x006944A8` / `0x006944C4`). Never written. **Since gold v19** the map's two
+  instructions no longer *read* them either: they are rewritten in place to
+  `fidivr dword ptr [ebx+0x0C]` / `[ebx+0x10]`, so the grid steps by the live
+  overlay rectangle instead of a constant. The floats themselves are still
+  untouched and the HUD walker still reads them. See
+  [`area-map-surface.md`](area-map-surface.md) and
+  `tools/build_area_fog_fix.py`.
 * `0x00578E00`, `0x005791B0`, `0x00579090` — the conversion routines themselves.
   Called, never modified.
 * `0x00633102` — the map screen's constructor call. Left as `call 0x694D50`.

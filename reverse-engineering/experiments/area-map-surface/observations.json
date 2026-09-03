@@ -1,0 +1,72 @@
+{
+  "schema_version": 1,
+  "subject": "Area map surface: the unfogged right-hand strip",
+  "build": {
+    "gold": "swkotor_gold_v19_areafog.exe",
+    "gold_sha256": "D4D4B793F333732D31FBD6D1C66778D527CD15D0DE20894DAC25E88132943A1E",
+    "clean_sha256": "761F9466F456A83909036BAEBB5C43167D722387BE66E54617BA20A8C49E9886",
+    "resolution": "3440x1440",
+    "area": "Manaan - West Central (module m26, texture lbl_mapm26ab)"
+  },
+  "runtime": {
+    "method": "x64dbg, software breakpoint at VA 0x006944A8, live process",
+    "date": "2026-09-03",
+    "icon_container_rect": {"left": 0, "top": 0, "width": 1478, "height": 720},
+    "grid_columns": 20,
+    "grid_rows": 11,
+    "note": "The rect is read from [ebx+0x04..0x10]. ebx is the icon container, the object whose size is written by the immediate at VA 0x00695082. It is the MARKER OVERLAY, not the map canvas."
+  },
+  "live_constants_read_from_patched_exe": {
+    "method": "struct.unpack_from on the installed swkotor.exe, gold v19 at 3440x1440",
+    "0x2928B3_centring_x": 2750,
+    "0x2928C3_centring_y": 1400,
+    "0x292959_centring_x2": 640,
+    "0x29296B_centring_y2": 480,
+    "0x29505C_canvas_w": 1720,
+    "0x295064_canvas_h": 720,
+    "0x295082_overlay_w": 1478,
+    "0x29508A_overlay_h": 720
+  },
+  "screen_measurements": {
+    "method": "tools/measure_map_screen.py on 3440x1440 full-screen PNG captures",
+    "captures": [
+      {"name": "map-fogfix.png", "grid_divisor": 1478, "divisor_source": "private float in .kfg",
+       "predicted_pitch": 73.9, "measured_pitch": 74.0,
+       "grid_first": 851, "grid_last": 2333, "grid_width": 1483,
+       "strip_first": 2334, "strip_last": 2575, "strip_width": 242},
+      {"name": "map-fog-v19b.png", "grid_divisor": 1720, "divisor_source": "private float in .kfg",
+       "predicted_pitch": 86.0, "measured_pitch": 86.0,
+       "grid_first": 851, "grid_last": 2325, "grid_width": 1475,
+       "strip_first": 2334, "strip_last": 2575, "strip_width": 242},
+      {"name": "fog-test-1720.png", "grid_divisor": 1720, "divisor_source": "float in allocated page, live memory patch",
+       "predicted_pitch": 86.0, "measured_pitch": 86.0,
+       "grid_first": 851, "grid_last": 2325, "grid_width": 1475,
+       "strip_first": 2334, "strip_last": 2575, "strip_width": 242},
+      {"name": "map-derslok-consts.png", "grid_divisor": 1478, "divisor_source": "fidivr [ebx+0x0C], gold v19",
+       "centring_x": 3440, "centring_y": 1440,
+       "predicted_pitch": 73.9, "measured_pitch": 74.0,
+       "grid_first": 511, "grid_last": 1988, "grid_width": 1478,
+       "strip_first": 1989, "strip_last": 2230, "strip_width": 242}
+    ]
+  },
+  "derived": {
+    "strip_width_rule": "strip = canvas_width - overlay_width = 1720 - 1478 = 242. Measured 242 in all four captures, independent of the grid divisor.",
+    "grid_extent_rule": "The grid is clipped to the overlay width regardless of the divisor. Measured 1483/1475/1475/1478 against overlay 1478.",
+    "canvas_placement_rule": "canvas_left = LBL_Map.left + (screenWidth - centringX) / 2. Exact at centringX=3440 (delta 0 px); +5 px at centringX=2750, which is one grid-line width.",
+    "clip_requirement": "For LBL_Map to clip the canvas at the overlay, canvas_left must equal LBL_Map.left, which requires centringX == screenWidth."
+  },
+  "atlas": {
+    "method": "pykotor read of swpc_tex_gui.erf, and of the installed HD override",
+    "vanilla_lbl_mapm26ab": {"size": "512x256", "columns_past_440_mean": 33.6, "columns_past_440_max": 115},
+    "hd_override_lbl_mapm26ab": {"size": "2048x1024", "columns_past_440_mean": 33.9, "columns_past_440_max": 151},
+    "conclusion": "The atlas carries real picture past column 440 in BOTH vanilla and the HD pack. The strip is not caused by the HD map textures."
+  },
+  "disproved": [
+    {"claim": "The 1720 private-float build (v19b) never took effect.",
+     "disproof": "map-fog-v19b.png measures a pitch of exactly 86.0 = 1720/20. It took effect; it simply did not move the strip."},
+    {"claim": "The strip is caused by the HD map textures.",
+     "disproof": "The vanilla 512x256 atlas has the same content past column 440 (mean 33.6 vs 33.9)."},
+    {"claim": "The grid divisor controls where the grid ends.",
+     "disproof": "Divisors 1478 and 1720 both produce a grid clipped at ~1478 and a strip of exactly 242 px."}
+  ]
+}

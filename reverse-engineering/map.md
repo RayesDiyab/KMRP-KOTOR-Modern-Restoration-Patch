@@ -92,12 +92,21 @@ diff against the shipped binary catches it.
 
 | Offset | Meaning | Current issue |
 | --- | --- | --- |
-| `+0x0C` | Icon normalization width | 1720 for full-map instance; retail 512 for HUD instance |
-| `+0x10` | Icon normalization height | 720 for full-map instance; retail 256 for HUD instance |
+| `+0x0C` | Icon normalization width | **1478** for full-map instance at 3440x1440 (see correction below); retail 440 for HUD instance |
+| `+0x10` | Icon normalization height | 720 for full-map instance at 3440x1440; retail 256 for HUD instance |
 | `+0x70` | Render width | 1720 for full-map instance; retail 512 for HUD instance |
 | `+0x74` | Render height | 720 for full-map instance; retail 256 for HUD instance |
 | `+0xE38` | Marker overlay | 1478x720 for full map; retail 440x256 for HUD |
 | `+0x1080` | Map canvas | 1720x720 for full map; retail 512x256 for HUD |
+
+> **Correction, 2026-09-03.** This table previously gave `+0x0C` as 1720 for the
+> full-map instance. Read live with x64dbg (breakpoint at `0x006944A8`, gold v19,
+> 3440x1440) the field is **1478** — it holds the *marker overlay* width written
+> by the immediate at `0x00695082`, not the canvas width written at
+> `0x0069505C`. The 1720 figure was carried over from the canvas row. This
+> matters: the difference between the two, 1720 − 1478 = 242 px, is exactly the
+> unfogged strip on the right of the area map. See
+> [`area-map-surface.md`](area-map-surface.md).
 
 The normalization-domain mismatch is confirmed. World conversion returns
 coordinates in the original 440x256 area-map space, but the resized full-map
