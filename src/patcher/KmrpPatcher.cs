@@ -2263,6 +2263,11 @@ namespace Kmrp
         private static readonly Dictionary<Glyph, Image> IconArt = new Dictionary<Glyph, Image>();
         private static bool iconsLoaded;
         private static readonly Dictionary<string, Image> StatusArt = new Dictionary<string, Image>();
+        // Icons rendered at the exact size they are drawn, keyed "name@WxH". Built once
+        // and reused, because rescaling the source on every paint stalled the animation.
+        private static readonly Dictionary<string, Bitmap> ScaledArt = new Dictionary<string, Bitmap>();
+        // The opaque bounding box of each icon, so its transparent margin is not drawn.
+        private static readonly Dictionary<string, Rectangle> InkBounds = new Dictionary<string, Rectangle>();
 
         private static Image IconFor(Glyph glyph)
         {
@@ -2316,31 +2321,32 @@ namespace Kmrp
         /// <summary>Draw the supplied verified-status badge, tinted with the semantic
         /// success colour. The caller keeps the icon and label optically grouped.</summary>
         /// <summary>Draws supplied artwork as a solid-colour silhouette taken from its
-        /// alpha channel.
+        /// alpha channel, cropped to its ink and pre-scaled.
         ///
-        /// `DrawStatusArt` *multiplies* the source by the tint, which only works when the
-        /// artwork is white -- and every icon that predates this one is. The settings gear
-        /// is black line art on transparency, and multiplying black by anything leaves
-        /// black, so it would have been invisible on a dark button. This replaces the RGB
-        /// outright and keeps alpha, so the shape and its antialiasing come from the
-        /// artwork while the colour comes from the caller. It is equivalent to the
-        /// multiply for white art, and correct for any other.</summary>
+        /// **Why the tint replaces rather than multiplies.** `DrawStatusArt` multiplies
+        /// the source by the colour, which only works for white artwork -- and every icon
+        /// that predates this one is white. The settings gear is black line art on
+        /// transparency, and black times anything is black. This zeroes the source RGB and
+        /// adds the wanted colour, keeping alpha, so the shape and its antialiasing come
+        /// from the artwork and only the colour is ours. Equivalent to the multiply for
+        /// white art, correct for any other.
+        ///
+        /// **Why it caches.** The source is 2000x2000 and is drawn into a ~35 px box.
+        /// Resampling that on every paint with HighQualityBicubic cost enough to visibly
+        /// stall the header animation while the pointer sat on the button -- hovering
+        /// repaints, and each repaint was rescaling four million pixels. The scaled result
+        /// is built once per size and reused, so a repaint is a 1:1 blit of a small bitmap.
+        ///
+        /// **Why it crops.** The artwork carries roughly 10-16% transparent margin on each
+        /// side, so drawing it whole wasted a third of the space it was given. The opaque
+        /// bounding box is measured once and only that region is drawn, fitted to the box
+        /// with its aspect preserved and centred.</summary>
         internal static bool DrawIconMask(Graphics g, string name, Rectangle box, Color color)
         {
-            Image art;
-            if (!StatusArt.TryGetValue(name, out art))
-            {
-                try
-                {
-                    using (Stream stream = Assembly.GetExecutingAssembly()
-                               .GetManifestResourceStream("Kmrp.icon." + name))
-                    using (Image source = stream == null ? null : Image.FromStream(stream))
-                        art = source == null ? null : new Bitmap(source);
-                }
-                catch { art = null; }
-                StatusArt[name] = art;
-            }
-            if (art == null)
+            if (box.Width <= 0 || box.Height <= 0)
+                return false;
+            Bitmap scaled = ScaledIcon(name, box.Width, box.Height);
+            if (scaled == null)
                 return false;
 
             using (ImageAttributes attributes = new ImageAttributes())
@@ -2352,11 +2358,117 @@ namespace Kmrp
                     new float[] { 0, 0, 0, 1, 0 },
                     new float[] { color.R / 255F, color.G / 255F, color.B / 255F, 0, 1 } });
                 attributes.SetColorMatrix(matrix);
-                g.InterpolationMode = InterpolationMode.HighQualityBicubic;
-                g.PixelOffsetMode = PixelOffsetMode.HighQuality;
-                g.DrawImage(art, box, 0, 0, art.Width, art.Height, GraphicsUnit.Pixel, attributes);
+                // 1:1, so no resampling happens here.
+                g.DrawImage(scaled, box, 0, 0, scaled.Width, scaled.Height,
+                            GraphicsUnit.Pixel, attributes);
             }
             return true;
+        }
+
+        /// <summary>The icon cropped to its ink and rendered at exactly this size, built
+        /// once and cached. Returns null if the artwork was not shipped.</summary>
+        private static Bitmap ScaledIcon(string name, int width, int height)
+        {
+            string key = name + "@" + width.ToString(CultureInfo.InvariantCulture)
+                       + "x" + height.ToString(CultureInfo.InvariantCulture);
+            Bitmap cached;
+            if (ScaledArt.TryGetValue(key, out cached))
+                return cached;
+
+            Image source = LoadIcon(name);
+            if (source == null)
+            {
+                ScaledArt[key] = null;
+                return null;
+            }
+
+            Rectangle ink = InkBoundsOf(name, source);
+            Bitmap target = new Bitmap(width, height, PixelFormat.Format32bppArgb);
+            using (Graphics g = Graphics.FromImage(target))
+            {
+                g.InterpolationMode = InterpolationMode.HighQualityBicubic;
+                g.PixelOffsetMode = PixelOffsetMode.HighQuality;
+                g.CompositingQuality = CompositingQuality.HighQuality;
+
+                // Fit the ink into the box, preserving its aspect and centring it.
+                double scale = Math.Min(width / (double)ink.Width, height / (double)ink.Height);
+                int drawWidth = Math.Max(1, (int)Math.Round(ink.Width * scale));
+                int drawHeight = Math.Max(1, (int)Math.Round(ink.Height * scale));
+                Rectangle destination = new Rectangle((width - drawWidth) / 2,
+                                                      (height - drawHeight) / 2,
+                                                      drawWidth, drawHeight);
+                g.DrawImage(source, destination, ink.X, ink.Y, ink.Width, ink.Height,
+                            GraphicsUnit.Pixel);
+            }
+            ScaledArt[key] = target;
+            return target;
+        }
+
+        private static Image LoadIcon(string name)
+        {
+            Image art;
+            if (StatusArt.TryGetValue(name, out art))
+                return art;
+            try
+            {
+                using (Stream stream = Assembly.GetExecutingAssembly()
+                           .GetManifestResourceStream("Kmrp.icon." + name))
+                using (Image source = stream == null ? null : Image.FromStream(stream))
+                    art = source == null ? null : new Bitmap(source);
+            }
+            catch { art = null; }
+            StatusArt[name] = art;
+            return art;
+        }
+
+        /// <summary>The smallest rectangle containing every pixel of the artwork that is
+        /// not effectively transparent. Measured once per icon with LockBits -- per-pixel
+        /// GetPixel over four million pixels takes long enough to be felt at startup.</summary>
+        private static Rectangle InkBoundsOf(string name, Image source)
+        {
+            Rectangle bounds;
+            if (InkBounds.TryGetValue(name, out bounds))
+                return bounds;
+
+            bounds = new Rectangle(0, 0, source.Width, source.Height);
+            Bitmap bitmap = source as Bitmap;
+            if (bitmap != null)
+            {
+                BitmapData data = null;
+                try
+                {
+                    data = bitmap.LockBits(new Rectangle(0, 0, bitmap.Width, bitmap.Height),
+                                           ImageLockMode.ReadOnly, PixelFormat.Format32bppArgb);
+                    int minX = bitmap.Width, minY = bitmap.Height, maxX = -1, maxY = -1;
+                    // Marshal.Copy rather than a pointer walk: this project compiles
+                    // without /unsafe, and one row at a time keeps the copy small.
+                    byte[] row = new byte[Math.Abs(data.Stride)];
+                    for (int y = 0; y < bitmap.Height; y++)
+                    {
+                        Marshal.Copy(new IntPtr(data.Scan0.ToInt64() + (long)y * data.Stride),
+                                     row, 0, row.Length);
+                        for (int x = 0; x < bitmap.Width; x++)
+                        {
+                            if (row[x * 4 + 3] <= 8)   // alpha, BGRA
+                                continue;
+                            if (x < minX) minX = x;
+                            if (x > maxX) maxX = x;
+                            if (y < minY) minY = y;
+                            if (y > maxY) maxY = y;
+                        }
+                    }
+                    if (maxX >= minX && maxY >= minY)
+                        bounds = new Rectangle(minX, minY, maxX - minX + 1, maxY - minY + 1);
+                }
+                catch { }
+                finally
+                {
+                    if (data != null)
+                        bitmap.UnlockBits(data);
+                }
+            }
+            InkBounds[name] = bounds;
+            return bounds;
         }
 
         /// <summary>Draws a supplied status label -- "verified" or "missing" -- tinted to
@@ -2946,7 +3058,7 @@ namespace Kmrp
             {
                 // Square icon buttons: the glyph is centred and sized against the shorter
                 // side, so the button stays legible at any scale.
-                int side = (int)Math.Round(Math.Min(Width, Height) * 0.46F);
+                int side = (int)Math.Round(Math.Min(Width, Height) * 0.74F);
                 Rectangle iconBox = new Rectangle((Width - side) / 2, (Height - side) / 2,
                                                   Math.Max(1, side), Math.Max(1, side));
                 UiTheme.DrawIconMask(g, IconName, iconBox, ink);
