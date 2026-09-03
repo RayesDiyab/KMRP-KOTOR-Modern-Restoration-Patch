@@ -1,6 +1,6 @@
 # KOTOR virtual-display test environment
 
-This profile exposes the 48 resolutions supported by the KOTOR Universal UI
+This profile exposes the 48 resolutions supported by the KMRP
 Patcher on one virtual Windows monitor. Every mode runs at 60 Hz to keep the
 driver mode table small and stable.
 

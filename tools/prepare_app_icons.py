@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Turn the hand-supplied UI icons in `App icons/` into embeddable resources.
+"""Turn the hand-supplied UI icons in `assets/branding/ui-icons/` into embeddable resources.
 
 The source art is a silhouette on transparency -- the ink's own colour does not
 matter, only its alpha. Each icon is cropped to its visible ink, scaled into the
@@ -9,7 +9,7 @@ is deliberate: the patcher tints at draw time with a colour matrix, and
 multiplying white by the target colour reproduces it exactly, so the icon colour
 stays a single constant in the UI code rather than being baked into four PNGs.
 
-Files are matched to steps by keyword, so the names in `App icons/` can be
+Files are matched to steps by keyword, so the names in `assets/branding/ui-icons/` can be
 whatever is convenient:
 
     folder / directory   -> step 1
@@ -41,7 +41,9 @@ LANCZOS = Image.Resampling.LANCZOS if hasattr(Image, "Resampling") else Image.LA
 
 KEYWORDS = (
     ("verified", ("verified-label", "verified", "success")),
-    # "misssing" is the spelling of the supplied file. Matching only "missing" would
+    # The supplied file was originally misspelled "Misssing-label.png"; it has since
+    # been renamed, but that spelling stays matched so an older copy still works.
+    # Matching only "missing" would
     # skip it silently, which is exactly the failure this classifier makes easy.
     ("missing", ("misssing", "missing", "absent", "required")),
     ("folder", ("folder", "directory", "game")),
@@ -123,8 +125,8 @@ def convert(
 
 def main() -> int:
     parser = argparse.ArgumentParser()
-    parser.add_argument("--source", type=Path, default=Path("App icons"))
-    parser.add_argument("--dest", type=Path, default=Path("app/patcher/icons"))
+    parser.add_argument("--source", type=Path, default=Path("assets/branding/ui-icons"))
+    parser.add_argument("--dest", type=Path, default=Path("src/patcher/icons"))
     args = parser.parse_args()
 
     if not args.source.exists():

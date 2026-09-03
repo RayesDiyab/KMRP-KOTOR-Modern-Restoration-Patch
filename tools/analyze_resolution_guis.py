@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Inspect KOTOR resolution GUI sets and emit map geometry as JSON.
 
-The universal patcher uses the per-resolution ``map.gui`` files as the source
+KMRP uses the per-resolution ``map.gui`` files as the source
 of truth for where the large map is drawn.  This helper keeps that derivation
 auditable instead of hiding resolution-specific coordinates in the patcher.
 """

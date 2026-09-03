@@ -5,13 +5,13 @@
 KOTOR renders UI and dialogue text at a fixed pixel size regardless of
 resolution, so it is unreadably small at 3440x1440 and above. This is a
 separate workstream from the map/marker patch (`universal-resolution-math.md`).
-It **is** now fully integrated into the Universal Patcher — see "Integration
+It **is** now fully integrated into KMRP — see "Integration
 status" below for the gold snapshot and hash constants involved.
 
 Full technical detail (addresses, struct layout, byte sequences):
 `reverse-engineering/font.md`. Investigation log:
 `reverse-engineering/experiments/005-font-scale-investigation.md`.
-Machine-readable patch specs: `patches/font_patch/*.json`.
+Machine-readable patch specs: `reverse-engineering/patch-records/font_patch/*.json`.
 
 ## What it does
 
@@ -64,7 +64,7 @@ The gold snapshot already contains every executable fix, and the universal
 build script defaults to the current gold-v13 file:
 
 ```powershell
-.\build_universal_patcher.ps1
+.\build_kmrp.ps1
 ```
 
 To roll a *new* executable fix into the gold, run its build script against the
@@ -118,12 +118,12 @@ stack-label, gutter, and leading-newline investigations:
 
 Current gold: `swkotor_gold_v15_popup.exe`,
 `79356D1A92637C1B5C619B530FDA742A622A330E19AD628DBA19464202425048`.
-`build_universal_patcher.ps1` now defaults to that file. Still confirm any
+`build_kmrp.ps1` now defaults to that file. Still confirm any
 future gold change by matching `GoldPatch.TargetHash` in
-`app/patcher/KotorUniversalPatcher.cs` against the file on disk.
+`src/patcher/KmrpPatcher.cs` against the file on disk.
 
 Changing the gold requires updating **two** hash constants together or the
-build fails: `TargetHash` in `KotorUniversalPatcher.cs` and
+build fails: `TargetHash` in `KmrpPatcher.cs` and
 `EXPECTED_GOLD_SHA256` in `tools/generate_gold_delta.py`. The latter's guard is
 deliberate — it is what catches a stale or unexpected gold, and it did.
 
@@ -133,7 +133,7 @@ per-resolution constants on top, so `live = gold + ResolutionPatch`.
 **Font sizing no longer uses the runtime `--scale` constant.** It rides on the
 atlases' TXI metrics per resolution, via `font_scale_for(height) =
 max(1.0, height/720)` in `prepare_universal_resources.py`, mirrored by
-`ResolutionPatch.ScaleForHeight` in `KotorUniversalPatcher.cs` for list-row
+`ResolutionPatch.ScaleForHeight` in `KmrpPatcher.cs` for list-row
 heights. The `.kfs` section's font-metric constant is permanently 1.0; its
 list-row constant is still live. **Both copies of that formula must change
 together.**
@@ -142,7 +142,7 @@ together.**
 
 Baking the atlases is a manual step, committed rather than run by the build
 (the build must stay pure-stdlib — Pillow installed from Bash is invisible to
-the PowerShell interpreter that `build_universal_patcher.ps1` uses):
+the PowerShell interpreter that `build_kmrp.ps1` uses):
 
 ```powershell
 python tools\build_font_from_ttf.py assets\fonts\OldRepublic.ttf   ..\TexturePacks\swpc_tex_gui.erf assets\hd-fonts --fonts <the 17 menu resrefs> --scale 3.0

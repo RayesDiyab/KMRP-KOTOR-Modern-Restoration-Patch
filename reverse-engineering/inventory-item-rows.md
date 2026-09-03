@@ -32,7 +32,7 @@ same `lbl_hex_3` icon frame.
 icons *into the row below* — verified in game. The icon and the row height
 travel through completely separate paths that happen to share the same constant.
 
-`RowSizeGroups` in `app/patcher/KotorUniversalPatcher.cs` now scales them
+`RowSizeGroups` in `src/patcher/KmrpPatcher.cs` now scales them
 by `max(1.0, height/720)`, the same rule as the font atlases: 56 at 720p, 84 at
 1080p, 112 at 1440p, 168 at 2160p.
 

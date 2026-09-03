@@ -181,7 +181,7 @@ first principles — an earlier `- 0.25` offset gave 1.75x/2.75x at 1440p/2160p,
 which play-tested too small. It lives in **two** places that must stay in
 step: `font_scale_for` in `tools/prepare_universal_resources.py` (atlas TXI
 metrics) and `ResolutionPatch.ScaleForHeight` in
-`app/patcher/KotorUniversalPatcher.cs` (list-row heights).
+`src/patcher/KmrpPatcher.cs` (list-row heights).
 
 ## Known unknowns
 

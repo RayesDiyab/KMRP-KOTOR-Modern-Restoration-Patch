@@ -1,14 +1,14 @@
 # Patcher UI, asset, and build architecture
 
 This document describes the shipping Windows patcher in
-`app/patcher/KotorUniversalPatcher.cs`, the assets compiled into it, and the
+`src/patcher/KmrpPatcher.cs`, the assets compiled into it, and the
 build and verification workflow. Resolution and game-engine math remain in
 `docs/universal-resolution-math.md`; font and listbox patches remain in
 `docs/font-scaling.md` and `reverse-engineering/listbox-geometry.md`.
 
 ## Shipping artifact
 
-`build_universal_patcher.ps1` produces one portable executable:
+`build_kmrp.ps1` produces one portable executable:
 
 ```text
 dist/KMRP - KOTOR Modern Restoration Patch.exe
@@ -28,7 +28,7 @@ The supported editable executable is identified by SHA-256
 The current gold-v14 reference is 4,079,616 bytes with SHA-256
 `1F1684A5DC8BC440B2C8FF0194873315EDD39DE1C1039CB2E73861A4B3732504`.
 The constants in `GoldPatch`, `tools/generate_gold_delta.py`, and the default
-`-GoldExe` argument in `build_universal_patcher.ps1` must always move together.
+`-GoldExe` argument in `build_kmrp.ps1` must always move together.
 
 ## Main-window flow
 
@@ -129,7 +129,7 @@ roles, and Segoe UI for body text. The current design-space sizes are:
 - recovery title/body/path: 19 / 15 / 14.5 pt;
 - footer links and credit: 15.5 pt.
 
-The four step sources, the Verified source and the Missing source live in `App icons/`. Run:
+The four step sources, the Verified source and the Missing source live in `assets/branding/ui-icons/`. Run:
 
 ```powershell
 python .\tools\prepare_app_icons.py
@@ -141,7 +141,7 @@ The script:
 2. crops to pixels with alpha greater than 8;
 3. preserves aspect ratio while scaling the longest ink edge to 224 pixels;
 4. centres the result on a 256 × 256 transparent canvas;
-5. writes white artwork to `app/patcher/icons/`.
+5. writes white artwork to `src/patcher/icons/`.
 
 White is intentional. The patcher multiplies the resource by the current theme
 colour at draw time, keeping icon colour controlled by the UI palette. Missing
@@ -583,7 +583,7 @@ Requirements currently encoded by the build script:
 - Python: `C:\Python314\python.exe`;
 - C# compiler: `.NET Framework` `csc.exe` under
   `C:\Windows\Microsoft.NET\Framework\v4.0.30319`;
-- Pillow only when regenerating `app/patcher/icons/` with
+- Pillow only when regenerating `src/patcher/icons/` with
   `prepare_app_icons.py`. The normal universal resource pipeline intentionally
   does not require Pillow.
 
@@ -592,18 +592,18 @@ environment that has Pillow. Then perform a full release build:
 
 ```powershell
 python .\tools\prepare_app_icons.py  # requires Pillow; skip if icons are unchanged
-.\build_universal_patcher.ps1
+.\build_kmrp.ps1
 ```
 
 Use `-ReuseResources` only for a C#/icon-only iteration after a successful full
 resource build:
 
 ```powershell
-.\build_universal_patcher.ps1 -ReuseResources
+.\build_kmrp.ps1 -ReuseResources
 ```
 
-Both `build_universal_patcher.ps1` and `build_gold_patcher.ps1` use the
-project-root `favicon.ico`. `app/patcher/favicon.ico` is retained as a
+`build_kmrp.ps1` uses the
+`assets/branding/favicon.ico`. `src/patcher/favicon.ico` is retained as a
 synchronised compatibility copy, not as an independent source of truth.
 After compilation the universal builder sends `SHCNE_UPDATEITEM` for the output
 path so Explorer is prompted to refresh an icon cached for `dist/KMRP - KOTOR Modern Restoration Patch.exe`.
@@ -630,10 +630,10 @@ the resolution in the legacy `--apply` and `--in-place` forms selects
 ## Release verification checklist
 
 1. Run `prepare_app_icons.py`; confirm all five supplied roles are reported.
-2. Run a full `build_universal_patcher.ps1` without `-ReuseResources`.
+2. Run a full `build_kmrp.ps1` without `-ReuseResources`.
 3. Confirm the embedded source/target hashes and the 48-entry resolution table.
 4. Extract the executable's 32px and 256px icon frames and confirm both show the
-   current root `favicon.ico` artwork.
+   current `assets/branding/favicon.ico` artwork.
 5. Test missing, unsupported, clean, patched, restoring, error, and success UI
    states.
 6. Confirm the Verified badge size and that the success message survives window

@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Render the KMRP header lockup, matched numerically to `Goal LOGO.png`.
+"""Render the KMRP header lockup, matched numerically to `assets/branding/logo.png`.
 
 Every constant below was measured off the reference rather than chosen by eye.
 The reference is 513x226; the wordmark occupies x 87..446, cap top y=117,
@@ -324,7 +324,7 @@ def build(crest_path: Path, out: Path) -> None:
 def main() -> int:
     parser = argparse.ArgumentParser()
     parser.add_argument("--crest", type=Path, default=CREST)
-    parser.add_argument("--out", type=Path, default=Path("app/patcher/brand.png"))
+    parser.add_argument("--out", type=Path, default=Path("src/patcher/brand.png"))
     args = parser.parse_args()
     for path in (args.crest, FONT):
         if not path.exists():

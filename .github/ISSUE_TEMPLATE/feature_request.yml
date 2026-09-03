@@ -1,0 +1,30 @@
+name: Feature request
+description: Suggest an interface fix or an improvement.
+labels: ["enhancement"]
+body:
+  - type: textarea
+    id: problem
+    attributes:
+      label: What is wrong today
+      description: Describe the behaviour you want changed, ideally with a screenshot.
+    validations:
+      required: true
+  - type: textarea
+    id: proposal
+    attributes:
+      label: What you would like instead
+    validations:
+      required: true
+  - type: input
+    id: resolution
+    attributes:
+      label: Resolution(s) this affects
+      placeholder: "3440x1440, or 'all'"
+  - type: textarea
+    id: evidence
+    attributes:
+      label: Evidence
+      description: |
+        Optional, but the most useful thing you can add. Measurements, addresses,
+        or a comparison against vanilla — anything that shows the cause rather
+        than only the symptom.

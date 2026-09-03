@@ -64,7 +64,9 @@ from pykotor.resource.formats.tpc import TPCTextureFormat, read_tpc
 from pykotor.resource.formats.erf import read_erf
 
 
-DEFAULT_ERF = Path(r"C:\Star Wars - KotOR\TexturePacks\swpc_tex_gui.erf")
+# The project is self-contained: the texture pack is supplied in build-inputs/
+# rather than read from wherever the game happens to be installed.
+DEFAULT_ERF = Path(__file__).resolve().parents[1] / "build-inputs" / "swpc_tex_gui.erf"
 
 # 512 of content plus 60 of margin on each side. 60 is half the engine's
 # 120-unit minimap window, which is the furthest the view can ever reach past

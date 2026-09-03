@@ -6,7 +6,7 @@ The Inventory / Abilities / Store row classes draw their icon frame as a
 vanilla row icon box -- so one tile fills the box and the tiling is invisible.
 
 Once the row/icon constants are scaled (see `RowSizeGroups` in
-`KotorUniversalPatcher.cs` and `reverse-engineering/inventory-item-rows.md`),
+`KmrpPatcher.cs` and `reverse-engineering/inventory-item-rows.md`),
 the box no longer matches the art: at 1440p the box is 112px and the 56px frame
 tiles **2x2, drawing four borders per row**. Observed in game, and the reason
 this module exists. Intermediate scales are worse, not better -- 1.5x leaves a

@@ -33,7 +33,7 @@ import zipfile
 from pathlib import Path
 
 REPO = Path(__file__).resolve().parent.parent
-ARCHIVES = REPO / "build/universal-patcher/resources"
+ARCHIVES = REPO / "build/kmrp/resources"
 
 ERF_KEY_RECORD = 24
 ERF_RESOURCE_RECORD = 8
@@ -48,7 +48,7 @@ def shipped_paths() -> dict[str, set[str]]:
     purposes their union is the same set as any one of them.
     """
     if not ARCHIVES.is_dir():
-        sys.exit("No built resources at %s -- run build_universal_patcher.ps1 first." % ARCHIVES)
+        sys.exit("No built resources at %s -- run build_kmrp.ps1 first." % ARCHIVES)
     groups: dict[str, set[str]] = {"common textures": set(), "resolution layout": set()}
     for archive in sorted(ARCHIVES.glob("*.zip")):
         with zipfile.ZipFile(archive) as bundle:

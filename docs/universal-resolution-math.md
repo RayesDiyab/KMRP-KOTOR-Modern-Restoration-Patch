@@ -2,12 +2,12 @@
 
 ## What this build does
 
-The universal patcher starts from the supported editable `swkotor.exe`, applies the already play-tested 3440×1440 gold transformation, and then replaces only the verified resolution-dependent values. It also updates `swkotor.ini` and installs the matching high-resolution GUI set plus the shared HD artwork.
+KMRP starts from the supported editable `swkotor.exe`, applies the already play-tested 3440×1440 gold transformation, and then replaces only the verified resolution-dependent values. It also updates `swkotor.ini` and installs the matching high-resolution GUI set plus the shared HD artwork.
 
 The original 3440×1440 patcher is frozen separately as
 `D8F0EEBF470660FFBB0DBE9D6953774B937F73F92260FA2D3427189D8B7F6ADE`.
 
-**Selecting 3440×1440 in the universal patcher no longer reproduces that
+**Selecting 3440×1440 in KMRP no longer reproduces that
 historical hash.** The current baseline is
 `swkotor_gold_v15_popup.exe`
 (`79356D1A92637C1B5C619B530FDA742A622A330E19AD628DBA19464202425048`). It
@@ -138,7 +138,7 @@ All replacements verify the expected gold value first. A mismatch blocks patchin
 1. Add a matching `gui.WIDTHxHEIGHT` directory containing the full GUI set.
 2. Add the resolution to `GROUPS` in `tools/prepare_universal_resources.py`.
 3. Run `tools/analyze_resolution_guis.py` to regenerate `assets/resolution-geometry.json`.
-4. Run `build_universal_patcher.ps1` without `-ReuseResources`.
+4. Run `build_kmrp.ps1` without `-ReuseResources`.
 5. Generate the executable through `--apply CLEAN_EXE OUTPUT_EXE WIDTHxHEIGHT` and verify all eight dynamic fields.
 6. Test in game: menus, HUD, minimap at multiple player positions, full map, marker clicks, marker cycling, and repeated `M` open/close.
 

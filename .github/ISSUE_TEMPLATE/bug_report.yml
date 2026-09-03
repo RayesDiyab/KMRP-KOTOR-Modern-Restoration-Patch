@@ -1,0 +1,66 @@
+name: Bug report
+description: Something in the patched game, or the patcher itself, behaves wrongly.
+labels: ["bug"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for the report. **Please do not attach game executables or other
+        copyrighted game files** — hashes and screenshots are enough.
+  - type: textarea
+    id: what-happened
+    attributes:
+      label: What happened
+      description: What you saw, and what you expected instead.
+    validations:
+      required: true
+  - type: textarea
+    id: repro
+    attributes:
+      label: Steps to reproduce
+      placeholder: |
+        1. Patch at 1920x1080
+        2. Open the Abilities screen
+        3. ...
+    validations:
+      required: true
+  - type: input
+    id: resolution
+    attributes:
+      label: Resolution
+      placeholder: "1920x1080"
+    validations:
+      required: true
+  - type: input
+    id: version
+    attributes:
+      label: KMRP version
+      description: Right-click the patcher executable → Properties → Details → File version.
+      placeholder: "2.7.0.0"
+    validations:
+      required: true
+  - type: dropdown
+    id: area
+    attributes:
+      label: Where does it show up?
+      options:
+        - In the game's interface
+        - In the patcher application
+        - While patching or restoring
+        - Building from source
+        - Somewhere else / not sure
+    validations:
+      required: true
+  - type: textarea
+    id: screenshots
+    attributes:
+      label: Screenshots
+      description: For anything visual, a screenshot is worth far more than a description.
+  - type: textarea
+    id: extra
+    attributes:
+      label: Anything else
+      description: |
+        For patch or restore failures: the SHA-256 of your `swkotor.exe`, and
+        whether `KOTOR_UI_Override_Backup.manifest` exists. If the patcher wrote
+        `KMRP.startup-error.log`, paste it here.

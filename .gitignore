@@ -30,3 +30,34 @@ __pycache__/
 
 # Hand-edit backups of Override GUI files
 *.gui.bak
+
+# Build output and local scratch
+dist/
+.spec-render/
+
+# OS / editor noise
+Thumbs.db
+Desktop.ini
+.DS_Store
+.vscode/
+.idea/
+
+# Test-run artifacts. The verify-* folders are .gui dumps produced by a patcher
+# run at one resolution -- regenerate them rather than storing them (see
+# testing/README.md). latest-generated-*-path.txt records an absolute path from
+# whichever machine produced them.
+testing/virtual-display/verify-*/
+testing/virtual-display/latest-generated-*-path.txt
+
+# Vendored third-party driver package. Obtain it from the upstream project and
+# verify the SHA-256 recorded in testing/virtual-display/README.md instead.
+testing/virtual-display/VDD.Control.*/
+testing/virtual-display/VDD.Control.*.zip
+
+# Game-derived build inputs. Kept inside the project so it is self-contained,
+# but never committed -- these are BioWare's files. See build-inputs/README.md.
+build-inputs/*
+!build-inputs/README.md
+
+# Machine-specific build settings (build.local.example.ps1 is the template).
+build.local.ps1

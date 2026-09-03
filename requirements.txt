@@ -1,0 +1,11 @@
+# Python packages the tools in tools/ import.
+#
+# Unpinned on purpose: these are developer-side build utilities, not a shipped
+# application, and nothing here is redistributed. The versions the current build
+# machine uses are noted beside each package so a mismatch can be spotted.
+#
+# Install with:  python -m pip install -r requirements.txt
+
+pykotor      # 2.3.12 -- reads and writes the game's GFF/2DA/TPC/ERF formats
+Pillow       # 12.3.0 -- rendering font atlases and preparing UI icons
+numpy        # 2.5.2  -- pixel array work in the icon and atlas tools
