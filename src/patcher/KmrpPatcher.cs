@@ -4434,7 +4434,7 @@ namespace Kmrp
             driverToggle.Detail =
                 "Restores modern GPU rendering features and fixes driver-related visual issues.";
             driverToggle.Checked = KmrpSettings.DriverCompatibility;
-            driverToggle.SetBounds(36, settingsSubtitle.Bottom + 18, card.Width - 72, 92);
+            driverToggle.SetBounds(36, settingsSubtitle.Bottom + 18, card.Width - 72, 110);
             driverToggle.Anchor = AnchorStyles.Top | AnchorStyles.Left | AnchorStyles.Right;
             driverToggle.CheckedChanged += delegate
             {
@@ -4448,7 +4448,7 @@ namespace Kmrp
             markerToggle.Detail =
                 "Corrects misplaced area-map marker positions across the game.";
             markerToggle.Checked = KmrpSettings.MarkerFixes;
-            markerToggle.SetBounds(36, driverToggle.Bottom + 12, card.Width - 72, 92);
+            markerToggle.SetBounds(36, driverToggle.Bottom + 12, card.Width - 72, 110);
             markerToggle.Anchor = AnchorStyles.Top | AnchorStyles.Left | AnchorStyles.Right;
             markerToggle.CheckedChanged += delegate
             {
