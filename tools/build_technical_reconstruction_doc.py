@@ -382,7 +382,7 @@ def build_document():
     p = doc.add_paragraph()
     p.alignment = WD_ALIGN_PARAGRAPH.CENTER
     p.paragraph_format.space_after = Pt(10)
-    r = p.add_run("KOTOR Universal UI\nand Map Patch")
+    r = p.add_run("KMRP\nKOTOR Modern Restoration Patch")
     set_run_font(r, size=28, color=NAVY, bold=True)
 
     p = doc.add_paragraph()
@@ -421,7 +421,7 @@ def build_document():
     add_heading(doc, "Purpose and document map", 1)
     add_body(
         doc,
-        "This guide explains exactly what changed between the supported clean executable and the user-tested gold build, why each layer exists, the coordinate systems involved, and how to generate equivalent values for another resolution. It is both a reconstruction record and an implementation specification for the future universal patcher."
+        "This guide explains exactly what changed between the supported clean executable and the user-tested gold build, why each layer exists, the coordinate systems involved, and how to generate equivalent values for another resolution. It is both a reconstruction record and an implementation specification for the future KMRP."
     )
     for item in (
         "Artifact identity and the evidence hierarchy.",
@@ -859,7 +859,7 @@ def build_document():
     for item in (
         "Gold snapshot: ..\\swkotor_gold_final_D8F0EEBF.exe",
         "Supported source: ..\\swkotornopatch.exe",
-        "Patcher source: app\\patcher\\KotorGoldPatcher.cs",
+        "Patcher source: src\\patcher\\KmrpPatcher.cs",
         "Delta generator: tools\\generate_gold_delta.py",
         "Coordinate wrapper builder: tools\\build_map_icon_draw_wrapper.py",
         "HUD caller wrapper builder: tools\\build_minimap_split_candidate.py",
@@ -891,9 +891,9 @@ def build_document():
 
     # Metadata and save.
     props = doc.core_properties
-    props.title = "KOTOR Universal UI and Map Patch - Gold Build Technical Reconstruction"
+    props.title = "KMRP - Gold Build Technical Reconstruction"
     props.subject = "Executable changes, coordinate math, history, and resolution reproduction method"
-    props.author = "KOTOR Universal UI Project"
+    props.author = "KMRP - KOTOR Modern Restoration Patch"
     props.keywords = "KOTOR, ultrawide, map patch, minimap, marker scaling, hitbox, reverse engineering"
     props.comments = "Generated from the frozen gold executable and project reverse-engineering records."
 

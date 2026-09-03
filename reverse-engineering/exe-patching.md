@@ -111,8 +111,8 @@ boundary.
 ## Rule 6: the constants move together
 
 `EXPECTED_GOLD_SHA256` (`generate_gold_delta.py`), `GoldPatch.TargetHash` and
-`GoldPatch.TargetLength` (`app/patcher/KotorUniversalPatcher.cs`) and `-GoldExe`
-(`build_universal_patcher.ps1`) all describe the same file. Getting one out of
+`GoldPatch.TargetLength` (`src/patcher/KmrpPatcher.cs`) and `-GoldExe`
+(`build_kmrp.ps1`) all describe the same file. Getting one out of
 step is caught by the patcher's own startup check — "Embedded patch metadata
 does not match this patcher" — which has fired twice in this work. Reproduce it
 against the built `gold.kup` before shipping, not after.

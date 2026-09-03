@@ -10,7 +10,7 @@ rect and the texture must be the same size:
 * a texture LARGER than the rect is **cropped**.
 
 The rect is scaled per resolution by `ResolutionPatch` (`PopupSizeGroups` in
-`KotorUniversalPatcher.cs`), so these textures are **resolution-dependent** and
+`KmrpPatcher.cs`), so these textures are **resolution-dependent** and
 must ship in `gui-<res>.zip`, never in the shared archive -- the same rule the
 hex row frames follow, and for the same reason.
 

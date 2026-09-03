@@ -98,7 +98,7 @@ technical writeup.
 Live install (3440x1440) as of this experiment: gold delta + font-scale hook
 + list-row hook + letterbox hooks (all three exe-side fixes, chained from the
 pristine gold backup, current SHA-256 `CDE41D99FA2DA70C294893A4FF47EAB9A4EAE848303695C18410B3846401170C`)
-plus the corrected `computer.gui` in `Override/`. The Universal Patcher was
+plus the corrected `computer.gui` in `Override/`. KMRP was
 separately rebuilt (`dist/KOTOR_Universal_UI_Patcher.exe`,
 `A018BA7FAA83F56F866303452D9ED016D9F650ABF02534550F11C96D9CE48C15`) to pick
 up the `computer.gui` fix for all 48 resolutions — **that rebuild does not

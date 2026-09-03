@@ -25,7 +25,7 @@ from scale_row_icon_frames import FRAME_RESREFS, export_frames
 MENUBG_TEXTURE_NAME = "lbl_mileftbot.tga"
 
 # Font sizing is applied to the atlases' TXI metrics rather than at runtime (see
-# ResolutionPatch in KotorUniversalPatcher.cs). Must stay in step with that class's
+# ResolutionPatch in KmrpPatcher.cs). Must stay in step with that class's
 # ScaleForHeight, which scales list-row heights by the same rule so rows always grow
 # with the text: 1.25x at 1080p, 1.75x at 1440p, 2.75x at 2160p, clamped at 1.0.
 FONT_HEIGHT_DIVISOR = 720.0
@@ -211,7 +211,7 @@ def main() -> int:
     # the same relative path carrying different content across the two archives.
     # The hex icon frames behind list-row item icons are a TILED fill sized to the
     # row's icon box. That box is now scaled per resolution (RowSizeGroups in
-    # KotorUniversalPatcher.cs), so 56px art tiles 2x2 at 1440p and draws four
+    # KmrpPatcher.cs), so 56px art tiles 2x2 at 1440p and draws four
     # borders per row -- seen in game. They therefore ship per resolution, scaled
     # to match, and must NOT go in the shared archive.
     frame_tga_names = {f"{name}.tga" for name in FRAME_RESREFS}
@@ -259,6 +259,12 @@ def main() -> int:
                   common_tga_files + hd_font_atlases + stock_atlases + shared_data)
 
     catalog_lines = ["# category\twidth\theight\tcanvasWidth\tcanvasHeight\toverlayWidth\tcenteringWidth\tcenteringHeight"]
+    # Progress for the build script's bar: it turns "[done/total] label" lines
+    # into bar updates. This is the long stage -- 48 resolutions of GUI and
+    # texture work -- and without a heartbeat the build looks hung.
+    total_resolutions = sum(len(items) for items in GROUPS.values())
+    completed_resolutions = 0
+
     for category, resolutions in GROUPS.items():
         for resolution in resolutions:
             width, height = (int(value) for value in resolution.split("x"))
@@ -465,6 +471,8 @@ def main() -> int:
 
 
                 write_zip(args.output / f"gui-{resolution}.zip", packaged_files)
+                completed_resolutions += 1
+                print(f"[{completed_resolutions}/{total_resolutions}] {resolution}", flush=True)
 
     (args.output / "resolutions.tsv").write_text("\n".join(catalog_lines) + "\n", encoding="utf-8")
     shutil.copy2(args.upstream / "LICENSE.txt", args.output / "GPL-3.0-KOTOR-High-Resolution-Menus.txt")

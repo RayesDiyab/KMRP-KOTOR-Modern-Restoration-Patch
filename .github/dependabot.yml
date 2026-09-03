@@ -1,0 +1,17 @@
+# Only GitHub Actions is listed.
+#
+# The Python tools are developer-side utilities with no committed lockfile, and
+# the C# patcher targets the .NET Framework libraries shipped with Windows -- so
+# there is no package manifest for Dependabot to track in either. Actions are
+# the one dependency this repository genuinely pins, and an out-of-date action is
+# the realistic supply-chain risk here.
+version: 2
+updates:
+  - package-ecosystem: "github-actions"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+    commit-message:
+      prefix: "ci"
+    labels:
+      - "dependencies"

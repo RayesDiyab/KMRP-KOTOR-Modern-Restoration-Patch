@@ -78,7 +78,7 @@ Gold binaries are not tracked (`build/` is ignored), so v15 is reproduced from
 v14 with:
 
 ```bash
-python tools/build_message_popup_size.py build/universal-patcher/swkotor_gold_v14_minimap.exe build/universal-patcher/swkotor_gold_v15_popup.exe --height-cap 900 --width-cap 1600 --icon-size 128
+python tools/build_message_popup_size.py build/kmrp/swkotor_gold_v14_minimap.exe build/kmrp/swkotor_gold_v15_popup.exe --height-cap 900 --width-cap 1600 --icon-size 128
 ```
 
 **The width cap is the fix for clipped text.** The auto-fit loop widens the popup
@@ -145,7 +145,7 @@ thirteen came out byte-identical either way; the other seven are sharper.
 
 ### 4. A TGA writer bug fixed along the way
 
-The icons came out upside down. `app/patcher/AbilityIconGenerator.cs` already
+The icons came out upside down. `src/patcher/AbilityIconGenerator.cs` already
 states the rule -- *"TPC pixel rows run bottom-up, and so does the TGA we write,
 so no [flip]"* -- and the writer reversed the rows anyway. Fixed here and in
 `build_padded_minimap_atlases.py`, which carried the same bug.

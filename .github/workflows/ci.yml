@@ -1,0 +1,41 @@
+# Deliberately small.
+#
+# A real build needs the game's own texture pack, a clean swkotor.exe and a gold
+# snapshot, none of which can be committed, so CI cannot build the patcher and
+# pretending otherwise would just be a permanently red badge. What it can do is
+# check the things that do not need the game.
+name: CI
+
+on:
+  push:
+    branches: [master]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  python:
+    name: Python tools compile
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      # Byte-compiles every tool: catches syntax errors without needing pykotor,
+      # Pillow, numpy or any game file.
+      - name: Byte-compile tools/
+        run: python -m compileall -q tools
+
+  links:
+    name: Documentation links
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Check relative Markdown links resolve
+        run: python .github/scripts/check_links.py

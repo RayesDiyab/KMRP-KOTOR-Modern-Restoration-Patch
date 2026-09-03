@@ -28,7 +28,7 @@ a stub that performs **exactly the same instructions** with imm32 operands, then
 jumps back. `jmp` preserves `esp`, so the stub's `[esp+NN]` references stay
 valid. The three constants sit at fixed offsets in the stub so the per-resolution
 patcher can write them as full 32-bit values (`StackCountSites` in
-`KotorUniversalPatcher.cs`), with no clamp.
+`KmrpPatcher.cs`), with no clamp.
 """
 
 from __future__ import annotations
@@ -170,7 +170,7 @@ def main() -> int:
     print(f"{'block replaced':<22} VA 0x{BLOCK_VA:08X}  file 0x{offset:08X}  {BLOCK_LEN} bytes")
     print(f"{'stub (.ksc)':<22} VA 0x{stub_va:08X}  file 0x{stub_file_offset:08X}  {len(stub)} bytes")
     print()
-    print("StackCountSites file offsets for KotorUniversalPatcher.cs (all imm32):")
+    print("StackCountSites file offsets for KmrpPatcher.cs (all imm32):")
     print(f"    new[] {{ 0x{0x002B5332:08X}, 4, 19 }},   // label height (unchanged, already imm32)")
     for name, vanilla in (("width_and", VANILLA_WIDTH), ("width_add", VANILLA_WIDTH),
                           ("top", VANILLA_TOP)):

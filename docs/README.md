@@ -1,0 +1,22 @@
+# Documentation
+
+Design and build documentation. Engine analysis lives one level over, in
+[`reverse-engineering/`](../reverse-engineering/README.md).
+
+| Document | What it covers |
+| --- | --- |
+| [universal-resolution-math.md](universal-resolution-math.md) | How one patcher covers 48 resolutions: the executable fields that hold screen geometry, the coordinate math, how the per-resolution GUI archives are packaged, reproduction steps, and **which resolutions have actually been play-tested** as opposed to generated. |
+| [font-scaling.md](font-scaling.md) | The font, dialogue-letterbox and list-row scaling work, and the **gold snapshot chain** — every reference executable with its SHA-256 and what it added. Start here to rebuild or verify a gold snapshot. |
+| [patcher-ui-build.md](patcher-ui-build.md) | The Windows patcher itself: UI state machine, proportional resize, icon pipeline, embedded resources, build process, transaction safety, and the release checklist. |
+| [phase-0-plan.md](phase-0-plan.md) | The original proof plan for the map fix — the project's first milestone. Kept as a record of how the work was scoped. |
+| [technical-reconstruction/](technical-reconstruction/) | A long-form technical reconstruction of the gold build: the Word document, a PDF render, and page images used to proof it. |
+
+## Where to start
+
+- **Playing, not building?** The [main README](../README.md) is all you need.
+- **Adding a resolution?** `universal-resolution-math.md`, then
+  `GROUPS` in `tools/prepare_universal_resources.py`.
+- **Changing an engine constant?** Read
+  [exe-patching.md](../reverse-engineering/exe-patching.md) first, then the
+  document for that subsystem.
+- **Rebuilding a gold snapshot?** The chain table in `font-scaling.md`.

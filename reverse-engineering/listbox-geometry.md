@@ -68,7 +68,7 @@ multi-row lists before gold v11.
 
 Each takes the previous gold as input. `TargetLength` is **4079616** and lives in
 `GoldPatch.TargetLength`; `TargetHash`, `EXPECTED_GOLD_SHA256` in
-`generate_gold_delta.py`, and `-GoldExe` in `build_universal_patcher.ps1` all
+`generate_gold_delta.py`, and `-GoldExe` in `build_kmrp.ps1` all
 move together. Getting one out of step is caught by the patcher's own startup
 check, which has fired twice in this work — reproduce it against the built
 `gold.kup` before shipping rather than after.

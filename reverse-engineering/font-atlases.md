@@ -355,7 +355,7 @@ v10 adds the `.ksc` section.
 | width, 3+ digits | `0x003DF009` | imm32, `.ksc` | 21 |
 | top offset | `0x003DF020` | imm32, `.ksc` | 37 |
 
-`StackCountSites` in `KotorUniversalPatcher.cs` scales all four with no clamp:
+`StackCountSites` in `KmrpPatcher.cs` scales all four with no clamp:
 114/126/222 at 7680x4320, and it still decodes correctly at 15360x8640
 (228/252/444).
 
@@ -631,6 +631,6 @@ somewhere else, most likely when the listbox positions its children.
 
 > **SOLVED** — see `inventory-item-rows.md`. Rows and icons size from three
 > hardcoded `56`s at file offsets `0x002B527F`, `0x002B4FA9` and `0x002B55E3`;
-> all three are now scaled per resolution by the Universal Patcher. The
+> all three are now scaled per resolution by KMRP. The
 > breakpoint route (row ctor `0x006B7EE0`, layout `0x006B4DB0`) is what found
 > them, and the method is written up there.

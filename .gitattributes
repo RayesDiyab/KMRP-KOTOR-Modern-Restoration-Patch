@@ -1,0 +1,36 @@
+# Line endings.
+#
+# Deliberately NOT `* text=auto`: this repository already holds files committed
+# with mixed endings, and a blanket rule would renormalise them all in one
+# unrelated commit and bury real changes. Text types are declared explicitly as
+# they are cleaned up instead.
+*.md        text
+*.py        text
+*.cs        text
+*.ps1       text eol=crlf
+*.txt       text
+*.json      text
+*.tsv       text
+*.yml       text
+*.yaml      text
+*.asm       text
+
+# Binary. Without these git may try to diff or merge them, and a mangled GUI or
+# texture is not obvious until it is in the game.
+*.gui       binary
+*.tga       binary
+*.tpc       binary
+*.2da       binary
+*.erf       binary
+*.bin       binary
+*.png       binary
+*.ico       binary
+*.docx      binary
+*.pdf       binary
+*.zip       binary
+*.kup       binary
+
+# Keep generated/vendored trees out of language stats and collapsed in diffs.
+third_party/**            linguist-vendored
+testing/virtual-display/** linguist-vendored
+assets/**                 linguist-generated
