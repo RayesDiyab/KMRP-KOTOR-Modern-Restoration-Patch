@@ -158,12 +158,22 @@ HAND_TUNED_GUTTERS = {
     "equip.gui": [({"LB_DESC"}, 10.0)],
 }
 
-GOLD_GEOMETRY_TEMPLATES = {
-    "abchrgen.gui", "barkbubble.gui", "computer.gui",
-    "container.gui", "custpnl.gui", "equip.gui", "ftchrgen.gui",
-    "galaxymap.gui", "inventory.gui", "journal.gui", "loadscreen.gui",
-    "map.gui", "messages.gui", "pause.gui", "questitem.gui", "saveload.gui",
-    "tooltip6x4.gui",
+# Files whose 3440x1440 gold layout is NOT transferred to other resolutions.
+#
+# The transfer used to be an explicit allow-list, and it drifted: 23 hand-tuned
+# files were missing from it -- abilities.gui, store.gui, pwrlvlup.gui, every
+# options screen -- so at every resolution except 3440x1440 those screens kept
+# upstream's extents and their text boxes ran to the edge of the artwork instead
+# of sitting inside it. It is now derived: every gold file whose extents differ
+# from its upstream counterpart is transferred, so tuning a new file is picked up
+# without editing a list. Only the files below are held back, each because
+# something else already owns their geometry.
+GOLD_GEOMETRY_EXCLUDED = {
+    # Sized from this resolution's own font scale by apply_popup_layout, which
+    # runs before the 3440x1440 passthrough and so already covers every case.
+    "confirm.gui",
+    # LBL_Map is computed per resolution from the marker overlay, not inherited.
+    "map.gui",
 }
 
 
@@ -348,6 +358,7 @@ def main() -> int:
             with tempfile.TemporaryDirectory(prefix=f"kotor-gui-{resolution}-") as temp_name:
                 temp_dir = Path(temp_name)
                 packaged_files: list[Path] = []
+                transferred: list[str] = []
                 for gui_file in gui_files:
                     name = gui_file.name.lower()
                     patched = temp_dir / gui_file.name
@@ -419,14 +430,23 @@ def main() -> int:
                         # it to the buttons' own bounding box + a small margin.
                         fix_menubg_file(patched, patched)
                         packaged_files.append(patched)
-                    elif name in GOLD_GEOMETRY_TEMPLATES:
-                        transfer_geometry(
-                            args.upstream / "21-by-9" / "gui.3440x1440" / gui_file.name,
-                            args.gold_override / gui_file.name,
-                            gui_file,
-                            patched,
-                        )
-                        packaged_files.append(patched)
+                    elif name not in GOLD_GEOMETRY_EXCLUDED and (
+                            args.gold_override / gui_file.name).is_file() and (
+                            args.upstream / "21-by-9" / "gui.3440x1440" / gui_file.name).is_file():
+                        try:
+                            transfer_geometry(
+                                args.upstream / "21-by-9" / "gui.3440x1440" / gui_file.name,
+                                args.gold_override / gui_file.name,
+                                gui_file,
+                                patched,
+                            )
+                            packaged_files.append(patched)
+                            transferred.append(name)
+                        except ValueError:
+                            # transfer_geometry raises when the reference pair has no
+                            # changed extents -- that file was never hand-tuned, so
+                            # upstream's own layout is what should ship.
+                            packaged_files.append(gui_file)
                     else:
                         packaged_files.append(gui_file)
 
@@ -543,6 +563,9 @@ def main() -> int:
                                           font_scale_for(height)))
 
 
+                if transferred:
+                    print(f"  {resolution}: gold geometry transferred to "
+                          f"{len(transferred)} GUI files")
                 write_zip(args.output / f"gui-{resolution}.zip", packaged_files)
                 completed_resolutions += 1
                 print(f"[{completed_resolutions}/{total_resolutions}] {resolution}", flush=True)
