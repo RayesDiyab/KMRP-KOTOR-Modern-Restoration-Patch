@@ -136,11 +136,17 @@ add  eax, 0x80             ; +128, half of 256
 idiv 0x100                 ; / 256
 ```
 
-The vanilla routine still divides by the two shared float constants at
-`0x00747748` (440.0) and `0x007455D4` (256.0); **KMRP leaves both untouched**
-and rescales the *result* instead. Because the target size is read from the
-object at run time (`[ebx+0x0C]`, `[ebx+0x10]`) and not baked in as a constant,
-one gold binary serves every resolution.
+**KMRP leaves the two shared float constants at `0x00747748` (440.0) and
+`0x007455D4` (256.0) untouched** and rescales the *result* instead. Because the
+target size is read from the object at run time (`[ebx+0x0C]`, `[ebx+0x10]`) and
+not baked in as a constant, one gold binary serves every resolution.
+
+*Corrected the same day this was written:* an earlier sentence here said the
+vanilla routine "divides by" those two floats. It does not. `0x00578E00` divides
+by a **per-object field**, and the 440/256 appearing in it are bounds checks --
+see below. The floats are used elsewhere in the chain. The claim was written
+from the design note rather than from the disassembly, which is the exact
+mistake the correction above this section is about.
 
 The hit-test wrapper derives its centring the same way:
 
@@ -165,20 +171,112 @@ The area map's slot is `0x0075477C`, and gold redirects it (`0x00693300` ->
 `0x0086D100`). The inverse transform therefore never reads a design-size
 constant at all, so the vanilla value in that path is inert.
 
-### Independent corroboration
+### Marker coordinate precision, and the lattice it costs
 
-*K1 Area Map Fixes 1.0.0* (Derslok, GPL-3.0) solves the same problem in the same
-executable and reached the same diagnosis independently: the constants the area
-map divides by are shared with the HUD minimap, and editing them in place
-"turns the minimap black". Its fix writes scaled private copies at `0x0078CC00`
-and redirects only the map's own operands -- a *pre*-scale where KMRP
-*post*-scales. Same destination, opposite order.
+Every statement here was read out of the binaries; the arithmetic follows from
+those values.
 
-The two mods are mutually exclusive: both append their added data at file offset
-`0x3DB000` (the first byte past the end of the clean image), both refuse an
-executable they do not recognise, and their marker hooks land byte-adjacent to
-KMRP's writes in the same three functions. The one thing that mod has which KMRP
-does not is a 250-entry map-note correction table keyed on world position.
+**The vanilla conversion is float maths that truncates once, at the end.**
+`0x00578E00`, disassembled from the clean executable:
+
+```asm
+00578E61  fsub  dword ptr [esi+0x20]   ; world - origin
+00578E64  fdiv  dword ptr [esi+0x18]   ; / world-units-per-pixel  <- PER-OBJECT field
+00578E67  fadd  dword ptr [0x73E9AC]   ; + 0.5
+00578E6D  call  0x006FAE8C             ; float -> int
+...
+00578E99  cmp   ecx, 0x1B8             ; 440  <- BOUNDS CHECK, not a scale
+00578EA5  cmp   eax, 0x100             ; 256  <- BOUNDS CHECK, not a scale
+```
+
+So the scale divisor is `[esi+0x18]` / `[esi+0x1C]`, not a global constant, and
+the `440` / `256` immediates inside this function are range tests (`cmp` + `jg`)
+that decide whether the point is on the map at all.
+
+**KMRP's wrappers receive an already-truncated integer.** Both read the result
+with `mov eax, dword ptr [esi]` and rescale it with integer `imul` / `idiv`. The
+rounding therefore happens in vanilla 440x256 space, before any KMRP code runs,
+and no post-scaling can recover what it discarded.
+
+**The resulting lattice**, on the 1478x720 marker overlay:
+
+| axis | step |
+| --- | --- |
+| horizontal | 1478 / 440 = **3.36 px** |
+| vertical | 720 / 256 = **2.81 px** |
+
+That is 0.23% of the map's width. Map notes are static, so it is invisible for
+them; for the player arrow it is a ~3 px step as the player moves. **Whether
+that is perceptible has not been tested** -- if it ever looks like stepping
+rather than sliding, this is the cause.
+
+**It is a deliberate trade, not an oversight.** Removing it means the rounding
+has to happen in 1478x720 space, which requires either widening the bounds
+checks at `0x00578E99` / `0x00578EA5` -- in a routine the HUD minimap also calls,
+which is the shared-state risk this design exists to avoid -- or giving the map a
+private copy of the conversion and then following the normalisation chain
+further. The `+0xDC` / `+0x80` rounding in the wrappers removes the systematic
+bias but cannot restore the lost resolution.
+
+**Where the two shared floats are actually used.** Found by scanning the clean
+image for references to their addresses:
+
+| | referenced from |
+| --- | --- |
+| `0x00747748` (440.0f) | `0x00509D1B`, `0x00578F3E`, `0x00688153`, `0x006944A8` |
+| `0x007455D4` (256.0f) | `0x00509DD6`, `0x00688161`, `0x006944C4` |
+
+`0x006944A8` / `0x006944C4` are in the full map's icon loop (`0x006943D0`);
+`0x00688153` / `0x00688161` are in the HUD path. Both maps reach the same two
+constants, which is exactly why they cannot be edited in place. KMRP writes
+neither address -- verified against gold and against a patcher-produced
+executable.
+
+### Independent corroboration: K1 Area Map Fixes 1.0.0
+
+*Derslok, GPL-3.0, downloaded for comparison only and not adopted. Kept out of
+this repository; nothing from it is redistributed here.*
+
+It patches the same executable for the same purpose and reached the same
+diagnosis independently: the constants the area map divides by are shared with
+the HUD minimap, and editing them in place "turns the minimap black". Its fix
+writes scaled private copies at `0x0078CC00` and repoints only the map's own
+operands -- a **pre**-scale where KMRP **post**-scales. Same destination,
+opposite order, and its version does not pay the lattice above because it had to
+touch those routines anyway.
+
+Two findings from its published source are worth keeping.
+
+**It independently disproved the theory that the four constructor immediates
+belong to the minimap.** Its own comment:
+
+> TRIED AND REVERTED 2026-08-23 (first minimap attempt): excluding
+> map_projection_offsets_x (0x29505C) + one map_offsets_y entry (0x295064) from
+> scaling. Theory was that this (512,256) pair belonged to the HUD minimap.
+> WRONG - it didn't fix the minimap and it broke the big map's room geometry.
+
+That is the same conclusion gold relies on when it enlarges those four globally.
+
+**The two mods are mutually exclusive.** Measured by diffing clean -> gold ->
+patcher output and intersecting with the offsets its source lists: **14 offsets
+where both write the same bytes**, including `0x0040AA65` / `0x0040AA85`
+(KMRP's resolution constants), both recentring helpers, the map centring pair,
+and the four constructor immediates. Beyond that, both append their added data at
+file offset `0x3DB000` -- the first byte past the end of the clean image -- and
+its marker hooks land byte-adjacent to KMRP's in the same three functions.
+
+It also expects `0x00755788` to hold `0.428571` (3/7); gold writes `0.285714`
+(2/7) there for the dialogue letterbox, so its verification would reject a
+KMRP-patched executable on that byte alone.
+
+The one thing it has that KMRP does not is a **250-entry map-note correction
+table**, keyed on world position rather than module or index. Of the Ebon Hawk's
+33 map notes it corrects 7 -- the same seven whose placement is noted above --
+and converted through that area's own map transform the corrections are between
+14 and **90 px** on the 1478x720 overlay. KMRP scales the vanilla positions
+faithfully, so those notes land wrong at every resolution; this repository has
+always classified that as content data rather than a scaling fault, which is
+correct, but it does mean the notes are still wrong on screen.
 
 The marker controls store their rectangles in overlay-local coordinates. Their
 rendering is centered with the 1720x720 map canvas, while the original overlay
