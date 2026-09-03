@@ -47,16 +47,40 @@ def geometry(gui_path: Path) -> dict:
     root_extent = extent(root)
     map_extent = extent(map_control)
 
-    # The confirmed 3440x1440 patch renders a surface at half the selected
-    # resolution.  KOTOR's renderer adds a 14 px top inset; the horizontal
-    # surface starts four pixels inside LBL_Map's left edge.
-    canvas_width = width // 2
+    # Geometry rule -- see reverse-engineering/area-map-surface.md.
+    #
+    # The map picture is drawn onto the CANVAS; the fog grid and markers live in
+    # the MARKER OVERLAY, which is canvas * 440/512 because only 440 of the map
+    # atlas's 512 columns carry picture. The remaining 72/512 is surplus, and
+    # vanilla hides it by making LBL_Map exactly the overlay so the control crops
+    # it. KMRP used to set canvas = screen//2 with LBL_Map inherited from k1hrm
+    # (2365 px at 3440x1440, wider than the canvas), so nothing cropped and the
+    # surplus showed as an unfogged 242 px strip down the right of the map.
+    #
+    # Instead, size the canvas so the *content* fills the frame. The frame art's
+    # interior measures screen//2 (measured at 3440x1440), so:
+    #
+    #     overlay = screen // 2                     the visible map
+    #     canvas  = overlay * 512/440               overlay + the cropped surplus
+    #
+    # and LBL_Map is set to the overlay, which crops the surplus. For LBL_Map to
+    # crop from the canvas's own left edge the centring domains must equal the
+    # screen -- canvas_left = LBL_Map.left + (screenWidth - centringX) / 2, so
+    # centringX == screenWidth puts the canvas origin exactly at LBL_Map.left.
+    # KOTOR's renderer adds a 14 px top inset, which LBL_Map.top absorbs.
+    overlay_width = width // 2
     canvas_height = height // 2
-    render_left = map_extent["left"] + 4
-    render_top = map_extent["top"]
-    center_x_domain = render_left * 2 + canvas_width
-    center_y_domain = (render_top - 14) * 2 + canvas_height
-    overlay_width = round(canvas_width * 440 / 512)
+    canvas_width = round(overlay_width * 512 / 440)
+    center_x_domain = width
+    center_y_domain = height
+    map_control_target = {
+        "left": (width - overlay_width) // 2,
+        "top": (height - canvas_height) // 2 + 14,
+        "width": overlay_width,
+        "height": canvas_height,
+    }
+    render_left = map_control_target["left"]
+    render_top = map_control_target["top"]
 
     return {
         "resolution": f"{width}x{height}",
@@ -65,6 +89,7 @@ def geometry(gui_path: Path) -> dict:
         "height": height,
         "root": root_extent,
         "map_control": map_extent,
+        "map_control_target": map_control_target,
         "map_canvas": {"width": canvas_width, "height": canvas_height},
         "marker_overlay": {"width": overlay_width, "height": canvas_height},
         "centering_domain": {"width": center_x_domain, "height": center_y_domain},

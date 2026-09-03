@@ -10,6 +10,8 @@ import tempfile
 import zipfile
 from pathlib import Path
 
+from pykotor.resource.formats.gff import read_gff, write_gff
+
 from apply_gold_hud_proportions import apply_proportions
 from build_menubg_texture import build_texture_for_gui
 from build_scaled_fonts import export_font_txis, export_fonts, scale_txi
@@ -171,6 +173,25 @@ def write_zip(output: Path, files: list[Path]) -> None:
             archive.write(path, path.name)
 
 
+
+def set_map_control_extent(source: Path, destination: Path, extent: dict) -> None:
+    """Rewrite LBL_Map's EXTENT in a map.gui, leaving every other control alone."""
+    gff = read_gff(source)
+    for control in gff.root.get_list("CONTROLS"):
+        if control.get_string("TAG") == "LBL_Map":
+            # get_struct returns a copy in this pykotor version -- editing it
+            # in place is silently discarded, so the result must be set back.
+            target = control.get_struct("EXTENT")
+            target.set_int32("LEFT", extent["left"])
+            target.set_int32("TOP", extent["top"])
+            target.set_int32("WIDTH", extent["width"])
+            target.set_int32("HEIGHT", extent["height"])
+            control.set_struct("EXTENT", target)
+            break
+    else:
+        raise ValueError(f"LBL_Map was not found in {source}")
+    write_gff(gff, destination)
+
 def main() -> int:
     parser = argparse.ArgumentParser()
     parser.add_argument("geometry", type=Path)
@@ -300,6 +321,21 @@ def main() -> int:
                         # that one: the layout is absolute, so running it over
                         # the already-tuned gold copy reproduces it exactly.
                         apply_popup_layout(gui_file, patched, font_scale_for(height))
+                        packaged_files.append(patched)
+                        continue
+                    if name == "map.gui":
+                        # LBL_Map must equal the marker overlay, which is how
+                        # vanilla (440x256 control over a 512x256 canvas) crops
+                        # the map atlas's 72/512 of surplus columns. Upstream
+                        # ships LBL_Map at width*440/640, which is the overlay
+                        # for hires_patcher's geometry but not for ours -- left
+                        # alone it is wider than our canvas, crops nothing, and
+                        # the surplus shows as an unfogged strip down the right
+                        # of the map. See reverse-engineering/area-map-surface.md.
+                        # Ahead of the 3440x1440 passthrough because it applies
+                        # at every resolution, that one included.
+                        set_map_control_extent(gui_file, patched,
+                                               item["map_control_target"])
                         packaged_files.append(patched)
                         continue
                     if resolution == "3440x1440":

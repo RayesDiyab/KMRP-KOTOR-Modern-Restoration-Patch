@@ -18,21 +18,27 @@
         "width": 880,
         "height": 576
       },
-      "map_canvas": {
+      "map_control_target": {
+        "left": 320,
+        "top": 284,
         "width": 640,
         "height": 540
       },
+      "map_canvas": {
+        "width": 745,
+        "height": 540
+      },
       "marker_overlay": {
-        "width": 550,
+        "width": 640,
         "height": 540
       },
       "centering_domain": {
-        "width": 1028,
-        "height": 1044
+        "width": 1280,
+        "height": 1080
       },
       "render_origin": {
-        "left": 194,
-        "top": 266
+        "left": 320,
+        "top": 284
       }
     },
     {
@@ -52,21 +58,27 @@
         "width": 550,
         "height": 320
       },
-      "map_canvas": {
+      "map_control_target": {
+        "left": 200,
+        "top": 164,
         "width": 400,
         "height": 300
       },
+      "map_canvas": {
+        "width": 465,
+        "height": 300
+      },
       "marker_overlay": {
-        "width": 344,
+        "width": 400,
         "height": 300
       },
       "centering_domain": {
-        "width": 646,
-        "height": 568
+        "width": 800,
+        "height": 600
       },
       "render_origin": {
-        "left": 123,
-        "top": 148
+        "left": 200,
+        "top": 164
       }
     },
     {
@@ -86,21 +98,27 @@
         "width": 660,
         "height": 384
       },
-      "map_canvas": {
+      "map_control_target": {
+        "left": 240,
+        "top": 194,
         "width": 480,
         "height": 360
       },
+      "map_canvas": {
+        "width": 559,
+        "height": 360
+      },
       "marker_overlay": {
-        "width": 412,
+        "width": 480,
         "height": 360
       },
       "centering_domain": {
-        "width": 774,
-        "height": 686
+        "width": 960,
+        "height": 720
       },
       "render_origin": {
-        "left": 147,
-        "top": 177
+        "left": 240,
+        "top": 194
       }
     },
     {
@@ -120,21 +138,27 @@
         "width": 704,
         "height": 410
       },
-      "map_canvas": {
+      "map_control_target": {
+        "left": 256,
+        "top": 206,
         "width": 512,
         "height": 384
       },
+      "map_canvas": {
+        "width": 596,
+        "height": 384
+      },
       "marker_overlay": {
-        "width": 440,
+        "width": 512,
         "height": 384
       },
       "centering_domain": {
-        "width": 824,
-        "height": 734
+        "width": 1024,
+        "height": 768
       },
       "render_origin": {
-        "left": 156,
-        "top": 189
+        "left": 256,
+        "top": 206
       }
     },
     {
@@ -154,21 +178,27 @@
         "width": 880,
         "height": 512
       },
-      "map_canvas": {
+      "map_control_target": {
+        "left": 320,
+        "top": 254,
         "width": 640,
         "height": 480
       },
+      "map_canvas": {
+        "width": 745,
+        "height": 480
+      },
       "marker_overlay": {
-        "width": 550,
+        "width": 640,
         "height": 480
       },
       "centering_domain": {
-        "width": 1028,
-        "height": 924
+        "width": 1280,
+        "height": 960
       },
       "render_origin": {
-        "left": 194,
-        "top": 236
+        "left": 320,
+        "top": 254
       }
     },
     {
@@ -188,21 +218,27 @@
         "width": 963,
         "height": 560
       },
-      "map_canvas": {
+      "map_control_target": {
+        "left": 350,
+        "top": 276,
         "width": 700,
         "height": 525
       },
+      "map_canvas": {
+        "width": 815,
+        "height": 525
+      },
       "marker_overlay": {
-        "width": 602,
+        "width": 700,
         "height": 525
       },
       "centering_domain": {
-        "width": 1124,
-        "height": 1013
+        "width": 1400,
+        "height": 1050
       },
       "render_origin": {
-        "left": 212,
-        "top": 258
+        "left": 350,
+        "top": 276
       }
     },
     {
@@ -222,21 +258,27 @@
         "width": 990,
         "height": 576
       },
-      "map_canvas": {
+      "map_control_target": {
+        "left": 360,
+        "top": 284,
         "width": 720,
         "height": 540
       },
+      "map_canvas": {
+        "width": 838,
+        "height": 540
+      },
       "marker_overlay": {
-        "width": 619,
+        "width": 720,
         "height": 540
       },
       "centering_domain": {
-        "width": 1156,
-        "height": 1044
+        "width": 1440,
+        "height": 1080
       },
       "render_origin": {
-        "left": 218,
-        "top": 266
+        "left": 360,
+        "top": 284
       }
     },
     {
@@ -256,21 +298,27 @@
         "width": 1100,
         "height": 640
       },
-      "map_canvas": {
+      "map_control_target": {
+        "left": 400,
+        "top": 314,
         "width": 800,
         "height": 600
       },
+      "map_canvas": {
+        "width": 931,
+        "height": 600
+      },
       "marker_overlay": {
-        "width": 688,
+        "width": 800,
         "height": 600
       },
       "centering_domain": {
-        "width": 1284,
-        "height": 1162
+        "width": 1600,
+        "height": 1200
       },
       "render_origin": {
-        "left": 242,
-        "top": 295
+        "left": 400,
+        "top": 314
       }
     },
     {
@@ -290,21 +338,27 @@
         "width": 1276,
         "height": 742
       },
-      "map_canvas": {
+      "map_control_target": {
+        "left": 464,
+        "top": 362,
         "width": 928,
         "height": 696
       },
+      "map_canvas": {
+        "width": 1080,
+        "height": 696
+      },
       "marker_overlay": {
-        "width": 798,
+        "width": 928,
         "height": 696
       },
       "centering_domain": {
-        "width": 1488,
-        "height": 1352
+        "width": 1856,
+        "height": 1392
       },
       "render_origin": {
-        "left": 280,
-        "top": 342
+        "left": 464,
+        "top": 362
       }
     },
     {
@@ -324,21 +378,27 @@
         "width": 1320,
         "height": 768
       },
-      "map_canvas": {
+      "map_control_target": {
+        "left": 480,
+        "top": 374,
         "width": 960,
         "height": 720
       },
+      "map_canvas": {
+        "width": 1117,
+        "height": 720
+      },
       "marker_overlay": {
-        "width": 825,
+        "width": 960,
         "height": 720
       },
       "centering_domain": {
-        "width": 1538,
-        "height": 1400
+        "width": 1920,
+        "height": 1440
       },
       "render_origin": {
-        "left": 289,
-        "top": 354
+        "left": 480,
+        "top": 374
       }
     },
     {
@@ -358,21 +418,27 @@
         "width": 1408,
         "height": 819
       },
-      "map_canvas": {
+      "map_control_target": {
+        "left": 512,
+        "top": 398,
         "width": 1024,
         "height": 768
       },
+      "map_canvas": {
+        "width": 1192,
+        "height": 768
+      },
       "marker_overlay": {
-        "width": 880,
+        "width": 1024,
         "height": 768
       },
       "centering_domain": {
-        "width": 1640,
-        "height": 1496
+        "width": 2048,
+        "height": 1536
       },
       "render_origin": {
-        "left": 308,
-        "top": 378
+        "left": 512,
+        "top": 398
       }
     },
     {
@@ -392,21 +458,27 @@
         "width": 2200,
         "height": 1280
       },
-      "map_canvas": {
+      "map_control_target": {
+        "left": 800,
+        "top": 614,
         "width": 1600,
         "height": 1200
       },
+      "map_canvas": {
+        "width": 1862,
+        "height": 1200
+      },
       "marker_overlay": {
-        "width": 1375,
+        "width": 1600,
         "height": 1200
       },
       "centering_domain": {
-        "width": 2558,
-        "height": 2352
+        "width": 3200,
+        "height": 2400
       },
       "render_origin": {
-        "left": 479,
-        "top": 590
+        "left": 800,
+        "top": 614
       }
     },
     {
@@ -426,21 +498,27 @@
         "width": 2816,
         "height": 1638
       },
-      "map_canvas": {
+      "map_control_target": {
+        "left": 1024,
+        "top": 782,
         "width": 2048,
         "height": 1536
       },
+      "map_canvas": {
+        "width": 2383,
+        "height": 1536
+      },
       "marker_overlay": {
-        "width": 1760,
+        "width": 2048,
         "height": 1536
       },
       "centering_domain": {
-        "width": 3272,
-        "height": 3018
+        "width": 4096,
+        "height": 3072
       },
       "render_origin": {
-        "left": 612,
-        "top": 755
+        "left": 1024,
+        "top": 782
       }
     },
     {
@@ -460,21 +538,27 @@
         "width": 704,
         "height": 341
       },
-      "map_canvas": {
+      "map_control_target": {
+        "left": 256,
+        "top": 174,
         "width": 512,
         "height": 320
       },
+      "map_canvas": {
+        "width": 596,
+        "height": 320
+      },
       "marker_overlay": {
-        "width": 440,
+        "width": 512,
         "height": 320
       },
       "centering_domain": {
-        "width": 824,
-        "height": 606
+        "width": 1024,
+        "height": 640
       },
       "render_origin": {
-        "left": 156,
-        "top": 157
+        "left": 256,
+        "top": 174
       }
     },
     {
@@ -494,21 +578,27 @@
         "width": 792,
         "height": 384
       },
-      "map_canvas": {
+      "map_control_target": {
+        "left": 288,
+        "top": 194,
         "width": 576,
         "height": 360
       },
+      "map_canvas": {
+        "width": 670,
+        "height": 360
+      },
       "marker_overlay": {
-        "width": 495,
+        "width": 576,
         "height": 360
       },
       "centering_domain": {
-        "width": 926,
-        "height": 686
+        "width": 1152,
+        "height": 720
       },
       "render_origin": {
-        "left": 175,
-        "top": 177
+        "left": 288,
+        "top": 194
       }
     },
     {
@@ -528,21 +618,27 @@
         "width": 880,
         "height": 427
       },
-      "map_canvas": {
+      "map_control_target": {
+        "left": 320,
+        "top": 214,
         "width": 640,
         "height": 400
       },
+      "map_canvas": {
+        "width": 745,
+        "height": 400
+      },
       "marker_overlay": {
-        "width": 550,
+        "width": 640,
         "height": 400
       },
       "centering_domain": {
-        "width": 1028,
-        "height": 766
+        "width": 1280,
+        "height": 800
       },
       "render_origin": {
-        "left": 194,
-        "top": 197
+        "left": 320,
+        "top": 214
       }
     },
     {
@@ -562,21 +658,27 @@
         "width": 990,
         "height": 480
       },
-      "map_canvas": {
+      "map_control_target": {
+        "left": 360,
+        "top": 239,
         "width": 720,
         "height": 450
       },
+      "map_canvas": {
+        "width": 838,
+        "height": 450
+      },
       "marker_overlay": {
-        "width": 619,
+        "width": 720,
         "height": 450
       },
       "centering_domain": {
-        "width": 1156,
-        "height": 864
+        "width": 1440,
+        "height": 900
       },
       "render_origin": {
-        "left": 218,
-        "top": 221
+        "left": 360,
+        "top": 239
       }
     },
     {
@@ -596,21 +698,27 @@
         "width": 1155,
         "height": 560
       },
-      "map_canvas": {
+      "map_control_target": {
+        "left": 420,
+        "top": 276,
         "width": 840,
         "height": 525
       },
+      "map_canvas": {
+        "width": 977,
+        "height": 525
+      },
       "marker_overlay": {
-        "width": 722,
+        "width": 840,
         "height": 525
       },
       "centering_domain": {
-        "width": 1346,
-        "height": 1013
+        "width": 1680,
+        "height": 1050
       },
       "render_origin": {
-        "left": 253,
-        "top": 258
+        "left": 420,
+        "top": 276
       }
     },
     {
@@ -630,21 +738,27 @@
         "width": 1320,
         "height": 640
       },
-      "map_canvas": {
+      "map_control_target": {
+        "left": 480,
+        "top": 314,
         "width": 960,
         "height": 600
       },
+      "map_canvas": {
+        "width": 1117,
+        "height": 600
+      },
       "marker_overlay": {
-        "width": 825,
+        "width": 960,
         "height": 600
       },
       "centering_domain": {
-        "width": 1538,
-        "height": 1162
+        "width": 1920,
+        "height": 1200
       },
       "render_origin": {
-        "left": 289,
-        "top": 295
+        "left": 480,
+        "top": 314
       }
     },
     {
@@ -664,21 +778,27 @@
         "width": 1408,
         "height": 683
       },
-      "map_canvas": {
+      "map_control_target": {
+        "left": 512,
+        "top": 334,
         "width": 1024,
         "height": 640
       },
+      "map_canvas": {
+        "width": 1192,
+        "height": 640
+      },
       "marker_overlay": {
-        "width": 880,
+        "width": 1024,
         "height": 640
       },
       "centering_domain": {
-        "width": 1640,
-        "height": 1242
+        "width": 2048,
+        "height": 1280
       },
       "render_origin": {
-        "left": 308,
-        "top": 315
+        "left": 512,
+        "top": 334
       }
     },
     {
@@ -698,21 +818,27 @@
         "width": 1584,
         "height": 768
       },
-      "map_canvas": {
+      "map_control_target": {
+        "left": 576,
+        "top": 374,
         "width": 1152,
         "height": 720
       },
+      "map_canvas": {
+        "width": 1341,
+        "height": 720
+      },
       "marker_overlay": {
-        "width": 990,
+        "width": 1152,
         "height": 720
       },
       "centering_domain": {
-        "width": 1844,
-        "height": 1400
+        "width": 2304,
+        "height": 1440
       },
       "render_origin": {
-        "left": 346,
-        "top": 354
+        "left": 576,
+        "top": 374
       }
     },
     {
@@ -732,21 +858,27 @@
         "width": 1760,
         "height": 853
       },
-      "map_canvas": {
+      "map_control_target": {
+        "left": 640,
+        "top": 414,
         "width": 1280,
         "height": 800
       },
+      "map_canvas": {
+        "width": 1489,
+        "height": 800
+      },
       "marker_overlay": {
-        "width": 1100,
+        "width": 1280,
         "height": 800
       },
       "centering_domain": {
-        "width": 2048,
-        "height": 1558
+        "width": 2560,
+        "height": 1600
       },
       "render_origin": {
-        "left": 384,
-        "top": 393
+        "left": 640,
+        "top": 414
       }
     },
     {
@@ -766,21 +898,27 @@
         "width": 1980,
         "height": 960
       },
-      "map_canvas": {
+      "map_control_target": {
+        "left": 720,
+        "top": 464,
         "width": 1440,
         "height": 900
       },
+      "map_canvas": {
+        "width": 1676,
+        "height": 900
+      },
       "marker_overlay": {
-        "width": 1238,
+        "width": 1440,
         "height": 900
       },
       "centering_domain": {
-        "width": 2304,
-        "height": 1758
+        "width": 2880,
+        "height": 1800
       },
       "render_origin": {
-        "left": 432,
-        "top": 443
+        "left": 720,
+        "top": 464
       }
     },
     {
@@ -800,21 +938,27 @@
         "width": 2640,
         "height": 1280
       },
-      "map_canvas": {
+      "map_control_target": {
+        "left": 960,
+        "top": 614,
         "width": 1920,
         "height": 1200
       },
+      "map_canvas": {
+        "width": 2234,
+        "height": 1200
+      },
       "marker_overlay": {
-        "width": 1650,
+        "width": 1920,
         "height": 1200
       },
       "centering_domain": {
-        "width": 3068,
-        "height": 2352
+        "width": 3840,
+        "height": 2400
       },
       "render_origin": {
-        "left": 574,
-        "top": 590
+        "left": 960,
+        "top": 614
       }
     },
     {
@@ -834,21 +978,27 @@
         "width": 3520,
         "height": 1707
       },
-      "map_canvas": {
+      "map_control_target": {
+        "left": 1280,
+        "top": 814,
         "width": 2560,
         "height": 1600
       },
+      "map_canvas": {
+        "width": 2979,
+        "height": 1600
+      },
       "marker_overlay": {
-        "width": 2200,
+        "width": 2560,
         "height": 1600
       },
       "centering_domain": {
-        "width": 4088,
-        "height": 3146
+        "width": 5120,
+        "height": 3200
       },
       "render_origin": {
-        "left": 764,
-        "top": 787
+        "left": 1280,
+        "top": 814
       }
     },
     {
@@ -868,21 +1018,27 @@
         "width": 935,
         "height": 410
       },
-      "map_canvas": {
+      "map_control_target": {
+        "left": 340,
+        "top": 206,
         "width": 680,
         "height": 384
       },
+      "map_canvas": {
+        "width": 791,
+        "height": 384
+      },
       "marker_overlay": {
-        "width": 584,
+        "width": 680,
         "height": 384
       },
       "centering_domain": {
-        "width": 1092,
-        "height": 734
+        "width": 1360,
+        "height": 768
       },
       "render_origin": {
-        "left": 206,
-        "top": 189
+        "left": 340,
+        "top": 206
       }
     },
     {
@@ -902,21 +1058,27 @@
         "width": 704,
         "height": 307
       },
-      "map_canvas": {
+      "map_control_target": {
+        "left": 256,
+        "top": 158,
         "width": 512,
         "height": 288
       },
+      "map_canvas": {
+        "width": 596,
+        "height": 288
+      },
       "marker_overlay": {
-        "width": 440,
+        "width": 512,
         "height": 288
       },
       "centering_domain": {
-        "width": 824,
-        "height": 544
+        "width": 1024,
+        "height": 576
       },
       "render_origin": {
-        "left": 156,
-        "top": 142
+        "left": 256,
+        "top": 158
       }
     },
     {
@@ -936,21 +1098,27 @@
         "width": 792,
         "height": 346
       },
-      "map_canvas": {
+      "map_control_target": {
+        "left": 288,
+        "top": 176,
         "width": 576,
         "height": 324
       },
+      "map_canvas": {
+        "width": 670,
+        "height": 324
+      },
       "marker_overlay": {
-        "width": 495,
+        "width": 576,
         "height": 324
       },
       "centering_domain": {
-        "width": 926,
-        "height": 614
+        "width": 1152,
+        "height": 648
       },
       "render_origin": {
-        "left": 175,
-        "top": 159
+        "left": 288,
+        "top": 176
       }
     },
     {
@@ -970,21 +1138,27 @@
         "width": 880,
         "height": 384
       },
-      "map_canvas": {
+      "map_control_target": {
+        "left": 320,
+        "top": 194,
         "width": 640,
         "height": 360
       },
+      "map_canvas": {
+        "width": 745,
+        "height": 360
+      },
       "marker_overlay": {
-        "width": 550,
+        "width": 640,
         "height": 360
       },
       "centering_domain": {
-        "width": 1028,
-        "height": 686
+        "width": 1280,
+        "height": 720
       },
       "render_origin": {
-        "left": 194,
-        "top": 177
+        "left": 320,
+        "top": 194
       }
     },
     {
@@ -1004,21 +1178,27 @@
         "width": 1100,
         "height": 480
       },
-      "map_canvas": {
+      "map_control_target": {
+        "left": 400,
+        "top": 239,
         "width": 800,
         "height": 450
       },
+      "map_canvas": {
+        "width": 931,
+        "height": 450
+      },
       "marker_overlay": {
-        "width": 688,
+        "width": 800,
         "height": 450
       },
       "centering_domain": {
-        "width": 1284,
-        "height": 864
+        "width": 1600,
+        "height": 900
       },
       "render_origin": {
-        "left": 242,
-        "top": 221
+        "left": 400,
+        "top": 239
       }
     },
     {
@@ -1038,21 +1218,27 @@
         "width": 1320,
         "height": 576
       },
-      "map_canvas": {
+      "map_control_target": {
+        "left": 480,
+        "top": 284,
         "width": 960,
         "height": 540
       },
+      "map_canvas": {
+        "width": 1117,
+        "height": 540
+      },
       "marker_overlay": {
-        "width": 825,
+        "width": 960,
         "height": 540
       },
       "centering_domain": {
-        "width": 1538,
-        "height": 1044
+        "width": 1920,
+        "height": 1080
       },
       "render_origin": {
-        "left": 289,
-        "top": 266
+        "left": 480,
+        "top": 284
       }
     },
     {
@@ -1072,21 +1258,27 @@
         "width": 1408,
         "height": 614
       },
-      "map_canvas": {
+      "map_control_target": {
+        "left": 512,
+        "top": 302,
         "width": 1024,
         "height": 576
       },
+      "map_canvas": {
+        "width": 1192,
+        "height": 576
+      },
       "marker_overlay": {
-        "width": 880,
+        "width": 1024,
         "height": 576
       },
       "centering_domain": {
-        "width": 1640,
-        "height": 1114
+        "width": 2048,
+        "height": 1152
       },
       "render_origin": {
-        "left": 308,
-        "top": 283
+        "left": 512,
+        "top": 302
       }
     },
     {
@@ -1106,21 +1298,27 @@
         "width": 1760,
         "height": 768
       },
-      "map_canvas": {
+      "map_control_target": {
+        "left": 640,
+        "top": 374,
         "width": 1280,
         "height": 720
       },
+      "map_canvas": {
+        "width": 1489,
+        "height": 720
+      },
       "marker_overlay": {
-        "width": 1100,
+        "width": 1280,
         "height": 720
       },
       "centering_domain": {
-        "width": 2048,
-        "height": 1400
+        "width": 2560,
+        "height": 1440
       },
       "render_origin": {
-        "left": 384,
-        "top": 354
+        "left": 640,
+        "top": 374
       }
     },
     {
@@ -1140,21 +1338,27 @@
         "width": 2640,
         "height": 1152
       },
-      "map_canvas": {
+      "map_control_target": {
+        "left": 960,
+        "top": 554,
         "width": 1920,
         "height": 1080
       },
+      "map_canvas": {
+        "width": 2234,
+        "height": 1080
+      },
       "marker_overlay": {
-        "width": 1650,
+        "width": 1920,
         "height": 1080
       },
       "centering_domain": {
-        "width": 3068,
-        "height": 2114
+        "width": 3840,
+        "height": 2160
       },
       "render_origin": {
-        "left": 574,
-        "top": 531
+        "left": 960,
+        "top": 554
       }
     },
     {
@@ -1174,21 +1378,27 @@
         "width": 3520,
         "height": 1536
       },
-      "map_canvas": {
+      "map_control_target": {
+        "left": 1280,
+        "top": 734,
         "width": 2560,
         "height": 1440
       },
+      "map_canvas": {
+        "width": 2979,
+        "height": 1440
+      },
       "marker_overlay": {
-        "width": 2200,
+        "width": 2560,
         "height": 1440
       },
       "centering_domain": {
-        "width": 4088,
-        "height": 2828
+        "width": 5120,
+        "height": 2880
       },
       "render_origin": {
-        "left": 764,
-        "top": 708
+        "left": 1280,
+        "top": 734
       }
     },
     {
@@ -1208,21 +1418,27 @@
         "width": 4136,
         "height": 1805
       },
-      "map_canvas": {
+      "map_control_target": {
+        "left": 1504,
+        "top": 860,
         "width": 3008,
         "height": 1692
       },
+      "map_canvas": {
+        "width": 3500,
+        "height": 1692
+      },
       "marker_overlay": {
-        "width": 2585,
+        "width": 3008,
         "height": 1692
       },
       "centering_domain": {
-        "width": 4802,
-        "height": 3328
+        "width": 6016,
+        "height": 3384
       },
       "render_origin": {
-        "left": 897,
-        "top": 832
+        "left": 1504,
+        "top": 860
       }
     },
     {
@@ -1242,21 +1458,27 @@
         "width": 5280,
         "height": 2304
       },
-      "map_canvas": {
+      "map_control_target": {
+        "left": 1920,
+        "top": 1094,
         "width": 3840,
         "height": 2160
       },
+      "map_canvas": {
+        "width": 4468,
+        "height": 2160
+      },
       "marker_overlay": {
-        "width": 3300,
+        "width": 3840,
         "height": 2160
       },
       "centering_domain": {
-        "width": 6128,
-        "height": 4256
+        "width": 7680,
+        "height": 4320
       },
       "render_origin": {
-        "left": 1144,
-        "top": 1062
+        "left": 1920,
+        "top": 1094
       }
     },
     {
@@ -1276,21 +1498,27 @@
         "width": 5632,
         "height": 2458
       },
-      "map_canvas": {
+      "map_control_target": {
+        "left": 2048,
+        "top": 1166,
         "width": 4096,
         "height": 2304
       },
+      "map_canvas": {
+        "width": 4766,
+        "height": 2304
+      },
       "marker_overlay": {
-        "width": 3520,
+        "width": 4096,
         "height": 2304
       },
       "centering_domain": {
-        "width": 6536,
-        "height": 4542
+        "width": 8192,
+        "height": 4608
       },
       "render_origin": {
-        "left": 1220,
-        "top": 1133
+        "left": 2048,
+        "top": 1166
       }
     },
     {
@@ -1310,21 +1538,27 @@
         "width": 10560,
         "height": 4608
       },
-      "map_canvas": {
+      "map_control_target": {
+        "left": 3840,
+        "top": 2174,
         "width": 7680,
         "height": 4320
       },
+      "map_canvas": {
+        "width": 8937,
+        "height": 4320
+      },
       "marker_overlay": {
-        "width": 6600,
+        "width": 7680,
         "height": 4320
       },
       "centering_domain": {
-        "width": 12248,
-        "height": 8540
+        "width": 15360,
+        "height": 8640
       },
       "render_origin": {
-        "left": 2284,
-        "top": 2124
+        "left": 3840,
+        "top": 2174
       }
     },
     {
@@ -1344,21 +1578,27 @@
         "width": 939,
         "height": 410
       },
-      "map_canvas": {
+      "map_control_target": {
+        "left": 341,
+        "top": 206,
         "width": 683,
         "height": 384
       },
+      "map_canvas": {
+        "width": 795,
+        "height": 384
+      },
       "marker_overlay": {
-        "width": 587,
+        "width": 683,
         "height": 384
       },
       "centering_domain": {
-        "width": 1097,
-        "height": 734
+        "width": 1366,
+        "height": 768
       },
       "render_origin": {
-        "left": 207,
-        "top": 189
+        "left": 341,
+        "top": 206
       }
     },
     {
@@ -1378,21 +1618,27 @@
         "width": 1760,
         "height": 576
       },
-      "map_canvas": {
+      "map_control_target": {
+        "left": 640,
+        "top": 284,
         "width": 1280,
         "height": 540
       },
+      "map_canvas": {
+        "width": 1489,
+        "height": 540
+      },
       "marker_overlay": {
-        "width": 1100,
+        "width": 1280,
         "height": 540
       },
       "centering_domain": {
-        "width": 2048,
-        "height": 1044
+        "width": 2560,
+        "height": 1080
       },
       "render_origin": {
-        "left": 384,
-        "top": 266
+        "left": 640,
+        "top": 284
       }
     },
     {
@@ -1412,21 +1658,27 @@
         "width": 3520,
         "height": 1152
       },
-      "map_canvas": {
+      "map_control_target": {
+        "left": 1280,
+        "top": 554,
         "width": 2560,
         "height": 1080
       },
+      "map_canvas": {
+        "width": 2979,
+        "height": 1080
+      },
       "marker_overlay": {
-        "width": 2200,
+        "width": 2560,
         "height": 1080
       },
       "centering_domain": {
-        "width": 4088,
-        "height": 2114
+        "width": 5120,
+        "height": 2160
       },
       "render_origin": {
-        "left": 764,
-        "top": 531
+        "left": 1280,
+        "top": 554
       }
     },
     {
@@ -1446,21 +1698,27 @@
         "width": 7040,
         "height": 2304
       },
-      "map_canvas": {
+      "map_control_target": {
+        "left": 2560,
+        "top": 1094,
         "width": 5120,
         "height": 2160
       },
+      "map_canvas": {
+        "width": 5958,
+        "height": 2160
+      },
       "marker_overlay": {
-        "width": 4400,
+        "width": 5120,
         "height": 2160
       },
       "centering_domain": {
-        "width": 8168,
-        "height": 4256
+        "width": 10240,
+        "height": 4320
       },
       "render_origin": {
-        "left": 1524,
-        "top": 1062
+        "left": 2560,
+        "top": 1094
       }
     },
     {
@@ -1480,21 +1738,27 @@
         "width": 2365,
         "height": 768
       },
-      "map_canvas": {
+      "map_control_target": {
+        "left": 860,
+        "top": 374,
         "width": 1720,
         "height": 720
       },
+      "map_canvas": {
+        "width": 2001,
+        "height": 720
+      },
       "marker_overlay": {
-        "width": 1478,
+        "width": 1720,
         "height": 720
       },
       "centering_domain": {
-        "width": 2750,
-        "height": 1400
+        "width": 3440,
+        "height": 1440
       },
       "render_origin": {
-        "left": 515,
-        "top": 354
+        "left": 860,
+        "top": 374
       }
     },
     {
@@ -1514,21 +1778,27 @@
         "width": 2640,
         "height": 853
       },
-      "map_canvas": {
+      "map_control_target": {
+        "left": 960,
+        "top": 414,
         "width": 1920,
         "height": 800
       },
+      "map_canvas": {
+        "width": 2234,
+        "height": 800
+      },
       "marker_overlay": {
-        "width": 1650,
+        "width": 1920,
         "height": 800
       },
       "centering_domain": {
-        "width": 3068,
-        "height": 1558
+        "width": 3840,
+        "height": 1600
       },
       "render_origin": {
-        "left": 574,
-        "top": 393
+        "left": 960,
+        "top": 414
       }
     },
     {
@@ -1548,21 +1818,27 @@
         "width": 1320,
         "height": 288
       },
-      "map_canvas": {
+      "map_control_target": {
+        "left": 480,
+        "top": 149,
         "width": 960,
         "height": 270
       },
+      "map_canvas": {
+        "width": 1117,
+        "height": 270
+      },
       "marker_overlay": {
-        "width": 825,
+        "width": 960,
         "height": 270
       },
       "centering_domain": {
-        "width": 1538,
-        "height": 508
+        "width": 1920,
+        "height": 540
       },
       "render_origin": {
-        "left": 289,
-        "top": 133
+        "left": 480,
+        "top": 149
       }
     },
     {
@@ -1582,21 +1858,27 @@
         "width": 2640,
         "height": 576
       },
-      "map_canvas": {
+      "map_control_target": {
+        "left": 960,
+        "top": 284,
         "width": 1920,
         "height": 540
       },
+      "map_canvas": {
+        "width": 2234,
+        "height": 540
+      },
       "marker_overlay": {
-        "width": 1650,
+        "width": 1920,
         "height": 540
       },
       "centering_domain": {
-        "width": 3068,
-        "height": 1044
+        "width": 3840,
+        "height": 1080
       },
       "render_origin": {
-        "left": 574,
-        "top": 266
+        "left": 960,
+        "top": 284
       }
     },
     {
@@ -1616,21 +1898,27 @@
         "width": 3520,
         "height": 768
       },
-      "map_canvas": {
+      "map_control_target": {
+        "left": 1280,
+        "top": 374,
         "width": 2560,
         "height": 720
       },
+      "map_canvas": {
+        "width": 2979,
+        "height": 720
+      },
       "marker_overlay": {
-        "width": 2200,
+        "width": 2560,
         "height": 720
       },
       "centering_domain": {
-        "width": 4088,
-        "height": 1400
+        "width": 5120,
+        "height": 1440
       },
       "render_origin": {
-        "left": 764,
-        "top": 354
+        "left": 1280,
+        "top": 374
       }
     },
     {
@@ -1650,21 +1938,27 @@
         "width": 5280,
         "height": 1152
       },
-      "map_canvas": {
+      "map_control_target": {
+        "left": 1920,
+        "top": 554,
         "width": 3840,
         "height": 1080
       },
+      "map_canvas": {
+        "width": 4468,
+        "height": 1080
+      },
       "marker_overlay": {
-        "width": 3300,
+        "width": 3840,
         "height": 1080
       },
       "centering_domain": {
-        "width": 6128,
-        "height": 2114
+        "width": 7680,
+        "height": 2160
       },
       "render_origin": {
-        "left": 1144,
-        "top": 531
+        "left": 1920,
+        "top": 554
       }
     }
   ]
