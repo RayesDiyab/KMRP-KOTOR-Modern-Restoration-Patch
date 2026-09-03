@@ -8,13 +8,30 @@
 
 
 Material for checking KMRP at resolutions the build machine's monitor cannot
-display. There is no automated test suite: verification here is done by patching
-at a resolution and comparing the result against what the tooling intended.
+display, plus the installer cases that can be checked without a display at all.
+Layout verification is still done by hand: patch at a resolution and compare the
+result against what the tooling intended. Installer behaviour is scripted.
 
 | | |
 | --- | --- |
 | [`virtual-display/`](virtual-display/) | A virtual-monitor profile exposing all 48 supported resolutions on one Windows machine, so a layout can be seen at 7680×2160 without owning such a display. |
+| [`regression/`](regression/) | Scripted installer checks. Each runs the built patcher against throwaway copies of the game files and reads the result back as SHA-256. |
 | `gold-geometry-diffs.txt` | A recorded field-by-field diff of GUI geometry between two builds — the format these comparisons are read in. |
+
+## Running the installer checks
+
+```powershell
+.\build_kmrp.ps1                                        # the checks run the built patcher
+.\testing\regression\Test-ReinstallOverOlderBuild.ps1
+```
+
+Each script exits non-zero if any check fails and prints one PASS or FAIL line
+per assertion. They need `build-inputs\swkotornopatch.exe`, and they patch only
+throwaway copies under the system temp folder — no installed game is touched.
+
+| Script | What it pins |
+| --- | --- |
+| `Test-ReinstallOverOlderBuild.ps1` | Reinstalling a newer build over an older one replaces the executable instead of skipping it; reinstalling the same build changes nothing; an unsupported executable is refused; a damaged backup blocks a patch. |
 
 ## What is deliberately not committed
 

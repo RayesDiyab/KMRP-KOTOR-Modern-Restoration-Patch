@@ -22,6 +22,20 @@ All notable changes to KMRP are recorded here. The format follows
 ## [Unreleased]
 
 ### Fixed
+- **Reinstalling a newer build over an older one no longer leaves the old
+  executable in place.** `IsVerifiedPatchedInstall` called an install patched
+  whenever the sidecar's `patchedSha256` matched the file on disk, which proves
+  only that nothing edited the executable since — not that those bytes came from
+  the current build. `--in-place` therefore exited 0, rewrote the sidecar, and
+  skipped the executable: reinstalling over gold v19b left `0x006944A8` still
+  reading `fdivr dword ptr [0x008750A0]` instead of the new
+  `fidivr dword ptr [ebx+0x0C]`. The Gold branch of `ApplyInPlace` now rebuilds
+  the expected bytes from the verified clean backup and compares; anything else
+  is restored and re-applied. The sidecar also records `goldTargetSha256`, the
+  gold hash of the build that patched the install, which is what the check falls
+  back to when no backup is available. Reusing the same `PatchVersion` string
+  made the old behaviour easier to hit but was never the cause. Covered by
+  `testing/regression/Test-ReinstallOverOlderBuild.ps1`.
 - **Area map markers no longer shrink as the map grows.** Map note, party and
   player-arrow rectangles were built from vanilla immediates while the marker
   overlay scaled with the screen, so at 3440x1440 they were 3.4x smaller
