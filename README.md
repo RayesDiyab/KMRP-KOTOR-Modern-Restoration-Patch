@@ -94,6 +94,29 @@ BioWare bugs that only become visible once the interface is scaled.
 
 ---
 
+## What it looks like
+
+Vanilla on the left, KMRP on the right, both frames whole and uncropped.
+
+<img src="assets/screenshots/2-inventory.png" alt="Party inventory, vanilla 800x600 next to KMRP 1920x1080" width="100%">
+
+Rows, icons and stack counts scale with the text, so the item list stops truncating
+names and the description panel reads at a glance.
+
+<img src="assets/screenshots/3-area-map.png" alt="Area map, vanilla 800x600 next to KMRP 1920x1080" width="100%">
+
+The map fills its frame, fog reaches the right edge, and the map note sits clear of
+the buttons.
+
+It holds at 21:9 as well — every resolution is generated from the same rules, not
+hand-tuned one at a time:
+
+<img src="assets/screenshots/uw-1-hud.png" alt="In-game HUD at 3440x1440" width="100%">
+
+More in [`assets/screenshots/`](assets/screenshots/).
+
+---
+
 ## How it works
 
 KMRP ships **one verified executable delta plus per-resolution resources**, not a

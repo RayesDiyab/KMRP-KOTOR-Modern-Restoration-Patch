@@ -123,3 +123,10 @@ third_party/Included/K1-Area-Map-Fixes-*/More info/source/data/*
 
 !third_party/Included/k1-modern-driver-compatibility-*/dinput8.dll
 !third_party/Included/k1-modern-driver-compatibility-*/*.asi
+
+# Raw game screenshots used to build the comparison images. The composites in
+# assets/screenshots/ are committed because the README and the mod pages need
+# them; these originals are 22 MB and reproduce nothing -- a screenshot depends on
+# a save and a camera position, not on anything in this repository. Keep them
+# locally to re-caption or re-crop a composite.
+assets/screenshots/3440x1440/
