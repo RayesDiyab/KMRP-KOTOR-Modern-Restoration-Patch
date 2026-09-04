@@ -23,7 +23,16 @@ using System.Runtime.InteropServices;
     + "BioWare and the BioWare Odyssey Engine are trademarks of BioWare Corp.")]
 
 // Keep in step with GoldPatch.PatchVersion in KmrpPatcher.cs.
-[assembly: AssemblyVersion("2.7.0.0")]
-[assembly: AssemblyFileVersion("2.7.0.0")]
+//
+// This drifted once and shipped. PatchVersion reached 2.10.0-mapnotes while these
+// stayed at 2.7.0.0, so the v2.10.0 release reported 2.7.0 under Properties ->
+// Details -- which is exactly where SECURITY.md tells people to read the version
+// from when filing a report. Nothing in the patcher compares these numbers, so the
+// drift was invisible to the code and wrong only to the person reading it, which
+// is why it survived four releases. AssemblyInformationalVersion carries the full
+// string so the pre-release suffix has somewhere to live and cannot drift again.
+[assembly: AssemblyVersion("2.10.0.0")]
+[assembly: AssemblyFileVersion("2.10.0.0")]
+[assembly: AssemblyInformationalVersion("2.10.0-mapnotes")]
 
 [assembly: ComVisible(false)]

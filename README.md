@@ -39,6 +39,15 @@ that in the engine itself rather than by swapping artwork — 48 resolutions, fr
 
 To change resolution later, use **Restore Original** first, then patch again.
 
+**On the version number.** [v2.10.0](https://github.com/RayesDiyab/KMRP-KOTOR-Modern-Restoration-Patch/releases/tag/v2.10.0) is the **first
+public release**, so there is no v1. Versions 2.0.0 to 2.9.x were private
+iterations during development, and they are in
+[`CHANGELOG.md`](CHANGELOG.md) because the work is worth reading, not because
+they were ever distributed here. The numbering was not restarted at 1.0: one
+2.0.0 build did leave the machine, its hash is recorded in
+[`releases/universal-v2.0.0/`](releases/universal-v2.0.0/), and renumbering would
+make that build unplaceable.
+
 **What it touches, and how to undo it.** KMRP edits `swkotor.exe`, `swkotor.ini`
 and the `Override` folder. Before writing anything it copies the executable and
 INI aside and records every Override file it adds or replaces — with hashes — in
