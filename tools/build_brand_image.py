@@ -46,8 +46,16 @@ import numpy as np
 from PIL import Image, ImageDraw, ImageFilter, ImageFont
 
 
-CREST = Path(r"C:\Users\diyab\Downloads\ChatGPT Image Sep 1, 2026, 12_31_57 PM.png")
-FONT = Path(r"C:\Windows\Fonts\georgia.ttf")
+# The crest artwork this composes is **not committed** -- only the rendered
+# result, `src/patcher/brand.png`, ships. So `--crest` is required and has no
+# default: it used to carry one author's Downloads folder, which worked on
+# exactly one machine and silently pointed everyone else at a file that does not
+# exist.
+#
+# Georgia is the measured typeface (see the header), not a preference, so it is
+# the default. `--font` exists because that path is Windows-specific and nothing
+# else in this tool is.
+DEFAULT_FONT = Path(r"C:\Windows\Fonts\georgia.ttf")
 
 CAP = 150                     # cap height of the rendered wordmark, in output pixels
 TRACKING_RATIO = 0.297        # measured: 17.2px tracking at 58px cap
@@ -165,9 +173,10 @@ def solve_size(path: Path, cap: int) -> int:
     return max(1, int(round((lo + hi) / 2)))
 
 
-def draw_wordmark(canvas_size, size_px: int, cap: int, baseline_y: int, text: str = "KOTOR"):
+def draw_wordmark(canvas_size, size_px: int, cap: int, baseline_y: int,
+                  font_path: Path, text: str = "KOTOR"):
     """Glyph mask drawn straight onto a full-size canvas, sitting on `baseline_y`."""
-    font = ImageFont.truetype(str(FONT), size_px)
+    font = ImageFont.truetype(str(font_path), size_px)
     measure = ImageDraw.Draw(Image.new("L", (8, 8)))
     widths = [measure.textlength(ch, font=font) for ch in text]
     tracking = TRACKING_RATIO * cap
@@ -181,19 +190,19 @@ def draw_wordmark(canvas_size, size_px: int, cap: int, baseline_y: int, text: st
     return mask, total
 
 
-def build(crest_path: Path, out: Path) -> None:
+def build(crest_path: Path, out: Path, font_path: Path) -> None:
     cap = CAP * SUPERSAMPLE
-    size_px = solve_size(FONT, cap)
+    size_px = solve_size(font_path, cap)
 
     # Lay the canvas out from the measurements: the crest is 2.45 caps wide and
     # reaches ~1.9 caps above the cap line before it is cut off in the reference,
     # so give it that much room and let the fade do the rest.
-    probe, span = draw_wordmark((cap * 12, cap * 6), size_px, cap, cap * 4)
+    probe, span = draw_wordmark((cap * 12, cap * 6), size_px, cap, cap * 4, font_path)
     width = int(span + cap * 1.6)
     height = int(cap * 4.2)
     baseline_y = int(height - cap * 0.9)
 
-    letters, _ = draw_wordmark((width, height), size_px, cap, baseline_y)
+    letters, _ = draw_wordmark((width, height), size_px, cap, baseline_y, font_path)
     lbox = letters.getbbox()
     cap_top, baseline = lbox[1], lbox[3]
     canvas = Image.new("RGBA", (width, height), (0, 0, 0, 0))
@@ -323,13 +332,15 @@ def build(crest_path: Path, out: Path) -> None:
 
 def main() -> int:
     parser = argparse.ArgumentParser()
-    parser.add_argument("--crest", type=Path, default=CREST)
+    parser.add_argument("--crest", type=Path, required=True,
+                        help="the crest artwork; not committed, see the note in this file")
+    parser.add_argument("--font", type=Path, default=DEFAULT_FONT)
     parser.add_argument("--out", type=Path, default=Path("src/patcher/brand.png"))
     args = parser.parse_args()
-    for path in (args.crest, FONT):
+    for path in (args.crest, args.font):
         if not path.exists():
             raise SystemExit(f"Not found: {path}")
-    build(args.crest, args.out)
+    build(args.crest, args.out, args.font)
     return 0
 
 
