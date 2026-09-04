@@ -21,6 +21,8 @@ param(
         ".\third_party\Included\Party Portraits by MadDerp",
         ".\third_party\Included\KOTOR1 HD ICON PACK ver1.0 1.0.0 by JackInTheBox\Override"
     ),
+    # Lets a variant build sit beside the standard one instead of overwriting it.
+    [string]$OutputName = "KMRP - KOTOR Modern Restoration Patch",
     [string]$IconPath = ".\assets\branding\favicon.ico",
     [string]$HdFonts = ".\assets\hd-fonts",
     [switch]$ReuseResources,
@@ -36,7 +38,7 @@ $buildDir = Join-Path $projectRoot "build\kmrp"
 $resourceDir = Join-Path $buildDir "resources"
 $distDir = Join-Path $projectRoot "dist"
 $patchResource = Join-Path $buildDir "gold.kup"
-$outputExe = Join-Path $distDir "KMRP - KOTOR Modern Restoration Patch.exe"
+$outputExe = Join-Path $distDir ($OutputName + ".exe")
 
 # Local, uncommitted machine settings, if any.
 $localSettings = Join-Path $projectRoot "build.local.ps1"
