@@ -47,7 +47,7 @@ These are deliberate refusals, not bugs:
 ## For anyone building from source
 
 The build embeds a binary delta against a specific gold snapshot, identified by
-SHA-256 in `app/patcher/KmrpPatcher.cs`. If you change the gold
+SHA-256 in `src/patcher/KmrpPatcher.cs`. If you change the gold
 snapshot, the hash constants must move with it — the patcher verifies both the
 source and the result and will refuse the delta otherwise. Do not weaken those
 checks to make a build work; they are the mechanism that stops a mismatched

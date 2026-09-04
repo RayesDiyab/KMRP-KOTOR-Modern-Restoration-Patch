@@ -12,10 +12,10 @@ trampolining into it. They share a small set of invariants. Breaking one does
 not produce an error — it produces a game that crashes somewhere unrelated, or
 worse, one that runs and is subtly wrong. This is the checklist.
 
-The gold chain is cumulative: `.ksc` → `.kgs` → `.ktn` → `.kmz` → `.kfg`, each
-built from the previous output. So a tool late in the chain is editing a file
-that already contains four other tools' sections, and anything it disturbs
-breaks *them*, not itself.
+The gold chain is cumulative: `.kui` → `.klb` → `.kfs` → `.kwl` → `.ksc` →
+`.kgs` → `.ktn` → `.kmz` → `.kfg` → `.kmn`, each built from the previous
+output. So a tool late in the chain is editing a file that already contains nine
+other tools' sections, and anything it disturbs breaks *them*, not itself.
 
 ## Rule 1: a patch that edits an existing section must not change the file length
 

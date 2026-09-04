@@ -9,3 +9,12 @@
 pykotor      # 2.3.12 -- reads and writes the game's GFF/2DA/TPC/ERF formats
 Pillow       # 12.3.0 -- rendering font atlases and preparing UI icons
 numpy        # 2.5.2  -- pixel array work in the icon and atlas tools
+capstone     # 5.0.9  -- disassembling what a build script just assembled, which is
+             #           how the map-note lookup's wrong jump displacement was caught
+             #           (tools/build_area_fog_fix.py, tools/build_map_note_table.py)
+fonttools    # 4.63.0 -- reading vector outlines when rendering font atlases
+             #           (tools/build_kotor_font.py)
+python-docx  #        -- tools/build_technical_reconstruction_doc.py only.
+             #           NOT INSTALLED on the current build machine, so that one
+             #           tool is unrunnable here and CI does not catch it: CI
+             #           byte-compiles tools/ without importing anything.

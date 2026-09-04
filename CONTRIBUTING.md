@@ -100,9 +100,22 @@ breaking them:
   Report the count and how you established it, not just the change.
 - **Disassemble stubs from the raw bytes** you wrote, not from the assembly you
   intended to write.
+- **Write the site up before you call it done.** Run
+
+  ```bash
+  python tools/build_binary_inventory.py       build-inputs/swkotornopatch.exe build/kmrp/<your gold snapshot>.exe
+  ```
+
+  It diffs the clean executable against gold, groups the differences into runs,
+  and exits non-zero if any run is not named by a Markdown document. This is the
+  only check organised by *bytes* rather than by subject, so it is the only one
+  that notices a patch site nobody documented — its first run found six. CI
+  cannot run it, because neither the clean executable nor a gold snapshot can be
+  committed, so it is on you. See
+  [reverse-engineering/binary-inventory.md](reverse-engineering/binary-inventory.md).
 
 New engine code goes into its own PE section (`.kui`, `.klb`, `.kfs`, `.kwl`,
-`.ksc`, `.kgs`, `.ktn`, `.kmz`, `.kfg`) via a builder in `tools/`; simple
+`.ksc`, `.kgs`, `.ktn`, `.kmz`, `.kfg`, `.kmn`) via a builder in `tools/`; simple
 constant changes are in-place `imm32` rewrites. Each builder verifies the bytes
 it expects to find before writing anything, and refuses to proceed otherwise —
 keep that pattern.
@@ -128,7 +141,8 @@ resulting executables and archives.
 - Note anything you could not verify, and say so plainly rather than implying
   coverage you do not have.
 - Update the affected document(s) in `docs/` or `reverse-engineering/` in the
-  same change.
+  same change. If the change touches the executable,
+  `tools/build_binary_inventory.py` must still exit 0.
 - Add a `CHANGELOG.md` entry under `## [Unreleased]`.
 
 Commit messages in this repository are long-form on purpose: they explain the

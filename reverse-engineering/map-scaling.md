@@ -31,9 +31,9 @@ the selected resolution, changing no lengths.
 
 `VA` is the virtual address a disassembler shows; `FILE` is the byte offset a
 hex editor shows. For everything in the original sections **`FILE = VA −
-0x400000`**. The nine appended sections start at `FILE 0x3DB000` / `VA
+0x400000`**. The ten appended sections start at `FILE 0x3DB000` / `VA
 0x0086D000` and are contiguous 4 KB blocks in the order `.kui .klb .kfs .kwl
-.ksc .kgs .ktn .kmz .kfg`, so for `.kui` **`FILE = VA − 0x492000`**.
+.ksc .kgs .ktn .kmz .kfg .kmn`, so for `.kui` **`FILE = VA − 0x492000`**.
 
 ## 1. What the engine actually does
 

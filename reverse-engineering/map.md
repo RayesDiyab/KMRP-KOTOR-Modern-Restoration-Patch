@@ -805,7 +805,7 @@ untested. Symptom to watch for: fog that stops short of the map's right edge.
 
 ## Before editing this executable again
 
-`.kmz` and `.kfg` are two of five cumulative sections, and a tool that edits one
+`.kmz` and `.kfg` are two of ten cumulative sections, and a tool that edits one
 is editing a file that already carries the others. The invariants -- above all
 that an in-place edit must not change the file length, because section raw
 offsets are absolute -- are in [exe-patching.md](exe-patching.md), along with the
