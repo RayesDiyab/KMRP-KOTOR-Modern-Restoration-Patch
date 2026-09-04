@@ -410,12 +410,24 @@ assembled and prints it, and the target read `0x876FD4` where the scan block
 starts at `0x876FD6`. Hand-assembled displacements are worth this check every
 time: the wrong one is not obviously wrong to read.
 
-### 7.7 Untested
+### 7.7 Play-test status
 
-**Nothing here has been confirmed in play.** The bytes are verified — section,
-flag, table hash, wrapper splice, and the assembled routine — but no map note has
-been looked at in game before and after. The 250 corrections are Derslok's
-measurements, taken on trust; we have re-derived none of them.
+**Confirmed working in play**, by the author, on 2026-09-04, at 3440x1440 on the
+shipped v2.10.0 build. Map notes appear on their subjects. This replaces an
+earlier note in this document saying nothing here had been confirmed in play;
+that was accurate when written and is superseded.
+
+What that does and does not establish:
+
+| | |
+| --- | --- |
+| the mechanism works end to end | **yes** — the flag, table, lookup and wrapper splice do what §7.1–7.5 describe, in a running game |
+| all 250 corrections are individually right | **not established** — a play-test sees the notes encountered, not the whole table |
+| the corrections were re-derived by us | **no** — they are Derslok's hand measurements, taken on trust |
+| tested at other resolutions | **no** — the lookup is resolution-independent by construction (it substitutes world coordinates before any scaling), so this is expected to hold, but it has not been checked |
+
+The bytes were already verified independently of play: section, flag, table hash,
+wrapper splice and the assembled routine, all in §7.1–7.5.
 
 ## 8. Two limits, both measured
 
