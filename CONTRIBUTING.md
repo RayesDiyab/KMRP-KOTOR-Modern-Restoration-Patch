@@ -1,5 +1,11 @@
 # Contributing to KMRP
 
+> **Documentation standard.** This document follows
+> [`docs/documentation-standard.md`](docs/documentation-standard.md). Read it before editing
+> this file, and check the result still meets it — measured claims only, every
+> site tabulated, rejected alternatives and corrections kept visible, and
+> anything untested labelled as untested.
+
 Thanks for looking. This document covers how to build the project, and the
 working rules it holds itself to — most of which exist because breaking them
 already cost a day at some point.

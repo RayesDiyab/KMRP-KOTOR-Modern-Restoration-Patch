@@ -1,5 +1,11 @@
 # Build inputs
 
+> **Documentation standard.** This document follows
+> [`../docs/documentation-standard.md`](../docs/documentation-standard.md). Read it before editing
+> this file, and check the result still meets it — measured claims only, every
+> site tabulated, rejected alternatives and corrections kept visible, and
+> anything untested labelled as untested.
+
 Files the build needs that come from **your own copy of the game**. They live
 here so the project folder is self-contained and can be moved anywhere; earlier
 the build reached outside the folder with a `..\` path, which broke silently the

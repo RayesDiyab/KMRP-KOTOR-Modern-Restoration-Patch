@@ -1,5 +1,11 @@
 # Contributor Covenant Code of Conduct
 
+> **Documentation standard.** This document follows
+> [`docs/documentation-standard.md`](docs/documentation-standard.md). Read it before editing
+> this file, and check the result still meets it — measured claims only, every
+> site tabulated, rejected alternatives and corrections kept visible, and
+> anything untested labelled as untested.
+
 ## Our Pledge
 
 We as members, contributors, and leaders pledge to make participation in our
