@@ -17,7 +17,9 @@ All notable changes to KMRP are recorded here. The format follows
 > version's gold snapshot is recorded in the build script it is named; for
 > 2.0.0–2.5.0 the build script's default still pointed at an older snapshot than
 > the documentation describes, so no gold snapshot is claimed for those. Going
-> forward, tag releases (`git tag -a v2.7.0`) so this stops being reconstruction.
+> forward, tag releases so this stops being reconstruction. **2.10.0 is where
+> that starts:** it is the first tagged version, so every entry above it is
+> reconstructed and every entry from it on is not.
 
 ## Everything the patch changes in the executable
 
@@ -62,6 +64,17 @@ interface layout files, font atlases and icon artwork all ship as ordinary
 own process in memory at startup without writing to `swkotor.exe` at all.
 
 ## [Unreleased]
+
+Nothing yet.
+
+---
+
+## [2.10.0] — 2026-09-04
+
+First tagged release, and the first public one. `PatchVersion` in
+`src/patcher/KmrpPatcher.cs` reads `2.10.0-mapnotes`; gold snapshot
+`swkotor_gold_v21_mapnotes.exe`, SHA-256
+`9ACE45023EAB9063803136E6C312E5E87DD85E07E33CCB5525C04DCA38C478DC`.
 
 ### Added
 - **Area map fog now covers the whole map.** The grid was built and normalised
@@ -231,4 +244,5 @@ Gold snapshot `swkotor_gold_v14_minimap.exe`
   letterbox.
 - Verified backup and restore for the executable, INI and Override folder.
 
-[Unreleased]: https://github.com/RayesDiyab/KMRP-KOTOR-Modern-Restoration-Patch/compare/master...HEAD
+[Unreleased]: https://github.com/RayesDiyab/KMRP-KOTOR-Modern-Restoration-Patch/compare/v2.10.0...HEAD
+[2.10.0]: https://github.com/RayesDiyab/KMRP-KOTOR-Modern-Restoration-Patch/releases/tag/v2.10.0
