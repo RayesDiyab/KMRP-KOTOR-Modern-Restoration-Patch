@@ -1,6 +1,6 @@
 <div align="center">
 
-<img src="assets/branding/logo.png" alt="KMRP" width="420">
+<img src="assets/branding/release-cover.png" alt="KMRP - KOTOR Modern Restoration Patch" width="100%">
 
 # KMRP — KOTOR Modern Restoration Patch
 
