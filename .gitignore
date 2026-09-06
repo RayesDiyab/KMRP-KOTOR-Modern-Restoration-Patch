@@ -62,6 +62,11 @@ build-inputs/*
 # Machine-specific build settings (build.local.example.ps1 is the template).
 build.local.ps1
 
+# Agent continuity that is specific to this workstation or unfinished local work.
+# Durable, shareable guidance in AGENTS.md and docs/agent-memory/ is tracked.
+docs/agent-memory/LOCAL.md
+docs/agent-memory/HANDOFF.md
+
 # third_party is an ALLOWLIST, not a denylist.
 #
 # Mods are dropped in here for comparison, and we have no permission to redistribute
@@ -123,6 +128,10 @@ third_party/Included/K1-Area-Map-Fixes-*/More info/source/data/*
 
 !third_party/Included/k1-modern-driver-compatibility-*/dinput8.dll
 !third_party/Included/k1-modern-driver-compatibility-*/*.asi
+
+# Optional Xbox Controls integration. The controller module is built from the
+# author-approved source; the runtime is the MIT KOTOR Patch Manager hook engine.
+!third_party/Included/KPM-Xbox-Controls-K1-1.2 by Saul0097/
 
 # Raw game screenshots used to build the comparison images. The composites in
 # assets/screenshots/ are committed because the README and the mod pages need

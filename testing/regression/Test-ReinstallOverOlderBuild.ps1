@@ -53,6 +53,38 @@ if (-not $WorkRoot) {
 }
 
 $script:Failures = 0
+$layersPath = "Software\Microsoft\Windows NT\CurrentVersion\AppCompatFlags\Layers"
+$script:OriginalLayerValues = @{}
+
+function Get-LayerValue([string]$exePath) {
+    $key = [Microsoft.Win32.Registry]::CurrentUser.OpenSubKey($layersPath, $false)
+    try {
+        if ($null -eq $key -or $key.GetValueNames() -notcontains $exePath) {
+            return [pscustomobject]@{ Exists = $false; Value = $null }
+        }
+        return [pscustomobject]@{
+            Exists = $true
+            Value = [string]$key.GetValue($exePath, $null, [Microsoft.Win32.RegistryValueOptions]::DoNotExpandEnvironmentNames)
+        }
+    }
+    finally {
+        if ($null -ne $key) { $key.Dispose() }
+    }
+}
+
+function Restore-LayerValue([string]$exePath, $saved) {
+    $key = [Microsoft.Win32.Registry]::CurrentUser.CreateSubKey($layersPath)
+    try {
+        if ($saved.Exists) {
+            $key.SetValue($exePath, $saved.Value, [Microsoft.Win32.RegistryValueKind]::String)
+        } else {
+            $key.DeleteValue($exePath, $false)
+        }
+    }
+    finally {
+        $key.Dispose()
+    }
+}
 
 function Get-Sha256([string]$path) {
     return (Get-FileHash -LiteralPath $path -Algorithm SHA256).Hash.ToUpperInvariant()
@@ -81,6 +113,7 @@ function New-Install([string]$name) {
     $exe = Join-Path $folder "swkotor.exe"
     Copy-Item -LiteralPath $CleanExe -Destination $exe
     Copy-Item -LiteralPath $SeedIni -Destination (Join-Path $folder "swkotor.ini")
+    $script:OriginalLayerValues[$exe] = Get-LayerValue $exe
     return $exe
 }
 
@@ -163,6 +196,9 @@ try {
     Assert ((Get-Sha256 $exe) -eq $before) "the executable is untouched"
 }
 finally {
+    foreach ($entry in $script:OriginalLayerValues.GetEnumerator()) {
+        Restore-LayerValue $entry.Key $entry.Value
+    }
     if ($KeepWorkRoot) {
         Write-Host ""
         Write-Host ("work folder kept: " + $WorkRoot)

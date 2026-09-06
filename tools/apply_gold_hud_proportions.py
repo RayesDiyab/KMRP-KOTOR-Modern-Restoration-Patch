@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Give the bottom HUD corners the gold build's proportions at any resolution.
+"""Give HUD clusters the gold build's proportions at any resolution.
 
 The upstream high-resolution GUI files scale the bottom-left party cluster and
 the bottom-right action-button cluster consistently across resolutions (unlike
@@ -23,6 +23,13 @@ Applied to gold's own 3440x1440 values this is an exact identity.
 The bottom-centre combat-queue cluster (LBL_COMBATBG*, BTN_CLEAR*, LBL_QUEUE*)
 is deliberately left alone: it is centre-anchored rather than corner-anchored,
 so it needs different handling and is not part of what this transfers.
+
+The transient top-left controls need a related but distinct rule. High
+Resolution Menus scales their positions and rectangles from screen width, which
+makes the target/container nameplate 960 pixels wide and the XP/item/journal
+icons 115 pixels square at 3840x2160. The play-tested gold HUD uses 400 and 64
+at 3440x1440. They scale with KMRP's font/HUD rule instead:
+``max(1, height / 720)`` relative to gold's 2x values, anchored at top-left.
 """
 
 from __future__ import annotations
@@ -59,6 +66,14 @@ BOTTOM_RIGHT_TAGS = (
     "LBL_ACTION0", "LBL_ACTION1", "LBL_ACTION2", "LBL_ACTION3",
     "BTN_ACTIONUP0", "BTN_ACTIONUP1", "BTN_ACTIONUP2", "BTN_ACTIONUP3",
     "BTN_ACTIONDOWN0", "BTN_ACTIONDOWN1", "BTN_ACTIONDOWN2", "BTN_ACTIONDOWN3",
+)
+
+TOP_LEFT_TRANSIENT_TAGS = (
+    # Target/container name and health strip.
+    "LBL_NAMEBG", "LBL_NAME", "LBL_HEALTHBG", "PB_HEALTH",
+    # Short-lived feedback icons: journal, credits, XP, items, alignment.
+    "LBL_JOURNAL", "LBL_CASH", "LBL_PLOTXP", "LBL_ITEMRCVD", "LBL_ITEMLOST",
+    "LBL_STEALTHXP", "LBL_DARKSHIFT", "LBL_LIGHTSHIFT",
 )
 
 
@@ -110,24 +125,31 @@ def placed(gold: tuple[int, int, int, int], scale: float, target_width: int,
     return (left, top, width, height)
 
 
+def placed_top_left(gold: tuple[int, int, int, int], scale: float) -> tuple[int, int, int, int]:
+    return tuple(round_half_up(value * scale) for value in gold)
+
+
 def apply_proportions(gold_path: Path, source: Path, output: Path,
                       target_width: int, target_height: int) -> int:
     gold = gold_extents(gold_path)
     gui = read_gff(source)
-    scale = target_height / GOLD_HEIGHT
+    bottom_scale = target_height / GOLD_HEIGHT
+    transient_scale = max(1.0, target_height / 720.0) / 2.0
     changed = 0
 
     for control in walk_controls(gui):
         tag = control.get_string("TAG")
         anchor_right = tag in BOTTOM_RIGHT_TAGS
-        if not anchor_right and tag not in BOTTOM_LEFT_TAGS:
+        transient = tag in TOP_LEFT_TRANSIENT_TAGS
+        if not anchor_right and tag not in BOTTOM_LEFT_TAGS and not transient:
             continue
         if tag not in gold:
             continue
         extent = control.get_struct("EXTENT")
         if extent is None:
             continue
-        values = placed(gold[tag], scale, target_width, target_height, anchor_right)
+        values = (placed_top_left(gold[tag], transient_scale) if transient else
+                  placed(gold[tag], bottom_scale, target_width, target_height, anchor_right))
         for field, value in zip(("LEFT", "TOP", "WIDTH", "HEIGHT"), values, strict=True):
             extent.set_int32(field, value)
         control.set_struct("EXTENT", extent)

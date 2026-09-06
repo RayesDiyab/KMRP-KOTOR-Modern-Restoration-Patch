@@ -117,7 +117,10 @@ def main() -> int:
     body = [r for r in found if r[0] >= HEADER_END]
     header = [r for r in found if r[0] < HEADER_END]
     print(f"runs: {len(found)}  ({len(header)} PE header, {len(body)} code/data)")
-    print(f"bytes changed inside the original image: {sum(b - a for a, b in found)}")
+    differing = sum(clean[index] != gold[index] for index in range(min(len(clean), len(gold))))
+    covered = sum(stop - start for start, stop in found)
+    print(f"differing byte positions inside the original image: {differing}")
+    print(f"bytes covered by merged presentation runs: {covered}")
     print()
 
     print("| VA | FILE | len | clean | gold | documented in |")

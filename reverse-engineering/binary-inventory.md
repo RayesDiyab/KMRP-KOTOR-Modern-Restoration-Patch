@@ -23,23 +23,26 @@ and is meant to be regenerated whenever gold changes.
 | | |
 | --- | --- |
 | clean | `build-inputs/swkotornopatch.exe`, 4,042,752 bytes, SHA-256 `761F9466F456A83909036BAEBB5C43167D722387BE66E54617BA20A8C49E9886` |
-| gold | `build/kmrp/swkotor_gold_v21_mapnotes.exe`, 4,083,712 bytes, SHA-256 `9ACE45023EAB9063803136E6C312E5E87DD85E07E33CCB5525C04DCA38C478DC` |
+| gold | `build/kmrp/swkotor_gold_v24_movieaspect.exe`, 4,087,808 bytes, SHA-256 `9DD81A75F4888FD67242B682BEE0AB4392EA8923CDF4A020CA3EDD2464C05E0A` |
 
 **The whole difference, in three numbers:**
 
 | | |
 | --- | --- |
-| bytes changed inside the original 4,042,752-byte image | **893**, in **77 runs** |
-| of those runs, PE header | 13 runs, 296 bytes |
-| of those runs, code and data | 64 runs, 597 bytes |
+| differing byte positions inside the original 4,042,752-byte image | **702** |
+| merged presentation span | **914 bytes**, in **80 runs** |
+| of those runs, PE header | 13 runs, 144 differing bytes across a 303-byte span |
+| of those runs, code and data | 67 runs, 558 differing bytes across a 611-byte span |
 | bytes appended past the end of the original image | **40,960** — ten new 4,096-byte sections |
 
 Runs are formed by merging differing bytes separated by fewer than 8 identical
-bytes, so one patch site reads as one row. The threshold is presentation only;
-nothing depends on it.
+bytes, so one patch site reads as one row. The 914-byte span therefore includes
+212 unchanged separator bytes. Earlier versions of this document incorrectly
+called the merged span “bytes changed”; the 702 count now reports actual unequal
+byte positions. The threshold is presentation only; nothing depends on it.
 
-**A calibration for how small 893 bytes is.** It is 0.022% of the image. Every
-behavioural change KMRP makes to the executable is either one of these 77 runs or
+**A calibration for how small 702 bytes is.** It is 0.017% of the image. Every
+behavioural change KMRP makes to the executable is either one of these 80 runs or
 lives in the appended sections, which no vanilla byte can reach except through
 them.
 
@@ -48,7 +51,7 @@ them.
 ```bash
 python tools/build_binary_inventory.py \
     build-inputs/swkotornopatch.exe \
-    build/kmrp/swkotor_gold_v21_mapnotes.exe
+    build/kmrp/swkotor_gold_v24_movieaspect.exe
 ```
 
 It exits 0 only when every code and data run is named by at least one Markdown
@@ -68,12 +71,14 @@ because the reverse-engineering documents use VAs while
 
 ## 3. The PE header, 13 runs
 
-None of these is a patch site. All of them are consequences of appending ten
-sections, and a linker would have written the same values.
+One field is a behavioral patch: the Large Address Aware characteristic. The
+other header differences are consequences of appending ten sections, and a
+linker would have written the same values.
 
 | VA | FILE | field | clean | gold |
 | --- | --- | --- | --- | --- |
 | `0x00400916` | `0x000916` | `NumberOfSections` | 4 | 14 |
+| — | `0x000926` | `Characteristics` (`IMAGE_FILE_LARGE_ADDRESS_AWARE`) | `0x010F` | `0x012F` |
 | `0x0040092C` | `0x00092C` | `SizeOfCode` | `0x33C000` | `0x346000` |
 | `0x00400960` | `0x000960` | `SizeOfImage` | `0x46D000` | `0x477000` |
 | `0x00400968` | `0x000968` | `CheckSum` | `0x3E73F7` | `0` |
@@ -124,7 +129,7 @@ than left to be noticed.
 header, 4,000 bytes of table and a 78-byte lookup. A 251st correction would need
 a second page.
 
-## 4. The 64 code and data runs
+## 4. The 67 code and data runs
 
 Generated table — regenerate with the command in §2 rather than editing by hand.
 The final column lists every document naming an address in the run, so several
@@ -132,6 +137,8 @@ entries name more than one.
 
 | VA | FILE | len | clean | gold | documented in |
 | --- | --- | --- | --- | --- | --- |
+| `0x00403D6C` | `0x003D6C` | 2 | `8002` | `700d` | `reverse-engineering/movies.md` |
+| `0x00403D78` | `0x003D78` | 2 | `e001` | `a005` | `reverse-engineering/movies.md` |
 | `0x0040AA65` | `0x00AA65` | 2 | `8002` | `700d` | `docs/universal-resolution-math.md`, `reverse-engineering/map.md` |
 | `0x0040AA85` | `0x00AA85` | 2 | `e001` | `a005` | `docs/universal-resolution-math.md`, `reverse-engineering/experiments/005-font-scale-investigation.md`, `reverse-engineering/map.md` |
 | `0x0040B6C7` | `0x00B6C7` | 2 | `80fd` | `90f2` | `reverse-engineering/binary-inventory.md` |
@@ -158,6 +165,7 @@ entries name more than one.
 | `0x004A1770` | `0x0A1770` | 13 | `6aff685c7e710064a100000000` | `e903da3c009090909090909090` | `reverse-engineering/font.md` |
 | `0x005F0C65` | `0x1F0C65` | 2 | `2003` | `700d` | `docs/universal-resolution-math.md` |
 | `0x005F0C6F` | `0x1F0C6F` | 2 | `5802` | `a005` | `docs/universal-resolution-math.md` |
+| `0x005F5B3B` | `0x1F5B3B` | 10 | `80020000c7442410e001` | `700d0000c7442410a005` | `reverse-engineering/movies.md` |
 | `0x0062540D` | `0x22540D` | 1 | `20` | `80` | `reverse-engineering/message-popup.md`, `reverse-engineering/text-padding.md` |
 | `0x006256DC` | `0x2256DC` | 9 | `b80100007c0b3d1801` | `400600007c0b3d8403` | `reverse-engineering/message-popup.md`, `reverse-engineering/text-padding.md` |
 | `0x006256F6` | `0x2256F6` | 2 | `b801` | `4006` | `reverse-engineering/message-popup.md`, `reverse-engineering/text-padding.md` |
@@ -199,8 +207,8 @@ entries name more than one.
 
 Which document covers how much, derived from that table rather than grouped by
 hand. **A run named by more than one document is counted in each**, so the bytes
-column sums to more than 597; it says what each document is responsible for, not
-how the 597 divide up.
+column sums to more than 611; it says what each document is responsible for, not
+how the 611 divide up.
 
 | document | runs | bytes |
 | --- | --- | --- |
@@ -216,6 +224,7 @@ how the 597 divide up.
 | [`text-padding.md`](text-padding.md) | 6 | 20 |
 | [`experiments/004-global-dimension-split.md`](experiments/004-global-dimension-split.md) | 2 | 20 |
 | [`message-popup.md`](message-popup.md) | 5 | 15 |
+| [`movies.md`](movies.md) | 3 | 14 |
 | [`experiments/005-font-scale-investigation.md`](experiments/005-font-scale-investigation.md) | 3 | 14 |
 | [`../docs/universal-resolution-math.md`](../docs/universal-resolution-math.md) | 2 | 4 |
 | [`experiments/003-isolated-full-map-wrapper.md`](experiments/003-isolated-full-map-wrapper.md) | 1 | 2 |

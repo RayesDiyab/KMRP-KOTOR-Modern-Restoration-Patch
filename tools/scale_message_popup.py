@@ -116,14 +116,12 @@ TUNED = {
     # than the text: if it overflows, the engine's auto-fit loop switches back on
     # and the horizontal clipping returns with it.
     #
-    # Panel height is then set to just clear the button. The engine ADDS the icon
-    # size to the panel height (panel.height += icon), so the authored value is
-    # the height without the icon: 300 renders as ~428 with a 128px icon.
-    # Measured at 420 the button ended 114px above the bottom edge. 300 was
-    # too far (the button was clipped by the panel edge) and 340 put the
-    # button flush against it, so 375, which leaves ~35px below. The confirm box has no icon, so it renders at the authored
-    # 300 and its two buttons sit 128px higher, still inside.
-    "TGuiPanel":  (900, 375),
+    # The panel must contain the second button even when no tutorial icon is
+    # present. The previous 375 ended at y=375 while BTN_CANCEL ended at y=490;
+    # that clipped the confirmation layout reported at 3840x2160. Height 525
+    # leaves the same 35px bottom margin as the text/button spacing. Tutorial
+    # popups may add their icon height at runtime, which only adds safe space.
+    "TGuiPanel":  (900, 525),
     "LB_MESSAGE": (60, 24, 780, 150),
     "BTN_OK":     (60, 320, 780, 80),
     "BTN_CANCEL": (60, 410, 780, 80),
