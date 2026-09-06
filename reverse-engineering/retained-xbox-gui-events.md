@@ -515,6 +515,78 @@ So in ordinary play the Journal is the only screen where Y visibly does
 something, which is exactly what was reported. The engine has more Y than the
 player can normally reach.
 
+## The engine's own gamepad support
+
+The console entry points have no caller, but that is not the same as the engine
+having no gamepad code. It has a complete one, at the raw input layer, and it is
+live.
+
+### The device layer runs every frame
+
+`CExoInputInternal::GetEvents` — the per-frame poll — loops over a joystick
+device count at `+0x158` and calls `CExoRawInputInternal::GetJoystickBuffer`
+(`0x005E30E0`) for each. That function is real DirectInput work, not a stub:
+
+```asm
+005E315D  call dword ptr [ecx+0x64]   ; IDirectInputDevice::Poll
+005E3170  call dword ptr [ecx+0x24]   ; IDirectInputDevice::GetDeviceData
+005E3177  cmp  eax, 0x80070015        ; DIERR_NOTACQUIRED
+005E317E  cmp  eax, 0x8007001E        ; DIERR_INPUTLOST
+005E318E  call dword ptr [ecx+0x1c]   ; Acquire -- and re-acquire on loss
+```
+
+It decodes a **POV hat** as well as buttons. The magic multiply `0x51EB851F`
+followed by `shr edx, 5` is a divide by 100, and the compared values are
+`0`, `0x2D`, `0x5A`, `0x87`, `0xB4`, `0xE1`, `0x10E`, `0x13B` — 0, 45, 90, 135,
+180, 225, 270 and 315. DirectInput reports POV in hundredths of a degree, so
+this is eight-direction D-pad decoding with diagonals setting two bits.
+
+Buttons, axes and a D-pad. That is complete gamepad handling.
+
+### The binding layer is where it stops
+
+`CExoInputInternal::CreateNewEvent` (`0x005E0E20`, five arguments) takes
+`(eventId, descriptionType, controlValue, …)`. The type selects among six
+description kinds through a jump table at `0x005E0F7C`:
+
+| Type | Class allocated | Used by the game |
+| --- | --- | --- |
+| 0 | base `CExoInputEventDesc`, vtable `0x0074D5FC` | **never** |
+| 1 | base `CExoInputEventDesc` | 17 times |
+| 2 | base `CExoInputEventDesc` | **never** |
+| 3 | `CExoInputEventDescDetailed` (`0x005DFCC0`) | 8 times |
+| 4 | `CExoInputeventDesc2ButtonAxis` (`0x005DFD50`) | once |
+| 5 | base `CExoInputEventDesc` | **never** |
+
+The type is stored at `desc+0x14` and the control value at `desc+0x18`.
+
+`CExoInputInternal::AddEvent` (`0x005E0FA0`) is a different thing from
+`CSWGuiControl::AddEvent`, and much simpler: `AddEvent(inputClass, eventId)`,
+with `inputClass < 6`, setting a bit in a per-class bitset. Those six classes are
+the `keymap.2da` columns `ICPC`, `ICPCGUI`, `ICDialog`, `ICFreeLook`, `ICMovie`,
+`ICMiniGame`, and `CExoInputInternal::IsEventInClass` (`0x005E0D80`) reads them
+back.
+
+**Three of the six description types are never constructed.** That is where the
+question now sits: whether one of types 0, 2 or 5 is the joystick binding, unused
+because nothing binds a joystick control.
+
+### What is still unknown
+
+Two things gate the native path, and neither can be settled from the image:
+
+1. **Is a joystick device ever created?** The polling loop is live, but if the
+   count at `+0x158` is zero it never runs. The class table has
+   `CExoRawInputInternal::InitializeDirectInputMouse` and **no** joystick
+   equivalent, which is a real warning sign — enumeration may have been cut
+   alongside the bindings.
+2. **Which description type names a joystick control, and in what numbering?**
+   Types 0, 2 and 5 are unused; the meaning of each is not established.
+
+Both are runtime questions. Per `AGENTS.md`, they get measured in x64dbg rather
+than guessed at, and nothing in this section should be read as a plan until they
+are.
+
 ## Coverage: what has been walked, and what has not
 
 The sweep is tracked explicitly because a decoder blind spot and a genuine
