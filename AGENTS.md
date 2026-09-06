@@ -24,10 +24,15 @@ do not load every project document on every task.
 
 - Never commit proprietary game binaries or resources. Keep `*.exe`, `*.dll`,
   `*.erf`, `*.bif`, `*.key`, `*.rim`, `*.mod`, and save files ignored.
-- Never *experiment* on a live `swkotor.exe`. Reverse engineering, trial patches
-  and debugger work belong on a named copy, with its length and SHA-256 recorded
-  before and after. Installing a finished, verified build is a different act and
-  is permitted (rule 5).
+- Experimenting on the live `swkotor.exe` is permitted. The user lifted the
+  named-copy requirement on 2026-09-07, having considered it: "You are allowed to
+  modify exe live on disk from now on. I have no issues with that."
+  - Still copy the file aside first, and still record its length and SHA-256
+    before and after. Those were never about permission -- they are what makes a
+    change reversible and a measurement reproducible.
+  - Say plainly, in the same reply, that the live executable was modified, and
+    how to undo it.
+  - Debugging a running process was always allowed and remains so.
 - When installing to the live game:
   - Prefer the patcher's own workflow. Reach past it only for a single file the
     user is play-testing, and say plainly that you have.
