@@ -22,7 +22,7 @@ contribution is installing it, removing it again, and the compatibility check be
 | --- | --- |
 | K1DC | 1.2.0 standalone, `k1-modern-driver-compatibility-v1.2.0-standalone.zip`, 1,631,672 bytes, SHA-256 `E35E7DA022DC859E10A2C5F29FDE101B846F5789B2A14BB5D297FB57777F24A8` |
 | vendored at | `third_party/Included/k1-modern-driver-compatibility-1.2.0 by Synchro/` |
-| KMRP gold | `swkotor_gold_v20_hittest.exe`, `ACD521B80E48B4D5A0CA043187C2D21BA1745E299D7FDD5CBA7514D525A24713` |
+| KMRP gold | `swkotor_gold_v24_movieaspect.exe`, `9DD81A75F4888FD67242B682BEE0AB4392EA8923CDF4A020CA3EDD2464C05E0A` |
 | source | <https://codeberg.org/Synchro/kotor-modern-driver-compatibility> |
 | release page | <https://deadlystream.com/files/file/3048-k1-modern-driver-compatibility-patch> |
 
@@ -167,7 +167,7 @@ Reproduce the collision check against any KMRP gold build:
 ```bash
 python - <<'PY'
 import re, ast
-gold = open("build/kmrp/swkotor_gold_v20_hittest.exe", "rb").read()
+gold = open("build/kmrp/swkotor_gold_v24_movieaspect.exe", "rb").read()
 clean = open("build-inputs/swkotornopatch.exe", "rb").read()
 changed = {i for i in range(len(clean)) if clean[i] != gold[i]}
 toml = open("third_party/Included/k1-modern-driver-compatibility-1.2.0 by Synchro/kotor1.hooks.toml").read()

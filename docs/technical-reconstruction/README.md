@@ -42,7 +42,7 @@ Measured against the current build:
 | | the document | today |
 | --- | --- | --- |
 | document date | 2026-08-28 | — |
-| gold executable | `D8F0EEBF470660FFBB0DBE9D6953774B937F73F92260FA2D3427189D8B7F6ADE` | `9ACE45023EAB9063803136E6C312E5E87DD85E07E33CCB5525C04DCA38C478DC` |
+| gold executable | `D8F0EEBF470660FFBB0DBE9D6953774B937F73F92260FA2D3427189D8B7F6ADE` | `29BE3C23F53D53F521D98329F996248864834FB3873819DF63CCF1803C65A7E8` |
 | gold size | 4,046,848 bytes | 4,083,712 bytes |
 | appended PE sections | **1** (`.kui`, map and markers only) | **10** |
 

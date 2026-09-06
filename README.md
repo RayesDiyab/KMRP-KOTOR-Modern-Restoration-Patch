@@ -29,8 +29,8 @@ that in the engine itself rather than by swapping artwork — 48 resolutions, fr
 | | |
 | --- | --- |
 | Game | *Star Wars: Knights of the Old Republic* (2003 PC release) |
-| `swkotor.exe` | The **4,042,752-byte** editable build, SHA-256 `761F9466…C49E9886`. KMRP refuses anything else. |
-| OS | Windows with .NET Framework 4.x (shipped with Windows 10/11) |
+| `swkotor.exe` | The **4,042,752-byte** editable build, SHA-256 `761F9466…C49E9886`, or that exact build with only the standard Large Address Aware bit already set (`CA9D22EA…A7E1889`). KMRP refuses every other variant. |
+| OS | Windows with .NET Framework 4.x (shipped with Windows 10/11). Linux/Proton and Steam Deck are experimental and not yet gameplay-verified; use the separate procedure below. |
 
 1. Launch KOTOR once so `swkotor.ini` exists.
 2. Run **`KMRP - KOTOR Modern Restoration Patch.exe`**.
@@ -38,6 +38,13 @@ that in the engine itself rather than by swapping artwork — 48 resolutions, fr
 4. Restart KOTOR.
 
 To change resolution later, use **Restore Original** first, then patch again.
+
+**Linux / Proton / Steam Deck (experimental).** Launch the patcher inside the
+game's Proton environment with `protontricks-launch --appid 32370`, and use the
+same route for restore. Package-level Linux checks pass, but Proton gameplay and
+physical-controller coverage are not yet complete. Follow the exact commands,
+diagnostic steps, and honest test matrix in the
+[Linux, Proton, and Steam Deck guide](docs/linux-proton-steam-deck.md).
 
 **On the version number.** [v2.10.0](https://github.com/RayesDiyab/KMRP-KOTOR-Modern-Restoration-Patch/releases/tag/v2.10.0) is the **first
 public release**, so there is no v1. Versions 2.0.0 to 2.9.x were private
@@ -48,12 +55,18 @@ they were ever distributed here. The numbering was not restarted at 1.0: one
 [`releases/universal-v2.0.0/`](releases/universal-v2.0.0/), and renumbering would
 make that build unplaceable.
 
-**What it touches, and how to undo it.** KMRP edits `swkotor.exe`, `swkotor.ini`
-and the `Override` folder. Before writing anything it copies the executable and
-INI aside and records every Override file it adds or replaces — with hashes — in
-`KOTOR_UI_Override_Backup.manifest`. **Restore Original** reverses all three from
-those records. The patcher refuses to run against an executable it does not
-recognise, and refuses to restore one it did not create.
+**What it touches, and how to undo it.** KMRP edits `swkotor.exe`, including
+enabling its standard Large Address Aware flag, plus `swkotor.ini`
+and the `Override` folder. It also marks that exact executable as DPI-aware in
+the current user's Windows compatibility settings, preventing Windows display
+scaling from enlarging an interface KMRP has already scaled. Before writing
+anything it copies the executable and INI aside, records every Override file it
+adds or replaces — with hashes — in `KOTOR_UI_Override_Backup.manifest`, and
+records the prior DPI setting in `KMRP_DPI.manifest`. **Restore Original**
+reverses each change from those records. If the DPI setting was changed after
+KMRP installed it, restore leaves the newer setting alone. The patcher refuses
+to run against an executable it does not recognise, and refuses to restore one
+it did not create. See [Windows DPI handling](docs/windows-dpi-scaling.md).
 
 <details>
 <summary><b>Command line</b> (same operations, no window)</summary>
@@ -88,6 +101,9 @@ BioWare bugs that only become visible once the interface is scaled.
 | **Dialogue letterbox too small** on ultrawide | Bar height derived from screen *width* | [font-scaling](docs/font-scaling.md) |
 | **HUD minimap not zoomed** to the player | The minimap pans the map under a centre-pinned marker with no clamping | [map](reverse-engineering/map.md) |
 | **Message popups clipped** mid-word | An auto-fit loop widens the popup only while it is narrower than a cap authored for 640×480 | [message-popup](reverse-engineering/message-popup.md) |
+| **Feedback rows and HUD notifications misplaced at 4K** | Upstream layouts scaled the list panes but not their embedded row prototypes, while short-lived HUD controls were scaled from screen width instead of the common height rule | [universal resolution math](docs/universal-resolution-math.md#reported-4k-layout-repairs) |
+| **Out-of-memory failures near the 2 GB process ceiling** | The 32-bit executable did not declare that it can use addresses above 2 GB; KMRP now sets the standard PE Large Address Aware bit | [large-address-aware](reverse-engineering/large-address-aware.md) |
+| **Movies trigger a 640×480 mode switch, minimize, or lose focus** | Full-screen Bink playback has two resolution pairs independent of the normal render size; KMRP writes the selected resolution into both | [movies](reverse-engineering/movies.md) |
 | **Map marker click offset** from where it is drawn | The hit test centred the map canvas in the window, while the control that crops it is placed by the marker overlay — 141px out horizontally | [map-markers](reverse-engineering/map-markers.md) |
 | **Unfogged strip** down the right of the area map | The map picture is drawn onto a canvas wider than the overlay the fog grid covers, and nothing cropped the surplus | [area-map-surface](reverse-engineering/area-map-surface.md) |
 | **250 map notes in the wrong place** | A 2003 content bug: the notes' stored world positions do not match their subjects | [map-markers](reverse-engineering/map-markers.md) |
@@ -162,17 +178,26 @@ overwrites a mod you installed yourself.
 | --- | --- | --- | --- |
 | [K1 Modern Driver Compatibility](https://codeberg.org/Synchro/kotor-modern-driver-compatibility) 1.2.0 | Synchro | MPL-2.0 | **Yes** — Advanced Settings |
 | Area map marker corrections (250 notes) | Derslok | GPL-3.0 | **Yes** — Advanced Settings |
+| [KPM – Xbox Controls for KOTOR 1](https://github.com/scopeking0117-alt/KPM-Xbox-Controls-K1) 1.2 | Saul0097 | Author permission; upstream licence file pending | **Yes, off by default** — Advanced Settings |
 | Party Portraits | MadDerp | — | No |
 | KOTOR 1 HD Icon Pack 1.0 | JackInTheBox | — | No |
 
-**Advanced Settings**, the button beside *Start Patching*, turns the two optional
-components off. Both default to on; the choice is remembered in
+**Advanced Settings**, the button beside *Start Patching*, controls all three
+optional components. Driver compatibility and map corrections default to on;
+Xbox controller support is opt-in. The choices are remembered in
 `%LOCALAPPDATA%\KMRP\settings.json`.
 
 **Driver compatibility** is two files dropped beside `swkotor.exe`; it never
 edits the executable, and KMRP removes them on restore. What it changes, and the
-check showing its eight patch sites do not collide with any of KMRP's 680 changed
+check showing its eight patch sites do not collide with any of KMRP's 702 changed
 bytes, is in [docs/third-party-driver-compat.md](docs/third-party-driver-compat.md).
+
+**Xbox controller support** uses that ASI loader plus a six-hook KOTOR Patch
+Manager runtime. It supports XInput and translates into KOTOR's existing input
+paths; it is not native engine controller support. Existing external
+`patch_config.toml` files are preserved and block installation. Exact files,
+controls, hooks, dynamic A/B/X menu badges, and the remaining visual/hardware/
+Proton test matrix are in [docs/controller-support.md](docs/controller-support.md).
 
 **The bundled artwork yields.** A portrait or icon already present in `Override`
 that KMRP did not put there is left alone — so a content mod that ships the same
@@ -183,7 +208,10 @@ neither ships `.gui` files, neither touches `swkotor.exe`, and neither patches
 `tutorial.2da`, the only 2DA KMRP ships. K1CP replaces two icons the HD Icon Pack
 also provides; those now defer to it. **Install other content mods first, then
 KMRP** — KMRP records and restores whatever it replaces, whereas a mod installed
-afterwards can overwrite files KMRP tracks.
+afterward can invalidate that record. Do not also install UniWS, High Resolution
+Menus, or a separate 4 GB patch. KOTORganizer users should finish Sync and then
+run KMRP manually against the real game folder; see the full
+[mod-build compatibility and install-order guide](docs/mod-build-compatibility.md).
 
 ---
 

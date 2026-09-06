@@ -543,7 +543,7 @@ queued `LinkLabel` paint from using a font object that was replaced during the
 resize burst—the cause of the earlier `System.ArgumentException: Invalid
 parameter` JIT dialog.
 
-## Executable, INI, and Override transaction
+## Executable, DPI, INI, and Override transaction
 
 The in-place patch path is deliberately conservative:
 
@@ -551,12 +551,14 @@ The in-place patch path is deliberately conservative:
 2. create or verify the executable backup;
 3. apply the clean-to-gold delta to a temporary file;
 4. verify the result before atomically replacing `swkotor.exe`;
-5. update `swkotor.ini` under `[Graphics Options]`, removing duplicate Width
+5. add `HIGHDPIAWARE` to the exact executable's per-user Windows compatibility
+   value and record the prior value in `KMRP_DPI.manifest`;
+6. update `swkotor.ini` under `[Graphics Options]`, removing duplicate Width
    and Height keys while preserving unrelated sections, comments, encoding,
    and line endings;
-6. install the common and selected-resolution Override archives;
-7. back up conflicting Override files and record introduced files;
-8. write the patch manifest and installed resolution.
+7. install the common and selected-resolution Override archives;
+8. back up conflicting Override files and record introduced files;
+9. write the patch manifest and installed resolution.
 
 Every file replacement goes through `FileGuard.Replace`, never `File.Replace`
 directly. `File.Replace` has to **delete** the destination, which fails with "the file
@@ -581,7 +583,10 @@ by overwrite; an exclusive lock is refused with the actionable message.
 
 Failure rolls back changes made by the current operation. Restore verifies the
 backup records, restores the EXE and INI, restores replaced Override files, and
-removes files introduced by KMRP.
+removes files introduced by KMRP. It restores the exact prior DPI compatibility
+value only while the live value still equals KMRP's installed value; a later
+user or Windows change is left untouched. The complete registry and sidecar
+contract is in [`windows-dpi-scaling.md`](windows-dpi-scaling.md).
 
 ## Build workflow
 
@@ -630,7 +635,7 @@ The shipped name contains spaces, so quote it on the command line.
 ```
 
 `--apply` changes only the output executable. `--in-place` performs the full
-EXE, INI, and Override transaction. `--restore` restores all three. Omitting
+EXE, DPI, INI, and Override transaction. `--restore` restores all four. Omitting
 the resolution in the legacy `--apply` and `--in-place` forms selects
 3440 × 1440.
 
@@ -650,4 +655,13 @@ the resolution in the legacy `--apply` and `--in-place` forms selects
    or JIT errors.
 8. Patch a clean install, verify the EXE/INI/Override contents, launch the game,
    then restore and compare all backups.
-9. Record the final `dist/KMRP - KOTOR Modern Restoration Patch.exe` SHA-256 in the release directory.
+9. Run `testing/regression/Test-DpiCompatibility.ps1`; verify its exact registry
+   paths are absent or restored after completion.
+10. Run `python testing/regression/Test-GeneratedGuiGeometry.py`; verify all 48
+    packaged archives pass the Feedback-prototype and active-HUD checks.
+11. Run `testing/regression/Test-LargeAddressAware.ps1`; verify canonical and
+    pre-LAA inputs converge, unrelated header changes fail, and both exact
+    source states survive patch/restore.
+12. Run `tools/build_binary_inventory.py` against the clean executable and
+    current gold; verify it reports zero undocumented code/data runs.
+13. Record the final `dist/KMRP - KOTOR Modern Restoration Patch.exe` SHA-256 in the release directory.

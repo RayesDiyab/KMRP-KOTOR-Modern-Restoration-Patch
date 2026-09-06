@@ -102,7 +102,11 @@ Gold lineage (most recent last):
 | `swkotor_gold_v15_popup.exe` | `79356D1A92637C1B5C619B530FDA742A622A330E19AD628DBA19464202425048` | + message-popup caps and icon rect (in-place, adds no section) |
 | `swkotor_gold_v18_markers.exe` | `0AA1A76D0A98F84D16CD7F5B9C183501B9CA06E8C92E063223DEC6C46C9E47AE` | + area map marker sizes and centring, all 14 sites (in-place) |
 | `swkotor_gold_v19_areafog.exe` | `D4D4B793F333732D31FBD6D1C66778D527CD15D0DE20894DAC25E88132943A1E` | + area map fog grid stepped by the live surface size (in-place) |
-| **`swkotor_gold_v20_hittest.exe`** | `ACD521B80E48B4D5A0CA043187C2D21BA1745E299D7FDD5CBA7514D525A24713` | + area map hit test centred on the overlay, not the canvas (in-place) |
+| `swkotor_gold_v20_hittest.exe` | `ACD521B80E48B4D5A0CA043187C2D21BA1745E299D7FDD5CBA7514D525A24713` | + area map hit test centred on the overlay, not the canvas (in-place) |
+| `swkotor_gold_v21_mapnotes.exe` | `9ACE45023EAB9063803136E6C312E5E87DD85E07E33CCB5525C04DCA38C478DC` | + optional map-note lookup and correction data in `.kmn` |
+| **`swkotor_gold_v22_laa.exe`** | `7863BCE3BDDAC279B6A14FEB2412D38572CF94D22D6E0D8EC869D491B7EFCDE8` | + `IMAGE_FILE_LARGE_ADDRESS_AWARE` at PE file offset `0x926` |
+| `swkotor_gold_v23_movies.exe` | `29BE3C23F53D53F521D98329F996248864834FB3873819DF63CCF1803C65A7E8` | + both full-screen movie display-mode pairs |
+| **`swkotor_gold_v24_movieaspect.exe`** | `9DD81A75F4888FD67242B682BEE0AB4392EA8923CDF4A020CA3EDD2464C05E0A` | + aspect-fit Bink scaling (`.kmv`), replacing width-only scaling |
 
 `Override/computer.gui` on the live install is also already the corrected
 version (also copied into `assets/override-3440x1440/computer.gui`).
@@ -127,10 +131,13 @@ stack-label, gutter, and leading-newline investigations:
 | `swkotor_gold_v15_popup.exe` | previous + in-place edits | + message-popup auto-fit caps and icon rect |
 | `swkotor_gold_v18_markers.exe` | previous + in-place edits | + map marker sizes and centring |
 | `swkotor_gold_v19_areafog.exe` | previous + in-place edits | + area map fog grid spans the whole map surface |
-| **`swkotor_gold_v20_hittest.exe`** | previous + in-place edits | + map clicks land where you point |
+| `swkotor_gold_v20_hittest.exe` | previous + in-place edits | + map clicks land where you point |
+| `swkotor_gold_v21_mapnotes.exe` | previous + `.kmn` | + optional map-note corrections |
+| **`swkotor_gold_v22_laa.exe`** | previous + one PE-header bit | + Large Address Aware / 4 GB support |
+| **`swkotor_gold_v23_movies.exe`** | previous + four in-place operands | + selected-resolution full-screen movie mode |
 
-Current gold: `swkotor_gold_v20_hittest.exe`,
-`ACD521B80E48B4D5A0CA043187C2D21BA1745E299D7FDD5CBA7514D525A24713`.
+Current gold: `swkotor_gold_v23_movies.exe`,
+`29BE3C23F53D53F521D98329F996248864834FB3873819DF63CCF1803C65A7E8`.
 `build_kmrp.ps1` now defaults to that file. Still confirm any
 future gold change by matching `GoldPatch.TargetHash` in
 `src/patcher/KmrpPatcher.cs` against the file on disk.

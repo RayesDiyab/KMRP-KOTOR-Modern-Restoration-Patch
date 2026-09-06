@@ -31,12 +31,12 @@ knowing the project's history.
 
 It is kept honest by
 [`reverse-engineering/binary-inventory.md`](reverse-engineering/binary-inventory.md),
-which lists all 893 changed bytes and refuses to pass if any of them has no
+which lists all 702 differing byte positions and refuses to pass if any of them has no
 technical write-up. If something appears there and not here, this section is out
 of date.
 
-**The size of it.** KMRP changes 893 bytes inside the original 4,042,752-byte
-executable — 0.022% — and appends ten new 4KB sections holding the code and data
+**The size of it.** KMRP changes 702 byte positions inside the original
+4,042,752-byte executable — 0.017% — and appends ten new 4KB sections holding the code and data
 the original has no room for. Nothing else in the file moves.
 
 | What you see in game | What changes in the executable |
@@ -53,6 +53,8 @@ the original has no room for. Nothing else in the file moves.
 | **Map markers keep their size as the map grows**, and stay on their subject. | Note, party and player-arrow rectangles were built from the original hardcoded sizes while everything around them scaled. |
 | **250 map notes point at the right place.** | Optional. A table keyed on each note's shipped world position substitutes a corrected one. It needs no hook of its own, because the code KMRP already redirects receives that position as its own argument. The corrections are Derslok's measurements, used with permission. |
 | **The HUD minimap is unaffected by the map work.** | The full map and the HUD minimap share one constructor. The minimap's call to it is wrapped, and the wrapper puts that one instance back to retail values — so the map screen can be resized without dragging the minimap with it. |
+| **The process can use more than 2 GB of virtual address space on 64-bit Windows.** | The PE header's standard `IMAGE_FILE_LARGE_ADDRESS_AWARE` bit is enabled. No allocator or code path is changed. |
+| **Full-screen movies stay in the selected display mode.** | KOTOR has two independent 640x480 mode pairs around Bink playback even though the renderer itself scales from the live client rectangle. Both pairs are rewritten per resolution, avoiding the forced legacy-mode transition. |
 | **Tutorial and confirmation popups fit their text** instead of clipping it. | The shared popup sizes itself from constants that never accounted for larger text. |
 | **Interface elements sit where they should** at your resolution, not at 640x480. | Two shared helpers recentre almost every non-HUD screen using the resolution the interface was designed for. The patcher writes your actual resolution into them at install time, which is also why the reference build in this repository has one author's monitor baked in and the shipped executable never does. |
 | **The correct interface artwork is chosen for your screen.** | A chain of width comparisons picks a resource set; the first is redirected to your width and the later ones are disabled so they cannot win instead. |
@@ -65,7 +67,181 @@ own process in memory at startup without writing to `swkotor.exe` at all.
 
 ## [Unreleased]
 
-Nothing yet.
+### Added
+- **Linux/Proton diagnostics and a reproducible Steam Deck procedure.** A new
+  case-sensitive package audit checks all 48 resolution archives, 3,889 GUI
+  resources, referenced font pairs, archive collisions/paths, and the active
+  target-name font chain. A read-only report collector records hashes, manifests,
+  resolution, key HUD/font resources, and case collisions without copying game
+  content. The Protontricks install/restore workflow and remaining stable,
+  Experimental, controller, and hardware matrix are documented without claiming
+  unperformed gameplay tests. See `docs/linux-proton-steam-deck.md`.
+- **Optional Xbox controller support is now integrated under Advanced Settings.**
+  KMRP embeds Saul0097's KPM Xbox Controls K1 1.2 module and a statically linked
+  KOTOR Patch Manager runtime, generates a hash-bound seven-detour configuration,
+  and uses ownership manifests for safe install and restore. The option is off by
+  default and enables the bundled ASI loader when selected. Automated regression
+  covers exact hook bytes, TOML structure, foreign-config refusal, rollback, and
+  restore; a named-copy Windows launch loaded both modules and showed `E9`
+  detours at the original six sites without changing the executable on disk. Physical
+  XInput gameplay and Proton/Steam Deck remain untested. Dynamic, original KMRP
+  A/B/X badges now appear on ten verified Character, Container, Save/Load, and
+  Upgrade action buttons while XInput is connected, and clear on disconnect.
+  Normal and highlighted button fills are both covered so focused controller
+  navigation does not hide the badge. All 480 resolution-specific
+  textures and control mappings are regression-checked. The PC data's retained
+  Xbox strings and seven legacy textures remain unused because their console
+  mapping conflicts with this module. See `docs/controller-support.md`.
+
+### Changed
+- **Mod-build compatibility now has an explicit supported-input and install-order
+  contract.** The exact LAA-only source variant is accepted, K1CP/K1R content
+  installs before KMRP, separate UniWS/High Resolution Menus/4 GB steps are
+  replaced by KMRP, and KOTORganizer's manual-patch workflow is documented.
+  KotOR Patch Manager and another public executable-fix set were audited rather
+  than treated as automatically compatible; their remaining hash/restore limits
+  are stated in `docs/mod-build-compatibility.md`.
+
+### Fixed
+- **Controller button badges now sit next to the button's words, and use the
+  words your game actually shows.** The A/B/X badge used to sit at a fixed
+  distance from the button's left edge, while the game centres a button's label —
+  so on a wide button such as the 978-pixel "Upgrade Items" the badge floated most
+  of a screen away from the text it belonged to. It is now placed against the
+  measured width of the label, about thirteen pixels to its left, the way the
+  original Xbox release drew it.
+
+  Which words those are is no longer guessed. All ten buttons store a `dialog.tlk`
+  string reference rather than literal text, and the first version of this
+  measured a hand-written list of English labels that was wrong for five of the
+  ten: the Container "Cancel" button and both "Back" buttons actually read
+  "Close", the save/load button reads "Save" or "Load" rather than always "Load",
+  and "Switch To Give Items" is two shorter strings that add up to something
+  else. The patcher now reads those references out of your own `dialog.tlk` at
+  install time and re-places each badge against the real label, so localised
+  installs are measured correctly too. Where a button's wording changes while the
+  screen is open — save versus load — it is measured against the wider of the two
+  so the text can never overlap the badge. If `dialog.tlk` cannot be read, the
+  English placement is used and nothing fails.
+- **A controller-support conflict no longer aborts the whole patch.** Every
+  reason the optional component could not install -- a `patch_config.toml` owned
+  by another KPM mod, a missing ASI loader, or a build without the controller
+  resources -- threw `InvalidDataException` out of `ApplyInPlace`. A user who
+  happened to have any other KPM mod installed therefore got no fonts, no GUI
+  archives and no executable patch either, with a .NET stack trace as the only
+  explanation; `dist/KMRP.startup-error.log` recorded exactly that. The ownership
+  guard itself was right and is unchanged -- KMRP still never overwrites a file it
+  does not own. It now reports and skips, which is how
+  `DriverCompatOperations.Install` has always handled the identical case
+  ("Left the existing dinput8.dll alone"). Optional components decline; they do
+  not take the install down with them.
+- **Full-screen movies are no longer cropped on a screen wider than the movie.**
+  KOTOR derives its Bink scale from the client *width* alone -- `fdiv` of client
+  width by movie width at `0x004057CB`, with height never read -- so at 3440x1440
+  a 640x480 logo scaled by 5.375 to 3440x2580 and lost 1140 rows off the top and
+  bottom. Gold v24 redirects `0x004057AC` into a `.kmv` stub that takes the
+  smaller of the width and height ratios, so every movie is letterboxed or
+  pillarboxed rather than cropped, and vanilla and upscaled replacements share
+  one policy. Verified by simulation across five client/movie pairs and by
+  patching a clean executable end to end; **not yet play-tested**.
+
+  Two failures are recorded rather than quietly fixed. The tool that does this
+  existed since 2026-09-05 but was wired into nothing and had an empty expected
+  output hash, so it had never been run to completion. And its stub jumped to
+  `0x0087703C`, one byte inside the shared `mov [esp+0x14], edi`, which would
+  have resumed on `7C 24` -- a `jl` into nothing -- on every movie. The
+  displacement is `0x0A`, not `0x0B`; it was caught by disassembling the built
+  image rather than the intended assembly, and the builder now checks that every
+  internal branch lands on an instruction boundary.
+- **Holding a D-pad direction now repeats in menus instead of stepping once.**
+  The four directions went through the module's held-key demand set, and that set
+  produces exactly one edge per state change, so a held direction moved the
+  selection a single row and then sat there. Only the right stick repeated, and
+  the upstream source says why: DirectInput reports key transitions only. A
+  keyboard does not behave that way -- holding an arrow makes the OS auto-repeat
+  and the engine sees a stream of keydowns -- so holding a direction was strictly
+  *less* faithful than the keyboard it emulates. The directions are now driven as
+  repeating taps through `SendInput`, the same mechanism the right-stick scroll
+  already used: the press acts immediately, the next waits 400 ms, and the rest
+  follow every 120 ms. Pressing a second direction hands over and restarts the
+  delay, and holding two at once does nothing rather than walking diagonally at
+  double rate. Reported from play-testing; the repeat rate itself has not been
+  play-tested yet.
+- **The Character Scripts and Feedback screens are no longer rebuilt from stale
+  prototype geometry.** `fix_feedback_list_prototypes.py` rewrote each listbox's
+  `PROTOITEM` extent to its parent's content area, on the assumption that those
+  coordinates share the parent's space. They do not: upstream ships prototypes
+  sitting above and to the left of their own parent (`scriptselect`
+  `LST_AIState` parent `TOP=103`, prototype `TOP=84`), which no absolute reading
+  explains, and the play-tested 3440x1440 gold files leave every one of them at
+  its vanilla value while scaling the parent listbox fully. The rewrite shipped
+  and the Character Scripts screen came back broken from play-testing. The pass
+  is disabled, both screens now match gold field for field, and
+  `Test-GeneratedGuiGeometry.py` asserts these extents equal what upstream ships
+  -- the inverse of what it asserted before. The 3840x2160 report that prompted
+  the change is unexplained again and needs a different diagnosis.
+- **Controller buttons can now skip Bink movies.** KOTOR suspends its ordinary
+  input loop during playback, so controller-generated keyboard events were
+  never produced. A verified seventh runtime detour polls XInput once per movie
+  frame and edge-triggers cancel for A, B, LB, or Start.
+- **Controller prompt badges remain visible on focused buttons.** The earlier
+  implementation changed only the normal button border, but controller
+  navigation selects the separate highlight border immediately. Both empty
+  fills now receive the badge while an XInput pad is connected.
+- **Controller support no longer hides and parks the Windows mouse cursor on
+  startup.** Keyboard/mouse remains immediately available; F9 still toggles the
+  optional parked controller-only cursor state.
+- **Opening Save/Load with controller prompts active no longer dereferences the
+  wrong GUI object.** An unreleased prompt build treated packaged GUI list order
+  as the live panel control-array order and crashed in `SetFillImage` at
+  `swkotor.exe+0x14C3E`. Runtime prompt assignment now uses the ten verified
+  embedded button offsets from the K1 1.0.3 class-layout database. The report,
+  matching Windows crash dump, and rejected lookup are recorded in
+  `docs/controller-support.md`.
+- **Full-screen movies no longer request a separate 640×480 display mode.** Gold
+  v23 changes the comparison operands at FILE `0x3D6C` / `0x3D78` and the
+  temporary-mode operands at `0x1F5B3B` / `0x1F5B43` to 3440×1440;
+  `ResolutionPatch` strictly replaces all four with the selected resolution.
+  The Bink renderer itself was confirmed to derive scale and centring from the
+  live client rectangle and BIK dimensions, so movie files are not stretched or
+  rewritten. A published helper's ambiguous second signature was rejected after
+  it matched unrelated instructions. Four output resolutions pass structural
+  regression; actual movie playback and minimize/focus transitions remain
+  untested. See `reverse-engineering/movies.md`.
+- **KMRP now enables Large Address Aware / 4 GB virtual-address support on
+  64-bit Windows.** Gold v22 changes only
+  `IMAGE_FILE_HEADER.Characteristics` at file `0x926`, from `0x010F` to
+  `0x012F`. The exact clean executable with that one bit already set is accepted,
+  normalized for deterministic patching, and backed up unchanged; restore
+  returns either supported input byte-for-byte. Other executable changes remain
+  rejected. `testing/regression/Test-LargeAddressAware.ps1` covers both inputs,
+  identical output, an unrelated-header rejection, and both restore paths.
+  Memory-heavy gameplay remains untested.
+- **The remaining reported 3840×2160 HUD and full-screen layout defects are now
+  generated from measured geometry instead of width-scaled upstream defaults.**
+  `optfeedback.gui` aligns each embedded row prototype with its scaled parent
+  list and scrollbar, restoring the full text pane. `scriptselect.gui` now does
+  the same for the Character Scripts list and description pane, whose frame had
+  scaled while its content rows remained at 640×480 coordinates. The shared
+  `confirm.gui` panel now contains both action rows instead of ending 115 pixels
+  before Cancel at the tuning scale. The target name/health strip
+  and transient journal, credit, XP, item, stealth, and alignment notifications
+  now use the shared height-based UI scale and the play-tested 3440×1440 gold
+  proportions. `testing/regression/Test-GeneratedGuiGeometry.py` reads all 48
+  packaged archives and verifies the active HUD, both affected prototype pairs,
+  and confirmation-child containment.
+  The packaged 3840×2160 files were installed and hash-verified; in-game visual
+  confirmation remains untested.
+- **Windows display scaling no longer applies a second zoom layer to KMRP's
+  resolution-aware interface.** In-place installs now add the per-user
+  `HIGHDPIAWARE` compatibility flag for the selected `swkotor.exe`. KMRP records
+  the exact prior compatibility string in `KMRP_DPI.manifest`; restore puts that
+  string back only if the value still equals what KMRP installed, so a later user
+  change is never overwritten. Permission failures leave the registry unchanged
+  and report the manual Compatibility-tab fallback. The four ownership paths are
+  covered by `testing/regression/Test-DpiCompatibility.ps1`. Automated on Windows
+  11 build 26200; visual tests at 125%, 150%, 175%, and 200% and Windows 10 remain
+  untested.
 
 ---
 
@@ -148,9 +324,11 @@ First tagged release, and the first public one. `PatchVersion` in
   `CODE_OF_CONDUCT.md`, `SECURITY.md`, this changelog, issue and pull request
   templates, a continuous integration workflow, `.gitattributes`, and indexes
   for `docs/` and `reverse-engineering/`.
-- **A byte-level audit of the patched executable.**
-  `reverse-engineering/binary-inventory.md` lists all 893 changed bytes as 77
-  runs and ties each to the document explaining it;
+- **A byte-level audit of the patched executable.** At the time this entry was
+  written, `reverse-engineering/binary-inventory.md` called a merged 893-byte
+  presentation span “changed bytes.” That wording was corrected on 2026-09-05:
+  the current inventory counts actual unequal byte positions separately from
+  the readable merged spans and ties every run to the document explaining it;
   `tools/build_binary_inventory.py` regenerates it and exits non-zero if any run
   has no write-up. Its first run found six patch sites that were implemented and
   explained in build scripts but had never reached a document — including the
