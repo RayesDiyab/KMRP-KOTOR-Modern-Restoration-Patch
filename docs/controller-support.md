@@ -60,11 +60,22 @@ Two consecutive builds produced the same 130,560-byte SHA-256 above. The linker
 retains the upstream export-library name and warns that it differs from the
 `.module` output name; the PE export table and all twelve exports are unchanged.
 
-KOTOR Patch Manager is MIT licensed and its licence is vendored beside the
-outputs. The controller author granted KMRP permission and issue 8 describes
-the component as MIT, but the inspected controller repository did not contain a
-licence file. `NOTICE.txt` records that discrepancy; it must be resolved with
-the author before public redistribution.
+Both components trace back to one MIT licence. KOTOR Patch Manager is MIT, and
+the controller module is a derivative of **ExpandedKeyboardControl** -- a patch
+that lives *inside* the KPM repository, contributed by "J" as #136 -- so the
+same licence covers the inherited work. Saul0097 stated the derivation himself:
+"I built the controller mod starting with j's enhanced keyboard." The two source
+trees carry an identical file set, which matches that account.
+
+`Copyright (c) 2025 Lane Dibello and KotOR Patch Manager contributors`; the
+contributors clause covers J's patch. The full text is vendored as
+`LICENSE-KOTOR-PATCH-MANAGER.txt`.
+
+All three parties gave explicit permission for KMRP to bundle the result on
+2026-09-04; `NOTICE.txt` quotes each of them. Saul0097's own repository still has
+no standalone LICENSE file, which is worth closing so his own additions are
+stated in his words rather than inferred, but it does not leave the integration
+unlicensed.
 
 ## Installed files and ownership
 

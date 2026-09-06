@@ -92,11 +92,18 @@ opt-in Advanced Settings component, with the author's permission:
 https://github.com/scopeking0117-alt/KPM-Xbox-Controls-K1
 
 KMRP builds the controller source at commit
-`78e7eaa3b9554ec0e6732f749424dc916f3a1895` as
-`kmrp-controller.module`. Issue 8 records the component as MIT licensed, but the
-inspected source revision contains no standalone licence file. This must be
-resolved with the author before public redistribution; KMRP does not infer or
-invent the missing text.
+`78e7eaa3b9554ec0e6732f749424dc916f3a1895` as `kmrp-controller.module`.
+
+**Licence: MIT**, inherited. The module is a derivative of
+`ExpandedKeyboardControl`, a patch inside the KOTOR Patch Manager repository
+contributed by **J**, so it is covered by that project's licence --
+`Copyright (c) 2025 Lane Dibello and KotOR Patch Manager contributors`, vendored
+as `LICENSE-KOTOR-PATCH-MANAGER.txt`. Saul0097 described the derivation himself
+and all three authors gave explicit permission to bundle; the exact quotations
+are recorded in `NOTICE.txt` beside the binaries.
+
+Credit is due to **Saul0097** (controller module), **J** (the expanded keyboard
+patch it builds on) and **Lane Dibello** (KOTOR Patch Manager).
 
 The module is loaded by a statically linked build of **KOTOR Patch Manager** by
 **Lane Dibello and contributors**, commit

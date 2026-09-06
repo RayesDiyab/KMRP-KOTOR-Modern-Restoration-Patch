@@ -8,15 +8,38 @@ Author: Saul0097 / scopeking0117-alt
 Source: https://github.com/scopeking0117-alt/KPM-Xbox-Controls-K1
 Source commit: 78e7eaa3b9554ec0e6732f749424dc916f3a1895
 
-The author explicitly granted KMRP permission to use this component. The KMRP
-issue recording the integration states that the relevant controller component
-is MIT licensed:
-https://github.com/RayesDiyab/KMRP-KOTOR-Modern-Restoration-Patch/issues/8
+Licence and provenance
+----------------------
+The controller module is a derivative of ExpandedKeyboardControl, a patch that
+lives inside the KOTOR Patch Manager repository and is therefore covered by that
+project's MIT licence. Saul0097 stated the derivation directly: "I built the
+controller mod starting with j's enhanced keyboard, so that's why I have to make
+sure to ask." The two source trees carry the same file set --
+<name>.cpp, exports.def, kotor1.hooks.toml, kotor2-gog-aspyr.hooks.toml and
+manifest.toml -- which matches that account.
 
-The upstream source repository did not contain a standalone LICENSE file when
-commit 78e7eaa was inspected on 2026-09-05. That absence must be resolved with
-the author before a public KMRP release; this notice records the exact basis on
-which the local integration was prepared and does not invent missing terms.
+  ExpandedKeyboardControl  https://github.com/LaneDibello/Kotor-Patch-Manager
+                           /tree/master/Patches/ExpandedKeyboardControl
+                           contributed by "J", merged as #136
+  Licence                  MIT, "Copyright (c) 2025 Lane Dibello and KotOR Patch
+                           Manager contributors" -- the contributors clause
+                           covers J's patch. Full text in
+                           LICENSE-KOTOR-PATCH-MANAGER.txt.
+
+Every party in that chain gave permission for KMRP to bundle the result, in the
+KOTOR modding Discord #mod_development on 2026-09-04:
+
+  Lane Dibello  "If they want to use or mess with the patches that's fine. It's
+                all spelled out in our License."
+  J             "yeah i don't mind. It's open source and under the license
+                posted above."
+  Saul0097      "alright then you're good to go."
+
+Saul0097's own repository still carries no standalone LICENSE file. That does
+not leave the integration unlicensed -- the inherited work is MIT and his
+permission is explicit and recorded above -- but a LICENSE file in his
+repository would state the terms for his own additions in his own words rather
+than by inference, and has been requested.
 
 Runtime hook engine
 -------------------
@@ -39,7 +62,7 @@ loaded under the collision-resistant name kmrp-controller-runtime.asi.
 kmrp-controller.module was compiled as 32-bit C++17 with the MSVC static runtime
 from the controller sources at the commit above. It imports USER32.dll and
 KERNEL32.dll. SHA-256:
-BA5E1343068972218B3A147BBDD8C0523B06C0F8DD4B21392F0D7AEE4B0E647D
+CBA8347EC0C8BA7EB08F3DA99E2D9A733DA76DCE5520CFDD5E0725E59026F62C
 
 KMRP applies the source-level changes recorded in
 KMRP-CONTROLLER-PROMPTS-PATCH.diff. They retain controller connection state,
