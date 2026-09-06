@@ -801,6 +801,91 @@ above it. The correct half of that objection is only that the DirectInput *read*
 is `GetDeviceState`/`DIJOYSTATE`, not a buffered `GetDeviceData`; the records are
 built by the engine afterwards. Both structures are standard.
 
+## Record semantics, and the binding that is still required
+
+Answers to the implementation checklist, from `GetJoystickBuffer`
+(`0x005E30E0`) and its consumer `CExoInputInternal::GetEvents` (`0x005E24E0`).
+
+### The record fields
+
+| Field | Offset | Written by the engine | Consumed? |
+| --- | --- | --- | --- |
+| `dwOfs` | `+0x00` | the control code | **yes** — matched against a description |
+| `dwData` | `+0x04` | `0` / `1` for buttons (`shr ebx, 7`) | yes |
+| `dwTimeStamp` | `+0x08` | **`0`** | not in this path |
+| `dwSequence` | `+0x0C` | **`0`** | **yes**, orders the cross-device merge |
+| `uAppData` | `+0x10` | never written | no |
+
+`dwSequence` being read but written as zero is not a contradiction: with every
+record carrying zero the merge comparison is always equal and ordering falls back
+to device order. A replacement should **write zeros too**. Inventing increasing
+sequence numbers would change merge behaviour relative to the keyboard and mouse.
+
+Only the first `0x100` bytes of the `0x1400` allocation are cleared
+(`mov ecx, 0x40; rep stosd` at `0x005E3129`), so a replacement must write every
+field of every record it emits rather than relying on zeroed memory.
+
+### Buttons
+
+```asm
+005E320A  mov   edi, 0x20          ; 32 buttons -- DIJOYSTATE.rgbButtons[32]
+005E3210  mov   al, [ecx+ebx]      ; current
+005E3213  xor   al, [edx]          ; previous
+005E3217  jns   0x5E325B           ; unchanged -> emit nothing
+005E322F  shr   ebx, 7             ; high bit -> dwData 0 or 1
+```
+
+Edge-triggered, one record per changed button, `dwData` strictly `0` or `1`.
+
+### The previous-state store is `rawInput+0x2C`
+
+The diff reads two parallel arrays, and `0x005E31D1` loads the second from
+`rawInput+0x2C` (`mov ebx, [ebx+0x2c]`, then `[ebx+4]` and `[ebx+0x18]`). That
+identifies the field this document previously listed as unknown: **`+0x2C` holds
+the per-device previous `DIJOYSTATE` snapshot**. A replacement that keeps its own
+snapshot never touches it, which retires the last of the three mystery fields.
+
+### Records alone do nothing — a binding is still required
+
+This is the constraint that matters most, and it is easy to miss. `GetEvents`
+resolves descriptions **per input class and per device**:
+
+```asm
+005E271E  mov ecx, [esp+0xE4]        ; input class
+005E2725  lea ecx, [eax+eax*2]       ; class * 3
+005E2728  lea eax, [edx+ecx*4]       ; + device index
+005E272B  mov ecx, [esi+eax*4+0x14]  ; -> that (class, device) description list
+005E2733  mov eax, [ecx]
+005E2735  test eax, eax
+005E2737  je  0x5E279C               ; empty -> record discarded
+```
+
+and then matches each description's control against the record:
+
+```asm
+005E275B  mov eax, [edi+0x1c]              ; the description's control slot
+005E275E  mov ecx, [esi+eax*4+0x164]       ; slot -> control code
+005E2769  cmp ecx, [edx]                   ; against record dwOfs
+005E276B  je  0x5E27AE                     ; matched
+```
+
+So feeding perfect records into a device with no registered descriptions produces
+**nothing at all**. Enumeration or a `GetJoystickBuffer` replacement is necessary
+and not sufficient; `SetEventDescriptions` must also register descriptions naming
+that device's controls, in the right input class.
+
+There is also a control-code indirection table at `CExoInputInternal+0x164`,
+indexed by a description's slot at `+0x1C`. Its contents have not been read.
+
+### Still unmapped
+
+- The exact `dwOfs` values the button, axis and POV paths emit.
+- The axis paths (`0x005E34xx`–`0x005E36xx`) and how POV becomes direction bits.
+- Truncation behaviour at 256 records.
+- The `+0x164` control-code table.
+- Which description type names a joystick control — unchanged, and still the
+  single thing that could invalidate the whole approach.
+
 ## Coverage: what has been walked, and what has not
 
 The sweep is tracked explicitly because a decoder blind spot and a genuine
