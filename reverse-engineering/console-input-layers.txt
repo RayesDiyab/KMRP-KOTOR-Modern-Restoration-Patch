@@ -1,0 +1,61 @@
+=== layer 1: event-raising thunks
+    0x0040A643  raises 0x001 flag 1   (inside CSWGuiPanel::SetActiveControl)
+    0x0040B640  raises 0x027 flag 1   CSWGuiPanel::OnAButtonPressed   <-- A button, 0 callers
+    0x0040B650  raises 0x028 flag 1   CSWGuiPanel::OnBButtonPressed   <-- B button, 0 callers
+    0x0040B660  raises 0x029 flag 1   CSWGuiPanel::OnXButtonPressed   <-- X button, 0 callers
+    0x0040B670  raises 0x02A flag 1   CSWGuiPanel::OnYButtonPressed   <-- Y button, 0 callers
+    0x0040B680  raises 0x02B flag 1   CSWGuiPanel::OnBlackButtonPressed   <-- Black button, 0 callers
+    0x0040C5C9  raises 0x1F9 flag 1   (inside CSWGuiManager::HandleLMouseDown)
+    0x0041850E  raises 0x02F flag 1   (inside CSWGuiEditbox::HandleKeyPress)
+    0x00418526  raises 0x030 flag 1   (inside CSWGuiEditbox::HandleKeyPress)
+    0x0062B16C  raises 0x028 flag 1   (inside CGuiInGame::RemoveGUIPopUps)
+    0x0067B4B3  raises 0x02E flag 1   (inside CSWGuiMainMenu::OnQuitButtonPressed)
+    0x0067CB40  raises 0x02F flag 1   CSWGuiSkillsCharGen::OnMinusButtonPushed
+    0x0067CB50  raises 0x030 flag 1   CSWGuiSkillsCharGen::OnPlusButtonPushed
+    0x0067CB60  raises 0x02D flag 1   CSWGuiWagerPopup::HandleButtonWager
+    0x006927B0  raises 0x031 flag 1   CSWGuiInGameMap::OnUpArrowPressed
+    0x006927C0  raises 0x032 flag 1   CSWGuiInGameMap::OnDownArrowPressed
+
+=== layer 2: client action router, paired ids
+    0x0062125B  0x41
+    0x00621273  0x42
+    0x0062128B  0x43
+    0x006212C2  0x44
+    0x006212EC  0x46
+    0x00621308  0x09, 0xCE
+    0x0062137F  0x0A, 0xCF
+    0x006213BC  0x0B, 0xDF
+    0x00621555  0x50
+    0x006215EE  0x02, 0xE0, 0xFD
+    0x006216A9  0x48
+    0x006216C7  0x01, 0xD0
+    0x006217E8  0x03, 0x04, 0x49, 0x4A, 0x4B, 0x4C
+    0x0062180F  0x05, 0xCD
+    0x0062184C  0x06, 0xCC
+    0x006218D5  0xD1, 0xD2, 0xD3, 0xD4, 0xD5, 0xD6, 0xD7, 0xD8   <-- high id with no low-id partner
+    0x006219FF  0xC8   <-- high id with no low-id partner
+    0x00621A3A  0xC9   <-- high id with no low-id partner
+    0x00621A75  0xDA   <-- high id with no low-id partner
+    0x00621AC0  0x107   <-- high id with no low-id partner
+    0x00621B21  0x108   <-- high id with no low-id partner
+    0x00621B67  0xF1   <-- high id with no low-id partner
+    0x00621C21  0xF2   <-- high id with no low-id partner
+    0x00621C45  0xD9   <-- high id with no low-id partner
+    0x00621C80  0x0C, 0x19
+    0x00621CDF  0xDB, 0xDC   <-- high id with no low-id partner
+    0x00621CF4  0xDD, 0xDE   <-- high id with no low-id partner
+    0x00621D0A  0xE1   <-- high id with no low-id partner
+    0x00621D37  0xE8   <-- high id with no low-id partner
+    0x00621D96  0xEA   <-- high id with no low-id partner
+    0x00621DFB  0xEC   <-- high id with no low-id partner
+    0x00621E5C  0xEE   <-- high id with no low-id partner
+    0x00621EBD  0xE2   <-- high id with no low-id partner
+    0x00621F0B  0xE4   <-- high id with no low-id partner
+    0x00621F5A  0xE6   <-- high id with no low-id partner
+    0x00621FC1  0xEF   <-- high id with no low-id partner
+    0x00622055  0xF0   <-- high id with no low-id partner
+    0x006220AE  0xF5, 0xFB   <-- high id with no low-id partner
+    0x006220D6  0xFA   <-- high id with no low-id partner
+    0x006220FE  0xB5
+
+64 action ids, 40 handlers

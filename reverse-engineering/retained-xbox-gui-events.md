@@ -259,6 +259,116 @@ in-game menu tabs suggests tab enter/leave — but neither has been confirmed, a
 a guessed name in a reference document cannot be told apart later from a
 measured one.
 
+## The sending end: how a button was supposed to reach a panel
+
+Everything before this section reads receivers — dispatchers and registered
+bindings, both answering "what happens if this event arrives". Neither answers
+what sends one. That question turns out to have the most useful answer in this
+document. `tools/map_console_input_layers.py` produces
+`reverse-engineering/console-input-layers.txt`.
+
+### Layer 1: the panel button thunks
+
+Five four-instruction functions sit consecutively at `0x0040B640`:
+
+```asm
+0040B640  mov  eax, dword ptr [ecx]
+0040B642  push 1                       ; the pressed flag
+0040B644  push 0x27                    ; the event
+0040B646  call dword ptr [eax+0x3C]    ; -> this panel's HandleInputEvent
+0040B649  ret  4
+```
+
+| Address | Function | Raises | Panel vtable slot |
+| --- | --- | --- | --- |
+| `0x0040B640` | `CSWGuiPanel::OnAButtonPressed` | `0x27` A | `+0x50` |
+| `0x0040B650` | `CSWGuiPanel::OnBButtonPressed` | `0x28` B | `+0x54` |
+| `0x0040B660` | `CSWGuiPanel::OnXButtonPressed` | `0x29` X | `+0x58` |
+| `0x0040B670` | `CSWGuiPanel::OnYButtonPressed` | `0x2A` Y | `+0x5C` |
+| `0x0040B680` | `CSWGuiPanel::OnBlackButtonPressed` | `0x2B` Black | `+0x60` |
+
+They appear in **76 panel vtables each**, and **nothing in the executable calls
+any of them**. Not one direct caller, on any of the five. They are reached only
+through the vtable slot, and no code indexes those slots.
+
+That is the shape of the whole finding: the console entry points are present in
+every panel, correctly wired to the event system beneath them, and nothing above
+them ever fires.
+
+**This also corrects a correction.** An earlier pass in this document dismissed
+"per-control button slots at `+0x54`…`+0x60`" as a false lead, on the grounds
+that those offsets hold `Global::return_zero` and destructors. That was true and
+irrelevant: it was measured on **control** vtables. On **panel** vtables the same
+offsets are exactly the button entry points. Right offsets, wrong class.
+
+### Layer 2: the client action router
+
+`CClientExoAppInternal::HandleInputEvent` (`0x00621210`) is a separate, higher
+layer — game actions rather than GUI events. It dispatches through a direct table
+at `0x00622128` (ids `0x01`…`0x0C`) and an indexed table at `0x006221FC` /
+`0x00622154` (ids `0x19`…`0x108`): **64 ids across 40 handlers**.
+
+The handlers come in **pairs**, one low id and one high:
+
+| Handler | Ids | Reaches |
+| --- | --- | --- |
+| `0x00621308` | `0x09`, `0xCE` | `ChangeCharacterToNextLivingPartyMember` |
+| `0x0062184C` | `0x06`, `0xCC` | `RestoreCamera`, `SetInputClass` |
+| `0x0062180F` | `0x05`, `0xCD` | `SelectNearestObject` |
+| `0x006216C7` | `0x01`, `0xD0` | `GetPlayerCreature`, `GetServerCreature` |
+| `0x0062137F` | `0x0A`, `0xCF` | — |
+| `0x006213BC` | `0x0B`, `0xDF` | — |
+
+`0x09`/`0xCE` is the confirmation. `0xCE` is the code this document already
+recorded as reaching party change from the Character screen, found by a different
+route entirely; here it shares a handler with a low id. So the low ids are the
+surviving input source and `0xCC`…`0xE0` is a second one feeding the same
+actions.
+
+Several high ids have **no low-id partner**, meaning an action the surviving
+input source cannot reach at all:
+
+| Ids | Handler | Reaches |
+| --- | --- | --- |
+| `0xD1`…`0xD8` | `0x006218D5` | `OnBlackButtonPressed_2`, `RestoreCamera`, `SetInputClass` — eight of them |
+| `0xDA` | `0x00621A75` | `CExoInput::ClearEvents`, `ResetDriveAcceleration`, `DoQuickSave`, `CoolDownEvent` |
+| `0xD9` | `0x00621C45` | `GetPausedByCombat` |
+| `0xDB`…`0xDE`, `0xE1`…`0xEF` | various | not read |
+
+### Other console leftovers named in the symbol table
+
+- **`CSWGuiControllerLossBox`** — `OnAccept` (`0x00625A40`), `OnPanelAdded`
+  (`0x00627220`). A whole panel class for a disconnected controller.
+- **`CClientExoAppInternal::LookUpAndPerformRumbleWithCutOff`** (`0x005EDF60`) —
+  rumble.
+- **`CClientExoApp::ResetDriveAcceleration`** (`0x005EDBA0`), reached only from
+  the unpaired `0xDA`.
+- **`CExoInput::CoolDownEvent`** / **`ClearEvents`** — input repeat suppression.
+
+### What this does and does not establish
+
+It establishes **reachability**, which is a fact about the binary: these entry
+points exist, they are correctly wired downward, and they have no callers.
+
+It does not establish intent, and no claim about intent is made here. "The PC
+build kept the console UI and cut the input layer above it" is the obvious
+reading and it may well be right, but this document has already been wrong four
+times by treating an obvious reading as a measurement. What is measured is the
+call graph.
+
+### Why this matters for KMRP
+
+The module currently synthesises keyboard input to drive menus. This says the
+game has a native path that does not need that: calling a panel's `+0x50`…`+0x60`
+slot, or `HandleInputEvent(code, 1)` directly, delivers a real console event to
+the real handlers.
+
+Combined with the binding survey, **B (`0x28`), Black (`0x2B`) and `0x31`/`0x32`
+have no registered handler anywhere in the image**, so driving those collides
+with nothing. X (`0x29`) has exactly one registration and a great deal of
+per-panel dispatcher behaviour, which is why a global X binding would be wrong —
+already established in play, and now explained.
+
 ## Coverage: what has been walked, and what has not
 
 The sweep is tracked explicitly because a decoder blind spot and a genuine
@@ -458,8 +568,17 @@ Added here as they are discovered, so the tree is honest about its own edges:
    (called after every scroll-bar raise).
 5. **The 79 control dispatchers beyond those four** were counted but their event
    sets were not tabulated one by one.
-6. **Event codes above `0x40`.** `0xCE` on Character reaches the party change;
-   the rest are addresses without meanings.
+6. **Event codes above `0x40`** — resolved as a category. They are not GUI
+   events at all: they are **client action ids** belonging to
+   `CClientExoAppInternal::HandleInputEvent`, a different layer. `0xCE` pairs
+   with `0x09` on the party-change handler. Still open inside that layer:
+   - `0xDB`…`0xDE`, `0xE1`…`0xEF`, `0xF0`…`0xF2`, `0xFA`, `0xFB`, `0x107`,
+     `0x108`, `0xB5` — handlers located, bodies not read.
+   - **What feeds the router.** Both id ranges are dispatched here, but nothing
+     yet says what calls `HandleInputEvent` with either. That is the next
+     question upstream and it has not been asked.
+   - **`CSWGuiControllerLossBox`**, the rumble path, and `ResetDriveAcceleration`
+     — named, not read.
 7. **The panels the module does not know about**, listed above — none of their
    handlers has been read.
 8. **What each handler does.** 212 panel events plus the control layer; six
