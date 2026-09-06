@@ -720,11 +720,86 @@ records and resets the count to zero at `0x005E3110`. An implementation owned by
 KMRP needs only that contract plus `rawInput+0x18` set non-zero, and every layer
 above it stays the engine's own.
 
-The remaining unknown is the **record format** written into that buffer. It is
-directly observable rather than guessable: the keyboard fills the same structure
-every frame, so a live read of a populated buffer decodes it.
+The record format written into that buffer is **`DIDEVICEOBJECTDATA[256]`** —
+solved statically, see "The `GetJoystickBuffer` contract, solved" below.
 
 Nothing here has been implemented or tried.
+
+## The `GetJoystickBuffer` contract, solved
+
+The last unknown in the device layer, and it turned out to be two standard
+DirectInput structures rather than anything proprietary.
+
+### Input: polled `DIJOYSTATE`
+
+```asm
+005E315D  call dword ptr [ecx+0x64]   ; IDirectInputDevice8::Poll
+005E3168  lea  edx, [esp+0x40]        ; a STACK buffer, not the heap one
+005E316D  push 0x50                   ; 80 = sizeof(DIJOYSTATE)
+005E3170  call dword ptr [ecx+0x24]   ; GetDeviceState  (0x28 would be GetDeviceData)
+005E3177  cmp  eax, 0x80070015        ; DIERR_NOTACQUIRED
+005E318E  call dword ptr [ecx+0x1c]   ; Acquire, then retry
+```
+
+Vtable `+0x24` is `GetDeviceState` and `+0x64` is `Poll`, so the joystick is read
+as **polled state**, not as a buffered device. `DIJOYSTATE` also explains the POV
+decoding documented above: it carries `rgdwPOV[4]`.
+
+### Output: synthesised `DIDEVICEOBJECTDATA[256]`
+
+The `0x1400`-byte allocation is `256 × 0x14`, and `0x14` is
+`sizeof(DIDEVICEOBJECTDATA)` on 32-bit. The append sequence proves the stride:
+
+```asm
+005E3219  mov eax, [esi+4]          ; count
+005E321C  mov ebx, [esi]            ; base
+005E321E  lea eax, [eax+eax*4]      ; count * 5
+005E3221  mov [ebx+eax*4],      ecx ;   * 4 -> count * 20 ; dwOfs
+005E3232  mov [ebp+eax*4+4],   ebx  ; dwData
+005E324C  mov [ebp+eax*4+8],   ebx  ; dwTimeStamp = 0
+005E3240  mov [ebp+eax*4+0xc], ebx  ; dwSequence  = 0
+005E3258  mov [esi+4], eax          ; ++count
+```
+
+Fields at `0`, `4`, `8`, `0xC` are exactly `dwOfs`, `dwData`, `dwTimeStamp`,
+`dwSequence`. The engine polls a state snapshot and then **hand-builds
+buffered-style records from it**, edge-triggered:
+
+```asm
+005E320A  mov edi, 0x20             ; 32 = DIJOYSTATE.rgbButtons[32]
+005E3210  mov al, [ecx+ebx]         ; current button byte
+005E3213  xor al, [edx]             ; against the previous snapshot
+005E3217  jns 0x5E325B              ; unchanged -> emit nothing
+005E322F  shr ebx, 7                ; high bit -> dwData 0 or 1
+```
+
+Thirty-two buttons, a record emitted only on change. Hence
+`DIPROP_BUFFERSIZE = 0x100` in the sibling initialisers: 256 records is the
+engine's uniform buffer depth.
+
+### The contract
+
+```c
+struct RecordBuffer {            // the caller's out-parameter
+    DIDEVICEOBJECTDATA* records; // +0x00, 0x1400 bytes, 256 entries
+    int                 count;   // +0x04, reset to 0 on entry
+};
+
+void __thiscall GetJoystickBuffer(int deviceIndex, RecordBuffer* out);
+```
+
+Both structures are documented Win32, which makes an owned replacement ordinary
+code: read the pad, diff against the previous snapshot, append a record per
+change, set the count. Nothing about `rawInput+0x2C`, `+0x30` or `+0x04` needs to
+be understood, because a replacement never reaches the code that checks them.
+
+**Credit and correction.** The `0x1400 / 0x14 = 0x100` observation came from the
+user's other assistant, and it was right. This document had first argued against
+it on the grounds that the append stride looked like 4 bytes — a misreading of
+`[ebp+eax*4+4]` that missed the `lea eax,[eax+eax*4]` five-multiply immediately
+above it. The correct half of that objection is only that the DirectInput *read*
+is `GetDeviceState`/`DIJOYSTATE`, not a buffered `GetDeviceData`; the records are
+built by the engine afterwards. Both structures are standard.
 
 ## Coverage: what has been walked, and what has not
 
