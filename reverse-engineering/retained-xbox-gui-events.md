@@ -973,9 +973,13 @@ matching is `vtable+4`, and it is a constant: `Global::return_zero` for the base
 and Detailed classes, `Global::return_true_2` for `2ButtonAxis`. It answers
 whether a second control exists, nothing more.
 
-So types 0, 2 and 5 are not a missing joystick facility. They are unused
-*numbering* over one shared class, and **any type can name a joystick control**,
-because the device comes from `+0x18` and the control from `+0x1C`.
+So types 0, 2 and 5 are not a missing joystick facility *for matching*, and
+**any type can name a joystick control**, because the device comes from `+0x18`
+and the control from `+0x1C`.
+
+**But the type is not inert.** It selects the value computation in
+`PollInput_2`, and types 0, 2 and 5 are the single-control **analog** paths --
+see "Analog: the engine carries stick magnitude" below.
 
 ### 5. The matching path
 
@@ -1137,6 +1141,89 @@ implementation rather than feasibility:
 breakpoints removed. The description registered for event `0x31` remains in
 memory for this session only and is inert once the device count is back to 2; it
 disappears on restart. No file on disk was modified.
+
+## Analog: the engine carries stick magnitude, and types 0/2/5 are why
+
+The description type turned out to matter after all -- not for matching, but for
+**value computation**. This section corrects and completes the earlier claim that
+types 0, 2 and 5 were inert numbering.
+
+### `PollInput` returns a float
+
+`CExoInputInternal::PollInput_2` (`0x005E23C0`) takes `(eventId, inputClass)` and
+returns a **float in `st(0)`**. It checks `IsEventInClass`, fetches the
+description, and then dispatches on `[desc+0x14]`, the description type, through
+a jump table at `0x005E24C8`:
+
+| Type | Target | Value computation | Constructed by the game |
+| --- | --- | --- | --- |
+| **0, 2, 5** | `0x005E241D` | `ScaledValue(desc, desc+0x1C, desc+0x04)` -- **single-control analog** | **never** |
+| 1 | `0x005E2410` | returns the constant at `0x0073D700`, which is **`0.0f`** -- digital | 17 times |
+| 3 | `0x005E2459` | `ScaledValue` over the range `desc+0x24 - desc+0x04` | 8 times |
+| 4 | `0x005E242F` | two `ScaledValue` calls, `fsubr` -- two controls forming one axis | once |
+
+So the three unused types are the **single-control analog value paths**. The PC
+build never constructs one because it never binds an analog device. They are
+exactly what a joystick axis needs.
+
+Type 1, which the 17 keyboard bindings use, returns `0.0f` from `PollInput`: a
+digital key carries no magnitude and is consumed as a discrete event instead.
+Type 1 was the right choice for the button proof, and would be the wrong choice
+for a stick.
+
+### `ScaledValue` special-cases the joystick axes
+
+`CExoInputInternal::ScaledValue` (`0x005DFD80`) converts the raw integer with
+`fild` and then branches on the control slot:
+
+```asm
+005DFDA1  mov  eax, [ebx+0x20]        ; scaling configured on this description?
+005DFDA6  je   0x5DFF2F               ;   no -> unscaled
+005DFDEA  cmp  edi, [0x0074D594]      ; slot 0x6E -- joystick X
+005DFDF2  cmp  edi, [0x0074D598]      ; slot 0x6F -- joystick Y
+005DFDFA  cmp  edi, [0x0074D5A0]      ; the slider slots
+005DFE1A  mov  ecx, [esi+edi*4+0x164] ; resolve the control code
+005DFE2C  call GetMaxUseable(device, code)
+          ... GetMinUseable(device, code)
+```
+
+The joystick X and Y slots are named explicitly, and the raw value is normalised
+against the device's usable range. Mouse axes take a different branch and are
+multiplied by the constant at `0x00741C24`, which is `0.0078125` -- exactly
+`1/128`.
+
+`desc+0x20` gates scaling and is zero on a fresh description, so scaling must be
+configured through `CExoInput::ScaleEvent` (`0x005DF480`). The game calls it six
+times from `SetEventDescriptions`, fed by the `Scale`, `ScaleMag` and `ScaleExp`
+columns of `keymap.2da`.
+
+### Who consumes the float
+
+`CExoInput::PollInput` has **51 call sites**: 47 in
+`CClientExoAppInternal::ProcessInput` and 4 in
+`CClientExoAppInternal::UpdateCamera`. Gameplay movement and camera read event
+values as floats through this API, not as discrete events.
+
+### What this means
+
+Graded analog movement is **available in principle**: the value path exists, the
+joystick axis slots are named in the scaling code, the normalisation is against
+the device's own range, and the consumers take floats.
+
+What is **not** yet established, and should not be claimed until measured:
+
+- Whether the specific movement events `ProcessInput` polls are among the ones
+  that take a magnitude, or whether the surviving PC bindings feed them digitally
+  and the movement code thresholds the result anyway.
+- What `GetMaxUseable` / `GetMinUseable` return for a joystick device, since both
+  currently branch on the keyboard and mouse device ids and no joystick has ever
+  been registered.
+- What the `Scale`, `ScaleMag` and `ScaleExp` values in `keymap.2da` do to the
+  curve.
+
+The cheap test, once a joystick description of type 0 exists on slot `0x6E`, is
+to stage records with a quarter, half and full axis value and read `PollInput`'s
+return, before involving the movement code at all.
 
 ## Coverage: what has been walked, and what has not
 
