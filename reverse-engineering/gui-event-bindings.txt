@@ -53,6 +53,73 @@ event   name          bindings
 0x31 ScrollUp: no bindings anywhere in the image.
 0x32 ScrollDown: no bindings anywhere in the image.
 
+=== console button forwarders, by panel
+
+  OnBButtonPressed_2      B     0x28: 40 panels
+      CSWGuiAbilitiesCharGen
+      CSWGuiClassSelection
+      CSWGuiContainer
+      CSWGuiCustomPanel
+      CSWGuiFeatsCharGen
+      CSWGuiInGameAbilities
+      CSWGuiInGameAutoPause
+      CSWGuiInGameCharacter
+      CSWGuiInGameEquip
+      CSWGuiInGameGalaxyMap
+      CSWGuiInGameGameplay
+      CSWGuiInGameInventory
+      CSWGuiInGameJournal
+      CSWGuiInGameMap
+      CSWGuiInGameMessages
+      CSWGuiInGameOptKeyMappings
+      CSWGuiInGameOptions
+      CSWGuiLevelUpPanel
+      CSWGuiNameChargen
+      CSWGuiOptionsFeedback
+      CSWGuiOptionsGraphics
+      CSWGuiOptionsGraphicsAdvanced
+      CSWGuiOptionsMain
+      CSWGuiOptionsMouse
+      CSWGuiOptionsResolution
+      CSWGuiOptionsSound
+      CSWGuiOptionsSoundAdvanced
+      CSWGuiPartySelection
+      CSWGuiPortraitCharGen
+      CSWGuiPowersLevelUp
+      CSWGuiQuestItem
+      CSWGuiQuickOrCustomPanel
+      CSWGuiQuickPanel
+      CSWGuiSaveLoad
+      CSWGuiScriptSelect
+      CSWGuiSkillsCharGen
+      CSWGuiStore
+      CSWGuiTitleMovies
+      CSWGuiUpgrade
+      CSWGuiUpgradeItemSelect
+
+  OnXButtonPressed_2      X     0x29: 9 panels
+      CSWGuiContainer
+      CSWGuiFeatsCharGen
+      CSWGuiInGameCharacter
+      CSWGuiInGameInventory
+      CSWGuiInGameJournal
+      CSWGuiInGameMap
+      CSWGuiInGameMessages
+      CSWGuiPowersLevelUp
+      CSWGuiSaveLoad
+
+  OnYButtonPressed_2      Y     0x2A: 7 panels
+      CSWGuiAbilitiesCharGen
+      CSWGuiFeatsCharGen
+      CSWGuiInGameCharacter
+      CSWGuiInGameJournal
+      CSWGuiNameChargen
+      CSWGuiPowersLevelUp
+      CSWGuiSkillsCharGen
+
+  OnBlackButtonPressed_2  Black 0x2B: 1 panels
+      CSWGuiInGameJournal
+
 === 0x29 X
     CSWGuiSaveLoad::PopulateGameList                   handler 0x6caa90     at 0x006CC332
 
@@ -62,8 +129,3 @@ event   name          bindings
     CSWGuiOptionsSound::Constructor                    handler 0x6e0f50     at 0x006E3B56
     CSWGuiOptionsSound::Constructor                    handler 0x6e0f50     at 0x006E3B65
     CSWGuiOptionsSound::Constructor                    handler 0x6e0f50     at 0x006E3B78
-
-=== 0x1F8 
-    CSWGuiInGameAbilities::Constructor                 handler 0x6ad4b0     at 0x006AE4C9
-    CSWGuiPowersLevelUp::Constructor                   handler 0x6f1940     at 0x006F27EB
-    CSWGuiFeatsCharGen::Constructor                    handler 0x6f3420     at 0x006F43E1

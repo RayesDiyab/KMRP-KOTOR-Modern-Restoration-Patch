@@ -49,6 +49,15 @@ ADD_EVENT = 0x0041AB20
 # Only the codes with evidence behind them are named. The rest are printed as
 # bare numbers on purpose: a guessed name in a reference document is worse than
 # no name, because the next reader cannot tell which is which.
+# CSWGuiPanel::On<button>Pressed_2 -- registered as a control handler, so that
+# activating the on-screen widget raises the console button's event on the panel.
+FORWARDERS = {
+    "0x624bb0": "OnBButtonPressed_2      B     0x28",
+    "0x624bc0": "OnXButtonPressed_2      X     0x29",
+    "0x644720": "OnYButtonPressed_2      Y     0x2A",
+    "0x644730": "OnBlackButtonPressed_2  Black 0x2B",
+}
+
 EVENT_NAMES = {
     0x00: "MouseEnter?", 0x01: "MouseLeave?",
     0x27: "A", 0x28: "B", 0x29: "X", 0x2A: "Y", 0x2B: "Black",
@@ -120,6 +129,8 @@ def main() -> int:
                         default=Path(r"C:\Star Wars - KotOR\swkotor.exe"))
     parser.add_argument("--code", type=lambda v: int(v, 0), action="append",
                         help="list every binding for this event code (repeatable)")
+    parser.add_argument("--forwarders", action="store_true",
+                        help="which panels register a console button forwarder")
     arguments = parser.parse_args()
 
     resolved, skipped = bindings(arguments.executable.read_bytes())
@@ -140,6 +151,20 @@ def main() -> int:
     for code in (0x28, 0x2B, 0x31, 0x32):
         if code not in counts:
             print(f"0x{code:02X} {EVENT_NAMES[code]}: no bindings anywhere in the image.")
+
+    if arguments.forwarders:
+        # A panel's console buttons are registered as controls: the on-screen
+        # widget raises the console event on its panel when activated, so the
+        # mouse path and the controller path converge on one handler. This is
+        # therefore the authoritative list of which screens really have an X, Y
+        # or Black action -- and so of where a controller prompt belongs.
+        print("\n=== console button forwarders, by panel")
+        for handler, label in FORWARDERS.items():
+            hits = sorted({panel.split("::")[0] for panel, _, h, _ in resolved
+                           if h == handler})
+            print(f"\n  {label}: {len(hits)} panels")
+            for panel in hits:
+                print(f"      {panel}")
 
     for code in arguments.code or []:
         print(f"\n=== 0x{code:02X} {EVENT_NAMES.get(code, '')}")

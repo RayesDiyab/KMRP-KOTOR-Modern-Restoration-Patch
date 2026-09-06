@@ -452,6 +452,69 @@ exist, in increasing order of narrowness:
 
 None of this has been tried yet, and the document records none of it as working.
 
+## Which screens really have which console button
+
+The single most useful table here, and the one with the most outside
+corroboration. `CSWGuiPanel::On<button>Pressed_2` is not called by anything
+either — but it is **registered as a control handler** through `AddEvent`, always
+on event `0x27`:
+
+```
+AddEvent(0x27, panel, OnXButtonPressed_2)   on the panel's "X" widget
+```
+
+So activating the on-screen button with the mouse raises the **console button's
+event on its panel**. The mouse path and the controller path converge on one
+handler. That is why a console port can show `X SCRIPTS` as a prompt for the same
+widget a PC player clicks.
+
+This makes the registration list authoritative for the question KMRP actually
+needs answered: **which screens have an X, Y or Black action at all**, and
+therefore where a controller prompt belongs.
+
+`tools/map_gui_event_bindings.py --forwarders`.
+
+| Button | Panels |
+| --- | --- |
+| **B** `0x28` | 40 — essentially every screen. B is Back/Cancel. |
+| **X** `0x29` | 9 — `Container`, `FeatsCharGen`, `InGameCharacter`, `InGameInventory`, `InGameJournal`, `InGameMap`, `InGameMessages`, `PowersLevelUp`, `SaveLoad` |
+| **Y** `0x2A` | 7 — `AbilitiesCharGen`, `SkillsCharGen`, `FeatsCharGen`, `PowersLevelUp`, `NameChargen`, `InGameCharacter`, `InGameJournal` |
+| **Black** `0x2B` | 1 — `InGameJournal` |
+
+### Corroboration from the console release
+
+Screenshots of the Switch port, which drives these same panels, match the table:
+
+- **Character generation / Attributes** shows `Y RECOMMENDED`, `A ACCEPT`,
+  `B BACK`. The Y column above is exactly the five character-generation and
+  level-up screens, and the class table has `OnRecommendButton` on each
+  (`CSWGuiAbilitiesCharGen::OnRecommendButton` `0x006F7390`, and the same on
+  `SkillsCharGen`, `FeatsCharGen`, `PowersLevelUp`).
+- **Character sheet** shows `X SCRIPTS`, matching `InGameCharacter` in the X row
+  and the play-confirmed behaviour this document already records.
+
+Five of the nine X panels have been confirmed in play by the user: Character
+(Scripts), Inventory (item filters), Map (Return to Ebon Hawk), Messages
+(feedback), and Journal. No contradiction with the table anywhere.
+
+### This resolves the Y question completely
+
+Two earlier readings in this document conflicted. The binding survey found Y
+registered five times in the sound and graphics options; the user reported Y
+working only in the Journal. Both stand, and the forwarder table is why:
+
+- Those five `0x2A` registrations are `AddEvent(0x2A, …)` — a different thing
+  from the forwarder, and unrelated to the button prompts.
+- The forwarders put Y on seven panels, and `InGameCharacter` is one of them —
+  but Character's Y handler is gated on `CGuiInGame+0x10C`, the level-up flag.
+  Outside level-up it does nothing.
+- Every other Y panel is a character-generation or level-up screen, which a
+  player only sees during those flows.
+
+So in ordinary play the Journal is the only screen where Y visibly does
+something, which is exactly what was reported. The engine has more Y than the
+player can normally reach.
+
 ## Coverage: what has been walked, and what has not
 
 The sweep is tracked explicitly because a decoder blind spot and a genuine
