@@ -64,6 +64,28 @@ do not load every project document on every task.
 - Measure instead of judging by eye. Record the build, address convention, exact
   values, verification method, untested coverage, rejected hypotheses, and visible
   corrections where applicable.
+- **Reach for x64dbg as soon as it is the faster answer, not as a last resort.**
+  When the game does something unexplained, a breakpoint that reports what the
+  code actually did beats another round of reading and inferring. It is fully
+  allowed on a running game; only *experimenting* on the live `swkotor.exe` on
+  disk is off limits, and observing a running process is not that.
+  - Two guesses is the limit. If a second attempt at explaining a behaviour
+    fails, stop theorising and measure.
+  - A conditional breakpoint that halts **only on the failing case** is usually
+    the whole investigation: the caller's return address is then sitting on the
+    stack. `break_condition` on the exact registers costs one command and turns
+    "sometimes it misbehaves" into an address.
+  - Prefer it over static scanning whenever the question involves a specific
+    live object. Searching the image for `mov [reg+0x1C], reg` returned 315
+    matches because that offset is common to unrelated classes; a hardware
+    breakpoint on one object's field would have had no false positives.
+  - Read hit counts and stacks rather than the log window, which the bridge does
+    not expose.
+
+  This rule exists because a focus bug took three failed fixes across two
+  sessions while the cause -- a tab handler calling `SetActiveControl` twice,
+  clearing focus first -- was five instructions away in a disassembler. Each
+  failed fix was a guess at a condition, and each looked plausible.
 - Preserve the shared scale rule `max(1.0, height / 720)` across executable
   constants, font metrics, GUI geometry, icons, and popup resources unless a
   measured subsystem-specific rule is documented.
