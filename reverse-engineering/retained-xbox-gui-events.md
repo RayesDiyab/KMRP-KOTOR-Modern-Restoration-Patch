@@ -883,8 +883,154 @@ indexed by a description's slot at `+0x1C`. Its contents have not been read.
 - The axis paths (`0x005E34xx`–`0x005E36xx`) and how POV becomes direction bits.
 - Truncation behaviour at 256 records.
 - The `+0x164` control-code table.
-- Which description type names a joystick control — unchanged, and still the
-  single thing that could invalidate the whole approach.
+- ~~Which description type names a joystick control.~~ **Answered: none, and
+  none is needed.** The type takes no part in matching; the control comes from
+  the description's slot field, and the joystick slots are already populated.
+  See "The binding system, reconstructed".
+
+## The binding system, reconstructed
+
+The question this phase had to answer: can the surviving event-description system
+name a joystick control, without modifying `GetEvents`? **Yes.** The control codes
+are already in memory, initialised on every launch, and the description type is
+irrelevant to matching.
+
+Confirmed against the running game on 2026-09-07.
+
+### 1. The control-code table at `CExoInputInternal+0x164`
+
+A flat `DWORD[]` indexed by a **control slot id**, holding the device-specific
+code that gets compared against `DIDEVICEOBJECTDATA.dwOfs`. Built entirely in
+`CExoInputInternal::Constructor` (`0x005E1880`, from `0x005E1958`), where each
+slot id is read from a global and the code is an immediate:
+
+```asm
+005E1958  mov ecx, [0x0074D5AC]
+005E195E  mov dword ptr [esi+ecx*4+0x164], 0x30
+```
+
+Slot ids are consecutive from the globals at `0x0074D594` onward. **`0x84` is the
+"no control" sentinel** -- `AddEvent` skips a control lookup when the slot equals
+it, which is why every `CreateNewEvent` call in `SetEventDescriptions` passes
+`132` as its last argument.
+
+Live contents of the joystick range, read from the running process:
+
+| Slot | Code | Meaning |
+| --- | --- | --- |
+| `0x6E` | `0x00` | `DIJOFS_X` |
+| `0x6F` | `0x04` | `DIJOFS_Y` |
+| `0x70`, `0x73` | `0x20` | `DIJOFS_POV(0)` |
+| `0x71` | `0x18` | `DIJOFS_SLIDER(0)` |
+| `0x72` | `0x1C` | `DIJOFS_SLIDER(1)` |
+| `0x74` ... `0x7E` | `0x30` ... `0x3A` | **`DIJOFS_BUTTON(0)` ... `DIJOFS_BUTTON(10)`** |
+| `0x7F` ... `0x82` | `0x384`, `0x38C`, `0x388`, `0x390` | four further codes, unidentified |
+
+The same table also holds keyboard DIK codes (`0xC8` up, `0xCB` left, `0xCD`
+right, `0xD0` down, `0x39` space) and mouse offsets (`0`, `4`, `8` axes; `0xC`,
+`0xD`, `0xE` buttons). One table, three device families.
+
+**Nothing about the joystick half was removed.** It is populated in the live
+process right now, with no pad attached and no joystick device enumerated.
+
+### 2. Device numbering
+
+Globals, read live: `[0x0074D3C4] = -1` (any/none), `[0x0074D3C8] = 0`
+(keyboard), `[0x0074D3CC] = 1` (mouse). **Joysticks are device 2 upward**, which
+matches the `lea eax,[edi-2]` index in the poll loop.
+
+### 3. The description object
+
+`CreateNewEvent(eventId, descType, device, controlSlot, secondControlSlot)`,
+`ret 0x14`. Field assignments from `0x005E0F44`-`0x005E0F60`:
+
+| Offset | Field |
+| --- | --- |
+| `+0x00` | vtable |
+| `+0x08` | use count, incremented by `AddEvent` |
+| `+0x10` | **event id**; also the linked-list node (`AddHead(desc+0x10)`) |
+| `+0x14` | description type |
+| `+0x18` | **device** |
+| `+0x1C` | **control slot**, feeding the `+0x164` lookup |
+| `+0x20`, `+0x24` | zero (min / max) |
+| `+0x28`, `+0x2C` | `1.0f` (scale) |
+| `+0x30` | second control slot, `0x84` when unused |
+| `+0x34` | 2-button-axis only |
+
+`descriptions[eventId]` lives at `obj+0x128`, capacity at `obj+0x12C`.
+`CreateNewEvent` **fails if the slot is already occupied** (`test ecx,ecx; jne`),
+so an event id must be free.
+
+### 4. What types 0, 2 and 5 are
+
+They allocate the plain `CExoInputEventDesc` (`0x20` bytes, vtable `0x0074D5FC`)
+-- the same class as type 1. Type 3 allocates `CExoInputEventDescDetailed`
+(`0x30` bytes, vtable `0x0074D604`, carrying the scale floats); type 4 allocates
+`CExoInputeventDesc2ButtonAxis` (`0x38` bytes, vtable `0x0074D60C`).
+
+**The type does not participate in matching.** The only virtual consulted during
+matching is `vtable+4`, and it is a constant: `Global::return_zero` for the base
+and Detailed classes, `Global::return_true_2` for `2ButtonAxis`. It answers
+whether a second control exists, nothing more.
+
+So types 0, 2 and 5 are not a missing joystick facility. They are unused
+*numbering* over one shared class, and **any type can name a joystick control**,
+because the device comes from `+0x18` and the control from `+0x1C`.
+
+### 5. The matching path
+
+```
+for each device d, merged across devices by record dwSequence:
+  for each record r in buffer[d]:
+    list = obj[0x14 + (d + inputClass*12)*4]      # per (class, device)
+    if list is empty: discard r                   # 0x005E2737
+    for desc in list:
+      code = obj[0x164 + desc[0x1C]*4]            # 0x005E275E
+      if code == r.dwOfs: MATCH                   # 0x005E2769
+      if desc->vtable[1]():                       # 0x005E2771, 2-button axis only
+        code2 = obj[0x164 + desc[0x30]*4]
+        if code2 == r.dwOfs: MATCH
+    on MATCH: raise event desc[0x10]
+```
+
+### 6. The minimum description for one joystick button
+
+```c
+CreateNewEvent(eventId,        /* any free slot; 0x27..0x40 are all free */
+               1,              /* description type -- 1 is the common one */
+               2,              /* device: first joystick */
+               0x74,           /* control slot -> DIJOFS_BUTTON(0) */
+               0x84);          /* no second control */
+AddEvent(inputClass, eventId); /* e.g. the ICPCGUI class */
+```
+
+Two calls. No new structures, no table edits, no `GetEvents` change.
+
+### 7. Is the native architecture still viable?
+
+**Yes, and more cheaply than expected.** The binding half needs no reconstruction
+at all -- it needs two ordinary calls into functions that still exist and still
+work. What remains missing is only what was already known: the device count is a
+hardcoded zero, and no records are produced.
+
+The console event ids `0x27`..`0x40` are all free in `descriptions[]`, since
+nothing registers them, so a joystick button can be bound directly to a retained
+console event with no id juggling.
+
+### 8. Smallest next proof
+
+Still no `GetJoystickBuffer` replacement. Instead, in the debugger:
+
+1. Register one description as in section 6, bound to a console event id.
+2. Force `rawInput+0x18` to 1 so the device count becomes 3 and the poll loop
+   runs device index 2.
+3. Stage a single `0x14`-byte record with `dwOfs = 0x30`, `dwData = 1`,
+   `dwTimeStamp = 0`, `dwSequence = 0`.
+4. Break on the matcher at `0x005E2769` and confirm the comparison succeeds, then
+   on the resulting event.
+
+That proves the whole chain with two function calls and one staged record, and is
+fully reversible.
 
 ## Coverage: what has been walked, and what has not
 
