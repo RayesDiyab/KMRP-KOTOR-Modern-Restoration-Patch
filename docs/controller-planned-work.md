@@ -208,6 +208,82 @@ remembered panel is still the one `FindK1MenuPanelForInput` returns.
 list reaches the tab row and A activates the tab -- the section above marking that
 untested is now superseded for the navigation half.
 
+## 3c. Do menu focus in the engine, not in the input translator
+
+**Agreed 2026-09-06.** Sections 3b and its two revisions are workarounds for a
+design mismatch, and should be replaced rather than refined.
+
+**The mismatch.** The module is an XInput-to-keyboard translator: it presses keys
+and never learns what happened next. Menu focus is the one feature that needs to
+*observe and control engine state* rather than synthesise input, and every bug in
+this area traces to that:
+
+| symptom | cause |
+| --- | --- |
+| Focus jumps to the list when a tab is activated | A is injected as `Return`; the module never learns the activation happened |
+| Fast tab-switching leaves focus in the list | the activation had to be inferred from a 250 ms injected-key window, and a direction pressed inside that window suppressed the restore |
+| The focus box flickers for one frame | the hook runs at `ProcessInput` **entry**, so the game moves focus and the frame is drawn before the module can correct it. Correcting after the fact can never remove that frame |
+| Every new binding collides | in keyboard space every key already means something; `Tab`, `Q`/`E`, `Space` are all taken |
+
+**The fix: hook `CSWGuiPanel::SetActiveControl`.**
+
+| | |
+| --- | --- |
+| Address | `0x0040A630` (VA; `FILE = VA - 0x400000` = `0x00A630`) |
+| Convention | `__thiscall`, `ecx` = `CSWGuiPanel*` |
+| Source | `kotor1_0_3.db` `functions`, class `CSWGuiPanel` |
+| Corroboration | the same address already sits in `K1_CONFIG` as `setActiveControl`, which the module calls today |
+
+Every focus change in the GUI passes through this one function. Hooking it turns
+the problem inside out: instead of noticing afterwards that focus moved and
+putting it back, the module **sees the move as it is requested and can decline
+it**. No timing window, no inference, and no wrong frame drawn -- which is the
+only way the flicker goes away.
+
+**This does not cost the zero-bytes property, and an earlier note in this
+conversation wrongly implied it would.** KPM detours are applied in memory at
+run time; the seven existing hooks write nothing to `swkotor.exe` on disk. An
+eighth entry in `kotor1.hooks.toml` behaves the same way. "Do it in the engine"
+and "modify the executable on disk" are separate decisions, and only the first is
+being taken.
+
+**Also found, and relevant beyond focus:** the engine still carries its Xbox
+button handlers as real virtual methods on `CSWGuiPanel`, which is why the
+retained GUI events work at all --
+
+    OnAButtonPressed      0x0040B640
+    OnBButtonPressed      0x0040B650
+    OnXButtonPressed      0x0040B660
+    OnYButtonPressed      0x0040B670
+    OnBlackButtonPressed  0x0040B680
+    CSWGuiInGameMenu::SetActiveControlID   0x00624BD0
+
+Section 4's bumper and stick-click work should be reconsidered against these
+before it is written: dispatching a real button event to a panel is likely to be
+better than borrowing another keyboard key, and it removes the `Tab`-versus-party
+collision entirely rather than resolving it.
+
+**Steps:**
+
+1. Add the detour to `kotor1.hooks.toml` with the stock byte sequence at
+   `0x0040A630`, read back from the built executable the way the other seven are.
+2. Export a handler that receives panel, control and flag; record every focus
+   change so the module always knows where focus is, with no inference.
+3. Decline a move off a tab that the same frame's activation caused. Keep the
+   rule narrow: a move the player asked for must always be honoured.
+4. Delete `KeepK1MenuFocus` and its globals once the hook covers the case.
+
+**Do not skip:** the hook site's stock bytes must be verified against the built
+executable before shipping, and the whole thing scoped so a panel with no tab row
+behaves exactly as it does today.
+
+**Status of the workaround meanwhile.** Module `8C90C76E...` is installed and is
+the last version the user confirmed keeps focus on the tab. It still has the
+fast-switch bug and the one-frame flicker. A later attempt to latch the press
+inside `CaptureActionBarInputK1` (`79D9890D...`) stopped focus working entirely
+and was reverted; if that approach is revisited, find out why the latch never
+fired before building on it.
+
 ## 4. Tab switching and the agreed menu button layout
 
 **Already implemented, not yet play-verified:** the Abilities panel now has an
