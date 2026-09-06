@@ -1001,7 +1001,7 @@ CreateNewEvent(eventId,        /* any free slot; 0x27..0x40 are all free */
                2,              /* device: first joystick */
                0x74,           /* control slot -> DIJOFS_BUTTON(0) */
                0x84);          /* no second control */
-AddEvent(inputClass, eventId); /* e.g. the ICPCGUI class */
+AddEvent(eventId, inputClass); /* class 2 is ICPCGUI */
 ```
 
 Two calls. No new structures, no table edits, no `GetEvents` change.
@@ -1031,6 +1031,112 @@ Still no `GetJoystickBuffer` replacement. Instead, in the debugger:
 
 That proves the whole chain with two function calls and one staged record, and is
 fully reversible.
+
+## PROVEN: one synthetic joystick record becomes one native KOTOR event
+
+Run in the debugger against the live patched game on 2026-09-07. Nothing was
+written to disk; every change was in-process and has been reverted.
+
+### Method
+
+A code stub was assembled into a scratch page and executed by hijacking `eip` at
+a clean function entry (`CExoInputInternal::GetEvents`), then restoring the
+saved registers. The stub made exactly two calls:
+
+```
+CreateNewEvent(0x31, 1, 2, 0x74, 0x84)   ; event 0x31, type 1, device 2,
+                                         ; control slot 0x74, no 2nd control
+AddEvent(0x31, 2)                        ; into input class 2 (ICPCGUI)
+```
+
+Both returned **1**. Input class 2 was not guessed: `GetEvents`' third argument
+was read live at a breakpoint and was `2`.
+
+Note the argument order, which corrects an earlier note in this document:
+`AddEvent(eventId, inputClass)`, not the reverse. `arg1` is the event id
+(`descriptions[arg1]` is dereferenced) and `arg2` is bounds-checked against 6.
+
+### The description the engine built
+
+Read back from `descriptions[0x31]` at `0x13846440`:
+
+| Offset | Value | Meaning |
+| --- | --- | --- |
+| `+0x00` | `0x0074D5FC` | `CExoInputEventDesc` vtable |
+| `+0x08` | `1` | use count, incremented by `AddEvent` |
+| `+0x10` | `0x31` | event id |
+| `+0x14` | `1` | description type |
+| `+0x18` | `2` | device — first joystick |
+| `+0x1C` | `0x74` | control slot -> `DIJOFS_BUTTON(0)` |
+
+Fields from `+0x20` up are unallocated: the base path allocates only `0x20`
+bytes, and `+0x1C` is its last field. That is safe because `+0x30` is read only
+when `vtable+4` reports a two-button axis, which this type never does.
+
+The per-(class, device) list at `obj + 0x14 + class*48 + device*4` = `+0x7C`
+pointed at a list with **count 1**, whose single node held `desc+0x10`.
+
+### The chain, observed
+
+Device count was forced by writing `CExoInputInternal+0x158 = 3`. Writing
+`rawInput+0x18` does nothing at runtime — the constructor already consumed it —
+which is worth remembering for the real implementation.
+
+`GetJoystickBuffer` then ran for joystick index 0 and took its null-device exit,
+having already allocated the record buffer. One record was written into that
+buffer at its exit and the count set to 1:
+
+```
+dwOfs = 0x30, dwData = 1, dwTimeStamp = 0, dwSequence = 0, uAppData = 0
+```
+
+At the matcher (`0x005E2769`), with a break condition of `ecx == 0x30`:
+
+| Register | Value | Meaning |
+| --- | --- | --- |
+| `eax` | `0x74` | control slot read from `desc+0x1C` |
+| `ecx` | `0x30` | `table164[0x74]`, the resolved control code |
+| `edx` | `0x03D4A060` | the staged record |
+| `edi` | `0x13846440` | the description |
+| `ebx` | `0x03D257D4` | the (class 2, device 2) list slot |
+
+Stepping the `cmp ecx, [edx]` and its `je` landed on **`0x005E27AE`** — the match
+path, which sets the matched flag.
+
+Execution then stopped at `0x00622C5C` in `ProcessInput`, the call into
+`CSWGuiManager::HandleInputEvent`, with a break condition of `edi == 0x31`:
+
+```
+edi = 0x31    the event id carried from desc+0x10
+ebp = 1       the dwData carried from the staged record
+```
+
+and was allowed to run into the handler.
+
+### What this establishes
+
+A synthetic `DIDEVICEOBJECTDATA` record, attributed to a joystick device that
+does not exist, produced a real native KOTOR GUI event through entirely
+unmodified engine code. Nothing was patched: the two registration calls are the
+engine's own API, and the only writes were a device count, a record, and a count.
+
+**The native-path architecture is proven end to end.** What remains is
+implementation rather than feasibility:
+
+1. A `GetJoystickBuffer` replacement that emits records from a real pad. It must
+   allocate its record buffer the way the original does, since the consumer frees
+   it, and it must write every field of every record because only the first
+   `0x100` bytes of the `0x1400` allocation are cleared.
+2. Registration of the descriptions KMRP wants, at a point after
+   `CExoInputInternal` is constructed.
+3. Setting `CExoInputInternal+0x158`, not `rawInput+0x18`.
+
+### Reverted
+
+`+0x158` back to `2`, `rawInput+0x18` back to `0`, scratch page freed, temporary
+breakpoints removed. The description registered for event `0x31` remains in
+memory for this session only and is inert once the device count is back to 2; it
+disappears on restart. No file on disk was modified.
 
 ## Coverage: what has been walked, and what has not
 
