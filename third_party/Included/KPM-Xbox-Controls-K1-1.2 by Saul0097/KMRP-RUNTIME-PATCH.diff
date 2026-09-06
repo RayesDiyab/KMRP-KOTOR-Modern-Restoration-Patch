@@ -1,0 +1,16 @@
+--- a/src/KotorPatcher/src/platform_win32.cpp
++++ b/src/KotorPatcher/src/platform_win32.cpp
+@@
+     std::string SelfModuleDir() {
+         char path[MAX_PATH];
+-        HMODULE self = GetModuleHandleA("KotorPatcher.dll");
++        HMODULE self = nullptr;
++        if (!GetModuleHandleExA(
++                GET_MODULE_HANDLE_EX_FLAG_FROM_ADDRESS |
++                    GET_MODULE_HANDLE_EX_FLAG_UNCHANGED_REFCOUNT,
++                reinterpret_cast<LPCSTR>(&SelfModuleDir), &self)) {
++            return {};
++        }
+         if (!self || GetModuleFileNameA(self, path, MAX_PATH) == 0) {
+             return {};
+         }

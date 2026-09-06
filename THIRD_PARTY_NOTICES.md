@@ -84,6 +84,62 @@ K1DC, and none of its code is altered. It does not modify `swkotor.exe`.
 What it writes, and the check showing it does not collide with anything KMRP writes,
 is documented in [`docs/third-party-driver-compat.md`](docs/third-party-driver-compat.md).
 
+## KPM – Xbox Controls for KOTOR 1
+
+**KPM – Xbox Controls for KOTOR 1 1.2** by **Saul0097** is available as an
+opt-in Advanced Settings component, with the author's permission:
+
+https://github.com/scopeking0117-alt/KPM-Xbox-Controls-K1
+
+KMRP builds the controller source at commit
+`78e7eaa3b9554ec0e6732f749424dc916f3a1895` as
+`kmrp-controller.module`. Issue 8 records the component as MIT licensed, but the
+inspected source revision contains no standalone licence file. This must be
+resolved with the author before public redistribution; KMRP does not infer or
+invent the missing text.
+
+The module is loaded by a statically linked build of **KOTOR Patch Manager** by
+**Lane Dibello and contributors**, commit
+`7d53e52f55622a48ab97001c2680fd9fb59c8f98`, licensed under MIT:
+
+https://github.com/LaneDibello/Kotor-Patch-Manager
+
+The MIT text, source revisions, binary hashes, and KMRP's self-module-name and
+dynamic-prompt source patches are preserved under
+`third_party/Included/KPM-Xbox-Controls-K1-1.2 by Saul0097/`. The exact runtime
+design and test boundary are documented in
+[`docs/controller-support.md`](docs/controller-support.md).
+
+## Xelu's Free Controller & Key Prompts
+
+Controller button artwork for the optional Xbox controls component. **CC0 1.0
+Universal (public domain)** -- no permission was required and none was sought.
+
+    Author:  Nicolae "Xelu" Berbece
+    Source:  https://thoseawesomeguys.com/prompts
+    Mirror:  https://github.com/DJLink/Xelu_Free_Controller-Key_Prompts
+    Vendored at: third_party/Included/Xelu-Free-Controller-Prompts-CC0/
+
+The author's own terms, kept verbatim in `UPSTREAM-README.txt` beside the images:
+"You can use all these assets in any project you want to (be it commercial or
+not). All of the assets are in the public domain under Creative Commons 0 (CC0)."
+The CC0 text ships as `LICENSE-CC0.txt` in the same folder.
+
+Ten files are redistributed, all from the pack's Xbox 360 set: `A`, `B`, `X`,
+`Y`, `LB`, `RB`, `Start`, `Back`, `Dpad_Left`, `Dpad_Right`. They are used
+unmodified as source art; `tools/build_controller_prompt_textures.py` resizes
+them per resolution into the button-fill textures KMRP installs.
+
+**The Xbox 360 set is used deliberately.** The pack's Series X and Xbox One sets
+draw a grey disc with a coloured letter, which loses most of its contrast at
+badge size against KOTOR's dark blue panels. The 360 set is a solid coloured
+disc, which also matches how the original Xbox build of KOTOR drew its prompts.
+
+**Microsoft's official Xbox glyphs are deliberately NOT used.** They are
+trademarked and licensed for Xbox-licensed titles; this repository is public and
+GPL-3.0, so redistributing them would not be permissible. Any future replacement
+artwork must be CC0 or compatibly licensed for redistribution.
+
 ## KOTOR High Resolution Menus
 
 The per-resolution GUI layouts are derived from **KOTOR High Resolution Menus 1.5** by ndix UR:

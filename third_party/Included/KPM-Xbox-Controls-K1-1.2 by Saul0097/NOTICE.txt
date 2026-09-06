@@ -1,0 +1,55 @@
+KMRP optional Xbox Controls integration
+========================================
+
+Controller module
+-----------------
+Name: KPM - Xbox Controls for KOTOR 1 1.2
+Author: Saul0097 / scopeking0117-alt
+Source: https://github.com/scopeking0117-alt/KPM-Xbox-Controls-K1
+Source commit: 78e7eaa3b9554ec0e6732f749424dc916f3a1895
+
+The author explicitly granted KMRP permission to use this component. The KMRP
+issue recording the integration states that the relevant controller component
+is MIT licensed:
+https://github.com/RayesDiyab/KMRP-KOTOR-Modern-Restoration-Patch/issues/8
+
+The upstream source repository did not contain a standalone LICENSE file when
+commit 78e7eaa was inspected on 2026-09-05. That absence must be resolved with
+the author before a public KMRP release; this notice records the exact basis on
+which the local integration was prepared and does not invent missing terms.
+
+Runtime hook engine
+-------------------
+Name: KOTOR Patch Manager
+Author: Lane Dibello and contributors
+Source: https://github.com/LaneDibello/Kotor-Patch-Manager
+Source commit: 7d53e52f55622a48ab97001c2680fd9fb59c8f98
+License: MIT; full text in LICENSE-KOTOR-PATCH-MANAGER.txt
+
+kmrp-controller-runtime.asi was compiled as 32-bit C++17 with the MSVC static
+runtime from the KotorPatcher sources at the commit above. It imports only
+KERNEL32.dll. SHA-256:
+F5CF2A21E4C28DA95CD8DAAF2704F871A6105616BFE250361929C61BCDB43B45
+
+KMRP applies the source-level change recorded in KMRP-RUNTIME-PATCH.diff so the
+runtime discovers its own directory from the address of SelfModuleDir instead
+of assuming the DLL is named KotorPatcher.dll. This permits the runtime to be
+loaded under the collision-resistant name kmrp-controller-runtime.asi.
+
+kmrp-controller.module was compiled as 32-bit C++17 with the MSVC static runtime
+from the controller sources at the commit above. It imports USER32.dll and
+KERNEL32.dll. SHA-256:
+BA5E1343068972218B3A147BBDD8C0523B06C0F8DD4B21392F0D7AEE4B0E647D
+
+KMRP applies the source-level changes recorded in
+KMRP-CONTROLLER-PROMPTS-PATCH.diff. They retain controller connection state,
+distinguish the module's own injected keystrokes from physical keyboard input,
+and select or clear KMRP-authored button-fill textures on ten verified controls.
+It also adds one movie-frame detour to the runtime configuration. It also
+moves the four D-pad directions out of the held-key demand set and drives them
+as repeating taps, so a held direction steps a menu continuously instead of
+once; see ApplyDpad in K1XboxControlsXInput.cpp. The patch does
+not write controller-specific bytes to swkotor.exe.
+
+The `.module` extension is deliberate. It is a PE DLL loaded by the KPM runtime,
+but must not also be discovered independently by the ASI loader.

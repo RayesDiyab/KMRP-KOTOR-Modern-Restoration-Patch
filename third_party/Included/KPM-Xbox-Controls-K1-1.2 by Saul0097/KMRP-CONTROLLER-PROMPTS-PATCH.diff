@@ -1,0 +1,853 @@
+diff --git a/K1XboxControls.cpp b/K1XboxControls.cpp
+index a8c9b80..d77db57 100644
+--- a/K1XboxControls.cpp
++++ b/K1XboxControls.cpp
+@@ -52,11 +52,31 @@ constexpr std::uint32_t PENDING_K1_PAZAAK_GAME_FLIP_UP = 1 << 22;
+ constexpr std::uint32_t PENDING_K1_PAZAAK_GAME_FLIP_CARD = 1 << 23;
+ constexpr std::uint32_t PENDING_K1_CLASS_SELECT_LEFT = 1 << 27;
+ constexpr std::uint32_t PENDING_K1_CLASS_SELECT_RIGHT = 1 << 28;
+-constexpr std::uint32_t PENDING_K1_MENU_ACTION = 1 << 29;
++// constexpr std::uint32_t PENDING_K1_MENU_ACTION = 1 << 29;  // dead, never raised
+ // Experimental: End/Home/Insert -> generic X/Y/Black dispatch to whatever panel is active.
+ constexpr std::uint32_t PENDING_K1_GENERIC_BUTTON = 1 << 30;
+ constexpr std::uint32_t PENDING_K1_SETTINGS_NAV = 1u << 31;
+ 
++// ---------------------------------------------------------------------------
++// DEAD CODE, disabled 2026-09-06. Kept rather than deleted because it documents
++// an intended design and may be revived.
++//
++// This per-panel "menu action map" was meant to let X/Y/Black invoke a named
++// button on each screen by calling the handler that button registers. It never
++// runs: PENDING_K1_MENU_ACTION is only ever TESTED and CLEARED -- nothing raises
++// it, and g_pendingMenuAction is never assigned -- so ResolveK1MenuAction and
++// every *_CALLBACK address below are unreachable.
++//
++// What actually drives those buttons is CaptureK1GenericButton: X/Y/LB carry a
++// second scancode (End/Home/Insert) which is captured and dispatched to the
++// panel as the retained Xbox GUI events, letting each panel's own handler act.
++// A and B need no map either -- A is Return (activates the focused control) and
++// B is Delete, rewritten to Escape for menu panels.
++//
++// This mattered: it was read as the thing that made the shipped badges truthful,
++// which led to the wrong conclusion about which glyphs are safe to add.
++// ---------------------------------------------------------------------------
++#if 0   // dead: menu action map types
+ enum class MenuActionSlot : std::uint8_t {
+     Primary,
+     Secondary,
+@@ -86,6 +106,7 @@ constexpr MenuActionMap NO_MENU_ACTIONS = {
+     NO_MENU_ACTION,
+     NO_MENU_ACTION,
+ };
++#endif  // 0
+ 
+ constexpr std::uint32_t PENDING_ACTION_BAR_INPUT =
+     PENDING_UP | PENDING_DOWN | PENDING_LEFT | PENDING_RIGHT | PENDING_ACTIVATE;
+@@ -102,7 +123,7 @@ constexpr std::uint32_t PENDING_CONTEXT_INPUT =
+     PENDING_K1_PAZAAK_GAME_FLIP_UP |
+     PENDING_K1_PAZAAK_GAME_FLIP_CARD |
+     PENDING_K1_CLASS_SELECT_LEFT | PENDING_K1_CLASS_SELECT_RIGHT |
+-    PENDING_K1_MENU_ACTION | PENDING_K1_GENERIC_BUTTON |
++    PENDING_K1_GENERIC_BUTTON |
+     PENDING_K1_SETTINGS_NAV;
+ constexpr std::uint32_t PENDING_K1_MENU_INPUT =
+     PENDING_CONTROLLER_X |
+@@ -115,7 +136,7 @@ constexpr std::uint32_t PENDING_K1_MENU_INPUT =
+     PENDING_K1_PAZAAK_GAME_FLIP_UP |
+     PENDING_K1_PAZAAK_GAME_FLIP_CARD |
+     PENDING_K1_CLASS_SELECT_LEFT | PENDING_K1_CLASS_SELECT_RIGHT |
+-    PENDING_K1_MENU_ACTION | PENDING_K1_GENERIC_BUTTON |
++    PENDING_K1_GENERIC_BUTTON |
+     PENDING_K1_SETTINGS_NAV;
+ 
+ constexpr int K2_GUI_CONTROLLER_X_EVENT = 0x29;
+@@ -170,6 +191,9 @@ constexpr std::uintptr_t K1_FLOATY_TEXT_PANEL_VTABLE = 0x00753EA8;
+ constexpr std::uintptr_t K1_BARK_BUBBLE_PANEL_VTABLE = 0x00755C60;
+ constexpr std::uintptr_t K1_MESSAGE_BOX_PANEL_VTABLE = 0x0074FDB0;
+ constexpr std::uintptr_t K1_CONTROLLER_LOSS_BOX_PANEL_VTABLE = 0x007513F8;
++constexpr std::uintptr_t K1_GUI_BORDER_SET_FILL_IMAGE = 0x00414C00;
++constexpr std::ptrdiff_t K1_BUTTON_BORDER_PARAMS_OFFSET = 0x0080;
++constexpr std::ptrdiff_t K1_BUTTON_HILIGHT_PARAMS_OFFSET = 0x00F4;
+ constexpr std::uintptr_t K1_GUI_MANAGER_GLOBAL = 0x007A39F4;
+ constexpr std::ptrdiff_t K1_PAZAAK_AVAILABLE_OFFSET = 0x01A4;
+ constexpr int K1_PAZAAK_AVAILABLE_COUNT = 18;
+@@ -196,9 +220,12 @@ constexpr std::ptrdiff_t K1_CLASS_SELECT_OFFSET = 0x006C;
+ constexpr std::ptrdiff_t K1_CLASS_SELECT_STRIDE = 0x025C;
+ constexpr int K1_CLASS_SELECT_COUNT = 6;
+ constexpr std::ptrdiff_t K1_CHARACTER_SCRIPTS_OFFSET = 0x5400;
++constexpr std::ptrdiff_t K1_CHARACTER_EXIT_OFFSET = 0x523C;
+ constexpr std::ptrdiff_t K1_CONTAINER_GET_ITEMS_OFFSET = 0x0AD0;
++constexpr std::ptrdiff_t K1_CONTAINER_CANCEL_OFFSET = 0x0C94;
+ constexpr std::ptrdiff_t K1_CONTAINER_GIVE_ITEMS_OFFSET = 0x0E58;
+ constexpr std::ptrdiff_t K1_SAVELOAD_LOAD_OFFSET = 0x0C14;
++constexpr std::ptrdiff_t K1_SAVELOAD_BACK_OFFSET = 0x0DD8;
+ constexpr std::ptrdiff_t K1_SAVELOAD_DELETE_OFFSET = 0x0F9C;
+ constexpr std::ptrdiff_t K1_UPGRADE_ITEMS_OFFSET = 0x01A4;
+ constexpr std::ptrdiff_t K1_NAME_EDITBOX_OFFSET = 0x0230;
+@@ -207,6 +234,7 @@ constexpr std::ptrdiff_t K1_NAME_CANCEL_OFFSET = 0x0610;
+ constexpr std::ptrdiff_t K1_NAME_RANDOM_OFFSET = 0x07D4;
+ constexpr std::ptrdiff_t K1_SOLO_QUERY_OK_OFFSET = 0x02F4;
+ constexpr std::ptrdiff_t K1_SOLO_QUERY_CANCEL_OFFSET = 0x04B8;
++#if 0   // dead: handler addresses for the menu action map
+ // Handlers each button already registers via AddEvent(0x27, ...) in its constructor.
+ constexpr std::uintptr_t K1_CHARACTER_SCRIPTS_CALLBACK = 0x00624BC0;
+ constexpr std::uintptr_t K1_CONTAINER_GET_ITEMS_CALLBACK = 0x00624BA0;
+@@ -214,6 +242,8 @@ constexpr std::uintptr_t K1_CONTAINER_GIVE_ITEMS_CALLBACK = 0x00624BC0;
+ constexpr std::uintptr_t K1_SAVELOAD_LOAD_CALLBACK = 0x00624BA0;
+ constexpr std::uintptr_t K1_SAVELOAD_DELETE_CALLBACK = 0x00624BC0;
+ constexpr std::uintptr_t K1_UPGRADE_ITEMS_CALLBACK = 0x006C2B60;
++#endif  // 0
++
+ // Member offsets below are from kotor1_0_3.db `offsets`, keyed by the class each
+ // vtable resolves to. `*_TAIL*` are the bottom few controls of a panel's option
+ // column, listed bottom-up: which of them is actually present varies by context
+@@ -526,9 +556,10 @@ using K1PazaakPlayCardFn = void(__thiscall*)(void*, void*);
+ using K1PazaakFlipCardFn = void(__thiscall*)(void*, void*);
+ using GuiManagerMoveMouseFn = void(__thiscall*)(void*, int, int);
+ using ClientMouseFn = void(__thiscall*)(void*, std::uint32_t);
++using SetFillImageFn = void(__thiscall*)(void*, const void*, int);
+ 
+ std::uint32_t g_pendingInput = 0;
+-std::uint8_t g_pendingMenuAction = 0;
++// std::uint8_t g_pendingMenuAction = 0;  // dead, never assigned
+ std::uint8_t g_pendingGenericButtonEvent = 0;
+ void* g_pendingSettingsTarget = nullptr;
+ int g_pendingSettingsEvent = 0;
+@@ -539,12 +570,110 @@ std::ptrdiff_t g_pendingK1PartyTargetOffset = -1;
+ // arriving in one frame is not collapsed into a single line of movement.
+ // Negative scrolls up, positive scrolls down.
+ int g_pendingDescScroll = 0;
+-// Starts disabled - hidden and parked - and stays that way until F9.
+-bool g_cursorParked = true;
++// Preserve normal Windows keyboard/mouse operation on startup. Controller users
++// can still press F9 to park and hide the cursor when they want an unobstructed
++// controller-only session.
++bool g_cursorParked = false;
+ bool g_pendingCursorToggle = false;
+ void* g_mainInterface = nullptr;
+ void* g_k1PazaakReturnControl = nullptr;
+ bool g_k1SuppressPazaakFlipEnterRelease = false;
++void* g_k1PromptPanel = nullptr;
++std::uintptr_t g_k1PromptPanelVtable = 0;
++bool g_k1PromptMode = false;
++bool g_k1PromptStateKnown = false;
++
++struct ControllerPromptBinding {
++    std::ptrdiff_t controlOffset;
++    const char* resref;
++};
++
++constexpr ControllerPromptBinding K1_CHARACTER_PROMPTS[] = {
++    {K1_CHARACTER_EXIT_OFFSET, "kmrpb_charexit"},
++    {K1_CHARACTER_SCRIPTS_OFFSET, "kmrpx_charscr"},
++};
++constexpr ControllerPromptBinding K1_CONTAINER_PROMPTS[] = {
++    {K1_CONTAINER_GET_ITEMS_OFFSET, "kmrpa_contok"},
++    {K1_CONTAINER_GIVE_ITEMS_OFFSET, "kmrpx_contgive"},
++    {K1_CONTAINER_CANCEL_OFFSET, "kmrpb_contback"},
++};
++constexpr ControllerPromptBinding K1_SAVELOAD_PROMPTS[] = {
++    {K1_SAVELOAD_DELETE_OFFSET, "kmrpx_savdel"},
++    {K1_SAVELOAD_BACK_OFFSET, "kmrpb_savback"},
++    {K1_SAVELOAD_LOAD_OFFSET, "kmrpa_savload"},
++};
++constexpr ControllerPromptBinding K1_UPGRADE_SELECTION_PROMPTS[] = {
++    {K1_UPGRADE_SELECTION_UPGRADE_OFFSET, "kmrpa_upgitem"},
++    {K1_UPGRADE_SELECTION_BACK_OFFSET, "kmrpb_upgback"},
++};
++
++// Back/cancel on every remaining navigable screen, added 2026-09-06. B is the
++// only glyph asserted here rather than assumed: B's Delete scancode is rewritten
++// to Escape for any menu panel (see the DIK_DELETE branch of
++// CaptureActionBarInputK1), and none of these panels is one of the four
++// transient overlays that suppress that rewrite. The offsets are the ones the
++// settings-strip navigation already uses for these same buttons.
++
++constexpr ControllerPromptBinding K1_SOLO_MODE_QUERY_PROMPTS[] = {
++    {K1_SOLO_QUERY_CANCEL_OFFSET, "kmrpb_confirm"},
++};
++
++constexpr ControllerPromptBinding K1_OPTIONS_MAIN_PROMPTS[] = {
++    {K1_OPTIONS_MAIN_BACK_OFFSET, "kmrpb_optmain"},
++};
++
++constexpr ControllerPromptBinding K1_INGAME_OPTIONS_PROMPTS[] = {
++    {K1_INGAME_OPTIONS_EXIT_OFFSET, "kmrpb_optingame"},
++};
++
++constexpr ControllerPromptBinding K1_INGAME_GAMEPLAY_PROMPTS[] = {
++    {K1_INGAME_GAMEPLAY_BACK_OFFSET, "kmrpb_optgame"},
++};
++
++constexpr ControllerPromptBinding K1_INGAME_AUTOPAUSE_PROMPTS[] = {
++    {K1_INGAME_AUTOPAUSE_BACK_OFFSET, "kmrpb_optpause"},
++};
++
++constexpr ControllerPromptBinding K1_OPTIONS_FEEDBACK_PROMPTS[] = {
++    {K1_OPTIONS_FEEDBACK_BACK_OFFSET, "kmrpb_optfeed"},
++};
++
++constexpr ControllerPromptBinding K1_OPTIONS_MOUSE_PROMPTS[] = {
++    {K1_OPTIONS_MOUSE_BACK_OFFSET, "kmrpb_optmouse"},
++};
++
++constexpr ControllerPromptBinding K1_OPTIONS_GRAPHICS_PROMPTS[] = {
++    {K1_OPTIONS_GRAPHICS_BACK_OFFSET, "kmrpb_optgfx"},
++};
++
++constexpr ControllerPromptBinding K1_OPTIONS_GRAPHICS_ADVANCED_PROMPTS[] = {
++    {K1_OPTIONS_GRAPHICS_ADVANCED_CANCEL_OFFSET, "kmrpb_optgfxadv"},
++    {K1_OPTIONS_GRAPHICS_ADVANCED_OK_OFFSET, "kmrpa_optgfxadv"},
++};
++
++constexpr ControllerPromptBinding K1_OPTIONS_SOUND_PROMPTS[] = {
++    {K1_OPTIONS_SOUND_BACK_OFFSET, "kmrpb_optsnd"},
++};
++
++constexpr ControllerPromptBinding K1_OPTIONS_SOUND_ADVANCED_PROMPTS[] = {
++    {K1_OPTIONS_SOUND_ADVANCED_CANCEL_OFFSET, "kmrpb_optsndadv"},
++    {K1_OPTIONS_SOUND_ADVANCED_OK_OFFSET, "kmrpa_optsndadv"},
++};
++
++constexpr ControllerPromptBinding K1_KEY_MAPPINGS_PROMPTS[] = {
++    {K1_KEY_MAPPINGS_CANCEL_OFFSET, "kmrpb_optkeys"},
++    {K1_KEY_MAPPINGS_ACCEPT_OFFSET, "kmrpa_optkeys"},
++};
++
++constexpr ControllerPromptBinding K1_UPGRADE_PROMPTS[] = {
++    {K1_UPGRADE_BACK_OFFSET, "kmrpb_upgasm"},
++    {K1_UPGRADE_ASSEMBLE_OFFSET, "kmrpa_upgasm"},
++};
++
++constexpr ControllerPromptBinding K1_UPGRADE_ITEM_SELECT_PROMPTS[] = {
++    {K1_UPGRADE_ITEM_SELECT_BACK_OFFSET, "kmrpb_upgitm"},
++    {K1_UPGRADE_ITEM_SELECT_UPGRADE_OFFSET, "kmrpa_upgitm"},
++};
+ 
+ void* OffsetPointer(void* base, std::ptrdiff_t offset)
+ {
+@@ -803,6 +932,138 @@ void* FindK1MenuPanelForInput(void** managerOut)
+     return panel;
+ }
+ 
++const ControllerPromptBinding* GetK1ControllerPrompts(
++    void* panel,
++    int* count)
++{
++    *count = 0;
++    if (!panel) {
++        return nullptr;
++    }
++    switch (*reinterpret_cast<std::uintptr_t*>(panel)) {
++    case K1_CHARACTER_PANEL_VTABLE:
++        *count = sizeof(K1_CHARACTER_PROMPTS) / sizeof(K1_CHARACTER_PROMPTS[0]);
++        return K1_CHARACTER_PROMPTS;
++    case K1_CONTAINER_PANEL_VTABLE:
++        *count = sizeof(K1_CONTAINER_PROMPTS) / sizeof(K1_CONTAINER_PROMPTS[0]);
++        return K1_CONTAINER_PROMPTS;
++    case K1_SAVELOAD_PANEL_VTABLE:
++        *count = sizeof(K1_SAVELOAD_PROMPTS) / sizeof(K1_SAVELOAD_PROMPTS[0]);
++        return K1_SAVELOAD_PROMPTS;
++    case K1_UPGRADE_SELECTION_PANEL_VTABLE:
++        *count = sizeof(K1_UPGRADE_SELECTION_PROMPTS) /
++            sizeof(K1_UPGRADE_SELECTION_PROMPTS[0]);
++        return K1_UPGRADE_SELECTION_PROMPTS;
++    case K1_OPTIONS_MAIN_PANEL_VTABLE:
++        *count = sizeof(K1_OPTIONS_MAIN_PROMPTS) / sizeof(K1_OPTIONS_MAIN_PROMPTS[0]);
++        return K1_OPTIONS_MAIN_PROMPTS;
++    case K1_SOLO_MODE_QUERY_PANEL_VTABLE:
++        *count = sizeof(K1_SOLO_MODE_QUERY_PROMPTS) /
++            sizeof(K1_SOLO_MODE_QUERY_PROMPTS[0]);
++        return K1_SOLO_MODE_QUERY_PROMPTS;
++    case K1_INGAME_OPTIONS_PANEL_VTABLE:
++        *count = sizeof(K1_INGAME_OPTIONS_PROMPTS) / sizeof(K1_INGAME_OPTIONS_PROMPTS[0]);
++        return K1_INGAME_OPTIONS_PROMPTS;
++    case K1_INGAME_GAMEPLAY_PANEL_VTABLE:
++        *count = sizeof(K1_INGAME_GAMEPLAY_PROMPTS) / sizeof(K1_INGAME_GAMEPLAY_PROMPTS[0]);
++        return K1_INGAME_GAMEPLAY_PROMPTS;
++    case K1_INGAME_AUTOPAUSE_PANEL_VTABLE:
++        *count = sizeof(K1_INGAME_AUTOPAUSE_PROMPTS) / sizeof(K1_INGAME_AUTOPAUSE_PROMPTS[0]);
++        return K1_INGAME_AUTOPAUSE_PROMPTS;
++    case K1_OPTIONS_FEEDBACK_PANEL_VTABLE:
++        *count = sizeof(K1_OPTIONS_FEEDBACK_PROMPTS) / sizeof(K1_OPTIONS_FEEDBACK_PROMPTS[0]);
++        return K1_OPTIONS_FEEDBACK_PROMPTS;
++    case K1_OPTIONS_MOUSE_PANEL_VTABLE:
++        *count = sizeof(K1_OPTIONS_MOUSE_PROMPTS) / sizeof(K1_OPTIONS_MOUSE_PROMPTS[0]);
++        return K1_OPTIONS_MOUSE_PROMPTS;
++    case K1_OPTIONS_GRAPHICS_PANEL_VTABLE:
++        *count = sizeof(K1_OPTIONS_GRAPHICS_PROMPTS) / sizeof(K1_OPTIONS_GRAPHICS_PROMPTS[0]);
++        return K1_OPTIONS_GRAPHICS_PROMPTS;
++    case K1_OPTIONS_GRAPHICS_ADVANCED_PANEL_VTABLE:
++        *count = sizeof(K1_OPTIONS_GRAPHICS_ADVANCED_PROMPTS) / sizeof(K1_OPTIONS_GRAPHICS_ADVANCED_PROMPTS[0]);
++        return K1_OPTIONS_GRAPHICS_ADVANCED_PROMPTS;
++    case K1_OPTIONS_SOUND_PANEL_VTABLE:
++        *count = sizeof(K1_OPTIONS_SOUND_PROMPTS) / sizeof(K1_OPTIONS_SOUND_PROMPTS[0]);
++        return K1_OPTIONS_SOUND_PROMPTS;
++    case K1_OPTIONS_SOUND_ADVANCED_PANEL_VTABLE:
++        *count = sizeof(K1_OPTIONS_SOUND_ADVANCED_PROMPTS) / sizeof(K1_OPTIONS_SOUND_ADVANCED_PROMPTS[0]);
++        return K1_OPTIONS_SOUND_ADVANCED_PROMPTS;
++    case K1_KEY_MAPPINGS_PANEL_VTABLE:
++        *count = sizeof(K1_KEY_MAPPINGS_PROMPTS) / sizeof(K1_KEY_MAPPINGS_PROMPTS[0]);
++        return K1_KEY_MAPPINGS_PROMPTS;
++    case K1_UPGRADE_PANEL_VTABLE:
++        *count = sizeof(K1_UPGRADE_PROMPTS) / sizeof(K1_UPGRADE_PROMPTS[0]);
++        return K1_UPGRADE_PROMPTS;
++    case K1_UPGRADE_ITEM_SELECT_PANEL_VTABLE:
++        *count = sizeof(K1_UPGRADE_ITEM_SELECT_PROMPTS) / sizeof(K1_UPGRADE_ITEM_SELECT_PROMPTS[0]);
++        return K1_UPGRADE_ITEM_SELECT_PROMPTS;
++    default:
++        return nullptr;
++    }
++}
++
++void SetK1ControllerPromptFill(void* control, const char* value)
++{
++    if (!control) {
++        return;
++    }
++    char resref[16] = {};
++    if (value) {
++        for (int i = 0; i < 16 && value[i] != '\0'; ++i) {
++            resref[i] = value[i];
++        }
++    }
++    SetFillImageFn setFill = reinterpret_cast<SetFillImageFn>(
++        K1_GUI_BORDER_SET_FILL_IMAGE);
++    setFill(
++        OffsetPointer(control, K1_BUTTON_BORDER_PARAMS_OFFSET), resref, 1);
++    setFill(
++        OffsetPointer(control, K1_BUTTON_HILIGHT_PARAMS_OFFSET), resref, 1);
++}
++
++void UpdateK1ControllerPrompts()
++{
++    void* manager = nullptr;
++    void* panel = FindK1MenuPanelForInput(&manager);
++    // Show prompts while the pad is what the player is actually using, and drop
++    // them the moment they touch mouse or keyboard. This was previously tied to
++    // mere connection because the mouse hook could not tell KOTOR's own cursor
++    // recentring from real movement; MouseIsBeingUsedK1 now makes that
++    // distinction, so the honest question can be asked.
++    const bool controllerMode = IsControllerInputActiveK1();
++    const std::uintptr_t vtable = panel
++        ? *reinterpret_cast<std::uintptr_t*>(panel)
++        : 0;
++
++    if (g_k1PromptStateKnown && panel == g_k1PromptPanel &&
++        vtable == g_k1PromptPanelVtable && controllerMode == g_k1PromptMode) {
++        return;
++    }
++
++    // A newly constructed PC panel already has empty normal fills. Only write
++    // the empty value when we are actively removing prompts from the same live
++    // panel; this avoids needless texture churn while using keyboard/mouse.
++    const bool mustApply = controllerMode ||
++        (g_k1PromptStateKnown && g_k1PromptMode && panel == g_k1PromptPanel &&
++         vtable == g_k1PromptPanelVtable);
++    if (mustApply && panel) {
++        int count = 0;
++        const ControllerPromptBinding* prompts =
++            GetK1ControllerPrompts(panel, &count);
++        for (int i = 0; i < count; ++i) {
++            void* control = OffsetPointer(panel, prompts[i].controlOffset);
++            SetK1ControllerPromptFill(
++                control,
++                controllerMode ? prompts[i].resref : nullptr);
++        }
++    }
++
++    g_k1PromptPanel = panel;
++    g_k1PromptPanelVtable = vtable;
++    g_k1PromptMode = controllerMode;
++    g_k1PromptStateKnown = true;
++}
++
+ bool IsK1SelectableControl(void* control)
+ {
+     return control &&
+@@ -1553,6 +1814,7 @@ int FindK1ClassSelectIndex(void* panel, void* control)
+     return index < K1_CLASS_SELECT_COUNT ? index : -1;
+ }
+ 
++#if 0   // dead: menu action map lookup and resolver
+ MenuActionMap GetK1MenuActionMap(void* panel)
+ {
+     switch (*reinterpret_cast<std::uintptr_t*>(panel)) {
+@@ -1621,6 +1883,8 @@ ResolvedMenuAction ResolveK1MenuAction(void* panel, MenuActionSlot slot)
+     };
+ }
+ 
++#endif  // 0
++
+ // Experimental: End/Home/Insert stand in for X/Y/Black, dispatched generically
+ // (same mechanism as J's Space->X-button fallback) instead of a per-panel offset map.
+ void* GetK1ActiveGuiManager()
+@@ -2141,6 +2405,13 @@ extern "C" void __cdecl CaptureActionBarInputK1(
+     BufferedInputRecord* input,
+     int inputDevice)
+ {
++    if (input &&
++        inputDevice == *reinterpret_cast<int*>(K1_CONFIG.keyboardDeviceIndex) &&
++        (input->value & KEY_PRESSED) != 0 &&
++        !IsControllerGeneratedKeyK1(input->offset)) {
++        MarkKeyboardMouseInputK1();
++    }
++
+     // Ahead of everything else, and outside the menu-panel branch further down,
+     // so the toggle answers in gameplay as well as menus. Acted on at the next
+     // frame rather than here, because parking the cursor talks to the GUI
+@@ -2558,6 +2829,16 @@ extern "C" void __cdecl CancelMovieOnSpaceK1(
+     }
+ }
+ 
++extern "C" void __cdecl PollMovieControllerK1(void* moviePlayer)
++{
++    if (moviePlayer && ConsumeMovieSkipK1()) {
++        reinterpret_cast<CancelMovieFn>(K1_CANCEL_MOVIE)(
++            moviePlayer,
++            0,
++            0);
++    }
++}
++
+ extern "C" void __cdecl MapMovieDeleteToEscapeK2(void* movieWindowFrame)
+ {
+     if (!movieWindowFrame) {
+@@ -2580,6 +2861,7 @@ extern "C" void __cdecl DispatchMenuInputK1(void* clientApp)
+     // early return below, which only guards the queued menu work and would
+     // otherwise skip the poll on most frames.
+     PollXInputK1();
++    UpdateK1ControllerPrompts();
+     // clientApp is CClientExoAppInternal, straight from ECX at the ProcessInput
+     // entry this hook sits on, which is the exact this the mouse mask lives on.
+     UpdateK1CursorState(clientApp);
+@@ -2726,6 +3008,9 @@ extern "C" void __cdecl DispatchMenuInputK1(void* clientApp)
+         }
+     }
+ 
++#if 0   // dead: the only consumer of the menu action map (see the note at its
++        // definition). Nothing ever raises PENDING_K1_MENU_ACTION, so this block
++        // was unreachable.
+     if ((pending & PENDING_K1_MENU_ACTION) != 0) {
+         MenuActionSlot slot = static_cast<MenuActionSlot>(
+             g_pendingMenuAction);
+@@ -2746,6 +3031,7 @@ extern "C" void __cdecl DispatchMenuInputK1(void* clientApp)
+             return;
+         }
+     }
++#endif  // 0
+ 
+     if ((pending & PENDING_K1_GENERIC_BUTTON) != 0) {
+         DispatchPanelInput(panel, g_pendingGenericButtonEvent);
+@@ -3048,11 +3334,66 @@ extern "C" void __cdecl ClearActionBarControlsK1(void* mainInterface)
+     }
+ }
+ 
++// A hand on the mouse produces a stream of moves; KOTOR's own cursor recentring
++// during scene and menu transitions produces a single jump. Marking on every
++// event made the two indistinguishable, which is why prompt artwork used to be
++// tied to "a pad is connected" rather than "a pad is what you are using" -- the
++// artwork vanished on every transition.
++//
++// Requiring several distinct positions, and real accumulated distance, inside a
++// short window separates them without needing to know where the engine recentres
++// to. Isolated jumps never reach the threshold; actually moving the mouse
++// reaches it almost immediately.
++namespace {
++constexpr DWORD MOUSE_USE_WINDOW_MS = 250;
++constexpr int MOUSE_USE_DISTANCE_PX = 24;
++constexpr int MOUSE_USE_MIN_EVENTS = 2;
++
++int g_lastMouseX = 0x7FFFFFFF;
++int g_lastMouseY = 0x7FFFFFFF;
++DWORD g_mouseWindowStart = 0;
++int g_mouseWindowDistance = 0;
++int g_mouseWindowEvents = 0;
++
++// True when this move is part of real mouse use rather than an engine recentre.
++bool MouseIsBeingUsedK1(int mouseX, int mouseY)
++{
++    const DWORD now = GetTickCount();
++    if (g_lastMouseX == 0x7FFFFFFF) {
++        g_lastMouseX = mouseX;
++        g_lastMouseY = mouseY;
++        g_mouseWindowStart = now;
++        return false;
++    }
++
++    int dx = mouseX - g_lastMouseX;
++    int dy = mouseY - g_lastMouseY;
++    g_lastMouseX = mouseX;
++    g_lastMouseY = mouseY;
++    if (dx == 0 && dy == 0) {
++        return false;
++    }
++
++    if (now - g_mouseWindowStart > MOUSE_USE_WINDOW_MS) {
++        g_mouseWindowStart = now;
++        g_mouseWindowDistance = 0;
++        g_mouseWindowEvents = 0;
++    }
++    g_mouseWindowDistance += (dx < 0 ? -dx : dx) + (dy < 0 ? -dy : dy);
++    ++g_mouseWindowEvents;
++    return g_mouseWindowEvents >= MOUSE_USE_MIN_EVENTS &&
++           g_mouseWindowDistance >= MOUSE_USE_DISTANCE_PX;
++}
++}  // namespace
++
+ extern "C" void __cdecl CancelActionBarKeyboardFocusOnMouseMoveK1(
+     void* manager,
+     int mouseX,
+     int mouseY)
+ {
++    if (MouseIsBeingUsedK1(mouseX, mouseY)) {
++        MarkKeyboardMouseInputK1();
++    }
+     void* mainInterface = g_mainInterface;
+     if (!mainInterface ||
+         ReadPointer(mainInterface, K1_CONFIG.panelManagerOffset) != manager) {
+diff --git a/K1XboxControlsXInput.cpp b/K1XboxControlsXInput.cpp
+index 81eabde..2f45d35 100644
+--- a/K1XboxControlsXInput.cpp
++++ b/K1XboxControlsXInput.cpp
+@@ -128,11 +128,13 @@ struct ButtonBinding {
+     std::uint8_t secondary;  // 0 when the button sends a single key
+ };
+ 
++// The D-pad is deliberately absent: it is driven by ApplyDpad as repeating taps
++// rather than through the demand set. The set produces exactly one edge per
++// state change, so a held direction moved the selection one row and then sat
++// there. A keyboard does not behave that way -- holding an arrow key makes the
++// OS auto-repeat, and the engine sees a stream of keydowns -- so holding a
++// direction here was strictly less faithful than the keyboard it emulates.
+ constexpr ButtonBinding BUTTON_BINDINGS[] = {
+-    {XI_DPAD_UP,        SC_UP,       0},
+-    {XI_DPAD_DOWN,      SC_DOWN,     0},
+-    {XI_DPAD_LEFT,      SC_LEFT,     0},
+-    {XI_DPAD_RIGHT,     SC_RIGHT,    0},
+     {XI_A,              SC_RETURN,   SC_R},
+     {XI_B,              SC_DELETE,   0},
+     {XI_X,              SC_G,        SC_END},
+@@ -180,6 +182,19 @@ constexpr float RSTICK_SCROLL_EXIT = 0.24f;
+ constexpr DWORD SCROLL_INTERVAL_SLOW_MS = 250;
+ constexpr DWORD SCROLL_INTERVAL_FAST_MS = 50;
+ 
++// D-pad auto-repeat. The first press fires immediately, the second waits
++// DPAD_REPEAT_DELAY_MS, and the rest follow every DPAD_REPEAT_INTERVAL_MS.
++// These are the shape of a keyboard's own repeat rather than the scroll ramp
++// above: a menu selection should step predictably, where a description pane
++// should accelerate with how hard the stick is pushed.
++//
++// 400/120 is close to a Windows default (roughly 250-1000 ms delay, ~30/s at
++// the fast end). Erring slow on the delay matters more than erring fast: too
++// short and a single deliberate press double-steps, which is worse than a
++// repeat that starts a beat late.
++constexpr DWORD DPAD_REPEAT_DELAY_MS = 400;
++constexpr DWORD DPAD_REPEAT_INTERVAL_MS = 120;
++
+ // sin(22.5 deg). A component past this share of the magnitude engages its
+ // direction, splitting the circle into eight even sectors: pure cardinals fire
+ // one key, diagonals fire two.
+@@ -198,6 +213,10 @@ DWORD g_nextScanTick = 0;
+ // Indexed by scancode: what the game currently believes is down because we
+ // pressed it. The matching demand set is rebuilt from scratch every frame.
+ std::uint8_t g_held[256] = {};
++volatile LONG g_recentInjectedUntil[256] = {};
++volatile LONG g_controllerInputActive = 0;
++volatile LONG g_controllerConnected = 0;
++bool g_movieSkipHeld = false;
+ 
+ bool g_leftStickLive = false;
+ bool g_leftStickRunning = false;
+@@ -206,6 +225,13 @@ bool g_scrollLive = false;
+ bool g_scrollPrimed = false;
+ DWORD g_nextScrollTick = 0;
+ 
++// The single D-pad direction currently repeating, and when its next tap is due.
++// One direction at a time on purpose: pressing a second while the first is held
++// hands over to the new one and restarts the delay, which is what a menu wants.
++// Holding two at once otherwise walks the selection diagonally at double rate.
++std::uint16_t g_dpadDirection = 0;
++DWORD g_nextDpadTick = 0;
++
+ // ---------------------------------------------------------------------------
+ 
+ XInputGetStateFn ResolveXInputGetState()
+@@ -246,6 +272,7 @@ bool ReadPad(XInputState* out)
+ {
+     if (g_padSlot >= 0) {
+         if (g_getState(static_cast<std::uint32_t>(g_padSlot), out) == XI_SUCCESS) {
++            InterlockedExchange(&g_controllerConnected, 1);
+             return true;
+         }
+         g_padSlot = -1;
+@@ -260,11 +287,13 @@ bool ReadPad(XInputState* out)
+     for (std::uint32_t slot = 0; slot < 4; ++slot) {
+         if (g_getState(slot, out) == XI_SUCCESS) {
+             g_padSlot = static_cast<int>(slot);
++            InterlockedExchange(&g_controllerConnected, 1);
+             return true;
+         }
+     }
+ 
+     g_nextScanTick = now + 2000;
++    InterlockedExchange(&g_controllerConnected, 0);
+     return false;
+ }
+ 
+@@ -312,6 +341,9 @@ void Commit(const std::uint8_t* want)
+             SendInput(queued, batch, sizeof(INPUT));
+             queued = 0;
+         }
++        InterlockedExchange(
++            &g_recentInjectedUntil[scancode],
++            static_cast<LONG>(GetTickCount() + 250));
+         batch[queued++] =
+             MakeKeyEvent(static_cast<std::uint8_t>(scancode), !wanted);
+         g_held[scancode] = wanted ? 1 : 0;
+@@ -330,6 +362,10 @@ void ReleaseAll()
+     g_rightStickLive = false;
+     g_scrollLive = false;
+     g_scrollPrimed = false;
++    // Otherwise a direction still held when the pad drops out or the game loses
++    // focus stays "current", and the first press after coming back repeats at
++    // interval speed instead of waiting the delay.
++    g_dpadDirection = 0;
+     Commit(nothing);
+ }
+ 
+@@ -427,6 +463,9 @@ void ApplyScroll(const XInputGamepad& pad)
+         MakeKeyEvent(scancode, false),
+         MakeKeyEvent(scancode, true),
+     };
++    InterlockedExchange(
++        &g_recentInjectedUntil[scancode],
++        static_cast<LONG>(now + 250));
+     SendInput(2, tap, sizeof(INPUT));
+ 
+     float t = (magnitude - RSTICK_SCROLL_ENTER) / (1.0f - RSTICK_SCROLL_ENTER);
+@@ -442,6 +481,63 @@ void ApplyScroll(const XInputGamepad& pad)
+         t * (SCROLL_INTERVAL_SLOW_MS - SCROLL_INTERVAL_FAST_MS));
+ }
+ 
++// Emitted as taps straight to SendInput, for the same reason ApplyScroll is: the
++// demand set produces one edge per state change, so a held direction stepped the
++// selection once and stopped. A keyboard auto-repeats, and the engine only ever
++// sees keydowns, so tapping is the faithful emulation -- not a workaround.
++//
++// Diagonals are ignored rather than sent as two directions. KOTOR's menus are
++// one-dimensional lists, so a diagonal has no meaning in them, and the rounding
++// that would pick a winner belongs to the stick sectors above, not here.
++void ApplyDpad(std::uint16_t buttons)
++{
++    std::uint16_t direction = 0;
++    int pressed = 0;
++    const std::uint16_t masks[] = {
++        XI_DPAD_UP, XI_DPAD_DOWN, XI_DPAD_LEFT, XI_DPAD_RIGHT};
++    for (int i = 0; i < 4; ++i) {
++        if ((buttons & masks[i]) != 0) {
++            direction = masks[i];
++            ++pressed;
++        }
++    }
++    if (pressed != 1) {
++        g_dpadDirection = 0;
++        return;
++    }
++
++    DWORD now = GetTickCount();
++    if (direction == g_dpadDirection) {
++        if (static_cast<int>(now - g_nextDpadTick) < 0) {
++            return;
++        }
++        g_nextDpadTick = now + DPAD_REPEAT_INTERVAL_MS;
++    } else {
++        // A fresh press, or a change of direction: act at once, then wait the
++        // longer delay before the run of repeats starts.
++        g_dpadDirection = direction;
++        g_nextDpadTick = now + DPAD_REPEAT_DELAY_MS;
++    }
++
++    std::uint8_t scancode = SC_UP;
++    if (direction == XI_DPAD_DOWN) {
++        scancode = SC_DOWN;
++    } else if (direction == XI_DPAD_LEFT) {
++        scancode = SC_LEFT;
++    } else if (direction == XI_DPAD_RIGHT) {
++        scancode = SC_RIGHT;
++    }
++
++    INPUT tap[2] = {
++        MakeKeyEvent(scancode, false),
++        MakeKeyEvent(scancode, true),
++    };
++    InterlockedExchange(
++        &g_recentInjectedUntil[scancode],
++        static_cast<LONG>(now + 250));
++    SendInput(2, tap, sizeof(INPUT));
++}
++
+ } // namespace
+ 
+ void PollXInputK1()
+@@ -453,6 +549,7 @@ void PollXInputK1()
+     XInputState state;
+     if (!ReadPad(&state)) {
+         ReleaseAll();
++        InterlockedExchange(&g_controllerInputActive, 0);
+         return;
+     }
+ 
+@@ -471,6 +568,16 @@ void PollXInputK1()
+         buttons |= XI_RIGHT_TRIGGER;
+     }
+ 
++    const bool meaningfulInput =
++        buttons != 0 ||
++        std::abs(Normalize(state.gamepad.thumbLX)) > LSTICK_ENTER ||
++        std::abs(Normalize(state.gamepad.thumbLY)) > LSTICK_ENTER ||
++        std::abs(Normalize(state.gamepad.thumbRX)) > RSTICK_ENTER ||
++        std::abs(Normalize(state.gamepad.thumbRY)) > RSTICK_SCROLL_ENTER;
++    if (meaningfulInput) {
++        InterlockedExchange(&g_controllerInputActive, 1);
++    }
++
+     std::uint8_t want[256] = {};
+     for (int i = 0; i < BUTTON_BINDING_COUNT; ++i) {
+         const ButtonBinding& binding = BUTTON_BINDINGS[i];
+@@ -489,7 +596,55 @@ void PollXInputK1()
+ 
+     Commit(want);
+ 
+-    // After Commit so a scroll tap lands behind this frame's held-key edges
+-    // rather than in between them.
++    // After Commit so these taps land behind this frame's held-key edges rather
++    // than in between them.
+     ApplyScroll(state.gamepad);
++    ApplyDpad(buttons);
++}
++
++bool IsControllerInputActiveK1()
++{
++    return InterlockedCompareExchange(&g_controllerInputActive, 0, 0) != 0;
++}
++
++bool IsControllerConnectedK1()
++{
++    return InterlockedCompareExchange(&g_controllerConnected, 0, 0) != 0;
++}
++
++bool ConsumeMovieSkipK1()
++{
++    if (!ResolveXInputGetState() || !GameHasFocus()) {
++        g_movieSkipHeld = false;
++        return false;
++    }
++
++    XInputState state = {};
++    if (!ReadPad(&state)) {
++        g_movieSkipHeld = false;
++        return false;
++    }
++
++    const std::uint16_t skipMask =
++        XI_A | XI_B | XI_LEFT_SHOULDER | XI_START;
++    const bool held = (state.gamepad.buttons & skipMask) != 0;
++    const bool pressed = held && !g_movieSkipHeld;
++    g_movieSkipHeld = held;
++    if (held) {
++        InterlockedExchange(&g_controllerInputActive, 1);
++    }
++    return pressed;
++}
++
++bool IsControllerGeneratedKeyK1(std::uint32_t scancode)
++{
++    const std::uint8_t key = static_cast<std::uint8_t>(scancode);
++    const DWORD until = static_cast<DWORD>(
++        InterlockedCompareExchange(&g_recentInjectedUntil[key], 0, 0));
++    return until != 0 && static_cast<int>(GetTickCount() - until) <= 0;
++}
++
++void MarkKeyboardMouseInputK1()
++{
++    InterlockedExchange(&g_controllerInputActive, 0);
+ }
+diff --git a/K1XboxControlsXInput.h b/K1XboxControlsXInput.h
+index 49853e2..afff0ba 100644
+--- a/K1XboxControlsXInput.h
++++ b/K1XboxControlsXInput.h
+@@ -1,6 +1,21 @@
+ #pragma once
+ 
++#include <cstdint>
++
+ // Polls an attached Xbox controller and emits the keystrokes the rest of this
+ // patch (and the engine's own key bindings) already understand. Call once per
+ // frame; see K1XboxControlsXInput.cpp for why this is the whole interface.
+ void PollXInputK1();
++
++// Last-input-device state used by KMRP's dynamic menu prompts. Controller
++// injected keyboard events are identified separately so the DirectInput hook
++// does not immediately switch the prompts back to keyboard mode.
++bool IsControllerInputActiveK1();
++bool IsControllerConnectedK1();
++bool IsControllerGeneratedKeyK1(std::uint32_t scancode);
++void MarkKeyboardMouseInputK1();
++
++// The normal game input loop is suspended during Bink playback. The movie
++// frame hook calls this separate edge detector so A, B, LB, or Start can cancel
++// the current movie without relying on synthetic keyboard messages.
++bool ConsumeMovieSkipK1();
+diff --git a/exports.def b/exports.def
+index f89f845..e9afd68 100644
+--- a/exports.def
++++ b/exports.def
+@@ -3,6 +3,7 @@ EXPORTS
+     CaptureActionBarInputK1
+     CaptureActionBarInputK2
+     CancelMovieOnSpaceK1
++    PollMovieControllerK1
+     CancelActionBarKeyboardFocusOnMouseMoveK1
+     CancelActionBarKeyboardFocusOnMouseMoveK2
+     ClearActionBarControlsK1
+diff --git a/kotor1.hooks.toml b/kotor1.hooks.toml
+index a2769d6..0c74d1b 100644
+--- a/kotor1.hooks.toml
++++ b/kotor1.hooks.toml
+@@ -50,6 +50,35 @@ type = "uint"
+ source = "edi"
+ type = "uint"
+ 
++# Poll XInput once per Bink frame; the normal ProcessInput hook does not run
++# while a movie owns the game loop.
++#
++# This must sit INSIDE the loop, not at the function entry. 0x00404C80 is
++# CExoMoviePlayerInternal::PlayMovieLoop, and the name is literal: the playback
++# loop is inside it, running 0x00404CB5 -> 0x00404D9F. A detour on the prologue
++# therefore fired exactly once, before the first frame, so no button pressed
++# during a movie was ever seen. 0x00404D96 is the tail of the loop body and runs
++# once per iteration.
++#
++# The parameter comes from ESI, not ECX. `this` is copied out of ECX into ESI at
++# 0x00404C87 and every later access in the loop is [esi+0x48] / [esi+0x4c]; ECX
++# is a scratch register by this point.
++#
++# original_bytes covers two whole instructions -- mov eax,[esi+0x48] and
++# mov ecx,[eax+8] -- so the re-executed prologue leaves eax and ecx exactly as
++# the following cmp/jne expects.
++[[hooks]]
++address = 0x00404D96
++type = "detour"
++function = "PollMovieControllerK1"
++original_bytes = [0x8B, 0x46, 0x48, 0x8B, 0x48, 0x08]
++skip_original_bytes = false
++exclude_from_restore = []
++
++[[hooks.parameters]]
++source = "esi"
++type = "pointer"
++
+ # Process captured keyboard input during the gameplay HUD update.
+ [[hooks]]
+ address = 0x00686BA0
