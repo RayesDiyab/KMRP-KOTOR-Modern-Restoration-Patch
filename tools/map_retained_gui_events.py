@@ -13,7 +13,9 @@ vtable + 0x3C and is compiled as a jump table over the event code:
 
 Both tables are plain data in the image, so the whole mapping can be read out
 without running the game: for each event, look up its case index, then its
-handler address, and anything landing on the `ja` target is unimplemented.
+handler address, and anything landing on the `ja` target is not handled *by this
+class* -- the default case forwards down to the focused control, so "unimplemented
+here" is not "ignored".
 
 This exists because the Abilities screen turned out to cycle its Skills / Powers
 / Feats tabs on event 0x29 -- the Xbox X button -- with the tab index still kept
@@ -283,8 +285,11 @@ def main() -> int:
         print(row)
 
     print()
-    print("'.' = dispatched to the default case, i.e. the panel ignores that event.")
-    print("Anything else is the address of the handler that runs.")
+    print("'.' = dispatched to the default case. That does NOT mean nothing happens:")
+    print("      the default forwards the event to the focused control and then to")
+    print("      CSWGuiControl::HandleInputEvent (0x00418750), so it may still be")
+    print("      handled a layer down. This is how A reaches every button.")
+    print("Anything else is the address of the handler this class runs itself.")
     if unreadable:
         print("\nNot a jump table, read these by hand:")
         for name, handler in unreadable:

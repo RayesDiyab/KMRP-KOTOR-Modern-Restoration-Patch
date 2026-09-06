@@ -1,0 +1,69 @@
+504 bindings resolved from 515 AddEvent call sites
+not resolved (arguments were not three literals in the window): 0x00645466, 0x0067F339, 0x0067F34B, 0x0068150E, 0x00681FF9, 0x006821DB, 0x006A8CF7, 0x006B1F8E, 0x006B1FA0, 0x006E13C1, 0x006E9FB1
+
+event   name          bindings
+--------------------------------
+0x000   MouseEnter?   69
+0x001   MouseLeave?   25
+0x027   A             288
+0x029   X             1
+0x02A   Y             5
+0x02D                 58
+0x02F   DpadLeft      7
+0x030   DpadRight     7
+0x035                 8
+0x036                 8
+0x03F   DpadLeft'     6
+0x040   DpadRight'    6
+0x044                 2
+0x1F4                 4
+0x1F5                 4
+0x1F8                 3
+0x1F9                 3
+
+0x28 B: no bindings anywhere in the image.
+0x2B Black: no bindings anywhere in the image.
+0x31 ScrollUp: no bindings anywhere in the image.
+0x32 ScrollDown: no bindings anywhere in the image.
+504 bindings resolved from 515 AddEvent call sites
+not resolved (arguments were not three literals in the window): 0x00645466, 0x0067F339, 0x0067F34B, 0x0068150E, 0x00681FF9, 0x006821DB, 0x006A8CF7, 0x006B1F8E, 0x006B1FA0, 0x006E13C1, 0x006E9FB1
+
+event   name          bindings
+--------------------------------
+0x000   MouseEnter?   69
+0x001   MouseLeave?   25
+0x027   A             288
+0x029   X             1
+0x02A   Y             5
+0x02D                 58
+0x02F   DpadLeft      7
+0x030   DpadRight     7
+0x035                 8
+0x036                 8
+0x03F   DpadLeft'     6
+0x040   DpadRight'    6
+0x044                 2
+0x1F4                 4
+0x1F5                 4
+0x1F8                 3
+0x1F9                 3
+
+0x28 B: no bindings anywhere in the image.
+0x2B Black: no bindings anywhere in the image.
+0x31 ScrollUp: no bindings anywhere in the image.
+0x32 ScrollDown: no bindings anywhere in the image.
+
+=== 0x29 X
+    CSWGuiSaveLoad::PopulateGameList                   handler 0x6caa90     at 0x006CC332
+
+=== 0x2A Y
+    CSWGuiOptionsGraphics::Constructor                 handler 0x6e0190     at 0x006E3301
+    CSWGuiOptionsSound::Constructor                    handler 0x6e0f50     at 0x006E3B47
+    CSWGuiOptionsSound::Constructor                    handler 0x6e0f50     at 0x006E3B56
+    CSWGuiOptionsSound::Constructor                    handler 0x6e0f50     at 0x006E3B65
+    CSWGuiOptionsSound::Constructor                    handler 0x6e0f50     at 0x006E3B78
+
+=== 0x1F8 
+    CSWGuiInGameAbilities::Constructor                 handler 0x6ad4b0     at 0x006AE4C9
+    CSWGuiPowersLevelUp::Constructor                   handler 0x6f1940     at 0x006F27EB
+    CSWGuiFeatsCharGen::Constructor                    handler 0x6f3420     at 0x006F43E1

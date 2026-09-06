@@ -211,6 +211,54 @@ read as a controller trigger event. It is not. It sits between
 and means leaving a trigger volume. Nothing about the analogue triggers was
 established from it.
 
+## The second mechanism: registered bindings
+
+Everything above this point reads dispatchers compiled into vtables. That is
+**half the system**, and the survey was silently reporting it as the whole.
+
+`CSWGuiControl::AddEvent(eventCode, receiver, handler)` at `0x0041AB20` appends a
+twelve-byte `{receiver, handler, eventCode}` entry to a control's table at `+0x38`
+(count at `+0x3C`). `CSWGuiControl::HandleInputEvent` walks that table for any
+event the class did not handle itself. Handlers are therefore **registered at
+construction time**, not only compiled in.
+
+There are **515 call sites**, in essentially every panel constructor.
+`tools/map_gui_event_bindings.py` extracts them; `reverse-engineering/gui-event-bindings.txt`
+is the output.
+
+| Code | Bindings | Where |
+| --- | --- | --- |
+| `0x27` A | 287 | everywhere |
+| `0x2D` | 58 | list entries and options rows, always alongside `0x27` |
+| `0x00` / `0x01` | 69 / 25 | matches the base handler's `vtable+0x40` call with 1 / 0 |
+| `0x35` / `0x36` | 8 / 8 | `CSWGuiInGameMenu` only — eight of each, one per menu tab |
+| `0x2F` / `0x30` | 7 / 7 | with `0x3F` / `0x40` at 6 / 6 |
+| `0x2A` Y | **5** | `CSWGuiOptionsGraphics` ×1, `CSWGuiOptionsSound` ×4 |
+| `0x1F4` / `0x1F5` / `0x1F8` / `0x1F9` | 4 / 4 / 3 / 3 | sliders and ability lists |
+| `0x44` | 2 | `CSWGuiPazaakGame`, `CSWGuiMainInterfaceChar` |
+| `0x29` X | **1** | `CSWGuiSaveLoad::PopulateGameList` |
+| `0x28` B | **0** | nothing, anywhere in the image |
+| `0x2B` Black | **0** | nothing |
+| `0x31` / `0x32` | **0** | nothing |
+
+**This answers the Y question.** The user reported that Y works in the Journal and
+nowhere else. Y has five registrations and the Journal is not among them — so the
+Journal's Y is its *dispatcher*, and the five registrations are a separate,
+unrelated use in the sound and graphics options. The two mechanisms overlap
+almost not at all, which is why reading only one produced a confident wrong
+picture of which buttons "work".
+
+**B, Black and `0x31`/`0x32` are bound to nothing at all.** They exist only in
+dispatchers. For KMRP that is the useful fact in this whole document: those codes
+can be driven without colliding with anything the game registers for itself.
+
+Codes left unnamed above are unnamed deliberately. `0x2D` appearing 58 times
+beside `0x27` on list rows suggests a selection or activation notification rather
+than a button, and `0x35`/`0x36` appearing exactly eight times each on the eight
+in-game menu tabs suggests tab enter/leave — but neither has been confirmed, and
+a guessed name in a reference document cannot be told apart later from a
+measured one.
+
 ## Coverage: what has been walked, and what has not
 
 The sweep is tracked explicitly because a decoder blind spot and a genuine
@@ -255,8 +303,8 @@ The four that matter, because everything else inherits them:
 | --- | --- | --- |
 | `CSWGuiButton` | `0x0041AD40` | **`0x27` (A) only** |
 | `CSWGuiNavigable` / `CSWGuiEditbox` | `0x0041A9D0` | `0x31`+`0x3D` up, `0x32`+`0x3E` down, `0x2F`+`0x3F` left, `0x30`+`0x40` right |
-| `CSWGuiListBox` | `0x0041CE20` | a chain — **not reliably decoded**, see below |
-| `CSWGuiSlider` | `0x0041ADF0` | a chain — **not reliably decoded** |
+| `CSWGuiListBox` | `0x0041CE20` | `0x31`+`0x3D` up, `0x32`+`0x3E` down, plus its own scroll-bar codes |
+| `CSWGuiSlider` | `0x0041ADF0` | up/down or left/right, chosen by the slider's orientation |
 
 Two things fall out of this:
 
@@ -279,11 +327,96 @@ no meaning attached.
   `Global::return_zero` (`0x0063E7F0`) or `Global::self_return` (`0x00641DB0`),
   which are do-nothing stubs. "110 classes have per-button slots" was counting
   stubs and destructors.
-- **The ListBox and Slider chain decodes are untrustworthy** and are not
-  published as fact. They yield codes like `0x22F` and `0x2AE`, far outside the
-  `0x28..0xDF` the dispatchers accept, because the chain walker assumes one
-  accumulating `sub`/`dec` run and these functions branch and reset. They need
-  reading by hand.
+- **The ListBox and Slider decodes were wrong twice, in opposite directions.**
+  The chain walker first reported codes like `0x22F` and `0x2AE`; I then dismissed
+  everything above `0x40` as junk on the grounds that it sat outside `0x28..0xDF`.
+  Both were wrong. The walker was wrong because these are search trees, not
+  chains. The dismissal was wrong because `0x28..0xDF` bounds the *panel* jump
+  tables, never the control dispatchers, and `CSWGuiListBox` compares against
+  `0x1F5` explicitly. Read by hand below.
+
+### `CSWGuiListBox` and `CSWGuiSlider`, read by hand
+
+Read instruction by instruction on 2026-09-06, after the chain walker gave two
+different wrong answers about them. Both are compiled as **binary search trees**,
+not chains: `cmp reg, K` with `jg` to an upper subtree, `je` to K's handler, and
+fall-through to the lower one. A linear walker accumulates every `sub`/`dec` it
+passes regardless of which branch it is on, which is where `0x22F` and `0x2AE`
+came from.
+
+**`CSWGuiListBox::HandleInputEvent` — `0x0041CE20`**
+
+| Event | Handler | Does |
+| --- | --- | --- |
+| `0x31`, `0x3D` | `0x0041CF26` | scroll selection up |
+| `0x32`, `0x3E` | `0x0041CE69` | scroll selection down |
+| `0x1F4`, `0x1FB` | `0x0041D047` | scroll bar: line up (`+0x2C2` −= 1, clamped ≥ 1) |
+| `0x1F5`, `0x1FC` | `0x0041D16C` | scroll bar: line down (`+0x2C2` += 1, clamped to count) |
+| `0x1FD` | `0x0041D31B` | scroll bar: page up (`+0x2C2` −= the float at `+0x2B8`) |
+| `0x1FE` | `0x0041D1E1` | scroll bar: page down |
+
+`0x1FB`…`0x1FE` reach the tree through a jump table at `0x0041D3D0`, biased by
+`0x1FB`.
+
+**The `0x1F4`…`0x1FE` block is not a console vocabulary.** Every push site for
+those codes is inside `CSWGuiListBox` itself, at `0x0041C51C`…`0x0041C596`, where
+the scroll bar's own arrow and page-track hits raise them on the listbox through
+its own `+0x3C` and stash the code at `+0x88`. They are the scroll bar talking to
+its list, not a retained Xbox event. The listbox's retained console events are
+only the four in the first two rows.
+
+**`CSWGuiSlider::HandleInputEvent` — `0x0041ADF0`** dispatches on **orientation**
+before it dispatches on the event:
+
+```asm
+0041AE05  mov eax, [esi+0x10]
+0041AE08  cmp eax, [esi+0xC]         ; height vs width
+0041AE0C  jle 0x41AE24               ; wider than tall -> horizontal code set
+0041AE0E  cmp ebx, 0x3E              ; taller than wide -> vertical code set
+```
+
+| Orientation | Decrement | Increment |
+| --- | --- | --- |
+| Vertical | `0x31`, `0x3D` | `0x32`, `0x3E` |
+| Horizontal | `0x2F`, `0x3F` | `0x30`, `0x40` |
+| Either | `0x1F5` | `0x1F4` |
+
+This is what the alias set was. `0x3D`/`0x3E`/`0x3F`/`0x40` are not a second
+vocabulary and not leftovers; a slider answers to the D-pad axis that matches the
+way it is drawn, and the four extra codes are the other axis's pair. Note that
+the slider's `0x1F4`/`0x1F5` run the opposite way to the listbox's.
+
+**The default case forwards; it does not ignore.** `0x0041D2B2`, reached by every
+code neither tree matches, is not a discard:
+
+```asm
+0041D2B2  mov  ax, [esi+0x2C6]        ; the selected item
+0041D2B9  cmp  ax, 0xFFFF
+0041D2BD  je   0x41D2D6
+0041D2C8  mov  ecx, [eax+edx*4]
+0041D2D3  call dword ptr [edx+0x3C]   ; hand it to the selected item
+0041D2DE  call 0x00418750             ; then to the base control handler
+```
+
+So an unmatched event goes down to the selected row and then to
+`CSWGuiControl::HandleInputEvent`. **This qualifies every "the panel ignores that
+event" in this document**, including the legend `map_retained_gui_events.py`
+prints: a `.` means the class does not handle the event *itself*, not that
+nothing happens. The same forwarding is why A works everywhere — `CSWGuiButton`
+implements only `0x27` and receives it by propagation.
+
+`0x00418750` also carries a **generic event-to-callback table** keyed on the
+event code, walked at `+0x38` with a count at `+0x3C` in twelve-byte entries:
+
+```asm
+00418790  cmp  dword ptr [eax+8], edi ; entry's event code == this event?
+00418795  mov  ebp, [eax+4]           ; entry's handler
+0041879D  add  eax, 0xC               ; next entry
+```
+
+Handlers can therefore be **registered on a control at runtime** rather than
+compiled into a dispatcher. Nothing in this document has looked at who fills that
+table, and it may be where the rest of the console bindings live.
 
 ### Panels the controller module does not know about
 
@@ -303,16 +436,33 @@ respond to controller input, and the module has no entry for them at all.
 
 Added here as they are discovered, so the tree is honest about its own edges:
 
-1. **`CSWGuiListBox` and `CSWGuiSlider` dispatchers** must be read by hand. The
-   chain walker returns out-of-range codes for both, so their event sets are
-   unknown. ListBox matters most: it is where list scrolling lives.
-2. **The 79 control dispatchers beyond those four** were counted but their event
+1. ~~`CSWGuiListBox` and `CSWGuiSlider` dispatchers must be read by hand.~~
+   **Walked 2026-09-06**, both by hand, section above.
+2. ~~`CSWGuiControl::HandleInputEvent` (`0x00418750`) and its `+0x38` callback
+   table.~~ **Walked 2026-09-06.** It was reading half the system; the other half
+   is `AddEvent` and is now extracted — see "The second mechanism" above. New
+   branches out of it:
+   - **`0x0041A8A0`** (table grow) and **`0x0048DDE0`** (the single-entry path in
+     `AddEvent`) — container internals, not read.
+   - **The 510 registered handler bodies.** Their addresses are known; none has
+     been read. `CSWGuiInGameMenu`'s `0x00624C00` / `0x00624C30`, bound eight
+     times each to the eight menu tabs, is the most interesting.
+   - **The five call sites whose arguments were not three literals**, listed in
+     `gui-event-bindings.txt`; three are in `CSWGuiMainInterfaceAction::Initialize`
+     and push registers.
+3. **The `0x1F5` push sites outside the listbox** — `0x0040C722`, `0x00419229`,
+   and four in `0x0068BBF7`…`0x0068BCE6`. The last four are far from the GUI code
+   and unexplained.
+4. **The listbox and slider helpers** called from their handlers and not read:
+   `0x0041A290`, `0x0041A2D0`, `0x004182B0`, `0x00417EE0`, and `0x0040A1C0`
+   (called after every scroll-bar raise).
+5. **The 79 control dispatchers beyond those four** were counted but their event
    sets were not tabulated one by one.
-3. **Event codes above `0x40`.** `0xCE` on Character reaches the party change;
+6. **Event codes above `0x40`.** `0xCE` on Character reaches the party change;
    the rest are addresses without meanings.
-4. **The panels the module does not know about**, listed above — none of their
+7. **The panels the module does not know about**, listed above — none of their
    handlers has been read.
-5. **What each handler does.** 212 panel events plus the control layer; six
+8. **What each handler does.** 212 panel events plus the control layer; six
    confirmed in play. An address proves code runs, not that it does anything a
    player wants.
 
