@@ -1331,6 +1331,194 @@ memory, both inert: device 2 produces no records and `desc+0x04` was zeroed.
 Device count restored to `2`, scratch pages freed, breakpoints removed. They
 disappear on restart; no file was modified.
 
+## The movement path, and the analog measurement
+
+Traced statically first, then measured in-game. The measurement is in
+"MEASURED: movement speed is exactly proportional to stick magnitude" below,
+and it confirms the static reading.
+
+### 1. The movement events
+
+Inside `CClientExoAppInternal::ProcessInput` (`0x006227E0`), the gameplay input
+class is **0** (`ICPC`). The two movement axes are:
+
+| Event | Class | Poll sites | Role |
+| --- | --- | --- | --- |
+| `0x119` (281) | 0 | `0x00623925`, `0x00623944`, `0x00623971`, `0x0062399A` | one axis |
+| `0x118` (280) | 0 | `0x006239B0`, `0x006239CF`, `0x006239FC`, `0x00623A25` | the other axis |
+| `0x109` (265) | 0 | `0x00623A84` | walk/run toggle, drives `SetPlayerWalking` |
+
+Both appear in `swkotor.ini` as `Action280A/B` and `Action281A/B`, so they are the
+same events the keyboard binds. Events `0x11A`, `0x11B`, `0x11D`, `0x11E` are the
+same shape in input class 1 (`ICMiniGame`) — the swoop minigame.
+
+### 2. ProcessInput clamps to [-1, +1]
+
+Each axis is polled and clamped:
+
+```
+v = PollInput(event, 0)
+if v < -1.0: v = -1.0        ; 0xBF800000 stored directly
+if v >  1.0: v =  1.0
+```
+
+**This settles the type question.** A type 0 description returns the raw axis
+value, so ±32767 would saturate to ±1.0 at every deflection past 1/32767 — fully
+digital. The movement path expects an already-normalised value, so movement must
+use **type 3**, whose `ScaledValue` output is `-1.0..1.0` with the engine's own
+25% deadzone.
+
+### 3. The consumer
+
+```
+00623D05  mov  ecx, [esi+0x2A0]     ; CSWPlayerControlCamRelative*
+00623D12  call [vtable+0x00]        ; UpDown(float)
+00623F20  call [vtable+0x08]        ; LeftRight(float)
+00623F3E  call [vtable+0x28]        ; Control(dt)
+          [vtable+0x10]             ; SetPlayerWalking(bool)
+          [vtable+0x1C]             ; GetCurSpeed() -> float
+```
+
+The clamped floats are passed **unmodified**. The setters store them verbatim:
+
+| Function | Address | Effect |
+| --- | --- | --- |
+| `UpDown` | `0x00679700` | `this+0x10 = value` |
+| `LeftRight` | `0x00679720` | `this+0x14 = value` |
+| `SetPlayerWalking` | `0x00679740` | `this+0x18 = flag` |
+| `GetCurSpeed` | `0x00679750` | `max(abs(this+0x5C), abs(this+0x60))` |
+| `GetMaxSpeed` | `0x00679510` | from creature stats |
+| `GetAcceleration` | `0x00679870` | from `CSWCCreature::GetDriveAcceleration` |
+| `Control` | `0x00679940` | the integrator |
+
+### 4. What `Control` does with the magnitude
+
+```asm
+00679B37  fld  [ebp+0x14]          ; LeftRight
+00679B42  fchs                     ; -> vector.x, negated
+00679B48  fld  [ebp+0x10]          ; UpDown -> vector.y
+00679B4F  fcomp 0.0
+00679B5A  jnp  0x679B76            ; LeftRight == 0 -> skip normalise
+00679B60  fcomp 0.0
+00679B6B  jnp  0x679B76            ; UpDown == 0 -> skip normalise
+00679B71  call Vector::Normalize   ; only when BOTH are non-zero
+00679B76  mov  eax, [ebp+0x18]     ; walking flag
+00679B7D  push 0x3F000000          ; 0.5f
+00679B86  call Vector::operator*=  ; walking halves the vector
+```
+
+`jnp` after `test ah,0x44` is jump-**if-equal**, because equality sets only C3 and
+so gives odd parity and `PF = 0`. So `Vector::Normalize` runs **only when both
+axes are non-zero**: it is *diagonal* normalisation, present so that a diagonal
+does not travel faster than a cardinal, and not a magnitude discard.
+
+The resulting vector then goes to **`CSWRK4Acceleration::Update`**
+(`0x006D1190`), a fourth-order Runge-Kutta integrator, with acceleration from the
+creature's drive stats. Velocity lands at `this+0x5C` / `this+0x60`.
+
+### 5. Provisional answers
+
+Marked provisional because they rest on reading, not on watching the character.
+This document has already been wrong once today about a branch sense.
+
+- **Does a light push move slower?** On a cardinal axis, the static reading says
+  yes: the magnitude reaches the vector unchanged and drives an acceleration
+  integrator.
+- **Continuously?** Apparently yes, through the RK4 integrator rather than a
+  step.
+- **Discrete walk/run?** Yes, separately: `SetPlayerWalking` from event `0x109`
+  multiplies by `0.5`. That is orthogonal to the analog magnitude.
+- **Diagonals?** Normalised to unit length, so a 50% diagonal becomes a 100%
+  diagonal. **This is the one real problem for analog input**: the code assumes
+  digital ±1 per axis. KMRP would need to scale the pair back by the intended
+  magnitude after the engine's normalisation, or accept diagonal snap-to-full.
+- **Expected range?** `-1.0 .. 1.0`, enforced by the clamp in `ProcessInput`.
+- **Type 0 or type 3?** **Type 3**, definitively. Type 0's raw range saturates
+  the clamp.
+- **Can XInput feed it directly?** Yes. `GetMaxUseable` is `32767.0`, XInput's
+  thumbstick full scale, so an XInput axis passes into a type 3 description
+  without rescaling.
+- **`keymap.2da` scaling?** Not yet examined, deliberately, so as not to mix two
+  scaling layers.
+
+### MEASURED: movement speed is exactly proportional to stick magnitude
+
+Run in-game on 2026-09-07 against a loaded save. `UpDown` (`0x00679700`) was
+patched to eleven bytes reading a controlled float, so the RK4 integrator could
+reach steady state over many frames rather than being sampled mid-acceleration.
+Velocity was then read from `playerControl+0x60`. Each value was stable across
+repeated reads.
+
+Player control object: `CClientExoAppInternal+0x2A0`.
+
+| Input | `UpDown` | Velocity | velocity / input | Fraction of full |
+| --- | --- | --- | --- | --- |
+| 0% | `0.00` | `0.0000` | — | `0.0000` |
+| 25% | `0.25` | `2.0250` | `8.1000` | `0.2500` |
+| 50% | `0.50` | `4.0500` | `8.1000` | `0.5000` |
+| 75% | `0.75` | `6.0750` | `8.1000` | `0.7500` |
+| 100% | `1.00` | `8.1000` | `8.1000` | `1.0000` |
+
+`velocity = input * 8.1`, exact at every point. `8.1` is the character's full run
+speed.
+
+**No threshold, no quantisation, no walk/run step.** KOTOR PC retained genuine
+proportional analog movement. It has simply never had an input device able to
+deliver a partial value, because the only bound devices are digital.
+
+The provisional reading above is therefore confirmed, including the branch sense
+that this document had first got wrong: `Vector::Normalize` really does run only
+on diagonals, and cardinal magnitude reaches the integrator untouched.
+
+### Settled answers
+
+1. **KOTOR PC retained true analog character movement** — measured, not inferred.
+2. **Partial stick magnitude gives exactly proportional speed**, linearly.
+3. **Movement events**: `0x118` and `0x119` in input class `0` (`ICPC`).
+   Walk/run is the separate discrete event `0x109`, applying `* 0.5`.
+4. **Expected range**: `-1.0 .. 1.0`, clamped in `ProcessInput`.
+5. **Description type**: **type 3**. Type 0 returns the raw axis value, which
+   saturates the clamp at any deflection past `1/32767` and is therefore digital.
+6. **XInput can feed this directly**: `GetMaxUseable` is `32767.0`, exactly
+   XInput's thumbstick full scale.
+7. **The pipeline**, end to end:
+
+```
+PollInput(0x118 / 0x119, class 0)
+  -> clamp to [-1, +1]                       0x00623925 .. 0x00623A25
+  -> UpDown(f) -> playerControl+0x10          0x00679700
+     LeftRight(f) -> playerControl+0x14       0x00679720
+  -> Control(dt)                              0x00679940
+       vector = (-LeftRight, UpDown)
+       if BOTH axes != 0: Vector::Normalize   (diagonal only)
+       if walking flag:   vector *= 0.5
+  -> CSWRK4Acceleration::Update               0x006D1190
+  -> velocity at +0x5C / +0x60  =  input * 8.1
+```
+
+### The design consequence for KMRP
+
+**Diagonal normalisation is the one thing to build around.** `Vector::Normalize`
+runs only when both axes are non-zero, which is correct for digital keys where
+each axis is `+/-1` and a diagonal would otherwise be `sqrt(2)` times too fast.
+With an analog stick it is wrong: a 50% diagonal is scaled back up to 100%.
+
+KMRP should re-apply the intended magnitude after the engine's normalisation, or
+accept that diagonals snap to full speed. This needs deciding before the stick
+mapping is written, not after playtest.
+
+### Restored
+
+`UpDown`'s original bytes rewritten and verified, scratch page freed, velocity
+back to `0.0`, game running normally. No file on disk modified.
+
+### Still to do
+
+- The four `UpdateCamera` poll sites, to see whether camera speed is analog too.
+- `keymap.2da`'s `Scale`, `ScaleMag` and `ScaleExp` columns, deliberately left
+  alone so as not to conflate two scaling layers.
+- Confirm the diagonal behaviour empirically; it is currently read, not measured.
+
 ## Coverage: what has been walked, and what has not
 
 The sweep is tracked explicitly because a decoder blind spot and a genuine
