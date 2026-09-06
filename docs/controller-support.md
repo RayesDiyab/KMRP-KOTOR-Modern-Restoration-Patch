@@ -17,7 +17,7 @@ in-memory detours.
 
 | Component | Exact source | Local output |
 | --- | --- | --- |
-| Controller module | `scopeking0117-alt/KPM-Xbox-Controls-K1`, commit `78e7eaa3b9554ec0e6732f749424dc916f3a1895`, plus KMRP prompt, cursor-default, and movie-input patch | `kmrp-controller.module`, 130,560 bytes, SHA-256 `D006428E382A76D4CFA0DD620C2BB873B38371A0C0954DE331C1032F66069E25` |
+| Controller module | `scopeking0117-alt/KPM-Xbox-Controls-K1`, commit `78e7eaa3b9554ec0e6732f749424dc916f3a1895`, plus KMRP prompt, cursor-default, and movie-input patch | `kmrp-controller.module`, 130,560 bytes, SHA-256 `47B9436499CECE7F5BF2E92B936F46B8C036F6BFAE9806973B3F47B9F0257383` |
 | Hook runtime | `LaneDibello/Kotor-Patch-Manager`, commit `7d53e52f55622a48ab97001c2680fd9fb59c8f98` | `kmrp-controller-runtime.asi`, 338,432 bytes, SHA-256 `F5CF2A21E4C28DA95CD8DAAF2704F871A6105616BFE250361929C61BCDB43B45` |
 
 Both outputs are 32-bit C++17 MSVC static-runtime builds. The controller module
@@ -117,8 +117,9 @@ in-memory `E9` detour.
 | `0x00686BA0` | `0x286BA0` | `53 56 57 8B F1` | `UpdateActionBarControlsK1` |
 | `0x0068B170` | `0x28B170` | `6A FF 68 B0 F7 72 00` | `ClearActionBarControlsK1` |
 | `0x0040C1F6` | `0x00C1F6` | `89 1E 89 7E 04` | `CancelActionBarKeyboardFocusOnMouseMoveK1` |
+| `0x0040A638` | `0x00A638` | `8B 4F 1C 3B CE` | `OnSetActiveControlK1` |
 
-All six expected sequences were read back from a generated 1920×1080 executable.
+All eight expected sequences were read back from a generated 1920×1080 executable.
 In a named-copy launch through K1DC's loader, both controller modules appeared in
 the process and `ReadProcessMemory` found `E9` at all six sites. The named copy's
 SHA-256 remained unchanged before and after launch.

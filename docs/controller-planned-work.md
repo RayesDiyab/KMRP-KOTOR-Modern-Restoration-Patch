@@ -208,7 +208,7 @@ remembered panel is still the one `FindK1MenuPanelForInput` returns.
 list reaches the tab row and A activates the tab -- the section above marking that
 untested is now superseded for the navigation half.
 
-## 3c. Do menu focus in the engine, not in the input translator
+## 3c. Do menu focus in the engine, not in the input translator  — DONE 2026-09-06
 
 **Agreed 2026-09-06.** Sections 3b and its two revisions are workarounds for a
 design mismatch, and should be replaced rather than refined.
@@ -277,12 +277,30 @@ collision entirely rather than resolving it.
 executable before shipping, and the whole thing scoped so a panel with no tab row
 behaves exactly as it does today.
 
-**Status of the workaround meanwhile.** Module `8C90C76E...` is installed and is
-the last version the user confirmed keeps focus on the tab. It still has the
-fast-switch bug and the one-frame flicker. A later attempt to latch the press
-inside `CaptureActionBarInputK1` (`79D9890D...`) stopped focus working entirely
-and was reverted; if that approach is revisited, find out why the latch never
-fired before building on it.
+**Implemented and confirmed in play 2026-09-06.** The hook went in at
+`0x0040A638` and `KeepK1MenuFocus` was deleted.
+
+What the three earlier attempts all missed, and only a debugger found: the
+Abilities tab handler moves focus TWICE, and the first move is a clear.
+
+    006AD91A  push ebx              ; control = NULL
+    006AD91D  call [eax+8]          ; SetActiveControl(panel, NULL)
+    006AD923  lea eax, [esi+0x30DC] ; the ability listbox
+    006AD92C  call [edx+8]          ; SetActiveControl(panel, listbox)
+
+Every attempt asked "is the panel's current active control a tab?". That is true
+on the first call and false on the second, because the first nulled it -- and the
+first was skipped anyway by an `if (!control) return 0;` guard. Both moves
+escaped every time, which is why the symptom looked intermittent rather than
+absent. The guard now remembers the tab when focus ARRIVES on it and reads
+nothing back from the panel, so the handler clearing its own field cannot disarm
+it, and it declines both calls.
+
+Found by a conditional breakpoint that halted only on the failing case
+(`edi == panel && esi == listbox` at the store instruction `0x0040A64E`); the
+return address on the stack pointed straight at `0x006AD92F`. Three rounds were
+spent guessing at the veto condition when the control flow was five instructions
+away in a disassembler.
 
 ## 4. Tab switching and the agreed menu button layout
 

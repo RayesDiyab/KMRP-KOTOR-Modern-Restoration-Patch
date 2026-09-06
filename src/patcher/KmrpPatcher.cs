@@ -1627,11 +1627,34 @@ namespace Kmrp
             AppendHook(text, "0x0040C1F6", "89, 1E, 89, 7E, 04",
                 "CancelActionBarKeyboardFocusOnMouseMoveK1",
                 new[] { "esi", "ebx", "edi" }, new[] { "pointer", "int", "int" });
+            // CSWGuiPanel::SetActiveControl. Every focus change in the GUI passes
+            // through it, so this is where a move can be declined instead of
+            // corrected afterwards. 0x0040A638 is past the function's own
+            // `push esi` / `push edi`, so EDI is the panel and ESI the control
+            // about to take focus, and 0x0040A678 -- its `pop edi; pop esi; ret 8`
+            // -- is a stack-correct place to exit early.
+            AppendHook(text, "0x0040A638", "8B, 4F, 1C, 3B, CE",
+                "OnSetActiveControlK1", new[] { "edi", "esi" },
+                new[] { "pointer", "pointer" }, new[] { "eax" }, "0x0040A678");
             return text.ToString();
         }
 
         private static void AppendHook(StringBuilder text, string address, string bytes,
             string function, string[] sources, string[] types)
+        {
+            AppendHook(text, address, bytes, function, sources, types, null, null);
+        }
+
+        /// <summary>
+        /// `exclude` names registers the handler is allowed to change, and
+        /// `consumedExitAddress` is where KPM transfers control when the handler
+        /// returns non-zero in EAX. Together they let a hook DECLINE the original
+        /// code rather than only run beside it, which is what the focus hook
+        /// needs: correcting focus afterwards always draws one wrong frame first.
+        /// </summary>
+        private static void AppendHook(StringBuilder text, string address, string bytes,
+            string function, string[] sources, string[] types,
+            string[] exclude, string consumedExitAddress)
         {
             string[] values = bytes.Split(new[] { ", " }, StringSplitOptions.None);
             text.Append("\r\n[[patches.hooks]]\r\naddress = ").Append(address)
@@ -1642,7 +1665,16 @@ namespace Kmrp
                 if (i > 0) text.Append(", ");
                 text.Append("0x").Append(values[i]);
             }
-            text.Append("]\r\nskip_original_bytes = false\r\nexclude_from_restore = []\r\n");
+            text.Append("]\r\nskip_original_bytes = false\r\nexclude_from_restore = [");
+            if (exclude != null)
+                for (int i = 0; i < exclude.Length; i++)
+                {
+                    if (i > 0) text.Append(", ");
+                    text.Append("\"").Append(exclude[i]).Append("\"");
+                }
+            text.Append("]\r\n");
+            if (!String.IsNullOrEmpty(consumedExitAddress))
+                text.Append("consumed_exit_address = ").Append(consumedExitAddress).Append("\r\n");
             for (int i = 0; i < sources.Length; i++)
                 text.Append("[[patches.hooks.parameters]]\r\nsource = \"")
                     .Append(sources[i]).Append("\"\r\ntype = \"")
