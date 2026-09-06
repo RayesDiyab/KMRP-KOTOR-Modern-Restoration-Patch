@@ -168,6 +168,46 @@ Xbox glyph on a keyboard player's screen is worse than no hint.
 
 ---
 
+## 3b. Focus must survive activating a tab
+
+**Reported from play, 2026-09-06:** reaching a tab with the D-pad works, but
+pressing A to select it leaves the screen with no focused control at all, so the
+next D-pad press has nothing to move from.
+
+**Why.** A is not intercepted; it is injected as `Return` and the game activates
+whatever control has focus. The tab's own handler then repopulates the screen,
+and the panel's active-control pointer -- `panel + 0x1C`, GameConfig's
+`panelActiveControlOffset` -- is left null. The module never learns the press
+happened, so nothing restores focus.
+
+**Fix: a per-frame focus keeper, scoped to panels that declare a header.**
+`UpdateK1ControllerPrompts` already runs every frame from `DispatchMenuInputK1`,
+which is the natural place for a sibling check:
+
+1. Read the active control each frame. When it is non-null, remember it together
+   with its panel.
+2. When it is **null**, the panel is the one remembered, and controller mode is
+   active, re-assert the remembered control with
+   `K1_CONFIG.setActiveControl(panel, remembered, 1)`.
+
+**Why "null" is the right trigger and not something cleverer.** Focus moving
+somewhere else is legitimate and must not be fought -- pressing Down into the
+list is a normal thing to do. A *null* active control is never useful state; it
+is precisely the "focus went away" the report describes. Restoring only from null
+leaves every deliberate movement alone.
+
+**Scope it to panels with a header** (today Abilities and Key Mapping) so that no
+other screen changes behaviour, and so a screen that genuinely wants null focus --
+a modal opening over the top, for instance -- is unaffected.
+
+**Check before shipping:** that a modal appearing over the Abilities screen does
+not cause the keeper to fight it for focus. If it does, also require that the
+remembered panel is still the one `FindK1MenuPanelForInput` returns.
+
+**Verified by this report:** the Abilities strip entry works. Up from the ability
+list reaches the tab row and A activates the tab -- the section above marking that
+untested is now superseded for the navigation half.
+
 ## 4. Tab switching and the agreed menu button layout
 
 **Already implemented, not yet play-verified:** the Abilities panel now has an
@@ -234,5 +274,6 @@ required, but the notice must still list what is redistributed.
 | Physical pads report NIMH/ALKALINE, ViGEm reports WIRED | measured on both this session |
 | Abilities member offsets | `kotor1_0_3.db`, corroborated by `description_listbox` matching the shipping constant |
 | The fill field is an inline 16-byte ResRef at border-params `+0x40` | read from a live badge in memory |
-| Abilities tab navigation reaches the tabs | **not verified in game.** Built and installed; the play-test has not been done |
+| Abilities tab navigation reaches the tabs | **verified in play 2026-09-06.** Up from the list reaches the tab row and A activates a tab |
+| Focus survives activating a tab | **no -- it does not.** Reported from play; fix specified in section 3b |
 | The inventory key is `I` | user's report from play; not read from the keymap |
