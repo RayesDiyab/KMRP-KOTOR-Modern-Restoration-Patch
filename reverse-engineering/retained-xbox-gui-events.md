@@ -109,30 +109,39 @@ the event reaches the default case, i.e. the panel ignores it. Anything else is
 the address of the handler that runs.
 
 ```
-panel                    A       B       X       Y   Black      2d      2e  DpadL  DpadR ScrUp ScrDn  DescUp DescDn
-ABILITIES                .  6ae7e5  6ae714       .       .  6ae7e5  6ae7e5 6ae818 6ae818 6ae839 6ae839 6ae7cd 6ae7b5
-ABILITIES_CHARGEN   6f890f  6f88af       .  6f892f       .  6f890f  6f88af 6f88cf 6f88ef      .      . 6f8975 6f8959
-CLASS_SELECT             .  6dbd57       .       .       .       .  6dbd57      .      .      .      .      .      .
-FEATS               6f46ef  6f46af  6f46cf  6f471b       .  6f46ef  6f46af 6f473b 6f473b 6f473b 6f473b 6f4780 6f475e
-INGAME_GAMEPLAY          .  6e61af       .       .       .  6e61e2  6e61af      .      .      .      . 6e622e 6e6250
-INGAME_OPTIONS           .  6aaee9       .       .       .  6aaee9  6aaee9      .      .      .      .      .      .
-INVENTORY                .  6b3f88  6b3fc3       .       .  6b3f88  6b3f88      .      .      .      . 6b3f23 6b3f01
-MAP                 693c44  693ce2  693c09       .       .  693ce2  693ce2      .      . 693d11 693d41      .      .
-MESSAGES                 .  6282c8  6282a5       .       .  6282c8  6282c8      .      .      .      .      .      .
-OPTIONS_FEEDBACK         .  6de45f       .       .       .  6de492  6de45f      .      .      .      . 6de4de 6de500
-OPTIONS_MAIN             .  6dff58       .       .       .  6dff3f  6dff58      .      .      .      . 6dff99 6dffbb
-OPTIONS_MOUSE            .  6e61af       .       .       .  6e61e2  6e61af      .      .      .      . 6e622e 6e6250
-OPTIONS_SOUND            .  6ddbd8       .       .       .  6ddbbf  6ddbd8      .      .      .      . 6ddc0b 6ddc2d
-POWERS              6f290f  6f28ef  6f294f  6f292f       .  6f290f  6f28ef 6f297b 6f297b 6f297b 6f297b 6f29c0 6f299e
-SKILLS              6f6a9f  6f6a3f       .  6f6abf       .  6f6a9f  6f6a3f 6f6a5f 6f6a7f      .      . 6f6afb 6f6adf
-STORE                    .  6c21c6  6c222f       .       .       .  6c21c6      .      .      .      . 6c220d 6c21eb
-UPGRADE                  .  6c6aaf       .       .       .       .  6c6aaf      .      .      .      . 6c6b17 6c6aec
-UPGRADE_ITEM_SELECT      .  6c2d57       .       .       .       .  6c2d57      .      .      .      . 6c2da3 6c2d81
-PARTY_SELECT             .  6bee01       .       .       .       .       .      .      .      .      .      .      .
-PAZAAK_GAME              .  67e90f       .       .       .       .  67e93b      .      .      .      .      .      .
-SAVELOAD                 .  6c86f0       .       .       .       .  6c872f      .      .      .      .      .      .
-SOLO_MODE_QUERY          .       .       .       .       .       .  6c2488      .      .      .      .      .      .
-UPGRADE_SELECTION        .  6c2b2b       .       .       .       .       .      .      .      .      .      .      .
+panel                                  A         B         X         Y     Black        2c        2d        2e  DpadLeft DpadRight  ScrollUpScrollDown        33        34        35        36        37        38    DescUp  DescDown
+--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+ABILITIES                              .    6ae7e5    6ae714         .         .         .    6ae7e5    6ae7e5    6ae818    6ae818    6ae839    6ae839         .         .         .         .         .         .    6ae7cd    6ae7b5
+ABILITIES_CHARGEN                 6f890f    6f88af         .    6f892f         .         .    6f890f    6f88af    6f88cf    6f88ef         .         .         .         .         .         .         .         .    6f8975    6f8959
+CHARACTER                         6b2295    6b2459    6b22dd    6b233c         .         .    6b2459    6b2459         .         .         .         .         .         .         .         .         .         .         .         .
+CLASS_SELECT                           .    6dbd57         .         .         .         .         .    6dbd57         .         .         .         .         .         .    6dbd92    6dbdab         .         .         .         .
+CONTROLLER_LOSS_BOX                    .    62516f         .         .         .         .         .    62516f         .         .         .         .         .         .         .         .         .         .         .    625141   [chain]
+EQUIP                                  .    6ba41f         .         .         .         .    6ba581    6ba41f         .         .         .         .         .         .         .         .         .         .    6ba71e    6ba700
+FEATS                             6f46ef    6f46af    6f46cf    6f471b         .         .    6f46ef    6f46af    6f473b    6f473b    6f473b    6f473b         .         .         .         .         .         .    6f4780    6f475e
+INGAME_GAMEPLAY                        .    6e61af         .         .         .         .    6e61e2    6e61af         .         .         .         .         .         .         .         .         .         .    6e622e    6e6250
+INGAME_OPTIONS                         .    6aaee9         .         .         .         .    6aaee9    6aaee9         .         .         .         .         .         .    6aaf16    6aaf16         .         .         .         .
+INVENTORY                              .    6b3f88    6b3fc3         .         .         .    6b3f88    6b3f88         .         .         .         .         .         .         .         .         .         .    6b3f23    6b3f01
+JOURNAL                                .    645cab    645c8c    6459ce    64573f         .    645cab    645cab         .         .         .         .         .         .         .         .         .         .    645cda    645cef
+KEY_MAPPINGS                           .    6ec529         .         .         .         .         .         .         .         .         .         .         .         .         .         .         .         .         .         .   [chain]
+MAP                               693c44    693ce2    693c09         .         .         .    693ce2    693ce2         .         .    693d11    693d41         .         .         .         .         .         .         .         .
+MESSAGES                               .    6282c8    6282a5         .         .         .    6282c8    6282c8         .         .         .         .         .         .         .         .         .         .         .         .
+MESSAGE_BOX                            .    62516f         .         .         .         .         .    62516f         .         .         .         .         .         .         .         .         .         .         .    625141   [chain]
+OPTIONS_FEEDBACK                       .    6de45f         .         .         .         .    6de492    6de45f         .         .         .         .         .         .         .         .         .         .    6de4de    6de500
+OPTIONS_MAIN                           .    6dff58         .         .         .         .    6dff3f    6dff58         .         .         .         .         .         .         .         .         .         .    6dff99    6dffbb
+OPTIONS_MOUSE                          .    6e61af         .         .         .         .    6e61e2    6e61af         .         .         .         .         .         .         .         .         .         .    6e622e    6e6250
+OPTIONS_SOUND                          .    6ddbd8         .         .         .         .    6ddbbf    6ddbd8         .         .         .         .         .         .         .         .         .         .    6ddc0b    6ddc2d
+OPTIONS_SOUND_ADVANCED                 .    6e0fdb         .         .         .         .    6e0fcd    6e0fdb         .         .         .         .         .         .         .         .         .         .    6e11f4    6e1209
+PARTY_SELECT                           .    6bee01         .         .         .         .         .         .         .         .         .         .         .         .         .         .         .         .         .         .   [chain]
+PAZAAK_GAME                            .    67e90f         .         .         .         .         .    67e93b         .         .         .         .         .         .         .         .         .         .         .         .   [chain]
+PAZAAK_SETUP                           .    68175c         .    6817bc         .         .         .    68175c         .         .         .         .         .         .    6817d6    68180b         .         .         .         .
+POWERS                            6f290f    6f28ef    6f294f    6f292f         .         .    6f290f    6f28ef    6f297b    6f297b    6f297b    6f297b         .         .         .         .         .         .    6f29c0    6f299e
+SAVELOAD                               .    6c86f0         .         .         .         .         .    6c872f         .         .         .         .         .         .         .         .         .         .         .         .   [chain]
+SKILLS                            6f6a9f    6f6a3f         .    6f6abf         .         .    6f6a9f    6f6a3f    6f6a5f    6f6a7f         .         .         .         .         .         .         .         .    6f6afb    6f6adf
+SOLO_MODE_QUERY                        .         .         .         .         .         .         .    6c2488         .         .         .         .         .         .         .         .         .         .         .         .   [chain]
+STORE                                  .    6c21c6    6c222f         .         .         .         .    6c21c6         .         .         .         .         .         .         .         .         .         .    6c220d    6c21eb
+UPGRADE                                .    6c6aaf         .         .         .         .         .    6c6aaf         .         .         .         .         .         .         .         .         .         .    6c6b17    6c6aec
+UPGRADE_ITEM_SELECT                    .    6c2d57         .         .         .         .         .    6c2d57         .         .         .         .         .         .         .         .         .         .    6c2da3    6c2d81
+UPGRADE_SELECTION                      .    6c2b2b         .         .         .         .         .         .         .         .         .         .         .         .         .         .         .         .         .         .   [chain]
 ```
 
 **The controller module sends five of these codes.** Everything else in the
@@ -168,7 +177,10 @@ Confirmed in play on 2026-09-06, not inferred from the disassembly:
 | --- | --- | --- |
 | Abilities | cycles Skills / Powers / Feats | the handler writes the `+0xBC0` tab index with 0, 1 and 2 |
 | Map | **returns the party to the Ebon Hawk** | the handler calls `0x00692BC0`; the image contains the script name `k_sup_gohawk` at `0x007546E0` |
-| Messages | switches to Quest Items | the handler branches on `[panel+0xA8] & 2` |
+| Messages | shows the feedback view | the handler branches on `[panel+0xA8] & 2` |
+| Journal | `X` and `Y` move between quests, completed quests and the feedback view | the dispatcher reads a filter byte at `+0xBC4`, one past the Abilities tab index |
+| Inventory | cycles the item filter: all, new, quest, equippable, utility, usable | the handler sets `[panel+0x1DE4] |= 1` before filtering |
+| Character | **Scripts** — the button KMRP already badges with an X | handler `0x006B22DD`; the shipped badge `kmrpx_charscr` sits on `BTN_SCRIPTS` |
 
 **These are not variations on one idea, and that is the important finding.** The
 same event code cycles a tab on one screen and fast-travels the party across the
@@ -201,12 +213,20 @@ established from it.
 
 ## What is not established
 
-- **Thirteen dispatchers were not decoded**: `BARK_BUBBLE`, `CONTAINER`,
-  `FLOATY_TEXT`, `INGAME_AUTOPAUSE`, `JOURNAL`, `LEVEL_UP`, `MAIN_MENU`, `NAME`,
-  `OPTIONS_GRAPHICS`, `OPTIONS_GRAPHICS_ADVANCED`, `OPTIONS_RESOLUTION`,
-  `OPTIONS_SOUND_ADVANCED`, `PAZAAK_SETUP`. They use neither shape the tool
-  recognises. Their rows are absent from the matrix, which means **unknown, not
-  empty**.
+- **Ten dispatchers are still not decoded**: `BARK_BUBBLE`, `CONTAINER`,
+  `FLOATY_TEXT`, `INGAME_AUTOPAUSE`, `LEVEL_UP`, `MAIN_MENU`, `NAME`,
+  `OPTIONS_GRAPHICS`, `OPTIONS_GRAPHICS_ADVANCED`, `OPTIONS_RESOLUTION`. Their
+  rows are absent from the matrix, which means **unknown, not empty**.
+
+  **Correction.** Thirteen were reported undecodable at first, and three of them
+  -- `JOURNAL`, `CHARACTER` and `EQUIP` -- were nothing of the sort. They use a
+  jump table like the rest, written `add eax, -0x28` where the others use
+  `lea eax, [esi-0x28]`. The tool knew only the `lea` form, so it reported those
+  panels as having no readable dispatcher, which reads far too easily as "handles
+  nothing". Journal turned out to implement A, B, X, Y *and* Black, the widest
+  set in the game. A blind spot in a decoder is indistinguishable from an absence
+  in the thing being decoded, which is why the undecoded list is printed rather
+  than quietly skipped.
 - **Most handlers are still unread.** An address in the table proves code runs,
   not that it does something a player would want. Three are now confirmed in play
   and are tabulated above. `STORE` `0x29` calls `0x006C1B00` and `INVENTORY`

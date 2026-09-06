@@ -89,6 +89,14 @@ def decode_dispatcher(image: Image, handler: int):
             match = re.search(r"- (0x[0-9a-f]+)\]", text)
             if match and bias is None:
                 bias = int(match.group(1), 16)
+        elif instruction.mnemonic == "add" and bias is None:
+            # The same bias written as a subtraction. The Journal's dispatcher
+            # uses `add eax, -0x28` where others use `lea eax, [esi-0x28]`, and
+            # missing this form silently reported the panel as having no
+            # dispatcher at all -- which reads as "handles nothing".
+            match = re.search(r", -(0x[0-9a-f]+)$", text)
+            if match:
+                bias = int(match.group(1), 16)
         elif instruction.mnemonic == "cmp" and span is None and bias is not None:
             match = re.search(r", (0x[0-9a-f]+)$", text)
             if match:
