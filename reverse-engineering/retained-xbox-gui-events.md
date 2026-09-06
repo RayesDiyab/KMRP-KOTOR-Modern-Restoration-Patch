@@ -1225,6 +1225,112 @@ The cheap test, once a joystick description of type 0 exists on slot `0x6E`, is
 to stage records with a quarter, half and full axis value and read `PollInput`'s
 return, before involving the movement code at all.
 
+## MEASURED: analog magnitude survives PollInput intact
+
+Run in the debugger against the live game on 2026-09-07. Nothing written to disk.
+
+### Setup
+
+| Item | Value |
+| --- | --- |
+| Event id | `0x32` (free; nothing registers `0x27`..`0x40`) |
+| Description type | **0** — the single-control analog path |
+| Device | `2` — first joystick |
+| Control slot | `0x6E` -> `DIJOFS_X` |
+| Second control | `0x84` (none) |
+| Input class | `2` (ICPCGUI), read live from `GetEvents`' third argument |
+
+`CreateNewEvent(0x32, 0, 2, 0x6E, 0x84)` and `AddEvent(0x32, 2)` both returned
+`1`. The description at `0x138469E0` read back `+0x14 = 0`, `+0x18 = 2`,
+`+0x1C = 0x6E`.
+
+`PollInput` reads the description's stored value at **`desc+0x04`**, not the
+record directly (`mov eax,[esi+4]` at `0x005E241D`), so the sweep set `desc+0x04`
+and called `CExoInputInternal::PollInput_2` (`0x005E23C0`), capturing `st(0)`.
+
+### Result: exact linear passthrough
+
+| Raw value | Returned float | Ratio |
+| --- | --- | --- |
+| `0` | `0.0` | — |
+| `8192` (25%) | `8192.0` | 1.000000 |
+| `16384` (50%) | `16384.0` | 1.000000 |
+| `24576` (75%) | `24576.0` | 1.000000 |
+| `32767` (100%) | `32767.0` | 1.000000 |
+| `-8192` | `-8192.0` | 1.000000 |
+| `-16384` | `-16384.0` | 1.000000 |
+| `-32768` | `-32768.0` | 1.000000 |
+
+**Linear, signed, unclamped, no deadzone, no curve.** Type 0 returns
+`float(rawValue)` exactly.
+
+The reason is structural: `ScaledValue` opens with `call [vtable+0]`, and the
+base class used by types 0, 2 and 5 has `Global::return_zero` there, so it takes
+the early exit at `0x005DFF2F`, which is `fld` of the value it converted with
+`fild` on entry. That early exit happens **before** any control-slot logic, so
+slot `0x6F` (Y) is identical by construction rather than by measurement — the
+slot is never consulted on this path.
+
+### The type 3 path is the normalised one, and its constants fit XInput
+
+`GetMaxUseable` / `GetMinUseable` for a non-keyboard, non-mouse device with
+control code `0`, `4`, `0x18` or `0x1C`:
+
+| | Value |
+| --- | --- |
+| `GetMaxUseable` (`0x0074D704`) | `32767.0` |
+| `GetMinUseable` (`0x0074D708`) | `8191.75` |
+
+`8191.75` is not a minimum, it is a **deadzone** — exactly one quarter of full
+scale. `ScaledValue`'s scaling body computes
+
+```
+normalised = (|v| - 8191.75 - 1.0) / (32767.0 - 8191.75)
+clamped at 1.0, then multiplied by -1.0 when the input was negative
+```
+
+which yields:
+
+| Raw | Normalised |
+| --- | --- |
+| `0` … `8192` | `0.0` (deadzone) |
+| `12000` | `0.155` |
+| `16384` | `0.333` |
+| `24576` | `0.667` |
+| `32767` | `1.000` |
+
+**Full scale is `32767`, which is XInput's thumbstick range.** A KMRP
+implementation can pass an XInput axis through essentially unchanged.
+
+Scaling is gated on `desc+0x20`, which is only present on the `0x30`-byte
+Detailed object, so the normalised curve requires **type 3**, not type 0. Type 0
+is safe precisely because its `0x20`-byte object never reaches that read.
+
+### Conclusion
+
+True analog magnitude survives `PollInput`. Two usable shapes exist:
+
+- **type 0** — raw signed passthrough, deadzone and curve left to KMRP;
+- **type 3** — the engine's own normalised `0..1` with a 25% deadzone and sign,
+  whose full-scale constant already matches XInput.
+
+### Not established
+
+- That a matched record writes `dwData` into `desc+0x04`. The sweep set that
+  field directly. The button proof showed a record reaching the handler, but the
+  record-to-`desc+0x04` store was not separately observed.
+- Whether the movement events `ProcessInput` polls consume the magnitude or
+  threshold it. **This remains the open question for analog walking** and was
+  deliberately not touched.
+- What `keymap.2da`'s `Scale`, `ScaleMag` and `ScaleExp` do on top of this.
+
+### State
+
+Temporary descriptions for events `0x31` and `0x32` remain in this session's
+memory, both inert: device 2 produces no records and `desc+0x04` was zeroed.
+Device count restored to `2`, scratch pages freed, breakpoints removed. They
+disappear on restart; no file was modified.
+
 ## Coverage: what has been walked, and what has not
 
 The sweep is tracked explicitly because a decoder blind spot and a genuine
