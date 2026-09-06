@@ -1,0 +1,136 @@
+# Linux, Proton, and Steam Deck compatibility
+
+> **Documentation standard.** This document follows
+> [`documentation-standard.md`](documentation-standard.md). It separates the
+> reproducible installation procedure and package-level measurements from the
+> gameplay coverage that has not yet been performed.
+
+**Kind: compatibility procedure and test record.** KMRP is a Windows patcher for
+a Windows game. A community report says the patcher launches through Protontricks,
+but KMRP has not yet been play-tested under Proton or on Steam Deck. The procedure
+below follows the official Protontricks and Valve Proton interfaces; it is not a
+claim of completed gameplay support.
+
+## Installation procedure
+
+KOTOR's Steam App ID is `32370`. Install the Windows build through Steam, select
+the Proton version you intend to test in the game's Compatibility properties,
+then launch the game once so Steam creates both `swkotor.ini` and its Proton
+prefix.
+
+Install [Protontricks](https://github.com/Matoking/protontricks#installation)
+using its documented method for your distribution. On Steam Deck, its project
+recommends the Discover/Flatpak package. If the game is in a library outside the
+default Steam location, grant the Flatpak access to that library as described by
+the same installation documentation.
+
+Run the patcher inside KOTOR's Proton environment:
+
+```bash
+protontricks-launch --appid 32370 "/absolute/path/to/KMRP - KOTOR Modern Restoration Patch.exe"
+```
+
+In the patcher, select the `swkotor.exe` inside the real Steam KOTOR directory,
+not the copy of the patcher and not a file under `compatdata`. Steam's usual
+location is `steamapps/common/swkotor/swkotor.exe`; the library root varies.
+Choose the display's native resolution (Steam Deck LCD/OLED handheld mode is
+normally 1280×800), apply, then launch KOTOR normally through Steam.
+
+Use the same command to open KMRP and choose **Restore Original**. A reinstall
+test is: apply, launch, restore, compare the restored hashes, then apply again.
+Do not delete the Proton prefix as a substitute for KMRP restore; the prefix does
+not own the executable, INI, or Override files in the Steam library.
+
+The official [`protontricks-launch` documentation](https://github.com/Matoking/protontricks#protontricks-launch)
+also documents `PROTON_VERSION` for selecting a specific installed Proton build.
+Use that to repeat the same test with Proton Experimental and one current stable
+Proton release. KMRP does not recommend one over the other until both have been
+measured.
+
+## What is verified without Proton
+
+`testing/regression/Test-ProtonResourceCompatibility.py` reads the final package
+archives using case-sensitive comparisons, even when it runs on Windows. On the
+2026-09-05 unreleased build it measured:
+
+- 48 of 48 resolution archives present;
+- 3,889 packaged GUI resources parsed;
+- every GUI font reference resolving to exact-case `.tga` and `.txi` names;
+- no case-insensitive duplicate names in an archive;
+- no absolute, parent-traversal, backslash, or empty archive member paths; and
+- `LBL_NAME` in the active HUD resolving to `dialogfont10x10.tga` and
+  `dialogfont10x10.txi` at all 48 resolutions.
+
+This rules out an absent or case-only-mismatched KMRP font resource as the direct
+cause of the reported missing NPC and door names. It does **not** prove that
+Proton loads or renders that resource correctly. The same target strip had a
+separate width-driven geometry defect in the public release; the unreleased
+generator now gives it the shared `max(1, height / 720)` scale and verifies its
+numeric extent at every resolution.
+
+Run the package audit after a full build:
+
+```powershell
+python testing/regression/Test-ProtonResourceCompatibility.py
+```
+
+## Collecting a useful report
+
+Before changing a failing installation, capture a read-only report:
+
+```bash
+python3 tools/collect_proton_report.py "/absolute/path/to/steamapps/common/swkotor" \
+  --output kmrp-proton-report.json
+```
+
+The JSON contains file sizes and SHA-256 hashes, selected INI resolution,
+presence of KMRP manifests/controller files, the active HUD/font resources, and
+case-collision results. It does not include executable bytes, game text, saves,
+credentials, or the contents of proprietary resources.
+
+For a Proton failure, set Valve's documented launch option in Steam:
+
+```text
+PROTON_LOG=1 %command%
+```
+
+Valve documents the resulting log as `$HOME/steam-32370.log`; Proton prefixes
+normally live under `steamapps/compatdata/32370/pfx`. Attach the report, Proton
+log, KMRP log, exact Proton version, distribution/Steam Deck OS version,
+resolution, GPU, and whether K1CP/K1R or another Override mod is installed.
+Valve's authoritative configuration reference is the
+[Proton README](https://github.com/ValveSoftware/Proton#runtime-config-options).
+
+For missing NPC or door names specifically, compare these cases without deleting
+the prefix:
+
+1. a current unreleased KMRP package versus public v2.10.0;
+2. KMRP alone versus the same install with K1CP/K1R; and
+3. the same save at 1280×800 and 1920×1080.
+
+Those comparisons separate the corrected HUD geometry, an Override precedence
+conflict, and a Proton rendering problem. Record which names are absent and
+whether the health bar/background still appears; that distinction identifies
+text rendering versus whole-control placement.
+
+## Controller and Steam Deck coverage still required
+
+The optional controller component has Windows structural and live-hook checks,
+but no physical XInput device was available. Under Proton it also depends on the
+`dinput8.dll` ASI loading chain and Proton's XInput translation. The following
+remain gameplay tests, not automated claims:
+
+- movement, camera, combat/action-bar, dialogue, inventory, map, pause, and menus;
+- controller connect, disconnect/reconnect, and multiple-device behavior;
+- whether Steam Input must be enabled or disabled for the selected controller;
+- rumble behavior (the upstream component does not establish a KMRP rumble claim);
+- suspend/resume and handheld/docked switching on Steam Deck; and
+- patch, restore, and reinstall under Proton Experimental and stable Proton.
+
+## Deliberately not changed
+
+- KMRP does not install Wine, Proton, Protontricks, Steam, or Flatpak permissions.
+- It does not weaken executable hash validation for a Wine/Proton path.
+- The package audit does not label archive inspection as gameplay verification.
+- No Proton version is advertised as supported until the matrix above is run.
+

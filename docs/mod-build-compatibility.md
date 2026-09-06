@@ -1,0 +1,133 @@
+# Mod-build and executable compatibility
+
+> **Documentation standard.** This document follows
+> [`documentation-standard.md`](documentation-standard.md).
+
+**Kind: reference.** This records what KMRP can safely recognize, which tools
+compose without touching the same bytes, and the install order that keeps
+restore predictable. It does not turn unknown executables into supported ones.
+
+## Executable boundary
+
+KMRP accepts the 4,042,752-byte editable PC 1.03 executable in exactly two
+states:
+
+| Input | SHA-256 | Supported |
+| --- | --- | --- |
+| Canonical editable executable | `761F9466F456A83909036BAEBB5C43167D722387BE66E54617BA20A8C49E9886` | yes |
+| Same file with only `IMAGE_FILE_LARGE_ADDRESS_AWARE` set | `CA9D22EACB5BDFA8E2AD3F8935B0E8E2FED72DA8132D0622D576A650AA7E1889` | yes |
+| Any other changed byte | varies | no |
+
+The second row is proven by clearing only file-header bit `0x20` in memory and
+requiring the canonical hash. It is not a same-length exception or a relaxed
+hash check. Both inputs produce identical KMRP output, while restore returns the
+exact incoming file. See
+[`../reverse-engineering/large-address-aware.md`](../reverse-engineering/large-address-aware.md).
+
+## Recommended order
+
+1. Start from the editable executable and a clean or deliberately prepared game
+   directory.
+2. Install K1 Community Patch, K1 Restoration, and other content mods first.
+   TSLPatcher/HoloPatcher can then merge their 2DA, TLK, module, and Override
+   changes without KMRP's interface files being an intermediate input.
+3. Do **not** install UniWS, KOTOR High Resolution Menus, or a separate 4 GB
+   patch. KMRP supplies the resolution executable changes, matching GUI set, and
+   LAA flag itself. An already-LAA clean executable is harmless and supported.
+4. Run KMRP last against the real game directory. Its ownership manifest records
+   every Override file it replaces and restores the preceding modded state.
+5. If another tool must modify `swkotor.exe` afterward, restore that tool to the
+   exact KMRP bytes before asking KMRP to restore. A post-KMRP executable edit
+   intentionally invalidates KMRP's ownership hash.
+
+K1 Community Patch 1.10.0 and K1 Restoration 1.2 were previously inspected and
+tested with KMRP: neither supplied GUI files nor edited the executable in those
+versions. That does not certify later releases; inspect their manifests again
+when versions change. The current K1CP repository recommends installing K1CP
+before most other mods, which agrees with the order above.
+
+## KOTORganizer / Mod Organizer 2
+
+The KOTORganizer author lists widescreen, 4 GB patches, and upscaled movies as
+manual steps outside Sync. KMRP replaces the first two steps:
+
+1. Let KOTORganizer finish Sync.
+2. Run KMRP manually against the real KOTOR directory, not MO2's downloads or
+   staging directory.
+3. Launch through MO2 as usual.
+
+MO2's virtual filesystem can take precedence over physical files. A profile that
+supplies its own `.gui`, font, portrait, or icon with the same name can therefore
+hide KMRP's installed copy at runtime even though KMRP's hash and manifest are
+correct. Disable separate widescreen/high-resolution UI packages in that profile.
+This workflow follows KOTORganizer's published manual-patch boundary; it has not
+yet been run end-to-end on this workstation.
+
+## KotOR Patch Manager
+
+KotOR Patch Manager normally injects dynamic hooks without rewriting the
+executable, but patch manifests declare `supported_versions` by executable hash.
+A KMRP resolution build therefore needs an address-database/hash entry or an
+adapter even when its hook sites are untouched. KMRP bundles the standalone
+version of K1 Modern Driver Compatibility specifically to avoid that hash gate;
+all eight of its runtime hook sites remain byte-intact in gold v23 and have zero
+collisions with KMRP.
+
+KPM also supports static hooks, including its own 4 GB patch. Do not enable that
+duplicate after KMRP: the bit is already set. Other KPM patches require their own
+site-by-site collision audit and version recognition; “runtime injection” alone
+is not proof of compatibility.
+
+KMRP's optional Xbox Controller Support embeds a narrowly configured KPM runtime,
+but it owns the game-root `patch_config.toml`. It refuses to overwrite or merge a
+configuration owned by a separate KPM installation. Leave KMRP's controller
+option disabled when using external KPM patches; combining the configurations
+requires an explicit, versioned merge workflow that does not exist yet. See
+[`controller-support.md`](controller-support.md).
+
+## Other executable patchers measured
+
+The public
+[KOTOR1 Engine Fixes](https://github.com/VexFlint/KOTOR1-Engine-Fixes) commit
+`a93154bac4b9b8621a06d9cf1b105bdaad48e3f2` changes a frame-cap value, LAA,
+eight code sites, and five code caves. On gold v23, all eight sites still contain
+its expected stock bytes, every cave is still zero, the frame-cap value is still
+zero, and none intersects KMRP's 702 changed byte positions. That proves the two
+patch sets do not overwrite the same bytes; it does **not** make the combined
+workflow supported:
+
+- applied first, its executable is not one of KMRP's two recognized inputs;
+- applied after KMRP, its edits invalidate KMRP's exact manifest hash, so KMRP
+  correctly blocks restore until its own output is put back.
+
+KMRP therefore does not currently advertise that combination. Preserving an
+external patch through apply and restore requires a separately specified,
+versioned overlay contract—not a blanket exception—and remains unfinished.
+
+## What remains untested or requires people
+
+- KOTORganizer Sync → KMRP → MO2 launch has not been exercised end-to-end.
+- A memory-heavy mod build has not been played long enough to cross the old 2 GB
+  address ceiling.
+- Current K1CP/K1R versions beyond the measured 1.10.0/1.2 pair need a fresh
+  file-manifest audit.
+- Xbox Controller Support has structural and live-hook verification, but still
+  needs physical XInput play-testing and Proton/Steam Deck coverage.
+- Coordination with Doug Dimmadab and JC is not an engineering operation and was
+  not performed; no external message is sent without explicit authorization.
+
+## Verification
+
+Run the LAA, reinstall, and driver collision checks:
+
+```powershell
+.\testing\regression\Test-LargeAddressAware.ps1
+.\testing\regression\Test-ReinstallOverOlderBuild.ps1
+python tools\build_binary_inventory.py `
+  build-inputs\swkotornopatch.exe `
+  build\kmrp\swkotor_gold_v23_movies.exe
+```
+
+For a real mod build, record the executable hash before KMRP, hash any existing
+backup, list colliding Override filenames, and perform a complete restore before
+calling the workflow compatible.
