@@ -9,6 +9,7 @@ using System.IO.Compression;
 using System.Drawing.Drawing2D;
 using System.Drawing.Imaging;
 using System.Drawing.Text;
+using Microsoft.Win32;
 using System.Reflection;
 using System.Runtime.InteropServices;
 using System.Security.Cryptography;
@@ -33,14 +34,57 @@ namespace Kmrp
         internal byte[] Data;
     }
 
+    internal static class PeCompatibility
+    {
+        // IMAGE_FILE_HEADER.Characteristics in the supported PE32 executable.
+        // The common "4 GB patcher" changes only IMAGE_FILE_LARGE_ADDRESS_AWARE.
+        internal const int CharacteristicsOffset = 0x926;
+        internal const ushort OriginalCharacteristics = 0x010F;
+        internal const ushort LargeAddressAwareFlag = 0x0020;
+        internal const ushort LargeAddressAwareCharacteristics =
+            OriginalCharacteristics | LargeAddressAwareFlag;
+        internal const string LargeAddressAwareSourceHash =
+            "CA9D22EACB5BDFA8E2AD3F8935B0E8E2FED72DA8132D0622D576A650AA7E1889";
+
+        internal static ushort ReadCharacteristics(byte[] executable)
+        {
+            if (executable == null || executable.Length < CharacteristicsOffset + 2)
+                throw new InvalidDataException("The executable is too short to contain a PE file header.");
+            return (ushort)(executable[CharacteristicsOffset] |
+                (executable[CharacteristicsOffset + 1] << 8));
+        }
+
+        internal static bool TryNormalizeSupportedSource(byte[] source, out byte[] normalized)
+        {
+            normalized = null;
+            if (source == null || source.LongLength != GoldPatch.SourceLength)
+                return false;
+            ushort characteristics = ReadCharacteristics(source);
+            if (characteristics != OriginalCharacteristics &&
+                characteristics != LargeAddressAwareCharacteristics)
+                return false;
+
+            normalized = (byte[])source.Clone();
+            normalized[CharacteristicsOffset] = (byte)(OriginalCharacteristics & 0xFF);
+            normalized[CharacteristicsOffset + 1] = (byte)(OriginalCharacteristics >> 8);
+            if (GoldPatch.HashBytes(normalized) != GoldPatch.SourceHash)
+            {
+                normalized = null;
+                return false;
+            }
+            return true;
+        }
+
+    }
+
     internal sealed class GoldPatch
     {
         internal const string ResourceName = "Kmrp.goldpatch";
         internal const string SourceHash = "761F9466F456A83909036BAEBB5C43167D722387BE66E54617BA20A8C49E9886";
-        internal const string TargetHash = "9ACE45023EAB9063803136E6C312E5E87DD85E07E33CCB5525C04DCA38C478DC";
+        internal const string TargetHash = "9DD81A75F4888FD67242B682BEE0AB4392EA8923CDF4A020CA3EDD2464C05E0A";
         internal const long SourceLength = 4042752;
-        internal const long TargetLength = 4083712;
-        internal const string PatchVersion = "2.10.0-mapnotes";
+        internal const long TargetLength = 4087808;
+        internal const string PatchVersion = "2.11.0-movieaspect";
 
         private readonly List<PatchChunk> chunks;
 
@@ -95,13 +139,14 @@ namespace Kmrp
 
         internal byte[] Apply(byte[] source, ResolutionChoice resolution)
         {
-            if (source.LongLength != SourceLength || HashBytes(source) != SourceHash)
+            byte[] normalizedSource;
+            if (!PeCompatibility.TryNormalizeSupportedSource(source, out normalizedSource))
                 throw new InvalidDataException("The selected file is not the supported unpatched swkotor.exe.");
             if (resolution == null)
                 throw new ArgumentNullException("resolution");
 
             byte[] target = new byte[TargetLength];
-            Buffer.BlockCopy(source, 0, target, 0, source.Length);
+            Buffer.BlockCopy(normalizedSource, 0, target, 0, normalizedSource.Length);
             foreach (PatchChunk chunk in chunks)
                 Buffer.BlockCopy(chunk.Data, 0, target, checked((int)chunk.Offset), chunk.Data.Length);
 
@@ -114,6 +159,20 @@ namespace Kmrp
             if (!KmrpSettings.MarkerFixes)
                 ResolutionPatch.WriteInt32(target, ResolutionPatch.MapNoteFlagOffset, 0);
             return target;
+        }
+
+        internal static bool IsSupportedSourceFile(string path)
+        {
+            try
+            {
+                byte[] normalized;
+                return File.Exists(path) &&
+                    PeCompatibility.TryNormalizeSupportedSource(File.ReadAllBytes(path), out normalized);
+            }
+            catch
+            {
+                return false;
+            }
         }
 
         internal static string HashFile(string path)
@@ -233,6 +292,22 @@ namespace Kmrp
     {
         private static readonly long[] WidthOffsets = { 0x0000AA65, 0x001F0C65 };
         private static readonly long[] HeightOffsets = { 0x0000AA85, 0x001F0C6F };
+
+        // Full-screen Bink playback has its own 640x480 display-mode pair, separate
+        // from the normal render-resolution constants above.  The first pair is the
+        // width/height comparison in the movie entry path (VA 0x00403D66); the
+        // second initializes the temporary movie mode (VA 0x005F5B37).  Leaving
+        // either pair at 640x480 makes the engine change display mode around a
+        // movie, which is the source of the minimize/focus transition seen with
+        // resolution-matched upscaled BIKs.  Both pairs are imm32 operands.
+        //
+        // A community helper searches for only `00 00 C7 44 24 10` for the second
+        // pair.  That sequence occurs hundreds of times and its first match in this
+        // executable is not a resolution at all.  These addresses instead come
+        // from aligned disassembly of the verified source and are guarded by exact
+        // gold-reference values on every application. See reverse-engineering/movies.md.
+        private static readonly long[] MovieWidthOffsets = { 0x00003D6C, 0x001F5B3B };
+        private static readonly long[] MovieHeightOffsets = { 0x00003D78, 0x001F5B43 };
 
         // 0x0028C4E3 (VA 0x0068C4E3) is a THIRD width comparison, deliberately NOT included
         // above. It's the last live branch of the HUD minimap-variant (mipc*.gui) selector:
@@ -477,6 +552,10 @@ namespace Kmrp
                 ReplaceInt32(executable, offset, 3440, resolution.Width, "screen width");
             foreach (long offset in HeightOffsets)
                 ReplaceInt32(executable, offset, 1440, resolution.Height, "screen height");
+            foreach (long offset in MovieWidthOffsets)
+                ReplaceInt32(executable, offset, 3440, resolution.Width, "movie display-mode width");
+            foreach (long offset in MovieHeightOffsets)
+                ReplaceInt32(executable, offset, 1440, resolution.Height, "movie display-mode height");
             ReplaceSingle(executable, RowScaleOffset, GoldRowScale, ScaleForHeight(resolution.Height),
                 "list-row scale");
             float rowSizeScale = ScaleForHeight(resolution.Height);
@@ -950,6 +1029,246 @@ namespace Kmrp
         }
     }
 
+    internal sealed class DpiCompatibilityEditState
+    {
+        internal string ExecutablePath;
+        internal bool HadRegistryValue;
+        internal string RegistryValue;
+        internal bool HadManifest;
+        internal byte[] ManifestBytes;
+        internal bool Changed;
+    }
+
+    /// <summary>Opts the game executable out of Windows DPI virtualization.
+    ///
+    /// KMRP already scales KOTOR's interface for the selected framebuffer. If Windows
+    /// applies its own compatibility scaling on top, a 3840x2160 game at 150% desktop
+    /// scaling is rendered as though its usable surface were smaller and the UI appears
+    /// zoomed. The Properties -> Compatibility -> High DPI override -> Application fix
+    /// writes HIGHDPIAWARE to this per-user AppCompat value.
+    ///
+    /// A sidecar preserves the exact value that existed before KMRP added its token.
+    /// Restore changes the registry only while it still equals the value KMRP wrote;
+    /// a later user or Windows change is left untouched.</summary>
+    internal static class DpiCompatibilityOperations
+    {
+        private const string LayersKeyPath = @"Software\Microsoft\Windows NT\CurrentVersion\AppCompatFlags\Layers";
+        private const string Token = "HIGHDPIAWARE";
+        private const string ManifestHeader = "KMRPDPI1";
+        private const string ManifestName = "KMRP_DPI.manifest";
+
+        private sealed class DpiRecord
+        {
+            internal string ExecutablePath;
+            internal bool HadPreviousValue;
+            internal string PreviousValue;
+            internal string InstalledValue;
+        }
+
+        private static string ManifestPath(string executablePath)
+        {
+            return Path.Combine(Path.GetDirectoryName(Path.GetFullPath(executablePath)), ManifestName);
+        }
+
+        internal static DpiCompatibilityEditState Install(string executablePath, Action<string> report)
+        {
+            executablePath = Path.GetFullPath(executablePath);
+            string manifestPath = ManifestPath(executablePath);
+            DpiCompatibilityEditState state = new DpiCompatibilityEditState();
+            state.ExecutablePath = executablePath;
+            state.HadManifest = File.Exists(manifestPath);
+            state.ManifestBytes = state.HadManifest ? File.ReadAllBytes(manifestPath) : null;
+
+            try
+            {
+                using (RegistryKey key = Registry.CurrentUser.CreateSubKey(LayersKeyPath))
+                {
+                    if (key == null)
+                        throw new IOException("The Windows compatibility settings key could not be opened.");
+
+                    object raw = key.GetValue(executablePath, null, RegistryValueOptions.DoNotExpandEnvironmentNames);
+                    state.HadRegistryValue = raw != null;
+                    state.RegistryValue = raw as string;
+                    if (raw != null && state.RegistryValue == null)
+                        throw new InvalidDataException("The existing Windows compatibility setting is not a string value.");
+
+                    if (ContainsToken(state.RegistryValue, Token))
+                    {
+                        SafeReport(report, "Verified the Windows high-DPI application override for swkotor.exe.");
+                        return state;
+                    }
+
+                    string installed = AppendToken(state.RegistryValue, Token);
+                    DpiRecord record = new DpiRecord();
+                    record.ExecutablePath = executablePath;
+                    record.HadPreviousValue = state.HadRegistryValue;
+                    record.PreviousValue = state.RegistryValue ?? String.Empty;
+                    record.InstalledValue = installed;
+
+                    try
+                    {
+                        key.SetValue(executablePath, installed, RegistryValueKind.String);
+                        object verified = key.GetValue(executablePath, null, RegistryValueOptions.DoNotExpandEnvironmentNames);
+                        if (!String.Equals(verified as string, installed, StringComparison.Ordinal))
+                            throw new IOException("The Windows high-DPI compatibility setting could not be verified.");
+                        WriteManifest(manifestPath, record);
+                    }
+                    catch
+                    {
+                        RestoreRegistryValue(key, executablePath, state.HadRegistryValue, state.RegistryValue);
+                        throw;
+                    }
+                    state.Changed = true;
+                    SafeReport(report, "Enabled the Windows high-DPI application override for swkotor.exe.");
+                    return state;
+                }
+            }
+            catch (UnauthorizedAccessException ex)
+            {
+                SafeReport(report, "Windows high-DPI handling could not be configured automatically: " + ex.Message +
+                    " Set swkotor.exe Compatibility -> High DPI scaling override to Application.");
+                return state;
+            }
+            catch (System.Security.SecurityException ex)
+            {
+                SafeReport(report, "Windows high-DPI handling could not be configured automatically: " + ex.Message +
+                    " Set swkotor.exe Compatibility -> High DPI scaling override to Application.");
+                return state;
+            }
+        }
+
+        internal static void Rollback(DpiCompatibilityEditState state)
+        {
+            if (state == null || !state.Changed)
+                return;
+            using (RegistryKey key = Registry.CurrentUser.CreateSubKey(LayersKeyPath))
+            {
+                if (key == null)
+                    throw new IOException("The Windows compatibility settings key could not be opened for rollback.");
+                RestoreRegistryValue(key, state.ExecutablePath, state.HadRegistryValue, state.RegistryValue);
+            }
+            string manifestPath = ManifestPath(state.ExecutablePath);
+            if (state.HadManifest)
+                File.WriteAllBytes(manifestPath, state.ManifestBytes);
+            else if (File.Exists(manifestPath))
+                File.Delete(manifestPath);
+        }
+
+        internal static void Restore(string executablePath, Action<string> report)
+        {
+            executablePath = Path.GetFullPath(executablePath);
+            string manifestPath = ManifestPath(executablePath);
+            if (!File.Exists(manifestPath))
+                return;
+
+            DpiRecord record = ReadManifest(manifestPath);
+            if (!String.Equals(record.ExecutablePath, executablePath, StringComparison.OrdinalIgnoreCase))
+                throw new InvalidDataException("The Windows high-DPI manifest belongs to a different executable path.");
+
+            bool restored = false;
+            bool kept = false;
+            using (RegistryKey key = Registry.CurrentUser.CreateSubKey(LayersKeyPath))
+            {
+                if (key == null)
+                    throw new IOException("The Windows compatibility settings key could not be opened for restore.");
+                object raw = key.GetValue(executablePath, null, RegistryValueOptions.DoNotExpandEnvironmentNames);
+                string current = raw as string;
+                if (raw != null && current == null)
+                {
+                    kept = true;
+                }
+                else if (String.Equals(current, record.InstalledValue, StringComparison.Ordinal))
+                {
+                    RestoreRegistryValue(key, executablePath, record.HadPreviousValue, record.PreviousValue);
+                    restored = true;
+                }
+                else
+                {
+                    kept = true;
+                }
+            }
+
+            File.Delete(manifestPath);
+            if (restored)
+                SafeReport(report, "Restored the previous Windows high-DPI compatibility setting.");
+            if (kept)
+                SafeReport(report, "Left the Windows high-DPI compatibility setting in place because it changed after install.");
+        }
+
+        private static bool ContainsToken(string value, string token)
+        {
+            if (String.IsNullOrWhiteSpace(value))
+                return false;
+            foreach (string part in Regex.Split(value.Trim(), "\\s+"))
+                if (String.Equals(part, token, StringComparison.OrdinalIgnoreCase))
+                    return true;
+            return false;
+        }
+
+        private static string AppendToken(string value, string token)
+        {
+            if (String.IsNullOrWhiteSpace(value))
+                return token;
+            return value.TrimEnd() + " " + token;
+        }
+
+        private static void RestoreRegistryValue(RegistryKey key, string name, bool hadValue, string value)
+        {
+            if (hadValue)
+                key.SetValue(name, value ?? String.Empty, RegistryValueKind.String);
+            else
+                key.DeleteValue(name, false);
+        }
+
+        private static void WriteManifest(string path, DpiRecord record)
+        {
+            string text = ManifestHeader + "\r\n" +
+                Encode(record.ExecutablePath) + "\r\n" +
+                (record.HadPreviousValue ? "1" : "0") + "\r\n" +
+                Encode(record.PreviousValue) + "\r\n" +
+                Encode(record.InstalledValue) + "\r\n";
+            File.WriteAllText(path, text, new UTF8Encoding(false));
+        }
+
+        private static DpiRecord ReadManifest(string path)
+        {
+            string[] lines = File.ReadAllLines(path, Encoding.UTF8);
+            if (lines.Length != 5 || lines[0] != ManifestHeader ||
+                (lines[2] != "0" && lines[2] != "1"))
+                throw new InvalidDataException("The Windows high-DPI manifest is invalid. Restore was blocked.");
+            DpiRecord record = new DpiRecord();
+            record.ExecutablePath = Decode(lines[1]);
+            record.HadPreviousValue = lines[2] == "1";
+            record.PreviousValue = Decode(lines[3]);
+            record.InstalledValue = Decode(lines[4]);
+            if (!ContainsToken(record.InstalledValue, Token))
+                throw new InvalidDataException("The Windows high-DPI manifest does not contain the installed setting.");
+            return record;
+        }
+
+        private static string Encode(string value)
+        {
+            return Convert.ToBase64String(Encoding.UTF8.GetBytes(value ?? String.Empty));
+        }
+
+        private static string Decode(string value)
+        {
+            try { return Encoding.UTF8.GetString(Convert.FromBase64String(value)); }
+            catch (FormatException ex)
+            {
+                throw new InvalidDataException("The Windows high-DPI manifest contains invalid text.", ex);
+            }
+        }
+
+        private static void SafeReport(Action<string> report, string message)
+        {
+            if (report == null)
+                return;
+            try { report(message); }
+            catch { }
+        }
+    }
+
     internal sealed class OverrideRecord
     {
         internal string RelativePath;
@@ -974,7 +1293,7 @@ namespace Kmrp
     /// It is two files dropped beside swkotor.exe -- a `dinput8.dll` proxy that Windows
     /// loads at startup, and the `.asi` payload it loads in turn. **The executable is
     /// never touched.** K1DC patches its eight sites in memory at run time and checks
-    /// only those, which is why it does not care that KMRP has changed 680 bytes
+    /// only those, which is why it does not care that KMRP has changed bytes
     /// elsewhere. Verified against gold: all eight sites still hold the exact bytes his
     /// `kotor1.hooks.toml` declares, and none overlaps anything KMRP writes.
     ///
@@ -1138,6 +1457,242 @@ namespace Kmrp
         }
     }
 
+    /// <summary>Installs the optional Xbox Controls module through KMRP's existing
+    /// ASI loader. The hook engine is the MIT KOTOR Patch Manager runtime; the
+    /// controller module is Saul0097's author-approved KPM Xbox Controls K1 1.2.
+    /// Neither component writes to swkotor.exe: the six verified hooks are applied
+    /// in memory when the game starts.</summary>
+    internal static class ControllerOperations
+    {
+        private sealed class InstalledFile
+        {
+            internal string Name;
+            internal string Hash;
+        }
+
+        private static readonly string[] ResourceNames =
+            { "Kmrp.controller.runtime", "Kmrp.controller.module" };
+        private static readonly string[] FileNames =
+            { "kmrp-controller-runtime.asi", "kmrp-controller.module" };
+        private const string ConfigName = "patch_config.toml";
+        internal const string Version = "1.2";
+
+        private static string ManifestPath(string executablePath)
+        {
+            return Path.Combine(Path.GetDirectoryName(Path.GetFullPath(executablePath)),
+                                "KMRP_Controller.manifest");
+        }
+
+        internal static bool Available
+        {
+            get
+            {
+                for (int i = 0; i < ResourceNames.Length; i++)
+                    using (Stream stream = Assembly.GetExecutingAssembly()
+                               .GetManifestResourceStream(ResourceNames[i]))
+                        if (stream == null)
+                            return false;
+                return true;
+            }
+        }
+
+        internal static void Install(string executablePath, string executableHash,
+            Action<string> report)
+        {
+            // Controller support is OPTIONAL, so every reason it cannot install is
+            // reported and skipped rather than thrown. Throwing aborted the whole patch:
+            // a user who happened to have a `patch_config.toml` from any other KPM mod
+            // got no fonts, no GUI archives and no executable patch either, with a .NET
+            // stack trace as the only explanation. DriverCompatOperations.Install has
+            // always declined this way; this now matches it.
+            if (!Available)
+            {
+                SafeReport(report, "Controller support was not installed: this build does " +
+                    "not carry the optional controller resources.");
+                return;
+            }
+
+            string folder = Path.GetDirectoryName(Path.GetFullPath(executablePath));
+            if (!File.Exists(Path.Combine(folder, "dinput8.dll")))
+            {
+                SafeReport(report, "Controller support was not installed: it needs Modern " +
+                    "Driver Compatibility's ASI loader, which is not present.");
+                return;
+            }
+
+            string[] allNames = { FileNames[0], FileNames[1], ConfigName };
+            foreach (string name in allNames)
+            {
+                string target = Path.Combine(folder, name);
+                // Never clobber a file we did not write. `patch_config.toml` in particular
+                // belongs to whichever KPM mod created it, and overwriting it would break
+                // that mod silently.
+                if (File.Exists(target) && !WasInstalledByUs(executablePath, name, target))
+                {
+                    SafeReport(report, "Left the existing " + name +
+                        " alone; controller support was not installed.");
+                    return;
+                }
+            }
+
+            List<InstalledFile> installed = new List<InstalledFile>();
+            try
+            {
+                for (int i = 0; i < FileNames.Length; i++)
+                {
+                    string target = Path.Combine(folder, FileNames[i]);
+                    using (Stream stream = Assembly.GetExecutingAssembly()
+                               .GetManifestResourceStream(ResourceNames[i]))
+                    using (FileStream output = File.Create(target))
+                        stream.CopyTo(output);
+                    installed.Add(new InstalledFile
+                        { Name = FileNames[i], Hash = GoldPatch.HashFile(target) });
+                }
+
+                string configPath = Path.Combine(folder, ConfigName);
+                File.WriteAllText(configPath, BuildConfig(executableHash), new UTF8Encoding(false));
+                installed.Add(new InstalledFile
+                    { Name = ConfigName, Hash = GoldPatch.HashFile(configPath) });
+                WriteManifest(executablePath, installed);
+            }
+            catch
+            {
+                foreach (InstalledFile record in installed)
+                {
+                    string target = Path.Combine(folder, record.Name);
+                    if (File.Exists(target) && GoldPatch.HashFile(target) == record.Hash)
+                        File.Delete(target);
+                }
+                throw;
+            }
+
+            SafeReport(report, "Installed optional Xbox Controls " + Version +
+                " (by Saul0097) through the KOTOR Patch Manager runtime.");
+        }
+
+        internal static void Restore(string executablePath, Action<string> report)
+        {
+            string manifestPath = ManifestPath(executablePath);
+            if (!File.Exists(manifestPath))
+                return;
+            string folder = Path.GetDirectoryName(Path.GetFullPath(executablePath));
+            int removed = 0;
+            int kept = 0;
+            foreach (InstalledFile record in ReadManifest(manifestPath))
+            {
+                string target = Path.Combine(folder, record.Name);
+                if (!File.Exists(target))
+                    continue;
+                if (GoldPatch.HashFile(target) != record.Hash)
+                {
+                    kept++;
+                    continue;
+                }
+                File.Delete(target);
+                removed++;
+            }
+            File.Delete(manifestPath);
+            if (removed > 0)
+                SafeReport(report, "Removed the optional Xbox Controls component.");
+            if (kept > 0)
+                SafeReport(report, "Left " + kept +
+                    " controller file(s) in place because they changed after install.");
+        }
+
+        private static string BuildConfig(string executableHash)
+        {
+            StringBuilder text = new StringBuilder();
+            text.Append("target_version_sha = \"").Append(executableHash).Append("\"\r\n\r\n");
+            text.Append("[[patches]]\r\nid = \"kmrp-xbox-controls-k1\"\r\n")
+                .Append("dll = \"").Append(FileNames[1]).Append("\"\r\n");
+            AppendHook(text, "0x005E271E", "8B, 84, 24, E4, 00, 00, 00",
+                "CaptureActionBarInputK1", new[] { "eax", "edx" }, new[] { "pointer", "int" });
+            AppendHook(text, "0x006227E0", "6A, FF, 68, E9, 89, 72, 00",
+                "DispatchMenuInputK1", new[] { "ecx" }, new[] { "pointer" });
+            AppendHook(text, "0x004051C3", "8B, C6, 83, E8, 1C",
+                "CancelMovieOnSpaceK1", new[] { "esi", "edi" }, new[] { "uint", "uint" });
+            // Inside the playback loop, not on the prologue. 0x00404C80 is
+            // CExoMoviePlayerInternal::PlayMovieLoop and the loop is internal to
+            // it (0x00404CB5 -> 0x00404D9F), so a detour at the entry polled the
+            // pad once, before the first frame, and no button pressed during a
+            // movie was ever seen. 0x00404D96 is the tail of the loop body.
+            // `this` comes from ESI: it is copied out of ECX at 0x00404C87 and
+            // ECX is scratch by this point.
+            AppendHook(text, "0x00404D96", "8B, 46, 48, 8B, 48, 08",
+                "PollMovieControllerK1", new[] { "esi" }, new[] { "pointer" });
+            AppendHook(text, "0x00686BA0", "53, 56, 57, 8B, F1",
+                "UpdateActionBarControlsK1", new[] { "ecx" }, new[] { "pointer" });
+            AppendHook(text, "0x0068B170", "6A, FF, 68, B0, F7, 72, 00",
+                "ClearActionBarControlsK1", new[] { "ecx" }, new[] { "pointer" });
+            AppendHook(text, "0x0040C1F6", "89, 1E, 89, 7E, 04",
+                "CancelActionBarKeyboardFocusOnMouseMoveK1",
+                new[] { "esi", "ebx", "edi" }, new[] { "pointer", "int", "int" });
+            return text.ToString();
+        }
+
+        private static void AppendHook(StringBuilder text, string address, string bytes,
+            string function, string[] sources, string[] types)
+        {
+            string[] values = bytes.Split(new[] { ", " }, StringSplitOptions.None);
+            text.Append("\r\n[[patches.hooks]]\r\naddress = ").Append(address)
+                .Append("\r\ntype = \"detour\"\r\nfunction = \"").Append(function)
+                .Append("\"\r\noriginal_bytes = [");
+            for (int i = 0; i < values.Length; i++)
+            {
+                if (i > 0) text.Append(", ");
+                text.Append("0x").Append(values[i]);
+            }
+            text.Append("]\r\nskip_original_bytes = false\r\nexclude_from_restore = []\r\n");
+            for (int i = 0; i < sources.Length; i++)
+                text.Append("[[patches.hooks.parameters]]\r\nsource = \"")
+                    .Append(sources[i]).Append("\"\r\ntype = \"")
+                    .Append(types[i]).Append("\"\r\n");
+        }
+
+        private static bool WasInstalledByUs(string executablePath, string name, string target)
+        {
+            string manifestPath = ManifestPath(executablePath);
+            if (!File.Exists(manifestPath))
+                return false;
+            foreach (InstalledFile record in ReadManifest(manifestPath))
+                if (String.Equals(record.Name, name, StringComparison.OrdinalIgnoreCase))
+                    return GoldPatch.HashFile(target) == record.Hash;
+            return false;
+        }
+
+        private static void WriteManifest(string executablePath, List<InstalledFile> files)
+        {
+            StringBuilder text = new StringBuilder();
+            text.Append("version\t").Append(Version).Append("\r\n");
+            foreach (InstalledFile record in files)
+                text.Append(record.Name).Append('\t').Append(record.Hash).Append("\r\n");
+            File.WriteAllText(ManifestPath(executablePath), text.ToString(), new UTF8Encoding(false));
+        }
+
+        private static List<InstalledFile> ReadManifest(string manifestPath)
+        {
+            List<InstalledFile> records = new List<InstalledFile>();
+            try
+            {
+                foreach (string line in File.ReadAllLines(manifestPath, Encoding.UTF8))
+                {
+                    string[] parts = line.Split('\t');
+                    if (parts.Length != 2 || parts[0] == "version")
+                        continue;
+                    records.Add(new InstalledFile { Name = parts[0], Hash = parts[1] });
+                }
+            }
+            catch { }
+            return records;
+        }
+
+        private static void SafeReport(Action<string> report, string message)
+        {
+            if (report != null)
+                report(message);
+        }
+    }
+
     internal static class OverrideOperations
     {
         private const string CommonResourceName = "Kmrp.override.common";
@@ -1258,6 +1813,11 @@ namespace Kmrp
             }
             MemoryStream generatedIcons = AbilityIconGenerator.TryBuild(
                 executablePath, ResolutionPatch.ScaleForHeight(resolution.Height), shipped);
+            // The ten controller prompt badges, re-placed against the label this
+            // player's dialog.tlk actually draws. Null when that file is missing or
+            // unreadable, in which case the shipped English placement stands.
+            Dictionary<string, byte[]> promptReplacements = ControllerPromptGenerator.TryBuild(
+                executablePath, GuiResourcePrefix + resolution.Key);
 
             try
             {
@@ -1341,6 +1901,19 @@ namespace Kmrp
                             if (String.IsNullOrEmpty(entry.Name))
                                 continue;
                             string relative = NormalizeRelativePath(entry.FullName);
+
+                            // Build-time metadata, not a game resource. The prompt
+                            // placement manifest rides in the archive so the patcher
+                            // can read it (ControllerPromptGenerator), but the game
+                            // has no use for it and it should not be left sitting in
+                            // the player's Override folder.
+                            if (String.Equals(relative, ControllerPromptGenerator.ManifestName,
+                                              StringComparison.OrdinalIgnoreCase))
+                            {
+                                completedBytes += entry.Length;
+                                continue;
+                            }
+
                             string target = SafeDestination(overrideRoot, relative);
 
                             // Bundled art yields to a file already there that we did not
@@ -1424,11 +1997,34 @@ namespace Kmrp
                             string temporary = target + ".kotor-ui-new-" + Guid.NewGuid().ToString("N") + ".tmp";
                             try
                             {
-                                using (Stream input = entry.Open())
-                                using (FileStream output = new FileStream(temporary, FileMode.CreateNew, FileAccess.Write, FileShare.None))
+                                // A controller prompt badge whose position was
+                                // recomputed against the player's own dialog.tlk
+                                // replaces the archive's English-placed copy. It is
+                                // substituted here rather than shipped as a fourth
+                                // archive so that it stays ONE write of one path: a
+                                // second archive carrying the same name would trip
+                                // the two-archives-disagree guard below, which
+                                // exists for a real bug and should not be taught to
+                                // tolerate exceptions.
+                                byte[] replacement = null;
+                                if (promptReplacements != null)
+                                    promptReplacements.TryGetValue(relative, out replacement);
+                                if (replacement != null)
                                 {
-                                    input.CopyTo(output);
-                                    output.Flush(true);
+                                    using (FileStream output = new FileStream(temporary, FileMode.CreateNew, FileAccess.Write, FileShare.None))
+                                    {
+                                        output.Write(replacement, 0, replacement.Length);
+                                        output.Flush(true);
+                                    }
+                                }
+                                else
+                                {
+                                    using (Stream input = entry.Open())
+                                    using (FileStream output = new FileStream(temporary, FileMode.CreateNew, FileAccess.Write, FileShare.None))
+                                    {
+                                        input.CopyTo(output);
+                                        output.Flush(true);
+                                    }
                                 }
                                 string installedHash = GoldPatch.HashFile(temporary);
                                 // Guard the one thing this can actually catch: the SAME
@@ -1828,8 +2424,10 @@ namespace Kmrp
             {
                 FileInfo info = new FileInfo(targetPath);
                 string hash = GoldPatch.HashFile(targetPath);
-                if (info.Length == GoldPatch.SourceLength && hash == GoldPatch.SourceHash)
-                    return "Supported clean build — ready to patch";
+                if (info.Length == GoldPatch.SourceLength && GoldPatch.IsSupportedSourceFile(targetPath))
+                    return hash == PeCompatibility.LargeAddressAwareSourceHash
+                        ? "Supported clean build — 4 GB support already detected"
+                        : "Supported clean build — ready to patch";
                 if (IsVerifiedPatchedInstall(targetPath, hash) ||
                     (info.Length == GoldPatch.TargetLength && hash == GoldPatch.TargetHash))
                     return "Game is already patched";
@@ -1849,7 +2447,7 @@ namespace Kmrp
             {
                 FileInfo info = new FileInfo(targetPath);
                 string hash = GoldPatch.HashFile(targetPath);
-                if (info.Length == GoldPatch.SourceLength && hash == GoldPatch.SourceHash)
+                if (info.Length == GoldPatch.SourceLength && GoldPatch.IsSupportedSourceFile(targetPath))
                     return ExecutableState.SupportedClean;
                 if (IsVerifiedPatchedInstall(targetPath, hash) ||
                     (info.Length == GoldPatch.TargetLength && hash == GoldPatch.TargetHash))
@@ -1870,7 +2468,7 @@ namespace Kmrp
                     return false;
                 string executableBackup = BackupPath(targetPath);
                 return File.Exists(executableBackup) &&
-                    GoldPatch.HashFile(executableBackup) == GoldPatch.SourceHash &&
+                    GoldPatch.IsSupportedSourceFile(executableBackup) &&
                     IniOperations.HasVerifiedBackup(targetPath);
             }
             catch
@@ -1925,10 +2523,10 @@ namespace Kmrp
                     "Restoring the original game files before applying this one.");
                 Restore(targetPath, report, null);
                 currentHash = GoldPatch.HashFile(targetPath);
-                if (currentHash != GoldPatch.SourceHash)
+                if (!GoldPatch.IsSupportedSourceFile(targetPath))
                     throw new InvalidDataException("The earlier build could not be removed, so no changes were made.");
             }
-            if (currentHash != GoldPatch.SourceHash || new FileInfo(targetPath).Length != GoldPatch.SourceLength)
+            if (!GoldPatch.IsSupportedSourceFile(targetPath))
                 throw new InvalidDataException("This swkotor.exe is not supported. No changes were made.");
             if (!File.Exists(IniOperations.PathForExecutable(targetPath)))
                 throw new FileNotFoundException(
@@ -1938,14 +2536,15 @@ namespace Kmrp
             string backupPath = BackupPath(targetPath);
             if (File.Exists(backupPath))
             {
-                if (GoldPatch.HashFile(backupPath) != GoldPatch.SourceHash)
-                    throw new InvalidDataException("The existing backup is not the supported clean build. Move it aside before patching:\r\n" + backupPath);
+                if (!GoldPatch.IsSupportedSourceFile(backupPath) ||
+                    GoldPatch.HashFile(backupPath) != currentHash)
+                    throw new InvalidDataException("The existing backup is not the exact supported input executable. Move it aside before patching:\r\n" + backupPath);
             }
             else
             {
                 SafeProgress(progress, 7, "Creating a safety backup…");
                 File.Copy(targetPath, backupPath, false);
-                if (GoldPatch.HashFile(backupPath) != GoldPatch.SourceHash)
+                if (GoldPatch.HashFile(backupPath) != currentHash)
                     throw new IOException("Backup verification failed. No patch was applied.");
                 SafeReport(report, "Backup created: " + backupPath);
             }
@@ -1953,6 +2552,7 @@ namespace Kmrp
             string temporaryPath = targetPath + ".kotor-ui-new-" + Guid.NewGuid().ToString("N") + ".tmp";
             bool installed = false;
             IniEditState iniState = null;
+            DpiCompatibilityEditState dpiState = null;
             OverrideEditState overrideState = null;
             try
             {
@@ -1969,10 +2569,13 @@ namespace Kmrp
                     throw new IOException("Post-install verification failed.");
 
                 SafeProgress(progress, 15, "Updating display settings…");
+                dpiState = DpiCompatibilityOperations.Install(targetPath, report);
                 iniState = IniOperations.Configure(targetPath, width, height, report);
                 overrideState = OverrideOperations.Install(targetPath, resolution, report, progress);
                 if (KmrpSettings.DriverCompatibility)
                     DriverCompatOperations.Install(targetPath, report);
+                if (KmrpSettings.ControllerSupport)
+                    ControllerOperations.Install(targetPath, targetHash, report);
                 SafeProgress(progress, 98, "Saving patch information…");
                 WriteManifest(targetPath, backupPath, false, width, height, targetHash);
                 SafeProgress(progress, 100, "Patch complete");
@@ -1982,13 +2585,19 @@ namespace Kmrp
             }
             catch
             {
+                try { ControllerOperations.Restore(targetPath, report); }
+                catch { }
+                try { DriverCompatOperations.Restore(targetPath, report); }
+                catch { }
                 OverrideOperations.Rollback(overrideState);
                 try { IniOperations.Rollback(iniState); }
+                catch { }
+                try { DpiCompatibilityOperations.Rollback(dpiState); }
                 catch { }
                 if (installed && File.Exists(backupPath))
                 {
                     File.Copy(backupPath, targetPath, true);
-                    if (GoldPatch.HashFile(targetPath) != GoldPatch.SourceHash)
+                    if (GoldPatch.HashFile(targetPath) != GoldPatch.HashFile(backupPath))
                         throw new IOException("Patch failed and automatic rollback could not be completed. Use the backup at: " + backupPath);
                 }
                 throw;
@@ -2027,14 +2636,16 @@ namespace Kmrp
             targetPath = Path.GetFullPath(targetPath);
             RequireExistingFile(targetPath);
             string currentHash = GoldPatch.HashFile(targetPath);
-            if (currentHash == GoldPatch.SourceHash)
+            if (GoldPatch.IsSupportedSourceFile(targetPath))
             {
                 OverrideOperations.Restore(targetPath, report, progress);
+                ControllerOperations.Restore(targetPath, report);
                 DriverCompatOperations.Restore(targetPath, report);
+                DpiCompatibilityOperations.Restore(targetPath, report);
                 SafeProgress(progress, 92, "Restoring display settings…");
                 IniOperations.Restore(targetPath, report);
                 SafeProgress(progress, 98, "Saving restore information…");
-                WriteManifest(targetPath, BackupPath(targetPath), true, 0, 0, GoldPatch.SourceHash);
+                WriteManifest(targetPath, BackupPath(targetPath), true, 0, 0, currentHash);
                 SafeProgress(progress, 100, "Restore complete");
                 SafeReport(report, "The original game files and settings have been restored.");
                 return;
@@ -2044,26 +2655,30 @@ namespace Kmrp
 
             string backupPath = BackupPath(targetPath);
             RequireExistingFile(backupPath);
-            if (GoldPatch.HashFile(backupPath) != GoldPatch.SourceHash)
+            if (!GoldPatch.IsSupportedSourceFile(backupPath))
                 throw new InvalidDataException("Backup verification failed. Restore was blocked.");
+
+            string backupHash = GoldPatch.HashFile(backupPath);
 
             string temporaryPath = targetPath + ".kotor-ui-restore-" + Guid.NewGuid().ToString("N") + ".tmp";
             try
             {
                 SafeProgress(progress, 5, "Checking the original game backup…");
                 File.Copy(backupPath, temporaryPath, false);
-                if (GoldPatch.HashFile(temporaryPath) != GoldPatch.SourceHash)
+                if (GoldPatch.HashFile(temporaryPath) != backupHash)
                     throw new IOException("Temporary restore verification failed.");
                 OverrideOperations.Restore(targetPath, report, progress);
+                ControllerOperations.Restore(targetPath, report);
                 DriverCompatOperations.Restore(targetPath, report);
+                DpiCompatibilityOperations.Restore(targetPath, report);
                 SafeProgress(progress, 90, "Restoring the game executable…");
                 FileGuard.Replace(temporaryPath, targetPath);
-                if (GoldPatch.HashFile(targetPath) != GoldPatch.SourceHash)
+                if (GoldPatch.HashFile(targetPath) != backupHash)
                     throw new IOException("Post-restore verification failed.");
                 SafeProgress(progress, 94, "Restoring display settings…");
                 IniOperations.Restore(targetPath, report);
                 SafeProgress(progress, 98, "Saving restore information…");
-                WriteManifest(targetPath, backupPath, true, 0, 0, GoldPatch.SourceHash);
+                WriteManifest(targetPath, backupPath, true, 0, 0, backupHash);
                 SafeProgress(progress, 100, "Restore complete");
                 SafeReport(report, "The original game files and settings have been restored.");
             }
@@ -2121,6 +2736,9 @@ namespace Kmrp
         {
             string iniPath = IniOperations.PathForExecutable(targetPath);
             string iniHash = File.Exists(iniPath) ? GoldPatch.HashFile(iniPath) : String.Empty;
+            string sourceHash = File.Exists(backupPath)
+                ? GoldPatch.HashFile(backupPath)
+                : (restored ? executableHash : GoldPatch.SourceHash);
             string json = "{\r\n" +
                 "  \"patchVersion\": \"" + GoldPatch.PatchVersion + "\",\r\n" +
                 "  \"state\": \"" + (restored ? "restored" : "patched") + "\",\r\n" +
@@ -2133,7 +2751,7 @@ namespace Kmrp
                 "  \"resolution\": " + (restored ? "null" : "\"" +
                     width.ToString(CultureInfo.InvariantCulture) + "x" +
                     height.ToString(CultureInfo.InvariantCulture) + "\"") + ",\r\n" +
-                "  \"sourceSha256\": \"" + GoldPatch.SourceHash + "\",\r\n" +
+                "  \"sourceSha256\": \"" + sourceHash + "\",\r\n" +
                 "  \"goldTargetSha256\": \"" + GoldPatch.TargetHash + "\",\r\n" +
                 "  \"patchedSha256\": \"" + executableHash + "\"\r\n" +
                 "}\r\n";
@@ -2146,16 +2764,22 @@ namespace Kmrp
             int width, int height, string currentHash, Action<string> report, Action<int, string> progress)
         {
             IniEditState existingIniState = null;
+            DpiCompatibilityEditState existingDpiState = null;
             OverrideEditState existingOverrideState = null;
             try
             {
                 SafeProgress(progress, 12, "Updating display settings…");
+                existingDpiState = DpiCompatibilityOperations.Install(targetPath, report);
                 existingIniState = IniOperations.Configure(targetPath, width, height, report);
                 existingOverrideState = OverrideOperations.Install(targetPath, resolution, report, progress);
                 if (KmrpSettings.DriverCompatibility)
                     DriverCompatOperations.Install(targetPath, report);
                 else
                     DriverCompatOperations.Restore(targetPath, report);
+                if (KmrpSettings.ControllerSupport)
+                    ControllerOperations.Install(targetPath, currentHash, report);
+                else
+                    ControllerOperations.Restore(targetPath, report);
                 SafeProgress(progress, 98, "Saving patch information…");
                 WriteManifest(targetPath, BackupPath(targetPath), false, width, height, currentHash);
                 SafeProgress(progress, 100, "Patch complete");
@@ -2165,8 +2789,15 @@ namespace Kmrp
             }
             catch
             {
+                try { ControllerOperations.Restore(targetPath, report); }
+                catch { }
+                try { DriverCompatOperations.Restore(targetPath, report); }
+                catch { }
                 OverrideOperations.Rollback(existingOverrideState);
-                IniOperations.Rollback(existingIniState);
+                try { IniOperations.Rollback(existingIniState); }
+                catch { }
+                try { DpiCompatibilityOperations.Rollback(existingDpiState); }
+                catch { }
                 throw;
             }
         }
@@ -2208,7 +2839,8 @@ namespace Kmrp
                 if (!File.Exists(backupPath) || new FileInfo(backupPath).Length != GoldPatch.SourceLength)
                     return false;
                 byte[] source = File.ReadAllBytes(backupPath);
-                if (GoldPatch.HashBytes(source) != GoldPatch.SourceHash)
+                byte[] normalized;
+                if (!PeCompatibility.TryNormalizeSupportedSource(source, out normalized))
                     return false;
                 expectedHash = GoldPatch.HashBytes(GoldPatch.Load().Apply(source, resolution));
                 return true;
@@ -3838,10 +4470,12 @@ namespace Kmrp
         private const bool DriverCompatibilityDefault = true;
 
         private const bool MarkerFixesDefault = true;
+        private const bool ControllerSupportDefault = false;
 
         private static bool loaded;
         private static bool driverCompatibility = DriverCompatibilityDefault;
         private static bool markerFixes = MarkerFixesDefault;
+        private static bool controllerSupport = ControllerSupportDefault;
 
         internal static string SettingsPath
         {
@@ -3862,6 +4496,8 @@ namespace Kmrp
                 if (driverCompatibility == value)
                     return;
                 driverCompatibility = value;
+                if (!value)
+                    controllerSupport = false;
                 Save();
             }
         }
@@ -3876,6 +4512,22 @@ namespace Kmrp
                 if (markerFixes == value)
                     return;
                 markerFixes = value;
+                Save();
+            }
+        }
+
+        /// <summary>Install Saul0097's optional XInput controller component.</summary>
+        internal static bool ControllerSupport
+        {
+            get { Load(); return controllerSupport; }
+            set
+            {
+                Load();
+                if (controllerSupport == value)
+                    return;
+                controllerSupport = value;
+                if (value)
+                    driverCompatibility = true;
                 Save();
             }
         }
@@ -3903,6 +4555,14 @@ namespace Kmrp
                 if (markers.Success)
                     markerFixes = String.Equals(markers.Groups[1].Value, "true",
                         StringComparison.OrdinalIgnoreCase);
+                Match controller = Regex.Match(json,
+                    "\\\"controllerSupport\\\"\\s*:\\s*(true|false)",
+                    RegexOptions.IgnoreCase | RegexOptions.CultureInvariant);
+                if (controller.Success)
+                    controllerSupport = String.Equals(controller.Groups[1].Value, "true",
+                        StringComparison.OrdinalIgnoreCase);
+                if (controllerSupport)
+                    driverCompatibility = true;
             }
             catch { }
         }
@@ -3917,7 +4577,11 @@ namespace Kmrp
                     Directory.CreateDirectory(folder);
                 string json = "{\r\n" +
                     "  \"driverCompatibility\": " +
-                    (driverCompatibility ? "true" : "false") + "\r\n" +
+                    (driverCompatibility ? "true" : "false") + ",\r\n" +
+                    "  \"markerFixes\": " +
+                    (markerFixes ? "true" : "false") + ",\r\n" +
+                    "  \"controllerSupport\": " +
+                    (controllerSupport ? "true" : "false") + "\r\n" +
                     "}\r\n";
                 File.WriteAllText(path, json, new UTF8Encoding(false));
             }
@@ -4184,6 +4848,7 @@ namespace Kmrp
         private readonly CardPanel settingsView;
         private readonly OptionToggle driverToggle;
         private readonly OptionToggle markerToggle;
+        private readonly OptionToggle controllerToggle;
         private readonly List<Control> mainViewControls = new List<Control>();
         private Timer fadeTimer;
         private FadeOverlay fadeOverlay;
@@ -4472,8 +5137,8 @@ namespace Kmrp
 
             Label settingsSubtitle = new Label();
             settingsSubtitle.Text =
-                "The recommended KMRP components are enabled by default. "
-                + "Change them only if you want something different.";
+                "Choose optional components. Driver compatibility and map fixes "
+                + "default on; controller support is opt-in.";
             settingsSubtitle.Font = new Font("Segoe UI", 14F);
             settingsSubtitle.ForeColor = UiTheme.TextMuted;
             settingsSubtitle.BackColor = UiTheme.Card;
@@ -4488,11 +5153,13 @@ namespace Kmrp
             driverToggle.Detail =
                 "Restores modern GPU rendering features and fixes driver-related visual issues.";
             driverToggle.Checked = KmrpSettings.DriverCompatibility;
-            driverToggle.SetBounds(36, settingsSubtitle.Bottom + 18, card.Width - 72, 110);
+            driverToggle.SetBounds(36, settingsSubtitle.Bottom + 18, card.Width - 72, 86);
             driverToggle.Anchor = AnchorStyles.Top | AnchorStyles.Left | AnchorStyles.Right;
             driverToggle.CheckedChanged += delegate
             {
                 KmrpSettings.DriverCompatibility = driverToggle.Checked;
+                if (!driverToggle.Checked && controllerToggle != null)
+                    controllerToggle.Checked = false;
             };
             settingsView.Controls.Add(driverToggle);
 
@@ -4502,13 +5169,29 @@ namespace Kmrp
             markerToggle.Detail =
                 "Corrects misplaced area-map marker positions across the game.";
             markerToggle.Checked = KmrpSettings.MarkerFixes;
-            markerToggle.SetBounds(36, driverToggle.Bottom + 12, card.Width - 72, 110);
+            markerToggle.SetBounds(36, driverToggle.Bottom + 8, card.Width - 72, 86);
             markerToggle.Anchor = AnchorStyles.Top | AnchorStyles.Left | AnchorStyles.Right;
             markerToggle.CheckedChanged += delegate
             {
                 KmrpSettings.MarkerFixes = markerToggle.Checked;
             };
             settingsView.Controls.Add(markerToggle);
+
+            controllerToggle = new OptionToggle();
+            controllerToggle.Title = "Xbox Controller Support";
+            controllerToggle.Author = "Saul0097";
+            controllerToggle.Detail =
+                "XInput controls for movement, combat, dialogue, menus and the action bar.";
+            controllerToggle.Checked = KmrpSettings.ControllerSupport;
+            controllerToggle.SetBounds(36, markerToggle.Bottom + 8, card.Width - 72, 86);
+            controllerToggle.Anchor = AnchorStyles.Top | AnchorStyles.Left | AnchorStyles.Right;
+            controllerToggle.CheckedChanged += delegate
+            {
+                KmrpSettings.ControllerSupport = controllerToggle.Checked;
+                if (controllerToggle.Checked)
+                    driverToggle.Checked = true;
+            };
+            settingsView.Controls.Add(controllerToggle);
 
             // Two actions, sharing the row the single Back button used to have. Restore
             // Defaults is Subtle so Back stays the obvious way out.
@@ -4522,9 +5205,10 @@ namespace Kmrp
             settingsDefaults.Anchor = AnchorStyles.Top | AnchorStyles.Left;
             settingsDefaults.Click += delegate
             {
-                // Every component back on, which is what "recommended" means here.
+                // Restore the documented defaults; controller support remains opt-in.
                 driverToggle.Checked = true;
                 markerToggle.Checked = true;
+                controllerToggle.Checked = false;
             };
             settingsView.Controls.Add(settingsDefaults);
 

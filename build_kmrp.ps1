@@ -13,7 +13,7 @@ param(
     [string]$Python,
 
     # In-repository inputs. These always move with the project.
-    [string]$GoldExe = ".\build\kmrp\swkotor_gold_v21_mapnotes.exe",
+    [string]$GoldExe = ".\build\kmrp\swkotor_gold_v24_movieaspect.exe",
     [string]$GoldOverride = ".\assets\override-3440x1440",
     [string]$UpstreamGuiRoot = ".\third_party\Included\kotor-high-resolution-menus-1.5",
     # Third-party Override mods bundled with their authors' permission.
@@ -255,6 +255,11 @@ $compilerArgs = @(
     "/resource:$(Join-Path $projectRoot 'third_party\Included\k1-modern-driver-compatibility-1.2.0 by Synchro\dinput8.dll'),Kmrp.drivercompat.dinput8",
     "/resource:$(Join-Path $projectRoot 'third_party\Included\k1-modern-driver-compatibility-1.2.0 by Synchro\k1-modern-driver-compatibility.asi'),Kmrp.drivercompat.asi",
     "/resource:$(Join-Path $projectRoot 'third_party\Included\k1-modern-driver-compatibility-1.2.0 by Synchro\LICENSE'),Kmrp.license.drivercompat"
+    # Optional controller support: a statically linked build of KPM's MIT runtime
+    # plus Saul0097's author-approved XInput controller module. The runtime is an
+    # ASI loaded by the driver-compatibility component's existing proxy.
+    "/resource:$(Join-Path $projectRoot 'third_party\Included\KPM-Xbox-Controls-K1-1.2 by Saul0097\kmrp-controller-runtime.asi'),Kmrp.controller.runtime"
+    "/resource:$(Join-Path $projectRoot 'third_party\Included\KPM-Xbox-Controls-K1-1.2 by Saul0097\kmrp-controller.module'),Kmrp.controller.module"
 )
 
 # Hand-supplied UI icons are optional: step icons fall back to vector glyphs,
@@ -282,6 +287,7 @@ foreach ($archive in $guiArchives) {
 
 $compilerArgs += (Join-Path $projectRoot "src\patcher\KmrpPatcher.cs")
 $compilerArgs += (Join-Path $projectRoot "src\patcher\AbilityIconGenerator.cs")
+$compilerArgs += (Join-Path $projectRoot "src\patcher\ControllerPromptGenerator.cs")
 $compilerArgs += (Join-Path $projectRoot "src\patcher\AssemblyInfo.cs")
 
 Write-Bar -Percent 100 -Label "running the C# compiler"

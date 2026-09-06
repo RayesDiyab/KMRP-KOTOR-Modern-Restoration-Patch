@@ -13,6 +13,7 @@ from pathlib import Path
 from pykotor.resource.formats.gff import read_gff, write_gff
 
 from apply_gold_hud_proportions import apply_proportions
+from build_controller_prompt_textures import build_prompt_textures
 from build_menubg_texture import build_texture_for_gui
 from build_scaled_fonts import export_font_txis, export_fonts, scale_txi
 from fix_hud_menubg import fix_menubg_file
@@ -21,6 +22,7 @@ from transfer_gold_gui_geometry import transfer_geometry
 from scale_listbox_padding import LIST_GUTTER_AT_UNIT_SCALE, scale_listbox_padding
 from scale_message_popup import apply_tuned as apply_popup_layout
 from export_tutorial_icons import export_tutorial_icons
+from fix_feedback_list_prototypes import fix_feedback_prototypes, fix_scriptselect_prototypes
 from scale_row_icon_frames import FRAME_RESREFS, export_frames
 
 
@@ -470,6 +472,21 @@ def main() -> int:
                     if path.suffix.lower() != ".gui":
                         continue
                     gutter_file = gutter_dir / path.name
+                    # DISABLED 2026-09-06 -- see fix_feedback_list_prototypes.py.
+                    # Rewriting PROTOITEM extents to the parent's content area
+                    # broke the Character Scripts screen in play, and the
+                    # play-tested 3440x1440 gold files leave those extents at
+                    # their vanilla values (scriptselect LST_AIState 71,84,241;
+                    # optfeedback LB_OPTIONS 76,90,240). Gold is the authority
+                    # here, and it disagrees with the repair. Issue #12's
+                    # 3840x2160 report needs a different diagnosis.
+                    #
+                    # if path.name.lower() == "optfeedback.gui":
+                    #     fix_feedback_prototypes(path, gutter_file)
+                    #     path = gutter_file
+                    # elif path.name.lower() == "scriptselect.gui":
+                    #     fix_scriptselect_prototypes(path, gutter_file)
+                    #     path = gutter_file
                     scale_listbox_padding(path, gutter_file, font_scale_for(height),
                                           DESCRIPTION_LISTBOXES)
                     # Selection lists, at their own smaller scale.
@@ -569,6 +586,13 @@ def main() -> int:
                 packaged_files.extend(
                     export_tutorial_icons(args.texture_pack, temp_dir / "tuticons",
                                           font_scale_for(height)))
+
+                # Original KMRP artwork for the optional controller runtime. The
+                # PC renderer stretches BORDER.FILL to each button, so these are
+                # generated from this resolution's final button extents. They are
+                # inert unless the runtime selects them after gamepad input.
+                packaged_files.extend(build_prompt_textures(
+                    packaged_files, temp_dir / "controller-prompts"))
 
 
                 if transferred:
