@@ -575,17 +575,89 @@ because nothing binds a joystick control.
 
 Two things gate the native path, and neither can be settled from the image:
 
-1. **Is a joystick device ever created?** The polling loop is live, but if the
-   count at `+0x158` is zero it never runs. The class table has
-   `CExoRawInputInternal::InitializeDirectInputMouse` and **no** joystick
-   equivalent, which is a real warning sign — enumeration may have been cut
-   alongside the bindings.
+1. ~~Is a joystick device ever created?~~ **Measured 2026-09-07: no.** The count
+   is a hardcoded zero and there is no `EnumDevices` anywhere. See "Measured: the
+   joystick count is hardcoded to zero".
 2. **Which description type names a joystick control, and in what numbering?**
    Types 0, 2 and 5 are unused; the meaning of each is not established.
 
 Both are runtime questions. Per `AGENTS.md`, they get measured in x64dbg rather
 than guessed at, and nothing in this section should be read as a plan until they
 are.
+
+## Measured: the joystick count is hardcoded to zero
+
+Settled in the debugger on 2026-09-07, against the running patched game with an
+Xbox controller connected. This is measurement, not inference.
+
+**Method.** A single-shot breakpoint on `CExoRawInputInternal::GetJoystickBuffer`
+(`0x005E30E0`) never fired. That alone proves nothing — the poll might not be
+running — so a control breakpoint went on `CExoInputInternal::GetEvents`
+(`0x005E24E0`), which fired immediately. The poll runs every frame; the joystick
+body never executes.
+
+**The count.** At the `GetEvents` break, `ecx` was the `CExoInputInternal` object
+and `[ecx+0x158]` read **2**. That field is not a joystick count directly:
+
+```asm
+005E2627  lea  eax, [edi-2]          ; device index = edi - 2
+005E262B  call 0x005E30E0            ; GetJoystickBuffer(index, buffer)
+005E2630  mov  eax, [esi+0x158]      ; loop while edi < count
+```
+
+`edi` starts at 2, so device 0 is the keyboard, device 1 the mouse, and joysticks
+occupy index 2 upward. A count of exactly 2 means **zero joysticks**, and the
+loop body is never entered.
+
+**Where the count comes from.** `CExoInputInternal::Constructor`:
+
+```asm
+005E2234  mov ecx, [eax+0x18]        ; joysticks found
+005E2237  add ecx, 2                 ; + keyboard + mouse
+005E223A  mov [esi+0x158], ecx
+005E2240  cmp [eax+0x18], ebp        ; clamped at 4
+005E2245  mov [esi+0x158], 6         ; 2 + 4 -- the engine supports four pads
+```
+
+So the engine is built for four joysticks, which is why `GetJoystickBuffer`
+decodes four device blocks.
+
+**And the field is a hardcoded zero.** `CExoRawInputInternal::Constructor`
+(`0x005E3E80`) does a complete DirectInput8 setup — `DirectInput8Create`,
+`CreateDevice`, `SetDataFormat`, `SetCooperativeLevel`, `SetProperty` for a
+buffer size of `0x100` — for **exactly one device**, the keyboard. The mouse gets
+its own `InitializeDirectInputMouse`. Then, on the success path:
+
+```asm
+005E3F6D  mov dword ptr [esi+0x18], ebx    ; ebx = 0
+```
+
+The joystick count is set to zero unconditionally. **There is no `EnumDevices`
+call anywhere in the executable**, and no joystick equivalent of
+`InitializeDirectInputMouse`. Enumeration was not merely failing — it is absent.
+
+### What this changes
+
+Everything downstream of enumeration is intact and was verified above: buffered
+reads with re-acquire, four device blocks, eight-direction POV decoding, the
+`0x27`..`0x40` routing in `ProcessInput`, the panel dispatchers, the registered
+bindings. All of it is unreachable because one field is zero and nothing fills
+it.
+
+So "just add bindings" was too optimistic, and this document should say so
+plainly. Two separate pieces were cut, not one:
+
+1. **Device enumeration** — absent. Would have to be written: `EnumDevices` for
+   `DI8DEVCLASS_GAMECTRL`, `CreateDevice`, `SetDataFormat` with the joystick
+   format, `SetProperty`, `Acquire`, store the pointers in the array at
+   `rawInput+0x28`, and set `rawInput+0x18`.
+2. **The bindings** — no input-event description names a joystick control, and
+   three of the six description types are never constructed.
+
+Both are writable, but together they are a real project, not a small hook. The
+narrow alternative remains: call `CSWGuiManager::HandleInputEvent(code, 1)`
+(`0x0040C8E0`) from the module's existing pad reader, which needs neither piece
+and still delivers genuine console events to the real handlers.
 
 ## Coverage: what has been walked, and what has not
 
