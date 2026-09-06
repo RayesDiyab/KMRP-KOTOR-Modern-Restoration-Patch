@@ -83,7 +83,7 @@ def decode_dispatcher(image: Image, handler: int):
     is not a jump table -- some panels use if/else chains and are read by hand."""
     md = capstone.Cs(capstone.CS_ARCH_X86, capstone.CS_MODE_32)
     bias = span = index = table = default = None
-    for instruction in md.disasm(image.code(handler, 160), handler):
+    for instruction in md.disasm(image.code(handler, 320), handler):
         text = instruction.mnemonic + " " + instruction.op_str
         if instruction.mnemonic == "lea" and " - 0x" in text:
             match = re.search(r"- (0x[0-9a-f]+)\]", text)
@@ -98,9 +98,12 @@ def decode_dispatcher(image: Image, handler: int):
             if match:
                 bias = int(match.group(1), 16)
         elif instruction.mnemonic == "cmp" and span is None and bias is not None:
-            match = re.search(r", (0x[0-9a-f]+)$", text)
+            # Capstone prints small immediates in decimal, so Container's
+            # `cmp eax, 7` was not matched by a hex-only pattern and the panel
+            # read as undecodable. Both forms are accepted.
+            match = re.search(r", (0x[0-9a-f]+|\d+)$", text)
             if match:
-                span = int(match.group(1), 16)
+                span = int(match.group(1), 0)
         elif instruction.mnemonic == "ja" and default is None:
             default = int(instruction.op_str, 16)
         elif instruction.mnemonic == "movzx" and "byte ptr [" in text:
@@ -112,8 +115,11 @@ def decode_dispatcher(image: Image, handler: int):
             if match:
                 table = int(match.group(1), 16)
                 break
-    if None in (bias, span, index, table, default):
+    if None in (bias, span, table, default):
         return None
+    # `index is None` is the Container shape: a direct jump table with no
+    # event-to-case indirection, `jmp [eax*4 + TABLE]` straight after the range
+    # check. Signalled to the caller as index 0, meaning "case index == offset".
     return bias, span, index, table, default
 
 
@@ -129,11 +135,19 @@ def decode_chain(image: Image, handler: int) -> dict:
     """
     md = capstone.Cs(capstone.CS_ARCH_X86, capstone.CS_MODE_32)
     found, pending, running = {}, None, None
-    for instruction in md.disasm(image.code(handler, 512), handler):
+    for instruction in md.disasm(image.code(handler, 768), handler):
         text = instruction.mnemonic + " " + instruction.op_str
         if instruction.mnemonic == "cmp":
             match = re.search(r", (0x[0-9a-f]+)$", text)
             pending = int(match.group(1), 16) if match else None
+        elif instruction.mnemonic == "sub" and running is None:
+            # Chains that open `sub eax, 0x28` with no preceding cmp -- Main Menu
+            # and Level Up. Without seeding from this the first `je` was dropped
+            # and the whole panel read as undecodable.
+            m0 = re.search(r", (0x[0-9a-f]+)$", instruction.mnemonic + " " + instruction.op_str)
+            if m0:
+                running = int(m0.group(1), 16)
+                pending = running
         elif instruction.mnemonic == "sub":
             match = re.search(r", (0x[0-9a-f]+)$", text)
             if match and running is not None:
@@ -153,15 +167,84 @@ def decode_chain(image: Image, handler: int) -> dict:
     return found
 
 
+def full_report(image, first_only=None):
+    """Every event each panel implements, across the WHOLE range its dispatcher
+    accepts -- not a chosen slice of it.
+
+    The slice mattered: the party-change code on the Character screen is reached
+    by event 0xCE, and a survey that stopped at 0x3F reported that panel as
+    having no such handler at all. The dispatchers accept 0x28..0xDF, so that is
+    what gets walked.
+    """
+    vtables = panel_vtables()
+    decoded, chained, opaque = {}, {}, []
+    for name, vtable in sorted(vtables.items()):
+        handler = image.dword(vtable + 0x3C)
+        if handler is None or not image.inside(handler, 16):
+            continue
+        shape = decode_dispatcher(image, handler)
+        if shape is not None:
+            bias, span, index, table, default = shape
+            groups = {}
+            for event in range(bias, bias + span + 1):
+                case = (event - bias) if index is None else image.byte(index + (event - bias))
+                if case is None:
+                    continue
+                target = image.dword(table + case * 4)
+                if target is not None and target != default:
+                    groups.setdefault(target, []).append(event)
+            decoded[name] = (handler, bias, bias + span, groups)
+            continue
+        chain = decode_chain(image, handler)
+        if chain:
+            groups = {}
+            for event, target in chain.items():
+                groups.setdefault(target, []).append(event)
+            chained[name] = (handler, groups)
+        else:
+            opaque.append((name, handler))
+    return decoded, chained, opaque
+
+
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     parser.add_argument("executable", type=Path, nargs="?",
                         default=Path(r"C:\Star Wars - KotOR\swkotor.exe"))
     parser.add_argument("--first", type=lambda v: int(v, 0), default=0x27)
     parser.add_argument("--last", type=lambda v: int(v, 0), default=0x3F)
+    parser.add_argument("--full", action="store_true",
+                        help="every implemented event per panel, whole accepted range")
     arguments = parser.parse_args()
 
     image = Image(arguments.executable)
+
+    if arguments.full:
+        decoded, chained, opaque = full_report(image)
+        total = 0
+        for name, (handler, low, high, groups) in decoded.items():
+            count = sum(len(v) for v in groups.values())
+            total += count
+            print(f"{name}   dispatcher 0x{handler:08X}  accepts 0x{low:02X}..0x{high:02X}  "
+                  f"implements {count} events")
+            for target in sorted(groups):
+                codes = ", ".join(f"0x{e:02X}" for e in groups[target])
+                print(f"    0x{target:08X}  <- {codes}")
+        for name, (handler, groups) in chained.items():
+            count = sum(len(v) for v in groups.values())
+            total += count
+            print(f"{name}   dispatcher 0x{handler:08X}  [cmp/je chain]  implements {count} events")
+            for target in sorted(groups):
+                codes = ", ".join(f"0x{e:02X}" for e in groups[target])
+                print(f"    0x{target:08X}  <- {codes}")
+        print()
+        print(f"panels decoded: {len(decoded) + len(chained)}   "
+              f"events implemented in total: {total}")
+        if opaque:
+            print(f"NOT decoded ({len(opaque)}):")
+            for name, handler in opaque:
+                print(f"    {name:<30}0x{handler:08X}")
+        return 0
+
     events = list(range(arguments.first, arguments.last + 1))
 
     header = "panel".ljust(30) + "".join(
