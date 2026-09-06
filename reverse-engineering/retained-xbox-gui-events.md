@@ -659,6 +659,73 @@ narrow alternative remains: call `CSWGuiManager::HandleInputEvent(code, 1)`
 (`0x0040C8E0`) from the module's existing pad reader, which needs neither piece
 and still delivers genuine console events to the real handlers.
 
+## The device layer, field by field
+
+Read from live memory on 2026-09-07 with the game running, plus the surviving
+mouse initialiser as a template. This is the structure any native-input work has
+to satisfy.
+
+### `CExoRawInputInternal`
+
+Reached as `CExoInputInternal + 0x140`. Live values from the running game, with a
+controller connected:
+
+| Offset | Live value | Meaning |
+| --- | --- | --- |
+| `+0x00` | `1` | initialised |
+| `+0x04` | `0` | null-checked by `GetJoystickBuffer`; **never written anywhere** |
+| `+0x18` | `0` | joystick count — the hardcoded zero |
+| `+0x1C` | `0x15D7E0C4` | **`IDirectInput8*`, live and usable** |
+| `+0x20` | `0x15F23FC4` | keyboard device |
+| `+0x24` | `0x00A7546C` | mouse device |
+| `+0x28` | `0` | array of joystick device pointers |
+| `+0x2C` | `0` | struct with `+4` and `+0x18`; **never written anywhere** |
+| `+0x30` | `0` | null-checked only; **never written anywhere** |
+
+The interface at `+0x1C` matters: DirectInput8 is already created. Any
+enumeration work would use the existing interface rather than initialising one.
+
+`+0x04`, `+0x2C` and `+0x30` are written by **nothing in the executable** — only
+`ShutDownDirectInput` zeroes `+0x2C`. They were populated by the deleted
+enumeration, so their layout is knowable only from their consumers.
+
+### The mouse initialiser as a template
+
+`CExoRawInputInternal::InitializeDirectInputMouse` (`0x005E3FA0`) is the only
+surviving per-device setup, and it is a plain DirectInput8 sequence:
+
+```
+[edi+0x1C] -> IDirectInput8
+  CreateDevice        vtable +0x0C   GUID at 0x0074D6A4 -> &[edi+0x24]
+  SetDataFormat       vtable +0x2C   format at 0x0074DB04
+  SetCooperativeLevel vtable +0x34   hwnd [0x007A39D8], flags 0x0A
+  SetProperty         vtable +0x18   DIPROP_BUFFERSIZE, dwData 0x100
+```
+
+Useful constants that fall out: the **HWND is the global at `0x007A39D8`**, the
+keyboard GUID is at `0x0074D694` and its format at `0x0074D8FC`. There is **no
+joystick data format in the image**; one would have to be supplied.
+
+### Why replacing `GetJoystickBuffer` beats enumerating
+
+Enumeration alone is not enough. `GetJoystickBuffer` also requires `+0x2C` — and
+dereferences it, reading `+4` and `+0x18` from whatever it points at. Nothing
+constructs that structure, so feeding the original function means reconstructing
+a deleted type from its consumers and hoping the reconstruction is right.
+
+Replacing the function avoids the whole question. Its contract is small and
+entirely visible: `GetJoystickBuffer(deviceIndex, outBuffer)`, where `outBuffer`
+is `{void* records, int count}` — the function allocates `0x1400` bytes for the
+records and resets the count to zero at `0x005E3110`. An implementation owned by
+KMRP needs only that contract plus `rawInput+0x18` set non-zero, and every layer
+above it stays the engine's own.
+
+The remaining unknown is the **record format** written into that buffer. It is
+directly observable rather than guessable: the keyboard fills the same structure
+every frame, so a live read of a populated buffer decodes it.
+
+Nothing here has been implemented or tried.
+
 ## Coverage: what has been walked, and what has not
 
 The sweep is tracked explicitly because a decoder blind spot and a genuine
