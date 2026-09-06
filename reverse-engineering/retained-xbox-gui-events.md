@@ -369,6 +369,89 @@ with nothing. X (`0x29`) has exactly one registration and a great deal of
 per-panel dispatcher behaviour, which is why a global X binding would be wrong —
 already established in play, and now explained.
 
+## Upstream: where the console path is actually cut
+
+The chain from a physical input to a panel event, read end to end:
+
+```
+CExoInput::GetEvents                       poll, returns events with an id
+  -> CClientExoAppInternal::ProcessInput   0x006227E0
+       id 0x27..0x40  -> CSWGuiManager::HandleInputEvent   0x0040C8E0
+       everything else -> CClientExoAppInternal::HandleInputEvent  0x00621210
+```
+
+`ProcessInput` routes the console range **explicitly and intact**:
+
+```asm
+00622B89  mov edi, [ecx+0x10]        ; the event id
+00622B8C  cmp edi, 0x27
+00622B92  jl  0x622B99
+00622B94  cmp edi, 0x40
+00622B97  jle 0x622BF1               ; 0x27..0x40 -> the GUI branch
+...
+00622C5C  call 0x0040C8E0            ; CSWGuiManager::HandleInputEvent
+```
+
+So the receiving half of the system is not merely present, it is **wired all the
+way up to the input pump**. Nothing between `CExoInput` and a panel handler is
+missing.
+
+### The cut is at the input-event descriptions
+
+Every input event the game can produce is registered in exactly one function,
+`CClientExoAppInternal::SetEventDescriptions` (`0x005EE900`-ish), through
+`CExoInput::CreateNewEvent` (27 sites) and `CExoInput::AddEvent` (64 sites).
+There are no other registration sites in the executable.
+
+The ids it registers are `0x01`…`0x0D`, `0x17`…`0x19`, `0x41`…`0x46`, `0x50`,
+`0xB5`…`0xBB`, plus a data-driven set. **None is in `0x27`…`0x40`.**
+
+The data-driven part comes from **`keymap.2da`** — the name is in the
+executable's 2DA table at `0x0074BA88`, and ids are read with
+`C2DA::GetINTEntry_3`. Its columns are named in the image: `EventType`, `Action`,
+`Disabled`, `Repeatable`, `RepeatWait`, `RepeatRate`, `Scale`, `ScaleMag`,
+`ScaleExp`, and six per-input-class flags — `ICPC`, `ICPCGUI`, `ICDialog`,
+`ICFreeLook`, `ICMovie`, `ICMiniGame` — which correspond to
+`CClientExoAppInternal::SetInputClass`.
+
+The user-facing half of that lives in `swkotor.ini` under `[Keymapping]`, as
+`Action<id>=<scancode>`. In the installed ini those ids run `0xCC`…`0x11E`.
+**None is in `0x27`…`0x40` either.**
+
+So the console GUI events have **no input source at all**: not hardcoded, not in
+the 2DA, not bindable in the ini. That is the cut, and it is one function wide.
+
+### A correction to the previous section
+
+The section above this one read the low/high id pairing in the action router as
+"two input sources feeding one action set", and singled out `0xD1`…`0xDA` as
+"the surviving input source cannot reach". **That was wrong.** The
+`[Keymapping]` ini binds `0xCC`…`0x11E` directly, so the high ids are simply the
+**user-configurable keyboard actions**, and the low ids are the fixed ones. A
+pair is one action reachable both ways. `0xCE` reaching party change is an
+ordinary "next party member" key binding, not a leftover.
+
+The pairing therefore says nothing about a console input source, and the eight
+unpaired ids say nothing either. What survives that correction is the part that
+was measured rather than interpreted: `0x27`…`0x40` has no registration anywhere.
+
+### What this means for KMRP
+
+The module currently synthesises keyboard scancodes so that the game's keyboard
+path will produce menu actions. It does not have to. Three injection points now
+exist, in increasing order of narrowness:
+
+1. **`CSWGuiManager::HandleInputEvent` (`0x0040C8E0`)** — the single entry the
+   engine itself uses for the console range. Calling it with `(code, 1)` is
+   exactly what `ProcessInput` does on the branch that never fires.
+2. **A panel's vtable slot `+0x50`…`+0x60`** — the per-button thunks.
+3. **`SetEventDescriptions`** — registering real input events for `0x27`…`0x40`
+   would light the path up at its source, with repeat, scaling and input-class
+   gating all handled by the engine. This is the largest change and the most
+   native.
+
+None of this has been tried yet, and the document records none of it as working.
+
 ## Coverage: what has been walked, and what has not
 
 The sweep is tracked explicitly because a decoder blind spot and a genuine
@@ -574,9 +657,10 @@ Added here as they are discovered, so the tree is honest about its own edges:
    with `0x09` on the party-change handler. Still open inside that layer:
    - `0xDB`…`0xDE`, `0xE1`…`0xEF`, `0xF0`…`0xF2`, `0xFA`, `0xFB`, `0x107`,
      `0x108`, `0xB5` — handlers located, bodies not read.
-   - **What feeds the router.** Both id ranges are dispatched here, but nothing
-     yet says what calls `HandleInputEvent` with either. That is the next
-     question upstream and it has not been asked.
+   - ~~What feeds the router.~~ **Walked.** `CClientExoAppInternal::ProcessInput`,
+     fed by `CExoInput::GetEvents`. The high ids turned out to be the
+     `[Keymapping]` ini bindings, which corrects the pairing claim — see
+     "Upstream: where the console path is actually cut".
    - **`CSWGuiControllerLossBox`**, the rumble path, and `ResetDriveAcceleration`
      — named, not read.
 7. **The panels the module does not know about**, listed above — none of their
