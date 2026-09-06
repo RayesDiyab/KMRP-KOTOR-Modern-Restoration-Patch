@@ -125,15 +125,45 @@ SHA-256 remained unchanged before and after launch.
 
 ## Controls and requirements
 
-The module requires an XInput device and the game's default key bindings. Its
-documented layout is: left stick move with walk/run threshold; right stick
-camera and menu-description scrolling; D-pad menu/action-bar navigation,
-repeating while held after a 400 ms delay at 120 ms intervals; A
-default/primary action; B back/cancel; X stealth; Y disengage combat; LB pause;
-RB change party member; triggers cycle targets; Back toggles solo mode; Start
-opens options; stick clicks flourish and first-person view. The mouse remains
-available by default; F9 toggles parking and hiding it for a controller-only
-session.
+The module requires an XInput device and the game's default key bindings. It is
+an input translator: with three exceptions it presses keyboard keys rather than
+talking to the GUI, so what a button does is whatever that key does in the
+current context. The table below gives the scancode each button sends, read from
+`BUTTON_BINDINGS` in `K1XboxControlsXInput.cpp`, and then what the game does with
+it in each context.
+
+| Button | Sends | In gameplay | In a menu |
+| --- | --- | --- | --- |
+| A | `Return` (+`R`) | default / primary action | activates the focused control |
+| B | `Delete` | — | **back / close.** `Delete` is rewritten to `Escape` whenever a menu panel is open |
+| X | `G` + `End` | stealth | `End` is captured and dispatched as the Xbox X GUI event |
+| Y | `F` + `Home` | disengage combat | `Home` dispatched as the Y GUI event |
+| LB | `Space` + `Insert` | pause | `Insert` dispatched as the Black-button GUI event |
+| RB | `Tab` | change party member | change party member |
+| LT / RT | `Q` / `E` | cycle targets | **move between menu screens** — Map, Inventory, Character… |
+| Back | `V` | toggle solo mode | — |
+| Start | `Escape` | opens the menu | closes the screen |
+| L3 / R3 | `X` / `Caps Lock` | flourish, first-person view | nothing |
+| D-pad | arrow keys | action-bar navigation | menu navigation, repeating while held after 400 ms at 120 ms intervals |
+| Left stick | movement keys | move, with a walk/run threshold | — |
+| Right stick | `Page Up` / `Page Down` | camera | scrolls the description box |
+
+The three exceptions to "presses a key" are the X, Y and LB secondary scancodes,
+which the module intercepts and turns into the retained Xbox GUI events so each
+panel's own handler runs.
+
+**The menu column is not derivable from the binding column,** and reading only the
+bindings has already produced one wrong conclusion in this repository: LT/RT were
+described as inert in menus because `Q` and `E` are target-cycling keys, when in
+fact they move between menu screens. A binding table says which key is sent, not
+what the game does with it.
+
+The mouse remains available by default; F9 toggles parking and hiding it for a
+controller-only session.
+
+Planned additions — the Guide button, tab cycling on the bumpers and party
+cycling on the stick clicks — are specified in
+[`controller-planned-work.md`](controller-planned-work.md).
 
 Steam Input is not claimed to work by the upstream author. PlayStation and other
 non-XInput controllers require an external XInput translation layer. Proton and
@@ -289,6 +319,57 @@ match the archive's own font.
 When controller support is disabled, KMRP installs no controller runtime or
 prompt override, so all keyboard/mouse prompts remain byte-for-byte unchanged.
 
+## Menu navigation the module supplies
+
+Each panel the module can navigate contributes its own layout to
+`GetK1SettingsStripExit`: the column the D-pad walks, the row of action buttons
+along the bottom, and optionally a row of tabs above the column reached by
+pressing Up from the top. A panel with no entry gets no help at all -- vanilla's
+own control links decide where focus can go, which is usually nowhere useful.
+
+**The Abilities screen had no entry until 2026-09-06**, which is why its Skills /
+Powers / Feats tabs could not be reached with a controller: they are ordinary
+buttons and nothing routed focus to them. Offsets are from `kotor1_0_3.db`, class
+`CSWGuiInGameAbilities`. That table corroborates itself here -- its
+`description_listbox` is `0x33BC`, the value already shipping as
+`K1_ABILITIES_DESC_OFFSET`.
+
+| Member | Offset | On screen at 3440x1440 |
+| --- | --- | --- |
+| `skills_button` | `0x2F18` | tab, `LEFT=607 TOP=264` |
+| `powers_button` | `0x2D54` | tab, `LEFT=1360 TOP=264` |
+| `feats_button` | `0x2B90` | tab, `LEFT=2091 TOP=264` |
+| `ability_listbox` | `0x30DC` | the column; rows are allocated at runtime, so the entry sets `dynamicColumn` |
+| `exit_button` | `0x369C` | Close, `LEFT=2112 TOP=1230` |
+
+**Untested.** The entry is built and installed but the play-test has not been
+done. What is verified is that it compiles, that the offsets come from the
+database, and that the badge on `exit_button` is generated for all 48
+resolutions -- not that pressing Up in game lands on a tab.
+
+## Prompt coverage
+
+`tools/audit_controller_prompt_coverage.py` joins the module's two tables by
+panel vtable: every screen it can navigate and that screen's row of action
+buttons, against every button that carries a badge. It reported **2 of 30** when
+first run and **22 of 31** after the 2026-09-06 expansion.
+
+The nine remaining are all **Default** buttons, and they are bare deliberately:
+no controller button performs restore-defaults, so a badge there would depict an
+action the pad cannot take. Rule 12 -- this is "left alone on purpose", not "never
+looked at".
+
+Badges are assigned in two tiers of confidence, and the source says which:
+
+- **B on back / cancel / close is provable.** B's `Delete` scancode is rewritten
+  to `Escape` for any menu panel, and the rewrite is suppressed only for the four
+  transient overlays in `IsK1DeleteEscapeSuppressedPanel` -- floaty text, bark
+  bubbles, the message box and the controller-loss box.
+- **A on a primary action is a convention.** A activates whatever control has
+  focus, so an A badge says "this is how you commit on this screen", not "A
+  always presses this button from anywhere". It is the same convention the
+  original ten badges already used.
+
 ## Verification and untested coverage
 
 Run:
@@ -320,6 +401,24 @@ showed no badges and could not skip movies, which led to the focused-border and
 movie-loop corrections above. Those two corrections still require the next
 named-copy play-test. Broader movement, combat, dialogue, inventory, map, rumble,
 disconnect/reconnect, and Proton/Steam Deck coverage also remains untested.
+
+### Testing with a virtual controller
+
+`testing/controller/` drives the game with a `vgamepad` virtual pad so the module
+sees a genuine XInput device. **One trap, hit twice in both directions on
+2026-09-06 and worth stating before anyone repeats it:** `ReadPad` takes the
+first XInput slot that answers and stays on it, so whichever pad holds the lower
+slot wins and the other is invisible to the module.
+
+- A forgotten virtual pad on slot 0 made the user's physical controller stop
+  working in game entirely. Nothing was wrong with the module.
+- Earlier the same day the physical pad held slot 0 and the virtual pad on slot 1
+  could not drive the game at all.
+
+Shut the pad server down when finished. `XInputGetBatteryInformation` tells the
+two apart for the wireless case -- a physical pad reports `NIMH` or `ALKALINE`, a
+ViGEm pad reports `WIRED` -- but a wired physical pad also reports `WIRED`, so it
+is not a general discriminator.
 
 ## Deliberately not changed
 

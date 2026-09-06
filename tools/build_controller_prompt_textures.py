@@ -130,6 +130,7 @@ PROMPT_TARGETS = (
     PromptTarget("optsoundadv.gui", "BTN_BACK", 3, "A", "kmrpa_optsndadv"),
     PromptTarget("upgradeitems.gui", "BTN_UPGRADEITEM", 3, "A", "kmrpa_upgitm"),
     PromptTarget("upgrade.gui", "BTN_ASSEMBLE", 24, "A", "kmrpa_upgasm"),
+    PromptTarget("abilities.gui", "BTN_EXIT", 14, "B", "kmrpb_abilexit"),
 )
 
 
@@ -399,6 +400,7 @@ PROMPT_STRREFS = {
     ("optsoundadv.gui", "BTN_BACK"): ((1580,),),
     ("upgradeitems.gui", "BTN_UPGRADEITEM"): ((42294,),),
     ("upgrade.gui", "BTN_ASSEMBLE"): ((42021,),),
+    ("abilities.gui", "BTN_EXIT"): ((1582,),),
 }
 
 # The English text of every STRREF above, as shipped in the retail dialog.tlk.
