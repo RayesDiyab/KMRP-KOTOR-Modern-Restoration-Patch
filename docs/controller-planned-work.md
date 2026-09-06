@@ -12,7 +12,7 @@ constraints rather than rediscovering them. The finished mechanisms belong in
 section here when that happens.
 
 Written 2026-09-06 against `kmrp-controller.module` SHA-256
-`B4705554D55BE791FF35C36F97DA745E731493EB7839FF85DBB30DA4BCF5BE22`, 130,560
+`D006428E382A76D4CFA0DD620C2BB873B38371A0C0954DE331C1032F66069E25`, 130,560
 bytes, built from `build/research/KPM-Xbox-Controls-K1/` at that date. Line
 numbers below refer to that tree.
 
@@ -168,7 +168,7 @@ Xbox glyph on a keyboard player's screen is worse than no hint.
 
 ---
 
-## 3b. Focus must survive activating a tab
+## 3b. Focus must survive activating a tab  — IMPLEMENTED 2026-09-06
 
 **Reported from play, 2026-09-06:** reaching a tab with the D-pad works, but
 pressing A to select it leaves the screen with no focused control at all, so the
@@ -275,5 +275,5 @@ required, but the notice must still list what is redistributed.
 | Abilities member offsets | `kotor1_0_3.db`, corroborated by `description_listbox` matching the shipping constant |
 | The fill field is an inline 16-byte ResRef at border-params `+0x40` | read from a live badge in memory |
 | Abilities tab navigation reaches the tabs | **verified in play 2026-09-06.** Up from the list reaches the tab row and A activates a tab |
-| Focus survives activating a tab | **no -- it does not.** Reported from play; fix specified in section 3b |
+| Focus survives activating a tab | keeper implemented and installed; **play-test still owed** |
 | The inventory key is `I` | user's report from play; not read from the keymap |
