@@ -160,6 +160,30 @@ how one button cycles three tabs.
 **Confirmed in play**: pressing X on the Abilities screen cycles Skills, Powers
 and Feats, with the engine's own focus handling. No KMRP change was needed.
 
+## What the X handlers actually do
+
+Confirmed in play on 2026-09-06, not inferred from the disassembly:
+
+| Panel | Event `0x29` (X) does | Corroboration |
+| --- | --- | --- |
+| Abilities | cycles Skills / Powers / Feats | the handler writes the `+0xBC0` tab index with 0, 1 and 2 |
+| Map | **returns the party to the Ebon Hawk** | the handler calls `0x00692BC0`; the image contains the script name `k_sup_gohawk` at `0x007546E0` |
+| Messages | switches to Quest Items | the handler branches on `[panel+0xA8] & 2` |
+
+**These are not variations on one idea, and that is the important finding.** The
+same event code cycles a tab on one screen and fast-travels the party across the
+galaxy on another. There is no uniform "X = secondary action" to bind.
+
+**So a global X binding would be actively dangerous.** The controller module
+already dispatches `0x29` to whatever menu panel is open, which means that on the
+Map screen a single press is a fast travel with no confirmation. Any future work
+that sends these events must decide **per panel** which are wanted, and treat
+Map's as something the player should have to mean.
+
+This also corrects a claim made while planning: trying the unreached `X` handlers
+was described as free, on the grounds that it only reveals what already-present
+code does. It is not free. One of the four suggested screens teleports the party.
+
 ## Other console leftovers found while looking
 
 | String | VA | Note |
@@ -183,13 +207,11 @@ established from it.
   `OPTIONS_SOUND_ADVANCED`, `PAZAAK_SETUP`. They use neither shape the tool
   recognises. Their rows are absent from the matrix, which means **unknown, not
   empty**.
-- **What most handlers do** is unread. An address in the table proves code runs,
-  not that it does something a player would want. Only the Abilities X handler
-  has been confirmed end to end, in play. First lines were read for the `X`
-  handlers on Map, Inventory, Store and Messages: each begins by calling
-  `0x0040A140` and then does panel-specific work — Inventory sets
-  `[panel+0x1DE4] |= 1`, Messages branches on `[panel+0xA8] & 2`, Store calls
-  `0x006C1B00`. What those achieve on screen has not been tested.
+- **Most handlers are still unread.** An address in the table proves code runs,
+  not that it does something a player would want. Three are now confirmed in play
+  and are tabulated above. `STORE` `0x29` calls `0x006C1B00` and `INVENTORY`
+  `0x29` sets `[panel+0x1DE4] |= 1`; neither has been tested, and given what Map's
+  turned out to be, neither should be tried casually on a save that matters.
 - **`0x2D`, `0x2E` and `0x3B`–`0x3F`** share handlers with known events on
   several panels, so they are aliases of something, but which console input each
   corresponds to is unknown.
