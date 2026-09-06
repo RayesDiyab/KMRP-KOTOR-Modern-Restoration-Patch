@@ -62,7 +62,7 @@ loaded under the collision-resistant name kmrp-controller-runtime.asi.
 kmrp-controller.module was compiled as 32-bit C++17 with the MSVC static runtime
 from the controller sources at the commit above. It imports USER32.dll and
 KERNEL32.dll. SHA-256:
-CBA8347EC0C8BA7EB08F3DA99E2D9A733DA76DCE5520CFDD5E0725E59026F62C
+D006428E382A76D4CFA0DD620C2BB873B38371A0C0954DE331C1032F66069E25
 
 KMRP applies the source-level changes recorded in
 KMRP-CONTROLLER-PROMPTS-PATCH.diff. They retain controller connection state,

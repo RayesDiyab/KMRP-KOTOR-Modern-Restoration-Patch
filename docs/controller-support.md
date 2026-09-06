@@ -17,7 +17,7 @@ in-memory detours.
 
 | Component | Exact source | Local output |
 | --- | --- | --- |
-| Controller module | `scopeking0117-alt/KPM-Xbox-Controls-K1`, commit `78e7eaa3b9554ec0e6732f749424dc916f3a1895`, plus KMRP prompt, cursor-default, and movie-input patch | `kmrp-controller.module`, 130,560 bytes, SHA-256 `CBA8347EC0C8BA7EB08F3DA99E2D9A733DA76DCE5520CFDD5E0725E59026F62C` |
+| Controller module | `scopeking0117-alt/KPM-Xbox-Controls-K1`, commit `78e7eaa3b9554ec0e6732f749424dc916f3a1895`, plus KMRP prompt, cursor-default, and movie-input patch | `kmrp-controller.module`, 130,560 bytes, SHA-256 `D006428E382A76D4CFA0DD620C2BB873B38371A0C0954DE331C1032F66069E25` |
 | Hook runtime | `LaneDibello/Kotor-Patch-Manager`, commit `7d53e52f55622a48ab97001c2680fd9fb59c8f98` | `kmrp-controller-runtime.asi`, 338,432 bytes, SHA-256 `F5CF2A21E4C28DA95CD8DAAF2704F871A6105616BFE250361929C61BCDB43B45` |
 
 Both outputs are 32-bit C++17 MSVC static-runtime builds. The controller module
