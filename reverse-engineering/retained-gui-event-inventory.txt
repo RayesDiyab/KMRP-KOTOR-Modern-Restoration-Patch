@@ -141,26 +141,37 @@ UPGRADE_ITEM_SELECT   dispatcher 0x006C2D30  accepts 0x28..0x3A  implements 4 ev
 CONTROLLER_LOSS_BOX   dispatcher 0x006250F0  [cmp/je chain]  implements 3 events
     0x00625141  <- 0x3A
     0x0062516F  <- 0x28, 0x2E
-INGAME_AUTOPAUSE   dispatcher 0x006E74C0  [cmp/je chain]  implements 1 events
+FLOATY_TEXT   dispatcher 0x00418750  [cmp/je chain]  implements 2 events
+    0x0041877A  <- 0x00
+    0x00418783  <- 0x01
+INGAME_AUTOPAUSE   dispatcher 0x006E74C0  [cmp/je chain]  implements 2 events
     0x006E74E0  <- 0x28
+    0x006E7518  <- 0x2D
 KEY_MAPPINGS   dispatcher 0x006EC510  [cmp/je chain]  implements 1 events
     0x006EC529  <- 0x28
-LEVEL_UP   dispatcher 0x006EE720  [cmp/je chain]  implements 1 events
+LEVEL_UP   dispatcher 0x006EE720  [cmp/je chain]  implements 2 events
     0x006EE740  <- 0x28
-MAIN_MENU   dispatcher 0x0067B380  [cmp/je chain]  implements 1 events
+    0x006EE762  <- 0x2D
+MAIN_MENU   dispatcher 0x0067B380  [cmp/je chain]  implements 2 events
     0x0067B3A8  <- 0x28
+    0x0067B435  <- 0x2D
 MESSAGE_BOX   dispatcher 0x006250F0  [cmp/je chain]  implements 3 events
     0x00625141  <- 0x3A
     0x0062516F  <- 0x28, 0x2E
-OPTIONS_GRAPHICS   dispatcher 0x006DEAE0  [cmp/je chain]  implements 3 events
+OPTIONS_GRAPHICS   dispatcher 0x006DEAE0  [cmp/je chain]  implements 5 events
     0x006DEB25  <- 0x6C
-    0x006DED0E  <- 0x44, 0x6D
-OPTIONS_GRAPHICS_ADVANCED   dispatcher 0x006E01C0  [cmp/je chain]  implements 1 events
+    0x006DECD4  <- 0x71
+    0x006DECE5  <- 0x01
+    0x006DED0E  <- 0x44, 0x72
+OPTIONS_GRAPHICS_ADVANCED   dispatcher 0x006E01C0  [cmp/je chain]  implements 3 events
     0x006E0203  <- 0x6C
-OPTIONS_RESOLUTION   dispatcher 0x006E0CF0  [cmp/je chain]  implements 3 events
+    0x006E0216  <- 0x71
+    0x006E03D5  <- 0x01
+OPTIONS_RESOLUTION   dispatcher 0x006E0CF0  [cmp/je chain]  implements 5 events
     0x006E0D35  <- 0x6C
+    0x006E0EE9  <- 0x01
     0x006E0F14  <- 0x6B
-    0x006E0F27  <- 0x44
+    0x006E0F27  <- 0x44, 0x72
 PARTY_SELECT   dispatcher 0x006BEDE0  [cmp/je chain]  implements 1 events
     0x006BEE01  <- 0x28
 PAZAAK_GAME   dispatcher 0x0067E8F0  [cmp/je chain]  implements 2 events
@@ -169,13 +180,12 @@ PAZAAK_GAME   dispatcher 0x0067E8F0  [cmp/je chain]  implements 2 events
 SAVELOAD   dispatcher 0x006C86D0  [cmp/je chain]  implements 2 events
     0x006C86F0  <- 0x28
     0x006C872F  <- 0x2E
-SOLO_MODE_QUERY   dispatcher 0x006C2400  [cmp/je chain]  implements 3 events
-    0x006C244C  <- 0x55
+SOLO_MODE_QUERY   dispatcher 0x006C2400  [cmp/je chain]  implements 4 events
+    0x006C244C  <- 0x55, 0x5B
     0x006C2488  <- 0x2E, 0x56
 UPGRADE_SELECTION   dispatcher 0x006C2B10  [cmp/je chain]  implements 1 events
     0x006C2B2B  <- 0x28
 
-panels decoded: 39   events implemented in total: 212
-NOT decoded (2):
+panels decoded: 40   events implemented in total: 224
+NOT decoded (1):
     BARK_BUBBLE                   0x00409E60
-    FLOATY_TEXT                   0x00418750

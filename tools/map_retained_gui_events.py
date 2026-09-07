@@ -135,25 +135,36 @@ def decode_chain(image: Image, handler: int) -> dict:
     "the panel ignores that event" and that is the one wrong answer this whole
     exercise must not give.
     """
+    # Operands print in decimal when they are small: `sub eax, 5`, not
+    # `sub eax, 0x5`. A hex-only pattern had already cost this project the
+    # Container panel once; it was costing the Main Menu's 0x2D here too, and a
+    # dropped handler reads as "the panel ignores that event".
+    operand = re.compile(r", (0x[0-9a-f]+|\d+)$")
+
+    def immediate(text):
+        match = operand.search(text)
+        if not match:
+            return None
+        return int(match.group(1), 16 if match.group(1).startswith("0x") else 10)
+
     md = capstone.Cs(capstone.CS_ARCH_X86, capstone.CS_MODE_32)
     found, pending, running = {}, None, None
     for instruction in md.disasm(image.code(handler, 768), handler):
         text = instruction.mnemonic + " " + instruction.op_str
         if instruction.mnemonic == "cmp":
-            match = re.search(r", (0x[0-9a-f]+)$", text)
-            pending = int(match.group(1), 16) if match else None
+            pending = immediate(text)
         elif instruction.mnemonic == "sub" and running is None:
             # Chains that open `sub eax, 0x28` with no preceding cmp -- Main Menu
             # and Level Up. Without seeding from this the first `je` was dropped
             # and the whole panel read as undecodable.
-            m0 = re.search(r", (0x[0-9a-f]+)$", instruction.mnemonic + " " + instruction.op_str)
-            if m0:
-                running = int(m0.group(1), 16)
+            seed = immediate(text)
+            if seed is not None:
+                running = seed
                 pending = running
         elif instruction.mnemonic == "sub":
-            match = re.search(r", (0x[0-9a-f]+)$", text)
-            if match and running is not None:
-                running += int(match.group(1), 16)
+            step = immediate(text)
+            if step is not None and running is not None:
+                running += step
                 pending = running
         elif instruction.mnemonic == "dec" and running is not None:
             running += 1
