@@ -85,13 +85,37 @@ class Pad:
         sock.sendall((command + "\n").encode())
         reply = sock.recv(64).decode().strip()
         sock.close()
+        # The server answers "err <reason>" for an unknown button and carries on.
+        # Three findings in this project were that error being discarded: a script
+        # sent "press RT" (the triggers are analog) or "DPAD_DOWN" (the name is
+        # "DOWN"), saw no screen change and concluded the game was broken. A bad
+        # command is a harness bug and must never look like a negative result.
+        if reply.startswith("err") and not command.startswith("state"):
+            raise RuntimeError(f"pad rejected {command!r}: {reply}")
         return reply
+
+    def tap(self, button, hold=0.35, settle=1.6):
+        """Press and release with our own timing.
+
+        Not the server's `tap`/`dpad` verbs: those release before they reply, so
+        anything sampling after the reply always reads the released state.
+        """
+        self.send("press " + button)
+        time.sleep(hold)
+        self.send("release " + button)
+        time.sleep(settle)
+
+    def trigger(self, side, hold=0.35, settle=1.6):
+        self.send("triggers 1 0" if side == "LT" else "triggers 0 1")
+        time.sleep(hold)
+        self.send("triggers 0 0")
+        time.sleep(settle)
 
     def stop(self):
         try:
             self.send("reset")
             self.send("quit")
-        except OSError:
+        except (OSError, RuntimeError):
             pass
         if self.proc:
             try:
@@ -477,6 +501,107 @@ def test_no_legacy_synthesis(game, pad, report):
                legacy == [], "DispatchMenuInputK1 is the only driver and is absent", "HARNESS")
 
 
+# ------------------------------------------------------------------- the menu
+
+def _screenshot(path):
+    subprocess.run(["powershell", "-NoProfile", "-Command",
+        "Add-Type -AssemblyName System.Drawing,System.Windows.Forms;"
+        "$b=[System.Windows.Forms.Screen]::PrimaryScreen.Bounds;"
+        "$bm=New-Object System.Drawing.Bitmap $b.Width,$b.Height;"
+        "$g=[System.Drawing.Graphics]::FromImage($bm);"
+        "$g.CopyFromScreen($b.Location,[System.Drawing.Point]::Empty,$b.Size);"
+        f"$bm.Save('{path}',[System.Drawing.Imaging.ImageFormat]::Png);"
+        "$g.Dispose();$bm.Dispose()"], capture_output=True)
+
+
+def _changed(before, after):
+    """Percentage of pixels that moved by more than a noise threshold."""
+    from PIL import Image, ImageChops
+    a = Image.open(before).convert("L")
+    b = Image.open(after).convert("L")
+    histogram = ImageChops.difference(a, b).histogram()
+    return 100.0 * sum(histogram[24:]) / (a.size[0] * a.size[1])
+
+
+def test_menu(game, pad, report):
+    """Start opens the in-game menu, B closes it, LT/RT cycle screens.
+
+    Start reaches event 0x0B, which the *game* registers on device 2 slot 0x7C.
+    It costs no control slot. It opens the menu but does not close it: the
+    handler's hide branch needs the module state to still read 3, which it does
+    not once the GUI is up. B is the close, which is also the console idiom.
+    """
+    import tempfile
+    shots = tempfile.mkdtemp(prefix="k1menu")
+    shot = lambda n: os.path.join(shots, n + ".png")
+
+    # A screen change this large can only be the menu appearing or leaving.
+    OPENED = 40.0
+
+    pad.send("reset")
+    pad.tap("B", settle=2.0)                       # make sure we start in gameplay
+    _screenshot(shot("gameplay"))
+
+    pad.tap("START", settle=2.5)
+    _screenshot(shot("menu"))
+    opened = _changed(shot("gameplay"), shot("menu"))
+    report.add("menu", "Start opens the in-game menu", opened > OPENED,
+               f"{opened:.1f}% of the screen changed", "NATIVE")
+
+    if opened <= OPENED:
+        report.add("menu", "remaining menu tests", None, "the menu never opened")
+        pad.send("reset")
+        return
+
+    # Screen cycling. The triggers are analog: "press RT" is not a command.
+    before = shot("menu")
+    for index, side in enumerate(("RT", "RT", "LT")):
+        pad.trigger(side)
+        after = shot(f"cycle{index}")
+        _screenshot(after)
+        moved = _changed(before, after)
+        report.add("menu", f"{side} cycles to another screen", moved > 3.0,
+                   f"{moved:.1f}% changed", "NATIVE")
+        before = after
+
+    # The D-pad. Delivery is the objective half; whether the highlight lands on
+    # the right row is a visual judgement and belongs to a person.
+    for name, event in DPAD:
+        pad.send("press " + name)
+        peak = 0
+        deadline = time.time() + 0.7
+        while time.time() < deadline:
+            value = game.value(event)
+            if value:
+                peak = value
+        pad.send("release " + name)
+        time.sleep(1.0)
+        report.add("menu", f"D-pad {name} reaches event {event:#04x}", peak == 1,
+                   f"description +0x04 peaked at {peak}", "NATIVE")
+
+    _screenshot(shot("beforeclose"))
+    pad.tap("B", settle=2.5)
+    _screenshot(shot("closed"))
+    closed = _changed(shot("beforeclose"), shot("closed"))
+    report.add("menu", "B backs out of the menu to gameplay", closed > OPENED,
+               f"{closed:.1f}% changed", "NATIVE")
+
+    # Documented, deliberate asymmetry -- assert it so a future change is noticed.
+    pad.tap("START", settle=2.5)
+    _screenshot(shot("reopen"))
+    reopened = _changed(shot("closed"), shot("reopen"))
+    report.add("menu", "Start reopens after a close", reopened > OPENED,
+               f"{reopened:.1f}% changed", "NATIVE")
+    pad.tap("START", settle=2.5)
+    _screenshot(shot("start2"))
+    again = _changed(shot("reopen"), shot("start2"))
+    report.add("menu", "Start does not close (known, B is the close)", again < 3.0,
+               f"{again:.1f}% changed", "NATIVE")
+
+    pad.tap("B", settle=2.0)
+    pad.send("reset")
+
+
 def main():
     parser = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     parser.add_argument("--no-launch", action="store_true")
@@ -508,8 +633,11 @@ def main():
         test_centre(game, pad, report)
         test_camera(game, pad, report)
         test_disconnect(game, pad, report)
+        # Last: it drives the player around the menus and can leave the character
+        # with a movement order, which the disconnect test reads as stale input.
+        test_menu(game, pad, report)
     else:
-        for name in ("cardinals", "diagonals", "centre/release", "camera", "disconnect"):
+        for name in ("cardinals", "diagonals", "centre/release", "camera", "menu", "disconnect"):
             report.add("skipped", name, None, "needs gameplay; save did not load")
     test_no_legacy_synthesis(game, pad, report)
 
