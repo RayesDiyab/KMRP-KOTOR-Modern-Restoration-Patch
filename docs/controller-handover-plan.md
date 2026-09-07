@@ -24,7 +24,8 @@ silences all of it, which is what `select_controller_path.py native` does.
 | LT → `SC_Q` | screen cycling | event `0x35`, `PrevSWInGameGui` | yes |
 | RT → `SC_E` | screen cycling | event `0x36`, `NextSWInGameGui` | yes |
 | Back → `SC_V` | — | event `0x2B`, Black | yes |
-| D-pad → arrow keys | menu navigation | events `0x31`/`0x32`/`0x2F`/`0x30` | yes |
+| D-pad → arrow keys | menu navigation | events `0x31`/`0x32`/`0x2F`/`0x30` | yes, in the in-game menus; **not** on the main menu, which implements no scroll events |
+| Start → `SC_ESCAPE` | open the menu | event `0x0B`, the game's own description | yes — opens; **B** is the close |
 | `ApplyRightStick` → `SC_A`/`SC_D` | camera turn | mouse-delta injection at `+0x3A0` | yes, once the camera speed is tuned |
 
 **The left-stick synthesis is actively harmful alongside the native path**, not
@@ -42,7 +43,7 @@ what produced movement in every direction at inconsistent speeds. The existing
 | Action bar capture and update hooks | UI integration, not input transport |
 | `CancelActionBarKeyboardFocusOnMouseMoveK1` | focus behaviour |
 | `IsControllerInputActiveK1`, cursor hiding, device switching | the prompt system and cursor policy both depend on it |
-| Start, L3, R3 bindings | no native event exists and no control slot is free |
+| L3, R3 bindings | no retained event corresponds to a stick click; slot `0x7E` is free but there is no action to give it |
 
 ## Awaiting human QA before disabling anything
 

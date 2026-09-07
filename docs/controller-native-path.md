@@ -41,18 +41,54 @@ value out of the running process.
 | D-pad down | `0x81` | `0x388` | `0x32` | scroll down | yes |
 | D-pad left | `0x80` | `0x38C` | `0x2F` | D-pad left | yes |
 | D-pad right | `0x82` | `0x390` | `0x30` | D-pad right | yes |
+| Start | `0x7C` | `BUTTON(8)` | `0x0B` | opens the in-game menu — **the game's own description** | yes |
 | Right stick X | — | — | — | camera, via the mouse-delta field | registered, feel untested |
-| Start, L3, R3 | — | — | — | **unbound** — see below | n/a |
+| L3, R3 | — | — | — | **unbound** — see below | n/a |
 
 All bindings are registered in both input class 0 (gameplay) and class 2 (GUI).
 
-### Why Start, L3 and R3 are unbound
+### Start costs no slot at all
 
-The slot budget is fixed. Joystick button slots run `0x74`..`0x7E`, which is
-eleven, and `0x7C` belongs to the game's own event `0x0B`. Ten remain, and twelve
-pad controls do not fit. No retained console event was found for Start, L3 or
-R3, so spending a slot on a guess would cost one that has a real action. They
-stay on the legacy path.
+Slot `0x7C` was written off as unusable because it "belongs to the game's own
+event `0x0B`". That was the wrong conclusion drawn from a correct observation.
+`0x0B` **is** the menu-open action, and the game already registers a complete
+device-2 description for it — type 1, device 2, slot `0x7C`, control code `0x38`
+= `DIJOFS_BUTTON(8)`. Nothing had to be created. Emitting that control code on
+the XInput Start mask reaches the engine's own handler directly, so Start is
+category A, not a bridge, and consumes no slot from the budget.
+
+Confirmed live: the description at index `0x0B` is structurally identical to
+A's, and in gameplay its `+0x04` peaks at `1` while Start is held, exactly as A's
+does.
+
+Handler `0x006213BC` serves events `0x0B` and `0xDF`:
+
+```asm
+00621446  mov ecx, [esi+0x40]
+00621449  cmp dword ptr [ecx+0x34], 3    ; is the module in the plain-gameplay state?
+0062144D  jne 0x621472                   ; no  -> ShowSWInGameGui(7)
+0062144F  push ebp
+00621450  call 0x62cba0                  ; yes -> HideSWInGameGui(0)
+```
+
+**Start opens the menu but does not close it.** Measured repeatedly: from
+gameplay Start produces an 81.3% screen change; with the menu already open it
+produces 0.0%, at the menu root and on a sub-screen alike. The hide branch needs
+`[module+0x40]+0x34 == 3`, which no longer holds once the GUI is up, so the
+handler re-takes the show branch and re-shows what is already shown.
+
+**B is the close**, from the menu root and from sub-screens both — 81.3% back to
+gameplay in either case. That is also the Xbox idiom, so the result is the
+console behaviour rather than a compromise. `0x28` is implemented by 35 panels,
+`MAIN_MENU` among them, which is why it backs out from everywhere.
+
+### Why L3 and R3 stay unbound
+
+Slot `0x7E` is genuinely free — a live dump of every device-2 description shows
+`0x74`..`0x7D` and `0x7F`..`0x82` taken and `0x7E` spare. The blocker is not the
+slot budget but the absence of an action: no retained console event corresponds
+to a stick click. Binding one would mean inventing behaviour, so they stay
+unbound, as intended.
 
 ### Why `0x2D` and `0x2E` are not used
 
@@ -60,6 +96,75 @@ They look attractive — implemented by 20 and 30 panels — but they resolve to
 same handlers as A and B wherever they appear. On `CSWGuiInGameCharacter` all of
 `0x28`, `0x2D` and `0x2E` reach `0x006B2459`. They are confirm/cancel aliases,
 not distinct actions.
+
+## Three ways an input can reach the engine
+
+Every binding in this project is one of three kinds. Keeping them distinct
+matters because they have different costs, different failure modes and different
+claims to being a *restoration*.
+
+### A — the restored native path
+
+An XInput control is emitted as a DirectInput record on a control slot that an
+input-event description maps to a retained console event. The engine's own
+handler then runs, unmodified. Nothing is synthesised and nothing is called from
+outside.
+
+This is the whole button map, both sticks' movement axes, the D-pad, the
+triggers, and Start. It is the default and everything else should be justified
+against it.
+
+Two sub-kinds are worth separating, because one of them was nearly missed:
+
+* **descriptions we register** — the slot was unused, so the module calls
+  `CreateNewEvent` / `AddEvent` to bind it to a retained event. A, X, Y, LB, RB,
+  Back, LT, RT and the D-pad.
+* **descriptions the game already has** — the engine registers it itself and the
+  module only has to emit the control code. Start (`0x0B`), and the movement
+  axes' own `0x03`/`0x04`/`0x3B`/`0x3C` siblings. These cost no slot and need no
+  registration, so they are strictly better when they exist. **Look for one of
+  these before spending a slot** — Start was written off as impossible for
+  exactly the want of that check.
+
+### B — a direct engine bridge
+
+No retained event exists, so the module calls an engine function itself. This
+buys behaviour the event system cannot express, at the cost of being a genuine
+modification: the call site is ours, the arguments are ours, and a wrong guess
+about a calling convention is a crash rather than a dead button.
+
+**Nothing currently ships as B.** It was the fallback planned for Start and
+turned out to be unnecessary. The one place it may still be warranted is
+main-menu navigation (below).
+
+### C — legacy synthetic input
+
+XInput is read and keystrokes are synthesised, which the engine cannot tell from
+a keyboard. This is Saul's original approach and it works, but it is invisible to
+the input-description layer, fights the native path when both are live, and
+cannot express an analog value.
+
+Everything in C that has an A equivalent is listed in
+`controller-handover-plan.md`. What remains in C is there because it is not input
+transport at all — movie skipping, focus fixes, cursor policy and device
+switching.
+
+### Where the main menu sits
+
+`MAIN_MENU`'s dispatcher (`0x0067B380`) implements exactly **one** event, `0x28`.
+There are no scroll events to receive, so the D-pad has nothing to reach there
+and A is not available — this is the one place the retained path is genuinely
+absent rather than merely unbound.
+
+The groundwork for a B bridge is traced: `CSWGuiPanel::SetActiveControl` is
+`0x0040A630`, `__thiscall(panel, control)`, and a panel's focused control lives
+at `panel+0x1C`. It has no direct callers because it is reached through the
+vtable, so a bridge would call it absolutely. What is *not* yet settled is where
+the candidate controls are enumerated and in what order they should cycle, which
+is what a next pass needs.
+
+This gap does not affect the in-game menus. Those are reached with Start and
+their D-pad, trigger and face-button navigation is verified working.
 
 ## Analog behaviour
 
@@ -120,3 +225,22 @@ mouse.
 
 **Run the suite in gameplay, not at the main menu.** It presses A and B, which at
 the menu will start a new game.
+
+### The pad server's vocabulary is not the button names
+
+Three separate "failures" in this work were the test harness, not the game:
+
+* `press RT` / `press LT` are **not valid**. The triggers are analog and are
+  driven with `triggers <l> <r>`. Sending `press RT` returns
+  `err unknown button` and the ad-hoc script that ignored the reply recorded a
+  0.0% screen change, which read as "screen cycling is broken". It is not:
+  driven properly, LT and RT cycle screens by 14–27% per press.
+* The D-pad is `UP` / `DOWN` / `LEFT` / `RIGHT`, not `DPAD_UP` and friends. The
+  same silent-error path produced "the D-pad does not move menu selections".
+  Driven properly, all four events are delivered and the screen responds.
+* The `dpad` and `tap` verbs press **and release** before replying, so a sampler
+  that reads after the reply always reads the released state. Use
+  `press` / `release`.
+
+**Check the reply.** Every one of these returned `err` and every one was
+discarded. Any harness added here should assert on it.
