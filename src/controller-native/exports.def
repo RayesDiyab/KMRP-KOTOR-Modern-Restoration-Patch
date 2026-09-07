@@ -1,0 +1,20 @@
+LIBRARY kmrp-controller
+EXPORTS
+    CaptureActionBarInputK1
+    CaptureActionBarInputK2
+    CancelMovieOnSpaceK1
+    PollMovieControllerK1
+    CancelActionBarKeyboardFocusOnMouseMoveK1
+    CancelActionBarKeyboardFocusOnMouseMoveK2
+    ClearActionBarControlsK1
+    ClearActionBarControlsK2
+    DispatchContextCancelK2
+    DispatchMenuInputK1
+    MapMovieDeleteToEscapeK2
+    UpdateActionBarControlsK1
+    UpdateActionBarControlsK2
+    OnSetActiveControlK1
+    NativeJoystickInitK1
+    NativeJoystickBufferK1
+    NativeJoystickMovementK1
+    NativeJoystickSkipNormalizeK1

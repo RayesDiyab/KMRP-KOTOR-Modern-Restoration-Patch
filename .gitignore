@@ -139,3 +139,10 @@ third_party/Included/K1-Area-Map-Fixes-*/More info/source/data/*
 # a save and a camera position, not on anything in this repository. Keep them
 # locally to re-caption or re-crop a composite.
 assets/screenshots/3440x1440/
+
+# The controller module is built from tracked source in src/controller-native/.
+# Its build output is not tracked.
+src/controller-native/*.module
+src/controller-native/*.obj
+src/controller-native/*.exp
+src/controller-native/*.lib

@@ -42,8 +42,12 @@ BASELINE_MODULE = GAME / "kmrp-controller.module.pre-native-joystick"
 
 # The build carrying the native joystick code. It also contains every one of the
 # older path's exports, so it serves all three modes.
+#
+# Built by src/controller-native/build.cmd from tracked source only. It used to
+# come out of the clone of Saul0097's repository under build/research/, which
+# was the sole copy of both KMRP's own module and its changes to his.
 NATIVE_MODULE = Path(__file__).resolve().parents[2] / (
-    "build/research/KPM-Xbox-Controls-K1/kmrp-controller-visible-cursor.module")
+    "src/controller-native/kmrp-controller.module")
 
 NATIVE_HOOKS = """
 [[patches.hooks]]
