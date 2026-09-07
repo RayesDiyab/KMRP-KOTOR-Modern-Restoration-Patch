@@ -156,15 +156,33 @@ There are no scroll events to receive, so the D-pad has nothing to reach there
 and A is not available — this is the one place the retained path is genuinely
 absent rather than merely unbound.
 
-The groundwork for a B bridge is traced: `CSWGuiPanel::SetActiveControl` is
-`0x0040A630`, `__thiscall(panel, control)`, and a panel's focused control lives
-at `panel+0x1C`. It has no direct callers because it is reached through the
-vtable, so a bridge would call it absolutely. What is *not* yet settled is where
-the candidate controls are enumerated and in what order they should cycle, which
-is what a next pass needs.
+Its dispatcher was for a while reported as implementing only `0x28`. It is
+`0x28`, `0x2D` and `0x2E` — the decimal-immediate bug above — but all three are
+confirm/cancel aliases, so the conclusion survives the correction: **there is no
+scroll event to receive.**
 
-This gap does not affect the in-game menus. Those are reached with Start and
-their D-pad, trigger and face-button navigation is verified working.
+Focus does not rescue it either. The base panel handler forwards to the focused
+control, and the main menu's controls are buttons: `CSWGuiButton`'s dispatcher
+(`0x0041AD40`) implements **exactly one event, `0x27`**. A D-pad event delivered
+to a focused main-menu button reaches a control that implements nothing for it.
+`CSWGuiNavigable`, `CSWGuiListBox` and `CSWGuiSlider` do implement the scroll
+codes, which is why the in-game screens navigate and this one does not.
+
+**So a bridge here is not a missing call to wire up — it is menu navigation to
+write.** It would have to enumerate the panel's buttons, impose an order on them,
+hold an index across events, call `CSWGuiPanel::SetActiveControl`
+(`0x0040A630`, `__thiscall(panel, control)`, focus stored at `panel+0x1C`, reached
+only through the vtable so a bridge would call it absolutely), and leave the
+highlight looking right. The order and the feel are judgement calls, not
+measurements, which puts the design decision with a person rather than with this
+pass.
+
+That is the recommendation: **do not build it blind.** The main menu is fully
+usable with the mouse, B already backs out of it, and A activates a focused
+button if one is focused.
+
+None of this affects the in-game menus. Those are reached with Start and their
+D-pad, trigger and face-button navigation is verified working end to end.
 
 ## Analog behaviour
 
