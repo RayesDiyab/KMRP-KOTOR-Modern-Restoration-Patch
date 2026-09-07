@@ -216,7 +216,7 @@ def test_axes(game, results):
         rate = axis_rate(game, EVENT_JOY_Y, 0, deflection)
         ratio = rate / full if rate else 0.0
         # Expected is the deflection after the module's radial deadzone and
-        # rescale: (d - 0.08) / (1 - 0.08).
+        # rescale: (d - DEADZONE) / (1 - DEADZONE).
         ok = abs(ratio - expected) < 0.12
         results.check(f"{label} deflection", ok,
                       f"ratio={ratio:.3f} expected~{expected:.3f}")

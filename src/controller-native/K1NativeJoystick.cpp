@@ -68,6 +68,7 @@ constexpr int K1_DEVICE_JOYSTICK = 2;
 // Input classes, matching keymap.2da's IC* columns.
 constexpr int K1_CLASS_PC     = 0;   // gameplay
 constexpr int K1_CLASS_PCGUI  = 2;   // menus
+constexpr int K1_CLASS_DIALOG = 3;   // ICDialog -- conversations
 
 // Description types. Type 0 is the single-control analog path: PollInput
 // returns the stored raw value as a float, unscaled. Type 3 would apply the
@@ -284,6 +285,49 @@ constexpr std::uintptr_t K1_PLAYER_FLOURISH     = 0x005EDE90;  // CClientExoApp:
 constexpr std::uintptr_t K1_GET_PLAYER_CREATURE = 0x005ED540;  // CClientExoApp::GetPlayerCreature
 constexpr std::uintptr_t K1_GET_IN_FREE_LOOK    = 0x005EE230;  // CClientExoApp::GetInFreeLook
 
+// The camera turn. Traced after the physical right stick produced no rotation.
+//
+// CExoInputInternal+0x3A0 -- the mouse X delta the module used to write -- is
+// fetched by UpdateCamera (0x005F5E10) into a stack slot and never read again.
+// GetMouseDelta (0x005DF610, single caller) writes +0x3A0 to its first argument
+// and +0x3A4 to its second, and UpdateCamera reloads only the second, for the
+// mode-gated tilt at 0x0063FCC0. Writing +0x3A0 could never rotate anything.
+//
+// Horizontal rotation is CSWCModule::RotateCamera, called from UpdateCamera at
+// 0x005F601F with the negated event 0x11C axis value and the frame delta the
+// caller was given (the global at 0x0078E574, pushed at 0x006039A7). Its
+// receiver is [CClientExoAppInternal+0x18], which 0x006039CA confirms by
+// calling RotateCamera(0, 0) through the same field when input is suppressed.
+//
+// Event 0x11C cannot carry the stick instead: it is a live type-4 two-button
+// axis on the keyboard device (slots 0x36 / 0x33), and PollInput's type-4 path
+// at 0x005E242F recomputes it from those two control states on every poll, so
+// there is no value to write. Repointing its slots would take the keyboard's
+// own camera turn away. Hence a direct call to the engine's own function.
+constexpr std::uintptr_t K1_ROTATE_CAMERA       = 0x00640090;  // CSWCModule::RotateCamera
+constexpr std::uintptr_t K1_CAMERA_FRAME_DELTA  = 0x0078E574;  // what UpdateCamera is passed
+constexpr std::size_t    K1_INTERNAL_CAMERA_OWNER = 0x18;      // CClientExoAppInternal+0x18
+
+// World interaction: "do the default action on whatever is targeted".
+//
+// The retained path exists and is event 0xEF, whose handler at 0x00621FC1
+// checks the target at [internal+0x2b4] against OBJECT_INVALID, calls
+// CClientExoAppInternal::GetDefaultActions, and executes the first action --
+// which is what talks to an NPC, opens a container or uses a door.
+//
+// It cannot be reached as a native joystick event: descriptions are one per
+// event id and 0xEF already carries the keyboard's, on slot 0x44. The router
+// lists no low-id console partner for it, unlike 0x0B/0xDF or 0x01/0xD0. So
+// this is a bridge -- but a bridge to the engine's *own event router*, not a
+// reimplementation: calling HandleInputEvent(0xEF, 1) runs the retained handler
+// with every one of its guards intact.
+constexpr std::uintptr_t K1_HANDLE_INPUT_EVENT = 0x00621210;  // CClientExoAppInternal
+constexpr int K1_EVENT_DEFAULT_ACTION = 0xEF;
+constexpr std::size_t K1_INTERNAL_TARGET = 0x2B4;
+constexpr std::uint32_t K1_OBJECT_INVALID = 0x7F000000;
+
+using HandleInputEventFn = int(__thiscall*)(void*, int, int);
+
 using ClientExoAppVoidFn = void(__thiscall*)(void*);
 using ClientExoAppPtrFn  = void*(__thiscall*)(void*);
 using ClientExoAppIntFn  = int(__thiscall*)(void*);
@@ -294,6 +338,7 @@ using PollInputFn      = float(__thiscall*)(void*, int, int);
 using OperatorNewFn    = void*(__cdecl*)(std::size_t);
 using OperatorDeleteFn = void(__cdecl*)(void*);
 using NormalizeFn      = void(__thiscall*)(void*);
+using RotateCameraFn   = void(__thiscall*)(void*, float, float);
 
 
 template <typename T> T EngineFn(std::uintptr_t address)
@@ -357,21 +402,36 @@ constexpr float K1_AXIS_FULL_SCALE = 32767.0f;
 // 5-8%, radial and rescaled, because a healthy modern thumbstick rests well
 // below that.
 //
-// The lower bound comes from measurement rather than taste: the test
-// controller's resting drift was (-1184, -1058), a magnitude of 4.8% of full
-// scale, so 5% would sit on top of the noise. 8% clears it with room while
-// discarding a third of the travel the engine's own value threw away.
-//
 // A per-axis deadzone would make the stick feel like it snaps to the cardinals
-// and could not express a half-deflected diagonal at all.
+// and could not express a half-deflected diagonal at all, so this is radial.
+//
+// The value is a **feel decision, not a measurement**, and the measurement is
+// worth keeping straight: the physical controller's resting magnitude was
+// measured at no more than 1.46% of full scale over 381 samples, so any value
+// above about 3% already silences drift completely. 8% did that. 25% is chosen
+// deliberately larger, to put the whole low range under the player's thumb
+// rather than to fix drift -- it matches the quarter-travel the engine's own
+// GetMinUseable threw away, and leaves 75% of the travel for the proportional
+// range.
+//
+// It only became a sensible choice once the analog magnitude actually reached
+// the character. While Vector::Normalize was discarding it, every deflection
+// past the deadzone ran at full speed, so a larger deadzone would merely have
+// moved where the character snapped from a standstill to a sprint.
+//
+// Tried on a physical controller in this order: 25%, then 15%, then 8%. All
+// three sit far above the measured 1.46% resting drift, so the choice is
+// comfort, not a drift threshold -- the smaller the value, the more of the
+// stick's travel is usable and the finer the slow-walk control.
 constexpr float K1_STICK_DEADZONE = 0.08f;
 
-// The right stick drives the camera through the mouse-delta field, so its value
-// has to be in the units a mouse produces: pixels of movement in one frame,
-// before the game's own sensitivity multiplier. Full deflection is treated as a
-// brisk but not violent sweep. Unmeasured against the mouse -- this is the first
-// number to change if the camera feels too fast or too slow.
-constexpr float K1_CAMERA_SPEED = 14.0f;
+// The right stick drives RotateCamera directly, so its value is in the units of
+// the engine's own turn axis, where a held keyboard turn key is exactly 1.0.
+// Full deflection therefore matches a full keyboard turn. This is not a tuned
+// number -- it is the neutral one, chosen so the stick and the keyboard agree.
+// The previous value of 14.0 was in mouse pixels, for a field the camera does
+// not read; it is not comparable and was never carried over.
+constexpr float K1_CAMERA_SPEED = 1.0f;
 constexpr float K1_CAMERA_DEADZONE = 0.12f;   // a touch higher; camera drift is more visible
 
 struct StickState {
@@ -388,11 +448,21 @@ struct StickState {
     unsigned long lastNavTick = 0;
     unsigned long lastGuiTick = 0;
     int navFromY = -1, navToY = -1, navDir = 0;
+    int dialogBound = 0;   // bitmask of ICDialog registrations that took
+    unsigned long interactRequestedTick = 0;
+    unsigned long interactsPerformed = 0;
+    unsigned long interactsDeclined = 0;
     std::uint8_t dpadEmitted = 0;   // which direction presses actually went out
     unsigned long navRepeatDeadline = 0;       // when a held direction may repeat
     int navHeldX = 0, navHeldY = 0;            // the direction currently held
     int navPendingX = 0, navPendingY = 0;      // requested, not yet performed
     int stickNavX = 0, stickNavY = 0;          // left stick's latched direction
+    unsigned long cameraFeedCalls = 0;      // times the bridge ran
+    unsigned long cameraWrites = 0;         // times it actually wrote
+    unsigned long cameraBelowDeadzone = 0;  // times it bailed on the deadzone
+    float         cameraApplied = 0.0f;     // last turn amount handed to the engine
+    unsigned long cameraWrongClass = 0;     // times it bailed on the input class
+    unsigned long cameraNoOwner = 0;        // times there was no live module
     std::int32_t  rightX = 0;
     std::int32_t  rightY = 0;
     std::uint8_t  lastTriggers = 0;
@@ -414,6 +484,10 @@ struct StickState {
     unsigned long recordsEmitted = 0;
     unsigned long movementCalls = 0;
     unsigned long overrideFrames = 0;
+    unsigned long deviceCountRestored = 0;  // times the count had dropped
+    float         rawMagnitude = 0.0f;      // straight from XInput, 0..1
+    float         analogMagnitude = 0.0f;   // post-deadzone, 0 when not driving
+    unsigned long lastBufferTick = 0;
     std::int32_t  lastRawX = 0;
     std::int32_t  lastRawY = 0;
     float         lastPollX = 0.0f;
@@ -538,6 +612,51 @@ void EnsureNativeJoystickK1(void* exoInputInternal)
         ++g_stick.buttonsBound;
     }
 
+    // ICDialog, input class 3.
+    //
+    // Conversations run in their own input class, and a description is only
+    // polled in the classes it was added to. Registering the buttons in the
+    // gameplay and GUI classes alone therefore left the whole pad inert in
+    // dialogue: measured, every button undelivered, the reply highlight frozen
+    // on the first line, while the engine's own handlers sat there working.
+    //
+    // Only the events with a **proven consumer** are added, read out of the two
+    // dialogue dispatchers rather than assumed:
+    //
+    //   CSWGuiDialog::HandleInputEvent          0x006A7230
+    //     0x27 / 0x2D -> 0x006A7266  skip the line while one plays, else choose
+    //                                the highlighted reply
+    //     0x31 / 0x3D -> 0x006A72B9  previous reply: [panel+0x68] decremented,
+    //                                floored at 0
+    //     0x32        -> 0x006A72DB  next reply: incremented, capped at
+    //                                [panel+0x6C] - 1
+    //     everything else falls to the default and does nothing.
+    //
+    //   CSWGuiDialogComputer::HandleInputEvent  0x006A81E0
+    //     0x39 -> re-dispatches 0x31 to the terminal's text control
+    //     0x3A -> re-dispatches 0x32
+    //     default -> falls through to CSWGuiDialog::HandleInputEvent
+    //
+    // Note the panel owns the selection index itself; the focused list box never
+    // receives these, because the default branch only forwards events 0 and 1.
+    // So B, X, Y, Back, Left, Right, the triggers and Start are deliberately NOT
+    // registered here -- they have no handler in dialogue and adding them would
+    // advertise buttons that do nothing.
+    {
+        static const int dialogEvents[] = {
+            K1_EVENT_A,          // 0x27  select / skip
+            0x31,                // D-pad up    -- previous reply
+            0x32,                // D-pad down  -- next reply
+            K1_EVENT_DESC_UP,    // 0x39 LB -- computer terminal scroll up
+            K1_EVENT_DESC_DOWN,  // 0x3A RB -- computer terminal scroll down
+        };
+        for (int i = 0; i < static_cast<int>(sizeof(dialogEvents) / sizeof(dialogEvents[0])); ++i) {
+            if (addEvent(exoInputInternal, dialogEvents[i], K1_CLASS_DIALOG) != 0) {
+                g_stick.dialogBound |= (1 << i);
+            }
+        }
+    }
+
     // Free look, on the one free control slot. Both events share slot 0x7E and
     // that is deliberate: they are registered in different input classes, so
     // whichever one is not applicable right now is not even polled.
@@ -580,6 +699,11 @@ void EnsureNativeJoystickK1(void* exoInputInternal)
 // Defined further down with the focus-navigation layer; declared here because
 // the record emitter feeds them.
 bool KmrpOwnsDirectionsK1();
+template <typename T> T* FieldAt(void* base, std::size_t offset);
+bool LooksLikePointerK1(const void* p);
+void* ClientInternalK1();
+int InputClassK1();
+void EnsureDeviceCountK1();
 void UpdateStickNavigationK1(float x, float y);
 void RequestNavigationK1(int dx, int dy, bool edge);
 // ------------------------------------------------------------- record filling
@@ -682,6 +806,9 @@ void FillNativeJoystickBufferK1(int deviceIndex, void* outBuffer)
     const float nx = static_cast<float>(x) / K1_AXIS_FULL_SCALE;
     const float ny = static_cast<float>(y) / K1_AXIS_FULL_SCALE;
     float magnitude = std::sqrt(nx * nx + ny * ny);
+    g_stick.rawMagnitude = magnitude;
+    g_stick.analogMagnitude = 0.0f;
+    g_stick.lastBufferTick = GetTickCount();
     if (magnitude > K1_STICK_DEADZONE) {
         if (magnitude > 1.0f) {
             magnitude = 1.0f;               // the corners of a square gate
@@ -695,6 +822,14 @@ void FillNativeJoystickBufferK1(int deviceIndex, void* outBuffer)
         }
         if (ey != 0) {
             emit(DIJOFS_Y_OFFSET, ey);
+        }
+        // How far the stick is actually driving, after the deadzone. This is
+        // what decides whether the engine's Normalize is skipped: a centred
+        // stick, or one inside the deadzone, must leave vanilla alone. On a
+        // disconnect the XInput read fails, x and y stay zero, and this stays
+        // zero with it.
+        if (ex != 0 || ey != 0) {
+            g_stick.analogMagnitude = scaled;
         }
     }
     // Buttons stay edge-triggered, unlike the axes. The engine's own button
@@ -804,6 +939,18 @@ void FillNativeJoystickBufferK1(int deviceIndex, void* outBuffer)
         }
     }
 
+    // A also asks for the world-interaction bridge. The native 0x27 above is
+    // still emitted and still reaches whatever has focus; in gameplay nothing
+    // does, which is why A did nothing in the world before this. Only the
+    // request is made here -- the call happens on the gameplay frame.
+    {
+        const bool now = (buttons & 0x1000) != 0;      // XINPUT_GAMEPAD_A
+        const bool was = (g_stick.lastButtons & 0x1000) != 0;
+        if (now && !was) {
+            g_stick.interactRequestedTick = GetTickCount();
+        }
+    }
+
     // The stick clicks. Free look emits its retained event like any other
     // button; the flourish is a bridge and is only *requested* here, never
     // called from inside the input hook -- see PerformPendingStickActionsK1.
@@ -900,26 +1047,65 @@ extern "C" void __cdecl NativeJoystickDumpK1();
 // Nothing here moves the cursor: the cursor is positioned elsewhere, and these
 // two fields are only ever read by GetMouseDelta, whose single caller is
 // UpdateCamera.
-void FeedNativeCameraK1(void* exoInputInternal)
+void FeedNativeCameraK1(void* clientInternal)
 {
-    if (!exoInputInternal) {
+    ++g_stick.cameraFeedCalls;
+    if (!LooksLikePointerK1(clientInternal)) {
+        clientInternal = ClientInternalK1();
+        if (!clientInternal) {
+            ++g_stick.cameraNoOwner;
+            return;
+        }
+    }
+
+    // Only where the engine turns the camera itself. UpdateCamera is skipped
+    // entirely in the minigames (0x0060399A tests the input class against 1),
+    // and a GUI screen owning the input is not turning the world camera.
+    const int inputClass = *FieldAt<int>(clientInternal, 0x9C);
+    if (inputClass != K1_CLASS_PC && inputClass != K1_CLASS_FREELOOK) {
+        ++g_stick.cameraWrongClass;
+        g_stick.cameraApplied = 0.0f;
         return;
     }
+
     const float nx = static_cast<float>(g_stick.rightX) / K1_AXIS_FULL_SCALE;
     const float ny = static_cast<float>(g_stick.rightY) / K1_AXIS_FULL_SCALE;
     const float magnitude = std::sqrt(nx * nx + ny * ny);
     if (magnitude <= K1_CAMERA_DEADZONE) {
+        ++g_stick.cameraBelowDeadzone;
+        g_stick.cameraApplied = 0.0f;
         return;
     }
+
+    void* const owner = *FieldAt<void*>(clientInternal, K1_INTERNAL_CAMERA_OWNER);
+    if (!LooksLikePointerK1(owner)) {
+        ++g_stick.cameraNoOwner;
+        return;                 // no live module: RotateCamera has no receiver
+    }
+
+    // Radial, and rescaled like the left stick so the first movement past the
+    // deadzone starts from a standstill rather than jumping.
     const float scaled = (magnitude - K1_CAMERA_DEADZONE) / (1.0f - K1_CAMERA_DEADZONE);
-    const float factor = (scaled > 1.0f ? 1.0f : scaled) / magnitude * K1_CAMERA_SPEED;
-    *FloatAt(exoInputInternal, K1_MOUSE_DELTA_X) += nx * factor;
+    const float amount = nx * ((scaled > 1.0f ? 1.0f : scaled) / magnitude) * K1_CAMERA_SPEED;
+
+    // Not negated. UpdateCamera does negate its axis at 0x005F6018, but its
+    // axis is event 0x11C, whose two-button description already runs opposite
+    // to the stick; mirroring the fchs as well flipped left and right, which a
+    // playtest caught. Measured in the game, not reasoned from the listing.
+    //
+    // The engine's own camera-invert option at 0x00832920 is deliberately not
+    // read here yet -- it has not been tested against the stick, and guessing
+    // at it is what produced this bug in the first place.
+    const float delta = *reinterpret_cast<const float*>(K1_CAMERA_FRAME_DELTA);
+    EngineFn<RotateCameraFn>(K1_ROTATE_CAMERA)(owner, amount, delta);
+
+    g_stick.cameraApplied = amount;
+    ++g_stick.cameraWrites;
 }
 
 extern "C" void __cdecl NativeJoystickInitK1(void* exoInputInternal)
 {
     EnsureNativeJoystickK1(exoInputInternal);
-    FeedNativeCameraK1(exoInputInternal);
     // Dumped from here as well as from the movement hook: GetEvents runs in
     // menus too, so registration and record counts can be inspected without
     // first loading a save.
@@ -932,6 +1118,15 @@ extern "C" void __cdecl NativeJoystickInitK1(void* exoInputInternal)
 // is still only on the stack. ebx, esi and edi are all pushed by then, so the
 // consumed exit at 0x005E319B unwinds correctly, and GetEvents ignores this
 // function's return value.
+// Runs at 0x006039CF, where both of UpdateCamera's paths converge and ESI is
+// CClientExoAppInternal. Applying the turn here rather than from GetEvents is
+// what makes it stick: ScrollCamera zeroes camera+0x10C from inside
+// UpdateCamera, so anything written earlier in the frame is gone by now.
+extern "C" void __cdecl NativeCameraFrameK1(void* clientInternal)
+{
+    FeedNativeCameraK1(clientInternal);
+}
+
 extern "C" int __cdecl NativeJoystickBufferK1(void* outBuffer)
 {
     FillNativeJoystickBufferK1(0, outBuffer);
@@ -1253,21 +1448,24 @@ bool PanelNavigatesItselfK1(void* panel, void* active)
 // gameplay the panel in front is the HUD, whose controls are not menu entries,
 // and taking the direction presses there would both hijack the D-pad's own
 // bindings and let the layer wander around the heads-up display.
-int InputClassK1()
+void* ClientInternalK1()
 {
     void** const appManager = *reinterpret_cast<void***>(K1_CLIENT_EXO_APP_ROOT);
     if (!LooksLikePointerK1(appManager)) {
-        return -1;
+        return nullptr;
     }
     void** const app = static_cast<void**>(appManager[1]);
     if (!LooksLikePointerK1(app)) {
-        return -1;
+        return nullptr;
     }
     void* const internal = app[1];
-    if (!LooksLikePointerK1(internal)) {
-        return -1;
-    }
-    return *FieldAt<int>(internal, 0x9C);
+    return LooksLikePointerK1(internal) ? internal : nullptr;
+}
+
+int InputClassK1()
+{
+    void* const internal = ClientInternalK1();
+    return internal ? *FieldAt<int>(internal, 0x9C) : -1;
 }
 
 bool KmrpOwnsDirectionsK1()
@@ -1400,6 +1598,7 @@ extern "C" void __cdecl NativeGuiFrameK1(void* guiManager)
 {
     (void)guiManager;
     g_stick.lastGuiTick = GetTickCount();
+    EnsureDeviceCountK1();     // menus re-enumerate devices too
 
     const int dx = g_stick.navPendingX;
     const int dy = g_stick.navPendingY;
@@ -1423,6 +1622,31 @@ bool InFreeLookK1()
 {
     void* const app = ClientExoAppK1();
     return app && EngineFn<ClientExoAppIntFn>(K1_GET_IN_FREE_LOOK)(app) != 0;
+}
+
+// The current target, or OBJECT_INVALID when nothing is targeted. Cheap enough
+// to ask every frame, which is what a future "hide the prompt" check would do.
+std::uint32_t CurrentTargetK1()
+{
+    void** const appManager = *reinterpret_cast<void***>(K1_CLIENT_EXO_APP_ROOT);
+    if (!LooksLikePointerK1(appManager)) {
+        return K1_OBJECT_INVALID;
+    }
+    void** const app = static_cast<void**>(appManager[1]);
+    if (!LooksLikePointerK1(app)) {
+        return K1_OBJECT_INVALID;
+    }
+    void* const internal = app[1];
+    if (!LooksLikePointerK1(internal)) {
+        return K1_OBJECT_INVALID;
+    }
+    return *FieldAt<std::uint32_t>(internal, K1_INTERNAL_TARGET);
+}
+
+bool HasTargetK1()
+{
+    const std::uint32_t target = CurrentTargetK1();
+    return target != K1_OBJECT_INVALID && target != 0;
 }
 
 // Runs from the gameplay heartbeat, not from the input hook.
@@ -1470,6 +1694,102 @@ void PerformPendingStickActionsK1()
     ++g_stick.flourishesPerformed;
 }
 
+// A in gameplay: the default action on the target.
+//
+// Same discipline as the flourish -- requested from the input hook, performed
+// here on the gameplay frame, and declined rather than guessed at when there is
+// nothing to act on. The engine's handler checks the target itself; this checks
+// too, so the counters distinguish "pressed with no target" from "pressed and
+// the engine declined".
+void PerformPendingInteractionK1()
+{
+    if (g_stick.interactRequestedTick == 0) {
+        return;
+    }
+    const unsigned long requested = g_stick.interactRequestedTick;
+    g_stick.interactRequestedTick = 0;
+
+    if (GetTickCount() - requested > 250ul) {
+        ++g_stick.interactsDeclined;
+        return;
+    }
+    if (InputClassK1() != K1_CLASS_PC) {
+        ++g_stick.interactsDeclined;      // only in the world
+        return;
+    }
+    if (!HasTargetK1()) {
+        ++g_stick.interactsDeclined;      // nothing targeted: A must do nothing
+        return;
+    }
+    void** const appManager = *reinterpret_cast<void***>(K1_CLIENT_EXO_APP_ROOT);
+    void** const app = appManager ? static_cast<void**>(appManager[1]) : nullptr;
+    void* const internal = LooksLikePointerK1(app) ? app[1] : nullptr;
+    if (!LooksLikePointerK1(internal)) {
+        ++g_stick.interactsDeclined;
+        return;
+    }
+    EngineFn<HandleInputEventFn>(K1_HANDLE_INPUT_EVENT)(
+        internal, K1_EVENT_DEFAULT_ACTION, 1);
+    ++g_stick.interactsPerformed;
+}
+
+// Keep the engine's device count high enough to reach our joystick.
+//
+// The init hook raises it once, at startup. That is not enough: the count can
+// drop back to 2 while the game runs -- measured live, with the poll loop then
+// making **zero** GetJoystickBuffer calls in two seconds while the movement
+// hook kept running, so the pad went completely dead mid-session. Writing 3
+// back restored polling immediately, 126 calls in the next 2.5 seconds, which
+// is what identified this as the cause rather than a deadzone or a binding.
+//
+// The likely trigger is a device re-enumeration -- plugging a controller in
+// after launch is the obvious one -- so the count has to be re-asserted rather
+// than set once. It is two instructions on a frame that already runs.
+void EnsureDeviceCountK1()
+{
+    if (!g_stick.input) {
+        return;
+    }
+    std::int32_t* const count = IntAt(g_stick.input, K1_INPUT_DEVICE_COUNT);
+    if (*count < K1_DEVICE_JOYSTICK + 1) {
+        *count = K1_DEVICE_JOYSTICK + 1;
+        ++g_stick.deviceCountRestored;
+    }
+}
+
+// Is the analog stick the thing driving movement right now?
+//
+// This is the whole gate on skipping the engine's Vector::Normalize, so it is
+// deliberately conservative: every condition must hold, and any doubt means
+// vanilla behaviour.
+//
+//   registered        the descriptions took, so the pad can reach movement
+//   gameplay class    ICPC only; menus, dialogue and free look never override
+//   fresh buffer      GetJoystickBuffer ran recently, so a disconnect (whose
+//                     XInput read fails and leaves the axes at zero) or a
+//                     stalled poll loop cannot leave the bypass latched on
+//   driving           post-deadzone magnitude is non-zero, so a centred or
+//                     barely-touched stick leaves the keyboard's normalize alone
+//
+// The keyboard is covered by the last two: it does not go through
+// GetJoystickBuffer at all, so analogMagnitude stays zero and Normalize runs
+// exactly as it always has. Without that a keyboard diagonal, which is +/-1 on
+// each axis, would travel sqrt(2) times too fast.
+bool NativeAnalogDrivingK1()
+{
+    if (!g_stick.registered) {
+        return false;
+    }
+    if (InputClassK1() != K1_CLASS_PC) {
+        return false;
+    }
+    if (g_stick.lastBufferTick == 0 ||
+        (GetTickCount() - g_stick.lastBufferTick) > 250ul) {
+        return false;
+    }
+    return g_stick.analogMagnitude > 0.0f;
+}
+
 extern "C" void __cdecl NativeJoystickMovementK1(void* playerControl)
 {
     if (!playerControl) {
@@ -1477,6 +1797,7 @@ extern "C" void __cdecl NativeJoystickMovementK1(void* playerControl)
     }
     g_stick.lastMovementTick = GetTickCount();
     g_stick.playerControl = playerControl;
+    EnsureDeviceCountK1();
     ++g_stick.movementCalls;
     NativeJoystickDumpK1();
 
@@ -1492,15 +1813,28 @@ extern "C" void __cdecl NativeJoystickMovementK1(void* playerControl)
     // An earlier version wrote the stick into playerControl+0x10/+0x14 here as
     // well. That made two writers race for the same two fields every frame,
     // which is what produced movement in every direction at inconsistent
-    // speeds. The hook is kept only as a gameplay heartbeat: it tells the older
-    // XInput layer when to stand its keystroke synthesis down, and it drives the
-    // diagnostic dump.
-    g_stick.overrideActive = false;
+    // speeds. The hook still writes nothing; it is the gameplay heartbeat, it
+    // tells the older XInput layer when to stand its keystroke synthesis down,
+    // and it drives the diagnostic dump.
+    //
+    // It also decides, once per frame and just before Control reaches its
+    // Normalize call, whether the analog magnitude survives. Control does:
+    //
+    //     vector = (-LeftRight, UpDown)
+    //     Vector::Normalize(vector)          <-- discards the magnitude
+    //     if (walking) vector *= 0.5
+    //
+    // so with the normalize left in place the stick only ever chooses a
+    // direction and every deflection runs at full speed. That is what made a
+    // 6.5% input move at 8.10, the maximum: measured, not inferred. Skipping it
+    // while the stick drives is the entire point of the analog path.
+    g_stick.overrideActive = NativeAnalogDrivingK1();
     float sampleX = 0.0f;
     float sampleY = 0.0f;
     ReadNativeStickK1(sampleX, sampleY);   // diagnostics only
 
     PerformPendingStickActionsK1();
+    PerformPendingInteractionK1();
 }
 
 bool NativeMovementOwnsLeftStickK1()
@@ -1546,10 +1880,16 @@ extern "C" int __cdecl NativeJoystickSkipNormalizeK1(void* vector)
     // absolute function pointer, which is immune to relocation and preserves
     // vanilla behaviour exactly: without it a keyboard diagonal would travel
     // sqrt(2) times too fast.
-    // overrideActive is now always false -- see NativeJoystickMovementK1 -- so
-    // this always reproduces vanilla. Kept rather than removed because the
-    // stolen bytes are a relative call that must not be re-executed from the
-    // trampoline; the hook has to stay consuming even when it does nothing new.
+    // overrideActive is set once per frame by NativeJoystickMovementK1, which
+    // runs immediately before Control reaches this call. When the analog stick
+    // is driving, Normalize is skipped and the vector keeps its magnitude, so
+    // speed becomes proportional. Otherwise -- keyboard, centred stick,
+    // disconnect, or any input class but gameplay -- Normalize runs through the
+    // absolute pointer and vanilla is preserved exactly.
+    //
+    // The hook consumes either way. That is not an optimisation, it is the
+    // crash fix: the stolen bytes are a relative call and must never be
+    // re-executed from the trampoline.
     if (!g_stick.overrideActive && vector) {
         EngineFn<NormalizeFn>(K1_VECTOR_NORMALIZE)(vector);
     }
@@ -1594,7 +1934,28 @@ extern "C" void __cdecl NativeJoystickDumpK1()
         // nav = focus moves this layer performed / presses it left to native
         // navigation. gui = last tick the GUI frame hook ran, which is how the
         // tests tell a menu frame from a gameplay frame.
-        "fl=%d flour=%lu/%lu nav=%lu/%lu gui=%lu move=%d->%d dir=%d\r\n",
+        // dlg = which ICDialog registrations took, one bit each in the order
+        // A, up, down, LB, RB. 0x1F means all five.
+        // act = world interactions performed/declined; tgt = the current target
+        // id, 7F000000 when nothing is targeted.
+        // ovr = the Normalize bypass this frame; amag = post-deadzone stick
+        // magnitude x1000. Together they say whether the analog path is
+        // actually driving, which is the thing that was silently off.
+        // ovr = the Normalize bypass this frame. rmag/amag/dz are the stick's
+        // raw magnitude, its magnitude after the deadzone, and the deadzone
+        // constant itself, all x1000 -- so a log line says what the stick did,
+        // what survived, and what the threshold was, without reading the source.
+        "fl=%d dlg=%02X flour=%lu/%lu act=%lu/%lu tgt=%08lX "
+        // dcr = times the engine's device count had dropped below ours and had
+        // to be put back. Non-zero means the pad would have gone dead without
+        // the guard, which is worth knowing rather than silently repairing.
+        // The right-stick camera chain, end to end: the raw axes the buffer hook
+        // last stored, how often the bridge ran, wrote, and bailed on its
+        // deadzone, and the delta it added versus the field's value straight
+        // after. cam* are x100.
+        "ovr=%d rmag=%ld amag=%ld dz=%ld dcr=%lu "
+        "rx=%ld ry=%ld camrun=%lu camwr=%lu camdz=%lu camapp=%ld camcls=%lu camown=%lu "
+        "nav=%lu/%lu gui=%lu move=%d->%d dir=%d\r\n",
         g_stick.registered ? 1 : 0, g_stick.createFailed ? 1 : 0, liveCount,
         g_stick.initCalls, g_stick.bufferCalls, g_stick.recordsEmitted,
         g_stick.movementCalls, g_stick.overrideFrames,
@@ -1616,7 +1977,22 @@ extern "C" void __cdecl NativeJoystickDumpK1()
         static_cast<long>(g_stick.playerControl ? *FloatAt(g_stick.playerControl, 0x5C) * 1000.0f : 0.0f),
         static_cast<long>(g_stick.playerControl ? *FloatAt(g_stick.playerControl, 0x60) * 1000.0f : 0.0f),
         static_cast<unsigned long>(reinterpret_cast<std::uintptr_t>(g_stick.playerControl)),
-        g_stick.freeLookBound, g_stick.flourishesPerformed, g_stick.flourishesDeclined,
+        g_stick.freeLookBound, g_stick.dialogBound,
+        g_stick.flourishesPerformed, g_stick.flourishesDeclined,
+        g_stick.interactsPerformed, g_stick.interactsDeclined,
+        // tgt comes before ovr in the format string; the new fields were
+        // inserted ahead of it once and every column after act= read the wrong
+        // argument, which showed up as a boolean printing 2, 4, 5 and 7.
+        static_cast<unsigned long>(CurrentTargetK1()),
+        g_stick.overrideActive ? 1 : 0,
+        static_cast<long>(g_stick.rawMagnitude * 1000.0f),
+        static_cast<long>(g_stick.analogMagnitude * 1000.0f),
+        static_cast<long>(K1_STICK_DEADZONE * 1000.0f),
+        g_stick.deviceCountRestored,
+        static_cast<long>(g_stick.rightX), static_cast<long>(g_stick.rightY),
+        g_stick.cameraFeedCalls, g_stick.cameraWrites, g_stick.cameraBelowDeadzone,
+        static_cast<long>(g_stick.cameraApplied * 100.0f),
+        g_stick.cameraWrongClass, g_stick.cameraNoOwner,
         g_stick.navMoves, g_stick.navDeclinedNative, g_stick.lastGuiTick,
         g_stick.navFromY, g_stick.navToY, g_stick.navDir);
 

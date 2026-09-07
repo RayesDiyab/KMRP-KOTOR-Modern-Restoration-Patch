@@ -19,3 +19,4 @@ EXPORTS
     NativeJoystickMovementK1
     NativeJoystickSkipNormalizeK1
     NativeGuiFrameK1
+    NativeCameraFrameK1

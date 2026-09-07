@@ -106,6 +106,17 @@ exclude_from_restore = []
 [[patches.hooks.parameters]]
 source = "ecx"
 type = "pointer"
+
+[[patches.hooks]]
+address = 0x006039CF
+type = "detour"
+function = "NativeCameraFrameK1"
+original_bytes = [0xA1, 0xE0, 0x39, 0x7A, 0x00, 0x8B, 0x48, 0x04]
+skip_original_bytes = false
+exclude_from_restore = []
+[[patches.hooks.parameters]]
+source = "esi"
+type = "pointer"
 """
 
 
@@ -130,7 +141,7 @@ def report() -> None:
     # NativeJoystick prefix counted it as one of Saul's and reported mode "both"
     # on a clean native install.
     def is_native(hook):
-        return hook["function"].startswith(("NativeJoystick", "NativeGui"))
+        return hook["function"].startswith(("NativeJoystick", "NativeGui", "NativeCamera"))
 
     native = [h for h in hooks if is_native(h)]
     older = [h for h in hooks if not is_native(h)]

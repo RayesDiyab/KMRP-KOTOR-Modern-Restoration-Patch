@@ -151,7 +151,22 @@ def decode_chain(image: Image, handler: int) -> dict:
     found, pending, running = {}, None, None
     for instruction in md.disasm(image.code(handler, 768), handler):
         text = instruction.mnemonic + " " + instruction.op_str
-        if instruction.mnemonic == "cmp":
+        if instruction.mnemonic == "mov" and re.fullmatch(
+                r"e[a-z][a-z], e[a-z][a-z]", instruction.op_str):
+            # A register-to-register move restarts the arithmetic: the compiler
+            # copies the event code into a scratch register and subtracts from
+            # that, so the running total from any earlier chain is finished.
+            #
+            # Carrying it across produced phantom events. SOLO_MODE_QUERY was
+            # reported as implementing 0x55, 0x56 and 0x5B -- codes outside the
+            # accepted range that no panel should have -- because the decoder
+            # added `sub ecx, 0x27` to a running total of 0x2E left over from a
+            # preceding `cmp eax, 0x2e`. Its real codes are 0x27, 0x28 and 0x2D,
+            # which were therefore missing: A and B looked unimplemented on a
+            # panel that implements both.
+            running = None
+            pending = None
+        elif instruction.mnemonic == "cmp":
             pending = immediate(text)
         elif instruction.mnemonic == "sub" and running is None:
             # Chains that open `sub eax, 0x28` with no preceding cmp -- Main Menu

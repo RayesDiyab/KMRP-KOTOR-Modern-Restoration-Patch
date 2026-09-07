@@ -26,7 +26,7 @@ silences all of it, which is what `select_controller_path.py native` does.
 | Back → `SC_V` | — | event `0x2B`, Black | yes |
 | D-pad → arrow keys | menu navigation | events `0x31`/`0x32`/`0x2F`/`0x30` | yes, in the in-game menus; **not** on the main menu, which implements no scroll events |
 | Start → `SC_ESCAPE` | open the menu | event `0x0B`, the game's own description | yes — opens; **B** is the close |
-| `ApplyRightStick` → `SC_A`/`SC_D` | camera turn | mouse-delta injection at `+0x3A0` | yes, once the camera speed is tuned |
+| `ApplyRightStick` → `SC_A`/`SC_D` | camera turn | `CSWCModule::RotateCamera` from `NativeCameraFrameK1` @ `0x006039CF` | yes — playtest-confirmed; `+0x3A0` was a dead field |
 
 **The left-stick synthesis is actively harmful alongside the native path**, not
 merely redundant. Running both drove the same movement fields from two sources

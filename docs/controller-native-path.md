@@ -401,28 +401,84 @@ without touching logic.
 
 ## The camera
 
-`UpdateCamera` has exactly two inputs and only one is analog.
+**Working, playtest-confirmed.** The right stick turns the camera through the
+engine's own `CSWCModule::RotateCamera`. Getting there took two wrong answers,
+both recorded below, because both are easy to arrive at again from the listing.
 
-* Event `0x11C` is a **two-button axis on the keyboard device**, `DIK_A` and
-  `DIK_D`. Descriptions are one per event id, so no joystick description can be
-  added for it.
-* The accumulated mouse delta **is** analog. `GetMouseDelta` is a plain read of
-  `CExoInputInternal+0x3A0` and `+0x3A4`, and `UpdateCamera` scales the X
-  component by the mouse sensitivity setting before `CSWCModule::TiltCamera`.
+### What actually drives the turn
 
-The right stick is added to `+0x3A0` from the `GetEvents` hook, which
-`ProcessInput` calls after `UpdateMouseDelta` computes the delta and before
-`UpdateCamera` consumes it. No new hook, no cursor movement, and a real mouse
-keeps working in the same frame.
+`UpdateCamera` @ `0x005F5E10` has two inputs, and **neither is the mouse X
+delta**.
 
-**There is no vertical camera axis.** The Y delta slot is overwritten with the
-invert sign before use (`mov [esp+0x18], eax` at `0x005F5ECC`) and never read.
-`ScrollCamera` and `ZoomCamera` take computed values, not input. This was traced
-rather than assumed, and nothing should be invented for it.
+* **Horizontal rotation is event `0x11C`**, polled at `0x005F5EE6`,
+  `0x005F5F05` and `0x005F5F32`. The result is +1.0, -1.0, or -- and this
+  matters -- the **raw analog value** when it is neither, so the turn is
+  analog-capable. It reaches `CSWCModule::RotateCamera` @ `0x00640090`.
+* **The mouse contributes only `+0x3A4`.** `GetMouseDelta` @ `0x005DF610`
+  (single caller, `0x005F5EB2`) writes `+0x3A0` to its first argument and
+  `+0x3A4` to its second; `UpdateCamera` reloads only the second (`fld
+  [esp+0x1c]` at `0x005F5ED4`, esp having moved by 4 for the pushed argument)
+  and passes it to the mode-gated tilt at `0x0063FCC0`.
+* **`CExoInputInternal+0x3A0` is fetched and discarded** -- its stack slot is
+  never read again in the function.
 
-`K1_CAMERA_SPEED` is a named constant in mouse-pixels-per-frame, before the
-game's own sensitivity multiplier. It has **not** been tuned against a real
-mouse.
+`UpdateMouseDelta` @ `0x005E0110` confirms the field roles: X to `+0x3A0`, Y to
+`+0x3A4`, both zeroed when the mouse is not captured.
+
+### First wrong answer: writing +0x3A0
+
+The module used to add the stick to `+0x3A0`. That could never rotate anything.
+A virtual-pad run showing +-14.0 there was the module reading back its own
+write, and it was taken as evidence of a working camera for weeks; a pixel
+comparison that reported "nothing" over the same run was correct and was
+disbelieved. An earlier reading of `UpdateCamera` had the consumed stack slot
+wrong by four bytes and concluded the opposite.
+
+### Second wrong answer: calling at the wrong time
+
+Calling `RotateCamera` from the `GetEvents` hook ran 1400 times in 30 seconds
+with a live receiver and still produced no motion. `RotateCamera` stores the
+turn in `camera+0x10C` (mode 3, at `0x006400FF`), but `UpdateCamera`'s **idle**
+path -- the one taken whenever the `0x11C` axis is zero, which for a controller
+is every frame -- calls `CSWCModule::ScrollCamera` at `0x005F60D5`, and that
+zeroes `camera+0x10C` outright at `0x0063FE87`. Anything written earlier in the
+frame is erased before the camera update at `0x006391A0` can read it. The
+keyboard escapes this because a non-zero turn makes `UpdateCamera` jump past the
+`ScrollCamera` call at `0x005F6024`.
+
+Counters alone could not distinguish this from success: the bridge ran, the
+receiver was live, the argument was correct, and the camera did not move.
+
+### The implementation
+
+`NativeCameraFrameK1`, hooked at **`0x006039CF`** -- where both of
+`UpdateCamera`'s paths converge, still inside the same function, with `ESI`
+holding `CClientExoAppInternal`. Stolen bytes `A1 E0 39 7A 00 / 8B 48 04`,
+absolute addressing only.
+
+* Receiver `[CClientExoAppInternal+0x18]`, which `0x006039CA` corroborates by
+  calling `RotateCamera(0, 0)` through the same field when input is suppressed.
+* Second argument is the frame delta from `0x0078E574`, as `UpdateCamera` is
+  handed at `0x006039A7`.
+* **Not negated.** `UpdateCamera` negates its axis at `0x005F6018`, but that
+  axis is `0x11C`, whose two-button description already runs opposite to the
+  stick. Mirroring the `fchs` flipped left and right, which a playtest caught.
+* Gated on input class 0 or 4 (`UpdateCamera` is skipped in the minigames --
+  `0x0060399A` tests the class against 1) and on a live module.
+* Event `0x11C` cannot carry the stick instead: it is a live type-4 two-button
+  axis on the keyboard device (slots `0x36`/`0x33`), and PollInput's type-4 path
+  at `0x005E242F` recomputes it from those two control states on every poll.
+  Repointing its slots would take the keyboard's own turn away.
+
+`K1_CAMERA_SPEED` is **1.0**, the value at which full deflection equals a full
+keyboard turn. That is the neutral choice, not a tuned one. `K1_CAMERA_DEADZONE`
+is 0.12.
+
+**There is no vertical camera axis to drive.** `ScrollCamera` and `ZoomCamera`
+take computed values, not input, and the tilt path is mode-gated.
+
+**Not yet honoured:** the engine's camera-invert option at `0x00832920`, which
+`UpdateCamera` folds in and the bridge does not. Untested against the stick.
 
 ## Testing
 

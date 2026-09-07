@@ -4,7 +4,7 @@
 This is deliberately not a unit test. It launches KOTOR, loads a save, drives a
 virtual ViGEm pad, and checks what the engine actually did by reading its live
 memory -- raw XInput, the input-event descriptions, the player-control fields the
-movement integrator writes, and the mouse-delta field the camera consumes.
+movement integrator writes, and the turn the camera bridge hands the engine.
 
 Where a check cannot be made deterministically it says so rather than guessing;
 "looks right on screen" is not a result this file will ever report.
@@ -48,6 +48,7 @@ CLIENT_EXO_APP_ROOT = 0x007A39FC   # -> CClientExoApp at [+4]
 DESC_VALUE, DESC_ACCUM = 0x04, 0x24
 
 PC_UPDOWN, PC_LEFTRIGHT, PC_WALKING, PC_VELX, PC_VELY = 0x10, 0x14, 0x18, 0x5C, 0x60
+DEADZONE = 0.08                 # must match K1_STICK_DEADZONE in the module
 
 EV_JOY_X, EV_JOY_Y = 0x08, 0x07
 EV_PREV, EV_NEXT = 0x35, 0x36
@@ -346,9 +347,17 @@ def test_cardinals(game, pad, report):
                    f"rate={rate:.0f} expected sign {'+' if sign > 0 else '-'}"
                    if rate is not None else "no data",
                    "NATIVE")
-    for label, deflection, expected in (("25%", 0.25, 0.185),
-                                        ("50%", 0.50, 0.457),
-                                        ("75%", 0.75, 0.728)):
+    # Derived from the deadzone rather than written down, so changing the
+    # constant cannot leave a stale expectation passing for the wrong reason.
+    # At a 25% deadzone, 25% deflection is exactly on the boundary and must
+    # produce nothing at all -- which is a different assertion, so it is not
+    # in this proportionality loop.
+    def effective(deflection):
+        return max(0.0, (deflection - DEADZONE) / (1.0 - DEADZONE))
+
+    for label, deflection, expected in (("40%", 0.40, effective(0.40)),
+                                        ("50%", 0.50, effective(0.50)),
+                                        ("75%", 0.75, effective(0.75))):
         rate = abs(axis_rate(game, pad, EV_JOY_Y, 0, deflection) or 0)
         ratio = rate / full
         report.add("cardinal", f"forward {label} scales proportionally",
@@ -368,15 +377,38 @@ def test_diagonals(game, pad, report):
         magnitude = ((rx ** 2 + ry ** 2) ** 0.5) / full
         report.add("diagonal", f"full {name} does not exceed full speed",
                    magnitude <= 1.2, f"magnitude={magnitude:.3f}", "NATIVE")
-    for label, scale, lo, hi in (("25%", 0.25, 0.05, 0.45),
-                                 ("50%", 0.50, 0.25, 0.75),
-                                 ("75%", 0.75, 0.45, 1.0)):
+    # Bands derived from the deadzone, not written down: a partial diagonal must
+    # keep the same radial magnitude a cardinal of that deflection would.
+    def band(deflection):
+        want = max(0.0, (deflection - DEADZONE) / (1.0 - DEADZONE))
+        return want - 0.12, want + 0.12
+
+    for label, scale in (("40%", 0.40), ("50%", 0.50), ("75%", 0.75)):
+        lo, hi = band(scale)
         c = scale / (2 ** 0.5)
         rx = abs(axis_rate(game, pad, EV_JOY_X, c, c) or 0)
         ry = abs(axis_rate(game, pad, EV_JOY_Y, c, c) or 0)
         magnitude = ((rx ** 2 + ry ** 2) ** 0.5) / full
-        report.add("diagonal", f"{label} diagonal stays partial",
+        report.add("diagonal", f"{label} diagonal keeps its radial magnitude",
                    lo <= magnitude <= hi, f"magnitude={magnitude:.3f}", "NATIVE")
+
+    # The deadzone edge itself. Everything at or below it must be silent.
+    #
+    # These scales are derived from DEADZONE rather than written out, because
+    # they were written out once: they still said 15/22/25% after the deadzone
+    # went 25% -> 15% -> 8%, and reported three NATIVE failures against a module
+    # that was behaving correctly. A constant that appears in two places will
+    # disagree with itself eventually.
+    edge = DEADZONE
+    for label, scale in ((f"{edge * 0.5:.0%}", edge * 0.5),
+                         (f"{edge * 0.85:.0%}", edge * 0.85),
+                         (f"{edge:.0%} (the edge)", edge)):
+        c = scale / (2 ** 0.5)
+        rx = abs(axis_rate(game, pad, EV_JOY_X, c, c) or 0)
+        ry = abs(axis_rate(game, pad, EV_JOY_Y, c, c) or 0)
+        magnitude = ((rx ** 2 + ry ** 2) ** 0.5) / full
+        report.add("diagonal", f"{label} is inside the deadzone: no movement",
+                   magnitude < 0.02, f"magnitude={magnitude:.3f}", "NATIVE")
     pad.send("lstick 0 0")
 
 
@@ -432,15 +464,53 @@ def axis_rate_nopad(game, event, seconds=0.8):
     return (b - a) / seconds
 
 
+def ensure_gameplay(game, pad, tries=8):
+    """Put the game back in the world before a test that assumes it is there.
+
+    A now performs the world interaction bridge, so pressing it in gameplay next
+    to a crew member starts a conversation -- which is correct behaviour and
+    exactly what broke this suite: once in input class 3, every later test was
+    measuring the wrong context and eighteen of them failed at once.
+
+    Dialogue is left with A (advancing to the end), a menu with B, free look
+    with R3. Each has its own exit and none of them is interchangeable.
+    """
+    for _ in range(tries):
+        cls = game.input_class()
+        if cls == 0:
+            return True
+        if cls == 3:
+            pad.tap("A", settle=1.6)
+        elif cls == 4:
+            pad.tap("RS", settle=1.8)
+        else:
+            pad.tap("B", settle=2.0)
+    return game.input_class() == 0
+
+
 def test_buttons(game, pad, xinput, report):
     print("\n== 6-8. buttons, D-pad: XInput -> record -> description")
     pad.send("reset")
     time.sleep(0.4)
     for name, event in BUTTONS + DPAD:
+        # A opens a conversation when something is targeted, and every button
+        # after it would then be sampled in input class 3 where it is correctly
+        # unregistered. Returning to the world between presses keeps each button
+        # measured in the class this test is about.
+        ensure_gameplay(game, pad)
         pad.send(f"press {name}")
-        time.sleep(0.45)
+        # Peak-sample rather than read once after a delay. A now performs the
+        # world-interaction bridge, so it can start a conversation whose handler
+        # polls -- and therefore consumes -- event 0x27 before a late single
+        # read sees it. A button that does something must not be harder to
+        # observe than one that does nothing.
+        held = 0
+        deadline = time.time() + 0.45
+        while time.time() < deadline:
+            value = game.value(event)
+            if value:
+                held = value
         _, gp = xinput.read()
-        held = game.value(event)
         pad.send(f"release {name}")
         time.sleep(0.35)
         released = game.value(event)
@@ -475,38 +545,86 @@ def test_triggers(game, pad, report):
         report.add("triggers", label, got == expected, f"{got} expected {expected}", "NATIVE")
 
 
+def camera_dump():
+    """The module's own camera counters, from the last diagnostic line.
+
+    camapp is the turn amount x100 handed to CSWCModule::RotateCamera; camwr,
+    camdz, camcls and camown count the writes and each reason for declining.
+    """
+    fields = ("camapp", "camwr", "camdz", "camcls", "camown")
+    try:
+        with open(LOG, "r", errors="replace") as handle:
+            text = handle.read()
+    except OSError:
+        return {}
+    out = {}
+    for name in fields:
+        found = re.findall(r"\b%s=(-?\d+)" % name, text)
+        if found:
+            out[name] = int(found[-1])
+    return out
+
+
 def test_camera(game, pad, report):
-    print("\n== 10. right-stick camera: monotonic and signed")
+    print()
+    print("== 10. right-stick camera: monotonic and signed")
+
+    # This reads the module's emitted turn, NOT CExoInputInternal+0x3A0.
+    #
+    # +0x3A0 is a dead field: UpdateCamera fetches it and discards it. An
+    # earlier version of this test read it, agreed with itself, and reported a
+    # working camera for weeks while nothing on screen moved. The engine side of
+    # the turn -- camera+0x10C -- is only reachable through a virtual call
+    # inside RotateCamera and cannot be read from another process, so what is
+    # deterministic here is everything KMRP controls, and the visible rotation
+    # stays a human check.
+    before = camera_dump()
     peaks = {}
     for label, deflection in (("small", 0.25), ("medium", 0.6), ("full", 1.0)):
         pad.send(f"rstick {deflection} 0")
         samples = []
         for _ in range(8):
             time.sleep(0.07)
-            samples.append(game.mouse_dx() or 0.0)
+            samples.append(camera_dump().get("camapp", 0) / 100.0)
         peaks[label] = max(abs(s) for s in samples)
         signs = [s for s in samples if abs(s) > 0.01]
         if label == "full":
             report.add("camera", "positive stick gives a consistent sign",
-                       all(s > 0 for s in signs) or all(s < 0 for s in signs),
-                       f"samples={[round(s,1) for s in samples[:4]]}", "NATIVE")
+                       bool(signs) and (all(s > 0 for s in signs) or all(s < 0 for s in signs)),
+                       f"samples={[round(s, 2) for s in samples[:4]]}", "NATIVE")
     pad.send("rstick -1.0 0")
     time.sleep(0.3)
-    negative = [game.mouse_dx() or 0.0 for _ in range(4)]
+    negative = [camera_dump().get("camapp", 0) / 100.0 for _ in range(4)]
     pad.send("rstick 0 0")
     time.sleep(0.8)
-    rest = max(abs(game.mouse_dx() or 0.0) for _ in range(4))
-    report.add("camera", "small deflection produces a delta", peaks["small"] > 0.0,
+    rest = max(abs(camera_dump().get("camapp", 0) / 100.0) for _ in range(4))
+    after = camera_dump()
+
+    positive = [s for s in (peaks["full"],) if s]
+    report.add("camera", "small deflection produces a turn", peaks["small"] > 0.0,
                f"peak={peaks['small']:.2f}", "NATIVE")
-    report.add("camera", "delta increases with deflection",
+    report.add("camera", "turn increases with deflection",
                peaks["small"] <= peaks["medium"] <= peaks["full"],
-               f"{peaks['small']:.1f} <= {peaks['medium']:.1f} <= {peaks['full']:.1f}", "NATIVE")
+               f"{peaks['small']:.2f} <= {peaks['medium']:.2f} <= {peaks['full']:.2f}",
+               "NATIVE")
+    report.add("camera", "full deflection saturates at K1_CAMERA_SPEED",
+               0.95 <= peaks["full"] <= 1.05, f"peak={peaks['full']:.2f}", "NATIVE")
     report.add("camera", "opposite deflection flips the sign",
-               any(v < 0 for v in negative) or any(v > 0 for v in negative),
-               f"samples={[round(v,1) for v in negative]}", "NATIVE")
-    report.add("camera", "centred stick contributes nothing", rest < 1.0,
+               bool(positive) and any(v < 0 for v in negative),
+               f"samples={[round(v, 2) for v in negative]}", "NATIVE")
+    report.add("camera", "centred stick contributes nothing", rest == 0.0,
                f"rest={rest:.2f}", "NATIVE")
-    report.add("camera", "sensitivity feels right", None, "K1_CAMERA_SPEED untuned")
+    report.add("camera", "the bridge reached the engine",
+               after.get("camwr", 0) > before.get("camwr", 0),
+               f"camwr {before.get('camwr')} -> {after.get('camwr')}", "NATIVE")
+    report.add("camera", "no frame declined for class or receiver",
+               after.get("camcls", 0) == before.get("camcls", 0)
+               and after.get("camown", 0) == before.get("camown", 0),
+               f"camcls {before.get('camcls')}->{after.get('camcls')} "
+               f"camown {before.get('camown')}->{after.get('camown')}", "NATIVE")
+    report.add("camera", "the view visibly rotates", None,
+               "playtest-confirmed 2026-09-07; not observable from here")
+    report.add("camera", "sensitivity feels right", None, "K1_CAMERA_SPEED = 1.0, untuned")
 
 
 def test_no_legacy_synthesis(game, pad, report):
@@ -517,7 +635,12 @@ def test_no_legacy_synthesis(game, pad, report):
     import tomllib
     with open(os.path.join(GAME_DIR, "patch_config.toml"), "rb") as handle:
         hooks = tomllib.load(handle)["patches"][0]["hooks"]
-    legacy = [h["function"] for h in hooks if not h["function"].startswith(("NativeJoystick", "NativeGui"))]
+    # NativeCameraFrameK1 is KMRP's own, like NativeGuiFrameK1 before it. This
+    # prefix list has now been the wrong answer twice; both times the new native
+    # hook was counted as one of the legacy path's.
+    native_prefixes = ("NativeJoystick", "NativeGui", "NativeCamera")
+    legacy = [h["function"] for h in hooks
+              if not h["function"].startswith(native_prefixes)]
     report.add("regression", "no legacy hooks installed in native mode",
                legacy == [], f"legacy={legacy}", "HARNESS")
     report.add("regression", "left-stick keystroke synthesis cannot run",
@@ -658,11 +781,56 @@ def _module_counters():
             text = open(NATIVE_LOG, "r", errors="replace").read()
         except OSError:
             text = ""
-        found = re.findall(r"fl=(\d+) flour=(\d+)/(\d+)", text)
+        # The dump grew a dlg= field between fl= and flour=. Match both shapes,
+        # so an older log does not silently read as "no counters at all".
+        found = re.findall(r"fl=(\d+)(?: dlg=[0-9A-Fa-f]+)? flour=(\d+)/(\d+)", text)
         if found:
             return tuple(int(v) for v in found[-1])
         time.sleep(0.4)
     return None
+
+
+def _dialog_registrations():
+    """The dlg= bitmask: which ICDialog registrations took, five bits."""
+    import re
+    for _ in range(12):
+        try:
+            text = open(NATIVE_LOG, "r", errors="replace").read()
+        except OSError:
+            text = ""
+        found = re.findall(r"dlg=([0-9A-Fa-f]+)", text)
+        if found:
+            return int(found[-1], 16)
+        time.sleep(0.4)
+    return None
+
+
+def test_dialog_class(game, pad, report):
+    """ICDialog (class 3) registration.
+
+    Conversations run in their own input class and a description is polled only
+    in the classes it was added to. Registering the buttons in the gameplay and
+    GUI classes alone left the entire pad inert in dialogue -- every button
+    undelivered, the reply highlight frozen -- while the engine's own handlers
+    sat there working. This asserts the registration, which is the part that can
+    be checked without being in a conversation.
+
+    Only the five events with a proven consumer are registered: A (0x27) select
+    or skip, up (0x31) and down (0x32) for the reply list, and LB/RB (0x39/0x3A)
+    which CSWGuiDialogComputer re-dispatches to a terminal's text. B, X, Y, Back,
+    left, right, the triggers and Start reach the dialogue dispatcher's default
+    case and must stay unregistered.
+    """
+    print("\n== 14. ICDialog registration")
+    mask = _dialog_registrations()
+    report.add("dialogue", "module reports its ICDialog registrations",
+               mask is not None, f"dlg={mask:#04x}" if mask is not None else "absent",
+               "HARNESS")
+    if mask is None:
+        return
+    report.add("dialogue", "all five ICDialog events registered", mask == 0x1F,
+               f"dlg={mask:#04x}, expected 0x1f "
+               f"(A, up, down, LB, RB)", "NATIVE")
 
 
 def test_stick_clicks(game, pad, report):
@@ -934,21 +1102,31 @@ def main():
                "movement hook is running" if playing else "still in a menu", "HARNESS")
 
     test_buttons(game, pad, xinput, report)
+    ensure_gameplay(game, pad)
     test_triggers(game, pad, report)
+    ensure_gameplay(game, pad)
     if playing:
         test_cardinals(game, pad, report)
+        ensure_gameplay(game, pad)
         if not arguments.quick:
             test_diagonals(game, pad, report)
+        ensure_gameplay(game, pad)
         test_centre(game, pad, report)
+        ensure_gameplay(game, pad)
         test_camera(game, pad, report)
+        ensure_gameplay(game, pad)
         test_disconnect(game, pad, report)
+        ensure_gameplay(game, pad)
         test_stick_clicks(game, pad, report)
+        ensure_gameplay(game, pad)
         # Last: it drives the player around the menus and can leave the character
         # with a movement order, which the disconnect test reads as stale input.
         test_menu(game, pad, report)
     else:
         for name in ("cardinals", "diagonals", "centre/release", "camera", "menu", "disconnect", "stick clicks"):
             report.add("skipped", name, None, "needs gameplay; save did not load")
+    # Registration, not behaviour: it needs neither gameplay nor a conversation.
+    test_dialog_class(game, pad, report)
     test_no_legacy_synthesis(game, pad, report)
 
     pad.stop()

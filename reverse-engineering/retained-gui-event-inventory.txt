@@ -158,20 +158,17 @@ MAIN_MENU   dispatcher 0x0067B380  [cmp/je chain]  implements 2 events
 MESSAGE_BOX   dispatcher 0x006250F0  [cmp/je chain]  implements 3 events
     0x00625141  <- 0x3A
     0x0062516F  <- 0x28, 0x2E
-OPTIONS_GRAPHICS   dispatcher 0x006DEAE0  [cmp/je chain]  implements 5 events
-    0x006DEB25  <- 0x6C
-    0x006DECD4  <- 0x71
-    0x006DECE5  <- 0x01
-    0x006DED0E  <- 0x44, 0x72
-OPTIONS_GRAPHICS_ADVANCED   dispatcher 0x006E01C0  [cmp/je chain]  implements 3 events
-    0x006E0203  <- 0x6C
-    0x006E0216  <- 0x71
-    0x006E03D5  <- 0x01
-OPTIONS_RESOLUTION   dispatcher 0x006E0CF0  [cmp/je chain]  implements 5 events
-    0x006E0D35  <- 0x6C
-    0x006E0EE9  <- 0x01
-    0x006E0F14  <- 0x6B
-    0x006E0F27  <- 0x44, 0x72
+OPTIONS_GRAPHICS   dispatcher 0x006DEAE0  [cmp/je chain]  implements 3 events
+    0x006DEB25  <- 0x28
+    0x006DECD4  <- 0x2D
+    0x006DED0E  <- 0x2E
+OPTIONS_GRAPHICS_ADVANCED   dispatcher 0x006E01C0  [cmp/je chain]  implements 2 events
+    0x006E0203  <- 0x28
+    0x006E0216  <- 0x2D
+OPTIONS_RESOLUTION   dispatcher 0x006E0CF0  [cmp/je chain]  implements 3 events
+    0x006E0D35  <- 0x28
+    0x006E0F14  <- 0x27
+    0x006E0F27  <- 0x2E
 PARTY_SELECT   dispatcher 0x006BEDE0  [cmp/je chain]  implements 1 events
     0x006BEE01  <- 0x28
 PAZAAK_GAME   dispatcher 0x0067E8F0  [cmp/je chain]  implements 2 events
@@ -181,11 +178,11 @@ SAVELOAD   dispatcher 0x006C86D0  [cmp/je chain]  implements 2 events
     0x006C86F0  <- 0x28
     0x006C872F  <- 0x2E
 SOLO_MODE_QUERY   dispatcher 0x006C2400  [cmp/je chain]  implements 4 events
-    0x006C244C  <- 0x55, 0x5B
-    0x006C2488  <- 0x2E, 0x56
+    0x006C244C  <- 0x27, 0x2D
+    0x006C2488  <- 0x2E, 0x28
 UPGRADE_SELECTION   dispatcher 0x006C2B10  [cmp/je chain]  implements 1 events
     0x006C2B2B  <- 0x28
 
-panels decoded: 40   events implemented in total: 224
+panels decoded: 40   events implemented in total: 219
 NOT decoded (1):
     BARK_BUBBLE                   0x00409E60

@@ -246,3 +246,31 @@ exclude_from_restore = []
 [[hooks.parameters]]
 source = "ecx"
 type = "pointer"
+
+# Apply the right-stick camera turn, immediately after UpdateCamera has run.
+#
+# The timing is the whole point, and getting it wrong is why an earlier version
+# called CSWCModule::RotateCamera 1400 times in 30 seconds without the view
+# moving once. RotateCamera stores the turn in camera+0x10C. UpdateCamera's idle
+# path -- the one taken whenever the keyboard turn axis is zero, which is always
+# for a controller -- calls CSWCModule::ScrollCamera at 0x005F60D5, and
+# ScrollCamera zeroes camera+0x10C outright at 0x0063FE87. Anything written
+# before that point in the frame is erased. The keyboard escapes it because a
+# non-zero turn makes UpdateCamera jump past the ScrollCamera call at
+# 0x005F6024.
+#
+# 0x006039CF is where both of UpdateCamera's paths converge, still inside the
+# same function, with ESI holding CClientExoAppInternal. The stolen bytes are
+# mov eax,[0x7a39e0] / mov ecx,[eax+4] -- eight bytes, absolute addressing only,
+# no relative branches to relocate. See tools/check_hook_stolen_bytes.py.
+[[hooks]]
+address = 0x006039CF
+type = "detour"
+function = "NativeCameraFrameK1"
+original_bytes = [0xA1, 0xE0, 0x39, 0x7A, 0x00, 0x8B, 0x48, 0x04]
+skip_original_bytes = false
+exclude_from_restore = []
+
+[[hooks.parameters]]
+source = "esi"
+type = "pointer"
