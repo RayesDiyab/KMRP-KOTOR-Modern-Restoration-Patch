@@ -170,11 +170,81 @@ constexpr int K1_TRIGGER_THRESHOLD = 60;   // of 255 -- a light pull already cou
 constexpr std::uint32_t DIJOFS_BUTTON8_OFFSET = 0x38;
 constexpr std::uint16_t XINPUT_START_MASK     = 0x0010;
 
-// The slot budget is fixed and small: 0x74..0x7E is eleven button slots, and
-// 0x7C belongs to the game's own event 0x0B, leaving ten. Twelve pad controls do
-// not fit, so Start, L3 and R3 are deliberately left unbound -- no retained
-// console event was found for them, and spending a slot on a guess would cost a
-// control that has one. They stay on the legacy path.
+// The face buttons, shoulders and Back. Start is the game's own slot 0x7C, the
+// triggers take 0x7B and 0x7D, the D-pad takes 0x7F..0x82, and the stick clicks
+// are handled above.
+// ---------------------------------------------------------- the stick clicks
+//
+// L3 and R3 were left unbound while the slot budget looked full. It was not:
+// the +0x164 control-code table runs 0x6E..0x82 and slot 0x7E ->
+// DIJOFS_BUTTON(10) is the one free entry. What was actually missing was an
+// action worth binding, and both now have one.
+//
+// R3 = Free Look. This is a restoration, not an invention. The action router
+// pairs a low console id with a high PC id for the same handler -- 0x0B/0xDF
+// for the menu, and here 0x01/0xD0 to enter free look and 0x06/0xCC to leave
+// it. The high ids carry the game's own keyboard descriptions; both low ids are
+// unbound, which is exactly the shape Start had.
+//
+//   0x01 -> handler 0x006216C7: GetPlayerCreature, then CSWParty::
+//           GetPlayerCharacter -> CSWCModule::SetFreeLookCamera, then sets the
+//           input class at [internal+0x9c] to 4 and calls CExoInput::ClearEvents.
+//   0x06 -> handler 0x0062184C: if ClientOptions+0x6D (the camera mode) reads 5,
+//           CSWCModule::RestoreCamera and SetInputClass(0, 1).
+//
+// Both are registered on the same control slot, which is safe because they are
+// registered in *different input classes* and only one class is ever polled:
+// entering switches the class to ICFreeLook, so the enter event stops being
+// visible at the moment the exit event starts being. That makes the toggle
+// deterministic rather than dependent on dispatch order within a frame.
+//
+// L3 = Flourish Weapons. This one has no console id -- handler 0x00621C21
+// serves only the PC id 0xF2, whose keyboard description already owns that
+// event, and descriptions are one per event id. So it cannot be a native
+// binding and is the project's first engine bridge instead.
+constexpr int K1_SLOT_BUTTON10 = 0x7E;                    // the one free slot
+constexpr std::uint32_t DIJOFS_BUTTON10_OFFSET = 0x3A;    // DIJOFS_BUTTON(10)
+
+constexpr int K1_EVENT_FREELOOK_ENTER = 0x01;
+constexpr int K1_EVENT_FREELOOK_EXIT  = 0x06;
+
+// The six keymap.2da input-class columns load in a fixed order -- ICPC,
+// ICMiniGame, ICPCGUI, ICDialog, ICFreeLook, ICMovie -- which puts ICPC at 0 and
+// ICPCGUI at 2, the two indices already known from the working bindings. That
+// makes ICFreeLook 4, and the enter handler agrees: it writes exactly 4 into the
+// input-class field at [internal+0x9c].
+constexpr int K1_CLASS_FREELOOK = 4;
+
+constexpr std::uint16_t XINPUT_LEFT_THUMB_MASK  = 0x0040;
+constexpr std::uint16_t XINPUT_RIGHT_THUMB_MASK = 0x0080;
+
+// How a stick click reaches the engine. Adding a kind here is the only thing a
+// future remapping needs to touch.
+enum class StickAction {
+    None,             // deliberately unbound
+    FreeLook,         // native: emits the retained joystick event
+    FlourishWeapons,  // bridge: calls the engine action directly
+};
+
+struct StickClickBinding {
+    std::uint16_t xinputMask;
+    StickAction   action;
+    const char*   name;
+};
+
+// The KMRP defaults, isolated here on purpose.
+//
+// R3 = Free Look restores the original Xbox behaviour and should not move.
+// L3 = Flourish Weapons is a KMRP default and *not* a settled design decision:
+// changing it means editing this one row, and nothing about the architecture
+// depends on which action a click carries.
+constexpr StickClickBinding K1_STICK_CLICKS[] = {
+    { XINPUT_LEFT_THUMB_MASK,  StickAction::FlourishWeapons, "L3" },
+    { XINPUT_RIGHT_THUMB_MASK, StickAction::FreeLook,        "R3" },
+};
+constexpr int K1_STICK_CLICK_COUNT =
+    sizeof(K1_STICK_CLICKS) / sizeof(K1_STICK_CLICKS[0]);
+
 constexpr ButtonBinding K1_BUTTONS[] = {
     { 0x1000, 0x74, K1_EVENT_A,           "A"    },   // confirm
     { 0x2000, 0x75, K1_EVENT_B,           "B"    },   // cancel, 35 panels
@@ -200,6 +270,23 @@ constexpr int K1_TRIGGER_COUNT = sizeof(K1_TRIGGERS) / sizeof(K1_TRIGGERS[0]);
 constexpr std::uint32_t DIJOFS_X_OFFSET = 0x00;
 constexpr std::uint32_t DIJOFS_Y_OFFSET = 0x04;
 constexpr std::uint32_t DIJOFS_BUTTON0_OFFSET = 0x30;   // DIJOFS_BUTTON(0)
+
+// The engine bridge. CClientExoApp lives at [[0x007A39FC]+4]; the action router
+// reaches it exactly that way at 0x00621C2B before calling the flourish.
+//
+// PlayerFlourishWeapons resolves the player by game-object id and calls
+// CSWCCreature::ComputeWeaponOverlays(0, 1) on the result -- with **no null
+// check**. The router gets away with that because it only ever runs in a live
+// module. A bridge does not have that guarantee, so GetPlayerCreature is
+// checked first and the call is skipped when there is no player.
+constexpr std::uintptr_t K1_CLIENT_EXO_APP_ROOT = 0x007A39FC;
+constexpr std::uintptr_t K1_PLAYER_FLOURISH     = 0x005EDE90;  // CClientExoApp::PlayerFlourishWeapons
+constexpr std::uintptr_t K1_GET_PLAYER_CREATURE = 0x005ED540;  // CClientExoApp::GetPlayerCreature
+constexpr std::uintptr_t K1_GET_IN_FREE_LOOK    = 0x005EE230;  // CClientExoApp::GetInFreeLook
+
+using ClientExoAppVoidFn = void(__thiscall*)(void*);
+using ClientExoAppPtrFn  = void*(__thiscall*)(void*);
+using ClientExoAppIntFn  = int(__thiscall*)(void*);
 
 using CreateNewEventFn = int(__thiscall*)(void*, int, int, int, int, int);
 using AddEventFn       = int(__thiscall*)(void*, int, int);
@@ -292,6 +379,10 @@ struct StickState {
     std::int32_t  lastX = 0;
     std::int32_t  lastY = 0;
     std::uint16_t lastButtons = 0;
+    unsigned long flourishRequestedTick = 0;   // 0 = nothing pending
+    unsigned long flourishesPerformed = 0;
+    unsigned long flourishesDeclined = 0;
+    int freeLookBound = 0;                     // bit 0 = enter, bit 1 = exit
     std::int32_t  rightX = 0;
     std::int32_t  rightY = 0;
     std::uint8_t  lastTriggers = 0;
@@ -435,6 +526,31 @@ void EnsureNativeJoystickK1(void* exoInputInternal)
         addEvent(exoInputInternal, binding.event, K1_CLASS_PCGUI);
         addEvent(exoInputInternal, binding.event, K1_CLASS_PC);
         ++g_stick.buttonsBound;
+    }
+
+    // Free look, on the one free control slot. Both events share slot 0x7E and
+    // that is deliberate: they are registered in different input classes, so
+    // whichever one is not applicable right now is not even polled.
+    //
+    // Enter is a gameplay action, so it goes in ICPC. Exit goes in ICFreeLook,
+    // because entering switches the class to 4 -- registering it in ICPC too
+    // would let a single press enter and then immediately leave again.
+    for (int c = 0; c < K1_STICK_CLICK_COUNT; ++c) {
+        if (K1_STICK_CLICKS[c].action != StickAction::FreeLook) {
+            continue;
+        }
+        if (createEvent(exoInputInternal, K1_EVENT_FREELOOK_ENTER, K1_DESC_DIGITAL,
+                        K1_DEVICE_JOYSTICK, K1_SLOT_BUTTON10, K1_SLOT_NONE) != 0) {
+            addEvent(exoInputInternal, K1_EVENT_FREELOOK_ENTER, K1_CLASS_PC);
+            ++g_stick.buttonsBound;
+            g_stick.freeLookBound |= 1;
+        }
+        if (createEvent(exoInputInternal, K1_EVENT_FREELOOK_EXIT, K1_DESC_DIGITAL,
+                        K1_DEVICE_JOYSTICK, K1_SLOT_BUTTON10, K1_SLOT_NONE) != 0) {
+            addEvent(exoInputInternal, K1_EVENT_FREELOOK_EXIT, K1_CLASS_FREELOOK);
+            ++g_stick.buttonsBound;
+            g_stick.freeLookBound |= 2;
+        }
     }
 
     // Neutralise the engine's quarter-scale joystick deadzone. Its own value
@@ -616,6 +732,30 @@ void FillNativeJoystickBufferK1(int deviceIndex, void* outBuffer)
         }
     }
 
+    // The stick clicks. Free look emits its retained event like any other
+    // button; the flourish is a bridge and is only *requested* here, never
+    // called from inside the input hook -- see PerformPendingStickActionsK1.
+    for (int c = 0; c < K1_STICK_CLICK_COUNT; ++c) {
+        const StickClickBinding& click = K1_STICK_CLICKS[c];
+        const bool now = (buttons & click.xinputMask) != 0;
+        const bool was = (g_stick.lastButtons & click.xinputMask) != 0;
+        if (now == was) {
+            continue;
+        }
+        switch (click.action) {
+        case StickAction::FreeLook:
+            emit(DIJOFS_BUTTON10_OFFSET, now ? 1 : 0);
+            break;
+        case StickAction::FlourishWeapons:
+            if (now) {
+                g_stick.flourishRequestedTick = GetTickCount();
+            }
+            break;
+        case StickAction::None:
+            break;
+        }
+    }
+
     g_stick.lastButtons = buttons;
 
     g_stick.rightX = rx;
@@ -736,6 +876,65 @@ extern "C" int __cdecl NativeJoystickBufferK1(void* outBuffer)
 // deliberate: it is the only way a half-deflected diagonal can survive, and
 // doing it in one place means the two axes can never disagree about the
 // deadzone.
+// ------------------------------------------------------------- engine bridge
+
+void* ClientExoAppK1()
+{
+    void** const root = *reinterpret_cast<void***>(K1_CLIENT_EXO_APP_ROOT);
+    return root ? root[1] : nullptr;          // [[0x007A39FC]+4]
+}
+
+bool InFreeLookK1()
+{
+    void* const app = ClientExoAppK1();
+    return app && EngineFn<ClientExoAppIntFn>(K1_GET_IN_FREE_LOOK)(app) != 0;
+}
+
+// Runs from the gameplay heartbeat, not from the input hook.
+//
+// Two reasons. The buffer hook sits inside CExoInput's own polling, and calling
+// back into creature code from there re-enters the engine at a point the router
+// never does. And the heartbeat only runs during gameplay, so a click in a menu
+// or a cutscene cannot reach the action at all -- which is most of what "safely
+// does nothing where flourish is unavailable" means in practice.
+//
+// A request that nothing consumes is dropped rather than kept. Without that, a
+// click pressed in a menu would fire the moment the player returned to the
+// world, which is a surprise rather than a feature.
+void PerformPendingStickActionsK1()
+{
+    if (g_stick.flourishRequestedTick == 0) {
+        return;
+    }
+    const unsigned long requested = g_stick.flourishRequestedTick;
+    g_stick.flourishRequestedTick = 0;
+
+    if (GetTickCount() - requested > 250ul) {
+        ++g_stick.flourishesDeclined;         // stale; the click was elsewhere
+        return;
+    }
+
+    void* const app = ClientExoAppK1();
+    if (!app) {
+        ++g_stick.flourishesDeclined;
+        return;
+    }
+    // PlayerFlourishWeapons dereferences the creature without checking it.
+    if (EngineFn<ClientExoAppPtrFn>(K1_GET_PLAYER_CREATURE)(app) == nullptr) {
+        ++g_stick.flourishesDeclined;
+        return;
+    }
+    // Free look drives the camera, not the character; a flourish there would be
+    // acting on a body the player is not currently controlling.
+    if (InFreeLookK1()) {
+        ++g_stick.flourishesDeclined;
+        return;
+    }
+
+    EngineFn<ClientExoAppVoidFn>(K1_PLAYER_FLOURISH)(app);
+    ++g_stick.flourishesPerformed;
+}
+
 extern "C" void __cdecl NativeJoystickMovementK1(void* playerControl)
 {
     if (!playerControl) {
@@ -765,6 +964,8 @@ extern "C" void __cdecl NativeJoystickMovementK1(void* playerControl)
     float sampleX = 0.0f;
     float sampleY = 0.0f;
     ReadNativeStickK1(sampleX, sampleY);   // diagnostics only
+
+    PerformPendingStickActionsK1();
 }
 
 bool NativeMovementOwnsLeftStickK1()
@@ -850,7 +1051,12 @@ extern "C" void __cdecl NativeJoystickDumpK1()
         // movement state, scaled by 1000 because wsprintfA has no %f. pc is the
         // player-control pointer, published so a test harness can read those
         // fields live rather than sampling this line twice a second.
-        "ev7=%ld ev8=%ld ud=%ld lr=%ld vel=(%ld,%ld) pc=%08lX\r\n",
+        // Stick clicks. fl = free-look bindings that took (bit 0 enter, bit 1
+        // exit); flour = performed/declined. Counters are the only honest way
+        // to watch a bridge fire: the flourish is an animation, and screen
+        // diffing cannot separate it from the character's idle motion.
+        "ev7=%ld ev8=%ld ud=%ld lr=%ld vel=(%ld,%ld) pc=%08lX "
+        "fl=%d flour=%lu/%lu\r\n",
         g_stick.registered ? 1 : 0, g_stick.createFailed ? 1 : 0, liveCount,
         g_stick.initCalls, g_stick.bufferCalls, g_stick.recordsEmitted,
         g_stick.movementCalls, g_stick.overrideFrames,
@@ -871,7 +1077,8 @@ extern "C" void __cdecl NativeJoystickDumpK1()
         static_cast<long>(g_stick.playerControl ? *FloatAt(g_stick.playerControl, 0x14) * 1000.0f : 0.0f),
         static_cast<long>(g_stick.playerControl ? *FloatAt(g_stick.playerControl, 0x5C) * 1000.0f : 0.0f),
         static_cast<long>(g_stick.playerControl ? *FloatAt(g_stick.playerControl, 0x60) * 1000.0f : 0.0f),
-        static_cast<unsigned long>(reinterpret_cast<std::uintptr_t>(g_stick.playerControl)));
+        static_cast<unsigned long>(reinterpret_cast<std::uintptr_t>(g_stick.playerControl)),
+        g_stick.freeLookBound, g_stick.flourishesPerformed, g_stick.flourishesDeclined);
 
     HANDLE file = CreateFileA("kmrp-native-joystick.log", FILE_APPEND_DATA,
                               FILE_SHARE_READ, nullptr, OPEN_ALWAYS,

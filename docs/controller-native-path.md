@@ -42,8 +42,9 @@ value out of the running process.
 | D-pad left | `0x80` | `0x38C` | `0x2F` | D-pad left | yes |
 | D-pad right | `0x82` | `0x390` | `0x30` | D-pad right | yes |
 | Start | `0x7C` | `BUTTON(8)` | `0x0B` | opens the in-game menu — **the game's own description** | yes |
+| R3 | `0x7E` | `BUTTON(10)` | `0x01` / `0x06` | free look, enter and leave | yes |
+| L3 | — | — | — | flourish weapons, **engine bridge** | yes |
 | Right stick X | — | — | — | camera, via the mouse-delta field | registered, feel untested |
-| L3, R3 | — | — | — | **unbound** — see below | n/a |
 
 All bindings are registered in both input class 0 (gameplay) and class 2 (GUI).
 
@@ -82,13 +83,78 @@ gameplay in either case. That is also the Xbox idiom, so the result is the
 console behaviour rather than a compromise. `0x28` is implemented by 35 panels,
 `MAIN_MENU` among them, which is why it backs out from everywhere.
 
-### Why L3 and R3 stay unbound
+### R3 is free look, and it is a restoration
 
-Slot `0x7E` is genuinely free — a live dump of every device-2 description shows
-`0x74`..`0x7D` and `0x7F`..`0x82` taken and `0x7E` spare. The blocker is not the
-slot budget but the absence of an action: no retained console event corresponds
-to a stick click. Binding one would mean inventing behaviour, so they stay
-unbound, as intended.
+The action router pairs a low console id with a high PC id on the same handler.
+Start was `0x0B`/`0xDF`. Free look is the same shape:
+
+| Ids | Handler | What it does |
+| --- | --- | --- |
+| `0x01` / `0xD0` | `0x006216C7` | `GetPlayerCreature`, `CSWParty::GetPlayerCharacter`, `CSWCModule::SetFreeLookCamera`, then writes input class `4` to `[internal+0x9c]` and calls `CExoInput::ClearEvents` |
+| `0x06` / `0xCC` | `0x0062184C` | if the camera mode at `ClientOptions+0x6D` reads `5`, `CSWCModule::RestoreCamera` and `SetInputClass(0, 1)` |
+
+The high ids carry the game's own keyboard descriptions — `0xD0` and `0xCC` are
+on keyboard slots `0x59` and `0x43` — and **both low ids were unbound**, exactly
+as `0x0B` was. So R3 is category A: no bridge, no synthesised key.
+
+Both events sit on the one free slot, `0x7E` → `DIJOFS_BUTTON(10)`. Sharing is
+safe because they are registered in **different input classes** and only the
+current class is polled: entering switches the class to `ICFreeLook`, so the
+enter event stops being visible at the instant the exit event starts being. The
+toggle is therefore deterministic rather than dependent on dispatch order inside
+a frame — which matters, because entering also calls `ClearEvents`.
+
+`ICFreeLook` is class **4**. The six `keymap.2da` columns load in a fixed order —
+`ICPC`, `ICMiniGame`, `ICPCGUI`, `ICDialog`, `ICFreeLook`, `ICMovie` — which puts
+`ICPC` at 0 and `ICPCGUI` at 2, the two indices already known from the working
+bindings. The enter handler agrees independently: it writes literal `4`.
+
+Measured: six presses, `cameraMode` alternating `5,3,5,3,5,3` and `inputClass`
+alternating `4,0,4,0,4,0`.
+
+### L3 is flourish weapons, and it is a bridge
+
+`CClientExoApp::PlayerFlourishWeapons` (`0x005EDE90`) is reached from handler
+`0x00621C21`, which serves **only** the PC id `0xF2`. There is no console
+partner, and `0xF2`'s keyboard description already owns that event id.
+Descriptions are one per event id, so no joystick description can be added.
+L3 is therefore the project's **first category B binding**.
+
+The call itself is small — `[[0x007A39FC]+4]` is `CClientExoApp`, and the method
+takes no arguments — but it resolves the player by game-object id and calls
+`CSWCCreature::ComputeWeaponOverlays(0, 1)` on the result **with no null check**.
+The router gets away with that because it only runs in a live module. A bridge
+has no such guarantee, so it is guarded and, importantly, is performed from the
+gameplay heartbeat rather than from inside the input hook: that keeps it out of
+`CExoInput`'s own polling and means a click in a menu or a cutscene cannot reach
+the action at all. A request nothing consumes within 250 ms is dropped, so a
+click pressed elsewhere does not fire on return to the world.
+
+Measured with the module's own counters: four presses in gameplay gave
+`performed +4, declined +0`; three presses in free look gave `performed +0,
+declined +3`.
+
+**L3 is a KMRP default, not a settled design decision.** It is isolated in one
+table so it can be changed without touching anything else:
+
+```cpp
+constexpr StickClickBinding K1_STICK_CLICKS[] = {
+    { XINPUT_LEFT_THUMB_MASK,  StickAction::FlourishWeapons, "L3" },
+    { XINPUT_RIGHT_THUMB_MASK, StickAction::FreeLook,        "R3" },
+};
+```
+
+Changing L3 means editing that one row. `StickAction` already distinguishes a
+native event from an engine bridge from deliberately unbound, so a replacement
+action of either kind needs no architectural change. R3 restores original
+behaviour and should not move.
+
+### Why screen diffing could not measure the flourish
+
+Worth recording, because it nearly produced a wrong answer. Idle windows
+measured 0.5–1.3% of the screen changing and flourish windows 2.3–3.6% — the
+character's own idle animation overlaps the effect. The module's counters were
+added for this reason, and they are what the suite asserts on.
 
 ### Why `0x2D` and `0x2E` are not used
 

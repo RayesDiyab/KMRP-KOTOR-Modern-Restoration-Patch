@@ -44,6 +44,7 @@ HOST, PORT = "127.0.0.1", 8787
 
 EXOINPUT_GLOBAL = 0x007A39E4
 DESCRIPTIONS, DEVICE_COUNT, MOUSE_DELTA_X = 0x128, 0x158, 0x3A0
+CLIENT_EXO_APP_ROOT = 0x007A39FC   # -> CClientExoApp at [+4]
 DESC_VALUE, DESC_ACCUM = 0x04, 0x24
 
 PC_UPDOWN, PC_LEFTRIGHT, PC_WALKING, PC_VELX, PC_VELY = 0x10, 0x14, 0x18, 0x5C, 0x60
@@ -203,6 +204,28 @@ class Game:
 
     def mouse_dx(self):
         return self.f32(self.internal + MOUSE_DELTA_X)
+
+    # -- free-look state, read from the engine rather than from our own module.
+    # CClientExoApp is [[0x007A39FC]+4]; its internal is [+4] and the options
+    # object hangs off that at +4 again. Camera mode 5 is free look, and the
+    # input class at internal+0x9c reads 4 (ICFreeLook) while it is active.
+    def _client_app(self):
+        root = self.u32(CLIENT_EXO_APP_ROOT)
+        return self.u32(root + 4) if root else None
+
+    def camera_mode(self):
+        app = self._client_app()
+        internal = self.u32(app + 4) if app else None
+        options = self.u32(internal + 4) if internal else None
+        if not options:
+            return None
+        raw = self._read(options + 0x6D, 1)
+        return raw[0] if raw else None
+
+    def input_class(self):
+        app = self._client_app()
+        internal = self.u32(app + 4) if app else None
+        return self.u32(internal + 0x9C) if internal else None
 
     def player_control(self):
         """Published by the module's diagnostic line; None until gameplay."""
@@ -602,6 +625,113 @@ def test_menu(game, pad, report):
     pad.send("reset")
 
 
+# ------------------------------------------------------- L3 and R3 stick clicks
+
+NATIVE_LOG = r"C:\Star Wars - KotOR\kmrp-native-joystick.log"
+
+
+def _module_counters():
+    """(freeLookBound, flourishesPerformed, flourishesDeclined) from the dump.
+
+    The flourish is an animation and screen diffing cannot tell it apart from
+    the character's idle motion -- measured, not assumed: idle windows ran 0.5
+    to 1.3 percent and flourish windows 2.3 to 3.6, which overlap. The module's
+    own counters are the honest instrument.
+    """
+    import re
+    for _ in range(12):
+        try:
+            text = open(NATIVE_LOG, "r", errors="replace").read()
+        except OSError:
+            text = ""
+        found = re.findall(r"fl=(\d+) flour=(\d+)/(\d+)", text)
+        if found:
+            return tuple(int(v) for v in found[-1])
+        time.sleep(0.4)
+    return None
+
+
+def test_stick_clicks(game, pad, report):
+    """R3 toggles free look natively; L3 bridges to the flourish, and declines.
+
+    R3 is a restoration: events 0x01 and 0x06 are the console ids for the
+    handlers that enter and leave free look, both unbound in the PC build. They
+    share control slot 0x7E and are registered in *different* input classes, so
+    only one is ever pollable and the toggle cannot double-fire within a frame.
+
+    L3 has no console id -- its handler serves only the PC id 0xF2, whose
+    keyboard description already owns that event -- so it is a direct engine
+    call, guarded, and performed from the gameplay heartbeat rather than from
+    inside the input hook.
+    """
+    counters = _module_counters()
+    report.add("sticks", "module reports its stick-click state", counters is not None,
+               str(counters), "HARNESS")
+    if counters is None:
+        return
+    report.add("sticks", "both free-look descriptions bound", counters[0] == 3,
+               f"fl={counters[0]} (bit 0 enter, bit 1 exit)", "NATIVE")
+
+    pad.send("reset")
+    time.sleep(1.0)
+    while game.camera_mode() == 5:
+        pad.tap("RS", settle=2.0)
+
+    # R3: six presses, alternating every time.
+    states = []
+    for _ in range(6):
+        pad.tap("RS", settle=1.8)
+        states.append(game.camera_mode())
+    alternating = all(states[i] != states[i + 1] for i in range(len(states) - 1))
+    report.add("sticks", "R3 toggles free look on every press", alternating,
+               f"cameraMode sequence {states}", "NATIVE")
+    report.add("sticks", "free look uses the engine's own class switch",
+               game.input_class() in (0, 4),
+               f"inputClass={game.input_class()}", "NATIVE")
+
+    while game.camera_mode() == 5:
+        pad.tap("RS", settle=2.0)
+
+    # L3 in gameplay: the bridge must fire, every time.
+    before = _module_counters()
+    for _ in range(4):
+        pad.tap("LS", settle=1.2)
+    time.sleep(1.2)
+    after = _module_counters()
+    report.add("sticks", "L3 performs the flourish in gameplay",
+               after and before and after[1] - before[1] == 4,
+               f"performed +{after[1] - before[1]}, declined +{after[2] - before[2]}",
+               "NATIVE")
+
+    # L3 in free look: the guard must decline rather than call into the engine.
+    for _ in range(4):
+        pad.tap("RS", settle=2.2)
+        if game.camera_mode() == 5:
+            break
+    before = _module_counters()
+    for _ in range(3):
+        pad.tap("LS", settle=1.2)
+    time.sleep(1.2)
+    after = _module_counters()
+    report.add("sticks", "L3 declines where flourish does not apply",
+               after and before and after[1] - before[1] == 0
+               and after[2] - before[2] == 3,
+               f"performed +{after[1] - before[1]}, declined +{after[2] - before[2]}",
+               "NATIVE")
+    while game.camera_mode() == 5:
+        pad.tap("RS", settle=2.2)
+    report.add("sticks", "returned to normal camera", game.camera_mode() != 5,
+               f"cameraMode={game.camera_mode()}", "NATIVE")
+
+    # Neither may disturb movement.
+    pad.send("reset")
+    time.sleep(0.5)
+    rate = axis_rate(game, pad, EV_JOY_Y, 0.0, 1.0)
+    report.add("sticks", "movement unaffected by the stick clicks", abs(rate) > 1000,
+               f"rate={rate}", "NATIVE")
+    pad.send("reset")
+
+
 def main():
     parser = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     parser.add_argument("--no-launch", action="store_true")
@@ -633,11 +763,12 @@ def main():
         test_centre(game, pad, report)
         test_camera(game, pad, report)
         test_disconnect(game, pad, report)
+        test_stick_clicks(game, pad, report)
         # Last: it drives the player around the menus and can leave the character
         # with a movement order, which the disconnect test reads as stale input.
         test_menu(game, pad, report)
     else:
-        for name in ("cardinals", "diagonals", "centre/release", "camera", "menu", "disconnect"):
+        for name in ("cardinals", "diagonals", "centre/release", "camera", "menu", "disconnect", "stick clicks"):
             report.add("skipped", name, None, "needs gameplay; save did not load")
     test_no_legacy_synthesis(game, pad, report)
 
