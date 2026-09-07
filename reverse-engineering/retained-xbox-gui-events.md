@@ -1697,6 +1697,78 @@ was already against a wall from the preceding test, but that was not confirmed.
   cursor, which stops mouse clicks driving menus. Automated menu navigation has
   to happen with the pad server stopped.
 
+### Native buttons and D-pad, through the retained console events
+
+The principle here is the user's: use the actions the engine already has rather
+than inventing new ones. Buttons turned out to need no invention at all.
+
+**The event ids are free and are the right ones.** `0x27`..`0x40` -- the retained
+Xbox console events -- are registered by nothing in the executable, and
+`ProcessInput` already routes any id in that range to
+`CSWGuiManager::HandleInputEvent`. The panels still implement them. So binding a
+pad button to `0x27` makes it reach the game's own console handler, with no
+synthetic keystroke anywhere in the path.
+
+**The control slots are free too.** The `+0x164` table maps slots `0x74`..`0x7E`
+to `DIJOFS_BUTTON(0)`..`BUTTON(10)`. Only `0x7C` (button 8) is taken, by the
+game's own event `0x0B`, and it is left alone.
+
+| XInput | Slot | Control code | Event | |
+| --- | --- | --- | --- | --- |
+| A | `0x74` | `DIJOFS_BUTTON(0)` | `0x27` | A |
+| B | `0x75` | `BUTTON(1)` | `0x28` | B |
+| X | `0x76` | `BUTTON(2)` | `0x29` | X |
+| Y | `0x77` | `BUTTON(3)` | `0x2A` | Y |
+| LB | `0x78` | `BUTTON(4)` | `0x2B` | Black |
+
+Registered in both the GUI and gameplay input classes. Unlike the axes, buttons
+stay **edge-triggered**: the digital store path writes `dwData` to `desc+0x04`
+rather than accumulating it, so a held button needs no repeat.
+
+**Verified in game.** All five descriptions read back with the right slots and
+control codes, and holding B showed `desc+0x04 = 1`. Then, on the Load Game
+screen, a single tap of B closed it and returned to the main menu -- a pad
+button driving a retained console handler end to end.
+
+### The D-pad
+
+The engine does not expose a POV hat as one control. Its own `GetJoystickBuffer`
+decodes the hat angle into four direction codes -- `0x384`, `0x388`, `0x38C`,
+`0x390` -- which the `+0x164` table reaches through slots `0x7F`..`0x82`. Those
+are unused, so the pad's four directions bind to the retained navigation events:
+
+| Direction | Slot | Code | Event |
+| --- | --- | --- | --- |
+| Up | `0x7F` | `0x384` | `0x31` scroll up |
+| Down | `0x81` | `0x388` | `0x32` scroll down |
+| Left | `0x80` | `0x38C` | `0x2F` D-pad left |
+| Right | `0x82` | `0x390` | `0x30` D-pad right |
+
+**Which code is which direction is not established.** The engine derives them
+through bit shifts this work has not unpicked, so the pairing above is a first
+guess; two of the four may need swapping after a playtest. Registration is
+confirmed, the direction mapping is not.
+
+### The right stick is not reachable this way
+
+`UpdateCamera` polls event `0x11C` in the gameplay class, and `ProcessInput`
+clamps it to `[-1, 1]` exactly as it does the movement axes. But `0x11C` already
+has a keyboard description, and `descriptions[]` holds one per event id, so a
+joystick description cannot be added for it. Its keyboard description is almost
+certainly the single type 4 two-button axis the game registers -- a pair of keys
+forming one axis -- which is why keyboard camera turning works at all.
+
+There is a second route that was investigated and **not** taken. `ProcessInput`
+has a branch, gated on `ClientOptions+0x6D == 7`, that polls events `0x0C` and
+`0x0D` -- the game's own joystick slider descriptions on `DIJOFS_SLIDER(0)` and
+`SLIDER(1)`. Feeding those from the right stick would be fully native. But
+`+0x6D` is the **camera mode**, written by `CClientOptions::SetCameraMode` and
+driven from script through `ExecuteCommandSetCameraMode`; forcing it to 7
+globally would change camera behaviour well beyond input. That is a decision for
+a playtest, not an assumption.
+
+So the right stick remains on the older keystroke path for now.
+
 ## Coverage: what has been walked, and what has not
 
 The sweep is tracked explicitly because a decoder blind spot and a genuine
