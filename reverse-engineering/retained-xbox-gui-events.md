@@ -1769,6 +1769,93 @@ a playtest, not an assumption.
 
 So the right stick remains on the older keystroke path for now.
 
+### The device model, and why the camera is only half reachable
+
+**Six devices, four of them joysticks.** The constants sit together at
+`0x0074D3C4`:
+
+| Address | Value | Meaning |
+| --- | --- | --- |
+| `0x0074D3C4` | `-1` | any / none |
+| `0x0074D3C8` | `0` | keyboard |
+| `0x0074D3CC` | `1` | mouse |
+| `0x0074D3D0` | `2` | first joystick |
+| `0x0074D3D8` | `6` | maximum devices |
+| `0x0074D3DC` | `110` (`0x6E`) | first joystick control slot |
+
+So devices 2 through 5 are joysticks, matching the constructor's clamp of the
+count to 6. There is **no third device kind** -- no separate gamepad class hiding
+behind the keyboard and mouse -- but the engine does natively support **four**
+pads, not one. Anything built here should index the device rather than assume 2.
+
+### The camera has two inputs, and only one of them is analog
+
+`CClientExoAppInternal::UpdateCamera` (`0x005F5E10`) reads exactly two things:
+
+```asm
+005F5E89  call CClientOptions::GetMouseSenSetting
+005F5EB2  call CExoInput::GetMouseDelta        ; analog
+005F5ED8  fmul [esp+0x24]                      ; * sensitivity
+005F5EDC  fmulp                                ; * invert flag at 0x007A22A4
+005F5EE1  call CSWCModule::TiltCamera          ; camera PITCH
+...
+005F5EF3  call PollInput(0x11C, 0)             ; camera YAW, clamped to [-1,1]
+```
+
+**Yaw is not reachable.** Event `0x11C` is description **type 4**, a two-button
+axis on **device 0**, with slots `0x36` and `0x33` resolving to `0x20` and `0x1E`
+-- `DIK_D` and `DIK_A`. Descriptions are one per event id, so no joystick
+description can be added for it, and its value can only ever be the difference of
+two digital controls. The same shape explains movement: `0x118` is `DIK_S`/`DIK_W`
+and `0x119` is `DIK_C`/`DIK_Z`, which is why the joystick needed the engine's
+separate analog events `0x07` and `0x08` instead.
+
+**Pitch is reachable, and is genuinely analog.** `GetMouseDelta` has exactly one
+caller, `UpdateCamera`, and it is a plain field read:
+
+```asm
+005E00F0  mov eax, [ecx+0x3A0]     ; delta X
+005E00FC  mov eax, [ecx+0x3A4]     ; delta Y
+```
+
+`UpdateMouseDelta` computes and writes those two fields; `GetMouseDelta` only
+reads them back. `ProcessInput` calls `UpdateMouseDelta` at `0x006228A3` and then
+`GetEvents` at `0x006228D2`, while `UpdateCamera` runs later in the frame. So a
+hook on `GetEvents` -- which this module already has -- sits in exactly the
+window between the delta being computed and the camera consuming it, and can add
+a stick-derived value to `CExoInputInternal+0x3A4` without touching the cursor,
+without hooking `GetMouseDelta`, and without a second writer racing anything.
+
+**It is the X delta, not the Y.** Working the call site's stack through: `push
+ecx` shifts `esp` before the second `lea`, so `arg1` is `S+0x1C` and receives
+`+0x3A0`, and the `fld [esp+0x1c]` after the call reads that same slot. So
+`TiltCamera` is driven by horizontal mouse movement -- camera rotation, which is
+exactly what a right stick should drive.
+
+Implemented: the right stick is added to `+0x3A0` from the existing `GetEvents`
+hook, with its own radial deadzone. The speed constant is unmeasured against a
+real mouse and is the first thing to tune.
+
+### Camera mode 7 is a vehicle mode, not a gamepad mode
+
+Worth recording because it looked promising and is not. `ProcessInput` gates a
+block on `ClientOptions+0x6D == 7` that polls the game's own joystick sliders,
+events `0x0C` and `0x0D`. Following where those values go:
+
+```asm
+00623DE5  call [eax+0x80]            ; fetch an object from the module
+00623DF8  cmp  eax, 0x1071           ; only for object type 0x1071
+00623E19  fld  [esp+0x18]            ; event 0x0C  -> [edi+0x18]
+00623E26  fld  [esp+0x1c]            ; event 0x0D  -> [edi+0x14]
+00623E33  fld  [esp+0x1c]            ; and a cross term -> [edi+0x28]
+```
+
+Five float inputs written onto a single object of type `0x1071`, alongside the
+movement axes. That is a vehicle control block -- the swoop or the turret -- not
+a camera. `+0x6D` is written by `CClientOptions::SetCameraMode` and driven from
+script through `ExecuteCommandSetCameraMode`, so forcing it would change camera
+behaviour far beyond input. Route rejected.
+
 ## Coverage: what has been walked, and what has not
 
 The sweep is tracked explicitly because a decoder blind spot and a genuine
