@@ -538,14 +538,56 @@ Entry also refuses to land on a control that owns the direction keys: the
 Abilities screen remembers its ability list as its focused control, and resuming
 straight onto it handed every later up press to the list.
 
-### Known, pre-existing: walking every tab closes the menu
+### Lists, and why standing down was standing down into nothing
 
-Driving through all eight tabs in one pass closes the in-game menu. **This
-reproduces on the module as it was before any of the tab work**, so it is not
-caused by it; it was found by the new test, not introduced by it. Not yet
-diagnosed. The end-to-end suite records it as ENGINE, steps over the tab whose
-content self-navigates, and marks the checks that need an open menu afterwards as
-not measurable rather than failing them.
+A retained direction event cannot reach a panel behind the strip. The strip is in
+front, `CSWGuiInGameMenu::HandleInputEvent` answers only `0xF3`/`0xF4`, and the
+base class then routes to the strip's **own** focused control. So deferring to a
+content list's "native navigation" deferred to nothing at all: the press reached
+the strip and died there.
+
+Behind the strip, a focused control that owns the direction keys is therefore
+handed its own retained event directly, through its own `HandleInputEvent` --
+the same call the engine makes. The navigation stays the engine's; only the
+delivery changes.
+
+The escape from a list comes from the engine as well.
+`CSWGuiListBox::HandleInputEvent`'s `0x31` case at `0x0041CF3E` computes its own
+"did anything happen":
+
+    mov   ax, [esi+0x2C8]     ; the selected row
+    test  ax, ax
+    setne cl                  ; moved = (row != 0)
+
+so a list on row 0 cannot scroll up, and that is exactly when up leaves it for
+the tab strip. `+0x2C6` selects a different branch when it is not `-1`, so the
+escape is taken only on the plain-row path. All eight tabs, Abilities and Map
+included, enter their content and come back out.
+
+### A panel can open IN FRONT of the strip, and that is not the menu closing
+
+Walking every tab was reported here as "closes the in-game menu", confirmed
+against the pre-tab-work module, and called pre-existing. **That was wrong**, and
+the way it was wrong is worth keeping:
+
+* The menu never closed. `[CGuiInGame+0xA0]` -- vtable `0x00755CD0`, dispatcher
+  `0x006AA8A0`, one of the screens the in-game allocator at `0x00632xxx` builds
+  on demand -- opens **in front of** the strip. The input class stays 2 and the
+  strip is still in the stack, merely covered.
+* The harness asked "is the front panel the strip?", got no, and called the
+  strip gone.
+* A later check then pressed B, which backed out of the covering panel *and*
+  the menu. The snapshot taken afterwards showed gameplay, which is what made
+  the diagnosis look confirmed.
+
+Confirming the symptom on the baseline confirmed the symptom, not the cause.
+The suite now separates the two -- covered means class 2 with the strip still
+present, and is recovered from with B; closed means class 0 and no strip.
+
+**Still unknown:** what makes that panel open. It does not reproduce from the tab
+walk alone (nine full cycles), from bumping tabs with focus left in content, or
+from driving the Abilities list. It needs state from earlier in the suite that
+has not been isolated.
 
 ## Testing
 

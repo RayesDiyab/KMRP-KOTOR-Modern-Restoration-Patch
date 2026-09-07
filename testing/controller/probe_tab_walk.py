@@ -128,25 +128,45 @@ def report(game, label):
           f"panels={len(game.panels())} front_disp={game.dispatcher(front):08X}")
 
 
+def press_and_check(game, label, action):
+    """Run one press and say immediately whether the menu survived it."""
+    before = game.tab_bar() is not None
+    action()
+    after = game.tab_bar() is not None
+    report(game, label)
+    if before and not after:
+        print()
+        print(">>> THE MENU CLOSED ON: " + label.strip())
+        return False
+    return True
+
+
 def main() -> int:
     game = Game()
     if game.input_class() == 0:
         tap("START", settle=2.0)
     report(game, "menu open")
-    for step in range(8):
-        report(game, f"-- tab {game.tab_index()}")
-        tap("DOWN", settle=1.3)
-        report(game, "   after DOWN")
+    # Mirrors the end-to-end suite's walk exactly, including the leading return
+    # to the strip before each tab. The first version of this probe omitted that
+    # and did not reproduce the closure, which is the whole reason it is here.
+    for _ in range(9):
+        report(game, "-- tab %s" % game.tab_index())
         for _ in range(6):
             if in_content() is not True:
                 break
-            tap("UP", settle=0.9)
-        report(game, "   after UP(s)")
-        trigger("RT")
-        report(game, "   after RT")
-        if not game.tab_bar():
-            print("\nthe strip is gone -- stopping here")
-            break
+            if not press_and_check(game, "   lead UP", lambda: tap("UP", settle=0.9)):
+                return 1
+        if not press_and_check(game, "   DOWN", lambda: tap("DOWN", settle=1.3)):
+            return 1
+        for _ in range(6):
+            if in_content() is not True:
+                break
+            if not press_and_check(game, "   UP", lambda: tap("UP", settle=0.9)):
+                return 1
+        if not press_and_check(game, "   RT", lambda: trigger("RT")):
+            return 1
+    print()
+    print("walked without closing the menu")
     return 0
 
 

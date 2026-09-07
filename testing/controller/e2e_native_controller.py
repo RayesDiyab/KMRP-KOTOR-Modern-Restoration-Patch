@@ -789,22 +789,28 @@ def test_tab_bar(game, pad, report):
     #    an actionable control in each and up comes back out.
     entered = []
     failed = []
-    skipped = []
+    skipped = []          # kept for the report; nothing is skipped any more
+    overlays = []         # panels that opened in front and were backed out of
     lost = None
+
+    def still_there(index, where):
+        """True while the strip is reachable, dismissing an overlay if needed."""
+        nonlocal lost
+        if _tab_bar(game):
+            return True
+        if _dismiss_overlay(game, pad):
+            overlays.append((index, where))
+            return True
+        lost = (index, where, _front_state(game))
+        return False
+
     for _ in range(len(frames)):
         index = _tab_index(game)
-        if not _tab_bar(game):
-            lost = index
+        if not still_there(index, "arriving"):
             break
-        content_panel = _content_panel(game, _tab_bar(game))
-        if _dispatcher(game, content_panel) in SELF_NAVIGATING_PANELS:
-            skipped.append(index)
-            pad.trigger("RT", settle=1.5)
-            continue
         _return_to_tabs(game, pad)
         pad.tap("DOWN", hold=NAV_TAP, settle=1.3)
-        if not _tab_bar(game):
-            lost = index
+        if not still_there(index, "DOWN"):
             break
         content = _content_panel(game, _tab_bar(game))
         active = game.u32(content + 0x1C) if content else None
@@ -814,22 +820,23 @@ def test_tab_bar(game, pad, report):
             failed.append(index)
         _return_to_tabs(game, pad)
         pad.trigger("RT", settle=1.5)
-        if not _tab_bar(game):
-            lost = index
+        if not still_there(index, "RT"):
             break
     if lost is not None:
         global MENU_LOST_IN_WALK
         MENU_LOST_IN_WALK = True
-        # Pre-existing, and confirmed against the module as committed before any
-        # of the tab work: walking onto tab 3 (Abilities) closes the in-game
-        # menu on the baseline too. Recorded as ENGINE rather than NATIVE so it
-        # is not read as a regression, and the menu is reopened so the checks
-        # after this one still have something to run against.
+        _dismiss_overlay(game, pad)
+        # Reaching here means B did not bring the strip back, so the menu is
+        # genuinely gone rather than merely covered. Recorded as ENGINE: the
+        # earlier reading of this as "walking the tabs closes the menu" was
+        # wrong -- what actually happens is that a lazily built in-game panel
+        # (CGuiInGame+0xA0, dispatcher 006AA8A0) opens in FRONT of the strip,
+        # and the B pressed by a later check is what then closed the menu.
         pad.tap("START", settle=2.5)
     report.add("tabs", "the menu survives a walk of all eight tabs", lost is None,
-               f"the strip disappears on tab {lost} -- pre-existing, reproduced "
-               f"on the pre-tab-work module" if lost is not None
-               else "eight tabs, strip in front throughout", "ENGINE")
+               f"lost on tab {lost[0]} at {lost[1]}: {lost[2]}" if lost is not None
+               else f"eight tabs; {len(overlays)} panel(s) opened in front and "
+                    f"were dismissed: {overlays}", "ENGINE")
     # Abilities and Map navigate themselves and are deliberately excluded, so
     # the claim is "every tab that KMRP navigates", not "every tab".
     # Judged over the tabs actually reached: when the walk is cut short by the
@@ -1214,6 +1221,25 @@ def _registers(game, control, code):
     return False
 
 
+def _front_state(game):
+    """Class, front dispatcher and panel count -- what replaced the strip.
+
+    Input class 0 means the menu really closed; a non-zero class with a
+    different dispatcher in front means something merely covered it.
+    """
+    panels = _panels(game)
+    front = panels[-1] if panels else None
+    return (f"class={_input_class(game)} front={_dispatcher(game, front):08X} "
+            f"panels={len(panels)}")
+
+
+def _input_class(game):
+    root = game.u32(CLIENT_EXO_APP_ROOT)
+    app = game.u32(root + 4) if root else None
+    internal = game.u32(app + 4) if app else None
+    return game.u32(internal + 0x9C) if internal else None
+
+
 def _tab_bar(game):
     """CSWGuiInGameMenu, but only while it is the panel in front."""
     for panel in reversed(_panels(game)):
@@ -1303,6 +1329,22 @@ def _nav_panel(game):
 def _active(game):
     panel = _nav_panel(game)
     return game.u32(panel + 0x1C) if panel else None
+
+
+def _dismiss_overlay(game, pad, limit=2):
+    """Back out of a panel that has opened in front of the tab strip.
+
+    NOT the same thing as the menu closing, which is what this was read as for a
+    whole round of investigation. A panel in front leaves the input class at 2
+    with the strip still in the stack; a closed menu leaves class 0 and no strip
+    at all. Telling them apart matters: the first is recoverable with B, and B
+    on a menu that has really closed does something else entirely.
+    """
+    for _ in range(limit):
+        if _tab_bar(game) or _input_class(game) != 2:
+            break
+        pad.tap("B", settle=1.6)
+    return _tab_bar(game) is not None
 
 
 def _return_to_tabs(game, pad, limit=8):

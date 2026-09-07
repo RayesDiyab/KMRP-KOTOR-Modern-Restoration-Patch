@@ -1314,6 +1314,45 @@ void* TopPanelK1()
 // registered 0x27 to its own overlay, exactly as a mouse click does.
 constexpr std::uintptr_t K1_INGAME_MENU_DISPATCHER = 0x00624970;
 
+// CSWGuiListBox, and the two fields its own up handler reads.
+//
+// A retained direction event cannot reach a panel behind the strip: the strip is
+// in front, its dispatcher answers only 0xF3/0xF4, and the base class then routes
+// to the strip's OWN focused control. So standing down "so the list can navigate
+// natively" handed the press to nothing at all. The list is driven by handing it
+// its own retained event directly instead -- its own HandleInputEvent, the same
+// call the engine would make -- so the navigation stays the engine's.
+//
+// The boundary comes from the engine too. CSWGuiListBox::HandleInputEvent's
+// 0x31 case at 0x0041CF3E computes its own "did anything happen":
+//
+//     mov  ax, [esi+0x2C8]     ; the selected row
+//     test ax, ax
+//     setne cl                 ; moved = (row != 0)
+//
+// so a list sitting on row 0 cannot scroll up, and that is exactly when up
+// should leave it for the tab strip. +0x2C6 selects a different branch when it
+// is not -1, so the escape is only taken on the plain-row path.
+constexpr std::uintptr_t K1_LISTBOX_DISPATCHER = 0x0041CE20;
+constexpr std::size_t    K1_LISTBOX_ROW        = 0x2C8;   // int16, selected row
+constexpr std::size_t    K1_LISTBOX_PROTO      = 0x2C6;   // int16, -1 = plain rows
+
+constexpr int K1_EVENT_DPAD_LEFT  = 0x2F;
+constexpr int K1_EVENT_DPAD_RIGHT = 0x30;
+constexpr int K1_EVENT_SCROLL_UP  = 0x31;
+constexpr int K1_EVENT_SCROLL_DOWN = 0x32;
+
+int DirectionEventK1(int dx, int dy)
+{
+    if (dy < 0) {
+        return K1_EVENT_SCROLL_UP;
+    }
+    if (dy > 0) {
+        return K1_EVENT_SCROLL_DOWN;
+    }
+    return dx < 0 ? K1_EVENT_DPAD_LEFT : K1_EVENT_DPAD_RIGHT;
+}
+
 // CGuiInGame, at CClientExoAppInternal+0x40. CClientExoApp::GetGuiInGame
 // @ 0x005ED690 reaches it the same way, and CGuiInGame::SetScreen @ 0x0062CF10
 // reads the current index from +0x2C and refuses to run at all while +0x108 is
@@ -1438,6 +1477,17 @@ void* TabContentPanelK1(void* tabBar)
         }
     }
     return nullptr;
+}
+
+// A plain-row list sitting on its first row: up cannot move it, so up may leave.
+bool ListBoxAtTopK1(void* control)
+{
+    if (DispatcherOfK1(control) != K1_LISTBOX_DISPATCHER) {
+        return false;
+    }
+    const short proto = *FieldAt<short>(control, K1_LISTBOX_PROTO);
+    const short row   = *FieldAt<short>(control, K1_LISTBOX_ROW);
+    return proto == -1 && row == 0;
 }
 
 // The tab the engine is showing, or -1 when there is no in-game GUI.
@@ -1716,6 +1766,7 @@ struct TabNavStateK1 {
     unsigned long entered = 0;      // moves down into a tab's content
     unsigned long returned = 0;     // moves back up to the strip
     unsigned long activated = 0;    // tabs opened with A
+    unsigned long dispatched = 0;   // directions handed to a control's own handler
 };
 
 TabNavStateK1 g_tabNav;
@@ -1832,17 +1883,15 @@ bool NavigateFocusK1(int dx, int dy)
             if (!content) {
                 return false;
             }
-            // Resume where the screen left off, but never INTO a control that
-            // owns the direction keys. The Abilities screen remembers its ability
-            // list as the focused control, and entering straight onto it meant
-            // the list took every subsequent up press natively and focus could
-            // not climb back out to the strip. Landing on the first ordinary
-            // control instead keeps the way back open.
+            // Resume where the screen left off, including onto a list. That was
+            // briefly forbidden, because entering onto the Abilities list meant
+            // every later up press was swallowed by a list nothing could reach
+            // and focus could not climb back out. Both halves of that are fixed
+            // -- the list is driven through its own handler now, and up off its
+            // first row returns to the strip -- so the natural control wins.
             void* const contentActive = *FieldAt<void**>(content, K1_PANEL_ACTIVE);
             RectK1 probe{};
-            const bool resumable = ControlIsNavigableK1(contentActive, probe)
-                && !PanelNavigatesItselfK1(content, contentActive, false);
-            void* const target = resumable
+            void* const target = ControlIsNavigableK1(contentActive, probe)
                 ? contentActive
                 : ChooseNeighbourK1(content, nullptr, 0, 1);
             if (!target || !SetFocusK1(content, target)) {
@@ -1867,12 +1916,31 @@ bool NavigateFocusK1(int dx, int dy)
         return SetFocusK1(panel, step);
     }
 
-    // Behind the strip, only the control-level exemption applies: a focused list
-    // still scrolls itself, but the screen's panel-level navigation is not
-    // reachable and must not be deferred to.
+    // Behind the strip a focused control that owns the direction keys is handed
+    // its own retained event directly. Standing down here used to mean the press
+    // vanished: nothing routes retained events to a panel that is not in front.
     if (PanelNavigatesItselfK1(panel, active, false)) {
+        if (tabBar != nullptr) {
+            // Up off the top of a list goes back to the strip rather than being
+            // swallowed by a list that cannot scroll any further.
+            if (dy < 0 && ListBoxAtTopK1(active)) {
+                void* const frame = ActiveTabFrameK1(tabBar);
+                if (frame && SetFocusK1(tabBar, frame)) {
+                    g_tabNav.inContent = false;
+                    ++g_tabNav.returned;
+                    return true;
+                }
+            }
+            const std::uintptr_t dispatcher = DispatcherOfK1(active);
+            if (dispatcher != 0) {
+                reinterpret_cast<HandleControlInputFn>(dispatcher)(
+                    active, DirectionEventK1(dx, dy), 1);
+                ++g_tabNav.dispatched;
+                return true;
+            }
+        }
         ++g_stick.navDeclinedNative;
-        return false;              // a focused list scrolls itself
+        return false;              // in front: the engine routes it itself
     }
 
     // Inside a tab's content, up at the top boundary returns to the strip.
@@ -2398,7 +2466,7 @@ extern "C" void __cdecl NativeJoystickDumpK1()
         // after. cam* are x100.
         "ovr=%d rmag=%ld amag=%ld dz=%ld dcr=%lu "
         "rx=%ld ry=%ld camrun=%lu camwr=%lu camdz=%lu camapp=%ld camcls=%lu camown=%lu "
-        "nav=%lu/%lu gui=%lu tab=%lu/%lu/%lu tabin=%d move=%d->%d dir=%d\r\n",
+        "nav=%lu/%lu gui=%lu tab=%lu/%lu/%lu/%lu tabin=%d move=%d->%d dir=%d\r\n",
         g_stick.registered ? 1 : 0, g_stick.createFailed ? 1 : 0, liveCount,
         g_stick.initCalls, g_stick.bufferCalls, g_stick.recordsEmitted,
         g_stick.movementCalls, g_stick.overrideFrames,
@@ -2438,6 +2506,7 @@ extern "C" void __cdecl NativeJoystickDumpK1()
         g_stick.cameraWrongClass, g_stick.cameraNoOwner,
         g_stick.navMoves, g_stick.navDeclinedNative, g_stick.lastGuiTick,
         g_tabNav.entered, g_tabNav.returned, g_tabNav.activated,
+        g_tabNav.dispatched,
         g_tabNav.inContent ? 1 : 0,
         g_stick.navFromY, g_stick.navToY, g_stick.navDir);
 
