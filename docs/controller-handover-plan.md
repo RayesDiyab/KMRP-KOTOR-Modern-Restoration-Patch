@@ -70,9 +70,28 @@ confirms, B still cancels, X and Y remain per-panel. Three changed meaning:
 | RB | Tab | description scroll down |
 | Back | V | Black |
 
-`tools/audit_controller_prompt_coverage.py` reports which screens have prompts;
-it has not yet been extended to check that a prompt's *label* matches the native
-action. That is the next mechanical task in this area.
+`tools/audit_controller_prompt_coverage.py` reports which screens have prompts.
+Run 2026-09-07: **31 strip buttons, 22 carrying a badge (71%)**. All nine gaps
+are the same control — the "Default" button on the options screens, plus Key
+Mappings and the two in-game option panels. That gap predates this work and is
+unrelated to the native path; closing it is texture and placement work, and it
+needs somebody to decide which button "Default" should depict.
+
+The audit checks coverage, not truthfulness. It has **not** been extended to
+check that a badge's label matches what the native path makes the button do,
+which is the part this work actually changed:
+
+| Button | Legacy | Native | Badge still accurate? |
+| --- | --- | --- | --- |
+| LB | Space | description scroll up | needs checking |
+| RB | Tab | description scroll down | needs checking |
+| Back | V | Black | needs checking |
+| Start | — | opens the in-game menu | new; no badge exists |
+
+A and B are unchanged in meaning, so most badges survive untouched. Extending the
+auditor needs a panel-and-control to native-action map, which the event inventory
+now supplies; it is the next mechanical task here, but the *judgement* of what a
+badge should say is a person's.
 
 ## Suggested removal order, once QA passes
 
