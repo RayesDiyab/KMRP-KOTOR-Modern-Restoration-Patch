@@ -1519,6 +1519,120 @@ back to `0.0`, game running normally. No file on disk modified.
   alone so as not to conflate two scaling layers.
 - Confirm the diagonal behaviour empirically; it is currently read, not measured.
 
+## KOTOR already has joystick descriptions, and they are a delta model
+
+Measured in a running game on 2026-09-07 with a ViGEm virtual pad supplying
+controllable axes, reading the live process with `ReadProcessMemory`.
+
+### The device layer works end to end
+
+With a `GetJoystickBuffer` replacement emitting synthesised
+`DIDEVICEOBJECTDATA` records from XInput, and `CExoInputInternal+0x158` raised
+to 3:
+
+```
+reg=1 createFail=0 count=3 init=1 buf=826 rec=2 raw=(-1184,-1058)
+```
+
+and the descriptions read back with the raw axis values stored in `desc+0x04`.
+XInput -> records -> matching -> description is **confirmed working**.
+
+### The game registers its own joystick descriptions
+
+Scanning every description bound to device 2 found seven that KMRP did not
+create:
+
+| Event | Type | Slot | Control | Meaning |
+| --- | --- | --- | --- | --- |
+| `0x03` | 1 | `0x6E` | `DIJOFS_X` | digital X |
+| `0x04` | 1 | `0x6F` | `DIJOFS_Y` | digital Y |
+| **`0x07`** | **3** | `0x6F` | `DIJOFS_Y` | **analog Y** |
+| **`0x08`** | **3** | `0x6E` | `DIJOFS_X` | **analog X** |
+| `0x0B` | 1 | `0x7C` | `DIJOFS_BUTTON(8)` | a button |
+| `0x0C` | 3 | `0x71` | `DIJOFS_SLIDER(0)` | slider |
+| `0x0D` | 3 | `0x72` | `DIJOFS_SLIDER(1)` | slider |
+
+And `ProcessInput` already polls events `7` and `8` in input class 0, at
+`0x006238D3` and `0x006238E5`, feeding the same clamp-and-`UpDown` path as the
+keyboard. **KOTOR PC has complete native analog joystick movement wired up.** It
+has only ever lacked a device.
+
+This corrects an earlier conclusion in this document. The `keymap.2da` loop
+branch read at `0x005EF686` hardcodes the keyboard device, but it is not the only
+branch: joystick descriptions plainly exist at runtime.
+
+### Which is why registering our own axis events fails
+
+`AddEvent` returned failure for exactly input classes 0 and 4:
+
+```
+add=[0 3 3 3 0 3]        classes 0 and 4 rejected, 1/2/3/5 accepted
+```
+
+Those are the two classes whose device-2 lists already hold five descriptions
+each. `AddEvent` calls `IsControlUsed(slot, device, class)` and bails when the
+control is taken, and `DIJOFS_X` / `DIJOFS_Y` are taken there by events `0x08`
+and `0x07`. Custom descriptions therefore land only in the classes that do not
+matter, never receive values in gameplay (class 0 is the active one), and
+`PollInput` returns `0.0` for them:
+
+```
+byclass=[0 0 0 0 0 0]
+```
+
+### The real bug: type 3 accumulates
+
+The per-type **store** dispatch at `0x005E2F4C` sends type 3 to `0x005E29E8`:
+
+```asm
+005E29E8  mov ecx, [edi+4]        ; record dwData
+005E29EB  add dword ptr [ebx+0x24], ecx   ; += , it ACCUMULATES
+```
+
+and `PollInput`'s type 3 path computes `[desc+0x24] - [desc+0x04]`. That is a
+**relative motion model**, not an absolute one.
+
+Feeding it absolute stick positions makes the accumulator grow without bound.
+Measured directly: holding the stick fully forward across three test pushes drove
+event `0x07` to **-98301**, exactly `-32767 x 3`.
+
+That is the cause of the reported "moves in all directions at different speeds
+even at a slight push". It was never a deadzone or sign problem.
+
+### And a second cause, now removed
+
+The first implementation also wrote the stick into `playerControl+0x10` /
+`+0x14` from a hook on `Control`'s entry. Since vanilla was *already* driving
+those fields from events 7 and 8, two writers raced for the same two floats every
+frame. The hook no longer writes; it is kept only as a gameplay heartbeat for the
+handover described below.
+
+### What the implementation should be
+
+Much smaller than what was built:
+
+1. **Emit deltas, not positions**, for `DIJOFS_X` and `DIJOFS_Y`, so vanilla's
+   accumulating type 3 descriptions integrate to the right value.
+2. **Do not create any descriptions.** Events `0x07` and `0x08` already exist,
+   already sit in the gameplay class, and are already polled.
+3. **Do not hook `Control`**, except as a signal for standing the older XInput
+   keystroke layer down in gameplay.
+4. Keep the device count and the `GetJoystickBuffer` replacement. Those two are
+   the whole of what was missing.
+
+The delta model still needs its exact convention established -- whether the
+engine expects a per-frame difference and resets `+0x24`, or a running total that
+`+0x04` tracks as a baseline. That is the next measurement, and it should be made
+before any further playtest.
+
+### Also learned
+
+KPM detours copy `original_bytes` into a trampoline, so a stolen **relative**
+branch is fatal. A hook at `0x00679B71` stole `call Vector::Normalize` and
+crashed the game on entering gameplay. Every one of the module's pre-existing
+hooks steals only position-independent bytes.
+`tools/check_hook_stolen_bytes.py` now enforces that.
+
 ## Coverage: what has been walked, and what has not
 
 The sweep is tracked explicitly because a decoder blind spot and a genuine
