@@ -1,0 +1,226 @@
+[metadata]
+target_versions = [
+    "9C10E0450A6EECA417E036E3CDE7474FED1F0A92AAB018446D156944DEA91435",
+]
+
+# Capture raw keyboard input before KOTOR applies its key bindings.
+[[hooks]]
+address = 0x005E271E
+type = "detour"
+function = "CaptureActionBarInputK1"
+original_bytes = [0x8B, 0x84, 0x24, 0xE4, 0x00, 0x00, 0x00]
+skip_original_bytes = false
+exclude_from_restore = []
+
+[[hooks.parameters]]
+source = "eax"
+type = "pointer"
+
+[[hooks.parameters]]
+source = "edx"
+type = "int"
+
+# Dispatch queued Inventory menu input on KOTOR 1's game thread.
+[[hooks]]
+address = 0x006227E0
+type = "detour"
+function = "DispatchMenuInputK1"
+original_bytes = [0x6A, 0xFF, 0x68, 0xE9, 0x89, 0x72, 0x00]
+skip_original_bytes = false
+exclude_from_restore = []
+
+[[hooks.parameters]]
+source = "ecx"
+type = "pointer"
+
+# Cancel movie playback when KOTOR 1's movie window receives Spacebar.
+[[hooks]]
+address = 0x004051C3
+type = "detour"
+function = "CancelMovieOnSpaceK1"
+original_bytes = [0x8B, 0xC6, 0x83, 0xE8, 0x1C]
+skip_original_bytes = false
+exclude_from_restore = []
+
+[[hooks.parameters]]
+source = "esi"
+type = "uint"
+
+[[hooks.parameters]]
+source = "edi"
+type = "uint"
+
+# Poll XInput once per Bink frame; the normal ProcessInput hook does not run
+# while a movie owns the game loop.
+#
+# This must sit INSIDE the loop, not at the function entry. 0x00404C80 is
+# CExoMoviePlayerInternal::PlayMovieLoop, and the name is literal: the playback
+# loop is inside it, running 0x00404CB5 -> 0x00404D9F. A detour on the prologue
+# therefore fired exactly once, before the first frame, so no button pressed
+# during a movie was ever seen. 0x00404D96 is the tail of the loop body and runs
+# once per iteration.
+#
+# The parameter comes from ESI, not ECX. `this` is copied out of ECX into ESI at
+# 0x00404C87 and every later access in the loop is [esi+0x48] / [esi+0x4c]; ECX
+# is a scratch register by this point.
+#
+# original_bytes covers two whole instructions -- mov eax,[esi+0x48] and
+# mov ecx,[eax+8] -- so the re-executed prologue leaves eax and ecx exactly as
+# the following cmp/jne expects.
+[[hooks]]
+address = 0x00404D96
+type = "detour"
+function = "PollMovieControllerK1"
+original_bytes = [0x8B, 0x46, 0x48, 0x8B, 0x48, 0x08]
+skip_original_bytes = false
+exclude_from_restore = []
+
+[[hooks.parameters]]
+source = "esi"
+type = "pointer"
+
+# Process captured keyboard input during the gameplay HUD update.
+[[hooks]]
+address = 0x00686BA0
+type = "detour"
+function = "UpdateActionBarControlsK1"
+original_bytes = [0x53, 0x56, 0x57, 0x8B, 0xF1]
+skip_original_bytes = false
+exclude_from_restore = []
+
+[[hooks.parameters]]
+source = "ecx"
+type = "pointer"
+
+# Clear cached HUD state when KOTOR destroys the gameplay interface.
+[[hooks]]
+address = 0x0068B170
+type = "detour"
+function = "ClearActionBarControlsK1"
+original_bytes = [0x6A, 0xFF, 0x68, 0xB0, 0xF7, 0x72, 0x00]
+skip_original_bytes = false
+exclude_from_restore = []
+
+[[hooks.parameters]]
+source = "ecx"
+type = "pointer"
+
+# Clear keyboard focus when the mouse moves over an action button.
+[[hooks]]
+address = 0x0040C1F6
+type = "detour"
+function = "CancelActionBarKeyboardFocusOnMouseMoveK1"
+original_bytes = [0x89, 0x1E, 0x89, 0x7E, 0x04]
+skip_original_bytes = false
+exclude_from_restore = []
+
+[[hooks.parameters]]
+source = "esi"
+type = "pointer"
+
+[[hooks.parameters]]
+source = "ebx"
+type = "int"
+
+[[hooks.parameters]]
+source = "edi"
+type = "int"
+
+# Decline a focus move the game makes for itself off a tab the player has just
+# activated. 0x0040A638 is inside CSWGuiPanel::SetActiveControl, past its own
+# push esi / push edi, so EDI is the panel and ESI the control about to take
+# focus. Returning non-zero exits at 0x0040A678, the function's pop/pop/ret.
+[[hooks]]
+address = 0x0040A638
+type = "detour"
+function = "OnSetActiveControlK1"
+original_bytes = [0x8B, 0x4F, 0x1C, 0x3B, 0xCE]
+skip_original_bytes = false
+exclude_from_restore = ["eax"]
+consumed_exit_address = 0x0040A678
+
+[[hooks.parameters]]
+source = "edi"
+type = "pointer"
+
+[[hooks.parameters]]
+source = "esi"
+type = "pointer"
+
+# ---------------------------------------------------------------------------
+# Native joystick path. Feeds XInput into KOTOR's own retained joystick
+# pipeline instead of synthesising keystrokes. See
+# reverse-engineering/retained-xbox-gui-events.md for the measurements behind
+# every address here.
+# ---------------------------------------------------------------------------
+
+# Register the joystick descriptions and raise the device count, once the input
+# singleton exists. Idempotent; runs every frame and returns immediately after
+# the first success.
+[[hooks]]
+address = 0x005E24E0
+type = "detour"
+function = "NativeJoystickInitK1"
+original_bytes = [0x6A, 0xFF, 0x68, 0xFD, 0x48, 0x72, 0x00]
+skip_original_bytes = false
+exclude_from_restore = []
+
+[[hooks.parameters]]
+source = "ecx"
+type = "pointer"
+
+# Replace CExoRawInputInternal::GetJoystickBuffer. Hooked past the entry, where
+# esi holds the caller's record buffer -- at the true entry it is still only on
+# the stack, and hook parameters come from registers. ebx, esi and edi are all
+# pushed by this point, so the consumed exit unwinds correctly, and GetEvents
+# ignores this function's return value.
+[[hooks]]
+address = 0x005E30F6
+type = "detour"
+function = "NativeJoystickBufferK1"
+original_bytes = [0x89, 0x5C, 0x24, 0x2C, 0x74, 0x0F]
+skip_original_bytes = true
+consumed_exit_address = 0x005E319B
+exclude_from_restore = ["eax"]
+
+[[hooks.parameters]]
+source = "esi"
+type = "pointer"
+
+# Override the movement axes at the single point every control scheme passes
+# through. ProcessInput has already clamped the keyboard values into +0x10 and
+# +0x14 by here, so the stick only displaces them when it is outside the
+# deadzone -- keyboard movement is untouched otherwise.
+[[hooks]]
+address = 0x00679940
+type = "detour"
+function = "NativeJoystickMovementK1"
+original_bytes = [0xD9, 0x05, 0x64, 0xD7, 0x73, 0x00]
+skip_original_bytes = false
+exclude_from_restore = []
+
+[[hooks.parameters]]
+source = "ecx"
+type = "pointer"
+
+# Bypass Control's own Vector::Normalize, but only while the stick is driving.
+# That call is correct for the keyboard, where each axis is exactly +/-1 and an
+# unnormalised diagonal would be sqrt(2) too fast. It is wrong for analog: it
+# would rescale a half-deflected diagonal back to full speed. The handler
+# returns zero for keyboard and mouse, so vanilla behaviour is untouched.
+#
+# Verified safe to skip: Vector::Normalize is __thiscall taking only the vector,
+# touches no globals, balances its own stack, and its return value is dead --
+# 0x00679B76 overwrites eax immediately. The x87 stack is empty at the call site.
+[[hooks]]
+address = 0x00679B71
+type = "detour"
+function = "NativeJoystickSkipNormalizeK1"
+original_bytes = [0xE8, 0xBA, 0x15, 0xE3, 0xFF]
+skip_original_bytes = true
+consumed_exit_address = 0x00679B76
+exclude_from_restore = ["eax"]
+
+[[hooks.parameters]]
+source = "ecx"
+type = "pointer"
