@@ -34,8 +34,13 @@ import os
 import re
 import struct
 import subprocess
+import sys
 import time
 from ctypes import wintypes
+from pathlib import Path
+
+sys.path.insert(0, str(Path(__file__).resolve().parents[2] / "tools"))
+import kmrp_controller                                    # noqa: E402
 
 GAME_DIR = r"C:\Star Wars - KotOR"
 LOG = os.path.join(GAME_DIR, "kmrp-native-joystick.log")
@@ -47,18 +52,23 @@ DESC_ACCUM = 0x24
 # player control object fields, as the e2e suite reads them
 PC_UPDOWN, PC_LEFTRIGHT, PC_WALKING, PC_VELX, PC_VELY = 0x10, 0x14, 0x18, 0x5C, 0x60
 
-# must match K1NativeJoystick.cpp
-K1_STICK_DEADZONE = 0.08
+# Read from K1NativeJoystick.cpp rather than copied. The bins below straddle
+# whatever the deadzone currently is, so they stay meaningful when it moves --
+# an earlier hand-written copy said 25% for weeks after the module said 8%.
+K1_STICK_DEADZONE = kmrp_controller.constant("K1_STICK_DEADZONE")
 AXIS_FULL_SCALE = 32767.0
 
-# Bins straddle the 25% deadzone edge deliberately: 22-25% must be silent and
-# 25-28% must be the gentlest movement there is, and those two claims are the
-# whole point of the change.
-# Bins straddle the 15% deadzone edge: below it must be silent, just above it
-# must be the gentlest movement there is.
-BINS = [(0.000, 0.010, "rest"), (0.010, 0.100, "below 10%"),
-        (0.100, 0.150, "~10-15% (still dead)"),
-        (0.150, 0.200, "~15-20% (first movement)"), (0.200, 0.275, "~20-27%"),
+# Bins straddle the deadzone edge deliberately: just below it must be silent and
+# just above it must be the gentlest movement there is. Two of these boundaries
+# are computed from the deadzone so the claim survives the constant moving; the
+# hand-written list they replace still described a 25% deadzone long after the
+# module had been through 15% and settled on 8%.
+_DZ = K1_STICK_DEADZONE
+BINS = [(0.000, 0.010, "rest"),
+        (0.010, _DZ * 0.75, "well inside the deadzone"),
+        (_DZ * 0.75, _DZ, "just inside the deadzone"),
+        (_DZ, _DZ * 1.5, "just outside (first movement)"),
+        (_DZ * 1.5, 0.275, "up to ~27%"),
         (0.275, 0.350, "~27-35%"), (0.350, 0.450, "~35-45%"),
         (0.450, 0.550, "~45-55%"), (0.550, 0.700, "~55-70%"),
         (0.700, 0.850, "~70-85%"), (0.850, 1.010, "~85-100%")]

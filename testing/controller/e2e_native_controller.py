@@ -34,8 +34,13 @@ import re
 import socket
 import struct
 import subprocess
+import sys
 import time
 from ctypes import wintypes
+from pathlib import Path
+
+sys.path.insert(0, str(Path(__file__).resolve().parents[2] / "tools"))
+import kmrp_controller                                    # noqa: E402
 
 GAME_DIR = r"C:\Star Wars - KotOR"
 GAME_EXE = os.path.join(GAME_DIR, "swkotor.exe")
@@ -48,7 +53,12 @@ CLIENT_EXO_APP_ROOT = 0x007A39FC   # -> CClientExoApp at [+4]
 DESC_VALUE, DESC_ACCUM = 0x04, 0x24
 
 PC_UPDOWN, PC_LEFTRIGHT, PC_WALKING, PC_VELX, PC_VELY = 0x10, 0x14, 0x18, 0x5C, 0x60
-DEADZONE = 0.08                 # must match K1_STICK_DEADZONE in the module
+
+# Read from K1NativeJoystick.cpp, never restated. The copy that used to live here
+# said 0.25 while the module said 0.08, and the suite reported three NATIVE
+# failures against a module that was correct.
+DEADZONE = kmrp_controller.constant("K1_STICK_DEADZONE")
+CAMERA_SPEED = kmrp_controller.constant("K1_CAMERA_SPEED")
 
 EV_JOY_X, EV_JOY_Y = 0x08, 0x07
 EV_PREV, EV_NEXT = 0x35, 0x36
@@ -608,7 +618,8 @@ def test_camera(game, pad, report):
                f"{peaks['small']:.2f} <= {peaks['medium']:.2f} <= {peaks['full']:.2f}",
                "NATIVE")
     report.add("camera", "full deflection saturates at K1_CAMERA_SPEED",
-               0.95 <= peaks["full"] <= 1.05, f"peak={peaks['full']:.2f}", "NATIVE")
+               abs(peaks["full"] - CAMERA_SPEED) <= 0.05 * CAMERA_SPEED,
+               f"peak={peaks['full']:.2f} expected {CAMERA_SPEED:.2f}", "NATIVE")
     report.add("camera", "opposite deflection flips the sign",
                bool(positive) and any(v < 0 for v in negative),
                f"samples={[round(v, 2) for v in negative]}", "NATIVE")
@@ -624,7 +635,8 @@ def test_camera(game, pad, report):
                f"camown {before.get('camown')}->{after.get('camown')}", "NATIVE")
     report.add("camera", "the view visibly rotates", None,
                "playtest-confirmed 2026-09-07; not observable from here")
-    report.add("camera", "sensitivity feels right", None, "K1_CAMERA_SPEED = 1.0, untuned")
+    report.add("camera", "sensitivity feels right", None,
+               f"K1_CAMERA_SPEED = {CAMERA_SPEED}, untuned")
 
 
 def test_no_legacy_synthesis(game, pad, report):
@@ -632,19 +644,34 @@ def test_no_legacy_synthesis(game, pad, report):
     # In native mode the legacy hooks are absent entirely, so the check is that
     # the config carries none of them -- a stronger statement than watching for
     # keystrokes, which cannot be observed from outside the process.
-    import tomllib
-    with open(os.path.join(GAME_DIR, "patch_config.toml"), "rb") as handle:
-        hooks = tomllib.load(handle)["patches"][0]["hooks"]
-    # NativeCameraFrameK1 is KMRP's own, like NativeGuiFrameK1 before it. This
-    # prefix list has now been the wrong answer twice; both times the new native
-    # hook was counted as one of the legacy path's.
-    native_prefixes = ("NativeJoystick", "NativeGui", "NativeCamera")
+    hooks = kmrp_controller.installed_hooks(
+        os.path.join(GAME_DIR, "patch_config.toml"))
+    # Ownership comes from which .cpp defines the export. The prefix list this
+    # replaces was the wrong answer twice, both times counting a new KMRP hook as
+    # one of the legacy path's.
     legacy = [h["function"] for h in hooks
-              if not h["function"].startswith(native_prefixes)]
+              if not kmrp_controller.is_native(h["function"])]
     report.add("regression", "no legacy hooks installed in native mode",
                legacy == [], f"legacy={legacy}", "HARNESS")
     report.add("regression", "left-stick keystroke synthesis cannot run",
                legacy == [], "DispatchMenuInputK1 is the only driver and is absent", "HARNESS")
+
+    # The suite's own premises. Every check above reads a constant or a hook
+    # table from somewhere; these assert that those somewheres still agree with
+    # each other, so a stale copy can never again be reported as a defect in the
+    # game. tools/check_controller_drift.py runs the same checks standalone.
+    installed_native = [h for h in hooks if kmrp_controller.is_native(h["function"])]
+    tracked = kmrp_controller.native_hooks()
+    report.add("regression", "installed hooks match kotor1.hooks.toml",
+               [(h["address"], h["function"]) for h in installed_native]
+               == [(h["address"], h["function"]) for h in tracked],
+               f"{len(installed_native)} installed, {len(tracked)} tracked", "HARNESS")
+    report.add("regression", "every hook has a derivable owner",
+               all(h["owner"] for h in kmrp_controller.hooks()),
+               "owner comes from the .cpp defining the export", "HARNESS")
+    report.add("regression", "the deadzone under test is the module's",
+               DEADZONE == kmrp_controller.constant("K1_STICK_DEADZONE"),
+               f"DEADZONE={DEADZONE}", "HARNESS")
 
 
 # ------------------------------------------------------------------- the menu
@@ -1048,16 +1075,18 @@ def test_navigation(game, pad, report):
                f"expected {expected:08X}, got {actual:08X}" if expected and actual else "-",
                "NATIVE")
 
-    # Stick drift must not navigate. Well inside the release threshold.
+    # Stick drift must not navigate. The deflection is derived from the release
+    # threshold so it stays "well inside" it if that constant ever moves.
+    drift = kmrp_controller.constant("K1_NAV_STICK_RELEASE") * 0.35
     resting = _active(game)
     for _ in range(6):
-        pad.send("lstick 0.12 0.10")
+        pad.send(f"lstick {drift:.3f} {drift * 0.85:.3f}")
         time.sleep(0.12)
     pad.send("lstick 0 0")
     time.sleep(1.0)
     report.add("navigation", "resting stick drift does not navigate",
-               _active(game) == resting, "focus unchanged under a 12% deflection",
-               "NATIVE")
+               _active(game) == resting,
+               f"focus unchanged under a {drift:.0%} deflection", "NATIVE")
 
     # A held direction repeats, and repeats more than once.
     start = _active(game)

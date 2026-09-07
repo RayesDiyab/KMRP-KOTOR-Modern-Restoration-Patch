@@ -36,6 +36,10 @@ import subprocess
 import sys
 import time
 from ctypes import wintypes
+from pathlib import Path
+
+sys.path.insert(0, str(Path(__file__).resolve().parents[2] / "tools"))
+import kmrp_controller                                    # noqa: E402
 
 HOST, PORT = "127.0.0.1", 8787
 
@@ -67,7 +71,20 @@ EVENT_JOY_Y = 0x07
 EVENT_PREV_SCREEN = 0x35
 EVENT_NEXT_SCREEN = 0x36
 
-DEADZONE = 0.08                 # must match K1_STICK_DEADZONE in the module
+# Read from K1NativeJoystick.cpp, never restated -- see tools/kmrp_controller.py.
+DEADZONE = kmrp_controller.constant("K1_STICK_DEADZONE")
+
+
+def after_deadzone(deflection):
+    """What the module emits for a deflection: the radial rescale, computed.
+
+    The expected values below used to be written out as 0.185 / 0.457 / 0.728,
+    which are the numbers for a 25% deadzone. They stayed there through 15% and
+    8%.
+    """
+    if deflection <= DEADZONE:
+        return 0.0
+    return min((deflection - DEADZONE) / (1.0 - DEADZONE), 1.0)
 
 
 class Game:
@@ -211,12 +228,10 @@ def test_axes(game, results):
         results.check("full deflection produces movement", False, "no accumulation")
         pad("lstick 0 0")
         return
-    for label, deflection, expected in (("25%", 0.25, 0.185), ("50%", 0.50, 0.457),
-                                        ("75%", 0.75, 0.728)):
+    for label, deflection in (("25%", 0.25), ("50%", 0.50), ("75%", 0.75)):
+        expected = after_deadzone(deflection)
         rate = axis_rate(game, EVENT_JOY_Y, 0, deflection)
         ratio = rate / full if rate else 0.0
-        # Expected is the deflection after the module's radial deadzone and
-        # rescale: (d - DEADZONE) / (1 - DEADZONE).
         ok = abs(ratio - expected) < 0.12
         results.check(f"{label} deflection", ok,
                       f"ratio={ratio:.3f} expected~{expected:.3f}")

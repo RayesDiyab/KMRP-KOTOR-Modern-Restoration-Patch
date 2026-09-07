@@ -13,9 +13,12 @@ All of the older path's controller input is driven from exactly one place:
 below differ only in which hooks the config lists -- no rebuild is involved and
 nothing is destroyed.
 
-    saul      the shipping configuration: 8 hooks, no native path
-    native    the 4 native hooks alone, so movement can be judged in isolation
-    both      all 12, which is what a finished patch would install
+    saul      the shipping configuration: the legacy hooks, no native path
+    native    KMRP's native hooks alone, so movement can be judged in isolation
+    both      every hook, which is what a finished patch would install
+
+The counts are deliberately not written down; they were wrong here for two
+hooks' worth of history. `report()` prints what is actually installed.
 
 Usage:
     python testing/controller/select_controller_path.py [saul|native|both]
@@ -31,6 +34,9 @@ import shutil
 import sys
 import tomllib
 from pathlib import Path
+
+sys.path.insert(0, str(Path(__file__).resolve().parents[2] / "tools"))
+import kmrp_controller                                    # noqa: E402
 
 GAME = Path(r"C:\Star Wars - KotOR")
 CONFIG = GAME / "patch_config.toml"
@@ -49,75 +55,14 @@ BASELINE_MODULE = GAME / "kmrp-controller.module.pre-native-joystick"
 NATIVE_MODULE = Path(__file__).resolve().parents[2] / (
     "src/controller-native/kmrp-controller.module")
 
-NATIVE_HOOKS = """
-[[patches.hooks]]
-address = 0x005E24E0
-type = "detour"
-function = "NativeJoystickInitK1"
-original_bytes = [0x6A, 0xFF, 0x68, 0xFD, 0x48, 0x72, 0x00]
-skip_original_bytes = false
-exclude_from_restore = []
-[[patches.hooks.parameters]]
-source = "ecx"
-type = "pointer"
-
-[[patches.hooks]]
-address = 0x005E30F6
-type = "detour"
-function = "NativeJoystickBufferK1"
-original_bytes = [0x89, 0x5C, 0x24, 0x2C, 0x74, 0x0F]
-skip_original_bytes = true
-exclude_from_restore = ["eax"]
-consumed_exit_address = 0x005E319B
-[[patches.hooks.parameters]]
-source = "esi"
-type = "pointer"
-
-[[patches.hooks]]
-address = 0x00679940
-type = "detour"
-function = "NativeJoystickMovementK1"
-original_bytes = [0xD9, 0x05, 0x64, 0xD7, 0x73, 0x00]
-skip_original_bytes = false
-exclude_from_restore = []
-[[patches.hooks.parameters]]
-source = "ecx"
-type = "pointer"
-
-[[patches.hooks]]
-address = 0x00679B71
-type = "detour"
-function = "NativeJoystickSkipNormalizeK1"
-original_bytes = [0xE8, 0xBA, 0x15, 0xE3, 0xFF]
-skip_original_bytes = true
-exclude_from_restore = ["eax"]
-consumed_exit_address = 0x00679B76
-[[patches.hooks.parameters]]
-source = "ecx"
-type = "pointer"
-
-[[patches.hooks]]
-address = 0x0040CE70
-type = "detour"
-function = "NativeGuiFrameK1"
-original_bytes = [0x51, 0x53, 0x55, 0x56, 0x8B, 0xE9]
-skip_original_bytes = false
-exclude_from_restore = []
-[[patches.hooks.parameters]]
-source = "ecx"
-type = "pointer"
-
-[[patches.hooks]]
-address = 0x006039CF
-type = "detour"
-function = "NativeCameraFrameK1"
-original_bytes = [0xA1, 0xE0, 0x39, 0x7A, 0x00, 0x8B, 0x48, 0x04]
-skip_original_bytes = false
-exclude_from_restore = []
-[[patches.hooks.parameters]]
-source = "esi"
-type = "pointer"
-"""
+# The native hook table is NOT restated here. It is rendered from
+# src/controller-native/kotor1.hooks.toml, which is the file the patch is
+# actually built from. This used to be a second hand-maintained copy, so
+# adding one hook meant editing the same addresses in three places, and
+# forgetting one of them is how NativeCameraFrameK1 came to be classified as
+# a legacy hook by the test suite.
+def native_hooks_toml() -> str:
+    return kmrp_controller.render_patch_hooks(kmrp_controller.native_hooks())
 
 
 def digest(path: Path) -> str:
@@ -136,15 +81,12 @@ def report() -> None:
         return
     with CONFIG.open("rb") as handle:
         hooks = tomllib.load(handle)["patches"][0]["hooks"]
-    # "Native" means KMRP's own path, which is more than the joystick hooks:
-    # NativeGuiFrameK1 carries the focus-navigation layer. Matching only on the
-    # NativeJoystick prefix counted it as one of Saul's and reported mode "both"
-    # on a clean native install.
-    def is_native(hook):
-        return hook["function"].startswith(("NativeJoystick", "NativeGui", "NativeCamera"))
-
-    native = [h for h in hooks if is_native(h)]
-    older = [h for h in hooks if not is_native(h)]
+    # Ownership is derived from which .cpp defines the export, so a new hook
+    # classifies itself. The prefix list this replaces was wrong twice: once for
+    # NativeGuiFrameK1 and again for NativeCameraFrameK1, each time reporting
+    # mode "both" on a clean native install.
+    native = [h for h in hooks if kmrp_controller.is_native(h["function"])]
+    older = [h for h in hooks if not kmrp_controller.is_native(h["function"])]
     mode = ("both" if native and older else
             "native" if native else
             "saul" if older else "none")

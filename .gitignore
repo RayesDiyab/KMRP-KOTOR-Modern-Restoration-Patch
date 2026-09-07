@@ -146,3 +146,11 @@ src/controller-native/*.module
 src/controller-native/*.obj
 src/controller-native/*.exp
 src/controller-native/*.lib
+
+# Strays left in the repository root by running the game or the patcher from
+# here. swkotor.ini is the game's own settings; K1DriverCompat.ini is the
+# settings file the patcher writes next to the game, all of whose lines ship
+# commented out. Neither is a build input, and the real copies live beside the
+# install. Existing copies under build/ are already ignored.
+swkotor.ini
+K1DriverCompat.ini

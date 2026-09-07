@@ -29,15 +29,20 @@ import os
 import re
 import struct
 import subprocess
+import sys
 import time
 from ctypes import wintypes
+from pathlib import Path
+
+sys.path.insert(0, str(Path(__file__).resolve().parents[2] / "tools"))
+import kmrp_controller                                    # noqa: E402
 
 GAME_DIR = r"C:\Star Wars - KotOR"
 LOG = os.path.join(GAME_DIR, "kmrp-native-joystick.log")
 EXOINPUT_GLOBAL = 0x007A39E4
 APP_MANAGER_PTR = 0x007A39FC
 MOUSE_DELTA_X = 0x3A0           # written by the engine, discarded by UpdateCamera
-CAMERA_DEADZONE = 0.12          # must match K1_CAMERA_DEADZONE
+CAMERA_DEADZONE = kmrp_controller.constant("K1_CAMERA_DEADZONE")
 
 
 class Gamepad(ctypes.Structure):

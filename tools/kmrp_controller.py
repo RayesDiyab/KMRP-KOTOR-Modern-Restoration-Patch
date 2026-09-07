@@ -1,0 +1,156 @@
+#!/usr/bin/env python3
+"""One place that knows the controller patch's hooks and constants.
+
+Everything here is *derived*. Nothing in this file restates a value that the
+implementation already carries, because every time this project has restated one
+it has eventually disagreed with itself and reported the disagreement as a bug in
+the game:
+
+  * The end-to-end suite hardcoded a 25% deadzone. The module moved to 15%, then
+    8%. The suite then reported three NATIVE failures against a module that was
+    behaving exactly as designed.
+  * The installer and the suite each classified hooks as "native" or "legacy" by
+    matching a prefix list. Both lists were wrong when `NativeGuiFrameK1` was
+    added, and both were wrong again when `NativeCameraFrameK1` was added, each
+    time counting KMRP's own hook as one of the legacy path's.
+  * `select_controller_path.py` carried a second copy of the native hook table,
+    so adding one hook meant editing the same addresses in three files.
+
+Sources of truth:
+
+  hooks       src/controller-native/kotor1.hooks.toml
+  ownership   which .cpp defines the exported function -- K1NativeJoystick.cpp is
+              KMRP's native path, vendor/ is Saul0097's
+  constants   the `constexpr` definitions in K1NativeJoystick.cpp
+
+`tools/check_controller_drift.py` asserts that these derivations still hold.
+
+Documentation standard: see `docs/documentation-standard.md`.
+"""
+
+from __future__ import annotations
+
+import re
+import tomllib
+from pathlib import Path
+
+ROOT = Path(__file__).resolve().parents[1]
+NATIVE_DIR = ROOT / "src" / "controller-native"
+HOOKS_TOML = NATIVE_DIR / "kotor1.hooks.toml"
+MODULE_SOURCE = NATIVE_DIR / "K1NativeJoystick.cpp"
+VENDOR_DIR = NATIVE_DIR / "vendor"
+EXPORTS_DEF = NATIVE_DIR / "exports.def"
+
+# Ownership is decided by which translation unit defines the export, so a new
+# hook classifies itself. KMRP is the native path; the vendor sources are
+# Saul0097's, modified by KMRP but still his design.
+KMRP = "kmrp"
+LEGACY = "legacy"
+
+
+def _defining_sources() -> dict:
+    """Exported hook name -> owner, from the `extern "C" ... __cdecl` definitions."""
+    owners = {}
+    for path, owner in [(MODULE_SOURCE, KMRP)] + [
+            (p, LEGACY) for p in sorted(VENDOR_DIR.glob("*.cpp"))]:
+        text = path.read_text(encoding="utf-8", errors="replace")
+        for name in re.findall(r"__cdecl\s+(\w+)\s*\(", text):
+            owners.setdefault(name, owner)
+    return owners
+
+
+def hooks() -> list:
+    """Every hook in kotor1.hooks.toml, in file order, each tagged with an owner.
+
+    A hook whose function is defined in no tracked source gets owner None rather
+    than a guess; `check_controller_drift.py` fails on that, which is the point.
+    """
+    data = tomllib.loads(HOOKS_TOML.read_text(encoding="utf-8"))
+    owners = _defining_sources()
+    out = []
+    for hook in data.get("hooks", []):
+        hook = dict(hook)
+        hook["owner"] = owners.get(hook["function"])
+        out.append(hook)
+    return out
+
+
+def native_hooks() -> list:
+    return [h for h in hooks() if h["owner"] == KMRP]
+
+
+def is_native(function: str) -> bool:
+    """Is this exported hook part of KMRP's native path?"""
+    return _defining_sources().get(function) == KMRP
+
+
+def render_patch_hooks(selected: list) -> str:
+    """Render hooks as the `[[patches.hooks]]` blocks patch_config.toml wants.
+
+    Key order matches what the installer wrote by hand before this existed, so
+    that switching to the generated form changed no installed byte. TOML does not
+    care about key order; reviewers reading a diff do.
+    """
+    lines = []
+    for hook in selected:
+        lines.append("")
+        lines.append("[[patches.hooks]]")
+        lines.append(f"address = 0x{hook['address']:08X}")
+        lines.append(f'type = "{hook["type"]}"')
+        lines.append(f'function = "{hook["function"]}"')
+        body = ", ".join(f"0x{b:02X}" for b in hook["original_bytes"])
+        lines.append(f"original_bytes = [{body}]")
+        lines.append(f"skip_original_bytes = "
+                     f"{'true' if hook.get('skip_original_bytes') else 'false'}")
+        excluded = ", ".join(f'"{e}"' for e in hook.get("exclude_from_restore", []))
+        lines.append(f"exclude_from_restore = [{excluded}]")
+        if "consumed_exit_address" in hook:
+            lines.append(f"consumed_exit_address = 0x{hook['consumed_exit_address']:08X}")
+        for parameter in hook.get("parameters", []):
+            lines.append("[[patches.hooks.parameters]]")
+            lines.append(f'source = "{parameter["source"]}"')
+            lines.append(f'type = "{parameter["type"]}"')
+    return "\n".join(lines) + "\n"
+
+
+def installed_hooks(config_path) -> list:
+    """The hooks actually installed in a patch_config.toml."""
+    with open(config_path, "rb") as handle:
+        return tomllib.load(handle)["patches"][0]["hooks"]
+
+
+# ------------------------------------------------------------------ constants
+
+# The value alternation puts the hex form first and keeps the C float suffix
+# outside the captured group. Folding the suffix into a character class that also
+# contains the hex digits made `0.08f` capture as "0.08f", which float() rejects,
+# so every float constant silently vanished from the table.
+_CONSTEXPR = re.compile(
+    r"constexpr\s+(?:float|int|double|unsigned long|std::size_t|std::uintptr_t)\s+"
+    r"(K1_\w+)\s*=\s*"
+    r"(-?(?:0[xX][0-9A-Fa-f]+|[0-9]*\.[0-9]+|[0-9]+))[fFuUlL]*\s*;")
+
+
+def constants() -> dict:
+    """The module's `constexpr K1_*` values, parsed from its own source.
+
+    Tests import these rather than restating them. A test that hardcodes a copy
+    of a tuning constant does not test the constant -- it tests whether someone
+    remembered to edit two files.
+    """
+    text = MODULE_SOURCE.read_text(encoding="utf-8", errors="replace")
+    out = {}
+    for name, raw in _CONSTEXPR.findall(text):
+        try:
+            out[name] = int(raw, 0) if not ("." in raw) else float(raw)
+        except ValueError:
+            continue
+    return out
+
+
+def constant(name: str):
+    """One constant, or a clear failure naming the file that should define it."""
+    values = constants()
+    if name not in values:
+        raise KeyError(f"{name} is not defined in {MODULE_SOURCE}")
+    return values[name]
