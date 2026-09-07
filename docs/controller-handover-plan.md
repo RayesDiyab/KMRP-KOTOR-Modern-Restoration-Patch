@@ -43,7 +43,7 @@ what produced movement in every direction at inconsistent speeds. The existing
 | Action bar capture and update hooks | UI integration, not input transport |
 | `CancelActionBarKeyboardFocusOnMouseMoveK1` | focus behaviour |
 | `IsControllerInputActiveK1`, cursor hiding, device switching | the prompt system and cursor policy both depend on it |
-| L3, R3 bindings | no retained event corresponds to a stick click; slot `0x7E` is free but there is no action to give it |
+| — | *(nothing; L3 and R3 now have native and bridged bindings respectively)* |
 
 ## Awaiting human QA before disabling anything
 
@@ -86,6 +86,8 @@ which is the part this work actually changed:
 | LB | Space | description scroll up | needs checking |
 | RB | Tab | description scroll down | needs checking |
 | Back | V | Black | needs checking |
+| R3 | — | free look | new; no badge exists |
+| L3 | — | flourish weapons | new; no badge exists |
 | Start | — | opens the in-game menu | new; no badge exists |
 
 A and B are unchanged in meaning, so most badges survive untouched. Extending the
