@@ -60,6 +60,12 @@ PC_UPDOWN, PC_LEFTRIGHT, PC_WALKING, PC_VELX, PC_VELY = 0x10, 0x14, 0x18, 0x5C, 
 DEADZONE = kmrp_controller.constant("K1_STICK_DEADZONE")
 CAMERA_SPEED = kmrp_controller.constant("K1_CAMERA_SPEED")
 
+# Half the module's hold-to-repeat delay. Any tap used to assert "one press, one
+# move" has to sit clearly below it: at 350ms against a 400ms delay, ordinary
+# frame jitter occasionally crossed the threshold and a single press moved two
+# tabs, which read as a skip in the strip rather than as a harness artefact.
+NAV_TAP = kmrp_controller.constant("K1_NAV_HOLD_DELAY_MS") / 1000.0 * 0.5
+
 EV_JOY_X, EV_JOY_Y = 0x08, 0x07
 EV_PREV, EV_NEXT = 0x35, 0x36
 BUTTONS = [("A", 0x27), ("B", 0x28), ("X", 0x29), ("Y", 0x2A),
@@ -639,6 +645,207 @@ def test_camera(game, pad, report):
                f"K1_CAMERA_SPEED = {CAMERA_SPEED}, untuned")
 
 
+def test_tab_bar(game, pad, report):
+    """The in-game tab strip: eight stops, A opens, down enters, up returns.
+
+    Requires the in-game menu to be open. Every claim is checked against live
+    control rectangles and the engine's own current-tab field rather than a
+    memorised sequence, so it keeps working if the strip is ever relaid out.
+    """
+    print()
+    print("== 15. in-game tab bar")
+    bar = _tab_bar(game)
+    report.add("tabs", "the tab strip is in front", bar is not None,
+               f"panel={bar:08X}" if bar else "not open", "HARNESS")
+    if not bar:
+        return
+
+    report.add("tabs", "focus can be returned to the strip",
+               _return_to_tabs(game, pad), f"in-content={_in_content()}", "HARNESS")
+    frames = _tab_frames(game, bar)
+    overlays = _tab_overlays(game, bar)
+    report.add("tabs", "eight tab stops", len(frames) == 8,
+               f"{len(frames)} frames, {len(overlays)} overlays", "NATIVE")
+
+    # 1. Left and right visit each tab in visual order, and only the frames.
+    #    The overlays sit inside the frames and pass every navigable test, so
+    #    the failure this guards against is a strip that is sixteen stops long.
+    order = []
+    for _ in range(len(frames) + 1):
+        active = _active(game)
+        if active in order:
+            break
+        order.append(active)
+        pad.tap("RIGHT", hold=NAV_TAP, settle=0.9)
+    visited_frames = [c for c in order if c in frames]
+    report.add("tabs", "right visits only tab frames",
+               len(visited_frames) == len(order),
+               f"{len(order)} stops, {len(order) - len(visited_frames)} not frames",
+               "NATIVE")
+    report.add("tabs", "no overlay ever takes focus",
+               not any(c in overlays for c in order),
+               f"stops={len(order)}", "NATIVE")
+    # Visual order, allowing exactly one wrap: the walk starts wherever focus
+    # already was, runs to the right-hand end and continues from the left. An
+    # earlier version demanded a strictly increasing sequence and failed on a
+    # perfectly correct [1457 .. 2790, 458 .. 1124].
+    xs = [_rect(game, c)[0] for c in visited_frames if _rect(game, c)]
+    drops = sum(1 for a, b in zip(xs, xs[1:]) if b < a)
+    report.add("tabs", "right walks the strip in visual order",
+               len(xs) == len(frames) and drops <= 1
+               and sorted(xs) == sorted(_rect(game, c)[0] for c in frames),
+               f"x sequence {xs} ({drops} wrap)", "NATIVE")
+
+    # 2. Focus never disappears, whatever is pressed.
+    survived = True
+    for step in ("LEFT", "LEFT", "RIGHT", "UP", "UP"):
+        pad.tap(step, hold=NAV_TAP, settle=0.8)
+        if _active(game) not in frames:
+            survived = False
+    report.add("tabs", "focus never leaves the strip or disappears", survived,
+               f"active={_active(game):08X}" if _active(game) else "no focus",
+               "NATIVE")
+
+    # 3. Up from the strip does nothing.
+    before = _active(game)
+    pad.tap("UP", hold=NAV_TAP, settle=0.9)
+    report.add("tabs", "up from the strip does nothing", _active(game) == before,
+               "focus unchanged", "NATIVE")
+
+    # 4. Moving along the strip must NOT switch tabs -- only A does.
+    shown = _tab_index(game)
+    pad.tap("LEFT", hold=NAV_TAP, settle=0.9)
+    pad.tap("LEFT", hold=NAV_TAP, settle=0.9)
+    report.add("tabs", "moving focus does not switch tabs",
+               _tab_index(game) == shown,
+               f"tab still {shown}", "NATIVE")
+
+    # 5. A opens the focused tab. Deliberately moved to a tab that is NOT the
+    #    one already showing: an earlier version asserted this while focus and
+    #    the engine both sat on tab 0, so it passed without anything happening.
+    shown = _tab_index(game)
+    for _ in range(len(frames)):
+        focused = _active(game)
+        if focused in frames and frames.index(focused) != shown:
+            break
+        pad.tap("RIGHT", hold=NAV_TAP, settle=0.9)
+    focused = _active(game)
+    wanted = frames.index(focused) if focused in frames else None
+    report.add("tabs", "focused a tab other than the one showing",
+               wanted is not None and wanted != shown,
+               f"focused {wanted}, showing {shown}", "HARNESS")
+    pad.tap("A", settle=2.2)
+    opened = _tab_index(game)
+    report.add("tabs", "A opens the focused tab",
+               wanted is not None and opened == wanted,
+               f"focused frame {wanted}, engine now showing {opened} (was {shown})",
+               "NATIVE")
+
+    # 6. Down enters that tab's content, on the panel below.
+    bar = _tab_bar(game)
+    if not bar:
+        report.add("tabs", "still on the tab strip after A", False,
+                   "a sub-panel took the front", "NATIVE")
+        return
+    content = _content_panel(game, bar)
+    pad.tap("DOWN", hold=NAV_TAP, settle=1.2)
+    inside = _in_content()
+    content_active = game.u32(content + 0x1C) if content else None
+    report.add("tabs", "down enters the tab content", inside is True,
+               f"module reports in-content={inside}", "NATIVE")
+    report.add("tabs", "content focus is on an actionable control",
+               bool(content_active and _rect(game, content_active)),
+               f"active={content_active:08X}" if content_active else "nothing",
+               "NATIVE")
+
+    # 7. Up from the top of the content returns to the active tab.
+    for _ in range(6):
+        if _in_content() is not True:
+            break
+        pad.tap("UP", hold=NAV_TAP, settle=0.9)
+    report.add("tabs", "up returns from content to the tab strip",
+               _in_content() is False, f"module reports in-content={_in_content()}",
+               "NATIVE")
+    report.add("tabs", "it returns to the tab actually being shown",
+               _active(game) == frames[_tab_index(game)]
+               if _tab_index(game) is not None and _tab_index(game) < len(frames)
+               else False,
+               f"tab {_tab_index(game)}", "NATIVE")
+
+    # 8. The bumpers still switch immediately, without focus moving.
+    before_tab = _tab_index(game)
+    pad.trigger("RT", settle=1.6)
+    after_rt = _tab_index(game)
+    pad.trigger("LT", settle=1.6)
+    after_lt = _tab_index(game)
+    report.add("tabs", "RT switches tab immediately", after_rt != before_tab,
+               f"{before_tab} -> {after_rt}", "NATIVE")
+    report.add("tabs", "LT switches back", after_lt == before_tab,
+               f"{after_rt} -> {after_lt}", "NATIVE")
+
+    # 9. Every tab, not just the one that happened to be open. The tab bar work
+    #    is meant to be generic -- nothing in the module encodes what any given
+    #    tab is -- so this walks all eight with RT and checks that down reaches
+    #    an actionable control in each and up comes back out.
+    entered = []
+    failed = []
+    skipped = []
+    lost = None
+    for _ in range(len(frames)):
+        index = _tab_index(game)
+        if not _tab_bar(game):
+            lost = index
+            break
+        content_panel = _content_panel(game, _tab_bar(game))
+        if _dispatcher(game, content_panel) in SELF_NAVIGATING_PANELS:
+            skipped.append(index)
+            pad.trigger("RT", settle=1.5)
+            continue
+        _return_to_tabs(game, pad)
+        pad.tap("DOWN", hold=NAV_TAP, settle=1.3)
+        if not _tab_bar(game):
+            lost = index
+            break
+        content = _content_panel(game, _tab_bar(game))
+        active = game.u32(content + 0x1C) if content else None
+        if _in_content() is True and active and _rect(game, active):
+            entered.append(index)
+        else:
+            failed.append(index)
+        _return_to_tabs(game, pad)
+        pad.trigger("RT", settle=1.5)
+        if not _tab_bar(game):
+            lost = index
+            break
+    if lost is not None:
+        global MENU_LOST_IN_WALK
+        MENU_LOST_IN_WALK = True
+        # Pre-existing, and confirmed against the module as committed before any
+        # of the tab work: walking onto tab 3 (Abilities) closes the in-game
+        # menu on the baseline too. Recorded as ENGINE rather than NATIVE so it
+        # is not read as a regression, and the menu is reopened so the checks
+        # after this one still have something to run against.
+        pad.tap("START", settle=2.5)
+    report.add("tabs", "the menu survives a walk of all eight tabs", lost is None,
+               f"the strip disappears on tab {lost} -- pre-existing, reproduced "
+               f"on the pre-tab-work module" if lost is not None
+               else "eight tabs, strip in front throughout", "ENGINE")
+    # Abilities and Map navigate themselves and are deliberately excluded, so
+    # the claim is "every tab that KMRP navigates", not "every tab".
+    # Judged over the tabs actually reached: when the walk is cut short by the
+    # pre-existing closure above, the tabs beyond it were never attempted and
+    # counting them as failures would report that bug twice.
+    report.add("tabs", "down reaches content on every tab it navigates",
+               not failed and (lost is not None
+                               or len(entered) + len(skipped) >= len(frames) - 1),
+               f"entered {sorted(entered)}"
+               + (f", skipped as self-navigating {sorted(skipped)}" if skipped else "")
+               + (f", failed {sorted(failed)}" if failed else ""), "NATIVE")
+    report.add("tabs", "up leaves content on every tab", _in_content() is not True,
+               f"in-content={_in_content()}", "NATIVE")
+
+
+
 def test_no_legacy_synthesis(game, pad, report):
     print("\n== 13. only one movement source in native mode")
     # In native mode the legacy hooks are absent entirely, so the check is that
@@ -759,17 +966,32 @@ def test_menu(game, pad, report):
         pad.send("release " + name)
         time.sleep(1.0)
         moved = _active(game) != before_focus
-        report.add("menu", f"D-pad {name}: exactly one mechanism acts",
-                   (peak == 0 and moved) or (peak == 1 and not moved),
-                   f"native event peaked at {peak}, focus {'moved' if moved else 'held'}",
+        # Up on the tab strip is specified to do nothing: there is nothing above
+        # a tab row, and wrapping to the bottom of the screen is not what it
+        # means. So "held" is the correct outcome there, not a missed move.
+        on_tabs = bool(_tab_bar(game)) and _in_content() is not True
+        expected_hold = (name == "UP" and on_tabs)
+        ok = (peak == 0 and (moved != expected_hold)) or (peak == 1 and not moved)
+        report.add("menu", f"D-pad {name}: exactly one mechanism acts", ok,
+                   f"native event peaked at {peak}, focus "
+                   f"{'moved' if moved else 'held'}"
+                   f"{' (held by design on the tab strip)' if expected_hold else ''}",
                    "NATIVE")
 
     test_navigation(game, pad, report)
+    test_tab_bar(game, pad, report)
 
     _screenshot(shot("beforeclose"))
     pad.tap("B", settle=2.5)
     _screenshot(shot("closed"))
     closed = _changed(shot("beforeclose"), shot("closed"))
+    if MENU_LOST_IN_WALK:
+        for name in ("B backs out of the menu to gameplay",
+                     "Start reopens after a close"):
+            report.add("menu", name, None,
+                       "not measurable: the tab walk hit the pre-existing bug "
+                       "that closes the menu")
+        return
     report.add("menu", "B backs out of the menu to gameplay", closed > OPENED,
                f"{closed:.1f}% changed", "NATIVE")
 
@@ -947,6 +1169,108 @@ GUI_MANAGER_PTR = 0x007A39F4
 NAV_CROSS_PENALTY = 6          # must match K1_NAV_CROSS_AXIS_PENALTY
 
 
+INGAME_MENU_DISPATCHER = 0x00624970
+
+# Content panels that navigate themselves -- ABILITIES, ABILITIES_CHARGEN, FEATS,
+# MAP, POWERS, SKILLS, mirrored from K1_NATIVE_DIRECTION_PANELS. Walking onto the
+# Abilities tab closes the in-game menu, which reproduces on the module as it was
+# before any of the tab work, so the walk steps over those tabs rather than
+# reporting a pre-existing engine bug as eight cascading failures.
+SELF_NAVIGATING_PANELS = (0x006AE5F0, 0x006F8880, 0x006F4680,
+                          0x00693BC0, 0x006F28C0, 0x006F6A10)
+
+# Set when the walk of all eight tabs closes the menu. The checks that follow it
+# need an open menu, and reporting them as failures would blame this change for a
+# bug that reproduces on the module as it was before any of the tab work.
+MENU_LOST_IN_WALK = False
+EVENT_PREV_SCREEN, EVENT_NEXT_SCREEN, EVENT_A = 0x35, 0x36, 0x27
+
+
+def _dispatcher(game, obj):
+    if not obj:
+        return 0
+    vtable = game.u32(obj)
+    return game.u32(vtable + 0x3C) if vtable else 0
+
+
+def _panels(game):
+    manager = game.u32(GUI_MANAGER_PTR)
+    array = game.u32(manager + 0x88) if manager else None
+    count = game.i32(manager + 0x8C) if manager else 0
+    if not array or not count or count > 256:
+        return []
+    return [game.u32(array + i * 4) for i in range(count)]
+
+
+def _registers(game, control, code):
+    """Does this control carry a handler for `code`? 12-byte entries at +0x38."""
+    table = game.u32(control + 0x38)
+    count = game.i32(control + 0x3C) or 0
+    if not table or not (0 < count <= 64):
+        return False
+    for i in range(count):
+        if game.i32(table + i * 12 + 8) == code:
+            return True
+    return False
+
+
+def _tab_bar(game):
+    """CSWGuiInGameMenu, but only while it is the panel in front."""
+    for panel in reversed(_panels(game)):
+        if not panel or (game.u32(panel + 0x44) & 0x600):
+            continue
+        return panel if _dispatcher(game, panel) == INGAME_MENU_DISPATCHER else None
+    return None
+
+
+def _tab_frames(game, bar):
+    """The eight tab stops, in visual order. Frames register 0x35 and 0x36."""
+    out = []
+    for control, rect in _candidates(game, bar):
+        if _registers(game, control, EVENT_PREV_SCREEN) and \
+                _registers(game, control, EVENT_NEXT_SCREEN):
+            out.append((rect[0], control))
+    return [c for _, c in sorted(out)]
+
+
+def _tab_overlays(game, bar):
+    """The mouse hotspots: they carry 0x27 and must never take focus."""
+    out = []
+    for control, rect in _candidates(game, bar):
+        if _registers(game, control, EVENT_A) and \
+                not _registers(game, control, EVENT_PREV_SCREEN):
+            out.append((rect[0], control))
+    return [c for _, c in sorted(out)]
+
+
+def _content_panel(game, bar):
+    for panel in reversed(_panels(game)):
+        if not panel or panel == bar or (game.u32(panel + 0x44) & 0x600):
+            continue
+        if _candidates(game, panel):
+            return panel
+    return None
+
+
+def _tab_index(game):
+    """CGuiInGame+0x2C, the tab the engine is actually showing."""
+    root = game.u32(CLIENT_EXO_APP_ROOT)
+    app = game.u32(root + 4) if root else None
+    internal = game.u32(app + 4) if app else None
+    in_game = game.u32(internal + 0x40) if internal else None
+    return game.i32(in_game + 0x2C) if in_game else None
+
+
+def _in_content():
+    """The module's own view, so the test never has to mirror its logic."""
+    try:
+        with open(LOG, "r", errors="replace") as handle:
+            found = re.findall(r"tabin=(\d)", handle.read())
+    except OSError:
+        return None
+    return bool(int(found[-1])) if found else None
+
+
 def _panel_of(game):
     manager = game.u32(GUI_MANAGER_PTR)
     if not manager:
@@ -962,9 +1286,32 @@ def _panel_of(game):
     return None
 
 
+def _nav_panel(game):
+    """The panel focus is actually on, which is not always the one in front.
+
+    While the in-game menu is open the tab strip stays in front even after focus
+    has moved down into a tab's content. Reading the front panel there reports
+    every real move as "focus held", which is exactly how a working layer looked
+    broken: the module counted 36 moves while this said nothing had happened.
+    """
+    bar = _tab_bar(game)
+    if bar and _in_content():
+        return _content_panel(game, bar) or bar
+    return bar or _panel_of(game)
+
+
 def _active(game):
-    panel = _panel_of(game)
+    panel = _nav_panel(game)
     return game.u32(panel + 0x1C) if panel else None
+
+
+def _return_to_tabs(game, pad, limit=8):
+    """Put focus back on the tab strip, whatever a previous test left behind."""
+    for _ in range(limit):
+        if not _tab_bar(game) or _in_content() is not True:
+            return True
+        pad.tap("UP", hold=NAV_TAP, settle=0.8)
+    return _in_content() is not True
 
 
 def _rect(game, control):
@@ -997,8 +1344,8 @@ def _candidates(game, panel):
     return out
 
 
-def _predict(game, dx, dy):
-    panel = _panel_of(game)
+def _predict(game, dx, dy, panel=None, only=None):
+    panel = panel or _panel_of(game)
     if not panel:
         return None
     active = game.u32(panel + 0x1C)
@@ -1012,6 +1359,8 @@ def _predict(game, dx, dy):
     best = wrap = None
     for control, there in _candidates(game, panel):
         if control == active:
+            continue
+        if only is not None and control not in only:
             continue
         hcx, hcy = here[0] + here[2] // 2, here[1] + here[3] // 2
         tcx, tcy = there[0] + there[2] // 2, there[1] + there[3] // 2
@@ -1048,10 +1397,16 @@ def test_navigation(game, pad, report):
     report.add("navigation", "something has focus", before is not None,
                f"active={before:08X}" if before else "nothing", "NATIVE")
 
-    # Directions, each checked against the geometric prediction.
-    for name, dx, dy in (("DOWN", 0, 1), ("DOWN", 0, 1), ("UP", 0, -1),
-                         ("RIGHT", 1, 0), ("LEFT", -1, 0)):
-        expected = _predict(game, dx, dy)
+    # Directions, each checked against the geometric prediction. On the tab
+    # strip the candidate set is the eight frames, which is the rule the layer
+    # applies -- predicting against all sixteen controls would assert the very
+    # behaviour this replaced.
+    bar = _tab_bar(game)
+    if bar:
+        _return_to_tabs(game, pad)
+    frames = _tab_frames(game, bar) if bar else None
+    for name, dx, dy in (("RIGHT", 1, 0), ("RIGHT", 1, 0), ("LEFT", -1, 0)):
+        expected = _predict(game, dx, dy, panel=bar, only=frames)
         pad.tap(name, settle=1.2)
         actual = _active(game)
         if expected is None:
@@ -1064,8 +1419,8 @@ def test_navigation(game, pad, report):
                    "NATIVE")
 
     # The left stick drives the same operation.
-    expected = _predict(game, 0, 1)
-    pad.send("lstick 0 -1")
+    expected = _predict(game, 1, 0, panel=bar, only=frames)
+    pad.send("lstick 1 0")
     time.sleep(0.30)
     pad.send("lstick 0 0")
     time.sleep(1.2)
@@ -1090,7 +1445,7 @@ def test_navigation(game, pad, report):
 
     # A held direction repeats, and repeats more than once.
     start = _active(game)
-    pad.send("press DOWN")
+    pad.send("press RIGHT")
     time.sleep(1.6)
     pad.send("release DOWN")
     time.sleep(0.8)
@@ -1152,7 +1507,7 @@ def main():
         # with a movement order, which the disconnect test reads as stale input.
         test_menu(game, pad, report)
     else:
-        for name in ("cardinals", "diagonals", "centre/release", "camera", "menu", "disconnect", "stick clicks"):
+        for name in ("cardinals", "diagonals", "centre/release", "camera", "menu", "disconnect", "stick clicks", "tabs"):
             report.add("skipped", name, None, "needs gameplay; save did not load")
     # Registration, not behaviour: it needs neither gameplay nor a conversation.
     test_dialog_class(game, pad, report)

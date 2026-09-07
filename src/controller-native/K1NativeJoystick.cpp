@@ -450,6 +450,7 @@ struct StickState {
     int navFromY = -1, navToY = -1, navDir = 0;
     int dialogBound = 0;   // bitmask of ICDialog registrations that took
     unsigned long interactRequestedTick = 0;
+    unsigned long tabActivateRequestedTick = 0;   // A pressed on a focused tab
     unsigned long interactsPerformed = 0;
     unsigned long interactsDeclined = 0;
     std::uint8_t dpadEmitted = 0;   // which direction presses actually went out
@@ -948,6 +949,9 @@ void FillNativeJoystickBufferK1(int deviceIndex, void* outBuffer)
         const bool was = (g_stick.lastButtons & 0x1000) != 0;
         if (now && !was) {
             g_stick.interactRequestedTick = GetTickCount();
+            // The same press, asked of the menu. Only a request: opening a tab
+            // rebuilds panels, which must not happen inside the input hook.
+            g_stick.tabActivateRequestedTick = GetTickCount();
         }
     }
 
@@ -1275,6 +1279,202 @@ void* TopPanelK1()
     return nullptr;
 }
 
+// --------------------------------------------------- the in-game tab bar
+//
+// The in-game menu is two panels, and the navigation layer only ever looked at
+// one of them. CSWGuiInGameMenu is the strip of eight tab icons and sits in
+// front; the screen's actual content is a separate panel below it in the
+// manager's list. Everything here was read out of the running game and the
+// image rather than assumed, because the obvious reading is wrong twice over.
+//
+// The strip carries SIXTEEN focusable controls, not eight:
+//
+//   indices 0-7    192x192 at y=96, one per tab, each registering ONLY 0x35 and
+//                  0x36 (previous/next screen). These are the engine's own focus
+//                  targets: CSWGuiInGameMenu::SetActiveControlID @ 0x00624BD0
+//                  indexes the panel's control array directly, so tab k is
+//                  control k, and the array is in visual left-to-right order.
+//   indices 8-15   156x120 at y=129, sitting INSIDE the frame above them, each
+//                  registering 0x27 with its own handler. These are the mouse
+//                  hotspots.
+//
+// Both sets pass the navigable test, so left/right used to walk sixteen stops
+// through an eight-tab strip, landing half the time on a frame that A cannot
+// activate. Excluding the overlays from focus is what makes the strip read as
+// eight tabs.
+//
+// The eight 0x27 handlers all call one function with a different constant:
+//
+//   00624CF0  SetScreen(0)      00624D70  SetScreen(3)
+//   00624D10  SetScreen(1)      00624DD0  SetScreen(4)
+//   00624D30  SetScreen(2)      00624D90  SetScreen(5)
+//   00624D50  SetScreen(6)      00624DB0  SetScreen(7)
+//
+// so there is nothing per-tab to encode: activating a tab means handing its own
+// registered 0x27 to its own overlay, exactly as a mouse click does.
+constexpr std::uintptr_t K1_INGAME_MENU_DISPATCHER = 0x00624970;
+
+// CGuiInGame, at CClientExoAppInternal+0x40. CClientExoApp::GetGuiInGame
+// @ 0x005ED690 reaches it the same way, and CGuiInGame::SetScreen @ 0x0062CF10
+// reads the current index from +0x2C and refuses to run at all while +0x108 is
+// null. Read only -- KMRP never writes either field.
+constexpr std::size_t K1_INTERNAL_GUI_IN_GAME  = 0x40;
+constexpr std::size_t K1_IN_GAME_SCREEN_INDEX  = 0x2C;
+constexpr int         K1_TAB_COUNT             = 8;
+
+// CSWGuiControl::AddEvent builds a table of 12-byte {receiver, handler, code}
+// entries at +0x38 with the count at +0x3C, and CSWGuiControl::HandleInputEvent
+// @ 0x00418750 walks it for anything its class did not handle itself.
+constexpr std::size_t K1_EVENT_ENTRY_BYTES = 12;
+constexpr std::size_t K1_EVENT_ENTRY_CODE  = 8;
+
+using HandleControlInputFn = void(__thiscall*)(void*, int, int);
+
+bool ControlRegistersEventK1(void* control, int code)
+{
+    if (!LooksLikePointerK1(control)) {
+        return false;
+    }
+    std::uint8_t* const table = *FieldAt<std::uint8_t*>(control, K1_CTL_EVENT_TABLE);
+    const int count = *FieldAt<int>(control, K1_CTL_EVENT_COUNT);
+    if (!LooksLikePointerK1(table) || count <= 0 || count > 64) {
+        return false;
+    }
+    for (int i = 0; i < count; ++i) {
+        const int entry = *reinterpret_cast<int*>(
+            table + i * K1_EVENT_ENTRY_BYTES + K1_EVENT_ENTRY_CODE);
+        if (entry == code) {
+            return true;
+        }
+    }
+    return false;
+}
+
+// A tab frame registers the screen-cycling pair and nothing else; its overlay
+// registers the activation. Derived from what each control actually registers,
+// so neither depends on array positions staying as they are.
+bool IsTabFrameK1(void* control)
+{
+    return ControlRegistersEventK1(control, K1_EVENT_PREV_SCREEN)
+        && ControlRegistersEventK1(control, K1_EVENT_NEXT_SCREEN);
+}
+
+bool IsTabOverlayK1(void* control)
+{
+    return ControlRegistersEventK1(control, K1_EVENT_A)
+        && !IsTabFrameK1(control);
+}
+
+void* PanelAtK1(int index)
+{
+    void* const manager = *reinterpret_cast<void**>(K1_GUI_MANAGER_PTR);
+    if (!LooksLikePointerK1(manager)) {
+        return nullptr;
+    }
+    void** const panels = *FieldAt<void**>(manager, K1_MGR_PANEL_ARRAY);
+    const int count = *FieldAt<int>(manager, K1_MGR_PANEL_COUNT);
+    if (!LooksLikePointerK1(panels) || index < 0 || index >= count || count > 256) {
+        return nullptr;
+    }
+    return LooksLikePointerK1(panels[index]) ? panels[index] : nullptr;
+}
+
+int PanelCountK1()
+{
+    void* const manager = *reinterpret_cast<void**>(K1_GUI_MANAGER_PTR);
+    if (!LooksLikePointerK1(manager)) {
+        return 0;
+    }
+    const int count = *FieldAt<int>(manager, K1_MGR_PANEL_COUNT);
+    return (count > 0 && count <= 256) ? count : 0;
+}
+
+// The tab strip, or null when the in-game menu is not open.
+void* TabBarPanelK1()
+{
+    const int count = PanelCountK1();
+    for (int i = count - 1; i >= 0; --i) {
+        void* const panel = PanelAtK1(i);
+        if (!panel) {
+            continue;
+        }
+        if ((*FieldAt<std::uint32_t>(panel, K1_PANEL_FLAGS) & K1_PANEL_FLAG_SKIP) != 0) {
+            continue;
+        }
+        if (DispatcherOfK1(panel) == K1_INGAME_MENU_DISPATCHER) {
+            return panel;
+        }
+        // Only the panel in front counts. Once a tab opens a sub-screen of its
+        // own -- a container, a confirmation -- that panel owns navigation and
+        // the strip below it must be left alone.
+        return nullptr;
+    }
+    return nullptr;
+}
+
+bool PanelHasNavigableControlK1(void* panel);   // defined with the geometry below
+
+// The content panel for the tab currently shown: the topmost panel below the
+// strip that has anything to focus. Chosen this way rather than by dispatcher
+// because it has to work for all eight tabs without a table of screens, and
+// rather than "the panel below" because the stack also carries panels with
+// nothing navigable on them.
+void* TabContentPanelK1(void* tabBar)
+{
+    if (!tabBar) {
+        return nullptr;
+    }
+    const int count = PanelCountK1();
+    for (int i = count - 1; i >= 0; --i) {
+        void* const panel = PanelAtK1(i);
+        if (!panel || panel == tabBar) {
+            continue;
+        }
+        if ((*FieldAt<std::uint32_t>(panel, K1_PANEL_FLAGS) & K1_PANEL_FLAG_SKIP) != 0) {
+            continue;
+        }
+        if (PanelHasNavigableControlK1(panel)) {
+            return panel;
+        }
+    }
+    return nullptr;
+}
+
+// The tab the engine is showing, or -1 when there is no in-game GUI.
+int CurrentTabIndexK1()
+{
+    void* const internal = ClientInternalK1();
+    if (!internal) {
+        return -1;
+    }
+    void* const inGame = *FieldAt<void*>(internal, K1_INTERNAL_GUI_IN_GAME);
+    if (!LooksLikePointerK1(inGame)) {
+        return -1;
+    }
+    const int screen = *FieldAt<int>(inGame, K1_IN_GAME_SCREEN_INDEX);
+    return (screen >= 0 && screen < K1_TAB_COUNT) ? screen : -1;
+}
+
+// The frame of the tab currently shown. SetActiveControlID's own arithmetic:
+// control k is tab k. Verified against the frame test rather than trusted.
+void* ActiveTabFrameK1(void* tabBar)
+{
+    if (!tabBar) {
+        return nullptr;
+    }
+    const int screen = CurrentTabIndexK1();
+    if (screen < 0) {
+        return nullptr;
+    }
+    void** const controls = *FieldAt<void**>(tabBar, K1_PANEL_CONTROL_ARRAY);
+    const int count = *FieldAt<int>(tabBar, K1_PANEL_CONTROL_COUNT);
+    if (!LooksLikePointerK1(controls) || screen >= count) {
+        return nullptr;
+    }
+    void* const frame = controls[screen];
+    return IsTabFrameK1(frame) ? frame : nullptr;
+}
+
 struct RectK1 {
     int x, y, w, h;
     int cx() const { return x + w / 2; }
@@ -1324,6 +1524,22 @@ bool ControlIsNavigableK1(void* control, RectK1& rect)
     return rect.w > 0 && rect.h > 0;
 }
 
+bool PanelHasNavigableControlK1(void* panel)
+{
+    void** const controls = *FieldAt<void**>(panel, K1_PANEL_CONTROL_ARRAY);
+    const int count = *FieldAt<int>(panel, K1_PANEL_CONTROL_COUNT);
+    if (!LooksLikePointerK1(controls) || count <= 0 || count > 512) {
+        return false;
+    }
+    RectK1 rect{};
+    for (int i = 0; i < count; ++i) {
+        if (ControlIsNavigableK1(controls[i], rect)) {
+            return true;
+        }
+    }
+    return false;
+}
+
 // How strongly a move prefers to stay in its row or column. A candidate that
 // overlaps the current control on the cross axis pays nothing for its offset; a
 // candidate that does not pays this multiple of it. Large on purpose: a menu is
@@ -1344,7 +1560,10 @@ int AbsIntK1(int v) { return v < 0 ? -v : v; }
 
 // Pick the control a press in (dx, dy) should move to; exactly one of dx and dy
 // is non-zero. Returns null when there is nowhere sensible to go.
-void* ChooseNeighbourK1(void* panel, void* current, int dx, int dy)
+enum class NavFilterK1 { Any, TabFramesOnly };
+
+void* ChooseNeighbourK1(void* panel, void* current, int dx, int dy,
+                        NavFilterK1 filter = NavFilterK1::Any)
 {
     void** const controls = *FieldAt<void**>(panel, K1_PANEL_CONTROL_ARRAY);
     const int count = *FieldAt<int>(panel, K1_PANEL_CONTROL_COUNT);
@@ -1367,6 +1586,12 @@ void* ChooseNeighbourK1(void* panel, void* current, int dx, int dy)
         }
         RectK1 to{};
         if (!ControlIsNavigableK1(candidate, to)) {
+            continue;
+        }
+        // On the tab strip only the frames are stops. The overlays sit inside
+        // them, pass every navigable test, and would otherwise double the
+        // length of the strip while offering focus that A cannot act on.
+        if (filter == NavFilterK1::TabFramesOnly && !IsTabFrameK1(candidate)) {
             continue;
         }
 
@@ -1416,10 +1641,19 @@ void* ChooseNeighbourK1(void* panel, void* current, int dx, int dy)
 
 // True when the screen already navigates itself, in which case this layer must
 // keep its hands off and let the retained events do their job.
-bool PanelNavigatesItselfK1(void* panel, void* active)
+//
+// `reachable` says whether a retained event can actually arrive at this panel,
+// which is true only of the panel in front. Standing down in favour of native
+// navigation that cannot be delivered is not standing down, it is doing nothing:
+// on the Abilities tab the content panel is one of the six that navigate
+// themselves, but it sits BEHIND the tab strip, and CSWGuiInGameMenu's
+// dispatcher handles 0xF3/0xF4 and then routes to its own focused control. The
+// press reached the strip and died there, so focus entered the tab and could
+// never leave it -- for that tab and, once the flag stuck, every tab after.
+bool PanelNavigatesItselfK1(void* panel, void* active, bool reachable = true)
 {
     const std::uintptr_t panelDispatcher = DispatcherOfK1(panel);
-    if (panelDispatcher != 0 &&
+    if (reachable && panelDispatcher != 0 &&
         InListK1(panelDispatcher, K1_NATIVE_DIRECTION_PANELS,
                  sizeof(K1_NATIVE_DIRECTION_PANELS) / sizeof(K1_NATIVE_DIRECTION_PANELS[0]))) {
         return true;
@@ -1468,35 +1702,190 @@ int InputClassK1()
     return internal ? *FieldAt<int>(internal, 0x9C) : -1;
 }
 
+// Where navigation is currently pointed.
+//
+// The tab strip stays in front the whole time the menu is open, so "the panel in
+// front" cannot answer this once focus has moved down into a tab's content --
+// and it cannot be derived either, because both panels carry an active control
+// simultaneously and always have. So it is remembered. The state is narrow: one
+// flag, cleared whenever the strip stops being in front.
+struct TabNavStateK1 {
+    bool  inContent = false;
+    int   contentTab = -1;          // the tab focus went down into
+    void* contentPanel = nullptr;
+    unsigned long entered = 0;      // moves down into a tab's content
+    unsigned long returned = 0;     // moves back up to the strip
+    unsigned long activated = 0;    // tabs opened with A
+};
+
+TabNavStateK1 g_tabNav;
+
+// The panel a direction press should act on, with the strip reported alongside
+// it so callers can tell "on the tabs" from "in a tab's content".
+void* NavigationPanelK1(void** outTabBar)
+{
+    void* const tabBar = TabBarPanelK1();
+    if (outTabBar) {
+        *outTabBar = tabBar;
+    }
+    if (!tabBar) {
+        g_tabNav.inContent = false;         // the menu is gone; forget the rest
+        g_tabNav.contentPanel = nullptr;
+        return TopPanelK1();
+    }
+    if (g_tabNav.inContent) {
+        // A bumper can change tab while focus is down in the old one. The flag
+        // describes a place that no longer exists at that point, so it goes.
+        if (CurrentTabIndexK1() != g_tabNav.contentTab) {
+            g_tabNav.inContent = false;
+            return tabBar;
+        }
+        void* const content = TabContentPanelK1(tabBar);
+        if (content) {
+            g_tabNav.contentPanel = content;
+            return content;
+        }
+        g_tabNav.inContent = false;         // the content went away under us
+    }
+    return tabBar;
+}
+
 bool KmrpOwnsDirectionsK1()
 {
     if (InputClassK1() != K1_CLASS_PCGUI) {
         return false;
     }
-    void* const panel = TopPanelK1();
+    void* tabBar = nullptr;
+    void* const panel = NavigationPanelK1(&tabBar);
     if (!panel) {
         return false;
     }
     void* const active = *FieldAt<void**>(panel, K1_PANEL_ACTIVE);
-    return !PanelNavigatesItselfK1(panel, active);
+    const bool reachable = !(tabBar != nullptr && panel != tabBar);
+    return !PanelNavigatesItselfK1(panel, active, reachable);
 }
 
 // One navigation step. Returns true when focus actually moved, which is what
 // the end-to-end tests assert on.
+// Move focus to a control on a panel that may not be the one in front. The
+// engine is happy to be told this -- SetActiveControl takes the panel as its
+// receiver -- and each panel keeps its own active control, which is why the
+// active tab stays lit while focus is down in the content.
+bool SetFocusK1(void* panel, void* target)
+{
+    if (!panel || !target) {
+        return false;
+    }
+    EngineFn<SetActiveControlFn>(K1_SET_ACTIVE_CONTROL)(panel, target, 1);
+    ++g_stick.navMoves;
+    g_stick.lastNavTick = GetTickCount();
+    return true;
+}
+
+// Is there any navigable control above this one on the same panel?
+bool AnythingAboveK1(void* panel, void* active)
+{
+    RectK1 here{};
+    if (!ControlIsNavigableK1(active, here)) {
+        return false;
+    }
+    void** const controls = *FieldAt<void**>(panel, K1_PANEL_CONTROL_ARRAY);
+    const int count = *FieldAt<int>(panel, K1_PANEL_CONTROL_COUNT);
+    if (!LooksLikePointerK1(controls) || count <= 0 || count > 512) {
+        return false;
+    }
+    for (int i = 0; i < count; ++i) {
+        RectK1 other{};
+        if (controls[i] == active || !ControlIsNavigableK1(controls[i], other)) {
+            continue;
+        }
+        if (other.cy() < here.cy()) {
+            return true;
+        }
+    }
+    return false;
+}
+
 bool NavigateFocusK1(int dx, int dy)
 {
     if (InputClassK1() != K1_CLASS_PCGUI) {
         return false;              // gameplay: the D-pad has its own bindings
     }
-    void* const panel = TopPanelK1();
+    void* tabBar = nullptr;
+    void* const panel = NavigationPanelK1(&tabBar);
     if (!panel) {
         return false;
     }
     void* const active = *FieldAt<void**>(panel, K1_PANEL_ACTIVE);
-    if (PanelNavigatesItselfK1(panel, active)) {
+    const bool onTabs = (tabBar != nullptr && panel == tabBar);
+
+    if (onTabs) {
+        // Up from the strip does nothing. There is nothing above it, and
+        // wrapping to the bottom of the screen is not what a tab row means.
+        if (dy < 0) {
+            return false;
+        }
+        // Down enters the content of the tab being SHOWN, not of the tab under
+        // focus. Moving along the strip does not open anything; only A does.
+        if (dy > 0) {
+            void* const content = TabContentPanelK1(tabBar);
+            if (!content) {
+                return false;
+            }
+            // Resume where the screen left off, but never INTO a control that
+            // owns the direction keys. The Abilities screen remembers its ability
+            // list as the focused control, and entering straight onto it meant
+            // the list took every subsequent up press natively and focus could
+            // not climb back out to the strip. Landing on the first ordinary
+            // control instead keeps the way back open.
+            void* const contentActive = *FieldAt<void**>(content, K1_PANEL_ACTIVE);
+            RectK1 probe{};
+            const bool resumable = ControlIsNavigableK1(contentActive, probe)
+                && !PanelNavigatesItselfK1(content, contentActive, false);
+            void* const target = resumable
+                ? contentActive
+                : ChooseNeighbourK1(content, nullptr, 0, 1);
+            if (!target || !SetFocusK1(content, target)) {
+                return false;
+            }
+            g_tabNav.inContent = true;
+            g_tabNav.contentPanel = content;
+            g_tabNav.contentTab = CurrentTabIndexK1();
+            ++g_tabNav.entered;
+            return true;
+        }
+        // Left and right walk the eight frames, and only the frames.
+        if (PanelNavigatesItselfK1(panel, active)) {
+            ++g_stick.navDeclinedNative;
+            return false;
+        }
+        void* const step = ChooseNeighbourK1(panel, active, dx, dy,
+                                             NavFilterK1::TabFramesOnly);
+        if (!step || step == active) {
+            return false;
+        }
+        return SetFocusK1(panel, step);
+    }
+
+    // Behind the strip, only the control-level exemption applies: a focused list
+    // still scrolls itself, but the screen's panel-level navigation is not
+    // reachable and must not be deferred to.
+    if (PanelNavigatesItselfK1(panel, active, false)) {
         ++g_stick.navDeclinedNative;
+        return false;              // a focused list scrolls itself
+    }
+
+    // Inside a tab's content, up at the top boundary returns to the strip.
+    if (tabBar != nullptr && dy < 0 && !AnythingAboveK1(panel, active)) {
+        void* const frame = ActiveTabFrameK1(tabBar);
+        if (frame && SetFocusK1(tabBar, frame)) {
+            g_tabNav.inContent = false;
+            ++g_tabNav.returned;
+            return true;
+        }
         return false;
     }
+
     void* const target = ChooseNeighbourK1(panel, active, dx, dy);
     if (!target || target == active) {
         return false;
@@ -1513,10 +1902,54 @@ bool NavigateFocusK1(int dx, int dy)
         g_stick.navToY = toRect.y;
         g_stick.navDir = dx != 0 ? dx * 10 : dy;
     }
-    EngineFn<SetActiveControlFn>(K1_SET_ACTIVE_CONTROL)(panel, target, 1);
-    ++g_stick.navMoves;
-    g_stick.lastNavTick = GetTickCount();
-    return true;
+    return SetFocusK1(panel, target);
+}
+
+// A on a focused tab frame opens that tab.
+//
+// The frame registers no 0x27 of its own, so the engine delivers A to it and
+// nothing happens -- which is why focusing a tab used to be a dead end. The
+// activation lives on the overlay sitting inside the frame, so this hands that
+// overlay its own registered event through its own HandleInputEvent, which is
+// exactly what a mouse click does. No synthesised input, no per-tab table, and
+// no knowledge of what any particular tab is.
+bool ActivateFocusedTabK1()
+{
+    void* const tabBar = TabBarPanelK1();
+    if (!tabBar || g_tabNav.inContent) {
+        return false;
+    }
+    void* const active = *FieldAt<void**>(tabBar, K1_PANEL_ACTIVE);
+    RectK1 frame{};
+    if (!IsTabFrameK1(active) || !ControlIsNavigableK1(active, frame)) {
+        return false;
+    }
+    void** const controls = *FieldAt<void**>(tabBar, K1_PANEL_CONTROL_ARRAY);
+    const int count = *FieldAt<int>(tabBar, K1_PANEL_CONTROL_COUNT);
+    if (!LooksLikePointerK1(controls) || count <= 0 || count > 512) {
+        return false;
+    }
+    for (int i = 0; i < count; ++i) {
+        void* const candidate = controls[i];
+        RectK1 overlay{};
+        if (!IsTabOverlayK1(candidate) || !ControlIsNavigableK1(candidate, overlay)) {
+            continue;
+        }
+        // Paired by geometry: the overlay whose centre lies within the frame.
+        if (overlay.cx() < frame.x || overlay.cx() > frame.x + frame.w ||
+            overlay.cy() < frame.y || overlay.cy() > frame.y + frame.h) {
+            continue;
+        }
+        const std::uintptr_t dispatcher = DispatcherOfK1(candidate);
+        if (dispatcher == 0) {
+            return false;
+        }
+        reinterpret_cast<HandleControlInputFn>(dispatcher)(candidate, K1_EVENT_A, 1);
+        g_tabNav.inContent = false;
+        ++g_tabNav.activated;
+        return true;
+    }
+    return false;
 }
 
 // ------------------------------------------------- navigation input timing
@@ -1599,6 +2032,16 @@ extern "C" void __cdecl NativeGuiFrameK1(void* guiManager)
     (void)guiManager;
     g_stick.lastGuiTick = GetTickCount();
     EnsureDeviceCountK1();     // menus re-enumerate devices too
+
+    // A on a focused tab, performed here rather than in the input hook because
+    // it rebuilds the content panel. ActivateFocusedTabK1 declines unless a tab
+    // frame actually has focus, so an A pressed anywhere else costs one test.
+    if (g_stick.tabActivateRequestedTick != 0) {
+        g_stick.tabActivateRequestedTick = 0;
+        if (InputClassK1() == K1_CLASS_PCGUI) {
+            ActivateFocusedTabK1();
+        }
+    }
 
     const int dx = g_stick.navPendingX;
     const int dy = g_stick.navPendingY;
@@ -1955,7 +2398,7 @@ extern "C" void __cdecl NativeJoystickDumpK1()
         // after. cam* are x100.
         "ovr=%d rmag=%ld amag=%ld dz=%ld dcr=%lu "
         "rx=%ld ry=%ld camrun=%lu camwr=%lu camdz=%lu camapp=%ld camcls=%lu camown=%lu "
-        "nav=%lu/%lu gui=%lu move=%d->%d dir=%d\r\n",
+        "nav=%lu/%lu gui=%lu tab=%lu/%lu/%lu tabin=%d move=%d->%d dir=%d\r\n",
         g_stick.registered ? 1 : 0, g_stick.createFailed ? 1 : 0, liveCount,
         g_stick.initCalls, g_stick.bufferCalls, g_stick.recordsEmitted,
         g_stick.movementCalls, g_stick.overrideFrames,
@@ -1994,6 +2437,8 @@ extern "C" void __cdecl NativeJoystickDumpK1()
         static_cast<long>(g_stick.cameraApplied * 100.0f),
         g_stick.cameraWrongClass, g_stick.cameraNoOwner,
         g_stick.navMoves, g_stick.navDeclinedNative, g_stick.lastGuiTick,
+        g_tabNav.entered, g_tabNav.returned, g_tabNav.activated,
+        g_tabNav.inContent ? 1 : 0,
         g_stick.navFromY, g_stick.navToY, g_stick.navDir);
 
     HANDLE file = CreateFileA("kmrp-native-joystick.log", FILE_APPEND_DATA,

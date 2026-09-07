@@ -480,6 +480,73 @@ take computed values, not input, and the tilt path is mode-gated.
 **Not yet honoured:** the engine's camera-invert option at `0x00832920`, which
 `UpdateCamera` folds in and the bridge does not. Untested against the stick.
 
+## The in-game tab bar
+
+The in-game menu is two panels. `CSWGuiInGameMenu` (dispatcher `0x00624970`) is
+the strip of eight tab icons and stays in front the whole time the menu is open;
+the screen's content is a separate panel below it in the manager's list. The
+navigation layer used to see only the panel in front, so the content was
+unreachable and the strip itself read wrongly.
+
+### Sixteen controls, eight tabs
+
+| indices | size / y | registers | what it is |
+| --- | --- | --- | --- |
+| 0-7 | 192x192 at y=96 | `0x35`, `0x36` only | the tab stops, and the engine's own focus targets |
+| 8-15 | 156x120 at y=129 | `0x27`, one handler each | the mouse hotspots, sitting inside the frames |
+
+`CSWGuiInGameMenu::SetActiveControlID` @ `0x00624BD0` indexes the panel's control
+array directly, so **tab k is control k**, and the array is in visual
+left-to-right order. Both sets pass the navigable test, so left/right used to
+walk sixteen stops through an eight-tab strip, landing half the time on a frame
+that A cannot activate. Only the frames are focus stops now.
+
+The eight `0x27` handlers all call `CGuiInGame::SetScreen` @ `0x0062CF10` with a
+different constant (`0x00624CF0`=0 … `0x00624DD0`=4 … `0x00624DB0`=7), and the
+current tab is `CGuiInGame+0x2C`, with `CGuiInGame` at
+`CClientExoAppInternal+0x40`. Nothing per-tab is encoded anywhere in KMRP:
+activating a tab hands its own overlay its own registered `0x27` through its own
+`HandleInputEvent`, which is exactly what a mouse click does.
+
+### Behaviour
+
+* left/right walk the eight frames in visual order, wrapping, **without**
+  switching tabs
+* A opens the focused tab
+* down enters that tab's content, on the panel below
+* up from the content's top boundary returns to the frame of the tab being shown
+* up from the strip does nothing
+* LT/RT still switch immediately, unchanged -- they are events `0x35`/`0x36` on
+  the frames, which the panel's own dispatcher turns into `0xF3`/`0xF4`
+
+Focus lives on two panels at once, which is what the engine already does: each
+panel keeps its own active control, so the active tab stays lit while focus is
+down in the content. Which panel a press acts on cannot be derived from that --
+both are non-null always -- so it is remembered in one flag, cleared when the
+strip stops being in front and when the tab changes under it.
+
+### A panel-level exemption only counts for the panel in front
+
+`PanelNavigatesItselfK1` used to stand down for the six screens that navigate
+themselves, wherever they were. On the Abilities tab that content panel is one of
+them **and sits behind the strip**, and `CSWGuiInGameMenu` handles `0xF3`/`0xF4`
+and then routes to its own focused control -- so the retained press reached the
+strip and died there. Focus entered the tab and could never leave. Standing down
+in favour of navigation that cannot be delivered is not standing down.
+
+Entry also refuses to land on a control that owns the direction keys: the
+Abilities screen remembers its ability list as its focused control, and resuming
+straight onto it handed every later up press to the list.
+
+### Known, pre-existing: walking every tab closes the menu
+
+Driving through all eight tabs in one pass closes the in-game menu. **This
+reproduces on the module as it was before any of the tab work**, so it is not
+caused by it; it was found by the new test, not introduced by it. Not yet
+diagnosed. The end-to-end suite records it as ENGINE, steps over the tab whose
+content self-navigates, and marks the checks that need an open menu afterwards as
+not measurable rather than failing them.
+
 ## Testing
 
 * `testing/controller/select_controller_path.py [saul|native|both]` switches the
