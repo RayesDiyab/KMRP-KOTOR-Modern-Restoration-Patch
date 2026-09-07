@@ -21,3 +21,7 @@ EXPORTS
     NativeGuiFrameK1
     NativeCameraFrameK1
     NativeMovieFrameK1
+    NativeActionBarK1
+    KmrpActionBarApplyK1
+    KmrpActionBarFocusedK1
+    KmrpActionBarStateK1

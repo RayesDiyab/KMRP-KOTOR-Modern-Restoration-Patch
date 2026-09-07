@@ -66,6 +66,26 @@ constexpr int K1_SLOT_NONE  = 0x84;   // the "no control" sentinel
 constexpr int K1_DEVICE_JOYSTICK = 2;
 
 // Input classes, matching keymap.2da's IC* columns.
+// The gameplay HUD's bottom-right action bar is driven through Saul0097's
+// existing implementation in vendor/K1XboxControls.cpp, which calls the engine's
+// own CSWGuiMainInterface functions:
+//
+//   getIsSelectable   0x004189D0    can this slot take focus
+//   setActiveControl  0x0040A630    move the highlight
+//   targetPrevious    0x006884B0    cycle a target-action slot backwards
+//   targetNext        0x00688520      "        "        "     forwards
+//   personalPrevious  0x0068AF70    cycle a personal/ability slot backwards
+//   personalNext      0x0068AFE0      "        "        "      forwards
+//   activate          0x0068B970    use the selected action
+//
+// None of that is reimplemented here. His path feeds those calls from buffered
+// KEYBOARD records and therefore needs synthesised arrow keys; KMRP feeds them
+// from the D-pad it already has, so nothing is synthesised.
+extern "C" void __cdecl KmrpActionBarApplyK1(void* mainInterface, int dx, int dy,
+                                             int activate);
+extern "C" int  __cdecl KmrpActionBarFocusedK1(void* mainInterface);
+extern "C" int  __cdecl KmrpActionBarStateK1(void* mainInterface);
+
 constexpr int K1_CLASS_PC       = 0;   // gameplay
 constexpr int K1_CLASS_MINIGAME = 1;   // Pazaak, swoop, the turret
 constexpr int K1_CLASS_PCGUI  = 2;   // menus
@@ -488,6 +508,13 @@ struct StickState {
     unsigned long navRepeatDeadline = 0;       // when a held direction may repeat
     int navHeldX = 0, navHeldY = 0;            // the direction currently held
     int navPendingX = 0, navPendingY = 0;      // requested, not yet performed
+    int hudPendingX = 0, hudPendingY = 0;      // the same, for the gameplay HUD
+    unsigned long hudActivateRequested = 0;    // A, while a HUD slot has focus
+    unsigned long hudMoves = 0;                // slot changes performed
+    unsigned long hudCycles = 0;               // action cycles performed
+    unsigned long hudActivations = 0;          // slots used
+    unsigned long hudInterface = 0;            // what the hook was handed
+    int           hudState = 0;                // KmrpActionBarStateK1 bits
     int stickNavX = 0, stickNavY = 0;          // left stick's latched direction
     unsigned long cameraFeedCalls = 0;      // times the bridge ran
     unsigned long cameraWrites = 0;         // times it actually wrote
@@ -1017,6 +1044,9 @@ void FillNativeJoystickBufferK1(int deviceIndex, void* outBuffer)
             // The same press, asked of the menu. Only a request: opening a tab
             // rebuilds panels, which must not happen inside the input hook.
             g_stick.tabActivateRequestedTick = GetTickCount();
+            // And of the gameplay HUD, which takes it only when a slot has
+            // focus.
+            g_stick.hudActivateRequested = GetTickCount();
         }
     }
 
@@ -1240,6 +1270,49 @@ extern "C" void __cdecl NativeMovieFrameK1(void* moviePlayer)
     g_movie.armed = false;             // one press, one skip
     EngineFn<CancelMovieFn>(K1_CANCEL_MOVIE)(moviePlayer, 0, 0);
     ++g_movie.skips;
+}
+
+// CSWGuiMainInterface's per-frame update, with ecx holding the interface. The
+// gameplay HUD's action bar is driven from here: the engine functions it calls
+// expect to run during GUI work, not inside CExoInput's polling.
+//
+// The D-pad's retained codes are suppressed in gameplay for the same reason the
+// menu layer suppresses them -- exactly one mechanism may act on a press.
+extern "C" void __cdecl NativeActionBarK1(void* mainInterface)
+{
+    const int dx = g_stick.hudPendingX;
+    const int dy = g_stick.hudPendingY;
+    g_stick.hudPendingX = 0;
+    g_stick.hudPendingY = 0;
+
+    int activate = 0;
+    if (g_stick.hudActivateRequested != 0) {
+        g_stick.hudActivateRequested = 0;
+        // A means "use this slot" only while a slot has focus. Otherwise it is
+        // the world action, and PerformPendingInteractionK1 asks the same
+        // question, so exactly one of the two answers yes however the two hooks
+        // happen to be ordered within a frame.
+        activate = KmrpActionBarFocusedK1(mainInterface);
+    }
+
+    g_stick.hudInterface = reinterpret_cast<unsigned long>(mainInterface);
+    g_stick.hudState = KmrpActionBarStateK1(mainInterface);
+    if (InputClassK1() != K1_CLASS_PC) {
+        return;                       // the HUD bar exists only in gameplay
+    }
+    if (dx == 0 && dy == 0 && activate == 0) {
+        return;
+    }
+    KmrpActionBarApplyK1(mainInterface, dx, dy, activate);
+    if (dx != 0) {
+        ++g_stick.hudMoves;
+    }
+    if (dy != 0) {
+        ++g_stick.hudCycles;
+    }
+    if (activate != 0) {
+        ++g_stick.hudActivations;
+    }
 }
 
 // Runs at 0x006039CF, where both of UpdateCamera's paths converge and ESI is
@@ -1923,6 +1996,13 @@ void* NavigationPanelK1(void** outTabBar)
 
 bool KmrpOwnsDirectionsK1()
 {
+    // In gameplay the D-pad drives the HUD's action bar, so its retained codes
+    // are suppressed for the same reason they are in menus: one press, one
+    // mechanism. Nothing else in gameplay consumes 0x2F..0x32 -- the survey of
+    // AddEvent registrations found no consumer outside the GUI panels.
+    if (InputClassK1() == K1_CLASS_PC) {
+        return true;
+    }
     if (InputClassK1() != K1_CLASS_PCGUI) {
         return false;
     }
@@ -2195,6 +2275,10 @@ void RequestNavigationK1(int dx, int dy, bool edge)
         g_stick.navHeldY = 0;
         return;
     }
+    // Menus and the gameplay HUD each get their own copy of the request, with
+    // the same edge-then-repeat cadence. Two consumers rather than one because
+    // they run from different per-frame hooks, and whichever ran first would
+    // otherwise swallow the press before the other saw it.
     const unsigned long now = GetTickCount();
     const bool changed = (dx != g_stick.navHeldX) || (dy != g_stick.navHeldY);
     if (edge || changed) {
@@ -2203,12 +2287,16 @@ void RequestNavigationK1(int dx, int dy, bool edge)
         g_stick.navHeldY = dy;
         g_stick.navPendingX = dx;
         g_stick.navPendingY = dy;
+        g_stick.hudPendingX = dx;
+        g_stick.hudPendingY = dy;
         g_stick.navRepeatDeadline = now + K1_NAV_HOLD_DELAY_MS;
         return;
     }
     if (now >= g_stick.navRepeatDeadline) {
         g_stick.navPendingX = dx;
         g_stick.navPendingY = dy;
+        g_stick.hudPendingX = dx;
+        g_stick.hudPendingY = dy;
         g_stick.navRepeatDeadline = now + K1_NAV_REPEAT_MS;
     }
 }
@@ -2346,6 +2434,13 @@ void PerformPendingInteractionK1()
     }
     if (InputClassK1() != K1_CLASS_PC) {
         ++g_stick.interactsDeclined;      // only in the world
+        return;
+    }
+    // A belongs to the HUD action bar while one of its slots has focus. Both
+    // consumers ask the same question, so exactly one acts however the two
+    // per-frame hooks happen to be ordered.
+    if (KmrpActionBarFocusedK1(nullptr) != 0) {
+        ++g_stick.interactsDeclined;
         return;
     }
     if (!HasTargetK1()) {
@@ -2586,7 +2681,7 @@ extern "C" void __cdecl NativeJoystickDumpK1()
         // after. cam* are x100.
         "ovr=%d rmag=%ld amag=%ld dz=%ld dcr=%lu "
         "rx=%ld ry=%ld camrun=%lu camwr=%lu camdz=%lu camapp=%ld camcls=%lu camown=%lu "
-        "nav=%lu/%lu gui=%lu tab=%lu/%lu/%lu/%lu tabin=%d mve=%lu/%lu move=%d->%d dir=%d\r\n",
+        "nav=%lu/%lu hud=%lu/%lu/%lu/%08lX/%d gui=%lu tab=%lu/%lu/%lu/%lu tabin=%d mve=%lu/%lu move=%d->%d dir=%d\r\n",
         g_stick.registered ? 1 : 0, g_stick.createFailed ? 1 : 0, liveCount,
         g_stick.initCalls, g_stick.bufferCalls, g_stick.recordsEmitted,
         g_stick.movementCalls, g_stick.overrideFrames,
@@ -2625,7 +2720,10 @@ extern "C" void __cdecl NativeJoystickDumpK1()
         g_stick.cameraFeedCalls, g_stick.cameraWrites, g_stick.cameraBelowDeadzone,
         static_cast<long>(g_stick.cameraApplied * 100.0f),
         g_stick.cameraWrongClass, g_stick.cameraNoOwner,
-        g_stick.navMoves, g_stick.navDeclinedNative, g_stick.lastGuiTick,
+        g_stick.navMoves, g_stick.navDeclinedNative,
+        g_stick.hudMoves, g_stick.hudCycles, g_stick.hudActivations,
+        g_stick.hudInterface, g_stick.hudState,
+        g_stick.lastGuiTick,
         g_tabNav.entered, g_tabNav.returned, g_tabNav.activated,
         g_tabNav.dispatched,
         g_tabNav.inContent ? 1 : 0,

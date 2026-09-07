@@ -508,6 +508,7 @@ def test_buttons(game, pad, xinput, report):
     print("\n== 6-8. buttons, D-pad: XInput -> record -> description")
     pad.send("reset")
     time.sleep(0.4)
+    before_hud = _hud_counters()
     for name, event in BUTTONS + DPAD:
         # A opens a conversation when something is targeted, and every button
         # after it would then be sampled in input class 3 where it is correctly
@@ -530,8 +531,22 @@ def test_buttons(game, pad, xinput, report):
         pad.send(f"release {name}")
         time.sleep(0.35)
         released = game.value(event)
-        ok = held == 1 and released == 0
         kind = "NATIVE"
+        if (name, event) in DPAD:
+            # The D-pad in gameplay drives the HUD action bar, so its retained
+            # codes are SUPPRESSED -- the same "one press, one mechanism" rule
+            # the menus already follow. Asserting the event arrives would assert
+            # the double-acting behaviour this replaced, so the contract here is
+            # the opposite: nothing may arrive, and the HUD must move instead.
+            after = _hud_counters()
+            acted = bool(before_hud and after and
+                         (after[0] > before_hud[0] or after[1] > before_hud[1]))
+            ok = held == 0 and acted
+            report.add("buttons", f"{name}: suppressed in gameplay, HUD acts", ok,
+                       f"event held={held}, hud {before_hud} -> {after}", kind)
+            before_hud = after
+            continue
+        ok = held == 1 and released == 0
         if gp is not None and gp.wButtons == 0 and held != 1:
             kind = "HARNESS"     # the pad never asserted it
         report.add("buttons", f"{name} -> event 0x{event:02X}", ok,
@@ -851,6 +866,169 @@ def test_tab_bar(game, pad, report):
     report.add("tabs", "up leaves content on every tab", _in_content() is not True,
                f"in-content={_in_content()}", "NATIVE")
 
+
+
+# The gameplay HUD's bottom-right action bar. Offsets from Saul0097's K1_CONFIG
+# and from CSWGuiMainInterface's own scroll function at 0x00688820:
+#
+#   mainInterface + 0x1C                the focused control
+#   mainInterface + 0x772C + i*0x71C    personal slot i, i in 0..3
+#   mainInterface + 0x78   + i*0x0C     how many actions slot i can offer
+#   mainInterface + 0x1BAC + i*0x04     the action slot i currently shows
+#
+# The interface pointer is read from the module's own dump rather than derived.
+# Deriving it from CGuiInGame+0x18 produced a different, plausible-looking object
+# -- it even had a manager pointer at +0x18 -- and every reading taken through it
+# was of the wrong thing.
+HUD_PERSONAL_BASE, HUD_GROUP = 0x772C, 0x71C
+HUD_SLOT_COUNT_BASE, HUD_SLOT_COUNT_STRIDE = 0x78, 0x0C
+HUD_CURRENT_ACTION = 0x1BAC
+HUD_CONTROL_OFFSETS = (0x000, 0x1C4, 0x388, 0x54C)
+
+
+def _interact_counters():
+    """(performed, declined) for the world-action bridge."""
+    try:
+        with open(LOG, "r", errors="replace") as handle:
+            found = re.findall(r"\bact=(\d+)/(\d+)", handle.read())
+    except OSError:
+        return None
+    return tuple(int(v) for v in found[-1]) if found else None
+
+
+def _hud_interface():
+    try:
+        with open(LOG, "r", errors="replace") as handle:
+            found = re.findall(r"hud=\d+/\d+/\d+/([0-9A-Fa-f]{8})/", handle.read())
+    except OSError:
+        return None
+    return int(found[-1], 16) if found else None
+
+
+def _hud_counters():
+    """(moves, cycles, activations) from the module's dump."""
+    try:
+        with open(LOG, "r", errors="replace") as handle:
+            found = re.findall(r"hud=(\d+)/(\d+)/(\d+)/", handle.read())
+    except OSError:
+        return None
+    return tuple(int(v) for v in found[-1]) if found else None
+
+
+def _hud_slot(game):
+    """Which of the four personal slots holds focus, or None."""
+    base = _hud_interface()
+    if not base:
+        return None
+    active = game.u32(base + 0x1C)
+    if not active:
+        return None
+    for index in range(4):
+        button = base + HUD_PERSONAL_BASE + index * HUD_GROUP
+        for offset in HUD_CONTROL_OFFSETS:
+            if button + offset == active:
+                return index
+    return None
+
+
+def _hud_action(game, slot):
+    base = _hud_interface()
+    return game.i32(base + HUD_CURRENT_ACTION + slot * 4) if base else None
+
+
+def _hud_available(game, slot):
+    base = _hud_interface()
+    return game.i32(base + HUD_SLOT_COUNT_BASE + slot * HUD_SLOT_COUNT_STRIDE) if base else None
+
+
+def test_action_bar(game, pad, report):
+    """D-pad control of the gameplay HUD's action bar."""
+    print()
+    print("== 16. gameplay HUD action bar")
+    ensure_gameplay(game, pad)
+    base = _hud_interface()
+    report.add("hud", "the module reports the interface it was handed",
+               base is not None, f"mainInterface={base:08X}" if base else "no hud= field",
+               "HARNESS")
+    if not base:
+        return
+
+    # 1. Right takes focus onto a slot and moves one at a time.
+    pad.tap("RIGHT", hold=NAV_TAP, settle=0.9)
+    first = _hud_slot(game)
+    report.add("hud", "right puts focus on an action slot", first is not None,
+               f"slot={first}", "NATIVE")
+    walk = [first]
+    for _ in range(3):
+        pad.tap("RIGHT", hold=NAV_TAP, settle=0.9)
+        walk.append(_hud_slot(game))
+    steps = [(b - a) % 4 for a, b in zip(walk, walk[1:])
+             if a is not None and b is not None]
+    report.add("hud", "right moves exactly one slot per press",
+               bool(steps) and all(s == 1 for s in steps),
+               f"slots {walk}", "NATIVE")
+
+    back = [_hud_slot(game)]
+    for _ in range(2):
+        pad.tap("LEFT", hold=NAV_TAP, settle=0.9)
+        back.append(_hud_slot(game))
+    back_steps = [(a - b) % 4 for a, b in zip(back, back[1:])
+                  if a is not None and b is not None]
+    report.add("hud", "left moves exactly one slot back per press",
+               bool(back_steps) and all(s == 1 for s in back_steps),
+               f"slots {back}", "NATIVE")
+
+    # 2. Up and down cycle the action WITHIN a slot -- but only where the slot
+    #    has more than one to offer. The engine refuses otherwise, at
+    #    0x006888B1: cmp [count], 1 / jle. Find a slot that qualifies.
+    target = None
+    for _ in range(4):
+        slot = _hud_slot(game)
+        if slot is not None and (_hud_available(game, slot) or 0) > 1:
+            target = slot
+            break
+        pad.tap("RIGHT", hold=NAV_TAP, settle=0.9)
+    if target is None:
+        report.add("hud", "down cycles the action in the slot", None,
+                   "no slot on this save offers more than one action")
+    else:
+        seen = [_hud_action(game, target)]
+        for _ in range(3):
+            pad.tap("DOWN", hold=NAV_TAP, settle=0.9)
+            seen.append(_hud_action(game, target))
+        report.add("hud", "down cycles the action in the slot",
+                   len(set(seen)) > 1 and _hud_slot(game) == target,
+                   f"slot {target} action ids {seen}", "NATIVE")
+        before_up = _hud_action(game, target)
+        pad.tap("UP", hold=NAV_TAP, settle=0.9)
+        report.add("hud", "up cycles it the other way",
+                   _hud_action(game, target) != before_up,
+                   f"{before_up} -> {_hud_action(game, target)}", "NATIVE")
+
+    # 3. A uses the slot, and the world-interaction bridge stands down. Exactly
+    #    one of the two may act on a press.
+    before_hud = _hud_counters()
+    before_act = _interact_counters()
+    pad.tap("A", settle=1.2)
+    after_hud = _hud_counters()
+    after_act = _interact_counters()
+    report.add("hud", "A activates the focused slot",
+               bool(before_hud and after_hud) and after_hud[2] > before_hud[2],
+               f"activations {before_hud[2]} -> {after_hud[2]}"
+               if before_hud and after_hud else "no counters", "NATIVE")
+    report.add("hud", "the world action stands down while a slot has focus",
+               bool(before_act and after_act) and after_act[0] == before_act[0],
+               f"world performed {before_act[0]} -> {after_act[0]}, "
+               f"declined {before_act[1]} -> {after_act[1]}"
+               if before_act and after_act else "no counters", "NATIVE")
+
+    # 4. None of this may move the character or open anything.
+    report.add("hud", "the HUD bar does not open a menu", game.input_class() == 0,
+               f"input class {game.input_class()}", "NATIVE")
+    movement = game.movement() or {}
+    speed = abs(movement.get("velx") or 0) + abs(movement.get("vely") or 0)
+    report.add("hud", "the D-pad does not move the character", speed < 0.01,
+               f"velocity {speed:.3f}", "NATIVE")
 
 
 def test_no_legacy_synthesis(game, pad, report):
@@ -1565,6 +1743,7 @@ def main():
         ensure_gameplay(game, pad)
         # Last: it drives the player around the menus and can leave the character
         # with a movement order, which the disconnect test reads as stale input.
+        test_action_bar(game, pad, report)
         test_menu(game, pad, report)
     else:
         for name in ("cardinals", "diagonals", "centre/release", "camera", "menu", "disconnect", "stick clicks", "tabs"):

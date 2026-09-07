@@ -660,6 +660,56 @@ iterations observed, 3 cancels from 4 presses.
 hooks cannot occupy one instruction, so `select_controller_path.py` drops the
 legacy entry in "both" mode; the native one supersedes it.
 
+## The gameplay HUD action bar
+
+The bottom-right action bar is driven with the D-pad, through **Saul0097's
+existing implementation**, unchanged. `MoveFocus`, `CycleAction` and the activate
+callback in `vendor/K1XboxControls.cpp` already call `CSWGuiMainInterface`'s own
+functions; none of that was rewritten.
+
+| what | address | role |
+| --- | --- | --- |
+| `getIsSelectable` | `0x004189D0` | can this slot take focus |
+| `setActiveControl` | `0x0040A630` | move the highlight |
+| `targetPrevious` / `targetNext` | `0x006884B0` / `0x00688520` | cycle a target-action slot |
+| `personalPrevious` / `personalNext` | `0x0068AF70` / `0x0068AFE0` | cycle a personal slot |
+| `activate` | `0x0068B970` | use the selected action |
+
+**What KMRP replaces is only how the intent arrives.** His
+`CaptureActionBarInput` reads buffered **keyboard** records -- `DIK_LEFT`,
+`DIK_RIGHT`, `DIK_UP`, `DIK_DOWN`, `DIK_RETURN` -- which is why his path needs
+the XInput layer to synthesise arrow keys first. KMRP's D-pad already exists as
+controller state, so `NativeActionBarK1` (hooked at `0x00686BA0`, the same site
+his `UpdateActionBarControlsK1` uses) raises the same pending bits directly and
+**no key is ever synthesised**.
+
+* **Left / right** move one slot, wrapping across the seven.
+* **Up / down** cycle the action within the focused slot.
+* **A** uses the focused slot.
+
+`FindSelectableButton` skips the three target-action slots while nothing is
+targeted, which is the engine's own rule, so on a normal save the walk covers the
+four personal slots.
+
+**Cycling is a no-op on a slot with one action, by the engine's design.**
+`0x00688820` reads the count at `mainInterface + 0x78 + slot*0x0C` and returns
+early at `0x006888B1` (`cmp [count], 1` / `jle`). The current action is at
+`mainInterface + 0x1BAC + slot*4`, which is the field to watch -- the focused
+*control* does not change when the action does, and watching it instead makes a
+working cycle look dead.
+
+**A has exactly one destination.** It uses the slot while a slot has focus, and
+performs the world action otherwise. Both consumers ask
+`KmrpActionBarFocusedK1`, so precisely one acts however the two per-frame hooks
+happen to be ordered within a frame.
+
+**The D-pad's retained codes are suppressed in gameplay**, for the same reason
+they are in menus: one press, one mechanism. Nothing else in gameplay consumes
+`0x2F`..`0x32`.
+
+This hook shares an address with Saul's `UpdateActionBarControlsK1`, so
+`select_controller_path.py` drops the legacy entry in "both" mode.
+
 ## Testing
 
 * `testing/controller/select_controller_path.py [saul|native|both]` switches the

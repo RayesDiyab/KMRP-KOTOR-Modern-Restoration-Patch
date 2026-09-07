@@ -2854,6 +2854,85 @@ extern "C" void __cdecl CaptureActionBarInputK2(
     }
 }
 
+// ---------------------------------------------------------------------------
+// KMRP native path entry points.
+//
+// The action bar logic above is Saul0097's and is reused unchanged: MoveFocus,
+// CycleAction and the activate callback are the engine's own
+// CSWGuiMainInterface functions, and rediscovering them would only risk getting
+// them wrong. What KMRP replaces is how the intent arrives.
+//
+// His CaptureActionBarInput reads BUFFERED KEYBOARD RECORDS -- DIK_LEFT,
+// DIK_RIGHT, DIK_UP, DIK_DOWN, DIK_RETURN -- which is why his path needs the
+// XInput layer to synthesise those keys first. KMRP's D-pad already exists as
+// controller state, so it raises the same pending bits directly and no key is
+// ever synthesised.
+// ---------------------------------------------------------------------------
+
+extern "C" void __cdecl KmrpActionBarApplyK1(
+    void* mainInterface,
+    int dx,
+    int dy,
+    int activate)
+{
+    if (!mainInterface) {
+        return;
+    }
+    std::uint32_t bits = 0;
+    if (dx < 0) {
+        bits |= PENDING_LEFT;
+    } else if (dx > 0) {
+        bits |= PENDING_RIGHT;
+    }
+    if (dy < 0) {
+        bits |= PENDING_UP;
+    } else if (dy > 0) {
+        bits |= PENDING_DOWN;
+    }
+    if (activate != 0) {
+        bits |= PENDING_ACTIVATE;
+    }
+    if (bits == 0) {
+        g_mainInterface = mainInterface;   // keep the pointer fresh regardless
+        return;
+    }
+    g_pendingInput |= bits;
+    UpdateActionBarControls(K1_CONFIG, mainInterface);
+}
+
+// Does a bottom-right action slot currently hold focus? Decides which of the two
+// things A means -- use the selected action, or act on the world.
+// Why the action bar is or is not reachable, for the diagnostic line:
+//   bit 0  the gameplay HUD is the active screen
+//   bit 1  one of the seven slots holds focus
+//   bit 2  at least one slot is selectable, so MoveFocus has somewhere to go
+extern "C" int __cdecl KmrpActionBarStateK1(void* mainInterface)
+{
+    void* target = mainInterface ? mainInterface : g_mainInterface;
+    if (!target) {
+        return 0;
+    }
+    int bits = 0;
+    void* manager = ReadPointer(target, K1_CONFIG.panelManagerOffset);
+    if (manager && IsGameplayHudActive(K1_CONFIG, manager, target)) {
+        bits |= 1;
+    }
+    if (IsActionBarFocused(K1_CONFIG, target)) {
+        bits |= 2;
+    }
+    ActionButtons buttons = GetActionButtons(K1_CONFIG, target);
+    if (FindSelectableButton(K1_CONFIG, target, buttons, 0, 1) >= 0) {
+        bits |= 4;
+    }
+    return bits;
+}
+
+extern "C" int __cdecl KmrpActionBarFocusedK1(void* mainInterface)
+{
+    void* target = mainInterface ? mainInterface : g_mainInterface;
+    return (target && IsActionBarFocused(K1_CONFIG, target)) ? 1 : 0;
+}
+
 extern "C" void __cdecl UpdateActionBarControlsK1(void* mainInterface)
 {
     UpdateActionBarControls(K1_CONFIG, mainInterface);

@@ -300,3 +300,25 @@ exclude_from_restore = []
 [[hooks.parameters]]
 source = "esi"
 type = "pointer"
+
+# Drive the gameplay HUD's bottom-right action bar from the D-pad.
+#
+# CSWGuiMainInterface's per-frame update, ecx = the interface. The engine calls
+# this reaches -- MoveFocus, CycleAction and the activate callback, all of them
+# CSWGuiMainInterface's own -- expect to run during GUI work rather than inside
+# CExoInput's polling, which is why the site is here and not in the input hook.
+#
+# Saul0097's build hooks this same address with UpdateActionBarControlsK1, which
+# does the same work from synthesised arrow keys. Both cannot be installed at
+# once, so select_controller_path.py drops the legacy entry when this is present.
+[[hooks]]
+address = 0x00686BA0
+type = "detour"
+function = "NativeActionBarK1"
+original_bytes = [0x53, 0x56, 0x57, 0x8B, 0xF1]
+skip_original_bytes = false
+exclude_from_restore = []
+
+[[hooks.parameters]]
+source = "ecx"
+type = "pointer"
