@@ -217,6 +217,14 @@ switching.
 
 ### Where the main menu sits
 
+**Superseded.** The section below described the state before the focus-navigation
+layer existed; the layer now drives this screen and the others like it. What is
+still true is the diagnosis: the retained path really is absent here.
+
+See "Focus navigation" below.
+
+### The original finding, kept because the diagnosis stands
+
 `MAIN_MENU`'s dispatcher (`0x0067B380`) implements exactly **one** event, `0x28`.
 There are no scroll events to receive, so the D-pad has nothing to reach there
 and A is not available — this is the one place the retained path is genuinely
@@ -249,6 +257,124 @@ button if one is focused.
 
 None of this affects the in-game menus. Those are reached with Start and their
 D-pad, trigger and face-button navigation is verified working end to end.
+
+## Focus navigation
+
+Most screens have no retained way to move focus, so a D-pad press had nowhere to
+go. This layer supplies one. It is geometric and applies to any panel; the only
+per-screen knowledge is the measured question "does this screen navigate itself
+already?", and where the answer is yes the layer stands down.
+
+### What it reads
+
+All confirmed live against the running game.
+
+| Structure | Field | Meaning |
+| --- | --- | --- |
+| `CSWGuiManager` | `+0x88`, `+0x8C` | panel array and count |
+| `CSWGuiPanel` | `+0x1C`, `+0x20`, `+0x24`, `+0x44` | active control, control array, count, flags |
+| `CSWGuiControl` | `+0x04`…`+0x10` | x, y, width, height |
+| `CSWGuiControl` | `+0x38`, `+0x3C` | the `AddEvent` table and its count |
+| `CSWGuiControl` | `+0x44` | flags: `0x02` visible, `0x08` selectable, `0x20` disabled |
+
+Flags are read as a **byte**. `CSWGuiControl::HitCheckMouse` tests `cl`, not
+`ecx`, and the upper three bytes carry unrelated data — read as a dword they
+poison the test.
+
+The topmost panel is found the way `CSWGuiManager::IsOnTop` finds it: the last
+entry whose flags do not carry `0x600`.
+
+### What counts as an entry
+
+Visible, not disabled, selectable, non-zero area — **and carrying at least one
+registered event**. That last test is the one that matters. Without it the Main
+Menu is unusable: its background is a control the full size of the screen,
+3440×1440, carrying the visible and selectable bits, whose centre sits closer to
+the menu column than the next real entry does. Every downward press would have
+focused the wallpaper. The five real entries register four events each; the
+background, the logo and the side art register none.
+
+### How a direction is chosen
+
+Score every candidate that lies in the requested direction and take the lowest:
+
+```
+score = distance along the axis
+      + (overlaps the current control on the cross axis ? 0
+                                                        : cross offset * 6)
+```
+
+Overlapping rows and columns therefore cost nothing and everything else is
+penalised six-fold, because a menu is a column and drifting out of it reads as a
+bug even when the diagonal distance is genuinely shorter. With nothing in the
+direction, focus wraps to the farthest control the other way, which is what a
+console menu does. With nothing focused at all, the topmost-then-leftmost entry
+is taken.
+
+Focus is moved with `CSWGuiPanel::SetActiveControl` (`0x0040A630`), the engine's
+own mechanism: it clears the previous control, sets the new one, plays the GUI
+sound and lets each control draw its own highlight. **Nothing here draws
+anything.**
+
+### Where it does not run
+
+Two gates, both measured rather than assumed.
+
+**Input class.** `CClientExoAppInternal+0x9c` reads 0 in the world, 2 once a GUI
+screen has the input and 4 in free look. The layer runs only at 2. In gameplay
+the panel in front is the HUD, and taking the direction presses there would both
+hijack the D-pad's own gameplay bindings and let focus wander around the
+heads-up display.
+
+**Screens that navigate themselves.** Six panels implement the direction events
+in their own dispatcher — `ABILITIES`, `ABILITIES_CHARGEN`, `FEATS`, `MAP`,
+`POWERS`, `SKILLS` — and a focused list box, editbox or slider consumes them
+itself. In both cases the layer declines and the retained events do the work.
+
+### The native codes are suppressed where the layer acts
+
+This was not the original design and the change is worth recording.
+
+The engine is **not** inert on direction events: `CSWGuiManager::HandleInputEvent`
+moves focus on `0x2F`…`0x32`, and throttles repeats to 150 ms. But it does not
+move it the way the screen reads. Measured on the Main Menu, its own sequence
+from the top entry runs 666 → 810 → 954 → 738 → 882, skipping an entry each time
+and wrapping oddly.
+
+Emitting the native codes alongside this layer therefore moved focus **twice per
+press** — once sensibly and once not — which is exactly the symptom that looked
+like a scoring bug and was not. So on a screen this layer owns, the codes are not
+emitted at all. The decision is latched at the press: deciding it again at the
+release could emit a press with no matching release, and a digital description
+that never sees its zero stays stuck on.
+
+### Held directions, and the left stick
+
+A held direction moves once immediately, waits `K1_NAV_HOLD_DELAY_MS` (400 ms),
+then repeats every `K1_NAV_REPEAT_MS` (120 ms).
+
+The left stick drives the same operation, with two thresholds rather than one: it
+must pass `K1_NAV_STICK_ENGAGE` (0.55) to register and must fall back below
+`K1_NAV_STICK_RELEASE` (0.35) before another direction can register. Without that
+gap a stick resting near the threshold chatters, and a worn stick with resting
+drift would walk through a menu on its own. Whichever axis is pushed further
+wins, so a diagonal push does not fire both. Verified: a 12% deflection held
+repeatedly does not move focus.
+
+Gameplay analog movement is untouched — the stick's navigation path is gated on
+input class 2 like everything else here.
+
+## Screen classification
+
+`tools/classify_controller_screens.py` reports it, reading the NATIVE set out of
+the retained-event inventory so it cannot drift from what the binary implements.
+
+| Screen | Class | Why |
+| --- | --- | --- |
+| Skills, Feats, Powers, Map | NATIVE | the panel implements the direction events itself |
+| Dialogue | NATIVE | runs on the in-game GUI; entries are a list box the retained events reach |
+| Inventory, Equipment, Journal, Save, Load, Merchant, Containers | HYBRID | built around a list box that scrolls itself; the layer moves focus on and off it |
+| Main Menu, Character, Options, Level-up, Party select | KMRP | buttons only; the layer drives them |
 
 ## Analog behaviour
 

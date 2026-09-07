@@ -383,6 +383,16 @@ struct StickState {
     unsigned long flourishesPerformed = 0;
     unsigned long flourishesDeclined = 0;
     int freeLookBound = 0;                     // bit 0 = enter, bit 1 = exit
+    unsigned long navMoves = 0;                // focus moves this layer performed
+    unsigned long navDeclinedNative = 0;       // presses left to native navigation
+    unsigned long lastNavTick = 0;
+    unsigned long lastGuiTick = 0;
+    int navFromY = -1, navToY = -1, navDir = 0;
+    std::uint8_t dpadEmitted = 0;   // which direction presses actually went out
+    unsigned long navRepeatDeadline = 0;       // when a held direction may repeat
+    int navHeldX = 0, navHeldY = 0;            // the direction currently held
+    int navPendingX = 0, navPendingY = 0;      // requested, not yet performed
+    int stickNavX = 0, stickNavY = 0;          // left stick's latched direction
     std::int32_t  rightX = 0;
     std::int32_t  rightY = 0;
     std::uint8_t  lastTriggers = 0;
@@ -566,6 +576,12 @@ void EnsureNativeJoystickK1(void* exoInputInternal)
     g_stick.registered = true;
 }
 
+
+// Defined further down with the focus-navigation layer; declared here because
+// the record emitter feeds them.
+bool KmrpOwnsDirectionsK1();
+void UpdateStickNavigationK1(float x, float y);
+void RequestNavigationK1(int dx, int dy, bool edge);
 // ------------------------------------------------------------- record filling
 
 void FillNativeJoystickBufferK1(int deviceIndex, void* outBuffer)
@@ -692,6 +708,11 @@ void FillNativeJoystickBufferK1(int deviceIndex, void* outBuffer)
             emit(DIJOFS_BUTTON0_OFFSET + static_cast<std::uint32_t>(b), now ? 1 : 0);
         }
     }
+    // Whether the native direction codes go out at all. On a screen the engine
+    // navigates properly they must; on one this layer navigates they must not,
+    // or focus moves twice for one press.
+    const bool kmrpDirections = KmrpOwnsDirectionsK1();
+
     for (int d = 0; d < K1_DPAD_COUNT; ++d) {
         const std::uint16_t mask = K1_DPAD[d].xinputMask;
         const bool now = (buttons & mask) != 0;
@@ -701,8 +722,59 @@ void FillNativeJoystickBufferK1(int deviceIndex, void* outBuffer)
             // values the engine's own POV decoder produces -- reached here
             // through the slot each binding names.
             static const std::uint32_t codes[] = { 0x384, 0x388, 0x38C, 0x390 };
-            emit(codes[d], now ? 1 : 0);
+            const std::uint8_t bit = static_cast<std::uint8_t>(1u << d);
+            if (now) {
+                // Suppression is decided once, at the press, and remembered.
+                // Deciding it again at the release would let a screen change
+                // mid-press emit a press with no matching release, and a
+                // digital description that never sees its zero stays stuck on.
+                if (!kmrpDirections) {
+                    emit(codes[d], 1);
+                    g_stick.dpadEmitted |= bit;
+                }
+            } else if ((g_stick.dpadEmitted & bit) != 0) {
+                emit(codes[d], 0);
+                g_stick.dpadEmitted &= static_cast<std::uint8_t>(~bit);
+            }
         }
+    }
+
+    // The same presses feed the focus-navigation layer. Exactly one of the two
+    // acts on any given screen: where the engine navigates properly the codes
+    // above went out and this declines, and where it does not, the codes were
+    // suppressed and this moves the focus instead.
+    {
+        // K1_DPAD order is Up, Down, Left, Right.
+        static const int dirs[K1_DPAD_COUNT][2] = { {0,-1}, {0,1}, {-1,0}, {1,0} };
+        int dx = 0;
+        int dy = 0;
+        bool edge = false;
+        for (int d = 0; d < K1_DPAD_COUNT; ++d) {
+            const std::uint16_t mask = K1_DPAD[d].xinputMask;
+            if ((buttons & mask) != 0) {
+                dx = dirs[d][0];
+                dy = dirs[d][1];
+                if ((g_stick.lastButtons & mask) == 0) {
+                    edge = true;
+                }
+            }
+        }
+        // The left stick drives the same operation, with its own hysteresis, and
+        // only when the D-pad is not already asking for something.
+        if (dx == 0 && dy == 0) {
+            UpdateStickNavigationK1(nx, ny);
+            if (g_stick.stickNavX != 0 || g_stick.stickNavY != 0) {
+                dx = g_stick.stickNavX;
+                dy = g_stick.stickNavY;
+                if (g_stick.navHeldX != dx || g_stick.navHeldY != dy) {
+                    edge = true;
+                }
+            }
+        } else {
+            g_stick.stickNavX = 0;
+            g_stick.stickNavY = 0;
+        }
+        RequestNavigationK1(dx, dy, edge);
     }
     // Triggers, edge-triggered on the threshold crossing so a held pull does not
     // repeat. Each has its own slot, so LT and RT can be pulled together without
@@ -876,6 +948,469 @@ extern "C" int __cdecl NativeJoystickBufferK1(void* outBuffer)
 // deliberate: it is the only way a half-deflected diagonal can survive, and
 // doing it in one place means the two axes can never disagree about the
 // deadzone.
+// =========================================================== focus navigation
+//
+// KOTOR's PC build navigates a screen with the mouse. The retained console
+// events only reach the *focused* control, and on most screens nothing focuses
+// anything, so a D-pad press has nowhere to go. This is the layer that gives
+// the controller a focus to move.
+//
+// It is deliberately not a Main Menu hack. The rule is geometric and applies to
+// any panel; the per-panel knowledge is limited to one measured question --
+// "does this screen already navigate itself?" -- and where the answer is yes,
+// nothing here runs.
+//
+// Structures, all read live and all confirmed against the running game:
+//
+//   CSWGuiManager  +0x88 panel array, +0x8C panel count
+//   CSWGuiPanel    +0x1C active control, +0x20 control array, +0x24 count,
+//                  +0x44 flags
+//   CSWGuiControl  +0x04 x, +0x08 y, +0x0C width, +0x10 height, +0x44 flags
+//
+// The control flags are read as a **byte**, because that is what the engine
+// does: CSWGuiControl::HitCheckMouse tests `cl`, not `ecx`, and the upper three
+// bytes of that dword hold unrelated data that would otherwise poison the test.
+
+constexpr std::uintptr_t K1_GUI_MANAGER_PTR    = 0x007A39F4;
+constexpr std::uintptr_t K1_SET_ACTIVE_CONTROL = 0x0040A630;  // (control, playSound)
+
+constexpr std::size_t K1_MGR_PANEL_ARRAY = 0x88;
+constexpr std::size_t K1_MGR_PANEL_COUNT = 0x8C;
+
+constexpr std::size_t K1_PANEL_ACTIVE        = 0x1C;
+constexpr std::size_t K1_PANEL_CONTROL_ARRAY = 0x20;
+constexpr std::size_t K1_PANEL_CONTROL_COUNT = 0x24;
+constexpr std::size_t K1_PANEL_FLAGS         = 0x44;
+
+constexpr std::size_t K1_CTL_X     = 0x04;
+constexpr std::size_t K1_CTL_Y     = 0x08;
+constexpr std::size_t K1_CTL_W     = 0x0C;
+constexpr std::size_t K1_CTL_H     = 0x10;
+constexpr std::size_t K1_CTL_FLAGS = 0x44;
+constexpr std::size_t K1_CTL_EVENT_TABLE = 0x38;   // CSWGuiControl::AddEvent's table
+constexpr std::size_t K1_CTL_EVENT_COUNT = 0x3C;
+
+constexpr std::size_t K1_VTABLE_HANDLE_INPUT = 0x3C;
+
+// CSWGuiManager::IsOnTop walks the panel list from the end and skips anything
+// carrying these bits, so the topmost panel without them is the one in front.
+constexpr std::uint32_t K1_PANEL_FLAG_SKIP = 0x600;
+
+constexpr std::uint8_t K1_CTL_FLAG_VISIBLE    = 0x02;
+constexpr std::uint8_t K1_CTL_FLAG_SELECTABLE = 0x08;
+constexpr std::uint8_t K1_CTL_FLAG_DISABLED   = 0x20;
+
+// Panels whose own dispatcher implements the direction events. Measured, not
+// assumed: these are every panel in the retained-event inventory implementing
+// any of 0x2F / 0x30 / 0x31 / 0x32 or their 0x3D..0x40 aliases. On these screens
+// the engine already navigates itself and this layer stands down.
+constexpr std::uintptr_t K1_NATIVE_DIRECTION_PANELS[] = {
+    0x006AE5F0,   // ABILITIES
+    0x006F8880,   // ABILITIES_CHARGEN
+    0x006F4680,   // FEATS
+    0x00693BC0,   // MAP
+    0x006F28C0,   // POWERS
+    0x006F6A10,   // SKILLS
+};
+
+// Control classes that consume the direction events themselves. A focused list
+// box scrolls its own rows, and stealing the press to move focus off it would
+// break navigation that already works.
+constexpr std::uintptr_t K1_NATIVE_DIRECTION_CONTROLS[] = {
+    0x0041A9D0,   // CSWGuiNavigable / CSWGuiEditbox -- up, down, left, right
+    0x0041CE20,   // CSWGuiListBox -- up, down, plus its own scrollbar codes
+    0x0041ADF0,   // CSWGuiSlider -- axis depends on orientation
+};
+
+using SetActiveControlFn = void(__thiscall*)(void*, void*, int);
+
+template <typename T> T* FieldAt(void* base, std::size_t offset)
+{
+    return reinterpret_cast<T*>(reinterpret_cast<std::uint8_t*>(base) + offset);
+}
+
+bool LooksLikePointerK1(const void* p)
+{
+    const std::uintptr_t v = reinterpret_cast<std::uintptr_t>(p);
+    return v >= 0x00010000u && v < 0x7FFF0000u;
+}
+
+bool InListK1(std::uintptr_t value, const std::uintptr_t* list, std::size_t count)
+{
+    for (std::size_t i = 0; i < count; ++i) {
+        if (list[i] == value) {
+            return true;
+        }
+    }
+    return false;
+}
+
+std::uintptr_t DispatcherOfK1(void* object)
+{
+    if (!LooksLikePointerK1(object)) {
+        return 0;
+    }
+    void* const vtable = *reinterpret_cast<void**>(object);
+    if (!LooksLikePointerK1(vtable)) {
+        return 0;
+    }
+    return *FieldAt<std::uintptr_t>(vtable, K1_VTABLE_HANDLE_INPUT);
+}
+
+void* TopPanelK1()
+{
+    void* const manager = *reinterpret_cast<void**>(K1_GUI_MANAGER_PTR);
+    if (!LooksLikePointerK1(manager)) {
+        return nullptr;
+    }
+    void** const panels = *FieldAt<void**>(manager, K1_MGR_PANEL_ARRAY);
+    const int count = *FieldAt<int>(manager, K1_MGR_PANEL_COUNT);
+    if (!LooksLikePointerK1(panels) || count <= 0 || count > 256) {
+        return nullptr;
+    }
+    for (int i = count - 1; i >= 0; --i) {
+        void* const panel = panels[i];
+        if (!LooksLikePointerK1(panel)) {
+            continue;
+        }
+        if ((*FieldAt<std::uint32_t>(panel, K1_PANEL_FLAGS) & K1_PANEL_FLAG_SKIP) == 0) {
+            return panel;
+        }
+    }
+    return nullptr;
+}
+
+struct RectK1 {
+    int x, y, w, h;
+    int cx() const { return x + w / 2; }
+    int cy() const { return y + h / 2; }
+};
+
+// Actionable means what the player would call actionable: on screen, not greyed
+// out, selectable, and occupying real space. Labels, borders and background art
+// fail the selectable bit and never receive focus.
+bool ControlIsNavigableK1(void* control, RectK1& rect)
+{
+    if (!LooksLikePointerK1(control)) {
+        return false;
+    }
+    const std::uint8_t flags =
+        static_cast<std::uint8_t>(*FieldAt<std::uint32_t>(control, K1_CTL_FLAGS) & 0xFFu);
+    if ((flags & K1_CTL_FLAG_VISIBLE) == 0) {
+        return false;
+    }
+    if ((flags & K1_CTL_FLAG_DISABLED) != 0) {
+        return false;
+    }
+    if ((flags & K1_CTL_FLAG_SELECTABLE) == 0) {
+        return false;
+    }
+
+    // The decisive test, and the engine's own: a control that has registered no
+    // events cannot respond to anything, so it is decoration however selectable
+    // its flags claim to be. CSWGuiControl::AddEvent builds this table.
+    //
+    // Without it the Main Menu is unusable. Its background is a control the full
+    // size of the screen -- 3440x1440 -- carrying the visible and selectable
+    // bits, and its centre sits closer to the menu column than the next button
+    // does, so every press downward would have focused the wallpaper. The five
+    // real entries each register four events; the background, the logo and the
+    // side art register none.
+    void** const events = *FieldAt<void**>(control, K1_CTL_EVENT_TABLE);
+    const int eventCount = *FieldAt<int>(control, K1_CTL_EVENT_COUNT);
+    if (!LooksLikePointerK1(events) || eventCount <= 0 || eventCount > 64) {
+        return false;
+    }
+
+    rect.x = *FieldAt<int>(control, K1_CTL_X);
+    rect.y = *FieldAt<int>(control, K1_CTL_Y);
+    rect.w = *FieldAt<int>(control, K1_CTL_W);
+    rect.h = *FieldAt<int>(control, K1_CTL_H);
+    return rect.w > 0 && rect.h > 0;
+}
+
+// How strongly a move prefers to stay in its row or column. A candidate that
+// overlaps the current control on the cross axis pays nothing for its offset; a
+// candidate that does not pays this multiple of it. Large on purpose: a menu is
+// a column, and sliding out of that column reads as a bug even when the
+// diagonal distance is genuinely shorter.
+constexpr int K1_NAV_CROSS_AXIS_PENALTY = 6;
+
+int OverlapK1(int aStart, int aSize, int bStart, int bSize)
+{
+    const int lo   = aStart > bStart ? aStart : bStart;
+    const int aEnd = aStart + aSize;
+    const int bEnd = bStart + bSize;
+    const int hi   = aEnd < bEnd ? aEnd : bEnd;
+    return hi - lo;                       // <= 0 when they do not overlap
+}
+
+int AbsIntK1(int v) { return v < 0 ? -v : v; }
+
+// Pick the control a press in (dx, dy) should move to; exactly one of dx and dy
+// is non-zero. Returns null when there is nowhere sensible to go.
+void* ChooseNeighbourK1(void* panel, void* current, int dx, int dy)
+{
+    void** const controls = *FieldAt<void**>(panel, K1_PANEL_CONTROL_ARRAY);
+    const int count = *FieldAt<int>(panel, K1_PANEL_CONTROL_COUNT);
+    if (!LooksLikePointerK1(controls) || count <= 0 || count > 512) {
+        return nullptr;
+    }
+
+    RectK1 from{};
+    const bool haveCurrent = ControlIsNavigableK1(current, from);
+
+    void* best = nullptr;
+    long bestScore = 0;
+    void* wrap = nullptr;
+    long wrapScore = 0;
+
+    for (int i = 0; i < count; ++i) {
+        void* const candidate = controls[i];
+        if (candidate == current) {
+            continue;
+        }
+        RectK1 to{};
+        if (!ControlIsNavigableK1(candidate, to)) {
+            continue;
+        }
+
+        // Nothing focused yet: take the topmost, then leftmost control. That is
+        // where a player's eye starts, and it makes the first press predictable.
+        if (!haveCurrent) {
+            const long score = static_cast<long>(to.y) * 10000L + to.x;
+            if (!best || score < bestScore) {
+                best = candidate;
+                bestScore = score;
+            }
+            continue;
+        }
+
+        const int alongDelta  = dx != 0 ? (to.cx() - from.cx()) : (to.cy() - from.cy());
+        const int crossOffset = dx != 0 ? AbsIntK1(to.cy() - from.cy())
+                                        : AbsIntK1(to.cx() - from.cx());
+        const int crossOverlap = dx != 0 ? OverlapK1(from.y, from.h, to.y, to.h)
+                                         : OverlapK1(from.x, from.w, to.x, to.w);
+
+        const int direction = dx != 0 ? dx : dy;
+        const int forward   = alongDelta * direction;
+        const long penalty  = crossOverlap > 0
+            ? 0L
+            : static_cast<long>(crossOffset) * K1_NAV_CROSS_AXIS_PENALTY;
+
+        if (forward > 0) {
+            const long score = static_cast<long>(forward) + penalty;
+            if (!best || score < bestScore) {
+                best = candidate;
+                bestScore = score;
+            }
+        } else {
+            // Wrapping: the farthest control the other way, still preferring the
+            // same line. A console menu wraps from the last entry back to the
+            // first, and stopping dead at the end feels broken beside it.
+            const long score = static_cast<long>(forward) + penalty;
+            if (!wrap || score < wrapScore) {
+                wrap = candidate;
+                wrapScore = score;
+            }
+        }
+    }
+
+    return best ? best : wrap;
+}
+
+// True when the screen already navigates itself, in which case this layer must
+// keep its hands off and let the retained events do their job.
+bool PanelNavigatesItselfK1(void* panel, void* active)
+{
+    const std::uintptr_t panelDispatcher = DispatcherOfK1(panel);
+    if (panelDispatcher != 0 &&
+        InListK1(panelDispatcher, K1_NATIVE_DIRECTION_PANELS,
+                 sizeof(K1_NATIVE_DIRECTION_PANELS) / sizeof(K1_NATIVE_DIRECTION_PANELS[0]))) {
+        return true;
+    }
+    const std::uintptr_t controlDispatcher = DispatcherOfK1(active);
+    return controlDispatcher != 0 &&
+        InListK1(controlDispatcher, K1_NATIVE_DIRECTION_CONTROLS,
+                 sizeof(K1_NATIVE_DIRECTION_CONTROLS) / sizeof(K1_NATIVE_DIRECTION_CONTROLS[0]));
+}
+
+// Does KMRP own the direction presses on whatever is currently in front?
+//
+// This has to be answerable from the record emitter, because the answer decides
+// whether the native direction codes are sent at all. It is pure memory reading
+// -- no engine calls -- so it is safe to ask from inside the input hook.
+//
+// It matters because the engine is not inert here. CSWGuiManager::HandleInputEvent
+// does move focus on 0x2F..0x32, but not in the order a player reads the screen:
+// measured on the Main Menu, its own sequence from the top entry runs
+// 666 -> 810 -> 954 -> 738 -> 882, skipping an entry each time and wrapping
+// oddly. Leaving those events enabled alongside this layer moved focus twice per
+// press -- once sensibly and once not.
+// The engine's own input class, at CClientExoAppInternal+0x9c: 0 while the
+// player is in the world, 2 once a GUI screen has the input, 4 in free look.
+// Focus navigation is a GUI operation and must be confined to class 2 -- in
+// gameplay the panel in front is the HUD, whose controls are not menu entries,
+// and taking the direction presses there would both hijack the D-pad's own
+// bindings and let the layer wander around the heads-up display.
+int InputClassK1()
+{
+    void** const appManager = *reinterpret_cast<void***>(K1_CLIENT_EXO_APP_ROOT);
+    if (!LooksLikePointerK1(appManager)) {
+        return -1;
+    }
+    void** const app = static_cast<void**>(appManager[1]);
+    if (!LooksLikePointerK1(app)) {
+        return -1;
+    }
+    void* const internal = app[1];
+    if (!LooksLikePointerK1(internal)) {
+        return -1;
+    }
+    return *FieldAt<int>(internal, 0x9C);
+}
+
+bool KmrpOwnsDirectionsK1()
+{
+    if (InputClassK1() != K1_CLASS_PCGUI) {
+        return false;
+    }
+    void* const panel = TopPanelK1();
+    if (!panel) {
+        return false;
+    }
+    void* const active = *FieldAt<void**>(panel, K1_PANEL_ACTIVE);
+    return !PanelNavigatesItselfK1(panel, active);
+}
+
+// One navigation step. Returns true when focus actually moved, which is what
+// the end-to-end tests assert on.
+bool NavigateFocusK1(int dx, int dy)
+{
+    if (InputClassK1() != K1_CLASS_PCGUI) {
+        return false;              // gameplay: the D-pad has its own bindings
+    }
+    void* const panel = TopPanelK1();
+    if (!panel) {
+        return false;
+    }
+    void* const active = *FieldAt<void**>(panel, K1_PANEL_ACTIVE);
+    if (PanelNavigatesItselfK1(panel, active)) {
+        ++g_stick.navDeclinedNative;
+        return false;
+    }
+    void* const target = ChooseNeighbourK1(panel, active, dx, dy);
+    if (!target || target == active) {
+        return false;
+    }
+    // The engine's own focus mechanism: it clears the previous control's focus,
+    // sets the new one, plays the GUI sound, and lets each control draw its own
+    // highlight. Nothing here draws anything of its own.
+    {
+        RectK1 fromRect{};
+        RectK1 toRect{};
+        ControlIsNavigableK1(active, fromRect);
+        ControlIsNavigableK1(target, toRect);
+        g_stick.navFromY = fromRect.y;
+        g_stick.navToY = toRect.y;
+        g_stick.navDir = dx != 0 ? dx * 10 : dy;
+    }
+    EngineFn<SetActiveControlFn>(K1_SET_ACTIVE_CONTROL)(panel, target, 1);
+    ++g_stick.navMoves;
+    g_stick.lastNavTick = GetTickCount();
+    return true;
+}
+
+// ------------------------------------------------- navigation input timing
+//
+// A held direction should move once immediately, pause, then repeat steadily.
+// Those three numbers are the whole feel of menu navigation, so they are named
+// rather than buried.
+constexpr unsigned long K1_NAV_HOLD_DELAY_MS   = 400;   // before a hold repeats
+constexpr unsigned long K1_NAV_REPEAT_MS       = 120;   // between repeats
+
+// The left stick drives the same navigation as the D-pad. Two thresholds, not
+// one: it must be pushed past ENGAGE to register a direction and must fall back
+// below RELEASE before another can be registered. Without that gap a stick
+// resting near the threshold chatters, and a worn stick with resting drift
+// would walk through a menu on its own -- which is the specific thing this must
+// never do. RELEASE is well below the 8% movement deadzone for the same reason.
+constexpr float K1_NAV_STICK_ENGAGE  = 0.55f;
+constexpr float K1_NAV_STICK_RELEASE = 0.35f;
+
+// Latch a left-stick direction with hysteresis. Returns the direction the stick
+// is currently asking for, or (0, 0).
+void UpdateStickNavigationK1(float x, float y)
+{
+    int wantX = 0;
+    int wantY = 0;
+    // Whichever axis is pushed further wins, so a diagonal push does not fire
+    // both and jump diagonally through a menu.
+    const float ax = x < 0.0f ? -x : x;
+    const float ay = y < 0.0f ? -y : y;
+    if (ax >= ay) {
+        if (ax > K1_NAV_STICK_ENGAGE) { wantX = x > 0.0f ? 1 : -1; }
+    } else {
+        if (ay > K1_NAV_STICK_ENGAGE) { wantY = y > 0.0f ? 1 : -1; }
+    }
+
+    // Still held? Keep the latched direction until the stick relaxes.
+    if (g_stick.stickNavX != 0 || g_stick.stickNavY != 0) {
+        const float along = g_stick.stickNavX != 0 ? ax : ay;
+        if (along < K1_NAV_STICK_RELEASE) {
+            g_stick.stickNavX = 0;
+            g_stick.stickNavY = 0;
+        }
+        return;
+    }
+    g_stick.stickNavX = wantX;
+    g_stick.stickNavY = wantY;
+}
+
+// Called from the buffer hook, which runs in menus as well as in gameplay.
+// It only records intent; the move itself happens on the GUI's own frame.
+void RequestNavigationK1(int dx, int dy, bool edge)
+{
+    if (dx == 0 && dy == 0) {
+        g_stick.navHeldX = 0;
+        g_stick.navHeldY = 0;
+        return;
+    }
+    const unsigned long now = GetTickCount();
+    const bool changed = (dx != g_stick.navHeldX) || (dy != g_stick.navHeldY);
+    if (edge || changed) {
+        // Immediate first move, then wait out the hold delay.
+        g_stick.navHeldX = dx;
+        g_stick.navHeldY = dy;
+        g_stick.navPendingX = dx;
+        g_stick.navPendingY = dy;
+        g_stick.navRepeatDeadline = now + K1_NAV_HOLD_DELAY_MS;
+        return;
+    }
+    if (now >= g_stick.navRepeatDeadline) {
+        g_stick.navPendingX = dx;
+        g_stick.navPendingY = dy;
+        g_stick.navRepeatDeadline = now + K1_NAV_REPEAT_MS;
+    }
+}
+
+// The GUI's own per-frame update, hooked so focus moves happen where the engine
+// expects GUI work to happen rather than inside CExoInput's polling.
+extern "C" void __cdecl NativeGuiFrameK1(void* guiManager)
+{
+    (void)guiManager;
+    g_stick.lastGuiTick = GetTickCount();
+
+    const int dx = g_stick.navPendingX;
+    const int dy = g_stick.navPendingY;
+    if (dx == 0 && dy == 0) {
+        return;
+    }
+    g_stick.navPendingX = 0;
+    g_stick.navPendingY = 0;
+    NavigateFocusK1(dx, dy);
+}
+
 // ------------------------------------------------------------- engine bridge
 
 void* ClientExoAppK1()
@@ -1056,7 +1591,10 @@ extern "C" void __cdecl NativeJoystickDumpK1()
         // to watch a bridge fire: the flourish is an animation, and screen
         // diffing cannot separate it from the character's idle motion.
         "ev7=%ld ev8=%ld ud=%ld lr=%ld vel=(%ld,%ld) pc=%08lX "
-        "fl=%d flour=%lu/%lu\r\n",
+        // nav = focus moves this layer performed / presses it left to native
+        // navigation. gui = last tick the GUI frame hook ran, which is how the
+        // tests tell a menu frame from a gameplay frame.
+        "fl=%d flour=%lu/%lu nav=%lu/%lu gui=%lu move=%d->%d dir=%d\r\n",
         g_stick.registered ? 1 : 0, g_stick.createFailed ? 1 : 0, liveCount,
         g_stick.initCalls, g_stick.bufferCalls, g_stick.recordsEmitted,
         g_stick.movementCalls, g_stick.overrideFrames,
@@ -1078,7 +1616,9 @@ extern "C" void __cdecl NativeJoystickDumpK1()
         static_cast<long>(g_stick.playerControl ? *FloatAt(g_stick.playerControl, 0x5C) * 1000.0f : 0.0f),
         static_cast<long>(g_stick.playerControl ? *FloatAt(g_stick.playerControl, 0x60) * 1000.0f : 0.0f),
         static_cast<unsigned long>(reinterpret_cast<std::uintptr_t>(g_stick.playerControl)),
-        g_stick.freeLookBound, g_stick.flourishesPerformed, g_stick.flourishesDeclined);
+        g_stick.freeLookBound, g_stick.flourishesPerformed, g_stick.flourishesDeclined,
+        g_stick.navMoves, g_stick.navDeclinedNative, g_stick.lastGuiTick,
+        g_stick.navFromY, g_stick.navToY, g_stick.navDir);
 
     HANDLE file = CreateFileA("kmrp-native-joystick.log", FILE_APPEND_DATA,
                               FILE_SHARE_READ, nullptr, OPEN_ALWAYS,

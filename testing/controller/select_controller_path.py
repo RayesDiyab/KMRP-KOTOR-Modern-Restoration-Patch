@@ -95,6 +95,17 @@ consumed_exit_address = 0x00679B76
 [[patches.hooks.parameters]]
 source = "ecx"
 type = "pointer"
+
+[[patches.hooks]]
+address = 0x0040CE70
+type = "detour"
+function = "NativeGuiFrameK1"
+original_bytes = [0x51, 0x53, 0x55, 0x56, 0x8B, 0xE9]
+skip_original_bytes = false
+exclude_from_restore = []
+[[patches.hooks.parameters]]
+source = "ecx"
+type = "pointer"
 """
 
 
@@ -114,8 +125,15 @@ def report() -> None:
         return
     with CONFIG.open("rb") as handle:
         hooks = tomllib.load(handle)["patches"][0]["hooks"]
-    native = [h for h in hooks if h["function"].startswith("NativeJoystick")]
-    older = [h for h in hooks if not h["function"].startswith("NativeJoystick")]
+    # "Native" means KMRP's own path, which is more than the joystick hooks:
+    # NativeGuiFrameK1 carries the focus-navigation layer. Matching only on the
+    # NativeJoystick prefix counted it as one of Saul's and reported mode "both"
+    # on a clean native install.
+    def is_native(hook):
+        return hook["function"].startswith(("NativeJoystick", "NativeGui"))
+
+    native = [h for h in hooks if is_native(h)]
+    older = [h for h in hooks if not is_native(h)]
     mode = ("both" if native and older else
             "native" if native else
             "saul" if older else "none")

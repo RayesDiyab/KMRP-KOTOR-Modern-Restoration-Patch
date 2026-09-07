@@ -224,3 +224,25 @@ exclude_from_restore = ["eax"]
 [[hooks.parameters]]
 source = "ecx"
 type = "pointer"
+
+# The GUI's own per-frame update, where KMRP's focus navigation performs its
+# moves. It has to be here rather than in the input hook: CSWGuiPanel::
+# SetActiveControl changes focus, plays a sound and lets controls redraw, and
+# calling that from inside CExoInput's polling would re-enter the engine at a
+# point it never does so itself. This hook also runs in menus, which the
+# gameplay movement heartbeat does not.
+#
+# The stolen bytes are push ecx / push ebx / push ebp / push esi / mov ebp, ecx
+# -- six bytes, all position-independent, so the trampoline can re-execute them
+# safely. See tools/check_hook_stolen_bytes.py.
+[[hooks]]
+address = 0x0040CE70
+type = "detour"
+function = "NativeGuiFrameK1"
+original_bytes = [0x51, 0x53, 0x55, 0x56, 0x8B, 0xE9]
+skip_original_bytes = false
+exclude_from_restore = []
+
+[[hooks.parameters]]
+source = "ecx"
+type = "pointer"

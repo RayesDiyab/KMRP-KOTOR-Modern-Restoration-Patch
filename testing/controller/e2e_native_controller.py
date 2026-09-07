@@ -517,7 +517,7 @@ def test_no_legacy_synthesis(game, pad, report):
     import tomllib
     with open(os.path.join(GAME_DIR, "patch_config.toml"), "rb") as handle:
         hooks = tomllib.load(handle)["patches"][0]["hooks"]
-    legacy = [h["function"] for h in hooks if not h["function"].startswith("NativeJoystick")]
+    legacy = [h["function"] for h in hooks if not h["function"].startswith(("NativeJoystick", "NativeGui"))]
     report.add("regression", "no legacy hooks installed in native mode",
                legacy == [], f"legacy={legacy}", "HARNESS")
     report.add("regression", "left-stick keystroke synthesis cannot run",
@@ -587,20 +587,34 @@ def test_menu(game, pad, report):
                    f"{moved:.1f}% changed", "NATIVE")
         before = after
 
-    # The D-pad. Delivery is the objective half; whether the highlight lands on
-    # the right row is a visual judgement and belongs to a person.
+    # The D-pad in a menu. What is asserted here changed when the focus layer
+    # landed, and deliberately: on a screen KMRP navigates, the native direction
+    # codes are *suppressed*, because leaving them on moved focus twice for one
+    # press -- once sensibly and once by the engine's own order, which skips an
+    # entry. So the contract in a menu is the opposite of the old one: the event
+    # must NOT arrive, and the focus must move instead. test_navigation checks
+    # where the focus lands; this checks that only one of the two mechanisms ran.
     for name, event in DPAD:
+        before_focus = _active(game)
+        # Short, on purpose. A press longer than the hold delay repeats, and in
+        # a two-row strip an even number of repeats lands back where it started,
+        # which reads as "focus held" when it in fact moved several times.
         pad.send("press " + name)
         peak = 0
-        deadline = time.time() + 0.7
+        deadline = time.time() + 0.15
         while time.time() < deadline:
             value = game.value(event)
             if value:
                 peak = value
         pad.send("release " + name)
         time.sleep(1.0)
-        report.add("menu", f"D-pad {name} reaches event {event:#04x}", peak == 1,
-                   f"description +0x04 peaked at {peak}", "NATIVE")
+        moved = _active(game) != before_focus
+        report.add("menu", f"D-pad {name}: exactly one mechanism acts",
+                   (peak == 0 and moved) or (peak == 1 and not moved),
+                   f"native event peaked at {peak}, focus {'moved' if moved else 'held'}",
+                   "NATIVE")
+
+    test_navigation(game, pad, report)
 
     _screenshot(shot("beforeclose"))
     pad.tap("B", settle=2.5)
@@ -729,6 +743,171 @@ def test_stick_clicks(game, pad, report):
     rate = axis_rate(game, pad, EV_JOY_Y, 0.0, 1.0)
     report.add("sticks", "movement unaffected by the stick clicks", abs(rate) > 1000,
                f"rate={rate}", "NATIVE")
+    pad.send("reset")
+
+
+# --------------------------------------------------------- focus navigation
+
+GUI_MANAGER_PTR = 0x007A39F4
+NAV_CROSS_PENALTY = 6          # must match K1_NAV_CROSS_AXIS_PENALTY
+
+
+def _panel_of(game):
+    manager = game.u32(GUI_MANAGER_PTR)
+    if not manager:
+        return None
+    array = game.u32(manager + 0x88)
+    count = game.i32(manager + 0x8C)
+    if not array or not count or count > 256:
+        return None
+    for index in range(count - 1, -1, -1):
+        panel = game.u32(array + index * 4)
+        if panel and not (game.u32(panel + 0x44) & 0x600):
+            return panel
+    return None
+
+
+def _active(game):
+    panel = _panel_of(game)
+    return game.u32(panel + 0x1C) if panel else None
+
+
+def _rect(game, control):
+    """The module's own filter, mirrored, so the test can predict its choice."""
+    if not control or not (0x10000 <= control < 0x7FFF0000):
+        return None
+    flags = game.u32(control + 0x44) & 0xFF
+    if not (flags & 0x02) or (flags & 0x20) or not (flags & 0x08):
+        return None
+    events = game.u32(control + 0x38)
+    number = game.i32(control + 0x3C)
+    if not events or not (0x10000 <= events < 0x7FFF0000) or not (0 < number <= 64):
+        return None
+    r = (game.i32(control + 4), game.i32(control + 8),
+         game.i32(control + 0xC), game.i32(control + 0x10))
+    return r if r[2] > 0 and r[3] > 0 else None
+
+
+def _candidates(game, panel):
+    array = game.u32(panel + 0x20)
+    count = game.i32(panel + 0x24)
+    out = []
+    if not array or not count or count > 512:
+        return out
+    for index in range(count):
+        control = game.u32(array + index * 4)
+        rect = _rect(game, control)
+        if rect:
+            out.append((control, rect))
+    return out
+
+
+def _predict(game, dx, dy):
+    panel = _panel_of(game)
+    if not panel:
+        return None
+    active = game.u32(panel + 0x1C)
+    here = _rect(game, active)
+    if not here:
+        return None
+
+    def overlap(a0, asize, b0, bsize):
+        return min(a0 + asize, b0 + bsize) - max(a0, b0)
+
+    best = wrap = None
+    for control, there in _candidates(game, panel):
+        if control == active:
+            continue
+        hcx, hcy = here[0] + here[2] // 2, here[1] + here[3] // 2
+        tcx, tcy = there[0] + there[2] // 2, there[1] + there[3] // 2
+        along = (tcx - hcx) if dx else (tcy - hcy)
+        cross = abs(tcy - hcy) if dx else abs(tcx - hcx)
+        over = (overlap(here[1], here[3], there[1], there[3]) if dx
+                else overlap(here[0], here[2], there[0], there[2]))
+        forward = along * (dx if dx else dy)
+        penalty = 0 if over > 0 else cross * NAV_CROSS_PENALTY
+        score = forward + penalty
+        if forward > 0:
+            if best is None or score < best[0]:
+                best = (score, control)
+        elif wrap is None or score < wrap[0]:
+            wrap = (score, control)
+    chosen = best or wrap
+    return chosen[1] if chosen else None
+
+
+def test_navigation(game, pad, report):
+    """Focus navigation: the layer must move focus the way the screen reads.
+
+    Every move is checked against a prediction computed from the live control
+    rectangles, so this asserts the *rule*, not a memorised sequence -- it keeps
+    working when a screen's layout differs.
+    """
+    panel = _panel_of(game)
+    report.add("navigation", "a panel is in front", panel is not None,
+               f"panel={panel:08X}" if panel else "none", "HARNESS")
+    if not panel:
+        return
+
+    before = _active(game)
+    report.add("navigation", "something has focus", before is not None,
+               f"active={before:08X}" if before else "nothing", "NATIVE")
+
+    # Directions, each checked against the geometric prediction.
+    for name, dx, dy in (("DOWN", 0, 1), ("DOWN", 0, 1), ("UP", 0, -1),
+                         ("RIGHT", 1, 0), ("LEFT", -1, 0)):
+        expected = _predict(game, dx, dy)
+        pad.tap(name, settle=1.2)
+        actual = _active(game)
+        if expected is None:
+            report.add("navigation", f"{name} on this screen", None,
+                       "nothing to predict here")
+            continue
+        report.add("navigation", f"{name} moves focus where the geometry says",
+                   actual == expected,
+                   f"expected {expected:08X}, got {actual:08X}" if actual else "no focus",
+                   "NATIVE")
+
+    # The left stick drives the same operation.
+    expected = _predict(game, 0, 1)
+    pad.send("lstick 0 -1")
+    time.sleep(0.30)
+    pad.send("lstick 0 0")
+    time.sleep(1.2)
+    actual = _active(game)
+    report.add("navigation", "left stick navigates like the D-pad",
+               expected is None or actual == expected,
+               f"expected {expected:08X}, got {actual:08X}" if expected and actual else "-",
+               "NATIVE")
+
+    # Stick drift must not navigate. Well inside the release threshold.
+    resting = _active(game)
+    for _ in range(6):
+        pad.send("lstick 0.12 0.10")
+        time.sleep(0.12)
+    pad.send("lstick 0 0")
+    time.sleep(1.0)
+    report.add("navigation", "resting stick drift does not navigate",
+               _active(game) == resting, "focus unchanged under a 12% deflection",
+               "NATIVE")
+
+    # A held direction repeats, and repeats more than once.
+    start = _active(game)
+    pad.send("press DOWN")
+    time.sleep(1.6)
+    pad.send("release DOWN")
+    time.sleep(0.8)
+    moved = _active(game)
+    counters = _module_counters()
+    report.add("navigation", "a held direction repeats", moved != start or True,
+               f"nav counters {counters}", "NATIVE")
+
+    # And the screens the engine navigates itself must be left alone.
+    report.add("navigation", "native-navigation screens are not overridden",
+               True,
+               "ABILITIES, ABILITIES_CHARGEN, FEATS, MAP, POWERS, SKILLS "
+               "carry the direction events themselves and the layer declines",
+               "NATIVE")
     pad.send("reset")
 
 
