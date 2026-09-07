@@ -30,6 +30,7 @@ Documentation standard: see `docs/documentation-standard.md`.
 from __future__ import annotations
 
 import hashlib
+import re
 import shutil
 import sys
 import tomllib
@@ -67,6 +68,19 @@ def native_hooks_toml() -> str:
 
 def digest(path: Path) -> str:
     return hashlib.sha256(path.read_bytes()).hexdigest()[:16] if path.exists() else "missing"
+
+
+def drop_hooks_native_claims(text: str) -> str:
+    """Remove baseline hook blocks whose address a native hook also claims."""
+    claimed = {h["address"] for h in kmrp_controller.native_hooks()}
+    blocks = text.split("[[patches.hooks]]")
+    kept = [blocks[0]]
+    for block in blocks[1:]:
+        match = re.search(r"address\s*=\s*(0x[0-9A-Fa-f]+)", block)
+        if match and int(match.group(1), 16) in claimed:
+            continue
+        kept.append(block)
+    return "[[patches.hooks]]".join(kept)
 
 
 def header_only(text: str) -> str:
@@ -113,7 +127,12 @@ def apply(mode: str) -> int:
         if not NATIVE_MODULE.exists():
             print(f"native module not built: {NATIVE_MODULE}")
             return 1
-        CONFIG.write_text(baseline.rstrip("\n") + "\n" + NATIVE_HOOKS)
+        # Two hooks cannot share an address. KMRP's movie skip sits on the same
+        # instruction as Saul0097's PollMovieControllerK1, so here the legacy
+        # entry gives way: the native one supersedes it rather than duplicating
+        # it.
+        CONFIG.write_text(drop_hooks_native_claims(baseline).rstrip("\n") + "\n"
+                          + native_hooks_toml())
         shutil.copyfile(NATIVE_MODULE, MODULE)
     elif mode == "native":
         if not NATIVE_MODULE.exists():
@@ -122,7 +141,8 @@ def apply(mode: str) -> int:
         # Keep the header -- target_version_sha, patch id, dll name -- and drop
         # every legacy hook, which removes DispatchMenuInputK1 and with it all of
         # the older path's controller input.
-        CONFIG.write_text(header_only(baseline).rstrip("\n") + "\n" + NATIVE_HOOKS)
+        CONFIG.write_text(header_only(baseline).rstrip("\n") + "\n"
+                          + native_hooks_toml())
         shutil.copyfile(NATIVE_MODULE, MODULE)
     else:
         print(f"unknown mode: {mode}")

@@ -589,6 +589,77 @@ walk alone (nine full cycles), from bumping tabs with focus left in content, or
 from driving the Abilities list. It needs state from earlier in the suite that
 has not been isolated.
 
+## Input classes, and what is bound in each
+
+A description is polled only in the classes it was added to, which is why the pad
+was completely inert in dialogue until ICDialog was registered. The rule
+everywhere since: register an event in a class only when a dispatcher in that
+class was measured to implement it.
+
+| class | what it is | bound |
+| --- | --- | --- |
+| 0 ICPC | gameplay | both sticks, all face buttons, bumpers, triggers, D-pad, Start; A also bridges to the world action `0xEF` |
+| 1 ICMiniGame | Pazaak, swoop, turret | both sticks, plus B / Y / LT / RT -- the four events the minigame dispatchers implement |
+| 2 ICPCGUI | menus | both sticks, all face buttons, bumpers, triggers, D-pad, Start |
+| 3 ICDialog | conversation | A, D-pad up/down, LB, RB -- the five events the dialogue dispatchers implement |
+| 4 ICFreeLook | free look | the right stick, and R3 to leave |
+| 5 ICMovie | pre-rendered movies | **nothing, and nothing can be** -- see below |
+
+The axes are registered in all six classes; only the buttons are selective.
+
+**ICMiniGame is registration on evidence, not on a pressed button.** From the
+retained inventory, `PAZAAK_SETUP` (`0x006816F0`) implements `0x28`/`0x2E`,
+`0x2A`, `0x35` and `0x36`, and `PAZAAK_GAME` (`0x0067E8F0`) implements
+`0x28`/`0x2E`. Neither implements `0x27`, so A is deliberately left out rather
+than sent into a default case. Pazaak, swoop and the turret cannot be reached
+from the save the harness loads, so no minigame button has been observed
+working; the suite checks that the four registrations took and marks the
+behaviour itself as human-QA.
+
+**Deliberately unbound.** X (`0x29`) and Black (`0x2B`) in gameplay: the
+`AddEvent` survey found X registered exactly once in the whole executable and
+Black not at all, so there is nothing for them to do that is not invented. The
+mouse-look camera in class 2 has no meaning. Nothing at all is registered in
+class 5.
+
+## Movies
+
+`ICMovie` has no reachable retained consumer, and this is structural rather than
+an omission: a pre-rendered movie owns the game loop inside
+`CExoMoviePlayerInternal::PlayMovieLoop`, so `CExoInput` is never polled while
+one plays. A description added to class 5 could never receive a value. The only
+way in is a bridge from inside that loop, which is what `NativeMovieFrameK1` at
+`0x00404D96` is.
+
+It calls the engine's own `CExoMoviePlayerInternal::CancelMovie` @ `0x00404C40`
+as `CancelMovie(player, 0, 0)`. The second argument is a force flag: non-zero
+takes the branch at `0x00404C5C` and raises the cancel flag unconditionally,
+while zero goes through the engine's own guard --
+
+    cmp dword ptr [ecx+0x30], 1     ; is this movie cancellable at all
+    jne 0x00404C69                  ; if not, only record the result field
+
+-- so passing zero honours the game's rule about which movies may be skipped
+instead of overriding it. The keyboard's Space path does the same.
+
+**A and Start** skip. Both are conventional and neither means anything else
+while a movie is on screen. B and LB are equally safe -- nothing consumes them
+here -- and are left out only because four buttons on one action makes an
+accidental skip likelier; `K1_MOVIE_SKIP_MASK` is one constant if that changes.
+
+**One press, one skip.** The state arms on a *release*, not on entry: a button
+already down when the movie starts -- the A that dismissed a menu, the Start
+that began a new game -- must not count as a press against the movie that
+follows, or the startup logos skip themselves. A new player pointer disarms
+again, so nothing is left pending when a movie ends.
+
+Verified from a cold launch by `testing/controller/test_movie_skip.py`: 122 loop
+iterations observed, 3 cancels from 4 presses.
+
+**This hook shares an address with Saul0097's `PollMovieControllerK1`.** Two
+hooks cannot occupy one instruction, so `select_controller_path.py` drops the
+legacy entry in "both" mode; the native one supersedes it.
+
 ## Testing
 
 * `testing/controller/select_controller_path.py [saul|native|both]` switches the

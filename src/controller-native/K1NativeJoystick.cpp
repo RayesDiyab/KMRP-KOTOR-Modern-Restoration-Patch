@@ -66,7 +66,8 @@ constexpr int K1_SLOT_NONE  = 0x84;   // the "no control" sentinel
 constexpr int K1_DEVICE_JOYSTICK = 2;
 
 // Input classes, matching keymap.2da's IC* columns.
-constexpr int K1_CLASS_PC     = 0;   // gameplay
+constexpr int K1_CLASS_PC       = 0;   // gameplay
+constexpr int K1_CLASS_MINIGAME = 1;   // Pazaak, swoop, the turret
 constexpr int K1_CLASS_PCGUI  = 2;   // menus
 constexpr int K1_CLASS_DIALOG = 3;   // ICDialog -- conversations
 
@@ -304,6 +305,34 @@ constexpr std::uintptr_t K1_GET_IN_FREE_LOOK    = 0x005EE230;  // CClientExoApp:
 // at 0x005E242F recomputes it from those two control states on every poll, so
 // there is no value to write. Repointing its slots would take the keyboard's
 // own camera turn away. Hence a direct call to the engine's own function.
+// Pre-rendered movies. The player object is the global at 0x007A3CF4 and
+// CExoMoviePlayerInternal::CancelMovie is 0x00404C40, __thiscall with two stack
+// arguments.
+//
+// Called as CancelMovie(player, 0, 0) on purpose. Its second argument is a
+// force flag: non-zero takes the branch at 0x00404C5C and raises the cancel flag
+// at [player+0x14] unconditionally, while zero goes through the engine's own
+// guard at 0x00404C4D --
+//
+//     cmp dword ptr [ecx+0x30], 1     ; is this movie cancellable at all
+//     jne 0x00404C69                  ; if not, only record the result field
+//
+// so passing zero honours the game's own rule about which movies may be
+// skipped rather than overriding it. The keyboard's Space path does the same.
+//
+// There is no retained controller event for this: movies own the game loop, so
+// CExoInput is not being polled and no description can be delivered. A direct
+// bridge from inside the movie loop is the only path, which is why the poll runs
+// from a hook inside CExoMoviePlayerInternal::PlayMovieLoop.
+constexpr std::uintptr_t K1_MOVIE_PLAYER_PTR   = 0x007A3CF4;
+constexpr std::uintptr_t K1_CANCEL_MOVIE       = 0x00404C40;
+
+// A and Start only. Both are conventional "skip" buttons and neither means
+// anything else while a movie is on screen. B and LB are equally safe -- nothing
+// else consumes them here -- but binding four buttons to one action makes an
+// accidental skip likelier, so the extra two are left out until asked for.
+constexpr std::uint16_t K1_MOVIE_SKIP_MASK = 0x1000 | 0x0010;   // A | START
+
 constexpr std::uintptr_t K1_ROTATE_CAMERA       = 0x00640090;  // CSWCModule::RotateCamera
 constexpr std::uintptr_t K1_CAMERA_FRAME_DELTA  = 0x0078E574;  // what UpdateCamera is passed
 constexpr std::size_t    K1_INTERNAL_CAMERA_OWNER = 0x18;      // CClientExoAppInternal+0x18
@@ -339,6 +368,7 @@ using OperatorNewFn    = void*(__cdecl*)(std::size_t);
 using OperatorDeleteFn = void(__cdecl*)(void*);
 using NormalizeFn      = void(__thiscall*)(void*);
 using RotateCameraFn   = void(__thiscall*)(void*, float, float);
+using CancelMovieFn    = void(__thiscall*)(void*, int, int);
 
 
 template <typename T> T EngineFn(std::uintptr_t address)
@@ -449,6 +479,7 @@ struct StickState {
     unsigned long lastGuiTick = 0;
     int navFromY = -1, navToY = -1, navDir = 0;
     int dialogBound = 0;   // bitmask of ICDialog registrations that took
+    int miniGameBound = 0; // bitmask of ICMiniGame registrations that took
     unsigned long interactRequestedTick = 0;
     unsigned long tabActivateRequestedTick = 0;   // A pressed on a focused tab
     unsigned long interactsPerformed = 0;
@@ -691,6 +722,40 @@ void EnsureNativeJoystickK1(void* exoInputInternal)
     if (VirtualProtect(minUseable, sizeof(float), PAGE_EXECUTE_READWRITE, &previous)) {
         *reinterpret_cast<float*>(minUseable) = 0.0f;
         VirtualProtect(minUseable, sizeof(float), previous, &previous);
+    }
+
+    // ICMiniGame, input class 1.
+    //
+    // Registered on the same rule as ICDialog: only events with a consumer that
+    // was read out of a dispatcher, never the whole pad. From the retained
+    // inventory --
+    //
+    //   PAZAAK_SETUP  0x006816F0   0x28/0x2E -> 0x0068175C   leave the table
+    //                              0x2A      -> 0x006817BC   the Y action
+    //                              0x35      -> 0x006817D6   previous
+    //                              0x36      -> 0x0068180B   next
+    //   PAZAAK_GAME   0x0067E8F0   0x28/0x2E -> 0x0067E90F   end turn / leave
+    //
+    // so B, Y and the two bumpers have somewhere to go and A does not: neither
+    // minigame dispatcher implements 0x27, and adding it would send a press into
+    // a default case. The analog axes are already registered in all six classes.
+    //
+    // NOT VERIFIED IN PLAY. Pazaak, swoop and the turret cannot be reached from
+    // the save the harness loads, so this is registration on measured evidence
+    // rather than a demonstrated button press, and it is listed as such in
+    // docs/controller-behaviour-matrix.md.
+    {
+        static const int miniGameEvents[] = {
+            K1_EVENT_B,            // 0x28  leave the table / end turn
+            K1_EVENT_Y,            // 0x2A  the setup screen's Y action
+            K1_EVENT_PREV_SCREEN,  // 0x35  previous
+            K1_EVENT_NEXT_SCREEN,  // 0x36  next
+        };
+        for (std::size_t i = 0; i < sizeof(miniGameEvents) / sizeof(miniGameEvents[0]); ++i) {
+            if (addEvent(exoInputInternal, miniGameEvents[i], K1_CLASS_MINIGAME) != 0) {
+                g_stick.miniGameBound |= (1 << i);
+            }
+        }
     }
 
     g_stick.registered = true;
@@ -1122,6 +1187,61 @@ extern "C" void __cdecl NativeJoystickInitK1(void* exoInputInternal)
 // is still only on the stack. ebx, esi and edi are all pushed by then, so the
 // consumed exit at 0x005E319B unwinds correctly, and GetEvents ignores this
 // function's return value.
+// Movie playback state. Separate from the pad state because the movie loop owns
+// the game loop: none of the other hooks run while it is up.
+struct MovieStateK1 {
+    void*         player = nullptr;   // the movie this state describes
+    bool          armed = false;      // a release has been seen since it started
+    unsigned long skips = 0;          // cancels actually issued
+    unsigned long frames = 0;         // loop iterations observed
+};
+
+MovieStateK1 g_movie;
+
+// One iteration of CExoMoviePlayerInternal::PlayMovieLoop, with esi holding the
+// player. This is the only place a controller can be read during a movie.
+//
+// The arming rule is what keeps "one press, one skip" honest. A button that was
+// already down when the movie started -- the A that dismissed the menu, or the
+// Start that began a new game -- must not count as a press against the movie
+// that follows. So a new player pointer disarms, and the first frame with the
+// skip buttons released arms it. Without that, the startup logos skipped
+// themselves the instant a held button carried over.
+extern "C" void __cdecl NativeMovieFrameK1(void* moviePlayer)
+{
+    if (!LooksLikePointerK1(moviePlayer)) {
+        g_movie.player = nullptr;      // no movie: nothing can be pending
+        g_movie.armed = false;
+        return;
+    }
+    ++g_movie.frames;
+    if (moviePlayer != g_movie.player) {
+        g_movie.player = moviePlayer;  // a different movie: start again
+        g_movie.armed = false;
+    }
+
+    std::int32_t x = 0, y = 0, rx = 0, ry = 0;
+    std::uint16_t buttons = 0;
+    std::uint8_t lt = 0, rt = 0;
+    if (!ReadPadAxes(x, y, buttons, rx, ry, lt, rt)) {
+        return;                        // no pad: the keyboard path still works
+    }
+
+    const bool down = (buttons & K1_MOVIE_SKIP_MASK) != 0;
+    if (!g_movie.armed) {
+        if (!down) {
+            g_movie.armed = true;      // released at last; now a press counts
+        }
+        return;
+    }
+    if (!down) {
+        return;
+    }
+    g_movie.armed = false;             // one press, one skip
+    EngineFn<CancelMovieFn>(K1_CANCEL_MOVIE)(moviePlayer, 0, 0);
+    ++g_movie.skips;
+}
+
 // Runs at 0x006039CF, where both of UpdateCamera's paths converge and ESI is
 // CClientExoAppInternal. Applying the turn here rather than from GetEvents is
 // what makes it stick: ScrollCamera zeroes camera+0x10C from inside
@@ -2456,7 +2576,7 @@ extern "C" void __cdecl NativeJoystickDumpK1()
         // raw magnitude, its magnitude after the deadzone, and the deadzone
         // constant itself, all x1000 -- so a log line says what the stick did,
         // what survived, and what the threshold was, without reading the source.
-        "fl=%d dlg=%02X flour=%lu/%lu act=%lu/%lu tgt=%08lX "
+        "fl=%d dlg=%02X mg=%02X flour=%lu/%lu act=%lu/%lu tgt=%08lX "
         // dcr = times the engine's device count had dropped below ours and had
         // to be put back. Non-zero means the pad would have gone dead without
         // the guard, which is worth knowing rather than silently repairing.
@@ -2466,7 +2586,7 @@ extern "C" void __cdecl NativeJoystickDumpK1()
         // after. cam* are x100.
         "ovr=%d rmag=%ld amag=%ld dz=%ld dcr=%lu "
         "rx=%ld ry=%ld camrun=%lu camwr=%lu camdz=%lu camapp=%ld camcls=%lu camown=%lu "
-        "nav=%lu/%lu gui=%lu tab=%lu/%lu/%lu/%lu tabin=%d move=%d->%d dir=%d\r\n",
+        "nav=%lu/%lu gui=%lu tab=%lu/%lu/%lu/%lu tabin=%d mve=%lu/%lu move=%d->%d dir=%d\r\n",
         g_stick.registered ? 1 : 0, g_stick.createFailed ? 1 : 0, liveCount,
         g_stick.initCalls, g_stick.bufferCalls, g_stick.recordsEmitted,
         g_stick.movementCalls, g_stick.overrideFrames,
@@ -2489,6 +2609,7 @@ extern "C" void __cdecl NativeJoystickDumpK1()
         static_cast<long>(g_stick.playerControl ? *FloatAt(g_stick.playerControl, 0x60) * 1000.0f : 0.0f),
         static_cast<unsigned long>(reinterpret_cast<std::uintptr_t>(g_stick.playerControl)),
         g_stick.freeLookBound, g_stick.dialogBound,
+        g_stick.miniGameBound,
         g_stick.flourishesPerformed, g_stick.flourishesDeclined,
         g_stick.interactsPerformed, g_stick.interactsDeclined,
         // tgt comes before ovr in the format string; the new fields were
@@ -2508,6 +2629,7 @@ extern "C" void __cdecl NativeJoystickDumpK1()
         g_tabNav.entered, g_tabNav.returned, g_tabNav.activated,
         g_tabNav.dispatched,
         g_tabNav.inContent ? 1 : 0,
+        g_movie.frames, g_movie.skips,
         g_stick.navFromY, g_stick.navToY, g_stick.navDir);
 
     HANDLE file = CreateFileA("kmrp-native-joystick.log", FILE_APPEND_DATA,

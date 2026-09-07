@@ -1037,9 +1037,11 @@ def _module_counters():
             text = open(NATIVE_LOG, "r", errors="replace").read()
         except OSError:
             text = ""
-        # The dump grew a dlg= field between fl= and flour=. Match both shapes,
-        # so an older log does not silently read as "no counters at all".
-        found = re.findall(r"fl=(\d+)(?: dlg=[0-9A-Fa-f]+)? flour=(\d+)/(\d+)", text)
+        # Fields keep getting added between fl= and flour= -- dlg=, then mg= --
+        # and each time an exact-shape pattern silently read as "no counters at
+        # all" and failed a working module. Match across whatever sits between
+        # them instead, but never across a line break.
+        found = re.findall(r"fl=(\d+)[^\r\n]*?flour=(\d+)/(\d+)", text)
         if found:
             return tuple(int(v) for v in found[-1])
         time.sleep(0.4)
@@ -1084,6 +1086,22 @@ def test_dialog_class(game, pad, report):
                "HARNESS")
     if mask is None:
         return
+    # ICMiniGame, class 1. Registration only: Pazaak, swoop and the turret
+    # cannot be reached from the save this harness loads, so a pressed button
+    # cannot be observed there. What IS checkable is that the four events with a
+    # measured consumer took their registration.
+    try:
+        with open(LOG, "r", errors="replace") as handle:
+            found = re.findall(r"\bmg=([0-9A-Fa-f]+)", handle.read())
+        mg = int(found[-1], 16) if found else None
+    except OSError:
+        mg = None
+    report.add("dialogue", "all four ICMiniGame events registered", mg == 0x0F,
+               f"mg=0x{mg:02x}, expected 0x0f (B, Y, LT, RT)" if mg is not None
+               else "the module reported no mg= field", "NATIVE")
+    report.add("dialogue", "minigame buttons act in a minigame", None,
+               "not reachable from the harness save")
+
     report.add("dialogue", "all five ICDialog events registered", mask == 0x1F,
                f"dlg={mask:#04x}, expected 0x1f "
                f"(A, up, down, LB, RB)", "NATIVE")

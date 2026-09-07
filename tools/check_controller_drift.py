@@ -29,6 +29,7 @@ Documentation standard: see `docs/documentation-standard.md`.
 from __future__ import annotations
 
 import argparse
+import re
 import sys
 from pathlib import Path
 
@@ -97,7 +98,27 @@ def main() -> int:
     else:
         print(f"  {arguments.config} not present; install check skipped")
 
-    # 4. constants the tooling imports still exist
+    # 4. the installer can actually render a config
+    #
+    # This checks the code path that WRITES the config, not just the table it
+    # reads. select_controller_path.apply() referred to a NATIVE_HOOKS constant
+    # that the single-source refactor had deleted, so both "native" and "both"
+    # raised NameError -- and nothing noticed, because the suite only ever calls
+    # report(). A renderer nothing exercises is a renderer nothing tests.
+    sys.path.insert(0, str(kc.ROOT / "testing" / "controller"))
+    try:
+        import select_controller_path as installer
+        rendered = installer.native_hooks_toml()
+        names = re.findall(r'function\s*=\s*"(\w+)"', rendered)
+        want = [h["function"] for h in native]
+        if names != want:
+            problems.append(f"the installer renders {names}, tracked table is {want}")
+        else:
+            print(f"  installer renders all {len(names)} native hooks")
+    except Exception as error:                       # noqa: BLE001 - report it
+        problems.append(f"the installer cannot render a config: {error!r}")
+
+    # 5. constants the tooling imports still exist
     values = kc.constants()
     absent = [name for name in REQUIRED_CONSTANTS if name not in values]
     if absent:

@@ -274,3 +274,29 @@ exclude_from_restore = []
 [[hooks.parameters]]
 source = "esi"
 type = "pointer"
+
+# Skip a pre-rendered movie with the controller.
+#
+# Movies own the game loop: while one plays, CExoInput is not polled and no
+# retained event can be delivered, so there is nothing to register and this has
+# to be a bridge. The site is inside CExoMoviePlayerInternal::PlayMovieLoop --
+# the loop body at 0x00404D96, not the prologue, which runs once before the
+# first frame. ESI holds the player; ECX is scratch by this point.
+#
+# The stolen bytes cover two whole instructions, so the re-executed prologue
+# leaves EAX and ECX exactly as the following cmp/jne expects.
+#
+# Saul0097's build hooks this same address with PollMovieControllerK1. Both
+# cannot be installed at once, so select_controller_path.py drops the legacy
+# entry when this one is present.
+[[hooks]]
+address = 0x00404D96
+type = "detour"
+function = "NativeMovieFrameK1"
+original_bytes = [0x8B, 0x46, 0x48, 0x8B, 0x48, 0x08]
+skip_original_bytes = false
+exclude_from_restore = []
+
+[[hooks.parameters]]
+source = "esi"
+type = "pointer"
