@@ -37,7 +37,7 @@ import capstone
 ROOT = Path(__file__).resolve().parents[1]
 DEFAULTS = [
     Path(r"C:\Star Wars - KotOR\patch_config.toml"),
-    ROOT / "build" / "research" / "KPM-Xbox-Controls-K1" / "kotor1.hooks.toml",
+    ROOT / "src" / "controller-native" / "kotor1.hooks.toml",
 ]
 
 # Every x86 branch whose operand is an offset from the instruction's own address.

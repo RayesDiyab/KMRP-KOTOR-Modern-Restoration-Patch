@@ -77,9 +77,12 @@ Mappings and the two in-game option panels. That gap predates this work and is
 unrelated to the native path; closing it is texture and placement work, and it
 needs somebody to decide which button "Default" should depict.
 
-The audit checks coverage, not truthfulness. It has **not** been extended to
-check that a badge's label matches what the native path makes the button do,
-which is the part this work actually changed:
+The audit now checks truthfulness as well as coverage, and the answer is a good
+one: **all 30 badges depict A (8), B (19) or X (3)**, and those three are exactly
+the buttons whose meaning did not change. A still confirms, B still cancels, X is
+still the per-panel action. **No existing badge became misleading.**
+
+Every binding whose meaning did change, or that is new, has no badge at all:
 
 | Button | Legacy | Native | Badge still accurate? |
 | --- | --- | --- | --- |

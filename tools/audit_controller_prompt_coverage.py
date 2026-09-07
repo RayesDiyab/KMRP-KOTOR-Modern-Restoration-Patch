@@ -40,7 +40,7 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / "tools"))
 
-MODULE = ROOT / "build" / "research" / "KPM-Xbox-Controls-K1" / "K1XboxControls.cpp"
+MODULE = ROOT / "src" / "controller-native" / "vendor" / "K1XboxControls.cpp"
 
 CONST = re.compile(
     r"constexpr\s+std::(?:uintptr_t|ptrdiff_t)\s+(\w+)\s*=\s*(-?0x[0-9A-Fa-f]+|-?\d+)\s*;")
@@ -160,7 +160,41 @@ def main() -> int:
         for kind, panel, where, resref in other:
             print(f"  {kind:<20}{panel:<44}{where} {resref}")
 
-    if other:
+    # Truthfulness, not just coverage.
+    #
+    # The native path changed what several buttons mean, and a badge depicting a
+    # button whose meaning moved is worse than no badge at all. A, B and X are
+    # unchanged -- confirm, cancel and the per-panel action -- so every badge
+    # that depicts one of those is still accurate by construction. Anything else
+    # needs a person to look at the screen and say what it should read.
+    UNCHANGED_MEANING = {"a", "b", "x"}
+    CURRENT_MAPPING = {
+        "a": "confirm", "b": "cancel / back", "x": "per-panel",
+        "y": "per-panel", "lb": "description scroll up", "rb": "description scroll down",
+        "back": "Black", "lt": "previous screen", "rt": "next screen",
+        "start": "open the in-game menu", "l3": "flourish weapons", "r3": "free look",
+        "dpad": "focus navigation",
+    }
+    depicted = {}
+    for target in PROMPT_TARGETS:
+        button = target.resref.replace("kmrp", "", 1).split("_")[0]
+        depicted[button] = depicted.get(button, 0) + 1
+    stale = {b: n for b, n in depicted.items() if b not in UNCHANGED_MEANING}
+    print()
+    print("badges by depicted button: "
+          + ", ".join(f"{b.upper()}={n}" for b, n in sorted(depicted.items())))
+    if stale:
+        print("Badges depicting a button whose meaning the native path changed:")
+        for button, number in sorted(stale.items()):
+            print(f"  {button.upper():<6}{number} badge(s) -- now {CURRENT_MAPPING.get(button, '?')}")
+    else:
+        print("No badge depicts a button whose meaning changed; every badge is "
+              "still accurate.")
+    print("Unbadged bindings, for reference: "
+          + ", ".join(f"{b.upper()}={m}" for b, m in CURRENT_MAPPING.items()
+                      if b not in depicted))
+
+    if other or stale:
         return 1
     return 1 if (args.strict and uncovered) else 0
 

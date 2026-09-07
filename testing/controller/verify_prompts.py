@@ -43,7 +43,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parent))
 from pad import send  # noqa: E402
 
 ROOT = Path(__file__).resolve().parents[2]
-MODULE_SOURCE = ROOT / "build" / "research" / "KPM-Xbox-Controls-K1" / "K1XboxControls.cpp"
+MODULE_SOURCE = ROOT / "src" / "controller-native" / "vendor" / "K1XboxControls.cpp"
 
 BORDER_NORMAL = 0x80
 BORDER_HILIGHT = 0xF4

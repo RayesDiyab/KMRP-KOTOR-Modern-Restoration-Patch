@@ -43,7 +43,7 @@ from pathlib import Path
 import capstone
 
 ROOT = Path(__file__).resolve().parents[1]
-MODULE = ROOT / "build" / "research" / "KPM-Xbox-Controls-K1" / "K1XboxControls.cpp"
+MODULE = ROOT / "src" / "controller-native" / "vendor" / "K1XboxControls.cpp"
 
 IMAGE_BASE = 0x00400000
 EVENT_NAMES = {
