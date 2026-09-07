@@ -1633,6 +1633,70 @@ crashed the game on entering gameplay. Every one of the module's pre-existing
 hooks steals only position-independent bytes.
 `tools/check_hook_stolen_bytes.py` now enforces that.
 
+### WORKING: native analog movement, driven by XInput
+
+Reached on 2026-09-07 and confirmed by watching the character move. The
+implementation is smaller than the first attempt by a wide margin.
+
+**The delta convention.** `PollInput`'s type 3 path is
+
+```asm
+005E245F  sub  eax, ecx           ; value = [desc+0x24] - [desc+0x04]
+005E2469  call ScaledValue
+005E2471  mov  [esi+4], edx       ; baseline = accumulator; the delta is consumed
+```
+
+so each poll returns everything accumulated since the previous poll and then
+zeroes that. With one record per frame carrying the **absolute** axis position,
+and one poll per frame, each poll returns exactly the position. That is the
+convention, and it is why axes must **not** be edge-triggered:
+
+- edge-triggered, a held stick emits nothing, the accumulator stops and the poll
+  returns zero;
+- and any frame the engine does not poll leaves the delta uncollected, so the
+  next read returns a stale sum. Holding forward across three pushes was measured
+  at `-98301`, exactly `-32767 x 3`.
+
+Buttons stay edge-triggered; the engine's own button loop is edge-triggered too.
+A centred stick emits nothing, which is correct: contributing zero and
+contributing nothing are the same, and the poll reads zero.
+
+**What the module ends up doing.** Two things, and nothing else:
+
+1. raise `CExoInputInternal+0x158` so the poll loop visits device 2;
+2. replace `GetJoystickBuffer` and emit `DIDEVICEOBJECTDATA` from XInput.
+
+No descriptions are created and no movement hook is needed. The game's own
+events `0x08` (`DIJOFS_X`) and `0x07` (`DIJOFS_Y`) receive the records, and its
+own `ProcessInput` already polls them.
+
+**Measured.** Screen change over two seconds, as a movement proxy:
+
+| Deflection | Change | Reading |
+| --- | --- | --- |
+| centre | 0.33% | idle animation baseline |
+| 25% | 0.32% | no movement -- this is the engine's own deadzone, `8191.75/32767` = exactly 25% |
+| 60% | **4.09%** | moving |
+| centred again | 0.25% | stops cleanly, no drift |
+
+The character was observed walking from a corridor through a doorway into
+another room, with the minimap heading updating. The accumulator's growth rate
+also scales with deflection, roughly `32767 x deflection` per frame.
+
+**Still untested**, and the reason the native build was left staged rather than
+installed: diagonals, menu navigation with the stick, keyboard movement
+coexistence, the right stick, and buttons through the native path. A reading of
+100% deflection showed almost no screen change, most likely because the character
+was already against a wall from the preceding test, but that was not confirmed.
+
+**Two implementation traps worth keeping.**
+
+- Hook sites must not steal a relative branch: KPM copies stolen bytes to a
+  trampoline. `tools/check_hook_stolen_bytes.py` enforces this.
+- A virtual ViGEm pad makes `IsControllerInputActiveK1()` true, which hides the
+  cursor, which stops mouse clicks driving menus. Automated menu navigation has
+  to happen with the pad server stopped.
+
 ## Coverage: what has been walked, and what has not
 
 The sweep is tracked explicitly because a decoder blind spot and a genuine
