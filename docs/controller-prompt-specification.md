@@ -188,3 +188,54 @@ Nothing was shipped for this rather than shipping option 2 and calling the
 result clean when it would not be. The LT and RT glyphs are also **not in the
 vendored art**: only 10 of the pack's ~500 images were copied, and the triggers
 were not among them, so option 1 needs art added as well.
+
+
+## Verified live, 2026-09-08
+
+### The Options "Default" buttons are NOT a coverage gap
+
+They were listed as one here because no panel implements an X or Y shortcut for
+them. Wrong question. Measured on the Gameplay options screen:
+
+| check | result |
+| --- | --- |
+| control is visible and selectable | yes, flags `0x0A` |
+| registers `0x27` | yes -- one entry, handler `0x006E68B0` |
+| D-pad navigation lands on it | yes |
+| A executes it | yes -- the handler calls `GetClientOptions`, the reset routine at `0x0061D4E0`, then the panel's own refresh at `0x006E6770` |
+| B still backs out afterwards | yes, `0x00758E00` -> `0x00750148` |
+
+So A reaches them through `CSWGuiPanel`'s ordinary focused-control path, exactly
+like every other button. **They must not get an invented `[X] Default` or
+`[Y] Default` badge.** They are `[A] Select` buttons and need nothing.
+
+More generally: the static survey resolves **288 controls registering `0x27`**
+across the executable. A button without a badge is the normal case, not a defect.
+`tools/audit_controller_prompt_coverage.py` now says "no dedicated badge --
+reachable by focus + A" instead of "gap".
+
+### Confirmation modals
+
+Measured on the quit confirmation (`MESSAGE_BOX`, dispatcher `0x006250F0`,
+reached from the last row of the Options tab):
+
+* it carries two choices, both registering `0x27`, plus a text control that is
+  visible and selectable but registers **no events**
+* up and down move between exactly the two choices; the text control never takes
+  focus, because the navigation layer rejects any control with an empty event
+  table -- the rule that was put there for the Main Menu wallpaper
+* B closes it
+* every panel underneath kept its active control, before and after -- the screen
+  behind does not move, and focus is restored
+
+**A was deliberately not pressed.** One of the two choices ends the process, so
+"A activates the focused choice" is recorded as human-QA rather than asserted by
+a suite that would then have nothing left to run.
+
+### Not yet reached
+
+Solo-mode query, delete-save and overwrite-save confirmations, the tutorial
+popup, and warning boxes were not driven live. They share the `MESSAGE_BOX` and
+`SOLO_MODE_QUERY` dispatchers whose retained events are already in the
+inventory, but sharing a dispatcher is an argument, not a measurement, and this
+document has been wrong before by reasoning from one to the other.

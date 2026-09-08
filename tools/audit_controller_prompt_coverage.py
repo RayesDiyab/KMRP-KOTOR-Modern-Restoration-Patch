@@ -6,6 +6,25 @@ badge truthful?
 and which are missing" that is not a person's memory. This reads the controller
 module's own tables and reports the gap.
 
+**A button without a badge is not inaccessible.** That distinction was got wrong
+here once, and the wrong version was reported as fact: the nine Options "Default"
+buttons were called a coverage gap because no panel implements an X or Y
+shortcut for them. A Default button is an ordinary focusable control, and A
+reaches the focused control through CSWGuiPanel's base path, so it needs no
+shortcut at all. Verified live on the Gameplay options screen -- the control is
+selectable, it registers 0x27, D-pad navigation lands on it, and its handler
+(0x006E68B0) calls GetClientOptions, the reset routine at 0x0061D4E0, and then
+the panel's own refresh. It works.
+
+So this report separates two different things:
+
+  dedicated badge    a glyph is drawn on the button, because a specific
+                     controller button activates it without focusing it first
+  focus + A          no badge, and none warranted: the player navigates to it
+                     and presses A, like any other button
+
+Only a button that can be reached by neither is a real gap.
+
 The module holds two independent things:
 
   `GetK1SettingsStripExit`  every panel it can navigate, and that panel's bottom
@@ -133,7 +152,8 @@ def main() -> int:
         hit = sum(1 for value in values if value in badges)
         total_strip += len(values)
         covered_strip += hit
-        flag = "" if (values and hit == len(values)) else "   <-- gap" if values else ""
+        flag = ("" if (values and hit == len(values))
+                else "   <-- rest are focus + A" if values else "")
         print(f"{panel:<44}{len(values):>14}{hit:>12}{flag}")
 
         for name, value in zip(names, values):
@@ -152,7 +172,8 @@ def main() -> int:
     uncovered = [row for row in problems if row[0] == "uncovered"]
     other = [row for row in problems if row[0] != "uncovered"]
     if uncovered:
-        print(f"\nStrip buttons with no badge ({len(uncovered)}):")
+        print(f"\nStrip buttons with no dedicated badge ({len(uncovered)}) -- "
+              f"reachable by focus + A, not gaps:")
         for _, panel, name, _ in uncovered:
             print(f"  {panel:<44}{name}")
     if other:

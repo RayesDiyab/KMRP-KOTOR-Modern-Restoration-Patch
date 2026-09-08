@@ -1072,6 +1072,110 @@ def test_prompt_layer(game, pad, report):
                "pixel-level check lives in probe_prompts.py")
 
 
+MESSAGE_BOX_DISPATCHER = 0x006250F0
+INGAME_MENU_STRIP_VTABLE = 0x00750148
+
+
+def _panel_active(game, panel):
+    return game.u32(panel + 0x1C) if panel else None
+
+
+def _selectable_with_events(game, panel):
+    """Controls a player could focus: selectable, visible, and able to respond."""
+    array = game.u32(panel + 0x20)
+    count = game.i32(panel + 0x24) or 0
+    out = []
+    for index in range(min(count, 64)):
+        control = game.u32(array + index * 4)
+        if not control:
+            continue
+        flags = (game.u32(control + 0x44) or 0) & 0xFF
+        table = game.u32(control + 0x38)
+        events = game.i32(control + 0x3C) or 0
+        if flags & 0x08 and flags & 0x02 and table and 0 < events <= 64:
+            out.append(control)
+    return out
+
+
+def test_modal(game, pad, report):
+    """A confirmation box: two choices, no decorative focus, B cancels.
+
+    The quit confirmation is used because it is reachable and because it is the
+    strictest case -- one of its two choices ends the process, so A is
+    deliberately never pressed here. Navigation and cancel are what this checks.
+    """
+    print()
+    print("== 18. confirmation modal")
+    ensure_gameplay(game, pad)
+    pad.tap("START", settle=2.5)
+    front = _panel_of(game)
+    if not front or game.u32(front) != INGAME_MENU_STRIP_VTABLE:
+        report.add("modal", "the in-game menu opened", None,
+                   "could not reach the menu")
+        return
+
+    # The last row of the Options tab is the quit confirmation.
+    click(968, 330 + 7 * 105 + 52)
+    time.sleep(2.4)
+    modal = _panel_of(game)
+    is_modal = bool(modal and _dispatcher(game, modal) == MESSAGE_BOX_DISPATCHER)
+    report.add("modal", "a confirmation box opened", is_modal,
+               f"front dispatcher {_dispatcher(game, modal):08X}" if modal else "none",
+               "HARNESS")
+    if not is_modal:
+        for _ in range(3):
+            pad.tap("B", settle=1.6)
+        return
+
+    # Snapshot the screen underneath only once the box is actually up. Taking it
+    # before the click measured the click: a mouse click moves focus to the row
+    # it lands on, which is not the modal moving anything.
+    beneath = {p: _panel_active(game, p) for p in _panels(game) if p != modal}
+
+    choices = _selectable_with_events(game, modal)
+    report.add("modal", "the box offers exactly its two choices", len(choices) == 2,
+               f"{len(choices)} focusable controls", "NATIVE")
+
+    # Seed focus first. Opening the box with a click can leave it with no active
+    # control, and "focus did not move" then means "there was nowhere to move
+    # from", which is a different statement from the one being tested.
+    if _panel_active(game, modal) not in choices:
+        pad.tap("DOWN", hold=NAV_TAP, settle=0.9)
+    report.add("modal", "focus can be put on a choice",
+               _panel_active(game, modal) in choices,
+               f"active {_panel_active(game, modal) or 0:08X}", "NATIVE")
+
+    seen = [_panel_active(game, modal)]
+    for step in ("UP", "DOWN", "UP"):
+        pad.tap(step, hold=NAV_TAP, settle=0.9)
+        seen.append(_panel_active(game, modal))
+    report.add("modal", "up and down move between the choices",
+               len(set(seen)) == 2, f"focused {len(set(seen))} distinct controls",
+               "NATIVE")
+    report.add("modal", "no decorative control takes focus",
+               all(c in choices for c in seen if c),
+               "every focused control was one of the two choices", "NATIVE")
+
+    # A is NOT pressed: one of these two choices quits the game.
+    report.add("modal", "A activates the focused choice", None,
+               "not pressed on purpose -- one choice ends the process")
+
+    pad.tap("B", settle=2.2)
+    closed = _panel_of(game)
+    report.add("modal", "B closes the box", closed != modal,
+               f"front {closed:08X} dispatcher {_dispatcher(game, closed):08X}"
+               if closed else "none", "NATIVE")
+    still_there = [p for p in beneath if p in _panels(game)]
+    moved = [p for p in still_there if _panel_active(game, p) != beneath[p]]
+    report.add("modal", "the screen underneath never moved", not moved,
+               f"{len(still_there)} panels below survived, {len(moved)} changed "
+               f"their active control", "NATIVE")
+    for _ in range(3):
+        if game.input_class() == 0:
+            break
+        pad.tap("B", settle=1.8)
+
+
 def test_no_legacy_synthesis(game, pad, report):
     print("\n== 13. only one movement source in native mode")
     # In native mode the legacy hooks are absent entirely, so the check is that
@@ -1787,6 +1891,7 @@ def main():
         test_action_bar(game, pad, report)
         test_prompt_layer(game, pad, report)
         test_menu(game, pad, report)
+        test_modal(game, pad, report)
     else:
         for name in ("cardinals", "diagonals", "centre/release", "camera", "menu", "disconnect", "stick clicks", "tabs"):
             report.add("skipped", name, None, "needs gameplay; save did not load")
