@@ -34,26 +34,69 @@ TGA_FOOTER = b"\x00" * 8 + b"TRUEVISION-XFILE." + b"\x00"
 #
 # Do NOT substitute Microsoft's official glyphs. They are trademarked and
 # licensed for Xbox-licensed titles; this repository is public and GPL-3.0.
-GLYPH_ART_DIR = (Path(__file__).resolve().parents[1] / "third_party" / "Included"
-                 / "Xelu_Free_Controller&Key_Prompts" / "Xbox")
-GLYPH_ART = {
-    "A": "360_A.png",
-    "B": "360_B.png",
-    "X": "360_X.png",
-    "Y": "360_Y.png",
-    "LB": "360_LB.png",
-    "RB": "360_RB.png",
-    "LT": "360_LT.png",
-    "RT": "360_RT.png",
-    "START": "360_Start.png",
-    "BACK": "360_Back.png",
-    "DPAD_LEFT": "360_Dpad_Left.png",
-    "DPAD_RIGHT": "360_Dpad_Right.png",
-    "DPAD_UP": "360_Dpad_Up.png",
-    "DPAD_DOWN": "360_Dpad_Down.png",
-    "L3": "360_Left_Stick_Click.png",
-    "R3": "360_Right_Stick_Click.png",
+GLYPH_PACK = (Path(__file__).resolve().parents[1] / "third_party" / "Included"
+              / "Xelu_Free_Controller&Key_Prompts")
+
+# The prompt vocabulary is a set of ACTIONS, not a set of Xbox pictures, so a
+# later pass can add controller-family detection without touching any caller.
+# Every badge in the patch names an action here; only the file behind it changes
+# with the family.
+#
+# Detection is deliberately NOT implemented. GLYPH_FAMILY selects one, the art
+# for the others is present and checkable, and nothing yet asks the running game
+# which pad is attached.
+GLYPH_FAMILIES = {
+    "xbox": ("Xbox", {
+        "A": "360_A.png", "B": "360_B.png", "X": "360_X.png", "Y": "360_Y.png",
+        "LB": "360_LB.png", "RB": "360_RB.png",
+        "LT": "360_LT.png", "RT": "360_RT.png",
+        "START": "360_Start.png", "BACK": "360_Back.png",
+        "DPAD_LEFT": "360_Dpad_Left.png", "DPAD_RIGHT": "360_Dpad_Right.png",
+        "DPAD_UP": "360_Dpad_Up.png", "DPAD_DOWN": "360_Dpad_Down.png",
+        "L3": "360_Left_Stick_Click.png", "R3": "360_Right_Stick_Click.png",
+    }),
+    "playstation": ("PS5", {
+        "A": "PS5_Cross.png", "B": "PS5_Circle.png",
+        "X": "PS5_Square.png", "Y": "PS5_Triangle.png",
+        "LB": "PS5_L1.png", "RB": "PS5_R1.png",
+        "LT": "PS5_L2.png", "RT": "PS5_R2.png",
+        "START": "PS5_Options.png", "BACK": "PS5_Share.png",
+        "DPAD_LEFT": "PS5_Dpad_Left.png", "DPAD_RIGHT": "PS5_Dpad_Right.png",
+        "DPAD_UP": "PS5_Dpad_Up.png", "DPAD_DOWN": "PS5_Dpad_Down.png",
+        "L3": "PS5_Left_Stick_Click.png", "R3": "PS5_Right_Stick_Click.png",
+    }),
+    "switch": ("Switch", {
+        "A": "Switch_A.png", "B": "Switch_B.png",
+        "X": "Switch_X.png", "Y": "Switch_Y.png",
+        "LB": "Switch_LB.png", "RB": "Switch_RB.png",
+        "LT": "Switch_LT.png", "RT": "Switch_RT.png",
+        "START": "Switch_Plus.png", "BACK": "Switch_Minus.png",
+        "DPAD_LEFT": "Switch_Dpad_Left.png", "DPAD_RIGHT": "Switch_Dpad_Right.png",
+        "DPAD_UP": "Switch_Dpad_Up.png", "DPAD_DOWN": "Switch_Dpad_Down.png",
+        "L3": "Switch_Left_Stick_Click.png", "R3": "Switch_Right_Stick_Click.png",
+    }),
+    "steamdeck": ("Steam Deck", {
+        "A": "SteamDeck_A.png", "B": "SteamDeck_B.png",
+        "X": "SteamDeck_X.png", "Y": "SteamDeck_Y.png",
+        "LB": "SteamDeck_L1.png", "RB": "SteamDeck_R1.png",
+        "LT": "SteamDeck_L2.png", "RT": "SteamDeck_R2.png",
+        # The Deck labels these Menu and Dots rather than Start and View.
+        "START": "SteamDeck_Menu.png", "BACK": "SteamDeck_Dots.png",
+        "DPAD_LEFT": "SteamDeck_Dpad_Left.png",
+        "DPAD_RIGHT": "SteamDeck_Dpad_Right.png",
+        "DPAD_UP": "SteamDeck_Dpad_Up.png",
+        "DPAD_DOWN": "SteamDeck_Dpad_Down.png",
+        "L3": "SteamDeck_Left_Stick_Click.png",
+        "R3": "SteamDeck_Right_Stick_Click.png",
+    }),
 }
+
+# The family the shipped textures are built from. Xbox, because KOTOR's own
+# retained prompts are Xbox ones and the badges sit on a 2003 Xbox-derived UI.
+GLYPH_FAMILY = "xbox"
+
+GLYPH_ART_DIR = GLYPH_PACK / GLYPH_FAMILIES[GLYPH_FAMILY][0]
+GLYPH_ART = GLYPH_FAMILIES[GLYPH_FAMILY][1]
 
 # Fallback palette for _legacy_drawn_tga only, used if the artwork is missing.
 # Measured off original-Xbox KOTOR screenshots (modal colour inside each disc,
@@ -227,12 +270,19 @@ def _load_glyph_art(glyph: str):
     return art.crop(box) if box else art
 
 
-def check_glyph_art():
-    """(present, missing) glyph names. Loud where _load_glyph_art is quiet."""
+def check_glyph_art(family: str = GLYPH_FAMILY):
+    """(present, missing) action names for `family`. Loud where loading is quiet."""
+    folder, art = GLYPH_FAMILIES[family]
+    directory = GLYPH_PACK / folder
     present, missing = [], []
-    for glyph, name in sorted(GLYPH_ART.items()):
-        (present if (GLYPH_ART_DIR / name).is_file() else missing).append(glyph)
+    for glyph, name in sorted(art.items()):
+        (present if (directory / name).is_file() else missing).append(glyph)
     return present, missing
+
+
+def vocabulary():
+    """Every action the prompt system can depict, family-independent."""
+    return sorted(GLYPH_FAMILIES[GLYPH_FAMILY][1])
 
 
 def _composite_glyph_tga(control_width: int, control_height: int, glyph: str,

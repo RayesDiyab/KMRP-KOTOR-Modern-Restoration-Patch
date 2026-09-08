@@ -2615,6 +2615,15 @@ void PerformPendingStickActionsK1()
         return;
     }
 
+    // Gameplay only. This checked free look but never the input class, so a
+    // stick click in any menu still swung the character's weapon behind the
+    // open screen -- measured on Equipment, Inventory, Messages, Journal, Map
+    // and Options, where the performed counter rose on every press.
+    if (InputClassK1() != K1_CLASS_PC) {
+        ++g_stick.flourishesDeclined;
+        return;
+    }
+
     void* const app = ClientExoAppK1();
     if (!app) {
         ++g_stick.flourishesDeclined;

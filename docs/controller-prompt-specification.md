@@ -321,3 +321,36 @@ The offsets, pixel extents and labels were all read from the running game, and
 39px tall against an 84px Close, so their glyphs are correspondingly smaller.
 Short controls already take a larger share of their height (0.40 rather than
 0.29); beyond that the glyph would not fit inside the button.
+
+
+## The prompt vocabulary is family-independent — 2026-09-08
+
+`build_controller_prompt_textures.py` now names **actions**, not Xbox pictures:
+
+    A  B  X  Y  LB  RB  LT  RT  START  BACK
+    DPAD_UP  DPAD_DOWN  DPAD_LEFT  DPAD_RIGHT  L3  R3
+
+`GLYPH_FAMILIES` maps each action to a file per family -- Xbox, PlayStation,
+Switch and Steam Deck -- and all four are complete at 16/16, checked by
+`check_controller_drift.py`. `GLYPH_FAMILY` selects the one the shipped textures
+are built from, and it is `xbox`.
+
+**Controller-family detection is deliberately not implemented.** Nothing asks the
+running game which pad is attached. The point of this change is that adding that
+later touches one constant rather than every caller.
+
+## L3 / R3 badges in gameplay — specified, not shipped
+
+`[L3] Flourish` and `[R3] Free Look` are the right prompts, and the glyph art for
+both now exists. **They cannot be placed with the mechanism this layer uses.**
+
+A badge is a texture swap on an existing control's `BORDER.FILL`. The gameplay
+HUD's only wide, short controls are `13EADE68` (356x114, the action-bar backdrop)
+and `13EB7E4C` (597x64, the status strip), and both register **zero events** --
+they are decorative frames. Swapping either one's fill would delete that frame's
+own artwork and leave a lone glyph floating on the HUD, which fails "no overlap
+with HUD elements, no clutter" rather than satisfying it.
+
+This is the same structural blocker as LT/RT on the tab strip, and it has the
+same three options; adding two controls to the relevant GUI asset is the clean
+one. Nothing was shipped rather than shipping something that damages the HUD.

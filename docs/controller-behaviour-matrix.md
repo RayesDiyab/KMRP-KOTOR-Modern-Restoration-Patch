@@ -604,3 +604,45 @@ which passes. Class 0's button set was **not** duplicated into class 4.
 
 **72 passed, 0 failed, 1 human-QA**, including a new check that all five
 ICDialog registrations took (`dlg=0x1f`).
+
+
+## L3 and R3 by context — measured 2026-09-08
+
+Pressed in each context with `testing/controller/probe_stick_clicks.py`, which
+records the screen delta, the input class, the front panel and the module's own
+flourish counters. Neither stick click is a retained GUI event: R3 emits the
+engine's free-look pair (`0x01` enter / `0x06` exit) and is registered only in
+the gameplay and free-look classes, and L3 is a bridge to
+`PlayerFlourishWeapons`.
+
+| context | L3 | R3 |
+| --- | --- | --- |
+| gameplay (ICPC) | **flourish**, one per press, performed counter +1 | changes the view; see below |
+| Equipment | ignored (declined) | nothing, 0.3% |
+| Inventory | ignored (declined) | nothing, 0.3% |
+| Messages | ignored (declined) | nothing, 0.5% |
+| Journal | ignored (declined) | nothing, 0.0% |
+| Map | ignored (declined) | nothing, 0.0% |
+| Options | ignored (declined) | nothing, 0.3% |
+| tab strip | ignored (declined) | nothing |
+
+**"Ignored" is now true, and was not before.** The flourish bridge checked free
+look but never the input class, so a stick click in ANY menu still swung the
+character's weapon behind the open screen -- the performed counter rose on every
+press across Equipment, Inventory, Messages, Journal, Map and Options. It now
+declines outside gameplay, which is what the table above records.
+
+**One Map reading did not reproduce.** An early pass saw R3 change 42.9% of the
+Map screen; a rerun after the fix showed 0.0%. It was the map's own animation
+between the two screenshots, not R3.
+
+**R3 in gameplay is not fully characterised.** It changes the view -- 44% on the
+first press, 11% on the next -- but `ClientOptions+0x6D`, the camera mode, read 3
+both before and after each press, where free look should read 5. The end-to-end
+suite's own stick-click test reads the same field and sees `[5, 3, 5, 3, 5, 3]`.
+The two disagree and the difference has not been chased down. **R3 was not
+changed in this pass**, and its physical crash report stays open.
+
+Not reachable from the harness save, so not measured: character creation, party
+selection, the store, upgrade screens, save/load, dialogue, the minigame class
+and the movie path.

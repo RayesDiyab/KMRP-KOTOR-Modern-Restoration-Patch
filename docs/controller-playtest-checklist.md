@@ -32,7 +32,7 @@ real device behaves like the virtual one.
 | Right-stick camera left and right, and its feel |
 | Camera stops immediately on release |
 | Mouse and controller usable together without fighting |
-| L3 flourish |
+| L3 flourish (gameplay) |
 | Start opens the in-game menu |
 | LT / RT tab switching |
 | Down from the tab strip enters content |
@@ -49,6 +49,13 @@ real device behaves like the virtual one.
 | R3 free look crashed | **NOT REPRODUCED — still to be tested** |
 | Right stick does not scroll item descriptions | **FIXED** — dispatches the retained 0x39/0x3A pair to the screen's own panel |
 | Missing art on Close / Show New Items / Use Item | **AUDITED, not implemented** — all three are focus + A, so `[A]` is the only truthful badge; see the prompt specification |
+
+### L3 — physically verified in gameplay, and now menu-safe
+
+Physical QA passed L3 flourish. A later audit found it also fired in every menu
+screen, which physical QA would not have noticed with the menu covering the
+world. Fixed: the bridge now requires input class 0. L3 gameplay stays **PASS**;
+"L3 does nothing in menus" is newly true and unverified by hand.
 
 ### R3 free look — unreproduced, and not to be trusted
 
