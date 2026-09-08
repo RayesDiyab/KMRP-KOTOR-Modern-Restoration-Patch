@@ -811,7 +811,7 @@ void* ClientInternalK1();
 int InputClassK1();
 void EnsureDeviceCountK1();
 void UpdateStickNavigationK1(float x, float y);
-void RequestNavigationK1(int dx, int dy, bool edge);
+void RequestNavigationK1(int dx, int dy, bool edge, bool fromDpad);
 // ------------------------------------------------------------- record filling
 
 void FillNativeJoystickBufferK1(int deviceIndex, void* outBuffer)
@@ -990,11 +990,13 @@ void FillNativeJoystickBufferK1(int deviceIndex, void* outBuffer)
         int dx = 0;
         int dy = 0;
         bool edge = false;
+        bool fromDpad = false;
         for (int d = 0; d < K1_DPAD_COUNT; ++d) {
             const std::uint16_t mask = K1_DPAD[d].xinputMask;
             if ((buttons & mask) != 0) {
                 dx = dirs[d][0];
                 dy = dirs[d][1];
+                fromDpad = true;
                 if ((g_stick.lastButtons & mask) == 0) {
                     edge = true;
                 }
@@ -1015,7 +1017,7 @@ void FillNativeJoystickBufferK1(int deviceIndex, void* outBuffer)
             g_stick.stickNavX = 0;
             g_stick.stickNavY = 0;
         }
-        RequestNavigationK1(dx, dy, edge);
+        RequestNavigationK1(dx, dy, edge, fromDpad);
     }
     // Triggers, edge-triggered on the threshold crossing so a held pull does not
     // repeat. Each has its own slot, so LT and RT can be pulled together without
@@ -1343,11 +1345,16 @@ extern "C" void __cdecl NativeActionBarK1(void* mainInterface)
         activate = KmrpActionBarFocusedK1(mainInterface);
     }
 
+    if (InputClassK1() != K1_CLASS_PC || !LooksLikePointerK1(mainInterface)) {
+        // Ask nothing of the interface outside gameplay. KmrpActionBarStateK1
+        // walks the button array and the panel manager, and free look changes
+        // the input class from under this hook, so anything read here during a
+        // transition is read from an object that may be mid-rebuild.
+        g_stick.hudState = 0;
+        return;
+    }
     g_stick.hudInterface = reinterpret_cast<unsigned long>(mainInterface);
     g_stick.hudState = KmrpActionBarStateK1(mainInterface);
-    if (InputClassK1() != K1_CLASS_PC) {
-        return;                       // the HUD bar exists only in gameplay
-    }
     if (dx == 0 && dy == 0 && activate == 0) {
         return;
     }
@@ -1577,6 +1584,7 @@ constexpr std::uintptr_t K1_INGAME_MENU_DISPATCHER = 0x00624970;
 constexpr std::uintptr_t K1_LISTBOX_DISPATCHER = 0x0041CE20;
 constexpr std::size_t    K1_LISTBOX_ROW        = 0x2C8;   // int16, selected row
 constexpr std::size_t    K1_LISTBOX_PROTO      = 0x2C6;   // int16, -1 = plain rows
+constexpr std::size_t    K1_LISTBOX_PROTO_ROW  = 0x2C2;   // int16, 1-based proto row
 
 constexpr int K1_EVENT_DPAD_LEFT  = 0x2F;
 constexpr int K1_EVENT_DPAD_RIGHT = 0x30;
@@ -1726,9 +1734,19 @@ bool ListBoxAtTopK1(void* control)
     if (DispatcherOfK1(control) != K1_LISTBOX_DISPATCHER) {
         return false;
     }
+    // Two branches, and the engine computes "did anything move" in each:
+    //
+    //   plain rows (+0x2C6 == -1)   0x0041CF47  test ax,ax   / setne  -> row != 0
+    //   proto items                 0x0041CF9B  cmp ax,1     / setne  -> row != 1
+    //
+    // Only the first was handled, so an Inventory list -- which is proto items --
+    // could be entered and never left: up scrolled forever and never released
+    // focus back to the tab strip.
     const short proto = *FieldAt<short>(control, K1_LISTBOX_PROTO);
-    const short row   = *FieldAt<short>(control, K1_LISTBOX_ROW);
-    return proto == -1 && row == 0;
+    if (proto == -1) {
+        return *FieldAt<short>(control, K1_LISTBOX_ROW) == 0;
+    }
+    return *FieldAt<short>(control, K1_LISTBOX_PROTO_ROW) == 1;
 }
 
 // The tab the engine is showing, or -1 when there is no in-game GUI.
@@ -1772,6 +1790,16 @@ struct RectK1 {
     int cy() const { return y + h / 2; }
 };
 
+// Set only while scanning a tab's content panel. Everything runs on the game's
+// one thread inside a single navigation call, so a plain flag is enough and a
+// parameter threaded through five call sites would not buy anything.
+bool g_navAllowSelfNavigating = false;
+
+struct NavContentScopeK1 {
+    explicit NavContentScopeK1(bool allow) { g_navAllowSelfNavigating = allow; }
+    ~NavContentScopeK1() { g_navAllowSelfNavigating = false; }
+};
+
 // Actionable means what the player would call actionable: on screen, not greyed
 // out, selectable, and occupying real space. Labels, borders and background art
 // fail the selectable bit and never receive focus.
@@ -1805,7 +1833,28 @@ bool ControlIsNavigableK1(void* control, RectK1& rect)
     void** const events = *FieldAt<void**>(control, K1_CTL_EVENT_TABLE);
     const int eventCount = *FieldAt<int>(control, K1_CTL_EVENT_COUNT);
     if (!LooksLikePointerK1(events) || eventCount <= 0 || eventCount > 64) {
-        return false;
+        // ...unless this is a tab's content panel AND the control's own
+        // class handles input. A list box, an editbox and a slider respond
+        // through their class dispatcher and register nothing, so "no events"
+        // means decoration for a plain control and nothing of the sort here.
+        //
+        // This is why the Messages list and the Journal's quest list could not
+        // be reached: both are CSWGuiListBox with an empty event table, so the
+        // wallpaper rule threw them out and focus could only reach the buttons
+        // underneath them.
+        //
+        // Scoped to tab content on purpose. A message box's text pane is also a
+        // zero-event list box, and relaxing this everywhere let a confirmation
+        // dialog's prose take focus -- which the modal test caught immediately.
+        if (!g_navAllowSelfNavigating) {
+            return false;
+        }
+        const std::uintptr_t dispatcher = DispatcherOfK1(control);
+        if (!InListK1(dispatcher, K1_NATIVE_DIRECTION_CONTROLS,
+                      sizeof(K1_NATIVE_DIRECTION_CONTROLS)
+                          / sizeof(K1_NATIVE_DIRECTION_CONTROLS[0]))) {
+            return false;
+        }
     }
 
     rect.x = *FieldAt<int>(control, K1_CTL_X);
@@ -2059,9 +2108,22 @@ bool KmrpOwnsDirectionsK1()
     if (!panel) {
         return false;
     }
+    // Focus inside a tab's content: KMRP handles the press either way -- it
+    // dispatches the event to a self-navigating control itself, or it moves
+    // focus spatially -- so it owns the press and the retained code must not
+    // also go out.
+    //
+    // This was the D-pad double-step. A focused list made
+    // PanelNavigatesItselfK1 true at the control level, which returned false
+    // here and let the native code out, while NavigateFocusK1 dispatched the
+    // same event to the same list a moment later. Two deliveries, two rows per
+    // tap. The left stick moved one row because it never emitted a retained
+    // code in the first place, which is exactly the asymmetry that was reported.
+    if (tabBar != nullptr && panel != tabBar) {
+        return true;
+    }
     void* const active = *FieldAt<void**>(panel, K1_PANEL_ACTIVE);
-    const bool reachable = !(tabBar != nullptr && panel != tabBar);
-    return !PanelNavigatesItselfK1(panel, active, reachable);
+    return !PanelNavigatesItselfK1(panel, active, true);
 }
 
 // One navigation step. Returns true when focus actually moved, which is what
@@ -2117,6 +2179,8 @@ bool NavigateFocusK1(int dx, int dy)
     }
     void* const active = *FieldAt<void**>(panel, K1_PANEL_ACTIVE);
     const bool onTabs = (tabBar != nullptr && panel == tabBar);
+    // A tab's content may hold a list that registers nothing; the strip may not.
+    const NavContentScopeK1 scope(tabBar != nullptr && !onTabs);
 
     if (onTabs) {
         // Up from the strip does nothing. There is nothing above it, and
@@ -2137,6 +2201,7 @@ bool NavigateFocusK1(int dx, int dy)
             // and focus could not climb back out. Both halves of that are fixed
             // -- the list is driven through its own handler now, and up off its
             // first row returns to the strip -- so the natural control wins.
+            const NavContentScopeK1 contentScope(true);
             void* const contentActive = *FieldAt<void**>(content, K1_PANEL_ACTIVE);
             RectK1 probe{};
             void* const target = ControlIsNavigableK1(contentActive, probe)
@@ -2316,7 +2381,7 @@ void UpdateStickNavigationK1(float x, float y)
 
 // Called from the buffer hook, which runs in menus as well as in gameplay.
 // It only records intent; the move itself happens on the GUI's own frame.
-void RequestNavigationK1(int dx, int dy, bool edge)
+void RequestNavigationK1(int dx, int dy, bool edge, bool fromDpad)
 {
     if (dx == 0 && dy == 0) {
         g_stick.navHeldX = 0;
@@ -2327,6 +2392,11 @@ void RequestNavigationK1(int dx, int dy, bool edge)
     // the same edge-then-repeat cadence. Two consumers rather than one because
     // they run from different per-frame hooks, and whichever ran first would
     // otherwise swallow the press before the other saw it.
+    //
+    // Only the D-PAD reaches the HUD. The left stick feeds this function too --
+    // it navigates menus -- and letting it through cycled the bottom-right
+    // action bar while the player was simply walking, which is what physical QA
+    // caught. In gameplay the left stick means movement and nothing else.
     const unsigned long now = GetTickCount();
     const bool changed = (dx != g_stick.navHeldX) || (dy != g_stick.navHeldY);
     if (edge || changed) {
@@ -2335,16 +2405,20 @@ void RequestNavigationK1(int dx, int dy, bool edge)
         g_stick.navHeldY = dy;
         g_stick.navPendingX = dx;
         g_stick.navPendingY = dy;
-        g_stick.hudPendingX = dx;
-        g_stick.hudPendingY = dy;
+        if (fromDpad) {
+            g_stick.hudPendingX = dx;
+            g_stick.hudPendingY = dy;
+        }
         g_stick.navRepeatDeadline = now + K1_NAV_HOLD_DELAY_MS;
         return;
     }
     if (now >= g_stick.navRepeatDeadline) {
         g_stick.navPendingX = dx;
         g_stick.navPendingY = dy;
-        g_stick.hudPendingX = dx;
-        g_stick.hudPendingY = dy;
+        if (fromDpad) {
+            g_stick.hudPendingX = dx;
+            g_stick.hudPendingY = dy;
+        }
         g_stick.navRepeatDeadline = now + K1_NAV_REPEAT_MS;
     }
 }
@@ -2493,7 +2567,12 @@ void PerformPendingInteractionK1()
     // A belongs to the HUD action bar while one of its slots has focus. Both
     // consumers ask the same question, so exactly one acts however the two
     // per-frame hooks happen to be ordered.
-    if (KmrpActionBarFocusedK1(nullptr) != 0) {
+    // Ask with the pointer this frame's HUD hook was handed, never with the
+    // vendor's cached one: that global outlives the object it points at across a
+    // screen change, and a null argument used to fall back to it.
+    void* const hudInterface = reinterpret_cast<void*>(g_stick.hudInterface);
+    if (LooksLikePointerK1(hudInterface) &&
+        KmrpActionBarFocusedK1(hudInterface) != 0) {
         ++g_stick.interactsDeclined;
         return;
     }

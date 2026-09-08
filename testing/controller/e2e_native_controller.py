@@ -319,7 +319,9 @@ def launch_and_load(report):
     click(*CLICK_LOAD_GAME)
     time.sleep(6)
     click(*CLICK_LOAD)
-    time.sleep(55)
+    # Five seconds. This was 55, from when loading was slow; the save now
+    # comes up in about three, so the rest was dead time on every run.
+    time.sleep(5)
     return alive
 
 
@@ -1527,6 +1529,9 @@ INGAME_MENU_DISPATCHER = 0x00624970
 SELF_NAVIGATING_PANELS = (0x006AE5F0, 0x006F8880, 0x006F4680,
                           0x00693BC0, 0x006F28C0, 0x006F6A10)
 
+# Control classes that drive themselves: list box, navigable/editbox, slider.
+SELF_NAVIGATING_CONTROLS = (0x0041CE20, 0x0041A9D0, 0x0041ADF0)
+
 # Set when the walk of all eight tabs closes the menu. The checks that follow it
 # need an open menu, and reporting them as failures would blame this change for a
 # bug that reproduces on the module as it was before any of the tab work.
@@ -1688,8 +1693,13 @@ def _dismiss_overlay(game, pad, limit=2):
     return _tab_bar(game) is not None
 
 
-def _return_to_tabs(game, pad, limit=8):
-    """Put focus back on the tab strip, whatever a previous test left behind."""
+def _return_to_tabs(game, pad, limit=24):
+    """Put focus back on the tab strip, whatever a previous test left behind.
+
+    The limit is generous because a focused list consumes up to scroll its own
+    rows and only releases focus at row 0, so escaping one costs as many presses
+    as the cursor is rows deep.
+    """
     for _ in range(limit):
         if not _tab_bar(game) or _in_content() is not True:
             return True
@@ -1707,7 +1717,12 @@ def _rect(game, control):
     events = game.u32(control + 0x38)
     number = game.i32(control + 0x3C)
     if not events or not (0x10000 <= events < 0x7FFF0000) or not (0 < number <= 64):
-        return None
+        # Mirror the module: a list box, editbox or slider answers through its
+        # class dispatcher and registers nothing, and inside a tab's content it
+        # is focusable all the same. Judging it non-actionable here reported a
+        # focused message list as "focus is on nothing".
+        if _dispatcher(game, control) not in SELF_NAVIGATING_CONTROLS:
+            return None
     r = (game.i32(control + 4), game.i32(control + 8),
          game.i32(control + 0xC), game.i32(control + 0x10))
     return r if r[2] > 0 and r[3] > 0 else None

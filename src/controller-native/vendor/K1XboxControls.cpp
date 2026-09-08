@@ -2970,8 +2970,10 @@ extern "C" int __cdecl KmrpActionBarStateK1(void* mainInterface)
 
 extern "C" int __cdecl KmrpActionBarFocusedK1(void* mainInterface)
 {
-    void* target = mainInterface ? mainInterface : g_mainInterface;
-    return (target && IsActionBarFocused(K1_CONFIG, target)) ? 1 : 0;
+    // No fallback to g_mainInterface. That global keeps pointing at an
+    // interface after the screen it belonged to has gone, and answering a
+    // question about a dead object is worse than declining to answer.
+    return (mainInterface && IsActionBarFocused(K1_CONFIG, mainInterface)) ? 1 : 0;
 }
 
 extern "C" void __cdecl UpdateActionBarControlsK1(void* mainInterface)

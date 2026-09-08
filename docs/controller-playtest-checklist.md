@@ -15,6 +15,63 @@ rather than dwell.
 
 ---
 
+## Physical QA result — 2026-09-08
+
+A full pass on a real pad. These are **human-verified PASS** and need no further
+automation; the suite covers each of them, but a person has now confirmed the
+real device behaves like the virtual one.
+
+| Verified working on a real pad |
+| --- |
+| Intro / pre-rendered movie skipping |
+| Menu navigation, general |
+| Load Game |
+| Controller button art appears dynamically |
+| Left-stick movement feel |
+| Walk / run proportional speed |
+| Right-stick camera left and right, and its feel |
+| Camera stops immediately on release |
+| Mouse and controller usable together without fighting |
+| L3 flourish |
+| Start opens the in-game menu |
+| LT / RT tab switching |
+| Down from the tab strip enters content |
+| A activates focused controls and items |
+
+### Bugs the same pass found, and what happened to them
+
+| Bug | Status |
+| --- | --- |
+| Left stick cycled the gameplay HUD action bar while walking | **FIXED** — only the D-pad reaches the HUD now |
+| D-pad moved two list rows per tap in Equipment and Inventory | **FIXED** — the retained code and KMRP's own dispatch were both firing |
+| Messages: could not move up into the message list | **FIXED** — zero-event list boxes are focusable in tab content |
+| Journal / Active Quests: same | **FIXED** by the same change; not yet driven live |
+| R3 free look crashed | **NOT REPRODUCED — still to be tested** |
+| Right stick does not scroll item descriptions | **OPEN**, not started |
+| Missing art on Close / Show New Items / Use Item | **OPEN**, not audited |
+
+### R3 free look — unreproduced, and not to be trusted
+
+Six scenarios were driven with the virtual pad and none crashed: entering and
+leaving while walking, with a HUD slot focused, twenty rapid presses, with the
+camera held right, with the camera held **left** while R3 was down, and R3
+interleaved with HUD D-pad presses.
+
+Two stale-pointer paths introduced in the same session were removed anyway,
+because both were real and either could plausibly fault during the class 0 -> 4
+transition:
+
+* `NativeActionBarK1` asked `KmrpActionBarStateK1` about the interface on every
+  frame **before** checking the input class, so it walked the button array and
+  the panel manager during transitions.
+* the world-action guard called `KmrpActionBarFocusedK1(nullptr)`, whose null
+  fallback used the vendor's cached `g_mainInterface` — a pointer that outlives
+  the interface it names across a screen change.
+
+Neither is proven to be the crash. **Treat R3 as unverified on a real pad.**
+
+---
+
 ## 0. Known-broken before you start
 
 Do not spend time diagnosing these; they are measured and understood.
