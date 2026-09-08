@@ -402,6 +402,33 @@ constexpr std::ptrdiff_t K1_ABILITIES_TAB_POWERS_OFFSET = 0x2D54;
 constexpr std::ptrdiff_t K1_ABILITIES_TAB_FEATS_OFFSET = 0x2B90;
 constexpr std::ptrdiff_t K1_ABILITIES_LISTBOX_OFFSET = 0x30DC;
 constexpr std::ptrdiff_t K1_ABILITIES_EXIT_OFFSET = 0x369C;
+
+// The in-game tab screens. Offsets, extents and labels were all measured on the
+// live panels, and so were the glyphs.
+//
+// An earlier version made every one of these an A badge, reasoning that these
+// panels sit behind the tab strip so the retained 0x28 and 0x29 cannot reach
+// them. Wrong: on the live Inventory screen B changes 95% of the display and
+// takes the input class from 2 to 0 -- it closes -- and X changes 3.2% while
+// staying in the menu, so X acts on the screen. Y changes 0.27%, which is noise.
+// Close is B, the screen's own action is X, and everything else is focus + A.
+constexpr std::uintptr_t K1_INGAME_MENU_PANEL_VTABLE = 0x00750148;
+
+constexpr std::ptrdiff_t K1_INVENTORY_CLOSE_OFFSET     = 0x1164;
+constexpr std::ptrdiff_t K1_INVENTORY_USEITEM_OFFSET   = 0x1328;
+constexpr std::ptrdiff_t K1_INVENTORY_SHOWNEW_OFFSET   = 0x14EC;
+
+constexpr std::ptrdiff_t K1_MESSAGES_CLOSE_OFFSET      = 0x0930;
+constexpr std::ptrdiff_t K1_MESSAGES_FEEDBACK_OFFSET   = 0x076C;
+
+constexpr std::ptrdiff_t K1_JOURNAL_QUESTITEMS_OFFSET  = 0x08A4;
+constexpr std::ptrdiff_t K1_JOURNAL_COMPLETED_OFFSET   = 0x0A68;
+constexpr std::ptrdiff_t K1_JOURNAL_SORT_OFFSET        = 0x0C2C;
+constexpr std::ptrdiff_t K1_JOURNAL_CLOSE_OFFSET       = 0x0DF0;
+
+constexpr std::ptrdiff_t K1_MAP_RETURN_OFFSET          = 0x0564;
+constexpr std::ptrdiff_t K1_MAP_PARTY_OFFSET           = 0x0728;
+constexpr std::ptrdiff_t K1_MAP_CLOSE_OFFSET           = 0x08EC;
 constexpr std::ptrdiff_t K1_FEATS_DESC_OFFSET = 0x16DC;
 constexpr std::ptrdiff_t K1_POWERS_DESC_OFFSET = 0x0FCC;
 constexpr std::ptrdiff_t K1_EQUIP_DESC_OFFSET = 0x33B8;
@@ -630,6 +657,30 @@ constexpr ControllerPromptBinding K1_UPGRADE_SELECTION_PROMPTS[] = {
 // CaptureActionBarInputK1), and none of these panels is one of the four
 // transient overlays that suppress that rewrite. The offsets are the ones the
 // settings-strip navigation already uses for these same buttons.
+
+constexpr ControllerPromptBinding K1_INVENTORY_PROMPTS[] = {
+    {K1_INVENTORY_CLOSE_OFFSET, "kmrpb_invclose"},
+    {K1_INVENTORY_USEITEM_OFFSET, "kmrpa_invuse"},
+    {K1_INVENTORY_SHOWNEW_OFFSET, "kmrpx_invnew"},
+};
+
+constexpr ControllerPromptBinding K1_MESSAGES_PROMPTS[] = {
+    {K1_MESSAGES_CLOSE_OFFSET, "kmrpb_msgclose"},
+    {K1_MESSAGES_FEEDBACK_OFFSET, "kmrpx_msgfeed"},
+};
+
+constexpr ControllerPromptBinding K1_JOURNAL_PROMPTS[] = {
+    {K1_JOURNAL_QUESTITEMS_OFFSET, "kmrpx_jrnitems"},
+    {K1_JOURNAL_COMPLETED_OFFSET, "kmrpa_jrndone"},
+    {K1_JOURNAL_SORT_OFFSET, "kmrpy_jrnsort"},
+    {K1_JOURNAL_CLOSE_OFFSET, "kmrpb_jrnclose"},
+};
+
+constexpr ControllerPromptBinding K1_MAP_PROMPTS[] = {
+    {K1_MAP_RETURN_OFFSET, "kmrpx_mapebon"},
+    {K1_MAP_PARTY_OFFSET, "kmrpa_mapparty"},
+    {K1_MAP_CLOSE_OFFSET, "kmrpb_mapclose"},
+};
 
 constexpr ControllerPromptBinding K1_ABILITIES_PROMPTS[] = {
     {K1_ABILITIES_EXIT_OFFSET, "kmrpb_abilexit"},
@@ -982,6 +1033,18 @@ const ControllerPromptBinding* GetK1ControllerPrompts(
         *count = sizeof(K1_SOLO_MODE_QUERY_PROMPTS) /
             sizeof(K1_SOLO_MODE_QUERY_PROMPTS[0]);
         return K1_SOLO_MODE_QUERY_PROMPTS;
+    case K1_INVENTORY_PANEL_VTABLE:
+        *count = sizeof(K1_INVENTORY_PROMPTS) / sizeof(K1_INVENTORY_PROMPTS[0]);
+        return K1_INVENTORY_PROMPTS;
+    case K1_MESSAGES_PANEL_VTABLE:
+        *count = sizeof(K1_MESSAGES_PROMPTS) / sizeof(K1_MESSAGES_PROMPTS[0]);
+        return K1_MESSAGES_PROMPTS;
+    case K1_JOURNAL_PANEL_VTABLE:
+        *count = sizeof(K1_JOURNAL_PROMPTS) / sizeof(K1_JOURNAL_PROMPTS[0]);
+        return K1_JOURNAL_PROMPTS;
+    case K1_MAP_PANEL_VTABLE:
+        *count = sizeof(K1_MAP_PROMPTS) / sizeof(K1_MAP_PROMPTS[0]);
+        return K1_MAP_PROMPTS;
     case K1_ABILITIES_PANEL_VTABLE:
         *count = sizeof(K1_ABILITIES_PROMPTS) / sizeof(K1_ABILITIES_PROMPTS[0]);
         return K1_ABILITIES_PROMPTS;
@@ -1049,6 +1112,29 @@ void UpdateK1ControllerPrompts()
 {
     void* manager = nullptr;
     void* panel = FindK1MenuPanelForInput(&manager);
+
+    // The in-game tab strip is always the panel in front while the menu is open,
+    // and it carries no badges of its own -- so every tab screen came up with no
+    // controller art at all, however complete its table was. Inventory, Journal,
+    // Messages, Map and Abilities all sit BEHIND it. When the strip is what was
+    // found, use the screen behind it instead.
+    if (panel && manager &&
+        *reinterpret_cast<std::uintptr_t*>(panel) == K1_INGAME_MENU_PANEL_VTABLE) {
+        void** panels = static_cast<void**>(
+            ReadPointer(manager, MANAGER_PANEL_LIST_OFFSET));
+        const int panelCount = ReadInt(manager, MANAGER_PANEL_COUNT_OFFSET);
+        for (int i = panelCount - 1; i >= 0; --i) {
+            void* candidate = panels ? panels[i] : nullptr;
+            if (!candidate || candidate == panel) {
+                continue;
+            }
+            int probe = 0;
+            if (GetK1ControllerPrompts(candidate, &probe) && probe > 0) {
+                panel = candidate;
+                break;
+            }
+        }
+    }
     // Show prompts while the pad is what the player is actually using, and drop
     // them the moment they touch mouse or keyboard. This was previously tied to
     // mere connection because the mouse hook could not tell KOTOR's own cursor

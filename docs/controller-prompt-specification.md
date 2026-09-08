@@ -280,3 +280,44 @@ through the resolution-patcher pipeline that feeds `build_prompt_textures`.
 That was not attempted rather than attempted in a rush; a badge whose resref has
 no texture behind it renders as nothing at all, silently, which is this area's
 standing failure mode.
+
+
+## Tab-screen badges — measured button by button, 2026-09-08
+
+An earlier pass concluded every button on these screens was focus + A, because
+the panels sit behind the tab strip and the retained `0x28`/`0x29` "cannot reach
+them". **That was wrong**, and it was wrong because it was reasoned instead of
+pressed. Physical QA said so directly: X does something on every screen, Y on
+some, and Close is always B.
+
+`testing/controller/probe_button_effects.py` now presses A, B, X and Y on each
+tab and records what changed:
+
+| screen | A | B | X | Y |
+| --- | --- | --- | --- | --- |
+| Inventory | opens a message box | closes the menu (95%, class 2 -> 0) | 3.2%, stays | 17.3%, stays |
+| Messages | nothing | closes | 91.9%, stays | nothing |
+| Journal | nothing | closes | 65%, opens the quest-items list | 39%, re-sorts |
+| Map | opens `CSWGuiPartySelect` | closes | opens a message box | nothing |
+
+The two ambiguous ones were settled by looking: Journal's X showed datapads and
+star maps -- the Quest Items list -- and its Y changed the header to
+"Quests - By Order Received", which is the Sort button. Map's X opening a
+message box is the Return To Ebon Hawk confirmation, exactly as described.
+
+**Shipped badges**
+
+| screen | badge |
+| --- | --- |
+| Inventory | `[X] Show New Items`, `[A] Use Item`, `[B] Close` |
+| Messages | `[X] Show Feedback`, `[B] Close` |
+| Journal | `[X] Quest Items`, `[A] Completed Quests`, `[Y] Sort by Name`, `[B] Close` |
+| Map | `[A] Party Selection`, `[X] Return To Ebon Hawk`, `[B] Close` |
+
+The offsets, pixel extents and labels were all read from the running game, and
+`tools/build_tab_screen_prompts.py` regenerates the textures from that table.
+
+**Known cosmetic limit.** Map's Party Selection and Return To Ebon Hawk rows are
+39px tall against an 84px Close, so their glyphs are correspondingly smaller.
+Short controls already take a larger share of their height (0.40 rather than
+0.29); beyond that the glyph would not fit inside the button.

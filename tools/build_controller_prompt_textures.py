@@ -283,7 +283,12 @@ def build_prompt_tga(control_width: int, control_height: int, glyph: str,
     if control_width <= 0 or control_height <= 0:
         raise ValueError(f"Invalid prompt control extent {control_width}x{control_height}")
     center_y = control_height * 0.50
-    radius = control_height * 0.29
+    # The badge is sized from the button, but the LABEL is the same height on
+    # every button, so on a short control 0.29 produced a glyph the player
+    # reads as a dot beside full-size text -- visible on the Map screen's
+    # 39px-tall Party Selection and Return To Ebon Hawk rows. Short controls
+    # take a larger share of their height; normal ones are untouched.
+    radius = control_height * (0.40 if control_height < 60 else 0.29)
 
     # Sit the badge immediately before the label, as the original Xbox build
     # does, instead of at a fixed inset from the button's left edge. KOTOR

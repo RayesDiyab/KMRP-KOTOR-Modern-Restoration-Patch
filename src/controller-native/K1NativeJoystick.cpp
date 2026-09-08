@@ -1737,19 +1737,28 @@ bool ListBoxAtTopK1(void* control)
     if (DispatcherOfK1(control) != K1_LISTBOX_DISPATCHER) {
         return false;
     }
-    // Two branches, and the engine computes "did anything move" in each:
+    // +0x2C6 is the SELECTED ITEM, not a mode flag, and -1 means "no item
+    // selection, plain rows". CSWGuiListBox::HandleInputEvent's up case tests it
+    // at 0x0041CE69 and branches:
     //
-    //   plain rows (+0x2C6 == -1)   0x0041CF47  test ax,ax   / setne  -> row != 0
-    //   proto items                 0x0041CF9B  cmp ax,1     / setne  -> row != 1
+    //   == -1   0x0041CF3E  the plain-row path, scrolling +0x2C8; at the top
+    //                       when that reads 0
+    //   else    0x0041CF87  and, when 0x0041A290 reports no scrollbar, the item
+    //                       path at 0x0041CFC5: `test di,di / jle` on +0x2C6
+    //                       itself, decrementing it. At the top when it is <= 0.
     //
-    // Only the first was handled, so an Inventory list -- which is proto items --
-    // could be entered and never left: up scrolled forever and never released
-    // focus back to the tab strip.
-    const short proto = *FieldAt<short>(control, K1_LISTBOX_PROTO);
-    if (proto == -1) {
+    // This was read wrongly first time as "+0x2C6 is a mode flag, +0x2C2 is the
+    // proto row", and the at-top test became `+0x2C2 == 1`. Measured live,
+    // +0x2C2 is ALWAYS 1 while +0x2C6 counts 0, 1, 2 as the selection moves --
+    // so the test was permanently true and every single up press escaped to the
+    // tab strip instead of moving up the list. That is the "I can go down but
+    // never up" that physical QA reported on Journal, Messages, Skills and
+    // Inventory alike.
+    const short selected = *FieldAt<short>(control, K1_LISTBOX_PROTO);
+    if (selected == -1) {
         return *FieldAt<short>(control, K1_LISTBOX_ROW) == 0;
     }
-    return *FieldAt<short>(control, K1_LISTBOX_PROTO_ROW) == 1;
+    return selected <= 0;
 }
 
 // The tab the engine is showing, or -1 when there is no in-game GUI.
@@ -2217,6 +2226,21 @@ bool NavigateFocusK1(int dx, int dy)
             g_tabNav.contentPanel = content;
             g_tabNav.contentTab = CurrentTabIndexK1();
             ++g_tabNav.entered;
+
+            // If focus did not actually move -- the screen's list was already
+            // the active control, which is the usual case -- then consuming the
+            // press would make the first down do nothing visible and cost the
+            // player a second press to move one row. Hand it to the control
+            // instead, so one press is always one row.
+            if (target == contentActive &&
+                PanelNavigatesItselfK1(content, target, false)) {
+                const std::uintptr_t dispatcher = DispatcherOfK1(target);
+                if (dispatcher != 0) {
+                    reinterpret_cast<HandleControlInputFn>(dispatcher)(
+                        target, DirectionEventK1(dx, dy), 1);
+                    ++g_tabNav.dispatched;
+                }
+            }
             return true;
         }
         // Left and right walk the eight frames, and only the frames.
