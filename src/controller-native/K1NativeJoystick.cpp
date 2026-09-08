@@ -86,6 +86,17 @@ extern "C" void __cdecl KmrpActionBarApplyK1(void* mainInterface, int dx, int dy
 extern "C" int  __cdecl KmrpActionBarFocusedK1(void* mainInterface);
 extern "C" int  __cdecl KmrpActionBarStateK1(void* mainInterface);
 
+// The on-screen prompt layer, also Saul0097's and also unreachable in native
+// mode until now: UpdateK1ControllerPrompts was called from DispatchMenuInputK1
+// alone, and the device-activity flag it consults was raised from PollXInputK1
+// alone. Both are legacy hooks that native mode drops, so every badge table and
+// every badge texture in the patch sat there unused.
+extern "C" void __cdecl KmrpUpdatePromptsK1();
+extern "C" void __cdecl KmrpNoteMouseK1(int mouseX, int mouseY);
+extern "C" void __cdecl KmrpMarkControllerActiveK1();
+extern "C" void __cdecl KmrpMarkKeyboardMouseK1();
+extern "C" void __cdecl KmrpNoteKeyboardK1(void* record, int inputDevice);
+
 constexpr int K1_CLASS_PC       = 0;   // gameplay
 constexpr int K1_CLASS_MINIGAME = 1;   // Pazaak, swoop, the turret
 constexpr int K1_CLASS_PCGUI  = 2;   // menus
@@ -513,6 +524,8 @@ struct StickState {
     unsigned long hudMoves = 0;                // slot changes performed
     unsigned long hudCycles = 0;               // action cycles performed
     unsigned long hudActivations = 0;          // slots used
+    unsigned long padActiveTicks = 0;          // frames the pad was the live device
+    unsigned long promptUpdates = 0;           // prompt refreshes performed
     unsigned long hudInterface = 0;            // what the hook was handed
     int           hudState = 0;                // KmrpActionBarStateK1 bits
     int stickNavX = 0, stickNavY = 0;          // left stick's latched direction
@@ -1076,6 +1089,23 @@ void FillNativeJoystickBufferK1(int deviceIndex, void* outBuffer)
 
     g_stick.lastButtons = buttons;
 
+    // The pad is the live device the moment it does anything meaningful. Same
+    // test as the legacy path's: any button, either trigger past its threshold,
+    // or either stick past the engage threshold -- not mere connection, and not
+    // resting drift, which would pin the prompts on forever.
+    {
+        const bool meaningful =
+            buttons != 0 ||
+            lt > K1_TRIGGER_THRESHOLD || rt > K1_TRIGGER_THRESHOLD ||
+            std::sqrt(nx * nx + ny * ny) > K1_STICK_DEADZONE ||
+            (std::sqrt(static_cast<float>(rx) * rx + static_cast<float>(ry) * ry)
+             / K1_AXIS_FULL_SCALE) > K1_CAMERA_DEADZONE;
+        if (meaningful) {
+            KmrpMarkControllerActiveK1();
+            ++g_stick.padActiveTicks;
+        }
+    }
+
     g_stick.rightX = rx;
     g_stick.rightY = ry;
     g_stick.lastX = x;
@@ -1270,6 +1300,24 @@ extern "C" void __cdecl NativeMovieFrameK1(void* moviePlayer)
     g_movie.armed = false;             // one press, one skip
     EngineFn<CancelMovieFn>(K1_CANCEL_MOVIE)(moviePlayer, 0, 0);
     ++g_movie.skips;
+}
+
+// Keyboard and mouse activity, so the prompts go away when the player stops
+// using the pad. Requirement, not polish: a badge that stays on screen while
+// someone types is worse than no badge, because it claims the wrong device.
+//
+// Both sites are the ones Saul0097's build uses for the same purpose. His
+// versions also do action-bar work; these do only the device bookkeeping,
+// because KMRP's own action bar already runs from its own hook.
+extern "C" void __cdecl NativeNoteKeyboardK1(void* record, int inputDevice)
+{
+    KmrpNoteKeyboardK1(record, inputDevice);
+}
+
+extern "C" void __cdecl NativeNoteMouseK1(void* manager, int mouseX, int mouseY)
+{
+    (void)manager;
+    KmrpNoteMouseK1(mouseX, mouseY);
 }
 
 // CSWGuiMainInterface's per-frame update, with ecx holding the interface. The
@@ -2309,6 +2357,12 @@ extern "C" void __cdecl NativeGuiFrameK1(void* guiManager)
     g_stick.lastGuiTick = GetTickCount();
     EnsureDeviceCountK1();     // menus re-enumerate devices too
 
+    // Keep the badges in step with the screen and with the live input device.
+    // Cheap: it returns immediately unless the panel, its class or the device
+    // has actually changed.
+    KmrpUpdatePromptsK1();
+    ++g_stick.promptUpdates;
+
     // A on a focused tab, performed here rather than in the input hook because
     // it rebuilds the content panel. ActivateFocusedTabK1 declines unless a tab
     // frame actually has focus, so an A pressed anywhere else costs one test.
@@ -2681,7 +2735,7 @@ extern "C" void __cdecl NativeJoystickDumpK1()
         // after. cam* are x100.
         "ovr=%d rmag=%ld amag=%ld dz=%ld dcr=%lu "
         "rx=%ld ry=%ld camrun=%lu camwr=%lu camdz=%lu camapp=%ld camcls=%lu camown=%lu "
-        "nav=%lu/%lu hud=%lu/%lu/%lu/%08lX/%d gui=%lu tab=%lu/%lu/%lu/%lu tabin=%d mve=%lu/%lu move=%d->%d dir=%d\r\n",
+        "nav=%lu/%lu hud=%lu/%lu/%lu/%08lX/%d pad=%lu prm=%lu gui=%lu tab=%lu/%lu/%lu/%lu tabin=%d mve=%lu/%lu move=%d->%d dir=%d\r\n",
         g_stick.registered ? 1 : 0, g_stick.createFailed ? 1 : 0, liveCount,
         g_stick.initCalls, g_stick.bufferCalls, g_stick.recordsEmitted,
         g_stick.movementCalls, g_stick.overrideFrames,
@@ -2723,6 +2777,7 @@ extern "C" void __cdecl NativeJoystickDumpK1()
         g_stick.navMoves, g_stick.navDeclinedNative,
         g_stick.hudMoves, g_stick.hudCycles, g_stick.hudActivations,
         g_stick.hudInterface, g_stick.hudState,
+        g_stick.padActiveTicks, g_stick.promptUpdates,
         g_stick.lastGuiTick,
         g_tabNav.entered, g_tabNav.returned, g_tabNav.activated,
         g_tabNav.dispatched,

@@ -25,3 +25,10 @@ EXPORTS
     KmrpActionBarApplyK1
     KmrpActionBarFocusedK1
     KmrpActionBarStateK1
+    KmrpUpdatePromptsK1
+    KmrpNoteMouseK1
+    KmrpMarkControllerActiveK1
+    KmrpMarkKeyboardMouseK1
+    KmrpNoteKeyboardK1
+    NativeNoteKeyboardK1
+    NativeNoteMouseK1

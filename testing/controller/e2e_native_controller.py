@@ -1031,6 +1031,47 @@ def test_action_bar(game, pad, report):
                f"velocity {speed:.3f}", "NATIVE")
 
 
+def _prompt_counters():
+    """(pad-active frames, prompt refreshes) from the module's dump."""
+    try:
+        with open(LOG, "r", errors="replace") as handle:
+            text = handle.read()
+        active = re.findall(r"\bpad=(\d+)", text)
+        updates = re.findall(r"\bprm=(\d+)", text)
+        return (int(active[-1]) if active else None,
+                int(updates[-1]) if updates else None)
+    except OSError:
+        return (None, None)
+
+
+def test_prompt_layer(game, pad, report):
+    """The controller prompt layer runs at all.
+
+    It did not. UpdateK1ControllerPrompts was reachable only from the legacy
+    DispatchMenuInputK1 hook, and the device-activity flag it consults was
+    raised only from PollXInputK1, also legacy -- so in native mode every badge
+    table and every badge texture in the patch sat there unreachable, and no
+    counter or screenshot in this suite looked. These two check the wiring, and
+    testing/controller/probe_prompts.py checks the pixels.
+    """
+    print()
+    print("== 17. controller prompt layer")
+    before = _prompt_counters()
+    pad.tap("RIGHT", hold=NAV_TAP, settle=0.9)
+    pad.tap("LEFT", hold=NAV_TAP, settle=0.9)
+    after = _prompt_counters()
+    report.add("prompts", "the pad registers as the live input device",
+               bool(before[0] is not None and after[0] is not None
+                    and after[0] > before[0]),
+               f"pad-active frames {before[0]} -> {after[0]}", "NATIVE")
+    report.add("prompts", "the prompt updater runs every GUI frame",
+               bool(before[1] is not None and after[1] is not None
+                    and after[1] > before[1]),
+               f"refreshes {before[1]} -> {after[1]}", "NATIVE")
+    report.add("prompts", "badges appear and hide with the input device", None,
+               "pixel-level check lives in probe_prompts.py")
+
+
 def test_no_legacy_synthesis(game, pad, report):
     print("\n== 13. only one movement source in native mode")
     # In native mode the legacy hooks are absent entirely, so the check is that
@@ -1744,6 +1785,7 @@ def main():
         # Last: it drives the player around the menus and can leave the character
         # with a movement order, which the disconnect test reads as stale input.
         test_action_bar(game, pad, report)
+        test_prompt_layer(game, pad, report)
         test_menu(game, pad, report)
     else:
         for name in ("cardinals", "diagonals", "centre/release", "camera", "menu", "disconnect", "stick clicks", "tabs"):

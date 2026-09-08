@@ -593,6 +593,8 @@ bool g_pendingCursorToggle = false;
 void* g_mainInterface = nullptr;
 void* g_k1PazaakReturnControl = nullptr;
 bool g_k1SuppressPazaakFlipEnterRelease = false;
+bool MouseIsBeingUsedK1(int mouseX, int mouseY);
+
 void* g_k1PromptPanel = nullptr;
 std::uintptr_t g_k1PromptPanelVtable = 0;
 bool g_k1PromptMode = false;
@@ -2868,6 +2870,45 @@ extern "C" void __cdecl CaptureActionBarInputK2(
 // controller state, so it raises the same pending bits directly and no key is
 // ever synthesised.
 // ---------------------------------------------------------------------------
+
+// Refresh the on-screen prompts. Saul0097's UpdateK1ControllerPrompts does all
+// of the work -- it finds the panel taking input, asks
+// IsControllerInputActiveK1 whether a pad is what the player is using, and swaps
+// each bound control's BORDER.FILL to the badge texture or back to nothing.
+//
+// It was reachable from exactly one place: DispatchMenuInputK1, which is one of
+// the legacy hooks. Native mode installs none of those, so in the shipping
+// configuration NO PROMPT WAS EVER DRAWN ON ANY SCREEN. The tables, the
+// textures and the mode logic were all present and all unreachable.
+// A buffered input record, asked whether it is a genuine keyboard press. The
+// device check matters: the same buffer carries mouse and joystick records, and
+// KMRP's own pad records must not be mistaken for someone reaching for the keys.
+extern "C" void __cdecl KmrpNoteKeyboardK1(void* record, int inputDevice)
+{
+    const BufferedInputRecord* input =
+        static_cast<const BufferedInputRecord*>(record);
+    if (input &&
+        inputDevice == *reinterpret_cast<int*>(K1_CONFIG.keyboardDeviceIndex) &&
+        (input->value & KEY_PRESSED) != 0 &&
+        !IsControllerGeneratedKeyK1(input->offset)) {
+        MarkKeyboardMouseInputK1();
+    }
+}
+
+extern "C" void __cdecl KmrpUpdatePromptsK1()
+{
+    UpdateK1ControllerPrompts();
+}
+
+// Mouse movement, asked through the same filter the legacy hook used: KOTOR
+// recentres its own cursor, and treating that as use would hide the prompts a
+// frame after showing them.
+extern "C" void __cdecl KmrpNoteMouseK1(int mouseX, int mouseY)
+{
+    if (MouseIsBeingUsedK1(mouseX, mouseY)) {
+        MarkKeyboardMouseInputK1();
+    }
+}
 
 extern "C" void __cdecl KmrpActionBarApplyK1(
     void* mainInterface,

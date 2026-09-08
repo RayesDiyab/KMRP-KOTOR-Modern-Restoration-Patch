@@ -675,3 +675,18 @@ void MarkKeyboardMouseInputK1()
 {
     InterlockedExchange(&g_controllerInputActive, 0);
 }
+
+// The native path reads XInput itself, so it reports device activity itself.
+// PollXInputK1 -- the only other place that raises this flag -- runs solely from
+// the legacy DispatchMenuInputK1 hook, so without this the flag was never set in
+// native mode and the prompts stayed hidden forever.
+extern "C" void __cdecl KmrpMarkControllerActiveK1()
+{
+    InterlockedExchange(&g_controllerInputActive, 1);
+}
+
+// Keyboard or mouse became the live device; drop the prompts.
+extern "C" void __cdecl KmrpMarkKeyboardMouseK1()
+{
+    MarkKeyboardMouseInputK1();
+}

@@ -1,8 +1,26 @@
 # Controller prompt specification
 
-What each screen should show, and when. **Nothing here is implemented** — this
-is a specification drawn from `controller-behaviour-matrix.md`, and every rule
-below traces to a measurement in it.
+What each screen should show, and when. Drawn from
+`controller-behaviour-matrix.md`, with every rule tracing to a measurement in it.
+
+**Status, 2026-09-08.** The badge layer is implemented and live. It was written
+by Saul0097 -- per-panel tables swapping a button's `BORDER.FILL` to a
+pre-baked glyph-plus-label texture -- and was **unreachable in native mode**
+until `KmrpUpdatePromptsK1` was wired into `NativeGuiFrameK1`:
+`UpdateK1ControllerPrompts` was called only from the legacy
+`DispatchMenuInputK1`, and the device flag it consults was raised only from the
+legacy `PollXInputK1`. Both are dropped in native mode, so no badge was drawn on
+any screen, ever. Tables, textures and mode logic were all present and all
+unused, and nothing noticed because nothing looked at pixels.
+
+The glyphs are Xelu's CC0 Xbox 360 set, and each badge already sits
+**immediately left of the button's label**, positioned from the measured label
+width rather than a fixed inset.
+
+Two classes have changed since this was first written and the rules below are
+updated for them: **ICMiniGame is now bound** (B, Y, LT, RT), and movies have a
+**bridge** rather than a binding (A or Start cancels, from inside the movie
+loop). The HUD action bar is now driven by the D-pad.
 
 One rule governs all of it: **a prompt must not appear for an input that cannot
 act.** That is stricter than it sounds, because of the input-class finding.
@@ -140,3 +158,33 @@ half-truth, and the state is readable, so the label can follow it.
 The six native-direction screens (Abilities, Feats, Powers, Skills, Map, chargen
 Abilities) beyond their A/B/X/Y rows; free look, where only Start works and
 leaving is R3; and gameplay beyond the three listed.
+
+
+## LT / RT on the in-game tab strip — specified, not implemented
+
+The strip should show LT at its far left and RT at its far right. **It cannot be
+done with the mechanism this layer uses**, and the reason is a measurement:
+`CSWGuiInGameMenu` has exactly **16 controls** -- eight 192x192 tab frames at
+y=96 and eight 156x120 icon overlays inside them -- and `dump_panel_stack.py
+--all` shows nothing else. A badge is a texture swap on an existing control, so
+with no control at either edge there is nothing to swap.
+
+Three options, none of them free:
+
+1. **Add two controls to the in-game menu's `.gui`.** The clean answer, and the
+   repository already patches GUI assets. The runtime would toggle their
+   visibility with the rest of the prompt state. Cost: a new asset patch, and
+   the new controls have no fixed member offset in the panel class, so the
+   runtime must find them by array index rather than by the byte offsets every
+   other binding uses.
+2. **Badge the outermost tab frames.** Free, and semantically exact -- those two
+   controls are the ones carrying `0x35`/`0x36`. But the frame is 192px wide
+   with a 156px icon inside it, leaving an 18px margin, which is too narrow for
+   a legible glyph without drawing over the tab art.
+3. **Leave the bumpers to speak for themselves.** LT/RT tab switching is
+   discoverable and already works.
+
+Nothing was shipped for this rather than shipping option 2 and calling the
+result clean when it would not be. The LT and RT glyphs are also **not in the
+vendored art**: only 10 of the pack's ~500 images were copied, and the triggers
+were not among them, so option 1 needs art added as well.
