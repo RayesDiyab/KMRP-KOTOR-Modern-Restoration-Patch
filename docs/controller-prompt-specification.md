@@ -185,9 +185,12 @@ Three options, none of them free:
    discoverable and already works.
 
 Nothing was shipped for this rather than shipping option 2 and calling the
-result clean when it would not be. The LT and RT glyphs are also **not in the
-vendored art**: only 10 of the pack's ~500 images were copied, and the triggers
-were not among them, so option 1 needs art added as well.
+result clean when it would not be.
+
+**The art side is no longer a blocker.** The full pack now lives at
+`third_party/Included/Xelu_Free_Controller&Key_Prompts/`, and its `Xbox/` folder
+carries the whole 360 set including `360_LT.png` and `360_RT.png`. All 16 glyphs
+the builder names resolve; `check_controller_drift.py` asserts it.
 
 
 ## Verified live, 2026-09-08

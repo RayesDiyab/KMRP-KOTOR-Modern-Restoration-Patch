@@ -35,7 +35,7 @@ TGA_FOOTER = b"\x00" * 8 + b"TRUEVISION-XFILE." + b"\x00"
 # Do NOT substitute Microsoft's official glyphs. They are trademarked and
 # licensed for Xbox-licensed titles; this repository is public and GPL-3.0.
 GLYPH_ART_DIR = (Path(__file__).resolve().parents[1] / "third_party" / "Included"
-                 / "Xelu-Free-Controller-Prompts-CC0")
+                 / "Xelu_Free_Controller&Key_Prompts" / "Xbox")
 GLYPH_ART = {
     "A": "360_A.png",
     "B": "360_B.png",
@@ -43,10 +43,16 @@ GLYPH_ART = {
     "Y": "360_Y.png",
     "LB": "360_LB.png",
     "RB": "360_RB.png",
+    "LT": "360_LT.png",
+    "RT": "360_RT.png",
     "START": "360_Start.png",
     "BACK": "360_Back.png",
     "DPAD_LEFT": "360_Dpad_Left.png",
     "DPAD_RIGHT": "360_Dpad_Right.png",
+    "DPAD_UP": "360_Dpad_Up.png",
+    "DPAD_DOWN": "360_Dpad_Down.png",
+    "L3": "360_Left_Stick_Click.png",
+    "R3": "360_Right_Stick_Click.png",
 }
 
 # Fallback palette for _legacy_drawn_tga only, used if the artwork is missing.
@@ -202,7 +208,13 @@ def _blend(pixel: tuple[float, float, float, float], color: tuple[int, int, int]
 
 @lru_cache(maxsize=None)
 def _load_glyph_art(glyph: str):
-    """The CC0 Xbox Series glyph for `glyph`, cropped to its ink, or None."""
+    """The CC0 Xbox 360 glyph for `glyph`, cropped to its ink, or None.
+
+    A missing file falls back to the procedurally drawn badge, and that fallback
+    is SILENT by design -- which is how the whole set came to be drawn discs
+    after the art moved: the directory simply stopped existing and every badge
+    quietly changed appearance. `check_glyph_art` exists so a build can ask.
+    """
     from PIL import Image
     name = GLYPH_ART.get(glyph)
     if name is None:
@@ -213,6 +225,14 @@ def _load_glyph_art(glyph: str):
     art = Image.open(path).convert("RGBA")
     box = art.getbbox()
     return art.crop(box) if box else art
+
+
+def check_glyph_art():
+    """(present, missing) glyph names. Loud where _load_glyph_art is quiet."""
+    present, missing = [], []
+    for glyph, name in sorted(GLYPH_ART.items()):
+        (present if (GLYPH_ART_DIR / name).is_file() else missing).append(glyph)
+    return present, missing
 
 
 def _composite_glyph_tga(control_width: int, control_height: int, glyph: str,
@@ -228,11 +248,18 @@ def _composite_glyph_tga(control_width: int, control_height: int, glyph: str,
         return _legacy_drawn_tga(control_width, control_height, glyph)
 
     from PIL import Image
+    # Fit the art inside the badge box while keeping its own proportions. The
+    # face buttons are square (82x82) and unaffected, but the triggers are not
+    # (LT and RT are 74x85), and scaling them to a square stretched them into
+    # something that was recognisably not an Xbox trigger.
     diameter = radius * 2.0
-    dst_w = max(1, round(diameter * TEXTURE_WIDTH / control_width))
-    dst_h = max(1, round(diameter * TEXTURE_HEIGHT / control_height))
-    left = round((center_x - radius) * TEXTURE_WIDTH / control_width)
-    top = round((center_y - radius) * TEXTURE_HEIGHT / control_height)
+    aspect = art.width / art.height
+    box_w = diameter * aspect if aspect < 1.0 else diameter
+    box_h = diameter / aspect if aspect > 1.0 else diameter
+    dst_w = max(1, round(box_w * TEXTURE_WIDTH / control_width))
+    dst_h = max(1, round(box_h * TEXTURE_HEIGHT / control_height))
+    left = round((center_x - box_w / 2.0) * TEXTURE_WIDTH / control_width)
+    top = round((center_y - box_h / 2.0) * TEXTURE_HEIGHT / control_height)
 
     sheet = Image.new("RGBA", (TEXTURE_WIDTH, TEXTURE_HEIGHT), (0, 0, 0, 0))
     resized = art.resize((dst_w, dst_h), Image.LANCZOS)

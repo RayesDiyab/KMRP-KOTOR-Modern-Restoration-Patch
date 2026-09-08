@@ -118,7 +118,31 @@ def main() -> int:
     except Exception as error:                       # noqa: BLE001 - report it
         problems.append(f"the installer cannot render a config: {error!r}")
 
-    # 5. constants the tooling imports still exist
+    # 5. the controller glyph art actually resolves
+    #
+    # _load_glyph_art falls back to a procedurally drawn badge when a file is
+    # missing, and does it silently. When the art pack moved, the configured
+    # directory stopped existing and every badge would have quietly become a
+    # drawn disc on the next build -- no error, no warning, just different
+    # artwork. This asks the question out loud.
+    try:
+        sys.path.insert(0, str(kc.ROOT / "tools"))
+        import build_controller_prompt_textures as textures
+        if not textures.GLYPH_ART_DIR.is_dir():
+            problems.append(f"the glyph art directory does not exist: "
+                            f"{textures.GLYPH_ART_DIR}")
+        else:
+            present, missing = textures.check_glyph_art()
+            if missing:
+                problems.append("glyph art missing, badges would silently fall "
+                                f"back to drawn discs: {', '.join(missing)}")
+            else:
+                print(f"  glyph art: all {len(present)} present in "
+                      f"{textures.GLYPH_ART_DIR.name}")
+    except Exception as error:                       # noqa: BLE001 - report it
+        problems.append(f"the glyph art could not be checked: {error!r}")
+
+    # 6. constants the tooling imports still exist
     values = kc.constants()
     absent = [name for name in REQUIRED_CONSTANTS if name not in values]
     if absent:
