@@ -239,3 +239,41 @@ popup, and warning boxes were not driven live. They share the `MESSAGE_BOX` and
 `SOLO_MODE_QUERY` dispatchers whose retained events are already in the
 inventory, but sharing a dispatcher is an argument, not a measurement, and this
 document has been wrong before by reasoning from one to the other.
+
+
+## Prompt-art audit, Inventory / Equipment / Messages — 2026-09-08
+
+Physical QA reported working buttons with no controller art: **Close**, **Show
+New Items**, **Use Item**. Measured on the live Inventory screen, the buttons map
+to `CSWGuiInventory` members like this:
+
+| button | offset | rect |
+| --- | --- | --- |
+| Show New Items | `panel+0x14EC` | (1821, 1122) 1166x93 |
+| Use Item | `panel+0x1328` | (1333, 1230) 770x84 |
+| Close | `panel+0x1164` | (2122, 1230) 774x84 |
+
+The obvious badges would be `[B] Close` and `[X] Show New Items`, because
+INVENTORY implements `0x28` and `0x29` (its `0x29` handler is `0x006B3FC3`, the
+one X binding in the whole executable). **Both would be lies.**
+
+The Inventory panel sits **behind the in-game tab strip**. A retained event goes
+to the panel in front, `CSWGuiInGameMenu` answers only `0xF3`/`0xF4`, and its
+base class then routes to its own focused control -- a tab frame. So `0x28` and
+`0x29` never arrive. Proven rather than argued: pressing X on the live Inventory
+screen leaves `panel+0x1DE4`, the flag its `0x29` handler sets, at zero across
+repeated presses. B does close the screen, but by closing the whole menu from the
+strip, not by running Inventory's own handler.
+
+So every one of those three buttons is **focus + A**, and the same holds for
+Messages (`Show Feedback`, `Close`) and Equipment. The truthful badge is `[A]`
+on each, which is consistent with the existing convention -- eight `A` badges
+already sit on focus-plus-A buttons elsewhere.
+
+**Not implemented.** Each badge needs four coordinated pieces: a `PromptTarget`
+entry, a label StrRef for the width measurement that positions the glyph, a
+runtime binding in the vendor prompt table, and a regeneration of the textures
+through the resolution-patcher pipeline that feeds `build_prompt_textures`.
+That was not attempted rather than attempted in a rush; a badge whose resref has
+no texture behind it renders as nothing at all, silently, which is this area's
+standing failure mode.

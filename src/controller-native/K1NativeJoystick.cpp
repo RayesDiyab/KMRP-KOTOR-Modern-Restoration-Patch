@@ -526,6 +526,9 @@ struct StickState {
     unsigned long hudActivations = 0;          // slots used
     unsigned long padActiveTicks = 0;          // frames the pad was the live device
     unsigned long promptUpdates = 0;           // prompt refreshes performed
+    int           descHeld = 0;                // right stick's latched scroll direction
+    unsigned long descDeadline = 0;            // when a held deflection may repeat
+    unsigned long descScrolls = 0;             // description scrolls dispatched
     unsigned long hudInterface = 0;            // what the hook was handed
     int           hudState = 0;                // KmrpActionBarStateK1 bits
     int stickNavX = 0, stickNavY = 0;          // left stick's latched direction
@@ -2347,6 +2350,13 @@ constexpr unsigned long K1_NAV_REPEAT_MS       = 120;   // between repeats
 // resting near the threshold chatters, and a worn stick with resting drift
 // would walk through a menu on its own -- which is the specific thing this must
 // never do. RELEASE is well below the 8% movement deadzone for the same reason.
+// The right stick scrolls a description pane in menus. Its own thresholds:
+// the same hysteresis idea as the navigation stick, but it may be engaged
+// deliberately and held, so the engage point is a touch lower and the release
+// point well clear of any resting drift.
+constexpr float K1_DESC_STICK_ENGAGE  = 0.45f;
+constexpr float K1_DESC_STICK_RELEASE = 0.25f;
+
 constexpr float K1_NAV_STICK_ENGAGE  = 0.55f;
 constexpr float K1_NAV_STICK_RELEASE = 0.35f;
 
@@ -2423,6 +2433,65 @@ void RequestNavigationK1(int dx, int dy, bool edge, bool fromDpad)
     }
 }
 
+// Scroll the description pane with the right stick.
+//
+// This is the engine's own path, not a new one: 17 panels implement the
+// retained pair 0x39 / 0x3A as a panel-level scroll of their description box --
+// Inventory, Equipment, Journal, Abilities, Powers, Feats, Skills, Store,
+// Upgrade and the options screens among them. The stick simply hands the panel
+// the event it already understands.
+//
+// A panel that does not implement the pair drops it in its default case, so the
+// stick does nothing on screens with nothing to scroll, which is the required
+// behaviour and costs no test of our own.
+//
+// It cannot move focus or change a list selection because it never touches
+// either: the event goes to the PANEL, and the panel's handler scrolls text.
+void UpdateDescriptionScrollK1()
+{
+    if (InputClassK1() != K1_CLASS_PCGUI) {
+        g_stick.descHeld = 0;
+        return;
+    }
+    const float ny = static_cast<float>(g_stick.rightY) / K1_AXIS_FULL_SCALE;
+    const float magnitude = ny < 0.0f ? -ny : ny;
+    if (magnitude < K1_DESC_STICK_RELEASE) {
+        g_stick.descHeld = 0;
+        return;
+    }
+    if (magnitude < K1_DESC_STICK_ENGAGE) {
+        return;                      // between the two thresholds: hold, do not fire
+    }
+
+    // XInput reports the stick up-positive; 0x39 scrolls the description up.
+    // One scroll on the first deflection, a pause, then a steady repeat while
+    // it is held -- the same cadence the D-pad uses in menus.
+    const int want = ny > 0.0f ? -1 : 1;
+    const unsigned long now = GetTickCount();
+    if (want != g_stick.descHeld) {
+        g_stick.descHeld = want;
+        g_stick.descDeadline = now + K1_NAV_HOLD_DELAY_MS;
+    } else if (now < g_stick.descDeadline) {
+        return;
+    } else {
+        g_stick.descDeadline = now + K1_NAV_REPEAT_MS;
+    }
+
+    // The description belongs to the screen, not to the strip in front of it.
+    void* const tabBar = TabBarPanelK1();
+    void* const target = tabBar ? TabContentPanelK1(tabBar) : TopPanelK1();
+    if (!LooksLikePointerK1(target)) {
+        return;
+    }
+    const std::uintptr_t dispatcher = DispatcherOfK1(target);
+    if (dispatcher == 0) {
+        return;
+    }
+    reinterpret_cast<HandleControlInputFn>(dispatcher)(
+        target, want < 0 ? K1_EVENT_DESC_UP : K1_EVENT_DESC_DOWN, 1);
+    ++g_stick.descScrolls;
+}
+
 // The GUI's own per-frame update, hooked so focus moves happen where the engine
 // expects GUI work to happen rather than inside CExoInput's polling.
 extern "C" void __cdecl NativeGuiFrameK1(void* guiManager)
@@ -2436,6 +2505,8 @@ extern "C" void __cdecl NativeGuiFrameK1(void* guiManager)
     // has actually changed.
     KmrpUpdatePromptsK1();
     ++g_stick.promptUpdates;
+
+    UpdateDescriptionScrollK1();
 
     // A on a focused tab, performed here rather than in the input hook because
     // it rebuilds the content panel. ActivateFocusedTabK1 declines unless a tab
@@ -2814,7 +2885,7 @@ extern "C" void __cdecl NativeJoystickDumpK1()
         // after. cam* are x100.
         "ovr=%d rmag=%ld amag=%ld dz=%ld dcr=%lu "
         "rx=%ld ry=%ld camrun=%lu camwr=%lu camdz=%lu camapp=%ld camcls=%lu camown=%lu "
-        "nav=%lu/%lu hud=%lu/%lu/%lu/%08lX/%d pad=%lu prm=%lu gui=%lu tab=%lu/%lu/%lu/%lu tabin=%d mve=%lu/%lu move=%d->%d dir=%d\r\n",
+        "nav=%lu/%lu hud=%lu/%lu/%lu/%08lX/%d pad=%lu prm=%lu dsc=%lu gui=%lu tab=%lu/%lu/%lu/%lu tabin=%d mve=%lu/%lu move=%d->%d dir=%d\r\n",
         g_stick.registered ? 1 : 0, g_stick.createFailed ? 1 : 0, liveCount,
         g_stick.initCalls, g_stick.bufferCalls, g_stick.recordsEmitted,
         g_stick.movementCalls, g_stick.overrideFrames,
@@ -2856,7 +2927,7 @@ extern "C" void __cdecl NativeJoystickDumpK1()
         g_stick.navMoves, g_stick.navDeclinedNative,
         g_stick.hudMoves, g_stick.hudCycles, g_stick.hudActivations,
         g_stick.hudInterface, g_stick.hudState,
-        g_stick.padActiveTicks, g_stick.promptUpdates,
+        g_stick.padActiveTicks, g_stick.promptUpdates, g_stick.descScrolls,
         g_stick.lastGuiTick,
         g_tabNav.entered, g_tabNav.returned, g_tabNav.activated,
         g_tabNav.dispatched,

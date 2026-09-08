@@ -47,8 +47,8 @@ real device behaves like the virtual one.
 | Messages: could not move up into the message list | **FIXED** — zero-event list boxes are focusable in tab content |
 | Journal / Active Quests: same | **FIXED** by the same change; not yet driven live |
 | R3 free look crashed | **NOT REPRODUCED — still to be tested** |
-| Right stick does not scroll item descriptions | **OPEN**, not started |
-| Missing art on Close / Show New Items / Use Item | **OPEN**, not audited |
+| Right stick does not scroll item descriptions | **FIXED** — dispatches the retained 0x39/0x3A pair to the screen's own panel |
+| Missing art on Close / Show New Items / Use Item | **AUDITED, not implemented** — all three are focus + A, so `[A]` is the only truthful badge; see the prompt specification |
 
 ### R3 free look — unreproduced, and not to be trusted
 
