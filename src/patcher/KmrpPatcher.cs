@@ -1605,44 +1605,71 @@ namespace Kmrp
             text.Append("target_version_sha = \"").Append(executableHash).Append("\"\r\n\r\n");
             text.Append("[[patches]]\r\nid = \"kmrp-xbox-controls-k1\"\r\n")
                 .Append("dll = \"").Append(FileNames[1]).Append("\"\r\n");
-            AppendHook(text, "0x005E271E", "8B, 84, 24, E4, 00, 00, 00",
-                "CaptureActionBarInputK1", new[] { "eax", "edx" }, new[] { "pointer", "int" });
-            AppendHook(text, "0x006227E0", "6A, FF, 68, E9, 89, 72, 00",
-                "DispatchMenuInputK1", new[] { "ecx" }, new[] { "pointer" });
-            AppendHook(text, "0x004051C3", "8B, C6, 83, E8, 1C",
-                "CancelMovieOnSpaceK1", new[] { "esi", "edi" }, new[] { "uint", "uint" });
-            // Inside the playback loop, not on the prologue. 0x00404C80 is
-            // CExoMoviePlayerInternal::PlayMovieLoop and the loop is internal to
-            // it (0x00404CB5 -> 0x00404D9F), so a detour at the entry polled the
-            // pad once, before the first frame, and no button pressed during a
-            // movie was ever seen. 0x00404D96 is the tail of the loop body.
-            // `this` comes from ESI: it is copied out of ECX at 0x00404C87 and
-            // ECX is scratch by this point.
+            // The native hook table, generated from src/controller-native/kotor1.hooks.toml
+            // and kept in step with it by tools/check_controller_drift.py.
+            //
+            // This replaces Saul0097's eight legacy detours rather than joining
+            // them: four of these addresses (0x005E271E, 0x0040C1F6, 0x00686BA0,
+            // 0x00404D96) are the same sites his module hooked, and the module
+            // shipped here now exports both sets, with the native ones doing the
+            // work. See docs/controller-handover-plan.md for which legacy parts
+            // the native path replaces and which it keeps.
+            //
+            // Every entry's stolen bytes are position-independent, or are skipped
+            // so they are never re-executed; tools/check_hook_stolen_bytes.py
+            // asserts that and must stay green if any address here changes.
+            AppendHook(text, "0x005E24E0", "6A, FF, 68, FD, 48, 72, 00",
+                "NativeJoystickInitK1", new[] { "ecx" }, new[] { "pointer" });
+            // Two hooks DECLINE the original code rather than run beside it, so
+            // they skip the stolen bytes and name the address KPM jumps to when
+            // the handler returns non-zero. Both steal a relative branch, which a
+            // trampoline may not re-execute -- skipping is what makes them legal.
+            AppendHook(text, "0x005E30F6", "89, 5C, 24, 2C, 74, 0F",
+                "NativeJoystickBufferK1", new[] { "esi" }, new[] { "pointer" },
+                new[] { "eax" }, "0x005E319B", true);
+            AppendHook(text, "0x00679940", "D9, 05, 64, D7, 73, 00",
+                "NativeJoystickMovementK1", new[] { "ecx" }, new[] { "pointer" });
+            AppendHook(text, "0x00679B71", "E8, BA, 15, E3, FF",
+                "NativeJoystickSkipNormalizeK1", new[] { "ecx" }, new[] { "pointer" },
+                new[] { "eax" }, "0x00679B76", true);
+            AppendHook(text, "0x0040CE70", "51, 53, 55, 56, 8B, E9",
+                "NativeGuiFrameK1", new[] { "ecx" }, new[] { "pointer" });
+            AppendHook(text, "0x006039CF", "A1, E0, 39, 7A, 00, 8B, 48, 04",
+                "NativeCameraFrameK1", new[] { "esi" }, new[] { "pointer" });
             AppendHook(text, "0x00404D96", "8B, 46, 48, 8B, 48, 08",
-                "PollMovieControllerK1", new[] { "esi" }, new[] { "pointer" });
+                "NativeMovieFrameK1", new[] { "esi" }, new[] { "pointer" });
+            // Two hooks exist only to black the movie window. The grey flash
+            // at either end of a movie is the "SWMovieWindow" class, which
+            // InitializeMovie registers with hbrBackground NULL; see
+            // src/controller-native/kotor1.hooks.toml for the addresses that
+            // show it.
+            AppendHook(text, "0x0040554B", "8B, 0D, F8, 39, 7A, 00",
+                "NativeMovieWindowOpenK1", new[] { "esi" }, new[] { "pointer" });
+            AppendHook(text, "0x00404BB0", "83, EC, 7C, 56, 8B, F1",
+                "NativeMovieWindowCloseK1", new[] { "ecx" }, new[] { "pointer" });
             AppendHook(text, "0x00686BA0", "53, 56, 57, 8B, F1",
-                "UpdateActionBarControlsK1", new[] { "ecx" }, new[] { "pointer" });
-            AppendHook(text, "0x0068B170", "6A, FF, 68, B0, F7, 72, 00",
-                "ClearActionBarControlsK1", new[] { "ecx" }, new[] { "pointer" });
+                "NativeActionBarK1", new[] { "ecx" }, new[] { "pointer" });
+            AppendHook(text, "0x005E271E", "8B, 84, 24, E4, 00, 00, 00",
+                "NativeNoteKeyboardK1", new[] { "eax", "edx" },
+                new[] { "pointer", "int" });
             AppendHook(text, "0x0040C1F6", "89, 1E, 89, 7E, 04",
-                "CancelActionBarKeyboardFocusOnMouseMoveK1",
-                new[] { "esi", "ebx", "edi" }, new[] { "pointer", "int", "int" });
-            // CSWGuiPanel::SetActiveControl. Every focus change in the GUI passes
-            // through it, so this is where a move can be declined instead of
-            // corrected afterwards. 0x0040A638 is past the function's own
-            // `push esi` / `push edi`, so EDI is the panel and ESI the control
-            // about to take focus, and 0x0040A678 -- its `pop edi; pop esi; ret 8`
-            // -- is a stack-correct place to exit early.
-            AppendHook(text, "0x0040A638", "8B, 4F, 1C, 3B, CE",
-                "OnSetActiveControlK1", new[] { "edi", "esi" },
-                new[] { "pointer", "pointer" }, new[] { "eax" }, "0x0040A678");
+                "NativeNoteMouseK1", new[] { "esi", "ebx", "edi" },
+                new[] { "pointer", "int", "int" });
             return text.ToString();
         }
 
         private static void AppendHook(StringBuilder text, string address, string bytes,
             string function, string[] sources, string[] types)
         {
-            AppendHook(text, address, bytes, function, sources, types, null, null);
+            AppendHook(text, address, bytes, function, sources, types, null, null, false);
+        }
+
+        private static void AppendHook(StringBuilder text, string address, string bytes,
+            string function, string[] sources, string[] types,
+            string[] exclude, string consumedExitAddress)
+        {
+            AppendHook(text, address, bytes, function, sources, types,
+                exclude, consumedExitAddress, false);
         }
 
         /// <summary>
@@ -1654,7 +1681,7 @@ namespace Kmrp
         /// </summary>
         private static void AppendHook(StringBuilder text, string address, string bytes,
             string function, string[] sources, string[] types,
-            string[] exclude, string consumedExitAddress)
+            string[] exclude, string consumedExitAddress, bool skipOriginalBytes)
         {
             string[] values = bytes.Split(new[] { ", " }, StringSplitOptions.None);
             text.Append("\r\n[[patches.hooks]]\r\naddress = ").Append(address)
@@ -1665,7 +1692,9 @@ namespace Kmrp
                 if (i > 0) text.Append(", ");
                 text.Append("0x").Append(values[i]);
             }
-            text.Append("]\r\nskip_original_bytes = false\r\nexclude_from_restore = [");
+            text.Append("]\r\nskip_original_bytes = ")
+                .Append(skipOriginalBytes ? "true" : "false")
+                .Append("\r\nexclude_from_restore = [");
             if (exclude != null)
                 for (int i = 0; i < exclude.Length; i++)
                 {
@@ -1730,6 +1759,25 @@ namespace Kmrp
         private const string CommonResourceName = "Kmrp.override.common";
         private const string GuiResourcePrefix = "Kmrp.override.gui.";
         private const string ManifestHeader = "KUIOVERRIDE1";
+
+        /// <summary>Is this texture already provided, under any texture extension?
+        ///
+        /// KOTOR resolves a texture by resref, and prefers .tpc over .tga when both
+        /// exist. So a bundled `icon.tpc` installed next to a player's `icon.tga`
+        /// does not sit harmlessly beside it -- it replaces it. Deferral therefore
+        /// has to look for the resref, not the filename.</summary>
+        private static bool TextureAlreadyPresent(string target)
+        {
+            if (File.Exists(target))
+                return true;
+            string extension = Path.GetExtension(target);
+            if (!".tpc".Equals(extension, StringComparison.OrdinalIgnoreCase)
+                && !".tga".Equals(extension, StringComparison.OrdinalIgnoreCase))
+                return false;
+            string sibling = Path.ChangeExtension(target,
+                ".tpc".Equals(extension, StringComparison.OrdinalIgnoreCase) ? ".tga" : ".tpc");
+            return File.Exists(sibling);
+        }
 
         private static HashSet<string> bundledNames;
 
@@ -1950,9 +1998,16 @@ namespace Kmrp
 
                             // Bundled art yields to a file already there that we did not
                             // put there. Not recorded either, so restore leaves it alone.
+                            //
+                            // The check has to span texture extensions, not just the exact
+                            // name. The bundled item icons ship as .tpc, and the engine
+                            // prefers .tpc over .tga for the same resref -- so testing only
+                            // for our own filename would install ours beside a player's
+                            // K1CP .tga and then silently win over it, which is the exact
+                            // thing this deferral exists to prevent.
                             if (!known.ContainsKey(relative)
                                 && BundledNames().Contains(Path.GetFileName(relative))
-                                && File.Exists(target))
+                                && TextureAlreadyPresent(target))
                             {
                                 deferred++;
                                 completedBytes += entry.Length;

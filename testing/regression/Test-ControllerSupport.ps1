@@ -76,21 +76,25 @@ try {
 
     $configPath = Join-Path $folder "patch_config.toml"
     $config = [IO.File]::ReadAllText($configPath)
-    Assert (($config | Select-String -AllMatches '\[\[patches\.hooks\]\]').Matches.Count -eq 8) "config contains exactly eight detours"
-    Assert (($config | Select-String -AllMatches '\[\[patches\.hooks\.parameters\]\]').Matches.Count -eq 13) "config contains all thirteen hook parameters"
-    python -c "import sys,tomllib; d=tomllib.load(open(sys.argv[1],'rb')); assert len(d['patches'])==1 and len(d['patches'][0]['hooks'])==8" $configPath
+    Assert (($config | Select-String -AllMatches '\[\[patches\.hooks\]\]').Matches.Count -eq 12) "config contains exactly twelve detours"
+    Assert (($config | Select-String -AllMatches '\[\[patches\.hooks\.parameters\]\]').Matches.Count -eq 15) "config contains all fifteen hook parameters"
+    python -c "import sys,tomllib; d=tomllib.load(open(sys.argv[1],'rb')); assert len(d['patches'])==1 and len(d['patches'][0]['hooks'])==12" $configPath
     Assert ($LASTEXITCODE -eq 0) "generated hook config parses as TOML"
 
     $bytes = [IO.File]::ReadAllBytes($game)
     $sites = @(
-        @{ Va = 0x005E271E; Hex = "8B8424E4000000" },
-        @{ Va = 0x006227E0; Hex = "6AFF68E9897200" },
-        @{ Va = 0x004051C3; Hex = "8BC683E81C" },
+        @{ Va = 0x005E24E0; Hex = "6AFF68FD487200" },
+        @{ Va = 0x005E30F6; Hex = "895C242C740F" },
+        @{ Va = 0x00679940; Hex = "D90564D77300" },
+        @{ Va = 0x00679B71; Hex = "E8BA15E3FF" },
+        @{ Va = 0x0040CE70; Hex = "515355568BE9" },
+        @{ Va = 0x006039CF; Hex = "A1E0397A008B4804" },
         @{ Va = 0x00404D96; Hex = "8B46488B4808" },
+        @{ Va = 0x0040554B; Hex = "8B0DF8397A00" },
+        @{ Va = 0x00404BB0; Hex = "83EC7C568BF1" },
         @{ Va = 0x00686BA0; Hex = "5356578BF1" },
-        @{ Va = 0x0068B170; Hex = "6AFF68B0F77200" },
-        @{ Va = 0x0040C1F6; Hex = "891E897E04" },
-        @{ Va = 0x0040A638; Hex = "8B4F1C3BCE" }
+        @{ Va = 0x005E271E; Hex = "8B8424E4000000" },
+        @{ Va = 0x0040C1F6; Hex = "891E897E04" }
     )
     foreach ($site in $sites) {
         $expected = [Convert]::FromHexString($site.Hex)
@@ -108,6 +112,17 @@ try {
     }
 
     Write-Host ""
+    # Controller support DECLINES here; it does not abort the patch.
+    #
+    # This case used to assert the opposite -- exit 1, executable rolled back,
+    # ASI loader rolled back -- and those three assertions outlived the behaviour
+    # they described. ControllerOperations.Install says why it changed: throwing
+    # meant "a user who happened to have a patch_config.toml from any other KPM
+    # mod got no fonts, no GUI archives and no executable patch either, with a
+    # .NET stack trace as the only explanation."
+    #
+    # So the contract under test is now: leave the foreign file alone, claim no
+    # ownership of it, skip the controller -- and still deliver everything else.
     Write-Host "Case 2  an unrelated KPM config is preserved"
     $conflictGame = New-Install "config-conflict"
     $conflictFolder = Split-Path -Parent $conflictGame
@@ -115,11 +130,12 @@ try {
     $sentinel = "# user-owned KPM configuration`r`n"
     [IO.File]::WriteAllText($conflictPath, $sentinel, [Text.UTF8Encoding]::new($false))
     $cleanHash = (Get-FileHash -LiteralPath $conflictGame -Algorithm SHA256).Hash
-    Assert ((Invoke-Patcher @("--in-place", $conflictGame, $Resolution)) -eq 1) "foreign config blocks installation"
+    Assert ((Invoke-Patcher @("--in-place", $conflictGame, $Resolution)) -eq 0) "a foreign config does not abort the patch"
     Assert ([IO.File]::ReadAllText($conflictPath) -eq $sentinel) "foreign config remains byte-for-byte in place"
-    Assert ((Get-FileHash -LiteralPath $conflictGame -Algorithm SHA256).Hash -eq $cleanHash) "failed install rolls the executable back"
-    Assert (-not (Test-Path -LiteralPath (Join-Path $conflictFolder "KMRP_Controller.manifest"))) "failed install claims no controller ownership"
-    Assert (-not (Test-Path -LiteralPath (Join-Path $conflictFolder "KMRP_DriverCompat.manifest"))) "failed install rolls the ASI loader back"
+    Assert ((Get-FileHash -LiteralPath $conflictGame -Algorithm SHA256).Hash -ne $cleanHash) "the rest of the patch still applied to the executable"
+    Assert (Test-Path -LiteralPath (Join-Path $conflictFolder "Override")) "the Override payload still installed"
+    Assert (-not (Test-Path -LiteralPath (Join-Path $conflictFolder "KMRP_Controller.manifest"))) "the skipped install claims no controller ownership"
+    Assert (-not (Test-Path -LiteralPath (Join-Path $conflictFolder "kmrp-controller.module"))) "the controller module was not installed"
 }
 finally {
     if ($settingsExisted) { [IO.File]::WriteAllBytes($settingsPath, $settingsBytes) }

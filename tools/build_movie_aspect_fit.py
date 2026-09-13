@@ -1,5 +1,16 @@
 #!/usr/bin/env python3
-"""Replace KOTOR's width-only Bink scaling with true aspect-fit scaling.
+"""SUPERSEDED by build_movie_letterbox.py -- kept for the v23->v24 record.
+
+This produced gold v24. It fixed the aspect ratio but left the bars it
+created unpainted: BinkBufferOpen is called with the MOVIE's size, and Bink
+draws nothing outside the blit rectangle, so fitting inside the window
+exposed stale framebuffer down both sides -- a grey flash around every
+movie, reported from play. v25 pads the BUFFER to the window aspect instead,
+so the bars are part of the image. The build no longer uses this file.
+
+Original description follows.
+
+Replace KOTOR's width-only Bink scaling with true aspect-fit scaling.
 
 The retail movie loop scales every BIK from the client width. On an ultrawide
 display that enlarges a 4:3 640x480 logo to 3440x2580 and crops 1140 vertical

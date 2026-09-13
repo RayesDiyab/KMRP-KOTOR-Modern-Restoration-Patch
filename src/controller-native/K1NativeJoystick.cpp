@@ -65,6 +65,16 @@ constexpr int K1_SLOT_NONE  = 0x84;   // the "no control" sentinel
 // Device indices. -1 is "any", 0 keyboard, 1 mouse, joysticks upward from 2.
 constexpr int K1_DEVICE_JOYSTICK = 2;
 
+// The per-pad raw state array, which vanilla never allocates because vanilla
+// has no pad. CExoInputInternal+0x140 is the CExoRawInputInternal;
+// CExoRawInputInternal+0x30 is the array base; GetLastState indexes it as
+// base + (deviceIndex - 2) * 0x74 at 0x005E397F-0x005E3985. Four slots is
+// more than the one pad the device count claims, and costs 464 bytes once.
+constexpr std::size_t K1_INPUT_RAW_INPUT      = 0x140;
+constexpr std::size_t K1_RAW_JOYSTICK_STATE   = 0x30;
+constexpr std::size_t K1_RAW_JOYSTICK_STRIDE  = 0x74;
+constexpr int         K1_PAD_STATE_SLOTS      = 4;
+
 // Input classes, matching keymap.2da's IC* columns.
 // The gameplay HUD's bottom-right action bar is driven through Saul0097's
 // existing implementation in vendor/K1XboxControls.cpp, which calls the engine's
@@ -358,6 +368,36 @@ constexpr std::uintptr_t K1_GET_IN_FREE_LOOK    = 0x005EE230;  // CClientExoApp:
 constexpr std::uintptr_t K1_MOVIE_PLAYER_PTR   = 0x007A3CF4;
 constexpr std::uintptr_t K1_CANCEL_MOVIE       = 0x00404C40;
 
+// The two fields CancelMovie's own guard reads before it will cancel anything.
+// They have to be tested HERE as well, because the call is not side-effect free
+// when the guard fails -- see NativeMovieFrameK1.
+constexpr std::size_t K1_MOVIE_PLAYING     = 0x30;   // CExoMoviePlayerInternal::movie_playing
+constexpr std::size_t K1_MOVIE_ENTRY_SKIPPABLE = 0x9C;   // skippable_flags[current entry]
+
+// Movie geometry, for diagnosing the crash reported from play: a vision movie
+// that rendered zoomed, ended on a black frame with only the HUD, and died.
+//
+// The engine sizes the picture at 0x004057AC, which KMRP replaces with the
+// aspect-fit stub in .kmv. Vanilla derives the height from the requested width
+// and the movie's aspect and never checks it against the window, which is the
+// zoom bug the stub exists to fix. The stub instead picks its own target
+// rectangle, and then the untouched tail at 0x0040581F-0x0040582C turns the
+// result into the blit offsets:
+//
+//   00405819  mov [esi+0x84], eax    ; horizontal offset
+//   0040582C  mov [esi+0x88], eax    ; vertical offset
+//   00405867  call BinkBufferSetOffset
+//
+// Both are (window - picture)/2, so a picture computed LARGER than the window
+// makes them negative and Bink blits outside its buffer. That is the shape of
+// the reported failure, so these are what to measure. Read rather than assumed:
+// this logs the engine's own numbers on the first frame of every movie.
+constexpr std::size_t K1_MOVIE_INFO            = 0x48;   // -> {width, height}
+constexpr std::size_t K1_MOVIE_WINDOW          = 0x50;   // the HWND Bink blits to
+
+constexpr std::size_t K1_MOVIE_OFFSET_X        = 0x84;
+constexpr std::size_t K1_MOVIE_OFFSET_Y        = 0x88;
+
 // A and Start only. Both are conventional "skip" buttons and neither means
 // anything else while a movie is on screen. B and LB are equally safe -- nothing
 // else consumes them here -- but binding four buttons to one action makes an
@@ -559,7 +599,11 @@ struct StickState {
     unsigned long recordsEmitted = 0;
     unsigned long movementCalls = 0;
     unsigned long overrideFrames = 0;
+    unsigned long inputRebuilds = 0;        // times the engine replaced CExoInputInternal
+    unsigned long classRetriesTaken = 0;    // per-class registrations won on retry
+    unsigned long deviceCountDeferred = 0;  // frames the pad was withheld from the engine
     unsigned long deviceCountRestored = 0;  // times the count had dropped
+    unsigned long padStateAllocated = 0;    // times the raw pad state was created
     float         rawMagnitude = 0.0f;      // straight from XInput, 0..1
     float         analogMagnitude = 0.0f;   // post-deadzone, 0 when not driving
     unsigned long lastBufferTick = 0;
@@ -606,10 +650,86 @@ bool ReadPadAxes(std::int32_t& x, std::int32_t& y, std::uint16_t& buttons,
 
 // ------------------------------------------------------------- registration
 
+// Is one of our event descriptions still present on this input object?
+//
+// Comparing the object POINTER is not enough. The engine destroys
+// CExoInputInternal around a movie and builds a new one, and the allocator is
+// free to hand back the same address for a same-sized block -- in which case a
+// pointer test reports "already registered", registration is skipped, and the
+// new object carries none of this module's events. That looks like the pad
+// half-dying rather than crashing, which is exactly how it presented: the crash
+// went away and the triggers stopped.
+//
+// So ask the object instead. [input+0x128] is the description table indexed by
+// event id -- the same table AddEvent reads at 0x005E0FB3/0x005E0FBD -- and
+// [input+0x12C] is its length. A null slot for an event we registered means our
+// registration is gone, whatever the pointer says.
+constexpr std::size_t K1_INPUT_EVENT_TABLE = 0x128;
+constexpr std::size_t K1_INPUT_EVENT_COUNT = 0x12C;
+
+bool DescriptionPresentK1(void* input, int eventId)
+{
+    const std::uintptr_t base = reinterpret_cast<std::uintptr_t>(input);
+    if (base < 0x00010000u || base > 0xFFFF0000u) {
+        return false;
+    }
+    auto* const bytes = static_cast<std::uint8_t*>(input);
+    void** const table =
+        *reinterpret_cast<void***>(bytes + K1_INPUT_EVENT_TABLE);
+    const std::int32_t count =
+        *reinterpret_cast<std::int32_t*>(bytes + K1_INPUT_EVENT_COUNT);
+    const std::uintptr_t tableAddress = reinterpret_cast<std::uintptr_t>(table);
+    if (tableAddress < 0x00010000u || tableAddress > 0xFFFF0000u) {
+        return false;
+    }
+    if (eventId < 0 || eventId >= count) {
+        return false;
+    }
+    return table[eventId] != nullptr;
+}
+
 void EnsureNativeJoystickK1(void* exoInputInternal)
 {
-    if (!exoInputInternal || g_stick.registered) {
+    if (!exoInputInternal) {
         return;
+    }
+    // Re-register whenever the engine hands us a DIFFERENT object, not once per
+    // process. Measured: playing a movie destroys CExoInputInternal and builds a
+    // new one --
+    //
+    //   JOYINIT call=1   input=03F03E60 cached=00000000 registered=0
+    //   JOYINIT call=508 input=18F5D008 cached=03F03E60 registered=1
+    //
+    // -- with the old object's six per-class bitmaps freed in between (CLSREC
+    // showed all six ptr=00000000 with their sizes left stale, which is a
+    // destructor, not the array's own Resize(0) at 0x00405150: that one zeroes
+    // the counts too).
+    //
+    // A latch on `registered` alone made this function return early on the new
+    // object, so g_stick.input went on pointing at freed memory. Two failures
+    // followed from that one line: EnsureDeviceCountK1 wrote the device count
+    // into the freed block once a frame, and every event this module registers
+    // stayed on the dead object while the live one had none -- which is why the
+    // pad went dead after a movie, and why the engine's own state query at
+    // 0x005E0DFB eventually read through a corrupted heap.
+    if (g_stick.registered && exoInputInternal == g_stick.input &&
+        DescriptionPresentK1(exoInputInternal, K1_EVENT_JOY_X)) {
+        return;                     // our events are still live on this object
+    }
+    if (g_stick.input != exoInputInternal ||
+        !DescriptionPresentK1(exoInputInternal, K1_EVENT_JOY_X)) {
+        // A rebuild. Drop every cached fact about the old object before
+        // touching the new one; none of it describes the new object, and the
+        // old pointer must not be read or written again.
+        g_stick.registered = false;
+        g_stick.initialised = false;
+        for (int cls = 0; cls < 6; ++cls) {
+            g_stick.addResult[cls] = 0;
+        }
+        g_stick.lastButtons = 0;
+        g_stick.lastTriggers = 0;
+        g_stick.dpadEmitted = 0;
+        ++g_stick.inputRebuilds;
     }
     g_stick.input = exoInputInternal;
 
@@ -619,10 +739,18 @@ void EnsureNativeJoystickK1(void* exoInputInternal)
     // CreateNewEvent(eventId, descType, device, controlSlot, secondControlSlot).
     // Returns 0 when the event id is already taken, which is why the ids above
     // come from the unregistered console range.
-    const bool madeX = createEvent(exoInputInternal, K1_EVENT_JOY_X, K1_DESC_ANALOG,
-                                   K1_DEVICE_JOYSTICK, K1_SLOT_JOY_X, K1_SLOT_NONE) != 0;
-    const bool madeY = createEvent(exoInputInternal, K1_EVENT_JOY_Y, K1_DESC_ANALOG,
-                                   K1_DEVICE_JOYSTICK, K1_SLOT_JOY_Y, K1_SLOT_NONE) != 0;
+    // `|| DescriptionPresentK1` because CreateNewEvent returns 0 both when the
+    // id is genuinely unusable and when the description already exists. Only the
+    // first is a failure. Without this, re-registering an object that kept some
+    // of our descriptions would bail here and leave the pad half-bound.
+    const bool madeX =
+        createEvent(exoInputInternal, K1_EVENT_JOY_X, K1_DESC_ANALOG,
+                    K1_DEVICE_JOYSTICK, K1_SLOT_JOY_X, K1_SLOT_NONE) != 0 ||
+        DescriptionPresentK1(exoInputInternal, K1_EVENT_JOY_X);
+    const bool madeY =
+        createEvent(exoInputInternal, K1_EVENT_JOY_Y, K1_DESC_ANALOG,
+                    K1_DEVICE_JOYSTICK, K1_SLOT_JOY_Y, K1_SLOT_NONE) != 0 ||
+        DescriptionPresentK1(exoInputInternal, K1_EVENT_JOY_Y);
     ++g_stick.initCalls;
     if (!madeX || !madeY) {
         g_stick.createFailed = true;
@@ -657,8 +785,9 @@ void EnsureNativeJoystickK1(void* exoInputInternal)
     for (int b = 0; b < K1_BUTTON_COUNT; ++b) {
         const ButtonBinding& binding = K1_BUTTONS[b];
         if (createEvent(exoInputInternal, binding.event, K1_DESC_DIGITAL,
-                        K1_DEVICE_JOYSTICK, binding.slot, K1_SLOT_NONE) == 0) {
-            continue;               // id already taken; leave it alone
+                        K1_DEVICE_JOYSTICK, binding.slot, K1_SLOT_NONE) == 0 &&
+            !DescriptionPresentK1(exoInputInternal, binding.event)) {
+            continue;               // genuinely unusable; leave it alone
         }
         addEvent(exoInputInternal, binding.event, K1_CLASS_PCGUI);
         addEvent(exoInputInternal, binding.event, K1_CLASS_PC);
@@ -668,7 +797,8 @@ void EnsureNativeJoystickK1(void* exoInputInternal)
     for (int r = 0; r < K1_TRIGGER_COUNT; ++r) {
         const ButtonBinding& binding = K1_TRIGGERS[r];
         if (createEvent(exoInputInternal, binding.event, K1_DESC_DIGITAL,
-                        K1_DEVICE_JOYSTICK, binding.slot, K1_SLOT_NONE) == 0) {
+                        K1_DEVICE_JOYSTICK, binding.slot, K1_SLOT_NONE) == 0 &&
+            !DescriptionPresentK1(exoInputInternal, binding.event)) {
             continue;
         }
         addEvent(exoInputInternal, binding.event, K1_CLASS_PCGUI);
@@ -679,7 +809,8 @@ void EnsureNativeJoystickK1(void* exoInputInternal)
     for (int d = 0; d < K1_DPAD_COUNT; ++d) {
         const ButtonBinding& binding = K1_DPAD[d];
         if (createEvent(exoInputInternal, binding.event, K1_DESC_DIGITAL,
-                        K1_DEVICE_JOYSTICK, binding.slot, K1_SLOT_NONE) == 0) {
+                        K1_DEVICE_JOYSTICK, binding.slot, K1_SLOT_NONE) == 0 &&
+            !DescriptionPresentK1(exoInputInternal, binding.event)) {
             continue;
         }
         addEvent(exoInputInternal, binding.event, K1_CLASS_PCGUI);
@@ -813,6 +944,7 @@ bool LooksLikePointerK1(const void* p);
 void* ClientInternalK1();
 int InputClassK1();
 void EnsureDeviceCountK1();
+void EnsurePadStateK1();
 void UpdateStickNavigationK1(float x, float y);
 void RequestNavigationK1(int dx, int dy, bool edge, bool fromDpad);
 // ------------------------------------------------------------- record filling
@@ -1259,9 +1391,138 @@ struct MovieStateK1 {
     bool          armed = false;      // a release has been seen since it started
     unsigned long skips = 0;          // cancels actually issued
     unsigned long frames = 0;         // loop iterations observed
+    unsigned long refused = 0;        // presses on a movie that may not be skipped
+    unsigned long windowsPainted = 0;   // black-filled windows, one per entry
+    bool          classBlackened = false;  // SWMovieWindow has a brush now
+    // The last geometry logged. PlayMovieList loops over its entries reusing one
+    // player object, so keying the log on the player alone logs the first entry
+    // of a playlist and silently skips the rest -- which is how the first run of
+    // this probe measured three startup logos and missed the movie under
+    // investigation entirely. Geometry is recomputed per entry, so watch that.
+    std::int32_t lastW = -1, lastH = -1, lastOffX = -1, lastOffY = -1;
 };
 
 MovieStateK1 g_movie;
+
+// Make the movie window black, and keep it black.
+//
+// The grey flash before and after a movie is the window CLASS, and the Ghidra
+// archive says so outright. CExoMoviePlayerInternal::InitializeMovie registers
+// "SWMovieWindow" at 0x004053E0, and the WNDCLASSA it fills in leaves
+// hbrBackground NULL:
+//
+//   0040545C  mov dword ptr [esp+0x4c], ebx   ; ebx is 0 here -- no brush
+//   00405464  mov dword ptr [esp+0x54], 0x73d7fc   ; "SWMovieWindow"
+//
+// Its window procedure at 0x00405190 handles WM_ACTIVATEAPP, WM_KEYDOWN,
+// WM_SYSKEYDOWN and the mouse messages and hands everything else to
+// DefWindowProc, so WM_ERASEBKGND is never handled either -- and with a NULL
+// brush DefWindowProc erases nothing. The window is created WS_POPUP |
+// WS_VISIBLE over the whole screen at 0x00405536, so from that moment until
+// Bink's first blit, and again from the last blit until DestroyWindow in
+// ShutDown at 0x00404C01, what is on screen is whatever was already in that
+// memory. That is the flash, and it is grey because nothing ever painted it.
+//
+// The main game window does not have this problem: InitOpenGLWindow asks for
+// GetStockObject(4) -- BLACK_BRUSH -- at 0x00403779. The movie window is the
+// one class BioWare left without one.
+//
+// So give the class a brush. That is the whole fix rather than a patch over it:
+// the class is registered once, on the first movie of the session, and every
+// movie window afterwards is created with it. The FillRect is for the window
+// that already exists by the time this first runs, since a class brush only
+// affects the next erase.
+//
+// A stock brush is process-wide, is never deleted, and may be handed to a
+// window class safely even though the class outlives every window on it.
+void BlackenMovieWindowK1(void* player)
+{
+    if (!LooksLikePointerK1(player)) {
+        return;
+    }
+    HWND const window = *FieldAt<HWND>(player, K1_MOVIE_WINDOW);
+    if (!IsWindow(window)) {
+        return;
+    }
+    HBRUSH const black = static_cast<HBRUSH>(GetStockObject(BLACK_BRUSH));
+    if (!g_movie.classBlackened) {
+        SetClassLongPtrA(window, GCLP_HBRBACKGROUND,
+                         reinterpret_cast<LONG_PTR>(black));
+        g_movie.classBlackened = true;
+    }
+    HDC const dc = GetDC(window);
+    if (!dc) {
+        return;
+    }
+    RECT client;
+    if (GetClientRect(window, &client)) {
+        FillRect(dc, &client, black);
+        ++g_movie.windowsPainted;
+    }
+    ReleaseDC(window, dc);
+}
+
+// The movie window has just been created, inside InitializeMovie and before the
+// message pump has had a chance to show anything. This is the earliest point the
+// handle exists -- CreateWindowExA returns at 0x00405536 and the handle is
+// stored to player+0x50 immediately after.
+extern "C" void __cdecl NativeMovieWindowOpenK1(void* player)
+{
+    g_movie.lastW = -1;                // a fresh window: repaint on frame one
+    BlackenMovieWindowK1(player);
+}
+
+// CExoMoviePlayerInternal::ShutDown, before it closes the Bink buffer and
+// destroys the window. Bink has stopped drawing by now, so without this the
+// window shows its last frame or nothing at all until it goes away.
+extern "C" void __cdecl NativeMovieWindowCloseK1(void* player)
+{
+    BlackenMovieWindowK1(player);
+}
+
+// Has this playlist entry's geometry changed since the last frame?
+//
+// PlayMovieList loops over its entries reusing one player object and recomputes
+// the picture size per entry, so this is the only edge that says "a new movie
+// just started" from inside the playback loop. Both the surface clear and the
+// aspect-fit checks hang off it.
+void PaintMovieWindowK1(void* player)
+{
+    const void* const info = *FieldAt<void*>(player, K1_MOVIE_INFO);
+    if (!LooksLikePointerK1(info)) {
+        return;
+    }
+    const std::int32_t movieW = *FieldAt<std::int32_t>(const_cast<void*>(info), 0);
+    const std::int32_t movieH = *FieldAt<std::int32_t>(const_cast<void*>(info), 4);
+    const std::int32_t offX = *FieldAt<std::int32_t>(player, K1_MOVIE_OFFSET_X);
+    const std::int32_t offY = *FieldAt<std::int32_t>(player, K1_MOVIE_OFFSET_Y);
+    if (movieW == g_movie.lastW && movieH == g_movie.lastH &&
+        offX == g_movie.lastOffX && offY == g_movie.lastOffY) {
+        return;                        // same entry still playing
+    }
+    g_movie.lastW = movieW;
+    g_movie.lastH = movieH;
+    g_movie.lastOffX = offX;
+    g_movie.lastOffY = offY;
+
+    // Black the WINDOW, not the Bink buffer.
+    //
+    // Two earlier attempts got this wrong and both are worth remembering:
+    //
+    //   * Clearing the Bink buffer does nothing. The buffer is allocated at the
+    //     MOVIE's size, so it holds only pixels BinkCopyToBuffer rewrites every
+    //     frame. The bars are screen OUTSIDE the blit, which the buffer cannot
+    //     reach.
+    //   * Padding the buffer to the window's aspect and centring the picture
+    //     inside it broke playback outright. The engine blits dirty rectangles
+    //     from BinkGetRects, and those are in the movie's coordinate space --
+    //     so offsetting the picture desynced the blit from it, and the intro
+    //     logos rendered with only their left portion on screen.
+    //
+    // The bars are unpainted window, and so is the flash at either end. Both
+    // are the same defect, so both get the same answer.
+    BlackenMovieWindowK1(player);
+}
 
 // One iteration of CExoMoviePlayerInternal::PlayMovieLoop, with esi holding the
 // player. This is the only place a controller can be read during a movie.
@@ -1283,7 +1544,13 @@ extern "C" void __cdecl NativeMovieFrameK1(void* moviePlayer)
     if (moviePlayer != g_movie.player) {
         g_movie.player = moviePlayer;  // a different movie: start again
         g_movie.armed = false;
+        g_movie.lastW = -1;            // a new player: report its first entry
     }
+    // Every frame, not just on a new player: the function itself suppresses
+    // repeats, and only a per-frame check catches the second and later entries
+    // of a playlist. Before the pad is read, so a movie is measured whether or
+    // not a controller is connected.
+    PaintMovieWindowK1(moviePlayer);
 
     std::int32_t x = 0, y = 0, rx = 0, ry = 0;
     std::uint16_t buttons = 0;
@@ -1303,6 +1570,25 @@ extern "C" void __cdecl NativeMovieFrameK1(void* moviePlayer)
         return;
     }
     g_movie.armed = false;             // one press, one skip
+
+    // Only call it when the engine would actually cancel. CancelMovie is NOT
+    // side-effect free when its own guard fails:
+    //
+    //   00404C4D  cmp dword ptr [ecx+0x30], 1
+    //   00404C50  jne 0x00404C69          ; "not cancellable"
+    //   00404C69  mov dword ptr [ecx+0x18], arg1   <-- still writes
+    //
+    // Both branches write [player+0x18], which is what the code after the movie
+    // loop reads. So pressing skip during a story movie that may not be skipped
+    // left the movie running and quietly zeroed its result, and the game came
+    // back from the vision to a black screen with only the HUD, and then died.
+    // Reported from play, and the reason this guard exists.
+    const int cancellable = *FieldAt<int>(moviePlayer, K1_MOVIE_PLAYING);
+    void* const ready = *FieldAt<void*>(moviePlayer, K1_MOVIE_ENTRY_SKIPPABLE);
+    if (cancellable != 1 || ready == nullptr) {
+        ++g_movie.refused;             // not skippable: leave it entirely alone
+        return;
+    }
     EngineFn<CancelMovieFn>(K1_CANCEL_MOVIE)(moviePlayer, 0, 0);
     ++g_movie.skips;
 }
@@ -2708,6 +2994,54 @@ void PerformPendingInteractionK1()
 // The likely trigger is a device re-enumeration -- plugging a controller in
 // after launch is the obvious one -- so the count has to be re-asserted rather
 // than set once. It is two instructions on a frame that already runs.
+// Measured, not assumed: classes 0 (ICPC) and 4 (ICFreeLook) reject the two
+// analog axis events permanently -- add=[0 3 3 3 0 3] in every log, and retrying
+// every frame for a whole session won none of them back. That is NOT a fault and
+// not the cause of the 0x005E0DFB crash: gameplay movement does not come from
+// those descriptions at all, it comes from the movement hook, which is why the
+// pad has always worked in gameplay despite class 0 refusing them.
+//
+// Gating the device count on those classes was tried and was wrong. It withheld
+// the pad for an entire session (cls=0/1024) and the crash still happened, so
+// polling unregistered per-class state is not the mechanism.
+// Raising the device count claims a pad exists. This is the other half of that
+// claim: the pad's raw state block, which DirectInput never created because
+// there is no DirectInput pad.
+//
+// CExoRawInputInternal::GetLastState computes
+// [rawInput+0x30] + (deviceIndex - 2) * 0x74 and dereferences it. With the base
+// NULL that is a null read, and it is what crashed the game the moment R3
+// entered free look -- measured at 0x005E399B with eax = 0, called from
+// GetEvents at 0x005E2968 with (2, 0), offset 0 being DIJOFS_X.
+//
+// Free look reaches it because vanilla registers the analog stick events in ICPC
+// and ICFreeLook only, and the free-look enter handler calls
+// CExoInput::ClearEvents, which empties the buffered records the pad normally
+// speaks through -- so the poll falls back to raw state.
+//
+// Allocated with the engine's own operator new, as the record buffers are, so a
+// future engine free of this pointer is legal. Only when the slot is null: a
+// real DirectInput joystick would have its own block and must keep it.
+void EnsurePadStateK1()
+{
+    void* const raw = *FieldAt<void*>(g_stick.input, K1_INPUT_RAW_INPUT);
+    if (!LooksLikePointerK1(raw)) {
+        return;
+    }
+    void** const slot = FieldAt<void*>(raw, K1_RAW_JOYSTICK_STATE);
+    if (*slot != nullptr) {
+        return;                     // the engine owns one; leave it alone
+    }
+    const std::size_t bytes = K1_RAW_JOYSTICK_STRIDE * K1_PAD_STATE_SLOTS;
+    void* const block = EngineFn<OperatorNewFn>(K1_OPERATOR_NEW)(bytes);
+    if (!block) {
+        return;
+    }
+    std::memset(block, 0, bytes);   // centred axes, nothing pressed
+    *slot = block;
+    ++g_stick.padStateAllocated;
+}
+
 void EnsureDeviceCountK1()
 {
     if (!g_stick.input) {
@@ -2718,6 +3052,7 @@ void EnsureDeviceCountK1()
         *count = K1_DEVICE_JOYSTICK + 1;
         ++g_stick.deviceCountRestored;
     }
+    EnsurePadStateK1();
 }
 
 // Is the analog stick the thing driving movement right now?
@@ -2879,7 +3214,20 @@ extern "C" void __cdecl NativeJoystickDumpK1()
         liveCount = *IntAt(g_stick.input, K1_INPUT_DEVICE_COUNT);
     }
 
-    char line[512];
+    // 2048, not 512, and the size is load-bearing.
+    //
+    // wsprintfA does no bounds checking. This line had grown to 521 bytes
+    // in a 512-byte array -- 409 of the lines in one session's log were
+    // already past 500 -- and the nine bytes over the end tripped /GS on
+    // return: int 0x29 with ecx=2, FAST_FAIL_STACK_COOKIE_CHECK_FAILURE.
+    // The game froze on loading a save, because the counters have to grow
+    // wide before the line is long enough to overrun.
+    //
+    // wsprintfA will not emit more than 1024 bytes including the null, so
+    // 2048 cannot be overrun however many fields are added later. Anything
+    // added here still has to respect that 1024-byte ceiling or the line
+    // will simply be truncated.
+    char line[2048];
     const int written = wsprintfA(
         line,
         "reg=%d createFail=%d count=%ld init=%lu buf=%lu rec=%lu mov=%lu ovr=%lu "
@@ -2916,9 +3264,9 @@ extern "C" void __cdecl NativeJoystickDumpK1()
         // last stored, how often the bridge ran, wrote, and bailed on its
         // deadzone, and the delta it added versus the field's value straight
         // after. cam* are x100.
-        "ovr=%d rmag=%ld amag=%ld dz=%ld dcr=%lu "
+        "ovr=%d rmag=%ld amag=%ld dz=%ld dcr=%lu cls=%lu/%lu reb=%lu "
         "rx=%ld ry=%ld camrun=%lu camwr=%lu camdz=%lu camapp=%ld camcls=%lu camown=%lu "
-        "nav=%lu/%lu hud=%lu/%lu/%lu/%08lX/%d pad=%lu prm=%lu dsc=%lu gui=%lu tab=%lu/%lu/%lu/%lu tabin=%d mve=%lu/%lu move=%d->%d dir=%d\r\n",
+        "nav=%lu/%lu hud=%lu/%lu/%lu/%08lX/%d pad=%lu prm=%lu dsc=%lu gui=%lu tab=%lu/%lu/%lu/%lu tabin=%d mve=%lu/%lu/%lu move=%d->%d dir=%d\r\n",
         g_stick.registered ? 1 : 0, g_stick.createFailed ? 1 : 0, liveCount,
         g_stick.initCalls, g_stick.bufferCalls, g_stick.recordsEmitted,
         g_stick.movementCalls, g_stick.overrideFrames,
@@ -2953,6 +3301,8 @@ extern "C" void __cdecl NativeJoystickDumpK1()
         static_cast<long>(g_stick.analogMagnitude * 1000.0f),
         static_cast<long>(K1_STICK_DEADZONE * 1000.0f),
         g_stick.deviceCountRestored,
+        g_stick.classRetriesTaken, g_stick.deviceCountDeferred,
+        g_stick.inputRebuilds,
         static_cast<long>(g_stick.rightX), static_cast<long>(g_stick.rightY),
         g_stick.cameraFeedCalls, g_stick.cameraWrites, g_stick.cameraBelowDeadzone,
         static_cast<long>(g_stick.cameraApplied * 100.0f),
@@ -2965,7 +3315,7 @@ extern "C" void __cdecl NativeJoystickDumpK1()
         g_tabNav.entered, g_tabNav.returned, g_tabNav.activated,
         g_tabNav.dispatched,
         g_tabNav.inContent ? 1 : 0,
-        g_movie.frames, g_movie.skips,
+        g_movie.frames, g_movie.skips, g_movie.refused,
         g_stick.navFromY, g_stick.navToY, g_stick.navDir);
 
     HANDLE file = CreateFileA("kmrp-native-joystick.log", FILE_APPEND_DATA,

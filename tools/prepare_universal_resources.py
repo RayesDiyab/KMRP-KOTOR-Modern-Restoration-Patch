@@ -4,8 +4,10 @@
 from __future__ import annotations
 
 import argparse
+import io
 import json
 import shutil
+import struct
 import tempfile
 import zipfile
 from pathlib import Path
@@ -179,6 +181,70 @@ GOLD_GEOMETRY_EXCLUDED = {
 }
 
 
+def compress_bundled_icons(files: list[Path], staging: Path) -> list[Path]:
+    """Return `files` with every 192x192 icon replaced by a DXT5 TPC of itself.
+
+    The HD icon pack ships 192x192 uncompressed 32-bit TGA -- 144 KB an icon,
+    against about 15 KB for the 64x64 DXT5 TPC the game itself ships, so 9.5x
+    the bytes of vanilla. The Inventory and Equipment screens draw dozens at
+    once, which is why those two screens, and only those two, stall and flash
+    when switched between quickly.
+
+    DXT5 at the same 192x192 is 4.0x smaller with no loss of resolution, leaving
+    the pack at 2.4x vanilla instead of 9.5x. Size is deliberately NOT reduced:
+    `equip.gui` draws item icons through controls whose EXTENT is exactly
+    192x192, so anything smaller blurs every equipment slot. DXT5 rather than
+    DXT1 because 58% of a sample of these icons carry gradient alpha, which
+    DXT1 cannot store -- one bit is all it has, and the difference measured
+    36.3 dB against 26.5 dB.
+
+    Anything that is not 192x192 passes through untouched.
+    """
+    try:
+        from PIL import Image
+    except ImportError:
+        print("  Pillow unavailable; shipping the icons uncompressed")
+        return files
+
+    staging.mkdir(parents=True, exist_ok=True)
+    result: list[Path] = []
+    converted = before = after = 0
+    for path in files:
+        head = path.read_bytes()[:18]
+        width, height = struct.unpack_from("<HH", head, 12)
+        if (width, height) != (192, 192):
+            result.append(path)
+            continue
+        # TPC stores its rows bottom-up, the same way these source TGAs do
+        # (descriptor 0x08, bottom-left origin). Pillow hands back top-down
+        # pixels, so writing them straight out produces a texture the engine
+        # draws upside down -- confirmed by decoding the stock
+        # ia_class4_001.tpc and comparing: mine scored 9.35 flipped against
+        # 12.73 as-is. Reported from play as "all the inventory items are
+        # upside down".
+        with Image.open(path) as source:
+            upright = source.convert("RGBA").transpose(Image.FLIP_TOP_BOTTOM)
+            buffer = io.BytesIO()
+            upright.save(buffer, format="DDS", pixel_format="DXT5")
+        payload = buffer.getvalue()[128:]
+        # The stock TPC layout: 128-byte header, the blocks, then a TXI.
+        # `mipmap 0` is what the stock GUI textures carry; without it the engine
+        # mips art that is only ever drawn at 1:1.
+        header = struct.pack("<IfHHBB", len(payload), 1.0, width, height, 4, 1)
+        blob = header + b"\x00" * (128 - len(header)) + payload + b"mipmap 0\n"
+        target = staging / (path.stem + ".tpc")
+        target.write_bytes(blob)
+        before += path.stat().st_size
+        after += len(blob)
+        converted += 1
+        result.append(target)
+    if converted:
+        print(f"  compressed {converted} icons to DXT5 TPC: "
+              f"{before/1048576:.1f} MB -> {after/1048576:.1f} MB "
+              f"({before/after:.1f}x)")
+    return result
+
+
 def write_zip(output: Path, files: list[Path]) -> None:
     with zipfile.ZipFile(output, "w", zipfile.ZIP_DEFLATED, compresslevel=9, allowZip64=True) as archive:
         for path in sorted(files, key=lambda item: item.name.lower()):
@@ -238,9 +304,13 @@ def main() -> int:
     if missing:
         raise ValueError(f"Geometry is missing for: {', '.join(missing)}")
 
+    # 239, not 240: `lbl_equip - Copy.tga` was a stray duplicate of lbl_equip.tga
+    # that no GUI referenced and nothing in the tree named. It shipped 15.7 MB of
+    # dead weight to every install and was counted here as though it were ours.
+    # This assertion caught its removal, which is what it is for.
     tga_files = list(args.gold_override.glob("*.tga"))
-    if len(tga_files) != 240:
-        raise ValueError(f"Expected 240 shared TGA assets, found {len(tga_files)}")
+    if len(tga_files) != 239:
+        raise ValueError(f"Expected 239 shared TGA assets, found {len(tga_files)}")
     # lbl_mileftbot.tga (the top-right button-row background art) is generated
     # per resolution below and shipped in each resolution's GUI archive instead
     # of here: its 8 pre-drawn boxes have to match that resolution's own button
@@ -302,6 +372,7 @@ def main() -> int:
         # ours, and OverrideOperations backs up whatever they displace, so a restore
         # puts the player's own files back.
         bundled = []
+        icon_staging = tempfile.mkdtemp(prefix="kmrp-icons-")
         seen = {path.name.lower(): "KMRP shared art" for path in common_tga_files}
         for source in args.bundled_override:
             if not source.is_dir():
@@ -318,6 +389,7 @@ def main() -> int:
                     raise ValueError(f"{path.name} appears in both {seen[key]} "
                                      f"and {source.name}")
                 seen[key] = source.name
+            files = compress_bundled_icons(files, Path(icon_staging))
             bundled.extend(files)
             # A mod whose files sit in its own Override/ subfolder would otherwise
             # report as "Override", which names nothing.
@@ -327,6 +399,7 @@ def main() -> int:
 
         write_zip(args.output / "override-common.zip",
                   common_tga_files + hd_font_atlases + stock_atlases + shared_data + bundled)
+        shutil.rmtree(icon_staging, ignore_errors=True)
 
         # The names of the bundled art, so the installer can tell it apart from our
         # own files and defer to whatever is already in Override. K1CP, for one,

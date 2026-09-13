@@ -256,10 +256,21 @@ $compilerArgs = @(
     "/resource:$(Join-Path $projectRoot 'third_party\Included\k1-modern-driver-compatibility-1.2.0 by Synchro\k1-modern-driver-compatibility.asi'),Kmrp.drivercompat.asi",
     "/resource:$(Join-Path $projectRoot 'third_party\Included\k1-modern-driver-compatibility-1.2.0 by Synchro\LICENSE'),Kmrp.license.drivercompat"
     # Optional controller support: a statically linked build of KPM's MIT runtime
-    # plus Saul0097's author-approved XInput controller module. The runtime is an
-    # ASI loaded by the driver-compatibility component's existing proxy.
+    # plus KMRP's controller module. The runtime is an ASI loaded by the
+    # driver-compatibility component's existing proxy.
+    #
+    # The module comes from src/controller-native/, which is what build.cmd there
+    # produces: KMRP's native path plus Saul0097's author-approved sources as
+    # modified by KMRP (vendor/, MIT; see THIRD_PARTY_NOTICES.md).
+    #
+    # It used to come from third_party/Included/ instead -- Saul's original
+    # binary, 14 exports, none of them native. The patcher therefore shipped the
+    # legacy path only, while every native hook existed solely in developer
+    # installs that were updated by hand. The two paths share hook addresses
+    # (0x005E271E, 0x0040C1F6, 0x00686BA0, 0x00404D96), so this is a swap, not an
+    # addition: BuildConfig in KmrpPatcher.cs emits the native table to match.
     "/resource:$(Join-Path $projectRoot 'third_party\Included\KPM-Xbox-Controls-K1-1.2 by Saul0097\kmrp-controller-runtime.asi'),Kmrp.controller.runtime"
-    "/resource:$(Join-Path $projectRoot 'third_party\Included\KPM-Xbox-Controls-K1-1.2 by Saul0097\kmrp-controller.module'),Kmrp.controller.module"
+    "/resource:$(Join-Path $projectRoot 'src\controller-native\kmrp-controller.module'),Kmrp.controller.module"
 )
 
 # Hand-supplied UI icons are optional: step icons fall back to vector glyphs,

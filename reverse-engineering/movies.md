@@ -126,6 +126,84 @@ The intended full sequence from the 2016 guide is
 with the two `mov imm32` instructions above. KMRP uses fixed, verified addresses
 and checks the full 32-bit values instead of accepting a short pattern.
 
+## The grey flash is the window class
+
+**Kind: confirmed static reconstruction, from the Ghidra archive; playtest pending.**
+
+Players see a grey flash immediately before a movie starts and again immediately
+after it ends, and grey bars beside a movie narrower than the screen. All three
+are the same defect, and none of them is a Bink problem.
+
+`CExoMoviePlayerInternal::InitializeMovie` at `0x004053E0` registers its own
+window class and fills in the `WNDCLASSA` by hand:
+
+```asm
+00405429  mov dword ptr [esp+38], 00405190   ; lpfnWndProc
+00405439  mov dword ptr [esp+44], eax        ; hInstance
+0040545C  mov dword ptr [esp+4c], ebx        ; hbrBackground -- EBX is 0 here
+00405464  mov dword ptr [esp+54], 0073d7fc   ; "SWMovieWindow"
+0040546C  call dword ptr [0073d41c]          ; RegisterClassA
+```
+
+`hbrBackground` is **NULL**. The window procedure at `0x00405190` dispatches
+`WM_ACTIVATEAPP`, `WM_KEYDOWN`, `WM_SYSKEYDOWN` and the mouse messages and hands
+everything else to `DefWindowProc`, so `WM_ERASEBKGND` is never handled there
+either -- and `DefWindowProc` with a NULL class brush erases nothing at all.
+
+The window is then created full-screen and already visible:
+
+```asm
+00405521  push 90000000                      ; WS_POPUP | WS_VISIBLE
+00405526  push 0073d7e4                      ; "SW Movie Player Window"
+0040552B  push 0073d7fc                      ; "SWMovieWindow"
+00405536  call dword ptr [0073d410]          ; CreateWindowExA
+0040553C  mov dword ptr [esi+50], eax
+```
+
+So from the moment that window appears until Bink's first blit, and again from
+the last blit until the `DestroyWindow` in `CExoMoviePlayerInternal::ShutDown`
+at `0x00404C01`, the screen shows whatever was already in that memory. Nothing
+ever paints it. The bars beside a narrow movie are the same uncovered window,
+just for the whole length of playback.
+
+The main game window does not have the problem. `InitOpenGLWindow` asks for
+`GetStockObject(4)` -- `BLACK_BRUSH` -- at `0x00403779` and stores it in its own
+class. `SWMovieWindow` is the one class that was left without one.
+
+### What KMRP does
+
+Two detours, both in `src/controller-native/kotor1.hooks.toml`:
+
+| address | function | when |
+| --- | --- | --- |
+| `0x0040554B` | `NativeMovieWindowOpenK1` | just after `CreateWindowExA` returns, ESI = the player |
+| `0x00404BB0` | `NativeMovieWindowCloseK1` | `ShutDown`'s entry, ECX = the player |
+
+Both call `BlackenMovieWindowK1`, which sets the class brush to `BLACK_BRUSH`
+with `SetClassLongPtr` and fills the current window black. Setting the class is
+the actual fix -- the class is registered once, on the first movie of the
+session, and every movie window afterwards inherits the brush -- and the
+`FillRect` covers the window that already exists at the moment the class is
+changed, since a class brush only affects the next erase.
+
+### Two earlier attempts, and why they were wrong
+
+Both are recorded because both looked reasonable and neither was.
+
+1. **Clearing the Bink buffer.** A no-op. `BinkBufferOpen` is given the *movie's*
+   size, so the buffer holds only pixels `BinkCopyToBuffer` rewrites every frame.
+   The bars are screen outside the blit, which the buffer cannot address.
+2. **Padding the buffer to the window's aspect and centring the picture in it**
+   (gold v25). This broke playback: the engine blits dirty rectangles from
+   `BinkGetRects`, and those rectangles are in the movie's own coordinate space.
+   Offsetting the picture inside the buffer desynced the blit from them, and the
+   startup logos rendered with only their left portion on screen. Reverted to
+   gold v24; `tools/build_movie_letterbox.py` is retained, marked abandoned, with
+   the reasoning in its header.
+
+The lesson worth keeping is that the measurement said "unpainted window" from the
+first probe, and two attempts were spent looking for it inside Bink anyway.
+
 ## Compatibility and limits
 
 The *K1 Cutscenes Rescaled* changelog says version 1.5.1 corrected a 60-fps

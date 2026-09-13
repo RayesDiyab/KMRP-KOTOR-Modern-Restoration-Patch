@@ -67,6 +67,32 @@ own process in memory at startup without writing to `swkotor.exe` at all.
 
 ## [Unreleased]
 
+### Fixed
+- **R3 free look no longer crashes the game.** Raising the input device count so
+  the engine polls a pad claimed a device that DirectInput never created, and
+  nothing allocated its raw state block. `CExoRawInputInternal::GetLastState`
+  indexes that block as `[rawInput+0x30] + (deviceIndex - 2) * 0x74`
+  (`0x005E397F`-`0x005E3985`), so with the base null it read address 0. Measured
+  under x32dbg on the live game: `0x005E399B`, `mov eax,[eax]` with `eax = 0`,
+  called from `CExoInputInternal::GetEvents` at `0x005E2968` with `(2, 0)` — the
+  pad's index and `DIJOFS_X`. Free look is what reaches it because vanilla
+  registers the analog stick events in `ICPC` and `ICFreeLook` only, and the
+  enter handler at `0x006216C7` calls `CExoInput::ClearEvents`, emptying the
+  buffered records the pad normally speaks through. The module now allocates the
+  block alongside the device count it raises, with the engine's own
+  `operator new`, and only when the slot is null so a real DirectInput joystick
+  keeps its own. Only two functions in the image index that array —
+  `GetJoystickBuffer` at `0x005E31D4`, which the module already declines, and
+  `GetLastState` — and a sweep of `0x005E2E00`-`0x005E3A00` finds no store to
+  the pointer and no null test on it, so nothing gates on it or frees it.
+  **Playtest pending on a real pad.**
+
+  A first attempt detoured `GetLastState` itself and was withdrawn: it sourced
+  its parameter from `EAX` while also excluding `EAX` from restore, so the
+  re-executed `cmp eax,[0074D3D0]` compared the handler's return value against
+  the joystick index instead of the device index. It did not fix the crash and it
+  broke controller/keyboard device-activity detection.
+
 ### Added
 - **Linux/Proton diagnostics and a reproducible Steam Deck procedure.** A new
   case-sensitive package audit checks all 48 resolution archives, 3,889 GUI

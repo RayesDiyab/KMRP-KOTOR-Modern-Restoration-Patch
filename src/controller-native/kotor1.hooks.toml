@@ -301,6 +301,57 @@ exclude_from_restore = []
 source = "esi"
 type = "pointer"
 
+# Black the movie window the moment it exists.
+#
+# The grey flash before and after every movie is the window class.
+# CExoMoviePlayerInternal::InitializeMovie registers "SWMovieWindow" at
+# 0x004053E0 with hbrBackground NULL (0x0040545C stores EBX, which is zero
+# there), and its window procedure at 0x00405190 passes WM_ERASEBKGND to
+# DefWindowProc, which with a NULL brush erases nothing. The window is created
+# WS_POPUP | WS_VISIBLE over the whole screen at 0x00405536, so until Bink's
+# first blit the screen shows whatever was in that memory. The main game window
+# is fine because InitOpenGLWindow asks for GetStockObject(4) at 0x00403779;
+# this is the one class that was left without a brush.
+#
+# 0x0040554B is the first instruction after CreateWindowExA returns and its
+# handle is stored to player+0x50, still inside InitializeMovie and before the
+# message pump runs. ESI is `this`, set from ECX at 0x00405406 and still holding
+# it at 0x0040553C. The stolen bytes are mov ecx,[0x7a39f8] -- absolute
+# addressing, nothing to relocate.
+#
+# The handler sets the CLASS brush, which is what fixes every later movie, and
+# fills this window once, which is what fixes this one.
+[[hooks]]
+address = 0x0040554B
+type = "detour"
+function = "NativeMovieWindowOpenK1"
+original_bytes = [0x8B, 0x0D, 0xF8, 0x39, 0x7A, 0x00]
+skip_original_bytes = false
+exclude_from_restore = []
+
+[[hooks.parameters]]
+source = "esi"
+type = "pointer"
+
+# And once more on the way out, for the same reason.
+#
+# 0x00404BB0 is CExoMoviePlayerInternal::ShutDown, whose entry runs before
+# BinkBufferClose and the DestroyWindow at 0x00404C01. Bink has stopped drawing
+# by then, so the window holds its last frame or nothing until it is destroyed.
+# ECX is `this` at the entry; the stolen bytes are sub esp,0x7c / push esi /
+# mov esi,ecx, all position-independent.
+[[hooks]]
+address = 0x00404BB0
+type = "detour"
+function = "NativeMovieWindowCloseK1"
+original_bytes = [0x83, 0xEC, 0x7C, 0x56, 0x8B, 0xF1]
+skip_original_bytes = false
+exclude_from_restore = []
+
+[[hooks.parameters]]
+source = "ecx"
+type = "pointer"
+
 # Drive the gameplay HUD's bottom-right action bar from the D-pad.
 #
 # CSWGuiMainInterface's per-frame update, ecx = the interface. The engine calls

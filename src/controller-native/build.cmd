@@ -22,7 +22,7 @@ rem /I. so the vendor sources still find K1NativeJoystick.h, which now sits a
 rem directory above them. Their own header resolves from the includer's folder.
 cl /nologo /Brepro /O2 /EHsc /MT /LD /I. ^
    K1NativeJoystick.cpp vendor\K1XboxControls.cpp vendor\K1XboxControlsXInput.cpp ^
-   xinput.lib ^
+   xinput.lib gdi32.lib user32.lib ^
    /link /Brepro /DEF:exports.def /OUT:kmrp-controller.module /INCREMENTAL:NO
 set RC=%errorlevel%
 popd

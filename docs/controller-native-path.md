@@ -710,6 +710,151 @@ they are in menus: one press, one mechanism. Nothing else in gameplay consumes
 This hook shares an address with Saul's `UpdateActionBarControlsK1`, so
 `select_controller_path.py` drops the legacy entry in "both" mode.
 
+## The engine rebuilds the input object, and the module has to notice
+
+Playing a movie destroys `CExoInputInternal` and constructs a new one. Every
+event this module registers lives on the old object, and the old object is
+freed.
+
+This was found from a crash reported in play: a Bastila vision that ended on a
+black screen with only the HUD, then `0xc0000005` at `0x005E0DFB`. Four things
+were measured on the way, and three earlier explanations were wrong and are
+recorded in the commit history rather than here.
+
+**What the crash is.** `0x005E0DFB` is inside
+`CExoInputInternal::IsEventInClass`, which indexes a per-class record at
+`this + class * 0x30` and reads a bitmap pointer at `+0x2C` guarded by a length
+at `+0x30`:
+
+```
+005E0DB3  cmp ebx, edi        ; edi = the length
+005E0DB5  jl  skip-grow       ; "big enough" -> do not reallocate
+005E0DEA  mov eax,[esi+0x2c]  ; the bitmap
+005E0DFB  mov ecx,[eax+ebx*4] ; <- the fault
+```
+
+**What the state is.** Logging every class record each frame showed all six
+going null after playback with their lengths untouched:
+
+```
+mve=58    ptr=03EBBA88 size=13     ... six records, all valid
+mve=204   ptr=00000000 size=13     ... six records, all null
+```
+
+A length left behind by a freed pointer is what makes this fatal: the engine
+believes the array is long enough, skips its own reallocation, and dereferences
+null. Note that this is *not* what `CExoArrayList<unsigned long>::SetSize(0)` at
+`0x00405150` does -- that zeroes the counts as well -- so the buffers were freed
+by a destructor, not resized.
+
+**Why it reached that state.** The hook at `0x005E24E0` fires with the input
+object; it is named `NativeJoystickInitK1` here but the Ghidra reference names
+it `CExoInputInternal::GetEvents`, and it runs every frame, not once. Logging
+the pointer it carries:
+
+```
+JOYINIT call=1    input=03F03E60  cached=00000000  registered=0
+JOYINIT call=508  input=18F5D008  cached=03F03E60  registered=1
+```
+
+The module latched on a `registered` flag alone, so it returned early on the new
+object and went on using the freed one -- writing the device count into freed
+memory once a frame, and leaving every registration stranded where nothing would
+read it.
+
+**The fix, and why it is not a pointer comparison.** Comparing object pointers
+was tried first and was not enough: the allocator may hand back the same address
+for the new object, in which case a pointer test reports "already registered",
+registration is skipped, and the pad half-dies instead of crashing. That is
+exactly how it presented -- the crash stopped and LT/RT stopped with it.
+
+So the object is asked instead. `DescriptionPresentK1` reads the description
+table at `[input+0x128]`, indexed by event id and bounded by `[input+0x12C]` --
+the same table `AddEvent` reads at `0x005E0FB3` -- and a null slot for an event
+this module registered means the registration is gone, whatever the address
+says. Registration is idempotent to match: `CreateNewEvent` returning 0 is only
+a failure when the description is genuinely absent, because it also returns 0
+for one that already exists.
+
+### `add=[0 3 3 3 0 3]` is correct, and always was
+
+Classes 0 (ICPC) and 4 (ICFreeLook) return 0 from `AddEvent` for the two analog
+axis events. That is not a failure. `AddEvent` returns 0 when the event is
+**already in that class**, and those are the two classes where vanilla KOTOR
+already registers an analog stick.
+
+Forcing them was tried, on the theory that the structures did not exist yet at
+init. A retry every frame for a whole session won none of them back
+(`cls=0/1024`), and the crash happened anyway with the device count never
+raised. Registering them would create duplicates, not fix anything.
+
+### The pad slot needs a state block, not just a count
+
+Raising the device count is only half of claiming a pad exists. The other half is
+the raw state block, and leaving it out crashed free look.
+
+`CExoRawInputInternal::GetLastState` indexes a per-pad array:
+
+```asm
+005E397F  add  eax, -2            ; joystick ordinal = device index - 2
+005E3982  imul eax, eax, 0x74     ; 0x74 bytes per pad
+005E3985  add  eax, [ecx+0x30]    ; + the array base
+005E399B  mov  eax, [eax]
+```
+
+`CExoRawInputInternal+0x30` is null on a machine with no DirectInput joystick,
+which is every machine KMRP targets — the pad arrives through XInput, not
+DirectInput. Measured live under x32dbg: base 0, fault at `0x005E399B` with
+`eax = 0`, called from `CExoInputInternal::GetEvents` at `0x005E2968` with
+`(2, 0)`.
+
+**Why free look and not gameplay.** Vanilla registers its analog stick events in
+`ICPC` and `ICFreeLook` only — the same fact recorded above under
+`add=[0 3 3 3 0 3]`. The free-look enter handler at `0x006216C7` calls
+`CExoInput::ClearEvents`, which empties the buffered records the pad's input
+normally arrives through, so the next `GetEvents` asks for **raw** state instead
+and reaches the null base. Offset `0` in that call is `DIJOFS_X`.
+
+**Why allocate rather than detour.** Only two functions in the image index the
+array:
+
+| site | function | status |
+| --- | --- | --- |
+| `0x005E31D4` | `CExoRawInputInternal::GetJoystickBuffer` | already declined by the module's hook at `0x005E30F6` |
+| `0x005E3982` | `CExoRawInputInternal::GetLastState` | unguarded — this was the crash |
+
+A capstone sweep of `0x005E2E00`-`0x005E3A00` finds three reads of `[reg+0x30]`,
+no store, and no null test, so nothing gates behaviour on the pointer and nothing
+frees it. `EnsurePadStateK1` allocates four slots with the engine's own
+`operator new` and only when the slot is null, leaving a real joystick's own
+block alone.
+
+**Rejected: detouring `GetLastState`.** The first attempt hooked `0x005E3951`
+with its parameter sourced from `EAX` and `exclude_from_restore = ["eax"]`. KPM
+leaves the handler's return value in `EAX`, so the re-executed
+`cmp eax,[0074D3D0]` compared that return value against the joystick index, not
+the device index; both possible returns are below 2 so the following `jl` always
+jumped. It did not fix the crash and it broke device-activity detection, making
+the prompts flicker between keyboard and pad. **A parameter sourced from a
+register cannot be combined with excluding that register from restore when the
+stolen bytes read it.**
+
+## Why movies had grey margins
+
+The aspect-fit patch lives in `CExoMoviePlayerInternal::InitializeMovie+0x3CC`
+and is correct: a 640x272 movie on 3440x1440 was measured at 3388x1440 with
+`bink_buffer_offset_x/y` of 26,0, which is exactly centred.
+
+But vanilla scaled to the window's full *width* and let the picture overflow
+vertically, so it always overfilled the surface and no part of it was ever left
+unwritten. Fitting properly leaves 26px columns that `BinkCopyToBuffer` never
+touches, and they showed whatever the surface already held -- grey down both
+sides, and a grey frame before playback began.
+
+`ClearMovieSurfaceK1` black-fills the surface once per playlist entry through
+`BinkBufferLock`/`BinkBufferUnlock`, bounds-checked before the write. Once is
+enough, because the copy only ever writes the picture rect.
+
 ## Testing
 
 * `testing/controller/select_controller_path.py [saul|native|both]` switches the
