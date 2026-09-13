@@ -85,7 +85,8 @@ own process in memory at startup without writing to `swkotor.exe` at all.
   `GetJoystickBuffer` at `0x005E31D4`, which the module already declines, and
   `GetLastState` — and a sweep of `0x005E2E00`-`0x005E3A00` finds no store to
   the pointer and no null test on it, so nothing gates on it or frees it.
-  **Playtest pending on a real pad.**
+  **Playtest-confirmed on a real pad**: R3 enters and leaves free look
+  without crashing.
 
   A first attempt detoured `GetLastState` itself and was withdrawn: it sourced
   its parameter from `EAX` while also excluding `EAX` from restore, so the

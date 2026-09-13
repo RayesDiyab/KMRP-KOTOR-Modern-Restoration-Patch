@@ -46,7 +46,7 @@ real device behaves like the virtual one.
 | D-pad moved two list rows per tap in Equipment and Inventory | **FIXED** — the retained code and KMRP's own dispatch were both firing |
 | Messages: could not move up into the message list | **FIXED** — zero-event list boxes are focusable in tab content |
 | Journal / Active Quests: same | **FIXED** by the same change; not yet driven live |
-| R3 free look crashed | **NOT REPRODUCED — still to be tested** |
+| R3 free look crashed | **FIXED** — reproduced on a real pad, cause measured, fix played |
 | Right stick does not scroll item descriptions | **FIXED** — dispatches the retained 0x39/0x3A pair to the screen's own panel |
 | Missing art on Close / Show New Items / Use Item | **AUDITED, not implemented** — all three are focus + A, so `[A]` is the only truthful badge; see the prompt specification |
 
@@ -57,7 +57,7 @@ screen, which physical QA would not have noticed with the menu covering the
 world. Fixed: the bridge now requires input class 0. L3 gameplay stays **PASS**;
 "L3 does nothing in menus" is newly true and unverified by hand.
 
-### R3 free look — unreproduced, and not to be trusted
+### R3 free look — reproduced on a real pad, and fixed
 
 Six scenarios were driven with the virtual pad and none crashed: entering and
 leaving while walking, with a HUD slot focused, twenty rapid presses, with the
@@ -75,7 +75,27 @@ transition:
   fallback used the vendor's cached `g_mainInterface` — a pointer that outlives
   the interface it names across a screen change.
 
-Neither is proven to be the crash. **Treat R3 as unverified on a real pad.**
+Neither was the crash.
+
+**The cause, measured under x32dbg attached to the running game.** A real pad
+reproduced it on the first press where six virtual-pad scenarios never had.
+`CExoRawInputInternal::GetLastState` faulted at `0x005E399B`,
+`mov eax,[eax]` with `eax = 0`, called from `CExoInputInternal::GetEvents` at
+`0x005E2968` with `(2, 0)` — the pad's device index and `DIJOFS_X`. It indexes
+a per-pad state array as `[rawInput+0x30] + (deviceIndex - 2) * 0x74`
+(`0x005E397F`-`0x005E3985`), and that base read 0: raising the device count
+claimed a pad DirectInput never created, and nothing allocated its state
+block. Free look is what reaches it because vanilla registers the analog stick
+events in `ICPC` and `ICFreeLook` only, and the enter handler at `0x006216C7`
+calls `CExoInput::ClearEvents`, emptying the buffered records the pad normally
+speaks through.
+
+`EnsurePadStateK1` now allocates that block beside the device count it raises.
+**Played on a real pad: R3 enters free look, the right stick looks around, and
+R3 leaves it, with no crash.**
+
+The lesson worth keeping is that the virtual pad was not evidence of absence
+here: it drove the buttons but never made the engine ask for raw device state.
 
 ---
 
