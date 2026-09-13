@@ -1,5 +1,7 @@
 # Handover: which parts of the legacy controller path the native one replaces
 
+> **Parity and the remaining gaps** are in [`controller-parity.md`](controller-parity.md). This file is about what may be *removed*; that one is about what is still *missing*.
+
 Nothing is deleted here. The point is to make a later removal mechanical, by
 recording exactly what has a native equivalent and what does not, with the
 evidence for each.
