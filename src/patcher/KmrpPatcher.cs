@@ -1647,8 +1647,22 @@ namespace Kmrp
                 "NativeMovieWindowOpenK1", new[] { "esi" }, new[] { "pointer" });
             AppendHook(text, "0x00404BB0", "83, EC, 7C, 56, 8B, F1",
                 "NativeMovieWindowCloseK1", new[] { "ecx" }, new[] { "pointer" });
+            // The engine still runs the Xbox build's rumble subsystem and ends
+            // it in DirectInput force feedback, which the invented pad cannot
+            // receive. This carries the magnitudes to XInput instead.
+            AppendHook(text, "0x005F7617", "68, C0, 27, 09, 00",
+                "NativeRumbleK1", new[] { "eax", "ecx" }, new[] { "int", "int" });
             AppendHook(text, "0x00686BA0", "53, 56, 57, 8B, F1",
                 "NativeActionBarK1", new[] { "ecx" }, new[] { "pointer" });
+            // The one legacy-owned hook the native path REQUIRES. Its action
+            // bar helpers cache the interface in g_mainInterface every frame,
+            // and this is the only thing that clears it -- it is hooked on
+            // CSWGuiMainInterface's destructor. Without it the cache dangles
+            // the moment a save is loaded over a loaded game, and the next GUI
+            // frame walks freed memory: measured at 0x611E4B30 dereferencing a
+            // freed 0x14D31F38, called from NativeGuiFrameK1.
+            AppendHook(text, "0x0068B170", "6A, FF, 68, B0, F7, 72, 00",
+                "ClearActionBarControlsK1", new[] { "ecx" }, new[] { "pointer" });
             AppendHook(text, "0x005E271E", "8B, 84, 24, E4, 00, 00, 00",
                 "NativeNoteKeyboardK1", new[] { "eax", "edx" },
                 new[] { "pointer", "int" });

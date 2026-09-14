@@ -352,6 +352,43 @@ exclude_from_restore = []
 source = "ecx"
 type = "pointer"
 
+# Route the engine's own rumble to XInput.
+#
+# KOTOR still runs the Xbox build's rumble subsystem. UpdateRumble at 0x005F7500
+# walks the active pattern list every frame, takes the maximum of each motor
+# across them via CSWRumblePattern::GetMagnitudes, and ends in one call:
+#
+#   005F760F  mov  eax, [esp+4]      ; magnitude, motor one
+#   005F7613  mov  ecx, [esp+8]      ; magnitude, motor two
+#   005F7617  push 927C0h            ; the duration it asks for
+#   005F761C  push eax
+#   005F761D  push ecx
+#   005F7626  call CExoInput::SetRumble   (0x005DF550)
+#
+# SetRumble ends in DirectInput force feedback, which the pad this module invents
+# cannot receive -- so the game has always asked for rumble with nothing
+# listening. The handler only has to carry the magnitudes to XInputSetState.
+#
+# 0x005F7617 rather than SetRumble's entry because KPM sources parameters from
+# registers, and there the magnitudes are stack arguments; here the engine has
+# already loaded both into EAX and ECX. The stolen byte is a push of a constant:
+# position-independent, and re-executing it is exactly what should happen.
+[[hooks]]
+address = 0x005F7617
+type = "detour"
+function = "NativeRumbleK1"
+original_bytes = [0x68, 0xC0, 0x27, 0x09, 0x00]
+skip_original_bytes = false
+exclude_from_restore = []
+
+[[hooks.parameters]]
+source = "eax"
+type = "int"
+
+[[hooks.parameters]]
+source = "ecx"
+type = "int"
+
 # Drive the gameplay HUD's bottom-right action bar from the D-pad.
 #
 # CSWGuiMainInterface's per-frame update, ecx = the interface. The engine calls

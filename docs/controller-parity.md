@@ -70,14 +70,22 @@ This is the gap list, and it is larger than it looks. Everything below is read
 out of the game's own `keymap.2da` (79 rows, extracted from `chitin.key`) and
 `../reverse-engineering/retained-gui-event-inventory.txt`.
 
-**The structural reason there is a gap at all.** The legacy path synthesises
+**The structural reason there was a gap at all.** The legacy path synthesises
 keystrokes, so its buttons land on KOTOR's **keymap actions** in input class
 `icpc` — real gameplay verbs. The native path sends **retained GUI panel
 events**, which are dispatched per screen. The gameplay HUD's dispatcher,
 `INGAME_GAMEPLAY` at `0x006E6180`, implements only `0x28`, `0x2D`, `0x2E`,
 `0x39` and `0x3A`. So `0x29`, `0x2A`, `0x2B`, `0x35` and `0x36` — X, Y, Back, LT
-and RT — **do nothing in gameplay on the native path**, while the same buttons
-on the legacy path perform actions.
+and RT — did nothing in gameplay, while the same buttons on the legacy path
+performed actions.
+
+> **Correction.** An earlier revision of this file said the same of LB and RB.
+> That was wrong: `0x39` and `0x3A` **are** implemented by that dispatcher, at
+> `0x006E622E` and `0x006E6250`. Four buttons were inert in gameplay, not six.
+
+**Most of this is now closed** — see *Gameplay verbs, and how they are bound*
+below. What follows is the gap as it stood, kept because it is the evidence
+the fix was built from.
 
 | Input | Legacy key | The action that key is bound to | Native in gameplay |
 | --- | --- | --- | --- |
@@ -117,6 +125,69 @@ them the way `R3` is bound. **Not yet attempted.**
 
 Until then the honest summary is: **the native path is better at movement,
 camera, menus and focus, and worse at gameplay verbs.**
+
+## Gameplay verbs, and how they are bound
+
+Reading the action router closed most of the list. `CClientExoAppInternal::
+HandleInputEvent` routes two switches — a low console-id switch at `0x00621238`
+and a high PC-id switch at `0x00621254` — and eight handlers are reached from
+both. **The high id is the `keymap.2da` action number**, which identifies every
+one of them: `0xD0` is 208 is `action208 Freelook`, the pair R3 already used.
+
+| low | high | action | the handler calls |
+| --- | --- | --- | --- |
+| `0x01` | `0xD0` (208) | Freelook | `CSWCModule::SetFreeLookCamera` |
+| `0x02` | `0xE0` (224) | Pause | `RestoreCamera`, `SetInputClass` |
+| `0x05` | `0xCD` (205) | SelectNext | `CClientExoAppInternal::SelectNearestObject` |
+| `0x06` | `0xCC` (204) | SelectPrev | — and leaves free look when in it |
+| `0x09` | `0xCE` (206) | ChangeChar | `ChangeCharacterToNextLivingPartyMember`, `CGuiInGame::ChangeCharacter` |
+| `0x0A` | `0xCF` (207) | PartyActive | `CGuiInGame::ShowSoloModeQuery` |
+| `0x0B` | `0xDF` (223) | GUI | opens the in-game menu |
+
+### What is bound now
+
+No new control slot was needed and the buffer emits exactly what it did before.
+A slot resolves to whichever event is registered for it **in the current input
+class**, so one button carries a GUI event in ICPCGUI and a gameplay verb in
+ICPC — the mechanism free look already used on slot `0x7E`.
+
+| Button | slot | ICPC (gameplay) | ICPCGUI (menus) |
+| --- | --- | --- | --- |
+| LB | `0x78` | `0x06` SelectPrev | — (see below) |
+| RB | `0x79` | `0x05` SelectNext | — (see below) |
+| Back | `0x7A` | `0x0A` PartyActive | `0x2B` Black |
+| LT | `0x7B` | `0x09` ChangeChar | `0x35` previous screen |
+| RT | `0x7D` | `0x02` Pause | `0x36` next screen |
+
+Menus are unchanged. **Free look is now entered with R3 and left with LB**,
+because `0x06` is one event serving both SelectPrev and free-look exit and can
+sit on only one button. The alternative — a second slot on that description,
+keeping the exit on R3 — was rejected because it would make R3 in the world fire
+`0x01` and `0x06` together, entering free look and cycling the target in one
+press.
+
+**LB and RB carry no GUI event at all now.** The right stick already scrolls
+descriptions in menus: `UpdateDescriptionScrollK1` dispatches `0x39`/`0x3A`
+straight to the screen's own panel, gated to `K1_CLASS_PCGUI`, with its own
+hold-and-repeat. Registering the same two events on these slots was a second
+route to one behaviour, so it was removed. Their *descriptions* remain,
+because ICDialog uses the same events for computer-terminal scrolling and
+that does arrive through these slots.
+
+**The cost, stated plainly.** LB and RB no longer carry `0x39`/`0x3A` in ICPC
+either, and those *are* implemented by the gameplay HUD dispatcher. Target
+cycling was judged worth more than HUD feedback scrolling. Back, LT and RT
+lose nothing — their GUI events were never implemented there.
+
+### Still not bound
+
+`STEALTH` (`action264`) and `CancleCombat` (`action240`) have **high PC ids
+only**. No low console id reaches their handlers, so there is no description to
+register and they cannot be bound this way. They would need an engine bridge,
+the pattern L3's flourish uses.
+
+**Untested.** Every binding in this section is measured from the router and
+compiles, and none of it has been played.
 
 ## What the native path has and the legacy path does not
 

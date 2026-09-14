@@ -1749,6 +1749,49 @@ through bit shifts this work has not unpicked, so the pairing above is a first
 guess; two of the four may need swapping after a playtest. Registration is
 confirmed, the direction mapping is not.
 
+### Some screens navigate themselves, and not through any control
+
+Powers, Feats, Skills, Abilities and the Map do not hold their selection in a
+focused control. It is a cursor object owned by the **panel**, which is why a
+direction event delivered to a control moves nothing on them, and why a focus
+layer that walks the panel's control array sees nothing to walk.
+
+`CSWGuiInGamePowers::HandleInputEvent` serves all eight direction events --
+`0x2F`, `0x30`, `0x31`, `0x32`, `0x3D`, `0x3E`, `0x3F`, `0x40` -- from a single
+arm:
+
+```
+006F297B  push edi                    the event id
+006F297C  lea  ecx, [esi+0x19FC]      the grid cursor
+006F2982  call 0x006CDD80             walk it; returns the new packed index
+006F2988  call 0x006F1460             select that index
+006F1476  mov  [esi+0x19C4], ebx      the selection, stored on the PANEL
+```
+
+The cursor at `panel+0x19FC` is bytes, not controls: `+0x0C` column, `+0x0D`
+row, `+0x04` the count. It **wraps** -- `0x006CDDB8` sets the row to 0 on
+passing the last one -- so there is no top or bottom edge to detect, and no
+press at which "leave this screen" is the natural reading.
+
+| Screen | Dispatcher | Direction site |
+| --- | --- | --- |
+| `ABILITIES` | `0x006AE5F0` | `0x006AE818` (`0x2F/0x30/0x3F/0x40`), `0x006AE839` (`0x31/0x32/0x3D/0x3E`) |
+| `POWERS` | `0x006F28C0` | `0x006F297B`, all eight |
+| `SKILLS` | `0x006F6A10` | `0x006F6A5F` (`0x2F/0x3F`), `0x006F6A7F` (`0x30/0x40`) |
+| `FEATS` | `0x006F4680` | as `SKILLS` |
+| `MAP` | `0x00693BC0` | -- |
+
+These screens also route their **own** description scrolling: `0x006F299E`
+takes `0x3A` and sends `0x32` to the listbox at `panel+0xFCC`. So the screen is
+the owner of every direction on it, including the ones that end up in a list,
+and anything that intercepts a direction on behalf of a focused control gets in
+its way.
+
+The module dispatches to the panel directly for these, because behind the
+in-game tab strip a retained event cannot be delivered to them at all -- the
+strip is the panel in front, and its dispatcher routes to its own focused
+control.
+
 ### The right stick is not reachable this way
 
 `UpdateCamera` polls event `0x11C` in the gameplay class, and `ProcessInput`

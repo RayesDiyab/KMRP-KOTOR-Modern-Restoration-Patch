@@ -251,6 +251,27 @@ constexpr std::uint32_t DIJOFS_BUTTON10_OFFSET = 0x3A;    // DIJOFS_BUTTON(10)
 constexpr int K1_EVENT_FREELOOK_ENTER = 0x01;
 constexpr int K1_EVENT_FREELOOK_EXIT  = 0x06;
 
+// The gameplay verbs, reached through the same router as free look.
+// CClientExoAppInternal::HandleInputEvent routes a low console-id switch at
+// 0x00621238 and a high PC-id switch at 0x00621254, and eight handlers are
+// reached from both. The high id is the keymap.2da action number, which is what
+// identifies each one:
+//
+//   low   high        action        handler calls
+//   0x02  0xE0 (224)  Pause         RestoreCamera, SetInputClass
+//   0x05  0xCD (205)  SelectNext    CClientExoAppInternal::SelectNearestObject
+//   0x06  0xCC (204)  SelectPrev    -- and leaves free look when in it
+//   0x09  0xCE (206)  ChangeChar    ChangeCharacterToNextLivingPartyMember
+//   0x0A  0xCF (207)  PartyActive   CGuiInGame::ShowSoloModeQuery
+//
+// SelectPrev IS free-look exit: one event, and the handler at 0x0062184C decides
+// by camera mode. So it lives on exactly one button -- see the registration.
+constexpr int K1_EVENT_PAUSE        = 0x02;
+constexpr int K1_EVENT_SELECT_NEXT  = 0x05;
+constexpr int K1_EVENT_SELECT_PREV  = K1_EVENT_FREELOOK_EXIT;
+constexpr int K1_EVENT_CHANGE_CHAR  = 0x09;
+constexpr int K1_EVENT_PARTY_ACTIVE = 0x0A;
+
 // The six keymap.2da input-class columns load in a fixed order -- ICPC,
 // ICMiniGame, ICPCGUI, ICDialog, ICFreeLook, ICMovie -- which puts ICPC at 0 and
 // ICPCGUI at 2, the two indices already known from the working bindings. That
@@ -308,6 +329,66 @@ constexpr ButtonBinding K1_TRIGGERS[] = {
     { 1, 0x7D, K1_EVENT_NEXT_SCREEN, "RT" },
 };
 constexpr int K1_TRIGGER_COUNT = sizeof(K1_TRIGGERS) / sizeof(K1_TRIGGERS[0]);
+
+// What each button does in GAMEPLAY, on the slot it already emits.
+//
+// No new slot and no change to the buffer: a control slot resolves to whichever
+// event is registered for it in the CURRENT input class, so one button carries a
+// GUI event in ICPCGUI and a gameplay verb in ICPC. Free look already works this
+// way on slot 0x7E.
+//
+// The cost is that these five slots stop carrying their GUI event in ICPC. For
+// LB and RB that is a real trade: 0x39 and 0x3A ARE implemented by the gameplay
+// HUD dispatcher, at 0x006E622E and 0x006E6250. Target cycling was judged worth
+// more than HUD feedback scrolling. Back, LT and RT lose nothing -- 0x2B, 0x35
+// and 0x36 are not implemented by that dispatcher at all, which is exactly why
+// those three did nothing in the world before this.
+struct GameplayBinding {
+    int         slot;
+    int         event;
+    bool        guiEventInMenus;   // keep this slot's GUI event in ICPCGUI?
+    const char* name;
+};
+
+constexpr GameplayBinding K1_GAMEPLAY_ACTIONS[] = {
+    // LB and RB carry no GUI event in menus. The right stick already scrolls
+    // descriptions there -- UpdateDescriptionScrollK1 dispatches 0x39/0x3A
+    // straight to the screen's own panel, with its own hold-and-repeat -- so
+    // registering the same two events on these slots was a second route to one
+    // behaviour. Their descriptions still exist, because ICDialog uses them for
+    // computer-terminal scrolling and that DOES arrive through these slots.
+    { 0x78, K1_EVENT_SELECT_PREV,  false, "LB"   },   // cycle target backwards
+    { 0x79, K1_EVENT_SELECT_NEXT,  false, "RB"   },   // cycle target forwards
+    { 0x7A, K1_EVENT_PARTY_ACTIVE, true,  "Back" },   // solo mode query
+    { 0x7B, K1_EVENT_CHANGE_CHAR,  true,  "LT"   },   // next living party member
+    { 0x7D, K1_EVENT_PAUSE,        true,  "RT"   },   // pause
+};
+constexpr int K1_GAMEPLAY_ACTION_COUNT =
+    sizeof(K1_GAMEPLAY_ACTIONS) / sizeof(K1_GAMEPLAY_ACTIONS[0]);
+
+// Does a gameplay verb own this slot in ICPC? If so the slot's GUI event is
+// registered in ICPCGUI only, or one control code would resolve to two events.
+inline bool GameplayVerbOwnsSlotK1(int slot)
+{
+    for (int i = 0; i < K1_GAMEPLAY_ACTION_COUNT; ++i) {
+        if (K1_GAMEPLAY_ACTIONS[i].slot == slot) {
+            return true;
+        }
+    }
+    return false;
+}
+
+// Should this slot's GUI event still be registered in ICPCGUI? False only where
+// something else already provides the behaviour in menus.
+inline bool GuiEventWantedInMenusK1(int slot)
+{
+    for (int i = 0; i < K1_GAMEPLAY_ACTION_COUNT; ++i) {
+        if (K1_GAMEPLAY_ACTIONS[i].slot == slot) {
+            return K1_GAMEPLAY_ACTIONS[i].guiEventInMenus;
+        }
+    }
+    return true;
+}
 
 // DIJOYSTATE control codes, as the +0x164 table resolves our slots to.
 constexpr std::uint32_t DIJOFS_X_OFFSET = 0x00;
@@ -521,10 +602,32 @@ constexpr float K1_AXIS_FULL_SCALE = 32767.0f;
 // moved where the character snapped from a standstill to a sprint.
 //
 // Tried on a physical controller in this order: 25%, then 15%, then 8%. All
-// three sit far above the measured 1.46% resting drift, so the choice is
-// comfort, not a drift threshold -- the smaller the value, the more of the
-// stick's travel is usable and the finer the slow-walk control.
-constexpr float K1_STICK_DEADZONE = 0.08f;
+// three sat far above THAT pad's 1.46% resting drift, so the choice looked
+// like comfort rather than a drift threshold -- the smaller the value, the
+// more of the stick's travel is usable and the finer the slow-walk control.
+//
+// 8% was wrong, and the premise is why. A second physical pad rests at 9.6%:
+// raw=(1091,-2948) is sqrt(1091^2 + 2948^2) / 32767 = 0.096, ABOVE the
+// deadzone. Four faults followed from that one fact, and only the first was
+// visible as a stick problem:
+//
+//   * the prompts never handed back to mouse and keyboard, because the
+//     device-activity test reused this constant -- now K1_ACTIVITY_STICK;
+//   * the character crept while the stick was untouched;
+//   * NativeStickVectorK1 returned true every frame, so the drift vector
+//     displaced whatever the keyboard had just written to the movement
+//     fields -- the "inside the deadzone: keyboard keeps control" path was
+//     never taken;
+//   * NativeAnalogDrivingK1 stayed true, so NativeJoystickSkipNormalizeK1
+//     consumed every call and Vector::Normalize never ran, making keyboard
+//     diagonals travel sqrt(2) times too fast.
+//
+// So a drifting pad quietly broke KEYBOARD movement. A deadzone tuned on one
+// pad is a sample of one; this one has to clear the worst pad, not the best.
+// 0.15 clears 9.6% with margin and is still well under the engine's own
+// quarter-deflection deadzone and under XInput's recommended
+// XINPUT_GAMEPAD_LEFT_THUMB_DEADZONE of 7849/32767 = 0.24.
+constexpr float K1_STICK_DEADZONE = 0.15f;
 
 // The right stick drives RotateCamera directly, so its value is in the units of
 // the engine's own turn axis, where a held keyboard turn key is exactly 1.0.
@@ -533,7 +636,25 @@ constexpr float K1_STICK_DEADZONE = 0.08f;
 // The previous value of 14.0 was in mouse pixels, for a field the camera does
 // not read; it is not comparable and was never carried over.
 constexpr float K1_CAMERA_SPEED = 1.0f;
-constexpr float K1_CAMERA_DEADZONE = 0.12f;   // a touch higher; camera drift is more visible
+// No longer 'a touch higher' than the movement deadzone -- that one went to
+// 0.15 to clear a pad resting at 9.6%, and this one stayed. It is kept lower
+// deliberately: the right stick on the same pad rests at 0.048
+// (rx=-376, ry=1525), so 0.12 clears it with margin, and a larger value
+// costs fine camera control for no measured benefit. If a right stick is
+// ever measured resting above this, raise it the same way.
+constexpr float K1_CAMERA_DEADZONE = 0.12f;
+
+// How far a stick must go before the pad counts as the device IN USE. Not a
+// deadzone -- nothing is gated on it except which prompts are shown -- and
+// deliberately far above both deadzones above.
+//
+// It used to reuse K1_STICK_DEADZONE, which asks a different question.
+// Movement wants the smallest deadzone a pad can bear; activity wants a
+// deliberate push. On a pad measured resting at 0.096 -- raw=(1091,-2948)
+// against a deadzone of 0.08 -- the old test was true on every frame, so the
+// pad always counted as in use and the prompts never hid for mouse and
+// keyboard.
+constexpr float K1_ACTIVITY_STICK = 0.35f;
 
 struct StickState {
     bool          initialised = false;
@@ -553,6 +674,12 @@ struct StickState {
     int miniGameBound = 0; // bitmask of ICMiniGame registrations that took
     unsigned long interactRequestedTick = 0;
     unsigned long tabActivateRequestedTick = 0;   // A pressed on a focused tab
+    int           padSlot = -1;                   // XInput slot the pad answered on
+    unsigned long rumbleCalls = 0;                // SetRumble calls observed
+    unsigned long rumbleSent = 0;                 // XInputSetState calls made
+    unsigned long rumbleLast = 0;                 // last magnitudes, packed 16:16
+    unsigned long rumbleRawA = 0;                 // last float bits the engine sent
+    unsigned long rumbleRawB = 0;
     unsigned long interactsPerformed = 0;
     unsigned long interactsDeclined = 0;
     std::uint8_t dpadEmitted = 0;   // which direction presses actually went out
@@ -604,6 +731,7 @@ struct StickState {
     unsigned long deviceCountDeferred = 0;  // frames the pad was withheld from the engine
     unsigned long deviceCountRestored = 0;  // times the count had dropped
     unsigned long padStateAllocated = 0;    // times the raw pad state was created
+    unsigned long verbsBound = 0;           // gameplay verbs registered in ICPC
     float         rawMagnitude = 0.0f;      // straight from XInput, 0..1
     float         analogMagnitude = 0.0f;   // post-deadzone, 0 when not driving
     unsigned long lastBufferTick = 0;
@@ -630,6 +758,9 @@ bool ReadPadAxes(std::int32_t& x, std::int32_t& y, std::uint16_t& buttons,
         if (XInputGetState(slot, &state) != ERROR_SUCCESS) {
             continue;
         }
+        // Remembered so rumble reaches the pad that is actually answering,
+        // rather than assuming slot 0.
+        g_stick.padSlot = static_cast<int>(slot);
         x = state.Gamepad.sThumbLX;
         // Negated, and this was measured rather than assumed: with a straight
         // pass-through, pushing the stick up walked the character backwards.
@@ -789,8 +920,12 @@ void EnsureNativeJoystickK1(void* exoInputInternal)
             !DescriptionPresentK1(exoInputInternal, binding.event)) {
             continue;               // genuinely unusable; leave it alone
         }
-        addEvent(exoInputInternal, binding.event, K1_CLASS_PCGUI);
-        addEvent(exoInputInternal, binding.event, K1_CLASS_PC);
+        if (GuiEventWantedInMenusK1(binding.slot)) {
+            addEvent(exoInputInternal, binding.event, K1_CLASS_PCGUI);
+        }
+        if (!GameplayVerbOwnsSlotK1(binding.slot)) {
+            addEvent(exoInputInternal, binding.event, K1_CLASS_PC);
+        }
         ++g_stick.buttonsBound;
     }
 
@@ -801,8 +936,12 @@ void EnsureNativeJoystickK1(void* exoInputInternal)
             !DescriptionPresentK1(exoInputInternal, binding.event)) {
             continue;
         }
-        addEvent(exoInputInternal, binding.event, K1_CLASS_PCGUI);
-        addEvent(exoInputInternal, binding.event, K1_CLASS_PC);
+        if (GuiEventWantedInMenusK1(binding.slot)) {
+            addEvent(exoInputInternal, binding.event, K1_CLASS_PCGUI);
+        }
+        if (!GameplayVerbOwnsSlotK1(binding.slot)) {
+            addEvent(exoInputInternal, binding.event, K1_CLASS_PC);
+        }
         ++g_stick.buttonsBound;
     }
 
@@ -880,11 +1019,37 @@ void EnsureNativeJoystickK1(void* exoInputInternal)
             ++g_stick.buttonsBound;
             g_stick.freeLookBound |= 1;
         }
+        // 0x06 lives on LB, not on R3.
+        //
+        // It is free-look exit AND SelectPrev -- one event, and the handler at
+        // 0x0062184C decides which by camera mode. It can therefore sit on
+        // exactly one button, and LB is where target cycling was asked for. So
+        // free look is ENTERED with R3 and LEFT with LB.
+        //
+        // The alternative was a second slot on the same description, keeping the
+        // exit on R3 at the cost of R3 in the world firing 0x01 and 0x06
+        // together -- entering free look and cycling the target in one press.
+        // That was considered and rejected; going back is one slot argument.
         if (createEvent(exoInputInternal, K1_EVENT_FREELOOK_EXIT, K1_DESC_DIGITAL,
-                        K1_DEVICE_JOYSTICK, K1_SLOT_BUTTON10, K1_SLOT_NONE) != 0) {
+                        K1_DEVICE_JOYSTICK, 0x78, K1_SLOT_NONE) != 0) {
             addEvent(exoInputInternal, K1_EVENT_FREELOOK_EXIT, K1_CLASS_FREELOOK);
             ++g_stick.buttonsBound;
             g_stick.freeLookBound |= 2;
+        }
+
+        // And the verbs themselves, in the gameplay class only.
+        for (int v = 0; v < K1_GAMEPLAY_ACTION_COUNT; ++v) {
+            const GameplayBinding& verb = K1_GAMEPLAY_ACTIONS[v];
+            if (verb.event != K1_EVENT_SELECT_PREV) {
+                // SelectPrev's description is the free-look exit one above.
+                if (createEvent(exoInputInternal, verb.event, K1_DESC_DIGITAL,
+                                K1_DEVICE_JOYSTICK, verb.slot, K1_SLOT_NONE) == 0 &&
+                    !DescriptionPresentK1(exoInputInternal, verb.event)) {
+                    continue;
+                }
+            }
+            addEvent(exoInputInternal, verb.event, K1_CLASS_PC);
+            ++g_stick.verbsBound;
         }
     }
 
@@ -1231,12 +1396,20 @@ void FillNativeJoystickBufferK1(int deviceIndex, void* outBuffer)
     // or either stick past the engage threshold -- not mere connection, and not
     // resting drift, which would pin the prompts on forever.
     {
+        // Deliberately NOT the movement deadzone. That one is as small as a pad
+        // can bear so the character answers a light push; this one decides which
+        // device the prompts follow, and anything near the movement deadzone
+        // pins them on for a pad that rests off centre.
+        //
+        // Measured on a real pad: raw=(1091,-2948) at rest is a magnitude of
+        // 0.096 against a movement deadzone of 0.08, so the old test was true
+        // every frame and the prompts never hid for mouse and keyboard.
         const bool meaningful =
             buttons != 0 ||
             lt > K1_TRIGGER_THRESHOLD || rt > K1_TRIGGER_THRESHOLD ||
-            std::sqrt(nx * nx + ny * ny) > K1_STICK_DEADZONE ||
+            std::sqrt(nx * nx + ny * ny) > K1_ACTIVITY_STICK ||
             (std::sqrt(static_cast<float>(rx) * rx + static_cast<float>(ry) * ry)
-             / K1_AXIS_FULL_SCALE) > K1_CAMERA_DEADZONE;
+             / K1_AXIS_FULL_SCALE) > K1_ACTIVITY_STICK;
         if (meaningful) {
             KmrpMarkControllerActiveK1();
             ++g_stick.padActiveTicks;
@@ -1466,6 +1639,67 @@ void BlackenMovieWindowK1(void* player)
 // message pump has had a chance to show anything. This is the earliest point the
 // handle exists -- CreateWindowExA returns at 0x00405536 and the handle is
 // stored to player+0x50 immediately after.
+// The engine's rumble, routed to XInput.
+//
+// KOTOR still runs the Xbox build's rumble subsystem: UpdateRumble at
+// 0x005F7500 walks the active pattern list every frame, takes the maximum of
+// each motor across them through CSWRumblePattern::GetMagnitudes, and hands the
+// pair to CExoInput::SetRumble at 0x005DF550. That call ends in DirectInput
+// force feedback, which the pad this module invents cannot receive -- so the
+// game has always been asking for rumble and nothing has been listening.
+//
+// Hooked at 0x005F7617, where both magnitudes are already in registers for the
+// pushes that follow. At SetRumble's own entry they are stack arguments, and
+// KPM sources hook parameters from registers only.
+//
+// The magnitudes arrive as float bit patterns, because the engine moves them
+// with `mov` rather than the x87 stack. Both are recorded raw in the diagnostic
+// line as `raw=`, alongside `rum=` counting calls seen and XInputSetState calls
+// issued, so the scale and the plumbing can each be read from a real run rather
+// than assumed. The code treats them as 0..1 and clamps, which is right if
+// GetMagnitudes is normalised and saturates harmlessly if it is not.
+//
+// UpdateRumble reaches this call on its early-bail path too, so a finished
+// pattern sends zero and the motors stop without any timeout here.
+extern "C" void __cdecl NativeRumbleK1(int magnitudeBitsA, int magnitudeBitsB)
+{
+    ++g_stick.rumbleCalls;
+    g_stick.rumbleRawA = static_cast<unsigned long>(magnitudeBitsA);
+    g_stick.rumbleRawB = static_cast<unsigned long>(magnitudeBitsB);
+    if (g_stick.padSlot < 0) {
+        return;                         // no pad has answered yet
+    }
+
+    auto toMotor = [](int bits) -> WORD {
+        float value = 0.0f;
+        std::memcpy(&value, &bits, sizeof(value));
+        if (!(value > 0.0f)) {
+            return 0;                   // also catches NaN
+        }
+        if (value > 1.0f) {
+            value = 1.0f;
+        }
+        return static_cast<WORD>(value * 65535.0f);
+    };
+
+    XINPUT_VIBRATION vibration{};
+    vibration.wLeftMotorSpeed = toMotor(magnitudeBitsA);
+    vibration.wRightMotorSpeed = toMotor(magnitudeBitsB);
+
+    // Which magnitude drives which motor is not established -- the two are
+    // symmetric in the engine and only a hand can tell them apart. Swapping
+    // them is swapping these two lines.
+    const unsigned long packed =
+        (static_cast<unsigned long>(vibration.wLeftMotorSpeed) << 16) |
+        vibration.wRightMotorSpeed;
+    if (packed == g_stick.rumbleLast) {
+        return;                         // unchanged; do not re-issue every frame
+    }
+    g_stick.rumbleLast = packed;
+    XInputSetState(static_cast<DWORD>(g_stick.padSlot), &vibration);
+    ++g_stick.rumbleSent;
+}
+
 extern "C" void __cdecl NativeMovieWindowOpenK1(void* player)
 {
     g_movie.lastW = -1;                // a fresh window: repaint on frame one
@@ -2542,6 +2776,48 @@ bool NavigateFocusK1(int dx, int dy)
         return SetFocusK1(panel, step);
     }
 
+    // The SCREEN may be the thing that navigates, rather than any control on it.
+    // Powers, Skills, Feats and the Map all work this way: their selection is a
+    // cursor on the panel, not a focused control, and no amount of moving a
+    // focus rectangle around will touch it.
+    //
+    // Measured in POWERS::HandleInputEvent, whose one directional arm serves all
+    // eight of 0x2F/0x30/0x31/0x32/0x3D/0x3E/0x3F/0x40:
+    //
+    //     006F297B  push edi                  the event id
+    //     006F297C  lea  ecx, [esi+0x19FC]    the grid cursor: +0x0C column,
+    //     006F2982  call 0x006CDD80           +0x0D row, +0x04 the count
+    //     006F2988  call 0x006F1460           select what it walked to
+    //     006F1476  mov  [esi+0x19C4], ebx    the new selection, on the PANEL
+    //
+    // This was the bug behind "the D-pad cannot move through the powers list".
+    // The check below asks PanelNavigatesItselfK1 with reachable=false, which
+    // by design drops the panel half of the test and leaves only the control
+    // half, so the panel was never dispatched to; the press then fell through to
+    // the spatial layer, which sees no controls there because the grid is not
+    // made of controls, and died.
+    //
+    // Tried before the focused control, not after. On these screens the screen
+    // owns all four directions and forwards to its own description box where
+    // that is what it means -- 0x006F299E takes 0x3A and sends 0x32 to the
+    // listbox at +0xFCC -- so a description list that happened to hold focus
+    // would otherwise swallow up and down and leave the grid frozen.
+    //
+    // Deliberate consequence: up no longer climbs back to the tab strip here.
+    // The grid wraps (0x006CDDB8 sets the row to 0 on passing the last), so
+    // there is no top edge to detect and no press at which leaving is the
+    // natural reading. LT and RT still change screen, which is what the strip
+    // was being focused to do.
+    if (tabBar != nullptr && PanelNavigatesItselfK1(panel, nullptr, true)) {
+        const std::uintptr_t screenDispatcher = DispatcherOfK1(panel);
+        if (screenDispatcher != 0) {
+            reinterpret_cast<HandleControlInputFn>(screenDispatcher)(
+                panel, DirectionEventK1(dx, dy), 1);
+            ++g_tabNav.dispatched;
+            return true;
+        }
+    }
+
     // Behind the strip a focused control that owns the direction keys is handed
     // its own retained event directly. Standing down here used to mean the press
     // vanished: nothing routes retained events to a panel that is not in front.
@@ -3266,7 +3542,7 @@ extern "C" void __cdecl NativeJoystickDumpK1()
         // after. cam* are x100.
         "ovr=%d rmag=%ld amag=%ld dz=%ld dcr=%lu cls=%lu/%lu reb=%lu "
         "rx=%ld ry=%ld camrun=%lu camwr=%lu camdz=%lu camapp=%ld camcls=%lu camown=%lu "
-        "nav=%lu/%lu hud=%lu/%lu/%lu/%08lX/%d pad=%lu prm=%lu dsc=%lu gui=%lu tab=%lu/%lu/%lu/%lu tabin=%d mve=%lu/%lu/%lu move=%d->%d dir=%d\r\n",
+        "nav=%lu/%lu hud=%lu/%lu/%lu/%08lX/%d pad=%lu prm=%lu dsc=%lu gui=%lu tab=%lu/%lu/%lu/%lu tabin=%d mve=%lu/%lu/%lu move=%d->%d dir=%d rum=%lu/%lu/%08lX raw=%08lX/%08lX slot=%d\r\n",
         g_stick.registered ? 1 : 0, g_stick.createFailed ? 1 : 0, liveCount,
         g_stick.initCalls, g_stick.bufferCalls, g_stick.recordsEmitted,
         g_stick.movementCalls, g_stick.overrideFrames,
@@ -3316,7 +3592,9 @@ extern "C" void __cdecl NativeJoystickDumpK1()
         g_tabNav.dispatched,
         g_tabNav.inContent ? 1 : 0,
         g_movie.frames, g_movie.skips, g_movie.refused,
-        g_stick.navFromY, g_stick.navToY, g_stick.navDir);
+        g_stick.navFromY, g_stick.navToY, g_stick.navDir,
+        g_stick.rumbleCalls, g_stick.rumbleSent, g_stick.rumbleLast,
+        g_stick.rumbleRawA, g_stick.rumbleRawB, g_stick.padSlot);
 
     HANDLE file = CreateFileA("kmrp-native-joystick.log", FILE_APPEND_DATA,
                               FILE_SHARE_READ, nullptr, OPEN_ALWAYS,

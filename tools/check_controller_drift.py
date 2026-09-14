@@ -70,6 +70,17 @@ def main() -> int:
     legacy = [h for h in hooks if h["owner"] == kc.LEGACY]
     print(f"  {len(native)} KMRP native, {len(legacy)} legacy, {len(unowned)} unowned")
 
+    # What the installer must emit, which is NOT the same question as who wrote
+    # each hook: kc.native_hooks() adds kc.REQUIRED_LEGACY, the legacy-owned
+    # hooks the native path depends on. Asked of kmrp_controller rather than
+    # recomputed here, because this file having its own copy of the rule is why
+    # it failed a correct installer the first time a hook joined that set.
+    required = kc.native_hooks()
+    required_names = {h["function"] for h in required}
+    extra = sorted(required_names - {h["function"] for h in native})
+    if extra:
+        print(f"  plus {len(extra)} required legacy: {', '.join(extra)}")
+
     # 2. every hook exported
     exported = {line.strip() for line in
                 kc.EXPORTS_DEF.read_text(encoding="utf-8").splitlines()}
@@ -80,18 +91,25 @@ def main() -> int:
     # 3. installed native hooks match the tracked table
     if arguments.config.exists():
         installed = kc.installed_hooks(arguments.config)
-        installed_native = [h for h in installed if kc.is_native(h["function"])]
-        want = [(h["address"], h["function"], list(h["original_bytes"]))
-                for h in native]
-        got = [(h["address"], h["function"], list(h["original_bytes"]))
-               for h in installed_native]
+        installed_native = [h for h in installed
+                            if h["function"] in required_names]
+        # Compared as sets: KPM keys a detour on its address, so the order
+        # hooks appear in the file carries no meaning. The installer appends
+        # ClearActionBarControlsK1 after the native ones while the tracked table
+        # lists it first, which an order-sensitive comparison reported as drift
+        # when nothing had drifted.
+        def key(h):
+            return (h["address"], h["function"], tuple(h["original_bytes"]))
+
+        want = {key(h) for h in required}
+        got = {key(h) for h in installed_native}
         if got and got != want:
-            only_tracked = [n for _, n, _ in want]
-            only_installed = [n for _, n, _ in got]
+            missing = sorted(f"{n} @ {a}" for a, n, _ in want - got)
+            extra = sorted(f"{n} @ {a}" for a, n, _ in got - want)
             problems.append(
                 "installed native hooks differ from kotor1.hooks.toml\n"
-                f"    tracked:   {only_tracked}\n"
-                f"    installed: {only_installed}")
+                f"    missing from the install: {missing or 'none'}\n"
+                f"    not in the tracked table: {extra or 'none'}")
         elif got:
             print(f"  installed config matches the tracked table "
                   f"({len(got)} native hooks)")
@@ -110,7 +128,7 @@ def main() -> int:
         import select_controller_path as installer
         rendered = installer.native_hooks_toml()
         names = re.findall(r'function\s*=\s*"(\w+)"', rendered)
-        want = [h["function"] for h in native]
+        want = [h["function"] for h in required]
         if names != want:
             problems.append(f"the installer renders {names}, tracked table is {want}")
         else:

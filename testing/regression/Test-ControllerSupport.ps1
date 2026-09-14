@@ -76,9 +76,9 @@ try {
 
     $configPath = Join-Path $folder "patch_config.toml"
     $config = [IO.File]::ReadAllText($configPath)
-    Assert (($config | Select-String -AllMatches '\[\[patches\.hooks\]\]').Matches.Count -eq 12) "config contains exactly twelve detours"
-    Assert (($config | Select-String -AllMatches '\[\[patches\.hooks\.parameters\]\]').Matches.Count -eq 15) "config contains all fifteen hook parameters"
-    python -c "import sys,tomllib; d=tomllib.load(open(sys.argv[1],'rb')); assert len(d['patches'])==1 and len(d['patches'][0]['hooks'])==12" $configPath
+    Assert (($config | Select-String -AllMatches '\[\[patches\.hooks\]\]').Matches.Count -eq 14) "config contains exactly fourteen detours"
+    Assert (($config | Select-String -AllMatches '\[\[patches\.hooks\.parameters\]\]').Matches.Count -eq 18) "config contains all eighteen hook parameters"
+    python -c "import sys,tomllib; d=tomllib.load(open(sys.argv[1],'rb')); assert len(d['patches'])==1 and len(d['patches'][0]['hooks'])==14" $configPath
     Assert ($LASTEXITCODE -eq 0) "generated hook config parses as TOML"
 
     $bytes = [IO.File]::ReadAllBytes($game)
@@ -92,7 +92,9 @@ try {
         @{ Va = 0x00404D96; Hex = "8B46488B4808" },
         @{ Va = 0x0040554B; Hex = "8B0DF8397A00" },
         @{ Va = 0x00404BB0; Hex = "83EC7C568BF1" },
+        @{ Va = 0x005F7617; Hex = "68C0270900" },
         @{ Va = 0x00686BA0; Hex = "5356578BF1" },
+        @{ Va = 0x0068B170; Hex = "6AFF68B0F77200" },
         @{ Va = 0x005E271E; Hex = "8B8424E4000000" },
         @{ Va = 0x0040C1F6; Hex = "891E897E04" }
     )

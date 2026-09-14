@@ -68,6 +68,36 @@ own process in memory at startup without writing to `swkotor.exe` at all.
 ## [Unreleased]
 
 ### Fixed
+- **The D-pad moves through the Powers, Feats and Skills lists.** It could not
+  before: the press was swallowed and nothing on those screens moved. Their
+  selection is not a focused control at all but a cursor owned by the screen, so
+  neither a retained event delivered to a control nor the module's own spatial
+  focus layer could reach it. Measured in the clean executable --
+  `CSWGuiInGamePowers::HandleInputEvent` serves all eight direction events from
+  one arm at `0x006F297B`, which walks a cursor object at `panel+0x19FC`
+  (`+0x0C` column, `+0x0D` row, `+0x04` the count) through `0x006CDD80`, then
+  stores the resulting selection at `panel+0x19C4` via `0x006F1460`.
+  `CSWGuiInGameAbilities` does the same at `0x006AE818`/`0x006AE839`, and
+  `SKILLS`, `FEATS` and `MAP` are built the same way.
+
+  Behind the tab strip, `NavigateFocusK1` asked `PanelNavigatesItselfK1` with
+  `reachable = false`, which by design drops the panel half of the test and
+  leaves only the control half, so the panel was never dispatched to and the
+  press fell through to the spatial layer, which sees nothing there because the
+  grid is not made of controls. The screen is now handed its own direction event
+  directly, and before the focused control rather than after: these screens own
+  all four directions and forward to their own description box where that is
+  what they mean (`0x006F299E` takes `0x3A` and sends `0x32` to the listbox at
+  `+0xFCC`), so a description list holding focus would otherwise swallow up and
+  down and leave the grid frozen.
+
+  One deliberate consequence: up no longer climbs back to the tab strip on these
+  screens. The grid wraps -- `0x006CDDB8` sets the row to 0 on passing the last
+  -- so there is no top edge to detect. LT and RT still change screen, which is
+  what the strip was being focused to do. **Playtest-confirmed**: the D-pad
+  moves through the Powers, Feats and Skills lists.
+
+### Fixed
 - **R3 free look no longer crashes the game.** Raising the input device count so
   the engine polls a pad claimed a device that DirectInput never created, and
   nothing allocated its raw state block. `CExoRawInputInternal::GetLastState`

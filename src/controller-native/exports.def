@@ -21,6 +21,7 @@ EXPORTS
     NativeGuiFrameK1
     NativeCameraFrameK1
     NativeMovieFrameK1
+    NativeRumbleK1
     NativeMovieWindowOpenK1
     NativeMovieWindowCloseK1
     NativeActionBarK1

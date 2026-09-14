@@ -47,6 +47,17 @@ EXPORTS_DEF = NATIVE_DIR / "exports.def"
 KMRP = "kmrp"
 LEGACY = "legacy"
 
+# Legacy-owned hooks the NATIVE path cannot run without. Ownership says who
+# wrote a hook; it does not say who depends on it.
+#
+# ClearActionBarControlsK1 is hooked on CSWGuiMainInterface's destructor and is
+# the only code that clears the vendor's g_mainInterface. The native path writes
+# that cache every gameplay frame through NativeActionBarK1, so without this
+# hook the pointer outlives the interface: loading a save over a loaded game
+# freed it, and the next GUI frame walked it. Measured under x32dbg -- a freed
+# 0x14D31F38 dereferenced at +0x18, reached from NativeGuiFrameK1.
+REQUIRED_LEGACY = frozenset({"ClearActionBarControlsK1"})
+
 
 def _defining_sources() -> dict:
     """Exported hook name -> owner, from the `extern "C" ... __cdecl` definitions."""
@@ -76,7 +87,9 @@ def hooks() -> list:
 
 
 def native_hooks() -> list:
-    return [h for h in hooks() if h["owner"] == KMRP]
+    """The hooks the installer must emit: KMRP's own, plus REQUIRED_LEGACY."""
+    return [h for h in hooks()
+            if h["owner"] == KMRP or h["function"] in REQUIRED_LEGACY]
 
 
 def is_native(function: str) -> bool:
