@@ -677,6 +677,7 @@ struct StickState {
     int           padSlot = -1;                   // XInput slot the pad answered on
     unsigned long rumbleCalls = 0;                // SetRumble calls observed
     unsigned long rumbleSent = 0;                 // XInputSetState calls made
+    unsigned long rumbleTableInstalled = 0;       // pattern tables handed over
     unsigned long rumbleLast = 0;                 // last magnitudes, packed 16:16
     unsigned long rumbleRawA = 0;                 // last float bits the engine sent
     unsigned long rumbleRawB = 0;
@@ -1110,6 +1111,7 @@ void* ClientInternalK1();
 int InputClassK1();
 void EnsureDeviceCountK1();
 void EnsurePadStateK1();
+void EnsureRumbleTableK1(void* owner);
 void UpdateStickNavigationK1(float x, float y);
 void RequestNavigationK1(int dx, int dy, bool edge, bool fromDpad);
 // ------------------------------------------------------------- record filling
@@ -1635,10 +1637,221 @@ void BlackenMovieWindowK1(void* player)
     ReleaseDC(window, dc);
 }
 
-// The movie window has just been created, inside InitializeMovie and before the
-// message pump has had a chance to show anything. This is the earliest point the
-// handle exists -- CreateWindowExA returns at 0x00405536 and the handle is
-// stored to player+0x50 immediately after.
+// ------------------------------------------------------ the rumble pattern table
+//
+// The engine's rumble subsystem is complete and running; one field stops it.
+// CClientExoAppInternal::PlayRumblePattern tests the caller's index against the
+// pattern COUNT before it does anything else:
+//
+//     005FB49F  cmp ebp, dword ptr [ecx+0x344]
+//     005FB4A5  jge 0x5fb536                      -> return 0, nothing queued
+//
+// and on PC that count is zero for the life of the process, so every rumble the
+// game asks for is dropped at the door. Two writes to those fields exist in the
+// whole class -- the constructor zeroing them (0x005FC15C, 0x005FC168) and the
+// destructor freeing and re-zeroing (0x005FC82A, 0x005FC844). Nothing loads a
+// table, because the loader went with the Xbox build.
+//
+// Providing one is the entire fix. PlayRumblePattern then appends an instance,
+// UpdateRumble walks the list every frame taking each motor's maximum through
+// CSWRumblePattern::GetMagnitudes, and SetRumble is handed the pair -- where the
+// detour already on 0x005F7617 forwards it to XInput.
+//
+// The layout is read out of GetMagnitudes (0x0068FDD0) and the envelope
+// evaluator it calls twice (0x0068FCB0):
+//
+//     envelope, 0x10 bytes
+//       +0x00  float* magnitudes
+//       +0x04  float* times, in seconds; the end test reads times[count-1]
+//       +0x08  int    count
+//       +0x0C  int    cursor -- the evaluator CACHES its segment here
+//
+//     pattern, 0x24 bytes
+//       +0x00  envelope A, the first magnitude out
+//       +0x10  envelope B, the second
+//       +0x20  int loop
+//
+// The evaluator interpolates linearly between the two keyframes bracketing the
+// elapsed time (0x0068FD96-0x0068FDB7), and GetMagnitudes reports the pattern
+// finished -- returning 0, which makes UpdateRumble drop the instance -- once
+// the time is past the last keyframe of both envelopes and loop is clear.
+
+struct RumbleEnvelopeK1 {
+    const float* magnitudes;
+    const float* times;             // seconds, ascending, first entry 0
+    int          count;
+    int          cursor;            // the engine writes this; not ours to read
+};
+
+struct RumblePatternK1 {
+    RumbleEnvelopeK1 heavy;         // envelope A -> the low-frequency motor
+    RumbleEnvelopeK1 light;         // envelope B -> the high-frequency motor
+    int              loop;
+};
+
+static_assert(sizeof(RumbleEnvelopeK1) == 0x10, "envelope must be 0x10 bytes");
+static_assert(sizeof(RumblePatternK1) == 0x24, "pattern must be 0x24 bytes");
+
+constexpr std::size_t K1_INTERNAL_RUMBLE_TABLE = 0x340;
+constexpr std::size_t K1_INTERNAL_RUMBLE_COUNT = 0x344;
+
+// 21 because the highest index any shipped content asks for is 20, and the
+// engine's bounds test is `index < count`. Everything below it must exist even
+// where nothing references it, so those entries are silent rather than guessed.
+constexpr int K1_RUMBLE_PATTERN_COUNT = 21;
+
+// Which indices exist at all is measured, from two exhaustive sweeps:
+//
+//   * all 209 2DAs in chitin.key, for a `rumblepattern` column. Exactly two
+//     carry one -- footstepsounds and visualeffects -- and they name 11, 14, 16,
+//     17 and 20, each with a `rumblecutoff` beside it giving the radius.
+//   * all 401 shipped containers, for the NCS byte sequence 05 00 01 72 01: an
+//     ACTION call to routine 370, PlayRumblePattern, taking one argument. That
+//     adds 5, 12, 13 and 15, and names the script each call sits in.
+//
+// The same sweep found no call to StopRumblePattern, routine 371, anywhere in
+// the shipped content. That settles the loop flag: nothing would ever stop a
+// looping pattern, so every entry here is one-shot.
+//
+// The SHAPES are authored -- BioWare's envelope data is not in the PC files and
+// cannot be recovered from them. The mapping is not authored: each shape is cut
+// to the events the sweeps say trigger it.
+
+// Indices no 2DA and no shipped script ever asks for. Two keyframes rather than
+// one so the evaluator takes its ordinary path and finishes immediately.
+const float K1_RUMBLE_SILENT_T[]  = { 0.00f, 0.01f };
+const float K1_RUMBLE_SILENT_M[]  = { 0.00f, 0.00f };
+
+// 5 -- k_pend_1b_area2, entering a Star Forge area. A swell, not a hit.
+const float K1_RUMBLE_05_HT[]     = { 0.00f, 0.15f, 0.70f, 1.10f };
+const float K1_RUMBLE_05_HM[]     = { 0.00f, 0.50f, 0.30f, 0.00f };
+const float K1_RUMBLE_05_LT[]     = { 0.00f, 0.15f, 0.60f, 1.10f };
+const float K1_RUMBLE_05_LM[]     = { 0.00f, 0.18f, 0.10f, 0.00f };
+
+// 11 -- k_pkor_ud_tarant, k_pkor_ud_terent, k_ptar_pile_ud, and
+// VFX_FNF_TERANTANAK_DEATH. Something very large moves. Slow and heavy.
+const float K1_RUMBLE_11_HT[]     = { 0.00f, 0.12f, 0.55f, 0.90f };
+const float K1_RUMBLE_11_HM[]     = { 0.00f, 0.90f, 0.60f, 0.00f };
+const float K1_RUMBLE_11_LT[]     = { 0.00f, 0.10f, 0.40f, 0.80f };
+const float K1_RUMBLE_11_LM[]     = { 0.00f, 0.30f, 0.15f, 0.00f };
+
+// 12 -- k_pkor_ceil_fall, a ceiling coming down. The hit, then the debris.
+const float K1_RUMBLE_12_HT[]     = { 0.00f, 0.05f, 0.35f, 0.80f, 1.20f };
+const float K1_RUMBLE_12_HM[]     = { 0.00f, 0.80f, 0.45f, 0.30f, 0.00f };
+const float K1_RUMBLE_12_LT[]     = { 0.00f, 0.04f, 0.30f, 0.70f, 1.20f };
+const float K1_RUMBLE_12_LM[]     = { 0.00f, 0.60f, 0.35f, 0.20f, 0.00f };
+
+// 13 -- k_pkor_ther_dest. A demolition charge: bigger than 14, longer tail.
+const float K1_RUMBLE_13_HT[]     = { 0.00f, 0.05f, 0.40f, 0.75f };
+const float K1_RUMBLE_13_HM[]     = { 0.00f, 1.00f, 0.35f, 0.00f };
+const float K1_RUMBLE_13_LT[]     = { 0.00f, 0.02f, 0.20f, 0.55f };
+const float K1_RUMBLE_13_LM[]     = { 0.00f, 0.90f, 0.25f, 0.00f };
+
+// 14 -- the workhorse, and by a distance. All seven grenade detonations in
+// visualeffects, and eighteen script sites: every Star Forge explosion, the
+// Korriban chokes, the Taris laser and trap triggers. A crack and a fast decay.
+const float K1_RUMBLE_14_HT[]     = { 0.00f, 0.04f, 0.30f, 0.45f };
+const float K1_RUMBLE_14_HM[]     = { 0.00f, 0.85f, 0.25f, 0.00f };
+const float K1_RUMBLE_14_LT[]     = { 0.00f, 0.02f, 0.12f, 0.25f };
+const float K1_RUMBLE_14_LM[]     = { 0.00f, 1.00f, 0.20f, 0.00f };
+
+// 15 -- k_pend_rumble01, which is named for what it is. A sustained tremor.
+const float K1_RUMBLE_15_HT[]     = { 0.00f, 0.40f, 1.60f, 2.20f };
+const float K1_RUMBLE_15_HM[]     = { 0.00f, 0.45f, 0.45f, 0.00f };
+const float K1_RUMBLE_15_LT[]     = { 0.00f, 0.50f, 1.50f, 2.20f };
+const float K1_RUMBLE_15_LM[]     = { 0.00f, 0.12f, 0.12f, 0.00f };
+
+// 16 -- k_pend_area02 and VFX_IMP_SCREEN_SHAKE, whose row also carries
+// shaketype 2 and a cutoff of 30: the widest radius in either 2DA. The screen
+// is shaking, so the pad should be too, for about as long.
+const float K1_RUMBLE_16_HT[]     = { 0.00f, 0.20f, 1.10f, 1.60f };
+const float K1_RUMBLE_16_HM[]     = { 0.00f, 0.65f, 0.55f, 0.00f };
+const float K1_RUMBLE_16_LT[]     = { 0.00f, 0.25f, 1.00f, 1.60f };
+const float K1_RUMBLE_16_LM[]     = { 0.00f, 0.20f, 0.15f, 0.00f };
+
+// 17 -- footstepsounds rows 5 and 10, both labelled Stomp, cutoff 20. One
+// heavy footfall, and it repeats as the thing walks, so it must be short.
+const float K1_RUMBLE_17_HT[]     = { 0.00f, 0.03f, 0.18f, 0.28f };
+const float K1_RUMBLE_17_HM[]     = { 0.00f, 0.70f, 0.15f, 0.00f };
+const float K1_RUMBLE_17_LT[]     = { 0.00f, 0.02f, 0.08f };
+const float K1_RUMBLE_17_LM[]     = { 0.00f, 0.25f, 0.00f };
+
+// 20 -- VFX_IMP_CHOKE and VFX_IMP_FORCE_PUSH at cutoff 2, VFX_FNF_FORCE_WAVE at
+// 5. A force impact: a shove rather than a blast, and no crack to it.
+const float K1_RUMBLE_20_HT[]     = { 0.00f, 0.05f, 0.22f, 0.35f };
+const float K1_RUMBLE_20_HM[]     = { 0.00f, 0.55f, 0.18f, 0.00f };
+const float K1_RUMBLE_20_LT[]     = { 0.00f, 0.03f, 0.15f, 0.30f };
+const float K1_RUMBLE_20_LM[]     = { 0.00f, 0.40f, 0.10f, 0.00f };
+
+struct RumbleShapeK1 {
+    int          index;
+    const float* heavyTimes;
+    const float* heavyMagnitudes;
+    int          heavyCount;
+    const float* lightTimes;
+    const float* lightMagnitudes;
+    int          lightCount;
+};
+
+const RumbleShapeK1 K1_RUMBLE_SHAPES[] = {
+    { 5,  K1_RUMBLE_05_HT, K1_RUMBLE_05_HM, 4, K1_RUMBLE_05_LT, K1_RUMBLE_05_LM, 4 },
+    { 11, K1_RUMBLE_11_HT, K1_RUMBLE_11_HM, 4, K1_RUMBLE_11_LT, K1_RUMBLE_11_LM, 4 },
+    { 12, K1_RUMBLE_12_HT, K1_RUMBLE_12_HM, 5, K1_RUMBLE_12_LT, K1_RUMBLE_12_LM, 5 },
+    { 13, K1_RUMBLE_13_HT, K1_RUMBLE_13_HM, 4, K1_RUMBLE_13_LT, K1_RUMBLE_13_LM, 4 },
+    { 14, K1_RUMBLE_14_HT, K1_RUMBLE_14_HM, 4, K1_RUMBLE_14_LT, K1_RUMBLE_14_LM, 4 },
+    { 15, K1_RUMBLE_15_HT, K1_RUMBLE_15_HM, 4, K1_RUMBLE_15_LT, K1_RUMBLE_15_LM, 4 },
+    { 16, K1_RUMBLE_16_HT, K1_RUMBLE_16_HM, 4, K1_RUMBLE_16_LT, K1_RUMBLE_16_LM, 4 },
+    { 17, K1_RUMBLE_17_HT, K1_RUMBLE_17_HM, 4, K1_RUMBLE_17_LT, K1_RUMBLE_17_LM, 3 },
+    { 20, K1_RUMBLE_20_HT, K1_RUMBLE_20_HM, 4, K1_RUMBLE_20_LT, K1_RUMBLE_20_LM, 4 },
+};
+
+// Install it once, and again if the object is ever rebuilt -- the destructor
+// frees the table and zeroes both fields, so the null test picks a new one up by
+// itself. Never over a table the engine owns: if either field is already set,
+// something loaded one and this has no business replacing it.
+void EnsureRumbleTableK1(void* owner)
+{
+    void* const internal = ClientInternalK1();
+    if (!internal || internal != owner) {
+        // Not an inference. The pointer stored below is one the engine's
+        // destructor hands to free(), so putting it on the wrong object would
+        // be heap corruption rather than a harmless miss. `owner` is
+        // UpdateRumble's own `this`, straight out of ebp.
+        return;
+    }
+    void** const slot = FieldAt<void*>(internal, K1_INTERNAL_RUMBLE_TABLE);
+    int* const count = FieldAt<int>(internal, K1_INTERNAL_RUMBLE_COUNT);
+    if (*slot != nullptr || *count != 0) {
+        return;
+    }
+    const std::size_t bytes = sizeof(RumblePatternK1) * K1_RUMBLE_PATTERN_COUNT;
+    auto* const patterns = static_cast<RumblePatternK1*>(
+        EngineFn<OperatorNewFn>(K1_OPERATOR_NEW)(bytes));
+    if (!patterns) {
+        return;
+    }
+    std::memset(patterns, 0, bytes);
+    for (int i = 0; i < K1_RUMBLE_PATTERN_COUNT; ++i) {
+        patterns[i].heavy = { K1_RUMBLE_SILENT_M, K1_RUMBLE_SILENT_T, 2, 0 };
+        patterns[i].light = { K1_RUMBLE_SILENT_M, K1_RUMBLE_SILENT_T, 2, 0 };
+        patterns[i].loop = 0;
+    }
+    for (const RumbleShapeK1& shape : K1_RUMBLE_SHAPES) {
+        if (shape.index < 0 || shape.index >= K1_RUMBLE_PATTERN_COUNT) {
+            continue;               // unreachable as written; cheap to keep true
+        }
+        RumblePatternK1& pattern = patterns[shape.index];
+        pattern.heavy = { shape.heavyMagnitudes, shape.heavyTimes, shape.heavyCount, 0 };
+        pattern.light = { shape.lightMagnitudes, shape.lightTimes, shape.lightCount, 0 };
+        pattern.loop = 0;
+    }
+    // Pointer before count, because the count is what PlayRumblePattern gates on
+    // and it reads the pointer immediately after passing that gate.
+    *slot = patterns;
+    *count = K1_RUMBLE_PATTERN_COUNT;
+    ++g_stick.rumbleTableInstalled;
+}
+
 // The engine's rumble, routed to XInput.
 //
 // KOTOR still runs the Xbox build's rumble subsystem: UpdateRumble at
@@ -1652,6 +1865,18 @@ void BlackenMovieWindowK1(void* player)
 // pushes that follow. At SetRumble's own entry they are stack arguments, and
 // KPM sources hook parameters from registers only.
 //
+// WHICH REGISTER IS WHICH, which was previously left open. UpdateRumble keeps
+// two accumulators and maxes each instance's two outputs into them:
+//
+//     005F760F  mov eax, dword ptr [esp+4]    envelope B's maximum
+//     005F7613  mov ecx, dword ptr [esp+8]    envelope A's maximum
+//
+// so the first parameter, from EAX, is envelope B and the second, from ECX, is
+// envelope A. The table this module installs treats envelope A as the heavy
+// low-frequency motor and B as the light high-frequency one, which is the
+// pairing the shapes were cut for -- so A goes left and B goes right, and the
+// two lines below are no longer arbitrary.
+//
 // The magnitudes arrive as float bit patterns, because the engine moves them
 // with `mov` rather than the x87 stack. Both are recorded raw in the diagnostic
 // line as `raw=`, alongside `rum=` counting calls seen and XInputSetState calls
@@ -1661,11 +1886,17 @@ void BlackenMovieWindowK1(void* player)
 //
 // UpdateRumble reaches this call on its early-bail path too, so a finished
 // pattern sends zero and the motors stop without any timeout here.
-extern "C" void __cdecl NativeRumbleK1(int magnitudeBitsA, int magnitudeBitsB)
+extern "C" void __cdecl NativeRumbleK1(int envelopeBBits, int envelopeABits,
+                                       void* rumbleOwner)
 {
     ++g_stick.rumbleCalls;
-    g_stick.rumbleRawA = static_cast<unsigned long>(magnitudeBitsA);
-    g_stick.rumbleRawB = static_cast<unsigned long>(magnitudeBitsB);
+    g_stick.rumbleRawA = static_cast<unsigned long>(envelopeABits);
+    g_stick.rumbleRawB = static_cast<unsigned long>(envelopeBBits);
+    // UpdateRumble runs every frame from the main loop, so this is the earliest
+    // and most reliable place to hand the engine its pattern table. Installing
+    // from inside the call it gates is safe: with the count still zero there can
+    // be no instances, so the loop above this point did nothing.
+    EnsureRumbleTableK1(rumbleOwner);
     if (g_stick.padSlot < 0) {
         return;                         // no pad has answered yet
     }
@@ -1683,12 +1914,9 @@ extern "C" void __cdecl NativeRumbleK1(int magnitudeBitsA, int magnitudeBitsB)
     };
 
     XINPUT_VIBRATION vibration{};
-    vibration.wLeftMotorSpeed = toMotor(magnitudeBitsA);
-    vibration.wRightMotorSpeed = toMotor(magnitudeBitsB);
+    vibration.wLeftMotorSpeed = toMotor(envelopeABits);      // heavy
+    vibration.wRightMotorSpeed = toMotor(envelopeBBits);     // light
 
-    // Which magnitude drives which motor is not established -- the two are
-    // symmetric in the engine and only a hand can tell them apart. Swapping
-    // them is swapping these two lines.
     const unsigned long packed =
         (static_cast<unsigned long>(vibration.wLeftMotorSpeed) << 16) |
         vibration.wRightMotorSpeed;
@@ -1700,6 +1928,10 @@ extern "C" void __cdecl NativeRumbleK1(int magnitudeBitsA, int magnitudeBitsB)
     ++g_stick.rumbleSent;
 }
 
+// The movie window has just been created, inside InitializeMovie and before the
+// message pump has had a chance to show anything. This is the earliest point the
+// handle exists -- CreateWindowExA returns at 0x00405536 and the handle is
+// stored to player+0x50 immediately after.
 extern "C" void __cdecl NativeMovieWindowOpenK1(void* player)
 {
     g_movie.lastW = -1;                // a fresh window: repaint on frame one
@@ -3542,7 +3774,7 @@ extern "C" void __cdecl NativeJoystickDumpK1()
         // after. cam* are x100.
         "ovr=%d rmag=%ld amag=%ld dz=%ld dcr=%lu cls=%lu/%lu reb=%lu "
         "rx=%ld ry=%ld camrun=%lu camwr=%lu camdz=%lu camapp=%ld camcls=%lu camown=%lu "
-        "nav=%lu/%lu hud=%lu/%lu/%lu/%08lX/%d pad=%lu prm=%lu dsc=%lu gui=%lu tab=%lu/%lu/%lu/%lu tabin=%d mve=%lu/%lu/%lu move=%d->%d dir=%d rum=%lu/%lu/%08lX raw=%08lX/%08lX slot=%d\r\n",
+        "nav=%lu/%lu hud=%lu/%lu/%lu/%08lX/%d pad=%lu prm=%lu dsc=%lu gui=%lu tab=%lu/%lu/%lu/%lu tabin=%d mve=%lu/%lu/%lu move=%d->%d dir=%d rum=%lu/%lu/%08lX raw=%08lX/%08lX slot=%d rtab=%lu\r\n",
         g_stick.registered ? 1 : 0, g_stick.createFailed ? 1 : 0, liveCount,
         g_stick.initCalls, g_stick.bufferCalls, g_stick.recordsEmitted,
         g_stick.movementCalls, g_stick.overrideFrames,
@@ -3594,7 +3826,8 @@ extern "C" void __cdecl NativeJoystickDumpK1()
         g_movie.frames, g_movie.skips, g_movie.refused,
         g_stick.navFromY, g_stick.navToY, g_stick.navDir,
         g_stick.rumbleCalls, g_stick.rumbleSent, g_stick.rumbleLast,
-        g_stick.rumbleRawA, g_stick.rumbleRawB, g_stick.padSlot);
+        g_stick.rumbleRawA, g_stick.rumbleRawB, g_stick.padSlot,
+        g_stick.rumbleTableInstalled);
 
     HANDLE file = CreateFileA("kmrp-native-joystick.log", FILE_APPEND_DATA,
                               FILE_SHARE_READ, nullptr, OPEN_ALWAYS,

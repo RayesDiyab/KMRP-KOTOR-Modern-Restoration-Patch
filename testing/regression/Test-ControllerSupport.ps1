@@ -77,7 +77,7 @@ try {
     $configPath = Join-Path $folder "patch_config.toml"
     $config = [IO.File]::ReadAllText($configPath)
     Assert (($config | Select-String -AllMatches '\[\[patches\.hooks\]\]').Matches.Count -eq 14) "config contains exactly fourteen detours"
-    Assert (($config | Select-String -AllMatches '\[\[patches\.hooks\.parameters\]\]').Matches.Count -eq 18) "config contains all eighteen hook parameters"
+    Assert (($config | Select-String -AllMatches '\[\[patches\.hooks\.parameters\]\]').Matches.Count -eq 19) "config contains all nineteen hook parameters"
     python -c "import sys,tomllib; d=tomllib.load(open(sys.argv[1],'rb')); assert len(d['patches'])==1 and len(d['patches'][0]['hooks'])==14" $configPath
     Assert ($LASTEXITCODE -eq 0) "generated hook config parses as TOML"
 

@@ -67,6 +67,73 @@ own process in memory at startup without writing to `swkotor.exe` at all.
 
 ## [Unreleased]
 
+### Added
+- **Rumble works.** The engine's rumble subsystem was never removed from the PC
+  build -- `UpdateRumble` ticks every frame, the pattern evaluator and the mixer
+  are both intact, and the module already forwarded the result to XInput. One
+  field stopped all of it. `PlayRumblePattern` tests the caller's index against
+  the pattern *count* before anything else:
+
+  ```
+  005FB49F  cmp ebp, dword ptr [ecx+0x344]
+  005FB4A5  jge 0x5fb536                      -> return 0, nothing queued
+  ```
+
+  and that count is zero for the life of the process, so every rumble the game
+  asked for was dropped at the door. Two instructions in the entire class write
+  those fields -- the constructor zeroing them (`0x005FC15C`, `0x005FC168`) and
+  the destructor freeing and re-zeroing (`0x005FC82A`, `0x005FC844`) -- found by
+  sweeping every instruction in the class's address range, not by inference.
+  The loader went with the Xbox build.
+
+  KMRP now supplies the table, and nothing else changes: `PlayRumblePattern`
+  appends an instance, `UpdateRumble` walks the list taking each motor's maximum
+  through `CSWRumblePattern::GetMagnitudes`, and the detour already sitting on
+  `0x005F7617` forwards the pair to XInput.
+
+  **Which patterns exist is measured, not invented.** Two exhaustive sweeps of
+  the shipped content:
+
+  | Source | Swept | Patterns found |
+  | --- | --- | --- |
+  | 2DAs with a `rumblepattern` column | all 209 in `chitin.key` | `footstepsounds` → 17; `visualeffects` → 11, 14, 16, 20 |
+  | NCS calls to routine 370, `PlayRumblePattern` | all 401 bifs, rims, erfs and mods | adds 5, 12, 13, 15 |
+
+  The union is 5, 11, 12, 13, 14, 15, 16, 17, 20, so the count is 21 and every
+  index nothing references is silent rather than guessed at. The same sweep
+  found **no** call to `StopRumblePattern` anywhere in the shipped content, which
+  settles the loop flag: a looping pattern would never be stopped and the motors
+  would run until the area unloaded, so every entry is one-shot.
+
+  | Pattern | What fires it | Shape |
+  | --- | --- | --- |
+  | 5 | `k_pend_1b_area2` | a swell, ~1.1s |
+  | 11 | tarentatek/terentatek arrivals, `VFX_FNF_TERANTANAK_DEATH` | slow and heavy, ~0.9s |
+  | 12 | `k_pkor_ceil_fall` | the hit, then debris, ~1.2s |
+  | 13 | `k_pkor_ther_dest` | demolition: full scale, long tail |
+  | 14 | all seven grenade VFX plus 18 script sites | a crack and a fast decay, ~0.45s |
+  | 15 | `k_pend_rumble01` | a sustained tremor, ~2.2s |
+  | 16 | `k_pend_area02`, `VFX_IMP_SCREEN_SHAKE` (cutoff 30) | strong and sustained, ~1.6s |
+  | 17 | `footstepsounds` rows 5 and 10, both `Stomp` | one short heavy footfall |
+  | 20 | Force Choke, Force Push, Force Wave | a shove, no crack |
+
+  **What each one feels like is authored**, and that is the honest limit here:
+  BioWare's envelope data went with the Xbox build and cannot be recovered from
+  the PC files. The *mapping* is not authored -- each shape is cut to the events
+  the sweeps name.
+
+  The table is allocated with the engine's own `operator new` (`0x006FA7E6`),
+  because the destructor frees it with the matching `0x006FA390`. The hook now
+  also takes `UpdateRumble`'s own `this` from `EBP` and refuses to install
+  unless it matches the module's pointer walk, since a table written to the
+  wrong object would be handed to `free()` later. **Playtest-confirmed on a
+  real pad**: a frag grenade, pattern 14, rumbles.
+
+  This also settles which magnitude drives which motor, previously left open:
+  `0x005F760F` loads envelope B's maximum into `EAX` and `0x005F7613` loads
+  envelope A's into `ECX`, so A is the heavy low-frequency motor and B the light
+  high-frequency one -- which is the pairing the shapes were cut for.
+
 ### Fixed
 - **The D-pad moves through the Powers, Feats and Skills lists.** It could not
   before: the press was swallowed and nothing on those screens moved. Their

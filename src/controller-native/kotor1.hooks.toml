@@ -381,6 +381,11 @@ original_bytes = [0x68, 0xC0, 0x27, 0x09, 0x00]
 skip_original_bytes = false
 exclude_from_restore = []
 
+# eax and ecx are the two accumulated magnitudes, loaded eight and four bytes
+# above this: eax is envelope B's maximum, ecx is envelope A's. ebp is
+# UpdateRumble's own `this`, loaded at 0x005F750E and not popped until
+# 0x005F762B, and it is here so the module can verify the object it is about to
+# install a pattern table on rather than trusting a pointer walk.
 [[hooks.parameters]]
 source = "eax"
 type = "int"
@@ -388,6 +393,10 @@ type = "int"
 [[hooks.parameters]]
 source = "ecx"
 type = "int"
+
+[[hooks.parameters]]
+source = "ebp"
+type = "pointer"
 
 # Drive the gameplay HUD's bottom-right action bar from the D-pad.
 #

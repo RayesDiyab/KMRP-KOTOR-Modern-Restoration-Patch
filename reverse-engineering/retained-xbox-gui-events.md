@@ -1749,6 +1749,150 @@ through bit shifts this work has not unpicked, so the pairing above is a first
 guess; two of the four may need swapping after a playtest. Registration is
 confirmed, the direction mapping is not.
 
+## Rumble: complete, running, and starved of one field
+
+The PC build did not lose the rumble subsystem. `UpdateRumble` (`0x005F7500`)
+ticks every frame from the main loop, the envelope evaluator and the mixer are
+intact, and `CExoInput::SetRumble` is called with the result whether or not
+anything is playing. What is missing is the data.
+
+`CClientExoAppInternal::PlayRumblePattern` (`0x005FB490`) gates on the pattern
+count:
+
+```
+005FB499  jl  0x5fb536                      index < 0
+005FB49F  cmp ebp, dword ptr [ecx+0x344]    the COUNT
+005FB4A5  jge 0x5fb536                      -> return 0, nothing queued
+005FB4AB  mov edx, dword ptr [ecx+0x340]    the table
+```
+
+Sweeping every instruction in the class's address range for a write to `+0x340`
+or `+0x344` finds exactly two sites, and neither loads anything:
+
+| Site | What it does |
+| --- | --- |
+| `0x005FC15C`, `0x005FC168` | the constructor, zeroing count then table |
+| `0x005FC82A`, `0x005FC844` | the destructor, `free()` then re-zero |
+
+So the count is zero for the life of the process and every trigger in the game
+is dropped at `0x005FB4A5`.
+
+### The object
+
+`[[[0x007A39FC]+4]+4]` — the same `CClientExoAppInternal` whose `+0x9C` carries
+the input class. `UpdateRumble`'s call site at `0x004B8383` walks exactly that,
+and the script-command forwarder at `0x005EDE40` reaches the same object one
+dereference later from its own caller.
+
+| Offset | Field |
+| --- | --- |
+| `+0x340` | `CSWRumblePattern*`, the table |
+| `+0x344` | pattern count |
+| `+0x34C` | active instance array, stride `0x0C` |
+| `+0x350` | active instance count |
+
+An instance is `{int patternIndex, float elapsed, int justStarted}`.
+
+### The pattern
+
+Read out of `CSWRumblePattern::GetMagnitudes` (`0x0068FDD0`) and the envelope
+evaluator it calls twice (`0x0068FCB0`).
+
+```
+envelope, 0x10 bytes
+  +0x00  float* magnitudes
+  +0x04  float* times, seconds; the end test reads times[count-1]
+  +0x08  int    count
+  +0x0C  int    cursor -- the evaluator CACHES its last segment here
+
+pattern, 0x24 bytes
+  +0x00  envelope A -> the first magnitude out
+  +0x10  envelope B -> the second
+  +0x20  int loop
+```
+
+The evaluator interpolates linearly between the two keyframes bracketing the
+elapsed time (`0x0068FD96`-`0x0068FDB7`). `GetMagnitudes` returns 0 -- which
+makes `UpdateRumble` drop the instance -- once the time is past the last
+keyframe of **both** envelopes and `loop` is clear. With `loop` set, the
+evaluator instead subtracts the total duration until the time falls back in
+range (`0x0068FCF0`), and the pattern never ends on its own.
+
+The cursor at `+0x0C` is written by the engine, so a table cannot live in
+read-only memory.
+
+### Where the magnitudes go
+
+`UpdateRumble` keeps two accumulators and takes the maximum of each envelope
+across every active instance, then:
+
+```
+005F760F  mov eax, dword ptr [esp+4]     envelope B's maximum
+005F7613  mov ecx, dword ptr [esp+8]     envelope A's maximum
+005F7617  push 0x927C0                   <- KMRP's detour
+005F7626  call 0x5df550                  CExoInput::SetRumble
+```
+
+So a detour at `0x005F7617` sees both magnitudes in registers, as float bit
+patterns, and `EBP` still holding `UpdateRumble`'s `this`.
+
+### What the shipped content asks for
+
+| Source | Swept | Patterns |
+| --- | --- | --- |
+| a `rumblepattern` 2DA column | all 209 2DAs in `chitin.key` | `footstepsounds` 17; `visualeffects` 11, 14, 16, 20 |
+| NCS `ACTION` calls to routine 370 | all 401 shipped containers | 5, 11, 12, 13, 14, 15, 16 |
+
+Union: **5, 11, 12, 13, 14, 15, 16, 17, 20**. Routine 371,
+`StopRumblePattern`, is called by **nothing** in the shipped content.
+
+Both 2DAs pair the column with `rumblecutoff`, the radius inside which the
+rumble is felt: 2 for Force Choke and Force Push, 5 for the grenades and Force
+Wave, 20 for a Stomp footfall, 30 for `VFX_IMP_SCREEN_SHAKE`.
+
+The envelope data itself is not in the PC files at all, in any 2DA, BIF or RIM.
+It went with the Xbox build.
+
+### Every rumble entry point, and why the coverage is complete
+
+There are four, and all of them funnel into `PlayRumblePattern`:
+
+| Entry | Call sites | Where the index comes from |
+| --- | --- | --- |
+| NWScript routine 370 | `0x0054114C`, `0x004FF94D` | literal ints in compiled scripts |
+| `LookUpAndPerformRumbleWithCutOff`, category 0 | `0x0061A62D` | `footstepsounds.2da` |
+| `LookUpAndPerformRumbleWithCutOff`, category 1 | `0x00690956`, `0x006A653E` | `visualeffects.2da` |
+
+The category is the second argument, a byte, read at `0x005FB98E`: 0 selects the
+2DA at `+0x58` in the registry, 1 the one at `+0x88`, and anything else bails.
+There is no third category and no fourth caller.
+
+So the nine indices the sweeps found -- 5, 11, 12, 13, 14, 15, 16, 17, 20 -- are
+the complete set the shipped game can ask for, and a table covering them leaves
+nothing of the original behind.
+
+### Where the shipped data is itself incomplete
+
+Nine grenades have a `spells.2da` row; only seven have a `rumblepattern`:
+
+| Grenade | VFX row | Rumble |
+| --- | --- | --- |
+| Fragmentation, Stun, Thermal Detonator, Sonic, Cryoban, Plasma, Ion | 3003, 3004, 3005, 3007, 3009, 3010, 3011 | 14 |
+| **Poison** | 3006 | none |
+| **Adhesive** | 3008 | none |
+
+That is BioWare's data, not an omission in the restoration. The same is true of
+the flash grenade: `g_w_flashgren001` exists as an item resource but has no
+`spells.2da` row and no `visualeffects` row, so it is not throwable in the
+shipped game at all. There is no flare item in K1 -- no `FLARE` row in either
+2DA.
+
+Nothing else rumbled on Xbox either. Taking damage, weapon impacts, lightsaber
+clashes, swoop racing and doors are all silent in the original, so adding them
+would be an addition rather than a restoration. Thirteen indices inside the
+current count -- 0-4, 6-10, 18 and 19 -- are referenced by nothing and are free
+for that if it is ever wanted.
+
 ### Some screens navigate themselves, and not through any control
 
 Powers, Feats, Skills, Abilities and the Map do not hold their selection in a

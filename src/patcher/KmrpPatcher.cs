@@ -1651,7 +1651,8 @@ namespace Kmrp
             // it in DirectInput force feedback, which the invented pad cannot
             // receive. This carries the magnitudes to XInput instead.
             AppendHook(text, "0x005F7617", "68, C0, 27, 09, 00",
-                "NativeRumbleK1", new[] { "eax", "ecx" }, new[] { "int", "int" });
+                "NativeRumbleK1", new[] { "eax", "ecx", "ebp" },
+                new[] { "int", "int", "pointer" });
             AppendHook(text, "0x00686BA0", "53, 56, 57, 8B, F1",
                 "NativeActionBarK1", new[] { "ecx" }, new[] { "pointer" });
             // The one legacy-owned hook the native path REQUIRES. Its action
