@@ -148,6 +148,15 @@ def main() -> int:
     try:
         import build_controller_prompt_textures as prompts
         built = {target.resref.lower() for target in prompts.PROMPT_TARGETS}
+        # A button whose caption changes gets one badge per caption,
+        # named <resref><index>, so the module can place the glyph beside
+        # each wording instead of beside the longest one.
+        for target in prompts.PROMPT_TARGETS:
+            key = (target.gui, target.tag)
+            if key not in prompts.PER_CAPTION_TARGETS:
+                continue
+            for index in range(len(prompts.PROMPT_STRREFS.get(key, ()))):
+                built.add(f"{target.resref}{index}".lower())
         source = (kc.ROOT / "src" / "controller-native" / "vendor"
                   / "K1XboxControls.cpp").read_text(encoding="utf-8")
         wanted = {name.lower()
@@ -199,6 +208,80 @@ def main() -> int:
     else:
         print("  constants: " + ", ".join(
             f"{name}={values[name]}" for name in REQUIRED_CONSTANTS))
+
+    # 6. the diagnostic line's conversions match its arguments
+    #
+    # A conversion was once inserted mid-format with its argument appended at the
+    # end of the list, so every field after it printed the wrong variable, and
+    # the widened line overran a 512-byte stack buffer and tripped the stack
+    # cookie. The game froze on load and the cause looked nothing like logging.
+    #
+    # The call is parsed by walking parentheses from wsprintfA(, skipping string
+    # literals and // comments, because the format's own comments contain both
+    # parentheses and semicolons.
+    source = kc.MODULE_SOURCE.read_text(encoding="utf-8")
+    try:
+        index = source.index("wsprintfA(") + len("wsprintfA(")
+    except ValueError:
+        index = -1
+    if index > 0:
+        depth = 1
+        literals = []
+        code = []
+        while depth:
+            char = source[index]
+            if char == '"':
+                end = index + 1
+                while source[end] != '"' or source[end - 1] == "\\":
+                    end += 1
+                literals.append(source[index + 1:end])
+                index = end + 1
+                continue
+            if source.startswith("//", index):
+                index = source.index("\n", index)
+                continue
+            if char == "(":
+                depth += 1
+            elif char == ")":
+                depth -= 1
+                if depth == 0:
+                    break
+            code.append(char)
+            index += 1
+
+        fmt = "".join(literals)
+        conversion = re.compile(r"%[-+ #0-9.]*(?:ll|l|h)?[diouxXeEfgGcsp]")
+        conversions = conversion.findall(fmt)
+
+        depth = 0
+        arguments = 1
+        for char in "".join(code):
+            if char in "([":
+                depth += 1
+            elif char in ")]":
+                depth -= 1
+            elif char == "," and depth == 0:
+                arguments += 1
+        # The buffer, and the empty slot the format literal leaves behind.
+        arguments -= 2
+
+        if len(conversions) != arguments:
+            problems.append(
+                f"the diagnostic line has {len(conversions)} conversions but "
+                f"{arguments} arguments; a field added mid-format needs its "
+                f"argument in the matching position, not at the end")
+        else:
+            widest = len(conversion.sub("4294967295", fmt))
+            size = re.search(r"char line\[(\d+)\]", source)
+            capacity = int(size.group(1)) if size else 0
+            if capacity and widest >= capacity:
+                problems.append(
+                    f"the diagnostic line can reach {widest} bytes in a "
+                    f"{capacity}-byte buffer")
+            else:
+                print(f"  diagnostic line: {len(conversions)} conversions, "
+                      f"{arguments} arguments, worst case ~{widest} of "
+                      f"{capacity} bytes")
 
     print()
     if problems:

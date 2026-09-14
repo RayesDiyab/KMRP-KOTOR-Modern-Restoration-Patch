@@ -67,6 +67,121 @@ own process in memory at startup without writing to `swkotor.exe` at all.
 
 ## [Unreleased]
 
+### Fixed
+- **The X badge sits beside the inventory filter button's caption, whichever
+  caption it is showing.** It used to be drawn on top of the words. The badge is
+  placed against the measured width of the label, and this button was declared
+  as STRREF 32182 -- the bare words "Quest Items", which it never says.
+
+  Its caption is built at runtime from an index:
+
+  ```
+  006B3A58  call 0x005ED690               CClientExoApp::GetGuiInGame
+  006B3A5D  movzx eax, byte [eax+0xBC1]   the current filter
+  006B3A64  inc eax                       the button offers the NEXT one
+  006B3A65  cmp eax, 6 / mov 0            six wraps to zero
+  006B3A88  mov edx, [ecx*4 + 0x756444]   that index into a STRREF table
+  006B3AAC  push 0xA577                   42359, "Show"
+  006B3ADD  call 0x005E5D10               append
+  ```
+
+  so it reads "Show " plus one of six filter names -- All Items, New Items,
+  Quest Items, Equippable Items, Utility Items, Useable Items. Six, not the five
+  consecutive strings `41818`-`41822`: "New Items" sits apart at `42165`, and is
+  the one the `kmrpx_invnew` resref was named for.
+
+  Measured on the 1166px-wide button with the metrics inside the built archive:
+  "Quest Items" is 222px, and placing the badge for it put the glyph on top of
+  **every one of the six captions** -- 19px into the shortest, 90px into the
+  longest. The first pass at these figures used a font atlas found by globbing
+  the repository rather than the one this resolution ships, and understated it.
+
+  Rather than place it against the longest caption -- which never overlaps but
+  leaves it floating up to 103px away from the shortest -- the build now bakes
+  **one badge per caption**, `kmrpx_invnew0`-`5`, and the module picks the
+  matching one from the engine's own filter index. Not by reading the label,
+  which would depend on the player's language: `CGuiInGame+0xBC1` plus one,
+  wrapping at six, is exactly the index the engine itself used to choose the
+  words. Every caption now clears the text by the same 15px:
+
+  Clearance is the gap between the badge's right edge and the first letter;
+  negative means the glyph is drawn over the words.
+
+  | Index | Caption | Label | Shipped | Widest-only | Per-caption |
+  | --- | --- | --- | --- | --- | --- |
+  | 0 | Show All Items | 289px | **-19px** | 86px | 15px |
+  | 1 | Show New Items | 300px | **-24px** | 80px | 15px |
+  | 2 | Show Quest Items | 337px | **-42px** | 62px | 15px |
+  | 3 | Show Equippable Items | 431px | **-90px** | 15px | 15px |
+  | 4 | Show Utility Items | 353px | **-50px** | 54px | 15px |
+  | 5 | Show Useable Items | 379px | **-63px** | 41px | 15px |
+
+  The middle column is what declaring the six captions but keeping one texture
+  would have given: never overlapping, but drifting up to 86px from the words.
+  The last is what shipped -- the same 15px on every caption, which is the
+  generator's own gap constant, `radius * 0.55`.
+
+  Each numbered texture carries only its own wording in the placement manifest,
+  so the installer's existing per-row re-centring against the player's real
+  `dialog.tlk` handles each one correctly with no change to it. The unnumbered
+  `kmrpx_invnew` is still generated, placed against the widest, as the fallback
+  for a module that cannot read the index.
+
+  Three other toggling buttons were declaring only one of their wordings and had
+  happened to pick the wider one: Messages' "Show Feedback" / "Show Dialog", the
+  Journal's "Completed Quests" / "Active Quests", and its four sort orders. They
+  now declare all of them. No English art changes, but the installer re-resolves
+  these against the player's own `dialog.tlk`, so an undeclared variant is an
+  overlapped badge in any localisation where the other wording is longer. These
+  keep a single texture: their captions differ by far less, and each would need
+  its own index read to do better. **Playtest pending.**
+
+### Removed
+- **The D-pad no longer moves focus onto the in-game menu's tab strip.** That
+  layer was built before LT and RT changed screens; with those working it was a
+  second, worse way to do the same thing, because focus could sit on a tab frame
+  and a direction press then had two possible meanings depending on invisible
+  state. The strip is no longer a focus target at all: every direction press
+  acts on the content of the tab being shown. LT and RT change screen, X still
+  cycles sub-tabs.
+
+  Removed with it, each having existed only to serve focus sitting on a frame:
+  the frames walk and the enter-content press, both routes back up to the strip
+  (off the top of a list, and off a content panel's top boundary), the
+  A-on-a-focused-frame bridge and the request the input hook raised for it, the
+  tab-frames-only candidate filter, and five helpers left with no callers. The
+  `entered`, `returned` and `activated` counters went too, since nothing could
+  increment them any more. **Playtest pending.**
+
+### Added
+- **The diagnostic line's format and argument list are checked against each
+  other.** `check_controller_drift.py` now parses the `wsprintfA` call, counts
+  conversions against top-level arguments, and reports the worst-case width
+  against the buffer. This is the bug it exists for: a conversion was once
+  inserted mid-format with its argument appended at the end of the list, so
+  every field after it printed the wrong variable, and the widened line overran
+  a 512-byte stack buffer and tripped the `/GS` stack cookie -- the game froze
+  on load and the cause looked nothing like a logging change. Verified to fail
+  by introducing a mismatch deliberately.
+
+### Fixed
+- **Left and right on the equipment screen move sideways instead of jumping a
+  row up.** The 3x3 slot grid is 192x192 cells on a row pitch of 150, so
+  consecutive rows overlap by 42 pixels while the columns, on a pitch of 268, do
+  not overlap at all. The focus layer waived its cross-axis penalty outright
+  whenever two controls overlapped on that axis, so pressing right from Body
+  scored the correct neighbour (Right Arm), the slot above it (Hands) and the
+  slot below it (Right Weapon) at exactly 268 apiece -- same horizontal step, all
+  three counted as "in the row". The tie-break is a strict less-than, so the
+  first in the control array won, and the array runs top to bottom.
+
+  The waiver is now a discount: a candidate that still touches the row pays a
+  third of the rate one that misses it entirely pays, rather than nothing.
+  Scored against the real geometry from the generated `equip.gui`, over all nine
+  cells and all four directions, the old rule was wrong eight times -- every one
+  of them a left or a right, with up and down always correct because the columns
+  do not overlap -- and the new rule is wrong none. **Playtest pending.**
+
 ### Added
 - **Rumble works.** The engine's rumble subsystem was never removed from the PC
   build -- `UpdateRumble` ticks every frame, the pattern evaluator and the mixer

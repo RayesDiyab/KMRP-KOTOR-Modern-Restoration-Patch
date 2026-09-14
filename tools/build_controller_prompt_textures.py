@@ -500,12 +500,35 @@ PROMPT_STRREFS = {
     # to a fixed inset that leaves the glyph floating on a 1500px button.
     ("inventory.gui", "BTN_EXIT"): ((1582,),),
     ("inventory.gui", "BTN_USEITEM"): ((333,),),
-    ("inventory.gui", "BTN_QUESTITEMS"): ((32182,),),
+    # Not 32182. That is the bare words "Quest Items", which this button never
+    # says: CSWGuiInGameInventory builds the caption as STRREF 42359 "Show"
+    # followed by the filter it will switch to (0x006B3AAC pushes 0xA577, two
+    # appends at 0x006B3ADD and 0x006B3AF6).
+    #
+    # ORDER MATTERS HERE. These are the six entries of the engine's own STRREF
+    # table at 0x00756444, in its order, because the module picks the matching
+    # texture by the same index the engine uses -- the byte at CGuiInGame+0xBC1,
+    # plus one, wrapping at six (0x006B3A5D..0x006B3A6E).
+    #
+    # Six, not five: an earlier pass listed the consecutive strings 41818..41822
+    # and missed "New Items", which sits apart at 42165 and is the one the
+    # resref kmrpx_invnew was named for.
+    ("inventory.gui", "BTN_QUESTITEMS"): ((42359, 41822),    # 0 All Items
+                                          (42359, 42165),    # 1 New Items
+                                          (42359, 41818),    # 2 Quest Items
+                                          (42359, 41821),    # 3 Equippable Items
+                                          (42359, 41819),    # 4 Utility Items
+                                          (42359, 41820)),   # 5 Useable Items
     ("messages.gui", "BTN_EXIT"): ((1582,),),
-    ("messages.gui", "BTN_SHOW"): ((42142,),),
+    # Toggles: "Show Feedback" / "Show Dialog". The first is the wider, so this
+    # was already placed correctly in English -- but the installer re-measures
+    # against the player's own dialog.tlk, where the other may be wider.
+    ("messages.gui", "BTN_SHOW"): ((42142,), (42143,)),
     ("journal.gui", "BTN_QUESTITEMS"): ((32182,),),
-    ("journal.gui", "BTN_SWAPTEXT"): ((32177,),),
-    ("journal.gui", "BTN_SORT"): ((32173,),),
+    # Toggles: "Completed Quests" / "Active Quests".
+    ("journal.gui", "BTN_SWAPTEXT"): ((32177,), (32178,)),
+    # Cycles the four sort orders. "by Order Received" is the widest in English.
+    ("journal.gui", "BTN_SORT"): ((32173,), (32174,), (32175,), (32176,)),
     ("journal.gui", "BTN_EXIT"): ((1582,),),
     ("map.gui", "BTN_RETURN"): ((32179,),),
     ("map.gui", "BTN_PRTYSLCT"): ((32180,),),
@@ -553,7 +576,39 @@ PROMPT_FALLBACK_STRINGS = {
     42021: "Assemble",
     42294: "Upgrade Item",
     47885: "Give Item",
+
+    # The captions the toggling buttons build at runtime. Only used when the
+    # installer cannot read the player's dialog.tlk -- it re-resolves all of
+    # these against the real file and re-centres each badge.
+    42359: "Show",
+    41818: "Quest Items",
+    41819: "Utility Items",
+    41820: "Useable Items",
+    41821: "Equippable Items",
+    41822: "All Items",
+    42165: "New Items",
+    42142: "Show Feedback",
+    42143: "Show Dialog",
+    32177: "Completed Quests",
+    32178: "Active Quests",
+    32173: "by Order Received",
+    32174: "by Name",
+    32175: "by Priority",
+    32176: "by Planet",
 }
+
+# Buttons that get one badge texture PER CAPTION, named <resref><index>, chosen
+# at runtime by the module from the engine's own state. Everything else keeps a
+# single texture placed against its widest wording, which never overlaps but can
+# sit a little wide of a short caption.
+#
+# Only worth it where the captions differ a lot and the module has an index it
+# can read without guessing. The inventory filter is both: six wordings from
+# "Show All Items" to "Show Equippable Items", and the index is a byte at
+# CGuiInGame+0xBC1.
+PER_CAPTION_TARGETS = frozenset({
+    ("inventory.gui", "BTN_QUESTITEMS"),
+})
 
 PROMPT_MANIFEST_NAME = "kmrp_prompts.txt"
 
@@ -670,6 +725,29 @@ def build_prompt_textures(gui_files: list[Path], output_dir: Path) -> list[Path]
         results.append(output)
         manifest.append((target.resref, width, height, round(label_width, 2),
                          variants))
+
+        # One texture per caption, for the buttons the module can index. Each is
+        # placed against its OWN wording and carries only that wording in the
+        # manifest, so the installer re-centres each against the player's real
+        # dialog.tlk exactly as it does a single-caption button.
+        #
+        # The plain resref above stays, placed against the widest, as the
+        # fallback for a module that cannot read the index.
+        if (target.gui, target.tag) in PER_CAPTION_TARGETS:
+            if len(target.resref) > 12:
+                raise ValueError(
+                    f"{target.resref} leaves no room for a variant suffix "
+                    f"within a 16-character resref")
+            for index, variant in enumerate(variants):
+                one = variant_strings((variant,), PROMPT_FALLBACK_STRINGS)
+                one_width = measure_label(one[0], advances, spacing_px) if one else 0.0
+                resref = f"{target.resref}{index}"
+                path = output_dir / f"{resref}.tga"
+                path.write_bytes(build_prompt_tga(
+                    width, height, target.glyph, round(one_width, 2)))
+                results.append(path)
+                manifest.append((resref, width, height, round(one_width, 2),
+                                 (variant,)))
 
     # Placement manifest for the installer. The badge artwork does not depend on
     # the label -- only its horizontal position does, and that position moves by

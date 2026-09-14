@@ -626,11 +626,110 @@ void* g_k1PromptPanel = nullptr;
 std::uintptr_t g_k1PromptPanelVtable = 0;
 bool g_k1PromptMode = false;
 bool g_k1PromptStateKnown = false;
+// The caption variant last painted. Without this the early-out below would hold
+// the first texture for as long as the screen stayed up, and cycling the filter
+// would leave the badge placed for the caption before it.
+int g_k1PromptVariant = -1;
+
+// Which caption a button is showing, when it has more than one and the badge
+// is placed differently for each. None means the single texture, placed against
+// the widest wording, is the only one there is.
+enum class PromptVariantK1 {
+    None,
+    InventoryFilter,
+};
 
 struct ControllerPromptBinding {
     std::ptrdiff_t controlOffset;
     const char* resref;
+    PromptVariantK1 variant;
 };
+
+// The inventory filter button. Its caption is "Show " followed by the filter it
+// will switch to, and the engine picks that from a six-entry STRREF table at
+// 0x00756444 indexed by the byte at CGuiInGame+0xBC1 plus one, wrapping:
+//
+//     006B3A58  call 0x005ED690               CClientExoApp::GetGuiInGame
+//     006B3A5D  movzx eax, byte [eax+0xBC1]   the current filter
+//     006B3A64  inc eax                       the button offers the NEXT one
+//     006B3A65  cmp eax, 6 / mov 0            six wraps to zero
+//     006B3A88  mov edx, [ecx*4 + 0x756444]
+//
+// so these are in the table's order, and index i is the badge placed against
+// the caption for table entry i:
+//
+//     0 All Items      1 New Items       2 Quest Items
+//     3 Equippable     4 Utility Items   5 Useable Items
+//
+// Listed in full rather than built with a format string so the drift check can
+// see that every one of them is actually generated.
+constexpr int K1_INVENTORY_FILTER_COUNT = 6;
+const char* const K1_INVENTORY_FILTER_RESREFS[K1_INVENTORY_FILTER_COUNT] = {
+    "kmrpx_invnew0",
+    "kmrpx_invnew1",
+    "kmrpx_invnew2",
+    "kmrpx_invnew3",
+    "kmrpx_invnew4",
+    "kmrpx_invnew5",
+};
+
+// CClientExoApp is [[0x007A39FC]+4], its internal [+4] again, and CGuiInGame
+// hangs off that at +0x40 -- which is all CClientExoApp::GetGuiInGame
+// (0x005ED690) does: `mov eax,[ecx+4]` then `mov eax,[eax+0x40]`.
+constexpr std::uintptr_t K1_CLIENT_EXO_APP_ROOT_ADDRESS = 0x007A39FC;
+constexpr std::ptrdiff_t K1_IN_GAME_GUI_OFFSET = 0x40;
+constexpr std::ptrdiff_t K1_IN_GAME_INVENTORY_FILTER = 0xBC1;
+
+// The caption the inventory filter button is showing, as an index into the
+// table above, or -1 when it cannot be read. Three dereferences off the same
+// CClientExoApp root this file already uses -- GetGuiInGame is only
+// `mov eax,[ecx+4]` then `mov eax,[eax+0x40]`.
+int K1InventoryFilterVariant()
+{
+    void** root = *reinterpret_cast<void***>(K1_CLIENT_EXO_APP_ROOT_ADDRESS);
+    if (!root) {
+        return -1;
+    }
+    void** app = static_cast<void**>(root[1]);
+    if (!app) {
+        return -1;
+    }
+    void* internal = app[1];
+    if (!internal) {
+        return -1;
+    }
+    // Read directly rather than through ReadPointer, which is defined
+    // further down this file.
+    void* inGame = *reinterpret_cast<void**>(
+        static_cast<unsigned char*>(internal) + K1_IN_GAME_GUI_OFFSET);
+    if (!inGame) {
+        return -1;
+    }
+    const unsigned char current = *reinterpret_cast<unsigned char*>(
+        static_cast<unsigned char*>(inGame) + K1_IN_GAME_INVENTORY_FILTER);
+    if (current >= K1_INVENTORY_FILTER_COUNT) {
+        return -1;                  // not a filter index; leave the fallback
+    }
+    return (current + 1) % K1_INVENTORY_FILTER_COUNT;
+}
+
+// The badge for what the button is showing right now, or its single texture.
+const char* K1PromptResref(const ControllerPromptBinding& binding, int* outVariant)
+{
+    if (outVariant) {
+        *outVariant = -1;
+    }
+    if (binding.variant == PromptVariantK1::InventoryFilter) {
+        const int index = K1InventoryFilterVariant();
+        if (index >= 0) {
+            if (outVariant) {
+                *outVariant = index;
+            }
+            return K1_INVENTORY_FILTER_RESREFS[index];
+        }
+    }
+    return binding.resref;
+}
 
 constexpr ControllerPromptBinding K1_CHARACTER_PROMPTS[] = {
     {K1_CHARACTER_EXIT_OFFSET, "kmrpb_charexit"},
@@ -661,7 +760,7 @@ constexpr ControllerPromptBinding K1_UPGRADE_SELECTION_PROMPTS[] = {
 constexpr ControllerPromptBinding K1_INVENTORY_PROMPTS[] = {
     {K1_INVENTORY_CLOSE_OFFSET, "kmrpb_invclose"},
     {K1_INVENTORY_USEITEM_OFFSET, "kmrpa_invuse"},
-    {K1_INVENTORY_SHOWNEW_OFFSET, "kmrpx_invnew"},
+    {K1_INVENTORY_SHOWNEW_OFFSET, "kmrpx_invnew", PromptVariantK1::InventoryFilter},
 };
 
 constexpr ControllerPromptBinding K1_MESSAGES_PROMPTS[] = {
@@ -1145,8 +1244,13 @@ void UpdateK1ControllerPrompts()
         ? *reinterpret_cast<std::uintptr_t*>(panel)
         : 0;
 
+    // The caption can change without the panel or the mode changing, so it is
+    // part of what "nothing has changed" means.
+    const int variant = controllerMode ? K1InventoryFilterVariant() : -1;
+
     if (g_k1PromptStateKnown && panel == g_k1PromptPanel &&
-        vtable == g_k1PromptPanelVtable && controllerMode == g_k1PromptMode) {
+        vtable == g_k1PromptPanelVtable && controllerMode == g_k1PromptMode &&
+        variant == g_k1PromptVariant) {
         return;
     }
 
@@ -1164,13 +1268,14 @@ void UpdateK1ControllerPrompts()
             void* control = OffsetPointer(panel, prompts[i].controlOffset);
             SetK1ControllerPromptFill(
                 control,
-                controllerMode ? prompts[i].resref : nullptr);
+                controllerMode ? K1PromptResref(prompts[i], nullptr) : nullptr);
         }
     }
 
     g_k1PromptPanel = panel;
     g_k1PromptPanelVtable = vtable;
     g_k1PromptMode = controllerMode;
+    g_k1PromptVariant = variant;
     g_k1PromptStateKnown = true;
 }
 
