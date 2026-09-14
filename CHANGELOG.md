@@ -68,6 +68,301 @@ own process in memory at startup without writing to `swkotor.exe` at all.
 ## [Unreleased]
 
 ### Fixed
+- **A pad that is plugged in shows its badges from the first frame**, instead of
+  waiting to be pressed. Reported from the launch sequence: skipping the intro
+  movies with the pad and then arriving at a main menu with no badges on it.
+
+  "Nobody has used anything yet" was the state that did not exist. The flag was a
+  boolean over two meanings -- pad, or not-pad -- with not-pad as the opening
+  value, so a menu reached before any press read as keyboard-and-mouse. It is now
+  three: the pad is in use, the keyboard or mouse is in use, or the question is
+  still open. While it is open a connected pad answers it, because a pad plugged
+  in is a statement of intent where a keyboard sitting there is not. The instant
+  either device is actually used the question closes for good, so nothing about
+  how the two hand over has changed -- only where they start.
+
+  The connected half had to be taught to the native path too.
+  `g_controllerConnected` was maintained only by `ReadPad`, which runs from the
+  legacy poll; the native module reads XInput itself, so it knew a pad was
+  answering while that flag did not, and the opening state could never have
+  fired. `ReadPadAxes` now reports presence either way.
+
+  Worth noting for anyone chasing the same symptom: `ConsumeMovieSkipK1` was
+  *not* the culprit. It already raises the active flag when a skip button is
+  held, so skipping a movie with the pad did count as pad use. **Playtest
+  pending.**
+
+### Added
+- **An A badge that follows the focus down the main menu**, and badge art for
+  the equipment and quest items screens, which had none at all.
+
+  The main menu's badge is a new kind of binding, `FocusOnly`: it is painted only
+  while its control holds the panel's focus and cleared otherwise, so one A
+  travels with the selection instead of five sitting there at once. Clearing is
+  as much the point as painting -- without it the badge would be left behind on
+  the entry the focus just left. The focused control is now part of the state the
+  repaint compares against, or the early-out would hold the first frame's badge
+  for as long as the screen stayed up, which is the trap the inventory filter's
+  caption fell into.
+
+  All five are placed as a **badge group**: sized from the shortest control in
+  the group and placed against the widest label in it, so they stand in one
+  column at one size. Placing each against its own button gave five glyphs that
+  stepped sideways down the list, and made Quit's a fifth larger than the rest
+  because it is 81 tall where the others are 66.
+
+  | Button | Label | Was | Now |
+  | --- | --- | --- | --- |
+  | New Game | 181px | x 194.7, r 19.1 | **x 187.0, r 19.1** |
+  | Load Game | 197px | x 187.0, r 19.1 | **x 187.0, r 19.1** |
+  | Movies | 121px | x 224.8, r 19.1 | **x 187.0, r 19.1** |
+  | Options | 142px | x 214.4, r 19.1 | **x 187.0, r 19.1** |
+  | Quit | 74px | x 241.8, r **23.5** | **x 187.0, r 19.1** |
+
+  The installer's re-centring survives grouping without any change to it, and
+  the reason is worth recording: its shift is
+  `CenterFor(measured) - CenterFor(baked)`, which reduces to
+  `(baked - measured) / 2` -- the radius cancels. So giving every member of the
+  group the same variants in the manifest makes them all resolve the same
+  measured width and shift by the same amount, and the column survives a
+  language whose wording is longer.
+
+- **The control offsets came out of the engine rather than a symbol database.**
+  A panel's controls are embedded objects and the bind call names each one:
+
+  ```
+  0067AE38  push 0x752F0C          "BTN_LOADGAME"
+  0067AE4D  lea  eax, [esi+0x5B4]   the embedded control
+  0067AE5E  call 0x0040B930         bind
+  ```
+
+  `tools/extract_control_offsets.py` reads all 771 of those call sites. Doing it
+  mechanically mattered: the four upper main-menu buttons sit on a uniform
+  `0x1C4` stride and `BTN_EXIT` does not -- it is bound earlier, at `0x1084` --
+  so extrapolating the stride would have put that badge on nothing. The register
+  holding the control also varies (`ecx`, `eax`, `edx`, and `ebx` loaded 240
+  bytes earlier on the quest items screen), which mispaired two tags until the
+  extractor matched `lea`/`push` pairs rather than a fixed register; every
+  offset below was then checked against the disassembly.
+
+  | Screen | Button | Offset | Badge |
+  | --- | --- | --- | --- |
+  | Main menu | NEWGAME / LOADGAME / MOVIES / OPTIONS / EXIT | `0x3F0` `0x5B4` `0x778` `0x93C` `0x1084` | A, follows focus |
+  | Equip | BTN_EQUIP / BTN_BACK | `0x3698` / `0x385C` | A / B |
+  | Quest items | BTN_BACK | `0x8A8` | B |
+
+  **Playtest pending.**
+
+### Fixed
+- **The mouse no longer stops working at random, and the pointer hides and
+  returns with the input device reliably.** Reported as two symptoms -- sometimes
+  no menu item can be clicked, keyboard only; and the cursor not disappearing for
+  the pad and reappearing for the mouse -- which turned out to be one mechanism,
+  and two faults in it rather than anything to do with detecting input.
+
+  KMRP parks the pointer near the top of the screen and hides it through the
+  engine's own reason mask while the pad is the device in use.
+
+  **A failed park or unpark was forgotten.** The pending flag was cleared
+  unconditionally, before the move was attempted:
+
+  ```
+  g_pendingCursorToggle = false;         // cleared whatever happens
+  if (MoveK1Cursor(!g_cursorParked)) {   // and this can fail
+  ```
+
+  `MoveK1Cursor` returns false whenever there is no active GUI manager or its
+  viewport is not sized -- during a load, a movie, a scene transition. The
+  request was dropped there, and since the edge that raised it had already
+  recorded the new device, it could never be raised again until the device
+  changed a second time. When the failure landed on the *unpark*, the cursor
+  stayed parked and hidden while the player was on mouse, and the per-frame
+  re-assert kept snapping it back to the top of the screen: invisible, immovable,
+  hit-testing nothing. That is the "I can't press any menu items with the mouse"
+  exactly, and as intermittent as whether a GUI manager happened to exist at that
+  moment. The flag is now cleared only once the move has actually happened.
+
+  **The module counted its own cursor moves as the player using the mouse.**
+  `MoveK1Cursor` goes through the engine's `MoveMouseToPosition`, which forwards
+  to `HandleMouseMove` -- the very function KMRP hooks to notice mouse activity.
+  So every park, and every re-assert of the park spot, read as though a hand had
+  moved the pointer. That broke the detector both ways: several panels place the
+  cursor on a default control as they open, so the re-assert undoing it could
+  accumulate the 24 pixels and 2 events that mean "the mouse is in use" and hand
+  the pointer back mid-controller-session; and while parked, a real movement and
+  the snap-back cancelling it both counted, so the distance measured bore little
+  relation to how far the hand moved. A guard around the module's own moves now
+  keeps them out of the detector.
+
+  One consequence of retrying is that a flip can still be pending when the device
+  changes again, which would apply it the wrong way round. The device-change edge
+  now *assigns* the flag rather than only raising it, so a stale request is
+  cancelled -- which also means a device change wins over a pending F9, the right
+  precedence for an override that only applies within a mode. **Playtest
+  pending.**
+
+- **The Journal's A and Y buttons do what their badges say.** Reported from
+  play: the button labelled A, "Active Quests", was pressed by Y, and the button
+  labelled Y, "Sort by Priority", answered to nothing.
+
+  Read out of `CSWGuiInGameJournal`'s dispatcher at `0x006456E0`:
+
+  | Event | Handler | What it does | Pad sent it |
+  | --- | --- | --- | --- |
+  | `0x29` | `0x00645C8C` | opens Quest Items, via `0x0040BC70` on `[panel+0xFB4]` | X |
+  | `0x2A` | `0x006459CE` | Active/Completed -- `0x00645610`, then a re-sort | **Y** |
+  | `0x2B` | `0x0064573F` | the sort order -- `inc eax / cmp eax, 4` into `[0x00833A90]` | **Back** |
+  | `0x28` | `0x00645CAB` | close | B |
+
+  So the badges were right about the intended layout and wrong about the facts.
+  The sort was not unreachable -- Back sends `0x2B` -- but no badge says so, so
+  in practice it answered to nothing a player would try.
+
+  A now sends `0x2A` and Y sends `0x2B`, on this screen only, through a small
+  per-panel remap table. The native code is **suppressed** for a remapped
+  button, which is what makes it a remap rather than an addition: without that,
+  Y would sort *and* toggle in one press. The decision is taken at the press and
+  remembered for the release, the same way the direction codes do it -- deciding
+  again at the release would let a screen change mid-press leave a digital
+  description holding a value nothing ever clears, and the button would stick on
+  for the rest of the session.
+
+  Back keeps `0x2B`. It is a second way to reach the sort, it collides with
+  nothing, and removing it was not asked for. The comment on that binding said
+  "Journal quest items", which was wrong -- quest items is `0x29`, on X -- and
+  now says what `0x2B` actually is.
+
+  `rmp=` in the diagnostic line counts remapped presses performed.
+  **Playtest pending.**
+
+### Changed
+- **The item icons ship at 160x160 instead of 192x192**, taking the pack from
+  12.4 MB to 8.5 MB: 25.0 KB an icon rather than 36.1 KB. This reverses an
+  earlier decision to keep them at native size, so the reasoning for the
+  reversal is recorded beside the reasoning it replaces.
+
+  The cost is real and measured. `equip.gui` draws item icons through controls
+  whose EXTENT is exactly 192x192 at the authored resolution, so 192 is native
+  and 160 is upsampled 1.2x on the largest place icons are drawn -- 24.1 dB
+  against 27.8 dB on colour weighted by visibility.
+
+  | Size | Each | 351 total | Visible colour |
+  | --- | --- | --- | --- |
+  | 192 | 36.1 KB | 12.39 MB | 27.8 dB |
+  | **160** | **25.0 KB** | **8.57 MB** | **24.1 dB** |
+  | 144 | 20.2 KB | 6.94 MB | 23.5 dB |
+  | 128 | 16.0 KB | 5.48 MB | 22.6 dB |
+
+  **The free version of this saving does not exist**, which is why resolution
+  was the only lever. DXT1 would have halved the size at 34 dB -- it carries no
+  alpha, so it spends its whole budget on colour -- but it needs one bit of
+  alpha and this executable cannot upload that at all. The format table at
+  `0x0073F36C` holds the no-alpha `0x83F0` and DXT5's `0x83F3` and nothing else;
+  `GL_COMPRESSED_RGBA_S3TC_DXT1` (`0x83F1`) appears nowhere in the image.
+  Repointing `0x83F0` would hand the transparent three-colour mode to all 5,229
+  shipped DXT1 textures, and **1,387 of them use it** -- holes through Jawa,
+  Gammorean and Ithorian skins and the BioWare logo.
+
+  **The resize is premultiplied**, and that is a correctness fix rather than a
+  refinement: the RGB of a fully transparent pixel in these icons is arbitrary,
+  and a straight Lanczos blends it into the visible edge as a fringe. Measured
+  on twelve icons, the naive and premultiplied resizes differ by 30.5 dB -- the
+  same order as the compression error itself, so doing it the easy way would
+  have thrown away much of what the remaining pixels buy.
+
+  `ICON_TEXTURE_SIZE` in `prepare_universal_resources.py` is the one place this
+  lives; setting it back to `ICON_SOURCE_SIZE` restores native size and nothing
+  else has to change. **Playtest pending.**
+
+### Fixed
+- **The full-screen menu backgrounds are compressed.** With the item icons
+  converted, they were what was left: an installed Override measured 1008 MB, of
+  which all 351 icons are 12.4 MB -- 1.2% -- and forty-nine full-screen
+  backgrounds are 768 MB, at 15.68 MB apiece, uncompressed 32-bit. Two of them
+  are `lbl_equip` and `lbl_invent`, read exactly when the Equipment and
+  Inventory screens open, which is where a residual hitch was reported after the
+  icons were fixed.
+
+  Measured on the installed files at 2867x1434:
+
+  | | Size | | Quality |
+  | --- | --- | --- | --- |
+  | uncompressed | 15.68 MB | | |
+  | **DXT1** | **1.96 MB** | 8.0x | 37.7 dB |
+  | DXT5 | 3.91 MB | 4.0x | same colour; the alpha is all 255 |
+
+  27 of the 49 are fully opaque -- every `lbl_*` menu background, including both
+  of the two that matter -- so they take DXT1, which with no alpha to carry
+  spends its whole budget on colour. That is why it scores *better* here than
+  DXT5 does on the item icons (36.9 dB), where half the bits go to an alpha
+  channel. The engine already uploads 5,229 of its own textures this way. The
+  other 22 are loading screens carrying alpha on 0.49% of their pixels, and take
+  DXT5.
+
+  Across all 49: **768 MB -> 139 MB**, and opening Equipment reads 1.96 MB where
+  it read 15.68 MB.
+
+  Two details worth keeping. DXT encodes 4x4 blocks and these are 2867x1434, so
+  the image is padded up to the block grid by repeating its last row and column
+  -- padded rather than cropped, because the added pixels duplicate the frame
+  border where a crop would shave three columns off it. And the source TGAs
+  carry descriptor `0x08`, bottom-left origin, matching TPC's own row order, so
+  they are flipped before encoding exactly as the icons are; the icons once
+  shipped upside down for want of that.
+
+  **Font atlases are excluded and must stay excluded.** `dialogfont32x32` is
+  2048x2048 -- *larger* in pixels than these backgrounds, so a size threshold
+  alone would catch it -- and DXT on glyph edges would visibly damage every line
+  of text in the game. The selection tests the name as well, and the build now
+  fails if the number of backgrounds it compresses is not exactly 49, so a
+  change to the shared assets cannot quietly pull a font in or drop a background
+  out. **Playtest pending.**
+
+- **The compressed item icons can actually reach an existing installation.**
+  The HD icons ship as DXT5 `.tpc` rather than 192x192 uncompressed `.tga`,
+  because Inventory and Equipment are the only two screens that stall and the
+  only two that draw dozens of icons. On any machine that already had KMRP
+  installed, that fix could never land, so the stall stayed.
+
+  Bundled third-party art yields to whatever is already in `Override`, so KMRP
+  never overwrites a mod the player installed on purpose -- and the test spans
+  texture extensions, because the engine resolves a texture by resref and
+  prefers `.tpc` over `.tga`, so a bundled `.tpc` would otherwise silently win
+  over a player's `.tga`. But it only asked whether a sibling *existed*, never
+  whose it was. Installing `i_x.tpc` looks up `i_x.tpc` in the manifest, does
+  not find it -- the manifest holds `i_x.tga` from the build before -- and then
+  yields to that `.tga`. **KMRP was deferring to itself.**
+
+  Measured on a live installation patched before the change:
+
+  | | |
+  | --- | --- |
+  | `.tga` in Override | 1095 |
+  | `.tpc` in Override | **0** |
+  | at 147,500 bytes (192x192, uncompressed) | 399 |
+  | of those, bundled by the current build as `.tpc` | **351** |
+  | files recorded in the manifest as KMRP's own | 1196 |
+
+  Those 351 total 12.4 MB as `.tpc` against 51.8 MB as `.tga` -- 4.1x smaller,
+  39.4 MB less to load on the two screens that stall.
+
+  Two changes. The sibling test now ignores a sibling the manifest already
+  records as ours, since a file KMRP installed is not the player's file whatever
+  extension it carries. And installing a texture over our own superseded sibling
+  deletes that sibling, so the uncompressed copies do not sit on disk forever
+  and do not keep blocking every future install. The sibling's manifest record
+  is deliberately left in place: restore skips its hash check when the file is
+  gone, and still copies the player's original back if they had one.
+
+  The installer now reports how many it replaced.
+
+  **Not changed:** 48 icons still ship as 192x192 uncompressed, and they are
+  KMRP's own art rather than the bundled pack -- 18 empty-equipment-slot
+  placeholders and 30 `lbl_*` tab and HUD pieces. They are interface chrome with
+  hard edges, where DXT artefacts show far more than they do on item art, and 18
+  textures are not what makes a full inventory stutter. Left alone on purpose.
+  **Playtest pending.**
+
 - **The X badge sits beside the inventory filter button's caption, whichever
   caption it is showing.** It used to be drawn on top of the words. The badge is
   placed against the measured width of the label, and this button was declared

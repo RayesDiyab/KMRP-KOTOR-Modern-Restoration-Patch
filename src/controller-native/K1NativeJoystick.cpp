@@ -104,6 +104,7 @@ extern "C" int  __cdecl KmrpActionBarStateK1(void* mainInterface);
 extern "C" void __cdecl KmrpUpdatePromptsK1();
 extern "C" void __cdecl KmrpNoteMouseK1(int mouseX, int mouseY);
 extern "C" void __cdecl KmrpMarkControllerActiveK1();
+extern "C" void __cdecl KmrpNotePadPresentK1(int present);
 extern "C" void __cdecl KmrpMarkKeyboardMouseK1();
 extern "C" void __cdecl KmrpNoteKeyboardK1(void* record, int inputDevice);
 
@@ -316,7 +317,7 @@ constexpr ButtonBinding K1_BUTTONS[] = {
     { 0x8000, 0x77, K1_EVENT_Y,           "Y"    },   // per-panel, 8 panels
     { 0x0100, 0x78, K1_EVENT_DESC_UP,     "LB"   },   // description scroll, 17 panels
     { 0x0200, 0x79, K1_EVENT_DESC_DOWN,   "RB"   },   // description scroll, 19 panels
-    { 0x0020, 0x7A, K1_EVENT_BLACK,       "Back" },   // Black; Journal quest items
+    { 0x0020, 0x7A, K1_EVENT_BLACK,       "Back" },   // Black; the Journal sort
     // 0x7B and 0x7D carry the triggers; 0x7C is the game's own.
 };
 constexpr int K1_BUTTON_COUNT = sizeof(K1_BUTTONS) / sizeof(K1_BUTTONS[0]);
@@ -677,6 +678,9 @@ struct StickState {
     unsigned long rumbleCalls = 0;                // SetRumble calls observed
     unsigned long rumbleSent = 0;                 // XInputSetState calls made
     unsigned long rumbleTableInstalled = 0;       // pattern tables handed over
+    int           remapRequestedSlot = 0;         // a button the screen redefines
+    std::uint8_t  remapSuppressed = 0;            // which buttons took the remap
+    unsigned long remapDispatched = 0;            // remapped presses performed
     unsigned long rumbleLast = 0;                 // last magnitudes, packed 16:16
     unsigned long rumbleRawA = 0;                 // last float bits the engine sent
     unsigned long rumbleRawB = 0;
@@ -772,8 +776,14 @@ bool ReadPadAxes(std::int32_t& x, std::int32_t& y, std::uint16_t& buttons,
         ry = state.Gamepad.sThumbRY;
         lt = state.Gamepad.bLeftTrigger;
         rt = state.Gamepad.bRightTrigger;
+        // So the prompts can be shown from the first frame when a pad is
+        // plugged in, rather than waiting for a press. Only the native path
+        // knows this: the legacy flag is maintained by ReadPad, which this
+        // path does not call.
+        KmrpNotePadPresentK1(1);
         return true;
     }
+    KmrpNotePadPresentK1(0);
     return false;
 }
 
@@ -1110,6 +1120,7 @@ void* ClientInternalK1();
 int InputClassK1();
 void EnsureDeviceCountK1();
 void EnsurePadStateK1();
+int RemappedButtonEventK1(int slot);
 void EnsureRumbleTableK1(void* owner);
 void UpdateStickNavigationK1(float x, float y);
 void RequestNavigationK1(int dx, int dy, bool edge, bool fromDpad);
@@ -1246,8 +1257,30 @@ void FillNativeJoystickBufferK1(int deviceIndex, void* outBuffer)
         const std::uint16_t mask = K1_BUTTONS[b].xinputMask;
         const bool now = (buttons & mask) != 0;
         const bool was = (g_stick.lastButtons & mask) != 0;
-        if (now != was) {
-            emit(DIJOFS_BUTTON0_OFFSET + static_cast<std::uint32_t>(b), now ? 1 : 0);
+        if (now == was) {
+            continue;
+        }
+        // A screen may redefine a button -- the Journal's A and Y, whose badges
+        // and whose engine events disagree. The native code is suppressed so the
+        // press means one thing, and the replacement is dispatched on the GUI
+        // frame rather than here, because it rebuilds the list.
+        //
+        // Decided at the PRESS and remembered, like the direction codes: deciding
+        // again at the release would let a screen change mid-press leave a
+        // digital description holding a value nothing clears.
+        const std::uint8_t bit = static_cast<std::uint8_t>(1u << b);
+        if (now) {
+            const int remapped = RemappedButtonEventK1(K1_BUTTONS[b].slot);
+            if (remapped != 0) {
+                g_stick.remapSuppressed |= bit;
+                g_stick.remapRequestedSlot = K1_BUTTONS[b].slot;
+                continue;
+            }
+            emit(DIJOFS_BUTTON0_OFFSET + static_cast<std::uint32_t>(b), 1);
+        } else if ((g_stick.remapSuppressed & bit) != 0) {
+            g_stick.remapSuppressed &= static_cast<std::uint8_t>(~bit);
+        } else {
+            emit(DIJOFS_BUTTON0_OFFSET + static_cast<std::uint32_t>(b), 0);
         }
     }
     // Whether the native direction codes go out at all. On a screen the engine
@@ -2333,6 +2366,42 @@ constexpr std::uintptr_t K1_INGAME_MENU_DISPATCHER = 0x00624970;
 // should leave it for the tab strip. +0x2C6 selects a different branch when it
 // is not -1, so the escape is only taken on the plain-row path.
 constexpr std::uintptr_t K1_LISTBOX_DISPATCHER = 0x0041CE20;
+
+// CSWGuiInGameJournal. Its four actions are events its dispatcher implements
+// directly, read at 0x006456E0:
+//
+//     0x29  0x00645C8C  Quest Items -- a sound, then 0x0040BC70 on [panel+0xFB4]
+//     0x2A  0x006459CE  Active/Completed -- 0x00645610, then a re-sort
+//     0x2B  0x0064573F  the sort order, `inc eax / cmp eax, 4` into [0x00833A90]
+//     0x28  0x00645CAB  close
+constexpr std::uintptr_t K1_JOURNAL_DISPATCHER = 0x006456E0;
+
+// Buttons whose meaning changes on one particular screen.
+//
+// The Journal's badges say A for Active/Completed and Y for the sort, and the
+// engine disagrees: 0x2A is what Y sends, and the sort is on 0x2B, which only
+// Back sends and no badge mentions. Reported from play as "the Active Quests
+// button doesn't work, it's actually Y that presses it" and "Sort by doesn't
+// work with any controller button".
+//
+// Remapping rather than relabelling because the labels are the sensible layout
+// -- A confirms the view you want, Y is the odd-job button -- and because the
+// sort is otherwise reachable only from a button nothing advertises.
+struct ButtonRemapK1 {
+    std::uintptr_t panel;       // the dispatcher of the panel this applies to
+    int            slot;        // the pad slot, as K1_BUTTONS names it
+    int            event;       // what to dispatch to that panel instead
+    const char*    what;
+};
+
+constexpr ButtonRemapK1 K1_BUTTON_REMAPS[] = {
+    { K1_JOURNAL_DISPATCHER, 0x74, K1_EVENT_Y,     "A: Active/Completed" },
+    { K1_JOURNAL_DISPATCHER, 0x77, K1_EVENT_BLACK, "Y: sort order" },
+};
+constexpr int K1_BUTTON_REMAP_COUNT =
+    sizeof(K1_BUTTON_REMAPS) / sizeof(K1_BUTTON_REMAPS[0]);
+
+
 constexpr std::size_t    K1_LISTBOX_ROW        = 0x2C8;   // int16, selected row
 constexpr std::size_t    K1_LISTBOX_PROTO      = 0x2C6;   // int16, -1 = plain rows
 constexpr std::size_t    K1_LISTBOX_PROTO_ROW  = 0x2C2;   // int16, 1-based proto row
@@ -2391,6 +2460,43 @@ int PanelCountK1()
     }
     const int count = *FieldAt<int>(manager, K1_MGR_PANEL_COUNT);
     return (count > 0 && count <= 256) ? count : 0;
+}
+
+// The panel in front carrying this dispatcher, or null. Pure memory reads, so it
+// is safe to ask from inside the input hook.
+void* PanelWithDispatcherK1(std::uintptr_t dispatcher)
+{
+    const int count = PanelCountK1();
+    for (int i = count - 1; i >= 0; --i) {
+        void* const panel = PanelAtK1(i);
+        if (!panel) {
+            continue;
+        }
+        if ((*FieldAt<std::uint32_t>(panel, K1_PANEL_FLAGS) & K1_PANEL_FLAG_SKIP) != 0) {
+            continue;
+        }
+        if (DispatcherOfK1(panel) == dispatcher) {
+            return panel;
+        }
+    }
+    return nullptr;
+}
+
+// Which event this button should send instead, on whatever is on screen now, or
+// 0 for the usual one. Asked from the record emitter, so it must not call into
+// the engine.
+int RemappedButtonEventK1(int slot)
+{
+    if (InputClassK1() != K1_CLASS_PCGUI) {
+        return 0;                       // gameplay keeps every button as it is
+    }
+    for (int i = 0; i < K1_BUTTON_REMAP_COUNT; ++i) {
+        if (K1_BUTTON_REMAPS[i].slot == slot &&
+            PanelWithDispatcherK1(K1_BUTTON_REMAPS[i].panel) != nullptr) {
+            return K1_BUTTON_REMAPS[i].event;
+        }
+    }
+    return 0;
 }
 
 // The tab strip, or null when the in-game menu is not open.
@@ -3084,6 +3190,31 @@ extern "C" void __cdecl NativeGuiFrameK1(void* guiManager)
 
     UpdateDescriptionScrollK1();
 
+    // A button this screen redefines. Performed here rather than in the input
+    // hook because the Journal's handlers re-sort and rebuild the list.
+    if (g_stick.remapRequestedSlot != 0) {
+        const int slot = g_stick.remapRequestedSlot;
+        g_stick.remapRequestedSlot = 0;
+        if (InputClassK1() == K1_CLASS_PCGUI) {
+            for (int i = 0; i < K1_BUTTON_REMAP_COUNT; ++i) {
+                if (K1_BUTTON_REMAPS[i].slot != slot) {
+                    continue;
+                }
+                void* const panel = PanelWithDispatcherK1(K1_BUTTON_REMAPS[i].panel);
+                if (!panel) {
+                    continue;           // the screen went away between the two
+                }
+                const std::uintptr_t dispatcher = DispatcherOfK1(panel);
+                if (dispatcher != 0) {
+                    reinterpret_cast<HandleControlInputFn>(dispatcher)(
+                        panel, K1_BUTTON_REMAPS[i].event, 1);
+                    ++g_stick.remapDispatched;
+                }
+                break;
+            }
+        }
+    }
+
     const int dx = g_stick.navPendingX;
     const int dy = g_stick.navPendingY;
     if (dx == 0 && dy == 0) {
@@ -3522,7 +3653,7 @@ extern "C" void __cdecl NativeJoystickDumpK1()
         // after. cam* are x100.
         "ovr=%d rmag=%ld amag=%ld dz=%ld dcr=%lu cls=%lu/%lu reb=%lu "
         "rx=%ld ry=%ld camrun=%lu camwr=%lu camdz=%lu camapp=%ld camcls=%lu camown=%lu "
-        "nav=%lu/%lu hud=%lu/%lu/%lu/%08lX/%d pad=%lu prm=%lu dsc=%lu gui=%lu tab=%lu tabin=%d mve=%lu/%lu/%lu move=%d->%d dir=%d rum=%lu/%lu/%08lX raw=%08lX/%08lX slot=%d rtab=%lu\r\n",
+        "nav=%lu/%lu hud=%lu/%lu/%lu/%08lX/%d pad=%lu prm=%lu dsc=%lu gui=%lu tab=%lu tabin=%d mve=%lu/%lu/%lu move=%d->%d dir=%d rum=%lu/%lu/%08lX raw=%08lX/%08lX slot=%d rtab=%lu rmp=%lu\r\n",
         g_stick.registered ? 1 : 0, g_stick.createFailed ? 1 : 0, liveCount,
         g_stick.initCalls, g_stick.bufferCalls, g_stick.recordsEmitted,
         g_stick.movementCalls, g_stick.overrideFrames,
@@ -3574,7 +3705,7 @@ extern "C" void __cdecl NativeJoystickDumpK1()
         g_stick.navFromY, g_stick.navToY, g_stick.navDir,
         g_stick.rumbleCalls, g_stick.rumbleSent, g_stick.rumbleLast,
         g_stick.rumbleRawA, g_stick.rumbleRawB, g_stick.padSlot,
-        g_stick.rumbleTableInstalled);
+        g_stick.rumbleTableInstalled, g_stick.remapDispatched);
 
     HANDLE file = CreateFileA("kmrp-native-joystick.log", FILE_APPEND_DATA,
                               FILE_SHARE_READ, nullptr, OPEN_ALWAYS,

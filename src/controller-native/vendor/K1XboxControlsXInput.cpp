@@ -217,6 +217,12 @@ std::uint8_t g_held[256] = {};
 volatile LONG g_recentInjectedUntil[256] = {};
 volatile LONG g_controllerInputActive = 0;
 volatile LONG g_controllerConnected = 0;
+// Whether either device has actually been used yet. Until one has, the question
+// of which the player is on is open, and a connected pad answers it -- a pad
+// plugged in is a statement of intent, a keyboard sitting there is not. Without
+// this a player who launches with a pad, and skips the intro movies with it,
+// still meets a main menu with no badges on it.
+volatile LONG g_inputDeviceChosen = 0;
 bool g_movieSkipHeld = false;
 
 bool g_leftStickLive = false;
@@ -620,7 +626,14 @@ void PollXInputK1()
 
 bool IsControllerInputActiveK1()
 {
-    return InterlockedCompareExchange(&g_controllerInputActive, 0, 0) != 0;
+    if (InterlockedCompareExchange(&g_controllerInputActive, 0, 0) != 0) {
+        return true;
+    }
+    if (InterlockedCompareExchange(&g_inputDeviceChosen, 0, 0) != 0) {
+        return false;           // asked and answered: it is not the pad
+    }
+    // Nothing has been used yet, so a pad being present decides it.
+    return InterlockedCompareExchange(&g_controllerConnected, 0, 0) != 0;
 }
 
 bool IsControllerConnectedK1()
@@ -674,6 +687,7 @@ bool IsControllerGeneratedKeyK1(std::uint32_t scancode)
 void MarkKeyboardMouseInputK1()
 {
     InterlockedExchange(&g_controllerInputActive, 0);
+    InterlockedExchange(&g_inputDeviceChosen, 1);
 }
 
 // The native path reads XInput itself, so it reports device activity itself.
@@ -683,6 +697,15 @@ void MarkKeyboardMouseInputK1()
 extern "C" void __cdecl KmrpMarkControllerActiveK1()
 {
     InterlockedExchange(&g_controllerInputActive, 1);
+    InterlockedExchange(&g_inputDeviceChosen, 1);
+}
+
+// The native path reads XInput itself rather than through ReadPad, so it is the
+// only thing that knows whether a pad is answering. Without this the connected
+// flag stays 0 in native mode and the opening state above could never fire.
+extern "C" void __cdecl KmrpNotePadPresentK1(int present)
+{
+    InterlockedExchange(&g_controllerConnected, present ? 1 : 0);
 }
 
 // Keyboard or mouse became the live device; drop the prompts.

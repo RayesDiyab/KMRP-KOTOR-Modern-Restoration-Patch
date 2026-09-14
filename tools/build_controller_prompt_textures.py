@@ -157,6 +157,22 @@ PROMPT_TARGETS = (
     #
     # Glyphs are the measured ones -- B closes, X acts, Y sorts, A activates --
     # see docs/controller-behaviour-matrix.md.
+    # The main menu. All five are A, and only the focused one is ever painted --
+    # the module clears the rest -- but each needs its own texture because a badge
+    # is stretched across the button it sits on, and BTN_EXIT is 81 tall where the
+    # other four are 66.
+    PromptTarget("mainmenu.gui", "BTN_NEWGAME", 7, "A", "kmrpa_mmnew"),
+    PromptTarget("mainmenu.gui", "BTN_LOADGAME", 6, "A", "kmrpa_mmload"),
+    PromptTarget("mainmenu.gui", "BTN_MOVIES", 8, "A", "kmrpa_mmmovi"),
+    PromptTarget("mainmenu.gui", "BTN_OPTIONS", 9, "A", "kmrpa_mmopt"),
+    PromptTarget("mainmenu.gui", "BTN_EXIT", 11, "A", "kmrpa_mmexit"),
+
+    # The equipment and quest items screens, which had no badge art at all.
+    # B closes both: CSWGuiInGameEquip implements 0x28 at 0x006BA41F.
+    PromptTarget("equip.gui", "BTN_EQUIP", 37, "A", "kmrpa_eqpequip"),
+    PromptTarget("equip.gui", "BTN_BACK", 36, "B", "kmrpb_eqpback"),
+    PromptTarget("questitem.gui", "BTN_BACK", 3, "B", "kmrpb_qitback"),
+
     PromptTarget("inventory.gui", "BTN_EXIT", 14, "B", "kmrpb_invclose"),
     PromptTarget("inventory.gui", "BTN_USEITEM", 13, "A", "kmrpa_invuse"),
     PromptTarget("inventory.gui", "BTN_QUESTITEMS", 10, "X", "kmrpx_invnew"),
@@ -363,16 +379,22 @@ def _composite_glyph_tga(control_width: int, control_height: int, glyph: str,
 
 @lru_cache(maxsize=None)
 def build_prompt_tga(control_width: int, control_height: int, glyph: str,
-                     label_width: float = 0.0) -> bytes:
+                     label_width: float = 0.0,
+                     radius_height: int = 0) -> bytes:
     if control_width <= 0 or control_height <= 0:
         raise ValueError(f"Invalid prompt control extent {control_width}x{control_height}")
     center_y = control_height * 0.50
+    # A badge in a group takes its size from the group's shortest control rather
+    # than its own, so five entries in a menu carry five identical glyphs. Quit
+    # is 81 tall where the rest are 66, and sizing it from itself made its A a
+    # fifth larger than the others.
+    sizing_height = radius_height if radius_height > 0 else control_height
     # The badge is sized from the button, but the LABEL is the same height on
     # every button, so on a short control 0.29 produced a glyph the player
     # reads as a dot beside full-size text -- visible on the Map screen's
     # 39px-tall Party Selection and Return To Ebon Hawk rows. Short controls
     # take a larger share of their height; normal ones are untouched.
-    radius = control_height * (0.40 if control_height < 60 else 0.29)
+    radius = sizing_height * (0.40 if sizing_height < 60 else 0.29)
 
     # Sit the badge immediately before the label, as the original Xbox build
     # does, instead of at a fixed inset from the button's left edge. KOTOR
@@ -498,6 +520,15 @@ PROMPT_STRREFS = {
     # TEXT.STRREF in the .gui, not guessed: the badge is placed against the
     # measured width of the real label, and a missing entry silently falls back
     # to a fixed inset that leaves the glyph floating on a 1500px button.
+    ("mainmenu.gui", "BTN_NEWGAME"): ((1586,),),
+    ("mainmenu.gui", "BTN_LOADGAME"): ((1585,),),
+    ("mainmenu.gui", "BTN_MOVIES"): ((1583,),),
+    ("mainmenu.gui", "BTN_OPTIONS"): ((1584,),),
+    ("mainmenu.gui", "BTN_EXIT"): ((42172,),),
+    ("equip.gui", "BTN_EQUIP"): ((1580,),),
+    ("equip.gui", "BTN_BACK"): ((1582,),),
+    ("questitem.gui", "BTN_BACK"): ((1582,),),
+
     ("inventory.gui", "BTN_EXIT"): ((1582,),),
     ("inventory.gui", "BTN_USEITEM"): ((333,),),
     # Not 32182. That is the bare words "Quest Items", which this button never
@@ -587,6 +618,11 @@ PROMPT_FALLBACK_STRINGS = {
     41821: "Equippable Items",
     41822: "All Items",
     42165: "New Items",
+    1583: "Movies",
+    1584: "Options",
+    1585: "Load Game",
+    1586: "New Game",
+    42172: "Quit",
     42142: "Show Feedback",
     42143: "Show Dialog",
     32177: "Completed Quests",
@@ -606,6 +642,21 @@ PROMPT_FALLBACK_STRINGS = {
 # can read without guessing. The inventory filter is both: six wordings from
 # "Show All Items" to "Show Equippable Items", and the index is a byte at
 # CGuiInGame+0xBC1.
+# Badges that must line up as a column rather than each hugging its own label,
+# and share one glyph size. The main menu is a list of entries, and five A's that
+# step left and right down it -- one of them larger than the rest -- read as a
+# mistake rather than a layout.
+#
+# Every member is placed against the widest label in its group and sized from the
+# shortest control in it.
+BADGE_GROUPS = {
+    ("mainmenu.gui", "BTN_NEWGAME"): "mainmenu",
+    ("mainmenu.gui", "BTN_LOADGAME"): "mainmenu",
+    ("mainmenu.gui", "BTN_MOVIES"): "mainmenu",
+    ("mainmenu.gui", "BTN_OPTIONS"): "mainmenu",
+    ("mainmenu.gui", "BTN_EXIT"): "mainmenu",
+}
+
 PER_CAPTION_TARGETS = frozenset({
     ("inventory.gui", "BTN_QUESTITEMS"),
 })
@@ -688,6 +739,46 @@ def build_prompt_textures(gui_files: list[Path], output_dir: Path) -> list[Path]
     results: list[Path] = []
     manifest = []
     loaded = {}
+
+    def control_for(target):
+        path = by_name.get(target.gui)
+        if path is None:
+            raise ValueError(f"Controller prompt source is missing: {target.gui}")
+        controls = loaded.get(target.gui)
+        if controls is None:
+            controls = read_gff(path).root.get_list("CONTROLS")
+            loaded[target.gui] = controls
+        if controls is None or target.control_index >= len(controls):
+            raise ValueError(f"{target.gui}: missing control index {target.control_index}")
+        return controls[target.control_index]
+
+    # First pass: what does each GROUP look like as a whole? Members are placed
+    # against the widest label in the group and sized from the shortest control
+    # in it, so a menu carries one column of identical glyphs instead of five
+    # that step sideways and change size.
+    group_label_width: dict = {}
+    group_height: dict = {}
+    group_variants: dict = {}
+    for target in PROMPT_TARGETS:
+        group = BADGE_GROUPS.get((target.gui, target.tag))
+        if group is None:
+            continue
+        control = control_for(target)
+        extent = control.get_struct("EXTENT")
+        if extent is None:
+            raise ValueError(f"{target.gui}:{target.tag} has no extent")
+        height = extent.get_int32("HEIGHT")
+        variants = PROMPT_STRREFS.get((target.gui, target.tag), ())
+        width = max((measure_label(label, advances, spacing_px)
+                     for label in variant_strings(variants, PROMPT_FALLBACK_STRINGS)),
+                    default=0.0)
+        group_label_width[group] = max(group_label_width.get(group, 0.0), width)
+        group_height[group] = min(group_height.get(group, height), height)
+        group_variants.setdefault(group, [])
+        for variant in variants:
+            if variant not in group_variants[group]:
+                group_variants[group].append(variant)
+
     for target in PROMPT_TARGETS:
         path = by_name.get(target.gui)
         if path is None:
@@ -719,9 +810,22 @@ def build_prompt_textures(gui_files: list[Path], output_dir: Path) -> list[Path]
             default=0.0)
         width = extent.get_int32("WIDTH")
         height = extent.get_int32("HEIGHT")
+
+        # A grouped badge is placed and sized against its group, and carries the
+        # group's combined variants into the manifest. That last part is what
+        # keeps the column aligned after the installer re-measures against the
+        # player's own dialog.tlk: its shift works out to (baked - measured) / 2,
+        # so identical variants give identical shifts.
+        group = BADGE_GROUPS.get((target.gui, target.tag))
+        radius_height = 0
+        if group is not None:
+            label_width = group_label_width[group]
+            radius_height = group_height[group]
+            variants = tuple(group_variants[group])
+
         output = output_dir / f"{target.resref}.tga"
         output.write_bytes(build_prompt_tga(
-            width, height, target.glyph, round(label_width, 2)))
+            width, height, target.glyph, round(label_width, 2), radius_height))
         results.append(output)
         manifest.append((target.resref, width, height, round(label_width, 2),
                          variants))

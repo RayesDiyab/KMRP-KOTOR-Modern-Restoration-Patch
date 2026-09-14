@@ -368,6 +368,8 @@ constexpr int K1_GUI_SCROLL_UP_ARROW_EVENT = 0x1FC;
 // its entry in the table below stays dead. Listing it anyway keeps the address
 // with the rest; bringing the screen under the mod is a separate decision.
 constexpr std::uintptr_t K1_EQUIP_PANEL_VTABLE = 0x007569A0;
+// Written by its constructor at 0x006D26FB.
+constexpr std::uintptr_t K1_QUESTITEM_PANEL_VTABLE = 0x00757C20;
 // description_listbox on each panel that has one, from kotor1_0_3.db and
 // cross-checked against the shipped .gui files. Two are named differently in
 // the engine: AutoPause calls it details_list_box (LB_DETAILS) and Mouse
@@ -630,6 +632,9 @@ bool g_k1PromptStateKnown = false;
 // the first texture for as long as the screen stayed up, and cycling the filter
 // would leave the badge placed for the caption before it.
 int g_k1PromptVariant = -1;
+// The control that held the focus when the badges were last painted, so a
+// badge that follows the focus is repainted when the focus moves.
+void* g_k1PromptFocus = nullptr;
 
 // Which caption a button is showing, when it has more than one and the badge
 // is placed differently for each. None means the single texture, placed against
@@ -637,6 +642,10 @@ int g_k1PromptVariant = -1;
 enum class PromptVariantK1 {
     None,
     InventoryFilter,
+    // Painted only while this control holds the panel's focus, and cleared the
+    // moment it does not. The main menu wants one A that travels with the
+    // selection rather than five that sit there permanently.
+    FocusOnly,
 };
 
 struct ControllerPromptBinding {
@@ -713,11 +722,31 @@ int K1InventoryFilterVariant()
     return (current + 1) % K1_INVENTORY_FILTER_COUNT;
 }
 
-// The badge for what the button is showing right now, or its single texture.
-const char* K1PromptResref(const ControllerPromptBinding& binding, int* outVariant)
+// The control this panel currently has focused, or null.
+void* K1ActiveControl(void* panel)
+{
+    if (!panel) {
+        return nullptr;
+    }
+    // Read directly rather than through ReadPointer, which is defined
+    // further down this file.
+    return *reinterpret_cast<void**>(
+        static_cast<unsigned char*>(panel) + K1_CONFIG.panelActiveControlOffset);
+}
+
+// The badge for what the button is showing right now, or its single texture,
+// or nothing at all when it is a FocusOnly badge and the focus is elsewhere.
+const char* K1PromptResref(const ControllerPromptBinding& binding, void* panel,
+                           void* control, int* outVariant)
 {
     if (outVariant) {
         *outVariant = -1;
+    }
+    if (binding.variant == PromptVariantK1::FocusOnly) {
+        // One badge that travels with the selection rather than five that sit
+        // there at once. Clearing is as much the point as painting: without it
+        // the badge would be left behind on the entry the focus just left.
+        return control == K1ActiveControl(panel) ? binding.resref : nullptr;
     }
     if (binding.variant == PromptVariantK1::InventoryFilter) {
         const int index = K1InventoryFilterVariant();
@@ -766,6 +795,31 @@ constexpr ControllerPromptBinding K1_INVENTORY_PROMPTS[] = {
 constexpr ControllerPromptBinding K1_MESSAGES_PROMPTS[] = {
     {K1_MESSAGES_CLOSE_OFFSET, "kmrpb_msgclose"},
     {K1_MESSAGES_FEEDBACK_OFFSET, "kmrpx_msgfeed"},
+};
+
+// The main menu. Offsets read out of the bind calls at 0x0067AD43-0x0067AF76;
+// note BTN_EXIT at 0x1084 does not continue the 0x1C4 stride the first four sit
+// on, because it is bound before them.
+constexpr ControllerPromptBinding K1_MAIN_MENU_PROMPTS[] = {
+    {0x03F0, "kmrpa_mmnew",  PromptVariantK1::FocusOnly},
+    {0x05B4, "kmrpa_mmload", PromptVariantK1::FocusOnly},
+    {0x0778, "kmrpa_mmmovi", PromptVariantK1::FocusOnly},
+    {0x093C, "kmrpa_mmopt",  PromptVariantK1::FocusOnly},
+    {0x1084, "kmrpa_mmexit", PromptVariantK1::FocusOnly},
+};
+
+// The equipment screen. Offsets from the bind calls at 0x006BB131 and
+// 0x006BB166. B closes it -- CSWGuiInGameEquip's dispatcher implements 0x28 at
+// 0x006BA41F -- and A equips whatever the slot grid has selected.
+constexpr ControllerPromptBinding K1_EQUIP_PROMPTS[] = {
+    {0x3698, "kmrpa_eqpequip", PromptVariantK1::None},
+    {0x385C, "kmrpb_eqpback",  PromptVariantK1::None},
+};
+
+// The quest items screen, which has exactly one button. Offset from the bind
+// call at 0x006D2836, whose control arrives in ebx from 0x006D2745.
+constexpr ControllerPromptBinding K1_QUESTITEM_PROMPTS[] = {
+    {0x08A8, "kmrpb_qitback", PromptVariantK1::None},
 };
 
 constexpr ControllerPromptBinding K1_JOURNAL_PROMPTS[] = {
@@ -1141,6 +1195,15 @@ const ControllerPromptBinding* GetK1ControllerPrompts(
     case K1_JOURNAL_PANEL_VTABLE:
         *count = sizeof(K1_JOURNAL_PROMPTS) / sizeof(K1_JOURNAL_PROMPTS[0]);
         return K1_JOURNAL_PROMPTS;
+    case K1_MAIN_MENU_PANEL_VTABLE:
+        *count = sizeof(K1_MAIN_MENU_PROMPTS) / sizeof(K1_MAIN_MENU_PROMPTS[0]);
+        return K1_MAIN_MENU_PROMPTS;
+    case K1_EQUIP_PANEL_VTABLE:
+        *count = sizeof(K1_EQUIP_PROMPTS) / sizeof(K1_EQUIP_PROMPTS[0]);
+        return K1_EQUIP_PROMPTS;
+    case K1_QUESTITEM_PANEL_VTABLE:
+        *count = sizeof(K1_QUESTITEM_PROMPTS) / sizeof(K1_QUESTITEM_PROMPTS[0]);
+        return K1_QUESTITEM_PROMPTS;
     case K1_MAP_PANEL_VTABLE:
         *count = sizeof(K1_MAP_PROMPTS) / sizeof(K1_MAP_PROMPTS[0]);
         return K1_MAP_PROMPTS;
@@ -1245,12 +1308,16 @@ void UpdateK1ControllerPrompts()
         : 0;
 
     // The caption can change without the panel or the mode changing, so it is
-    // part of what "nothing has changed" means.
+    // part of what "nothing has changed" means. So is the focus, now that a
+    // badge can follow it: without this the early-out would hold the first
+    // frame's badge for as long as the screen stayed up, and the A would sit on
+    // whichever entry happened to be selected when the menu opened.
     const int variant = controllerMode ? K1InventoryFilterVariant() : -1;
+    void* const focused = controllerMode ? K1ActiveControl(panel) : nullptr;
 
     if (g_k1PromptStateKnown && panel == g_k1PromptPanel &&
         vtable == g_k1PromptPanelVtable && controllerMode == g_k1PromptMode &&
-        variant == g_k1PromptVariant) {
+        variant == g_k1PromptVariant && focused == g_k1PromptFocus) {
         return;
     }
 
@@ -1260,6 +1327,7 @@ void UpdateK1ControllerPrompts()
     const bool mustApply = controllerMode ||
         (g_k1PromptStateKnown && g_k1PromptMode && panel == g_k1PromptPanel &&
          vtable == g_k1PromptPanelVtable);
+
     if (mustApply && panel) {
         int count = 0;
         const ControllerPromptBinding* prompts =
@@ -1268,7 +1336,9 @@ void UpdateK1ControllerPrompts()
             void* control = OffsetPointer(panel, prompts[i].controlOffset);
             SetK1ControllerPromptFill(
                 control,
-                controllerMode ? K1PromptResref(prompts[i], nullptr) : nullptr);
+                controllerMode
+                    ? K1PromptResref(prompts[i], panel, control, nullptr)
+                    : nullptr);
         }
     }
 
@@ -1276,6 +1346,7 @@ void UpdateK1ControllerPrompts()
     g_k1PromptPanelVtable = vtable;
     g_k1PromptMode = controllerMode;
     g_k1PromptVariant = variant;
+    g_k1PromptFocus = focused;
     g_k1PromptStateKnown = true;
 }
 
@@ -2173,6 +2244,19 @@ void SetK1CursorHidden(void* clientApp, bool hide)
         K1_CURSOR_HIDE_REASON);
 }
 
+// Set while the module is moving the cursor itself. MoveMouseToPosition
+// forwards to HandleMouseMove, which is the function KMRP hooks to notice mouse
+// activity -- so without this every park, and every re-assert of the park spot,
+// reads as though a hand had moved the pointer.
+//
+// It breaks the detector both ways. Several panels place the cursor on a default
+// control as they open; the re-assert that undoes that would accumulate the 24
+// pixels and 2 events that mean "the mouse is in use" and hand the pointer back
+// in the middle of a controller session. And while parked, a real movement and
+// the snap-back that cancels it both count, so the distance measured bears
+// little relation to how far the hand actually moved.
+bool g_movingCursorOurselves = false;
+
 bool MoveK1Cursor(bool toParkedSpot)
 {
     void* manager = GetK1ActiveGuiManager();
@@ -2189,10 +2273,12 @@ bool MoveK1Cursor(bool toParkedSpot)
     // Unparking drops it in the middle of the viewport rather than restoring
     // wherever it was, so bringing the pointer back always puts it somewhere
     // visible instead of back under the top edge it was just moved out of.
+    g_movingCursorOurselves = true;
     reinterpret_cast<GuiManagerMoveMouseFn>(K1_GUI_MOVE_MOUSE_TO_POSITION)(
         manager,
         width / 2,
         toParkedSpot ? K1_PARKED_CURSOR_Y : height / 2);
+    g_movingCursorOurselves = false;
     return true;
 }
 
@@ -2218,14 +2304,28 @@ void UpdateK1CursorState(void* clientApp)
     const bool controllerMode = IsControllerInputActiveK1();
     if (controllerMode != g_cursorFollowedControllerMode) {
         g_cursorFollowedControllerMode = controllerMode;
-        if (controllerMode != g_cursorParked) {
-            g_pendingCursorToggle = true;
-        }
+        // Assigned, not just raised. The flag means "flip it", and now that a
+        // failed flip is retried rather than dropped, one can still be pending
+        // when the device changes again -- at which point the flip it asked for
+        // is the wrong way round. Recomputing here cancels a stale request
+        // instead of letting it park the cursor against the device in use.
+        //
+        // This also means a device change wins over a pending F9, which is the
+        // right precedence: F9 is an override within a mode.
+        g_pendingCursorToggle = (controllerMode != g_cursorParked);
     }
 
     if (g_pendingCursorToggle) {
-        g_pendingCursorToggle = false;
+        // Cleared only once the move has actually happened. MoveK1Cursor fails
+        // whenever there is no active GUI manager or its viewport is not sized
+        // yet -- during a load, a movie, a scene transition -- and dropping the
+        // request there left the cursor parked and hidden while the player was
+        // using the mouse, with the re-assert below pinning it to the top of the
+        // screen every frame. Invisible, immovable, hit-testing nothing: the
+        // mouse appeared to stop working entirely, and only a second change of
+        // input device could ever raise the request again.
         if (MoveK1Cursor(!g_cursorParked)) {
+            g_pendingCursorToggle = false;
             g_cursorParked = !g_cursorParked;
             SetK1CursorHidden(clientApp, g_cursorParked);
         }
@@ -3828,6 +3928,15 @@ int g_mouseWindowEvents = 0;
 // True when this move is part of real mouse use rather than an engine recentre.
 bool MouseIsBeingUsedK1(int mouseX, int mouseY)
 {
+    if (g_movingCursorOurselves) {
+        // The module moved the pointer, not a hand. Take the new position as the
+        // baseline so the next real movement is measured from where the cursor
+        // actually is, but report nothing.
+        g_lastMouseX = mouseX;
+        g_lastMouseY = mouseY;
+        return false;
+    }
+
     const DWORD now = GetTickCount();
     if (g_lastMouseX == 0x7FFFFFFF) {
         g_lastMouseX = mouseX;

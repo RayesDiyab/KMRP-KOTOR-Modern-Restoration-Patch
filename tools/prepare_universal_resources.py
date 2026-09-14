@@ -181,6 +181,185 @@ GOLD_GEOMETRY_EXCLUDED = {
 }
 
 
+# The full-screen menu backgrounds: 2867x1434 at the authored resolution, 15.68 MB
+# each uncompressed, and 49 of them. They are the bulk of an installed Override
+# once the item icons are compressed -- 768 MB of 1008 MB measured on a real
+# install, against 12.4 MB for all 351 icons.
+#
+# Selected by pixel area rather than by name, because the set is not a list
+# anyone maintains. The threshold sits below their 4,111,278 pixels and above
+# everything else in the shared assets, whose next largest is 1,555,211.
+MENU_BACKGROUND_MIN_PIXELS = 3_000_000
+
+# ...except font atlases, which are LARGER than the backgrounds -- dialogfont32x32
+# is 2048x2048, 4,194,304 pixels -- and must never be block-compressed: DXT on
+# glyph edges damages every line of text in the game.
+FONT_ATLAS_MARKERS = ("font", "fnt_")
+
+# Asserted so that a change to the shared assets fails the build rather than
+# quietly compressing something it should not, or quietly stopping.
+EXPECTED_MENU_BACKGROUNDS = 49
+
+
+def tpc_from_image(image, encoding: int, pixel_format: str) -> bytes:
+    """A stock-layout TPC: 128-byte header, the DXT blocks, then a TXI.
+
+    TPC stores rows bottom-up, the way the source TGAs do (descriptor 0x08), and
+    Pillow hands back top-down pixels -- so the flip here is what keeps the
+    texture the right way up. The icons shipped upside down once for want of it.
+
+    DXT encodes 4x4 blocks, so both dimensions are padded up to the block grid by
+    repeating the last row and column. Padding rather than cropping: the added
+    pixels duplicate the frame border, where a crop would shave it away.
+    """
+    import io
+
+    from PIL import Image
+
+    width, height = image.size
+    padded_w = width + (-width % 4)
+    padded_h = height + (-height % 4)
+    if (padded_w, padded_h) != (width, height):
+        padded = Image.new("RGBA", (padded_w, padded_h))
+        padded.paste(image, (0, 0))
+        if padded_w > width:
+            edge = image.crop((width - 1, 0, width, height))
+            for x in range(width, padded_w):
+                padded.paste(edge, (x, 0))
+        if padded_h > height:
+            row = padded.crop((0, height - 1, padded_w, height))
+            for y in range(height, padded_h):
+                padded.paste(row, (0, y))
+        image = padded
+
+    upright = image.transpose(Image.FLIP_TOP_BOTTOM)
+    buffer = io.BytesIO()
+    if pixel_format == "DXT1":
+        upright.convert("RGB").save(buffer, format="DDS", pixel_format="DXT1")
+    else:
+        upright.save(buffer, format="DDS", pixel_format="DXT5")
+    payload = buffer.getvalue()[128:]
+    header = struct.pack("<IfHHBB", len(payload), 1.0,
+                         image.width, image.height, encoding, 1)
+    return header + b"\x00" * (128 - len(header)) + payload + b"mipmap 0\n"
+
+
+def compress_menu_backgrounds(files: list[Path], staging: Path) -> list[Path]:
+    """Return `files` with every full-screen background replaced by a DXT TPC.
+
+    DXT1 for the ones that are fully opaque -- every lbl_* menu background, which
+    is 27 of the 49 -- because with no alpha to carry it spends its whole budget
+    on colour: measured 37.7 dB at 8.0x smaller, BETTER than the 36.9 dB the item
+    icons get from DXT5, where half the bits go to an alpha channel.
+
+    DXT5 for the 22 loading screens, which carry alpha on 0.49% of their pixels.
+    """
+    try:
+        from PIL import Image
+    except ImportError:
+        print("  Pillow unavailable; shipping the backgrounds uncompressed")
+        return files
+
+    staging.mkdir(parents=True, exist_ok=True)
+    result: list[Path] = []
+    opaque = translucent = before = after = 0
+    for path in files:
+        if path.suffix.lower() != ".tga":
+            result.append(path)
+            continue
+        lowered = path.name.lower()
+        if any(marker in lowered for marker in FONT_ATLAS_MARKERS):
+            result.append(path)
+            continue
+        head = path.read_bytes()[:18]
+        width, height = struct.unpack_from("<HH", head, 12)
+        if width * height < MENU_BACKGROUND_MIN_PIXELS:
+            result.append(path)
+            continue
+
+        with Image.open(path) as source:
+            image = source.convert("RGBA")
+            histogram = image.getchannel("A").histogram()
+            is_opaque = histogram[255] == image.width * image.height
+            blob = tpc_from_image(image, 2 if is_opaque else 4,
+                                  "DXT1" if is_opaque else "DXT5")
+        if is_opaque:
+            opaque += 1
+        else:
+            translucent += 1
+        target = staging / (path.stem + ".tpc")
+        target.write_bytes(blob)
+        before += path.stat().st_size
+        after += len(blob)
+        result.append(target)
+
+    converted = opaque + translucent
+    if converted != EXPECTED_MENU_BACKGROUNDS:
+        raise ValueError(
+            f"Expected {EXPECTED_MENU_BACKGROUNDS} full-screen backgrounds, "
+            f"compressed {converted}. The shared assets changed: check that no "
+            f"font atlas is being caught and that none has been dropped.")
+    print(f"  compressed {converted} menu backgrounds "
+          f"({opaque} DXT1, {translucent} DXT5): "
+          f"{before/1048576:.0f} MB -> {after/1048576:.0f} MB "
+          f"({before/after:.1f}x)")
+    return result
+
+
+# The size the item icons ship at. The pack authors them at 192, which is exactly
+# the EXTENT of an equipment slot at the authored resolution, so 192 is native
+# and anything below it is upsampled on the largest place icons are drawn.
+#
+# 160 is a deliberate trade of sharpness for bytes: 12.4 MB to 8.5 MB across the
+# 351 of them, costing 24.1 dB against 27.8 dB on colour weighted by visibility.
+# Set this back to ICON_SOURCE_SIZE to undo it; nothing else has to change.
+#
+# The free version of this saving does not exist. DXT1 would halve the size at
+# 34 dB, because with no alpha to carry it spends its whole budget on colour --
+# but it needs one bit of alpha and this executable has no
+# GL_COMPRESSED_RGBA_S3TC_DXT1. The format table at 0x0073F36C holds the no-alpha
+# 0x83F0 and DXT5's 0x83F3 and nothing else, and repointing 0x83F0 at 0x83F1
+# would hand the transparent three-colour mode to all 5,229 shipped DXT1
+# textures, 1,387 of which use it -- holes through character skins and the
+# BioWare logo.
+ICON_SOURCE_SIZE = 192
+ICON_TEXTURE_SIZE = 160
+
+
+def resize_premultiplied(image, size: int):
+    """Lanczos on premultiplied colour, then divided back out.
+
+    Not an optimisation -- a correctness fix. The RGB of a fully transparent
+    pixel in these icons is arbitrary, and a straight resize blends it into the
+    visible edge as a dark or coloured fringe. Measured on twelve icons, the two
+    approaches differ by 30.5 dB, which is the same order as the compression
+    error itself.
+    """
+    from PIL import Image
+
+    raw = bytearray(image.tobytes())
+    for i in range(0, len(raw), 4):
+        alpha = raw[i + 3]
+        if alpha != 255:
+            raw[i] = raw[i] * alpha // 255
+            raw[i + 1] = raw[i + 1] * alpha // 255
+            raw[i + 2] = raw[i + 2] * alpha // 255
+    premultiplied = Image.frombytes("RGBA", image.size, bytes(raw))
+
+    small = premultiplied.resize((size, size), Image.LANCZOS)
+
+    out = bytearray(small.tobytes())
+    for i in range(0, len(out), 4):
+        alpha = out[i + 3]
+        if alpha == 0:
+            out[i] = out[i + 1] = out[i + 2] = 0
+        elif alpha != 255:
+            out[i] = min(255, out[i] * 255 // alpha)
+            out[i + 1] = min(255, out[i + 1] * 255 // alpha)
+            out[i + 2] = min(255, out[i + 2] * 255 // alpha)
+    return Image.frombytes("RGBA", small.size, bytes(out))
+
+
 def compress_bundled_icons(files: list[Path], staging: Path) -> list[Path]:
     """Return `files` with every 192x192 icon replaced by a DXT5 TPC of itself.
 
@@ -190,15 +369,13 @@ def compress_bundled_icons(files: list[Path], staging: Path) -> list[Path]:
     once, which is why those two screens, and only those two, stall and flash
     when switched between quickly.
 
-    DXT5 at the same 192x192 is 4.0x smaller with no loss of resolution, leaving
-    the pack at 2.4x vanilla instead of 9.5x. Size is deliberately NOT reduced:
-    `equip.gui` draws item icons through controls whose EXTENT is exactly
-    192x192, so anything smaller blurs every equipment slot. DXT5 rather than
-    DXT1 because 58% of a sample of these icons carry gradient alpha, which
-    DXT1 cannot store -- one bit is all it has, and the difference measured
-    36.3 dB against 26.5 dB.
+    DXT5 at 4.0x smaller, and then scaled to ICON_TEXTURE_SIZE. DXT5 rather than
+    DXT1 because every one of these icons carries soft alpha -- a survey of all
+    351 found not one with alpha that is purely opaque or purely clear -- and
+    because this executable cannot upload DXT1 with alpha at all; see the note
+    on ICON_TEXTURE_SIZE.
 
-    Anything that is not 192x192 passes through untouched.
+    Anything that is not ICON_SOURCE_SIZE square passes through untouched.
     """
     try:
         from PIL import Image
@@ -212,9 +389,10 @@ def compress_bundled_icons(files: list[Path], staging: Path) -> list[Path]:
     for path in files:
         head = path.read_bytes()[:18]
         width, height = struct.unpack_from("<HH", head, 12)
-        if (width, height) != (192, 192):
+        if (width, height) != (ICON_SOURCE_SIZE, ICON_SOURCE_SIZE):
             result.append(path)
             continue
+        width = height = ICON_TEXTURE_SIZE
         # TPC stores its rows bottom-up, the same way these source TGAs do
         # (descriptor 0x08, bottom-left origin). Pillow hands back top-down
         # pixels, so writing them straight out produces a texture the engine
@@ -223,7 +401,10 @@ def compress_bundled_icons(files: list[Path], staging: Path) -> list[Path]:
         # 12.73 as-is. Reported from play as "all the inventory items are
         # upside down".
         with Image.open(path) as source:
-            upright = source.convert("RGBA").transpose(Image.FLIP_TOP_BOTTOM)
+            image = source.convert("RGBA")
+            if ICON_TEXTURE_SIZE != ICON_SOURCE_SIZE:
+                image = resize_premultiplied(image, ICON_TEXTURE_SIZE)
+            upright = image.transpose(Image.FLIP_TOP_BOTTOM)
             buffer = io.BytesIO()
             upright.save(buffer, format="DDS", pixel_format="DXT5")
         payload = buffer.getvalue()[128:]
@@ -239,7 +420,7 @@ def compress_bundled_icons(files: list[Path], staging: Path) -> list[Path]:
         converted += 1
         result.append(target)
     if converted:
-        print(f"  compressed {converted} icons to DXT5 TPC: "
+        print(f"  compressed {converted} icons to {ICON_TEXTURE_SIZE}px DXT5 TPC: "
               f"{before/1048576:.1f} MB -> {after/1048576:.1f} MB "
               f"({before/after:.1f}x)")
     return result
@@ -396,6 +577,11 @@ def main() -> int:
             label = (source.parent.name if source.name.lower() == "override"
                      else source.name)
             print(f"Bundled Override: {len(files):4} files from {label}")
+
+        # The full-screen backgrounds are OUR shared art, not a bundled mod, so
+        # they are compressed here rather than alongside the bundled icons.
+        common_tga_files = compress_menu_backgrounds(common_tga_files,
+                                                     Path(icon_staging))
 
         write_zip(args.output / "override-common.zip",
                   common_tga_files + hd_font_atlases + stock_atlases + shared_data + bundled)

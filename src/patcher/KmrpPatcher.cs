@@ -1781,17 +1781,37 @@ namespace Kmrp
         /// exist. So a bundled `icon.tpc` installed next to a player's `icon.tga`
         /// does not sit harmlessly beside it -- it replaces it. Deferral therefore
         /// has to look for the resref, not the filename.</summary>
-        private static bool TextureAlreadyPresent(string target)
+        private static bool TextureAlreadyPresent(string target, string relative,
+            Dictionary<string, OverrideRecord> known)
         {
             if (File.Exists(target))
                 return true;
-            string extension = Path.GetExtension(target);
-            if (!".tpc".Equals(extension, StringComparison.OrdinalIgnoreCase)
-                && !".tga".Equals(extension, StringComparison.OrdinalIgnoreCase))
+            string sibling = SiblingTexturePath(relative);
+            if (sibling == null)
                 return false;
-            string sibling = Path.ChangeExtension(target,
-                ".tpc".Equals(extension, StringComparison.OrdinalIgnoreCase) ? ".tga" : ".tpc");
-            return File.Exists(sibling);
+            // A sibling WE installed is not the player's file, and deferring to it
+            // means deferring to ourselves. That is how the DXT5 icons could never
+            // reach anyone upgrading: installing i_x.tpc looks up i_x.tpc in the
+            // manifest, does not find it -- the manifest holds i_x.tga from the
+            // build before -- and then yields to that .tga. Measured on a live
+            // install: 1095 .tga, zero .tpc, and 351 of the 399 uncompressed
+            // 147,500-byte icons were bundled as .tpc by the build it had just run.
+            if (known.ContainsKey(sibling))
+                return false;
+            return File.Exists(Path.ChangeExtension(target, Path.GetExtension(sibling)));
+        }
+
+        /// <summary>The same resref under the other texture extension, as a relative
+        /// path, or null when this is not a texture. KOTOR resolves a texture by
+        /// resref and prefers .tpc over .tga, so the two names are one resource.</summary>
+        private static string SiblingTexturePath(string relative)
+        {
+            string extension = Path.GetExtension(relative);
+            bool tpc = ".tpc".Equals(extension, StringComparison.OrdinalIgnoreCase);
+            bool tga = ".tga".Equals(extension, StringComparison.OrdinalIgnoreCase);
+            if (!tpc && !tga)
+                return null;
+            return Path.ChangeExtension(relative, tpc ? ".tga" : ".tpc");
         }
 
         private static HashSet<string> bundledNames;
@@ -1883,6 +1903,9 @@ namespace Kmrp
             Dictionary<string, string> writtenThisRun =
                 new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
             int deferred = 0;
+            // Our own earlier copies of a texture, under the extension the
+            // build no longer ships it with, removed as the new one lands.
+            int supersededRemoved = 0;
             string[] resources =
             {
                 CommonResourceName,
@@ -2022,7 +2045,7 @@ namespace Kmrp
                             // thing this deferral exists to prevent.
                             if (!known.ContainsKey(relative)
                                 && BundledNames().Contains(Path.GetFileName(relative))
-                                && TextureAlreadyPresent(target))
+                                && TextureAlreadyPresent(target, relative, known))
                             {
                                 deferred++;
                                 completedBytes += entry.Length;
@@ -2031,6 +2054,33 @@ namespace Kmrp
 
                             string targetDirectory = Path.GetDirectoryName(target);
                             Directory.CreateDirectory(targetDirectory);
+
+                            // Installing a texture over OUR OWN copy of the same
+                            // resref under the other extension: take the old one
+                            // away. The engine would ignore it -- .tpc wins over
+                            // .tga -- but leaving it means the uncompressed icons
+                            // this replaced stay on disk forever, and keep being
+                            // found by the deferral above on every future install.
+                            //
+                            // The manifest record for that sibling is deliberately
+                            // left in place. Restore skips its hash check when the
+                            // file is gone, and still copies the player's original
+                            // back if they had one.
+                            string superseded = SiblingTexturePath(relative);
+                            if (superseded != null && known.ContainsKey(superseded))
+                            {
+                                string supersededPath = SafeDestination(overrideRoot, superseded);
+                                if (File.Exists(supersededPath))
+                                {
+                                    try
+                                    {
+                                        File.Delete(supersededPath);
+                                        supersededRemoved++;
+                                    }
+                                    catch (IOException) { }
+                                    catch (UnauthorizedAccessException) { }
+                                }
+                            }
 
                             OverrideRecord record;
                             if (known.TryGetValue(relative, out record))
@@ -2191,6 +2241,9 @@ namespace Kmrp
                 if (deferred > 0)
                     SafeReport(report, "Left " + deferred +
                         " bundled art file(s) alone: another mod already provides them.");
+                if (supersededRemoved > 0)
+                    SafeReport(report, "Replaced " + supersededRemoved +
+                        " interface file(s) with a smaller compressed version.");
                 WriteManifest(manifestPath, records);
                 SafeProgress(progress, 95, "Finishing interface setup…");
                 SafeReport(report, "Installed " + records.Count.ToString(CultureInfo.InvariantCulture) +
