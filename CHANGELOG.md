@@ -68,6 +68,39 @@ own process in memory at startup without writing to `swkotor.exe` at all.
 ## [Unreleased]
 
 ### Added
+- **X is shown beside the Skills / Powers / Feats tabs.** It has cycled them
+  all along and nothing said so.
+
+  That it really does was read from the handler rather than assumed: the
+  ABILITIES panel registers `0x29` at `0x006AE714`, which reads a byte at
+  `CGuiInGame+0xBC0`, switches on 0, 1 and 2, and writes 0 back on the third
+  -- a three-state cycle that wraps, which is exactly three sub-tabs.
+
+  One control rather than two: the bundled `Swap_tabs.png` is already the
+  whole phrase, the X button and the arrows together. Its art is about two to
+  one, so its control is given that shape and its texture the same, which
+  keeps the engine's stretch equal on both axes -- the square cue builder now
+  takes a height for exactly this.
+
+  Placed from the sub-tab row: one third of a tab's height past the last tab,
+  on the row's own line.
+- **LT and RT are shown either side of the menu tab strip.** They have moved
+  between the eight in-game screens since controller support landed, and
+  nothing said so.
+
+  The same mechanism as the R3 cue, on a panel that took no extra proving:
+  the tabs are not in the screens that display them -- `inventory.gui` has no
+  tab controls at all -- they belong to `top.gui`, whose panel draws with the
+  base `CSWGuiPanel::Draw`, the same child-walk the cue mechanism relies on.
+
+  Both cues are positioned from the strip itself: its pitch, its height and
+  its vertical centre, each sitting one pitch beyond the outermost tab, where
+  a ninth and a zeroth tab would be. So they follow the strip at every
+  resolution with no coordinates to keep in step.
+
+  The runtime table changed shape -- from a list of panels sharing one tag to
+  a list of (panel, tag) pairs -- because this panel wants two cues rather
+  than one. Nothing else about the binding changed.
 - **R3 changes which party member a menu is showing.** Character, Equipment,
   Inventory and the Skills/Powers/Feats screen are each about one party
   member, and with a pad there was no way to switch between them: the two

@@ -701,9 +701,9 @@ struct StickState {
     unsigned long freeLookExits = 0;           // bridged exits performed
     unsigned long partySwitchRequested = 0;    // R3 pressed on a party screen
     unsigned long partySwitches = 0;           // menu party changes performed
-    unsigned long partyCuesInstalled = 0;      // R3 cue controls bound
-    unsigned long partyCuesRejected = 0;       // binds that did not take
-    unsigned long partyCueToggles = 0;         // show/hide flips performed
+    unsigned long guiCuesInstalled = 0;      // cue controls bound
+    unsigned long guiCuesRejected = 0;       // binds that did not take
+    unsigned long guiCueToggles = 0;         // show/hide flips performed
     unsigned long flourishRequestedTick = 0;   // 0 = nothing pending
     unsigned long flourishesPerformed = 0;
     unsigned long flourishesDeclined = 0;
@@ -1168,8 +1168,8 @@ void EnsurePadStateK1();
 int RemappedButtonEventK1(int slot);
 void PerformPendingFreeLookExitK1();
 void PerformPendingPartySwitchK1();
-void InstallPartyCueK1(void* panel);
-void UpdatePartyCueK1();
+void InstallGuiCuesK1(void* panel);
+void UpdateGuiCuesK1();
 void EnsureRumbleTableK1(void* owner);
 void UpdateStickNavigationK1(float x, float y);
 void RequestNavigationK1(int dx, int dy, bool edge, bool fromDpad);
@@ -2238,7 +2238,7 @@ extern "C" void __cdecl NativeNoteMouseK1(void* manager, int mouseX, int mouseY)
 // against. Panels that are not party screens are left alone.
 extern "C" void __cdecl NativePanelReleaseGffK1(void* panel)
 {
-    InstallPartyCueK1(panel);
+    InstallGuiCuesK1(panel);
 }
 
 // CSWGuiMainInterface's per-frame update, with ecx holding the interface. The
@@ -2377,19 +2377,36 @@ constexpr std::size_t K1_CONTROL_ID    = 0x50;
 // them. Driving it is what the game itself does.
 constexpr std::uint32_t K1_CONTROL_FLAG_DRAWN = 2;
 
-// The four panels that implement 0xCE, which are exactly the four that carry the
-// party portraits. Matched on the panel's vtable because ReleaseGff is called by
-// all 68 panel constructors and only these four want a cue.
-constexpr std::uintptr_t K1_PARTY_CUE_PANELS[] = {
-    0x00755E50,   // ABILITIES -- Skills / Powers / Feats
-    0x00756100,   // CHARACTER
-    0x007569A0,   // EQUIP
-    0x007564E0,   // INVENTORY
+// Which cue belongs on which panel. Matched on the panel's vtable because
+// ReleaseGff is called by all 68 panel constructors and only these want one, and
+// a panel may want more than one -- the tab strip carries both triggers.
+//
+// Every tag here must also exist in the matching .gui, which
+// tools/prepare_universal_resources.py adds at build time. A tag that is not
+// there binds nothing and is counted as rejected rather than failing.
+struct GuiCueBindingK1 {
+    std::uintptr_t panelVtable;
+    const char*    tag;
 };
-constexpr int K1_PARTY_CUE_PANEL_COUNT =
-    sizeof(K1_PARTY_CUE_PANELS) / sizeof(K1_PARTY_CUE_PANELS[0]);
 
-constexpr const char* K1_PARTY_CUE_TAG = "LBL_KMRPR3";
+constexpr GuiCueBindingK1 K1_GUI_CUES[] = {
+    // R3 changes the party member these four are about. They are exactly the
+    // four panels that implement 0xCE, and the four that carry the portraits.
+    {0x00755E50, "LBL_KMRPR3"},   // ABILITIES -- Skills / Powers / Feats
+    // X cycles that screen's sub-tab -- its 0x29 handler (0x006AE714)
+    // switches a byte at CGuiInGame+0xBC0 through 0/1/2 and wraps.
+    {0x00755E50, "LBL_KMRPSWAP"},
+    {0x00756100, "LBL_KMRPR3"},   // CHARACTER
+    {0x007569A0, "LBL_KMRPR3"},   // EQUIP
+    {0x007564E0, "LBL_KMRPR3"},   // INVENTORY
+    // LT and RT move along the menu tab strip, which top.gui owns. Its panel
+    // draws with the BASE CSWGuiPanel::Draw, the same array walk everything else
+    // here relies on.
+    {0x00750148, "LBL_KMRPLT"},
+    {0x00750148, "LBL_KMRPRT"},
+};
+constexpr int K1_GUI_CUE_COUNT =
+    sizeof(K1_GUI_CUES) / sizeof(K1_GUI_CUES[0]);
 
 constexpr std::size_t K1_PANEL_ACTIVE        = 0x1C;
 constexpr std::size_t K1_PANEL_CONTROL_ARRAY = 0x20;
@@ -2668,14 +2685,16 @@ void* PanelWithDispatcherK1(std::uintptr_t dispatcher)
 // Which event this button should send instead, on whatever is on screen now, or
 // 0 for the usual one. Asked from the record emitter, so it must not call into
 // the engine.
-// One cue control per live panel. Small and fixed: at most a handful of these
-// panels exist at once, and a table that cannot grow cannot leak.
-struct PartyCueK1 {
+// One entry per bound cue. Small and fixed: only a few of these panels are live
+// at once, and a table that cannot grow cannot leak.
+struct GuiCueK1 {
     void* panel;
     void* control;
     int   id;
 };
-PartyCueK1 g_partyCues[8];
+GuiCueK1 g_guiCues[16];
+constexpr int K1_GUI_CUE_SLOTS =
+    sizeof(g_guiCues) / sizeof(g_guiCues[0]);
 
 using GuiLabelCtorFn   = void*(__thiscall*)(void*);
 using BindControlFn    = void(__thiscall*)(void*, void*, void*, int);
@@ -2685,7 +2704,7 @@ using ExoStringDtorFn  = void(__thiscall*)(void*);
 // Is this control still the one the panel has at that id? Panels are heap
 // objects and an address can be reused, so a remembered pointer is only trusted
 // when the panel still agrees with it.
-bool PartyCueStillLiveK1(const PartyCueK1& cue)
+bool GuiCueStillLiveK1(const GuiCueK1& cue)
 {
     if (!cue.panel || !cue.control || !LooksLikePointerK1(cue.panel)) {
         return false;
@@ -2698,21 +2717,9 @@ bool PartyCueStillLiveK1(const PartyCueK1& cue)
     return controls[cue.id] == cue.control;
 }
 
-// Build the cue control on a panel that is about to throw its .gui away.
-void InstallPartyCueK1(void* panel)
+// Bind one cue by tag onto a panel that still has its .gui.
+void BindOneCueK1(void* panel, const char* tag)
 {
-    if (!LooksLikePointerK1(panel)) {
-        return;
-    }
-    const std::uintptr_t vtable = *FieldAt<std::uintptr_t>(panel, 0);
-    if (!InListK1(vtable, K1_PARTY_CUE_PANELS, K1_PARTY_CUE_PANEL_COUNT)) {
-        return;                     // one of the other 64 panels
-    }
-    // The tag is resolved out of this, so there is nothing to bind without it.
-    if (!LooksLikePointerK1(*FieldAt<void**>(panel, K1_PANEL_GFF))) {
-        return;
-    }
-
     void* const control = EngineFn<OperatorNewFn>(K1_OPERATOR_NEW)(
         K1_GUI_LABEL_SIZE);
     if (!control) {
@@ -2722,10 +2729,10 @@ void InstallPartyCueK1(void* panel)
 
     // The binder takes a CExoString, not a char*, so one is built and destroyed
     // exactly as every call site in the game builds one.
-    void* tag[2] = { nullptr, nullptr };          // { char* data; int length }
-    EngineFn<ExoStringCtorFn>(K1_EXOSTRING_CTOR)(&tag, K1_PARTY_CUE_TAG);
-    EngineFn<BindControlFn>(K1_GUI_PANEL_BIND_CONTROL)(panel, control, &tag, 1);
-    EngineFn<ExoStringDtorFn>(K1_EXOSTRING_DTOR)(&tag);
+    void* name[2] = { nullptr, nullptr };         // { char* data; int length }
+    EngineFn<ExoStringCtorFn>(K1_EXOSTRING_CTOR)(&name, tag);
+    EngineFn<BindControlFn>(K1_GUI_PANEL_BIND_CONTROL)(panel, control, &name, 1);
+    EngineFn<ExoStringDtorFn>(K1_EXOSTRING_DTOR)(&name);
 
     const int id = *FieldAt<int>(control, K1_CONTROL_ID);
     void** const controls = *FieldAt<void**>(panel, K1_PANEL_CONTROL_ARRAY);
@@ -2734,46 +2741,61 @@ void InstallPartyCueK1(void* panel)
         controls[id] != control) {
         // The tag was not in this .gui, or the id collided. The control is not
         // reachable and is deliberately NOT freed: the panel may hold it.
-        ++g_stick.partyCuesRejected;
+        ++g_stick.guiCuesRejected;
         return;
     }
 
-    // Hidden until the pad is the live device, which is the same rule the
-    // badges follow.
+    // Hidden until the pad is the live device, the same rule the badges follow.
     *FieldAt<std::uint32_t>(control, K1_CONTROL_FLAGS) &= ~K1_CONTROL_FLAG_DRAWN;
 
-    for (int i = 0; i < static_cast<int>(sizeof(g_partyCues) / sizeof(g_partyCues[0])); ++i) {
-        if (g_partyCues[i].panel == nullptr ||
-            g_partyCues[i].panel == panel ||
-            !PartyCueStillLiveK1(g_partyCues[i])) {
-            g_partyCues[i].panel = panel;
-            g_partyCues[i].control = control;
-            g_partyCues[i].id = id;
-            ++g_stick.partyCuesInstalled;
+    for (int i = 0; i < K1_GUI_CUE_SLOTS; ++i) {
+        if (g_guiCues[i].panel == nullptr || !GuiCueStillLiveK1(g_guiCues[i])) {
+            g_guiCues[i].panel = panel;
+            g_guiCues[i].control = control;
+            g_guiCues[i].id = id;
+            ++g_stick.guiCuesInstalled;
             return;
         }
     }
-    ++g_stick.partyCuesRejected;     // table full: drawn, but never toggled
+    ++g_stick.guiCuesRejected;      // table full: drawn, but never toggled
 }
 
-// Show the cue while the pad is the live device, hide it otherwise.
-void UpdatePartyCueK1()
+// Build whatever cues this panel is owed, while it still has its .gui.
+void InstallGuiCuesK1(void* panel)
+{
+    if (!LooksLikePointerK1(panel)) {
+        return;
+    }
+    const std::uintptr_t vtable = *FieldAt<std::uintptr_t>(panel, 0);
+    // The tags are resolved out of this, so there is nothing to bind without it.
+    if (!LooksLikePointerK1(*FieldAt<void**>(panel, K1_PANEL_GFF))) {
+        return;
+    }
+    for (int i = 0; i < K1_GUI_CUE_COUNT; ++i) {
+        if (K1_GUI_CUES[i].panelVtable == vtable) {
+            BindOneCueK1(panel, K1_GUI_CUES[i].tag);
+        }
+    }
+}
+
+// Show the cues while the pad is the live device, hide them otherwise.
+void UpdateGuiCuesK1()
 {
     const bool visible = IsControllerInputActiveK1();
-    for (int i = 0; i < static_cast<int>(sizeof(g_partyCues) / sizeof(g_partyCues[0])); ++i) {
-        if (!PartyCueStillLiveK1(g_partyCues[i])) {
-            g_partyCues[i].panel = nullptr;
-            g_partyCues[i].control = nullptr;
+    for (int i = 0; i < K1_GUI_CUE_SLOTS; ++i) {
+        if (!GuiCueStillLiveK1(g_guiCues[i])) {
+            g_guiCues[i].panel = nullptr;
+            g_guiCues[i].control = nullptr;
             continue;
         }
         std::uint32_t& flags =
-            *FieldAt<std::uint32_t>(g_partyCues[i].control, K1_CONTROL_FLAGS);
+            *FieldAt<std::uint32_t>(g_guiCues[i].control, K1_CONTROL_FLAGS);
         const std::uint32_t wanted = visible
             ? (flags | K1_CONTROL_FLAG_DRAWN)
             : (flags & ~K1_CONTROL_FLAG_DRAWN);
         if (wanted != flags) {
             flags = wanted;
-            ++g_stick.partyCueToggles;
+            ++g_stick.guiCueToggles;
         }
     }
 }
@@ -3483,7 +3505,7 @@ extern "C" void __cdecl NativeGuiFrameK1(void* guiManager)
 
     PerformPendingPartySwitchK1();
 
-    UpdatePartyCueK1();
+    UpdateGuiCuesK1();
 
     UpdateDescriptionScrollK1();
 
@@ -4070,8 +4092,8 @@ extern "C" void __cdecl NativeJoystickDumpK1()
         g_stick.rumbleRawA, g_stick.rumbleRawB, g_stick.padSlot,
         g_stick.rumbleTableInstalled, g_stick.remapDispatched,
         g_stick.freeLookExits, g_stick.dpadRepeats, g_stick.partySwitches,
-        g_stick.partyCuesInstalled, g_stick.partyCuesRejected,
-        g_stick.partyCueToggles,
+        g_stick.guiCuesInstalled, g_stick.guiCuesRejected,
+        g_stick.guiCueToggles,
         KmrpDeviceStateK1());
 
     HANDLE file = CreateFileA("kmrp-native-joystick.log", FILE_APPEND_DATA,

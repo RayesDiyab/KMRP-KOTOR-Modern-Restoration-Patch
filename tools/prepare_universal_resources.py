@@ -451,6 +451,169 @@ R3_CUE_FILL = "kmrpr3_party"
 R3_CUE_SCREENS = ("abilities.gui", "character.gui", "equip.gui", "inventory.gui")
 
 
+# LT and RT change which menu screen is open, and the tab strip they act on says
+# nothing about them either. Same mechanism as the R3 cue and the same reason it
+# is needed: top.gui owns the strip, and a control added to it is only real once
+# the module binds it.
+TAB_CUE_SCREEN = "top.gui"
+TAB_CUES = (("LBL_KMRPLT", "kmrplt_menu", "LT"),
+            ("LBL_KMRPRT", "kmrprt_menu", "RT"))
+TAB_TAGS = ("BTN_EQU", "BTN_INV", "BTN_CHAR", "BTN_ABI",
+            "BTN_MSG", "BTN_JOU", "BTN_MAP", "BTN_OPT")
+
+
+def _clone_cue_control(controls, template, tag: str, fill: str,
+                       left: int, top: int, size: int, width: int = 0):
+    """A new control modelled on one already in the file.
+
+    Cloned rather than built field by field: the loader reads what it expects to
+    find, and a hand-built struct missing a field fails by simply not drawing,
+    which is indistinguishable from the control not existing.
+    """
+    cue = GFFStruct(template.struct_id)
+    cue._fields = copy.deepcopy(template._fields)
+    cue.set_string("TAG", tag)
+
+    # The panel files controls into an array indexed BY ID and grows it when an
+    # id lands past the end, so counting on from the highest in use is free.
+    ids = [control.get_int32("ID") for control in controls if control.exists("ID")]
+    cue.set_int32("ID", max(ids) + 1)
+
+    extent = cue.get_struct("EXTENT")
+    extent.set_int32("LEFT", left)
+    extent.set_int32("TOP", top)
+    extent.set_int32("WIDTH", width or size)
+    extent.set_int32("HEIGHT", size)
+    cue.set_struct("EXTENT", extent)
+
+    border = cue.get_struct("BORDER")
+    border.set_resref("FILL", fill)
+    for field in ("CORNER", "EDGE"):
+        if border.exists(field):
+            border.set_resref(field, "")
+    if border.exists("DIMENSION"):
+        border.set_int32("DIMENSION", 0)
+    cue.set_struct("BORDER", border)
+
+    # The template's caption would otherwise come along with it.
+    if cue.exists("TEXT"):
+        text = cue.get_struct("TEXT")
+        if text.exists("TEXT"):
+            text.set_string("TEXT", "")
+        if text.exists("STRREF"):
+            text.set_uint32("STRREF", 0xFFFFFFFF)
+        cue.set_struct("TEXT", text)
+
+    controls.append(cue)
+    return cue
+
+
+def add_tab_strip_cues(source: Path, destination: Path) -> int:
+    """Put LT and RT one tab-width outside each end of the menu strip.
+
+    Everything is derived from the strip itself -- its size, its pitch and its
+    vertical centre -- so the cues land correctly at every resolution and stay
+    correct if the strip is ever re-laid-out.
+    """
+    gff = read_gff(source)
+    root = gff.root
+    controls = root.get_list("CONTROLS")
+    by_tag = {control.get_string("TAG"): control for control in controls}
+
+    if any(tag in by_tag for tag, _, _ in TAB_CUES):
+        return 0
+
+    tabs = []
+    for tag in TAB_TAGS:
+        control = by_tag.get(tag)
+        if control is None:
+            raise ValueError(f"{source.name} has no {tag}; it does not own the "
+                             f"menu tab strip")
+        extent = control.get_struct("EXTENT")
+        tabs.append((extent.get_int32("LEFT"), extent.get_int32("TOP"),
+                     extent.get_int32("WIDTH"), extent.get_int32("HEIGHT")))
+    tabs.sort()
+
+    # Just outside each end of the strip, separated by a third of a cue.
+    #
+    # A full tab pitch was tried first and read as floating away from the row
+    # rather than belonging to it -- the tabs are spaced more than twice their own
+    # width apart, so "one more slot" is a long way out. The gap is a fraction of
+    # the cue instead, which keeps the same proportion at every resolution.
+    size = tabs[0][3]
+    gap = size // 3
+    centre_y = tabs[0][1] + size // 2
+    left_centre = tabs[0][0] - gap - size // 2
+    right_centre = tabs[-1][0] + tabs[-1][2] + gap + size // 2
+
+    template = next(
+        (control for control in controls
+         if control.exists("CONTROLTYPE") and control.get_int32("CONTROLTYPE") == 4),
+        None)
+    if template is None:
+        # top.gui is all highlight-labels and buttons; either is a fine model,
+        # and the module constructs a plain label whatever this says.
+        template = by_tag[TAB_TAGS[0]]
+
+    for (tag, fill, _), centre in zip(TAB_CUES, (left_centre, right_centre)):
+        _clone_cue_control(controls, template, tag, fill,
+                           centre - size // 2, centre_y - size // 2, size)
+
+    root.set_list("CONTROLS", controls)
+    write_gff(gff, destination)
+    return len(TAB_CUES)
+
+
+# X cycles the Skills / Powers / Feats sub-tab. Confirmed from the handler the
+# ABILITIES panel registers for 0x29 (0x006AE714): it reads a byte at
+# CGuiInGame+0xBC0, switches on 0/1/2, and the third arm writes 0 back -- a
+# three-state cycle that wraps. Nothing on the screen said so.
+#
+# One control, not two: Swap_tabs.png is already the whole phrase, the X button
+# and the arrows together.
+SWAP_CUE_SCREEN = "abilities.gui"
+SWAP_CUE_TAG = "LBL_KMRPSWAP"
+SWAP_CUE_FILL = "kmrpswap_abi"
+SWAP_CUE_GLYPH = "SWAP"
+# The art is close to two to one, and the control is given the same shape so the
+# engine's stretch does not distort it.
+SWAP_CUE_ASPECT = 2
+SUBTAB_TAGS = ("BTN_SKILLS", "BTN_POWERS", "BTN_FEATS")
+
+
+def add_subtab_swap_cue(source: Path, destination: Path) -> bool:
+    """Put the swap-tabs cue just past the last sub-tab, on its row."""
+    gff = read_gff(source)
+    root = gff.root
+    controls = root.get_list("CONTROLS")
+    by_tag = {control.get_string("TAG"): control for control in controls}
+
+    if SWAP_CUE_TAG in by_tag:
+        return False
+
+    tabs = []
+    for tag in SUBTAB_TAGS:
+        control = by_tag.get(tag)
+        if control is None:
+            raise ValueError(f"{source.name} has no {tag}; it has no sub-tabs")
+        extent = control.get_struct("EXTENT")
+        tabs.append((extent.get_int32("LEFT"), extent.get_int32("TOP"),
+                     extent.get_int32("WIDTH"), extent.get_int32("HEIGHT")))
+    tabs.sort()
+
+    last = tabs[-1]
+    height = last[3]
+    gap = height // 3
+    left = last[0] + last[2] + gap
+    _clone_cue_control(controls, by_tag[SUBTAB_TAGS[0]], SWAP_CUE_TAG,
+                       SWAP_CUE_FILL, left, last[1], height,
+                       width=height * SWAP_CUE_ASPECT)
+
+    root.set_list("CONTROLS", controls)
+    write_gff(gff, destination)
+    return True
+
+
 def add_party_switch_cue(source: Path, destination: Path) -> bool:
     """Put the R3 cue in the gap between a screen's two party portraits.
 
@@ -699,6 +862,19 @@ def main() -> int:
         cue_art.write_bytes(build_square_glyph_tga("R3"))
         common_tga_files = common_tga_files + [cue_art]
 
+        # The same, for the two menu-strip cues.
+        for _, fill, glyph in TAB_CUES:
+            art = Path(icon_staging) / f"{fill}.tga"
+            art.write_bytes(build_square_glyph_tga(glyph))
+            common_tga_files = common_tga_files + [art]
+
+        # The swap-tabs phrase, on a texture of its own shape rather than a
+        # square, because its control is that shape too.
+        swap_art = Path(icon_staging) / f"{SWAP_CUE_FILL}.tga"
+        swap_art.write_bytes(build_square_glyph_tga(
+            SWAP_CUE_GLYPH, 256, 256 // SWAP_CUE_ASPECT))
+        common_tga_files = common_tga_files + [swap_art]
+
         write_zip(args.output / "override-common.zip",
                   common_tga_files + hd_font_atlases + stock_atlases + shared_data + bundled)
         shutil.rmtree(icon_staging, ignore_errors=True)
@@ -905,6 +1081,40 @@ def main() -> int:
                     raise ValueError(
                         f"{resolution}: the R3 cue reached {cued} of "
                         f"{len(R3_CUE_SCREENS)} party screens")
+
+                # X, beside the Skills / Powers / Feats sub-tabs.
+                swap_dir = temp_dir / "cue-swap"
+                swap_dir.mkdir(exist_ok=True)
+                swapped = False
+                for index, path in enumerate(packaged_files):
+                    if path.name.lower() != SWAP_CUE_SCREEN:
+                        continue
+                    # Its own directory, keeping the NAME: later steps find
+                    # these files by filename -- the badge generator looks up
+                    # "abilities.gui" -- so a prefixed name silently removes
+                    # the screen from their view. It failed the build, loudly,
+                    # which is the only reason this was cheap to find.
+                    cue_file = swap_dir / path.name
+                    if add_subtab_swap_cue(path, cue_file):
+                        packaged_files[index] = cue_file
+                        swapped = True
+                if not swapped:
+                    raise ValueError(
+                        f"{resolution}: the sub-tab swap cue was not placed")
+
+                # LT and RT, either side of the menu tab strip in top.gui.
+                tabbed = 0
+                for index, path in enumerate(packaged_files):
+                    if path.name.lower() != TAB_CUE_SCREEN:
+                        continue
+                    cue_file = cue_dir / path.name
+                    tabbed = add_tab_strip_cues(path, cue_file)
+                    if tabbed:
+                        packaged_files[index] = cue_file
+                if tabbed != len(TAB_CUES):
+                    raise ValueError(
+                        f"{resolution}: the tab-strip cues reached {tabbed} of "
+                        f"{len(TAB_CUES)}")
 
                 # Generate this resolution's button-row background art from the
                 # mipc*.gui file the engine will actually load at this

@@ -231,6 +231,60 @@ module already calls as `K1_OPERATOR_NEW`.
 The glyph art is already selected: `XboxSeriesX_Right_Stick_Click.png`, mapped as
 `R3` in `tools/build_controller_prompt_textures.py`.
 
+## A second use: LT and RT beside the menu tab strip
+
+The same mechanism, and the reason it generalised without changing shape.
+
+The eight menu tabs are **not** in the screens that show them -- `inventory.gui`
+and the rest have no tab controls at all. They live in **`top.gui`**, a panel of
+its own: eight `LBLH_*` icons at `192x192` and eight `BTN_*` hit areas beneath,
+16 controls, highest id 15.
+
+Its panel is found the same way as the others -- the one constructor that binds
+`LBLH_EQU`, at `0x00627AF8`:
+
+| | |
+| --- | --- |
+| vtable | `0x00750148`, stored at `0x006279BB` |
+| `ReleaseGff` | `0x00627E21` |
+| Draw | `0x0040B760` -- the BASE implementation |
+
+That last row matters: this panel draws with the same base `CSWGuiPanel::Draw`
+whose child-walk this whole approach rests on, so nothing new had to be checked.
+
+The two cues are placed from the strip's own geometry rather than from numbers:
+its pitch (`BTN_INV.left - BTN_EQU.left`), its height, and its vertical centre,
+with each cue one pitch beyond the outermost tab -- where a ninth and a zeroth tab
+would sit. At 3440x1440 that puts LT at `166, 129, 120x120` and RT at `3155`.
+
+The only change to the runtime side was the shape of the table, from a list of
+panels sharing one tag to a list of (panel, tag) pairs, because `top.gui` wants
+two.
+
+## A third: X beside the Skills / Powers / Feats tabs
+
+ABILITIES registers `0x29` -- X -- at `0x006AE714`, and that handler is the whole
+confirmation that the cue is honest:
+
+```
+006AE726  call 0x5ED690                 the CGuiInGame
+006AE72B  movzx eax, byte [eax+0xBC0]   the sub-tab index
+006AE732  sub eax, 0    / je ...        0
+006AE737  dec eax       / je ...        1
+006AE73A  dec eax       / jne ...       2
+006AE74D  mov byte [eax+0xBC0], 0       and the third arm wraps
+```
+
+A three-state cycle over a byte, which is three sub-tabs.
+
+It needed one new thing and it was small: the cue builder now takes a height as
+well as a width, because `Swap_tabs.png` is about two to one rather than square.
+Giving the control the same aspect as its texture keeps the engine's stretch
+equal on both axes -- the same reasoning the caption badges use in reverse, where
+the control's shape is fixed and the ART is pre-compensated instead.
+
+By then the table needed no change at all: ABILITIES simply appears twice.
+
 ## The three safety questions, answered
 
 ### Does a label bound this way draw, with a fill and no text?

@@ -49,7 +49,9 @@ GLYPH_FAMILIES = {
     "xbox": ("Xbox", {
         "A": "360_A.png", "B": "360_B.png", "X": "360_X.png", "Y": "360_Y.png",
         "LB": "360_LB.png", "RB": "360_RB.png",
-        "LT": "360_LT.png", "RT": "360_RT.png",
+        # Series X for the triggers, to match the R3 cue beside them. No
+        # caption badge uses either glyph, so this reaches only the cues.
+        "LT": "XboxSeriesX_LT.png", "RT": "XboxSeriesX_RT.png",
         "START": "360_Start.png", "BACK": "360_Back.png",
         "DPAD_LEFT": "360_Dpad_Left.png", "DPAD_RIGHT": "360_Dpad_Right.png",
         "DPAD_UP": "360_Dpad_Up.png", "DPAD_DOWN": "360_Dpad_Down.png",
@@ -57,6 +59,9 @@ GLYPH_FAMILIES = {
         # name. L3 is left on the 360 art deliberately rather than changed to
         # match: nothing uses it yet, and silently restyling an unused glyph
         # is a change nobody asked for. If L3 is ever badged, pick one.
+        # Not a button: the whole "press X to swap tabs" phrase, X and
+        # arrows together, as one piece of art.
+        "SWAP": "Swap_tabs.png",
         "L3": "360_Left_Stick_Click.png",
         "R3": "XboxSeriesX_Right_Stick_Click.png",
     }),
@@ -442,13 +447,21 @@ SQUARE_GLYPH_SIZE = 128
 SQUARE_GLYPH_FILL = 0.86
 
 
-def build_square_glyph_tga(glyph: str, size: int = SQUARE_GLYPH_SIZE) -> bytes:
-    """The glyph centred on a transparent square, at its own proportions.
+def build_square_glyph_tga(glyph: str, size: int = SQUARE_GLYPH_SIZE,
+                           height: int | None = None) -> bytes:
+    """The glyph centred on a transparent texture, at its own proportions.
+
+    `height` defaults to `size`, which is what a cue on a square control wants.
+    Art that is not square -- the swap-tabs phrase is about two to one -- gets a
+    texture of its own shape instead, and the control is given the same shape, so
+    the engine's stretch is equal on both axes and nothing is distorted.
 
     Fails rather than falling back to the drawn placeholder: this texture IS the
     control, so a missing glyph would ship a screen with an empty box on it
     rather than a slightly worse badge.
     """
+    if height is None:
+        height = size
     art = _load_glyph_art(glyph)
     if art is None:
         raise ValueError(
@@ -456,23 +469,25 @@ def build_square_glyph_tga(glyph: str, size: int = SQUARE_GLYPH_SIZE) -> bytes:
 
     from PIL import Image
 
-    box = size * SQUARE_GLYPH_FILL
     aspect = art.width / art.height
-    width = box if aspect >= 1.0 else box * aspect
-    height = box if aspect <= 1.0 else box / aspect
-    resized = art.resize((max(1, round(width)), max(1, round(height))),
+    draw_w = size * SQUARE_GLYPH_FILL
+    draw_h = draw_w / aspect
+    if draw_h > height * SQUARE_GLYPH_FILL:
+        draw_h = height * SQUARE_GLYPH_FILL
+        draw_w = draw_h * aspect
+    resized = art.resize((max(1, round(draw_w)), max(1, round(draw_h))),
                          Image.LANCZOS)
 
-    sheet = Image.new("RGBA", (size, size), (0, 0, 0, 0))
+    sheet = Image.new("RGBA", (size, height), (0, 0, 0, 0))
     sheet.paste(resized,
-                ((size - resized.width) // 2, (size - resized.height) // 2),
+                ((size - resized.width) // 2, (height - resized.height) // 2),
                 resized)
 
     # Bottom-up, as every shipped KOTOR texture is.
     sheet = sheet.transpose(Image.FLIP_TOP_BOTTOM)
     r, g, b, a = sheet.split()
     header = struct.pack(
-        "<BBBHHBHHHHBB", 0, 0, 2, 0, 0, 0, 0, 0, size, size, 32, 0x08)
+        "<BBBHHBHHHHBB", 0, 0, 2, 0, 0, 0, 0, 0, size, height, 32, 0x08)
     return header + Image.merge("RGBA", (b, g, r, a)).tobytes() + TGA_FOOTER
 
 
