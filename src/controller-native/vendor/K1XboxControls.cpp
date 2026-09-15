@@ -193,7 +193,11 @@ constexpr std::uintptr_t K1_MESSAGE_BOX_PANEL_VTABLE = 0x0074FDB0;
 constexpr std::uintptr_t K1_CONTROLLER_LOSS_BOX_PANEL_VTABLE = 0x007513F8;
 constexpr std::uintptr_t K1_GUI_BORDER_SET_FILL_IMAGE = 0x00414C00;
 constexpr std::ptrdiff_t K1_BUTTON_BORDER_PARAMS_OFFSET = 0x0080;
+// The border drawn INSTEAD of the normal one while a control is focused, so a
+// badge has to be written to both or it disappears the moment the button takes
+// focus. See SetK1ControllerPromptFill.
 constexpr std::ptrdiff_t K1_BUTTON_HILIGHT_PARAMS_OFFSET = 0x00F4;
+
 constexpr std::uintptr_t K1_GUI_MANAGER_GLOBAL = 0x007A39F4;
 constexpr std::ptrdiff_t K1_PAZAAK_AVAILABLE_OFFSET = 0x01A4;
 constexpr int K1_PAZAAK_AVAILABLE_COUNT = 18;
@@ -370,6 +374,9 @@ constexpr int K1_GUI_SCROLL_UP_ARROW_EVENT = 0x1FC;
 constexpr std::uintptr_t K1_EQUIP_PANEL_VTABLE = 0x007569A0;
 // Written by its constructor at 0x006D26FB.
 constexpr std::uintptr_t K1_QUESTITEM_PANEL_VTABLE = 0x00757C20;
+// Party selection already has its vtable above; the value derived here from
+// its constructor matched it exactly, which is a useful check on the method.
+constexpr std::uintptr_t K1_SCRIPT_SELECT_PANEL_VTABLE = 0x007590A8;
 // description_listbox on each panel that has one, from kotor1_0_3.db and
 // cross-checked against the shipped .gui files. Two are named differently in
 // the engine: AutoPause calls it details_list_box (LB_DETAILS) and Mouse
@@ -646,6 +653,12 @@ enum class PromptVariantK1 {
     // moment it does not. The main menu wants one A that travels with the
     // selection rather than five that sit there permanently.
     FocusOnly,
+    // Painted while the focus is NOT on some other badged control -- that is,
+    // while this is what the button would do. Select Party Members needs it:
+    // its Add/Remove button is what A does for every crew portrait, so the badge
+    // stays there through all of them, and steps aside only when focus reaches
+    // OK, where A means OK instead.
+    FocusFallback,
 };
 
 struct ControllerPromptBinding {
@@ -734,13 +747,46 @@ void* K1ActiveControl(void* panel)
         static_cast<unsigned char*>(panel) + K1_CONFIG.panelActiveControlOffset);
 }
 
+// Is the focus on a badged control other than this one? A FocusFallback badge
+// steps aside exactly then, because A is about to mean that button instead.
+bool K1OtherBadgedControlFocused(void* panel,
+                                 const ControllerPromptBinding* prompts,
+                                 int count,
+                                 const ControllerPromptBinding& self)
+{
+    void* active = K1ActiveControl(panel);
+    if (!active) {
+        return false;
+    }
+    for (int i = 0; i < count; ++i) {
+        if (&prompts[i] == &self) {
+            continue;
+        }
+        // Direct arithmetic rather than OffsetPointer, which is defined
+        // further down this file.
+        void* const other = static_cast<unsigned char*>(panel)
+            + prompts[i].controlOffset;
+        if (other == active) {
+            return true;
+        }
+    }
+    return false;
+}
+
 // The badge for what the button is showing right now, or its single texture,
-// or nothing at all when it is a FocusOnly badge and the focus is elsewhere.
+// or nothing at all when the focus says this is not what the button would do.
 const char* K1PromptResref(const ControllerPromptBinding& binding, void* panel,
-                           void* control, int* outVariant)
+                           void* control,
+                           const ControllerPromptBinding* prompts, int count,
+                           int* outVariant)
 {
     if (outVariant) {
         *outVariant = -1;
+    }
+    if (binding.variant == PromptVariantK1::FocusFallback) {
+        return K1OtherBadgedControlFocused(panel, prompts, count, binding)
+            ? nullptr
+            : binding.resref;
     }
     if (binding.variant == PromptVariantK1::FocusOnly) {
         // One badge that travels with the selection rather than five that sit
@@ -818,6 +864,30 @@ constexpr ControllerPromptBinding K1_EQUIP_PROMPTS[] = {
 
 // The quest items screen, which has exactly one button. Offset from the bind
 // call at 0x006D2836, whose control arrives in ebx from 0x006D2745.
+// Script Selection. Both are unconditional: its dispatcher at 0x006E9BC0
+// handles 0x27 at 0x006E9BEF and 0x28 at 0x006E9C56.
+constexpr ControllerPromptBinding K1_SCRIPT_SELECT_PROMPTS[] = {
+    {0x0A74, "kmrpa_scrsel",  PromptVariantK1::None},
+    {0x08B0, "kmrpb_scrback", PromptVariantK1::None},
+};
+
+// Select Party Members.
+//
+// Add/Remove carries its badge permanently. It is not one option among three --
+// it is what the screen is for, and it acts on whichever portrait is
+// highlighted, so a badge that appears only when the button itself takes focus
+// reads as though the screen's main action had gone missing. OK is the one that
+// wants focus before it means anything; Cancel is always Cancel.
+//
+// Its caption swaps between "Add" and "Remove" in the panel's own code -- the
+// branch at 0x006BECD0 pushes 38455 or 38456 -- so both are declared and the
+// badge is placed against the wider, "Remove".
+constexpr ControllerPromptBinding K1_PARTY_SELECT_PROMPTS[] = {
+    {0x38B8, "kmrpa_ptyadd",  PromptVariantK1::FocusFallback},
+    {0x28B0, "kmrpa_ptyok",   PromptVariantK1::FocusOnly},
+    {0x36F4, "kmrpb_ptyback", PromptVariantK1::None},
+};
+
 constexpr ControllerPromptBinding K1_QUESTITEM_PROMPTS[] = {
     {0x08A8, "kmrpb_qitback", PromptVariantK1::None},
 };
@@ -1034,7 +1104,18 @@ bool IsK1MenuPanel(void* panel)
         vtable == K1_OPTIONS_MOUSE_PANEL_VTABLE ||
         vtable == K1_OPTIONS_RESOLUTION_PANEL_VTABLE ||
         vtable == K1_OPTIONS_SOUND_PANEL_VTABLE ||
-        vtable == K1_OPTIONS_SOUND_ADVANCED_PANEL_VTABLE;
+        vtable == K1_OPTIONS_SOUND_ADVANCED_PANEL_VTABLE ||
+        // Screens that carry badges but were never recognised here, so the
+        // panel search skipped them and their prompts were unreachable no
+        // matter what their tables said. Worse than skipped on the modal
+        // branch above, which returns null outright when the top modal is
+        // not on this list -- so an unrecognised screen suppressed every
+        // badge rather than merely its own. Equip and Quest Items were
+        // reported showing nothing while the pad was plainly in use, which
+        // is exactly this and not a mode problem.
+        vtable == K1_EQUIP_PANEL_VTABLE ||
+        vtable == K1_QUESTITEM_PANEL_VTABLE ||
+        vtable == K1_SCRIPT_SELECT_PANEL_VTABLE;
 }
 
 bool IsK1TitleMenuPanel(void* panel)
@@ -1204,6 +1285,12 @@ const ControllerPromptBinding* GetK1ControllerPrompts(
     case K1_QUESTITEM_PANEL_VTABLE:
         *count = sizeof(K1_QUESTITEM_PROMPTS) / sizeof(K1_QUESTITEM_PROMPTS[0]);
         return K1_QUESTITEM_PROMPTS;
+    case K1_SCRIPT_SELECT_PANEL_VTABLE:
+        *count = sizeof(K1_SCRIPT_SELECT_PROMPTS) / sizeof(K1_SCRIPT_SELECT_PROMPTS[0]);
+        return K1_SCRIPT_SELECT_PROMPTS;
+    case K1_PARTY_SELECT_PANEL_VTABLE:
+        *count = sizeof(K1_PARTY_SELECT_PROMPTS) / sizeof(K1_PARTY_SELECT_PROMPTS[0]);
+        return K1_PARTY_SELECT_PROMPTS;
     case K1_MAP_PANEL_VTABLE:
         *count = sizeof(K1_MAP_PROMPTS) / sizeof(K1_MAP_PROMPTS[0]);
         return K1_MAP_PROMPTS;
@@ -1264,10 +1351,24 @@ void SetK1ControllerPromptFill(void* control, const char* value)
     }
     SetFillImageFn setFill = reinterpret_cast<SetFillImageFn>(
         K1_GUI_BORDER_SET_FILL_IMAGE);
+    // BOTH borders, and the pair is not optional.
+    //
+    // The engine draws the highlight border INSTEAD OF the normal one while a
+    // control is focused. Writing only the normal fill was tried and reverted:
+    // every focus-only badge vanished the instant it was focused, which on the
+    // main menu is the only time it is ever shown -- reported as "the button
+    // flickers then disappears".
+    //
+    // That also corrects the reading that prompted the attempt. A focused badge
+    // is not drawn twice; it is drawn once, by the OTHER border, which styles
+    // the same texture differently. So a badge necessarily changes appearance
+    // on focus, and the highlight border is what indicates focus in the first
+    // place.
     setFill(
         OffsetPointer(control, K1_BUTTON_BORDER_PARAMS_OFFSET), resref, 1);
     setFill(
         OffsetPointer(control, K1_BUTTON_HILIGHT_PARAMS_OFFSET), resref, 1);
+
 }
 
 void UpdateK1ControllerPrompts()
@@ -1337,7 +1438,8 @@ void UpdateK1ControllerPrompts()
             SetK1ControllerPromptFill(
                 control,
                 controllerMode
-                    ? K1PromptResref(prompts[i], panel, control, nullptr)
+                    ? K1PromptResref(prompts[i], panel, control,
+                                     prompts, count, nullptr)
                     : nullptr);
         }
     }
@@ -3191,6 +3293,32 @@ extern "C" void __cdecl KmrpUpdatePromptsK1()
     UpdateK1ControllerPrompts();
 }
 
+// The cursor's half of the same question. Never reachable in native mode until
+// now: UpdateK1CursorState is called from DispatchMenuInputK1 and nothing else,
+// and that is a legacy hook the installer does not emit -- so the parking, the
+// hide mask and the F9 override were all present and all dead, exactly as the
+// prompts were before they were given this treatment.
+//
+// The client object is resolved rather than passed. The legacy hook had it in
+// ECX at ProcessInput's entry; this walks [[0x007A39FC+4]+4], the same
+// CClientExoAppInternal whose +0x3D8 carries the hide mask.
+extern "C" void __cdecl KmrpUpdateCursorK1()
+{
+    void** root = *reinterpret_cast<void***>(K1_CLIENT_EXO_APP_ROOT_ADDRESS);
+    if (!root) {
+        return;
+    }
+    void** app = static_cast<void**>(root[1]);
+    if (!app) {
+        return;
+    }
+    void* internal = app[1];
+    if (!internal) {
+        return;
+    }
+    UpdateK1CursorState(internal);
+}
+
 // Mouse movement, asked through the same filter the legacy hook used: KOTOR
 // recentres its own cursor, and treating that as use would hide the prompts a
 // frame after showing them.
@@ -3919,6 +4047,16 @@ constexpr DWORD MOUSE_USE_WINDOW_MS = 250;
 constexpr int MOUSE_USE_DISTANCE_PX = 24;
 constexpr int MOUSE_USE_MIN_EVENTS = 2;
 
+// Beyond this in one event, the pointer was placed rather than moved. The engine
+// puts the cursor on a panel's default control as that panel opens, and the main
+// menu is one of them: two such jumps, or one plus any real event, clears the
+// 24-pixel bar at once and the game concludes the player is on the mouse when
+// nobody has touched anything. A hand does not teleport -- a fast flick across a
+// 3440-wide screen arrives as many events of tens of pixels, never one of three
+// hundred -- so this separates the two without touching how a real movement is
+// measured.
+constexpr int MOUSE_TELEPORT_PX = 300;
+
 int g_lastMouseX = 0x7FFFFFFF;
 int g_lastMouseY = 0x7FFFFFFF;
 DWORD g_mouseWindowStart = 0;
@@ -3950,6 +4088,14 @@ bool MouseIsBeingUsedK1(int mouseX, int mouseY)
     g_lastMouseX = mouseX;
     g_lastMouseY = mouseY;
     if (dx == 0 && dy == 0) {
+        return false;
+    }
+
+    // Placed, not moved. The baseline has already been taken above, so the next
+    // real movement is measured from where the cursor now is; this contributes
+    // nothing to the window.
+    if (dx > MOUSE_TELEPORT_PX || dx < -MOUSE_TELEPORT_PX ||
+        dy > MOUSE_TELEPORT_PX || dy < -MOUSE_TELEPORT_PX) {
         return false;
     }
 

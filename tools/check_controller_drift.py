@@ -209,6 +209,45 @@ def main() -> int:
         print("  constants: " + ", ".join(
             f"{name}={values[name]}" for name in REQUIRED_CONSTANTS))
 
+    # 4c. every panel with a prompt table can actually be found
+    #
+    # The badges are applied to whatever FindK1MenuPanel returns, and that walks
+    # a whitelist -- IsK1MenuPanel, plus IsK1TitleMenuPanel for the title screen.
+    # A panel with a full prompt table that is missing from the whitelist shows
+    # no badges at all, and on the modal branch it is worse: that returns null
+    # when the top modal is unrecognised, so it suppresses EVERY badge while it
+    # is up. Equip and Quest Items shipped in exactly that state -- art, tables,
+    # offsets and textures all correct and all unreachable.
+    try:
+        vendor = (kc.ROOT / "src" / "controller-native" / "vendor"
+                  / "K1XboxControls.cpp").read_text(encoding="utf-8")
+
+        def between(start, text):
+            body = text[text.index(start):]
+            return body[:body.index("\n}")]
+
+        tabled = set(re.findall(
+            r"case (K1_\w+_VTABLE):",
+            between("const ControllerPromptBinding* GetK1ControllerPrompts", vendor)))
+        findable = set(re.findall(
+            r"vtable == (K1_\w+_VTABLE)",
+            between("bool IsK1MenuPanel", vendor)))
+        findable |= set(re.findall(
+            r"vtable == (K1_\w+_VTABLE)",
+            between("bool IsK1TitleMenuPanel", vendor)))
+
+        unreachable = sorted(tabled - findable)
+        if unreachable:
+            problems.append(
+                "panels carry badges the panel search can never show: "
+                + ", ".join(unreachable)
+                + " -- add them to IsK1MenuPanel")
+        else:
+            print(f"  prompt panels: all {len(tabled)} are reachable by the "
+                  f"panel search")
+    except Exception as error:                       # noqa: BLE001 - report it
+        problems.append(f"cannot compare prompt panels: {error!r}")
+
     # 6. the diagnostic line's conversions match its arguments
     #
     # A conversion was once inserted mid-format with its argument appended at the

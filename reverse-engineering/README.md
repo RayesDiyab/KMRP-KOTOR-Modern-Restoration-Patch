@@ -31,6 +31,7 @@ same dead end from being explored a second time.
 | [listbox-geometry.md](listbox-geometry.md) | How a `.gui` listbox becomes rows on screen: which field controls which margin, the vanilla row-growth bug, and the method for finding the next margin. |
 | [inventory-item-rows.md](inventory-item-rows.md) | Row and icon sizing for Inventory, Abilities and Store — hardcoded constants that no `.gui` edit can reach — and the stack-count label built in code. |
 | [text-padding.md](text-padding.md) | Padding and gaps for **every** control type and both axes, so a change can be uniform rather than partial. Includes the survey of how many controls each mechanism actually reaches. |
+| [button-focus-badge-geometry.md](button-focus-badge-geometry.md) | Why a controller badge is drawn smaller once its button takes focus. **On hold, unresolved** -- what is ruled out, the two candidates left, and the single measurement that separates them. |
 | [message-popup.md](message-popup.md) | The shared message popup behind tutorial hints and confirmations: how it lays itself out, why its text was clipped, and how it is scaled to every resolution. |
 
 ## Supporting material

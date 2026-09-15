@@ -102,9 +102,11 @@ extern "C" int  __cdecl KmrpActionBarStateK1(void* mainInterface);
 // alone. Both are legacy hooks that native mode drops, so every badge table and
 // every badge texture in the patch sat there unused.
 extern "C" void __cdecl KmrpUpdatePromptsK1();
+extern "C" void __cdecl KmrpUpdateCursorK1();
 extern "C" void __cdecl KmrpNoteMouseK1(int mouseX, int mouseY);
 extern "C" void __cdecl KmrpMarkControllerActiveK1();
 extern "C" void __cdecl KmrpNotePadPresentK1(int present);
+extern "C" unsigned long __cdecl KmrpDeviceStateK1();
 extern "C" void __cdecl KmrpMarkKeyboardMouseK1();
 extern "C" void __cdecl KmrpNoteKeyboardK1(void* record, int inputDevice);
 
@@ -272,6 +274,33 @@ constexpr int K1_EVENT_SELECT_NEXT  = 0x05;
 constexpr int K1_EVENT_SELECT_PREV  = K1_EVENT_FREELOOK_EXIT;
 constexpr int K1_EVENT_CHANGE_CHAR  = 0x09;
 constexpr int K1_EVENT_PARTY_ACTIVE = 0x0A;
+
+// Changing the party member a MENU is showing, which is a different layer from
+// the gameplay verb above: 0x09 goes to CClientExoAppInternal and swaps who the
+// player is controlling in the world, while 0xCE is a GUI event the screens
+// implement themselves and swaps who the screen is about.
+//
+// Four panels implement it, and they are exactly the four that carry the pair of
+// party portraits in their bottom bar -- read out of the full retained event
+// inventory rather than guessed at:
+//
+//     ABILITIES    dispatcher 0x006AE5F0   handler 0x006AE620
+//     CHARACTER    dispatcher 0x006B2250   handler 0x006B2383
+//     EQUIP        dispatcher 0x006BA3F0   handler 0x006BA5C3
+//     INVENTORY    dispatcher 0x006B3ED0   handler 0x006B3F45
+//
+// See reverse-engineering/retained-gui-event-inventory.txt, and
+// retained-xbox-gui-events.md for how 0x09 and 0xCE were paired to one action.
+constexpr int K1_GUI_EVENT_CHANGE_CHAR = 0xCE;
+
+constexpr std::uintptr_t K1_PARTY_SWITCH_PANELS[] = {
+    0x006AE5F0,   // ABILITIES -- the Skills / Powers / Feats screen
+    0x006B2250,   // CHARACTER
+    0x006BA3F0,   // EQUIP
+    0x006B3ED0,   // INVENTORY
+};
+constexpr int K1_PARTY_SWITCH_PANEL_COUNT =
+    sizeof(K1_PARTY_SWITCH_PANELS) / sizeof(K1_PARTY_SWITCH_PANELS[0]);
 
 // The six keymap.2da input-class columns load in a fixed order -- ICPC,
 // ICMiniGame, ICPCGUI, ICDialog, ICFreeLook, ICMovie -- which puts ICPC at 0 and
@@ -662,6 +691,10 @@ struct StickState {
     std::int32_t  lastX = 0;
     std::int32_t  lastY = 0;
     std::uint16_t lastButtons = 0;
+    unsigned long freeLookExitRequested = 0;   // R3 pressed while in free look
+    unsigned long freeLookExits = 0;           // bridged exits performed
+    unsigned long partySwitchRequested = 0;    // R3 pressed on a party screen
+    unsigned long partySwitches = 0;           // menu party changes performed
     unsigned long flourishRequestedTick = 0;   // 0 = nothing pending
     unsigned long flourishesPerformed = 0;
     unsigned long flourishesDeclined = 0;
@@ -687,6 +720,9 @@ struct StickState {
     unsigned long interactsPerformed = 0;
     unsigned long interactsDeclined = 0;
     std::uint8_t dpadEmitted = 0;   // which direction presses actually went out
+    std::uint8_t dpadRepeatMask = 0;           // what the native repeat is tracking
+    unsigned long dpadRepeatDeadline = 0;      // when that native press repeats
+    unsigned long dpadRepeats = 0;             // native repeats emitted
     unsigned long navRepeatDeadline = 0;       // when a held direction may repeat
     int navHeldX = 0, navHeldY = 0;            // the direction currently held
     int navPendingX = 0, navPendingY = 0;      // requested, not yet performed
@@ -1121,9 +1157,22 @@ int InputClassK1();
 void EnsureDeviceCountK1();
 void EnsurePadStateK1();
 int RemappedButtonEventK1(int slot);
+void PerformPendingFreeLookExitK1();
+void PerformPendingPartySwitchK1();
 void EnsureRumbleTableK1(void* owner);
 void UpdateStickNavigationK1(float x, float y);
 void RequestNavigationK1(int dx, int dy, bool edge, bool fromDpad);
+// ------------------------------------------------- navigation input timing
+//
+// A held direction should move once immediately, pause, then repeat steadily.
+// Those two numbers are the whole feel of menu navigation, so they are named
+// rather than buried. Declared here rather than beside the navigation code
+// because the record emitter below needs them too: it repeats the presses the
+// ENGINE consumes, using the same cadence, so a held D-pad feels identical
+// whichever layer is handling the screen.
+constexpr unsigned long K1_NAV_HOLD_DELAY_MS   = 400;   // before a hold repeats
+constexpr unsigned long K1_NAV_REPEAT_MS       = 120;   // between repeats
+
 // ------------------------------------------------------------- record filling
 
 void FillNativeJoystickBufferK1(int deviceIndex, void* outBuffer)
@@ -1288,15 +1337,16 @@ void FillNativeJoystickBufferK1(int deviceIndex, void* outBuffer)
     // or focus moves twice for one press.
     const bool kmrpDirections = KmrpOwnsDirectionsK1();
 
+    // The direction codes are 0x384, 0x388, 0x38C, 0x390 -- the same values the
+    // engine's own POV decoder produces -- reached here through the slot each
+    // binding names. Hoisted out of the loop because the repeat below needs them.
+    static const std::uint32_t codes[] = { 0x384, 0x388, 0x38C, 0x390 };
+
     for (int d = 0; d < K1_DPAD_COUNT; ++d) {
         const std::uint16_t mask = K1_DPAD[d].xinputMask;
         const bool now = (buttons & mask) != 0;
         const bool was = (g_stick.lastButtons & mask) != 0;
         if (now != was) {
-            // The direction codes are 0x384, 0x388, 0x38C, 0x390 -- the same
-            // values the engine's own POV decoder produces -- reached here
-            // through the slot each binding names.
-            static const std::uint32_t codes[] = { 0x384, 0x388, 0x38C, 0x390 };
             const std::uint8_t bit = static_cast<std::uint8_t>(1u << d);
             if (now) {
                 // Suppression is decided once, at the press, and remembered.
@@ -1312,6 +1362,45 @@ void FillNativeJoystickBufferK1(int deviceIndex, void* outBuffer)
                 g_stick.dpadEmitted &= static_cast<std::uint8_t>(~bit);
             }
         }
+    }
+
+    // A held direction repeats on the screens the ENGINE navigates.
+    //
+    // Its list boxes act on the press and nothing after it -- there is no
+    // auto-repeat anywhere in CSWGuiListBox -- so holding Down moved exactly one
+    // row and stopped. Reported on Quest Items, which is one of the screens that
+    // reaches the engine: NavigateFocusK1 stands down when a focused control
+    // navigates itself and the screen has no tab strip, and KmrpOwnsDirectionsK1
+    // agrees, so the native code goes out and this layer does not act.
+    //
+    // Only where the engine owns the press. Where KMRP owns it the repeat
+    // already exists in RequestNavigationK1, and emitting here as well would
+    // deliver the direction twice -- the same double-step that
+    // KmrpOwnsDirectionsK1 exists to prevent. dpadEmitted is exactly the set of
+    // presses that actually went out, so testing it tests the real condition
+    // rather than re-deriving it.
+    //
+    // Released and re-pressed rather than pressed again, because a second press
+    // with no intervening release is not a new press: the engine's button state
+    // is already set and the edge it acts on never arrives.
+    if (g_stick.dpadEmitted != 0) {
+        const unsigned long nowTicks = GetTickCount();
+        if (g_stick.dpadEmitted != g_stick.dpadRepeatMask) {
+            // A new or changed direction: move once, then wait out the delay.
+            g_stick.dpadRepeatMask = g_stick.dpadEmitted;
+            g_stick.dpadRepeatDeadline = nowTicks + K1_NAV_HOLD_DELAY_MS;
+        } else if (nowTicks >= g_stick.dpadRepeatDeadline) {
+            for (int d = 0; d < K1_DPAD_COUNT; ++d) {
+                if ((g_stick.dpadEmitted & static_cast<std::uint8_t>(1u << d)) != 0) {
+                    emit(codes[d], 0);
+                    emit(codes[d], 1);
+                    ++g_stick.dpadRepeats;
+                }
+            }
+            g_stick.dpadRepeatDeadline = nowTicks + K1_NAV_REPEAT_MS;
+        }
+    } else {
+        g_stick.dpadRepeatMask = 0;
     }
 
     // The same presses feed the focus-navigation layer. Exactly one of the two
@@ -1408,6 +1497,32 @@ void FillNativeJoystickBufferK1(int deviceIndex, void* outBuffer)
         }
         switch (click.action) {
         case StickAction::FreeLook:
+            // In free look the native event is not the one we want. 0x01 is
+            // registered in ICPC only -- entering switches the class to
+            // ICFreeLook, where it is no longer polled -- so emitting it here
+            // would do nothing at all. The exit is bridged instead, on the
+            // gameplay frame, and the code is suppressed so the press means one
+            // thing.
+            if (InputClassK1() == K1_CLASS_FREELOOK) {
+                if (now) {
+                    g_stick.freeLookExitRequested = GetTickCount();
+                }
+                break;
+            }
+            // In a menu R3 means "show me the next party member", on the four
+            // screens that are about a party member. Requested here and
+            // performed on the GUI frame: the handlers rebuild the screen.
+            //
+            // The native code is suppressed rather than sent alongside. It does
+            // nothing in a menu -- free-look enter is registered in ICPC only,
+            // so this slot is not polled in ICPCGUI -- but one press meaning one
+            // thing is the rule everywhere else in this file.
+            if (InputClassK1() == K1_CLASS_PCGUI) {
+                if (now) {
+                    g_stick.partySwitchRequested = GetTickCount();
+                }
+                break;
+            }
             emit(DIJOFS_BUTTON10_OFFSET, now ? 1 : 0);
             break;
         case StickAction::FlourishWeapons:
@@ -3018,14 +3133,6 @@ bool NavigateFocusK1(int dx, int dy)
     return SetFocusK1(panel, target);
 }
 
-// ------------------------------------------------- navigation input timing
-//
-// A held direction should move once immediately, pause, then repeat steadily.
-// Those three numbers are the whole feel of menu navigation, so they are named
-// rather than buried.
-constexpr unsigned long K1_NAV_HOLD_DELAY_MS   = 400;   // before a hold repeats
-constexpr unsigned long K1_NAV_REPEAT_MS       = 120;   // between repeats
-
 // The left stick drives the same navigation as the D-pad. Two thresholds, not
 // one: it must be pushed past ENGAGE to register a direction and must fall back
 // below RELEASE before another can be registered. Without that gap a stick
@@ -3188,6 +3295,16 @@ extern "C" void __cdecl NativeGuiFrameK1(void* guiManager)
     KmrpUpdatePromptsK1();
     ++g_stick.promptUpdates;
 
+    // The cursor answers the same question as the badges -- which device is the
+    // player on -- so it is updated in the same frame. This is the native call
+    // site it never had: its only other caller is a legacy hook this path does
+    // not install, which is why the pointer never hid for a pad.
+    KmrpUpdateCursorK1();
+
+    PerformPendingFreeLookExitK1();
+
+    PerformPendingPartySwitchK1();
+
     UpdateDescriptionScrollK1();
 
     // A button this screen redefines. Performed here rather than in the input
@@ -3275,6 +3392,71 @@ bool HasTargetK1()
 // A request that nothing consumes is dropped rather than kept. Without that, a
 // click pressed in a menu would fire the moment the player returned to the
 // world, which is a surprise rather than a feature.
+// Leaving free look, asked of the engine's own router rather than
+// reimplemented: 0x06's handler at 0x0062184C tests the camera mode itself,
+// which is what separates "leave free look" from "select the previous target"
+// -- the two meanings of this one event.
+//
+// Called from BOTH per-frame hooks on purpose. The movement heartbeat runs while
+// the character is being driven, and in free look it is the camera that moves,
+// not the character; the GUI frame runs whenever the interface updates. Whichever
+// ticks first consumes the request, and the staleness test keeps a late one from
+// firing into a session that has already left.
+void PerformPendingFreeLookExitK1()
+{
+    if (g_stick.freeLookExitRequested != 0) {
+        const unsigned long requested = g_stick.freeLookExitRequested;
+        g_stick.freeLookExitRequested = 0;
+        if (GetTickCount() - requested <= 250ul &&
+            InputClassK1() == K1_CLASS_FREELOOK) {
+            void* const internal = ClientInternalK1();
+            if (internal) {
+                EngineFn<HandleInputEventFn>(K1_HANDLE_INPUT_EVENT)(
+                    internal, K1_EVENT_FREELOOK_EXIT, 1);
+                ++g_stick.freeLookExits;
+            }
+        }
+    }
+}
+
+// R3 on a screen that is about a party member: show the next one.
+//
+// Dispatched to the PANEL, not to CClientExoAppInternal. The two are different
+// actions that share one name: 0x09 changes who the player controls in the
+// world, 0xCE changes who a screen is displaying. In a menu only the second is
+// wanted -- swapping the controlled character underneath an open Equip screen
+// would be a different feature, and a surprising one.
+//
+// Performed here rather than in the input hook because these handlers rebuild
+// the screen around the new character, which is the same reason the Journal's
+// remapped buttons are deferred to this frame.
+//
+// The 250 ms window matches the other deferred actions: a press that could not
+// be performed because the screen changed in between is dropped rather than
+// applied late to whatever is in front now.
+void PerformPendingPartySwitchK1()
+{
+    if (g_stick.partySwitchRequested == 0) {
+        return;
+    }
+    const unsigned long requested = g_stick.partySwitchRequested;
+    g_stick.partySwitchRequested = 0;
+    if (GetTickCount() - requested > 250ul ||
+        InputClassK1() != K1_CLASS_PCGUI) {
+        return;
+    }
+    for (int i = 0; i < K1_PARTY_SWITCH_PANEL_COUNT; ++i) {
+        void* const panel = PanelWithDispatcherK1(K1_PARTY_SWITCH_PANELS[i]);
+        if (!panel) {
+            continue;               // not the screen in front
+        }
+        reinterpret_cast<HandleControlInputFn>(K1_PARTY_SWITCH_PANELS[i])(
+            panel, K1_GUI_EVENT_CHANGE_CHAR, 1);
+        ++g_stick.partySwitches;
+        return;
+    }
+}
+
 void PerformPendingStickActionsK1()
 {
     if (g_stick.flourishRequestedTick == 0) {
@@ -3518,6 +3700,7 @@ extern "C" void __cdecl NativeJoystickMovementK1(void* playerControl)
     float sampleY = 0.0f;
     ReadNativeStickK1(sampleX, sampleY);   // diagnostics only
 
+    PerformPendingFreeLookExitK1();
     PerformPendingStickActionsK1();
     PerformPendingInteractionK1();
 }
@@ -3653,7 +3836,7 @@ extern "C" void __cdecl NativeJoystickDumpK1()
         // after. cam* are x100.
         "ovr=%d rmag=%ld amag=%ld dz=%ld dcr=%lu cls=%lu/%lu reb=%lu "
         "rx=%ld ry=%ld camrun=%lu camwr=%lu camdz=%lu camapp=%ld camcls=%lu camown=%lu "
-        "nav=%lu/%lu hud=%lu/%lu/%lu/%08lX/%d pad=%lu prm=%lu dsc=%lu gui=%lu tab=%lu tabin=%d mve=%lu/%lu/%lu move=%d->%d dir=%d rum=%lu/%lu/%08lX raw=%08lX/%08lX slot=%d rtab=%lu rmp=%lu\r\n",
+        "nav=%lu/%lu hud=%lu/%lu/%lu/%08lX/%d pad=%lu prm=%lu dsc=%lu gui=%lu tab=%lu tabin=%d mve=%lu/%lu/%lu move=%d->%d dir=%d rum=%lu/%lu/%08lX raw=%08lX/%08lX slot=%d rtab=%lu rmp=%lu fle=%lu drp=%lu psw=%lu dev=%08lX\r\n",
         g_stick.registered ? 1 : 0, g_stick.createFailed ? 1 : 0, liveCount,
         g_stick.initCalls, g_stick.bufferCalls, g_stick.recordsEmitted,
         g_stick.movementCalls, g_stick.overrideFrames,
@@ -3705,7 +3888,9 @@ extern "C" void __cdecl NativeJoystickDumpK1()
         g_stick.navFromY, g_stick.navToY, g_stick.navDir,
         g_stick.rumbleCalls, g_stick.rumbleSent, g_stick.rumbleLast,
         g_stick.rumbleRawA, g_stick.rumbleRawB, g_stick.padSlot,
-        g_stick.rumbleTableInstalled, g_stick.remapDispatched);
+        g_stick.rumbleTableInstalled, g_stick.remapDispatched,
+        g_stick.freeLookExits, g_stick.dpadRepeats, g_stick.partySwitches,
+        KmrpDeviceStateK1());
 
     HANDLE file = CreateFileA("kmrp-native-joystick.log", FILE_APPEND_DATA,
                               FILE_SHARE_READ, nullptr, OPEN_ALWAYS,

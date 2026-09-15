@@ -223,6 +223,9 @@ volatile LONG g_controllerConnected = 0;
 // this a player who launches with a pad, and skips the intro movies with it,
 // still meets a main menu with no badges on it.
 volatile LONG g_inputDeviceChosen = 0;
+// Diagnostics for the opening state, which is not behaving as reasoned.
+volatile LONG g_keyboardMouseMarks = 0;
+volatile LONG g_keyboardMouseLastTick = 0;
 bool g_movieSkipHeld = false;
 
 bool g_leftStickLive = false;
@@ -688,6 +691,9 @@ void MarkKeyboardMouseInputK1()
 {
     InterlockedExchange(&g_controllerInputActive, 0);
     InterlockedExchange(&g_inputDeviceChosen, 1);
+    InterlockedIncrement(&g_keyboardMouseMarks);
+    InterlockedExchange(&g_keyboardMouseLastTick,
+                        static_cast<LONG>(GetTickCount()));
 }
 
 // The native path reads XInput itself, so it reports device activity itself.
@@ -706,6 +712,26 @@ extern "C" void __cdecl KmrpMarkControllerActiveK1()
 extern "C" void __cdecl KmrpNotePadPresentK1(int present)
 {
     InterlockedExchange(&g_controllerConnected, present ? 1 : 0);
+}
+
+// The opening-state machinery, packed for the diagnostic line: bit 0 a pad is
+// connected, bit 1 the question has been closed, bit 2 the pad is the live
+// device. The high bits carry how many times keyboard-or-mouse closed it.
+extern "C" unsigned long __cdecl KmrpDeviceStateK1()
+{
+    unsigned long state = 0;
+    if (InterlockedCompareExchange(&g_controllerConnected, 0, 0) != 0) {
+        state |= 1u;
+    }
+    if (InterlockedCompareExchange(&g_inputDeviceChosen, 0, 0) != 0) {
+        state |= 2u;
+    }
+    if (InterlockedCompareExchange(&g_controllerInputActive, 0, 0) != 0) {
+        state |= 4u;
+    }
+    const unsigned long marks = static_cast<unsigned long>(
+        InterlockedCompareExchange(&g_keyboardMouseMarks, 0, 0));
+    return state | (marks << 8);
 }
 
 // Keyboard or mouse became the live device; drop the prompts.

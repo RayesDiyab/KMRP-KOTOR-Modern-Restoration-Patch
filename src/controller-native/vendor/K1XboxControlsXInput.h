@@ -16,6 +16,7 @@ bool IsControllerGeneratedKeyK1(std::uint32_t scancode);
 unsigned long LastInjectedDeadlineK1(std::uint32_t scancode);
 void MarkKeyboardMouseInputK1();
 extern "C" void __cdecl KmrpNotePadPresentK1(int present);
+extern "C" unsigned long __cdecl KmrpDeviceStateK1();
 
 // The normal game input loop is suspended during Bink playback. The movie
 // frame hook calls this separate edge detector so A, B, LB, or Start can cancel

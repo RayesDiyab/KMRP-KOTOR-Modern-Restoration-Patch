@@ -67,7 +67,76 @@ own process in memory at startup without writing to `swkotor.exe` at all.
 
 ## [Unreleased]
 
+### Added
+- **R3 changes which party member a menu is showing.** Character, Equipment,
+  Inventory and the Skills/Powers/Feats screen are each about one party
+  member, and with a pad there was no way to switch between them: the two
+  portrait buttons in the bottom bar could only be clicked.
+
+  Nothing new had to be invented. `0xCE` is a retained GUI event the screens
+  implement themselves, and the full event inventory says exactly four panels
+  implement it -- ABILITIES, CHARACTER, EQUIP and INVENTORY, which are
+  precisely the four screens that carry the portrait pair. That match is the
+  evidence it is the party switch rather than something else sharing a code.
+
+  Dispatched to the panel rather than to `CClientExoAppInternal`. The two are
+  different actions with one name: `0x09` changes who the player controls in
+  the world, `0xCE` changes who a screen is about. Only the second belongs in
+  a menu. It is performed on the GUI frame rather than in the input hook,
+  because the handlers rebuild the screen around the new character -- the same
+  reason the Journal's remapped buttons are deferred. Counted as `psw`.
+
+  R3's native code is suppressed while a menu is in front. It did nothing
+  there already -- free-look enter is registered in `ICPC` only, so the slot
+  is not polled in `ICPCGUI` -- but one press meaning one thing is the rule
+  the rest of the input layer follows. Free look in gameplay is unchanged.
+
+  **It is advertised, but not where it belongs.** A badge replaces a
+  control's `BORDER.FILL`, and there is no control to put one on: the two
+  portraits' fill *is* the portrait, rewritten per character by the panel, and
+  the 94px gap between them holds nothing. Adding a control there does not
+  work either -- measured on a live install by adding one to `inventory.gui`
+  and looking, which confirms for these screens what was already reported for
+  `mainmenu.gui`: a control the panel does not bind is loaded and never drawn.
+  No label is free to move into the gap either; Inventory has none at all.
+
+  So the R3 glyph is composited into the badge already on each screen's
+  Close/Back button, pinned to that button's left edge while the existing
+  glyph stays beside its caption. One texture, two glyphs, and the caption's
+  own badge is held one diameter clear so a long translation cannot slide it
+  underneath. It appears and clears with the pad exactly like every other
+  badge, and the drift check audits it with the rest.
+
+  The compromise is real and worth stating: the cue reads as part of the
+  button row rather than as something attached to the portraits it acts on.
+  That is the only placement the engine allows without new drawing code.
+
+  The glyph is `XboxSeriesX_Right_Stick_Click.png`. `L3` is deliberately left
+  on the 360 artwork: nothing uses it, and restyling an unused glyph is a
+  change nobody asked for.
+
 ### Fixed
+- **Holding a D-pad direction now scrolls a list, on every screen.** Reported
+  on Quest Items: a held Down moved one item and stopped.
+
+  Two layers navigate menus, and only one of them repeated. Where KMRP moves
+  the focus itself it has always held-and-repeated -- 400 ms, then every
+  120 ms -- which is why the tabbed screens behaved. Where the ENGINE
+  navigates, KMRP stands down and emits the retained direction code instead:
+  `NavigateFocusK1` declines when a focused control navigates itself and the
+  screen has no tab strip, and `KmrpOwnsDirectionsK1` agrees. That path sent
+  one press and one release, and `CSWGuiListBox` acts on the press and
+  nothing after it -- it has no auto-repeat of its own.
+
+  The emitter now repeats the presses it sends, on the same two constants, so
+  a held direction feels identical whichever layer is handling the screen. It
+  repeats only what actually went out (`dpadEmitted`), so the screens KMRP
+  navigates are untouched and the direction is never delivered twice -- the
+  double-step `KmrpOwnsDirectionsK1` exists to prevent. Each repeat releases
+  before pressing, because a second press with no release in between is not
+  an edge and the engine would ignore it. Counted as `drp` in the diagnostic
+  line.
+
 - **A pad that is plugged in shows its badges from the first frame**, instead of
   waiting to be pressed. Reported from the launch sequence: skipping the intro
   movies with the pad and then arriving at a main menu with no badges on it.

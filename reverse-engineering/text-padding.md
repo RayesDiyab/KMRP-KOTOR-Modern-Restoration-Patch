@@ -170,6 +170,18 @@ everything downstream:
 
 Until that is measured, do not build anything on `INNEROFFSET`.
 
+**2026-09-14, partial answer, from the opposite direction.** A build-time
+transform set `HILIGHT.INNEROFFSET` to 0 on the badged buttons of every prompt
+screen, trying to use it as a *fill* inset. It is not one -- see
+[button-focus-badge-geometry.md](button-focus-badge-geometry.md), where gold's 9
+and the flattened 0 are measured producing the identical fill inset of 6.
+
+What it did do is stop `map.gui`'s three button captions rendering, which is a
+text effect, on exactly the controls whose value changed and on no others. If
+that text returns once the reverted build is installed -- not yet confirmed --
+then `INNEROFFSET` is a genuine text lever after all, and this section's premise
+holds. The clamp question above is untouched by any of it.
+
 **3. `TEXT.ALIGNMENT` — positions, does not pad.** Bits, derived from controls
 whose appearance is known:
 
@@ -335,4 +347,6 @@ in-place `imm32` rewrites with no size change.
 * **`BORDER.DIMENSION`** is the frame artwork's edge thickness (0, 1, 2, 4, 6,
   16 and 32 in the shipped files). It is the prime suspect for the
   `INNEROFFSET` clamp above; whether it also insets text on its own is
-  untested.
+  untested. Confirmed 2026-09-14 to be the **focus outline's** drawn thickness:
+  set live from 6 to 2 on a focused button, the outline visibly thinned to
+  nothing. See [button-focus-badge-geometry.md](button-focus-badge-geometry.md).
