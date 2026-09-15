@@ -420,6 +420,31 @@ exclude_from_restore = []
 source = "ecx"
 type = "pointer"
 
+# Build the R3 party-switch cue, on the four screens that have one.
+#
+# CSWGuiPanel::ReleaseGff. Every one of the 68 panel constructors calls it as its
+# last act, and it deletes the parsed .gui and nulls the pointer the control
+# binder resolves tags against -- so this is the final instant at which a control
+# can be added to a panel, and afterwards no tag can ever be resolved on it.
+#
+# Hooked here rather than at the four constructors: one site instead of four, the
+# panel is already in ecx, and the prologue has no relative operand that a
+# trampoline would have to relocate. The handler ignores every panel that is not
+# one of the four party screens.
+#
+# See reverse-engineering/custom-gui-controls.md.
+[[hooks]]
+address = 0x0040B8F0
+type = "detour"
+function = "NativePanelReleaseGffK1"
+original_bytes = [0x56, 0x8B, 0xF1, 0xF6, 0x46, 0x44, 0x02]
+skip_original_bytes = false
+exclude_from_restore = []
+
+[[hooks.parameters]]
+source = "ecx"
+type = "pointer"
+
 # Notice keyboard activity, so the controller prompts hide themselves.
 #
 # The same site Saul0097's CaptureActionBarInputK1 uses. His also captures the

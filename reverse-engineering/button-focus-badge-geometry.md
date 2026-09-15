@@ -45,11 +45,19 @@ Party selection `BTN_BACK`, control at `0x140B400C`:
 | `+0x30` | EDGE | *(empty)* | `boxline4` |
 | `+0x40` | FILL (inline resref) | `kmrpb_ptyback` | `kmrpb_ptyback` |
 | `+0x50` | fill texture object | ptr | ptr |
-| `+0x64` | rect | 2118, 1230, 785, 84 | 2124, 1236, 773, 72 |
+| `+0x64` | *(not this structure -- see below)* | 2118, 1230, 785, 84 | 2124, 1236, 773, 72 |
 
-`BTN_BACK`'s authored EXTENT is `2118, 1230, 785, 84` -- byte-identical to the
-normal block's rect. So `+0x64` is not a computed fill box in the normal case; it
-is the extent, and the focus copy's is that same extent **inset 6 per side**.
+`BTN_BACK`'s authored EXTENT is `2118, 1230, 785, 84`, which is byte-identical to
+what the normal block's `+0x64` returned. That agreement is real but the field is
+not part of the params block at all; the reading below says what was actually
+being read.
+
+A note on the reference: `Lane-reference/swkotor.exe.h` names the first four
+`CSWGuiBorderParams` fields `x, y, width, height`. That is a Ghidra placeholder
+and it is wrong here. The GFF parser settles it -- `0x00415514` stores
+`INNEROFFSET` to `[border+0x18]`, which is `params+0x04`, and the DIMENSION
+getter at `0x00414CD0` is called with `ecx = border+0x14`, which is `params+0x00`.
+So the first two are DIMENSION and INNEROFFSET, as the table says.
 
 Field offsets are relative to what `SetK1ControllerPromptFill` passes, which is
 `control+0x80` / `control+0xF4`. The GFF parser's own base is `0x14` lower --
@@ -73,11 +81,33 @@ could never have fixed this, and it is what removed the map screen's button text
 2 on the focus block: the green focus outline disappeared, and the badge stayed
 exactly as small. Two separate effects, and only one of them answered.
 
-**The `+0x64` rect is not what the draw reads.** Overwritten with the normal
-block's extent while the button was focused and left untouched: no visible
-change. (Caveat on this one -- an earlier attempt at the same test was invalid,
-because seeing the result required moving focus and moving focus recomputes the
-value. The valid run still showed no change.)
+**The `+0x64` rect was never the badge's rect, and the test was meaningless.**
+Overwriting it changed nothing on screen, which was read at the time as "this
+field does not drive the fill". The real reason is worse: `+0x64` is not part of
+that structure at all.
+
+`CSWGuiBorder` is `{ vtable, extent at +0x04, border_params at +0x14, ... }` and
+is `0x74` bytes -- see
+[custom-gui-controls.md](custom-gui-controls.md). What the module calls the
+border-params offset is therefore `0x14` INTO a border that starts `0x14`
+earlier, so reading `params + 0x64` reads `border + 0x78`, which is past the end
+of that border:
+
+| read | actually | value seen |
+| --- | --- | --- |
+| normal params `+0x64` = button `+0xE4` | `border_2 + 0x04` -- the FOCUS border's extent | 2118, 1230, 785, 84 |
+| focus params `+0x64` = button `+0x158` | `text + 0x04` -- the CAPTION's extent | 2124, 1236, 773, 72 |
+
+So the two numbers being compared were a border extent and a text extent, from
+different structures. The "inset by 6" that the whole investigation chased is the
+inset of the **caption**, not of the badge, and writing the first over the second
+would have moved the button's text rather than its glyph.
+
+This does not resolve why the badge changes size; it removes a false lead and the
+conclusion drawn from it. Whatever sizes the fill is elsewhere -- the border's
+own `extent` at `border+0x04`, or the `x`/`y`/`width`/`height` at the start of
+`CSWGuiBorderParams`, neither of which has been read for both borders of the same
+button.
 
 **`min(INNEROFFSET, DIMENSION)` is computed, but not for this.** `0x00415360`
 onwards reads INNEROFFSET, calls the DIMENSION getter, keeps the smaller, and the
@@ -87,8 +117,12 @@ this rect feeds, it is not the fill.
 
 ## The two candidates left
 
-The inset is 6. Two things on this button are 6, and nothing done so far
-separates them:
+**Read this section knowing the correction above**: the 6 it discusses was
+measured from the caption's extent, so "the inset is 6" is not established for
+the badge at all. The two candidates are kept because they remain the obvious
+things to test once the badge's real rect is read, not because the 6 stands.
+
+Two things on this button are 6, and nothing done so far separates them:
 
 1. `HILIGHT.DIMENSION` is **6**.
 2. `boxline3` and `boxline4` are **12x12 px** (measured from
@@ -106,12 +140,22 @@ The distinction decides whether the problem is fixable:
 
 ## The measurement that settles it
 
-Set `HILIGHT.DIMENSION` to 2, **force a fresh layout** (leave and re-enter the
-panel -- the rect is computed at layout and cached, which is what made two
-earlier tests meaningless), then read the rect at `control+0xF4+0x64`.
+First, read the badge's **actual** rect for both borders of one button, which
+has never been done. A button's borders are whole `CSWGuiBorder` objects at
+`control+0x6C` and `control+0xE0`, each `0x74` bytes:
 
-* inset 2 -> `DIMENSION` drives it.
-* inset 6 -> the edge texture drives it.
+```
+border + 0x04   extent          left, top, width, height
+border + 0x14   border_params   dimension, inneroffset, ... , fill at +0x40
+```
+
+Dump both borders in full and compare. If their extents differ by the amount the
+badge shrinks, that is the field; if they match, the size comes from inside the
+params.
+
+Only then is the DIMENSION-versus-edge-texture question worth asking, and it is
+asked the same way: set `HILIGHT.DIMENSION` to 2, force a fresh layout by leaving
+and re-entering the panel, and re-read `control+0xE0+0x04`.
 
 Note for whoever runs it: **hardware data breakpoints did not work in this
 session.** `bphws` at three exact addresses never fired while a software

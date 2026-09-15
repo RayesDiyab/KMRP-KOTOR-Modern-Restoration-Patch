@@ -91,29 +91,47 @@ own process in memory at startup without writing to `swkotor.exe` at all.
   is not polled in `ICPCGUI` -- but one press meaning one thing is the rule
   the rest of the input layer follows. Free look in gameplay is unchanged.
 
-  **It is advertised, but not where it belongs.** A badge replaces a
-  control's `BORDER.FILL`, and there is no control to put one on: the two
-  portraits' fill *is* the portrait, rewritten per character by the panel, and
-  the 94px gap between them holds nothing. Adding a control there does not
-  work either -- measured on a live install by adding one to `inventory.gui`
-  and looking, which confirms for these screens what was already reported for
-  `mainmenu.gui`: a control the panel does not bind is loaded and never drawn.
-  No label is free to move into the gap either; Inventory has none at all.
+  **It is advertised between the two portraits, on a control the game does
+  not have.** There was nowhere to put a badge: a badge replaces a control's
+  `BORDER.FILL`, the portraits' fill *is* the portrait -- rewritten per
+  character by the panel -- and the gap between them holds no control. No
+  spare label exists to move there either; Inventory has fifteen controls and
+  uses all fifteen.
 
-  So the R3 glyph is composited into the badge already on each screen's
-  Close/Back button, pinned to that button's left edge while the existing
-  glyph stays beside its caption. One texture, two glyphs, and the caption's
-  own badge is held one diameter clear so a long translation cannot slide it
-  underneath. It appears and clears with the pad exactly like every other
-  badge, and the drift check audits it with the rest.
+  Adding one to the `.gui` does nothing on its own, which was measured rather
+  than assumed: a control was added to a live `inventory.gui` and nothing
+  drew. The reason is that a panel does not load the file's controls, it asks
+  for the ones it knows by name -- `0x0040B930` resolves a tag by walking the
+  GFF and comparing `TAG` -- so a control nobody asks for is never built.
 
-  The compromise is real and worth stating: the cue reads as part of the
-  button row rather than as something attached to the portraits it acts on.
-  That is the only placement the engine allows without new drawing code.
+  So the build adds `LBL_KMRPR3` to the four screens, placed from each
+  resolution's own portrait extents, and the module binds it at runtime. That
+  is possible in exactly one instant: every panel constructor ends by calling
+  `CSWGuiPanel::ReleaseGff`, which deletes the parsed `.gui` and nulls the
+  pointer the binder reads. Hooking that one function catches all 68
+  constructors with the panel already in `ecx`, and its prologue has no
+  relative operand for a trampoline to relocate. Panels that are not party
+  screens are ignored.
 
-  The glyph is `XboxSeriesX_Right_Stick_Click.png`. `L3` is deliberately left
-  on the 360 artwork: nothing uses it, and restyling an unused glyph is a
-  change nobody asked for.
+  The control is then drawn because `CSWGuiPanel::Draw` walks the same array
+  the binder files into, skipping null slots and gating each child on
+  `bit_flags & 2`. That bit is the engine's own show/hide -- it sets it on a
+  control that loaded and clears it to hide one, which is how CHARACTER hides
+  its ten alignment-meter labels immediately after binding them -- so the cue
+  follows the pad by flipping one bit rather than swapping any artwork.
+
+  Sizes and addresses were read from the gold image and each confirmed more
+  than once; `reverse-engineering/custom-gui-controls.md` records every one,
+  including the ownership question -- the array's destructor frees the pointer
+  block and never dereferences an element, so a control we allocate is never
+  freed. That is a `0x140` byte leak per panel construction, against the
+  `0x1DE8` the engine allocates for the panel itself.
+
+  The glyph is `XboxSeriesX_Right_Stick_Click.png`, on its own square texture:
+  the control is square at every resolution, so unlike the caption badges it
+  needs no pre-compensation and one texture serves the whole game. `L3` is
+  deliberately left on the 360 artwork -- nothing uses it, and restyling an
+  unused glyph is a change nobody asked for.
 
 ### Fixed
 - **Holding a D-pad direction now scrolls a list, on every screen.** Reported

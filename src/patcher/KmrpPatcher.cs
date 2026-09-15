@@ -1655,6 +1655,14 @@ namespace Kmrp
                 new[] { "int", "int", "pointer" });
             AppendHook(text, "0x00686BA0", "53, 56, 57, 8B, F1",
                 "NativeActionBarK1", new[] { "ecx" }, new[] { "pointer" });
+            // CSWGuiPanel::ReleaseGff, called last by all 68 panel
+            // constructors. It deletes the parsed .gui, so it is the final
+            // instant at which a control can be bound by tag -- which is how
+            // the R3 party-switch cue exists at all. The handler ignores every
+            // panel that is not one of the four party screens. See
+            // reverse-engineering/custom-gui-controls.md.
+            AppendHook(text, "0x0040B8F0", "56, 8B, F1, F6, 46, 44, 02",
+                "NativePanelReleaseGffK1", new[] { "ecx" }, new[] { "pointer" });
             // The one legacy-owned hook the native path REQUIRES. Its action
             // bar helpers cache the interface in g_mainInterface every frame,
             // and this is the only thing that clears it -- it is hooked on

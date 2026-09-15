@@ -4,6 +4,7 @@
 from __future__ import annotations
 
 import argparse
+import copy
 import io
 import json
 import shutil
@@ -12,10 +13,11 @@ import tempfile
 import zipfile
 from pathlib import Path
 
-from pykotor.resource.formats.gff import read_gff, write_gff
+from pykotor.resource.formats.gff import GFFStruct, read_gff, write_gff
 
 from apply_gold_hud_proportions import apply_proportions
-from build_controller_prompt_textures import build_prompt_textures
+from build_controller_prompt_textures import (build_prompt_textures,
+                                              build_square_glyph_tga)
 from build_menubg_texture import build_texture_for_gui
 from build_scaled_fonts import export_font_txis, export_fonts, scale_txi
 from fix_hud_menubg import fix_menubg_file
@@ -433,6 +435,111 @@ def write_zip(output: Path, files: list[Path]) -> None:
 
 
 
+# The R3 party-switch cue.
+#
+# R3 changes which party member Character, Equipment, Inventory and the
+# Skills/Powers/Feats screen are showing. There is nowhere in those screens to
+# advertise it: the two portrait buttons' BORDER.FILL *is* the portrait, rewritten
+# per character by the panel, and the gap between them holds no control at all.
+#
+# So one is added here -- and it only becomes real because the module binds it at
+# runtime. A panel constructs the controls it knows by name and nothing else, so a
+# control added to a .gui alone is never built and never drawn; that was measured
+# by adding one and looking. See reverse-engineering/custom-gui-controls.md.
+R3_CUE_TAG = "LBL_KMRPR3"
+R3_CUE_FILL = "kmrpr3_party"
+R3_CUE_SCREENS = ("abilities.gui", "character.gui", "equip.gui", "inventory.gui")
+
+
+def add_party_switch_cue(source: Path, destination: Path) -> bool:
+    """Put the R3 cue in the gap between a screen's two party portraits.
+
+    Placed from the portraits' own extents rather than from a table of numbers,
+    so it lands correctly at every resolution without anything to keep in sync.
+
+    Cloned from a label already in the same file, not built field by field: the
+    loader reads what it expects to find, and a hand-built struct missing a field
+    fails in a way that looks like the control simply not drawing. Only what has
+    to differ is changed.
+    """
+    gff = read_gff(source)
+    root = gff.root
+    controls = root.get_list("CONTROLS")
+
+    by_tag = {control.get_string("TAG"): control for control in controls}
+    if R3_CUE_TAG in by_tag:
+        return False                      # already present: nothing to do
+
+    for required in ("BTN_CHANGE1", "BTN_CHANGE2"):
+        if required not in by_tag:
+            raise ValueError(f"{source.name} has no {required}; it is not a "
+                             f"party screen and should not be in R3_CUE_SCREENS")
+
+    first = by_tag["BTN_CHANGE1"].get_struct("EXTENT")
+    second = by_tag["BTN_CHANGE2"].get_struct("EXTENT")
+    left = first.get_int32("LEFT") + first.get_int32("WIDTH")
+    right = second.get_int32("LEFT")
+    gap = right - left
+    if gap <= 0:
+        raise ValueError(f"{source.name}: the portraits do not leave a gap "
+                         f"({left}..{right})")
+    # Square, so one square texture is correct at every resolution with no
+    # aspect pre-compensation -- unlike the caption badges, which are stretched
+    # across oblong buttons.
+    size = min(first.get_int32("HEIGHT"), gap)
+    x = left + (gap - size) // 2
+    y = first.get_int32("TOP") + (first.get_int32("HEIGHT") - size) // 2
+
+    template = next(
+        (control for control in controls
+         if control.exists("CONTROLTYPE") and control.get_int32("CONTROLTYPE") == 4),
+        None)
+    if template is None:
+        raise ValueError(f"{source.name} has no label to clone")
+
+    cue = GFFStruct(template.struct_id)
+    cue._fields = copy.deepcopy(template._fields)
+    cue.set_string("TAG", R3_CUE_TAG)
+
+    # The array the panel files controls into is indexed BY ID, and the binder
+    # grows it when an id lands past the end, so one past the highest is free.
+    ids = [control.get_int32("ID") for control in controls if control.exists("ID")]
+    cue.set_int32("ID", max(ids) + 1)
+
+    extent = cue.get_struct("EXTENT")
+    extent.set_int32("LEFT", x)
+    extent.set_int32("TOP", y)
+    extent.set_int32("WIDTH", size)
+    extent.set_int32("HEIGHT", size)
+    cue.set_struct("EXTENT", extent)
+
+    border = cue.get_struct("BORDER")
+    border.set_resref("FILL", R3_CUE_FILL)
+    # No frame of any kind: the glyph is the whole control.
+    for field in ("CORNER", "EDGE"):
+        if border.exists(field):
+            border.set_resref(field, "")
+    if border.exists("DIMENSION"):
+        border.set_int32("DIMENSION", 0)
+    cue.set_struct("BORDER", border)
+
+    # The template's caption would otherwise be inherited wholesale.
+    if cue.exists("TEXT"):
+        text = cue.get_struct("TEXT")
+        if text.exists("TEXT"):
+            text.set_string("TEXT", "")
+        if text.exists("STRREF"):
+            text.set_uint32("STRREF", 0xFFFFFFFF)
+        cue.set_struct("TEXT", text)
+
+    controls.append(cue)
+    # Every getter in this pykotor hands back a copy, the control list included,
+    # so the list has to be written back or the file is unchanged on disk.
+    root.set_list("CONTROLS", controls)
+    write_gff(gff, destination)
+    return True
+
+
 def set_map_control_extent(source: Path, destination: Path, extent: dict) -> None:
     """Rewrite LBL_Map's EXTENT in a map.gui, leaving every other control alone."""
     gff = read_gff(source)
@@ -582,6 +689,15 @@ def main() -> int:
         # they are compressed here rather than alongside the bundled icons.
         common_tga_files = compress_menu_backgrounds(common_tga_files,
                                                      Path(icon_staging))
+
+        # The R3 party-switch cue's glyph. Shared rather than per-resolution
+        # because the control it fills is square at every resolution, so the art
+        # needs no aspect pre-compensation and one texture is correct everywhere
+        # -- unlike the caption badges, which are stretched across oblong buttons
+        # and are built per resolution for exactly that reason.
+        cue_art = Path(icon_staging) / f"{R3_CUE_FILL}.tga"
+        cue_art.write_bytes(build_square_glyph_tga("R3"))
+        common_tga_files = common_tga_files + [cue_art]
 
         write_zip(args.output / "override-common.zip",
                   common_tga_files + hd_font_atlases + stock_atlases + shared_data + bundled)
@@ -766,6 +882,29 @@ def main() -> int:
                                               font_scale_for(height), tags,
                                               unit_gutter=unit, force=True)
                     packaged_files[index] = gutter_file
+
+                # The R3 party-switch cue, on the four screens that switch.
+                # Placed from each resolution's own portrait extents, so there is
+                # no table of coordinates to keep in step with the GUI packs.
+                #
+                # This only puts the control in the file. A panel builds the
+                # controls it knows by name and nothing else, so the module binds
+                # this one at runtime; without that it is never constructed and
+                # never drawn. See reverse-engineering/custom-gui-controls.md.
+                cue_dir = temp_dir / "cue"
+                cue_dir.mkdir(exist_ok=True)
+                cued = 0
+                for index, path in enumerate(packaged_files):
+                    if path.name.lower() not in R3_CUE_SCREENS:
+                        continue
+                    cue_file = cue_dir / path.name
+                    if add_party_switch_cue(path, cue_file):
+                        packaged_files[index] = cue_file
+                        cued += 1
+                if cued != len(R3_CUE_SCREENS):
+                    raise ValueError(
+                        f"{resolution}: the R3 cue reached {cued} of "
+                        f"{len(R3_CUE_SCREENS)} party screens")
 
                 # Generate this resolution's button-row background art from the
                 # mipc*.gui file the engine will actually load at this

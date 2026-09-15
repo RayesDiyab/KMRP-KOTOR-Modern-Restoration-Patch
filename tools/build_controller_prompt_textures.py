@@ -126,12 +126,6 @@ class PromptTarget:
     control_index: int
     glyph: str
     resref: str
-    # A second glyph, pinned to the control's left edge, for an action that has
-    # no control of its own to sit on. R3 changes the party member on the four
-    # screens that are about one, and there is nowhere else to say so: the
-    # portraits' fill is the portrait, and an added control is never drawn.
-    # Empty for every ordinary badge, which is one glyph on one button.
-    extra_glyph: str = ""
 
 
 # These are zero-based entries in each GUI GFF control list. The generator
@@ -139,8 +133,7 @@ class PromptTarget:
 # rectangle to shape its badge. Runtime lookup uses verified embedded-object
 # offsets instead; GUI list order is not an object-layout contract.
 PROMPT_TARGETS = (
-    PromptTarget("character.gui", "BTN_EXIT", 60, "B", "kmrpb_charexit",
-                 extra_glyph="R3"),
+    PromptTarget("character.gui", "BTN_EXIT", 60, "B", "kmrpb_charexit"),
     PromptTarget("character.gui", "BTN_SCRIPTS", 61, "X", "kmrpx_charscr"),
     PromptTarget("container.gui", "BTN_OK", 2, "A", "kmrpa_contok"),
     PromptTarget("container.gui", "BTN_GIVEITEMS", 3, "X", "kmrpx_contgive"),
@@ -194,12 +187,10 @@ PROMPT_TARGETS = (
     PromptTarget("partyselection.gui", "BTN_BACK", 37, "B", "kmrpb_ptyback"),
 
     PromptTarget("equip.gui", "BTN_EQUIP", 37, "A", "kmrpa_eqpequip"),
-    PromptTarget("equip.gui", "BTN_BACK", 36, "B", "kmrpb_eqpback",
-                 extra_glyph="R3"),
+    PromptTarget("equip.gui", "BTN_BACK", 36, "B", "kmrpb_eqpback"),
     PromptTarget("questitem.gui", "BTN_BACK", 3, "B", "kmrpb_qitback"),
 
-    PromptTarget("inventory.gui", "BTN_EXIT", 14, "B", "kmrpb_invclose",
-                 extra_glyph="R3"),
+    PromptTarget("inventory.gui", "BTN_EXIT", 14, "B", "kmrpb_invclose"),
     PromptTarget("inventory.gui", "BTN_USEITEM", 13, "A", "kmrpa_invuse"),
     PromptTarget("inventory.gui", "BTN_QUESTITEMS", 10, "X", "kmrpx_invnew"),
 
@@ -255,8 +246,7 @@ PROMPT_TARGETS = (
     PromptTarget("optsoundadv.gui", "BTN_BACK", 3, "A", "kmrpa_optsndadv"),
     PromptTarget("upgradeitems.gui", "BTN_UPGRADEITEM", 3, "A", "kmrpa_upgitm"),
     PromptTarget("upgrade.gui", "BTN_ASSEMBLE", 24, "A", "kmrpa_upgasm"),
-    PromptTarget("abilities.gui", "BTN_EXIT", 14, "B", "kmrpb_abilexit",
-                 extra_glyph="R3"),
+    PromptTarget("abilities.gui", "BTN_EXIT", 14, "B", "kmrpb_abilexit"),
 )
 
 
@@ -363,17 +353,12 @@ def vocabulary():
 
 
 def _composite_glyph_tga(control_width: int, control_height: int, glyph: str,
-                         center_x: float, center_y: float, radius: float,
-                         extra: tuple = ()) -> bytes:
+                         center_x: float, center_y: float, radius: float) -> bytes:
     """Place the real glyph artwork, pre-compensated for the button stretch.
 
     The engine stretches BORDER.FILL across the whole control, so a square in
     CONTROL space is a rectangle in TEXTURE space. The art is therefore resized
     to that rectangle and comes out round in game.
-
-    `extra` carries further (glyph, center_x, center_y, radius) placements for
-    the same texture. One control can then advertise more than one button, which
-    is what R3 needs: it acts on a screen that has no spare control to badge.
     """
     art = _load_glyph_art(glyph)
     if art is None:
@@ -399,26 +384,6 @@ def _composite_glyph_tga(control_width: int, control_height: int, glyph: str,
     # empty, so using the art's own alpha as the mask is a correct composite.
     sheet.paste(resized, (left, top), resized)
 
-    # Any further glyphs, each shaped by its own art's proportions exactly as the
-    # first was. A missing extra glyph is fatal rather than skipped: it would
-    # ship a badge that silently advertises one button instead of two.
-    for extra_glyph, ex_cx, ex_cy, ex_r in extra:
-        extra_art = _load_glyph_art(extra_glyph)
-        if extra_art is None:
-            raise ValueError(
-                f"No artwork for the additional glyph {extra_glyph!r}; a badge "
-                f"that drops it would advertise the wrong buttons")
-        ex_d = ex_r * 2.0
-        ex_aspect = extra_art.width / extra_art.height
-        ex_w = ex_d * ex_aspect if ex_aspect < 1.0 else ex_d
-        ex_h = ex_d / ex_aspect if ex_aspect > 1.0 else ex_d
-        ex_dst_w = max(1, round(ex_w * TEXTURE_WIDTH / control_width))
-        ex_dst_h = max(1, round(ex_h * TEXTURE_HEIGHT / control_height))
-        ex_left = round((ex_cx - ex_w / 2.0) * TEXTURE_WIDTH / control_width)
-        ex_top = round((ex_cy - ex_h / 2.0) * TEXTURE_HEIGHT / control_height)
-        ex_resized = extra_art.resize((ex_dst_w, ex_dst_h), Image.LANCZOS)
-        sheet.paste(ex_resized, (ex_left, ex_top), ex_resized)
-
     # Store bottom-up: the descriptor below declares a bottom-left origin, which
     # is what all 40 sampled shipped KOTOR textures use.
     sheet = sheet.transpose(Image.FLIP_TOP_BOTTOM)
@@ -432,8 +397,7 @@ def _composite_glyph_tga(control_width: int, control_height: int, glyph: str,
 @lru_cache(maxsize=None)
 def build_prompt_tga(control_width: int, control_height: int, glyph: str,
                      label_width: float = 0.0,
-                     radius_height: int = 0,
-                     extra_glyph: str = "") -> bytes:
+                     radius_height: int = 0) -> bytes:
     if control_width <= 0 or control_height <= 0:
         raise ValueError(f"Invalid prompt control extent {control_width}x{control_height}")
     center_y = control_height * 0.50
@@ -458,34 +422,58 @@ def build_prompt_tga(control_width: int, control_height: int, glyph: str,
     # (font-atlases.md: the engine renders one texel per pixel). When it is
     # unknown -- no metrics, or a label we do not carry -- fall back to the old
     # fixed inset rather than guessing a position.
-    # A second glyph, when this button also advertises an action with no control
-    # of its own, is pinned to the LEFT EDGE -- the one part of a wide button
-    # that is always empty, whatever the caption says in whatever language.
-    extra = ()
-    # 1.15 is where a lone badge may sit at the very edge; a glyph sharing a
-    # button with another needs to read as deliberate rather than as something
-    # that slid into the corner, so it is inset a little further.
-    left_edge = radius * 1.6
-    if extra_glyph:
-        extra = ((extra_glyph, left_edge, center_y, radius),)
-
     if label_width > 0:
         gap = radius * 0.55
         center_x = (control_width - label_width) / 2.0 - gap - radius
         # Never let it leave the button, however long the label.
-        center_x = max(left_edge, center_x)
-        # ...and never let it land on top of the extra glyph. A long caption
-        # pushes the caption's own badge left until it would collide; it stops
-        # one full diameter clear instead. Both are then still on the button and
-        # still distinguishable, which a silent overlap would not be.
-        if extra:
-            center_x = max(center_x, left_edge + radius * 2.6)
+        center_x = max(radius * 1.15, center_x)
     else:
         center_x = control_height * 0.58
-        if extra:
-            center_x = max(center_x, left_edge + radius * 2.6)
     return _composite_glyph_tga(control_width, control_height, glyph,
-                                center_x, center_y, radius, extra)
+                                center_x, center_y, radius)
+
+
+# A cue that is nothing but a glyph sits on its own square control, so unlike
+# the caption badges it needs no pre-compensation for a button's stretch and one
+# texture is correct at every resolution.
+SQUARE_GLYPH_SIZE = 128
+# How much of the square the glyph fills. Short of 1.0 so the art is not flush
+# against the edges of the control, which reads as clipped.
+SQUARE_GLYPH_FILL = 0.86
+
+
+def build_square_glyph_tga(glyph: str, size: int = SQUARE_GLYPH_SIZE) -> bytes:
+    """The glyph centred on a transparent square, at its own proportions.
+
+    Fails rather than falling back to the drawn placeholder: this texture IS the
+    control, so a missing glyph would ship a screen with an empty box on it
+    rather than a slightly worse badge.
+    """
+    art = _load_glyph_art(glyph)
+    if art is None:
+        raise ValueError(
+            f"No artwork for {glyph!r}; a standalone cue has nothing else to draw")
+
+    from PIL import Image
+
+    box = size * SQUARE_GLYPH_FILL
+    aspect = art.width / art.height
+    width = box if aspect >= 1.0 else box * aspect
+    height = box if aspect <= 1.0 else box / aspect
+    resized = art.resize((max(1, round(width)), max(1, round(height))),
+                         Image.LANCZOS)
+
+    sheet = Image.new("RGBA", (size, size), (0, 0, 0, 0))
+    sheet.paste(resized,
+                ((size - resized.width) // 2, (size - resized.height) // 2),
+                resized)
+
+    # Bottom-up, as every shipped KOTOR texture is.
+    sheet = sheet.transpose(Image.FLIP_TOP_BOTTOM)
+    r, g, b, a = sheet.split()
+    header = struct.pack(
+        "<BBBHHBHHHHBB", 0, 0, 2, 0, 0, 0, 0, 0, size, size, 32, 0x08)
+    return header + Image.merge("RGBA", (b, g, r, a)).tobytes() + TGA_FOOTER
 
 
 def _legacy_drawn_tga(control_width: int, control_height: int, glyph: str) -> bytes:
@@ -909,8 +897,7 @@ def build_prompt_textures(gui_files: list[Path], output_dir: Path) -> list[Path]
 
         output = output_dir / f"{target.resref}.tga"
         output.write_bytes(build_prompt_tga(
-            width, height, target.glyph, round(label_width, 2), radius_height,
-            target.extra_glyph))
+            width, height, target.glyph, round(label_width, 2), radius_height))
         results.append(output)
         manifest.append((target.resref, width, height, round(label_width, 2),
                          variants))
@@ -933,8 +920,7 @@ def build_prompt_textures(gui_files: list[Path], output_dir: Path) -> list[Path]
                 resref = f"{target.resref}{index}"
                 path = output_dir / f"{resref}.tga"
                 path.write_bytes(build_prompt_tga(
-                    width, height, target.glyph, round(one_width, 2),
-                    0, target.extra_glyph))
+                    width, height, target.glyph, round(one_width, 2)))
                 results.append(path)
                 manifest.append((resref, width, height, round(one_width, 2),
                                  (variant,)))

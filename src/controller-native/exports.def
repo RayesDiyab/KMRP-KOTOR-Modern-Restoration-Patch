@@ -25,6 +25,7 @@ EXPORTS
     NativeMovieWindowOpenK1
     NativeMovieWindowCloseK1
     NativeActionBarK1
+    NativePanelReleaseGffK1
     KmrpActionBarApplyK1
     KmrpActionBarFocusedK1
     KmrpActionBarStateK1

@@ -25,6 +25,12 @@
 #include <cstdint>
 #include <cstring>
 
+// Defined in vendor/K1XboxControlsXInput.cpp, at global scope. Declared here
+// rather than by including that header, and ABOVE the anonymous namespace
+// below -- inside it the declaration would take internal linkage and fail
+// to resolve, which is exactly what it did.
+bool IsControllerInputActiveK1();
+
 namespace {
 
 // ---------------------------------------------------------------- engine ABI
@@ -695,6 +701,9 @@ struct StickState {
     unsigned long freeLookExits = 0;           // bridged exits performed
     unsigned long partySwitchRequested = 0;    // R3 pressed on a party screen
     unsigned long partySwitches = 0;           // menu party changes performed
+    unsigned long partyCuesInstalled = 0;      // R3 cue controls bound
+    unsigned long partyCuesRejected = 0;       // binds that did not take
+    unsigned long partyCueToggles = 0;         // show/hide flips performed
     unsigned long flourishRequestedTick = 0;   // 0 = nothing pending
     unsigned long flourishesPerformed = 0;
     unsigned long flourishesDeclined = 0;
@@ -1159,6 +1168,8 @@ void EnsurePadStateK1();
 int RemappedButtonEventK1(int slot);
 void PerformPendingFreeLookExitK1();
 void PerformPendingPartySwitchK1();
+void InstallPartyCueK1(void* panel);
+void UpdatePartyCueK1();
 void EnsureRumbleTableK1(void* owner);
 void UpdateStickNavigationK1(float x, float y);
 void RequestNavigationK1(int dx, int dy, bool edge, bool fromDpad);
@@ -2221,6 +2232,15 @@ extern "C" void __cdecl NativeNoteMouseK1(void* manager, int mouseX, int mouseY)
     KmrpNoteMouseK1(mouseX, mouseY);
 }
 
+// CSWGuiPanel::ReleaseGff, with ecx holding the panel. Every one of the 68 panel
+// constructors calls this as its last act, and it is the last instant at which a
+// control can be added: it deletes the parsed .gui the binder resolves tags
+// against. Panels that are not party screens are left alone.
+extern "C" void __cdecl NativePanelReleaseGffK1(void* panel)
+{
+    InstallPartyCueK1(panel);
+}
+
 // CSWGuiMainInterface's per-frame update, with ecx holding the interface. The
 // gameplay HUD's action bar is driven from here: the engine functions it calls
 // expect to run during GUI work, not inside CExoInput's polling.
@@ -2322,6 +2342,54 @@ constexpr std::uintptr_t K1_SET_ACTIVE_CONTROL = 0x0040A630;  // (control, playS
 
 constexpr std::size_t K1_MGR_PANEL_ARRAY = 0x88;
 constexpr std::size_t K1_MGR_PANEL_COUNT = 0x8C;
+
+// ------------------------------------------------- the party-switch cue
+//
+// R3 changes which party member the four party screens are showing, and there is
+// no control in any of them to say so. The build adds one -- LBL_KMRPR3, in the
+// gap between the two portraits -- and this binds it, because a panel builds the
+// controls it knows by name and would never build this one.
+//
+// There is exactly one moment when that is possible. Every panel constructor
+// ends by calling CSWGuiPanel::ReleaseGff, which deletes the parsed .gui and
+// nulls the pointer the binder reads, so afterwards no tag can be resolved on
+// that panel ever again. Hooking ReleaseGff itself puts us at that moment on
+// every panel with the panel already in ecx -- one hook rather than four, and
+// its prologue (56 8B F1 F6 46 44 02) has no relative operand to relocate.
+constexpr std::uintptr_t K1_GUI_PANEL_BIND_CONTROL = 0x0040B930;
+constexpr std::uintptr_t K1_GUI_LABEL_CTOR         = 0x0041ACD0;
+constexpr std::uintptr_t K1_EXOSTRING_CTOR         = 0x005E5A90;
+constexpr std::uintptr_t K1_EXOSTRING_DTOR         = 0x005E5C20;
+
+// CSWGuiControl 0x5C + CSWGuiBorder 0x74 + CSWGuiText 0x70. Measured three ways:
+// the spacing of INVENTORY's adjacent embedded labels, the `add ecx, 0x140` in
+// CHARACTER's LBL_GOOD loop, and the constructor's own sub-object offsets.
+constexpr std::size_t K1_GUI_LABEL_SIZE = 0x140;
+
+// CSWGuiPanel::gff. Non-null only until ReleaseGff runs.
+constexpr std::size_t K1_PANEL_GFF           = 0x2C;
+// CSWGuiControl::bit_flags and ::id.
+constexpr std::size_t K1_CONTROL_FLAGS = 0x44;
+constexpr std::size_t K1_CONTROL_ID    = 0x50;
+// The bit CSWGuiPanel::Draw tests before drawing a child. The engine sets it on
+// a control that loaded (0x0040A854) and clears it to hide one -- CHARACTER's
+// constructor hides all ten LBL_GOOD labels that way immediately after binding
+// them. Driving it is what the game itself does.
+constexpr std::uint32_t K1_CONTROL_FLAG_DRAWN = 2;
+
+// The four panels that implement 0xCE, which are exactly the four that carry the
+// party portraits. Matched on the panel's vtable because ReleaseGff is called by
+// all 68 panel constructors and only these four want a cue.
+constexpr std::uintptr_t K1_PARTY_CUE_PANELS[] = {
+    0x00755E50,   // ABILITIES -- Skills / Powers / Feats
+    0x00756100,   // CHARACTER
+    0x007569A0,   // EQUIP
+    0x007564E0,   // INVENTORY
+};
+constexpr int K1_PARTY_CUE_PANEL_COUNT =
+    sizeof(K1_PARTY_CUE_PANELS) / sizeof(K1_PARTY_CUE_PANELS[0]);
+
+constexpr const char* K1_PARTY_CUE_TAG = "LBL_KMRPR3";
 
 constexpr std::size_t K1_PANEL_ACTIVE        = 0x1C;
 constexpr std::size_t K1_PANEL_CONTROL_ARRAY = 0x20;
@@ -2600,6 +2668,116 @@ void* PanelWithDispatcherK1(std::uintptr_t dispatcher)
 // Which event this button should send instead, on whatever is on screen now, or
 // 0 for the usual one. Asked from the record emitter, so it must not call into
 // the engine.
+// One cue control per live panel. Small and fixed: at most a handful of these
+// panels exist at once, and a table that cannot grow cannot leak.
+struct PartyCueK1 {
+    void* panel;
+    void* control;
+    int   id;
+};
+PartyCueK1 g_partyCues[8];
+
+using GuiLabelCtorFn   = void*(__thiscall*)(void*);
+using BindControlFn    = void(__thiscall*)(void*, void*, void*, int);
+using ExoStringCtorFn  = void*(__thiscall*)(void*, const char*);
+using ExoStringDtorFn  = void(__thiscall*)(void*);
+
+// Is this control still the one the panel has at that id? Panels are heap
+// objects and an address can be reused, so a remembered pointer is only trusted
+// when the panel still agrees with it.
+bool PartyCueStillLiveK1(const PartyCueK1& cue)
+{
+    if (!cue.panel || !cue.control || !LooksLikePointerK1(cue.panel)) {
+        return false;
+    }
+    void** const controls = *FieldAt<void**>(cue.panel, K1_PANEL_CONTROL_ARRAY);
+    const int count = *FieldAt<int>(cue.panel, K1_PANEL_CONTROL_COUNT);
+    if (!LooksLikePointerK1(controls) || cue.id < 0 || cue.id >= count) {
+        return false;
+    }
+    return controls[cue.id] == cue.control;
+}
+
+// Build the cue control on a panel that is about to throw its .gui away.
+void InstallPartyCueK1(void* panel)
+{
+    if (!LooksLikePointerK1(panel)) {
+        return;
+    }
+    const std::uintptr_t vtable = *FieldAt<std::uintptr_t>(panel, 0);
+    if (!InListK1(vtable, K1_PARTY_CUE_PANELS, K1_PARTY_CUE_PANEL_COUNT)) {
+        return;                     // one of the other 64 panels
+    }
+    // The tag is resolved out of this, so there is nothing to bind without it.
+    if (!LooksLikePointerK1(*FieldAt<void**>(panel, K1_PANEL_GFF))) {
+        return;
+    }
+
+    void* const control = EngineFn<OperatorNewFn>(K1_OPERATOR_NEW)(
+        K1_GUI_LABEL_SIZE);
+    if (!control) {
+        return;
+    }
+    EngineFn<GuiLabelCtorFn>(K1_GUI_LABEL_CTOR)(control);
+
+    // The binder takes a CExoString, not a char*, so one is built and destroyed
+    // exactly as every call site in the game builds one.
+    void* tag[2] = { nullptr, nullptr };          // { char* data; int length }
+    EngineFn<ExoStringCtorFn>(K1_EXOSTRING_CTOR)(&tag, K1_PARTY_CUE_TAG);
+    EngineFn<BindControlFn>(K1_GUI_PANEL_BIND_CONTROL)(panel, control, &tag, 1);
+    EngineFn<ExoStringDtorFn>(K1_EXOSTRING_DTOR)(&tag);
+
+    const int id = *FieldAt<int>(control, K1_CONTROL_ID);
+    void** const controls = *FieldAt<void**>(panel, K1_PANEL_CONTROL_ARRAY);
+    const int count = *FieldAt<int>(panel, K1_PANEL_CONTROL_COUNT);
+    if (!LooksLikePointerK1(controls) || id < 0 || id >= count ||
+        controls[id] != control) {
+        // The tag was not in this .gui, or the id collided. The control is not
+        // reachable and is deliberately NOT freed: the panel may hold it.
+        ++g_stick.partyCuesRejected;
+        return;
+    }
+
+    // Hidden until the pad is the live device, which is the same rule the
+    // badges follow.
+    *FieldAt<std::uint32_t>(control, K1_CONTROL_FLAGS) &= ~K1_CONTROL_FLAG_DRAWN;
+
+    for (int i = 0; i < static_cast<int>(sizeof(g_partyCues) / sizeof(g_partyCues[0])); ++i) {
+        if (g_partyCues[i].panel == nullptr ||
+            g_partyCues[i].panel == panel ||
+            !PartyCueStillLiveK1(g_partyCues[i])) {
+            g_partyCues[i].panel = panel;
+            g_partyCues[i].control = control;
+            g_partyCues[i].id = id;
+            ++g_stick.partyCuesInstalled;
+            return;
+        }
+    }
+    ++g_stick.partyCuesRejected;     // table full: drawn, but never toggled
+}
+
+// Show the cue while the pad is the live device, hide it otherwise.
+void UpdatePartyCueK1()
+{
+    const bool visible = IsControllerInputActiveK1();
+    for (int i = 0; i < static_cast<int>(sizeof(g_partyCues) / sizeof(g_partyCues[0])); ++i) {
+        if (!PartyCueStillLiveK1(g_partyCues[i])) {
+            g_partyCues[i].panel = nullptr;
+            g_partyCues[i].control = nullptr;
+            continue;
+        }
+        std::uint32_t& flags =
+            *FieldAt<std::uint32_t>(g_partyCues[i].control, K1_CONTROL_FLAGS);
+        const std::uint32_t wanted = visible
+            ? (flags | K1_CONTROL_FLAG_DRAWN)
+            : (flags & ~K1_CONTROL_FLAG_DRAWN);
+        if (wanted != flags) {
+            flags = wanted;
+            ++g_stick.partyCueToggles;
+        }
+    }
+}
+
 int RemappedButtonEventK1(int slot)
 {
     if (InputClassK1() != K1_CLASS_PCGUI) {
@@ -3305,6 +3483,8 @@ extern "C" void __cdecl NativeGuiFrameK1(void* guiManager)
 
     PerformPendingPartySwitchK1();
 
+    UpdatePartyCueK1();
+
     UpdateDescriptionScrollK1();
 
     // A button this screen redefines. Performed here rather than in the input
@@ -3836,7 +4016,7 @@ extern "C" void __cdecl NativeJoystickDumpK1()
         // after. cam* are x100.
         "ovr=%d rmag=%ld amag=%ld dz=%ld dcr=%lu cls=%lu/%lu reb=%lu "
         "rx=%ld ry=%ld camrun=%lu camwr=%lu camdz=%lu camapp=%ld camcls=%lu camown=%lu "
-        "nav=%lu/%lu hud=%lu/%lu/%lu/%08lX/%d pad=%lu prm=%lu dsc=%lu gui=%lu tab=%lu tabin=%d mve=%lu/%lu/%lu move=%d->%d dir=%d rum=%lu/%lu/%08lX raw=%08lX/%08lX slot=%d rtab=%lu rmp=%lu fle=%lu drp=%lu psw=%lu dev=%08lX\r\n",
+        "nav=%lu/%lu hud=%lu/%lu/%lu/%08lX/%d pad=%lu prm=%lu dsc=%lu gui=%lu tab=%lu tabin=%d mve=%lu/%lu/%lu move=%d->%d dir=%d rum=%lu/%lu/%08lX raw=%08lX/%08lX slot=%d rtab=%lu rmp=%lu fle=%lu drp=%lu psw=%lu cue=%lu/%lu/%lu dev=%08lX\r\n",
         g_stick.registered ? 1 : 0, g_stick.createFailed ? 1 : 0, liveCount,
         g_stick.initCalls, g_stick.bufferCalls, g_stick.recordsEmitted,
         g_stick.movementCalls, g_stick.overrideFrames,
@@ -3890,6 +4070,8 @@ extern "C" void __cdecl NativeJoystickDumpK1()
         g_stick.rumbleRawA, g_stick.rumbleRawB, g_stick.padSlot,
         g_stick.rumbleTableInstalled, g_stick.remapDispatched,
         g_stick.freeLookExits, g_stick.dpadRepeats, g_stick.partySwitches,
+        g_stick.partyCuesInstalled, g_stick.partyCuesRejected,
+        g_stick.partyCueToggles,
         KmrpDeviceStateK1());
 
     HANDLE file = CreateFileA("kmrp-native-joystick.log", FILE_APPEND_DATA,
