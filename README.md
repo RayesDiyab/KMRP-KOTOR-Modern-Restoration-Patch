@@ -12,7 +12,7 @@ enlarged, and several layouts were only ever authored for 640×480. KMRP fixes
 that in the engine itself rather than by swapping artwork — 48 resolutions, from
 800×600 to 15360×8640.
 
-[Install](#install) · [What it fixes](#what-it-fixes) · [How it works](#how-it-works) · [Build from source](#build-from-source) · [Documentation](#documentation) · [Licence](#licence-and-attribution)
+[Install](#install) · [What it fixes](#what-it-fixes) · [How it works](#how-it-works) · [Build from source](#build-from-source) · [Documentation](#documentation) · [Case study](https://rayesdiyab.com/projects/kmrp/) · [Licence](#licence-and-attribution)
 
 </div>
 
