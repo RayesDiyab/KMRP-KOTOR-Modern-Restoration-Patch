@@ -968,8 +968,8 @@ def main() -> int:
                 common_tga_files = common_tga_files + [art]
 
             # The swap-tabs phrase, on a texture of its own shape rather than a
-            # square, because its control is that shape too. Only Xbox has the
-            # phrase as art; the others show their X-position button on it.
+            # square, because its control is that shape too. Every family has
+            # the phrase as art since 2026-09-24, drawn for KMRP.
             swap_art = Path(icon_staging) / f"{family_resref(SWAP_CUE_FILL, family)}.tga"
             swap_art.write_bytes(build_square_glyph_tga(
                 SWAP_CUE_GLYPH, 256, 256 // SWAP_CUE_ASPECT, family=family))

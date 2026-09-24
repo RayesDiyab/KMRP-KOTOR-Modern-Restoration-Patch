@@ -116,10 +116,12 @@ own process in memory at startup without writing to `swkotor.exe` at all.
   Cancel focused, rewrite A into B on the stack, so the game's own dispatcher
   cancels; A on OK runs the vanilla confirm once. `check_hook_stolen_bytes.py`
   now refuses a consumed-exit hook whose stolen bytes touch EAX or the stack.
-  Awaiting an in-game check; `kmrp-confirm-focus.log` records each decision.
+  **Play-tested on 2026-09-24:** A on OK turns Solo Mode on and A on Cancel
+  leaves it off; `kmrp-confirm-focus.log` records each decision.
   **The resolution screen had the identical
   defect** and was fixed with it: A applied the highlighted resolution from
-  Cancel, through `CSWGuiOptionsResolution::OnResolutionChosen`. Ordinary
+  Cancel, through `CSWGuiOptionsResolution::OnResolutionChosen`. That half is
+  not yet play-tested. Ordinary
   confirmation boxes were never affected — they implement no `0x27` at all, so
   A genuinely reaches the focused control.
 
@@ -128,13 +130,14 @@ own process in memory at startup without writing to `swkotor.exe` at all.
   handled every direction itself, and for Up and Down it follows the game's own
   links, which skip Advanced. A horizontal slider now keeps only Left and Right;
   Up and Down go through the same navigation as every button, on every options
-  screen with a slider.
+  screen with a slider. Play-tested on 2026-09-24.
 
 - **The Movies screen shows B / Circle on Close.** The screen already closed on
-  B; nothing said so.
+  B; nothing said so. Play-tested on 2026-09-24.
 
 - **Xbox LT and RT use the Xbox 360 trigger art**, like the rest of the Xbox
-  set, on the menu tab strip and the Controller Layout screen.
+  set, on the menu tab strip and the Controller Layout screen. Play-tested on
+  2026-09-24.
 
 - **The R3 party-switch cue is 10% smaller, and sits beside the portraits
   where it did not fit between them.** On all four party screens. Its side
@@ -169,11 +172,14 @@ own process in memory at startup without writing to `swkotor.exe` at all.
   and centring in all 48 archives; nothing checked its geometry before. The new
   check rejected the old placement on the 160 of 192 screens it changes.
   Rendered against the real background art at 800x600, 1920x1080 and
-  3440x1440; not yet seen in game.
+  3440x1440. **Play-tested on 2026-09-24 at 3440x1440**, where the cue stays
+  between the portraits; the right-of-portraits placement is not yet seen in
+  game.
 
 - **Swap-tabs prompts for every controller.** The "swap tabs" art existed for
   Xbox only, and the other controllers showed a bare X-position button there.
-  PlayStation, Switch and Steam Deck now have their own.
+  PlayStation, Switch and Steam Deck now have their own. Reported working in
+  play on 2026-09-24; the families tried were not recorded.
 
 - **Installer: the optional components are independent.** Controller support
   no longer forces Modern Driver Compatibility on. Both need the same ASI loader,
@@ -182,7 +188,8 @@ own process in memory at startup without writing to `swkotor.exe` at all.
   now is -- Xbox, PlayStation, Switch and Steam Deck, credited to KMRP and the
   Saul0097 module it grew from -- and each row's credit no longer overlaps its
   switch. Controller support is now on by default like the other two, and
-  *Restore Defaults* turns all three on.
+  *Restore Defaults* turns all three on. The independent switches were
+  play-tested on 2026-09-24.
 
 - **Loading a save from in game no longer crashes.** With a save already loaded
   from the main menu, loading another from the in-game menu crashed mid loading
@@ -192,7 +199,8 @@ own process in memory at startup without writing to `swkotor.exe` at all.
   their memory was released the check itself crashed. Cues are now forgotten when
   their screen is destroyed, their labels are freed rather than leaked, and no
   remembered screen is read without first confirming its memory is still there.
-  Present since the R3 cue was added on 2026-09-15. Awaiting an in-game check.
+  Present since the R3 cue was added on 2026-09-15. **Play-tested on
+  2026-09-24:** the same sequence now loads.
 
 - **Feedback Options: the circles no longer sit on the scrollbar.** The option
   list keeps its scrollbar on the left, the game starts each row exactly where

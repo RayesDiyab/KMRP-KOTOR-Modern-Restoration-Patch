@@ -411,8 +411,8 @@ Xbox. Judged from a contact sheet of the built textures, not in game.
 button, which a Switch Pro labels B, so the badge beside an A action shows
 Nintendo's B, and likewise A↔B and X↔Y. That is right when the translator maps by
 position (Steam Input with "Use Nintendo Button Layout" off) and backwards when it
-maps by label. **Untested either way.** The swap-tabs cue is art only in the Xbox
-set; the other families show their X-position button there.
+maps by label. **Untested either way.** The swap-tabs cue has art of its own for
+every family since 2026-09-24, drawn for KMRP; until then only Xbox had it.
 
 **Verified:** the call itself on this machine -- ordinal 108 resolves in
 `xinput1_4.dll`, the structure is 32 bytes as SDL declares it, and a virtual
