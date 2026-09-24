@@ -13,7 +13,12 @@ artwork, and every matching GUI set, so no companion folders need to be
 shipped.
 
 The patcher accepts the supported editable `swkotor.exe`, creates recoverable
-backups, updates the game executable, and configures `swkotor.ini`. Under
+backups, updates the game executable, marks it DPI-aware for the current user,
+sets NVIDIA's present method for it where the driver would otherwise show
+half-drawn frames, and configures `swkotor.ini`. Three optional components,
+each on by default and each independent, are chosen under *Advanced Settings*:
+K1 Modern Driver Compatibility, the map-note corrections, and controller
+support. See `docs/patcher-ui-build.md` for the order of every step. Under
 `[Graphics Options]`, it removes duplicate resolution keys and writes the
 selected values, for example:
 
@@ -34,7 +39,9 @@ The per-resolution GUI layouts come from the preserved KOTOR High Resolution
 Menus source package, with the exact final 3440 × 1440 GUI collection used for
 that gold selection. During installation the selected files are written to the
 game's `Override` directory and replace files with the same names. Existing
-conflicting files are backed up first. **Restore Original** restores replaced
+conflicting files are backed up first -- except the bundled third-party art
+(portraits and item icons), which yields to a file already there and leaves it
+alone. **Restore Original** restores replaced
 files and removes files introduced by the patcher.
 
 At startup, a missing or unsupported executable expands an inline compatibility
@@ -47,15 +54,16 @@ While patching or restoring, that button becomes an in-button progress display:
 its pale-blue fill advances left to right and its label carries the current
 stage and percentage. Step 4 itself remains stable and uncluttered.
 
-Both build scripts use the `assets/branding/favicon.ico` for the Windows
-application and window icon. The main window resizes at a locked aspect ratio:
+`build_kmrp.ps1` uses `assets/branding/favicon.ico` for the Windows application
+and window icon. The main window resizes at a locked aspect ratio:
 controls, fonts, icons, and hit targets scale together. It opens at an approved
 1300 × 700 footprint on a 1080p desktop and scales proportionally for other
 working areas. During a resize, a cached frame is stretched and the real layout
 is rebuilt once when the drag ends, avoiding repeated WinForms repaint flicker.
 
-The four step icons and the separate Verified artwork are prepared from
-`assets\branding\ui-icons\` by `tools\prepare_app_icons.py`. See
+The seven UI icons -- four steps, Verified, Missing and the Advanced Settings
+gear -- are prepared from `assets\branding\ui-icons\` by
+`tools\prepare_app_icons.py`. See
 `docs\patcher-ui-build.md` for the complete UI state machine, copy rules, icon
 normalisation, resize algorithm, embedded-resource inventory, transaction
 model, and release checklist.

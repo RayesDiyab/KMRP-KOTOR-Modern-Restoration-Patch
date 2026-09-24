@@ -26,7 +26,10 @@ do not load every project document on every task.
   `*.erf`, `*.bif`, `*.key`, `*.rim`, `*.mod`, and save files ignored.
 - Experimenting on the live `swkotor.exe` is permitted. The user lifted the
   named-copy requirement on 2026-09-07, having considered it: "You are allowed to
-  modify exe live on disk from now on. I have no issues with that."
+  modify exe live on disk from now on. I have no issues with that." They
+  confirmed it on 2026-09-25 ("allow experiments on the live swkotor.exe"), when
+  the rules below, `CLAUDE.md` and `WORKFLOWS.md` that still said otherwise were
+  aligned with it.
   - Still copy the file aside first, and still record its length and SHA-256
     before and after. Those were never about permission -- they are what makes a
     change reversible and a measurement reproducible.
@@ -72,8 +75,8 @@ do not load every project document on every task.
 - **Reach for x64dbg as soon as it is the faster answer, not as a last resort.**
   When the game does something unexplained, a breakpoint that reports what the
   code actually did beats another round of reading and inferring. It is fully
-  allowed on a running game; only *experimenting* on the live `swkotor.exe` on
-  disk is off limits, and observing a running process is not that.
+  allowed on a running game, and so is experimenting on the live `swkotor.exe`
+  on disk, under the copy-aside rules above.
   - Two guesses is the limit. If a second attempt at explaining a behaviour
     fails, stop theorising and measure.
   - A conditional breakpoint that halts **only on the failing case** is usually

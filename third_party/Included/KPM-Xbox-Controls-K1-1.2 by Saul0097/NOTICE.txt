@@ -59,20 +59,38 @@ runtime discovers its own directory from the address of SelfModuleDir instead
 of assuming the DLL is named KotorPatcher.dll. This permits the runtime to be
 loaded under the collision-resistant name kmrp-controller-runtime.asi.
 
-kmrp-controller.module was compiled as 32-bit C++17 with the MSVC static runtime
-from the controller sources at the commit above. It imports USER32.dll and
-KERNEL32.dll. SHA-256:
-47B9436499CECE7F5BF2E92B936F46B8C036F6BFAE9806973B3F47B9F0257383
+kmrp-controller.module is built by src/controller-native/build.cmd as 32-bit
+C++17 with the MSVC static runtime, from KMRP's own sources (K1NativeJoystick,
+K1ControllerBackend, K1ControllerLayout) and Saul0097's files at the commit above
+as modified by KMRP (src/controller-native/vendor/, exports.def,
+kotor1.hooks.toml). The module in the installer built on 2026-09-24 (SHA-256
+ECA3DE4BB4845D514B1234F3A546A11790A4297CF4D2D89363F40B73C1C5FE00) is 181,248
+bytes and imports XINPUT1_4.dll, GDI32.dll, USER32.dll and KERNEL32.dll. SHA-256:
+AC2C41EC4C935B19EFF4693E3FBB43D176D28C5B37DE0CDC2C706F72379652C9
 
-KMRP applies the source-level changes recorded in
-KMRP-CONTROLLER-PROMPTS-PATCH.diff. They retain controller connection state,
-distinguish the module's own injected keystrokes from physical keyboard input,
-and select or clear KMRP-authored button-fill textures on ten verified controls.
-It also adds one movie-frame detour to the runtime configuration. It also
-moves the four D-pad directions out of the held-key demand set and drives them
-as repeating taps, so a held direction steps a menu continuously instead of
-once; see ApplyDpad in K1XboxControlsXInput.cpp. The patch does
-not write controller-specific bytes to swkotor.exe.
+KMRP's changes to Saul0097's five files are recorded in
+KMRP-CONTROLLER-MODULE.diff, generated against the upstream commit above.
+Applied to a checkout of that commit it reproduces all five tracked files
+exactly (checked 2026-09-24); regenerate it whenever they change. What the
+module does -- the native joystick path, the XInput/SDL backend, the button
+prompts and the Controller Layout screen -- is documented in
+docs/controller-support.md. It writes no controller-specific bytes to
+swkotor.exe: every hook is an entry in patch_config.toml, applied at run time.
+
+History. The kmrp-controller.module in this folder (131,072 bytes, SHA-256
+47B9436499CECE7F5BF2E92B936F46B8C036F6BFAE9806973B3F47B9F0257383, importing
+USER32.dll and KERNEL32.dll) is the first integration build, of 2026-09-06, and
+KMRP-CONTROLLER-PROMPTS-PATCH.diff the changes it carried: connection state,
+telling the module's own keystrokes from the keyboard's, button fills on ten
+controls, a movie-frame detour and repeating D-pad taps. Neither is used by the
+build; both are kept as the record of that first version.
+
+Corrected 2026-09-24: until then this file described that first build as the
+module KMRP ships, and KMRP-RUNTIME-PATCH.diff did not hold the runtime change
+the paragraph above describes. Commit 2f2206c (2026-09-07) had overwritten that
+16-line SelfModuleDir patch with the controller delta, which then went stale as
+the module grew. The runtime patch is restored from commit 066b7b1, and the
+controller delta has a file of its own.
 
 The `.module` extension is deliberate. It is a PE DLL loaded by the KPM runtime,
 but must not also be discovered independently by the ASI loader.

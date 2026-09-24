@@ -291,6 +291,7 @@ $compilerArgs = @(
     "/resource:$(Join-Path $projectRoot 'src\controller-native\kmrp-controller.module'),Kmrp.controller.module"
     "/resource:$(Join-Path $projectRoot 'build\deps\kmrp-sdl3.dll'),Kmrp.controller.sdl"
     "/resource:$(Join-Path $projectRoot 'build\deps\SDL3-3.4.16\LICENSE.txt'),Kmrp.controller.sdllicense"
+    "/resource:$(Join-Path $projectRoot 'third_party\Included\KPM-Xbox-Controls-K1-1.2 by Saul0097\LICENSE-KOTOR-PATCH-MANAGER.txt'),Kmrp.controller.kpmlicense"
 )
 
 # Hand-supplied UI icons are optional: step icons fall back to vector glyphs,
@@ -320,6 +321,30 @@ $compilerArgs += (Join-Path $projectRoot "src\patcher\KmrpPatcher.cs")
 $compilerArgs += (Join-Path $projectRoot "src\patcher\AbilityIconGenerator.cs")
 $compilerArgs += (Join-Path $projectRoot "src\patcher\ControllerPromptGenerator.cs")
 $compilerArgs += (Join-Path $projectRoot "src\patcher\AssemblyInfo.cs")
+
+# Properties -> Details must name the version the install record names. The two live
+# in different files and nothing compares them at run time, so they drifted twice:
+# the v2.10.0 release reported 2.7.0, and 2.11.0-movieaspect was built reporting
+# 2.10.0-mapnotes. Refuse to compile while they disagree.
+$patchVersion = [regex]::Match(
+    (Get-Content -Raw -LiteralPath (Join-Path $projectRoot "src\patcher\KmrpPatcher.cs")),
+    'internal const string PatchVersion = "([^"]+)";').Groups[1].Value
+$assemblyInfo = Get-Content -Raw -LiteralPath (Join-Path $projectRoot "src\patcher\AssemblyInfo.cs")
+$versionFields = @{}
+foreach ($field in @("AssemblyVersion", "AssemblyFileVersion", "AssemblyInformationalVersion")) {
+    $versionFields[$field] = [regex]::Match($assemblyInfo, $field + '\("([^"]+)"\)').Groups[1].Value
+}
+$numericVersion = ($patchVersion -split "-")[0] + ".0"
+if (-not $patchVersion -or
+        $versionFields["AssemblyInformationalVersion"] -ne $patchVersion -or
+        $versionFields["AssemblyFileVersion"] -ne $numericVersion -or
+        $versionFields["AssemblyVersion"] -ne $numericVersion) {
+    throw ("Version mismatch: PatchVersion '{0}' in KmrpPatcher.cs, but AssemblyInfo.cs has " +
+        "AssemblyVersion '{1}', AssemblyFileVersion '{2}', AssemblyInformationalVersion '{3}' " +
+        "(expected '{4}', '{4}', '{0}').") -f $patchVersion, $versionFields["AssemblyVersion"],
+        $versionFields["AssemblyFileVersion"], $versionFields["AssemblyInformationalVersion"], $numericVersion
+}
+Write-Detail "version $patchVersion, matching Properties -> Details"
 
 Write-Bar -Percent 100 -Label "running the C# compiler"
 Invoke-Tool -Exe $compiler -Arguments $compilerArgs -Label "compile" `

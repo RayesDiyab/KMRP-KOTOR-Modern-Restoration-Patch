@@ -1,6 +1,20 @@
 # A verified unbounded write indexed by GL texture id
 
 **Status: strong candidate for the white flash, not yet confirmed in play.**
+
+*Superseded as a white-flash explanation (label added 2026-09-25).* The
+[video-capture record](white-flash-video-capture.md) measured `maxTexID` every
+frame. It peaked at 471 and 296 against the 5000-entry arrays, and the flash
+happened anyway. The flash was later traced to NVIDIA's layered present path;
+see [nvidia-present-method.md](../../docs/nvidia-present-method.md).
+
+The overrun below is still real, and KMRP now fixes it. The patcher writes KPM's
+two `replace` patches, at `0x0041FEB5` and `0x0046BE64`, into the hook table
+`patch_config.toml`. That table is installed with the controller component,
+which is on by default. Both entries were in the play-test game's
+`patch_config.toml` on 2026-09-25. With the controller component turned off,
+the overrun is not fixed.
+
 Found by reading the bundled KOTOR Patch Manager sources rather than by
 disassembly, then verified against this project's own gold image.
 
@@ -20,7 +34,9 @@ It targets the same two executables KMRP supports, including
 
 **KMRP does not ship it.** KMRP folded in `CubeMapFix` (see
 `docs/third-party-driver-compat.md`) but nothing in this repository mentions
-texture buckets.
+texture buckets. *Superseded:* KMRP has since adopted the patch; see the status
+note above, and [THIRD_PARTY_NOTICES.md](../../THIRD_PARTY_NOTICES.md) for the
+credit and licence.
 
 ## Verified here, not taken on trust
 
@@ -63,7 +79,8 @@ third and fourth do".
   first-load model -- first load flashes first and then stops.
 * **It is specific to loading many textures.** Vanilla never gets near 5000
   distinct GL names in a session; KMRP ships 778 shared textures before a single
-  item icon, and the icons are numerous.
+  item icon, and the icons are numerous. (The 2026-09-24 build's
+  `override-common.zip` holds 846: 446 `.tga` and 400 `.tpc`.)
 * **An overrun corrupts neighbours rather than crashing immediately.** KPM notes
   `meshBuckets` ends exactly at `backgroundBucket`, so the first thing an
   overrun lands on is the skybox list. Corrupted render state for a frame is

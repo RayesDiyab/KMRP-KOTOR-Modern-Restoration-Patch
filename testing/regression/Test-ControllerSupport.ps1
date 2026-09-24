@@ -59,7 +59,7 @@ New-Item -ItemType Directory -Force -Path $WorkRoot | Out-Null
 $settingsPath = Join-Path ([Environment]::GetFolderPath([Environment+SpecialFolder]::LocalApplicationData)) "KMRP\settings.json"
 $settingsExisted = Test-Path -LiteralPath $settingsPath
 $settingsBytes = if ($settingsExisted) { [IO.File]::ReadAllBytes($settingsPath) } else { $null }
-$controllerNames = @("kmrp-controller-runtime.asi", "kmrp-controller.module", "kmrp-sdl3.dll", "kmrp-sdl3-LICENSE.txt", "patch_config.toml", "KMRP_Controller.manifest")
+$controllerNames = @("kmrp-controller-runtime.asi", "kmrp-controller.module", "kmrp-sdl3.dll", "kmrp-sdl3-LICENSE.txt", "kmrp-kotor-patch-manager-LICENSE.txt", "patch_config.toml", "KMRP_Controller.manifest")
 
 try {
     New-Item -ItemType Directory -Force -Path (Split-Path -Parent $settingsPath) | Out-Null
@@ -121,6 +121,10 @@ try {
     $sdlPe = [BitConverter]::ToInt32($sdlBytes, 0x3c)
     Assert ([BitConverter]::ToUInt16($sdlBytes, $sdlPe + 4) -eq 0x14c) "installed SDL is x86"
     Assert ((Get-FileHash -LiteralPath $sdlPath).Hash -eq (Get-FileHash 'build/deps/kmrp-sdl3.dll').Hash) "installed SDL matches pinned dependency"
+    # MIT asks for its notice to travel with the runtime and the module it covers.
+    $kpmLicense = Join-Path $folder "kmrp-kotor-patch-manager-LICENSE.txt"
+    $vendoredLicense = Join-Path $PWD "third_party/Included/KPM-Xbox-Controls-K1-1.2 by Saul0097/LICENSE-KOTOR-PATCH-MANAGER.txt"
+    Assert ((Get-FileHash -LiteralPath $kpmLicense).Hash -eq (Get-FileHash -LiteralPath $vendoredLicense).Hash) "installed KOTOR Patch Manager MIT licence matches the vendored text"
 
     if (-not $LeaveInstalled) {
         Assert ((Invoke-Patcher @("--restore", $game)) -eq 0) "restore succeeds"

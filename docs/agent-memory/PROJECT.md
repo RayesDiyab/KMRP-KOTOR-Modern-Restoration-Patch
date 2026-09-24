@@ -7,8 +7,11 @@ release of *Star Wars: Knights of the Old Republic*. It generates resources for 
 resolutions from 800×600 through 15360×8640 and applies a verified executable delta
 plus resolution-specific constants and Override resources.
 
-The first public release is v2.10.0. Do not assume that remains the latest release;
-verify tags, releases, `CHANGELOG.md`, and `GoldPatch.PatchVersion` for release work.
+The first public release is KMRP 1.0, tagged `v2.10.0` (its internal number;
+its Properties → Details say 2.7.0.0). The build in progress is KMRP 1.5, installer
+version 1.5.0. Do not assume that remains the latest release; verify tags, releases,
+`CHANGELOG.md`, and `GoldPatch.PatchVersion` for release work. `build_kmrp.ps1`
+refuses to compile unless `AssemblyInfo.cs` carries the same version.
 
 ## Architecture
 
@@ -25,6 +28,10 @@ override-common.zip + gui-<resolution>.zip
 - `src/patcher/KmrpPatcher.cs` contains the Windows patcher, executable validation,
   resolution constants, INI/Override installation, backup/restore logic, settings,
   and UI.
+- `src/controller-native/` is the controller module -- KMRP's native path plus
+  Saul0097's files as modified by KMRP, built by `build.cmd` into
+  `kmrp-controller.module`, which the installer embeds with the prebuilt KPM
+  runtime and SDL 3 from `third_party/`.
 - `tools/` contains binary builders, resource generators, inspection utilities,
   and verification scripts.
 - `assets/override-3440x1440/` is the hand-tuned gold GUI/art source.

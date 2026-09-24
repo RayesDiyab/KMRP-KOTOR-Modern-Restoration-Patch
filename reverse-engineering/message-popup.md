@@ -70,7 +70,9 @@ is how the mistake surfaced. **`0x00625413` is left vanilla.**
 play-tested at 3440x1440; `ResolutionPatch` rescales all six per resolution
 (see *Every resolution* below). No size change, no new section; verified in
 the installed exe (`EFA167CD403EDECD…`, 4,079,616 bytes, all nine `.k??` sections
-reading back).
+reading back). The six sites are unchanged since: gold v24 holds the same
+values, and the 2026-09-24 installer's `--apply` output carries them scaled per
+resolution (`docs/universal-resolution-math.md`, *Executable fields*).
 
 | site | was | now | why |
 | --- | --- | --- | --- |
@@ -96,14 +98,17 @@ gave it and long lines lose their last character.
 
 ### 2. `confirm.gui` — the tuned layout
 
-`tools/scale_message_popup.py --tuned`. Read back from the installed file:
+`tools/scale_message_popup.py --tuned`. Read back from the 2026-09-24
+installer's 3440x1440 archive:
 
 ```
-TGuiPanel    (733, 543, 900, 375)
+TGuiPanel    (733, 468, 900, 525)
   LB_MESSAGE (60, 24, 780, 150)   PADDING = 30   SCROLLBAR width = 0
   BTN_OK     (60, 320, 780, 80)
   BTN_CANCEL (60, 410, 780, 80)
 ```
+
+The panel was first `(733, 543, 900, 375)`; see *Panel height* below.
 
 * **`PADDING` 2 → 30.** The listbox lays text out inside
   `width - scrollbar - 2*border - PADDING`, so `PADDING` pulls the **wrap** edge
@@ -113,8 +118,14 @@ TGuiPanel    (733, 543, 900, 375)
 * **`LB_MESSAGE` height 150** sets the gap above OK to ~34px. It must stay taller
   than the text: a shorter box makes the text overflow, which switches the
   auto-fit loop back on and brings the clipping with it.
-* **Panel height 375.** 420 left 114px of dead space under the button, 300
-  clipped the button against the panel edge, 340 put it flush; 375 leaves ~35px.
+* **Panel height 375, then 525.** Tuned on a tutorial popup: 420 left 114px of
+  dead space under the button, 300 clipped the button against the panel edge,
+  340 put it flush; 375 left ~35px. But a Yes/No box has no icon, and at 375 its
+  panel ended at y=375 while `BTN_CANCEL` ended at 490 -- the clipped
+  confirmation reported at 3840x2160. The height is now 525, which keeps a 35px
+  margin under Cancel (`TUNED` in `scale_message_popup.py`;
+  `docs/universal-resolution-math.md`, *Reported 4K layout repairs*). Tutorial
+  popups, which add the icon's height on top, have not been re-checked since.
 * **Scrollbar width 15 → 0.** Tried as a clipping fix and it made no difference,
   but the box is sized to hold the message so nothing scrolls, and it stops the
   bar eating content width. Harmless, kept.
@@ -168,7 +179,7 @@ is font scale 2.0, so every tuned number above is stored as its half.
 
 | what | scale 1.0 | at 3440x1440 | where |
 | --- | --- | --- | --- |
-| panel | 450x188 | 900x375 | `TUNED` in `scale_message_popup.py` |
+| panel | 450x263 | 900x525 | `TUNED` in `scale_message_popup.py` (was 450x188 and 900x375) |
 | `LB_MESSAGE` | 30,12,390,75 | 60,24,780,150 | same |
 | `PADDING` | 15 | 30 | same |
 | auto-fit height stop | 450 | 900 | `PopupSizeGroups` |
@@ -210,10 +221,11 @@ text is complete with no clipped characters; the gap above OK is ~34px and below
 it ~35px; the six patch sites and every GUI value above were read back out of the
 installed files.
 
-**Not verified**: the **Yes/No confirm box**, which shares this GUI. It has no
-icon, so its message and both buttons sit 128px higher than in the screenshots,
-and `BTN_CANCEL` at 410 should fall inside the 375-tall panel once that shift
-applies -- but it has not been seen on screen.
+**The Yes/No confirm box**, which shares this GUI, was listed here as never seen
+on screen, with `BTN_CANCEL` expected inside the 375-tall panel. It was not: the
+3840x2160 report showed it clipped, which is why the panel is now 525. The box
+has been on screen in play since -- the Solo Mode play-test of 2026-09-24, at
+3440x1440, with no layout complaint -- but its geometry was not measured then.
 
 Also unexplained: `spacingR` has **no effect** on this control. Setting it to
 `0.300` -- 30px per glyph, which would force a break every couple of words --

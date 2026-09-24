@@ -23,15 +23,28 @@ Vendored at `third_party/Included/Party Portraits by MadDerp/`.
 Interface icon artwork is the **KOTOR1 HD Icon Pack 1.0** by **JackInTheBox**, bundled
 with the author's permission:
 
-351 `.tga` files from the mod's `Override` folder, shipped unmodified. The optional
-`BonusICON` variants the mod also offers are **not** included.
+The 351 icons in the mod's `Override` folder, **converted at build time**: each
+192×192 32-bit `.tga` is downscaled to 160×160 and compressed to a DXT5 `.tpc`,
+49.4 MB of TGA becoming 8.6 MB (`compress_bundled_icons` in
+`tools/prepare_universal_resources.py`). At the mod's own size the Inventory and
+Equipment screens, which draw dozens of icons at once, stalled and flashed when
+switched between quickly. The optional `BonusICON` variants the mod also offers are
+**not** included.
+
+*Corrected 2026-09-24:* this section said the icons shipped as unmodified `.tga`.
+They have been converted since commit `6793e48` (2026-09-14); the installer holds
+all 351 as `.tpc` and not one of the pack's TGAs.
 
 Vendored at
 `third_party/Included/KOTOR1 HD ICON PACK ver1.0 1.0.0 by JackInTheBox/`.
 
-Both of the above are **not optional**: they are artwork, they replace none of KMRP's
-own files, and `OverrideOperations` backs up whatever they displace, so restoring KMRP
-puts the player's previous files back.
+Both of the above are **not optional**: they are artwork, and they replace none of
+KMRP's own files. They also **never displace a player's file**: a portrait or icon
+already in `Override` that KMRP did not put there -- K1CP's `ia_class8_004` and
+`ia_class9_003`, for instance -- is left in place and not recorded, so the player's
+file keeps winning and restore does not touch it (`BundledNames` in
+`src/patcher/KmrpPatcher.cs`). An earlier version of this paragraph said
+`OverrideOperations` backed up whatever they displaced; they displace nothing.
 
 ## K1 Area Map Fixes
 
@@ -92,8 +105,12 @@ with the author's permission:
 
 https://github.com/scopeking0117-alt/KPM-Xbox-Controls-K1
 
-KMRP builds the controller source at commit
-`78e7eaa3b9554ec0e6732f749424dc916f3a1895` as `kmrp-controller.module`.
+KMRP builds `kmrp-controller.module` from its own sources and Saul0097's source at
+commit `78e7eaa3b9554ec0e6732f749424dc916f3a1895`, as modified by KMRP; the
+modifications are recorded in `KMRP-CONTROLLER-MODULE.diff` (below). The module
+has grown well past the original -- a native joystick path, an XInput/SDL
+backend, button prompts, the Controller Layout screen -- but the original's
+files are still in it, so the credit and licence below still apply.
 
 **Licence: MIT**, inherited. The module is a derivative of
 `ExpandedKeyboardControl`, a patch inside the KOTOR Patch Manager repository
@@ -112,11 +129,23 @@ The module is loaded by a statically linked build of **KOTOR Patch Manager** by
 
 https://github.com/LaneDibello/Kotor-Patch-Manager
 
-The MIT text, source revisions, binary hashes, and KMRP's self-module-name and
-dynamic-prompt source patches are preserved under
-`third_party/Included/KPM-Xbox-Controls-K1-1.2 by Saul0097/`. The exact runtime
-design and test boundary are documented in
+The MIT text, source revisions, the runtime binary and its hash, KMRP's
+self-module-name patch to the runtime (`KMRP-RUNTIME-PATCH.diff`) and KMRP's
+changes to the controller source (`KMRP-CONTROLLER-MODULE.diff`) are preserved
+under `third_party/Included/KPM-Xbox-Controls-K1-1.2 by Saul0097/`, whose
+`NOTICE.txt` gives the hashes of the runtime and module the installer ships. The
+exact runtime design and test boundary are documented in
 [`docs/controller-support.md`](docs/controller-support.md).
+
+**The installer carries the MIT text since 2026-09-25.** It embeds
+`LICENSE-KOTOR-PATCH-MANAGER.txt` as `Kmrp.controller.kpmlicense` and installs it
+beside the module as `kmrp-kotor-patch-manager-LICENSE.txt`, the way it installs
+`kmrp-sdl3-LICENSE.txt`. The copy covers the runtime, the module and the three
+memory-safety patches below. `Test-ControllerSupport.ps1` checks that the
+installed file is byte-identical to the vendored one and that Restore removes it.
+Until then, "Permission is hereby granted" occurred nowhere in the installer
+(`ECA3DE4B…`, 2026-09-24), although the installer shipped both the runtime and
+the module. The phrase occurs once in `7933…`.
 
 ## KOTOR Patch Manager — three memory-safety patches
 
@@ -143,9 +172,12 @@ table reaches an exported function more cleanly than it reaches a code cave.
 The analysis of *which* buffer leaks is KPM's.
 
 `swkotor.exe` is not modified by any of the five: they are entries in
-`patch_config.toml`, written at runtime like every other KMRP hook. The
-addresses are all outside KMRP's own 702-byte delta, checked against both the
-clean source and the gold image.
+`patch_config.toml`, written at runtime like every other KMRP hook. None of the
+five overlaps any of the 742 byte positions KMRP's installer writes at any of its
+48 resolutions, and each finds its expected original bytes in every one of those
+outputs -- checked 2026-09-24 against the installer's own `--apply` output. (The
+first check used gold's delta, then 702 bytes; gold alone misses the 21 bytes
+the installer writes over values gold leaves vanilla.)
 
 Background on the texture-bucket pair, including the measured
 `maxTexID` values from play, is in
@@ -255,7 +287,10 @@ Keep these credits with any public release. Confirm any additional redistributio
 **No font file is redistributed.** The patcher embeds only rendered TGA glyph
 atlases; the `.ttf`/`.otf` files under `assets/fonts/` are build-time inputs
 that stay on the build machine. Verified by inspecting every embedded archive —
-there is no `.ttf` or `.otf` anywhere in the shipped executable.
+there is no `.ttf` or `.otf` anywhere in the shipped executable. Re-checked
+2026-09-24 on the installer (`ECA3DE4B…`): none of its 49 embedded archives
+holds a font file, and the raw installer contains neither OpenType table tag
+(`OTTO`, `glyf`).
 
 ### Arimo — item descriptions and dialogue subtitles (`fnt_d16x16b`)
 

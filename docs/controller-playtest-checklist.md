@@ -15,6 +15,26 @@ rather than dwell.
 
 ---
 
+## Physical QA result — 2026-09-24
+
+Reported working on a real pad at 3440x1440, from the installer built that day
+(`ECA3DE4B…`). Each is also marked play-tested in its `CHANGELOG.md` entry.
+
+| Verified working on a real pad |
+| --- |
+| Loading a save from the in-game menu after one loaded from the main menu -- the crash is gone |
+| Solo Mode prompt: A on OK turns it on, A on Cancel does not |
+| The R3 party-switch cue, between the portraits (3440x1440 places it there; the right-of-portraits placement is used only at 4:3, 16:10 and 16:9) |
+| Xbox LT and RT in the 360 art |
+| B / Circle on the Movies screen's Close |
+| Sound Options: Down from Movie Volume reaches Advanced Options |
+| The installer's three independent switches |
+| The swap-tabs icons |
+
+**Superseded row below.** "Start opens the in-game menu" was true on 2026-09-08;
+since issue #18 Start in the world opens the Map instead, which is **not yet
+verified in play**.
+
 ## Physical QA result — 2026-09-08
 
 A full pass on a real pad. These are **human-verified PASS** and need no further

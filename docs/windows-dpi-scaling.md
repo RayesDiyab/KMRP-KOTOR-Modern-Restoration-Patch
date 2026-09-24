@@ -81,6 +81,14 @@ was at 96 DPI (100%) and the clean executable returned to SHA-256
 `761F9466F456A83909036BAEBB5C43167D722387BE66E54617BA20A8C49E9886`
 after the initial manual apply/restore test.
 
+The script was not re-run against the installer of 2026-09-24. On the play-test
+game (`C:\Star Wars - KotOR`), all 16 installs logged between 2026-09-20 and
+2026-09-24 took the "token already present" path. That game's value already
+held `HIGHDPIAWARE` beside other compatibility flags. Each install logged
+*Verified the Windows high-DPI application override for swkotor.exe*, left the
+value as it was, and wrote no `KMRP_DPI.manifest`, as described above. None
+logged *Enabled…* (the game's `KMRP.log`, read 2026-09-24).
+
 The reported 150% case is user-confirmed with the equivalent Compatibility UI
 setting. Visual game runs at 125%, 150%, 175%, and 200% have not yet been repeated
 on this workstation, and Windows 10 remains untested. Those are validation gaps,

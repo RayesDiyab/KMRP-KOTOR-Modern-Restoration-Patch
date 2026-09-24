@@ -30,6 +30,14 @@ silences all of it, which is what `select_controller_path.py native` does.
 | Start → `SC_ESCAPE` | open the menu | event `0x0B`, the game's own description | yes — opens; **B** is the close |
 | `ApplyRightStick` → `SC_A`/`SC_D` | camera turn | `CSWCModule::RotateCamera` from `NativeCameraFrameK1` @ `0x006039CF` | yes — playtest-confirmed; `+0x3A0` was a dead field |
 
+**Changed since this table was written**, read from the code on 2026-09-24: in
+gameplay LB, RB, Back, LT and RT now carry gameplay verbs -- target cycling,
+the Solo Mode query, the party member and pause -- and LB and RB carry no menu
+event (the right stick scrolls descriptions); Start in the world opens the Map
+rather than the menu; R3 switches party member on the four party screens. The
+native column shows the first replacement, and the legacy keys it replaced are
+still superseded. See [`controller-parity.md`](controller-parity.md).
+
 **The left-stick synthesis is actively harmful alongside the native path**, not
 merely redundant. Running both drove the same movement fields from two sources
 and the walk modifier halved whatever the native path had just written. That is

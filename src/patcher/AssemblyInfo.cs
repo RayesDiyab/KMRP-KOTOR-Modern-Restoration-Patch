@@ -30,9 +30,18 @@ using System.Runtime.InteropServices;
 // from when filing a report. Nothing in the patcher compares these numbers, so the
 // drift was invisible to the code and wrong only to the person reading it, which
 // is why it survived four releases. AssemblyInformationalVersion carries the full
-// string so the pre-release suffix has somewhere to live and cannot drift again.
-[assembly: AssemblyVersion("2.10.0.0")]
-[assembly: AssemblyFileVersion("2.10.0.0")]
-[assembly: AssemblyInformationalVersion("2.10.0-mapnotes")]
+// string so the pre-release suffix has somewhere to live.
+//
+// It drifted again all the same: PatchVersion became 2.11.0-movieaspect while these
+// stayed at 2.10.0-mapnotes, and the installer of 2026-09-24 was built that way. A
+// comment was evidently not enough, so build_kmrp.ps1 now refuses to compile while
+// the three values here disagree with PatchVersion.
+//
+// Numbering: the public release of 2026-09-04, tagged v2.10.0 on GitHub, is KMRP
+// 1.0, and this build is 1.5. The 2.x numbers were development builds; CHANGELOG.md
+// keeps them.
+[assembly: AssemblyVersion("1.5.0.0")]
+[assembly: AssemblyFileVersion("1.5.0.0")]
+[assembly: AssemblyInformationalVersion("1.5.0")]
 
 [assembly: ComVisible(false)]

@@ -74,11 +74,26 @@ resolution-dependent levers — do not repurpose them as a scaling hook.
 ## Confirmed patch: font scale (candidate 001/002)
 
 `tools/build_font_scale_wrapper.py` adds a new `.kfs` PE section
-(`code|execute|read|write`, unlike the read-only `.kui` map section, because
-it holds mutable state). Layout: `+0x000` scale constant (float32),
-`+0x004` dedup count (uint32), `+0x008` 64-slot pointer dedup table,
-`+0x108` shared `scale_fontinfo` subroutine, followed by the `TextOutA` and
-`Draw` hook stubs.
+(`code|execute|read|write`, characteristics `0xE0000020`, unlike the read-only
+`.kui` map section, because it holds mutable state). Layout in gold v24, read
+from the bytes on 2026-09-25 (`.kfs` at VA `0x0086F000`, FILE `0x3DD000`):
+
+| Offset | Holds | Gold v24 |
+| --- | --- | --- |
+| `+0x000` | font-hook scale (float32) | 1.0, and 1.0 in every installer output |
+| `+0x004` | list-row scale (float32) | 1.75; the patcher rewrites it per resolution (1.0 at 800x600, 2.0 at 3440x1440, 12.0 at 15360x8640) |
+| `+0x008` | dedup count (uint32) | 0 |
+| `+0x00C` | 64-slot pointer dedup table | zero |
+| `+0x10C` | `scale_fontinfo` | |
+| `+0x178` | `TextOutA` hook stub | |
+| `+0x19A` | `Draw` hook stub | |
+| `+0x1C5` | list-row hook stub | |
+
+*Corrected 2026-09-25:* this paragraph gave the first layout the tool built:
+scale constant `+0x000`, dedup count `+0x004`, table `+0x008`, subroutine
+`+0x108`. The separate row float at `+0x004` moved every later field by four
+bytes. The tool's `OFF_ROW_SCALE_CONST = 0x004` and `OFF_SCALE_FN = 0x10C` agree
+with the bytes.
 
 Both hooks are trampolines: overwrite the function's own prologue with a
 5-byte `E9` jump (NOP-padded to the original prologue length), landing in a
@@ -96,11 +111,14 @@ nothing; otherwise (bounded by `MaxTrackedFontInfos = 64`, matching KPM's own
 cache size) it records the pointer and multiplies all five fields by the
 embedded scale constant via `fld`/`fmul`/`fstp`.
 
-A third hook (`0x00417992`, list-row height) reuses the *same* embedded
-scale constant via `fild`/`fmul`/`fistp` on the integer height value, so the
-list-row fix always stays proportional to whatever scale the font hooks use
-— there is a single source of truth for the scale factor, not two
-independently-tunable values.
+A third hook (`0x00417992`, list-row height) scales the integer height value
+with `fild`/`fmul`/`fistp`. It reads its **own** float,
+`fmul dword ptr [0x0086F004]` (`.kfs+0x004`), not the font hooks' constant.
+*Corrected 2026-09-25:* this said the row hook reused the font hooks' constant
+("a single source of truth"). That was true only while the font hooks still
+sized text. Text sizing moved to the atlases, and the font constant stays 1.0.
+The row float is the one the patcher sets per resolution, from the same rule as
+the atlases (`max(1, height / 720)`; see below).
 
 Verified live at 3440x1440, scale=2.0: main menu, HUD, load-game list, equip,
 inventory, character sheet, powers, skills, store, dialogue-choice list, a
@@ -159,7 +177,11 @@ roughly 100px. This is exactly the shape of correction
 `tools/transfer_gold_gui_geometry.py` already exists to propagate (per-field
 ratio transfer, not a rigid translation), so `computer.gui` was added to
 `GOLD_GEOMETRY_TEMPLATES` in `tools/prepare_universal_resources.py` and the
-edited file became the new `assets/override-3440x1440/computer.gui`.
+edited file became the new `assets/override-3440x1440/computer.gui`. That
+allow-list no longer exists. Since commit `ff084c4` (2026-09-04), every gold file
+whose extents differ from upstream is transferred unless it is listed in
+`GOLD_GEOMETRY_EXCLUDED`, which holds only `confirm.gui` and `map.gui`.
+`computer.gui` is therefore still transferred, now without being named.
 Verified by transferring onto a 1920x1080 target and confirming every
 control still lands fully on-screen with the same proportional correction.
 
@@ -205,9 +227,16 @@ metrics) and `ResolutionPatch.ScaleForHeight` in
   not play-tested there.
 - ~~The three executable hooks are not part of the shipped gold delta.~~
   **Resolved** — all are in the gold snapshot
-  (`swkotor_gold_v6_wrapfix.exe`), together with a fourth fix found later: the
-  word-wrap forward-progress patch at `0x0045A5E0`, which any enlarged font
-  needs to avoid an infinite line-breaking loop. See
+  (`swkotor_gold_v6_wrapfix.exe`) and in every gold since. They were joined by a
+  fourth fix found later: the word-wrap forward-progress patch at `0x0045A5E0`,
+  which any enlarged font needs to avoid an infinite line-breaking loop. Gold v24
+  was checked on 2026-09-25:
+  - all three hooks jump into `.kfs`;
+  - all nine letterbox sites differ from clean;
+  - both long letterbox sites jump into `.klb`;
+  - `0x0045A5E0` is patched.
+
+  See
   `reverse-engineering/font-atlases.md` for that analysis and
   `docs/font-scaling.md` for the build/hash procedure.
 - The font-scale hook's own constant is now permanently 1.0: text sizing moved

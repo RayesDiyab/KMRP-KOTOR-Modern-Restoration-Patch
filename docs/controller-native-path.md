@@ -11,7 +11,14 @@ The reverse engineering behind every address here is in
 
 ## What the module does
 
-Four hooks, in `build/research/KPM-Xbox-Controls-K1/K1NativeJoystick.cpp`:
+The native path began as four hooks, in what was then
+`build/research/KPM-Xbox-Controls-K1/K1NativeJoystick.cpp` -- now
+`src/controller-native/K1NativeJoystick.cpp`, the tracked source. It has grown:
+the set the installer writes is 18 detours and 4 byte patches on 2026-09-24
+(`native_hooks()` in `tools/kmrp_controller.py`, checked against the patcher's
+table by `tools/check_patcher_hook_table.py`), covering focus, the camera, the
+tab bar, movies, the action bar, the prompts and cues, and three memory fixes.
+The first four:
 
 | Hook | Address | Purpose |
 | --- | --- | --- |
@@ -46,7 +53,18 @@ value out of the running process.
 | L3 | — | — | — | flourish weapons, **engine bridge** | yes |
 | Right stick X | — | — | — | camera, via the mouse-delta field | registered, feel untested |
 
-All bindings are registered in both input class 0 (gameplay) and class 2 (GUI).
+The table is the first mapping, as it was verified. **Since changed**, read from
+the code on 2026-09-24: in gameplay LB, RB, Back, LT and RT carry gameplay verbs
+instead of these events, and LB and RB carry no menu event at all (2026-09-14,
+*Gameplay verbs* in [`controller-parity.md`](controller-parity.md)); the
+free-look exit `0x06` moved to LB's slot, with R3's second press bridged; R3
+switches party member on the four party screens (2026-09-15); and Start opens
+the Map (issue #18, below). [`controller-behaviour-matrix.md`](controller-behaviour-matrix.md)
+lists these under *Changed since this measurement*.
+
+When first written, all bindings were registered in both input class 0
+(gameplay) and class 2 (GUI); the classes each binding is registered in now are
+under *Input classes, and what is bound in each*.
 
 ### Start costs no slot at all
 
@@ -625,11 +643,11 @@ class was measured to implement it.
 
 | class | what it is | bound |
 | --- | --- | --- |
-| 0 ICPC | gameplay | both sticks, all face buttons, bumpers, triggers, D-pad, Start; A also bridges to the world action `0xEF` |
+| 0 ICPC | gameplay | both sticks, all face buttons, D-pad, Start; the bumpers, Back and the triggers carry the gameplay verbs (`K1_GAMEPLAY_ACTIONS`) rather than their GUI events; A also bridges to the world action `0xEF` |
 | 1 ICMiniGame | Pazaak, swoop, turret | both sticks, plus B / Y / LT / RT -- the four events the minigame dispatchers implement |
 | 2 ICPCGUI | menus | both sticks, all face buttons, bumpers, triggers, D-pad, Start |
 | 3 ICDialog | conversation | A, D-pad up/down, LB, RB -- the five events the dialogue dispatchers implement |
-| 4 ICFreeLook | free look | the right stick, and R3 to leave |
+| 4 ICFreeLook | free look | the right stick, and LB to leave (`0x06` on its slot); R3's press here is bridged to the same exit |
 | 5 ICMovie | pre-rendered movies | **nothing, and nothing can be** -- see below |
 
 The axes are registered in all six classes; only the buttons are selective.

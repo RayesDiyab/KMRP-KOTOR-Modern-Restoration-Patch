@@ -35,8 +35,8 @@ body:
     id: version
     attributes:
       label: KMRP version
-      description: Right-click the patcher executable → Properties → Details → File version.
-      placeholder: "2.7.0.0"
+      description: Right-click the patcher executable → Properties → Details → File version. KMRP 1.0 shows 2.7.0.0 there (a mislabel); 1.5 shows 1.5.0.0.
+      placeholder: "1.5.0.0"
     validations:
       required: true
   - type: dropdown

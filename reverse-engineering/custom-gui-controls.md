@@ -289,6 +289,53 @@ the control's shape is fixed and the ART is pre-compensated instead.
 
 By then the table needed no change at all: ABILITIES simply appears twice.
 
+## A fourth: the A on confirmation boxes (`LBL_KMRPA`)
+
+Added 2026-09-24; documented here the same day, when an audit found it in the
+code and `CHANGELOG.md` only. Exit Game, Solo Mode, overwrite save and delete
+save all open `CSWGuiMessageBox` with `confirm.gui`. Its `FixMessageLabel`
+(`0x006253A0`) shrinks both buttons to fit their captions before drawing, so the
+usual badge -- the button's own `BORDER.FILL` -- cannot be used: the texture
+would be stretched across a button a fraction of its declared width. The A is a
+control of its own instead, moved each frame beside whichever button has focus,
+like the main menu's travelling A.
+
+**Build time.** `add_confirm_badge` in `tools/build_controller_layout.py` adds
+`LBL_KMRPA` to `confirm.gui`. The file has no plain label to clone --
+`LB_MESSAGE` is a list box -- so the struct is `LBL_TITLE` from the Controller
+Layout `.gui`, retagged, with `ID` one past the highest, empty text, fill
+`kmrpcnfa` and a zero extent, since the runtime sets it. Read from the
+2026-09-24 installer: `LBL_KMRPA` is in all 48 `confirm.gui` files with
+extent `(0,0,0,0)`, and `kmrpcnfa`, `kmrscnfa`, `kmrncnfa` and `kmrdcnfa` -- one
+per family -- are in `override-common.zip`.
+
+**Binding.** `ControllerLayoutReleaseGffK1` in
+`src/controller-native/K1ControllerLayout.cpp`, on the same `ReleaseGff` hook
+as the cues, binds it when the panel's vtable is `CSWGuiMessageBox`'s
+(`0x0074FDB0`) and the `.gui` is still loaded. The Solo Mode query's own vtable,
+`0x00756F28`, is accepted too, although that box loads `confirm.gui` from the
+base constructor (`0x00626EB0`) with the base vtable still in place. Up to eight
+boxes are tracked; a `confirm.gui` without the label binds nothing.
+
+**Per frame** (`updateConfirmBadges`), only while a controller is the active
+device, and only while focus (`[panel+0x1C]`) is OK (`panel+0x2F4`) or Cancel
+(`panel+0x4B8`):
+
+| step | how |
+| --- | --- |
+| place it | `SetExtent`, vtable slot 1: a square the button's height, a quarter of that height clear of the button's left edge |
+| pick the art | when the family changes, `0x00414C00` on the label's fill at `+0x70`, resref `kmr?cnfa` |
+| show or hide | bit `2` of `+0x44`, as for the cues |
+
+Before touching either object it confirms with `VirtualQuery` that the panel,
+up to `Cancel+0x14`, and the `0x140`-byte label are still committed memory,
+and forgets the entry otherwise -- the check the cue table lacked (see the
+correction below). When the box is destroyed, the base destructor's
+`ReleaseGff` (vtable reset to `0x0073E010`, `.gui` pointer null) clears the
+label's slot in the panel's control array and destroys it.
+
+**Untested in game**, as its `CHANGELOG.md` entry says.
+
 ## The three safety questions, answered
 
 ### Does a label bound this way draw, with a fill and no text?

@@ -21,11 +21,14 @@ work in this project.
 1. **No commit or push without explicit, single-use permission.** Permission for
    a commit is not permission to push, and neither carries forward to the next
    one. Ask every time.
-2. **Never *experiment* on the live `swkotor.exe`** — RE, trial patches and
-   debugger work go on a named copy. *Installing* a finished build or a single
-   file for the user to play-test is allowed when they ask (AGENTS.md rule 5):
-   copy the old file aside first, update its manifest row if it is tracked, and
-   report both hashes and how to undo it.
+2. **Experimenting on the live `swkotor.exe` is allowed, but never blind.** Copy
+   it aside first, record its length and SHA-256 before and after, and say in
+   the same reply that it was modified and how to undo it. *Installing* a
+   finished build or a single file for the user to play-test follows AGENTS.md
+   rule 5: copy the old file aside, update its manifest row if it is tracked,
+   and report both hashes. (Until 2026-09-25 this rule said "never experiment on
+   the live `swkotor.exe`", which contradicted AGENTS.md; the user confirmed on
+   2026-09-25 that live experiments are allowed.)
 3. **Assume there is a second copy of any constant, and a third.** Finding one
    patch site means the search is incomplete, not finished.
 

@@ -5,24 +5,43 @@
 > reviewed sources, installed files, hook sites, prompt investigation, and the
 > difference between automated verification and play-testing.
 
-**Kind: reference; structurally verified, not play-tested.**
+**Kind: reference.** Play-tested with a physical pad at 3440x1440 for what
+`CHANGELOG.md` marks play-tested; everything else is structurally verified only,
+and says so.
 
-KMRP can install **KPM – Xbox Controls for KOTOR 1 1.2** by Saul0097 as an
-Advanced Settings component, on by default since 2026-09-24 (it was opt-in). It is an XInput-to-existing-input adapter,
-not native engine controller support: the module feeds KOTOR keyboard, mouse,
-and existing GUI events while a small KOTOR Patch Manager runtime installs six
-in-memory detours.
+KMRP installs controller support as an Advanced Settings component, on by
+default since 2026-09-24 (it was opt-in). It began as **KPM – Xbox Controls for
+KOTOR 1 1.2** by Saul0097, an XInput-to-keyboard adapter, and parts of that
+module are still in it. What ships now is KMRP's **native path**: it feeds the
+pad into KOTOR's own retained joystick pipeline rather than pressing keys
+([`controller-native-path.md`](controller-native-path.md)), reads Xbox pads
+through XInput and PlayStation, Switch and Steam Deck controllers through SDL 3
+([`controller-sdl-backend.md`](controller-sdl-backend.md)), draws button
+prompts in four families, and adds the Controller Layout screen. A KOTOR Patch
+Manager runtime applies its hooks in memory from `patch_config.toml`: 18
+detours and 4 byte patches in the 2026-09-24 build
+(`tools/check_patcher_hook_table.py`).
+
+*Corrected 2026-09-24:* this introduction still described the first
+integration -- an adapter feeding keyboard and GUI events through six detours,
+not play-tested -- and much of what follows was written then. Sections that
+describe that first version now say so.
 
 ## Sources and build identity
 
 | Component | Exact source | Local output |
 | --- | --- | --- |
-| Controller module | `scopeking0117-alt/KPM-Xbox-Controls-K1`, commit `78e7eaa3b9554ec0e6732f749424dc916f3a1895`, plus KMRP prompt, cursor-default, and movie-input patch | `kmrp-controller.module`, 130,560 bytes, SHA-256 `47B9436499CECE7F5BF2E92B936F46B8C036F6BFAE9806973B3F47B9F0257383` |
+| Controller module | KMRP's sources in `src/controller-native/`, with `scopeking0117-alt/KPM-Xbox-Controls-K1` at commit `78e7eaa3b9554ec0e6732f749424dc916f3a1895` as modified by KMRP (`KMRP-CONTROLLER-MODULE.diff`) | `kmrp-controller.module`, 181,248 bytes, SHA-256 `AC2C41EC4C935B19EFF4693E3FBB43D176D28C5B37DE0CDC2C706F72379652C9` |
 | Hook runtime | `LaneDibello/Kotor-Patch-Manager`, commit `7d53e52f55622a48ab97001c2680fd9fb59c8f98` | `kmrp-controller-runtime.asi`, 338,432 bytes, SHA-256 `F5CF2A21E4C28DA95CD8DAAF2704F871A6105616BFE250361929C61BCDB43B45` |
+| SDL | official SDL 3.4.16, Windows x86 | `kmrp-sdl3.dll`, 2,358,784 bytes, and its licence |
 
-Both outputs are 32-bit C++17 MSVC static-runtime builds. The controller module
-imports only `USER32.dll` and `KERNEL32.dll`; the hook runtime imports only
-`KERNEL32.dll`. The `.module` suffix prevents the ASI loader from loading the
+The outputs are those embedded in the 2026-09-24 installer (`ECA3DE4B…`). Both
+KMRP-built outputs are 32-bit C++17 MSVC static-runtime builds. The controller
+module imports `XINPUT1_4.dll`, `GDI32.dll`, `USER32.dll` and `KERNEL32.dll`,
+and loads `kmrp-sdl3.dll` at run time; the hook runtime imports only
+`KERNEL32.dll`. (Until 2026-09-24 this table gave the first integration's
+module: 130,560 bytes, `47B94364…`, importing only `USER32.dll` and
+`KERNEL32.dll`.) The `.module` suffix prevents the ASI loader from loading the
 controller a second time as a standalone plugin.
 
 The runtime originally assumed its filename was `KotorPatcher.dll`. KMRP's
@@ -32,8 +51,10 @@ finds the module containing `SelfModuleDir` by address instead. A named-executab
 launch proved the unmodified build loaded only the runtime; the corrected build
 loaded both files.
 
-`KMRP-CONTROLLER-PROMPTS-PATCH.diff` records the second reproducible source
-change. It preserves the visible cursor at startup, tracks XInput connection,
+`KMRP-CONTROLLER-PROMPTS-PATCH.diff` records the first integration's changes to
+Saul0097's source, kept as history; the current delta is
+`KMRP-CONTROLLER-MODULE.diff`, which reproduces the tracked files exactly. The
+first integration's change: It preserves the visible cursor at startup, tracks XInput connection,
 and changes existing button normal and highlighted fills through
 `CSWGuiBorderParams::SetFillImage` at preferred-image VA `0x00414C00`; those
 border parameters begin at `CSWGuiButton + 0x80` and `+ 0xF4`.
@@ -49,14 +70,18 @@ controller mode active. Windows event 1000 and the matching crash dump identifie
 the exact call. That lookup was removed; the corrected module uses only the
 class-layout offsets below.
 
-From an x86 MSVC native-tools environment, the controller output is reproduced
-from the patched source with:
+The shipped module is built by `src/controller-native/build.cmd` (x86 MSVC,
+`/Brepro`, SDL headers from the pinned SDK); see
+[`../src/controller-native/README.md`](../src/controller-native/README.md). The
+first integration was built from Saul0097's two source files alone, from an x86
+MSVC native-tools environment, with:
 
 ```text
 cl /nologo /Brepro /O2 /EHsc /MT /LD K1XboxControls.cpp K1XboxControlsXInput.cpp /link /Brepro /DEF:exports.def /OUT:kmrp-controller.module /INCREMENTAL:NO
 ```
 
-Two consecutive builds produced the same 130,560-byte SHA-256 above. The linker
+Two consecutive builds produced the same 130,560-byte SHA-256, the first
+integration's. The linker
 retains the upstream export-library name and warns that it differs from the
 `.module` output name; the PE export table and all twelve exports are unchanged.
 
@@ -85,15 +110,20 @@ and which loads every `.asi` beside the game -- so `DriverCompatOperations.Apply
 installs the loader whenever either option is on, and K1DC's own `.asi` only when
 driver compatibility is. Until 2026-09-24 the settings page forced driver
 compatibility on with this option instead. `Test-ControllerSupport.ps1` covers both
-single-option cases. KMRP installs four controller-owned files beside the selected
-executable:
+single-option cases. KMRP installs seven controller-owned files beside the selected executable:
 
 | File | Purpose |
 | --- | --- |
 | `kmrp-controller-runtime.asi` | Loads and applies the KPM hook configuration. |
-| `kmrp-controller.module` | Polls XInput and translates controller state. |
-| `patch_config.toml` | Declares the selected executable hash and the six hooks below. |
+| `kmrp-controller.module` | Reads the pad and drives the game's own input pipeline. |
+| `kmrp-sdl3.dll`, `kmrp-sdl3-LICENSE.txt` | SDL 3 for non-Xbox controllers, and its zlib licence. |
+| `kmrp-kotor-patch-manager-LICENSE.txt` | The MIT licence of KOTOR Patch Manager, which covers the runtime, the module and the memory-safety patches. |
+| `patch_config.toml` | Declares the selected executable hash and the native path's hooks. |
 | `KMRP_Controller.manifest` | Records exact hashes for ownership-aware restore. |
+
+Seven files, as `Test-ControllerSupport.ps1` Case 4 checks: the four this table
+listed until 2026-09-24, the two SDL files the hybrid backend added, and the MIT
+licence added on 2026-09-25.
 
 Installation refuses an existing controller filename or `patch_config.toml`
 that KMRP does not own. Restore removes only files whose current hashes still
@@ -106,8 +136,10 @@ KMRP controller option off when using an external KPM configuration.
 
 ## Hook sites
 
-The executable described here is gold v23, 4,083,712 bytes, SHA-256
-`9DD81A75F4888FD67242B682BEE0AB4392EA8923CDF4A020CA3EDD2464C05E0A`.
+The executable described here is gold v24, 4,087,808 bytes, SHA-256
+`9DD81A75F4888FD67242B682BEE0AB4392EA8923CDF4A020CA3EDD2464C05E0A`, and the
+executables the installer writes from it. (This line said gold v23 and
+4,083,712 bytes beside v24's hash until 2026-09-24.)
 Addresses are preferred-image virtual addresses (VA); these original-image
 sites use `FILE = VA - 0x400000`. KMRP does not write these bytes on disk. The
 runtime verifies the listed stock sequence and replaces its start with an
@@ -124,14 +156,31 @@ in-memory `E9` detour.
 | `0x0040C1F6` | `0x00C1F6` | `89 1E 89 7E 04` | `CancelActionBarKeyboardFocusOnMouseMoveK1` |
 | `0x0040A638` | `0x00A638` | `8B 4F 1C 3B CE` | `OnSetActiveControlK1` |
 
-All eight expected sequences were read back from a generated 1920×1080 executable.
-In a named-copy launch through K1DC's loader, both controller modules appeared in
-the process and `ReadProcessMemory` found `E9` at all six sites. The named copy's
+These eight are the legacy module's. `src/controller-native/kotor1.hooks.toml`
+now holds 29 entries -- 25 detours and 4 `replace` patches -- the rest being the
+native path's, documented in [`controller-native-path.md`](controller-native-path.md),
+and KMRP's `ControllerOperations` installs the native path's set. On 2026-09-24
+the expected bytes of all 29 were found in every one of the 48 executables the
+installer (`ECA3DE4B…`) writes with `--apply`, and none of their sites overlaps a
+byte the installer writes.
+
+Earlier, and kept as it was measured: all eight expected sequences were read
+back from a generated 1920×1080 executable, and in a named-copy launch through
+K1DC's loader, both controller modules appeared in the process and
+`ReadProcessMemory` found `E9` at all six sites then in use. The named copy's
 SHA-256 remained unchanged before and after launch.
 
 ## Controls and requirements
 
-The module requires an XInput device and the game's default key bindings. It is
+> **This section describes the first integration's keyboard path**, Saul0097's
+> original transport. The installer no longer installs it: the native path
+> replaces the input transport, and `testing/controller/select_controller_path.py`
+> can still select the old one for comparison. What each button does on the path
+> that ships is in [`controller-behaviour-matrix.md`](controller-behaviour-matrix.md)
+> and, side by side with this table, [`controller-parity.md`](controller-parity.md).
+> Kept because the difference is the evidence the native path was built from.
+
+The module required an XInput device and the game's default key bindings. It is
 an input translator: with three exceptions it presses keyboard keys rather than
 talking to the GUI, so what a button does is whatever that key does in the
 current context. The table below gives the scancode each button sends, read from
@@ -167,9 +216,9 @@ what the game does with it.
 The mouse remains available by default; F9 toggles parking and hiding it for a
 controller-only session.
 
-Planned additions — the Guide button, tab cycling on the bumpers and party
-cycling on the stick clicks — are specified in
-[`controller-planned-work.md`](controller-planned-work.md).
+Planned additions -- the Guide button and tab cycling on the bumpers -- are
+specified in [`controller-planned-work.md`](controller-planned-work.md). Party
+cycling on R3, the third, shipped on 2026-09-15.
 
 **Start and the action bar, on the native path (issues #17 and #18).** Start in
 the world opens the Map through the engine's own Map hotkey (event `0xD7`, whose
@@ -183,11 +232,13 @@ world. D-pad Left/Right re-enters the bar as before. The mechanisms are in
 play**: `testing/controller/test_hud_release_and_start_map.py` checks both against
 the engine's memory and has not been run on a loaded save.
 
-Steam Input is not claimed to work by the upstream author. PlayStation and other
-non-XInput controllers still need an XInput translation layer -- Steam Input,
-DS4Windows or similar -- for **input**; KMRP reads XInput only. The **glyphs**
-follow the pad it reads, and through Steam Input the controller Steam says is
-behind it: see *Controller families* below. Proton
+Steam Input is not claimed to work by the upstream author. Since the hybrid
+backend, KMRP reads PlayStation, Switch and Steam Deck controllers itself,
+through SDL 3's HIDAPI, and Xbox pads through XInput, so an XInput translation
+layer is no longer needed for **input** (until then, "KMRP reads XInput only"
+was true). The **glyphs** follow the pad it reads, and through Steam Input the
+controller Steam says is behind it: see *Controller families* below. None of the
+non-Xbox hardware has been tested yet (`controller-sdl-backend.md`). Proton
 and Steam Deck remain untested; use the explicit matrix and report procedure in
 [`linux-proton-steam-deck.md`](linux-proton-steam-deck.md).
 
@@ -489,15 +540,20 @@ Run:
 python .\testing\regression\Test-ControllerPromptAssets.py
 ```
 
-The regression verifies install/restore ownership, valid TOML, seven detours,
-eleven parameters, exact on-disk hook bytes, foreign-config refusal, and complete
-rollback. The named-copy launch additionally verified runtime/module loading and
-live detours on Windows.
+The regression verifies install/restore ownership, valid TOML whose hooks and
+parameters match the source table entry for entry -- no fixed count, since a
+copied count had gone stale at fourteen -- exact on-disk hook bytes at the
+byte-checked sites, foreign-config refusal, controller-only and driver-only
+installs, the defaults with no saved settings, and complete rollback: Cases 1-6,
+all passing against the 2026-09-24 installer. It said "seven detours, eleven
+parameters" when first written. The named-copy launch additionally verified
+runtime/module loading and live detours on Windows.
 
-The full resource build generated all 48 archives. The prompt regression read
-all 480 TGA outputs, verified their 512×64 32-bit headers and non-empty artwork,
-and rechecked all ten control indices, tags, and empty source fills in every
-archive. A rebuilt module loaded in a named-copy launch, remained alive through
+The full resource build generates all 48 archives. On 2026-09-24 the prompt
+regression checked 10,944 target textures across the four controller families
+and 57 verified control mappings in every archive, plus the Controller Layout
+screen. When first written it read 480 TGA outputs at 512×64 and ten control
+indices, the Xbox-only first version. A rebuilt module loaded in a named-copy launch, remained alive through
 the health window, and again placed `E9` at the original six detour sites. The new
 movie-frame detour, focused-state prompt rendering, and controller movie cancel
 remain to be exercised in the next named-copy play-test. The named

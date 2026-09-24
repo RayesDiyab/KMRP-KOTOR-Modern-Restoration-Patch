@@ -14,10 +14,14 @@ functionality, no telemetry, and no service component. The realistic risk is not
 remote compromise but **damage to a player's game installation**, so that is what
 this policy is mainly about.
 
-The patcher modifies three things: `swkotor.exe`, `swkotor.ini`, and the
-`Override` folder. Before writing, it copies the executable and INI aside and
-records every Override file it adds or replaces, with hashes, in a manifest used
-by **Restore Original**.
+The patcher modifies `swkotor.exe`, `swkotor.ini` and the `Override` folder; the
+current user's Windows compatibility value for that one executable, to mark it
+DPI-aware; on NVIDIA, where the driver would show half-drawn frames, that
+executable's present-method profile; and, for the optional components, the
+files they install beside `swkotor.exe`. Before writing, it copies the executable
+and INI aside and records everything else it adds or replaces, with hashes or
+prior values, in manifests used by **Restore Original**. (This paragraph listed
+only the first three until 2026-09-24.)
 
 ## Reporting
 
@@ -26,7 +30,8 @@ restore** a player's files, privately — open a
 [GitHub security advisory](https://github.com/RayesDiyab/KMRP-KOTOR-Modern-Restoration-Patch/security/advisories/new)
 rather than a public issue, so it can be fixed before it is described publicly.
 
-Please include the patcher version (Properties → Details on the executable),
+Please include the patcher version (Properties → Details on the executable;
+KMRP 1.0 mislabels itself 2.7.0.0 there, and 1.5 shows 1.5.0.0),
 your resolution, and the SHA-256 of the executable involved. **Do not attach
 game executables or copyrighted game resources.**
 

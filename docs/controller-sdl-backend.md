@@ -77,14 +77,17 @@ this backend.
 Measured on 2026-09-19: MSVC x86 compilation passes. Controller install/restore
 passes on isolated fixtures, including byte-for-byte pinned SDL identity, x86
 machine type, source/installed TOML equality, foreign-file refusal, and removal
-of owned payloads. The source table and patcher agree on 16 detours and four
-byte patches after removal of the obsolete renderer-clear workaround.
+of owned payloads. The source table and patcher agreed on 16 detours and four
+byte patches after removal of the obsolete renderer-clear workaround; on
+2026-09-24 they agree on 18 and four (`tools/check_patcher_hook_table.py`).
 
 `Test-SdlBackend.cpp` uses real SDL virtual gamepads and fake XInput calls to
 exercise normalization, family selection, handoff, disconnect, and rumble.
 **This test has not yet run successfully:** Windows Restart Manager identified
 Bitdefender Virus Shield holding the executable open; it was subsequently
-removed. A clean x86 test run is required before treating this backend as
+removed. Re-tried on 2026-09-24: it compiles, and starting it was refused
+twice, first "access denied" and then "in use by another process" -- the same
+kind of block. A clean x86 test run is required before treating this backend as
 validated. No security settings were changed to bypass that block.
 
 Physical Xbox with SDL initialized, DualSense USB/Bluetooth, Switch Pro

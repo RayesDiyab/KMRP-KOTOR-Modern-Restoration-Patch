@@ -73,10 +73,14 @@ multi-row lists before gold v11.
 | v13 | `build_leading_newline_fix.py` | strip leading newlines from GUI text at set time (`.ktn`) |
 | v14 | `build_minimap_zoom_fix.py`, `build_minimap_fog_fix.py` | HUD minimap zoomed to the player (`.kmz`) and its fog grid matched to it (`.kfg`) — see [map.md](map.md) |
 
-Each takes the previous gold as input. `TargetLength` is **4079616** and lives in
-`GoldPatch.TargetLength`; `TargetHash`, `EXPECTED_GOLD_SHA256` in
-`generate_gold_delta.py`, and `-GoldExe` in `build_kmrp.ps1` all
-move together. Getting one out of step is caught by the patcher's own startup
+Each takes the previous gold as input. The table stops at the listbox and
+minimap work; the chain continues to **v24**, the current gold
+(`swkotor_gold_v24_movieaspect.exe`, SHA-256 `9DD81A75…5E0A`), and
+[`../docs/font-scaling.md`](../docs/font-scaling.md) tabulates every version.
+`TargetLength` is **4087808** and lives in `GoldPatch.TargetLength`;
+`TargetHash`, `EXPECTED_GOLD_SHA256` in `generate_gold_delta.py`, and `-GoldExe`
+in `build_kmrp.ps1` all move together -- all four name v24 as of 2026-09-24.
+(This paragraph gave v14's 4079616 until then.) Getting one out of step is caught by the patcher's own startup
 check, which has fired twice in this work — reproduce it against the built
 `gold.kup` before shipping rather than after.
 

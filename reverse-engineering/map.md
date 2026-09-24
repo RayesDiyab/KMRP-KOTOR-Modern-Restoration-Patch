@@ -26,6 +26,14 @@
 The duplicate clean candidates are byte-identical. Their store/build provenance
 still needs to be established before any release patch signature is defined.
 
+*Read these tables as of 2026-08-27 (note added 2026-09-25).* "Current" meant
+the live game on that date, and none of these files is today's build. The
+provenance question was settled differently. KMRP accepts only the clean
+`761F9466…` executable (the Editable Executable after UniWS and KotOR High
+Resolution Menus 1.5, which is also GOG's retail v1.03), not the `52AD3AE4…`
+copy selected here. The build it describes today is gold v24; see
+[map-scaling.md](map-scaling.md).
+
 ## Isolated analysis copies
 
 | Role | File | SHA-256 |

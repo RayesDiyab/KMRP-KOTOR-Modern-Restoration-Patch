@@ -7,15 +7,20 @@
 > anything untested labelled as untested.
 
 
-Twenty tools in `tools/` edit `swkotor.exe`, most by adding a `.k??` section and
-trampolining into it. They share a small set of invariants. Breaking one does
-not produce an error — it produces a game that crashes somewhere unrelated, or
-worse, one that runs and is subtly wrong. This is the checklist.
+Over two dozen tools in `tools/` edit `swkotor.exe` -- every gold step, plus the
+candidates and abandoned attempts kept beside them. Two searches on 2026-09-24,
+for tools carrying a section name or the image base and for tools writing an
+output executable, found 27 and 15, overlapping; the first version of this
+document said twenty. Most add a `.k??` section and trampoline into it. They
+share a small set of invariants. Breaking one does not produce an error — it
+produces a game that crashes somewhere unrelated, or worse, one that runs and is
+subtly wrong. This is the checklist.
 
 The gold chain is cumulative: `.kui` → `.klb` → `.kfs` → `.kwl` → `.ksc` →
-`.kgs` → `.ktn` → `.kmz` → `.kfg` → `.kmn`, each built from the previous
-output. So a tool late in the chain is editing a file that already contains nine
-other tools' sections, and anything it disturbs breaks *them*, not itself.
+`.kgs` → `.ktn` → `.kmz` → `.kfg` → `.kmn` → `.kmv`, each built from the previous
+output; gold v24, the current one, carries all eleven. So a tool late in the chain
+is editing a file that already contains ten other tools' sections, and anything
+it disturbs breaks *them*, not itself.
 
 ## Rule 1: a patch that edits an existing section must not change the file length
 

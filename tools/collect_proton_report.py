@@ -22,6 +22,9 @@ TRACKED_ROOT_FILES = (
     "dinput8.ini",
     "kmrp-controller-runtime.asi",
     "kmrp-controller.module",
+    "kmrp-sdl3.dll",
+    "kmrp-sdl3-LICENSE.txt",
+    "kmrp-kotor-patch-manager-LICENSE.txt",
     "patch_config.toml",
 )
 TRACKED_OVERRIDE_FILES = (

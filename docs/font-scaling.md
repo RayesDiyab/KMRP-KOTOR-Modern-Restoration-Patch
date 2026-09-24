@@ -39,9 +39,13 @@ is now inert**: text sizing moved to the font atlases' own TXI metrics, so the
    script). Fixes a single shared list-row-setup routine
    (`0x00417992`) used by the save/load list, journal quest list, and the
    graphics resolution popup — without it, bigger text overlaps between
-   rows. Scaled by the *same* embedded constant as the font hooks, so it's
-   always proportional to whatever scale factor is chosen; there is no
-   separate value to keep in sync.
+   rows. It has its own float, the second of the two at the start of `.kfs`
+   (FILE `0x3DD004`), which the patcher writes per resolution as
+   `max(1, height / 720)` -- 1.0 at 800x600, 2.0 at 3440x1440, 12.0 at
+   15360x8640, read back from the installer's output on 2026-09-24. The first
+   float, the font hooks' (FILE `0x3DD000`), is 1.0 in gold and in every output.
+   *Corrected 2026-09-24:* this item said the row height used the same constant
+   as the font hooks, true only before text sizing moved to the atlases.
 3. **Dialogue letterbox** (`tools/build_letterbox_scale_wrapper.py`, no
    scale parameter — this is a resolution-geometry fix, not a text-size
    one). Vanilla sizes the dialogue letterbox bars from screen *width*,
@@ -68,7 +72,7 @@ resolutions now also carries this one.
 ## Building the patcher
 
 The gold snapshot already contains every executable fix, and the universal
-build script defaults to the current gold-v13 file:
+build script defaults to the current gold, v24:
 
 ```powershell
 .\build_kmrp.ps1
@@ -134,18 +138,21 @@ stack-label, gutter, and leading-newline investigations:
 | `swkotor_gold_v20_hittest.exe` | previous + in-place edits | + map clicks land where you point |
 | `swkotor_gold_v21_mapnotes.exe` | previous + `.kmn` | + optional map-note corrections |
 | **`swkotor_gold_v22_laa.exe`** | previous + one PE-header bit | + Large Address Aware / 4 GB support |
-| **`swkotor_gold_v23_movies.exe`** | previous + four in-place operands | + selected-resolution full-screen movie mode |
+| `swkotor_gold_v23_movies.exe` | previous + four in-place operands | + selected-resolution full-screen movie mode |
+| **`swkotor_gold_v24_movieaspect.exe`** | previous + `.kmv` | + aspect-fit Bink scaling |
 
-Current gold: `swkotor_gold_v23_movies.exe`,
-`29BE3C23F53D53F521D98329F996248864834FB3873819DF63CCF1803C65A7E8`.
-`build_kmrp.ps1` now defaults to that file. Still confirm any
+Current gold: `swkotor_gold_v24_movieaspect.exe`, 4,087,808 bytes,
+`9DD81A75F4888FD67242B682BEE0AB4392EA8923CDF4A020CA3EDD2464C05E0A`.
+`build_kmrp.ps1` defaults to that file. Still confirm any
 future gold change by matching `GoldPatch.TargetHash` in
-`src/patcher/KmrpPatcher.cs` against the file on disk.
+`src/patcher/KmrpPatcher.cs` against the file on disk. (*Corrected 2026-09-24:*
+this said v23, and the table stopped there.)
 
-Changing the gold requires updating **two** hash constants together or the
-build fails: `TargetHash` in `KmrpPatcher.cs` and
-`EXPECTED_GOLD_SHA256` in `tools/generate_gold_delta.py`. The latter's guard is
-deliberate — it is what catches a stale or unexpected gold, and it did.
+Changing the gold means updating its identity in four places together, or the
+build fails: `TargetHash` and `TargetLength` in `KmrpPatcher.cs`,
+`EXPECTED_GOLD_SHA256` in `tools/generate_gold_delta.py`, and `-GoldExe` in
+`build_kmrp.ps1`. The guard in `generate_gold_delta.py` is deliberate — it is
+what catches a stale or unexpected gold, and it did.
 
 A live install's hash will not match the gold: the patcher writes
 per-resolution constants on top, so `live = gold + ResolutionPatch`.
@@ -160,14 +167,28 @@ together.**
 
 ### Regenerating the font assets
 
-Baking the atlases is a manual step, committed rather than run by the build
-(the build must stay pure-stdlib — Pillow installed from Bash is invisible to
-the PowerShell interpreter that `build_kmrp.ps1` uses):
+Baking the atlases is a manual step, not run by the build. Two kinds:
 
-```powershell
-python tools\build_font_from_ttf.py assets\fonts\OldRepublic.ttf   ..\TexturePacks\swpc_tex_gui.erf assets\hd-fonts --fonts <the 17 menu resrefs> --scale 3.0
-python tools\build_font_from_ttf.py assets\fonts\Arimo-Medium.ttf ..\TexturePacks\swpc_tex_gui.erf assets\hd-fonts --fonts fnt_d16x16b --scale 2.526316
-```
+- **The per-resolution sets** that ship, one per scale, from
+  `tools/build_font_scale_sets.py` into the gitignored `build/fonts` (24
+  folders on 2026-09-24; the 12.0 one is empty, see *The one resolution that
+  still resamples* below). `build_kmrp.ps1` passes that folder to the resource
+  build when it exists and warns when it does not:
+
+  ```powershell
+  python tools\build_font_scale_sets.py build-inputs\swpc_tex_gui.erf build\fonts
+  ```
+
+- **The shared 3.0 bake** in `assets/hd-fonts`, committed, which ships only
+  where no set exists -- 15360x8640:
+
+  ```powershell
+  python tools\build_font_from_ttf.py assets\fonts\OldRepublic.ttf   build-inputs\swpc_tex_gui.erf assets\hd-fonts --fonts <the 17 menu resrefs> --scale 3.0
+  python tools\build_font_from_ttf.py assets\fonts\Arimo-Medium.ttf build-inputs\swpc_tex_gui.erf assets\hd-fonts --fonts fnt_d16x16b --scale 2.526316
+  ```
+
+(The texture pack now lives in `build-inputs/`; these commands used to point
+at `..\TexturePacks\`.)
 
 Note the two DIFFERENT scales. `fnt_d16x16b`'s `2.526316` is `3.0 x 16/19`,
 cancelling vanilla's 19px-vs-16px size difference so descriptions and menus
@@ -190,10 +211,12 @@ rasteriser.
 its texels at intermediate alpha, `dialogfont10x10.tga` 5.54%. A hard-edged
 atlas would show two alpha values, not 256.
 
-**One atlas serves every resolution, and it is correct at exactly one of
-them.** The `.tga` files are not in the per-resolution archives at all — they
-ship once in `override-common.zip`. Only the `.txi` travels per resolution, and
-it differs in exactly three fields:
+**Before the fix below, one atlas served every resolution, and it was correct
+at exactly one of them.** The `.tga` files were not in the per-resolution
+archives at all — they shipped once in `override-common.zip`. Only the `.txi`
+travelled per resolution, and it differed in exactly three fields (the
+2026-09-24 installer has no atlas in `override-common.zip` and 18 in every
+resolution archive):
 
 | Resolution | `fontheight` | `texturewidth` | declares the atlas as | true atlas |
 | --- | --- | --- | --- | --- |

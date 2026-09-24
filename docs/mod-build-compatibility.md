@@ -70,31 +70,37 @@ executable, but patch manifests declare `supported_versions` by executable hash.
 A KMRP resolution build therefore needs an address-database/hash entry or an
 adapter even when its hook sites are untouched. KMRP bundles the standalone
 version of K1 Modern Driver Compatibility specifically to avoid that hash gate;
-all eight of its runtime hook sites remain byte-intact in gold v23 and have zero
-collisions with KMRP.
+none of its eight runtime hook sites overlaps any of the 742 byte positions the
+KMRP installer writes at any of its 48 resolutions, so all eight keep their stock
+bytes in every output (checked 2026-09-24 against the installer's `--apply`
+output; first checked on gold v23).
 
 KPM also supports static hooks, including its own 4 GB patch. Do not enable that
 duplicate after KMRP: the bit is already set. Other KPM patches require their own
 site-by-site collision audit and version recognition; “runtime injection” alone
 is not proof of compatibility.
 
-KMRP's optional Xbox Controller Support embeds a narrowly configured KPM runtime,
-but it owns the game-root `patch_config.toml`. It refuses to overwrite or merge a
-configuration owned by a separate KPM installation. Leave KMRP's controller
-option disabled when using external KPM patches; combining the configurations
-requires an explicit, versioned merge workflow that does not exist yet. See
-[`controller-support.md`](controller-support.md).
+KMRP's controller support -- an Advanced Settings component, on by default
+since 2026-09-24 -- embeds a narrowly configured KPM runtime, but it owns the
+game-root `patch_config.toml`. It refuses to overwrite or merge a configuration
+owned by a separate KPM installation, and the rest of the patch still installs.
+Turn KMRP's controller option off when using external KPM patches; combining
+the configurations requires an explicit, versioned merge workflow that does not
+exist yet. See [`controller-support.md`](controller-support.md).
 
 ## Other executable patchers measured
 
 The public
 [KOTOR1 Engine Fixes](https://github.com/VexFlint/KOTOR1-Engine-Fixes) commit
 `a93154bac4b9b8621a06d9cf1b105bdaad48e3f2` changes a frame-cap value, LAA,
-eight code sites, and five code caves. On gold v23, all eight sites still contain
-its expected stock bytes, every cave is still zero, the frame-cap value is still
-zero, and none intersects KMRP's 702 changed byte positions. That proves the two
-patch sets do not overwrite the same bytes; it does **not** make the combined
-workflow supported:
+eight code sites, and five code caves (`kotor_patch.py` at that commit). In
+every one of the 48 executables the KMRP installer writes, all eight sites still
+contain its expected stock bytes, the caves at `0x73C200`-`0x73C2FF` are still
+zero, the frame-cap float at `0x7A3C64` is still zero, and none of it intersects
+the 742 byte positions KMRP writes; both set the same LAA bit. Checked
+2026-09-24 against the installer's `--apply` output; the first check, on gold
+v23, counted gold's then 702-byte delta. That proves the two patch sets do not
+overwrite the same bytes; it does **not** make the combined workflow supported:
 
 - applied first, its executable is not one of KMRP's two recognized inputs;
 - applied after KMRP, its edits invalidate KMRP's exact manifest hash, so KMRP
@@ -111,8 +117,9 @@ versioned overlay contract—not a blanket exception—and remains unfinished.
   address ceiling.
 - Current K1CP/K1R versions beyond the measured 1.10.0/1.2 pair need a fresh
   file-manifest audit.
-- Xbox Controller Support has structural and live-hook verification, but still
-  needs physical XInput play-testing and Proton/Steam Deck coverage.
+- Controller support has been play-tested with a physical pad at 3440x1440 (the
+  play-tests `CHANGELOG.md` records entry by entry); physical PlayStation, Switch
+  and Steam Deck controllers, Proton and the Steam Deck itself remain untested.
 - Coordination with Doug Dimmadab and JC is not an engineering operation and was
   not performed; no external message is sent without explicit authorization.
 
@@ -125,8 +132,12 @@ Run the LAA, reinstall, and driver collision checks:
 .\testing\regression\Test-ReinstallOverOlderBuild.ps1
 python tools\build_binary_inventory.py `
   build-inputs\swkotornopatch.exe `
-  build\kmrp\swkotor_gold_v23_movies.exe
+  build\kmrp\swkotor_gold_v24_movieaspect.exe
 ```
+
+To check a collision against what the installer actually writes rather than
+gold alone, add `--installed` with its `--apply` outputs; see
+[`../reverse-engineering/binary-inventory.md`](../reverse-engineering/binary-inventory.md) §2.
 
 For a real mod build, record the executable hash before KMRP, hash any existing
 backup, list colliding Override filenames, and perform a complete restore before

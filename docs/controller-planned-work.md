@@ -13,8 +13,14 @@ section here when that happens.
 
 Written 2026-09-06 against `kmrp-controller.module` SHA-256
 `D006428E382A76D4CFA0DD620C2BB873B38371A0C0954DE331C1032F66069E25`, 130,560
-bytes, built from `build/research/KPM-Xbox-Controls-K1/` at that date. Line
-numbers below refer to that tree.
+bytes, built from `build/research/KPM-Xbox-Controls-K1/` at that date. The
+files now live in `src/controller-native/vendor/`, where the same code has moved
+(on 2026-09-25, `XI_LEFT_TRIGGER` is at line 68 and `ReadPad` at 281).
+
+**Status on 2026-09-24:** §1 (Guide) and §2 (virtual-pad slot safety) are still
+unbuilt -- neither `XInputGetStateEx` nor any Guide binding is in the source, and
+`virtual_pad_server.py` has no refusal or idle timeout. §3 shipped and §3b and
+§3c are done. Of §4, R3 shipped and LB/RB did not.
 
 ---
 
@@ -30,7 +36,7 @@ exported by ordinal 100 rather than by name, as button bit `0x0400`. The module
 currently resolves its entry point by name:
 
 ```cpp
-// K1XboxControlsXInput.cpp:257
+// K1XboxControlsXInput.cpp, the XInput loader
 g_getState = reinterpret_cast<XInputGetStateFn>(
     GetProcAddress(module, "XInputGetState"));
 ```
@@ -42,7 +48,7 @@ button bits for the analogue triggers, and one of them is already `0x0400` —
 the same value real XInput uses for Guide:
 
 ```cpp
-// K1XboxControlsXInput.cpp:67-68
+// K1XboxControlsXInput.cpp, the trigger bit constants
 constexpr std::uint16_t XI_LEFT_TRIGGER  = 0x0400;   // collides with GUIDE
 constexpr std::uint16_t XI_RIGHT_TRIGGER = 0x0800;
 ```
@@ -84,7 +90,7 @@ held XInput slot 0; the physical controller was on slot 1. `ReadPad` takes the
 first slot that answers and **stays on it** until that slot goes quiet:
 
 ```cpp
-// K1XboxControlsXInput.cpp:271-296  (abridged)
+// K1XboxControlsXInput.cpp, ReadPad  (abridged)
 bool ReadPad(XInputState* out)
 {
     if (g_padSlot >= 0) {                       // sticky
@@ -118,53 +124,19 @@ discriminator** — say so in the warning rather than claiming certainty.
 
 ---
 
-## 3. Dynamic hint icons for controls that do not exist in the game's classes
+## 3. Dynamic hint icons for controls that do not exist in the game's classes  — SHIPPED 2026-09-15
 
-**Wanted:** small L3 / R3 glyphs beside the crew portraits at the bottom left of
-the Abilities screen, so the party-cycling binding is discoverable, appearing only
-while a controller is in use like every other badge.
+The R3 party-switch cue between the portraits on Abilities, Character, Equipment
+and Inventory, shown only while a controller is in use. Removed from this plan,
+as its own rule asks; the finished mechanism is in
+[`../reverse-engineering/custom-gui-controls.md`](../reverse-engineering/custom-gui-controls.md).
 
-**Why the existing mechanism cannot do it.** A badge is installed by writing a
-fill into a control the module addresses by a **fixed class-member offset** —
-`exit_button` is `0x369C` in `CSWGuiInGameAbilities`. The two portraits cannot be
-used because their `BORDER.FILL` already holds the crew member's face
-(`po_pzaalbar`, `po_phk47` at 3440x1440) and the badge would erase it. There is
-no spare empty-fill control near them: the screen has seventeen controls and the
-nearest is the ability list at `TOP=681`, far above.
-
-So the icons must be **new controls added to `abilities.gui` at build time**, and
-a control invented in the GUI has no class member — the module has no address for
-it and cannot toggle its fill. Left there, the hint would be permanently visible,
-including for keyboard-and-mouse players, which is exactly the behaviour the badge
-system was changed to avoid.
-
-**The lookup that must be solved, and the reason it is delicate.** An earlier
-unreleased build addressed controls by their GFF list index through
-`CSWGuiPanel::GetControl`. Runtime control-array order is not guaranteed to match
-GFF list order, and on 2026-09-06 that caused an access violation in
-`SetFillImage` at `swkotor.exe+0x14C3E` when Save/Load opened with controller mode
-active, identified from Windows event 1000 and the matching crash dump. That
-lookup was removed. Any new lookup must not reintroduce it.
-
-**Preferred approach: content-addressed lookup by TAG.** Walk the panel's control
-array at runtime and match the control's tag string, rather than trusting an
-index. A tag is stable across resolutions and cannot silently point at the wrong
-object the way an index can.
-
-**What has to be found first** (from `kotor1_0_3.db`, class `CSWGuiPanel`):
-
-- the offset of the panel's control array and its count
-- the offset of the tag string within a control, and whether it is a `CExoString`
-  or an inline `CResRef`
-
-Note the fill field is an **inline 16-byte ResRef** at border-params `+0x40`, not a
-`CExoString` — established this session against a live badge, after reading it as
-`{char* text; int length}` produced a false "the badges do not work" report. Do
-not assume the tag has the same shape as the fill; measure it.
-
-**Rejected: shipping the hint always-visible** as a stopgap. It is cheap, but it
-undoes a behaviour the user specifically asked for, and a visible-to-everyone
-Xbox glyph on a keyboard player's screen is worse than no hint.
+It did not use the lookup this section planned. Rather than walking the panel's
+control array at run time and matching tags -- the plan written against the
+2026-09-06 index-lookup crash -- the control is added to the `.gui` at build
+time and bound by tag through the engine's own binder while the panel still has
+its `.gui` loaded, at `CSWGuiPanel::ReleaseGff`. The same mechanism later carried
+the LT/RT and swap-tabs cues and the confirmation-box A.
 
 ---
 
@@ -304,9 +276,9 @@ away in a disassembler.
 
 ## 4. Tab switching and the agreed menu button layout
 
-**Already implemented, not yet play-verified:** the Abilities panel now has an
-entry in `GetK1SettingsStripExit`, so Up from the top of the ability list reaches
-the tab row and Left/Right moves along it. Offsets are from `kotor1_0_3.db`, class
+**Implemented, and verified in play on 2026-09-06** (see the table at the end):
+the Abilities panel has an entry in `GetK1SettingsStripExit`, so Up from the top
+of the ability list reaches the tab row and Left/Right moves along it. Offsets are from `kotor1_0_3.db`, class
 `CSWGuiInGameAbilities`; the table corroborates itself because its
 `description_listbox` is `0x33BC`, the value already shipping as
 `K1_ABILITIES_DESC_OFFSET`.
@@ -324,9 +296,9 @@ the next:
 
 | input | scope | status |
 | --- | --- | --- |
-| **LT / RT** | move between screens — Map, Inventory, Character… | already works; vanilla `Q` / `E` |
-| **LB / RB** | move between tabs within a screen | to implement |
-| **L3 / R3** | change which crew member the screen is about | to implement |
+| **LT / RT** | move between screens — Map, Inventory, Character… | works; on the native path, events `0x35` / `0x36` |
+| **LB / RB** | move between tabs within a screen | **not built.** On the native path LB and RB carry no menu event; X cycles the Abilities screen's Skills / Powers / Feats tabs instead (event `0x29`), with a cue beside them |
+| **L3 / R3** | change which crew member the screen is about | **R3 shipped 2026-09-15**: event `0xCE` on the four party screens, with a cue between the portraits. L3 was not given a menu role |
 
 **Correction, kept visible per rule 11.** An earlier version of this plan proposed
 LT / RT for cycling tabs, on the grounds that they were "inert in menus". That was
@@ -349,25 +321,29 @@ with it.
 - Scope the interception to panels that declare a `header` — today Abilities and
   Key Mapping — so no other screen changes behaviour.
 
-**Artwork needed.** `third_party/Included/Xelu-Free-Controller-Prompts-CC0/`
-vendors ten glyphs and already has `360_LB.png` and `360_RB.png`. It does **not**
-have L3 / R3. Both exist in the upstream CC0 pack; vendor them and add the two
-filenames to the list in `THIRD_PARTY_NOTICES.md`. CC0, so no permission is
-required, but the notice must still list what is redistributed.
+**Artwork -- done.** This said the vendored set had ten glyphs and no L3 / R3.
+The whole pack's four supported families are vendored now, at
+`third_party/Included/Xelu_Free_Controller&Key_Prompts/`, with sixteen actions
+each, L3 and R3 included, and `THIRD_PARTY_NOTICES.md` lists what is used.
 
 ---
 
 ## What is verified, and what is not
 
+*Pointers changed 2026-09-25:* the code excerpts on this page named line numbers
+(`:257`, `:67-68`, `:271-296`). Those were right for the 2026-09-06 research tree,
+but in the vendor copy they are off by one to eleven lines. They now name the
+code they quote.
+
 | claim | how |
 | --- | --- |
 | Guide is masked by `XInputGetState`, exposed by `XInputGetStateEx` ordinal 100 as `0x0400` | Microsoft's documented XInput behaviour; **not** measured on this machine |
-| `XI_LEFT_TRIGGER` already uses `0x0400` | read from `K1XboxControlsXInput.cpp:67` |
-| `ReadPad` sticks to the first answering slot | read from `K1XboxControlsXInput.cpp:271-296` |
+| `XI_LEFT_TRIGGER` already uses `0x0400` | read from the constant in `K1XboxControlsXInput.cpp` |
+| `ReadPad` sticks to the first answering slot | read from `ReadPad` in `K1XboxControlsXInput.cpp` |
 | A virtual pad on a lower slot disables a real one | observed twice in both directions on 2026-09-06 |
 | Physical pads report NIMH/ALKALINE, ViGEm reports WIRED | measured on both this session |
 | Abilities member offsets | `kotor1_0_3.db`, corroborated by `description_listbox` matching the shipping constant |
 | The fill field is an inline 16-byte ResRef at border-params `+0x40` | read from a live badge in memory |
 | Abilities tab navigation reaches the tabs | **verified in play 2026-09-06.** Up from the list reaches the tab row and A activates a tab |
-| Focus survives activating a tab | keeper implemented and installed; **play-test still owed** |
+| Focus survives activating a tab | **confirmed in play 2026-09-06**, by the `SetActiveControl` hook of §3c that replaced the keeper (this row said "play-test still owed") |
 | The inventory key is `I` | user's report from play; not read from the keymap |

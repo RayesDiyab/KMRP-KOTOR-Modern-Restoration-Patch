@@ -50,11 +50,13 @@ measured.
 ## What is verified without Proton
 
 `testing/regression/Test-ProtonResourceCompatibility.py` reads the final package
-archives using case-sensitive comparisons, even when it runs on Windows. On the
-2026-09-05 unreleased build it measured:
+archives using case-sensitive comparisons, even when it runs on Windows. On
+2026-09-24 it measured the archives embedded in that day's installer; all 48
+are byte-identical to the installer's resources:
 
 - 48 of 48 resolution archives present;
-- 3,889 packaged GUI resources parsed;
+- 3,937 packaged GUI resources parsed (3,889 on the 2026-09-05 build, before the
+  controller screens were added);
 - every GUI font reference resolving to exact-case `.tga` and `.txi` names;
 - no case-insensitive duplicate names in an archive;
 - no absolute, parent-traversal, backslash, or empty archive member paths; and
@@ -104,7 +106,7 @@ Valve's authoritative configuration reference is the
 For missing NPC or door names specifically, compare these cases without deleting
 the prefix:
 
-1. a current unreleased KMRP package versus public v2.10.0;
+1. a current unreleased KMRP package versus public KMRP 1.0 (tag v2.10.0);
 2. KMRP alone versus the same install with K1CP/K1R; and
 3. the same save at 1280×800 and 1920×1080.
 
@@ -115,17 +117,27 @@ text rendering versus whole-control placement.
 
 ## Controller and Steam Deck coverage still required
 
-The optional controller component has Windows structural and live-hook checks,
-but no physical XInput device was available. Under Proton it also depends on the
-`dinput8.dll` ASI loading chain and Proton's XInput translation. The following
-remain gameplay tests, not automated claims:
+The optional controller component has Windows structural and live-hook checks.
+It has also been play-tested on Windows with a physical Xbox controller; the
+2026-09-24 results are recorded entry by entry in `CHANGELOG.md`. Nothing has
+been run under Proton. There the component also depends on:
+- the `dinput8.dll` ASI loader, which the driver-compatibility component
+  installs and which the controller will not install without;
+- Proton's XInput translation, or the SDL backend for other controllers.
+
+The following remain gameplay tests under Proton, not automated claims:
 
 - movement, camera, combat/action-bar, dialogue, inventory, map, pause, and menus;
 - controller connect, disconnect/reconnect, and multiple-device behavior;
 - whether Steam Input must be enabled or disabled for the selected controller;
-- rumble behavior (the upstream component does not establish a KMRP rumble claim);
+- rumble (KMRP now supplies the engine's rumble table, so it works on Windows; see
+  *Rumble works* in `CHANGELOG.md`);
 - suspend/resume and handheld/docked switching on Steam Deck; and
 - patch, restore, and reinstall under Proton Experimental and stable Proton.
+
+(Until 2026-09-24 this section said no physical XInput device was available and
+that there was no KMRP rumble claim. Both predate the controller work recorded in
+`CHANGELOG.md`.)
 
 ## Deliberately not changed
 

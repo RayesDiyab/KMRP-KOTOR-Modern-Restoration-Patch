@@ -23,17 +23,22 @@ The clean **4,042,752-byte** `swkotor.exe`, SHA-256
 Editable Executable after UniWS and KotOR High Resolution Menus 1.5, which is
 also GOG's retail v1.03. KMRP refuses anything else.
 
-Gold v18 (`0AA1A76D…`) is 4,079,616 bytes: the clean image plus nine appended
-sections. `ResolutionPatch` then rewrites a small set of constants in place for
-the selected resolution, changing no lengths.
+Gold v24 (`9DD81A75…`), the current gold, is 4,087,808 bytes: the clean image
+plus eleven appended sections. `ResolutionPatch` then rewrites a set of
+constants in place for the selected resolution, changing no lengths. Every value
+below was read back on 2026-09-24 from gold v24 and from the executables the
+installer (`ECA3DE4B…`) writes with `--apply`. This document was first written
+against gold v18 (`0AA1A76D…`, 4,079,616 bytes, nine sections); §2 and §4
+changed since, with the corrections kept there.
 
 ## Two address conventions
 
 `VA` is the virtual address a disassembler shows; `FILE` is the byte offset a
 hex editor shows. For everything in the original sections **`FILE = VA −
-0x400000`**. The ten appended sections start at `FILE 0x3DB000` / `VA
+0x400000`**. The eleven appended sections start at `FILE 0x3DB000` / `VA
 0x0086D000` and are contiguous 4 KB blocks in the order `.kui .klb .kfs .kwl
-.ksc .kgs .ktn .kmz .kfg .kmn`, so for `.kui` **`FILE = VA − 0x492000`**.
+.ksc .kgs .ktn .kmz .kfg .kmn .kmv`, so for all of them **`FILE = VA −
+0x492000`**.
 
 ## 1. What the engine actually does
 
@@ -77,26 +82,38 @@ module data plus this function.
 
 | name | meaning | rule |
 | --- | --- | --- |
-| canvas | the surface the map renders onto | `screenWidth // 2` x `screenHeight // 2` |
-| marker overlay | the space marker rectangles live in | `round(canvasWidth · 440 / 512)` x `canvasHeight` |
-| centring X | design width the draw path centres against | `(LBL_Map.left + 4) · 2 + canvasWidth` |
-| centring Y | design height, ditto | `(LBL_Map.top − 14) · 2 + canvasHeight` |
+| marker overlay | the space marker rectangles and the fog grid live in; what `LBL_Map` shows | `screenWidth // 2` x `screenHeight // 2` |
+| canvas | the surface the map picture renders onto | `round(overlayWidth · 512 / 440)` x `screenHeight // 2` |
+| centring X | design width the draw path centres against | `screenWidth` |
+| centring Y | design height, ditto | `screenHeight` |
 
-The canvas is exactly half the screen. The marker overlay is the canvas scaled
-by the vanilla 440:512 ratio between the marker domain and the map texture. The
-two centring domains are **not** pure formulas — they depend on where `LBL_Map`
-sits in that resolution's own `map.gui`, plus two renderer insets (4 px
-horizontally, 14 px vertically). They are computed by
-`tools/analyze_resolution_guis.py` into `assets/resolution-geometry.json`, and
-carried to the patcher through `resolutions.tsv`.
+The overlay is half the screen, the interior of the map's frame art. The canvas
+is the overlay grown by the vanilla 512:440 ratio between the map texture and
+the marker domain, so its picture-carrying 440/512 exactly fills the overlay, and
+`LBL_Map` -- set to the overlay in every `map.gui` -- crops the surplus as
+vanilla does. With the centring domain equal to the screen, the canvas starts at
+`LBL_Map.left`. Computed by `tools/analyze_resolution_guis.py` into
+`assets/resolution-geometry.json`, and carried to the patcher through
+`resolutions.tsv`; the reasoning is in
+[`area-map-surface.md`](area-map-surface.md) §4.
 
 | resolution | centring X | centring Y | canvas | marker overlay |
 | --- | --- | --- | --- | --- |
 | *clean* | 640 | 480 | 512 x 256 | 440 x 256 |
-| 800x600 | 646 | 568 | 400 x 300 | 344 x 300 |
-| 1920x1080 | 1538 | 1044 | 960 x 540 | 825 x 540 |
-| 3440x1440 | 2750 | 1400 | 1720 x 720 | 1478 x 720 |
-| 15360x8640 | 12248 | 8540 | 7680 x 4320 | 6600 x 4320 |
+| 800x600 | 800 | 600 | 465 x 300 | 400 x 300 |
+| 1920x1080 | 1920 | 1080 | 1117 x 540 | 960 x 540 |
+| 3440x1440 | 3440 | 1440 | 2001 x 720 | 1720 x 720 |
+| 15360x8640 | 15360 | 8640 | 8937 x 4320 | 7680 x 4320 |
+
+Read back from the installer's `--apply` output at each resolution. Gold v24
+still holds the earlier model's 3440x1440 values, 2750, 1400, 1720 x 720 and
+1478 x 720, which `ResolutionPatch` checks and replaces at every resolution.
+
+*Corrected 2026-09-24:* this section gave that earlier model -- canvas =
+`screen // 2`, overlay = `canvas · 440/512`, centring from `LBL_Map` -- and its
+table (800x600: 646, 568, 400 x 300, 344 x 300). The model changed with the fix
+for the unfogged strip down the map's right edge; the formulas here described
+gold, not what ships.
 
 ## 3. Every byte KMRP writes for the map
 
@@ -110,27 +127,42 @@ carried to the patcher through `resolutions.tsv`.
 | `0x00695064` | `0x295064` | 4 | 256 | canvas height |
 | `0x00695082` | `0x295082` | 4 | 440 | marker overlay width |
 | `0x0069508A` | `0x29508A` | 4 | 256 | marker overlay height |
-| `0x0069471F` | `0x294720` | 4 | 20 | map note size |
-| `0x00694718` | `0x29471A` | 1 | -10 | map note centring X |
-| `0x00694724` | `0x294726` | 1 | -10 | map note centring Y |
+| `0x0069471F` | `0x294720` | 4 | 20 | map note size, selected |
+| `0x00694718` | `0x29471A` | 1 | -10 | map note centring X, selected |
+| `0x00694724` | `0x294726` | 1 | -10 | map note centring Y, selected |
+| `0x00694762` | `0x294763` | 4 | 14 | map note size, unselected |
+| `0x00694775` | `0x294777` | 1 | -7 | map note centring X, unselected |
+| `0x00694778` | `0x29477A` | 1 | -7 | map note centring Y, unselected |
 | `0x00694A12` | `0x294A13` | 4 | 16 | party marker size |
 | `0x00694A51` | `0x294A53` | 1 | -8 | party centring X |
 | `0x00694A54` | `0x294A56` | 1 | -8 | party centring Y |
 | `0x00694AC3` | `0x294AC4` | 4 | 32 | player arrow size |
 | `0x00694ACE` | `0x294AD0` | 1 | -16 | player arrow centring Y |
 | `0x00694AD2` | `0x294AD4` | 1 | -16 | player arrow centring X |
-| `0x0069405A` | `0x29405B` | 4 | 32 | player arrow control extent |
+| `0x0069405A` | `0x29405B` | 4 | 32 | player arrow control extent (`mm_barrow`) |
+| `0x006940DB` | `0x2940DC` | 4 | 16 | `lbl_mapcircle` control extent |
+
+The marker rows scale by `min(max(1, height/720), 127/16)`; the values at every
+resolution are in `docs/universal-resolution-math.md`, *Executable fields*, and
+the reasoning in [map-markers.md](map-markers.md). *This table lacked the four
+unselected-note and `lbl_mapcircle` rows until 2026-09-24.*
 
 **In place, fixed in gold:**
 
 | VA | FILE | size | change | purpose |
 | --- | --- | --- | --- | --- |
-| `0x0068C4E3` | `0x28C4E3` | 4 | `0x400` -> `0xD70` | `mipc*.gui` variant selector: compare against 3440, not 1024 |
+| `0x0068C4E3` | `0x28C4E3` | 4 | `0x400` -> `0xD70` | `mipc*.gui` variant selector: compare against 3440, not 1024; never rewritten per resolution |
+| `0x0068C4F3` | `0x28C4F3` | 4 | `0x500` -> `0` | the selector's 1280 comparison, made unreachable |
+| `0x0068C4FA` | `0x28C4FA` | 4 | `0x640` -> `0` | its 1600 comparison, likewise |
+| `0x006944A8` | `0x2944A8` | 6 | `fdivr [0x747748]` -> `fidivr [ebx+0x0C]` + 3 `nop` | fog grid steps by the live overlay width (gold v19) |
+| `0x006944C4` | `0x2944C4` | 6 | `fdivr [0x7455D4]` -> `fidivr [ebx+0x10]` + 3 `nop` | ... and height |
 
 **Call sites redirected into appended sections:**
 
 | VA | FILE | original target | now | purpose |
 | --- | --- | --- | --- | --- |
+| `0x0045992A` | `0x05992A` | inline viewport lookup, 26 bytes | `jmp 0x00874000` + 21 `nop` | HUD minimap content zoom (`.kmz`) |
+| `0x0062B39B` | `0x22B39B` | `0x00694D50` | `0x0086D130` | HUD minimap's map constructor call, wrapped (see §5) |
 | `0x006946F4` | `0x2946F4` | `0x00578E00` | `0x0086D000` | world objects and map notes |
 | `0x00694A39` | `0x294A39` | `0x005791B0` | `0x0086D080` | party markers |
 | `0x00694AAC` | `0x294AAC` | `0x005791B0` | `0x0086D080` | player arrow |
@@ -158,16 +190,31 @@ The target size is read **from the object at run time**, which is why one gold
 binary serves every resolution.
 
 **Hit-test wrapper** (`0x0086D100`). Derives the centring offset from live
-fields, never from a design-size constant, then tail-jumps into the original:
+fields, never from a design-size constant, then tail-jumps into the original.
+Disassembled from the installer's 1920x1080 output:
 
 ```asm
-edx = [eax+0x0C] - [eax+0x108C]   ; canvasW - viewportW
-edx >>= 1 ;  [esp+4] -= edx        ; mouse X
-edx = [eax+0x10] - [eax+0x1090]   ; canvasH - viewportH
-edx >>= 1 ;  edx += 0x0E           ; the +14 Y inset
-[esp+8] -= edx                     ; mouse Y
-jmp 0x693300
+0086D100  mov  eax, [ecx+0x34]
+0086D103  test eax, eax
+0086D105  je   0x0086D128
+0086D107  mov  edx, [eax+0x0C]         ; window width
+0086D10A  sar  edx, 1
+0086D10C  sar  edx, 1                  ; window / 4 = (window - overlay) / 2, overlay = window / 2
+0086D10E  nop ; nop ; nop ; nop
+0086D112  sub  [esp+4], edx            ; mouse X
+0086D116  mov  edx, [eax+0x10]
+0086D119  sub  edx, [eax+0x1090]       ; windowH - canvasH
+0086D11F  sar  edx, 1
+0086D121  add  edx, 0x0E               ; the +14 Y inset
+0086D124  sub  [esp+8], edx            ; mouse Y
+0086D128  jmp  0x00693300
 ```
+
+*Corrected 2026-09-24:* this block showed the earlier X offset,
+`([eax+0x0C] - [eax+0x108C]) / 2`, centring the canvas. With the canvas no longer
+centred, that put clicks 141 px right of the pointer; gold v20 replaced those
+eleven bytes with the eleven above ([map-markers.md](map-markers.md) §6). Y is
+unchanged.
 
 **`.kmz`** zooms the HUD minimap's content to its enlarged viewport, scaling the
 destination rect by `viewportWidth / 120` about the viewport centre. At a vanilla
@@ -210,16 +257,19 @@ The conversion rounds to an integer in 440x256 space *before* the wrapper runs,
 so a marker can only land on a lattice:
 
 ```
-lattice_x = overlayWidth  / 440 = screenWidth  / 1024
-lattice_y = overlayHeight / 256 = screenHeight / 512
+lattice_x = overlayWidth  / 440 = (screenWidth  // 2) / 440
+lattice_y = overlayHeight / 256 = (screenHeight // 2) / 256
 ```
 
 | resolution | lattice |
 | --- | --- |
-| 800x600 | 0.78 x 1.17 px — finer than a pixel, no loss at all |
-| 1920x1080 | 1.88 x 2.11 px |
-| 3440x1440 | 3.36 x 2.81 px |
-| 15360x8640 | 15.0 x 16.9 px |
+| 800x600 | 0.91 x 1.17 px — about a pixel, no visible loss |
+| 1920x1080 | 2.18 x 2.11 px |
+| 3440x1440 | 3.91 x 2.81 px |
+| 15360x8640 | 17.5 x 16.9 px |
+
+(Recomputed 2026-09-24 for the current overlay, `screen // 2`; the first table
+used the earlier `screenWidth / 1024`.)
 
 In absolute pixels this grows with resolution; **in proportion it is constant**,
 always 1/440 of the map's width, so the worst-case error is 0.11% of the map

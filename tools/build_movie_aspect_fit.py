@@ -1,12 +1,19 @@
 #!/usr/bin/env python3
-"""SUPERSEDED by build_movie_letterbox.py -- kept for the v23->v24 record.
+"""Produced gold v24 -- the current gold, which the build ships (2026-09-24).
 
-This produced gold v24. It fixed the aspect ratio but left the bars it
-created unpainted: BinkBufferOpen is called with the MOVIE's size, and Bink
-draws nothing outside the blit rectangle, so fitting inside the window
-exposed stale framebuffer down both sides -- a grey flash around every
-movie, reported from play. v25 pads the BUFFER to the window aspect instead,
-so the bars are part of the image. The build no longer uses this file.
+It fixed the aspect ratio but left the bars it created unpainted:
+BinkBufferOpen is called with the MOVIE's size, and Bink draws nothing
+outside the blit rectangle, so fitting inside the window exposed stale
+framebuffer down both sides -- a grey flash around every movie, reported from
+play. v25 tried padding the BUFFER to the window aspect instead
+(build_movie_letterbox.py); dirty-rect blitting defeated it and it was
+abandoned, back to v24. The bars are fixed instead by giving the movie
+window's class a black brush, in the controller module -- see
+reverse-engineering/movies.md.
+
+*Corrected 2026-09-24:* this header called the file superseded by v25 and
+said the build no longer used it, which stopped being true when v25 was
+reverted.
 
 Original description follows.
 

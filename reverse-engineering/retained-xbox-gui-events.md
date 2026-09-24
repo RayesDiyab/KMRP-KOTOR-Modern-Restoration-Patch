@@ -380,6 +380,18 @@ game has a native path that does not need that: calling a panel's `+0x50`…`+0x
 slot, or `HandleInputEvent(code, 1)` directly, delivers a real console event to
 the real handlers.
 
+*Since then (checked 2026-09-25 against `src/controller-native/K1NativeJoystick.cpp`,
+the module the installer ships):* the native path no longer synthesises
+keystrokes for these buttons:
+- It registers A, B, X, Y and Black as the retained events `0x27`...`0x2B`
+  through the engine's own `CreateNewEvent` and `AddEvent`, which is the third
+  route below.
+- It calls `CClientExoAppInternal::HandleInputEvent` (`0x00621210`) directly
+  for the gameplay verbs and the Map (`0xD7`).
+
+The legacy keyboard path this section describes is no longer what the installer
+installs.
+
 Combined with the binding survey, **B (`0x28`), Black (`0x2B`) and `0x31`/`0x32`
 have no registered handler anywhere in the image**, so driving those collides
 with nothing. X (`0x29`) has exactly one registration and a great deal of
@@ -468,6 +480,10 @@ exist, in increasing order of narrowness:
    native.
 
 None of this has been tried yet, and the document records none of it as working.
+(*That was true when written. The shipped module now uses route 3. For the
+gameplay verbs and the Map it also calls `CClientExoAppInternal::HandleInputEvent`
+(`0x00621210`), a different layer from route 1. See the note under "Why this
+matters for KMRP" above.*)
 
 ## Which screens really have which console button
 

@@ -84,6 +84,27 @@ the screen does nothing with it.
 Rows in bold were verified live with the virtual pad. The rest are statically
 proven and marked per screen below.
 
+## Changed since this measurement
+
+Read from the code on 2026-09-24 (`K1NativeJoystick.cpp`), **not re-measured**
+with the virtual pad. The matrix above and the per-screen tables below are the
+measurement as it was taken; where they disagree with this list, this list is
+what the current build does.
+
+| Since | Change | Where in the code |
+| --- | --- | --- |
+| 2026-09-14 | **Gameplay verbs.** In gameplay (class 0) LB is SelectPrev, which also leaves free look; RB SelectNext; Back PartyActive, the Solo Mode query; LT ChangeChar, the next living party member; RT Pause. So those five gameplay cells are no longer "—" | `K1_GAMEPLAY_ACTIONS` |
+| 2026-09-14 | **LB and RB carry no menu event.** The "list scroll" cells above are the right stick now, which scrolls descriptions with its own hold-and-repeat | `GuiEventWantedInMenusK1`, `UpdateDescriptionScrollK1` |
+| 2026-09-15 | **R3 switches party member** on Abilities, Character, Equipment and Inventory: event `0xCE` to the panel's own dispatcher. Those four R3 cells are no longer "—" | `PerformPendingPartySwitchK1`, `K1_PARTY_SWITCH_PANELS` |
+| 2026-09-19 | **Start opens the Map** in gameplay, and closes the in-game menu from any tab; see the note under *Gameplay* | `K1_START_OPENS_MAP`, `K1_START_CLOSES_MENU` |
+| -- | **R3 leaves free look too.** A press in class 4 is bridged to the exit, `0x06`, on the gameplay frame, so R3 toggles and LB also leaves | `PerformPendingFreeLookExitK1` |
+
+**One cell was wrong when written.** Abilities' X is not "use/assign": its `0x29`
+handler at `0x006AE714` cycles the Skills / Powers / Feats sub-tab, a three-state
+index at `CGuiInGame+0xBC0` that wraps -- read from the disassembly in
+[`../reverse-engineering/custom-gui-controls.md`](../reverse-engineering/custom-gui-controls.md),
+and the reason the swap-tabs cue sits beside those tabs.
+
 ---
 
 # 2. Per-screen detail

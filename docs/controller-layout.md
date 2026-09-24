@@ -208,7 +208,7 @@ panels, controls and callbacks. Useful events are:
 
 | Event | Meaning |
 | --- | --- |
-| `entry-create` / `entry-destroy` | Controls-screen entry acquired and released |
+| `entry-create` / `entry-destroy` | Gameplay-screen entry acquired and released |
 | `open-callback` | A keyboard, mouse or controller activation reached the entry |
 | `opened` | The modal panel and all 47 controls were added successfully |
 | `refresh` | Input-device or controller-family presentation changed |
@@ -223,16 +223,23 @@ panels, controls and callbacks. Useful events are:
 the whole session -- so compare the counts across a layout open/close cycle,
 not in absolute terms.
 
-After every completed cycle, `created == destroyed`. While the parent Controls
+After every completed cycle, `created == destroyed`. While the parent Gameplay
 screen remains open, `controls - freed == 1` because its entry button is still
-live; after leaving Controls the difference must return to zero. There must be
+live; after leaving Gameplay the difference must return to zero. (This paragraph
+and the table above called the parent "Controls" until 2026-09-24; the entry has
+been on Options → Gameplay since 2026-09-21.) There must be
 no second `opened` without a matching `destroy-end`, and no `bind-failed`
 record.
 
 ## Manual acceptance test
 
-The screen is ready for manual validation but is not yet claimed as play-tested.
-Use the installed candidate and keep the lifecycle log after the run.
+**Used in play at 3440x1440, by 2026-09-24**: opened from Options →
+Gameplay and closed with A on Back and with B, with a controller -- which is how
+the open/close defects and the wrapped captions above were found, and after
+their fixes it opens with one press and closes without reopening. The captions
+were measured on screen. **Not run as a whole**: the matrix below -- repeated
+cycles, keyboard-only activation, family switching, the lifecycle log. Use the
+installed candidate and keep the lifecycle log after the run.
 
 1. Open Options, then Gameplay, and activate Controller Layout under
    Keymapping with the mouse. Confirm Back returns to the same Gameplay screen.
@@ -248,7 +255,7 @@ Use the installed candidate and keep the lifecycle log after the run.
 6. If two supported controller families are available, make each one active
    while the panel remains open. Confirm all glyphs change together and the
    panel is not duplicated or rebuilt.
-7. Return to gameplay and re-open Settings / Controls. Confirm no crash, stale
+7. Return to gameplay and re-open Options → Gameplay → Controller Layout. Confirm no crash, stale
    focus, duplicate entry or lost input.
 8. Exit normally and inspect `kmrp-layout-lifecycle.log` for balanced panel and
    control counts and the absence of `bind-failed`.

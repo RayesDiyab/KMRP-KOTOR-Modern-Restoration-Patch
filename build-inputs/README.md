@@ -19,13 +19,19 @@ build will tell you exactly what is missing.
 | --- | --- |
 | `swkotornopatch.exe` | The editable 4,042,752-byte `swkotor.exe`, SHA-256 `761F9466…C49E9886`. The build verifies this hash and refuses anything else. |
 | `swpc_tex_gui.erf` | `TexturePacks\swpc_tex_gui.erf` from your KOTOR installation. Source art for the font atlases, hex row frames, and popup icons. |
-| `swkotor_gold_final_D8F0EEBF.exe` | Only for `build_gold_patcher.ps1`, which builds the frozen 3440×1440-only patcher. Not needed for the shipping build. |
-
 Copy them in, then:
 
 ```powershell
-.\build_universal_patcher.ps1
+.\build_kmrp.ps1
 ```
+
+The build also reads three generated inputs that a fresh clone does not have --
+the gold snapshot, the controller module and, optionally, the font sets; see
+*Build from source* in the [main README](../README.md).
+
+*Corrected 2026-09-24:* this file named `build_universal_patcher.ps1` as the
+build and listed `swkotor_gold_final_D8F0EEBF.exe` for `build_gold_patcher.ps1`.
+Both scripts were removed on 2026-09-03, when `build_kmrp.ps1` replaced them.
 
 To keep them somewhere else instead, pass `-SourceExe` / `-TexturePack`, set
 `KMRP_SOURCE_EXE` / `KMRP_TEXTURE_PACK`, or create a `build.local.ps1` from

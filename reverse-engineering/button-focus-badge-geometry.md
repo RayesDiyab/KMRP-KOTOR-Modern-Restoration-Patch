@@ -22,10 +22,13 @@ focus one **instead of** the normal one -- not on top of it:
     control + 0x80   normal
     control + 0xF4   focus (HILIGHT)
 
-This is already recorded: `docs/controller-support.md:204`, and the regression it
-caused is CHANGELOG line 723 -- an earlier build wrote the badge only to the
-normal fill and the badge vanished the instant a control took focus. That is why
-`SetK1ControllerPromptFill` writes both.
+This is already recorded in `docs/controller-support.md`: the border parameters
+begin at `CSWGuiButton + 0x80` and `+ 0xF4`. The regression it caused is the
+CHANGELOG entry *Controller prompt badges remain visible on focused buttons*. An
+earlier build wrote the badge only to the normal fill, and the badge vanished the
+instant a control took focus. That is why `SetK1ControllerPromptFill` writes both.
+(*Corrected 2026-09-25:* these two pointers were line numbers, `:204` and "line
+723", which had moved. They now name the passages instead.)
 
 So the focused badge genuinely *is* a second, separately-drawn copy. The player's
 description of it as a redraw is literally correct, and "just don't draw a badge

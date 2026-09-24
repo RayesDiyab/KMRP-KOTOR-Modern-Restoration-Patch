@@ -188,8 +188,14 @@ debug, `fnt_credits*` credits screen) or genuinely rare in normal play. They
 default to the Menu-style authentic typeface.
 
 **Current build** (fully wired into `prepare_universal_resources.py`): all 18
-resrefs ship as HD atlases baked by `tools/build_font_from_ttf.py` into
-`assets/hd-fonts`.
+resrefs ship as HD atlases, baked once per resolution scale by
+`tools/build_font_scale_sets.py` (into the gitignored `build/fonts`) and shipped
+in each resolution's own archive, so every resolution draws one texel per pixel
+(issue #16; `docs/font-scaling.md`). The table below is the shared bake in
+`assets/hd-fonts`, from `tools/build_font_from_ttf.py`, which now ships only at
+15360x8640; the per-resolution sets keep the same two typefaces and the same
+Arimo-to-Old-Republic ratio at every scale. *Corrected 2026-09-24:* this
+paragraph described the shared bake as what ships everywhere.
 
 | resref | typeface | bake scale |
 | --- | --- | --- |
@@ -210,9 +216,10 @@ to pin wrong. `assets/fonts/` also keeps Arimo-SemiBold (one step heavier) and
 `KOTOR_UI_Open.ttf` (the licensing fallback).
 
 Both are TrueType, i.e. **vector outlines with no resolution of their own** —
-there is nothing to "upscale" and no tracing involved. They are rasterised once
-at the top of the resolution curve and scaled *down* per resolution, so every
-resolution is crisp and 2160p renders at the native baked size. No stock bitmap
+there is nothing to "upscale" and no tracing involved. They were first
+rasterised once at the top of the resolution curve and scaled *down* per
+resolution, which left only 2160p at the native baked size; since issue #16 they
+are rasterised at each resolution's own scale instead. No stock bitmap
 artwork ships any more.
 
 `assets/fonts/KOTOR_UI_Open.ttf` — our own trace of the game's 32px master — is

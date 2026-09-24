@@ -41,7 +41,19 @@ travel through completely separate paths that happen to share the same constant.
 
 `RowSizeGroups` in `src/patcher/KmrpPatcher.cs` now scales them
 by `max(1.0, height/720)`, the same rule as the font atlases: 56 at 720p, 84 at
-1080p, 112 at 1440p, 168 at 2160p.
+1080p, 112 at 1440p, 168 at 2160p. Gold keeps the vanilla values, and the
+patcher writes them at install. On 2026-09-25 they were read back from the
+installer's `--apply` output at 1280x720, 1920x1080, 2560x1440 and 3840x2160:
+
+| group | sites | read back |
+| --- | --- | --- |
+| Inventory, Store | the five above | 56 / 84 / 112 / 168 |
+| Abilities, skills tab | `0x002AB8EF`, `0x002ACB20` | 42 / 63 / 84 / 126 |
+| Abilities, powers and feats chain rows | `0x002CD8D9`, `0x002CDB79` (vanilla 40) | 50 / 75 / 100 / 150 |
+
+The chain rows scale from a base of **50**, 1.25 × vanilla 40 (the group is
+`{ 40, 50, … }`), so they are 50 even at 720p and 800x600. The other groups
+scale from their vanilla size.
 
 These sites are reached **only** by their own screen's list row. That is what
 makes them safe, and it is the difference between them and the `.kfs` list-row
@@ -265,7 +277,9 @@ went 42 -> 56 -> 126.
 **This also unblocked the original goal.** Scaling the feat/power chain row
 height (`0x002CD8D9` / `0x002CDB79`, vanilla 40) produced runaway growth before,
 because it was feeding a broken loop; with the loop fixed it scales cleanly and
-is now in `RowSizeGroups`.
+is now in `RowSizeGroups`, from a base of 50 (see the table above). Both
+growth-fix sites still read as above in gold v24 and in every installer output
+(checked 2026-09-25).
 
 ### Method note
 

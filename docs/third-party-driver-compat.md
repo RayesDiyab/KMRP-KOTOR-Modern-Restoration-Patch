@@ -104,15 +104,22 @@ their names and SHA-256 in **`KMRP_DriverCompat.manifest`** beside the executabl
 
 This is the check Synchro asked for before shipping, and it is reproducible (§8).
 
-KMRP changes **680 bytes inside the original image, in 136 runs**, spanning FILE
-`0x000916`–`0x35578A`. Intersecting those against K1DC's eight ranges:
+The KMRP installer changes **742 byte positions inside the original image, in 164
+contiguous runs**, spanning FILE `0x000916`–`0x35578A` -- the union over the
+executables it writes at all 48 resolutions, 721 of them in gold v24. Intersecting
+those against K1DC's eight ranges:
 
 **0 of 8 collide.**
 
 Stronger than absence of overlap: each site was compared against the `original_bytes`
-K1DC declares, in KMRP's gold v20 image. **8 of 8 hold his exact expected bytes**, so
-his eight-site check does not merely avoid KMRP — it *passes* on a KMRP-patched
-executable.
+K1DC declares, in every one of those 48 executables. **8 of 8 hold his exact expected
+bytes**, so his eight-site check does not merely avoid KMRP — it *passes* on a
+KMRP-patched executable. Measured 2026-09-24 against the installer's `--apply`
+output (`ECA3DE4B…`).
+
+*Corrected 2026-09-24:* this section gave 680 bytes in 136 runs, checked in gold
+v20 -- an earlier gold's count, and gold rather than what the installer writes. The
+result has not changed.
 
 His `target_versions` list already includes `761F9466F456A83909036BAEBB5C43167D722387BE66E54617BA20A8C49E9886`,
 which is the clean executable KMRP builds from.
@@ -144,15 +151,18 @@ AMD or Intel at all.
 
 ## 6. The opt-out
 
-**Advanced Settings** under the primary button on the patcher's card opens a settings
-view with one switch, *Modern driver compatibility*, **on by default**.
+**Advanced Settings**, the square gear button beside *Start Patching*, opens a
+settings view with three independent switches. The first, *Modern driver
+compatibility*, is **on by default**, like the other two (map-note corrections
+and controller support).
 
 Opt-out rather than opt-in because the people who most need it — anyone not on
 NVIDIA — are the least likely to know it exists, and the grass fix helps everyone.
 
-The choice is stored in `%LOCALAPPDATA%\KMRP\settings.json` as
-`{"driverCompatibility": true|false}`, deliberately beside the user's profile rather
-than next to the patcher, so it survives re-downloading a single-file executable.
+The choices are stored in `%LOCALAPPDATA%\KMRP\settings.json` as
+`{"driverCompatibility": true|false, "markerFixes": true|false,
+"controllerSupport": true|false}`, deliberately beside the user's profile rather
+than next to the patcher, so they survive re-downloading a single-file executable.
 Every read is defensive: a missing file, an unreadable folder or a malformed value
 all fall back to the default. A settings file is never worth failing a patch over.
 
@@ -169,7 +179,10 @@ all fall back to the default. A settings file is never worth failing a patch ove
 
 ## 8. Verifying by hand
 
-Reproduce the collision check against any KMRP gold build:
+Reproduce the collision check against any KMRP gold build. Gold alone misses the
+21 bytes the installer writes over values gold leaves vanilla; for the full check,
+run it against the installer's `--apply` outputs as well (see
+[`../reverse-engineering/binary-inventory.md`](../reverse-engineering/binary-inventory.md) §2):
 
 ```bash
 python - <<'PY'
@@ -198,11 +211,13 @@ sha256sum third_party/Included/k1-modern-driver-compatibility-1.2.0 by Synchro/k
 ```
 
 Confirm an install did what it claims — the manifest lists both files and their
-hashes, and the executable is untouched:
+hashes, and the executable is untouched by K1DC. It is never gold's hash: the
+patcher writes per-resolution values on top of gold, even at 3440x1440. (This
+comment said "still the gold hash" until 2026-09-24.)
 
 ```powershell
 Get-Content "C:\Star Wars - KotOR\KMRP_DriverCompat.manifest"
-Get-FileHash "C:\Star Wars - KotOR\swkotor.exe"   # still the gold hash
+Get-FileHash "C:\Star Wars - KotOR\swkotor.exe"   # unchanged by K1DC: still what KMRP wrote
 ```
 
 ## 9. Licence and credit

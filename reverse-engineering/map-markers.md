@@ -21,6 +21,14 @@ Clean `swkotor.exe`, 4,042,752 bytes, SHA-256 `761F9466…C49E9886`. Gold v21
 (`9ACE4502…`), 4,083,712 bytes — 4,096 longer than gold v20, which is the `.kmn`
 section section 7 adds. Everything in sections 1-6 is length-neutral.
 
+Re-read on 2026-09-24 in gold v24 (`9DD81A75…`, 4,087,808 bytes; v22-v24 added
+the LAA bit, the movie operands and `.kmv`, none of them here) and in the
+executables the installer (`ECA3DE4B…`) writes with `--apply`: the fourteen
+sites, the wrappers, the hit test and the `.kmn` header, table and lookup are as
+described below. The per-resolution values are in
+[`../docs/universal-resolution-math.md`](../docs/universal-resolution-math.md),
+*Executable fields*.
+
 Sections 1-4 are in-place immediate rewrites and use `FILE = VA − 0x400000`.
 Sections 5 to 7 involve the injected `.kui` and `.kmn` sections, where the
 convention is **`FILE = VA − 0x492000`** — mixing the two produces offsets that

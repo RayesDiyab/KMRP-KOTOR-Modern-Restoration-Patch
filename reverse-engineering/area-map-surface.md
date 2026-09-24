@@ -26,6 +26,10 @@ This covers the surface itself.
 | clean | `swkotornopatch.exe`, 4,042,752 bytes, `761F9466F456A83909036BAEBB5C43167D722387BE66E54617BA20A8C49E9886` |
 | gold | `swkotor_gold_v19_areafog.exe`, `D4D4B793F333732D31FBD6D1C66778D527CD15D0DE20894DAC25E88132943A1E` |
 | measured at | 3440x1440, Manaan West Central (module `m26`, texture `lbl_mapm26ab`) |
+| what ships now | the installer of 2026-09-24 (`ECA3DE4B…`) writes the §4 Option D geometry at every resolution over gold v24's older values -- read back from its `--apply` output, see §8 |
+
+Sections 1-3 measure the map **before** the fix, on gold v19; §4 records the fix
+and what shipped.
 
 Addresses are `VA` unless labelled `FILE`. `FILE = VA − 0x400000` for the
 original sections; appended sections use `FILE = VA − 0x492000`.
@@ -91,7 +95,8 @@ causes this.
 | --- | --- | --- | --- |
 | **vanilla** (640x480) | 512 x 256 | 440 x 256 | **440 x 256** |
 | **k1hrm + hires_patcher / K1AMF** | `w·512/640`, `h·256/480` | `w·440/640`, `h·256/480` | equals the overlay |
-| **KMRP** | `w//2`, `h//2` | `canvasW·440/512`, `canvasH` | inherited from k1hrm, unchanged |
+| **KMRP before the fix** | `w//2`, `h//2` | `canvasW·440/512`, `canvasH` | inherited from k1hrm, unchanged |
+| **KMRP since the fix** (§4, Option D) | `round((w//2)·512/440)`, `h//2` | `w//2`, `h//2` | **the overlay**, rewritten per resolution |
 
 In vanilla and in the k1hrm scheme, **`LBL_Map` is exactly the overlay**. The
 canvas is wider than `LBL_Map`, so the surplus is never shown. KMRP keeps
@@ -155,8 +160,9 @@ less firmly established than the horizontal.**
 
 ## 4. What this means for the fix
 
-Four candidates, none implemented yet; this section is a plan, not a record of
-shipped behaviour. **Option D is the recommendation.**
+Four candidates, written up as a plan before any was built; **Option D was
+recommended and is what shipped** -- see *Shipped* at the end of this section.
+The paragraphs up to there are the plan as written.
 
 **Option A — adopt the k1hrm/hires_patcher geometry.** Set canvas and overlay to
 `w·512/640` / `w·440/640`, and both centring immediates to the screen size.
@@ -218,16 +224,20 @@ canvas  = (screenWidth // 2) · 512/440,  canvasHeight = screenHeight // 2
 overlay = screenWidth // 2,              overlayHeight = canvasHeight
 ```
 
-**Untested.** Option D has not been built or run. `frameWidth == screen // 2` is
-measured at 3440x1440 only; it is the value KMRP already uses for the canvas at
+**Untested, as written before it shipped.** Option D had not been built or run.
+`frameWidth == screen // 2` is measured at 3440x1440 only; it is the value KMRP already uses for the canvas at
 every resolution, but whether the frame art actually matches it at other
 resolutions has not been checked. Confirm that before shipping.
 
-**Shipped in gold v20 (2026-09-03).** Option D is implemented:
-`tools/analyze_resolution_guis.py` derives the geometry,
-`tools/prepare_universal_resources.py` rewrites `LBL_Map` per resolution. Read
-back from the installed executable and `Override\map.gui` at 3440x1440:
-`[3440, 1440, 2001, 720, 1720, 720]` and `LBL_Map (860, 374, 1720, 720)`.
+**Shipped (2026-09-03, alongside gold v20).** Option D is implemented:
+`tools/analyze_resolution_guis.py` derives the geometry into `resolutions.tsv`,
+the patcher's `ResolutionPatch` writes it into the executable, and
+`tools/prepare_universal_resources.py` rewrites `LBL_Map` per resolution. It is
+not in gold itself -- gold v24 still holds `[2750, 1400, 1720, 720, 1478, 720]`,
+which the patcher checks and replaces at every resolution. Read back from the
+installed executable and `Override\map.gui` at 3440x1440:
+`[3440, 1440, 2001, 720, 1720, 720]` and `LBL_Map (860, 374, 1720, 720)`; the
+2026-09-24 installer's `--apply` output carries the same six values.
 Verified in game on Manaan West Central: grid pitch 86.0 = 1720/20 exactly, grid
 spans 851->2588, **no strip**.
 
@@ -277,7 +287,9 @@ A fourth, in [`map.md`](map.md): its field table gives `+0x0C` as
   formulas in §2 are read from the shipped GUI files at all 49 resolutions, but
   nothing has been looked at in game at any other resolution.
 * The vertical placement rule in §3 is checked on one capture to ±8 px.
-* The frame-art question in §4 is open.
+* The frame-art question in §4 is answered at 3440x1440 only; whether the frame
+  art's interior is `screen // 2` at other resolutions has not been measured.
+  (This line called it open until 2026-09-24, though §4 answers it.)
 * A practical trap found while testing: the canvas and overlay immediates at
   `0x0069505C`/`0x00695082` run **once, when the map screen is constructed**.
   Patching them in a running process and reopening the map does *not* re-read
@@ -293,7 +305,9 @@ Read the six per-resolution constants out of a patched executable:
 python -c "import struct; d=open('swkotor.exe','rb').read(); print([struct.unpack_from('<i',d,o)[0] for o in (0x2928B3,0x2928C3,0x29505C,0x295064,0x295082,0x29508A)])"
 ```
 
-At 3440x1440 gold v19 this prints `[2750, 1400, 1720, 720, 1478, 720]`.
+At 3440x1440 gold v19 this prints `[2750, 1400, 1720, 720, 1478, 720]`, and
+gold v24 still does. The executable the installer writes prints
+`[3440, 1440, 2001, 720, 1720, 720]` (measured 2026-09-24).
 
 Confirm `LBL_Map` equals the hires_patcher overlay at every shipped resolution:
 
@@ -311,8 +325,8 @@ python tools/measure_map_screen.py shot.png
 It reports the grid's first and last column, its **pitch**, and the strip. The
 pitch is the falsifiable check: it must equal `divisor / grid_columns`, where the
 divisor is whatever `0x006944A8` reads and the column count comes from the area.
-At 3440x1440 on Manaan West Central that is `1478 / 20 = 73.9`, and the tool
-measures 74.0.
+At 3440x1440 on Manaan West Central that was `1478 / 20 = 73.9` before the
+fix, and the tool measured 74.0; after it, `1720 / 20 = 86.0`, measured 86.0.
 
 Read the live rectangle rather than trusting any of this:
 

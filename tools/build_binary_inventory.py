@@ -16,6 +16,11 @@ in neither. The output is pasted into
 `reverse-engineering/binary-inventory.md`; regenerate it after any change to
 gold and the coverage line must still read zero.
 
+**Gold is not what ships.** With `--installed` and the installer's own outputs
+(`--apply` at every resolution), it also inventories the bytes they change that
+gold leaves as clean -- the sites the patcher fills in per resolution over a
+vanilla value -- and requires a document for those runs too.
+
 **How runs are formed.** Differing bytes separated by fewer than 8 identical
 bytes are merged into one run, so a patch site reads as one row rather than as
 its individual changed bytes. The threshold is a presentation choice and nothing
@@ -36,6 +41,8 @@ from __future__ import annotations
 
 import argparse
 import hashlib
+import re
+import subprocess
 from pathlib import Path
 
 MERGE_GAP = 8          # identical bytes tolerated inside one run
@@ -48,18 +55,49 @@ TOOL_GLOBS = ("tools/*.py", "src/patcher/*.cs")
 # section injection rather than patch sites. Reported separately.
 HEADER_END = 0x1000
 
+# This tool's own output document, and the section of it holding the generated run
+# table (from its "## 4." heading up to "## 5.").
+SELF = "reverse-engineering/binary-inventory.md"
+GENERATED_SECTION = re.compile(r"^## 4\..*?(?=^## 5\.)", re.S | re.M)
+
+
+def tracked(root: Path):
+    """The repository's tracked files, or None when git cannot say.
+
+    Only these count as documentation. The globs also match git-ignored local
+    notes -- docs/agent-memory/HANDOFF.md and LOCAL.md -- which nobody else can
+    read, so a run named only there would pass while no committed document named
+    it. Found on 2026-09-24, when HANDOFF.md turned up in the "documented in"
+    column.
+    """
+    try:
+        listing = subprocess.run(["git", "-C", str(root), "ls-files", "-z"],
+                                 capture_output=True, check=True).stdout
+    except (OSError, subprocess.CalledProcessError):
+        return None
+    return {name for name in listing.decode("utf-8", "replace").split("\0") if name}
+
 
 def load(root: Path, globs) -> dict:
     out = {}
+    only = tracked(root)
     for pattern in globs:
         for path in root.glob(pattern):
             name = path.relative_to(root).as_posix()
             if name.startswith("build/"):
                 continue
+            if only is not None and name not in only:
+                continue
             try:
-                out[name] = path.read_text(encoding="utf-8", errors="ignore").lower()
+                body = path.read_text(encoding="utf-8", errors="ignore")
             except OSError:
-                pass
+                continue
+            if name == SELF:
+                # The run table this tool generates names every address in it, so
+                # left in, it documents every run the moment it is pasted and the
+                # check can never fail again. Only the prose around it counts.
+                body = GENERATED_SECTION.sub("", body)
+            out[name] = body.lower()
     return out
 
 
@@ -100,6 +138,10 @@ def main() -> int:
     parser.add_argument("clean", type=Path)
     parser.add_argument("gold", type=Path)
     parser.add_argument("--root", type=Path, default=Path("."))
+    parser.add_argument("--installed", type=Path, nargs="*", default=[],
+                        help="executables the installer produced (e.g. `--apply` at "
+                             "every resolution); bytes they change that gold leaves "
+                             "as clean are inventoried too")
     args = parser.parse_args()
 
     clean = args.clean.read_bytes()
@@ -131,8 +173,36 @@ def main() -> int:
         print(f"| `0x{start + 0x400000:08X}` | `0x{start:06X}` | {stop - start} "
               f"| `{clean[start:stop].hex()}` | `{gold[start:stop].hex()}` | {where} |")
 
+    # Gold is not what ships: the installer rewrites some sites per resolution, and
+    # a few of them -- the list-row sizes gold leaves at vanilla -- are bytes gold
+    # never changes at all. Measured 2026-09-24: 21 such positions across the 48
+    # resolutions, 18 of them outside every run above.
+    install_only = []
+    if args.installed:
+        n = min(len(clean), len(gold))
+        outputs = [path.read_bytes() for path in args.installed]
+        extra = sorted({index for data in outputs for index in range(HEADER_END, n)
+                        if data[index] != clean[index] and gold[index] == clean[index]})
+        for index in extra:
+            if install_only and index - install_only[-1][1] < MERGE_GAP:
+                install_only[-1] = (install_only[-1][0], index + 1)
+            else:
+                install_only.append((index, index + 1))
+        print()
+        print(f"installed outputs: {len(outputs)}; positions they write that gold leaves "
+              f"as clean: {len(extra)}, in {len(install_only)} runs")
+        print()
+        print("| VA | FILE | len | clean | distinct installed values | documented in |")
+        print("| --- | --- | --- | --- | --- | --- |")
+        for start, stop in install_only:
+            doc = mentions(docs, start, stop)
+            where = ", ".join("`%s`" % d for d in doc) if doc else "**nothing**"
+            values = {data[start:stop] for data in outputs}
+            print(f"| `0x{start + 0x400000:08X}` | `0x{start:06X}` | {stop - start} "
+                  f"| `{clean[start:stop].hex()}` | {len(values)} | {where} |")
+
     print()
-    undocumented = [r for r in body if not mentions(docs, *r)]
+    undocumented = [r for r in body + install_only if not mentions(docs, *r)]
     unowned = [r for r in undocumented if not mentions(tools, *r)]
     print(f"code/data runs with no document: {len(undocumented)}")
     print(f"code/data runs with no document and no build script: {len(unowned)}")

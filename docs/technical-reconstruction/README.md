@@ -42,9 +42,13 @@ Measured against the current build:
 | | the document | today |
 | --- | --- | --- |
 | document date | 2026-08-28 | — |
-| gold executable | `D8F0EEBF470660FFBB0DBE9D6953774B937F73F92260FA2D3427189D8B7F6ADE` | `29BE3C23F53D53F521D98329F996248864834FB3873819DF63CCF1803C65A7E8` |
-| gold size | 4,046,848 bytes | 4,083,712 bytes |
-| appended PE sections | **1** (`.kui`, map and markers only) | **10** |
+| gold executable | `D8F0EEBF470660FFBB0DBE9D6953774B937F73F92260FA2D3427189D8B7F6ADE` | `9DD81A75F4888FD67242B682BEE0AB4392EA8923CDF4A020CA3EDD2464C05E0A` (v24) |
+| gold size | 4,046,848 bytes | 4,087,808 bytes |
+| appended PE sections | **1** (`.kui`, map and markers only) | **11** |
+
+The "today" column was last measured on 2026-09-24, against gold v24; until then
+it named v23, 4,083,712 bytes and ten sections. The generator's `OUT` path and the
+missing `python-docx` below were re-checked the same day and are unchanged.
 
 The clean source it names is still correct:
 `761F9466F456A83909036BAEBB5C43167D722387BE66E54617BA20A8C49E9886`.

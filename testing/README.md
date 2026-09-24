@@ -15,8 +15,9 @@ result against what the tooling intended. Installer behaviour is scripted.
 | | |
 | --- | --- |
 | [`virtual-display/`](virtual-display/) | A virtual-monitor profile exposing all 48 supported resolutions on one Windows machine, so a layout can be seen at 7680×2160 without owning such a display. |
-| [`regression/`](regression/) | Scripted installer checks. Each runs the built patcher against throwaway copies of the game files and reads the result back as SHA-256. |
-| `gold-geometry-diffs.txt` | A recorded field-by-field diff of GUI geometry between two builds — the format these comparisons are read in. |
+| [`regression/`](regression/) | Scripted checks: installer behaviour against throwaway copies of the game files, read back as SHA-256, and the packaged resources read out of the build. |
+| `controller/` | Controller harnesses: a virtual pad, probes and end-to-end tests that drive the running game, and `select_controller_path.py`, which installs the native or legacy controller path into a test game. |
+| `gold-geometry-diffs.txt` | A recorded field-by-field diff of GUI geometry between two builds — the format these comparisons are read in. Committed with the first commit (2026-08-29); its values come from builds of that time, not the current one. |
 
 ## Running the installer checks
 
@@ -29,8 +30,27 @@ Each script exits non-zero if any check fails and prints one PASS or FAIL line
 per assertion. They need `build-inputs\swkotornopatch.exe`, and they patch only
 throwaway copies under the system temp folder — no installed game is touched.
 
+The full set, as of 2026-09-24. Against that day's build, the four Python
+checks and `Test-ControllerSupport.ps1` were run and pass; the other PowerShell
+scripts were not re-run that day. Against the 1.5.0 installer of 2026-09-25
+(`7933…`), `Test-ControllerSupport.ps1` and `Test-ReinstallOverOlderBuild.ps1`
+were run and pass. Both use their own fixture executable names, so an NVIDIA
+profile made for them cannot match a real `swkotor.exe`. `Test-DpiCompatibility.ps1` and
+`Test-NvidiaPresentMethod.ps1` write per-user compatibility and NVIDIA profile
+state for their throwaway executables and remove it again, so run them
+knowingly:
+
 | Script | What it pins |
 | --- | --- |
+| `Test-ControllerSupport.ps1` | Controller install and restore ownership, the installed hook table against the source, foreign-file refusal, controller-only, driver-only and default installs |
+| `Test-DpiCompatibility.ps1` | The per-executable Windows DPI setting, and restoring exactly what was there |
+| `Test-LargeAddressAware.ps1` | Both accepted inputs, one with the LAA bit already set, give the same output and restore byte for byte |
+| `Test-MovieResolution.ps1` | The four movie-mode operands and the render-resolution operands, read back at four resolutions |
+| `Test-NvidiaPresentMethod.ps1` | The NVIDIA present-method step: when it writes, when it leaves the player's choice alone, and restore (dot-sources `Restore-TestNvidiaProfiles.ps1`; `NvidiaPresentSelfTest.cs` is its compiled self-test) |
+| `Test-ControllerPromptAssets.py` | Every prompt texture and control mapping in all 48 archives, four controller families, and the Controller Layout screen |
+| `Test-GeneratedGuiGeometry.py` | The reported GUI repairs and the active HUD in all 48 archives, the R3 cue included |
+| `Test-FontAtlasScale.py` | Every packaged font atlas draws one texel per pixel |
+| `Test-ProtonResourceCompatibility.py` | Case-exact, collision-free resource names for Linux / Proton |
 | `Test-ReinstallOverOlderBuild.ps1` | Reinstalling a newer build over an older one replaces the executable instead of skipping it; reinstalling the same build changes nothing; an unsupported executable is refused; a damaged backup blocks a patch. |
 
 ## What is deliberately not committed

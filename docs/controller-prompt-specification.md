@@ -52,6 +52,13 @@ does nothing.
 | Back/View | — | **never**; it does nothing on 39 of 40 panels |
 | D-pad | — | not prompted; navigation is self-evident |
 
+*Checked 2026-09-25 against `K1_GAMEPLAY_ACTIONS` in
+`src/controller-native/K1NativeJoystick.cpp`:* LB and RB no longer carry any GUI
+event in menus. The right stick scrolls descriptions instead, and only ICDialog's
+computer-terminal scrolling still arrives through those two buttons. A "Scroll"
+prompt on LB / RB would therefore be false; that row describes the earlier
+binding, and none was shipped.
+
 ## Per-screen
 
 ### Gameplay (class 0)
@@ -65,6 +72,20 @@ does nothing.
 
 Nothing else earns a prompt here: B, X, Y, LB, RB, Back, LT, RT and the D-pad
 all deliver their events and the world ignores every one of them.
+
+*No longer true for five of them (checked 2026-09-25 against
+`K1_GAMEPLAY_ACTIONS`):* the build now gives them gameplay verbs:
+
+| Button | Verb |
+| --- | --- |
+| LB | cycle the target backwards |
+| RB | cycle the target forwards |
+| Back | open the Solo Mode query |
+| LT | switch to the next living party member |
+| RT | pause |
+
+The D-pad drives the action bar (see above). Whether any of these should earn a
+gameplay prompt is not decided here, and none is shipped.
 
 **R3 dimming is specified but not yet implementable.** After a flourish, free
 look declines for 4–7 seconds and the exact predicate was not identified. Either
@@ -272,6 +293,13 @@ popup, and warning boxes were not driven live. They share the `MESSAGE_BOX` and
 `SOLO_MODE_QUERY` dispatchers whose retained events are already in the
 inventory, but sharing a dispatcher is an argument, not a measurement, and this
 document has been wrong before by reasoning from one to the other.
+
+*Since then:* the Solo Mode query was play-tested by hand on 2026-09-24 at
+3440x1440. A on OK turns Solo Mode on, and A on Cancel leaves it off; see
+*Cancel now cancels on the Solo Mode prompt* in `CHANGELOG.md`. Nothing recorded
+confirms the A badge beside the focused button on that box. The delete-save and
+overwrite-save confirmations, the tutorial popup and the warning boxes are still
+not driven live.
 
 
 ## Prompt-art audit, Inventory / Equipment / Messages — 2026-09-08

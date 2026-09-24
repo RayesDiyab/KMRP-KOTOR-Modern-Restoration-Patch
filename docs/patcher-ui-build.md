@@ -21,21 +21,31 @@ build and verification workflow. Resolution and game-engine math remain in
 dist/KMRP - KOTOR Modern Restoration Patch.exe
 ```
 
-No companion asset folder is required. The executable embeds:
+No companion asset folder is required. The executable embeds 69 resources,
+listed here from the 2026-09-25 build (`7933…`, 177,716,224 bytes). Sixty-eight
+of them are byte-identical to the 2026-09-24 build (`ECA3DE4B…`), and the
+69th is the added MIT licence:
 
-- the verified clean-to-gold executable delta;
-- the 48-resolution catalog;
-- one GUI archive for each supported resolution;
-- the common Override archive, including shared textures and font atlases;
-- the KOTOR High Resolution Menus GPL notice;
-- the brand artwork, four step icons, and the Verified status artwork.
+| resource | what |
+| --- | --- |
+| `Kmrp.goldpatch` | the verified clean-to-gold executable delta, 47,730 bytes |
+| `Kmrp.resolutions` | the 48-resolution catalog, `resolutions.tsv` |
+| `Kmrp.override.gui.<W>x<H>` | one GUI archive per resolution, 48 of them, each with that resolution's 18 font atlases |
+| `Kmrp.override.common` | the common Override archive: shared textures, icons, portraits and prompt art, but no font atlas |
+| `Kmrp.bundled` | the list of bundled third-party Override files, which yield to the player's own |
+| `Kmrp.license.highresolutionmenus`, `Kmrp.license.drivercompat` | the KOTOR High Resolution Menus GPL notice and K1DC's MPL licence |
+| `Kmrp.drivercompat.dinput8`, `Kmrp.drivercompat.asi` | K1 Modern Driver Compatibility and its ASI loader |
+| `Kmrp.controller.module`, `.runtime`, `.sdl`, `.sdllicense`, `.kpmlicense` | the controller component: KMRP's module, the KPM runtime, SDL 3 and its licence, and KPM's MIT licence |
+| `Kmrp.brand`, seven `Kmrp.icon.*` | the brand artwork and the UI icons: folder, missing, monitor, Settings, shield, tools, verified |
 
 The supported editable executable is identified by SHA-256
 `761F9466F456A83909036BAEBB5C43167D722387BE66E54617BA20A8C49E9886`.
-The current gold-v14 reference is 4,079,616 bytes with SHA-256
-`1F1684A5DC8BC440B2C8FF0194873315EDD39DE1C1039CB2E73861A4B3732504`.
-The constants in `GoldPatch`, `tools/generate_gold_delta.py`, and the default
-`-GoldExe` argument in `build_kmrp.ps1` must always move together.
+The current gold, v24, is 4,087,808 bytes with SHA-256
+`9DD81A75F4888FD67242B682BEE0AB4392EA8923CDF4A020CA3EDD2464C05E0A`.
+`TargetHash` and `TargetLength` in `GoldPatch`, `EXPECTED_GOLD_SHA256` in
+`tools/generate_gold_delta.py`, and the default `-GoldExe` argument in
+`build_kmrp.ps1` must always move together. *Corrected 2026-09-24:* this section
+named gold v14 as current, and listed six resources.
 
 ## Main-window flow
 
@@ -136,7 +146,8 @@ roles, and Segoe UI for body text. The current design-space sizes are:
 - recovery title/body/path: 19 / 15 / 14.5 pt;
 - footer links and credit: 15.5 pt.
 
-The four step sources, the Verified source and the Missing source live in `assets/branding/ui-icons/`. Run:
+The seven sources -- the four step icons, Verified, Missing and the Advanced
+Settings gear -- live in `assets/branding/ui-icons/`. Run:
 
 ```powershell
 python .\tools\prepare_app_icons.py
@@ -545,20 +556,32 @@ parameter` JIT dialog.
 
 ## Executable, DPI, INI, and Override transaction
 
-The in-place patch path is deliberately conservative:
+The in-place patch path is deliberately conservative. In the order
+`PatchOperations.ApplyInPlace` runs it:
 
 1. verify the source executable hash and length;
 2. create or verify the executable backup;
-3. apply the clean-to-gold delta to a temporary file;
+3. apply the clean-to-gold delta and the resolution patch to a temporary file,
+   clearing the map-note flag when that correction is turned off;
 4. verify the result before atomically replacing `swkotor.exe`;
 5. add `HIGHDPIAWARE` to the exact executable's per-user Windows compatibility
    value and record the prior value in `KMRP_DPI.manifest`;
-6. update `swkotor.ini` under `[Graphics Options]`, removing duplicate Width
+6. on NVIDIA, set the game's present method where the driver would show it
+   half-drawn frames, recorded in `KMRP_NVIDIA.manifest`
+   ([`nvidia-present-method.md`](nvidia-present-method.md));
+7. update `swkotor.ini` under `[Graphics Options]`, removing duplicate Width
    and Height keys while preserving unrelated sections, comments, encoding,
    and line endings;
-7. install the common and selected-resolution Override archives;
-8. back up conflicting Override files and record introduced files;
-9. write the patch manifest and installed resolution.
+8. install the common and selected-resolution Override archives, backing up
+   conflicting files and recording introduced ones;
+9. install K1 Modern Driver Compatibility, or only its ASI loader when just the
+   controller needs it, recorded in `KMRP_DriverCompat.manifest`;
+10. install the controller component when it is on, recorded in
+    `KMRP_Controller.manifest`;
+11. write the patch manifest and installed resolution.
+
+*Corrected 2026-09-24:* this list stopped at the Override archives; the NVIDIA,
+driver and controller steps were missing.
 
 Every file replacement goes through `FileGuard.Replace`, never `File.Replace`
 directly. `File.Replace` has to **delete** the destination, which fails with "the file
@@ -595,9 +618,13 @@ Requirements currently encoded by the build script:
 - Python: `C:\Python314\python.exe`;
 - C# compiler: `.NET Framework` `csc.exe` under
   `C:\Windows\Microsoft.NET\Framework\v4.0.30319`;
-- Pillow only when regenerating `src/patcher/icons/` with
-  `prepare_app_icons.py`. The normal universal resource pipeline intentionally
-  does not require Pillow.
+- Pillow, and the rest of `requirements.txt`. The resource pipeline needs it:
+  `prepare_universal_resources.py` compresses the menu backgrounds and the
+  bundled icons with it, and the controller prompt, layout and backdrop tools
+  draw their textures with it. Without Pillow the backgrounds ship uncompressed
+  and the prompt art falls back to drawn discs. *Corrected 2026-09-24:* this
+  said the pipeline intentionally did not need Pillow, true before the prompt
+  art and texture compression.
 
 If the source icons changed, first run `prepare_app_icons.py` with a Python
 environment that has Pillow. Then perform a full release build:
@@ -641,7 +668,7 @@ the resolution in the legacy `--apply` and `--in-place` forms selects
 
 ## Release verification checklist
 
-1. Run `prepare_app_icons.py`; confirm all five supplied roles are reported.
+1. Run `prepare_app_icons.py`; confirm all seven supplied roles are reported.
 2. Run a full `build_kmrp.ps1` without `-ReuseResources`.
 3. Confirm the embedded source/target hashes and the 48-entry resolution table.
 4. Extract the executable's 32px and 256px icon frames and confirm both show the
@@ -658,10 +685,23 @@ the resolution in the legacy `--apply` and `--in-place` forms selects
 9. Run `testing/regression/Test-DpiCompatibility.ps1`; verify its exact registry
    paths are absent or restored after completion.
 10. Run `python testing/regression/Test-GeneratedGuiGeometry.py`; verify all 48
-    packaged archives pass the Feedback-prototype and active-HUD checks.
+    packaged archives pass: upstream list prototypes, the Feedback gutter, Script
+    Selection centring, confirmation containment, the active HUD and the R3 cue.
 11. Run `testing/regression/Test-LargeAddressAware.ps1`; verify canonical and
     pre-LAA inputs converge, unrelated header changes fail, and both exact
     source states survive patch/restore.
 12. Run `tools/build_binary_inventory.py` against the clean executable and
-    current gold; verify it reports zero undocumented code/data runs.
-13. Record the final `dist/KMRP - KOTOR Modern Restoration Patch.exe` SHA-256 in the release directory.
+    current gold, with `--installed` and the installer's `--apply` output at all
+    48 resolutions; verify it reports zero undocumented code/data runs.
+13. Run the rest of the regression set: `Test-ControllerSupport.ps1`,
+    `Test-ReinstallOverOlderBuild.ps1`, `Test-MovieResolution.ps1`,
+    `Test-NvidiaPresentMethod.ps1`, `Test-ControllerPromptAssets.py`,
+    `Test-FontAtlasScale.py` and `Test-ProtonResourceCompatibility.py`, then
+    `tools/check_controller_drift.py`, `tools/check_patcher_hook_table.py`,
+    `tools/check_hook_stolen_bytes.py` and `.github/scripts/check_links.py`.
+14. Record the final `dist/KMRP - KOTOR Modern Restoration Patch.exe` SHA-256 in the release directory.
+15. Confirm Properties → Details on the built installer shows the release's
+    version (1.5.0 for KMRP 1.5), the same string as `PatchVersion` in
+    `KmrpPatcher.cs`. `build_kmrp.ps1` refuses to compile while
+    `AssemblyInfo.cs` disagrees with it. (Added 2026-09-24, after the
+    `2.11.0-movieaspect` build was found reporting `2.10.0-mapnotes`.)

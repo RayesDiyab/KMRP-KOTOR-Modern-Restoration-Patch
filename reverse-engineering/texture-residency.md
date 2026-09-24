@@ -168,9 +168,11 @@ button's normal border block during the badge work. **White.**
 
 White is therefore not a placeholder texture and not an error colour. It is the
 literal absence of a texture bind, showing the fill's own colour. That matches
-the shipped precedent in `tools/check_controller_drift.py:143`, where buttons
-whose `BORDER.FILL` named an unpackaged texture "lose their art entirely and draw
-flat white" -- the same path, reached permanently instead of for one frame.
+the shipped precedent in `tools/check_controller_drift.py` -- the comment ending
+"loses its art entirely and draws flat white", at line 153 on 2026-09-24 (this
+said line 143 until the file moved) -- where buttons whose `BORDER.FILL` named an
+unpackaged texture draw flat white: the same path, reached permanently instead
+of for one frame.
 
 **What this means for a transient flash.** A white frame is a frame in which that
 control's texture had no basic image. Two things can produce that, and they are
@@ -412,7 +414,25 @@ what stays resident, and for that the font atlases dominate:
 | **added by KMRP** | **41,091,072** | **+39.2 MB, a 14.9x increase** |
 
 Measured with the formula above: vanilla's from the game's own packs, KMRP's from
-the built `override-common.zip`. The single largest is `dialogfont32x32`, which
+the built `override-common.zip`.
+
+**Re-measured 2026-09-24: the table above predates issue #16.** It is the shared
+3.0 bake, which then shipped in `override-common.zip` for every resolution. Each
+resolution now ships its own 18 atlases, baked at its own scale, so the resident
+cost depends on the resolution. Summed from the 2026-09-24 installer's archives
+with the same formula (32-bit, no mipmaps):
+
+| resolution | KMRP font atlases | `dialogfont32x32` | vs Quality 0 / 1 / 2 |
+| --- | ---: | --- | --- |
+| 1280x720 | 10,223,616 (9.8 MB) | 512x512 | 43% / 22% / 10% |
+| 1920x1080 | 18,874,368 (18.0 MB) | 1024x1024 | 80% / 40% / 19% |
+| 2560x1440, 3440x1440 | 28,311,552 (27.0 MB) | 1024x1024 | 120% / 60% / 28% |
+| 3840x2160, 15360x8640 | 69,206,016 (66.0 MB) | 2048x2048 | 293% / 147% / 69% |
+
+So at 3440x1440, the resolution of the machine reporting the flash, the fonts
+now take 28% of the Quality 2 budget rather than 44%; at 2160p and above they
+take more than the 44% measured here. The figures below are the earlier
+arithmetic on the old total, kept as they were. The single largest is `dialogfont32x32`, which
 vanilla ships at 512x512 (1,048,576 bytes) and KMRP at 2048x2048
 (16,777,216 bytes) -- **16x**, in one texture.
 

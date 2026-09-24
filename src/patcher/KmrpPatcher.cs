@@ -84,7 +84,7 @@ namespace Kmrp
         internal const string TargetHash = "9DD81A75F4888FD67242B682BEE0AB4392EA8923CDF4A020CA3EDD2464C05E0A";
         internal const long SourceLength = 4042752;
         internal const long TargetLength = 4087808;
-        internal const string PatchVersion = "2.11.0-movieaspect";
+        internal const string PatchVersion = "1.5.0";
 
         private readonly List<PatchChunk> chunks;
 
@@ -479,9 +479,11 @@ namespace Kmrp
         };
 
         // The largest offset is the arrow's size/2, and it has to fit in a signed
-        // byte, so the scale cannot exceed 127/16. That binds only above ~8130 px
-        // wide: of the 48 shipped resolutions 8192x4608 and 15360x8640 get
-        // slightly under-scaled markers, still correctly centred. Lifting it needs
+        // byte, so the scale cannot exceed 127/16. The scale follows the HEIGHT, so
+        // that binds only above ~5715 px tall: of the 48 shipped resolutions
+        // 15360x8640 alone gets under-scaled markers (a third short), still
+        // correctly centred. (This said 8192x4608 too, reasoning from width; read
+        // back from its output, 8192x4608 is unclamped.) Lifting it needs
         // the adds widened to imm32 in a stub, as the stack-count label needed in
         // gold v10.
         private const float MarkerMaxScale = 127.0f / 16.0f;
@@ -2160,10 +2162,17 @@ namespace Kmrp
             internal string Hash;
         }
 
+        // The last pair is the MIT licence of KOTOR Patch Manager, which covers the
+        // runtime, the module derived from Saul0097's KPM Xbox Controls, and the
+        // memory-safety patches in patch_config.toml. MIT asks for the notice to go
+        // with every copy, and until 2026-09-25 the installer shipped those copies
+        // without it. Keep it last: BuildConfig names the module as FileNames[1].
         private static readonly string[] ResourceNames =
-            { "Kmrp.controller.runtime", "Kmrp.controller.module", "Kmrp.controller.sdl", "Kmrp.controller.sdllicense" };
+            { "Kmrp.controller.runtime", "Kmrp.controller.module", "Kmrp.controller.sdl",
+              "Kmrp.controller.sdllicense", "Kmrp.controller.kpmlicense" };
         private static readonly string[] FileNames =
-            { "kmrp-controller-runtime.asi", "kmrp-controller.module", "kmrp-sdl3.dll", "kmrp-sdl3-LICENSE.txt" };
+            { "kmrp-controller-runtime.asi", "kmrp-controller.module", "kmrp-sdl3.dll",
+              "kmrp-sdl3-LICENSE.txt", "kmrp-kotor-patch-manager-LICENSE.txt" };
         private const string ConfigName = "patch_config.toml";
         internal const string Version = "1.2";
 

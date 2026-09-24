@@ -87,16 +87,19 @@ before the fresh-session verification, so a failed readback does not lose recove
 | KMRP-created profile gains another application | restore retains both applications and removes only KMRP's setting |
 | existing shared profile | install makes no changes |
 | unrelated profile already has KMRP's name | application and explicit setting remain intact; no manifest |
+| a real install, 2026-09-20: the play-test game on the RTX 3080 (driver 32.0.16.1656), inheriting Prefer layered | the installer logged *Set NVIDIA's present method for swkotor.exe to Prefer native. It was inheriting Prefer layered on DXGI Swapchain*, and Restore logged *Removed KMRP's NVIDIA present-method setting*; twice, at 12:42Z and 13:08Z (the game's `KMRP.log`). The log does not name the profile. |
+| the same game, every install from 2026-09-21 to 2026-09-24 | no NVIDIA line and no manifest: the driver no longer resolved Prefer layered for it, so the step did nothing, as designed. What changed the driver setting is not recorded. |
 
 `testing/regression/Test-NvidiaPresentMethod.ps1` runs these. The write cases
 use a throwaway executable name, `kmrp-nvapi-selftest.exe`, so no real game's
 profile is written, and stand-in profiles are removed in a `finally` block.
 
-**Untested:** a full KMRP install writing a real KOTOR profile (the test
-machine's profile already held a value, so the installer correctly left it);
-32-bit Windows (`nvapi.dll`); older drivers; NVIDIA Optimus laptops; the
+**Untested:** 32-bit Windows (`nvapi.dll`); older drivers; NVIDIA Optimus laptops; the
 restore-retry path after a refused save. AMD and Intel are outside this step
-entirely: no equivalent path was seen or tested on them.
+entirely: no equivalent path was seen or tested on them. (Until 2026-09-24 this
+list began with "a full KMRP install writing a real KOTOR profile". The game's
+`KMRP.log`, shown in the two last rows above, records that it happened on
+2026-09-20.)
 
 ## Not changed
 

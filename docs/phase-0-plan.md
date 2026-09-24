@@ -7,6 +7,18 @@
 > anything untested labelled as untested.
 
 
+*Historical plan, labelled 2026-09-24.* This is the first-week plan for the 3440×1440
+map fix, committed on 2026-08-29 and kept as written below. The coordinates it
+names were true of that build. The current map model sizes the map from each
+resolution (overlay W/2, canvas height H/2; at 3440×1440 those are still
+1720×720). It is described in
+[map-scaling.md](../reverse-engineering/map-scaling.md).
+
+The last box below is half done. The map geometry is now generated for all 48
+resolutions and read back from the installer's own `--apply` output. The
+record does not say whether the map has been seen in play at any resolution
+other than 3440×1440 since the model changed.
+
 ## Goal
 
 Preserve and verify the known executable patch that enlarges and centers the map,

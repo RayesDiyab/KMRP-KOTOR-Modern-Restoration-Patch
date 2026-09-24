@@ -40,7 +40,9 @@ never target the live installation.
 ## Executable-change ladder
 
 1. Read `reverse-engineering/exe-patching.md` and the relevant subsystem record.
-2. Patch a named copy only; verify every expected original byte before writing.
+2. Patch a named copy, or the live executable after copying it aside and recording
+   its length and SHA-256 (AGENTS.md); verify every expected original byte before
+   writing.
 3. Assert output length and section layout.
 4. Disassemble injected code from the bytes actually written.
 5. Re-read every KMRP PE section, including sections the change did not target.
@@ -51,6 +53,10 @@ never target the live installation.
 ```powershell
 python tools/build_binary_inventory.py build-inputs/swkotornopatch.exe build/kmrp/<final-gold>.exe
 ```
+
+   Then again with `--installed` and the installer's `--apply` output at every
+   resolution, which also inventories the bytes the patcher writes where gold
+   keeps vanilla (`reverse-engineering/binary-inventory.md` §2).
 
 8. Run the full build and installer regression.
 9. Update the subsystem reference, binary inventory, patch record where applicable,

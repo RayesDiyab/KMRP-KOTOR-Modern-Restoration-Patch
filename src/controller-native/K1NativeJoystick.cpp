@@ -2557,8 +2557,8 @@ constexpr std::uintptr_t K1_G_MAX_TEX_LOAD_TIME    = 0x007A472C;  // int
 // AddPartToMeshBuckets (0x0046BDF0) indexes a stride-12 array at 0x008194E0 by
 // this id with NO range check, and AurTextureGetMaxTexID (0x0041FEB0) hands it
 // out unclamped as an iteration count. KPM's TextureBucketSafety patch bounds
-// both at 5000; KMRP does not ship that fix and loads far more textures than
-// vanilla, so this number is worth watching.
+// both at 5000, and KMRP installs it through this component's patch_config.toml;
+// KMRP still loads far more textures than vanilla, so the number is worth watching.
 constexpr std::uintptr_t K1_G_MAX_TEX_ID = 0x007A46BC;
 constexpr long K1_TEXTURE_BUCKET_ENTRIES = 5000;
 

@@ -18,45 +18,54 @@ Two implementations ship in the same module binary:
 | **legacy** | `src/controller-native/vendor/K1XboxControls.cpp`, `vendor/K1XboxControlsXInput.cpp` (Saul0097's KPM Xbox Controls K1 1.2, as modified by KMRP) | reads XInput, **synthesises keystrokes** into the game's keyboard path |
 | **native** | `src/controller-native/K1NativeJoystick.cpp` | feeds XInput into KOTOR's **own retained joystick pipeline**, as DirectInput records |
 
-Every claim below is read out of those tracked sources at the line given, or out
-of `src/controller-native/kotor1.hooks.toml`. Nothing here is measured from the
+Every claim below is read out of those tracked sources, by the symbol named, or
+out of `src/controller-native/kotor1.hooks.toml`. (Until 2026-09-24 this document
+pointed at line numbers; all five had drifted, so it names symbols instead.) Nothing here is measured from the
 executable; the byte-level evidence for the native events lives in
 [`../reverse-engineering/retained-xbox-gui-events.md`](../reverse-engineering/retained-xbox-gui-events.md).
 Only one path's input transport is active at a time —
-`tools/select_controller_path.py` drops the legacy `DispatchMenuInputK1` hook,
-and `PollXInputK1()` is called from nowhere else
-(`vendor/K1XboxControls.cpp:3228`).
+`testing/controller/select_controller_path.py` drops the legacy
+`DispatchMenuInputK1` hook, and `PollXInputK1()` has exactly one call site, in
+`DispatchMenuInputK1` (`vendor/K1XboxControls.cpp`).
 
 ## Button parity
 
-Legacy from `BUTTON_BINDINGS`, `vendor/K1XboxControlsXInput.cpp:137-151`. Native
-from `K1_BUTTONS`, `K1_TRIGGERS`, `K1_DPAD` and `K1_STICK_CLICKS`,
-`K1NativeJoystick.cpp:187-312`.
+Legacy from `BUTTON_BINDINGS` in `vendor/K1XboxControlsXInput.cpp`. Native from
+`K1_BUTTONS`, `K1_TRIGGERS`, `K1_DPAD`, `K1_STICK_CLICKS` and
+`K1_GAMEPLAY_ACTIONS` in `K1NativeJoystick.cpp`.
 
 The `Parity` column is judged **in gameplay**, because that is where the two
 paths diverge: the legacy keys reach keymap actions, the native events reach
 GUI panels, and the gameplay HUD implements only five of them.
 
-| Input | Legacy sends | Native sends | Parity in gameplay |
+| Input | Legacy sends | Native: menus / gameplay | Parity in gameplay |
 | --- | --- | --- | --- |
-| A | `Return` + `R` = ActionMenuQueue + DefaultAction | event `0x27`, plus the interaction bridge | equivalent |
-| B | `Delete` = ActionMenuRemoveQ | event `0x28` | equivalent |
-| X | `G` + `End` = STEALTH | event `0x29` | **native does nothing** |
-| Y | `F` + `Home` = CancleCombat | event `0x2A` | **native does nothing** |
-| LB | `Space` + `Insert` = Pause | event `0x39`, description scroll up | differs; both useful |
-| RB | `Tab` = ChangeChar | event `0x3A`, description scroll down | **native does nothing** |
-| LT | `Q` = SelectPrev | event `0x35`, screen cycling | **native does nothing** |
-| RT | `E` = SelectNext | event `0x36`, screen cycling | **native does nothing** |
-| Back | `V` = PartyActive | event `0x2B`, Black | **native does nothing** |
-| Start | `Escape` = GUI | event `0x0B` | equivalent |
-| L3 | `X` = Flourish | flourish weapons (engine bridge) | equivalent |
-| R3 | `CapsLock` = Freelook | free look, events `0x01` / `0x06` | equivalent |
+| A | `Return` + `R` = ActionMenuQueue + DefaultAction | event `0x27` / the interaction bridge | equivalent |
+| B | `Delete` = ActionMenuRemoveQ | event `0x28` / `0x28` | equivalent |
+| X | `G` + `End` = STEALTH | event `0x29` / nothing | **native does nothing** in gameplay |
+| Y | `F` + `Home` = CancleCombat | event `0x2A` / nothing | **native does nothing** in gameplay |
+| LB | `Space` + `Insert` = Pause | nothing / `0x06` SelectPrev, and leaves free look | differs |
+| RB | `Tab` = ChangeChar | nothing / `0x05` SelectNext | differs |
+| LT | `Q` = SelectPrev | `0x35` previous screen / `0x09` ChangeChar | differs |
+| RT | `E` = SelectNext | `0x36` next screen / `0x02` Pause | differs |
+| Back | `V` = PartyActive | `0x2B` Black / `0x0A` PartyActive | equivalent |
+| Start | `Escape` = GUI | in the in-game menu acts as B, closing it; elsewhere `0x0B` / the Map hotkey `0xD7` | **differs by design** (issue #18) |
+| L3 | `X` = Flourish | nothing / flourish weapons (engine bridge) | equivalent |
+| R3 | `CapsLock` = Freelook | on the four party screens, the next party member / free look, entered with `0x01`; a press in free look leaves it | equivalent |
+
+*Corrected 2026-09-24:* this table showed LB, RB, LT, RT and Back as sending
+only their GUI events, with nothing in gameplay, and Start as `0x0B` in both.
+The gameplay verbs below have been bound since, Start became the Map key for
+issue #18, and R3 gained the party switch and a second press to leave free
+look.
 | D-pad | arrow keys, as repeating taps | codes `0x384`/`0x388`/`0x38C`/`0x390` | see below |
 | Left stick | `W`/`S`/`Z`/`C`, plus a walk modifier on `B` | the movement fields directly, proportional | native is strictly better |
 | Right stick | `A`/`D` taps | `CSWCModule::AcclTurnCamera` | native is strictly better |
 
 **Four legacy buttons send two scancodes at once** — the `secondary` column,
-applied at `vendor/K1XboxControlsXInput.cpp:605`. A is `Return`+`R`, X is
+applied in `vendor/K1XboxControlsXInput.cpp` where `binding.secondary` is added
+to the wanted keys (this pointed at line 605 until 2026-09-25; the code has moved
+to 614). A is `Return`+`R`, X is
 `G`+`End`, Y is `F`+`Home`, LB is `Space`+`Insert`. Of the four second keys,
 only `R` is a keymap action (`action239 DefaultAction`); `End`, `Home` and
 `Insert` appear in no row of `keymap.2da`, so they are GUI list-scrolling keys
@@ -159,12 +168,17 @@ ICPC — the mechanism free look already used on slot `0x7E`.
 | LT | `0x7B` | `0x09` ChangeChar | `0x35` previous screen |
 | RT | `0x7D` | `0x02` Pause | `0x36` next screen |
 
-Menus are unchanged. **Free look is now entered with R3 and left with LB**,
-because `0x06` is one event serving both SelectPrev and free-look exit and can
-sit on only one button. The alternative — a second slot on that description,
-keeping the exit on R3 — was rejected because it would make R3 in the world fire
-`0x01` and `0x06` together, entering free look and cycling the target in one
-press.
+Menus are unchanged. **`0x06` is registered on LB, not R3**, because it is one
+event serving both SelectPrev and free-look exit and can sit on only one
+button. The alternative — a second slot on that description, keeping the exit
+on R3 — was rejected because it would make R3 in the world fire `0x01` and
+`0x06` together, entering free look and cycling the target in one press.
+
+**R3 still leaves free look.** `0x01` is polled only in ICPC, so a press while
+in free look (ICFreeLook) is bridged instead: `PerformPendingFreeLookExitK1`
+calls `HandleInputEvent` with `0x06` on the gameplay frame, and the press is
+suppressed so it means one thing. So R3 toggles, and LB also leaves. (This
+paragraph said "entered with R3 and left with LB" until 2026-09-24.)
 
 **LB and RB carry no GUI event at all now.** The right stick already scrolls
 descriptions in menus: `UpdateDescriptionScrollK1` dispatches `0x39`/`0x3A`
@@ -195,7 +209,7 @@ compiles, and none of it has been played.
 | --- | --- |
 | Proportional analog movement, and diagonals that are not rescaled to full speed | `NativeJoystickMovementK1`, `NativeJoystickSkipNormalizeK1` |
 | Right-stick camera through the engine's own turn, not synthesised key taps | `NativeCameraFrameK1` |
-| Spatial focus navigation on screens the engine cannot navigate, with hold-repeat | `NativeGuiFrameK1`, `K1NativeJoystick.cpp:2651-2740` |
+| Spatial focus navigation on screens the engine cannot navigate, with hold-repeat | `NativeGuiFrameK1` in `K1NativeJoystick.cpp` |
 | A focusable in-game tab bar, and native list control inside tab content | `NativeGuiFrameK1` |
 | D-pad control of the gameplay HUD action bar | `NativeActionBarK1` |
 | World interaction on A in gameplay, where nothing has focus | interaction bridge |
@@ -203,15 +217,20 @@ compiles, and none of it has been played.
 | Flourish weapons on L3, gated to input class 0 so it cannot fire in menus | `PerformPendingStickActionsK1` |
 | Movie margins painted black | `NativeMovieWindowOpenK1`, `NativeMovieWindowCloseK1` |
 | Controller prompt badges, generated per resolution at install time | `tools/build_controller_prompt_textures.py` |
+| R3 switches party member on Abilities, Character, Equipment and Inventory, with an on-screen cue | `PerformPendingPartySwitchK1`, `K1_PARTY_SWITCH_PANELS` |
+| Start opens and closes the Map | the `0xD7` bridge, `K1_START_OPENS_MAP` |
+| Cues for LT/RT on the menu tab strip and X on the Abilities sub-tabs; an A beside a confirmation box's focused button | `reverse-engineering/custom-gui-controls.md` |
+| The Controller Layout screen, under Options → Gameplay | `K1ControllerLayout.cpp`, [`controller-layout.md`](controller-layout.md) |
 
 ## Coverage of the retained Xbox layout
 
 The retained events *are* the Xbox build's own controller handling, left in the
 PC executable. Counting distinct event ids across every dispatcher in
 `../reverse-engineering/retained-gui-event-inventory.txt`: **the engine
-implements 25, and KMRP binds 18.**
+implements 25, and KMRP binds 19** -- 18 when this was first counted, plus `0xCE`
+since R3 took it.
 
-The seven unbound ones, with how many panels implement each:
+The ones that were unbound at that count, with how many panels implement each:
 
 | id | panels | status |
 | --- | --- | --- |
@@ -220,7 +239,7 @@ The seven unbound ones, with how many panels implement each:
 | `0xDF` | 8 | the PC-side id paired with `0x0B` in the action router at `0x006213BC`; Start already drives that pair |
 | `0x3F`, `0x40` | 5 each | **meaning not established** |
 | `0x3D`, `0x3E` | 4 each | `CSWGuiListBox` treats them as aliases of `0x31`/`0x32`, scroll selection up and down — functionally covered by the D-pad |
-| `0xCE` | 4 | INVENTORY only; unexamined |
+| `0xCE` | 4 | change the party member the screen shows. **Bound since 2026-09-15:** R3 sends it to ABILITIES, CHARACTER, EQUIP and INVENTORY, the four panels that implement it (`K1_PARTY_SWITCH_PANELS`). This row said "INVENTORY only; unexamined" |
 | `0x3B`, `0x3C`, `0x00` | 1 each | **meaning not established** |
 
 So of the seven, one is already covered by Start, two are D-pad aliases, and the
@@ -263,10 +282,10 @@ policy both depend on them.
 
 - Gap 2, D-pad auto-repeat on the retained codes, is reasoned from the two
   sources and **has not been driven in game**.
-- Gaps 1 and 3 depend on identifying what `R`, `End`, `Home`, `Insert`, `X` and
-  `CapsLock` are bound to in KOTOR's own keymap. That has not been read out of
-  `keymap.2da`, and until it is, "absent" is a statement about the code, not
-  about whether anything is missing in play.
+- Gaps 1 and 3 depended on identifying what `R`, `End`, `Home`, `Insert`, `X`
+  and `CapsLock` are bound to in KOTOR's own keymap. That has since been read
+  out of `keymap.2da` -- see *Corrections to an earlier reading of this file*
+  above -- so this item is closed.
 - Everything in the native column has been played except where
   [`controller-playtest-checklist.md`](controller-playtest-checklist.md) says
   otherwise.

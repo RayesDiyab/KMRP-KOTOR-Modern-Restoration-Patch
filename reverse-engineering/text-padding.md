@@ -20,7 +20,11 @@ control and they share no layout code:
 | **shared message popup** | 1 file, many uses | `confirm.gui` — the confirm box *and* all 43 tutorial popups | its `LB_MESSAGE` does |
 
 Surveyed across all 82 shipped `.gui` files. Only listboxes have a `PADDING`
-field at all; the other 559 carry nothing but `EXTENT` and `BORDER`.
+field at all; the other 559 carry nothing but `EXTENT` and `BORDER`. (The survey
+dates from 2026-09-02. A count on 2026-09-25 of the archives embedded in the
+installer found 82 `.gui` files in 47 of them. The 3440x1440 archive has 83,
+because it also ships the hand-tuned `dialog.gui` from
+`assets/override-3440x1440/`. The survey was not re-run over it.)
 
 So **any change made through `PADDING` or `CAurGUIListBox` reaches 81 boxes and
 misses 559.** That was tried in this project and reverted: a top inset added in

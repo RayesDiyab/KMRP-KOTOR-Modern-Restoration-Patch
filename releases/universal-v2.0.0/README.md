@@ -7,6 +7,15 @@
 > anything untested labelled as untested.
 
 
+*Historical record, labelled 2026-09-24.* This page shipped with the 2.0.0 build
+of 2026-08-29, whose hash is in `SHA256.txt`, and it describes that build only.
+It is kept unchanged below. The current installer differs in ways this page
+could not know about. For example, its 3440×1440 output is **not**
+byte-identical to the gold snapshot: it differs in 22 bytes across 17 runs,
+which are the values the installer writes per resolution (see
+[binary-inventory.md](../../reverse-engineering/binary-inventory.md)). For the
+current build, read the [main README](../../README.md).
+
 This is the standalone 48-resolution build. No companion files are required.
 
 Before patching, place the Deadly Stream editable `swkotor.exe` in the game

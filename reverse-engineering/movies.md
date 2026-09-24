@@ -48,6 +48,8 @@ than inferred.
 | clean executable | 4,042,752 bytes, SHA-256 `761F9466F456A83909036BAEBB5C43167D722387BE66E54617BA20A8C49E9886` |
 | reference before this change | `swkotor_gold_v22_laa.exe`, SHA-256 `7863BCE3BDDAC279B6A14FEB2412D38572CF94D22D6E0D8EC869D491B7EFCDE8` |
 | reference after this change | `swkotor_gold_v23_movies.exe`, SHA-256 `29BE3C23F53D53F521D98329F996248864834FB3873819DF63CCF1803C65A7E8` |
+| aspect fit | `swkotor_gold_v24_movieaspect.exe`, 4,087,808 bytes, SHA-256 `9DD81A75F4888FD67242B682BEE0AB4392EA8923CDF4A020CA3EDD2464C05E0A` -- the current gold |
+| shipped | the installer of 2026-09-24 (`ECA3DE4B…`), `--apply` at all 48 resolutions: the four operands below carry each resolution, and the `.kmv` stub is byte-identical to gold's in every output |
 | address convention | image base `0x00400000`; `VA = FILE + 0x00400000` for these original-image sites |
 | method | aligned `llvm-objdump` disassembly, raw-byte search, import inspection, builder read-back, four-resolution output regression |
 
@@ -96,19 +98,85 @@ Changing only the comparison pair leaves the second path requesting 640x480.
 Changing only the initialization pair leaves the entry branch comparing against
 640x480. Both copies are therefore one atomic resolution policy.
 
-## Rendering is dynamic
+## Rendering reads the live window
 
 The full-screen playback routine at `0x004053E0` obtains the live client bounds
 before opening the Bink buffer. It opens the movie at `0x00405671`, opens the
-buffer at `0x0040573B`, then derives an aspect-fit scale from the Bink handle's
-width and height and the client rectangle. It calls `BinkBufferSetScale` through
-IAT VA `0x0073D484` at `0x00405802`, then centres the result with
+buffer at `0x0040573B`, then computes a scale, calls `BinkBufferSetScale` through
+IAT VA `0x0073D484` at `0x00405802`, and centres the result with
 `BinkBufferSetOffset` at `0x00405867`.
 
-Consequently KMRP does not rewrite a BIK's dimensions and does not stretch a
-movie to an arbitrary aspect ratio. A 3440x1440 game still needs a compatible
-movie set if the user expects native 3440x1440 frames. KMRP changes only the
-display mode surrounding playback.
+**In retail the scale comes from the width alone** -- the disassembly under
+*Correction, 2026-09-06* above. KMRP does not rewrite a BIK's dimensions; it
+changes the display mode around playback (the four operands) and, since gold
+v24, the scale itself (*Aspect fit*, below). A 3440x1440 game still needs a
+matching movie set if the user expects native 3440x1440 frames.
+
+*Corrected 2026-09-24:* this section still said the routine "derives an
+aspect-fit scale from the Bink handle's width and height" and concluded that KMRP
+"changes only the display mode" -- the very claims the 2026-09-06 correction
+retracted, left behind when the rest of the document was fixed.
+
+## Aspect fit (gold v24)
+
+`tools/build_movie_aspect_fit.py` replaces the seven bytes at `0x004057AC`, where
+the width-only computation starts, with a jump into `.kmv`, the eleventh appended
+section (`VA 0x00877000`, `FILE 0x3E5000`, `FILE = VA − 0x492000`, 81 bytes used).
+Disassembled from the installer's 1920x1080 output; the bytes are identical in
+gold and every other output:
+
+```asm
+004057AC  e9 4f 18 47 00        jmp  0x00877000       ; was: mov ecx,[esi+48] / mov eax,[ecx] / cmp ebx,eax
+004057B1  90 90                 nop ; nop
+
+; entry: ESI = CExoMoviePlayerInternal*, EBX = client width,
+;        EBP = client bottom, [esp+24] = client top
+00877000  57                    push edi
+00877001  8b 46 48              mov  eax, [esi+48]     ; BINK*
+00877004  8b 08                 mov  ecx, [eax]        ; movie width  mw
+00877006  8b 50 04              mov  edx, [eax+4]      ; movie height mh
+00877009  8b fb                 mov  edi, ebx
+0087700B  0f af fa              imul edi, edx          ; cw * mh
+0087700E  8b c5                 mov  eax, ebp
+00877010  2b 44 24 28           sub  eax, [esp+28]     ; ch = bottom - top
+00877014  0f af c1              imul eax, ecx          ; ch * mw
+00877017  3b f8                 cmp  edi, eax
+00877019  7e 16                 jle  0x00877031        ; screen no wider than the movie: fit the width
+0087701B  8b c5                 mov  eax, ebp          ; else fit the height:
+0087701D  2b 44 24 28           sub  eax, [esp+28]
+00877021  8b f8                 mov  edi, eax          ;   height = ch
+00877023  0f af c1              imul eax, ecx
+00877026  99                    cdq
+00877027  8b 4e 48              mov  ecx, [esi+48]
+0087702A  f7 79 04              idiv dword [ecx+4]
+0087702D  8b d8                 mov  ebx, eax          ;   width = ch * mw / mh
+0087702F  eb 0a                 jmp  0x0087703B
+00877031  8b c2                 mov  eax, edx          ; fit the width: width = cw (EBX)
+00877033  0f af c3              imul eax, ebx
+00877036  99                    cdq
+00877037  f7 f9                 idiv ecx
+00877039  8b f8                 mov  edi, eax          ;   height = mh * cw / mw
+0087703B  89 7c 24 14           mov  [esp+14], edi     ; the height the caller centres with
+0087703F  8b 46 4c              mov  eax, [esi+4c]     ; the Bink buffer
+00877042  57 53 50              push edi / push ebx / push eax
+00877045  ff 15 84 d4 73 00     call [0x0073D484]      ; BinkBufferSetScale(buffer, width, height)
+0087704B  5f                    pop  edi
+0087704C  e9 b7 e7 b8 ff        jmp  0x00405808        ; resume after retail's own SetScale call
+```
+
+So `scale = min(cw / mw, ch / mh)`, in integers, and the retail code from
+`0x00405808` centres the result as before. What it produces for a 640x480 logo and
+a 1280x720 movie, from the formula:
+
+| screen | 640x480 logo | 1280x720 movie |
+| --- | --- | --- |
+| 800x600 | 800x600 (width and height fit together) | 800x450 |
+| 1920x1080 | 1440x1080 | 1920x1080 |
+| 3440x1440 | 1920x1440 | 2560x1440 |
+
+Retail drew the same logo at 3440x2580 on a 3440x1440 screen. Fitting leaves
+bars beside a movie narrower than the screen, and those bars were never painted
+-- the grey flash below, which is why that fix followed this one.
 
 ## Rejected community-patcher signature
 
@@ -172,7 +240,9 @@ class. `SWMovieWindow` is the one class that was left without one.
 
 ### What KMRP does
 
-Two detours, both in `src/controller-native/kotor1.hooks.toml`:
+Two detours, both in `src/controller-native/kotor1.hooks.toml`, so they ship
+with the controller component (on by default since 2026-09-24). With that
+component turned off, the bars and the flash are back:
 
 | address | function | when |
 | --- | --- | --- |

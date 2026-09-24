@@ -52,12 +52,20 @@ the earlier reading was and why it was wrong.
 | | |
 | --- | --- |
 | .NET Framework 4.x | `csc.exe` from `C:\Windows\Microsoft.NET\Framework\v4.0.30319` |
-| Python 3 | with `pykotor`; `Pillow` and `numpy` for some asset tools |
+| Python 3 | with the packages in `requirements.txt`; the resource build itself needs `Pillow` |
+| MSVC, x86 | Visual Studio Build Tools, for `src\controller-native\build.cmd` |
+| Network, once | `tools/prepare_sdl3.ps1` downloads the pinned SDL 3 SDK into `build/deps` |
 | Game files | `swpc_tex_gui.erf` and a clean `swkotor.exe`, placed in [`build-inputs/`](build-inputs/README.md) |
 
 **The project folder is self-contained**: everything the build reads is inside
 it, so it can live anywhere. Only the two game-derived files above must be
-supplied, and `.gitignore` keeps them out of the repository.
+supplied from outside, and `.gitignore` keeps them out of the repository. A
+fresh clone must also generate three inputs that are not committed: the gold
+snapshot (the tool chain in [docs/font-scaling.md](docs/font-scaling.md)), the
+controller module (`src\controller-native\build.cmd`) and, optionally, the
+per-resolution font sets (`tools/build_font_scale_sets.py`); see *Build from
+source* in the [README](README.md). (Until 2026-09-24 this said the two files
+were all a build needed.)
 
 Every path is still a parameter — see the `param()` block at the top of
 `build_kmrp.ps1` — and can be overridden with `-SourceExe` /
@@ -107,7 +115,10 @@ breaking them:
   ```
 
   It diffs the clean executable against gold, groups the differences into runs,
-  and exits non-zero if any run is not named by a Markdown document. This is the
+  and exits non-zero if any run is not named by a Markdown document. Add
+  `--installed` with the installer's `--apply` output at every resolution to
+  cover the bytes the patcher writes where gold keeps vanilla (the
+  inventory's §2). This is the
   only check organised by *bytes* rather than by subject, so it is the only one
   that notices a patch site nobody documented — its first run found six. CI
   cannot run it, because neither the clean executable nor a gold snapshot can be
@@ -115,7 +126,7 @@ breaking them:
   [reverse-engineering/binary-inventory.md](reverse-engineering/binary-inventory.md).
 
 New engine code goes into its own PE section (`.kui`, `.klb`, `.kfs`, `.kwl`,
-`.ksc`, `.kgs`, `.ktn`, `.kmz`, `.kfg`, `.kmn`) via a builder in `tools/`; simple
+`.ksc`, `.kgs`, `.ktn`, `.kmz`, `.kfg`, `.kmn`, `.kmv` so far) via a builder in `tools/`; simple
 constant changes are in-place `imm32` rewrites. Each builder verifies the bytes
 it expects to find before writing anything, and refuses to proceed otherwise —
 keep that pattern.

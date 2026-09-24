@@ -18,8 +18,14 @@ All notable changes to KMRP are recorded here. The format follows
 > 2.0.0–2.5.0 the build script's default still pointed at an older snapshot than
 > the documentation describes, so no gold snapshot is claimed for those. Going
 > forward, tag releases so this stops being reconstruction. **2.10.0 is where
-> that starts:** it is the first tagged version, so every entry above it is
-> reconstructed and every entry from it on is not.
+> that starts:** it is the first tagged version. The entries below it, 2.7.0 back
+> to 2.0.0, are reconstructed; it and everything above it are not. (Until
+> 2026-09-24 this said "every entry above it is reconstructed". Newest entries
+> are at the top, so that had the direction backwards.)
+>
+> **Public names.** 2.10.0 is **KMRP 1.0**, and [Unreleased] is **KMRP 1.5**.
+> The headings keep the internal `PatchVersion` numbers, because the tag
+> `v2.10.0` and the 2.0.0 hash record use them.
 
 ## Everything the patch changes in the executable
 
@@ -31,13 +37,23 @@ knowing the project's history.
 
 It is kept honest by
 [`reverse-engineering/binary-inventory.md`](reverse-engineering/binary-inventory.md),
-which lists all 702 differing byte positions and refuses to pass if any of them has no
-technical write-up. If something appears there and not here, this section is out
-of date.
+which lists every byte position the installer changes -- the 721 where gold
+differs from the clean executable and the 21 more it writes over values gold
+leaves vanilla -- and refuses to pass if any run of them has no technical
+write-up. If something appears there and not here, this section is out of date.
 
-**The size of it.** KMRP changes 702 byte positions inside the original
-4,042,752-byte executable — 0.017% — and appends ten new 4KB sections holding the code and data
-the original has no room for. Nothing else in the file moves.
+**The size of it.** KMRP's installer changes 742 byte positions inside the
+original 4,042,752-byte executable, at one resolution or another — 0.018% — and
+appends eleven new 4KB sections holding the code and data the original has no
+room for, so every patched executable is 4,087,808 bytes. Nothing else in the
+file moves. Measured on 2026-09-24 by running the installer (`ECA3DE4B…`) at all
+48 resolutions.
+
+*Corrected 2026-09-24:* this section said 702 positions and ten sections, the
+count before gold v24 added the movie aspect fit, and before the installer's
+own output rather than gold was counted. It also lacked five of the rows below:
+the movie aspect fit, the list gutter, the blank first line, the HUD minimap's
+zoom and fog, and two of the resolution fields.
 
 | What you see in game | What changes in the executable |
 | --- | --- |
@@ -46,26 +62,62 @@ the original has no room for. Nothing else in the file moves.
 | **Inventory, Abilities and Store rows and icons are sized to match.** | Three separate hardcoded 56s decide the icon box, the text offset and the row height, none of them reachable from any `.gui` file. That is why editing the interface files alone never moved them. |
 | **Item stack counts are visible again.** | Two guards blanked any string of one or two characters that did not fit its box, and the enlarged font made the fixed 21px stack label too narrow to pass them, so two-digit counts silently vanished. Both guards are removed, together with a fix to the line-breaking loop that they were the only thing protecting against. |
 | **The game no longer crashes** on items with long descriptions. | The line-breaker's only guard compared against the start of the whole string rather than the start of the current line, so a line that could not break looped until memory ran out. |
+| **Lists keep their gaps where they belong.** | Each list's `PADDING` byte did six jobs at once -- left and right inset, the first row's top, the row pitch and two fit tests -- so a gutter beside the text also spread the rows apart and pushed the list down. It is now a horizontal gutter only, on the scrollbar's side, in both of the engine's list-rect builders. |
+| **Descriptions no longer open with a blank line.** | The game builds a description by prefixing a newline to each property line, so an item whose description starts with properties began with an empty line. Leading newlines are stripped as the text is set. |
 | **Dialogue gets proper letterboxing** at any aspect ratio. | The bars are derived from screen height rather than assumed. |
 | **The area map fills its frame**, at every resolution. | The map picture is drawn on its own canvas, separate from both the window and the marker overlay, and sized so its content fits the frame; the `LBL_Map` control crops whatever overhangs, as it always did. |
 | **Fog of war covers the whole map** instead of stopping 242px short on the right. | The fog grid was stepped by a fixed constant while the map was drawn at a different width, so the last strip was never covered by any tile. Two instructions now read the live rectangle instead of that constant. |
 | **Clicking a map marker hits the marker.** | The hit test recentred the map's canvas inside the window, but the control that positions it is placed by the overlay, and the canvas overhangs it. Clicks landed 141px to the right; eleven bytes were replaced with eleven, and it was measured live before and after. |
 | **Map markers keep their size as the map grows**, and stay on their subject. | Note, party and player-arrow rectangles were built from the original hardcoded sizes while everything around them scaled. |
 | **250 map notes point at the right place.** | Optional. A table keyed on each note's shipped world position substitutes a corrected one. It needs no hook of its own, because the code KMRP already redirects receives that position as its own argument. The corrections are Derslok's measurements, used with permission. |
+| **The HUD minimap stays zoomed in on you**, however large it is drawn. | Vanilla sizes the minimap's map picture for a 120-pixel viewport, so an enlarged viewport showed a zoomed-out map. The picture is scaled by `viewport / 120` about the centre -- only when the viewport is square and the source is the map atlas, so nothing else that shares the draw is touched -- and the fog grid is scaled to match, or explored ground re-fogged as it left the middle. |
 | **The HUD minimap is unaffected by the map work.** | The full map and the HUD minimap share one constructor. The minimap's call to it is wrapped, and the wrapper puts that one instance back to retail values — so the map screen can be resized without dragging the minimap with it. |
 | **The process can use more than 2 GB of virtual address space on 64-bit Windows.** | The PE header's standard `IMAGE_FILE_LARGE_ADDRESS_AWARE` bit is enabled. No allocator or code path is changed. |
 | **Full-screen movies stay in the selected display mode.** | KOTOR has two independent 640x480 mode pairs around Bink playback even though the renderer itself scales from the live client rectangle. Both pairs are rewritten per resolution, avoiding the forced legacy-mode transition. |
+| **Movies keep their shape** instead of being cropped. | Retail scaled every movie by the screen width alone, so a 640x480 logo became 3440x2580 on a 3440x1440 screen and lost 1140 rows. The scale is now the smaller of the width and height ratios, in a small appended routine. The bars this leaves beside a narrow movie are painted black by the optional controller component; without it they show whatever was on screen. |
 | **Tutorial and confirmation popups fit their text** instead of clipping it. | The shared popup sizes itself from constants that never accounted for larger text. |
-| **Interface elements sit where they should** at your resolution, not at 640x480. | Two shared helpers recentre almost every non-HUD screen using the resolution the interface was designed for. The patcher writes your actual resolution into them at install time, which is also why the reference build in this repository has one author's monitor baked in and the shipped executable never does. |
+| **Interface elements sit where they should** at your resolution, not at 640x480. | Two shared helpers recentre almost every non-HUD screen using the resolution the interface was designed for. The patcher writes your actual resolution into them at install time, which is also why the reference build in this repository has one author's monitor baked in and the shipped executable never does. Two more width and height pairs get the same treatment: a centring subtraction that assumed 640 pixels, and a mode comparison against 800x600. |
 | **The correct interface artwork is chosen for your screen.** | A chain of width comparisons picks a resource set; the first is redirected to your width and the later ones are disabled so they cannot win instead. |
-| **Nothing else.** | The remaining changes are the PE header's own bookkeeping — the section count, the image size, and the ten new section headers. One casualty is worth naming: a leftover `Hellspawn Reborn` signature string sitting in the header's unused padding is overwritten by the fifth section header. Nothing reads it. |
+| **Nothing else.** | The remaining changes are the PE header's own bookkeeping — the section count, the code and image sizes, a zeroed checksum, and the eleven new section headers. One casualty is worth naming: a leftover `Hellspawn Reborn` signature string sitting in the header's unused padding is overwritten by the fifth section header. Nothing reads it. |
 
 **What is *not* changed in the executable**, though the patch installs it:
 interface layout files, font atlases and icon artwork all ship as ordinary
 `Override` files, and the bundled *K1 Modern Driver Compatibility* patches its
-own process in memory at startup without writing to `swkotor.exe` at all.
+own process in memory at startup without writing to `swkotor.exe` at all. The
+optional controller component is the same: its hooks, including three memory
+fixes from the KOTOR Patch Manager project, are applied in memory by its runtime
+from `patch_config.toml`.
 
 ## [Unreleased]
+
+**This is KMRP 1.5**, the build in progress. Its installer reports 1.5.0 in
+Properties → Details and in the install record
+(`swkotor.exe.kotor-ui-patch.json`).
+
+Until 2026-09-24 it carried internal numbers, and they disagreed.
+`PatchVersion` read `2.11.0-movieaspect`, but Properties → Details still
+reported `2.10.0-mapnotes`. It was the second time these two drifted apart;
+1.0 itself reports 2.7.0.0 there. `build_kmrp.ps1` now refuses to compile
+while they disagree. Before the versions were corrected, it was run against
+the real mismatch and refused it.
+
+The 1.5.0 installer (`7933119329A5…DBAB91`, 177,716,224 bytes) was compared
+with the play-tested one (`ECA3DE4B…`):
+- its `--apply` output at all 48 resolutions is byte-identical;
+- 68 of its 69 embedded resources are byte-identical, and the 69th is the MIT
+  licence below.
+
+Every measurement below that cites `ECA3DE4B…` therefore also holds for it. An
+intermediate relabel without the licence, `D81E640C…`, was never installed.
+
+- **The KOTOR Patch Manager MIT licence is installed with the controller.** The
+  runtime, the controller module and the memory-safety patches all come from
+  KPM, which is MIT-licensed, and MIT asks for the notice to travel with every
+  copy. The installer shipped all three without it. It now embeds
+  `LICENSE-KOTOR-PATCH-MANAGER.txt` and installs it as
+  `kmrp-kotor-patch-manager-LICENSE.txt`; the controller manifest owns it, and
+  Restore removes it. `Test-ControllerSupport.ps1` checks the installed copy
+  byte for byte, and `Test-ReinstallOverOlderBuild.ps1` also passes.
 
 ### Added
 
@@ -1104,6 +1156,10 @@ own process in memory at startup without writing to `swkotor.exe` at all.
   textures and control mappings are regression-checked. The PC data's retained
   Xbox strings and seven legacy textures remain unused because their console
   mapping conflicts with this module. See `docs/controller-support.md`.
+  *Since superseded:* this is the first integration. The component is now KMRP's
+  native path -- the pad driving the game's own input pipeline, 18 detours and 4
+  byte patches, prompts in four controller families -- and it is on by default
+  since 2026-09-24; see the controller entries above.
 
 ### Changed
 - **Mod-build compatibility now has an explicit supported-input and install-order
@@ -1244,6 +1300,11 @@ own process in memory at startup without writing to `swkotor.exe` at all.
   and confirmation-child containment.
   The packaged 3840×2160 files were installed and hash-verified; in-game visual
   confirmation remains untested.
+  *Superseded in part:* the prototype rewrite for `optfeedback.gui` and
+  `scriptselect.gui` was reverted on 2026-09-06 -- see *The Character Scripts and
+  Feedback screens are no longer rebuilt from stale prototype geometry* above --
+  and on 2026-09-24 those screens got a scrollbar gutter and centred rows
+  instead. The HUD, notification and confirmation parts stand.
 - **Windows display scaling no longer applies a second zoom layer to KMRP's
   resolution-aware interface.** In-place installs now add the per-user
   `HIGHDPIAWARE` compatibility flag for the selected `swkotor.exe`. KMRP records
@@ -1259,7 +1320,9 @@ own process in memory at startup without writing to `swkotor.exe` at all.
 
 ## [2.10.0] — 2026-09-04
 
-First tagged release, and the first public one. `PatchVersion` in
+First tagged release, and the first public one: **KMRP 1.0**. The tag and the
+GitHub release keep the internal number, and its Properties → Details report
+2.7.0.0 (see [Unreleased]). `PatchVersion` in
 `src/patcher/KmrpPatcher.cs` reads `2.10.0-mapnotes`; gold snapshot
 `swkotor_gold_v21_mapnotes.exe`, SHA-256
 `9ACE45023EAB9063803136E6C312E5E87DD85E07E33CCB5525C04DCA38C478DC`.

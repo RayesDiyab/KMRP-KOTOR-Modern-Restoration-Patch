@@ -16,6 +16,12 @@ needs more than 2 GB; memory-heavy gameplay remains an empirical test.
 | Same clean file with LAA as its only changed bit | 4,042,752 | `CA9D22EACB5BDFA8E2AD3F8935B0E8E2FED72DA8132D0622D576A650AA7E1889` | `0x012F` |
 | Gold v21 map notes | 4,083,712 | `9ACE45023EAB9063803136E6C312E5E87DD85E07E33CCB5525C04DCA38C478DC` | `0x010F` |
 | Gold v22 LAA | 4,083,712 | `7863BCE3BDDAC279B6A14FEB2412D38572CF94D22D6E0D8EC869D491B7EFCDE8` | `0x012F` |
+| Gold v24, current | 4,087,808 | `9DD81A75F4888FD67242B682BEE0AB4392EA8923CDF4A020CA3EDD2464C05E0A` | `0x012F` |
+| What the installer writes, all 48 resolutions | 4,087,808 | per resolution | `0x012F` |
+
+The last two rows were read on 2026-09-24 from gold and from the 2026-09-24
+installer's `--apply` output: v23 and v24 carried the bit forward, and every
+executable the installer writes has it.
 
 These values were read directly from the files and re-hashed after the builder
 re-read its output. The field is in the PE file header, not a loaded section, so
@@ -75,7 +81,8 @@ one-bit input, not claimed as an end-to-end run of that binary.
 
 ## Verification
 
-Build and inventory the final gold snapshot:
+Rebuild the LAA step, then inventory the current gold snapshot, which carries
+it forward:
 
 ```powershell
 python tools\build_large_address_aware.py `
@@ -83,7 +90,7 @@ python tools\build_large_address_aware.py `
   build\kmrp\swkotor_gold_v22_laa.exe
 python tools\build_binary_inventory.py `
   build-inputs\swkotornopatch.exe `
-  build\kmrp\swkotor_gold_v22_laa.exe
+  build\kmrp\swkotor_gold_v24_movieaspect.exe
 ```
 
 Then build the patcher and run:

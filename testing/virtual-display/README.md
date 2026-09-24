@@ -36,3 +36,16 @@ SignPath Foundation Authenticode signatures.
 
 Keep the physical monitor enabled until the OBS capture workflow is confirmed.
 Do not select "show only" on the virtual monitor during initial setup.
+
+## Files kept here
+
+| File | What it is |
+| --- | --- |
+| `kotor-vdd-settings.xml` | The profile: 48 modes, all at 60 Hz. Checked on 2026-09-24: its 48 modes are exactly the 48 resolutions of the installer's `--apply` outputs. |
+| `swkotor-7680-windowed.ini` | A `swkotor.ini` at 7680×2160, windowed (`FullScreen=0`, `AllowWindowedMode=1`). It is also the seed INI that four regression scripts copy into their throwaway game: `Test-ControllerSupport.ps1`, `Test-DpiCompatibility.ps1`, `Test-LargeAddressAware.ps1` and `Test-ReinstallOverOlderBuild.ps1`. |
+| `minimap-7680x2160/`, `mipc28x6.gold-geometry*.gui`, `mipc8x6.minimap-180.gui` | Lab records from the minimap-scale experiments of 2026-08-28 at 7680×2160, committed with the first commit. There are twelve HUD layouts (`mipc*.gui`, GFF `GUI V3.2`), plus `backup-location.txt`, which gives that day's backup path on the build machine. They predate the current map model ([universal-resolution-math.md](../../docs/universal-resolution-math.md)), so they are **not** what the build generates today. Nothing in the repository reads them. |
+
+The ignored `verify-*/` folders and the driver package are described in
+[testing/README.md](../README.md#what-is-deliberately-not-committed). (This
+section was added on 2026-09-24. Before then the README described only the
+profile and the package.)

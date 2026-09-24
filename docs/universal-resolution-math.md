@@ -17,62 +17,81 @@ The original 3440×1440 patcher is frozen separately as
 **Selecting 3440×1440 in KMRP no longer reproduces that
 historical hash.** The current baseline is `swkotor_gold_v24_movieaspect.exe`
 (`9DD81A75F4888FD67242B682BEE0AB4392EA8923CDF4A020CA3EDD2464C05E0A`). It
-contains the full cumulative gold chain through map-note corrections and Large
-Address Aware support. The
-resolution math below is unchanged by that; only the baseline executable
-differs. See `docs/font-scaling.md` and
+contains the full cumulative gold chain through map-note corrections, Large
+Address Aware support and the Bink aspect fit. See `docs/font-scaling.md` and
 `reverse-engineering/listbox-geometry.md` for the gold lineage.
+
+**Gold is not what 3440×1440 ships either.** Gold is a fixed snapshot, and some
+of its values predate the rules below: its area-map fields are an earlier
+model's, and it leaves the list-row sizes at vanilla for the patcher to fill in.
+Measured on 2026-09-24 by running the installer (`ECA3DE4B…`) with `--apply` at
+all 48 resolutions: the 3440×1440 output differs from gold in 22 bytes across
+17 runs, all of them fields in *Executable fields* below.
 
 ## Resolution inputs
 
-For a selected screen width `W` and height `H`:
+For a selected screen width `W` and height `H`, the area-map geometry is
+(`tools/analyze_resolution_guis.py`, written into `resolutions.tsv`, which the
+patcher embeds and reads):
 
 ```text
-map_canvas_width  = floor(W / 2)
-map_canvas_height = floor(H / 2)
-
-marker_overlay_width  = round_half_up(map_canvas_width × 440 / 512)
+marker_overlay_width  = W // 2
+map_canvas_height     = H // 2
 marker_overlay_height = map_canvas_height
+map_canvas_width      = round(marker_overlay_width × 512 / 440)
+centering_domain      = W × H
 ```
 
-The `440×256` values are KOTOR's original marker-coordinate domain. The executable wrappers scale map notes, the selected marker, the party marker, and the player arrow from that original domain into the new overlay:
+The map picture is drawn on the canvas; the fog grid and the markers live in the
+overlay. Only 440 of the map atlas's 512 columns carry picture, so the canvas is
+the overlay plus that surplus, and `LBL_Map` is set to exactly the overlay so the
+control crops it. The frame art's interior measures `W // 2`, which is why the
+overlay does. For `LBL_Map` to crop from the canvas's own left edge the centring
+domain must equal the screen: `canvas_left = LBL_Map.left + (W − centering_x) / 2`.
+KOTOR's renderer adds a 14-pixel top inset, which `LBL_Map.top` absorbs:
+
+```text
+LBL_Map = ((W − overlay_width) // 2, (H − canvas_height) // 2 + 14, overlay_width, canvas_height)
+```
+
+The `440×256` values are KOTOR's original marker-coordinate domain. The executable
+wrappers scale map notes, the selected marker, the party marker and the player
+arrow from that domain into the overlay:
 
 ```text
 screen_marker_x = round_half_up(original_x × marker_overlay_width / 440)
 screen_marker_y = round_half_up(original_y × marker_overlay_height / 256)
 ```
 
-## Centering from `map.gui`
+The hit test inverts the same placement; the version that centred the canvas in
+the window instead was 141 px out, see
+[`../reverse-engineering/map-markers.md`](../reverse-engineering/map-markers.md).
 
-Every resolution uses its matching `map.gui`. The generator reads the `LBL_Map` control instead of guessing screen offsets.
+What ships, read back from the installer's outputs (FILE `0x295082`/`0x29508A`,
+`0x29505C`/`0x295064`, `0x2928B3`/`0x2928C3`):
 
-```text
-render_left = LBL_Map.LEFT + 4
-render_top  = LBL_Map.TOP
+| W×H | overlay | canvas | centring |
+| --- | --- | --- | --- |
+| 800×600 | 400×300 | 465×300 | 800×600 |
+| 1920×1080 | 960×540 | 1117×540 | 1920×1080 |
+| 2560×1440 | 1280×720 | 1489×720 | 2560×1440 |
+| 3440×1440 | 1720×720 | 2001×720 | 3440×1440 |
+| 3840×2160 | 1920×1080 | 2234×1080 | 3840×2160 |
+| 15360×8640 | 7680×4320 | 8937×4320 | 15360×8640 |
 
-centering_width  = 2 × render_left + map_canvas_width
-centering_height = 2 × (render_top - 14) + map_canvas_height
-```
+Gold still holds the earlier model's 3440×1440 values -- canvas 1720×720,
+overlay 1478×720, centring 2750×1400 -- which the patcher checks and replaces at
+every resolution, 3440×1440 included.
 
-KOTOR's renderer adds a 14-pixel vertical inset. The hit-test wrapper derives the inverse translation from the live window and canvas rectangles:
+### Correction, 2026-09-24
 
-```text
-local_mouse_x = mouse_x - (window_width  - map_canvas_width)  / 2
-local_mouse_y = mouse_y - (window_height - map_canvas_height) / 2 + 14
-```
-
-This is why markers remain clickable at the position where they are drawn.
-
-For the confirmed gold resolution, the generated values are:
-
-```text
-W × H                   = 3440 × 1440
-map canvas              = 1720 × 720
-marker overlay          = 1478 × 720
-LBL_Map origin          = 511, 354
-render origin           = 515, 354
-centering domain        = 2750 × 1400
-```
+Until this date this section gave that earlier model as the current one:
+`canvas = W / 2`, `overlay = canvas × 440 / 512`, a centring domain derived from
+`LBL_Map`, and gold's values as what 3440×1440 produces. It changed with the
+fix for the unfogged strip down the right of the map
+([`../reverse-engineering/area-map-surface.md`](../reverse-engineering/area-map-surface.md)).
+Gold kept the old values, which is how the old formulas survived here: they
+describe gold, not what the installer writes.
 
 ## Gameplay minimap isolation
 
@@ -124,14 +143,30 @@ from `build/kmrp/resources/gui-3840x2160.zip`, produced on 2026-09-05; that
 archive was embedded in the 228,886,528-byte standalone package with SHA-256
 `642CB53A239307E8389E4D07DBC3FF85929721D35EBCE81BFAB40AA72708CE29`.
 
-### Feedback list prototypes
+### Feedback list prototypes -- rewritten, then reverted
+
+> **Reverted on 2026-09-06; nothing below in this subsection or the next one's
+> prototype table ships.** The prototype rewrite shipped, and the Character
+> Scripts screen came back broken from play-testing. The play-tested 3440×1440
+> gold files leave these prototypes at their vanilla values, identical to
+> upstream, while the parent list around them is fully scaled, so the rewrite is
+> disabled in `tools/prepare_universal_resources.py` and
+> `Test-GeneratedGuiGeometry.py` now asserts the opposite: every prototype is left
+> exactly as upstream ships it. The installer's 3840×2160 archive holds
+> `(76,90,240,43)` and `(330,90,240,25)` for the two Feedback prototypes and
+> `(71,84,241,50)` and `(324,86,242,50)` for Character Scripts -- the "Old
+> prototype" values. What those screens get instead, since 2026-09-24: a gutter
+> between the Feedback list's left scrollbar and its option circles
+> (`HAND_TUNED_GUTTERS`), and Character Scripts rows centred in the box its
+> background art draws (`centre_rows_in_frame`). Issue #12's 3840×2160 report
+> therefore still needs a different diagnosis.
 
 KOTOR positions and wraps each list row from the listbox's embedded
 `PROTOITEM.EXTENT`. High Resolution Menus had scaled the two parent panes and
 their scrollbars, but left both prototypes at vanilla coordinates with a
 240-pixel width. At 3840×2160 the generated file therefore contained:
 
-| Control | Parent `(L,T,W,H)` | Old prototype `(L,T,W,H)` | Final prototype `(L,T,W,H)` |
+| Control | Parent `(L,T,W,H)` | Old prototype `(L,T,W,H)` | Rewritten to, reverted `(L,T,W,H)` |
 | --- | --- | --- | --- |
 | `LB_OPTIONS` | `(360,405,1536,1305)` | `(76,90,240,43)` | `(456,405,1440,43)` |
 | `LB_DESC` | `(1987,420,1544,1275)` | `(330,90,240,25)` | `(1987,420,1442,25)` |
@@ -148,14 +183,13 @@ A later 3840×2160 report identified the same stale-prototype defect in
 the embedded rows still used 640×480-era positions and widths. Measured from the
 final 4K archive:
 
-| Control | Parent `(L,T,W,H)` | Old prototype `(L,T,W,H)` | Final prototype `(L,T,W,H)` |
+| Control | Parent `(L,T,W,H)` | Old prototype `(L,T,W,H)` | Rewritten to, reverted `(L,T,W,H)` |
 | --- | --- | --- | --- |
 | `LST_AIState` | `(291,384,1574,1409)` | `(71,84,241,50)` | `(387,384,1478,50)` |
 | `LB_DESC` | `(1931,384,1605,1409)` | `(324,86,242,50)` | `(1931,384,1509,50)` |
 
-The same geometry helper now repairs those prototypes after gold-layout
-transfer. This is why the fix applies to all 48 packages rather than containing
-a 4K-only coordinate table.
+The same geometry helper repaired those prototypes after gold-layout transfer,
+until the 2026-09-06 revert above.
 
 The confirmation report exposed an independent containment error. At the
 3440×1440 tuning scale, `TGuiPanel` ended at child y=375 while `BTN_CANCEL`
@@ -210,14 +244,17 @@ centre combat queue remains untouched.
 After a full resource build,
 `python testing/regression/Test-GeneratedGuiGeometry.py` opens all 48 packaged
 GUI archives. For each resolution it proves that the Feedback and Character
-Scripts prototypes fill the exact non-scrollbar portion of their parent, every
-direct confirmation child stays inside its panel, and the HUD file KOTOR
-actually selects contains the exact height-scaled gold extents for all twelve
-transient controls. The 3840×2160 package was installed through `--in-place`;
-the installed `optfeedback.gui` and `mipc28x6.gui` matched their archive members
-byte-for-byte, and the already-patched executable remained 4,083,712 bytes with
-SHA-256
-`6D4DEB0F778DAF08CC8385E4A59C05D2344E8F605EF702501BB92559B657A99F`.
+Scripts prototypes are exactly upstream's, the Feedback list keeps its scrollbar
+gutter, the Character Scripts rows are centred in their frame, every direct
+confirmation child stays inside its panel, the HUD file KOTOR actually selects
+contains the exact height-scaled gold extents for all twelve transient
+controls, and the R3 party-switch cue is sized and placed by its rule. On
+2026-09-05 the 3840×2160 package was installed through `--in-place`; the
+installed `optfeedback.gui` and `mipc28x6.gui` matched their archive members
+byte-for-byte, and the patched executable was then 4,083,712 bytes with SHA-256
+`6D4DEB0F778DAF08CC8385E4A59C05D2344E8F605EF702501BB92559B657A99F`. The
+2026-09-24 installer's 3840×2160 executable is 4,087,808 bytes, SHA-256
+`59A62449F5C1579B12251610EE5AB6079C7B5FA894244A6CECDDBFC5156B713B`.
 
 This is structural verification, not a visual play-test. Opening Feedback,
 Character Scripts, and a confirmation dialog; receiving XP and an item; and
@@ -226,28 +263,73 @@ game.
 
 ## Executable fields
 
-The universal build replaces these verified 32-bit values after applying the gold delta:
+`ResolutionPatch.Apply` in `src/patcher/KmrpPatcher.cs` replaces these fields
+after applying the gold delta. Every replacement first checks that the field
+holds gold's value, and a mismatch blocks patching rather than writing to an
+unknown executable. `s = max(1, H / 720)`, the shared scale; `m = min(s, 127/16)`,
+because the marker centring offsets are signed bytes. C#'s `Math.Round` rounds
+halves to even, so `19 × 1.5 = 28.5` ships as 28. Every value below was **read
+back from the installer's own output** (`--apply`, installer `ECA3DE4B…`,
+2026-09-24), not computed:
 
-| Purpose | Gold value | File offsets |
-|---|---:|---|
-| Screen width | 3440 | `0xAA65`, `0x1F0C65`, `0x28C4E3` |
-| Screen height | 1440 | `0xAA85`, `0x1F0C6F` |
-| Movie-mode width | 3440 | `0x3D6C`, `0x1F5B3B` |
-| Movie-mode height | 1440 | `0x3D78`, `0x1F5B43` |
-| Map centering width | 2750 | `0x2928B3` |
-| Map centering height | 1400 | `0x2928C3` |
-| Map canvas width | 1720 | `0x29505C` |
-| Map canvas height | 720 | `0x295064` |
-| Marker overlay width | 1478 | `0x295082` |
-| Marker overlay height | 720 | `0x29508A` |
+| Field | FILE offsets | Gold | Rule | 800×600 | 1920×1080 | 3440×1440 | 3840×2160 | 15360×8640 |
+| --- | --- | ---: | --- | ---: | ---: | ---: | ---: | ---: |
+| Screen width | `0xAA65`, `0x1F0C65` | 3440 | `W` | 800 | 1920 | 3440 | 3840 | 15360 |
+| Screen height | `0xAA85`, `0x1F0C6F` | 1440 | `H` | 600 | 1080 | 1440 | 2160 | 8640 |
+| Movie-mode width | `0x3D6C`, `0x1F5B3B` | 3440 | `W` | 800 | 1920 | 3440 | 3840 | 15360 |
+| Movie-mode height | `0x3D78`, `0x1F5B43` | 1440 | `H` | 600 | 1080 | 1440 | 2160 | 8640 |
+| Recentring width reference | `0xB6C7`, `0xBA6C` | -3440 | `-W` | -800 | -1920 | -3440 | -3840 | -15360 |
+| Recentring height reference | `0xB6DA`, `0xBA83` | -1440 | `-H` | -600 | -1080 | -1440 | -2160 | -8640 |
+| List-row scale (`.kfs` float) | `0x3DD004` | 1.75 | `s` | 1.0 | 1.5 | 2.0 | 3.0 | 12.0 |
+| Stack label height | `0x2B5332` | 19 | `19s` | 19 | 28 | 38 | 57 | 228 |
+| Stack label width, 1-2 and 3+ digits (`.ksc`) | `0x3DF003`, `0x3DF009` | 21 | `21s` | 21 | 32 | 42 | 63 | 252 |
+| Stack label top offset (`.ksc`) | `0x3DF020` | 37 | `37s` | 37 | 56 | 74 | 111 | 444 |
+| Inventory icon and row height | `0x2B527F`, `0x2B4FA9`, `0x2B55E3` | 56 | `56s` | 56 | 84 | 112 | 168 | 672 |
+| Abilities (skills) icon and row height | `0x2AB8EF`, `0x2ACB20` | 42 | `42s` | 42 | 63 | 84 | 126 | 504 |
+| Store icon and row height | `0x2C265F`, `0x2C2A23` | 56 | `56s` | 56 | 84 | 112 | 168 | 672 |
+| Powers/feats chain row height | `0x2CD8D9`, `0x2CDB79` | 40 | `50s` (vanilla 40) | 50 | 75 | 100 | 150 | 600 |
+| Popup auto-fit height stop | `0x2256E3`, `0x225759` | 900 | `450s` | 450 | 675 | 900 | 1350 | 5400 |
+| Popup auto-fit width cap | `0x2256DC`, `0x2256F6` | 1600 | `800s` | 800 | 1200 | 1600 | 2400 | 9600 |
+| Popup icon rect, message inset | `0x226F95`, `0x22540D` | 128 | `64s` | 64 | 96 | 128 | 192 | 768 |
+| Map note size, selected | `0x294720` | 40 | `20m` | 20 | 30 | 40 | 60 | 159 |
+| Map note size, unselected | `0x294763` | 28 | `14m` | 14 | 21 | 28 | 42 | 111 |
+| Party marker size | `0x294A13` | 32 | `16m` | 16 | 24 | 32 | 48 | 127 |
+| Player arrow size | `0x294AC4` | 64 | `32m` | 32 | 48 | 64 | 96 | 254 |
+| `mm_barrow` control extent | `0x29405B` | 64 | `32m` | 32 | 48 | 64 | 96 | 254 |
+| `lbl_mapcircle` control extent | `0x2940DC` | 32 | `16m` | 16 | 24 | 32 | 48 | 127 |
+| Note centring, selected (imm8) | `0x29471A`, `0x294726` | -20 | `-10m` | -10 | -15 | -20 | -30 | -79 |
+| Note centring, unselected (imm8) | `0x294777`, `0x29477A` | -14 | `-7m` | -7 | -10 | -14 | -21 | -56 |
+| Party centring (imm8) | `0x294A53`, `0x294A56` | -16 | `-8m` | -8 | -12 | -16 | -24 | -64 |
+| Arrow centring (imm8) | `0x294AD0`, `0x294AD4` | -32 | `-16m` | -16 | -24 | -32 | -48 | -127 |
+| Map centring width | `0x2928B3` | 2750 | `W` | 800 | 1920 | 3440 | 3840 | 15360 |
+| Map centring height | `0x2928C3` | 1400 | `H` | 600 | 1080 | 1440 | 2160 | 8640 |
+| Map canvas width | `0x29505C` | 1720 | `round(W//2 × 512/440)` | 465 | 1117 | 2001 | 2234 | 8937 |
+| Map canvas height | `0x295064` | 720 | `H//2` | 300 | 540 | 720 | 1080 | 4320 |
+| Marker overlay width | `0x295082` | 1478 | `W//2` | 400 | 960 | 1720 | 1920 | 7680 |
+| Marker overlay height | `0x29508A` | 720 | `H//2` | 300 | 540 | 720 | 1080 | 4320 |
 
-All replacements verify the expected gold value first. A mismatch blocks patching rather than writing to an unknown executable. The movie fields are a separate display-mode policy, not Bink render dimensions; see [`../reverse-engineering/movies.md`](../reverse-engineering/movies.md).
+The 33 rows are all 89 bytes that differ between the 48 outputs; none falls
+outside them. The movie fields are a separate display-mode policy, not Bink
+render dimensions; see
+[`../reverse-engineering/movies.md`](../reverse-engineering/movies.md).
+
+**`0x28C4E3` is deliberately not replaced.** It is the last live comparison in
+the HUD minimap selector: gold sets it to 3440, so `mipc210x7.gui` -- the HUD
+hand-corrected for 3440×1440 -- loads there and every other resolution falls
+through to `mipc28x6.gui`. Every output keeps 3440. Writing the live width into
+it made the comparison always true, and every resolution loaded the ultrawide
+HUD. *Corrected 2026-09-24:* this table listed it as a replaced screen-width
+field, and listed only ten fields.
 
 ## Interface packaging
 
-- The 240 shared TGA assets are stored once in the standalone patcher.
+- The 236 shared TGA assets are stored once in the standalone patcher; three
+  more, `lbl_mileftbot`, `lbl_hex_3` and `lbl_hex_6`, are built per resolution
+  (build of 2026-09-24).
 - Each supported resolution has a small independent GUI archive.
-- 3440×1440 uses the exact final, play-tested GUI collection.
+- 3440×1440 starts from the final, play-tested GUI collection; the controller
+  cues, confirm badges and list gutters are added at every resolution, 3440×1440
+  included.
 - The other resolutions use the corresponding KOTOR High Resolution Menus layout.
 - `[Graphics Options]` in `swkotor.ini` is rewritten with the selected `Width` and `Height` while preserving unrelated settings and comments.
 - Existing executable, INI, and conflicting Override files are backed up and verified before replacement.
@@ -277,13 +359,15 @@ neither has been done.
 2. Add the resolution to `GROUPS` in `tools/prepare_universal_resources.py`.
 3. Run `tools/analyze_resolution_guis.py` to regenerate `assets/resolution-geometry.json`.
 4. Run `build_kmrp.ps1` without `-ReuseResources`.
-5. Generate the executable through `--apply CLEAN_EXE OUTPUT_EXE WIDTHxHEIGHT` and verify all eight dynamic fields.
+5. Generate the executable through `--apply CLEAN_EXE OUTPUT_EXE WIDTHxHEIGHT` and verify every field in *Executable fields*.
 6. Test in game: menus, HUD, minimap at multiple player positions, full map, marker clicks, marker cycling, and repeated `M` open/close.
 
 ## Validation status
 
 - All 48 requested executable variants were generated and structurally verified.
-- 3440×1440 matches the play-tested gold executable byte-for-byte.
+- 3440×1440 differs from the gold snapshot in 22 bytes across 17 runs, all
+  fields in *Executable fields* that gold holds at an earlier or vanilla value.
+  *Corrected 2026-09-24:* this line said it matched gold byte-for-byte.
 - A complete 1920×1080 install verified the EXE, INI, selected GUI files, shared artwork, backup records, resolution-switch protection, and full restore.
 - The remaining resolutions still require representative in-game play testing because structural verification cannot prove how every module and GPU driver renders them.
 - The Feedback prototype and active transient-HUD geometry are checked directly

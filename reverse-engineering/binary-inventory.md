@@ -29,22 +29,42 @@ and is meant to be regenerated whenever gold changes.
 
 | | |
 | --- | --- |
-| differing byte positions inside the original 4,042,752-byte image | **702** |
-| merged presentation span | **914 bytes**, in **80 runs** |
-| of those runs, PE header | 13 runs, 144 differing bytes across a 303-byte span |
-| of those runs, code and data | 67 runs, 558 differing bytes across a 611-byte span |
-| bytes appended past the end of the original image | **40,960** — ten new 4,096-byte sections |
+| differing byte positions inside the original 4,042,752-byte image | **721** |
+| merged presentation span | **948 bytes**, in **82 runs** |
+| of those runs, PE header | 14 runs, 156 differing bytes across a 330-byte span |
+| of those runs, code and data | 68 runs, 565 differing bytes across a 618-byte span |
+| bytes appended past the end of the original image | **45,056** — eleven new 4,096-byte sections |
 
 Runs are formed by merging differing bytes separated by fewer than 8 identical
-bytes, so one patch site reads as one row. The 914-byte span therefore includes
-212 unchanged separator bytes. Earlier versions of this document incorrectly
-called the merged span “bytes changed”; the 702 count now reports actual unequal
+bytes, so one patch site reads as one row. The 948-byte span therefore includes
+227 unchanged separator bytes. Earlier versions of this document incorrectly
+called the merged span “bytes changed”; the 721 count reports actual unequal
 byte positions. The threshold is presentation only; nothing depends on it.
 
-**A calibration for how small 702 bytes is.** It is 0.017% of the image. Every
-behavioural change KMRP makes to the executable is either one of these 80 runs or
-lives in the appended sections, which no vanilla byte can reach except through
-them.
+**A calibration for how small 721 bytes is.** It is 0.018% of the image. Every
+behavioural change KMRP makes to the executable is either one of these 82 runs,
+one of the twelve runs the installer writes where gold keeps vanilla (§4,
+*Written at install*; 742 positions in all), or lives in the appended sections,
+which no vanilla byte can reach except through them.
+
+### Correction, 2026-09-24
+
+Until this date the table above named gold v24 by its hash while every count in
+it was an earlier gold's: 702 bytes, 80 runs, 13 header and 67 code runs, ten
+appended sections. §4 lacked the one run v24 added, the Bink aspect-fit hook at
+`0x004057AC`, and §3 lacked its section, `.kmv`. The header had been updated
+when gold changed and the numbers had not been regenerated. Everything here was
+regenerated against v24 on 2026-09-24 and checked against the installer's own
+output (§6).
+
+The generator had two faults of its own, both fixed the same day in
+[`../tools/build_binary_inventory.py`](../tools/build_binary_inventory.py). It
+read git-ignored local notes (`docs/agent-memory/HANDOFF.md`) as documentation,
+which nobody else can read. And it read this document's own §4, which names
+every address in the table, so every run counted as documented the moment the
+table was pasted and the check could no longer fail: run against this document
+alone, the old generator passed all 68 runs, the fixed one flags the 58 that
+only §4 names. It now reads tracked files only and skips §4.
 
 ## 2. Reproducing it
 
@@ -52,6 +72,21 @@ them.
 python tools/build_binary_inventory.py \
     build-inputs/swkotornopatch.exe \
     build/kmrp/swkotor_gold_v24_movieaspect.exe
+```
+
+With the installer's own output at every resolution, which also inventories the
+bytes it writes that gold leaves alone (§4, *Written at install*):
+
+```bash
+mkdir -p build/installed
+for r in $(grep -v '^#' build/kmrp/resources/resolutions.tsv | cut -f2,3 --output-delimiter=x); do
+    "dist/KMRP - KOTOR Modern Restoration Patch.exe" --apply \
+        build-inputs/swkotornopatch.exe "build/installed/swkotor_$r.exe" "$r"
+done
+python tools/build_binary_inventory.py \
+    build-inputs/swkotornopatch.exe \
+    build/kmrp/swkotor_gold_v24_movieaspect.exe \
+    --installed build/installed/swkotor_*.exe
 ```
 
 It exits 0 only when every code and data run is named by at least one Markdown
@@ -69,23 +104,23 @@ because the reverse-engineering documents use VAs while
 [`../docs/universal-resolution-math.md`](../docs/universal-resolution-math.md) and
 `src/patcher/KmrpPatcher.cs` use file offsets.
 
-## 3. The PE header, 13 runs
+## 3. The PE header, 14 runs
 
 One field is a behavioral patch: the Large Address Aware characteristic. The
-other header differences are consequences of appending ten sections, and a
+other header differences are consequences of appending eleven sections, and a
 linker would have written the same values.
 
 | VA | FILE | field | clean | gold |
 | --- | --- | --- | --- | --- |
-| `0x00400916` | `0x000916` | `NumberOfSections` | 4 | 14 |
+| `0x00400916` | `0x000916` | `NumberOfSections` | 4 | 15 |
 | — | `0x000926` | `Characteristics` (`IMAGE_FILE_LARGE_ADDRESS_AWARE`) | `0x010F` | `0x012F` |
-| `0x0040092C` | `0x00092C` | `SizeOfCode` | `0x33C000` | `0x346000` |
-| `0x00400960` | `0x000960` | `SizeOfImage` | `0x46D000` | `0x477000` |
+| `0x0040092C` | `0x00092C` | `SizeOfCode` | `0x33C000` | `0x347000` |
+| `0x00400960` | `0x000960` | `SizeOfImage` | `0x46D000` | `0x478000` |
 | `0x00400968` | `0x000968` | `CheckSum` | `0x3E73F7` | `0` |
-| `0x00400AA8` … `0x00400C37` | `0x000AA8` … `0x000C37` | ten 40-byte section headers | — | see below |
+| `0x00400AA8` … `0x00400C5F` | `0x000AA8` … `0x000C5F` | eleven 40-byte section headers | — | see below |
 
 `SizeOfHeaders` stays `0x1000`: the four original section headers end at file
-`0x0AA8` and ten more need 400 bytes, which fits inside the existing 4KB of
+`0x0AA8` and eleven more need 440 bytes, which fits inside the existing 4KB of
 header without moving anything.
 
 **`CheckSum` is zeroed rather than recomputed.** Windows only enforces the PE
@@ -102,7 +137,7 @@ times in gold; it is inside the header padding, is referenced by nothing, and is
 not reachable as data by any code path. Recorded here because "a string
 disappeared from the executable" is otherwise an alarming thing to discover.
 
-### The ten appended sections
+### The eleven appended sections
 
 `FILE = VA − 0x492000` for all of them. Each is 4,096 raw bytes.
 
@@ -115,21 +150,26 @@ disappeared from the executable" is otherwise an alarming thing to discover.
 | `.ksc` | `0x00871000` | `0x3DF000` | 45 | `0x60000020` R/X | stack-count label |
 | `.kgs` | `0x00872000` | `0x3E0000` | 74 | `0x60000020` R/X | gutter-side fix |
 | `.ktn` | `0x00873000` | `0x3E1000` | 42 | `0x60000020` R/X | leading-newline fix |
-| `.kmz` | `0x00874000` | `0x3E2000` | 181 | `0x60000020` R/X | minimap fog |
-| `.kfg` | `0x00875000` | `0x3E3000` | 155 | `0x60000020` R/X | message-popup sizing |
+| `.kmz` | `0x00874000` | `0x3E2000` | 181 | `0x60000020` R/X | HUD minimap zoom (`build_minimap_zoom_fix.py`) |
+| `.kfg` | `0x00875000` | `0x3E3000` | 155 | `0x60000020` R/X | HUD minimap fog grid (`build_minimap_fog_fix.py`) |
 | `.kmn` | `0x00876000` | `0x3E4000` | 4,094 | `0x60000020` R/X | map-note correction table and lookup |
+| `.kmv` | `0x00877000` | `0x3E5000` | 81 | `0x60000020` R/X | Bink movie aspect fit ([`movies.md`](movies.md)) |
+
+*Corrected 2026-09-24:* this table labelled `.kmz` "minimap fog" and `.kfg`
+"message-popup sizing". The builders that write them say otherwise, and the
+popup is sized entirely by in-place `imm32` operands, with no section at all.
 
 **`.kfs` is the one writable section**, `0xE0000020` against `0x60000020` for the
-other nine, because the patcher rewrites the two scale floats at its start per
+other ten, because the patcher rewrites the two scale floats at its start per
 resolution and the section holds code in the same page. Writable-and-executable
 is worse hygiene than splitting it in two would be; it is called out here rather
 than left to be noticed.
 
-**`.kmn` is 4,094 of its 4,096 bytes used**, the tightest of the ten: 16 bytes of
+**`.kmn` is 4,094 of its 4,096 bytes used**, the tightest of the eleven: 16 bytes of
 header, 4,000 bytes of table and a 78-byte lookup. A 251st correction would need
 a second page.
 
-## 4. The 67 code and data runs
+## 4. The 68 code and data runs
 
 Generated table — regenerate with the command in §2 rather than editing by hand.
 The final column lists every document naming an address in the run, so several
@@ -137,14 +177,15 @@ entries name more than one.
 
 | VA | FILE | len | clean | gold | documented in |
 | --- | --- | --- | --- | --- | --- |
-| `0x00403D6C` | `0x003D6C` | 2 | `8002` | `700d` | `reverse-engineering/movies.md` |
-| `0x00403D78` | `0x003D78` | 2 | `e001` | `a005` | `reverse-engineering/movies.md` |
+| `0x00403D6C` | `0x003D6C` | 2 | `8002` | `700d` | `CHANGELOG.md`, `docs/agent-memory/MEMORY.md`, `docs/font-scaling.md`, `docs/universal-resolution-math.md`, `reverse-engineering/movies.md` |
+| `0x00403D78` | `0x003D78` | 2 | `e001` | `a005` | `CHANGELOG.md`, `docs/agent-memory/MEMORY.md`, `docs/font-scaling.md`, `docs/universal-resolution-math.md`, `reverse-engineering/movies.md`, `reverse-engineering/retained-xbox-gui-events.md` |
+| `0x004057AC` | `0x0057AC` | 7 | `8b4e488b013bd8` | `e94f1847009090` | `CHANGELOG.md`, `docs/universal-resolution-math.md`, `reverse-engineering/movies.md` |
 | `0x0040AA65` | `0x00AA65` | 2 | `8002` | `700d` | `docs/universal-resolution-math.md`, `reverse-engineering/map.md` |
-| `0x0040AA85` | `0x00AA85` | 2 | `e001` | `a005` | `docs/universal-resolution-math.md`, `reverse-engineering/experiments/005-font-scale-investigation.md`, `reverse-engineering/map.md` |
+| `0x0040AA85` | `0x00AA85` | 2 | `e001` | `a005` | `docs/mod-build-compatibility.md`, `docs/universal-resolution-math.md`, `reverse-engineering/custom-gui-controls.md`, `reverse-engineering/experiments/005-font-scale-investigation.md`, `reverse-engineering/large-address-aware.md`, `reverse-engineering/map.md` |
 | `0x0040B6C7` | `0x00B6C7` | 2 | `80fd` | `90f2` | `reverse-engineering/binary-inventory.md` |
 | `0x0040B6DA` | `0x00B6DA` | 2 | `20fe` | `60fa` | `reverse-engineering/binary-inventory.md` |
 | `0x0040BA6C` | `0x00BA6C` | 2 | `80fd` | `90f2` | `docs/font-scaling.md`, `reverse-engineering/binary-inventory.md` |
-| `0x0040BA83` | `0x00BA83` | 2 | `20fe` | `60fa` | `docs/font-scaling.md`, `docs/third-party-driver-compat.md`, `reverse-engineering/binary-inventory.md`, `reverse-engineering/experiments/005-font-scale-investigation.md` |
+| `0x0040BA83` | `0x00BA83` | 2 | `20fe` | `60fa` | `docs/font-scaling.md`, `reverse-engineering/binary-inventory.md`, `reverse-engineering/experiments/005-font-scale-investigation.md` |
 | `0x00415E0D` | `0x015E0D` | 5 | `8b465085c0` | `e9eed14500` | `reverse-engineering/listbox-geometry.md`, `reverse-engineering/text-padding.md` |
 | `0x00417992` | `0x017992` | 10 | `8b400c89410c8b4c246c` | `e92e7845009090909090` | `docs/font-scaling.md`, `reverse-engineering/experiments/005-font-scale-investigation.md`, `reverse-engineering/font-atlases.md`, `reverse-engineering/font.md` |
 | `0x0041A2F2` | `0x01A2F2` | 15 | `8d043f2bc885db897c241c894c2424` | `e92d7d450090909090909090909090` | `reverse-engineering/listbox-geometry.md` |
@@ -157,7 +198,7 @@ entries name more than one.
 | `0x0041B507` | `0x01B507` | 2 | `03ea` | `9090` | `reverse-engineering/inventory-item-rows.md` |
 | `0x0041B52E` | `0x01B52E` | 1 | `01` | `00` | `reverse-engineering/inventory-item-rows.md` |
 | `0x0041B553` | `0x01B553` | 1 | `03` | `8b` | `reverse-engineering/listbox-geometry.md` |
-| `0x0045992A` | `0x05992A` | 26 | `0fbf0560947b008d0480d1e00fbf906e947b000fbf806c947b00` | `e9d1a64100909090909090909090909090909090909090909090` | `THIRD_PARTY_NOTICES.md`, `reverse-engineering/map-scaling.md`, `reverse-engineering/map.md` |
+| `0x0045992A` | `0x05992A` | 26 | `0fbf0560947b008d0480d1e00fbf906e947b000fbf806c947b00` | `e9d1a64100909090909090909090909090909090909090909090` | `THIRD_PARTY_NOTICES.md`, `reverse-engineering/map-scaling.md`, `reverse-engineering/map.md`, `reverse-engineering/texture-residency.md` |
 | `0x0045A3B7` | `0x05A3B7` | 6 | `0f8c7f040000` | `909090909090` | `reverse-engineering/binary-inventory.md` |
 | `0x0045A3DC` | `0x05A3DC` | 6 | `0f8c5a040000` | `909090909090` | `reverse-engineering/binary-inventory.md` |
 | `0x0045A5E0` | `0x05A5E0` | 15 | `8b46144b3bd8894c24100f84440200` | `4b3b5c2418894c24107705e9105a41` | `docs/font-scaling.md`, `reverse-engineering/binary-inventory.md`, `reverse-engineering/font-atlases.md`, `reverse-engineering/font.md` |
@@ -165,7 +206,7 @@ entries name more than one.
 | `0x004A1770` | `0x0A1770` | 13 | `6aff685c7e710064a100000000` | `e903da3c009090909090909090` | `reverse-engineering/font.md` |
 | `0x005F0C65` | `0x1F0C65` | 2 | `2003` | `700d` | `docs/universal-resolution-math.md` |
 | `0x005F0C6F` | `0x1F0C6F` | 2 | `5802` | `a005` | `docs/universal-resolution-math.md` |
-| `0x005F5B3B` | `0x1F5B3B` | 10 | `80020000c7442410e001` | `700d0000c7442410a005` | `reverse-engineering/movies.md` |
+| `0x005F5B3B` | `0x1F5B3B` | 10 | `80020000c7442410e001` | `700d0000c7442410a005` | `CHANGELOG.md`, `docs/agent-memory/MEMORY.md`, `docs/universal-resolution-math.md`, `reverse-engineering/movies.md` |
 | `0x0062540D` | `0x22540D` | 1 | `20` | `80` | `reverse-engineering/message-popup.md`, `reverse-engineering/text-padding.md` |
 | `0x006256DC` | `0x2256DC` | 9 | `b80100007c0b3d1801` | `400600007c0b3d8403` | `reverse-engineering/message-popup.md`, `reverse-engineering/text-padding.md` |
 | `0x006256F6` | `0x2256F6` | 2 | `b801` | `4006` | `reverse-engineering/message-popup.md`, `reverse-engineering/text-padding.md` |
@@ -207,8 +248,10 @@ entries name more than one.
 
 Which document covers how much, derived from that table rather than grouped by
 hand. **A run named by more than one document is counted in each**, so the bytes
-column sums to more than 611; it says what each document is responsible for, not
-how the 611 divide up.
+column sums to more than 618; it says what each document is responsible for, not
+how the 618 divide up. Counted: the reference and lab documents under
+`reverse-engineering/` and `docs/`; `CHANGELOG.md`, the notices and agent memory
+name addresses without being where a site is explained.
 
 | document | runs | bytes |
 | --- | --- | --- |
@@ -216,22 +259,61 @@ how the 611 divide up.
 | [`map-scaling.md`](map-scaling.md) | 19 | 105 |
 | [`map.md`](map.md) | 17 | 99 |
 | [`font-atlases.md`](font-atlases.md) | 3 | 57 |
+| [`../docs/universal-resolution-math.md`](../docs/universal-resolution-math.md) | 13 | 55 |
 | this document, §5 | 10 | 48 |
 | [`map-markers.md`](map-markers.md) | 13 | 44 |
 | [`listbox-geometry.md`](listbox-geometry.md) | 9 | 42 |
 | [`area-map-surface.md`](area-map-surface.md) | 6 | 36 |
+| [`../docs/font-scaling.md`](../docs/font-scaling.md) | 6 | 33 |
+| [`texture-residency.md`](texture-residency.md) | 1 | 26 |
 | [`inventory-item-rows.md`](inventory-item-rows.md) | 5 | 21 |
-| [`text-padding.md`](text-padding.md) | 6 | 20 |
+| [`movies.md`](movies.md) | 4 | 21 |
 | [`experiments/004-global-dimension-split.md`](experiments/004-global-dimension-split.md) | 2 | 20 |
+| [`text-padding.md`](text-padding.md) | 6 | 20 |
 | [`message-popup.md`](message-popup.md) | 5 | 15 |
-| [`movies.md`](movies.md) | 3 | 14 |
 | [`experiments/005-font-scale-investigation.md`](experiments/005-font-scale-investigation.md) | 3 | 14 |
-| [`../docs/universal-resolution-math.md`](../docs/universal-resolution-math.md) | 2 | 4 |
+| [`../docs/third-party-driver-compat.md`](../docs/third-party-driver-compat.md) | 1 | 3 |
+| [`../docs/mod-build-compatibility.md`](../docs/mod-build-compatibility.md) | 1 | 2 |
+| [`custom-gui-controls.md`](custom-gui-controls.md) | 1 | 2 |
 | [`experiments/003-isolated-full-map-wrapper.md`](experiments/003-isolated-full-map-wrapper.md) | 1 | 2 |
+| [`large-address-aware.md`](large-address-aware.md) | 1 | 2 |
+| [`retained-xbox-gui-events.md`](retained-xbox-gui-events.md) | 1 | 2 |
 
-**Two of the rows are experiment logs**, not reference documents. An experiment
-log is a weaker home for a live patch site than a reference document is, and the
-three runs they alone cover are a standing invitation to promote them.
+**Three of the rows are experiment logs**, not reference documents, and an
+experiment log is a weaker home for a live patch site than a reference document.
+As of the 2026-09-24 regeneration every run they name is also named by a
+reference document, so none depends on a lab record alone. Earlier versions of
+this paragraph counted three runs that did.
+
+### Written at install, not in gold
+
+Gold leaves some sites at their vanilla value for the patcher to fill in per
+resolution, so a clean-to-gold inventory never sees them. These are the bytes
+the installer's outputs change where gold does not, found by running the
+installer (`ECA3DE4B…`) with `--apply` at all 48 resolutions on 2026-09-24 (§2):
+**21 byte positions in 12 runs**, which with gold's 721 make **742** the
+installer writes at one resolution or another. Most are the list-row sizes
+`RowSizeGroups` scales in `src/patcher/KmrpPatcher.cs`; the last column counts
+the distinct values across the 48 outputs.
+
+| VA | FILE | len | clean | distinct installed values | documented in |
+| --- | --- | --- | --- | --- | --- |
+| `0x0062540E` | `0x22540E` | 1 | `00` | 3 | `reverse-engineering/message-popup.md`, `reverse-engineering/text-padding.md` |
+| `0x00626F96` | `0x226F96` | 1 | `00` | 3 | `reverse-engineering/message-popup.md`, `reverse-engineering/text-padding.md` |
+| `0x006AB8EF` | `0x2AB8EF` | 2 | `2a00` | 24 | `reverse-engineering/inventory-item-rows.md` |
+| `0x006ACB20` | `0x2ACB20` | 2 | `2a00` | 24 | `reverse-engineering/inventory-item-rows.md` |
+| `0x006B4FA9` | `0x2B4FA9` | 2 | `3800` | 24 | `reverse-engineering/font-atlases.md`, `reverse-engineering/inventory-item-rows.md` |
+| `0x006B527F` | `0x2B527F` | 2 | `3800` | 24 | `reverse-engineering/font-atlases.md`, `reverse-engineering/inventory-item-rows.md`, `reverse-engineering/listbox-geometry.md` |
+| `0x006B5332` | `0x2B5332` | 1 | `13` | 23 | `reverse-engineering/font-atlases.md` |
+| `0x006B55E3` | `0x2B55E3` | 2 | `3800` | 24 | `reverse-engineering/font-atlases.md`, `reverse-engineering/inventory-item-rows.md` |
+| `0x006C265F` | `0x2C265F` | 2 | `3800` | 24 | `reverse-engineering/inventory-item-rows.md` |
+| `0x006C2A23` | `0x2C2A23` | 2 | `3800` | 24 | `reverse-engineering/inventory-item-rows.md` |
+| `0x006CD8D9` | `0x2CD8D9` | 2 | `2800` | 24 | `reverse-engineering/inventory-item-rows.md` |
+| `0x006CDB79` | `0x2CDB79` | 2 | `2800` | 24 | `reverse-engineering/inventory-item-rows.md` |
+
+Every one is documented. Before 2026-09-24 this document and its generator
+covered gold only, so these twelve runs were outside the inventory, however
+well their subject documents described them.
 
 ## 5. Six runs that had no document until this one
 
@@ -333,20 +415,33 @@ unreachable for any real resolution.
 | `0x0068C4FA` | `cmp eax, 1600` | `cmp eax, 0` |
 
 A screen 0 pixels wide would match, and cannot occur. `0x0068C4E3`, a third width
-comparison in the same chain, is **deliberately left alone** — see the comment at
-`src/patcher/KmrpPatcher.cs:237`.
+comparison in the same chain, is **deliberately left alone** — see the comment
+below `MovieHeightOffsets` in `src/patcher/KmrpPatcher.cs`, which begins
+"0x0028C4E3 (VA 0x0068C4E3) is a THIRD width comparison". (This pointer was a line
+number, `:237`, until 2026-09-24, by when the comment had moved to line 312.)
 
 ## 6. What this document does not establish
 
 * **That each write-up is correct.** §2 states the limit plainly: the check is a
   mention, not a review.
 * **That the appended sections are fully documented.** The inventory covers the
-  original image. The ten sections' contents are covered by their own subject
+  original image. The eleven sections' contents are covered by their own subject
   documents, and nothing here re-derives them.
 * **That gold is what ships.** It is not. `ResolutionPatch` rewrites the
   constants in §5.1 and elsewhere per install, and the map-note flag in `.kmn` is
   cleared when the user turns the corrections off, so a shipped executable
-  differs from gold by design. See
+  differs from gold by design. Measured on 2026-09-24 by running the installer
+  (`ECA3DE4B…`) with `--apply` on the clean executable at all 48 resolutions:
+  every output is 4,087,808 bytes with gold's fifteen sections; 89 bytes in 49
+  runs differ between resolutions, §5.1's four operands among them; and even the
+  3440x1440 output differs from gold in 22 bytes across 17 runs. Those are the
+  area-map surface and canvas sizes
+  ([`area-map-surface.md`](area-map-surface.md)), the inventory, abilities and
+  store row sizes gold leaves at vanilla
+  ([`inventory-item-rows.md`](inventory-item-rows.md)), the `.kfs` row-scale
+  float (gold 1.75, output 2.0) and the `.ksc` stack-count label
+  ([`font-atlases.md`](font-atlases.md)): in each, the output carries what the
+  patcher computes for the resolution, and gold a fixed snapshot. See
   [`../docs/universal-resolution-math.md`](../docs/universal-resolution-math.md)
   and [`map-markers.md`](map-markers.md) §7.5.
 * **That any of it is correct in play.** This is a byte-level audit and makes no

@@ -100,7 +100,8 @@ being enforced there.
    which no longer implicates the pad.
 
 There is one precedent worth keeping in view: this repo has shipped white
-before. `tools/check_controller_drift.py:143` records that a button whose
+before. `tools/check_controller_drift.py` (the comment ending "draws flat white",
+line 153 on 2026-09-24; this note said 143) records that a button whose
 `BORDER.FILL` names a texture that was never packaged "loses its art entirely and
 draws flat white". So in this engine an unresolved fill does draw white -- but
 that was a permanently missing file, not a transient load, and the two need not
