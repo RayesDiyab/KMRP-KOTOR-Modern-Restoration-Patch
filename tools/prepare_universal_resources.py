@@ -466,6 +466,18 @@ def write_zip(output: Path, files: list[Path]) -> None:
 R3_CUE_TAG = "LBL_KMRPR3"
 R3_CUE_FILL = "kmrpr3_party"
 R3_CUE_SCREENS = ("abilities.gui", "character.gui", "equip.gui", "inventory.gui")
+# The cue's side as a fraction of the portrait height. Until 2026-09-24 it filled
+# the space between the portraits, the gap or their height, whichever was
+# smaller; play-testing made it 10% smaller, and where the gap is too narrow for
+# that size it now sits beside the portraits instead (r3_cue_extent).
+R3_CUE_SCALE = 0.9
+# Where it does fit, the gap must leave this fraction of the cue free each side.
+R3_CUE_GAP_MARGIN = 0.1
+# Anything else a cue cannot be drawn over. Labels are left out on purpose: the
+# screens' background frames are labels whose extents reach into the portrait
+# row while their art stops short of it -- Equipment's LBL_ATTACK_INFO by 18 px
+# at 1920x1080 -- so an extent test on them would reject a clear spot.
+R3_CUE_BLOCKING_TYPES = {6, 7, 8, 9, 10, 11}   # button, checkbox, slider, scroll, progress, list
 
 
 # LT and RT change which menu screen is open, and the tab strip they act on says
@@ -631,11 +643,46 @@ def add_subtab_swap_cue(source: Path, destination: Path) -> bool:
     return True
 
 
+def r3_cue_size(portrait_height: int) -> int:
+    """The R3 cue's side, in pixels: R3_CUE_SCALE of the portrait height.
+
+    Rounded half up in integers rather than through round(), which would round
+    a .5 to even and make the size depend on floating-point noise in the scale.
+    """
+    return max(1, (portrait_height * round(R3_CUE_SCALE * 100) + 50) // 100)
+
+
+def r3_cue_extent(first: tuple[int, int, int, int],
+                  second: tuple[int, int, int, int]) -> tuple[int, int, int, int]:
+    """Where the R3 cue goes, from the two portraits' (left, top, width, height).
+
+    Centred in the gap between them when the gap holds the cue at full size with
+    R3_CUE_GAP_MARGIN of it free either side: every 21:9 and 32:9 resolution but
+    1280x1080, 3440x1440 among them. Otherwise just right of the second portrait,
+    a third of a cue away, like the tab-strip cues. At 4:3, 16:10 and 16:9 the
+    gap is narrower than the cue -- 6 px at 800x600, 36 px at 1920x1080 against
+    a 57 px cue -- and a cue shrunk to fit it was 5 px wide at 800x600.
+
+    Right, not left: the portraits sit at the curved left end of a bar the
+    background art draws, and a cue on that side was rendered crowding the
+    curve on all four screens, while the bar runs on empty to the right. Always
+    vertically centred on the portraits.
+    """
+    size = r3_cue_size(first[3])
+    top = first[1] + (first[3] - size) // 2
+    gap_left = first[0] + first[2]
+    gap = second[0] - gap_left
+    if gap >= size + 2 * int(size * R3_CUE_GAP_MARGIN):
+        return gap_left + (gap - size) // 2, top, size, size
+    return second[0] + second[2] + size // 3, top, size, size
+
+
 def add_party_switch_cue(source: Path, destination: Path) -> bool:
-    """Put the R3 cue in the gap between a screen's two party portraits.
+    """Put the R3 cue by a screen's two party portraits -- between or beside them.
 
     Placed from the portraits' own extents rather than from a table of numbers,
     so it lands correctly at every resolution without anything to keep in sync.
+    r3_cue_extent decides where.
 
     Cloned from a label already in the same file, not built field by field: the
     loader reads what it expects to find, and a hand-built struct missing a field
@@ -655,20 +702,34 @@ def add_party_switch_cue(source: Path, destination: Path) -> bool:
             raise ValueError(f"{source.name} has no {required}; it is not a "
                              f"party screen and should not be in R3_CUE_SCREENS")
 
-    first = by_tag["BTN_CHANGE1"].get_struct("EXTENT")
-    second = by_tag["BTN_CHANGE2"].get_struct("EXTENT")
-    left = first.get_int32("LEFT") + first.get_int32("WIDTH")
-    right = second.get_int32("LEFT")
-    gap = right - left
-    if gap <= 0:
-        raise ValueError(f"{source.name}: the portraits do not leave a gap "
-                         f"({left}..{right})")
+    def box(control) -> tuple[int, int, int, int]:
+        extent = control.get_struct("EXTENT")
+        return tuple(extent.get_int32(field)
+                     for field in ("LEFT", "TOP", "WIDTH", "HEIGHT"))
+
+    first, second = box(by_tag["BTN_CHANGE1"]), box(by_tag["BTN_CHANGE2"])
+    if second[0] < first[0] + first[2]:
+        raise ValueError(f"{source.name}: the portraits overlap "
+                         f"({first[0] + first[2]}..{second[0]})")
     # Square, so one square texture is correct at every resolution with no
     # aspect pre-compensation -- unlike the caption badges, which are stretched
     # across oblong buttons.
-    size = min(first.get_int32("HEIGHT"), gap)
-    x = left + (gap - size) // 2
-    y = first.get_int32("TOP") + (first.get_int32("HEIGHT") - size) // 2
+    x, y, size, _ = r3_cue_extent(first, second)
+
+    # A GUI pack that rearranged the row would otherwise have the cue drawn over
+    # a button or a list without a word, so say so instead.
+    _, _, panel_width, panel_height = box(root)
+    if x < 0 or y < 0 or x + size > panel_width or y + size > panel_height:
+        raise ValueError(f"{source.name}: the R3 cue at {(x, y, size)} leaves "
+                         f"the {panel_width}x{panel_height} panel")
+    for control in controls:
+        if (not control.exists("CONTROLTYPE")
+                or control.get_int32("CONTROLTYPE") not in R3_CUE_BLOCKING_TYPES):
+            continue
+        left, top, width, height = box(control)
+        if x < left + width and left < x + size and y < top + height and top < y + size:
+            raise ValueError(f"{source.name}: the R3 cue at {(x, y, size)} "
+                             f"covers {control.get_string('TAG')}")
 
     template = next(
         (control for control in controls

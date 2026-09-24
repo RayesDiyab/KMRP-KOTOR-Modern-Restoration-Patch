@@ -123,6 +123,77 @@ own process in memory at startup without writing to `swkotor.exe` at all.
   confirmation boxes were never affected — they implement no `0x27` at all, so
   A genuinely reaches the focused control.
 
+- **Sound Options: Down from Movie Volume reaches Advanced Options.** It jumped
+  to Default, while Up from Default reached Advanced correctly. A focused slider
+  handled every direction itself, and for Up and Down it follows the game's own
+  links, which skip Advanced. A horizontal slider now keeps only Left and Right;
+  Up and Down go through the same navigation as every button, on every options
+  screen with a slider.
+
+- **The Movies screen shows B / Circle on Close.** The screen already closed on
+  B; nothing said so.
+
+- **Xbox LT and RT use the Xbox 360 trigger art**, like the rest of the Xbox
+  set, on the menu tab strip and the Controller Layout screen.
+
+- **The R3 party-switch cue is 10% smaller, and sits beside the portraits
+  where it did not fit between them.** On all four party screens. Its side
+  was the whole space between the two portraits -- the gap or their height,
+  whichever was smaller -- and is now 90% of the portrait height
+  (`R3_CUE_SCALE`).
+
+  It stays centred in the gap wherever the gap holds it with a tenth of it
+  free either side: every 32:9 and 21:9 resolution but 1280x1080, 3440x1440
+  included, where nothing moved. At 4:3, 16:10 and 16:9 the gap is narrower
+  than a portrait, and a cue sized to fit it was a few pixels wide -- 6 px at
+  800x600, and 5 px once made 10% smaller, which is what prompted the move.
+  There it now sits right of the second portrait, a third of a cue away, like
+  the tab-strip cues. Right rather than left: the portraits sit at the curved
+  left end of a bar the background art draws, and on the left the cue was
+  rendered crowding that curve on all four screens, while the bar runs on
+  empty to the right. Measured in the built archives, identical on all four
+  screens:
+
+  | Resolution | Portrait | Gap | Before | Now | Where |
+  | --- | ---: | ---: | ---: | ---: | --- |
+  | 800x600 | 35 | 6 | 6 | 32 | right of the portraits |
+  | 1920x1440 | 84 | 15 | 15 | 76 | right of the portraits |
+  | 1920x1080 | 63 | 36 | 36 | 57 | right of the portraits |
+  | 2560x1440 | 84 | 48 | 48 | 76 | right of the portraits |
+  | 3840x2160 | 126 | 72 | 72 | 113 | right of the portraits |
+  | 3440x1440 | 84 | 94 | 84 | 76 | between them |
+  | 5120x2160 | 126 | 138 | 126 | 113 | between them |
+
+  The build refuses a cue that would cover a button or a list, and
+  `Test-GeneratedGuiGeometry.py` now checks the cue's size, placement, spacing
+  and centring in all 48 archives; nothing checked its geometry before. The new
+  check rejected the old placement on the 160 of 192 screens it changes.
+  Rendered against the real background art at 800x600, 1920x1080 and
+  3440x1440; not yet seen in game.
+
+- **Swap-tabs prompts for every controller.** The "swap tabs" art existed for
+  Xbox only, and the other controllers showed a bare X-position button there.
+  PlayStation, Switch and Steam Deck now have their own.
+
+- **Installer: the optional components are independent.** Controller support
+  no longer forces Modern Driver Compatibility on. Both need the same ASI loader,
+  so it is installed whenever either is chosen, and Synchro's patch itself only
+  when driver compatibility is. The controller option is described as what it
+  now is -- Xbox, PlayStation, Switch and Steam Deck, credited to KMRP and the
+  Saul0097 module it grew from -- and each row's credit no longer overlaps its
+  switch. Controller support is now on by default like the other two, and
+  *Restore Defaults* turns all three on.
+
+- **Loading a save from in game no longer crashes.** With a save already loaded
+  from the main menu, loading another from the in-game menu crashed mid loading
+  screen, every time. KMRP's controller module kept a table of the controller
+  cues it adds to in-game screens and checked each frame whether their screens
+  still existed by reading them; loading a save destroys those screens, and once
+  their memory was released the check itself crashed. Cues are now forgotten when
+  their screen is destroyed, their labels are freed rather than leaked, and no
+  remembered screen is read without first confirming its memory is still there.
+  Present since the R3 cue was added on 2026-09-15. Awaiting an in-game check.
+
 - **Feedback Options: the circles no longer sit on the scrollbar.** The option
   list keeps its scrollbar on the left, the game starts each row exactly where
   the scrollbar ends, and draws each circle at the row's very edge. The list now
@@ -303,8 +374,10 @@ own process in memory at startup without writing to `swkotor.exe` at all.
   is not polled in `ICPCGUI` -- but one press meaning one thing is the rule
   the rest of the input layer follows. Free look in gameplay is unchanged.
 
-  **It is advertised between the two portraits, on a control the game does
-  not have.** There was nowhere to put a badge: a badge replaces a control's
+  **It is advertised by the two portraits, on a control the game does not
+  have** -- between them, or right of them where the gap is too narrow (the
+  entry above; it was always between them until 2026-09-24, 5 px wide at
+  800x600). There was nowhere to put a badge: a badge replaces a control's
   `BORDER.FILL`, the portraits' fill *is* the portrait -- rewritten per
   character by the panel -- and the gap between them holds no control. No
   spare label exists to move there either; Inventory has fifteen controls and

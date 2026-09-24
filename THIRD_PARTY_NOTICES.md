@@ -86,8 +86,9 @@ is documented in [`docs/third-party-driver-compat.md`](docs/third-party-driver-c
 
 ## KPM – Xbox Controls for KOTOR 1
 
-**KPM – Xbox Controls for KOTOR 1 1.2** by **Saul0097** is available as an
-opt-in Advanced Settings component, with the author's permission:
+**KPM – Xbox Controls for KOTOR 1 1.2** by **Saul0097** is the basis of KMRP's
+controller support, an Advanced Settings component that is on by default, used
+with the author's permission:
 
 https://github.com/scopeking0117-alt/KPM-Xbox-Controls-K1
 
@@ -187,8 +188,10 @@ the assets are in the public domain under Creative Commons 0 (CC0)."
 Four of the pack's sets are used, one per controller family the module can
 detect, sixteen actions each (A, B, X, Y, LB, RB, LT, RT, Start, Back, the four
 D-pad directions, L3, R3) -- from `Xbox/` (the 360 set, with the Series X art for
-LT, RT and R3), `PS5/`, `Switch/` and `Steam Deck/` -- plus KMRP's own
-`Swap_tabs.png` in `Xbox/`. They are source art, not shipped as files:
+R3), `PS5/`, `Switch/` and `Steam Deck/` -- plus KMRP's own swap-tabs
+art, one per family since 2026-09-24: `Xbox/Swap_tabs_360.png.png` (the doubled
+extension is its real name), `PS5/Swap_tabs_PS5.png`, `Switch/Swap_tabs_Switch.png`
+and `Steam Deck/Swap_tabs_SteamDeck.png`. They are source art, not shipped as files:
 `tools/build_controller_prompt_textures.py` resizes them per resolution into the
 button-fill textures KMRP installs, one set per family.
 
@@ -199,6 +202,12 @@ unlabelled controller diagrams, `Xbox/XboxSeriesX_Diagram_Simple.png` and
 diagram, composites the family's own face-button glyphs onto it and bakes the
 leader lines into one texture per family. Switch and Steam Deck have no diagram
 in the pack, so they are drawn on the Xbox silhouette.
+
+**Only those four families are kept in the repository** (2026-09-24), with
+`Readme.txt` for the terms. The pack's `Others/` folder -- PS3, PS4, PS Vita,
+PS Move, Wii, Wii U, Xbox One, Ouya, Stadia, Luna, VR and gesture sets -- was
+removed, since KMRP supports none of those controllers and no tool read it; the
+pack's keyboard export zip and Flash source stay out of git by `.gitignore`.
 
 *Corrected 2026-09-19:* this section used to say ten files were redistributed,
 all from the Xbox 360 set, vendored at `third_party/Included/Xelu-Free-Controller-Prompts-CC0/`

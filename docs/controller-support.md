@@ -8,7 +8,7 @@
 **Kind: reference; structurally verified, not play-tested.**
 
 KMRP can install **KPM – Xbox Controls for KOTOR 1 1.2** by Saul0097 as an
-opt-in Advanced Settings component. It is an XInput-to-existing-input adapter,
+Advanced Settings component, on by default since 2026-09-24 (it was opt-in). It is an XInput-to-existing-input adapter,
 not native engine controller support: the module feeds KOTOR keyboard, mouse,
 and existing GUI events while a small KOTOR Patch Manager runtime installs six
 in-memory detours.
@@ -79,9 +79,14 @@ unlicensed.
 
 ## Installed files and ownership
 
-Enabling the option also enables K1 Modern Driver Compatibility because its
-`dinput8.dll` is the ASI loader. KMRP installs four controller-owned files beside
-the selected executable:
+The option is independent of K1 Modern Driver Compatibility. Both need the ASI
+loader, `dinput8.dll` -- Ultimate ASI Loader, which K1DC's package ships unmodified
+and which loads every `.asi` beside the game -- so `DriverCompatOperations.Apply`
+installs the loader whenever either option is on, and K1DC's own `.asi` only when
+driver compatibility is. Until 2026-09-24 the settings page forced driver
+compatibility on with this option instead. `Test-ControllerSupport.ps1` covers both
+single-option cases. KMRP installs four controller-owned files beside the selected
+executable:
 
 | File | Purpose |
 | --- | --- |

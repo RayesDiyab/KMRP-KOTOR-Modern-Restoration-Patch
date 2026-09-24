@@ -1996,16 +1996,39 @@ namespace Kmrp
             }
         }
 
-        /// <summary>Write both files into the game folder, unless something already
-        /// occupies one of those names that we did not put there.</summary>
-        internal static void Install(string executablePath, Action<string> report)
+        /// <summary>The two options are independent, and this is what makes them so.
+        ///
+        /// `dinput8.dll` is Ultimate ASI Loader (ThirteenAG, unmodified; see the notices in
+        /// K1DC's folder), and it loads every `.asi` beside the game -- K1DC's payload and
+        /// KMRP's controller runtime alike. So the loader is needed whenever EITHER option
+        /// is on, and K1DC's own `.asi` only when driver compatibility is. Until
+        /// 2026-09-24 the settings page forced driver compatibility on with the
+        /// controller instead.
+        ///
+        /// Always restores first: going from both options to controller only must remove
+        /// K1DC's `.asi`, or the loader would go on loading it.</summary>
+        internal static void Apply(string executablePath, bool driverCompatibility,
+            bool controllerSupport, Action<string> report)
+        {
+            Restore(executablePath, report);
+            if (driverCompatibility || controllerSupport)
+                Install(executablePath, report, driverCompatibility);
+        }
+
+        /// <summary>Write the loader, and K1DC's payload when `includePayload`, into the
+        /// game folder, unless something already occupies one of those names that we did
+        /// not put there.</summary>
+        internal static void Install(string executablePath, Action<string> report,
+            bool includePayload = true)
         {
             if (!Available)
                 return;
             string folder = Path.GetDirectoryName(Path.GetFullPath(executablePath));
             List<InstalledFile> installed = new List<InstalledFile>();
+            // The loader is FileNames[0]; the payload, FileNames[1].
+            int count = includePayload ? FileNames.Length : 1;
 
-            for (int i = 0; i < FileNames.Length; i++)
+            for (int i = 0; i < count; i++)
             {
                 string target = Path.Combine(folder, FileNames[i]);
                 // Never clobber a file we did not write. A user may already run a
@@ -2019,7 +2042,7 @@ namespace Kmrp
                 }
             }
 
-            for (int i = 0; i < FileNames.Length; i++)
+            for (int i = 0; i < count; i++)
             {
                 string target = Path.Combine(folder, FileNames[i]);
                 using (Stream stream = Assembly.GetExecutingAssembly()
@@ -2033,8 +2056,12 @@ namespace Kmrp
             }
 
             WriteManifest(executablePath, installed);
-            SafeReport(report, "Installed K1 Modern Driver Compatibility " + Version +
-                " (by Synchro). swkotor.exe was not modified.");
+            if (includePayload)
+                SafeReport(report, "Installed K1 Modern Driver Compatibility " + Version +
+                    " (by Synchro). swkotor.exe was not modified.");
+            else
+                SafeReport(report, "Installed the ASI loader for controller support; " +
+                    "Modern Driver Compatibility itself stays off.");
         }
 
         /// <summary>Remove both files, if we installed them and nothing has changed them
@@ -2178,8 +2205,8 @@ namespace Kmrp
             string folder = Path.GetDirectoryName(Path.GetFullPath(executablePath));
             if (!File.Exists(Path.Combine(folder, "dinput8.dll")))
             {
-                SafeReport(report, "Controller support was not installed: it needs Modern " +
-                    "Driver Compatibility's ASI loader, which is not present.");
+                SafeReport(report, "Controller support was not installed: its ASI loader " +
+                    "(dinput8.dll) is not present.");
                 return;
             }
 
@@ -2230,8 +2257,8 @@ namespace Kmrp
                 throw;
             }
 
-            SafeReport(report, "Installed optional Xbox Controls " + Version +
-                " (by Saul0097) through the KOTOR Patch Manager runtime.");
+            SafeReport(report, "Installed controller support " + Version +
+                " through the KOTOR Patch Manager runtime.");
         }
 
         internal static void Restore(string executablePath, Action<string> report)
@@ -3485,8 +3512,8 @@ namespace Kmrp
                 nvidiaState = NvidiaPresentOperations.Install(targetPath, report);
                 iniState = IniOperations.Configure(targetPath, width, height, report);
                 overrideState = OverrideOperations.Install(targetPath, resolution, report, progress);
-                if (KmrpSettings.DriverCompatibility)
-                    DriverCompatOperations.Install(targetPath, report);
+                DriverCompatOperations.Apply(targetPath, KmrpSettings.DriverCompatibility,
+                    KmrpSettings.ControllerSupport, report);
                 if (KmrpSettings.ControllerSupport)
                     ControllerOperations.Install(targetPath, targetHash, report);
                 SafeProgress(progress, 98, "Saving patch information…");
@@ -3690,10 +3717,8 @@ namespace Kmrp
                 existingNvidiaState = NvidiaPresentOperations.Install(targetPath, report);
                 existingIniState = IniOperations.Configure(targetPath, width, height, report);
                 existingOverrideState = OverrideOperations.Install(targetPath, resolution, report, progress);
-                if (KmrpSettings.DriverCompatibility)
-                    DriverCompatOperations.Install(targetPath, report);
-                else
-                    DriverCompatOperations.Restore(targetPath, report);
+                DriverCompatOperations.Apply(targetPath, KmrpSettings.DriverCompatibility,
+                    KmrpSettings.ControllerSupport, report);
                 if (KmrpSettings.ControllerSupport)
                     ControllerOperations.Install(targetPath, currentHash, report);
                 else
@@ -5389,7 +5414,11 @@ namespace Kmrp
         private const bool DriverCompatibilityDefault = true;
 
         private const bool MarkerFixesDefault = true;
-        private const bool ControllerSupportDefault = false;
+        // On by default since 2026-09-24, like the other two: Restore Defaults turns
+        // all three on, and a default it does not restore would not be a default. It
+        // costs a keyboard-and-mouse player nothing -- prompts appear only while a pad
+        // is the active device -- and it carries the cursor confinement (issue #20).
+        private const bool ControllerSupportDefault = true;
 
         private static bool loaded;
         private static bool driverCompatibility = DriverCompatibilityDefault;
@@ -5415,8 +5444,6 @@ namespace Kmrp
                 if (driverCompatibility == value)
                     return;
                 driverCompatibility = value;
-                if (!value)
-                    controllerSupport = false;
                 Save();
             }
         }
@@ -5435,7 +5462,13 @@ namespace Kmrp
             }
         }
 
-        /// <summary>Install Saul0097's optional XInput controller component.</summary>
+        /// <summary>Install KMRP's optional controller support.
+        ///
+        /// Independent of DriverCompatibility since 2026-09-24. Both need the ASI loader,
+        /// which DriverCompatOperations.Apply installs for either, so neither option
+        /// sets the other -- here, in the settings page, or when settings are loaded.
+        /// The coupling lived in all three places, and removing only the page's copy
+        /// left Load() turning driver compatibility back on.</summary>
         internal static bool ControllerSupport
         {
             get { Load(); return controllerSupport; }
@@ -5445,8 +5478,6 @@ namespace Kmrp
                 if (controllerSupport == value)
                     return;
                 controllerSupport = value;
-                if (value)
-                    driverCompatibility = true;
                 Save();
             }
         }
@@ -5480,8 +5511,6 @@ namespace Kmrp
                 if (controller.Success)
                     controllerSupport = String.Equals(controller.Groups[1].Value, "true",
                         StringComparison.OrdinalIgnoreCase);
-                if (controllerSupport)
-                    driverCompatibility = true;
             }
             catch { }
         }
@@ -5571,9 +5600,11 @@ namespace Kmrp
             int switchWidth = Math.Max(8, (int)Math.Round(64 * scale));
             int switchHeight = Math.Max(6, (int)Math.Round(32 * scale));
             int gutter = Math.Max(1, (int)Math.Round(18 * scale));
-            // The author sits further in than the switch's right edge, so the credit and
-            // the control are not flush with each other.
-            int authorInset = pad + Math.Max(1, (int)Math.Round(22 * scale));
+            // Everything written stops a gutter short of the switch's column. The credit
+            // used to end 42px from the edge, over a switch anchored bottom-right in an
+            // 86px row, so the two overlapped (reported 2026-09-24).
+            int switchLeft = Width - pad - switchWidth;
+            int textWidth = Math.Max(1, switchLeft - gutter - pad);
 
             // Two lines. Title and author share the first and are centred on each other;
             // the description and the switch share the second. The description stops
@@ -5593,29 +5624,27 @@ namespace Kmrp
                 int titleHeight = (int)Math.Ceiling(titleFont.GetHeight(g));
                 float titleTop = pad * 0.72F;
                 g.DrawString(Title, titleFont, titleInk, new RectangleF(
-                    pad, titleTop, Math.Max(1, Width - 2 * pad), titleHeight + 2));
+                    pad, titleTop, textWidth, titleHeight + 2));
 
                 if (!String.IsNullOrEmpty(Author))
                 {
                     // Centred on the title's own box, so the two sit on one optical line
-                    // whatever the two fonts' ascents do. Held further off the right edge
-                    // than the switch is, so the credit does not crowd the control.
+                    // whatever the two fonts' ascents do, and right-aligned to the same
+                    // column the description stops at -- clear of the switch.
                     g.DrawString("by " + Author, authorFont, authorInk, new RectangleF(
-                        pad, titleTop,
-                        Math.Max(1, Width - pad - authorInset), titleHeight + 2),
-                        rightAlign);
+                        pad, titleTop, textWidth, titleHeight + 2), rightAlign);
                 }
 
                 RectangleF detailBox = new RectangleF(
                     pad, titleTop + titleHeight + Math.Max(1, 2 * scale),
-                    Math.Max(1, Width - 2 * pad - switchWidth - gutter),
+                    textWidth,
                     Math.Max(1, Height - titleTop - titleHeight - pad * 0.5F));
                 g.DrawString(Detail, detailFont, detailInk, detailBox);
             }
 
-            // The switch sits on the description's line, hard right, under the author.
-            Rectangle track = new Rectangle(Width - pad - switchWidth,
-                                            Height - pad - switchHeight,
+            // The switch has the right-hand column to itself, centred on the row.
+            Rectangle track = new Rectangle(switchLeft,
+                                            (Height - switchHeight) / 2,
                                             switchWidth, switchHeight);
             using (GraphicsPath path = UiTheme.RoundedRect(track, switchHeight / 2))
             {
@@ -6056,8 +6085,8 @@ namespace Kmrp
 
             Label settingsSubtitle = new Label();
             settingsSubtitle.Text =
-                "Choose optional components. Driver compatibility and map fixes "
-                + "default on; controller support is opt-in.";
+                "Choose optional components. All three are on by default, and each "
+                + "can be turned off on its own.";
             settingsSubtitle.Font = new Font("Segoe UI", 14F);
             settingsSubtitle.ForeColor = UiTheme.TextMuted;
             settingsSubtitle.BackColor = UiTheme.Card;
@@ -6074,11 +6103,11 @@ namespace Kmrp
             driverToggle.Checked = KmrpSettings.DriverCompatibility;
             driverToggle.SetBounds(36, settingsSubtitle.Bottom + 18, card.Width - 72, 86);
             driverToggle.Anchor = AnchorStyles.Top | AnchorStyles.Left | AnchorStyles.Right;
+            // Independent of the controller since 2026-09-24: the controller brings its
+            // own copy of the ASI loader when this is off (DriverCompatOperations.Apply).
             driverToggle.CheckedChanged += delegate
             {
                 KmrpSettings.DriverCompatibility = driverToggle.Checked;
-                if (!driverToggle.Checked && controllerToggle != null)
-                    controllerToggle.Checked = false;
             };
             settingsView.Controls.Add(driverToggle);
 
@@ -6097,18 +6126,19 @@ namespace Kmrp
             settingsView.Controls.Add(markerToggle);
 
             controllerToggle = new OptionToggle();
-            controllerToggle.Title = "Xbox Controller Support";
-            controllerToggle.Author = "Saul0097";
+            // What ships now, in one line: KMRP's native controller path with SDL3 beside
+            // XInput, reading the pad family for its prompts. Saul0097's KPM Xbox Controls
+            // is where it began and is still credited in THIRD_PARTY_NOTICES.md.
+            controllerToggle.Title = "Controller Support";
+            controllerToggle.Author = "KMRP, based on Saul0097";
             controllerToggle.Detail =
-                "XInput controls for movement, combat, dialogue, menus and the action bar.";
+                "Xbox, PlayStation, Switch and Steam Deck: play, menus and matching button prompts.";
             controllerToggle.Checked = KmrpSettings.ControllerSupport;
             controllerToggle.SetBounds(36, markerToggle.Bottom + 8, card.Width - 72, 86);
             controllerToggle.Anchor = AnchorStyles.Top | AnchorStyles.Left | AnchorStyles.Right;
             controllerToggle.CheckedChanged += delegate
             {
                 KmrpSettings.ControllerSupport = controllerToggle.Checked;
-                if (controllerToggle.Checked)
-                    driverToggle.Checked = true;
             };
             settingsView.Controls.Add(controllerToggle);
 
@@ -6124,10 +6154,10 @@ namespace Kmrp
             settingsDefaults.Anchor = AnchorStyles.Top | AnchorStyles.Left;
             settingsDefaults.Click += delegate
             {
-                // Restore the documented defaults; controller support remains opt-in.
+                // The documented defaults: all three on (KmrpSettings).
                 driverToggle.Checked = true;
                 markerToggle.Checked = true;
-                controllerToggle.Checked = false;
+                controllerToggle.Checked = true;
             };
             settingsView.Controls.Add(settingsDefaults);
 

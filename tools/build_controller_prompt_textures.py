@@ -46,9 +46,11 @@ GLYPH_FAMILIES = {
     "xbox": ("Xbox", {
         "A": "360_A.png", "B": "360_B.png", "X": "360_X.png", "Y": "360_Y.png",
         "LB": "360_LB.png", "RB": "360_RB.png",
-        # Series X for the triggers, to match the R3 cue beside them. No
-        # caption badge uses either glyph, so this reaches only the cues.
-        "LT": "XboxSeriesX_LT.png", "RT": "XboxSeriesX_RT.png",
+        # The 360 triggers, like the rest of the set (chosen 2026-09-24; they
+        # were the Series X art, to match the R3 cue). No caption badge uses
+        # either glyph, so this reaches the tab-strip cues and the Controller
+        # Layout screen's LT and RT rows.
+        "LT": "360_LT.png", "RT": "360_RT.png",
         "START": "360_Start.png", "BACK": "360_Back.png",
         "DPAD_LEFT": "360_Dpad_Left.png", "DPAD_RIGHT": "360_Dpad_Right.png",
         "DPAD_UP": "360_Dpad_Up.png", "DPAD_DOWN": "360_Dpad_Down.png",
@@ -57,8 +59,10 @@ GLYPH_FAMILIES = {
         # match: nothing uses it yet, and silently restyling an unused glyph
         # is a change nobody asked for. If L3 is ever badged, pick one.
         # Not a button: the whole "press X to swap tabs" phrase, X and
-        # arrows together, as one piece of art.
-        "SWAP": "Swap_tabs.png",
+        # arrows together, as one piece of art. One per family since
+        # 2026-09-24, drawn to match; the Xbox file's doubled extension is its
+        # real name on disk.
+        "SWAP": "Swap_tabs_360.png.png",
         "L3": "360_Left_Stick_Click.png",
         "R3": "XboxSeriesX_Right_Stick_Click.png",
         # The sticks and D-pad as whole controls, for the Controller Layout
@@ -77,6 +81,7 @@ GLYPH_FAMILIES = {
         "L3": "PS5_Left_Stick_Click.png", "R3": "PS5_Right_Stick_Click.png",
         "LSTICK": "PS5_Left_Stick.png", "RSTICK": "PS5_Right_Stick.png",
         "DPAD": "PS5_Dpad.png",
+        "SWAP": "Swap_tabs_PS5.png",
     }),
     # By POSITION, not by letter. The module reads XInput, where A is the bottom
     # face button whatever the pad calls it, and on a Switch Pro the bottom button
@@ -96,6 +101,7 @@ GLYPH_FAMILIES = {
         "L3": "Switch_Left_Stick_Click.png", "R3": "Switch_Right_Stick_Click.png",
         "LSTICK": "Switch_Left_Stick.png", "RSTICK": "Switch_Right_Stick.png",
         "DPAD": "Switch_Dpad.png",
+        "SWAP": "Swap_tabs_Switch.png",
     }),
     "steamdeck": ("Steam Deck", {
         "A": "SteamDeck_A.png", "B": "SteamDeck_B.png",
@@ -113,6 +119,7 @@ GLYPH_FAMILIES = {
         "LSTICK": "SteamDeck_Left_Stick.png",
         "RSTICK": "SteamDeck_Right_Stick.png",
         "DPAD": "SteamDeck_Dpad.png",
+        "SWAP": "Swap_tabs_SteamDeck.png",
     }),
 }
 
@@ -258,6 +265,9 @@ PROMPT_TARGETS = (
     # back button BTN_CANCEL, so each target below was chosen by the STRREF the
     # button actually draws, not by its name.
     PromptTarget("optionsmain.gui", "BTN_BACK", 7, "B", "kmrpb_optmain"),
+    # The Movies screen, from the main menu. Its dispatcher at 0x006DCE80 closes on
+    # 0x28 (and 0x2E) through 0x006DCEA0, so B is Close here too.
+    PromptTarget("titlemovie.gui", "BTN_BACK", 2, "B", "kmrpb_movies"),
     PromptTarget("optionsingame.gui", "BTN_EXIT", 10, "B", "kmrpb_optingame"),
     PromptTarget("optgameplay.gui", "BTN_BACK", 10, "B", "kmrpb_optgame"),
     PromptTarget("optautopause.gui", "BTN_BACK", 7, "B", "kmrpb_optpause"),
@@ -367,8 +377,9 @@ def _blend(pixel: tuple[float, float, float, float], color: tuple[int, int, int]
 def _load_glyph_art(glyph: str, family: str = GLYPH_FAMILY):
     """`family`'s CC0 glyph for `glyph`, cropped to its ink, or None.
 
-    SWAP -- the whole "press X to swap tabs" phrase -- exists as art for Xbox
-    only; another family shows its own X-position button there instead.
+    SWAP -- the whole "press X to swap tabs" phrase -- has art for every family
+    since 2026-09-24; a family without it would show its own X-position button
+    there instead.
 
     A missing file falls back to the procedurally drawn badge, and that fallback
     is SILENT by design -- which is how the whole set came to be drawn discs
@@ -704,6 +715,8 @@ PROMPT_STRREFS = {
     # button's own TEXT.STRREF, which is why two of them are Cancel where the tag
     # says BACK and the other way round.
     ("optionsmain.gui", "BTN_BACK"): ((1582,),),
+    # Read from titlemovie.gui at 800x600, 1920x1080 and 3440x1440: 1582 "Close".
+    ("titlemovie.gui", "BTN_BACK"): ((1582,),),
     ("optionsingame.gui", "BTN_EXIT"): ((1582,),),
     ("optgameplay.gui", "BTN_BACK"): ((1582,),),
     ("optautopause.gui", "BTN_BACK"): ((1582,),),

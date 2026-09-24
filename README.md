@@ -185,13 +185,13 @@ overwrites a mod you installed yourself.
 | --- | --- | --- | --- |
 | [K1 Modern Driver Compatibility](https://codeberg.org/Synchro/kotor-modern-driver-compatibility) 1.2.0 | Synchro | MPL-2.0 | **Yes** — Advanced Settings |
 | Area map marker corrections (250 notes) | Derslok | GPL-3.0 | **Yes** — Advanced Settings |
-| Controller support, based on [KPM – Xbox Controls for KOTOR 1](https://github.com/scopeking0117-alt/KPM-Xbox-Controls-K1) 1.2 | Saul0097 / KMRP | Author permission; upstream licence file pending; SDL zlib | **Yes, off by default** — Advanced Settings |
+| Controller support, based on [KPM – Xbox Controls for KOTOR 1](https://github.com/scopeking0117-alt/KPM-Xbox-Controls-K1) 1.2 | Saul0097 / KMRP | Author permission; upstream licence file pending; SDL zlib | **Yes, on by default** — Advanced Settings |
 | Party Portraits | MadDerp | — | No |
 | KOTOR 1 HD Icon Pack 1.0 | JackInTheBox | — | No |
 
 **Advanced Settings**, the button beside *Start Patching*, controls all three
-optional components. Driver compatibility and map corrections default to on;
-Controller support is opt-in. The choices are remembered in
+optional components. All three default to on, each can be turned off on its own,
+and *Restore Defaults* turns all three back on. The choices are remembered in
 `%LOCALAPPDATA%\KMRP\settings.json`.
 
 **Driver compatibility** is two files dropped beside `swkotor.exe`; it never

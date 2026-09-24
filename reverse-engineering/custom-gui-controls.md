@@ -207,7 +207,11 @@ Every part of this is now measured.
 
 **Build time.** Author `LBL_KMRPR3` into the four `.gui` files, positioned from
 the two portraits' real extents at each resolution -- at 3440x1440 the gap is
-`693..787`, so `x=698 y=1230 84x84` -- with `CONTROLTYPE 4`, the R3 badge as its
+`693..787`, so `x=698 y=1230 84x84`, filling the portrait height; since
+2026-09-24 it is 90% of that (`R3_CUE_SCALE`), `x=702 y=1234 76x76`, still
+centred. Where the gap cannot hold that size -- 4:3, 16:10 and 16:9, 6 px at
+800x600 -- it goes right of the second portrait instead (`r3_cue_extent` in
+`tools/prepare_universal_resources.py`) -- with `CONTROLTYPE 4`, the R3 badge as its
 `BORDER.FILL`, and an `ID` of `max + 1` for that file: ABILITIES 20,
 CHARACTER 66, EQUIP 41, INVENTORY 16.
 
@@ -350,6 +354,40 @@ into it, which is only safe if two instances of one panel never coexist -- itsel
 unproven.
 
 Nothing here blocks implementation.
+
+## Correction, 2026-09-24: the cue table outlived its panels
+
+**Loading a save from in game crashed mid loading screen**, reproducibly, when a
+save had already been loaded from the main menu. Every crash was an access
+violation at `kmrp-controller.module+0x3CC8`. A reproducible rebuild of the same
+module with `/MAP` (byte-identical, SHA-256 `F898853D...`) put that inside
+`NativeGuiFrameK1`, at the cue loop's `mov edi, [ecx+0x20]`: the read of a
+remembered panel's control array.
+
+The module remembered each bound cue as `(panel, control, id)` and never forgot
+one. It judged whether a panel still existed by **reading the panel**
+(`GuiCueStillLiveK1`), guarded only by a pointer-range test. Loading a save
+destroys every in-game screen; once a freed screen's pages are released, that
+read faults. The first load, from the main menu, had no cues to read, which is
+why only the second one crashed. The table dates from the R3 cue, 2026-09-15.
+
+Fixed three ways in `K1NativeJoystick.cpp`:
+
+* **Forgotten at the panel's end.** `CSWGuiPanel::~CSWGuiPanel` stores its own
+  vtable (`0x0040CF8E  mov [esi], 0x73E010`), then calls ReleaseGff
+  (`0x0040CFB2  call 0x40B8F0`, the hooked function), and only afterwards frees
+  the control array (`0x0040CFEE`). So `ForgetGuiCuesK1`, run from the ReleaseGff
+  hook when it sees that vtable with no `.gui`, can still clear the cue's slot,
+  and frees the label -- which also ends the `0x140`-byte leak described below.
+  `K1ControllerLayout.cpp` keys its own cleanup on the same pair, and its
+  lifecycle log records it firing (`entry-destroy`).
+* **Never read unverified.** `GuiCueStillLiveK1` is now a second line of defence
+  and checks with `VirtualQuery` that the memory is committed and readable
+  before touching it (`IsReadableK1`). The Yes/No badge loop got the same guard.
+* **Empty slots first.** Binding reuses a slot only when it is empty, or failing
+  that through the guarded liveness test.
+
+Not yet confirmed in game.
 
 ## Verified: the array's destructor frees storage, nothing else
 

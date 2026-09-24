@@ -1199,7 +1199,7 @@ void EnsureNativeJoystickK1(void* exoInputInternal)
 
 // Defined further down with the focus-navigation layer; declared here because
 // the record emitter feeds them.
-bool KmrpOwnsDirectionsK1();
+bool KmrpOwnsDirectionsK1(bool vertical);
 template <typename T> T* FieldAt(void* base, std::size_t offset);
 bool LooksLikePointerK1(const void* p);
 void* ClientInternalK1();
@@ -1212,6 +1212,7 @@ void PerformPendingPartySwitchK1();
 void PerformPendingMapOpenK1();
 void* TabBarPanelK1();
 void InstallGuiCuesK1(void* panel);
+void ForgetGuiCuesK1(void* panel);
 void UpdateGuiCuesK1();
 void EnsureRumbleTableK1(void* owner);
 void UpdateStickNavigationK1(float x, float y);
@@ -1389,7 +1390,10 @@ void FillNativeJoystickBufferK1(int deviceIndex, void* outBuffer)
     // Whether the native direction codes go out at all. On a screen the engine
     // navigates properly they must; on one this layer navigates they must not,
     // or focus moves twice for one press.
-    const bool kmrpDirections = KmrpOwnsDirectionsK1();
+    // Asked per axis: a focused horizontal slider keeps Left/Right for its value
+    // while KMRP takes Up/Down (see ControlOwnsAxisK1).
+    const bool kmrpVertical = KmrpOwnsDirectionsK1(true);
+    const bool kmrpHorizontal = KmrpOwnsDirectionsK1(false);
 
     // The direction codes are 0x384, 0x388, 0x38C, 0x390 -- the same values the
     // engine's own POV decoder produces -- reached here through the slot each
@@ -1407,7 +1411,9 @@ void FillNativeJoystickBufferK1(int deviceIndex, void* outBuffer)
                 // Deciding it again at the release would let a screen change
                 // mid-press emit a press with no matching release, and a
                 // digital description that never sees its zero stays stuck on.
-                if (!kmrpDirections) {
+                // K1_DPAD order is Up, Down, Left, Right.
+                const bool kmrpOwns = d < 2 ? kmrpVertical : kmrpHorizontal;
+                if (!kmrpOwns) {
                     emit(codes[d], 1);
                     g_stick.dpadEmitted |= bit;
                 }
@@ -2407,6 +2413,7 @@ extern "C" void __cdecl NativeFreeSaveBufferK1(void* buffer)
 extern "C" void __cdecl NativePanelReleaseGffK1(void* panel)
 {
     ControllerLayoutReleaseGffK1(panel);
+    ForgetGuiCuesK1(panel);
     InstallGuiCuesK1(panel);
 }
 
@@ -2562,9 +2569,9 @@ constexpr unsigned long K1_SLOW_FRAME_MS = 100;
 // ------------------------------------------------- the party-switch cue
 //
 // R3 changes which party member the four party screens are showing, and there is
-// no control in any of them to say so. The build adds one -- LBL_KMRPR3, in the
-// gap between the two portraits -- and this binds it, because a panel builds the
-// controls it knows by name and would never build this one.
+// no control in any of them to say so. The build adds one -- LBL_KMRPR3, between
+// the two portraits or right of them -- and this binds it, because a panel
+// builds the controls it knows by name and would never build this one.
 //
 // There is exactly one moment when that is possible. Every panel constructor
 // ends by calling CSWGuiPanel::ReleaseGff, which deletes the parsed .gui and
@@ -2584,6 +2591,11 @@ constexpr std::size_t K1_GUI_LABEL_SIZE = 0x140;
 
 // CSWGuiPanel::gff. Non-null only until ReleaseGff runs.
 constexpr std::size_t K1_PANEL_GFF           = 0x2C;
+// CSWGuiPanel's own vtable. The base destructor stores it and then calls
+// ReleaseGff, with the .gui long gone and the control array still in place: the
+// one moment a panel's end is visible from a hook. K1ControllerLayout.cpp keys
+// its own cleanup on the same pair, and its lifecycle log shows it firing.
+constexpr std::uintptr_t K1_BASE_PANEL_VTABLE = 0x0073E010;
 // CSWGuiControl::bit_flags and ::id.
 constexpr std::size_t K1_CONTROL_FLAGS = 0x44;
 constexpr std::size_t K1_CONTROL_ID    = 0x50;
@@ -2680,6 +2692,32 @@ bool LooksLikePointerK1(const void* p)
 {
     const std::uintptr_t v = reinterpret_cast<std::uintptr_t>(p);
     return v >= 0x00010000u && v < 0x7FFF0000u;
+}
+
+// Is [p, p + size) committed, readable memory right now? LooksLikePointerK1 only
+// says an address is in range, and a remembered object can outlive itself:
+// loading a save destroys every in-game screen, and once a freed page is
+// released, reading it faults. That was the Load Game crash of 2026-09-24,
+// kmrp-controller.module+0x3CC8, in the cue loop. VirtualQuery answers without
+// touching the memory.
+bool IsReadableK1(const void* p, std::size_t size)
+{
+    if (!LooksLikePointerK1(p) || size == 0) {
+        return false;
+    }
+    constexpr DWORD readable = PAGE_READONLY | PAGE_READWRITE | PAGE_WRITECOPY |
+        PAGE_EXECUTE_READ | PAGE_EXECUTE_READWRITE | PAGE_EXECUTE_WRITECOPY;
+    const std::uint8_t* at = static_cast<const std::uint8_t*>(p);
+    const std::uint8_t* const end = at + size;
+    while (at < end) {
+        MEMORY_BASIC_INFORMATION info{};
+        if (!VirtualQuery(at, &info, sizeof(info)) || info.State != MEM_COMMIT ||
+            !(info.Protect & readable) || (info.Protect & (PAGE_GUARD | PAGE_NOACCESS))) {
+            return false;
+        }
+        at = static_cast<const std::uint8_t*>(info.BaseAddress) + info.RegionSize;
+    }
+    return true;
 }
 
 bool InListK1(std::uintptr_t value, const std::uintptr_t* list, std::size_t count)
@@ -2920,14 +2958,21 @@ using ExoStringDtorFn  = void(__thiscall*)(void*);
 // Is this control still the one the panel has at that id? Panels are heap
 // objects and an address can be reused, so a remembered pointer is only trusted
 // when the panel still agrees with it.
+//
+// A second line of defence only. Cues are forgotten when their panel is
+// destroyed (ForgetGuiCuesK1); this used to be the ONLY check, and it read the
+// panel to decide whether the panel still existed -- which faults once a freed
+// screen's memory is released. Nothing here is read until IsReadableK1 agrees.
 bool GuiCueStillLiveK1(const GuiCueK1& cue)
 {
-    if (!cue.panel || !cue.control || !LooksLikePointerK1(cue.panel)) {
+    if (!cue.panel || !cue.control ||
+        !IsReadableK1(cue.panel, K1_PANEL_CONTROL_COUNT + sizeof(int))) {
         return false;
     }
     void** const controls = *FieldAt<void**>(cue.panel, K1_PANEL_CONTROL_ARRAY);
     const int count = *FieldAt<int>(cue.panel, K1_PANEL_CONTROL_COUNT);
-    if (!LooksLikePointerK1(controls) || cue.id < 0 || cue.id >= count) {
+    if (cue.id < 0 || cue.id >= count ||
+        !IsReadableK1(controls + cue.id, sizeof(void*))) {
         return false;
     }
     return controls[cue.id] == cue.control;
@@ -2964,16 +3009,60 @@ void BindOneCueK1(void* panel, const char* tag)
     // Hidden until the pad is the live device, the same rule the badges follow.
     *FieldAt<std::uint32_t>(control, K1_CONTROL_FLAGS) &= ~K1_CONTROL_FLAG_DRAWN;
 
-    for (int i = 0; i < K1_GUI_CUE_SLOTS; ++i) {
-        if (g_guiCues[i].panel == nullptr || !GuiCueStillLiveK1(g_guiCues[i])) {
-            g_guiCues[i].panel = panel;
-            g_guiCues[i].control = control;
-            g_guiCues[i].id = id;
-            ++g_stick.guiCuesInstalled;
-            return;
+    // An empty slot first; a dead one only if there is none, and then only
+    // through the safe liveness test.
+    for (int pass = 0; pass < 2; ++pass) {
+        for (int i = 0; i < K1_GUI_CUE_SLOTS; ++i) {
+            const bool usable = pass == 0 ? g_guiCues[i].panel == nullptr
+                                          : !GuiCueStillLiveK1(g_guiCues[i]);
+            if (usable) {
+                g_guiCues[i].panel = panel;
+                g_guiCues[i].control = control;
+                g_guiCues[i].id = id;
+                ++g_stick.guiCuesInstalled;
+                return;
+            }
         }
     }
     ++g_stick.guiCuesRejected;      // table full: drawn, but never toggled
+}
+
+// A panel's end: forget its cues and free the labels bound into it. Called from
+// ReleaseGff, which the base destructor calls with CSWGuiPanel's own vtable back
+// in place and the .gui already released, before it disposes of the control
+// array -- so the slots can still be cleared. Until 2026-09-24 nothing did this:
+// the table kept screens that loading a save had destroyed, and the next frame
+// read one whose memory was gone. The labels are KMRP's, allocated in
+// BindOneCueK1; the panel's array refers to them but does not own them (see
+// reverse-engineering/custom-gui-controls.md), so they are freed here, the way
+// K1ControllerLayout.cpp frees its own entry button.
+void ForgetGuiCuesK1(void* panel)
+{
+    if (!IsReadableK1(panel, K1_PANEL_GFF + sizeof(void*)) ||
+        *FieldAt<std::uintptr_t>(panel, 0) != K1_BASE_PANEL_VTABLE ||
+        *FieldAt<void*>(panel, K1_PANEL_GFF) != nullptr) {
+        return;
+    }
+    using DeletingDtorFn = void*(__thiscall*)(void*, unsigned);
+    for (int i = 0; i < K1_GUI_CUE_SLOTS; ++i) {
+        GuiCueK1& cue = g_guiCues[i];
+        if (cue.panel != panel) {
+            continue;
+        }
+        void** const controls = *FieldAt<void**>(panel, K1_PANEL_CONTROL_ARRAY);
+        const int count = *FieldAt<int>(panel, K1_PANEL_CONTROL_COUNT);
+        // Freed only while the panel still holds it at its id. Anything else
+        // means the slot was reused, and a leak is safer than a double free.
+        if (cue.id >= 0 && cue.id < count &&
+            IsReadableK1(controls + cue.id, sizeof(void*)) &&
+            controls[cue.id] == cue.control &&
+            IsReadableK1(cue.control, sizeof(void*))) {
+            controls[cue.id] = nullptr;
+            void** const vtable = *FieldAt<void**>(cue.control, 0);
+            reinterpret_cast<DeletingDtorFn>(vtable[0])(cue.control, 1);
+        }
+        cue = GuiCueK1{};
+    }
 }
 
 // Build whatever cues this panel is owed, while it still has its .gui.
@@ -3516,7 +3605,37 @@ void* ChooseNeighbourK1(void* panel, void* current, int dx, int dy)
 // dispatcher handles 0xF3/0xF4 and then routes to its own focused control. The
 // press reached the strip and died there, so focus entered the tab and could
 // never leave it -- for that tab and, once the flag stuck, every tab after.
-bool PanelNavigatesItselfK1(void* panel, void* active, bool reachable = true)
+// Which axis a press is on, where it matters: a slider consumes only the axis it
+// slides along.
+enum class NavAxisK1 { Any, Horizontal, Vertical };
+
+constexpr std::uintptr_t K1_SLIDER_DISPATCHER = 0x0041ADF0;
+
+// Does this self-navigating control actually take presses on `axis`?
+//
+// CSWGuiSlider::HandleInputEvent (0x0041ADF0) decides its orientation from its own
+// extent -- `mov eax,[esi+0x10]; cmp eax,[esi+0xC]` at 0x0041AE05, height against
+// width -- and a horizontal slider handles only 0x2F/0x30 and their 0x3F/0x40
+// aliases, changing its value. Every other direction falls through to the base
+// handler and the control's own navigation links. Those links are where vanilla's
+// options screens go wrong: on Sound Options, Down from Movie Volume skipped
+// Advanced Options for Default, while Up from Default -- a plain button, so KMRP's
+// spatial navigation -- reached Advanced correctly (reported 2026-09-24). So a
+// slider claims only its sliding axis, and the other goes to ChooseNeighbourK1
+// like any button. List boxes and edit boxes still claim both.
+bool ControlOwnsAxisK1(void* control, std::uintptr_t dispatcher, NavAxisK1 axis)
+{
+    if (dispatcher != K1_SLIDER_DISPATCHER || axis == NavAxisK1::Any) {
+        return true;
+    }
+    const int width = *FieldAt<int>(control, 0x0C);
+    const int height = *FieldAt<int>(control, 0x10);
+    const bool horizontal = height <= width;
+    return horizontal == (axis == NavAxisK1::Horizontal);
+}
+
+bool PanelNavigatesItselfK1(void* panel, void* active, bool reachable = true,
+                            NavAxisK1 axis = NavAxisK1::Any)
 {
     const std::uintptr_t panelDispatcher = DispatcherOfK1(panel);
     if (reachable && panelDispatcher != 0 &&
@@ -3527,7 +3646,8 @@ bool PanelNavigatesItselfK1(void* panel, void* active, bool reachable = true)
     const std::uintptr_t controlDispatcher = DispatcherOfK1(active);
     return controlDispatcher != 0 &&
         InListK1(controlDispatcher, K1_NATIVE_DIRECTION_CONTROLS,
-                 sizeof(K1_NATIVE_DIRECTION_CONTROLS) / sizeof(K1_NATIVE_DIRECTION_CONTROLS[0]));
+                 sizeof(K1_NATIVE_DIRECTION_CONTROLS) / sizeof(K1_NATIVE_DIRECTION_CONTROLS[0])) &&
+        ControlOwnsAxisK1(active, controlDispatcher, axis);
 }
 
 // Does KMRP own the direction presses on whatever is currently in front?
@@ -3613,7 +3733,7 @@ void* NavigationPanelK1(void** outTabBar)
     return content;
 }
 
-bool KmrpOwnsDirectionsK1()
+bool KmrpOwnsDirectionsK1(bool vertical)
 {
     // In gameplay the D-pad drives the HUD's action bar, so its retained codes
     // are suppressed for the same reason they are in menus: one press, one
@@ -3645,7 +3765,8 @@ bool KmrpOwnsDirectionsK1()
         return true;
     }
     void* const active = *FieldAt<void**>(panel, K1_PANEL_ACTIVE);
-    return !PanelNavigatesItselfK1(panel, active, true);
+    return !PanelNavigatesItselfK1(panel, active, true,
+                                   vertical ? NavAxisK1::Vertical : NavAxisK1::Horizontal);
 }
 
 // One navigation step. Returns true when focus actually moved, which is what
@@ -3724,7 +3845,8 @@ bool NavigateFocusK1(int dx, int dy)
     // Behind the strip a focused control that owns the direction keys is handed
     // its own retained event directly. Standing down here used to mean the press
     // vanished: nothing routes retained events to a panel that is not in front.
-    if (PanelNavigatesItselfK1(panel, active, false)) {
+    if (PanelNavigatesItselfK1(panel, active, false,
+                               dy != 0 ? NavAxisK1::Vertical : NavAxisK1::Horizontal)) {
         if (tabBar != nullptr) {
             const std::uintptr_t dispatcher = DispatcherOfK1(active);
             if (dispatcher != 0) {

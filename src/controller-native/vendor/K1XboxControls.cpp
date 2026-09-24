@@ -184,6 +184,9 @@ constexpr std::uintptr_t K1_STORE_PANEL_VTABLE = 0x00756E38;
 constexpr std::uintptr_t K1_INGAME_OPTIONS_PANEL_VTABLE = 0x00755DE0;
 constexpr std::uintptr_t K1_KEY_MAPPINGS_PANEL_VTABLE = 0x00759358;
 constexpr std::uintptr_t K1_OPTIONS_MAIN_PANEL_VTABLE = 0x00758838;
+// The Movies screen (titlemovie.gui). Stored at 0x006DD949 by its constructor,
+// which binds LB_MOVIES, LBL_TITLE and BTN_BACK (+0x484, from 0x006DDA20).
+constexpr std::uintptr_t K1_TITLE_MOVIES_PANEL_VTABLE = 0x00758130;
 constexpr std::uintptr_t K1_OPTIONS_FEEDBACK_PANEL_VTABLE = 0x007581E8;
 constexpr std::uintptr_t K1_OPTIONS_GRAPHICS_PANEL_VTABLE = 0x007586F8;
 constexpr std::uintptr_t K1_OPTIONS_GRAPHICS_ADVANCED_PANEL_VTABLE = 0x007584A0;
@@ -342,6 +345,7 @@ constexpr std::ptrdiff_t K1_OPTIONS_MAIN_TAIL_AUTOPAUSE_OFFSET = 0x03EC;
 constexpr std::ptrdiff_t K1_OPTIONS_MAIN_TAIL_FEEDBACK_OFFSET = 0x0228;
 constexpr std::ptrdiff_t K1_OPTIONS_MAIN_TAIL_GAMEPLAY_OFFSET = 0x0064;
 constexpr std::ptrdiff_t K1_OPTIONS_MAIN_BACK_OFFSET = 0x0D7C;
+constexpr std::ptrdiff_t K1_TITLE_MOVIES_BACK_OFFSET = 0x0484;
 constexpr std::ptrdiff_t K1_OPTIONS_FEEDBACK_TAIL_LISTBOX_OFFSET = 0x0064;
 constexpr std::ptrdiff_t K1_OPTIONS_FEEDBACK_DEFAULT_OFFSET = 0x0A68;
 constexpr std::ptrdiff_t K1_OPTIONS_FEEDBACK_BACK_OFFSET = 0x08A4;
@@ -958,6 +962,11 @@ constexpr ControllerPromptBinding K1_OPTIONS_MAIN_PROMPTS[] = {
     {K1_OPTIONS_MAIN_BACK_OFFSET, "kmrpb_optmain"},
 };
 
+// Movies: Close is B. The panel's dispatcher (0x006DCE80) closes on 0x28.
+constexpr ControllerPromptBinding K1_TITLE_MOVIES_PROMPTS[] = {
+    {K1_TITLE_MOVIES_BACK_OFFSET, "kmrpb_movies"},
+};
+
 constexpr ControllerPromptBinding K1_INGAME_OPTIONS_PROMPTS[] = {
     {K1_INGAME_OPTIONS_EXIT_OFFSET, "kmrpb_optingame"},
 };
@@ -1139,6 +1148,7 @@ bool IsK1MenuPanel(void* panel)
         vtable == K1_INGAME_OPTIONS_PANEL_VTABLE ||
         vtable == K1_KEY_MAPPINGS_PANEL_VTABLE ||
         vtable == K1_OPTIONS_MAIN_PANEL_VTABLE ||
+        vtable == K1_TITLE_MOVIES_PANEL_VTABLE ||
         vtable == K1_OPTIONS_FEEDBACK_PANEL_VTABLE ||
         vtable == K1_OPTIONS_GRAPHICS_PANEL_VTABLE ||
         vtable == K1_OPTIONS_GRAPHICS_ADVANCED_PANEL_VTABLE ||
@@ -1310,6 +1320,9 @@ const ControllerPromptBinding* GetK1ControllerPrompts(
     case K1_OPTIONS_MAIN_PANEL_VTABLE:
         *count = sizeof(K1_OPTIONS_MAIN_PROMPTS) / sizeof(K1_OPTIONS_MAIN_PROMPTS[0]);
         return K1_OPTIONS_MAIN_PROMPTS;
+    case K1_TITLE_MOVIES_PANEL_VTABLE:
+        *count = sizeof(K1_TITLE_MOVIES_PROMPTS) / sizeof(K1_TITLE_MOVIES_PROMPTS[0]);
+        return K1_TITLE_MOVIES_PROMPTS;
     case K1_OPTIONS_RESOLUTION_PANEL_VTABLE:
         *count = sizeof(K1_OPTIONS_RESOLUTION_PROMPTS) /
             sizeof(K1_OPTIONS_RESOLUTION_PROMPTS[0]);

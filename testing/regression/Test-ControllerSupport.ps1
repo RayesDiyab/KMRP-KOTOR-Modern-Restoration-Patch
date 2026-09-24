@@ -1,5 +1,6 @@
 <#
-    Structural and ownership regression for optional Xbox Controller Support.
+    Structural and ownership regression for optional controller support, and for its
+    independence from Modern Driver Compatibility.
 
     Temporarily enables the persistent option, installs into isolated game
     folders, validates all runtime files/config/hooks, restores them, and proves
@@ -165,6 +166,51 @@ try {
     Assert (-not (Test-Path (Join-Path $sdlFolder "kmrp-controller.module"))) "no partial controller install beside foreign SDL"
     Assert ((Invoke-Patcher @("--restore", $sdlGame)) -eq 0) "SDL conflict fixture restores cleanly"
     Assert ([IO.File]::ReadAllText($foreignSdl) -eq "foreign SDL sentinel") "restore preserves foreign SDL"
+
+    # The options are independent since 2026-09-24. dinput8.dll is Ultimate ASI Loader
+    # and loads every .asi beside the game, so it must be present whenever either option
+    # is on -- but K1DC's own payload only when driver compatibility is.
+    function Set-TestOptions([bool]$driver, [bool]$controller) {
+        $d = $driver.ToString().ToLowerInvariant(); $c = $controller.ToString().ToLowerInvariant()
+        [IO.File]::WriteAllText($settingsPath, "{`r`n  `"driverCompatibility`": $d,`r`n  `"markerFixes`": true,`r`n  `"controllerSupport`": $c`r`n}`r`n", [Text.UTF8Encoding]::new($false))
+    }
+
+    Write-Host "Case 4  controller support without driver compatibility"
+    Set-TestOptions $false $true
+    $soloGame = New-Install "controller-only"
+    $soloFolder = Split-Path -Parent $soloGame
+    Assert ((Invoke-Patcher @("--in-place", $soloGame, $Resolution)) -eq 0) "controller-only patch succeeds"
+    Assert (Test-Path -LiteralPath (Join-Path $soloFolder "dinput8.dll")) "the ASI loader is installed for the controller"
+    Assert (-not (Test-Path -LiteralPath (Join-Path $soloFolder "k1-modern-driver-compatibility.asi"))) "driver compatibility's payload is not installed"
+    foreach ($name in $controllerNames) {
+        Assert (Test-Path -LiteralPath (Join-Path $soloFolder $name)) ("controller-only installed " + $name)
+    }
+    Assert ((Invoke-Patcher @("--restore", $soloGame)) -eq 0) "controller-only restore succeeds"
+    Assert (-not (Test-Path -LiteralPath (Join-Path $soloFolder "dinput8.dll"))) "restore removes the loader it installed"
+    Assert (-not (Test-Path -LiteralPath (Join-Path $soloFolder "kmrp-controller.module"))) "restore removes the controller"
+
+    Write-Host "Case 5  driver compatibility without controller support"
+    Set-TestOptions $true $false
+    $driverGame = New-Install "driver-only"
+    $driverFolder = Split-Path -Parent $driverGame
+    Assert ((Invoke-Patcher @("--in-place", $driverGame, $Resolution)) -eq 0) "driver-only patch succeeds"
+    Assert (Test-Path -LiteralPath (Join-Path $driverFolder "dinput8.dll")) "driver-only installs the loader"
+    Assert (Test-Path -LiteralPath (Join-Path $driverFolder "k1-modern-driver-compatibility.asi")) "driver-only installs its payload"
+    Assert (-not (Test-Path -LiteralPath (Join-Path $driverFolder "kmrp-controller.module"))) "driver-only installs no controller"
+    Assert ((Invoke-Patcher @("--restore", $driverGame)) -eq 0) "driver-only restore succeeds"
+    Assert (-not (Test-Path -LiteralPath (Join-Path $driverFolder "k1-modern-driver-compatibility.asi"))) "restore removes driver compatibility"
+
+    # All three optional components default on since 2026-09-24, so a first run with no
+    # saved settings must install both of these. The finally block below puts the real
+    # settings.json back.
+    Write-Host "Case 6  the defaults, with no saved settings"
+    if (Test-Path -LiteralPath $settingsPath) { Remove-Item -LiteralPath $settingsPath -Force }
+    $defaultGame = New-Install "defaults"
+    $defaultFolder = Split-Path -Parent $defaultGame
+    Assert ((Invoke-Patcher @("--in-place", $defaultGame, $Resolution)) -eq 0) "default patch succeeds"
+    Assert (Test-Path -LiteralPath (Join-Path $defaultFolder "k1-modern-driver-compatibility.asi")) "driver compatibility is on by default"
+    Assert (Test-Path -LiteralPath (Join-Path $defaultFolder "kmrp-controller.module")) "controller support is on by default"
+    Assert ((Invoke-Patcher @("--restore", $defaultGame)) -eq 0) "default install restores"
 
 }
 finally {

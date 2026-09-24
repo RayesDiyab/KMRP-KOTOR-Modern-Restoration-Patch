@@ -83,6 +83,19 @@ third_party/*
 !third_party/Included/
 third_party/Included/*
 
+# Xelu's Free Controller & Key Prompts (CC0): the glyph art every badge, cue and the
+# Controller Layout screen is built from. Only the four families KMRP supports, plus
+# the pack's readme for its licence statement. The rest of the pack -- Others/, with
+# the dozen controllers KMRP does not support, the keyboard export zip and the Flash
+# source -- is not used by the build and is left out.
+!third_party/Included/Xelu_Free_Controller&Key_Prompts/
+third_party/Included/Xelu_Free_Controller&Key_Prompts/*
+!third_party/Included/Xelu_Free_Controller&Key_Prompts/Xbox/
+!third_party/Included/Xelu_Free_Controller&Key_Prompts/PS5/
+!third_party/Included/Xelu_Free_Controller&Key_Prompts/Switch/
+!third_party/Included/Xelu_Free_Controller&Key_Prompts/Steam Deck/
+!third_party/Included/Xelu_Free_Controller&Key_Prompts/Readme.txt
+
 # Aurebesh by SilvinoR (OFL-1.1), a build input only: tools/controller_layout_backdrop.py
 # renders the Controller Layout screen's lettering with it. The font is not shipped.
 # See THIRD_PARTY_NOTICES.md.

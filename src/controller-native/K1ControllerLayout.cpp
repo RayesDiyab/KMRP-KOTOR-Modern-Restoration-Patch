@@ -173,6 +173,27 @@ constexpr unsigned K1_MESSAGE_BOX_CANCEL = 0x4B8;  // provenance of both offsets
 struct ConfirmBadge { void* panel; void* label; char family; bool shown; }
     confirmBadges[8] = {};
 
+// Committed, readable memory? The badges are forgotten when their box is
+// destroyed (ReleaseGff below), and this is the second line of defence the cue
+// table lacked: a remembered object read after its pages were released faults,
+// which is how loading a save from in game crashed (2026-09-24, in the cue loop).
+bool readable(const void* p, std::size_t size) {
+    const auto v = reinterpret_cast<std::uintptr_t>(p);
+    if (v < 0x10000u || v >= 0x7FFF0000u) return false;
+    constexpr DWORD ok = PAGE_READONLY | PAGE_READWRITE | PAGE_WRITECOPY |
+        PAGE_EXECUTE_READ | PAGE_EXECUTE_READWRITE | PAGE_EXECUTE_WRITECOPY;
+    const char* at = static_cast<const char*>(p);
+    const char* const end = at + size;
+    while (at < end) {
+        MEMORY_BASIC_INFORMATION info{};
+        if (!VirtualQuery(at, &info, sizeof(info)) || info.State != MEM_COMMIT ||
+            !(info.Protect & ok) || (info.Protect & (PAGE_GUARD | PAGE_NOACCESS)))
+            return false;
+        at = static_cast<const char*>(info.BaseAddress) + info.RegionSize;
+    }
+    return true;
+}
+
 void showControl(void* c, bool visible) {
     at<unsigned>(c,0x44)=(at<unsigned>(c,0x44)&~2u)|(visible?2u:0);
 }
@@ -189,6 +210,11 @@ void updateConfirmBadges() {
     const char family=KmrpGlyphLetterK1();
     for (auto& b: confirmBadges) {
         if (!b.panel) continue;
+        // The focused button's extent is read up to Cancel+0x14; the label is
+        // a 0x140-byte CSWGuiLabel whose fill sits at +0x70.
+        if (!readable(b.panel,K1_MESSAGE_BOX_CANCEL+0x14) || !readable(b.label,0x140)) {
+            b={}; continue;                 // its box is gone: forget, never touch
+        }
         void* active=at<void*>(b.panel,0x1C);
         char* base=static_cast<char*>(b.panel);
         const bool onButton=active==base+K1_MESSAGE_BOX_OK ||

@@ -149,6 +149,60 @@ def check_scriptselect_centred(path: Path, resolution: str, width: int) -> list[
     return []
 
 
+def check_party_switch_cue(path: Path, resolution: str) -> list[str]:
+    """The R3 cue is 90% of a portrait, between the portraits or right of them.
+
+    Between them, centred, wherever the gap holds it with a tenth of it free
+    either side; right of the second portrait, a third of a cue away, wherever
+    it does not -- 4:3, 16:10 and 16:9. It never covers a button or a list, and
+    is centred on the portraits vertically. Checked against the packaged
+    portraits, so a GUI pack that moves them is caught. The cue filled the gap
+    until 2026-09-24, which left it 5 px wide at 800x600.
+    """
+    from prepare_universal_resources import (R3_CUE_BLOCKING_TYPES, R3_CUE_GAP_MARGIN,
+                                             R3_CUE_SCALE, R3_CUE_TAG)
+    screen = path.stem
+    gui = read_gff(path)
+    controls = controls_by_tag(gui)
+    missing = [tag for tag in (R3_CUE_TAG, "BTN_CHANGE1", "BTN_CHANGE2")
+               if tag not in controls]
+    if missing:
+        return [f"{resolution} {screen}: missing {', '.join(missing)}"]
+    first = extent_values(controls["BTN_CHANGE1"])
+    second = extent_values(controls["BTN_CHANGE2"])
+    left, top, width, height = extent_values(controls[R3_CUE_TAG])
+    where = f"{resolution} {screen} {R3_CUE_TAG} {(left, top, width, height)}"
+    errors: list[str] = []
+    if width != height or abs(width - R3_CUE_SCALE * first[3]) > 1:
+        errors.append(f"{where}: not a square {R3_CUE_SCALE:.0%} of the "
+                      f"{first[3]} px portrait")
+    size = width
+    gap_left = first[0] + first[2]
+    gap = second[0] - gap_left
+    fits = gap >= size + 2 * int(size * R3_CUE_GAP_MARGIN)
+    if fits:
+        # Twice the centres, so a half-pixel offset from an odd remainder is exact.
+        if abs((2 * left + width) - (2 * gap_left + gap)) > 1:
+            errors.append(f"{where}: the {gap} px gap holds it, but it is not "
+                          f"centred in {gap_left}..{second[0]}")
+    elif left - (second[0] + second[2]) != size // 3:
+        errors.append(f"{where}: the {gap} px gap cannot hold it, so it belongs "
+                      f"{size // 3} px right of the portrait ending at {second[0] + second[2]}")
+    if abs((2 * top + height) - (2 * first[1] + first[3])) > 1:
+        errors.append(f"{where}: not centred on the portraits' "
+                      f"{first[1]}..{first[1] + first[3]}")
+    _, _, panel_width, panel_height = extent_values(gui.root)
+    if left < 0 or top < 0 or left + width > panel_width or top + height > panel_height:
+        errors.append(f"{where}: leaves the {panel_width}x{panel_height} panel")
+    for tag, control in controls.items():
+        if control.acquire("CONTROLTYPE", -1) not in R3_CUE_BLOCKING_TYPES:
+            continue
+        x, y, w, h = extent_values(control)
+        if left < x + w and x < left + width and top < y + h and y < top + height:
+            errors.append(f"{where}: covers {tag} {(x, y, w, h)}")
+    return errors
+
+
 def check_confirmation(path: Path, resolution: str) -> list[str]:
     errors: list[str] = []
     gui = read_gff(path)
@@ -182,6 +236,7 @@ def check_hud(path: Path, resolution: str, height: int,
 
 
 def main() -> int:
+    from prepare_universal_resources import R3_CUE_SCREENS
     archive_dir = ROOT / "build" / "kmrp" / "resources"
     archives = sorted(archive_dir.glob("gui-*.zip"))
     if len(archives) != EXPECTED_ARCHIVE_COUNT:
@@ -203,15 +258,14 @@ def main() -> int:
             extract_dir = temp / resolution
             with zipfile.ZipFile(archive) as package:
                 names = set(package.namelist())
-                required = {"optfeedback.gui", "scriptselect.gui", "confirm.gui", active_hud}
+                required = {"optfeedback.gui", "scriptselect.gui", "confirm.gui", active_hud,
+                            *R3_CUE_SCREENS}
                 missing = required - names
                 if missing:
                     errors.append(f"{resolution}: package is missing {sorted(missing)}")
                     continue
-                package.extract("optfeedback.gui", extract_dir)
-                package.extract("scriptselect.gui", extract_dir)
-                package.extract("confirm.gui", extract_dir)
-                package.extract(active_hud, extract_dir)
+                for name in sorted(required):
+                    package.extract(name, extract_dir)
             errors.extend(check_list_prototypes(
                 extract_dir / "optfeedback.gui", resolution, "optfeedback", FEEDBACK_LISTS
             ))
@@ -222,6 +276,8 @@ def main() -> int:
                 extract_dir / "optfeedback.gui", resolution, height))
             errors.extend(check_scriptselect_centred(
                 extract_dir / "scriptselect.gui", resolution, width))
+            for name in R3_CUE_SCREENS:
+                errors.extend(check_party_switch_cue(extract_dir / name, resolution))
             errors.extend(check_confirmation(extract_dir / "confirm.gui", resolution))
             errors.extend(check_hud(extract_dir / active_hud, resolution, height, gold))
 
