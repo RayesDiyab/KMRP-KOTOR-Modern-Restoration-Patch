@@ -22,6 +22,7 @@ param(
 )
 
 $ErrorActionPreference = "Stop"
+. (Join-Path $PSScriptRoot "Restore-TestNvidiaProfiles.ps1")
 $projectRoot = Split-Path -Parent (Split-Path -Parent $PSScriptRoot)
 $layersPath = "Software\Microsoft\Windows NT\CurrentVersion\AppCompatFlags\Layers"
 $manifestName = "KMRP_DPI.manifest"
@@ -80,7 +81,7 @@ function Invoke-Patcher([string[]]$patcherArgs) {
 function New-Install([string]$name) {
     $folder = Join-Path $WorkRoot $name
     New-Item -ItemType Directory -Force -Path $folder | Out-Null
-    $exe = Join-Path $folder "swkotor.exe"
+    $exe = Join-Path $folder "kmrp-regression-selftest.exe"
     Copy-Item -LiteralPath $CleanExe -Destination $exe
     Copy-Item -LiteralPath $SeedIni -Destination (Join-Path $folder "swkotor.ini")
     $script:OriginalValues[$exe] = Get-LayerValue $exe
@@ -158,6 +159,7 @@ try {
     Assert ($current.Exists -and $current.Value -eq $previous) "the unrecorded registry edit was rolled back"
 }
 finally {
+    Restore-TestNvidiaProfiles $WorkRoot
     foreach ($entry in $script:OriginalValues.GetEnumerator()) {
         Set-LayerValue $entry.Key $entry.Value.Exists $entry.Value.Value
     }

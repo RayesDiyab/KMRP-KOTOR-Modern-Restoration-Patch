@@ -254,6 +254,25 @@ All replacements verify the expected gold value first. A mismatch blocks patchin
 
 ## Adding another resolution
 
+**Step 1 is the hard one, and it blocked 2880x1620 (issue #16).** That preset is
+16:9 and exactly 1.5x 1920x1080, but the upstream mod ships no `gui.2880x1620`,
+and the sets it does ship **cannot be scaled into one another**. Measured across
+all 81 shared files:
+
+| From | To | Scale | Extent fields reproduced |
+| --- | --- | --- | --- |
+| 1920x1080 | 2560x1440 | 1.3333 | 73.9% (best of round/floor/ceil/trunc) |
+| 1024x576 | 1920x1080 | 1.875 | 57.2% |
+| 1920x1080 | 3840x2160 | **2.0 exactly** | 64.1%, and all four rounding modes agree |
+
+At an exact doubling, where rounding cannot be the explanation, only **4 of 81
+files** scale cleanly; `partyselection.gui`, `mainmenu.gui` and the whole
+`mipc*` minimap family differ in 40–60% of their fields. The upstream sets are
+laid out per resolution, not derived from one another, so producing a new one
+means reimplementing that layout — or asking ndix UR, whose work KMRP already
+bundles with permission, for the missing set. Neither is a small change, and
+neither has been done.
+
 1. Add a matching `gui.WIDTHxHEIGHT` directory containing the full GUI set.
 2. Add the resolution to `GROUPS` in `tools/prepare_universal_resources.py`.
 3. Run `tools/analyze_resolution_guis.py` to regenerate `assets/resolution-geometry.json`.

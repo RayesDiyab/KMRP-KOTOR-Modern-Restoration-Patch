@@ -83,6 +83,33 @@ gameplay in either case. That is also the Xbox idiom, so the result is the
 console behaviour rather than a compromise. `0x28` is implemented by 35 panels,
 `MAIN_MENU` among them, which is why it backs out from everywhere.
 
+### Start is now a Map toggle (issue #18)
+
+`0x0B` pushes **7** to `ShowSWInGameGui`, and the index is the tab's control ID in
+`top.gui` -- `LBLH_EQU` 0 through `LBLH_OPT` 7, the order `CGuiInGame` keeps its
+screens in (Lane's `swkotor.exe.h`: `in_game_equip` ... `in_game_map`,
+`in_game_options`). So Start opened **Options**, the Escape-style menu.
+
+The keyboard's menu hotkeys are events `0xD1`–`0xD8`. The router's jump table
+(`0x00622154`, indexed through the byte table at `0x006221FC` with `event - 0x19`)
+sends all eight to one handler, `0x006218D5`, which computes the screen as
+`event - 0xD1` and shows it -- or hides the menu when `CGuiInGame+0x34` is `3` and
+`+0x2C` already holds that screen. So **`0xD7` is the Map**.
+
+`0xD7` has no joystick description and every free slot is spent, so Start is
+routed on the press, and the release follows the press:
+
+| where | what Start does |
+| --- | --- |
+| input class 0, the world | `CClientExoAppInternal::HandleInputEvent(0xD7, 1)` on the next frame, the same bridge the free-look exit uses -- the Map opens with every guard the handler applies |
+| class 2 with the tab strip in front | B's control code, `DIJOFS_BUTTON(1)` -- the close measured above, from the Map or any tab LT/RT moved to |
+| anywhere else | the game's own `0x0B`, as before |
+
+The in-game menu's own dispatcher, `CSWGuiInGameMenu::HandleInputEvent`
+(`0x00624970`), handles only `0xF3`/`0xF4` and passes everything else to the base
+panel, so the hotkey handler's own toggle is not reachable with a menu up; that is
+why the close is B's rather than `0xD7`'s. **Not yet verified in play.**
+
 ### R3 is free look, and it is a restoration
 
 The action router pairs a low console id with a high PC id on the same handler.
@@ -703,6 +730,17 @@ performs the world action otherwise. Both consumers ask
 `KmrpActionBarFocusedK1`, so precisely one acts however the two per-frame hooks
 happen to be ordered within a frame.
 
+**Using a slot lets go of the bar (issue #17).** After the activate callback,
+`KmrpActionBarReleaseK1` clears the focus the way the vendor's Delete path does --
+`setActiveControl(mainInterface, nullptr, 1)` when an action slot holds it -- so
+the next A acts on the world. That would break the rule above if nothing else
+changed: the world consumer could run later in the same frame, find nothing
+focused and act on the same press. So when the HUD takes the press it also clears
+the world consumer's pending request. **B** lets go of the bar the same way and
+does nothing else; B has no other effect in the world (behaviour matrix,
+gameplay). Left/Right re-enter through `MoveFocus`'s `activeIndex < 0` seed.
+`hrel=` in the diagnostic line counts the releases. **Not yet verified in play.**
+
 **The D-pad's retained codes are suppressed in gameplay**, for the same reason
 they are in menus: one press, one mechanism. Nothing else in gameplay consumes
 `0x2F`..`0x32`.
@@ -839,6 +877,19 @@ the prompts flicker between keyboard and pad. **A parameter sourced from a
 register cannot be combined with excluding that register from restore when the
 stolen bytes read it.**
 
+**The wrapper's order, which both lessons follow from.** KPM's detour wrapper
+(Kotor-Patch-Manager, `wrapper_x86.cpp`) calls the handler, restores every
+register except those in `exclude_from_restore`, runs the **stolen bytes**, and
+only then, for a hook with `consumed_exit_address`, tests EAX to choose the
+consumed exit. So a consumed-exit hook's stolen bytes must neither touch EAX nor
+move ESP. The Solo Mode confirm hook broke the first rule: it stole
+`mov eax,[0x7A39FC]`, the test read the app pointer, and every A on that dialog
+took the close path, OK included. The resolution hook broke the second with a
+stolen `push 0`. Both were moved to their handler's entry, where they rewrite
+the event argument (a stack source such as `esp+4` is passed as a pointer)
+instead of using a consumed exit. `tools/check_hook_stolen_bytes.py` enforces
+both rules and the excluded-register one above.
+
 ## Why movies had grey margins
 
 The aspect-fit patch lives in `CExoMoviePlayerInternal::InitializeMovie+0x3CC`
@@ -885,3 +936,13 @@ Three separate "failures" in this work were the test harness, not the game:
 
 **Check the reply.** Every one of these returned `err` and every one was
 discarded. Any harness added here should assert on it.
+
+## Hybrid physical input (2026-09-19)
+
+`ReadPadAxes` now consumes `ReadControllerK1`, preserving its XInput-shaped state
+and the existing engine event mapping. SDL/HIDAPI supplies non-Xbox physical
+pads; XInput remains the Xbox path. Rumble and glyph identity follow the selected
+backend. See [controller-sdl-backend.md](controller-sdl-backend.md) for the pinned
+32-bit dependency, normalization, ownership, and untested hardware/runtime cases.
+The earlier source path under `build/research` above is historical; tracked native
+code lives in `src/controller-native`.

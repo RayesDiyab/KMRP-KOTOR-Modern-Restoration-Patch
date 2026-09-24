@@ -31,6 +31,7 @@ param(
 )
 
 $ErrorActionPreference = "Stop"
+. (Join-Path $PSScriptRoot "Restore-TestNvidiaProfiles.ps1")
 $projectRoot = Split-Path -Parent (Split-Path -Parent $PSScriptRoot)
 
 function Resolve-Input([string]$path) {
@@ -110,7 +111,7 @@ function Invoke-Patcher([string[]]$patcherArgs) {
 function New-Install([string]$name) {
     $folder = Join-Path $WorkRoot $name
     New-Item -ItemType Directory -Force -Path $folder | Out-Null
-    $exe = Join-Path $folder "swkotor.exe"
+    $exe = Join-Path $folder "kmrp-regression-selftest.exe"
     Copy-Item -LiteralPath $CleanExe -Destination $exe
     Copy-Item -LiteralPath $SeedIni -Destination (Join-Path $folder "swkotor.ini")
     $script:OriginalLayerValues[$exe] = Get-LayerValue $exe
@@ -173,7 +174,7 @@ try {
     Write-Host "Case 3  an unsupported executable is refused"
     $folder = Join-Path $WorkRoot "case3"
     New-Item -ItemType Directory -Force -Path $folder | Out-Null
-    $exe = Join-Path $folder "swkotor.exe"
+    $exe = Join-Path $folder "kmrp-regression-selftest.exe"
     $bytes = [System.IO.File]::ReadAllBytes($CleanExe)
     $bytes[0x1000] = [byte](($bytes[0x1000] + 1) % 256)
     [System.IO.File]::WriteAllBytes($exe, $bytes)
@@ -196,6 +197,7 @@ try {
     Assert ((Get-Sha256 $exe) -eq $before) "the executable is untouched"
 }
 finally {
+    Restore-TestNvidiaProfiles $WorkRoot
     foreach ($entry in $script:OriginalLayerValues.GetEnumerator()) {
         Restore-LayerValue $entry.Key $entry.Value
     }

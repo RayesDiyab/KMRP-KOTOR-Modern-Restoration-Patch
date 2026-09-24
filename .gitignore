@@ -83,6 +83,11 @@ third_party/*
 !third_party/Included/
 third_party/Included/*
 
+# Aurebesh by SilvinoR (OFL-1.1), a build input only: tools/controller_layout_backdrop.py
+# renders the Controller Layout screen's lettering with it. The font is not shipped.
+# See THIRD_PARTY_NOTICES.md.
+!third_party/aurebesh-font/
+
 # KOTOR High Resolution Menus (ndix UR, GPL-3.0) -- the per-resolution GUI layouts
 # KMRP derives from and ships. See THIRD_PARTY_NOTICES.md.
 !third_party/Included/kotor-high-resolution-menus-1.5/

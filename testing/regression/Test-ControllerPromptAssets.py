@@ -5,8 +5,10 @@ from __future__ import annotations
 
 import argparse
 import io
+import re
 import struct
 import sys
+import tempfile
 import zipfile
 from pathlib import Path
 
@@ -15,18 +17,24 @@ ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(ROOT / "tools"))
 
 from build_controller_prompt_textures import (  # noqa: E402
-    GLYPH_ART,
-    GLYPH_ART_DIR,
+    BADGE_GROUPS,
+    FAMILY_LETTERS,
+    GLYPH_FAMILIES,
+    GLYPH_PACK,
+    PER_CAPTION_TARGETS,
     PROMPT_FALLBACK_STRINGS,
     PROMPT_MANIFEST_NAME,
     PROMPT_STRREFS,
     PROMPT_TARGETS,
     TEXTURE_HEIGHT,
     TEXTURE_WIDTH,
+    family_resref,
     measure_label,
     parse_font_metrics,
     variant_strings,
 )
+from build_controller_layout import CAPTION_FONT, MAPPINGS  # noqa: E402
+from controller_layout_backdrop import DECOR, TEXTURES as LAYOUT_BACKDROP  # noqa: E402
 from pykotor.resource.formats.gff import read_gff  # noqa: E402
 
 
@@ -86,11 +94,37 @@ def verify_placement_manifest(archive, archive_name, names, gui_cache):
     if max(abs(a - b) for a, b in zip(advances, live_advances)) > 1e-4:
         raise AssertionError(f"{archive_name}: manifest advances do not match the archive font")
 
-    if set(rows) != {target.resref for target in PROMPT_TARGETS}:
-        raise AssertionError(f"{archive_name}: manifest covers {sorted(rows)}")
-
+    # Every badge once per controller family, and a button that changes its
+    # caption once per caption as well -- <resref><index>, placed against that
+    # one wording.
+    expected_rows = set()
     for target in PROMPT_TARGETS:
-        width, height, baked, encoded = rows[target.resref]
+        names_for_target = [target.resref]
+        if (target.gui, target.tag) in PER_CAPTION_TARGETS:
+            names_for_target += [f"{target.resref}{index}" for index in
+                                 range(len(PROMPT_STRREFS[(target.gui, target.tag)]))]
+        for family in GLYPH_FAMILIES:
+            expected_rows.update(family_resref(name, family) for name in names_for_target)
+    if set(rows) != expected_rows:
+        raise AssertionError(
+            f"{archive_name}: manifest rows differ -- missing "
+            f"{sorted(expected_rows - set(rows))}, unexpected {sorted(set(rows) - expected_rows)}")
+
+    # A badge in a group -- the main menu's column of A's -- is placed against the
+    # whole group, so its row carries the group's variants, collected in target
+    # order exactly as the builder collects them, and the group's widest label.
+    group_variants = {}
+    for member in PROMPT_TARGETS:
+        group = BADGE_GROUPS.get((member.gui, member.tag))
+        if group is None:
+            continue
+        collected = group_variants.setdefault(group, [])
+        for variant in PROMPT_STRREFS.get((member.gui, member.tag), ()):
+            if variant not in collected:
+                collected.append(variant)
+
+    for target, family in [(t, f) for t in PROMPT_TARGETS for f in GLYPH_FAMILIES]:
+        width, height, baked, encoded = rows[family_resref(target.resref, family)]
         control = gui_cache[target.gui][target.control_index]
         extent = control.get_struct("EXTENT")
         if (width, height) != (extent.get_int32("WIDTH"), extent.get_int32("HEIGHT")):
@@ -104,18 +138,25 @@ def verify_placement_manifest(archive, archive_name, names, gui_cache):
         text = control.get_struct("TEXT")
         strref = text.get_uint32("STRREF") if text is not None else None
         variants = PROMPT_STRREFS[(target.gui, target.tag)]
-        if strref is None or not any(strref in variant for variant in variants):
+        # Except where the panel sets the caption in code: the inventory filter's
+        # .gui STRREF is replaced by one of six "Show ... Items" wordings before it
+        # is ever drawn, which is why that button has a badge per caption.
+        code_captioned = (target.gui, target.tag) in PER_CAPTION_TARGETS
+        if not code_captioned and (
+                strref is None or not any(strref in variant for variant in variants)):
             raise AssertionError(
                 f"{archive_name}: {target.gui}:{target.tag} draws STRREF {strref}, "
                 f"which is not among {variants}")
 
-        expected = ";".join("+".join(str(ref) for ref in variant) for variant in variants)
+        group = BADGE_GROUPS.get((target.gui, target.tag))
+        placed = tuple(group_variants[group]) if group is not None else variants
+        expected = ";".join("+".join(str(ref) for ref in variant) for variant in placed)
         if encoded != expected:
             raise AssertionError(
                 f"{archive_name}: {target.resref} manifest variants {encoded} != {expected}")
 
         widest = max((measure_label(label, live_advances, live_spacing)
-                      for label in variant_strings(variants, PROMPT_FALLBACK_STRINGS)),
+                      for label in variant_strings(placed, PROMPT_FALLBACK_STRINGS)),
                      default=0.0)
         if abs(baked - round(widest, 2)) > 0.01:
             raise AssertionError(
@@ -127,6 +168,8 @@ PROFILE_BINS = 12
 # cannot decide the question, so the orientation check skips it and says so.
 # Measured on the shipped artwork: A 0.0095, Y 0.0121 (decisive);
 # B 0.0037, X 0.0029 (near-symmetric).
+# A mirrored match must beat the upright one by this factor to count.
+ORIENTATION_MARGIN = 0.8
 ASYMMETRY_FLOOR = 0.006
 
 
@@ -247,17 +290,197 @@ def main() -> int:
     if len(archives) != 48:
         raise AssertionError(f"Expected 48 GUI archives, found {len(archives)}")
 
+    common_path = args.resources / "override-common.zip"
+    with zipfile.ZipFile(common_path) as common:
+        common_names = {name.lower() for name in common.namelist()}
+        # Per family: one row glyph per row, and the diagram board, whose
+        # silhouette and face-button glyphs differ by family and which the
+        # runtime swaps with the pad exactly as it swaps the row glyphs.
+        expected_layout_art = set()
+        for family in GLYPH_FAMILIES:
+            letter = FAMILY_LETTERS[family]
+            expected_layout_art.add(f"kmr{letter}lytdiag.tga")
+            # The travelling A beside a confirmation box's focused button.
+            expected_layout_art.add(f"kmr{letter}cnfa.tga")
+            expected_layout_art.add(f"kmr{letter}lytbk.tga")
+            expected_layout_art.update(
+                f"kmr{letter}lyt{index:02d}.tga"
+                for index in range(len(MAPPINGS)))
+        # The backdrop and edge art are shared by every family.
+        expected_layout_art.update(f"{name}.tga" for name in LAYOUT_BACKDROP)
+        missing = expected_layout_art - common_names
+        if missing:
+            raise AssertionError(
+                f"override-common.zip: missing Controller Layout art {sorted(missing)}")
+        if "kmrplytoutline.tga" in common_names:
+            raise AssertionError(
+                "override-common.zip still ships kmrplytoutline.tga, the drawn "
+                "silhouette the diagram board replaced")
+
+    # The runtime binds GLYPH_nn and TEXT_nn by tag, counting them itself. A row
+    # added to the builder without the runtime's count moving would bind short
+    # and the screen would refuse to open ("bind-failed"); the other way round,
+    # it would bind past the file.
+    runtime = (ROOT / "src" / "controller-native" / "K1ControllerLayout.cpp").read_text(
+        encoding="utf-8")
+    import re as _re
+    match = _re.search(r"constexpr int K1_LAYOUT_ROWS = (\d+);", runtime)
+    if match is None or int(match.group(1)) != len(MAPPINGS):
+        raise AssertionError(
+            f"K1_LAYOUT_ROWS in K1ControllerLayout.cpp is "
+            f"{match.group(1) if match else 'missing'}, the builder has "
+            f"{len(MAPPINGS)} rows")
+    # Same for the edge art, DECO_nn: a count short and the last pieces are
+    # never drawn, a count long and the screen refuses to open.
+    match = _re.search(r"constexpr int K1_LAYOUT_DECOR = (\d+);", runtime)
+    if match is None or int(match.group(1)) != len(DECOR):
+        raise AssertionError(
+            f"K1_LAYOUT_DECOR in K1ControllerLayout.cpp is "
+            f"{match.group(1) if match else 'missing'}, the builder has "
+            f"{len(DECOR)} decorations")
+
     checked = 0
     for archive_path in archives:
         with zipfile.ZipFile(archive_path) as archive:
             names = {name.lower(): name for name in archive.namelist()}
+            for required in ("optgameplay.gui", "kmrplayout.gui", "confirm.gui"):
+                if required not in names:
+                    raise AssertionError(f"{archive_path.name}: missing {required}")
+            controls_menu = read_gff(
+                archive.read(names["optgameplay.gui"])).root.get_list("CONTROLS")
+            entry = [c for c in controls_menu
+                     if c.get_string("TAG") == "BTN_KMRPLAY"]
+            if len(entry) != 1:
+                raise AssertionError(
+                    f"{archive_path.name}: expected one Controller Layout entry, "
+                    f"found {len(entry)}")
+            entry_text = entry[0].get_struct("TEXT")
+            if entry_text.get_string("TEXT") != "Controller Layout":
+                raise AssertionError(
+                    f"{archive_path.name}: Controller Layout entry has wrong text")
+            # The layout entry and the two above it were lifted off the bottom
+            # bar; the entry must still end above Default.
+            by_menu = {c.get_string("TAG"): c.get_struct("EXTENT") for c in controls_menu}
+            if (by_menu["BTN_KMRPLAY"].get_int32("TOP")
+                    + by_menu["BTN_KMRPLAY"].get_int32("HEIGHT")
+                    >= by_menu["BTN_DEFAULT"].get_int32("TOP")):
+                raise AssertionError(
+                    f"{archive_path.name}: Controller Layout entry reaches Default")
+            # confirm.gui carries one label the runtime binds by tag and moves
+            # beside the focused button; without it Yes/No boxes have no A.
+            confirm = read_gff(
+                archive.read(names["confirm.gui"])).root.get_list("CONTROLS")
+            badge = [c for c in confirm if c.get_string("TAG") == "LBL_KMRPA"]
+            confirm_ids = [c.get_int32("ID") for c in confirm]
+            if (len(badge) != 1 or badge[0].get_int32("CONTROLTYPE") != 4
+                    or len(set(confirm_ids)) != len(confirm_ids)):
+                raise AssertionError(
+                    f"{archive_path.name}: confirm.gui needs exactly one label "
+                    f"LBL_KMRPA with an ID of its own")
+            layout = read_gff(
+                archive.read(names["kmrplayout.gui"])).root.get_list("CONTROLS")
+            expected_tags = {
+                "LBL_TITLE", "BTN_BACK", "LBL_XBOX", "LBL_PS",
+                "LBL_SWITCH", "LBL_DECK", "LBL_KBM", "LBL_PAD",
+                "LBL_DIAGRAM", "LBL_HELP",
+                *(f"GLYPH_{i:02d}" for i in range(len(MAPPINGS))),
+                *(f"TEXT_{i:02d}" for i in range(len(MAPPINGS))),
+                *(f"DECO_{i:02d}" for i in range(len(DECOR))),
+                "GLYPH_BACK",
+            }
+            tags = {c.get_string("TAG") for c in layout}
+            ids = {c.get_int32("ID") for c in layout}
+            if tags != expected_tags or ids != set(range(len(expected_tags))):
+                raise AssertionError(
+                    f"{archive_path.name}: Controller Layout controls drifted")
+            # Tags and IDs alone once passed a screen of 38 identical empty
+            # labels stacked at one extent, because the authoring tool mutated
+            # copies returned by get_struct(). Check what the player sees.
+            by_tag = {c.get_string("TAG"): c for c in layout}
+            expected_text = {"LBL_TITLE": "Controller Layout", "BTN_BACK": "Back"}
+            expected_text.update(
+                (f"TEXT_{i:02d}", caption)
+                for i, (_glyph, caption) in enumerate(MAPPINGS))
+            for tag, wanted in expected_text.items():
+                found = by_tag[tag].get_struct("TEXT").get_string("TEXT")
+                if found != wanted:
+                    raise AssertionError(
+                        f"{archive_path.name}: Controller Layout {tag} reads "
+                        f"{found!r}, expected {wanted!r}")
+            expected_fill = {"LBL_DIAGRAM": "kmrplytdiag"}
+            # The runtime rewrites the glyph fills per family; the file still
+            # carries the Xbox set so the screen is never blank on frame one.
+            expected_fill.update(
+                (f"GLYPH_{i:02d}", f"kmrplyt{i:02d}") for i in range(len(MAPPINGS)))
+            expected_fill.update(
+                (f"DECO_{i:02d}", name) for i, name in enumerate(DECOR))
+            expected_fill["GLYPH_BACK"] = "kmrplytbk"
+            for tag, wanted in expected_fill.items():
+                found = str(by_tag[tag].get_struct("BORDER").get_resref("FILL"))
+                if found.lower() != wanted:
+                    raise AssertionError(
+                        f"{archive_path.name}: Controller Layout {tag} fill is "
+                        f"{found!r}, expected {wanted!r}")
+            # Full screen, not a box: the panel root is the backdrop.
+            root = read_gff(archive.read(names["kmrplayout.gui"])).root
+            root_fill = str(root.get_struct("BORDER").get_resref("FILL")).lower()
+            if root_fill != "kmrlytbg":
+                raise AssertionError(
+                    f"{archive_path.name}: Controller Layout backdrop is "
+                    f"{root_fill!r}, expected 'kmrlytbg'")
+            # Captions are drawn in CAPTION_FONT whatever a .gui asks for, and
+            # a one-line box too narrow for its caption shows only the last
+            # line after wrapping -- "Free look" for "Camera / Click: free
+            # look". So each caption asks for that font and either fits on one
+            # line, at the 0.88 of measure_label() the game was measured to
+            # draw, or has a box two lines tall.
+            txi_path = Path(tempfile.mkdtemp()) / f"{CAPTION_FONT}.txi"
+            txi_path.write_bytes(archive.read(names[f"{CAPTION_FONT}.txi"]))
+            caption_metrics = parse_font_metrics(txi_path)
+            line_px = float(re.search(
+                r"^fontheight (\S+)", txi_path.read_text(encoding="ascii", errors="replace"),
+                re.M | re.I).group(1)) * 100
+            for i in range(len(MAPPINGS)):
+                control = by_tag[f"TEXT_{i:02d}"]
+                font = str(control.get_struct("TEXT").get_resref("FONT")).lower()
+                if font != CAPTION_FONT:
+                    raise AssertionError(
+                        f"{archive_path.name}: TEXT_{i:02d} asks for {font}, "
+                        f"not {CAPTION_FONT}")
+                extent = control.get_struct("EXTENT")
+                drawn = measure_label(
+                    control.get_struct("TEXT").get_string("TEXT"), *caption_metrics) * 0.88
+                if (drawn > extent.get_int32("WIDTH")
+                        and extent.get_int32("HEIGHT") < 2 * line_px):
+                    raise AssertionError(
+                        f"{archive_path.name}: TEXT_{i:02d} needs {drawn:.0f}px "
+                        f"in a {extent.get_int32('WIDTH')}px one-line box")
+            # Every glyph and caption occupies its own place on screen. The
+            # family headings and the two device labels deliberately share one,
+            # because the runtime shows exactly one of each group at a time.
+            placed = [f"GLYPH_{i:02d}" for i in range(len(MAPPINGS))]
+            placed += [f"TEXT_{i:02d}" for i in range(len(MAPPINGS))]
+            boxes = {}
+            for tag in placed:
+                e = by_tag[tag].get_struct("EXTENT")
+                box = tuple(e.get_int32(k)
+                            for k in ("LEFT", "TOP", "WIDTH", "HEIGHT"))
+                if box[2] <= 0 or box[3] <= 0:
+                    raise AssertionError(
+                        f"{archive_path.name}: Controller Layout {tag} has no size")
+                if box in boxes:
+                    raise AssertionError(
+                        f"{archive_path.name}: Controller Layout {tag} sits on "
+                        f"top of {boxes[box]} at {box}")
+                boxes[box] = tag
             gui_cache = {}
-            for target in PROMPT_TARGETS:
+            for target, family in [(t, f) for t in PROMPT_TARGETS for f in GLYPH_FAMILIES]:
+                resref = family_resref(target.resref, family)
                 gui_name = names.get(target.gui)
-                texture_name = names.get(f"{target.resref}.tga")
+                texture_name = names.get(f"{resref}.tga")
                 if gui_name is None or texture_name is None:
                     raise AssertionError(
-                        f"{archive_path.name}: missing {target.gui} or {target.resref}.tga")
+                        f"{archive_path.name}: missing {target.gui} or {resref}.tga")
 
                 controls = gui_cache.get(target.gui)
                 if controls is None:
@@ -276,18 +499,18 @@ def main() -> int:
                 data = archive.read(texture_name)
                 if len(data) != 18 + TEXTURE_WIDTH * TEXTURE_HEIGHT * 4 + 26:
                     raise AssertionError(
-                        f"{archive_path.name}: unexpected {target.resref}.tga length {len(data)}")
+                        f"{archive_path.name}: unexpected {resref}.tga length {len(data)}")
                 image_type = data[2]
                 width, height, depth, descriptor = struct.unpack_from("<HHBB", data, 12)
                 if (image_type, width, height, depth, descriptor) != (
                         2, TEXTURE_WIDTH, TEXTURE_HEIGHT, 32, 0x08):
                     raise AssertionError(
-                        f"{archive_path.name}: invalid TGA header for {target.resref}")
+                        f"{archive_path.name}: invalid TGA header for {resref}")
                 alphas = data[18 + 3:18 + TEXTURE_WIDTH * TEXTURE_HEIGHT * 4:4]
                 opaque = [index for index, alpha in enumerate(alphas) if alpha]
                 if not opaque:
                     raise AssertionError(
-                        f"{archive_path.name}: {target.resref} is fully transparent")
+                        f"{archive_path.name}: {resref} is fully transparent")
                 # The badge now sits immediately before the button's label rather
                 # than at a fixed inset, so it is no longer confined to the left
                 # quarter -- a short label on a wide button pushes it toward the
@@ -297,15 +520,16 @@ def main() -> int:
                 rightmost = max(index % TEXTURE_WIDTH for index in opaque)
                 if rightmost >= TEXTURE_WIDTH // 2:
                     raise AssertionError(
-                        f"{archive_path.name}: {target.resref} badge reaches the "
+                        f"{archive_path.name}: {resref} badge reaches the "
                         f"centre of the button (x={rightmost} of {TEXTURE_WIDTH}); "
                         "it would sit under the label")
 
                 # Orientation, decided against the source artwork rather than
                 # a constant. Only glyphs whose letter is asymmetric enough can
                 # settle it; the rest are skipped rather than asserted loosely.
-                art_name = GLYPH_ART.get(target.glyph)
-                art_path = GLYPH_ART_DIR / art_name if art_name else None
+                folder, family_art = GLYPH_FAMILIES[family]
+                art_name = family_art.get(target.glyph)
+                art_path = GLYPH_PACK / folder / art_name if art_name else None
                 if art_path is not None and art_path.is_file():
                     from PIL import Image
 
@@ -331,9 +555,15 @@ def main() -> int:
                         if actual is not None:
                             upright = _profile_error(actual, expected)
                             inverted = _profile_error(actual, expected[::-1])
-                            if inverted < upright:
+                            # Only a clear verdict counts. A flipped texture loses
+                            # by a wide margin; a near-tie is a glyph too small or
+                            # too low in contrast to tell -- the Steam Deck set's
+                            # grey A on a 39-pixel Map button came out 0.0433
+                            # against 0.0434 -- and is skipped like the symmetric
+                            # glyphs above rather than failed.
+                            if inverted < upright * ORIENTATION_MARGIN:
                                 raise AssertionError(
-                                    f"{archive_path.name}: {target.resref} matches a MIRRORED "
+                                    f"{archive_path.name}: {resref} matches a MIRRORED "
                                     f"{art_path.name} better than the upright one "
                                     f"({inverted:.4f} < {upright:.4f}); the texture is "
                                     "stored upside down")
@@ -343,8 +573,9 @@ def main() -> int:
 
     print(
         f"Controller prompts OK: {len(archives)} archives, "
-        f"{checked} target textures, {len(PROMPT_TARGETS)} verified control mappings each, "
-        f"placement manifest verified")
+        f"{checked} target textures ({len(GLYPH_FAMILIES)} controller families), "
+        f"{len(PROMPT_TARGETS)} verified control mappings each, Controller Layout "
+        "verified, placement manifest verified")
     return 0
 
 

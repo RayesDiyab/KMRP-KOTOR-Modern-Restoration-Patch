@@ -1269,6 +1269,669 @@ namespace Kmrp
         }
     }
 
+    /// <summary>The slice of NVIDIA's driver-settings interface (NvAPI DRS) the patcher
+    /// uses. Entry points are the documented ones from nvapi_interface.h, fetched through
+    /// nvapi_QueryInterface; structures are marshalled by explicit offset from nvapi.h,
+    /// where every string is NVAPI_UNICODE_STRING_MAX = 2048 UTF-16 units and every other
+    /// field is 32-bit, so the layouts have no padding:
+    ///
+    ///   NVDRS_SETTING v1      12320 bytes  version 0, settingId 4100, settingType 4104,
+    ///                                      settingLocation 4108, currentValue 8220
+    ///   NVDRS_APPLICATION v4  20492 bytes  version 0, appName 8
+    ///   NVDRS_PROFILE v1       4116 bytes  version 0, profileName 4, numOfApps 4108,
+    ///                                      numOfSettings 4112
+    ///
+    /// A struct's version word is its size | (version &lt;&lt; 16), NVAPI's MAKE_NVAPI_VERSION.</summary>
+    internal sealed class NvDrsSession : IDisposable
+    {
+        internal const int Ok = 0;
+        internal const int InvalidUserPrivilege = -137;
+        private const int SettingNotFound = -160;
+        private const int ProfileNotFound = -163;
+        private const int ExecutableNotFound = -166;
+        internal const int LocationCurrentProfile = 0;   // NVDRS_CURRENT_PROFILE_LOCATION
+
+        private const int StringBytes = 4096;
+        private const int SettingSize = 12320;
+        private const int SettingIdOffset = 4100;
+        private const int SettingTypeOffset = 4104;
+        private const int SettingLocationOffset = 4108;
+        private const int SettingCurrentOffset = 8220;
+        private const int ApplicationSize = 20492;
+        private const int ApplicationNameOffset = 8;
+        private const int ProfileSize = 4116;
+        private const int ProfileNameOffset = 4;
+        private const int ProfileAppsOffset = 4108;
+        private const int ProfileSettingsOffset = 4112;
+
+        private const uint LoadLibrarySearchSystem32 = 0x00000800;
+
+        [DllImport("kernel32.dll", CharSet = CharSet.Unicode, SetLastError = true)]
+        private static extern IntPtr LoadLibraryEx(string name, IntPtr reserved, uint flags);
+
+        [DllImport("kernel32.dll", CharSet = CharSet.Ansi, SetLastError = true)]
+        private static extern IntPtr GetProcAddress(IntPtr module, string name);
+
+        [UnmanagedFunctionPointer(CallingConvention.Cdecl)]
+        private delegate IntPtr QueryInterfaceFn(uint id);
+        [UnmanagedFunctionPointer(CallingConvention.Cdecl)]
+        private delegate int NoArgFn();
+        [UnmanagedFunctionPointer(CallingConvention.Cdecl)]
+        private delegate int HandleOutFn(out IntPtr handle);
+        [UnmanagedFunctionPointer(CallingConvention.Cdecl)]
+        private delegate int SessionFn(IntPtr session);
+        [UnmanagedFunctionPointer(CallingConvention.Cdecl)]
+        private delegate int SessionHandleOutFn(IntPtr session, out IntPtr profile);
+        [UnmanagedFunctionPointer(CallingConvention.Cdecl)]
+        private delegate int FindApplicationFn(IntPtr session, IntPtr appName, out IntPtr profile, IntPtr application);
+        [UnmanagedFunctionPointer(CallingConvention.Cdecl)]
+        private delegate int FindProfileFn(IntPtr session, IntPtr profileName, out IntPtr profile);
+        [UnmanagedFunctionPointer(CallingConvention.Cdecl)]
+        private delegate int CreateProfileFn(IntPtr session, IntPtr profileInfo, out IntPtr profile);
+        [UnmanagedFunctionPointer(CallingConvention.Cdecl)]
+        private delegate int ProfileFn(IntPtr session, IntPtr profile);
+        [UnmanagedFunctionPointer(CallingConvention.Cdecl)]
+        private delegate int ProfileStructFn(IntPtr session, IntPtr profile, IntPtr data);
+        [UnmanagedFunctionPointer(CallingConvention.Cdecl)]
+        private delegate int GetSettingFn(IntPtr session, IntPtr profile, uint settingId, IntPtr setting);
+        [UnmanagedFunctionPointer(CallingConvention.Cdecl)]
+        private delegate int DeleteSettingFn(IntPtr session, IntPtr profile, uint settingId);
+
+        private readonly NoArgFn unload;
+        private readonly SessionFn destroySession;
+        private readonly SessionFn saveSettings;
+        private readonly FindApplicationFn findApplication;
+        private readonly FindProfileFn findProfile;
+        private readonly SessionHandleOutFn globalProfile;
+        private readonly CreateProfileFn createProfile;
+        private readonly ProfileFn deleteProfile;
+        private readonly ProfileStructFn profileInfo;
+        private readonly ProfileStructFn createApplication;
+        private readonly GetSettingFn getSetting;
+        private readonly ProfileStructFn setSetting;
+        private readonly DeleteSettingFn deleteSetting;
+        private IntPtr session;
+
+        private NvDrsSession(QueryInterfaceFn query)
+        {
+            unload = Function<NoArgFn>(query, 0xD22BDD7E);
+            destroySession = Function<SessionFn>(query, 0xDAD9CFF8);
+            saveSettings = Function<SessionFn>(query, 0xFCBC7E14);
+            findApplication = Function<FindApplicationFn>(query, 0xEEE566B2);
+            findProfile = Function<FindProfileFn>(query, 0x7E4A9A0B);
+            globalProfile = Function<SessionHandleOutFn>(query, 0x617BFF9F);
+            createProfile = Function<CreateProfileFn>(query, 0xCC176068);
+            deleteProfile = Function<ProfileFn>(query, 0x17093206);
+            profileInfo = Function<ProfileStructFn>(query, 0x61CD6FD6);
+            createApplication = Function<ProfileStructFn>(query, 0x4347A9DE);
+            getSetting = Function<GetSettingFn>(query, 0x73BF8338);
+            setSetting = Function<ProfileStructFn>(query, 0x577DD202);
+            deleteSetting = Function<DeleteSettingFn>(query, 0xE4A26362);
+        }
+
+        /// <summary>A loaded driver-settings session, or null with the reason when there is
+        /// no NVIDIA driver to talk to. nvapi is loaded from System32 only, never from the
+        /// patcher's own folder.</summary>
+        internal static NvDrsSession TryOpen(out string unavailable)
+        {
+            IntPtr module = LoadLibraryEx(IntPtr.Size == 8 ? "nvapi64.dll" : "nvapi.dll",
+                IntPtr.Zero, LoadLibrarySearchSystem32);
+            if (module == IntPtr.Zero)
+            {
+                unavailable = "no NVIDIA driver is installed";
+                return null;
+            }
+            IntPtr queryAddress = GetProcAddress(module, "nvapi_QueryInterface");
+            if (queryAddress == IntPtr.Zero)
+            {
+                unavailable = "nvapi has no nvapi_QueryInterface";
+                return null;
+            }
+            QueryInterfaceFn query = (QueryInterfaceFn)Marshal.GetDelegateForFunctionPointer(
+                queryAddress, typeof(QueryInterfaceFn));
+            NoArgFn initialize = Function<NoArgFn>(query, 0x0150E828);
+            int status = initialize();
+            if (status != Ok)
+            {
+                unavailable = "NvAPI_Initialize returned " + status.ToString(CultureInfo.InvariantCulture);
+                return null;
+            }
+            NvDrsSession drs = new NvDrsSession(query);
+            try
+            {
+                HandleOutFn create = Function<HandleOutFn>(query, 0x0694D52E);
+                Check("NvAPI_DRS_CreateSession", create(out drs.session));
+                Check("NvAPI_DRS_LoadSettings", Function<SessionFn>(query, 0x375DBD6B)(drs.session));
+            }
+            catch
+            {
+                drs.Dispose();
+                throw;
+            }
+            unavailable = null;
+            return drs;
+        }
+
+        /// <summary>The profile the driver applies to this executable, or zero when no
+        /// profile names it. Given a full path, NvAPI answers for that path.</summary>
+        internal IntPtr FindApplicationProfile(string executablePath)
+        {
+            IntPtr name = NewString(executablePath);
+            IntPtr application = NewStruct(ApplicationSize, 4);
+            try
+            {
+                IntPtr profile;
+                int status = findApplication(session, name, out profile, application);
+                if (status == ExecutableNotFound)
+                    return IntPtr.Zero;
+                Check("NvAPI_DRS_FindApplicationByName", status);
+                return profile;
+            }
+            finally
+            {
+                Marshal.FreeHGlobal(name);
+                Marshal.FreeHGlobal(application);
+            }
+        }
+
+        internal IntPtr GlobalProfile()
+        {
+            IntPtr profile;
+            Check("NvAPI_DRS_GetCurrentGlobalProfile", globalProfile(session, out profile));
+            return profile;
+        }
+
+        internal IntPtr FindProfile(string profileName)
+        {
+            IntPtr name = NewString(profileName);
+            try
+            {
+                IntPtr profile;
+                int status = findProfile(session, name, out profile);
+                if (status == ProfileNotFound)
+                    return IntPtr.Zero;
+                Check("NvAPI_DRS_FindProfileByName", status);
+                return profile;
+            }
+            finally
+            {
+                Marshal.FreeHGlobal(name);
+            }
+        }
+
+        internal IntPtr CreateProfile(string profileName)
+        {
+            IntPtr info = NewStruct(ProfileSize, 1);
+            try
+            {
+                WriteString(info, ProfileNameOffset, profileName);
+                IntPtr profile;
+                Check("NvAPI_DRS_CreateProfile", createProfile(session, info, out profile));
+                return profile;
+            }
+            finally
+            {
+                Marshal.FreeHGlobal(info);
+            }
+        }
+
+        internal void DeleteProfile(IntPtr profile)
+        {
+            Check("NvAPI_DRS_DeleteProfile", deleteProfile(session, profile));
+        }
+
+        /// <summary>The profile's name and how many applications and settings it holds.</summary>
+        internal void ProfileInfo(IntPtr profile, out string name, out int applications, out int settings)
+        {
+            IntPtr info = NewStruct(ProfileSize, 1);
+            try
+            {
+                Check("NvAPI_DRS_GetProfileInfo", profileInfo(session, profile, info));
+                name = Marshal.PtrToStringUni(new IntPtr(info.ToInt64() + ProfileNameOffset));
+                applications = Marshal.ReadInt32(info, ProfileAppsOffset);
+                settings = Marshal.ReadInt32(info, ProfileSettingsOffset);
+            }
+            finally
+            {
+                Marshal.FreeHGlobal(info);
+            }
+        }
+
+        internal void AddApplication(IntPtr profile, string applicationName)
+        {
+            IntPtr application = NewStruct(ApplicationSize, 4);
+            try
+            {
+                WriteString(application, ApplicationNameOffset, applicationName);
+                Check("NvAPI_DRS_CreateApplication", createApplication(session, profile, application));
+            }
+            finally
+            {
+                Marshal.FreeHGlobal(application);
+            }
+        }
+
+        /// <summary>The setting's value as the driver resolves it for this profile, and
+        /// where that value comes from: the profile itself (LocationCurrentProfile), or
+        /// the global, base or default profile it inherits from. False when no profile
+        /// holds the setting at all.</summary>
+        internal bool TryGetDword(IntPtr profile, uint settingId, out uint value, out int location)
+        {
+            IntPtr setting = NewStruct(SettingSize, 1);
+            try
+            {
+                int status = getSetting(session, profile, settingId, setting);
+                if (status == SettingNotFound)
+                {
+                    value = 0;
+                    location = -1;
+                    return false;
+                }
+                Check("NvAPI_DRS_GetSetting", status);
+                value = unchecked((uint)Marshal.ReadInt32(setting, SettingCurrentOffset));
+                location = Marshal.ReadInt32(setting, SettingLocationOffset);
+                return true;
+            }
+            finally
+            {
+                Marshal.FreeHGlobal(setting);
+            }
+        }
+
+        internal void SetDword(IntPtr profile, uint settingId, uint value)
+        {
+            IntPtr setting = NewStruct(SettingSize, 1);
+            try
+            {
+                Marshal.WriteInt32(setting, SettingIdOffset, unchecked((int)settingId));
+                Marshal.WriteInt32(setting, SettingTypeOffset, 0);   // NVDRS_DWORD_TYPE
+                Marshal.WriteInt32(setting, SettingCurrentOffset, unchecked((int)value));
+                Check("NvAPI_DRS_SetSetting", setSetting(session, profile, setting));
+            }
+            finally
+            {
+                Marshal.FreeHGlobal(setting);
+            }
+        }
+
+        internal void DeleteSetting(IntPtr profile, uint settingId)
+        {
+            int status = deleteSetting(session, profile, settingId);
+            if (status != SettingNotFound)
+                Check("NvAPI_DRS_DeleteProfileSetting", status);
+        }
+
+        /// <summary>Writes the session's changes to the driver. Returned rather than
+        /// thrown, because InvalidUserPrivilege has a useful answer.</summary>
+        internal int Save()
+        {
+            return saveSettings(session);
+        }
+
+        public void Dispose()
+        {
+            if (session != IntPtr.Zero)
+            {
+                destroySession(session);
+                session = IntPtr.Zero;
+            }
+            unload();
+        }
+
+        private static T Function<T>(QueryInterfaceFn query, uint id) where T : class
+        {
+            IntPtr address = query(id);
+            if (address == IntPtr.Zero)
+                throw new NotSupportedException("This NVIDIA driver does not provide NvAPI function 0x" +
+                    id.ToString("X8", CultureInfo.InvariantCulture) + ".");
+            return (T)(object)Marshal.GetDelegateForFunctionPointer(address, typeof(T));
+        }
+
+        private static void Check(string function, int status)
+        {
+            if (status != Ok)
+                throw new IOException(function + " returned " + status.ToString(CultureInfo.InvariantCulture) + ".");
+        }
+
+        private static IntPtr NewStruct(int size, int version)
+        {
+            IntPtr block = Marshal.AllocHGlobal(size);
+            Marshal.Copy(new byte[size], 0, block, size);
+            Marshal.WriteInt32(block, 0, size | (version << 16));
+            return block;
+        }
+
+        private static IntPtr NewString(string value)
+        {
+            IntPtr block = Marshal.AllocHGlobal(StringBytes);
+            Marshal.Copy(new byte[StringBytes], 0, block, StringBytes);
+            WriteString(block, 0, value);
+            return block;
+        }
+
+        private static void WriteString(IntPtr block, int offset, string value)
+        {
+            byte[] text = Encoding.Unicode.GetBytes(value ?? String.Empty);
+            if (text.Length > StringBytes - 2)
+                throw new ArgumentException("An NvAPI string is limited to 2047 characters.");
+            Marshal.Copy(text, 0, new IntPtr(block.ToInt64() + offset), text.Length);
+        }
+    }
+
+    internal sealed class NvidiaPresentEditState
+    {
+        internal string ExecutablePath;
+        internal bool Changed;
+    }
+
+    /// <summary>Keeps NVIDIA from presenting KOTOR through a DXGI swap chain.
+    ///
+    /// NVIDIA's "Vulkan/OpenGL present method" can route an OpenGL game's frames through
+    /// a Direct3D swap chain ("Prefer layered on DXGI Swapchain"). On that path KOTOR
+    /// shows frames it has not finished drawing whenever one stalls: the white flash in
+    /// the menus, a menu backdrop drawn alone, a half-drawn world. On NVIDIA's own
+    /// default, Auto, the driver presents KOTOR natively and none of that appears.
+    ///
+    /// So this acts only when swkotor.exe would inherit "Prefer layered" -- from the
+    /// global profile, with nothing set for the game itself -- and then sets the game's
+    /// own profile to "Prefer native", which outranks the global one. A value set for the
+    /// game deliberately, by NVIDIA or by the player, is left alone. NVIDIA matches
+    /// profiles by executable name, so the setting reaches every swkotor.exe on the
+    /// machine, which is also true of the same change made in the NVIDIA Control Panel.
+    ///
+    /// A sidecar records what KMRP did; restore undoes it only while the setting is still
+    /// KMRP's. None of this may fail an install: an error is reported with the manual
+    /// equivalent and patching continues.
+    /// See reverse-engineering/experiments/white-flash-video-capture.md.</summary>
+    internal static class NvidiaPresentOperations
+    {
+        // NvApiDriverSettings.h: OGL_CPL_PREFER_DXPRESENT, "Vulkan/OpenGL present method".
+        private const uint PresentMethodId = 0x20D690F8;
+        private const uint PreferNative = 0;    // OGL_CPL_PREFER_DXPRESENT_PREFER_DISABLED
+        private const uint PreferLayered = 1;   // OGL_CPL_PREFER_DXPRESENT_PREFER_ENABLED
+        private const uint PresentAuto = 2;     // OGL_CPL_PREFER_DXPRESENT_AUTO, the default
+        internal const string ProfileName = "KMRP - Star Wars: Knights of the Old Republic";
+        private const string ManifestHeader = "KMRPNV1";
+        private const string ManifestName = "KMRP_NVIDIA.manifest";
+        private const string ManualFix = " To do it by hand: NVIDIA Control Panel -> Manage 3D settings -> " +
+            "Program Settings -> swkotor.exe -> Vulkan/OpenGL present method -> Prefer native.";
+
+        private static string ManifestPath(string executablePath)
+        {
+            return Path.Combine(Path.GetDirectoryName(Path.GetFullPath(executablePath)), ManifestName);
+        }
+
+        internal static NvidiaPresentEditState Install(string executablePath, Action<string> report)
+        {
+            executablePath = Path.GetFullPath(executablePath);
+            NvidiaPresentEditState state = new NvidiaPresentEditState();
+            state.ExecutablePath = executablePath;
+            if (File.Exists(ManifestPath(executablePath)))
+                return state;   // already KMRP's, from an earlier install
+
+            try
+            {
+                string unavailable;
+                using (NvDrsSession drs = NvDrsSession.TryOpen(out unavailable))
+                {
+                    if (drs == null)
+                        return state;   // not an NVIDIA machine: nothing to do
+
+                    IntPtr profile = drs.FindApplicationProfile(executablePath);
+                    uint value;
+                    int location;
+                    bool found = drs.TryGetDword(profile != IntPtr.Zero ? profile : drs.GlobalProfile(),
+                        PresentMethodId, out value, out location);
+                    if (profile != IntPtr.Zero && found && location == NvDrsSession.LocationCurrentProfile)
+                    {
+                        if (value == PreferLayered)
+                            SafeReport(report, "NVIDIA is set to present swkotor.exe through a DXGI swap chain in the " +
+                                "game's own profile; left as chosen. If menus flash or show half-drawn frames, set its " +
+                                "Vulkan/OpenGL present method to Auto or Prefer native.");
+                        return state;
+                    }
+                    if (!found || value != PreferLayered)
+                        return state;   // Auto or native, inherited: already right
+
+                    if (profile != IntPtr.Zero)
+                    {
+                        string existingName;
+                        int applications, settings;
+                        drs.ProfileInfo(profile, out existingName, out applications, out settings);
+                        if (applications != 1)
+                        {
+                            SafeReport(report, "Left the shared NVIDIA profile " + existingName +
+                                " alone; its present method also affects other applications." + ManualFix);
+                            return state;
+                        }
+                    }
+
+                    bool createdProfile = false;
+                    if (profile == IntPtr.Zero)
+                    {
+                        profile = drs.FindProfile(ProfileName);
+                        if (profile != IntPtr.Zero)
+                        {
+                            SafeReport(report, "Left the existing NVIDIA profile named " +
+                                ProfileName + " alone: it is not associated with this game." + ManualFix);
+                            return state;
+                        }
+                        profile = drs.CreateProfile(ProfileName);
+                        createdProfile = true;
+                        drs.AddApplication(profile, Path.GetFileName(executablePath));
+                    }
+                    drs.SetDword(profile, PresentMethodId, PreferNative);
+                    // The record first: a saved value with no record could never be
+                    // restored, while a record whose save failed is recognised as not
+                    // KMRP's and simply dropped.
+                    string manifestPath = ManifestPath(executablePath);
+                    WriteManifest(manifestPath, executablePath, createdProfile);
+                    int saved = drs.Save();
+                    if (saved != NvDrsSession.Ok)
+                        File.Delete(manifestPath);
+                    if (saved == NvDrsSession.InvalidUserPrivilege)
+                    {
+                        SafeReport(report, "NVIDIA would show half-drawn frames in KOTOR (its global present method " +
+                            "prefers DXGI), and Windows did not allow the patcher to change that." + ManualFix);
+                        return state;
+                    }
+                    if (saved != NvDrsSession.Ok)
+                        throw new IOException("NvAPI_DRS_SaveSettings returned " +
+                            saved.ToString(CultureInfo.InvariantCulture) + ".");
+                    // A successful save needs rollback even if the fresh-session
+                    // verification below fails (for example during a driver reset).
+                    state.Changed = true;
+                }
+
+                if (!IsKmrpValue(executablePath))
+                    throw new IOException("the setting did not read back after saving.");
+                state.Changed = true;
+                SafeReport(report, "Set NVIDIA's present method for swkotor.exe to Prefer native. It was inheriting " +
+                    "Prefer layered on DXGI Swapchain, which shows half-drawn frames in KOTOR.");
+            }
+            catch (Exception ex)
+            {
+                SafeReport(report, "NVIDIA's present method for swkotor.exe could not be checked or set: " +
+                    ex.Message + ManualFix);
+            }
+            return state;
+        }
+
+        internal static void Rollback(NvidiaPresentEditState state)
+        {
+            if (state == null || !state.Changed)
+                return;
+            Restore(state.ExecutablePath, null);
+        }
+
+        internal static void Restore(string executablePath, Action<string> report)
+        {
+            executablePath = Path.GetFullPath(executablePath);
+            string manifestPath = ManifestPath(executablePath);
+            if (!File.Exists(manifestPath))
+                return;
+
+            try
+            {
+                bool createdProfile;
+                string recordedPath = ReadManifest(manifestPath, out createdProfile);
+                if (!String.Equals(recordedPath, executablePath, StringComparison.OrdinalIgnoreCase))
+                    throw new InvalidDataException("the NVIDIA manifest belongs to a different executable path.");
+
+                bool restored = false;
+                string unavailable;
+                using (NvDrsSession drs = NvDrsSession.TryOpen(out unavailable))
+                {
+                    if (drs == null)
+                    {
+                        // Unavailable can mean a transient driver/service failure;
+                        // it does not prove that the saved profile was deleted.
+                        SafeReport(report, "Kept KMRP's NVIDIA present-method record for a later restore: " + unavailable + ".");
+                        return;
+                    }
+                    IntPtr profile = drs.FindApplicationProfile(executablePath);
+                    uint value;
+                    int location;
+                    if (profile != IntPtr.Zero &&
+                        drs.TryGetDword(profile, PresentMethodId, out value, out location) &&
+                        location == NvDrsSession.LocationCurrentProfile && value == PreferNative)
+                    {
+                        string name;
+                        int applications;
+                        int settings;
+                        drs.ProfileInfo(profile, out name, out applications, out settings);
+                        // The whole profile only when KMRP made it and nothing else was
+                        // added since; otherwise just the one setting.
+                        if (createdProfile && name == ProfileName && applications == 1 && settings == 1)
+                            drs.DeleteProfile(profile);
+                        else
+                            drs.DeleteSetting(profile, PresentMethodId);
+                        int saved = drs.Save();
+                        if (saved != NvDrsSession.Ok)
+                        {
+                            SafeReport(report, "KMRP's NVIDIA present-method setting for swkotor.exe could not be " +
+                                "removed (NvAPI_DRS_SaveSettings returned " +
+                                saved.ToString(CultureInfo.InvariantCulture) + "). Set it back to Use global " +
+                                "setting in the NVIDIA Control Panel if you want the old behaviour.");
+                            return;   // manifest kept, so a later restore can retry
+                        }
+                        restored = true;
+                    }
+                }
+
+                File.Delete(manifestPath);
+                if (restored)
+                    SafeReport(report, "Removed KMRP's NVIDIA present-method setting for swkotor.exe.");
+                else
+                    SafeReport(report, "Left NVIDIA's present method for swkotor.exe as it is: it changed after install.");
+            }
+            catch (Exception ex)
+            {
+                SafeReport(report, "KMRP's NVIDIA present-method setting for swkotor.exe could not be restored: " +
+                    ex.Message);
+            }
+        }
+
+        /// <summary>One line on what NVIDIA will do for this executable, for logs and tests.</summary>
+        internal static string Describe(string executablePath)
+        {
+            executablePath = Path.GetFullPath(executablePath);
+            string unavailable;
+            using (NvDrsSession drs = NvDrsSession.TryOpen(out unavailable))
+            {
+                if (drs == null)
+                    return "NVIDIA: unavailable (" + unavailable + ")";
+                IntPtr profile = drs.FindApplicationProfile(executablePath);
+                IntPtr global = drs.GlobalProfile();
+                uint value;
+                int location;
+                string game = "no profile names it";
+                if (profile != IntPtr.Zero)
+                {
+                    string name;
+                    int applications;
+                    int settings;
+                    drs.ProfileInfo(profile, out name, out applications, out settings);
+                    game = "profile \"" + name + "\", " + (drs.TryGetDword(profile, PresentMethodId, out value, out location)
+                        ? "present method " + Name(value) + " from " + Location(location)
+                        : "present method not set anywhere");
+                }
+                string globalValue = drs.TryGetDword(global, PresentMethodId, out value, out location)
+                    ? Name(value) : "not set (Auto)";
+                return "NVIDIA: " + game + "; global " + globalValue +
+                    (File.Exists(ManifestPath(executablePath)) ? "; KMRP manifest present" : "");
+            }
+        }
+
+        private static bool IsKmrpValue(string executablePath)
+        {
+            string unavailable;
+            using (NvDrsSession drs = NvDrsSession.TryOpen(out unavailable))
+            {
+                if (drs == null)
+                    return false;
+                IntPtr profile = drs.FindApplicationProfile(executablePath);
+                uint value;
+                int location;
+                return profile != IntPtr.Zero &&
+                    drs.TryGetDword(profile, PresentMethodId, out value, out location) &&
+                    location == NvDrsSession.LocationCurrentProfile && value == PreferNative;
+            }
+        }
+
+        private static string Name(uint value)
+        {
+            switch (value)
+            {
+                case PreferNative: return "Prefer native";
+                case PreferLayered: return "Prefer layered on DXGI Swapchain";
+                case PresentAuto: return "Auto";
+                default: return "0x" + value.ToString("X8", CultureInfo.InvariantCulture);
+            }
+        }
+
+        private static string Location(int location)
+        {
+            switch (location)
+            {
+                case 0: return "the game's own profile";
+                case 1: return "the global profile";
+                case 2: return "the base profile";
+                case 3: return "the driver default";
+                default: return "location " + location.ToString(CultureInfo.InvariantCulture);
+            }
+        }
+
+        private static void WriteManifest(string path, string executablePath, bool createdProfile)
+        {
+            string text = ManifestHeader + "\r\n" +
+                Convert.ToBase64String(Encoding.UTF8.GetBytes(executablePath)) + "\r\n" +
+                (createdProfile ? "1" : "0") + "\r\n";
+            File.WriteAllText(path, text, new UTF8Encoding(false));
+        }
+
+        private static string ReadManifest(string path, out bool createdProfile)
+        {
+            string[] lines = File.ReadAllLines(path, Encoding.UTF8);
+            if (lines.Length != 3 || lines[0] != ManifestHeader || (lines[2] != "0" && lines[2] != "1"))
+                throw new InvalidDataException("the NVIDIA manifest is invalid.");
+            createdProfile = lines[2] == "1";
+            try { return Encoding.UTF8.GetString(Convert.FromBase64String(lines[1])); }
+            catch (FormatException ex)
+            {
+                throw new InvalidDataException("the NVIDIA manifest contains invalid text.", ex);
+            }
+        }
+
+        private static void SafeReport(Action<string> report, string message)
+        {
+            if (report == null)
+                return;
+            try { report(message); }
+            catch { }
+        }
+    }
+
     internal sealed class OverrideRecord
     {
         internal string RelativePath;
@@ -1471,9 +2134,9 @@ namespace Kmrp
         }
 
         private static readonly string[] ResourceNames =
-            { "Kmrp.controller.runtime", "Kmrp.controller.module" };
+            { "Kmrp.controller.runtime", "Kmrp.controller.module", "Kmrp.controller.sdl", "Kmrp.controller.sdllicense" };
         private static readonly string[] FileNames =
-            { "kmrp-controller-runtime.asi", "kmrp-controller.module" };
+            { "kmrp-controller-runtime.asi", "kmrp-controller.module", "kmrp-sdl3.dll", "kmrp-sdl3-LICENSE.txt" };
         private const string ConfigName = "patch_config.toml";
         internal const string Version = "1.2";
 
@@ -1520,7 +2183,8 @@ namespace Kmrp
                 return;
             }
 
-            string[] allNames = { FileNames[0], FileNames[1], ConfigName };
+            List<string> allNames = new List<string>(FileNames);
+            allNames.Add(ConfigName);
             foreach (string name in allNames)
             {
                 string target = Path.Combine(folder, name);
@@ -1634,6 +2298,20 @@ namespace Kmrp
                 new[] { "eax" }, "0x00679B76", true);
             AppendHook(text, "0x0040CE70", "51, 53, 55, 56, 8B, E9",
                 "NativeGuiFrameK1", new[] { "ecx" }, new[] { "pointer" });
+            // Two more that decline, but these keep their stolen bytes: both are
+            // ordinary loads. They consume A only when Cancel holds focus, and
+            // exit into the panel's own 0x28 handler, so A on Cancel closes the
+            // panel exactly as B does instead of running its confirm action.
+            // A on Cancel in the two panels that answer A themselves: rewritten
+            // to B at the handler's entry. No consumed exit -- KPM runs stolen
+            // bytes before its TEST EAX, which is how the old Solo hook
+            // consumed every A. See kotor1.hooks.toml.
+            AppendHook(text, "0x006C2400", "8B, 54, 24, 08, 85, D2",
+                "ResolveSoloModeConfirmK1", new[] { "ecx", "esp+4", "esp+8" },
+                new[] { "pointer", "pointer", "pointer" });
+            AppendHook(text, "0x006E0CF0", "55, 8B, EC, 83, E4, F8",
+                "ResolveResolutionConfirmK1", new[] { "ecx", "esp+4", "esp+8" },
+                new[] { "pointer", "pointer", "pointer" });
             AppendHook(text, "0x006039CF", "A1, E0, 39, 7A, 00, 8B, 48, 04",
                 "NativeCameraFrameK1", new[] { "esi" }, new[] { "pointer" });
             AppendHook(text, "0x00404D96", "8B, 46, 48, 8B, 48, 08",
@@ -1663,6 +2341,47 @@ namespace Kmrp
             // reverse-engineering/custom-gui-controls.md.
             AppendHook(text, "0x0040B8F0", "56, 8B, F1, F6, 46, 44, 02",
                 "NativePanelReleaseGffK1", new[] { "ecx" }, new[] { "pointer" });
+            // Memory safety, adopted from the Kotor Patch Manager project
+            // (VexFlint). Not controller hooks -- they are here because this is
+            // the only hook table KMRP ships, and because KMRP loads far more
+            // textures and data than vanilla, which is what makes an unbounded
+            // write and a double free start to matter.
+            //
+            // Bytes copied verbatim from KPM rather than re-derived, so this is
+            // the behaviour reviewed there. See
+            // reverse-engineering/experiments/texture-bucket-overrun.md.
+
+            // Three 5000-entry bucket arrays are indexed by driver-assigned GL
+            // texture names with no range check. Saturate the id getter...
+            AppendBytePatch(text, "0x0041FEB5",
+                "C3, 90, 90, 90, 90",
+                "3D, 88, 13, 00, 00, 72, 05, B8, 87, 13, 00, 00, C3");
+            // ...and range-check the indexed write, rejoining at 0x0046BEB1 so
+            // shadow casting is preserved for an out-of-range part.
+            AppendBytePatch(text, "0x0046BE64",
+                "8D, 34, 40, 8B, 04, B5, E8, 94, 81, 00",
+                "3D, 88, 13, 00, 00, 72, 13, A1, BC, BF, 7F, 00, 8B, 0D, B8, " +
+                "BF, 7F, 00, 3B, C8, 68, B1, BE, 46, 00, C3, 8D, 34, 40, 8B, " +
+                "04, B5, E8, 94, 81, 00");
+
+            // CreateArrays stores one allocation in both 0x38 and 0x3C, and two
+            // paths free each of them. Zero the argument when it aliases 0x38;
+            // free() guards NULL, so that is a safe no-op.
+            AppendBytePatch(text, "0x004A847C",
+                "8B, 56, 3C, 52, E8, 0B, 1F, 25, 00",
+                "8B, 56, 3C, 3B, 56, 38, 75, 02, 33, D2, 52, B8, 90, A3, 6F, " +
+                "00, FF, D0");
+            AppendBytePatch(text, "0x004A8380",
+                "8B, 46, 3C, 50, E8, 07, 20, 25, 00",
+                "8B, 46, 3C, 3B, 46, 38, 75, 02, 33, C0, 50, B9, 90, A3, 6F, " +
+                "00, FF, D1");
+
+            // Every save leaks one buffer per resource written:
+            // CERFFile::WriteResource hands the buffer to the writer and then
+            // abandons it. Adopted from KPM's SaveGameMemoryLeak (Lane Dibello).
+            AppendHook(text, "0x005DDE32", "8B, 8B, C0, 00, 00, 00",
+                "NativeFreeSaveBufferK1", new[] { "esi" }, new[] { "pointer" });
+
             // The one legacy-owned hook the native path REQUIRES. Its action
             // bar helpers cache the interface in g_mainInterface every frame,
             // and this is the only thing that clears it -- it is hooked on
@@ -1685,6 +2404,33 @@ namespace Kmrp
             string function, string[] sources, string[] types)
         {
             AppendHook(text, address, bytes, function, sources, types, null, null, false);
+        }
+
+        /// <summary>
+        /// A hook that writes bytes rather than calling into the module: no
+        /// function, no parameters. The runtime writes `replacement_bytes` and,
+        /// for a `replace`, jumps to a cave -- so the replacement may be longer
+        /// than the original, which is why these are not `simple` hooks.
+        /// </summary>
+        private static void AppendBytePatch(StringBuilder text, string address,
+            string originalBytes, string replacementBytes)
+        {
+            text.Append("\r\n[[patches.hooks]]\r\naddress = ").Append(address)
+                .Append("\r\ntype = \"replace\"\r\noriginal_bytes = [");
+            AppendByteList(text, originalBytes);
+            text.Append("]\r\nreplacement_bytes = [");
+            AppendByteList(text, replacementBytes);
+            text.Append("]\r\nexclude_from_restore = []\r\n");
+        }
+
+        private static void AppendByteList(StringBuilder text, string bytes)
+        {
+            string[] values = bytes.Split(new[] { ", " }, StringSplitOptions.None);
+            for (int i = 0; i < values.Length; i++)
+            {
+                if (i > 0) text.Append(", ");
+                text.Append("0x").Append(values[i]);
+            }
         }
 
         private static void AppendHook(StringBuilder text, string address, string bytes,
@@ -1761,7 +2507,9 @@ namespace Kmrp
                 foreach (string line in File.ReadAllLines(manifestPath, Encoding.UTF8))
                 {
                     string[] parts = line.Split('\t');
-                    if (parts.Length != 2 || parts[0] == "version")
+                    if (parts.Length != 2 || parts[0] == "version" ||
+                        (Array.IndexOf(FileNames, parts[0]) < 0 && parts[0] != ConfigName) ||
+                        parts[1].Length != 64 || !Regex.IsMatch(parts[1], "\\A[0-9A-Fa-f]{64}\\z"))
                         continue;
                     records.Add(new InstalledFile { Name = parts[0], Hash = parts[1] });
                 }
@@ -2716,6 +3464,7 @@ namespace Kmrp
             bool installed = false;
             IniEditState iniState = null;
             DpiCompatibilityEditState dpiState = null;
+            NvidiaPresentEditState nvidiaState = null;
             OverrideEditState overrideState = null;
             try
             {
@@ -2733,6 +3482,7 @@ namespace Kmrp
 
                 SafeProgress(progress, 15, "Updating display settings…");
                 dpiState = DpiCompatibilityOperations.Install(targetPath, report);
+                nvidiaState = NvidiaPresentOperations.Install(targetPath, report);
                 iniState = IniOperations.Configure(targetPath, width, height, report);
                 overrideState = OverrideOperations.Install(targetPath, resolution, report, progress);
                 if (KmrpSettings.DriverCompatibility)
@@ -2757,6 +3507,7 @@ namespace Kmrp
                 catch { }
                 try { DpiCompatibilityOperations.Rollback(dpiState); }
                 catch { }
+                NvidiaPresentOperations.Rollback(nvidiaState);
                 if (installed && File.Exists(backupPath))
                 {
                     File.Copy(backupPath, targetPath, true);
@@ -2805,6 +3556,7 @@ namespace Kmrp
                 ControllerOperations.Restore(targetPath, report);
                 DriverCompatOperations.Restore(targetPath, report);
                 DpiCompatibilityOperations.Restore(targetPath, report);
+                NvidiaPresentOperations.Restore(targetPath, report);
                 SafeProgress(progress, 92, "Restoring display settings…");
                 IniOperations.Restore(targetPath, report);
                 SafeProgress(progress, 98, "Saving restore information…");
@@ -2834,6 +3586,7 @@ namespace Kmrp
                 ControllerOperations.Restore(targetPath, report);
                 DriverCompatOperations.Restore(targetPath, report);
                 DpiCompatibilityOperations.Restore(targetPath, report);
+                NvidiaPresentOperations.Restore(targetPath, report);
                 SafeProgress(progress, 90, "Restoring the game executable…");
                 FileGuard.Replace(temporaryPath, targetPath);
                 if (GoldPatch.HashFile(targetPath) != backupHash)
@@ -2928,11 +3681,13 @@ namespace Kmrp
         {
             IniEditState existingIniState = null;
             DpiCompatibilityEditState existingDpiState = null;
+            NvidiaPresentEditState existingNvidiaState = null;
             OverrideEditState existingOverrideState = null;
             try
             {
                 SafeProgress(progress, 12, "Updating display settings…");
                 existingDpiState = DpiCompatibilityOperations.Install(targetPath, report);
+                existingNvidiaState = NvidiaPresentOperations.Install(targetPath, report);
                 existingIniState = IniOperations.Configure(targetPath, width, height, report);
                 existingOverrideState = OverrideOperations.Install(targetPath, resolution, report, progress);
                 if (KmrpSettings.DriverCompatibility)
@@ -2961,6 +3716,7 @@ namespace Kmrp
                 catch { }
                 try { DpiCompatibilityOperations.Rollback(existingDpiState); }
                 catch { }
+                NvidiaPresentOperations.Rollback(existingNvidiaState);
                 throw;
             }
         }

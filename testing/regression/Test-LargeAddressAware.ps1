@@ -17,6 +17,7 @@ param(
 )
 
 $ErrorActionPreference = "Stop"
+. (Join-Path $PSScriptRoot "Restore-TestNvidiaProfiles.ps1")
 $characteristicsOffset = 0x926
 $originalCharacteristics = 0x010F
 $laaCharacteristics = 0x012F
@@ -69,7 +70,7 @@ function Assert([bool]$condition, [string]$message) {
 function New-Install([string]$name, [string]$source) {
     $folder = Join-Path $WorkRoot $name
     New-Item -ItemType Directory -Force -Path $folder | Out-Null
-    $exe = Join-Path $folder "swkotor.exe"
+    $exe = Join-Path $folder "kmrp-regression-selftest.exe"
     Copy-Item -LiteralPath $source -Destination $exe
     Copy-Item -LiteralPath $SeedIni -Destination (Join-Path $folder "swkotor.ini")
     return $exe
@@ -128,6 +129,7 @@ try {
     Assert ((Get-Sha256 $laaInstall) -eq $laaHash) "restore reproduces the pre-LAA input byte-for-byte"
 }
 finally {
+    Restore-TestNvidiaProfiles $WorkRoot
     if (-not $KeepWorkRoot -and (Test-Path -LiteralPath $WorkRoot)) {
         $tempRoot = [System.IO.Path]::GetFullPath([System.IO.Path]::GetTempPath())
         if (-not $WorkRoot.StartsWith($tempRoot, [StringComparison]::OrdinalIgnoreCase)) {

@@ -59,7 +59,7 @@ does nothing.
 | Glyph | Label | Location | Show when | Hide / dim when |
 | --- | --- | --- | --- | --- |
 | A | Talk / Use / Open — context | near the target reticle | a target is selected | `[internal+0x2b4]` is `0x7F000000` |
-| Start | Menu | bottom-right cluster | always in gameplay | any GUI screen is up |
+| Start | Map | bottom-right cluster | always in gameplay | any GUI screen is up |
 | L3 | Flourish | bottom-right cluster | always in gameplay | in a menu, dialogue or free look |
 | R3 | Free Look | bottom-right cluster | always in gameplay | in a menu or dialogue; **see below** |
 
@@ -137,6 +137,36 @@ prompt would be a lie.
 
 `CSWGuiSoloModeQuery` is included: it implements both `0x27` (Toggle Party
 Follow) and `0x28` (`HideSoloMode`), contrary to the first pass's claim.
+
+**Not shipped, and now known to be undrawable this way (2026-09-20).** The
+table above says A/Confirm and B/Cancel, and a Cancel badge did ship. A
+photograph of the Solo Mode prompt showed it as a thin red vertical smear across
+the caption rather than a disc beside it.
+
+`CSWGuiMessageBox::FixMessageLabel` (`0x006253A0`) rebuilds both button extents
+before calling their virtual `SetExtent`: it copies the four fields out of the
+control, overwrites the third with the constant `0x64`, and passes that back —
+`BTN_OK` at `0x006254AC`, `BTN_CANCEL` at `0x00625574`. So the button is about
+an eighth of the 780 its `.gui` gives at 3440x1440, and a badge shaped from the
+file is pre-compensated for a stretch it never gets.
+
+Shaping it for the real width does not rescue it. Only the control's aspect
+matters to the pre-compensation, so 100 against the file's height is the right
+shape — and at that shape a disc sized to the control's height reaches the
+middle of the button, where the caption is. `Test-ControllerPromptAssets.py`
+rejects it on exactly that ground. Both attempts were reverted, and the
+message box now carries no badge at all rather than a wrong one.
+
+What these buttons need is a prompt drawn **beside the box** rather than inside
+a control, which is the same thing dialogue needs below and which neither has
+yet. The panel remains registered in `IsK1MenuPanel` regardless, because an
+unrecognised top modal blanks the badges of the screen underneath it.
+
+Both controls belong to `CSWGuiMessageBox`, from its constructor at
+`0x00626DF0`: `BTN_OK` at `+0x2F4`, `BTN_CANCEL` at `+0x4B8`, over the GUI named
+`confirm`. The resolution screen, whose badges DID ship, gets its own pair from
+`0x006E0710` at `+0x484` and `+0x648` — it is an ordinary panel and does not
+resize them.
 
 ### Dialogue — live and verified
 
@@ -338,6 +368,13 @@ are built from, and it is `xbox`.
 **Controller-family detection is deliberately not implemented.** Nothing asks the
 running game which pad is attached. The point of this change is that adding that
 later touches one constant rather than every caller.
+
+*Superseded 2026-09-19 (issue #19):* detection is implemented. All four families
+are built and shipped, named by the resref's fourth letter (`kmrp` Xbox, `kmrs`
+PlayStation, `kmrn` Switch, `kmrd` Steam Deck), and the module picks one from the
+pad it reads -- its vendor id, or through Steam Input the controller Steam says is
+behind it. The Switch set now maps by button position rather than by
+letter. See *Controller families* in [`controller-support.md`](controller-support.md).
 
 ## L3 / R3 badges in gameplay — specified, not shipped
 

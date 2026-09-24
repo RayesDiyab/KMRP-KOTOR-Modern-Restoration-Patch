@@ -239,6 +239,38 @@ centred):
 | `0x01` / `0x02` / `0x04` | left / centre / right |
 | `0x08` / `0x10` / `0x20` | top / middle / bottom |
 
+## Checkbox rows beside a left scrollbar (Feedback Options, 2026-09-24)
+
+Reported at 3440x1440: the Feedback Options circles sat against the list's left
+scrollbar. Three engine facts, read from the vanilla executable (addresses match
+the Lane-reference Ghidra names):
+
+| Site | What it does |
+| --- | --- |
+| `0x0041BFC0`, `0x0041CDBA` | content rect: `left += scrollbarWidth` when `LEFTSCROLLBAR` (bit `0x10` of `+0x2BC`) |
+| `0x00418215`, `0x00419C0D` | the scrollbar is **moved** to the list's left edge (or right edge without the flag), whatever its own `.gui` extent says |
+| `0x006DE000` `CSWGuiOptionsCheckbox::SetExtent` | the circle is a fixed `0x19` (25px) square at `row.left`, vertically centred (`+2`); the label starts at `row.left + 0x1E` |
+
+So no `.gui` extent opens a gap: moving the scrollbar is undone, moving the list
+moves both, widening the scrollbar draws it wider. What does is `PADDING`, which
+since gold v12 is a purely horizontal gutter on the scrollbar side. Feedback's
+`LB_OPTIONS` ships `PADDING 0`; `prepare_universal_resources.py`'s
+`HAND_TUNED_GUTTERS` now sets it to 6 x font scale (12px at 3440x1440), and
+`Test-GeneratedGuiGeometry.py` checks it in all 48 archives. The row prototypes
+are untouched, as that test also insists. Not yet seen in game.
+
+**Script Selection** (`LST_AIState`, the same shape, `PADDING 2`) had the rows
+off-centre in the box its background art draws: 12px outside the frame on the
+left at 3440x1440, 17px inside it on the right. That box is part of
+`lbl_char_scr.tpc`, one texture stretched across the screen, so its lines sit at
+fixed fractions of the screen width -- read from the texture as `302.5/2868`
+and `1409/2868`, and matching a 3440x1440 screenshot within two pixels. With a
+left scrollbar only the rows' left edge moves with `PADDING`, so
+`centre_rows_in_frame` (`tools/scale_listbox_padding.py`) sets
+`PADDING = frameLeft + frameRight - 2*list.left - list.width - scrollbarWidth`
+per resolution: 35 at 3440x1440, 19 at 1920x1080, 9 at 800x600, equal margins
+within half a pixel at all 48. `Test-GeneratedGuiGeometry.py` checks it.
+
 ## The fit test — why a description that fits was scrolled anyway
 
 The two guards at `0x0041B339` and `0x0041B3AE` decide between the row layout

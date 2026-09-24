@@ -117,25 +117,95 @@ dynamic-prompt source patches are preserved under
 design and test boundary are documented in
 [`docs/controller-support.md`](docs/controller-support.md).
 
+## KOTOR Patch Manager — three memory-safety patches
+
+Three patches from the **KOTOR Patch Manager** repository, commit
+`7d53e52f55622a48ab97001c2680fd9fb59c8f98`, are installed through KMRP's own
+hook table. Their replacement bytes are **copied verbatim rather than
+re-derived**, so the behaviour is the one reviewed in that project.
+
+https://github.com/LaneDibello/Kotor-Patch-Manager
+
+| KPM patch id | author | what KMRP installs |
+| --- | --- | --- |
+| `texture-bucket-safety` | **VexFlint** | two `replace` patches, at `0x0041FEB5` and `0x0046BE64` |
+| `grass-memory-safety` | **VexFlint** | two `replace` patches, at `0x004A847C` and `0x004A8380` |
+| `save_mem_leak` | **Lane Dibello** | one detour at `0x005DDE32`, into KMRP's own `NativeFreeSaveBufferK1` |
+
+Licensed under **MIT**, `Copyright (c) 2025 Lane Dibello and KotOR Patch Manager
+contributors`, the same licence already vendored for the controller module as
+`LICENSE-KOTOR-PATCH-MANAGER.txt`.
+
+Only the save-game fix carries KMRP code: the detour calls a handler in
+`kmrp-controller.module` that frees the abandoned buffer, because KMRP's hook
+table reaches an exported function more cleanly than it reaches a code cave.
+The analysis of *which* buffer leaks is KPM's.
+
+`swkotor.exe` is not modified by any of the five: they are entries in
+`patch_config.toml`, written at runtime like every other KMRP hook. The
+addresses are all outside KMRP's own 702-byte delta, checked against both the
+clean source and the gold image.
+
+Background on the texture-bucket pair, including the measured
+`maxTexID` values from play, is in
+[`reverse-engineering/experiments/texture-bucket-overrun.md`](reverse-engineering/experiments/texture-bucket-overrun.md).
+
+## NVIDIA NvAPI — interface identifiers
+
+The patcher's NVIDIA present-method step talks to the driver's own
+`nvapi64.dll` / `nvapi.dll`, loaded from System32 at run time. **No NVIDIA code
+or library is redistributed or linked.** What KMRP takes from NVIDIA's public
+NvAPI headers is interface data: sixteen function identifiers passed to
+`nvapi_QueryInterface`, the setting id `OGL_CPL_PREFER_DXPRESENT` (`0x20D690F8`)
+and its values, the status codes it checks, and the layouts of `NVDRS_SETTING`,
+`NVDRS_APPLICATION` and `NVDRS_PROFILE`, marshalled by explicit offset.
+
+https://github.com/NVIDIA/nvapi (`nvapi_interface.h`, `NvApiDriverSettings.h`,
+`nvapi_lite_common.h`; the repository's libraries are MIT-licensed,
+`Copyright (c) 2024 NVIDIA CORPORATION & AFFILIATES`).
+
+The layouts were cross-checked against **NVIDIA Profile Inspector** (Orbmu2k,
+MIT), https://github.com/Orbmu2k/nvidiaProfileInspector — read, not copied: KMRP
+uses NVIDIA's documented entry points throughout, where Profile Inspector
+prefers undocumented ones for getting and setting a value. See
+[`docs/nvidia-present-method.md`](docs/nvidia-present-method.md).
+
 ## Xelu's Free Controller & Key Prompts
 
-Controller button artwork for the optional Xbox controls component. **CC0 1.0
+Controller button artwork for the optional controller component. **CC0 1.0
 Universal (public domain)** -- no permission was required and none was sought.
 
     Author:  Nicolae "Xelu" Berbece
     Source:  https://thoseawesomeguys.com/prompts
     Mirror:  https://github.com/DJLink/Xelu_Free_Controller-Key_Prompts
-    Vendored at: third_party/Included/Xelu-Free-Controller-Prompts-CC0/
+    Vendored at: third_party/Included/Xelu_Free_Controller&Key_Prompts/
 
-The author's own terms, kept verbatim in `UPSTREAM-README.txt` beside the images:
-"You can use all these assets in any project you want to (be it commercial or
-not). All of the assets are in the public domain under Creative Commons 0 (CC0)."
-The CC0 text ships as `LICENSE-CC0.txt` in the same folder.
+The author's own terms, kept verbatim in `Readme.txt` in that folder: "You can
+use all these assets in any project you want to (be it commercial or not). All of
+the assets are in the public domain under Creative Commons 0 (CC0)."
 
-Ten files are redistributed, all from the pack's Xbox 360 set: `A`, `B`, `X`,
-`Y`, `LB`, `RB`, `Start`, `Back`, `Dpad_Left`, `Dpad_Right`. They are used
-unmodified as source art; `tools/build_controller_prompt_textures.py` resizes
-them per resolution into the button-fill textures KMRP installs.
+Four of the pack's sets are used, one per controller family the module can
+detect, sixteen actions each (A, B, X, Y, LB, RB, LT, RT, Start, Back, the four
+D-pad directions, L3, R3) -- from `Xbox/` (the 360 set, with the Series X art for
+LT, RT and R3), `PS5/`, `Switch/` and `Steam Deck/` -- plus KMRP's own
+`Swap_tabs.png` in `Xbox/`. They are source art, not shipped as files:
+`tools/build_controller_prompt_textures.py` resizes them per resolution into the
+button-fill textures KMRP installs, one set per family.
+
+The Controller Layout screen also uses each family's whole-stick and D-pad art
+(`*_Left_Stick.png`, `*_Right_Stick.png`, `*_Dpad.png`) and the pack's two
+unlabelled controller diagrams, `Xbox/XboxSeriesX_Diagram_Simple.png` and
+`PS5/PS5_Diagram_Simple.png`. `tools/build_controller_layout.py` tints the
+diagram, composites the family's own face-button glyphs onto it and bakes the
+leader lines into one texture per family. Switch and Steam Deck have no diagram
+in the pack, so they are drawn on the Xbox silhouette.
+
+*Corrected 2026-09-19:* this section used to say ten files were redistributed,
+all from the Xbox 360 set, vendored at `third_party/Included/Xelu-Free-Controller-Prompts-CC0/`
+with the terms in `UPSTREAM-README.txt` and `LICENSE-CC0.txt`. None of that was
+still true: the whole pack is vendored at the path above with its terms in
+`Readme.txt`, and the Xbox set had already grown to its sixteen actions before
+the other three families were added.
 
 **The Xbox 360 set is used deliberately.** The pack's Series X and Xbox One sets
 draw a grey disc with a coloured letter, which loses most of its contrast at
@@ -208,6 +278,21 @@ owning the game) and remove it if Lucasfilm objects. See
 `dialogfont32x32` master — is only a *typographic* fallback and not a cleaner
 one legally, being derived from the same underlying IP.
 
+### Aurebesh — lettering on the Controller Layout screen's edge art
+
+**Aurebesh** by SilvinoR, SIL Open Font License 1.1, Reserved Font Name
+AUREBESH. The no-ligature build, `AurebeshNL.ttf` (sha256
+`fab46594e5811925ea4f966e29911b9deb5d307141504db8c63e6fd50b4b56f2`, upstream
+commit `1aeb227950f2555923485fb586534cbba8c4a979`), is kept with its licence at
+`third_party/aurebesh-font/`. It is a build-time input only:
+`tools/controller_layout_backdrop.py` renders labels with it into the
+`kmrlyt*.tga` textures, and the font itself is not shipped or modified.
+
+https://github.com/silvinor/font-aurebesh
+
+Its 26 letters were checked against the canonical chart on Wikimedia Commons
+(`Star-Wars-aurek-besh-alphabet-chart.svg`) before use.
+
 ### Evaluated and not shipped
 
 Chakra Petch (SIL OFL), Montserrat (SIL OFL), Rajdhani, Exo 2, Nimbus Sans L
@@ -231,3 +316,30 @@ size, where KPM uses a DLL with detours and a flag set around the draw. The
 arithmetic differs too — KPM scales by an integer `round(height/600)` and sets
 the viewport to match, whereas ours derives the factor from the viewport the GUI
 actually produced.
+
+## SDL3
+
+The optional controller component ships unmodified **SDL 3.4.16, Windows x86**
+from the [official SDL release](https://github.com/libsdl-org/SDL/releases/tag/release-3.4.16).
+It is installed as `kmrp-sdl3.dll` to avoid taking ownership of another mod's
+`SDL3.dll`. The original zlib licence is embedded in the installer and installed
+as `kmrp-sdl3-LICENSE.txt`. The build downloads a SHA-256-pinned SDK under ignored
+`build/deps`; see [the backend reference](docs/controller-sdl-backend.md).
+
+Copyright (C) 1997-2026 Sam Lantinga <slouken@libsdl.org>
+
+This software is provided 'as-is', without any express or implied
+warranty.  In no event will the authors be held liable for any damages
+arising from the use of this software.
+
+Permission is granted to anyone to use this software for any purpose,
+including commercial applications, and to alter it and redistribute it
+freely, subject to the following restrictions:
+
+1. The origin of this software must not be misrepresented; you must not
+   claim that you wrote the original software. If you use this software
+   in a product, an acknowledgment in the product documentation would be
+   appreciated but is not required.
+2. Altered source versions must be plainly marked as such, and must not be
+   misrepresented as being the original software.
+3. This notice may not be removed or altered from any source distribution.

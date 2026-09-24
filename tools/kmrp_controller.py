@@ -70,18 +70,30 @@ def _defining_sources() -> dict:
     return owners
 
 
+def is_byte_patch(hook) -> bool:
+    """A hook that writes bytes rather than calling into the module.
+
+    Detour hooks name an exported function; a `replace` or `simple` hook has no
+    function at all, because the runtime writes `replacement_bytes` and, for
+    `replace`, jumps to a cave. Nothing in the module is involved, so there is no
+    export to derive ownership from -- these are KMRP's because KMRP ships them.
+    """
+    return "function" not in hook
+
+
 def hooks() -> list:
     """Every hook in kotor1.hooks.toml, in file order, each tagged with an owner.
 
     A hook whose function is defined in no tracked source gets owner None rather
     than a guess; `check_controller_drift.py` fails on that, which is the point.
+    Byte patches carry no function, so they are owned by KMRP directly.
     """
     data = tomllib.loads(HOOKS_TOML.read_text(encoding="utf-8"))
     owners = _defining_sources()
     out = []
     for hook in data.get("hooks", []):
         hook = dict(hook)
-        hook["owner"] = owners.get(hook["function"])
+        hook["owner"] = KMRP if is_byte_patch(hook) else owners.get(hook["function"])
         out.append(hook)
     return out
 
@@ -89,7 +101,8 @@ def hooks() -> list:
 def native_hooks() -> list:
     """The hooks the installer must emit: KMRP's own, plus REQUIRED_LEGACY."""
     return [h for h in hooks()
-            if h["owner"] == KMRP or h["function"] in REQUIRED_LEGACY]
+            if h["owner"] == KMRP
+            or (not is_byte_patch(h) and h["function"] in REQUIRED_LEGACY)]
 
 
 def is_native(function: str) -> bool:
@@ -110,9 +123,14 @@ def render_patch_hooks(selected: list) -> str:
         lines.append("[[patches.hooks]]")
         lines.append(f"address = 0x{hook['address']:08X}")
         lines.append(f'type = "{hook["type"]}"')
-        lines.append(f'function = "{hook["function"]}"')
+        if not is_byte_patch(hook):
+            lines.append(f'function = "{hook["function"]}"')
         body = ", ".join(f"0x{b:02X}" for b in hook["original_bytes"])
         lines.append(f"original_bytes = [{body}]")
+        if is_byte_patch(hook):
+            replacement = ", ".join(
+                f"0x{b:02X}" for b in hook["replacement_bytes"])
+            lines.append(f"replacement_bytes = [{replacement}]")
         lines.append(f"skip_original_bytes = "
                      f"{'true' if hook.get('skip_original_bytes') else 'false'}")
         excluded = ", ".join(f'"{e}"' for e in hook.get("exclude_from_restore", []))

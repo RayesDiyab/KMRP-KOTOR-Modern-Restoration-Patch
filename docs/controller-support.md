@@ -136,14 +136,14 @@ it in each context.
 | Button | Sends | In gameplay | In a menu |
 | --- | --- | --- | --- |
 | A | `Return` (+`R`) | default / primary action | activates the focused control |
-| B | `Delete` | — | **back / close.** `Delete` is rewritten to `Escape` whenever a menu panel is open |
+| B | `Delete` | lets go of the bottom-right action bar when one of its slots has focus (issue #17) | **back / close.** `Delete` is rewritten to `Escape` whenever a menu panel is open |
 | X | `G` + `End` | stealth | `End` is captured and dispatched as the Xbox X GUI event |
 | Y | `F` + `Home` | disengage combat | `Home` dispatched as the Y GUI event |
 | LB | `Space` + `Insert` | pause | `Insert` dispatched as the Black-button GUI event |
 | RB | `Tab` | change party member | change party member |
 | LT / RT | `Q` / `E` | cycle targets | **move between menu screens** — Map, Inventory, Character… |
 | Back | `V` | toggle solo mode | — |
-| Start | `Escape` | opens the menu | closes the screen |
+| Start | native (see below) | opens the **Map** (issue #18) | closes the in-game menu, from the Map or any tab LT/RT reached |
 | L3 / R3 | `X` / `Caps Lock` | flourish, first-person view | nothing |
 | D-pad | arrow keys | action-bar navigation | menu navigation, repeating while held after 400 ms at 120 ms intervals |
 | Left stick | movement keys | move, with a walk/run threshold | — |
@@ -166,9 +166,24 @@ Planned additions — the Guide button, tab cycling on the bumpers and party
 cycling on the stick clicks — are specified in
 [`controller-planned-work.md`](controller-planned-work.md).
 
+**Start and the action bar, on the native path (issues #17 and #18).** Start in
+the world opens the Map through the engine's own Map hotkey (event `0xD7`, whose
+handler at `0x006218D5` shows screen `event - 0xD1`), instead of the game's Start
+event `0x0B`, which opens Options. With the in-game menu in front, Start sends B's
+control code, the close measured from every tab. A slot of the bottom-right action
+bar used with A lets go of focus afterwards, so the next A acts on the world again,
+and B lets go of it without doing anything else -- B has no other effect in the
+world. D-pad Left/Right re-enters the bar as before. The mechanisms are in
+[`controller-native-path.md`](controller-native-path.md). **Not yet verified in
+play**: `testing/controller/test_hud_release_and_start_map.py` checks both against
+the engine's memory and has not been run on a loaded save.
+
 Steam Input is not claimed to work by the upstream author. PlayStation and other
-non-XInput controllers require an external XInput translation layer. Proton and
-Steam Deck remain untested; use the explicit matrix and report procedure in
+non-XInput controllers still need an XInput translation layer -- Steam Input,
+DS4Windows or similar -- for **input**; KMRP reads XInput only. The **glyphs**
+follow the pad it reads, and through Steam Input the controller Steam says is
+behind it: see *Controller families* below. Proton
+and Steam Deck remain untested; use the explicit matrix and report procedure in
 [`linux-proton-steam-deck.md`](linux-proton-steam-deck.md).
 
 ## Dynamic controller prompts
@@ -320,6 +335,89 @@ match the archive's own font.
 When controller support is disabled, KMRP installs no controller runtime or
 prompt override, so all keyboard/mouse prompts remain byte-for-byte unchanged.
 
+### Controller families (issue #19)
+
+**Correction, 2026-09-19:** the following XInput/Steam identity path remains for
+Xbox and translated controllers. A new SDL3/HIDAPI backend now supplies standalone
+non-Xbox input through the same normalized state. Its packaging is tested, but
+runtime and physical-device checks remain outstanding. See the
+[hybrid backend reference](controller-sdl-backend.md) for the current mechanism,
+Nintendo position mapping, and exact validation boundary.
+
+
+The badges and cues show the buttons of **the pad KMRP actually reads**: Xbox,
+PlayStation, Switch or Steam Deck. The module identifies it the way SDL does.
+`XInputGetCapabilitiesEx` -- `xinput1_4.dll` ordinal 108, undocumented but
+present since Windows 8 -- returns the USB vendor and product id of the device
+behind an XInput slot, and the module asks it about the slot it reads from:
+
+| vendor | product | family |
+| --- | --- | --- |
+| `054C` Sony | any | PlayStation |
+| `057E` Nintendo | any | Switch |
+| `28DE` Valve | `1205` | Steam Deck (its built-in controls) |
+| `28DE` Valve | `11FF` | Steam Input's virtual pad -- Steam says what is behind it |
+| anything else | | Xbox |
+
+**Steam Input** presents every controller as its own virtual pad, but publishes
+what is behind each one: the file named by the `SteamVirtualGamepadInfo`
+environment variable has a `[slot N]` section per virtual pad with the physical
+controller's `VID` and `PID`, and for Steam's pad the capabilities' last field is
+that `N`. Those ids are then read against the same table. So a DualSense, a Switch
+Pro or the Deck's own controls through Steam each get their own buttons.
+
+**Translators that present an Xbox 360 pad of their own** -- DS4Windows, for one --
+are indistinguishable from the pad they imitate, and get Xbox buttons. That is
+what they tell every game; the module does not second-guess it.
+
+The question is asked only when it can have a new answer: when the pad the module
+reads connects or moves to another XInput slot, and, for Steam's pad, when Steam
+rewrites its file (its modification time, looked at once a second -- SDL looks
+every three). There is no timer otherwise and nothing to configure. Where the call
+does not exist (Windows 7, a Wine without it) the family is Xbox, or Steam Deck when
+Steam has set `SteamDeck=1`. The diagnostic line's `gly=family/changes` shows the
+result (0 Xbox, 1 PlayStation, 2 Switch, 3 Steam Deck).
+
+*Corrected 2026-09-19:* the first version of this read every HID device on the
+machine through Raw Input and picked the most specific family present, every two
+seconds, with a `kmrp-controller.ini` override. It guessed from what was plugged
+in rather than what was in use -- a DualSense on a charging cable would have put
+PlayStation buttons on screen while the player held an Xbox pad -- and was
+replaced before it shipped. The file override went with it.
+
+**Every family is shipped.** Each badge and cue texture is built once per family,
+and the names differ only in the resref's fourth letter -- `kmrpb_charexit` is the
+Xbox B badge, `kmrsb_charexit` the PlayStation one, `kmrn` Switch, `kmrd` Steam
+Deck -- so no name grows past a resref's 16 characters and the Xbox names are the
+ones that always shipped. The module's tables name the Xbox art;
+`SetK1ControllerPromptFill` rewrites the letter for badges, and
+`MatchCueFamilyK1` re-fills the cue labels (a `CSWGuiLabel`'s border params at
+`+0x70`, fill resref at `+0x40` within them). `check_controller_drift.py` fails if
+the letters in the module and the build disagree, or if any family's art is
+missing. The cost is the badge art three more times: the installer grew from
+114.1 MB to 142.2 MB (28.1 MB), and each installed resolution gets 61 more
+badge textures per family in Override, plus four cue textures per family.
+
+The Switch and Steam Deck sets are Xelu's dark-grey style -- the same low
+contrast against KOTOR's dark blue panels that ruled out the Series X set for
+Xbox. Judged from a contact sheet of the built textures, not in game.
+
+**The Switch glyphs follow position, not letter.** XInput A is the bottom face
+button, which a Switch Pro labels B, so the badge beside an A action shows
+Nintendo's B, and likewise A↔B and X↔Y. That is right when the translator maps by
+position (Steam Input with "Use Nintendo Button Layout" off) and backwards when it
+maps by label. **Untested either way.** The swap-tabs cue is art only in the Xbox
+set; the other families show their X-position button there.
+
+**Verified:** the call itself on this machine -- ordinal 108 resolves in
+`xinput1_4.dll`, the structure is 32 bytes as SDL declares it, and a virtual
+Xbox 360 pad from the ViGEm driver reports `045E:028E`, which is Xbox; and the
+Steam file's parsing, with `GetPrivateProfileStringA` on a file in SDL's documented
+format, hex and decimal ids alike (`0x054c` and `1406` read as PlayStation and
+Switch, `0x28de`/`0x1205` as Steam Deck, a slot not yet written as Xbox).
+**Untested:** a real Steam virtual pad, any physical PlayStation, Switch or Steam
+Deck controller, Proton, and the new families' art in game.
+
 ## Menu navigation the module supplies
 
 Each panel the module can navigate contributes its own layout to
@@ -373,6 +471,11 @@ Badges are assigned in two tiers of confidence, and the source says which:
 
 ## Verification and untested coverage
 
+The figures in this section describe the earlier 2026-09-06 prompt iteration.
+For the current hybrid backend, dependency ownership and hook counts, use the
+[2026-09-19 validation reference](controller-sdl-backend.md#verification-and-remaining-work).
+
+
 Run:
 
 ```powershell
@@ -420,6 +523,42 @@ Shut the pad server down when finished. `XInputGetBatteryInformation` tells the
 two apart for the wireless case -- a physical pad reports `NIMH` or `ALKALINE`, a
 ViGEm pad reports `WIRED` -- but a wired physical pad also reports `WIRED`, so it
 is not a general discriminator.
+
+## Mouse confinement on multi-monitor setups
+
+Not a controller feature, and it ships here only because this module is the one
+piece of KMRP's own code that runs inside the game — see the caveat below.
+
+KOTOR turns the camera with mouse movement but never clips the cursor: on a
+multi-monitor desktop a wide enough sweep walks the pointer onto the next
+display, and the camera stops following. The game imports no `ClipCursor` at
+all — `SetCapture`, `ShowCursor` and `SetCursorPos` are the only cursor calls in
+its import table — so nothing in the engine competes for this.
+
+`UpdateCursorConfinementK1` runs from `NativeGuiFrameK1`, the per-frame GUI hook,
+and clips the cursor to the game window's client rectangle whenever KOTOR owns
+the foreground window and is not minimised.
+
+| Case | Behaviour | Why |
+| --- | --- | --- |
+| Game is foreground | cursor clipped to the client rect | re-applied every frame, so moving the window or changing resolution is picked up next frame |
+| Alt-Tab, another app takes focus | released | Windows drops a clip when the foreground window changes; the explicit release covers focus loss without one |
+| Minimised | released | `IsIconic` |
+| Game exits or crashes | released | the clip does not outlive the process, so a crash cannot leave the pointer trapped |
+| Windowed | clipped to the window, not the monitor | it follows the window rectangle |
+
+The diagnostic line reports `cur=<clipped>/<takes>/<releases>`.
+
+**Caveat, and it matters for a mouse feature:** this lives in the *optional*
+controller component. It is installed unless the player turns it off in Advanced
+Settings, so most installs get it — but a mouse-only player who declines
+controller support gets no confinement. The honest fix is a small always-
+installed component of KMRP's own; that does not exist yet, and building one is a
+larger change than the feature. Issue #20.
+
+**Untested.** Written from the Win32 contract and the game's import table; no
+multi-monitor session has exercised it, and neither has Alt-Tab, minimise or a
+windowed game.
 
 ## Deliberately not changed
 

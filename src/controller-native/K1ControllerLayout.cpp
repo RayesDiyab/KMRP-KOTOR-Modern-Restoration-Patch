@@ -1,0 +1,353 @@
+// KOTOR 1.03 GUI ABI. See reverse-engineering/custom-gui-controls.md.
+#include "K1ControllerLayout.h"
+#include <windows.h>
+#include <cstdint>
+#include <cstdio>
+#include <cstring>
+
+extern "C" char __cdecl KmrpGlyphLetterK1();
+bool IsControllerInputActiveK1();
+bool ControllerConfirmHeldK1();
+
+namespace {
+// Rows on the Controller Layout screen: GLYPH_nn and TEXT_nn each. Must equal
+// ROWS in tools/build_controller_layout.py, which authors the .gui these tags
+// are bound from; Test-ControllerPromptAssets.py fails the build otherwise.
+constexpr int K1_LAYOUT_ROWS = 13;
+constexpr int K1_LAYOUT_FIXED = 10;          // the ten controls before the rows
+// Edge art after the rows, DECO_nn: corner brackets, hairlines, readouts and
+// the two margin illustrations. Must equal len(DECOR) in
+// tools/controller_layout_backdrop.py. Unbound .gui controls are never drawn,
+// so each one is bound like any other label.
+constexpr int K1_LAYOUT_DECOR = 10;
+// Then GLYPH_BACK, the B badge inside the Back button, last so that no earlier
+// ID moves. Its fill and visibility follow the pad in refresh().
+constexpr int K1_LAYOUT_BACK_GLYPH = K1_LAYOUT_FIXED + 2 * K1_LAYOUT_ROWS + K1_LAYOUT_DECOR;
+constexpr int K1_LAYOUT_CONTROLS = K1_LAYOUT_BACK_GLYPH + 1;
+static_assert(K1_LAYOUT_CONTROLS <= 64, "owned[] holds 64 controls");
+
+template<class T> T& at(void* p, unsigned n) { return *reinterpret_cast<T*>(static_cast<char*>(p)+n); }
+template<class T> T fn(unsigned n) { return reinterpret_cast<T>(n); }
+using Ctor = void*(__thiscall*)(void*);
+using Dtor = void*(__thiscall*)(void*, unsigned);
+using PanelCtor = void*(__thiscall*)(void*, void*);
+using Simple = void(__thiscall*)(void*);
+using StringCtor = void(__thiscall*)(void*, const char*);
+using Bind = void(__thiscall*)(void*, void*, void*, int);
+using Event = void(__thiscall*)(void*, int, void*, void*);
+using Input = void(__thiscall*)(void*, int, int);
+using SetActive = void(__thiscall*)(void*, void*, int);
+using Exists = int(__thiscall*)(void*, void*);
+using Add = void(__thiscall*)(void*, void*, int, int);
+using New = void*(__cdecl*)(unsigned);
+using Delete = void(__cdecl*)(void*);
+
+struct Entry { void* parent; void* button; } entries[8] = {};
+void* pending = nullptr;
+void* current = nullptr;
+void* parent = nullptr;
+void* returnFocus = nullptr;
+std::uintptr_t table[27] = {};
+unsigned created=0, destroyed=0, controlsCreated=0, controlsDestroyed=0, callbacks=0;
+char family = 0;
+int device = -1;
+void* owned[64] = {};
+unsigned ownedCount = 0;
+// The press that opens the screen must not also close it. A activates the
+// entry, the screen opens with Back focused, and the same A -- still held, or
+// its release -- then reached Back: the screen flashed for a frame and shut,
+// and stayed only while A was held down. So Back does nothing until confirm has
+// been seen released on two frames running. Two, not one, because on the frame
+// the button comes up the engine may deliver the release before or after this
+// hook runs, and one released frame would arm in time for that very release.
+//
+// The same press must not reopen it either. A on Back closes the screen and
+// hands focus back to the Controller Layout entry, and that A then activated
+// the entry: the screen closed and came straight back. So after a close the
+// entry is ignored until confirm has been released on two frames running, the
+// same rule. B was never affected -- it does not activate the entry.
+int releasedFrames = 0;
+constexpr int K1_LAYOUT_ARM_FRAMES = 2;
+bool armed() { return releasedFrames >= K1_LAYOUT_ARM_FRAMES; }
+bool blockReopen = false;
+
+void log(const char* event) {
+    // Transition-only diagnostics for the manual validation build. There are no
+    // per-frame writes; a normal session produces only a few short records.
+    FILE* f=nullptr;
+    if (fopen_s(&f, "kmrp-layout-lifecycle.log", "a") || !f) return;
+    fprintf(f,"%lu %s panel=%p parent=%p created=%u destroyed=%u controls=%u freed=%u callbacks=%u family=%c device=%d\n",
+        GetTickCount(),event,current,parent,created,destroyed,controlsCreated,controlsDestroyed,callbacks,family?family:'-',device);
+    fclose(f);
+}
+
+void destroyControl(void* control) {
+    if (!control) return;
+    auto v = at<std::uintptr_t*>(control,0);
+    reinterpret_cast<Dtor>(v[0])(control,1);
+    ++controlsDestroyed;
+}
+
+void* bind(void* panel, const char* tag, bool button=false) {
+    void* c=fn<New>(0x6FA7E6)(button ? 0x1C4 : 0x140);
+    if (!c) return nullptr;
+    fn<Ctor>(button ? 0x41C0F0 : 0x41ACD0)(c);
+    ++controlsCreated;
+    void* name[2] = {};
+    fn<StringCtor>(0x5E5A90)(name,tag);
+    fn<Bind>(0x40B930)(panel,c,name,1);
+    fn<Simple>(0x5E5C20)(name);
+    int id=at<int>(c,0x50), count=at<int>(panel,0x24);
+    auto array=at<void**>(panel,0x20);
+    if (!array || id<0 || id>=count || array[id]!=c) {
+        destroyControl(c); log("bind-failed"); return nullptr;
+    }
+    return c;
+}
+
+void requestClose() {
+    if (current) {
+        // Manager Update removes the modal then calls its deleting destructor.
+        // Never delete a panel from the control's callback stack.
+        at<unsigned>(current,0x44)=(at<unsigned>(current,0x44)&~0x700u)|0x400u;
+        log("close-request");
+    }
+}
+void __fastcall back(void*,void*,void*) {
+    ++callbacks;
+    if (!armed()) { log("back-ignored-unarmed"); return; }
+    requestClose();
+}
+void __fastcall onB(void*,void*,int value) { if (value) { ++callbacks; requestClose(); } }
+void __fastcall open(void* owner,void*,void*) {
+    ++callbacks;
+    if (blockReopen) { log("open-ignored-after-close"); return; }
+    if (!current && !pending) pending=owner;
+    log("open-callback");
+}
+void __fastcall input(void* self,void*,int event,int value) {
+    if (value && event==0x28) { requestClose(); return; }
+    fn<Input>(0x409E60)(self,event,value);
+}
+void* __fastcall destroy(void* self,void*,unsigned flags) {
+    log("destroy-begin");
+    // Manager already removed the panel on normal closure. Also support an
+    // engine shutdown calling the destructor while the panel remains attached.
+    void* manager=at<void*>(self,0x18);
+    if (manager && fn<Exists>(0x40BD70)(manager,self))
+        fn<Exists>(0x40C830)(manager,self);
+    fn<SetActive>(0x40A630)(self,nullptr,0);
+    auto array=at<void**>(self,0x20);
+    for (int i=0;i<at<int>(self,0x24);++i) array[i]=nullptr;
+    for (unsigned i=0;i<ownedCount;++i) { destroyControl(owned[i]); owned[i]=nullptr; }
+    ownedCount=0;
+    fn<Simple>(0x40CF70)(self);
+    current=nullptr;
+    ++destroyed;
+    if (parent && manager && fn<Exists>(0x40BD70)(manager,parent))
+        fn<SetActive>(0x40A630)(parent,returnFocus,0);
+    parent=nullptr; returnFocus=nullptr;
+    blockReopen=true; releasedFrames=0;
+    log("destroy-end");
+    if (flags&1) fn<Delete>(0x6FA390)(self);
+    return self;
+}
+
+// ---------------------------------------------------------------- confirm A
+//
+// The A beside a confirmation box's focused button: Exit Game, Solo Mode,
+// overwrite and delete save all use CSWGuiMessageBox and confirm.gui. Its
+// FixMessageLabel (0x006253A0) shrinks both buttons to fit their captions, so a
+// badge cannot be painted inside one; tools/build_controller_layout.py adds a
+// label of its own, LBL_KMRPA, which is bound here and moved each frame to the
+// left of whichever button holds focus -- the main menu's travelling A.
+//
+// Bound at ReleaseGff. The Solo Mode query is built on CSWGuiMessageBox and
+// loads confirm.gui from the base constructor (0x00626EB0), so it should arrive
+// with the base vtable, 0x0074FDB0, before its own is stored; its own,
+// 0x00756F28, is accepted as well rather than trusted never to appear.
+constexpr std::uintptr_t K1_MESSAGE_BOX_VTABLE = 0x74FDB0;
+constexpr std::uintptr_t K1_SOLO_MODE_QUERY_VTABLE = 0x756F28;
+constexpr unsigned K1_MESSAGE_BOX_OK = 0x2F4;      // K1XboxControls.cpp has the
+constexpr unsigned K1_MESSAGE_BOX_CANCEL = 0x4B8;  // provenance of both offsets
+struct ConfirmBadge { void* panel; void* label; char family; bool shown; }
+    confirmBadges[8] = {};
+
+void showControl(void* c, bool visible) {
+    at<unsigned>(c,0x44)=(at<unsigned>(c,0x44)&~2u)|(visible?2u:0);
+}
+
+// Every control's slot 1 is SetExtent(const rect*): 0x00417780 for a label,
+// 0x00417A20 for a button, both copying {left, top, width, height} to +4.
+using SetExtent = void(__thiscall*)(void*, const int*);
+void setExtent(void* c, const int* rect) {
+    reinterpret_cast<SetExtent>(at<std::uintptr_t*>(c,0)[1])(c,rect);
+}
+
+void updateConfirmBadges() {
+    const bool pad=IsControllerInputActiveK1();
+    const char family=KmrpGlyphLetterK1();
+    for (auto& b: confirmBadges) {
+        if (!b.panel) continue;
+        void* active=at<void*>(b.panel,0x1C);
+        char* base=static_cast<char*>(b.panel);
+        const bool onButton=active==base+K1_MESSAGE_BOX_OK ||
+                            active==base+K1_MESSAGE_BOX_CANCEL;
+        if (!pad || !onButton) {
+            if (b.shown) { showControl(b.label,false); b.shown=false; }
+            continue;
+        }
+        // The button's extent is final by now: FixMessageLabel sizes it when
+        // the box is laid out, not per draw. A disc the height of the button,
+        // a quarter of that height clear of its left edge.
+        const int* r=reinterpret_cast<const int*>(static_cast<char*>(active)+4);
+        const int size=r[3];
+        const int rect[4]={r[0]-size-size/4, r[1], size, size};
+        setExtent(b.label,rect);
+        if (family!=b.family) {
+            char resref[16]={};
+            sprintf_s(resref,"kmr%ccnfa",family);
+            using Fill=void(__thiscall*)(void*,const void*,int);
+            fn<Fill>(0x414C00)(static_cast<char*>(b.label)+0x70,resref,1);
+            b.family=family;
+        }
+        if (!b.shown) { showControl(b.label,true); b.shown=true; }
+    }
+}
+
+void refresh() {
+    char next=KmrpGlyphLetterK1();
+    int active=IsControllerInputActiveK1()?1:0;
+    if (next==family && active==device) return;
+    family=next; device=active;
+    // IDs 2..5 are family headings; 6 and 7 indicate active input device.
+    auto array=at<void**>(current,0x20);
+    for (int i=2;i<8;++i) if (array[i]) {
+        bool visible=i<6 ? "psnd"[i-2]==family : i==6+active;
+        at<unsigned>(array[i],0x44)=(at<unsigned>(array[i],0x44)&~2u)|(visible?2u:0);
+    }
+    using Fill=void(__thiscall*)(void*,const void*,int);
+    // The diagram, ID 8, is drawn per family too: the silhouette and its
+    // face-button glyphs are baked into kmr?lytdiag.
+    if (array[8]) {
+        char resref[16]={};
+        sprintf_s(resref,"kmr%clytdiag",family);
+        fn<Fill>(0x414C00)(static_cast<char*>(array[8])+0x70,resref,1);
+    }
+    // The B inside Back: the pad's own glyph, and only while a pad is in use.
+    if (void* backGlyph=array[K1_LAYOUT_BACK_GLYPH]) {
+        char resref[16]={};
+        sprintf_s(resref,"kmr%clytbk",family);
+        fn<Fill>(0x414C00)(static_cast<char*>(backGlyph)+0x70,resref,1);
+        at<unsigned>(backGlyph,0x44)=(at<unsigned>(backGlyph,0x44)&~2u)|(active?2u:0);
+    }
+    // Glyph controls follow the fixed ten, and use the same family resrefs as HUD.
+    for (int i=0;i<K1_LAYOUT_ROWS;++i) {
+        void* glyph=array[K1_LAYOUT_FIXED+i];
+        if (!glyph) continue;
+        char resref[16]={};
+        sprintf_s(resref,"kmr%clyt%02d",family,i);
+        fn<Fill>(0x414C00)(static_cast<char*>(glyph)+0x70,resref,1);
+    }
+    log("refresh");
+}
+}
+
+void ControllerLayoutReleaseGffK1(void* panel) {
+    if (!panel) return;
+    auto v=at<std::uintptr_t>(panel,0);
+    if (v==0x73E010 && !at<void*>(panel,0x2C)) {
+        // Base destructor resets the vtable, then calls ReleaseGff before
+        // disposing of the pointer array. This is an existing verified hook.
+        for (auto& e: entries) if (e.parent==panel) {
+            if (pending==panel) pending=nullptr;
+            if (parent==panel) { parent=nullptr; returnFocus=nullptr; requestClose(); }
+            auto array=at<void**>(panel,0x20);
+            int id=at<int>(e.button,0x50);
+            if (array && id>=0 && id<at<int>(panel,0x24)) array[id]=nullptr;
+            destroyControl(e.button); e={}; log("entry-destroy");
+        }
+        for (auto& b: confirmBadges) if (b.panel==panel) {
+            auto array=at<void**>(panel,0x20);
+            int id=at<int>(b.label,0x50);
+            if (array && id>=0 && id<at<int>(panel,0x24)) array[id]=nullptr;
+            destroyControl(b.label); b={};
+        }
+        return;
+    }
+    if ((v==K1_MESSAGE_BOX_VTABLE || v==K1_SOLO_MODE_QUERY_VTABLE) &&
+        at<void*>(panel,0x2C)) {
+        for (const auto& b: confirmBadges) if (b.panel==panel) return;
+        for (auto& b: confirmBadges) if (!b.panel) {
+            void* c=bind(panel,"LBL_KMRPA");
+            if (!c) return;                // an older confirm.gui: no badge
+            showControl(c,false);
+            b={panel,c,0,false};
+            return;
+        }
+        return;
+    }
+    // The Gameplay screen, CSWGuiOptionsGameplay, where the entry sits under
+    // Keymapping. Keeping this to one parent avoids two entry points with
+    // subtly different return-focus behaviour. It was CSWGuiOptionsMouse
+    // (0x7585F8) until 2026-09-21; Options does not list Mouse at all, so that
+    // put the entry two screens deep where nobody found it.
+    if (v!=0x758E00 || !at<void*>(panel,0x2C)) return;
+    for (const auto& e:entries) if (e.parent==panel) return;
+    for (auto& e:entries) if (!e.parent) {
+        void* c=bind(panel,"BTN_KMRPLAY",true);
+        if (!c) return;
+        fn<Event>(0x41AB20)(c,0x27,panel,reinterpret_cast<void*>(&open));
+        e={panel,c}; log("entry-create"); return;
+    }
+}
+
+void ControllerLayoutFrameK1(void* manager) {
+    if (pending) {
+        void* owner=pending; pending=nullptr;
+        if (!current && fn<Exists>(0x40BD70)(manager,owner)) {
+            void* p=fn<New>(0x6FA7E6)(0x64);
+            if (!p) return;
+            fn<PanelCtor>(0x40B570)(p,manager);
+            memcpy(table,reinterpret_cast<void*>(0x73E010),sizeof(table));
+            table[0]=reinterpret_cast<std::uintptr_t>(&destroy);
+            table[15]=reinterpret_cast<std::uintptr_t>(&input);
+            table[21]=reinterpret_cast<std::uintptr_t>(&onB);
+            at<std::uintptr_t*>(p,0)=table;
+            current=p; parent=owner; returnFocus=at<void*>(owner,0x1C);
+            ++created; ownedCount=0;
+            char resref[16]="kmrplayout";
+            fn<void(__thiscall*)(void*,void*)>(0x40A680)(p,resref);
+            const char* tags[]={"LBL_TITLE","BTN_BACK","LBL_XBOX","LBL_PS","LBL_SWITCH","LBL_DECK","LBL_KBM","LBL_PAD","LBL_DIAGRAM","LBL_HELP"};
+            bool complete=true;
+            void* backButton=nullptr;
+            for (int i=0;i<K1_LAYOUT_CONTROLS;++i) {
+                char tag[24]={};
+                const int row=i-K1_LAYOUT_FIXED;
+                if (i<K1_LAYOUT_FIXED) strcpy_s(tag,tags[i]);
+                else if (row<K1_LAYOUT_ROWS) sprintf_s(tag,"GLYPH_%02d",row);
+                else if (row<2*K1_LAYOUT_ROWS) sprintf_s(tag,"TEXT_%02d",row-K1_LAYOUT_ROWS);
+                else if (i==K1_LAYOUT_BACK_GLYPH) strcpy_s(tag,"GLYPH_BACK");
+                else sprintf_s(tag,"DECO_%02d",row-2*K1_LAYOUT_ROWS);
+                void* c=bind(p,tag,i==1);
+                if (!c) { complete=false; break; }
+                owned[ownedCount++]=c;
+                if (i==1) backButton=c;
+            }
+            fn<Simple>(0x40B8F0)(p);
+            if (!complete) { destroy(p,nullptr,1); return; }
+            fn<Event>(0x41AB20)(backButton,0x27,p,reinterpret_cast<void*>(&back));
+            fn<SetActive>(0x40A630)(p,backButton,0);
+            family=0; device=-1; releasedFrames=0; refresh();
+            fn<Add>(0x40BC70)(manager,p,3,1);
+            log("opened");
+        }
+    }
+    updateConfirmBadges();
+    // Counted whether or not the screen is open: the reopen guard needs it
+    // after the close as much as Back needs it after the open.
+    if (ControllerConfirmHeldK1()) releasedFrames=0;
+    else if (releasedFrames<K1_LAYOUT_ARM_FRAMES) ++releasedFrames;
+    if (blockReopen && armed()) blockReopen=false;
+    if (current) refresh();
+}

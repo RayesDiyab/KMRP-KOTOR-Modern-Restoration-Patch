@@ -178,6 +178,108 @@ Rendered letter spacing is fixed at bake time, in the glyph cell widths — the
 spacing table to regenerate. To adjust how tightly letters sit, change the
 padding/advance logic in `build_font_from_ttf.py` and re-bake.
 
+## Why the text looks pixelated above 720p (issue #16)
+
+Two players reported aliased, pixelated text — one at 1920x1080, one at
+3440x1440 — which ruled out any single scale factor being at fault. The cause is
+structural, and it is in this document's own design rather than in the
+rasteriser.
+
+**The rasterisation is not the problem.** The shipped atlases are antialiased:
+`dialogfont16x16.tga` is 1024x1024 with 256 distinct alpha values and 2.30% of
+its texels at intermediate alpha, `dialogfont10x10.tga` 5.54%. A hard-edged
+atlas would show two alpha values, not 256.
+
+**One atlas serves every resolution, and it is correct at exactly one of
+them.** The `.tga` files are not in the per-resolution archives at all — they
+ship once in `override-common.zip`. Only the `.txi` travels per resolution, and
+it differs in exactly three fields:
+
+| Resolution | `fontheight` | `texturewidth` | declares the atlas as | true atlas |
+| --- | --- | --- | --- | --- |
+| 1024x576, 1280x720 | 0.16 | 3.41333 | 341 px | 1024 px |
+| 1920x1080 | 0.24 | 5.12 | 512 px | 1024 px |
+| 2560x1440, 3440x1440 | 0.32 | 6.82667 | 683 px | 1024 px |
+| **3840x2160** | 0.48 | **10.24** | **1024 px** | **1024 px** |
+| 7680x4320 | 0.96 | 20.48 | 2048 px | 1024 px |
+
+Every glyph coordinate is **identical at every resolution**. `texturewidth * 100`
+is what turns normalised coordinates into texels, and it equals the atlas's real
+width at 3840x2160 and nowhere else. `assets/hd-fonts` was baked at `--scale 3.0`,
+so **2160p is the one resolution that renders one texel per pixel**. Everything
+below it minifies the same atlas; everything above magnifies it.
+
+And the minification is unfiltered. Every font `.txi` carries:
+
+```text
+mipmap 0
+filter 0
+```
+
+So shrinking is point-sampled: texels are dropped rather than blended, which
+throws away the antialiasing the atlas does have. 1080p drops every other texel
+(2:1); 1440p is worse because 1.5:1 drops them unevenly, which is what makes
+strokes look ragged rather than merely soft. That is why the two reports came
+from 1080p and 1440p ultrawide while the developer's own testing nearer 3x
+looked crisp.
+
+### The fix: one atlas set per scale
+
+The typeface does not change. `OldRepublic.ttf` still renders the 17 menu
+resrefs and Arimo Medium still renders `fnt_d16x16b`; these are the same faces,
+baked more than once.
+
+`tools/build_font_scale_sets.py` bakes a complete set at every scale the
+shipped resolutions ask for, keeping Arimo's 2.526316/3.0 ratio so the two faces
+stay the same size on screen. `prepare_universal_resources.py` takes
+`--font-scale-sets` and, for a resolution whose scale has a set, ships those
+atlases **in that resolution's own archive** and writes their metrics with a
+factor of exactly 1.0. `texturewidth * 100` is then the atlas's real width, so
+the engine draws one texel per pixel and nothing is resampled — neither the
+point-sampled minification that made 1080p and 1440p ragged, nor the
+magnification above 2160p.
+
+`testing/regression/Test-FontAtlasScale.py` asserts that invariant directly, per
+font and per resolution, rather than trusting the build to have picked the right
+set.
+
+**Atlases now ship only in the per-resolution archives**, never in
+`override-common.zip`. The first attempt left the shared 3.0 bake there for the
+one resolution with no set of its own, and the installer refused the build
+outright: *"Two interface archives disagree about dialogfont10x10.tga."* That
+guard is right — a file present in both archives with different contents has no
+defined winner — so a resolution without a matched set now carries its own copy
+of the shared bake instead.
+
+**What it costs.** The first estimate here projected from texture area and said
+108 MB. That was wrong by about six times: the art is thin strokes on mostly
+empty textures, so stored size grows with roughly `scale^1.3`. Measured, as
+deflate-compressed bytes:
+
+| scale | raw | stored | | scale | raw | stored |
+| --- | --- | --- | --- | --- | --- | --- |
+| 1.0 | 9.9 MB | 219 KB | | 2.5 | 42.2 MB | 611 KB |
+| 1.5 | 18.2 MB | 354 KB | | 3.0 | 66.2 MB | 770 KB |
+| 2.0 | 27.2 MB | 453 KB | | 4.0 | 84.2 MB | 1018 KB |
+| 2.22 | 36.2 MB | 536 KB | | 6.4 | 264.2 MB | 1901 KB |
+
+23 sets total 15.2 MB stored, from 1.4 GB raw. The cache lives in `build/fonts`,
+which is gitignored; the build passes it when it exists and warns loudly when it
+does not, because silently falling back is exactly the defect being fixed.
+
+**The one resolution that still resamples.** 15360x8640 asks for scale 12.0, and
+`dialogfont32x32` at that scale needs an atlas past what the baker can produce,
+so that resolution alone keeps the shared 3.0 atlas. It is listed as a known
+fallback in the regression rather than hidden.
+
+**Rejected on the way.** Replacing Old Republic with a trace of the game's own
+32px master (`tools/build_kotor_font.py`) was built and measured — the trace
+reproduces the vanilla letterforms, and against the master Old Republic runs
+0.934x width-for-height, 1.039x stroke density, and within 1.5% on advances for
+letters and digits. It was rejected on looks. So was a hybrid keeping Old
+Republic's letters and substituting vanilla punctuation. Neither ships; the
+shipped face is unchanged.
+
 ## Validation status
 
 - **Play-tested on a CLEAN install at 3440x1440** through the gold-v13

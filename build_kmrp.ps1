@@ -33,6 +33,7 @@ param(
 )
 
 $ErrorActionPreference = "Stop"
+& (Join-Path $PSScriptRoot "tools/prepare_sdl3.ps1")
 $projectRoot = Split-Path -Parent $MyInvocation.MyCommand.Path
 $buildDir = Join-Path $projectRoot "build\kmrp"
 $resourceDir = Join-Path $buildDir "resources"
@@ -216,6 +217,23 @@ if (-not $ReuseResources) {
         (Join-Path $projectRoot "tools\prepare_universal_resources.py"),
         $geometry, $resolvedUpstream, $resolvedGoldOverride, $resourceDir,
         $resolvedTexturePack, $resolvedHdFonts)
+    # Font atlases baked at each resolution's own scale, so the engine draws one
+    # texel per pixel instead of point-sampling a single 3.0 bake up or down.
+    # Produced by tools/build_font_scale_sets.py, cached under build/fonts, and
+    # gitignored because it is 1.4 GB raw for 15 MB of shipped payload. Without
+    # it the build still works and falls back to the shared atlas -- which is the
+    # behaviour issue #16 reports as pixelated text, so say so rather than
+    # quietly producing it.
+    $fontScaleSets = Join-Path $projectRoot "build\fonts"
+    if (Test-Path -LiteralPath $fontScaleSets) {
+        $resourceArgs += "--font-scale-sets"
+        $resourceArgs += $fontScaleSets
+    } else {
+        Write-Host ""
+        Write-Host "  [warning] build\fonts is missing, so every resolution will reuse" -ForegroundColor DarkYellow
+        Write-Host "            the 3.0 atlas and text will be resampled. Run:" -ForegroundColor DarkYellow
+        Write-Host "            python tools\build_font_scale_sets.py <erf> build\fonts" -ForegroundColor DarkYellow
+    }
     if ($resolvedBundled.Count -gt 0) {
         $resourceArgs += "--bundled-override"
         $resourceArgs += $resolvedBundled
@@ -271,6 +289,8 @@ $compilerArgs = @(
     # addition: BuildConfig in KmrpPatcher.cs emits the native table to match.
     "/resource:$(Join-Path $projectRoot 'third_party\Included\KPM-Xbox-Controls-K1-1.2 by Saul0097\kmrp-controller-runtime.asi'),Kmrp.controller.runtime"
     "/resource:$(Join-Path $projectRoot 'src\controller-native\kmrp-controller.module'),Kmrp.controller.module"
+    "/resource:$(Join-Path $projectRoot 'build\deps\kmrp-sdl3.dll'),Kmrp.controller.sdl"
+    "/resource:$(Join-Path $projectRoot 'build\deps\SDL3-3.4.16\LICENSE.txt'),Kmrp.controller.sdllicense"
 )
 
 # Hand-supplied UI icons are optional: step icons fall back to vector glyphs,

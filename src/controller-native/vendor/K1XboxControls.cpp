@@ -6,6 +6,10 @@
 
 #include "K1XboxControlsXInput.h"
 
+// K1NativeJoystick.cpp: the fourth letter of the detected controller family's
+// texture resrefs ('p' Xbox, 's' PlayStation, 'n' Switch, 'd' Steam Deck).
+extern "C" char __cdecl KmrpGlyphLetterK1();
+
 namespace {
 
 constexpr int MAX_ACTION_BUTTON_COUNT = 9;
@@ -236,8 +240,21 @@ constexpr std::ptrdiff_t K1_NAME_EDITBOX_OFFSET = 0x0230;
 constexpr std::ptrdiff_t K1_NAME_OK_OFFSET = 0x006C;
 constexpr std::ptrdiff_t K1_NAME_CANCEL_OFFSET = 0x0610;
 constexpr std::ptrdiff_t K1_NAME_RANDOM_OFFSET = 0x07D4;
-constexpr std::ptrdiff_t K1_SOLO_QUERY_OK_OFFSET = 0x02F4;
-constexpr std::ptrdiff_t K1_SOLO_QUERY_CANCEL_OFFSET = 0x04B8;
+// These two are CSWGuiMessageBox members, not the solo query's own: its
+// constructor at 0x006C2270 builds nothing below 0x984 and chains to the
+// message box constructor at 0x00626DF0, which constructs a button at +0x2F4
+// and binds it to "BTN_OK" (bind call at 0x006C2EEC), then +0x4B8 to
+// "BTN_CANCEL" just after, over the GUI named "confirm". So every message box
+// in the game shares this layout, and the names now say so. The old
+// K1_SOLO_QUERY_* spelling carried no provenance and read as though the offsets
+// belonged to the solo query alone.
+constexpr std::ptrdiff_t K1_MESSAGE_BOX_OK_OFFSET = 0x02F4;
+constexpr std::ptrdiff_t K1_MESSAGE_BOX_CANCEL_OFFSET = 0x04B8;
+
+// The resolution screen, from the bind calls at 0x006E0850 and 0x006E0886;
+// the controls arrive in edi and ebx from `lea` at 0x006E076F and 0x006E0784.
+constexpr std::ptrdiff_t K1_OPTIONS_RESOLUTION_OK_OFFSET = 0x0484;
+constexpr std::ptrdiff_t K1_OPTIONS_RESOLUTION_CANCEL_OFFSET = 0x0648;
 #if 0   // dead: handler addresses for the menu action map
 // Handlers each button already registers via AddEvent(0x27, ...) in its constructor.
 constexpr std::uintptr_t K1_CHARACTER_SCRIPTS_CALLBACK = 0x00624BC0;
@@ -642,6 +659,8 @@ int g_k1PromptVariant = -1;
 // The control that held the focus when the badges were last painted, so a
 // badge that follows the focus is repainted when the focus moves.
 void* g_k1PromptFocus = nullptr;
+// The controller family the badges were last painted for, so a pad swap repaints.
+char g_k1PromptFamily = 'p';
 
 // Which caption a button is showing, when it has more than one and the badge
 // is placed differently for each. None means the single texture, placed against
@@ -909,8 +928,30 @@ constexpr ControllerPromptBinding K1_ABILITIES_PROMPTS[] = {
     {K1_ABILITIES_EXIT_OFFSET, "kmrpb_abilexit"},
 };
 
-constexpr ControllerPromptBinding K1_SOLO_MODE_QUERY_PROMPTS[] = {
-    {K1_SOLO_QUERY_CANCEL_OFFSET, "kmrpb_confirm"},
+// The Solo Mode query and every other message box carry NO badge.
+//
+// Not an oversight, and not for want of art or a table -- both existed and the
+// Cancel badge shipped. CSWGuiMessageBox::FixMessageLabel (0x006253A0) rewrites
+// both button extents before drawing, overwriting the third field with the
+// constant 0x64, so the button is about an eighth of the width its .gui gives.
+// A badge stretched across it is pre-compensated for the wrong stretch and is
+// drawn as a thin vertical smear over the caption, which is how it was
+// reported. Shaping it for the real width does not rescue it either: a disc
+// sized to the control's height covers the middle of a button only two and a
+// half times as wide as it is tall, so it lands under the label whatever it is
+// built from -- Test-ControllerPromptAssets.py refuses both.
+//
+// Since 2026-09-24 they have an A drawn BESIDE the focused button instead: a
+// label of its own, LBL_KMRPA, added to confirm.gui by
+// tools/build_controller_layout.py and moved each frame by
+// updateConfirmBadges() in K1ControllerLayout.cpp. That covers issue #21's Quit
+// Game item; dialogue (item 5) still needs its own. The panel stays in
+// IsK1MenuPanel below regardless: an unrecognised top modal blanks the badges
+// of the screen underneath it.
+
+constexpr ControllerPromptBinding K1_OPTIONS_RESOLUTION_PROMPTS[] = {
+    {K1_OPTIONS_RESOLUTION_OK_OFFSET, "kmrpa_resok"},
+    {K1_OPTIONS_RESOLUTION_CANCEL_OFFSET, "kmrpb_rescancel"},
 };
 
 constexpr ControllerPromptBinding K1_OPTIONS_MAIN_PROMPTS[] = {
@@ -1115,6 +1156,12 @@ bool IsK1MenuPanel(void* panel)
         // is exactly this and not a mode problem.
         vtable == K1_EQUIP_PANEL_VTABLE ||
         vtable == K1_QUESTITEM_PANEL_VTABLE ||
+        // The shared confirmation box, CSWGuiMessageBox: Quit Game, overwrite
+        // and delete save, Return To Ebon Hawk. It is the top modal whenever it
+        // is open, so leaving it off this list did more than hide its own two
+        // badges -- the modal branch above returns null for an unrecognised
+        // top modal, which blanked the badges of the screen underneath it too.
+        vtable == K1_MESSAGE_BOX_PANEL_VTABLE ||
         vtable == K1_SCRIPT_SELECT_PANEL_VTABLE;
 }
 
@@ -1263,10 +1310,10 @@ const ControllerPromptBinding* GetK1ControllerPrompts(
     case K1_OPTIONS_MAIN_PANEL_VTABLE:
         *count = sizeof(K1_OPTIONS_MAIN_PROMPTS) / sizeof(K1_OPTIONS_MAIN_PROMPTS[0]);
         return K1_OPTIONS_MAIN_PROMPTS;
-    case K1_SOLO_MODE_QUERY_PANEL_VTABLE:
-        *count = sizeof(K1_SOLO_MODE_QUERY_PROMPTS) /
-            sizeof(K1_SOLO_MODE_QUERY_PROMPTS[0]);
-        return K1_SOLO_MODE_QUERY_PROMPTS;
+    case K1_OPTIONS_RESOLUTION_PANEL_VTABLE:
+        *count = sizeof(K1_OPTIONS_RESOLUTION_PROMPTS) /
+            sizeof(K1_OPTIONS_RESOLUTION_PROMPTS[0]);
+        return K1_OPTIONS_RESOLUTION_PROMPTS;
     case K1_INVENTORY_PANEL_VTABLE:
         *count = sizeof(K1_INVENTORY_PROMPTS) / sizeof(K1_INVENTORY_PROMPTS[0]);
         return K1_INVENTORY_PROMPTS;
@@ -1348,6 +1395,11 @@ void SetK1ControllerPromptFill(void* control, const char* value)
         for (int i = 0; i < 16 && value[i] != '\0'; ++i) {
             resref[i] = value[i];
         }
+        // One set of art per controller family, differing only in the resref's
+        // fourth letter. The tables here name the Xbox set, kmrp...
+        if (resref[0] == 'k' && resref[1] == 'm' && resref[2] == 'r' && resref[3] == 'p') {
+            resref[3] = KmrpGlyphLetterK1();
+        }
     }
     SetFillImageFn setFill = reinterpret_cast<SetFillImageFn>(
         K1_GUI_BORDER_SET_FILL_IMAGE);
@@ -1418,7 +1470,8 @@ void UpdateK1ControllerPrompts()
 
     if (g_k1PromptStateKnown && panel == g_k1PromptPanel &&
         vtable == g_k1PromptPanelVtable && controllerMode == g_k1PromptMode &&
-        variant == g_k1PromptVariant && focused == g_k1PromptFocus) {
+        variant == g_k1PromptVariant && focused == g_k1PromptFocus &&
+        KmrpGlyphLetterK1() == g_k1PromptFamily) {
         return;
     }
 
@@ -1449,6 +1502,7 @@ void UpdateK1ControllerPrompts()
     g_k1PromptMode = controllerMode;
     g_k1PromptVariant = variant;
     g_k1PromptFocus = focused;
+    g_k1PromptFamily = KmrpGlyphLetterK1();
     g_k1PromptStateKnown = true;
 }
 
@@ -1634,8 +1688,14 @@ SettingsStripExit GetK1SettingsStripExit(void* panel)
 {
     switch (*reinterpret_cast<std::uintptr_t*>(panel)) {
     case K1_SOLO_MODE_QUERY_PANEL_VTABLE:
-        return {{K1_SOLO_QUERY_OK_OFFSET}, 1,
-                {K1_SOLO_QUERY_CANCEL_OFFSET, -1, -1}, 1, false, 0};
+    case K1_MESSAGE_BOX_PANEL_VTABLE:
+        // Both share CSWGuiMessageBox's two buttons, so both navigate the same
+        // way: OK is the column, Cancel the strip below it.
+        return {{K1_MESSAGE_BOX_OK_OFFSET}, 1,
+                {K1_MESSAGE_BOX_CANCEL_OFFSET, -1, -1}, 1, false, 0};
+    case K1_OPTIONS_RESOLUTION_PANEL_VTABLE:
+        return {{K1_OPTIONS_RESOLUTION_OK_OFFSET}, 1,
+                {K1_OPTIONS_RESOLUTION_CANCEL_OFFSET, -1, -1}, 1, false, 0};
     case K1_ABILITIES_PANEL_VTABLE:
         // dynamicColumn: the column is listbox rows allocated at runtime, so no
         // fixed offset names them. Header is left-to-right as drawn.
@@ -3387,6 +3447,27 @@ extern "C" int __cdecl KmrpActionBarStateK1(void* mainInterface)
     return bits;
 }
 
+// Drop focus off the seven action slots, if one of them holds it: the release
+// the Delete path above performs, without cancelling the last action. Left and
+// Right bring focus back through MoveFocus's activeIndex < 0 seed. KMRP calls it
+// after a slot is used and when B is pressed, so A goes back to the world.
+extern "C" void __cdecl KmrpActionBarReleaseK1(void* mainInterface)
+{
+    if (!mainInterface) {
+        return;
+    }
+    ActionButtons buttons = GetActionButtons(K1_CONFIG, mainInterface);
+    void* activeControl = ReadPointer(
+        mainInterface,
+        K1_CONFIG.panelActiveControlOffset);
+    if (FindButton(K1_CONFIG, buttons, activeControl) >= 0) {
+        reinterpret_cast<SetActiveControlFn>(K1_CONFIG.setActiveControl)(
+            mainInterface,
+            nullptr,
+            1);
+    }
+}
+
 extern "C" int __cdecl KmrpActionBarFocusedK1(void* mainInterface)
 {
     // No fallback to g_mainInterface. That global keeps pointing at an
@@ -3506,6 +3587,62 @@ extern "C" void __cdecl MapMovieDeleteToEscapeK2(void* movieWindowFrame)
 // Hooked at 0x0040A638 with EDI = panel and ESI = control; returning non-zero
 // sends the wrapper to 0x0040A678, the function's own pop/pop/ret, so the store
 // at 0x0040A64E never runs and no wrong state is ever drawn.
+// A on a confirmation the panel answers for itself.
+//
+// Most message boxes are honest: CSWGuiMessageBox's dispatcher at 0x006250F0
+// implements only 0x28/0x2E and 0x3A, so 0x27 reaches its default case and the
+// engine forwards it to whichever control holds focus -- press A on Cancel and
+// Cancel is what runs. Two panels break that by implementing 0x27 themselves:
+//
+//   CSWGuiInGameSoloModeQuery   0x006C2400   0x27/0x2D -> 0x006C244C, which
+//       calls CClientExoApp::TogglePartyFollow unconditionally and then falls
+//       through into the 0x28 path. Solo Mode turned on from either button.
+//   CSWGuiOptionsResolution     0x006E0CF0   0x27 -> 0x006E0F14, which calls
+//       CSWGuiOptionsResolution::OnResolutionChosen the same way.
+//
+// Neither reads the active control, because on the Xbox there was none: A meant
+// yes and B meant no. On a PC panel that draws a highlighted Cancel, the button
+// says one thing and does the other. Reported as issue #21.
+//
+// Both hooks sit at their panel's HandleInputEvent entry and, when A arrives
+// with Cancel focused, rewrite the event argument to 0x28, so the panel's own
+// dispatcher does exactly what B does; focus on OK, and the original handler
+// runs untouched. See ResolveSoloModeConfirmK1 for why they are no longer
+// consumed-exit hooks.
+//
+// The panel vtables and control offsets live here, so the test does too; the
+// exported hooks are ResolveSoloModeConfirmK1 and ResolveResolutionConfirmK1
+// in K1NativeJoystick.cpp, because
+// a hook's owner -- and therefore whether the installer emits it at all -- is
+// decided by which translation unit defines the export. This fix is KMRP's.
+bool MessageBoxCancelHasFocusK1(void* panel)
+{
+    if (!panel || !IsControllerInputActiveK1()) {
+        return false;
+    }
+
+    std::ptrdiff_t cancelOffset = 0;
+    switch (*reinterpret_cast<std::uintptr_t*>(panel)) {
+    case K1_SOLO_MODE_QUERY_PANEL_VTABLE:
+        cancelOffset = K1_MESSAGE_BOX_CANCEL_OFFSET;
+        break;
+    case K1_OPTIONS_RESOLUTION_PANEL_VTABLE:
+        cancelOffset = K1_OPTIONS_RESOLUTION_CANCEL_OFFSET;
+        break;
+    default:
+        return false;
+    }
+
+    // CSWGuiPanel keeps its active control at +0x1C; the same field
+    // K1ControllerLayout saves and restores around its own modal.
+    void* active = *reinterpret_cast<void**>(
+        static_cast<char*>(panel) + 0x1C);
+    void* cancel = static_cast<char*>(panel) + cancelOffset;
+    const bool onCancel = active == cancel;
+
+    return onCancel;
+}
+
 extern "C" int __cdecl OnSetActiveControlK1(void* panel, void* control)
 {
     if (!panel || !IsControllerInputActiveK1()) {

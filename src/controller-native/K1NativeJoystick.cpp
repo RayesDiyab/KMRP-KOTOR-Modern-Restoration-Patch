@@ -1,4 +1,4 @@
-// Feed XInput into KOTOR's retained native joystick pipeline.
+// Feed normalized XInput/SDL state into KOTOR's retained joystick pipeline.
 //
 // Every address and structure offset here was measured against
 // swkotor.exe 1.03, and the reasoning is recorded in
@@ -17,12 +17,16 @@
 // engine's own PollInput.
 
 #include "K1NativeJoystick.h"
+#include "K1ControllerBackend.h"
+#include "K1ControllerLayout.h"
 
 #include <windows.h>
 #include <xinput.h>
 
 #include <cmath>
 #include <cstdint>
+#include <cstdio>
+#include <cstdlib>
 #include <cstring>
 
 // Defined in vendor/K1XboxControlsXInput.cpp, at global scope. Declared here
@@ -30,6 +34,10 @@
 // below -- inside it the declaration would take internal linkage and fail
 // to resolve, which is exactly what it did.
 bool IsControllerInputActiveK1();
+
+// Defined in vendor/K1XboxControls.cpp beside the panel vtables and control
+// offsets it reads. Declared here for the same linkage reason as above.
+bool MessageBoxCancelHasFocusK1(void* panel);
 
 namespace {
 
@@ -40,6 +48,10 @@ constexpr std::uintptr_t K1_ADD_EVENT          = 0x005E0FA0;  // CExoInputIntern
 constexpr std::uintptr_t K1_POLL_INPUT         = 0x005E23C0;  // PollInput_2
 constexpr std::uintptr_t K1_OPERATOR_NEW       = 0x006FA7E6;
 constexpr std::uintptr_t K1_OPERATOR_DELETE    = 0x006FA390;
+// The CRT free, distinct from operator delete above. Named `_free` in the
+// symbol archive, and the same address KPM's grass patch documents as the one
+// that guards NULL explicitly.
+constexpr std::uintptr_t K1_FREE               = 0x006FB7B2;
 constexpr std::uintptr_t K1_VECTOR_NORMALIZE   = 0x004AB130;
 
 // GetMinUseable returns this float for a joystick axis, and ScaledValue treats
@@ -101,6 +113,7 @@ extern "C" void __cdecl KmrpActionBarApplyK1(void* mainInterface, int dx, int dy
                                              int activate);
 extern "C" int  __cdecl KmrpActionBarFocusedK1(void* mainInterface);
 extern "C" int  __cdecl KmrpActionBarStateK1(void* mainInterface);
+extern "C" void __cdecl KmrpActionBarReleaseK1(void* mainInterface);
 
 // The on-screen prompt layer, also Saul0097's and also unreachable in native
 // mode until now: UpdateK1ControllerPrompts was called from DispatchMenuInputK1
@@ -221,6 +234,12 @@ constexpr int K1_TRIGGER_THRESHOLD = 60;   // of 255 -- a light pull already cou
 // alone when the button slots were budgeted.
 constexpr std::uint32_t DIJOFS_BUTTON8_OFFSET = 0x38;
 constexpr std::uint16_t XINPUT_START_MASK     = 0x0010;
+
+// Where a Start press goes, chosen on the press (issue #18): the game's own 0x0B
+// here and there, but the Map from the world and a close from the in-game menu.
+constexpr int K1_START_NATIVE      = 0;
+constexpr int K1_START_OPENS_MAP   = 1;
+constexpr int K1_START_CLOSES_MENU = 2;
 
 // The face buttons, shoulders and Back. Start is the game's own slot 0x7C, the
 // triggers take 0x7B and 0x7D, the D-pad takes 0x7F..0x82, and the stick clicks
@@ -540,6 +559,19 @@ constexpr std::size_t    K1_INTERNAL_CAMERA_OWNER = 0x18;      // CClientExoAppI
 // with every one of its guards intact.
 constexpr std::uintptr_t K1_HANDLE_INPUT_EVENT = 0x00621210;  // CClientExoAppInternal
 constexpr int K1_EVENT_DEFAULT_ACTION = 0xEF;
+
+// The keyboard's in-game menu hotkeys are events 0xD1-0xD8, and the router's jump
+// table sends all eight to one handler (0x006218D5) that computes the screen as
+// event - 0xD1 and passes it to CGuiInGame::ShowSWInGameGui. The index is the
+// tab's control ID in top.gui -- LBLH_EQU 0 through LBLH_OPT 7 -- and the order
+// CGuiInGame keeps its screens in (Lane's header: in_game_equip ... in_game_map,
+// in_game_options). So 0xD7 is the Map. Start's own event, 0x0B, passes 7:
+// Options, which is why Start used to open the Escape-style menu.
+constexpr int K1_EVENT_MENU_MAP = 0xD7;
+
+// Start, with the in-game menu in front, sends B's control code instead of its
+// own: B is the close measured from every tab, and B's slot is 0x75.
+constexpr std::uint32_t DIJOFS_BUTTON_B_OFFSET = DIJOFS_BUTTON0_OFFSET + (0x75 - 0x74);
 constexpr std::size_t K1_INTERNAL_TARGET = 0x2B4;
 constexpr std::uint32_t K1_OBJECT_INVALID = 0x7F000000;
 
@@ -553,6 +585,7 @@ using CreateNewEventFn = int(__thiscall*)(void*, int, int, int, int, int);
 using AddEventFn       = int(__thiscall*)(void*, int, int);
 using PollInputFn      = float(__thiscall*)(void*, int, int);
 using OperatorNewFn    = void*(__cdecl*)(std::size_t);
+using FreeFn           = void(__cdecl*)(void*);
 using OperatorDeleteFn = void(__cdecl*)(void*);
 using NormalizeFn      = void(__thiscall*)(void*);
 using RotateCameraFn   = void(__thiscall*)(void*, float, float);
@@ -701,7 +734,11 @@ struct StickState {
     unsigned long freeLookExits = 0;           // bridged exits performed
     unsigned long partySwitchRequested = 0;    // R3 pressed on a party screen
     unsigned long partySwitches = 0;           // menu party changes performed
-    unsigned long guiCuesInstalled = 0;      // cue controls bound
+    unsigned long lastGuiFrameTick = 0;        // for our own frame delta
+    unsigned long slowFrames = 0;              // frames over K1_SLOW_FRAME_MS
+    unsigned long worstFrameMs = 0;            // the longest one seen
+    unsigned long saveBuffersFreed = 0;        // leaked save buffers reclaimed
+    unsigned long guiCuesInstalled = 0;        // cue controls bound
     unsigned long guiCuesRejected = 0;       // binds that did not take
     unsigned long guiCueToggles = 0;         // show/hide flips performed
     unsigned long flourishRequestedTick = 0;   // 0 = nothing pending
@@ -737,6 +774,20 @@ struct StickState {
     int navPendingX = 0, navPendingY = 0;      // requested, not yet performed
     int hudPendingX = 0, hudPendingY = 0;      // the same, for the gameplay HUD
     unsigned long hudActivateRequested = 0;    // A, while a HUD slot has focus
+    unsigned long hudReleaseRequested = 0;     // B in gameplay: let go of the HUD
+    unsigned long hudReleases = 0;             // focus handed back to the world
+    unsigned long mapOpenRequested = 0;        // Start in gameplay
+    unsigned long mapOpens = 0;                // the Map opened by Start
+    int           cursorConfined = 0;          // is the mouse clipped right now
+    unsigned long cursorConfinements = 0;      // times the clip was taken
+    unsigned long cursorReleases = 0;          // times it was given back
+    int           startRoute = 0;              // K1_START_*, decided on the press
+    int           glyphFamily = 0;             // K1_GLYPH_*, what the badges show
+    int           glyphSlot = -2;              // the slot it was decided for; -2 never
+    unsigned long long steamInfoWritten = 0;   // Steam's pad file, when last read
+    unsigned long steamInfoChecked = 0;        // tick of the last look at its time
+    unsigned long glyphChanges = 0;            // family switches seen
+    bool          padPresent = false;          // a pad answered this frame
     unsigned long hudMoves = 0;                // slot changes performed
     unsigned long hudCycles = 0;               // action cycles performed
     unsigned long hudActivations = 0;          // slots used
@@ -802,33 +853,23 @@ bool ReadPadAxes(std::int32_t& x, std::int32_t& y, std::uint16_t& buttons,
                  std::int32_t& rx, std::int32_t& ry,
                  std::uint8_t& lt, std::uint8_t& rt)
 {
-    for (DWORD slot = 0; slot < XUSER_MAX_COUNT; ++slot) {
-        XINPUT_STATE state{};
-        if (XInputGetState(slot, &state) != ERROR_SUCCESS) {
-            continue;
-        }
-        // Remembered so rumble reaches the pad that is actually answering,
-        // rather than assuming slot 0.
-        g_stick.padSlot = static_cast<int>(slot);
+    XINPUT_STATE state{};
+    if (ReadControllerK1(state)) {
+        g_stick.padSlot = ControllerXInputSlotK1();
         x = state.Gamepad.sThumbLX;
-        // Negated, and this was measured rather than assumed: with a straight
-        // pass-through, pushing the stick up walked the character backwards.
-        // XInput reports the thumbstick Y as up-positive; the engine's UpDown
-        // axis runs the other way.
         y = -static_cast<std::int32_t>(state.Gamepad.sThumbLY);
         buttons = state.Gamepad.wButtons;
         rx = state.Gamepad.sThumbRX;
         ry = state.Gamepad.sThumbRY;
         lt = state.Gamepad.bLeftTrigger;
         rt = state.Gamepad.bRightTrigger;
-        // So the prompts can be shown from the first frame when a pad is
-        // plugged in, rather than waiting for a press. Only the native path
-        // knows this: the legacy flag is maintained by ReadPad, which this
-        // path does not call.
         KmrpNotePadPresentK1(1);
+        g_stick.padPresent = true;
         return true;
     }
+    g_stick.padSlot = -1;
     KmrpNotePadPresentK1(0);
+    g_stick.padPresent = false;
     return false;
 }
 
@@ -1168,6 +1209,8 @@ void EnsurePadStateK1();
 int RemappedButtonEventK1(int slot);
 void PerformPendingFreeLookExitK1();
 void PerformPendingPartySwitchK1();
+void PerformPendingMapOpenK1();
+void* TabBarPanelK1();
 void InstallGuiCuesK1(void* panel);
 void UpdateGuiCuesK1();
 void EnsureRumbleTableK1(void* owner);
@@ -1471,13 +1514,48 @@ void FillNativeJoystickBufferK1(int deviceIndex, void* outBuffer)
         }
     }
 
-    // Start -> the game's own menu toggle. Edge-triggered like every other
-    // button; the handler toggles, so a held press must not repeat.
+    // Start is a Map toggle (issue #18). In the world it opens the Map: the
+    // engine's own Map hotkey, 0xD7, bridged on the frame because it has no
+    // joystick description and every free slot is spent -- instead of Start's own
+    // 0x0B, which opens Options. With the in-game menu in front it sends B, the
+    // close measured from every tab, so Start shuts the Map or whichever screen
+    // LT/RT moved to. Anywhere else it is still the game's own Start. The route is
+    // chosen on the press and kept for the release, so a press and its release
+    // always go to the same place, and only ever one place.
     {
         const bool now = (buttons & XINPUT_START_MASK) != 0;
         const bool was = (g_stick.lastButtons & XINPUT_START_MASK) != 0;
+        if (now && !was) {
+            const int inputClass = InputClassK1();
+            g_stick.startRoute = inputClass == K1_CLASS_PC ? K1_START_OPENS_MAP
+                : (inputClass == K1_CLASS_PCGUI && TabBarPanelK1() != nullptr) ? K1_START_CLOSES_MENU
+                : K1_START_NATIVE;
+        }
         if (now != was) {
-            emit(DIJOFS_BUTTON8_OFFSET, now ? 1 : 0);
+            switch (g_stick.startRoute) {
+            case K1_START_OPENS_MAP:
+                if (now) {
+                    g_stick.mapOpenRequested = GetTickCount();
+                }
+                break;
+            case K1_START_CLOSES_MENU:
+                emit(DIJOFS_BUTTON_B_OFFSET, now ? 1 : 0);
+                break;
+            default:
+                emit(DIJOFS_BUTTON8_OFFSET, now ? 1 : 0);
+                break;
+            }
+        }
+    }
+
+    // B lets go of the bottom-right action bar (issue #17). B does nothing else
+    // in the world, so no press is taken from anything; the release is made on
+    // the HUD frame and only when one of its slots has focus.
+    {
+        const bool now = (buttons & 0x2000) != 0;      // XINPUT_GAMEPAD_B
+        const bool was = (g_stick.lastButtons & 0x2000) != 0;
+        if (now && !was && InputClassK1() == K1_CLASS_PC) {
+            g_stick.hudReleaseRequested = GetTickCount();
         }
     }
 
@@ -1485,10 +1563,18 @@ void FillNativeJoystickBufferK1(int deviceIndex, void* outBuffer)
     // still emitted and still reaches whatever has focus; in gameplay nothing
     // does, which is why A did nothing in the world before this. Only the
     // request is made here -- the call happens on the gameplay frame.
+    //
+    // Only while gameplay owns the input, the same gate B uses above. The
+    // consumer checks the class too, but it checks it when it runs, and a press
+    // that answered a modal dialog outlives the dialog: closing it returns the
+    // class to gameplay well inside the request's 250 ms window, so the press
+    // that dismissed a confirmation went on to act on the world behind it.
+    // Answering "do you wish to turn Solo Mode on?" then started a conversation
+    // with whoever was targeted. Reported as issue #21.
     {
         const bool now = (buttons & 0x1000) != 0;      // XINPUT_GAMEPAD_A
         const bool was = (g_stick.lastButtons & 0x1000) != 0;
-        if (now && !was) {
+        if (now && !was && InputClassK1() == K1_CLASS_PC) {
             g_stick.interactRequestedTick = GetTickCount();
             // And of the gameplay HUD, which takes it only when a slot has
             // focus.
@@ -2041,6 +2127,76 @@ void EnsureRumbleTableK1(void* owner)
 //
 // UpdateRumble reaches this call on its early-bail path too, so a finished
 // pattern sends zero and the motors stop without any timeout here.
+// A on Cancel in a panel that answers A itself. The Solo Mode query and the
+// resolution screen implement the raw A, 0x27, at panel level and never read
+// which button has focus, so A on Cancel confirmed. Each hook sits at its
+// panel's HandleInputEvent entry, where the event and its value are still the
+// stack arguments; KPM passes POINTERS to those slots (an `esp+N` source is
+// emitted as LEA), and when A arrives with Cancel focused the event is
+// rewritten to 0x28, B. The panel's own dispatcher then takes its own Cancel
+// path. A on OK is left alone and reaches the vanilla confirm exactly once.
+//
+// These were consumed-exit hooks until 2026-09-24, deeper in each dispatcher.
+// KPM runs a hook's stolen bytes BEFORE it tests EAX for the consumed exit, and
+// the Solo hook's stolen `mov eax,[0x7A39FC]` replaced the answer with the app
+// pointer: every A, OK included, took the close path. The log from that build
+// showed one confirm per press, each decided "toggle", each refused. See
+// kotor1.hooks.toml.
+//
+// The return value is ignored: no consumed exit, every register restored.
+// Two exports rather than one shared test, because check_patcher_hook_table.py
+// keys the tracked and emitted tables by function name.
+namespace {
+constexpr int K1_GUI_EVENT_CONFIRM = 0x27;
+constexpr int K1_GUI_EVENT_CONFIRM_ALIAS = 0x2D;   // Solo Mode also takes 0x2D
+constexpr int K1_GUI_EVENT_CANCEL = 0x28;
+
+// Diagnostic for the validation build, bounded to 64 lines a session.
+void LogConfirmK1(const char* panel, int event, int value, const char* why)
+{
+    static int logged = 0;
+    if (logged >= 64) {
+        return;
+    }
+    ++logged;
+    FILE* f = nullptr;
+    if (!fopen_s(&f, "kmrp-confirm-focus.log", "a") && f) {
+        fprintf(f, "%lu %s event=0x%X value=%d -> %s\n",
+                GetTickCount(), panel, event, value, why);
+        fclose(f);
+    }
+}
+}
+
+extern "C" int __cdecl ResolveSoloModeConfirmK1(void* panel, int* event, int* value)
+{
+    if (!panel || !event || !value || *value == 0) {
+        return 0;
+    }
+    if (*event != K1_GUI_EVENT_CONFIRM && *event != K1_GUI_EVENT_CONFIRM_ALIAS) {
+        return 0;
+    }
+    const bool onCancel = MessageBoxCancelHasFocusK1(panel);
+    LogConfirmK1("solo", *event, *value, onCancel ? "a-on-cancel -> b" : "a-on-ok");
+    if (onCancel) {
+        *event = K1_GUI_EVENT_CANCEL;
+    }
+    return 0;
+}
+
+extern "C" int __cdecl ResolveResolutionConfirmK1(void* panel, int* event, int* value)
+{
+    if (!panel || !event || !value || *value == 0 || *event != K1_GUI_EVENT_CONFIRM) {
+        return 0;
+    }
+    const bool onCancel = MessageBoxCancelHasFocusK1(panel);
+    LogConfirmK1("resolution", *event, *value, onCancel ? "a-on-cancel -> b" : "a-on-ok");
+    if (onCancel) {
+        *event = K1_GUI_EVENT_CANCEL;
+    }
+    return 0;
+}
+
 extern "C" void __cdecl NativeRumbleK1(int envelopeBBits, int envelopeABits,
                                        void* rumbleOwner)
 {
@@ -2052,7 +2208,7 @@ extern "C" void __cdecl NativeRumbleK1(int envelopeBBits, int envelopeABits,
     // from inside the call it gates is safe: with the count still zero there can
     // be no instances, so the loop above this point did nothing.
     EnsureRumbleTableK1(rumbleOwner);
-    if (g_stick.padSlot < 0) {
+    if (!g_stick.padPresent) {
         return;                         // no pad has answered yet
     }
 
@@ -2075,12 +2231,9 @@ extern "C" void __cdecl NativeRumbleK1(int envelopeBBits, int envelopeABits,
     const unsigned long packed =
         (static_cast<unsigned long>(vibration.wLeftMotorSpeed) << 16) |
         vibration.wRightMotorSpeed;
-    if (packed == g_stick.rumbleLast) {
-        return;                         // unchanged; do not re-issue every frame
-    }
     g_stick.rumbleLast = packed;
-    XInputSetState(static_cast<DWORD>(g_stick.padSlot), &vibration);
-    ++g_stick.rumbleSent;
+    if (SetControllerRumbleK1(vibration.wLeftMotorSpeed, vibration.wRightMotorSpeed))
+        ++g_stick.rumbleSent;
 }
 
 // The movie window has just been created, inside InitializeMovie and before the
@@ -2232,12 +2385,28 @@ extern "C" void __cdecl NativeNoteMouseK1(void* manager, int mouseX, int mouseY)
     KmrpNoteMouseK1(mouseX, mouseY);
 }
 
+// Every save leaks one buffer per resource written.
+//
+// CERFFile::WriteResource hands a buffer to CExoFile::Write (0x005E69A0) and
+// then abandons it -- the pointer in esi is never freed. Adopted from the Kotor
+// Patch Manager project's SaveGameMemoryLeak patch (Lane Dibello); the
+// ownership analysis is theirs and was reviewed there, not re-derived here.
+extern "C" void __cdecl NativeFreeSaveBufferK1(void* buffer)
+{
+    if (!buffer) {
+        return;
+    }
+    EngineFn<FreeFn>(K1_FREE)(buffer);
+    ++g_stick.saveBuffersFreed;
+}
+
 // CSWGuiPanel::ReleaseGff, with ecx holding the panel. Every one of the 68 panel
 // constructors calls this as its last act, and it is the last instant at which a
 // control can be added: it deletes the parsed .gui the binder resolves tags
 // against. Panels that are not party screens are left alone.
 extern "C" void __cdecl NativePanelReleaseGffK1(void* panel)
 {
+    ControllerLayoutReleaseGffK1(panel);
     InstallGuiCuesK1(panel);
 }
 
@@ -2262,6 +2431,17 @@ extern "C" void __cdecl NativeActionBarK1(void* mainInterface)
         // question, so exactly one of the two answers yes however the two hooks
         // happen to be ordered within a frame.
         activate = KmrpActionBarFocusedK1(mainInterface);
+        if (activate != 0) {
+            // This press is the slot's. The slot lets go of focus once used, so
+            // the world consumer, should it run later this frame, would find
+            // nothing focused and act on the same press; take its request too.
+            g_stick.interactRequestedTick = 0;
+        }
+    }
+    int release = 0;
+    if (g_stick.hudReleaseRequested != 0) {
+        g_stick.hudReleaseRequested = 0;
+        release = KmrpActionBarFocusedK1(mainInterface);
     }
 
     if (InputClassK1() != K1_CLASS_PC || !LooksLikePointerK1(mainInterface)) {
@@ -2274,6 +2454,11 @@ extern "C" void __cdecl NativeActionBarK1(void* mainInterface)
     }
     g_stick.hudInterface = reinterpret_cast<unsigned long>(mainInterface);
     g_stick.hudState = KmrpActionBarStateK1(mainInterface);
+    if (release != 0) {
+        KmrpActionBarReleaseK1(mainInterface);   // B: cancel, and nothing else
+        ++g_stick.hudReleases;
+        return;
+    }
     if (dx == 0 && dy == 0 && activate == 0) {
         return;
     }
@@ -2286,6 +2471,9 @@ extern "C" void __cdecl NativeActionBarK1(void* mainInterface)
     }
     if (activate != 0) {
         ++g_stick.hudActivations;
+        // A used slot hands A back to the world; Left or Right re-enters.
+        KmrpActionBarReleaseK1(mainInterface);
+        ++g_stick.hudReleases;
     }
 }
 
@@ -2342,6 +2530,34 @@ constexpr std::uintptr_t K1_SET_ACTIVE_CONTROL = 0x0040A630;  // (control, playS
 
 constexpr std::size_t K1_MGR_PANEL_ARRAY = 0x88;
 constexpr std::size_t K1_MGR_PANEL_COUNT = 0x8C;
+
+// The engine's own texture-load instrumentation, sampled read-only for the
+// white-flash investigation. See reverse-engineering/texture-residency.md.
+//
+// The queue drain (AurTextureBuildAndStoreAll, 0x004217F0) is unbounded and
+// synchronous -- it empties the whole queue in one pass, each entry costing a
+// disk read and a decode in ConstructImage. If that lands in a single frame
+// these numbers say so, and nothing here writes to the engine.
+constexpr std::uintptr_t K1_G_DELTA_T              = 0x0078E574;  // float
+constexpr std::uintptr_t K1_G_MAX_DELTA_T          = 0x007A4750;  // float
+constexpr std::uintptr_t K1_G_MAX_TEXTURE_TIME     = 0x007A46B0;  // int
+constexpr std::uintptr_t K1_G_CURRENT_TEXTURE_TIME = 0x007A4754;  // int
+constexpr std::uintptr_t K1_G_LOAD_IMAGE_TIME      = 0x007A4758;  // int
+constexpr std::uintptr_t K1_G_MAX_TEX_LOAD_TIME    = 0x007A472C;  // int
+
+// The highest GL texture name the engine has seen, written by
+// AurTextureBuildAndStoreAll at 0x0042192F. It matters because
+// AddPartToMeshBuckets (0x0046BDF0) indexes a stride-12 array at 0x008194E0 by
+// this id with NO range check, and AurTextureGetMaxTexID (0x0041FEB0) hands it
+// out unclamped as an iteration count. KPM's TextureBucketSafety patch bounds
+// both at 5000; KMRP does not ship that fix and loads far more textures than
+// vanilla, so this number is worth watching.
+constexpr std::uintptr_t K1_G_MAX_TEX_ID = 0x007A46BC;
+constexpr long K1_TEXTURE_BUCKET_ENTRIES = 5000;
+
+// A frame this long is not a hitch, it is a stall a player would notice. Used
+// only to count them, never to change behaviour.
+constexpr unsigned long K1_SLOW_FRAME_MS = 100;
 
 // ------------------------------------------------- the party-switch cue
 //
@@ -2779,6 +2995,211 @@ void InstallGuiCuesK1(void* panel)
 }
 
 // Show the cues while the pad is the live device, hide them otherwise.
+// ------------------------------------------------- controller family (issue #19)
+//
+// The badges show the buttons of the pad KMRP actually reads, identified the way
+// SDL identifies it. XInputGetCapabilitiesEx -- xinput1_4.dll ordinal 108,
+// undocumented but present since Windows 8 -- returns the USB vendor and product
+// id of the device behind an XInput slot:
+//
+//   vendor  product   family
+//   054C    any       PlayStation
+//   057E    any       Switch
+//   28DE    1205      Steam Deck (its built-in controls)
+//   28DE    11FF      Steam Input's virtual pad -- Steam says what is behind it
+//   anything else     Xbox
+//
+// Steam publishes the physical controller behind each of its virtual pads: the
+// file named by the SteamVirtualGamepadInfo environment variable has a [slot N]
+// section with that controller's VID and PID, and for Steam's pad the
+// capabilities' last field is N. Those ids are then read against the same table.
+// A translator that presents an Xbox 360 pad of its own -- DS4Windows, for one --
+// is indistinguishable from the pad it imitates and gets Xbox buttons: that is
+// what it tells every game, and nothing here second-guesses it.
+//
+// Asked when the pad KMRP reads connects or moves to another slot, the only
+// times the answer can change; for Steam's pad also when Steam rewrites its file,
+// looked at once a second, as SDL does. Without the call (Windows 7, a Wine
+// without it) the family is Xbox, or Steam Deck when Steam sets SteamDeck=1.
+constexpr int K1_GLYPH_XBOX        = 0;
+constexpr int K1_GLYPH_PLAYSTATION = 1;
+constexpr int K1_GLYPH_SWITCH      = 2;
+constexpr int K1_GLYPH_STEAMDECK   = 3;
+// The fourth letter of each family's texture resrefs: kmrpb_charexit is the Xbox
+// B badge, kmrsb_charexit the PlayStation one. Must match FAMILY_LETTERS in
+// tools/build_controller_prompt_textures.py.
+constexpr char K1_GLYPH_FAMILY_LETTERS[] = { 'p', 's', 'n', 'd' };
+constexpr WORD K1_VENDOR_SONY              = 0x054C;
+constexpr WORD K1_VENDOR_NINTENDO          = 0x057E;
+constexpr WORD K1_VENDOR_VALVE             = 0x28DE;
+constexpr WORD K1_PRODUCT_STEAM_DECK       = 0x1205;
+constexpr WORD K1_PRODUCT_STEAM_VIRTUAL_PAD = 0x11FF;
+constexpr unsigned long K1_STEAM_INFO_CHECK_MS = 1000;
+bool g_steamVirtualPad = false;
+
+// SDL_XINPUT_CAPABILITIES_EX: the documented structure, then the ids.
+struct XInputCapabilitiesExK1 {
+    XINPUT_CAPABILITIES capabilities;
+    WORD  vendorId;
+    WORD  productId;
+    WORD  productVersion;
+    WORD  reserved;
+    DWORD steamSlot;       // SDL's unk2: Steam's slot number, for Steam's pad
+};
+static_assert(sizeof(XInputCapabilitiesExK1) == 32, "SDL_XINPUT_CAPABILITIES_EX is 32 bytes");
+using XInputGetCapabilitiesExFn = DWORD(WINAPI*)(DWORD, DWORD, DWORD, XInputCapabilitiesExK1*);
+
+int FamilyForDeviceK1(WORD vendor, WORD product)
+{
+    if (vendor == K1_VENDOR_SONY) {
+        return K1_GLYPH_PLAYSTATION;
+    }
+    if (vendor == K1_VENDOR_NINTENDO) {
+        return K1_GLYPH_SWITCH;
+    }
+    if (vendor == K1_VENDOR_VALVE && product == K1_PRODUCT_STEAM_DECK) {
+        return K1_GLYPH_STEAMDECK;
+    }
+    return K1_GLYPH_XBOX;
+}
+
+bool SteamDeckEnvironmentK1()
+{
+    char value[8] = {};
+    const DWORD length = GetEnvironmentVariableA("SteamDeck", value, sizeof(value));
+    return length == 1 && value[0] == '1';
+}
+
+// Steam's pad file, and its last-write time, or false outside Steam.
+bool SteamPadInfoK1(char (&path)[MAX_PATH], unsigned long long& written)
+{
+    const DWORD length = GetEnvironmentVariableA("SteamVirtualGamepadInfo", path, MAX_PATH);
+    WIN32_FILE_ATTRIBUTE_DATA data;
+    if (length == 0 || length >= MAX_PATH ||
+        !GetFileAttributesExA(path, GetFileExInfoStandard, &data)) {
+        return false;
+    }
+    written = (static_cast<unsigned long long>(data.ftLastWriteTime.dwHighDateTime) << 32) |
+              data.ftLastWriteTime.dwLowDateTime;
+    return true;
+}
+
+// The family of the pad in XInput `slot`.
+int IdentifyPadFamilyK1(int slot)
+{
+    static XInputGetCapabilitiesExFn getCapabilitiesEx = nullptr;
+    static bool resolved = false;
+    if (!resolved) {
+        resolved = true;
+        const HMODULE xinput = LoadLibraryExA("xinput1_4.dll", nullptr,
+                                              LOAD_LIBRARY_SEARCH_SYSTEM32);
+        if (xinput) {
+            getCapabilitiesEx = reinterpret_cast<XInputGetCapabilitiesExFn>(
+                GetProcAddress(xinput, MAKEINTRESOURCEA(108)));
+        }
+    }
+    g_steamVirtualPad = false;
+    XInputCapabilitiesExK1 capabilities = {};
+    if (!getCapabilitiesEx ||
+        getCapabilitiesEx(1, static_cast<DWORD>(slot), 0, &capabilities) != ERROR_SUCCESS) {
+        return SteamDeckEnvironmentK1() ? K1_GLYPH_STEAMDECK : K1_GLYPH_XBOX;
+    }
+    if (capabilities.vendorId != K1_VENDOR_VALVE ||
+        capabilities.productId != K1_PRODUCT_STEAM_VIRTUAL_PAD) {
+        return FamilyForDeviceK1(capabilities.vendorId, capabilities.productId);
+    }
+    g_steamVirtualPad = true;
+    char path[MAX_PATH];
+    unsigned long long written = 0;
+    if (!SteamPadInfoK1(path, written)) {
+        return K1_GLYPH_XBOX;
+    }
+    g_stick.steamInfoWritten = written;
+    char section[24];
+    wsprintfA(section, "slot %lu", capabilities.steamSlot);
+    char vendor[16] = {};
+    char product[16] = {};
+    GetPrivateProfileStringA(section, "VID", "", vendor, sizeof(vendor), path);
+    GetPrivateProfileStringA(section, "PID", "", product, sizeof(product), path);
+    return FamilyForDeviceK1(static_cast<WORD>(std::strtoul(vendor, nullptr, 0)),
+                             static_cast<WORD>(std::strtoul(product, nullptr, 0)));
+}
+
+// Once per GUI frame; does work only when the answer can have changed.
+void UpdateGlyphFamilyK1()
+{
+    static unsigned long previousGeneration = 0;
+    const unsigned long generation = ControllerGenerationK1();
+    const int sdlFamily = ControllerSdlFamilyK1();
+    if (g_stick.padPresent && sdlFamily >= 0) {
+        if (g_stick.glyphFamily != sdlFamily) {
+            g_stick.glyphFamily = sdlFamily;
+            ++g_stick.glyphChanges;
+        }
+        g_stick.glyphSlot = -1;
+        g_stick.steamInfoWritten = 0;
+        previousGeneration = generation;
+        return;
+    }
+    const int slot = g_stick.padPresent ? g_stick.padSlot : -1;
+    bool ask = slot != g_stick.glyphSlot || generation != previousGeneration;
+    previousGeneration = generation;
+    if (!ask && slot >= 0 && g_steamVirtualPad) {
+        const unsigned long now = GetTickCount();
+        if (now - g_stick.steamInfoChecked >= K1_STEAM_INFO_CHECK_MS) {
+            g_stick.steamInfoChecked = now;
+            char path[MAX_PATH];
+            unsigned long long written = 0;
+            const bool found = SteamPadInfoK1(path, written);
+            ask = found ? written != g_stick.steamInfoWritten
+                        : g_stick.steamInfoWritten != 0;
+        }
+    }
+    if (!ask) {
+        return;
+    }
+    g_stick.glyphSlot = slot;
+    g_stick.steamInfoWritten = 0;
+    if (slot < 0) {
+        return;             // no pad: the badges are hidden, keep the last family
+    }
+    const int family = IdentifyPadFamilyK1(slot);
+    if (family != g_stick.glyphFamily) {
+        g_stick.glyphFamily = family;
+        ++g_stick.glyphChanges;
+    }
+}
+
+// For the prompt layer in vendor/K1XboxControls.cpp, which names the Xbox art.
+extern "C" char __cdecl KmrpGlyphLetterK1()
+{
+    const int family = g_stick.glyphFamily;
+    return (family >= 0 && family < 4) ? K1_GLYPH_FAMILY_LETTERS[family] : 'p';
+}
+
+// A cue is a CSWGuiLabel: CSWGuiControl (0x5C), then its one CSWGuiBorder, whose
+// border params sit after a vtable and a 16-byte extent -- so at +0x70 -- with
+// the fill resref at +0x40 within them (Lane's swkotor.exe.h; the button
+// equivalents are the prompt layer's 0x80 and 0xF4). The .gui names the Xbox art,
+// and CSWGuiBorder::SetFillImage (0x00414C00) swaps it for the family's.
+constexpr std::size_t K1_LABEL_BORDER_PARAMS = 0x70;
+constexpr std::size_t K1_BORDER_PARAMS_FILL  = 0x40;
+constexpr std::uintptr_t K1_BORDER_SET_FILL_IMAGE = 0x00414C00;
+using SetFillImageFn = void(__thiscall*)(void*, const void*, int);
+
+void MatchCueFamilyK1(void* label)
+{
+    char* const params = static_cast<char*>(label) + K1_LABEL_BORDER_PARAMS;
+    char resref[16];
+    std::memcpy(resref, params + K1_BORDER_PARAMS_FILL, sizeof(resref));
+    const char wanted = KmrpGlyphLetterK1();
+    if (resref[0] != 'k' || resref[1] != 'm' || resref[2] != 'r' || resref[3] == wanted) {
+        return;
+    }
+    resref[3] = wanted;
+    EngineFn<SetFillImageFn>(K1_BORDER_SET_FILL_IMAGE)(params, resref, 1);
+}
+
 void UpdateGuiCuesK1()
 {
     const bool visible = IsControllerInputActiveK1();
@@ -2796,6 +3217,9 @@ void UpdateGuiCuesK1()
         if (wanted != flags) {
             flags = wanted;
             ++g_stick.guiCueToggles;
+        }
+        if (visible) {
+            MatchCueFamilyK1(g_guiCues[i].control);
         }
     }
 }
@@ -3483,11 +3907,73 @@ void UpdateDescriptionScrollK1()
 
 // The GUI's own per-frame update, hooked so focus moves happen where the engine
 // expects GUI work to happen rather than inside CExoInput's polling.
+// Keep the mouse inside the game window while KOTOR is the foreground window.
+//
+// Reported for multi-monitor setups: KOTOR turns the camera with mouse movement
+// but never clips the cursor, so a wide enough sweep walks it onto the next
+// display and the camera stops following. The game imports no ClipCursor at all
+// -- SetCapture, ShowCursor and SetCursorPos are the only cursor calls in its
+// import table -- so nothing in the engine is fighting this. Issue #20.
+//
+// The clip is re-applied every frame rather than once, because Windows drops it
+// whenever the foreground window changes: that is also what releases it on
+// Alt-Tab, on minimise, and if the process dies, so the cursor can never be
+// left trapped by a crash. The explicit release below is for the case the
+// system keeps it -- losing focus without a foreground change.
+//
+// It follows the window rather than the monitor, so a windowed game confines to
+// its own client area, and moving the window or changing resolution is picked
+// up on the next frame.
+void UpdateCursorConfinementK1()
+{
+    HWND foreground = GetForegroundWindow();
+    DWORD pid = 0;
+    if (foreground) {
+        GetWindowThreadProcessId(foreground, &pid);
+    }
+    const bool ours = foreground != nullptr
+        && pid == GetCurrentProcessId()
+        && !IsIconic(foreground);
+
+    if (!ours) {
+        if (g_stick.cursorConfined) {
+            ClipCursor(nullptr);
+            g_stick.cursorConfined = 0;
+            ++g_stick.cursorReleases;
+        }
+        return;
+    }
+
+    RECT client = {};
+    if (!GetClientRect(foreground, &client)
+            || client.right <= client.left
+            || client.bottom <= client.top) {
+        return;                      // mid-resize or zero-sized; try next frame
+    }
+    POINT corners[2] = {{client.left, client.top}, {client.right, client.bottom}};
+    if (!ClientToScreen(foreground, &corners[0])
+            || !ClientToScreen(foreground, &corners[1])) {
+        return;
+    }
+    RECT screen = {corners[0].x, corners[0].y, corners[1].x, corners[1].y};
+    if (ClipCursor(&screen)) {
+        if (!g_stick.cursorConfined) {
+            ++g_stick.cursorConfinements;
+        }
+        g_stick.cursorConfined = 1;
+    }
+}
+
 extern "C" void __cdecl NativeGuiFrameK1(void* guiManager)
 {
     (void)guiManager;
     g_stick.lastGuiTick = GetTickCount();
+    UpdateCursorConfinementK1();
     EnsureDeviceCountK1();     // menus re-enumerate devices too
+
+    // Which controller family the badges show, before they are updated.
+    UpdateGlyphFamilyK1();
+    ControllerLayoutFrameK1(guiManager);
 
     // Keep the badges in step with the screen and with the live input device.
     // Cheap: it returns immediately unless the panel, its class or the device
@@ -3502,10 +3988,27 @@ extern "C" void __cdecl NativeGuiFrameK1(void* guiManager)
     KmrpUpdateCursorK1();
 
     PerformPendingFreeLookExitK1();
+    PerformPendingMapOpenK1();
 
     PerformPendingPartySwitchK1();
 
     UpdateGuiCuesK1();
+
+    // Our own frame delta, measured across this hook. Counting only; the engine
+    // is not touched.
+    {
+        const unsigned long now = GetTickCount();
+        if (g_stick.lastGuiFrameTick != 0) {
+            const unsigned long elapsed = now - g_stick.lastGuiFrameTick;
+            if (elapsed > g_stick.worstFrameMs) {
+                g_stick.worstFrameMs = elapsed;
+            }
+            if (elapsed >= K1_SLOW_FRAME_MS) {
+                ++g_stick.slowFrames;
+            }
+        }
+        g_stick.lastGuiFrameTick = now;
+    }
 
     UpdateDescriptionScrollK1();
 
@@ -3619,6 +4122,28 @@ void PerformPendingFreeLookExitK1()
             }
         }
     }
+}
+
+// Start in the world: the Map, through the engine's own hotkey handler, with
+// every guard it applies (a dead player, no party, a modal already up). Checked
+// again here, because the input class can change between the press and the
+// frame.
+void PerformPendingMapOpenK1()
+{
+    if (g_stick.mapOpenRequested == 0) {
+        return;
+    }
+    const unsigned long requested = g_stick.mapOpenRequested;
+    g_stick.mapOpenRequested = 0;
+    if (GetTickCount() - requested > 250ul || InputClassK1() != K1_CLASS_PC) {
+        return;
+    }
+    void* const internal = ClientInternalK1();
+    if (!internal) {
+        return;
+    }
+    EngineFn<HandleInputEventFn>(K1_HANDLE_INPUT_EVENT)(internal, K1_EVENT_MENU_MAP, 1);
+    ++g_stick.mapOpens;
 }
 
 // R3 on a screen that is about a party member: show the next one.
@@ -3903,6 +4428,7 @@ extern "C" void __cdecl NativeJoystickMovementK1(void* playerControl)
     ReadNativeStickK1(sampleX, sampleY);   // diagnostics only
 
     PerformPendingFreeLookExitK1();
+    PerformPendingMapOpenK1();
     PerformPendingStickActionsK1();
     PerformPendingInteractionK1();
 }
@@ -4038,7 +4564,7 @@ extern "C" void __cdecl NativeJoystickDumpK1()
         // after. cam* are x100.
         "ovr=%d rmag=%ld amag=%ld dz=%ld dcr=%lu cls=%lu/%lu reb=%lu "
         "rx=%ld ry=%ld camrun=%lu camwr=%lu camdz=%lu camapp=%ld camcls=%lu camown=%lu "
-        "nav=%lu/%lu hud=%lu/%lu/%lu/%08lX/%d pad=%lu prm=%lu dsc=%lu gui=%lu tab=%lu tabin=%d mve=%lu/%lu/%lu move=%d->%d dir=%d rum=%lu/%lu/%08lX raw=%08lX/%08lX slot=%d rtab=%lu rmp=%lu fle=%lu drp=%lu psw=%lu cue=%lu/%lu/%lu dev=%08lX\r\n",
+        "nav=%lu/%lu hud=%lu/%lu/%lu/%08lX/%d pad=%lu prm=%lu dsc=%lu gui=%lu tab=%lu tabin=%d mve=%lu/%lu/%lu move=%d->%d dir=%d rum=%lu/%lu/%08lX raw=%08lX/%08lX slot=%d rtab=%lu rmp=%lu fle=%lu drp=%lu psw=%lu cue=%lu/%lu/%lu sbf=%lu map=%lu hrel=%lu gly=%d/%lu frm=%lu/%lu dt=%ld/%ld tex=%ld/%ld/%ld/%ld tid=%ld/%ld dev=%08lX cur=%d/%lu/%lu\r\n",
         g_stick.registered ? 1 : 0, g_stick.createFailed ? 1 : 0, liveCount,
         g_stick.initCalls, g_stick.bufferCalls, g_stick.recordsEmitted,
         g_stick.movementCalls, g_stick.overrideFrames,
@@ -4093,8 +4619,36 @@ extern "C" void __cdecl NativeJoystickDumpK1()
         g_stick.rumbleTableInstalled, g_stick.remapDispatched,
         g_stick.freeLookExits, g_stick.dpadRepeats, g_stick.partySwitches,
         g_stick.guiCuesInstalled, g_stick.guiCuesRejected,
-        g_stick.guiCueToggles,
-        KmrpDeviceStateK1());
+        g_stick.guiCueToggles, g_stick.saveBuffersFreed,
+        // map: Start opening the Map from the world; hrel: action-bar focus
+        // handed back to the world, after a slot is used or on B.
+        g_stick.mapOpens, g_stick.hudReleases,
+        // gly: the controller family the badges show (0 Xbox, 1 PlayStation,
+        // 2 Switch, 3 Steam Deck), and how many times it has changed.
+        g_stick.glyphFamily, g_stick.glyphChanges,
+        // frm: frames at or over K1_SLOW_FRAME_MS, and the worst seen.
+        g_stick.slowFrames, g_stick.worstFrameMs,
+        // dt: the engine's own frame delta and its high-water mark, in
+        // milliseconds -- both are floats in seconds, so x1000.
+        static_cast<long>(*reinterpret_cast<const float*>(K1_G_DELTA_T) * 1000.0f),
+        static_cast<long>(*reinterpret_cast<const float*>(K1_G_MAX_DELTA_T) * 1000.0f),
+        // tex: the engine's texture timers, exactly as it keeps them.
+        static_cast<long>(*reinterpret_cast<const int*>(K1_G_MAX_TEXTURE_TIME)),
+        static_cast<long>(*reinterpret_cast<const int*>(K1_G_CURRENT_TEXTURE_TIME)),
+        static_cast<long>(*reinterpret_cast<const int*>(K1_G_LOAD_IMAGE_TIME)),
+        static_cast<long>(*reinterpret_cast<const int*>(K1_G_MAX_TEX_LOAD_TIME)),
+        // tid: the highest GL texture name seen, against the size of the
+        // unbounded bucket arrays it indexes. Reaching the second number is
+        // an out-of-range write in AddPartToMeshBuckets.
+        static_cast<long>(*reinterpret_cast<const int*>(K1_G_MAX_TEX_ID)),
+        K1_TEXTURE_BUCKET_ENTRIES,
+        KmrpDeviceStateK1(),
+        // cur: whether the mouse is clipped to the window right now,
+        // and how many times the clip has been taken and given back.
+        // Appended at the very end -- see the warning above about
+        // inserting a column into the middle of the format string.
+        g_stick.cursorConfined, g_stick.cursorConfinements,
+        g_stick.cursorReleases);
 
     HANDLE file = CreateFileA("kmrp-native-joystick.log", FILE_APPEND_DATA,
                               FILE_SHARE_READ, nullptr, OPEN_ALWAYS,
@@ -4104,4 +4658,16 @@ extern "C" void __cdecl NativeJoystickDumpK1()
         WriteFile(file, line, static_cast<DWORD>(written), &done, nullptr);
         CloseHandle(file);
     }
+}
+
+// Is a confirm input down right now: A on the pad, or Enter or Space? The
+// Controller Layout screen uses it to ignore the press that opened it -- see
+// the arming rule in K1ControllerLayout.cpp. lastButtons is written by the
+// engine's per-frame joystick poll, in menus as well as in play.
+// At file scope, outside the anonymous namespace, so the layout screen links.
+bool ControllerConfirmHeldK1()
+{
+    return (g_stick.lastButtons & 0x1000) != 0 ||       // XINPUT_GAMEPAD_A
+           (GetAsyncKeyState(VK_RETURN) & 0x8000) != 0 ||
+           (GetAsyncKeyState(VK_SPACE) & 0x8000) != 0;
 }

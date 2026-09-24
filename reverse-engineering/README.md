@@ -31,6 +31,7 @@ same dead end from being explored a second time.
 | [listbox-geometry.md](listbox-geometry.md) | How a `.gui` listbox becomes rows on screen: which field controls which margin, the vanilla row-growth bug, and the method for finding the next margin. |
 | [inventory-item-rows.md](inventory-item-rows.md) | Row and icon sizing for Inventory, Abilities and Store — hardcoded constants that no `.gui` edit can reach — and the stack-count label built in code. |
 | [text-padding.md](text-padding.md) | Padding and gaps for **every** control type and both axes, so a change can be uniform rather than partial. Includes the survey of how many controls each mechanism actually reaches. |
+| [texture-residency.md](texture-residency.md) | How Aurora keeps textures resident: the `texpacks.2da` memory budget, downsampling rather than eviction, and why an unbound texture draws a white quad. Also records that the Ghidra archive's addresses match this build. |
 | [button-focus-badge-geometry.md](button-focus-badge-geometry.md) | Why a controller badge is drawn smaller once its button takes focus. **On hold, unresolved** -- what is ruled out, the two candidates left, and the single measurement that separates them. |
 | [message-popup.md](message-popup.md) | The shared message popup behind tutorial hints and confirmations: how it lays itself out, why its text was clipped, and how it is scaled to every resolution. |
 
@@ -38,7 +39,17 @@ same dead end from being explored a second time.
 
 - [`experiments/`](experiments/) — numbered lab notes, in order, from the first
   ultrawide launch onward. Each records what was tried and what it showed,
-  including the candidates that were rejected.
+  including the candidates that were rejected. The unnumbered ones are the
+  issue-#14 white-flash thread, newest first:
+  [`white-flash-video-capture.md`](experiments/white-flash-video-capture.md)
+  (the answer, in Part 4: NVIDIA's "Prefer layered on DXGI Swapchain" present
+  path shows frames the game has not finished, and a long menu frame exposes
+  the bare clear; the measurements, the fix, and the earlier wrong turns),
+  [`texture-bucket-overrun.md`](experiments/texture-bucket-overrun.md) (the
+  unbounded bucket write, and the measured `maxTexID` that says it was not
+  reached), and
+  [`white-flash-analysis.md`](experiments/white-flash-analysis.md) (the static
+  analysis the first two were built on, including the models they disprove).
 - [`patch-records/`](patch-records/) — machine-readable JSON descriptions of the
   confirmed map and font patches: the addresses, the original bytes and the
   replacements, so a patch can be checked without re-reading the tooling.

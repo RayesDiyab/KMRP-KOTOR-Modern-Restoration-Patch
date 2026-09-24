@@ -17,6 +17,7 @@ param(
 )
 
 $ErrorActionPreference = "Stop"
+. (Join-Path $PSScriptRoot "Restore-TestNvidiaProfiles.ps1")
 $script:Failures = 0
 
 function Resolve-Input([string]$path) { return (Resolve-Path -LiteralPath $path).Path }
@@ -40,9 +41,9 @@ function Assert([bool]$condition, [string]$message) {
 function New-Install([string]$name) {
     $folder = Join-Path $WorkRoot $name
     New-Item -ItemType Directory -Force -Path $folder | Out-Null
-    Copy-Item -LiteralPath $CleanExe -Destination (Join-Path $folder "swkotor.exe")
+    Copy-Item -LiteralPath $CleanExe -Destination (Join-Path $folder "kmrp-controller-selftest.exe")
     Copy-Item -LiteralPath $SeedIni -Destination (Join-Path $folder "swkotor.ini")
-    return Join-Path $folder "swkotor.exe"
+    return Join-Path $folder "kmrp-controller-selftest.exe"
 }
 
 $Patcher = Resolve-Input $Patcher
@@ -57,7 +58,7 @@ New-Item -ItemType Directory -Force -Path $WorkRoot | Out-Null
 $settingsPath = Join-Path ([Environment]::GetFolderPath([Environment+SpecialFolder]::LocalApplicationData)) "KMRP\settings.json"
 $settingsExisted = Test-Path -LiteralPath $settingsPath
 $settingsBytes = if ($settingsExisted) { [IO.File]::ReadAllBytes($settingsPath) } else { $null }
-$controllerNames = @("kmrp-controller-runtime.asi", "kmrp-controller.module", "patch_config.toml", "KMRP_Controller.manifest")
+$controllerNames = @("kmrp-controller-runtime.asi", "kmrp-controller.module", "kmrp-sdl3.dll", "kmrp-sdl3-LICENSE.txt", "patch_config.toml", "KMRP_Controller.manifest")
 
 try {
     New-Item -ItemType Directory -Force -Path (Split-Path -Parent $settingsPath) | Out-Null
@@ -76,10 +77,12 @@ try {
 
     $configPath = Join-Path $folder "patch_config.toml"
     $config = [IO.File]::ReadAllText($configPath)
-    Assert (($config | Select-String -AllMatches '\[\[patches\.hooks\]\]').Matches.Count -eq 14) "config contains exactly fourteen detours"
-    Assert (($config | Select-String -AllMatches '\[\[patches\.hooks\.parameters\]\]').Matches.Count -eq 19) "config contains all nineteen hook parameters"
-    python -c "import sys,tomllib; d=tomllib.load(open(sys.argv[1],'rb')); assert len(d['patches'])==1 and len(d['patches'][0]['hooks'])==14" $configPath
-    Assert ($LASTEXITCODE -eq 0) "generated hook config parses as TOML"
+    # Parse the installed table and compare every field with the owning TOML,
+    # including byte patches. A copied hook count had gone stale at fourteen.
+    python -c "import sys; sys.path.insert(0,'tools'); import kmrp_controller as k; got=k.installed_hooks(sys.argv[1]); want=[{a:b for a,b in h.items() if a!='owner'} for h in k.native_hooks()]; assert len(got)==len(want); assert {h['address']:h for h in got}=={h['address']:h for h in want}, 'installed hooks differ from source'" $configPath
+    Assert ($LASTEXITCODE -eq 0) "installed TOML matches all source hooks and parameters"
+    Assert (-not $config.Contains('NativeFrameClearK1')) "renderer clear suppression is not shipped"
+    Assert (-not $config.Contains('NativeSceneRenderK1')) "deferred clear hook is not shipped"
 
     $bytes = [IO.File]::ReadAllBytes($game)
     $sites = @(
@@ -96,7 +99,13 @@ try {
         @{ Va = 0x00686BA0; Hex = "5356578BF1" },
         @{ Va = 0x0068B170; Hex = "6AFF68B0F77200" },
         @{ Va = 0x005E271E; Hex = "8B8424E4000000" },
-        @{ Va = 0x0040C1F6; Hex = "891E897E04" }
+        @{ Va = 0x0040C1F6; Hex = "891E897E04" },
+        # The two confirm-on-Cancel hooks. This list is a third copy of the
+        # stolen bytes, after kotor1.hooks.toml and the patcher's own table, and
+        # a hook added without an entry here is simply not byte-checked -- which
+        # is what happened to these two until the count stopped matching.
+        @{ Va = 0x006C2400; Hex = "8B54240885D2" },
+        @{ Va = 0x006E0CF0; Hex = "558BEC83E4F8" }
     )
     foreach ($site in $sites) {
         $expected = [Convert]::FromHexString($site.Hex)
@@ -105,6 +114,12 @@ try {
         [Buffer]::BlockCopy($bytes, $offset, $actual, 0, $actual.Length)
         Assert ([Convert]::ToHexString($actual) -eq $site.Hex) ("hook bytes intact at VA 0x{0:X8}" -f $site.Va)
     }
+
+    $sdlPath = Join-Path $folder "kmrp-sdl3.dll"
+    $sdlBytes = [IO.File]::ReadAllBytes($sdlPath)
+    $sdlPe = [BitConverter]::ToInt32($sdlBytes, 0x3c)
+    Assert ([BitConverter]::ToUInt16($sdlBytes, $sdlPe + 4) -eq 0x14c) "installed SDL is x86"
+    Assert ((Get-FileHash -LiteralPath $sdlPath).Hash -eq (Get-FileHash 'build/deps/kmrp-sdl3.dll').Hash) "installed SDL matches pinned dependency"
 
     if (-not $LeaveInstalled) {
         Assert ((Invoke-Patcher @("--restore", $game)) -eq 0) "restore succeeds"
@@ -138,8 +153,22 @@ try {
     Assert (Test-Path -LiteralPath (Join-Path $conflictFolder "Override")) "the Override payload still installed"
     Assert (-not (Test-Path -LiteralPath (Join-Path $conflictFolder "KMRP_Controller.manifest"))) "the skipped install claims no controller ownership"
     Assert (-not (Test-Path -LiteralPath (Join-Path $conflictFolder "kmrp-controller.module"))) "the controller module was not installed"
+    Assert ((Invoke-Patcher @("--restore", $conflictGame)) -eq 0) "conflict fixture restores cleanly"
+    Write-Host "Case 3  an unrelated SDL file is preserved"
+    $sdlGame = New-Install "sdl-conflict"
+    $sdlFolder = Split-Path -Parent $sdlGame
+    $foreignSdl = Join-Path $sdlFolder "kmrp-sdl3.dll"
+    [IO.File]::WriteAllText($foreignSdl, "foreign SDL sentinel")
+    Assert ((Invoke-Patcher @("--in-place", $sdlGame, $Resolution)) -eq 0) "a foreign SDL does not abort the patch"
+    Assert ([IO.File]::ReadAllText($foreignSdl) -eq "foreign SDL sentinel") "foreign SDL remains intact"
+    Assert (-not (Test-Path (Join-Path $sdlFolder "KMRP_Controller.manifest"))) "foreign SDL is not claimed"
+    Assert (-not (Test-Path (Join-Path $sdlFolder "kmrp-controller.module"))) "no partial controller install beside foreign SDL"
+    Assert ((Invoke-Patcher @("--restore", $sdlGame)) -eq 0) "SDL conflict fixture restores cleanly"
+    Assert ([IO.File]::ReadAllText($foreignSdl) -eq "foreign SDL sentinel") "restore preserves foreign SDL"
+
 }
 finally {
+    Restore-TestNvidiaProfiles $WorkRoot
     if ($settingsExisted) { [IO.File]::WriteAllBytes($settingsPath, $settingsBytes) }
     elseif (Test-Path -LiteralPath $settingsPath) { Remove-Item -LiteralPath $settingsPath -Force }
 

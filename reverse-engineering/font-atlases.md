@@ -454,6 +454,22 @@ a **manual asset step whose output is committed** — do not add it to the build
 pipeline, which must stay pure-stdlib (see the PIL/PowerShell gotcha in
 `docs/font-scaling.md`).
 
+## Labels authored in `dialogfont10x10` render as `dialogfont16x16`
+
+**Measured in game, 2026-09-24, 3440x1440, not yet explained.** The Controller
+Layout screen's captions were authored with `FONT = dialogfont10x10`. In a
+screenshot they measured 1.38-1.41x the width `measure_label()` gives for that
+font, and 0.88x the width it gives for `dialogfont16x16` -- the same 0.88 that
+vanilla `dialogfont16x16` button text on the Gameplay screen measured. Title,
+heading and captions all rendered at one size. The installed
+`dialogfont10x10.txi` is the one KMRP ships (`fontheight 0.2`, `texturewidth
+5.12`, atlas cells 20px), so this is not a packaging mismatch.
+
+Consequences until the mechanism is found: size any KMRP-authored text as
+`dialogfont16x16`, and treat `measure_label()` as reading 16x16 about 12% wide.
+The 1.406 ratio is also 1440/1024, a coincidence not yet ruled out; only one
+resolution was measured.
+
 ## `spacingR` controls word wrap, not letter spacing
 
 **Proven in game, and it overturns what this document previously claimed.**
@@ -585,10 +601,28 @@ own the game. `assets/fonts/KOTOR_UI_Open.ttf` is a build input, not a
 deliverable. If that ever changes, the standalone question reopens and the
 honest answer is that the outlines would need redrawing rather than tracing.
 
-"Old Republic" (dafont, by Trollax Kinora) is **"free for personal use only"**
-and is **not** used by the shipped build. It was evaluated earlier when the
-plan was to restyle all 18 resrefs; if it is ever reintroduced it would again
-block public distribution without the author's permission. Other SIL-OFL
+**Correction, 2026-09-20: it IS used by the shipped build.** The paragraph below
+said the opposite and was wrong. Re-run of this document's own reusable check —
+rasterise the candidate at the atlas's glyph height and diff every texel —
+against `assets/hd-fonts/dialogfont16x16.tga`:
+
+| Candidate rendered at 48px into 1024x1024 | Texels differing from the shipped atlas |
+| --- | --- |
+| `assets/fonts/OldRepublic.ttf` | **0 of 1,048,576** |
+| `assets/fonts/KOTOR_UI_Open.ttf` | 83,293 (7.94%), largest delta 255 |
+
+`THIRD_PARTY_NOTICES.md` and `font-scaling.md` were right; this file was stale.
+The consequence is not cosmetic: it means the shipped atlases are rendered from
+a personal-use-only face, so **the TTF cannot be embedded in the installer** to
+generate atlases at patch time, which is otherwise the cheapest fix for the
+magnification problem in issue #16. See the options recorded in
+[`../docs/font-scaling.md`](../docs/font-scaling.md).
+
+"Old Republic" (dafont, by Trollax Kinora) is **"free for personal use only"**.
+The claim that followed here — that it is not used by the shipped build — has
+been struck as wrong. It renders the 17 menu resrefs today, and that is what
+blocks public distribution of the font itself without the author's permission.
+Other SIL-OFL
 candidates fetched and rendered for comparison: Rajdhani, Exo 2. "SF Old
 Republic" (1001 Free Fonts) was suggested as a possible closer match but was
 never fetched or verified.

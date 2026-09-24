@@ -1,7 +1,8 @@
 @echo off
 rem Builds the KMRP controller module from the tracked source in this directory.
 rem
-rem Everything compiled here is under version control. The build no longer reads
+rem Project sources are under version control; SDL headers are hash-pinned.
+rem The build no longer reads
 rem the clone of Saul0097's repository under build/research/, which was the only
 rem copy of 900 lines of KMRP code and 842 lines of KMRP modifications to his.
 rem
@@ -17,11 +18,14 @@ if not exist "%VC%" (
 call "%VC%" x86 >nul
 if errorlevel 1 exit /b %errorlevel%
 
+pwsh -NoProfile -ExecutionPolicy Bypass -File "%~dp0..\..\tools\prepare_sdl3.ps1"
+if errorlevel 1 exit /b %errorlevel%
+
 pushd "%~dp0"
 rem /I. so the vendor sources still find K1NativeJoystick.h, which now sits a
 rem directory above them. Their own header resolves from the includer's folder.
-cl /nologo /Brepro /O2 /EHsc /MT /LD /I. ^
-   K1NativeJoystick.cpp vendor\K1XboxControls.cpp vendor\K1XboxControlsXInput.cpp ^
+cl /nologo /Brepro /O2 /EHsc /MT /LD /I. /I"..\..\build\deps\SDL3-3.4.16\include" ^
+   K1NativeJoystick.cpp K1ControllerBackend.cpp K1ControllerLayout.cpp vendor\K1XboxControls.cpp vendor\K1XboxControlsXInput.cpp ^
    xinput.lib gdi32.lib user32.lib ^
    /link /Brepro /DEF:exports.def /OUT:kmrp-controller.module /INCREMENTAL:NO
 set RC=%errorlevel%

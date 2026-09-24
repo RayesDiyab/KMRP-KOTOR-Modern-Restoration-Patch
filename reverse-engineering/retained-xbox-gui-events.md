@@ -137,7 +137,7 @@ PAZAAK_SETUP                           .    68175c         .    6817bc         .
 POWERS                            6f290f    6f28ef    6f294f    6f292f         .         .    6f290f    6f28ef    6f297b    6f297b    6f297b    6f297b         .         .         .         .         .         .    6f29c0    6f299e
 SAVELOAD                               .    6c86f0         .         .         .         .         .    6c872f         .         .         .         .         .         .         .         .         .         .         .         .   [chain]
 SKILLS                            6f6a9f    6f6a3f         .    6f6abf         .         .    6f6a9f    6f6a3f    6f6a5f    6f6a7f         .         .         .         .         .         .         .         .    6f6afb    6f6adf
-SOLO_MODE_QUERY                        .         .         .         .         .         .         .    6c2488         .         .         .         .         .         .         .         .         .         .         .         .   [chain]
+SOLO_MODE_QUERY                   6c244c    6c2488         .         .         .         .    6c244c    6c2488         .         .         .         .         .         .         .         .         .         .         .         .   [chain]
 STORE                                  .    6c21c6    6c222f         .         .         .         .    6c21c6         .         .         .         .         .         .         .         .         .         .    6c220d    6c21eb
 UPGRADE                                .    6c6aaf         .         .         .         .         .    6c6aaf         .         .         .         .         .         .         .         .         .         .    6c6b17    6c6aec
 UPGRADE_ITEM_SELECT                    .    6c2d57         .         .         .         .         .    6c2d57         .         .         .         .         .         .         .         .         .         .    6c2da3    6c2d81
@@ -146,6 +146,23 @@ UPGRADE_SELECTION                      .    6c2b2b         .         .         .
 
 **The controller module sends five of these codes.** Everything else in the
 table is reachable code that nothing currently triggers.
+
+**Correction, 2026-09-20.** The `SOLO_MODE_QUERY` row above read `2e` alone
+until today, which contradicted finding 7 in
+[`../docs/controller-behaviour-matrix.md`](../docs/controller-behaviour-matrix.md)
+and made the panel look as though it implemented neither A nor B. Finding 7 was
+right: the row was printed before the decoder fault described in the tool's own
+source was fixed, and nobody reprinted it. Re-read from the same executable this
+document names, the dispatcher at `0x006C2400` is a `cmp`/`je` chain handling
+`0x27`/`0x2D` at `0x006C244C` and `0x28`/`0x2E` at `0x006C2488`, and the row now
+says so. Verified against the build in the header, byte-for-byte the installed
+`swkotor.exe`.
+
+The rest of the table is **not** regenerated output: `map_retained_gui_events.py`
+in its plain table mode now raises `TypeError` on the first chained dispatcher it
+meets, because a chain has no jump-table index to look up, so the table cannot be
+reprinted as a whole. `--full` handles both shapes and is the authoritative mode
+until that is repaired; it is what the correction above was read from.
 
 ## The Abilities tabs, in detail
 

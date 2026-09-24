@@ -61,7 +61,8 @@ def main() -> int:
     print(f"{len(hooks)} hooks in {kc.HOOKS_TOML.name}")
 
     # 1. every hook classifiable
-    unowned = [h["function"] for h in hooks if h["owner"] is None]
+    unowned = [h["function"] for h in hooks
+               if h["owner"] is None and not kc.is_byte_patch(h)]
     if unowned:
         problems.append(
             "no tracked source defines these hook exports, so their owner cannot "
@@ -76,30 +77,39 @@ def main() -> int:
     # recomputed here, because this file having its own copy of the rule is why
     # it failed a correct installer the first time a hook joined that set.
     required = kc.native_hooks()
-    required_names = {h["function"] for h in required}
-    extra = sorted(required_names - {h["function"] for h in native})
+    required_names = {h["function"] for h in required
+                      if not kc.is_byte_patch(h)}
+    extra = sorted(required_names - {h["function"] for h in native
+                                     if not kc.is_byte_patch(h)})
     if extra:
         print(f"  plus {len(extra)} required legacy: {', '.join(extra)}")
 
     # 2. every hook exported
     exported = {line.strip() for line in
                 kc.EXPORTS_DEF.read_text(encoding="utf-8").splitlines()}
-    missing = [h["function"] for h in hooks if h["function"] not in exported]
+    missing = [h["function"] for h in hooks
+               if not kc.is_byte_patch(h) and h["function"] not in exported]
     if missing:
         problems.append(f"hooks missing from exports.def: {', '.join(missing)}")
 
     # 3. installed native hooks match the tracked table
     if arguments.config.exists():
         installed = kc.installed_hooks(arguments.config)
+        required_addresses = {h["address"] for h in required
+                              if kc.is_byte_patch(h)}
         installed_native = [h for h in installed
-                            if h["function"] in required_names]
+                            if h.get("function") in required_names
+                            or h["address"] in required_addresses]
         # Compared as sets: KPM keys a detour on its address, so the order
         # hooks appear in the file carries no meaning. The installer appends
         # ClearActionBarControlsK1 after the native ones while the tracked table
         # lists it first, which an order-sensitive comparison reported as drift
         # when nothing had drifted.
         def key(h):
-            return (h["address"], h["function"], tuple(h["original_bytes"]))
+            # A byte patch has no function, so its address and original bytes
+            # are its identity -- which is what the runtime keys on anyway.
+            return (h["address"], h.get("function", ""),
+                    tuple(h["original_bytes"]))
 
         want = {key(h) for h in required}
         got = {key(h) for h in installed_native}
@@ -128,7 +138,7 @@ def main() -> int:
         import select_controller_path as installer
         rendered = installer.native_hooks_toml()
         names = re.findall(r'function\s*=\s*"(\w+)"', rendered)
-        want = [h["function"] for h in required]
+        want = [h["function"] for h in required if not kc.is_byte_patch(h)]
         if names != want:
             problems.append(f"the installer renders {names}, tracked table is {want}")
         else:
@@ -184,17 +194,38 @@ def main() -> int:
     try:
         sys.path.insert(0, str(kc.ROOT / "tools"))
         import build_controller_prompt_textures as textures
-        if not textures.GLYPH_ART_DIR.is_dir():
-            problems.append(f"the glyph art directory does not exist: "
-                            f"{textures.GLYPH_ART_DIR}")
-        else:
-            present, missing = textures.check_glyph_art()
+        # Every family is shipped and the module can pick any of them, so a
+        # family with missing art is a broken badge set, not an unused one.
+        counts = []
+        for family, (folder, _) in textures.GLYPH_FAMILIES.items():
+            directory = textures.GLYPH_PACK / folder
+            if not directory.is_dir():
+                problems.append(f"the {family} glyph art directory does not exist: "
+                                f"{directory}")
+                continue
+            present, missing = textures.check_glyph_art(family)
             if missing:
-                problems.append("glyph art missing, badges would silently fall "
-                                f"back to drawn discs: {', '.join(missing)}")
+                problems.append(f"{family} glyph art missing, badges would silently "
+                                f"fall back to drawn discs: {', '.join(missing)}")
             else:
-                print(f"  glyph art: all {len(present)} present in "
-                      f"{textures.GLYPH_ART_DIR.name}")
+                counts.append(f"{len(present)} {folder}")
+        if len(counts) == len(textures.GLYPH_FAMILIES):
+            print(f"  glyph art: all present ({', '.join(counts)})")
+
+        # The fourth resref letter per family lives in two places: the build
+        # names the textures with it, the module rewrites to it. Out of step,
+        # a detected pad would ask for textures that were never built.
+        source = (kc.ROOT / "src" / "controller-native"
+                  / "K1NativeJoystick.cpp").read_text(encoding="utf-8")
+        found = re.search(r"K1_GLYPH_FAMILY_LETTERS\[\]\s*=\s*\{([^}]*)\}", source)
+        module_letters = re.findall(r"'(.)'", found.group(1)) if found else []
+        build_letters = [textures.FAMILY_LETTERS[f]
+                         for f in ("xbox", "playstation", "switch", "steamdeck")]
+        if module_letters != build_letters:
+            problems.append(f"controller family letters disagree: module "
+                            f"{module_letters}, build {build_letters}")
+        else:
+            print(f"  family letters: module and build agree ({''.join(build_letters)})")
     except Exception as error:                       # noqa: BLE001 - report it
         problems.append(f"the glyph art could not be checked: {error!r}")
 
@@ -258,11 +289,19 @@ def main() -> int:
     # The call is parsed by walking parentheses from wsprintfA(, skipping string
     # literals and // comments, because the format's own comments contain both
     # parentheses and semicolons.
+    #
+    # Found inside the function that writes it, not as the file's first
+    # wsprintfA: when another call was added earlier in the file this check went
+    # on passing while measuring a one-conversion string instead of the line.
     source = kc.MODULE_SOURCE.read_text(encoding="utf-8")
     try:
-        index = source.index("wsprintfA(") + len("wsprintfA(")
-    except ValueError:
+        # The definition, not the forward declaration: the body's opening brace.
+        start = re.search(r'extern "C" void __cdecl NativeJoystickDumpK1\(\)\s*\{',
+                          source).start()
+        index = source.index("wsprintfA(", start) + len("wsprintfA(")
+    except (ValueError, AttributeError):
         index = -1
+        problems.append("cannot find the diagnostic line: no wsprintfA in NativeJoystickDumpK1")
     if index > 0:
         depth = 1
         literals = []

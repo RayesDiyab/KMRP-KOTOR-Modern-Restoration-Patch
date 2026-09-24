@@ -37,14 +37,11 @@ TGA_FOOTER = b"\x00" * 8 + b"TRUEVISION-XFILE." + b"\x00"
 GLYPH_PACK = (Path(__file__).resolve().parents[1] / "third_party" / "Included"
               / "Xelu_Free_Controller&Key_Prompts")
 
-# The prompt vocabulary is a set of ACTIONS, not a set of Xbox pictures, so a
-# later pass can add controller-family detection without touching any caller.
-# Every badge in the patch names an action here; only the file behind it changes
-# with the family.
-#
-# Detection is deliberately NOT implemented. GLYPH_FAMILY selects one, the art
-# for the others is present and checkable, and nothing yet asks the running game
-# which pad is attached.
+# The prompt vocabulary is a set of ACTIONS, not a set of Xbox pictures. Every
+# badge in the patch names an action here; only the file behind it changes with
+# the family. All four families are built and shipped, and the module chooses
+# one at run time from the controller it finds -- see FAMILY_LETTERS below and
+# docs/controller-support.md.
 GLYPH_FAMILIES = {
     "xbox": ("Xbox", {
         "A": "360_A.png", "B": "360_B.png", "X": "360_X.png", "Y": "360_Y.png",
@@ -64,6 +61,10 @@ GLYPH_FAMILIES = {
         "SWAP": "Swap_tabs.png",
         "L3": "360_Left_Stick_Click.png",
         "R3": "XboxSeriesX_Right_Stick_Click.png",
+        # The sticks and D-pad as whole controls, for the Controller Layout
+        # screen, which names what a stick does rather than what clicking it does.
+        "LSTICK": "360_Left_Stick.png", "RSTICK": "360_Right_Stick.png",
+        "DPAD": "360_Dpad.png",
     }),
     "playstation": ("PS5", {
         "A": "PS5_Cross.png", "B": "PS5_Circle.png",
@@ -74,16 +75,27 @@ GLYPH_FAMILIES = {
         "DPAD_LEFT": "PS5_Dpad_Left.png", "DPAD_RIGHT": "PS5_Dpad_Right.png",
         "DPAD_UP": "PS5_Dpad_Up.png", "DPAD_DOWN": "PS5_Dpad_Down.png",
         "L3": "PS5_Left_Stick_Click.png", "R3": "PS5_Right_Stick_Click.png",
+        "LSTICK": "PS5_Left_Stick.png", "RSTICK": "PS5_Right_Stick.png",
+        "DPAD": "PS5_Dpad.png",
     }),
+    # By POSITION, not by letter. The module reads XInput, where A is the bottom
+    # face button whatever the pad calls it, and on a Switch Pro the bottom button
+    # is labelled B, the right one A, the left one Y and the top one X. So the
+    # badge beside a KMRP "A" action shows Nintendo's B. This assumes the layer
+    # between the pad and XInput (Steam Input with "Use Nintendo Button Layout"
+    # off, or any positional mapper) maps by position -- untested, and exactly
+    # backwards for a label-based mapping.
     "switch": ("Switch", {
-        "A": "Switch_A.png", "B": "Switch_B.png",
-        "X": "Switch_X.png", "Y": "Switch_Y.png",
+        "A": "Switch_B.png", "B": "Switch_A.png",
+        "X": "Switch_Y.png", "Y": "Switch_X.png",
         "LB": "Switch_LB.png", "RB": "Switch_RB.png",
         "LT": "Switch_LT.png", "RT": "Switch_RT.png",
         "START": "Switch_Plus.png", "BACK": "Switch_Minus.png",
         "DPAD_LEFT": "Switch_Dpad_Left.png", "DPAD_RIGHT": "Switch_Dpad_Right.png",
         "DPAD_UP": "Switch_Dpad_Up.png", "DPAD_DOWN": "Switch_Dpad_Down.png",
         "L3": "Switch_Left_Stick_Click.png", "R3": "Switch_Right_Stick_Click.png",
+        "LSTICK": "Switch_Left_Stick.png", "RSTICK": "Switch_Right_Stick.png",
+        "DPAD": "Switch_Dpad.png",
     }),
     "steamdeck": ("Steam Deck", {
         "A": "SteamDeck_A.png", "B": "SteamDeck_B.png",
@@ -98,12 +110,33 @@ GLYPH_FAMILIES = {
         "DPAD_DOWN": "SteamDeck_Dpad_Down.png",
         "L3": "SteamDeck_Left_Stick_Click.png",
         "R3": "SteamDeck_Right_Stick_Click.png",
+        "LSTICK": "SteamDeck_Left_Stick.png",
+        "RSTICK": "SteamDeck_Right_Stick.png",
+        "DPAD": "SteamDeck_Dpad.png",
     }),
 }
 
-# The family the shipped textures are built from. Xbox, because KOTOR's own
-# retained prompts are Xbox ones and the badges sit on a 2003 Xbox-derived UI.
+# The default family, and the one the badge tables in the module name. Xbox,
+# because KOTOR's own retained prompts are Xbox ones and the badges sit on a 2003
+# Xbox-derived UI; it is also what an unrecognised pad gets.
 GLYPH_FAMILY = "xbox"
+
+# Every family is shipped, and the module picks one at run time from the pad it
+# finds (issue #19). A family's textures differ from the Xbox ones in the fourth
+# letter of the resref only -- "kmrpb_charexit" is the Xbox B badge,
+# "kmrsb_charexit" the PlayStation one -- so no name grows past the 16 characters
+# a resref holds, and the Xbox names are exactly the ones already shipping. The
+# module rewrites that one letter when it assigns a fill; these letters must
+# match K1_GLYPH_FAMILY_LETTERS in src/controller-native/K1NativeJoystick.cpp.
+FAMILY_LETTERS = {"xbox": "p", "playstation": "s", "switch": "n", "steamdeck": "d"}
+
+
+def family_resref(resref: str, family: str) -> str:
+    """The resref of `resref`'s art in `family`. Xbox names come back unchanged."""
+    if not resref.startswith("kmrp"):
+        raise ValueError(f"{resref!r} is not a KMRP prompt resref")
+    return "kmr" + FAMILY_LETTERS[family] + resref[4:]
+
 
 GLYPH_ART_DIR = GLYPH_PACK / GLYPH_FAMILIES[GLYPH_FAMILY][0]
 GLYPH_ART = GLYPH_FAMILIES[GLYPH_FAMILY][1]
@@ -237,7 +270,10 @@ PROMPT_TARGETS = (
     PromptTarget("optkeymapping.gui", "BTN_Cancel", 3, "B", "kmrpb_optkeys"),
     PromptTarget("upgrade.gui", "BTN_BACK", 28, "B", "kmrpb_upgasm"),
     PromptTarget("upgradeitems.gui", "BTN_BACK", 4, "B", "kmrpb_upgitm"),
-    PromptTarget("confirm.gui", "BTN_CANCEL", 2, "B", "kmrpb_confirm"),
+    # The resolution screen was the one Options screen with no badge at all.
+    # Its dispatcher at 0x006E0CF0 closes on 0x28 through
+    # CSWGuiManager::PopModalPanel, so B is Cancel here as everywhere else.
+    PromptTarget("optresolution.gui", "BTN_CANCEL", 1, "B", "kmrpb_rescancel"),
 
     # A on each screen's primary action. Weaker than the B badges above and
     # deliberately marked as such: A is Return, which activates whatever control
@@ -252,6 +288,12 @@ PROMPT_TARGETS = (
     PromptTarget("upgradeitems.gui", "BTN_UPGRADEITEM", 3, "A", "kmrpa_upgitm"),
     PromptTarget("upgrade.gui", "BTN_ASSEMBLE", 24, "A", "kmrpa_upgasm"),
     PromptTarget("abilities.gui", "BTN_EXIT", 14, "B", "kmrpb_abilexit"),
+
+    # Its sibling on the resolution screen. That dispatcher DOES implement
+    # 0x27, at 0x006E0F14, calling CSWGuiOptionsResolution::OnResolutionChosen
+    # regardless of focus, so KMRP routes A away from it when Cancel holds
+    # focus -- see ResolveResolutionConfirmK1 in the module.
+    PromptTarget("optresolution.gui", "BTN_OK", 0, "A", "kmrpa_resok"),
 )
 
 
@@ -322,8 +364,11 @@ def _blend(pixel: tuple[float, float, float, float], color: tuple[int, int, int]
 
 
 @lru_cache(maxsize=None)
-def _load_glyph_art(glyph: str):
-    """The CC0 Xbox 360 glyph for `glyph`, cropped to its ink, or None.
+def _load_glyph_art(glyph: str, family: str = GLYPH_FAMILY):
+    """`family`'s CC0 glyph for `glyph`, cropped to its ink, or None.
+
+    SWAP -- the whole "press X to swap tabs" phrase -- exists as art for Xbox
+    only; another family shows its own X-position button there instead.
 
     A missing file falls back to the procedurally drawn badge, and that fallback
     is SILENT by design -- which is how the whole set came to be drawn discs
@@ -331,10 +376,13 @@ def _load_glyph_art(glyph: str):
     quietly changed appearance. `check_glyph_art` exists so a build can ask.
     """
     from PIL import Image
-    name = GLYPH_ART.get(glyph)
+    folder, art = GLYPH_FAMILIES[family]
+    name = art.get(glyph)
+    if name is None and glyph == "SWAP":
+        name = art.get("X")
     if name is None:
         return None
-    path = GLYPH_ART_DIR / name
+    path = GLYPH_PACK / folder / name
     if not path.is_file():
         return None
     art = Image.open(path).convert("RGBA")
@@ -358,14 +406,15 @@ def vocabulary():
 
 
 def _composite_glyph_tga(control_width: int, control_height: int, glyph: str,
-                         center_x: float, center_y: float, radius: float) -> bytes:
+                         center_x: float, center_y: float, radius: float,
+                         family: str = GLYPH_FAMILY) -> bytes:
     """Place the real glyph artwork, pre-compensated for the button stretch.
 
     The engine stretches BORDER.FILL across the whole control, so a square in
     CONTROL space is a rectangle in TEXTURE space. The art is therefore resized
     to that rectangle and comes out round in game.
     """
-    art = _load_glyph_art(glyph)
+    art = _load_glyph_art(glyph, family)
     if art is None:
         return _legacy_drawn_tga(control_width, control_height, glyph)
 
@@ -402,7 +451,8 @@ def _composite_glyph_tga(control_width: int, control_height: int, glyph: str,
 @lru_cache(maxsize=None)
 def build_prompt_tga(control_width: int, control_height: int, glyph: str,
                      label_width: float = 0.0,
-                     radius_height: int = 0) -> bytes:
+                     radius_height: int = 0,
+                     family: str = GLYPH_FAMILY) -> bytes:
     if control_width <= 0 or control_height <= 0:
         raise ValueError(f"Invalid prompt control extent {control_width}x{control_height}")
     center_y = control_height * 0.50
@@ -435,7 +485,7 @@ def build_prompt_tga(control_width: int, control_height: int, glyph: str,
     else:
         center_x = control_height * 0.58
     return _composite_glyph_tga(control_width, control_height, glyph,
-                                center_x, center_y, radius)
+                                center_x, center_y, radius, family)
 
 
 # A cue that is nothing but a glyph sits on its own square control, so unlike
@@ -448,7 +498,8 @@ SQUARE_GLYPH_FILL = 0.86
 
 
 def build_square_glyph_tga(glyph: str, size: int = SQUARE_GLYPH_SIZE,
-                           height: int | None = None) -> bytes:
+                           height: int | None = None,
+                           family: str = GLYPH_FAMILY) -> bytes:
     """The glyph centred on a transparent texture, at its own proportions.
 
     `height` defaults to `size`, which is what a cue on a square control wants.
@@ -462,7 +513,7 @@ def build_square_glyph_tga(glyph: str, size: int = SQUARE_GLYPH_SIZE,
     """
     if height is None:
         height = size
-    art = _load_glyph_art(glyph)
+    art = _load_glyph_art(glyph, family)
     if art is None:
         raise ValueError(
             f"No artwork for {glyph!r}; a standalone cue has nothing else to draw")
@@ -665,7 +716,8 @@ PROMPT_STRREFS = {
     ("optkeymapping.gui", "BTN_Cancel"): ((1581,),),
     ("upgrade.gui", "BTN_BACK"): ((1581,),),
     ("upgradeitems.gui", "BTN_BACK"): ((1582,),),
-    ("confirm.gui", "BTN_CANCEL"): ((1581,),),
+    ("optresolution.gui", "BTN_CANCEL"): ((1581,),),
+    ("optresolution.gui", "BTN_OK"): ((1580,),),
     ("optkeymapping.gui", "BTN_Accept"): ((1580,),),
     ("optgraphicsadv.gui", "BTN_BACK"): ((1580,),),
     ("optsoundadv.gui", "BTN_BACK"): ((1580,),),
@@ -910,12 +962,17 @@ def build_prompt_textures(gui_files: list[Path], output_dir: Path) -> list[Path]
             radius_height = group_height[group]
             variants = tuple(group_variants[group])
 
-        output = output_dir / f"{target.resref}.tga"
-        output.write_bytes(build_prompt_tga(
-            width, height, target.glyph, round(label_width, 2), radius_height))
-        results.append(output)
-        manifest.append((target.resref, width, height, round(label_width, 2),
-                         variants))
+        # Once per family, identically placed: only the art differs, so the
+        # installer's re-centring treats every family's copy the same way.
+        for family in GLYPH_FAMILIES:
+            resref = family_resref(target.resref, family)
+            output = output_dir / f"{resref}.tga"
+            output.write_bytes(build_prompt_tga(
+                width, height, target.glyph, round(label_width, 2), radius_height,
+                family))
+            results.append(output)
+            manifest.append((resref, width, height, round(label_width, 2),
+                             variants))
 
         # One texture per caption, for the buttons the module can index. Each is
         # placed against its OWN wording and carries only that wording in the
@@ -932,13 +989,14 @@ def build_prompt_textures(gui_files: list[Path], output_dir: Path) -> list[Path]
             for index, variant in enumerate(variants):
                 one = variant_strings((variant,), PROMPT_FALLBACK_STRINGS)
                 one_width = measure_label(one[0], advances, spacing_px) if one else 0.0
-                resref = f"{target.resref}{index}"
-                path = output_dir / f"{resref}.tga"
-                path.write_bytes(build_prompt_tga(
-                    width, height, target.glyph, round(one_width, 2)))
-                results.append(path)
-                manifest.append((resref, width, height, round(one_width, 2),
-                                 (variant,)))
+                for family in GLYPH_FAMILIES:
+                    resref = family_resref(f"{target.resref}{index}", family)
+                    path = output_dir / f"{resref}.tga"
+                    path.write_bytes(build_prompt_tga(
+                        width, height, target.glyph, round(one_width, 2), 0, family))
+                    results.append(path)
+                    manifest.append((resref, width, height, round(one_width, 2),
+                                     (variant,)))
 
     # Placement manifest for the installer. The badge artwork does not depend on
     # the label -- only its horizontal position does, and that position moves by

@@ -121,6 +121,49 @@ def scale_listbox_padding(source: Path, dest: Path, scale: float,
     return changed
 
 
+# Script Selection's option list, and the box its background art draws around
+# it. The frame is not a control: it is part of lbl_char_scr.tpc, one 2868x1436
+# texture shared by every resolution and stretched across the whole screen, so
+# its lines sit at fixed fractions of the screen WIDTH. Read from the texture on
+# 2026-09-24: the left box's left line at x 300..305, its right line at 1409.
+# Measured against a 3440x1440 screenshot the same day: 361 and 1688 there,
+# against 363 and 1690 from these fractions.
+SCRIPTSELECT_FRAME = (302.5 / 2868, 1409 / 2868)
+
+
+def centre_rows_in_frame(source: Path, dest: Path, screen_width: int, tag: str,
+                         frame: tuple[float, float]) -> int:
+    """Set a left-scrollbar list's PADDING so its rows sit centred in `frame`.
+
+    Since gold v12 a list with `LEFTSCROLLBAR` lays its rows out from
+    `list.left + scrollbarWidth + PADDING` to `list.left + list.width`: PADDING
+    moves the left edge only. Script Selection shipped PADDING 2, so its rows
+    started 12px outside the art's frame on the left while stopping 17px inside
+    it on the right (3440x1440, reported 2026-09-24). This picks the PADDING
+    that gives both sides the same margin, from this resolution's own list
+    geometry. The row prototypes are not touched -- see
+    Test-GeneratedGuiGeometry.py for why they must not be.
+    """
+    gff = read_gff(source)
+    target = None
+    for control in gff.root.get_list("CONTROLS"):
+        if control.acquire("TAG", "").upper() == tag.upper():
+            target = control
+    if target is None:
+        raise ValueError(f"{source.name}: no {tag}")
+    extent = target.get_struct("EXTENT")
+    left, width = extent.get_int32("LEFT"), extent.get_int32("WIDTH")
+    bar = target.get_struct("SCROLLBAR").get_struct("EXTENT").get_int32("WIDTH")
+    frame_left, frame_right = (f * screen_width for f in frame)
+    rows_right = left + width
+    padding = int(round(frame_left + frame_right - rows_right - left - bar))
+    # A byte in the engine, and validated against half the content width.
+    padding = max(0, min(padding, 255, (width - bar) // 2 - 1))
+    target.set_int32("PADDING", padding)
+    write_gff(gff, dest, ResourceType.GUI)
+    return padding
+
+
 def main() -> int:
     parser = argparse.ArgumentParser()
     parser.add_argument("source", type=Path)

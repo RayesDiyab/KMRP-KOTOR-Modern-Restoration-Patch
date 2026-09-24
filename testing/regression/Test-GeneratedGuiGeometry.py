@@ -100,6 +100,55 @@ def check_list_prototypes(path: Path, resolution: str, screen: str,
     return errors
 
 
+def check_feedback_gutter(path: Path, resolution: str, height: int) -> list[str]:
+    """The Feedback list keeps a gap between its left scrollbar and the circles.
+
+    CSWGuiOptionsCheckbox::SetExtent (0x006DE000) draws each circle as a fixed
+    25px square at its row's very left, and rows start where the scrollbar ends,
+    so with vanilla's PADDING 0 the circles sat against the scrollbar. Since gold
+    v12 PADDING is a horizontal gutter on the scrollbar side, and it comes from
+    HAND_TUNED_GUTTERS in prepare_universal_resources.py -- the prototypes are
+    left alone, which check_list_prototypes insists on.
+    """
+    from prepare_universal_resources import HAND_TUNED_GUTTERS, font_scale_for
+    unit = dict((next(iter(tags)), value)
+                for tags, value in HAND_TUNED_GUTTERS["optfeedback.gui"])["LB_OPTIONS"]
+    expected = int(round(unit * font_scale_for(height)))
+    control = controls_by_tag(read_gff(path)).get("LB_OPTIONS")
+    if control is None:
+        return [f"{resolution} optfeedback: missing LB_OPTIONS"]
+    padding = control.acquire("PADDING", 0)
+    if padding != expected or padding < 1:
+        return [f"{resolution} optfeedback LB_OPTIONS: PADDING {padding}, expected "
+                f"{expected} (the gap between the scrollbar and the circles)"]
+    return []
+
+
+def check_scriptselect_centred(path: Path, resolution: str, width: int) -> list[str]:
+    """Script Selection's rows sit centred in the box its background art draws.
+
+    The box is part of lbl_char_scr.tpc, stretched across the screen, so it is
+    at fixed fractions of the screen width (SCRIPTSELECT_FRAME). With a left
+    scrollbar the rows run from list.left + scrollbar + PADDING to list.left +
+    list.width; vanilla's PADDING 2 put them 12px outside the frame on the left
+    at 3440x1440. centre_rows_in_frame computes the PADDING per resolution.
+    """
+    from scale_listbox_padding import SCRIPTSELECT_FRAME
+    control = controls_by_tag(read_gff(path)).get("LST_AIState")
+    if control is None:
+        return [f"{resolution} scriptselect: missing LST_AIState"]
+    left, _, list_width, _ = extent_values(control)
+    bar = extent_values(control.get_struct("SCROLLBAR"))[2]
+    padding = control.acquire("PADDING", 0)
+    frame_left, frame_right = (f * width for f in SCRIPTSELECT_FRAME)
+    left_margin = left + bar + padding - frame_left
+    right_margin = frame_right - (left + list_width)
+    if left_margin < 0 or right_margin < 0 or abs(left_margin - right_margin) > 2:
+        return [f"{resolution} scriptselect LST_AIState: rows {left_margin:.1f}px "
+                f"inside the frame on the left, {right_margin:.1f}px on the right"]
+    return []
+
+
 def check_confirmation(path: Path, resolution: str) -> list[str]:
     errors: list[str] = []
     gui = read_gff(path)
@@ -169,6 +218,10 @@ def main() -> int:
             errors.extend(check_list_prototypes(
                 extract_dir / "scriptselect.gui", resolution, "scriptselect", SCRIPTSELECT_LISTS
             ))
+            errors.extend(check_feedback_gutter(
+                extract_dir / "optfeedback.gui", resolution, height))
+            errors.extend(check_scriptselect_centred(
+                extract_dir / "scriptselect.gui", resolution, width))
             errors.extend(check_confirmation(extract_dir / "confirm.gui", resolution))
             errors.extend(check_hud(extract_dir / active_hud, resolution, height, gold))
 

@@ -14,6 +14,8 @@ EXPORTS
     UpdateActionBarControlsK1
     UpdateActionBarControlsK2
     OnSetActiveControlK1
+    ResolveSoloModeConfirmK1
+    ResolveResolutionConfirmK1
     NativeJoystickInitK1
     NativeJoystickBufferK1
     NativeJoystickMovementK1
@@ -26,9 +28,12 @@ EXPORTS
     NativeMovieWindowCloseK1
     NativeActionBarK1
     NativePanelReleaseGffK1
+    NativeFreeSaveBufferK1
     KmrpActionBarApplyK1
     KmrpActionBarFocusedK1
     KmrpActionBarStateK1
+    KmrpActionBarReleaseK1
+    KmrpGlyphLetterK1
     KmrpUpdatePromptsK1
     KmrpNoteMouseK1
     KmrpMarkControllerActiveK1

@@ -36,6 +36,34 @@ CALL = re.compile(
     re.DOTALL,
 )
 
+# A byte patch names no function, so it is emitted by its own helper and is
+# identified by address. Its byte lists are written as concatenated string
+# literals to stay inside the line length, hence the `+`.
+BYTE_PATCH = re.compile(
+    r'AppendBytePatch\(text,\s*"(0x[0-9A-Fa-f]+)",\s*'
+    r'((?:"[^"]*"\s*\+?\s*)+),\s*((?:"[^"]*"\s*\+?\s*)+)\);',
+    re.DOTALL,
+)
+CHUNK = re.compile(r'"([^"]*)"')
+
+
+def _bytes_of(literal: str) -> list:
+    """The byte list from one or more concatenated C# string literals."""
+    joined = "".join(CHUNK.findall(literal))
+    return [int(b, 16) for b in joined.split(", ")]
+
+
+def parse_byte_patches():
+    """{address: {original_bytes, replacement_bytes}} from AppendBytePatch calls."""
+    text = PATCHER.read_text(encoding="utf-8")
+    return {
+        int(match.group(1), 16): {
+            "original_bytes": _bytes_of(match.group(2)),
+            "replacement_bytes": _bytes_of(match.group(3)),
+        }
+        for match in BYTE_PATCH.finditer(text)
+    }
+
 
 def parse_patcher():
     text = PATCHER.read_text(encoding="utf-8")
@@ -57,9 +85,28 @@ def parse_patcher():
 
 def main() -> int:
     patcher = parse_patcher()
-    tracked = {h["function"]: h for h in kmrp_controller.native_hooks()}
+    native = kmrp_controller.native_hooks()
+    tracked = {h["function"]: h for h in native
+               if not kmrp_controller.is_byte_patch(h)}
+    tracked_bytes = {h["address"]: h for h in native
+                     if kmrp_controller.is_byte_patch(h)}
+    patcher_bytes = parse_byte_patches()
 
     problems = []
+    missing_bytes = sorted(set(tracked_bytes) - set(patcher_bytes))
+    if missing_bytes:
+        problems.append("the patcher does not emit byte patches at: "
+                        + ", ".join(f"{a:#010x}" for a in missing_bytes))
+    extra_bytes = sorted(set(patcher_bytes) - set(tracked_bytes))
+    if extra_bytes:
+        problems.append("the patcher emits byte patches not in the tracked "
+                        "table: " + ", ".join(f"{a:#010x}" for a in extra_bytes))
+    for address in sorted(set(patcher_bytes) & set(tracked_bytes)):
+        got, want = patcher_bytes[address], tracked_bytes[address]
+        for field in ("original_bytes", "replacement_bytes"):
+            if got[field] != list(want[field]):
+                problems.append(f"{address:#010x}: {field.replace('_', ' ')} differ")
+
     missing = sorted(set(tracked) - set(patcher))
     if missing:
         problems.append(f"the patcher does not emit: {', '.join(missing)}")
@@ -92,7 +139,8 @@ def main() -> int:
 
     print(f"Patcher hook table matches the tracked table "
           f"({len(tracked)} native hooks, addresses, stolen bytes, skip flags "
-          f"and consumed exits all agree).")
+          f"and consumed exits all agree; {len(tracked_bytes)} byte patches, "
+          f"addresses and both byte lists all agree).")
     return 0
 
 

@@ -68,6 +68,185 @@ own process in memory at startup without writing to `swkotor.exe` at all.
 ## [Unreleased]
 
 ### Added
+
+- **Menu and dialogue text is drawn at the size it was rendered at** (issue
+  #16). Two players reported pixelated, aliased text, one at 1920x1080 and one
+  at 3440x1440, which ruled out any single resolution being at fault. The font
+  atlases were baked once at scale 3.0 and reused everywhere, with the
+  per-resolution TXI rescaling `texturewidth` — and `texturewidth * 100` is what
+  turns glyph coordinates into texels, so it matched the atlas's real width at
+  3840x2160 and nowhere else. 1080p declared 512 px of a 1024 px atlas, 1440p
+  declared 683. Every font TXI also carries `mipmap 0` and `filter 0`, so that
+  resampling was point sampled: texels dropped rather than blended, which threw
+  away the antialiasing the atlas had, and 1440p's uneven 1.5:1 ratio is what
+  made strokes look ragged. Each resolution now ships atlases baked at its own
+  scale, so one texel lands on one pixel and nothing is resampled. **The
+  typeface is unchanged** — the same Old Republic and Arimo Medium as before,
+  baked more than once. Adds about 15 MB to the installer;
+  `Test-FontAtlasScale.py` asserts the one-texel-per-pixel invariant for every
+  font at every resolution. 15360x8640 is the one exception and still resamples,
+  because its scale-12.0 atlas is larger than the baker can produce.
+
+- **The mouse stays inside the game window** on multi-monitor setups (issue
+  #20). KOTOR steers the camera with mouse movement but never clips the cursor,
+  so a wide enough sweep put the pointer on the next display and the camera
+  stopped following. The cursor is now clipped to the game window's client area
+  whenever KOTOR is the foreground window, and released on Alt-Tab, on losing
+  focus, on minimise and on exit — a crash cannot leave it trapped, because the
+  clip does not outlive the process. The game imports no `ClipCursor` of its
+  own, so nothing in the engine is being overridden. It ships inside the
+  optional controller component, which is installed unless turned off, so a
+  player who declines that component does not get it; see
+  [controller-support.md](docs/controller-support.md). Untested on real
+  multi-monitor hardware.
+
+### Fixed
+
+- **Cancel now cancels on the Solo Mode prompt** (issue #21). Pressing A with
+  Cancel highlighted turned Solo Mode on anyway. The panel is a retained Xbox
+  one: its handler at `0x006C244C` calls `CClientExoApp::TogglePartyFollow`
+  before looking at anything, and never reads which button has focus — on the
+  Xbox there was none, A meant yes and B meant no. KMRP now consumes A there
+  when Cancel holds focus and exits into the panel's own close path, so A on
+  Cancel does exactly what B does. That first fix left **both buttons
+  refusing**: it was a KPM consumed-exit hook, and KPM runs a hook's stolen
+  bytes before it tests the handler's answer. The stolen instruction loaded
+  EAX, so the test never saw the answer and every A took the close path, OK
+  included. Both hooks now sit at the panel's input-handler entry and, with
+  Cancel focused, rewrite A into B on the stack, so the game's own dispatcher
+  cancels; A on OK runs the vanilla confirm once. `check_hook_stolen_bytes.py`
+  now refuses a consumed-exit hook whose stolen bytes touch EAX or the stack.
+  Awaiting an in-game check; `kmrp-confirm-focus.log` records each decision.
+  **The resolution screen had the identical
+  defect** and was fixed with it: A applied the highlighted resolution from
+  Cancel, through `CSWGuiOptionsResolution::OnResolutionChosen`. Ordinary
+  confirmation boxes were never affected — they implement no `0x27` at all, so
+  A genuinely reaches the focused control.
+
+- **Feedback Options: the circles no longer sit on the scrollbar.** The option
+  list keeps its scrollbar on the left, the game starts each row exactly where
+  the scrollbar ends, and draws each circle at the row's very edge. The list now
+  has a small gutter on that side, 12 px at 3440x1440, scaled with the
+  resolution. Awaiting an in-game check.
+
+- **Script Selection: the option rows are centred in their box.** They started
+  outside the box's left edge and stopped short of its right one. The box is
+  drawn by the background art at a fixed share of the screen width, so the
+  rows' left inset is now computed per resolution to leave the same margin on
+  both sides. Awaiting an in-game check.
+
+- **Answering a dialog no longer acts on the world behind it** (issue #21).
+  Dismissing "do you wish to turn Solo Mode on?" with A went on to start a
+  conversation with whoever was targeted. A asks for the world-interaction
+  bridge on press, and that request was made whatever owned the input; the
+  consumer checks that gameplay is active, but it checks when it runs, and
+  closing the dialog handed the input back well inside the request's 250 ms
+  window. The request is now gated on press, exactly as B's already was.
+
+- **The resolution screen has controller glyphs**, the one Options screen that
+  never did (issue #21). A on OK, B on Cancel, and the D-pad moves between them.
+
+- **A confirmation box no longer blanks the badges of the screen behind it.**
+  `CSWGuiMessageBox` was missing from the panel search, and the modal branch
+  returns nothing for a top modal it does not recognise, so opening any Yes/No
+  dialog cleared the prompts on the screen underneath.
+
+- **Yes/No boxes show an A beside the focused button** (issue #21, Quit Game).
+  Exit Game, Solo Mode, overwrite and delete save all use one confirmation
+  box, whose buttons the engine shrinks to fit their captions, so no badge can
+  be painted inside them. The A is now a control of its own that sits just
+  left of whichever button has focus and moves with the D-pad, like the main
+  menu's. Shown only while a controller is the active device. Awaiting an
+  in-game check.
+
+- **Removed the Solo Mode prompt's Cancel badge**, which drew as a thin red
+  smear across the caption rather than a glyph beside it. `FixMessageLabel`
+  (`0x006253A0`) rewrites both message-box button extents before drawing,
+  overwriting the third field with `0x64`, so the button is roughly an eighth of
+  the width its `.gui` declares and the badge is stretched by the wrong factor.
+  Rebuilding it for the real width does not help: a disc sized to the control's
+  height covers the middle of a button only two and a half times as wide as it
+  is tall. These buttons needed a prompt drawn beside them instead of inside,
+  which is what the travelling A above now is.
+
+### Added
+
+- Added a **Controller Layout** screen, opened from **Options → Gameplay** by a
+  button directly under Keymapping. A real controller diagram — Xelu's CC0
+  Xbox Series X or PS5 silhouette, tinted to KOTOR's palette with the pad's own
+  face-button glyphs on it — sits between two columns of callouts, each an
+  engine-drawn glyph and caption joined to its button by a leader line. It
+  follows the pad: Xbox, PlayStation, Switch and Steam Deck each get their own
+  diagram and glyphs, swapped live without rebuilding the screen. Captions
+  describe what the native controller path actually does (View is solo mode,
+  LB/RB cycle targets, Start opens the Map), not the legacy key table the first
+  draft used. Row order is searched so that no leader line passes through a
+  button that is not its own; on the Xbox silhouette, which three families
+  share, none cross either. The screen is full-screen rather than a box: a
+  navy backdrop with dim, original edge art anchored to the real screen edges
+  at every aspect — corner brackets, hairlines, two status readouts, and in the
+  side margins a turret gunnery station and a light freighter's deck plan. Its
+  lettering is real Aurebesh (SilvinoR's OFL font) spelling English that means
+  what it says. The A that opens it no longer closes it again: the screen used
+  to flash for a frame and shut unless A was held. Nor does the A that closes
+  it through Back reopen it, and Back now shows the pad's B / Circle glyph.
+  The long captions are whole again: the game draws the screen's labels in the
+  larger menu font, so they wrapped and showed only their last line ("Free
+  look", "Tab"). Their boxes are now sized from that font at every resolution.
+
+- **Options → Gameplay: Mouse Settings, Keymapping and Controller Layout sit
+  higher**, by half their own spacing, so the new button no longer touches the
+  bottom bar. In-game manual acceptance
+  remains outstanding.
+
+- Added a hybrid XInput / SDL3 HIDAPI controller backend and pinned x86 SDL
+  packaging. Xbox retains XInput; mapped non-Xbox devices feed the existing
+  normalized controller state, physical-position Nintendo glyphs, and rumble.
+  Device discovery is throttled and handoff releases old-device input. Runtime
+  and physical-device validation remain outstanding; see
+  [controller-sdl-backend.md](docs/controller-sdl-backend.md).
+- Hardened NVIDIA profile ownership: a same-name foreign profile is not adopted,
+  existing shared profiles are left alone, and unavailable-driver restore keeps
+  its recovery record. Verified saves remain eligible for rollback even when
+  their subsequent readback fails.
+
+- **Controller glyphs follow the controller** (issue #19). The badges and cues
+  show PlayStation, Switch or Steam Deck buttons when that is the pad being used,
+  and Xbox otherwise. The module asks about the one pad it reads, the way SDL
+  does: `XInputGetCapabilitiesEx` (`xinput1_4.dll` ordinal 108) gives the USB
+  vendor and product id behind that XInput slot -- Sony `054C` is PlayStation,
+  Nintendo `057E` Switch, Valve `28DE:1205` the Steam Deck, anything else Xbox.
+  Through **Steam Input** the slot holds Steam's virtual pad (`28DE:11FF`), and
+  Steam publishes the physical controller behind it in the file named by
+  `SteamVirtualGamepadInfo`, which the module reads for that pad's `[slot N]`. A
+  translator that presents an Xbox pad of its own, such as DS4Windows, gets Xbox
+  buttons. It is asked only when that pad connects or changes slot, or when Steam
+  rewrites its file: no timer, nothing to configure.
+
+  All four families are built and shipped, named by the resref's fourth letter
+  (`kmrpb_charexit` Xbox, `kmrsb_…` PlayStation, `kmrnb_…` Switch, `kmrdb_…` Steam
+  Deck), so the Xbox names are unchanged and nothing grows past 16 characters;
+  the installer grew 28.1 MB. The Switch set maps by button **position** -- the
+  bottom button a Switch Pro labels B carries the A action -- which assumes a
+  positional translator. `check_controller_drift.py` fails if the module's and the
+  build's family letters disagree or any family's art is missing, and
+  `Test-ControllerPromptAssets.py` checks every family's badges against that
+  family's own art.
+
+  **Verified:** the call on this machine (a virtual Xbox 360 pad reads
+  `045E:028E`) and the parsing of Steam's file in SDL's documented format.
+  **Untested:** a real Steam virtual pad, any physical PlayStation, Switch or Steam
+  Deck controller, Proton, and the new families' art in game. See *Controller
+  families* in [`docs/controller-support.md`](docs/controller-support.md).
+- **Start opens the Map, and closes the menu again** (issue #18). In the world
+  it now sends the engine's own Map hotkey, event `0xD7`, instead of Start's
+  `0x0B`, which opened Options; with the in-game menu in front it acts as B, so it
+  closes the Map or whichever screen LT/RT moved to. The Map is `0xD7` because the
+  router sends `0xD1`–`0xD8` to one handler (`0x006218D5`) that shows screen
+  `event - 0xD1`, and the Map's tab ID in `top.gui` is 6. Options and every other
+  screen stay one LT/RT away. **Not yet verified in play**;
+  `testing/controller/test_hud_release_and_start_map.py` checks it against the
+  engine's memory once a save is loaded.
 - **X is shown beside the Skills / Powers / Feats tabs.** It has cycled them
   all along and nothing said so.
 
@@ -167,6 +346,104 @@ own process in memory at startup without writing to `swkotor.exe` at all.
   unused glyph is a change nobody asked for.
 
 ### Fixed
+- **A no longer stays stuck on the bottom-right action bar** (issue #17). Using a
+  slot with A now lets go of the bar, so the next A talks to the NPC or opens the
+  door again, and **B** lets go of it without using anything -- B had no other
+  effect in the world. D-pad Left/Right re-enters the bar as before. The press
+  that uses a slot also clears the world interaction's pending request, so one
+  press still does exactly one thing now that the bar's focus goes away within
+  the same frame. `hrel=` in the diagnostic line counts the releases. **Not yet
+  verified in play**; see `testing/controller/test_hud_release_and_start_map.py`.
+- **The one-frame white flash in the in-game menus is gone** (issue #14), along
+  with two quieter relatives: the menu backdrop drawn alone for a frame when
+  switching to the Utility or Equipable filter, and a half-drawn world, with
+  characters missing, on the frame a menu closes.
+
+  None of the three was the engine's doing. NVIDIA's **"Vulkan/OpenGL present
+  method: Prefer layered on DXGI Swapchain"** puts frames on screen that the game
+  has not finished drawing, and each symptom is a frame caught while it stalled:
+  the flash is `WinMain`'s bare frame-start `glClear` (the area's `SunFogColor`,
+  near-white on Manaan) during the 15–65 ms the inventory takes to rebuild.
+  Measured on an RTX 3080, driver 32.0.16.1656, two-minute captures:
+
+  | present method | menu fix | white flashes | other unfinished frames |
+  | --- | --- | ---: | ---: |
+  | Prefer layered (global) | off | 7 of 8 tab entries | — |
+  | Prefer layered (global) | on | 0 | 2 and 6 in two runs |
+  | Prefer native | on | 0 | 0 |
+  | Prefer native | off (checked in the live process) | 0 | 0 |
+
+  NVIDIA's default is Auto, and on Auto the driver presented both vanilla and
+  KMRP natively in-game; this machine's *global* had been set to prefer layered.
+  So the patcher now checks, through NvAPI, what the driver will do for the
+  installed `swkotor.exe`, and **only if it would inherit Prefer layered** sets
+  Prefer native (`OGL_CPL_PREFER_DXPRESENT`, `0x20D690F8` = `0`) in the game's
+  own profile — normally NVIDIA's predefined KOTOR profile — recording it in
+  `KMRP_NVIDIA.manifest`. A value set for the game on purpose is left alone,
+  the global profile is never touched, restore removes only KMRP's value, and
+  any error is logged with the manual steps rather than failing the install. No
+  administrator rights needed. See
+  [`docs/nvidia-present-method.md`](docs/nvidia-present-method.md) and
+  `testing/regression/Test-NvidiaPresentMethod.ps1`.
+
+  **Correction, 2026-09-19:** the development renderer-clear mitigation was
+  removed from the module, exports, TOML, and installer. It had hooked VA
+  `0x0040467C` (`NativeFrameClearK1`) and `0x004512D0`
+  (`NativeSceneRenderK1`), with diagnostic `fcl=` counters. Native driver
+  presentation is the production fix; no independent engine defect justified
+  retaining clear suppression. Historical measurements remain in
+  [the investigation](reverse-engineering/experiments/white-flash-video-capture.md).
+
+  **Untested:** a full install writing a real KOTOR profile (this machine's
+  already held a value, which the installer correctly kept), 32-bit Windows,
+  older drivers, Optimus laptops, and AMD or Intel, where no such path was seen.
+- **Three memory-safety patches from the Kotor Patch Manager project are now
+  installed.** Two are VexFlint's and one is Lane Dibello's, each adopted
+  rather than re-derived: the replacement bytes are copied verbatim, so the
+  behaviour is the one reviewed there. KMRP
+  had already folded in KPM's *rendering* fixes -- cube maps, grass tearing,
+  soft shadows -- and none of its memory ones, and that split was not
+  principled. Two of the three are bounds and lifetime bugs that get more
+  likely the more textures and data a session loads, which is what KMRP does to
+  this engine.
+
+  They install as ordinary entries in KMRP's own hook table, so the executable
+  on disk is not touched and the gold SHA-256 is unchanged at
+  `9DD81A75F4888FD67242B682BEE0AB4392EA8923CDF4A020CA3EDD2464C05E0A`. Each
+  patch's `original_bytes` was checked to match **both** the clean source and
+  the gold image -- KMRP's own delta touches none of those four addresses.
+
+  | site | address | type | what it does |
+  | --- | --- | --- | --- |
+  | `AurTextureGetMaxTexID` | `0x0041FEB5` | `replace` | saturates the returned id at 4999 |
+  | `AddPartToMeshBuckets` | `0x0046BE64` | `replace` | range-checks the id before the indexed write, rejoining at `0x0046BEB1` |
+  | `DestroyGrassPolys` | `0x004A847C` | `replace` | zeroes the argument when `+0x3C` aliases `+0x38` |
+  | `~CAurTriangleBin` | `0x004A8380` | `replace` | the same, with `eax` for `edx` |
+  | `CERFFile::WriteResource+0x272` | `0x005DDE32` | `detour` | `NativeFreeSaveBufferK1` frees the buffer the writer abandons |
+
+  The first two are the texture-bucket overrun: three 5000-entry arrays at
+  `0x008194E0` are indexed by driver-assigned GL texture names with no range
+  check, and `maxTexID` (`0x007A46BC`) only ever rises. Saturating rather than
+  masking, because an `AND` would wrap a legitimate 4500 down to 404 and leave
+  stale buckets uncleared. See
+  [`reverse-engineering/experiments/texture-bucket-overrun.md`](reverse-engineering/experiments/texture-bucket-overrun.md).
+
+  The grass pair is one allocation stored in two fields that two paths each
+  free; `free` (`0x006FB7B2`) guards NULL explicitly, so zeroing the aliased
+  argument is a safe no-op. The save detour reclaims one buffer per resource
+  written, counted as `sbf` in the diagnostic line.
+
+  The hook tooling had to learn that a hook need not name an exported function:
+  `kmrp_controller.is_byte_patch` identifies one, ownership for those is KMRP
+  directly, the renderer emits `replacement_bytes` instead of `function`, and
+  the drift checker matches them by address. Without that, adding the first
+  byte patch would have raised `KeyError` in every one of those checks.
+
+  **Measured in play, not assumed:** across two sessions on this build
+  `maxTexID` peaked at 471 and 296 against the 5000-entry array, so the
+  overrun was not reached in either -- the patch is a guard, and nothing here
+  claims it fixed a symptom that was observed. `sbf` stayed 0 because neither
+  session saved.
 - **Holding a D-pad direction now scrolls a list, on every screen.** Reported
   on Quest Items: a held Down moved one item and stopped.
 

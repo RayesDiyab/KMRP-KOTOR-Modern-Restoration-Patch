@@ -68,6 +68,13 @@ KMRP installed it, restore leaves the newer setting alone. The patcher refuses
 to run against an executable it does not recognise, and refuses to restore one
 it did not create. See [Windows DPI handling](docs/windows-dpi-scaling.md).
 
+On NVIDIA, if the driver's global "Vulkan/OpenGL present method" prefers a DXGI
+swap chain, KOTOR shows half-drawn frames -- a one-frame white flash in the
+menus among them -- so the patcher sets **Prefer native** for `swkotor.exe` in
+that case only, records it in `KMRP_NVIDIA.manifest`, and removes it again on
+restore. A value set for the game on purpose is left alone. See
+[NVIDIA present method](docs/nvidia-present-method.md).
+
 <details>
 <summary><b>Command line</b> (same operations, no window)</summary>
 
@@ -178,13 +185,13 @@ overwrites a mod you installed yourself.
 | --- | --- | --- | --- |
 | [K1 Modern Driver Compatibility](https://codeberg.org/Synchro/kotor-modern-driver-compatibility) 1.2.0 | Synchro | MPL-2.0 | **Yes** — Advanced Settings |
 | Area map marker corrections (250 notes) | Derslok | GPL-3.0 | **Yes** — Advanced Settings |
-| [KPM – Xbox Controls for KOTOR 1](https://github.com/scopeking0117-alt/KPM-Xbox-Controls-K1) 1.2 | Saul0097 | Author permission; upstream licence file pending | **Yes, off by default** — Advanced Settings |
+| Controller support, based on [KPM – Xbox Controls for KOTOR 1](https://github.com/scopeking0117-alt/KPM-Xbox-Controls-K1) 1.2 | Saul0097 / KMRP | Author permission; upstream licence file pending; SDL zlib | **Yes, off by default** — Advanced Settings |
 | Party Portraits | MadDerp | — | No |
 | KOTOR 1 HD Icon Pack 1.0 | JackInTheBox | — | No |
 
 **Advanced Settings**, the button beside *Start Patching*, controls all three
 optional components. Driver compatibility and map corrections default to on;
-Xbox controller support is opt-in. The choices are remembered in
+Controller support is opt-in. The choices are remembered in
 `%LOCALAPPDATA%\KMRP\settings.json`.
 
 **Driver compatibility** is two files dropped beside `swkotor.exe`; it never
@@ -192,12 +199,15 @@ edits the executable, and KMRP removes them on restore. What it changes, and the
 check showing its eight patch sites do not collide with any of KMRP's 702 changed
 bytes, is in [docs/third-party-driver-compat.md](docs/third-party-driver-compat.md).
 
-**Xbox controller support** uses that ASI loader plus a six-hook KOTOR Patch
-Manager runtime. It supports XInput and translates into KOTOR's existing input
-paths; it is not native engine controller support. Existing external
-`patch_config.toml` files are preserved and block installation. Exact files,
-controls, hooks, dynamic A/B/X menu badges, and the remaining visual/hardware/
-Proton test matrix are in [docs/controller-support.md](docs/controller-support.md).
+**Controller support** uses that ASI loader plus a KOTOR Patch Manager runtime.
+Xbox devices retain XInput; SDL3/HIDAPI supplies mapped non-Xbox devices to the
+same normalized state. Input still travels through KOTOR's retained controller
+events rather than synthetic keys. Settings / Controls also gains a live
+Controller Layout screen. Existing external `patch_config.toml` files are
+preserved and block component installation. Exact files, mappings, hooks,
+dynamic prompt families, layout screen, and the remaining hardware/Proton test
+matrix are in [docs/controller-support.md](docs/controller-support.md) and
+[docs/controller-layout.md](docs/controller-layout.md).
 
 **The bundled artwork yields.** A portrait or icon already present in `Override`
 that KMRP did not put there is left alone — so a content mod that ships the same

@@ -16,14 +16,21 @@ from pathlib import Path
 from pykotor.resource.formats.gff import GFFStruct, read_gff, write_gff
 
 from apply_gold_hud_proportions import apply_proportions
-from build_controller_prompt_textures import (build_prompt_textures,
-                                              build_square_glyph_tga)
+from build_controller_prompt_textures import (GLYPH_FAMILIES,
+                                              build_prompt_textures,
+                                              build_square_glyph_tga,
+                                              family_resref)
+from build_controller_layout import (add_confirm_badge,
+                                     add_entry as add_controller_layout_entry,
+                                     build_art as build_controller_layout_art,
+                                     build_gui as build_controller_layout_gui)
 from build_menubg_texture import build_texture_for_gui
 from build_scaled_fonts import export_font_txis, export_fonts, scale_txi
 from fix_hud_menubg import fix_menubg_file
 from scale_hud_minimap import patch_gui
 from transfer_gold_gui_geometry import transfer_geometry
-from scale_listbox_padding import LIST_GUTTER_AT_UNIT_SCALE, scale_listbox_padding
+from scale_listbox_padding import (LIST_GUTTER_AT_UNIT_SCALE, SCRIPTSELECT_FRAME,
+                                   centre_rows_in_frame, scale_listbox_padding)
 from scale_message_popup import apply_tuned as apply_popup_layout
 from export_tutorial_icons import export_tutorial_icons
 from fix_feedback_list_prototypes import fix_feedback_prototypes, fix_scriptselect_prototypes
@@ -162,6 +169,16 @@ LIST_LISTBOXES = {
 HAND_TUNED_GUTTERS = {
     "computer.gui": [({"LB_MESSAGE"}, 20.0), ({"LB_REPLIES"}, 5.0)],
     "equip.gui": [({"LB_DESC"}, 10.0)],
+    # Feedback Options: a list of options checkboxes with its scrollbar on the
+    # left. CSWGuiOptionsCheckbox::SetExtent (0x006DE000) draws each circle as
+    # a fixed 25px square at the row's very left, and the engine starts rows
+    # where the scrollbar ends and forces the scrollbar to the list's edge
+    # (0x0041BFC0, 0x00419C0D), so with vanilla's PADDING 0 every circle sat
+    # against the scrollbar -- reported 2026-09-24 at 3440x1440. Since gold v12
+    # PADDING is a horizontal gutter on the scrollbar side and nothing else, so
+    # it opens the gap without moving the rows apart: 12px at 3440x1440, about
+    # half a circle.
+    "optfeedback.gui": [({"LB_OPTIONS"}, 6.0)],
 }
 
 # Files whose 3440x1440 gold layout is NOT transferred to other resolutions.
@@ -740,6 +757,13 @@ def main() -> int:
                              "override-common.zip (currently tutorial.2da)")
     parser.add_argument("hd_fonts", type=Path,
                         help="Pre-rendered HD font atlases (assets/hd-fonts)")
+    parser.add_argument("--font-scale-sets", type=Path,
+                        help="directory of per-scale atlas sets from "
+                             "tools/build_font_scale_sets.py. A resolution whose "
+                             "scale has a set there ships that set instead of the "
+                             "shared 3.0 bake, which makes texturewidth the "
+                             "atlas's real width and stops the engine resampling "
+                             "the text (issue #16)")
     args = parser.parse_args()
 
     if args.output.exists():
@@ -794,6 +818,16 @@ def main() -> int:
     if not hd_font_atlases:
         raise ValueError(f"No HD font atlases found in {args.hd_fonts}")
     hd_font_stems = {path.stem.lower() for path in hd_font_atlases}
+
+    # A set baked at the resolution's own scale, where one exists. Those atlases
+    # travel in the per-resolution archive, because they differ per resolution;
+    # the shared 3.0 bake above stays for any scale that has no set.
+    def scale_set_for(height: int):
+        if not args.font_scale_sets:
+            return None
+        candidate = args.font_scale_sets / f"{font_scale_for(height):.6f}"
+        return candidate if (candidate / "dialogfont16x16.tga").is_file() else None
+
 
     with tempfile.TemporaryDirectory(prefix="kotor-stock-fonts-") as stock_name:
         # Stock artwork for every font we are NOT replacing. A scaled `.txi` alone
@@ -858,25 +892,40 @@ def main() -> int:
         # needs no aspect pre-compensation and one texture is correct everywhere
         # -- unlike the caption badges, which are stretched across oblong buttons
         # and are built per resolution for exactly that reason.
-        cue_art = Path(icon_staging) / f"{R3_CUE_FILL}.tga"
-        cue_art.write_bytes(build_square_glyph_tga("R3"))
-        common_tga_files = common_tga_files + [cue_art]
+        #
+        # Every cue once per controller family. The .gui names the Xbox art; the
+        # module rewrites the resref's fourth letter to the family it detects.
+        for family in GLYPH_FAMILIES:
+            cue_art = Path(icon_staging) / f"{family_resref(R3_CUE_FILL, family)}.tga"
+            cue_art.write_bytes(build_square_glyph_tga("R3", family=family))
+            common_tga_files = common_tga_files + [cue_art]
 
-        # The same, for the two menu-strip cues.
-        for _, fill, glyph in TAB_CUES:
-            art = Path(icon_staging) / f"{fill}.tga"
-            art.write_bytes(build_square_glyph_tga(glyph))
-            common_tga_files = common_tga_files + [art]
+            # The same, for the two menu-strip cues.
+            for _, fill, glyph in TAB_CUES:
+                art = Path(icon_staging) / f"{family_resref(fill, family)}.tga"
+                art.write_bytes(build_square_glyph_tga(glyph, family=family))
+                common_tga_files = common_tga_files + [art]
 
-        # The swap-tabs phrase, on a texture of its own shape rather than a
-        # square, because its control is that shape too.
-        swap_art = Path(icon_staging) / f"{SWAP_CUE_FILL}.tga"
-        swap_art.write_bytes(build_square_glyph_tga(
-            SWAP_CUE_GLYPH, 256, 256 // SWAP_CUE_ASPECT))
-        common_tga_files = common_tga_files + [swap_art]
+            # The swap-tabs phrase, on a texture of its own shape rather than a
+            # square, because its control is that shape too. Only Xbox has the
+            # phrase as art; the others show their X-position button on it.
+            swap_art = Path(icon_staging) / f"{family_resref(SWAP_CUE_FILL, family)}.tga"
+            swap_art.write_bytes(build_square_glyph_tga(
+                SWAP_CUE_GLYPH, 256, 256 // SWAP_CUE_ASPECT, family=family))
+            common_tga_files = common_tga_files + [swap_art]
 
+        # Controller Layout uses the same physical-position glyph sources as
+        # the HUD prompts. Its art is resolution-independent; its geometry is
+        # authored below from each resolution's final Controls screen.
+        common_tga_files += build_controller_layout_art(Path(icon_staging))
+
+        # Font atlases never ship here. They differ per resolution now, and the
+        # installer refuses a build where override-common.zip and a resolution
+        # archive disagree about the same file -- "Two interface archives
+        # disagree about dialogfont10x10.tga", which is exactly what a shared
+        # copy alongside the per-resolution ones produces.
         write_zip(args.output / "override-common.zip",
-                  common_tga_files + hd_font_atlases + stock_atlases + shared_data + bundled)
+                  common_tga_files + stock_atlases + shared_data + bundled)
         shutil.rmtree(icon_staging, ignore_errors=True)
 
         # The names of the bundled art, so the installer can tell it apart from our
@@ -1057,6 +1106,12 @@ def main() -> int:
                         scale_listbox_padding(gutter_file, gutter_file,
                                               font_scale_for(height), tags,
                                               unit_gutter=unit, force=True)
+                    # Script Selection's rows, centred in the box its background
+                    # art draws -- computed, not tuned, because that box is at a
+                    # fixed fraction of the screen width while the list is not.
+                    if path.name.lower() == "scriptselect.gui":
+                        centre_rows_in_frame(gutter_file, gutter_file, width,
+                                             "LST_AIState", SCRIPTSELECT_FRAME)
                     packaged_files[index] = gutter_file
 
                 # The R3 party-switch cue, on the four screens that switch.
@@ -1116,6 +1171,36 @@ def main() -> int:
                         f"{resolution}: the tab-strip cues reached {tabbed} of "
                         f"{len(TAB_CUES)}")
 
+                # Add one entry to Settings / Controls and author the dedicated
+                # layout screen from that resolution's final KOTOR geometry.
+                # This must happen after every upstream and KMRP GUI transform,
+                # so the new screen inherits the exact panel dimensions and
+                # font metrics the game will load.
+                layout_dir = temp_dir / "controller-layout"
+                layout_dir.mkdir(exist_ok=True)
+                # The entry sits on the Gameplay screen, under Keymapping.
+                # Options does not list Mouse, so Mouse is itself two screens in.
+                controls_index = next(
+                    (i for i, path in enumerate(packaged_files)
+                     if path.name.lower() == "optgameplay.gui"), None)
+                if controls_index is None:
+                    raise ValueError(f"{resolution}: optgameplay.gui is missing")
+                controls_gui = layout_dir / "optgameplay.gui"
+                add_controller_layout_entry(
+                    packaged_files[controls_index], controls_gui)
+                packaged_files[controls_index] = controls_gui
+
+                # The travelling A beside a confirmation box's focused button.
+                confirm_index = next(
+                    (i for i, path in enumerate(packaged_files)
+                     if path.name.lower() == "confirm.gui"), None)
+                if confirm_index is None:
+                    raise ValueError(f"{resolution}: confirm.gui is missing")
+                confirm_gui = layout_dir / "confirm.gui"
+                add_confirm_badge(packaged_files[confirm_index], confirm_gui,
+                                  controls_gui)
+                packaged_files[confirm_index] = confirm_gui
+
                 # Generate this resolution's button-row background art from the
                 # mipc*.gui file the engine will actually load at this
                 # resolution. The in-executable variant selector compares the
@@ -1145,17 +1230,30 @@ def main() -> int:
                 font_dir.mkdir(parents=True, exist_ok=True)
                 scale = font_scale_for(height)
                 replaced: set[str] = set()
-                for atlas in hd_font_atlases:
+                # Prefer a set baked at this resolution's own scale. Then the
+                # factor below is exactly 1.0, `texturewidth` stays the atlas's
+                # real width, and one texel lands on one pixel -- no resampling,
+                # which is what made the text ragged at 1080p and 1440p. Without
+                # a set, fall back to the shared 3.0 bake and its rescale.
+                scale_set = scale_set_for(height)
+                source_atlases = (sorted(scale_set.glob("*.tga")) if scale_set
+                                  else hd_font_atlases)
+                bake_scale = scale if scale_set else HD_FONT_BAKE_SCALE
+                for atlas in source_atlases:
+                    # Always in this archive, never in override-common.zip: a
+                    # resolution with no set of its own still needs its copy of
+                    # the shared bake here, or the two archives disagree.
+                    packaged_files.append(atlas)
                     metrics = atlas.with_suffix(".txi")
                     scaled = font_dir / metrics.name
-                    # These metrics already carry HD_FONT_BAKE_SCALE, so undo it
+                    # These metrics already carry the bake scale, so undo it
                     # before applying this resolution's own scale -- otherwise the
                     # baked-in enlargement would be multiplied a second time.
                     scaled.write_bytes(
                         apply_letter_spacing(
                             scale_txi(
                                 metrics.read_text(encoding="ascii"),
-                                scale / HD_FONT_BAKE_SCALE,
+                                scale / bake_scale,
                             ),
                             letter_spacing_for(scale),
                         ).encode("ascii")
@@ -1180,6 +1278,23 @@ def main() -> int:
                             ).encode("ascii")
                         )
                         packaged_files.append(path)
+
+                root_extent = read_gff(controls_gui).root.get_struct("EXTENT")
+                layout_gui = layout_dir / "kmrplayout.gui"
+                # The Controller Layout screen, built here rather than beside
+                # its entry above because its caption boxes are sized from
+                # this resolution's own font, which is only packaged now.
+                caption_txi = next(
+                    (path for path in packaged_files
+                     if path.name.lower() == "dialogfont16x16.txi"), None)
+                if caption_txi is None:
+                    raise ValueError(f"{resolution}: dialogfont16x16.txi is missing")
+                build_controller_layout_gui(
+                    controls_gui, layout_gui,
+                    root_extent.get_int32("WIDTH"),
+                    root_extent.get_int32("HEIGHT"),
+                    caption_txi)
+                packaged_files.append(layout_gui)
 
                 # Hex icon frames at this resolution's row-icon size, so the
                 # tiled fill stays exactly one tile (see scale_row_icon_frames).

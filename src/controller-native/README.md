@@ -1,9 +1,12 @@
 # The KMRP controller module
 
 This directory is the **canonical, authoritative source** for
-`kmrp-controller.module`. Everything the build compiles is tracked here.
+`kmrp-controller.module`. Project sources are tracked here; SDL headers come from a hash-verified SDK
+under ignored `build/deps`.
 
-Build it with `build.cmd` (Visual Studio Build Tools, x86). The output,
+Build it with `build.cmd` (Visual Studio Build Tools, x86, and PowerShell 7).
+The script prepares the pinned SDL SDK automatically. See
+[the hybrid backend reference](../../docs/controller-sdl-backend.md). The output,
 `kmrp-controller.module`, is what `testing/controller/select_controller_path.py`
 installs. The reverse engineering behind the native path is in
 `reverse-engineering/retained-xbox-gui-events.md`; the architecture and the full
@@ -11,6 +14,8 @@ mapping are in `docs/controller-native-path.md`.
 
 | File | Whose | What |
 | --- | --- | --- |
+| `K1ControllerBackend.cpp` / `.h` | KMRP | XInput and SDL/HIDAPI state normalization, active-device selection and rumble |
+| `K1ControllerLayout.cpp` / `.h` | KMRP | Settings / Controls entry, modal Controller Layout panel, live glyph refresh, callbacks and explicit control ownership |
 | `K1NativeJoystick.cpp` / `.h` | KMRP | the native path: supplies the joystick device KOTOR's retained console input system expects, so the engine's own handlers drive movement, buttons, menus, camera and free look |
 | `vendor/K1XboxControls.cpp` | Saul0097, modified by KMRP | movie skipping, the action bar, focus fixes, cursor and device-switch policy |
 | `vendor/K1XboxControlsXInput.cpp` / `.h` | Saul0097, modified by KMRP | XInput reading and the last-input-device state the prompts depend on |

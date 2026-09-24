@@ -116,6 +116,14 @@ input, so KMRP's focus navigation does not run and the D-pad's native codes are
 the D-pad still deliver their events and the world still ignores them: those are
 GUI events and gameplay has no handler for them.
 
+**Changed 2026-09-19, read from the code, not yet measured in play (S only):**
+Start opens the **Map** instead of the Options menu, through the engine's own Map
+hotkey `0xD7`, and with the in-game menu up it sends B, so it closes the menu from
+any tab (issue #18). B now also lets go of the bottom-right action bar when one of
+its slots has focus, and a slot used with A lets go of it too (issue #17). The rows
+above are the measurements as they were taken; see
+[`controller-native-path.md`](controller-native-path.md).
+
 **R3 is context-dependent.** The enter handler requires a live player creature,
 `[internal+0x2c0] == 0`, and not paused by combat. Measured 10/10 from a clean
 state, and 6/6 after A, X, Y, Back or a stick push — but see the L3/R3
@@ -211,7 +219,7 @@ Statically proven only; each needs live or human verification (**S**, needs **V 
 | Graphics / Resolution | focused control | — | — | — | — | KMRP |
 | Pazaak setup / game | focused control | close | — | implemented | — | KMRP |
 | Upgrade / item select | focused control | close | — | — | list scroll | KMRP |
-| Solo mode query | — | **`0x2E` only, not `0x28`** | — | — | — | KMRP |
+| Solo mode query | **panel-level, ignores focus** | close | — | — | — | KMRP |
 | Key mappings | focused control | close | — | — | — | KMRP |
 
 **Dialogue** has its own panels — `CSWGuiDialogCinematic`, `CSWGuiDialogTop`,
@@ -226,8 +234,8 @@ What holds everywhere, which is what a prompt can safely claim:
 
 | Input | Consistent meaning | Exceptions |
 | --- | --- | --- |
-| **A** | **confirm / activate the focused control** | none found. Works through the focused control even where the panel does not implement `0x27` |
-| **B** | **cancel / back / close** | implemented by 35 of 40 panels. `SOLO_MODE_QUERY` implements `0x2E` and not `0x28`, so B may not reach it — **unverified, flagged** |
+| **A** | **confirm / activate the focused control** | **two exceptions, found 2026-09-20.** `SOLO_MODE_QUERY` and `OPTIONS_RESOLUTION` implement `0x27` themselves and never read the active control, so A ran their confirm action from Cancel. KMRP now consumes A on those two when Cancel holds focus — see below |
+| **B** | **cancel / back / close** | implemented by 35 of 40 panels. `SOLO_MODE_QUERY` implements **both** `0x28` and `0x2E`, at `0x006C2488`, so B does dismiss it — the earlier "`0x2E` only" came from the stale inventory row corrected on 2026-09-20 |
 | **LT / RT** | **previous / next tab**, in the in-game menu only | no effect anywhere else, including the main menu and gameplay |
 | **LB / RB** | **scroll the focused list** | only meaningful on the 17–19 panels with a list; silent elsewhere |
 | **D-pad** | **move focus** | on the six native-direction screens the engine moves its own selection instead |
@@ -322,7 +330,23 @@ confirmation box, where A and B are self-evident.
    design rather than a KMRP decision.
 7. **`SOLO_MODE_QUERY` implements both `0x27` and `0x28`.** A reaches
    `TogglePartyFollow`, B reaches `CGuiInGame::HideSoloMode`, so **B dismisses
-   it**. An earlier pass claimed otherwise; that came from a decoder fault which
+   it**. **Confirmed 2026-09-20, and it is worse than "implements":** the A
+   handler at `0x006C244C` calls `CClientExoApp::TogglePartyFollow`
+   unconditionally and falls through into the `0x28` path, without ever reading
+   the active control. On the PC panel, which draws a highlighted OK and Cancel,
+   A therefore turned Solo Mode on from **either** button — the defect reported
+   as issue #21. `CSWGuiOptionsResolution` has the identical shape at
+   `0x006E0F14`, calling `OnResolutionChosen` the same way. Both are corrected
+   in the module; the plain message box is not affected, because `0x006250F0`
+   implements no `0x27` at all and so genuinely defers to the focused control. **Corrected 2026-09-24:** the
+   first fix refused on BOTH buttons, and the cause was not a second confirm
+   route -- the decision log showed exactly one confirm per press, each passed
+   through, each refused. It was KPM's wrapper order: stolen bytes run before
+   the consumed-exit `TEST EAX`, and the Solo hook's stolen `mov eax,[0x7A39FC]`
+   put the app pointer in EAX, so every A took the close path. The resolution
+   hook's stolen `push 0` reached its exit with an extra dword on an
+   ESP-relative frame. Both now rewrite A to B at the handler's entry
+   (`0x006C2400`, `0x006E0CF0`) instead of using a consumed exit. An earlier pass claimed otherwise; that came from a decoder fault which
    accumulated across a `mov ecx, eax` that restarts the arithmetic, inventing
    `0x55`/`0x56`/`0x5B` and hiding the real codes. The same fault invented events
    on `OPTIONS_GRAPHICS`, `OPTIONS_GRAPHICS_ADVANCED` and `OPTIONS_RESOLUTION`.
@@ -338,7 +362,9 @@ confirmation box, where A and B are self-evident.
    analysis says what the handlers do; nobody has watched them respond.
 2. **Dialogue.** Not a panel, not reached, and the most-used screen in the game.
    This is the single largest gap in this document.
-3. **Whether `SOLO_MODE_QUERY` can be closed with B** — finding 7 above.
+3. **Whether `SOLO_MODE_QUERY` can be closed with B** — finding 7 above. Static
+   analysis now says yes (`0x28` -> `0x006C2488` -> `CGuiInGame::HideSoloMode`);
+   nobody has yet watched it happen with a pad in hand.
 4. **The tutorial box** — which input dismisses it, and whether it can be
    waited out comfortably while the tab strip is unresponsive.
 5. **Internal navigation on the six native-direction screens** (Abilities,
@@ -474,7 +500,7 @@ must not be used for camera claims.** Sensitivity remains a feel judgement. **L 
 | Additional panels found outside it | 3 — `CSWGuiInGameMenu`, `CSWGuiDialog*`, `CSWGuiTutorialBox` |
 | Contexts verified live with the pad (**V**) | 13 — gameplay, main menu, in-game menu root, the 8 tabs, dialogue, free look |
 | Verified from live engine state (**L**) | the same 13, plus the input-class model |
-| Static only (**S**), still needing **V** | 24 panels — merchant, containers, party select, level up, all of character creation, the options sub-screens, Pazaak, upgrade, key mappings, message box internals |
+| Static only (**S**), still needing **V** | 24 panels — merchant, containers, party select, level up, all of character creation, the options sub-screens, Pazaak, upgrade, key mappings. **Message box internals are no longer unread**: `CSWGuiMessageBox`'s constructor at `0x00626DF0` builds `BTN_OK` at `+0x2F4` and `BTN_CANCEL` at `+0x4B8` over the GUI named `confirm`, and its dispatcher `0x006250F0` implements only `0x28`/`0x2E` and `0x3A`. Still unwatched in play. |
 | Requiring human QA (**H**) | every feel item, plus everything in the static-only list |
 
 The inventory itself is now believed sound: after the decoder fix, no event code
