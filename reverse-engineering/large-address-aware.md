@@ -18,6 +18,7 @@ needs more than 2 GB; memory-heavy gameplay remains an empirical test.
 | Gold v22 LAA | 4,083,712 | `7863BCE3BDDAC279B6A14FEB2412D38572CF94D22D6E0D8EC869D491B7EFCDE8` | `0x012F` |
 | Gold v24, current | 4,087,808 | `9DD81A75F4888FD67242B682BEE0AB4392EA8923CDF4A020CA3EDD2464C05E0A` | `0x012F` |
 | What the installer writes, all 48 resolutions | 4,087,808 | per resolution | `0x012F` |
+| The same, 2880x1620 (added 2026-09-25) | 4,087,808 | `69DC9BBB…` | `0x012F` |
 
 The last two rows were read on 2026-09-24 from gold and from the 2026-09-24
 installer's `--apply` output: v23 and v24 carried the bit forward, and every

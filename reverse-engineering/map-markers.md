@@ -186,7 +186,7 @@ idiv 0x100                 ; / 256
 | `0x00694AAC` | `0x294AAC` | `0x005791B0` | `0x0086D080` | player arrow |
 
 **The scale factors are read from the object at run time**, not written per
-resolution, which is why one gold binary serves all 48. `[ebx+0x0C]` is the
+resolution, which is why one gold binary serves all 49. `[ebx+0x0C]` is the
 marker overlay width — **measured live with x64dbg at 1478 under gold v19 and
 1720 under gold v20**, not 1720-at-v19 as `map.md`'s field table used to claim.
 
@@ -441,7 +441,7 @@ wrapper splice and the assembled routine, all in §7.1–7.5.
 
 **The imm8 ceiling.** Sizes are `imm32` and unbounded, but every centring offset
 is `add r32, imm8`. The largest is the arrow's `size/2`, so the factor is clamped
-at `127 / 16 = 7.9375`, i.e. heights above ~5715 px. Of the 48 shipped
+at `127 / 16 = 7.9375`, i.e. heights above ~5715 px. Of the 49 shipped
 resolutions that is **15360×8640 alone**, which gets markers about two thirds of
 the ideal size, still correctly centred. Lifting it means widening those three
 `add`s into `imm32` in a stub — the same shape as the stack-count label fix in

@@ -272,7 +272,8 @@ namespace Kmrp
                         values[4], values[5], values[6]));
                 }
             }
-            if (choices.Count != 48)
+            // 48 upstream resolutions plus 2880x1620, derived since 2026-09-25 (issue #16).
+            if (choices.Count != 49)
                 throw new InvalidDataException("The bundled resolution catalog is incomplete.");
             return choices;
         }

@@ -110,6 +110,36 @@ KMRP therefore does not currently advertise that combination. Preserving an
 external patch through apply and restore requires a separately specified,
 versioned overlay contract—not a blanket exception—and remains unfinished.
 
+## Issue #15: crashes on the next module load -- analysis, 2026-09-25
+
+**Status: a hypothesis, not a reproduction.** The ten reported mods were not
+installed here. That would take ten downloads, one of them behind a Nexus login.
+
+The reports share a pattern. The mods are unrelated in kind: loose files,
+patcher installs, module edits and texture packs. The reporter runs more than 130
+mods. The game crashes on a *module load*, either the Endar Spire after character
+creation, or the next load after KMRP was applied mid-save, and the same build
+loads without KMRP. A single content conflict does not fit that pattern. A shared
+limit that the whole stack approaches does, and KMRP 1.0 moved three such limits
+the wrong way. Each was measured here:
+
+| Limit | KMRP 1.0 (tag `v2.10.0`) | KMRP 1.5 |
+| --- | --- | --- |
+| **2 GB address space** | Accepted only the unpatched `761F9466…` executable, so a player's own 4 GB patch had to be removed first. Its output keeps characteristics `0x010F`, without Large Address Aware (`git show v2.10.0` has no LAA code). | Accepts an executable with the LAA bit already set, and sets it on every output (`0x012F`, read from the installer's output; `Test-LargeAddressAware.ps1`). |
+| **Resident font atlases** | One set baked at 3.0x for every resolution: 42.0 MB resident, +39.2 MB over vanilla ([texture-residency.md](../reverse-engineering/texture-residency.md)). | Per resolution: 9.8 MB at 720p, 18.0 MB at 1080p, 27.0 MB at 1440p. At 2160p and above it is **more**, 66.0 MB. |
+| **Texture-bucket overrun** | Unbounded. `ClearBuckets` iterates to the highest GL texture name seen, with no clamp (KPM's crash site `0x0046BF22`); `AddPartToMeshBuckets` writes out of range (`0x0046BEAE`). Both grow with the number of textures ever loaded. | Bounded at 5000 by KPM's two `replace` patches, installed with the controller component (on by default). See [texture-bucket-overrun.md](../reverse-engineering/experiments/texture-bucket-overrun.md). |
+
+None of this is shown to be *the* cause. The overrun was measured far from its
+limit in ordinary play: `maxTexID` peaked at 471 and 296. The Endar Spire crash
+right after character creation happens early in a session, which fits a texture
+count better than address-space exhaustion.
+
+**What would settle it:** have the reporter retest with 1.5. If it still crashes,
+ask for the Windows Event Viewer entry (*Application Error*, faulting module
+`swkotor.exe` and its offset). An offset of `0x0006BF22` or `0x0006BEAE` is the
+bucket overrun, and memory near 2 GB at the crash is address space. Not yet
+asked; nothing was posted to the issue.
+
 ## What remains untested or requires people
 
 - KOTORganizer Sync → KMRP → MO2 launch has not been exercised end-to-end.

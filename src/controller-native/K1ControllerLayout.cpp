@@ -241,6 +241,128 @@ void updateConfirmBadges() {
     }
 }
 
+// ---------------------------------------------------------------- dialogue A
+//
+// An A left of the highlighted reply's number, like the main menu's travelling
+// A (issue #21). A in dialogue picks the highlighted reply once the line has
+// finished, and skips the line while it plays (CSWGuiDialog::HandleInputEvent,
+// 0x006A7266), so the A is shown only while replies can be picked.
+// tools/prepare_universal_resources.py adds LBL_KMRPDLG to dialog.gui at every
+// resolution; it reuses the confirm boxes' A art, kmr?cnfa.
+//
+// Read from the clean executable, 2026-09-25:
+//   0x006A8B6C  the dialogue constructor stores vtable 0x755800, then loads
+//               "dialog" and calls ReleaseGff at 0x006A8C1E with it in place
+//   0x006A8BC7  LB_REPLIES is the CSWGuiListBox at panel+0x19C4
+//   0x006A7266  [panel+0x1DF8] bit 0 set: a line is playing, A skips it
+//   0x006A72B9  D-pad up/down move [panel+0x68], floored at 0 and capped at
+//               [panel+0x6C]-1 -- taken as the highlighted reply
+//   0x0041B1E0  the list's rows are the controls in [list+0x29C], [list+0x2A0]
+//               of them, each given its rect by SetExtent
+// Which space those row rects are in (the list's or the panel's) was not
+// settled statically, so the geometry is logged the first time each
+// conversation shows replies, for the play-test to confirm. Rows are taken as
+// relative to the list until that says otherwise.
+constexpr std::uintptr_t K1_DIALOG_VTABLE = 0x755800;
+constexpr unsigned K1_DIALOG_REPLIES = 0x19C4;
+constexpr unsigned K1_DIALOG_FLAGS = 0x1DF8;
+constexpr unsigned K1_DIALOG_HIGHLIGHT = 0x68;
+constexpr unsigned K1_LIST_ROWS = 0x29C;
+constexpr unsigned K1_LIST_ROW_COUNT = 0x2A0;
+constexpr unsigned K1_LIST_SELECTED = 0x2C8;           // int16, the list's own
+constexpr int K1_DIALOG_MAX_ROWS = 64;
+struct DialogBadge { void* panel; void* label; char family; bool shown; int loggedCount; }
+    dialogBadges[4] = {};
+unsigned dialogGeometryLogs = 0;
+
+void logDialogGeometry(const DialogBadge& b, char* list, void** rows, int count,
+                       int highlight, const int* placed) {
+    if (dialogGeometryLogs >= 24) return;           // a session's worth, no more
+    ++dialogGeometryLogs;
+    FILE* f=nullptr;
+    if (fopen_s(&f, "kmrp-layout-lifecycle.log", "a") || !f) return;
+    const int* panelRect=reinterpret_cast<const int*>(static_cast<char*>(b.panel)+4);
+    const int* listRect=reinterpret_cast<const int*>(list+4);
+    fprintf(f,"%lu dialog-geometry panel=%p rect=(%d,%d,%d,%d) list=(%d,%d,%d,%d) rows=%d "
+              "highlight=%d listSelected=%d flags=%08X placed=(%d,%d,%d,%d)",
+        GetTickCount(),b.panel,panelRect[0],panelRect[1],panelRect[2],panelRect[3],
+        listRect[0],listRect[1],listRect[2],listRect[3],count,highlight,
+        static_cast<int>(at<short>(list,K1_LIST_SELECTED)),
+        at<unsigned>(b.panel,K1_DIALOG_FLAGS),placed[0],placed[1],placed[2],placed[3]);
+    for (int i=0;i<count && i<6;++i) {
+        if (!readable(rows[i],0x14)) break;
+        const int* r=reinterpret_cast<const int*>(static_cast<char*>(rows[i])+4);
+        fprintf(f," row%d=(%d,%d,%d,%d)",i,r[0],r[1],r[2],r[3]);
+    }
+    fputc('\n',f);
+    fclose(f);
+}
+
+void updateDialogBadges() {
+    const bool pad=IsControllerInputActiveK1();
+    const char family=KmrpGlyphLetterK1();
+    for (auto& b: dialogBadges) {
+        if (!b.panel) continue;
+        if (!readable(b.panel,K1_DIALOG_FLAGS+4) || !readable(b.label,0x140)) {
+            b={}; continue;                 // the panel is gone: forget, never touch
+        }
+        char* list=static_cast<char*>(b.panel)+K1_DIALOG_REPLIES;
+        const bool linePlaying=(at<unsigned>(b.panel,K1_DIALOG_FLAGS)&1u)!=0;
+        const int count=at<int>(list,K1_LIST_ROW_COUNT);
+        void** rows=at<void**>(list,K1_LIST_ROWS);
+        const int highlight=at<int>(b.panel,K1_DIALOG_HIGHLIGHT);
+        const bool choosing=pad && !linePlaying && count>0 && count<=K1_DIALOG_MAX_ROWS &&
+            rows && readable(rows,count*sizeof(void*)) && highlight>=0 && highlight<count &&
+            readable(rows[highlight],0x14);
+        if (!choosing) {
+            if (b.shown) { showControl(b.label,false); b.shown=false; }
+            if (count<=0) b.loggedCount=0;      // the next set of replies logs again
+            continue;
+        }
+        // One text line: the shortest row, so a reply that wraps onto two lines
+        // still gets a glyph the height of a line, level with its first line.
+        int line=0;
+        for (int i=0;i<count;++i) {
+            if (!readable(rows[i],0x14)) continue;
+            const int h=at<int>(rows[i],0x10);
+            if (h>0 && (line==0 || h<line)) line=h;
+        }
+        const int* listRect=reinterpret_cast<const int*>(list+4);
+        const int* r=reinterpret_cast<const int*>(static_cast<char*>(rows[highlight])+4);
+        if (line<=0) line=r[3];
+        const int size=line;
+        // The reply text starts after the list's scrollbar, which sits on the
+        // left and is the width the rows leave free (list width - row width):
+        // at 3440x1440 the rows are 3312 wide in a 3344 list, so 32 px. The
+        // first build placed the A from the row's own x and missed this, which
+        // put it at panel x -77 -- screen x -29, off the left edge. Measured
+        // from the play-test log of 2026-09-25; at 1920x1080 the same rule
+        // gives the text start seen in the screenshot, 48 + 16 = 64 px.
+        const int scrollbar=listRect[2]>r[2] ? listRect[2]-r[2] : 0;
+        const int textStart=listRect[0]+r[0]+scrollbar;
+        const int* panelRect=reinterpret_cast<const int*>(static_cast<char*>(b.panel)+4);
+        int left=textStart-size-size/8;
+        if (panelRect[0]+left<0) left=-panelRect[0];   // never off the screen
+        const int top=listRect[1]+r[1];
+        const bool inList=r[1]>=0 && r[1]+size<=listRect[3];
+        const int rect[4]={left, top, size, size};
+        if (b.loggedCount!=count) { logDialogGeometry(b,list,rows,count,highlight,rect); b.loggedCount=count; }
+        if (!inList) {                          // scrolled out of the list
+            if (b.shown) { showControl(b.label,false); b.shown=false; }
+            continue;
+        }
+        setExtent(b.label,rect);
+        if (family!=b.family) {
+            char resref[16]={};
+            sprintf_s(resref,"kmr%ccnfa",family);
+            using Fill=void(__thiscall*)(void*,const void*,int);
+            fn<Fill>(0x414C00)(static_cast<char*>(b.label)+0x70,resref,1);
+            b.family=family;
+        }
+        if (!b.shown) { showControl(b.label,true); b.shown=true; }
+    }
+}
+
 void refresh() {
     char next=KmrpGlyphLetterK1();
     int active=IsControllerInputActiveK1()?1:0;
@@ -298,6 +420,24 @@ void ControllerLayoutReleaseGffK1(void* panel) {
             int id=at<int>(b.label,0x50);
             if (array && id>=0 && id<at<int>(panel,0x24)) array[id]=nullptr;
             destroyControl(b.label); b={};
+        }
+        for (auto& b: dialogBadges) if (b.panel==panel) {
+            auto array=at<void**>(panel,0x20);
+            int id=at<int>(b.label,0x50);
+            if (array && id>=0 && id<at<int>(panel,0x24)) array[id]=nullptr;
+            destroyControl(b.label); b={};
+        }
+        return;
+    }
+    if (v==K1_DIALOG_VTABLE && at<void*>(panel,0x2C)) {
+        for (const auto& b: dialogBadges) if (b.panel==panel) return;
+        for (auto& b: dialogBadges) if (!b.panel) {
+            void* c=bind(panel,"LBL_KMRPDLG");
+            if (!c) return;                // a dialog.gui without the label
+            showControl(c,false);
+            b={panel,c,0,false,0};
+            log("dialog-badge-bound");
+            return;
         }
         return;
     }
@@ -370,6 +510,7 @@ void ControllerLayoutFrameK1(void* manager) {
         }
     }
     updateConfirmBadges();
+    updateDialogBadges();
     // Counted whether or not the screen is open: the reopen guard needs it
     // after the close as much as Back needs it after the open.
     if (ControllerConfirmHeldK1()) releasedFrames=0;

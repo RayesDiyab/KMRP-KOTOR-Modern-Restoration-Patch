@@ -121,6 +121,7 @@ extern "C" void __cdecl KmrpActionBarReleaseK1(void* mainInterface);
 // alone. Both are legacy hooks that native mode drops, so every badge table and
 // every badge texture in the patch sat there unused.
 extern "C" void __cdecl KmrpUpdatePromptsK1();
+extern "C" void* __cdecl KmrpDescriptionPaneK1(void* panel);
 extern "C" void __cdecl KmrpUpdateCursorK1();
 extern "C" void __cdecl KmrpNoteMouseK1(int mouseX, int mouseY);
 extern "C" void __cdecl KmrpMarkControllerActiveK1();
@@ -3541,10 +3542,14 @@ void* ChooseNeighbourK1(void* panel, void* current, int dx, int dy)
     long bestScore = 0;
     void* wrap = nullptr;
     long wrapScore = 0;
+    // Never the description pane: see KmrpDescriptionPaneK1. It can pass
+    // ControlIsNavigableK1 on a tab screen, where zero-event list boxes are
+    // admitted so that the Messages and Journal lists can be reached.
+    void* const descriptionPane = KmrpDescriptionPaneK1(panel);
 
     for (int i = 0; i < count; ++i) {
         void* const candidate = controls[i];
-        if (candidate == current) {
+        if (candidate == current || candidate == descriptionPane) {
             continue;
         }
         RectK1 to{};

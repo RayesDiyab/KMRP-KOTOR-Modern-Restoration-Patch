@@ -22,7 +22,7 @@ from apply_gold_hud_proportions import walk_controls  # noqa: E402
 from pykotor.resource.formats.gff import read_gff  # noqa: E402
 
 
-EXPECTED_ARCHIVE_COUNT = 48
+EXPECTED_ARCHIVE_COUNT = 49   # 48 upstream + 2880x1620, derived since 2026-09-25
 ARCHIVE_PATTERN = re.compile(r"gui-(\d+)x(\d+)\.zip$")
 TARGET_TAG = "LBL_NAME"
 TARGET_FONT = "dialogfont10x10"

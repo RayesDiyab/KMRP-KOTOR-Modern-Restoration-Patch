@@ -66,7 +66,7 @@ the terminal prop's actual on-screen position (unrelated to font size — a
 pre-existing gap in the gold GUI correction pass). Fixed by hand in a KOTOR
 GUI editor and registered in `GOLD_GEOMETRY_TEMPLATES`
 (`tools/prepare_universal_resources.py`) so the same proportional-transfer
-mechanism that already carries the gold GUI corrections to all 48
+mechanism that already carries the gold GUI corrections to all 49
 resolutions now also carries this one.
 
 ## Building the patcher

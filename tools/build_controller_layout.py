@@ -620,22 +620,28 @@ def build_gui(source: Path, output: Path, width: int, height: int,
 # kmr?cnfa -- the main menu's travelling A, for these boxes.
 CONFIRM_BADGE_TAG = 'LBL_KMRPA'
 CONFIRM_BADGE_STEM = 'cnfa'
+# The A left of the highlighted dialogue reply (issue #21). The same A art as the
+# confirm boxes; the runtime moves it and swaps the family letter.
+DIALOG_BADGE_TAG = 'LBL_KMRPDLG'
 
 
-def add_confirm_badge(source: Path, output: Path, label_source: Path):
-    """Add the travelling-A label to confirm.gui.
+def add_confirm_badge(source: Path, output: Path, label_source: Path,
+                      tag: str = CONFIRM_BADGE_TAG):
+    """Add the travelling-A label to confirm.gui, or with `tag` to another file.
 
     confirm.gui has no plain label to copy -- LB_MESSAGE is a list box -- so the
     struct comes from `label_source`'s LBL_TITLE, the same one the layout screen
     is built from. Its extent is irrelevant: the runtime sets it every frame.
+    dialog.gui gets the same label as DIALOG_BADGE_TAG.
     """
     g = read_gff(source); cs = g.root.get_list('CONTROLS')
-    if any(c.get_string('TAG') == CONFIRM_BADGE_TAG for c in cs):
+    if any(c.get_string('TAG') == tag for c in cs):
+        write_gff(g, output)
         return
     labels = {c.get_string('TAG'): c
               for c in read_gff(label_source).root.get_list('CONTROLS')}
     c = copy.deepcopy(labels['LBL_TITLE'])
-    c.set_string('TAG', CONFIRM_BADGE_TAG)
+    c.set_string('TAG', tag)
     c.set_int32('ID', max(x.get_int32('ID') for x in cs) + 1)
     text(c, '')
     fill(c, f'kmrp{CONFIRM_BADGE_STEM}')

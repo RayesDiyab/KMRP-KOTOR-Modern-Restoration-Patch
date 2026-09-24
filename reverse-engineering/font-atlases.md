@@ -579,7 +579,7 @@ rights in question are not the author's to grant.
 The reasoning, recorded so it is not re-argued:
 
 - **No font file is distributed.** Verified across every embedded archive: the
-  patcher carries the gold delta, `override-common.zip`, 48 `gui-*.zip`,
+  patcher carries the gold delta, `override-common.zip`, 49 `gui-*.zip`,
   `resolutions.tsv` and a license text — zero `.ttf`/`.otf`. The TTFs under
   `assets/fonts/` are build-time inputs only; users receive **rendered TGA
   atlases**. Bundling is therefore not redistribution of font software.

@@ -1,5 +1,5 @@
 diff --git a/K1XboxControls.cpp b/K1XboxControls.cpp
-index a8c9b80..bcbcb9a 100644
+index a8c9b80..1c5b4be 100644
 --- a/K1XboxControls.cpp
 +++ b/K1XboxControls.cpp
 @@ -6,6 +6,10 @@
@@ -222,7 +222,7 @@ index a8c9b80..bcbcb9a 100644
  std::uint8_t g_pendingGenericButtonEvent = 0;
  void* g_pendingSettingsTarget = nullptr;
  int g_pendingSettingsEvent = 0;
-@@ -539,12 +641,384 @@ std::ptrdiff_t g_pendingK1PartyTargetOffset = -1;
+@@ -539,12 +641,438 @@ std::ptrdiff_t g_pendingK1PartyTargetOffset = -1;
  // arriving in one frame is not collapsed into a single line of movement.
  // Negative scrolls up, positive scrolls down.
  int g_pendingDescScroll = 0;
@@ -243,6 +243,60 @@ index a8c9b80..bcbcb9a 100644
 +std::uintptr_t g_k1PromptPanelVtable = 0;
 +bool g_k1PromptMode = false;
 +bool g_k1PromptStateKnown = false;
++
++// Every panel that has been painted with controller art and not cleared since.
++//
++// Badges are texture swaps on a panel's own buttons, so they last as long as the
++// panel does, and many panels outlive a trip to another screen -- the in-game
++// menu builds its tab screens once and keeps them. Clearing only the panel in
++// front when the player switched to mouse and keyboard left every other painted
++// screen still showing controller buttons the next time it came to the front
++// (reported 2026-09-25). A painted panel is now cleared whenever it is found in
++// front in keyboard/mouse mode, and forgotten once cleared.
++//
++// The vtable is kept with each entry so that a panel freed and replaced by an
++// unrelated one at the same address is recognised as a stranger and dropped
++// rather than written to. A replacement of the same class is cleared, which is
++// harmless: it only writes the empty fill a new panel already has.
++struct K1PaintedPanel {
++    void* panel;
++    std::uintptr_t vtable;
++};
++constexpr int K1_PAINTED_PANEL_SLOTS = 32;
++K1PaintedPanel g_k1PaintedPanels[K1_PAINTED_PANEL_SLOTS] = {};
++int g_k1PaintedPanelNext = 0;
++
++void RememberK1PaintedPanel(void* panel, std::uintptr_t vtable)
++{
++    int free = -1;
++    for (int i = 0; i < K1_PAINTED_PANEL_SLOTS; ++i) {
++        if (g_k1PaintedPanels[i].panel == panel) {
++            g_k1PaintedPanels[i].vtable = vtable;
++            return;
++        }
++        if (!g_k1PaintedPanels[i].panel && free < 0) {
++            free = i;
++        }
++    }
++    if (free < 0) {                     // full: reuse the oldest slot
++        free = g_k1PaintedPanelNext;
++        g_k1PaintedPanelNext = (g_k1PaintedPanelNext + 1) % K1_PAINTED_PANEL_SLOTS;
++    }
++    g_k1PaintedPanels[free] = { panel, vtable };
++}
++
++// True, and forgotten, if `panel` was painted and is still the same kind of panel.
++bool TakeK1PaintedPanel(void* panel, std::uintptr_t vtable)
++{
++    for (int i = 0; i < K1_PAINTED_PANEL_SLOTS; ++i) {
++        if (g_k1PaintedPanels[i].panel == panel) {
++            const bool same = g_k1PaintedPanels[i].vtable == vtable;
++            g_k1PaintedPanels[i] = {};
++            return same;
++        }
++    }
++    return false;
++}
 +// The caption variant last painted. Without this the early-out below would hold
 +// the first texture for as long as the screen stayed up, and cycling the filter
 +// would leave the badge placed for the caption before it.
@@ -609,7 +663,7 @@ index a8c9b80..bcbcb9a 100644
  
  void* OffsetPointer(void* base, std::ptrdiff_t offset)
  {
-@@ -674,13 +1148,31 @@ bool IsK1MenuPanel(void* panel)
+@@ -674,13 +1202,31 @@ bool IsK1MenuPanel(void* panel)
          vtable == K1_INGAME_OPTIONS_PANEL_VTABLE ||
          vtable == K1_KEY_MAPPINGS_PANEL_VTABLE ||
          vtable == K1_OPTIONS_MAIN_PANEL_VTABLE ||
@@ -642,7 +696,7 @@ index a8c9b80..bcbcb9a 100644
  }
  
  bool IsK1TitleMenuPanel(void* panel)
-@@ -803,6 +1295,230 @@ void* FindK1MenuPanelForInput(void** managerOut)
+@@ -803,6 +1349,237 @@ void* FindK1MenuPanelForInput(void** managerOut)
      return panel;
  }
  
@@ -839,12 +893,16 @@ index a8c9b80..bcbcb9a 100644
 +        return;
 +    }
 +
-+    // A newly constructed PC panel already has empty normal fills. Only write
-+    // the empty value when we are actively removing prompts from the same live
-+    // panel; this avoids needless texture churn while using keyboard/mouse.
-+    const bool mustApply = controllerMode ||
-+        (g_k1PromptStateKnown && g_k1PromptMode && panel == g_k1PromptPanel &&
-+         vtable == g_k1PromptPanelVtable);
++    // A newly constructed PC panel already has empty normal fills, so the empty
++    // value is written only to a panel that carries art: the one in front when
++    // the mode changed, or any other painted earlier and still alive (see
++    // g_k1PaintedPanels). Until 2026-09-25 only the first was cleared, on the
++    // assumption that a panel coming to the front in keyboard/mouse mode was new.
++    const bool clearingThisPanel = !controllerMode &&
++        ((g_k1PromptStateKnown && g_k1PromptMode && panel == g_k1PromptPanel &&
++          vtable == g_k1PromptPanelVtable) |
++         (panel != nullptr && TakeK1PaintedPanel(panel, vtable)));
++    const bool mustApply = controllerMode || clearingThisPanel;
 +
 +    if (mustApply && panel) {
 +        int count = 0;
@@ -858,6 +916,9 @@ index a8c9b80..bcbcb9a 100644
 +                    ? K1PromptResref(prompts[i], panel, control,
 +                                     prompts, count, nullptr)
 +                    : nullptr);
++        }
++        if (controllerMode && count > 0) {
++            RememberK1PaintedPanel(panel, vtable);
 +        }
 +    }
 +
@@ -873,7 +934,7 @@ index a8c9b80..bcbcb9a 100644
  bool IsK1SelectableControl(void* control)
  {
      return control &&
-@@ -985,8 +1701,23 @@ SettingsStripExit GetK1SettingsStripExit(void* panel)
+@@ -985,8 +1762,23 @@ SettingsStripExit GetK1SettingsStripExit(void* panel)
  {
      switch (*reinterpret_cast<std::uintptr_t*>(panel)) {
      case K1_SOLO_MODE_QUERY_PANEL_VTABLE:
@@ -899,7 +960,7 @@ index a8c9b80..bcbcb9a 100644
      case K1_KEY_MAPPINGS_PANEL_VTABLE:
          return {{K1_KEY_MAPPINGS_TAIL_LIST_OFFSET}, 1,
                  {K1_KEY_MAPPINGS_DEFAULT_OFFSET,
-@@ -1103,6 +1834,39 @@ SettingsStripExit GetK1SettingsStripExit(void* panel)
+@@ -1103,6 +1895,39 @@ SettingsStripExit GetK1SettingsStripExit(void* panel)
      }
  }
  
@@ -939,7 +1000,7 @@ index a8c9b80..bcbcb9a 100644
  // Which tail control is actually on screen varies by context, so take the
  // bottom-most one that is currently selectable rather than a fixed offset.
  void* FindK1SettingsColumnTail(void* panel, const SettingsStripExit& exit)
-@@ -1553,6 +2317,7 @@ int FindK1ClassSelectIndex(void* panel, void* control)
+@@ -1553,6 +2378,7 @@ int FindK1ClassSelectIndex(void* panel, void* control)
      return index < K1_CLASS_SELECT_COUNT ? index : -1;
  }
  
@@ -947,7 +1008,7 @@ index a8c9b80..bcbcb9a 100644
  MenuActionMap GetK1MenuActionMap(void* panel)
  {
      switch (*reinterpret_cast<std::uintptr_t*>(panel)) {
-@@ -1621,6 +2386,8 @@ ResolvedMenuAction ResolveK1MenuAction(void* panel, MenuActionSlot slot)
+@@ -1621,6 +2447,8 @@ ResolvedMenuAction ResolveK1MenuAction(void* panel, MenuActionSlot slot)
      };
  }
  
@@ -956,7 +1017,7 @@ index a8c9b80..bcbcb9a 100644
  // Experimental: End/Home/Insert stand in for X/Y/Black, dispatched generically
  // (same mechanism as J's Space->X-button fallback) instead of a per-panel offset map.
  void* GetK1ActiveGuiManager()
-@@ -1652,6 +2419,19 @@ void SetK1CursorHidden(void* clientApp, bool hide)
+@@ -1652,6 +2480,19 @@ void SetK1CursorHidden(void* clientApp, bool hide)
          K1_CURSOR_HIDE_REASON);
  }
  
@@ -976,7 +1037,7 @@ index a8c9b80..bcbcb9a 100644
  bool MoveK1Cursor(bool toParkedSpot)
  {
      void* manager = GetK1ActiveGuiManager();
-@@ -1668,10 +2448,12 @@ bool MoveK1Cursor(bool toParkedSpot)
+@@ -1668,10 +2509,12 @@ bool MoveK1Cursor(bool toParkedSpot)
      // Unparking drops it in the middle of the viewport rather than restoring
      // wherever it was, so bringing the pointer back always puts it somewhere
      // visible instead of back under the top edge it was just moved out of.
@@ -989,7 +1050,7 @@ index a8c9b80..bcbcb9a 100644
      return true;
  }
  
-@@ -1680,9 +2462,45 @@ bool MoveK1Cursor(bool toParkedSpot)
+@@ -1680,9 +2523,45 @@ bool MoveK1Cursor(bool toParkedSpot)
  // hide path surfaced; manual control is enough until parking itself is proven.
  void UpdateK1CursorState(void* clientApp)
  {
@@ -1036,7 +1097,7 @@ index a8c9b80..bcbcb9a 100644
              g_cursorParked = !g_cursorParked;
              SetK1CursorHidden(clientApp, g_cursorParked);
          }
-@@ -2141,6 +2959,13 @@ extern "C" void __cdecl CaptureActionBarInputK1(
+@@ -2141,6 +3020,13 @@ extern "C" void __cdecl CaptureActionBarInputK1(
      BufferedInputRecord* input,
      int inputDevice)
  {
@@ -1050,7 +1111,7 @@ index a8c9b80..bcbcb9a 100644
      // Ahead of everything else, and outside the menu-panel branch further down,
      // so the toggle answers in gameplay as well as menus. Acted on at the next
      // frame rather than here, because parking the cursor talks to the GUI
-@@ -2497,6 +3322,173 @@ extern "C" void __cdecl CaptureActionBarInputK2(
+@@ -2497,6 +3383,184 @@ extern "C" void __cdecl CaptureActionBarInputK2(
      }
  }
  
@@ -1091,6 +1152,17 @@ index a8c9b80..bcbcb9a 100644
 +        !IsControllerGeneratedKeyK1(input->offset)) {
 +        MarkKeyboardMouseInputK1();
 +    }
++}
++
++// The screen's description pane, or null. The native focus layer must never
++// focus it: the right stick scrolls it, it draws no focus highlight, and as a
++// list box it keeps every D-pad press for itself -- so focus that lands there is
++// lost for good. That happened on in-game Options (reported 2026-09-25): Down
++// from Close had nothing below it, wrapped to the farthest control above, which
++// was this pane, and Up could not get out again.
++extern "C" void* __cdecl KmrpDescriptionPaneK1(void* panel)
++{
++    return panel ? FindK1DescriptionListbox(panel) : nullptr;
 +}
 +
 +extern "C" void __cdecl KmrpUpdatePromptsK1()
@@ -1224,7 +1296,7 @@ index a8c9b80..bcbcb9a 100644
  extern "C" void __cdecl UpdateActionBarControlsK1(void* mainInterface)
  {
      UpdateActionBarControls(K1_CONFIG, mainInterface);
-@@ -2558,6 +3550,16 @@ extern "C" void __cdecl CancelMovieOnSpaceK1(
+@@ -2558,6 +3622,16 @@ extern "C" void __cdecl CancelMovieOnSpaceK1(
      }
  }
  
@@ -1241,7 +1313,7 @@ index a8c9b80..bcbcb9a 100644
  extern "C" void __cdecl MapMovieDeleteToEscapeK2(void* movieWindowFrame)
  {
      if (!movieWindowFrame) {
-@@ -2572,6 +3574,133 @@ extern "C" void __cdecl MapMovieDeleteToEscapeK2(void* movieWindowFrame)
+@@ -2572,6 +3646,133 @@ extern "C" void __cdecl MapMovieDeleteToEscapeK2(void* movieWindowFrame)
      }
  }
  
@@ -1375,7 +1447,7 @@ index a8c9b80..bcbcb9a 100644
  extern "C" void __cdecl DispatchMenuInputK1(void* clientApp)
  {
      // Poll here because this hook sits at the entry of
-@@ -2580,6 +3709,7 @@ extern "C" void __cdecl DispatchMenuInputK1(void* clientApp)
+@@ -2580,6 +3781,7 @@ extern "C" void __cdecl DispatchMenuInputK1(void* clientApp)
      // early return below, which only guards the queued menu work and would
      // otherwise skip the poll on most frames.
      PollXInputK1();
@@ -1383,7 +1455,7 @@ index a8c9b80..bcbcb9a 100644
      // clientApp is CClientExoAppInternal, straight from ECX at the ProcessInput
      // entry this hook sits on, which is the exact this the mouse mask lives on.
      UpdateK1CursorState(clientApp);
-@@ -2726,6 +3856,9 @@ extern "C" void __cdecl DispatchMenuInputK1(void* clientApp)
+@@ -2726,6 +3928,9 @@ extern "C" void __cdecl DispatchMenuInputK1(void* clientApp)
          }
      }
  
@@ -1393,7 +1465,7 @@ index a8c9b80..bcbcb9a 100644
      if ((pending & PENDING_K1_MENU_ACTION) != 0) {
          MenuActionSlot slot = static_cast<MenuActionSlot>(
              g_pendingMenuAction);
-@@ -2746,6 +3879,7 @@ extern "C" void __cdecl DispatchMenuInputK1(void* clientApp)
+@@ -2746,6 +3951,7 @@ extern "C" void __cdecl DispatchMenuInputK1(void* clientApp)
              return;
          }
      }
@@ -1401,7 +1473,7 @@ index a8c9b80..bcbcb9a 100644
  
      if ((pending & PENDING_K1_GENERIC_BUTTON) != 0) {
          DispatchPanelInput(panel, g_pendingGenericButtonEvent);
-@@ -3048,11 +4182,93 @@ extern "C" void __cdecl ClearActionBarControlsK1(void* mainInterface)
+@@ -3048,11 +4254,93 @@ extern "C" void __cdecl ClearActionBarControlsK1(void* mainInterface)
      }
  }
  

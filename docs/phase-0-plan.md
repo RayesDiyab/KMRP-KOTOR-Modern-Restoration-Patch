@@ -14,7 +14,7 @@ resolution (overlay W/2, canvas height H/2; at 3440×1440 those are still
 1720×720). It is described in
 [map-scaling.md](../reverse-engineering/map-scaling.md).
 
-The last box below is half done. The map geometry is now generated for all 48
+The last box below is half done. The map geometry is now generated for all 49
 resolutions and read back from the installer's own `--apply` output. The
 record does not say whether the map has been seen in play at any resolution
 other than 3440×1440 since the model changed.

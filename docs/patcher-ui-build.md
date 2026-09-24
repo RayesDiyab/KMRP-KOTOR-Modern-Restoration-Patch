@@ -21,16 +21,14 @@ build and verification workflow. Resolution and game-engine math remain in
 dist/KMRP - KOTOR Modern Restoration Patch.exe
 ```
 
-No companion asset folder is required. The executable embeds 69 resources,
-listed here from the 2026-09-25 build (`7933…`, 177,716,224 bytes). Sixty-eight
-of them are byte-identical to the 2026-09-24 build (`ECA3DE4B…`), and the
-69th is the added MIT licence:
+No companion asset folder is required. The executable embeds 70 resources,
+listed here from the 2026-09-25 build (`B599303A…`, 179,624,960 bytes):
 
 | resource | what |
 | --- | --- |
 | `Kmrp.goldpatch` | the verified clean-to-gold executable delta, 47,730 bytes |
-| `Kmrp.resolutions` | the 48-resolution catalog, `resolutions.tsv` |
-| `Kmrp.override.gui.<W>x<H>` | one GUI archive per resolution, 48 of them, each with that resolution's 18 font atlases |
+| `Kmrp.resolutions` | the 49-resolution catalog, `resolutions.tsv` |
+| `Kmrp.override.gui.<W>x<H>` | one GUI archive per resolution, 49 of them, each with that resolution's 18 font atlases |
 | `Kmrp.override.common` | the common Override archive: shared textures, icons, portraits and prompt art, but no font atlas |
 | `Kmrp.bundled` | the list of bundled third-party Override files, which yield to the player's own |
 | `Kmrp.license.highresolutionmenus`, `Kmrp.license.drivercompat` | the KOTOR High Resolution Menus GPL notice and K1DC's MPL licence |
@@ -56,7 +54,7 @@ The interface is one four-step card. State is derived from the selected
 | --- | --- | --- |
 | 1. Game folder | Browse for the KOTOR directory. | Shows the selected directory. |
 | 2. Editable EXE | Verifies the required Deadly Stream executable. Missing or incompatible files expand an inline recovery panel with download, choose, and recheck actions. | Shows the enlarged supplied Verified badge and `Verified`. |
-| 3. Resolution | Shows the 48-resolution dropdown, grouped by aspect ratio in each item. | Replaces the dropdown with the installed resolution as read from the patch manifest. |
+| 3. Resolution | Shows the 49-resolution dropdown, grouped by aspect ratio in each item. | Replaces the dropdown with the installed resolution as read from the patch manifest. |
 | 4. Apply | Shows readiness, progress, or a recovery instruction. | Permanently shows `Patched successfully` and `KOTOR is ready to play at W × H.` |
 
 The primary button has one identity at a time:
@@ -670,7 +668,7 @@ the resolution in the legacy `--apply` and `--in-place` forms selects
 
 1. Run `prepare_app_icons.py`; confirm all seven supplied roles are reported.
 2. Run a full `build_kmrp.ps1` without `-ReuseResources`.
-3. Confirm the embedded source/target hashes and the 48-entry resolution table.
+3. Confirm the embedded source/target hashes and the 49-entry resolution table.
 4. Extract the executable's 32px and 256px icon frames and confirm both show the
    current `assets/branding/favicon.ico` artwork.
 5. Test missing, unsupported, clean, patched, restoring, error, and success UI
@@ -684,7 +682,7 @@ the resolution in the legacy `--apply` and `--in-place` forms selects
    then restore and compare all backups.
 9. Run `testing/regression/Test-DpiCompatibility.ps1`; verify its exact registry
    paths are absent or restored after completion.
-10. Run `python testing/regression/Test-GeneratedGuiGeometry.py`; verify all 48
+10. Run `python testing/regression/Test-GeneratedGuiGeometry.py`; verify all 49
     packaged archives pass: upstream list prototypes, the Feedback gutter, Script
     Selection centring, confirmation containment, the active HUD and the R3 cue.
 11. Run `testing/regression/Test-LargeAddressAware.ps1`; verify canonical and
@@ -692,7 +690,7 @@ the resolution in the legacy `--apply` and `--in-place` forms selects
     source states survive patch/restore.
 12. Run `tools/build_binary_inventory.py` against the clean executable and
     current gold, with `--installed` and the installer's `--apply` output at all
-    48 resolutions; verify it reports zero undocumented code/data runs.
+    49 resolutions; verify it reports zero undocumented code/data runs.
 13. Run the rest of the regression set: `Test-ControllerSupport.ps1`,
     `Test-ReinstallOverOlderBuild.ps1`, `Test-MovieResolution.ps1`,
     `Test-NvidiaPresentMethod.ps1`, `Test-ControllerPromptAssets.py`,

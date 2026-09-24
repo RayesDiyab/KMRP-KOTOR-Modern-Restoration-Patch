@@ -656,6 +656,60 @@ void* g_k1PromptPanel = nullptr;
 std::uintptr_t g_k1PromptPanelVtable = 0;
 bool g_k1PromptMode = false;
 bool g_k1PromptStateKnown = false;
+
+// Every panel that has been painted with controller art and not cleared since.
+//
+// Badges are texture swaps on a panel's own buttons, so they last as long as the
+// panel does, and many panels outlive a trip to another screen -- the in-game
+// menu builds its tab screens once and keeps them. Clearing only the panel in
+// front when the player switched to mouse and keyboard left every other painted
+// screen still showing controller buttons the next time it came to the front
+// (reported 2026-09-25). A painted panel is now cleared whenever it is found in
+// front in keyboard/mouse mode, and forgotten once cleared.
+//
+// The vtable is kept with each entry so that a panel freed and replaced by an
+// unrelated one at the same address is recognised as a stranger and dropped
+// rather than written to. A replacement of the same class is cleared, which is
+// harmless: it only writes the empty fill a new panel already has.
+struct K1PaintedPanel {
+    void* panel;
+    std::uintptr_t vtable;
+};
+constexpr int K1_PAINTED_PANEL_SLOTS = 32;
+K1PaintedPanel g_k1PaintedPanels[K1_PAINTED_PANEL_SLOTS] = {};
+int g_k1PaintedPanelNext = 0;
+
+void RememberK1PaintedPanel(void* panel, std::uintptr_t vtable)
+{
+    int free = -1;
+    for (int i = 0; i < K1_PAINTED_PANEL_SLOTS; ++i) {
+        if (g_k1PaintedPanels[i].panel == panel) {
+            g_k1PaintedPanels[i].vtable = vtable;
+            return;
+        }
+        if (!g_k1PaintedPanels[i].panel && free < 0) {
+            free = i;
+        }
+    }
+    if (free < 0) {                     // full: reuse the oldest slot
+        free = g_k1PaintedPanelNext;
+        g_k1PaintedPanelNext = (g_k1PaintedPanelNext + 1) % K1_PAINTED_PANEL_SLOTS;
+    }
+    g_k1PaintedPanels[free] = { panel, vtable };
+}
+
+// True, and forgotten, if `panel` was painted and is still the same kind of panel.
+bool TakeK1PaintedPanel(void* panel, std::uintptr_t vtable)
+{
+    for (int i = 0; i < K1_PAINTED_PANEL_SLOTS; ++i) {
+        if (g_k1PaintedPanels[i].panel == panel) {
+            const bool same = g_k1PaintedPanels[i].vtable == vtable;
+            g_k1PaintedPanels[i] = {};
+            return same;
+        }
+    }
+    return false;
+}
 // The caption variant last painted. Without this the early-out below would hold
 // the first texture for as long as the screen stayed up, and cycling the filter
 // would leave the badge placed for the caption before it.
@@ -1488,12 +1542,16 @@ void UpdateK1ControllerPrompts()
         return;
     }
 
-    // A newly constructed PC panel already has empty normal fills. Only write
-    // the empty value when we are actively removing prompts from the same live
-    // panel; this avoids needless texture churn while using keyboard/mouse.
-    const bool mustApply = controllerMode ||
-        (g_k1PromptStateKnown && g_k1PromptMode && panel == g_k1PromptPanel &&
-         vtable == g_k1PromptPanelVtable);
+    // A newly constructed PC panel already has empty normal fills, so the empty
+    // value is written only to a panel that carries art: the one in front when
+    // the mode changed, or any other painted earlier and still alive (see
+    // g_k1PaintedPanels). Until 2026-09-25 only the first was cleared, on the
+    // assumption that a panel coming to the front in keyboard/mouse mode was new.
+    const bool clearingThisPanel = !controllerMode &&
+        ((g_k1PromptStateKnown && g_k1PromptMode && panel == g_k1PromptPanel &&
+          vtable == g_k1PromptPanelVtable) |
+         (panel != nullptr && TakeK1PaintedPanel(panel, vtable)));
+    const bool mustApply = controllerMode || clearingThisPanel;
 
     if (mustApply && panel) {
         int count = 0;
@@ -1507,6 +1565,9 @@ void UpdateK1ControllerPrompts()
                     ? K1PromptResref(prompts[i], panel, control,
                                      prompts, count, nullptr)
                     : nullptr);
+        }
+        if (controllerMode && count > 0) {
+            RememberK1PaintedPanel(panel, vtable);
         }
     }
 
@@ -3359,6 +3420,17 @@ extern "C" void __cdecl KmrpNoteKeyboardK1(void* record, int inputDevice)
         !IsControllerGeneratedKeyK1(input->offset)) {
         MarkKeyboardMouseInputK1();
     }
+}
+
+// The screen's description pane, or null. The native focus layer must never
+// focus it: the right stick scrolls it, it draws no focus highlight, and as a
+// list box it keeps every D-pad press for itself -- so focus that lands there is
+// lost for good. That happened on in-game Options (reported 2026-09-25): Down
+// from Close had nothing below it, wrapped to the farthest control above, which
+// was this pane, and Up could not get out again.
+extern "C" void* __cdecl KmrpDescriptionPaneK1(void* panel)
+{
+    return panel ? FindK1DescriptionListbox(panel) : nullptr;
 }
 
 extern "C" void __cdecl KmrpUpdatePromptsK1()

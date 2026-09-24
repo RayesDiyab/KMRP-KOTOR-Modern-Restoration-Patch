@@ -50,6 +50,7 @@
     <resolution><width>1920</width><height>1080</height><refresh_rate>60</refresh_rate></resolution>
     <resolution><width>2048</width><height>1152</height><refresh_rate>60</refresh_rate></resolution>
     <resolution><width>2560</width><height>1440</height><refresh_rate>60</refresh_rate></resolution>
+    <resolution><width>2880</width><height>1620</height><refresh_rate>60</refresh_rate></resolution>
     <resolution><width>3840</width><height>2160</height><refresh_rate>60</refresh_rate></resolution>
     <resolution><width>5120</width><height>2880</height><refresh_rate>60</refresh_rate></resolution>
     <resolution><width>6016</width><height>3384</height><refresh_rate>60</refresh_rate></resolution>

@@ -9,7 +9,9 @@ The script prepares the pinned SDL SDK automatically. See
 [the hybrid backend reference](../../docs/controller-sdl-backend.md). The output,
 `kmrp-controller.module`, is what `build_kmrp.ps1` embeds in the installer as
 `Kmrp.controller.module` -- in the 2026-09-24 installer, 181,248 bytes, SHA-256
-`AC2C41EC4C935B19EFF4693E3FBB43D176D28C5B37DE0CDC2C706F72379652C9` -- and what
+`AC2C41EC4C935B19EFF4693E3FBB43D176D28C5B37DE0CDC2C706F72379652C9`; in the
+2026-09-25 installer (`B599303A…`), SHA-256 `DC06F697EE284D93425DCF3FFC965104DCBCD4B9AF681EF4FDD48AEB765CE807`,
+with the dialogue A and two navigation fixes -- and what
 `testing/controller/select_controller_path.py` installs into a test game. The
 reverse engineering behind the native path is in
 `reverse-engineering/retained-xbox-gui-events.md`; the architecture and the full

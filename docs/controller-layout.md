@@ -69,7 +69,7 @@ margin), growing outward from the diagram; the side art shrinks or hides to
 make room. On the two narrowest screens, 1280x1080 and 800x600, a column would
 run off the edge, so it stops 14 units short and the boxes that cannot fit are
 made two lines tall, where a wrapped caption shows both lines.
-`Test-ControllerPromptAssets.py` checks the font and the fit in all 48
+`Test-ControllerPromptAssets.py` checks the font and the fit in all 49
 archives. Why the engine substitutes the font is not established.
 
 ### Spacing

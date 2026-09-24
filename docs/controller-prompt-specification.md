@@ -204,6 +204,14 @@ A's label is genuinely two things: its handler skips the current line while one
 is playing and chooses the highlighted reply otherwise. A single "Select" is a
 half-truth, and the state is readable, so the label can follow it.
 
+*Built differently, 2026-09-25:* the maintainer chose an A glyph left of the
+highlighted reply's number, which follows the highlight like the main menu's A,
+instead of a captioned prompt beneath the list. The reply list fills the whole
+bottom bar, so nothing fits beneath it. The A shows only while replies can be
+picked, so it never has to say "Skip". See `LBL_KMRPDLG` in
+[custom-gui-controls.md](../reverse-engineering/custom-gui-controls.md).
+**Untested in game.**
+
 ## Screens needing no prompts
 
 The six native-direction screens (Abilities, Feats, Powers, Skills, Map, chargen

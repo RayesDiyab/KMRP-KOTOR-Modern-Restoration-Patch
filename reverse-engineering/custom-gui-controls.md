@@ -336,6 +336,68 @@ label's slot in the panel's control array and destroys it.
 
 **Untested in game**, as its `CHANGELOG.md` entry says.
 
+## A fifth: the A beside the highlighted dialogue reply (`LBL_KMRPDLG`)
+
+Added 2026-09-25 (issue #21). The maintainer chose the placement: left of the
+highlighted reply's number, following the highlight like the main menu's A. It is
+the glyph alone, because the margin left of the numbers is about 64 px at
+1080p, too narrow for a caption.
+
+**Build time.** High Resolution Menus ships no `dialog.gui`, so every resolution
+except 3440x1440 has always loaded the game's own. To carry the label, the build
+now ships `dialog.gui` at every resolution:
+- 3440x1440 keeps its tuned file;
+- the others get a vanilla-equivalent file rebuilt from the tuned asset by
+  `vanilla_dialog_gui` in `tools/prepare_universal_resources.py`.
+
+The rebuild writes back vanilla's 17 geometry values
+(`VANILLA_DIALOG_GEOMETRY`). Compared field by field with the game's
+`gui.bif` copy, the result differs only in four colour floats, in the seventh
+decimal. `add_confirm_badge(..., tag=DIALOG_BADGE_TAG)` then adds the label the
+way it adds `LBL_KMRPA`: fill `kmrpcnfa` (the confirm A's art) and a zero
+extent. `Test-ControllerPromptAssets.py` checks that every archive has exactly
+that label, and that the panel is the tuned one at 3440x1440 and vanilla's
+everywhere else.
+
+**Binding.** `ControllerLayoutReleaseGffK1` binds it when the panel's vtable is
+`0x00755800`. The dialogue constructor (`0x006A8B40`) stores that vtable at
+`0x006A8B6C`, loads `dialog` and calls ReleaseGff at `0x006A8C1E` with it in
+place. Destruction is handled by the same base-destructor path as the confirm A.
+
+**Per frame** (`updateDialogBadges`), while a controller is the active device:
+
+| step | how |
+| --- | --- |
+| replies can be picked | bit 0 of `[panel+0x1DF8]` is clear. When set, a line is playing and A skips it (`0x006A7266`) |
+| which reply | `[panel+0x68]`, which the D-pad moves (`0x006A72B9`, `0x006A72DB`), within `[list+0x2A0]` rows |
+| where | the row control in `[list+0x29C]`, with `LB_REPLIES` at `panel+0x19C4`. A square one text line high (the shortest row), right edge an eighth of that clear of where the text starts: list left + the scrollbar width (list width − row width). Clamped to the screen, and hidden when the row is scrolled out of the list |
+| art | `kmr?cnfa` per family, as for the confirm A |
+
+**Not settled statically, and logged for the play-test:** whether the row rects
+are relative to the list or to the panel, and whether `[panel+0x68]` or the
+list's own `+0x2C8` is the highlighted row. The code assumes list-relative
+rects and `[panel+0x68]`. The first time each conversation shows replies, it
+writes a `dialog-geometry` line to `kmrp-layout-lifecycle.log` in the game
+folder, at most 24 per session. The line holds the panel and list rects, the row
+count, both indices, the flags, the placed rect and the first six row rects. One
+conversation in play confirms the placement or says how to correct it.
+
+**The first play-test's log (2026-09-25, 3440x1440):**
+
+```
+panel rect=(48,1200,3344,240) list=(-37,0,3344,224) rows=3 highlight=0 listSelected=0
+row0=(0,0,3312,32) row1=(0,32,3312,32) row2=(0,64,3312,32) placed=(-77,0,32,32)
+```
+
+The rows are list-relative, and both indices agree, so both assumptions held.
+But the placement ignored the scrollbar. The rows are 32 px narrower than the
+list because the 32 px scrollbar sits on their left, and the A landed at panel
+x −77, screen x −29, off the edge. The rule in the table above is the
+correction: at 3440x1440 it puts the A at screen x ≈ 7, left of text at ≈ 43.
+At 1920x1080 it gives a text start of 48 + 16 = 64 px, the start measured in a
+screenshot of that resolution. **The corrected placement is untested in
+game.**
+
 ## The three safety questions, answered
 
 ### Does a label bound this way draw, with a fill and no text?

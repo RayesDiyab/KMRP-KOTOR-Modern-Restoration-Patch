@@ -499,7 +499,7 @@ buttons and nothing routed focus to them. Offsets are from `kotor1_0_3.db`, clas
 
 **Untested.** The entry is built and installed but the play-test has not been
 done. What is verified is that it compiles, that the offsets come from the
-database, and that the badge on `exit_button` is generated for all 48
+database, and that the badge on `exit_button` is generated for all 49
 resolutions -- not that pressing Up in game lands on a tab.
 
 ## Prompt coverage
@@ -549,7 +549,9 @@ all passing against the 2026-09-24 installer. It said "seven detours, eleven
 parameters" when first written. The named-copy launch additionally verified
 runtime/module loading and live detours on Windows.
 
-The full resource build generates all 48 archives. On 2026-09-24 the prompt
+The full resource build generates all 49 archives (48 until 2026-09-25). On
+2026-09-25 the prompt regression passed on all 49, with 11,172 target textures.
+On 2026-09-24 the prompt
 regression checked 10,944 target textures across the four controller families
 and 57 verified control mappings in every archive, plus the Controller Layout
 screen. When first written it read 480 TGA outputs at 512×64 and ten control

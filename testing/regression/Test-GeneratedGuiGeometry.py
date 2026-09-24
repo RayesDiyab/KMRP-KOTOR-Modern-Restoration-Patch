@@ -27,7 +27,7 @@ from apply_gold_hud_proportions import (  # noqa: E402
 from pykotor.resource.formats.gff import read_gff  # noqa: E402
 
 
-EXPECTED_ARCHIVE_COUNT = 48
+EXPECTED_ARCHIVE_COUNT = 49   # 48 upstream + 2880x1620, derived since 2026-09-25
 FEEDBACK_LISTS = ("LB_OPTIONS", "LB_DESC")
 SCRIPTSELECT_LISTS = ("LST_AIState", "LB_DESC")
 ARCHIVE_PATTERN = re.compile(r"gui-(\d+)x(\d+)\.zip$")
@@ -47,10 +47,33 @@ def controls_by_tag(gui) -> dict[str, object]:
 UPSTREAM_GUI_ROOT = ROOT / "third_party" / "Included" / "kotor-high-resolution-menus-1.5"
 
 
+_DERIVED_ROOT: Path | None = None
+
+
 def upstream_gui(resolution: str, name: str):
-    """The untouched High Resolution Menus file for this resolution, or None."""
+    """The untouched High Resolution Menus file for this resolution, or None.
+
+    A resolution upstream does not ship (2880x1620) is compared against the set
+    the build derives for it, made by the same tool from the same two upstream
+    sets (tools/derive_resolution_gui_set.py).
+    """
+    global _DERIVED_ROOT
     matches = list(UPSTREAM_GUI_ROOT.glob(f"*/gui.{resolution}/{name}"))
-    return matches[0] if matches else None
+    if matches:
+        return matches[0]
+    sys.path.insert(0, str(ROOT / "tools"))
+    from derive_resolution_gui_set import DERIVED_GUI_SETS, derive_gui_set
+    if resolution not in DERIVED_GUI_SETS:
+        return None
+    if _DERIVED_ROOT is None:
+        _DERIVED_ROOT = Path(tempfile.mkdtemp(prefix="kmrp-test-derived-"))
+    target = _DERIVED_ROOT / f"gui.{resolution}"
+    if not target.is_dir():
+        low, high, position = DERIVED_GUI_SETS[resolution]
+        folder = next(UPSTREAM_GUI_ROOT.glob(f"*/gui.{low}")).parent
+        derive_gui_set(folder / f"gui.{low}", folder / f"gui.{high}", target, position)
+    derived = target / name
+    return derived if derived.is_file() else None
 
 
 def check_list_prototypes(path: Path, resolution: str, screen: str,

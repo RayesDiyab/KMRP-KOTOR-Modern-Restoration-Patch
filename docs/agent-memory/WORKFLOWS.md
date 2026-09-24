@@ -19,7 +19,7 @@ temporary directory—not beside tracked sources.
 # Fast patcher compilation using already-generated resources
 .\build_kmrp.ps1 -ReuseResources
 
-# Full 48-resolution resource regeneration and patcher build
+# Full 49-resolution resource regeneration and patcher build
 .\build_kmrp.ps1
 ```
 

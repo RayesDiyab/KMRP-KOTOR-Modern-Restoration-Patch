@@ -179,7 +179,7 @@ to the overlay size positioned where the map should sit:
 `LBL_Map = ((screenW − overlayW)/2, (screenH − canvasH)/2 + 14, overlayW, canvasH)`
 = `(981, 374, 1478, 720)` at 3440x1440. The map keeps its current size and stays
 centred; the strip is cropped away exactly as vanilla crops it. Costs a GUI
-transform across 48 resolutions plus the two centring immediates.
+transform across 49 resolutions plus the two centring immediates.
 
 **The frame-art question is now answered, and it rules Option A out.** The
 measurement tool reports the bright runs it rejected as off-pitch. Comparing two

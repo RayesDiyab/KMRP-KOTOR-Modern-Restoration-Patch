@@ -3,7 +3,7 @@
 ## Purpose
 
 KMRP is a resolution-aware interface and engine restoration patch for the 2003 PC
-release of *Star Wars: Knights of the Old Republic*. It generates resources for 48
+release of *Star Wars: Knights of the Old Republic*. It generates resources for 49
 resolutions from 800×600 through 15360×8640 and applies a verified executable delta
 plus resolution-specific constants and Override resources.
 

@@ -170,7 +170,7 @@ so no [flip]"* -- and the writer reversed the rows anyway. Fixed here and in
 
 ## Every resolution
 
-Everything above was tuned at 3440x1440. It ships at all 48 resolutions by
+Everything above was tuned at 3440x1440. It ships at all 49 resolutions by
 scaling against **font scale**, `max(1.0, height/720)` -- the same rule the font
 atlases' TXI metrics use, mirrored in `ScaleForHeight`. That is the right basis
 because what the popup has to hold is *text*, and the text is sized by that rule:

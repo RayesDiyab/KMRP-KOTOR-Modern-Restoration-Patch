@@ -62,7 +62,7 @@ That gold is already labelled **"obsolete, do not build against it"** in
 | --- | --- |
 | what the executable actually changes, byte by byte | [`../../reverse-engineering/binary-inventory.md`](../../reverse-engineering/binary-inventory.md) |
 | the gold snapshot chain and each snapshot's hash | [`../font-scaling.md`](../font-scaling.md) |
-| the coordinate math across 48 resolutions | [`../universal-resolution-math.md`](../universal-resolution-math.md) |
+| the coordinate math across 49 resolutions | [`../universal-resolution-math.md`](../universal-resolution-math.md) |
 | the map and marker work | [`../../reverse-engineering/map-scaling.md`](../../reverse-engineering/map-scaling.md) |
 
 ## Two things to know before regenerating it

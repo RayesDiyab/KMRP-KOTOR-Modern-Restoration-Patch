@@ -76,6 +76,7 @@ What ships, read back from the installer's outputs (FILE `0x295082`/`0x29508A`,
 | 1920×1080 | 960×540 | 1117×540 | 1920×1080 |
 | 2560×1440 | 1280×720 | 1489×720 | 2560×1440 |
 | 3440×1440 | 1720×720 | 2001×720 | 3440×1440 |
+| 2880×1620 | 1440×810 | 1676×810 | 2880×1620 |
 | 3840×2160 | 1920×1080 | 2234×1080 | 3840×2160 |
 | 15360×8640 | 7680×4320 | 8937×4320 | 15360×8640 |
 
@@ -160,6 +161,36 @@ archive was embedded in the 228,886,528-byte standalone package with SHA-256
 > (`HAND_TUNED_GUTTERS`), and Character Scripts rows centred in the box its
 > background art draws (`centre_rows_in_frame`). Issue #12's 3840×2160 report
 > therefore still needs a different diagnosis.
+>
+> *Checked 2026-09-25:* the installer's 3840×2160 archive was compared with its
+> 1920×1080 archive, control by control, in fractions of the screen. Both are
+> 16:9, and 1080p is reported to work. No control on any screen moves or resizes
+> by 5% of the screen or more, apart from controls that have the same pixel
+> size at both resolutions: the minimap's 512-pixel `LBL_MAP` and the main menu's
+> hidden debug `LB_MODULES` / `BTN_WARP`. The children that leave their panels
+> at 4K are the same ones that leave them at 1080p: the party's hidden fourth
+> slot, background art and tab hover highlights. So the report is **not** a
+> layout-geometry fault in the shipped `.gui` files.
+>
+> *Named 2026-09-25, from the Reddit thread the maintainer forwarded:* the empty
+> screen is **Character Scripts** (`scriptselect.gui`) at 3840×2160. Its frame
+> draws, but the title, both lists and both buttons are missing. A second reader
+> reports the same at 1080p. Both reports predate 1.5, so 1.0 was the only public
+> build. The files, compared field by field:
+>
+> | Comparison (`scriptselect.gui`) | Differences other than extents |
+> | --- | --- |
+> | 1.0 release (`0d0eace7…`) vs the 1.5 installer, at 3840×2160 | `LST_AIState.PADDING` 2 → 40; ROOT left −15 → 0 |
+> | 1.5 at 3440×1440 (the hand-tuned file, seen working in play) vs 1.5 at 3840×2160 | padding only (35 → 40, 72 → 108) |
+> | vanilla vs 1.5 at 3840×2160 | ROOT `BORDER.FILLSTYLE` 0 → 2 (upstream's), padding |
+>
+> So the 4K and 1080p files are structurally the file that works at 3440×1440, in
+> 1.0 as in 1.5, and nothing in them hides children. Whether the screen still
+> comes up empty at 1080p or 4K in 1.5 was untested when this was written.
+>
+> *Checked in play, 2026-09-25:* the maintainer opened Character Scripts in 1.5
+> and it works. The resolution of that check was not recorded, so it covers
+> the 1.5 build but not specifically 1080p or 4K.
 
 KOTOR positions and wraps each list row from the listbox's embedded
 `PROTOITEM.EXTENT`. High Resolution Menus had scaled the two parent panes and
@@ -336,7 +367,9 @@ field, and listed only ten fields.
 
 ## Adding another resolution
 
-**Step 1 is the hard one, and it blocked 2880x1620 (issue #16).** That preset is
+**Step 1 is the hard one, and it blocked 2880x1620 (issue #16) until 2026-09-25.**
+The resolution now ships; how it was derived follows the original text below.
+That preset is
 16:9 and exactly 1.5x 1920x1080, but the upstream mod ships no `gui.2880x1620`,
 and the sets it does ship **cannot be scaled into one another**. Measured across
 all 81 shared files:
@@ -355,6 +388,34 @@ means reimplementing that layout — or asking ndix UR, whose work KMRP already
 bundles with permission, for the missing set. Neither is a small change, and
 neither has been done.
 
+**How 2880x1620 was added (2026-09-25).** Neither scaling nor a new layout was
+needed, because 2880x1620 is exactly halfway between two sets upstream does ship,
+1920x1080 and 3840x2160, in width and in height. `tools/derive_resolution_gui_set.py`
+interpolates every field halfway between those two sets:
+- a field upstream doubles from one to the other comes out 1.5×;
+- a field it holds fixed, such as the list prototypes, stays fixed;
+- a hand adjustment lands between its two values.
+
+Only `EXTENT` fields differ between upstream sets (measured across the 1080p →
+4K pair: every other field is identical). The tool stops if anything else
+differs.
+
+Checked against a set upstream does ship. 2560x1440 is a third of the way from
+1920x1080 to 3840x2160, and interpolating at 1/3 reproduces its 9,276 extent
+fields as follows:
+
+| Derivation of 2560x1440 | Exact | Within 1 px | Further |
+| --- | --- | --- | --- |
+| scale 1920x1080 by 4/3 (the table above) | 73.9% | -- | -- |
+| interpolate 1920x1080 → 3840x2160 at t = 1/3 | 87.6% | 12.4% | **0** |
+
+`prepare_universal_resources.py` derives the set at build time into a temporary
+folder (`DERIVED_GUI_SETS`) and computes its map geometry from the derived
+`map.gui` with the same rule as every other resolution. The font set is the
+2.25× bake from `tools/build_font_scale_sets.py`. **Not seen in play:** the
+maintainer's monitor is 3440x1440, and the preset exists for DSR on 1080p
+screens.
+
 1. Add a matching `gui.WIDTHxHEIGHT` directory containing the full GUI set.
 2. Add the resolution to `GROUPS` in `tools/prepare_universal_resources.py`.
 3. Run `tools/analyze_resolution_guis.py` to regenerate `assets/resolution-geometry.json`.
@@ -364,7 +425,10 @@ neither has been done.
 
 ## Validation status
 
-- All 48 requested executable variants were generated and structurally verified.
+- All 48 requested executable variants were generated and structurally verified,
+  and since 2026-09-25 all 49: the 2880x1620 output reads back the rule's
+  values (overlay 1440x810, canvas 1676x810, centring 2880x1620, row scale 2.25)
+  and differs from the 1920x1080 output in 75 bytes.
 - 3440×1440 differs from the gold snapshot in 22 bytes across 17 runs, all
   fields in *Executable fields* that gold holds at an earlier or vanilla value.
   *Corrected 2026-09-24:* this line said it matched gold byte-for-byte.

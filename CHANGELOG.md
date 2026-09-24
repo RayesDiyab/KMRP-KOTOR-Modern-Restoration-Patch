@@ -101,14 +101,20 @@ reported `2.10.0-mapnotes`. It was the second time these two drifted apart;
 while they disagree. Before the versions were corrected, it was run against
 the real mismatch and refused it.
 
-The 1.5.0 installer (`7933119329A5…DBAB91`, 177,716,224 bytes) was compared
-with the play-tested one (`ECA3DE4B…`):
-- its `--apply` output at all 48 resolutions is byte-identical;
-- 68 of its 69 embedded resources are byte-identical, and the 69th is the MIT
-  licence below.
+The 1.5.0 installer of 2026-09-25 (`B599303A…57108`, 179,624,960 bytes) was
+compared with the play-tested one of 2026-09-24 (`ECA3DE4B…`):
+- its `--apply` output at the 48 resolutions both builds share is
+  byte-identical, so every executable measurement below that cites `ECA3DE4B…`
+  also holds for it;
+- the 49th resolution, 2880x1620, is new (below);
+- its GUI archives differ, because every resolution now ships `dialog.gui` for
+  the dialogue A. It has 70 resources: the 49 archives, the MIT licence and the
+  controller module with the fixes below.
 
-Every measurement below that cites `ECA3DE4B…` therefore also holds for it. An
-intermediate relabel without the licence, `D81E640C…`, was never installed.
+Intermediate builds of the same days, never installed as releases:
+- `D81E640C…`, the relabel without the licence;
+- `7933…`, with the licence;
+- `78A5CC43…`, the first build with 49 resolutions.
 
 - **The KOTOR Patch Manager MIT licence is installed with the controller.** The
   runtime, the controller module and the memory-safety patches all come from
@@ -120,6 +126,45 @@ intermediate relabel without the licence, `D81E640C…`, was never installed.
   byte for byte, and `Test-ReinstallOverOlderBuild.ps1` also passes.
 
 ### Added
+
+- **2880x1620, the 49th resolution** (issue #16), for DSR at 2.25x on 1080p
+  screens. High Resolution Menus has no layout for it, and its layouts are made
+  by hand per resolution, so scaling one does not reproduce another. But
+  2880x1620 is exactly halfway between two it does ship, 1920x1080 and 3840x2160,
+  so `tools/derive_resolution_gui_set.py` interpolates every field halfway:
+  - an extent upstream doubles comes out 1.5x;
+  - one it holds fixed, such as the list prototypes, stays fixed;
+  - a hand adjustment lands between its two values.
+
+  The same method, run at a third of the way, reproduces upstream's real
+  2560x1440 set: 87.6% of its 9,276 extent fields exactly and the rest within
+  1 px, against 73.9% for plain scaling. It gets its own 2.25x font set. The
+  installer's catalog check, the build's resolution count and the
+  virtual-display profile now expect 49. **Not seen in play**, since no
+  maintainer screen runs 2880x1620.
+
+- **An A beside the highlighted dialogue reply** (issue #21), left of the
+  reply's number, following the highlight like the main menu's A. It shows only
+  while a controller is in use and replies can be picked, and it hides while a
+  line plays, when A would skip it instead. Every resolution now ships
+  `dialog.gui` to carry the label. Below 3440x1440 that is a vanilla-equivalent
+  file rebuilt from the tuned 3440x1440 asset, differing from the game's own
+  only in four colour floats in the seventh decimal. The art is the confirm
+  boxes' A, in all four families. **Untested in game.** Two of its inputs --
+  which field holds the highlighted row, and which space the row rects are in --
+  are read from the disassembly, not measured. It writes a `dialog-geometry`
+  line to `kmrp-layout-lifecycle.log` the first time each conversation shows
+  replies, so one play-test confirms the placement or shows how to fix it.
+
+  **That play-test (2026-09-25, 3440x1440) found it off screen.** The log
+  confirmed both inputs: the rows are relative to the list, and `[panel+0x68]`
+  and the list's own index agreed. But it read `placed=(-77,0,32,32)` for a panel
+  at x 48, which is screen x −29. The rows are 3312 px wide in a 3344 px list,
+  because the list's 32 px scrollbar sits on their left, and the A had been
+  placed from the row's edge rather than from where the text starts. It is now
+  placed just left of the text (list left + scrollbar width), clamped to the
+  screen. At 1920x1080 the same rule gives the text start seen in a screenshot,
+  48 + 16 = 64 px. **The corrected placement is untested in game.**
 
 - **Menu and dialogue text is drawn at the size it was rendered at** (issue
   #16). Two players reported pixelated, aliased text, one at 1920x1080 and one
@@ -153,6 +198,34 @@ intermediate relabel without the licence, `D81E640C…`, was never installed.
   multi-monitor hardware.
 
 ### Fixed
+
+- **Down from Close no longer loses the focus on in-game Options.** Reported
+  2026-09-25 with a screenshot: pressing Down at Close, the bottom entry, left
+  nothing highlighted, and Up could not bring the focus back. With nothing
+  below Close, the D-pad navigation wrapped to the farthest control above it in
+  the same column, which was the description pane. That is a list box, which
+  the navigation admits on tab screens so the Messages and Journal lists can be
+  reached. The pane draws no focus highlight and keeps every D-pad press to
+  scroll its text, so focus could not leave it. The navigation now never chooses
+  a screen's description pane. The right stick scrolls it, and the vendor code's
+  per-screen table (`FindK1DescriptionListbox`, now exported as
+  `KmrpDescriptionPaneK1`) says which control it is. Down from Close wraps to a
+  real button instead. **Untested in game**; diagnosed from the code and the
+  report, not reproduced.
+
+- **Controller buttons leave every screen when the mouse or keyboard takes
+  over**, not only the screen in front. Reported 2026-09-25: switching to mouse
+  and keyboard cleared the badges on the current screen, but the next screen
+  opened with the mouse still showed them. Badges are texture swaps on a
+  screen's own buttons, and the in-game menu builds its tab screens once and
+  keeps them, so a tab painted while the pad was in use kept its art. The clear
+  ran only on the panel in front when the device changed, assuming that any
+  other panel reaching the front in keyboard/mouse mode was new and blank.
+  `UpdateK1ControllerPrompts` now records every panel it paints (with its
+  vtable, so a freed-and-reused address is not written to) and clears each one
+  the first time it comes to the front in keyboard/mouse mode. The R3, LT/RT and
+  swap-tab cues never had the problem: every live cue is shown or hidden each
+  frame. **Untested in game.**
 
 - **Cancel now cancels on the Solo Mode prompt** (issue #21). Pressing A with
   Cancel highlighted turned Solo Mode on anyway. The panel is a retained Xbox

@@ -7,7 +7,7 @@
 > anything untested labelled as untested.
 
 
-This profile exposes the 48 resolutions supported by the KMRP
+This profile exposes the 49 resolutions supported by the KMRP
 Patcher on one virtual Windows monitor. Every mode runs at 60 Hz to keep the
 driver mode table small and stable.
 
@@ -41,7 +41,7 @@ Do not select "show only" on the virtual monitor during initial setup.
 
 | File | What it is |
 | --- | --- |
-| `kotor-vdd-settings.xml` | The profile: 48 modes, all at 60 Hz. Checked on 2026-09-24: its 48 modes are exactly the 48 resolutions of the installer's `--apply` outputs. |
+| `kotor-vdd-settings.xml` | The profile: 49 modes, all at 60 Hz. Checked on 2026-09-24: its 48 modes were exactly the 48 resolutions of the installer's `--apply` outputs; 2880x1620 was added on 2026-09-25 with the 49th resolution. |
 | `swkotor-7680-windowed.ini` | A `swkotor.ini` at 7680×2160, windowed (`FullScreen=0`, `AllowWindowedMode=1`). It is also the seed INI that four regression scripts copy into their throwaway game: `Test-ControllerSupport.ps1`, `Test-DpiCompatibility.ps1`, `Test-LargeAddressAware.ps1` and `Test-ReinstallOverOlderBuild.ps1`. |
 | `minimap-7680x2160/`, `mipc28x6.gold-geometry*.gui`, `mipc8x6.minimap-180.gui` | Lab records from the minimap-scale experiments of 2026-08-28 at 7680×2160, committed with the first commit. There are twelve HUD layouts (`mipc*.gui`, GFF `GUI V3.2`), plus `backup-location.txt`, which gives that day's backup path on the build machine. They predate the current map model ([universal-resolution-math.md](../../docs/universal-resolution-math.md)), so they are **not** what the build generates today. Nothing in the repository reads them. |
 

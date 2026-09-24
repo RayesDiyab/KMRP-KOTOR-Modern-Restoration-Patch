@@ -9,7 +9,7 @@
 Vanilla KOTOR draws its interface at a fixed pixel size. On a modern display the
 menus still work, but the text is tiny, list rows overlap once anything is
 enlarged, and several layouts were only ever authored for 640×480. KMRP fixes
-that in the engine itself rather than by swapping artwork — 48 resolutions, from
+that in the engine itself rather than by swapping artwork — 49 resolutions, from
 800×600 to 15360×8640.
 
 [Install](#install) · [What it fixes](#what-it-fixes) · [How it works](#how-it-works) · [Build from source](#build-from-source) · [Documentation](#documentation) · [Licence](#licence-and-attribution)
@@ -264,7 +264,7 @@ executable.
 .\build_kmrp.ps1
 ```
 
-That regenerates all 48 resource archives and compiles the patcher to
+That regenerates all 49 resource archives and compiles the patcher to
 `dist/`. Add `-ReuseResources` to skip resource generation and only recompile.
 
 **A fresh clone needs three generated inputs first**, none of them committed:

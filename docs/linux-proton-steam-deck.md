@@ -54,7 +54,8 @@ archives using case-sensitive comparisons, even when it runs on Windows. On
 2026-09-24 it measured the archives embedded in that day's installer; all 48
 are byte-identical to the installer's resources:
 
-- 48 of 48 resolution archives present;
+- 48 of 48 resolution archives present (re-run on 2026-09-25 with the 49th,
+  2880x1620: 49 archives, 4,067 GUIs, and `LBL_NAME` resolving at all 49);
 - 3,937 packaged GUI resources parsed (3,889 on the 2026-09-05 build, before the
   controller screens were added);
 - every GUI font reference resolving to exact-case `.tga` and `.txi` names;

@@ -260,7 +260,7 @@ moves both, widening the scrollbar draws it wider. What does is `PADDING`, which
 since gold v12 is a purely horizontal gutter on the scrollbar side. Feedback's
 `LB_OPTIONS` ships `PADDING 0`; `prepare_universal_resources.py`'s
 `HAND_TUNED_GUTTERS` now sets it to 6 x font scale (12px at 3440x1440), and
-`Test-GeneratedGuiGeometry.py` checks it in all 48 archives. The row prototypes
+`Test-GeneratedGuiGeometry.py` checks it in all 49 archives. The row prototypes
 are untouched, as that test also insists. Not yet seen in game.
 
 **Script Selection** (`LST_AIState`, the same shape, `PADDING 2`) had the rows
@@ -273,7 +273,7 @@ left scrollbar only the rows' left edge moves with `PADDING`, so
 `centre_rows_in_frame` (`tools/scale_listbox_padding.py`) sets
 `PADDING = frameLeft + frameRight - 2*list.left - list.width - scrollbarWidth`
 per resolution: 35 at 3440x1440, 19 at 1920x1080, 9 at 800x600, equal margins
-within half a pixel at all 48. `Test-GeneratedGuiGeometry.py` checks it.
+within half a pixel at all 49. `Test-GeneratedGuiGeometry.py` checks it.
 
 ## The fit test — why a description that fits was scrolled anyway
 

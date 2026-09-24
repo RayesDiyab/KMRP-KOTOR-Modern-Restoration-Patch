@@ -287,8 +287,9 @@ def main() -> int:
     verify_runtime_lookup_patch()
 
     archives = sorted(args.resources.glob("gui-*.zip"))
-    if len(archives) != 48:
-        raise AssertionError(f"Expected 48 GUI archives, found {len(archives)}")
+    # 48 upstream resolutions plus 2880x1620, derived since 2026-09-25.
+    if len(archives) != 49:
+        raise AssertionError(f"Expected 49 GUI archives, found {len(archives)}")
 
     common_path = args.resources / "override-common.zip"
     with zipfile.ZipFile(common_path) as common:
@@ -343,7 +344,8 @@ def main() -> int:
     for archive_path in archives:
         with zipfile.ZipFile(archive_path) as archive:
             names = {name.lower(): name for name in archive.namelist()}
-            for required in ("optgameplay.gui", "kmrplayout.gui", "confirm.gui"):
+            for required in ("optgameplay.gui", "kmrplayout.gui", "confirm.gui",
+                             "dialog.gui"):
                 if required not in names:
                     raise AssertionError(f"{archive_path.name}: missing {required}")
             controls_menu = read_gff(
@@ -377,6 +379,28 @@ def main() -> int:
                 raise AssertionError(
                     f"{archive_path.name}: confirm.gui needs exactly one label "
                     f"LBL_KMRPA with an ID of its own")
+            # dialog.gui carries the A the runtime moves beside the highlighted
+            # reply. Every other control must be vanilla's pair, unmoved: below
+            # 3440x1440 the file exists only to carry this label.
+            dialog_gff = read_gff(archive.read(names["dialog.gui"]))
+            dialog = dialog_gff.root.get_list("CONTROLS")
+            dialog_badge = [c for c in dialog if c.get_string("TAG") == "LBL_KMRPDLG"]
+            dialog_ids = [c.get_int32("ID") for c in dialog]
+            if (len(dialog_badge) != 1 or dialog_badge[0].get_int32("CONTROLTYPE") != 4
+                    or len(set(dialog_ids)) != len(dialog_ids)
+                    or {c.get_string("TAG") for c in dialog}
+                    != {"LBL_MESSAGE", "LB_REPLIES", "LBL_KMRPDLG"}):
+                raise AssertionError(
+                    f"{archive_path.name}: dialog.gui needs LBL_MESSAGE, LB_REPLIES "
+                    f"and exactly one label LBL_KMRPDLG with an ID of its own")
+            root_extent = dialog_gff.root.get_struct("EXTENT")
+            expected_root = ((76, 604, 870, 160) if "3440x1440" in archive_path.name
+                             else (48, 378, 544, 100))
+            if tuple(root_extent.get_int32(f) for f in
+                     ("LEFT", "TOP", "WIDTH", "HEIGHT")) != expected_root:
+                raise AssertionError(
+                    f"{archive_path.name}: dialog.gui's panel is not the "
+                    f"{'tuned' if expected_root[2] == 870 else 'vanilla'} one")
             layout = read_gff(
                 archive.read(names["kmrplayout.gui"])).root.get_list("CONTROLS")
             expected_tags = {

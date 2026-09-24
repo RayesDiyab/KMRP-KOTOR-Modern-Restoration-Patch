@@ -459,6 +459,38 @@ future "dim the R3 prompt" logic would need one of those confirmed first; timing
 it at four seconds would be wrong, since seven was also observed. **L V, cause
 undetermined**
 
+## L3 again to cancel the flourish (issue #21 §6) — investigated, then dropped
+
+**Dropped on 2026-09-25:** the maintainer decided the cancel is unnecessary, so
+it will not be built. The findings below are kept for anyone who reopens it.
+
+Read from the clean executable on 2026-09-25. `CClientExoApp::PlayerFlourishWeapons`
+(`0x005EDE90`) is a thunk: `mov ecx,[ecx+4]; jmp 0x005F4460`. That function does
+four things, in order:
+
+| step | code | what it is |
+| --- | --- | --- |
+| 1 | `0x00611700(0, 1)` on the player creature | returns 1 at once: its body runs only when the first argument is 1 (`cmp [esp+8],1` at `0x00611710`). On this path it does nothing. The module's comment called it `ComputeWeaponOverlays(0, 1)`; the call is right, but nothing comes of it |
+| 2 | for the items in slots `0x10` and `0x20` (the two hands), the item's client object, vtable `+0x34` with `(1,0,1,0)`, then `0x00647130` | plays an animation on each weapon model |
+| 3 | `0x004F2610(1, 2)` on the creature's model | not identified |
+| 4 | vtable `+0xE0` with `0x27AD`, then `+0x44` on the creature | plays creature animation `0x27AD` |
+
+Nothing here queues a creature action or sets a flag with a timeout. The
+"weapons out for several seconds" is the length of those animations. That fits
+the R3 block above, which tracks an animation (4 or 7 s), not a timer.
+
+**So a cancel means ending animations early,** which needs two things not found
+statically:
+- an animation id that returns the creature, and each weapon model, to its
+  sheathed idle;
+- proof that playing it mid-flourish leaves no weapon model drawn in the wrong
+  hand or state.
+
+Guessing either would risk exactly the "weapon state" regressions the issue rules
+out, so nothing was implemented. The next step is a live session under x64dbg:
+break on `0x004F2610` and on the creature's `+0x44` during a flourish and during
+the engine's own sheathe, and compare the arguments.
+
 ## Single-column navigation — exact evidence
 
 Main menu, five entries in one column at x = 1782, heights 66 except the last

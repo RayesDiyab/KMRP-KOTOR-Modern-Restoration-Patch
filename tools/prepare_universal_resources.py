@@ -4,6 +4,7 @@
 from __future__ import annotations
 
 import argparse
+import atexit
 import copy
 import io
 import json
@@ -20,11 +21,13 @@ from build_controller_prompt_textures import (GLYPH_FAMILIES,
                                               build_prompt_textures,
                                               build_square_glyph_tga,
                                               family_resref)
-from build_controller_layout import (add_confirm_badge,
+from build_controller_layout import (DIALOG_BADGE_TAG, add_confirm_badge,
                                      add_entry as add_controller_layout_entry,
                                      build_art as build_controller_layout_art,
                                      build_gui as build_controller_layout_gui)
 from build_menubg_texture import build_texture_for_gui
+from analyze_resolution_guis import geometry as resolution_geometry
+from derive_resolution_gui_set import DERIVED_GUI_SETS, derive_gui_set
 from build_scaled_fonts import export_font_txis, export_fonts, scale_txi
 from fix_hud_menubg import fix_menubg_file
 from scale_hud_minimap import patch_gui
@@ -110,12 +113,16 @@ GROUPS = {
     ],
     "16:9": [
         "1024x576", "1152x648", "1280x720", "1360x768", "1366x768", "1600x900",
-        "1920x1080", "2048x1152", "2560x1440", "3840x2160", "5120x2880", "6016x3384",
+        "1920x1080", "2048x1152", "2560x1440", "2880x1620", "3840x2160", "5120x2880",
+        "6016x3384",
         "7680x4320", "8192x4608", "15360x8640",
     ],
     "21:9": ["1280x1080", "2560x1080", "3440x1440", "3840x1600", "5120x2160"],
     "32:9": ["1920x540", "3840x1080", "5120x1440", "7680x2160"],
 }
+
+# 48 upstream resolutions plus 2880x1620, derived since 2026-09-25 (issue #16).
+EXPECTED_RESOLUTIONS = 49
 
 ASPECT_FOLDERS = {
     "4:3": "4-by-3",
@@ -781,6 +788,53 @@ def add_party_switch_cue(source: Path, destination: Path) -> bool:
     return True
 
 
+# Vanilla dialog.gui's geometry, the only fields in which the tuned 3440x1440
+# asset differs from it (compared field by field against gui.bif on 2026-09-25;
+# the rest differ only in colour floats rounded in the seventh decimal). The
+# numbers let a vanilla-equivalent dialog.gui be rebuilt without shipping the
+# game's own file: {path: {field: value}}, path "" for the root.
+VANILLA_DIALOG_GEOMETRY = {
+    "": {"EXTENT": {"LEFT": 48, "TOP": 378, "WIDTH": 544, "HEIGHT": 100}},
+    "LBL_MESSAGE": {"EXTENT": {"WIDTH": 544, "HEIGHT": 100}},
+    "LB_REPLIES": {
+        "EXTENT": {"LEFT": 0, "WIDTH": 544, "HEIGHT": 98},
+        "PROTOITEM.EXTENT": {"LEFT": 16, "WIDTH": 528, "HEIGHT": 19},
+        "PROTOITEM.BORDER": {"DIMENSION": 0},
+        "SCROLLBAR.EXTENT": {"LEFT": 0, "WIDTH": 16, "HEIGHT": 98},
+        "SCROLLBAR.BORDER": {"DIMENSION": 4},
+    },
+}
+
+
+def vanilla_dialog_gui(tuned: Path, destination: Path) -> None:
+    """Rebuild vanilla's dialog.gui from the tuned 3440x1440 asset.
+
+    Every resolution except 3440x1440 has always used the game's own dialog.gui,
+    because High Resolution Menus ships none. It is rebuilt here only so the
+    dialogue A can be added to it; the layout it produces is vanilla's.
+    """
+    gff = read_gff(tuned)
+
+    def apply(struct, fields: dict):
+        for dotted, values in fields.items():
+            path = dotted.split(".")
+            chain = [struct]
+            for name in path:                      # get_struct returns copies
+                chain.append(chain[-1].get_struct(name))
+            for key, value in values.items():
+                chain[-1].set_int32(key, value)
+            for i in range(len(path) - 1, -1, -1):  # so set each level back
+                chain[i].set_struct(path[i], chain[i + 1])
+
+    apply(gff.root, VANILLA_DIALOG_GEOMETRY[""])
+    controls = {c.get_string("TAG"): c for c in gff.root.get_list("CONTROLS")}
+    for tag in ("LBL_MESSAGE", "LB_REPLIES"):
+        if tag not in controls:
+            raise ValueError(f"{tuned} has no {tag}")
+        apply(controls[tag], VANILLA_DIALOG_GEOMETRY[tag])
+    write_gff(gff, destination)
+
+
 def set_map_control_extent(source: Path, destination: Path, extent: dict) -> None:
     """Rewrite LBL_Map's EXTENT in a map.gui, leaving every other control alone."""
     gff = read_gff(source)
@@ -834,8 +888,22 @@ def main() -> int:
     geometry_data = json.loads(args.geometry.read_text(encoding="utf-8"))["resolutions"]
     geometry = {item["resolution"]: item for item in geometry_data}
     requested = [resolution for values in GROUPS.values() for resolution in values]
-    if len(requested) != 48 or len(set(requested)) != 48:
-        raise ValueError("The requested resolution list must contain 48 unique entries")
+    if len(requested) != EXPECTED_RESOLUTIONS or len(set(requested)) != EXPECTED_RESOLUTIONS:
+        raise ValueError(
+            f"The requested resolution list must contain {EXPECTED_RESOLUTIONS} unique entries")
+    # Resolutions upstream ships no set for are derived from two it does
+    # (tools/derive_resolution_gui_set.py), and their map geometry is computed
+    # from the derived map.gui by the same rule as every other resolution's.
+    derived_root = Path(tempfile.mkdtemp(prefix="kmrp-derived-gui-"))
+    atexit.register(shutil.rmtree, derived_root, True)
+    derived_sources: dict[str, Path] = {}
+    for resolution, (low, high, position) in DERIVED_GUI_SETS.items():
+        category = next(c for c, values in GROUPS.items() if resolution in values)
+        folder = args.upstream / ASPECT_FOLDERS[category]
+        target = derived_root / ASPECT_FOLDERS[category] / f"gui.{resolution}"
+        derive_gui_set(folder / f"gui.{low}", folder / f"gui.{high}", target, position)
+        derived_sources[resolution] = target
+        geometry[resolution] = resolution_geometry(target / "map.gui")
     missing = sorted(set(requested) - set(geometry))
     if missing:
         raise ValueError(f"Geometry is missing for: {', '.join(missing)}")
@@ -874,7 +942,7 @@ def main() -> int:
           f"(per-resolution instead: {MENUBG_TEXTURE_NAME}, {', '.join(excluded_frames)})")
     # The HD font atlases are byte-identical at every resolution -- only their TXI
     # metrics differ -- so they ship once here rather than being duplicated into all
-    # 48 per-resolution archives.
+    # 49 per-resolution archives.
     hd_font_atlases = sorted(args.hd_fonts.glob("*.tga"))
     if not hd_font_atlases:
         raise ValueError(f"No HD font atlases found in {args.hd_fonts}")
@@ -999,7 +1067,7 @@ def main() -> int:
 
     catalog_lines = ["# category\twidth\theight\tcanvasWidth\tcanvasHeight\toverlayWidth\tcenteringWidth\tcenteringHeight"]
     # Progress for the build script's bar: it turns "[done/total] label" lines
-    # into bar updates. This is the long stage -- 48 resolutions of GUI and
+    # into bar updates. This is the long stage -- 49 resolutions of GUI and
     # texture work -- and without a heartbeat the build looks hung.
     total_resolutions = sum(len(items) for items in GROUPS.values())
     completed_resolutions = 0
@@ -1022,7 +1090,8 @@ def main() -> int:
             if resolution == "3440x1440":
                 gui_source = args.gold_override
             else:
-                gui_source = args.upstream / ASPECT_FOLDERS[category] / f"gui.{resolution}"
+                gui_source = derived_sources.get(
+                    resolution, args.upstream / ASPECT_FOLDERS[category] / f"gui.{resolution}")
             gui_files = list(gui_source.glob("*.gui"))
             if len(gui_files) < 81:
                 raise ValueError(f"Expected at least 81 GUI files for {resolution}, found {len(gui_files)}")
@@ -1261,6 +1330,26 @@ def main() -> int:
                 add_confirm_badge(packaged_files[confirm_index], confirm_gui,
                                   controls_gui)
                 packaged_files[confirm_index] = confirm_gui
+
+                # The travelling A beside the highlighted dialogue reply. Only
+                # 3440x1440 ships dialog.gui (the tuned one); everywhere else the
+                # game loads vanilla's, so a vanilla-equivalent copy is rebuilt
+                # from the tuned asset to carry the label (vanilla_dialog_gui).
+                dialog_index = next(
+                    (i for i, path in enumerate(packaged_files)
+                     if path.name.lower() == "dialog.gui"), None)
+                if dialog_index is None:
+                    dialog_source = layout_dir / "dialog.vanilla.gui"
+                    vanilla_dialog_gui(args.gold_override / "dialog.gui", dialog_source)
+                else:
+                    dialog_source = packaged_files[dialog_index]
+                dialog_gui = layout_dir / "dialog.gui"
+                add_confirm_badge(dialog_source, dialog_gui, controls_gui,
+                                  tag=DIALOG_BADGE_TAG)
+                if dialog_index is None:
+                    packaged_files.append(dialog_gui)
+                else:
+                    packaged_files[dialog_index] = dialog_gui
 
                 # Generate this resolution's button-row background art from the
                 # mipc*.gui file the engine will actually load at this
