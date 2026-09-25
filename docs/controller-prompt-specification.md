@@ -87,6 +87,19 @@ all deliver their events and the world ignores every one of them.
 The D-pad drives the action bar (see above). Whether any of these should earn a
 gameplay prompt is not decided here, and none is shipped.
 
+*Shipped 2026-09-25: X and Y in combat, with prompts.* X presses the HUD's
+Disengage button and Y its "clear one" button, which removes the last queued
+action. Each has a badge, placed at build time from the button itself, that
+shows exactly while the button is drawn and the pad is in use:
+
+| Glyph | Label | Location | Show when | Hide when |
+| --- | --- | --- | --- | --- |
+| X | (the Disengage button beside it) | `LBL_KMRPX`, left of `BTN_CLEARALL` | Disengage is drawn -- in combat | Disengage is hidden, or the mouse or keyboard is the active device |
+| Y | (the action queue beside it) | `LBL_KMRPY`, left of `BTN_CLEARONE` | the clear-one button is drawn | it is hidden, or the mouse or keyboard is the active device |
+
+Both are glyph-only: the buttons beside them say what they do. See
+[`../reverse-engineering/custom-gui-controls.md`](../reverse-engineering/custom-gui-controls.md).
+
 **R3 dimming is specified but not yet implementable.** After a flourish, free
 look declines for 4–7 seconds and the exact predicate was not identified. Either
 find it first, or do not dim at all — a prompt that dims on a four-second timer
@@ -204,9 +217,11 @@ A's label is genuinely two things: its handler skips the current line while one
 is playing and chooses the highlighted reply otherwise. A single "Select" is a
 half-truth, and the state is readable, so the label can follow it.
 
-*Built differently, 2026-09-25:* the maintainer chose an A glyph left of the
-highlighted reply's number, which follows the highlight like the main menu's A,
-instead of a captioned prompt beneath the list. The reply list fills the whole
+*Built differently, 2026-09-25:* the maintainer chose an A glyph that follows
+the highlighted reply, instead of a captioned prompt beneath the list. It was
+first left of the reply's number, like the main menu's A, where the engine's
+panel clipping hid it. It sits at the end of the reply's text since the second
+play-test that day. The reply list fills the whole
 bottom bar, so nothing fits beneath it. The A shows only while replies can be
 picked, so it never has to say "Skip". See `LBL_KMRPDLG` in
 [custom-gui-controls.md](../reverse-engineering/custom-gui-controls.md).

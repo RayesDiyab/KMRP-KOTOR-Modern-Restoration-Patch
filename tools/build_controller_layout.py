@@ -62,8 +62,10 @@ LAYOUT = [
     ("RT",     "Pause / Next tab",          "R", "RT"),
     ("RB",     "Next target",               "R", "RB"),
     ("START",  "Map / Close menu",          "T", "START"),
-    ("Y",      "Screen action",             "R", "Y"),
-    ("X",      "Screen action",             "R", "X"),
+    # In combat, Y removes the last queued action and X disengages (the HUD's
+    # own clear buttons); in menus each screen gives them its own meaning.
+    ("Y",      "Undo action / Menu action", "R", "Y"),
+    ("X",      "Disengage / Menu action",   "R", "X"),
     ("B",      "Back / Release bar",        "R", "B"),
     ("A",      "Interact / Select",         "R", "A"),
     ("RSTICK", "Camera / Click: free look", "R", "RSTICK"),
@@ -515,7 +517,7 @@ def build_gui(source: Path, output: Path, width: int, height: int,
     # diagram texture. The runtime swaps the fill's family letter with the pad.
     fill(add(8, 'LBL_DIAGRAM', '', *BOARD), 'kmrplytdiag')
     style(add(9, 'LBL_HELP',
-              'Buttons are shown by position. Screen actions vary by menu.',
+              'Buttons are shown by position. Menu actions vary by screen.',
               0, 466 + down, DESIGN_W, 22), align=ALIGN_CENTRE)
 
     # Each column's box is as wide as its longest caption needs, growing

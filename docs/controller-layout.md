@@ -139,7 +139,7 @@ and were wrong for the shipping path — View read "Menu-specific action" and LB
 | Right stick | Camera / Click: free look |
 | D-pad | Action bar / Navigate |
 | A / B | Interact / Select · Back / Release bar |
-| X / Y | Screen action |
+| X / Y | Disengage / Menu action · Undo action / Menu action ("Screen action" until 2026-09-25, before X and Y did anything in combat) |
 
 Plain ASCII, because the menu face has 95 printable-ASCII glyphs and nothing
 else.

@@ -24,6 +24,14 @@ EXPORTS
     NativeCameraFrameK1
     NativeMovieFrameK1
     NativeRumbleK1
+    NativeRumblePlayK1
+    NativeRumbleStopK1
+    NativeRumbleCutoffK1
+    NativeSaberPowerK1
+    NativeSaberContactK1
+    NativeParryK1
+    NativeMuzzleFlashK1
+    NativeMeleeHitK1
     NativeMovieWindowOpenK1
     NativeMovieWindowCloseK1
     NativeActionBarK1

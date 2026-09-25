@@ -94,8 +94,8 @@ details still belong in `docs/` or `reverse-engineering/`.
   module, loaded by a statically linked KPM runtime through the ASI loader K1DC
   ships. It owns `patch_config.toml`, refuses an external one, and applies its
   hooks in memory without changing the executable on disk: 18 detours and 4 byte
-  patches on 2026-09-24 (this entry said six detours, the first integration's
-  count). The paragraph below is the first integration's prompt design; the
+  patches on 2026-09-24, 26 detours since the rumble mixer of 2026-09-25 (this
+  entry said six detours, the first integration's count). The paragraph below is the first integration's prompt design; the
   current one covers 57 controls in four controller families -- see
   `docs/controller-support.md` and `docs/controller-prompt-specification.md`. The PC `dialog.tlk` and GUI
   texture pack retain Xbox tutorial strings and seven 32x32 button textures, but

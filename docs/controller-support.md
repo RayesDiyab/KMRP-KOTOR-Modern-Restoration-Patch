@@ -19,8 +19,10 @@ through XInput and PlayStation, Switch and Steam Deck controllers through SDL 3
 ([`controller-sdl-backend.md`](controller-sdl-backend.md)), draws button
 prompts in four families, and adds the Controller Layout screen. A KOTOR Patch
 Manager runtime applies its hooks in memory from `patch_config.toml`: 18
-detours and 4 byte patches in the 2026-09-24 build
-(`tools/check_patcher_hook_table.py`).
+detours and 4 byte patches in the 2026-09-24 build, and 26 detours and 4 byte
+patches since the rumble mixer of 2026-09-25
+(`tools/check_patcher_hook_table.py`; the eight rumble hooks are in
+[`controller-rumble.md`](controller-rumble.md)).
 
 *Corrected 2026-09-24:* this introduction still described the first
 integration -- an adapter feeding keyboard and GUI events through six detours,
@@ -31,7 +33,7 @@ describe that first version now say so.
 
 | Component | Exact source | Local output |
 | --- | --- | --- |
-| Controller module | KMRP's sources in `src/controller-native/`, with `scopeking0117-alt/KPM-Xbox-Controls-K1` at commit `78e7eaa3b9554ec0e6732f749424dc916f3a1895` as modified by KMRP (`KMRP-CONTROLLER-MODULE.diff`) | `kmrp-controller.module`, 181,248 bytes, SHA-256 `AC2C41EC4C935B19EFF4693E3FBB43D176D28C5B37DE0CDC2C706F72379652C9` |
+| Controller module | KMRP's sources in `src/controller-native/`, with `scopeking0117-alt/KPM-Xbox-Controls-K1` at commit `78e7eaa3b9554ec0e6732f749424dc916f3a1895` as modified by KMRP (`KMRP-CONTROLLER-MODULE.diff`) | `kmrp-controller.module`, 181,248 bytes, SHA-256 `AC2C41EC4C935B19EFF4693E3FBB43D176D28C5B37DE0CDC2C706F72379652C9` in the 2026-09-24 installer; 204,288 bytes, SHA-256 `E52826A2724038E765DFD45B86171160A017E054E346E29CF4A1CE5D0F74DE21` in the haptics hardware-test installer `C796489A…`; 204,800 bytes, SHA-256 `577AAE92D0FE18766EDEC669C54959A0213BA1618030F4E1B0EED92E4D9CC251` in `D58A2E33…`, `7C2FFF8B…` and `AD3DC07D…` (X and Y in combat, the dialogue A moved) |
 | Hook runtime | `LaneDibello/Kotor-Patch-Manager`, commit `7d53e52f55622a48ab97001c2680fd9fb59c8f98` | `kmrp-controller-runtime.asi`, 338,432 bytes, SHA-256 `F5CF2A21E4C28DA95CD8DAAF2704F871A6105616BFE250361929C61BCDB43B45` |
 | SDL | official SDL 3.4.16, Windows x86 | `kmrp-sdl3.dll`, 2,358,784 bytes, and its licence |
 
@@ -110,7 +112,7 @@ and which loads every `.asi` beside the game -- so `DriverCompatOperations.Apply
 installs the loader whenever either option is on, and K1DC's own `.asi` only when
 driver compatibility is. Until 2026-09-24 the settings page forced driver
 compatibility on with this option instead. `Test-ControllerSupport.ps1` covers both
-single-option cases. KMRP installs seven controller-owned files beside the selected executable:
+single-option cases. KMRP installs eight controller files beside the selected executable:
 
 | File | Purpose |
 | --- | --- |
@@ -119,15 +121,20 @@ single-option cases. KMRP installs seven controller-owned files beside the selec
 | `kmrp-sdl3.dll`, `kmrp-sdl3-LICENSE.txt` | SDL 3 for non-Xbox controllers, and its zlib licence. |
 | `kmrp-kotor-patch-manager-LICENSE.txt` | The MIT licence of KOTOR Patch Manager, which covers the runtime, the module and the memory-safety patches. |
 | `patch_config.toml` | Declares the selected executable hash and the native path's hooks. |
+| `kmrp-controller.ini` | The player's rumble settings: Mode, Strength, Debug ([`controller-rumble.md`](controller-rumble.md)). Written only when absent or still as installed. |
 | `KMRP_Controller.manifest` | Records exact hashes for ownership-aware restore. |
 
-Seven files, as `Test-ControllerSupport.ps1` Case 4 checks: the four this table
-listed until 2026-09-24, the two SDL files the hybrid backend added, and the MIT
-licence added on 2026-09-25.
+Eight files, as `Test-ControllerSupport.ps1` Case 4 checks: the four this table
+listed until 2026-09-24, the two SDL files the hybrid backend added, the MIT
+licence added on 2026-09-25, and the settings file added with the rumble mixer
+the same day. (This said seven until the settings file.)
 
 Installation refuses an existing controller filename or `patch_config.toml`
 that KMRP does not own. Restore removes only files whose current hashes still
-match the manifest; modified files are retained. A failed controller install
+match the manifest; modified files are retained. `kmrp-controller.ini` is the
+exception to the first rule, because it is the player's to edit: an edited
+copy never blocks an install, is never overwritten, and is not claimed by the
+new manifest (`Test-ControllerSupport.ps1` Case 7). A failed controller install
 rolls back the executable and a newly installed ASI loader.
 
 This means a separate KPM installation and KMRP's embedded controller runtime
@@ -157,7 +164,8 @@ in-memory `E9` detour.
 | `0x0040A638` | `0x00A638` | `8B 4F 1C 3B CE` | `OnSetActiveControlK1` |
 
 These eight are the legacy module's. `src/controller-native/kotor1.hooks.toml`
-now holds 29 entries -- 25 detours and 4 `replace` patches -- the rest being the
+held 29 entries on 2026-09-24 -- 25 detours and 4 `replace` patches -- and 37
+since the rumble mixer's eight (33 detours), the rest being the
 native path's, documented in [`controller-native-path.md`](controller-native-path.md),
 and KMRP's `ControllerOperations` installs the native path's set. On 2026-09-24
 the expected bytes of all 29 were found in every one of the 48 executables the
@@ -225,9 +233,12 @@ the world opens the Map through the engine's own Map hotkey (event `0xD7`, whose
 handler at `0x006218D5` shows screen `event - 0xD1`), instead of the game's Start
 event `0x0B`, which opens Options. With the in-game menu in front, Start sends B's
 control code, the close measured from every tab. A slot of the bottom-right action
-bar used with A lets go of focus afterwards, so the next A acts on the world again,
-and B lets go of it without doing anything else -- B has no other effect in the
-world. D-pad Left/Right re-enters the bar as before. The mechanisms are in
+bar used with A keeps focus, so A can be pressed again straight away -- attack,
+attack, attack. B lets go of it without doing anything else -- B has no other
+effect in the world -- and D-pad Left/Right re-enters the bar as before. (Until
+2026-09-25 a used slot let go of focus too, so the next A acted on the world; in
+combat that meant D-pad Right before every action, and the user asked for the
+bar to stay.) The mechanisms are in
 [`controller-native-path.md`](controller-native-path.md). **Not yet verified in
 play**: `testing/controller/test_hud_release_and_start_map.py` checks both against
 the engine's memory and has not been run on a loaded save.

@@ -1,5 +1,5 @@
 diff --git a/K1XboxControls.cpp b/K1XboxControls.cpp
-index a8c9b80..1c5b4be 100644
+index a8c9b80..129beea 100644
 --- a/K1XboxControls.cpp
 +++ b/K1XboxControls.cpp
 @@ -6,6 +6,10 @@
@@ -1111,7 +1111,7 @@ index a8c9b80..1c5b4be 100644
      // Ahead of everything else, and outside the menu-panel branch further down,
      // so the toggle answers in gameplay as well as menus. Acted on at the next
      // frame rather than here, because parking the cursor talks to the GUI
-@@ -2497,6 +3383,184 @@ extern "C" void __cdecl CaptureActionBarInputK2(
+@@ -2497,6 +3383,185 @@ extern "C" void __cdecl CaptureActionBarInputK2(
      }
  }
  
@@ -1267,7 +1267,8 @@ index a8c9b80..1c5b4be 100644
 +// Drop focus off the seven action slots, if one of them holds it: the release
 +// the Delete path above performs, without cancelling the last action. Left and
 +// Right bring focus back through MoveFocus's activeIndex < 0 seed. KMRP calls it
-+// after a slot is used and when B is pressed, so A goes back to the world.
++// when B is pressed, so A goes back to the world. (It also did after a slot was
++// used, until 2026-09-25: the bar now keeps focus so A can be pressed again.)
 +extern "C" void __cdecl KmrpActionBarReleaseK1(void* mainInterface)
 +{
 +    if (!mainInterface) {
@@ -1296,7 +1297,7 @@ index a8c9b80..1c5b4be 100644
  extern "C" void __cdecl UpdateActionBarControlsK1(void* mainInterface)
  {
      UpdateActionBarControls(K1_CONFIG, mainInterface);
-@@ -2558,6 +3622,16 @@ extern "C" void __cdecl CancelMovieOnSpaceK1(
+@@ -2558,6 +3623,16 @@ extern "C" void __cdecl CancelMovieOnSpaceK1(
      }
  }
  
@@ -1313,7 +1314,7 @@ index a8c9b80..1c5b4be 100644
  extern "C" void __cdecl MapMovieDeleteToEscapeK2(void* movieWindowFrame)
  {
      if (!movieWindowFrame) {
-@@ -2572,6 +3646,133 @@ extern "C" void __cdecl MapMovieDeleteToEscapeK2(void* movieWindowFrame)
+@@ -2572,6 +3647,133 @@ extern "C" void __cdecl MapMovieDeleteToEscapeK2(void* movieWindowFrame)
      }
  }
  
@@ -1447,7 +1448,7 @@ index a8c9b80..1c5b4be 100644
  extern "C" void __cdecl DispatchMenuInputK1(void* clientApp)
  {
      // Poll here because this hook sits at the entry of
-@@ -2580,6 +3781,7 @@ extern "C" void __cdecl DispatchMenuInputK1(void* clientApp)
+@@ -2580,6 +3782,7 @@ extern "C" void __cdecl DispatchMenuInputK1(void* clientApp)
      // early return below, which only guards the queued menu work and would
      // otherwise skip the poll on most frames.
      PollXInputK1();
@@ -1455,7 +1456,7 @@ index a8c9b80..1c5b4be 100644
      // clientApp is CClientExoAppInternal, straight from ECX at the ProcessInput
      // entry this hook sits on, which is the exact this the mouse mask lives on.
      UpdateK1CursorState(clientApp);
-@@ -2726,6 +3928,9 @@ extern "C" void __cdecl DispatchMenuInputK1(void* clientApp)
+@@ -2726,6 +3929,9 @@ extern "C" void __cdecl DispatchMenuInputK1(void* clientApp)
          }
      }
  
@@ -1465,7 +1466,7 @@ index a8c9b80..1c5b4be 100644
      if ((pending & PENDING_K1_MENU_ACTION) != 0) {
          MenuActionSlot slot = static_cast<MenuActionSlot>(
              g_pendingMenuAction);
-@@ -2746,6 +3951,7 @@ extern "C" void __cdecl DispatchMenuInputK1(void* clientApp)
+@@ -2746,6 +3952,7 @@ extern "C" void __cdecl DispatchMenuInputK1(void* clientApp)
              return;
          }
      }
@@ -1473,7 +1474,7 @@ index a8c9b80..1c5b4be 100644
  
      if ((pending & PENDING_K1_GENERIC_BUTTON) != 0) {
          DispatchPanelInput(panel, g_pendingGenericButtonEvent);
-@@ -3048,11 +4254,93 @@ extern "C" void __cdecl ClearActionBarControlsK1(void* mainInterface)
+@@ -3048,11 +4255,93 @@ extern "C" void __cdecl ClearActionBarControlsK1(void* mainInterface)
      }
  }
  
@@ -1967,7 +1968,7 @@ index 49853e2..04c40b8 100644
 +// the current movie without relying on synthetic keyboard messages.
 +bool ConsumeMovieSkipK1();
 diff --git a/exports.def b/exports.def
-index f89f845..9aa5614 100644
+index f89f845..aa533e7 100644
 --- a/exports.def
 +++ b/exports.def
 @@ -1,8 +1,9 @@
@@ -1981,7 +1982,7 @@ index f89f845..9aa5614 100644
      CancelActionBarKeyboardFocusOnMouseMoveK1
      CancelActionBarKeyboardFocusOnMouseMoveK2
      ClearActionBarControlsK1
-@@ -12,3 +13,31 @@ EXPORTS
+@@ -12,3 +13,39 @@ EXPORTS
      MapMovieDeleteToEscapeK2
      UpdateActionBarControlsK1
      UpdateActionBarControlsK2
@@ -1996,6 +1997,14 @@ index f89f845..9aa5614 100644
 +    NativeCameraFrameK1
 +    NativeMovieFrameK1
 +    NativeRumbleK1
++    NativeRumblePlayK1
++    NativeRumbleStopK1
++    NativeRumbleCutoffK1
++    NativeSaberPowerK1
++    NativeSaberContactK1
++    NativeParryK1
++    NativeMuzzleFlashK1
++    NativeMeleeHitK1
 +    NativeMovieWindowOpenK1
 +    NativeMovieWindowCloseK1
 +    NativeActionBarK1
@@ -2014,7 +2023,7 @@ index f89f845..9aa5614 100644
 +    NativeNoteKeyboardK1
 +    NativeNoteMouseK1
 diff --git a/kotor1.hooks.toml b/kotor1.hooks.toml
-index a2769d6..f909d6e 100644
+index a2769d6..8d6cb35 100644
 --- a/kotor1.hooks.toml
 +++ b/kotor1.hooks.toml
 @@ -50,6 +50,35 @@ type = "uint"
@@ -2053,7 +2062,7 @@ index a2769d6..f909d6e 100644
  # Process captured keyboard input during the gameplay HUD update.
  [[hooks]]
  address = 0x00686BA0
-@@ -96,3 +125,553 @@ type = "int"
+@@ -96,3 +125,733 @@ type = "int"
  [[hooks.parameters]]
  source = "edi"
  type = "int"
@@ -2403,6 +2412,186 @@ index a2769d6..f909d6e 100644
 +
 +[[hooks.parameters]]
 +source = "ebp"
++type = "pointer"
++
++# UpdateRumble's frame-time argument, a float in seconds, which drives the
++# mixer's clock (K1Rumble.cpp). At this site ESP is the entry ESP less 0x14 --
++# `sub esp,0x10` and `push ebp`; every bail path and the loop's own pushes and
++# pops meet here level -- so the argument at entry [esp+4] is [esp+0x18]. The
++# loop reads the same slot as [esp+0x24] under its three extra pushes
++# (0x005F7599). Written in decimal: KPM parses the offset with std::stoi
++# (wrapper_x86.cpp), which reads "0x18" as 0.
++[[hooks.parameters]]
++source = "esp+24"
++type = "pointer"
++
++# ---------------------------------------------------------------------------
++# Rumble and haptics: the mixer in K1Rumble.cpp. See docs/controller-rumble.md.
++#
++# One hook declines, the rest observe. Every pattern the engine starts -- a
++# script's PlayRumblePattern, a footstep, a VFX -- is handed to the mixer and the
++# engine's own queue is skipped, so one mixer owns both motors: BioWare's rows,
++# the two restored ones, and KMRP's Enhanced patterns, combined per motor by
++# maximum. The observers supply the events BioWare never wired to rumble.
++
++# CClientExoAppInternal::PlayRumblePattern, 0x005FB490, at its index test:
++#   005FB491  mov ebp,[esp+8]        the pattern index
++#   005FB499  jl 0x5FB536            negative: return 0
++#   005FB49F  cmp ebp,[ecx+0x344]    <- here; the stolen bytes
++#   005FB4A5  jge 0x5FB536           past the count: return 0
++#   005FB536  pop edi / pop esi / xor eax,eax / pop ebp / ret 4
++# The handler returns 1 and KPM takes the consumed exit to 0x005FB536, the
++# function's own `return 0` with its own three pops. The stolen `cmp` writes
++# neither EAX nor ESP, and KPM preserves the flags across its EAX test, so a
++# return of 0 falls into the `jge` exactly as vanilla. `return 0` is also what
++# the shipped PC game returned for every call, its pattern count being zero.
++[[hooks]]
++address = 0x005FB49F
++type = "detour"
++function = "NativeRumblePlayK1"
++original_bytes = [0x3B, 0xA9, 0x44, 0x03, 0x00, 0x00]
++skip_original_bytes = false
++exclude_from_restore = ["eax"]
++consumed_exit_address = 0x005FB536
++
++[[hooks.parameters]]
++source = "ecx"
++type = "pointer"
++
++[[hooks.parameters]]
++source = "ebp"
++type = "int"
++
++# CClientExoAppInternal::StopRumblePattern, 0x005F74B0, at its entry. ecx is the
++# object; [esp+4] the index. Observes: the engine's search of its empty queue
++# still runs and finds nothing.
++[[hooks]]
++address = 0x005F74B0
++type = "detour"
++function = "NativeRumbleStopK1"
++original_bytes = [0x56, 0x8B, 0xB1, 0x50, 0x03, 0x00, 0x00]
++skip_original_bytes = false
++exclude_from_restore = []
++
++[[hooks.parameters]]
++source = "ecx"
++type = "pointer"
++
++[[hooks.parameters]]
++source = "esp+4"
++type = "pointer"
++
++# CClientExoAppInternal::LookUpAndPerformRumbleWithCutOff, 0x005FB960, just
++# after its frame and local string are built:
++#   005FB961  mov ebp,esp
++#   005FB989  call CExoString::CExoString
++#   005FB98E  movzx eax,byte ptr [ebp+0xC]   <- here; category, 0 or 1
++#   005FB992  sub eax,0                      sets ZF for the je at 0x005FB99D
++# [ebp+8] is the 2DA row, [ebp+0xC] the category (0 footstepsounds, 1
++# visualeffects), [ebp+0x10] the position. Observes. Its three callers:
++# CSWCCreature::PlayFootstep (0x0061A62D), CSWCVisualEffect::DoVFXRumble
++# (0x00690956) and CSWCVisualEffectOnObject::StartVisualEffect (0x006A653E),
++# which passes the carrying object's own position field -- what lets the handler
++# tell an effect on the player from one beside them.
++[[hooks]]
++address = 0x005FB98E
++type = "detour"
++function = "NativeRumbleCutoffK1"
++original_bytes = [0x0F, 0xB6, 0x45, 0x0C, 0x83, 0xE8, 0x00]
++skip_original_bytes = false
++exclude_from_restore = []
++
++[[hooks.parameters]]
++source = "ebp"
++type = "pointer"
++
++# CSWCItem::ResolveCreaturePoweredAnimations, 0x00646BA0, at its entry. ecx is
++# the item; [esp+4] the power flag. CSWCItem::PowerItem (0x00647130) calls it
++# from two places, 0x006471F7 and 0x00647204, each time with the state it has
++# settled on -- including its forced "off" while an area is not ready -- which
++# is why this, not PowerItem's own entry, is where the saber's state is read.
++#   00646BA0  mov eax,[0x7A39FC]     absolute; position-independent
++#   00646BA5  push esi
++[[hooks]]
++address = 0x00646BA0
++type = "detour"
++function = "NativeSaberPowerK1"
++original_bytes = [0xA1, 0xFC, 0x39, 0x7A, 0x00, 0x56]
++skip_original_bytes = false
++exclude_from_restore = []
++
++[[hooks.parameters]]
++source = "ecx"
++type = "pointer"
++
++[[hooks.parameters]]
++source = "esp+4"
++type = "pointer"
++
++# CSWCCreature::ShowLightSaberContactVisual, 0x0060DE20, at its entry; ecx is the
++# wielder. Reached from the attack animation's hit-contact event
++# (HitContactEvent, 0x00610E90), so only a blade that connects.
++[[hooks]]
++address = 0x0060DE20
++type = "detour"
++function = "NativeSaberContactK1"
++original_bytes = [0x83, 0xEC, 0x1C, 0x56, 0x8B, 0xF1]
++skip_original_bytes = false
++exclude_from_restore = []
++
++[[hooks.parameters]]
++source = "ecx"
++type = "pointer"
++
++# CSWCObject::AnimationParry, 0x0063C4F0, at its entry; ecx is the object
++# parrying. The stolen `test ecx,ecx` sets the flags the `je` at 0x0063C4FE
++# reads, after the flag-neutral `mov [esp],0`.
++[[hooks]]
++address = 0x0063C4F0
++type = "detour"
++function = "NativeParryK1"
++original_bytes = [0x51, 0x8B, 0x49, 0x68, 0x85, 0xC9]
++skip_original_bytes = false
++exclude_from_restore = []
++
++[[hooks.parameters]]
++source = "ecx"
++type = "pointer"
++
++# CSWCProjectile::CreateMuzzleFlash, 0x006D4440, at its entry; ecx is the
++# projectile. The stolen `mov ebx,[esp+8]` is ESP-relative, and KPM re-executes
++# stolen bytes with ESP as it was at the site.
++[[hooks]]
++address = 0x006D4440
++type = "detour"
++function = "NativeMuzzleFlashK1"
++original_bytes = [0x53, 0x8B, 0x5C, 0x24, 0x08, 0x56]
++skip_original_bytes = false
++exclude_from_restore = []
++
++[[hooks.parameters]]
++source = "ecx"
++type = "pointer"
++
++# HitEvent, 0x00617EB0, the creature animation event "hit" (registered by
++# CSWCCreature::RegisterCallbacks, 0x0061AB40): the impact moment of an attack.
++# [esp+12] is its third argument, the attack record, read at 0x00617ECC:
++#   +0x04  attacker id        +0x14  target id
++#   +0x0C  result byte: 1, 2, 3, 5 take the hit branch (0x0061801C), 4 and 8
++#          the parry animation
++#   +0x20  non-zero: the engine skips the record (0x00617F26)
++# The stolen `mov eax, fs:[0]` is FS-relative with an absolute offset, so it
++# re-executes unchanged; the hook observes.
++[[hooks]]
++address = 0x00617EB0
++type = "detour"
++function = "NativeMeleeHitK1"
++original_bytes = [0x64, 0xA1, 0x00, 0x00, 0x00, 0x00]
++skip_original_bytes = false
++exclude_from_restore = []
++
++[[hooks.parameters]]
++source = "esp+12"
 +type = "pointer"
 +
 +# Drive the gameplay HUD's bottom-right action bar from the D-pad.

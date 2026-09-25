@@ -19,8 +19,8 @@ the game:
 Sources of truth:
 
   hooks       src/controller-native/kotor1.hooks.toml
-  ownership   which .cpp defines the exported function -- K1NativeJoystick.cpp is
-              KMRP's native path, vendor/ is Saul0097's
+  ownership   which .cpp defines the exported function -- the .cpp files in
+              src/controller-native/ are KMRP's native path, vendor/ is Saul0097's
   constants   the `constexpr` definitions in K1NativeJoystick.cpp
 
 `tools/check_controller_drift.py` asserts that these derivations still hold.
@@ -38,6 +38,9 @@ ROOT = Path(__file__).resolve().parents[1]
 NATIVE_DIR = ROOT / "src" / "controller-native"
 HOOKS_TOML = NATIVE_DIR / "kotor1.hooks.toml"
 MODULE_SOURCE = NATIVE_DIR / "K1NativeJoystick.cpp"
+# Every translation unit of KMRP's own: the joystick path, the layout and prompt
+# code, the controller backend and the rumble mixer (K1Rumble.cpp).
+KMRP_SOURCES = sorted(NATIVE_DIR.glob("*.cpp"))
 VENDOR_DIR = NATIVE_DIR / "vendor"
 EXPORTS_DEF = NATIVE_DIR / "exports.def"
 
@@ -62,7 +65,7 @@ REQUIRED_LEGACY = frozenset({"ClearActionBarControlsK1"})
 def _defining_sources() -> dict:
     """Exported hook name -> owner, from the `extern "C" ... __cdecl` definitions."""
     owners = {}
-    for path, owner in [(MODULE_SOURCE, KMRP)] + [
+    for path, owner in [(p, KMRP) for p in KMRP_SOURCES] + [
             (p, LEGACY) for p in sorted(VENDOR_DIR.glob("*.cpp"))]:
         text = path.read_text(encoding="utf-8", errors="replace")
         for name in re.findall(r"__cdecl\s+(\w+)\s*\(", text):

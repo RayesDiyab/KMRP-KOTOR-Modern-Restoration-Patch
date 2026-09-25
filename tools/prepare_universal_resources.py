@@ -650,6 +650,92 @@ def add_subtab_swap_cue(source: Path, destination: Path) -> bool:
     return True
 
 
+# X and Y in combat. X presses the HUD's Disengage button, BTN_CLEARALL; Y its
+# BTN_CLEARONE, which removes the last queued action -- both through the engine's
+# own click handlers (PressHudButtonK1 in K1NativeJoystick.cpp). A badge beside
+# each says so. The module binds them on CSWGuiMainInterface and shows each only
+# while its button is drawn, so they appear in combat and nowhere else.
+COMBAT_CUES = (("LBL_KMRPY", "kmrpy_cmbt", "Y", "BTN_CLEARONE"),
+               ("LBL_KMRPX", "kmrpx_cmbt", "X", "BTN_CLEARALL"))
+# A label to clone, rather than a button: these are labels at run time too.
+COMBAT_CUE_TEMPLATE = "LBL_QUEUE1"
+# Square, at this fraction of the Disengage button's height, both the same size.
+COMBAT_CUE_SCALE = 0.8
+
+
+# The combat-mode message, "COMBAT MODE engaged. Press the Disengage button to
+# cancel." (dialog.tlk 48208; the keyboard wording is 48413). It is drawn in
+# LBL_CMBTMODEMSG over a dialog2 box, with LBL_CMBTMSGBG sharing its rect in
+# vanilla and in every upstream layout. The hand-tuned 3440x1440 HUD moved both
+# to the top-left corner but left the text label 300 px wide (the other 564), and
+# at that resolution's font the sentence is about 1,049 px: it wrapped to five
+# lines and the 50 px box showed the middle two, "the Disengage / button to"
+# (play-test screenshot, 2026-09-25). 660 px holds both wordings on two lines.
+# Test-GeneratedGuiGeometry.py measures the message against the box everywhere.
+COMBAT_MESSAGE_TAGS = ("LBL_CMBTMODEMSG", "LBL_CMBTMSGBG")
+COMBAT_MESSAGE_WIDTHS = {"3440x1440": 660}
+
+
+def widen_combat_message(source: Path, destination: Path, width: int) -> None:
+    """Give both combat-message labels `width`, keeping their corner and height."""
+    gff = read_gff(source)
+    root = gff.root
+    controls = root.get_list("CONTROLS")
+    found = 0
+    for control in controls:
+        if control.get_string("TAG") in COMBAT_MESSAGE_TAGS:
+            extent = control.get_struct("EXTENT")
+            extent.set_int32("WIDTH", width)
+            control.set_struct("EXTENT", extent)
+            found += 1
+    if found != len(COMBAT_MESSAGE_TAGS):
+        raise ValueError(f"{source.name}: found {found} of the combat-message labels")
+    root.set_list("CONTROLS", controls)
+    write_gff(gff, destination)
+
+
+def add_combat_cues(source: Path, destination: Path) -> int:
+    """Put Y left of BTN_CLEARONE and X left of BTN_CLEARALL, a quarter-cue off.
+
+    The two buttons share a left edge in every HUD layout the build ships (the
+    clear-one button over the queue, Disengage below it), so the cues stack in a
+    column beside them. Everything is derived from the buttons themselves.
+    """
+    gff = read_gff(source)
+    root = gff.root
+    controls = root.get_list("CONTROLS")
+    by_tag = {control.get_string("TAG"): control for control in controls}
+    if any(tag in by_tag for tag, _, _, _ in COMBAT_CUES):
+        return 0
+    for tag in (COMBAT_CUE_TEMPLATE, *(button for _, _, _, button in COMBAT_CUES)):
+        if tag not in by_tag:
+            raise ValueError(f"{source.name} has no {tag}; it is not a gameplay HUD")
+
+    def extent_of(tag: str) -> tuple[int, int, int, int]:
+        e = by_tag[tag].get_struct("EXTENT")
+        return (e.get_int32("LEFT"), e.get_int32("TOP"),
+                e.get_int32("WIDTH"), e.get_int32("HEIGHT"))
+
+    size = max(8, round(extent_of("BTN_CLEARALL")[3] * COMBAT_CUE_SCALE))
+    gap = max(2, size // 4)
+    placed = []
+    for tag, fill, _glyph, button in COMBAT_CUES:
+        left, top, _width, height = extent_of(button)
+        cue = (left - gap - size, top + (height - size) // 2)
+        if cue[0] < 0 or cue[1] < 0:
+            raise ValueError(f"{source.name}: {tag} would leave the screen at {cue}")
+        placed.append(cue)
+        _clone_cue_control(controls, by_tag[COMBAT_CUE_TEMPLATE], tag, fill,
+                           cue[0], cue[1], size)
+    (l1, t1), (l2, t2) = placed
+    if not (t1 + size <= t2 or t2 + size <= t1 or l1 + size <= l2 or l2 + size <= l1):
+        raise ValueError(f"{source.name}: the X and Y combat cues overlap at {placed}")
+
+    root.set_list("CONTROLS", controls)
+    write_gff(gff, destination)
+    return len(COMBAT_CUES)
+
+
 def r3_cue_size(portrait_height: int) -> int:
     """The R3 cue's side, in pixels: R3_CUE_SCALE of the portrait height.
 
@@ -1035,6 +1121,12 @@ def main() -> int:
                 art.write_bytes(build_square_glyph_tga(glyph, family=family))
                 common_tga_files = common_tga_files + [art]
 
+            # And for X and Y beside the HUD's combat buttons.
+            for _, fill, glyph, _ in COMBAT_CUES:
+                art = Path(icon_staging) / f"{family_resref(fill, family)}.tga"
+                art.write_bytes(build_square_glyph_tga(glyph, family=family))
+                common_tga_files = common_tga_files + [art]
+
             # The swap-tabs phrase, on a texture of its own shape rather than a
             # square, because its control is that shape too. Every family has
             # the phrase as art since 2026-09-24, drawn for KMRP.
@@ -1350,6 +1442,37 @@ def main() -> int:
                     packaged_files.append(dialog_gui)
                 else:
                     packaged_files[dialog_index] = dialog_gui
+
+                # X and Y beside the HUD's combat buttons, in every mipc*.gui
+                # this resolution ships -- the engine loads one of them, and the
+                # one it loads must have them.
+                combat_dir = temp_dir / "combat-cue"
+                combat_dir.mkdir(exist_ok=True)
+                # The combat-mode message's box, where the tuned layout clips it.
+                message_width = COMBAT_MESSAGE_WIDTHS.get(resolution)
+                if message_width:
+                    target = "mipc210x7.gui" if resolution == "3440x1440" else "mipc28x6.gui"
+                    message_dir = combat_dir / "message"
+                    message_dir.mkdir(exist_ok=True)
+                    for index, path in enumerate(packaged_files):
+                        if path.name.lower() == target:
+                            # Same name: the archive entry is the file's name.
+                            widened = message_dir / path.name
+                            widen_combat_message(path, widened, message_width)
+                            packaged_files[index] = widened
+                cued_huds = []
+                for index, path in enumerate(packaged_files):
+                    name = path.name.lower()
+                    if not (name.startswith("mipc") and name.endswith(".gui")):
+                        continue
+                    cue_file = combat_dir / path.name
+                    if add_combat_cues(path, cue_file):
+                        packaged_files[index] = cue_file
+                        cued_huds.append(name)
+                loaded_hud = "mipc210x7.gui" if resolution == "3440x1440" else "mipc28x6.gui"
+                if loaded_hud not in cued_huds:
+                    raise ValueError(
+                        f"{resolution}: the combat cues did not reach {loaded_hud}")
 
                 # Generate this resolution's button-row background art from the
                 # mipc*.gui file the engine will actually load at this

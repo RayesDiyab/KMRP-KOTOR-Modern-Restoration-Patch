@@ -473,6 +473,186 @@ type = "int"
 source = "ebp"
 type = "pointer"
 
+# UpdateRumble's frame-time argument, a float in seconds, which drives the
+# mixer's clock (K1Rumble.cpp). At this site ESP is the entry ESP less 0x14 --
+# `sub esp,0x10` and `push ebp`; every bail path and the loop's own pushes and
+# pops meet here level -- so the argument at entry [esp+4] is [esp+0x18]. The
+# loop reads the same slot as [esp+0x24] under its three extra pushes
+# (0x005F7599). Written in decimal: KPM parses the offset with std::stoi
+# (wrapper_x86.cpp), which reads "0x18" as 0.
+[[hooks.parameters]]
+source = "esp+24"
+type = "pointer"
+
+# ---------------------------------------------------------------------------
+# Rumble and haptics: the mixer in K1Rumble.cpp. See docs/controller-rumble.md.
+#
+# One hook declines, the rest observe. Every pattern the engine starts -- a
+# script's PlayRumblePattern, a footstep, a VFX -- is handed to the mixer and the
+# engine's own queue is skipped, so one mixer owns both motors: BioWare's rows,
+# the two restored ones, and KMRP's Enhanced patterns, combined per motor by
+# maximum. The observers supply the events BioWare never wired to rumble.
+
+# CClientExoAppInternal::PlayRumblePattern, 0x005FB490, at its index test:
+#   005FB491  mov ebp,[esp+8]        the pattern index
+#   005FB499  jl 0x5FB536            negative: return 0
+#   005FB49F  cmp ebp,[ecx+0x344]    <- here; the stolen bytes
+#   005FB4A5  jge 0x5FB536           past the count: return 0
+#   005FB536  pop edi / pop esi / xor eax,eax / pop ebp / ret 4
+# The handler returns 1 and KPM takes the consumed exit to 0x005FB536, the
+# function's own `return 0` with its own three pops. The stolen `cmp` writes
+# neither EAX nor ESP, and KPM preserves the flags across its EAX test, so a
+# return of 0 falls into the `jge` exactly as vanilla. `return 0` is also what
+# the shipped PC game returned for every call, its pattern count being zero.
+[[hooks]]
+address = 0x005FB49F
+type = "detour"
+function = "NativeRumblePlayK1"
+original_bytes = [0x3B, 0xA9, 0x44, 0x03, 0x00, 0x00]
+skip_original_bytes = false
+exclude_from_restore = ["eax"]
+consumed_exit_address = 0x005FB536
+
+[[hooks.parameters]]
+source = "ecx"
+type = "pointer"
+
+[[hooks.parameters]]
+source = "ebp"
+type = "int"
+
+# CClientExoAppInternal::StopRumblePattern, 0x005F74B0, at its entry. ecx is the
+# object; [esp+4] the index. Observes: the engine's search of its empty queue
+# still runs and finds nothing.
+[[hooks]]
+address = 0x005F74B0
+type = "detour"
+function = "NativeRumbleStopK1"
+original_bytes = [0x56, 0x8B, 0xB1, 0x50, 0x03, 0x00, 0x00]
+skip_original_bytes = false
+exclude_from_restore = []
+
+[[hooks.parameters]]
+source = "ecx"
+type = "pointer"
+
+[[hooks.parameters]]
+source = "esp+4"
+type = "pointer"
+
+# CClientExoAppInternal::LookUpAndPerformRumbleWithCutOff, 0x005FB960, just
+# after its frame and local string are built:
+#   005FB961  mov ebp,esp
+#   005FB989  call CExoString::CExoString
+#   005FB98E  movzx eax,byte ptr [ebp+0xC]   <- here; category, 0 or 1
+#   005FB992  sub eax,0                      sets ZF for the je at 0x005FB99D
+# [ebp+8] is the 2DA row, [ebp+0xC] the category (0 footstepsounds, 1
+# visualeffects), [ebp+0x10] the position. Observes. Its three callers:
+# CSWCCreature::PlayFootstep (0x0061A62D), CSWCVisualEffect::DoVFXRumble
+# (0x00690956) and CSWCVisualEffectOnObject::StartVisualEffect (0x006A653E),
+# which passes the carrying object's own position field -- what lets the handler
+# tell an effect on the player from one beside them.
+[[hooks]]
+address = 0x005FB98E
+type = "detour"
+function = "NativeRumbleCutoffK1"
+original_bytes = [0x0F, 0xB6, 0x45, 0x0C, 0x83, 0xE8, 0x00]
+skip_original_bytes = false
+exclude_from_restore = []
+
+[[hooks.parameters]]
+source = "ebp"
+type = "pointer"
+
+# CSWCItem::ResolveCreaturePoweredAnimations, 0x00646BA0, at its entry. ecx is
+# the item; [esp+4] the power flag. CSWCItem::PowerItem (0x00647130) calls it
+# from two places, 0x006471F7 and 0x00647204, each time with the state it has
+# settled on -- including its forced "off" while an area is not ready -- which
+# is why this, not PowerItem's own entry, is where the saber's state is read.
+#   00646BA0  mov eax,[0x7A39FC]     absolute; position-independent
+#   00646BA5  push esi
+[[hooks]]
+address = 0x00646BA0
+type = "detour"
+function = "NativeSaberPowerK1"
+original_bytes = [0xA1, 0xFC, 0x39, 0x7A, 0x00, 0x56]
+skip_original_bytes = false
+exclude_from_restore = []
+
+[[hooks.parameters]]
+source = "ecx"
+type = "pointer"
+
+[[hooks.parameters]]
+source = "esp+4"
+type = "pointer"
+
+# CSWCCreature::ShowLightSaberContactVisual, 0x0060DE20, at its entry; ecx is the
+# wielder. Reached from the attack animation's hit-contact event
+# (HitContactEvent, 0x00610E90), so only a blade that connects.
+[[hooks]]
+address = 0x0060DE20
+type = "detour"
+function = "NativeSaberContactK1"
+original_bytes = [0x83, 0xEC, 0x1C, 0x56, 0x8B, 0xF1]
+skip_original_bytes = false
+exclude_from_restore = []
+
+[[hooks.parameters]]
+source = "ecx"
+type = "pointer"
+
+# CSWCObject::AnimationParry, 0x0063C4F0, at its entry; ecx is the object
+# parrying. The stolen `test ecx,ecx` sets the flags the `je` at 0x0063C4FE
+# reads, after the flag-neutral `mov [esp],0`.
+[[hooks]]
+address = 0x0063C4F0
+type = "detour"
+function = "NativeParryK1"
+original_bytes = [0x51, 0x8B, 0x49, 0x68, 0x85, 0xC9]
+skip_original_bytes = false
+exclude_from_restore = []
+
+[[hooks.parameters]]
+source = "ecx"
+type = "pointer"
+
+# CSWCProjectile::CreateMuzzleFlash, 0x006D4440, at its entry; ecx is the
+# projectile. The stolen `mov ebx,[esp+8]` is ESP-relative, and KPM re-executes
+# stolen bytes with ESP as it was at the site.
+[[hooks]]
+address = 0x006D4440
+type = "detour"
+function = "NativeMuzzleFlashK1"
+original_bytes = [0x53, 0x8B, 0x5C, 0x24, 0x08, 0x56]
+skip_original_bytes = false
+exclude_from_restore = []
+
+[[hooks.parameters]]
+source = "ecx"
+type = "pointer"
+
+# HitEvent, 0x00617EB0, the creature animation event "hit" (registered by
+# CSWCCreature::RegisterCallbacks, 0x0061AB40): the impact moment of an attack.
+# [esp+12] is its third argument, the attack record, read at 0x00617ECC:
+#   +0x04  attacker id        +0x14  target id
+#   +0x0C  result byte: 1, 2, 3, 5 take the hit branch (0x0061801C), 4 and 8
+#          the parry animation
+#   +0x20  non-zero: the engine skips the record (0x00617F26)
+# The stolen `mov eax, fs:[0]` is FS-relative with an absolute offset, so it
+# re-executes unchanged; the hook observes.
+[[hooks]]
+address = 0x00617EB0
+type = "detour"
+function = "NativeMeleeHitK1"
+original_bytes = [0x64, 0xA1, 0x00, 0x00, 0x00, 0x00]
+skip_original_bytes = false
+exclude_from_restore = []
+
+[[hooks.parameters]]
+source = "esp+12"
+type = "pointer"
+
 # Drive the gameplay HUD's bottom-right action bar from the D-pad.
 #
 # CSWGuiMainInterface's per-frame update, ecx = the interface. The engine calls

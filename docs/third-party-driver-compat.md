@@ -163,6 +163,8 @@ The choices are stored in `%LOCALAPPDATA%\KMRP\settings.json` as
 `{"driverCompatibility": true|false, "markerFixes": true|false,
 "controllerSupport": true|false}`, deliberately beside the user's profile rather
 than next to the patcher, so they survive re-downloading a single-file executable.
+Since 2026-09-25 the file can also hold `"skippedUpdate": "1.6.0"`: the one
+newer version the player told the installer's update prompt not to repeat.
 Every read is defensive: a missing file, an unreadable folder or a malformed value
 all fall back to the default. A settings file is never worth failing a patch over.
 

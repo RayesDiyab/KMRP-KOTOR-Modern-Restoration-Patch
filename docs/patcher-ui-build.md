@@ -22,7 +22,7 @@ dist/KMRP - KOTOR Modern Restoration Patch.exe
 ```
 
 No companion asset folder is required. The executable embeds 70 resources,
-listed here from the 2026-09-25 build (`B599303A…`, 179,624,960 bytes):
+listed here from the 2026-09-25 build (`873A01E2…`, 179,625,984 bytes):
 
 | resource | what |
 | --- | --- |
@@ -515,6 +515,15 @@ so an opaque background on either would square off the card's corners.
 Measured across the frames of the open animation, the near-white area inside the window
 fell from a peak of 20.6% to 0.17%, and the residue is the silver wordmark.
 
+**The update check starts in `OnShown` too**, on a background thread, so neither
+the first paint nor the render thread waits on the network. A newer release is
+offered through `BeginInvoke` in `UpdateDialog`, a themed modal. It takes the main
+window's `uiScale` and dark title bar, and it never opens while `operationRunning`
+is set. `UpdateCheck` holds the request, the tag parser and the comparison;
+`SECURITY.md` says what the request sends. Added 2026-09-25. The dialog has been
+rendered off screen by `Test-UpdateCheck.ps1 -RenderTo`, not seen in the real
+window.
+
 ## Window sizing and smooth proportional resize
 
 All controls are authored once in design-space coordinates. Their rectangles
@@ -660,7 +669,8 @@ The shipped name contains spaces, so quote it on the command line.
 ```
 
 `--apply` changes only the output executable. `--in-place` performs the full
-EXE, DPI, INI, and Override transaction. `--restore` restores all four. Omitting
+EXE, DPI, INI, and Override transaction. `--restore` restores all four. None of
+them checks for updates; that belongs to the window. Omitting
 the resolution in the legacy `--apply` and `--in-place` forms selects
 3440 × 1440.
 
@@ -692,7 +702,7 @@ the resolution in the legacy `--apply` and `--in-place` forms selects
     current gold, with `--installed` and the installer's `--apply` output at all
     49 resolutions; verify it reports zero undocumented code/data runs.
 13. Run the rest of the regression set: `Test-ControllerSupport.ps1`,
-    `Test-ReinstallOverOlderBuild.ps1`, `Test-MovieResolution.ps1`,
+    `Test-ReinstallOverOlderBuild.ps1`, `Test-UpdateCheck.ps1 -Live`, `Test-MovieResolution.ps1`,
     `Test-NvidiaPresentMethod.ps1`, `Test-ControllerPromptAssets.py`,
     `Test-FontAtlasScale.py` and `Test-ProtonResourceCompatibility.py`, then
     `tools/check_controller_drift.py`, `tools/check_patcher_hook_table.py`,

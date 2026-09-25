@@ -1886,6 +1886,65 @@ Wave, 20 for a Stomp footfall, 30 for `VFX_IMP_SCREEN_SHAKE`.
 The envelope data itself is not in the PC files at all, in any 2DA, BIF or RIM.
 It went with the Xbox build.
 
+**Found since, 2026-09-25:** the OpenKotOR wiki publishes K1's `rumble.2da`
+([rumble-k1.md](https://github.com/OpenKotOR/wiki/blob/main/wiki/odyssey-engine/2da/rumble-k1.md)), 22 rows (0-21). Each row has a `looping` flag and up to
+seven magnitude/time keyframes per motor (`lsamples`, `lmagnitudeN`, `ltimeN`,
+and the same for `r`). Its row names match what the sweeps found each index
+doing, which is what identifies it as this engine's table. The module now
+installs it verbatim (`K1_RUMBLE_2DA`, generated from that page), in place of
+the nine shapes KMRP had authored. The table was first placed in
+`K1NativeJoystick.cpp`. Since the haptics pass of 2026-09-25 it has lived in
+`K1Rumble.cpp`, where a mixer plays it; see
+[`docs/controller-rumble.md`](../docs/controller-rumble.md).
+
+| Row | Label | Loop | Heavy (l) samples | Light (r) samples | Fired by shipped content |
+| --- | --- | --- | --- | --- | --- |
+| 0 | LightSaberOn | yes | 0 | 2 | no |
+| 1 | FullBoth-5secs | no | 2 | 2 | no |
+| 2 | FullLeft-5secs | no | 2 | 0 | no |
+| 3 | FullRight-5secs | no | 0 | 2 | no |
+| 4 | WeakBoth-5secs | no | 2 | 2 | no |
+| 5 | Sample1 | no | 3 | 3 | `k_pend_1b_area2` |
+| 6 | Sample2 | no | 3 | 2 | no |
+| 7 | Sample3 | no | 0 | 2 | no |
+| 8 | Sample4 | no | 3 | 3 | no |
+| 9 | Sample5 | no | 4 | 4 | no |
+| 10 | Sample6 | no | 4 | 4 | no |
+| 11 | Rancor | no | 5 | 5 | terentatek arrivals, `VFX_FNF_TERANTANAK_DEATH` |
+| 12 | Ceiling | no | 7 | 7 | `k_pkor_ceil_fall` |
+| 13 | Obilesk | no | 2 | 2 | `k_pkor_ther_dest` |
+| 14 | FragGenade | no | 2 | 2 | seven grenade VFX, 18 script sites |
+| 15 | Endar_01 | no | 6 | 6 | `k_pend_rumble01` |
+| 16 | Endar_02 | no | 2 | 4 | `k_pend_area02`, `VFX_IMP_SCREEN_SHAKE` |
+| 17 | Heavy_step | no | 2 | 2 | `footstepsounds` Stomp rows |
+| 18 | Light_step | no | 2 | 2 | no |
+| 19 | Krayt_dying | no | 4 | 3 | no |
+| 20 | Critical_hit | no | 2 | 0 | Force Choke, Force Push, Force Wave |
+| 21 | Whirlwind | yes | 7 | 7 | no |
+
+The `l` columns are envelope A and the `r` columns envelope B, because
+`UpdateRumble` calls `SetRumble(0, A, B, 600000)` at `0x005F7626`, and XInput's
+order is (left, right), with left the heavy motor. How the evaluator reads
+BioWare's less regular rows was checked against its code before relying on it:
+- A motor with no samples is null pointers and count 0. The evaluator returns
+  0.0 for a null pointer (`0x0068FCB9`, `0x0068FCC3`), and `GetMagnitudes`' end
+  test reads `times[count-1]` only when that index exists (`0x0068FE0B`),
+  otherwise 0.0 from `0x0073D700`.
+- A motor whose first keyframe is late, such as Endar_01's left motor at 5.5 s,
+  finds no segment before it and returns 0.0 from `0x0068FDBF`: silence, as
+  authored.
+- A looping row wraps its elapsed time by the last keyframe's time. The only
+  looping rows, 0 and 21, are fired by nothing shipped, so they run only if a
+  mod plays them, until `StopRumblePattern`. *Since 2026-09-25:* the
+  **Enhanced** rumble mode attaches them to the events their names describe:
+  0 to a lit lightsaber in the controlled character's hand, and 21 to
+  `VFX_DUR_FORCE_WHIRLWIND` on the controlled character. Those attachments are
+  KMRP's, not the Xbox game's; what fired them there is not known. **Original**
+  mode still plays only what shipped content fires.
+
+All 78 magnitude and time arrays were found byte for byte in the compiled
+module. **Not felt on a pad yet.**
+
 ### Every rumble entry point, and why the coverage is complete
 
 There are four, and all of them funnel into `PlayRumblePattern`:
@@ -1922,9 +1981,10 @@ shipped game at all. There is no flare item in K1 -- no `FLARE` row in either
 
 Nothing else rumbled on Xbox either. Taking damage, weapon impacts, lightsaber
 clashes, swoop racing and doors are all silent in the original, so adding them
-would be an addition rather than a restoration. Thirteen indices inside the
-current count -- 0-4, 6-10, 18 and 19 -- are referenced by nothing and are free
-for that if it is ever wanted.
+would be an addition rather than a restoration. The thirteen indices nothing
+shipped references -- 0-4, 6-10, 18 and 19 -- were called "free" here until
+2026-09-25. They are not: they are BioWare's own rows (the table above), now
+installed as authored, so a mod that plays them gets the original pattern.
 
 ### Some screens navigate themselves, and not through any control
 

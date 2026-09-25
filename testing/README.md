@@ -27,7 +27,15 @@ result against what the tooling intended. Installer behaviour is scripted.
 ```
 
 Each script exits non-zero if any check fails and prints one PASS or FAIL line
-per assertion. They need `build-inputs\swkotornopatch.exe`, and they patch only
+per assertion.
+
+**Do not interrupt `Test-ControllerSupport.ps1`.** It rewrites the real installer
+settings, `%LOCALAPPDATA%\KMRP\settings.json`, case by case and puts them back
+only in its `finally` block, and each fixture's DPI and NVIDIA state is undone
+only by that fixture's own restore step. Stopped mid-run on 2026-09-25, it left
+`controllerSupport` off -- the next real install would have skipped the
+controller -- and one fixture unrestored. The fix was `--restore` on that
+fixture's executable, then the settings file rewritten by hand. They need `build-inputs\swkotornopatch.exe`, and they patch only
 throwaway copies under the system temp folder — no installed game is touched.
 
 The full set, as of 2026-09-24. Against that day's build, the four Python
@@ -35,7 +43,18 @@ checks and `Test-ControllerSupport.ps1` were run and pass; the other PowerShell
 scripts were not re-run that day. Against the 1.5.0 installer of 2026-09-25
 (`B599303A…`, 49 resolutions), the four Python checks,
 `Test-ControllerSupport.ps1` and `Test-ReinstallOverOlderBuild.ps1` were run and
-pass. Both use their own fixture executable names, so an NVIDIA
+pass; `Test-ControllerSupport.ps1` again against `873A01E2…`, which changes only
+the module (BioWare's rumble table). Against the haptics hardware-test
+installers `74011765…`, `6BEE57FF…` (adds `SaberHum`), `F4B4CE4F…` (pulses
+the hum), `BA103494…` (a random gap between pulses), `8C0A6D94…` (its
+minimum and maximum as separate settings), `1815ED7A…` (the combat fixes
+and the melee hit hook) `4C02A277…` (the action bar keeps focus) and `C796489A…` (`Debug=0` by default),
+`Test-ControllerSupport.ps1`, including its new Case 7 for an edited
+`kmrp-controller.ini`, and `Test-ReinstallOverOlderBuild.ps1` were run and pass.
+Against `7C2FFF8B…` (X and Y in combat, the dialogue A moved, the combat
+message, the update check), the four Python checks on its reused archives,
+both of those scripts and `Test-UpdateCheck.ps1` were run and pass, and the
+three scripts again against `AD3DC07D…`, which changes only the update dialog. Both use their own fixture executable names, so an NVIDIA
 profile made for them cannot match a real `swkotor.exe`. `Test-DpiCompatibility.ps1` and
 `Test-NvidiaPresentMethod.ps1` write per-user compatibility and NVIDIA profile
 state for their throwaway executables and remove it again, so run them
@@ -43,7 +62,7 @@ knowingly:
 
 | Script | What it pins |
 | --- | --- |
-| `Test-ControllerSupport.ps1` | Controller install and restore ownership, the installed hook table against the source, foreign-file refusal, controller-only, driver-only and default installs |
+| `Test-ControllerSupport.ps1` | Controller install and restore ownership, the installed hook table against the source, foreign-file refusal, controller-only, driver-only and default installs, and an edited `kmrp-controller.ini` surviving restore and reinstall |
 | `Test-DpiCompatibility.ps1` | The per-executable Windows DPI setting, and restoring exactly what was there |
 | `Test-LargeAddressAware.ps1` | Both accepted inputs, one with the LAA bit already set, give the same output and restore byte for byte |
 | `Test-MovieResolution.ps1` | The four movie-mode operands and the render-resolution operands, read back at four resolutions |
@@ -53,6 +72,7 @@ knowingly:
 | `Test-FontAtlasScale.py` | Every packaged font atlas draws one texel per pixel |
 | `Test-ProtonResourceCompatibility.py` | Case-exact, collision-free resource names for Linux / Proton |
 | `Test-ReinstallOverOlderBuild.ps1` | Reinstalling a newer build over an older one replaces the executable instead of skipping it; reinstalling the same build changes nothing; an unsupported executable is refused; a damaged backup blocks a patch. |
+| `Test-UpdateCheck.ps1` | The installer's update check: release-tag parsing, the version comparison (a 2.x tag would be "newer" than 1.5.0), and "Don't remind me again for <version>" through the real `settings.json`, put back byte for byte. `-Live` asks GitHub once (informational); `-RenderTo` draws the dialog to a PNG. `UpdateCheckSelfTest.cs` is its compiled self-test |
 
 ## What is deliberately not committed
 

@@ -59,7 +59,7 @@ New-Item -ItemType Directory -Force -Path $WorkRoot | Out-Null
 $settingsPath = Join-Path ([Environment]::GetFolderPath([Environment+SpecialFolder]::LocalApplicationData)) "KMRP\settings.json"
 $settingsExisted = Test-Path -LiteralPath $settingsPath
 $settingsBytes = if ($settingsExisted) { [IO.File]::ReadAllBytes($settingsPath) } else { $null }
-$controllerNames = @("kmrp-controller-runtime.asi", "kmrp-controller.module", "kmrp-sdl3.dll", "kmrp-sdl3-LICENSE.txt", "kmrp-kotor-patch-manager-LICENSE.txt", "patch_config.toml", "KMRP_Controller.manifest")
+$controllerNames = @("kmrp-controller-runtime.asi", "kmrp-controller.module", "kmrp-sdl3.dll", "kmrp-sdl3-LICENSE.txt", "kmrp-kotor-patch-manager-LICENSE.txt", "patch_config.toml", "kmrp-controller.ini", "KMRP_Controller.manifest")
 
 try {
     New-Item -ItemType Directory -Force -Path (Split-Path -Parent $settingsPath) | Out-Null
@@ -106,7 +106,17 @@ try {
         # a hook added without an entry here is simply not byte-checked -- which
         # is what happened to these two until the count stopped matching.
         @{ Va = 0x006C2400; Hex = "8B54240885D2" },
-        @{ Va = 0x006E0CF0; Hex = "558BEC83E4F8" }
+        @{ Va = 0x006E0CF0; Hex = "558BEC83E4F8" },
+        # Rumble and haptics (K1Rumble.cpp): play, stop, the positional lookup,
+        # saber power, saber contact, parry, muzzle flash.
+        @{ Va = 0x005FB49F; Hex = "3BA944030000" },
+        @{ Va = 0x005F74B0; Hex = "568BB150030000" },
+        @{ Va = 0x005FB98E; Hex = "0FB6450C83E800" },
+        @{ Va = 0x00646BA0; Hex = "A1FC397A0056" },
+        @{ Va = 0x0060DE20; Hex = "83EC1C568BF1" },
+        @{ Va = 0x0063C4F0; Hex = "518B496885C9" },
+        @{ Va = 0x006D4440; Hex = "538B5C240856" },
+        @{ Va = 0x00617EB0; Hex = "64A100000000" }
     )
     foreach ($site in $sites) {
         $expected = [Convert]::FromHexString($site.Hex)
@@ -215,6 +225,27 @@ try {
     Assert (Test-Path -LiteralPath (Join-Path $defaultFolder "k1-modern-driver-compatibility.asi")) "driver compatibility is on by default"
     Assert (Test-Path -LiteralPath (Join-Path $defaultFolder "kmrp-controller.module")) "controller support is on by default"
     Assert ((Invoke-Patcher @("--restore", $defaultGame)) -eq 0) "default install restores"
+
+    # kmrp-controller.ini is the player's to edit (rumble mode, strength, debug
+    # log). An edited copy must never block an install, never be overwritten,
+    # and never be deleted by restore -- the opposite of every other file here.
+    Write-Host "Case 7  edited controller settings survive restore and reinstall"
+    $tunedGame = New-Install "tuned-settings"
+    $tunedFolder = Split-Path -Parent $tunedGame
+    $tunedIni = Join-Path $tunedFolder "kmrp-controller.ini"
+    Assert ((Invoke-Patcher @("--in-place", $tunedGame, $Resolution)) -eq 0) "settings fixture installs"
+    Assert ([IO.File]::ReadAllText($tunedIni).Contains("Mode=Enhanced")) "the installed settings default to Enhanced"
+    $tuned = "[Rumble]`r`nMode=Original`r`nStrength=40`r`nDebug=0`r`n"
+    [IO.File]::WriteAllText($tunedIni, $tuned, [Text.UTF8Encoding]::new($false))
+    Assert ((Invoke-Patcher @("--restore", $tunedGame)) -eq 0) "restore with edited settings succeeds"
+    Assert ([IO.File]::ReadAllText($tunedIni) -eq $tuned) "restore keeps edited settings"
+    Assert (-not (Test-Path -LiteralPath (Join-Path $tunedFolder "kmrp-controller.module"))) "restore still removes the module"
+    Assert ((Invoke-Patcher @("--in-place", $tunedGame, $Resolution)) -eq 0) "reinstall over edited settings succeeds"
+    Assert (Test-Path -LiteralPath (Join-Path $tunedFolder "kmrp-controller.module")) "edited settings do not block the controller install"
+    Assert ([IO.File]::ReadAllText($tunedIni) -eq $tuned) "reinstall keeps edited settings"
+    Assert (-not ([IO.File]::ReadAllText((Join-Path $tunedFolder "KMRP_Controller.manifest")).Contains("kmrp-controller.ini"))) "edited settings are not claimed by the manifest"
+    Assert ((Invoke-Patcher @("--restore", $tunedGame)) -eq 0) "second restore succeeds"
+    Assert ([IO.File]::ReadAllText($tunedIni) -eq $tuned) "second restore keeps edited settings"
 
 }
 finally {

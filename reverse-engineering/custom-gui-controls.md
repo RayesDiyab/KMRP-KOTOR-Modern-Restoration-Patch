@@ -398,6 +398,69 @@ At 1920x1080 it gives a text start of 48 + 16 = 64 px, the start measured in a
 screenshot of that resolution. **The corrected placement is untested in
 game.**
 
+**The second play-test's log (same day):** `placed=(-41,0,32,32)`, the
+corrected rule working as written, and still no A on screen. A negative x is
+outside the dialogue panel, whose own left edge is at screen x 48, and the
+engine does not draw a panel's children there. The same screenshot shows the
+reply's "1." starting at exactly that edge, so the text is clipped by it too.
+Nothing placed left of the reply text can be seen at 3440x1440.
+
+**Moved to the end of the text.** The maintainer asked for the A there, and
+it is always inside the panel:
+
+| step | how |
+| --- | --- |
+| the reply's text object | the row's vtable `+0x50` returns the object `CSWGuiDialog::SetReplyActive` (`0x006A6FC0`) colours through `+0xE8`, the `CSWGuiTextParams` at `+0x18` of a `CSWGuiText` at `+0xD0` (control `0x5C` + border `0x74`, the label layout) |
+| its width | `CSWGuiText::GetIdealWidthAndHeight` (`0x00414F10`), which the tooltip panel uses (`0x00624B1E`): from the text's own width `[text+0x6C]` it steps down by 10 px while `[text+0x14]`'s line count at that width (vtable `+0x50`) holds, and returns the narrowest such width in `out[2]`. That is the text's width, to 10 px. The function dereferences `[text+0x14]` untested, so a row without one is skipped |
+| when | once per change of the highlighted row, its string object or its width; the loop is a few hundred wraps, too many for every frame |
+| where | list left + scrollbar + text width + a quarter glyph, on the reply's last line (row height / line height), clamped inside the panel. For a reply that wraps it is right of the widest line, not the last line's end |
+
+`textWidth=` is added to the `dialog-geometry` log line. **Untested in game.**
+
+## A sixth and seventh: X and Y beside the HUD's combat buttons (`LBL_KMRPX`, `LBL_KMRPY`)
+
+Added 2026-09-25 at the maintainer's request, with the buttons they advertise.
+In combat, X presses the HUD's Disengage button and Y its "clear one" button.
+Both are pressed through the engine's own click handlers
+(`PressHudButtonK1` in `K1NativeJoystick.cpp`).
+
+The buttons, and what the engine does with them, read from the clean
+executable:
+
+| Tag | Member of `CSWGuiMainInterface` | Handler, registered at | What it does |
+| --- | --- | --- | --- |
+| `BTN_CLEARONE` | `+0x6CD0` | `OnClearOneButtonPressed`, `0x0068D0C3` | the tutorial the first time, then `OnCombatYButton` (`0x006880C0`): `CSWSCombatRound::RemoveLastAction`, or `CSWSObject::ClearAllActions` when nothing is left to remove |
+| `BTN_CLEARONE2` | `+0x6E94` | the same handler, `0x0068D0DC` | the same. The handler tests `BTN_CLEARONE`'s visible bit (`[this+0x6D14] & 2`, `0x0068B05E`) whichever of the two was clicked |
+| `BTN_CLEARALL` | `+0x7058` | `OnClearAllButtonPressed`, `0x0068D0EF` | the Disengage button: `ClearAllActions` (`0x006887D0`), which calls `SetCombatMode(0)`, clears every action and plays the button sound |
+
+`OnCombatYButton` is the Xbox build's Y in combat, by its name, and
+`CSWGuiTutorialBox::PerformCombatYButton` (`0x006AA5D0`) calls it too. Nothing
+in the PC build routes a button to it or to `ClearAllActions`: neither address
+appears as data anywhere in the executable.
+
+**Build time.** `add_combat_cues` in `tools/prepare_universal_resources.py`
+clones `LBL_QUEUE1` twice into every `mipc*.gui`:
+- `LBL_KMRPY` (fill `kmrpy_cmbt`) left of `BTN_CLEARONE`;
+- `LBL_KMRPX` (fill `kmrpx_cmbt`) left of `BTN_CLEARALL`.
+
+Each is square, 0.8 of the Disengage button's height, a quarter of its own size
+off the button, and centred on it vertically. The two buttons share a left edge
+in every layout the build ships, so the cues stack in a column. The build fails
+if the loaded HUD (`mipc210x7.gui` at 3440x1440, `mipc28x6.gui` elsewhere)
+lacks them, or if they would overlap. `Test-GeneratedGuiGeometry.py` checks
+the loaded HUD at all 49 resolutions: the size, the placement, the panel
+bounds, and that no button or `LBL_QUEUE*` icon is covered.
+
+**Binding and visibility.** `K1_GUI_CUES` binds both on vtable `0x00753F50`.
+The constructor (`0x0068C100`) stores it at `0x0068C14E` and calls ReleaseGff
+at `0x0068CD86`. The HUD's `Draw` (`0x0068B4A0`) calls the base
+`CSWGuiPanel::Draw` at `0x0068B6A7`, the array walk that draws bound labels.
+These are the first cues that **follow another control**: `GuiCueBindingK1`
+gained a `follow` offset, and `UpdateGuiCuesK1` shows such a cue only while
+the control at that offset in the panel has the visible bit. So X shows
+exactly while Disengage does, and Y while the clear-one button does, whenever
+the pad is the active device. **Untested in game.**
+
 ## The three safety questions, answered
 
 ### Does a label bound this way draw, with a fill and no text?

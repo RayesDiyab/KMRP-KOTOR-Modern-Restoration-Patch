@@ -19,6 +19,7 @@
 #include "K1NativeJoystick.h"
 #include "K1ControllerBackend.h"
 #include "K1ControllerLayout.h"
+#include "K1Rumble.h"
 
 #include <windows.h>
 #include <xinput.h>
@@ -776,6 +777,8 @@ struct StickState {
     int hudPendingX = 0, hudPendingY = 0;      // the same, for the gameplay HUD
     unsigned long hudActivateRequested = 0;    // A, while a HUD slot has focus
     unsigned long hudReleaseRequested = 0;     // B in gameplay: let go of the HUD
+    unsigned long combatClearRequested = 0;    // Y in gameplay: undo the last queued action
+    unsigned long disengageRequested = 0;      // X in gameplay: the Disengage button
     unsigned long hudReleases = 0;             // focus handed back to the world
     unsigned long mapOpenRequested = 0;        // Start in gameplay
     unsigned long mapOpens = 0;                // the Map opened by Start
@@ -1203,6 +1206,7 @@ void EnsureNativeJoystickK1(void* exoInputInternal)
 bool KmrpOwnsDirectionsK1(bool vertical);
 template <typename T> T* FieldAt(void* base, std::size_t offset);
 bool LooksLikePointerK1(const void* p);
+bool IsReadableK1(const void* p, std::size_t size);
 void* ClientInternalK1();
 int InputClassK1();
 void EnsureDeviceCountK1();
@@ -1213,6 +1217,13 @@ void PerformPendingPartySwitchK1();
 void PerformPendingMapOpenK1();
 void* TabBarPanelK1();
 void InstallGuiCuesK1(void* panel);
+bool PressHudButtonK1(void* mainInterface, std::size_t member, std::uintptr_t handler);
+// The HUD's combat buttons and their click handlers; see PressHudButtonK1.
+constexpr std::uintptr_t K1_MAIN_INTERFACE_VTABLE = 0x00753F50;
+constexpr std::size_t    K1_HUD_CLEAR_ONE         = 0x6CD0;      // BTN_CLEARONE
+constexpr std::size_t    K1_HUD_CLEAR_ALL         = 0x7058;      // BTN_CLEARALL, "Disengage"
+constexpr std::uintptr_t K1_ON_CLEAR_ONE          = 0x0068B050;  // CSWGuiMainInterface::OnClearOneButtonPressed
+constexpr std::uintptr_t K1_ON_CLEAR_ALL          = 0x0068B0A0;  // CSWGuiMainInterface::OnClearAllButtonPressed
 void ForgetGuiCuesK1(void* panel);
 void UpdateGuiCuesK1();
 void EnsureRumbleTableK1(void* owner);
@@ -1563,6 +1574,26 @@ void FillNativeJoystickBufferK1(int deviceIndex, void* outBuffer)
         const bool was = (g_stick.lastButtons & 0x2000) != 0;
         if (now && !was && InputClassK1() == K1_CLASS_PC) {
             g_stick.hudReleaseRequested = GetTickCount();
+        }
+    }
+
+    // X and Y press the HUD's combat buttons: Y removes the last queued action
+    // (BTN_CLEARONE), X disengages (BTN_CLEARALL). Only requested here; they are
+    // pressed on the HUD frame, NativeActionBarK1, through the engine's own click
+    // handlers, and only while the button is on screen. Their GUI events 0x29
+    // and 0x2A still go out, and gameplay still ignores them.
+    {
+        const bool xNow = (buttons & 0x4000) != 0;     // XINPUT_GAMEPAD_X
+        const bool xWas = (g_stick.lastButtons & 0x4000) != 0;
+        const bool yNow = (buttons & 0x8000) != 0;     // XINPUT_GAMEPAD_Y
+        const bool yWas = (g_stick.lastButtons & 0x8000) != 0;
+        if (InputClassK1() == K1_CLASS_PC) {
+            if (xNow && !xWas) {
+                g_stick.disengageRequested = GetTickCount();
+            }
+            if (yNow && !yWas) {
+                g_stick.combatClearRequested = GetTickCount();
+            }
         }
     }
 
@@ -1943,115 +1974,45 @@ static_assert(sizeof(RumblePatternK1) == 0x24, "pattern must be 0x24 bytes");
 constexpr std::size_t K1_INTERNAL_RUMBLE_TABLE = 0x340;
 constexpr std::size_t K1_INTERNAL_RUMBLE_COUNT = 0x344;
 
-// 21 because the highest index any shipped content asks for is 20, and the
-// engine's bounds test is `index < count`. Everything below it must exist even
-// where nothing references it, so those entries are silent rather than guessed.
-constexpr int K1_RUMBLE_PATTERN_COUNT = 21;
-
-// Which indices exist at all is measured, from two exhaustive sweeps:
+// BioWare's own table: K1's rumble.2da, all 22 rows, as published by the OpenKotOR
+// wiki (wiki/odyssey-engine/2da/rumble-k1.md). The PC build ships neither the
+// file nor a loader for it -- the loader went with the Xbox build -- so the rows
+// are compiled in here, generated from that page and validated row by row:
+// every sample count matches its filled cells, times ascend and magnitudes stay
+// in 0..1. The l* columns are envelope A and the r* columns envelope B, because
+// UpdateRumble calls SetRumble(0, A, B, 600000) at 0x005F7626 and XInput takes
+// (left, right) in that order. Left is the heavy, low-frequency motor on an Xbox
+// pad.
 //
-//   * all 209 2DAs in chitin.key, for a `rumblepattern` column. Exactly two
-//     carry one -- footstepsounds and visualeffects -- and they name 11, 14, 16,
-//     17 and 20, each with a `rumblecutoff` beside it giving the radius.
-//   * all 401 shipped containers, for the NCS byte sequence 05 00 01 72 01: an
-//     ACTION call to routine 370, PlayRumblePattern, taking one argument. That
-//     adds 5, 12, 13 and 15, and names the script each call sits in.
+// Until 2026-09-25 this held nine shapes KMRP had authored, for the indices
+// shipped content asks for, with every other index silent. The comment then
+// said BioWare's envelopes could not be recovered from the PC files. They were
+// never in them, but they are in this table, and its row names confirm the
+// indices: 14 is FragGenade (the grenade VFX), 12 Ceiling (k_pkor_ceil_fall),
+// 15 and 16 Endar_01/02 (the k_pend_ scripts), and 17 Heavy_step (the Stomp
+// footsteps).
 //
-// The same sweep found no call to StopRumblePattern, routine 371, anywhere in
-// the shipped content. That settles the loop flag: nothing would ever stop a
-// looping pattern, so every entry here is one-shot.
+// How the evaluator (0x0068FCB0) and GetMagnitudes (0x0068FDD0) read the data,
+// so that it reads exactly as authored:
+//   * an envelope with no samples has null pointers and count 0. The evaluator
+//     returns 0.0 for a null pointer (0x0068FCB9, 0x0068FCC3), and
+//     GetMagnitudes' end test reads times[count-1] only when that index is in
+//     range, otherwise 0.0 (0x0068FE0B-0x0068FE1B);
+//   * before an envelope's first keyframe the segment search finds nothing and
+//     returns 0.0 (0x0068FDBF), so a late start -- Endar_01's left motor at
+//     5.5 s -- is silence until then, as authored;
+//   * `looping` wraps the elapsed time by the last keyframe's time. Rows 0
+//     (LightSaberOn) and 21 (Whirlwind) loop. Nothing in the shipped PC content
+//     plays either: the only callers are the script command (0x00541120), a
+//     client message (0x004FF94D) and the positional wrapper (0x005FBBC4), all
+//     with the index as data. So a loop runs only if a mod asks for it, until
+//     StopRumblePattern -- which is what the table says it should do.
 //
-// The SHAPES are authored -- BioWare's envelope data is not in the PC files and
-// cannot be recovered from them. The mapping is not authored: each shape is cut
-// to the events the sweeps say trigger it.
-
-// Indices no 2DA and no shipped script ever asks for. Two keyframes rather than
-// one so the evaluator takes its ordinary path and finishes immediately.
-const float K1_RUMBLE_SILENT_T[]  = { 0.00f, 0.01f };
-const float K1_RUMBLE_SILENT_M[]  = { 0.00f, 0.00f };
-
-// 5 -- k_pend_1b_area2, entering a Star Forge area. A swell, not a hit.
-const float K1_RUMBLE_05_HT[]     = { 0.00f, 0.15f, 0.70f, 1.10f };
-const float K1_RUMBLE_05_HM[]     = { 0.00f, 0.50f, 0.30f, 0.00f };
-const float K1_RUMBLE_05_LT[]     = { 0.00f, 0.15f, 0.60f, 1.10f };
-const float K1_RUMBLE_05_LM[]     = { 0.00f, 0.18f, 0.10f, 0.00f };
-
-// 11 -- k_pkor_ud_tarant, k_pkor_ud_terent, k_ptar_pile_ud, and
-// VFX_FNF_TERANTANAK_DEATH. Something very large moves. Slow and heavy.
-const float K1_RUMBLE_11_HT[]     = { 0.00f, 0.12f, 0.55f, 0.90f };
-const float K1_RUMBLE_11_HM[]     = { 0.00f, 0.90f, 0.60f, 0.00f };
-const float K1_RUMBLE_11_LT[]     = { 0.00f, 0.10f, 0.40f, 0.80f };
-const float K1_RUMBLE_11_LM[]     = { 0.00f, 0.30f, 0.15f, 0.00f };
-
-// 12 -- k_pkor_ceil_fall, a ceiling coming down. The hit, then the debris.
-const float K1_RUMBLE_12_HT[]     = { 0.00f, 0.05f, 0.35f, 0.80f, 1.20f };
-const float K1_RUMBLE_12_HM[]     = { 0.00f, 0.80f, 0.45f, 0.30f, 0.00f };
-const float K1_RUMBLE_12_LT[]     = { 0.00f, 0.04f, 0.30f, 0.70f, 1.20f };
-const float K1_RUMBLE_12_LM[]     = { 0.00f, 0.60f, 0.35f, 0.20f, 0.00f };
-
-// 13 -- k_pkor_ther_dest. A demolition charge: bigger than 14, longer tail.
-const float K1_RUMBLE_13_HT[]     = { 0.00f, 0.05f, 0.40f, 0.75f };
-const float K1_RUMBLE_13_HM[]     = { 0.00f, 1.00f, 0.35f, 0.00f };
-const float K1_RUMBLE_13_LT[]     = { 0.00f, 0.02f, 0.20f, 0.55f };
-const float K1_RUMBLE_13_LM[]     = { 0.00f, 0.90f, 0.25f, 0.00f };
-
-// 14 -- the workhorse, and by a distance. All seven grenade detonations in
-// visualeffects, and eighteen script sites: every Star Forge explosion, the
-// Korriban chokes, the Taris laser and trap triggers. A crack and a fast decay.
-const float K1_RUMBLE_14_HT[]     = { 0.00f, 0.04f, 0.30f, 0.45f };
-const float K1_RUMBLE_14_HM[]     = { 0.00f, 0.85f, 0.25f, 0.00f };
-const float K1_RUMBLE_14_LT[]     = { 0.00f, 0.02f, 0.12f, 0.25f };
-const float K1_RUMBLE_14_LM[]     = { 0.00f, 1.00f, 0.20f, 0.00f };
-
-// 15 -- k_pend_rumble01, which is named for what it is. A sustained tremor.
-const float K1_RUMBLE_15_HT[]     = { 0.00f, 0.40f, 1.60f, 2.20f };
-const float K1_RUMBLE_15_HM[]     = { 0.00f, 0.45f, 0.45f, 0.00f };
-const float K1_RUMBLE_15_LT[]     = { 0.00f, 0.50f, 1.50f, 2.20f };
-const float K1_RUMBLE_15_LM[]     = { 0.00f, 0.12f, 0.12f, 0.00f };
-
-// 16 -- k_pend_area02 and VFX_IMP_SCREEN_SHAKE, whose row also carries
-// shaketype 2 and a cutoff of 30: the widest radius in either 2DA. The screen
-// is shaking, so the pad should be too, for about as long.
-const float K1_RUMBLE_16_HT[]     = { 0.00f, 0.20f, 1.10f, 1.60f };
-const float K1_RUMBLE_16_HM[]     = { 0.00f, 0.65f, 0.55f, 0.00f };
-const float K1_RUMBLE_16_LT[]     = { 0.00f, 0.25f, 1.00f, 1.60f };
-const float K1_RUMBLE_16_LM[]     = { 0.00f, 0.20f, 0.15f, 0.00f };
-
-// 17 -- footstepsounds rows 5 and 10, both labelled Stomp, cutoff 20. One
-// heavy footfall, and it repeats as the thing walks, so it must be short.
-const float K1_RUMBLE_17_HT[]     = { 0.00f, 0.03f, 0.18f, 0.28f };
-const float K1_RUMBLE_17_HM[]     = { 0.00f, 0.70f, 0.15f, 0.00f };
-const float K1_RUMBLE_17_LT[]     = { 0.00f, 0.02f, 0.08f };
-const float K1_RUMBLE_17_LM[]     = { 0.00f, 0.25f, 0.00f };
-
-// 20 -- VFX_IMP_CHOKE and VFX_IMP_FORCE_PUSH at cutoff 2, VFX_FNF_FORCE_WAVE at
-// 5. A force impact: a shove rather than a blast, and no crack to it.
-const float K1_RUMBLE_20_HT[]     = { 0.00f, 0.05f, 0.22f, 0.35f };
-const float K1_RUMBLE_20_HM[]     = { 0.00f, 0.55f, 0.18f, 0.00f };
-const float K1_RUMBLE_20_LT[]     = { 0.00f, 0.03f, 0.15f, 0.30f };
-const float K1_RUMBLE_20_LM[]     = { 0.00f, 0.40f, 0.10f, 0.00f };
-
-struct RumbleShapeK1 {
-    int          index;
-    const float* heavyTimes;
-    const float* heavyMagnitudes;
-    int          heavyCount;
-    const float* lightTimes;
-    const float* lightMagnitudes;
-    int          lightCount;
-};
-
-const RumbleShapeK1 K1_RUMBLE_SHAPES[] = {
-    { 5,  K1_RUMBLE_05_HT, K1_RUMBLE_05_HM, 4, K1_RUMBLE_05_LT, K1_RUMBLE_05_LM, 4 },
-    { 11, K1_RUMBLE_11_HT, K1_RUMBLE_11_HM, 4, K1_RUMBLE_11_LT, K1_RUMBLE_11_LM, 4 },
-    { 12, K1_RUMBLE_12_HT, K1_RUMBLE_12_HM, 5, K1_RUMBLE_12_LT, K1_RUMBLE_12_LM, 5 },
-    { 13, K1_RUMBLE_13_HT, K1_RUMBLE_13_HM, 4, K1_RUMBLE_13_LT, K1_RUMBLE_13_LM, 4 },
-    { 14, K1_RUMBLE_14_HT, K1_RUMBLE_14_HM, 4, K1_RUMBLE_14_LT, K1_RUMBLE_14_LM, 4 },
-    { 15, K1_RUMBLE_15_HT, K1_RUMBLE_15_HM, 4, K1_RUMBLE_15_LT, K1_RUMBLE_15_LM, 4 },
-    { 16, K1_RUMBLE_16_HT, K1_RUMBLE_16_HM, 4, K1_RUMBLE_16_LT, K1_RUMBLE_16_LM, 4 },
-    { 17, K1_RUMBLE_17_HT, K1_RUMBLE_17_HM, 4, K1_RUMBLE_17_LT, K1_RUMBLE_17_LM, 3 },
-    { 20, K1_RUMBLE_20_HT, K1_RUMBLE_20_HM, 4, K1_RUMBLE_20_LT, K1_RUMBLE_20_LM, 4 },
-};
+// Since the Enhanced haptics pass (2026-09-25) the rows live in K1Rumble.cpp,
+// and the engine's own instance list is bypassed: a hook on PlayRumblePattern
+// hands every play to the mixer there, which evaluates these rows the same way
+// and also attaches rows 0 and 21 to the saber and Whirlwind. The table is still
+// installed here, so that without that hook the engine plays it itself.
 
 // Install it once, and again if the object is ever rebuilt -- the destructor
 // frees the table and zeroes both fields, so the null test picks a new one up by
@@ -2079,19 +2040,15 @@ void EnsureRumbleTableK1(void* owner)
         return;
     }
     std::memset(patterns, 0, bytes);
-    for (int i = 0; i < K1_RUMBLE_PATTERN_COUNT; ++i) {
-        patterns[i].heavy = { K1_RUMBLE_SILENT_M, K1_RUMBLE_SILENT_T, 2, 0 };
-        patterns[i].light = { K1_RUMBLE_SILENT_M, K1_RUMBLE_SILENT_T, 2, 0 };
-        patterns[i].loop = 0;
-    }
-    for (const RumbleShapeK1& shape : K1_RUMBLE_SHAPES) {
-        if (shape.index < 0 || shape.index >= K1_RUMBLE_PATTERN_COUNT) {
+    for (int index = 0; index < K1_RUMBLE_PATTERN_COUNT; ++index) {
+        const RumbleRowK1* const row = KmrpBioWareRumbleRowK1(index);
+        if (!row) {
             continue;               // unreachable as written; cheap to keep true
         }
-        RumblePatternK1& pattern = patterns[shape.index];
-        pattern.heavy = { shape.heavyMagnitudes, shape.heavyTimes, shape.heavyCount, 0 };
-        pattern.light = { shape.lightMagnitudes, shape.lightTimes, shape.lightCount, 0 };
-        pattern.loop = 0;
+        RumblePatternK1& pattern = patterns[index];
+        pattern.heavy = { row->heavyMagnitudes, row->heavyTimes, row->heavyCount, 0 };
+        pattern.light = { row->lightMagnitudes, row->lightTimes, row->lightCount, 0 };
+        pattern.loop = row->loop;
     }
     // Pointer before count, because the count is what PlayRumblePattern gates on
     // and it reads the pointer immediately after passing that gate.
@@ -2205,7 +2162,7 @@ extern "C" int __cdecl ResolveResolutionConfirmK1(void* panel, int* event, int* 
 }
 
 extern "C" void __cdecl NativeRumbleK1(int envelopeBBits, int envelopeABits,
-                                       void* rumbleOwner)
+                                       void* rumbleOwner, float* frameTime)
 {
     ++g_stick.rumbleCalls;
     g_stick.rumbleRawA = static_cast<unsigned long>(envelopeABits);
@@ -2215,15 +2172,15 @@ extern "C" void __cdecl NativeRumbleK1(int envelopeBBits, int envelopeABits,
     // from inside the call it gates is safe: with the count still zero there can
     // be no instances, so the loop above this point did nothing.
     EnsureRumbleTableK1(rumbleOwner);
-    if (!g_stick.padPresent) {
-        return;                         // no pad has answered yet
-    }
 
-    auto toMotor = [](int bits) -> WORD {
+    auto toFloat = [](int bits) -> float {
         float value = 0.0f;
         std::memcpy(&value, &bits, sizeof(value));
+        return value > 0.0f ? value : 0.0f;     // also catches NaN
+    };
+    auto toMotor = [](float value) -> WORD {
         if (!(value > 0.0f)) {
-            return 0;                   // also catches NaN
+            return 0;
         }
         if (value > 1.0f) {
             value = 1.0f;
@@ -2231,9 +2188,23 @@ extern "C" void __cdecl NativeRumbleK1(int envelopeBBits, int envelopeABits,
         return static_cast<WORD>(value * 65535.0f);
     };
 
+    // Every pattern the engine starts is played by the mixer (K1Rumble.cpp),
+    // which also applies mode, strength, pause and menus. What the engine mixed
+    // itself is passed along too, and is zero whenever the play hook is present.
+    const float dt = IsReadableK1(frameTime, sizeof(float)) ? *frameTime : 0.0f;
+    float heavy = 0.0f;
+    float light = 0.0f;
+    KmrpRumbleTickK1(rumbleOwner, dt, toFloat(envelopeABits), toFloat(envelopeBBits),
+                     heavy, light);
+    // The mixer ticks with or without a pad, so that health and saber state
+    // are current when one connects rather than read as one huge change.
+    if (!g_stick.padPresent) {
+        return;                         // no pad has answered yet
+    }
+
     XINPUT_VIBRATION vibration{};
-    vibration.wLeftMotorSpeed = toMotor(envelopeABits);      // heavy
-    vibration.wRightMotorSpeed = toMotor(envelopeBBits);     // light
+    vibration.wLeftMotorSpeed = toMotor(heavy);      // envelope A
+    vibration.wRightMotorSpeed = toMotor(light);     // envelope B
 
     const unsigned long packed =
         (static_cast<unsigned long>(vibration.wLeftMotorSpeed) << 16) |
@@ -2440,9 +2411,10 @@ extern "C" void __cdecl NativeActionBarK1(void* mainInterface)
         // happen to be ordered within a frame.
         activate = KmrpActionBarFocusedK1(mainInterface);
         if (activate != 0) {
-            // This press is the slot's. The slot lets go of focus once used, so
-            // the world consumer, should it run later this frame, would find
-            // nothing focused and act on the same press; take its request too.
+            // This press is the slot's. Take the world consumer's request too:
+            // the slot keeps focus now, so the world consumer would decline it
+            // anyway, but one press doing exactly one thing should not depend
+            // on that.
             g_stick.interactRequestedTick = 0;
         }
     }
@@ -2451,6 +2423,12 @@ extern "C" void __cdecl NativeActionBarK1(void* mainInterface)
         g_stick.hudReleaseRequested = 0;
         release = KmrpActionBarFocusedK1(mainInterface);
     }
+    // Taken now whatever happens below, so a press made in gameplay can never
+    // act later on a different screen.
+    const bool clearOne = g_stick.combatClearRequested != 0;
+    const bool disengage = g_stick.disengageRequested != 0;
+    g_stick.combatClearRequested = 0;
+    g_stick.disengageRequested = 0;
 
     if (InputClassK1() != K1_CLASS_PC || !LooksLikePointerK1(mainInterface)) {
         // Ask nothing of the interface outside gameplay. KmrpActionBarStateK1
@@ -2462,6 +2440,13 @@ extern "C" void __cdecl NativeActionBarK1(void* mainInterface)
     }
     g_stick.hudInterface = reinterpret_cast<unsigned long>(mainInterface);
     g_stick.hudState = KmrpActionBarStateK1(mainInterface);
+    // Y, then X: undo the last queued action, then disengage altogether.
+    if (clearOne) {
+        PressHudButtonK1(mainInterface, K1_HUD_CLEAR_ONE, K1_ON_CLEAR_ONE);
+    }
+    if (disengage) {
+        PressHudButtonK1(mainInterface, K1_HUD_CLEAR_ALL, K1_ON_CLEAR_ALL);
+    }
     if (release != 0) {
         KmrpActionBarReleaseK1(mainInterface);   // B: cancel, and nothing else
         ++g_stick.hudReleases;
@@ -2478,10 +2463,12 @@ extern "C" void __cdecl NativeActionBarK1(void* mainInterface)
         ++g_stick.hudCycles;
     }
     if (activate != 0) {
+        // The slot KEEPS focus once used, so A can be pressed again at once --
+        // attack, attack, attack -- without D-pad Right each time. Only B lets
+        // go of the bar. Until 2026-09-25 a used slot released it (issue #17);
+        // in combat that meant re-entering the bar after every action, and the
+        // user asked for it to stay.
         ++g_stick.hudActivations;
-        // A used slot hands A back to the world; Left or Right re-enters.
-        KmrpActionBarReleaseK1(mainInterface);
-        ++g_stick.hudReleases;
     }
 }
 
@@ -2606,6 +2593,39 @@ constexpr std::size_t K1_CONTROL_ID    = 0x50;
 // them. Driving it is what the game itself does.
 constexpr std::uint32_t K1_CONTROL_FLAG_DRAWN = 2;
 
+// The HUD's combat buttons: members of CSWGuiMainInterface (vtable 0x00753F50),
+// whose constructor registers their click handlers for event 0x27 --
+// OnClearOneButtonPressed on BTN_CLEARONE at 0x0068D0C3 (and on BTN_CLEARONE2 at
+// 0x0068D0DC), OnClearAllButtonPressed on BTN_CLEARALL at 0x0068D0EF.
+//
+//   OnClearOneButtonPressed  shows the tutorial the first time, as a click
+//                            does, then calls OnCombatYButton (0x006880C0):
+//                            CSWSCombatRound::RemoveLastAction, or, with nothing
+//                            left to remove, CSWSObject::ClearAllActions. The
+//                            Xbox build's Y in combat, by its name.
+//   OnClearAllButtonPressed  the Disengage button: ClearAllActions (0x006887D0),
+//                            which leaves combat mode, clears every action and
+//                            plays the button's sound.
+//
+// Pressed through those handlers with the button itself as the argument, so a
+// pad press is exactly a mouse click; and only while the button is drawn, the
+// test OnClearOneButtonPressed makes itself ([this+0x6D14] & 2 at 0x0068B05E).
+using HudButtonHandlerFn = void(__thiscall*)(void*, void*);
+
+bool PressHudButtonK1(void* mainInterface, std::size_t member, std::uintptr_t handler)
+{
+    if (!IsReadableK1(mainInterface, K1_HUD_CLEAR_ALL + 0x50) ||
+        *FieldAt<std::uintptr_t>(mainInterface, 0) != K1_MAIN_INTERFACE_VTABLE) {
+        return false;
+    }
+    void* const button = FieldAt<std::uint8_t>(mainInterface, member);
+    if ((*FieldAt<std::uint32_t>(button, K1_CONTROL_FLAGS) & K1_CONTROL_FLAG_DRAWN) == 0) {
+        return false;                   // not in combat, or nothing to clear
+    }
+    EngineFn<HudButtonHandlerFn>(handler)(mainInterface, button);
+    return true;
+}
+
 // Which cue belongs on which panel. Matched on the panel's vtable because
 // ReleaseGff is called by all 68 panel constructors and only these want one, and
 // a panel may want more than one -- the tab strip carries both triggers.
@@ -2616,6 +2636,9 @@ constexpr std::uint32_t K1_CONTROL_FLAG_DRAWN = 2;
 struct GuiCueBindingK1 {
     std::uintptr_t panelVtable;
     const char*    tag;
+    // A control on the panel, by its offset in the panel object, whose
+    // visibility the cue copies; 0 for a cue shown whenever the pad is live.
+    std::size_t    follow;
 };
 
 constexpr GuiCueBindingK1 K1_GUI_CUES[] = {
@@ -2633,6 +2656,10 @@ constexpr GuiCueBindingK1 K1_GUI_CUES[] = {
     // here relies on.
     {0x00750148, "LBL_KMRPLT"},
     {0x00750148, "LBL_KMRPRT"},
+    // X and Y beside the HUD's combat buttons, each shown only while its button
+    // is: Y by BTN_CLEARONE, X by BTN_CLEARALL (see PressHudButtonK1).
+    {K1_MAIN_INTERFACE_VTABLE, "LBL_KMRPY", K1_HUD_CLEAR_ONE},
+    {K1_MAIN_INTERFACE_VTABLE, "LBL_KMRPX", K1_HUD_CLEAR_ALL},
 };
 constexpr int K1_GUI_CUE_COUNT =
     sizeof(K1_GUI_CUES) / sizeof(K1_GUI_CUES[0]);
@@ -2943,9 +2970,10 @@ void* PanelWithDispatcherK1(std::uintptr_t dispatcher)
 // One entry per bound cue. Small and fixed: only a few of these panels are live
 // at once, and a table that cannot grow cannot leak.
 struct GuiCueK1 {
-    void* panel;
-    void* control;
-    int   id;
+    void*       panel;
+    void*       control;
+    int         id;
+    std::size_t follow;             // GuiCueBindingK1::follow
 };
 GuiCueK1 g_guiCues[16];
 constexpr int K1_GUI_CUE_SLOTS =
@@ -2980,7 +3008,7 @@ bool GuiCueStillLiveK1(const GuiCueK1& cue)
 }
 
 // Bind one cue by tag onto a panel that still has its .gui.
-void BindOneCueK1(void* panel, const char* tag)
+void BindOneCueK1(void* panel, const char* tag, std::size_t follow)
 {
     void* const control = EngineFn<OperatorNewFn>(K1_OPERATOR_NEW)(
         K1_GUI_LABEL_SIZE);
@@ -3020,6 +3048,7 @@ void BindOneCueK1(void* panel, const char* tag)
                 g_guiCues[i].panel = panel;
                 g_guiCues[i].control = control;
                 g_guiCues[i].id = id;
+                g_guiCues[i].follow = follow;
                 ++g_stick.guiCuesInstalled;
                 return;
             }
@@ -3079,7 +3108,7 @@ void InstallGuiCuesK1(void* panel)
     }
     for (int i = 0; i < K1_GUI_CUE_COUNT; ++i) {
         if (K1_GUI_CUES[i].panelVtable == vtable) {
-            BindOneCueK1(panel, K1_GUI_CUES[i].tag);
+            BindOneCueK1(panel, K1_GUI_CUES[i].tag, K1_GUI_CUES[i].follow);
         }
     }
 }
@@ -3299,16 +3328,23 @@ void UpdateGuiCuesK1()
             g_guiCues[i].control = nullptr;
             continue;
         }
+        // A cue that follows a control shows only while that control does.
+        bool shown = visible;
+        if (shown && g_guiCues[i].follow != 0) {
+            void* const followed = FieldAt<std::uint8_t>(g_guiCues[i].panel, g_guiCues[i].follow);
+            shown = IsReadableK1(followed, K1_CONTROL_FLAGS + sizeof(std::uint32_t)) &&
+                    (*FieldAt<std::uint32_t>(followed, K1_CONTROL_FLAGS) & K1_CONTROL_FLAG_DRAWN) != 0;
+        }
         std::uint32_t& flags =
             *FieldAt<std::uint32_t>(g_guiCues[i].control, K1_CONTROL_FLAGS);
-        const std::uint32_t wanted = visible
+        const std::uint32_t wanted = shown
             ? (flags | K1_CONTROL_FLAG_DRAWN)
             : (flags & ~K1_CONTROL_FLAG_DRAWN);
         if (wanted != flags) {
             flags = wanted;
             ++g_stick.guiCueToggles;
         }
-        if (visible) {
+        if (shown) {
             MatchCueFamilyK1(g_guiCues[i].control);
         }
     }
@@ -4748,7 +4784,7 @@ extern "C" void __cdecl NativeJoystickDumpK1()
         g_stick.guiCuesInstalled, g_stick.guiCuesRejected,
         g_stick.guiCueToggles, g_stick.saveBuffersFreed,
         // map: Start opening the Map from the world; hrel: action-bar focus
-        // handed back to the world, after a slot is used or on B.
+        // handed back to the world by B.
         g_stick.mapOpens, g_stick.hudReleases,
         // gly: the controller family the badges show (0 Xbox, 1 PlayStation,
         // 2 Switch, 3 Steam Deck), and how many times it has changed.

@@ -9,10 +9,22 @@
 
 ## Scope
 
-KMRP is a desktop patcher for a single-player 2003 game. It has no network
-functionality, no telemetry, and no service component. The realistic risk is not
-remote compromise but **damage to a player's game installation**, so that is what
-this policy is mainly about.
+KMRP is a desktop patcher for a single-player 2003 game. It has no telemetry
+and no service component, and one network request: the update check below. The
+realistic risk is not remote compromise but **damage to a player's game
+installation**, so that is what this policy is mainly about. (Until 2026-09-25
+this said KMRP had no network functionality, which was true until the update
+check was added that day.)
+
+**The update check.** When the installer's window opens, it makes one HTTPS
+request, to `api.github.com/repos/RayesDiyab/KMRP-KOTOR-Modern-Restoration-Patch/releases/latest`.
+- **Sent:** only the User-Agent `KMRP/<version>` that GitHub requires. There
+  is no identifier, nothing about the machine, and nothing about the game.
+- **Not sent:** the command-line modes never make the request.
+- **Read:** only the release's tag name, and only as digits and dots.
+- **Link:** the dialog's Download button opens a Deadly Stream address compiled
+  into the installer, never one from the answer.
+- **Failures:** any failure is silent, including a five-second timeout.
 
 The patcher modifies `swkotor.exe`, `swkotor.ini` and the `Override` folder; the
 current user's Windows compatibility value for that one executable, to mark it

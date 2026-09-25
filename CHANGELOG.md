@@ -24,8 +24,12 @@ All notable changes to KMRP are recorded here. The format follows
 > are at the top, so that had the direction backwards.)
 >
 > **Public names.** 2.10.0 is **KMRP 1.0**, and [Unreleased] is **KMRP 1.5**.
-> The headings keep the internal `PatchVersion` numbers, because the tag
-> `v2.10.0` and the 2.0.0 hash record use them.
+> The headings keep the internal `PatchVersion` numbers, because the 2.0.0
+> hash record uses them. The 1.0 release is tagged `v1.0.0` since 2026-09-25,
+> on the same commit. Until then its tag was `v2.10.0`, which remains as a
+> plain tag; it moved because the installer's update check reads release tags
+> as versions (see [Unreleased]). (Until that day this note also gave the tag
+> as a reason to keep the internal numbers.)
 
 ## Everything the patch changes in the executable
 
@@ -101,7 +105,7 @@ reported `2.10.0-mapnotes`. It was the second time these two drifted apart;
 while they disagree. Before the versions were corrected, it was run against
 the real mismatch and refused it.
 
-The 1.5.0 installer of 2026-09-25 (`B599303A…57108`, 179,624,960 bytes) was
+The 1.5.0 installer of 2026-09-25 (`873A01E2…36870`, 179,625,984 bytes) was
 compared with the play-tested one of 2026-09-24 (`ECA3DE4B…`):
 - its `--apply` output at the 48 resolutions both builds share is
   byte-identical, so every executable measurement below that cites `ECA3DE4B…`
@@ -114,7 +118,67 @@ compared with the play-tested one of 2026-09-24 (`ECA3DE4B…`):
 Intermediate builds of the same days, never installed as releases:
 - `D81E640C…`, the relabel without the licence;
 - `7933…`, with the licence;
-- `78A5CC43…`, the first build with 49 resolutions.
+- `78A5CC43…`, the first build with 49 resolutions;
+- `B599303A…`, committed as `1cca3fe`, before BioWare's rumble table.
+
+The **haptics installer** of the same day (`C796489A…FDFC`, 179,650,560 bytes)
+changes only the controller component: the module
+(`E52826A2…`), eight new hooks in `patch_config.toml`, and a settings file. Its
+executable patching code is unchanged in source, but its `--apply` output was
+not re-compared. It still carries 70 resources. The builds before it, in order:
+- `13ADCC63…`, `F328A18A…` and `C00B66AF…`, superseded before any test. The
+  first predates the fade radius's 2 m floor. The second predates the pause
+  and menus no longer freezing the clock (see
+  [controller-rumble.md](docs/controller-rumble.md)). The third predates two
+  fixes: damage no longer registers on a corpse, and a looping BioWare row no
+  longer restarts while it is already playing, which the engine's own
+  `PlayRumblePattern` also refuses (`0x005FB4BB`–`0x005FB4D2`).
+- `74011765…` (179,645,440 bytes), the first pad test: the hum at BioWare's full
+  level, far too strong.
+- `6BEE57FF…` (179,645,952 bytes), a steady `SaberHum`. The second pad test found
+  it too strong even at the pad's lowest step.
+- `F4B4CE4F…` (179,646,464 bytes), the hum pulsed at a fixed 50 ms every 500 ms.
+  The third pad test settled the defaults this build ships, with a random gap
+  between pulses.
+- `BA103494…` (179,648,512 bytes), that random gap set as one range key,
+  `SaberHumPeriodMs=1000-2000`, superseded before any pad test by separate
+  `SaberHumPeriodMinMs` and `SaberHumPeriodMaxMs`.
+- `8C0A6D94…` (179,648,512 bytes), with those two keys, the build of the first
+  combat test. Every combat pattern reached the pad at its intended strength
+  but lasted 0.1–0.2 s, too briefly to feel. No saber hit could fire, because
+  the hook sat on blade-on-blade contact rather than a blow landing. And no
+  positional rumble was logged at all, grenades included.
+- `1815ED7A…` (179,650,560 bytes), which fixed those three (see
+  [controller-rumble.md](docs/controller-rumble.md)), superseded before any pad
+  test.
+- `4C02A277…` (179,650,560 bytes), adding the action bar keeping focus after a
+  slot is used (issue #17, below) and the 500 ms shortest gap between hum
+  pulses. The fourth pad test ran on it and found it right. This build differs
+  only in writing `Debug=0` into a new `kmrp-controller.ini`; the module is the
+  same, `E52826A2…`.
+
+*Corrected before any commit:* this paragraph once named `F328A18A…` as
+`F4B4CE4F…`. Each build's hash update was applied to the whole file, and it
+rewrote the names of earlier builds along with the current one.
+
+Builds after the haptics installer, the same day, each adding to the one
+before; none of the four has been play-tested:
+- `99A9ECC6…` (179,832,832 bytes), X and Y in combat with their HUD badges, and
+  the window's v1.5.0 label. Its four Python checks were run and pass.
+- `D58A2E33…` (179,832,320 bytes), the dialogue A moved to the end of the reply,
+  and the combat message widened at 3440x1440. Its four Python checks were run
+  and pass. Its module is 204,800 bytes, `577AAE92…`.
+- `7C2FFF8B…` (179,837,952 bytes), the update check. It was built with
+  `-ReuseResources`, so its archives and module are `D58A2E33…`'s, and those
+  checks hold for it; `Test-UpdateCheck.ps1` was run against its source and
+  passes. `Test-ControllerSupport.ps1` and `Test-ReinstallOverOlderBuild.ps1`
+  were run against it and pass; neither was run on the two builds before it.
+  Superseded before any test by the dialog's second layout.
+- `AD3DC07D…` (179,837,440 bytes), that second layout (Download and Skip
+  version, the switch naming the version); nothing else changed. The current
+  build. Its archives and module are still `D58A2E33…`'s.
+  `Test-UpdateCheck.ps1`, `Test-ControllerSupport.ps1` and
+  `Test-ReinstallOverOlderBuild.ps1` were run against it and pass.
 
 - **The KOTOR Patch Manager MIT licence is installed with the controller.** The
   runtime, the controller module and the memory-safety patches all come from
@@ -126,6 +190,141 @@ Intermediate builds of the same days, never installed as releases:
   byte for byte, and `Test-ReinstallOverOlderBuild.ps1` also passes.
 
 ### Added
+
+- **X disengages and Y cancels the last queued action, in combat**, each with
+  its badge on the HUD. The engine has both buttons: Disengage (`BTN_CLEARALL`)
+  and a "clear one" button over the action queue (`BTN_CLEARONE`). The second
+  calls `OnCombatYButton`, which removes the last queued action and, once none
+  is left, clears everything -- the Xbox build's Y in combat, by its name. On
+  PC they took a mouse click; nothing routed a button to them. Now the pad
+  presses them through the engine's own click handlers, so a press is exactly a
+  click, first-time tutorial included, and only while the button is on screen.
+  - **X** disengages: combat mode off and the whole queue cleared, as the
+    on-screen button does.
+  - **Y** removes the last queued action; pressed again with the queue empty,
+    it clears everything too.
+
+  An X badge beside Disengage and a Y beside the queue show only while those
+  buttons do, and only with a pad in use, in all four controller families. At
+  every resolution they are placed from the buttons themselves, and
+  `Test-GeneratedGuiGeometry.py` checks their size, placement, and that they
+  cover no button or queue icon at all 49. The Controller Layout screen now
+  reads "Disengage / Menu action" for X and "Undo action / Menu action" for Y,
+  where both said "Screen action". **Untested in game.**
+- **The installer's window says v1.5.0.** Its label was a hardcoded `"v1.0.0"`,
+  a second copy of the version that did not follow `PatchVersion` to 1.5.0. It
+  is derived from `PatchVersion` now.
+- **The installer says when a newer KMRP is out.** When its window opens, it
+  asks GitHub once, in the background, for the repository's latest release. If
+  that release is newer than the installer, a dialog offers **Download**, which
+  opens the [Deadly Stream page](https://deadlystream.com/files/file/3096-kmrp-kotor-modern-restoration-patch/), and **Skip version**.
+  A switch names the version on offer, *Don't remind me again for 1.6.0*. It
+  stops that one version from being offered again, whichever button closes the
+  dialog; a later one still is, and nothing turns reminders off for good. The
+  first layout was replaced the same day as unintuitive: a plain **Skip**, and
+  a switch titled only *Don't remind me again*. The version turned off is
+  remembered as `skippedUpdate` in
+  `%LOCALAPPDATA%\KMRP\settings.json`.
+  - **What it sends:** one HTTPS request carrying only the User-Agent GitHub
+    requires, `KMRP/1.5.0`. The command-line modes never make it.
+  - **What it reads:** only the tag name, digits and dots. The Download link is
+    fixed in the installer, never taken from the answer.
+  - **Failures:** it gives up after five seconds. Any failure is silent:
+    offline, rate limited, or a tag that is not a version.
+  - It never appears while a patch or restore is running.
+
+  Releases must now be tagged with the public version. On 2026-09-25 the 1.0
+  release moved from tag `v2.10.0`, its internal number, to `v1.0.0` on the
+  same commit, because 2.10.0, read as a version, is later than 1.5.0, and every
+  1.5 player would have been offered 1.0. `Test-UpdateCheck.ps1` checks the tag
+  parsing, the comparison, the remembered version, and that case. Asked live,
+  GitHub answered 1.0.0, and the check stayed quiet. **The dialog has been drawn
+  to an image, not seen over the real window, and its Download has not been
+  clicked.**
+
+- **Rumble modes, Off, Original and Enhanced, with haptics beyond what
+  shipped.** **Felt on an Xbox pad on 2026-09-25 and judged right**, after four
+  pad tests that tuned it; what was and was not covered is listed in
+  [controller-rumble.md](docs/controller-rumble.md). A single
+  mixer in the controller module (`K1Rumble.cpp`) now plays every rumble,
+  BioWare's included. It takes each motor's maximum across everything playing,
+  and it records what kind each rumble is:
+  - **Original BioWare rumble.** The shipped mappings, unchanged: the grenades,
+    the Stomp footsteps, Force Choke, Push and Wave, the terentatek, the
+    Korriban ceiling and obelisk, and the Endar Spire.
+  - **Restored cut BioWare rumble.** Rows 0 `LightSaberOn` and 21 `Whirlwind`,
+    which nothing shipped fires. They now play while the controlled character
+    holds a lit saber, and while it is caught in Force Whirlwind. These
+    attachments are KMRP's; what fired the rows on Xbox is not known.
+  - **KMRP Enhanced haptics.** 25 patterns of KMRP's own, named `KMRP_…` and
+    numbered from 100:
+    - melee hits, a saber's or any other weapon's, felt as the blow lands;
+    - saber ignition and retraction, hits (a swing that meets nothing is
+      silent), parries, deflections and the saber feats;
+    - blaster recoil by weapon class, for the controlled character only;
+    - damage received, scaled by the share of health it took and merged within
+      50 ms, and death;
+    - lightning, drain, Force buffs and stun;
+    - droid explosions, the poison and adhesive grenades, rockfalls, and the
+      space-laser strike;
+    - the Rancor's death, on BioWare's Rancor row.
+
+    None of it existed on Xbox.
+
+  Every one-shot pattern holds its peak for 100–180 ms and runs 0.3 s or more,
+  because the first combat test showed shorter ones reach the pad but are not
+  felt. Enhanced plays BioWare's positional rumble -- grenades, Force Push, the
+  Stomp footsteps -- measured from the controlled character rather than the
+  engine's sound listener, reaching three times BioWare's cutoffs under 10 m
+  (grenades 15 m instead of 5 m), and fading with distance to nothing there.
+  Original leaves it to the engine, full strength inside the 2DA's cutoff, as
+  vanilla does. Rumble is silent in menus, pause, fades and load screens, and
+  stops on death.
+
+  `kmrp-controller.ini`, beside the game, sets Mode, Strength (0–100%),
+  SaberHum (0–100% of BioWare's hum level, default 6), SaberHumPulseMs
+  (default 100), SaberHumPeriodMinMs and SaberHumPeriodMaxMs (default 500 and
+  2000; the gap before each pulse is drawn at random between them, as settled
+  in the third pad test), and Debug. The first pad test
+  (2026-09-25) found BioWare's hum at its full 0.20 far too strong. The second
+  found even an Xbox pad's weakest steady vibration, 1% of full power, too
+  strong, so the hum now pulses that level by default. The installer writes it once and never overwrites an edited copy.
+  `Debug=1` logs every rumble event to `kmrp-rumble.log`. It defaulted to 1 in
+  the hardware-test builds and is 0 since they passed.
+
+  There are eight new hooks. One of them declines `PlayRumblePattern`'s own
+  queue, so the mixer alone drives the motors. All eight pass
+  `check_hook_stolen_bytes.py` and `check_patcher_hook_table.py`. All 170
+  pattern arrays are in the compiled module byte for byte.
+  `Test-ControllerSupport.ps1` passes, with a new case for edited settings, and
+  so does `Test-ReinstallOverOlderBuild.ps1`.
+
+  Deferred, with the reasons in
+  [controller-rumble.md](docs/controller-rumble.md): critical hits, the Krayt
+  dragon, doors, the swoop and turret minigames, damage types, and an installer
+  or in-game control for the settings.
+
+- **Rumble uses BioWare's own patterns, all 22 of them.** The rumble KMRP
+  restored earlier ran on nine envelopes KMRP had authored, one for each index
+  the shipped content fires, with every other index silent. BioWare's data was
+  thought lost with the Xbox build. It is K1's `rumble.2da`, published by the
+  OpenKotOR wiki ([rumble-k1.md](https://github.com/OpenKotOR/wiki/blob/main/wiki/odyssey-engine/2da/rumble-k1.md)), and the module now installs it
+  verbatim:
+  - 22 rows, 0 to 21, with their keyframes, sample counts and looping flags;
+  - generated from that page by script, and validated row by row (counts match
+    the filled cells, times ascend, magnitudes stay within 0 to 1);
+  - checked in the compiled module, where all 78 arrays appear byte for byte.
+
+  Every rumble the game fires now feels as it did on Xbox: the grenades
+  (FragGenade), the Stomp footsteps (Heavy_step), Force Choke, Push and Wave
+  (Critical_hit), the terentatek (Rancor), the falling ceiling on Korriban, and
+  the Endar Spire's tremors (Endar_01, Endar_02). The row names match those
+  indices, which identifies the table. The engine's three rumble entry points
+  pass the index as data, so nothing is fired that content does not ask for;
+  the two looping rows, LightSaberOn and Whirlwind, are fired by nothing
+  shipped. How the envelope evaluator treats rows with an empty motor or a late
+  first keyframe was read from its code before relying on it. **Not yet felt on
+  a pad.**
 
 - **2880x1620, the 49th resolution** (issue #16), for DSR at 2.25x on 1080p
   screens. High Resolution Menus has no layout for it, and its layouts are made
@@ -143,8 +342,9 @@ Intermediate builds of the same days, never installed as releases:
   virtual-display profile now expect 49. **Not seen in play**, since no
   maintainer screen runs 2880x1620.
 
-- **An A beside the highlighted dialogue reply** (issue #21), left of the
-  reply's number, following the highlight like the main menu's A. It shows only
+- **An A beside the highlighted dialogue reply** (issue #21), at the end of the
+  reply's text since the second play-test (below); it was first placed left of
+  the reply's number, following the highlight like the main menu's A. It shows only
   while a controller is in use and replies can be picked, and it hides while a
   line plays, when A would skip it instead. Every resolution now ships
   `dialog.gui` to carry the label. Below 3440x1440 that is a vanilla-equivalent
@@ -165,6 +365,19 @@ Intermediate builds of the same days, never installed as releases:
   placed just left of the text (list left + scrollbar width), clamped to the
   screen. At 1920x1080 the same rule gives the text start seen in a screenshot,
   48 + 16 = 64 px. **The corrected placement is untested in game.**
+
+  **The second play-test (same day) still showed no A.** The log read
+  `placed=(-41,0,32,32)`: correctly just left of the text, but at a negative x
+  inside the dialogue panel, and the engine does not draw a panel's children
+  outside the panel. Nothing left of the reply text can be seen, because at
+  3440x1440 the text begins at the panel's own left edge; the screenshot shows
+  the "1." starting at exactly that edge. **So the A now sits at the end of the
+  highlighted reply's text**, which is where the maintainer asked for it. The
+  engine measures the text itself (`CSWGuiText::GetIdealWidthAndHeight`, the
+  function its tooltips use), once whenever the highlight or the replies
+  change. The A goes a quarter of a glyph past the text, and a reply that wraps
+  gets it on its last line. The log line now carries `textWidth=`. **Untested
+  in game.**
 
 - **Menu and dialogue text is drawn at the size it was rendered at** (issue
   #16). Two players reported pixelated, aliased text, one at 1920x1080 and one
@@ -198,6 +411,19 @@ Intermediate builds of the same days, never installed as releases:
   multi-monitor hardware.
 
 ### Fixed
+
+- **The combat-mode message reads in full at 3440x1440.** "COMBAT MODE
+  engaged. Press the Disengage button to cancel." showed only "the Disengage /
+  button to" (play-test screenshot, 2026-09-25). KMRP's hand-tuned 3440x1440 HUD
+  moved the message to the top-left corner, but left its text label 300 px
+  wide. Its background twin kept 564 px, and upstream's box is 1895. At that
+  resolution's font the sentence is about 1,049 px, so it wrapped to five lines
+  and the 50 px box showed the middle two. The build now gives both labels 660
+  px, where both wordings -- mouse and keyboard -- read on two lines.
+  `Test-GeneratedGuiGeometry.py` now wraps both against the box at all 49
+  resolutions, using a width factor calibrated on that screenshot. Before the
+  fix it failed at 3440x1440 alone, with exactly the five lines seen.
+  **Untested in game.**
 
 - **Down from Close no longer loses the focus on in-game Options.** Reported
   2026-09-25 with a screenshot: pressing Down at Close, the bottom entry, left
@@ -552,14 +778,18 @@ Intermediate builds of the same days, never installed as releases:
   unused glyph is a change nobody asked for.
 
 ### Fixed
-- **A no longer stays stuck on the bottom-right action bar** (issue #17). Using a
-  slot with A now lets go of the bar, so the next A talks to the NPC or opens the
-  door again, and **B** lets go of it without using anything -- B had no other
-  effect in the world. D-pad Left/Right re-enters the bar as before. The press
-  that uses a slot also clears the world interaction's pending request, so one
-  press still does exactly one thing now that the bar's focus goes away within
-  the same frame. `hrel=` in the diagnostic line counts the releases. **Not yet
-  verified in play**; see `testing/controller/test_hud_release_and_start_map.py`.
+- **B lets go of the bottom-right action bar** (issue #17), so the next A talks
+  to the NPC or opens the door again. B uses nothing -- it had no other effect
+  in the world. D-pad Left/Right re-enters the bar as before, and A on a slot
+  uses it and **keeps the bar focused**, so an attack or a grenade can be used
+  again at once. The press that uses a slot also clears the world interaction's
+  pending request, so one press does exactly one thing. `hrel=` in the
+  diagnostic line counts the releases. **Not yet verified in play**; see
+  `testing/controller/test_hud_release_and_start_map.py`.
+
+  *Changed 2026-09-25, at the user's request:* this entry first had A let go of
+  the bar too, after using a slot. In combat that meant D-pad Right before
+  every action, where the user wanted to press attack repeatedly.
 - **The one-frame white flash in the in-game menus is gone** (issue #14), along
   with two quieter relatives: the menu backdrop drawn alone for a frame when
   switching to the Utility or Equipable filter, and a half-drawn world, with
@@ -1141,6 +1371,11 @@ Intermediate builds of the same days, never installed as releases:
   unless it matches the module's pointer walk, since a table written to the
   wrong object would be handed to `free()` later. **Playtest-confirmed on a
   real pad**: a frag grenade, pattern 14, rumbles.
+
+  *Superseded 2026-09-25:* the shapes above are no longer KMRP's own. BioWare's
+  `rumble.2da` turned up, published by the OpenKotOR wiki, and the module now
+  installs all 22 of its rows as authored; see *Rumble uses BioWare's own
+  patterns* above.
 
   This also settles which magnitude drives which motor, previously left open:
   `0x005F760F` loads envelope B's maximum into `EAX` and `0x005F7613` loads

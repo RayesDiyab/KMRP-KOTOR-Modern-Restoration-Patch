@@ -258,6 +258,100 @@ def check_hud(path: Path, resolution: str, height: int,
     return errors
 
 
+def check_combat_cues(path: Path, resolution: str) -> list[str]:
+    """X and Y sit square, left of their combat buttons, inside the panel, and
+    over no button and no action-queue icon."""
+    from prepare_universal_resources import COMBAT_CUE_SCALE, COMBAT_CUES
+    errors: list[str] = []
+    gui = read_gff(path)
+    _, _, panel_width, panel_height = extent_values(gui.root)
+    controls = controls_by_tag(gui)
+    clear_all = controls.get("BTN_CLEARALL")
+    if clear_all is None:
+        return [f"{resolution} HUD: missing BTN_CLEARALL"]
+    size = max(8, round(extent_values(clear_all)[3] * COMBAT_CUE_SCALE))
+    placed = []
+    for tag, fill, _glyph, button in COMBAT_CUES:
+        cue, target = controls.get(tag), controls.get(button)
+        if cue is None or target is None:
+            errors.append(f"{resolution} HUD: missing {tag if cue is None else button}")
+            continue
+        left, top, width, height = extent_values(cue)
+        b_left, b_top, _, b_height = extent_values(target)
+        where = f"{resolution} HUD {tag} {(left, top, width, height)}"
+        if (width, height) != (size, size):
+            errors.append(f"{where}: not a {size} px square")
+        if left + width > b_left or abs((top + height / 2) - (b_top + b_height / 2)) > 1:
+            errors.append(f"{where}: not left of {button}, centred on it")
+        if left < 0 or top < 0 or left + width > panel_width or top + height > panel_height:
+            errors.append(f"{where}: escapes the panel")
+        if cue.get_struct("BORDER").get_resref("FILL") != fill:
+            errors.append(f"{where}: fill is not {fill}")
+        placed.append((tag, left, top, width, height))
+    for other in gui.root.get_list("CONTROLS") or []:
+        other_tag = other.get_string("TAG")
+        if other_tag in {tag for tag, *_ in COMBAT_CUES}:
+            continue
+        if other.acquire("CONTROLTYPE", -1) != 6 and not other_tag.startswith("LBL_QUEUE"):
+            continue
+        x, y, w, h = extent_values(other)
+        for tag, left, top, width, height in placed:
+            if left < x + w and x < left + width and top < y + h and y < top + height:
+                errors.append(f"{resolution} HUD {tag}: covers {other_tag} {(x, y, w, h)}")
+    return errors
+
+
+# The combat-mode message in both wordings, dialog.tlk 48208 and 48413.
+COMBAT_MESSAGES = (
+    "COMBAT MODE engaged. Press the Disengage button to cancel.",
+    'COMBAT MODE engaged. Press the "F" key to disengage.',
+)
+# dialogfont10x10 draws at this multiple of the width measure_label reads from
+# its TXI. Calibrated on the play-test screenshot of 2026-09-25 at 3440x1440,
+# where a 300 px box broke the first wording into exactly five lines: "the
+# Disengage" measures 165 px and drew 230 (1.39), and "button to cancel." did
+# not fit 300 (216 x 1.39). One measurement; 1.40 leaves it a little margin.
+COMBAT_MESSAGE_WIDTH_FACTOR = 1.40
+# A line's height, from the same screenshot: its 50 px box held two lines at the
+# font scale of 1440p lines. Other heights scale with font_scale_for.
+COMBAT_MESSAGE_LINE_AT_1440 = 25
+
+
+def wrapped_lines(text: str, width: float, advances, spacing: float) -> int:
+    from build_controller_prompt_textures import measure_label
+    lines, current = 1, ""
+    for word in text.split():
+        trial = f"{current} {word}" if current else word
+        if current and measure_label(trial, advances, spacing) * COMBAT_MESSAGE_WIDTH_FACTOR > width:
+            lines, current = lines + 1, word
+        else:
+            current = trial
+    return lines
+
+
+def check_combat_message(path: Path, txi: Path, resolution: str, height: int) -> list[str]:
+    """The combat-mode message, in both wordings, fits the lines its box can show."""
+    from build_controller_prompt_textures import parse_font_metrics
+    from prepare_universal_resources import font_scale_for
+    controls = controls_by_tag(read_gff(path))
+    label = controls.get("LBL_CMBTMODEMSG")
+    if label is None:
+        return [f"{resolution} HUD: missing LBL_CMBTMODEMSG"]
+    advances, spacing = parse_font_metrics(txi)
+    if not advances:
+        return [f"{resolution}: no metrics in {txi.name}"]
+    _, _, width, box_height = extent_values(label)
+    line = COMBAT_MESSAGE_LINE_AT_1440 * font_scale_for(height) / font_scale_for(1440)
+    room = max(1, int(box_height // line))
+    errors = []
+    for message in COMBAT_MESSAGES:
+        needed = wrapped_lines(message, width, advances, spacing)
+        if needed > room:
+            errors.append(f"{resolution} HUD LBL_CMBTMODEMSG {width}x{box_height}: "
+                          f"{message!r} needs {needed} lines, the box shows {room}")
+    return errors
+
+
 def main() -> int:
     from prepare_universal_resources import R3_CUE_SCREENS
     archive_dir = ROOT / "build" / "kmrp" / "resources"
@@ -282,7 +376,7 @@ def main() -> int:
             with zipfile.ZipFile(archive) as package:
                 names = set(package.namelist())
                 required = {"optfeedback.gui", "scriptselect.gui", "confirm.gui", active_hud,
-                            *R3_CUE_SCREENS}
+                            "dialogfont10x10.txi", *R3_CUE_SCREENS}
                 missing = required - names
                 if missing:
                     errors.append(f"{resolution}: package is missing {sorted(missing)}")
@@ -303,6 +397,10 @@ def main() -> int:
                 errors.extend(check_party_switch_cue(extract_dir / name, resolution))
             errors.extend(check_confirmation(extract_dir / "confirm.gui", resolution))
             errors.extend(check_hud(extract_dir / active_hud, resolution, height, gold))
+            errors.extend(check_combat_cues(extract_dir / active_hud, resolution))
+            errors.extend(check_combat_message(extract_dir / active_hud,
+                                               extract_dir / "dialogfont10x10.txi",
+                                               resolution, height))
 
     if errors:
         print(f"FAIL: {len(errors)} generated GUI geometry error(s)")

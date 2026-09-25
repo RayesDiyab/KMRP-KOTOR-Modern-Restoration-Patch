@@ -131,8 +131,10 @@ The following remain gameplay tests under Proton, not automated claims:
 - movement, camera, combat/action-bar, dialogue, inventory, map, pause, and menus;
 - controller connect, disconnect/reconnect, and multiple-device behavior;
 - whether Steam Input must be enabled or disabled for the selected controller;
-- rumble (KMRP now supplies the engine's rumble table, so it works on Windows; see
-  *Rumble works* in `CHANGELOG.md`);
+- rumble (KMRP now supplies the engine's rumble table, BioWare's own 22 patterns
+  since 2026-09-25, so it works on Windows; see *Rumble works* and *Rumble uses
+  BioWare's own patterns* in `CHANGELOG.md`. The Enhanced haptics and the mixer
+  of the same day are untested on any platform: `docs/controller-rumble.md`);
 - suspend/resume and handheld/docked switching on Steam Deck; and
 - patch, restore, and reinstall under Proton Experimental and stable Proton.
 

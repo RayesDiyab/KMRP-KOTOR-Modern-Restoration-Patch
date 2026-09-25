@@ -11,7 +11,14 @@ The script prepares the pinned SDL SDK automatically. See
 `Kmrp.controller.module` -- in the 2026-09-24 installer, 181,248 bytes, SHA-256
 `AC2C41EC4C935B19EFF4693E3FBB43D176D28C5B37DE0CDC2C706F72379652C9`; in the
 2026-09-25 installer (`B599303A…`), SHA-256 `DC06F697EE284D93425DCF3FFC965104DCBCD4B9AF681EF4FDD48AEB765CE807`,
-with the dialogue A and two navigation fixes -- and what
+with the dialogue A and two navigation fixes; in the installer `873A01E2…`,
+SHA-256 `E0B62065A20ACC8D957B081EA14F57B5CA5FE62DF1BDF21980F919D590B2B680`,
+which adds BioWare's rumble table; in the hardware-test installer `C796489A…`,
+204,288 bytes, SHA-256 `E52826A2724038E765DFD45B86171160A017E054E346E29CF4A1CE5D0F74DE21`,
+which adds the rumble mixer and Enhanced haptics (`K1Rumble.cpp`); in the
+installers `D58A2E33…`, `7C2FFF8B…` and `AD3DC07D…`, 204,800 bytes, SHA-256
+`577AAE92D0FE18766EDEC669C54959A0213BA1618030F4E1B0EED92E4D9CC251`, which adds X and Y in combat and
+moves the dialogue A to the end of the reply -- and what
 `testing/controller/select_controller_path.py` installs into a test game. The
 reverse engineering behind the native path is in
 `reverse-engineering/retained-xbox-gui-events.md`; the architecture and the full
@@ -22,6 +29,7 @@ mapping are in `docs/controller-native-path.md`.
 | `K1ControllerBackend.cpp` / `.h` | KMRP | XInput and SDL/HIDAPI state normalization, active-device selection and rumble |
 | `K1ControllerLayout.cpp` / `.h` | KMRP | Options → Gameplay entry, modal Controller Layout panel, live glyph refresh, callbacks and explicit control ownership |
 | `K1NativeJoystick.cpp` / `.h` | KMRP | the native path: supplies the joystick device KOTOR's retained console input system expects, so the engine's own handlers drive movement, buttons, menus, camera and free look |
+| `K1Rumble.cpp` / `.h` | KMRP | rumble: BioWare's 22-row `rumble.2da`, KMRP's `KMRP_…` patterns, the mixer that plays both, and the hooks that feed it (`docs/controller-rumble.md`) |
 | `vendor/K1XboxControls.cpp` | Saul0097, modified by KMRP | movie skipping, the action bar, focus fixes, cursor and device-switch policy |
 | `vendor/K1XboxControlsXInput.cpp` / `.h` | Saul0097, modified by KMRP | XInput reading and the last-input-device state the prompts depend on |
 | `exports.def` | KMRP | the module's exports, including the native hooks |
@@ -52,6 +60,15 @@ upstream update: copy upstream's `K1XboxControls.cpp`,
 the top (the vendor files from `vendor/`), and write `git diff` to that file.
 Applying it to a checkout of upstream commit `78e7eaa` must reproduce all five
 exactly.
+
+Two traps, both hit on 2026-09-25. Write the diff with `git diff
+--output=<file>`, never through a PowerShell pipe or `$(...)`: PowerShell strips
+the carriage returns from captured lines, and the result no longer applies.
+And leave `core.autocrlf` at this machine's `true` in the scratch repository:
+forcing it off changes every upstream blob hash in the diff's `index` lines,
+because upstream's files are CRLF, and turns line endings into content changes.
+With `true`, the round trip writes `exports.def` with CRLF where the tracked copy
+is LF, so compare that one file with line endings ignored.
 
 *Corrected 2026-09-24:* this section named `KMRP-RUNTIME-PATCH.diff` as the
 vendor delta. That file is the KOTOR Patch Manager runtime's 16-line

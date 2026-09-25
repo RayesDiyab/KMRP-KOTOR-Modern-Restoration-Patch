@@ -1,9 +1,11 @@
 #!/usr/bin/env python3
 """Issues #17 and #18, checked against the engine's own state.
 
-#17  A used action-bar slot hands A back to the world, and B lets go of the
-     bar: the focused control on CSWGuiMainInterface (+0x1C) must stop being one
-     of the seven action slots. D-pad Right must still re-enter.
+#17  A used action-bar slot KEEPS focus, so A can be pressed again at once, and
+     B lets go of the bar: the focused control on CSWGuiMainInterface (+0x1C)
+     must stop being one of the seven action slots. D-pad Right must still
+     re-enter. (Until 2026-09-25 A also let go; the user asked for the bar to
+     stay focused in combat.)
 #18  Start in the world opens the in-game menu ON THE MAP: the input class goes
      to 2 (GUI) and CGuiInGame's open screen, +0x2C, reads 6 -- the Map's tab ID
      in top.gui. Start again closes it: the class returns to 0. The same from
@@ -76,14 +78,16 @@ def main() -> int:
     slot = focus_a_slot(game)
     expect(slot is not None, f"D-pad Right focuses a slot (slot {slot})")
     tap("A", settle=1.2)
-    expect(game.active_slot() is None, "after A the bar no longer holds focus")
+    expect(game.active_slot() == slot, "after A the bar still holds focus, on the same slot")
 
     print("-- #17: B on a focused slot")
-    slot = focus_a_slot(game)
-    expect(slot is not None, f"D-pad Right re-enters the bar (slot {slot})")
+    expect(game.active_slot() is not None, f"a slot holds focus (slot {game.active_slot()})")
     tap("B")
     expect(game.active_slot() is None, "B lets go of the bar")
     expect(game.input_class() == CLASS_WORLD, "and nothing else happened: still in the world")
+    slot = focus_a_slot(game)
+    expect(slot is not None, f"D-pad Right re-enters the bar (slot {slot})")
+    tap("B")
 
     print("-- #18: Start opens the Map")
     tap("START", settle=1.5)

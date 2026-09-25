@@ -14,7 +14,8 @@ The reverse engineering behind every address here is in
 The native path began as four hooks, in what was then
 `build/research/KPM-Xbox-Controls-K1/K1NativeJoystick.cpp` -- now
 `src/controller-native/K1NativeJoystick.cpp`, the tracked source. It has grown:
-the set the installer writes is 18 detours and 4 byte patches on 2026-09-24
+the set the installer writes is 18 detours and 4 byte patches on 2026-09-24,
+and 26 detours since the rumble mixer of 2026-09-25 (`docs/controller-rumble.md`)
 (`native_hooks()` in `tools/kmrp_controller.py`, checked against the patcher's
 table by `tools/check_patcher_hook_table.py`), covering focus, the camera, the
 tab bar, movies, the action bar, the prompts and cues, and three memory fixes.
@@ -748,16 +749,39 @@ performs the world action otherwise. Both consumers ask
 `KmrpActionBarFocusedK1`, so precisely one acts however the two per-frame hooks
 happen to be ordered within a frame.
 
-**Using a slot lets go of the bar (issue #17).** After the activate callback,
-`KmrpActionBarReleaseK1` clears the focus the way the vendor's Delete path does --
-`setActiveControl(mainInterface, nullptr, 1)` when an action slot holds it -- so
-the next A acts on the world. That would break the rule above if nothing else
-changed: the world consumer could run later in the same frame, find nothing
-focused and act on the same press. So when the HUD takes the press it also clears
-the world consumer's pending request. **B** lets go of the bar the same way and
-does nothing else; B has no other effect in the world (behaviour matrix,
-gameplay). Left/Right re-enter through `MoveFocus`'s `activeIndex < 0` seed.
-`hrel=` in the diagnostic line counts the releases. **Not yet verified in play.**
+**Using a slot keeps the bar; B lets go of it (issue #17).** After the
+activate callback -- `CSWGuiMainInterface::OnDefaultActionLeft`, `0x0068B970`,
+which performs the action and does not touch focus -- the slot stays focused, so
+A can be pressed again at once. **B** lets go of the bar and does nothing else:
+`KmrpActionBarReleaseK1` clears the focus the way the vendor's Delete path does,
+`setActiveControl(mainInterface, nullptr, 1)` when an action slot holds it. B
+has no other effect in the world (behaviour matrix, gameplay). Left/Right
+re-enter through `MoveFocus`'s `activeIndex < 0` seed. `hrel=` in the
+diagnostic line counts the releases. When the HUD takes an A it still clears the
+world consumer's pending request, so one press does exactly one thing.
+
+*Changed 2026-09-25:* until then a used slot let go of the bar as well, so the
+next A acted on the world. In combat that meant D-pad Right before every
+action, and the user asked for the bar to stay focused. **Neither version has
+been verified by `test_hud_release_and_start_map.py` on a loaded save.**
+
+**X disengages and Y removes the last queued action, in combat (2026-09-25).**
+The input hook only records the press, in gameplay (class 0).
+`NativeActionBarK1` then presses the HUD's own button on the next HUD frame:
+- Y presses `BTN_CLEARONE` through `OnClearOneButtonPressed` (`0x0068B050`),
+  which calls `OnCombatYButton`, the Xbox build's Y in combat;
+- X presses `BTN_CLEARALL`, the Disengage button, through
+  `OnClearAllButtonPressed` (`0x0068B0A0`).
+
+The button itself is passed as the argument, so a press is exactly a mouse
+click, tutorial included. A press only acts while its button is drawn,
+`CSWGuiControl` flags bit 2, the test `OnClearOneButtonPressed` makes itself.
+The request is taken whatever happens on that frame, so a press can never act
+later on another screen. X's and Y's GUI events `0x29`/`0x2A` still go out, and
+gameplay still ignores them. A badge beside each button, `LBL_KMRPX` and
+`LBL_KMRPY`, shows while that button does (see
+[`reverse-engineering/custom-gui-controls.md`](../reverse-engineering/custom-gui-controls.md)).
+**Untested in game.**
 
 **The D-pad's retained codes are suppressed in gameplay**, for the same reason
 they are in menus: one press, one mechanism. Nothing else in gameplay consumes

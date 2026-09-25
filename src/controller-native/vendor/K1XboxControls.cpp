@@ -3535,7 +3535,8 @@ extern "C" int __cdecl KmrpActionBarStateK1(void* mainInterface)
 // Drop focus off the seven action slots, if one of them holds it: the release
 // the Delete path above performs, without cancelling the last action. Left and
 // Right bring focus back through MoveFocus's activeIndex < 0 seed. KMRP calls it
-// after a slot is used and when B is pressed, so A goes back to the world.
+// when B is pressed, so A goes back to the world. (It also did after a slot was
+// used, until 2026-09-25: the bar now keeps focus so A can be pressed again.)
 extern "C" void __cdecl KmrpActionBarReleaseK1(void* mainInterface)
 {
     if (!mainInterface) {

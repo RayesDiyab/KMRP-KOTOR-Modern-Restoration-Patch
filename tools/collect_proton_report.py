@@ -26,6 +26,8 @@ TRACKED_ROOT_FILES = (
     "kmrp-sdl3-LICENSE.txt",
     "kmrp-kotor-patch-manager-LICENSE.txt",
     "patch_config.toml",
+    "kmrp-controller.ini",
+    "kmrp-rumble.log",
 )
 TRACKED_OVERRIDE_FILES = (
     "mipc28x6.gui",

@@ -98,6 +98,7 @@ what the current build does.
 | 2026-09-15 | **R3 switches party member** on Abilities, Character, Equipment and Inventory: event `0xCE` to the panel's own dispatcher. Those four R3 cells are no longer "—" | `PerformPendingPartySwitchK1`, `K1_PARTY_SWITCH_PANELS` |
 | 2026-09-19 | **Start opens the Map** in gameplay, and closes the in-game menu from any tab; see the note under *Gameplay* | `K1_START_OPENS_MAP`, `K1_START_CLOSES_MENU` |
 | -- | **R3 leaves free look too.** A press in class 4 is bridged to the exit, `0x06`, on the gameplay frame, so R3 toggles and LB also leaves | `PerformPendingFreeLookExitK1` |
+| 2026-09-25 | **X disengages and Y removes the last queued action, in combat.** They press the HUD's own `BTN_CLEARALL` and `BTN_CLEARONE` through the engine's click handlers, only while that button is on screen, and a badge beside each shows only then. Outside combat the two gameplay cells are still "—". Their GUI events still go out. **Untested in game** | `PressHudButtonK1`, `NativeActionBarK1`; see `reverse-engineering/custom-gui-controls.md` |
 
 **One cell was wrong when written.** Abilities' X is not "use/assign": its `0x29`
 handler at `0x006AE714` cycles the Skills / Powers / Feats sub-tab, a three-state
@@ -141,7 +142,8 @@ GUI events and gameplay has no handler for them.
 Start opens the **Map** instead of the Options menu, through the engine's own Map
 hotkey `0xD7`, and with the in-game menu up it sends B, so it closes the menu from
 any tab (issue #18). B now also lets go of the bottom-right action bar when one of
-its slots has focus, and a slot used with A lets go of it too (issue #17). The rows
+its slots has focus (issue #17). A slot used with A let go of it too until
+2026-09-25; since then it keeps focus, so A can be pressed again at once. The rows
 above are the measurements as they were taken; see
 [`controller-native-path.md`](controller-native-path.md).
 

@@ -6,6 +6,7 @@ using System.Drawing;
 using System.Globalization;
 using System.IO;
 using System.IO.Compression;
+using System.Net;
 using System.Drawing.Drawing2D;
 using System.Drawing.Imaging;
 using System.Drawing.Text;
@@ -2177,6 +2178,35 @@ namespace Kmrp
         private const string ConfigName = "patch_config.toml";
         internal const string Version = "1.2";
 
+        // The controller's own settings, read by the module (src/controller-native/
+        // K1Rumble.cpp). Unlike every other file here it is the PLAYER'S to edit,
+        // so it is written only when absent or still exactly as installed, is
+        // never a reason to decline an install, and restore removes it only if it
+        // is unchanged -- the manifest's usual rule.
+        private const string SettingsName = "kmrp-controller.ini";
+        // Every value here is what the user settled on in the pad tests of
+        // 2026-09-25. Debug was 1 in the hardware-test builds, writing every
+        // rumble event to kmrp-rumble.log; it is off now that those tests passed.
+        private const string DefaultSettings =
+            "; KMRP controller settings. Read by kmrp-controller.module while the game runs;\r\n" +
+            "; changes take effect within a second, no restart needed.\r\n" +
+            "[Rumble]\r\n" +
+            "; Off, Original (BioWare's shipped rumble only) or Enhanced (adds KMRP's haptics)\r\n" +
+            "Mode=Enhanced\r\n" +
+            "; 0 to 100 percent\r\n" +
+            "Strength=100\r\n" +
+            "; the lightsaber hum, 0 to 100 percent of BioWare's level (0 turns it off);\r\n" +
+            "; 6 is the weakest an Xbox pad can play\r\n" +
+            "SaberHum=6\r\n" +
+            "; the hum pulses: on for SaberHumPulseMs (0 = a steady hum), then off until\r\n" +
+            "; the next pulse -- a gap picked at random between SaberHumPeriodMinMs and\r\n" +
+            "; SaberHumPeriodMaxMs, afresh for every pulse (make them equal for a fixed rhythm)\r\n" +
+            "SaberHumPulseMs=100\r\n" +
+            "SaberHumPeriodMinMs=500\r\n" +
+            "SaberHumPeriodMaxMs=2000\r\n" +
+            "; 1 writes every rumble event to kmrp-rumble.log in this folder\r\n" +
+            "Debug=0\r\n";
+
         private static string ManifestPath(string executablePath)
         {
             return Path.Combine(Path.GetDirectoryName(Path.GetFullPath(executablePath)),
@@ -2254,6 +2284,21 @@ namespace Kmrp
                 File.WriteAllText(configPath, BuildConfig(executableHash), new UTF8Encoding(false));
                 installed.Add(new InstalledFile
                     { Name = ConfigName, Hash = GoldPatch.HashFile(configPath) });
+
+                // Read the manifest before WriteManifest replaces it: whether the
+                // settings file is still ours is decided against the old record.
+                string settingsPath = Path.Combine(folder, SettingsName);
+                if (!File.Exists(settingsPath) ||
+                    WasInstalledByUs(executablePath, SettingsName, settingsPath))
+                {
+                    File.WriteAllText(settingsPath, DefaultSettings, new UTF8Encoding(false));
+                    installed.Add(new InstalledFile
+                        { Name = SettingsName, Hash = GoldPatch.HashFile(settingsPath) });
+                }
+                else
+                {
+                    SafeReport(report, "Kept your " + SettingsName + " settings.");
+                }
                 WriteManifest(executablePath, installed);
             }
             catch
@@ -2365,9 +2410,34 @@ namespace Kmrp
             // The engine still runs the Xbox build's rumble subsystem and ends
             // it in DirectInput force feedback, which the invented pad cannot
             // receive. This carries the magnitudes to XInput instead.
+            // The fourth parameter is UpdateRumble's frame-time argument, which
+            // drives the mixer's clock. Decimal: KPM parses the offset with stoi,
+            // so "esp+0x18" would silently read esp+0.
             AppendHook(text, "0x005F7617", "68, C0, 27, 09, 00",
-                "NativeRumbleK1", new[] { "eax", "ecx", "ebp" },
-                new[] { "int", "int", "pointer" });
+                "NativeRumbleK1", new[] { "eax", "ecx", "ebp", "esp+24" },
+                new[] { "int", "int", "pointer", "pointer" });
+            // Rumble and haptics (src/controller-native/K1Rumble.cpp). Every
+            // pattern the engine starts is played by KMRP's mixer: the play hook
+            // declines the engine's own queue, exiting at PlayRumblePattern's
+            // `return 0`, which is what the shipped PC game always returned.
+            // The rest only observe. See docs/controller-rumble.md.
+            AppendHook(text, "0x005FB49F", "3B, A9, 44, 03, 00, 00",
+                "NativeRumblePlayK1", new[] { "ecx", "ebp" }, new[] { "pointer", "int" },
+                new[] { "eax" }, "0x005FB536");
+            AppendHook(text, "0x005F74B0", "56, 8B, B1, 50, 03, 00, 00",
+                "NativeRumbleStopK1", new[] { "ecx", "esp+4" }, new[] { "pointer", "pointer" });
+            AppendHook(text, "0x005FB98E", "0F, B6, 45, 0C, 83, E8, 00",
+                "NativeRumbleCutoffK1", new[] { "ebp" }, new[] { "pointer" });
+            AppendHook(text, "0x00646BA0", "A1, FC, 39, 7A, 00, 56",
+                "NativeSaberPowerK1", new[] { "ecx", "esp+4" }, new[] { "pointer", "pointer" });
+            AppendHook(text, "0x0060DE20", "83, EC, 1C, 56, 8B, F1",
+                "NativeSaberContactK1", new[] { "ecx" }, new[] { "pointer" });
+            AppendHook(text, "0x0063C4F0", "51, 8B, 49, 68, 85, C9",
+                "NativeParryK1", new[] { "ecx" }, new[] { "pointer" });
+            AppendHook(text, "0x006D4440", "53, 8B, 5C, 24, 08, 56",
+                "NativeMuzzleFlashK1", new[] { "ecx" }, new[] { "pointer" });
+            AppendHook(text, "0x00617EB0", "64, A1, 00, 00, 00, 00",
+                "NativeMeleeHitK1", new[] { "esp+12" }, new[] { "pointer" });
             AppendHook(text, "0x00686BA0", "53, 56, 57, 8B, F1",
                 "NativeActionBarK1", new[] { "ecx" }, new[] { "pointer" });
             // CSWGuiPanel::ReleaseGff, called last by all 68 panel
@@ -2545,7 +2615,8 @@ namespace Kmrp
                 {
                     string[] parts = line.Split('\t');
                     if (parts.Length != 2 || parts[0] == "version" ||
-                        (Array.IndexOf(FileNames, parts[0]) < 0 && parts[0] != ConfigName) ||
+                        (Array.IndexOf(FileNames, parts[0]) < 0 && parts[0] != ConfigName &&
+                         parts[0] != SettingsName) ||
                         parts[1].Length != 64 || !Regex.IsMatch(parts[1], "\\A[0-9A-Fa-f]{64}\\z"))
                         continue;
                     records.Add(new InstalledFile { Name = parts[0], Hash = parts[1] });
@@ -5434,6 +5505,8 @@ namespace Kmrp
         private static bool driverCompatibility = DriverCompatibilityDefault;
         private static bool markerFixes = MarkerFixesDefault;
         private static bool controllerSupport = ControllerSupportDefault;
+        // The newer version the player asked not to be reminded of again, or "".
+        private static string skippedUpdate = "";
 
         internal static string SettingsPath
         {
@@ -5492,6 +5565,22 @@ namespace Kmrp
             }
         }
 
+        /// <summary>The version the update prompt was told not to repeat ("Don't
+        /// remind me again for 1.6.0"). A later version is announced as usual.</summary>
+        internal static string SkippedUpdate
+        {
+            get { Load(); return skippedUpdate; }
+            set
+            {
+                Load();
+                string next = value ?? "";
+                if (skippedUpdate == next)
+                    return;
+                skippedUpdate = next;
+                Save();
+            }
+        }
+
         private static void Load()
         {
             if (loaded)
@@ -5521,6 +5610,11 @@ namespace Kmrp
                 if (controller.Success)
                     controllerSupport = String.Equals(controller.Groups[1].Value, "true",
                         StringComparison.OrdinalIgnoreCase);
+                Match skipped = Regex.Match(json,
+                    "\\\"skippedUpdate\\\"\\s*:\\s*\\\"([0-9.]{1,32})\\\"",
+                    RegexOptions.CultureInvariant);
+                if (skipped.Success)
+                    skippedUpdate = skipped.Groups[1].Value;
             }
             catch { }
         }
@@ -5539,11 +5633,183 @@ namespace Kmrp
                     "  \"markerFixes\": " +
                     (markerFixes ? "true" : "false") + ",\r\n" +
                     "  \"controllerSupport\": " +
-                    (controllerSupport ? "true" : "false") + "\r\n" +
-                    "}\r\n";
+                    (controllerSupport ? "true" : "false") +
+                    (skippedUpdate.Length > 0
+                        ? ",\r\n  \"skippedUpdate\": \"" + skippedUpdate + "\""
+                        : "") +
+                    "\r\n}\r\n";
                 File.WriteAllText(path, json, new UTF8Encoding(false));
             }
             catch { }
+        }
+    }
+
+    /// <summary>Is there a newer KMRP than this one? When the window opens, one request
+    /// to GitHub's "latest release" for this repository -- no identifier, nothing about
+    /// the machine or the game, only the User-Agent GitHub requires -- and nothing when
+    /// the patcher runs from the command line. Any failure (offline, rate limited, a
+    /// five-second timeout, a tag that is not a version) is silence, never an error.
+    ///
+    /// Releases are tagged with the public version, "v1.5.0". The first release was
+    /// tagged v2.10.0, its internal number, until 2026-09-25, when it was moved to
+    /// v1.0.0 on the same commit; a 2.x tag compared as a version would have told
+    /// every 1.5 player that "2.10.0" was newer.</summary>
+    internal static class UpdateCheck
+    {
+        internal const string LatestReleaseApi =
+            "https://api.github.com/repos/RayesDiyab/KMRP-KOTOR-Modern-Restoration-Patch/releases/latest";
+        internal const string DownloadPage =
+            "https://deadlystream.com/files/file/3096-kmrp-kotor-modern-restoration-patch/";
+
+        /// <summary>The latest release's version, "1.6.0", or null.</summary>
+        internal static string LatestVersion()
+        {
+            try
+            {
+                // TLS 1.2, which GitHub requires; .NET Framework 4 does not offer it by
+                // default. 3072 is SecurityProtocolType.Tls12, by value for 4.0.
+                ServicePointManager.SecurityProtocol |= (SecurityProtocolType)3072;
+                HttpWebRequest request = (HttpWebRequest)WebRequest.Create(LatestReleaseApi);
+                request.UserAgent = "KMRP/" + GoldPatch.PatchVersion;
+                request.Accept = "application/vnd.github+json";
+                request.Timeout = 5000;
+                request.ReadWriteTimeout = 5000;
+                using (WebResponse response = request.GetResponse())
+                using (StreamReader reader = new StreamReader(response.GetResponseStream(), Encoding.UTF8))
+                    return VersionFromReleaseJson(reader.ReadToEnd());
+            }
+            catch
+            {
+                return null;
+            }
+        }
+
+        /// <summary>The version in a release's "tag_name", "v1.6.0" -> "1.6.0". A tag
+        /// with anything after the numbers, "v1.6.0-beta", is not a release version.</summary>
+        internal static string VersionFromReleaseJson(string json)
+        {
+            Match tag = Regex.Match(json ?? "",
+                "\"tag_name\"\\s*:\\s*\"v?([0-9]{1,6}(?:\\.[0-9]{1,6}){1,3})\"",
+                RegexOptions.CultureInvariant);
+            return tag.Success ? tag.Groups[1].Value : null;
+        }
+
+        /// <summary>Is `candidate` a later version than `current`? Missing parts count
+        /// as 0, so "1.6" is later than "1.5.0" and the same as "1.6.0".</summary>
+        internal static bool IsNewer(string candidate, string current)
+        {
+            Version a = Parse(candidate);
+            Version b = Parse(current);
+            return a != null && b != null && a > b;
+        }
+
+        private static Version Parse(string text)
+        {
+            if (String.IsNullOrEmpty(text))
+                return null;
+            Match m = Regex.Match(text,
+                "^v?([0-9]{1,6})(?:\\.([0-9]{1,6}))?(?:\\.([0-9]{1,6}))?(?:\\.([0-9]{1,6}))?$",
+                RegexOptions.CultureInvariant);
+            if (!m.Success)
+                return null;
+            int[] parts = new int[4];
+            for (int i = 0; i < 4; i++)
+                parts[i] = m.Groups[i + 1].Success
+                    ? Int32.Parse(m.Groups[i + 1].Value, CultureInfo.InvariantCulture) : 0;
+            return new Version(parts[0], parts[1], parts[2], parts[3]);
+        }
+    }
+
+    /// <summary>"KMRP 1.6.0 is available." Download opens the Deadly Stream page and
+    /// Skip version closes. The switch, "Don't remind me again for 1.6.0", keeps that
+    /// one version from being offered again, whichever button closes the dialog; a
+    /// later version is still offered. There is deliberately no way to turn reminders
+    /// off for good.
+    ///
+    /// The first design (2026-09-25) had a Skip button and a switch titled only
+    /// "Don't remind me again", with "Not for 1.6.0; later versions will still show"
+    /// beneath it. The maintainer found it unintuitive: the version belongs in the
+    /// switch's own words.</summary>
+    internal sealed class UpdateDialog : Form
+    {
+        private readonly OptionToggle remind;
+
+        /// <summary>The switch. The dialog's own result is OK for Download and Cancel
+        /// for Skip version, Escape or the close box.</summary>
+        internal bool DontRemind { get { return remind.Checked; } }
+
+        /// <summary>`scale` is the main window's, so the dialog matches it on any
+        /// monitor; the numbers below are its 1080p design.</summary>
+        internal UpdateDialog(string latest, string current, float scale)
+        {
+            this.scale = Math.Max(0.35F, scale);
+            Text = "KMRP update";
+            FormBorderStyle = FormBorderStyle.FixedDialog;
+            MaximizeBox = false;
+            MinimizeBox = false;
+            ShowInTaskbar = false;
+            StartPosition = FormStartPosition.CenterParent;
+            BackColor = UiTheme.Card;
+            Font = new Font("Segoe UI", Points(11F));
+            ClientSize = new Size(Px(680), Px(292));
+            KeyPreview = true;
+            HandleCreated += delegate { MainForm.UseDarkTitleBar(Handle); };
+
+            Label title = new Label();
+            title.Text = "KMRP " + latest + " is available";
+            title.Font = new Font("Segoe UI Semibold", Points(20F));
+            title.ForeColor = UiTheme.Text;
+            title.BackColor = UiTheme.Card;
+            title.SetBounds(Px(32), Px(26), Px(616), Px(42));
+            Controls.Add(title);
+
+            Label body = new Label();
+            body.Text = "You have " + current + ". The new version is on Deadly Stream.";
+            body.Font = new Font("Segoe UI", Points(13F));
+            body.ForeColor = UiTheme.TextMuted;
+            body.BackColor = UiTheme.Card;
+            body.SetBounds(Px(32), Px(72), Px(616), Px(30));
+            Controls.Add(body);
+
+            remind = new OptionToggle();
+            remind.UiScale = this.scale;
+            remind.Checked = false;
+            remind.Title = "Don't remind me again for " + latest;
+            // Title only: one line, centred on the switch.
+            remind.SetBounds(Px(32), Px(118), Px(616), Px(60));
+            Controls.Add(remind);
+
+            PillButton download = new PillButton();
+            download.UiScale = this.scale;
+            download.Primary = true;
+            download.TextSize = 17F;
+            download.Text = "Download";
+            download.SetBounds(Px(32), Px(206), Px(300), Px(56));
+            download.Click += delegate { DialogResult = DialogResult.OK; Close(); };
+            Controls.Add(download);
+
+            PillButton skip = new PillButton();
+            skip.UiScale = this.scale;
+            skip.TextSize = 17F;
+            skip.Text = "Skip version";
+            skip.SetBounds(Px(348), Px(206), Px(300), Px(56));
+            skip.Click += delegate { DialogResult = DialogResult.Cancel; Close(); };
+            Controls.Add(skip);
+        }
+
+        private readonly float scale;
+        private int Px(int design) { return Math.Max(1, (int)Math.Round(design * scale)); }
+        private float Points(float design) { return Math.Max(6F, design * scale); }
+
+        protected override void OnKeyDown(KeyEventArgs e)
+        {
+            if (e.KeyCode == Keys.Escape)
+            {
+                DialogResult = DialogResult.Cancel;
+                Close();
+                return;
+            }
+            base.OnKeyDown(e);
         }
     }
 
@@ -5762,7 +6028,9 @@ namespace Kmrp
 
         internal const string AppName = "KOTOR Modern Restoration Patch";
         internal const string ShortName = "KMRP";
-        internal const string Version = "v1.0.0";
+        // Derived, not restated: this said "v1.0.0" while PatchVersion and the
+        // file's own version said 1.5.0, a second copy nobody updated.
+        internal const string Version = "v" + GoldPatch.PatchVersion;
         // The header is measured from the brand artwork rather than fixed, so widening
         // the window scales the lockup and the card follows it down.
         // The lockup is sized against the card, not the window, so the two read as one
@@ -6272,6 +6540,11 @@ namespace Kmrp
         protected override void OnShown(EventArgs e)
         {
             base.OnShown(e);
+            if (!updateCheckStarted)
+            {
+                updateCheckStarted = true;
+                StartUpdateCheck();
+            }
             if (renderThread != null)
                 return;
             renderRunning = true;
@@ -6864,8 +7137,9 @@ namespace Kmrp
         private static extern int DwmSetWindowAttribute(IntPtr window, int attribute, ref int value, int size);
 
         /// <summary>Ask the shell for a dark title bar. Attribute 20 on Windows 11 and later
-        /// builds of 10, 19 on the first that supported it; both are ignored elsewhere.</summary>
-        private static void UseDarkTitleBar(IntPtr handle)
+        /// builds of 10, 19 on the first that supported it; both are ignored elsewhere.
+        /// The update dialog uses it too, so the two windows match.</summary>
+        internal static void UseDarkTitleBar(IntPtr handle)
         {
             int on = 1;
             try
@@ -7156,6 +7430,56 @@ namespace Kmrp
             catch (Exception ex)
             {
                 MessageBox.Show(this, ex.Message, "Unable to open the creator's page",
+                    MessageBoxButtons.OK, MessageBoxIcon.Error);
+            }
+        }
+
+        private bool updateCheckStarted;
+
+        /// <summary>Ask GitHub for the latest release off the UI thread; if it is newer,
+        /// offer it once the window is idle. See UpdateCheck.</summary>
+        private void StartUpdateCheck()
+        {
+            System.Threading.Thread check = new System.Threading.Thread(delegate()
+            {
+                string latest = UpdateCheck.LatestVersion();
+                if (latest == null || !UpdateCheck.IsNewer(latest, GoldPatch.PatchVersion))
+                    return;
+                try { BeginInvoke(new MethodInvoker(delegate { OfferUpdate(latest); })); }
+                catch { }   // the window closed first
+            });
+            check.IsBackground = true;
+            check.Start();
+        }
+
+        private void OfferUpdate(string latest)
+        {
+            // Never over a patch in progress, and not for a version the player skipped
+            // -- though a version later than that one is offered again.
+            if (IsDisposed || operationRunning)
+                return;
+            string skipped = KmrpSettings.SkippedUpdate;
+            if (skipped.Length > 0 && !UpdateCheck.IsNewer(latest, skipped))
+                return;
+            using (UpdateDialog dialog = new UpdateDialog(latest, GoldPatch.PatchVersion, uiScale))
+            {
+                bool download = dialog.ShowDialog(this) == DialogResult.OK;
+                // The switch counts however the dialog was left, Download included.
+                if (dialog.DontRemind)
+                    KmrpSettings.SkippedUpdate = latest;
+                if (!download)
+                    return;
+            }
+            try
+            {
+                ProcessStartInfo start = new ProcessStartInfo();
+                start.FileName = UpdateCheck.DownloadPage;
+                start.UseShellExecute = true;
+                Process.Start(start);
+            }
+            catch (Exception ex)
+            {
+                MessageBox.Show(this, ex.Message, "Unable to open the download page",
                     MessageBoxButtons.OK, MessageBoxIcon.Error);
             }
         }

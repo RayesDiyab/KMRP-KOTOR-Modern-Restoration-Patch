@@ -211,6 +211,12 @@ optional components. All three default to on, each can be turned off on its own,
 and *Restore Defaults* turns all three back on. The choices are remembered in
 `%LOCALAPPDATA%\KMRP\settings.json`.
 
+**Updates.** When its window opens, the installer asks GitHub whether a newer
+KMRP has been released. If one has, it offers the Deadly Stream page or a skip.
+*Don't remind me again for* that version silences it, and only it. What the
+request sends is in
+[SECURITY.md](SECURITY.md).
+
 **Driver compatibility** is two files dropped beside `swkotor.exe`; it never
 edits the executable, and KMRP removes them on restore. What it changes, and the
 check showing its eight patch sites do not collide with any of the 742 byte

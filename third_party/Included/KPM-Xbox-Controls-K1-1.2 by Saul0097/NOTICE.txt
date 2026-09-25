@@ -61,7 +61,7 @@ loaded under the collision-resistant name kmrp-controller-runtime.asi.
 
 kmrp-controller.module is built by src/controller-native/build.cmd as 32-bit
 C++17 with the MSVC static runtime, from KMRP's own sources (K1NativeJoystick,
-K1ControllerBackend, K1ControllerLayout) and Saul0097's files at the commit above
+K1ControllerBackend, K1ControllerLayout, K1Rumble) and Saul0097's files at the commit above
 as modified by KMRP (src/controller-native/vendor/, exports.def,
 kotor1.hooks.toml). The module in the installer built on 2026-09-24 (SHA-256
 ECA3DE4BB4845D514B1234F3A546A11790A4297CF4D2D89363F40B73C1C5FE00) is 181,248
@@ -69,12 +69,22 @@ bytes and imports XINPUT1_4.dll, GDI32.dll, USER32.dll and KERNEL32.dll. SHA-256
 AC2C41EC4C935B19EFF4693E3FBB43D176D28C5B37DE0CDC2C706F72379652C9
 The module in the installer built on 2026-09-25 (SHA-256
 B599303AE74DEE5CDA5491E22EC9E173B3E4313ECE88CC8D0EC9A05F55C57108) has SHA-256
-DC06F697EE284D93425DCF3FFC965104DCBCD4B9AF681EF4FDD48AEB765CE807.
+DC06F697EE284D93425DCF3FFC965104DCBCD4B9AF681EF4FDD48AEB765CE807. With BioWare's
+rumble table added the same day, in the installer
+873A01E22D993F91417F8E70E714147A74A89408CA80A09CDACF880622136870, it has SHA-256
+E0B62065A20ACC8D957B081EA14F57B5CA5FE62DF1BDF21980F919D590B2B680. With the
+rumble mixer and Enhanced haptics (K1Rumble) added the same day, in the
+hardware-test installer
+C796489A2A5C91D69036C285E1172C3EAFD0F369B0367135719F210015F5FDFC, it is 204,288 bytes
+with SHA-256 E52826A2724038E765DFD45B86171160A017E054E346E29CF4A1CE5D0F74DE21.
 
 KMRP's changes to Saul0097's five files are recorded in
 KMRP-CONTROLLER-MODULE.diff, generated against the upstream commit above.
 Applied to a checkout of that commit it reproduces all five tracked files
-exactly (checked 2026-09-24); regenerate it whenever they change. What the
+exactly (checked 2026-09-24; again on 2026-09-25 after the haptics hooks,
+when four files matched byte for byte and exports.def matched in content, the
+check's checkout having written it with CRLF endings where the tracked copy
+has LF); regenerate it whenever they change. What the
 module does -- the native joystick path, the XInput/SDL backend, the button
 prompts and the Controller Layout screen -- is documented in
 docs/controller-support.md. It writes no controller-specific bytes to

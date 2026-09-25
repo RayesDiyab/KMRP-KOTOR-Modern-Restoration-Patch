@@ -243,10 +243,15 @@ void updateConfirmBadges() {
 
 // ---------------------------------------------------------------- dialogue A
 //
-// An A left of the highlighted reply's number, like the main menu's travelling
-// A (issue #21). A in dialogue picks the highlighted reply once the line has
-// finished, and skips the line while it plays (CSWGuiDialog::HandleInputEvent,
-// 0x006A7266), so the A is shown only while replies can be picked.
+// An A at the end of the highlighted reply's text (issue #21). Until 2026-09-25
+// it sat left of the reply's number, like the main menu's travelling A, and was
+// never seen: at 3440x1440 the text starts at the panel's left edge, the A landed
+// at panel x -41, and the engine does not draw a panel's children outside the
+// panel. The end of the text is always inside it.
+//
+// A in dialogue picks the highlighted reply once the line has finished, and
+// skips the line while it plays (CSWGuiDialog::HandleInputEvent, 0x006A7266),
+// so the A is shown only while replies can be picked.
 // tools/prepare_universal_resources.py adds LBL_KMRPDLG to dialog.gui at every
 // resolution; it reuses the confirm boxes' A art, kmr?cnfa.
 //
@@ -271,12 +276,42 @@ constexpr unsigned K1_LIST_ROWS = 0x29C;
 constexpr unsigned K1_LIST_ROW_COUNT = 0x2A0;
 constexpr unsigned K1_LIST_SELECTED = 0x2C8;           // int16, the list's own
 constexpr int K1_DIALOG_MAX_ROWS = 64;
-struct DialogBadge { void* panel; void* label; char family; bool shown; int loggedCount; }
-    dialogBadges[4] = {};
+struct DialogBadge {
+    void* panel; void* label; char family; bool shown; int loggedCount;
+    // The last measurement, and what it was of: the engine's measuring loop runs
+    // a few hundred wraps, so it runs when the highlight or the replies change,
+    // not every frame.
+    void* measuredRow; void* measuredString; int measuredRowWidth; int measuredWidth;
+} dialogBadges[4] = {};
+
+// The highlighted reply's text width, measured by the engine the way it measures
+// a tooltip's (CSWGuiText::GetIdealWidthAndHeight, 0x00414F10): the narrowest
+// width, to 10 px, that keeps the text on the lines it has at its own width.
+// The row's CSWGuiText is at +0xD0 of what the row's vtable+0x50 returns -- the
+// object CSWGuiDialog::SetReplyActive (0x006A6FC0) colours through +0xE8, which
+// is that text's parameters (+0x18). -1 when there is nothing to measure.
+void* replyText(void* row) {
+    if (!readable(row,4)) return nullptr;
+    void** const vtable=at<void**>(row,0);
+    if (!readable(vtable,0x54)) return nullptr;
+    using Owner=char*(__thiscall*)(void*);
+    char* const owner=reinterpret_cast<Owner>(vtable[0x50/4])(row);
+    if (!readable(owner,0xD0+0x70)) return nullptr;
+    void* const text=owner+0xD0;
+    // GetIdealWidthAndHeight reads its string object without testing it.
+    return readable(at<void*>(text,0x14),4) ? text : nullptr;
+}
+
+int measureReply(void* text) {
+    int out[4]={};
+    using Ideal=int*(__thiscall*)(void*,int*);
+    fn<Ideal>(0x414F10)(text,out);
+    return out[2];
+}
 unsigned dialogGeometryLogs = 0;
 
 void logDialogGeometry(const DialogBadge& b, char* list, void** rows, int count,
-                       int highlight, const int* placed) {
+                       int highlight, const int* placed, int textWidth) {
     if (dialogGeometryLogs >= 24) return;           // a session's worth, no more
     ++dialogGeometryLogs;
     FILE* f=nullptr;
@@ -284,11 +319,12 @@ void logDialogGeometry(const DialogBadge& b, char* list, void** rows, int count,
     const int* panelRect=reinterpret_cast<const int*>(static_cast<char*>(b.panel)+4);
     const int* listRect=reinterpret_cast<const int*>(list+4);
     fprintf(f,"%lu dialog-geometry panel=%p rect=(%d,%d,%d,%d) list=(%d,%d,%d,%d) rows=%d "
-              "highlight=%d listSelected=%d flags=%08X placed=(%d,%d,%d,%d)",
+              "highlight=%d listSelected=%d flags=%08X placed=(%d,%d,%d,%d) textWidth=%d",
         GetTickCount(),b.panel,panelRect[0],panelRect[1],panelRect[2],panelRect[3],
         listRect[0],listRect[1],listRect[2],listRect[3],count,highlight,
         static_cast<int>(at<short>(list,K1_LIST_SELECTED)),
-        at<unsigned>(b.panel,K1_DIALOG_FLAGS),placed[0],placed[1],placed[2],placed[3]);
+        at<unsigned>(b.panel,K1_DIALOG_FLAGS),placed[0],placed[1],placed[2],placed[3],
+        textWidth);
     for (int i=0;i<count && i<6;++i) {
         if (!readable(rows[i],0x14)) break;
         const int* r=reinterpret_cast<const int*>(static_cast<char*>(rows[i])+4);
@@ -341,13 +377,34 @@ void updateDialogBadges() {
         const int scrollbar=listRect[2]>r[2] ? listRect[2]-r[2] : 0;
         const int textStart=listRect[0]+r[0]+scrollbar;
         const int* panelRect=reinterpret_cast<const int*>(static_cast<char*>(b.panel)+4);
-        int left=textStart-size-size/8;
-        if (panelRect[0]+left<0) left=-panelRect[0];   // never off the screen
-        const int top=listRect[1]+r[1];
-        const bool inList=r[1]>=0 && r[1]+size<=listRect[3];
+        // The text's width, measured again only when the highlighted row, its
+        // string or its width has changed.
+        void* const text=replyText(rows[highlight]);
+        void* const string=text ? at<void*>(text,0x14) : nullptr;
+        if (text && (rows[highlight]!=b.measuredRow || string!=b.measuredString ||
+                     r[2]!=b.measuredRowWidth)) {
+            b.measuredWidth=measureReply(text);
+            b.measuredRow=rows[highlight];
+            b.measuredString=string;
+            b.measuredRowWidth=r[2];
+        }
+        const int textWidth=text ? b.measuredWidth : -1;
+        // A reply that wraps gets the A on its last line, right of the text block
+        // (the measurement is the widest line, not the last one).
+        const int lines=(line>0 && r[3]>line) ? (r[3]+line/2)/line : 1;
+        // A quarter of the glyph past the text, and inside the panel: the engine
+        // does not draw a panel's children outside it.
+        int left=textStart+textWidth+size/4;
+        if (left+size>panelRect[2]) left=panelRect[2]-size;
+        if (left<0) left=0;
+        const int top=listRect[1]+r[1]+(lines-1)*line;
+        const bool inList=r[1]+(lines-1)*line>=0 && r[1]+lines*line<=listRect[3];
         const int rect[4]={left, top, size, size};
-        if (b.loggedCount!=count) { logDialogGeometry(b,list,rows,count,highlight,rect); b.loggedCount=count; }
-        if (!inList) {                          // scrolled out of the list
+        if (b.loggedCount!=count) {
+            logDialogGeometry(b,list,rows,count,highlight,rect,textWidth);
+            b.loggedCount=count;
+        }
+        if (!inList || textWidth<=0) {          // scrolled out, or nothing measured
             if (b.shown) { showControl(b.label,false); b.shown=false; }
             continue;
         }
