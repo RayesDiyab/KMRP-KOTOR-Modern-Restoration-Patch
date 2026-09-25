@@ -312,9 +312,15 @@ COMBAT_MESSAGES = (
 # Disengage" measures 165 px and drew 230 (1.39), and "button to cancel." did
 # not fit 300 (216 x 1.39). One measurement; 1.40 leaves it a little margin.
 COMBAT_MESSAGE_WIDTH_FACTOR = 1.40
-# A line's height, from the same screenshot: its 50 px box held two lines at the
-# font scale of 1440p lines. Other heights scale with font_scale_for.
-COMBAT_MESSAGE_LINE_AT_1440 = 25
+# A line's height at 1440 lines: 32 px, dialogfont16x16's fontheight 0.32 at one
+# texel per pixel -- the font the label is drawn in, whatever its .gui says (the
+# width factor above is the same fact). Other heights scale with font_scale_for.
+# *Corrected 2026-09-25:* this was 25, read from the first screenshot as "its 50
+# px box held two lines". A second screenshot, of the 660 px fix, showed a
+# two-line message with only its second line visible: two 32 px lines do not
+# fit, and the engine skips a line that starts above the box. At 25 this check
+# had passed that build.
+COMBAT_MESSAGE_LINE_AT_1440 = 32
 
 
 def wrapped_lines(text: str, width: float, advances, spacing: float) -> int:

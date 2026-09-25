@@ -89,6 +89,7 @@ before the fresh-session verification, so a failed readback does not lose recove
 | unrelated profile already has KMRP's name | application and explicit setting remain intact; no manifest |
 | a real install, 2026-09-20: the play-test game on the RTX 3080 (driver 32.0.16.1656), inheriting Prefer layered | the installer logged *Set NVIDIA's present method for swkotor.exe to Prefer native. It was inheriting Prefer layered on DXGI Swapchain*, and Restore logged *Removed KMRP's NVIDIA present-method setting*; twice, at 12:42Z and 13:08Z (the game's `KMRP.log`). The log does not name the profile. |
 | the same game, every install from 2026-09-21 to 2026-09-24 | no NVIDIA line and no manifest: the driver no longer resolved Prefer layered for it, so the step did nothing, as designed. What changed the driver setting is not recorded. |
+| the same game, 2026-09-25, read with `NvidiaPresentSelfTest describe` | the driver resolves Prefer native **from the game's own profile** ("Star Wars: Knights Of The Old Republic"), global still Prefer layered; no manifest. The maintainer reported no white flash in play that day (issue #14). The setting fixes the flash; KMRP writing it in a real install is still unplayed. |
 
 `testing/regression/Test-NvidiaPresentMethod.ps1` runs these. The write cases
 use a throwaway executable name, `kmrp-nvapi-selftest.exe`, so no real game's

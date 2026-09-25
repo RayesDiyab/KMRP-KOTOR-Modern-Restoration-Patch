@@ -670,10 +670,15 @@ COMBAT_CUE_SCALE = 0.8
 # to the top-left corner but left the text label 300 px wide (the other 564), and
 # at that resolution's font the sentence is about 1,049 px: it wrapped to five
 # lines and the 50 px box showed the middle two, "the Disengage / button to"
-# (play-test screenshot, 2026-09-25). 660 px holds both wordings on two lines.
-# Test-GeneratedGuiGeometry.py measures the message against the box everywhere.
+# (play-test screenshot, 2026-09-25). 1120 px holds both wordings on one line,
+# about 30 px to spare either side of the longer (~1,057 px). One line, because
+# the label is drawn in dialogfont16x16's 32 px lines at 1440 whatever its .gui
+# says, so its 50 px box holds one; the engine skips a line that starts above
+# the box. The first fix, 660 px on two lines, showed only the second (play-test
+# screenshot, 2026-09-25). Test-GeneratedGuiGeometry.py measures the message
+# against the box everywhere.
 COMBAT_MESSAGE_TAGS = ("LBL_CMBTMODEMSG", "LBL_CMBTMSGBG")
-COMBAT_MESSAGE_WIDTHS = {"3440x1440": 660}
+COMBAT_MESSAGE_WIDTHS = {"3440x1440": 1120}
 
 
 def widen_combat_message(source: Path, destination: Path, width: int) -> None:

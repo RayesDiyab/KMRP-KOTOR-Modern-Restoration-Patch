@@ -90,9 +90,14 @@ value as it was, and wrote no `KMRP_DPI.manifest`, as described above. None
 logged *Enabled…* (the game's `KMRP.log`, read 2026-09-24).
 
 The reported 150% case is user-confirmed with the equivalent Compatibility UI
-setting. Visual game runs at 125%, 150%, 175%, and 200% have not yet been repeated
-on this workstation, and Windows 10 remains untested. Those are validation gaps,
-not claims that the registry transaction itself differs at those scales.
+setting. **On 2026-09-25 the maintainer reported the game working correctly under
+Windows display scaling** on this workstation (Windows 11 build 26200), with
+the KMRP 1.5 install, **at 150%**, the reported case. 125%, 175% and 200% were
+not tested, and Windows 10 remains untested. On the maintainer's judgement,
+issue #3 was closed that day, and its closing comment lists these gaps. Those are
+validation gaps, not claims that the registry transaction itself differs at
+those scales. (Until that day this said the visual runs had not been repeated
+on this workstation.)
 
 ## Manual fallback
 

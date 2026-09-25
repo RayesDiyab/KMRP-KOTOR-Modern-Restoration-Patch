@@ -162,7 +162,7 @@ not re-compared. It still carries 70 resources. The builds before it, in order:
 rewrote the names of earlier builds along with the current one.
 
 Builds after the haptics installer, the same day, each adding to the one
-before; none of the four has been play-tested:
+before:
 - `99A9ECC6…` (179,832,832 bytes), X and Y in combat with their HUD badges, and
   the window's v1.5.0 label. Its four Python checks were run and pass.
 - `D58A2E33…` (179,832,320 bytes), the dialogue A moved to the end of the reply,
@@ -175,10 +175,18 @@ before; none of the four has been play-tested:
   were run against it and pass; neither was run on the two builds before it.
   Superseded before any test by the dialog's second layout.
 - `AD3DC07D…` (179,837,440 bytes), that second layout (Download and Skip
-  version, the switch naming the version); nothing else changed. The current
-  build. Its archives and module are still `D58A2E33…`'s.
-  `Test-UpdateCheck.ps1`, `Test-ControllerSupport.ps1` and
-  `Test-ReinstallOverOlderBuild.ps1` were run against it and pass.
+  version, the switch naming the version); nothing else changed. Its archives
+  and module are still `D58A2E33…`'s. `Test-UpdateCheck.ps1`,
+  `Test-ControllerSupport.ps1` and `Test-ReinstallOverOlderBuild.ps1` were run
+  against it and pass. **Installed and play-tested that day:** the dialogue A
+  sat mid-sentence and the combat message showed one of its two lines (both
+  entries above). X and Y in combat were not reported on.
+- `E5AFC981…` (179,838,464 bytes), the current build: the A from the drawn
+  layout, and the combat message on one line at 1120 px. A full build: every
+  archive regenerated, and the module rebuilt, 205,824 bytes, `32F018CF…`. The
+  four Python checks, `Test-ControllerSupport.ps1` and
+  `Test-ReinstallOverOlderBuild.ps1` were run against it and pass. Not yet
+  play-tested.
 
 - **The KOTOR Patch Manager MIT licence is installed with the controller.** The
   runtime, the controller module and the memory-safety patches all come from
@@ -343,7 +351,7 @@ before; none of the four has been play-tested:
   maintainer screen runs 2880x1620.
 
 - **An A beside the highlighted dialogue reply** (issue #21), at the end of the
-  reply's text since the second play-test (below); it was first placed left of
+  reply's last line since the third play-test (below); it was first placed left of
   the reply's number, following the highlight like the main menu's A. It shows only
   while a controller is in use and replies can be picked, and it hides while a
   line plays, when A would skip it instead. Every resolution now ships
@@ -379,6 +387,19 @@ before; none of the four has been play-tested:
   gets it on its last line. The log line now carries `textWidth=`. **Untested
   in game.**
 
+  **The third play-test (same day, `AD3DC07D…`) showed the A mid-sentence**,
+  over "of" in "Can you show me one of the visions again?". The log read
+  `textWidth=320`, but the screen showed that line at about 600 px. The engine's
+  measure is in other units than the screen. Its line breaker multiplies every
+  glyph by the text object's scale (`+0x40`), and `Draw` undoes that scale; the
+  ratio was about 1.875 at 3440x1440. **The A now sits at the end of the
+  highlighted reply's last line.** That line's width is read from the layout
+  being drawn: the text object's line lengths and the font's own glyph
+  rectangles, at one atlas texel per pixel. The A is centred on that line,
+  keeps the height of a one-line row, and sits an eighth of its size past the
+  text. The log line now carries `lineWidth=`, `lines=`, `textScale=` and the
+  render viewport. **Untested in game.**
+
 - **Menu and dialogue text is drawn at the size it was rendered at** (issue
   #16). Two players reported pixelated, aliased text, one at 1920x1080 and one
   at 3440x1440, which ruled out any single resolution being at fault. The font
@@ -396,6 +417,9 @@ before; none of the four has been play-tested:
   `Test-FontAtlasScale.py` asserts the one-texel-per-pixel invariant for every
   font at every resolution. 15360x8640 is the one exception and still resamples,
   because its scale-12.0 atlas is larger than the baker can produce.
+  **Play-tested on 2026-09-25 at 3440x1440**, the second reporter's
+  resolution: the text reads right. 1080p, the first reporter's, has not been
+  checked in play.
 
 - **The mouse stays inside the game window** on multi-monitor setups (issue
   #20). KOTOR steers the camera with mouse movement but never clips the cursor,
@@ -418,12 +442,22 @@ before; none of the four has been play-tested:
   moved the message to the top-left corner, but left its text label 300 px
   wide. Its background twin kept 564 px, and upstream's box is 1895. At that
   resolution's font the sentence is about 1,049 px, so it wrapped to five lines
-  and the 50 px box showed the middle two. The build now gives both labels 660
-  px, where both wordings -- mouse and keyboard -- read on two lines.
-  `Test-GeneratedGuiGeometry.py` now wraps both against the box at all 49
-  resolutions, using a width factor calibrated on that screenshot. Before the
-  fix it failed at 3440x1440 alone, with exactly the five lines seen.
-  **Untested in game.**
+  and the 50 px box showed the middle two. The build now gives both labels
+  **1120 px**, where both wordings -- mouse and keyboard -- read on one line,
+  with about 30 px to spare either side of the longer. The label draws in
+  32 px lines at 1440, `dialogfont16x16`'s, whatever its `.gui` says, so its
+  50 px box holds one line. `Test-GeneratedGuiGeometry.py` now wraps both
+  wordings against the box at all 49 resolutions, using a width factor
+  calibrated on the first screenshot. Before the fix it failed at 3440x1440
+  alone, with exactly the five lines seen. **Untested in game.**
+
+  *Corrected 2026-09-25:* the first fix made the labels 660 px, to fit two
+  lines, and a play-test screenshot showed only the second, "Disengage button
+  to cancel.". Two 32 px lines do not fit a 50 px box, and the engine skips a
+  line that starts above the box. The check had passed that build because it
+  took a line to be 25 px. At 32 px it fails the 660 px build, at 3440x1440
+  only, for both wordings. The width factor was confirmed on the same
+  screenshot: it gives 480 px for the visible line, and the screen showed 478.
 
 - **Down from Close no longer loses the focus on in-game Options.** Reported
   2026-09-25 with a screenshot: pressing Down at Close, the bottom entry, left
@@ -436,8 +470,8 @@ before; none of the four has been play-tested:
   a screen's description pane. The right stick scrolls it, and the vendor code's
   per-screen table (`FindK1DescriptionListbox`, now exported as
   `KmrpDescriptionPaneK1`) says which control it is. Down from Close wraps to a
-  real button instead. **Untested in game**; diagnosed from the code and the
-  report, not reproduced.
+  real button instead. Diagnosed from the code and the report, not
+  reproduced; **play-tested on 2026-09-25 at 3440x1440: fixed.**
 
 - **Controller buttons leave every screen when the mouse or keyboard takes
   over**, not only the screen in front. Reported 2026-09-25: switching to mouse
@@ -451,7 +485,7 @@ before; none of the four has been play-tested:
   vtable, so a freed-and-reused address is not written to) and clears each one
   the first time it comes to the front in keyboard/mouse mode. The R3, LT/RT and
   swap-tab cues never had the problem: every live cue is shown or hidden each
-  frame. **Untested in game.**
+  frame. **Play-tested on 2026-09-25 at 3440x1440: fixed.**
 
 - **Cancel now cancels on the Solo Mode prompt** (issue #21). Pressing A with
   Cancel highlighted turned Solo Mode on anyway. The panel is a retained Xbox
@@ -468,11 +502,12 @@ before; none of the four has been play-tested:
   cancels; A on OK runs the vanilla confirm once. `check_hook_stolen_bytes.py`
   now refuses a consumed-exit hook whose stolen bytes touch EAX or the stack.
   **Play-tested on 2026-09-24:** A on OK turns Solo Mode on and A on Cancel
-  leaves it off; `kmrp-confirm-focus.log` records each decision.
+  leaves it off; `kmrp-confirm-focus.log` records each decision. Checked
+  again on 2026-09-25.
   **The resolution screen had the identical
   defect** and was fixed with it: A applied the highlighted resolution from
-  Cancel, through `CSWGuiOptionsResolution::OnResolutionChosen`. That half is
-  not yet play-tested. Ordinary
+  Cancel, through `CSWGuiOptionsResolution::OnResolutionChosen`. That half was
+  play-tested on 2026-09-25 at 3440x1440 and works. Ordinary
   confirmation boxes were never affected — they implement no `0x27` at all, so
   A genuinely reaches the focused control.
 
@@ -586,8 +621,8 @@ before; none of the four has been play-tested:
   box, whose buttons the engine shrinks to fit their captions, so no badge can
   be painted inside them. The A is now a control of its own that sits just
   left of whichever button has focus and moves with the D-pad, like the main
-  menu's. Shown only while a controller is the active device. Awaiting an
-  in-game check.
+  menu's. Shown only while a controller is the active device. **Play-tested
+  on 2026-09-25 at 3440x1440** on Quit Game.
 
 - **Removed the Solo Mode prompt's Cancel badge**, which drew as a thin red
   smear across the caption rather than a glyph beside it. `FixMessageLabel`
@@ -674,9 +709,9 @@ before; none of the four has been play-tested:
   closes the Map or whichever screen LT/RT moved to. The Map is `0xD7` because the
   router sends `0xD1`–`0xD8` to one handler (`0x006218D5`) that shows screen
   `event - 0xD1`, and the Map's tab ID in `top.gui` is 6. Options and every other
-  screen stay one LT/RT away. **Not yet verified in play**;
-  `testing/controller/test_hud_release_and_start_map.py` checks it against the
-  engine's memory once a save is loaded.
+  screen stay one LT/RT away. **Play-tested on 2026-09-25 at 3440x1440: it
+  works.** `testing/controller/test_hud_release_and_start_map.py` checks it
+  against the engine's memory once a save is loaded.
 - **X is shown beside the Skills / Powers / Feats tabs.** It has cycled them
   all along and nothing said so.
 
@@ -784,7 +819,9 @@ before; none of the four has been play-tested:
   uses it and **keeps the bar focused**, so an attack or a grenade can be used
   again at once. The press that uses a slot also clears the world interaction's
   pending request, so one press does exactly one thing. `hrel=` in the
-  diagnostic line counts the releases. **Not yet verified in play**; see
+  diagnostic line counts the releases. **Play-tested on 2026-09-25** on an Xbox
+  pad at 3440x1440 ("works perfectly"): A keeps the bar focused. B's release
+  was not separately reported. See
   `testing/controller/test_hud_release_and_start_map.py`.
 
   *Changed 2026-09-25, at the user's request:* this entry first had A let go of
@@ -833,6 +870,9 @@ before; none of the four has been play-tested:
   **Untested:** a full install writing a real KOTOR profile (this machine's
   already held a value, which the installer correctly kept), 32-bit Windows,
   older drivers, Optimus laptops, and AMD or Intel, where no such path was seen.
+
+  **Play-tested on 2026-09-25 at 3440x1440: no white flash** when switching
+  party members. On that PC the driver resolves Prefer native from the game's own NVIDIA profile, with the global still Prefer layered (read 2026-09-25 with `NvidiaPresentSelfTest describe`), so KMRP's step found a value set on purpose and left it alone; there is no `KMRP_NVIDIA.manifest`. That confirms the setting removes the flash, not KMRP writing it in a real install.
 - **Three memory-safety patches from the Kotor Patch Manager project are now
   installed.** Two are VexFlint's and one is Lane Dibello's, each adopted
   rather than re-derived: the replacement bytes are copied verbatim, so the

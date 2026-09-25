@@ -3,7 +3,11 @@
 > **Documentation standard.** This document follows
 > [`../docs/documentation-standard.md`](../docs/documentation-standard.md).
 
-**Kind: confirmed static reconstruction; runtime movie playback remains untested.**
+**Kind: confirmed static reconstruction.** Runtime playback was untested
+until 2026-09-25, when the maintainer reported that with K1 Cutscenes Rescaled
+at 3440x1440 what used to render wrongly now renders correctly, and that
+skipping a movie never minimised the game (issue #6). The rest of the untested
+list at the end still stands.
 
 ## Result
 
@@ -287,7 +291,7 @@ movie operands and the four ordinary render-resolution operands back from each.
 The gold builder independently verifies every original value, output length,
 final SHA-256, and written-file SHA-256.
 
-**Untested:** actual vanilla and rescaled BIK playback; 16:9, 21:9, and 4K
-transitions; Alt-Tab/minimize behavior; the first title crawl; 30-fps versus
+**Untested:** actual vanilla BIK playback, and rescaled playback other than
+the 3440x1440 report above; 16:9 and 4K transitions; Alt-Tab (a skip never minimised the game, 2026-09-25); the first title crawl; 30-fps versus
 60-fps movie sets; and Windows 10. No native game or x32dbg surface was exposed
 to this Codex session, so static verification is not presented as a play-test.

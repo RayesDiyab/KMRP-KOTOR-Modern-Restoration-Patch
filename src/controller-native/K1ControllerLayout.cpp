@@ -278,18 +278,11 @@ constexpr unsigned K1_LIST_SELECTED = 0x2C8;           // int16, the list's own
 constexpr int K1_DIALOG_MAX_ROWS = 64;
 struct DialogBadge {
     void* panel; void* label; char family; bool shown; int loggedCount;
-    // The last measurement, and what it was of: the engine's measuring loop runs
-    // a few hundred wraps, so it runs when the highlight or the replies change,
-    // not every frame.
-    void* measuredRow; void* measuredString; int measuredRowWidth; int measuredWidth;
 } dialogBadges[4] = {};
 
-// The highlighted reply's text width, measured by the engine the way it measures
-// a tooltip's (CSWGuiText::GetIdealWidthAndHeight, 0x00414F10): the narrowest
-// width, to 10 px, that keeps the text on the lines it has at its own width.
-// The row's CSWGuiText is at +0xD0 of what the row's vtable+0x50 returns -- the
-// object CSWGuiDialog::SetReplyActive (0x006A6FC0) colours through +0xE8, which
-// is that text's parameters (+0x18). -1 when there is nothing to measure.
+// The highlighted reply's CSWGuiText: +0xD0 of what the row's vtable+0x50
+// returns -- the object CSWGuiDialog::SetReplyActive (0x006A6FC0) colours
+// through +0xE8, which is that text's parameters (+0x18).
 void* replyText(void* row) {
     if (!readable(row,4)) return nullptr;
     void** const vtable=at<void**>(row,0);
@@ -298,20 +291,71 @@ void* replyText(void* row) {
     char* const owner=reinterpret_cast<Owner>(vtable[0x50/4])(row);
     if (!readable(owner,0xD0+0x70)) return nullptr;
     void* const text=owner+0xD0;
-    // GetIdealWidthAndHeight reads its string object without testing it.
-    return readable(at<void*>(text,0x14),4) ? text : nullptr;
+    return readable(at<void*>(text,0x14),0x44) ? text : nullptr;
 }
 
-int measureReply(void* text) {
-    int out[4]={};
-    using Ideal=int*(__thiscall*)(void*,int*);
-    fn<Ideal>(0x414F10)(text,out);
-    return out[2];
+// Where the reply's last line ends, in pixels from the text's left edge, read
+// from the layout the engine draws. The text object ([CSWGuiText+0x14], vtable
+// 0x00741878) keeps its string at +0x14, its font at +0x18, each line's length
+// at [+0x34] and the line count at +0x38; Draw (0x0045A850) walks them the same
+// way -- a negative length is the same length, and one space or newline after a
+// line is skipped. A glyph is (lower-right u - upper-left u) x texturewidth x 100
+// texels wide: the font information (the font's vtable+0x38) holds the two
+// arrays at +0x24 and +0x18, 12 bytes a glyph, and texturewidth at +0x0C, as
+// the line breaker (0x0045A2F0) reads them. KMRP's atlases draw one texel per
+// pixel (Test-FontAtlasScale.py), so texels are pixels.
+//
+// Not CSWGuiText::GetIdealWidthAndHeight (0x00414F10), which the first builds
+// used. Its line count multiplies every glyph by the text object's scale
+// (+0x40), which Draw undoes, so at 3440x1440 it measured a reply at 320 px
+// that the screen showed at about 600, and the A landed mid-sentence
+// (play-test, 2026-09-25). It also re-wraps the text at each width it tries.
+struct ReplyLine { int width; int lines; float scale; };
+
+bool lastReplyLine(void* text, ReplyLine& out) {
+    char* const object=at<char*>(text,0x14);
+    if (!readable(object,0x44)) return false;
+    const char* const string=at<const char*>(object,0x14);
+    void* const font=at<void*>(object,0x18);
+    const int lines=at<int>(object,0x38);
+    const int* const lengths=at<const int*>(object,0x34);
+    if (lines<1 || lines>32 || !readable(lengths,lines*sizeof(int)) || !readable(font,4))
+        return false;
+    auto length=[&](int i) { return lengths[i]<0 ? -lengths[i] : lengths[i]; };
+    int total=1;                                    // the terminator
+    for (int i=0;i<lines;++i) total+=length(i)+1;   // a line and its separator
+    if (total>4096 || !readable(string,total-1)) return false;
+    void** const vtable=at<void**>(font,0);
+    if (!readable(vtable,0x3C)) return false;
+    using Info=char*(__thiscall*)(void*);
+    char* const info=reinterpret_cast<Info>(vtable[0x38/4])(font);
+    if (!readable(info,0x28)) return false;
+    const char* const upperLeft=at<const char*>(info,0x18);
+    const char* const lowerRight=at<const char*>(info,0x24);
+    if (!readable(upperLeft,256*12) || !readable(lowerRight,256*12)) return false;
+    const float texels=at<float>(info,0x0C)*100.0f;
+    const char* line=string;
+    for (int i=0;i+1<lines;++i) {
+        line+=length(i);
+        if (*line=='\n' || *line==' ') ++line;
+    }
+    int end=length(lines-1);
+    while (end>0 && line[end-1]==' ') --end;        // a trailing space is not text
+    float width=0.0f;
+    for (int i=0;i<end && line[i];++i) {
+        const int glyph=static_cast<unsigned char>(line[i])*12;
+        width+=(*reinterpret_cast<const float*>(lowerRight+glyph)
+               -*reinterpret_cast<const float*>(upperLeft+glyph))*texels;
+    }
+    out.width=static_cast<int>(width+0.5f);
+    out.lines=lines;
+    out.scale=at<float>(object,0x40);
+    return out.width>0;
 }
 unsigned dialogGeometryLogs = 0;
 
 void logDialogGeometry(const DialogBadge& b, char* list, void** rows, int count,
-                       int highlight, const int* placed, int textWidth) {
+                       int highlight, const int* placed, const ReplyLine& last) {
     if (dialogGeometryLogs >= 24) return;           // a session's worth, no more
     ++dialogGeometryLogs;
     FILE* f=nullptr;
@@ -319,12 +363,20 @@ void logDialogGeometry(const DialogBadge& b, char* list, void** rows, int count,
     const int* panelRect=reinterpret_cast<const int*>(static_cast<char*>(b.panel)+4);
     const int* listRect=reinterpret_cast<const int*>(list+4);
     fprintf(f,"%lu dialog-geometry panel=%p rect=(%d,%d,%d,%d) list=(%d,%d,%d,%d) rows=%d "
-              "highlight=%d listSelected=%d flags=%08X placed=(%d,%d,%d,%d) textWidth=%d",
+              "highlight=%d listSelected=%d flags=%08X placed=(%d,%d,%d,%d) "
+              "lineWidth=%d lines=%d textScale=%.4f",
         GetTickCount(),b.panel,panelRect[0],panelRect[1],panelRect[2],panelRect[3],
         listRect[0],listRect[1],listRect[2],listRect[3],count,highlight,
         static_cast<int>(at<short>(list,K1_LIST_SELECTED)),
         at<unsigned>(b.panel,K1_DIALOG_FLAGS),placed[0],placed[1],placed[2],placed[3],
-        textWidth);
+        last.width,last.lines,static_cast<double>(last.scale));
+    // The render viewport the text is normalised by (index at 0x007B9460, 10-byte
+    // entries from 0x007B946C), to check the scale above against it.
+    const short viewport=*reinterpret_cast<const short*>(0x7B9460);
+    if (viewport>=0 && viewport<8)
+        fprintf(f," viewport=%d:%dx%d",viewport,
+                *reinterpret_cast<const short*>(0x7B946C+viewport*10),
+                *reinterpret_cast<const short*>(0x7B946E+viewport*10));
     for (int i=0;i<count && i<6;++i) {
         if (!readable(rows[i],0x14)) break;
         const int* r=reinterpret_cast<const int*>(static_cast<char*>(rows[i])+4);
@@ -377,34 +429,29 @@ void updateDialogBadges() {
         const int scrollbar=listRect[2]>r[2] ? listRect[2]-r[2] : 0;
         const int textStart=listRect[0]+r[0]+scrollbar;
         const int* panelRect=reinterpret_cast<const int*>(static_cast<char*>(b.panel)+4);
-        // The text's width, measured again only when the highlighted row, its
-        // string or its width has changed.
+        // The end of the reply's last line, read from the layout being drawn.
         void* const text=replyText(rows[highlight]);
-        void* const string=text ? at<void*>(text,0x14) : nullptr;
-        if (text && (rows[highlight]!=b.measuredRow || string!=b.measuredString ||
-                     r[2]!=b.measuredRowWidth)) {
-            b.measuredWidth=measureReply(text);
-            b.measuredRow=rows[highlight];
-            b.measuredString=string;
-            b.measuredRowWidth=r[2];
-        }
-        const int textWidth=text ? b.measuredWidth : -1;
-        // A reply that wraps gets the A on its last line, right of the text block
-        // (the measurement is the widest line, not the last one).
-        const int lines=(line>0 && r[3]>line) ? (r[3]+line/2)/line : 1;
-        // A quarter of the glyph past the text, and inside the panel: the engine
+        ReplyLine last={};
+        const bool measured=text && lastReplyLine(text,last);
+        // An eighth of the glyph past the text -- the art's own transparent rim
+        // makes the gap look like a space -- and inside the panel: the engine
         // does not draw a panel's children outside it.
-        int left=textStart+textWidth+size/4;
+        int left=textStart+last.width+size/8;
         if (left+size>panelRect[2]) left=panelRect[2]-size;
         if (left<0) left=0;
-        const int top=listRect[1]+r[1]+(lines-1)*line;
-        const bool inList=r[1]+(lines-1)*line>=0 && r[1]+lines*line<=listRect[3];
+        // Centred on the last line. The engine centres the text block in its row,
+        // so a reply of n lines splits the row into n equal bands; the A is the
+        // height of a one-line row, which is how it sits on a one-line reply.
+        const int lines=measured ? last.lines : 1;
+        const int centre=r[1]+(r[3]*(2*lines-1))/(2*lines);
+        const int top=listRect[1]+centre-size/2;
+        const bool inList=centre-size/2>=0 && centre+size/2<=listRect[3];
         const int rect[4]={left, top, size, size};
         if (b.loggedCount!=count) {
-            logDialogGeometry(b,list,rows,count,highlight,rect,textWidth);
+            logDialogGeometry(b,list,rows,count,highlight,rect,last);
             b.loggedCount=count;
         }
-        if (!inList || textWidth<=0) {          // scrolled out, or nothing measured
+        if (!inList || !measured) {             // scrolled out, or nothing measured
             if (b.shown) { showControl(b.label,false); b.shown=false; }
             continue;
         }

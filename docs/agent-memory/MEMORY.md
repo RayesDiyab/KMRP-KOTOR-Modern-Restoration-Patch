@@ -55,7 +55,8 @@ details still belong in `docs/` or `reverse-engineering/`.
   to the exact executable path, records the prior string in `KMRP_DPI.manifest`,
   and restores only if the live value still equals KMRP's value. The four ownership
   cases pass in `testing/regression/Test-DpiCompatibility.ps1` on Windows 11 build
-  26200; visual 125–200% and Windows 10 coverage remain untested. Full contract:
+  26200. In play, the maintainer reported it working at 150% on 2026-09-25, and
+  issue #3 was closed; 125%, 175%, 200% and Windows 10 remain untested. Full contract:
   `docs/windows-dpi-scaling.md`.
 - The 3840×2160 Feedback defect was first attributed to `LB_OPTIONS` and
   `LB_DESC` parent listboxes being scaled while their embedded `PROTOITEM`

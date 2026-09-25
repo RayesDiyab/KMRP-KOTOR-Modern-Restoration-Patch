@@ -15,6 +15,29 @@ rather than dwell.
 
 ---
 
+## Physical QA result — 2026-09-25
+
+Reported working at 3440x1440 on the install made by the installer `4C02A277…`
+(the game folder's `swkotor.exe.kotor-ui-patch.json` and `KMRP.log`). The
+later builds of that day -- X and Y in combat, the dialogue A at the end of the
+reply, the combat message, the update check -- were not installed and are not
+covered.
+
+| Verified working |
+| --- |
+| Rumble: four pad tests on an Xbox pad, judged right after the fourth; what they covered is in `docs/controller-rumble.md` |
+| The action bar keeps focus after A, for repeated attacks (issue #17); B's release was not separately reported |
+| Start opens the Map and closes it again (issue #18) |
+| Text is sharp (issue #16, at the second reporter's resolution) |
+| No white flash when switching party members (issue #14), with the driver resolving Prefer native from the game's own NVIDIA profile, not from a KMRP write |
+| K1 Cutscenes Rescaled renders correctly, where it used to render wrongly, and skipping a movie never minimises the game (issue #6) |
+| Solo Mode prompt: A on OK turns it on, A on Cancel does not (again; first 2026-09-24) |
+| Sound Options navigation and B on the Movies screen (again; first 2026-09-24) |
+| Quit Game's Yes/No box: the A beside the focused button |
+| The resolution screen: A on Cancel cancels |
+| In-game Options: Down from Close keeps a focus |
+| Switching to mouse or keyboard clears the badges on every screen, not only the one in front |
+
 ## Physical QA result — 2026-09-24
 
 Reported working on a real pad at 3440x1440, from the installer built that day
@@ -32,8 +55,8 @@ Reported working on a real pad at 3440x1440, from the installer built that day
 | The swap-tabs icons |
 
 **Superseded row below.** "Start opens the in-game menu" was true on 2026-09-08;
-since issue #18 Start in the world opens the Map instead, which is **not yet
-verified in play**.
+since issue #18 Start in the world opens the Map instead, which was
+**verified in play on 2026-09-25**.
 
 ## Physical QA result — 2026-09-08
 

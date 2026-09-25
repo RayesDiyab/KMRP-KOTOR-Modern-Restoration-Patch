@@ -220,8 +220,10 @@ half-truth, and the state is readable, so the label can follow it.
 *Built differently, 2026-09-25:* the maintainer chose an A glyph that follows
 the highlighted reply, instead of a captioned prompt beneath the list. It was
 first left of the reply's number, like the main menu's A, where the engine's
-panel clipping hid it. It sits at the end of the reply's text since the second
-play-test that day. The reply list fills the whole
+panel clipping hid it. After the second play-test that day it moved to the end
+of the reply's text, where the engine's measure put it mid-sentence; since the
+third it sits at the end of the reply's last line, measured from the drawn
+layout. The reply list fills the whole
 bottom bar, so nothing fits beneath it. The A shows only while replies can be
 picked, so it never has to say "Skip". See `LBL_KMRPDLG` in
 [custom-gui-controls.md](../reverse-engineering/custom-gui-controls.md).

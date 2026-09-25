@@ -334,7 +334,8 @@ correction below). When the box is destroyed, the base destructor's
 `ReleaseGff` (vtable reset to `0x0073E010`, `.gui` pointer null) clears the
 label's slot in the panel's control array and destroys it.
 
-**Untested in game**, as its `CHANGELOG.md` entry says.
+**Play-tested on 2026-09-25 at 3440x1440** on Quit Game; untested until
+then.
 
 ## A fifth: the A beside the highlighted dialogue reply (`LBL_KMRPDLG`)
 
@@ -415,7 +416,35 @@ it is always inside the panel:
 | when | once per change of the highlighted row, its string object or its width; the loop is a few hundred wraps, too many for every frame |
 | where | list left + scrollbar + text width + a quarter glyph, on the reply's last line (row height / line height), clamped inside the panel. For a reply that wraps it is right of the widest line, not the last line's end |
 
-`textWidth=` is added to the `dialog-geometry` log line. **Untested in game.**
+`textWidth=` is added to the `dialog-geometry` log line.
+
+**The third play-test's log (same day, `AD3DC07D…`):** `textWidth=320
+placed=(323,0,32,32)`. On screen, the A sat over "of" in a line that ends
+about 600 px from the text's start. `GetIdealWidthAndHeight` answers in the
+line breaker's units, not the screen's:
+
+| step | what it does |
+| --- | --- |
+| the text object | `[CSWGuiText+0x14]`, vtable `0x00741878`: string `+0x14`, font `+0x18`, line lengths `[+0x34]`, line count `+0x38`, scale `+0x40` |
+| its `+0x50`, `0x0045B7A0` | height at a width: re-wraps through `+0x4C` (`0x0045A2F0`), then lines × round(round((`spacingB` + `fontheight`) × 100) × scale) |
+| the line breaker | per glyph, trunc(((lower-right u − upper-left u) × `texturewidth` + `spacingR`) × scale × 100); the font information's arrays at `+0x24` and `+0x18`, 12 bytes a glyph |
+| `Draw`, `0x0045A850` | the same glyph widths × scale, then divided by the render viewport's width and height (`0x007B946C`/`+0x6E`, indexed by `0x007B9460`). On screen that is one atlas texel per pixel, as `Test-FontAtlasScale.py` requires |
+
+So the measure is the drawn width × the text object's scale. From that log,
+the scale is about 0.53 at 3440x1440 (320 against ~600). That is where the
+first two builds' A went wrong.
+
+**Placed from the drawn layout instead.** The A goes at the end of the
+highlighted reply's **last** line. That line's width is Σ (lower-right u −
+upper-left u) × `texturewidth` × 100 over its glyphs, a trailing space left
+out: texels, which are pixels. The line is found by walking the lengths as
+`Draw` does: a negative length is the same length, and one space or newline
+after a line is skipped. The engine centres the text block in its row, so the
+A is centred on the last of the row's equal bands. It keeps the height of a
+one-line row, and sits an eighth of its size past the text, since the art's
+transparent rim adds the rest of a space. Nothing is re-wrapped. The log line
+carries `lineWidth=`, `lines=`, `textScale=` and `viewport=`, so the next
+play-test can confirm the scale from both sides. **Untested in game.**
 
 ## A sixth and seventh: X and Y beside the HUD's combat buttons (`LBL_KMRPX`, `LBL_KMRPY`)
 

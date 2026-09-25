@@ -127,7 +127,8 @@ routed on the press, and the release follows the press:
 The in-game menu's own dispatcher, `CSWGuiInGameMenu::HandleInputEvent`
 (`0x00624970`), handles only `0xF3`/`0xF4` and passes everything else to the base
 panel, so the hotkey handler's own toggle is not reachable with a menu up; that is
-why the close is B's rather than `0xD7`'s. **Not yet verified in play.**
+why the close is B's rather than `0xD7`'s. **Play-tested on 2026-09-25 at
+3440x1440: Start opens the Map and closes it again.**
 
 ### R3 is free look, and it is a restoration
 

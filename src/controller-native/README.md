@@ -18,7 +18,9 @@ which adds BioWare's rumble table; in the hardware-test installer `C796489A…`,
 which adds the rumble mixer and Enhanced haptics (`K1Rumble.cpp`); in the
 installers `D58A2E33…`, `7C2FFF8B…` and `AD3DC07D…`, 204,800 bytes, SHA-256
 `577AAE92D0FE18766EDEC669C54959A0213BA1618030F4E1B0EED92E4D9CC251`, which adds X and Y in combat and
-moves the dialogue A to the end of the reply -- and what
+moves the dialogue A to the end of the reply; in the installer `E5AFC981…`,
+205,824 bytes, SHA-256 `32F018CFE3D93AE9C9C5F4D20DDCB85FE422DD09EECAC798F13263F03BA43E9C`,
+which places that A from the drawn layout -- and what
 `testing/controller/select_controller_path.py` installs into a test game. The
 reverse engineering behind the native path is in
 `reverse-engineering/retained-xbox-gui-events.md`; the architecture and the full

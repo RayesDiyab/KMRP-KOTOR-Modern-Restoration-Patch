@@ -33,7 +33,7 @@ describe that first version now say so.
 
 | Component | Exact source | Local output |
 | --- | --- | --- |
-| Controller module | KMRP's sources in `src/controller-native/`, with `scopeking0117-alt/KPM-Xbox-Controls-K1` at commit `78e7eaa3b9554ec0e6732f749424dc916f3a1895` as modified by KMRP (`KMRP-CONTROLLER-MODULE.diff`) | `kmrp-controller.module`, 181,248 bytes, SHA-256 `AC2C41EC4C935B19EFF4693E3FBB43D176D28C5B37DE0CDC2C706F72379652C9` in the 2026-09-24 installer; 204,288 bytes, SHA-256 `E52826A2724038E765DFD45B86171160A017E054E346E29CF4A1CE5D0F74DE21` in the haptics hardware-test installer `C796489A…`; 204,800 bytes, SHA-256 `577AAE92D0FE18766EDEC669C54959A0213BA1618030F4E1B0EED92E4D9CC251` in `D58A2E33…`, `7C2FFF8B…` and `AD3DC07D…` (X and Y in combat, the dialogue A moved) |
+| Controller module | KMRP's sources in `src/controller-native/`, with `scopeking0117-alt/KPM-Xbox-Controls-K1` at commit `78e7eaa3b9554ec0e6732f749424dc916f3a1895` as modified by KMRP (`KMRP-CONTROLLER-MODULE.diff`) | `kmrp-controller.module`, 181,248 bytes, SHA-256 `AC2C41EC4C935B19EFF4693E3FBB43D176D28C5B37DE0CDC2C706F72379652C9` in the 2026-09-24 installer; 204,288 bytes, SHA-256 `E52826A2724038E765DFD45B86171160A017E054E346E29CF4A1CE5D0F74DE21` in the haptics hardware-test installer `C796489A…`; 204,800 bytes, SHA-256 `577AAE92D0FE18766EDEC669C54959A0213BA1618030F4E1B0EED92E4D9CC251` in `D58A2E33…`, `7C2FFF8B…` and `AD3DC07D…` (X and Y in combat, the dialogue A moved); 205,824 bytes, SHA-256 `32F018CFE3D93AE9C9C5F4D20DDCB85FE422DD09EECAC798F13263F03BA43E9C` in `E5AFC981…` (the dialogue A from the drawn layout) |
 | Hook runtime | `LaneDibello/Kotor-Patch-Manager`, commit `7d53e52f55622a48ab97001c2680fd9fb59c8f98` | `kmrp-controller-runtime.asi`, 338,432 bytes, SHA-256 `F5CF2A21E4C28DA95CD8DAAF2704F871A6105616BFE250361929C61BCDB43B45` |
 | SDL | official SDL 3.4.16, Windows x86 | `kmrp-sdl3.dll`, 2,358,784 bytes, and its licence |
 
@@ -239,9 +239,10 @@ effect in the world -- and D-pad Left/Right re-enters the bar as before. (Until
 2026-09-25 a used slot let go of focus too, so the next A acted on the world; in
 combat that meant D-pad Right before every action, and the user asked for the
 bar to stay.) The mechanisms are in
-[`controller-native-path.md`](controller-native-path.md). **Not yet verified in
-play**: `testing/controller/test_hud_release_and_start_map.py` checks both against
-the engine's memory and has not been run on a loaded save.
+[`controller-native-path.md`](controller-native-path.md). **Play-tested on
+2026-09-25** at 3440x1440 for A keeping focus ("works perfectly"); B's release was
+not separately reported. `testing/controller/test_hud_release_and_start_map.py`
+checks both against the engine's memory and has not been run on a loaded save.
 
 Steam Input is not claimed to work by the upstream author. Since the hybrid
 backend, KMRP reads PlayStation, Switch and Steam Deck controllers itself,

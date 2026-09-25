@@ -201,6 +201,10 @@ padding/advance logic in `build_font_from_ttf.py` and re-bake.
 
 ## Why the text looks pixelated above 720p (issue #16)
 
+**In play, 2026-09-25:** with the per-resolution atlases, the maintainer
+reported the text right at 3440x1440, the second reporter's resolution.
+1080p, the first reporter's, has not been checked in play.
+
 Two players reported aliased, pixelated text — one at 1920x1080, one at
 3440x1440 — which ruled out any single scale factor being at fault. The cause is
 structural, and it is in this document's own design rather than in the

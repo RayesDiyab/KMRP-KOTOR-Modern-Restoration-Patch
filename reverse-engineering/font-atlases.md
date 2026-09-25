@@ -472,6 +472,12 @@ heading and captions all rendered at one size. The installed
 `dialogfont10x10.txi` is the one KMRP ships (`fontheight 0.2`, `texturewidth
 5.12`, atlas cells 20px), so this is not a packaging mismatch.
 
+**A second label, the same way (2026-09-25).** The HUD's combat-mode message
+is authored in `dialogfont10x10` too. With the 1.40 width factor that
+calibration gives, its visible line should be 480 px, and the screenshot
+showed 478. It also draws in 32 px lines, `dialogfont16x16`'s `fontheight
+0.32`: two lines did not fit its 50 px box.
+
 Consequences until the mechanism is found: size any KMRP-authored text as
 `dialogfont16x16`, and treat `measure_label()` as reading 16x16 about 12% wide.
 The 1.406 ratio is also 1440/1024, a coincidence not yet ruled out; only one

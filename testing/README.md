@@ -54,7 +54,10 @@ and the melee hit hook) `4C02A277…` (the action bar keeps focus) and `C796489A
 Against `7C2FFF8B…` (X and Y in combat, the dialogue A moved, the combat
 message, the update check), the four Python checks on its reused archives,
 both of those scripts and `Test-UpdateCheck.ps1` were run and pass, and the
-three scripts again against `AD3DC07D…`, which changes only the update dialog. Both use their own fixture executable names, so an NVIDIA
+three scripts again against `AD3DC07D…`, which changes only the update dialog.
+Against `E5AFC981…` (the dialogue A from the drawn layout, the combat message on
+one line; a full build), the four Python checks and both of those scripts were
+run and pass. Both use their own fixture executable names, so an NVIDIA
 profile made for them cannot match a real `swkotor.exe`. `Test-DpiCompatibility.ps1` and
 `Test-NvidiaPresentMethod.ps1` write per-user compatibility and NVIDIA profile
 state for their throwaway executables and remove it again, so run them
