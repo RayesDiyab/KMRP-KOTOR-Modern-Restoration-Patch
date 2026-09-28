@@ -49,6 +49,18 @@ void InitSdl()
     wcscpy_s(slash + 1, MAX_PATH - (slash + 1 - path), L"kmrp-sdl3.dll");
     HMODULE lib = LoadLibraryExW(path, nullptr,
         LOAD_LIBRARY_SEARCH_DLL_LOAD_DIR | LOAD_LIBRARY_SEARCH_SYSTEM32);
+    // The KPM edition: KOTOR Patch Manager keeps this module in its own patches
+    // folder, and the KMRP for KPM installer puts SDL beside the game. Still an
+    // owned, absolute path -- never the cwd or PATH.
+    if (!lib) {
+        length = GetModuleFileNameW(nullptr, path, MAX_PATH);
+        slash = (length && length < MAX_PATH) ? wcsrchr(path, L'\\') : nullptr;
+        if (slash && slash - path + 16 < MAX_PATH) {
+            wcscpy_s(slash + 1, MAX_PATH - (slash + 1 - path), L"kmrp-sdl3.dll");
+            lib = LoadLibraryExW(path, nullptr,
+                LOAD_LIBRARY_SEARCH_DLL_LOAD_DIR | LOAD_LIBRARY_SEARCH_SYSTEM32);
+        }
+    }
     if (!lib) return; // Xbox remains available if SDL is absent or rejected.
 #define RESOLVE(name) p##name = reinterpret_cast<decltype(&name)>(GetProcAddress(lib, #name)); if (!p##name) { FreeLibrary(lib); return; }
     SDL_FUNCTIONS(RESOLVE)

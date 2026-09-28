@@ -93,6 +93,16 @@ In the installer C77F7640516E8D0BAC017806725C0F3670ECEEC9B55EE0E0180D26AC74BC566
 built the same day with KMRP's runtime installed on every patch and the
 controller option switching only its own hooks, it is 217,600 bytes with
 SHA-256 AF223C4D4542B4A983EF4D1137C08AB4AA7F6C999DD7D2C3402DE2DD3BC2D312.
+In the installer D6E40FAFCE9BF7BB0B8B190102BEF984FE454F5683BC3B96C0B14330A0EC628F,
+built the same day with the KPM edition beside it, and inside that edition's
+two .kpatch files as binaries/windows_x86.dll, it is 236,544 bytes with SHA-256
+57E68A912782D6CDEDC083A07D29A73AF878CC99A03E03F043C98FD706DC91E0. The KPM edition's
+folder carries this MIT licence beside the .kpatch files.
+In the installer 125DEA647B0D1D3E30D2646639A4A60C3F440CF4DCD3A2B54F7DD395A3944014,
+built the same day with the KPM edition split into four patches, and inside
+three of them (KMRP, KMRP Controller, KMRP Movies) as binaries/windows_x86.dll,
+it is 241,664 bytes with SHA-256
+0C89C330245F752A303A22D5B731C2E16D19D4731078413B195F01C71972E955.
 
 KMRP's changes to Saul0097's five files are recorded in
 KMRP-CONTROLLER-MODULE.diff, generated against the upstream commit above.
@@ -102,8 +112,8 @@ when four files matched byte for byte and exports.def matched in content, the
 check's checkout having written it with CRLF endings where the tracked copy
 has LF; again after the character-creation guard hooks, and again on
 2026-09-26 after the Level Up and notice badges, and twice on 2026-09-28,
-after the echo guard and the arrows' removal and after the runtime's
-`install` key, with the same result);
+after the echo guard and the arrows' removal, after the runtime's `install`
+key, and after its `kpm_provided_by` key, with the same result);
 regenerate it whenever they change. What the
 module does -- the native joystick path, the XInput/SDL backend, the button
 prompts and the Controller Layout screen -- is documented in

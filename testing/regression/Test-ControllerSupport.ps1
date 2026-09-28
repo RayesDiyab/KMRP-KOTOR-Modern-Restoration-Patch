@@ -44,10 +44,10 @@ function Assert([bool]$condition, [string]$message) {
 
 # The installed hook table must be exactly one of the two sets tools/kmrp_controller.py
 # derives from kotor1.hooks.toml: "controller" (option on) or "core" (option off).
-# Every field is compared, byte patches included; `owner` and `install` are the
-# table's own bookkeeping and never reach an install.
+# Every field is compared, byte patches included; kmrp_controller.as_installed
+# strips the table's own bookkeeping keys, which never reach an install.
 function Assert-HookSet([string]$configPath, [string]$set, [string]$label) {
-    python -c "import sys; sys.path.insert(0,'tools'); import kmrp_controller as k; got=k.installed_hooks(sys.argv[1]); source=k.native_hooks() if sys.argv[2]=='controller' else k.core_hooks(); want=[{a:b for a,b in h.items() if a not in ('owner','install')} for h in source]; assert len(got)==len(want), (len(got), len(want)); assert {h['address']:h for h in got}=={h['address']:h for h in want}, 'installed hooks differ from source'" $configPath $set
+    python -c "import sys; sys.path.insert(0,'tools'); import kmrp_controller as k; got=k.installed_hooks(sys.argv[1]); source=k.native_hooks() if sys.argv[2]=='controller' else k.core_hooks(); want=[k.as_installed(h) for h in source]; assert len(got)==len(want), (len(got), len(want)); assert {h['address']:h for h in got}=={h['address']:h for h in want}, 'installed hooks differ from source'" $configPath $set
     Assert ($LASTEXITCODE -eq 0) $label
 }
 

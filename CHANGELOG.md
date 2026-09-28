@@ -289,15 +289,36 @@ before:
   `tools/check_controller_drift.py` against the scratch copy. Seen in the
   scratch copy at 3440x1440 and 1920x1080 on the virtual pad (under Fixed).
   Not played by hand.
-- `C77F7640…` (152,090,112 bytes), the current build, 2026-09-28: KMRP's
+- `C77F7640…` (152,090,112 bytes), 2026-09-28: KMRP's
   runtime on every patch, the controller option switching only its own hooks
   (under Changed). Built with `-ReuseResources`, so its archives and pool are
   `9736B41F…`'s; module 217,600 bytes, `AF223C4D…`, rebuilt first and
-  confirmed installed. `Test-ControllerSupport.ps1` (144 checks, three new
+  confirmed installed. `Test-ControllerSupport.ps1` (143 checks, three new
   cases), `Test-ReinstallOverOlderBuild.ps1` and `Test-InstalledOverride.ps1`
   pass, as do the hook-table, stolen-byte, export and drift checks for both
   sets. Seen in the scratch copy at 1920x1080, both ways (under Changed). Not
   played by hand.
+- `D6E40FAF…` (152,119,808 bytes), 2026-09-28, with the
+  first KPM edition beside it in `dist\KMRP for KPM\`: `KMRP for KPM.exe`
+  (147,598,848 bytes, `9ED1C740…`), `KMRP.kpatch` (133,757 bytes, `E3429B2B…`)
+  and `KMRP (no controller).kpatch` (132,914 bytes, `0EEBEBA1…`); module
+  236,544 bytes, `57E68A91…`, now with the applier (under Added). Built with
+  `-ReuseResources`. `Test-ControllerSupport.ps1` (143),
+  `Test-ReinstallOverOlderBuild.ps1` (12), `Test-InstalledOverride.ps1` (28) and
+  the new `Test-KpmEdition.ps1` (77) pass. (These counts, and the 143 above, were
+  first recorded one higher: a case-insensitive count of "PASS" also matched each
+  suite's closing "All checks passed." Corrected the same day.) The standalone was seen in the scratch
+  copy with the new module: 37 hooks, the applier idle. Not played by hand.
+- `125DEA64…` (152,127,488 bytes), the current build, 2026-09-28, with the KPM
+  edition as four patches (under Added): `KMRP for KPM.exe` (147,601,920 bytes,
+  `2C715CA5…`), `KMRP.kpatch` (136,021 bytes, `0E454D87…`), `KMRP
+  Controller.kpatch` (136,714 bytes, `5A29F9CD…`), `KMRP Movies.kpatch` (135,933
+  bytes, `77CC3D71…`) and `KMRP Map Notes.kpatch` (391 bytes, `1D365F9F…`); module
+  241,664 bytes, `0C89C330…`. Built with `-ReuseResources`.
+  `Test-ControllerSupport.ps1` (143), `Test-ReinstallOverOlderBuild.ps1` (12),
+  `Test-MovieResolution.ps1` (36) and `Test-KpmEdition.ps1` (98) pass. The KPM
+  edition was seen in the scratch copy three ways (under Added). Not played by
+  hand.
 
 - **The KOTOR Patch Manager MIT licence is installed with the controller.** The
   runtime, the controller module and the memory-safety patches all come from
@@ -309,6 +330,58 @@ before:
   byte for byte, and `Test-ReinstallOverOlderBuild.ps1` also passes.
 
 ### Added
+
+- **KMRP for KOTOR Patch Manager: a second edition, built from the same
+  source** (2026-09-28, at the maintainer's request: "one source, two ways to
+  build it"). The standalone installer writes KMRP's changes into swkotor.exe,
+  which KOTOR Patch Manager (KPM) then no longer recognises, so KMRP could not be
+  combined with KPM patches such as High FPS Fixes (issue #22). The KPM edition
+  never modifies swkotor.exe:
+  - **Four patches, one per fix** (split the same day at the maintainer's
+    request: "Each fix is a different patch ... Not a bundle"):
+    **`KMRP`**, required -- the widescreen interface and everything KMRP always
+    does; **`KMRP Controller`**; **`KMRP Movies`** -- the movie display-mode
+    operands, the aspect fit and the black movie window; and **`KMRP Map
+    Notes`** -- Derslok's marker corrections, a manifest-only patch that KPM
+    records and loads nothing for. KMRP requires KPM's own `4gb-patch` and its
+    three memory-safety patches instead of duplicating them; the three add-ons
+    require KMRP. Conflicts are per patch: Map Texture Patch and Scaled Kotor
+    with KMRP, Movie Patch with KMRP Movies only, Expanded Keyboard Control and
+    Xbox Controls K1 with KMRP Controller -- measured, not guessed: no byte of
+    any K1 patch KPM 0.7.1 ships overlaps KMRP's (`tools/check_kpm_overlaps.py`).
+    The first version, earlier that day, was two files, KMRP with and without
+    its controller.
+  - **The module applies the executable changes in memory** when KPM loads it
+    (`K1KpmApplier.cpp`): gold's runs, and its eleven appended sections copied
+    to memory it allocates -- their own addresses are taken by Windows in an
+    unmodified process, measured -- with the 46 addresses that name them moved.
+    Only KMRP's own copy applies, and it leaves out the Movies and Map Notes
+    parts unless `patch_config.toml` shows those patches installed. All or
+    nothing: every original byte is checked before any is written, and
+    `kmrp-kpm.log` says why when nothing is applied. In the standalone edition
+    it does nothing.
+  - **`KMRP for KPM.exe`**, the same installer compiled with `KPM_EDITION`:
+    Override, the resolution, DPI and NVIDIA settings, plus `kmrp-kpm.dat` --
+    the final bytes, built exactly as the standalone builds its executable, so
+    no resolution rule exists twice -- and SDL beside the game.
+
+  The relocation table is found twice by independent methods that must agree
+  and proved by moving the code (`tools/kpm_relocations.py`); the `.kpatch`
+  files are checked against KPM 0.7.1's install rules (`tools/build_kpatch.py`);
+  and `Test-KpmEdition.ps1` proves, at 1920x1080, 3440x1440 and 1024x768, that
+  the data file makes byte for byte the standalone's executable with all four
+  patches, and the standalone's with its marker fixes off without Map Notes.
+  **Seen in game on 2026-09-28** through KPM 0.7.1's own launcher in a scratch
+  copy at 1920x1080, three ways -- all four patches; KMRP and KMRP Controller;
+  KMRP, Movies and Map Notes -- each time with the running game's memory exactly
+  the data file's for the patches ticked, at three different load addresses,
+  and exactly the expected sites hooked (37, 35, 9). With KMRP Controller the
+  pad drives the menus and skips movies; without KMRP Movies a movie switches
+  the display to 640x480 as the unmodified game does, and with it plays at
+  1920x1080, fitted. The first two-variant version was also seen in game: its
+  main menu, HUD, Map and Inventory matched the standalone's captures. CD 1.03
+  only, as the standalone; not GOG or Steam yet, not KPM's graphical launcher,
+  not played by hand. See [kpm-edition.md](docs/kpm-edition.md).
 
 - **The Character screen shows A on Level Up and Y on Auto Level Up, and the
   granted-feats notice shows A on its OK** (2026-09-26, at the maintainer's

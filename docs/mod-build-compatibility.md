@@ -65,6 +65,10 @@ yet been run end-to-end on this workstation.
 
 ## KotOR Patch Manager
 
+*Since 2026-09-28* there is a KMRP edition for KPM itself, which never modifies
+the executable and so passes KPM's hash gate: see
+[kpm-edition.md](kpm-edition.md). What follows describes the standalone edition.
+
 KotOR Patch Manager normally injects dynamic hooks without rewriting the
 executable, but patch manifests declare `supported_versions` by executable hash.
 A KMRP resolution build therefore needs an address-database/hash entry or an

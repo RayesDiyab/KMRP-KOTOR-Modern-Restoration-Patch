@@ -39,6 +39,14 @@ that in the engine itself rather than by swapping artwork — 49 resolutions, fr
 
 To change resolution later, use **Restore Original** first, then patch again.
 
+**With KOTOR Patch Manager.** The *KMRP for KPM* edition, in `KMRP for KPM\`,
+never modifies `swkotor.exe`, so KMRP can be combined with other KPM patches:
+run `KMRP for KPM.exe` for the interface files and resolution, then tick
+`KMRP` and the four KPM patches it requires in KOTOR Patch Manager, plus any
+of `KMRP Controller`, `KMRP Movies` and `KMRP Map Notes` -- one patch per fix
+-- Apply, and Launch. Same executable requirement; its README has the steps,
+and [docs/kpm-edition.md](docs/kpm-edition.md) how it works.
+
 **Linux / Proton / Steam Deck (experimental).** Launch the patcher inside the
 game's Proton environment with `protontricks-launch --appid 32370`, and use the
 same route for restore. Package-level Linux checks pass, but Proton gameplay and

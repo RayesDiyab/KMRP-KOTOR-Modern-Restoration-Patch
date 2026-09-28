@@ -119,9 +119,49 @@ def _installable() -> list:
 
 
 def installed_set(controller: bool) -> list:
-    """The hooks the installer must emit, with or without controller support."""
+    """The hooks the standalone installer must emit, with or without controller
+    support. The KPM edition's patches are kpm_patch_hooks' instead."""
     wanted = ("always", "controller") if controller else ("always", "no-controller")
     return [h for h in _installable() if install_of(h) in wanted]
+
+
+# The KPM edition's patches (tools/build_kpatch.py). Movies and Map Notes also
+# select which of KMRP's executable changes the core's applier makes
+# (K1KpmApplier.cpp); Map Notes carries no hooks at all.
+KPM_PATCHES = ("kmrp", "kmrp-controller", "kmrp-movies", "kmrp-map-notes")
+
+
+def kpm_patch_of(hook) -> str:
+    """Which KPM edition patch carries a hook ("" for none)."""
+    if "kpm_patch" in hook:
+        return hook["kpm_patch"]
+    return "kmrp-controller" if install_of(hook) == "controller" else "kmrp"
+
+
+def kpm_patch_hooks(patch_id: str) -> list:
+    """The hooks one KPM edition patch carries: those whose kpm_patch it is, less
+    the ones a KOTOR Patch Manager patch already makes (kpm_provided_by)."""
+    if patch_id not in KPM_PATCHES:
+        raise KeyError(patch_id)
+    return [h for h in _installable()
+            if kpm_patch_of(h) == patch_id and not h.get("kpm_provided_by")]
+
+
+def kpm_requirements() -> list:
+    """The KPM patch ids the KPM edition requires in place of hooks it leaves out."""
+    return sorted({h["kpm_provided_by"] for h in _installable()
+                   if h.get("kpm_provided_by")})
+
+
+# Keys in kotor1.hooks.toml that are KMRP's own bookkeeping, and never reach an
+# installed patch_config.toml. Comparisons against an install strip these, here in
+# one place, so a new key cannot make a correct install compare unequal.
+BOOKKEEPING = ("owner", "install", "kpm_provided_by", "kpm_patch")
+
+
+def as_installed(hook) -> dict:
+    """A tracked hook as an install writes it: the bookkeeping keys removed."""
+    return {key: value for key, value in hook.items() if key not in BOOKKEEPING}
 
 
 def installable_hooks() -> list:

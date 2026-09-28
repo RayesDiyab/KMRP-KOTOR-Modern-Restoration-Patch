@@ -140,6 +140,14 @@ namespace Kmrp
 
         internal byte[] Apply(byte[] source, ResolutionChoice resolution)
         {
+            return Apply(source, resolution, KmrpSettings.MarkerFixes);
+        }
+
+        /// <summary>The KPM edition passes mapNotes true whatever the setting says:
+        /// there KMRP Map Notes is a patch ticked in KOTOR Patch Manager, and the data
+        /// file carries the flag as that patch's edit (KpmEdition.cs).</summary>
+        internal byte[] Apply(byte[] source, ResolutionChoice resolution, bool mapNotes)
+        {
             byte[] normalizedSource;
             if (!PeCompatibility.TryNormalizeSupportedSource(source, out normalizedSource))
                 throw new InvalidDataException("The selected file is not the supported unpatched swkotor.exe.");
@@ -157,7 +165,7 @@ namespace Kmrp
             // The map-note corrections are data in .kmn plus a lookup the wrapper always
             // calls; the flag is what decides whether the lookup does anything. Gold ships
             // it enabled, so this only ever has to clear it.
-            if (!KmrpSettings.MarkerFixes)
+            if (!mapNotes)
                 ResolutionPatch.WriteInt32(target, ResolutionPatch.MapNoteFlagOffset, 0);
             return target;
         }
@@ -308,8 +316,9 @@ namespace Kmrp
         // executable is not a resolution at all.  These addresses instead come
         // from aligned disassembly of the verified source and are guarded by exact
         // gold-reference values on every application. See reverse-engineering/movies.md.
-        private static readonly long[] MovieWidthOffsets = { 0x00003D6C, 0x001F5B3B };
-        private static readonly long[] MovieHeightOffsets = { 0x00003D78, 0x001F5B43 };
+        // Internal: the KPM edition tags these as KMRP Movies' (KpmEdition.cs).
+        internal static readonly long[] MovieWidthOffsets = { 0x00003D6C, 0x001F5B3B };
+        internal static readonly long[] MovieHeightOffsets = { 0x00003D78, 0x001F5B43 };
 
         // 0x0028C4E3 (VA 0x0068C4E3) is a THIRD width comparison, deliberately NOT included
         // above. It's the last live branch of the HUD minimap-variant (mipc*.gui) selector:
@@ -2188,11 +2197,11 @@ namespace Kmrp
         // so it is written only when absent or still exactly as installed, is
         // never a reason to decline an install, and restore removes it only if it
         // is unchanged -- the manifest's usual rule.
-        private const string SettingsName = "kmrp-controller.ini";
+        internal const string SettingsName = "kmrp-controller.ini";
         // Every value here is what the user settled on in the pad tests of
         // 2026-09-25. Debug was 1 in the hardware-test builds, writing every
         // rumble event to kmrp-rumble.log; it is off now that those tests passed.
-        private const string DefaultSettings =
+        internal const string DefaultSettings =
             "; KMRP controller settings. Read by kmrp-controller.module while the game runs;\r\n" +
             "; changes take effect within a second, no restart needed.\r\n" +
             "[Rumble]\r\n" +
@@ -3606,6 +3615,15 @@ namespace Kmrp
 
         internal static string Describe(string targetPath)
         {
+#if KPM_EDITION
+            return KpmEditionOperations.Describe(targetPath);
+#else
+            return DescribeStandalone(targetPath);
+#endif
+        }
+
+        internal static string DescribeStandalone(string targetPath)
+        {
             if (!File.Exists(targetPath))
                 return "File not found";
 
@@ -3630,6 +3648,18 @@ namespace Kmrp
 
         internal static ExecutableState Inspect(string targetPath)
         {
+#if KPM_EDITION
+            return KpmEditionOperations.Inspect(targetPath);
+#else
+            return InspectStandalone(targetPath);
+#endif
+        }
+
+        /// <summary>The executable as the standalone installer sees it. The KPM
+        /// edition asks this too: a game the standalone installer patched is one it
+        /// must not touch.</summary>
+        internal static ExecutableState InspectStandalone(string targetPath)
+        {
             if (String.IsNullOrWhiteSpace(targetPath) || !File.Exists(targetPath))
                 return ExecutableState.Missing;
             try
@@ -3650,6 +3680,15 @@ namespace Kmrp
         }
 
         internal static bool CanRestore(string targetPath)
+        {
+#if KPM_EDITION
+            return KpmEditionOperations.CanRestore(targetPath);
+#else
+            return CanRestoreStandalone(targetPath);
+#endif
+        }
+
+        private static bool CanRestoreStandalone(string targetPath)
         {
             try
             {
@@ -3677,6 +3716,16 @@ namespace Kmrp
         }
 
         internal static void ApplyInPlace(string targetPath, int width, int height, Action<string> report,
+            Action<int, string> progress)
+        {
+#if KPM_EDITION
+            KpmEditionOperations.Install(targetPath, width, height, report, progress);
+#else
+            ApplyStandalone(targetPath, width, height, report, progress);
+#endif
+        }
+
+        private static void ApplyStandalone(string targetPath, int width, int height, Action<string> report,
             Action<int, string> progress)
         {
             SafeProgress(progress, 0, "Preparing game files…");
@@ -3823,6 +3872,15 @@ namespace Kmrp
         }
 
         internal static void Restore(string targetPath, Action<string> report, Action<int, string> progress)
+        {
+#if KPM_EDITION
+            KpmEditionOperations.Restore(targetPath, report, progress);
+#else
+            RestoreStandalone(targetPath, report, progress);
+#endif
+        }
+
+        private static void RestoreStandalone(string targetPath, Action<string> report, Action<int, string> progress)
         {
             SafeProgress(progress, 0, "Preparing to restore…");
             targetPath = Path.GetFullPath(targetPath);
@@ -4098,6 +4156,15 @@ namespace Kmrp
         }
 
         internal static bool TryReadInstalledResolution(string targetPath, out int width, out int height)
+        {
+#if KPM_EDITION
+            return KpmEditionOperations.TryReadInstalledResolution(targetPath, out width, out height);
+#else
+            return TryReadInstalledResolutionStandalone(targetPath, out width, out height);
+#endif
+        }
+
+        private static bool TryReadInstalledResolutionStandalone(string targetPath, out int width, out int height)
         {
             width = 0;
             height = 0;
@@ -6200,7 +6267,11 @@ namespace Kmrp
             }
         }
 
+#if KPM_EDITION
+        internal const string AppName = "KOTOR Modern Restoration Patch for KOTOR Patch Manager";
+#else
         internal const string AppName = "KOTOR Modern Restoration Patch";
+#endif
         internal const string ShortName = "KMRP";
         // Derived, not restated: this said "v1.0.0" while PatchVersion and the
         // file's own version said 1.5.0, a second copy nobody updated.
@@ -6594,6 +6665,19 @@ namespace Kmrp
                 KmrpSettings.ControllerSupport = controllerToggle.Checked;
             };
             settingsView.Controls.Add(controllerToggle);
+#if KPM_EDITION
+            // In the KPM edition every option is a patch of its own, ticked in KOTOR
+            // Patch Manager, so there is nothing left to choose here.
+            driverToggle.Visible = false;
+            controllerToggle.Visible = false;
+            markerToggle.Visible = false;
+            settingsSubtitle.Text =
+                "In KMRP for KPM each option is a patch of its own. Tick KMRP Controller, "
+                + "KMRP Movies and KMRP Map Notes in KOTOR Patch Manager, and Synchro's "
+                + "Modern Driver Compatibility if you want it.";
+            settingsSubtitle.TextAlign = ContentAlignment.TopLeft;
+            settingsSubtitle.Height = 120;
+#endif
 
             // Two actions, sharing the row the single Back button used to have. Restore
             // Defaults is Subtle so Back stays the obvious way out.
@@ -6613,6 +6697,9 @@ namespace Kmrp
                 controllerToggle.Checked = true;
             };
             settingsView.Controls.Add(settingsDefaults);
+#if KPM_EDITION
+            settingsDefaults.Visible = false;
+#endif
 
             PillButton settingsBack = new PillButton();
             settingsBack.Text = "Back";
@@ -7829,6 +7916,10 @@ namespace Kmrp
 
             if (state == ExecutableState.Gold)
             {
+#if KPM_EDITION
+                SetState(applyState, "Installed", UiTheme.Success);
+                lastDetail = "Now tick KMRP in KOTOR Patch Manager, with the patches it requires, then Apply and Launch.";
+#else
                 SetState(applyState, "Patched successfully", UiTheme.Success);
                 int readyWidth;
                 int readyHeight;
@@ -7837,6 +7928,7 @@ namespace Kmrp
                         readyWidth.ToString(CultureInfo.InvariantCulture) + " × " +
                         readyHeight.ToString(CultureInfo.InvariantCulture) + "."
                     : "KOTOR is ready to play.";
+#endif
             }
             else if (executableReady && iniExists)
             {

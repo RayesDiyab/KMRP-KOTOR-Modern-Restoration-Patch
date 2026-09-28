@@ -70,7 +70,8 @@ function Resolve-InputPath([string]$Path) {
 # -Plain turns that off for logs and non-interactive shells.
 
 $script:StepIndex = 0
-$script:StepTotal = if ($ReuseResources) { 5 } else { 6 }
+# Two more since 2026-09-28: the KPM relocation table and the KPM edition.
+$script:StepTotal = if ($ReuseResources) { 7 } else { 8 }
 $script:StepStart = Get-Date
 $script:BuildStart = Get-Date
 $script:BarWidth = 32
@@ -260,6 +261,20 @@ Invoke-Tool -Exe $Python -Label "pool" -FailureMessage "Pooling the resolution l
     (Join-Path $projectRoot "tools\pack_resolution_layouts.py"), $resourceDir, $layoutPool)
 Complete-Step ("{0:n1} MB" -f ((Get-Item $layoutPool).Length / 1MB))
 
+# ---------------------------------------------------------------- 4b. KPM relocations
+# The KPM edition cannot put gold's eleven appended sections back at their own
+# addresses, so its module moves them and re-points every address that names
+# them. tools/kpm_relocations.py finds those addresses in gold by two independent
+# methods, stops the build if they disagree, and proves the table by moving the
+# code. Both editions embed it (Kmrp.kpm.relocations): the KPM edition installs
+# from it, and the standalone can write a data file for tests.
+Start-Step "Computing the KPM relocation table"
+$kpmRelocations = Join-Path $buildDir "kpm-relocations.txt"
+Invoke-Tool -Exe $Python -Label "relocations" -FailureMessage "The KPM relocation table could not be proved" -Arguments @(
+    (Join-Path $projectRoot "tools\kpm_relocations.py"), "--gold", $resolvedGold,
+    "--clean", $resolvedSource, "--out", $kpmRelocations)
+Complete-Step ("{0} fields" -f @(Get-Content -LiteralPath $kpmRelocations | Where-Object { $_ -match "^[A-Z]" }).Count)
+
 # ---------------------------------------------------------------- 5. compile
 Start-Step "Compiling the patcher"
 
@@ -325,11 +340,13 @@ Write-Detail ("embedding {0} of {1} UI icons" -f $iconCount, $iconNames.Count)
 # it through GuiPool (src/patcher/KmrpPatcher.cs). Until 2026-09-25 each of the
 # 49 archives was embedded whole, as Kmrp.override.gui.<W>x<H>.
 $compilerArgs += "/resource:$layoutPool,Kmrp.override.layouts"
+$compilerArgs += "/resource:$kpmRelocations,Kmrp.kpm.relocations"
 
 $compilerArgs += (Join-Path $projectRoot "src\patcher\KmrpPatcher.cs")
 $compilerArgs += (Join-Path $projectRoot "src\patcher\AbilityIconGenerator.cs")
 $compilerArgs += (Join-Path $projectRoot "src\patcher\ControllerPromptGenerator.cs")
 $compilerArgs += (Join-Path $projectRoot "src\patcher\AssemblyInfo.cs")
+$compilerArgs += (Join-Path $projectRoot "src\patcher\KpmEdition.cs")
 
 # Properties -> Details must name the version the install record names. The two live
 # in different files and nothing compares them at run time, so they drifted twice:
@@ -359,6 +376,44 @@ Write-Bar -Percent 100 -Label "running the C# compiler"
 Invoke-Tool -Exe $compiler -Arguments $compilerArgs -Label "compile" `
     -FailureMessage "KMRP compilation failed"
 Complete-Step ("{0:n1} MB" -f ((Get-Item $outputExe).Length / 1MB))
+
+# ---------------------------------------------------------------- 5b. KPM edition
+# One source, two builds. The KPM edition is this same code compiled with
+# KPM_EDITION (src/patcher/KpmEdition.cs): it installs everything but the
+# executable patch, which KOTOR Patch Manager applies from KMRP's four .kpatch
+# files. It leaves out what KPM provides -- KMRP's own runtime and Synchro's
+# standalone K1DC -- and keeps SDL, which KPM does not extract from a patch.
+Start-Step "Compiling the KPM edition"
+$kpmDir = Join-Path $distDir "KMRP for KPM"
+New-Item -ItemType Directory -Force -Path $kpmDir | Out-Null
+# The set of patches is this build's alone: an earlier build's (two until
+# 2026-09-28) would sit beside it, fail the check and offer players a patch that
+# no longer exists.
+Get-ChildItem -LiteralPath $kpmDir -Filter "*.kpatch" -File | Remove-Item -Force
+$kpmExe = Join-Path $kpmDir "KMRP for KPM.exe"
+$standaloneOnly = @("Kmrp.drivercompat.dinput8", "Kmrp.drivercompat.asi",
+    "Kmrp.controller.runtime", "Kmrp.controller.module", "Kmrp.controller.kpmlicense")
+$kpmArgs = @("/define:KPM_EDITION")
+foreach ($argument in $compilerArgs) {
+    if ($argument -like "/out:*") { $kpmArgs += "/out:$kpmExe"; continue }
+    $drop = $false
+    foreach ($name in $standaloneOnly) { if ($argument -like "/resource:*,$name") { $drop = $true } }
+    if (-not $drop) { $kpmArgs += $argument }
+}
+Invoke-Tool -Exe $compiler -Arguments $kpmArgs -Label "compile" `
+    -FailureMessage "KMRP for KPM compilation failed"
+# The patches: the tracked hook sets and the module src\controller-native\build.cmd
+# produced, checked against KPM 0.7.1's install rules (tools/build_kpatch.py).
+Invoke-Tool -Exe $Python -Label "kpatch" -FailureMessage "Building KMRP's .kpatch files failed" -Arguments @(
+    (Join-Path $projectRoot "tools\build_kpatch.py"), "--module",
+    (Join-Path $projectRoot "src\controller-native\kmrp-controller.module"),
+    "--out", $kpmDir, "--version", $patchVersion)
+Copy-Item -LiteralPath (Join-Path $projectRoot "src\patcher\KMRP-for-KPM-README.txt") `
+    -Destination (Join-Path $kpmDir "README.txt") -Force
+# MIT asks for the notice to travel with the module inside the .kpatch files.
+Copy-Item -LiteralPath (Join-Path $projectRoot "third_party\Included\KPM-Xbox-Controls-K1-1.2 by Saul0097\LICENSE-KOTOR-PATCH-MANAGER.txt") `
+    -Destination (Join-Path $kpmDir "LICENSE-KOTOR-PATCH-MANAGER.txt") -Force
+Complete-Step ("{0:n1} MB" -f ((Get-Item $kpmExe).Length / 1MB))
 
 # ---------------------------------------------------------------- 6. finalise
 Start-Step "Finalising"
@@ -405,4 +460,13 @@ Write-Host ("  KMRP - KOTOR Modern Restoration Patch    built in {0:mm\:ss}" -f 
 Write-Host ("  output    {0}" -f $outputExe) -ForegroundColor Gray
 Write-Host ("  size      {0:n0} bytes" -f (Get-Item $outputExe).Length) -ForegroundColor Gray
 Write-Host ("  SHA-256   {0}" -f $hashHex) -ForegroundColor Gray
+Write-Host ""
+Write-Host "  KMRP for KPM" -ForegroundColor Green
+foreach ($file in @(Get-ChildItem -LiteralPath $kpmDir -File | Where-Object { $_.Extension -in ".exe", ".kpatch" })) {
+    $kpmSha = [System.Security.Cryptography.SHA256]::Create()
+    $kpmStream = [System.IO.File]::OpenRead($file.FullName)
+    try { $kpmHash = [System.BitConverter]::ToString($kpmSha.ComputeHash($kpmStream)).Replace("-", "") }
+    finally { $kpmStream.Dispose(); $kpmSha.Dispose() }
+    Write-Host ("  {0,-34} {1,12:n0} bytes  {2}" -f $file.Name, $file.Length, $kpmHash) -ForegroundColor Gray
+}
 Write-Host ""

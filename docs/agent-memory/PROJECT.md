@@ -26,6 +26,14 @@ override-common.zip + gui-<resolution>.zip (the 49 embedded as one pool of
     -> game Override directory with a hash-backed restore manifest
 ```
 
+Two editions from one build since 2026-09-28. The standalone above; and KMRP for
+KPM, the same installer compiled with KPM_EDITION, which leaves swkotor.exe
+unmodified and writes kmrp-kpm.dat (the same final bytes, as a diff from the
+clean executable) for KMRP's module to apply in memory under KOTOR Patch
+Manager, relocating gold's eleven sections. In KPM it is four patches, one per
+fix: KMRP (required), KMRP Controller, KMRP Movies, KMRP Map Notes; each hook's
+patch is `kpm_patch` in kotor1.hooks.toml. See docs/kpm-edition.md.
+
 - `src/patcher/KmrpPatcher.cs` contains the Windows patcher, executable validation,
   resolution constants, INI/Override installation, backup/restore logic, settings,
   and UI.

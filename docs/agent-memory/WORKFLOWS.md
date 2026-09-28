@@ -31,6 +31,12 @@ temporary directory—not beside tracked sources.
 .\build_kmrp.ps1
 ```
 
+Both write two editions from the same sources: `dist\KMRP - KOTOR Modern
+Restoration Patch.exe` and `dist\KMRP for KPM\` (the installer compiled with
+`KPM_EDITION`, and the four `.kpatch` files). The relocation step needs Capstone
+(`requirements.txt`) and stops the build if its two methods disagree. After a
+build, `.\testing\regression\Test-KpmEdition.ps1` proves the editions agree.
+
 Inputs default to ignored `build-inputs/swkotornopatch.exe` and
 `build-inputs/swpc_tex_gui.erf`. Machine overrides belong in ignored
 `build.local.ps1`; copy `build.local.example.ps1` as the template.

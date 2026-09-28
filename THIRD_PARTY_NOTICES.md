@@ -147,6 +147,18 @@ Until then, "Permission is hereby granted" occurred nowhere in the installer
 (`ECA3DE4B…`, 2026-09-24), although the installer shipped both the runtime and
 the module. The phrase occurs once in `7933…`.
 
+## KOTOR Patch Manager — the KPM edition
+
+Since 2026-09-28 KMRP also ships as four `.kpatch` files for KOTOR Patch Manager
+itself ([docs/kpm-edition.md](docs/kpm-edition.md)). Three carry KMRP's module
+(the same MIT-covered binary described above) and hook tables KMRP wrote; they do
+not carry KPM's runtime, which the player's own KPM supplies, and KMRP requires
+KPM's `4gb-patch`, `texture-bucket-safety`, `grass-memory-safety` and
+`save_mem_leak` rather than redistributing them. The fourth, KMRP Map Notes, is
+a manifest only. The edition's folder carries
+`LICENSE-KOTOR-PATCH-MANAGER.txt` beside the `.kpatch` files. KPM's formats and
+rules were read from its source at release 0.7.1.
+
 ## KOTOR Patch Manager — three memory-safety patches
 
 Three patches from the **KOTOR Patch Manager** repository, commit

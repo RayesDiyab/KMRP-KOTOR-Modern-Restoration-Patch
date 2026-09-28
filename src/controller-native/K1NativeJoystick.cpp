@@ -2418,6 +2418,9 @@ void PaintMovieWindowK1(void* player)
 // that follows. So a new player pointer disarms, and the first frame with the
 // skip buttons released arms it. Without that, the startup logos skipped
 // themselves the instant a held button carried over.
+// True in the KPM edition when KMRP Movies is not installed (K1KpmApplier.cpp).
+bool KpmMoviesOffK1();
+
 // The half of a movie frame that has nothing to do with the pad: follow the
 // player, and black the window's bars. False when there is no movie.
 bool TrackMovieFrameK1(void* moviePlayer)
@@ -2436,16 +2439,54 @@ bool TrackMovieFrameK1(void* moviePlayer)
     // Every frame, not just on a new player: the function itself suppresses
     // repeats, and only a per-frame check catches the second and later entries
     // of a playlist. Before the pad is read, so a movie is measured whether or
-    // not a controller is connected.
-    PaintMovieWindowK1(moviePlayer);
+    // not a controller is connected. The bars are KMRP Movies' in the KPM
+    // edition: without it, KMRP leaves the movie window as the game draws it.
+    if (!KpmMoviesOffK1()) {
+        PaintMovieWindowK1(moviePlayer);
+    }
     return true;
+}
+
+// The KPM edition's KMRP Controller: the same module again, as KPM installs every
+// patch's DLL, patches\<id>.dll. KPM allows one patch per hook address, so the
+// core patch holds the GUI and movie frame sites with its stand-ins, and calls the
+// controller copy's frames from them when that copy is loaded (kpm_patch = "" on
+// NativeGuiFrameK1 and NativeMovieFrameK1 in kotor1.hooks.toml). KPM loads every
+// patch DLL before the game runs, so one look, at the first frame, is enough. The
+// standalone edition never has such a module: there the site holds the controller
+// frame itself, or the stand-in alone.
+using FrameFnK1 = void(__cdecl*)(void*);
+
+FrameFnK1 ControllerFrameK1(const char* name)
+{
+    HMODULE controller = GetModuleHandleW(L"kmrp-controller.dll");
+    HMODULE self = nullptr;
+    GetModuleHandleExW(GET_MODULE_HANDLE_EX_FLAG_FROM_ADDRESS |
+                       GET_MODULE_HANDLE_EX_FLAG_UNCHANGED_REFCOUNT,
+                       reinterpret_cast<LPCWSTR>(&ControllerFrameK1), &self);
+    if (!controller || controller == self) {
+        return nullptr;
+    }
+    return reinterpret_cast<FrameFnK1>(GetProcAddress(controller, name));
 }
 
 // The same site without controller support (installed as "no-controller" in
 // kotor1.hooks.toml): the bars beside a narrow movie are the static aspect fit's
-// (.kmv), not the pad's, so they are painted either way.
+// (.kmv), not the pad's, so they are painted either way. In the KPM edition, with
+// KMRP Controller installed, its frame runs instead: it tracks and paints too,
+// and adds the pad's movie skip.
 extern "C" void __cdecl CoreMovieFrameK1(void* moviePlayer)
 {
+    static bool looked = false;
+    static FrameFnK1 controllerFrame = nullptr;
+    if (!looked) {
+        controllerFrame = ControllerFrameK1("NativeMovieFrameK1");
+        looked = true;
+    }
+    if (controllerFrame) {
+        controllerFrame(moviePlayer);
+        return;
+    }
     TrackMovieFrameK1(moviePlayer);
 }
 
@@ -4886,9 +4927,21 @@ void UpdateCursorConfinementK1()
 // for mouse players, and fitting the status summary to KMRP's larger text is a
 // font fix, so neither may depend on the controller option. With the controller
 // on, NativeGuiFrameK1 holds this site and does both itself (the second inside
-// ControllerLayoutFrameK1).
+// ControllerLayoutFrameK1). So when the KPM edition's KMRP Controller is
+// installed (see ControllerFrameK1), its frame runs instead of these two, exactly
+// as it would hold the site in the standalone edition.
 extern "C" void __cdecl CoreGuiFrameK1(void* guiManager)
 {
+    static bool looked = false;
+    static FrameFnK1 controllerFrame = nullptr;
+    if (!looked) {
+        controllerFrame = ControllerFrameK1("NativeGuiFrameK1");
+        looked = true;
+    }
+    if (controllerFrame) {
+        controllerFrame(guiManager);
+        return;
+    }
     UpdateCursorConfinementK1();
     StatusSummaryFrameK1(guiManager);
 }

@@ -44,7 +44,17 @@ and A pressing a focused button that presses its panel) and drops the D-pad
 glyphs on the -/+ arrows; in `C77F7640…`, 217,600 bytes, SHA-256
 `AF223C4D4542B4A983EF4D1137C08AB4AA7F6C999DD7D2C3402DE2DD3BC2D312`, which
 adds `CoreGuiFrameK1` and `CoreMovieFrameK1`, the core stand-ins installed when
-controller support is off (`install = "no-controller"` in `kotor1.hooks.toml`)
+controller support is off (`install = "no-controller"` in `kotor1.hooks.toml`);
+in `D6E40FAF…` and the KPM edition's `.kpatch` files, 236,544 bytes, SHA-256
+`57E68A912782D6CDEDC083A07D29A73AF878CC99A03E03F043C98FD706DC91E0`, which
+adds `K1KpmApplier.cpp` -- the KPM edition's executable changes, applied in
+memory from `kmrp-kpm.dat`, and nothing in the standalone -- and SDL's second
+place, the game folder ([`docs/kpm-edition.md`](../../docs/kpm-edition.md));
+in `125DEA64…` and the four KPM edition patches, 241,664 bytes, SHA-256
+`0C89C330245F752A303A22D5B731C2E16D19D4731078413B195F01C71972E955`, where the
+applier reads which KMRP patches KPM installed and applies the Movies and Map
+Notes parts only when ticked, and `CoreGuiFrameK1` and `CoreMovieFrameK1` hand
+their site to KMRP Controller's frames when that patch is loaded
 -- and what
 `testing/controller/select_controller_path.py` installs into a test game. The
 reverse engineering behind the native path is in
