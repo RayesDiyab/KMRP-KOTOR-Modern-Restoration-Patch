@@ -285,7 +285,8 @@ before:
   checks, `Test-ControllerSupport.ps1`, `Test-ReinstallOverOlderBuild.ps1` and
   `Test-InstalledOverride.ps1` pass, and so does
   `tools/check_controller_drift.py` against the scratch copy. Seen in the
-  scratch copy at 3440x1440 on the virtual pad (under Fixed). Not played by
+  scratch copy at 3440x1440 and 1920x1080 on the virtual pad (under Fixed).
+  Not played by
   hand.
 
 - **The KOTOR Patch Manager MIT licence is installed with the controller.** The
@@ -680,7 +681,8 @@ before:
   `Test-ControllerPromptAssets.py` now fails if any archive carries a D-pad
   arrow glyph (`kmr?dl_*`, `kmr?dr_*`). **Seen in game** in the scratch copy
   at 3440x1440: Gameplay's Difficulty shows the game's - and + with the pad
-  in use, and D-pad right still took it from Normal to Difficult.
+  in use, and D-pad right still took it from Normal to Difficult; at
+  1920x1080 the same, and Skills' + keeps its art on level-up.
 
 - **The Abilities screen's swap-tabs cue sits beside Close** (2026-09-25, at
   the maintainer's request). The X-and-arrows cue that says X cycles Skills,
@@ -782,6 +784,14 @@ before:
   Abilities' X, Start, R3, and a conversation (A to talk, A to skip a line,
   the D-pad down the replies, A to pick one) each did one thing. The guard
   log shows the two presses and the one inert hand-off, nothing else.
+  **The same walk at 1920x1080**, the same day and build: the same three
+  log lines and no other; Gameplay's Close and the in-game Options' Close
+  each pressed once; A on the Character screen opened one level-up, whose
+  Skills OK showed one box, and Powers' notice closed on A; the level was
+  accepted (Jedi Guardian 10 to 11). Inventory used the shield once (4/5 to
+  3/5), and R3, Abilities' X, Messages' X, the Journal's A and Y (Order
+  Received to By Name), the Map's A and Party Selection's B, Equipment's A
+  and B, and a conversation (one A per line or reply) each did one thing.
   Not played by hand.
 
 - **Level Up no longer opens twice and freezes the game** (found 2026-09-26

@@ -267,7 +267,9 @@ with points left (the chargen guard pressed OK, one "unspent skill points" box,
 one "inert" line for Skills' vtable `0x00759990`); Save / Load's list, the
 Inventory list (one use of a shield, 3/5 to 2/5 charges), Messages, the
 Journal's A and Y, the Map's A to Party Selection and B, Abilities, Start, and
-a conversation, with no guard line. The rows of the table above that were
+a conversation, with no guard line. The same walk at 1920x1080, with
+Equipment added, gave the same three lines and no other. The rows of the
+table above that were
 **not measured** are covered by the guard, but only those screens were walked.
 
 `CSWGuiManager::HandleInputEvent` (`0x0040C8E0`), for reference: with a modal
