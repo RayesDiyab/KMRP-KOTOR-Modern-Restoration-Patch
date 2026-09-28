@@ -70,7 +70,7 @@ function Resolve-InputPath([string]$Path) {
 # -Plain turns that off for logs and non-interactive shells.
 
 $script:StepIndex = 0
-$script:StepTotal = if ($ReuseResources) { 4 } else { 5 }
+$script:StepTotal = if ($ReuseResources) { 5 } else { 6 }
 $script:StepStart = Get-Date
 $script:BuildStart = Get-Date
 $script:BarWidth = 32
@@ -246,7 +246,21 @@ if (-not $ReuseResources) {
     Write-Host "  [skipped] Interface resources reused from the previous build" -ForegroundColor DarkYellow
 }
 
-# ---------------------------------------------------------------- 4. compile
+# ---------------------------------------------------------------- 4. layout pool
+# The installer embeds one pool in place of the 49 resolution archives. They
+# share most of their files -- a prompt badge is drawn for its button's size, and
+# many buttons are the same size at many resolutions -- so the archives were
+# 118 MB and their distinct files 58 MB. The archives stay in the resource folder,
+# because the regression checks read them, and the packer stops the build unless
+# every resolution rebuilt from the pool matches its archive. Runs with
+# -ReuseResources as well, so the pool always matches the archives beside it.
+Start-Step "Pooling the resolution layouts"
+$layoutPool = Join-Path $buildDir "resolution-layouts.zip"
+Invoke-Tool -Exe $Python -Label "pool" -FailureMessage "Pooling the resolution layouts failed" -Arguments @(
+    (Join-Path $projectRoot "tools\pack_resolution_layouts.py"), $resourceDir, $layoutPool)
+Complete-Step ("{0:n1} MB" -f ((Get-Item $layoutPool).Length / 1MB))
+
+# ---------------------------------------------------------------- 5. compile
 Start-Step "Compiling the patcher"
 
 $compilerArgs = @(
@@ -307,15 +321,10 @@ foreach ($iconName in $iconNames) {
 }
 Write-Detail ("embedding {0} of {1} UI icons" -f $iconCount, $iconNames.Count)
 
-$guiArchives = @(Get-ChildItem -LiteralPath $resourceDir -Filter "gui-*.zip" | Sort-Object Name)
-$index = 0
-foreach ($archive in $guiArchives) {
-    $index++
-    $resolution = $archive.BaseName.Substring(4)
-    $compilerArgs += "/resource:$($archive.FullName),Kmrp.override.gui.$resolution"
-    Write-Bar -Percent ([int](100 * $index / [Math]::Max(1, $guiArchives.Count))) `
-        -Label ("embedding {0}/{1}  {2}" -f $index, $guiArchives.Count, $resolution)
-}
+# Every resolution's layout, from the pool built in step 4. The installer reads
+# it through GuiPool (src/patcher/KmrpPatcher.cs). Until 2026-09-25 each of the
+# 49 archives was embedded whole, as Kmrp.override.gui.<W>x<H>.
+$compilerArgs += "/resource:$layoutPool,Kmrp.override.layouts"
 
 $compilerArgs += (Join-Path $projectRoot "src\patcher\KmrpPatcher.cs")
 $compilerArgs += (Join-Path $projectRoot "src\patcher\AbilityIconGenerator.cs")
@@ -351,7 +360,7 @@ Invoke-Tool -Exe $compiler -Arguments $compilerArgs -Label "compile" `
     -FailureMessage "KMRP compilation failed"
 Complete-Step ("{0:n1} MB" -f ((Get-Item $outputExe).Length / 1MB))
 
-# ---------------------------------------------------------------- 5. finalise
+# ---------------------------------------------------------------- 6. finalise
 Start-Step "Finalising"
 
 # Explorer aggressively caches executable icons by path. KMRP is rebuilt in place,

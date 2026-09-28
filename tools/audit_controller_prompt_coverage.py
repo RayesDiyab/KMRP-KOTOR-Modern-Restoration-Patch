@@ -16,6 +16,12 @@ selectable, it registers 0x27, D-pad navigation lands on it, and its handler
 (0x006E68B0) calls GetClientOptions, the reset routine at 0x0061D4E0, and then
 the panel's own refresh. It works.
 
+*Superseded 2026-09-25:* the maintainer asked for glyphs on every settings
+screen, and Y now presses Default on all nine (PressDefaultK1 in
+K1NativeJoystick.cpp), so each Default carries a Y badge and is a dedicated
+badge in the sense below. The paragraph above stays as the record of why it had
+none until then.
+
 So this report separates two different things:
 
   dedicated badge    a glyph is drawn on the button, because a specific

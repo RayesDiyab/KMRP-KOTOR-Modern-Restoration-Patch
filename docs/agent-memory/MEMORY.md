@@ -125,11 +125,21 @@ details still belong in `docs/` or `reverse-engineering/`.
 
 ## Approaches to avoid
 
+- Do not screenshot a fullscreen game with GDI (`PIL.ImageGrab`, BitBlt): it
+  returns a stale frame while KOTOR runs fullscreen. Desktop Duplication reads
+  the composed output: `ffmpeg -filter_complex
+  ddagrab=output_idx=0,hwdownload,format=bgra -frames:v 1 shot.png` (checked
+  2026-09-25 at 3440x1440 and 1920x1080).
 - Do not accept arbitrary same-length or vaguely "known modded" executables.
 - Do not patch a discovered constant before searching the full enclosing function,
   conditional branches, and parallel constructors for duplicate sites.
 - Do not edit a generated `gui-<resolution>.zip` as the fix; repair its owning
   source or generator and rebuild.
+- Do not look for the `gui-<resolution>.zip` archives inside the built installer.
+  Since 2026-09-25 they are embedded as one pool of distinct files
+  (`tools/pack_resolution_layouts.py`, `build\kmrp\resolution-layouts.zip`).
+  The archives are the build's intermediates, which the Python checks read;
+  `Test-InstalledOverride.ps1` checks what the installer writes from the pool.
 - Do not infer play-tested coverage from archive inspection or numeric checks.
 - Do not copy the changing GitHub backlog into durable memory. Store only findings
   that remain useful after an issue closes.

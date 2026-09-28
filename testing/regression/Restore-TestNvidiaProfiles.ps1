@@ -26,3 +26,35 @@ function Restore-TestNvidiaProfiles([string]$FixtureRoot) {
         if ($LASTEXITCODE -ne 0) { throw 'NVIDIA fixture cleanup failed; preserving recovery record.' }
     }
 }
+
+# The other per-user state a fixture install leaves outside its folder: the Windows
+# high-DPI value (HKCU\...\AppCompatFlags\Layers, HIGHDPIAWARE), keyed by the fixture
+# executable's full path. Only that fixture's own --restore removes it, so a run that
+# stops between install and restore -- a failed assertion, an exception, an
+# interrupt -- deleted the folder and orphaned the value. Twelve were found on
+# 2026-09-25, two from Test-ControllerSupport's current fixtures.
+#
+# Removes every value under this run's fixture root that names a fixture executable,
+# and nothing else: both conditions, so an unusual -WorkRoot can never reach a real
+# game's entry. Called only when the run deletes its folder: with -KeepWorkRoot the
+# fixtures stay installed on purpose, and --restore on each removes its value.
+#
+# The installer itself is not at fault: a completed install is meant to keep its
+# value until Restore Original (docs/windows-dpi-scaling.md).
+function Remove-TestDpiValues([string]$FixtureRoot) {
+    $root = [IO.Path]::GetFullPath($FixtureRoot).TrimEnd('\') + '\'
+    $key = [Microsoft.Win32.Registry]::CurrentUser.OpenSubKey(
+        'Software\Microsoft\Windows NT\CurrentVersion\AppCompatFlags\Layers', $true)
+    if ($null -eq $key) { return }
+    try {
+        foreach ($name in $key.GetValueNames()) {
+            if ($name.StartsWith($root, [StringComparison]::OrdinalIgnoreCase) -and
+                [IO.Path]::GetFileName($name) -in @('kmrp-regression-selftest.exe', 'kmrp-controller-selftest.exe')) {
+                $key.DeleteValue($name, $false)
+            }
+        }
+    }
+    finally {
+        $key.Dispose()
+    }
+}

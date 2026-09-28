@@ -156,6 +156,11 @@ Only these, and only with these labels:
 Every row marked S needs live confirmation before shipping its prompt. Inventory
 is the only one confirmed.
 
+*Corrected 2026-09-26:* the Character rows were wrong. Its X is Scripts, which
+ships, and its Y is Auto Level Up (`0x006B233C`), not Equip; A is Level Up
+(`0x006B2295`). Decoded from the dispatcher, `0x006B2250`; see *Character
+screen* above.
+
 ### LB / RB
 
 Show "Scroll" only on: Equipment, Inventory, Abilities, Journal, Store, Upgrade,
@@ -196,6 +201,9 @@ a control, which is the same thing dialogue needs below and which neither has
 yet. The panel remains registered in `IsK1MenuPanel` regardless, because an
 unrecognised top modal blanks the badges of the screen underneath it.
 
+*Since 2026-09-24 they have one:* `LBL_KMRPA`, an A drawn beside the focused
+button; see [custom-gui-controls.md](../reverse-engineering/custom-gui-controls.md).
+
 Both controls belong to `CSWGuiMessageBox`, from its constructor at
 `0x00626DF0`: `BTN_OK` at `+0x2F4`, `BTN_CANCEL` at `+0x4B8`, over the GUI named
 `confirm`. The resolution screen, whose badges DID ship, gets its own pair from
@@ -223,15 +231,161 @@ first left of the reply's number, like the main menu's A, where the engine's
 panel clipping hid it. After the second play-test that day it moved to the end
 of the reply's text, where the engine's measure put it mid-sentence; since the
 third it sits at the end of the reply's last line, measured from the drawn
-layout. The reply list fills the whole
+layout. Since the fifth it is centred on that line's letters, 5/8 of the
+line height below the line's top. The reply list fills the whole
 bottom bar, so nothing fits beneath it. The A shows only while replies can be
 picked, so it never has to say "Skip". See `LBL_KMRPDLG` in
 [custom-gui-controls.md](../reverse-engineering/custom-gui-controls.md).
+**Measured in game on 2026-09-25**, in a scratch copy at 3440x1440 driven by
+the virtual pad: the A's centre and the centre of the reply's
+capital-to-baseline band are on the same pixel row. Not yet played by hand.
+
+### Status summary — built 2026-09-25
+
+| Glyph | Label | Location | Show when |
+| --- | --- | --- | --- |
+| A | OK | left of OK, as on the confirmation boxes | a controller is in use |
+
+The box that says "Journal Entry Added", "Item(s) Received" and the like.
+Its only button is OK, and A presses it: the panel registers OK's handler for
+`0x27`. The game's `statussummary.gui` has no control for the glyph, so the
+module adds a label when the panel is built; see
+[custom-gui-controls.md](../reverse-engineering/custom-gui-controls.md).
+**Seen in game on 2026-09-25** at 3440x1440 and 1920x1080 in a scratch copy.
+The D-pad does nothing on this box: focusing its OK makes A recurse until
+the game crashes, so the module never moves focus there.
+
+### Character screen — Level Up and Auto Level Up, built 2026-09-26
+
+| Glyph | Button | Handler, with nothing focused |
+| --- | --- | --- |
+| A | Level Up | `0x006B2295` |
+| Y | Auto Level Up | `0x006B233C` |
+
+Both buttons are drawn only while the member on screen can level up, and so
+are their badges. They are the first badges on filled buttons: the box is
+`dialog2`, which the badge carries under its glyph and the module puts back
+when the badge is not shown. They are sized like the screen's Close and
+Scripts badges. The pad moves no focus on this screen
+([`controller-behaviour-matrix.md`](controller-behaviour-matrix.md)).
+**Seen in game** 2026-09-26 and 2026-09-28, at 3440x1440 in a scratch copy.
+
+### Granted-feats notice — built 2026-09-26
+
+| Glyph | Button | Why |
+| --- | --- | --- |
+| A | OK | the dispatcher, `0x006CD3C0`, closes the box on A whatever holds focus |
+
+"You have been granted the following feat(s) this level", `skillinfo.gui`,
+which Feats opens with in character creation and level-up. The same panel
+says "The following power(s) have been recommended" when Powers' Y is
+pressed, and carries the same A. **Seen in game** 2026-09-28, both texts, at
+3440x1440 in a scratch copy.
+
+## Character creation and level-up — built 2026-09-25
+
+Every screen of both flows carries badges, 42 in all. The class portraits
+carry art and take none. The +/− arrows carry art too and keep it (*Settings
+screens*, below). Each glyph is a button the screen's own
+dispatcher answers; the handler addresses are in the module's tables
+(`src/controller-native/vendor/K1XboxControls.cpp`, beside
+`K1_CLASS_SELECT_PROMPTS`). Tags, indices, empty fills and widths were checked
+in all 49 archives before the targets went in.
+
+| Screen | .gui | A | B | X | Y |
+| --- | --- | --- | --- | --- | --- |
+| Class selection | `classsel.gui` | the focused class (no badge: each portrait is a 400x870 frame over the model) | Cancel | — | — |
+| Quick or Custom | `qorcpnl.gui` | the focused choice, FocusOnly | Cancel | — | — |
+| Custom character | `custpnl.gui` | the focused step (only the current one is enabled), FocusOnly; Cancel when focused | Back (one step) | — | — |
+| Quick character | `quickpnl.gui` | the focused step, FocusOnly; Cancel when focused | Back (one step) | — | — |
+| Portrait | `portcust.gui` | OK, FocusFallback | Cancel | — | — |
+| Attributes | `abchrgen.gui` | OK, FocusFallback | Cancel | — | Recommended |
+| Skills | `skchrgen.gui` | OK, FocusFallback | Cancel | — | Recommended |
+| Feats | `ftchrgen.gui` | OK, FocusFallback | Cancel | Add (the highlighted feat) | Recommended |
+| Name | `name.gui` | OK, FocusFallback | Cancel | — | Random Name |
+| Level up | `leveluppnl.gui` | the focused step, FocusOnly | Back | — | — |
+| Powers | `pwrlvlup.gui` | OK, FocusFallback | Cancel | Select (the highlighted power) | Recommended |
+
+**FocusFallback** is right for the five screens that answer A themselves,
+because since `GuardChargenConfirmK1` A presses whichever button is focused
+there: the A on OK steps aside while focus sits on another badged button.
+**Feats' A and X are swapped by the module** so every screen has A on OK. The
+panel's own dispatcher has them the other way round: A adds the feat
+(`0x006F46EF`) and X is OK (`0x006F46CF`), the mirror of Powers. On Feats the pad's
+A now presses a focused button, and otherwise runs the panel's `OnAccept`
+(`0x006F44C0`). X runs its add, the highlighted feat through `OnFeatPicked`
+(`0x006F3C20`). Both call the routines directly, not the dispatcher, whose pass-on
+to the focused control would click a focused OK. The swap applies only while
+Feats is the screen in front, so a message box over it keeps its own A. The
+maintainer asked for it on 2026-09-25, from a play-test screenshot of the first
+layout.
+
+**Portrait's D-pad now picks portraits.** Left and Right are sent to the screen
+as LT/RT's `0x35`/`0x36`, which its dispatcher treats like `0x2F`/`0x30`
+(`0x006F905F`, `0x006F9094`) but which no control there answers, so focus stays
+put. Until then only LT and RT cycled portraits.
+
+Known limits, not changed:
+- a pad cannot type a name; Random Name (Y) works;
+- level-up's `BTN_CANCEL` is bound at `+0x1B08` but no shipped `leveluppnl.gui`
+  has one;
+- `CSWGuiMainCharGen` and `CSWGuiLevelUpCharGen`, the backdrops, are not
+  recognised as menu panels. They have no buttons, and recognising one that sat
+  above its screen would hide that screen's badges.
+
+**Untested in game**, level-up included.
+
+## Settings screens — built 2026-09-25
+
+Every settings screen carries its buttons' glyphs since the maintainer asked
+for them from a screenshot of Advanced Graphics. Tags, indices, empty fills and
+STRREFs are checked in all 49 archives by the build and by
+`Test-ControllerPromptAssets.py`.
+
+| Screen | .gui | A | B | Y | D-pad left and right |
+| --- | --- | --- | --- | --- | --- |
+| Options, main menu | `optionsmain.gui` | the focused entry, FocusOnly, one column | Close | — | — |
+| Options, in game | `optionsingame.gui` | the focused entry, FocusOnly, one column | Close | — | — |
+| Gameplay | `optgameplay.gui` | Mouse Settings, Key Mapping and Controller Layout when focused | Close | Default | Difficulty's − and +, focused row |
+| Mouse | `optmouse.gui` | — | Close | Default | the slider's own |
+| Feedback | `optfeedback.gui` | — | Close | Default | — |
+| Auto-Pause | `optautopause.gui` | — | Close | Default | — |
+| Graphics | `optgraphics.gui` | Screen Resolution and Advanced Options when focused | Close | Default | Gamma's own |
+| Advanced Graphics | `optgraphicsadv.gui` | OK | Cancel | Default | Texture Quality, Anti-aliasing, Anisotropy |
+| Sound | `optsound.gui` | Advanced Options when focused | Close | Default | the sliders' own |
+| Advanced Sound | `optsoundadv.gui` | OK | Cancel | Default | EAX |
+| Key Mapping | `optkeymapping.gui` | OK | Cancel | Default | — |
+| Pazaak's wager | `pazaakwager.gui` | Wager | Quit | — | Less and More |
+
+**Y presses Default**, which no settings panel does itself. The module presses
+the button as a click does (`PressDefaultK1`, `K1NativeJoystick.cpp`). The five Y
+registrations the engine has on these screens are the gamma and volume sliders'
+change callbacks (`0x006E0190`, `0x006E0F50`); each tests its control's
+`+0x4C` and re-applies the current value, so nothing a player could want is
+lost.
+
+**The −/+ arrows keep the game's art** and take no glyph. From 2026-09-25 to
+2026-09-28 they showed the D-pad's left and right in its place on the focused
+row, and always on Portrait and Pazaak's wager; the maintainer asked for the
+arrows back ("I dont want the dpad leave the + and -"), and
+`Test-ControllerPromptAssets.py` now fails if an archive carries one of those
+glyphs (`kmr?dl_*`, `kmr?dr_*`). The D-pad still changes the value: Left and
+Right press the row's arrows (`K1_CYCLE_ROWS`); on Attributes and Skills they
+call the panel's own lower and raise (`K1_POINTS_SCREENS`); on Portrait and the
+wager the screen's dispatcher answers them.
+
+The Controller Layout entry is KMRP's own button, bound at run time, so its A
+is painted from `K1ControllerLayout.cpp` through `KmrpPaintLayoutEntryPromptK1`;
+its caption is inline text, so its badge is placed against "Controller Layout"
+and never re-measured by the installer (`PROMPT_INLINE_LABELS`).
+
 **Untested in game.**
 
 ## Screens needing no prompts
 
-The six native-direction screens (Abilities, Feats, Powers, Skills, Map, chargen
+(Until 2026-09-25; since then four: Attributes and Skills in character creation are
+navigated by KMRP -- see `docs/controller-behaviour-matrix.md`.) The six
+native-direction screens (Abilities, Feats, Powers, Skills, Map, chargen
 Abilities) beyond their A/B/X/Y rows; free look, where only Start works and
 leaving is R3; and gameplay beyond the three listed.
 
@@ -287,6 +441,11 @@ them. Wrong question. Measured on the Gameplay options screen:
 So A reaches them through `CSWGuiPanel`'s ordinary focused-control path, exactly
 like every other button. **They must not get an invented `[X] Default` or
 `[Y] Default` badge.** They are `[A] Select` buttons and need nothing.
+
+*Superseded 2026-09-25:* the maintainer asked for glyphs on every settings
+screen, and Y now presses Default on all nine (*Settings screens*, above). The
+`[Y] Default` badge is therefore not invented: it depicts what the button does.
+The rule held while no controller button did it.
 
 More generally: the static survey resolves **288 controls registering `0x27`**
 across the executable. A button without a badge is the normal case, not a defect.

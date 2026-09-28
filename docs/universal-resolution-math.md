@@ -357,7 +357,12 @@ field, and listed only ten fields.
 - The 236 shared TGA assets are stored once in the standalone patcher; three
   more, `lbl_mileftbot`, `lbl_hex_3` and `lbl_hex_6`, are built per resolution
   (build of 2026-09-24).
-- Each supported resolution has a small independent GUI archive.
+- Each supported resolution has its own GUI archive in the build,
+  `gui-<W>x<H>.zip`, which the regression checks read. Since 2026-09-25 the
+  installer embeds them as one pool that stores each distinct file once, and
+  rebuilds the chosen resolution's files from it
+  (`tools/pack_resolution_layouts.py`). The 49 archives were 118.2 MB and the
+  pool is 57.7 MB.
 - 3440×1440 starts from the final, play-tested GUI collection; the controller
   cues, confirm badges and list gutters are added at every resolution, 3440×1440
   included.
@@ -433,6 +438,10 @@ screens.
   fields in *Executable fields* that gold holds at an earlier or vanilla value.
   *Corrected 2026-09-24:* this line said it matched gold byte-for-byte.
 - A complete 1920×1080 install verified the EXE, INI, selected GUI files, shared artwork, backup records, resolution-switch protection, and full restore.
+- `Test-InstalledOverride.ps1` installs through the real installer and requires
+  Override to hold exactly `override-common.zip` and the resolution's archive,
+  byte for byte, and nothing after restore. It passed at all 49 resolutions on
+  the installer of 2026-09-25, `4EF3C181…`.
 - The remaining resolutions still require representative in-game play testing because structural verification cannot prove how every module and GPU driver renders them.
 - The Feedback prototype and active transient-HUD geometry are checked directly
   in all 48 packaged archives by

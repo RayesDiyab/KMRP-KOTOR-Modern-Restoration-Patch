@@ -57,7 +57,27 @@ both of those scripts and `Test-UpdateCheck.ps1` were run and pass, and the
 three scripts again against `AD3DC07D…`, which changes only the update dialog.
 Against `E5AFC981…` (the dialogue A from the drawn layout, the combat message on
 one line; a full build), the four Python checks and both of those scripts were
-run and pass. Both use their own fixture executable names, so an NVIDIA
+run and pass; against `EC98B10F…` (the character-creation A guard, reusing those
+archives), both scripts again. Against `EE262D77…` (the character-creation
+badges; a full build) the four Python checks and both scripts, and
+`Test-LargeAddressAware.ps1` and `Test-DpiCompatibility.ps1` against
+`189DF101…`; against `1720E0C1…` (Attributes and Skills navigation, reusing those
+archives) both scripts again; against `DB9D7A08…` (Feats' A and X swapped,
+the name-entry guard) both scripts, `Test-ControllerSupport.ps1` with its new
+exports check; against `4EF3C181…` (the resolution layouts pooled, reusing
+those archives and that module) both scripts and `Test-InstalledOverride.ps1`
+at all 49 resolutions; against `6A822AAC…` (the settings screens' badges and
+arrow glyphs, a full build) the four Python checks and all three scripts;
+against `D407BF3A…` (the status summary's layout added to the module)
+`Test-ControllerSupport.ps1` and `Test-ReinstallOverOlderBuild.ps1`; against
+`63E7AAB9…` and `B5D3CBB7…` (the status summary's A, then the D-pad kept off
+its OK) both scripts; against `49671B67…` (the swap-tabs cue beside Close, a
+full build) the four Python checks and all three scripts; against
+`80616FE6…` (the line spacing, reusing those archives) all three scripts;
+against `128CDC79…` (Level Up, Auto Level Up and the skill-info notice, a
+full build) the four Python checks and all three scripts; against
+`9736B41F…` (the echo guard on every panel, the D-pad arrow glyphs taken
+out, a full build) the four Python checks and all three scripts. All pass. Both use their own fixture executable names, so an NVIDIA
 profile made for them cannot match a real `swkotor.exe`. `Test-DpiCompatibility.ps1` and
 `Test-NvidiaPresentMethod.ps1` write per-user compatibility and NVIDIA profile
 state for their throwaway executables and remove it again, so run them
@@ -65,16 +85,18 @@ knowingly:
 
 | Script | What it pins |
 | --- | --- |
-| `Test-ControllerSupport.ps1` | Controller install and restore ownership, the installed hook table against the source, foreign-file refusal, controller-only, driver-only and default installs, and an edited `kmrp-controller.ini` surviving restore and reinstall |
+| `Test-ControllerSupport.ps1` | Controller install and restore ownership, the installed hook table against the source and against the installed module's exports (`tools/check_module_exports.py`, added 2026-09-25 after installer `BCA35F28` shipped a hook its module lacked), foreign-file refusal, controller-only, driver-only and default installs, and an edited `kmrp-controller.ini` surviving restore and reinstall |
 | `Test-DpiCompatibility.ps1` | The per-executable Windows DPI setting, and restoring exactly what was there |
+| `Restore-TestNvidiaProfiles.ps1` | Dot-sourced cleanup for the five scripts that patch fixtures in place. `Restore-TestNvidiaProfiles` undoes their NVIDIA profile records. `Remove-TestDpiValues`, added 2026-09-25, removes their Windows high-DPI values when the work folder is deleted, so a run stopped between install and restore no longer orphans one (see `docs/windows-dpi-scaling.md`) |
 | `Test-LargeAddressAware.ps1` | Both accepted inputs, one with the LAA bit already set, give the same output and restore byte for byte |
 | `Test-MovieResolution.ps1` | The four movie-mode operands and the render-resolution operands, read back at four resolutions |
 | `Test-NvidiaPresentMethod.ps1` | The NVIDIA present-method step: when it writes, when it leaves the player's choice alone, and restore (dot-sources `Restore-TestNvidiaProfiles.ps1`; `NvidiaPresentSelfTest.cs` is its compiled self-test) |
-| `Test-ControllerPromptAssets.py` | Every prompt texture and control mapping in all 49 archives, four controller families, and the Controller Layout screen |
-| `Test-GeneratedGuiGeometry.py` | The reported GUI repairs and the active HUD in all 49 archives, the R3 cue included |
+| `Test-ControllerPromptAssets.py` | Every prompt texture and control mapping in all 49 archives, four controller families, and the Controller Layout screen; since 2026-09-28 that no archive carries a D-pad glyph for the −/+ arrows (`kmr?dl_*`, `kmr?dr_*`), which the build shipped from 2026-09-25 until the maintainer asked for the arrows' own art back; since 2026-09-26 the badges that stand on their button's own box (`backing`): the box on both borders, the texture exactly that colour away from the glyph, and the glyph clear of the edges |
+| `Test-GeneratedGuiGeometry.py` | The reported GUI repairs and the active HUD in all 49 archives, the R3 cue included, and since 2026-09-25 the swap-tabs cue's place left of Close on Abilities |
 | `Test-FontAtlasScale.py` | Every packaged font atlas draws one texel per pixel |
 | `Test-ProtonResourceCompatibility.py` | Case-exact, collision-free resource names for Linux / Proton |
 | `Test-ReinstallOverOlderBuild.ps1` | Reinstalling a newer build over an older one replaces the executable instead of skipping it; reinstalling the same build changes nothing; an unsupported executable is refused; a damaged backup blocks a patch. |
+| `Test-InstalledOverride.ps1` | What an install writes to Override: exactly the files of `override-common.zip` and the resolution's archive, byte for byte, and nothing left after restore. Added 2026-09-25, when the installer began rebuilding each resolution's files from a pool (`tools/pack_resolution_layouts.py`). Four resolutions by default; `-Resolutions all` installs all 49, 19 minutes on 2026-09-25 |
 | `Test-UpdateCheck.ps1` | The installer's update check: release-tag parsing, the version comparison (a 2.x tag would be "newer" than 1.5.0), and "Don't remind me again for <version>" through the real `settings.json`, put back byte for byte. `-Live` asks GitHub once (informational); `-RenderTo` draws the dialog to a PNG. `UpdateCheckSelfTest.cs` is its compiled self-test |
 
 ## What is deliberately not committed

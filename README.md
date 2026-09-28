@@ -178,6 +178,12 @@ sections, with 742 byte positions of the original image changed at one
 resolution or another — every one listed in
 [reverse-engineering/binary-inventory.md](reverse-engineering/binary-inventory.md).
 
+**Each interface file is stored once.** Most of the 49 resolutions' files are
+the same bytes at several resolutions, so the installer embeds them as one pool
+of distinct files, with an index per resolution. It rebuilds the chosen
+resolution's set from the pool and checks every file against its hash. That
+took the installer from 208,672,256 bytes to 145,208,320 (2026-09-25).
+
 **One scaling rule, everywhere.** Font metrics, list rows, icon sizes and popup
 geometry all scale by `max(1.0, height / 720)` — 1.00× at 720p, 1.50× at 1080p,
 2.00× at 1440p, 3.00× at 2160p. The `.gui` files and the executable constants

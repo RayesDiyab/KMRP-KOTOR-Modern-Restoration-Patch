@@ -615,10 +615,20 @@ SWAP_CUE_GLYPH = "SWAP"
 # engine's stretch does not distort it.
 SWAP_CUE_ASPECT = 2
 SUBTAB_TAGS = ("BTN_SKILLS", "BTN_POWERS", "BTN_FEATS")
+# Since 2026-09-25 the cue sits in the bottom bar, just left of Close, beside the
+# screen's other button prompts, at the maintainer's request; it sat past the last
+# sub-tab before. It keeps the sub-tabs' height, so it is the size it was.
+SWAP_CUE_BESIDE = "BTN_EXIT"
+
+
+def _extent(control) -> tuple[int, int, int, int]:
+    extent = control.get_struct("EXTENT")
+    return (extent.get_int32("LEFT"), extent.get_int32("TOP"),
+            extent.get_int32("WIDTH"), extent.get_int32("HEIGHT"))
 
 
 def add_subtab_swap_cue(source: Path, destination: Path) -> bool:
-    """Put the swap-tabs cue just past the last sub-tab, on its row."""
+    """Put the swap-tabs cue in the bottom bar, just left of Close."""
     gff = read_gff(source)
     root = gff.root
     controls = root.get_list("CONTROLS")
@@ -627,23 +637,32 @@ def add_subtab_swap_cue(source: Path, destination: Path) -> bool:
     if SWAP_CUE_TAG in by_tag:
         return False
 
-    tabs = []
-    for tag in SUBTAB_TAGS:
-        control = by_tag.get(tag)
-        if control is None:
-            raise ValueError(f"{source.name} has no {tag}; it has no sub-tabs")
-        extent = control.get_struct("EXTENT")
-        tabs.append((extent.get_int32("LEFT"), extent.get_int32("TOP"),
-                     extent.get_int32("WIDTH"), extent.get_int32("HEIGHT")))
-    tabs.sort()
+    for tag in SUBTAB_TAGS + (SWAP_CUE_BESIDE,):
+        if tag not in by_tag:
+            raise ValueError(f"{source.name} has no {tag}")
+    height = max(_extent(by_tag[tag])[3] for tag in SUBTAB_TAGS)
+    width = height * SWAP_CUE_ASPECT
+    close = _extent(by_tag[SWAP_CUE_BESIDE])
+    # A third of the cue clear of Close's frame, centred on its height.
+    left = close[0] - height // 3 - width
+    top = close[1] + (close[3] - height) // 2
 
-    last = tabs[-1]
-    height = last[3]
-    gap = height // 3
-    left = last[0] + last[2] + gap
+    # Nothing the player can click, and no other cue, may be under it.
+    for control in controls:
+        tag = control.get_string("TAG")
+        kind = control.get_int32("CONTROLTYPE") if control.exists("CONTROLTYPE") else -1
+        if tag == SWAP_CUE_BESIDE or not (
+                kind in R3_CUE_BLOCKING_TYPES or tag.startswith("LBL_KMRP")):
+            continue
+        x, y, w, h = _extent(control)
+        if x < left + width and left < x + w and y < top + height and top < y + h:
+            raise ValueError(f"{source.name}: the swap cue at {left},{top} "
+                             f"({width}x{height}) would cover {tag}")
+    if left < 0:
+        raise ValueError(f"{source.name}: no room left of {SWAP_CUE_BESIDE}")
+
     _clone_cue_control(controls, by_tag[SUBTAB_TAGS[0]], SWAP_CUE_TAG,
-                       SWAP_CUE_FILL, left, last[1], height,
-                       width=height * SWAP_CUE_ASPECT)
+                       SWAP_CUE_FILL, left, top, height, width=width)
 
     root.set_list("CONTROLS", controls)
     write_gff(gff, destination)

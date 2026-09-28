@@ -72,12 +72,25 @@ the screen does nothing with it.
 | **Save / Load** | activate | close | **delete** | — | — | — | — | — | — | — | nav | nav | — | — | — |
 | **Options (in-game)** | activate | close | — | — | — | — | prev tab | next tab | — | — | nav | nav | — | — | — |
 | **Message box** | activate | dismiss | — | — | — | list scroll | — | — | — | — | nav | nav | — | — | — |
-| **Feats / Powers / Skills** | activate | close | — | — | list scroll | list scroll | — | — | — | — | **native** | nav | — | — | — |
+| **Attributes / Skills** (chargen, level-up) | **OK** | cancel | — | **recommended** | list scroll | list scroll | — | — | — | — | **KMRP**: ↑/↓ rows then OK, ←/→ lower/raise the row; on the strip ←/→ move | nav | — | — | — |
+| **Feats** (chargen, level-up) | **OK** (swapped by KMRP) | cancel | **add feat** (swapped by KMRP) | **recommended** | list scroll | list scroll | — | — | — | — | **native** | nav | — | — | — |
+| **Powers** (level-up) | **OK** | cancel | **select power** | **recommended** | list scroll | list scroll | — | — | — | — | **native** | nav | — | — | — |
 | **Store (merchant)** | activate | close | **buy/sell** | — | list scroll | list scroll | — | — | — | — | nav | nav | — | — | — |
 | **Container** | **take** | close | **take all** | — | — | — | — | — | — | — | nav | nav | — | — | — |
 | **Party select** | activate | close | — | — | — | — | — | — | — | — | nav | nav | — | — | — |
-| **Level up** | activate | close | — | — | — | — | — | — | — | — | nav | nav | — | — | — |
-| **Character creation** | activate | back | — | **name** | list scroll | list scroll | **prev step** | **next step** | — | — | **native** | nav | — | — | — |
+| **Level up** | activate (step) | back a step | — | — | — | — | — | — | — | — | nav | nav | — | — | — |
+| **Class select** | activate | **main menu** | — | — | — | — | prev class | next class | — | — | nav | nav | — | — | — |
+| **Quick or Custom / step lists** | activate (step) | back a step | — | — | — | — | — | — | — | — | nav | nav | — | — | — |
+| **Portrait** | **OK** | cancel | — | — | — | — | prev portrait | next portrait | — | — | **←/→ portrait**, ↑/↓ nav | nav | — | — | — |
+| **Name** | **OK** | cancel | — | **random name** | — | — | — | — | — | — | nav | nav | — | — | — |
+
+*Corrected 2026-09-25:* a single "Character creation" row claimed Y = name and
+LT/RT = previous/next step, and "Feats / Powers / Skills" claimed no X or Y. From
+the dispatchers (the chargen survey of that day): no step list handles
+`0x35`/`0x36`, only class select and portrait do; Y is Recommended on Attributes,
+Skills, Feats and Powers and Random Name on Name; X is Feats' OK and Powers'
+Select. A on those five screens presses the focused button when one is focused
+(`GuardChargenConfirmK1`).
 | **Options sub-screens** | activate | close | — | — | list scroll | list scroll | — | — | — | — | nav | nav | — | — | — |
 | **Dialogue** | **select / skip** | — | — | — | **terminal scroll** | **terminal scroll** | — | — | — | — | **Up/Down = reply** | — | — | camera | — |
 
@@ -98,13 +111,18 @@ what the current build does.
 | 2026-09-15 | **R3 switches party member** on Abilities, Character, Equipment and Inventory: event `0xCE` to the panel's own dispatcher. Those four R3 cells are no longer "—" | `PerformPendingPartySwitchK1`, `K1_PARTY_SWITCH_PANELS` |
 | 2026-09-19 | **Start opens the Map** in gameplay, and closes the in-game menu from any tab; see the note under *Gameplay* | `K1_START_OPENS_MAP`, `K1_START_CLOSES_MENU` |
 | -- | **R3 leaves free look too.** A press in class 4 is bridged to the exit, `0x06`, on the gameplay frame, so R3 toggles and LB also leaves | `PerformPendingFreeLookExitK1` |
+| 2026-09-25 | **Settings: Left and Right step a −/+ row, and Y presses Default.** On Difficulty, Texture Quality, Anti-aliasing, Anisotropy and EAX, Left and Right press the row's own − and + and the focus stays on the value; Y presses Default on the nine screens that have one. **Pazaak's wager navigates itself**: its dispatcher moves the wager on all four directions. **Untested in game** | `K1_CYCLE_ROWS`, `PressDefaultK1`, `K1_NATIVE_DIRECTION_PANELS` |
 | 2026-09-25 | **X disengages and Y removes the last queued action, in combat.** They press the HUD's own `BTN_CLEARALL` and `BTN_CLEARONE` through the engine's click handlers, only while that button is on screen, and a badge beside each shows only then. Outside combat the two gameplay cells are still "—". Their GUI events still go out. **Untested in game** | `PressHudButtonK1`, `NativeActionBarK1`; see `reverse-engineering/custom-gui-controls.md` |
+| 2026-09-25 | **The status summary ignores the D-pad.** Focusing its OK made A recurse between the box and OK until the stack overflowed (`0xC00000FD`); A closes the box without focus. See [`../reverse-engineering/custom-gui-controls.md`](../reverse-engineering/custom-gui-controls.md) | `K1_NO_PAD_FOCUS_PANELS` |
+| 2026-09-26 | **The Character screen ignores the D-pad; A levels up and Y auto-levels.** With Level Up focused, one A opened the level-up screen twice and froze the game: the screen answers A and Y itself and then passes them to the focused button, whose click raises them again. Every action there has its own button, so the pad moves no focus. The granted-feats notice is covered the same way. **Seen in game** 2026-09-26: A opened one level-up; four level-ups on the pad followed on 2026-09-28 | `K1_NO_PAD_FOCUS_PANELS` |
+| 2026-09-28 | **A with a button focused presses that button once, on every screen.** 62 buttons on 39 panels do nothing but press A, B, X or Y on their own panel; with one focused, A made the panel act and then the button press again (a loop, or A plus Cancel). Now A presses the focused button alone, as a click does, and a panel never hands an event to a control that would press it back. **Seen in game** 2026-09-28 on Gameplay, in-game Options and level-up Skills; see [`../reverse-engineering/retained-xbox-gui-events.md`](../reverse-engineering/retained-xbox-gui-events.md) | `PressFocusedRaiseButtonK1`, `GuardPanelEchoK1` (hook `0x00409E60`) |
 
 **One cell was wrong when written.** Abilities' X is not "use/assign": its `0x29`
 handler at `0x006AE714` cycles the Skills / Powers / Feats sub-tab, a three-state
 index at `CGuiInGame+0xBC0` that wraps -- read from the disassembly in
 [`../reverse-engineering/custom-gui-controls.md`](../reverse-engineering/custom-gui-controls.md),
-and the reason the swap-tabs cue sits beside those tabs.
+and the reason for the swap-tabs cue, which sat beside those tabs until
+2026-09-25 and now sits in the bottom bar, left of Close.
 
 ---
 
@@ -218,11 +236,29 @@ sees one screen for all eight — which an earlier pass of this audit did.
 
 ## Screens the engine navigates itself
 
-`ABILITIES`, `ABILITIES_CHARGEN`, `FEATS`, `MAP`, `POWERS`, `SKILLS` implement
-the direction events in their own dispatcher. On these the KMRP layer **declines**
-and the native codes are emitted normally. **S**, and the decline is asserted by
+`ABILITIES`, `FEATS`, `MAP` and `POWERS` implement the direction events in their
+own dispatcher. On these the KMRP layer **declines** and the native codes are
+emitted normally.
+
+*Changed 2026-09-25:* `ABILITIES_CHARGEN` and `SKILLS` were on this list. Their
+dispatchers are the Xbox design: Left/Right lowered or raised the selected row
+whatever held focus, and were then passed to the focused control. So on the
+bottom strip, Left from OK lowered an attribute *and* moved to Recommended
+(play-test that day). KMRP now owns every direction on both screens
+(`K1_POINTS_SCREENS`):
+- Up/Down walks the rows, reaching OK below the last one;
+- Left/Right on a row lowers or raises it, through the panel's own routines;
+- on the strip, Left/Right moves between the three buttons.
+
+**Untested in game.** **S**, and the decline is asserted by
 the regression suite. Their internal navigation has **not** been driven end to
 end with the pad — **H**.
+
+*Added 2026-09-25:* Pazaak's wager (`0x0067E150`) joins them. It was missing
+because the retained-event inventory never listed the panel, so KMRP owned its
+directions and moved the focus between its buttons while the wager stayed put.
+KMRP now also moves no focus there, since the dispatcher answers every
+direction whatever holds focus.
 
 ## Screens not reached live
 
@@ -233,14 +269,21 @@ Statically proven only; each needs live or human verification (**S**, needs **V 
 | Store (merchant) | focused control | close | buy/sell | — | list scroll | KMRP |
 | Container | `0x27` implemented | close | take all | — | — | KMRP |
 | Party select | focused control | close | — | — | — | KMRP |
-| Level up | focused control | close | — | — | — | KMRP |
-| Class select (chargen) | focused control | close | — | — | — | KMRP, plus LT/RT `0x35`/`0x36` |
-| Name entry (chargen) | focused control | close | — | implemented | — | KMRP |
-| Abilities (chargen) | `0x27` implemented | close | — | implemented | list scroll | **native** |
-| Options sub-screens | focused control | close | — | — | list scroll | KMRP |
+| Level up | focused control | back a step (`0x006EE740`) | — | — | — | KMRP |
+| Class select (chargen) | focused control | main menu (`0x006DBD57`) | — | — | — | KMRP, plus LT/RT `0x35`/`0x36` |
+| Quick or Custom (chargen) | focused control | cancel (`0x006F0E54`) | — | — | — | KMRP |
+| Custom / Quick step lists (chargen) | focused control | back a step (`0x006EF630`, `0x006F02A0`) | — | — | — | KMRP |
+| Portrait (chargen) | `0x27` implemented, guarded | cancel (`0x006F903F`) | — | — | — | KMRP; ←/→ sent as `0x35`/`0x36` |
+| Name entry (chargen) | focused control | cancel (`0x006FA259`) | — | random name (`0x006FA279`) | — | KMRP |
+| Abilities (chargen) | `0x27` implemented, guarded | cancel | — | recommended (`0x006F892F`) | list scroll | **native** |
+| Skills (chargen, level-up) | `0x27` implemented, guarded | cancel | — | recommended (`0x006F6ABF`) | list scroll | **native** |
+| Feats (chargen, level-up) | `0x27` add feat, guarded; the pad's A is remapped to OK | cancel | OK (`0x006F46CF`); the pad's X is remapped to add | recommended (`0x006F471B`) | list scroll | **native** |
+| Powers (level-up) | `0x27` OK, guarded | cancel | select (`0x006F294F`) | recommended (`0x006F292F`) | list scroll | **native** |
+| Options sub-screens | focused control | close | — | Default (pressed by KMRP, 2026-09-25) | list scroll | KMRP; Left/Right step a −/+ row |
 | Auto-pause options | focused control | close | — | — | — | KMRP |
 | Graphics / Resolution | focused control | — | — | — | — | KMRP |
 | Pazaak setup / game | focused control | close | — | implemented | — | KMRP |
+| Pazaak's wager | wager (`0x0067E17F`) | quit | — | — | — | **native**: Left/Down lower, Right/Up raise (`0x0067E221`, `0x0067E23D`) |
 | Upgrade / item select | focused control | close | — | — | list scroll | KMRP |
 | Solo mode query | **panel-level, ignores focus** | close | — | — | — | KMRP |
 | Key mappings | focused control | close | — | — | — | KMRP |

@@ -16,6 +16,14 @@ temporary directory—not beside tracked sources.
 ## Build ladder
 
 ```powershell
+# The controller module, first, whenever src\controller-native changed.
+# The installer embeds src\controller-native\kmrp-controller.module and
+# neither build below compiles it: on 2026-09-25 a -ReuseResources build
+# shipped the previous module unchanged. From Git Bash, run it in that folder
+# as cmd //c ".\\build.cmd" -- where NoDefaultCurrentDirectoryInExePath is
+# set, cmd will not run it by its bare name.
+& .\src\controller-native\build.cmd
+
 # Fast patcher compilation using already-generated resources
 .\build_kmrp.ps1 -ReuseResources
 

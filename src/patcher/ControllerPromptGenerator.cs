@@ -27,7 +27,7 @@ namespace Kmrp
     ///     center_x = (control_width - label_width) / 2 - gap - radius
     ///
     /// So this reads the placement manifest the build wrote into the same
-    /// archive, resolves the STRREFs against the real dialog.tlk, measures with
+    /// resolution layout, resolves the STRREFs against the real dialog.tlk, measures with
     /// the font advances carried in that manifest, and shifts the already
     /// composited pixels sideways. A whole number of texels, which is at most
     /// about 1.5 screen pixels of quantisation on the widest button -- far below
@@ -71,7 +71,7 @@ namespace Kmrp
         /// whose badge needs to move. Null when there is nothing to do.
         /// </summary>
         internal static Dictionary<string, byte[]> TryBuild(string executablePath,
-                                                            string guiResourceName)
+                                                            GuiPool layout)
         {
             try
             {
@@ -87,7 +87,7 @@ namespace Kmrp
                 Dictionary<string, byte[]> baked =
                     new Dictionary<string, byte[]>(StringComparer.OrdinalIgnoreCase);
 
-                if (!ReadArchive(guiResourceName, prompts, baked,
+                if (!ReadLayout(layout, prompts, baked,
                                  ref textureWidth, ref textureHeight,
                                  ref spacing, ref advances))
                     return null;
@@ -211,40 +211,31 @@ namespace Kmrp
             return total;
         }
 
-        private static bool ReadArchive(string guiResourceName, List<Prompt> prompts,
-                                        Dictionary<string, byte[]> baked,
-                                        ref int textureWidth, ref int textureHeight,
-                                        ref double spacing, ref double[] advances)
+        private static bool ReadLayout(GuiPool layout, List<Prompt> prompts,
+                                       Dictionary<string, byte[]> baked,
+                                       ref int textureWidth, ref int textureHeight,
+                                       ref double spacing, ref double[] advances)
         {
-            using (Stream resource = System.Reflection.Assembly.GetExecutingAssembly()
-                                           .GetManifestResourceStream(guiResourceName))
-            {
-                if (resource == null)
-                    return false;
-                using (ZipArchive archive = new ZipArchive(resource, ZipArchiveMode.Read, false))
-                {
-                    ZipArchiveEntry manifest = archive.GetEntry(ManifestName);
-                    if (manifest == null)
-                        return false;   // an archive from before this existed
-                    using (StreamReader reader = new StreamReader(manifest.Open(), Encoding.UTF8))
-                        ParseManifest(reader, prompts, ref textureWidth, ref textureHeight,
-                                      ref spacing, ref advances);
-                    if (prompts.Count == 0)
-                        return false;
+            ZipArchiveEntry manifest = layout.GetEntry(ManifestName);
+            if (manifest == null)
+                return false;   // a layout from before this existed
+            using (StreamReader reader = new StreamReader(manifest.Open(), Encoding.UTF8))
+                ParseManifest(reader, prompts, ref textureWidth, ref textureHeight,
+                              ref spacing, ref advances);
+            if (prompts.Count == 0)
+                return false;
 
-                    foreach (Prompt prompt in prompts)
-                    {
-                        string name = prompt.ResRef + ".tga";
-                        ZipArchiveEntry entry = archive.GetEntry(name);
-                        if (entry == null)
-                            continue;
-                        using (Stream input = entry.Open())
-                        using (MemoryStream buffer = new MemoryStream())
-                        {
-                            input.CopyTo(buffer);
-                            baked[name] = buffer.ToArray();
-                        }
-                    }
+            foreach (Prompt prompt in prompts)
+            {
+                string name = prompt.ResRef + ".tga";
+                ZipArchiveEntry entry = layout.GetEntry(name);
+                if (entry == null)
+                    continue;
+                using (Stream input = entry.Open())
+                using (MemoryStream buffer = new MemoryStream())
+                {
+                    input.CopyTo(buffer);
+                    baked[name] = buffer.ToArray();
                 }
             }
             return true;
@@ -367,6 +358,13 @@ namespace Kmrp
         /// uncompressed 32-bit BGRA with a bottom-left origin, so rows are
         /// independent and a byte move within each row is the whole operation --
         /// row order does not matter for a horizontal shift.
+        ///
+        /// The columns the shift vacates repeat the edge column that moved away
+        /// from them. On every ordinary badge that column is fully transparent
+        /// (all 26,460 badge textures of the 2026-09-26 build), so nothing
+        /// changes for them; a badge that stands on its button's own uniform box
+        /// (Level Up and Auto Level Up carry dialog2) keeps an unbroken box
+        /// instead of a transparent gap.
         /// </summary>
         private static byte[] ShiftColumns(byte[] tga, int width, int height, int texels)
         {
@@ -396,11 +394,18 @@ namespace Kmrp
             {
                 int rowStart = TgaHeaderSize + row * stride;
                 if (texels > 0)
+                {
                     Buffer.BlockCopy(tga, rowStart, result, rowStart + shiftBytes, copyBytes);
+                    for (int column = 0; column < texels; column++)
+                        Buffer.BlockCopy(tga, rowStart, result, rowStart + column * 4, 4);
+                }
                 else
+                {
                     Buffer.BlockCopy(tga, rowStart + shiftBytes, result, rowStart, copyBytes);
-                // Vacated columns stay fully transparent, which is what the rest of
-                // the badge sheet already is.
+                    int last = rowStart + stride - 4;
+                    for (int column = width + texels; column < width; column++)
+                        Buffer.BlockCopy(tga, last, result, rowStart + column * 4, 4);
+                }
             }
             return result;
         }

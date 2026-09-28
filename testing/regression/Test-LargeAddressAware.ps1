@@ -130,6 +130,8 @@ try {
 }
 finally {
     Restore-TestNvidiaProfiles $WorkRoot
+    # Kept fixtures keep their DPI values; --restore on each removes them.
+    if (-not $KeepWorkRoot) { Remove-TestDpiValues $WorkRoot }
     if (-not $KeepWorkRoot -and (Test-Path -LiteralPath $WorkRoot)) {
         $tempRoot = [System.IO.Path]::GetFullPath([System.IO.Path]::GetTempPath())
         if (-not $WorkRoot.StartsWith($tempRoot, [StringComparison]::OrdinalIgnoreCase)) {

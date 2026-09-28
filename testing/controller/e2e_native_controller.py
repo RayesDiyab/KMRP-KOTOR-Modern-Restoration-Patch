@@ -1521,13 +1521,15 @@ NAV_CROSS_PENALTY = 6          # must match K1_NAV_CROSS_AXIS_PENALTY
 
 INGAME_MENU_DISPATCHER = 0x00624970
 
-# Content panels that navigate themselves -- ABILITIES, ABILITIES_CHARGEN, FEATS,
-# MAP, POWERS, SKILLS, mirrored from K1_NATIVE_DIRECTION_PANELS. Walking onto the
+# Content panels that navigate themselves -- ABILITIES, FEATS, MAP, POWERS,
+# mirrored from K1_NATIVE_DIRECTION_PANELS. ABILITIES_CHARGEN (0x006F8880) and
+# SKILLS (0x006F6A10) left that list on 2026-09-25: KMRP navigates them itself
+# (K1_POINTS_SCREENS), and neither is reached by this harness. Walking onto the
 # Abilities tab closes the in-game menu, which reproduces on the module as it was
 # before any of the tab work, so the walk steps over those tabs rather than
 # reporting a pre-existing engine bug as eight cascading failures.
-SELF_NAVIGATING_PANELS = (0x006AE5F0, 0x006F8880, 0x006F4680,
-                          0x00693BC0, 0x006F28C0, 0x006F6A10)
+# PAZAAK_WAGER (0x0067E150) joined it the same day; this harness never opens it.
+SELF_NAVIGATING_PANELS = (0x006AE5F0, 0x006F4680, 0x00693BC0, 0x006F28C0, 0x0067E150)
 
 # Control classes that drive themselves: list box, navigable/editbox, slider.
 SELF_NAVIGATING_CONTROLS = (0x0041CE20, 0x0041A9D0, 0x0041ADF0)
@@ -1855,8 +1857,8 @@ def test_navigation(game, pad, report):
     # And the screens the engine navigates itself must be left alone.
     report.add("navigation", "native-navigation screens are not overridden",
                True,
-               "ABILITIES, ABILITIES_CHARGEN, FEATS, MAP, POWERS, SKILLS "
-               "carry the direction events themselves and the layer declines",
+               "ABILITIES, FEATS, MAP, POWERS carry the direction events "
+               "themselves and the layer declines",
                "NATIVE")
     pad.send("reset")
 

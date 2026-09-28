@@ -21,20 +21,25 @@ build and verification workflow. Resolution and game-engine math remain in
 dist/KMRP - KOTOR Modern Restoration Patch.exe
 ```
 
-No companion asset folder is required. The executable embeds 70 resources,
-listed here from the 2026-09-25 build (`873A01E2…`, 179,625,984 bytes):
+No companion asset folder is required. The executable embeds 22 resources,
+listed here from the 2026-09-25 build (`4EF3C181…`, 145,208,320 bytes):
 
 | resource | what |
 | --- | --- |
 | `Kmrp.goldpatch` | the verified clean-to-gold executable delta, 47,730 bytes |
 | `Kmrp.resolutions` | the 49-resolution catalog, `resolutions.tsv` |
-| `Kmrp.override.gui.<W>x<H>` | one GUI archive per resolution, 49 of them, each with that resolution's 18 font atlases |
+| `Kmrp.override.layouts` | the GUI files of all 49 resolutions, each set with that resolution's 18 font atlases, as one pool: each distinct file once, and an index per resolution (`tools/pack_resolution_layouts.py`; the installer reads it through `GuiPool`) |
 | `Kmrp.override.common` | the common Override archive: shared textures, icons, portraits and prompt art, but no font atlas |
 | `Kmrp.bundled` | the list of bundled third-party Override files, which yield to the player's own |
 | `Kmrp.license.highresolutionmenus`, `Kmrp.license.drivercompat` | the KOTOR High Resolution Menus GPL notice and K1DC's MPL licence |
 | `Kmrp.drivercompat.dinput8`, `Kmrp.drivercompat.asi` | K1 Modern Driver Compatibility and its ASI loader |
 | `Kmrp.controller.module`, `.runtime`, `.sdl`, `.sdllicense`, `.kpmlicense` | the controller component: KMRP's module, the KPM runtime, SDL 3 and its licence, and KPM's MIT licence |
 | `Kmrp.brand`, seven `Kmrp.icon.*` | the brand artwork and the UI icons: folder, missing, monitor, Settings, shield, tools, verified |
+
+Until 2026-09-25 each resolution's archive was embedded whole, as
+`Kmrp.override.gui.<W>x<H>`: 70 resources, and 208,672,256 bytes in the last
+such build (`DB9D7A08…`). Why the pool replaced them is under *Changed* in
+`CHANGELOG.md`.
 
 The supported editable executable is identified by SHA-256
 `761F9466F456A83909036BAEBB5C43167D722387BE66E54617BA20A8C49E9886`.
@@ -648,6 +653,12 @@ resource build:
 .\build_kmrp.ps1 -ReuseResources
 ```
 
+Between the resources and the compile, `build_kmrp.ps1` packs the 49 resolution
+archives into one pool, `build\kmrp\resolution-layouts.zip`, which the
+installer embeds in their place (`tools/pack_resolution_layouts.py`). The step
+runs with `-ReuseResources` as well. It stops the build unless every resolution
+rebuilt from the pool matches its archive, and took 41 seconds on 2026-09-25.
+
 `build_kmrp.ps1` uses the
 `assets/branding/favicon.ico`. `src/patcher/favicon.ico` is retained as a
 synchronised compatibility copy, not as an independent source of truth.
@@ -702,7 +713,8 @@ the resolution in the legacy `--apply` and `--in-place` forms selects
     current gold, with `--installed` and the installer's `--apply` output at all
     49 resolutions; verify it reports zero undocumented code/data runs.
 13. Run the rest of the regression set: `Test-ControllerSupport.ps1`,
-    `Test-ReinstallOverOlderBuild.ps1`, `Test-UpdateCheck.ps1 -Live`, `Test-MovieResolution.ps1`,
+    `Test-ReinstallOverOlderBuild.ps1`, `Test-InstalledOverride.ps1 -Resolutions all`,
+    `Test-UpdateCheck.ps1 -Live`, `Test-MovieResolution.ps1`,
     `Test-NvidiaPresentMethod.ps1`, `Test-ControllerPromptAssets.py`,
     `Test-FontAtlasScale.py` and `Test-ProtonResourceCompatibility.py`, then
     `tools/check_controller_drift.py`, `tools/check_patcher_hook_table.py`,

@@ -2161,6 +2161,139 @@ extern "C" int __cdecl ResolveResolutionConfirmK1(void* panel, int* event, int* 
     return 0;
 }
 
+namespace {
+// Character creation and level-up: A on the five screens that answer A themselves
+// AND pass it on.
+//
+// CSWGuiAbilitiesCharGen, CSWGuiSkillsCharGen, CSWGuiFeatsCharGen,
+// CSWGuiPowersLevelUp and CSWGuiPortraitCharGen are retained Xbox panels. Each
+// dispatcher runs its own A action and then calls CSWGuiPanel::HandleInputEvent
+// (0x00409E60), which hands the same event to the focused control, [panel+0x1C].
+// Their buttons are wired to raise the panel's events: Attributes' OK registers
+// A (0x27) -> Global::AcceptButtonCallback (0x00624BA0) -> the panel's vtable
+// +0x50 (0x0040B640) -> HandleInputEvent(0x27, 1) on the panel again. So with OK
+// focused, one A is the panel's A, then OK's click, then the panel's A again,
+// without end: a stack overflow (0xC00000FD, three times on 2026-09-25, after
+// confirming "Attribute scores cannot be reduced below 8"). With 30 points left
+// each pass also re-showed the "spend your points" box. A mouse never loops,
+// because clicking does not set the panel's focused control; the pad's D-pad
+// focus does. The same wiring makes A on a focused Cancel run the screen's
+// accept and then Cancel.
+//
+// The guard, at each dispatcher's entry:
+//   * A pressed with a button in focus presses that button, once, the way A
+//     does on every other KMRP screen -- the button's own click decides (OK
+//     accepts, Cancel cancels, + raises), and the event the panel would have
+//     handled is made inert;
+//   * the one re-entry that click raises is let through, and any deeper one --
+//     the loop -- is made inert;
+//   * a release (value 0) is made inert, so it can never click anything;
+//   * A with no button in focus is left alone: the screen's own A, as on Xbox.
+// Inert is 0x41: above every dispatcher's 0x27..0x40 table, outside
+// CSWGuiNavigable's 0x2F..0x40, and registered by no AddEvent call in the image.
+constexpr int K1_GUI_EVENT_INERT = 0x41;
+
+struct ChargenPressK1 { bool active; int reentries; };
+ChargenPressK1 g_chargenPress = {};
+
+// Does this control answer A with a click of its own? CSWGuiControl::AddEvent
+// (0x0041AB20) keeps 12-byte entries {receiver, handler, code} at [control+0x38],
+// their count at +0x3C; CSWGuiControl::HandleInputEvent (0x00418750) runs the
+// handler of the entry whose code matches.
+bool ClicksOnConfirmK1(void* control)
+{
+    if (!IsReadableK1(control, 0x40)) {
+        return false;
+    }
+    const char* const entries = *reinterpret_cast<const char* const*>(
+        static_cast<char*>(control) + 0x38);
+    const int count = *reinterpret_cast<const int*>(static_cast<char*>(control) + 0x3C);
+    if (count <= 0 || count > 64 || !IsReadableK1(entries, count * 12)) {
+        return false;
+    }
+    for (int i = 0; i < count; ++i) {
+        const char* const entry = entries + i * 12;
+        if (*reinterpret_cast<const int*>(entry + 8) == K1_GUI_EVENT_CONFIRM &&
+            *reinterpret_cast<void* const*>(entry + 4) != nullptr) {
+            return true;
+        }
+    }
+    return false;
+}
+
+int GuardChargenConfirmK1(const char* name, void* panel, int* event, int* value)
+{
+    if (!panel || !event || !value) {
+        return 0;
+    }
+    if (*event != K1_GUI_EVENT_CONFIRM && *event != K1_GUI_EVENT_CONFIRM_ALIAS) {
+        return 0;
+    }
+    if (g_chargenPress.active) {
+        if (++g_chargenPress.reentries > 1) {
+            LogConfirmK1(name, *event, *value, "loop -> inert");
+            *event = K1_GUI_EVENT_INERT;
+        }
+        return 0;
+    }
+    if (*value == 0) {
+        *event = K1_GUI_EVENT_INERT;
+        return 0;
+    }
+    void* const focused = *reinterpret_cast<void**>(static_cast<char*>(panel) + 0x1C);
+    if (!ClicksOnConfirmK1(focused)) {
+        LogConfirmK1(name, *event, *value, "no button in focus -> the screen's A");
+        return 0;
+    }
+    LogConfirmK1(name, *event, *value, "press the focused button");
+    g_chargenPress = {true, 0};
+    using Handle = void(__thiscall*)(void*, int, int);
+    void** const vtable = *reinterpret_cast<void***>(focused);
+    reinterpret_cast<Handle>(vtable[0x3C / 4])(focused, K1_GUI_EVENT_CONFIRM, 1);
+    g_chargenPress = {};
+    *event = K1_GUI_EVENT_INERT;
+    return 0;
+}
+}
+
+// One export per hooked dispatcher: check_patcher_hook_table.py keys hooks by name.
+extern "C" int __cdecl GuardAbilitiesConfirmK1(void* panel, int* event, int* value)
+{
+    return GuardChargenConfirmK1("abilities", panel, event, value);
+}
+
+extern "C" int __cdecl GuardSkillsConfirmK1(void* panel, int* event, int* value)
+{
+    return GuardChargenConfirmK1("skills", panel, event, value);
+}
+
+extern "C" int __cdecl GuardFeatsConfirmK1(void* panel, int* event, int* value)
+{
+    return GuardChargenConfirmK1("feats", panel, event, value);
+}
+
+extern "C" int __cdecl GuardPowersConfirmK1(void* panel, int* event, int* value)
+{
+    return GuardChargenConfirmK1("powers", panel, event, value);
+}
+
+extern "C" int __cdecl GuardPortraitConfirmK1(void* panel, int* event, int* value)
+{
+    return GuardChargenConfirmK1("portrait", panel, event, value);
+}
+
+// Name entry (CSWGuiNameChargen, dispatcher 0x006FA220) answers A through its
+// focused control only -- its jump table starts at 0x28 -- and both the name box
+// and OK register A to HandleDoneButton (0x006F9CD0). So the release of the A
+// that opened the screen, from the step list, reached the name box and confirmed
+// the name at once: the screen stayed up only while A was held (play-test,
+// 2026-09-25). Guarded for that release; a press still reaches the focused
+// control exactly as before, the guard pressing it itself.
+extern "C" int __cdecl GuardNameConfirmK1(void* panel, int* event, int* value)
+{
+    return GuardChargenConfirmK1("name", panel, event, value);
+}
+
 extern "C" void __cdecl NativeRumbleK1(int envelopeBBits, int envelopeABits,
                                        void* rumbleOwner, float* frameTime)
 {
@@ -2691,14 +2824,93 @@ constexpr std::uint8_t K1_CTL_FLAG_DISABLED   = 0x20;
 // assumed: these are every panel in the retained-event inventory implementing
 // any of 0x2F / 0x30 / 0x31 / 0x32 or their 0x3D..0x40 aliases. On these screens
 // the engine already navigates itself and this layer stands down.
+// Character creation's Portrait screen, whose Left/Right pick a portrait; see
+// NavigateFocusK1.
+constexpr std::uintptr_t K1_PORTRAIT_CHARGEN_DISPATCHER = 0x006F8FF0;
+constexpr std::uintptr_t K1_PAZAAK_WAGER_DISPATCHER = 0x0067E150;
+// Panels on which the pad never moves the focus; see NavigateFocusK1. Each
+// answers its buttons from its own dispatcher, whatever holds focus, and then
+// passes the same event on to the focused control, whose click raises that
+// event on the panel again (the AddEvent thunks 0x00624BA0, "raise A", and
+// 0x00644720, "raise Y", through the panel's vtable +0x50 and +0x5C).
+constexpr std::uintptr_t K1_NO_PAD_FOCUS_PANELS[] = {
+    // The status summary, "Journal Entry Added" and the like. With OK focused,
+    // one A ran panel -> OK -> panel until the stack was gone: 0xC00000FD,
+    // measured 2026-09-25.
+    0x00625AC0,   // STATUS_SUMMARY
+    // The Character screen. A levels up and Y auto-levels (0x006B2295,
+    // 0x006B233C), X opens Scripts, B closes and R3 changes party member, all
+    // with nothing focused. With Level Up focused, one A opened the level-up
+    // screen twice, stacked, and the game froze (2026-09-26); focused Auto Level
+    // Up would have run the Y action on top of the A one.
+    0x006B2250,   // CHARACTER
+    // "You have been granted the following feat(s)" (skillinfo.gui). A closes it
+    // whatever holds focus (0x006CD3E7), and its OK raises A like the status
+    // summary's. Its list holds the focus and keeps the D-pad, so the pad never
+    // reached OK in play (2026-09-26); listed so it never can.
+    0x006CD3C0,   // SKILL_INFO
+};
+
 constexpr std::uintptr_t K1_NATIVE_DIRECTION_PANELS[] = {
     0x006AE5F0,   // ABILITIES
-    0x006F8880,   // ABILITIES_CHARGEN
     0x006F4680,   // FEATS
     0x00693BC0,   // MAP
     0x006F28C0,   // POWERS
-    0x006F6A10,   // SKILLS
+    // Pazaak's wager box, added 2026-09-25: Left and Down lower the wager, Right
+    // and Up raise it (0x0067E221, 0x0067E23D), whatever holds focus. It was
+    // missing because the retained-event inventory never listed the panel, so
+    // the pad moved the focus between its buttons and the wager never changed.
+    0x0067E150,   // PAZAAK_WAGER
+    // ABILITIES_CHARGEN (0x006F8880) and SKILLS (0x006F6A10) were here until
+    // 2026-09-25; KMRP now navigates them itself -- see K1_POINTS_SCREENS.
 };
+
+// Character creation's two points screens, Attributes and Skills, in both chargen
+// and level-up. Their dispatchers are the Xbox design: Up/Down had no handler of
+// their own, and Left/Right (0x2F/0x3F, 0x30/0x40) lowered and raised the selected
+// row -- whatever held focus -- and were then passed to the focused control too.
+// With the pad's focus on the bottom strip, Left from OK therefore lowered the
+// attribute AND moved to Recommended, and Right to Cancel raised it (play-test,
+// 2026-09-25). KMRP owns every direction on these screens instead:
+//   Up/Down     the rows, top to bottom; Down from the last row reaches OK, Up
+//               from the strip returns to the row last in focus;
+//   Left/Right  on a row, that row's value, calling the panel's own lower/raise
+//               with its own sound, and focus stays put; on the strip, the next
+//               button along, and no value changes.
+// A row is its value button (*_POINTS_BTN). Focusing one runs the engine's
+// "enter" event for it -- SetActiveControl (0x0040A630) sends exit (1) to the old
+// control and enter (0) to the new -- and the panels register enter on exactly
+// those buttons (Attributes 0x006F8200, OnEnterPointsButton 0x006F70E0; Skills
+// 0x006F5FD0, 0x006F4BF0), which is what selects the row the value calls act on.
+struct PointsScreenK1 {
+    std::uintptr_t dispatcher;
+    std::uintptr_t lower;          // thiscall(panel), no arguments
+    std::uintptr_t raise;
+    int rowCount;
+    std::size_t rows[8];           // value buttons, top to bottom as drawn
+    std::size_t strip[3];          // Recommended, OK, Cancel, left to right
+};
+constexpr PointsScreenK1 K1_POINTS_SCREENS[] = {
+    // CSWGuiAbilitiesCharGen: STR DEX CON INT WIS CHA as drawn. INT and WIS are
+    // bound the other way round (0x1F9C and 0x1DD8), so this is not the stride.
+    {0x006F8880, 0x006F8480, 0x006F8670, 6,
+     {0x188C, 0x1A50, 0x1C14, 0x1F9C, 0x1DD8, 0x2160}, {0x26AC, 0x2324, 0x24E8}},
+    // CSWGuiSkillsCharGen: Computer Use, Demolitions, Stealth, Awareness,
+    // Persuade, Repair, Security, Treat Injury.
+    {0x006F6A10, 0x006F6370, 0x006F6570, 8,
+     {0x19CC, 0x1B90, 0x1D54, 0x1F18, 0x20DC, 0x22A0, 0x2464, 0x2628},
+     {0x2B74, 0x27EC, 0x29B0}},
+};
+
+const PointsScreenK1* PointsScreenForK1(std::uintptr_t dispatcher)
+{
+    for (const PointsScreenK1& screen : K1_POINTS_SCREENS) {
+        if (screen.dispatcher == dispatcher) {
+            return &screen;
+        }
+    }
+    return nullptr;
+}
 
 // Control classes that consume the direction events themselves. A focused list
 // box scrolls its own rows, and stealing the press to move focus off it would
@@ -2874,12 +3086,323 @@ struct ButtonRemapK1 {
     int            slot;        // the pad slot, as K1_BUTTONS names it
     int            event;       // what to dispatch to that panel instead
     const char*    what;
+    // Or, when set, what to do instead of dispatching `event` -- and the remap
+    // then applies only while that panel is the one in front, so a message box
+    // over it keeps its own A.
+    void         (*action)(void* panel);
+    // When set, which panels the remap applies to, in place of `panel`. The
+    // settings screens share the base panel's dispatcher, so a dispatcher cannot
+    // tell them apart; their class can.
+    bool         (*accepts)(void* panel);
 };
 
-constexpr ButtonRemapK1 K1_BUTTON_REMAPS[] = {
-    { K1_JOURNAL_DISPATCHER, 0x74, K1_EVENT_Y,     "A: Active/Completed" },
-    { K1_JOURNAL_DISPATCHER, 0x77, K1_EVENT_BLACK, "Y: sort order" },
+// Feats (CSWGuiFeatsCharGen, chargen and level-up): its dispatcher answers A with
+// "add the highlighted feat" (0x006F46EF) and X with OK (0x006F46CF) -- the
+// reverse of every other screen, Powers included. Swapped at the maintainer's
+// request, 2026-09-25, so the pad's A is OK and X adds, and the badges follow.
+// Both call the panel's own routines, not its dispatcher: the dispatcher passes
+// the event on to the focused control afterwards, and an X dispatched as A would
+// then also click a focused OK.
+void FeatsConfirmK1(void* panel)
+{
+    // A button in focus: A presses it, as on the other character-creation
+    // screens (GuardChargenConfirmK1). Its click raises the panel's own event.
+    void* const focused = *FieldAt<void**>(panel, 0x1C);
+    if (ClicksOnConfirmK1(focused)) {
+        g_chargenPress = {true, 0};
+        using Handle = void(__thiscall*)(void*, int, int);
+        reinterpret_cast<Handle>((*reinterpret_cast<void***>(focused))[0x3C / 4])(
+            focused, K1_GUI_EVENT_CONFIRM, 1);
+        g_chargenPress = {};
+        return;
+    }
+    // Otherwise OK, exactly as Feats' X handler does it: its sound, then
+    // OnAccept (0x006F44C0).
+    if (void* const manager = *FieldAt<void*>(panel, 0x18)) {
+        using PlayGuiSoundFn = void(__thiscall*)(void*, int);
+        EngineFn<PlayGuiSoundFn>(0x0040A140)(manager, 0);
+    }
+    using AcceptFn = void(__thiscall*)(void*);
+    EngineFn<AcceptFn>(0x006F44C0)(panel);
+}
+
+void FeatsAddK1(void* panel)
+{
+    // Feats' A handler without its pass-on: its sound, the grid's highlighted
+    // feat (0x006ABA50 on the grid at +0x1A08), then OnFeatPicked (0x006F3C20).
+    if (void* const manager = *FieldAt<void*>(panel, 0x18)) {
+        using PlayGuiSoundFn = void(__thiscall*)(void*, int);
+        EngineFn<PlayGuiSoundFn>(0x0040A140)(manager, 0);
+    }
+    using SelectedFn = int(__thiscall*)(void*);
+    const int feat = EngineFn<SelectedFn>(0x006ABA50)(static_cast<char*>(panel) + 0x1A08);
+    using PickFn = void(__thiscall*)(void*, int);
+    EngineFn<PickFn>(0x006F3C20)(panel, feat);
+}
+
+constexpr std::uintptr_t K1_FEATS_DISPATCHER = 0x006F4680;
+
+// Y is Default on every settings screen that has one (2026-09-25, with the Y
+// badge on each: "add glyphs to all settings screens"). No settings panel answers
+// Y itself -- the five Y registrations on Graphics and Sound are their sliders'
+// change callbacks (0x006E0190, 0x006E0F50), which only re-apply the current
+// value -- so the pad presses the button, its own registered 0x27 as a click
+// does. Gameplay's handler, for one, resets through 0x0061D4E0 and refreshes the
+// panel (0x006E68B0). Offsets from the bind calls; the classes are the same
+// from the main menu and in game.
+struct DefaultButtonK1 {
+    std::uintptr_t vtable;
+    std::size_t    offset;
 };
+constexpr DefaultButtonK1 K1_DEFAULT_BUTTONS[] = {
+    {0x007586F8, 0x16F8},   // Graphics
+    {0x007584A0, 0x1F88},   // Advanced Graphics
+    {0x007587C0, 0x1368},   // Sound
+    {0x00758550, 0x0F8C},   // Advanced Sound
+    {0x00758E00, 0x0788},   // Gameplay
+    {0x007585F8, 0x0788},   // Mouse
+    {0x007581E8, 0x0A68},   // Feedback
+    {0x00758EE0, 0x14E0},   // Auto-Pause
+    {0x00759358, 0x01B0},   // Key Mapping
+};
+
+void* DefaultButtonOfK1(void* panel)
+{
+    if (!LooksLikePointerK1(panel)) {
+        return nullptr;
+    }
+    const std::uintptr_t vtable = *reinterpret_cast<std::uintptr_t*>(panel);
+    for (const DefaultButtonK1& entry : K1_DEFAULT_BUTTONS) {
+        if (entry.vtable == vtable) {
+            return static_cast<char*>(panel) + entry.offset;
+        }
+    }
+    return nullptr;
+}
+
+bool HasDefaultButtonK1(void* panel)
+{
+    return DefaultButtonOfK1(panel) != nullptr;
+}
+
+void PressDefaultK1(void* panel)
+{
+    void* const button = DefaultButtonOfK1(panel);
+    if (!button) {
+        return;
+    }
+    const std::uint32_t flags = *FieldAt<std::uint32_t>(button, K1_CTL_FLAGS);
+    if ((flags & K1_CTL_FLAG_VISIBLE) == 0 || (flags & K1_CTL_FLAG_DISABLED) != 0) {
+        return;
+    }
+    if (void* const manager = *FieldAt<void*>(panel, 0x18)) {
+        using PlayGuiSoundFn = void(__thiscall*)(void*, int);
+        EngineFn<PlayGuiSoundFn>(0x0040A140)(manager, 0);   // as Feats' OK
+    }
+    using HandleFn = void(__thiscall*)(void*, int, int);
+    reinterpret_cast<HandleFn>((*reinterpret_cast<void***>(button))[K1_VTABLE_HANDLE_INPUT / 4])(
+        button, K1_GUI_EVENT_CONFIRM, 1);
+}
+
+// ------------------------------------------------ the echo guard (2026-09-28)
+//
+// Many buttons do nothing of their own: their click presses a button on their own
+// panel. AddEvent (0x0041AB20) stores {receiver, handler, event} at
+// [control+0x38], and these handlers are two-instruction thunks through the
+// panel's vtable, where +0x50..+0x5C are 0x0040B640..0x0040B670, each
+// `HandleInputEvent(E, 1)` on the panel:
+//
+//   0x00624BA0 -> +0x50 -> A (0x27)      0x00624BC0 -> +0x58 -> X (0x29)
+//   0x00624BB0 -> +0x54 -> B (0x28)      0x00644720 -> +0x5C -> Y (0x2A)
+//
+// A mouse click runs the button, which presses E on the panel, whose dispatcher
+// acts and then hands E to the focused control (CSWGuiPanel::HandleInputEvent,
+// 0x00409E60) -- normally none, because a click does not set the focus. The pad's
+// D-pad does set it, and then one A went wrong two ways:
+//   * an echo: the focused button presses the same A back, so the panel acts
+//     again and hands A on again, without end -- the status summary's stack
+//     overflow (2026-09-25), the Character screen's double level-up and freeze
+//     (2026-09-26);
+//   * a second action: the panel acts on A, then the focused button presses B, X
+//     or Y as well -- A with Cancel focused both accepted and cancelled.
+// A scan of all 515 AddEvent calls in the image found 62 such registrations on 39
+// panels (reverse-engineering/retained-xbox-gui-events.md). Two halves fix both, for
+// every panel at once:
+//   1. A with such a button focused presses that button, and only it -- exactly a
+//      mouse click (PressFocusedRaiseButtonK1, a remap of the pad's A);
+//   2. a panel never hands an event to a focused control whose own handler would
+//      press that same event back on it: the hand-off is made inert
+//      (GuardPanelEchoK1, a hook on 0x00409E60).
+// The chargen screens, Feats and the resolution box keep their own tested A paths.
+struct RaiseThunkK1 { std::uintptr_t handler; std::size_t slot; int event; };
+constexpr RaiseThunkK1 K1_RAISE_THUNKS[] = {
+    {0x00624BA0, 0x50, 0x27},   // AcceptButtonCallback: A
+    {0x00624BB0, 0x54, 0x28},   // B
+    {0x00624BC0, 0x58, 0x29},   // X
+    {0x00644720, 0x5C, 0x2A},   // Y
+};
+constexpr std::uintptr_t K1_PANEL_RAISE_A = 0x0040B640;   // +0x50; B, X, Y 0x10 apart
+constexpr std::uintptr_t K1_BUTTON_HANDLE_INPUT = 0x0041AD40;   // CSWGuiButton: sound, then 0x0041A9D0
+constexpr std::uintptr_t K1_CONTROL_HANDLE_INPUT = 0x00418750;  // CSWGuiControl: enter/exit, then the table
+
+void LogGuardK1(const char* what, void* panel, int event, int value)
+{
+    static int logged = 0;
+    if (logged >= 256) {
+        return;
+    }
+    ++logged;
+    FILE* f = nullptr;
+    if (!fopen_s(&f, "kmrp-confirm-focus.log", "a") && f) {
+        const std::uintptr_t vtable = LooksLikePointerK1(panel)
+            ? *reinterpret_cast<std::uintptr_t*>(panel) : 0;
+        fprintf(f, "%lu guard panel=%08lX event=0x%X value=%d -> %s\n",
+                GetTickCount(), static_cast<unsigned long>(vtable), event, value, what);
+        fclose(f);
+    }
+}
+
+// The event `control`'s own handler for `event` presses on `panel`, or 0 when it
+// does something else. Only plain buttons (and, for the echo, plain controls):
+// a list box runs its own class logic first, and Save / Load's list, which
+// carries such a handler, loaded the save correctly with the pad (2026-09-26).
+int RaisedOnPanelK1(void* control, void* panel, int event, bool buttonsOnly)
+{
+    if (!LooksLikePointerK1(control) || !IsReadableK1(control, 0x58) ||
+        !IsReadableK1(panel, 4)) {
+        return 0;
+    }
+    void** const vtable = *reinterpret_cast<void***>(control);
+    if (!IsReadableK1(vtable, 0x40)) {
+        return 0;
+    }
+    const std::uintptr_t handle = reinterpret_cast<std::uintptr_t>(vtable[0x3C / 4]);
+    if (handle != K1_BUTTON_HANDLE_INPUT &&
+        (buttonsOnly || handle != K1_CONTROL_HANDLE_INPUT)) {
+        return 0;
+    }
+    const char* const entries = *FieldAt<const char*>(control, 0x38);
+    const int count = *FieldAt<int>(control, 0x3C);
+    if (count <= 0 || count > 64 || !IsReadableK1(entries, count * 12)) {
+        return 0;
+    }
+    // As 0x00418750 does: the first entry for this event with a handler runs.
+    for (int i = 0; i < count; ++i) {
+        const char* const entry = entries + i * 12;
+        if (*reinterpret_cast<const int*>(entry + 8) != event) {
+            continue;
+        }
+        const std::uintptr_t handler = *reinterpret_cast<const std::uintptr_t*>(entry + 4);
+        if (handler == 0) {
+            continue;
+        }
+        if (*reinterpret_cast<void* const*>(entry) != panel) {
+            return 0;
+        }
+        void** const panelVtable = *reinterpret_cast<void***>(panel);
+        for (const RaiseThunkK1& thunk : K1_RAISE_THUNKS) {
+            if (handler != thunk.handler) {
+                continue;
+            }
+            if (!IsReadableK1(panelVtable, thunk.slot + 4)) {
+                return 0;
+            }
+            const std::uintptr_t raise =
+                reinterpret_cast<std::uintptr_t>(panelVtable[thunk.slot / 4]);
+            return raise == K1_PANEL_RAISE_A + (thunk.slot - 0x50) * 4 ? thunk.event : 0;
+        }
+        return 0;
+    }
+    return 0;
+}
+
+// CSWGuiPanel::HandleInputEvent (0x00409E60), with ecx the panel: it hands the
+// event to [panel+0x1C]. When that control would only press the same event back,
+// the panel has already acted on it, so the hand-off is the echo and is made the
+// inert 0x41 (see K1_GUI_EVENT_INERT). Releases too: a control runs its handler
+// on a release as well, and the thunk presses with value 1 regardless.
+extern "C" int __cdecl GuardPanelEchoK1(void* panel, int* event, int* value)
+{
+    if (!panel || !event || !value || *event == K1_GUI_EVENT_INERT) {
+        return 0;
+    }
+    if (!IsReadableK1(panel, K1_PANEL_ACTIVE + sizeof(void*))) {
+        return 0;
+    }
+    void* const focused = *FieldAt<void*>(panel, K1_PANEL_ACTIVE);
+    if (!focused || RaisedOnPanelK1(focused, panel, *event, false) != *event) {
+        return 0;
+    }
+    LogGuardK1("the focused control would press it back -> inert", panel, *event, *value);
+    *event = K1_GUI_EVENT_INERT;
+    return 0;
+}
+
+void* NavigationPanelK1(void** outTabBar);
+
+// Screens whose A already presses the focused button, or is resolved otherwise:
+// Attributes, Skills, Feats, Powers, Portrait and Name (GuardChargenConfirmK1,
+// FeatsConfirmK1) and the resolution box (ResolveResolutionConfirmK1).
+constexpr std::uintptr_t K1_OWN_CONFIRM_DISPATCHERS[] = {
+    0x006F8880, 0x006F6A10, 0x006F4680, 0x006F28C0, 0x006F8FF0, 0x006FA220, 0x006E0CF0,
+};
+
+// The focused button, when it is one whose click presses something on its panel.
+void* FocusedRaiseButtonK1()
+{
+    void* const panel = NavigationPanelK1(nullptr);
+    if (!panel || InListK1(DispatcherOfK1(panel), K1_OWN_CONFIRM_DISPATCHERS,
+                           sizeof(K1_OWN_CONFIRM_DISPATCHERS) /
+                               sizeof(K1_OWN_CONFIRM_DISPATCHERS[0]))) {
+        return nullptr;
+    }
+    void* const focused = *FieldAt<void*>(panel, K1_PANEL_ACTIVE);
+    if (!LooksLikePointerK1(focused) || !IsReadableK1(focused, 0x58)) {
+        return nullptr;
+    }
+    const std::uint32_t flags = *FieldAt<std::uint32_t>(focused, K1_CTL_FLAGS);
+    if ((flags & K1_CTL_FLAG_VISIBLE) == 0 || (flags & K1_CTL_FLAG_DISABLED) != 0) {
+        return nullptr;
+    }
+    return RaisedOnPanelK1(focused, panel, K1_GUI_EVENT_CONFIRM, true) != 0 ? focused : nullptr;
+}
+
+bool HasFocusedRaiseButtonK1(void*)
+{
+    return FocusedRaiseButtonK1() != nullptr;
+}
+
+void PressFocusedRaiseButtonK1(void*)
+{
+    void* const button = FocusedRaiseButtonK1();
+    if (!button) {
+        return;
+    }
+    LogGuardK1("A presses the focused button", NavigationPanelK1(nullptr),
+               K1_GUI_EVENT_CONFIRM, 1);
+    using HandleFn = void(__thiscall*)(void*, int, int);
+    reinterpret_cast<HandleFn>((*reinterpret_cast<void***>(button))[K1_VTABLE_HANDLE_INPUT / 4])(
+        button, K1_GUI_EVENT_CONFIRM, 1);
+}
+
+constexpr ButtonRemapK1 K1_BUTTON_REMAPS[] = {
+    { K1_JOURNAL_DISPATCHER, 0x74, K1_EVENT_Y,     "A: Active/Completed", nullptr },
+    { K1_JOURNAL_DISPATCHER, 0x77, K1_EVENT_BLACK, "Y: sort order",       nullptr },
+    { K1_FEATS_DISPATCHER,   0x74, K1_EVENT_X,     "A: OK (Feats)",       FeatsConfirmK1 },
+    { K1_FEATS_DISPATCHER,   0x76, K1_EVENT_A,     "X: Add Feat (Feats)", FeatsAddK1 },
+    { 0,                     0x77, K1_EVENT_Y,     "Y: Default (settings)", PressDefaultK1,
+      HasDefaultButtonK1 },
+    // Last, so the Journal's and Feats' own A come first. See the echo guard.
+    { 0,                     0x74, K1_EVENT_A,     "A: the focused button", PressFocusedRaiseButtonK1,
+      HasFocusedRaiseButtonK1 },
+};
+
+// Does this remap apply to `panel`?
+bool RemapAppliesToK1(const ButtonRemapK1& remap, void* panel)
+{
+    return remap.accepts != nullptr ? remap.accepts(panel)
+                                    : DispatcherOfK1(panel) == remap.panel;
+}
 constexpr int K1_BUTTON_REMAP_COUNT =
     sizeof(K1_BUTTON_REMAPS) / sizeof(K1_BUTTON_REMAPS[0]);
 
@@ -3356,8 +3879,17 @@ int RemappedButtonEventK1(int slot)
         return 0;                       // gameplay keeps every button as it is
     }
     for (int i = 0; i < K1_BUTTON_REMAP_COUNT; ++i) {
-        if (K1_BUTTON_REMAPS[i].slot == slot &&
-            PanelWithDispatcherK1(K1_BUTTON_REMAPS[i].panel) != nullptr) {
+        if (K1_BUTTON_REMAPS[i].slot != slot) {
+            continue;
+        }
+        if (K1_BUTTON_REMAPS[i].action != nullptr) {
+            void* const top = TopPanelK1();
+            if (top != nullptr && RemapAppliesToK1(K1_BUTTON_REMAPS[i], top)) {
+                return K1_BUTTON_REMAPS[i].event;
+            }
+            continue;
+        }
+        if (PanelWithDispatcherK1(K1_BUTTON_REMAPS[i].panel) != nullptr) {
             return K1_BUTTON_REMAPS[i].event;
         }
     }
@@ -3805,6 +4337,9 @@ bool KmrpOwnsDirectionsK1(bool vertical)
     if (tabBar != nullptr && panel != tabBar) {
         return true;
     }
+    if (PointsScreenForK1(DispatcherOfK1(panel)) != nullptr) {
+        return true;                // see K1_POINTS_SCREENS
+    }
     void* const active = *FieldAt<void**>(panel, K1_PANEL_ACTIVE);
     return !PanelNavigatesItselfK1(panel, active, true,
                                    vertical ? NavAxisK1::Vertical : NavAxisK1::Horizontal);
@@ -3827,6 +4362,154 @@ bool SetFocusK1(void* panel, void* target)
     return true;
 }
 
+// The settings rows whose value is stepped by a - and a + either side of it
+// (2026-09-25). Left and Right on the row press them the way a click does --
+// the arrow's own registered 0x27, as the keyboard path always has
+// (CaptureK1SettingsCycle, vendor/K1XboxControls.cpp) -- and the focus stays on
+// the value. Before, the pad only ever moved the focus spatially: Right from the
+// value reached the +, and Right again found nothing ("pressing D-pad right
+// doesn't change the settings", play-test that day). Gameplay's Difficulty has
+// the Xbox handlers for 0x2F/0x30 registered on its value (0x006E68E0,
+// 0x006E6930), but a focused plain button never receives the retained codes
+// here -- KmrpOwnsDirectionsK1 -- so pressing its arrows is the one path, the
+// same on every row. Offsets from the panels' bind calls
+// (tools/extract_control_offsets.py).
+struct CycleRowK1 {
+    std::uintptr_t vtable;
+    std::size_t value;             // the row's own button, which keeps the focus
+    std::size_t lower;             // BTN_*LEFT, the -
+    std::size_t raise;             // BTN_*RIGHT, the +
+};
+constexpr CycleRowK1 K1_CYCLE_ROWS[] = {
+    {0x00758E00, 0x0CD4, 0x105C, 0x0E98},   // Gameplay: Difficulty
+    {0x007584A0, 0x1878, 0x1A3C, 0x1C00},   // Advanced Graphics: Texture Quality
+    {0x007584A0, 0x132C, 0x14F0, 0x16B4},   //   Anti-aliasing
+    {0x007584A0, 0x0DE0, 0x0FA4, 0x1168},   //   Anisotropy
+    {0x00758550, 0x031C, 0x06A4, 0x04E0},   // Advanced Sound: EAX
+};
+
+// The row `control` belongs to -- its value or either arrow -- or null.
+const CycleRowK1* CycleRowForK1(void* panel, void* control)
+{
+    if (!LooksLikePointerK1(panel) || !control) {
+        return nullptr;
+    }
+    const std::uintptr_t vtable = *reinterpret_cast<std::uintptr_t*>(panel);
+    char* const base = static_cast<char*>(panel);
+    for (const CycleRowK1& row : K1_CYCLE_ROWS) {
+        if (row.vtable == vtable &&
+            (control == base + row.value || control == base + row.lower ||
+             control == base + row.raise)) {
+            return &row;
+        }
+    }
+    return nullptr;
+}
+
+// Left or Right on a row: its - or +, pressed. The focus goes to the value first
+// if the mouse left it on an arrow, so the row stays the thing highlighted. An
+// arrow is hidden at the end of its range, where a click could not reach it
+// either, and the press then does nothing.
+void StepCycleRowK1(void* panel, void* active, const CycleRowK1& row, int dx)
+{
+    char* const base = static_cast<char*>(panel);
+    void* const value = base + row.value;
+    if (active != value) {
+        SetFocusK1(panel, value);
+    }
+    void* const arrow = base + (dx < 0 ? row.lower : row.raise);
+    const std::uint32_t flags = *FieldAt<std::uint32_t>(arrow, K1_CTL_FLAGS);
+    if ((flags & K1_CTL_FLAG_VISIBLE) == 0 || (flags & K1_CTL_FLAG_DISABLED) != 0) {
+        return;
+    }
+    if (void* const manager = *FieldAt<void*>(panel, 0x18)) {
+        using PlayGuiSoundFn = void(__thiscall*)(void*, int);
+        EngineFn<PlayGuiSoundFn>(0x0040A140)(manager, 1);  // as the points screens
+    }
+    using HandleFn = void(__thiscall*)(void*, int, int);
+    reinterpret_cast<HandleFn>((*reinterpret_cast<void***>(arrow))[K1_VTABLE_HANDLE_INPUT / 4])(
+        arrow, K1_GUI_EVENT_CONFIRM, 1);
+}
+
+// The row last in focus on a points screen, so Up from the strip returns to it.
+struct PointsRowK1 { void* panel; int row; };
+PointsRowK1 g_pointsRow = {nullptr, -1};
+
+bool NavigatePointsScreenK1(void* panel, void* active, const PointsScreenK1& s,
+                            int dx, int dy)
+{
+    auto control = [panel](std::size_t offset) {
+        return static_cast<void*>(static_cast<char*>(panel) + offset);
+    };
+    if (g_pointsRow.panel != panel) {
+        g_pointsRow = {panel, -1};
+    }
+    int strip = -1;
+    int row = -1;
+    for (int i = 0; i < 3; ++i) {
+        if (active == control(s.strip[i])) strip = i;
+    }
+    for (int i = 0; i < s.rowCount; ++i) {
+        if (active == control(s.rows[i])) row = i;
+    }
+    // A - or + button (or a label) holds focus: its row is the one whose value
+    // button spans the same height.
+    if (row < 0 && strip < 0 && active != nullptr) {
+        const int y = *FieldAt<int>(active, K1_CTL_Y) + *FieldAt<int>(active, K1_CTL_H) / 2;
+        for (int i = 0; i < s.rowCount; ++i) {
+            void* const r = control(s.rows[i]);
+            const int top = *FieldAt<int>(r, K1_CTL_Y);
+            if (y >= top && y < top + *FieldAt<int>(r, K1_CTL_H)) row = i;
+        }
+    }
+    if (row >= 0) {
+        g_pointsRow.row = row;
+    }
+
+    if (strip >= 0) {
+        if (dx != 0) {
+            const int next = strip + (dx < 0 ? -1 : 1);
+            if (next >= 0 && next < 3) {
+                SetFocusK1(panel, control(s.strip[next]));
+            }
+        } else if (dy < 0) {
+            const int back = g_pointsRow.row >= 0 ? g_pointsRow.row : s.rowCount - 1;
+            SetFocusK1(panel, control(s.rows[back]));
+            g_pointsRow.row = back;
+        }
+        return true;
+    }
+    if (row < 0) {                  // nothing of ours in focus: land on a row first
+        row = g_pointsRow.row >= 0 ? g_pointsRow.row : 0;
+        SetFocusK1(panel, control(s.rows[row]));
+        g_pointsRow.row = row;
+        return true;
+    }
+    if (dy != 0) {
+        const int next = row + (dy < 0 ? -1 : 1);
+        if (next >= s.rowCount) {
+            SetFocusK1(panel, control(s.strip[1]));     // OK, directly below
+        } else if (next >= 0) {
+            SetFocusK1(panel, control(s.rows[next]));
+            g_pointsRow.row = next;
+        }
+        return true;
+    }
+    // Left / Right on a row. Its value button takes focus first if a - or +
+    // button had it, so the row's enter event has selected it.
+    if (active != control(s.rows[row])) {
+        SetFocusK1(panel, control(s.rows[row]));
+    }
+    void* const manager = *FieldAt<void*>(panel, 0x18);
+    if (manager != nullptr) {
+        using PlayGuiSoundFn = void(__thiscall*)(void*, int);
+        EngineFn<PlayGuiSoundFn>(0x0040A140)(manager, 1);  // the handlers' own sound
+    }
+    using ValueFn = void(__thiscall*)(void*);
+    reinterpret_cast<ValueFn>(dx < 0 ? s.lower : s.raise)(panel);
+    return true;
+}
+
 bool NavigateFocusK1(int dx, int dy)
 {
     if (InputClassK1() != K1_CLASS_PCGUI) {
@@ -3840,6 +4523,31 @@ bool NavigateFocusK1(int dx, int dy)
     void* const active = *FieldAt<void**>(panel, K1_PANEL_ACTIVE);
     // A tab's content may hold a list that registers nothing.
     const NavContentScopeK1 scope(tabBar != nullptr);
+
+    if (const PointsScreenK1* points = PointsScreenForK1(DispatcherOfK1(panel))) {
+        return NavigatePointsScreenK1(panel, active, *points, dx, dy);
+    }
+
+    // No focus moves at all on these (K1_NO_PAD_FOCUS_PANELS): every action there
+    // has its own button, and a focused button made A act twice or without end.
+    // In front, the retained direction codes stay suppressed (KmrpOwnsDirectionsK1
+    // owns them for a panel with nothing that navigates itself, and for tab
+    // content), so the engine moves no focus either. The status summary's check
+    // was on its own until 2026-09-26, and required no tab strip; the Character
+    // screen is tab content.
+    if (InListK1(DispatcherOfK1(panel), K1_NO_PAD_FOCUS_PANELS,
+                 sizeof(K1_NO_PAD_FOCUS_PANELS) / sizeof(K1_NO_PAD_FOCUS_PANELS[0]))) {
+        ++g_stick.navDeclinedNative;
+        return false;
+    }
+
+    // Pazaak's wager: its dispatcher moves the wager on every direction whatever
+    // holds focus, and the codes went out (K1_NATIVE_DIRECTION_PANELS). Moving
+    // the focus as well would be a second thing for one press.
+    if (tabBar == nullptr && DispatcherOfK1(panel) == K1_PAZAAK_WAGER_DISPATCHER) {
+        ++g_stick.navDeclinedNative;
+        return false;
+    }
 
     // The SCREEN may be the thing that navigates, rather than any control on it.
     // Powers, Skills, Feats and the Map all work this way: their selection is a
@@ -3901,7 +4609,35 @@ bool NavigateFocusK1(int dx, int dy)
         return false;              // in front: the engine routes it itself
     }
 
-    void* const target = ChooseNeighbourK1(panel, active, dx, dy);
+    // A settings row stepped by - and +: Left and Right press them, and Up and
+    // Down leave from the row rather than from an arrow, which has no vertical
+    // neighbours of its own.
+    void* from = active;
+    if (const CycleRowK1* row = CycleRowForK1(panel, active)) {
+        if (dy == 0) {
+            StepCycleRowK1(panel, active, *row, dx);
+            return true;
+        }
+        from = static_cast<char*>(panel) + row->value;
+    }
+
+    // Character creation's Portrait screen: Left and Right pick the previous and
+    // next portrait. Its dispatcher (0x006F8FF0) serves them on 0x2F/0x35/0x3F and
+    // 0x30/0x36/0x40 (0x006F905F, 0x006F9094), and passes the event on to the
+    // focused control afterwards. LT/RT's 0x35/0x36 are sent rather than
+    // 0x2F/0x30 because no control there answers them, so focus stays where it
+    // is. Only LT and RT cycled portraits until 2026-09-25.
+    if (dx != 0 && dy == 0 && DispatcherOfK1(panel) == K1_PORTRAIT_CHARGEN_DISPATCHER) {
+        reinterpret_cast<HandleControlInputFn>(K1_PORTRAIT_CHARGEN_DISPATCHER)(
+            panel, dx < 0 ? K1_EVENT_PREV_SCREEN : K1_EVENT_NEXT_SCREEN, 1);
+        return true;
+    }
+
+    void* target = ChooseNeighbourK1(panel, from, dx, dy);
+    // Never onto a row's arrow: the row's value holds the focus.
+    if (const CycleRowK1* landed = CycleRowForK1(panel, target)) {
+        target = static_cast<char*>(panel) + landed->value;
+    }
     if (!target || target == active) {
         return false;
     }
@@ -4185,9 +4921,22 @@ extern "C" void __cdecl NativeGuiFrameK1(void* guiManager)
                 if (K1_BUTTON_REMAPS[i].slot != slot) {
                     continue;
                 }
-                void* const panel = PanelWithDispatcherK1(K1_BUTTON_REMAPS[i].panel);
+                void* panel = nullptr;
+                if (K1_BUTTON_REMAPS[i].accepts != nullptr) {
+                    void* const top = TopPanelK1();
+                    if (top != nullptr && K1_BUTTON_REMAPS[i].accepts(top)) {
+                        panel = top;
+                    }
+                } else {
+                    panel = PanelWithDispatcherK1(K1_BUTTON_REMAPS[i].panel);
+                }
                 if (!panel) {
                     continue;           // the screen went away between the two
+                }
+                if (K1_BUTTON_REMAPS[i].action != nullptr) {
+                    K1_BUTTON_REMAPS[i].action(panel);
+                    ++g_stick.remapDispatched;
+                    break;
                 }
                 const std::uintptr_t dispatcher = DispatcherOfK1(panel);
                 if (dispatcher != 0) {

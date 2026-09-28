@@ -2394,6 +2394,34 @@ namespace Kmrp
             AppendHook(text, "0x006E0CF0", "55, 8B, EC, 83, E4, F8",
                 "ResolveResolutionConfirmK1", new[] { "ecx", "esp+4", "esp+8" },
                 new[] { "pointer", "pointer", "pointer" });
+            // Character creation and level-up: A on the five panels that answer A
+            // themselves and then pass it to the focused control, whose click can
+            // raise A on the panel again -- a stack overflow with OK focused. Same
+            // shape as the two above; see kotor1.hooks.toml.
+            AppendHook(text, "0x006F8880", "53, 8B, 5C, 24, 08",
+                "GuardAbilitiesConfirmK1", new[] { "ecx", "esp+4", "esp+8" },
+                new[] { "pointer", "pointer", "pointer" });
+            AppendHook(text, "0x006F6A10", "53, 8B, 5C, 24, 08",
+                "GuardSkillsConfirmK1", new[] { "ecx", "esp+4", "esp+8" },
+                new[] { "pointer", "pointer", "pointer" });
+            AppendHook(text, "0x006F4680", "53, 8B, 5C, 24, 0C",
+                "GuardFeatsConfirmK1", new[] { "ecx", "esp+4", "esp+8" },
+                new[] { "pointer", "pointer", "pointer" });
+            AppendHook(text, "0x006F28C0", "53, 8B, 5C, 24, 0C",
+                "GuardPowersConfirmK1", new[] { "ecx", "esp+4", "esp+8" },
+                new[] { "pointer", "pointer", "pointer" });
+            AppendHook(text, "0x006F8FF0", "53, 8B, 5C, 24, 08",
+                "GuardPortraitConfirmK1", new[] { "ecx", "esp+4", "esp+8" },
+                new[] { "pointer", "pointer", "pointer" });
+            // Name entry: the release of the A that opened it confirmed the name.
+            AppendHook(text, "0x006FA220", "53, 8B, 5C, 24, 08",
+                "GuardNameConfirmK1", new[] { "ecx", "esp+4", "esp+8" },
+                new[] { "pointer", "pointer", "pointer" });
+            // The echo guard, on every panel: CSWGuiPanel::HandleInputEvent never
+            // hands an event to a focused control that would only press it back.
+            AppendHook(text, "0x00409E60", "8B, 49, 1C, 85, C9",
+                "GuardPanelEchoK1", new[] { "ecx", "esp+4", "esp+8" },
+                new[] { "pointer", "pointer", "pointer" });
             AppendHook(text, "0x006039CF", "A1, E0, 39, 7A, 00, 8B, 48, 04",
                 "NativeCameraFrameK1", new[] { "esi" }, new[] { "pointer" });
             AppendHook(text, "0x00404D96", "8B, 46, 48, 8B, 48, 08",
@@ -2633,11 +2661,140 @@ namespace Kmrp
         }
     }
 
+    /// <summary>A file the installer writes to Override: its name there, the zip
+    /// entry holding its bytes, and, for a file from the layout pool, its object
+    /// name -- the first 16 hex digits of its SHA-256.</summary>
+    internal sealed class PayloadFile
+    {
+        internal string Name;
+        internal ZipArchiveEntry Entry;
+        internal string Object;
+    }
+
+    /// <summary>
+    /// The per-resolution interface files, each distinct file stored once.
+    ///
+    /// The installer embedded one archive per resolution, 49 of them and 118 MB,
+    /// to install one. Most of their files are the same bytes at several
+    /// resolutions: a prompt badge is drawn for its button's size, and many
+    /// buttons share a size. On 2026-09-25 the 27,342 files held 11,930 distinct
+    /// ones. tools/pack_resolution_layouts.py packs them into one zip:
+    ///
+    ///     index/WxH.txt       one line per file, in that resolution's archive
+    ///                         order: the Override name, a tab, the object
+    ///     objects/OBJECT      each distinct file once, named by the first 16
+    ///                         hex digits of its SHA-256, upper case
+    ///
+    /// The build rebuilds every resolution from the pool and stops unless each
+    /// matches its archive. Install checks every file it writes against its
+    /// object name.
+    /// </summary>
+    internal sealed class GuiPool : IDisposable
+    {
+        internal const string ResourceName = "Kmrp.override.layouts";
+        private const string MissingMessage = "The matching interface files are missing from this patcher.";
+
+        private readonly ZipArchive archive;
+        private readonly List<PayloadFile> files = new List<PayloadFile>();
+        private readonly Dictionary<string, PayloadFile> byName =
+            new Dictionary<string, PayloadFile>(StringComparer.Ordinal);
+
+        private GuiPool(ZipArchive archive)
+        {
+            this.archive = archive;
+        }
+
+        /// <summary>This resolution's files, in its archive's order.</summary>
+        internal List<PayloadFile> Files
+        {
+            get { return files; }
+        }
+
+        /// <summary>One file by its exact Override name, as ZipArchive.GetEntry
+        /// found it in the resolution archive; null when the layout has none.</summary>
+        internal ZipArchiveEntry GetEntry(string name)
+        {
+            PayloadFile file;
+            return byName.TryGetValue(name, out file) ? file.Entry : null;
+        }
+
+        /// <summary>The pool opened at one resolution. Throws InvalidDataException
+        /// when this patcher has no layout for it, or names an object it lacks.</summary>
+        internal static GuiPool Open(string resolutionKey)
+        {
+            Stream stream = Assembly.GetExecutingAssembly().GetManifestResourceStream(ResourceName);
+            if (stream == null)
+                throw new InvalidDataException(MissingMessage);
+            ZipArchive archive = null;
+            try
+            {
+                archive = new ZipArchive(stream, ZipArchiveMode.Read, false);
+                GuiPool pool = new GuiPool(archive);
+                pool.ReadIndex(resolutionKey);
+                return pool;
+            }
+            catch
+            {
+                if (archive != null)
+                    archive.Dispose();
+                else
+                    stream.Dispose();
+                throw;
+            }
+        }
+
+        private void ReadIndex(string resolutionKey)
+        {
+            ZipArchiveEntry index = archive.GetEntry("index/" + resolutionKey + ".txt");
+            if (index == null)
+                throw new InvalidDataException(MissingMessage);
+            using (StreamReader reader = new StreamReader(index.Open(), Encoding.UTF8))
+            {
+                string line;
+                while ((line = reader.ReadLine()) != null)
+                {
+                    if (line.Length == 0)
+                        continue;
+                    int tab = line.IndexOf('\t');
+                    ZipArchiveEntry entry = tab > 0
+                        ? archive.GetEntry("objects/" + line.Substring(tab + 1))
+                        : null;
+                    if (entry == null)
+                        throw new InvalidDataException("The interface files in this patcher are damaged.");
+                    PayloadFile file = new PayloadFile
+                    {
+                        Name = line.Substring(0, tab),
+                        Entry = entry,
+                        Object = line.Substring(tab + 1)
+                    };
+                    files.Add(file);
+                    byName[file.Name] = file;
+                }
+            }
+            if (files.Count == 0)
+                throw new InvalidDataException(MissingMessage);
+        }
+
+        public void Dispose()
+        {
+            archive.Dispose();
+        }
+    }
+
     internal static class OverrideOperations
     {
         private const string CommonResourceName = "Kmrp.override.common";
-        private const string GuiResourcePrefix = "Kmrp.override.gui.";
         private const string ManifestHeader = "KUIOVERRIDE1";
+
+        /// <summary>A zip archive's files as payload, leaving out folder entries.</summary>
+        private static List<PayloadFile> ArchiveFiles(ZipArchive archive)
+        {
+            List<PayloadFile> files = new List<PayloadFile>();
+            foreach (ZipArchiveEntry entry in archive.Entries)
+                if (!String.IsNullOrEmpty(entry.Name))
+                    files.Add(new PayloadFile { Name = entry.FullName, Entry = entry });
+            return files;
+        }
 
         /// <summary>Is this texture already provided, under any texture extension?
         ///
@@ -2770,40 +2927,47 @@ namespace Kmrp
             // Our own earlier copies of a texture, under the extension the
             // build no longer ships it with, removed as the new one lands.
             int supersededRemoved = 0;
-            string[] resources =
-            {
-                CommonResourceName,
-                GuiResourcePrefix + resolution.Key
-            };
-            // Feat/power icons are built here from the game's own texture pack
-            // rather than embedded: 200 icons x 48 resolutions would add ~57 MB of
-            // pure duplication, and the source art is already on disk. Null when
-            // the pack is missing or the resolution needs no enlargement, in which
-            // case the icons simply stay vanilla-sized.
-            HashSet<string> shipped = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
-            foreach (string resourceName in resources)
-            {
-                using (Stream listing = Assembly.GetExecutingAssembly().GetManifestResourceStream(resourceName))
-                {
-                    if (listing == null)
-                        throw new InvalidDataException("The matching interface files are missing from this patcher.");
-                    using (ZipArchive listingArchive = new ZipArchive(listing, ZipArchiveMode.Read, false))
-                        foreach (ZipArchiveEntry listed in listingArchive.Entries)
-                            if (!String.IsNullOrEmpty(listed.Name))
-                                shipped.Add(NormalizeRelativePath(listed.FullName));
-                }
-            }
-            MemoryStream generatedIcons = AbilityIconGenerator.TryBuild(
-                executablePath, ResolutionPatch.ScaleForHeight(resolution.Height), shipped);
-            // The ten controller prompt badges, re-placed against the label this
-            // player's dialog.tlk actually draws. Null when that file is missing or
-            // unreadable, in which case the shipped English placement stands.
-            Dictionary<string, byte[]> promptReplacements = ControllerPromptGenerator.TryBuild(
-                executablePath, GuiResourcePrefix + resolution.Key);
-
+            // The common artwork, this resolution's layout and the generated ability
+            // icons, each as the files it installs. Opened inside the try, so that a
+            // patcher without its interface files takes away the backup folder it has
+            // just made, rather than leaving it to block the next attempt.
+            List<IDisposable> opened = new List<IDisposable>();
             try
             {
-                int archiveCount = resources.Length + (generatedIcons != null ? 1 : 0);
+                List<List<PayloadFile>> payloads = new List<List<PayloadFile>>();
+                Stream commonResource = Assembly.GetExecutingAssembly()
+                    .GetManifestResourceStream(CommonResourceName);
+                if (commonResource == null)
+                    throw new InvalidDataException("The matching interface files are missing from this patcher.");
+                ZipArchive common = new ZipArchive(commonResource, ZipArchiveMode.Read, false);
+                opened.Add(common);
+                payloads.Add(ArchiveFiles(common));
+                GuiPool layout = GuiPool.Open(resolution.Key);
+                opened.Add(layout);
+                payloads.Add(layout.Files);
+
+                // Feat/power icons are built here from the game's own texture pack
+                // rather than embedded: 200 icons x 48 resolutions would add ~57 MB of
+                // pure duplication, and the source art is already on disk. Null when
+                // the pack is missing or the resolution needs no enlargement, in which
+                // case the icons simply stay vanilla-sized.
+                HashSet<string> shipped = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+                foreach (List<PayloadFile> payload in payloads)
+                    foreach (PayloadFile listed in payload)
+                        shipped.Add(NormalizeRelativePath(listed.Name));
+                MemoryStream generatedIcons = AbilityIconGenerator.TryBuild(
+                    executablePath, ResolutionPatch.ScaleForHeight(resolution.Height), shipped);
+                if (generatedIcons != null)
+                {
+                    ZipArchive icons = new ZipArchive(generatedIcons, ZipArchiveMode.Read, false);
+                    opened.Add(icons);
+                    payloads.Add(ArchiveFiles(icons));
+                }
+                // The ten controller prompt badges, re-placed against the label this
+                // player's dialog.tlk actually draws. Null when that file is missing or
+                // unreadable, in which case the shipped English placement stands.
+                Dictionary<string, byte[]> promptReplacements =
+                    ControllerPromptGenerator.TryBuild(executablePath, layout);
 
                 // Each archive gets a slice of the 18-94 band proportional to its size.
                 // The ranges used to be hardcoded as "18 to 88 for the first, 88 to 94 for
@@ -2811,281 +2975,244 @@ namespace Kmrp
                 // three: the common artwork, the resolution layout, and the generated
                 // ability icons. The second and third therefore shared one range, and the
                 // bar visibly fell back from 94% to 88% when the icons began installing.
-                long[] archiveBytes = new long[archiveCount];
+                long[] archiveBytes = new long[payloads.Count];
                 long totalArchiveBytes = 0;
-                for (int sizingIndex = 0; sizingIndex < archiveCount; sizingIndex++)
+                for (int sizingIndex = 0; sizingIndex < payloads.Count; sizingIndex++)
                 {
-                    if (sizingIndex < resources.Length)
-                    {
-                        using (Stream sizing = Assembly.GetExecutingAssembly()
-                            .GetManifestResourceStream(resources[sizingIndex]))
-                        {
-                            if (sizing == null)
-                                continue;
-                            using (ZipArchive sizingArchive =
-                                new ZipArchive(sizing, ZipArchiveMode.Read, false))
-                                foreach (ZipArchiveEntry sized in sizingArchive.Entries)
-                                    if (!String.IsNullOrEmpty(sized.Name))
-                                        archiveBytes[sizingIndex] += sized.Length;
-                        }
-                    }
-                    else if (generatedIcons != null)
-                    {
-                        // Left open and rewound: this stream is installed from below.
-                        generatedIcons.Position = 0;
-                        using (ZipArchive sizingArchive =
-                            new ZipArchive(generatedIcons, ZipArchiveMode.Read, true))
-                            foreach (ZipArchiveEntry sized in sizingArchive.Entries)
-                                if (!String.IsNullOrEmpty(sized.Name))
-                                    archiveBytes[sizingIndex] += sized.Length;
-                        generatedIcons.Position = 0;
-                    }
+                    foreach (PayloadFile sized in payloads[sizingIndex])
+                        archiveBytes[sizingIndex] += sized.Entry.Length;
                     totalArchiveBytes += archiveBytes[sizingIndex];
                 }
 
                 long bytesBeforeArchive = 0;
-                for (int resourceIndex = 0; resourceIndex < archiveCount; resourceIndex++)
+                for (int resourceIndex = 0; resourceIndex < payloads.Count; resourceIndex++)
                 {
-                    Stream resource;
-                    if (resourceIndex < resources.Length)
+                    long totalBytes = archiveBytes[resourceIndex];
+                    long completedBytes = 0;
+                    int rangeStart = (int)(18 + 76L * bytesBeforeArchive
+                        / Math.Max(1L, totalArchiveBytes));
+                    int rangeLength = (int)(76L * archiveBytes[resourceIndex]
+                        / Math.Max(1L, totalArchiveBytes));
+                    string stage = resourceIndex >= 2
+                        ? "Installing ability icons…"
+                        : (resourceIndex == 0
+                            ? "Installing interface artwork…"
+                            : "Installing resolution layout…");
+                    SafeProgress(progress, rangeStart, stage);
+
+                    foreach (PayloadFile file in payloads[resourceIndex])
                     {
-                        resource = Assembly.GetExecutingAssembly().GetManifestResourceStream(resources[resourceIndex]);
-                        if (resource == null)
-                            throw new InvalidDataException("The matching interface files are missing from this patcher.");
-                    }
-                    else
-                    {
-                        resource = generatedIcons;
-                    }
-                    using (resource)
-                    using (ZipArchive archive = new ZipArchive(resource, ZipArchiveMode.Read, false))
-                    {
-                        long totalBytes = 0;
-                        foreach (ZipArchiveEntry archiveEntry in archive.Entries)
+                        string relative = NormalizeRelativePath(file.Name);
+
+                        // Build-time metadata, not a game resource. The prompt
+                        // placement manifest rides in the archive so the patcher
+                        // can read it (ControllerPromptGenerator), but the game
+                        // has no use for it and it should not be left sitting in
+                        // the player's Override folder.
+                        if (String.Equals(relative, ControllerPromptGenerator.ManifestName,
+                                          StringComparison.OrdinalIgnoreCase))
                         {
-                            if (!String.IsNullOrEmpty(archiveEntry.Name))
-                                totalBytes += archiveEntry.Length;
+                            completedBytes += file.Entry.Length;
+                            continue;
                         }
-                        long completedBytes = 0;
-                        int rangeStart = (int)(18 + 76L * bytesBeforeArchive
-                            / Math.Max(1L, totalArchiveBytes));
-                        int rangeLength = (int)(76L * archiveBytes[resourceIndex]
-                            / Math.Max(1L, totalArchiveBytes));
-                        string stage = resourceIndex >= resources.Length
-                            ? "Installing ability icons…"
-                            : (resourceIndex == 0
-                                ? "Installing interface artwork…"
-                                : "Installing resolution layout…");
-                        SafeProgress(progress, rangeStart, stage);
 
-                        foreach (ZipArchiveEntry entry in archive.Entries)
+                        string target = SafeDestination(overrideRoot, relative);
+
+                        // Bundled art yields to a file already there that we did not
+                        // put there. Not recorded either, so restore leaves it alone.
+                        //
+                        // The check has to span texture extensions, not just the exact
+                        // name. The bundled item icons ship as .tpc, and the engine
+                        // prefers .tpc over .tga for the same resref -- so testing only
+                        // for our own filename would install ours beside a player's
+                        // K1CP .tga and then silently win over it, which is the exact
+                        // thing this deferral exists to prevent.
+                        if (!known.ContainsKey(relative)
+                            && BundledNames().Contains(Path.GetFileName(relative))
+                            && TextureAlreadyPresent(target, relative, known))
                         {
-                            if (String.IsNullOrEmpty(entry.Name))
-                                continue;
-                            string relative = NormalizeRelativePath(entry.FullName);
+                            deferred++;
+                            completedBytes += file.Entry.Length;
+                            continue;
+                        }
 
-                            // Build-time metadata, not a game resource. The prompt
-                            // placement manifest rides in the archive so the patcher
-                            // can read it (ControllerPromptGenerator), but the game
-                            // has no use for it and it should not be left sitting in
-                            // the player's Override folder.
-                            if (String.Equals(relative, ControllerPromptGenerator.ManifestName,
-                                              StringComparison.OrdinalIgnoreCase))
+                        string targetDirectory = Path.GetDirectoryName(target);
+                        Directory.CreateDirectory(targetDirectory);
+
+                        // Installing a texture over OUR OWN copy of the same
+                        // resref under the other extension: take the old one
+                        // away. The engine would ignore it -- .tpc wins over
+                        // .tga -- but leaving it means the uncompressed icons
+                        // this replaced stay on disk forever, and keep being
+                        // found by the deferral above on every future install.
+                        //
+                        // The manifest record for that sibling is deliberately
+                        // left in place. Restore skips its hash check when the
+                        // file is gone, and still copies the player's original
+                        // back if they had one.
+                        string superseded = SiblingTexturePath(relative);
+                        if (superseded != null && known.ContainsKey(superseded))
+                        {
+                            string supersededPath = SafeDestination(overrideRoot, superseded);
+                            if (File.Exists(supersededPath))
                             {
-                                completedBytes += entry.Length;
-                                continue;
-                            }
-
-                            string target = SafeDestination(overrideRoot, relative);
-
-                            // Bundled art yields to a file already there that we did not
-                            // put there. Not recorded either, so restore leaves it alone.
-                            //
-                            // The check has to span texture extensions, not just the exact
-                            // name. The bundled item icons ship as .tpc, and the engine
-                            // prefers .tpc over .tga for the same resref -- so testing only
-                            // for our own filename would install ours beside a player's
-                            // K1CP .tga and then silently win over it, which is the exact
-                            // thing this deferral exists to prevent.
-                            if (!known.ContainsKey(relative)
-                                && BundledNames().Contains(Path.GetFileName(relative))
-                                && TextureAlreadyPresent(target, relative, known))
-                            {
-                                deferred++;
-                                completedBytes += entry.Length;
-                                continue;
-                            }
-
-                            string targetDirectory = Path.GetDirectoryName(target);
-                            Directory.CreateDirectory(targetDirectory);
-
-                            // Installing a texture over OUR OWN copy of the same
-                            // resref under the other extension: take the old one
-                            // away. The engine would ignore it -- .tpc wins over
-                            // .tga -- but leaving it means the uncompressed icons
-                            // this replaced stay on disk forever, and keep being
-                            // found by the deferral above on every future install.
-                            //
-                            // The manifest record for that sibling is deliberately
-                            // left in place. Restore skips its hash check when the
-                            // file is gone, and still copies the player's original
-                            // back if they had one.
-                            string superseded = SiblingTexturePath(relative);
-                            if (superseded != null && known.ContainsKey(superseded))
-                            {
-                                string supersededPath = SafeDestination(overrideRoot, superseded);
-                                if (File.Exists(supersededPath))
+                                try
                                 {
-                                    try
-                                    {
-                                        File.Delete(supersededPath);
-                                        supersededRemoved++;
-                                    }
-                                    catch (IOException) { }
-                                    catch (UnauthorizedAccessException) { }
+                                    File.Delete(supersededPath);
+                                    supersededRemoved++;
+                                }
+                                catch (IOException) { }
+                                catch (UnauthorizedAccessException) { }
+                            }
+                        }
+
+                        OverrideRecord record;
+                        if (known.TryGetValue(relative, out record))
+                        {
+                            if (!existingInstallation)
+                            {
+                                // Already installed by an earlier archive in this
+                                // same run. Keep the original record -- its
+                                // HadOriginal/OriginalHash describe the user's file,
+                                // and a second record would make the backup folder
+                                // hold the patcher's own file and stop restore.
+                                record.InstalledHash = String.Empty;
+                            }
+                        }
+                        else
+                        {
+                            // Not in the manifest. On a fresh install that is every
+                            // file; over an EXISTING install it is a file a newer
+                            // build added -- tutorial.2da and the thirteen tut_*.tga
+                            // popup icons arrived exactly this way in 2.7.0.
+                            //
+                            // This used to throw "belongs to a different resolution",
+                            // which was the wrong diagnosis and, worse, a permanent
+                            // block on ever shipping a NEW Override file to anyone
+                            // who already had the patch installed: the only way out
+                            // was a full restore. A real resolution mismatch is
+                            // already caught upstream in ApplyInPlace, which compares
+                            // the installed resolution against the requested one
+                            // before any of this runs, so nothing is lost by treating
+                            // an unknown path as what it is -- a new file, backed up
+                            // first if the user already had one.
+                            //
+                            record = new OverrideRecord();
+                            record.RelativePath = relative;
+                            record.HadOriginal = File.Exists(target);
+                            record.OriginalHash = String.Empty;
+                            if (record.HadOriginal)
+                            {
+                                string backup = SafeDestination(backupRoot, relative);
+                                Directory.CreateDirectory(Path.GetDirectoryName(backup));
+                                if (File.Exists(backup))
+                                {
+                                    // A backup with no manifest record: an earlier
+                                    // install was interrupted after copying this file
+                                    // but before the manifest was written. The file
+                                    // already on disk is the OLDER one, so it is the
+                                    // better claim to being the user's original --
+                                    // keep it and adopt its hash. Overwriting it with
+                                    // the current file would destroy the original,
+                                    // and File.Copy(false) used to just throw and
+                                    // leave the install permanently stuck.
+                                    record.OriginalHash = GoldPatch.HashFile(backup);
+                                }
+                                else
+                                {
+                                    File.Copy(target, backup, false);
+                                    record.OriginalHash = GoldPatch.HashFile(backup);
+                                    if (record.OriginalHash != GoldPatch.HashFile(target))
+                                        throw new IOException("An interface file could not be backed up safely: " + relative);
                                 }
                             }
+                            records.Add(record);
+                            known.Add(relative, record);
+                        }
 
-                            OverrideRecord record;
-                            if (known.TryGetValue(relative, out record))
+                        string temporary = target + ".kotor-ui-new-" + Guid.NewGuid().ToString("N") + ".tmp";
+                        try
+                        {
+                            // A controller prompt badge whose position was
+                            // recomputed against the player's own dialog.tlk
+                            // replaces the archive's English-placed copy. It is
+                            // substituted here rather than shipped as a fourth
+                            // archive so that it stays ONE write of one path: a
+                            // second archive carrying the same name would trip
+                            // the two-archives-disagree guard below, which
+                            // exists for a real bug and should not be taught to
+                            // tolerate exceptions.
+                            byte[] replacement = null;
+                            if (promptReplacements != null)
+                                promptReplacements.TryGetValue(relative, out replacement);
+                            if (replacement != null)
                             {
-                                if (!existingInstallation)
+                                using (FileStream output = new FileStream(temporary, FileMode.CreateNew, FileAccess.Write, FileShare.None))
                                 {
-                                    // Already installed by an earlier archive in this
-                                    // same run. Keep the original record -- its
-                                    // HadOriginal/OriginalHash describe the user's file,
-                                    // and a second record would make the backup folder
-                                    // hold the patcher's own file and stop restore.
-                                    record.InstalledHash = String.Empty;
+                                    output.Write(replacement, 0, replacement.Length);
+                                    output.Flush(true);
                                 }
                             }
                             else
                             {
-                                // Not in the manifest. On a fresh install that is every
-                                // file; over an EXISTING install it is a file a newer
-                                // build added -- tutorial.2da and the thirteen tut_*.tga
-                                // popup icons arrived exactly this way in 2.7.0.
-                                //
-                                // This used to throw "belongs to a different resolution",
-                                // which was the wrong diagnosis and, worse, a permanent
-                                // block on ever shipping a NEW Override file to anyone
-                                // who already had the patch installed: the only way out
-                                // was a full restore. A real resolution mismatch is
-                                // already caught upstream in ApplyInPlace, which compares
-                                // the installed resolution against the requested one
-                                // before any of this runs, so nothing is lost by treating
-                                // an unknown path as what it is -- a new file, backed up
-                                // first if the user already had one.
-                                //
-                                record = new OverrideRecord();
-                                record.RelativePath = relative;
-                                record.HadOriginal = File.Exists(target);
-                                record.OriginalHash = String.Empty;
-                                if (record.HadOriginal)
+                                using (Stream input = file.Entry.Open())
+                                using (FileStream output = new FileStream(temporary, FileMode.CreateNew, FileAccess.Write, FileShare.None))
                                 {
-                                    string backup = SafeDestination(backupRoot, relative);
-                                    Directory.CreateDirectory(Path.GetDirectoryName(backup));
-                                    if (File.Exists(backup))
-                                    {
-                                        // A backup with no manifest record: an earlier
-                                        // install was interrupted after copying this file
-                                        // but before the manifest was written. The file
-                                        // already on disk is the OLDER one, so it is the
-                                        // better claim to being the user's original --
-                                        // keep it and adopt its hash. Overwriting it with
-                                        // the current file would destroy the original,
-                                        // and File.Copy(false) used to just throw and
-                                        // leave the install permanently stuck.
-                                        record.OriginalHash = GoldPatch.HashFile(backup);
-                                    }
-                                    else
-                                    {
-                                        File.Copy(target, backup, false);
-                                        record.OriginalHash = GoldPatch.HashFile(backup);
-                                        if (record.OriginalHash != GoldPatch.HashFile(target))
-                                            throw new IOException("An interface file could not be backed up safely: " + relative);
-                                    }
+                                    input.CopyTo(output);
+                                    output.Flush(true);
                                 }
-                                records.Add(record);
-                                known.Add(relative, record);
                             }
-
-                            string temporary = target + ".kotor-ui-new-" + Guid.NewGuid().ToString("N") + ".tmp";
-                            try
+                            string installedHash = GoldPatch.HashFile(temporary);
+                            // A file from the layout pool must be the object it was
+                            // stored as. The build verified the pool; this catches
+                            // one damaged since. A prompt badge moved for this
+                            // player's dialog.tlk is meant to differ, so not those.
+                            if (file.Object != null && replacement == null &&
+                                !installedHash.StartsWith(file.Object, StringComparison.Ordinal))
+                                throw new InvalidDataException(
+                                    "An interface file inside this patcher is damaged: " + relative);
+                            // Guard the one thing this can actually catch: the SAME
+                            // relative path arriving from two archives in THIS run
+                            // with different content, which silently breaks restore
+                            // (see the override-manifest duplicate fixed 2026-08-31).
+                            //
+                            // It used to compare against record.InstalledHash, which
+                            // over an existing installation is the hash from the
+                            // PREVIOUS build -- so every file whose content changed
+                            // tripped it and no update could ever be installed
+                            // without a full restore first. That is not a duplicate;
+                            // it is the update working.
+                            string writtenEarlier;
+                            if (writtenThisRun.TryGetValue(relative, out writtenEarlier))
                             {
-                                // A controller prompt badge whose position was
-                                // recomputed against the player's own dialog.tlk
-                                // replaces the archive's English-placed copy. It is
-                                // substituted here rather than shipped as a fourth
-                                // archive so that it stays ONE write of one path: a
-                                // second archive carrying the same name would trip
-                                // the two-archives-disagree guard below, which
-                                // exists for a real bug and should not be taught to
-                                // tolerate exceptions.
-                                byte[] replacement = null;
-                                if (promptReplacements != null)
-                                    promptReplacements.TryGetValue(relative, out replacement);
-                                if (replacement != null)
-                                {
-                                    using (FileStream output = new FileStream(temporary, FileMode.CreateNew, FileAccess.Write, FileShare.None))
-                                    {
-                                        output.Write(replacement, 0, replacement.Length);
-                                        output.Flush(true);
-                                    }
-                                }
-                                else
-                                {
-                                    using (Stream input = entry.Open())
-                                    using (FileStream output = new FileStream(temporary, FileMode.CreateNew, FileAccess.Write, FileShare.None))
-                                    {
-                                        input.CopyTo(output);
-                                        output.Flush(true);
-                                    }
-                                }
-                                string installedHash = GoldPatch.HashFile(temporary);
-                                // Guard the one thing this can actually catch: the SAME
-                                // relative path arriving from two archives in THIS run
-                                // with different content, which silently breaks restore
-                                // (see the override-manifest duplicate fixed 2026-08-31).
-                                //
-                                // It used to compare against record.InstalledHash, which
-                                // over an existing installation is the hash from the
-                                // PREVIOUS build -- so every file whose content changed
-                                // tripped it and no update could ever be installed
-                                // without a full restore first. That is not a duplicate;
-                                // it is the update working.
-                                string writtenEarlier;
-                                if (writtenThisRun.TryGetValue(relative, out writtenEarlier))
-                                {
-                                    if (writtenEarlier != installedHash)
-                                        throw new InvalidDataException("Two interface archives disagree about " +
-                                            relative + ". This build is inconsistent; please report it.");
-                                }
-                                else
-                                {
-                                    writtenThisRun.Add(relative, installedHash);
-                                }
-                                record.InstalledHash = installedHash;
-
-                                if (processedPaths.Add(relative))
-                                    processed.Add(record);
-                                if (File.Exists(target))
-                                    FileGuard.Replace(temporary, target);
-                                else
-                                    File.Move(temporary, target);
-                                if (GoldPatch.HashFile(target) != record.InstalledHash)
-                                    throw new IOException("An interface file could not be installed safely: " + relative);
-
-                                completedBytes += entry.Length;
-                                int percent = rangeStart + (int)Math.Min((long)rangeLength,
-                                    completedBytes * rangeLength / Math.Max(1L, totalBytes));
-                                SafeProgress(progress, percent, stage);
+                                if (writtenEarlier != installedHash)
+                                    throw new InvalidDataException("Two interface archives disagree about " +
+                                        relative + ". This build is inconsistent; please report it.");
                             }
-                            finally
+                            else
                             {
-                                if (File.Exists(temporary))
-                                    File.Delete(temporary);
+                                writtenThisRun.Add(relative, installedHash);
                             }
+                            record.InstalledHash = installedHash;
+
+                            if (processedPaths.Add(relative))
+                                processed.Add(record);
+                            if (File.Exists(target))
+                                FileGuard.Replace(temporary, target);
+                            else
+                                File.Move(temporary, target);
+                            if (GoldPatch.HashFile(target) != record.InstalledHash)
+                                throw new IOException("An interface file could not be installed safely: " + relative);
+
+                            completedBytes += file.Entry.Length;
+                            int percent = rangeStart + (int)Math.Min((long)rangeLength,
+                                completedBytes * rangeLength / Math.Max(1L, totalBytes));
+                            SafeProgress(progress, percent, stage);
+                        }
+                        finally
+                        {
+                            if (File.Exists(temporary))
+                                File.Delete(temporary);
                         }
                     }
                     bytesBeforeArchive += archiveBytes[resourceIndex];
@@ -3126,6 +3253,11 @@ namespace Kmrp
                         Directory.Delete(backupRoot, true);
                 }
                 throw;
+            }
+            finally
+            {
+                for (int index = opened.Count - 1; index >= 0; index--)
+                    opened[index].Dispose();
             }
         }
 

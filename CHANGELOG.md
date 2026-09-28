@@ -181,12 +181,112 @@ before:
   against it and pass. **Installed and play-tested that day:** the dialogue A
   sat mid-sentence and the combat message showed one of its two lines (both
   entries above). X and Y in combat were not reported on.
-- `E5AFC981…` (179,838,464 bytes), the current build: the A from the drawn
-  layout, and the combat message on one line at 1120 px. A full build: every
-  archive regenerated, and the module rebuilt, 205,824 bytes, `32F018CF…`. The
-  four Python checks, `Test-ControllerSupport.ps1` and
-  `Test-ReinstallOverOlderBuild.ps1` were run against it and pass. Not yet
-  play-tested.
+- `E5AFC981…` (179,838,464 bytes): the A from the drawn layout, and the combat
+  message on one line at 1120 px. A full build: every archive regenerated, and
+  the module rebuilt, 205,824 bytes, `32F018CF…`. The four Python checks,
+  `Test-ControllerSupport.ps1` and `Test-ReinstallOverOlderBuild.ps1` were run
+  against it and pass. Installed and play-tested that day: character creation
+  crashed (the first entry under Fixed).
+- `EC98B10F…` (179,840,000 bytes): the character-creation A
+  guard, five more hooks (31 native). Built with `-ReuseResources`, so its
+  archives are `E5AFC981…`'s. The module is 206,336 bytes, `628D4DC2…`; a
+  rebuild after a comment-only edit gave the same hash.
+  `Test-ControllerSupport.ps1`, which byte-checks the five new sites, and
+  `Test-ReinstallOverOlderBuild.ps1` were run against it and pass. Installed
+  and play-tested that day: no crash was reported, and the Attributes screen's
+  D-pad was (next entries).
+- `189DF101…` (208,659,456 bytes), the character-creation badges, a full build,
+  29 MB larger for their 8,232 textures. Its module is 208,384 bytes,
+  `5F7FB20A…`. `Test-ControllerPromptAssets.py` failed on it: the 42 new
+  targets had no caption STRREFs, so their badges were placed at a fixed inset.
+  Superseded.
+- `EE262D77…` (208,663,552 bytes), with those STRREFs, including Feats' and
+  Powers' runtime Add/Remove captions. A full build: the four Python checks
+  (99 mappings, 19,404 textures), `Test-ControllerSupport.ps1` and
+  `Test-ReinstallOverOlderBuild.ps1` pass, as do `Test-LargeAddressAware.ps1` and
+  `Test-DpiCompatibility.ps1` with the new DPI cleanup (on `189DF101…`).
+- `1720E0C1…` (208,664,576 bytes): Attributes and Skills
+  navigated by KMRP. It reuses `EE262D77…`'s archives, and its module is
+  209,408 bytes, `B7307208…`. `Test-ControllerSupport.ps1` and
+  `Test-ReinstallOverOlderBuild.ps1` pass, and the runs left no test DPI value
+  in the registry.
+- `BCA35F28…` (208,672,256 bytes), Feats' A and X swapped; a full build. **Broken,
+  and installed.** The name-entry guard was added to the source while it built.
+  The installer compiles its hook table at the end, so the table named
+  `GuardNameConfirmK1`, but the module it embedded (`609368A7…`) was built
+  before the edit. The runtime stopped at that entry, the 13th of 36. The 23
+  hooks after it never applied: movies (no skip), rumble, the camera, the
+  action bar, and the keyboard and mouse detection. The maintainer reported it
+  that day: "something is wrong with the mouse and keyboard and controller
+  switching, and I can't skip movies". The pad log agreed, with no movie frame
+  and no keyboard-or-mouse switch in either session. Every regression check
+  passed it: they compared the hook table with the source, not with the
+  module. `tools/check_module_exports.py` now does that, and
+  `Test-ControllerSupport.ps1` runs it; it fails on that install and passes on
+  the next.
+- `DB9D7A08…` (208,672,256 bytes): `BCA35F28…`'s archives
+  with a module built after the last edit, 209,920 bytes, `B28A80F7…`. It
+  includes the name-entry guard and the dialogue A's larger gap, lower seat and
+  bigger badge. `Test-ControllerSupport.ps1`, with the new exports check, and
+  `Test-ReinstallOverOlderBuild.ps1` pass. Not yet play-tested.
+- `4EF3C181…` (145,208,320 bytes): `DB9D7A08…` with the
+  resolution layouts pooled, 63,463,936 bytes smaller (under Changed). Built
+  with `-ReuseResources`, so its archives and module are `DB9D7A08…`'s. It
+  embeds 22 resources instead of 70. `Test-ControllerSupport.ps1`,
+  `Test-ReinstallOverOlderBuild.ps1` and the new `Test-InstalledOverride.ps1`
+  at all 49 resolutions pass, as does a direct comparison with `DB9D7A08…`'s
+  install. Not yet play-tested.
+- `6A822AAC…` (155,054,592 bytes): the settings screens' badges and the D-pad
+  glyphs on the -/+ arrows, Y on Default, Left and Right on -/+ rows, Pazaak's
+  wager and the dialogue A on its line (all below). A full build, 9.8 MB larger
+  than `4EF3C181…` for 30 badges and 42 arrow glyphs a resolution; its pool is
+  67.1 MB. The four Python checks, `Test-ControllerSupport.ps1`,
+  `Test-ReinstallOverOlderBuild.ps1` and `Test-InstalledOverride.ps1` pass. Its
+  module is 214,528 bytes, `968A1C0D…`.
+- `D407BF3A…` (155,056,640 bytes): `6A822AAC…`'s archives with the status
+  summary's layout added to the module, 216,576 bytes, `36D23D9B…`.
+  `Test-ControllerSupport.ps1` and `Test-ReinstallOverOlderBuild.ps1` pass.
+  Previewed in a scratch copy of the game on 2026-09-25 (below); not
+  play-tested by hand.
+- `13A6270E…` (155,056,640 bytes): built with `-ReuseResources` before
+  `src/controller-native/build.cmd` had compiled the module, so it embeds
+  `D407BF3A…`'s module unchanged. Superseded and not tested; the build ladder
+  in `docs/agent-memory/WORKFLOWS.md` now starts with the module.
+- `63E7AAB9…` (155,057,664 bytes): the status summary's A, module 217,600
+  bytes, `D13FF3CB…`. `Test-ControllerSupport.ps1` and
+  `Test-ReinstallOverOlderBuild.ps1` pass. Previewing it found the D-pad
+  crash on the status summary (under Fixed), which the builds before it share.
+- `B5D3CBB7…` (155,057,664 bytes): the D-pad kept off the status summary's
+  OK, module 217,600 bytes, `1419AD04…`. Both scripts pass, and the crash
+  sequence runs clean in the scratch copy.
+- `49671B67…` (155,057,664 bytes): the swap-tabs cue beside Close and a first
+  try at the status summary's line spacing, a full build; module 217,600
+  bytes, `42426D92…`. The four Python checks, both scripts and
+  `Test-InstalledOverride.ps1` pass. The spacing read the wrong field and
+  changed nothing (under Fixed).
+- `80616FE6…` (155,057,664 bytes): `49671B67…`'s archives
+  with the spacing read from the right field; module 217,600 bytes,
+  `CB61BF17…`. `Test-ControllerSupport.ps1`,
+  `Test-ReinstallOverOlderBuild.ps1` and `Test-InstalledOverride.ps1` pass.
+  Seen in the scratch copy at 1920x1080 and 3440x1440: the status summary
+  and its A, and the swap-tabs cue with X cycling the sub-tab, at both; the
+  crash sequence at 3440x1440. Not played by hand.
+- `128CDC79…` (156,569,600 bytes), 2026-09-26: A on Level
+  Up, Y on Auto Level Up and A on the skill-info notice's OK; the D-pad kept
+  off the Character screen and the notice; a full build. Module 218,112 bytes,
+  `C19CC772…`; pool 68.5 MB. The four Python checks,
+  `Test-ControllerSupport.ps1`, `Test-ReinstallOverOlderBuild.ps1` and
+  `Test-InstalledOverride.ps1` pass. Seen in the scratch copy at 3440x1440
+  through four level-ups (above). Not played by hand.
+- `9736B41F…` (152,089,600 bytes), the current build, 2026-09-28: the echo
+  guard on every panel (under Fixed) and the - and + arrows back to the game's
+  own art (under Changed); a full build, 4.3 MB smaller than `128CDC79…`, pool
+  64.3 MB. Module 217,600 bytes, `69E1811B…`; 33 native hooks. The four Python
+  checks, `Test-ControllerSupport.ps1`, `Test-ReinstallOverOlderBuild.ps1` and
+  `Test-InstalledOverride.ps1` pass, and so does
+  `tools/check_controller_drift.py` against the scratch copy. Seen in the
+  scratch copy at 3440x1440 on the virtual pad (under Fixed). Not played by
+  hand.
 
 - **The KOTOR Patch Manager MIT licence is installed with the controller.** The
   runtime, the controller module and the memory-safety patches all come from
@@ -198,6 +298,88 @@ before:
   byte for byte, and `Test-ReinstallOverOlderBuild.ps1` also passes.
 
 ### Added
+
+- **The Character screen shows A on Level Up and Y on Auto Level Up, and the
+  granted-feats notice shows A on its OK** (2026-09-26, at the maintainer's
+  request after a preview found neither had a glyph). The Character screen
+  levels up on A and auto-levels on Y itself, with nothing focused
+  (`0x006B2295`, `0x006B233C`), so both badges are unconditional; the buttons
+  are drawn only while the member on screen can level up. Unlike every badge
+  before them, these two stand on a filled button: their box is `dialog2`,
+  uniform black at half alpha (read from `swpc_tex_gui.erf`). The build now
+  composites a badge over such a fill (`backing` in
+  `tools/build_controller_prompt_textures.py`), the module puts `dialog2` back
+  whenever the badge is not shown, and the badges are sized like the screen's
+  Close and Scripts badges rather than from their own 120 and 156 px buttons.
+  The installer's re-placement for other languages slides a badge sideways;
+  the columns it vacates now repeat the edge column, so a backed badge keeps an
+  unbroken box. Every one of the 26,460 ordinary badges in the build has a
+  transparent edge column, and a harness around the real `ShiftColumns` found
+  40 of them byte-identical to the old shift at six distances. The notice is
+  `skillinfo.gui`, "You have been granted the following feat(s) this level"
+  (`CSWGuiSkillInfoBox`, vtable `0x00757940`); its dispatcher closes it on A
+  whatever holds focus, so its OK carries a plain A. `Test-ControllerPromptAssets.py`
+  checks the backed badges' fills, that everything but the glyph is exactly
+  the backing, and that the glyph stays clear of the texture's edges.
+  **Seen in game** in a scratch copy of the game at 3440x1440 with `128CDC79…`
+  installed, on a copy of the maintainer's save levelled from 12 to 16 on the
+  virtual pad alone (2026-09-26 and 2026-09-28): the badges on the Character
+  screen, gone once no level is left; the level-up list, Attributes, Skills,
+  Feats and Powers with their badges; the granted-feats notice with its A; and
+  the "following power(s) have been recommended" notice, which Powers' Y opens,
+  with the same A, since it is the same `skillinfo.gui` panel. Not played by
+  hand.
+
+- **The status summary shows the pad's A beside OK** (2026-09-25, at the
+  maintainer's request: "just add the glyph to the journal entry popup"). The
+  box that says "Journal Entry Added", "Item(s) Received" and the like has the
+  A left of its OK while a controller is in use, placed as on the confirmation
+  boxes: a disc the height of OK, a quarter of its size clear of OK's edge. A
+  already pressed OK there; the panel registers OK's handler (`0x00624BA0`)
+  for `0x27`. The box widens when one short line would leave no room for the
+  A. The game's own `statussummary.gui` has no control for a badge, and KMRP
+  does not ship that file, so the module adds one as the panel is built: a
+  label loaded from `LBL_JOURNAL`'s definition without taking its place, put
+  in the empty slot the file's missing ID 16 leaves in the panel's control
+  array, and freed with the panel. The mechanism is in
+  [custom-gui-controls.md](reverse-engineering/custom-gui-controls.md).
+  **Seen in game on 2026-09-25** in the scratch copy, at 3440x1440 and
+  1920x1080: the A left of OK while the pad is in use, gone while the mouse
+  is, and A closing the box.
+
+- **Every settings screen shows its controller buttons** (2026-09-25, from a
+  play-test screenshot of Advanced Graphics: "add glyphs to all settings
+  screens"). Y now presses Default on the nine screens that have one --
+  Graphics, Advanced Graphics, Sound, Advanced Sound, Gameplay, Mouse, Feedback,
+  Auto-Pause and Key Mapping -- and each Default carries a Y. No settings panel
+  answers Y itself, so the module presses the button as a click does
+  (`PressDefaultK1`). The five Y registrations the engine has on these screens
+  are the gamma and volume sliders' change callbacks (`0x006E0190`,
+  `0x006E0F50`), which only re-apply the current value. A follows the focus down
+  both Options lists and onto the buttons that open another screen: Screen
+  Resolution, Advanced Options, Mouse Settings, Key Mapping and Controller
+  Layout. With a pad in use, the - and + of the focused row show the D-pad's
+  left and right in their place: Difficulty, Texture Quality, Anti-aliasing,
+  Anisotropy, EAX, and every row of Attributes and Skills. Their own art comes
+  back when the row loses focus or the mouse is used. Portrait's arrows and
+  Pazaak's wager show them all the time, since they act whatever holds focus,
+  and the wager also gets A on Wager and B on Quit. That is 30 badges and 42
+  arrow glyphs a resolution, for each controller family.
+  `Test-ControllerPromptAssets.py` checks every arrow's art, size and centring,
+  and which side each glyph lights. This reverses the 2026-09-08 rule that
+  Default takes no badge, which held while no controller button pressed it.
+  **Seen in game on 2026-09-25**, from screenshots of a scratch copy of the
+  game at 3440x1440 with `D407BF3A…` installed, driven by the virtual pad
+  (`testing/controller/virtual_pad_server.py`): every Default's Y, the A on
+  the focused Options entry, Screen Resolution and Mouse Settings, the D-pad
+  glyphs on Difficulty, Texture Quality, Anti-aliasing, Anisotropy, EAX,
+  Attributes, Skills and Portrait, the arrows' own art back on rows without
+  focus, and Y resetting Advanced Graphics to the engine's defaults. The
+  wager and the other controller families were not seen, and nobody has
+  played it by hand yet. **Correction, 2026-09-28:** the D-pad glyphs on the
+  - and + are gone again at the maintainer's request, and the arrows keep the
+  game's art (under Changed). The badges, and Left and Right changing the
+  value, stay.
 
 - **X disengages and Y cancels the last queued action, in combat**, each with
   its badge on the HUD. The engine has both buttons: Disengage (`BTN_CLEARALL`)
@@ -219,6 +401,32 @@ before:
   cover no button or queue icon at all 49. The Controller Layout screen now
   reads "Disengage / Menu action" for X and "Undo action / Menu action" for Y,
   where both said "Screen action". **Untested in game.**
+- **Controller glyphs on every character-creation and level-up screen**
+  (issue #21). There are 42 badges in all four controller families, on class
+  selection, Quick or Custom, both step lists, Portrait, Attributes, Skills,
+  Feats, Name, the level-up list and Powers:
+  - **B** is Cancel or Back;
+  - **Y** is Recommended, or Random Name on Name;
+  - **X** is Feats' Add Feat and Powers' Select. Feats' own A and X are the
+    other way round, and the module swaps them there, at the maintainer's
+    request after a play-test screenshot, so every screen has A on OK;
+  - **A** follows the focused step on the step lists, and sits on each other
+    screen's own A button.
+
+  Every glyph is a button the screen's own dispatcher answers; the handler
+  addresses are in the module's tables. Tags, indices, empty fills and widths
+  were checked in all 49 archives before the targets went in. The Quick or
+  Custom, step-list and Portrait screens were also missing from the module's
+  menu-panel list, so no badge could have shown there. **The D-pad now picks
+  portraits** on the Portrait screen, as LT and RT already did. The class
+  portraits and the +/− arrows carry art and take no badge. A pad still cannot
+  type a name; Random Name works. The full table is in
+  [controller-prompt-specification.md](docs/controller-prompt-specification.md).
+  **Seen in game on 2026-09-25**, in the same scratch copy, on every
+  character-creation screen; level-up and Powers were not reached. The notice
+  Feats opens with, "You have been granted the following feat(s) this
+  level", has no badge on its OK.
+
 - **The installer's window says v1.5.0.** Its label was a hardcoded `"v1.0.0"`,
   a second copy of the version that did not follow `PatchVersion` to 1.5.0. It
   is derived from `PatchVersion` now.
@@ -389,16 +597,41 @@ before:
 
   **The third play-test (same day, `AD3DC07D…`) showed the A mid-sentence**,
   over "of" in "Can you show me one of the visions again?". The log read
-  `textWidth=320`, but the screen showed that line at about 600 px. The engine's
-  measure is in other units than the screen. Its line breaker multiplies every
-  glyph by the text object's scale (`+0x40`), and `Draw` undoes that scale; the
-  ratio was about 1.875 at 3440x1440. **The A now sits at the end of the
+  `textWidth=320`, but the screen showed that line at about 600 px: the
+  engine's measure read about 1.875 times short. **The A now sits at the end of the
   highlighted reply's last line.** That line's width is read from the layout
   being drawn: the text object's line lengths and the font's own glyph
   rectangles, at one atlas texel per pixel. The A is centred on that line,
   keeps the height of a one-line row, and sits an eighth of its size past the
   text. The log line now carries `lineWidth=`, `lines=`, `textScale=` and the
   render viewport. **Untested in game.**
+
+  **The fourth play-test (same day) placed it at the end of the line**, and
+  the maintainer asked for three changes. The gap is now half the badge; an
+  eighth, with the art's rim, still touched the last letter. The badge sits
+  half a text line lower, using the reply font's own `fontheight`. It is a
+  quarter larger than a one-line row: 40 px at 3440x1440, against 32. The log
+  line adds `lineHeight=`. **Untested in game.**
+
+  **The fifth play-test (same day) found it low**, and the maintainer asked for
+  "vertical lineheight based centering". Measured on that screenshot, the
+  reply's capital tops and baseline sit 11 and 28 px into its 32 px line at
+  3440x1440. So the letters' middle is 19.5 px down, and the A's middle was at
+  32. The A is now centred on its line's letters: 5/8 of the line height below
+  the top of the reply's last line, 20 px at 3440x1440. A reply's lines are
+  centred in its row. The two builds before put the A's middle at half a line
+  (seen as sitting high) and at a whole line (seen as low). **Measured in
+  game on 2026-09-25** in the scratch copy, on Trask's first reply at
+  3440x1440: the A covers rows 1206 to 1233, centre 1219.5, and the reply's
+  capitals and baseline rows 1210 to 1229, centre 1219.5. Not yet played by
+  hand.
+
+  *Corrected 2026-09-25:* this entry, the code and commit `f423d03` blamed the
+  text object's scale (`+0x40`), put at about 0.53. The next play-test's own log
+  line read `textScale=1.0000`, so that is not the cause, and why the engine's
+  measure read short is not established. The new placement does not depend on
+  it. It reads the drawn layout, and the same log gave `lineWidth=435` and
+  `470` for two replies. Whether the A then sat at their ends was not reported.
 
 - **Menu and dialogue text is drawn at the size it was rendered at** (issue
   #16). Two players reported pixelated, aliased text, one at 1920x1080 and one
@@ -434,7 +667,278 @@ before:
   [controller-support.md](docs/controller-support.md). Untested on real
   multi-monitor hardware.
 
+### Changed
+
+- **The - and + arrows keep the game's own art** (2026-09-28, at the
+  maintainer's request: "I dont want the dpad leave the + and -"). Since
+  2026-09-25 the focused row's arrows on the settings screens, every row of
+  Attributes and Skills, Portrait's arrows and Pazaak's wager showed the
+  D-pad's left and right in their place. The 42 glyphs a resolution are no
+  longer built or installed, and the module no longer swaps them in; the
+  installer is 4.3 MB smaller (`9736B41F…`). The D-pad still changes the
+  value: Left and Right press the row's arrows as before.
+  `Test-ControllerPromptAssets.py` now fails if any archive carries a D-pad
+  arrow glyph (`kmr?dl_*`, `kmr?dr_*`). **Seen in game** in the scratch copy
+  at 3440x1440: Gameplay's Difficulty shows the game's - and + with the pad
+  in use, and D-pad right still took it from Normal to Difficult.
+
+- **The Abilities screen's swap-tabs cue sits beside Close** (2026-09-25, at
+  the maintainer's request). The X-and-arrows cue that says X cycles Skills,
+  Powers and Feats sat past the last sub-tab, at the top. It is now in the
+  bottom bar with the screen's other button prompts: a third of its height
+  left of Close, centred on it, and the size it was. `add_subtab_swap_cue`
+  places it from each resolution's own Close and refuses a spot over a
+  button or another cue; all 49 resolutions place it, 6 to 108 px clear of
+  Close.
+
+- **The installer is 60.5 MB smaller**: 145,208,320 bytes, down from
+  208,672,256. Explorer lists it as 141,805 KB instead of 203,782 KB; the
+  maintainer asked why it had grown to "203 MB". It embedded all 49
+  per-resolution archives, 118.2 MB, to install one. Most of their files are
+  the same bytes at several resolutions: a prompt badge is drawn for its
+  button's size, and many buttons are the same size at many resolutions. The
+  archives held 27,342 files, and 11,930 of them were distinct. (MB here as the
+  build prints it, 1,048,576 bytes. 29 MB of the growth came with the
+  character-creation badges, `189DF101…` above.)
+
+  The installer now embeds one pool, 57.7 MB, holding each distinct file once
+  and an index per resolution. A new build step makes it
+  (`tools/pack_resolution_layouts.py`), and the installer rebuilds the chosen
+  resolution's files from it (`GuiPool` in `src/patcher/KmrpPatcher.cs`). What
+  reaches Override does not change. Three checks hold it there:
+  - **At build time**, the packer rebuilds all 49 resolutions from the pool. It
+    stops the build unless each has its archive's names, in its archive's
+    order, with the same SHA-256s. It was proved on five kinds of damage planted
+    in a pool, and stopped on each: a changed object, a missing object, an index
+    line pointing at another object, an index missing its last file, and two
+    names swapped. Two runs over the same archives give the same bytes.
+  - **At install time**, each file written from the pool must match its
+    object's name, the first 16 hex digits of its SHA-256. Otherwise the install
+    stops before replacing anything. A prompt badge moved for the player's own
+    `dialog.tlk` is exempt, since it is meant to differ.
+  - **Through the real installer**, the new `Test-InstalledOverride.ps1`
+    requires a fixture's Override to hold exactly the files of
+    `override-common.zip` and the resolution's archive, byte for byte. It also
+    requires Override to be empty after restore. It passed at all 49
+    resolutions on `4EF3C181…`, and at 3440x1440 on `DB9D7A08…`, which still
+    embedded the archives. With one byte of `abchrgen.gui` changed in a copy of
+    the archives, it failed and named that file.
+
+  The old and new installers were also compared directly, once, at 3440x1440.
+  That fixture had the texture pack, and a copy of `dialog.tlk` with its 55
+  prompt labels lengthened. So 420 badges were moved and 302 ability icons
+  were generated, the two paths a plain fixture never reaches. Both installers
+  wrote the same 1,714 files, the same patched executable and the same
+  Override manifest. The new installer then upgraded the old one's install to
+  those same files. It restored both fixtures to the clean
+  executable and an empty Override.
+
+  The archives stay in `build\kmrp\resources`, where the Python checks read
+  them. The pool is written one folder up, as
+  `build\kmrp\resolution-layouts.zip`, so no check that globs the resources
+  folder picks it up. One side effect: an installer missing its interface files
+  now also removes the backup folder it has just made, rather than leaving it
+  to block the next attempt. The files are now opened inside the install
+  transaction rather than before it.
+
+  Not done: a solid archive. It would also shrink files that are close but not
+  identical, such as one badge a pixel wider. But the installer is .NET
+  Framework, which reads Deflate and nothing stronger, so it would need a
+  decoder shipped inside it. Its saving was not measured.
+
 ### Fixed
+
+- **A with a button focused presses that button once, on every screen**
+  (2026-09-28, at the maintainer's request after the Level Up freeze below:
+  "create this for all screens"). Many buttons do nothing of their own: their
+  click presses A, B, X or Y on their own panel, through four two-instruction
+  thunks (`0x00624BA0`, `0x00624BB0`, `0x00624BC0`, `0x00644720`). A panel acts
+  on a button press and then hands it to the focused control (`0x00409E60`).
+  A click never sets the focus, so it never mattered; the D-pad does. With
+  such a button focused, one A either echoed -- the button pressed A back on
+  the panel, without end: the status summary's stack overflow and the
+  double level-up -- or ran a second action, A accepting and the focused
+  Cancel's B cancelling too. A scan of all 515 `AddEvent` calls in the
+  executable found 62 such registrations on 39 panels (the table is in
+  [retained-xbox-gui-events.md](reverse-engineering/retained-xbox-gui-events.md)).
+  Two halves now cover all of them:
+  - A with such a button focused presses that button and nothing else,
+    exactly as a click does (`PressFocusedRaiseButtonK1`). Character
+    creation, Feats and the resolution box keep their own tested A paths.
+  - A panel never hands an event to a focused control whose own handler would
+    press that same event back: the hand-off becomes the inert `0x41`
+    (`GuardPanelEchoK1`, a new hook at `0x00409E60`, the 33rd native hook).
+    It catches what the first half does not, such as a focused OK on a screen
+    that answers A itself.
+
+  `K1_NO_PAD_FOCUS_PANELS` stays, since those screens need no focus.
+  **Seen in game on 2026-09-28** in the scratch copy at 3440x1440 with
+  `9736B41F…`, on the virtual pad: A on a focused Close on Gameplay and on
+  the in-game Options each pressed it once. With OK focused on level-up
+  Skills and points unspent, A showed one "unspent skill points" box, the
+  guard made the echo inert, and the level was then accepted. The Load Game
+  list loaded the save. Inventory used a focused shield once, 3/5 charges to 2/5;
+  Messages' X, the Journal's A and Y, the Map's A and B, Party Selection's B,
+  Abilities' X, Start, R3, and a conversation (A to talk, A to skip a line,
+  the D-pad down the replies, A to pick one) each did one thing. The guard
+  log shows the two presses and the one inert hand-off, nothing else.
+  Not played by hand.
+
+- **Level Up no longer opens twice and freezes the game** (found 2026-09-26
+  in a preview, with a copy of the maintainer's save). With the D-pad focus on
+  the Character screen's Level Up, one A opened two level-up screens, stacked,
+  and the game froze; the maintainer closed it. The screen levels up on A
+  itself (`0x006B2295`) and then passes A to the focused control
+  (`0x00409E60`), and Level Up's click raises A on the screen again
+  (`0x00624BA0` through the vtable's `+0x50`, `0x0040B640`). Auto Level Up's
+  click raises Y the same way (`0x00644720`, `+0x5C`), so a focused Auto Level
+  Up would have run both actions. The pad no longer moves the focus on the
+  Character screen: every action there has a button of its own -- A Level Up,
+  Y Auto Level Up, X Scripts, B Close, R3 the next party member. The status
+  summary's rule from yesterday and the granted-feats notice are in the same
+  list now, `K1_NO_PAD_FOCUS_PANELS`. The other panels with such buttons are
+  covered by the echo guard since 2026-09-28 (the entry above).
+  **Seen in game on 2026-09-26** in the scratch copy with `128CDC79…`: after
+  two D-pad presses on the Character screen, A opened exactly one level-up
+  screen, and four level-ups then ran on the pad without a freeze (2026-09-28).
+
+- **The status summary no longer crashes the game after a D-pad press**
+  (found 2026-09-25 while previewing its A). With the box up, a D-pad press
+  moved the pad's focus onto its OK, and the next A closed the game with a
+  stack overflow, exit code `0xC00000FD`, with or without the new A. The
+  box's handler (`0x00625AC0`) closes it on A and then passes every event to
+  the focused control (`0x00409E60`), and OK's A handler (`0x00624BA0`) is
+  the box's own "press A" (`0x0040B640`). So with OK focused the two call
+  each other until the stack runs out. A stack capture of the crash shows
+  that cycle 116 times in the 12 KB read, with the box's click sound at the
+  top, where the stack ran out. The game never focuses OK, and A closes the
+  box without it, so the D-pad now does nothing there. In the scratch copy
+  the same sequence -- the mouse moved, D-pad presses, A -- closes the box
+  and the game runs on (`B5D3CBB7…` and `80616FE6…`, 3440x1440).
+
+- **The status summary's text no longer crowds its right edge** (1920x1080,
+  2026-09-25). The module measured each line from its glyphs alone, but the
+  engine also adds the font's `spacingR` to every glyph's width
+  (`0x0045ABDF`), half a pixel in KMRP's `dialogfont16x16`. "Journal Entry
+  Added" measured 262 px at 1920x1080 and drew 273, 6 px from the border; at
+  3440x1440, 357 and 364, 17 px from it. The measure now includes the
+  spacing: 271 px and 15 px clear at 1920x1080, 366 px and 26 px clear at
+  3440x1440, seen in the scratch copy. The first build of it, `49671B67…`,
+  read the neighbouring field, spacingB, which is 0, and changed nothing.
+  The dialogue A's measure keeps the short width, because its gap was tuned
+  by eye on top of it.
+
+- **D-pad left and right change a setting** (play-test, 2026-09-25: "pressing
+  D-pad right doesn't change the settings"). On Advanced Graphics the pad moved
+  the focus from a value onto its + and stopped there, because the native path
+  only moved focus spatially and nothing lies right of the +. Left and Right on a
+  row with a - and a + now press them the way a click does (the arrow's own
+  registered `0x27`), and the focus stays on the value. An arrow hidden at the
+  end of its range does nothing. Up and Down leave from the row, never onto an
+  arrow. The rows are Difficulty on Gameplay; Texture Quality, Anti-aliasing and
+  Anisotropy on Advanced Graphics; and EAX on Advanced Sound (`K1_CYCLE_ROWS`).
+  The keyboard's arrow keys already did this. Sliders were not affected: the
+  engine's slider takes Left and Right itself. With Attributes, Skills and
+  Portrait, every screen whose values move by - and + now moves them on Left and
+  Right. **Seen in game on 2026-09-25** in the scratch copy: Right took
+  Difficulty from Normal to Difficult, Left took Texture Quality from High to
+  Medium and Anisotropy from 16x to 8x, Right changed the portrait and raised
+  Strength, Dexterity and Computer Use, and the focus stayed on its row each
+  time.
+
+- **Pazaak's wager moves with the D-pad.** Its dispatcher (`0x0067E150`) lowers
+  the wager on Left and Down and raises it on Right and Up whatever holds focus
+  (`0x0067E221`, `0x0067E23D`), accepts on A and quits on B. The retained-event
+  inventory never listed the panel, so KMRP owned its directions and moved the
+  focus between its buttons instead. It is now one of the screens the engine
+  navigates itself, and KMRP moves no focus there. **Untested in game.**
+
+- **The status summary fits its text** (screenshots, 2026-09-25). This is the
+  box that lists "Journal Entry Added", "Credits Lost: 100", "Experience Points
+  (XP) Received: 50" and "Item(s) Received" beside their icons, with OK under
+  them. At 3440x1440 its text ran past the right edge, OK was drawn over the
+  last line as a bar, and the XP line showed only "Received: 50". The panel
+  lays itself out in code (`0x00625C60`), in 640x480 pixels. It uses the game's
+  own 640x480 `statussummary.gui`, which High Resolution Menus does not ship.
+  Its rows are 37 px apart, and each line is widened 20 px at a time until the
+  line breaker fits it on one line, never past 440. The box is that width plus
+  62, with OK 7 px above the next row. KMRP draws its text at 32 px a line
+  there, against the 16 it was laid out for. So the XP line hit the 440 cap and
+  wrapped: the box measured 507 px on the screenshot, and the formula gives 502.
+  The breaker's short measure let the other lines overflow, and the rows and OK
+  collided. The controller module now lays the box out again after the engine,
+  every frame: the same layout scaled by the lines' font height over 16, each
+  line as wide as the glyphs the engine draws for it, capped only by the screen.
+  It is part of the controller component, which the installer adds unless it is
+  turned off. **Seen in game on 2026-09-25** in the scratch copy, with one
+  row, "Journal Entry Added", after Trask's first conversation. The log read
+  `box=(1475,648,489,144) ok=(144,80,200,44)`, and the screenshot shows the
+  line inside the box and OK centred under it. Two or more rows have not been
+  seen.
+
+- **Attributes and Skills are navigable with the D-pad** (play-test,
+  2026-09-25). Left and Right always lowered or raised the selected attribute,
+  even with focus on the bottom buttons, and moved along those buttons at the
+  same time. So Left from OK lowered Charisma and showed "cannot be reduced
+  below 8", and Right to Cancel raised it. Both screens are the Xbox design:
+  Up/Down had no handler, Left/Right changed the value, and the focus was
+  never meant to reach the buttons. KMRP now owns the D-pad there, in character
+  creation and level-up:
+  - **Up/Down** walks the rows, and Down from the last row reaches OK;
+  - **Left/Right on a row** lowers or raises that row, through the panel's own
+    routines and sound, and focus stays;
+  - **on the bottom strip**, Left/Right moves between Recommended, OK and Cancel
+    without touching a value, and Up returns to the row last in focus.
+
+  A row is its value button. Focusing it runs the engine's own "enter" event,
+  which is what selects the row, so the description follows too.
+  **Seen in game on 2026-09-25** in the scratch copy: Down went from Strength
+  to Dexterity and from Computer Use to Demolitions, and Right raised each
+  with the focus kept on its row. The bottom strip was not tried.
+
+- **Regression runs no longer leave Windows high-DPI values behind.** A fixture's
+  `HIGHDPIAWARE` value was removed only by its own `--restore`, so a run that
+  stopped part-way deleted the folder and kept the value. Twelve such values
+  were found on the maintainer's machine and deleted at their instruction. The four in-place scripts now remove
+  their own values in `finally`. It was a test fault, not an installer one: a
+  foreign `patch_config.toml` only skips the controller component, and the
+  completed install's value is removed by Restore Original. Details are in
+  [windows-dpi-scaling.md](docs/windows-dpi-scaling.md).
+
+- **The Name screen stays open after A** (play-test, 2026-09-25). A on the
+  Name step opened it, and letting go of A closed it again with the name
+  accepted: the screen stayed up only while A was held. The release reached the
+  focused name box, whose A is wired to "done" (`HandleDoneButton`,
+  `0x006F9CD0`). The engine's base control handler runs a wired event on a
+  release as well as a press. The Name screen's dispatcher (`0x006FA220`) now
+  has the same guard as the five in the entry below. A release there is inert,
+  and a press reaches the focused control as before. **Untested in game.**
+
+- **Character creation no longer crashes on A** (stack overflow). On the
+  Attributes screen, D-pad Left on an attribute at 8 shows "Attribute scores
+  cannot be reduced below 8.", and confirming it crashed the game: three times
+  on 2026-09-25, each `0xC00000FD` at `swkotor.exe+0x3000BE`. The Attributes,
+  Skills, Feats, Powers and Portrait screens are retained Xbox panels that answer
+  A themselves *and* pass it on to the focused control
+  (`CSWGuiPanel::HandleInputEvent`, `0x00409E60`, forwards to `[panel+0x1C]`).
+  Their buttons are wired to raise the panel's events: the Attributes OK's click
+  runs `AcceptButtonCallback` (`0x00624BA0`), which calls the panel's
+  `HandleInputEvent(0x27, 1)` through vtable `+0x50` (`0x0040B640`). So with OK
+  focused, one A was the panel's A, OK's click, the panel's A again, and so on
+  until the stack ran out. Each pass re-showed the "spend your points" box. A
+  mouse never loops, because clicking does not set the panel's focused control;
+  the pad's D-pad focus does. A hook at each of the five dispatchers now does
+  three things:
+  - A presses the focused button once, as A does on every other KMRP screen;
+  - the one re-entry that press raises is let through, and a deeper one becomes
+    an inert event (`0x41`);
+  - a release can no longer click anything.
+
+  This also fixes A on a focused Cancel, which ran the screen's accept and then
+  Cancel. With no button in focus, A is still the screen's own A. The D-pad
+  Left that showed the box is the Xbox screen's decrease, working as designed.
+  Diagnosed from the crash record and the bytes, not reproduced here.
+  **Untested in game.**
 
 - **The combat-mode message reads in full at 3440x1440.** "COMBAT MODE
   engaged. Press the Disengage button to cancel." showed only "the Disengage /

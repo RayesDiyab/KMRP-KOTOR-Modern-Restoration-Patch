@@ -20,7 +20,28 @@ installers `D58A2E33…`, `7C2FFF8B…` and `AD3DC07D…`, 204,800 bytes, SHA-25
 `577AAE92D0FE18766EDEC669C54959A0213BA1618030F4E1B0EED92E4D9CC251`, which adds X and Y in combat and
 moves the dialogue A to the end of the reply; in the installer `E5AFC981…`,
 205,824 bytes, SHA-256 `32F018CFE3D93AE9C9C5F4D20DDCB85FE422DD09EECAC798F13263F03BA43E9C`,
-which places that A from the drawn layout -- and what
+which places that A from the drawn layout; in `EC98B10F…`, 206,336 bytes,
+SHA-256 `628D4DC244535E26E4EBD81F4DC4710691A60CC19A6885735F66AF551BB10F90`, which adds the
+character-creation A guard; in `1720E0C1…`, 209,408 bytes, SHA-256
+`B7307208D5C2B93B86821DC9746E39EEE8C84B17D09919AD7EFD4171D37E0D59`, which adds the
+character-creation badges and the Attributes/Skills navigation; in `DB9D7A08…`,
+209,920 bytes, SHA-256 `B28A80F7B635595A59651458E2D35AB20145BCD62EBC5DFC3DE4CDF72696B43B`,
+which adds Feats' A/X swap, the name-entry guard and the dialogue A adjustment,
+and is unchanged in `4EF3C181…`; in `D407BF3A…`, 216,576 bytes, SHA-256
+`36D23D9B89039E2FB16C69CF3676F919676B2DDD2482E8DFC14C7794E51819C9`,
+which adds the settings screens' Y on Default, D-pad on -/+ rows and arrow
+glyphs, Pazaak's wager, the dialogue A on its line and the status summary's
+layout; in `80616FE6…`, 217,600 bytes, SHA-256
+`CB61BF176471DA5E24E415CFFAD4B90E501D01A0FB524D9FBE9FA216AF988020`,
+which adds the status summary's A, keeps the D-pad off its OK and counts the
+font's spacing in its line width; in `128CDC79…`, 218,112 bytes, SHA-256
+`C19CC7725DCBBDAF79E76AADA9F0139CC9A06C2D7759A259AC186F190C424A8C`, which
+adds the Level Up, Auto Level Up and skill-info notice badges and keeps the
+D-pad off the Character screen; in `9736B41F…`, 217,600 bytes, SHA-256
+`69E1811B33EFB36284A1D4CA2CA35D972EC5BEE521E763D46051BB40A254941A`, which
+adds the echo guard on every panel (`GuardPanelEchoK1`, the 33rd native hook,
+and A pressing a focused button that presses its panel) and drops the D-pad
+glyphs on the -/+ arrows -- and what
 `testing/controller/select_controller_path.py` installs into a test game. The
 reverse engineering behind the native path is in
 `reverse-engineering/retained-xbox-gui-events.md`; the architecture and the full

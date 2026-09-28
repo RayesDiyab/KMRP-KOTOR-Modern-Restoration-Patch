@@ -17,12 +17,14 @@ ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(ROOT / "tools"))
 
 from build_controller_prompt_textures import (  # noqa: E402
+    BACKINGS,
     BADGE_GROUPS,
     FAMILY_LETTERS,
     GLYPH_FAMILIES,
     GLYPH_PACK,
     PER_CAPTION_TARGETS,
     PROMPT_FALLBACK_STRINGS,
+    PROMPT_INLINE_LABELS,
     PROMPT_MANIFEST_NAME,
     PROMPT_STRREFS,
     PROMPT_TARGETS,
@@ -137,6 +139,25 @@ def verify_placement_manifest(archive, archive_name, names, gui_cache):
         # labels the hand-written table shipped with.
         text = control.get_struct("TEXT")
         strref = text.get_uint32("STRREF") if text is not None else None
+
+        # KMRP's own buttons carry an inline caption and no STRREF: nothing for
+        # the installer to re-measure, so no variants, and the baked width is the
+        # caption's own.
+        inline = PROMPT_INLINE_LABELS.get((target.gui, target.tag))
+        if inline is not None:
+            if text is None or text.get_string("TEXT") != inline:
+                raise AssertionError(
+                    f"{archive_name}: {target.gui}:{target.tag} no longer reads {inline!r}")
+            if encoded != "-":
+                raise AssertionError(
+                    f"{archive_name}: {target.resref} carries variants {encoded} for an "
+                    f"inline caption")
+            widest = measure_label(inline, live_advances, live_spacing)
+            if abs(baked - round(widest, 2)) > 0.01:
+                raise AssertionError(
+                    f"{archive_name}: {target.resref} baked width {baked} != measured {widest:.2f}")
+            continue
+
         variants = PROMPT_STRREFS[(target.gui, target.tag)]
         # Except where the panel sets the caption in code: the inventory filter's
         # .gui STRREF is replaced by one of six "Show ... Items" wordings before it
@@ -516,7 +537,20 @@ def main() -> int:
                         f"{archive_path.name}: {target.gui}[{target.control_index}] "
                         f"is not {target.tag}")
                 border = control.get_struct("BORDER")
-                if border is None or str(border.get_resref("FILL")):
+                if border is None:
+                    raise AssertionError(
+                        f"{archive_path.name}: {target.gui}:{target.tag} has no border")
+                # Empty, or -- for a badge that stands on its button's own box --
+                # exactly that box on both borders, which the module puts back.
+                fills = (str(border.get_resref("FILL")),
+                         str(control.get_struct("HILIGHT").get_resref("FILL"))
+                         if control.exists("HILIGHT") else "")
+                if target.backing:
+                    if fills != (target.backing, target.backing):
+                        raise AssertionError(
+                            f"{archive_path.name}: {target.gui}:{target.tag} carries "
+                            f"{fills}, but its badge stands on {target.backing!r}")
+                elif fills[0]:
                     raise AssertionError(
                         f"{archive_path.name}: {target.gui}:{target.tag} normal fill is not empty")
 
@@ -531,7 +565,25 @@ def main() -> int:
                     raise AssertionError(
                         f"{archive_path.name}: invalid TGA header for {resref}")
                 alphas = data[18 + 3:18 + TEXTURE_WIDTH * TEXTURE_HEIGHT * 4:4]
-                opaque = [index for index, alpha in enumerate(alphas) if alpha]
+                if target.backing:
+                    # The glyph is what differs from the backing; everything else
+                    # must be the backing exactly, or the button's box would show
+                    # a seam or a hole where the texture replaced it.
+                    r, g, b, a = BACKINGS[target.backing]
+                    backing_bgra = bytes((b, g, r, a))
+                    body = data[18:18 + TEXTURE_WIDTH * TEXTURE_HEIGHT * 4]
+                    opaque = [index for index in range(TEXTURE_WIDTH * TEXTURE_HEIGHT)
+                              if body[index * 4:index * 4 + 4] != backing_bgra]
+                    if not opaque:
+                        raise AssertionError(
+                            f"{archive_path.name}: {resref} is all backing, no glyph")
+                    columns = {index % TEXTURE_WIDTH for index in opaque}
+                    if min(columns) == 0 or max(columns) == TEXTURE_WIDTH - 1:
+                        raise AssertionError(
+                            f"{archive_path.name}: {resref} glyph touches the texture's "
+                            "edge, which the installer's shift repeats")
+                else:
+                    opaque = [index for index, alpha in enumerate(alphas) if alpha]
                 if not opaque:
                     raise AssertionError(
                         f"{archive_path.name}: {resref} is fully transparent")
@@ -593,13 +645,22 @@ def main() -> int:
                                     "stored upside down")
                 checked += 1
 
+            # The - and + arrows keep the game's own art. From 2026-09-25 to
+            # 2026-09-28 the build shipped D-pad glyphs to stand in for them
+            # (kmr?dl_*, kmr?dr_*), and the maintainer asked for the arrows back.
+            # No archive may carry one again.
+            stale = sorted(n for n in names if re.fullmatch(r"kmr[psnd]d[lr]_\w+\.tga", n))
+            if stale:
+                raise AssertionError(
+                    f"{archive_path.name}: D-pad arrow glyphs are back: {stale[:4]}")
+
             verify_placement_manifest(archive, archive_path.name, names, gui_cache)
 
     print(
         f"Controller prompts OK: {len(archives)} archives, "
         f"{checked} target textures ({len(GLYPH_FAMILIES)} controller families), "
-        f"{len(PROMPT_TARGETS)} verified control mappings each, Controller Layout "
-        "verified, placement manifest verified")
+        f"{len(PROMPT_TARGETS)} verified control mappings each, no D-pad arrow "
+        "glyphs, Controller Layout verified, placement manifest verified")
     return 0
 
 

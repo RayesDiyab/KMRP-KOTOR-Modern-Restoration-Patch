@@ -167,8 +167,23 @@ constexpr std::uintptr_t K1_ABILITIES_CHARGEN_PANEL_VTABLE = 0x00759C68;
 constexpr std::uintptr_t K1_SOLO_MODE_QUERY_PANEL_VTABLE = 0x00756F28;
 constexpr std::uintptr_t K1_PAZAAK_SETUP_PANEL_VTABLE = 0x007532E8;
 constexpr std::uintptr_t K1_PAZAAK_GAME_PANEL_VTABLE = 0x00753358;
+// Pazaak's wager box, from its constructor (0x0067F03E). Its dispatcher,
+// 0x0067E150, answers A, B and all four directions itself.
+constexpr std::uintptr_t K1_PAZAAK_WAGER_PANEL_VTABLE = 0x007534C8;
+// "You have been granted the following feat(s) this level." (skillinfo.gui),
+// from its constructor (0x006CE7C0, the vtable stored at 0x006CE7F9). Its OK is
+// +0x484 (bound at 0x006CE8EA), and its dispatcher, 0x006CD3C0, closes the box
+// on A and B whatever holds focus.
+constexpr std::uintptr_t K1_SKILL_INFO_PANEL_VTABLE = 0x00757940;
 constexpr std::uintptr_t K1_PARTY_SELECT_PANEL_VTABLE = 0x00756D28;
 constexpr std::uintptr_t K1_CLASS_SELECT_PANEL_VTABLE = 0x00758020;
+// Character creation's own screens, from their constructors (2026-09-25):
+// CSWGuiQuickOrCustomPanel 0x006F09F0, CSWGuiCustomPanel 0x006EF730,
+// CSWGuiQuickPanel 0x006F0390, CSWGuiPortraitCharGen 0x006F9430.
+constexpr std::uintptr_t K1_QUICK_OR_CUSTOM_PANEL_VTABLE = 0x00759710;
+constexpr std::uintptr_t K1_CUSTOM_CHARGEN_PANEL_VTABLE = 0x007595E0;
+constexpr std::uintptr_t K1_QUICK_CHARGEN_PANEL_VTABLE = 0x00759668;
+constexpr std::uintptr_t K1_PORTRAIT_CHARGEN_PANEL_VTABLE = 0x00759EA8;
 constexpr std::uintptr_t K1_CONTAINER_PANEL_VTABLE = 0x007567E0;
 constexpr std::uintptr_t K1_SAVELOAD_PANEL_VTABLE = 0x00757650;
 constexpr std::uintptr_t K1_UPGRADE_SELECTION_PANEL_VTABLE = 0x007571B0;
@@ -232,6 +247,12 @@ constexpr std::ptrdiff_t K1_CLASS_SELECT_STRIDE = 0x025C;
 constexpr int K1_CLASS_SELECT_COUNT = 6;
 constexpr std::ptrdiff_t K1_CHARACTER_SCRIPTS_OFFSET = 0x5400;
 constexpr std::ptrdiff_t K1_CHARACTER_EXIT_OFFSET = 0x523C;
+// Level Up and Auto Level Up, drawn only while the member on screen can level
+// up. Their clicks raise the panel's A and Y (AddEvent at 0x006B2138 and
+// 0x006B211A), which the screen answers itself -- 0x006B2295 levels up,
+// 0x006B233C auto-levels -- so A and Y work with nothing focused.
+constexpr std::ptrdiff_t K1_CHARACTER_LEVELUP_OFFSET = 0x4968;
+constexpr std::ptrdiff_t K1_CHARACTER_AUTO_LEVELUP_OFFSET = 0x47A4;
 constexpr std::ptrdiff_t K1_CONTAINER_GET_ITEMS_OFFSET = 0x0AD0;
 constexpr std::ptrdiff_t K1_CONTAINER_CANCEL_OFFSET = 0x0C94;
 constexpr std::ptrdiff_t K1_CONTAINER_GIVE_ITEMS_OFFSET = 0x0E58;
@@ -736,12 +757,21 @@ enum class PromptVariantK1 {
     // stays there through all of them, and steps aside only when focus reaches
     // OK, where A means OK instead.
     FocusFallback,
+    // ArrowRow, a D-pad glyph in place of the focused row's - and +, existed
+    // from 2026-09-25 to 2026-09-28. Removed at the maintainer's request: the
+    // game's own - and + stay, and the D-pad still steps them.
 };
 
 struct ControllerPromptBinding {
     std::ptrdiff_t controlOffset;
     const char* resref;
     PromptVariantK1 variant;
+    // What the control shows when its badge does not. Null on a caption button,
+    // whose normal fill is empty; the button's own box where the badge stands
+    // on one (Level Up and Auto Level Up, dialog2), for the normal border and
+    // the highlight one.
+    const char* restore;
+    const char* restoreHilight;
 };
 
 // The inventory filter button. Its caption is "Show " followed by the filter it
@@ -886,6 +916,13 @@ const char* K1PromptResref(const ControllerPromptBinding& binding, void* panel,
 constexpr ControllerPromptBinding K1_CHARACTER_PROMPTS[] = {
     {K1_CHARACTER_EXIT_OFFSET, "kmrpb_charexit"},
     {K1_CHARACTER_SCRIPTS_OFFSET, "kmrpx_charscr"},
+    // Since 2026-09-26. These two are drawn on the buttons' own box, dialog2,
+    // which the badge texture carries under its glyph, and dialog2 goes back
+    // whenever the badge is not shown.
+    {K1_CHARACTER_LEVELUP_OFFSET, "kmrpa_charlvl", PromptVariantK1::None,
+     "dialog2", "dialog2"},
+    {K1_CHARACTER_AUTO_LEVELUP_OFFSET, "kmrpy_charauto", PromptVariantK1::None,
+     "dialog2", "dialog2"},
 };
 constexpr ControllerPromptBinding K1_CONTAINER_PROMPTS[] = {
     {K1_CONTAINER_GET_ITEMS_OFFSET, "kmrpa_contok"},
@@ -1012,8 +1049,19 @@ constexpr ControllerPromptBinding K1_OPTIONS_RESOLUTION_PROMPTS[] = {
     {K1_OPTIONS_RESOLUTION_CANCEL_OFFSET, "kmrpb_rescancel"},
 };
 
+// Every settings screen carries its buttons' glyphs since 2026-09-25: Y on
+// Default, which the pad presses for it (PressDefaultK1 in K1NativeJoystick.cpp;
+// no settings panel answers Y itself), A on the focused entry of the two Options
+// lists and on the focused button that opens another screen. The rows' - and +
+// keep their own art (the D-pad glyphs in their place were removed on
+// 2026-09-28); Left and Right still step them.
 constexpr ControllerPromptBinding K1_OPTIONS_MAIN_PROMPTS[] = {
     {K1_OPTIONS_MAIN_BACK_OFFSET, "kmrpb_optmain"},
+    {K1_OPTIONS_MAIN_TAIL_GAMEPLAY_OFFSET, "kmrpa_omgame", PromptVariantK1::FocusOnly},
+    {K1_OPTIONS_MAIN_TAIL_FEEDBACK_OFFSET, "kmrpa_omfeed", PromptVariantK1::FocusOnly},
+    {K1_OPTIONS_MAIN_TAIL_AUTOPAUSE_OFFSET, "kmrpa_ompause", PromptVariantK1::FocusOnly},
+    {K1_OPTIONS_MAIN_TAIL_GRAPHICS_OFFSET, "kmrpa_omgfx", PromptVariantK1::FocusOnly},
+    {K1_OPTIONS_MAIN_TAIL_SOUND_OFFSET, "kmrpa_omsnd", PromptVariantK1::FocusOnly},
 };
 
 // Movies: Close is B. The panel's dispatcher (0x006DCE80) closes on 0x28.
@@ -1023,45 +1071,84 @@ constexpr ControllerPromptBinding K1_TITLE_MOVIES_PROMPTS[] = {
 
 constexpr ControllerPromptBinding K1_INGAME_OPTIONS_PROMPTS[] = {
     {K1_INGAME_OPTIONS_EXIT_OFFSET, "kmrpb_optingame"},
+    {K1_INGAME_OPTIONS_TAIL_LOADGAME_OFFSET, "kmrpa_oiload", PromptVariantK1::FocusOnly},
+    {K1_INGAME_OPTIONS_TAIL_SAVEGAME_OFFSET, "kmrpa_oisave", PromptVariantK1::FocusOnly},
+    {K1_INGAME_OPTIONS_TAIL_GAMEPLAY_OFFSET, "kmrpa_oigame", PromptVariantK1::FocusOnly},
+    {K1_INGAME_OPTIONS_TAIL_FEEDBACK_OFFSET, "kmrpa_oifeed", PromptVariantK1::FocusOnly},
+    {K1_INGAME_OPTIONS_TAIL_AUTOPAUSE_OFFSET, "kmrpa_oipause", PromptVariantK1::FocusOnly},
+    {K1_INGAME_OPTIONS_TAIL_GRAPHICS_OFFSET, "kmrpa_oigfx", PromptVariantK1::FocusOnly},
+    {K1_INGAME_OPTIONS_TAIL_SOUND_OFFSET, "kmrpa_oisnd", PromptVariantK1::FocusOnly},
+    {K1_INGAME_OPTIONS_TAIL_QUIT_OFFSET, "kmrpa_oiquit", PromptVariantK1::FocusOnly},
 };
 
+// CSWGuiOptionsGameplay, from the main menu and in game alike. Its Controller
+// Layout entry is KMRP's own button, bound at run time, so its A is painted by
+// K1ControllerLayout.cpp through KmrpPaintLayoutEntryPromptK1 below.
 constexpr ControllerPromptBinding K1_INGAME_GAMEPLAY_PROMPTS[] = {
     {K1_INGAME_GAMEPLAY_BACK_OFFSET, "kmrpb_optgame"},
+    {K1_INGAME_GAMEPLAY_DEFAULT_OFFSET, "kmrpy_optgamedef"},
+    {K1_INGAME_GAMEPLAY_TAIL_MOUSE_OFFSET, "kmrpa_optgamemse", PromptVariantK1::FocusOnly},
+    {K1_INGAME_GAMEPLAY_TAIL_KEYMAP_OFFSET, "kmrpa_optgamekey", PromptVariantK1::FocusOnly},
 };
 
 constexpr ControllerPromptBinding K1_INGAME_AUTOPAUSE_PROMPTS[] = {
     {K1_INGAME_AUTOPAUSE_BACK_OFFSET, "kmrpb_optpause"},
+    {K1_INGAME_AUTOPAUSE_DEFAULT_OFFSET, "kmrpy_optpsedef"},
 };
 
 constexpr ControllerPromptBinding K1_OPTIONS_FEEDBACK_PROMPTS[] = {
     {K1_OPTIONS_FEEDBACK_BACK_OFFSET, "kmrpb_optfeed"},
+    {K1_OPTIONS_FEEDBACK_DEFAULT_OFFSET, "kmrpy_optfeeddef"},
 };
 
 constexpr ControllerPromptBinding K1_OPTIONS_MOUSE_PROMPTS[] = {
     {K1_OPTIONS_MOUSE_BACK_OFFSET, "kmrpb_optmouse"},
+    {K1_OPTIONS_MOUSE_DEFAULT_OFFSET, "kmrpy_optmsedef"},
 };
 
 constexpr ControllerPromptBinding K1_OPTIONS_GRAPHICS_PROMPTS[] = {
     {K1_OPTIONS_GRAPHICS_BACK_OFFSET, "kmrpb_optgfx"},
+    {K1_OPTIONS_GRAPHICS_DEFAULT_OFFSET, "kmrpy_optgfxdef"},
+    {K1_OPTIONS_GRAPHICS_TAIL_RESOLUTION_OFFSET, "kmrpa_optgfxres", PromptVariantK1::FocusOnly},
+    {K1_OPTIONS_GRAPHICS_TAIL_ADVANCED_OFFSET, "kmrpa_optgfxadvn", PromptVariantK1::FocusOnly},
 };
 
 constexpr ControllerPromptBinding K1_OPTIONS_GRAPHICS_ADVANCED_PROMPTS[] = {
     {K1_OPTIONS_GRAPHICS_ADVANCED_CANCEL_OFFSET, "kmrpb_optgfxadv"},
     {K1_OPTIONS_GRAPHICS_ADVANCED_OK_OFFSET, "kmrpa_optgfxadv"},
+    {K1_OPTIONS_GRAPHICS_ADVANCED_DEFAULT_OFFSET, "kmrpy_optgfxadef"},
 };
 
 constexpr ControllerPromptBinding K1_OPTIONS_SOUND_PROMPTS[] = {
     {K1_OPTIONS_SOUND_BACK_OFFSET, "kmrpb_optsnd"},
+    {K1_OPTIONS_SOUND_DEFAULT_OFFSET, "kmrpy_optsnddef"},
+    {K1_OPTIONS_SOUND_TAIL_ADVANCED_OFFSET, "kmrpa_optsndadvn", PromptVariantK1::FocusOnly},
 };
 
 constexpr ControllerPromptBinding K1_OPTIONS_SOUND_ADVANCED_PROMPTS[] = {
     {K1_OPTIONS_SOUND_ADVANCED_CANCEL_OFFSET, "kmrpb_optsndadv"},
     {K1_OPTIONS_SOUND_ADVANCED_OK_OFFSET, "kmrpa_optsndadv"},
+    {K1_OPTIONS_SOUND_ADVANCED_DEFAULT_OFFSET, "kmrpy_optsndadef"},
 };
 
 constexpr ControllerPromptBinding K1_KEY_MAPPINGS_PROMPTS[] = {
     {K1_KEY_MAPPINGS_CANCEL_OFFSET, "kmrpb_optkeys"},
     {K1_KEY_MAPPINGS_ACCEPT_OFFSET, "kmrpa_optkeys"},
+    {K1_KEY_MAPPINGS_DEFAULT_OFFSET, "kmrpy_optkeysdef"},
+};
+
+// Pazaak's wager box. Its dispatcher accepts on A, quits on B and moves the
+// wager on the D-pad whatever holds focus, so none of these follows the focus.
+constexpr ControllerPromptBinding K1_PAZAAK_WAGER_PROMPTS[] = {
+    {0x07CC, "kmrpa_pzkwager"},
+    {0x0990, "kmrpb_pzkquit"},
+};
+
+// The notice Feats opens with in character creation and level-up, "You have
+// been granted the following feat(s) this level" (2026-09-26). A closes it
+// whatever holds focus, so its OK carries an A.
+constexpr ControllerPromptBinding K1_SKILL_INFO_PROMPTS[] = {
+    {0x0484, "kmrpa_skillok"},
 };
 
 constexpr ControllerPromptBinding K1_UPGRADE_PROMPTS[] = {
@@ -1072,6 +1159,107 @@ constexpr ControllerPromptBinding K1_UPGRADE_PROMPTS[] = {
 constexpr ControllerPromptBinding K1_UPGRADE_ITEM_SELECT_PROMPTS[] = {
     {K1_UPGRADE_ITEM_SELECT_BACK_OFFSET, "kmrpb_upgitm"},
     {K1_UPGRADE_ITEM_SELECT_UPGRADE_OFFSET, "kmrpa_upgitm"},
+};
+
+// Character creation and level-up, added 2026-09-25. Offsets come from each
+// constructor's bind calls (tools/extract_control_offsets.py); the step lists'
+// loops -- 0x006EF8FB, 0x006F0538, 0x006EE9A6, one button every 0x1C4 -- were
+// read by hand. What each glyph claims, and where the panel answers it:
+//
+//   B    every screen's dispatcher implements 0x28: class select 0x006DBD57,
+//        quick-or-custom 0x006F0E54, custom 0x006EF630 and quick 0x006F02A0
+//        (back one step), portrait 0x006F903F, attributes 0x006F88AF, skills
+//        0x006F6A3F, feats 0x006F46AF, name 0x006FA259, level-up 0x006EE740,
+//        powers 0x006F28EF.
+//   Y    Recommended: attributes 0x006F892F (nothing once no points remain),
+//        skills 0x006F6ABF, feats 0x006F471B, powers 0x006F292F; Random Name
+//        0x006FA279.
+//   X    feats' Add and powers' Select (0x006F294F). Feats' own dispatcher has
+//        these the other way round -- A adds (0x006F46EF), X is OK (0x006F46CF) --
+//        and the pad's A and X are swapped there (FeatsConfirmK1 and FeatsAddK1
+//        in K1NativeJoystick.cpp), so every screen has A on OK.
+//   A    the step lists answer A through the focused button only, so each step
+//        is FocusOnly -- one A that follows the selection. Elsewhere the panel
+//        answers A itself (attributes 0x006F890F, skills 0x006F6A9F, feats' Add
+//        0x006F46EF, powers 0x006F290F, portrait 0x006F901F; name through its
+//        OK and name box), so the A sits on that button as FocusFallback and
+//        steps aside while focus is on another badged button: since
+//        GuardChargenConfirmK1 (K1NativeJoystick.cpp), A presses the focused
+//        button on those five screens.
+constexpr ControllerPromptBinding K1_CLASS_SELECT_PROMPTS[] = {
+    {0x1394, "kmrpb_clsback", PromptVariantK1::None},
+};
+constexpr ControllerPromptBinding K1_QUICK_OR_CUSTOM_PROMPTS[] = {
+    {0x006C, "kmrpa_qcquick", PromptVariantK1::FocusOnly},
+    {0x0230, "kmrpa_qccust",  PromptVariantK1::FocusOnly},
+    {0x0BD4, "kmrpb_qcback",  PromptVariantK1::None},
+};
+// Only the current step is enabled (SetState 0x006EEFD0), so the one A lands on
+// it. Cancel asks for confirmation past the first step (0x006EF6A0) and is not B.
+constexpr ControllerPromptBinding K1_CUSTOM_CHARGEN_PROMPTS[] = {
+    {0x1224, "kmrpa_cust1",    PromptVariantK1::FocusOnly},
+    {0x13E8, "kmrpa_cust2",    PromptVariantK1::FocusOnly},
+    {0x15AC, "kmrpa_cust3",    PromptVariantK1::FocusOnly},
+    {0x1770, "kmrpa_cust4",    PromptVariantK1::FocusOnly},
+    {0x1934, "kmrpa_cust5",    PromptVariantK1::FocusOnly},
+    {0x1AF8, "kmrpa_cust6",    PromptVariantK1::FocusOnly},
+    {0x1DFC, "kmrpb_custback", PromptVariantK1::None},
+    {0x1FC0, "kmrpa_custcncl", PromptVariantK1::FocusOnly},
+};
+constexpr ControllerPromptBinding K1_QUICK_CHARGEN_PROMPTS[] = {
+    {0x0A88, "kmrpa_quik1",    PromptVariantK1::FocusOnly},
+    {0x0C4C, "kmrpa_quik2",    PromptVariantK1::FocusOnly},
+    {0x0E10, "kmrpa_quik3",    PromptVariantK1::FocusOnly},
+    {0x0FD4, "kmrpb_quikback", PromptVariantK1::None},
+    {0x1198, "kmrpa_quikcncl", PromptVariantK1::FocusOnly},
+};
+// Portrait's arrows keep their own art; Left and Right pick the portrait
+// (NavigateFocusK1) whatever holds focus.
+constexpr ControllerPromptBinding K1_PORTRAIT_CHARGEN_PROMPTS[] = {
+    {0x0AFC, "kmrpa_portok",   PromptVariantK1::FocusFallback},
+    {0x0CC0, "kmrpb_portback", PromptVariantK1::None},
+};
+// Attributes and Skills. Each row's - and + keep their own art; Left and Right
+// on the focused row step it (NavigatePointsScreenK1).
+constexpr ControllerPromptBinding K1_ABILITIES_CHARGEN_PROMPTS[] = {
+    {0x2324, "kmrpa_abcgok",   PromptVariantK1::FocusFallback},
+    {0x26AC, "kmrpy_abcgrec",  PromptVariantK1::None},
+    {0x24E8, "kmrpb_abcgback", PromptVariantK1::None},
+};
+constexpr ControllerPromptBinding K1_SKILLS_CHARGEN_PROMPTS[] = {
+    {0x27EC, "kmrpa_skcgok",   PromptVariantK1::FocusFallback},
+    {0x2B74, "kmrpy_skcgrec",  PromptVariantK1::None},
+    {0x29B0, "kmrpb_skcgback", PromptVariantK1::None},
+};
+// Feats: A is OK and X adds or removes the highlighted feat, like Powers below
+// (A OK, X Select). The panel itself has them the other way round; the module
+// swaps the pad's A and X there, and these badges show the swapped buttons.
+constexpr ControllerPromptBinding K1_FEATS_CHARGEN_PROMPTS[] = {
+    {0x1238, "kmrpx_ftcgadd",  PromptVariantK1::None},
+    {0x0CEC, "kmrpa_ftcgok",   PromptVariantK1::FocusFallback},
+    {0x1074, "kmrpy_ftcgrec",  PromptVariantK1::None},
+    {0x0EB0, "kmrpb_ftcgback", PromptVariantK1::None},
+};
+constexpr ControllerPromptBinding K1_NAME_CHARGEN_PROMPTS[] = {
+    {K1_NAME_OK_OFFSET,     "kmrpa_nameok",   PromptVariantK1::FocusFallback},
+    {K1_NAME_RANDOM_OFFSET, "kmrpy_namernd",  PromptVariantK1::None},
+    {K1_NAME_CANCEL_OFFSET, "kmrpb_nameback", PromptVariantK1::None},
+};
+// Level-up: Attributes, Skills, Feats, Powers, Accept. Its BTN_CANCEL is bound
+// at +0x1B08 but no shipped leveluppnl.gui has one, so it has no badge.
+constexpr ControllerPromptBinding K1_LEVEL_UP_PROMPTS[] = {
+    {0x1070, "kmrpa_lvl1",    PromptVariantK1::FocusOnly},
+    {0x1234, "kmrpa_lvl2",    PromptVariantK1::FocusOnly},
+    {0x13F8, "kmrpa_lvl3",    PromptVariantK1::FocusOnly},
+    {0x15BC, "kmrpa_lvl4",    PromptVariantK1::FocusOnly},
+    {0x1780, "kmrpa_lvl5",    PromptVariantK1::FocusOnly},
+    {0x1944, "kmrpb_lvlback", PromptVariantK1::None},
+};
+constexpr ControllerPromptBinding K1_POWERS_LEVELUP_PROMPTS[] = {
+    {0x1634, "kmrpa_pwrok",   PromptVariantK1::FocusFallback},
+    {0x1470, "kmrpx_pwrsel",  PromptVariantK1::None},
+    {0x12AC, "kmrpy_pwrrec",  PromptVariantK1::None},
+    {0x17F8, "kmrpb_pwrback", PromptVariantK1::None},
 };
 
 void* OffsetPointer(void* base, std::ptrdiff_t offset)
@@ -1189,6 +1377,8 @@ bool IsK1MenuPanel(void* panel)
         vtable == K1_SOLO_MODE_QUERY_PANEL_VTABLE ||
         vtable == K1_PAZAAK_SETUP_PANEL_VTABLE ||
         vtable == K1_PAZAAK_GAME_PANEL_VTABLE ||
+        vtable == K1_PAZAAK_WAGER_PANEL_VTABLE ||
+        vtable == K1_SKILL_INFO_PANEL_VTABLE ||
         vtable == K1_PARTY_SELECT_PANEL_VTABLE ||
         vtable == K1_CLASS_SELECT_PANEL_VTABLE ||
         vtable == K1_CONTAINER_PANEL_VTABLE ||
@@ -1226,7 +1416,15 @@ bool IsK1MenuPanel(void* panel)
         // badges -- the modal branch above returns null for an unrecognised
         // top modal, which blanked the badges of the screen underneath it too.
         vtable == K1_MESSAGE_BOX_PANEL_VTABLE ||
-        vtable == K1_SCRIPT_SELECT_PANEL_VTABLE;
+        vtable == K1_SCRIPT_SELECT_PANEL_VTABLE ||
+        // Character creation's four screens that were missing (2026-09-25).
+        // CSWGuiMainCharGen and CSWGuiLevelUpCharGen, the backdrops behind them,
+        // are left out on purpose: they carry no buttons, and recognising one
+        // that sat above its screen would hide that screen's badges.
+        vtable == K1_QUICK_OR_CUSTOM_PANEL_VTABLE ||
+        vtable == K1_CUSTOM_CHARGEN_PANEL_VTABLE ||
+        vtable == K1_QUICK_CHARGEN_PANEL_VTABLE ||
+        vtable == K1_PORTRAIT_CHARGEN_PANEL_VTABLE;
 }
 
 bool IsK1TitleMenuPanel(void* panel)
@@ -1447,6 +1645,45 @@ const ControllerPromptBinding* GetK1ControllerPrompts(
     case K1_UPGRADE_ITEM_SELECT_PANEL_VTABLE:
         *count = sizeof(K1_UPGRADE_ITEM_SELECT_PROMPTS) / sizeof(K1_UPGRADE_ITEM_SELECT_PROMPTS[0]);
         return K1_UPGRADE_ITEM_SELECT_PROMPTS;
+    case K1_CLASS_SELECT_PANEL_VTABLE:
+        *count = sizeof(K1_CLASS_SELECT_PROMPTS) / sizeof(K1_CLASS_SELECT_PROMPTS[0]);
+        return K1_CLASS_SELECT_PROMPTS;
+    case K1_QUICK_OR_CUSTOM_PANEL_VTABLE:
+        *count = sizeof(K1_QUICK_OR_CUSTOM_PROMPTS) / sizeof(K1_QUICK_OR_CUSTOM_PROMPTS[0]);
+        return K1_QUICK_OR_CUSTOM_PROMPTS;
+    case K1_CUSTOM_CHARGEN_PANEL_VTABLE:
+        *count = sizeof(K1_CUSTOM_CHARGEN_PROMPTS) / sizeof(K1_CUSTOM_CHARGEN_PROMPTS[0]);
+        return K1_CUSTOM_CHARGEN_PROMPTS;
+    case K1_QUICK_CHARGEN_PANEL_VTABLE:
+        *count = sizeof(K1_QUICK_CHARGEN_PROMPTS) / sizeof(K1_QUICK_CHARGEN_PROMPTS[0]);
+        return K1_QUICK_CHARGEN_PROMPTS;
+    case K1_PORTRAIT_CHARGEN_PANEL_VTABLE:
+        *count = sizeof(K1_PORTRAIT_CHARGEN_PROMPTS) / sizeof(K1_PORTRAIT_CHARGEN_PROMPTS[0]);
+        return K1_PORTRAIT_CHARGEN_PROMPTS;
+    case K1_ABILITIES_CHARGEN_PANEL_VTABLE:
+        *count = sizeof(K1_ABILITIES_CHARGEN_PROMPTS) / sizeof(K1_ABILITIES_CHARGEN_PROMPTS[0]);
+        return K1_ABILITIES_CHARGEN_PROMPTS;
+    case K1_SKILLS_PANEL_VTABLE:
+        *count = sizeof(K1_SKILLS_CHARGEN_PROMPTS) / sizeof(K1_SKILLS_CHARGEN_PROMPTS[0]);
+        return K1_SKILLS_CHARGEN_PROMPTS;
+    case K1_FEATS_PANEL_VTABLE:
+        *count = sizeof(K1_FEATS_CHARGEN_PROMPTS) / sizeof(K1_FEATS_CHARGEN_PROMPTS[0]);
+        return K1_FEATS_CHARGEN_PROMPTS;
+    case K1_NAME_PANEL_VTABLE:
+        *count = sizeof(K1_NAME_CHARGEN_PROMPTS) / sizeof(K1_NAME_CHARGEN_PROMPTS[0]);
+        return K1_NAME_CHARGEN_PROMPTS;
+    case K1_LEVEL_UP_PANEL_VTABLE:
+        *count = sizeof(K1_LEVEL_UP_PROMPTS) / sizeof(K1_LEVEL_UP_PROMPTS[0]);
+        return K1_LEVEL_UP_PROMPTS;
+    case K1_POWERS_PANEL_VTABLE:
+        *count = sizeof(K1_POWERS_LEVELUP_PROMPTS) / sizeof(K1_POWERS_LEVELUP_PROMPTS[0]);
+        return K1_POWERS_LEVELUP_PROMPTS;
+    case K1_PAZAAK_WAGER_PANEL_VTABLE:
+        *count = sizeof(K1_PAZAAK_WAGER_PROMPTS) / sizeof(K1_PAZAAK_WAGER_PROMPTS[0]);
+        return K1_PAZAAK_WAGER_PROMPTS;
+    case K1_SKILL_INFO_PANEL_VTABLE:
+        *count = sizeof(K1_SKILL_INFO_PROMPTS) / sizeof(K1_SKILL_INFO_PROMPTS[0]);
+        return K1_SKILL_INFO_PROMPTS;
     default:
         return nullptr;
     }
@@ -1488,6 +1725,28 @@ void SetK1ControllerPromptFill(void* control, const char* value)
     setFill(
         OffsetPointer(control, K1_BUTTON_HILIGHT_PARAMS_OFFSET), resref, 1);
 
+}
+
+// A button's own art, back on both borders. Written verbatim: these are the
+// game's textures, not a family's badge.
+void SetK1ControllerPromptArt(void* control, const char* border, const char* hilight)
+{
+    if (!control || !border) {
+        return;
+    }
+    char normal[16] = {};
+    char focused[16] = {};
+    const char* second = hilight ? hilight : border;
+    for (int i = 0; i < 16 && border[i] != '\0'; ++i) {
+        normal[i] = border[i];
+    }
+    for (int i = 0; i < 16 && second[i] != '\0'; ++i) {
+        focused[i] = second[i];
+    }
+    SetFillImageFn setFill = reinterpret_cast<SetFillImageFn>(
+        K1_GUI_BORDER_SET_FILL_IMAGE);
+    setFill(OffsetPointer(control, K1_BUTTON_BORDER_PARAMS_OFFSET), normal, 1);
+    setFill(OffsetPointer(control, K1_BUTTON_HILIGHT_PARAMS_OFFSET), focused, 1);
 }
 
 void UpdateK1ControllerPrompts()
@@ -1559,12 +1818,16 @@ void UpdateK1ControllerPrompts()
             GetK1ControllerPrompts(panel, &count);
         for (int i = 0; i < count; ++i) {
             void* control = OffsetPointer(panel, prompts[i].controlOffset);
-            SetK1ControllerPromptFill(
-                control,
-                controllerMode
-                    ? K1PromptResref(prompts[i], panel, control,
-                                     prompts, count, nullptr)
-                    : nullptr);
+            const char* shown = controllerMode
+                ? K1PromptResref(prompts[i], panel, control, prompts, count, nullptr)
+                : nullptr;
+            if (!shown && prompts[i].restore) {
+                // An arrow: its art goes back, not an empty fill.
+                SetK1ControllerPromptArt(control, prompts[i].restore,
+                                         prompts[i].restoreHilight);
+            } else {
+                SetK1ControllerPromptFill(control, shown);
+            }
         }
         if (controllerMode && count > 0) {
             RememberK1PaintedPanel(panel, vtable);
@@ -3436,6 +3699,15 @@ extern "C" void* __cdecl KmrpDescriptionPaneK1(void* panel)
 extern "C" void __cdecl KmrpUpdatePromptsK1()
 {
     UpdateK1ControllerPrompts();
+}
+
+// The Controller Layout entry on Gameplay is KMRP's own button, bound at run
+// time by K1ControllerLayout.cpp, so it has no offset in the tables above. That
+// file decides when its A shows (FocusOnly, like Mouse and Key Mapping above
+// it) and paints it through here, which keeps every badge resref in this file.
+extern "C" void __cdecl KmrpPaintLayoutEntryPromptK1(void* button, int shown)
+{
+    SetK1ControllerPromptFill(button, shown ? "kmrpa_optgamelay" : nullptr);
 }
 
 // The cursor's half of the same question. Never reachable in native mode until

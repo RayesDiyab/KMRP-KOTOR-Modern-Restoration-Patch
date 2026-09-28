@@ -21,7 +21,8 @@ verified clean swkotor.exe + embedded gold delta
     -> ResolutionPatch constants for the selected resolution
     -> patched swkotor.exe
 
-override-common.zip + gui-<resolution>.zip
+override-common.zip + gui-<resolution>.zip (the 49 embedded as one pool of
+    distinct files since 2026-09-25; tools/pack_resolution_layouts.py)
     -> game Override directory with a hash-backed restore manifest
 ```
 

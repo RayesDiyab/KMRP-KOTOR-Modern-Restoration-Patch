@@ -289,6 +289,13 @@ the control's shape is fixed and the ART is pre-compensated instead.
 
 By then the table needed no change at all: ABILITIES simply appears twice.
 
+*Moved 2026-09-25, at the maintainer's request:* the cue sits in the bottom
+bar, a third of its height left of Close (`BTN_EXIT`) and centred on it,
+beside the screen's other button prompts, instead of past the last sub-tab.
+It keeps the sub-tabs' height. The build refuses a spot over a button or
+another cue; at all 49 resolutions it lands clear of both, 6 to 108 px left
+of Close.
+
 ## A fourth: the A on confirmation boxes (`LBL_KMRPA`)
 
 Added 2026-09-24; documented here the same day, when an audit found it in the
@@ -430,9 +437,21 @@ line breaker's units, not the screen's:
 | the line breaker | per glyph, trunc(((lower-right u − upper-left u) × `texturewidth` + `spacingR`) × scale × 100); the font information's arrays at `+0x24` and `+0x18`, 12 bytes a glyph |
 | `Draw`, `0x0045A850` | the same glyph widths × scale, then divided by the render viewport's width and height (`0x007B946C`/`+0x6E`, indexed by `0x007B9460`). On screen that is one atlas texel per pixel, as `Test-FontAtlasScale.py` requires |
 
-So the measure is the drawn width × the text object's scale. From that log,
-the scale is about 0.53 at 3440x1440 (320 against ~600). That is where the
-first two builds' A went wrong.
+So the measure would be the drawn width × the text object's scale, and this
+section first concluded the scale was about 0.53 at 3440x1440 (320 against
+~600). **Disproved the same day:** the next build logs the scale, and it read
+`textScale=1.0000`. Why `GetIdealWidthAndHeight` read ~1.875 short is not
+established. Two unverified candidates: its starting width `[text+0x6C]`, or
+the glyph truncation in the breaker. The placement below does not use it.
+
+**Centred on its line's letters (2026-09-25, after the fifth play-test).**
+The maintainer asked for "vertical lineheight based centering". On that
+play-test's screenshot the reply font's capital tops and baseline sit 11 and
+28 px into its 32 px line at 3440x1440, so the letters' middle is 19.5 px down.
+The A's middle now goes 5/8 of the line height below the top of the reply's last
+line, which is 20 px there; a reply's lines are centred in its row. Half a line
+was seen as high, and a whole line (the build before) as low. **Untested in
+game.**
 
 **Placed from the drawn layout instead.** The A goes at the end of the
 highlighted reply's **last** line. That line's width is Σ (lower-right u −
@@ -489,6 +508,152 @@ gained a `follow` offset, and `UpdateGuiCuesK1` shows such a cue only while
 the control at that offset in the panel has the visible bit. So X shows
 exactly while Disengage does, and Y while the clear-one button does, whenever
 the pad is the active device. **Untested in game.**
+
+## Not a new control: the status summary laid out again
+
+The box that lists what just changed, each line beside its icon, with OK under
+them, is `CSWGuiStatusSummary`: constructor `0x006272A0`, vtable `0x0074FF68`,
+GUI `statussummary`. High Resolution Menus ships no `statussummary.gui`, so it is
+the game's own 640x480 file (`gui.bif`, read 2026-09-25): a 322x332 box, 32x32
+icons at x 10, lines at x 52 and 32 tall, OK 100x22 at the bottom. It added no
+control until the A beside OK (below); it is here because the module moves this
+panel's own controls the way it moves the labels above.
+
+| member | what |
+| --- | --- |
+| `+0x300` + i × `0x140` | the nine icons, `CSWGuiLabel`: journal, credits, XP, stealth XP, dark side, light side, net shift, received, lost |
+| `+0xE40` + i × `0x140` | their lines, in the same order; each line's `CSWGuiText` at `+0xD0` |
+| `+0x1980` | `BTN_OK`, `CSWGuiButton` |
+
+`0x00625C60` lays it out whenever its contents change, in 640x480 pixels:
+
+| site | value | what |
+| --- | --- | --- |
+| `0x00625C8D` | 10 | first row's top |
+| `0x0062622A` | 37 (imm8) | row pitch |
+| `0x00625C95` | 150 | a line's starting width |
+| `0x006261E8` | 20 (imm8) | widening step, while the line breaker gives more than one line (`0x006261C6`) |
+| `0x006261AE`, `0x006261F4` | 440 | the widening's cap |
+| `0x00626274` | 10 (disp8) | the box is the line's x plus its width plus this |
+| `0x0062627B` | 7 (imm8) | OK sits this far above where the next row would start |
+| `0x00626282` | 32 (imm8) | the box ends this far below OK's top |
+| `0x0062628D`..`0x006262B4` | | the box centred on the screen, `[manager+0x6C]` by `[manager+0x6E]` |
+
+A row is shown by setting its icon's visible bit (`[icon+0x44] | 2`) and hidden by
+clearing it (`0x00626245`). The net shift row has no control in the file, so its
+members are not in the panel's array and never drawn.
+
+At 3440x1440 KMRP's `dialogfont16x16` is 32 px a line, twice what this was laid
+out for, and the maintainer's screenshots of 2026-09-25 show what follows: the
+XP line capped at 440 and wrapped, so the box is 502 wide (507 measured) and only
+"Received: 50" shows; lines past the box's edge, because the breaker truncates
+each glyph and stops the widening early; and OK, 22 px tall, drawn over the last
+line. Several of the constants are one-byte immediates, which could not hold the
+values past about 3.4x in place, so the fix is not in the executable.
+
+`K1ControllerLayout.cpp` (`updateStatusSummary`) finds the panel in the
+manager's panel or modal list each frame and lays it out again: the same
+numbers, scaled by the lines' font height over 16, each line as wide as the
+glyphs the engine draws for it (the measure the dialogue A uses) plus a quarter
+line, the box capped at the screen's width. It writes an extent only when it
+differs, and logs `status-summary` with the geometry, eight times a session.
+
+**Seen in game on 2026-09-25**, at 3440x1440 in a scratch copy of the game with
+`D407BF3A…` installed, driven by the virtual pad: one row, "Journal Entry
+Added", after Trask's first conversation. The log read `rows=1 lineHeight=32
+widest=357 box=(1475,648,489,144) ok=(144,80,200,44)`, and the screenshot shows
+the line inside the box and OK centred under it. Two or more rows have not been
+seen.
+
+### And one control after all: the A beside OK
+
+Added 2026-09-25 at the maintainer's request. A already pressed OK: the
+constructor registers OK's handler, `0x00624BA0`, for `0x27` on `BTN_OK`
+(`0x0062776E`..`0x00627772`), right after `ReleaseGff`. What was missing was the
+glyph, and the file has no control to carry one. KMRP does not ship the game's
+own `statussummary.gui`, and adding a label to it would mean shipping it, so
+the label is made at run time from a control the file does have.
+
+| site | what it gives |
+| --- | --- |
+| `0x006272DE` | the vtable is stored before the `.gui` loads (`0x0062736A`) and before `ReleaseGff` (`0x0062775A`), so the `ReleaseGff` hook sees `0x0074FF68` |
+| `0x0040B930` | bind. Its last argument decides the store: with 0, `0x0040B953` returns after the load and the control is in no array |
+| `0x00418840` | the load bind calls: stores the parent at `+0x34`, finds the tag in the `.gui` and calls the control's own load (`vtable+0x48`) |
+| `0x0040B970` | a stored control whose ID is past the array's end is appended after nulls up to that ID (`0x00671C00`, `CExoArrayList::Add`) |
+
+The file's IDs are 0 to 15 and 17; 16, the net shift's, is absent. Whatever the
+order of the binds, that leaves one null, at 16, between the lines and OK. So at
+`ReleaseGff` the module (`bindExtraLabel`) constructs a label, loads it from
+`LBL_JOURNAL`'s struct with the store turned off, gives it the first empty
+slot's ID and puts it there. `LBL_JOURNAL` keeps its own slot. A file with no
+empty slot, or no `LBL_JOURNAL`, gets no badge and a `bind-failed` log line.
+Each frame, while a pad is in use, `updateSummaryBadge` gives it `kmr?cnfa` and
+places it as the confirm boxes' A: a disc the height of OK, a quarter of its
+size left of OK's edge. The layout widens the box when one short line would
+leave no room for it. It is freed at the base destructor's `ReleaseGff`, with
+its slot nulled first, as the other badges are.
+
+**Seen in game on 2026-09-25** at 3440x1440 and 1920x1080, in the scratch
+copy: shown with the pad (`badge=1` in the log), hidden while the mouse is
+used, and A closes the box. Read from memory there, the label is in slot 16
+with ID 16, no events and the extent the frame gave it, `(89,80,44,44)` at
+3440x1440. Its flags word read `0x786F6208` in one session and
+`0x0000000A` in the next, where the engine's own labels read `0xFFFFFF8A`
+before the box first shows, which suggests the label's constructor leaves it
+unset. The visible bit, the one the panel's draw tests, is set or cleared by
+the module either way, and the empty event table keeps the label out of the
+pad's navigation (`ControlIsNavigableK1`). Whether the other labels KMRP
+binds start with the same kind of flags word was not read.
+
+### Focus must never reach OK
+
+Found the same day: with the box up, the mouse moved and then a D-pad press,
+the next A closed the game with `0xC00000FD`, a stack overflow, and it did
+so with the badge compiled out as well. A stack capture at the overflow
+shows one cycle, 116 times in the 12 KB read above the stack pointer, under
+the box's click sound (`0x0040A140`, into `mss32.dll`), where the stack ran
+out:
+
+| return address | in |
+| --- | --- |
+| `0x00625B2F` | the box's `HandleInputEvent`, `0x00625AC0`, after it calls the base handler |
+| `0x0041ADA4`, `0x0041AA52` | OK's input handling, running its registered `0x27` handler, `0x00624BA0` |
+| `0x0040B649` | `0x0040B640`, the panel's `vtable+0x50`, which OK's handler jumps to |
+| `0x004187B7` | the call between them |
+
+`0x00625AC0` closes the box on `0x27`, `0x28`, `0x2D` and `0x2E` (the jump
+table at `0x00625B38`), then passes every event to the base handler
+(`0x00625B2A`). The base handler, `0x00409E60`, hands it to the focused
+control if there is one. OK's `0x27` handler, `0x00624BA0`, is `jmp
+[vtable+0x50]`, and `0x0040B640` is `HandleInputEvent(0x27, 1)` on the panel.
+So with OK focused, one A runs panel, OK, panel, OK, until the stack is gone.
+The game never focuses OK -- read from memory, the panel's active control is
+null when the box appears -- and then A stops at the base handler. KMRP's
+D-pad navigation was what focused it (`move=0->80` in the module's log: from
+nothing to OK's row). `NavigateFocusK1` now does nothing on this panel
+(`K1_NO_PAD_FOCUS_PANELS`, since 2026-09-26 shared with the Character screen
+and the granted-feats notice); the retained direction codes stay
+suppressed, so the engine moves no focus either. After the fix the same
+sequence logs `nav=0/3` -- no move, three declined -- the active control
+stays null, and A closes the box.
+
+### The line width counts the font's spacing
+
+`labelTextWidth` summed the glyphs' atlas widths, the measure the dialogue A
+uses. The engine's `Draw` also adds font information `+0x10`, `spacingR`, to
+every glyph's width before scaling it (`0x0045ABDF`: (u width x texturewidth
++ spacingR) x scale), and KMRP's `dialogfont16x16` has `spacingR 0.005` at
+1920x1080 and 3440x1440: half a pixel. "Journal Entry Added" measured 262 px
+at 1920x1080 against 273 drawn, leaving 6 px to the border, and 357 against
+364 at 3440x1440, leaving 17. The status summary's measure now adds the
+spacing between glyphs: 271 at 1920x1080, leaving 15 px, and 366 at
+3440x1440, leaving 26 (the scratch copy, 2026-09-25).
+
+The block, read from the game's memory: `+0x00` numchars, `+0x04`
+fontheight, `+0x08` baselineheight, `+0x0C` texturewidth, `+0x10` spacingR,
+`+0x14` spacingB, `+0x18` and `+0x24` the glyphs' upper-left and lower-right
+coordinates. The first build of this fix, `49671B67…`, read `+0x14`,
+spacingB, which is 0, and changed nothing.
 
 ## The three safety questions, answered
 

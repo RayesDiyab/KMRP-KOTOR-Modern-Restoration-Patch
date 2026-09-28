@@ -226,6 +226,49 @@ def check_party_switch_cue(path: Path, resolution: str) -> list[str]:
     return errors
 
 
+def check_swap_cue(path: Path, resolution: str) -> list[str]:
+    """The swap-tabs cue sits in Abilities' bottom bar, just left of Close.
+
+    Since 2026-09-25, at the maintainer's request; it sat past the last sub-tab
+    before. The sub-tabs' height, twice as wide, a third of its height clear of
+    Close and centred on it, inside the panel, and over no button, list or cue.
+    """
+    from prepare_universal_resources import (R3_CUE_BLOCKING_TYPES, SUBTAB_TAGS,
+                                             SWAP_CUE_ASPECT, SWAP_CUE_BESIDE,
+                                             SWAP_CUE_TAG)
+    gui = read_gff(path)
+    controls = controls_by_tag(gui)
+    missing = [tag for tag in (SWAP_CUE_TAG, SWAP_CUE_BESIDE, *SUBTAB_TAGS)
+               if tag not in controls]
+    if missing:
+        return [f"{resolution} abilities: missing {', '.join(missing)}"]
+    left, top, width, height = extent_values(controls[SWAP_CUE_TAG])
+    close = extent_values(controls[SWAP_CUE_BESIDE])
+    where = f"{resolution} abilities {SWAP_CUE_TAG} {(left, top, width, height)}"
+    errors: list[str] = []
+    tab_height = max(extent_values(controls[tag])[3] for tag in SUBTAB_TAGS)
+    if height != tab_height or width != height * SWAP_CUE_ASPECT:
+        errors.append(f"{where}: not {SWAP_CUE_ASPECT}:1 at the sub-tabs' "
+                      f"{tab_height} px height")
+    if close[0] - (left + width) != height // 3:
+        errors.append(f"{where}: not {height // 3} px left of Close at {close[0]}")
+    # Twice the centres, so a half-pixel offset from an odd remainder is exact.
+    if abs((2 * top + height) - (2 * close[1] + close[3])) > 1:
+        errors.append(f"{where}: not centred on Close's {close[1]}..{close[1] + close[3]}")
+    _, _, panel_width, panel_height = extent_values(gui.root)
+    if left < 0 or top < 0 or left + width > panel_width or top + height > panel_height:
+        errors.append(f"{where}: leaves the {panel_width}x{panel_height} panel")
+    for tag, control in controls.items():
+        if tag == SWAP_CUE_TAG or not (
+                control.acquire("CONTROLTYPE", -1) in R3_CUE_BLOCKING_TYPES
+                or tag.startswith("LBL_KMRP")):
+            continue
+        x, y, w, h = extent_values(control)
+        if left < x + w and x < left + width and top < y + h and y < top + height:
+            errors.append(f"{where}: covers {tag} {(x, y, w, h)}")
+    return errors
+
+
 def check_confirmation(path: Path, resolution: str) -> list[str]:
     errors: list[str] = []
     gui = read_gff(path)
@@ -401,6 +444,7 @@ def main() -> int:
                 extract_dir / "scriptselect.gui", resolution, width))
             for name in R3_CUE_SCREENS:
                 errors.extend(check_party_switch_cue(extract_dir / name, resolution))
+            errors.extend(check_swap_cue(extract_dir / "abilities.gui", resolution))
             errors.extend(check_confirmation(extract_dir / "confirm.gui", resolution))
             errors.extend(check_hud(extract_dir / active_hud, resolution, height, gold))
             errors.extend(check_combat_cues(extract_dir / active_hud, resolution))
@@ -413,7 +457,8 @@ def main() -> int:
         for error in errors:
             print(f"  {error}")
         return 1
-    print(f"PASS: Reported GUI repairs and active HUD geometry in {len(archives)} archives")
+    print(f"PASS: Reported GUI repairs, the cues and active HUD geometry "
+          f"in {len(archives)} archives")
     return 0
 
 

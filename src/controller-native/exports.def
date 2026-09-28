@@ -16,6 +16,13 @@ EXPORTS
     OnSetActiveControlK1
     ResolveSoloModeConfirmK1
     ResolveResolutionConfirmK1
+    GuardAbilitiesConfirmK1
+    GuardSkillsConfirmK1
+    GuardFeatsConfirmK1
+    GuardPowersConfirmK1
+    GuardPortraitConfirmK1
+    GuardNameConfirmK1
+    GuardPanelEchoK1
     NativeJoystickInitK1
     NativeJoystickBufferK1
     NativeJoystickMovementK1

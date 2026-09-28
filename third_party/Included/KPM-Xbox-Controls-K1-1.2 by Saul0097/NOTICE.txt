@@ -77,6 +77,18 @@ rumble mixer and Enhanced haptics (K1Rumble) added the same day, in the
 hardware-test installer
 C796489A2A5C91D69036C285E1172C3EAFD0F369B0367135719F210015F5FDFC, it is 204,288 bytes
 with SHA-256 E52826A2724038E765DFD45B86171160A017E054E346E29CF4A1CE5D0F74DE21.
+In the installer D407BF3AC0D7C74247105365AA27660FC18853F977B06EFC629EB6801633F08D, built the same
+day with the settings screens' controller glyphs and the status summary's
+layout, it is 216,576 bytes with SHA-256
+36D23D9B89039E2FB16C69CF3676F919676B2DDD2482E8DFC14C7794E51819C9.
+In the installer 128CDC798E061F19CEAEFEF6B6587CAD49C91A1746A419AD079A32A23CE7404D,
+built on 2026-09-26 with the Level Up, Auto Level Up and skill-info notice
+badges, it is 218,112 bytes with SHA-256
+C19CC7725DCBBDAF79E76AADA9F0139CC9A06C2D7759A259AC186F190C424A8C.
+In the installer 9736B41FD2A23404C6DF514E793CFDE940B0932710D781252A043A10281F5D93,
+built on 2026-09-28 with the echo guard on every panel and without the
+D-pad glyphs on the -/+ arrows, it is 217,600 bytes with SHA-256
+69E1811B33EFB36284A1D4CA2CA35D972EC5BEE521E763D46051BB40A254941A.
 
 KMRP's changes to Saul0097's five files are recorded in
 KMRP-CONTROLLER-MODULE.diff, generated against the upstream commit above.
@@ -84,7 +96,10 @@ Applied to a checkout of that commit it reproduces all five tracked files
 exactly (checked 2026-09-24; again on 2026-09-25 after the haptics hooks,
 when four files matched byte for byte and exports.def matched in content, the
 check's checkout having written it with CRLF endings where the tracked copy
-has LF); regenerate it whenever they change. What the
+has LF; again after the character-creation guard hooks, and again on
+2026-09-26 after the Level Up and notice badges, and on 2026-09-28 after
+the echo guard and the arrows' removal, with the same result);
+regenerate it whenever they change. What the
 module does -- the native joystick path, the XInput/SDL backend, the button
 prompts and the Controller Layout screen -- is documented in
 docs/controller-support.md. It writes no controller-specific bytes to

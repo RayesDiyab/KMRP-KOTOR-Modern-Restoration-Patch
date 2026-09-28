@@ -373,10 +373,14 @@ the panel in front is the HUD, and taking the direction presses there would both
 hijack the D-pad's own gameplay bindings and let focus wander around the
 heads-up display.
 
-**Screens that navigate themselves.** Six panels implement the direction events
-in their own dispatcher — `ABILITIES`, `ABILITIES_CHARGEN`, `FEATS`, `MAP`,
-`POWERS`, `SKILLS` — and a focused list box, editbox or slider consumes them
-itself. In both cases the layer declines and the retained events do the work.
+**Screens that navigate themselves.** Four panels implement the direction events
+in their own dispatcher — `ABILITIES`, `FEATS`, `MAP`, `POWERS` — and a focused
+list box, editbox or slider consumes them itself. In both cases the layer
+declines and the retained events do the work. Character creation's Attributes
+and Skills (`ABILITIES_CHARGEN`, `SKILLS`) were on this list until 2026-09-25. KMRP
+now navigates them itself, rows and a strip, because their Xbox dispatchers
+changed a value on every Left/Right even with focus on the buttons below; see
+`K1_POINTS_SCREENS` and `docs/controller-behaviour-matrix.md`.
 
 ### The native codes are suppressed where the layer acts
 

@@ -75,10 +75,10 @@ Every path is still a parameter — see the `param()` block at the top of
 ### Commands
 
 ```powershell
-# Full build: regenerate all 49 resource archives, then compile the patcher.
+# Full build: regenerate all 49 resource archives, pool them, then compile the patcher.
 .\build_kmrp.ps1
 
-# Recompile only, reusing the resource archives from the previous run.
+# Reuse the resource archives from the previous run: pool them again and compile.
 .\build_kmrp.ps1 -ReuseResources
 ```
 

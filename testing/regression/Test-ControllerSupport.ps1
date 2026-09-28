@@ -82,6 +82,14 @@ try {
     # including byte patches. A copied hook count had gone stale at fourteen.
     python -c "import sys; sys.path.insert(0,'tools'); import kmrp_controller as k; got=k.installed_hooks(sys.argv[1]); want=[{a:b for a,b in h.items() if a!='owner'} for h in k.native_hooks()]; assert len(got)==len(want); assert {h['address']:h for h in got}=={h['address']:h for h in want}, 'installed hooks differ from source'" $configPath
     Assert ($LASTEXITCODE -eq 0) "installed TOML matches all source hooks and parameters"
+    # And the module installed beside it exports every function the TOML names.
+    # The installer compiles its hook table at the end of a build but embeds the
+    # module file as it was, so a hook added mid-build shipped naming a function
+    # the module lacked (installer BCA35F28, 2026-09-25). The runtime stopped at
+    # that entry, and the 23 hooks after it -- movies, rumble, the keyboard and
+    # mouse detection -- never applied. Both checks above passed that build.
+    python tools\check_module_exports.py $configPath (Join-Path $folder "kmrp-controller.module")
+    Assert ($LASTEXITCODE -eq 0) "the installed module exports every hooked function"
     Assert (-not $config.Contains('NativeFrameClearK1')) "renderer clear suppression is not shipped"
     Assert (-not $config.Contains('NativeSceneRenderK1')) "deferred clear hook is not shipped"
 
@@ -116,7 +124,16 @@ try {
         @{ Va = 0x0060DE20; Hex = "83EC1C568BF1" },
         @{ Va = 0x0063C4F0; Hex = "518B496885C9" },
         @{ Va = 0x006D4440; Hex = "538B5C240856" },
-        @{ Va = 0x00617EB0; Hex = "64A100000000" }
+        @{ Va = 0x00617EB0; Hex = "64A100000000" },
+        # The character-creation / level-up A guards: Attributes, Skills,
+        # Feats, Powers, Portrait (GuardChargenConfirmK1).
+        @{ Va = 0x006F8880; Hex = "538B5C2408" },
+        @{ Va = 0x006F6A10; Hex = "538B5C2408" },
+        @{ Va = 0x006F4680; Hex = "538B5C240C" },
+        @{ Va = 0x006F28C0; Hex = "538B5C240C" },
+        @{ Va = 0x006F8FF0; Hex = "538B5C2408" },
+        # ... and name entry, for the release of the A that opened it.
+        @{ Va = 0x006FA220; Hex = "538B5C2408" }
     )
     foreach ($site in $sites) {
         $expected = [Convert]::FromHexString($site.Hex)
@@ -250,6 +267,8 @@ try {
 }
 finally {
     Restore-TestNvidiaProfiles $WorkRoot
+    # Kept fixtures keep their DPI values; --restore on each removes them.
+    if (-not $KeepWorkRoot) { Remove-TestDpiValues $WorkRoot }
     if ($settingsExisted) { [IO.File]::WriteAllBytes($settingsPath, $settingsBytes) }
     elseif (Test-Path -LiteralPath $settingsPath) { Remove-Item -LiteralPath $settingsPath -Force }
 

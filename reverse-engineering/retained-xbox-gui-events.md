@@ -102,6 +102,180 @@ control-level events rather than panel-level ones:
 `CSWGuiInGameAbilities`, and is the value already shipping in the controller
 module as `K1_ABILITIES_DESC_OFFSET`.
 
+## Character creation: a panel that answers A and passes it on
+
+Found 2026-09-25 from a crash. `CSWGuiAbilitiesCharGen` (`0x006F8880`),
+`CSWGuiSkillsCharGen` (`0x006F6A10`), `CSWGuiFeatsCharGen` (`0x006F4680`),
+`CSWGuiPowersLevelUp` (`0x006F28C0`) and `CSWGuiPortraitCharGen` (`0x006F8FF0`)
+run their own handler for an event and then call `CSWGuiPanel::HandleInputEvent`
+(`0x00409E60`). That forwards the same event to `[panel+0x1C]`, the focused
+control. Their buttons register A (`0x27`, the click) to handlers that raise
+the panel's own events:
+
+| handler | raises |
+| --- | --- |
+| `0x00624BA0` `AcceptButtonCallback` | A: vtable `+0x50`, `0x0040B640`, `HandleInputEvent(0x27, 1)` |
+| `0x00624BB0` | B: `+0x54`, `0x28` |
+| `0x00624BC0` | X: `+0x58`, `0x29` |
+| `0x00644720` | Y |
+| `0x0067CB40` / `0x0067CB50` | D-pad left / right, `0x2F` / `0x30` (the − and + buttons) |
+
+A reaching the panel with a button focused whose click raises A (Attributes'
+OK, Skills' OK, Feats' Add, Powers' OK, Portrait's OK) never ends. The stack
+overflows: `0xC00000FD` at `swkotor.exe+0x3000BE`, three times on the
+maintainer's machine. A focused button whose click raises something else runs
+after the panel's A (A on Cancel: accept, then cancel). The mouse never meets
+either, because `[panel+0x1C]` is set by focus navigation, not by clicking.
+The module's guard, `GuardChargenConfirmK1`, hooks all five entries. See
+`CHANGELOG.md`.
+
+### Every panel that carries such a button (2026-09-26)
+
+Found while previewing level-up: with the D-pad focus on the Character screen's
+Level Up, one A opened the level-up screen twice and the game froze. Every
+`AddEvent` that registers one of these handlers was listed from the image; each
+panel's vtable `+0x50` is `0x0040B640` and `+0x5C` is `0x0040B670`, so each
+click raises A or Y on its own panel. Whether A then acts twice or without end
+depends only on whether the pad can put the focus on the button:
+
+| panel (.gui) | vtable | dispatcher | the panel answers | pad focus on the button |
+| --- | --- | --- | --- | --- |
+| status summary (`statussummary`) | `0x0074FF68` | `0x00625AC0` | A: closes | never, `K1_NO_PAD_FOCUS_PANELS`; the loop measured 2026-09-25 |
+| Character (`character`) | `0x00756100` | `0x006B2250` | A: level up; Y: auto level up | never, the same list; the double level-up measured 2026-09-26 |
+| skill-info notice (`skillinfo`): granted feats, recommended powers | `0x00757940` | `0x006CD3C0` | A, B: close | never, the same list; in play its list held the focus |
+| Attributes, Skills, Feats, Powers, Portrait, Name | | hooked | A and Y | allowed: `GuardChargenConfirmK1` presses the focused button once |
+| Map (`map`) | `0x00754830` | `0x00693BC0` | A | the Map navigates itself, so the pad moves no focus there |
+| galaxy map (`galaxymap`, `BTN_ACCEPT`) | `0x00754910` | `0x00695980` | not decoded | **not measured** |
+| Journal (`journal`, `BTN_SWAPTEXT`, raises Y) | `0x00751960` | `0x006456E0` | Y (`0x006459CE`); not A | **not measured** |
+| Inventory (`inventory`, `BTN_USEITEM`) | `0x007564E0` | `0x006B3ED0` | not A | **not measured** |
+| Container (`container`) | `0x007567E0` | `0x006B92F0` | not decoded | **not measured** |
+| Save / Load (`saveload`, `LB_GAMES`) | `0x00757650` | `0x006C86D0` | not A | **measured safe**: with `LB_GAMES` focused (`[panel+0x1C]` = panel `+0x934`), A loaded the save, on 2026-09-26 and 2026-09-28 |
+| Script Select (`ScriptSelect`, `BTN_Accept`) | `0x007590A8` | `0x006E9BC0` | A (`0x006E9BEF`) | **not measured** |
+| credits (`credits`) | `0x007541F0` | `0x0068F350` | not decoded | **not measured** |
+| `pause` | `0x00756DC8` | `0x00409E60` itself | nothing | **not measured** |
+
+What happens on a **not measured** row cannot be read from this table. A
+focused control's own class decides what it does with the event before any
+registered handler runs: Save / Load's thunk sits on a list box, and A with
+that list focused loaded the save once, no loop. So nothing here says those
+screens misbehave; only that they have not been walked.
+
+*Corrected 2026-09-28:* the first version of this table said that on
+Inventory, Save / Load and `pause` "a focused button raising A would loop",
+and on the Journal that A "would act once more". Those were inferences, and
+Save / Load's was wrong.
+
+A panel is safe when its list keeps the D-pad (focus stays on the list, as on
+the granted-feats notice) or when it navigates itself (the Map). The rows
+marked **not measured** needed a pad-only walk of that screen, or a guard that
+covers them all at once: `CSWGuiPanel::HandleInputEvent` (`0x00409E60`)
+forwarding an event to a focused control whose handler for it raises the same
+event on the same panel is recursion with no legitimate use. The guard was
+built on 2026-09-28 (next section).
+
+### The echo guard, for every panel (2026-09-28)
+
+At the maintainer's request ("create this for all screens"), every `AddEvent`
+call in the image was listed (`0x0041AB20`; 515 calls). An entry is 12 bytes,
+`{receiver, handler, event}`, at `[control+0x38]`, count at `+0x3C`, and
+`CSWGuiControl::HandleInputEvent` (`0x00418750`) runs the first entry for the
+event with a non-null handler; the button class (`0x0041AD40`) plays its click
+sound (`0x0040A140`) and then does the same through `0x0041A9D0`. 62 of the
+515 register one of the four raise thunks, on 39 panels:
+
+| panel (.gui) | vtable | dispatcher | answers A itself | buttons: what the click presses |
+| --- | --- | --- | --- | --- |
+| `messages` | `0x0074FD18` | `0x00628260` | no | `?` → X, `?` → B |
+| `statussummary` | `0x0074FF68` | `0x00625AC0` | yes | `+0x44` → A |
+| `journal` | `0x00751960` | `0x006456E0` | no | `+0x44` → X, `+0xA68` → Y, `+0xDF0` → B |
+| `credits` | `0x007541F0` | `0x0068F350` | yes | `?` → A |
+| `map` | `0x00754830` | `0x00693BC0` | yes | `?` → X, `+0x728` → A, `+0x8EC` → B |
+| `optionsingame` | `0x00755DE0` | `0x006AAEC0` | no | `+0x1BE8` → B |
+| `abilities` | `0x00755E50` | `0x006AE5F0` | no | `+0x369C` → B |
+| `character` | `0x00756100` | `0x006B2250` | yes | `+0x47A4` → Y, `+0x4968` → A, `+0x523C` → B, `+0x5400` → X |
+| `inventory` | `0x007564E0` | `0x006B3ED0` | no | `+0x1164` → B, `+0x1328` → A, `+0x14EC` → X |
+| `container` | `0x007567E0` | `0x006B92F0` | yes | `+0x44` → A, `+0xC94` → B, `+0xE58` → X |
+| `equip` | `0x007569A0` | `0x006BA3F0` | no | `+0x385C` → B |
+| `partyselection` | `0x00756D28` | `0x006BEDE0` | not decoded | `+0x44` → B |
+| `pause` | `0x00756DC8` | `0x00409E60` | no | `+0x44` → A |
+| `store` | `0x00756E38` | `0x006C2190` | no | `+0x1D20` → B |
+| `upgradeitems` | `0x00757228` | `0x006C2D30` | no | `+0xA68` → B |
+| `upgrade` | `0x00757298` | `0x006C6A80` | no | `+0x2D84` → B |
+| `saveload` | `0x00757650` | `0x006C86D0` | not decoded | `+0x44` → A, `+0x44` → X, `+0xDD8` → B |
+| `skillinfo` | `0x00757940` | `0x006CD3C0` | yes | `+0x484` → A |
+| `QuestItem` | `0x00757C20` | `0x006D24D0` | no | `+0x10` → B |
+| `CHARGEN` | `0x00758020` | `0x006DBD30` | no | `+0x14` → B |
+| `titlemovie` | `0x00758130` | `0x006DCE80` | not decoded | `+0x44` → B |
+| `optfeedback` | `0x007581E8` | `0x006DE430` | no | `+0x8A4` → B |
+| `optresolution` | `0x00758348` | `0x006E0CF0` | not decoded | `?` → B |
+| `optmouse` | `0x007585F8` | `0x006E6180` | no | `?` → B |
+| `optsound` | `0x007587C0` | `0x006DDB90` | no | `+0x11A4` → B |
+| `optionsmain` | `0x00758838` | `0x006DFF10` | no | `?` → B |
+| `optgameplay` | `0x00758E00` | `0x006E6180` | no | `+0x5C4` → B |
+| `ScriptSelect` | `0x007590A8` | `0x006E9BC0` | yes | `+0x8B0` → B |
+| `OPTKeyMapping` | `0x00759358` | `0x006EC510` | not decoded | `+0x538` → B |
+| `LEVELUPPNL` | `0x00759568` | `0x006EE720` | not decoded | `+0x1944` → B |
+| `CUSTPNL` | `0x007595E0` | `0x006EF610` | not decoded | `+0x1AF8` → B |
+| `QUICKPNL` | `0x00759668` | `0x006F0280` | not decoded | `+0xE10` → B |
+| `QORCPNL` | `0x00759710` | `0x006F0E10` | no | `+0xBD4` → B |
+| `pwrlvlup` | `0x00759780` | `0x006F28C0` | yes | `+0x12AC` → Y, `+0x1470` → X, `+0x1634` → A, `+0x17F8` → B |
+| `FTCHRGEN` | `0x007598B0` | `0x006F4680` | yes | `+0xCEC` → X, `+0xEB0` → B, `+0x1074` → Y, `+0x1238` → A |
+| `SKCHRGEN` | `0x00759990` | `0x006F6A10` | yes | `+0x27EC` → A, `+0x29B0` → B |
+| `ABCHRGEN` | `0x00759C68` | `0x006F8880` | yes | `+0x2324` → A, `+0x24E8` → B |
+| `PORTCUST` | `0x00759EA8` | `0x006F8FF0` | yes | `?` → B |
+| `NAME` | `0x00759F38` | `0x006FA220` | no | `?` → B, `+0x7D4` → Y |
+
+The offset is the control's place in the panel, where the scan could tie the
+`AddEvent` call's `this` to one. `?` is a call it could not tie, and `+0x44`
+is the first control slot, which several panels reach through a register the
+scan did not follow, so treat both as "some button on this panel". "Answers A
+itself" is read from the dispatcher's switch; "not decoded" means the scan did
+not follow it. The table misses nothing the guard needs: the guard reads the
+registrations at run time, not from this list.
+
+With such a button focused, one A reaches the panel, which acts, then hands A
+to the button, which presses its own event back: A again (an echo, the loop
+above) or B, X or Y (a second action). Two halves in
+`src/controller-native/K1NativeJoystick.cpp` fix both, on every panel:
+
+1. **A presses the focused button, and only it** (`PressFocusedRaiseButtonK1`,
+   the last entry of `K1_BUTTON_REMAPS`, slot `0x74`). When the panel in front
+   has a visible, enabled button focused whose click is one of the four thunks
+   on that same panel, the pad's A calls the button's `HandleInputEvent(0x27, 1)`
+   instead of raising A on the panel -- exactly what a mouse click does, click
+   sound included. The screens with their own A path are left alone:
+   Attributes, Skills, Feats, Powers, Portrait, Name and the resolution box
+   (`K1_OWN_CONFIRM_DISPATCHERS`). Only buttons (`0x0041AD40`) qualify, so a
+   list box such as Save / Load's keeps its own behaviour.
+2. **A panel never hands an event to a control that would press it back**
+   (`GuardPanelEchoK1`, a detour on `0x00409E60`). When `[panel+0x1C]` is a
+   button or plain control (`0x00418750`) whose first handler for the event is
+   the thunk that presses that same event on this panel, and the panel's vtable
+   slot is the stock `0x0040B640`..`0x0040B670`, the event argument becomes the
+   inert `0x41`. The panel has already acted; only the echo is dropped. Stolen
+   bytes `8B 49 1C 85 C9` (`mov ecx,[ecx+0x1C]` / `test ecx,ecx`) touch neither
+   EAX nor ESP.
+
+Both write to `kmrp-confirm-focus.log` (256 lines at most): `guard panel=<vtable>
+event=<e> value=<v> -> A presses the focused button` or `-> the focused control
+would press it back -> inert`.
+
+**Seen in game on 2026-09-28**, `9736B41F…` in a scratch copy at 3440x1440 on
+the virtual pad: A on a focused Close on Gameplay and on the in-game Options
+(one "A presses" line each, each closing once); OK focused on level-up Skills
+with points left (the chargen guard pressed OK, one "unspent skill points" box,
+one "inert" line for Skills' vtable `0x00759990`); Save / Load's list, the
+Inventory list (one use of a shield, 3/5 to 2/5 charges), Messages, the
+Journal's A and Y, the Map's A to Party Selection and B, Abilities, Start, and
+a conversation, with no guard line. The rows of the table above that were
+**not measured** are covered by the guard, but only those screens were walked.
+
+`CSWGuiManager::HandleInputEvent` (`0x0040C8E0`), for reference: with a modal
+panel open, the event goes to the top modal only (`0x0040CA37`). Otherwise it
+goes to every panel in the list, from a copy of it (`0x0040CAA2`). The box that
+Attributes shows is modal, pushed with `(box, 1, 1)` through `0x0040BC70` →
+`0x0040BD90`.
+
 ## What each panel still implements
 
 Produced by the tool named above against the build stated at the top. `.` means
@@ -163,6 +337,30 @@ in its plain table mode now raises `TypeError` on the first chained dispatcher i
 meets, because a chain has no jump-table index to look up, so the table cannot be
 reprinted as a whole. `--full` handles both shapes and is the authoritative mode
 until that is repaired; it is what the correction above was read from.
+
+**Pazaak's wager, decoded by hand 2026-09-25.** The panel is absent from the
+table (vtable `0x007534C8`, constructor `0x0067F000`). Its dispatcher,
+`0x0067E150`, is a jump table on `event - 0x27`:
+
+| events | handler | what |
+| --- | --- | --- |
+| `0x27`, `0x2D` | `0x0067E17F` | accept the wager (`0x0067D3B0`), a sound, close |
+| `0x28`, `0x2E` | `0x0067E1BB` | quit |
+| `0x2F`, `0x32`, `0x3A`, `0x3B`, `0x3E`, `0x3F` | `0x0067E221` | lower the wager while it is above 1 |
+| `0x30`, `0x31`, `0x39`, `0x3C`, `0x3D`, `0x40` | `0x0067E23D` | raise it while it is below the maximum (`[panel+0xC98]`) |
+
+Everything then goes on to the base handler, `0x00409E60`. Its Less and More
+buttons are a button subclass (vtable `0x007533C8`) carrying two floats, 0.2
+and 0.5, at `+0x1C4` and `+0x1C8`. `K1_NATIVE_DIRECTION_PANELS` lists the dispatcher since
+that day.
+
+**Where Y and the D-pad are registered on the options screens** (the bindings
+tool, `--code`): Y (`0x2A`) on Graphics' gamma slider (`0x006E0190`) and Sound's
+four volume sliders (`0x006E0F50`); the D-pad (`0x2F`/`0x30`, `0x3F`/`0x40`) on
+Mouse's sensitivity, Graphics' gamma and Sound's four sliders (`0x006DFEE0`,
+`0x006DED30`, `0x006DF9B0`), and `0x2F`/`0x30` on Gameplay's Difficulty
+(`0x006E68E0`, `0x006E6930`). The slider handlers test their control's `+0x4C`
+and re-apply the value.
 
 ## The Abilities tabs, in detail
 

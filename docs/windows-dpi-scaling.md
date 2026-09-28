@@ -99,6 +99,45 @@ validation gaps, not claims that the registry transaction itself differs at
 those scales. (Until that day this said the visual runs had not been repeated
 on this workstation.)
 
+## Values left behind by regression fixtures — 2026-09-25
+
+Read from `HKCU\Software\Microsoft\Windows NT\CurrentVersion\AppCompatFlags\Layers`
+on the maintainer's machine: twelve `HIGHDPIAWARE` values for test executables
+that were never restored.
+
+| Values | Where from | Files on disk |
+| --- | --- | --- |
+| 7 × `%TEMP%\kmrp-controller-<guid>\config-conflict\swkotor.exe` | `Test-ControllerSupport.ps1` Case 2 before commit `137fd5d` (2026-09-24), which renamed the fixture to `kmrp-controller-selftest.exe` and added its `--restore` | gone |
+| 2 × `%TEMP%\kmrp-controller-<guid>\standard\kmrp-controller-selftest.exe` | the current script's Case 1, from runs that stopped between install and restore | one folder, of 2026-09-21 01:02, still there with its `KMRP_DPI.manifest` |
+| `%TEMP%\kmrp-fontcheck4\swkotor.exe`, `%TEMP%\kmrp-case2-probe\swkotor.exe`, `build\movie-aspect-verify\swkotor.exe` | one-off probes: no tracked script and no commit names them | all three folders still there |
+
+**Not a product fault.** A foreign `patch_config.toml` does not refuse the
+install. `ControllerOperations.Install` reports and skips the optional
+controller component, on purpose, so the rest of the patch still applies.
+Throwing had aborted the whole patch for players with another KPM mod. So the
+DPI value belongs to a completed install, and Restore Original removes it
+through `KMRP_DPI.manifest`, as described above. An install that does throw
+rolls the value back in its `catch` (`DpiCompatibilityOperations.Rollback`).
+
+**A test fault.** A fixture's value is removed only by that fixture's own
+`--restore`, which the scripts reach only on the success path. A failed
+assertion, an exception or an interrupt deleted the work folder and left the
+value. The four scripts that patch fixtures in place now call
+`Remove-TestDpiValues` (in `testing/regression/Restore-TestNvidiaProfiles.ps1`)
+in their `finally` whenever they delete the work folder:
+- `Test-ControllerSupport.ps1`
+- `Test-LargeAddressAware.ps1`
+- `Test-ReinstallOverOlderBuild.ps1`
+- `Test-DpiCompatibility.ps1`
+
+The helper removes only values that are under that run's root and named like a
+fixture executable. It was checked against values made for the purpose: it
+removed the two fixture-named values under its root and kept a `swkotor.exe`
+beside them and a fixture-named value under another root. The twelve existing
+values were then deleted, one `reg delete` each, on the maintainer's instruction.
+The key went from 50 values to 38, and every real game's entry was unchanged.
+The four fixture folders still on disk were left alone.
+
 ## Manual fallback
 
 If the patcher reports that Windows high-DPI handling could not be configured:

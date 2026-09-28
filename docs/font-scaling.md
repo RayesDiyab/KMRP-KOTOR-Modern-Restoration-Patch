@@ -325,6 +325,10 @@ shipped face is unchanged.
   `reverse-engineering/experiments/005-font-scale-investigation.md`.
 - **Verified by measurement against the shipped archives**, not assumed:
   - Every embedded resource appears **byte-verbatim** in the built `.exe`.
+    That was measured before 2026-09-25. Since then the per-resolution
+    archives are embedded as one pool, so they no longer appear verbatim;
+    `Test-InstalledOverride.ps1` compares what the installer writes with them
+    instead.
   - Each of the 18 atlases was matched back to the typeface it was rendered
     from by extracting glyphs and diffing against candidate renders —
     17 → Old Republic, `fnt_d16x16b` → Arimo Medium, all zero-pixel exact.

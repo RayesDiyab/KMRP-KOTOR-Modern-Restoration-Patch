@@ -109,6 +109,9 @@ do not load every project document on every task.
 - Standard build: `.\build_kmrp.ps1`.
 - Compile-only iteration with existing resources: `.\build_kmrp.ps1 -ReuseResources`.
 - Installer regression: `.\testing\regression\Test-ReinstallOverOlderBuild.ps1`.
+- Installed Override files (resource packaging, `OverrideOperations`):
+  `.\testing\regression\Test-InstalledOverride.ps1`; add `-Resolutions all`
+  before a release.
 - Documentation links: `python .github/scripts/check_links.py`.
 - Executable changes also require `tools/build_binary_inventory.py` against the
   clean input and final gold snapshot, plus representative resolution outputs.

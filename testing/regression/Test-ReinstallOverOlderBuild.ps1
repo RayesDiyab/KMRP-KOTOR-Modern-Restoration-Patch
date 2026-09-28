@@ -201,6 +201,8 @@ finally {
     foreach ($entry in $script:OriginalLayerValues.GetEnumerator()) {
         Restore-LayerValue $entry.Key $entry.Value
     }
+    # Kept fixtures keep their DPI values; --restore on each removes them.
+    if (-not $KeepWorkRoot) { Remove-TestDpiValues $WorkRoot }
     if ($KeepWorkRoot) {
         Write-Host ""
         Write-Host ("work folder kept: " + $WorkRoot)

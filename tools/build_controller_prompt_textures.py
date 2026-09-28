@@ -171,6 +171,24 @@ class PromptTarget:
     control_index: int
     glyph: str
     resref: str
+    # The button's own fill, a key of BACKINGS, when it has one: the badge is
+    # drawn on it rather than on an empty sheet, and the module puts it back
+    # whenever the badge is not shown. Empty for the usual empty-fill button.
+    backing: str = ""
+    # The tag of a control on the same screen whose height sizes the glyph,
+    # for a button much taller than the screen's others. Empty: its own.
+    size_like: str = ""
+
+
+# A button fill a badge can stand on, as the uniform colour it is. Measured,
+# not assumed: a fill that is not one colour cannot be a backing, because the
+# installer slides badges sideways and fills the gap from the edge column.
+BACKINGS = {
+    # swpc_tex_gui.erf: 16x16, every texel (0, 0, 0, 128), TXI "mipmap 0"
+    # (read 2026-09-26). The box behind the Character screen's Level Up and
+    # Auto Level Up, and the status summary's panel.
+    "dialog2": (0, 0, 0, 128),
+}
 
 
 # These are zero-based entries in each GUI GFF control list. The generator
@@ -290,8 +308,9 @@ PROMPT_TARGETS = (
     # currently has focus, so this is a CONVENTION -- "A is how you commit on this
     # screen" -- not a guarantee that A hits this particular button from anywhere.
     # It is the same convention the original ten already used for Load, Get Items
-    # and Upgrade Items. No badge is put on any "Default" button, because no
-    # controller button performs restore-defaults at all.
+    # and Upgrade Items. No badge was put on any "Default" button, because no
+    # controller button performed restore-defaults at all; since 2026-09-25 Y
+    # does, and every Default carries a Y (the settings block at the end).
     PromptTarget("optkeymapping.gui", "BTN_Accept", 2, "A", "kmrpa_optkeys"),
     PromptTarget("optgraphicsadv.gui", "BTN_BACK", 4, "A", "kmrpa_optgfxadv"),
     PromptTarget("optsoundadv.gui", "BTN_BACK", 3, "A", "kmrpa_optsndadv"),
@@ -304,7 +323,131 @@ PROMPT_TARGETS = (
     # regardless of focus, so KMRP routes A away from it when Cancel holds
     # focus -- see ResolveResolutionConfirmK1 in the module.
     PromptTarget("optresolution.gui", "BTN_OK", 0, "A", "kmrpa_resok"),
+
+    # Character creation and level-up, added 2026-09-25. Tags, indices, empty
+    # fills and widths checked in all 49 archives before these went in. Each
+    # glyph is the button the screen's own dispatcher answers: B closes or steps
+    # back everywhere; Y is Recommended (Attributes, Skills, Feats, Powers) and
+    # Random Name; X is Feats' Add and Powers' Select (Feats' A and X are swapped
+    # by the module to match); A is OK, or the focused step on
+    # the step lists, and the screen's A elsewhere -- see the module's tables
+    # for the variants and docs/controller-prompt-specification.md for why.
+    # The class portraits carry art and take no badge. The +/- arrows carry art
+    # too, and keep it.
+    PromptTarget("classsel.gui", "BTN_BACK", 6, "B", "kmrpb_clsback"),
+    PromptTarget("qorcpnl.gui", "QUICK_CHAR_BTN", 4, "A", "kmrpa_qcquick"),
+    PromptTarget("qorcpnl.gui", "CUST_CHAR_BTN", 5, "A", "kmrpa_qccust"),
+    PromptTarget("qorcpnl.gui", "BTN_BACK", 1, "B", "kmrpb_qcback"),
+    PromptTarget("custpnl.gui", "BTN_STEPNAME1", 7, "A", "kmrpa_cust1"),
+    PromptTarget("custpnl.gui", "BTN_STEPNAME2", 9, "A", "kmrpa_cust2"),
+    PromptTarget("custpnl.gui", "BTN_STEPNAME3", 11, "A", "kmrpa_cust3"),
+    PromptTarget("custpnl.gui", "BTN_STEPNAME4", 13, "A", "kmrpa_cust4"),
+    PromptTarget("custpnl.gui", "BTN_STEPNAME5", 15, "A", "kmrpa_cust5"),
+    PromptTarget("custpnl.gui", "BTN_STEPNAME6", 17, "A", "kmrpa_cust6"),
+    PromptTarget("custpnl.gui", "BTN_BACK", 19, "B", "kmrpb_custback"),
+    PromptTarget("custpnl.gui", "BTN_CANCEL", 20, "A", "kmrpa_custcncl"),
+    PromptTarget("quickpnl.gui", "BTN_STEPNAME1", 6, "A", "kmrpa_quik1"),
+    PromptTarget("quickpnl.gui", "BTN_STEPNAME2", 8, "A", "kmrpa_quik2"),
+    PromptTarget("quickpnl.gui", "BTN_STEPNAME3", 10, "A", "kmrpa_quik3"),
+    PromptTarget("quickpnl.gui", "BTN_BACK", 1, "B", "kmrpb_quikback"),
+    PromptTarget("quickpnl.gui", "BTN_CANCEL", 2, "A", "kmrpa_quikcncl"),
+    PromptTarget("portcust.gui", "BTN_ACCEPT", 11, "A", "kmrpa_portok"),
+    PromptTarget("portcust.gui", "BTN_BACK", 12, "B", "kmrpb_portback"),
+    PromptTarget("abchrgen.gui", "BTN_ACCEPT", 35, "A", "kmrpa_abcgok"),
+    PromptTarget("abchrgen.gui", "BTN_RECOMMENDED", 34, "Y", "kmrpy_abcgrec"),
+    PromptTarget("abchrgen.gui", "BTN_BACK", 36, "B", "kmrpb_abcgback"),
+    PromptTarget("skchrgen.gui", "BTN_ACCEPT", 41, "A", "kmrpa_skcgok"),
+    PromptTarget("skchrgen.gui", "BTN_RECOMMENDED", 40, "Y", "kmrpy_skcgrec"),
+    PromptTarget("skchrgen.gui", "BTN_BACK", 42, "B", "kmrpb_skcgback"),
+    PromptTarget("ftchrgen.gui", "BTN_SELECT", 9, "X", "kmrpx_ftcgadd"),
+    PromptTarget("ftchrgen.gui", "BTN_ACCEPT", 10, "A", "kmrpa_ftcgok"),
+    PromptTarget("ftchrgen.gui", "BTN_RECOMMENDED", 8, "Y", "kmrpy_ftcgrec"),
+    PromptTarget("ftchrgen.gui", "BTN_BACK", 11, "B", "kmrpb_ftcgback"),
+    PromptTarget("name.gui", "END_BTN", 3, "A", "kmrpa_nameok"),
+    PromptTarget("name.gui", "BTN_RANDOM", 4, "Y", "kmrpy_namernd"),
+    PromptTarget("name.gui", "BTN_BACK", 5, "B", "kmrpb_nameback"),
+    PromptTarget("leveluppnl.gui", "BTN_STEPNAME1", 13, "A", "kmrpa_lvl1"),
+    PromptTarget("leveluppnl.gui", "BTN_STEPNAME2", 14, "A", "kmrpa_lvl2"),
+    PromptTarget("leveluppnl.gui", "BTN_STEPNAME3", 15, "A", "kmrpa_lvl3"),
+    PromptTarget("leveluppnl.gui", "BTN_STEPNAME4", 12, "A", "kmrpa_lvl4"),
+    PromptTarget("leveluppnl.gui", "BTN_STEPNAME5", 16, "A", "kmrpa_lvl5"),
+    PromptTarget("leveluppnl.gui", "BTN_BACK", 1, "B", "kmrpb_lvlback"),
+    PromptTarget("pwrlvlup.gui", "ACCEPT_BTN", 10, "A", "kmrpa_pwrok"),
+    PromptTarget("pwrlvlup.gui", "SELECT_BTN", 9, "X", "kmrpx_pwrsel"),
+    PromptTarget("pwrlvlup.gui", "RECOMMENDED_BTN", 8, "Y", "kmrpy_pwrrec"),
+    PromptTarget("pwrlvlup.gui", "BACK_BTN", 11, "B", "kmrpb_pwrback"),
+
+    # Every settings screen, completed 2026-09-25 at the maintainer's request
+    # ("add glyphs to all settings screens"). Tags, indices, empty fills and
+    # STRREFs are checked in all 49 archives by the build and by
+    # Test-ControllerPromptAssets.py.
+    #
+    # Y is Default. No settings panel answers Y itself -- the five Y
+    # registrations on Graphics and Sound are their sliders' own change
+    # callbacks (0x006E0190, 0x006E0F50), not a button -- so the module presses
+    # the screen's Default button for it (PressDefaultK1 in K1NativeJoystick.cpp).
+    # That reverses the rule stated above, "no badge on any Default button",
+    # which held only while no controller button performed it.
+    #
+    # A follows the focus on the buttons that open another screen and down the
+    # two Options lists, like the main menu's: A activates the focused control,
+    # so the badge is true only on that one (FocusOnly in the module).
+    PromptTarget("optgraphics.gui", "BTN_DEFAULT", 4, "Y", "kmrpy_optgfxdef"),
+    PromptTarget("optgraphics.gui", "BTN_RESOLUTION", 6, "A", "kmrpa_optgfxres"),
+    PromptTarget("optgraphics.gui", "BTN_ADVANCED", 9, "A", "kmrpa_optgfxadvn"),
+    PromptTarget("optgraphicsadv.gui", "BTN_DEFAULT", 2, "Y", "kmrpy_optgfxadef"),
+    PromptTarget("optsound.gui", "BTN_DEFAULT", 10, "Y", "kmrpy_optsnddef"),
+    PromptTarget("optsound.gui", "BTN_ADVANCED", 12, "A", "kmrpa_optsndadvn"),
+    PromptTarget("optsoundadv.gui", "BTN_DEFAULT", 2, "Y", "kmrpy_optsndadef"),
+    PromptTarget("optgameplay.gui", "BTN_DEFAULT", 11, "Y", "kmrpy_optgamedef"),
+    PromptTarget("optgameplay.gui", "BTN_MOUSE", 13, "A", "kmrpa_optgamemse"),
+    PromptTarget("optgameplay.gui", "BTN_KEYMAP", 12, "A", "kmrpa_optgamekey"),
+    # KMRP's own entry, bound at run time (K1ControllerLayout.cpp), so its A is
+    # painted there rather than through the offset table.
+    PromptTarget("optgameplay.gui", "BTN_KMRPLAY", 14, "A", "kmrpa_optgamelay"),
+    PromptTarget("optmouse.gui", "BTN_DEFAULT", 3, "Y", "kmrpy_optmsedef"),
+    PromptTarget("optfeedback.gui", "BTN_DEFAULT", 3, "Y", "kmrpy_optfeeddef"),
+    PromptTarget("optautopause.gui", "BTN_DEFAULT", 8, "Y", "kmrpy_optpsedef"),
+    PromptTarget("optkeymapping.gui", "BTN_Default", 1, "Y", "kmrpy_optkeysdef"),
+    PromptTarget("optionsmain.gui", "BTN_GAMEPLAY", 1, "A", "kmrpa_omgame"),
+    PromptTarget("optionsmain.gui", "BTN_FEEDBACK", 5, "A", "kmrpa_omfeed"),
+    PromptTarget("optionsmain.gui", "BTN_AUTOPAUSE", 2, "A", "kmrpa_ompause"),
+    PromptTarget("optionsmain.gui", "BTN_GRAPHICS", 3, "A", "kmrpa_omgfx"),
+    PromptTarget("optionsmain.gui", "BTN_SOUND", 4, "A", "kmrpa_omsnd"),
+    PromptTarget("optionsingame.gui", "BTN_LOADGAME", 0, "A", "kmrpa_oiload"),
+    PromptTarget("optionsingame.gui", "BTN_SAVEGAME", 1, "A", "kmrpa_oisave"),
+    PromptTarget("optionsingame.gui", "BTN_GAMEPLAY", 2, "A", "kmrpa_oigame"),
+    PromptTarget("optionsingame.gui", "BTN_FEEDBACK", 5, "A", "kmrpa_oifeed"),
+    PromptTarget("optionsingame.gui", "BTN_AUTOPAUSE", 6, "A", "kmrpa_oipause"),
+    PromptTarget("optionsingame.gui", "BTN_GRAPHICS", 7, "A", "kmrpa_oigfx"),
+    PromptTarget("optionsingame.gui", "BTN_SOUND", 8, "A", "kmrpa_oisnd"),
+    PromptTarget("optionsingame.gui", "BTN_QUIT", 3, "A", "kmrpa_oiquit"),
+    # Pazaak's wager. Its dispatcher (0x0067E150) accepts on A and quits on B
+    # whatever holds focus, and moves the wager on the D-pad itself.
+    PromptTarget("pazaakwager.gui", "BTN_WAGER", 7, "A", "kmrpa_pzkwager"),
+    PromptTarget("pazaakwager.gui", "BTN_QUIT", 6, "B", "kmrpb_pzkquit"),
+
+    # The Character screen's Level Up and Auto Level Up (2026-09-26). The
+    # screen levels up on A and auto-levels on Y itself (0x006B2295,
+    # 0x006B233C), with nothing focused, so neither badge follows the focus;
+    # the buttons are drawn only while the member on screen can level up.
+    # They stand on the buttons' own box, dialog2, and are sized like the
+    # screen's Close and Scripts badges -- sized from themselves, 120 and
+    # 156 px tall at 3440x1440, they came out half as large again.
+    PromptTarget("character.gui", "BTN_LEVELUP", 63, "A", "kmrpa_charlvl",
+                 backing="dialog2", size_like="BTN_EXIT"),
+    PromptTarget("character.gui", "BTN_AUTO", 62, "Y", "kmrpy_charauto",
+                 backing="dialog2", size_like="BTN_EXIT"),
+    # "You have been granted the following feat(s) this level" (skillinfo.gui),
+    # the notice Feats opens with. Its dispatcher (0x006CD3C0) closes it on A
+    # whatever holds focus.
+    PromptTarget("skillinfo.gui", "BTN_OK", 2, "A", "kmrpa_skillok"),
 )
+
+
+# The - and + arrows keep the game's own art. From 2026-09-25 to 2026-09-28
+# they showed the D-pad's left and right in its place (ArrowTarget,
+# ARROW_TARGETS); removed at the maintainer's request.
 
 
 def _distance_to_segment(px: float, py: float, ax: float, ay: float,
@@ -418,7 +561,8 @@ def vocabulary():
 
 def _composite_glyph_tga(control_width: int, control_height: int, glyph: str,
                          center_x: float, center_y: float, radius: float,
-                         family: str = GLYPH_FAMILY) -> bytes:
+                         family: str = GLYPH_FAMILY,
+                         backing: tuple | None = None) -> bytes:
     """Place the real glyph artwork, pre-compensated for the button stretch.
 
     The engine stretches BORDER.FILL across the whole control, so a square in
@@ -427,6 +571,10 @@ def _composite_glyph_tga(control_width: int, control_height: int, glyph: str,
     """
     art = _load_glyph_art(glyph, family)
     if art is None:
+        if backing is not None:
+            # The drawn fallback has no backing; a button that keeps its box
+            # must not lose it to a missing file.
+            raise ValueError(f"No {family} artwork for {glyph!r} on a backed badge")
         return _legacy_drawn_tga(control_width, control_height, glyph)
 
     from PIL import Image
@@ -445,9 +593,18 @@ def _composite_glyph_tga(control_width: int, control_height: int, glyph: str,
 
     sheet = Image.new("RGBA", (TEXTURE_WIDTH, TEXTURE_HEIGHT), (0, 0, 0, 0))
     resized = art.resize((dst_w, dst_h), Image.LANCZOS)
-    # paste() clips anything past the edge instead of raising, and the sheet is
-    # empty, so using the art's own alpha as the mask is a correct composite.
-    sheet.paste(resized, (left, top), resized)
+    if backing is None:
+        # paste() clips anything past the edge instead of raising, and the sheet
+        # is empty, so using the art's own alpha as the mask is a correct
+        # composite.
+        sheet.paste(resized, (left, top), resized)
+    else:
+        # On the button's own fill: the art laid over it as the engine would
+        # blend it, so its edges fade into the box rather than punching
+        # through it.
+        sheet.paste(resized, (left, top))
+        sheet = Image.alpha_composite(
+            Image.new("RGBA", (TEXTURE_WIDTH, TEXTURE_HEIGHT), backing), sheet)
 
     # Store bottom-up: the descriptor below declares a bottom-left origin, which
     # is what all 40 sampled shipped KOTOR textures use.
@@ -463,7 +620,8 @@ def _composite_glyph_tga(control_width: int, control_height: int, glyph: str,
 def build_prompt_tga(control_width: int, control_height: int, glyph: str,
                      label_width: float = 0.0,
                      radius_height: int = 0,
-                     family: str = GLYPH_FAMILY) -> bytes:
+                     family: str = GLYPH_FAMILY,
+                     backing: tuple | None = None) -> bytes:
     if control_width <= 0 or control_height <= 0:
         raise ValueError(f"Invalid prompt control extent {control_width}x{control_height}")
     center_y = control_height * 0.50
@@ -496,7 +654,7 @@ def build_prompt_tga(control_width: int, control_height: int, glyph: str,
     else:
         center_x = control_height * 0.58
     return _composite_glyph_tga(control_width, control_height, glyph,
-                                center_x, center_y, radius, family)
+                                center_x, center_y, radius, family, backing)
 
 
 # A cue that is nothing but a glyph sits on its own square control, so unlike
@@ -737,6 +895,97 @@ PROMPT_STRREFS = {
     ("upgradeitems.gui", "BTN_UPGRADEITEM"): ((42294,),),
     ("upgrade.gui", "BTN_ASSEMBLE"): ((42021,),),
     ("abilities.gui", "BTN_EXIT"): ((1582,),),
+
+    # Character creation and level-up (2026-09-25): each button's own
+    # TEXT.STRREF, read from its .gui. Feats' Add and Powers' Select also carry
+    # the captions their panels build at run time -- 38455 "Add" or 38456
+    # "Remove", a space, then 42487 "Feat" (0x006F4229..0x006F4340) or 42488
+    # "Power" (from 0x006F2645) -- so the badge is placed against the widest.
+    ("classsel.gui", "BTN_BACK"): ((1581,),),
+    ("qorcpnl.gui", "QUICK_CHAR_BTN"): ((239,),),
+    ("qorcpnl.gui", "CUST_CHAR_BTN"): ((240,),),
+    ("qorcpnl.gui", "BTN_BACK"): ((1581,),),
+    ("custpnl.gui", "BTN_STEPNAME1"): ((231,),),
+    ("custpnl.gui", "BTN_STEPNAME2"): ((209,),),
+    ("custpnl.gui", "BTN_STEPNAME3"): ((233,),),
+    ("custpnl.gui", "BTN_STEPNAME4"): ((232,),),
+    ("custpnl.gui", "BTN_STEPNAME5"): ((234,),),
+    ("custpnl.gui", "BTN_STEPNAME6"): ((235,),),
+    ("custpnl.gui", "BTN_BACK"): ((219,),),
+    ("custpnl.gui", "BTN_CANCEL"): ((1581,),),
+    ("quickpnl.gui", "BTN_STEPNAME1"): ((231,),),
+    ("quickpnl.gui", "BTN_STEPNAME2"): ((234,),),
+    ("quickpnl.gui", "BTN_STEPNAME3"): ((235,),),
+    ("quickpnl.gui", "BTN_BACK"): ((219,),),
+    ("quickpnl.gui", "BTN_CANCEL"): ((1581,),),
+    ("portcust.gui", "BTN_ACCEPT"): ((1580,),),
+    ("portcust.gui", "BTN_BACK"): ((1581,),),
+    ("abchrgen.gui", "BTN_ACCEPT"): ((1580,),),
+    ("abchrgen.gui", "BTN_RECOMMENDED"): ((221,),),
+    ("abchrgen.gui", "BTN_BACK"): ((1581,),),
+    ("skchrgen.gui", "BTN_ACCEPT"): ((1580,),),
+    ("skchrgen.gui", "BTN_RECOMMENDED"): ((221,),),
+    ("skchrgen.gui", "BTN_BACK"): ((1581,),),
+    ("ftchrgen.gui", "BTN_ACCEPT"): ((1580,),),
+    ("ftchrgen.gui", "BTN_RECOMMENDED"): ((221,),),
+    ("ftchrgen.gui", "BTN_BACK"): ((1581,),),
+    ("name.gui", "END_BTN"): ((1580,),),
+    ("name.gui", "BTN_RANDOM"): ((48579,),),
+    ("name.gui", "BTN_BACK"): ((1581,),),
+    ("leveluppnl.gui", "BTN_STEPNAME1"): ((209,),),
+    ("leveluppnl.gui", "BTN_STEPNAME2"): ((233,),),
+    ("leveluppnl.gui", "BTN_STEPNAME3"): ((232,),),
+    ("leveluppnl.gui", "BTN_STEPNAME4"): ((1072,),),
+    ("leveluppnl.gui", "BTN_STEPNAME5"): ((1073,),),
+    ("leveluppnl.gui", "BTN_BACK"): ((219,),),
+    ("pwrlvlup.gui", "ACCEPT_BTN"): ((1580,),),
+    ("pwrlvlup.gui", "RECOMMENDED_BTN"): ((221,),),
+    ("pwrlvlup.gui", "BACK_BTN"): ((1581,),),
+    ("ftchrgen.gui", "BTN_SELECT"): ((38455,), (38455, 42487), (38456, 42487)),
+    ("pwrlvlup.gui", "SELECT_BTN"): ((236,), (38455, 42488), (38456, 42488)),
+
+    # The settings screens and Pazaak's wager (2026-09-25), each button's own
+    # TEXT.STRREF as its .gui carries it. BTN_KMRPLAY is absent on purpose: its
+    # caption is KMRP's own inline text (PROMPT_INLINE_LABELS).
+    ("optgraphics.gui", "BTN_DEFAULT"): ((42010,),),
+    ("optgraphics.gui", "BTN_RESOLUTION"): ((47966,),),
+    ("optgraphics.gui", "BTN_ADVANCED"): ((48580,),),
+    ("optgraphicsadv.gui", "BTN_DEFAULT"): ((42010,),),
+    ("optsound.gui", "BTN_DEFAULT"): ((42010,),),
+    ("optsound.gui", "BTN_ADVANCED"): ((48580,),),
+    ("optsoundadv.gui", "BTN_DEFAULT"): ((42010,),),
+    ("optgameplay.gui", "BTN_DEFAULT"): ((42010,),),
+    ("optgameplay.gui", "BTN_MOUSE"): ((48449,),),
+    ("optgameplay.gui", "BTN_KEYMAP"): ((48142,),),
+    ("optmouse.gui", "BTN_DEFAULT"): ((42010,),),
+    ("optfeedback.gui", "BTN_DEFAULT"): ((42010,),),
+    ("optautopause.gui", "BTN_DEFAULT"): ((42010,),),
+    ("optkeymapping.gui", "BTN_Default"): ((42010,),),
+    ("optionsmain.gui", "BTN_GAMEPLAY"): ((42166,),),
+    ("optionsmain.gui", "BTN_FEEDBACK"): ((42167,),),
+    ("optionsmain.gui", "BTN_AUTOPAUSE"): ((42168,),),
+    ("optionsmain.gui", "BTN_GRAPHICS"): ((47994,),),
+    ("optionsmain.gui", "BTN_SOUND"): ((47995,),),
+    ("optionsingame.gui", "BTN_LOADGAME"): ((1585,),),
+    ("optionsingame.gui", "BTN_SAVEGAME"): ((1588,),),
+    ("optionsingame.gui", "BTN_GAMEPLAY"): ((42166,),),
+    ("optionsingame.gui", "BTN_FEEDBACK"): ((42167,),),
+    ("optionsingame.gui", "BTN_AUTOPAUSE"): ((42168,),),
+    ("optionsingame.gui", "BTN_GRAPHICS"): ((47994,),),
+    ("optionsingame.gui", "BTN_SOUND"): ((47995,),),
+    ("optionsingame.gui", "BTN_QUIT"): ((48581,),),
+    ("pazaakwager.gui", "BTN_WAGER"): ((42393,),),
+    ("pazaakwager.gui", "BTN_QUIT"): ((42172,),),
+    ("character.gui", "BTN_LEVELUP"): ((1071,),),
+    ("character.gui", "BTN_AUTO"): ((36812,),),
+    ("skillinfo.gui", "BTN_OK"): ((1580,),),
+}
+
+# Buttons whose caption is inline text in the .gui rather than a STRREF: KMRP's
+# own. English only and never re-placed by the installer, so their manifest row
+# carries no variants ("-"), which the installer skips.
+PROMPT_INLINE_LABELS = {
+    ("optgameplay.gui", "BTN_KMRPLAY"): "Controller Layout",
 }
 
 # The English text of every STRREF above, as shipped in the retail dialog.tlk.
@@ -783,6 +1032,22 @@ PROMPT_FALLBACK_STRINGS = {
     32174: "by Name",
     32175: "by Priority",
     32176: "by Planet",
+    # The settings screens and Pazaak's wager, 2026-09-25.
+    42010: "Default",
+    47966: "Screen Resolution",
+    48580: "Advanced Options",
+    48142: "Key Mapping",
+    48449: "Mouse Settings",
+    42166: "Gameplay",
+    42167: "Feedback",
+    42168: "Auto-Pause",
+    47994: "Graphics",
+    47995: "Sound",
+    1588: "Save Game",
+    48581: "Exit Game",
+    42393: "Wager",
+    1071: "Level Up",
+    36812: "Auto Level Up",
 }
 
 # Buttons that get one badge texture PER CAPTION, named <resref><index>, chosen
@@ -807,6 +1072,25 @@ BADGE_GROUPS = {
     ("mainmenu.gui", "BTN_MOVIES"): "mainmenu",
     ("mainmenu.gui", "BTN_OPTIONS"): "mainmenu",
     ("mainmenu.gui", "BTN_EXIT"): "mainmenu",
+    # The two Options lists, the same shape as the main menu (2026-09-25).
+    ("optionsmain.gui", "BTN_GAMEPLAY"): "optionsmain",
+    ("optionsmain.gui", "BTN_FEEDBACK"): "optionsmain",
+    ("optionsmain.gui", "BTN_AUTOPAUSE"): "optionsmain",
+    ("optionsmain.gui", "BTN_GRAPHICS"): "optionsmain",
+    ("optionsmain.gui", "BTN_SOUND"): "optionsmain",
+    ("optionsingame.gui", "BTN_LOADGAME"): "optionsingame",
+    ("optionsingame.gui", "BTN_SAVEGAME"): "optionsingame",
+    ("optionsingame.gui", "BTN_GAMEPLAY"): "optionsingame",
+    ("optionsingame.gui", "BTN_FEEDBACK"): "optionsingame",
+    ("optionsingame.gui", "BTN_AUTOPAUSE"): "optionsingame",
+    ("optionsingame.gui", "BTN_GRAPHICS"): "optionsingame",
+    ("optionsingame.gui", "BTN_SOUND"): "optionsingame",
+    ("optionsingame.gui", "BTN_QUIT"): "optionsingame",
+    # Gameplay's two sub-screen buttons, stacked. Controller Layout below them
+    # is left out: its inline caption has no STRREF for the installer to
+    # re-measure, and a group is re-placed as one.
+    ("optgameplay.gui", "BTN_MOUSE"): "optgame",
+    ("optgameplay.gui", "BTN_KEYMAP"): "optgame",
 }
 
 PER_CAPTION_TARGETS = frozenset({
@@ -825,6 +1109,15 @@ def variant_strings(variants, strings):
             continue
         out.append(" ".join(parts))
     return out
+
+
+def target_labels(target, variants):
+    """The wordings a target's button can show: its STRREF variants, or the
+    inline caption of a button that has none."""
+    inline = PROMPT_INLINE_LABELS.get((target.gui, target.tag))
+    if inline is not None:
+        return [inline]
+    return variant_strings(variants, PROMPT_FALLBACK_STRINGS)
 
 
 def parse_font_metrics(txi_path: Path):
@@ -922,7 +1215,7 @@ def build_prompt_textures(gui_files: list[Path], output_dir: Path) -> list[Path]
         height = extent.get_int32("HEIGHT")
         variants = PROMPT_STRREFS.get((target.gui, target.tag), ())
         width = max((measure_label(label, advances, spacing_px)
-                     for label in variant_strings(variants, PROMPT_FALLBACK_STRINGS)),
+                     for label in target_labels(target, variants)),
                     default=0.0)
         group_label_width[group] = max(group_label_width.get(group, 0.0), width)
         group_height[group] = min(group_height.get(group, height), height)
@@ -950,10 +1243,21 @@ def build_prompt_textures(gui_files: list[Path], output_dir: Path) -> list[Path]
         border = control.get_struct("BORDER")
         if extent is None or border is None:
             raise ValueError(f"{target.gui}:{target.tag} has no extent or normal border")
-        if str(border.get_resref("FILL")):
+        # Empty, or exactly the backing the badge carries and the module puts back.
+        fills = (str(border.get_resref("FILL")),
+                 str(control.get_struct("HILIGHT").get_resref("FILL"))
+                 if control.exists("HILIGHT") else "")
+        if target.backing:
+            if target.backing not in BACKINGS:
+                raise ValueError(f"{target.resref}: unknown backing {target.backing!r}")
+            if fills != (target.backing, target.backing):
+                raise ValueError(
+                    f"{target.gui}:{target.tag} carries {fills}, but its badge "
+                    f"stands on {target.backing!r}")
+        elif fills[0]:
             raise ValueError(f"{target.gui}:{target.tag} has a non-empty normal fill")
         variants = PROMPT_STRREFS.get((target.gui, target.tag), ())
-        labels = variant_strings(variants, PROMPT_FALLBACK_STRINGS)
+        labels = target_labels(target, variants)
         # The widest wording the button can show. A badge measured against the
         # narrower one would be overlapped by the wider one; measured against the
         # wider one it merely sits a little further out on the narrow variant.
@@ -974,6 +1278,14 @@ def build_prompt_textures(gui_files: list[Path], output_dir: Path) -> list[Path]
             label_width = group_label_width[group]
             radius_height = group_height[group]
             variants = tuple(group_variants[group])
+        elif target.size_like:
+            like = next((c for c in controls if c.get_string("TAG") == target.size_like),
+                        None)
+            if like is None:
+                raise ValueError(f"{target.gui} has no {target.size_like} to size "
+                                 f"{target.tag}'s badge like")
+            radius_height = like.get_struct("EXTENT").get_int32("HEIGHT")
+        backing = BACKINGS[target.backing] if target.backing else None
 
         # Once per family, identically placed: only the art differs, so the
         # installer's re-centring treats every family's copy the same way.
@@ -982,7 +1294,7 @@ def build_prompt_textures(gui_files: list[Path], output_dir: Path) -> list[Path]
             output = output_dir / f"{resref}.tga"
             output.write_bytes(build_prompt_tga(
                 width, height, target.glyph, round(label_width, 2), radius_height,
-                family))
+                family, backing))
             results.append(output)
             manifest.append((resref, width, height, round(label_width, 2),
                              variants))
