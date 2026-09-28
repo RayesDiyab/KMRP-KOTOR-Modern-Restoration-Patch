@@ -41,7 +41,11 @@ D-pad off the Character screen; in `9736B41F…`, 217,600 bytes, SHA-256
 `69E1811B33EFB36284A1D4CA2CA35D972EC5BEE521E763D46051BB40A254941A`, which
 adds the echo guard on every panel (`GuardPanelEchoK1`, the 33rd native hook,
 and A pressing a focused button that presses its panel) and drops the D-pad
-glyphs on the -/+ arrows -- and what
+glyphs on the -/+ arrows; in `C77F7640…`, 217,600 bytes, SHA-256
+`AF223C4D4542B4A983EF4D1137C08AB4AA7F6C999DD7D2C3402DE2DD3BC2D312`, which
+adds `CoreGuiFrameK1` and `CoreMovieFrameK1`, the core stand-ins installed when
+controller support is off (`install = "no-controller"` in `kotor1.hooks.toml`)
+-- and what
 `testing/controller/select_controller_path.py` installs into a test game. The
 reverse engineering behind the native path is in
 `reverse-engineering/retained-xbox-gui-events.md`; the architecture and the full

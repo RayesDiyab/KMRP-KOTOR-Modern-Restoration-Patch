@@ -2004,19 +2004,19 @@ namespace Kmrp
         ///
         /// `dinput8.dll` is Ultimate ASI Loader (ThirteenAG, unmodified; see the notices in
         /// K1DC's folder), and it loads every `.asi` beside the game -- K1DC's payload and
-        /// KMRP's controller runtime alike. So the loader is needed whenever EITHER option
-        /// is on, and K1DC's own `.asi` only when driver compatibility is. Until
-        /// 2026-09-24 the settings page forced driver compatibility on with the
-        /// controller instead.
+        /// KMRP's runtime alike. KMRP's runtime installs on every patch since 2026-09-28
+        /// (it carries the memory-safety fixes, mouse confinement and the movie bars, not
+        /// only the controller), so the loader always installs, and K1DC's own `.asi`
+        /// only when driver compatibility is on. Until 2026-09-24 the settings page
+        /// forced driver compatibility on with the controller instead.
         ///
-        /// Always restores first: going from both options to controller only must remove
-        /// K1DC's `.asi`, or the loader would go on loading it.</summary>
+        /// Always restores first: turning driver compatibility off must remove K1DC's
+        /// `.asi`, or the loader would go on loading it.</summary>
         internal static void Apply(string executablePath, bool driverCompatibility,
-            bool controllerSupport, Action<string> report)
+            Action<string> report)
         {
             Restore(executablePath, report);
-            if (driverCompatibility || controllerSupport)
-                Install(executablePath, report, driverCompatibility);
+            Install(executablePath, report, driverCompatibility);
         }
 
         /// <summary>Write the loader, and K1DC's payload when `includePayload`, into the
@@ -2064,7 +2064,7 @@ namespace Kmrp
                 SafeReport(report, "Installed K1 Modern Driver Compatibility " + Version +
                     " (by Synchro). swkotor.exe was not modified.");
             else
-                SafeReport(report, "Installed the ASI loader for controller support; " +
+                SafeReport(report, "Installed the ASI loader for KMRP's runtime; " +
                     "Modern Driver Compatibility itself stays off.");
         }
 
@@ -2151,11 +2151,16 @@ namespace Kmrp
         }
     }
 
-    /// <summary>Installs the optional Xbox Controls module through KMRP's existing
-    /// ASI loader. The hook engine is the MIT KOTOR Patch Manager runtime; the
-    /// controller module is Saul0097's author-approved KPM Xbox Controls K1 1.2.
-    /// Neither component writes to swkotor.exe: the six verified hooks are applied
-    /// in memory when the game starts.</summary>
+    /// <summary>Installs KMRP's runtime through KMRP's existing ASI loader: the MIT
+    /// KOTOR Patch Manager hook engine, KMRP's module (derived from Saul0097's
+    /// author-approved KPM Xbox Controls K1 1.2) and the hook table.
+    ///
+    /// Since 2026-09-28 it installs on every patch. The controller option decides only
+    /// which hooks the table carries (BuildConfig): the core ones -- memory safety,
+    /// mouse confinement, the movie bars -- go in either way. The file and class names
+    /// still say "controller" because they predate the split, and renaming them would
+    /// orphan older installs' manifests. Nothing here writes to swkotor.exe: the hooks
+    /// are applied in memory when the game starts.</summary>
     internal static class ControllerOperations
     {
         private sealed class InstalledFile
@@ -2227,25 +2232,25 @@ namespace Kmrp
         }
 
         internal static void Install(string executablePath, string executableHash,
-            Action<string> report)
+            bool controllerSupport, Action<string> report)
         {
-            // Controller support is OPTIONAL, so every reason it cannot install is
-            // reported and skipped rather than thrown. Throwing aborted the whole patch:
-            // a user who happened to have a `patch_config.toml` from any other KPM mod
-            // got no fonts, no GUI archives and no executable patch either, with a .NET
-            // stack trace as the only explanation. DriverCompatOperations.Install has
-            // always declined this way; this now matches it.
+            // The runtime is not essential to the patch, so every reason it cannot
+            // install is reported and skipped rather than thrown. Throwing aborted the
+            // whole patch: a user who happened to have a `patch_config.toml` from any
+            // other KPM mod got no fonts, no GUI archives and no executable patch either,
+            // with a .NET stack trace as the only explanation. DriverCompatOperations.Install
+            // has always declined this way; this now matches it.
             if (!Available)
             {
-                SafeReport(report, "Controller support was not installed: this build does " +
-                    "not carry the optional controller resources.");
+                SafeReport(report, "KMRP's runtime was not installed: this build does " +
+                    "not carry its resources.");
                 return;
             }
 
             string folder = Path.GetDirectoryName(Path.GetFullPath(executablePath));
             if (!File.Exists(Path.Combine(folder, "dinput8.dll")))
             {
-                SafeReport(report, "Controller support was not installed: its ASI loader " +
+                SafeReport(report, "KMRP's runtime was not installed: its ASI loader " +
                     "(dinput8.dll) is not present.");
                 return;
             }
@@ -2260,8 +2265,9 @@ namespace Kmrp
                 // that mod silently.
                 if (File.Exists(target) && !WasInstalledByUs(executablePath, name, target))
                 {
-                    SafeReport(report, "Left the existing " + name +
-                        " alone; controller support was not installed.");
+                    SafeReport(report, "Left the existing " + name + " alone; KMRP's " +
+                        "runtime (controller support, memory-safety fixes, mouse " +
+                        "confinement, movie bars) was not installed.");
                     return;
                 }
             }
@@ -2281,7 +2287,8 @@ namespace Kmrp
                 }
 
                 string configPath = Path.Combine(folder, ConfigName);
-                File.WriteAllText(configPath, BuildConfig(executableHash), new UTF8Encoding(false));
+                File.WriteAllText(configPath, BuildConfig(executableHash, controllerSupport),
+                    new UTF8Encoding(false));
                 installed.Add(new InstalledFile
                     { Name = ConfigName, Hash = GoldPatch.HashFile(configPath) });
 
@@ -2312,8 +2319,12 @@ namespace Kmrp
                 throw;
             }
 
-            SafeReport(report, "Installed controller support " + Version +
-                " through the KOTOR Patch Manager runtime.");
+            if (controllerSupport)
+                SafeReport(report, "Installed controller support " + Version +
+                    " and KMRP's runtime fixes through the KOTOR Patch Manager runtime.");
+            else
+                SafeReport(report, "Installed KMRP's runtime fixes (memory safety, mouse " +
+                    "confinement, movie bars); controller support is off.");
         }
 
         internal static void Restore(string executablePath, Action<string> report)
@@ -2339,18 +2350,95 @@ namespace Kmrp
             }
             File.Delete(manifestPath);
             if (removed > 0)
-                SafeReport(report, "Removed the optional Xbox Controls component.");
+                SafeReport(report, "Removed KMRP's runtime and controller support.");
             if (kept > 0)
                 SafeReport(report, "Left " + kept +
-                    " controller file(s) in place because they changed after install.");
+                    " runtime file(s) in place because they changed after install.");
         }
 
-        private static string BuildConfig(string executableHash)
+        private static string BuildConfig(string executableHash, bool controllerSupport)
         {
             StringBuilder text = new StringBuilder();
             text.Append("target_version_sha = \"").Append(executableHash).Append("\"\r\n\r\n");
             text.Append("[[patches]]\r\nid = \"kmrp-xbox-controls-k1\"\r\n")
                 .Append("dll = \"").Append(FileNames[1]).Append("\"\r\n");
+            // Two sets, from the `install` key in src/controller-native/
+            // kotor1.hooks.toml (tools/kmrp_controller.py derives them, and
+            // Test-ControllerSupport.ps1 checks both installs against it):
+            //
+            //   * the core, installed with or without controller support since
+            //     2026-09-28 -- until then turning the controller off took the
+            //     memory-safety fixes, mouse confinement and the movie bars with it;
+            //   * the controller's own hooks, only with the option on.
+            //
+            // The core goes FIRST. KPM's runtime applies the table in order and
+            // stops at the first hook that fails, so nothing a controller hook
+            // does wrong can keep the core from applying.
+
+            // Two hooks exist only to black the movie window. The grey flash
+            // at either end of a movie is the "SWMovieWindow" class, which
+            // InitializeMovie registers with hbrBackground NULL; see
+            // src/controller-native/kotor1.hooks.toml for the addresses that
+            // show it.
+            AppendHook(text, "0x0040554B", "8B, 0D, F8, 39, 7A, 00",
+                "NativeMovieWindowOpenK1", new[] { "esi" }, new[] { "pointer" });
+            AppendHook(text, "0x00404BB0", "83, EC, 7C, 56, 8B, F1",
+                "NativeMovieWindowCloseK1", new[] { "ecx" }, new[] { "pointer" });
+            // Memory safety, adopted from the Kotor Patch Manager project
+            // (VexFlint). Not controller hooks: KMRP loads far more textures and
+            // data than vanilla, which is what makes an unbounded write and a
+            // double free start to matter.
+            //
+            // Bytes copied verbatim from KPM rather than re-derived, so this is
+            // the behaviour reviewed there. See
+            // reverse-engineering/experiments/texture-bucket-overrun.md.
+
+            // Three 5000-entry bucket arrays are indexed by driver-assigned GL
+            // texture names with no range check. Saturate the id getter...
+            AppendBytePatch(text, "0x0041FEB5",
+                "C3, 90, 90, 90, 90",
+                "3D, 88, 13, 00, 00, 72, 05, B8, 87, 13, 00, 00, C3");
+            // ...and range-check the indexed write, rejoining at 0x0046BEB1 so
+            // shadow casting is preserved for an out-of-range part.
+            AppendBytePatch(text, "0x0046BE64",
+                "8D, 34, 40, 8B, 04, B5, E8, 94, 81, 00",
+                "3D, 88, 13, 00, 00, 72, 13, A1, BC, BF, 7F, 00, 8B, 0D, B8, " +
+                "BF, 7F, 00, 3B, C8, 68, B1, BE, 46, 00, C3, 8D, 34, 40, 8B, " +
+                "04, B5, E8, 94, 81, 00");
+
+            // CreateArrays stores one allocation in both 0x38 and 0x3C, and two
+            // paths free each of them. Zero the argument when it aliases 0x38;
+            // free() guards NULL, so that is a safe no-op.
+            AppendBytePatch(text, "0x004A847C",
+                "8B, 56, 3C, 52, E8, 0B, 1F, 25, 00",
+                "8B, 56, 3C, 3B, 56, 38, 75, 02, 33, D2, 52, B8, 90, A3, 6F, " +
+                "00, FF, D0");
+            AppendBytePatch(text, "0x004A8380",
+                "8B, 46, 3C, 50, E8, 07, 20, 25, 00",
+                "8B, 46, 3C, 3B, 46, 38, 75, 02, 33, C0, 50, B9, 90, A3, 6F, " +
+                "00, FF, D1");
+
+            // Every save leaks one buffer per resource written:
+            // CERFFile::WriteResource hands the buffer to the writer and then
+            // abandons it. Adopted from KPM's SaveGameMemoryLeak (Lane Dibello).
+            AppendHook(text, "0x005DDE32", "8B, 8B, C0, 00, 00, 00",
+                "NativeFreeSaveBufferK1", new[] { "esi" }, new[] { "pointer" });
+
+            if (!controllerSupport)
+            {
+                // Without the controller, two of its sites carry a core stand-in
+                // instead (install = "no-controller"): the GUI frame confines the
+                // mouse (issue #20) and fits the status summary to KMRP's larger
+                // text, and the movie frame paints the bars beside a narrow movie.
+                // With the controller on, NativeGuiFrameK1 and NativeMovieFrameK1
+                // hold these sites and do all of that themselves.
+                AppendHook(text, "0x0040CE70", "51, 53, 55, 56, 8B, E9",
+                    "CoreGuiFrameK1", new[] { "ecx" }, new[] { "pointer" });
+                AppendHook(text, "0x00404D96", "8B, 46, 48, 8B, 48, 08",
+                    "CoreMovieFrameK1", new[] { "esi" }, new[] { "pointer" });
+                return text.ToString();
+            }
+
             // The native hook table, generated from src/controller-native/kotor1.hooks.toml
             // and kept in step with it by tools/check_controller_drift.py.
             //
@@ -2426,15 +2514,6 @@ namespace Kmrp
                 "NativeCameraFrameK1", new[] { "esi" }, new[] { "pointer" });
             AppendHook(text, "0x00404D96", "8B, 46, 48, 8B, 48, 08",
                 "NativeMovieFrameK1", new[] { "esi" }, new[] { "pointer" });
-            // Two hooks exist only to black the movie window. The grey flash
-            // at either end of a movie is the "SWMovieWindow" class, which
-            // InitializeMovie registers with hbrBackground NULL; see
-            // src/controller-native/kotor1.hooks.toml for the addresses that
-            // show it.
-            AppendHook(text, "0x0040554B", "8B, 0D, F8, 39, 7A, 00",
-                "NativeMovieWindowOpenK1", new[] { "esi" }, new[] { "pointer" });
-            AppendHook(text, "0x00404BB0", "83, EC, 7C, 56, 8B, F1",
-                "NativeMovieWindowCloseK1", new[] { "ecx" }, new[] { "pointer" });
             // The engine still runs the Xbox build's rumble subsystem and ends
             // it in DirectInput force feedback, which the invented pad cannot
             // receive. This carries the magnitudes to XInput instead.
@@ -2476,47 +2555,6 @@ namespace Kmrp
             // reverse-engineering/custom-gui-controls.md.
             AppendHook(text, "0x0040B8F0", "56, 8B, F1, F6, 46, 44, 02",
                 "NativePanelReleaseGffK1", new[] { "ecx" }, new[] { "pointer" });
-            // Memory safety, adopted from the Kotor Patch Manager project
-            // (VexFlint). Not controller hooks -- they are here because this is
-            // the only hook table KMRP ships, and because KMRP loads far more
-            // textures and data than vanilla, which is what makes an unbounded
-            // write and a double free start to matter.
-            //
-            // Bytes copied verbatim from KPM rather than re-derived, so this is
-            // the behaviour reviewed there. See
-            // reverse-engineering/experiments/texture-bucket-overrun.md.
-
-            // Three 5000-entry bucket arrays are indexed by driver-assigned GL
-            // texture names with no range check. Saturate the id getter...
-            AppendBytePatch(text, "0x0041FEB5",
-                "C3, 90, 90, 90, 90",
-                "3D, 88, 13, 00, 00, 72, 05, B8, 87, 13, 00, 00, C3");
-            // ...and range-check the indexed write, rejoining at 0x0046BEB1 so
-            // shadow casting is preserved for an out-of-range part.
-            AppendBytePatch(text, "0x0046BE64",
-                "8D, 34, 40, 8B, 04, B5, E8, 94, 81, 00",
-                "3D, 88, 13, 00, 00, 72, 13, A1, BC, BF, 7F, 00, 8B, 0D, B8, " +
-                "BF, 7F, 00, 3B, C8, 68, B1, BE, 46, 00, C3, 8D, 34, 40, 8B, " +
-                "04, B5, E8, 94, 81, 00");
-
-            // CreateArrays stores one allocation in both 0x38 and 0x3C, and two
-            // paths free each of them. Zero the argument when it aliases 0x38;
-            // free() guards NULL, so that is a safe no-op.
-            AppendBytePatch(text, "0x004A847C",
-                "8B, 56, 3C, 52, E8, 0B, 1F, 25, 00",
-                "8B, 56, 3C, 3B, 56, 38, 75, 02, 33, D2, 52, B8, 90, A3, 6F, " +
-                "00, FF, D0");
-            AppendBytePatch(text, "0x004A8380",
-                "8B, 46, 3C, 50, E8, 07, 20, 25, 00",
-                "8B, 46, 3C, 3B, 46, 38, 75, 02, 33, C0, 50, B9, 90, A3, 6F, " +
-                "00, FF, D1");
-
-            // Every save leaks one buffer per resource written:
-            // CERFFile::WriteResource hands the buffer to the writer and then
-            // abandons it. Adopted from KPM's SaveGameMemoryLeak (Lane Dibello).
-            AppendHook(text, "0x005DDE32", "8B, 8B, C0, 00, 00, 00",
-                "NativeFreeSaveBufferK1", new[] { "esi" }, new[] { "pointer" });
-
             // The one legacy-owned hook the native path REQUIRES. Its action
             // bar helpers cache the interface in g_mainInterface every frame,
             // and this is the only thing that clears it -- it is hooked on
@@ -3726,9 +3764,9 @@ namespace Kmrp
                 iniState = IniOperations.Configure(targetPath, width, height, report);
                 overrideState = OverrideOperations.Install(targetPath, resolution, report, progress);
                 DriverCompatOperations.Apply(targetPath, KmrpSettings.DriverCompatibility,
+                    report);
+                ControllerOperations.Install(targetPath, targetHash,
                     KmrpSettings.ControllerSupport, report);
-                if (KmrpSettings.ControllerSupport)
-                    ControllerOperations.Install(targetPath, targetHash, report);
                 SafeProgress(progress, 98, "Saving patch information…");
                 WriteManifest(targetPath, backupPath, false, width, height, targetHash);
                 SafeProgress(progress, 100, "Patch complete");
@@ -3931,11 +3969,11 @@ namespace Kmrp
                 existingIniState = IniOperations.Configure(targetPath, width, height, report);
                 existingOverrideState = OverrideOperations.Install(targetPath, resolution, report, progress);
                 DriverCompatOperations.Apply(targetPath, KmrpSettings.DriverCompatibility,
+                    report);
+                // Install rewrites the manifest, so switching the controller option
+                // either way needs no Restore first: the hook table is regenerated.
+                ControllerOperations.Install(targetPath, currentHash,
                     KmrpSettings.ControllerSupport, report);
-                if (KmrpSettings.ControllerSupport)
-                    ControllerOperations.Install(targetPath, currentHash, report);
-                else
-                    ControllerOperations.Restore(targetPath, report);
                 SafeProgress(progress, 98, "Saving patch information…");
                 WriteManifest(targetPath, BackupPath(targetPath), false, width, height, currentHash);
                 SafeProgress(progress, 100, "Patch complete");
@@ -5679,8 +5717,12 @@ namespace Kmrp
 
         /// <summary>Install KMRP's optional controller support.
         ///
+        /// Since 2026-09-28 this switches only the controller's own hooks: KMRP's
+        /// runtime and its core hooks (memory safety, mouse confinement, movie bars)
+        /// install either way; see ControllerOperations.BuildConfig.
+        ///
         /// Independent of DriverCompatibility since 2026-09-24. Both need the ASI loader,
-        /// which DriverCompatOperations.Apply installs for either, so neither option
+        /// which DriverCompatOperations.Apply installs on every patch, so neither option
         /// sets the other -- here, in the settings page, or when settings are loaded.
         /// The coupling lived in all three places, and removing only the page's copy
         /// left Load() turning driver compatibility back on.</summary>
@@ -6513,8 +6555,9 @@ namespace Kmrp
             driverToggle.Checked = KmrpSettings.DriverCompatibility;
             driverToggle.SetBounds(36, settingsSubtitle.Bottom + 18, card.Width - 72, 86);
             driverToggle.Anchor = AnchorStyles.Top | AnchorStyles.Left | AnchorStyles.Right;
-            // Independent of the controller since 2026-09-24: the controller brings its
-            // own copy of the ASI loader when this is off (DriverCompatOperations.Apply).
+            // Independent of the controller since 2026-09-24. The ASI loader installs on
+            // every patch since 2026-09-28, for KMRP's runtime; this option adds only
+            // K1DC's own .asi (DriverCompatOperations.Apply).
             driverToggle.CheckedChanged += delegate
             {
                 KmrpSettings.DriverCompatibility = driverToggle.Checked;

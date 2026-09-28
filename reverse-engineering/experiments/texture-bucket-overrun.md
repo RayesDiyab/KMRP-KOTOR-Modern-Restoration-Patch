@@ -10,10 +10,11 @@ see [nvidia-present-method.md](../../docs/nvidia-present-method.md).
 
 The overrun below is still real, and KMRP now fixes it. The patcher writes KPM's
 two `replace` patches, at `0x0041FEB5` and `0x0046BE64`, into the hook table
-`patch_config.toml`. That table is installed with the controller component,
-which is on by default. Both entries were in the play-test game's
-`patch_config.toml` on 2026-09-25. With the controller component turned off,
-the overrun is not fixed.
+`patch_config.toml`. Both entries were in the play-test game's
+`patch_config.toml` on 2026-09-25. Until 2026-09-28 that table was installed
+only with the controller component, so with it turned off the overrun was not
+fixed; since then both patches install on every patch, with or without
+controller support (`install = "always"` in `kotor1.hooks.toml`).
 
 Found by reading the bundled KOTOR Patch Manager sources rather than by
 disassembly, then verified against this project's own gold image.

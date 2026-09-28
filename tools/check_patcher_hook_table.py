@@ -85,7 +85,10 @@ def parse_patcher():
 
 def main() -> int:
     patcher = parse_patcher()
-    native = kmrp_controller.native_hooks()
+    # Both installs: the table is checked against every hook either can emit.
+    # Which install gets which hook is BuildConfig's branch, which a regex cannot
+    # see; Test-ControllerSupport.ps1 checks that on real installs, both ways.
+    native = kmrp_controller.installable_hooks()
     tracked = {h["function"]: h for h in native
                if not kmrp_controller.is_byte_patch(h)}
     tracked_bytes = {h["address"]: h for h in native

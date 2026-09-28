@@ -229,12 +229,16 @@ check showing its eight patch sites do not collide with any of the 742 byte
 positions KMRP's installer writes at any resolution, is in
 [docs/third-party-driver-compat.md](docs/third-party-driver-compat.md).
 
-**Controller support** uses that ASI loader plus a KOTOR Patch Manager runtime.
+**KMRP's runtime** is that ASI loader plus a KOTOR Patch Manager runtime, and
+installs on every patch: it carries three memory-safety fixes, mouse
+confinement, the movie bars and the status summary's layout whether or not
+controller support is on. **Controller support** adds the controller's hooks
+to it.
 Xbox devices retain XInput; SDL3/HIDAPI supplies mapped non-Xbox devices to the
 same normalized state. Input still travels through KOTOR's retained controller
 events rather than synthetic keys. Options → Gameplay also gains a live
 Controller Layout screen. Existing external `patch_config.toml` files are
-preserved and block component installation. Exact files, mappings, hooks,
+preserved and block the runtime's installation. Exact files, mappings, hooks,
 dynamic prompt families, layout screen, and the remaining hardware/Proton test
 matrix are in [docs/controller-support.md](docs/controller-support.md) and
 [docs/controller-layout.md](docs/controller-layout.md).

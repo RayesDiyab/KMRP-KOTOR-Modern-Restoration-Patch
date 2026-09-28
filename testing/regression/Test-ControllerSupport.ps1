@@ -1,10 +1,13 @@
 <#
-    Structural and ownership regression for optional controller support, and for its
-    independence from Modern Driver Compatibility.
+    Structural and ownership regression for KMRP's runtime and optional controller
+    support, and for their independence from Modern Driver Compatibility.
 
-    Temporarily enables the persistent option, installs into isolated game
-    folders, validates all runtime files/config/hooks, restores them, and proves
-    an unrelated patch_config.toml is never overwritten.
+    Temporarily sets the persistent options, installs into isolated game folders,
+    validates all runtime files/config/hooks, restores them, and proves an
+    unrelated patch_config.toml is never overwritten. Since 2026-09-28 the runtime
+    installs on every patch and the controller option switches only the
+    controller's own hooks, so both hook sets are checked against
+    src/controller-native/kotor1.hooks.toml.
 #>
 [CmdletBinding()]
 param(
@@ -37,6 +40,15 @@ function Invoke-Patcher([string[]]$patcherArgs) {
 function Assert([bool]$condition, [string]$message) {
     if ($condition) { Write-Host ("  PASS  " + $message) -ForegroundColor Green }
     else { Write-Host ("  FAIL  " + $message) -ForegroundColor Red; $script:Failures++ }
+}
+
+# The installed hook table must be exactly one of the two sets tools/kmrp_controller.py
+# derives from kotor1.hooks.toml: "controller" (option on) or "core" (option off).
+# Every field is compared, byte patches included; `owner` and `install` are the
+# table's own bookkeeping and never reach an install.
+function Assert-HookSet([string]$configPath, [string]$set, [string]$label) {
+    python -c "import sys; sys.path.insert(0,'tools'); import kmrp_controller as k; got=k.installed_hooks(sys.argv[1]); source=k.native_hooks() if sys.argv[2]=='controller' else k.core_hooks(); want=[{a:b for a,b in h.items() if a not in ('owner','install')} for h in source]; assert len(got)==len(want), (len(got), len(want)); assert {h['address']:h for h in got}=={h['address']:h for h in want}, 'installed hooks differ from source'" $configPath $set
+    Assert ($LASTEXITCODE -eq 0) $label
 }
 
 function New-Install([string]$name) {
@@ -80,8 +92,7 @@ try {
     $config = [IO.File]::ReadAllText($configPath)
     # Parse the installed table and compare every field with the owning TOML,
     # including byte patches. A copied hook count had gone stale at fourteen.
-    python -c "import sys; sys.path.insert(0,'tools'); import kmrp_controller as k; got=k.installed_hooks(sys.argv[1]); want=[{a:b for a,b in h.items() if a!='owner'} for h in k.native_hooks()]; assert len(got)==len(want); assert {h['address']:h for h in got}=={h['address']:h for h in want}, 'installed hooks differ from source'" $configPath
-    Assert ($LASTEXITCODE -eq 0) "installed TOML matches all source hooks and parameters"
+    Assert-HookSet $configPath "controller" "installed TOML matches all source hooks and parameters"
     # And the module installed beside it exports every function the TOML names.
     # The installer compiles its hook table at the end of a build but embeds the
     # module file as it was, so a hook added mid-build shipped naming a function
@@ -220,6 +231,10 @@ try {
     Assert (-not (Test-Path -LiteralPath (Join-Path $soloFolder "dinput8.dll"))) "restore removes the loader it installed"
     Assert (-not (Test-Path -LiteralPath (Join-Path $soloFolder "kmrp-controller.module"))) "restore removes the controller"
 
+    # Without the controller the runtime still installs, carrying only the core
+    # hooks: memory safety, mouse confinement and the movie bars. Until 2026-09-28
+    # this case asserted that no runtime file was installed at all -- which is
+    # exactly how turning the controller off used to take those fixes with it.
     Write-Host "Case 5  driver compatibility without controller support"
     Set-TestOptions $true $false
     $driverGame = New-Install "driver-only"
@@ -227,9 +242,50 @@ try {
     Assert ((Invoke-Patcher @("--in-place", $driverGame, $Resolution)) -eq 0) "driver-only patch succeeds"
     Assert (Test-Path -LiteralPath (Join-Path $driverFolder "dinput8.dll")) "driver-only installs the loader"
     Assert (Test-Path -LiteralPath (Join-Path $driverFolder "k1-modern-driver-compatibility.asi")) "driver-only installs its payload"
-    Assert (-not (Test-Path -LiteralPath (Join-Path $driverFolder "kmrp-controller.module"))) "driver-only installs no controller"
+    foreach ($name in $controllerNames) {
+        Assert (Test-Path -LiteralPath (Join-Path $driverFolder $name)) ("the runtime installs without the controller: " + $name)
+    }
+    $coreConfig = Join-Path $driverFolder "patch_config.toml"
+    Assert-HookSet $coreConfig "core" "without the controller the table is exactly the core set"
+    python tools\check_module_exports.py $coreConfig (Join-Path $driverFolder "kmrp-controller.module")
+    Assert ($LASTEXITCODE -eq 0) "the installed module exports every core hook"
     Assert ((Invoke-Patcher @("--restore", $driverGame)) -eq 0) "driver-only restore succeeds"
     Assert (-not (Test-Path -LiteralPath (Join-Path $driverFolder "k1-modern-driver-compatibility.asi"))) "restore removes driver compatibility"
+    foreach ($name in $controllerNames) {
+        Assert (-not (Test-Path -LiteralPath (Join-Path $driverFolder $name))) ("restore removes the runtime: " + $name)
+    }
+
+    Write-Host "Case 5b neither option: the runtime still installs, with its own loader"
+    Set-TestOptions $false $false
+    $bareGame = New-Install "neither-option"
+    $bareFolder = Split-Path -Parent $bareGame
+    Assert ((Invoke-Patcher @("--in-place", $bareGame, $Resolution)) -eq 0) "patch with both options off succeeds"
+    Assert (Test-Path -LiteralPath (Join-Path $bareFolder "dinput8.dll")) "the ASI loader is installed for the runtime"
+    Assert (-not (Test-Path -LiteralPath (Join-Path $bareFolder "k1-modern-driver-compatibility.asi"))) "driver compatibility's payload is not installed"
+    Assert-HookSet (Join-Path $bareFolder "patch_config.toml") "core" "both options off: the table is the core set"
+    Assert ((Invoke-Patcher @("--restore", $bareGame)) -eq 0) "patch with both options off restores"
+    Assert (-not (Test-Path -LiteralPath (Join-Path $bareFolder "dinput8.dll"))) "restore removes the loader it installed"
+    Assert (-not (Test-Path -LiteralPath (Join-Path $bareFolder "kmrp-controller.module"))) "restore removes the runtime"
+
+    # Switching the option on an installed game regenerates the table both ways,
+    # with no stale hook left from the other set.
+    Write-Host "Case 5c switching the controller option on an installed game"
+    Set-TestOptions $false $true
+    $switchGame = New-Install "switch-option"
+    $switchFolder = Split-Path -Parent $switchGame
+    $switchConfig = Join-Path $switchFolder "patch_config.toml"
+    Assert ((Invoke-Patcher @("--in-place", $switchGame, $Resolution)) -eq 0) "install with the controller on"
+    Assert-HookSet $switchConfig "controller" "the controller set is installed"
+    Set-TestOptions $false $false
+    Assert ((Invoke-Patcher @("--in-place", $switchGame, $Resolution)) -eq 0) "reinstall with the controller off"
+    Assert-HookSet $switchConfig "core" "switching off leaves exactly the core set"
+    Set-TestOptions $false $true
+    Assert ((Invoke-Patcher @("--in-place", $switchGame, $Resolution)) -eq 0) "reinstall with the controller on again"
+    Assert-HookSet $switchConfig "controller" "switching back on restores the controller set"
+    Assert ((Invoke-Patcher @("--restore", $switchGame)) -eq 0) "switched fixture restores"
+    foreach ($name in $controllerNames) {
+        Assert (-not (Test-Path -LiteralPath (Join-Path $switchFolder $name))) ("restore after switching removes " + $name)
+    }
 
     # All three optional components default on since 2026-09-24, so a first run with no
     # saved settings must install both of these. The finally block below puts the real

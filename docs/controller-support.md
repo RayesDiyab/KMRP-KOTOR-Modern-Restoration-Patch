@@ -19,10 +19,12 @@ through XInput and PlayStation, Switch and Steam Deck controllers through SDL 3
 ([`controller-sdl-backend.md`](controller-sdl-backend.md)), draws button
 prompts in four families, and adds the Controller Layout screen. A KOTOR Patch
 Manager runtime applies its hooks in memory from `patch_config.toml`: 18
-detours and 4 byte patches in the 2026-09-24 build, and 26 detours and 4 byte
-patches since the rumble mixer of 2026-09-25
-(`tools/check_patcher_hook_table.py`; the eight rumble hooks are in
-[`controller-rumble.md`](controller-rumble.md)).
+detours and 4 byte patches in the 2026-09-24 build, 26 detours and 4 byte
+patches after the rumble mixer of 2026-09-25, and 33 detours and 4 byte patches
+since the echo guard of 2026-09-28 (`tools/check_patcher_hook_table.py`; the
+eight rumble hooks are in [`controller-rumble.md`](controller-rumble.md)).
+Without controller support the runtime still installs, with 5 detours and the
+same 4 byte patches (*Installation*, below).
 
 *Corrected 2026-09-24:* this introduction still described the first
 integration -- an adapter feeding keyboard and GUI events through six detours,
@@ -33,7 +35,7 @@ describe that first version now say so.
 
 | Component | Exact source | Local output |
 | --- | --- | --- |
-| Controller module | KMRP's sources in `src/controller-native/`, with `scopeking0117-alt/KPM-Xbox-Controls-K1` at commit `78e7eaa3b9554ec0e6732f749424dc916f3a1895` as modified by KMRP (`KMRP-CONTROLLER-MODULE.diff`) | `kmrp-controller.module`, 181,248 bytes, SHA-256 `AC2C41EC4C935B19EFF4693E3FBB43D176D28C5B37DE0CDC2C706F72379652C9` in the 2026-09-24 installer; 204,288 bytes, SHA-256 `E52826A2724038E765DFD45B86171160A017E054E346E29CF4A1CE5D0F74DE21` in the haptics hardware-test installer `C796489A…`; 204,800 bytes, SHA-256 `577AAE92D0FE18766EDEC669C54959A0213BA1618030F4E1B0EED92E4D9CC251` in `D58A2E33…`, `7C2FFF8B…` and `AD3DC07D…` (X and Y in combat, the dialogue A moved); 205,824 bytes, SHA-256 `32F018CFE3D93AE9C9C5F4D20DDCB85FE422DD09EECAC798F13263F03BA43E9C` in `E5AFC981…` (the dialogue A from the drawn layout); 206,336 bytes, SHA-256 `628D4DC244535E26E4EBD81F4DC4710691A60CC19A6885735F66AF551BB10F90` in `EC98B10F…` (the character-creation A guard); 209,408 bytes, SHA-256 `B7307208D5C2B93B86821DC9746E39EEE8C84B17D09919AD7EFD4171D37E0D59` in `1720E0C1…` (character-creation badges, Attributes/Skills navigation); 209,920 bytes, SHA-256 `B28A80F7B635595A59651458E2D35AB20145BCD62EBC5DFC3DE4CDF72696B43B` in `DB9D7A08…` (Feats' A/X swap, name-entry guard, dialogue A adjustment) and `4EF3C181…` (the same module; the resolution layouts pooled); 216,576 bytes, SHA-256 `36D23D9B89039E2FB16C69CF3676F919676B2DDD2482E8DFC14C7794E51819C9` in `D407BF3A…` (settings: Y on Default, D-pad on −/+ rows and arrow glyphs; Pazaak's wager; the dialogue A on its line; the status summary's layout); 217,600 bytes, SHA-256 `D13FF3CBAC051905AC7FBF6620659E65B8A17D69B05836465761FE020A5A55E1` in `63E7AAB9…` (the status summary's A), `1419AD0471ED85AA6C8825480FA0493B82C36B28D96959DD9129F32986FF5809` in `B5D3CBB7…` (the D-pad kept off its OK), `42426D92AEF3738A66753060734801EAB2AC91AA5E705320E02C263522F7D5D9` in `49671B67…` (the line spacing misread) and `CB61BF176471DA5E24E415CFFAD4B90E501D01A0FB524D9FBE9FA216AF988020` in `80616FE6…` (the line spacing counted); 218,112 bytes, SHA-256 `C19CC7725DCBBDAF79E76AADA9F0139CC9A06C2D7759A259AC186F190C424A8C` in `128CDC79…` (Level Up, Auto Level Up and the skill-info notice badges; the D-pad kept off the Character screen); 217,600 bytes, SHA-256 `69E1811B33EFB36284A1D4CA2CA35D972EC5BEE521E763D46051BB40A254941A` in `9736B41F…` (the echo guard on every panel; the −/+ arrows keep their art) |
+| Controller module | KMRP's sources in `src/controller-native/`, with `scopeking0117-alt/KPM-Xbox-Controls-K1` at commit `78e7eaa3b9554ec0e6732f749424dc916f3a1895` as modified by KMRP (`KMRP-CONTROLLER-MODULE.diff`) | `kmrp-controller.module`, 181,248 bytes, SHA-256 `AC2C41EC4C935B19EFF4693E3FBB43D176D28C5B37DE0CDC2C706F72379652C9` in the 2026-09-24 installer; 204,288 bytes, SHA-256 `E52826A2724038E765DFD45B86171160A017E054E346E29CF4A1CE5D0F74DE21` in the haptics hardware-test installer `C796489A…`; 204,800 bytes, SHA-256 `577AAE92D0FE18766EDEC669C54959A0213BA1618030F4E1B0EED92E4D9CC251` in `D58A2E33…`, `7C2FFF8B…` and `AD3DC07D…` (X and Y in combat, the dialogue A moved); 205,824 bytes, SHA-256 `32F018CFE3D93AE9C9C5F4D20DDCB85FE422DD09EECAC798F13263F03BA43E9C` in `E5AFC981…` (the dialogue A from the drawn layout); 206,336 bytes, SHA-256 `628D4DC244535E26E4EBD81F4DC4710691A60CC19A6885735F66AF551BB10F90` in `EC98B10F…` (the character-creation A guard); 209,408 bytes, SHA-256 `B7307208D5C2B93B86821DC9746E39EEE8C84B17D09919AD7EFD4171D37E0D59` in `1720E0C1…` (character-creation badges, Attributes/Skills navigation); 209,920 bytes, SHA-256 `B28A80F7B635595A59651458E2D35AB20145BCD62EBC5DFC3DE4CDF72696B43B` in `DB9D7A08…` (Feats' A/X swap, name-entry guard, dialogue A adjustment) and `4EF3C181…` (the same module; the resolution layouts pooled); 216,576 bytes, SHA-256 `36D23D9B89039E2FB16C69CF3676F919676B2DDD2482E8DFC14C7794E51819C9` in `D407BF3A…` (settings: Y on Default, D-pad on −/+ rows and arrow glyphs; Pazaak's wager; the dialogue A on its line; the status summary's layout); 217,600 bytes, SHA-256 `D13FF3CBAC051905AC7FBF6620659E65B8A17D69B05836465761FE020A5A55E1` in `63E7AAB9…` (the status summary's A), `1419AD0471ED85AA6C8825480FA0493B82C36B28D96959DD9129F32986FF5809` in `B5D3CBB7…` (the D-pad kept off its OK), `42426D92AEF3738A66753060734801EAB2AC91AA5E705320E02C263522F7D5D9` in `49671B67…` (the line spacing misread) and `CB61BF176471DA5E24E415CFFAD4B90E501D01A0FB524D9FBE9FA216AF988020` in `80616FE6…` (the line spacing counted); 218,112 bytes, SHA-256 `C19CC7725DCBBDAF79E76AADA9F0139CC9A06C2D7759A259AC186F190C424A8C` in `128CDC79…` (Level Up, Auto Level Up and the skill-info notice badges; the D-pad kept off the Character screen); 217,600 bytes, SHA-256 `69E1811B33EFB36284A1D4CA2CA35D972EC5BEE521E763D46051BB40A254941A` in `9736B41F…` (the echo guard on every panel; the −/+ arrows keep their art); 217,600 bytes, SHA-256 `AF223C4D4542B4A983EF4D1137C08AB4AA7F6C999DD7D2C3402DE2DD3BC2D312` in `C77F7640…` (the core stand-ins; the runtime on every patch) |
 | Hook runtime | `LaneDibello/Kotor-Patch-Manager`, commit `7d53e52f55622a48ab97001c2680fd9fb59c8f98` | `kmrp-controller-runtime.asi`, 338,432 bytes, SHA-256 `F5CF2A21E4C28DA95CD8DAAF2704F871A6105616BFE250361929C61BCDB43B45` |
 | SDL | official SDL 3.4.16, Windows x86 | `kmrp-sdl3.dll`, 2,358,784 bytes, and its licence |
 
@@ -106,13 +108,32 @@ unlicensed.
 
 ## Installed files and ownership
 
-The option is independent of K1 Modern Driver Compatibility. Both need the ASI
-loader, `dinput8.dll` -- Ultimate ASI Loader, which K1DC's package ships unmodified
-and which loads every `.asi` beside the game -- so `DriverCompatOperations.Apply`
-installs the loader whenever either option is on, and K1DC's own `.asi` only when
-driver compatibility is. Until 2026-09-24 the settings page forced driver
-compatibility on with this option instead. `Test-ControllerSupport.ps1` covers both
-single-option cases. KMRP installs eight controller files beside the selected executable:
+**Since 2026-09-28 the runtime installs on every patch, and this option switches
+only the controller's own hooks.** The runtime also carries fixes that have
+nothing to do with a pad, and until then turning the option off took them with
+it. Which hook goes where is the `install` key in
+`src/controller-native/kotor1.hooks.toml`:
+
+| Set | Hooks | Installed |
+| --- | --- | --- |
+| core (`always`) | the movie window's two (`NativeMovieWindowOpenK1`, `NativeMovieWindowCloseK1`), the four memory-safety byte patches, `NativeFreeSaveBufferK1` | always, first in the table |
+| controller | the other 30 detours, including `NativeGuiFrameK1` and `NativeMovieFrameK1` | with the option on: 37 hooks in all |
+| core stand-ins (`no-controller`) | `CoreGuiFrameK1` at `0x0040CE70` (mouse confinement, the status summary's layout) and `CoreMovieFrameK1` at `0x00404D96` (the movie bars) | with the option off: 9 hooks in all |
+
+The core goes first because KPM's runtime stops at the first hook that fails.
+With the option off nothing reads the pad, draws a prompt or rumbles. The files
+below are the same either way, and their names still say "controller" because
+renaming them would orphan older installs' manifests.
+
+The option is independent of K1 Modern Driver Compatibility. The runtime needs the
+ASI loader, `dinput8.dll` -- Ultimate ASI Loader, which K1DC's package ships
+unmodified and which loads every `.asi` beside the game -- so
+`DriverCompatOperations.Apply` installs the loader on every patch since
+2026-09-28 (before, whenever either option was on), and K1DC's own `.asi` only
+when driver compatibility is. Until 2026-09-24 the settings page forced driver
+compatibility on with this option instead. `Test-ControllerSupport.ps1` covers
+every combination of the two options, and switching this one on an installed
+game both ways. KMRP installs eight runtime files beside the selected executable:
 
 | File | Purpose |
 | --- | --- |
@@ -137,9 +158,11 @@ copy never blocks an install, is never overwritten, and is not claimed by the
 new manifest (`Test-ControllerSupport.ps1` Case 7). A failed controller install
 rolls back the executable and a newly installed ASI loader.
 
-This means a separate KPM installation and KMRP's embedded controller runtime
-cannot share one game directory today: both own `patch_config.toml`. Leave the
-KMRP controller option off when using an external KPM configuration.
+This means a separate KPM installation and KMRP's embedded runtime cannot share
+one game directory today: both own `patch_config.toml`. KMRP declines to install
+its runtime beside an external KPM configuration -- the controller option makes
+no difference to that since 2026-09-28 -- so such a game gets neither KMRP's
+controller support nor its run-time fixes; the rest of the patch still applies.
 
 ## Hook sites
 
@@ -403,8 +426,12 @@ that every archive carries one, that its extents match the GUI controls, that it
 STRREFs are the ones the buttons really draw, and that its embedded font advances
 match the archive's own font.
 
-When controller support is disabled, KMRP installs no controller runtime or
-prompt override, so all keyboard/mouse prompts remain byte-for-byte unchanged.
+When controller support is disabled, the runtime installs only its core hooks
+(since 2026-09-28; before, no runtime at all). The prompt code runs only from
+controller hooks, so no prompt is ever drawn and keyboard/mouse screens show no
+badge. *Corrected 2026-09-28:* this said no prompt override was installed; the
+per-resolution interface files carry the badge controls either way, empty and
+invisible until the module fills one.
 
 ### Controller families (issue #19)
 
@@ -487,7 +514,8 @@ Steam file's parsing, with `GetPrivateProfileStringA` on a file in SDL's documen
 format, hex and decimal ids alike (`0x054c` and `1406` read as PlayStation and
 Switch, `0x28de`/`0x1205` as Steam Deck, a slot not yet written as Xbox).
 **Untested:** a real Steam virtual pad, any physical PlayStation, Switch or Steam
-Deck controller, Proton, and the new families' art in game.
+Deck controller, Proton, and the new families' art in game. **Reported working by the maintainer on 2026-09-28**, and issue #19
+closed that day; which controllers were used was not recorded.
 
 ## Menu navigation the module supplies
 
@@ -627,12 +655,12 @@ the foreground window and is not minimised.
 
 The diagnostic line reports `cur=<clipped>/<takes>/<releases>`.
 
-**Caveat, and it matters for a mouse feature:** this lives in the *optional*
-controller component. It is installed unless the player turns it off in Advanced
-Settings, so most installs get it — but a mouse-only player who declines
-controller support gets no confinement. The honest fix is a small always-
-installed component of KMRP's own; that does not exist yet, and building one is a
-larger change than the feature. Issue #20.
+**Installed with or without controller support since 2026-09-28.** Until then
+it lived in the optional controller component, so a mouse-only player who
+declined controller support got no confinement; this said the honest fix was a
+small always-installed component of KMRP's own. That is what the runtime now
+is: without controller support, `CoreGuiFrameK1` holds the GUI frame and
+confines the cursor (*Installation*, above). Issue #20.
 
 **Untested.** Written from the Win32 contract and the game's import table; no
 multi-monitor session has exercised it, and neither has Alt-Tab, minimise or a

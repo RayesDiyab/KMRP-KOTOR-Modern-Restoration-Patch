@@ -1188,8 +1188,10 @@ def test_no_legacy_synthesis(game, pad, report):
     # Ownership comes from which .cpp defines the export. The prefix list this
     # replaces was the wrong answer twice, both times counting a new KMRP hook as
     # one of the legacy path's.
+    # Byte patches name no function; they are KMRP's (kmrp_controller.is_byte_patch).
     legacy = [h["function"] for h in hooks
-              if not kmrp_controller.is_native(h["function"])]
+              if "function" in h and not kmrp_controller.is_native(h["function"])
+              and h["function"] not in kmrp_controller.REQUIRED_LEGACY]
     report.add("regression", "no legacy hooks installed in native mode",
                legacy == [], f"legacy={legacy}", "HARNESS")
     report.add("regression", "left-stick keystroke synthesis cannot run",
@@ -1199,12 +1201,15 @@ def test_no_legacy_synthesis(game, pad, report):
     # table from somewhere; these assert that those somewheres still agree with
     # each other, so a stale copy can never again be reported as a defect in the
     # game. tools/check_controller_drift.py runs the same checks standalone.
-    installed_native = [h for h in hooks if kmrp_controller.is_native(h["function"])]
+    # As sets: the runtime keys hooks on their address, so file order carries no
+    # meaning -- and the installer writes the core hooks first since 2026-09-28.
+    # A byte patch has no function; its address is its identity.
+    installed_keys = {(h["address"], h.get("function")) for h in hooks}
     tracked = kmrp_controller.native_hooks()
+    tracked_keys = {(h["address"], h.get("function")) for h in tracked}
     report.add("regression", "installed hooks match kotor1.hooks.toml",
-               [(h["address"], h["function"]) for h in installed_native]
-               == [(h["address"], h["function"]) for h in tracked],
-               f"{len(installed_native)} installed, {len(tracked)} tracked", "HARNESS")
+               installed_keys == tracked_keys,
+               f"{len(installed_keys)} installed, {len(tracked_keys)} tracked", "HARNESS")
     report.add("regression", "every hook has a derivable owner",
                all(h["owner"] for h in kmrp_controller.hooks()),
                "owner comes from the .cpp defining the export", "HARNESS")

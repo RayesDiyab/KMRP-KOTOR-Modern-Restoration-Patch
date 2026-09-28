@@ -112,8 +112,9 @@ that were never restored.
 | `%TEMP%\kmrp-fontcheck4\swkotor.exe`, `%TEMP%\kmrp-case2-probe\swkotor.exe`, `build\movie-aspect-verify\swkotor.exe` | one-off probes: no tracked script and no commit names them | all three folders still there |
 
 **Not a product fault.** A foreign `patch_config.toml` does not refuse the
-install. `ControllerOperations.Install` reports and skips the optional
-controller component, on purpose, so the rest of the patch still applies.
+install. `ControllerOperations.Install` reports and skips KMRP's runtime (then
+the optional controller component), on purpose, so the rest of the patch still
+applies.
 Throwing had aborted the whole patch for players with another KPM mod. So the
 DPI value belongs to a completed install, and Restore Original removes it
 through `KMRP_DPI.manifest`, as described above. An install that does throw

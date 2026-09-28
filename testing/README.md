@@ -85,7 +85,7 @@ knowingly:
 
 | Script | What it pins |
 | --- | --- |
-| `Test-ControllerSupport.ps1` | Controller install and restore ownership, the installed hook table against the source and against the installed module's exports (`tools/check_module_exports.py`, added 2026-09-25 after installer `BCA35F28` shipped a hook its module lacked), foreign-file refusal, controller-only, driver-only and default installs, and an edited `kmrp-controller.ini` surviving restore and reinstall |
+| `Test-ControllerSupport.ps1` | Controller install and restore ownership, the installed hook table against the source and against the installed module's exports (`tools/check_module_exports.py`, added 2026-09-25 after installer `BCA35F28` shipped a hook its module lacked), foreign-file refusal, controller-only, driver-only, neither-option and default installs, both hook sets (controller on, and the core set without it, since 2026-09-28) against `kotor1.hooks.toml`, switching the controller option on an installed game both ways, and an edited `kmrp-controller.ini` surviving restore and reinstall |
 | `Test-DpiCompatibility.ps1` | The per-executable Windows DPI setting, and restoring exactly what was there |
 | `Restore-TestNvidiaProfiles.ps1` | Dot-sourced cleanup for the five scripts that patch fixtures in place. `Restore-TestNvidiaProfiles` undoes their NVIDIA profile records. `Remove-TestDpiValues`, added 2026-09-25, removes their Windows high-DPI values when the work folder is deleted, so a run stopped between install and restore no longer orphans one (see `docs/windows-dpi-scaling.md`) |
 | `Test-LargeAddressAware.ps1` | Both accepted inputs, one with the LAA bit already set, give the same output and restore byte for byte |

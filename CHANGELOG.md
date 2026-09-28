@@ -78,7 +78,7 @@ zoom and fog, and two of the resolution fields.
 | **The HUD minimap is unaffected by the map work.** | The full map and the HUD minimap share one constructor. The minimap's call to it is wrapped, and the wrapper puts that one instance back to retail values — so the map screen can be resized without dragging the minimap with it. |
 | **The process can use more than 2 GB of virtual address space on 64-bit Windows.** | The PE header's standard `IMAGE_FILE_LARGE_ADDRESS_AWARE` bit is enabled. No allocator or code path is changed. |
 | **Full-screen movies stay in the selected display mode.** | KOTOR has two independent 640x480 mode pairs around Bink playback even though the renderer itself scales from the live client rectangle. Both pairs are rewritten per resolution, avoiding the forced legacy-mode transition. |
-| **Movies keep their shape** instead of being cropped. | Retail scaled every movie by the screen width alone, so a 640x480 logo became 3440x2580 on a 3440x1440 screen and lost 1140 rows. The scale is now the smaller of the width and height ratios, in a small appended routine. The bars this leaves beside a narrow movie are painted black by the optional controller component; without it they show whatever was on screen. |
+| **Movies keep their shape** instead of being cropped. | Retail scaled every movie by the screen width alone, so a 640x480 logo became 3440x2580 on a 3440x1440 screen and lost 1140 rows. The scale is now the smaller of the width and height ratios, in a small appended routine. The bars this leaves beside a narrow movie are painted black by KMRP's runtime, which installs on every patch since 2026-09-28; until then it came only with the optional controller component, and without it they showed whatever was on screen. |
 | **Tutorial and confirmation popups fit their text** instead of clipping it. | The shared popup sizes itself from constants that never accounted for larger text. |
 | **Interface elements sit where they should** at your resolution, not at 640x480. | Two shared helpers recentre almost every non-HUD screen using the resolution the interface was designed for. The patcher writes your actual resolution into them at install time, which is also why the reference build in this repository has one author's monitor baked in and the shipped executable never does. Two more width and height pairs get the same treatment: a centring subtraction that assumed 640 pixels, and a mode comparison against 800x600. |
 | **The correct interface artwork is chosen for your screen.** | A chain of width comparisons picks a resource set; the first is redirected to your width and the later ones are disabled so they cannot win instead. |
@@ -87,10 +87,12 @@ zoom and fog, and two of the resolution fields.
 **What is *not* changed in the executable**, though the patch installs it:
 interface layout files, font atlases and icon artwork all ship as ordinary
 `Override` files, and the bundled *K1 Modern Driver Compatibility* patches its
-own process in memory at startup without writing to `swkotor.exe` at all. The
-optional controller component is the same: its hooks, including three memory
-fixes from the KOTOR Patch Manager project, are applied in memory by its runtime
-from `patch_config.toml`.
+own process in memory at startup without writing to `swkotor.exe` at all.
+KMRP's runtime is the same: its hooks are applied in memory from
+`patch_config.toml`. It installs on every patch and always carries three memory
+fixes from the KOTOR Patch Manager project, the movie bars, mouse confinement
+and the status summary's layout; the controller's own hooks join them when
+controller support is on.
 
 ## [Unreleased]
 
@@ -278,7 +280,7 @@ before:
   `Test-ControllerSupport.ps1`, `Test-ReinstallOverOlderBuild.ps1` and
   `Test-InstalledOverride.ps1` pass. Seen in the scratch copy at 3440x1440
   through four level-ups (above). Not played by hand.
-- `9736B41F…` (152,089,600 bytes), the current build, 2026-09-28: the echo
+- `9736B41F…` (152,089,600 bytes), 2026-09-28: the echo
   guard on every panel (under Fixed) and the - and + arrows back to the game's
   own art (under Changed); a full build, 4.3 MB smaller than `128CDC79…`, pool
   64.3 MB. Module 217,600 bytes, `69E1811B…`; 33 native hooks. The four Python
@@ -286,8 +288,16 @@ before:
   `Test-InstalledOverride.ps1` pass, and so does
   `tools/check_controller_drift.py` against the scratch copy. Seen in the
   scratch copy at 3440x1440 and 1920x1080 on the virtual pad (under Fixed).
-  Not played by
-  hand.
+  Not played by hand.
+- `C77F7640…` (152,090,112 bytes), the current build, 2026-09-28: KMRP's
+  runtime on every patch, the controller option switching only its own hooks
+  (under Changed). Built with `-ReuseResources`, so its archives and pool are
+  `9736B41F…`'s; module 217,600 bytes, `AF223C4D…`, rebuilt first and
+  confirmed installed. `Test-ControllerSupport.ps1` (144 checks, three new
+  cases), `Test-ReinstallOverOlderBuild.ps1` and `Test-InstalledOverride.ps1`
+  pass, as do the hook-table, stolen-byte, export and drift checks for both
+  sets. Seen in the scratch copy at 1920x1080, both ways (under Changed). Not
+  played by hand.
 
 - **The KOTOR Patch Manager MIT licence is installed with the controller.** The
   runtime, the controller module and the memory-safety patches all come from
@@ -662,13 +672,57 @@ before:
   whenever KOTOR is the foreground window, and released on Alt-Tab, on losing
   focus, on minimise and on exit — a crash cannot leave it trapped, because the
   clip does not outlive the process. The game imports no `ClipCursor` of its
-  own, so nothing in the engine is being overridden. It ships inside the
-  optional controller component, which is installed unless turned off, so a
-  player who declines that component does not get it; see
+  own, so nothing in the engine is being overridden. It first shipped inside
+  the optional controller component, so a player who declined that component
+  did not get it; since 2026-09-28 it installs either way (under Changed). See
   [controller-support.md](docs/controller-support.md). Untested on real
-  multi-monitor hardware.
+  multi-monitor hardware: the maintainer has none to test on. Issue #20 was
+  closed on 2026-09-28 on that basis, with a note asking anyone whose cursor
+  still escapes to reopen it.
 
 ### Changed
+
+- **Turning controller support off no longer removes fixes that have nothing to
+  do with controllers** (2026-09-28, at the maintainer's request). KMRP's
+  runtime -- the KOTOR Patch Manager hook engine and KMRP's module -- installed
+  only with the optional controller component, and so did every run-time fix
+  it carries. A player who unticked Controller Support also lost the three
+  memory-safety fixes (the texture-bucket overrun, the grass double free, the
+  save-buffer leak), mouse confinement (issue #20), the black bars beside a
+  narrow movie, and the status summary fitting KMRP's larger text. The runtime
+  now installs on every patch, with its ASI loader:
+  - **always:** the seven core hooks -- the movie window's two, the four
+    memory-safety byte patches and the save-buffer hook;
+  - **with controller support** (the default, unchanged): the controller's 30
+    other hooks, 37 in all, the same table as before;
+  - **without it:** two core stand-ins at controller sites instead,
+    `CoreGuiFrameK1` (mouse confinement and the status summary's layout) and
+    `CoreMovieFrameK1` (the movie bars), 9 hooks in all. Nothing that reads the
+    pad, draws a prompt or rumbles is installed.
+
+  The core hooks come first in `patch_config.toml`: KPM's runtime stops at the
+  first hook that fails, so no controller hook can keep them from applying.
+  Which hook belongs to which install is one new key, `install`, in
+  `src/controller-native/kotor1.hooks.toml`; `tools/kmrp_controller.py` derives
+  both sets from it, and `Test-ControllerSupport.ps1` checks both installs
+  against it, and switching the option on an installed game both ways. The
+  option's name and default are unchanged; the file names still say
+  "controller", since renaming them would orphan older installs' manifests. A
+  foreign `patch_config.toml` still skips the whole runtime, as it skipped the
+  controller component before. **Seen in game on 2026-09-28** in the scratch
+  copy at 1920x1080 with `C77F7640…`, read from the running game's memory:
+  - **controller off:** of the 37 distinct hook sites, exactly the 9 core
+    ones held a jump and the other 28 their original bytes. The bars beside
+    the 4:3 LucasArts logo measured pure black (0) against the movie's own
+    dark edge (about 12). The D-pad moved nothing on the main menu, and no
+    badge showed. A 100x100 cursor clip set from outside was replaced by the
+    game's own within half a second, which only the per-frame confinement
+    does; with no game running the same clip stayed;
+  - **controller on,** reinstalled over it: all 37 sites hooked, the D-pad
+    moved the main menu's focus, and the cursor was confined as before.
+
+  The status summary's layout without the controller was not seen: no box
+  came up in that session. It is the same function the controller path runs.
 
 - **The - and + arrows keep the game's own art** (2026-09-28, at the
   maintainer's request: "I dont want the dpad leave the + and -"). Since
@@ -879,8 +933,9 @@ before:
   collided. The controller module now lays the box out again after the engine,
   every frame: the same layout scaled by the lines' font height over 16, each
   line as wide as the glyphs the engine draws for it, capped only by the screen.
-  It is part of the controller component, which the installer adds unless it is
-  turned off. **Seen in game on 2026-09-25** in the scratch copy, with one
+  It runs from KMRP's runtime, with or without controller support since
+  2026-09-28; until then it came only with the controller component.
+  **Seen in game on 2026-09-25** in the scratch copy, with one
   row, "Journal Entry Added", after Trask's first conversation. The log read
   `box=(1475,648,489,144) ok=(144,80,200,44)`, and the screenshot shows the
   line inside the box and OK centred under it. Two or more rows have not been
@@ -911,7 +966,8 @@ before:
   stopped part-way deleted the folder and kept the value. Twelve such values
   were found on the maintainer's machine and deleted at their instruction. The four in-place scripts now remove
   their own values in `finally`. It was a test fault, not an installer one: a
-  foreign `patch_config.toml` only skips the controller component, and the
+  foreign `patch_config.toml` only skips KMRP's runtime (then the controller
+  component), and the
   completed install's value is removed by Restore Original. Details are in
   [windows-dpi-scaling.md](docs/windows-dpi-scaling.md).
 
@@ -1217,6 +1273,8 @@ before:
   **Untested:** a real Steam virtual pad, any physical PlayStation, Switch or Steam
   Deck controller, Proton, and the new families' art in game. See *Controller
   families* in [`docs/controller-support.md`](docs/controller-support.md).
+  **Reported working by the maintainer on 2026-09-28**, and issue #19
+  closed that day; which controllers were used was not recorded.
 - **Start opens the Map, and closes the menu again** (issue #18). In the world
   it now sends the engine's own Map hotkey, event `0xD7`, instead of Start's
   `0x0B`, which opened Options; with the in-game menu in front it acts as B, so it
@@ -2160,8 +2218,9 @@ before:
   proportions. `testing/regression/Test-GeneratedGuiGeometry.py` reads all 48
   packaged archives and verifies the active HUD, both affected prototype pairs,
   and confirmation-child containment.
-  The packaged 3840×2160 files were installed and hash-verified; in-game visual
-  confirmation remains untested.
+  The packaged 3840×2160 files were installed and hash-verified. **Tested in
+  game at 3840×2160 by the maintainer on 2026-09-28** and reported to look
+  right; issue #4 closed that day.
   *Superseded in part:* the prototype rewrite for `optfeedback.gui` and
   `scriptselect.gui` was reverted on 2026-09-06 -- see *The Character Scripts and
   Feedback screens are no longer rebuilt from stale prototype geometry* above --

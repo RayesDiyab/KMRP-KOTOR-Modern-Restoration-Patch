@@ -931,3 +931,11 @@ void ControllerLayoutFrameK1(void* manager) {
     if (blockReopen && armed()) blockReopen=false;
     if (current) refresh();
 }
+
+// The status summary's layout alone, for the GUI frame without controller support
+// (CoreGuiFrameK1): fitting the box to KMRP's larger text is a font fix, not a pad
+// one. Its A badge exists only when the controller's ReleaseGff hook added it, so
+// without the controller updateSummaryBadge finds none and draws nothing.
+void StatusSummaryFrameK1(void* manager) {
+    updateStatusSummary(manager);
+}

@@ -44,6 +44,8 @@ EXPORTS
     NativeActionBarK1
     NativePanelReleaseGffK1
     NativeFreeSaveBufferK1
+    CoreGuiFrameK1
+    CoreMovieFrameK1
     KmrpActionBarApplyK1
     KmrpActionBarFocusedK1
     KmrpActionBarStateK1

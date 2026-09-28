@@ -2418,12 +2418,14 @@ void PaintMovieWindowK1(void* player)
 // that follows. So a new player pointer disarms, and the first frame with the
 // skip buttons released arms it. Without that, the startup logos skipped
 // themselves the instant a held button carried over.
-extern "C" void __cdecl NativeMovieFrameK1(void* moviePlayer)
+// The half of a movie frame that has nothing to do with the pad: follow the
+// player, and black the window's bars. False when there is no movie.
+bool TrackMovieFrameK1(void* moviePlayer)
 {
     if (!LooksLikePointerK1(moviePlayer)) {
         g_movie.player = nullptr;      // no movie: nothing can be pending
         g_movie.armed = false;
-        return;
+        return false;
     }
     ++g_movie.frames;
     if (moviePlayer != g_movie.player) {
@@ -2436,6 +2438,22 @@ extern "C" void __cdecl NativeMovieFrameK1(void* moviePlayer)
     // of a playlist. Before the pad is read, so a movie is measured whether or
     // not a controller is connected.
     PaintMovieWindowK1(moviePlayer);
+    return true;
+}
+
+// The same site without controller support (installed as "no-controller" in
+// kotor1.hooks.toml): the bars beside a narrow movie are the static aspect fit's
+// (.kmv), not the pad's, so they are painted either way.
+extern "C" void __cdecl CoreMovieFrameK1(void* moviePlayer)
+{
+    TrackMovieFrameK1(moviePlayer);
+}
+
+extern "C" void __cdecl NativeMovieFrameK1(void* moviePlayer)
+{
+    if (!TrackMovieFrameK1(moviePlayer)) {
+        return;
+    }
 
     std::int32_t x = 0, y = 0, rx = 0, ry = 0;
     std::uint16_t buttons = 0;
@@ -4861,6 +4879,18 @@ void UpdateCursorConfinementK1()
         }
         g_stick.cursorConfined = 1;
     }
+}
+
+// The GUI frame without controller support (installed as "no-controller" in
+// kotor1.hooks.toml): its two jobs that are not the pad's. Mouse confinement is
+// for mouse players, and fitting the status summary to KMRP's larger text is a
+// font fix, so neither may depend on the controller option. With the controller
+// on, NativeGuiFrameK1 holds this site and does both itself (the second inside
+// ControllerLayoutFrameK1).
+extern "C" void __cdecl CoreGuiFrameK1(void* guiManager)
+{
+    UpdateCursorConfinementK1();
+    StatusSummaryFrameK1(guiManager);
 }
 
 extern "C" void __cdecl NativeGuiFrameK1(void* guiManager)

@@ -89,6 +89,10 @@ In the installer 9736B41FD2A23404C6DF514E793CFDE940B0932710D781252A043A10281F5D9
 built on 2026-09-28 with the echo guard on every panel and without the
 D-pad glyphs on the -/+ arrows, it is 217,600 bytes with SHA-256
 69E1811B33EFB36284A1D4CA2CA35D972EC5BEE521E763D46051BB40A254941A.
+In the installer C77F7640516E8D0BAC017806725C0F3670ECEEC9B55EE0E0180D26AC74BC566C,
+built the same day with KMRP's runtime installed on every patch and the
+controller option switching only its own hooks, it is 217,600 bytes with
+SHA-256 AF223C4D4542B4A983EF4D1137C08AB4AA7F6C999DD7D2C3402DE2DD3BC2D312.
 
 KMRP's changes to Saul0097's five files are recorded in
 KMRP-CONTROLLER-MODULE.diff, generated against the upstream commit above.
@@ -97,8 +101,9 @@ exactly (checked 2026-09-24; again on 2026-09-25 after the haptics hooks,
 when four files matched byte for byte and exports.def matched in content, the
 check's checkout having written it with CRLF endings where the tracked copy
 has LF; again after the character-creation guard hooks, and again on
-2026-09-26 after the Level Up and notice badges, and on 2026-09-28 after
-the echo guard and the arrows' removal, with the same result);
+2026-09-26 after the Level Up and notice badges, and twice on 2026-09-28,
+after the echo guard and the arrows' removal and after the runtime's
+`install` key, with the same result);
 regenerate it whenever they change. What the
 module does -- the native joystick path, the XInput/SDL backend, the button
 prompts and the Controller Layout screen -- is documented in

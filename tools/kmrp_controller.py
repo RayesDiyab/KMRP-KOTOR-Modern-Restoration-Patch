@@ -101,11 +101,43 @@ def hooks() -> list:
     return out
 
 
-def native_hooks() -> list:
-    """The hooks the installer must emit: KMRP's own, plus REQUIRED_LEGACY."""
+def install_of(hook) -> str:
+    """Which install a hook belongs to: "always", "controller" or "no-controller".
+
+    From the hook's `install` key in kotor1.hooks.toml, "controller" when absent.
+    "always" is the core runtime, installed with or without the controller option;
+    "no-controller" is a core stand-in for a controller hook at the same address.
+    """
+    return hook.get("install", "controller")
+
+
+def _installable() -> list:
+    """KMRP's own hooks plus REQUIRED_LEGACY, whichever install they belong to."""
     return [h for h in hooks()
             if h["owner"] == KMRP
             or (not is_byte_patch(h) and h["function"] in REQUIRED_LEGACY)]
+
+
+def installed_set(controller: bool) -> list:
+    """The hooks the installer must emit, with or without controller support."""
+    wanted = ("always", "controller") if controller else ("always", "no-controller")
+    return [h for h in _installable() if install_of(h) in wanted]
+
+
+def installable_hooks() -> list:
+    """Every hook either install can emit -- what the patcher's table must cover."""
+    return _installable()
+
+
+def native_hooks() -> list:
+    """The hooks the installer must emit with controller support on (the default):
+    KMRP's own, plus REQUIRED_LEGACY, minus the no-controller stand-ins."""
+    return installed_set(True)
+
+
+def core_hooks() -> list:
+    """The hooks the installer must emit with controller support off."""
+    return installed_set(False)
 
 
 def is_native(function: str) -> bool:

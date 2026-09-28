@@ -95,10 +95,19 @@ def main() -> int:
     # 3. installed native hooks match the tracked table
     if arguments.config.exists():
         installed = kc.installed_hooks(arguments.config)
-        required_addresses = {h["address"] for h in required
+        # An install without controller support carries the core set, which is
+        # told apart by its stand-ins (install = "no-controller").
+        stand_ins = {h["function"] for h in kc.installable_hooks()
+                     if kc.install_of(h) == "no-controller"}
+        expected = (kc.core_hooks()
+                    if any(h.get("function") in stand_ins for h in installed)
+                    else required)
+        expected_names = {h["function"] for h in expected
+                          if not kc.is_byte_patch(h)}
+        required_addresses = {h["address"] for h in expected
                               if kc.is_byte_patch(h)}
         installed_native = [h for h in installed
-                            if h.get("function") in required_names
+                            if h.get("function") in expected_names | required_names
                             or h["address"] in required_addresses]
         # Compared as sets: KPM keys a detour on its address, so the order
         # hooks appear in the file carries no meaning. The installer appends
@@ -111,18 +120,19 @@ def main() -> int:
             return (h["address"], h.get("function", ""),
                     tuple(h["original_bytes"]))
 
-        want = {key(h) for h in required}
+        want = {key(h) for h in expected}
         got = {key(h) for h in installed_native}
+        which = "controller off" if expected is not required else "controller on"
         if got and got != want:
             missing = sorted(f"{n} @ {a}" for a, n, _ in want - got)
             extra = sorted(f"{n} @ {a}" for a, n, _ in got - want)
             problems.append(
-                "installed native hooks differ from kotor1.hooks.toml\n"
+                f"installed hooks ({which}) differ from kotor1.hooks.toml\n"
                 f"    missing from the install: {missing or 'none'}\n"
                 f"    not in the tracked table: {extra or 'none'}")
         elif got:
             print(f"  installed config matches the tracked table "
-                  f"({len(got)} native hooks)")
+                  f"({len(got)} hooks, {which})")
     else:
         print(f"  {arguments.config} not present; install check skipped")
 

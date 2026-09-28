@@ -244,9 +244,11 @@ class. `SWMovieWindow` is the one class that was left without one.
 
 ### What KMRP does
 
-Two detours, both in `src/controller-native/kotor1.hooks.toml`, so they ship
-with the controller component (on by default since 2026-09-24). With that
-component turned off, the bars and the flash are back:
+Two detours, both in `src/controller-native/kotor1.hooks.toml`. Until
+2026-09-28 they shipped only with the controller component, and with it turned
+off the bars and the flash were back. Since then they install on every patch:
+the window hooks as core hooks, and the per-frame one as `NativeMovieFrameK1`
+with controller support or `CoreMovieFrameK1` (bars only) without:
 
 | address | function | when |
 | --- | --- | --- |
