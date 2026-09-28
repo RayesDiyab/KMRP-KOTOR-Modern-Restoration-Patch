@@ -344,11 +344,15 @@ play by hand.
   has decrypted the code -- while the game's main thread is already running (read
   in KPM 0.7.1's `patcher.cpp`, `DeferredApply`). KMRP's module would load then,
   late, and some of its changes are read once at start-up; which ones would be
-  missed has not been measured. Texture Bucket Safety and Grass Memory Safety list
-  no Steam executable, and 4GB Patch lists a different one (`C25E2D9C…`) from every
-  other K1 patch (`34E6D971…`), so the required patches would not install on it.
-  Supporting it would take a Steam executable to compare against, that timing
-  measured, and KMRP carrying its own memory-safety hooks there. A Steam install
+  missed has not been measured. Of the four patches KMRP requires, 4GB Patch and
+  Save Game Memory Leak list the Steam executable in 0.7.1 (22 of its 38 K1
+  patches do), but Texture Bucket Safety and Grass Memory Safety do not, so KMRP
+  as built could not be installed on it. (KPM's `main` after 0.7.1, commit
+  `7d53e52`, lists a different Steam hash for 4GB Patch, `C25E2D9C…`; the clone in
+  `build/research/Kotor-Patch-Manager` is at that commit, so read release facts
+  from the 0.7.1 zip.) Supporting it would take a Steam executable to compare
+  against, that timing measured, and KMRP carrying its own copies of those two
+  memory-safety hooks there. A Steam install
   given the 1.03 executable (`761F9466…`) is simply the CD case: the maintainer's
   own Steam copy's original, backed up by an earlier KMRP on 2026-09-05, is that
   file.
