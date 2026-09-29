@@ -1,13 +1,16 @@
-KMRP for KOTOR Patch Manager
-============================
+KMRP's patches for KOTOR Patch Manager
+======================================
 
-The KOTOR Modern Restoration Patch, packaged for KOTOR Patch Manager (KPM).
-It makes the same changes as the standalone KMRP installer, but never
-modifies swkotor.exe: KPM applies them when the game starts, so KMRP can be
-combined with other KPM patches -- and it works with Steam's swkotor.exe,
-which the standalone installer cannot patch.
+The KOTOR Modern Restoration Patch as four patches for KOTOR Patch Manager
+(KPM), for players who manage their patches with KPM. They make the same
+changes KMRP's installer makes on its own, and never modify swkotor.exe: KPM
+applies them when the game starts, so KMRP can be combined with other KPM
+patches.
 
-KMRP comes as four patches, one per fix:
+If you do not use KOTOR Patch Manager, you do not need these: KMRP's
+installer, "KMRP - KOTOR Modern Restoration Patch.exe", installs KPM's
+runtime itself, for the editable swkotor.exe and Steam's alike, and you start
+the game as usual.
 
   KMRP - KOTOR Modern Restoration Patch   required: the widescreen and
                                           high-resolution interface, with
@@ -18,25 +21,24 @@ KMRP comes as four patches, one per fix:
                                           to their aspect, black around them
   KMRP Map Notes                          Derslok's area-map marker fixes
 
-Tick the ones you want; the standalone installer includes all four.
-
 Requirements
 ------------
 - KOTOR 1, version 1.03, with either
-    the "editable" swkotor.exe (SHA-256 761F9466..., the build the
-    standalone KMRP also needs), or
+    the "editable" swkotor.exe (SHA-256 761F9466...), or
     Steam's own swkotor.exe (SHA-256 34E6D971...).
   GOG's executable is not supported yet.
 - KOTOR Patch Manager 0.7.1 or later.
-- The standalone KMRP must not be installed in the same game folder.
-  Restore it with the standalone installer first.
 
 Install
 -------
-1. Run "KMRP for KPM.exe", choose your KOTOR folder and a resolution, and
-   press Start Patching. This installs KMRP's interface files, sets the
+1. Run KMRP's installer, "KMRP - KOTOR Modern Restoration Patch.exe", choose
+   your KOTOR folder and a resolution. If KOTOR Patch Manager already manages
+   the game folder, the installer sees it and installs for KPM by itself;
+   otherwise open Advanced Settings and turn on "KOTOR Patch Manager" first.
+   Then press Start Patching. This installs KMRP's interface files, sets the
    resolution in swkotor.ini, and writes kmrp-kpm.dat, the data KMRP's
-   patches read. swkotor.exe is not modified.
+   patches read. swkotor.exe is not modified. An earlier KMRP install is
+   replaced.
 2. In KOTOR Patch Manager, set the patch directory to this folder (or copy
    the four .kpatch files into your own patch directory).
 3. Tick "KMRP - KOTOR Modern Restoration Patch", and any of KMRP Controller,
@@ -56,9 +58,12 @@ Steam players, in addition:
   need it; it is a safety margin the editable executable gets.
 
 To add or remove one of the optional patches, tick or untick it in KOTOR
-Patch Manager and press Apply. To change the resolution, run
-"KMRP for KPM.exe" again. To remove KMRP, run it and press Restore Original,
-then untick the KMRP patches in KOTOR Patch Manager and press Apply.
+Patch Manager and press Apply. To change the resolution, run KMRP's
+installer again. To remove KMRP, run it and press Restore Original, then
+untick the KMRP patches in KOTOR Patch Manager and press Apply.
+
+Until 2026-09-29 these came with an installer of their own, "KMRP for
+KPM.exe"; KMRP's installer does its job now.
 
 Not compatible with
 -------------------

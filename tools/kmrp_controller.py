@@ -119,8 +119,10 @@ def _installable() -> list:
 
 
 def installed_set(controller: bool) -> list:
-    """The hooks the standalone installer must emit, with or without controller
-    support. The KPM edition's patches are kpm_patch_hooks' instead."""
+    """The hooks the standalone installer emitted, with or without controller
+    support, until KMRP's installer moved to the KPM edition's patches on
+    2026-09-29 (kpm_patch_hooks, engine_hooks). Still what a developer install
+    through testing/controller/select_controller_path.py writes."""
     wanted = ("always", "controller") if controller else ("always", "no-controller")
     return [h for h in _installable() if install_of(h) in wanted]
 
@@ -220,10 +222,65 @@ def render_patch_hooks(selected: list) -> str:
     return "\n".join(lines) + "\n"
 
 
-def installed_hooks(config_path) -> list:
-    """The hooks actually installed in a patch_config.toml."""
+def installed_patches(config_path) -> dict:
+    """Patch id -> its hooks, from an installed patch_config.toml. A patch with no
+    hooks (KMRP Map Notes) maps to an empty list."""
     with open(config_path, "rb") as handle:
-        return tomllib.load(handle)["patches"][0]["hooks"]
+        return {p.get("id", ""): p.get("hooks", [])
+                for p in tomllib.load(handle)["patches"]}
+
+
+def installed_hooks(config_path) -> list:
+    """Every hook installed in a patch_config.toml, across all its patches. Until
+    2026-09-29 this read the first patch only: the standalone installer wrote one,
+    and KMRP's installer now writes one per KPM edition patch."""
+    return [h for hooks in installed_patches(config_path).values() for h in hooks]
+
+
+def engine_hooks(patch_ids) -> list:
+    """The hooks KMRP's installer writes for these KPM edition patches, as
+    installed: each patch's kpm_patch_hooks, bookkeeping stripped."""
+    return [as_installed(h) for patch_id in patch_ids for h in kpm_patch_hooks(patch_id)]
+
+
+def normalised(hook) -> dict:
+    """A hook's runtime fields with KPM's defaults filled in, so a hooks file that
+    omits a default and a config that spells it out compare equal."""
+    return {
+        "address": hook["address"],
+        "type": hook.get("type", "detour"),
+        "function": hook.get("function"),
+        "original_bytes": list(hook["original_bytes"]),
+        "replacement_bytes": list(hook.get("replacement_bytes", [])),
+        "skip_original_bytes": bool(hook.get("skip_original_bytes", False)),
+        "exclude_from_restore": list(hook.get("exclude_from_restore", [])),
+        "consumed_exit_address": hook.get("consumed_exit_address"),
+        "parameters": [(p["source"], p["type"]) for p in hook.get("parameters", [])],
+    }
+
+
+def engine_config_problems(config_path, patch_ids, target_sha) -> list:
+    """What is wrong with a patch_config.toml KMRP's installer wrote, if anything:
+    it must name target_sha, list exactly patch_ids in that order, and give each
+    patch exactly its hooks (engine_hooks, every runtime field compared) and its
+    module, patches/<id>.dll, when it has a detour."""
+    with open(config_path, "rb") as handle:
+        data = tomllib.load(handle)
+    problems = []
+    if data.get("target_version_sha") != target_sha:
+        problems.append(f"target_version_sha is {data.get('target_version_sha')}, expected {target_sha}")
+    got = [p.get("id") for p in data.get("patches", [])]
+    if got != list(patch_ids):
+        problems.append(f"patches {got}, expected {list(patch_ids)}")
+    for patch in data.get("patches", []):
+        want = sorted((normalised(h) for h in engine_hooks([patch["id"]])), key=lambda h: h["address"])
+        have = sorted((normalised(h) for h in patch.get("hooks", [])), key=lambda h: h["address"])
+        if have != want:
+            problems.append(f"{patch['id']}: installed hooks differ from kotor1.hooks.toml")
+        dll = f"patches/{patch['id']}.dll" if any(h["type"] == "detour" for h in want) else ""
+        if patch.get("dll") != dll:
+            problems.append(f"{patch['id']}: dll {patch.get('dll')!r}, expected {dll!r}")
+    return problems
 
 
 # ------------------------------------------------------------------ constants

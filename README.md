@@ -21,33 +21,43 @@ that in the engine itself rather than by swapping artwork — 66 resolutions, fr
 ## Install
 
 > [!IMPORTANT]
-> KMRP patches a copy of your game executable in place. It is not a Steam
-> Workshop item and there is no installer service — you run one program once.
+> You run one program once, then start the game as you always do -- from Steam,
+> or from `swkotor.exe`. KMRP does not rewrite the game's executable: its engine
+> changes are applied in memory each time the game starts, by KOTOR Patch
+> Manager's runtime, which the installer puts beside the game.
 
 **Requirements**
 
 | | |
 | --- | --- |
 | Game | *Star Wars: Knights of the Old Republic* (2003 PC release) |
-| `swkotor.exe` | The **4,042,752-byte** editable build, SHA-256 `761F9466…C49E9886`, or that exact build with only the standard Large Address Aware bit already set (`CA9D22EA…A7E1889`). KMRP refuses every other variant. **Steam's own `swkotor.exe`** (`34E6D971…A439F34C88`) is supported by *KMRP for KPM* only: Steam refuses to start it once patched. |
+| `swkotor.exe` | Either of two builds, and KMRP refuses every other: **Steam's** (`34E6D971…A439F34C88`), or the **4,042,752-byte editable 1.03 build**, SHA-256 `761F9466…C49E9886`, also with only the standard Large Address Aware bit already set (`CA9D22EA…A7E1889`). |
 | OS | Windows with .NET Framework 4.x (shipped with Windows 10/11). Linux/Proton and Steam Deck are experimental and not yet gameplay-verified; use the separate procedure below. |
 
 1. Launch KOTOR once so `swkotor.ini` exists.
-2. Run **`KMRP - KOTOR Modern Restoration Patch.exe`**.
+2. Run **`KMRP - KOTOR Modern Restoration Patch.exe`** and point it at `swkotor.exe`.
 3. Pick your resolution and choose **Start Patching**.
-4. Restart KOTOR.
+4. Start KOTOR as usual.
 
-To change resolution later, use **Restore Original** first, then patch again.
+To change the resolution or an option later, use **Restore Original**, then
+patch again. An install by an earlier KMRP, which did rewrite `swkotor.exe`, is
+restored from that version's own backup when you patch. If Steam verifies the
+game's files, it puts its own `binkw32.dll` back and KMRP stops loading: patch
+again.
 
-**With KOTOR Patch Manager.** The *KMRP for KPM* edition, in `KMRP for KPM\`,
-never modifies `swkotor.exe`, so KMRP can be combined with other KPM patches:
-run `KMRP for KPM.exe` for the interface files and resolution, then tick
-`KMRP` in KOTOR Patch Manager, plus any of `KMRP Controller`, `KMRP Movies`
+**With KOTOR Patch Manager.** If you manage your patches with KOTOR Patch Manager,
+KMRP combines with other KPM patches through the same installer. When KPM's
+runtime is already in the game folder the installer sees it and installs for
+KPM by itself; otherwise turn on *KOTOR Patch Manager* in Advanced Settings
+before patching. It then installs the interface files, the resolution and
+KMRP's data, and leaves the patches to KPM: add the four `.kpatch` files from
+`KPM patches\` to KPM, tick `KMRP` plus any of `KMRP Controller`, `KMRP Movies`
 and `KMRP Map Notes` -- one patch per fix -- Apply, and Launch. KMRP includes
-the 4 GB and memory fixes, so KPM's own ones stay unticked. It also works with
-**Steam's** `swkotor.exe`: switch KPM to its proxy deployment and start the game
-from Steam. Its README has the steps, and
-[docs/kpm-edition.md](docs/kpm-edition.md) how it works.
+the 4 GB and memory fixes, so KPM's own ones stay unticked. On Steam, switch KPM
+to its proxy deployment and start the game from Steam. The README in
+`KPM patches\` has the steps, and [docs/kpm-edition.md](docs/kpm-edition.md)
+describes both ways. (Until 2026-09-29 this took a separate installer, *KMRP for
+KPM*.)
 
 **macOS (Steam, in development).** A separate installer for the Aspyr build on Steam,
 made from the same resources as this one: the same menu sets, fonts, artwork and icons
@@ -79,22 +89,33 @@ One 2.0.0 build left the machine before 1.0. Its hash is recorded in
 identified. (Until 2026-09-24 this paragraph called v2.10.0 the first release,
 said there was no v1, and said the numbering would not restart at 1.0.)
 
-**What it touches, and how to undo it.** KMRP edits `swkotor.exe`, including
-enabling its standard Large Address Aware flag, plus `swkotor.ini`
-and the `Override` folder. It also marks that exact executable as DPI-aware in
-the current user's Windows compatibility settings, preventing Windows display
-scaling from enlarging an interface KMRP has already scaled. Before writing
-anything it copies the executable and INI aside, records every Override file it
-adds or replaces — with hashes — in `KOTOR_UI_Override_Backup.manifest`, and
-records the prior DPI setting in `KMRP_DPI.manifest`. **Restore Original**
-reverses each change from those records. If the DPI setting was changed after
-KMRP installed it, restore leaves the newer setting alone. The patcher refuses
-to run against an executable it does not recognise, and refuses to restore one
-it did not create. See [Windows DPI handling](docs/windows-dpi-scaling.md).
-The optional components below add their own files beside `swkotor.exe` -- the
-ASI loader and driver-compatibility payload, and the controller runtime, module
-and SDL -- each recorded in a manifest of its own (`KMRP_DriverCompat.manifest`,
-`KMRP_Controller.manifest`) and removed on restore.
+**What it touches, and how to undo it.** Beside `swkotor.exe` KMRP installs
+KOTOR Patch Manager's runtime as KPM's own proxy deployment lays it out: KPM's
+`binkw32.dll` proxy in place of the game's, which it renames
+`binkw32Hooked.dll` and forwards every call to; `KotorPatcher.dll`;
+`patch_config.toml`; and KMRP's patch modules under `patches\`. Beside them go
+`kmrp-kpm.dat`, the engine changes the runtime applies in memory, and SDL for
+the controller. It also writes `swkotor.ini` and the `Override` folder, and on
+the editable build sets the executable's standard Large Address Aware flag --
+one bit, the only change to `swkotor.exe`; Steam's is never changed, since Steam
+refuses to start a changed one. So that KOTOR Patch Manager still recognises the
+flagged executable, the editable build also gets `kpm_install_state.json` and,
+made just before the flag is set, a backup of the unmodified `swkotor.exe` in
+KPM's own format (`swkotor.exe.backup.<time>`); KPM starts from that file if
+you later add patches with it. It marks the executable as DPI-aware in the
+current user's Windows compatibility settings, preventing Windows display
+scaling from enlarging an interface KMRP has already scaled. Every file it
+writes or renames, and the flag, is recorded with hashes in `KMRP_KPM.manifest`,
+the Override files in `KOTOR_UI_Override_Backup.manifest`, the INI's prior
+contents in a verified backup, and the prior DPI setting in `KMRP_DPI.manifest`.
+**Restore Original** reverses each change from those records; a file changed
+after install is left alone, and said so. The installer refuses an executable
+it does not recognise. In a game folder where KOTOR Patch Manager's runtime is
+already installed, or with the *KOTOR Patch Manager* option on, it installs no
+runtime and does not touch `swkotor.exe`: KPM applies KMRP's patches. See [Windows DPI handling](docs/windows-dpi-scaling.md). The
+optional *Modern Driver Compatibility* component adds its ASI loader
+(`dinput8.dll`) and payload, recorded in `KMRP_DriverCompat.manifest` and
+removed on restore.
 
 On NVIDIA, if the driver's global "Vulkan/OpenGL present method" prefers a DXGI
 swap chain, KOTOR shows half-drawn frames -- a one-frame white flash in the
@@ -176,9 +197,13 @@ pile of loose file replacements.
 
 ```
  vanilla swkotor.exe ─┐
-                      ├─►  gold snapshot  ──►  ResolutionPatch  ──►  your swkotor.exe
-     gold delta ──────┘   (all engine fixes)   (rescales constants
-     (embedded)                                 for your resolution)
+ (bytes the installer ├─►  gold snapshot  ──►  ResolutionPatch  ──►  kmrp-kpm.dat
+  carries)            │   (all engine fixes)   (rescales constants    (how that differs
+     gold delta ──────┘                         for your resolution)   from vanilla)
+     (embedded)
+                                  game starts ──►  binkw32.dll (KPM proxy)
+                                                   ──►  KotorPatcher.dll ──►  patches\kmrp.dll
+                                                        applies kmrp-kpm.dat in memory
 
      override-common.zip  ──┐
      gui-<resolution>.zip ──┴──►  Override/   (+ manifest for restore)
@@ -189,11 +214,21 @@ by the scripts in [`tools/`](tools/). The patcher embeds the *delta* between the
 clean executable and that snapshot, verifies both hashes, and applies it. Engine
 patches are added either as eleven new PE sections (`.kui`, `.klb`, `.kfs`,
 `.kwl`, `.ksc`, `.kgs`, `.ktn`, `.kmz`, `.kfg`, `.kmn`, `.kmv`) holding
-hand-written x86 stubs, or as in-place `imm32` rewrites. The patched executable
+hand-written x86 stubs, or as in-place `imm32` rewrites. The patched image
 is 4,087,808 bytes at every resolution: the 4,042,752-byte original plus those
 sections, with 742 byte positions of the original image changed at one
 resolution or another — every one listed in
 [reverse-engineering/binary-inventory.md](reverse-engineering/binary-inventory.md).
+
+**Nothing of it is written to `swkotor.exe`** since 2026-09-29. The installer
+builds that image from the unmodified executable's bytes it carries -- Steam's
+file is encrypted on disk -- and writes how it differs from vanilla to
+`kmrp-kpm.dat`. When the game starts, KOTOR Patch Manager's runtime loads KMRP's
+module, which applies those bytes in memory, the eleven sections at an address
+of its own with every reference to them moved to match
+([docs/kpm-edition.md](docs/kpm-edition.md)). So the editable build and Steam's
+run the same bytes. Until then the installer wrote the image into
+`swkotor.exe`, which Steam's DRM refuses.
 
 **Each interface file is stored once.** Most of the 66 resolutions' files are
 the same bytes at several resolutions, so the installer embeds them as one pool
@@ -246,16 +281,20 @@ check showing its eight patch sites do not collide with any of the 742 byte
 positions KMRP's installer writes at any resolution, is in
 [docs/third-party-driver-compat.md](docs/third-party-driver-compat.md).
 
-**KMRP's runtime** is that ASI loader plus a KOTOR Patch Manager runtime, and
-installs on every patch: it carries three memory-safety fixes, mouse
-confinement, the movie bars and the status summary's layout whether or not
-controller support is on. **Controller support** adds the controller's hooks
-to it.
+**KMRP's runtime** is KOTOR Patch Manager's (MIT), built from the
+[submodule](third_party/Kotor-Patch-Manager) and loaded through KPM's own
+`binkw32.dll` proxy, with KMRP's four KPM patches -- the same ones *KMRP for
+KPM* ships as `.kpatch` files. It installs on every patch: KMRP's engine
+changes, three memory-safety fixes, mouse confinement, the movies, the movie
+bars and the status summary's layout, whether or not controller support is on.
+**Controller support** adds the *KMRP Controller* patch, and the marker option
+the *KMRP Map Notes* patch.
 Xbox devices retain XInput; SDL3/HIDAPI supplies mapped non-Xbox devices to the
 same normalized state. Input still travels through KOTOR's retained controller
 events rather than synthetic keys. Options → Gameplay also gains a live
-Controller Layout screen. Existing external `patch_config.toml` files are
-preserved and block the runtime's installation. Exact files, mappings, hooks,
+Controller Layout screen. An existing `patch_config.toml`, `KotorPatcher.dll` or
+`binkw32Hooked.dll` that KMRP did not write -- KOTOR Patch Manager's own install
+-- is left alone, and KMRP is installed for KPM instead. Exact files, mappings, hooks,
 dynamic prompt families, layout screen, and the remaining hardware/Proton test
 matrix are in [docs/controller-support.md](docs/controller-support.md) and
 [docs/controller-layout.md](docs/controller-layout.md).
@@ -286,7 +325,9 @@ executable.
 - Windows with .NET Framework 4.x (`csc.exe` from `v4.0.30319`)
 - Python 3 with `pykotor`, and `Pillow` + `numpy` for the asset tools
   (`pip install -r requirements.txt`)
-- Visual Studio Build Tools (MSVC, x86) for the controller module
+- Visual Studio Build Tools (MSVC, x86) for the controller module and KOTOR
+  Patch Manager's runtime, which the build compiles from the submodule
+  (`git submodule update --init`; [src/kpm-runtime](src/kpm-runtime/README.md))
 - Network access on the first build: `tools/prepare_sdl3.ps1` downloads the
   pinned SDL 3 SDK into `build/deps` and checks its hash
 - Two files from your own copy of the game, placed in
@@ -344,7 +385,8 @@ docs/                 Build and design documentation
 reverse-engineering/  Engine analysis, one document per subsystem
   patch-records/      Machine-readable descriptions of confirmed patches
 src/patcher/          The Windows patcher application (C#)
-src/controller-native/ The controller module (C++), loaded by KOTOR Patch Manager
+src/controller-native/ KMRP's module (C++), loaded by KOTOR Patch Manager
+src/kpm-runtime/      Builds KOTOR Patch Manager's runtime and proxy from the submodule
 tools/                Python tools that build the gold snapshot and resources
 testing/              Regression tests, controller harnesses, virtual-display profiles
 build-inputs/         Files from your own game copy (never committed)

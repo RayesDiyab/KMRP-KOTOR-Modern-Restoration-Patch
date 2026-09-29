@@ -26,6 +26,21 @@ override-common.zip + gui-<resolution>.zip (the 49 embedded as one pool of
     -> game Override directory with a hash-backed restore manifest
 ```
 
+**Since 2026-09-29 KMRP's installer does not write gold into swkotor.exe.** It is
+the KPM edition's install plus KOTOR Patch Manager's runtime (KPM's binkw32.dll
+proxy and KotorPatcher.dll, built from the submodule by src/kpm-runtime/build.cmd)
+with KMRP's four patches, so one installer serves the editable 1.03 executable and
+Steam's; on the editable one it sets only the 4 GB bit, leaving KPM a KPM-format
+backup of the unmodified file and kpm_install_state.json first -- KPM knows a game
+only by its exe hash, and refused the flagged one without them (measured with
+KPM 0.7.1's launcher, 2026-09-29). It upgrades a standalone
+install through the standalone's own restore. For a folder holding KPM's own
+runtime, or with its "KOTOR Patch Manager" option on, it installs for KPM
+instead (no runtime; the player ticks the .kpatch files, shipped in
+dist\KPM patches\) -- what the separate KMRP for KPM installer did until the same
+day. `--apply` still writes the gold image, as the reference. The
+diagram above is the standalone path, kept for that. See docs/kpm-edition.md 1a.
+
 Two editions from one build since 2026-09-28. The standalone above; and KMRP for
 KPM, the same installer compiled with KPM_EDITION, which leaves swkotor.exe
 unmodified and writes kmrp-kpm.dat (the same final bytes, as a diff from the
@@ -45,8 +60,9 @@ See docs/kpm-edition.md.
   and UI.
 - `src/controller-native/` is the controller module -- KMRP's native path plus
   Saul0097's files as modified by KMRP, built by `build.cmd` into
-  `kmrp-controller.module`, which the installer embeds with the prebuilt KPM
-  runtime and SDL 3 from `third_party/`.
+  `kmrp-controller.module`, which the installer embeds with SDL 3 and, since
+  2026-09-29, the KPM runtime `src/kpm-runtime/build.cmd` builds from the
+  submodule (until then a prebuilt one from `third_party/`).
 - `tools/` contains binary builders, resource generators, inspection utilities,
   and verification scripts.
 - `assets/override-3440x1440/` is the hand-tuned gold GUI/art source.

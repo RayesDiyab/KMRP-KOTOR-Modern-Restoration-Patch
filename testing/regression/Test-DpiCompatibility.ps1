@@ -84,6 +84,9 @@ function New-Install([string]$name) {
     $exe = Join-Path $folder "kmrp-regression-selftest.exe"
     Copy-Item -LiteralPath $CleanExe -Destination $exe
     Copy-Item -LiteralPath $SeedIni -Destination (Join-Path $folder "swkotor.ini")
+    # KMRP's installer renames the game's binkw32.dll to put KOTOR Patch Manager's
+    # proxy in its place, and puts it back on restore; any bytes stand in for it.
+    [IO.File]::WriteAllText((Join-Path $folder "binkw32.dll"), "stand-in for the game's binkw32.dll`r`n")
     $script:OriginalValues[$exe] = Get-LayerValue $exe
     return $exe
 }

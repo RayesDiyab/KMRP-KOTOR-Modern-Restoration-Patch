@@ -113,15 +113,30 @@ def main() -> int:
                     failures.append(f"{height} {arch}: {len(differ)} files differ, e.g. {differ[:3]}")
             if any(n.lower() in {r.lower() for r in RESERVED} for n in reference):
                 failures.append(f"{height}: a reserved name was generated")
-            # The skill icons (isk_*, 32 px) grow with the Skills row: round(32s), at most 64,
-            # none below s = 1 (checked against the rule itself, not only between the two ports).
+            # The skill icons (isk_*, 32 px) grow with the Skills row: a canvas of round(32s),
+            # at least 32 and at most 64, with the picture round(0.62 * 42s) in it, centred and
+            # moved (round(-0.5s), round(-2s)) to the frame opening's centre, and nothing
+            # outside it -- at every height since 2026-09-29, when it moved inside the row's
+            # frame (checked against the rule itself, not only between the two ports).
             s = max(1.0, struct.unpack("<f", struct.pack("<f", height / 720.0))[0])
-            want = min(round(32 * s), 64)
-            skills = {n: struct.unpack_from("<HH", data, 12) for n, data in reference.items() if n.startswith("isk_")}
-            if want <= 32 and skills:
-                failures.append(f"{height}: skill icons generated at scale {s:.3f}")
-            if want > 32 and (len(skills) != 8 or set(skills.values()) != {(want, want)}):
-                failures.append(f"{height}: skill icons {sorted(set(skills.values()))} x{len(skills)}, want 8 at {want}")
+            want = min(max(round(32 * s), 32), 64)
+            picture = min(round(42 * s * 0.62), want)
+            inset = (want - picture) // 2
+            left = min(max(inset + round(-0.5 * s), 0), want - picture)
+            top = min(max(inset + round(-2.0 * s), 0), want - picture)
+            bottom = want - top - picture          # TGA rows run bottom-up
+            skills = {n: data for n, data in reference.items() if n.startswith("isk_")}
+            sizes = {struct.unpack_from("<HH", data, 12) for data in skills.values()}
+            if len(skills) != 8 or sizes != {(want, want)}:
+                failures.append(f"{height}: skill icons {sorted(sizes)} x{len(skills)}, want 8 at {want}")
+            for name, data in skills.items():
+                outside = [i for i in range(want * want)
+                           if not (left <= i % want < left + picture and bottom <= i // want < bottom + picture)
+                           and data[18 + i * 4 + 3]]
+                if outside:
+                    failures.append(f"{height}: {name} has {len(outside)} opaque pixels outside its "
+                                    f"{picture} px picture")
+                    break
             total += len(reference)
             print(f"     {height}: {len(reference)} icons")
 

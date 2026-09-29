@@ -359,12 +359,12 @@ void Apply(std::uint32_t features)
 {
     std::vector<std::uint8_t> file;
     if (!ReadFileBytes(L"kmrp-kpm.dat", file)) {
-        Log("kmrp-kpm.dat not found: run the KMRP for KPM installer to choose a "
+        Log("kmrp-kpm.dat not found: run KMRP's installer to choose a "
             "resolution. Nothing applied.");
         return;
     }
     if (file.size() < 12 || std::memcmp(file.data(), "KMRPKPM2", 8) != 0) {
-        Log("kmrp-kpm.dat is not this version's data file: run the KMRP for KPM "
+        Log("kmrp-kpm.dat is not this version's data file: run KMRP's "
             "installer again. Nothing applied.");
         return;
     }

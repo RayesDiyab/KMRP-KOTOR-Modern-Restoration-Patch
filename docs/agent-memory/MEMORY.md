@@ -92,15 +92,22 @@ details still belong in `docs/` or `reverse-engineering/`.
   never adopt it. Evidence: `reverse-engineering/movies.md`.
 - Controller support -- an Advanced Settings component, on by default since
   2026-09-24 -- is KMRP's native path, grown from Saul0097's KPM Xbox Controls K1
-  module, loaded by a statically linked KPM runtime through the ASI loader K1DC
+  module. Since 2026-09-29 it is the `kmrp-controller` patch on KOTOR Patch
+  Manager's runtime, which KMRP's installer installs itself (KPM's `binkw32.dll`
+  proxy, `KotorPatcher.dll` from the submodule; `docs/kpm-edition.md` 1a), or for
+  KOTOR Patch Manager itself when KPM's runtime is in the folder or the
+  "KOTOR Patch Manager" option is on (KMRP for KPM was a separate installer until
+  that day). Until then it was
+  loaded by a statically linked KPM runtime through the ASI loader K1DC
   ships. It owns `patch_config.toml`, refuses an external one, and applies its
   hooks in memory without changing the executable on disk: 18 detours and 4 byte
   patches on 2026-09-24, 26 detours since the rumble mixer of 2026-09-25, and 33
   detours and 4 byte patches since the echo guard of 2026-09-28 -- 37 entries;
   9 (5 detours) with controller support off, since the runtime installs on every
   patch (this entry said six detours, the first integration's count, and then
-  stopped at 26 until 2026-09-28). Recount from `ControllerOperations.BuildConfig`
-  or `tools/check_patcher_hook_table.py`; `kotor1.hooks.toml` holds more (46) than
+  stopped at 26 until 2026-09-28). Recount with `tools/check_patcher_hook_table.py`,
+  which since 2026-09-29 reads the config sections the build generates
+  (`ControllerOperations.BuildConfig`, the hand-written table, is gone); `kotor1.hooks.toml` holds more (46) than
   is installed. The paragraph below is the first integration's prompt design; the
   current one covers 57 controls in four controller families -- see
   `docs/controller-support.md` and `docs/controller-prompt-specification.md`. The PC `dialog.tlk` and GUI

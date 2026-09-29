@@ -25,11 +25,22 @@ namespace Kmrp
     /// The eight skill icons (`isk_*`, 32x32) have the same problem in the
     /// Skills tab, whose rows grow to 42s (RowSizeGroups): stock, a 32 px icon
     /// sat in a 115 px row at 3024x1964. They grow by the same factor as their
-    /// row, `round(32s)`, so they keep their vanilla proportion to it (no change
-    /// at 720 and below), capped at 2x like the rest. They are drawn only in the
+    /// row, `round(32s)`, so they keep their vanilla proportion to it (the canvas
+    /// does not change at 720 and below), capped at 2x like the rest. They are drawn only in the
     /// Skills tab and the skill info list (whose template rows grow by s too), so
     /// they fit wherever they appear; character creation shows no skill icons.
     /// Added 2026-09-29, for Windows and macOS together.
+    ///
+    /// That kept stock's proportion, and stock's skill art fills its whole 32x32
+    /// canvas, so the picture sat on the frame's border rather than inside it --
+    /// in stock too. The frame is lbl_hex_3 fitted to the row's icon box (42s);
+    /// measured in game at 3440x1440 (box 84), its outline spans x 8..70 and
+    /// y 11..80 of the box, the opening about 57x65, and the 64 px canvas, centred
+    /// in the box, covered the border on the right and at the bottom. Reported in
+    /// play the same day. So the canvas keeps its size and place, and the picture
+    /// inside it is SkillPictureOfBox of the box, on transparent pixels, moved to
+    /// the opening's centre (SkillShiftX, SkillShiftY): 52 px at 1440p, at every
+    /// resolution including 720 and below.
     ///
     /// Names another archive already installs are skipped: `reserved` carries them
     /// in, so this can never write a file the patcher also ships.
@@ -47,6 +58,17 @@ namespace Kmrp
         private const int ResourceTypeTpc = 3007;
         private const int FeatRowBase = 50;         // must match the feat/power group in RowSizeGroups
         private const int IconInset = 4;            // icon control is the row height minus this
+        private const int SkillRowBase = 42;        // must match the skills group in RowSizeGroups
+        // The skill picture's edge as a share of the Skills row's icon box, and how far
+        // it moves from the canvas's centre, in pixels per unit of scale: the canvas
+        // sits about 1.5 px right of and 2 px below lbl_hex_3's opening at 1440p, so the
+        // picture moves left and up to the opening's centre. Chosen by measurement at
+        // 3440x1440 (box 84): the largest picture whose every opaque pixel, for all
+        // eight skills, stays 2 px clear of the frame's border -- 52 px moved (-1, -4);
+        // 46 px was the most without the move, and 55 px touches.
+        private const double SkillPictureOfBox = 0.62;
+        private const double SkillShiftX = -0.5;
+        private const double SkillShiftY = -2.0;
 
         /// <summary>Icon edge for this scale: the slot's icon box, capped at 2x the
         /// source. The art is 32x32 or 64x64; past 2x it is interpolated blur.</summary>
@@ -66,6 +88,14 @@ namespace Kmrp
             if (grown <= nativeSize)
                 return nativeSize;
             return Math.Min(grown, nativeSize * 2);
+        }
+
+        /// <summary>The skill picture's edge inside that canvas: SkillPictureOfBox of
+        /// the row's icon box (42s), never more than the canvas.</summary>
+        private static int SkillPictureSize(double scale, int canvas)
+        {
+            int picture = (int)Math.Round(SkillRowBase * scale * SkillPictureOfBox);
+            return Math.Min(picture, canvas);
         }
 
         internal static string TexturePackPath(string executablePath)
@@ -200,8 +230,9 @@ namespace Kmrp
                 return null;
 
             int target = skill ? SkillTargetSize(scale, width) : TargetSize(scale, width);
-            if (target == width)
-                return null;                    // already big enough for this resolution
+            int picture = skill ? SkillPictureSize(scale, target) : target;
+            if (target == width && picture == width)
+                return null;                    // already right for this resolution
 
             // TPC pixel rows run bottom-up, and so does the TGA we write, so no
             // flip is needed anywhere in this path.
@@ -215,7 +246,22 @@ namespace Kmrp
                 source[i * 4 + 3] = channels == 4 ? pack[from + 3] : (byte)255;
             }
 
-            return WriteTga(Resize(source, width, height, target, target), target, target);
+            byte[] resized = Resize(source, width, height, picture, picture);
+            if (picture == target)
+                return WriteTga(resized, target, target);
+            // On a transparent canvas of the full size, so the icon keeps its place in
+            // the row: centred, then moved to the frame opening's centre, never past
+            // the canvas's edge.
+            byte[] canvas = new byte[target * target * 4];
+            int inset = (target - picture) / 2;
+            int left = Math.Max(0, Math.Min(target - picture, inset + (int)Math.Round(SkillShiftX * scale)));
+            int top = Math.Max(0, Math.Min(target - picture, inset + (int)Math.Round(SkillShiftY * scale)));
+            // Rows are bottom-up here, as in the TGA: the picture's top is at row
+            // target - top - picture from the bottom.
+            int bottom = target - top - picture;
+            for (int y = 0; y < picture; y++)
+                Buffer.BlockCopy(resized, y * picture * 4, canvas, ((y + bottom) * target + left) * 4, picture * 4);
+            return WriteTga(canvas, target, target);
         }
 
         private static byte[] Resize(byte[] pixels, int width, int height, int newWidth, int newHeight)

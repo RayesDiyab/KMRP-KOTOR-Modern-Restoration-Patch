@@ -36,16 +36,21 @@ location is `steamapps/common/swkotor/swkotor.exe`; the library root varies.
 Choose the display's native resolution (Steam Deck LCD/OLED handheld mode is
 normally 1280×800), apply, then launch KOTOR normally through Steam.
 
-**First put the editable executable there.** The standalone installer accepts only
-the editable 1.03 `swkotor.exe` (`761F9466…`, see [README](../README.md#install)),
-and refuses Steam's own (`34E6D971…`): Steam's DRM will not start that file once
-it is changed. So replace Steam's `swkotor.exe` with the editable one before
-patching (the installer's *Get Editable EXE* button links it), and note that
-Steam's *Verify integrity of game files* puts Steam's back. *Added 2026-09-29:*
-this procedure said to select Steam's `swkotor.exe` without saying it has to be
-the editable one; Steam's executable was measured on Windows that day. The KPM
-edition, which does support Steam's executable
-([kpm-edition.md](kpm-edition.md)), has not been tried under Proton.
+**Steam's own executable is supported since 2026-09-29.** KMRP's installer no
+longer rewrites `swkotor.exe`: it installs KOTOR Patch Manager's runtime, loaded
+through KPM's `binkw32.dll` proxy, which applies KMRP in memory when the game
+starts ([kpm-edition.md](kpm-edition.md), section 1a). So Steam's `swkotor.exe`
+(`34E6D971…`) no longer has to be replaced with the editable one. Measured on
+Windows only: **nothing of the new install has been run under Proton**. Wine has
+no built-in `binkw32.dll`, so it should load the proxy from the game folder
+without a DLL override, but that is untested. Steam's *Verify integrity of game
+files* puts Steam's own `binkw32.dll` back, which unloads KMRP until it is
+installed again.
+
+*Until 2026-09-29* this said the installer accepted only the editable 1.03
+`swkotor.exe` (`761F9466…`) and refused Steam's, because Steam's DRM will not
+start a changed file, so Steam's had to be replaced with the editable one before
+patching. That still describes any KMRP installer from before that day.
 
 Use the same command to open KMRP and choose **Restore Original**. A reinstall
 test is: apply, launch, restore, compare the restored hashes, then apply again.
@@ -133,8 +138,9 @@ The optional controller component has Windows structural and live-hook checks.
 It has also been play-tested on Windows with a physical Xbox controller; the
 2026-09-24 results are recorded entry by entry in `CHANGELOG.md`. Nothing has
 been run under Proton. There the component also depends on:
-- the `dinput8.dll` ASI loader, which the driver-compatibility component
-  installs and which the controller will not install without;
+- KOTOR Patch Manager's runtime and its `binkw32.dll` proxy, since 2026-09-29
+  (until then, the `dinput8.dll` ASI loader, which needed Wine's
+  `dinput8=n,b` override; K1DC still does);
 - Proton's XInput translation, or the SDL backend for other controllers.
 
 The following remain gameplay tests under Proton, not automated claims:

@@ -11,9 +11,12 @@
  * uncompressed square i_* or ip_* texture in ERF (the game's TexturePacks/swpc_tex_gui.erf),
  * resized to the slot's icon box, round(50s) - 4 with s = max(1, HEIGHT / 720), capped at
  * twice its size, as a 32-bit TGA in OUTDIR. The skill icons (isk_*) grow with their row, the
- * Skills tab's 42s: round(size * s), capped the same way. Icons already at least that size
- * are skipped, as are names listed in RESERVED (one file name per line: files KMRP installs
- * itself).
+ * Skills tab's 42s: a canvas of round(size * s), capped the same way, with the picture inside
+ * it round(42s * 0.62) on transparent pixels, moved (round(-0.5s), round(-2s)) from the
+ * centre, so it sits inside the row's frame (lbl_hex_3) rather than on its border (the C#'s
+ * SkillPictureOfBox says why). Icons already
+ * right for the height are skipped, as are names listed in RESERVED (one file name per line:
+ * files KMRP installs itself).
  *
  * Every step mirrors the C#, so the files are byte-identical to what the Windows installer
  * writes for the same height (testing/regression/Test-AbilityIcons.py checks that). They are
@@ -40,7 +43,17 @@ enum {
     RESOURCE_TYPE_TPC = 3007,
     FEAT_ROW_BASE = 50, /* the feat/power chain row group in RowSizeGroups */
     ICON_INSET = 4,     /* the icon control is the row height minus this */
+    SKILL_ROW_BASE = 42, /* the skills group in RowSizeGroups */
 };
+
+/* AbilityIconGenerator.SkillPictureOfBox, SkillShiftX, SkillShiftY: the skill picture's share
+ * of the row's icon box, and its move from the canvas's centre to the frame opening's, in
+ * pixels per unit of scale (the C# says how they were measured). */
+static const double SKILL_PICTURE_OF_BOX = 0.62;
+static const double SKILL_SHIFT_X = -0.5;
+static const double SKILL_SHIFT_Y = -2.0;
+
+static int clamp(int v, int lo, int hi) { return v < lo ? lo : v > hi ? hi : v; }
 
 static uint8_t *pack;
 static size_t pack_size;
@@ -66,6 +79,12 @@ static int skill_target_size(double scale, int native) {
     int grown = (int)nearbyint(native * scale);
     if (grown <= native) return native;
     return grown < native * 2 ? grown : native * 2;
+}
+
+/* AbilityIconGenerator.SkillPictureSize: the picture inside that canvas, never larger. */
+static int skill_picture_size(double scale, int canvas) {
+    int picture = (int)nearbyint(SKILL_ROW_BASE * scale * SKILL_PICTURE_OF_BOX);
+    return picture < canvas ? picture : canvas;
 }
 
 static uint8_t *resize(const uint8_t *pixels, int width, int height, int new_width, int new_height) {
@@ -195,7 +214,8 @@ int main(int argc, char **argv) {
         if ((int64_t)TPC_HEADER_SIZE + (int64_t)width * tex_height * channels > size) continue;
 
         int target = skill ? skill_target_size(scale, width) : target_size(scale, width);
-        if (target == width) continue;
+        int picture = skill ? skill_picture_size(scale, target) : target;
+        if (target == width && picture == width) continue;
 
         /* TPC rows run bottom-up, and so do the TGA's: no flip. */
         uint8_t *source = malloc((size_t)width * tex_height * 4);
@@ -206,7 +226,21 @@ int main(int argc, char **argv) {
             source[p * 4 + 2] = pack[from + 2];
             source[p * 4 + 3] = channels == 4 ? pack[from + 3] : 255;
         }
-        uint8_t *scaled = resize(source, width, tex_height, target, target);
+        uint8_t *scaled = resize(source, width, tex_height, picture, picture);
+        if (picture != target) {
+            /* On a transparent canvas of the full size, centred and then moved to the frame
+             * opening's centre, as the C# does. Rows are bottom-up. */
+            uint8_t *canvas = calloc((size_t)target * target, 4);
+            int inset = (target - picture) / 2;
+            int left = clamp(inset + (int)nearbyint(SKILL_SHIFT_X * scale), 0, target - picture);
+            int top = clamp(inset + (int)nearbyint(SKILL_SHIFT_Y * scale), 0, target - picture);
+            int bottom = target - top - picture;
+            for (int y = 0; y < picture; y++)
+                memcpy(canvas + ((size_t)(y + bottom) * target + left) * 4,
+                       scaled + (size_t)y * picture * 4, (size_t)picture * 4);
+            free(scaled);
+            scaled = canvas;
+        }
         char path[4096];
         snprintf(path, sizeof path, "%s/%s", outdir, file);
         if (!write_tga(path, scaled, target, target)) {

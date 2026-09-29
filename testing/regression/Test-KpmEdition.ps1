@@ -1,36 +1,52 @@
 <#
-    The KPM edition: its installer, and that it makes the same game as the standalone.
+    KMRP installed for KOTOR Patch Manager, and that it makes the same game as the
+    standalone.
 
-    KMRP ships two ways from one source (tools/build_kpatch.py, src/patcher/KpmEdition.cs).
-    The KPM edition's installer leaves swkotor.exe unmodified and writes kmrp-kpm.dat,
-    which KMRP's module applies in memory under KOTOR Patch Manager -- the parts of
-    KMRP Movies and KMRP Map Notes only when those patches are ticked there. This
-    proves, per resolution, on isolated fixture folders:
+    The installer can install KMRP for KOTOR Patch Manager instead of with a runtime
+    of its own (src/patcher/KpmEdition.cs): when the KOTOR Patch Manager option is on,
+    or by itself when KPM's runtime is already in the game folder. It then leaves
+    swkotor.exe unmodified and writes kmrp-kpm.dat, which KMRP's module applies in
+    memory under KOTOR Patch Manager -- the parts of KMRP Movies and KMRP Map Notes
+    only when those patches are ticked there. Until 2026-09-29 this was a separate
+    installer, KMRP for KPM, and this file tested that. This proves, per resolution,
+    on isolated fixture folders:
 
       1. the install leaves the executable byte-for-byte unmodified, installs the
-         Override files, swkotor.ini's resolution, the data file and SDL, and none
-         of the standalone's runtime (no patch_config.toml, ASI loader or module);
+         Override files, swkotor.ini's resolution, the data file and SDL, and no
+         runtime (no patch_config.toml, KotorPatcher.dll, proxy, ASI loader or
+         module);
       2. the data file makes EXACTLY the standalone installer's executable for the
          same resolution: tools/kpm_data.py applies it to the clean executable as the
          module does and compares every byte of the original sections and the
          eleven appended ones with `--apply`'s output -- with all four patches, the
          standalone with the marker fixes on; without Map Notes, the standalone with
-         them off; without Movies, the same less exactly the movie sites. The KPM
-         install is made with the standalone's marker setting OFF, to prove the
-         KPM edition does not read it;
+         them off; without Movies, the same less exactly the movie sites. The
+         install is made with the marker setting OFF, to prove it does not read it;
       3. the Movies and Map Notes parts are exactly the sites they should be: the
          four movie display-mode operands and the movie aspect fit's entry, and the
          .kmn flag;
       4. reinstalling at another resolution replaces the data file;
       5. restore removes every file it installed and leaves the executable as it was;
-      6. a game the standalone installer patched is refused, and left untouched;
-      7. Steam's swkotor.exe (optional input build-inputs\swkotor-steam.exe): the KPM
-         edition installs over it, leaves it unmodified, and writes the very same
-         data file as for CD 1.03 at that resolution, byte for byte -- both are built
-         from the originals the installer carries -- and restores; the standalone
-         refuses it and leaves it alone. Skipped, and said so, without the file.
+      6. a game an earlier KMRP patched (with -OlderPatcher, an installer from before
+         2026-09-29, which still wrote swkotor.exe; skipped, and said so, without
+         it) is restored first and then installed; until 2026-09-29, when this was
+         a separate installer, it was refused;
+      7. Steam's swkotor.exe (optional input build-inputs\swkotor-steam.exe): the
+         install leaves it unmodified and writes the very same data file as for CD
+         1.03 at that resolution, byte for byte -- both are built from the originals
+         the installer carries -- and restores. Skipped, and said so, without the
+         file;
+      8. with the option OFF, a folder holding KOTOR Patch Manager's runtime is
+         installed for KPM all the same, KPM's files left exactly as they were;
+      9. turning the option on over an install with KMRP's own runtime removes that
+         runtime, its proxy, K1DC and the 4 GB flag;
+     10. once KOTOR Patch Manager has taken that runtime over (its Apply rewrote
+         patch_config.toml), reinstalling and restoring leave every runtime file,
+         the modules and the flag to KPM.
 
-    The standalone reads its options from %LOCALAPPDATA%\KMRP\settings.json; this
+    "The standalone" is KMRP's installer's --apply, which still writes the
+    executable the standalone installer wrote: what the data file must reproduce.
+    The installer reads its options from %LOCALAPPDATA%\KMRP\settings.json; this
     copies the player's file aside first and puts it back at the end.
 
     It does not run the game; the in-game check is tools/kpm_data.py --memory against
@@ -38,8 +54,8 @@
 #>
 [CmdletBinding()]
 param(
-    [string]$KpmInstaller = ".\dist\KMRP for KPM\KMRP for KPM.exe",
-    [string]$Standalone   = ".\dist\KMRP - KOTOR Modern Restoration Patch.exe",
+    [string]$Installer    = ".\dist\KMRP - KOTOR Modern Restoration Patch.exe",
+    [string]$OlderPatcher = ".\build\legacy\KMRP-standalone.exe",
     [string]$CleanExe     = ".\build-inputs\swkotornopatch.exe",
     [string]$SteamExe     = ".\build-inputs\swkotor-steam.exe",
     [string]$SeedIni      = ".\testing\virtual-display\swkotor-7680-windowed.ini",
@@ -76,14 +92,18 @@ function New-Fixture([string]$name, [string]$exe = $CleanExe) {
     # A fixture name, so no NVIDIA profile made for it can match a real swkotor.exe.
     Copy-Item -LiteralPath $exe -Destination (Join-Path $folder "kmrp-kpm-selftest.exe")
     Copy-Item -LiteralPath $SeedIni -Destination (Join-Path $folder "swkotor.ini")
+    # KMRP's own runtime (Cases 8 and 9) renames the game's binkw32.dll for KOTOR
+    # Patch Manager's proxy and puts it back; any bytes stand in for it.
+    [IO.File]::WriteAllText((Join-Path $folder "binkw32.dll"), "stand-in for the game's binkw32.dll`r`n")
     return Join-Path $folder "kmrp-kpm-selftest.exe"
 }
 
-# The standalone's saved options; only the marker fixes differ between cases.
-function Set-MarkerFixes([bool]$on) {
-    $value = if ($on) { "true" } else { "false" }
+# The installer's saved options: the marker fixes, and whether it installs for KOTOR
+# Patch Manager.
+function Set-Options([bool]$markers, [bool]$patchManager) {
+    $m = $markers.ToString().ToLowerInvariant(); $p = $patchManager.ToString().ToLowerInvariant()
     New-Item -ItemType Directory -Force -Path (Split-Path -Parent $settingsPath) | Out-Null
-    [IO.File]::WriteAllText($settingsPath, "{`r`n  `"driverCompatibility`": true,`r`n  `"markerFixes`": $value,`r`n  `"controllerSupport`": true`r`n}`r`n", [Text.UTF8Encoding]::new($false))
+    [IO.File]::WriteAllText($settingsPath, "{`r`n  `"driverCompatibility`": true,`r`n  `"markerFixes`": $m,`r`n  `"controllerSupport`": true,`r`n  `"kotorPatchManager`": $p`r`n}`r`n", [Text.UTF8Encoding]::new($false))
 }
 
 function Test-Equals([string]$dat, [string]$standaloneExe, [string]$features, [string]$label) {
@@ -91,18 +111,20 @@ function Test-Equals([string]$dat, [string]$standaloneExe, [string]$features, [s
     Assert ($LASTEXITCODE -eq 0) $label
 }
 
-$KpmInstaller = Resolve-Input $KpmInstaller
-$Standalone = Resolve-Input $Standalone
+function Get-Sha([string]$path) { return (Get-FileHash -LiteralPath $path -Algorithm SHA256).Hash }
+
+$Installer = Resolve-Input $Installer
 $CleanExe = Resolve-Input $CleanExe
 $SeedIni = Resolve-Input $SeedIni
-$cleanHash = (Get-FileHash -LiteralPath $CleanExe -Algorithm SHA256).Hash
+$cleanHash = Get-Sha $CleanExe
 if (-not $WorkRoot) {
     $WorkRoot = Join-Path ([IO.Path]::GetTempPath()) ("kmrp-kpm-" + [Guid]::NewGuid().ToString("N"))
 }
 $WorkRoot = [IO.Path]::GetFullPath($WorkRoot)
 New-Item -ItemType Directory -Force -Path $WorkRoot | Out-Null
-$standaloneOnly = @("patch_config.toml", "dinput8.dll", "kmrp-controller-runtime.asi", "kmrp-controller.module",
-    "k1-modern-driver-compatibility.asi", "KMRP_Controller.manifest")
+$runtimeFiles = @("patch_config.toml", "KotorPatcher.dll", "binkw32Hooked.dll", "patches", "dinput8.dll",
+    "kmrp-controller-runtime.asi", "kmrp-controller.module", "k1-modern-driver-compatibility.asi",
+    "KMRP_Controller.manifest")
 $settingsPath = Join-Path ([Environment]::GetFolderPath([Environment+SpecialFolder]::LocalApplicationData)) "KMRP\settings.json"
 $settingsExisted = Test-Path -LiteralPath $settingsPath
 # A copy on disk rather than in memory: it survives this script being stopped.
@@ -114,30 +136,31 @@ if ($settingsExisted) { Copy-Item -LiteralPath $settingsPath -Destination $setti
 # aspect fit (0x004057AC, 7 bytes), and the .kmn enable flag (0x00876000, 4 bytes).
 $movieSites = @(@(0x00403D6C, 4), @(0x00403D78, 4), @(0x005F5B3B, 4), @(0x005F5B43, 4), @(0x004057AC, 7))
 $cdData = @{}
-# The refusals this proves write KMRP.startup-error.log beside each installer, in
-# dist\, which would then ship. Those this run creates are removed at the end.
-$errorLogs = @($KpmInstaller, $Standalone | ForEach-Object { Join-Path (Split-Path -Parent $_) "KMRP.startup-error.log" })
-$errorLogsBefore = @($errorLogs | Where-Object { Test-Path -LiteralPath $_ })
+# A refusal writes KMRP.startup-error.log beside the installer, in dist\, which would
+# then ship. One this run creates is removed at the end.
+$errorLog = Join-Path (Split-Path -Parent $Installer) "KMRP.startup-error.log"
+$errorLogBefore = Test-Path -LiteralPath $errorLog
 $steamHash = "34E6D971C034222A417995D8E1E8FDD9F8781795C9C289BD86C499A439F34C88"
+$laaHash = "CA9D22EACB5BDFA8E2AD3F8935B0E8E2FED72DA8132D0622D576A650AA7E1889"
 $SteamExe = if (Test-Path -LiteralPath $SteamExe) { Resolve-Input $SteamExe } else { $null }
 
 try {
     Write-Host ""
-    Write-Host ("KPM edition regression  ->  " + $WorkRoot)
+    Write-Host ("KMRP for KOTOR Patch Manager regression  ->  " + $WorkRoot)
     foreach ($resolution in $Resolutions) {
-        Write-Host ("Case 1-2  install at {0}, and the same game as the standalone" -f $resolution)
+        Write-Host ("Case 1-2  install for KPM at {0}, and the same game as the standalone" -f $resolution)
         $game = New-Fixture ("kpm-" + $resolution)
         $folder = Split-Path -Parent $game
         $dat = Join-Path $folder "kmrp-kpm.dat"
-        Set-MarkerFixes $false
-        Assert ((Invoke-Exe $KpmInstaller @("--in-place", $game, $resolution)) -eq 0) "the KPM edition installs (standalone marker setting off)"
-        if (Test-Path -LiteralPath $dat) { $cdData[$resolution] = (Get-FileHash -LiteralPath $dat -Algorithm SHA256).Hash }
-        Assert ((Get-FileHash -LiteralPath $game -Algorithm SHA256).Hash -eq $cleanHash) "swkotor.exe is byte-for-byte unmodified"
+        Set-Options $false $true
+        Assert ((Invoke-Exe $Installer @("--in-place", $game, $resolution)) -eq 0) "the install for KPM succeeds (marker setting off)"
+        if (Test-Path -LiteralPath $dat) { $cdData[$resolution] = Get-Sha $dat }
+        Assert ((Get-Sha $game) -eq $cleanHash) "swkotor.exe is byte-for-byte unmodified"
         foreach ($name in @("kmrp-kpm.dat", "KMRP_KPM.manifest", "kmrp-sdl3.dll", "kmrp-sdl3-LICENSE.txt")) {
             Assert (Test-Path -LiteralPath (Join-Path $folder $name)) ("installed " + $name)
         }
-        foreach ($name in $standaloneOnly) {
-            Assert (-not (Test-Path -LiteralPath (Join-Path $folder $name))) ("no standalone runtime file " + $name)
+        foreach ($name in $runtimeFiles) {
+            Assert (-not (Test-Path -LiteralPath (Join-Path $folder $name))) ("no runtime file " + $name)
         }
         Assert ((@(Get-ChildItem -LiteralPath (Join-Path $folder "Override") -File -ErrorAction SilentlyContinue)).Count -gt 1000) "the Override files are installed"
         $width, $height = $resolution -split "x"
@@ -145,10 +168,10 @@ try {
         Assert ($ini -match "(?m)^Width=$width\r?$" -and $ini -match "(?m)^Height=$height\r?$") "swkotor.ini carries the resolution"
 
         $standaloneOff = Join-Path $WorkRoot ("standalone-nomarkers-" + $resolution + ".exe")
-        Assert ((Invoke-Exe $Standalone @("--apply", $CleanExe, $standaloneOff, $resolution)) -eq 0) "the standalone builds its executable, marker fixes off"
-        Set-MarkerFixes $true
+        Assert ((Invoke-Exe $Installer @("--apply", $CleanExe, $standaloneOff, $resolution)) -eq 0) "the standalone builds its executable, marker fixes off"
+        Set-Options $true $true
         $standaloneOut = Join-Path $WorkRoot ("standalone-" + $resolution + ".exe")
-        Assert ((Invoke-Exe $Standalone @("--apply", $CleanExe, $standaloneOut, $resolution)) -eq 0) "the standalone builds its executable, marker fixes on"
+        Assert ((Invoke-Exe $Installer @("--apply", $CleanExe, $standaloneOut, $resolution)) -eq 0) "the standalone builds its executable, marker fixes on"
         Test-Equals $dat $standaloneOut "kmrp,kmrp-controller,kmrp-movies,kmrp-map-notes" "all four patches: exactly the standalone's executable"
         Test-Equals $dat $standaloneOff "kmrp,kmrp-movies" "without Map Notes: exactly the standalone's with the marker fixes off"
         Test-Equals $dat $standaloneOut "kmrp,kmrp-map-notes" "without Movies: the standalone's, less the movie sites"
@@ -168,9 +191,9 @@ try {
     Write-Host "Case 4  reinstall at another resolution"
     $game = Join-Path (Join-Path $WorkRoot ("kpm-" + $Resolutions[0])) "kmrp-kpm-selftest.exe"
     $folder = Split-Path -Parent $game
-    $before = (Get-FileHash -LiteralPath (Join-Path $folder "kmrp-kpm.dat")).Hash
-    Assert ((Invoke-Exe $KpmInstaller @("--in-place", $game, $Resolutions[1])) -eq 0) "reinstall at another resolution succeeds"
-    Assert ((Get-FileHash -LiteralPath (Join-Path $folder "kmrp-kpm.dat")).Hash -ne $before) "the data file was replaced"
+    $before = Get-Sha (Join-Path $folder "kmrp-kpm.dat")
+    Assert ((Invoke-Exe $Installer @("--in-place", $game, $Resolutions[1])) -eq 0) "reinstall at another resolution succeeds"
+    Assert ((Get-Sha (Join-Path $folder "kmrp-kpm.dat")) -ne $before) "the data file was replaced"
     $standaloneOut = Join-Path $WorkRoot ("standalone-" + $Resolutions[1] + ".exe")
     Test-Equals (Join-Path $folder "kmrp-kpm.dat") $standaloneOut "kmrp,kmrp-movies,kmrp-map-notes" "the new data file is the new resolution's"
 
@@ -178,49 +201,124 @@ try {
     foreach ($resolution in $Resolutions) {
         $game = Join-Path (Join-Path $WorkRoot ("kpm-" + $resolution)) "kmrp-kpm-selftest.exe"
         $folder = Split-Path -Parent $game
-        Assert ((Invoke-Exe $KpmInstaller @("--restore", $game)) -eq 0) ("restore succeeds (" + $resolution + " fixture)")
+        Assert ((Invoke-Exe $Installer @("--restore", $game)) -eq 0) ("restore succeeds (" + $resolution + " fixture)")
         foreach ($name in @("kmrp-kpm.dat", "KMRP_KPM.manifest", "kmrp-sdl3.dll", "kmrp-sdl3-LICENSE.txt")) {
             Assert (-not (Test-Path -LiteralPath (Join-Path $folder $name))) ("restore removed " + $name)
         }
         Assert ((@(Get-ChildItem -LiteralPath (Join-Path $folder "Override") -File -ErrorAction SilentlyContinue)).Count -eq 0) "restore emptied Override"
-        Assert ((Get-FileHash -LiteralPath $game -Algorithm SHA256).Hash -eq $cleanHash) "swkotor.exe is still unmodified"
+        Assert ((Get-Sha $game) -eq $cleanHash) "swkotor.exe is still unmodified"
     }
 
-    Write-Host "Case 6  a game the standalone patched is refused"
-    $gold = New-Fixture "standalone-installed"
-    Assert ((Invoke-Exe $Standalone @("--in-place", $gold, $Resolutions[0])) -eq 0) "the standalone installs"
-    $goldHash = (Get-FileHash -LiteralPath $gold -Algorithm SHA256).Hash
-    Assert ((Invoke-Exe $KpmInstaller @("--in-place", $gold, $Resolutions[0])) -ne 0) "the KPM edition refuses it"
-    Assert ((Get-FileHash -LiteralPath $gold -Algorithm SHA256).Hash -eq $goldHash) "and leaves its executable alone"
-    Assert (-not (Test-Path -LiteralPath (Join-Path (Split-Path -Parent $gold) "kmrp-kpm.dat"))) "and writes no data file"
-    Assert ((Invoke-Exe $Standalone @("--restore", $gold)) -eq 0) "the standalone restores it"
+    Write-Host "Case 6  a game an earlier KMRP patched is restored, then installed for KPM"
+    if (-not (Test-Path -LiteralPath $OlderPatcher)) {
+        Write-Host "  SKIPPED  no earlier installer at $OlderPatcher; pass -OlderPatcher" -ForegroundColor DarkYellow
+    } else {
+        $OlderPatcher = Resolve-Input $OlderPatcher
+        $gold = New-Fixture "standalone-installed"
+        Assert ((Invoke-Exe $OlderPatcher @("--in-place", $gold, $Resolutions[0])) -eq 0) "the earlier installer installs"
+        Assert ((Get-Sha $gold) -ne $cleanHash) "it rewrote swkotor.exe"
+        Assert ((Invoke-Exe $Installer @("--in-place", $gold, $Resolutions[0])) -eq 0) "the install for KPM replaces it"
+        Assert ((Get-Sha $gold) -eq $cleanHash) "swkotor.exe is the original again"
+        Assert (Test-Path -LiteralPath (Join-Path (Split-Path -Parent $gold) "kmrp-kpm.dat")) "and the data file is installed"
+        Assert (-not (Test-Path -LiteralPath (Join-Path (Split-Path -Parent $gold) "KMRP_Controller.manifest"))) "and the earlier runtime is gone"
+        Assert ((Invoke-Exe $Installer @("--restore", $gold)) -eq 0) "restore succeeds"
+    }
 
     Write-Host "Case 7  Steam's swkotor.exe"
     if (-not $SteamExe) {
         Write-Host "  SKIPPED  no build-inputs\swkotor-steam.exe; the Steam case did not run" -ForegroundColor DarkYellow
-    } elseif ((Get-FileHash -LiteralPath $SteamExe -Algorithm SHA256).Hash -ne $steamHash) {
+    } elseif ((Get-Sha $SteamExe) -ne $steamHash) {
         Assert $false "build-inputs\swkotor-steam.exe is Steam's unmodified swkotor.exe"
     } else {
         $steamGame = New-Fixture "steam" $SteamExe
         $steamFolder = Split-Path -Parent $steamGame
         $steamDat = Join-Path $steamFolder "kmrp-kpm.dat"
-        Assert ((Invoke-Exe $KpmInstaller @("--in-place", $steamGame, $Resolutions[0])) -eq 0) "the KPM edition installs over Steam's executable"
-        Assert ((Get-FileHash -LiteralPath $steamGame -Algorithm SHA256).Hash -eq $steamHash) "Steam's executable is byte-for-byte unmodified"
-        Assert ((Test-Path -LiteralPath $steamDat) -and
-            (Get-FileHash -LiteralPath $steamDat -Algorithm SHA256).Hash -eq $cdData[$Resolutions[0]]) "its data file is CD 1.03's at the same resolution, byte for byte"
+        Assert ((Invoke-Exe $Installer @("--in-place", $steamGame, $Resolutions[0])) -eq 0) "the install for KPM succeeds over Steam's executable"
+        Assert ((Get-Sha $steamGame) -eq $steamHash) "Steam's executable is byte-for-byte unmodified"
+        Assert ((Test-Path -LiteralPath $steamDat) -and (Get-Sha $steamDat) -eq $cdData[$Resolutions[0]]) "its data file is CD 1.03's at the same resolution, byte for byte"
         Assert ((@(Get-ChildItem -LiteralPath (Join-Path $steamFolder "Override") -File -ErrorAction SilentlyContinue)).Count -gt 1000) "the Override files are installed"
-        Assert ((Invoke-Exe $KpmInstaller @("--restore", $steamGame)) -eq 0) "restore succeeds"
+        Assert ((Invoke-Exe $Installer @("--restore", $steamGame)) -eq 0) "restore succeeds"
         Assert (-not (Test-Path -LiteralPath $steamDat)) "restore removed the data file"
-        Assert ((Get-FileHash -LiteralPath $steamGame -Algorithm SHA256).Hash -eq $steamHash) "Steam's executable is still unmodified"
-        $refused = New-Fixture "steam-standalone" $SteamExe
-        Assert ((Invoke-Exe $Standalone @("--in-place", $refused, $Resolutions[0])) -ne 0) "the standalone refuses Steam's executable"
-        Assert ((Get-FileHash -LiteralPath $refused -Algorithm SHA256).Hash -eq $steamHash) "and leaves it alone"
+        Assert ((Get-Sha $steamGame) -eq $steamHash) "Steam's executable is still unmodified"
     }
+
+    Write-Host "Case 8  option off, but KOTOR Patch Manager's runtime in the folder: installed for KPM"
+    Set-Options $true $false
+    $shared = New-Fixture "kpm-with-runtime"
+    $sharedFolder = Split-Path -Parent $shared
+    # What KOTOR Patch Manager's proxy deployment leaves beside the game after Apply.
+    Move-Item -LiteralPath (Join-Path $sharedFolder "binkw32.dll") -Destination (Join-Path $sharedFolder "binkw32Hooked.dll")
+    foreach ($name in @("binkw32.dll", "KotorPatcher.dll", "patch_config.toml")) {
+        [IO.File]::WriteAllText((Join-Path $sharedFolder $name), "KOTOR Patch Manager's " + $name + "`r`n")
+    }
+    $kpmFiles = @{}
+    foreach ($name in @("binkw32.dll", "binkw32Hooked.dll", "KotorPatcher.dll", "patch_config.toml")) { $kpmFiles[$name] = Get-Sha (Join-Path $sharedFolder $name) }
+    Assert ((Invoke-Exe $Installer @("--in-place", $shared, $Resolutions[0])) -eq 0) "the install succeeds"
+    $changed = @($kpmFiles.Keys | Where-Object { (Get-Sha (Join-Path $sharedFolder $_)) -ne $kpmFiles[$_] })
+    Assert ($changed.Count -eq 0) ("KOTOR Patch Manager's files are exactly as they were (" + ($changed -join ", ") + ")")
+    Assert ((Get-Sha $shared) -eq $cleanHash) "swkotor.exe is unmodified"
+    Assert (Test-Path -LiteralPath (Join-Path $sharedFolder "kmrp-kpm.dat")) "KMRP's data file is installed"
+    Assert (-not (Test-Path -LiteralPath (Join-Path $sharedFolder "patches"))) "no module of KMRP's own"
+    Assert ((Invoke-Exe $Installer @("--restore", $shared)) -eq 0) "restore succeeds"
+    $changed = @($kpmFiles.Keys | Where-Object { (Get-Sha (Join-Path $sharedFolder $_)) -ne $kpmFiles[$_] })
+    Assert ($changed.Count -eq 0) "and leaves KOTOR Patch Manager's files as they were"
+
+    Write-Host "Case 9  the option turned on over KMRP's own runtime: the runtime, K1DC and the flag go"
+    Set-Options $true $false
+    $switch = New-Fixture "switch-to-kpm"
+    $switchFolder = Split-Path -Parent $switch
+    $standIn = Get-Sha (Join-Path $switchFolder "binkw32.dll")
+    Assert ((Invoke-Exe $Installer @("--in-place", $switch, $Resolutions[0])) -eq 0) "the install with KMRP's own runtime succeeds, driver compatibility on"
+    Assert (Test-Path -LiteralPath (Join-Path $switchFolder "k1-modern-driver-compatibility.asi")) "with K1DC"
+    Set-Options $true $true
+    Assert ((Invoke-Exe $Installer @("--in-place", $switch, $Resolutions[0])) -eq 0) "the install for KPM replaces it"
+    foreach ($name in @("KotorPatcher.dll", "patch_config.toml", "kpm_install_state.json", "binkw32Hooked.dll", "patches", "dinput8.dll", "k1-modern-driver-compatibility.asi")) {
+        Assert (-not (Test-Path -LiteralPath (Join-Path $switchFolder $name))) ("gone: " + $name)
+    }
+    Assert (@(Get-ChildItem -LiteralPath $switchFolder -Filter "*.backup.*").Count -eq 0) "gone: the KPM backup and its metadata"
+    Assert ((Get-Sha (Join-Path $switchFolder "binkw32.dll")) -eq $standIn) "binkw32.dll is the game's again"
+    Assert ((Get-Sha $switch) -eq $cleanHash) "swkotor.exe is the original, the flag cleared"
+    Assert (Test-Path -LiteralPath (Join-Path $switchFolder "kmrp-kpm.dat")) "the data file is installed"
+    Assert ((Invoke-Exe $Installer @("--restore", $switch)) -eq 0) "and restores"
+
+    # KOTOR Patch Manager's Apply over an install with KMRP's own runtime: it restores
+    # the newest backup, KMRP's, and deletes it, backs the unmodified executable up as
+    # its own and sets the 4 GB flag again from KMRP.kpatch's static hook; it rewrites
+    # patch_config.toml, stages its own KotorPatcher.dll, and extracts KMRP's modules
+    # again, byte for byte the ones KMRP installed. The runtime is KPM's from then on.
+    Write-Host "Case 10  KOTOR Patch Manager took over KMRP's runtime: reinstall and restore leave it to KPM"
+    Set-Options $true $false
+    $takeover = New-Fixture "kpm-took-over"
+    $takeoverFolder = Split-Path -Parent $takeover
+    Assert ((Invoke-Exe $Installer @("--in-place", $takeover, $Resolutions[0])) -eq 0) "the install with KMRP's own runtime succeeds"
+    $ours = @(Get-ChildItem -LiteralPath $takeoverFolder -Filter "kmrp-kpm-selftest.exe.backup.*" -File | Where-Object { $_.Extension -ne ".json" })
+    Assert ($ours.Count -eq 1 -and (Get-Sha $ours[0].FullName) -eq $cleanHash) "the install left KPM a backup of the unmodified executable"
+    # The executable ends as it was, the unmodified file with the same flag; the
+    # backup of the unmodified file is KPM's own now, under a name of its own.
+    $kpmBackup = "kmrp-kpm-selftest.exe.backup.20260101_000000"
+    Move-Item -LiteralPath $ours[0].FullName -Destination (Join-Path $takeoverFolder $kpmBackup)
+    Move-Item -LiteralPath ($ours[0].FullName + ".json") -Destination (Join-Path $takeoverFolder ($kpmBackup + ".json"))
+    [IO.File]::AppendAllText((Join-Path $takeoverFolder ($kpmBackup + ".json")), "`r`n")
+    [IO.File]::AppendAllText((Join-Path $takeoverFolder "patch_config.toml"), "# regenerated by KOTOR Patch Manager`r`n")
+    [IO.File]::WriteAllText((Join-Path $takeoverFolder "KotorPatcher.dll"), "KOTOR Patch Manager's own KotorPatcher.dll`r`n")
+    [IO.File]::AppendAllText((Join-Path $takeoverFolder "kpm_install_state.json"), "`r`n")
+    $kpmFiles = @{}
+    foreach ($name in @("patch_config.toml", "KotorPatcher.dll", "kpm_install_state.json", $kpmBackup, ($kpmBackup + ".json"), "binkw32.dll", "binkw32Hooked.dll", "patches\kmrp.dll", "patches\kmrp-movies.dll", "patches\kmrp-controller.dll")) {
+        $kpmFiles[$name] = Get-Sha (Join-Path $takeoverFolder $name)
+    }
+    Assert ((Invoke-Exe $Installer @("--in-place", $takeover, $Resolutions[1])) -eq 0) "reinstalling at another resolution succeeds"
+    $changed = @($kpmFiles.Keys | Where-Object { -not (Test-Path -LiteralPath (Join-Path $takeoverFolder $_)) -or (Get-Sha (Join-Path $takeoverFolder $_)) -ne $kpmFiles[$_] })
+    Assert ($changed.Count -eq 0) ("KOTOR Patch Manager's runtime, config and modules are all still there, unchanged (" + ($changed -join ", ") + ")")
+    Assert ((Get-Sha $takeover) -eq $laaHash) "the 4 GB flag, KPM's now, is left"
+    Assert (Test-Path -LiteralPath (Join-Path $takeoverFolder "kmrp-kpm.dat")) "the new resolution's data file is installed"
+    Assert (-not ([IO.File]::ReadAllText((Join-Path $takeoverFolder "KMRP_KPM.manifest")) -match "(?m)^(moved|laa)\t")) "the install is now one for KPM"
+    Assert ((Invoke-Exe $Installer @("--restore", $takeover)) -eq 0) "restore succeeds"
+    $changed = @($kpmFiles.Keys | Where-Object { -not (Test-Path -LiteralPath (Join-Path $takeoverFolder $_)) -or (Get-Sha (Join-Path $takeoverFolder $_)) -ne $kpmFiles[$_] })
+    Assert ($changed.Count -eq 0) "restore leaves KOTOR Patch Manager's runtime too"
+    Assert (-not (Test-Path -LiteralPath (Join-Path $takeoverFolder "kmrp-kpm.dat"))) "restore removes KMRP's data file"
 }
 finally {
-    foreach ($log in $errorLogs) {
-        if ((Test-Path -LiteralPath $log) -and $errorLogsBefore -notcontains $log) { Remove-Item -LiteralPath $log -Force }
-    }
+    if ((Test-Path -LiteralPath $errorLog) -and -not $errorLogBefore) { Remove-Item -LiteralPath $errorLog -Force }
     if ($settingsExisted) { Copy-Item -LiteralPath $settingsCopy -Destination $settingsPath -Force }
     elseif (Test-Path -LiteralPath $settingsPath) { Remove-Item -LiteralPath $settingsPath -Force }
     Restore-TestNvidiaProfiles $WorkRoot
@@ -234,6 +332,6 @@ finally {
     }
 }
 
-if ($script:Failures -ne 0) { throw "$($script:Failures) KPM edition check(s) failed." }
+if ($script:Failures -ne 0) { throw "$($script:Failures) KMRP for KOTOR Patch Manager check(s) failed." }
 Write-Host ""
 Write-Host "All checks passed." -ForegroundColor Green

@@ -43,6 +43,8 @@ $sources = @(
     "src\patcher\AbilityIconGenerator.cs",
     "src\patcher\ControllerPromptGenerator.cs",
     "src\patcher\AssemblyInfo.cs",
+    # KmrpPatcher.cs installs through it in either build since 2026-09-29.
+    "src\patcher\KpmEdition.cs",
     "testing\regression\NvidiaPresentSelfTest.cs"
 ) | ForEach-Object { Join-Path $projectRoot $_ }
 $compilerArgs = @(

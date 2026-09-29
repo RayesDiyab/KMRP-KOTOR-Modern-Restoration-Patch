@@ -1,26 +1,36 @@
 #!/usr/bin/env python3
-"""Assert the patcher's hardcoded hook table matches `kotor1.hooks.toml`.
+"""Assert the installer's hook table matches `kotor1.hooks.toml`.
 
-The shipped patcher writes `patch_config.toml` from a table written out by hand
-in `KmrpPatcher.cs`, because it is a single-file C# build with no TOML reader.
-That hand-copying is exactly where a wrong address, a wrong stolen byte or a
-wrong consumed-exit address gets in, and every one of those is a jump into the
-wrong place at run time rather than a build error.
-
-This existed because one did: the consumed exit for
+Until 2026-09-29 the shipped patcher wrote `patch_config.toml` from a table
+written out by hand in `KmrpPatcher.cs` (`ControllerOperations.BuildConfig`),
+because it is a single-file C# build with no TOML reader, and this parsed that
+C# and compared it with the tracked table. That hand-copying is exactly where a
+wrong address, a wrong stolen byte or a wrong consumed-exit address gets in, and
+every one of those is a jump into the wrong place at run time rather than a build
+error. It existed because one did: the consumed exit for
 `NativeJoystickSkipNormalizeK1` was transcribed as 0x00679BB6 where the tracked
 table says 0x00679B76.
 
+Since 2026-09-29 the installer has no hand-written table. It embeds one section
+of `patch_config.toml` per KMRP patch, which `tools/build_kpatch.py
+--config-dir` generates from the tracked table into `build/kmrp/kpm-config/`
+(`Kmrp.engine.config.<id>` in `build_kmrp.ps1`). This checks those files -- the
+ones the last build embedded -- against `kotor1.hooks.toml` on its own terms:
+each patch's hooks, every runtime field (`kmrp_controller.normalised`), and its
+module. `build_kpatch.py` also checks them against the `.kpatch` files as it
+writes them.
+
 Usage:
-    python tools/check_patcher_hook_table.py
+    python tools/check_patcher_hook_table.py [--config-dir DIR]
 
 Documentation standard: see `docs/documentation-standard.md`.
 """
 
 from __future__ import annotations
 
-import re
+import argparse
 import sys
+import tomllib
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -28,122 +38,50 @@ sys.path.insert(0, str(ROOT / "tools"))
 
 import kmrp_controller                                  # noqa: E402
 
-PATCHER = ROOT / "src" / "patcher" / "KmrpPatcher.cs"
-
-CALL = re.compile(
-    r'AppendHook\(text,\s*"(0x[0-9A-Fa-f]+)",\s*"([^"]*)",\s*'
-    r'\n?\s*"(\w+)"(.*?)\);',
-    re.DOTALL,
-)
-
-# A byte patch names no function, so it is emitted by its own helper and is
-# identified by address. Its byte lists are written as concatenated string
-# literals to stay inside the line length, hence the `+`.
-BYTE_PATCH = re.compile(
-    r'AppendBytePatch\(text,\s*"(0x[0-9A-Fa-f]+)",\s*'
-    r'((?:"[^"]*"\s*\+?\s*)+),\s*((?:"[^"]*"\s*\+?\s*)+)\);',
-    re.DOTALL,
-)
-CHUNK = re.compile(r'"([^"]*)"')
-
-
-def _bytes_of(literal: str) -> list:
-    """The byte list from one or more concatenated C# string literals."""
-    joined = "".join(CHUNK.findall(literal))
-    return [int(b, 16) for b in joined.split(", ")]
-
-
-def parse_byte_patches():
-    """{address: {original_bytes, replacement_bytes}} from AppendBytePatch calls."""
-    text = PATCHER.read_text(encoding="utf-8")
-    return {
-        int(match.group(1), 16): {
-            "original_bytes": _bytes_of(match.group(2)),
-            "replacement_bytes": _bytes_of(match.group(3)),
-        }
-        for match in BYTE_PATCH.finditer(text)
-    }
-
-
-def parse_patcher():
-    text = PATCHER.read_text(encoding="utf-8")
-    found = {}
-    for match in CALL.finditer(text):
-        address = int(match.group(1), 16)
-        stolen = [int(b, 16) for b in match.group(2).split(", ")]
-        function = match.group(3)
-        tail = match.group(4)
-        exit_match = re.search(r'"(0x[0-9A-Fa-f]{6,8})"', tail)
-        found[function] = {
-            "address": address,
-            "original_bytes": stolen,
-            "consumed": int(exit_match.group(1), 16) if exit_match else None,
-            "skip": tail.rstrip().endswith("true"),
-        }
-    return found
+CONFIG_DIR = ROOT / "build" / "kmrp" / "kpm-config"
 
 
 def main() -> int:
-    patcher = parse_patcher()
-    # Both installs: the table is checked against every hook either can emit.
-    # Which install gets which hook is BuildConfig's branch, which a regex cannot
-    # see; Test-ControllerSupport.ps1 checks that on real installs, both ways.
-    native = kmrp_controller.installable_hooks()
-    tracked = {h["function"]: h for h in native
-               if not kmrp_controller.is_byte_patch(h)}
-    tracked_bytes = {h["address"]: h for h in native
-                     if kmrp_controller.is_byte_patch(h)}
-    patcher_bytes = parse_byte_patches()
+    parser = argparse.ArgumentParser(description=__doc__.splitlines()[0])
+    parser.add_argument("--config-dir", type=Path, default=CONFIG_DIR)
+    arguments = parser.parse_args()
 
     problems = []
-    missing_bytes = sorted(set(tracked_bytes) - set(patcher_bytes))
-    if missing_bytes:
-        problems.append("the patcher does not emit byte patches at: "
-                        + ", ".join(f"{a:#010x}" for a in missing_bytes))
-    extra_bytes = sorted(set(patcher_bytes) - set(tracked_bytes))
-    if extra_bytes:
-        problems.append("the patcher emits byte patches not in the tracked "
-                        "table: " + ", ".join(f"{a:#010x}" for a in extra_bytes))
-    for address in sorted(set(patcher_bytes) & set(tracked_bytes)):
-        got, want = patcher_bytes[address], tracked_bytes[address]
-        for field in ("original_bytes", "replacement_bytes"):
-            if got[field] != list(want[field]):
-                problems.append(f"{address:#010x}: {field.replace('_', ' ')} differ")
-
-    missing = sorted(set(tracked) - set(patcher))
-    if missing:
-        problems.append(f"the patcher does not emit: {', '.join(missing)}")
-    extra = sorted(set(patcher) - set(tracked))
-    if extra:
-        problems.append(f"the patcher emits hooks not in the tracked table: "
-                        f"{', '.join(extra)}")
-
-    for name in sorted(set(patcher) & set(tracked)):
-        got, want = patcher[name], tracked[name]
-        if got["address"] != want["address"]:
-            problems.append(f"{name}: address {got['address']:#010x} != "
-                            f"{want['address']:#010x}")
-        if got["original_bytes"] != list(want["original_bytes"]):
-            problems.append(f"{name}: stolen bytes differ")
-        if bool(got["skip"]) != bool(want.get("skip_original_bytes")):
-            problems.append(f"{name}: skip_original_bytes "
-                            f"{got['skip']} != {want.get('skip_original_bytes')}")
-        wanted_exit = want.get("consumed_exit_address")
-        if got["consumed"] != wanted_exit:
-            shown = f"{got['consumed']:#010x}" if got["consumed"] else "none"
-            expect = f"{wanted_exit:#010x}" if wanted_exit else "none"
-            problems.append(f"{name}: consumed exit {shown} != {expect}")
+    counts = {}
+    for patch_id in kmrp_controller.KPM_PATCHES:
+        path = arguments.config_dir / f"{patch_id}.toml"
+        if not path.exists():
+            problems.append(f"{path} is missing: run build_kmrp.ps1")
+            continue
+        sections = tomllib.loads(path.read_text(encoding="utf-8")).get("patches", [])
+        if len(sections) != 1 or sections[0].get("id") != patch_id:
+            problems.append(f"{path.name}: not one [[patches]] with id {patch_id}")
+            continue
+        want = sorted((kmrp_controller.normalised(h) for h in kmrp_controller.engine_hooks([patch_id])),
+                      key=lambda h: h["address"])
+        have = sorted((kmrp_controller.normalised(h) for h in sections[0].get("hooks", [])),
+                      key=lambda h: h["address"])
+        if have != want:
+            wanted = {h["address"]: h for h in want}
+            found = {h["address"]: h for h in have}
+            for address in sorted(set(wanted) | set(found)):
+                if wanted.get(address) != found.get(address):
+                    name = (wanted.get(address) or found.get(address)).get("function") or "byte patch"
+                    problems.append(f"{patch_id}: {name} at {address:#010x} "
+                                    f"{'missing' if address not in found else 'extra' if address not in wanted else 'differs'}")
+        dll = f"patches/{patch_id}.dll" if any(h["type"] == "detour" for h in want) else ""
+        if sections[0].get("dll") != dll:
+            problems.append(f"{patch_id}: dll {sections[0].get('dll')!r}, expected {dll!r}")
+        counts[patch_id] = len(want)
 
     if problems:
-        print("Patcher hook table does NOT match kotor1.hooks.toml:")
+        print("The installer's hook table does NOT match kotor1.hooks.toml:")
         for problem in problems:
             print(f"  {problem}")
         return 1
-
-    print(f"Patcher hook table matches the tracked table "
-          f"({len(tracked)} native hooks, addresses, stolen bytes, skip flags "
-          f"and consumed exits all agree; {len(tracked_bytes)} byte patches, "
-          f"addresses and both byte lists all agree).")
+    print(f"The installer's hook table matches kotor1.hooks.toml: "
+          + ", ".join(f"{patch_id} {count}" for patch_id, count in counts.items())
+          + f" -- {sum(counts.values())} hooks, every runtime field, and each patch's module.")
     return 0
 
 

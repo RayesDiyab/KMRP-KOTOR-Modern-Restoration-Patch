@@ -128,11 +128,27 @@ are recorded in `NOTICE.txt` beside the binaries.
 Credit is due to **Saul0097** (controller module), **J** (the expanded keyboard
 patch it builds on) and **Lane Dibello** (KOTOR Patch Manager).
 
-The module is loaded by a statically linked build of **KOTOR Patch Manager** by
-**Lane Dibello and contributors**, commit
-`7d53e52f55622a48ab97001c2680fd9fb59c8f98`, licensed under MIT:
+The module is loaded by **KOTOR Patch Manager**'s runtime, by **Lane Dibello and
+contributors**, licensed under MIT:
 
 https://github.com/LaneDibello/Kotor-Patch-Manager
+
+**Since 2026-09-29** KMRP's installer builds that runtime itself from the
+submodule `third_party/Kotor-Patch-Manager` (commit `17fd051` of the fork
+`RayesDiyab/Kotor-Patch-Manager`, branch `kmrp-engine-fixes`, based on KPM's
+`master`) with `src/kpm-runtime/build.cmd`, and installs two of its binaries:
+`KotorPatcher.dll`, compiled unmodified from `src/KotorPatcher` but statically
+linked, and KPM's `binkw32.dll` proxy, KProxy, compiled unmodified from
+`src/KProxy` ([src/kpm-runtime/README.md](src/kpm-runtime/README.md) has the hashes).
+Beside them it installs the submodule's own `LICENSE` as
+`kmrp-kotor-patch-manager-LICENSE.txt`; its text is identical to the copy
+vendored with Saul0097's package (compared 2026-09-29). The runtime is laid out
+as KPM's own proxy deployment lays out a game folder, which is KPM's design.
+
+**Until 2026-09-29** it was a statically linked build of KOTOR Patch Manager at
+commit `7d53e52f55622a48ab97001c2680fd9fb59c8f98`, shipped as
+`kmrp-controller-runtime.asi` from Saul0097's package and loaded by K1DC's ASI
+loader. The paragraphs below describe that build and are kept as its record.
 
 The MIT text, source revisions, the runtime binary and its hash, KMRP's
 self-module-name patch to the runtime (`KMRP-RUNTIME-PATCH.diff`) and KMRP's
@@ -155,7 +171,8 @@ the module. The phrase occurs once in `7933…`.
 ## KOTOR Patch Manager — the KPM edition
 
 Since 2026-09-28 KMRP also ships as four `.kpatch` files for KOTOR Patch Manager
-itself ([docs/kpm-edition.md](docs/kpm-edition.md)). Three carry KMRP's module
+itself ([docs/kpm-edition.md](docs/kpm-edition.md)); since 2026-09-29 KMRP's own
+installer installs the same four patches on the runtime above. Three carry KMRP's module
 (the same MIT-covered binary described above) and hook tables KMRP wrote; they do
 not carry KPM's runtime, which the player's own KPM supplies. The KMRP patch
 carries the same copies of KPM's three memory-safety fixes the standalone ships

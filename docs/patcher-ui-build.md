@@ -33,13 +33,28 @@ listed here from the 2026-09-25 build (`4EF3C181…`, 145,208,320 bytes):
 | `Kmrp.bundled` | the list of bundled third-party Override files, which yield to the player's own |
 | `Kmrp.license.highresolutionmenus`, `Kmrp.license.drivercompat` | the KOTOR High Resolution Menus GPL notice and K1DC's MPL licence |
 | `Kmrp.drivercompat.dinput8`, `Kmrp.drivercompat.asi` | K1 Modern Driver Compatibility and its ASI loader |
-| `Kmrp.controller.module`, `.runtime`, `.sdl`, `.sdllicense`, `.kpmlicense` | the controller component: KMRP's module, the KPM runtime, SDL 3 and its licence, and KPM's MIT licence |
+| `Kmrp.controller.module`, `.runtime`, `.sdl`, `.sdllicense`, `.kpmlicense` | the controller component: KMRP's module, the KPM runtime, SDL 3 and its licence, and KPM's MIT licence. Since 2026-09-29 `.runtime` and `.kpmlicense` are gone; see below |
 | `Kmrp.brand`, seven `Kmrp.icon.*` | the brand artwork and the UI icons: folder, missing, monitor, Settings, shield, tools, verified |
 
 Until 2026-09-25 each resolution's archive was embedded whole, as
 `Kmrp.override.gui.<W>x<H>`: 70 resources, and 208,672,256 bytes in the last
 such build (`DB9D7A08…`). Why the pool replaced them is under *Changed* in
 `CHANGELOG.md`.
+
+Since 2026-09-29, when the installer moved onto KOTOR Patch Manager's runtime
+([kpm-edition.md](kpm-edition.md), section 1a), it also embeds:
+
+| resource | what |
+| --- | --- |
+| `Kmrp.engine.runtime`, `Kmrp.engine.proxy` | `KotorPatcher.dll` and KProxy's `binkw32.dll`, built from the submodule by `src/kpm-runtime/build.cmd` |
+| `Kmrp.engine.license` | KOTOR Patch Manager's MIT licence, the submodule's `LICENSE` |
+| `Kmrp.engine.config.kmrp`, `.kmrp-controller`, `.kmrp-movies`, `.kmrp-map-notes` | each KMRP patch's `patch_config.toml` section (`tools/build_kpatch.py --config-dir`) |
+| `Kmrp.kpm.relocations`, `Kmrp.kpm.originals` | the relocation table and the unmodified executable's bytes the data file is built from |
+
+and no longer `Kmrp.controller.runtime` or `Kmrp.controller.kpmlicense`, the
+standalone's runtime from Saul0097's package and that package's copy of the
+same licence. The resolution catalog, `Kmrp.resolutions`, has 66 rows since the
+macOS sizes were added the same day.
 
 The supported editable executable is identified by SHA-256
 `761F9466F456A83909036BAEBB5C43167D722387BE66E54617BA20A8C49E9886`.
@@ -568,8 +583,24 @@ parameter` JIT dialog.
 
 ## Executable, DPI, INI, and Override transaction
 
+**Since 2026-09-29** `PatchOperations.ApplyInPlace` calls
+`KpmEditionOperations.Install` (`src/patcher/KpmEdition.cs`), which never writes
+the gold image to `swkotor.exe`. In its order: every check that can refuse --
+the executable (CD 1.03 or Steam's), `swkotor.ini`, an earlier KMRP's backups,
+and, with KMRP's own runtime, the game's `binkw32.dll` -- and the choice of
+install: for KOTOR Patch Manager when its option is on or KPM's runtime is
+already in the folder, otherwise with KMRP's own; then restoring an
+earlier KMRP, or this installer's own earlier install; building `kmrp-kpm.dat`
+from the carried originals; steps 5 to 8 below, unchanged; the data file, SDL
+and the controller settings; with KMRP's own runtime, KOTOR Patch Manager's
+runtime, `patch_config.toml`, the modules and the `binkw32.dll` proxy, the 4 GB
+flag on CD 1.03 and K1DC when it is on; and `KMRP_KPM.manifest`. A failure at any step rolls every earlier one
+back. [kpm-edition.md](kpm-edition.md), section 1a, has the details. The list
+below is the standalone path as it was until then, kept as its record; its
+restore still runs to upgrade an install it made.
+
 The in-place patch path is deliberately conservative. In the order
-`PatchOperations.ApplyInPlace` runs it:
+`PatchOperations.ApplyInPlace` ran it until 2026-09-29:
 
 1. verify the source executable hash and length;
 2. create or verify the executable backup;

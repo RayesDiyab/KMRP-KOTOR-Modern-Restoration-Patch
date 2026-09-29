@@ -27,17 +27,22 @@ temporary directory—not beside tracked sources.
 # Fast patcher compilation using already-generated resources
 .\build_kmrp.ps1 -ReuseResources
 
-# Full 49-resolution resource regeneration and patcher build
+# Full resource regeneration (66 resolutions since 2026-09-29) and patcher build
 .\build_kmrp.ps1
 ```
 
-Both write two editions from the same sources: `dist\KMRP - KOTOR Modern
-Restoration Patch.exe` and `dist\KMRP for KPM\` (the installer compiled with
-`KPM_EDITION`, and the four `.kpatch` files). The relocation step needs Capstone
-(`requirements.txt`) and stops the build if its two methods disagree. Between the
-two compiles the build runs the fresh standalone with `--kpm-sites` and
-`tools/kpm_originals.py`, which stops it if the carried unmodified bytes miss any
-changed byte or resolution field. After a build,
+Both write `dist\KMRP - KOTOR Modern Restoration Patch.exe`, the one installer
+(since 2026-09-29 it also installs for KOTOR Patch Manager; until then a second
+installer, `dist\KMRP for KPM\KMRP for KPM.exe`, compiled with `KPM_EDITION`,
+did), and `dist\KPM patches\`, the four `.kpatch` files. The relocation step
+needs Capstone (`requirements.txt`) and stops the build if its two methods
+disagree. Since 2026-09-29 the build also compiles KOTOR Patch Manager's runtime
+from the submodule (`src\kpm-runtime\build.cmd`, MSVC; `git submodule update
+--init` in a fresh clone), and before the compile runs a small `kmrp-sites.exe` with
+`--kpm-sites` and `tools/kpm_originals.py`, which stops it if the carried
+unmodified bytes miss any changed byte or resolution field, then
+`tools/build_kpatch.py`, which writes the `.kpatch` files and the config sections
+KMRP's installer embeds and checks one against the other. After a build,
 `.\testing\regression\Test-KpmEdition.ps1` proves the editions agree; put Steam's
 unmodified `swkotor.exe` at `build-inputs\swkotor-steam.exe` to include its Steam
 case. Steam-only facts: KPM needs its proxy deployment there, and SteamStub refuses

@@ -9,8 +9,8 @@ and hands the same work to KOTOR Patch Manager, as one patch per fix:
   KMRP.kpatch             id "kmrp", required: the widescreen interface and
                           everything else KMRP always does, including the memory
                           fixes. Its module applies the executable changes in
-                          memory (K1KpmApplier.cpp) from kmrp-kpm.dat, which the
-                          KMRP for KPM installer writes with the Override files.
+                          memory (K1KpmApplier.cpp) from kmrp-kpm.dat, which
+                          KMRP's installer writes with the Override files.
   KMRP Controller.kpatch  id "kmrp-controller": controller support
   KMRP Movies.kpatch      id "kmrp-movies": the movie fixes -- the movie window's
                           two hooks, and the movie changes the core's applier
@@ -92,11 +92,11 @@ PATCHES = [
         "id": "kmrp",
         "name": "KMRP - KOTOR Modern Restoration Patch",
         "description": (
-            "Widescreen and high-resolution interface for KOTOR 1 at 49 resolutions, "
-            "with the 4 GB, texture, grass and save-game memory fixes built in. Needs "
-            "the KMRP for KPM installer, which picks the resolution and installs KMRP's "
-            "interface files. Add KMRP Controller, KMRP Movies and KMRP Map Notes for "
-            "the rest of KMRP."),
+            "Widescreen and high-resolution interface for KOTOR 1 at {resolutions} "
+            "resolutions, with the 4 GB, texture, grass and save-game memory fixes built in. Needs "
+            "KMRP's installer, which picks the resolution and installs KMRP's interface "
+            "files (it installs for KOTOR Patch Manager when KPM manages the game). Add "
+            "KMRP Controller, KMRP Movies and KMRP Map Notes for the rest of KMRP."),
         "requires": [],
         "conflicts": (["hud-minimap-map-size-fix-v1", "scaled-kotor", "4gb-patch"]
                       + kmrp_controller.kpm_same_fix()),
@@ -144,14 +144,24 @@ def toml_list(values) -> str:
     return "[" + ", ".join(toml_string(v) for v in values) + "]"
 
 
-def render_manifest(patch, version: str) -> str:
+def resolution_count(catalog: Path) -> int:
+    """How many resolutions the build made: the rows of its resolutions.tsv, the
+    catalog the installer lists (ResolutionCatalog in KmrpPatcher.cs)."""
+    rows = [line for line in catalog.read_text(encoding="utf-8").splitlines()
+            if line.strip() and not line.startswith("#")]
+    if not rows:
+        raise SystemExit(f"{catalog} lists no resolutions")
+    return len(rows)
+
+
+def render_manifest(patch, version: str, resolutions: int) -> str:
     return "\n".join([
         "[patch]",
         f"id = {toml_string(patch['id'])}",
         f"name = {toml_string(patch['name'])}",
         f"version = {toml_string(version)}",
         'author = "Rayes Diyab (KMRP)"',
-        f"description = {toml_string(patch['description'])}",
+        f"description = {toml_string(patch['description'].format(resolutions=resolutions))}",
         f"requires = {toml_list(patch['requires'])}",
         f"conflicts = {toml_list(patch['conflicts'])}",
         "",
@@ -208,13 +218,42 @@ def render_hooks(hooks, versions=(CD_1_03, STEAM),
     return "\n".join(lines) + "\n"
 
 
-def build(module: Path, out: Path, version: str):
+def module_path(patch_id: str) -> str:
+    """Where KMRP's installer puts a patch's module, relative to the game folder:
+    patches/<id>.dll, as KPM extracts it (PatchApplicator), or "" for a patch
+    without detours, which loads no module."""
+    detours = any(h.get("type", "detour") == "detour"
+                  for h in kmrp_controller.kpm_patch_hooks(patch_id))
+    return f"patches/{patch_id}.dll" if detours else ""
+
+
+def render_config_section(patch_id: str) -> str:
+    """One patch's part of patch_config.toml, as KMRP's installer writes it when it
+    installs KPM's runtime itself: what KPM's ConfigGenerator would write for this
+    patch -- id, module, and the runtime hooks (a static hook is written to the
+    file at install time and is never in the config) -- in the [[patches.hooks]]
+    form the standalone installer wrote. The installer puts target_version_sha
+    first and joins the chosen patches' sections, kmrp's first."""
+    hooks = [kmrp_controller.as_installed(h) for h in kmrp_controller.kpm_patch_hooks(patch_id)]
+    text = (f"[[patches]]\nid = {toml_string(patch_id)}\n"
+            f"dll = {toml_string(module_path(patch_id))}\n")
+    return text + (kmrp_controller.render_patch_hooks(hooks) if hooks else "")
+
+
+def build(module: Path, out: Path, version: str, resolutions: int, config_dir: Path = None):
     out.mkdir(parents=True, exist_ok=True)
     dll = module.read_bytes()
     written = []
+    if config_dir:
+        config_dir.mkdir(parents=True, exist_ok=True)
+        for stale in config_dir.glob("*.toml"):
+            stale.unlink()
+        for patch in PATCHES:
+            (config_dir / f"{patch['id']}.toml").write_bytes(
+                render_config_section(patch["id"]).encode())
     for patch in PATCHES:
         hooks = kmrp_controller.kpm_patch_hooks(patch["id"])
-        entries = [("manifest.toml", render_manifest(patch, version).encode())]
+        entries = [("manifest.toml", render_manifest(patch, version, resolutions).encode())]
         # A patch without hooks carries neither a hooks file nor a module: KPM then
         # lists it, records it in patch_config.toml, and loads nothing for it.
         if hooks:
@@ -411,11 +450,58 @@ def check(folder: Path) -> int:
     return 0
 
 
+normalised = kmrp_controller.normalised
+
+
+def check_config(config_dir: Path, kpatch_dir: Path) -> int:
+    """Each config section, parsed as KotorPatcher parses the joined file, carries
+    exactly its .kpatch's runtime hooks, and names patches/<id>.dll exactly when
+    those hooks include a detour; and the four sections joined load as one
+    patch_config.toml with no address hooked twice."""
+    problems = []
+    joined = 'target_version_sha = "' + CD_1_03 + '"\n'
+    for patch in PATCHES:
+        section = (config_dir / f"{patch['id']}.toml").read_text(encoding="utf-8")
+        joined += "\n" + section
+        parsed = tomllib.loads(section)["patches"]
+        if len(parsed) != 1 or parsed[0].get("id") != patch["id"]:
+            problems.append(f"{patch['id']}.toml: not one [[patches]] with id {patch['id']}")
+            continue
+        with zipfile.ZipFile(kpatch_dir / patch["file"]) as archive:
+            shipped = [h for name in archive.namelist() if name.lower().endswith("hooks.toml")
+                       for h in tomllib.loads(archive.read(name).decode()).get("hooks", [])
+                       if h.get("type", "detour") != "static"]
+        got = sorted((normalised(h) for h in parsed[0].get("hooks", [])), key=lambda h: h["address"])
+        want = sorted((normalised(h) for h in shipped), key=lambda h: h["address"])
+        if got != want:
+            problems.append(f"{patch['id']}.toml: its hooks differ from {patch['file']}'s")
+        detours = any(h["type"] == "detour" for h in want)
+        expected_dll = f"patches/{patch['id']}.dll" if detours else ""
+        if parsed[0].get("dll") != expected_dll:
+            problems.append(f"{patch['id']}.toml: dll {parsed[0].get('dll')!r}, expected {expected_dll!r}")
+    addresses = [h["address"] for p in tomllib.loads(joined)["patches"] for h in p.get("hooks", [])]
+    if len(addresses) != len(set(addresses)):
+        problems.append("the joined config hooks an address twice")
+    if problems:
+        print("KMRP installer config sections FAIL:")
+        for p in problems:
+            print(f"  {p}")
+        return 1
+    print(f"KMRP installer config sections match the .kpatch files: {len(addresses)} hooks in all four")
+    return 0
+
+
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     parser.add_argument("--module", type=Path,
                         default=ROOT / "src" / "controller-native" / "kmrp-controller.module")
     parser.add_argument("--out", type=Path)
+    parser.add_argument("--config-dir", type=Path,
+                        help="also write each patch's patch_config.toml section here, "
+                             "for KMRP's installer")
+    parser.add_argument("--resolutions", type=Path,
+                        default=ROOT / "build" / "kmrp" / "resources" / "resolutions.tsv",
+                        help="the build's resolution catalog, for KMRP's description")
     parser.add_argument("--version", default="1.5.0")
     parser.add_argument("--check", type=Path)
     arguments = parser.parse_args()
@@ -423,10 +509,14 @@ def main() -> int:
         return check(arguments.check)
     if not arguments.out:
         parser.error("--out or --check is required")
-    for target, count in build(arguments.module, arguments.out, arguments.version):
+    for target, count in build(arguments.module, arguments.out, arguments.version,
+                               resolution_count(arguments.resolutions), arguments.config_dir):
         digest = hashlib.sha256(target.read_bytes()).hexdigest().upper()
         print(f"{target.name}: {count} hooks, {target.stat().st_size:,} bytes, {digest[:16]}")
-    return check(arguments.out)
+    status = check(arguments.out)
+    if arguments.config_dir:
+        status |= check_config(arguments.config_dir, arguments.out)
+    return status
 
 
 if __name__ == "__main__":

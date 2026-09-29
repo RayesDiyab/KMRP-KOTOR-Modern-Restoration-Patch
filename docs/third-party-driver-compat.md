@@ -92,13 +92,18 @@ their names and SHA-256 in **`KMRP_DriverCompat.manifest`** beside the executabl
   since install is left in place and reported, so a hand-upgraded K1DC is not deleted.
 * Restore runs on every uninstall regardless of the current setting, so turning the
   option off does not strand the files.
-* **The loader also serves controller support.** `dinput8.dll` is Ultimate ASI
-  Loader (ThirteenAG, v9.7.4, unmodified -- K1DC's own `THIRD-PARTY-NOTICES` says
-  so) and loads every `.asi` in the folder. So with driver compatibility off and
-  controller support on, `DriverCompatOperations.Apply` installs the loader alone,
-  and the manifest records only it. Apply restores before it installs, so switching
-  from both options to controller only removes `k1-modern-driver-compatibility.asi`
-  rather than leaving the loader to keep loading it.
+* **The loader no longer serves anything else** (since 2026-09-29). `dinput8.dll`
+  is Ultimate ASI Loader (ThirteenAG, v9.7.4, unmodified -- K1DC's own
+  `THIRD-PARTY-NOTICES` says so) and loads every `.asi` in the folder. Until that
+  day KMRP's runtime was an `.asi` it loaded, so with driver compatibility off
+  `DriverCompatOperations.Apply` installed the loader alone. KMRP's runtime is now
+  KOTOR Patch Manager's, loaded by KPM's `binkw32.dll` proxy
+  ([kpm-edition.md](kpm-edition.md), section 1a), so K1DC's two files install
+  together, with the option on, or not at all.
+* **On Steam's executable too.** K1DC's README lists the GOG, Steam and CD 1.0.3
+  releases. Seen on 2026-09-29 in the maintainer's Steam test install, beside
+  KMRP's new install: its log gave `hooks installed=8/8`, and the menus drew.
+  Not played further there.
 
 ## 4. The compatibility check
 

@@ -129,8 +129,9 @@ def main() -> int:
             icons = [p for p in override.iterdir() if p.name.startswith(("i_", "ip_")) and p.name not in expected]
             if len(icons) < 200:
                 failures.append(f"{size}: only {len(icons)} enlarged ability icons")
-            # The eight skill icons, 32 px in the pack, at round(32s), at most 64; both sizes
-            # here are past 720, so all eight must be there.
+            # The eight skill icons, 32 px in the pack, on a canvas of round(32s), at most 64
+            # (the picture inside is smaller; Test-AbilityIcons.py checks it); all eight
+            # must be there.
             height = int(size.split("x")[1])
             want = min(round(32 * height / 720), 64)
             skills = {p.name: struct.unpack_from("<HH", p.read_bytes(), 12)

@@ -1,11 +1,12 @@
 #!/usr/bin/env python3
 """The unmodified executable's bytes the KPM edition needs, and nothing more.
 
-The KMRP for KPM installer builds kmrp-kpm.dat from the unmodified executable and
-the gold delta (src/patcher/KpmEdition.cs). It cannot read that executable from
+KMRP's installer builds kmrp-kpm.dat from the unmodified executable and the gold
+delta (src/patcher/KpmEdition.cs). (Until 2026-09-29 the KMRP for KPM installer
+did, and the standalone installer did not use it.) It cannot read that executable from
 Steam's swkotor.exe: its code is encrypted on disk and decrypted only when the game
-runs, into bytes identical to CD 1.03's (measured 2026-09-28). So both editions
-carry the CD 1.03 bytes the data file is built from, as every KOTOR Patch Manager
+runs, into bytes identical to CD 1.03's (measured 2026-09-28). So the installer
+carries the CD 1.03 bytes the data file is built from, as every KOTOR Patch Manager
 patch carries the original bytes of the sites it hooks:
 
   * the PE header, file offsets 0x000-0xFFF, for the section table the data file

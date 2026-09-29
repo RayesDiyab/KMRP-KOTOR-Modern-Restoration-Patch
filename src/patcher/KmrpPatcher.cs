@@ -2058,37 +2058,21 @@ namespace Kmrp
             }
         }
 
-        /// <summary>The two options are independent, and this is what makes them so.
+        /// <summary>Write the loader and K1DC's payload into the game folder, unless
+        /// something already occupies one of those names that we did not put there.
         ///
-        /// `dinput8.dll` is Ultimate ASI Loader (ThirteenAG, unmodified; see the notices in
-        /// K1DC's folder), and it loads every `.asi` beside the game -- K1DC's payload and
-        /// KMRP's runtime alike. KMRP's runtime installs on every patch since 2026-09-28
-        /// (it carries the memory-safety fixes, mouse confinement and the movie bars, not
-        /// only the controller), so the loader always installs, and K1DC's own `.asi`
-        /// only when driver compatibility is on. Until 2026-09-24 the settings page
-        /// forced driver compatibility on with the controller instead.
-        ///
-        /// Always restores first: turning driver compatibility off must remove K1DC's
-        /// `.asi`, or the loader would go on loading it.</summary>
-        internal static void Apply(string executablePath, bool driverCompatibility,
-            Action<string> report)
-        {
-            Restore(executablePath, report);
-            Install(executablePath, report, driverCompatibility);
-        }
-
-        /// <summary>Write the loader, and K1DC's payload when `includePayload`, into the
-        /// game folder, unless something already occupies one of those names that we did
-        /// not put there.</summary>
-        internal static void Install(string executablePath, Action<string> report,
-            bool includePayload = true)
+        /// Until 2026-09-29 the loader also installed on its own, with driver
+        /// compatibility off, because KMRP's runtime was an .asi it loaded. KMRP's
+        /// runtime is KOTOR Patch Manager's now, loaded by KPM's binkw32.dll proxy
+        /// (KpmEditionOperations), so K1DC's two files install together or not at
+        /// all.</summary>
+        internal static void Install(string executablePath, Action<string> report)
         {
             if (!Available)
                 return;
             string folder = Path.GetDirectoryName(Path.GetFullPath(executablePath));
             List<InstalledFile> installed = new List<InstalledFile>();
-            // The loader is FileNames[0]; the payload, FileNames[1].
-            int count = includePayload ? FileNames.Length : 1;
+            int count = FileNames.Length;
 
             for (int i = 0; i < count; i++)
             {
@@ -2118,12 +2102,8 @@ namespace Kmrp
             }
 
             WriteManifest(executablePath, installed);
-            if (includePayload)
-                SafeReport(report, "Installed K1 Modern Driver Compatibility " + Version +
-                    " (by Synchro). swkotor.exe was not modified.");
-            else
-                SafeReport(report, "Installed the ASI loader for KMRP's runtime; " +
-                    "Modern Driver Compatibility itself stays off.");
+            SafeReport(report, "Installed K1 Modern Driver Compatibility " + Version +
+                " (by Synchro). swkotor.exe was not modified.");
         }
 
         /// <summary>Remove both files, if we installed them and nothing has changed them
@@ -2209,16 +2189,17 @@ namespace Kmrp
         }
     }
 
-    /// <summary>Installs KMRP's runtime through KMRP's existing ASI loader: the MIT
-    /// KOTOR Patch Manager hook engine, KMRP's module (derived from Saul0097's
-    /// author-approved KPM Xbox Controls K1 1.2) and the hook table.
+    /// <summary>Removes the runtime the standalone installer installed through
+    /// K1DC's ASI loader until 2026-09-29: a statically linked KOTOR Patch Manager
+    /// runtime (kmrp-controller-runtime.asi), KMRP's module, SDL, the KPM licence and
+    /// a one-patch patch_config.toml, recorded in KMRP_Controller.manifest. KMRP's
+    /// installer replaces such an install (PatchOperations.RestoreStandalone calls
+    /// Restore here); it installs KOTOR Patch Manager's runtime itself instead
+    /// (KpmEditionOperations). The file and class names still say "controller"
+    /// because they predate the runtime carrying more than the controller.
     ///
-    /// Since 2026-09-28 it installs on every patch. The controller option decides only
-    /// which hooks the table carries (BuildConfig): the core ones -- memory safety,
-    /// mouse confinement, the movie bars -- go in either way. The file and class names
-    /// still say "controller" because they predate the split, and renaming them would
-    /// orphan older installs' manifests. Nothing here writes to swkotor.exe: the hooks
-    /// are applied in memory when the game starts.</summary>
+    /// The controller's own settings file is still installed, by
+    /// KpmEditionOperations, from SettingsName and DefaultSettings here.</summary>
     internal static class ControllerOperations
     {
         private sealed class InstalledFile
@@ -2227,19 +2208,13 @@ namespace Kmrp
             internal string Hash;
         }
 
-        // The last pair is the MIT licence of KOTOR Patch Manager, which covers the
-        // runtime, the module derived from Saul0097's KPM Xbox Controls, and the
-        // memory-safety patches in patch_config.toml. MIT asks for the notice to go
-        // with every copy, and until 2026-09-25 the installer shipped those copies
-        // without it. Keep it last: BuildConfig names the module as FileNames[1].
-        private static readonly string[] ResourceNames =
-            { "Kmrp.controller.runtime", "Kmrp.controller.module", "Kmrp.controller.sdl",
-              "Kmrp.controller.sdllicense", "Kmrp.controller.kpmlicense" };
+        // What the standalone installer wrote, and a manifest line may name: the
+        // runtime, the module, SDL and its licence, KOTOR Patch Manager's MIT licence,
+        // patch_config.toml and the settings file.
         private static readonly string[] FileNames =
             { "kmrp-controller-runtime.asi", "kmrp-controller.module", "kmrp-sdl3.dll",
               "kmrp-sdl3-LICENSE.txt", "kmrp-kotor-patch-manager-LICENSE.txt" };
         private const string ConfigName = "patch_config.toml";
-        internal const string Version = "1.2";
 
         // The controller's own settings, read by the module (src/controller-native/
         // K1Rumble.cpp). Unlike every other file here it is the PLAYER'S to edit,
@@ -2276,113 +2251,18 @@ namespace Kmrp
                                 "KMRP_Controller.manifest");
         }
 
-        internal static bool Available
+        /// <summary>Whether the standalone installer's runtime wrote this file and it is
+        /// still as written: its restore will remove it.</summary>
+        internal static bool Owns(string executablePath, string name)
         {
-            get
-            {
-                for (int i = 0; i < ResourceNames.Length; i++)
-                    using (Stream stream = Assembly.GetExecutingAssembly()
-                               .GetManifestResourceStream(ResourceNames[i]))
-                        if (stream == null)
-                            return false;
-                return true;
-            }
-        }
-
-        internal static void Install(string executablePath, string executableHash,
-            bool controllerSupport, Action<string> report)
-        {
-            // The runtime is not essential to the patch, so every reason it cannot
-            // install is reported and skipped rather than thrown. Throwing aborted the
-            // whole patch: a user who happened to have a `patch_config.toml` from any
-            // other KPM mod got no fonts, no GUI archives and no executable patch either,
-            // with a .NET stack trace as the only explanation. DriverCompatOperations.Install
-            // has always declined this way; this now matches it.
-            if (!Available)
-            {
-                SafeReport(report, "KMRP's runtime was not installed: this build does " +
-                    "not carry its resources.");
-                return;
-            }
-
-            string folder = Path.GetDirectoryName(Path.GetFullPath(executablePath));
-            if (!File.Exists(Path.Combine(folder, "dinput8.dll")))
-            {
-                SafeReport(report, "KMRP's runtime was not installed: its ASI loader " +
-                    "(dinput8.dll) is not present.");
-                return;
-            }
-
-            List<string> allNames = new List<string>(FileNames);
-            allNames.Add(ConfigName);
-            foreach (string name in allNames)
-            {
-                string target = Path.Combine(folder, name);
-                // Never clobber a file we did not write. `patch_config.toml` in particular
-                // belongs to whichever KPM mod created it, and overwriting it would break
-                // that mod silently.
-                if (File.Exists(target) && !WasInstalledByUs(executablePath, name, target))
-                {
-                    SafeReport(report, "Left the existing " + name + " alone; KMRP's " +
-                        "runtime (controller support, memory-safety fixes, mouse " +
-                        "confinement, movie bars) was not installed.");
-                    return;
-                }
-            }
-
-            List<InstalledFile> installed = new List<InstalledFile>();
-            try
-            {
-                for (int i = 0; i < FileNames.Length; i++)
-                {
-                    string target = Path.Combine(folder, FileNames[i]);
-                    using (Stream stream = Assembly.GetExecutingAssembly()
-                               .GetManifestResourceStream(ResourceNames[i]))
-                    using (FileStream output = File.Create(target))
-                        stream.CopyTo(output);
-                    installed.Add(new InstalledFile
-                        { Name = FileNames[i], Hash = GoldPatch.HashFile(target) });
-                }
-
-                string configPath = Path.Combine(folder, ConfigName);
-                File.WriteAllText(configPath, BuildConfig(executableHash, controllerSupport),
-                    new UTF8Encoding(false));
-                installed.Add(new InstalledFile
-                    { Name = ConfigName, Hash = GoldPatch.HashFile(configPath) });
-
-                // Read the manifest before WriteManifest replaces it: whether the
-                // settings file is still ours is decided against the old record.
-                string settingsPath = Path.Combine(folder, SettingsName);
-                if (!File.Exists(settingsPath) ||
-                    WasInstalledByUs(executablePath, SettingsName, settingsPath))
-                {
-                    File.WriteAllText(settingsPath, DefaultSettings, new UTF8Encoding(false));
-                    installed.Add(new InstalledFile
-                        { Name = SettingsName, Hash = GoldPatch.HashFile(settingsPath) });
-                }
-                else
-                {
-                    SafeReport(report, "Kept your " + SettingsName + " settings.");
-                }
-                WriteManifest(executablePath, installed);
-            }
-            catch
-            {
-                foreach (InstalledFile record in installed)
-                {
-                    string target = Path.Combine(folder, record.Name);
-                    if (File.Exists(target) && GoldPatch.HashFile(target) == record.Hash)
-                        File.Delete(target);
-                }
-                throw;
-            }
-
-            if (controllerSupport)
-                SafeReport(report, "Installed controller support " + Version +
-                    " and KMRP's runtime fixes through the KOTOR Patch Manager runtime.");
-            else
-                SafeReport(report, "Installed KMRP's runtime fixes (memory safety, mouse " +
-                    "confinement, movie bars); controller support is off.");
+            string manifestPath = ManifestPath(executablePath);
+            if (!File.Exists(manifestPath))
+                return false;
+            string target = Path.Combine(Path.GetDirectoryName(Path.GetFullPath(executablePath)), name);
+            foreach (InstalledFile record in ReadManifest(manifestPath))
+                if (String.Equals(record.Name, name, StringComparison.OrdinalIgnoreCase))
+                    return File.Exists(target) && GoldPatch.HashFile(target) == record.Hash;
+            return false;
         }
 
         internal static void Restore(string executablePath, Action<string> report)
@@ -2412,322 +2292,6 @@ namespace Kmrp
             if (kept > 0)
                 SafeReport(report, "Left " + kept +
                     " runtime file(s) in place because they changed after install.");
-        }
-
-        private static string BuildConfig(string executableHash, bool controllerSupport)
-        {
-            StringBuilder text = new StringBuilder();
-            text.Append("target_version_sha = \"").Append(executableHash).Append("\"\r\n\r\n");
-            text.Append("[[patches]]\r\nid = \"kmrp-xbox-controls-k1\"\r\n")
-                .Append("dll = \"").Append(FileNames[1]).Append("\"\r\n");
-            // Two sets, from the `install` key in src/controller-native/
-            // kotor1.hooks.toml (tools/kmrp_controller.py derives them, and
-            // Test-ControllerSupport.ps1 checks both installs against it):
-            //
-            //   * the core, installed with or without controller support since
-            //     2026-09-28 -- until then turning the controller off took the
-            //     memory-safety fixes, mouse confinement and the movie bars with it;
-            //   * the controller's own hooks, only with the option on.
-            //
-            // The core goes FIRST. KPM's runtime applies the table in order and
-            // stops at the first hook that fails, so nothing a controller hook
-            // does wrong can keep the core from applying.
-
-            // Two hooks exist only to black the movie window. The grey flash
-            // at either end of a movie is the "SWMovieWindow" class, which
-            // InitializeMovie registers with hbrBackground NULL; see
-            // src/controller-native/kotor1.hooks.toml for the addresses that
-            // show it.
-            AppendHook(text, "0x0040554B", "8B, 0D, F8, 39, 7A, 00",
-                "NativeMovieWindowOpenK1", new[] { "esi" }, new[] { "pointer" });
-            AppendHook(text, "0x00404BB0", "83, EC, 7C, 56, 8B, F1",
-                "NativeMovieWindowCloseK1", new[] { "ecx" }, new[] { "pointer" });
-            // Memory safety, adopted from the Kotor Patch Manager project
-            // (VexFlint). Not controller hooks: KMRP loads far more textures and
-            // data than vanilla, which is what makes an unbounded write and a
-            // double free start to matter.
-            //
-            // Bytes copied verbatim from KPM rather than re-derived, so this is
-            // the behaviour reviewed there. See
-            // reverse-engineering/experiments/texture-bucket-overrun.md.
-
-            // Three 5000-entry bucket arrays are indexed by driver-assigned GL
-            // texture names with no range check. Saturate the id getter...
-            AppendBytePatch(text, "0x0041FEB5",
-                "C3, 90, 90, 90, 90",
-                "3D, 88, 13, 00, 00, 72, 05, B8, 87, 13, 00, 00, C3");
-            // ...and range-check the indexed write, rejoining at 0x0046BEB1 so
-            // shadow casting is preserved for an out-of-range part.
-            AppendBytePatch(text, "0x0046BE64",
-                "8D, 34, 40, 8B, 04, B5, E8, 94, 81, 00",
-                "3D, 88, 13, 00, 00, 72, 13, A1, BC, BF, 7F, 00, 8B, 0D, B8, " +
-                "BF, 7F, 00, 3B, C8, 68, B1, BE, 46, 00, C3, 8D, 34, 40, 8B, " +
-                "04, B5, E8, 94, 81, 00");
-
-            // CreateArrays stores one allocation in both 0x38 and 0x3C, and two
-            // paths free each of them. Zero the argument when it aliases 0x38;
-            // free() guards NULL, so that is a safe no-op.
-            AppendBytePatch(text, "0x004A847C",
-                "8B, 56, 3C, 52, E8, 0B, 1F, 25, 00",
-                "8B, 56, 3C, 3B, 56, 38, 75, 02, 33, D2, 52, B8, 90, A3, 6F, " +
-                "00, FF, D0");
-            AppendBytePatch(text, "0x004A8380",
-                "8B, 46, 3C, 50, E8, 07, 20, 25, 00",
-                "8B, 46, 3C, 3B, 46, 38, 75, 02, 33, C0, 50, B9, 90, A3, 6F, " +
-                "00, FF, D1");
-
-            // Every save leaks one buffer per resource written:
-            // CERFFile::WriteResource hands the buffer to the writer and then
-            // abandons it. Adopted from KPM's SaveGameMemoryLeak (Lane Dibello).
-            AppendHook(text, "0x005DDE32", "8B, 8B, C0, 00, 00, 00",
-                "NativeFreeSaveBufferK1", new[] { "esi" }, new[] { "pointer" });
-
-            if (!controllerSupport)
-            {
-                // Without the controller, two of its sites carry a core stand-in
-                // instead (install = "no-controller"): the GUI frame confines the
-                // mouse (issue #20) and fits the status summary to KMRP's larger
-                // text, and the movie frame paints the bars beside a narrow movie.
-                // With the controller on, NativeGuiFrameK1 and NativeMovieFrameK1
-                // hold these sites and do all of that themselves.
-                AppendHook(text, "0x0040CE70", "51, 53, 55, 56, 8B, E9",
-                    "CoreGuiFrameK1", new[] { "ecx" }, new[] { "pointer" });
-                AppendHook(text, "0x00404D96", "8B, 46, 48, 8B, 48, 08",
-                    "CoreMovieFrameK1", new[] { "esi" }, new[] { "pointer" });
-                return text.ToString();
-            }
-
-            // The native hook table, generated from src/controller-native/kotor1.hooks.toml
-            // and kept in step with it by tools/check_controller_drift.py.
-            //
-            // This replaces Saul0097's eight legacy detours rather than joining
-            // them: four of these addresses (0x005E271E, 0x0040C1F6, 0x00686BA0,
-            // 0x00404D96) are the same sites his module hooked, and the module
-            // shipped here now exports both sets, with the native ones doing the
-            // work. See docs/controller-handover-plan.md for which legacy parts
-            // the native path replaces and which it keeps.
-            //
-            // Every entry's stolen bytes are position-independent, or are skipped
-            // so they are never re-executed; tools/check_hook_stolen_bytes.py
-            // asserts that and must stay green if any address here changes.
-            AppendHook(text, "0x005E24E0", "6A, FF, 68, FD, 48, 72, 00",
-                "NativeJoystickInitK1", new[] { "ecx" }, new[] { "pointer" });
-            // Two hooks DECLINE the original code rather than run beside it, so
-            // they skip the stolen bytes and name the address KPM jumps to when
-            // the handler returns non-zero. Both steal a relative branch, which a
-            // trampoline may not re-execute -- skipping is what makes them legal.
-            AppendHook(text, "0x005E30F6", "89, 5C, 24, 2C, 74, 0F",
-                "NativeJoystickBufferK1", new[] { "esi" }, new[] { "pointer" },
-                new[] { "eax" }, "0x005E319B", true);
-            AppendHook(text, "0x00679940", "D9, 05, 64, D7, 73, 00",
-                "NativeJoystickMovementK1", new[] { "ecx" }, new[] { "pointer" });
-            AppendHook(text, "0x00679B71", "E8, BA, 15, E3, FF",
-                "NativeJoystickSkipNormalizeK1", new[] { "ecx" }, new[] { "pointer" },
-                new[] { "eax" }, "0x00679B76", true);
-            AppendHook(text, "0x0040CE70", "51, 53, 55, 56, 8B, E9",
-                "NativeGuiFrameK1", new[] { "ecx" }, new[] { "pointer" });
-            // Two more that decline, but these keep their stolen bytes: both are
-            // ordinary loads. They consume A only when Cancel holds focus, and
-            // exit into the panel's own 0x28 handler, so A on Cancel closes the
-            // panel exactly as B does instead of running its confirm action.
-            // A on Cancel in the two panels that answer A themselves: rewritten
-            // to B at the handler's entry. No consumed exit -- KPM runs stolen
-            // bytes before its TEST EAX, which is how the old Solo hook
-            // consumed every A. See kotor1.hooks.toml.
-            AppendHook(text, "0x006C2400", "8B, 54, 24, 08, 85, D2",
-                "ResolveSoloModeConfirmK1", new[] { "ecx", "esp+4", "esp+8" },
-                new[] { "pointer", "pointer", "pointer" });
-            AppendHook(text, "0x006E0CF0", "55, 8B, EC, 83, E4, F8",
-                "ResolveResolutionConfirmK1", new[] { "ecx", "esp+4", "esp+8" },
-                new[] { "pointer", "pointer", "pointer" });
-            // Character creation and level-up: A on the five panels that answer A
-            // themselves and then pass it to the focused control, whose click can
-            // raise A on the panel again -- a stack overflow with OK focused. Same
-            // shape as the two above; see kotor1.hooks.toml.
-            AppendHook(text, "0x006F8880", "53, 8B, 5C, 24, 08",
-                "GuardAbilitiesConfirmK1", new[] { "ecx", "esp+4", "esp+8" },
-                new[] { "pointer", "pointer", "pointer" });
-            AppendHook(text, "0x006F6A10", "53, 8B, 5C, 24, 08",
-                "GuardSkillsConfirmK1", new[] { "ecx", "esp+4", "esp+8" },
-                new[] { "pointer", "pointer", "pointer" });
-            AppendHook(text, "0x006F4680", "53, 8B, 5C, 24, 0C",
-                "GuardFeatsConfirmK1", new[] { "ecx", "esp+4", "esp+8" },
-                new[] { "pointer", "pointer", "pointer" });
-            AppendHook(text, "0x006F28C0", "53, 8B, 5C, 24, 0C",
-                "GuardPowersConfirmK1", new[] { "ecx", "esp+4", "esp+8" },
-                new[] { "pointer", "pointer", "pointer" });
-            AppendHook(text, "0x006F8FF0", "53, 8B, 5C, 24, 08",
-                "GuardPortraitConfirmK1", new[] { "ecx", "esp+4", "esp+8" },
-                new[] { "pointer", "pointer", "pointer" });
-            // Name entry: the release of the A that opened it confirmed the name.
-            AppendHook(text, "0x006FA220", "53, 8B, 5C, 24, 08",
-                "GuardNameConfirmK1", new[] { "ecx", "esp+4", "esp+8" },
-                new[] { "pointer", "pointer", "pointer" });
-            // The echo guard, on every panel: CSWGuiPanel::HandleInputEvent never
-            // hands an event to a focused control that would only press it back.
-            AppendHook(text, "0x00409E60", "8B, 49, 1C, 85, C9",
-                "GuardPanelEchoK1", new[] { "ecx", "esp+4", "esp+8" },
-                new[] { "pointer", "pointer", "pointer" });
-            AppendHook(text, "0x006039CF", "A1, E0, 39, 7A, 00, 8B, 48, 04",
-                "NativeCameraFrameK1", new[] { "esi" }, new[] { "pointer" });
-            AppendHook(text, "0x00404D96", "8B, 46, 48, 8B, 48, 08",
-                "NativeMovieFrameK1", new[] { "esi" }, new[] { "pointer" });
-            // The engine still runs the Xbox build's rumble subsystem and ends
-            // it in DirectInput force feedback, which the invented pad cannot
-            // receive. This carries the magnitudes to XInput instead.
-            // The fourth parameter is UpdateRumble's frame-time argument, which
-            // drives the mixer's clock. Decimal: KPM parses the offset with stoi,
-            // so "esp+0x18" would silently read esp+0.
-            AppendHook(text, "0x005F7617", "68, C0, 27, 09, 00",
-                "NativeRumbleK1", new[] { "eax", "ecx", "ebp", "esp+24" },
-                new[] { "int", "int", "pointer", "pointer" });
-            // Rumble and haptics (src/controller-native/K1Rumble.cpp). Every
-            // pattern the engine starts is played by KMRP's mixer: the play hook
-            // declines the engine's own queue, exiting at PlayRumblePattern's
-            // `return 0`, which is what the shipped PC game always returned.
-            // The rest only observe. See docs/controller-rumble.md.
-            AppendHook(text, "0x005FB49F", "3B, A9, 44, 03, 00, 00",
-                "NativeRumblePlayK1", new[] { "ecx", "ebp" }, new[] { "pointer", "int" },
-                new[] { "eax" }, "0x005FB536");
-            AppendHook(text, "0x005F74B0", "56, 8B, B1, 50, 03, 00, 00",
-                "NativeRumbleStopK1", new[] { "ecx", "esp+4" }, new[] { "pointer", "pointer" });
-            AppendHook(text, "0x005FB98E", "0F, B6, 45, 0C, 83, E8, 00",
-                "NativeRumbleCutoffK1", new[] { "ebp" }, new[] { "pointer" });
-            AppendHook(text, "0x00646BA0", "A1, FC, 39, 7A, 00, 56",
-                "NativeSaberPowerK1", new[] { "ecx", "esp+4" }, new[] { "pointer", "pointer" });
-            AppendHook(text, "0x0060DE20", "83, EC, 1C, 56, 8B, F1",
-                "NativeSaberContactK1", new[] { "ecx" }, new[] { "pointer" });
-            AppendHook(text, "0x0063C4F0", "51, 8B, 49, 68, 85, C9",
-                "NativeParryK1", new[] { "ecx" }, new[] { "pointer" });
-            AppendHook(text, "0x006D4440", "53, 8B, 5C, 24, 08, 56",
-                "NativeMuzzleFlashK1", new[] { "ecx" }, new[] { "pointer" });
-            AppendHook(text, "0x00617EB0", "64, A1, 00, 00, 00, 00",
-                "NativeMeleeHitK1", new[] { "esp+12" }, new[] { "pointer" });
-            AppendHook(text, "0x00686BA0", "53, 56, 57, 8B, F1",
-                "NativeActionBarK1", new[] { "ecx" }, new[] { "pointer" });
-            // CSWGuiPanel::ReleaseGff, called last by all 68 panel
-            // constructors. It deletes the parsed .gui, so it is the final
-            // instant at which a control can be bound by tag -- which is how
-            // the R3 party-switch cue exists at all. The handler ignores every
-            // panel that is not one of the four party screens. See
-            // reverse-engineering/custom-gui-controls.md.
-            AppendHook(text, "0x0040B8F0", "56, 8B, F1, F6, 46, 44, 02",
-                "NativePanelReleaseGffK1", new[] { "ecx" }, new[] { "pointer" });
-            // The one legacy-owned hook the native path REQUIRES. Its action
-            // bar helpers cache the interface in g_mainInterface every frame,
-            // and this is the only thing that clears it -- it is hooked on
-            // CSWGuiMainInterface's destructor. Without it the cache dangles
-            // the moment a save is loaded over a loaded game, and the next GUI
-            // frame walks freed memory: measured at 0x611E4B30 dereferencing a
-            // freed 0x14D31F38, called from NativeGuiFrameK1.
-            AppendHook(text, "0x0068B170", "6A, FF, 68, B0, F7, 72, 00",
-                "ClearActionBarControlsK1", new[] { "ecx" }, new[] { "pointer" });
-            AppendHook(text, "0x005E271E", "8B, 84, 24, E4, 00, 00, 00",
-                "NativeNoteKeyboardK1", new[] { "eax", "edx" },
-                new[] { "pointer", "int" });
-            AppendHook(text, "0x0040C1F6", "89, 1E, 89, 7E, 04",
-                "NativeNoteMouseK1", new[] { "esi", "ebx", "edi" },
-                new[] { "pointer", "int", "int" });
-            return text.ToString();
-        }
-
-        private static void AppendHook(StringBuilder text, string address, string bytes,
-            string function, string[] sources, string[] types)
-        {
-            AppendHook(text, address, bytes, function, sources, types, null, null, false);
-        }
-
-        /// <summary>
-        /// A hook that writes bytes rather than calling into the module: no
-        /// function, no parameters. The runtime writes `replacement_bytes` and,
-        /// for a `replace`, jumps to a cave -- so the replacement may be longer
-        /// than the original, which is why these are not `simple` hooks.
-        /// </summary>
-        private static void AppendBytePatch(StringBuilder text, string address,
-            string originalBytes, string replacementBytes)
-        {
-            text.Append("\r\n[[patches.hooks]]\r\naddress = ").Append(address)
-                .Append("\r\ntype = \"replace\"\r\noriginal_bytes = [");
-            AppendByteList(text, originalBytes);
-            text.Append("]\r\nreplacement_bytes = [");
-            AppendByteList(text, replacementBytes);
-            text.Append("]\r\nexclude_from_restore = []\r\n");
-        }
-
-        private static void AppendByteList(StringBuilder text, string bytes)
-        {
-            string[] values = bytes.Split(new[] { ", " }, StringSplitOptions.None);
-            for (int i = 0; i < values.Length; i++)
-            {
-                if (i > 0) text.Append(", ");
-                text.Append("0x").Append(values[i]);
-            }
-        }
-
-        private static void AppendHook(StringBuilder text, string address, string bytes,
-            string function, string[] sources, string[] types,
-            string[] exclude, string consumedExitAddress)
-        {
-            AppendHook(text, address, bytes, function, sources, types,
-                exclude, consumedExitAddress, false);
-        }
-
-        /// <summary>
-        /// `exclude` names registers the handler is allowed to change, and
-        /// `consumedExitAddress` is where KPM transfers control when the handler
-        /// returns non-zero in EAX. Together they let a hook DECLINE the original
-        /// code rather than only run beside it, which is what the focus hook
-        /// needs: correcting focus afterwards always draws one wrong frame first.
-        /// </summary>
-        private static void AppendHook(StringBuilder text, string address, string bytes,
-            string function, string[] sources, string[] types,
-            string[] exclude, string consumedExitAddress, bool skipOriginalBytes)
-        {
-            string[] values = bytes.Split(new[] { ", " }, StringSplitOptions.None);
-            text.Append("\r\n[[patches.hooks]]\r\naddress = ").Append(address)
-                .Append("\r\ntype = \"detour\"\r\nfunction = \"").Append(function)
-                .Append("\"\r\noriginal_bytes = [");
-            for (int i = 0; i < values.Length; i++)
-            {
-                if (i > 0) text.Append(", ");
-                text.Append("0x").Append(values[i]);
-            }
-            text.Append("]\r\nskip_original_bytes = ")
-                .Append(skipOriginalBytes ? "true" : "false")
-                .Append("\r\nexclude_from_restore = [");
-            if (exclude != null)
-                for (int i = 0; i < exclude.Length; i++)
-                {
-                    if (i > 0) text.Append(", ");
-                    text.Append("\"").Append(exclude[i]).Append("\"");
-                }
-            text.Append("]\r\n");
-            if (!String.IsNullOrEmpty(consumedExitAddress))
-                text.Append("consumed_exit_address = ").Append(consumedExitAddress).Append("\r\n");
-            for (int i = 0; i < sources.Length; i++)
-                text.Append("[[patches.hooks.parameters]]\r\nsource = \"")
-                    .Append(sources[i]).Append("\"\r\ntype = \"")
-                    .Append(types[i]).Append("\"\r\n");
-        }
-
-        private static bool WasInstalledByUs(string executablePath, string name, string target)
-        {
-            string manifestPath = ManifestPath(executablePath);
-            if (!File.Exists(manifestPath))
-                return false;
-            foreach (InstalledFile record in ReadManifest(manifestPath))
-                if (String.Equals(record.Name, name, StringComparison.OrdinalIgnoreCase))
-                    return GoldPatch.HashFile(target) == record.Hash;
-            return false;
-        }
-
-        private static void WriteManifest(string executablePath, List<InstalledFile> files)
-        {
-            StringBuilder text = new StringBuilder();
-            text.Append("version\t").Append(Version).Append("\r\n");
-            foreach (InstalledFile record in files)
-                text.Append(record.Name).Append('\t').Append(record.Hash).Append("\r\n");
-            File.WriteAllText(ManifestPath(executablePath), text.ToString(), new UTF8Encoding(false));
         }
 
         private static List<InstalledFile> ReadManifest(string manifestPath)
@@ -3662,13 +3226,14 @@ namespace Kmrp
             return targetPath + ".kotor-ui-patch.json";
         }
 
+        // The installer installs through KpmEditionOperations since 2026-09-29, and
+        // does not rewrite swkotor.exe. The *Standalone members below are how an
+        // install by the standalone installer, which did, is recognised and restored
+        // before the installer replaces it.
+
         internal static string Describe(string targetPath)
         {
-#if KPM_EDITION
             return KpmEditionOperations.Describe(targetPath);
-#else
-            return DescribeStandalone(targetPath);
-#endif
         }
 
         internal static string DescribeStandalone(string targetPath)
@@ -3687,9 +3252,6 @@ namespace Kmrp
                 if (IsVerifiedPatchedInstall(targetPath, hash) ||
                     (info.Length == GoldPatch.TargetLength && hash == GoldPatch.TargetHash))
                     return "Game is already patched";
-                if (hash == GoldPatch.SteamHash)
-                    return "Steam's swkotor.exe — Steam refuses to start it if it is patched. " +
-                        "Use KMRP for KPM, which supports it, or the editable 1.03 swkotor.exe.";
                 return "This executable is not supported. No files were changed.";
             }
             catch (Exception ex)
@@ -3700,16 +3262,11 @@ namespace Kmrp
 
         internal static ExecutableState Inspect(string targetPath)
         {
-#if KPM_EDITION
             return KpmEditionOperations.Inspect(targetPath);
-#else
-            return InspectStandalone(targetPath);
-#endif
         }
 
-        /// <summary>The executable as the standalone installer sees it. The KPM
-        /// edition asks this too: a game the standalone installer patched is one it
-        /// must not touch.</summary>
+        /// <summary>The executable as the standalone installer saw it: Gold is an
+        /// install of its, SupportedClean the CD 1.03 executable it accepted.</summary>
         internal static ExecutableState InspectStandalone(string targetPath)
         {
             if (String.IsNullOrWhiteSpace(targetPath) || !File.Exists(targetPath))
@@ -3733,18 +3290,14 @@ namespace Kmrp
 
         internal static bool CanRestore(string targetPath)
         {
-#if KPM_EDITION
             return KpmEditionOperations.CanRestore(targetPath);
-#else
-            return CanRestoreStandalone(targetPath);
-#endif
         }
 
-        private static bool CanRestoreStandalone(string targetPath)
+        internal static bool CanRestoreStandalone(string targetPath)
         {
             try
             {
-                if (Inspect(targetPath) != ExecutableState.Gold)
+                if (InspectStandalone(targetPath) != ExecutableState.Gold)
                     return false;
                 string executableBackup = BackupPath(targetPath);
                 return File.Exists(executableBackup) &&
@@ -3770,139 +3323,7 @@ namespace Kmrp
         internal static void ApplyInPlace(string targetPath, int width, int height, Action<string> report,
             Action<int, string> progress)
         {
-#if KPM_EDITION
             KpmEditionOperations.Install(targetPath, width, height, report, progress);
-#else
-            ApplyStandalone(targetPath, width, height, report, progress);
-#endif
-        }
-
-        private static void ApplyStandalone(string targetPath, int width, int height, Action<string> report,
-            Action<int, string> progress)
-        {
-            SafeProgress(progress, 0, "Preparing game files…");
-            targetPath = Path.GetFullPath(targetPath);
-            RequireExistingFile(targetPath);
-            ResolutionChoice resolution = ResolutionCatalog.Find(width, height);
-
-            string currentHash = GoldPatch.HashFile(targetPath);
-            SafeProgress(progress, 5, "Checking game files…");
-            if (Inspect(targetPath) == ExecutableState.Gold)
-            {
-                int installedWidth;
-                int installedHeight;
-                if (TryReadInstalledResolution(targetPath, out installedWidth, out installedHeight) &&
-                    (installedWidth != width || installedHeight != height))
-                    throw new InvalidOperationException("Restore the current interface first, then patch the new resolution.");
-
-                // A sidecar that matches the bytes on disk proves only that nothing has
-                // edited the executable since this patcher wrote it -- not that those bytes
-                // came from *this* build. Reinstalling a newer KMRP over an older one used
-                // to be skipped on that evidence alone: the sidecar was rewritten to say the
-                // install was current while the old executable stayed exactly as it was.
-                // Recompute what this build would produce from the clean backup and compare;
-                // anything else is an earlier build and has to come out before this goes in.
-                if (IsCurrentBuildInstall(targetPath, currentHash, resolution))
-                {
-                    RefreshInstalledResolution(targetPath, resolution, width, height, currentHash, report, progress);
-                    return;
-                }
-
-                SafeProgress(progress, 6, "Removing the earlier build…");
-                SafeReport(report, "The installed files came from an earlier build of this patcher. " +
-                    "Restoring the original game files before applying this one.");
-                Restore(targetPath, report, null);
-                currentHash = GoldPatch.HashFile(targetPath);
-                if (!GoldPatch.IsSupportedSourceFile(targetPath))
-                    throw new InvalidDataException("The earlier build could not be removed, so no changes were made.");
-            }
-            if (!GoldPatch.IsSupportedSourceFile(targetPath))
-                throw new InvalidDataException(currentHash == GoldPatch.SteamHash
-                    ? "This is Steam's swkotor.exe, which Steam refuses to start once it is patched. " +
-                      "No changes were made. Use KMRP for KPM, which supports it, or the editable 1.03 swkotor.exe."
-                    : "This swkotor.exe is not supported. No changes were made.");
-            if (!File.Exists(IniOperations.PathForExecutable(targetPath)))
-                throw new FileNotFoundException(
-                    "swkotor.ini was not found beside swkotor.exe. Launch the game once or place the INI in the game folder before patching.",
-                    IniOperations.PathForExecutable(targetPath));
-
-            string backupPath = BackupPath(targetPath);
-            if (File.Exists(backupPath))
-            {
-                if (!GoldPatch.IsSupportedSourceFile(backupPath) ||
-                    GoldPatch.HashFile(backupPath) != currentHash)
-                    throw new InvalidDataException("The existing backup is not the exact supported input executable. Move it aside before patching:\r\n" + backupPath);
-            }
-            else
-            {
-                SafeProgress(progress, 7, "Creating a safety backup…");
-                File.Copy(targetPath, backupPath, false);
-                if (GoldPatch.HashFile(backupPath) != currentHash)
-                    throw new IOException("Backup verification failed. No patch was applied.");
-                SafeReport(report, "Backup created: " + backupPath);
-            }
-
-            string temporaryPath = targetPath + ".kotor-ui-new-" + Guid.NewGuid().ToString("N") + ".tmp";
-            bool installed = false;
-            IniEditState iniState = null;
-            DpiCompatibilityEditState dpiState = null;
-            NvidiaPresentEditState nvidiaState = null;
-            OverrideEditState overrideState = null;
-            try
-            {
-                SafeProgress(progress, 10, "Updating the game executable…");
-                GoldPatch patch = GoldPatch.Load();
-                byte[] source = File.ReadAllBytes(targetPath);
-                byte[] target = patch.Apply(source, resolution);
-                string targetHash = GoldPatch.HashBytes(target);
-                WriteVerifiedFile(temporaryPath, target, targetHash);
-                FileGuard.Replace(temporaryPath, targetPath);
-                installed = true;
-
-                if (GoldPatch.HashFile(targetPath) != targetHash)
-                    throw new IOException("Post-install verification failed.");
-
-                SafeProgress(progress, 15, "Updating display settings…");
-                dpiState = DpiCompatibilityOperations.Install(targetPath, report);
-                nvidiaState = NvidiaPresentOperations.Install(targetPath, report);
-                iniState = IniOperations.Configure(targetPath, width, height, report);
-                overrideState = OverrideOperations.Install(targetPath, resolution, report, progress);
-                DriverCompatOperations.Apply(targetPath, KmrpSettings.DriverCompatibility,
-                    report);
-                ControllerOperations.Install(targetPath, targetHash,
-                    KmrpSettings.ControllerSupport, report);
-                SafeProgress(progress, 98, "Saving patch information…");
-                WriteManifest(targetPath, backupPath, false, width, height, targetHash);
-                SafeProgress(progress, 100, "Patch complete");
-                SafeReport(report, "KOTOR is ready to play at " +
-                    width.ToString(CultureInfo.InvariantCulture) + " × " +
-                    height.ToString(CultureInfo.InvariantCulture) + ".");
-            }
-            catch
-            {
-                try { ControllerOperations.Restore(targetPath, report); }
-                catch { }
-                try { DriverCompatOperations.Restore(targetPath, report); }
-                catch { }
-                OverrideOperations.Rollback(overrideState);
-                try { IniOperations.Rollback(iniState); }
-                catch { }
-                try { DpiCompatibilityOperations.Rollback(dpiState); }
-                catch { }
-                NvidiaPresentOperations.Rollback(nvidiaState);
-                if (installed && File.Exists(backupPath))
-                {
-                    File.Copy(backupPath, targetPath, true);
-                    if (GoldPatch.HashFile(targetPath) != GoldPatch.HashFile(backupPath))
-                        throw new IOException("Patch failed and automatic rollback could not be completed. Use the backup at: " + backupPath);
-                }
-                throw;
-            }
-            finally
-            {
-                if (File.Exists(temporaryPath))
-                    File.Delete(temporaryPath);
-            }
         }
 
         internal static void ApplyToNewFile(string sourcePath, string outputPath, int width, int height)
@@ -3928,14 +3349,10 @@ namespace Kmrp
 
         internal static void Restore(string targetPath, Action<string> report, Action<int, string> progress)
         {
-#if KPM_EDITION
             KpmEditionOperations.Restore(targetPath, report, progress);
-#else
-            RestoreStandalone(targetPath, report, progress);
-#endif
         }
 
-        private static void RestoreStandalone(string targetPath, Action<string> report, Action<int, string> progress)
+        internal static void RestoreStandalone(string targetPath, Action<string> report, Action<int, string> progress)
         {
             SafeProgress(progress, 0, "Preparing to restore…");
             targetPath = Path.GetFullPath(targetPath);
@@ -3956,7 +3373,7 @@ namespace Kmrp
                 SafeReport(report, "The original game files and settings have been restored.");
                 return;
             }
-            if (Inspect(targetPath) != ExecutableState.Gold)
+            if (InspectStandalone(targetPath) != ExecutableState.Gold)
                 throw new InvalidDataException("The current executable was not created by this patcher. Restore was blocked to protect it.");
 
             string backupPath = BackupPath(targetPath);
@@ -4065,120 +3482,6 @@ namespace Kmrp
             File.WriteAllText(ManifestPath(targetPath), json, new UTF8Encoding(false));
         }
 
-        // The refresh path for an install this build already produced: the executable is
-        // already the right bytes, so only the INI and the override files are rewritten.
-        private static void RefreshInstalledResolution(string targetPath, ResolutionChoice resolution,
-            int width, int height, string currentHash, Action<string> report, Action<int, string> progress)
-        {
-            IniEditState existingIniState = null;
-            DpiCompatibilityEditState existingDpiState = null;
-            NvidiaPresentEditState existingNvidiaState = null;
-            OverrideEditState existingOverrideState = null;
-            try
-            {
-                SafeProgress(progress, 12, "Updating display settings…");
-                existingDpiState = DpiCompatibilityOperations.Install(targetPath, report);
-                existingNvidiaState = NvidiaPresentOperations.Install(targetPath, report);
-                existingIniState = IniOperations.Configure(targetPath, width, height, report);
-                existingOverrideState = OverrideOperations.Install(targetPath, resolution, report, progress);
-                DriverCompatOperations.Apply(targetPath, KmrpSettings.DriverCompatibility,
-                    report);
-                // Install rewrites the manifest, so switching the controller option
-                // either way needs no Restore first: the hook table is regenerated.
-                ControllerOperations.Install(targetPath, currentHash,
-                    KmrpSettings.ControllerSupport, report);
-                SafeProgress(progress, 98, "Saving patch information…");
-                WriteManifest(targetPath, BackupPath(targetPath), false, width, height, currentHash);
-                SafeProgress(progress, 100, "Patch complete");
-                SafeReport(report, "KOTOR is ready to play at " +
-                    width.ToString(CultureInfo.InvariantCulture) + " × " +
-                    height.ToString(CultureInfo.InvariantCulture) + ".");
-            }
-            catch
-            {
-                try { ControllerOperations.Restore(targetPath, report); }
-                catch { }
-                try { DriverCompatOperations.Restore(targetPath, report); }
-                catch { }
-                OverrideOperations.Rollback(existingOverrideState);
-                try { IniOperations.Rollback(existingIniState); }
-                catch { }
-                try { DpiCompatibilityOperations.Rollback(existingDpiState); }
-                catch { }
-                NvidiaPresentOperations.Rollback(existingNvidiaState);
-                throw;
-            }
-        }
-
-        // True when the bytes on disk are the ones this build would write for this
-        // resolution. The authoritative test rebuilds them from the clean backup, so it
-        // never has to trust the sidecar about which build wrote the file. Throws when the
-        // install is known to come from a different build but the backup needed to replace
-        // it is gone: that cannot be repaired in place, and calling such an install current
-        // is exactly what let a stale executable survive a reinstall.
-        private static bool IsCurrentBuildInstall(string targetPath, string actualHash, ResolutionChoice resolution)
-        {
-            string expectedHash;
-            if (TryComputeCurrentBuildHash(targetPath, resolution, out expectedHash))
-                return String.Equals(expectedHash, actualHash, StringComparison.OrdinalIgnoreCase);
-
-            string recordedGold = ReadManifestGoldTarget(targetPath);
-            if (recordedGold.Length != 0 &&
-                !String.Equals(recordedGold, GoldPatch.TargetHash, StringComparison.OrdinalIgnoreCase))
-                throw new InvalidDataException("The installed interface came from a different build of this " +
-                    "patcher, and the clean backup needed to replace it is missing or unusable. Reinstall the " +
-                    "original swkotor.exe, then patch again.");
-
-            // Nothing to rebuild from and nothing saying the build differs: leave the
-            // install alone rather than tearing down something that may well be correct.
-            return true;
-        }
-
-        // Applies this build's gold delta and resolution constants to the verified clean
-        // backup, giving the hash the installed executable must have. False when there is
-        // no usable backup to compute it from.
-        private static bool TryComputeCurrentBuildHash(string targetPath, ResolutionChoice resolution,
-            out string expectedHash)
-        {
-            expectedHash = String.Empty;
-            try
-            {
-                string backupPath = BackupPath(targetPath);
-                if (!File.Exists(backupPath) || new FileInfo(backupPath).Length != GoldPatch.SourceLength)
-                    return false;
-                byte[] source = File.ReadAllBytes(backupPath);
-                byte[] normalized;
-                if (!PeCompatibility.TryNormalizeSupportedSource(source, out normalized))
-                    return false;
-                expectedHash = GoldPatch.HashBytes(GoldPatch.Load().Apply(source, resolution));
-                return true;
-            }
-            catch
-            {
-                return false;
-            }
-        }
-
-        // The gold hash of the build that last patched this install, or an empty string
-        // when the sidecar is missing, unreadable, or predates the field.
-        private static string ReadManifestGoldTarget(string targetPath)
-        {
-            try
-            {
-                string manifestPath = ManifestPath(targetPath);
-                if (!File.Exists(manifestPath))
-                    return String.Empty;
-                Match value = Regex.Match(File.ReadAllText(manifestPath, Encoding.UTF8),
-                    "\\\"goldTargetSha256\\\"\\s*:\\s*\\\"([0-9A-Fa-f]{64})\\\"",
-                    RegexOptions.CultureInvariant);
-                return value.Success ? value.Groups[1].Value : String.Empty;
-            }
-            catch
-            {
-                return String.Empty;
-            }
-        }
-
         private static bool IsVerifiedPatchedInstall(string targetPath, string actualHash)
         {
             try
@@ -4212,14 +3515,10 @@ namespace Kmrp
 
         internal static bool TryReadInstalledResolution(string targetPath, out int width, out int height)
         {
-#if KPM_EDITION
             return KpmEditionOperations.TryReadInstalledResolution(targetPath, out width, out height);
-#else
-            return TryReadInstalledResolutionStandalone(targetPath, out width, out height);
-#endif
         }
 
-        private static bool TryReadInstalledResolutionStandalone(string targetPath, out int width, out int height)
+        internal static bool TryReadInstalledResolutionStandalone(string targetPath, out int width, out int height)
         {
             width = 0;
             height = 0;
@@ -5797,6 +5096,7 @@ namespace Kmrp
         private static bool driverCompatibility = DriverCompatibilityDefault;
         private static bool markerFixes = MarkerFixesDefault;
         private static bool controllerSupport = ControllerSupportDefault;
+        private static bool patchManager;
         // The newer version the player asked not to be reminded of again, or "".
         private static string skippedUpdate = "";
 
@@ -5841,10 +5141,10 @@ namespace Kmrp
         ///
         /// Since 2026-09-28 this switches only the controller's own hooks: KMRP's
         /// runtime and its core hooks (memory safety, mouse confinement, movie bars)
-        /// install either way; see ControllerOperations.BuildConfig.
+        /// install either way. Since 2026-09-29 it decides whether KMRP's installer
+        /// installs the KMRP Controller patch (KpmEditionOperations.InstallEngine).
         ///
-        /// Independent of DriverCompatibility since 2026-09-24. Both need the ASI loader,
-        /// which DriverCompatOperations.Apply installs on every patch, so neither option
+        /// Independent of DriverCompatibility since 2026-09-24, so neither option
         /// sets the other -- here, in the settings page, or when settings are loaded.
         /// The coupling lived in all three places, and removing only the page's copy
         /// left Load() turning driver compatibility back on.</summary>
@@ -5857,6 +5157,25 @@ namespace Kmrp
                 if (controllerSupport == value)
                     return;
                 controllerSupport = value;
+                Save();
+            }
+        }
+
+        /// <summary>Install for KOTOR Patch Manager: KMRP's files only, with the player
+        /// ticking KMRP's .kpatch files in KPM, instead of installing KPM's runtime
+        /// here. Off by default; the installer also chooses it by itself for a game
+        /// folder where KOTOR Patch Manager's runtime is already installed
+        /// (KpmEditionOperations.ManagedByPatchManager). Until 2026-09-29 this was a
+        /// separate installer, KMRP for KPM.</summary>
+        internal static bool PatchManager
+        {
+            get { Load(); return patchManager; }
+            set
+            {
+                Load();
+                if (patchManager == value)
+                    return;
+                patchManager = value;
                 Save();
             }
         }
@@ -5906,6 +5225,12 @@ namespace Kmrp
                 if (controller.Success)
                     controllerSupport = String.Equals(controller.Groups[1].Value, "true",
                         StringComparison.OrdinalIgnoreCase);
+                Match manager = Regex.Match(json,
+                    "\\\"kotorPatchManager\\\"\\s*:\\s*(true|false)",
+                    RegexOptions.IgnoreCase | RegexOptions.CultureInvariant);
+                if (manager.Success)
+                    patchManager = String.Equals(manager.Groups[1].Value, "true",
+                        StringComparison.OrdinalIgnoreCase);
                 Match skipped = Regex.Match(json,
                     "\\\"skippedUpdate\\\"\\s*:\\s*\\\"([0-9.]{1,32})\\\"",
                     RegexOptions.CultureInvariant);
@@ -5929,7 +5254,9 @@ namespace Kmrp
                     "  \"markerFixes\": " +
                     (markerFixes ? "true" : "false") + ",\r\n" +
                     "  \"controllerSupport\": " +
-                    (controllerSupport ? "true" : "false") +
+                    (controllerSupport ? "true" : "false") + ",\r\n" +
+                    "  \"kotorPatchManager\": " +
+                    (patchManager ? "true" : "false") +
                     (skippedUpdate.Length > 0
                         ? ",\r\n  \"skippedUpdate\": \"" + skippedUpdate + "\""
                         : "") +
@@ -6322,11 +5649,7 @@ namespace Kmrp
             }
         }
 
-#if KPM_EDITION
-        internal const string AppName = "KOTOR Modern Restoration Patch for KOTOR Patch Manager";
-#else
         internal const string AppName = "KOTOR Modern Restoration Patch";
-#endif
         internal const string ShortName = "KMRP";
         // Derived, not restated: this said "v1.0.0" while PatchVersion and the
         // file's own version said 1.5.0, a second copy nobody updated.
@@ -6375,6 +5698,7 @@ namespace Kmrp
         private readonly OptionToggle driverToggle;
         private readonly OptionToggle markerToggle;
         private readonly OptionToggle controllerToggle;
+        private readonly OptionToggle patchManagerToggle;
         private readonly List<Control> mainViewControls = new List<Control>();
         private Timer fadeTimer;
         private FadeOverlay fadeOverlay;
@@ -6663,7 +5987,7 @@ namespace Kmrp
 
             Label settingsSubtitle = new Label();
             settingsSubtitle.Text =
-                "Choose optional components. All three are on by default, and each "
+                "Choose optional components. The first three are on by default, and each "
                 + "can be turned off on its own.";
             settingsSubtitle.Font = new Font("Segoe UI", 14F);
             settingsSubtitle.ForeColor = UiTheme.TextMuted;
@@ -6681,9 +6005,10 @@ namespace Kmrp
             driverToggle.Checked = KmrpSettings.DriverCompatibility;
             driverToggle.SetBounds(36, settingsSubtitle.Bottom + 18, card.Width - 72, 86);
             driverToggle.Anchor = AnchorStyles.Top | AnchorStyles.Left | AnchorStyles.Right;
-            // Independent of the controller since 2026-09-24. The ASI loader installs on
-            // every patch since 2026-09-28, for KMRP's runtime; this option adds only
-            // K1DC's own .asi (DriverCompatOperations.Apply).
+            // Independent of the controller since 2026-09-24. This option installs
+            // K1DC's ASI loader and its .asi together (DriverCompatOperations.Install);
+            // KMRP's runtime needs neither since 2026-09-29, when it moved to KOTOR
+            // Patch Manager's binkw32.dll proxy.
             driverToggle.CheckedChanged += delegate
             {
                 KmrpSettings.DriverCompatibility = driverToggle.Checked;
@@ -6720,19 +6045,34 @@ namespace Kmrp
                 KmrpSettings.ControllerSupport = controllerToggle.Checked;
             };
             settingsView.Controls.Add(controllerToggle);
-#if KPM_EDITION
-            // In the KPM edition every option is a patch of its own, ticked in KOTOR
-            // Patch Manager, so there is nothing left to choose here.
-            driverToggle.Visible = false;
-            controllerToggle.Visible = false;
-            markerToggle.Visible = false;
-            settingsSubtitle.Text =
-                "In KMRP for KPM each option is a patch of its own. Tick KMRP Controller, "
-                + "KMRP Movies and KMRP Map Notes in KOTOR Patch Manager, and Synchro's "
-                + "Modern Driver Compatibility if you want it.";
-            settingsSubtitle.TextAlign = ContentAlignment.TopLeft;
-            settingsSubtitle.Height = 120;
-#endif
+
+            // Since 2026-09-29 the one installer also serves KOTOR Patch Manager, which
+            // until then took a separate one, KMRP for KPM. Off by default; a folder that
+            // already holds KPM's runtime is installed for it regardless
+            // (KpmEditionOperations). The other three are then patches ticked in KPM.
+            patchManagerToggle = new OptionToggle();
+            patchManagerToggle.Title = "KOTOR Patch Manager";
+            patchManagerToggle.Author = "Lane Dibello";
+            patchManagerToggle.Detail =
+                "Install for KOTOR Patch Manager and tick KMRP's patches there. Automatic when KPM manages the game.";
+            patchManagerToggle.Checked = KmrpSettings.PatchManager;
+            patchManagerToggle.Anchor = AnchorStyles.Top | AnchorStyles.Left | AnchorStyles.Right;
+            patchManagerToggle.CheckedChanged += delegate
+            {
+                KmrpSettings.PatchManager = patchManagerToggle.Checked;
+            };
+            settingsView.Controls.Add(patchManagerToggle);
+
+            // Four rows since the fourth arrived: 78 px apart by 6, where three were 86
+            // by 8, so all four end above the button row (card.Height - 116). The two
+            // lines of text in a row need about 70 px.
+            OptionToggle[] toggles = { driverToggle, markerToggle, controllerToggle, patchManagerToggle };
+            int toggleTop = settingsSubtitle.Bottom + 12;
+            foreach (OptionToggle toggle in toggles)
+            {
+                toggle.SetBounds(36, toggleTop, card.Width - 72, 78);
+                toggleTop += 78 + 6;
+            }
 
             // Two actions, sharing the row the single Back button used to have. Restore
             // Defaults is Subtle so Back stays the obvious way out.
@@ -6746,15 +6086,14 @@ namespace Kmrp
             settingsDefaults.Anchor = AnchorStyles.Top | AnchorStyles.Left;
             settingsDefaults.Click += delegate
             {
-                // The documented defaults: all three on (KmrpSettings).
+                // The documented defaults: the three components on, and KMRP's own
+                // runtime rather than KOTOR Patch Manager's (KmrpSettings).
                 driverToggle.Checked = true;
                 markerToggle.Checked = true;
                 controllerToggle.Checked = true;
+                patchManagerToggle.Checked = false;
             };
             settingsView.Controls.Add(settingsDefaults);
-#if KPM_EDITION
-            settingsDefaults.Visible = false;
-#endif
 
             PillButton settingsBack = new PillButton();
             settingsBack.Text = "Back";
@@ -7971,19 +7310,17 @@ namespace Kmrp
 
             if (state == ExecutableState.Gold)
             {
-#if KPM_EDITION
-                SetState(applyState, "Installed", UiTheme.Success);
-                lastDetail = "Now tick KMRP in KOTOR Patch Manager, with the patches it requires, then Apply and Launch.";
-#else
                 SetState(applyState, "Patched successfully", UiTheme.Success);
                 int readyWidth;
                 int readyHeight;
-                lastDetail = PatchOperations.TryReadInstalledResolution(target, out readyWidth, out readyHeight)
-                    ? "KOTOR is ready to play at " +
-                        readyWidth.ToString(CultureInfo.InvariantCulture) + " × " +
-                        readyHeight.ToString(CultureInfo.InvariantCulture) + "."
-                    : "KOTOR is ready to play.";
-#endif
+                if (KpmEditionOperations.IsInstalledForPatchManager(target))
+                    lastDetail = "Installed for KOTOR Patch Manager. Tick KMRP's patches there, then Apply and Launch.";
+                else
+                    lastDetail = PatchOperations.TryReadInstalledResolution(target, out readyWidth, out readyHeight)
+                        ? "KOTOR is ready to play at " +
+                            readyWidth.ToString(CultureInfo.InvariantCulture) + " × " +
+                            readyHeight.ToString(CultureInfo.InvariantCulture) + "."
+                        : "KOTOR is ready to play.";
             }
             else if (executableReady && iniExists)
             {

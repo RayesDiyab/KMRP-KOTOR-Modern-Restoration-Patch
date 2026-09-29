@@ -284,7 +284,10 @@ installed icon instead (the same `64s` for every listed set: all 66 checked).
 **Feat, power and skill icons.** The engine draws them at their texture's size in rows
 that grow with `s`. `kmrp-abilityicons` enlarges every uncompressed square `i_*` and `ip_*`
 texture of the game's `swpc_tex_gui.erf` to `round(50s) − 4`, and the eight `isk_*` skill
-icons to `round(32s)`, each at most twice its size, as `AbilityIconGenerator.cs` does on
+icons to a canvas of `round(32s)`, each at most twice its size -- the skill picture inside it
+`round(0.62 × 42s)`, centred and moved `(round(−0.5s), round(−2s))` to the frame opening's
+centre, so it sits inside its frame (since 2026-09-29; before, it filled the canvas and covered
+the frame's border) -- as `AbilityIconGenerator.cs` does on
 Windows, byte for byte (`Test-AbilityIcons.py`: 2,688 icons at 10 heights, both slices).
 Without them the feat and power icons stayed 32 px in 136 px frames at 3024x1964 (seen
 2026-09-29), and the skill icons 32 px in rows of 115 (`42s`; reported from play the same

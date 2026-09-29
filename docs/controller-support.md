@@ -35,8 +35,8 @@ describe that first version now say so.
 
 | Component | Exact source | Local output |
 | --- | --- | --- |
-| Controller module | KMRP's sources in `src/controller-native/`, with `scopeking0117-alt/KPM-Xbox-Controls-K1` at commit `78e7eaa3b9554ec0e6732f749424dc916f3a1895` as modified by KMRP (`KMRP-CONTROLLER-MODULE.diff`) | `kmrp-controller.module`, 181,248 bytes, SHA-256 `AC2C41EC4C935B19EFF4693E3FBB43D176D28C5B37DE0CDC2C706F72379652C9` in the 2026-09-24 installer; 204,288 bytes, SHA-256 `E52826A2724038E765DFD45B86171160A017E054E346E29CF4A1CE5D0F74DE21` in the haptics hardware-test installer `C796489A…`; 204,800 bytes, SHA-256 `577AAE92D0FE18766EDEC669C54959A0213BA1618030F4E1B0EED92E4D9CC251` in `D58A2E33…`, `7C2FFF8B…` and `AD3DC07D…` (X and Y in combat, the dialogue A moved); 205,824 bytes, SHA-256 `32F018CFE3D93AE9C9C5F4D20DDCB85FE422DD09EECAC798F13263F03BA43E9C` in `E5AFC981…` (the dialogue A from the drawn layout); 206,336 bytes, SHA-256 `628D4DC244535E26E4EBD81F4DC4710691A60CC19A6885735F66AF551BB10F90` in `EC98B10F…` (the character-creation A guard); 209,408 bytes, SHA-256 `B7307208D5C2B93B86821DC9746E39EEE8C84B17D09919AD7EFD4171D37E0D59` in `1720E0C1…` (character-creation badges, Attributes/Skills navigation); 209,920 bytes, SHA-256 `B28A80F7B635595A59651458E2D35AB20145BCD62EBC5DFC3DE4CDF72696B43B` in `DB9D7A08…` (Feats' A/X swap, name-entry guard, dialogue A adjustment) and `4EF3C181…` (the same module; the resolution layouts pooled); 216,576 bytes, SHA-256 `36D23D9B89039E2FB16C69CF3676F919676B2DDD2482E8DFC14C7794E51819C9` in `D407BF3A…` (settings: Y on Default, D-pad on −/+ rows and arrow glyphs; Pazaak's wager; the dialogue A on its line; the status summary's layout); 217,600 bytes, SHA-256 `D13FF3CBAC051905AC7FBF6620659E65B8A17D69B05836465761FE020A5A55E1` in `63E7AAB9…` (the status summary's A), `1419AD0471ED85AA6C8825480FA0493B82C36B28D96959DD9129F32986FF5809` in `B5D3CBB7…` (the D-pad kept off its OK), `42426D92AEF3738A66753060734801EAB2AC91AA5E705320E02C263522F7D5D9` in `49671B67…` (the line spacing misread) and `CB61BF176471DA5E24E415CFFAD4B90E501D01A0FB524D9FBE9FA216AF988020` in `80616FE6…` (the line spacing counted); 218,112 bytes, SHA-256 `C19CC7725DCBBDAF79E76AADA9F0139CC9A06C2D7759A259AC186F190C424A8C` in `128CDC79…` (Level Up, Auto Level Up and the skill-info notice badges; the D-pad kept off the Character screen); 217,600 bytes, SHA-256 `69E1811B33EFB36284A1D4CA2CA35D972EC5BEE521E763D46051BB40A254941A` in `9736B41F…` (the echo guard on every panel; the −/+ arrows keep their art); 217,600 bytes, SHA-256 `AF223C4D4542B4A983EF4D1137C08AB4AA7F6C999DD7D2C3402DE2DD3BC2D312` in `C77F7640…` (the core stand-ins; the runtime on every patch); 236,544 bytes, SHA-256 `57E68A912782D6CDEDC083A07D29A73AF878CC99A03E03F043C98FD706DC91E0` in `D6E40FAF…` and the KPM edition (the applier, [kpm-edition.md](kpm-edition.md)); 241,664 bytes, SHA-256 `0C89C330245F752A303A22D5B731C2E16D19D4731078413B195F01C71972E955` in `125DEA64…` and the four-patch KPM edition (the core's frames handing over to KMRP Controller's; the movie bars KMRP Movies'); 245,248 bytes, SHA-256 `4B1131DABC4550D5F4F18B2C52EE93291E8350C2B35FA2A5215660A0F4C13AD3` in `603DC45D…` and the KPM edition with Steam support (the applier accepts Steam's executable and pauses the game's threads while writing) |
-| Hook runtime | `LaneDibello/Kotor-Patch-Manager`, commit `7d53e52f55622a48ab97001c2680fd9fb59c8f98` | `kmrp-controller-runtime.asi`, 338,432 bytes, SHA-256 `F5CF2A21E4C28DA95CD8DAAF2704F871A6105616BFE250361929C61BCDB43B45` |
+| Controller module | KMRP's sources in `src/controller-native/`, with `scopeking0117-alt/KPM-Xbox-Controls-K1` at commit `78e7eaa3b9554ec0e6732f749424dc916f3a1895` as modified by KMRP (`KMRP-CONTROLLER-MODULE.diff`) | `kmrp-controller.module`, 181,248 bytes, SHA-256 `AC2C41EC4C935B19EFF4693E3FBB43D176D28C5B37DE0CDC2C706F72379652C9` in the 2026-09-24 installer; 204,288 bytes, SHA-256 `E52826A2724038E765DFD45B86171160A017E054E346E29CF4A1CE5D0F74DE21` in the haptics hardware-test installer `C796489A…`; 204,800 bytes, SHA-256 `577AAE92D0FE18766EDEC669C54959A0213BA1618030F4E1B0EED92E4D9CC251` in `D58A2E33…`, `7C2FFF8B…` and `AD3DC07D…` (X and Y in combat, the dialogue A moved); 205,824 bytes, SHA-256 `32F018CFE3D93AE9C9C5F4D20DDCB85FE422DD09EECAC798F13263F03BA43E9C` in `E5AFC981…` (the dialogue A from the drawn layout); 206,336 bytes, SHA-256 `628D4DC244535E26E4EBD81F4DC4710691A60CC19A6885735F66AF551BB10F90` in `EC98B10F…` (the character-creation A guard); 209,408 bytes, SHA-256 `B7307208D5C2B93B86821DC9746E39EEE8C84B17D09919AD7EFD4171D37E0D59` in `1720E0C1…` (character-creation badges, Attributes/Skills navigation); 209,920 bytes, SHA-256 `B28A80F7B635595A59651458E2D35AB20145BCD62EBC5DFC3DE4CDF72696B43B` in `DB9D7A08…` (Feats' A/X swap, name-entry guard, dialogue A adjustment) and `4EF3C181…` (the same module; the resolution layouts pooled); 216,576 bytes, SHA-256 `36D23D9B89039E2FB16C69CF3676F919676B2DDD2482E8DFC14C7794E51819C9` in `D407BF3A…` (settings: Y on Default, D-pad on −/+ rows and arrow glyphs; Pazaak's wager; the dialogue A on its line; the status summary's layout); 217,600 bytes, SHA-256 `D13FF3CBAC051905AC7FBF6620659E65B8A17D69B05836465761FE020A5A55E1` in `63E7AAB9…` (the status summary's A), `1419AD0471ED85AA6C8825480FA0493B82C36B28D96959DD9129F32986FF5809` in `B5D3CBB7…` (the D-pad kept off its OK), `42426D92AEF3738A66753060734801EAB2AC91AA5E705320E02C263522F7D5D9` in `49671B67…` (the line spacing misread) and `CB61BF176471DA5E24E415CFFAD4B90E501D01A0FB524D9FBE9FA216AF988020` in `80616FE6…` (the line spacing counted); 218,112 bytes, SHA-256 `C19CC7725DCBBDAF79E76AADA9F0139CC9A06C2D7759A259AC186F190C424A8C` in `128CDC79…` (Level Up, Auto Level Up and the skill-info notice badges; the D-pad kept off the Character screen); 217,600 bytes, SHA-256 `69E1811B33EFB36284A1D4CA2CA35D972EC5BEE521E763D46051BB40A254941A` in `9736B41F…` (the echo guard on every panel; the −/+ arrows keep their art); 217,600 bytes, SHA-256 `AF223C4D4542B4A983EF4D1137C08AB4AA7F6C999DD7D2C3402DE2DD3BC2D312` in `C77F7640…` (the core stand-ins; the runtime on every patch); 236,544 bytes, SHA-256 `57E68A912782D6CDEDC083A07D29A73AF878CC99A03E03F043C98FD706DC91E0` in `D6E40FAF…` and the KPM edition (the applier, [kpm-edition.md](kpm-edition.md)); 241,664 bytes, SHA-256 `0C89C330245F752A303A22D5B731C2E16D19D4731078413B195F01C71972E955` in `125DEA64…` and the four-patch KPM edition (the core's frames handing over to KMRP Controller's; the movie bars KMRP Movies'); 245,248 bytes, SHA-256 `4B1131DABC4550D5F4F18B2C52EE93291E8350C2B35FA2A5215660A0F4C13AD3` in `603DC45D…` and the KPM edition with Steam support (the applier accepts Steam's executable and pauses the game's threads while writing), unchanged in `112CA755…`, KMRP's installer on KOTOR Patch Manager's runtime |
+| Hook runtime | since 2026-09-29: the submodule `third_party/Kotor-Patch-Manager` at `17fd051`, built by `src/kpm-runtime/build.cmd` ([README](../src/kpm-runtime/README.md)); until then `LaneDibello/Kotor-Patch-Manager`, commit `7d53e52f55622a48ab97001c2680fd9fb59c8f98`, from Saul0097's package | since 2026-09-29 `KotorPatcher.dll`, 347,136 bytes, SHA-256 `E7D6AE7F44ABA1FD…`, loaded by KProxy's `binkw32.dll`, 88,064 bytes, `3A35A77EB4EEFC96…`; until then `kmrp-controller-runtime.asi`, 338,432 bytes, SHA-256 `F5CF2A21E4C28DA95CD8DAAF2704F871A6105616BFE250361929C61BCDB43B45` |
 | SDL | official SDL 3.4.16, Windows x86 | `kmrp-sdl3.dll`, 2,358,784 bytes, and its licence |
 
 The outputs are those embedded in the 2026-09-24 installer (`ECA3DE4B…`). Both
@@ -125,7 +125,35 @@ With the option off nothing reads the pad, draws a prompt or rumbles. The files
 below are the same either way, and their names still say "controller" because
 renaming them would orphan older installs' manifests.
 
-The option is independent of K1 Modern Driver Compatibility. The runtime needs the
+**Since 2026-09-29** KMRP's installer runs KMRP on KOTOR Patch Manager's own
+runtime, laid out as KPM's proxy deployment lays out a game folder, with KMRP's
+four KPM patches ([kpm-edition.md](kpm-edition.md), section 1a). The controller
+option decides whether the `kmrp-controller` patch goes into `patch_config.toml`,
+with its module as `patches\kmrp-controller.dll`; the core's frames hand their
+site to it when it is loaded (`ControllerFrameK1`), and do the core's work
+themselves when it is not, so the two hook sets above are now the patches
+`kmrp` plus `kmrp-controller`, and `kmrp` alone. The files:
+
+| File | Purpose |
+| --- | --- |
+| `binkw32.dll`, `binkw32Hooked.dll` | KPM's proxy, which loads the runtime, and the game's own `binkw32.dll`, renamed, which the proxy forwards to |
+| `KotorPatcher.dll` | KPM's runtime: reads `patch_config.toml`, loads the modules, writes the hooks |
+| `patch_config.toml` | The executable's hash and the chosen patches, each with its hooks |
+| `patches\kmrp.dll`, `patches\kmrp-movies.dll`, `patches\kmrp-controller.dll` | `kmrp-controller.module`, one copy per patch |
+| `kmrp-kpm.dat` | The executable changes the core's copy applies in memory |
+| `kmrp-sdl3.dll`, `kmrp-sdl3-LICENSE.txt` | SDL 3 for non-Xbox controllers, and its zlib licence |
+| `kmrp-kotor-patch-manager-LICENSE.txt` | KOTOR Patch Manager's MIT licence |
+| `kmrp-controller.ini` | The player's rumble settings, written only when absent |
+| `KMRP_KPM.manifest` | Every file with its hash, the rename, and the 4 GB flag, for restore |
+
+K1DC's ASI loader is no longer needed by KMRP and installs only with K1DC. A
+folder with KOTOR Patch Manager's own runtime is installed for KPM instead, with
+none of the files above but the data file, SDL and settings, and KPM's left as
+they are; the player ticks KMRP Controller there. `Test-ControllerSupport.ps1` was rewritten for this layout the
+same day. What follows describes the install until then, and is kept as the
+record of it.
+
+Until 2026-09-29: the option is independent of K1 Modern Driver Compatibility. The runtime needs the
 ASI loader, `dinput8.dll` -- Ultimate ASI Loader, which K1DC's package ships
 unmodified and which loads every `.asi` beside the game -- so
 `DriverCompatOperations.Apply` installs the loader on every patch since
@@ -195,10 +223,18 @@ the legacy eight are in the table but never installed (`CaptureActionBarInputK1`
 `UpdateActionBarControlsK1`, `CancelActionBarKeyboardFocusOnMouseMoveK1`,
 `OnSetActiveControlK1`); `ClearActionBarControlsK1` is, because the native path
 needs it. That leaves 39 installable entries, 35 detours and 4 `replace`, which is
-what `tools/check_patcher_hook_table.py` finds in agreement with
-`ControllerOperations.BuildConfig`. The installer writes 37 of them with the
-controller option on (33 detours, 4 `replace`) and 9 with it off (5 detours, 4
-`replace`; *Installed files and ownership*, above).
+what `tools/check_patcher_hook_table.py` found in agreement with
+`ControllerOperations.BuildConfig`, the installer's hand-written table, until
+2026-09-29. The standalone installer wrote 37 of them with the controller option
+on (33 detours, 4 `replace`) and 9 with it off (5 detours, 4 `replace`;
+*Installed files and ownership*, above).
+
+Since 2026-09-29 the installer writes the KPM edition's patches instead, from
+sections `tools/build_kpatch.py` generates, and `check_patcher_hook_table.py`
+checks those: `kmrp` 7, `kmrp-movies` 2 and `kmrp-controller` 28, 37 hooks with
+every option on -- the same 37 sites, with `CoreGuiFrameK1` and `CoreMovieFrameK1`
+in place of `NativeGuiFrameK1` and `NativeMovieFrameK1`, which hand over to KMRP
+Controller's frames -- and 9 with the controller off.
 
 The table's size over time, counted from its `[[hooks]]` blocks at each commit
 that changed it: 29 entries on 2026-09-24 (`137fd5d`; 25 detours, 4 `replace`);

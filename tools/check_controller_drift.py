@@ -93,7 +93,26 @@ def main() -> int:
         problems.append(f"hooks missing from exports.def: {', '.join(missing)}")
 
     # 3. installed native hooks match the tracked table
-    if arguments.config.exists():
+    #
+    # KMRP's installer since 2026-09-29 (and KOTOR Patch Manager, with KMRP's .kpatch
+    # files) writes one [[patches]] per KMRP patch, "kmrp" first; each must carry
+    # exactly its hooks. Earlier installs wrote one patch, kmrp-xbox-controls-k1,
+    # compared below as before.
+    installed_ids = (list(kc.installed_patches(arguments.config))
+                     if arguments.config.exists() else [])
+    if "kmrp" in installed_ids:
+        import tomllib
+        with open(arguments.config, "rb") as handle:
+            sha = tomllib.load(handle).get("target_version_sha", "")
+        ours = [i for i in installed_ids if i in kc.KPM_PATCHES]
+        found = kc.engine_config_problems(arguments.config, ours, sha) if ours == installed_ids else [
+            f"the config lists patches KMRP does not ship: {sorted(set(installed_ids) - set(ours))}"]
+        if found:
+            problems.append("installed config differs from kotor1.hooks.toml:\n    " + "\n    ".join(found))
+        else:
+            print(f"  installed config matches the tracked table "
+                  f"({len(kc.engine_hooks(ours))} hooks in {', '.join(ours)})")
+    elif arguments.config.exists():
         installed = kc.installed_hooks(arguments.config)
         # An install without controller support carries the core set, which is
         # told apart by its stand-ins (install = "no-controller").

@@ -53,6 +53,17 @@ room for, so every patched executable is 4,087,808 bytes. Nothing else in the
 file moves. Measured on 2026-09-24 by running the installer (`ECA3DE4B…`) at all
 48 resolutions.
 
+**Where they are made.** Until 2026-09-29 the installer wrote them into
+`swkotor.exe`. Since then it writes none of them to the file: the same bytes are
+applied in memory each time the game starts, by KMRP's module under KOTOR Patch
+Manager's runtime, from `kmrp-kpm.dat`, with the eleven sections at an address
+of the module's choosing and every reference to them moved to match
+([docs/kpm-edition.md](docs/kpm-edition.md)). On the editable build the file
+gets only the large-address flag; Steam's is not changed at all. The table
+below is unchanged: it describes the game that runs. `--apply` still writes the
+whole patched image to a new file, and it is what the in-memory result is proved
+against.
+
 *Corrected 2026-09-24:* this section said 702 positions and ten sections, the
 count before gold v24 added the movie aspect fit, and before the installer's
 own output rather than gold was counted. It also lacked five of the rows below:
@@ -92,7 +103,9 @@ KMRP's runtime is the same: its hooks are applied in memory from
 `patch_config.toml`. It installs on every patch and always carries three memory
 fixes from the KOTOR Patch Manager project, the movie bars, mouse confinement
 and the status summary's layout; the controller's own hooks join them when
-controller support is on.
+controller support is on. Since 2026-09-29 that runtime is KOTOR Patch
+Manager's own, built from the submodule and loaded through KPM's `binkw32.dll`
+proxy, and it applies the executable changes above as well.
 
 ## [Unreleased]
 
@@ -341,6 +354,120 @@ before:
   byte for byte, and `Test-ReinstallOverOlderBuild.ps1` also passes.
 
 ### Added
+
+- **One installer for the editable and Steam executables, on KOTOR Patch
+  Manager's runtime** (2026-09-29, at the maintainer's request: "build its own
+  KPM launcher that accepts the editable version and the Steam version ... just
+  do patch and then I can start the game normally"). KMRP's installer no longer
+  writes KMRP into `swkotor.exe`. It installs the KPM edition's files -- the data
+  file, SDL, Override, the INI -- plus KOTOR Patch Manager's runtime, laid out as
+  KPM's own proxy deployment lays out a game folder: KPM's `binkw32.dll` proxy in
+  place of the game's (renamed `binkw32Hooked.dll`), `KotorPatcher.dll`,
+  `patch_config.toml`, and KMRP's four patches' modules in `patches\`. The
+  player starts the game as always, from Steam or `swkotor.exe`; the runtime
+  loads KMRP's module, which applies the executable changes in memory, and the
+  hooks. So both executables run the same bytes, and Steam's, whose DRM refuses
+  a changed file, is supported without KOTOR Patch Manager. The details, the
+  measurements and what was rejected are in
+  [docs/kpm-edition.md](docs/kpm-edition.md), section 1a:
+  - **The runtime is built from the submodule**, `third_party/Kotor-Patch-Manager`
+    at `17fd051`, by the new `src/kpm-runtime/build.cmd`, which
+    `build_kmrp.ps1` runs: `KotorPatcher.dll` and KProxy's `binkw32.dll`,
+    statically linked, since KPM's own build needs the Visual C++
+    redistributable. It waits for SteamStub to decrypt before patching.
+  - **Each patch's config section is generated** by `tools/build_kpatch.py
+    --config-dir` from the same hook table as its `.kpatch`, and checked against
+    it; the installer joins the chosen ones under the executable's hash. The
+    options choose the patches: controller support adds `kmrp-controller`, the
+    marker fixes `kmrp-map-notes`; `kmrp` and `kmrp-movies` always go in.
+  - **On the editable build the one change to `swkotor.exe` is the 4 GB flag**,
+    set and cleared by the installer and checked by hash; Steam's is never
+    changed.
+  - **It replaces an earlier KMRP install**, which wrote `swkotor.exe`, with that
+    install's own restore and backups first; with a damaged backup it refuses
+    and changes nothing.
+  - **KMRP for KPM is part of it** (later the same day, at the maintainer's
+    request: "we should remove the for kpm version because this is already the
+    standard version"). The installer installs for KOTOR Patch Manager -- the
+    KPM edition's install, no runtime, `swkotor.exe` untouched, and the player
+    ticks KMRP's patches in KPM -- when the new *KOTOR Patch Manager* option in
+    Advanced Settings is on, or by itself when KPM's runtime is already in the
+    game folder (`binkw32Hooked.dll`, `KotorPatcher.dll`, `patch_config.toml` or
+    `kpm_install_state.json` this install did not write, or that has changed
+    since). The first build of
+    the day refused such a folder instead. The separate `KMRP for KPM.exe`, the
+    `KPM_EDITION` compile and `dist\KMRP for KPM\` are gone; the four `.kpatch`
+    files ship in `dist\KPM patches\` with their README
+    (`src/patcher/KPM-PATCHES-README.txt`, until then
+    `KMRP-for-KPM-README.txt`). Advanced Settings has four rows now, 78 px each
+    where three were 86, so all fit above the buttons.
+  - **It hands its runtime to KOTOR Patch Manager** when KPM takes it over. KPM
+    0.7.1 reads a game's installed patches from `patch_config.toml`, and this
+    config is KPM's format, so KPM lists KMRP's patches as installed and lets
+    the player add others. KPM knows a game only by its executable's hash, and
+    CD 1.03 with the 4 GB flag is not one it knows, so on CD 1.03 the installer
+    also leaves KPM two files: `kpm_install_state.json`, KPM's record that the
+    executable was CD 1.03, and, just before it sets the flag, a backup of the
+    unmodified `swkotor.exe` as KPM makes one (`swkotor.exe.backup.<time>` and
+    its `.json`). KPM's Apply starts by restoring the newest backup, so it
+    starts from the unmodified file and sets the flag itself, and its own
+    backup, which its "uninstall all" restores, is the unmodified file.
+    Measured with KPM 0.7.1's launcher, KMRP's four patches and KPM's Fair
+    Pazaak Turn Order: with neither file (`5CCC1961…`) KPM refused every patch,
+    "Game version: KOTOR Unknown", having already removed KMRP's runtime; with
+    the state file alone, written by hand as `702034D8…` then wrote it, it
+    applied them but backed up the flagged file; with both (`D25212D7…`) it
+    applied them from the unmodified file. The game then ran from KPM's launcher
+    and from `swkotor.exe` directly with all 91 runs, the 37 KMRP sites and Fair
+    Pazaak's hook. KPM's "uninstall all" was read in its source and replayed by
+    hand, not run in its window (the table is in
+    [kpm-edition.md](docs/kpm-edition.md), section 1a). Once KPM's Apply has
+    rewritten `patch_config.toml`, the installer treats the runtime as KPM's: a
+    reinstall is one for KPM, and restore leaves the runtime, the modules, the proxy, the state file, the
+    backup and the 4 GB flag in place. Found tracing that case through: a reinstall would otherwise have
+    deleted the modules KPM had re-extracted byte for byte. `Test-KpmEdition.ps1`
+    Case 10 covers it, and was run against the build before the fix
+    (`D12C44F5…`), where it failed on exactly that: the modules deleted, the
+    proxy undone, the 4 GB flag cleared. A `patch_config.toml` that is gone
+    rather than changed is not a takeover -- KPM's "remove all patches" deletes
+    it with the rest -- and gets the usual restore.
+  - **Two ordering faults fixed before release:** a refusal could come after the
+    previous install was already removed -- every check that can refuse now
+    runs first -- and restore skipped K1DC in the KPM edition's build, so
+    switching to it left K1DC behind. Both were found reading the code, not by a
+    test; `Test-KpmEdition.ps1` Cases 8 and 9 were added for them and passed on
+    the first build with the fix (`208C7344…`). They were not run against the
+    build before, so they are not shown to catch the faults.
+  - **Retired:** installing the gold image into `swkotor.exe`
+    (`ApplyStandalone`), the standalone's runtime -- Saul0097's statically linked
+    KPM runtime as an `.asi`, loaded by K1DC's `dinput8.dll` -- and its
+    hand-written hook table (`ControllerOperations.BuildConfig`, a second copy
+    of `kotor1.hooks.toml`). K1DC's loader now installs only with K1DC. The
+    standalone's restore stays, for the upgrade. `--apply` still writes the
+    gold image to a new file, as the reference the in-memory result is proved
+    against.
+
+  Seen in game on 2026-09-29 at 3440x1440, started as a player starts it: on the
+  editable build, upgraded over the last standalone build (`061AD6A2…`), and on
+  the maintainer's Steam test install through Steam. Both applied all 91 runs
+  and hooked all 37 sites, and the memory matched the data file exactly (the
+  table is in section 1a); the Steam folder was restored and checked against its
+  backups afterwards. Not played beyond the menus on Steam.
+
+  The builds of that day named here and in section 1a: `061AD6A2…`, the last
+  standalone, which the upgrade was measured over; `D12C44F5…`, before the
+  takeover fix; `208C7344…`, the first with the ordering fixes; `112CA755…`,
+  while KMRP for KPM was still a separate installer; `5CCC1961…`, one installer,
+  before the two files for KPM; `702034D8…`, with `kpm_install_state.json`; and
+  `D25212D7…` (168,930,816 bytes), with the backup as well, the final one. On
+  `702034D8…` and on `D25212D7…` all nine Windows suites passed; on the final
+  one `Test-ControllerSupport.ps1` with 171 checks, `Test-KpmEdition.ps1` 148,
+  `Test-InstalledOverride.ps1` 462 at all 66 resolutions,
+  `Test-ReinstallOverOlderBuild.ps1` 38, `Test-MovieResolution.ps1` 36,
+  `Test-LargeAddressAware.ps1` 23, `Test-DpiCompatibility.ps1` 16, the NVIDIA
+  self-test 34 and the update-check self-test. The checks added for the backup
+  were not run against a build without it, so they are not shown to catch its
+  absence.
 
 - **KMRP for KOTOR Patch Manager: a second edition, built from the same
   source** (2026-09-28, at the maintainer's request: "one source, two ways to
@@ -997,6 +1124,46 @@ before:
   decoder shipped inside it. Its saving was not measured.
 
 ### Fixed
+
+- **The skill icons sit inside their frames** (2026-09-29, Windows and macOS, at
+  the maintainer's request: "The skills are a bit too big make it fit in the
+  frame correctly"). The enlargement below kept stock's proportion, and stock's
+  eight `isk_*` pictures fill their whole 32x32 canvas, so each sat on the
+  border of its frame -- `lbl_hex_3`, fitted to the Skills row's icon box
+  (`42s`) -- rather than inside it; stock does the same. Measured in game at
+  3440x1440 (box 84): the frame's outline spans x 8..70 and y 11..80 of the
+  box, its opening about 57x65, and the 64 px canvas, centred in the box, lay
+  over the border on the right and at the bottom. The canvas keeps its size and
+  place; the picture inside it is now `round(0.62 × 42s)`, on transparent
+  pixels, centred and then moved `(round(−0.5s), round(−2s))` px, since the
+  canvas sits about 1.5 px right of and 2 px below the frame's opening at 1440p
+  (`SkillPictureOfBox`, `SkillShiftX`, `SkillShiftY` in
+  `AbilityIconGenerator.cs`, the same in `macos/tools/kmrp-abilityicons.c`). The
+  icons are written at every height, 720 and below too:
+
+  | height | canvas | picture | at (left, top) |
+  | --- | --- | --- | --- |
+  | 720 and below | 32 | 26 | 3, 1 |
+  | 982 | 44 | 36 | 3, 1 |
+  | 1080 | 48 | 39 | 3, 1 |
+  | 1440 | 64 | 52 | 5, 2 |
+  | 1964 and up | 64 | 64 | 0, 0 |
+
+  How large: the frame's border pixels were read from an in-game shot at
+  3440x1440 (those border-coloured in at least four of five rows), and all eight
+  pictures resampled at each size and placed as above. 52 px is the largest that
+  keeps every opaque pixel of every picture 2 px clear of the border; centred
+  without the move, 46 px was, and at 55 px Awareness touches it. A first pass
+  the same day shipped 46 px centred; the maintainer asked for them larger
+  ("Increase them a bit but dont let them touch the frame").
+
+  Checked in game at 3440x1440 through the new installer: every picture inside
+  its frame's opening, clear of the border on each side. The Windows generator
+  and a Windows build of the Mac helper (MSVC, `/fp:strict`) wrote
+  byte-identical files at the ten heights `Test-AbilityIcons.py` uses, which now
+  checks the picture's size and place and that nothing is drawn outside it;
+  `Test-AbilityIcons.py` itself, which needs clang and the .NET 8 SDK, was not
+  run. Only 1440p was seen in game.
 
 - **A with a button focused presses that button once, on every screen**
   (2026-09-28, at the maintainer's request after the Level Up freeze below:

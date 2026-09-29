@@ -1,10 +1,17 @@
-# The KPM edition: KMRP through KOTOR Patch Manager
+# KMRP on KOTOR Patch Manager's runtime: KMRP's installer and the KPM edition
 
-**Reference.** What the KPM edition does, byte for byte, and how it is proved to
-make the same game as the standalone installer, for the editable 1.03 executable
-and Steam's. Built and measured on 2026-09-28 and, for the final build on Steam,
-2026-09-29; the lab record of how it was designed is in the session notes
-summarised under *Rejected alternatives* below.
+**Reference.** How KMRP runs on KOTOR Patch Manager's runtime, byte for byte, and
+how it is proved to make the same game as the standalone installer did, for the
+editable 1.03 executable and Steam's. The KPM edition was built and measured on
+2026-09-28 and, for the final build on Steam, 2026-09-29. The same day KMRP's own
+installer moved onto it (section 1a): since 2026-09-29 **both** installers leave
+the executable's code alone. The lab record of how it was designed is in the
+session notes summarised under *Rejected alternatives* below.
+
+**"The standalone"** in this document is KMRP's installer as it was until
+2026-09-29, which wrote the gold image into `swkotor.exe`. KMRP's installer still
+writes that image to a new file with `--apply`, and it remains the reference the
+data file is proved against (section 7); installing it is retired.
 
 ## The build this describes
 
@@ -14,8 +21,9 @@ summarised under *Rejected alternatives* below.
 | Steam's executable | `34E6D971C034222A417995D8E1E8FDD9F8781795C9C289BD86C499A439F34C88`, 4,395,008 bytes, KPM's `kotor1_steam_103`; a clean Steam install lent by the maintainer on 2026-09-28 (`build-inputs/swkotor-steam.exe`, optional) |
 | Gold | `9DD81A75F4888FD67242B682BEE0AB4392EA8923CDF4A020CA3EDD2464C05E0A`, 4,087,808 bytes (`build/kmrp/swkotor_gold_v24_movieaspect.exe`) |
 | KOTOR Patch Manager | 0.7.1 (release zip `0EFEFAC8…`, source zip `Kotor-Patch-Manager-0.7.1.zip`), read and run on 2026-09-28; 0.7.1 (2026-09-21) was still KPM's newest release on 2026-09-29. The clone in `build/research/Kotor-Patch-Manager` is at an **older** development commit, `7d53e52` of 2026-09-05 -- before 0.7.0 (09-07) and 0.7.1 -- and differs. (*Corrected 2026-09-29:* this called it a later commit) |
-| Module | `kmrp-controller.module`, 245,248 bytes, `4B1131DABC4550D5F4F18B2C52EE93291E8350C2B35FA2A5215660A0F4C13AD3` |
-| Installers | standalone `603DC45D…`, KMRP for KPM `1533474E…`; `KMRP.kpatch` `C27E108A…`, `KMRP Controller.kpatch` `56C45ED3…`, `KMRP Movies.kpatch` `014743BB…`, `KMRP Map Notes.kpatch` `D7977A3A…` |
+| Module | `kmrp-controller.module`, 245,248 bytes, `4B1131DABC4550D5F4F18B2C52EE93291E8350C2B35FA2A5215660A0F4C13AD3`. Section 1a: `F2EDD742…`, 245,248 bytes, whose source differs from commit `5a33864`'s only in two log messages ("run KMRP's installer") and a comment |
+| Installers | standalone `603DC45D…`, KMRP for KPM `1533474E…`; `KMRP.kpatch` `C27E108A…`, `KMRP Controller.kpatch` `56C45ED3…`, `KMRP Movies.kpatch` `014743BB…`, `KMRP Map Notes.kpatch` `D7977A3A…`. Section 1a: KMRP's one installer `D25212D7…` of 2026-09-29, 168,930,816 bytes, with `KMRP.kpatch` `8EBBE7FD…` (its description gives 66 resolutions), `KMRP Controller.kpatch` `C20F6623…`, `KMRP Movies.kpatch` `1DDA3E33…` and `KMRP Map Notes.kpatch` `D7977A3A…`; earlier that day `112CA755…` with KMRP for KPM `84AEBDC6…`, before the two became one |
+| KPM runtime in KMRP's installer | built from the submodule `third_party/Kotor-Patch-Manager` at `17fd051` by `src/kpm-runtime/build.cmd`: `KotorPatcher.dll` 347,136 bytes `E7D6AE7F44ABA1FD…`, KProxy `binkw32.dll` 88,064 bytes `3A35A77EB4EEFC96…` ([src/kpm-runtime/README.md](../src/kpm-runtime/README.md)) |
 
 The edition changed twice on 2026-09-28. It first shipped as two `.kpatch` files,
 KMRP with and without its controller; then as four patches, one per fix, with
@@ -28,9 +36,12 @@ Addresses are **VA** unless marked FILE. For the original sections `FILE = VA �
 
 ## 1. Two editions, one source
 
-KMRP ships two ways, built by one `build_kmrp.ps1` run from the same sources:
+KMRP ships two ways, built by one `build_kmrp.ps1` run from the same sources.
+This table compares the KPM edition with the standalone as they stood on
+2026-09-28; section 1a says what KMRP's installer does since 2026-09-29, which is
+the KPM edition's install plus KOTOR Patch Manager's runtime.
 
-| | standalone | KPM edition |
+| | standalone (until 2026-09-29) | KPM edition |
 | --- | --- | --- |
 | Output | `dist\KMRP - KOTOR Modern Restoration Patch.exe` | `dist\KMRP for KPM\`: `KMRP for KPM.exe`, `KMRP.kpatch`, `KMRP Controller.kpatch`, `KMRP Movies.kpatch`, `KMRP Map Notes.kpatch`, README, KPM's MIT licence |
 | Executables | CD 1.03 | CD 1.03 and **Steam's** |
@@ -59,6 +70,198 @@ What is shared, so the editions cannot drift apart:
 - **The module.** One binary: the standalone loads it from its own runtime, KPM
   from `patches\<id>.dll`, once for each KMRP patch that has hooks. Its applier
   runs only in an unmodified image, and only in the core patch's copy (below).
+
+## 1a. KMRP's installer on KOTOR Patch Manager's runtime
+
+Since 2026-09-29, at the maintainer's request -- "build its own KPM launcher that
+accepts the editable version and the Steam version ... just do patch and then I
+can start the game normally" -- KMRP's installer is the KPM edition's install
+plus KOTOR Patch Manager's runtime, laid out as KPM's own proxy deployment lays
+out a game folder (`KPatchCore/Applicators/KProxyInstaller.cs` and
+`PatchApplicator.cs` in the submodule). The player starts the game as always,
+from Steam or from `swkotor.exe`.
+
+**One installer for both ways** (later the same day, at the maintainer's request:
+"we should remove the for kpm version because this is already the standard
+version"). Until then the same code compiled with `KPM_EDITION` was a second
+installer, KMRP for KPM, for players who manage patches with KPM. Now the one
+installer chooses per install (`KpmEditionOperations.Install`,
+`src/patcher/KpmEdition.cs`): it installs **for KOTOR Patch Manager** -- the KPM
+edition's install, no runtime, `swkotor.exe` untouched -- when the *KOTOR Patch
+Manager* option is on in Advanced Settings (`KmrpSettings.PatchManager`, saved as
+`kotorPatchManager`), or by itself when KPM's runtime is already in the game
+folder (`ForeignRuntimeFile`: `binkw32Hooked.dll`, `KotorPatcher.dll`,
+`patch_config.toml` or `kpm_install_state.json` that this install did not write,
+or that has changed since it did -- KPM's own Apply over KMRP's install replaces
+them). Otherwise it installs
+**with KPM's runtime**, as below. The `.kpatch` files ship in `dist\KPM patches\`
+with their README.
+
+What KMRP's installer writes beside `swkotor.exe`:
+
+| file | what | from |
+| --- | --- | --- |
+| `binkw32.dll` | KPM's proxy (KProxy). The game imports `binkw32.dll`, so the loader pulls the proxy in before the game's entry point; it forwards every Bink export to `binkw32Hooked.dll` and loads `KotorPatcher.dll` | `Kmrp.engine.proxy`, `src/kpm-runtime/build.cmd` |
+| `binkw32Hooked.dll` | the game's own `binkw32.dll`, renamed, its hash recorded | the game |
+| `KotorPatcher.dll` | KPM's runtime: reads `patch_config.toml` beside it, loads each patch's module, writes the hooks | `Kmrp.engine.runtime`, `src/kpm-runtime/build.cmd` |
+| `patch_config.toml` | `target_version_sha` (`761F9466…` or Steam's `34E6D971…`), then `kmrp`, `kmrp-movies`, `kmrp-map-notes` (the marker option) and `kmrp-controller` (the controller option), in that order | each patch's section, `Kmrp.engine.config.<id>`, written by `tools/build_kpatch.py --config-dir` from the same hook table as its `.kpatch` and checked against it |
+| `patches\kmrp.dll`, `patches\kmrp-movies.dll`, `patches\kmrp-controller.dll` | the module, one copy per patch with detours, as KPM extracts one per patch | `Kmrp.controller.module` |
+| `kmrp-kpm.dat`, `kmrp-sdl3.dll`, its licence, `kmrp-controller.ini` | as KMRP for KPM (sections 4 and 6) | |
+| `kmrp-kotor-patch-manager-LICENSE.txt` | KPM's MIT licence | the submodule's `LICENSE` |
+| `kpm_install_state.json` | CD 1.03 only: KPM's record that the executable was CD 1.03 before a patch changed it (`ManagedInstallState`, schema 1) | `KpmEditionOperations.KpmState` |
+| `swkotor.exe.backup.<yyyyMMdd_HHmmss>` and its `.json` | CD 1.03, when the installer sets the 4 GB flag: the unmodified `swkotor.exe` as KPM backs one up, and KPM's metadata for it (`BackupManager`, `BackupInfo`) | `KpmEditionOperations.WriteKpmBackup` |
+| `dinput8.dll`, `k1-modern-driver-compatibility.asi` | Synchro's K1DC, when that option is on | unchanged |
+
+The order in the config is the point of it. KotorPatcher applies patches in order
+and stops at the first hook that fails, so `kmrp` goes first -- its module's
+`DllMain` applies `kmrp-kpm.dat` as it loads, before any other patch's hook is
+written -- and `kmrp-controller` last, so that nothing the controller's 28 hooks
+do wrong can keep the rest out.
+
+**`swkotor.exe`.** On CD 1.03 the installer sets `IMAGE_FILE_LARGE_ADDRESS_AWARE`
+(FILE `0x926`, `0x010F` to `0x012F`), the flag the standalone also set and that
+KPM would set from `KMRP.kpatch`'s static hook, and checks the file becomes
+`CA9D22EA…`; a file that already has the flag is left alone. Steam's executable is
+never written: Steam refuses a changed file. KOTOR Patch Manager knows a game only
+by its executable's hash, and `CA9D22EA…` is not one it knows, so two things are
+left for it: just before setting the flag, a backup of the unmodified file as KPM
+makes one, and on CD 1.03 always, `kpm_install_state.json`, which names the
+executable's original. What each is for is under *When KOTOR Patch Manager takes
+over*.
+
+**The manifest,** `KMRP_KPM.manifest`, records every file written (`file`, name,
+SHA-256), the rename (`moved binkw32.dll binkw32Hooked.dll <hash>`), and whether
+it set the flag (`laa set`). Restore removes each file still as written, renames
+the game's `binkw32.dll` back -- or, when Steam's file check has already put the
+original back, deletes the now duplicate `binkw32Hooked.dll` -- and clears the flag
+only if it set it and the file is still `CA9D22EA…`. Anything changed since is
+left, and said so. A manifest line that names anything but a file in the game
+folder or its `patches\`, or any rename but that one, is ignored.
+
+**What it refuses, before changing anything:** with its own runtime, a game
+folder without `binkw32.dll`. A folder where `binkw32Hooked.dll`,
+`KotorPatcher.dll`, `patch_config.toml` or `kpm_install_state.json` already exists -- KOTOR Patch Manager's
+runtime, or another mod that uses it -- is installed for KPM instead, KPM's files
+left as they are; the first build of the day refused it. Until 2026-09-29 the
+standalone's runtime step declined such a `patch_config.toml` and the rest
+installed; now KMRP's executable changes are that runtime, so half an install
+would be a broken game.
+
+**When KOTOR Patch Manager takes over.** The config and layout are KPM's own, so
+the KPM app can open a game KMRP installed this way: KPM 0.7.1 reads the
+installed patches from `patch_config.toml` (`PatchRemover`: "patch_config.toml is
+the source of truth for installed patch IDs") and treats a static hook whose
+bytes are already the replacement as applied (`StaticHookApplicator`). What it
+must also do is recognise the executable, and it knows one only by its hash.
+When a player applies patches in KPM, its Apply first clears what it finds
+(`PatchRemover.RemoveAllPatches`): it restores the newest backup of the
+executable, `swkotor.exe.backup.<time>`, and deletes it (`BackupManager`),
+deletes the modules in `patches\`, `patch_config.toml` and `KotorPatcher.dll`,
+and puts the game's `binkw32.dll` back (`KProxyInstaller`); KMRP's data file,
+SDL and Override files it does not know and leaves. Then it identifies the
+executable (`GameDetector.DetectVersion`) and installs its own: a backup of the
+executable as it finds it, the static hooks, a new `patch_config.toml`, its own
+`KotorPatcher.dll`, KMRP's modules re-extracted -- the very bytes KMRP
+installed -- the proxy, and `kpm_install_state.json`. Its "uninstall all", every
+patch unticked in its window, is the same clearing step, and it also deletes
+`kpm_install_state.json`. (All read in KPM 0.7.1's source: `PatchRemover.cs`,
+`PatchApplicator.cs`, `BackupManager.cs`, `GameDetector.cs` and the window's
+`MainViewModel.cs`.)
+
+That is what the two files the installer leaves for KPM are for. Measured with
+KPM 0.7.1's own launcher over KMRP's install in the scratch copy on 2026-09-29
+(`KPatchLauncher.exe <exe> --patches <dir> kmrp kmrp-movies kmrp-map-notes
+kmrp-controller fair-pazaak-turn-order --deployment proxy`, KMRP's four patches
+and KPM's Fair Pazaak Turn Order):
+
+| KMRP's installer left | KPM's Apply | KPM's backup afterwards |
+| --- | --- | --- |
+| neither (`5CCC1961…`) | refused every patch: "Game version: KOTOR Unknown (Other, Windows, x86) (hash: CA9D22EACB5BDFA8...)", after its clearing step had already removed KMRP's runtime | none |
+| `kpm_install_state.json`, written by hand as `702034D8…` then wrote it | applied all five; the game ran with KMRP's 91 runs, 37 of 37 sites hooked and Fair Pazaak's hook | the flagged `CA9D22EA…` |
+| both (`D25212D7…`) | restored KMRP's backup, `761F9466…`, deleted it, applied all five and set the flag itself from `KMRP.kpatch`'s static hook | the unmodified `761F9466…` |
+
+The backup is what makes KPM's own undo complete. With the state file alone,
+KPM backs up the flagged file, so its "uninstall all" would put back a flagged
+executable and delete the state file, leaving a game KPM no longer recognises
+(read in KPM's source; not run). With both, KPM's backup is the unmodified file.
+Replaying KPM's clearing step by hand in the scratch copy -- the newest backup
+restored, its runtime, config and state file deleted, the proxy undone -- left
+`swkotor.exe` `761F9466…` and the game's own `binkw32.dll`; that was a
+replay of the steps read in `PatchRemover.cs`, not KPM's window. The state file still
+matters where the executable already had the flag before KMRP's install: then
+there is no unmodified file to leave, and KPM recognises the game from it.
+
+After the third Apply, the same game started from `swkotor.exe` directly:
+KMRP's 91 of 91 runs applied 58 ms after start, memory exactly the data file's,
+37 of 37 KMRP sites and Fair Pazaak's `REPLACE` hook at `0x00680085` in place,
+"SUCCESS: Patcher initialized", and the main menu at 3440x1440 with KMRP's
+layout. Through KPM's launcher the running header read `0x012F`, the flag KPM
+set. KMRP's installer run again then installed for KPM, changing none of KPM's
+files, its backup included.
+
+So a changed `patch_config.toml` is taken as KPM having taken the runtime over:
+the next install is one for KPM, and restore -- the one before it, or a plain
+uninstall -- leaves every runtime file, the modules, the proxy, the rename, the
+state file, the backup and the 4 GB flag in place for KPM, removing only KMRP's
+own content (`ConfigChangedSinceInstall`, `IsRuntimeRecord`). Without that, a
+reinstall would have deleted the modules KPM's config names, since their bytes
+still matched the manifest. `Test-KpmEdition.ps1` Case 10 covers it.
+
+*Corrected 2026-09-29:* this paragraph said the takeover was read from KPM's
+source and "not yet tried with the KPM app", that KPM would identify the flagged
+executable from `patch_config.toml`'s `target_version_sha`, and that its Apply
+leaves `swkotor.exe` as it is. The first run refused: the clearing step deletes
+`patch_config.toml` before the executable is identified. And KPM's Apply does
+restore an executable, from a backup of its own, when one exists.
+
+**Upgrading from the standalone.** An install by any earlier KMRP, which wrote
+`swkotor.exe`, is restored first with that install's own records and backups
+(`PatchOperations.RestoreStandalone`, kept for this): the executable from its
+backup, its runtime, K1DC, Override and the INI. With a missing or damaged backup
+the install is refused and nothing changes.
+
+**When it runs.** On CD 1.03 the proxy is loaded with the game's static imports,
+so KotorPatcher applies at once: the applier's log gave "484 ms after the game
+started, before its window; 1 other thread(s) paused while writing". Steam's
+code is still encrypted at that point, so KotorPatcher hands the apply to a
+worker that waits for SteamStub to decrypt (`DeferredApply`, polling every 15 ms
+for up to 30 s): "913 ms after the game started, before its window; 6 other
+thread(s) paused".
+
+**Measured in game, 2026-09-29**, at 3440x1440 with every option on, the game
+started as a player starts it:
+
+| run | `swkotor.exe` | applier | memory (`kpm_data.py --memory`) | hook sites |
+| --- | --- | --- | --- | --- |
+| CD 1.03, scratch copy, installed over the standalone `061AD6A2…` | `761F9466…` restored by the upgrade, then `CA9D22EA…` | 91 of 91 runs (582 bytes), KMRP's code at `0x00F40000` (moved by `+0x6D3000`), 46 relocations | core, movies and map notes exactly | 37 of 37 hooked, none unexpected |
+| Steam, the maintainer's test install, started through Steam | `34E6D971…`, unchanged | 91 of 91 runs, KMRP's code at `0x001D0000` (moved by `−0x69D000`) | exactly | 37 of 37 |
+
+Both reached the main menu at 3440x1440 with KMRP's layout; on CD a save was
+loaded and the Skills and Inventory screens checked (the skill icons' fit is in
+the changelog). On Steam K1DC also ran ("hooks installed=8/8"). KotorPatcher's own
+output, read over `OutputDebugString`, ended "SUCCESS: Patcher initialized" on
+CD. The installer builds were `F7960D68…` for both runs and `09940BAA…` and
+`B1F137B7…` for the icon checks; the release candidate `112CA755…` differs from
+them in the skill icons and in KMRP for KPM's refusal text, not in the install.
+The Steam folder was restored afterwards and checked against backups taken before
+the first Steam trial: `swkotor.exe` `34E6D971…`, `binkw32.dll` `2D0AE23A…` and
+`swkotor.ini` `85B1C89B…` identical, `Override` empty; the files the game itself
+wrote while running (`kmrp-kpm.log`, `kmrp-native-joystick.log`, K1DC's
+`K1DriverCompat.ini` and `logs\`) were removed by hand, since restore removes only
+what the installer wrote.
+
+Not verified: gameplay beyond the menus on Steam (its test install carries the
+maintainer's cloud save, so it was not loaded), any resolution but 3440x1440 in
+game, and Steam's "verify integrity" (which by its design replaces `binkw32.dll`;
+installing again puts KMRP back).
+
+**Rejected, for the loader.** K1DC's ASI loader (`dinput8.dll`), which loaded the
+standalone's runtime: that runtime, a static build from Saul0097's package, has no
+wait for SteamStub, and a `dinput8.dll` of KMRP's own would clash with any other
+ASI loader a player has. KPM's injection: it needs KPM's launcher, and Steam's
+executable hands its launch to Steam, so the injected process exits (measured
+2026-09-28). KPM's own `KotorPatcher.dll` build: linked dynamically, it needs the
+Visual C++ redistributable ([src/kpm-runtime/README.md](../src/kpm-runtime/README.md)).
 
 ## 2. What the module applies, and why the code has to move
 
@@ -335,16 +538,19 @@ changes, two patches on one address, a module in the marker patch, detours witho
 a module, a leftover `kmrp-no-controller`, the static hook aimed at Steam, a wrong
 header byte, and Steam dropped from a manifest -- are each reported.
 
-## 6. The KMRP for KPM installer
+## 6. The install for KOTOR Patch Manager
 
-The same code as the standalone, compiled with `KPM_EDITION`
-(`build_kmrp.ps1` step 6). Its `Inspect`, `Describe`, `CanRestore`, `ApplyInPlace`,
+Written when this was the KMRP for KPM installer: the same code as the
+standalone, compiled with `KPM_EDITION`. Since 2026-09-29 it is the one
+installer's install for KOTOR Patch Manager (section 1a), and everything below
+still describes it. Its `Inspect`, `Describe`, `CanRestore`, `ApplyInPlace`,
 `Restore` and `TryReadInstalledResolution` go to `KpmEditionOperations`. It:
 
 - accepts the unmodified 1.03 executable, with or without the large-address flag,
   and Steam's (`KpmEditionOperations.IsSteam`), and refuses a game the standalone
-  installer patched (restore that first). The standalone refuses Steam's executable
-  with its own message: Steam will not start it patched, use KMRP for KPM;
+  installer patched (restore that first). The standalone refused Steam's executable
+  with its own message: Steam will not start it patched, use KMRP for KPM (until
+  2026-09-29, when KMRP's installer began installing it, section 1a);
 - builds the data file from the **unmodified executable's bytes it carries**, not
   from the player's file, since Steam's is encrypted on disk: `Kmrp.kpm.originals`
   (`tools/kpm_originals.py`, 91 ranges, 4,777 bytes, 681 of them past the header)
@@ -352,9 +558,12 @@ The same code as the standalone, compiled with `KPM_EDITION`
   relocation field whole and every field `ResolutionPatch` handles whole, and zero
   stands for everything else (`OriginalsImage`, `GoldPatch.ApplyToOriginals`). The
   resolution fields come from the installer itself: the build runs the standalone
-  it just compiled with `--kpm-sites`, which applies all 49 resolutions while
-  `ResolutionPatch` records every field it reads or writes (52), so the list cannot
-  drift from the code. The first version carried only the chunks and relocated
+  it just compiled with `--kpm-sites`, which applies every resolution in the
+  catalog while `ResolutionPatch` records every field it reads or writes (52), so
+  the list cannot drift from the code. (49 resolutions when this was written; the
+  66 of 2026-09-29 touch the same 52 fields, and the originals are unchanged: 91
+  ranges, 4,777 bytes. Since that day the build compiles a small `kmrp-sites.exe`
+  for this, because KMRP's installer now embeds the originals too.) The first version carried only the chunks and relocated
   fields, and the installer refused its own picture -- "The stack-count label patch
   did not match the verified gold build" -- because gold changed only some bytes of
   some fields and none of a few (the powers row height stays vanilla's 40). The tool
@@ -485,7 +694,7 @@ python tools\kpm_relocations.py                       # the table, both methods,
 python tools\kpm_originals.py --clean build-inputs\swkotornopatch.exe --delta build\kmrp\gold.kup `
     --relocations build\kmrp\kpm-relocations.txt --sites build\kmrp\kpm-resolution-sites.txt `
     --out build\kmrp\kpm-originals.bin                 # the carried bytes, and their proof
-python tools\build_kpatch.py --check "dist\KMRP for KPM"
+python tools\build_kpatch.py --check "dist\KPM patches"  # "dist\KMRP for KPM" until 2026-09-29
 python tools\check_kpm_overlaps.py <folder of .kpatch files>
 .\testing\regression\Test-KpmEdition.ps1               # the editions agree, per resolution
 python tools\kpm_data.py <game>\kmrp-kpm.dat --list    # runs per patch, and the edits

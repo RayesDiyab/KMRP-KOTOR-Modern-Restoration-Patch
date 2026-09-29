@@ -120,8 +120,10 @@ namespace Kmrp
 
                 KmrpSettings.SkippedUpdate = "";
                 written = File.ReadAllText(path);
-                Check(!written.Contains("skippedUpdate") && written.TrimEnd().EndsWith("\"controllerSupport\": false\r\n}"),
-                    "clearing it writes the three-key file of before");
+                // Four keys since 2026-09-29, when kotorPatchManager joined the three.
+                Check(!written.Contains("skippedUpdate") && written.Contains("\"controllerSupport\": false,") &&
+                      written.TrimEnd().EndsWith("\"kotorPatchManager\": false\r\n}"),
+                    "clearing it writes the file of before, without the version");
             }
             finally
             {
