@@ -42,7 +42,7 @@ site; the files are the same.
 | Layer | What | Where it comes from |
 | --- | --- | --- |
 | Hook runtime | `KotorPatcher.dylib`, loaded by one `LC_LOAD_DYLIB` in `KOTOR_Exe` | KotOR Patch Manager (MIT), built from source by `build.sh` |
-| Base patch | FTD's widescreen patch with KMRP's engine fixes: the resolution (Retina modes included), K1–K9, and, with `UseGuiFileLayouts=1`, no layout of its own | *K1WidescreenPatch* by J, FTD and Vriff (MIT), a KPM patch, branch `kmrp-engine-fixes` of FTD's fork, open as [FTD516/Kotor-Patch-Manager#1](https://github.com/FTD516/Kotor-Patch-Manager/pull/1) |
+| Base patch | FTD's widescreen patch with KMRP's engine fixes: the resolution (Retina modes included), K1–K9, and, with `UseGuiFileLayouts=1`, no layout of its own | *K1WidescreenPatch* by FTD, RaymanGT, J and Vriff (MIT), a KPM patch, branch `widescreen-patch` of FTD's fork, KMRP's fixes merged as [FTD516/Kotor-Patch-Manager#1](https://github.com/FTD516/Kotor-Patch-Manager/pull/1) |
 | Layout patch | `patches/kmrp-layout/`: the sizes the Windows installer writes per resolution, and the list-box, area-map and popup changes the gold delta makes | this directory, a DLL-only KPM patch |
 | Map notes | Derslok's 250 map-note corrections | `patches/kmrp-map-notes/`, a KPM patch |
 | Menus and fonts | every resolution's set from KMRP's resource build, pooled; any other size blended at install | `tools/prepare_universal_resources.py`, `pack_resolution_layouts.py`, `build_gui_blend_table.py`, all unchanged from Windows |
@@ -327,10 +327,12 @@ macos/build.sh --python .venv/bin/python [--reuse-resources]
 ```
 
 KotOR Patch Manager and FTD's widescreen patch come from the submodule
-`third_party/Kotor-Patch-Manager`: the fork `RayesDiyab/Kotor-Patch-Manager`, branch
-`kmrp-engine-fixes`, which is KPM's master (`1d3ccd2`) with FTD's `widescreen-patch` branch
-and KMRP's fixes (FTD516/Kotor-Patch-Manager#1). Once FTD merges those, the submodule moves to
-his branch. `--kpm` and `--widescreen` build from other checkouts instead.
+`third_party/Kotor-Patch-Manager`: FTD's fork `FTD516/Kotor-Patch-Manager`, branch
+`widescreen-patch` (`9884466`), which is KPM's master (`1d3ccd2`) with his widescreen patch
+and KMRP's fixes, merged there on 2026-09-29 (FTD516/Kotor-Patch-Manager#1). Until then the
+submodule tracked the same commit's content on `RayesDiyab/Kotor-Patch-Manager`, branch
+`kmrp-engine-fixes`; the merge changed no file. `--kpm` and `--widescreen` build from other
+checkouts instead.
 
 Needs: Xcode command line tools, the .NET 8 SDK, and a Python with `requirements.txt`. The
 unmodified game must be installed (the build resolves hooks against `KOTOR_Exe`'s hash and

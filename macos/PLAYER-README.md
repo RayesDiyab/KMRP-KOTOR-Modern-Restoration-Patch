@@ -68,7 +68,7 @@ you changed after installing is left alone and reported.
   ad-hoc re-signature, exactly as KotOR Patch Manager itself does. The original is kept in
   `~/Library/Application Support/KMRP/macos/backup`.
 - Next to `KOTOR_Exe`: `KotorPatcher.dylib`, `patch_config.toml`, `patches/` (the
-  widescreen patch by J, FTD and Vriff, with KMRP's engine fixes, and KMRP's own patches).
+  widescreen patch by FTD, RaymanGT, J and Vriff, with KMRP's engine fixes, and KMRP's own patches).
 - `swkotor.ini`: `UseGuiFileLayouts`, `ForceWidth` and `ForceHeight`, under
   `[Graphics Options]`. Uninstall puts back what was there before.
 - `Contents/Assets/override`: the interface, fonts and art. Portraits and icons you already
@@ -85,7 +85,7 @@ them: remove them in KPM first, then install KMRP.
 
 ## Credits
 
-KMRP by Rayes Diyab (RaymanGT), GPL-3.0. Widescreen patch by J, FTD and Vriff, and
+KMRP by Rayes Diyab (RaymanGT), GPL-3.0. Widescreen patch by FTD, RaymanGT, J and Vriff, and
 KotOR Patch Manager by LaneDibello and contributors, both MIT. The menu layouts derive from
 KOTOR High Resolution Menus by ndix UR, GPL-3.0. HD Icon Pack by JackInTheBox, Party Portraits by MadDerp and K1 Area Map Fixes by
 Derslok, each bundled with the author's permission. Licences and notices are in

@@ -371,7 +371,9 @@ before:
   measurements and what was rejected are in
   [docs/kpm-edition.md](docs/kpm-edition.md), section 1a:
   - **The runtime is built from the submodule**, `third_party/Kotor-Patch-Manager`
-    at `17fd051`, by the new `src/kpm-runtime/build.cmd`, which
+    at `17fd051` -- since that evening `9884466`, FTD's `widescreen-patch`
+    with the same tree, which builds the same bytes -- by the new
+    `src/kpm-runtime/build.cmd`, which
     `build_kmrp.ps1` runs: `KotorPatcher.dll` and KProxy's `binkw32.dll`,
     statically linked, since KPM's own build needs the Visual C++
     redistributable. It waits for SteamStub to decrypt before patching.

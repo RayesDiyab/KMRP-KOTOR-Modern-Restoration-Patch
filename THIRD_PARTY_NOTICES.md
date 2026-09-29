@@ -134,10 +134,11 @@ contributors**, licensed under MIT:
 https://github.com/LaneDibello/Kotor-Patch-Manager
 
 **Since 2026-09-29** KMRP's installer builds that runtime itself from the
-submodule `third_party/Kotor-Patch-Manager` (commit `17fd051` of the fork
-`RayesDiyab/Kotor-Patch-Manager`, branch `kmrp-engine-fixes`, based on KPM's
-`master`) with `src/kpm-runtime/build.cmd`, and installs two of its binaries:
-`KotorPatcher.dll`, compiled unmodified from `src/KotorPatcher` but statically
+submodule `third_party/Kotor-Patch-Manager` (commit `9884466` of FTD's fork
+`FTD516/Kotor-Patch-Manager`, branch `widescreen-patch`, the same tree as the
+commit it was first built from, `17fd051` of `RayesDiyab/Kotor-Patch-Manager`,
+branch `kmrp-engine-fixes`) with `src/kpm-runtime/build.cmd`, and installs two
+of its binaries: `KotorPatcher.dll`, compiled unmodified from `src/KotorPatcher` but statically
 linked, and KPM's `binkw32.dll` proxy, KProxy, compiled unmodified from
 `src/KProxy` ([src/kpm-runtime/README.md](src/kpm-runtime/README.md) has the hashes).
 Beside them it installs the submodule's own `LICENSE` as
@@ -228,13 +229,12 @@ repository into the game's `Contents/MacOS`:
 
 - **KotorPatcher**, KPM's runtime, by **Lane Dibello** and the KPM contributors,
   built from `src/KotorPatcher`;
-- **K1WidescreenPatch** by **FTD, Rayman, J and Vriff** (the authors its manifest
-  names), built from `Patches/K1WidescreenPatch`, with KMRP's engine fixes.
+- **K1WidescreenPatch** by **FTD, RaymanGT, J and Vriff**, built from
+  `Patches/K1WidescreenPatch`, with KMRP's engine fixes.
 
-Both are built from the fork https://github.com/RayesDiyab/Kotor-Patch-Manager,
-branch `kmrp-engine-fixes` (commit `17fd051`): FTD's `widescreen-patch` branch
-plus one commit with KMRP's fixes, offered back to FTD as
-https://github.com/FTD516/Kotor-Patch-Manager/pull/1. Licensed under **MIT**,
+Both are built from FTD's fork https://github.com/FTD516/Kotor-Patch-Manager,
+branch `widescreen-patch` (commit `9884466`), where KMRP's fixes were merged on
+2026-09-29 (https://github.com/FTD516/Kotor-Patch-Manager/pull/1). Licensed under **MIT**,
 `Copyright (c) 2025 Lane Dibello and KotOR Patch Manager contributors`; the
 package carries the licence as `licenses/KotOR-Patch-Manager-LICENSE.txt`.
 

@@ -41,6 +41,9 @@ proxy with MinGW only; `build.cmd` builds it with MSVC, `/MT`, and the same
 Built 2026-09-29 from submodule commit `17fd051` with MSVC `cl` 19.39.33523 for
 x86 (Visual Studio 2022 Build Tools). `/Brepro` makes the output reproducible: two
 builds in a row gave the same bytes, and so did every `build_kmrp.ps1` run that day.
+The same evening the submodule moved to `9884466`, FTD's `widescreen-patch` branch
+with KMRP's engine fixes merged, whose tree is `17fd051`'s (`7a6f19ec…`); built
+from it, both files were byte for byte the same.
 
 | File | Bytes | SHA-256 | Imports |
 | --- | --- | --- | --- |
