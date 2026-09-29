@@ -14,8 +14,10 @@
     Override folder to hold exactly the files of override-common.zip and that
     resolution's archive -- the same names, and the same SHA-256 for each -- less
     kmrp_prompts.txt, which the installer reads and does not install. A fixture has
-    no dialog.tlk and no texture pack, so no prompt badge is moved and no ability
-    icon is generated: every file must match its archive byte for byte. Then
+    no dialog.tlk, no texture pack and no chitin.key, so no prompt badge is moved,
+    no ability icon is generated, and neither are the row frames, tutorial icons and
+    tutorial.2da (GameArtGenerator, 2026-09-29; Test-GameArt.py covers those): every
+    file must match its archive byte for byte. Then
     restore, and require the Override folder to be empty again.
 
     It passes on an installer from before the pool as well, which embedded the

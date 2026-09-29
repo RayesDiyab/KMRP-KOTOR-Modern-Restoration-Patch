@@ -73,6 +73,9 @@ you changed after installing is left alone and reported.
   `[Graphics Options]`. Uninstall puts back what was there before.
 - `Contents/Assets/override`: the interface, fonts and art. Portraits and icons you already
   have from another mod are kept; KMRP's own files replace older copies after saving them.
+  A few files are made from your own copy of the game while installing (the enlarged ability
+  icons, the list-row frames, the tutorial popup's icons and `tutorial.2da`), because KMRP
+  does not ship anything taken from the game.
 
 Steam's **Verify integrity of game files** also restores `KOTOR_Exe`; run the uninstaller
 afterwards to clean up the rest.

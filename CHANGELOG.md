@@ -730,6 +730,40 @@ before:
 
 ### Changed
 
+- **No release carries anything taken from the game any more** (2026-09-29, Windows and
+  macOS, after an audit the maintainer asked for). Three things did:
+  - the four hex frames list rows tile behind item icons (`lbl_hex`, `lbl_hex_3`,
+    `lbl_hex_6`, `lbl_hex_7`, at `56s`), exported from the build machine's texture pack into
+    every resolution's archive;
+  - the tutorial popup's thirteen `tut_*` icons (`64s`), exported the same way;
+  - `tutorial.2da`, the game's table with its `icon` column pointed at those copies, committed
+    to the repository and shipped in `override-common.zip`.
+
+  Both installers now make all eighteen at install from the player's own game:
+  `src/patcher/GameArtGenerator.cs` on Windows and `macos/tools/kmrp-gameart.c` on the Mac.
+  They read `TexturePacks/swpc_tex_gui.erf`, and `tutorial.2da` through `chitin.key` from
+  `data/2da.bif`. `Test-GameArt.py` checks them:
+  - the two are byte-identical at 48 heights, on both Mac slices;
+  - an independent Python reference agrees;
+  - every texture has the size the sets shipped (1,122 compared);
+  - `tutorial.2da` is byte-identical to the file that was committed.
+
+  One difference is deliberate. The build decoded the DXT5 sources with pykotor, which weights
+  the eight-level alpha codes by i/7 instead of (i − 1)/7. The installers use the standard
+  formulas, so at 1964 the colour is identical to what shipped and the alpha differs by up to
+  36 on soft edges.
+
+  If the texture pack or `chitin.key` cannot be read, none of the eighteen is installed and the
+  game keeps its own: its small icons then tile in the enlarged popup, and its frames tile in
+  the enlarged rows. On the Mac, a blended size now gets its icons at exactly its own `64s`
+  instead of the nearest set's. The build also now refuses to ship the game's own font art.
+  It never did, since all 18 fonts have KMRP atlases, but nothing enforced it.
+
+  The same audit compared every image in both installers with the game's texture pack; nothing
+  else is the game's art (THIRD_PARTY_NOTICES.md, *The game's own files*). The Windows side
+  compiles as C# 5 against .NET Framework 4.8, checked on the Mac, but has not been built or
+  run on Windows.
+
 - **Item icons sit in their slots at the game's own size** (2026-09-29, Windows and
   macOS, at the maintainer's request: "can we keep the same ratio for inventory items
   within their frame? I think they are too big now", then "normalize all of the HD pack

@@ -328,6 +328,7 @@ $compilerArgs += "/resource:$layoutPool,Kmrp.override.layouts"
 
 $compilerArgs += (Join-Path $projectRoot "src\patcher\KmrpPatcher.cs")
 $compilerArgs += (Join-Path $projectRoot "src\patcher\AbilityIconGenerator.cs")
+$compilerArgs += (Join-Path $projectRoot "src\patcher\GameArtGenerator.cs")
 $compilerArgs += (Join-Path $projectRoot "src\patcher\ControllerPromptGenerator.cs")
 $compilerArgs += (Join-Path $projectRoot "src\patcher\AssemblyInfo.cs")
 

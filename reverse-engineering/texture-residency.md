@@ -497,8 +497,9 @@ it, and the budget turns out to be **data**, not code.
 
 `CClientExoAppInternal::SetTexturePack` (`0x005F14A0`) reads `texpacks.2da`
 through the ordinary resource path, which Override takes precedence in. KMRP
-already ships a 2DA that way -- `tutorial.2da` is in `override-common.zip` and in
-the installed game -- so the delivery mechanism exists and is proven.
+already installs a 2DA that way -- `tutorial.2da`, shipped in `override-common.zip`
+until 2026-09-29 and made at install from the game's own table since -- so the
+delivery mechanism exists and is proven.
 
 The two columns are `mem` and `dynmemratio`, and the engine does nothing exotic
 with either:

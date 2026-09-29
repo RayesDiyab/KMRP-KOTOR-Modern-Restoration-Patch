@@ -36,9 +36,8 @@ from transfer_gold_gui_geometry import transfer_geometry
 from scale_listbox_padding import (LIST_GUTTER_AT_UNIT_SCALE, SCRIPTSELECT_FRAME,
                                    centre_rows_in_frame, scale_listbox_padding)
 from scale_message_popup import apply_tuned as apply_popup_layout
-from export_tutorial_icons import export_tutorial_icons
 from fix_feedback_list_prototypes import fix_feedback_prototypes, fix_scriptselect_prototypes
-from scale_row_icon_frames import FRAME_RESREFS, export_frames
+from scale_row_icon_frames import FRAME_RESREFS
 
 
 MENUBG_TEXTURE_NAME = "lbl_mileftbot.tga"
@@ -1069,10 +1068,6 @@ def main() -> int:
                              "permission. Every *.tga beneath each directory goes into "
                              "override-common.zip. See THIRD_PARTY_NOTICES.md; omit to "
                              "ship without them.")
-    parser.add_argument("--shared-assets", type=Path,
-                        default=Path(__file__).resolve().parents[1] / "assets" / "override-common",
-                        help="resolution-independent files copied straight into "
-                             "override-common.zip (currently tutorial.2da)")
     parser.add_argument("hd_fonts", type=Path,
                         help="Pre-rendered HD font atlases (assets/hd-fonts)")
     parser.add_argument("--font-scale-sets", type=Path,
@@ -1141,8 +1136,11 @@ def main() -> int:
     # The hex icon frames behind list-row item icons are a TILED fill sized to the
     # row's icon box. That box is now scaled per resolution (RowSizeGroups in
     # KmrpPatcher.cs), so 56px art tiles 2x2 at 1440p and draws four
-    # borders per row -- seen in game. They therefore ship per resolution, scaled
-    # to match, and must NOT go in the shared archive.
+    # borders per row -- seen in game. They are therefore made per resolution,
+    # scaled to match, and must NOT go in the shared archive. Since 2026-09-29 the
+    # installers make them from the player's own texture pack
+    # (src/patcher/GameArtGenerator.cs, macos/tools/kmrp-gameart.c); until then
+    # this build exported them from the game and every release shipped them.
     frame_tga_names = {f"{name}.tga" for name in FRAME_RESREFS}
     common_tga_files = [path for path in tga_files
                         if path.name.lower() != MENUBG_TEXTURE_NAME
@@ -1178,22 +1176,21 @@ def main() -> int:
     with tempfile.TemporaryDirectory(prefix="kotor-stock-fonts-") as stock_name:
         # Stock artwork for every font we are NOT replacing. A scaled `.txi` alone
         # does NOT take effect: with the artwork left inside the packed `.tpc` the
-        # engine keeps that file's embedded metrics and the text never changes size.
-        # Shipping the unmodified atlas beside the scaled `.txi` is what makes the
-        # override win, so these 17 keep the authentic KOTOR typeface and still
-        # scale. The artwork is resolution-independent, so it ships once here.
+        # engine keeps that file's embedded metrics and the text never changes size,
+        # so a font without an atlas of ours would need the game's own beside it.
+        # Every one has one (assets/hd-fonts), and the game's own must not ship:
+        # a release carries nothing exported from the game (2026-09-29). So a
+        # missing atlas stops the build instead of shipping the stock one.
         stock_fonts = export_fonts(args.texture_pack, Path(stock_name), 1.0, textures=True)
         stock_atlases = [path for path in stock_fonts
                          if path.suffix.lower() == ".tga" and path.stem.lower() not in hd_font_stems]
-        # Resolution-independent data files. tutorial.2da is the stock table with
-        # its `icon` column repointed at the popup's private tut_* copies (see
-        # tools/export_tutorial_icons.py); it is committed rather than generated
-        # because building it needs to read the game's BIFs, which this build
-        # does not have a path to.
-        shared_data = sorted(args.shared_assets.glob("*")) if args.shared_assets.is_dir() else []
-        if not shared_data:
-            raise ValueError(f"No shared data files found in {args.shared_assets}")
-        print(f"Shared data: {', '.join(path.name for path in shared_data)}")
+        if stock_atlases:
+            raise ValueError("No atlas of ours for " + ", ".join(p.stem for p in stock_atlases) +
+                             ": the build would ship the game's own font art")
+        # tutorial.2da, the game's table with its `icon` column pointed at the
+        # popup's tut_* copies, was committed and shipped here until 2026-09-29.
+        # The installers now make it from the player's own chitin.key, with the
+        # icons (GameArtGenerator.cs, kmrp-gameart.c).
 
         # Third-party Override mods, bundled with permission. Separate inputs rather
         # than dropped into the gold override, so the 240-asset assertion above keeps
@@ -1277,7 +1274,7 @@ def main() -> int:
         # disagree about dialogfont10x10.tga", which is exactly what a shared
         # copy alongside the per-resolution ones produces.
         write_zip(args.output / "override-common.zip",
-                  common_tga_files + stock_atlases + shared_data + bundled)
+                  common_tga_files + bundled)
         shutil.rmtree(icon_staging, ignore_errors=True)
 
         # The names of the bundled art, so the installer can tell it apart from our
@@ -1700,19 +1697,13 @@ def main() -> int:
                     caption_txi)
                 packaged_files.append(layout_gui)
 
-                # Hex icon frames at this resolution's row-icon size, so the
-                # tiled fill stays exactly one tile (see scale_row_icon_frames).
-                packaged_files.extend(
-                    export_frames(args.texture_pack, temp_dir / "frames",
-                                  font_scale_for(height)))
-
-                # The message popup's icons, at this resolution's icon rect (the
-                # rect is scaled by ResolutionPatch's PopupSizeGroups). The engine
-                # draws GUI textures one texel per pixel, so a mismatch TILES or
-                # CROPS -- hence per resolution, not in the shared archive.
-                packaged_files.extend(
-                    export_tutorial_icons(args.texture_pack, temp_dir / "tuticons",
-                                          font_scale_for(height)))
+                # The hex row frames (56s) and the tutorial popup's tut_* icons
+                # (64s) are per resolution too, but made from the game's own art,
+                # so the installers make them from the player's copy
+                # (GameArtGenerator.cs, kmrp-gameart.c). This build exported them
+                # (tools/scale_row_icon_frames.py, tools/export_tutorial_icons.py,
+                # kept as the reference Test-GameArt.py checks against) and every
+                # release shipped them until 2026-09-29.
 
                 # Original KMRP artwork for the optional controller runtime. The
                 # PC renderer stretches BORDER.FILL to each button, so these are

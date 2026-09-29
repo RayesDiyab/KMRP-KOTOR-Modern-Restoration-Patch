@@ -20,8 +20,10 @@
 #   4. Installs into Contents/Assets/override KMRP's artwork and the menu set for that
 #      resolution, the same files the Windows installer writes for it: from the pooled sets in
 #      layouts.zip, or, for a size the build has no set for, .gui files blended by
-#      kmrp-guiblend with the fonts and art of the nearest set. Then generates the enlarged
-#      feat, power and skill icons from the game's own texture pack (kmrp-abilityicons). Bundled
+#      kmrp-guiblend with the fonts and art of the nearest set. Then makes, from the player's
+#      own game, what KMRP builds from the game's art and data: the hex row frames, the tutorial
+#      popup's icons and tutorial.2da (kmrp-gameart), and the enlarged feat, power and skill
+#      icons (kmrp-abilityicons). No release carries anything of the game's. Bundled
 #      third-party art yields to a file already there; KMRP's own files replace one after
 #      copying it aside.
 #   5. Records every file and INI value it wrote in a manifest outside the game folder
@@ -89,6 +91,7 @@ set_paths() {
     EXE="$MACOS/KOTOR_Exe"
     OVERRIDE="$GAME/Contents/Assets/override"
     TEXTURE_PACK="$GAME/Contents/Assets/TexturePacks/swpc_tex_gui.erf"
+    CHITIN_KEY="$GAME/Contents/Assets/chitin.key"
 }
 
 refuse_if_running() {
@@ -392,6 +395,14 @@ do_install() {
         install_file "$file" "$OVERRIDE"; count=$(( count + 1 ))
     done
 
+    say "Making the row frames, tutorial icons and tutorial.2da from the game for $size..."
+    local game_art=0
+    if "$PAYLOAD/bin/kmrp-gameart" "$TEXTURE_PACK" "$CHITIN_KEY" "$HEIGHT" "$WORK/gameart" >/dev/null; then
+        for file in "$WORK/gameart"/*(.N); do install_file "$file" "$OVERRIDE"; game_art=$(( game_art + 1 )); done
+    else
+        warn "the row frames, tutorial icons and tutorial.2da could not be made; the game keeps its own"
+    fi
+
     say "Enlarging the feat, power and skill icons for $size..."
     local icons=0
     if "$PAYLOAD/bin/kmrp-abilityicons" "$TEXTURE_PACK" "$HEIGHT" "$WORK/icons" "$WORK/reserved.txt" >/dev/null; then
@@ -411,12 +422,13 @@ do_install() {
         print -r -- "resolution_choice=$RESOLUTION"
         print -r -- "menu_set=$([[ $derived == 1 ]] && echo "blended, fonts and art from $from" || echo "$from")"
         print -r -- "ability_icons=$icons"
+        print -r -- "game_art=$game_art"
         print -r -- "map_notes=$MAP_NOTES"
         print -r -- "complete=1"
     } > "$STATE/install.info"
     INSTALLING=0
     rm -rf "$WORK"
-    say "Installed: engine patches, $count Override files and $icons enlarged icons ($skipped bundled files left to mods already installed)."
+    say "Installed: engine patches, $count Override files, $game_art files made from the game and $icons enlarged icons ($skipped bundled files left to mods already installed)."
     say "KOTOR_Exe was modified (one load command, re-signed ad hoc); the original is in $STATE/backup."
     say "To undo everything: run Uninstall KMRP.command, or kmrp-mac.sh uninstall."
 }

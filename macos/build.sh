@@ -111,8 +111,8 @@ clang -O2 -Wall -Wextra -arch x86_64 -arch arm64 -mmacosx-version-min=10.13 \
     -o "$PKG/bin/kmrp-macho" "$HERE/tools/kmrp-macho.c"
 codesign --force --sign - "$PKG/bin/kmrp-macho" 2>/dev/null
 
-step "kmrp-guiblend and kmrp-abilityicons (the installer's helpers)"
-for helper in kmrp-guiblend kmrp-abilityicons; do
+step "kmrp-guiblend, kmrp-abilityicons and kmrp-gameart (the installer's helpers)"
+for helper in kmrp-guiblend kmrp-abilityicons kmrp-gameart; do
     clang -O2 -Wall -Wextra -arch x86_64 -arch arm64 -mmacosx-version-min=10.13 \
         -o "$PKG/bin/$helper" "$HERE/tools/$helper.c"
     codesign --force --sign - "$PKG/bin/$helper" 2>/dev/null

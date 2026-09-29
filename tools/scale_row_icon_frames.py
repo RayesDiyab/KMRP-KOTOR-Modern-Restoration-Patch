@@ -1,6 +1,12 @@
 #!/usr/bin/env python3
 """Scale the hex icon-frame textures that list rows draw behind item icons.
 
+**No longer part of the build (2026-09-29).** The installers make these frames from
+the player's own texture pack (src/patcher/GameArtGenerator.cs,
+macos/tools/kmrp-gameart.c), so no release carries the game's art. This module is
+kept as the reference testing/regression/Test-GameArt.py checks them against, and
+resize_rgba is the resampler both installers reproduce.
+
 The Inventory / Abilities / Store row classes draw their icon frame as a
 **tiled fill**, not a stretched image. The stock art is 56x56 -- exactly the
 vanilla row icon box -- so one tile fills the box and the tiling is invisible.

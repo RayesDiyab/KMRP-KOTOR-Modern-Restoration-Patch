@@ -356,7 +356,9 @@ field, and listed only ten fields.
 
 - The 236 shared TGA assets are stored once in the standalone patcher; three
   more, `lbl_mileftbot`, `lbl_hex_3` and `lbl_hex_6`, are built per resolution
-  (build of 2026-09-24).
+  (build of 2026-09-24). Since 2026-09-29 the four hex frames, like the tutorial
+  popup's icons and `tutorial.2da`, are made at install from the player's own game
+  (`src/patcher/GameArtGenerator.cs`) instead of shipping.
 - Each supported resolution has its own GUI archive in the build,
   `gui-<W>x<H>.zip`, which the regression checks read. Since 2026-09-25 the
   installer embeds them as one pool that stores each distinct file once, and

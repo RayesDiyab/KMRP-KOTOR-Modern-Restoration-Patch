@@ -259,8 +259,11 @@ and Steam Deck remain untested; use the explicit matrix and report procedure in
 The PC data contains two prompt systems rather than one switchable set:
 
 - `dialog.tlk` contains PC tutorial prose at string references `48324` onward,
-  including mouse clicks and keyboard tokens. `assets/override-common/tutorial.2da`
-  selects this PC block for KMRP's tutorial popups.
+  including mouse clicks and keyboard tokens. The game's own `tutorial.2da` selects
+  this PC block; the one KMRP installs changes only its `icon` column. (*Corrected
+  2026-09-29:* this said KMRP's committed copy selected it. It differs from the game's
+  in 20 icon cells and nothing else, and since that date the installers make it from
+  the game's own table.)
 - The same TLK retains Xbox-era prose, including references `39461`, `39462`,
   `39465`, `39482`, and `41875`. Tokens such as `<abutton>` and `<whbutton>`
   appear in those strings.

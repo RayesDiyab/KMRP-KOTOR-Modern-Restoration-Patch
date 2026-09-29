@@ -48,6 +48,7 @@ site; the files are the same.
 | Menus and fonts | every resolution's set from KMRP's resource build, pooled; any other size blended at install | `tools/prepare_universal_resources.py`, `pack_resolution_layouts.py`, `build_gui_blend_table.py`, all unchanged from Windows |
 | Artwork | `override-common.zip`, less what the Mac does not use | the same resource build |
 | Feat, power and skill icons | enlarged from the game's texture pack at install | `tools/kmrp-abilityicons.c`, a port of `AbilityIconGenerator.cs` |
+| Row frames, tutorial icons, `tutorial.2da` | made at install from the player's game: nothing of the game's ships | `tools/kmrp-gameart.c`, a port of `GameArtGenerator.cs` |
 | Installer | `kmrp-mac.sh`: install, uninstall, status, with a hashed manifest | this directory |
 
 **Why the widescreen patch is the base** (decided 2026-09-29, after a day on which KMRP was to
@@ -279,7 +280,18 @@ others: 99.89% of numeric fields within 1 px; the 17 Mac sets, held out, 99.90% 
 worst 12 px in a HUD variant the Mac does not load (`Test-GuiBlendHelper.py`). The tutorial
 icons of the nearest set can be a few pixels off `64s` for the blended size, and the engine
 draws them one texel per pixel, so the layout patch sizes the popup's icon rect from the
-installed icon instead (the same `64s` for every listed set: all 66 checked).
+installed icon instead (the same `64s` for every listed set: all 66 checked). Since
+2026-09-29 the installer makes the icons itself at exactly `64s` for any size, blended ones
+included, so the icon it reads is always that.
+
+**Made from the player's game.** The four hex frames list rows tile behind item icons
+(`lbl_hex*`, `56s`), the tutorial popup's thirteen `tut_*` icons (`64s`) and `tutorial.2da`
+(the game's own table, its `icon` column pointed at those copies) are made at install by
+`kmrp-gameart`, from `TexturePacks/swpc_tex_gui.erf` and, through `chitin.key`,
+`data/2da.bif`. Until 2026-09-29 the resource build exported them from the build machine's
+game and the package carried them. `GameArtGenerator.cs` does the same on Windows, byte for
+byte (`Test-GameArt.py`), and the sizes are the ones every set shipped (1,122 textures
+checked). If either file cannot be read, none is installed and the game keeps its own.
 
 **Feat, power and skill icons.** The engine draws them at their texture's size in rows
 that grow with `s`. `kmrp-abilityicons` enlarges every uncompressed square `i_*` and `ip_*`

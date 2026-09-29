@@ -6,6 +6,26 @@
 > site tabulated, rejected alternatives and corrections kept visible, and
 > anything untested labelled as untested.
 
+## The game's own files
+
+No KMRP release carries a file taken from *Star Wars: Knights of the Old Republic*.
+What KMRP needs of the game's own art and data it makes at install, from the
+player's copy:
+
+| Made at install | From | By |
+| --- | --- | --- |
+| enlarged feat, Force-power and skill icons | `TexturePacks/swpc_tex_gui.erf` | `AbilityIconGenerator.cs`, `macos/tools/kmrp-abilityicons.c` |
+| the four hex row frames (`lbl_hex*`), the tutorial popup's thirteen `tut_*` icons | `TexturePacks/swpc_tex_gui.erf` | `GameArtGenerator.cs`, `macos/tools/kmrp-gameart.c` |
+| `tutorial.2da`, its `icon` column pointed at the `tut_*` copies | `chitin.key`, `data/2da.bif` | the same |
+
+*Corrected 2026-09-29:* until then the hex frames and tutorial icons were exported
+from the build machine's game into every resolution's archive, and `tutorial.2da`
+was committed to this repository and shipped. Checked the same day against every
+shipped image: nothing else in either installer is the game's art. The fonts are
+KMRP's own renderings, and `lbl_mileftbot` is KMRP's own drawing under the game's
+name. The HD icons, portraits and menu art below are their authors' remakes,
+bundled with permission.
+
 
 ## Party Portraits
 
