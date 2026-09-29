@@ -1,0 +1,4 @@
+[submodule "third_party/Kotor-Patch-Manager"]
+	path = third_party/Kotor-Patch-Manager
+	url = https://github.com/RayesDiyab/Kotor-Patch-Manager.git
+	branch = kmrp-engine-fixes

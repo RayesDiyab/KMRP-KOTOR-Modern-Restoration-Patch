@@ -83,6 +83,11 @@ third_party/*
 !third_party/Included/
 third_party/Included/*
 
+# KotOR Patch Manager (MIT), as a submodule: the runtime and FTD's widescreen patch the
+# macOS package builds from (macos/README.md, section 8). A submodule, not a copy, so
+# fixes go back upstream instead of drifting here.
+!third_party/Kotor-Patch-Manager
+
 # Xelu's Free Controller & Key Prompts (CC0): the glyph art every badge, cue and the
 # Controller Layout screen is built from. Only the four families KMRP supports, plus
 # the pack's readme for its licence statement. The rest of the pack -- Others/, with

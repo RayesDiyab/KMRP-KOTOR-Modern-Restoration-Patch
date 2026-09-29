@@ -25,7 +25,7 @@ ships, and checks:
     python testing/regression/Test-KmrpLayoutPatch.py CLEAN_KOTOR_EXE [WIDESCREEN_PATCH_DIR]
 
 CLEAN_KOTOR_EXE must be the unmodified 1.4.0 build (C1FCB8D3...6D71). WIDESCREEN_PATCH_DIR
-defaults to third_party/ftd-kpm/Patches/K1WidescreenPatch beside the KMRP checkout.
+defaults to the submodule's third_party/Kotor-Patch-Manager/Patches/K1WidescreenPatch.
 """
 from __future__ import annotations
 
@@ -240,7 +240,7 @@ def main() -> int:
         return 2
     exe_path = Path(sys.argv[1])
     widescreen = Path(sys.argv[2]) if len(sys.argv) > 2 else \
-        ROOT.parent / "third_party" / "ftd-kpm" / "Patches" / "K1WidescreenPatch"
+        ROOT / "third_party" / "Kotor-Patch-Manager" / "Patches" / "K1WidescreenPatch"
     data, at = read_macho(exe_path)
     if hashlib.sha256(data).hexdigest() != CLEAN_SHA:
         print(f"FAIL {exe_path} is not the unmodified KOTOR_Exe 1.4.0")

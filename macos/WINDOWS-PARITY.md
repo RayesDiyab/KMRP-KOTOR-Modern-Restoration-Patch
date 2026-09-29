@@ -31,7 +31,7 @@ Windows gets its look from three things, and the Mac build is moving to the same
 
 **KMRP builds on the widescreen patch** (decided 2026-09-29, replacing an earlier decision
 the same day that KMRP should ship a Mac patch of its own). The widescreen patch, with the
-engine fixes KMRP contributed to it (`third_party/ftd-kpm`, branch `kmrp-engine-fixes`, open as
+engine fixes KMRP contributed to it (the submodule `third_party/Kotor-Patch-Manager`, branch `kmrp-engine-fixes`, open as
 [FTD516/Kotor-Patch-Manager#1](https://github.com/FTD516/Kotor-Patch-Manager/pull/1)), is
 the base: KMRP ships that version, and installs it when the player does not have it. What
 goes where:

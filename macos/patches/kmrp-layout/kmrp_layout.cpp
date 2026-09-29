@@ -1,6 +1,6 @@
 // KMRP for macOS: the engine side of KMRP's menu layouts, as a KotOR Patch Manager patch.
 //
-// The Mac build runs on the widescreen patch (third_party/ftd-kpm, Patches/K1WidescreenPatch)
+// The Mac build runs on the widescreen patch (third_party/Kotor-Patch-Manager, Patches/K1WidescreenPatch)
 // with UseGuiFileLayouts=1, which unlocks the resolution and lays nothing out, and KMRP's .gui
 // set for the resolution in Override. On Windows, KMRP's executable also carries what those
 // layouts need from the engine; this patch writes the same into KOTOR_Exe 1.4.0

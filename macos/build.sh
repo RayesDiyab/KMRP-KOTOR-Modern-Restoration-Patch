@@ -1,9 +1,12 @@
 #!/bin/zsh
 # Builds the KMRP for macOS package: dist/macos/KMRP-macOS-<version>/ and its .zip.
 #
-#   macos/build.sh --kpm <Kotor-Patch-Manager checkout> --widescreen <K1WidescreenPatch dir>
-#                  [--game "<...>/Knights of the Old Republic.app"] [--exe <unmodified KOTOR_Exe>]
+#   macos/build.sh [--game "<...>/Knights of the Old Republic.app"] [--exe <unmodified KOTOR_Exe>]
 #                  [--python <python3>] [--reuse-resources]
+#                  [--kpm <Kotor-Patch-Manager checkout>] [--widescreen <K1WidescreenPatch dir>]
+#
+# KPM and the widescreen patch come from the submodule third_party/Kotor-Patch-Manager
+# (git submodule update --init); --kpm and --widescreen build from other checkouts instead.
 #
 # Needs: Xcode command line tools (clang, codesign), .NET 8 SDK (KPM's KPatchCore writes
 # patch_config.toml), and a Python with requirements.txt installed (the resource build).
@@ -16,8 +19,8 @@ setopt extendedglob
 HERE=${0:A:h}
 ROOT=${HERE:h}
 VERSION=$(cat "$HERE/VERSION")
-KPM=""
-WIDESCREEN=""
+KPM="$ROOT/third_party/Kotor-Patch-Manager"
+WIDESCREEN=""   # default: $KPM/Patches/K1WidescreenPatch
 GAME="$HOME/Library/Application Support/Steam/steamapps/common/swkotor/Knights of the Old Republic.app"
 PYTHON=${KMRP_PYTHON:-python3}
 REUSE=0
@@ -34,7 +37,8 @@ while (( $# )); do
     esac
     shift
 done
-[[ -n "$KPM" && -f "$KPM/src/KotorPatcher/Makefile" ]] || { print -u2 "--kpm must point at a Kotor-Patch-Manager checkout"; exit 2; }
+WIDESCREEN=${WIDESCREEN:-"$KPM/Patches/K1WidescreenPatch"}
+[[ -f "$KPM/src/KotorPatcher/Makefile" ]] || { print -u2 "no KotOR Patch Manager at $KPM: run git submodule update --init, or pass --kpm"; exit 2; }
 [[ -n "$WIDESCREEN" && -x "$WIDESCREEN/build_mac.sh" ]] || { print -u2 "--widescreen must point at Patches/K1WidescreenPatch (with build_mac.sh)"; exit 2; }
 
 EXE=${CLEAN_EXE:-"$GAME/Contents/MacOS/KOTOR_Exe"}

@@ -319,10 +319,15 @@ widescreen patch.
 ## 8. Building
 
 ```sh
-macos/build.sh --kpm ../Kotor-Patch-Manager \
-               --widescreen ../ftd-kpm/Patches/K1WidescreenPatch \
-               --python .venv/bin/python [--reuse-resources]
+git submodule update --init
+macos/build.sh --python .venv/bin/python [--reuse-resources]
 ```
+
+KotOR Patch Manager and FTD's widescreen patch come from the submodule
+`third_party/Kotor-Patch-Manager`: the fork `RayesDiyab/Kotor-Patch-Manager`, branch
+`kmrp-engine-fixes`, which is KPM's master (`1d3ccd2`) with FTD's `widescreen-patch` branch
+and KMRP's fixes (FTD516/Kotor-Patch-Manager#1). Once FTD merges those, the submodule moves to
+his branch. `--kpm` and `--widescreen` build from other checkouts instead.
 
 Needs: Xcode command line tools, the .NET 8 SDK, and a Python with `requirements.txt`. The
 unmodified game must be installed (the build resolves hooks against `KOTOR_Exe`'s hash and
