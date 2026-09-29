@@ -131,19 +131,37 @@ States: **done** (behaves as on Windows, checked as stated), **to port**, **n/a*
 | `0x00755788` | dialogue letterbox (`.klb` sites) | **done**: K7, the same `2H/3` rule. Seen with KMRP's layout at 3024x1964: bars a sixth of the screen each, three replies in the bottom bar (2026-09-29) |
 | `.kmv`, `0x004057AC` | movie aspect fit | **n/a**: Aspyr's Bink player pillarboxes (checked in play) |
 
+### Controller
+
+The Windows controller module (`src/controller-native/`) is a module with hooks, not part of
+the gold delta; its Mac port is `macos/patches/kmrp-controller` (`README.md`, section 7).
+*Corrected 2026-09-29:* this was one row under *Windows only*, first saying the Aspyr port has
+its own controller support, then **not ported**. KOTOR I on the Mac has none that works: a pad
+did nothing in play, and Aspyr lists controllers for KOTOR II on the Mac only.
+
+| Windows | What | Mac |
+| --- | --- | --- |
+| `K1NativeJoystick.cpp` | the pad into the engine's joystick chain; walking, the camera, L3, Start, R3, A on the target; the menus' focus, remaps, echo and confirm guards; movies; the action bar | **done**, with SDL 3.4.16 as on Windows. Played with a scripted pad and with the maintainer's pad (2026-09-29). The confirm guards in character generation, Solo Mode and resolution: **not yet played** |
+| the same, prompts and GUI cues | button prompts in the pad's family, hidden on mouse and keyboard use; the parked cursor; the cues | **done**: PlayStation art in play; the other three families not yet seen. The cursor is not confined to the window (macOS has no equivalent of `ClipCursor`) |
+| `K1Rumble.cpp` | one mixer for BioWare's patterns, the cut ones and KMRP's | **done** for the saber (read in `rumble.log`); combat events and a real pad's motors **not yet tested** |
+| `K1ControllerLayout.cpp` | the Controller Layout screen and its Gameplay entry; the confirm and dialogue A; the status summary's layout and A | the screen and the confirm A **done** (played 2026-09-29); the dialogue A and the status summary **not yet reached in play** |
+
 ### Windows only
 
 | Windows | Why not on the Mac |
 | --- | --- |
 | PE header, Large Address Aware | the Mac build is 64-bit |
-| DPI, NVIDIA and driver settings | Windows code (see `README.md`, section 7; whether the Mac needs a lighting fix like K1DC's is not yet checked) |
-| controller layer | **not ported.** *Corrected 2026-09-29:* this row said the Aspyr port has its own controller support. KOTOR I on the Mac has none that works: a pad did nothing in play, and Aspyr lists controllers for KOTOR II on the Mac only |
+| DPI, NVIDIA and driver settings | Windows code (see `README.md`, section 8; whether the Mac needs a lighting fix like K1DC's is not yet checked) |
 
 *Corrected 2026-09-29:* this table listed `0x0045992A` as a texture-residency measure. It is the
 HUD minimap's content zoom (`.kmz`, `reverse-engineering/map-scaling.md` §3), done by K8 and now
 listed under *Area map and minimap*.
 
 ## Done so far
+
+- **2026-09-29.** `macos/patches/kmrp-controller`: the Windows controller module ported, 21
+  hooks and ten sites written at load (`README.md`, section 7), with SDL 3.4.16 shipped as
+  `kmrp-sdl3.dylib` and KMRP's controller art installed. Committed as `0d147a1`.
 
 - **2026-09-29.** The package and installer carry it all: `build.sh` stages the widescreen
   patch, `kmrp-map-notes` and `kmrp-layout` through KPM's KPatchCore (no overlapping hooks),

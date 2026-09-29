@@ -2,7 +2,7 @@
 id = "kmrp-controller"
 name = "KMRP Controller Support"
 version = "1.5.0"
-description = "Gamepad support for the Aspyr macOS build, ported from KMRP's Windows controller module: pads read through Apple's GameController framework (DualSense, DualShock 4, Xbox, Switch Pro) and fed to the engine's own retained console input, with KMRP's button bindings. Part of KMRP for macOS."
+description = "Gamepad support for the Aspyr macOS build, ported from KMRP's Windows controller module: pads read through SDL 3 (kmrp-sdl3.dylib, beside this module), or Apple's GameController framework without it, and fed to the engine's own joystick input with KMRP's bindings; button prompts, rumble and the Controller Layout screen. Part of KMRP for macOS."
 author = "RaymanGT (KMRP)"
 
 [patch.supported_versions]

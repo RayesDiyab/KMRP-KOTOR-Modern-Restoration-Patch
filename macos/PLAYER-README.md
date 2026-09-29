@@ -42,6 +42,34 @@ Terminal: `./kmrp/kmrp-mac.sh install --game "/path/to/Knights of the Old Republ
   textures, and feat, power and skill icons enlarged to fit KMRP's rows. Item icons are
   sized to sit in their slots the way the game's own do.
 - **250 map notes moved to where they belong** (Derslok's K1 Area Map Fixes).
+- **Controller support**, which the Mac version of KOTOR does not have on its own: KMRP's
+  controls from Windows, button prompts drawn for your pad, rumble, and a Controller Layout
+  screen. See *Controller* below.
+
+## Controller
+
+Pads are read through SDL, as on Windows, which knows Xbox, PlayStation, Switch Pro and most
+other pads. The controls are KMRP's, the same as on Windows: the full list is on the
+**Controller Layout** screen, under **Options → Gameplay**.
+
+- Button prompts appear on screen in your pad's style (Xbox, PlayStation, Switch or Steam
+  Deck) while you play with the pad, and disappear as soon as you use the mouse or keyboard.
+  The mouse pointer hides while the pad is in use and comes back when you move the mouse.
+- **Rumble** can be changed in a text file the installer puts next to `swkotor.ini`:
+  `~/Library/Application Support/Knights of the Old Republic/kmrp-controller.ini`.
+
+  ```ini
+  [Rumble]
+  Mode=Enhanced
+  Strength=100
+  ```
+
+  `Mode` is `Enhanced` (the default: the game's own rumble plus KMRP's), `Original` (only
+  what the game had) or `Off`. `Strength` is 0 to 100. The file explains the other settings.
+  The game picks up a change within a second, without restarting. Once you edit the file it
+  is yours: installing again never overwrites it, and uninstalling leaves it.
+- If the pad does not respond, the log `~/Library/Logs/KMRP/controller.log` says what the
+  game saw; include it when you report a problem.
 
 ## Options
 
@@ -68,9 +96,11 @@ you changed after installing is left alone and reported.
   ad-hoc re-signature, exactly as KotOR Patch Manager itself does. The original is kept in
   `~/Library/Application Support/KMRP/macos/backup`.
 - Next to `KOTOR_Exe`: `KotorPatcher.dylib`, `patch_config.toml`, `patches/` (the
-  widescreen patch by FTD, RaymanGT, J and Vriff, with KMRP's engine fixes, and KMRP's own patches).
+  widescreen patch by FTD, RaymanGT, J and Vriff, with KMRP's engine fixes, KMRP's own
+  patches, and the SDL library the controller support reads pads with).
 - `swkotor.ini`: `UseGuiFileLayouts`, `ForceWidth` and `ForceHeight`, under
   `[Graphics Options]`. Uninstall puts back what was there before.
+- `kmrp-controller.ini` next to it, the controller settings, if you do not have one yet.
 - `Contents/Assets/override`: the interface, fonts and art. Portraits and icons you already
   have from another mod are kept; KMRP's own files replace older copies after saving them.
   A few files are made from your own copy of the game while installing (the enlarged ability
@@ -91,5 +121,7 @@ them: remove them in KPM first, then install KMRP.
 KMRP by Rayes Diyab (RaymanGT), GPL-3.0. Widescreen patch by FTD, RaymanGT, J and Vriff, and
 KotOR Patch Manager by LaneDibello and contributors, both MIT. The menu layouts derive from
 KOTOR High Resolution Menus by ndix UR, GPL-3.0. HD Icon Pack by JackInTheBox, Party Portraits by MadDerp and K1 Area Map Fixes by
-Derslok, each bundled with the author's permission. Licences and notices are in
-`kmrp/licenses/`.
+Derslok, each bundled with the author's permission. The controller support builds on
+Saul0097's KPM – Xbox Controls for KOTOR 1 (MIT, with his permission), reads pads through SDL
+(zlib licence), and draws its buttons with Xelu's free controller prompts (CC0). Licences and
+notices are in `kmrp/licenses/`.

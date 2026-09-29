@@ -16,6 +16,12 @@ own. Nothing of the real game or the real ini is read or written except those (r
 2. A size the build has no set for (--size 1800x1169): the .gui files are kmrp-guiblend's
    for that size, everything else is the nearest listed set's (by height, then shape); then
    the same clean uninstall.
+3. The listed size again, over the settings round 2 left behind.
+
+The controller's kmrp-controller.ini (beside swkotor.ini, since 2026-09-29), the player's file
+as on Windows: round 1 has none, so install writes the defaults and uninstall removes them;
+in round 2 the player edits it after installing, and uninstall keeps it and still finishes;
+round 3 installs over that edited copy, which install and uninstall leave byte for byte.
 
     python testing/regression/Test-MacInstaller.py PACKAGE_KMRP_DIR CLEAN_KOTOR_EXE SWPC_TEX_GUI_ERF
 
@@ -94,13 +100,31 @@ def main() -> int:
                     return line.split("=", 1)[1].strip()
             return None
 
-        for size, listed in (("3024x1964", True), ("1800x1169", False)):
+        settings = ini.parent / "kmrp-controller.ini"
+        player_settings = b""
+        for size, listed, mode in (("3024x1964", True, "fresh"), ("1800x1169", False, "edit"),
+                                   ("3024x1964", True, "kept")):
             width, height = (int(v) for v in size.split("x"))
             ini.write_bytes(INI_BEFORE.encode())
+            if mode == "kept":
+                player_settings = settings.read_bytes() if settings.is_file() else b""
             result = run("install", "--size", size, "--yes")
             if result.returncode != 0:
                 failures.append(f"{size}: install failed: {result.stderr.strip()[-300:]}")
                 continue
+            # The controller's settings: Windows' defaults when there are none, else the player's.
+            if mode == "kept":
+                if not player_settings or settings.read_bytes() != player_settings:
+                    failures.append(f"{size}: the player's kmrp-controller.ini was not kept as it was")
+                if "Kept your kmrp-controller.ini" not in result.stdout:
+                    failures.append(f"{size}: install did not say it kept kmrp-controller.ini")
+            else:
+                text = settings.read_text() if settings.is_file() else ""
+                if not all(line in text.splitlines() for line in ("[Rumble]", "Mode=Enhanced", "Strength=100",
+                                                                  "SaberHum=6", "Debug=0")):
+                    failures.append(f"{size}: kmrp-controller.ini was not written with the defaults")
+            if mode == "edit":
+                settings.write_text(settings.read_text().replace("Strength=100", "Strength=40"))
             override = game / "Contents/Assets/override"
             # Engine.
             for name in ("KotorPatcher.dylib", "patch_config.toml", "patches/k1widescreenpatch.dylib",
@@ -168,10 +192,20 @@ def main() -> int:
             status = run("status")
             if "0 changed or missing" not in status.stdout:
                 failures.append(f"{size}: status: {status.stdout.strip()[-200:]}")
+            want = {"fresh": "the defaults KMRP wrote", "edit": "edited by you"}.get(mode)
+            if want and f"kmrp-controller.ini: {want}" not in status.stdout:
+                failures.append(f"{size}: status does not say the settings are {want}")
             # Uninstall.
             result = run("uninstall", "--yes")
             if result.returncode != 0:
                 failures.append(f"{size}: uninstall failed: {result.stderr.strip()[-300:]}")
+            if mode == "fresh" and settings.exists():
+                failures.append(f"{size}: uninstall left the unchanged default kmrp-controller.ini")
+            if mode == "edit" and ("Strength=40" not in (settings.read_text() if settings.is_file() else "")
+                                   or "Kept your edited kmrp-controller.ini" not in result.stdout):
+                failures.append(f"{size}: uninstall did not keep the edited kmrp-controller.ini")
+            if mode == "kept" and (not settings.is_file() or settings.read_bytes() != player_settings):
+                failures.append(f"{size}: uninstall touched the player's kmrp-controller.ini")
             if sha(exe) != vanilla:
                 failures.append(f"{size}: KOTOR_Exe is not back to the original")
             left = sorted(p.name for p in (game / "Contents/MacOS").iterdir())
@@ -185,12 +219,12 @@ def main() -> int:
                 failures.append(f"{size}: the install state was left behind")
             print(f"     {size}: {'listed set' if listed else f'blended, fonts and art from {source}'}, "
                   f"{len(expected)} set files, {len(icons)} feat and power icons, {len(skills)} skill icons, "
-                  f"{len(art) + 1} made from the game")
+                  f"{len(art) + 1} made from the game; controller settings {mode}")
 
     for failure in failures:
         print("  " + failure)
     print(f"{'FAIL' if failures else 'ok  '} install, status and uninstall into a stand-in game, listed and "
-          f"blended sizes: {len(failures)} problems")
+          f"blended sizes, controller settings: {len(failures)} problems")
     return 1 if failures else 0
 
 

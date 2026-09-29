@@ -16,7 +16,9 @@
 #      layout patch, and the map-note corrections.
 #   3. Picks the resolution: the display's size, and on a Retina display native (every pixel,
 #      e.g. 3024x1964) or half (the point size, e.g. 1512x982, which macOS scales up). Writes
-#      UseGuiFileLayouts=1, ForceWidth and ForceHeight to [Graphics Options] in swkotor.ini.
+#      UseGuiFileLayouts=1, ForceWidth and ForceHeight to [Graphics Options] in swkotor.ini,
+#      and, beside it, kmrp-controller.ini with the controller's default settings unless the
+#      player already has one.
 #   4. Installs into Contents/Assets/override KMRP's artwork and the menu set for that
 #      resolution, the same files the Windows installer writes for it: from the pooled sets in
 #      layouts.zip, or, for a size the build has no set for, .gui files blended by
@@ -38,6 +40,7 @@ STATE="$STATE_ROOT/macos"
 VANILLA_EXE_SHA="c1fcb8d37c702849882a17751c63ee0af7c2b9cbbc3b31b98a5f0edbc27c6d71"
 LOADER="@executable_path/KotorPatcher.dylib"
 INI="$HOME/Library/Application Support/Knights of the Old Republic/swkotor.ini"
+SETTINGS="${INI:h}/kmrp-controller.ini"
 
 GAME=""
 MAP_NOTES=1
@@ -245,6 +248,8 @@ extract_set() {   # extract_set <WxH> <dir>
 #   dir      -- a directory KMRP created; removed if empty
 #   ini      -- a swkotor.ini key (path column), the value written, the value before or "-";
 #               uninstall puts the old value back if the key still holds KMRP's
+#   settings -- kmrp-controller.ini, written because it was absent; the player's to edit, so
+#               uninstall deletes it if unchanged and otherwise keeps it without complaint
 record() { print -r -- "$1	$2	$3	$4" >> "$STATE/manifest.tsv"; }
 
 set_ini() {   # set_ini <key> <value>: writes it and records what it replaced
@@ -253,6 +258,39 @@ set_ini() {   # set_ini <key> <value>: writes it and records what it replaced
     [[ "$before" == "$2" ]] && return 0
     ini_edit set "$1" "$2"
     record ini "$1" "$2" "${before:--}"
+}
+
+# The controller's settings (rumble), read by kmrp-controller.dylib while the game runs. As on
+# Windows (KmrpPatcher.cs, DefaultSettings, whose values these are): written only when there
+# is none, an existing copy is the player's and is never replaced, and uninstall removes it
+# only if it is still exactly as written. Only the log's location differs.
+install_settings() {
+    if [[ -e "$SETTINGS" ]]; then
+        say "Kept your ${SETTINGS:t}."
+        return 0
+    fi
+    mkdir -p "${SETTINGS:h}"
+    cat > "$SETTINGS" <<'EOF'
+; KMRP controller settings. Read by the controller module while the game runs;
+; changes take effect within a second, no restart needed.
+[Rumble]
+; Off, Original (BioWare's shipped rumble only) or Enhanced (adds KMRP's haptics)
+Mode=Enhanced
+; 0 to 100 percent
+Strength=100
+; the lightsaber hum, 0 to 100 percent of BioWare's level (0 turns it off);
+; 6 is the weakest an Xbox pad can play
+SaberHum=6
+; the hum pulses: on for SaberHumPulseMs (0 = a steady hum), then off until
+; the next pulse -- a gap picked at random between SaberHumPeriodMinMs and
+; SaberHumPeriodMaxMs, afresh for every pulse (make them equal for a fixed rhythm)
+SaberHumPulseMs=100
+SaberHumPeriodMinMs=500
+SaberHumPeriodMaxMs=2000
+; 1 writes every rumble event to ~/Library/Logs/KMRP/rumble.log
+Debug=0
+EOF
+    record settings "$SETTINGS" "$(sha "$SETTINGS")" "-"
 }
 
 bundled_art() {
@@ -381,6 +419,7 @@ do_install() {
     set_ini UseGuiFileLayouts 1
     set_ini ForceWidth "$WIDTH"
     set_ini ForceHeight "$HEIGHT"
+    install_settings
 
     say "Installing artwork and the menu set..."
     if [[ ! -d "$OVERRIDE" ]]; then
@@ -476,6 +515,12 @@ restore_from_manifest() {   # restore_from_manifest <quiet>
                     (( quiet )) || warn "changed since install, left in place: $target"
                     kept=$(( kept + 1 ))
                 fi ;;
+            settings)
+                if [[ -f "$target" && "$(sha "$target")" == "$recorded" ]]; then
+                    rm -f "$target"
+                elif [[ -e "$target" ]]; then
+                    (( quiet )) || say "Kept your edited ${target:t}."
+                fi ;;
             replaced)
                 if [[ -f "$target" && "$(sha "$target")" == "$recorded" ]]; then
                     cp -p "$STATE/backup/$backup" "$target"
@@ -526,6 +571,11 @@ do_status() {
             case "$kind" in
                 dir) continue ;;
                 ini) say "swkotor.ini: $target=$(ini_value "$target") (KMRP set $recorded)"; continue ;;
+                settings)
+                    if [[ ! -f "$target" ]]; then say "${target:t}: removed (the defaults apply)"
+                    elif [[ "$(sha "$target")" == "$recorded" ]]; then say "${target:t}: the defaults KMRP wrote"
+                    else say "${target:t}: edited by you"; fi
+                    continue ;;
             esac
             total=$(( total + 1 ))
             if [[ ! -f "$target" || "$(sha "$target")" != "$recorded" ]]; then changed=$(( changed + 1 )); fi

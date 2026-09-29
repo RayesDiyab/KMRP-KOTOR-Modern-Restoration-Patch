@@ -238,6 +238,13 @@ branch `widescreen-patch` (commit `71ac5fa`), where KMRP's fixes were merged on
 `Copyright (c) 2025 Lane Dibello and KotOR Patch Manager contributors`; the
 package carries the licence as `licenses/KotOR-Patch-Manager-LICENSE.txt`.
 
+The package also installs **kmrp-controller**, KMRP's controller module ported to the
+Aspyr build (`macos/patches/kmrp-controller`), with SDL3 (above). Its code is written for
+the Mac executable, but it follows the Windows module's design, including the parts that
+began as **Saul0097**'s *KPM – Xbox Controls for KOTOR 1* (the movie skipping, the action
+bar, focus fixes, and the cursor and device-switch policy; see that section), so his credit
+and the MIT licence above apply to it as well. Its button art is Xelu's (below).
+
 ## NVIDIA NvAPI — interface identifiers
 
 The patcher's NVIDIA present-method step talks to the driver's own
