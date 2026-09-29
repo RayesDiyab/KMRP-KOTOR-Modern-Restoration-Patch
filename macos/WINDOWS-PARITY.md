@@ -136,7 +136,8 @@ States: **done** (behaves as on Windows, checked as stated), **to port**, **n/a*
 | Windows | Why not on the Mac |
 | --- | --- |
 | PE header, Large Address Aware | the Mac build is 64-bit |
-| controller layer, DPI, NVIDIA and driver settings | Windows and Direct3D specific; the Aspyr port has its own controller support |
+| DPI, NVIDIA and driver settings | Windows code (see `README.md`, section 7; whether the Mac needs a lighting fix like K1DC's is not yet checked) |
+| controller layer | **not ported.** *Corrected 2026-09-29:* this row said the Aspyr port has its own controller support. KOTOR I on the Mac has none that works: a pad did nothing in play, and Aspyr lists controllers for KOTOR II on the Mac only |
 
 *Corrected 2026-09-29:* this table listed `0x0045992A` as a texture-residency measure. It is the
 HUD minimap's content zoom (`.kmz`, `reverse-engineering/map-scaling.md` §3), done by K8 and now

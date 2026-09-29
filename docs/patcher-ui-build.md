@@ -28,13 +28,16 @@ listed here from the 2026-09-25 build (`4EF3C181…`, 145,208,320 bytes):
 | --- | --- |
 | `Kmrp.goldpatch` | the verified clean-to-gold executable delta, 47,730 bytes |
 | `Kmrp.resolutions` | the 49-resolution catalog, `resolutions.tsv` |
-| `Kmrp.override.layouts` | the GUI files of all 66 resolutions, each set with that resolution's 18 font atlases, as one pool: each distinct file once, and an index per resolution (`tools/pack_resolution_layouts.py`; the installer reads it through `GuiPool`) |
+| `Kmrp.override.layouts` | the GUI files of all 49 resolutions, each set with that resolution's 18 font atlases, as one pool: each distinct file once, and an index per resolution (`tools/pack_resolution_layouts.py`; the installer reads it through `GuiPool`) |
 | `Kmrp.override.common` | the common Override archive: shared textures, icons, portraits and prompt art, but no font atlas |
 | `Kmrp.bundled` | the list of bundled third-party Override files, which yield to the player's own |
 | `Kmrp.license.highresolutionmenus`, `Kmrp.license.drivercompat` | the KOTOR High Resolution Menus GPL notice and K1DC's MPL licence |
 | `Kmrp.drivercompat.dinput8`, `Kmrp.drivercompat.asi` | K1 Modern Driver Compatibility and its ASI loader |
 | `Kmrp.controller.module`, `.runtime`, `.sdl`, `.sdllicense`, `.kpmlicense` | the controller component: KMRP's module, the KPM runtime, SDL 3 and its licence, and KPM's MIT licence |
 | `Kmrp.brand`, seven `Kmrp.icon.*` | the brand artwork and the UI icons: folder, missing, monitor, Settings, shield, tools, verified |
+
+Since 2026-09-29 the catalog and the pool hold 66 resolutions: the 17 of the macOS group
+were added. No Windows build with them has been measured yet.
 
 Until 2026-09-25 each resolution's archive was embedded whole, as
 `Kmrp.override.gui.<W>x<H>`: 70 resources, and 208,672,256 bytes in the last

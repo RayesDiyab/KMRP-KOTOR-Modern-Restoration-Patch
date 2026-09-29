@@ -151,8 +151,8 @@ fi
 
 step "Artwork (override-common.zip, less what macOS does not use)"
 # Left out, each for a stated reason (macos/README.md, "What is not installed"):
-#   kmr*           KMRP's controller prompt and layout art; the Aspyr port has its own
-#                  controller support and KMRP's controller layer is Windows-only
+#   kmr*           KMRP's controller prompt and layout art, for the controller layer, which
+#                  has no Mac port yet (KOTOR I on the Mac has no working controller support)
 #   the 18 fonts   every resolution's set in layouts.zip carries them at its own size
 FONT_NAMES=(dialogfont10x10 dialogfont10x10a dialogfont10x10b dialogfont12x16 dialogfont16x16
             dialogfont16x16a dialogfont16x16b dialogfont32x32 fnt_console fnt_credits fnt_creditsa

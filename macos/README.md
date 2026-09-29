@@ -312,9 +312,9 @@ icons, so items sit in their slots as vanilla's do (`ICON_PICTURE_SPAN` in
 
 | Left out | Why |
 | --- | --- |
-| `kmr*` textures and the `kmrplayout.gui` screen | KMRP's controller prompts and Controller Layout screen, for the Windows controller layer; the Aspyr port has its own controller support |
+| `kmr*` textures and the `kmrplayout.gui` screen | KMRP's controller prompts and Controller Layout screen, for the Windows controller layer, which has no Mac port yet. *Corrected 2026-09-29:* this said the Aspyr port has its own controller support. It does not, for KOTOR I: a pad did nothing in play (2026-09-29), and Aspyr's own support pages list controllers for KOTOR II on the Mac only. The executable carries SDL's game-controller code behind a DirectInput joystick layer, apparently from Aspyr's shared port library, with no setting that enables it |
 | The 18 fonts in `override-common.zip` | every set carries them at its own size |
-| Driver compatibility, DPI and NVIDIA settings, Large Address Aware | Windows or Direct3D specific; the Mac build is 64-bit OpenGL |
+| Driver compatibility, DPI and NVIDIA settings, Large Address Aware | Windows code (K1DC is a `dinput8.dll` proxy with an ASI plugin for the 32-bit `swkotor.exe`); the Mac build is 64-bit. *Corrected 2026-09-29:* this called them Direct3D-specific, but KOTOR renders with OpenGL on Windows too, and K1DC repairs an OpenGL lighting path. Whether the Mac port has the same fallback is **not yet checked**: this Mac's OpenGL (Apple M5, 2.1 on Metal) offers neither `GL_NV_register_combiners` nor `GL_ATI_text_fragment_shader`, the two old paths the executable names, but it does offer the ARB fragment programs and GLSL, which the executable also names |
 | Movie fixes | Aspyr's Bink 2 player pillarboxes and switches no display mode (checked in play) |
 | `swkotor.ini` beyond three keys | the video mode follows the target (K4), so `Width`/`Height` stay as they are |
 | Anti-aliasing and other graphics settings | the player's; the README recommends 2x at native (section 5) |
