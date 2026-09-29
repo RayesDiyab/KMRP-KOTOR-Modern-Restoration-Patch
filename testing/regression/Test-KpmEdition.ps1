@@ -143,7 +143,16 @@ $errorLogBefore = Test-Path -LiteralPath $errorLog
 $steamHash = "34E6D971C034222A417995D8E1E8FDD9F8781795C9C289BD86C499A439F34C88"
 $laaHash = "CA9D22EACB5BDFA8E2AD3F8935B0E8E2FED72DA8132D0622D576A650AA7E1889"
 $SteamExe = if (Test-Path -LiteralPath $SteamExe) { Resolve-Input $SteamExe } else { $null }
+# KMRP's .kpatch files as the build wrote them, which the installer carries, and the
+# README and licence that go with them (KpmEditionOperations.DeliverKpatches).
+$kpatchNames = @("KMRP.kpatch", "KMRP Controller.kpatch", "KMRP Movies.kpatch", "KMRP Map Notes.kpatch")
+$kpatchExpected = @{}
+foreach ($name in $kpatchNames) { $kpatchExpected[$name] = Get-Sha (Join-Path "build\kmrp\kpm-patches" $name) }
+$kpatchExpected["README.txt"] = Get-Sha "src\patcher\KPM-PATCHES-README.txt"
+$kpatchExpected["LICENSE-KOTOR-PATCH-MANAGER.txt"] = Get-Sha "third_party\Kotor-Patch-Manager\LICENSE"
 
+# KPM's own settings, parked for the run (Restore-TestNvidiaProfiles.ps1).
+$kpmLauncherSettings = Hide-KpmLauncherSettings $WorkRoot
 try {
     Write-Host ""
     Write-Host ("KMRP for KOTOR Patch Manager regression  ->  " + $WorkRoot)
@@ -163,6 +172,13 @@ try {
             Assert (-not (Test-Path -LiteralPath (Join-Path $folder $name))) ("no runtime file " + $name)
         }
         Assert ((@(Get-ChildItem -LiteralPath (Join-Path $folder "Override") -File -ErrorAction SilentlyContinue)).Count -gt 1000) "the Override files are installed"
+        # KPM has no settings on this PC for the run (Hide-KpmLauncherSettings), so the
+        # installer's own copies of KMRP's patches go into the game folder (Case 11 has
+        # KPM's own folder).
+        $delivered = Join-Path $folder "KPM patches"
+        $wrong = @($kpatchNames + @("README.txt", "LICENSE-KOTOR-PATCH-MANAGER.txt") | Where-Object {
+            -not (Test-Path -LiteralPath (Join-Path $delivered $_)) -or (Get-Sha (Join-Path $delivered $_)) -ne $kpatchExpected[$_] })
+        Assert ($wrong.Count -eq 0) ("the four .kpatch files, README and licence are in the game's KPM patches folder, as built (" + ($wrong -join ", ") + ")")
         $width, $height = $resolution -split "x"
         $ini = [IO.File]::ReadAllText((Join-Path $folder "swkotor.ini"))
         Assert ($ini -match "(?m)^Width=$width\r?$" -and $ini -match "(?m)^Height=$height\r?$") "swkotor.ini carries the resolution"
@@ -206,6 +222,7 @@ try {
             Assert (-not (Test-Path -LiteralPath (Join-Path $folder $name))) ("restore removed " + $name)
         }
         Assert ((@(Get-ChildItem -LiteralPath (Join-Path $folder "Override") -File -ErrorAction SilentlyContinue)).Count -eq 0) "restore emptied Override"
+        Assert (-not (Test-Path -LiteralPath (Join-Path $folder "KPM patches"))) "restore removed the KPM patches folder"
         Assert ((Get-Sha $game) -eq $cleanHash) "swkotor.exe is still unmodified"
     }
 
@@ -316,8 +333,60 @@ try {
     $changed = @($kpmFiles.Keys | Where-Object { -not (Test-Path -LiteralPath (Join-Path $takeoverFolder $_)) -or (Get-Sha (Join-Path $takeoverFolder $_)) -ne $kpmFiles[$_] })
     Assert ($changed.Count -eq 0) "restore leaves KOTOR Patch Manager's runtime too"
     Assert (-not (Test-Path -LiteralPath (Join-Path $takeoverFolder "kmrp-kpm.dat"))) "restore removes KMRP's data file"
+
+    # KOTOR Patch Manager's app keeps its patch folder in its settings, "PatchesPath",
+    # written by System.Text.Json: backslashes escaped, and anything outside ASCII as
+    # \uXXXX, which this folder's name has. The folder already holds an older
+    # KMRP.kpatch, which an install brings up to this version and restore leaves, and
+    # someone else's file named KMRP Movies.kpatch, which is left alone.
+    Write-Host "Case 11  KOTOR Patch Manager's patch folder: KMRP's patches go there, for either install"
+    Add-Type -AssemblyName System.IO.Compression.FileSystem
+    $kpmPatchDir = Join-Path $WorkRoot ("kpm-app-patches-" + [char]0x00E9)
+    New-Item -ItemType Directory -Force -Path $kpmPatchDir | Out-Null
+    foreach ($seed in @(@("KMRP.kpatch", "kmrp"), @("KMRP Movies.kpatch", "someone-elses-movies"))) {
+        $staging = Join-Path $WorkRoot ("kpatch-" + $seed[1])
+        New-Item -ItemType Directory -Force -Path $staging | Out-Null
+        [IO.File]::WriteAllText((Join-Path $staging "manifest.toml"), "[patch]`nid = `"$($seed[1])`"`nversion = `"0.9.0`"`n")
+        [IO.Compression.ZipFile]::CreateFromDirectory($staging, (Join-Path $kpmPatchDir $seed[0]))
+    }
+    $foreignHash = Get-Sha (Join-Path $kpmPatchDir "KMRP Movies.kpatch")
+    $kpmSettingsPath = Get-KpmLauncherSettingsPath
+    New-Item -ItemType Directory -Force -Path (Split-Path -Parent $kpmSettingsPath) | Out-Null
+    $escaped = ($kpmPatchDir -replace '\\', '\\') -replace ([string][char]0x00E9), 'é'
+    [IO.File]::WriteAllText($kpmSettingsPath, "{`r`n  `"GamePath`": `"`",`r`n  `"PatchesPath`": `"$escaped`",`r`n  `"CheckedPatchIds`": []`r`n}", [Text.UTF8Encoding]::new($false))
+
+    Set-Options $true $false
+    $appGame = New-Fixture "kpm-app-folder"
+    $appFolder = Split-Path -Parent $appGame
+    Assert ((Invoke-Exe $Installer @("--in-place", $appGame, $Resolutions[0])) -eq 0) "the install with KMRP's own runtime succeeds"
+    foreach ($name in @("KMRP.kpatch", "KMRP Controller.kpatch", "KMRP Map Notes.kpatch")) {
+        Assert ((Test-Path -LiteralPath (Join-Path $kpmPatchDir $name)) -and (Get-Sha (Join-Path $kpmPatchDir $name)) -eq $kpatchExpected[$name]) ("KPM's patch folder has " + $name + " as built")
+    }
+    Assert ((Get-Sha (Join-Path $kpmPatchDir "KMRP Movies.kpatch")) -eq $foreignHash) "someone else's KMRP Movies.kpatch is left alone"
+    Assert (-not (Test-Path -LiteralPath (Join-Path $appFolder "KPM patches"))) "no KPM patches folder in the game folder"
+    Assert ((Invoke-Exe $Installer @("--restore", $appGame)) -eq 0) "restore succeeds"
+    Assert (-not (Test-Path -LiteralPath (Join-Path $kpmPatchDir "KMRP Controller.kpatch")) -and
+            -not (Test-Path -LiteralPath (Join-Path $kpmPatchDir "KMRP Map Notes.kpatch"))) "restore removes the patches the install added"
+    Assert ((Get-Sha (Join-Path $kpmPatchDir "KMRP.kpatch")) -eq $kpatchExpected["KMRP.kpatch"]) "and keeps the KMRP.kpatch that was there, at this version"
+    Assert ((Get-Sha (Join-Path $kpmPatchDir "KMRP Movies.kpatch")) -eq $foreignHash) "and someone else's file"
+
+    Set-Options $true $true
+    Assert ((Invoke-Exe $Installer @("--in-place", $appGame, $Resolutions[0])) -eq 0) "the install for KPM succeeds"
+    Assert ((Test-Path -LiteralPath (Join-Path $kpmPatchDir "KMRP Controller.kpatch")) -and
+            (Get-Sha (Join-Path $kpmPatchDir "KMRP Controller.kpatch")) -eq $kpatchExpected["KMRP Controller.kpatch"]) "for KPM too, the patches go into KPM's folder"
+    Assert (-not (Test-Path -LiteralPath (Join-Path $appFolder "KPM patches"))) "and not into the game folder"
+    Assert ((Invoke-Exe $Installer @("--restore", $appGame)) -eq 0) "and restores"
+    Assert (-not (Test-Path -LiteralPath (Join-Path $kpmPatchDir "KMRP Controller.kpatch"))) "restore removes them again"
+
+    Write-Host "Case 12  --export-kpm-patches writes the set out, for sharing"
+    $exportDir = Join-Path $WorkRoot "exported patches"
+    Assert ((Invoke-Exe $Installer @("--export-kpm-patches", $exportDir)) -eq 0) "the export succeeds"
+    $wrong = @($kpatchExpected.Keys | Where-Object {
+        -not (Test-Path -LiteralPath (Join-Path $exportDir $_)) -or (Get-Sha (Join-Path $exportDir $_)) -ne $kpatchExpected[$_] })
+    Assert ($wrong.Count -eq 0) ("the four .kpatch files, README and licence, as built (" + ($wrong -join ", ") + ")")
 }
 finally {
+    Restore-KpmLauncherSettings $kpmLauncherSettings
     if ((Test-Path -LiteralPath $errorLog) -and -not $errorLogBefore) { Remove-Item -LiteralPath $errorLog -Force }
     if ($settingsExisted) { Copy-Item -LiteralPath $settingsCopy -Destination $settingsPath -Force }
     elseif (Test-Path -LiteralPath $settingsPath) { Remove-Item -LiteralPath $settingsPath -Force }

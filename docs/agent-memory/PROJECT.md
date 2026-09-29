@@ -36,9 +36,10 @@ only by its exe hash, and refused the flagged one without them (measured with
 KPM 0.7.1's launcher, 2026-09-29). It upgrades a standalone
 install through the standalone's own restore. For a folder holding KPM's own
 runtime, or with its "KOTOR Patch Manager" option on, it installs for KPM
-instead (no runtime; the player ticks the .kpatch files, shipped in
-dist\KPM patches\) -- what the separate KMRP for KPM installer did until the same
-day. `--apply` still writes the gold image, as the reference. The
+instead (no runtime; the player ticks the .kpatch files, which the installer
+carries and puts in KPM's patch folder -- from KPM's settings -- or a "KPM patches"
+folder in the game folder) -- what the separate KMRP for KPM installer did until
+the same day. `--apply` still writes the gold image, as the reference. The
 diagram above is the standalone path, kept for that. See docs/kpm-edition.md 1a.
 
 Two editions from one build since 2026-09-28. The standalone above; and KMRP for

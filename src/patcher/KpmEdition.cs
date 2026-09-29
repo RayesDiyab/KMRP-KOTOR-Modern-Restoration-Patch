@@ -2,8 +2,10 @@ using System;
 using System.Collections.Generic;
 using System.Globalization;
 using System.IO;
+using System.IO.Compression;
 using System.Reflection;
 using System.Text;
+using System.Text.RegularExpressions;
 
 namespace Kmrp
 {
@@ -73,6 +75,22 @@ namespace Kmrp
         // KOTOR Patch Manager's backup of an executable, named as its BackupManager
         // names one: <exe>.backup.<yyyyMMdd_HHmmss>, with <that>.json beside it.
         private const string KpmBackupInfix = ".backup.";
+        // KMRP's four patches as .kpatch files for KOTOR Patch Manager's app, embedded
+        // (Kmrp.kpatch.<id>, tools/build_kpatch.py) so that the installer is one file:
+        // file name and patch id. With them, the README that explains them
+        // (Kmrp.kpatch.readme) and KPM's licence, which travels with its runtime inside
+        // each (Kmrp.engine.license). Until 2026-09-29 they shipped in a folder beside
+        // the installer, dist\KPM patches\.
+        private static readonly string[,] Kpatches =
+        {
+            { "KMRP.kpatch", "kmrp" },
+            { "KMRP Controller.kpatch", "kmrp-controller" },
+            { "KMRP Movies.kpatch", "kmrp-movies" },
+            { "KMRP Map Notes.kpatch", "kmrp-map-notes" },
+        };
+        private const string KpatchFolderName = "KPM patches";
+        private const string KpatchReadmeName = "README.txt";
+        private const string KpatchLicenseName = "LICENSE-KOTOR-PATCH-MANAGER.txt";
         // KMRP's patches in the order the config lists them: the core first, whose
         // module applies kmrp-kpm.dat as it loads, before any other patch's hooks go
         // in; the controller last, so a hook of its that fails -- KotorPatcher stops
@@ -291,6 +309,7 @@ namespace Kmrp
             DpiCompatibilityEditState dpiState = null;
             NvidiaPresentEditState nvidiaState = null;
             OverrideEditState overrideState = null;
+            string kpatchFolder = null;
             try
             {
                 SafeProgress(progress, 15, "Updating display settings…");
@@ -320,6 +339,8 @@ namespace Kmrp
                     if (KmrpSettings.DriverCompatibility)
                         DriverCompatOperations.Install(targetPath, report);
                 }
+                SafeProgress(progress, 98, "Adding KMRP's patches for KOTOR Patch Manager…");
+                kpatchFolder = DeliverKpatches(folder, !engine, records, report);
                 WriteManifest(targetPath, width, height, records);
             }
             catch
@@ -329,6 +350,7 @@ namespace Kmrp
                     try { DriverCompatOperations.Restore(targetPath, null); }
                     catch { }
                 }
+                RemoveKpatches(records, null);
                 RemoveOwned(folder, records, null);
                 UndoEngineChanges(targetPath, records, null);
                 try { File.Delete(ManifestPath(targetPath)); }
@@ -352,16 +374,24 @@ namespace Kmrp
                     SafeReport(report, "Steam's swkotor.exe was not modified: Steam refuses to start " +
                         "a changed one, so it runs without the 4 GB flag. If Steam verifies the game's " +
                         "files, it puts its own binkw32.dll back; install KMRP again afterwards.");
+                if (kpatchFolder != null)
+                    SafeReport(report, "KMRP's four patches are also in KOTOR Patch Manager's patch " +
+                        "folder (" + kpatchFolder + "), so KPM lists them if you add other patches there.");
                 return;
             }
             SafeReport(report, "KMRP is installed for KOTOR Patch Manager at " +
                 width.ToString(CultureInfo.InvariantCulture) + " × " +
                 height.ToString(CultureInfo.InvariantCulture) + ". swkotor.exe was not modified.");
-            SafeReport(report, "Now open KOTOR Patch Manager, add KMRP's four .kpatch files from the " +
-                "\"KPM patches\" folder beside this installer to its patch folder, and tick KMRP, plus " +
-                "whichever of KMRP Controller, KMRP Movies and KMRP Map Notes you want. KMRP includes " +
-                "the 4 GB, texture, grass and save-game memory fixes, so leave KPM's own ones " +
-                "unticked. Press Apply, and start the game with Launch.");
+            bool inGameFolder = String.Equals(kpatchFolder, Path.Combine(folder, KpatchFolderName),
+                StringComparison.OrdinalIgnoreCase);
+            SafeReport(report, (inGameFolder
+                ? "KMRP's four patches are in " + kpatchFolder + ". Copy them into KOTOR Patch " +
+                  "Manager's patch folder (or choose this folder in KPM), then open KPM"
+                : "KMRP's four patches are in KOTOR Patch Manager's patch folder (" + kpatchFolder +
+                  "). Now open KPM") +
+                ", tick KMRP, plus whichever of KMRP Controller, KMRP Movies and KMRP Map Notes you " +
+                "want. KMRP includes the 4 GB, texture, grass and save-game memory fixes, so leave " +
+                "KPM's own ones unticked. Press Apply, and start the game with Launch.");
             if (steam)
                 SafeReport(report, "Steam: in KOTOR Patch Manager choose the proxy deployment, " +
                     "and start the game from Steam. Steam's swkotor.exe cannot take the 4 GB flag.");
@@ -397,6 +427,7 @@ namespace Kmrp
             // K1DC keeps its own manifest, and only an install with KMRP's own runtime
             // installs it; without the manifest this does nothing.
             DriverCompatOperations.Restore(targetPath, report);
+            RemoveKpatches(records, report);
             RemoveOwned(folder, records, report);
             UndoEngineChanges(targetPath, records, report);
             DpiCompatibilityOperations.Restore(targetPath, report);
@@ -1089,6 +1120,9 @@ namespace Kmrp
         //                                    under patches\
         //   moved  <from> <to> <SHA-256>     a game file renamed (binkw32.dll)
         //   laa    set                       this install set the 4 GB flag
+        //   kpatch <full path> <SHA-256> created|replaced
+        //                                    one of KMRP's .kpatch files, for KOTOR
+        //                                    Patch Manager's app (DeliverKpatches)
         // KMRP for KPM builds before 2026-09-29 wrote file rows only, the same way.
 
         private static void WriteOwned(string folder, string name, byte[] data, List<string[]> records)
@@ -1144,6 +1178,226 @@ namespace Kmrp
                     " file(s) in place because they changed after install.");
         }
 
+        // ------------------------------------------------------------ KMRP's .kpatch files
+
+        /// <summary>Puts KMRP's four .kpatch files where KOTOR Patch Manager's app finds
+        /// them, so the installer is the one file a player needs: KPM's patch folder, when
+        /// its settings name one (KpmPatchesFolder), for either kind of install; otherwise,
+        /// for an install for KPM only, a "KPM patches" folder in the game folder, with the
+        /// README and KPM's licence, which the installer then points the player to.
+        /// Returns where they went, or null. Each file is recorded (WriteKpatch); a file
+        /// that could not be written into KPM's folder falls back to the game folder for
+        /// an install for KPM, and is only reported otherwise.</summary>
+        private static string DeliverKpatches(string gameFolder, bool forPatchManager, List<string[]> records,
+            Action<string> report)
+        {
+            string kpm = KpmPatchesFolder();
+            if (kpm != null)
+            {
+                try
+                {
+                    WriteKpatches(kpm, false, records, report);
+                    return kpm;
+                }
+                catch (IOException error)
+                {
+                    SafeReport(report, "KMRP's patches could not be added to KOTOR Patch Manager's patch " +
+                        "folder (" + kpm + "): " + error.Message);
+                }
+                catch (UnauthorizedAccessException error)
+                {
+                    SafeReport(report, "KMRP's patches could not be added to KOTOR Patch Manager's patch " +
+                        "folder (" + kpm + "): " + error.Message);
+                }
+            }
+            if (!forPatchManager)
+                return null;
+            string folder = Path.Combine(gameFolder, KpatchFolderName);
+            Directory.CreateDirectory(folder);
+            WriteKpatches(folder, true, records, report);
+            return folder;
+        }
+
+        private static void WriteKpatches(string folder, bool withReadme, List<string[]> records, Action<string> report)
+        {
+            for (int i = 0; i < Kpatches.GetLength(0); i++)
+                WriteKpatch(Path.Combine(folder, Kpatches[i, 0]), ReadResource("Kmrp.kpatch." + Kpatches[i, 1]),
+                    Kpatches[i, 1], records, report);
+            if (!withReadme)
+                return;
+            WriteKpatch(Path.Combine(folder, KpatchReadmeName), ReadResource("Kmrp.kpatch.readme"), null, records, report);
+            WriteKpatch(Path.Combine(folder, KpatchLicenseName), ReadResource("Kmrp.engine.license"), null, records, report);
+        }
+
+        /// <summary>One file of the set, recorded "created" when it was not there, which
+        /// restore removes while it is as written, or "replaced" when it was, which restore
+        /// leaves: an older copy of the same KMRP patch (its manifest's id, `patchId`) is
+        /// brought up to this version, since KMRP's module refuses another version's data
+        /// file, but a file the player had is never deleted. A file of the same name that is
+        /// not KMRP's is left alone, and said so.</summary>
+        private static void WriteKpatch(string path, byte[] data, string patchId, List<string[]> records,
+            Action<string> report)
+        {
+            string state = "created";
+            if (File.Exists(path))
+            {
+                bool same = GoldPatch.HashFile(path) == HashBytes(data);
+                if (!same && (patchId == null || KpatchId(path) != patchId))
+                {
+                    SafeReport(report, "Left " + path + " alone: it is not KMRP's.");
+                    return;
+                }
+                state = "replaced";
+                if (same)
+                {
+                    records.Add(new[] { "kpatch", path, HashBytes(data), state });
+                    return;
+                }
+            }
+            File.WriteAllBytes(path, data);
+            records.Add(new[] { "kpatch", path, GoldPatch.HashFile(path), state });
+        }
+
+        /// <summary>Removes the .kpatch files this install created, while they are as
+        /// written, and the game folder's "KPM patches" folder once it is empty.</summary>
+        private static void RemoveKpatches(List<string[]> records, Action<string> report)
+        {
+            foreach (string[] record in records)
+            {
+                if (record[0] != "kpatch" || record[3] != "created" || !File.Exists(record[1]))
+                    continue;
+                if (GoldPatch.HashFile(record[1]) != record[2])
+                {
+                    SafeReport(report, "Left " + record[1] + " in place because it changed after install.");
+                    continue;
+                }
+                File.Delete(record[1]);
+                string folder = Path.GetDirectoryName(record[1]);
+                try
+                {
+                    if (String.Equals(Path.GetFileName(folder), KpatchFolderName, StringComparison.OrdinalIgnoreCase) &&
+                        Directory.Exists(folder) && Directory.GetFileSystemEntries(folder).Length == 0)
+                        Directory.Delete(folder);
+                }
+                catch { }
+            }
+        }
+
+        /// <summary>A path a kpatch row may name: absolute, and one of KMRP's four .kpatch
+        /// files, or the README or licence in a "KPM patches" folder. Restore deletes
+        /// what these rows name, so nothing else is accepted.</summary>
+        private static bool IsKpatchPath(string path)
+        {
+            try
+            {
+                if (String.IsNullOrEmpty(path) || !Path.IsPathRooted(path) ||
+                    path.IndexOfAny(Path.GetInvalidPathChars()) >= 0)
+                    return false;
+                string name = Path.GetFileName(path);
+                for (int i = 0; i < Kpatches.GetLength(0); i++)
+                    if (String.Equals(name, Kpatches[i, 0], StringComparison.OrdinalIgnoreCase))
+                        return true;
+                return (String.Equals(name, KpatchReadmeName, StringComparison.OrdinalIgnoreCase) ||
+                        String.Equals(name, KpatchLicenseName, StringComparison.OrdinalIgnoreCase)) &&
+                    String.Equals(Path.GetFileName(Path.GetDirectoryName(path)), KpatchFolderName,
+                        StringComparison.OrdinalIgnoreCase);
+            }
+            catch { return false; }
+        }
+
+        /// <summary>The patch folder KOTOR Patch Manager's app uses, from its settings
+        /// (%APPDATA%\KPatchLauncher\settings.json, "PatchesPath", KPatchLauncher
+        /// AppSettings in KPM 0.7.1), or null when KPM has none on this PC or it no longer
+        /// exists.</summary>
+        private static string KpmPatchesFolder()
+        {
+            try
+            {
+                string settings = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData),
+                    "KPatchLauncher", "settings.json");
+                if (!File.Exists(settings))
+                    return null;
+                Match match = Regex.Match(File.ReadAllText(settings, Encoding.UTF8),
+                    "\"PatchesPath\"\\s*:\\s*\"((?:[^\"\\\\]|\\\\.)*)\"", RegexOptions.CultureInvariant);
+                if (!match.Success)
+                    return null;
+                string path = JsonUnescape(match.Groups[1].Value);
+                return path.Length > 0 && Path.IsPathRooted(path) && Directory.Exists(path)
+                    ? Path.GetFullPath(path) : null;
+            }
+            catch { return null; }
+        }
+
+        /// <summary>A JSON string's contents unescaped. KPM writes its settings with
+        /// System.Text.Json, which escapes every backslash and, by default, every character
+        /// outside ASCII as \uXXXX.</summary>
+        private static string JsonUnescape(string value)
+        {
+            StringBuilder text = new StringBuilder();
+            for (int i = 0; i < value.Length; i++)
+            {
+                char c = value[i];
+                if (c != '\\' || i + 1 >= value.Length)
+                {
+                    text.Append(c);
+                    continue;
+                }
+                char next = value[++i];
+                if (next == 'u' && i + 4 < value.Length)
+                {
+                    text.Append((char)Int32.Parse(value.Substring(i + 1, 4), NumberStyles.HexNumber,
+                        CultureInfo.InvariantCulture));
+                    i += 4;
+                }
+                else if (next == 'n') text.Append('\n');
+                else if (next == 'r') text.Append('\r');
+                else if (next == 't') text.Append('\t');
+                else if (next == 'b') text.Append('\b');
+                else if (next == 'f') text.Append('\f');
+                else text.Append(next);
+            }
+            return text.ToString();
+        }
+
+        /// <summary>The id in a .kpatch file's manifest.toml, or null.</summary>
+        private static string KpatchId(string path)
+        {
+            try
+            {
+                using (ZipArchive zip = new ZipArchive(File.OpenRead(path), ZipArchiveMode.Read, false))
+                {
+                    ZipArchiveEntry manifest = zip.GetEntry("manifest.toml");
+                    if (manifest == null)
+                        return null;
+                    using (StreamReader reader = new StreamReader(manifest.Open(), Encoding.UTF8))
+                    {
+                        Match id = Regex.Match(reader.ReadToEnd(), "(?m)^\\s*id\\s*=\\s*\"([^\"]+)\"",
+                            RegexOptions.CultureInvariant);
+                        return id.Success ? id.Groups[1].Value : null;
+                    }
+                }
+            }
+            catch { return null; }
+        }
+
+        private static string HashBytes(byte[] data)
+        {
+            using (System.Security.Cryptography.SHA256 sha = System.Security.Cryptography.SHA256.Create())
+                return BitConverter.ToString(sha.ComputeHash(data)).Replace("-", "");
+        }
+
+        /// <summary>KMRP's four .kpatch files, their README and KPM's licence, written to
+        /// `folder` for sharing on their own (the installer's --export-kpm-patches). Not
+        /// recorded anywhere: it is not an install.</summary>
+        internal static void ExportKpatches(string folder)
+        {
+            Directory.CreateDirectory(folder);
+            for (int i = 0; i < Kpatches.GetLength(0); i++)
+                File.WriteAllBytes(Path.Combine(folder, Kpatches[i, 0]), ReadResource("Kmrp.kpatch." + Kpatches[i, 1]));
+            File.WriteAllBytes(Path.Combine(folder, KpatchReadmeName), ReadResource("Kmrp.kpatch.readme"));
+            File.WriteAllBytes(Path.Combine(folder, KpatchLicenseName), ReadResource("Kmrp.engine.license"));
+        }
+
         private static void WriteManifest(string targetPath, int width, int height, List<string[]> records)
         {
             StringBuilder text = new StringBuilder();
@@ -1168,7 +1422,9 @@ namespace Kmrp
                     // the one rename.
                     if ((parts.Length == 3 && parts[0] == "file" && IsOwnedName(parts[1])) ||
                         (parts.Length == 4 && parts[0] == "moved" && parts[1] == BinkName && parts[2] == BinkMovedName) ||
-                        (parts.Length == 2 && parts[0] == "laa"))
+                        (parts.Length == 2 && parts[0] == "laa") ||
+                        (parts.Length == 4 && parts[0] == "kpatch" && IsKpatchPath(parts[1]) &&
+                         (parts[3] == "created" || parts[3] == "replaced")))
                         records.Add(parts);
                 }
             }

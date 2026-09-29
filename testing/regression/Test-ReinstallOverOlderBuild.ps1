@@ -152,6 +152,8 @@ Write-Host ""
 Write-Host ("Reinstall regression  ->  " + $WorkRoot)
 Write-Host ("resolution " + $Resolution)
 
+# KPM's own settings, parked for the run (Restore-TestNvidiaProfiles.ps1).
+$kpmLauncherSettings = Hide-KpmLauncherSettings $WorkRoot
 try {
     # ---------------------------------------------------------------- case 1
     Write-Host ""
@@ -254,6 +256,7 @@ try {
     Assert ((Get-Sha256 $exe) -eq $cleanHash) "swkotor.exe is the original"
 }
 finally {
+    Restore-KpmLauncherSettings $kpmLauncherSettings
     foreach ($log in $errorLogs) {
         if ((Test-Path -LiteralPath $log) -and $errorLogsBefore -notcontains $log) { Remove-Item -LiteralPath $log -Force }
     }

@@ -34,7 +34,9 @@ temporary directory—not beside tracked sources.
 Both write `dist\KMRP - KOTOR Modern Restoration Patch.exe`, the one installer
 (since 2026-09-29 it also installs for KOTOR Patch Manager; until then a second
 installer, `dist\KMRP for KPM\KMRP for KPM.exe`, compiled with `KPM_EDITION`,
-did), and `dist\KPM patches\`, the four `.kpatch` files. The relocation step
+did); the four `.kpatch` files are built into `build\kmrp\kpm-patches\` and
+embedded in it (until later on 2026-09-29 they shipped in `dist\KPM patches\`;
+`--export-kpm-patches <folder>` writes them out). The relocation step
 needs Capstone (`requirements.txt`) and stops the build if its two methods
 disagree. Since 2026-09-29 the build also compiles KOTOR Patch Manager's runtime
 from the submodule (`src\kpm-runtime\build.cmd`, MSVC; `git submodule update

@@ -94,8 +94,29 @@ folder (`ForeignRuntimeFile`: `binkw32Hooked.dll`, `KotorPatcher.dll`,
 `patch_config.toml` or `kpm_install_state.json` that this install did not write,
 or that has changed since it did -- KPM's own Apply over KMRP's install replaces
 them). Otherwise it installs
-**with KPM's runtime**, as below. The `.kpatch` files ship in `dist\KPM patches\`
-with their README.
+**with KPM's runtime**, as below.
+
+**The `.kpatch` files are inside the installer** (later that evening, at the
+maintainer's request: "cant we bundle it into the exe?"), so `dist\` is one file.
+For KPM's app to list KMRP's patches they must be in its patch folder, which KPM
+keeps in its settings (`%APPDATA%\KPatchLauncher\settings.json`, `PatchesPath`,
+KPatchLauncher's `AppSettings` in 0.7.1, written by System.Text.Json, so the
+installer unescapes `\\` and `\uXXXX`). `DeliverKpatches` puts the four there
+when KPM names a folder that exists, on either kind of install; otherwise, for an
+install for KPM only, into a `KPM patches` folder in the game folder, with the
+README and KPM's licence, and says so. Each file is a `kpatch` row in the manifest:
+`created` when it was not there, which restore removes while it is as written, or
+`replaced` when it was -- an older copy of the same KMRP patch, by the `id` in its
+`manifest.toml`, brought up to this version because KMRP's module refuses another
+version's data file -- which restore leaves, so a file the player had is never
+deleted. A file of the same name that is not KMRP's is left alone and reported.
+`--export-kpm-patches <folder>` writes the set out for sharing. Until then the
+files shipped beside the installer in `dist\KPM patches\`. `Test-KpmEdition.ps1`
+Cases 1-2, 5, 11 and 12 cover it; the six suites that install park KPM's own
+settings for their run, so a test never writes into a player's KPM folder. Seen
+the same evening with KPM 0.7.1's window on the maintainer's game: its settings
+named the game's `patches` folder, a normal install (`C4E01BB6…`) put the four
+there, and KPM listed them at 1.5.0 with the game identified as KOTOR 1.0.3.
 
 What KMRP's installer writes beside `swkotor.exe`:
 
@@ -111,6 +132,7 @@ What KMRP's installer writes beside `swkotor.exe`:
 | `kpm_install_state.json` | CD 1.03 only: KPM's record that the executable was CD 1.03 before a patch changed it (`ManagedInstallState`, schema 1) | `KpmEditionOperations.KpmState` |
 | `swkotor.exe.backup.<yyyyMMdd_HHmmss>` and its `.json` | CD 1.03, when the installer sets the 4 GB flag: the unmodified `swkotor.exe` as KPM backs one up, and KPM's metadata for it (`BackupManager`, `BackupInfo`) | `KpmEditionOperations.WriteKpmBackup` |
 | `dinput8.dll`, `k1-modern-driver-compatibility.asi` | Synchro's K1DC, when that option is on | unchanged |
+| KMRP's four `.kpatch` files | into KPM's own patch folder when KPM's settings name one, on either kind of install; otherwise, for KPM only, a `KPM patches` folder here with the README and KPM's licence (above) | `Kmrp.kpatch.*`, `DeliverKpatches` |
 
 The order in the config is the point of it. KotorPatcher applies patches in order
 and stops at the first hook that fails, so `kmrp` goes first -- its module's
@@ -694,7 +716,7 @@ python tools\kpm_relocations.py                       # the table, both methods,
 python tools\kpm_originals.py --clean build-inputs\swkotornopatch.exe --delta build\kmrp\gold.kup `
     --relocations build\kmrp\kpm-relocations.txt --sites build\kmrp\kpm-resolution-sites.txt `
     --out build\kmrp\kpm-originals.bin                 # the carried bytes, and their proof
-python tools\build_kpatch.py --check "dist\KPM patches"  # "dist\KMRP for KPM" until 2026-09-29
+python tools\build_kpatch.py --check build\kmrp\kpm-patches  # "dist\KMRP for KPM", then "dist\KPM patches", until 2026-09-29
 python tools\check_kpm_overlaps.py <folder of .kpatch files>
 .\testing\regression\Test-KpmEdition.ps1               # the editions agree, per resolution
 python tools\kpm_data.py <game>\kmrp-kpm.dat --list    # runs per patch, and the edits

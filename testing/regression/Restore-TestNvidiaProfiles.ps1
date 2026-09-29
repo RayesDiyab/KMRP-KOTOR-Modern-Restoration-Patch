@@ -60,3 +60,35 @@ function Remove-TestDpiValues([string]$FixtureRoot) {
         $key.Dispose()
     }
 }
+
+# Since 2026-09-29 an install also puts KMRP's .kpatch files into KOTOR Patch
+# Manager's patch folder when KPM's own settings name one (KpmEditionOperations
+# .DeliverKpatches). A test run must never write into a player's real KPM folder,
+# so the six suites that install move KPM's settings into their work folder for the
+# run -- a copy on disk, which survives the script being stopped -- and put them
+# back first thing in their `finally`. A settings file a test wrote itself is
+# removed then.
+function Get-KpmLauncherSettingsPath {
+    Join-Path ([Environment]::GetFolderPath([Environment+SpecialFolder]::ApplicationData)) 'KPatchLauncher\settings.json'
+}
+
+function Hide-KpmLauncherSettings([string]$FixtureRoot) {
+    $settings = Get-KpmLauncherSettingsPath
+    if (-not (Test-Path -LiteralPath $settings)) { return $null }
+    $parked = Join-Path $FixtureRoot 'kpm-launcher-settings.json'
+    Move-Item -LiteralPath $settings -Destination $parked -Force
+    return $parked
+}
+
+function Restore-KpmLauncherSettings([string]$Parked) {
+    $settings = Get-KpmLauncherSettingsPath
+    if (Test-Path -LiteralPath $settings) { Remove-Item -LiteralPath $settings -Force }
+    if ($Parked -and (Test-Path -LiteralPath $Parked)) {
+        Move-Item -LiteralPath $Parked -Destination $settings -Force
+    }
+    elseif ((Test-Path -LiteralPath (Split-Path -Parent $settings)) -and
+            @(Get-ChildItem -LiteralPath (Split-Path -Parent $settings) -Force).Count -eq 0) {
+        # The folder a test made for its own settings file, when KPM had none.
+        Remove-Item -LiteralPath (Split-Path -Parent $settings) -Force
+    }
+}

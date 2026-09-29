@@ -108,6 +108,8 @@ New-Item -ItemType Directory -Force -Path $WorkRoot | Out-Null
 $errorLog = Join-Path (Split-Path -Parent $Patcher) "KMRP.startup-error.log"
 $errorLogBefore = Test-Path -LiteralPath $errorLog
 
+# KPM's own settings, parked for the run (Restore-TestNvidiaProfiles.ps1).
+$kpmLauncherSettings = Hide-KpmLauncherSettings $WorkRoot
 try {
     Write-Host ""
     Write-Host ("Large Address Aware regression  ->  " + $WorkRoot)
@@ -172,6 +174,7 @@ try {
     Assert ((Get-Sha256 $otherInstall) -eq $otherHash) "and the executable is untouched"
 }
 finally {
+    Restore-KpmLauncherSettings $kpmLauncherSettings
     if ((Test-Path -LiteralPath $errorLog) -and -not $errorLogBefore) { Remove-Item -LiteralPath $errorLog -Force }
     Restore-TestNvidiaProfiles $WorkRoot
     # Kept fixtures keep their DPI values; --restore on each removes them.

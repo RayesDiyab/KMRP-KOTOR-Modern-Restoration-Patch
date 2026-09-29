@@ -50,14 +50,19 @@ KMRP combines with other KPM patches through the same installer. When KPM's
 runtime is already in the game folder the installer sees it and installs for
 KPM by itself; otherwise turn on *KOTOR Patch Manager* in Advanced Settings
 before patching. It then installs the interface files, the resolution and
-KMRP's data, and leaves the patches to KPM: add the four `.kpatch` files from
-`KPM patches\` to KPM, tick `KMRP` plus any of `KMRP Controller`, `KMRP Movies`
-and `KMRP Map Notes` -- one patch per fix -- Apply, and Launch. KMRP includes
-the 4 GB and memory fixes, so KPM's own ones stay unticked. On Steam, switch KPM
-to its proxy deployment and start the game from Steam. The README in
-`KPM patches\` has the steps, and [docs/kpm-edition.md](docs/kpm-edition.md)
-describes both ways. (Until 2026-09-29 this took a separate installer, *KMRP for
-KPM*.)
+KMRP's data, and leaves the patches to KPM. The installer carries KMRP's four
+`.kpatch` files and puts them in KPM's patch folder, the one KPM's settings
+name; if KPM has none on the PC yet, in a `KPM patches` folder in the game
+folder, and it says which. In KPM, tick `KMRP` plus any of `KMRP Controller`,
+`KMRP Movies` and `KMRP Map Notes` -- one patch per fix -- Apply, and Launch.
+KMRP includes the 4 GB and memory fixes, so KPM's own ones stay unticked. On
+Steam, switch KPM to its proxy deployment and start the game from Steam. A
+normal install also puts the four files in KPM's patch folder when KPM has one,
+so adding KPM patches later needs nothing more. The installer is the only file
+to download; `--export-kpm-patches <folder>` writes the `.kpatch` files out for
+sharing. [docs/kpm-edition.md](docs/kpm-edition.md) describes both ways. (Until
+2026-09-29 this took a separate installer, *KMRP for KPM*, and then, the same
+day, a `KPM patches` folder beside the installer.)
 
 **macOS (Steam, in development).** A separate installer for the Aspyr build on Steam,
 made from the same resources as this one: the same menu sets, fonts, artwork and icons
@@ -283,8 +288,8 @@ positions KMRP's installer writes at any resolution, is in
 
 **KMRP's runtime** is KOTOR Patch Manager's (MIT), built from the
 [submodule](third_party/Kotor-Patch-Manager) and loaded through KPM's own
-`binkw32.dll` proxy, with KMRP's four KPM patches -- the same ones *KMRP for
-KPM* ships as `.kpatch` files. It installs on every patch: KMRP's engine
+`binkw32.dll` proxy, with KMRP's four KPM patches -- the same ones the
+installer carries as `.kpatch` files for KPM's app. It installs on every patch: KMRP's engine
 changes, three memory-safety fixes, mouse confinement, the movies, the movie
 bars and the status summary's layout, whether or not controller support is on.
 **Controller support** adds the *KMRP Controller* patch, and the marker option

@@ -105,6 +105,8 @@ New-Item -ItemType Directory -Force -Path $WorkRoot | Out-Null
 Write-Host ""
 Write-Host ("DPI compatibility regression  ->  " + $WorkRoot)
 
+# KPM's own settings, parked for the run (Restore-TestNvidiaProfiles.ps1).
+$kpmLauncherSettings = Hide-KpmLauncherSettings $WorkRoot
 try {
     Write-Host ""
     Write-Host "Case 1  no previous compatibility value"
@@ -162,6 +164,7 @@ try {
     Assert ($current.Exists -and $current.Value -eq $previous) "the unrecorded registry edit was rolled back"
 }
 finally {
+    Restore-KpmLauncherSettings $kpmLauncherSettings
     Restore-TestNvidiaProfiles $WorkRoot
     foreach ($entry in $script:OriginalValues.GetEnumerator()) {
         Set-LayerValue $entry.Key $entry.Value.Exists $entry.Value.Value

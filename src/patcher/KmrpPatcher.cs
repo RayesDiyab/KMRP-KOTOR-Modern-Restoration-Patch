@@ -7534,6 +7534,13 @@ namespace Kmrp
                     PatchOperations.Restore(args[1], delegate { });
                     return 0;
                 }
+                // KMRP's four .kpatch files, their README and KPM's licence, for
+                // sharing them on their own; the installer carries them since 2026-09-29.
+                if (args.Length == 2 && args[0] == "--export-kpm-patches")
+                {
+                    KpmEditionOperations.ExportKpatches(args[1]);
+                    return 0;
+                }
                 // Build-time only (build_kmrp.ps1): the fields ResolutionPatch handles.
                 if (args.Length == 3 && args[0] == "--kpm-sites")
                 {

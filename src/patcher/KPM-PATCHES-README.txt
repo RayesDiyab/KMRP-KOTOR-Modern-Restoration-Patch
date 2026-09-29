@@ -39,8 +39,11 @@ Install
    resolution in swkotor.ini, and writes kmrp-kpm.dat, the data KMRP's
    patches read. swkotor.exe is not modified. An earlier KMRP install is
    replaced.
-2. In KOTOR Patch Manager, set the patch directory to this folder (or copy
-   the four .kpatch files into your own patch directory).
+2. The installer carries these four .kpatch files and puts them in KOTOR
+   Patch Manager's patch directory, the one KPM's settings name. If KPM has
+   none on this PC yet, it puts them in a "KPM patches" folder in your KOTOR
+   folder (where this README is), and says so: set KPM's patch directory to
+   that folder, or copy the four files into your own.
 3. Tick "KMRP - KOTOR Modern Restoration Patch", and any of KMRP Controller,
    KMRP Movies and KMRP Map Notes. Leave KPM's own 4GB Patch, Texture Bucket
    Safety, Grass Memory Safety and Save Game Memory Leak unticked: KMRP
@@ -63,7 +66,9 @@ installer again. To remove KMRP, run it and press Restore Original, then
 untick the KMRP patches in KOTOR Patch Manager and press Apply.
 
 Until 2026-09-29 these came with an installer of their own, "KMRP for
-KPM.exe"; KMRP's installer does its job now.
+KPM.exe"; KMRP's installer does its job now, and carries them. To have them
+on their own, for sharing, run it as
+  "KMRP - KOTOR Modern Restoration Patch.exe" --export-kpm-patches <folder>
 
 Not compatible with
 -------------------

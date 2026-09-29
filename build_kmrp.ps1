@@ -413,14 +413,17 @@ Invoke-Tool -Exe $Python -Label "originals" -FailureMessage "The KPM originals c
     "--out", $kpmOriginals)
 
 # KMRP's .kpatch files, for players who manage their patches with KOTOR Patch
-# Manager: the installer installs everything else for them (the KOTOR Patch Manager
-# option, or by itself when KPM's runtime is in the game folder). Until 2026-09-29
-# they came in dist\KMRP for KPM\ with an installer of their own, compiled with
-# KPM_EDITION; that folder is removed, so no stale copy of it ships.
-$kpmDir = Join-Path $distDir "KPM patches"
+# Manager. The installer embeds them (step 7) and puts them where KPM finds them
+# (KpmEditionOperations.DeliverKpatches), so dist\ is the installer alone; its
+# --export-kpm-patches writes them out for sharing. Until 2026-09-29 they came in
+# dist\KMRP for KPM\ with an installer of their own, compiled with KPM_EDITION, and
+# then, later that day, in dist\KPM patches\; both folders are removed, so no stale
+# copy ships.
+$kpmDir = Join-Path $buildDir "kpm-patches"
 New-Item -ItemType Directory -Force -Path $kpmDir | Out-Null
-$retiredKpmDir = Join-Path $distDir "KMRP for KPM"
-if (Test-Path -LiteralPath $retiredKpmDir) { Remove-Item -LiteralPath $retiredKpmDir -Recurse -Force }
+foreach ($retiredKpmDir in @((Join-Path $distDir "KMRP for KPM"), (Join-Path $distDir "KPM patches"))) {
+    if (Test-Path -LiteralPath $retiredKpmDir) { Remove-Item -LiteralPath $retiredKpmDir -Recurse -Force }
+}
 # The set of patches is this build's alone: an earlier build's (two until
 # 2026-09-28) would sit beside it, fail the check and offer players a patch that
 # no longer exists.
@@ -434,11 +437,6 @@ Invoke-Tool -Exe $Python -Label "kpatch" -FailureMessage "Building KMRP's patche
     (Join-Path $projectRoot "src\controller-native\kmrp-controller.module"),
     "--out", $kpmDir, "--config-dir", $kpmConfigDir,
     "--resolutions", (Join-Path $resourceDir "resolutions.tsv"), "--version", $patchVersion)
-Copy-Item -LiteralPath (Join-Path $projectRoot "src\patcher\KPM-PATCHES-README.txt") `
-    -Destination (Join-Path $kpmDir "README.txt") -Force
-# MIT asks for the notice to travel with the module inside the .kpatch files.
-Copy-Item -LiteralPath (Join-Path $kpmSubmodule "LICENSE") `
-    -Destination (Join-Path $kpmDir "LICENSE-KOTOR-PATCH-MANAGER.txt") -Force
 Complete-Step
 
 # ---------------------------------------------------------------- 7. the installer
@@ -451,6 +449,16 @@ $engineArgs = @(
 foreach ($patchId in @("kmrp", "kmrp-controller", "kmrp-movies", "kmrp-map-notes")) {
     $engineArgs += "/resource:$(Join-Path $kpmConfigDir ($patchId + '.toml')),Kmrp.engine.config.$patchId"
 }
+# The .kpatch files themselves, and their README; the licence that goes with them is
+# Kmrp.engine.license. File names as tools/build_kpatch.py writes them, in the same
+# pairs as KpmEditionOperations.Kpatches.
+foreach ($kpatch in @(@("kmrp", "KMRP.kpatch"), @("kmrp-controller", "KMRP Controller.kpatch"),
+        @("kmrp-movies", "KMRP Movies.kpatch"), @("kmrp-map-notes", "KMRP Map Notes.kpatch"))) {
+    $kpatchPath = Join-Path $kpmDir $kpatch[1]
+    if (-not (Test-Path -LiteralPath $kpatchPath)) { throw "tools\build_kpatch.py did not write $kpatchPath" }
+    $engineArgs += "/resource:$kpatchPath,Kmrp.kpatch.$($kpatch[0])"
+}
+$engineArgs += "/resource:$(Join-Path $projectRoot 'src\patcher\KPM-PATCHES-README.txt'),Kmrp.kpatch.readme"
 Write-Bar -Percent 100 -Label "running the C# compiler"
 Invoke-Tool -Exe $compiler -Arguments ($compilerArgs + $engineArgs) -Label "compile" `
     -FailureMessage "KMRP compilation failed"
@@ -502,8 +510,8 @@ Write-Host ("  output    {0}" -f $outputExe) -ForegroundColor Gray
 Write-Host ("  size      {0:n0} bytes" -f (Get-Item $outputExe).Length) -ForegroundColor Gray
 Write-Host ("  SHA-256   {0}" -f $hashHex) -ForegroundColor Gray
 Write-Host ""
-Write-Host "  KPM patches" -ForegroundColor Green
-foreach ($file in @(Get-ChildItem -LiteralPath $kpmDir -File | Where-Object { $_.Extension -in ".exe", ".kpatch" })) {
+Write-Host "  KPM patches, inside the installer" -ForegroundColor Green
+foreach ($file in @(Get-ChildItem -LiteralPath $kpmDir -File | Where-Object { $_.Extension -eq ".kpatch" })) {
     $kpmSha = [System.Security.Cryptography.SHA256]::Create()
     $kpmStream = [System.IO.File]::OpenRead($file.FullName)
     try { $kpmHash = [System.BitConverter]::ToString($kpmSha.ComputeHash($kpmStream)).Replace("-", "") }

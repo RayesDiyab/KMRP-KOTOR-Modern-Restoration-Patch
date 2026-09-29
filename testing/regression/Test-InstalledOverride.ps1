@@ -192,6 +192,8 @@ Write-Host ("installer " + (Split-Path -Leaf $Patcher))
 Write-Host ("resolutions " + ($Resolutions -join ", "))
 
 $common = Join-Path $Resources "override-common.zip"
+# KPM's own settings, parked for the run (Restore-TestNvidiaProfiles.ps1).
+$kpmLauncherSettings = Hide-KpmLauncherSettings $WorkRoot
 try {
     foreach ($resolution in $Resolutions) {
         Write-Host ""
@@ -240,6 +242,7 @@ try {
     }
 }
 finally {
+    Restore-KpmLauncherSettings $kpmLauncherSettings
     Restore-TestNvidiaProfiles $WorkRoot
     foreach ($entry in $script:OriginalLayerValues.GetEnumerator()) {
         Restore-LayerValue $entry.Key $entry.Value

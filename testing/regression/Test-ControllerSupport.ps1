@@ -126,6 +126,8 @@ if ($settingsExisted) { Copy-Item -LiteralPath $settingsPath -Destination $setti
 $errorLog = Join-Path (Split-Path -Parent $Patcher) "KMRP.startup-error.log"
 $errorLogBefore = Test-Path -LiteralPath $errorLog
 
+# KPM's own settings, parked for the run (Restore-TestNvidiaProfiles.ps1).
+$kpmLauncherSettings = Hide-KpmLauncherSettings $WorkRoot
 try {
     Set-TestOptions $true $true $true
     Write-Host ""
@@ -344,6 +346,7 @@ try {
     }
 }
 finally {
+    Restore-KpmLauncherSettings $kpmLauncherSettings
     if ((Test-Path -LiteralPath $errorLog) -and -not $errorLogBefore) { Remove-Item -LiteralPath $errorLog -Force }
     if ($settingsExisted) { Copy-Item -LiteralPath $settingsCopy -Destination $settingsPath -Force }
     elseif (Test-Path -LiteralPath $settingsPath) { Remove-Item -LiteralPath $settingsPath -Force }

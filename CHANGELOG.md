@@ -400,10 +400,31 @@ before:
     since). The first build of
     the day refused such a folder instead. The separate `KMRP for KPM.exe`, the
     `KPM_EDITION` compile and `dist\KMRP for KPM\` are gone; the four `.kpatch`
-    files ship in `dist\KPM patches\` with their README
+    files shipped in `dist\KPM patches\` with their README
     (`src/patcher/KPM-PATCHES-README.txt`, until then
     `KMRP-for-KPM-README.txt`). Advanced Settings has four rows now, 78 px each
     where three were 86, so all fit above the buttons.
+  - **The installer is the one file** (that evening, at the maintainer's request:
+    "cant we bundle it into the exe?"). It carries the four `.kpatch` files, their
+    README and KPM's licence, and `dist\KPM patches\` is gone. For KPM's app to
+    list KMRP's patches, the installer puts them in KPM's own patch folder, which
+    it reads from KPM's settings (`%APPDATA%\KPatchLauncher\settings.json`), on
+    either kind of install; when KPM has none, an install for KPM puts them in a
+    `KPM patches` folder in the game folder and says so. Restore removes the ones
+    it added while they are unchanged. A KMRP patch already in KPM's folder is
+    brought up to this version and left on restore; a file of the same name that
+    is not KMRP's is left alone. `--export-kpm-patches <folder>` writes the set
+    out for sharing. `Test-KpmEdition.ps1` Cases 11 and 12 cover KPM's folder and
+    the export, with a settings file whose path is escaped as KPM writes it; the
+    six suites that install move KPM's own settings aside for their run, so a
+    test never writes into a player's KPM folder. The installer that does this,
+    `C4E01BB6…`, is 161,857,024 bytes, 425 KB more; all nine Windows suites
+    passed on it, `Test-KpmEdition.ps1` with 171 checks. **Seen with KPM's own
+    window the same evening**, on the maintainer's game: with KPM 0.7.1's
+    settings naming the game's `patches` folder, a normal install put the four
+    there (the manifest's `kpatch` rows, `created`), and KPM listed KMRP,
+    Controller, Movies and Map Notes at 1.5.0 beside its own patches, with the
+    game identified as "KOTOR 1.0.3". KPM's Apply was not part of that check.
   - **It hands its runtime to KOTOR Patch Manager** when KPM takes it over. KPM
     0.7.1 reads a game's installed patches from `patch_config.toml`, and this
     config is KPM's format, so KPM lists KMRP's patches as installed and lets
