@@ -423,6 +423,66 @@ before:
   played, to keep the install's cloud save untouched. Not GOG yet, not KPM's graphical
   launcher, not played by hand. See [kpm-edition.md](docs/kpm-edition.md).
 
+- **17 more resolutions, the sizes of current Mac displays** (2026-09-29): each display's
+  default size and the pixel size it renders at on a Retina panel, from 1344x840 to
+  4480x2520, listed under **macOS** in the launcher, 66 in all. Upstream ships no set for
+  any of them, so each is derived: `derive_resolution` (`tools/derive_resolution_gui_set.py`)
+  blends the upstream sets around it in aspect ratio and in height. Predicting each upstream
+  16:10 set from the 4:3 and 16:9 ones this way puts every field within 1 px of the real
+  one (`Test-ResolutionDerivation.py`; `docs/universal-resolution-math.md`). The Windows
+  installer offers them because it embeds the same pool as the Mac port. Seen in play only
+  on the Mac, at 3024x1964 and 1512x982; not yet built or run on Windows.
+
+- **KMRP for macOS** (2026-09-29), for the Steam Aspyr build (`KOTOR_Exe` 1.4.0,
+  `C1FCB8D3…6D71`), in [`macos/`](macos/README.md). The goal is a Mac build that cannot be
+  told apart from Windows at the same resolution; `macos/WINDOWS-PARITY.md` tracks it
+  Windows site by Windows site.
+  - The same files as Windows: every resolution's menu set (the 49 Windows sizes and 17
+    new Mac ones, `GROUPS["macOS"]`), pooled as the Windows installer pools them, with its
+    fonts baked at `max(1, H / 720)`; for any other size the installer blends the `.gui`
+    files from the finished sets around it (`tools/build_gui_blend_table.py`,
+    `macos/tools/kmrp-guiblend.c`: 99.9% of fields within 1 px when a known set is predicted
+    from the others) and takes the nearest set's fonts and art. The feat, power and skill
+    icons are enlarged at install by a byte-identical port of `AbilityIconGenerator.cs`.
+  - The engine: FTD's widescreen patch (a KotOR Patch Manager patch) is the base, with
+    KMRP's engine fixes ported to it as K1–K8, plus K9, which makes a Retina display's pixel
+    resolution a valid mode, and one setting, `UseGuiFileLayouts`, which turns its own
+    layout off for pre-laid-out `.gui` sets. What the gold delta and the installer's
+    per-resolution writes do beyond that is `macos/patches/kmrp-layout`: list-row, stack
+    label, chain-row and popup sizes, list-box `PADDING` as a gutter (gold v11, v12),
+    text-list rows, and the area map's canvas, overlay, marker positions and sizes.
+  - On a Retina display the installer offers native resolution (3024x1964 on a 14" MacBook
+    Pro) or half (1512x982, scaled up by macOS), or `--size` for any other. The mouse needs
+    no fix at native: Aspyr's own conversion scales it once the mode exists.
+  - Derslok's map-note corrections are a separate KPM patch.
+  - `macos/kmrp-mac.sh` installs, uninstalls and reports, from a hashed manifest that also
+    covers the three `swkotor.ini` keys it writes.
+
+  Play-tested on a 14" MacBook Pro through Aspyr's launcher, fullscreen, at native
+  3024x1964, installed by the installer: main menu, Load Game, HUD, inventory, abilities
+  (skills, powers), journal, area map, options, the quit confirmation and a conversation;
+  the same screens at half, 1512x982; and a blended size, 1352x878, windowed. Install and
+  uninstall were tested against the live game and against a stand-in game for a listed and
+  a blended size (`Test-MacInstaller.py`); the game and `swkotor.ini` came back identical.
+  Store rows, the stack-count label, tutorial popups, pressing Play
+  in the Steam client itself and any other display were not tested. See `macos/README.md`, *Coverage*.
+
+  *Corrected 2026-09-29:* the first Mac build, the same day, laid out the vanilla menus with
+  the widescreen patch's own runtime layout, wrote `NativeResolution`, `FontScale` and
+  `FullWidthMenus`, and installed per-scale fonts and none of KMRP's `.gui` sets. It looked
+  visibly different from Windows (4:3 menus, larger inventory rows, no feat and power row
+  fix) and was replaced before release.
+
+- **The skill icons grow with the Skills rows** (2026-09-29, Windows and macOS, at the
+  maintainer's request: "the skills have small icons still"). The Skills tab's rows grow to
+  42s, but the eight `isk_*` icons are 32x32 textures the engine draws one texel per pixel,
+  so at 3024x1964 a 32 px icon sat in a 115 px row. `AbilityIconGenerator.cs` now also
+  writes them, at `round(32s)` capped at 64: none at 720 and below, 44 px at 982, 48 at 1080,
+  64 from 1440 up. They keep their vanilla proportion to the row until the cap. The Mac
+  helper does the same; `Test-AbilityIcons.py` compares both byte for byte at ten heights
+  and checks the sizes against the rule itself. Seen in game on the Mac at 1512x982 the
+  same day: 44 px icons filling their frames. Not yet seen on Windows.
+
 - **The Character screen shows A on Level Up and Y on Auto Level Up, and the
   granted-feats notice shows A on its OK** (2026-09-26, at the maintainer's
   request after a preview found neither had a glyph). The Character screen
@@ -836,6 +896,27 @@ before:
 
   The status summary's layout without the controller was not seen: no box
   came up in that session. It is the same function the controller path runs.
+
+- **Item icons sit in their slots at the game's own size** (2026-09-29, Windows and
+  macOS, at the maintainer's request: "can we keep the same ratio for inventory items
+  within their frame? I think they are too big now", then "normalize all of the HD pack
+  icons to make them have the same size"). The game draws an item icon scaled to its slot,
+  so what sets its size in the frame is how much of the canvas the picture fills.
+  Measured at the half-opaque edge, the game's own 64x64 icons are all drawn to one size:
+  a median of 39 px of 64, half of them within 37-41, and the same for armour, weapons and
+  items. The HD Icon Pack's pictures span 0.56 to 0.95 of theirs, and the weapons' median
+  is 0.82. The HD items therefore sat larger in their frames than vanilla's, and a robe's
+  sleeves reached past the inventory's hex frame at 1512x982. The build's existing resample
+  of the pack (192 to 160 px) now also sizes each picture to 39/64 of the canvas, centred
+  (`ICON_PICTURE_SPAN`, `frame_icon` in `tools/prepare_universal_resources.py`). Measured
+  in the shipped DXT5 files, all 351 are 96-100 px of 160, 232 of them exactly 98, and
+  centred within half a pixel. Before, they ranged from 89 to 155 px. No picture loses a
+  pixel: the build refuses one that would. The size of the files is unchanged, 8.6 MB.
+  A rebuild of every resource with the change matched the previous one in every file but
+  `override-common.zip`, and there in every entry but these 351. Seen in game on the Mac at
+  1512x982 the same day: the robe inside its frame, and the arm band and shield clear of
+  the frame's edge. Windows gets it from the next build that does not reuse resources;
+  not yet seen there.
 
 - **The - and + arrows keep the game's own art** (2026-09-28, at the
   maintainer's request: "I dont want the dpad leave the + and -"). Since

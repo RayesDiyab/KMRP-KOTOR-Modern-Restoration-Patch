@@ -308,9 +308,9 @@ def main() -> int:
     verify_runtime_lookup_patch()
 
     archives = sorted(args.resources.glob("gui-*.zip"))
-    # 48 upstream resolutions plus 2880x1620, derived since 2026-09-25.
-    if len(archives) != 49:
-        raise AssertionError(f"Expected 49 GUI archives, found {len(archives)}")
+    # 48 upstream resolutions plus 2880x1620 (2026-09-25) and 17 macOS ones (2026-09-29).
+    if len(archives) != 66:
+        raise AssertionError(f"Expected 66 GUI archives, found {len(archives)}")
 
     common_path = args.resources / "override-common.zip"
     with zipfile.ZipFile(common_path) as common:

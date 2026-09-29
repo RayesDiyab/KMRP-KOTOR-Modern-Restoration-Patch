@@ -8,6 +8,7 @@ import atexit
 import copy
 import io
 import json
+import math
 import shutil
 import struct
 import tempfile
@@ -27,7 +28,7 @@ from build_controller_layout import (DIALOG_BADGE_TAG, add_confirm_badge,
                                      build_gui as build_controller_layout_gui)
 from build_menubg_texture import build_texture_for_gui
 from analyze_resolution_guis import geometry as resolution_geometry
-from derive_resolution_gui_set import DERIVED_GUI_SETS, derive_gui_set
+from derive_resolution_gui_set import DERIVED_GUI_SETS, derive_gui_set, derive_resolution
 from build_scaled_fonts import export_font_txis, export_fonts, scale_txi
 from fix_hud_menubg import fix_menubg_file
 from scale_hud_minimap import patch_gui
@@ -119,10 +120,25 @@ GROUPS = {
     ],
     "21:9": ["1280x1080", "2560x1080", "3440x1440", "3840x1600", "5120x2160"],
     "32:9": ["1920x540", "3840x1080", "5120x1440", "7680x2160"],
+    # Mac displays upstream has no set for (2026-09-29). Each Mac's default
+    # "looks like" size and the pixel size it renders at on a Retina panel, the two
+    # sizes KMRP for macOS runs the game at (half and native). All derived by
+    # tools/derive_resolution_gui_set.py: the ~1.54:1 panels between 4:3 and 16:10,
+    # the rest within their own family.
+    "macOS": [
+        # Apple silicon: 14" and 16" MacBook Pro, 13" (M2 and later) and 15"
+        # MacBook Air, 24" iMac, Pro Display XDR at its default.
+        "1512x982", "3024x1964", "1728x1117", "3456x2234", "1470x956", "2940x1912",
+        "1440x932", "2880x1864", "2240x1260", "4480x2520", "3008x1692",
+        # Intel: 15" MacBook Pro at 1680x1050 on Retina, 16" MacBook Pro (2019)
+        # at its three scaled sizes and native, 21.5" iMac 4K.
+        "3360x2100", "1344x840", "1536x960", "1792x1120", "3072x1920", "4096x2304",
+    ],
 }
 
-# 48 upstream resolutions plus 2880x1620, derived since 2026-09-25 (issue #16).
-EXPECTED_RESOLUTIONS = 49
+# 48 upstream resolutions plus 2880x1620, derived since 2026-09-25 (issue #16), plus
+# 17 Mac resolutions, derived since 2026-09-29.
+EXPECTED_RESOLUTIONS = 66
 
 ASPECT_FOLDERS = {
     "4:3": "4-by-3",
@@ -130,6 +146,7 @@ ASPECT_FOLDERS = {
     "16:9": "16-by-9",
     "21:9": "21-by-9",
     "32:9": "32-by-9",
+    "macOS": "macos",   # not an upstream folder: every set in the group is derived
 }
 
 # Single-item description panes: one wrapped paragraph beside a scrollbar. These
@@ -351,8 +368,25 @@ def compress_menu_backgrounds(files: list[Path], staging: Path) -> list[Path]:
 ICON_SOURCE_SIZE = 192
 ICON_TEXTURE_SIZE = 160
 
+# How much of its canvas an item icon's picture spans: its longer side, to the
+# half-opaque edge (alpha above ICON_ALPHA_FLOOR). The game draws the icon
+# scaled to the slot, so this is the picture's size in its frame. The stock
+# 64x64 icons all use the same one: across the 301 the pack replaces, a median
+# of 39 px of 64, half of them within 37-41, and 0.61 for armour, weapons and
+# items alike. The pack's pictures range from 0.56 to 0.95 (weapons 0.82), so
+# they sat larger in their frames than vanilla's and not at one size. Every icon
+# is resampled to 39/64, centred (frame_icon). Added 2026-09-29; set
+# ICON_PICTURE_SPAN to None to ship the pack's own framing.
+#
+# The half-opaque edge, not a fainter one, because DXT5 stores alpha as eight
+# levels a 4x4 block: at a floor of 24 a faint edge is lifted over it a whole
+# block at a time, and the same picture measured 96, 100 or 104 px of 160
+# depending on where the blocks fell.
+ICON_PICTURE_SPAN = 39 / 64
+ICON_ALPHA_FLOOR = 127
 
-def resize_premultiplied(image, size: int):
+
+def resize_premultiplied(image, size: int, box=None):
     """Lanczos on premultiplied colour, then divided back out.
 
     Not an optimisation -- a correctness fix. The RGB of a fully transparent
@@ -360,6 +394,9 @@ def resize_premultiplied(image, size: int):
     visible edge as a dark or coloured fringe. Measured on twelve icons, the two
     approaches differ by 30.5 dB, which is the same order as the compression
     error itself.
+
+    `box` resamples that region of the source instead of all of it; it may
+    reach past the edges, which read as transparent.
     """
     from PIL import Image
 
@@ -372,7 +409,14 @@ def resize_premultiplied(image, size: int):
             raw[i + 2] = raw[i + 2] * alpha // 255
     premultiplied = Image.frombytes("RGBA", image.size, bytes(raw))
 
-    small = premultiplied.resize((size, size), Image.LANCZOS)
+    if box is None:
+        small = premultiplied.resize((size, size), Image.LANCZOS)
+    else:
+        margin = math.ceil(max(0, -box[0], -box[1], box[2] - image.width, box[3] - image.height))
+        padded = Image.new("RGBA", (image.width + 2 * margin, image.height + 2 * margin), (0, 0, 0, 0))
+        padded.paste(premultiplied, (margin, margin))
+        small = padded.resize((size, size), Image.LANCZOS,
+                              box=tuple(edge + margin for edge in box))
 
     out = bytearray(small.tobytes())
     for i in range(0, len(out), 4):
@@ -384,6 +428,45 @@ def resize_premultiplied(image, size: int):
             out[i + 1] = min(255, out[i + 1] * 255 // alpha)
             out[i + 2] = min(255, out[i + 2] * 255 // alpha)
     return Image.frombytes("RGBA", small.size, bytes(out))
+
+
+def picture_bounds(image):
+    """The box around an icon's picture: its alpha above ICON_ALPHA_FLOOR."""
+    return image.getchannel("A").point(lambda a: 255 if a > ICON_ALPHA_FLOOR else 0).getbbox()
+
+
+def frame_icon(image, size: int, span: float):
+    """Resample `image` to `size` with its picture spanning `span` of the canvas,
+    centred. Returns the icon and the most opaque alpha the frame cut off: the
+    frame is 1/span of the picture, so only a faint halo could reach past it,
+    and across the pack none does.
+    """
+    from PIL import Image
+
+    bounds = picture_bounds(image)
+    if bounds is None:
+        return resize_premultiplied(image, size), 0
+    left, top, right, bottom = bounds
+    x, y = (left + right) / 2, (top + bottom) / 2
+
+    def square(side):
+        return (x - side / 2, y - side / 2, x + side / 2, y + side / 2)
+
+    wanted = round(span * size)
+    side = max(right - left, bottom - top) / span
+    icon = resize_premultiplied(image, size, square(side))
+    # The source's edge rarely falls on a whole output pixel: fit it once more
+    # to what it measures.
+    fitted = picture_bounds(icon)
+    measured = max(fitted[2] - fitted[0], fitted[3] - fitted[1])
+    if measured != wanted:
+        side *= measured / wanted
+        icon = resize_premultiplied(image, size, square(side))
+
+    inside = Image.new("L", image.size, 0)
+    inside.paste(255, tuple(round(edge) for edge in square(side)))
+    outside = Image.composite(Image.new("L", image.size, 0), image.getchannel("A"), inside)
+    return icon, outside.getextrema()[1]
 
 
 def compress_bundled_icons(files: list[Path], staging: Path) -> list[Path]:
@@ -399,7 +482,8 @@ def compress_bundled_icons(files: list[Path], staging: Path) -> list[Path]:
     DXT1 because every one of these icons carries soft alpha -- a survey of all
     351 found not one with alpha that is purely opaque or purely clear -- and
     because this executable cannot upload DXT1 with alpha at all; see the note
-    on ICON_TEXTURE_SIZE.
+    on ICON_TEXTURE_SIZE. The same resample frames each picture at the stock
+    icons' size; see ICON_PICTURE_SPAN.
 
     Anything that is not ICON_SOURCE_SIZE square passes through untouched.
     """
@@ -411,7 +495,7 @@ def compress_bundled_icons(files: list[Path], staging: Path) -> list[Path]:
 
     staging.mkdir(parents=True, exist_ok=True)
     result: list[Path] = []
-    converted = before = after = 0
+    converted = before = after = reframed = 0
     for path in files:
         head = path.read_bytes()[:18]
         width, height = struct.unpack_from("<HH", head, 12)
@@ -428,7 +512,13 @@ def compress_bundled_icons(files: list[Path], staging: Path) -> list[Path]:
         # upside down".
         with Image.open(path) as source:
             image = source.convert("RGBA")
-            if ICON_TEXTURE_SIZE != ICON_SOURCE_SIZE:
+            if ICON_PICTURE_SPAN:
+                image, dropped = frame_icon(image, ICON_TEXTURE_SIZE, ICON_PICTURE_SPAN)
+                if dropped:
+                    raise ValueError(f"{path.name}: framing it at {ICON_PICTURE_SPAN:.3f} "
+                                     f"cuts off part of it (alpha up to {dropped})")
+                reframed += 1
+            elif ICON_TEXTURE_SIZE != ICON_SOURCE_SIZE:
                 image = resize_premultiplied(image, ICON_TEXTURE_SIZE)
             upright = image.transpose(Image.FLIP_TOP_BOTTOM)
             buffer = io.BytesIO()
@@ -449,6 +539,9 @@ def compress_bundled_icons(files: list[Path], staging: Path) -> list[Path]:
         print(f"  compressed {converted} icons to {ICON_TEXTURE_SIZE}px DXT5 TPC: "
               f"{before/1048576:.1f} MB -> {after/1048576:.1f} MB "
               f"({before/after:.1f}x)")
+    if reframed:
+        print(f"  framed {reframed} icons at {ICON_PICTURE_SPAN:.3f} of the canvas, "
+              f"centred, nothing cut off")
     return result
 
 
@@ -1014,6 +1107,20 @@ def main() -> int:
         derive_gui_set(folder / f"gui.{low}", folder / f"gui.{high}", target, position)
         derived_sources[resolution] = target
         geometry[resolution] = resolution_geometry(target / "map.gui")
+    # Every other resolution upstream ships no set for (the macOS group) is a blend
+    # of the upstream sets around it, across aspect ratios where it falls between
+    # two families; Test-ResolutionDerivation.py measures the method.
+    for category, values in GROUPS.items():
+        for resolution in values:
+            if resolution in derived_sources or resolution == "3440x1440":
+                continue
+            if (args.upstream / ASPECT_FOLDERS[category] / f"gui.{resolution}").is_dir():
+                continue
+            width, height = (int(value) for value in resolution.split("x"))
+            target = derived_root / ASPECT_FOLDERS[category] / f"gui.{resolution}"
+            derive_resolution(args.upstream, width, height, target)
+            derived_sources[resolution] = target
+            geometry[resolution] = resolution_geometry(target / "map.gui")
     missing = sorted(set(requested) - set(geometry))
     if missing:
         raise ValueError(f"Geometry is missing for: {', '.join(missing)}")
@@ -1183,7 +1290,7 @@ def main() -> int:
 
     catalog_lines = ["# category\twidth\theight\tcanvasWidth\tcanvasHeight\toverlayWidth\tcenteringWidth\tcenteringHeight"]
     # Progress for the build script's bar: it turns "[done/total] label" lines
-    # into bar updates. This is the long stage -- 49 resolutions of GUI and
+    # into bar updates. This is the long stage -- 66 resolutions of GUI and
     # texture work -- and without a heartbeat the build looks hung.
     total_resolutions = sum(len(items) for items in GROUPS.values())
     completed_resolutions = 0

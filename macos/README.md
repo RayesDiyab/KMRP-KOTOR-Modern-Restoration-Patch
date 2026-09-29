@@ -1,0 +1,418 @@
+# KMRP for macOS: what it installs, byte for byte
+
+> **Documentation standard.** This document follows
+> [`docs/documentation-standard.md`](../docs/documentation-standard.md). Read it before editing
+> this file, and check the result still meets it — measured claims only, every
+> site tabulated, rejected alternatives and corrections kept visible, and
+> anything untested labelled as untested.
+
+The macOS port of KMRP for the Steam Aspyr build of KOTOR: how it is built, what the
+installer writes, and how each part of the Windows patch is carried over. The goal is a Mac
+build that cannot be told apart from Windows at the same resolution; the tracker for that,
+Windows site by Windows site, is [`WINDOWS-PARITY.md`](WINDOWS-PARITY.md). The player-facing
+instructions ship in the package as `README.md` ([`PLAYER-README.md`](PLAYER-README.md)).
+Everything below was measured on a 14" MacBook Pro (M5, macOS 27.0, 1512x982 points,
+3024x1964 pixels, Rosetta 2) on 2026-09-29; what was not tested is said where it matters and
+collected under *Coverage*.
+
+## The build this describes
+
+| | |
+| --- | --- |
+| Game | *Star Wars: Knights of the Old Republic*, Steam, Aspyr macOS port |
+| Executable | `Knights of the Old Republic.app/Contents/MacOS/KOTOR_Exe`, version 1.4.0 (176481) |
+| Size, SHA-256 | 6,333,424 bytes, `C1FCB8D37C702849882A17751C63EE0AF7C2B9CBBC3B31B98A5F0EDBC27C6D71` |
+| Format | thin Mach-O x86_64, not position-independent; `__TEXT` at VA `0x100000000`, file offset 0 |
+| Signature | Aspyr, team `VF8SGH77F7`, CodeDirectory flags 0 (no hardened runtime, no library validation) |
+
+**Address convention.** Addresses are virtual addresses as Ghidra and `otool` show them.
+The image always loads at `0x100000000`, and within `__TEXT` the file offset is
+`VA − 0x100000000`. The Windows convention (`FILE = VA − 0x400000`) does not apply here.
+
+The installer refuses any other `KOTOR_Exe`.
+
+## 1. How the Mac port is put together
+
+On Windows KMRP is three things: the `.gui` set for the chosen resolution (KOTOR High
+Resolution Menus plus KMRP's edits) with fonts baked for it, an executable patch (the gold
+delta), and the sizes its installer writes into that executable for the resolution. The Mac
+executable is a different compiler's x86_64 build, so the executable part is ported site by
+site; the files are the same.
+
+| Layer | What | Where it comes from |
+| --- | --- | --- |
+| Hook runtime | `KotorPatcher.dylib`, loaded by one `LC_LOAD_DYLIB` in `KOTOR_Exe` | KotOR Patch Manager (MIT), built from source by `build.sh` |
+| Base patch | FTD's widescreen patch with KMRP's engine fixes: the resolution (Retina modes included), K1–K9, and, with `UseGuiFileLayouts=1`, no layout of its own | *K1WidescreenPatch* by J, FTD and Vriff (MIT), a KPM patch, branch `kmrp-engine-fixes` of FTD's fork, open as [FTD516/Kotor-Patch-Manager#1](https://github.com/FTD516/Kotor-Patch-Manager/pull/1) |
+| Layout patch | `patches/kmrp-layout/`: the sizes the Windows installer writes per resolution, and the list-box, area-map and popup changes the gold delta makes | this directory, a DLL-only KPM patch |
+| Map notes | Derslok's 250 map-note corrections | `patches/kmrp-map-notes/`, a KPM patch |
+| Menus and fonts | every resolution's set from KMRP's resource build, pooled; any other size blended at install | `tools/prepare_universal_resources.py`, `pack_resolution_layouts.py`, `build_gui_blend_table.py`, all unchanged from Windows |
+| Artwork | `override-common.zip`, less what the Mac does not use | the same resource build |
+| Feat, power and skill icons | enlarged from the game's texture pack at install | `tools/kmrp-abilityicons.c`, a port of `AbilityIconGenerator.cs` |
+| Installer | `kmrp-mac.sh`: install, uninstall, status, with a hashed manifest | this directory |
+
+**Why the widescreen patch is the base** (decided 2026-09-29, after a day on which KMRP was to
+ship a patch of its own instead): it is the Mac's resolution unlock, and KMRP's engine fixes
+were contributed to it, so KMRP ships and installs that version rather than a second copy.
+What depends on KMRP's layouts stays in KMRP: the `UseGuiFileLayouts` switch is the only
+thing the widescreen patch carries for it, and everything the switch leaves undone is the
+layout patch's. The engine fixes are documented beside their code, in the branch's
+`Patches/K1WidescreenPatch/KMRP-ENGINE-FIXES.md`:
+
+| | Fix | Windows equivalent |
+| --- | --- | --- |
+| K1 | word-wrap forward progress and the two short-string guards | `.kwl`, `0x0045A3B7`, `0x0045A3DC` |
+| K2 | list rows stop growing | `0x0041B507`, `0x0041B52C` |
+| K3 | leading newline trimmed | `.ktn` |
+| K4 | video mode follows the target resolution | none: the Windows patcher writes the resolution into the executable |
+| K5 | a line taller than its box is drawn, not dropped | none: Windows sizes the stack label with the font (`.ksc`) so the case does not arise |
+| K6 | 0.5 px wrap margin | TXI `spacingR` |
+| K7 | dialogue letterbox from the height; reply list fills the bar | `.klb`, nine sites |
+| K8 | minimap keeps the vanilla zoom | `.kmz`, `.kfg` |
+| K9 | the display's pixel resolution is a valid mode (Retina) | none: Windows display modes are already in pixels |
+
+## 2. Every file the installer writes
+
+`kmrp-mac.sh install`, run from the package, in this order. Paths are relative to
+`Knights of the Old Republic.app/Contents`. Counts are for 3024x1964.
+
+| Path | Kind | Notes |
+| --- | --- | --- |
+| `~/Library/Application Support/KMRP/macos/backup/KOTOR_Exe` | copy | the original, re-hashed before anything is written |
+| `MacOS/KotorPatcher.dylib` | added | KPM runtime |
+| `MacOS/patches/k1widescreenpatch.dylib` | added | the widescreen patch with the engine fixes |
+| `MacOS/patches/kmrp-layout.dylib` | added | the layout patch (section 4) |
+| `MacOS/patches/kmrp-map-notes.dylib` | added | omitted with `--no-map-notes` |
+| `MacOS/patch_config.toml` | added | written at build time by KPM's own `ConfigGenerator`: 57 widescreen hooks, the map-note detour, and the layout patch as a DLL-only entry |
+| `MacOS/KOTOR_Exe` | edited | one load command, then `codesign --force --sign - --identifier KOTOR_Exe` |
+| `~/Library/Application Support/Knights of the Old Republic/swkotor.ini` | three keys under `[Graphics Options]` | `UseGuiFileLayouts=1`, `ForceWidth`, `ForceHeight` (section 5); the file is created if the game never ran |
+| `Assets/override/` | created if absent | the game's working directory is `Contents/Assets` and it reads `.\override` |
+| `Assets/override/*` | added or replaced | 757 artwork files, the 136 files of the resolution's set (83 `.gui`, 36 font files, 13 `tut_*` icons and `tutorial.2da`, the row-frame art), 310 enlarged feat, power and skill icons |
+
+The `KOTOR_Exe` edit, measured on the installed file:
+
+| | before | after |
+| --- | --- | --- |
+| `ncmds` / `sizeofcmds` | 45 / 5848 | 46 / 5912 |
+| free load-command space | 1544 bytes | 1480 bytes |
+| added command | — | `LC_LOAD_DYLIB` `@executable_path/KotorPatcher.dylib`, cmdsize 64, at file offset `0x16f8` |
+| signature | Aspyr, team `VF8SGH77F7` | ad hoc, identifier `KOTOR_Exe` |
+| size | 6,333,424 | 6,324,304 (the ad-hoc signature is smaller than Aspyr's) |
+| SHA-256 | `C1FCB8D3…6D71` | `5294AE4F8390DCEE54473028A69546128A6D4C2308BD355A18B55692D6748E48` (the same in every install where it was read) |
+
+This is the edit KPM's own installer makes (`KPatchCore/Applicators/MachODependencies.cs`):
+the command goes into the space the linker left after the load commands, so no address
+moves. `tools/kmrp-macho.c` does it without .NET, so players need nothing installed. Adding
+and then removing the command reproduces the original file byte for byte (checked on a
+copy). Only `KOTOR_Exe` is re-signed: the bundle's `_CodeSignature/CodeResources` is not
+touched (its hash was compared before and after on a copy of the bundle). It no longer
+matches the executable, which nothing on the launch path checks; see *Coverage*.
+
+**Ownership rules**, carried over from the Windows installer:
+
+- Bundled third-party art (the names in `bundled-override.txt`: Party Portraits, the HD Icon
+  Pack) yields to a texture already in Override under either extension, because the engine
+  prefers `.tpc` over `.tga` for the same resref. Tested: a pre-existing `ia_class4_005.tpc`
+  was left alone and the rest installed.
+- KMRP's own files replace an existing file after copying it to `backup/`.
+- A name the package would write twice stops the install (and rolls it back): the second
+  write would back up KMRP's own first copy as "the original", the bug the Windows installer
+  had with `i_checkbox01.tga`. The feat and power icon generator is handed every name the
+  install writes, so it never produces one of them.
+- The installer stops without writing anything when KotOR Patch Manager files are present
+  (`KotorPatcher.dylib`, `patch_config.toml` or `patches/` beside `KOTOR_Exe`), when
+  `KOTOR_Exe` is not the build above, when the game is running, when the texture pack is
+  missing, or when a KMRP install is already recorded. With the widescreen patch already
+  installed through KPM, the player removes it there first: KMRP installs it itself, in the
+  version with KMRP's engine fixes and the switch.
+
+**The manifest.** Every write is recorded in
+`~/Library/Application Support/KMRP/macos/manifest.tsv` (kind, path, SHA-256 as written,
+backup name), outside the app bundle so a Steam update cannot delete it. `uninstall`
+walks it newest first:
+
+- deletes an added file only if its hash still matches;
+- restores a replaced one only if ours is still there;
+- puts the original `KOTOR_Exe` back only if the installed one is unchanged;
+- puts each INI key back to its old value, or removes it if it had none, only if it still
+  holds what KMRP wrote (`ini` rows: key, value written, value before);
+- reports anything that changed and keeps its backup.
+
+The INI is edited key by key, in place, keeping the file's CRLF line ends. An install and
+uninstall left the player's INI byte-identical, including a `ForceWidth` it had before
+(`testing/regression/Test-MacInstaller.py`), and so did a rollback (below).
+
+`install.info` is written before the first change (`complete=0`) and completed at the end
+(`complete=1`), so an install cut short even by a kill -9 can be undone by `uninstall`.
+
+**Rollback.** A failure part-way through undoes itself. Tested by placing a directory where
+`lbl_map.tpc` goes: the copy failed, the installer reported it, and the app bundle's file
+list and sizes, `KOTOR_Exe`'s hash, the state directory and `swkotor.ini` all matched the
+state before the install. *Corrected 2026-09-29:* the first version of the rollback hung it on an `EXIT`
+trap and never ran, leaving a half-installed game. zsh does not run `EXIT` when errexit
+ends the script; it runs `ZERR`. The same test caught it, and both traps now run the
+rollback.
+
+## 3. What the map-note patch writes
+
+One detour, in `patches/kmrp-map-notes/`:
+
+| VA | FILE | length | original | kind | purpose |
+| --- | --- | --- | --- | --- | --- |
+| `0x1002b4f52` | `0x2b4f52` | 7 | `83 BB F4 02 00 00 00` (`cmp dword [rbx+0x2f4], 0`) | detour | `KMRP_CorrectMapNotePosition(rbx)` |
+
+`CSWGuiMapHider::Draw`'s note loop resolves each note to its object in `rbx`, tests the
+map-note flag at `+0x2f4`, and then reads the world position the conversion needs:
+
+```
+1002b4f52  cmp   dword ptr [rbx + 0x2f4], 0      ; <- detour; the je after it reads these flags
+1002b4f59  je    0x1002b536d
+...
+1002b4f72  movsd xmm0, qword ptr [rbx + 0xd8]    ; x, y
+1002b4f7a  movss xmm1, dword ptr [rbx + 0xe0]    ; z
+1002b4f82  call  0x100440350                      ; in-map test
+1002b4fac  movsd xmm0, qword ptr [rbx + 0xd8]    ; again, for the world->map conversion
+```
+
+The detour rewrites x and y at `+0xd8` when the pair is a key of Derslok's table (bitwise,
+on the module's own floats). The cut instruction has no RIP-relative operand, and KPM's
+wrapper re-executes it after the call, so the `je` sees its flags. `HitCheckMouse`
+(`0x1002b5672`) does not read these fields: it tests the note controls `Draw` positions, so
+clicks follow the moved markers. The layout patch's conversion call at `0x1002b4fca`
+(section 4) comes after this site and does not overlap it.
+
+The table (`note_table.bin`, SHA-256 `880a325d…caa5`, 250 entries) is embedded at build
+time by `tools/make_map_notes_table.py`, which refuses repeated keys and a corrected
+position that is itself a key (none are: in-place correction cannot chain).
+
+**Verified in play:** at Manaan West Central, three notes moved onto the door and terminals
+they name, compared with the same save before installing.
+
+**Rejected:** correcting inside the widescreen patch's own world-to-map bridge
+(`MapHider_WorldToMapCoords`), which worked in a test build. It made a content mod part of
+the layout patch, which this data's GPL-3.0 licence and FTD's MIT patch argue against.
+
+## 4. What the layout patch writes
+
+A KPM patch with no hooks (DLL_ONLY): KotorPatcher loads its module, whose constructor, when
+`UseGuiFileLayouts=1` is set, writes its sites before the game's code runs. Every site is
+checked for the bytes it must hold first, group by group; a group whose sites hold anything
+else is left alone and named on stderr. The resolution is the widescreen patch's:
+`ForceWidth`/`ForceHeight`, or the main display's point size. Sizes scale by the Windows
+rule `s = max(1, H / 720)` and are computed as the Windows installer computes them (single
+precision, rounded half to even). The full site list and the reasoning for each is in the
+sources' comments and, against the Windows sites, in `WINDOWS-PARITY.md`.
+
+| Source | Group | Sites | Windows |
+| --- | --- | --- | --- |
+| `resolution_sizes.cpp` | text-list rows `×s` | a stub over `CSWGuiButton::Initialize`'s rect copy (`0x1004a5a05`) | the row float and hook at `0x00417992` |
+| | inventory rows `56s` | icon `0x1002be441`, height `0x1002be870`, text offsets `0x1002be4da`, `0x1002be4e1` | `RowSizeGroups` |
+| | store rows `56s` | height `0x1002bff6d` (the icon follows it by the widescreen patch's hook) | `RowSizeGroups` |
+| | skills rows `42s` | icon `0x10022f256`, height `0x10022f60b`, text offsets `0x10022f297`, `0x10022f29d` | `RowSizeGroups` |
+| | stack-count label `21s`/`42s`, `37s`, `19s` | the label block `0x1002be4a0` re-encoded with 32-bit operands; the store's label x `0x1002bfbc0` | `StackCountSites`, `.ksc` |
+| | feat and power chain rows `50s` | the rect's height at `0x100570efc` | `RowSizeGroups` |
+| | message popup: caps `800s`, `450s`, icon `64s` | `0x100306877`, `0x10030687f`, `0x10030688b`, `0x1003068fd`, `0x1003065a1`, the icon rect at `0x100571bb0` | `PopupSizeGroups` |
+| `listbox_padding.cpp` | `PADDING` a gutter on the scrollbar's side | five reads zeroed in `OrganizeControls`, and stubs for its row block (`0x1004a8838`) and the single-row layout (`0x1004a937a`) | gold v11, v12 (`.klb`, `.kgs`) |
+| `area_map.cpp` | canvas and marker overlay | the map screen's two rect constants, `0x100571390`, `0x1005713a0` | `ResolutionPatch` map fields |
+| | marker positions | stubs for the three world-to-map calls in `CSWGuiMapHider::Draw` | the `.kui` wrappers |
+| | marker sizes `×min(s, 127/16)` | 14 sites in `Draw`, the `mm_barrow` rect, a private copy of `lbl_mapcircle`'s | `MarkerSizeSites`, `MarkerOffsetSites` |
+
+Code that does not fit where it goes (the stubs) lives in the module; the game reaches it by
+a 14-byte absolute jump, or, where only a 5-byte call or a 32-bit displacement fits, through
+a page the module allocates within 2 GB of the game's code (at `0x101000000` or above, where
+KotorPatcher also places its wrappers). `testing/regression/Test-KmrpLayoutPatch.py` checks
+every site against the unmodified executable (48 sites at 76 resolutions), every value
+against the Windows formula, every rewritten instruction and stub by disassembly, that no
+site overlaps a widescreen-patch hook except the two declared, and that the module has a
+single load-time initialiser. *Found 2026-09-29:* a global `std::vector` of vanilla bytes was
+still empty when the constructor ran, so its group was refused in game; the last check
+exists for that.
+
+**What the Windows patch changes that the Mac does not need:** the minimap guard
+(`0x0062B39B`), because on the Mac only the map screen's constructor reads the map's rects,
+and the area-map hit-test wrapper, because the widescreen patch's recentring already matches
+`Draw` and `HandleMouseInput`.
+
+## 5. Resolution
+
+On a display with more pixels than points (every Retina Mac), the installer asks, or takes
+`--resolution native|half`; `--size WxH` sets any size (another display, a window):
+
+| choice | frame the game renders here | INI |
+| --- | --- | --- |
+| native (default) | 3024x1964, every pixel of the panel | `ForceWidth=3024`, `ForceHeight=1964` |
+| half | 1512x982, the point size, scaled up 2x by macOS | `ForceWidth=1512`, `ForceHeight=982` |
+
+and `UseGuiFileLayouts=1`. On a display whose pixels are its points there is nothing to
+choose. Native needs engine fix K9: without it the pixel size was not a valid display mode,
+and 3024x1964 rendered into a 1024x768 surface, cropped. With K9 and `ForceWidth`/
+`ForceHeight`, fullscreen through Aspyr's launcher: surface and viewport 3024x1964, backing
+scale 2.00, and clicks land where they are drawn (2026-09-29).
+
+Frame times in game (M5, Manaan West Central, measured with the widescreen patch's own
+layout; the layout patch adds nothing per frame, as it writes only at start-up):
+
+| | Anti Aliasing=6 | Anti Aliasing=2 | Anti Aliasing=0 |
+| --- | --- | --- | --- |
+| half, 1512x982 | 7.5 ms | | |
+| native, 3024x1964 | 32.5 ms | 8.0 ms | 8.2 ms |
+
+At native, 6x anti-aliasing costs about 4x; at 2x it runs as fast as half did at 6x. The
+installer leaves the anti-aliasing setting alone; the player README recommends 2x for
+native.
+
+## 6. Menus and fonts
+
+**Listed sizes.** The package carries every resolution KMRP's build lays out: the 49 Windows
+sizes and 17 Mac ones (`GROUPS["macOS"]` in `prepare_universal_resources.py`, from the 13"
+to the 16" MacBook Pro and the external displays Macs ship with, native and half). They are
+pooled as the Windows installer pools them (`tools/pack_resolution_layouts.py`):
+45,540 files, 18,167 distinct, 86.7 MB. A listed size gets its set exactly: the same `.gui`
+files, the same fonts baked at `max(1, H / 720)` with their metrics at that scale, the same
+row-frame and tutorial art the Windows installer writes for it. The widescreen patch scales
+no font with the switch on, so a texel of the atlas is a pixel on screen, as on Windows.
+
+**Other sizes.** For a size with no set, the installer blends the `.gui` files from the
+finished sets around it (`kmrp-guiblend` over `gui-blend.bin`: the two aspect-ratio families
+on either side, each at the two heights around it) and takes the fonts and art of the nearest
+set by height, then shape. Measured by hiding each finished set and predicting it from the
+others: 99.89% of numeric fields within 1 px; the 17 Mac sets, held out, 99.90% within 1 px,
+worst 12 px in a HUD variant the Mac does not load (`Test-GuiBlendHelper.py`). The tutorial
+icons of the nearest set can be a few pixels off `64s` for the blended size, and the engine
+draws them one texel per pixel, so the layout patch sizes the popup's icon rect from the
+installed icon instead (the same `64s` for every listed set: all 66 checked).
+
+**Feat, power and skill icons.** The engine draws them at their texture's size in rows
+that grow with `s`. `kmrp-abilityicons` enlarges every uncompressed square `i_*` and `ip_*`
+texture of the game's `swpc_tex_gui.erf` to `round(50s) − 4`, and the eight `isk_*` skill
+icons to `round(32s)`, each at most twice its size, as `AbilityIconGenerator.cs` does on
+Windows, byte for byte (`Test-AbilityIcons.py`: 2,688 icons at 10 heights, both slices).
+Without them the feat and power icons stayed 32 px in 136 px frames at 3024x1964 (seen
+2026-09-29), and the skill icons 32 px in rows of 115 (`42s`; reported from play the same
+day). The skill icons are new on both platforms that day; at 3024x1964 they are 64 px, the
+2x cap.
+
+**Item icons.** They come with the artwork, from the resource build Windows uses: the HD
+Icon Pack, with each picture sized to 39/64 of its canvas, the size of the game's own
+icons, so items sit in their slots as vanilla's do (`ICON_PICTURE_SPAN` in
+`tools/prepare_universal_resources.py`; the CHANGELOG has the measurements).
+
+## 7. What is deliberately not installed or changed
+
+| Left out | Why |
+| --- | --- |
+| `kmr*` textures and the `kmrplayout.gui` screen | KMRP's controller prompts and Controller Layout screen, for the Windows controller layer; the Aspyr port has its own controller support |
+| The 18 fonts in `override-common.zip` | every set carries them at its own size |
+| Driver compatibility, DPI and NVIDIA settings, Large Address Aware | Windows or Direct3D specific; the Mac build is 64-bit OpenGL |
+| Movie fixes | Aspyr's Bink 2 player pillarboxes and switches no display mode (checked in play) |
+| `swkotor.ini` beyond three keys | the video mode follows the target (K4), so `Width`/`Height` stay as they are |
+| Anti-aliasing and other graphics settings | the player's; the README recommends 2x at native (section 5) |
+| Update check, settings UI | the Windows installer's; the Mac installer is a script |
+
+*Corrected 2026-09-29:* until this date the Mac build used the widescreen patch's own
+layout of the vanilla menus, with `NativeResolution`, `FontScale` (`max(1, H × 1.5 / 1964)`,
+the maintainer's anchor) and `FullWidthMenus` in the INI, per-scale font sets, and none of
+KMRP's `.gui` sets, row-frame art, tutorial icons or enlarged ability icons. It looked
+visibly different from Windows (4:3 menus, larger inventory rows, no feat and power row
+fix), and was replaced by what this document describes. Those three keys are gone from the
+widescreen patch.
+
+## 8. Building
+
+```sh
+git submodule update --init
+macos/build.sh --python .venv/bin/python [--reuse-resources]
+```
+
+KotOR Patch Manager and FTD's widescreen patch come from the submodule
+`third_party/Kotor-Patch-Manager`: the fork `RayesDiyab/Kotor-Patch-Manager`, branch
+`kmrp-engine-fixes`, which is KPM's master (`1d3ccd2`) with FTD's `widescreen-patch` branch
+and KMRP's fixes (FTD516/Kotor-Patch-Manager#1). Once FTD merges those, the submodule moves to
+his branch. `--kpm` and `--widescreen` build from other checkouts instead.
+
+Needs: Xcode command line tools, the .NET 8 SDK, and a Python with `requirements.txt`. The
+unmodified game must be installed (the build resolves hooks against `KOTOR_Exe`'s hash and
+reads `TexturePacks/swpc_tex_gui.erf` for the fonts); nothing from the game is packaged.
+Output: `dist/macos/KMRP-macOS-<version>/` and its zip, 160 MB. Steps, in order:
+
+1. `make dylib` in KPM's `src/KotorPatcher`;
+2. the widescreen patch's `build_mac.sh`;
+3. the map-note patch, and the layout patch (`patches/kmrp-layout/*.cpp`);
+4. `tools/kpm-cli` (KPatchCore): `validate` all three, then `stage-many` writes
+   `patch_config.toml` with and without the map notes, and checks for overlapping hooks
+   across them;
+5. `kmrp-macho`, `kmrp-guiblend` and `kmrp-abilityicons`, universal (arm64, x86_64), ad-hoc
+   signed;
+6. `prepare_universal_resources.py` exactly as `build_kmrp.ps1` runs it, with the
+   per-resolution fonts of `build/fonts` (`tools/build_font_scale_sets.py`) when they are
+   there (`--reuse-resources` keeps the previous output). *Corrected 2026-09-29:* this step
+   never passed the fonts, so a build without `--reuse-resources` would have shipped the
+   shared 3.0 atlas at every size. The packages built so far reused resources built by hand
+   with them, and a rebuild with them matched those in 69 of 70 files, the 70th being the
+   item icons that had changed;
+7. the artwork, filtered as in section 7; the pool (`layouts.zip`) and `gui-blend.bin`;
+8. `SHA256SUMS` over the package, which the installer checks before it writes anything;
+9. the zip, by `ditto` without resource forks or extended attributes. *Corrected
+   2026-09-29:* until then every one of the package's 785 files had a `._` AppleDouble
+   entry beside it in the zip. Finder's Archive Utility folds those back into the files,
+   but `unzip` writes them out as files, which the installer would have copied into the
+   game's override. The build now refuses an archive holding one.
+
+## 9. Coverage
+
+**Play-tested as installed by `kmrp-mac.sh`** from the package, native 3024x1964,
+fullscreen through Aspyr's launcher, 2026-09-29: main menu, Load Game (two-line save rows),
+the HUD and minimap, inventory (seven 153 px rows, no gaps), abilities (skills with the
+description gutter on the scrollbar's side, powers with the enlarged icons), journal (quest
+rows scaled), the area map (canvas in KMRP's frame, markers on the corridors), options, and
+the quit confirmation; the inventory scrolled 48 rows down (rows stay packed at every
+position); a conversation with Bastila (bars a sixth of the screen each, the line in the top
+bar, all three replies in the bottom one). No layout-patch group was refused. The same
+screens, plus feats, from test builds that differed only in the icon-size lookup
+(section 6). **At half, 1512x982**, installed with `--resolution half`, fullscreen: the same
+screens from the main menu to the quit confirmation, clicks landing, 76 px inventory rows
+and 64 px power icons. **A blended size, 1352x878** (no set in the package), installed with
+`--size 1352x878`, windowed: the installer blended the `.gui` files and took the fonts and art
+of 1440x900; main menu, Load Game, inventory, powers, journal and area map laid out as at the
+listed sizes, and every click landed. **Map notes clicked** at 3024x1964: the top and the
+middle note each became the selected one ("To Docking Bay", "Port Official"), so the map's
+hit test needs no wrapper on the Mac (section 4). **The skill and item icons** at 1512x982,
+installed with `--resolution half` from the package of 2026-09-29 (`EF968C78…`): the skill
+icons at 44 px, filling their frames where the 32 px ones had sat small in them, and the
+HD item icons at the stock size, the Jedi Knight Robe's sleeves inside its hex frame
+instead of past it.
+
+**Tested outside the game:** `Test-KmrpLayoutPatch.py`, `Test-AbilityIcons.py`,
+`Test-GuiBlendHelper.py`, `Test-ResolutionDerivation.py`, and `Test-MacInstaller.py`
+(install, status, uninstall into a stand-in game for a listed size and a blended one; the
+executable, bundle and INI byte-identical after). Earlier, with the previous installer's
+same code: rollback after a failure, the INI editor's cases, both resolution answers,
+`--no-map-notes`, the refusals, the Mach-O edit round trip, `codesign` leaving the bundle
+seal alone.
+
+**Not yet tested:**
+
+- store rows and the stack-count label in play (the test save has no stacked item and was
+  not at a store);
+- a tutorial popup with this build;
+- any display other than this one;
+- whether the quit confirmation's narrow OK and Cancel match Windows (the popup sizes
+  buttons to their label from 100 px in both builds' code);
+- pressing Play in the Steam client itself. Aspyr's launcher, which Steam starts, was tested
+  with the edited `KOTOR_Exe`, so the bundle seal is not checked on that path;
+- Intel Macs;
+- a game with other Override mods installed first.
+
+## 10. Verifying by hand
+
+```sh
+EXE="$HOME/Library/Application Support/Steam/steamapps/common/swkotor/Knights of the Old Republic.app/Contents/MacOS/KOTOR_Exe"
+shasum -a 256 "$EXE"                                   # C1FCB8D3… before, 5294AE4F… after
+otool -l "$EXE" | grep -A2 LC_LOAD_DYLIB | grep KotorPatcher
+codesign -dv "$EXE" 2>&1 | grep -E 'Identifier|Signature'
+kmrp/bin/kmrp-macho info "$EXE"                        # ncmds=46 sizeofcmds=5912 free=1480 when installed
+kmrp/kmrp-mac.sh status                                # manifest entries changed since install
+KPATCH_LOG=/tmp/kpatch.log "$EXE"                      # then: grep "DLL-only patch" /tmp/kpatch.log
+```
+
+A layout-patch group that finds other bytes at one of its sites prints `[KMRP] <group>:
+0x... holds other bytes, group left alone` with the bytes it found, on the game's stderr.

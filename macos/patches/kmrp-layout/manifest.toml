@@ -1,0 +1,9 @@
+[patch]
+id = "kmrp-layout"
+name = "KMRP Layout Support"
+version = "1.5.0"
+description = "What KMRP's menu layouts need from the engine on macOS, as KMRP's Windows executable carries it: list-row, stack-count and feat/power chain-row sizes scaled by max(1, height / 720), and list-box PADDING as a left inset only. Runs on the widescreen patch with UseGuiFileLayouts=1. Part of KMRP for macOS."
+author = "RaymanGT (KMRP)"
+
+[patch.supported_versions]
+kotor1_steam_aspyr_macos = "C1FCB8D37C702849882A17751C63EE0AF7C2B9CBBC3B31B98A5F0EDBC27C6D71"

@@ -31,6 +31,11 @@ Equipment screens, which draw dozens of icons at once, stalled and flashed when
 switched between quickly. The optional `BonusICON` variants the mod also offers are
 **not** included.
 
+Since 2026-09-29 the same resample also sizes each picture within its canvas, centred:
+to 39/64 of it, the median of the game's own icons, instead of the 0.56 to 0.95 the
+pack's pictures span, so every item sits in its slot at the size vanilla's does
+(`ICON_PICTURE_SPAN`). Nothing of any picture is cut off.
+
 *Corrected 2026-09-24:* this section said the icons shipped as unmodified `.tga`.
 They have been converted since commit `6793e48` (2026-09-14); the installer holds
 all 351 as `.tpc` and not one of the pack's TGAs.
@@ -198,6 +203,23 @@ the installer writes over values gold leaves vanilla.)
 Background on the texture-bucket pair, including the measured
 `maxTexID` values from play, is in
 [`reverse-engineering/experiments/texture-bucket-overrun.md`](reverse-engineering/experiments/texture-bucket-overrun.md).
+
+## KOTOR Patch Manager and the K1 Widescreen Patch — macOS
+
+The macOS package (`macos/`) installs two pieces of the **KOTOR Patch Manager**
+repository into the game's `Contents/MacOS`:
+
+- **KotorPatcher**, KPM's runtime, by **Lane Dibello** and the KPM contributors,
+  built from `src/KotorPatcher`;
+- **K1WidescreenPatch** by **FTD, Rayman, J and Vriff** (the authors its manifest
+  names), built from `Patches/K1WidescreenPatch`, with KMRP's engine fixes.
+
+Both are built from the fork https://github.com/RayesDiyab/Kotor-Patch-Manager,
+branch `kmrp-engine-fixes` (commit `17fd051`): FTD's `widescreen-patch` branch
+plus one commit with KMRP's fixes, offered back to FTD as
+https://github.com/FTD516/Kotor-Patch-Manager/pull/1. Licensed under **MIT**,
+`Copyright (c) 2025 Lane Dibello and KotOR Patch Manager contributors`; the
+package carries the licence as `licenses/KotOR-Patch-Manager-LICENSE.txt`.
 
 ## NVIDIA NvAPI — interface identifiers
 

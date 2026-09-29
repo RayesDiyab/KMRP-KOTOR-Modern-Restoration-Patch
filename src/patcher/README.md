@@ -7,7 +7,7 @@
 > anything untested labelled as untested.
 
 
-`KMRP - KOTOR Modern Restoration Patch.exe` is the single-file installer for all 49
+`KMRP - KOTOR Modern Restoration Patch.exe` is the single-file installer for all 66
 supported resolutions. It contains the executable update, shared interface
 artwork, and every matching GUI set, so no companion folders need to be
 shipped.

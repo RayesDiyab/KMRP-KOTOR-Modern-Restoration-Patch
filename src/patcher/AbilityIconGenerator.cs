@@ -22,12 +22,22 @@ namespace Kmrp
     /// patcher: 200 icons x 48 resolutions is pure duplication, and the source art
     /// is on the user's disk already.
     ///
+    /// The eight skill icons (`isk_*`, 32x32) have the same problem in the
+    /// Skills tab, whose rows grow to 42s (RowSizeGroups): stock, a 32 px icon
+    /// sat in a 115 px row at 3024x1964. They grow by the same factor as their
+    /// row, `round(32s)`, so they keep their vanilla proportion to it (no change
+    /// at 720 and below), capped at 2x like the rest. They are drawn only in the
+    /// Skills tab and the skill info list (whose template rows grow by s too), so
+    /// they fit wherever they appear; character creation shows no skill icons.
+    /// Added 2026-09-29, for Windows and macOS together.
+    ///
     /// Names another archive already installs are skipped: `reserved` carries them
     /// in, so this can never write a file the patcher also ships.
     ///
     /// Only the uncompressed icons are handled. The pack's large textures are
-    /// DXT-compressed (a non-zero dataSize), but every `i_*` / `ip_*` icon stores
-    /// raw pixels, so no decompressor is needed. Anything unexpected is skipped.
+    /// DXT-compressed (a non-zero dataSize), but every `i_*` / `ip_*` / `isk_*`
+    /// icon stores raw pixels, so no decompressor is needed. Anything unexpected
+    /// is skipped.
     /// </summary>
     internal static class AbilityIconGenerator
     {
@@ -46,6 +56,16 @@ namespace Kmrp
             if (box <= nativeSize)
                 return nativeSize;
             return Math.Min(box, nativeSize * 2);
+        }
+
+        /// <summary>Skill icon edge for this scale: grown with the Skills row
+        /// (42s), so round(native * s), capped at 2x the source.</summary>
+        private static int SkillTargetSize(double scale, int nativeSize)
+        {
+            int grown = (int)Math.Round(nativeSize * scale);
+            if (grown <= nativeSize)
+                return nativeSize;
+            return Math.Min(grown, nativeSize * 2);
         }
 
         internal static string TexturePackPath(string executablePath)
@@ -75,7 +95,9 @@ namespace Kmrp
                 foreach (KeyValuePair<string, int[]> entry in EnumerateTpcEntries(pack))
                 {
                     string name = entry.Key;
-                    if (!(name.StartsWith("i_", StringComparison.Ordinal) ||
+                    bool skill = name.StartsWith("isk_", StringComparison.Ordinal);
+                    if (!(skill ||
+                          name.StartsWith("i_", StringComparison.Ordinal) ||
                           name.StartsWith("ip_", StringComparison.Ordinal)))
                         continue;
 
@@ -88,7 +110,7 @@ namespace Kmrp
                     if (reserved != null && reserved.Contains(name + ".tga"))
                         continue;
 
-                    byte[] tga = TryConvert(pack, entry.Value[0], entry.Value[1], scale);
+                    byte[] tga = TryConvert(pack, entry.Value[0], entry.Value[1], scale, skill);
                     if (tga != null)
                         icons.Add(new KeyValuePair<string, byte[]>(name + ".tga", tga));
                 }
@@ -150,7 +172,7 @@ namespace Kmrp
             }
         }
 
-        private static byte[] TryConvert(byte[] pack, int offset, int size, double scale)
+        private static byte[] TryConvert(byte[] pack, int offset, int size, double scale, bool skill)
         {
             if (size < TpcHeaderSize + 4)
                 return null;
@@ -177,7 +199,7 @@ namespace Kmrp
             if (TpcHeaderSize + pixelBytes > size)
                 return null;
 
-            int target = TargetSize(scale, width);
+            int target = skill ? SkillTargetSize(scale, width) : TargetSize(scale, width);
             if (target == width)
                 return null;                    // already big enough for this resolution
 

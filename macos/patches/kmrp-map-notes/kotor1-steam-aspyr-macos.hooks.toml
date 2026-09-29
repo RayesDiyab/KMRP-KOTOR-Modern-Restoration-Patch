@@ -1,0 +1,19 @@
+[metadata]
+target_versions = ["C1FCB8D37C702849882A17751C63EE0AF7C2B9CBBC3B31B98A5F0EDBC27C6D71"]
+
+# KMRP map-note corrections (Derslok's K1 Area Map Fixes table, see map_notes.cpp).
+#
+# CSWGuiMapHider::Draw, note loop: rbx = the note's object, whose world position the
+# next lines read ([rbx+0xd8] x/y, [rbx+0xe0] z) for the world->map conversion. The
+# detour corrects x/y in place before that read.
+#   0x1002b4f52  cmp dword ptr [rbx + 0x2f4], 0   (map-note flag; 7 bytes, no RIP-relative
+#                operand, and the je after it reads flags set by this cmp, which the
+#                wrapper re-executes after the call)
+[[hooks]]
+address = 0x1002b4f52
+type = "detour"
+function = "KMRP_CorrectMapNotePosition"
+original_bytes = [0x83, 0xBB, 0xF4, 0x02, 0x00, 0x00, 0x00]
+[[hooks.parameters]]
+source = "rbx"
+type = "pointer"
