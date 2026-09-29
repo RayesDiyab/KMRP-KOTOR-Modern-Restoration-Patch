@@ -28,7 +28,7 @@ listed here from the 2026-09-25 build (`4EF3C181…`, 145,208,320 bytes):
 | --- | --- |
 | `Kmrp.goldpatch` | the verified clean-to-gold executable delta, 47,730 bytes |
 | `Kmrp.resolutions` | the 49-resolution catalog, `resolutions.tsv` |
-| `Kmrp.override.layouts` | the GUI files of all 49 resolutions, each set with that resolution's 18 font atlases, as one pool: each distinct file once, and an index per resolution (`tools/pack_resolution_layouts.py`; the installer reads it through `GuiPool`) |
+| `Kmrp.override.layouts` | the GUI files of all 66 resolutions, each set with that resolution's 18 font atlases, as one pool: each distinct file once, and an index per resolution (`tools/pack_resolution_layouts.py`; the installer reads it through `GuiPool`) |
 | `Kmrp.override.common` | the common Override archive: shared textures, icons, portraits and prompt art, but no font atlas |
 | `Kmrp.bundled` | the list of bundled third-party Override files, which yield to the player's own |
 | `Kmrp.license.highresolutionmenus`, `Kmrp.license.drivercompat` | the KOTOR High Resolution Menus GPL notice and K1DC's MPL licence |
@@ -653,7 +653,7 @@ resource build:
 .\build_kmrp.ps1 -ReuseResources
 ```
 
-Between the resources and the compile, `build_kmrp.ps1` packs the 49 resolution
+Between the resources and the compile, `build_kmrp.ps1` packs the 66 resolution
 archives into one pool, `build\kmrp\resolution-layouts.zip`, which the
 installer embeds in their place (`tools/pack_resolution_layouts.py`). The step
 runs with `-ReuseResources` as well. It stops the build unless every resolution
@@ -703,7 +703,7 @@ the resolution in the legacy `--apply` and `--in-place` forms selects
    then restore and compare all backups.
 9. Run `testing/regression/Test-DpiCompatibility.ps1`; verify its exact registry
    paths are absent or restored after completion.
-10. Run `python testing/regression/Test-GeneratedGuiGeometry.py`; verify all 49
+10. Run `python testing/regression/Test-GeneratedGuiGeometry.py`; verify all 66
     packaged archives pass: upstream list prototypes, the Feedback gutter, Script
     Selection centring, confirmation containment, the active HUD and the R3 cue.
 11. Run `testing/regression/Test-LargeAddressAware.ps1`; verify canonical and
@@ -711,7 +711,7 @@ the resolution in the legacy `--apply` and `--in-place` forms selects
     source states survive patch/restore.
 12. Run `tools/build_binary_inventory.py` against the clean executable and
     current gold, with `--installed` and the installer's `--apply` output at all
-    49 resolutions; verify it reports zero undocumented code/data runs.
+    66 resolutions; verify it reports zero undocumented code/data runs.
 13. Run the rest of the regression set: `Test-ControllerSupport.ps1`,
     `Test-ReinstallOverOlderBuild.ps1`, `Test-InstalledOverride.ps1 -Resolutions all`,
     `Test-UpdateCheck.ps1 -Live`, `Test-MovieResolution.ps1`,

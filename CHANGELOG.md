@@ -300,6 +300,26 @@ before:
 
 ### Added
 
+- **17 more resolutions, the sizes of current Mac displays** (2026-09-29): each display's
+  default size and the pixel size it renders at on a Retina panel, from 1344x840 to
+  4480x2520, listed under **macOS** in the launcher, 66 in all. Upstream ships no set for
+  any of them, so each is derived: `derive_resolution` (`tools/derive_resolution_gui_set.py`)
+  blends the upstream sets around it in aspect ratio and in height. Predicting each upstream
+  16:10 set from the 4:3 and 16:9 ones this way puts every field within 1 px of the real
+  one (`Test-ResolutionDerivation.py`; `docs/universal-resolution-math.md`). The Windows
+  installer offers them because it embeds the same pool as the Mac port. Seen in play only
+  on the Mac, at 3024x1964 and 1512x982; not yet built or run on Windows.
+
+- **The skill icons grow with the Skills rows** (2026-09-29, Windows and macOS, at the
+  maintainer's request: "the skills have small icons still"). The Skills tab's rows grow to
+  42s, but the eight `isk_*` icons are 32x32 textures the engine draws one texel per pixel,
+  so at 3024x1964 a 32 px icon sat in a 115 px row. `AbilityIconGenerator.cs` now also
+  writes them, at `round(32s)` capped at 64: none at 720 and below, 44 px at 982, 48 at 1080,
+  64 from 1440 up. They keep their vanilla proportion to the row until the cap. The Mac
+  helper does the same; `Test-AbilityIcons.py` compares both byte for byte at ten heights
+  and checks the sizes against the rule itself. Seen in game on the Mac at 1512x982 the
+  same day: 44 px icons filling their frames. Not yet seen on Windows.
+
 - **The Character screen shows A on Level Up and Y on Auto Level Up, and the
   granted-feats notice shows A on its OK** (2026-09-26, at the maintainer's
   request after a preview found neither had a glyph). The Character screen
@@ -669,6 +689,27 @@ before:
   multi-monitor hardware.
 
 ### Changed
+
+- **Item icons sit in their slots at the game's own size** (2026-09-29, Windows and
+  macOS, at the maintainer's request: "can we keep the same ratio for inventory items
+  within their frame? I think they are too big now", then "normalize all of the HD pack
+  icons to make them have the same size"). The game draws an item icon scaled to its slot,
+  so what sets its size in the frame is how much of the canvas the picture fills.
+  Measured at the half-opaque edge, the game's own 64x64 icons are all drawn to one size:
+  a median of 39 px of 64, half of them within 37-41, and the same for armour, weapons and
+  items. The HD Icon Pack's pictures span 0.56 to 0.95 of theirs, and the weapons' median
+  is 0.82. The HD items therefore sat larger in their frames than vanilla's, and a robe's
+  sleeves reached past the inventory's hex frame at 1512x982. The build's existing resample
+  of the pack (192 to 160 px) now also sizes each picture to 39/64 of the canvas, centred
+  (`ICON_PICTURE_SPAN`, `frame_icon` in `tools/prepare_universal_resources.py`). Measured
+  in the shipped DXT5 files, all 351 are 96-100 px of 160, 232 of them exactly 98, and
+  centred within half a pixel. Before, they ranged from 89 to 155 px. No picture loses a
+  pixel: the build refuses one that would. The size of the files is unchanged, 8.6 MB.
+  A rebuild of every resource with the change matched the previous one in every file but
+  `override-common.zip`, and there in every entry but these 351. Seen in game on the Mac at
+  1512x982 the same day: the robe inside its frame, and the arm band and shield clear of
+  the frame's edge. Windows gets it from the next build that does not reuse resources;
+  not yet seen there.
 
 - **The - and + arrows keep the game's own art** (2026-09-28, at the
   maintainer's request: "I dont want the dpad leave the + and -"). Since

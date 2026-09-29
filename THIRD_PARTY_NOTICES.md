@@ -31,6 +31,11 @@ Equipment screens, which draw dozens of icons at once, stalled and flashed when
 switched between quickly. The optional `BonusICON` variants the mod also offers are
 **not** included.
 
+Since 2026-09-29 the same resample also sizes each picture within its canvas, centred:
+to 39/64 of it, the median of the game's own icons, instead of the 0.56 to 0.95 the
+pack's pictures span, so every item sits in its slot at the size vanilla's does
+(`ICON_PICTURE_SPAN`). Nothing of any picture is cut off.
+
 *Corrected 2026-09-24:* this section said the icons shipped as unmodified `.tga`.
 They have been converted since commit `6793e48` (2026-09-14); the installer holds
 all 351 as `.tpc` and not one of the pack's TGAs.

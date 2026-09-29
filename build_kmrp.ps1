@@ -247,7 +247,7 @@ if (-not $ReuseResources) {
 }
 
 # ---------------------------------------------------------------- 4. layout pool
-# The installer embeds one pool in place of the 49 resolution archives. They
+# The installer embeds one pool in place of the 66 resolution archives. They
 # share most of their files -- a prompt badge is drawn for its button's size, and
 # many buttons are the same size at many resolutions -- so the archives were
 # 118 MB and their distinct files 58 MB. The archives stay in the resource folder,

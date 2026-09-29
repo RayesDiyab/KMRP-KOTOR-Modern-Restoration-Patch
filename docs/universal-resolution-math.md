@@ -421,7 +421,32 @@ folder (`DERIVED_GUI_SETS`) and computes its map geometry from the derived
 maintainer's monitor is 3440x1440, and the preset exists for DSR on 1080p
 screens.
 
-1. Add a matching `gui.WIDTHxHEIGHT` directory containing the full GUI set.
+**Any resolution, across aspect ratios (2026-09-29).** The claim above, that the
+upstream sets "cannot be scaled into one another", holds for scaling one set; it
+does not hold for blending the sets around a resolution. All five families have the
+same 81 files with the same structure, and the layouts turn out to be linear in
+width as well as height. Measured by hiding one family and predicting each of its
+sets from the families on either side, at the same height:
+
+| Predicted | From | Fields | Exact | Within 1 px | Further |
+| --- | --- | --- | --- | --- | --- |
+| every 16:10 set (11) | 4:3 and 16:9 | 102,036 | 91.8% | 100% | **0** |
+| every 16:9 set in range (5) | 16:10 and 21:9 | 46,380 | -- | 100% | **0** |
+| the same 16:10 sets, by scaling 16:9 to the width | -- | 102,036 | 70.2% | 79.0% | 5.9% over 10 px |
+
+`derive_resolution` in `tools/derive_resolution_gui_set.py` blends up to four
+upstream sets (the two families around the aspect ratio, each at the two heights
+around the height) and rounds once. The build uses it for every resolution
+upstream does not ship, which is how the **macOS** group of 17 was added: each Mac
+display's default size and the pixel size it renders at on a Retina panel. The
+~1.54:1 MacBook panels fall between 4:3 and 16:10; the Intel 16:10 and iMac 16:9
+sizes are interpolated within their own family. It agrees with the older
+two-set derivation of 2880x1620 within 1 px (86.1% of fields identical).
+`testing/regression/Test-ResolutionDerivation.py` repeats all three measurements.
+**Not seen in play** at any of the 17 on Windows.
+
+1. Add a matching `gui.WIDTHxHEIGHT` directory containing the full GUI set, or
+   nothing: a resolution with no upstream set is derived.
 2. Add the resolution to `GROUPS` in `tools/prepare_universal_resources.py`.
 3. Run `tools/analyze_resolution_guis.py` to regenerate `assets/resolution-geometry.json`.
 4. Run `build_kmrp.ps1` without `-ReuseResources`.

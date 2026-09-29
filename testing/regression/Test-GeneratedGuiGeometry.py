@@ -27,7 +27,7 @@ from apply_gold_hud_proportions import (  # noqa: E402
 from pykotor.resource.formats.gff import read_gff  # noqa: E402
 
 
-EXPECTED_ARCHIVE_COUNT = 49   # 48 upstream + 2880x1620, derived since 2026-09-25
+EXPECTED_ARCHIVE_COUNT = 66   # 48 upstream + 2880x1620 (2026-09-25) + 17 macOS (2026-09-29)
 FEEDBACK_LISTS = ("LB_OPTIONS", "LB_DESC")
 SCRIPTSELECT_LISTS = ("LST_AIState", "LB_DESC")
 ARCHIVE_PATTERN = re.compile(r"gui-(\d+)x(\d+)\.zip$")
@@ -62,16 +62,20 @@ def upstream_gui(resolution: str, name: str):
     if matches:
         return matches[0]
     sys.path.insert(0, str(ROOT / "tools"))
-    from derive_resolution_gui_set import DERIVED_GUI_SETS, derive_gui_set
-    if resolution not in DERIVED_GUI_SETS:
-        return None
+    from derive_resolution_gui_set import DERIVED_GUI_SETS, derive_gui_set, derive_resolution
     if _DERIVED_ROOT is None:
         _DERIVED_ROOT = Path(tempfile.mkdtemp(prefix="kmrp-test-derived-"))
     target = _DERIVED_ROOT / f"gui.{resolution}"
     if not target.is_dir():
-        low, high, position = DERIVED_GUI_SETS[resolution]
-        folder = next(UPSTREAM_GUI_ROOT.glob(f"*/gui.{low}")).parent
-        derive_gui_set(folder / f"gui.{low}", folder / f"gui.{high}", target, position)
+        if resolution in DERIVED_GUI_SETS:
+            low, high, position = DERIVED_GUI_SETS[resolution]
+            folder = next(UPSTREAM_GUI_ROOT.glob(f"*/gui.{low}")).parent
+            derive_gui_set(folder / f"gui.{low}", folder / f"gui.{high}", target, position)
+        else:
+            # The macOS group (2026-09-29): blended from the upstream sets around it,
+            # exactly as prepare_universal_resources.py derives it.
+            width, height = (int(v) for v in resolution.split("x"))
+            derive_resolution(UPSTREAM_GUI_ROOT, width, height, target)
     derived = target / name
     return derived if derived.is_file() else None
 
@@ -403,7 +407,7 @@ def check_combat_message(path: Path, txi: Path, resolution: str, height: int) ->
 
 def main() -> int:
     from prepare_universal_resources import R3_CUE_SCREENS
-    archive_dir = ROOT / "build" / "kmrp" / "resources"
+    archive_dir = Path(sys.argv[1]) if len(sys.argv) > 1 else ROOT / "build" / "kmrp" / "resources"
     archives = sorted(archive_dir.glob("gui-*.zip"))
     if len(archives) != EXPECTED_ARCHIVE_COUNT:
         print(f"FAIL: found {len(archives)} GUI archives; expected {EXPECTED_ARCHIVE_COUNT}")

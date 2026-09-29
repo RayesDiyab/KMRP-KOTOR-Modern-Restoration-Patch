@@ -273,8 +273,9 @@ namespace Kmrp
                         values[4], values[5], values[6]));
                 }
             }
-            // 48 upstream resolutions plus 2880x1620, derived since 2026-09-25 (issue #16).
-            if (choices.Count != 49)
+            // 48 upstream resolutions plus 2880x1620, derived since 2026-09-25 (issue #16),
+            // plus 17 Mac displays (category "macOS"), derived since 2026-09-29.
+            if (choices.Count != 66)
                 throw new InvalidDataException("The bundled resolution catalog is incomplete.");
             return choices;
         }

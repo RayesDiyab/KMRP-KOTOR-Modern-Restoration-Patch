@@ -9,7 +9,7 @@
 Vanilla KOTOR draws its interface at a fixed pixel size. On a modern display the
 menus still work, but the text is tiny, list rows overlap once anything is
 enlarged, and several layouts were only ever authored for 640×480. KMRP fixes
-that in the engine itself rather than by swapping artwork — 49 resolutions, from
+that in the engine itself rather than by swapping artwork — 66 resolutions, from
 800×600 to 15360×8640.
 
 [Install](#install) · [What it fixes](#what-it-fixes) · [How it works](#how-it-works) · [Build from source](#build-from-source) · [Documentation](#documentation) · [Case study](https://rayesdiyab.com/projects/kmrp/) · [Licence](#licence-and-attribution)
@@ -178,7 +178,7 @@ sections, with 742 byte positions of the original image changed at one
 resolution or another — every one listed in
 [reverse-engineering/binary-inventory.md](reverse-engineering/binary-inventory.md).
 
-**Each interface file is stored once.** Most of the 49 resolutions' files are
+**Each interface file is stored once.** Most of the 66 resolutions' files are
 the same bytes at several resolutions, so the installer embeds them as one pool
 of distinct files, with an index per resolution. It rebuilds the chosen
 resolution's set from the pool and checks every file against its hash. That
@@ -276,7 +276,7 @@ executable.
 .\build_kmrp.ps1
 ```
 
-That regenerates all 49 resource archives and compiles the patcher to
+That regenerates all 66 resource archives and compiles the patcher to
 `dist/`. Add `-ReuseResources` to skip resource generation and only recompile.
 
 **A fresh clone needs three generated inputs first**, none of them committed:
