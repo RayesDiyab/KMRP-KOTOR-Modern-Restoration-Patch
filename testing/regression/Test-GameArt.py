@@ -24,7 +24,8 @@ decoded DXT5 with pykotor, whose eight-level alpha is off by one code).
     python testing/regression/Test-GameArt.py GAME_DIR [RESOURCES_DIR]
 
 GAME_DIR holds chitin.key, data/ and TexturePacks/swpc_tex_gui.erf (the Mac build's
-Contents/Assets, or the Windows game folder). Needs clang and the .NET 8 SDK.
+Contents/Assets, or the Windows game folder). Needs clang and the .NET 8 SDK, on macOS or
+Windows; on Windows the helper is one x64 build (native_helpers.py).
 """
 from __future__ import annotations
 
@@ -40,6 +41,8 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(ROOT / "tools"))
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+import native_helpers  # noqa: E402
 from build_scaled_fonts import write_tga  # noqa: E402
 from export_tutorial_icons import ICON_RENAMES, nearest_rgba  # noqa: E402
 from scale_row_icon_frames import FRAME_RESREFS, resize_rgba  # noqa: E402
@@ -142,6 +145,9 @@ def flip(pixels: bytes, width: int, height: int) -> bytes:
 def reference_textures(pack: bytes, height: int) -> dict[str, bytes]:
     scale = max(1.0, height / 720.0)
     files = {}
+    # Written through a folder rather than a NamedTemporaryFile, which Windows will not
+    # let write_tga open a second time.
+    folder = tempfile.TemporaryDirectory()
     for resref, native, name in ([(r, 56, r) for r in FRAME_RESREFS] +
                                  [(r, 64, n) for r, n in ICON_RENAMES.items()]):
         size = max(1, int(round(native * scale)))
@@ -151,9 +157,10 @@ def reference_textures(pack: bytes, height: int) -> dict[str, bytes]:
             scaled = nearest_rgba(top_down, w, h, size // w)
         else:
             scaled = resize_rgba(top_down, w, h, size, size)
-        with tempfile.NamedTemporaryFile(suffix=".tga") as f:
-            write_tga(Path(f.name), size, size, scaled)
-            files[f"{name}.tga"] = Path(f.name).read_bytes()
+        path = Path(folder.name) / f"{name}.tga"
+        write_tga(path, size, size, scaled)
+        files[f"{name}.tga"] = path.read_bytes()
+    folder.cleanup()
     return files
 
 
@@ -219,11 +226,7 @@ def main() -> int:
         subprocess.run(["dotnet", str(project / "out" / "reference.dll"), str(game / "swkotor.exe"),
                         str(tmp / "cs")] + [str(h) for h in heights], check=True, env=env)
 
-        helpers = {}
-        for arch in ("x86_64", "arm64"):
-            helpers[arch] = tmp / f"kmrp-gameart-{arch}"
-            subprocess.run(["clang", "-O2", "-Wall", "-Wextra", "-Werror", "-arch", arch, "-o",
-                            str(helpers[arch]), str(HELPER)], check=True)
+        helpers = native_helpers.build(HELPER, tmp, "kmrp-gameart", ("-Wall", "-Wextra", "-Werror"))
 
         original_table, expected_table = reference_table(game)
         compared = 0
@@ -233,8 +236,9 @@ def main() -> int:
                 failures.append(f"{height}: C# made {len(cs)} files")
             for arch, helper in helpers.items():
                 out = tmp / f"{arch}-{height}"
-                subprocess.run([str(helper), str(game / "TexturePacks" / "swpc_tex_gui.erf"),
-                                str(game / "chitin.key"), str(height), str(out)], check=True, stdout=subprocess.DEVNULL)
+                subprocess.run([str(helper), native_helpers.arg(game / "TexturePacks" / "swpc_tex_gui.erf"),
+                                native_helpers.arg(game / "chitin.key"), str(height), native_helpers.arg(out)],
+                               check=True, stdout=subprocess.DEVNULL)
                 made = {p.name: p.read_bytes() for p in out.iterdir()}
                 if made != cs:
                     differ = sorted(n for n in set(made) | set(cs) if made.get(n) != cs.get(n))
@@ -284,7 +288,8 @@ def main() -> int:
     for failure in failures[:40]:
         print("  " + failure)
     print(f"{'FAIL' if failures else 'ok  '} kmrp-gameart matches GameArtGenerator.cs byte for byte "
-          f"({len(heights)} heights, x86_64 and arm64), the Python reference, and the shipped sizes")
+          f"({len(heights)} heights, {native_helpers.slices(helpers)}), the Python reference, and the "
+          f"shipped sizes")
     return 1 if failures else 0
 
 

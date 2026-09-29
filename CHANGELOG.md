@@ -1022,7 +1022,7 @@ before:
   *Updated the same evening, merging it into the Windows work:* built and run on Windows.
   The installer `4EEA6F04…` (161,432,064 bytes) carries none of the eighteen, checked in all
   66 archives, `override-common.zip` and the layout pool. `Test-GameArt.py`'s checks, run
-  through a harness because this machine has neither clang nor the .NET 8 SDK:
+  through a harness because the machine then had neither clang nor the .NET 8 SDK:
   `GameArtGenerator.cs` compiled with .NET Framework's `csc`, as the installer is, and
   `kmrp-gameart.c` built with MSVC for x64 (`/fp:strict`) made the same bytes at all 48 set
   heights, matched the Python reference at five, and `tutorial.2da` passed against pykotor.
@@ -1035,6 +1035,16 @@ before:
   in four more compile lists -- the resolution-site lister in `build_kmrp.ps1`, where the
   first full build stopped, the NVIDIA and update-check self-tests, and
   `Restore-TestNvidiaProfiles.ps1`, which every suite runs.
+
+  Later that evening, with LLVM's clang and the .NET 8 SDK installed, `Test-GameArt.py`
+  itself passed on Windows, the helper built as one x64 program
+  (`testing/regression/native_helpers.py`): byte-identical to the C# at the same 48 heights,
+  the Python reference and `tutorial.2da` as before. Its two comparisons with what the build
+  shipped had nothing to compare, since the new archives no longer carry those textures; the
+  Mac run against the older archives stands for them. Two things in the test had assumed
+  macOS and were changed: the Python reference's temporary files, which Windows will not let
+  a second writer open, and the helper's paths, now given with forward slashes, the only
+  separator the helpers split on.
 
 - **Turning controller support off no longer removes fixes that have nothing to
   do with controllers** (2026-09-28, at the maintainer's request). KMRP's
@@ -1218,6 +1228,13 @@ before:
   checks the picture's size and place and that nothing is drawn outside it;
   `Test-AbilityIcons.py` itself, which needs clang and the .NET 8 SDK, was not
   run. Only 1440p was seen in game.
+
+  *Updated the same evening:* `Test-AbilityIcons.py` passed on Windows, with LLVM's
+  clang 18.1.8 and the .NET 8 SDK, once the tests build the Mac helper there as one
+  x64 program (`testing/regression/native_helpers.py`, shared with
+  `Test-GameArt.py`; on macOS both slices, as before). The helper and the C# were
+  byte-identical at the ten heights, 2,704 icons, and every skill icon had the size
+  and place the rule gives, with nothing drawn outside its picture.
 
 - **A with a button focused presses that button once, on every screen**
   (2026-09-28, at the maintainer's request after the Level Up freeze below:

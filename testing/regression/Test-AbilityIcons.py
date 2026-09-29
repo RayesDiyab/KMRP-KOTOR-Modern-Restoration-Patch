@@ -4,18 +4,20 @@
 The Mac installer enlarges the feat and Force-power icons with kmrp-abilityicons; the
 Windows installer does it with src/patcher/AbilityIconGenerator.cs. This builds both (the
 C# source file itself, compiled into a small .NET driver) and requires the same files, byte
-for byte, at several screen heights, from the same texture pack. The helper is built for
-x86_64 and arm64 and both slices are compared.
+for byte, at several screen heights, from the same texture pack. On macOS the helper is
+built for x86_64 and arm64 and both slices are compared; on Windows, one x64 build
+(native_helpers.py).
 
     python testing/regression/Test-AbilityIcons.py SWPC_TEX_GUI_ERF
 
 SWPC_TEX_GUI_ERF is the game's TexturePacks/swpc_tex_gui.erf (the Mac build's, under
-Contents/Assets). Needs clang and the .NET 8 SDK.
+Contents/Assets, or the Windows game's). Needs clang and the .NET 8 SDK, on macOS or Windows.
 """
 from __future__ import annotations
 
 import io
 import os
+import shutil
 import struct
 import subprocess
 import sys
@@ -24,6 +26,8 @@ import zipfile
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[2]
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+import native_helpers  # noqa: E402
 HELPER = ROOT / "macos" / "tools" / "kmrp-abilityicons.c"
 GENERATOR = ROOT / "src" / "patcher" / "AbilityIconGenerator.cs"
 # 720: scale 1, where the 32 px icons already grow (box 46); 982 and 1964: the 14-inch
@@ -79,15 +83,16 @@ def main() -> int:
                        check=True, stdout=subprocess.DEVNULL, env=env)
         game = tmp / "game"
         (game / "TexturePacks").mkdir(parents=True)
-        (game / "TexturePacks" / "swpc_tex_gui.erf").symlink_to(erf)
+        # A copy on Windows, where a symbolic link needs extra privileges.
+        if native_helpers.WINDOWS:
+            shutil.copyfile(erf, game / "TexturePacks" / "swpc_tex_gui.erf")
+        else:
+            (game / "TexturePacks" / "swpc_tex_gui.erf").symlink_to(erf)
         reserved_file = tmp / "reserved.txt"
         reserved_file.write_text("\n".join(RESERVED) + "\n")
 
-        # The helper, both slices.
-        helpers = {}
-        for arch in ("x86_64", "arm64"):
-            helpers[arch] = tmp / f"kmrp-abilityicons-{arch}"
-            subprocess.run(["clang", "-O2", "-arch", arch, "-o", str(helpers[arch]), str(HELPER)], check=True)
+        # The helper: both slices on macOS, x64 on Windows.
+        helpers = native_helpers.build(HELPER, tmp, "kmrp-abilityicons")
 
         total = 0
         for height in HEIGHTS:
@@ -100,7 +105,8 @@ def main() -> int:
                     reference = {n: z.read(n) for n in z.namelist()}
             for arch, helper in helpers.items():
                 out = tmp / f"{arch}-{height}"
-                subprocess.run([str(helper), str(erf), str(height), str(out), str(reserved_file)],
+                subprocess.run([str(helper), native_helpers.arg(erf), str(height), native_helpers.arg(out),
+                                native_helpers.arg(reserved_file)],
                                check=True, stdout=subprocess.DEVNULL)
                 produced = {p.name: p.read_bytes() for p in out.iterdir()} if out.exists() else {}
                 if set(produced) != set(reference):
@@ -143,7 +149,7 @@ def main() -> int:
     for failure in failures:
         print("  " + failure)
     print(f"{'FAIL' if failures else 'ok  '} kmrp-abilityicons matches AbilityIconGenerator.cs byte for byte "
-          f"({len(HEIGHTS)} heights, {total} icons, x86_64 and arm64)")
+          f"({len(HEIGHTS)} heights, {total} icons, {native_helpers.slices(helpers)})")
     return 1 if failures else 0
 
 
