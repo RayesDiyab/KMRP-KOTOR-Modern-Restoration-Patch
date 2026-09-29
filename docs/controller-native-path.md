@@ -14,11 +14,17 @@ The reverse engineering behind every address here is in
 The native path began as four hooks, in what was then
 `build/research/KPM-Xbox-Controls-K1/K1NativeJoystick.cpp` -- now
 `src/controller-native/K1NativeJoystick.cpp`, the tracked source. It has grown:
-the set the installer writes is 18 detours and 4 byte patches on 2026-09-24,
-and 26 detours since the rumble mixer of 2026-09-25 (`docs/controller-rumble.md`)
-(`native_hooks()` in `tools/kmrp_controller.py`, checked against the patcher's
-table by `tools/check_patcher_hook_table.py`), covering focus, the camera, the
-tab bar, movies, the action bar, the prompts and cues, and three memory fixes.
+the set the installer writes with controller support on is 18 detours and 4 byte
+patches on 2026-09-24, 26 detours and 4 byte patches after the rumble mixer of
+2026-09-25 (`docs/controller-rumble.md`), and 33 detours and 4 byte patches since
+the echo guard of 2026-09-28 (`native_hooks()` in `tools/kmrp_controller.py`,
+checked against the patcher's table by `tools/check_patcher_hook_table.py`),
+covering focus, the camera, the tab bar, movies, the action bar, the prompts and
+cues, and three memory fixes. Three of those detours and the 4 byte patches are
+the core set, installed with the option off as well, beside two stand-ins: 9
+entries ([`controller-support.md`](controller-support.md), *Installed files and
+ownership*). *Corrected 2026-09-28:* this stopped at "26 detours since the rumble
+mixer", seven detours short.
 The first four:
 
 | Hook | Address | Purpose |

@@ -131,7 +131,10 @@ correct one, so this is a small, deliberate loss of tidiness.
 
 **One string is destroyed.** The clean header's padding after the fourth section
 header contains the ASCII text `Hellspawn Reborn` at file `0x000AC0`, a leftover
-signature from whatever tool last touched the 2003 build. The fifth section
+signature from whatever tool last touched the 2003 build -- the 16 bytes by which,
+per KOTOR Patch Manager 0.7.1's version table, this file differs from GOG's own
+v1.03 (`9C10E045…`; KPM names this one "HellSpawn CD Crack version 1.0.3", see
+[map-scaling.md](map-scaling.md)). The fifth section
 header lands on top of it. It occurs exactly once in the clean image and zero
 times in gold; it is inside the header padding, is referenced by nothing, and is
 not reachable as data by any code path. Recorded here because "a string

@@ -30,9 +30,14 @@ still needs to be established before any release patch signature is defined.
 the live game on that date, and none of these files is today's build. The
 provenance question was settled differently. KMRP accepts only the clean
 `761F9466…` executable (the Editable Executable after UniWS and KotOR High
-Resolution Menus 1.5, which is also GOG's retail v1.03), not the `52AD3AE4…`
-copy selected here. The build it describes today is gold v24; see
-[map-scaling.md](map-scaling.md).
+Resolution Menus 1.5), not the `52AD3AE4…` copy selected here. The build it
+describes today is gold v24; see [map-scaling.md](map-scaling.md).
+
+*Corrected 2026-09-28:* the note above said `761F9466…` "is also GOG's retail
+v1.03". It is not the same file: GOG's is `9C10E045…` in KOTOR Patch Manager's
+version table, and `761F9466…` carries a 16-byte `Hellspawn Reborn` watermark in
+its header padding (FILE `0x000AC0`). KMRP refuses GOG's by hash.
+[map-scaling.md](map-scaling.md) has the evidence.
 
 ## Isolated analysis copies
 

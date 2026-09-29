@@ -20,8 +20,21 @@ This is the reference for the map surface and the coordinate chain.
 
 The clean **4,042,752-byte** `swkotor.exe`, SHA-256
 `761F9466F456A83909036BAEBB5C43167D722387BE66E54617BA20A8C49E9886` — the
-Editable Executable after UniWS and KotOR High Resolution Menus 1.5, which is
-also GOG's retail v1.03. KMRP refuses anything else.
+Editable Executable after UniWS and KotOR High Resolution Menus 1.5. KMRP refuses
+anything else, including GOG's own v1.03, which is a **different file**: KOTOR
+Patch Manager 0.7.1's version table (`GameDetector.cs`) lists GOG's as
+`9C10E0450A6EECA417E036E3CDE7474FED1F0A92AAB018446D156944DEA91435` and this one as
+"HellSpawn CD Crack version 1.0.3" -- GOG's build "with a 16-byte tool watermark
+in header padding". The watermark is there: the only non-zero bytes of this
+file's header padding are the 16 bytes of `Hellspawn Reborn` at FILE `0x000AC0`
+([binary-inventory.md](binary-inventory.md)). That the rest is GOG's file byte
+for byte is KPM's and derslok's statement (the Area Map Fixes' `TECHNICAL.txt`);
+KMRP has not compared the two, having no copy of `9C10E045…`.
+
+*Corrected 2026-09-28:* this said the file "is also GOG's retail v1.03", taken from
+derslok's documentation, which calls GOG's file "this same file byte for byte"
+while giving the 16-byte difference in the same sentence. The hashes differ, and
+KMRP's installer checks the hash.
 
 Gold v24 (`9DD81A75…`), the current gold, is 4,087,808 bytes: the clean image
 plus eleven appended sections. `ResolutionPatch` then rewrites a set of

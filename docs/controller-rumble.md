@@ -148,7 +148,10 @@ The annotated disassembly for each is in
 [`src/controller-native/kotor1.hooks.toml`](../src/controller-native/kotor1.hooks.toml).
 `tools/check_hook_stolen_bytes.py` passes for all of them, and
 `tools/check_patcher_hook_table.py` finds the patcher's table and the TOML in
-agreement: 26 native hooks and 4 byte patches.
+agreement: 26 native hooks and 4 byte patches when the mixer shipped
+(2026-09-25). That count has since grown -- 35 native hooks and 4 byte patches
+on 2026-09-28, with the character-creation and echo guards and the no-controller
+stand-ins -- and the eight hooks above are unchanged.
 
 **The play hook is the only one that declines the original.** It returns 1,
 and KPM exits to `0x005FB536`, the function's own `pop edi / pop esi / xor
