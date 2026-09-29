@@ -337,11 +337,12 @@ macos/build.sh --python .venv/bin/python [--reuse-resources]
 
 KotOR Patch Manager and FTD's widescreen patch come from the submodule
 `third_party/Kotor-Patch-Manager`: FTD's fork `FTD516/Kotor-Patch-Manager`, branch
-`widescreen-patch` (`9884466`), which is KPM's master (`1d3ccd2`) with his widescreen patch
-and KMRP's fixes, merged there on 2026-09-29 (FTD516/Kotor-Patch-Manager#1). Until then the
-submodule tracked the same commit's content on `RayesDiyab/Kotor-Patch-Manager`, branch
-`kmrp-engine-fixes`; the merge changed no file. `--kpm` and `--widescreen` build from other
-checkouts instead.
+`widescreen-patch` (`71ac5fa`), which is KPM's master (`5cafa6a`) with his widescreen patch
+and KMRP's fixes, merged there on 2026-09-29 (FTD516/Kotor-Patch-Manager#1, then #2, which
+builds it with KPM's own `create-patch.py`). Before that the submodule tracked the same fixes on
+`RayesDiyab/Kotor-Patch-Manager`, branch `kmrp-engine-fixes`, and then FTD's `9884466`. Since
+`1d3ccd2`, KPM's master has changed no file of the runtime, KPatchCore or the address databases
+the build uses. `--kpm` and `--widescreen` build from other checkouts instead.
 
 Needs: Xcode command line tools, the .NET 8 SDK, and a Python with `requirements.txt`. The
 unmodified game must be installed (the build resolves hooks against `KOTOR_Exe`'s hash and
@@ -349,7 +350,9 @@ reads `TexturePacks/swpc_tex_gui.erf` for the fonts); nothing from the game is p
 Output: `dist/macos/KMRP-macOS-<version>/` and its zip, 160 MB. Steps, in order:
 
 1. `make dylib` in KPM's `src/KotorPatcher`;
-2. the widescreen patch's `build_mac.sh`;
+2. the widescreen patch, with KPM's `Patches/create-patch.py`, as every KPM patch is built
+   (until 2026-09-29 with the patch's own `build_mac.sh`, which FTD516/Kotor-Patch-Manager#2
+   removed);
 3. the map-note patch, and the layout patch (`patches/kmrp-layout/*.cpp`);
 4. `tools/kpm-cli` (KPatchCore): `validate` all three, then `stage-many` writes
    `patch_config.toml` with and without the map notes, and checks for overlapping hooks
