@@ -39,6 +39,13 @@ that in the engine itself rather than by swapping artwork — 66 resolutions, fr
 
 To change resolution later, use **Restore Original** first, then patch again.
 
+**macOS (Steam, in development).** A separate installer for the Aspyr build on Steam,
+made from the same resources as this one: the same menu sets, fonts, artwork and icons
+at any of the 66 resolutions, with any other size blended from them at install. The
+engine side is FTD's widescreen patch for KotOR Patch Manager, carrying KMRP's engine
+fixes, plus a KMRP layout patch. See [macos/README.md](macos/README.md); players get
+the instructions in the package.
+
 **Linux / Proton / Steam Deck (experimental).** Launch the patcher inside the
 game's Proton environment with `protontricks-launch --appid 32370`, and use the
 same route for restore. Package-level Linux checks pass, but Proton gameplay and

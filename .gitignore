@@ -172,3 +172,7 @@ src/controller-native/*.lib
 # install. Existing copies under build/ are already ignored.
 swkotor.ini
 K1DriverCompat.ini
+
+# .NET build output of the macOS package tool (macos/build.sh)
+macos/tools/kpm-cli/bin/
+macos/tools/kpm-cli/obj/

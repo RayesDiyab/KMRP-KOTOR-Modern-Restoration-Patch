@@ -1,0 +1,9 @@
+[patch]
+id = "kmrp-map-notes"
+name = "KMRP Map Note Corrections"
+version = "1.5.0"
+description = "Moves 250 area-map notes that BioWare placed beside their subject to where they belong (Derslok's K1 Area Map Fixes table). Part of KMRP for macOS."
+author = "Derslok (data), RaymanGT (KMRP)"
+
+[patch.supported_versions]
+kotor1_steam_aspyr_macos = "C1FCB8D37C702849882A17751C63EE0AF7C2B9CBBC3B31B98A5F0EDBC27C6D71"
