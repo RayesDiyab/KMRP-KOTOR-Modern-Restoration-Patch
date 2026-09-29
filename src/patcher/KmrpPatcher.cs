@@ -82,6 +82,11 @@ namespace Kmrp
     {
         internal const string ResourceName = "Kmrp.goldpatch";
         internal const string SourceHash = "761F9466F456A83909036BAEBB5C43167D722387BE66E54617BA20A8C49E9886";
+        // Steam's swkotor.exe (KOTOR Patch Manager's kotor1_steam_103): CD 1.03's program
+        // behind SteamStub, which refuses to start if the file changes at all
+        // ("Application load error 3:0000065432", measured 2026-09-28). Only the KPM
+        // edition supports it, in memory; the standalone cannot patch it.
+        internal const string SteamHash = "34E6D971C034222A417995D8E1E8FDD9F8781795C9C289BD86C499A439F34C88";
         internal const string TargetHash = "9DD81A75F4888FD67242B682BEE0AB4392EA8923CDF4A020CA3EDD2464C05E0A";
         internal const long SourceLength = 4042752;
         internal const long TargetLength = 4087808;
@@ -154,13 +159,40 @@ namespace Kmrp
             if (resolution == null)
                 throw new ArgumentNullException("resolution");
 
-            byte[] target = new byte[TargetLength];
-            Buffer.BlockCopy(normalizedSource, 0, target, 0, normalizedSource.Length);
-            foreach (PatchChunk chunk in chunks)
-                Buffer.BlockCopy(chunk.Data, 0, target, checked((int)chunk.Offset), chunk.Data.Length);
-
+            byte[] target = Overlay(normalizedSource);
             if (HashBytes(target) != TargetHash)
                 throw new InvalidDataException("The game update could not be verified.");
+            return Finish(target, resolution, mapNotes);
+        }
+
+        /// <summary>The KPM edition's build: gold's chunks over a picture of the
+        /// unmodified executable that holds its bytes only under the chunks and at the
+        /// relocated fields, zero elsewhere (KpmEditionOperations.OriginalsImage). It is
+        /// what the installer has for Steam's swkotor.exe, whose code is encrypted on
+        /// disk. Gold's hash cannot be checked on such a picture; ResolutionPatch still
+        /// checks gold's value at every site it writes, tools/kpm_originals.py proves
+        /// the picture covers every changed byte, and Test-KpmEdition.ps1 proves the
+        /// data file built from it is the standalone's executable.</summary>
+        internal byte[] ApplyToOriginals(byte[] originals, ResolutionChoice resolution, bool mapNotes)
+        {
+            if (originals == null || originals.LongLength != SourceLength)
+                throw new InvalidDataException("The unmodified executable's bytes have an unexpected size.");
+            if (resolution == null)
+                throw new ArgumentNullException("resolution");
+            return Finish(Overlay(originals), resolution, mapNotes);
+        }
+
+        private byte[] Overlay(byte[] source)
+        {
+            byte[] target = new byte[TargetLength];
+            Buffer.BlockCopy(source, 0, target, 0, source.Length);
+            foreach (PatchChunk chunk in chunks)
+                Buffer.BlockCopy(chunk.Data, 0, target, checked((int)chunk.Offset), chunk.Data.Length);
+            return target;
+        }
+
+        private static byte[] Finish(byte[] target, ResolutionChoice resolution, bool mapNotes)
+        {
             ResolutionPatch.Apply(target, resolution);
             // The map-note corrections are data in .kmn plus a lookup the wrapper always
             // calls; the flag is what decides whether the lookup does anything. Gold ships
@@ -619,8 +651,21 @@ namespace Kmrp
             ReplaceInt32(executable, 0x0029508A, 720, resolution.CanvasHeight, "marker overlay height");
         }
 
+        /// <summary>When set, every field Apply reads or writes, as {FILE offset, size}:
+        /// the KPM edition's build asks for them (KpmEditionOperations.WriteResolutionSites),
+        /// because its installer needs the unmodified executable's bytes under each whole
+        /// field, including fields gold left at their vanilla value.</summary>
+        internal static List<long[]> Touched;
+
+        private static void Touch(long offset, int size)
+        {
+            if (Touched != null)
+                Touched.Add(new[] { offset, size });
+        }
+
         private static void ReplaceSingle(byte[] data, long offset, float expected, float replacement, string label)
         {
+            Touch(offset, 4);
             if (offset < 0 || offset + 4 > data.LongLength)
                 throw new InvalidDataException("The " + label + " patch address is outside the executable.");
             int index = checked((int)offset);
@@ -633,6 +678,7 @@ namespace Kmrp
 
         private static void ReplaceSByte(byte[] data, long offset, int expected, int replacement, string label)
         {
+            Touch(offset, 1);
             if (replacement < -128 || replacement > 127)
                 throw new InvalidDataException("The " + label + " value " + replacement +
                     " does not fit in a signed byte.");
@@ -650,12 +696,14 @@ namespace Kmrp
 
         internal static void WriteInt32(byte[] data, long offset, int value)
         {
+            Touch(offset, 4);
             byte[] encoded = BitConverter.GetBytes(value);
             Buffer.BlockCopy(encoded, 0, data, checked((int)offset), encoded.Length);
         }
 
         private static void ReplaceInt32(byte[] data, long offset, int expected, int replacement, string label)
         {
+            Touch(offset, 4);
             if (offset < 0 || offset + 4 > data.LongLength)
                 throw new InvalidDataException("The " + label + " patch address is outside the executable.");
             int index = checked((int)offset);
@@ -3638,6 +3686,9 @@ namespace Kmrp
                 if (IsVerifiedPatchedInstall(targetPath, hash) ||
                     (info.Length == GoldPatch.TargetLength && hash == GoldPatch.TargetHash))
                     return "Game is already patched";
+                if (hash == GoldPatch.SteamHash)
+                    return "Steam's swkotor.exe — Steam refuses to start it if it is patched. " +
+                        "Use KMRP for KPM, which supports it, or the editable 1.03 swkotor.exe.";
                 return "This executable is not supported. No files were changed.";
             }
             catch (Exception ex)
@@ -3765,7 +3816,10 @@ namespace Kmrp
                     throw new InvalidDataException("The earlier build could not be removed, so no changes were made.");
             }
             if (!GoldPatch.IsSupportedSourceFile(targetPath))
-                throw new InvalidDataException("This swkotor.exe is not supported. No changes were made.");
+                throw new InvalidDataException(currentHash == GoldPatch.SteamHash
+                    ? "This is Steam's swkotor.exe, which Steam refuses to start once it is patched. " +
+                      "No changes were made. Use KMRP for KPM, which supports it, or the editable 1.03 swkotor.exe."
+                    : "This swkotor.exe is not supported. No changes were made.");
             if (!File.Exists(IniOperations.PathForExecutable(targetPath)))
                 throw new FileNotFoundException(
                     "swkotor.ini was not found beside swkotor.exe. Launch the game once or place the INI in the game folder before patching.",
@@ -8125,6 +8179,12 @@ namespace Kmrp
                 if (args.Length == 2 && args[0] == "--restore")
                 {
                     PatchOperations.Restore(args[1], delegate { });
+                    return 0;
+                }
+                // Build-time only (build_kmrp.ps1): the fields ResolutionPatch handles.
+                if (args.Length == 3 && args[0] == "--kpm-sites")
+                {
+                    KpmEditionOperations.WriteResolutionSites(args[1], args[2]);
                     return 0;
                 }
                 if (args.Length != 0)

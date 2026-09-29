@@ -391,9 +391,22 @@ New-Item -ItemType Directory -Force -Path $kpmDir | Out-Null
 # no longer exists.
 Get-ChildItem -LiteralPath $kpmDir -Filter "*.kpatch" -File | Remove-Item -Force
 $kpmExe = Join-Path $kpmDir "KMRP for KPM.exe"
+# The unmodified executable's bytes the KPM installer builds its data file from
+# (Kmrp.kpm.originals): Steam's swkotor.exe is encrypted on disk, so the installer
+# never reads them from the player's file. They cover gold's chunks, the relocated
+# fields and every field ResolutionPatch handles, which the standalone just built
+# lists itself (--kpm-sites), and tools/kpm_originals.py proves the coverage.
+$kpmSites = Join-Path $buildDir "kpm-resolution-sites.txt"
+Invoke-Tool -Exe $outputExe -Label "sites" -FailureMessage "Listing the resolution fields failed" -Arguments @(
+    "--kpm-sites", $resolvedSource, $kpmSites)
+$kpmOriginals = Join-Path $buildDir "kpm-originals.bin"
+Invoke-Tool -Exe $Python -Label "originals" -FailureMessage "The KPM originals could not be proved" -Arguments @(
+    (Join-Path $projectRoot "tools\kpm_originals.py"), "--clean", $resolvedSource,
+    "--delta", $patchResource, "--relocations", $kpmRelocations, "--sites", $kpmSites,
+    "--out", $kpmOriginals)
 $standaloneOnly = @("Kmrp.drivercompat.dinput8", "Kmrp.drivercompat.asi",
     "Kmrp.controller.runtime", "Kmrp.controller.module", "Kmrp.controller.kpmlicense")
-$kpmArgs = @("/define:KPM_EDITION")
+$kpmArgs = @("/define:KPM_EDITION", "/resource:$kpmOriginals,Kmrp.kpm.originals")
 foreach ($argument in $compilerArgs) {
     if ($argument -like "/out:*") { $kpmArgs += "/out:$kpmExe"; continue }
     $drop = $false

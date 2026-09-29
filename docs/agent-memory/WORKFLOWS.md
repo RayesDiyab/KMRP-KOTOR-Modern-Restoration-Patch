@@ -34,8 +34,14 @@ temporary directory—not beside tracked sources.
 Both write two editions from the same sources: `dist\KMRP - KOTOR Modern
 Restoration Patch.exe` and `dist\KMRP for KPM\` (the installer compiled with
 `KPM_EDITION`, and the four `.kpatch` files). The relocation step needs Capstone
-(`requirements.txt`) and stops the build if its two methods disagree. After a
-build, `.\testing\regression\Test-KpmEdition.ps1` proves the editions agree.
+(`requirements.txt`) and stops the build if its two methods disagree. Between the
+two compiles the build runs the fresh standalone with `--kpm-sites` and
+`tools/kpm_originals.py`, which stops it if the carried unmodified bytes miss any
+changed byte or resolution field. After a build,
+`.\testing\regression\Test-KpmEdition.ps1` proves the editions agree; put Steam's
+unmodified `swkotor.exe` at `build-inputs\swkotor-steam.exe` to include its Steam
+case. Steam-only facts: KPM needs its proxy deployment there, and SteamStub refuses
+any changed executable (docs/kpm-edition.md).
 
 Inputs default to ignored `build-inputs/swkotornopatch.exe` and
 `build-inputs/swpc_tex_gui.erf`. Machine overrides belong in ignored

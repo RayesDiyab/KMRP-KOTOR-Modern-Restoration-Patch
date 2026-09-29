@@ -23,7 +23,12 @@
          .kmn flag;
       4. reinstalling at another resolution replaces the data file;
       5. restore removes every file it installed and leaves the executable as it was;
-      6. a game the standalone installer patched is refused, and left untouched.
+      6. a game the standalone installer patched is refused, and left untouched;
+      7. Steam's swkotor.exe (optional input build-inputs\swkotor-steam.exe): the KPM
+         edition installs over it, leaves it unmodified, and writes the very same
+         data file as for CD 1.03 at that resolution, byte for byte -- both are built
+         from the originals the installer carries -- and restores; the standalone
+         refuses it and leaves it alone. Skipped, and said so, without the file.
 
     The standalone reads its options from %LOCALAPPDATA%\KMRP\settings.json; this
     copies the player's file aside first and puts it back at the end.
@@ -36,6 +41,7 @@ param(
     [string]$KpmInstaller = ".\dist\KMRP for KPM\KMRP for KPM.exe",
     [string]$Standalone   = ".\dist\KMRP - KOTOR Modern Restoration Patch.exe",
     [string]$CleanExe     = ".\build-inputs\swkotornopatch.exe",
+    [string]$SteamExe     = ".\build-inputs\swkotor-steam.exe",
     [string]$SeedIni      = ".\testing\virtual-display\swkotor-7680-windowed.ini",
     [string[]]$Resolutions = @("1920x1080", "3440x1440", "1024x768"),
     [string]$WorkRoot,
@@ -64,11 +70,11 @@ function Assert([bool]$condition, [string]$message) {
     else { Write-Host ("  FAIL  " + $message) -ForegroundColor Red; $script:Failures++ }
 }
 
-function New-Fixture([string]$name) {
+function New-Fixture([string]$name, [string]$exe = $CleanExe) {
     $folder = Join-Path $WorkRoot $name
     New-Item -ItemType Directory -Force -Path $folder | Out-Null
     # A fixture name, so no NVIDIA profile made for it can match a real swkotor.exe.
-    Copy-Item -LiteralPath $CleanExe -Destination (Join-Path $folder "kmrp-kpm-selftest.exe")
+    Copy-Item -LiteralPath $exe -Destination (Join-Path $folder "kmrp-kpm-selftest.exe")
     Copy-Item -LiteralPath $SeedIni -Destination (Join-Path $folder "swkotor.ini")
     return Join-Path $folder "kmrp-kpm-selftest.exe"
 }
@@ -107,6 +113,13 @@ if ($settingsExisted) { Copy-Item -LiteralPath $settingsPath -Destination $setti
 # (imm32, VA 0x00403D6C, 0x00403D78, 0x005F5B3B, 0x005F5B43), the jump into the movie
 # aspect fit (0x004057AC, 7 bytes), and the .kmn enable flag (0x00876000, 4 bytes).
 $movieSites = @(@(0x00403D6C, 4), @(0x00403D78, 4), @(0x005F5B3B, 4), @(0x005F5B43, 4), @(0x004057AC, 7))
+$cdData = @{}
+# The refusals this proves write KMRP.startup-error.log beside each installer, in
+# dist\, which would then ship. Those this run creates are removed at the end.
+$errorLogs = @($KpmInstaller, $Standalone | ForEach-Object { Join-Path (Split-Path -Parent $_) "KMRP.startup-error.log" })
+$errorLogsBefore = @($errorLogs | Where-Object { Test-Path -LiteralPath $_ })
+$steamHash = "34E6D971C034222A417995D8E1E8FDD9F8781795C9C289BD86C499A439F34C88"
+$SteamExe = if (Test-Path -LiteralPath $SteamExe) { Resolve-Input $SteamExe } else { $null }
 
 try {
     Write-Host ""
@@ -118,6 +131,7 @@ try {
         $dat = Join-Path $folder "kmrp-kpm.dat"
         Set-MarkerFixes $false
         Assert ((Invoke-Exe $KpmInstaller @("--in-place", $game, $resolution)) -eq 0) "the KPM edition installs (standalone marker setting off)"
+        if (Test-Path -LiteralPath $dat) { $cdData[$resolution] = (Get-FileHash -LiteralPath $dat -Algorithm SHA256).Hash }
         Assert ((Get-FileHash -LiteralPath $game -Algorithm SHA256).Hash -eq $cleanHash) "swkotor.exe is byte-for-byte unmodified"
         foreach ($name in @("kmrp-kpm.dat", "KMRP_KPM.manifest", "kmrp-sdl3.dll", "kmrp-sdl3-LICENSE.txt")) {
             Assert (Test-Path -LiteralPath (Join-Path $folder $name)) ("installed " + $name)
@@ -180,8 +194,33 @@ try {
     Assert ((Get-FileHash -LiteralPath $gold -Algorithm SHA256).Hash -eq $goldHash) "and leaves its executable alone"
     Assert (-not (Test-Path -LiteralPath (Join-Path (Split-Path -Parent $gold) "kmrp-kpm.dat"))) "and writes no data file"
     Assert ((Invoke-Exe $Standalone @("--restore", $gold)) -eq 0) "the standalone restores it"
+
+    Write-Host "Case 7  Steam's swkotor.exe"
+    if (-not $SteamExe) {
+        Write-Host "  SKIPPED  no build-inputs\swkotor-steam.exe; the Steam case did not run" -ForegroundColor DarkYellow
+    } elseif ((Get-FileHash -LiteralPath $SteamExe -Algorithm SHA256).Hash -ne $steamHash) {
+        Assert $false "build-inputs\swkotor-steam.exe is Steam's unmodified swkotor.exe"
+    } else {
+        $steamGame = New-Fixture "steam" $SteamExe
+        $steamFolder = Split-Path -Parent $steamGame
+        $steamDat = Join-Path $steamFolder "kmrp-kpm.dat"
+        Assert ((Invoke-Exe $KpmInstaller @("--in-place", $steamGame, $Resolutions[0])) -eq 0) "the KPM edition installs over Steam's executable"
+        Assert ((Get-FileHash -LiteralPath $steamGame -Algorithm SHA256).Hash -eq $steamHash) "Steam's executable is byte-for-byte unmodified"
+        Assert ((Test-Path -LiteralPath $steamDat) -and
+            (Get-FileHash -LiteralPath $steamDat -Algorithm SHA256).Hash -eq $cdData[$Resolutions[0]]) "its data file is CD 1.03's at the same resolution, byte for byte"
+        Assert ((@(Get-ChildItem -LiteralPath (Join-Path $steamFolder "Override") -File -ErrorAction SilentlyContinue)).Count -gt 1000) "the Override files are installed"
+        Assert ((Invoke-Exe $KpmInstaller @("--restore", $steamGame)) -eq 0) "restore succeeds"
+        Assert (-not (Test-Path -LiteralPath $steamDat)) "restore removed the data file"
+        Assert ((Get-FileHash -LiteralPath $steamGame -Algorithm SHA256).Hash -eq $steamHash) "Steam's executable is still unmodified"
+        $refused = New-Fixture "steam-standalone" $SteamExe
+        Assert ((Invoke-Exe $Standalone @("--in-place", $refused, $Resolutions[0])) -ne 0) "the standalone refuses Steam's executable"
+        Assert ((Get-FileHash -LiteralPath $refused -Algorithm SHA256).Hash -eq $steamHash) "and leaves it alone"
+    }
 }
 finally {
+    foreach ($log in $errorLogs) {
+        if ((Test-Path -LiteralPath $log) -and $errorLogsBefore -notcontains $log) { Remove-Item -LiteralPath $log -Force }
+    }
     if ($settingsExisted) { Copy-Item -LiteralPath $settingsCopy -Destination $settingsPath -Force }
     elseif (Test-Path -LiteralPath $settingsPath) { Remove-Item -LiteralPath $settingsPath -Force }
     Restore-TestNvidiaProfiles $WorkRoot

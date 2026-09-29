@@ -2320,10 +2320,10 @@ index f89f845..e1a975c 100644
 +    NativeNoteKeyboardK1
 +    NativeNoteMouseK1
 diff --git a/kotor1.hooks.toml b/kotor1.hooks.toml
-index a2769d6..2fac4b6 100644
+index a2769d6..cd1d4d0 100644
 --- a/kotor1.hooks.toml
 +++ b/kotor1.hooks.toml
-@@ -3,6 +3,34 @@ target_versions = [
+@@ -3,6 +3,36 @@ target_versions = [
      "9C10E0450A6EECA417E036E3CDE7474FED1F0A92AAB018446D156944DEA91435",
  ]
  
@@ -2341,11 +2341,13 @@ index a2769d6..2fac4b6 100644
 +# tools/kmrp_controller.py derives both installed sets from this key, and
 +# src/patcher/KmrpPatcher.cs (BuildConfig) must emit exactly those sets.
 +#
-+# `kpm_provided_by` names the KOTOR Patch Manager patch that already makes a
-+# hook's change (KMRP adopted it from there). The KPM edition's .kpatch leaves
-+# such hooks out and `requires` that patch instead -- two patches at one address
-+# is an install error in KPM -- while the standalone edition keeps them
-+# (tools/build_kpatch.py).
++# `kpm_provided_by` names the KOTOR Patch Manager patch that also makes a hook's
++# change (KMRP adopted it from there). Both editions carry such hooks. The KPM
++# edition's KMRP patch declares a conflict with that patch instead, since two
++# patches at one address is an install error in KPM (tools/build_kpatch.py).
++# Until later on 2026-09-28 it left these hooks out and required the KPM patches,
++# but Texture Bucket Safety and Grass Memory Safety do not support Steam's
++# swkotor.exe.
 +#
 +# `kpm_patch` says which of the KPM edition's patches carries a hook: by default
 +# "kmrp" for `always` and `no-controller` hooks and "kmrp-controller" for
@@ -2358,7 +2360,7 @@ index a2769d6..2fac4b6 100644
  # Capture raw keyboard input before KOTOR applies its key bindings.
  [[hooks]]
  address = 0x005E271E
-@@ -50,6 +78,35 @@ type = "uint"
+@@ -50,6 +80,35 @@ type = "uint"
  source = "edi"
  type = "uint"
  
@@ -2394,7 +2396,7 @@ index a2769d6..2fac4b6 100644
  # Process captured keyboard input during the gameplay HUD update.
  [[hooks]]
  address = 0x00686BA0
-@@ -96,3 +153,946 @@ type = "int"
+@@ -96,3 +155,946 @@ type = "int"
  [[hooks.parameters]]
  source = "edi"
  type = "int"

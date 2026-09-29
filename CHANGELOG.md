@@ -309,7 +309,7 @@ before:
   first recorded one higher: a case-insensitive count of "PASS" also matched each
   suite's closing "All checks passed." Corrected the same day.) The standalone was seen in the scratch
   copy with the new module: 37 hooks, the applier idle. Not played by hand.
-- `125DEA64…` (152,127,488 bytes), the current build, 2026-09-28, with the KPM
+- `125DEA64…` (152,127,488 bytes), 2026-09-28, with the KPM
   edition as four patches (under Added): `KMRP for KPM.exe` (147,601,920 bytes,
   `2C715CA5…`), `KMRP.kpatch` (136,021 bytes, `0E454D87…`), `KMRP
   Controller.kpatch` (136,714 bytes, `5A29F9CD…`), `KMRP Movies.kpatch` (135,933
@@ -319,6 +319,17 @@ before:
   `Test-MovieResolution.ps1` (36) and `Test-KpmEdition.ps1` (98) pass. The KPM
   edition was seen in the scratch copy three ways (under Added). Not played by
   hand.
+- `603DC45D…` (152,135,168 bytes), the current build, 2026-09-28, with the KPM
+  edition self-contained and supporting Steam's executable (under Added):
+  `KMRP for KPM.exe` (147,611,648 bytes, `1533474E…`), `KMRP.kpatch` (138,747
+  bytes, `C27E108A…`), `KMRP Controller.kpatch` (138,764 bytes, `56C45ED3…`),
+  `KMRP Movies.kpatch` (137,986 bytes, `014743BB…`) and `KMRP Map Notes.kpatch`
+  (446 bytes, `D7977A3A…`); module 245,248 bytes, `4B1131DA…`. Built with
+  `-ReuseResources`. `Test-ControllerSupport.ps1` (143),
+  `Test-ReinstallOverOlderBuild.ps1` (12), `Test-MovieResolution.ps1` (36),
+  `Test-LargeAddressAware.ps1` (15), `Test-InstalledOverride.ps1` (28) and
+  `Test-KpmEdition.ps1` (107, its Steam case included) pass. Seen in game on the
+  editable 1.03 executable and on Steam's (under Added). Not played by hand.
 
 - **The KOTOR Patch Manager MIT licence is installed with the controller.** The
   runtime, the controller module and the memory-safety patches all come from
@@ -343,14 +354,30 @@ before:
     does; **`KMRP Controller`**; **`KMRP Movies`** -- the movie display-mode
     operands, the aspect fit and the black movie window; and **`KMRP Map
     Notes`** -- Derslok's marker corrections, a manifest-only patch that KPM
-    records and loads nothing for. KMRP requires KPM's own `4gb-patch` and its
-    three memory-safety patches instead of duplicating them; the three add-ons
-    require KMRP. Conflicts are per patch: Map Texture Patch and Scaled Kotor
-    with KMRP, Movie Patch with KMRP Movies only, Expanded Keyboard Control and
-    Xbox Controls K1 with KMRP Controller -- measured, not guessed: no byte of
-    any K1 patch KPM 0.7.1 ships overlaps KMRP's (`tools/check_kpm_overlaps.py`).
-    The first version, earlier that day, was two files, KMRP with and without
-    its controller.
+    records and loads nothing for. KMRP requires nothing: it carries the
+    texture, grass and save-game memory fixes itself, as the standalone does,
+    and on the editable 1.03 executable sets the 4 GB flag with a static hook,
+    so it conflicts with
+    KPM's four patches that make the same fixes (no KPM patch requires them).
+    The three add-ons require KMRP. The other conflicts are per patch: Map
+    Texture Patch and Scaled Kotor with KMRP, Movie Patch with KMRP Movies only,
+    Expanded Keyboard Control and Xbox Controls K1 with KMRP Controller --
+    measured, not guessed: no other byte of any K1 patch KPM 0.7.1 ships
+    overlaps KMRP's (`tools/check_kpm_overlaps.py`). Earlier that day it was two
+    files, KMRP with and without its controller, and then four with KMRP
+    requiring KPM's patches -- which Steam's executable could not satisfy.
+  - **Steam's own `swkotor.exe` is supported** (at the maintainer's request,
+    with a clean Steam install lent for testing). It is the editable 1.03
+    executable's program behind SteamStub DRM: decrypted in memory, its code is
+    the editable executable's byte for byte,
+    measured at every byte KMRP changes. Its file is encrypted, so the installer
+    carries the unmodified bytes it builds the data file from (91 ranges,
+    `tools/kpm_originals.py`, proved against the gold delta and every resolution
+    field) and writes the same data file for both executables. Steam refuses to
+    start a changed executable, so there KPM must use its `binkw32.dll` proxy,
+    KMRP applies after the game has started (about 460 ms in, pausing the game's
+    threads while it writes), and the game runs without the 4 GB flag. The
+    standalone now refuses Steam's executable with that explanation.
   - **The module applies the executable changes in memory** when KPM loads it
     (`K1KpmApplier.cpp`): gold's runs, and its eleven appended sections copied
     to memory it allocates -- their own addresses are taken by Windows in an
@@ -362,8 +389,9 @@ before:
     it does nothing.
   - **`KMRP for KPM.exe`**, the same installer compiled with `KPM_EDITION`:
     Override, the resolution, DPI and NVIDIA settings, plus `kmrp-kpm.dat` --
-    the final bytes, built exactly as the standalone builds its executable, so
-    no resolution rule exists twice -- and SDL beside the game.
+    the final bytes, built as the standalone builds its executable, so no
+    resolution rule exists twice -- and SDL beside the game. For the editable
+    1.03 executable or Steam's.
 
   The relocation table is found twice by independent methods that must agree
   and proved by moving the code (`tools/kpm_relocations.py`); the `.kpatch`
@@ -379,9 +407,21 @@ before:
   pad drives the menus and skips movies; without KMRP Movies a movie switches
   the display to 640x480 as the unmodified game does, and with it plays at
   1920x1080, fitted. The first two-variant version was also seen in game: its
-  main menu, HUD, Map and Inventory matched the standalone's captures. CD 1.03
-  only, as the standalone; not GOG or Steam yet, not KPM's graphical launcher,
-  not played by hand. See [kpm-edition.md](docs/kpm-edition.md).
+  main menu, HUD, Map and Inventory matched the standalone's captures. The
+  final, self-contained build (`603DC45D…`) with only the four KMRP patches
+  ticked: memory exact, the 37 sites hooked, and the 4 GB flag set by KMRP's own
+  static hook, on disk and in the running game. **On Steam's executable**, in a
+  clean Steam install the maintainer lent, a trial build of the same design
+  applied 457 ms after the game started through KPM's proxy deployment, with
+  memory exact and the 37 sites hooked; the main menu, character creation,
+  Options and a movie matched the editable executable's captures. On
+  2026-09-29 the final build did the same on that install: its installer left
+  Steam's executable untouched and wrote the data file byte-identical to the
+  editable executable's, and in game every change applied with memory exact
+  (KMRP's code placed below the image this time), the 37 sites hooked, the pad
+  driving the menus, and the screens matching again. Steam gameplay was not
+  played, to keep the install's cloud save untouched. Not GOG yet, not KPM's graphical
+  launcher, not played by hand. See [kpm-edition.md](docs/kpm-edition.md).
 
 - **The Character screen shows A on Level Up and Y on Auto Level Up, and the
   granted-feats notice shows A on its OK** (2026-09-26, at the maintainer's

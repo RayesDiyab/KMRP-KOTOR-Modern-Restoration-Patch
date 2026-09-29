@@ -7,10 +7,10 @@ runtime with patch_config.toml. The KPM edition leaves the executable unmodified
 and hands the same work to KOTOR Patch Manager, as one patch per fix:
 
   KMRP.kpatch             id "kmrp", required: the widescreen interface and
-                          everything else KMRP always does. Its module applies
-                          the executable changes in memory (K1KpmApplier.cpp)
-                          from kmrp-kpm.dat, which the KMRP for KPM installer
-                          writes with the Override files.
+                          everything else KMRP always does, including the memory
+                          fixes. Its module applies the executable changes in
+                          memory (K1KpmApplier.cpp) from kmrp-kpm.dat, which the
+                          KMRP for KPM installer writes with the Override files.
   KMRP Controller.kpatch  id "kmrp-controller": controller support
   KMRP Movies.kpatch      id "kmrp-movies": the movie fixes -- the movie window's
                           two hooks, and the movie changes the core's applier
@@ -22,11 +22,20 @@ and hands the same work to KOTOR Patch Manager, as one patch per fix:
                           skips it (KotorPatcher config_reader.cpp).
 
 Each hook's patch is `kpm_patch` in kotor1.hooks.toml, derived by
-tools/kmrp_controller.kpm_patch_hooks. The hooks a KPM patch already makes are
-left out and that patch is required instead (kmrp_controller.kpm_requirements),
-with 4gb-patch for the large-address flag the standalone edition sets itself.
-The three add-ons require KMRP; KPM adds nothing by itself, so the player ticks
-it.
+tools/kmrp_controller.kpm_patch_hooks. KMRP requires no KPM patch: it carries the
+memory fixes KPM's patches also make, and conflicts with those patches
+(kmrp_controller.kpm_same_fix), because Texture Bucket Safety and Grass Memory
+Safety do not support Steam's swkotor.exe and KPM has one `requires` list for
+every game version. On CD 1.03 it also sets the large-address flag, as the
+standalone does, with a static hook in a CD-only hooks file, and so conflicts
+with 4gb-patch; Steam's DRM refuses to start an executable changed on disk, so
+there it runs without the flag. The three add-ons require KMRP; KPM adds nothing
+by itself, so the player ticks it.
+
+Every patch supports CD 1.03 and Steam's swkotor.exe (kotor1_steam_103), which
+is CD 1.03's program behind SteamStub: decrypted, its code is byte for byte CD
+1.03's (measured 2026-09-28). On Steam, KPM must use its binkw32.dll proxy,
+since the executable hands its launch to Steam and an injected process exits.
 
 The check replays KPM 0.7.1's install-time rules on the output, as read from its
 source (KPatchCore ManifestParser, HooksParser, Hook.IsValid, HookValidator,
@@ -40,7 +49,7 @@ HookTargetValidator, PatchRepository):
   * a module (binaries/windows_x86.dll) exactly when there are detours, and it
     exports every function named;
   * every hook's original bytes are the unmodified executable's (the pre-install
-    check).
+    check); a static hook's are the file's own, in the header.
 
 Conflicts are declared from measurement, not guesswork: tools/check_kpm_overlaps.py
 finds no byte overlap with any K1 patch KPM 0.7.1 ships once the three
@@ -73,6 +82,8 @@ sys.path.insert(0, str(ROOT / "tools"))
 import kmrp_controller                                  # noqa: E402
 
 CD_1_03 = "761F9466F456A83909036BAEBB5C43167D722387BE66E54617BA20A8C49E9886"
+STEAM = "34E6D971C034222A417995D8E1E8FDD9F8781795C9C289BD86C499A439F34C88"
+VERSIONS = {"kotor1_cdcrack_103": CD_1_03, "kotor1_steam_103": STEAM}
 CLEAN_EXE = ROOT / "build-inputs" / "swkotornopatch.exe"
 
 PATCHES = [
@@ -81,12 +92,14 @@ PATCHES = [
         "id": "kmrp",
         "name": "KMRP - KOTOR Modern Restoration Patch",
         "description": (
-            "Widescreen and high-resolution interface for KOTOR 1 at 49 resolutions. "
-            "Needs the KMRP for KPM installer, which picks the resolution and installs "
-            "KMRP's interface files. Add KMRP Controller, KMRP Movies and KMRP Map "
-            "Notes for the rest of KMRP."),
-        "requires": ["4gb-patch"] + kmrp_controller.kpm_requirements(),
-        "conflicts": ["hud-minimap-map-size-fix-v1", "scaled-kotor"],
+            "Widescreen and high-resolution interface for KOTOR 1 at 49 resolutions, "
+            "with the 4 GB, texture, grass and save-game memory fixes built in. Needs "
+            "the KMRP for KPM installer, which picks the resolution and installs KMRP's "
+            "interface files. Add KMRP Controller, KMRP Movies and KMRP Map Notes for "
+            "the rest of KMRP."),
+        "requires": [],
+        "conflicts": (["hud-minimap-map-size-fix-v1", "scaled-kotor", "4gb-patch"]
+                      + kmrp_controller.kpm_same_fix()),
     },
     {
         "file": "KMRP Controller.kpatch",
@@ -143,18 +156,32 @@ def render_manifest(patch, version: str) -> str:
         f"conflicts = {toml_list(patch['conflicts'])}",
         "",
         "[patch.supported_versions]",
-        f'kotor1_cdcrack_103 = "{CD_1_03}"',
+        *[f'{name} = "{sha}"' for name, sha in VERSIONS.items()],
         "",
     ])
 
 
-def render_hooks(hooks) -> str:
-    """kotor1.hooks.toml in KPM's syntax: integer addresses, integer byte lists."""
+def large_address_hook() -> dict:
+    """The large-address flag as a KPM static hook, derived from the unmodified CD
+    1.03 executable's own header: IMAGE_FILE_HEADER.Characteristics OR 0x0020, the
+    one-bit change the standalone makes (reverse-engineering/large-address-aware.md).
+    CD 1.03 only: Steam's header is elsewhere (its e_lfanew is 0x110), and Steam's DRM
+    refuses to start an executable changed on disk."""
+    clean = CLEAN_EXE.read_bytes()
+    field = struct.unpack_from("<I", clean, 0x3C)[0] + 22
+    original = list(clean[field:field + 2])
+    value = struct.unpack_from("<H", clean, field)[0] | 0x0020
+    return {"address": 0x00400000 + field, "type": "static", "original_bytes": original,
+            "replacement_bytes": list(struct.pack("<H", value))}
+
+
+def render_hooks(hooks, versions=(CD_1_03, STEAM),
+                 source="src/controller-native/kotor1.hooks.toml; edit that file, not this one.") -> str:
+    """A hooks file in KPM's syntax: integer addresses, integer byte lists."""
     lines = [
-        "# Generated by tools/build_kpatch.py from src/controller-native/kotor1.hooks.toml;",
-        "# edit that file, not this one.",
+        f"# Generated by tools/build_kpatch.py from {source}",
         "[metadata]",
-        f'target_versions = ["{CD_1_03}"]',
+        "target_versions = [" + ", ".join(f'"{v}"' for v in versions) + "]",
     ]
     for hook in hooks:
         h = kmrp_controller.as_installed(hook)
@@ -193,6 +220,10 @@ def build(module: Path, out: Path, version: str):
         if hooks:
             entries.append(("kotor1.hooks.toml", render_hooks(hooks).encode()))
             entries.append(("binaries/windows_x86.dll", dll))
+        if patch["id"] == "kmrp":
+            entries.append(("kotor1-cd-large-address.hooks.toml", render_hooks(
+                [large_address_hook()], versions=(CD_1_03,),
+                source="the unmodified CD 1.03 header: the large-address flag.").encode()))
         target = out / patch["file"]
         buffer = io.BytesIO()
         with zipfile.ZipFile(buffer, "w", zipfile.ZIP_DEFLATED) as archive:
@@ -274,14 +305,23 @@ def check(folder: Path) -> int:
             for key in ("requires", "conflicts"):
                 if not all(isinstance(v, str) for v in manifest.get(key, [])):
                     problems.append(f"{path.name}: {key} must be strings")
-            if CD_1_03 not in manifest.get("supported_versions", {}).values():
-                problems.append(f"{path.name}: does not support CD 1.03")
+            supported = set(manifest.get("supported_versions", {}).values())
+            for name, sha in VERSIONS.items():
+                if sha not in supported:
+                    problems.append(f"{path.name}: does not support {name}")
             ids[manifest["id"]] = path.name
             manifests[manifest["id"]] = manifest
             hook_files = [n for n in names if n.lower().endswith("hooks.toml")]
             hooks = []
             for name in hook_files:
-                hooks += tomllib.loads(archive.read(name).decode()).get("hooks", [])
+                data = tomllib.loads(archive.read(name).decode())
+                targets = data.get("metadata", {}).get("target_versions", [])
+                if not targets or not set(targets) <= supported:
+                    problems.append(f"{path.name} {name}: target_versions must be supported versions")
+                for hook in data.get("hooks", []):
+                    hook = dict(hook)
+                    hook["_targets"] = targets
+                    hooks.append(hook)
             detours = [h for h in hooks if h.get("type", "detour") == "detour"]
             has_module = "binaries/windows_x86.dll" in names
             if detours and not has_module:
@@ -322,6 +362,19 @@ def check(folder: Path) -> int:
                 elif kind == "replace":
                     if rb is None or len(ob) < 5:
                         problems.append(f"{where}: replace needs 5+ bytes and a replacement")
+                elif kind == "static":
+                    # Written to the file at install time: the header only, CD 1.03
+                    # only. Steam's DRM refuses to start an executable changed on disk.
+                    if rb is None or len(rb) != len(ob):
+                        problems.append(f"{where}: static needs equal lengths")
+                    if a + len(ob) > 0x00401000:
+                        problems.append(f"{where}: a static hook outside the header")
+                    if hook["_targets"] != [CD_1_03]:
+                        problems.append(f"{where}: a static hook must target CD 1.03 alone")
+                    header = CLEAN_EXE.read_bytes()[a - 0x00400000:a - 0x00400000 + len(ob)]
+                    if header != bytes(ob):
+                        problems.append(f"{where}: original bytes are not the unmodified header's")
+                    continue
                 else:
                     problems.append(f"{where}: unexpected type {kind}")
                 try:

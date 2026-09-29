@@ -29,7 +29,7 @@ that in the engine itself rather than by swapping artwork — 49 resolutions, fr
 | | |
 | --- | --- |
 | Game | *Star Wars: Knights of the Old Republic* (2003 PC release) |
-| `swkotor.exe` | The **4,042,752-byte** editable build, SHA-256 `761F9466…C49E9886`, or that exact build with only the standard Large Address Aware bit already set (`CA9D22EA…A7E1889`). KMRP refuses every other variant. |
+| `swkotor.exe` | The **4,042,752-byte** editable build, SHA-256 `761F9466…C49E9886`, or that exact build with only the standard Large Address Aware bit already set (`CA9D22EA…A7E1889`). KMRP refuses every other variant. **Steam's own `swkotor.exe`** (`34E6D971…A439F34C88`) is supported by *KMRP for KPM* only: Steam refuses to start it once patched. |
 | OS | Windows with .NET Framework 4.x (shipped with Windows 10/11). Linux/Proton and Steam Deck are experimental and not yet gameplay-verified; use the separate procedure below. |
 
 1. Launch KOTOR once so `swkotor.ini` exists.
@@ -42,10 +42,12 @@ To change resolution later, use **Restore Original** first, then patch again.
 **With KOTOR Patch Manager.** The *KMRP for KPM* edition, in `KMRP for KPM\`,
 never modifies `swkotor.exe`, so KMRP can be combined with other KPM patches:
 run `KMRP for KPM.exe` for the interface files and resolution, then tick
-`KMRP` and the four KPM patches it requires in KOTOR Patch Manager, plus any
-of `KMRP Controller`, `KMRP Movies` and `KMRP Map Notes` -- one patch per fix
--- Apply, and Launch. Same executable requirement; its README has the steps,
-and [docs/kpm-edition.md](docs/kpm-edition.md) how it works.
+`KMRP` in KOTOR Patch Manager, plus any of `KMRP Controller`, `KMRP Movies`
+and `KMRP Map Notes` -- one patch per fix -- Apply, and Launch. KMRP includes
+the 4 GB and memory fixes, so KPM's own ones stay unticked. It also works with
+**Steam's** `swkotor.exe`: switch KPM to its proxy deployment and start the game
+from Steam. Its README has the steps, and
+[docs/kpm-edition.md](docs/kpm-edition.md) how it works.
 
 **Linux / Proton / Steam Deck (experimental).** Launch the patcher inside the
 game's Proton environment with `protontricks-launch --appid 32370`, and use the

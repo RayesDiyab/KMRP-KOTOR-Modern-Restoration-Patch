@@ -16,8 +16,9 @@
 // The KPM edition is four patches (tools/build_kpatch.py): KMRP itself, and the
 // optional KMRP Controller, KMRP Movies and KMRP Map Notes. KPM installs a copy of
 // this module for each of them that has hooks (Map Notes has none); only the
-// core's, patches\kmrp.dll, applies anything. Which features it applies follows which of those patches the player
-// ticked, read from the patch_config.toml KPM wrote:
+// core's, patches\kmrp.dll, applies anything. Which features it applies follows
+// which of those patches the player ticked, read from the patch_config.toml KPM
+// wrote:
 //
 //   core       always: everything but the two below
 //   movies     "kmrp-movies": the movie aspect fit's entry and the four movie
@@ -50,14 +51,24 @@
 // and kmrp-kpm.log says why. It runs only in an unmodified image: the
 // standalone edition's executable already carries all of this, and its fifteen
 // sections tell the two apart.
+//
+// Two unmodified images: CD 1.03, and Steam's swkotor.exe, the same program
+// behind SteamStub (see VanillaImage). Under KPM's CD launch this runs before any
+// game code. On Steam KPM can load it only once the stub has decrypted the code,
+// with the game already running -- measured at about 460 ms, after its window
+// exists but before any screen KMRP changes is built -- so every other thread is
+// paused while the runs are written (OtherThreads). The log records which image,
+// when, and how many threads were paused.
 
 #include <windows.h>
+#include <tlhelp32.h>
 
 #include <cstdarg>
 #include <cstdint>
 #include <cstdio>
 #include <cstring>
 #include <string>
+#include <utility>
 #include <vector>
 
 namespace {
@@ -141,15 +152,129 @@ std::uint32_t Fnv1a(const std::uint8_t* data, std::size_t n)
     return h;
 }
 
+// Steam's swkotor.exe (34E6D971...) is the same program behind SteamStub: once the
+// stub has decrypted .text it is byte for byte CD 1.03's, measured 2026-09-28, and
+// the stub adds one section, .bind, where gold's block would be. Its code is
+// encrypted until then, so KPM loads KMRP there only after decryption, from a
+// worker thread, with the game already running (KPM's DeferredApply).
+constexpr std::uint32_t kSteamSections = 5;
+constexpr std::uint32_t kSteamSizeOfImage = 0x4C3000;
+bool g_steam = false;
+
 bool VanillaImage()
 {
     const auto* base = reinterpret_cast<const std::uint8_t*>(GetModuleHandleW(nullptr));
     const auto* dos = reinterpret_cast<const IMAGE_DOS_HEADER*>(base);
     const auto* nt = reinterpret_cast<const IMAGE_NT_HEADERS32*>(base + dos->e_lfanew);
-    return reinterpret_cast<std::uintptr_t>(base) == 0x400000 &&
-           nt->FileHeader.NumberOfSections == kVanillaSections &&
-           nt->OptionalHeader.SizeOfImage == kVanillaSizeOfImage;
+    if (reinterpret_cast<std::uintptr_t>(base) != 0x400000) {
+        return false;
+    }
+    if (nt->FileHeader.NumberOfSections == kVanillaSections &&
+        nt->OptionalHeader.SizeOfImage == kVanillaSizeOfImage) {
+        return true;
+    }
+    const auto* sections = IMAGE_FIRST_SECTION(nt);
+    if (nt->FileHeader.NumberOfSections == kSteamSections &&
+        nt->OptionalHeader.SizeOfImage == kSteamSizeOfImage &&
+        std::memcmp(sections[4].Name, ".bind", 6) == 0) {
+        g_steam = true;
+        return true;
+    }
+    return false;
 }
+
+// Milliseconds since this process was created, for the log.
+double ProcessAgeMs()
+{
+    FILETIME created{}, exited{}, kernel{}, user{}, now{};
+    GetProcessTimes(GetCurrentProcess(), &created, &exited, &kernel, &user);
+    GetSystemTimeAsFileTime(&now);
+    const auto ticks = [](const FILETIME& f) {
+        return (static_cast<unsigned long long>(f.dwHighDateTime) << 32) | f.dwLowDateTime;
+    };
+    return static_cast<double>(ticks(now) - ticks(created)) / 10000.0;
+}
+
+BOOL CALLBACK FindOwnWindow(HWND window, LPARAM found)
+{
+    DWORD pid = 0;
+    GetWindowThreadProcessId(window, &pid);
+    if (pid == GetCurrentProcessId()) {
+        *reinterpret_cast<bool*>(found) = true;
+        return FALSE;
+    }
+    return TRUE;
+}
+
+bool GameHasWindow()
+{
+    bool found = false;
+    EnumWindows(FindOwnWindow, reinterpret_cast<LPARAM>(&found));
+    return found;
+}
+
+// Every other thread of the game, suspended while the runs are written. Under
+// KPM's CD launch only the loader runs, but on Steam the game's main thread is
+// already executing, and could be inside a run as it changes. A thread stopped
+// with its instruction pointer strictly inside a run is let go, and the attempt
+// repeated a moment later. No heap use while threads are stopped: one of them may
+// hold the heap lock.
+class OtherThreads {
+public:
+    bool Suspend(const std::vector<std::pair<std::uint32_t, std::uint32_t>>& ranges)
+    {
+        const DWORD self = GetCurrentThreadId();
+        HANDLE snap = CreateToolhelp32Snapshot(TH32CS_SNAPTHREAD, 0);
+        if (snap == INVALID_HANDLE_VALUE) {
+            return false;
+        }
+        THREADENTRY32 entry{};
+        entry.dwSize = sizeof(entry);
+        for (BOOL ok = Thread32First(snap, &entry); ok; ok = Thread32Next(snap, &entry)) {
+            if (entry.th32OwnerProcessID != GetCurrentProcessId() || entry.th32ThreadID == self ||
+                count_ == kMax) {
+                continue;
+            }
+            HANDLE thread = OpenThread(THREAD_SUSPEND_RESUME | THREAD_GET_CONTEXT, FALSE,
+                                       entry.th32ThreadID);
+            if (!thread) {
+                continue;
+            }
+            if (SuspendThread(thread) == static_cast<DWORD>(-1)) {
+                CloseHandle(thread);
+                continue;
+            }
+            threads_[count_++] = thread;
+            CONTEXT context{};
+            context.ContextFlags = CONTEXT_CONTROL;
+            if (GetThreadContext(thread, &context)) {
+                for (const auto& range : ranges) {
+                    if (context.Eip > range.first && context.Eip < range.first + range.second) {
+                        busy_ = true;
+                    }
+                }
+            }
+        }
+        CloseHandle(snap);
+        return !busy_;
+    }
+    void Resume()
+    {
+        for (std::size_t i = 0; i < count_; ++i) {
+            ResumeThread(threads_[i]);
+            CloseHandle(threads_[i]);
+        }
+        count_ = 0;
+        busy_ = false;
+    }
+    std::size_t Count() const { return count_; }
+
+private:
+    static constexpr std::size_t kMax = 256;
+    HANDLE threads_[kMax]{};
+    std::size_t count_ = 0;
+    bool busy_ = false;
+};
 
 bool ReadFileBytes(const wchar_t* name, std::vector<std::uint8_t>& out)
 {
@@ -394,28 +519,60 @@ void Apply(std::uint32_t features)
     }
     FlushInstructionCache(GetCurrentProcess(), block, blockSize);
     std::vector<const Run*> written;
+    written.reserve(runs.size());            // no allocation while threads are stopped
+    std::vector<std::pair<std::uint32_t, std::uint32_t>> ranges;
+    for (const auto& run : runs) {
+        if (wanted(run.feature)) {
+            ranges.emplace_back(run.va, run.length);
+        }
+    }
+    const double startedMs = ProcessAgeMs();
+    const bool hadWindow = GameHasWindow();
+    OtherThreads others;
+    for (int attempt = 0; !others.Suspend(ranges); ++attempt) {
+        others.Resume();
+        if (attempt == 200) {
+            Log("a game thread stayed inside the code KMRP changes for 200 attempts. "
+                "Nothing applied.");
+            VirtualFree(block, 0, MEM_RELEASE);
+            return;
+        }
+        Sleep(1);
+    }
     std::uint32_t bytes = 0;
+    const Run* failed = nullptr;
+    DWORD error = 0;
     for (const auto& run : runs) {
         if (!wanted(run.feature)) {
             continue;
         }
         if (!WriteMemory(run.va, run.final_.data(), run.length)) {
             // Put back what was written; the block stays allocated, unreferenced.
+            failed = &run;
+            error = GetLastError();
             for (const Run* done : written) {
                 WriteMemory(done->va, done->original, done->length);
             }
-            Log("could not write %08X (error %lu); the %zu runs already written were "
-                "put back. Nothing applied.", run.va, GetLastError(), written.size());
-            return;
+            break;
         }
         written.push_back(&run);
         bytes += run.length;
+    }
+    const std::size_t paused = others.Count();
+    others.Resume();
+    if (failed) {
+        Log("could not write %08X (error %lu); the %zu runs already written were "
+            "put back. Nothing applied.", failed->va, error, written.size());
+        return;
     }
     Log("applied: KMRP%s%s -- %zu of %zu runs (%u bytes) and KMRP's code at %p "
         "(moved by %+ld), %u relocations.",
         (features & kMovies) ? " + Movies" : "", (features & kMapNotes) ? " + Map Notes" : "",
         chosen, runs.size(), bytes, static_cast<void*>(block),
         static_cast<long>(delta), relocCount);
+    Log("  %s executable; %.0f ms after the game started, %s its window; %zu other "
+        "thread(s) paused while writing.", g_steam ? "Steam" : "CD 1.03", startedMs,
+        hadWindow ? "after" : "before", paused);
 }
 
 // Only the core patch's copy applies: KPM installs each patch's DLL as

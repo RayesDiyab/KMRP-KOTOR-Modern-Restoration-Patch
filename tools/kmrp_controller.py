@@ -139,16 +139,17 @@ def kpm_patch_of(hook) -> str:
 
 
 def kpm_patch_hooks(patch_id: str) -> list:
-    """The hooks one KPM edition patch carries: those whose kpm_patch it is, less
-    the ones a KOTOR Patch Manager patch already makes (kpm_provided_by)."""
+    """The hooks one KPM edition patch carries: those whose kpm_patch it is."""
     if patch_id not in KPM_PATCHES:
         raise KeyError(patch_id)
-    return [h for h in _installable()
-            if kpm_patch_of(h) == patch_id and not h.get("kpm_provided_by")]
+    return [h for h in _installable() if kpm_patch_of(h) == patch_id]
 
 
-def kpm_requirements() -> list:
-    """The KPM patch ids the KPM edition requires in place of hooks it leaves out."""
+def kpm_same_fix() -> list:
+    """The KOTOR Patch Manager patches that make a fix KMRP carries itself
+    (`kpm_provided_by`). KPM allows one patch per hook address, so the KPM edition
+    conflicts with them; until 2026-09-28 it left those hooks out and required the
+    patches instead, which Steam's swkotor.exe could not satisfy."""
     return sorted({h["kpm_provided_by"] for h in _installable()
                    if h.get("kpm_provided_by")})
 

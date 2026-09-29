@@ -31,8 +31,14 @@ KPM, the same installer compiled with KPM_EDITION, which leaves swkotor.exe
 unmodified and writes kmrp-kpm.dat (the same final bytes, as a diff from the
 clean executable) for KMRP's module to apply in memory under KOTOR Patch
 Manager, relocating gold's eleven sections. In KPM it is four patches, one per
-fix: KMRP (required), KMRP Controller, KMRP Movies, KMRP Map Notes; each hook's
-patch is `kpm_patch` in kotor1.hooks.toml. See docs/kpm-edition.md.
+fix: KMRP (required, self-contained: it carries the memory fixes and, on the
+editable 1.03 executable, the 4 GB flag), KMRP Controller, KMRP Movies, KMRP Map
+Notes; each hook's patch is `kpm_patch` in kotor1.hooks.toml. It supports the
+editable 1.03 executable (761F9466…, which KPM keys `kotor1_cdcrack_103`) and
+Steam's swkotor.exe (34E6D971…, decrypted identical to it); the standalone
+supports the editable executable only. GOG's own v1.03 (9C10E045…) is a different
+file -- see reverse-engineering/map-scaling.md.
+See docs/kpm-edition.md.
 
 - `src/patcher/KmrpPatcher.cs` contains the Windows patcher, executable validation,
   resolution constants, INI/Override installation, backup/restore logic, settings,

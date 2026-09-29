@@ -1,23 +1,26 @@
 # The KPM edition: KMRP through KOTOR Patch Manager
 
 **Reference.** What the KPM edition does, byte for byte, and how it is proved to
-make the same game as the standalone installer. Built and measured on 2026-09-28;
-the lab record of how it was designed is in the session notes summarised under
-*Rejected alternatives* below.
+make the same game as the standalone installer, for the editable 1.03 executable
+and Steam's. Built and measured on 2026-09-28 and, for the final build on Steam,
+2026-09-29; the lab record of how it was designed is in the session notes
+summarised under *Rejected alternatives* below.
 
 ## The build this describes
 
 | | |
 | --- | --- |
-| Unmodified executable | CD/"editable" KOTOR 1.03, `761F9466F456A83909036BAEBB5C43167D722387BE66E54617BA20A8C49E9886`, 4,042,752 bytes (`build-inputs/swkotornopatch.exe`) |
+| Unmodified executable | the editable KOTOR 1.03 `swkotor.exe`, `761F9466F456A83909036BAEBB5C43167D722387BE66E54617BA20A8C49E9886`, 4,042,752 bytes (`build-inputs/swkotornopatch.exe`). Called **CD 1.03** in this document and in the KPM edition's code, after KPM's own key for it, `kotor1_cdcrack_103` -- KPM's version table names it "HellSpawn CD Crack version 1.0.3", GOG's v1.03 with a 16-byte watermark ([map-scaling.md](../reverse-engineering/map-scaling.md)). It is not the retail CD's executable, which KMRP has not measured, nor GOG's own (`9C10E045…`), which KMRP refuses by hash |
+| Steam's executable | `34E6D971C034222A417995D8E1E8FDD9F8781795C9C289BD86C499A439F34C88`, 4,395,008 bytes, KPM's `kotor1_steam_103`; a clean Steam install lent by the maintainer on 2026-09-28 (`build-inputs/swkotor-steam.exe`, optional) |
 | Gold | `9DD81A75F4888FD67242B682BEE0AB4392EA8923CDF4A020CA3EDD2464C05E0A`, 4,087,808 bytes (`build/kmrp/swkotor_gold_v24_movieaspect.exe`) |
-| KOTOR Patch Manager | 0.7.1 (release zip `0EFEFAC8…`, source at the same tag), read and run on 2026-09-28 |
-| Module | `kmrp-controller.module`, 241,664 bytes, `0C89C330245F752A303A22D5B731C2E16D19D4731078413B195F01C71972E955` |
-| Installers | standalone `125DEA64…`, KMRP for KPM `2C715CA5…`; `KMRP.kpatch` `0E454D87…`, `KMRP Controller.kpatch` `5A29F9CD…`, `KMRP Movies.kpatch` `77CC3D71…`, `KMRP Map Notes.kpatch` `1D365F9F…` |
+| KOTOR Patch Manager | 0.7.1 (release zip `0EFEFAC8…`, source zip `Kotor-Patch-Manager-0.7.1.zip`), read and run on 2026-09-28; 0.7.1 (2026-09-21) was still KPM's newest release on 2026-09-29. The clone in `build/research/Kotor-Patch-Manager` is at an **older** development commit, `7d53e52` of 2026-09-05 -- before 0.7.0 (09-07) and 0.7.1 -- and differs. (*Corrected 2026-09-29:* this called it a later commit) |
+| Module | `kmrp-controller.module`, 245,248 bytes, `4B1131DABC4550D5F4F18B2C52EE93291E8350C2B35FA2A5215660A0F4C13AD3` |
+| Installers | standalone `603DC45D…`, KMRP for KPM `1533474E…`; `KMRP.kpatch` `C27E108A…`, `KMRP Controller.kpatch` `56C45ED3…`, `KMRP Movies.kpatch` `014743BB…`, `KMRP Map Notes.kpatch` `D7977A3A…` |
 
-Until later on 2026-09-28 the edition shipped as two `.kpatch` files, KMRP with
-and without its controller, picked one or the other. It is now four patches, one
-per fix (section 5).
+The edition changed twice on 2026-09-28. It first shipped as two `.kpatch` files,
+KMRP with and without its controller; then as four patches, one per fix, with
+KMRP requiring KPM's 4GB and three memory-safety patches; and finally, to support
+Steam's executable, with KMRP carrying those fixes itself (section 5).
 
 Addresses are **VA** unless marked FILE. For the original sections `FILE = VA −
 0x400000`; for gold's eleven appended sections `FILE = VA − 0x492000`
@@ -30,27 +33,29 @@ KMRP ships two ways, built by one `build_kmrp.ps1` run from the same sources:
 | | standalone | KPM edition |
 | --- | --- | --- |
 | Output | `dist\KMRP - KOTOR Modern Restoration Patch.exe` | `dist\KMRP for KPM\`: `KMRP for KPM.exe`, `KMRP.kpatch`, `KMRP Controller.kpatch`, `KMRP Movies.kpatch`, `KMRP Map Notes.kpatch`, README, KPM's MIT licence |
-| swkotor.exe | the gold delta written in, per resolution | **never modified** (KPM's own `4gb-patch` sets the large-address flag) |
+| Executables | CD 1.03 | CD 1.03 and **Steam's** |
+| swkotor.exe | the gold delta written in, per resolution | **never modified** by KMRP. On CD 1.03 KPM sets the large-address flag from KMRP's own static hook; Steam's is left alone, since Steam refuses a changed file |
 | Executable changes | in the file | applied in memory by KMRP's module, from `kmrp-kpm.dat` |
 | Run-time hooks | KMRP's own copy of the KPM runtime, `patch_config.toml` written by the installer | KPM's runtime, from the `.kpatch` hook table |
-| Memory-safety fixes | KMRP's copies of KPM's three patches | KPM's own patches, **required** by the `.kpatch` |
+| Memory-safety fixes | KMRP's copies of KPM's three patches | the same copies, in the KMRP patch, which conflicts with KPM's own |
 | Driver compatibility | Synchro's standalone K1DC, optional | not installed; Synchro's own `.kpatch` in KPM |
 | Controller, movies, map notes | the controller and map-note options are checkboxes; the movie fixes are always in | three optional patches, ticked in KPM beside the required `KMRP` |
 | Override, `swkotor.ini`, DPI, NVIDIA | installed | installed, by the same code |
 
 What is shared, so the editions cannot drift apart:
 
-- **The executable's bytes.** The KPM installer builds the final image exactly as
-  the standalone does -- the unmodified executable, the embedded gold delta,
-  `ResolutionPatch` for the resolution, the map-note flag on (`GoldPatch.Apply`) --
-  and records only how it differs from the unmodified executable, each change
-  tagged with the patch it belongs to (`KpmEditionOperations.BuildData`,
-  `src/patcher/KpmEdition.cs`). No per-resolution rule exists in two places.
+- **The executable's bytes.** The KPM installer builds the final image as the
+  standalone does -- the embedded gold delta, `ResolutionPatch` for the resolution,
+  the map-note flag on -- over the unmodified executable's bytes it carries
+  (section 6), and records only how it differs from the unmodified executable, each
+  change tagged with the patch it belongs to (`KpmEditionOperations.BuildData`,
+  `src/patcher/KpmEdition.cs`). No per-resolution rule exists in two places, and
+  `Test-KpmEdition.ps1` proves the result is the standalone's executable.
 - **The hook sets.** Both come from `src/controller-native/kotor1.hooks.toml`
   through `tools/kmrp_controller.py`: `installed_set(controller)` for the
   standalone, `kpm_patch_hooks(id)` for each KPM patch, from the hook's
-  `kpm_patch` key. The KPM sets leave out the five hooks tagged `kpm_provided_by`
-  (KPM's three memory-safety patches make them) and require those patches instead.
+  `kpm_patch` key. The five hooks tagged `kpm_provided_by` are in both; the KPM
+  edition's KMRP patch conflicts with the KPM patches that make them.
 - **The module.** One binary: the standalone loads it from its own runtime, KPM
   from `patches\<id>.dll`, once for each KMRP patch that has hooks. Its applier
   runs only in an unmodified image, and only in the core patch's copy (below).
@@ -63,7 +68,7 @@ Gold's delta has three parts; the KPM edition reproduces all three in memory:
 | --- | --- | --- |
 | Runs in the original image | 81 runs in `.text` (560 bytes) and 2 in `.rdata` (5 bytes) at the byte level; 89 to 91 runs of 576 to 582 bytes once the per-resolution values and the relocated fields are added (measured at 1024x768, 1920x1080, 3440x1440) | written by the module after every original byte is checked |
 | Eleven appended sections, `.kui` ... `.kmv`, `0x0086D000`-`0x00877FFF` | 45,056 bytes, 5,726 used | copied as one block into memory the module allocates, and relocated |
-| PE header | 71 byte-runs, 156 bytes | not written. Only the large-address flag matters at run time, and KPM's `4gb-patch` sets it |
+| PE header | 71 byte-runs, 156 bytes | not written by the module. Only the large-address flag matters at run time: on CD 1.03 KPM writes it into the file from the KMRP patch's static hook; Steam's executable cannot take it |
 
 **The sections cannot go back to their own addresses.** In an unmodified process
 the range is not free: measured on 2026-09-28 with `VirtualQueryEx` over a running
@@ -190,9 +195,10 @@ The module's applier (`src/controller-native/K1KpmApplier.cpp`) runs in its
 executables (read in KPM 0.7.1's `patcher.cpp`, `ProcessInjector.cs`). Every copy
 of the module:
 
-1. returns at once unless the image is unmodified (base `0x400000`, four sections,
-   `SizeOfImage` `0x46D000`) -- so in the standalone edition, whose executable
-   already carries all of this, it does nothing;
+1. returns at once unless the image is unmodified -- CD 1.03's (base `0x400000`,
+   four sections, `SizeOfImage` `0x46D000`) or Steam's (five sections, the fifth
+   `.bind`, `SizeOfImage` `0x4C3000`) -- so in the standalone edition, whose
+   executable already carries all of this, it does nothing;
 2. reads which KMRP patches are installed from the `patch_config.toml` KPM wrote
    beside the game: every `id = "…"` line, looking for `kmrp-movies` and
    `kmrp-map-notes`.
@@ -205,12 +211,32 @@ The core patch's copy, `patches\kmrp.dll`, then:
 5. allocates the block, copies it, makes the chosen patches' block edits, applies
    the relocations -- an IN field in a run left out is skipped with its run --
    and sets its page protections;
-6. writes the chosen runs, putting back any already written if one fails.
+6. pauses every other thread of the game, retrying while any is stopped inside a
+   run, writes the chosen runs, putting back any already written if one fails, and
+   lets the threads go.
 
 All or nothing: any failure logs the reason to `kmrp-kpm.log` beside the game and
-leaves the game unmodified. Success logs a line such as `applied: KMRP + Movies +
-Map Notes -- 91 of 91 runs (577 bytes) and KMRP's code at 01600000 (moved by
-+14233600), 46 relocations.` (measured at 1920x1080).
+leaves the game unmodified. Success logs two lines such as `applied: KMRP + Movies
++ Map Notes -- 91 of 91 runs (577 bytes) and KMRP's code at 02CD0000 (moved by
++38154240), 46 relocations.` and `Steam executable; 457 ms after the game started,
+after its window; 8 other thread(s) paused while writing.` (measured on Steam at
+1920x1080).
+
+**On Steam the game is already running.** Steam's executable is CD 1.03's program
+behind SteamStub: its code is encrypted on disk, and once the stub has decrypted it
+in memory it is CD 1.03's byte for byte -- all 3,387,856 bytes of `.text`, every
+one of KMRP's 115 spans and the five memory-safety sites (read from a running game
+on 2026-09-28). The only other differences are the stub's `.bind` section and the
+letter case of eight DLL names in `.rdata`'s import table. But KPM can only patch it
+after decryption: its runtime finds every hook site unreadable at load and hands the
+apply to a worker thread that polls every 15 ms (`patcher.cpp`, `DeferredApply`,
+the same in 0.7.1's source). Measured from outside, the code reads decrypted about
+332 ms after the process starts and the game's window exists 20 ms later; KMRP
+applied at 457 ms in the trial and at 501 ms with the final build (whose window,
+that time, came later still). That is before any screen KMRP changes is built -- the main menu,
+character generation, Options and movies all matched CD 1.03's captures (section 7)
+-- and the pause in step 6 keeps the game's own threads out of the bytes being
+written.
 
 **Frames shared between patches.** The controller's GUI and movie frames hook the
 same two sites as the core's stand-ins (`0x0040CE70`, `0x00404D96`), and KPM allows
@@ -238,16 +264,31 @@ would fail either way, which is the conflict KPM's own byte checks are for.
 
 | file | id | hooks | requires | conflicts |
 | --- | --- | --- | --- | --- |
-| `KMRP.kpatch` | `kmrp` | 2: `CoreGuiFrameK1`, `CoreMovieFrameK1`; its module applies the executable changes | `4gb-patch`, `grass-memory-safety`, `save_mem_leak`, `texture-bucket-safety` | `hud-minimap-map-size-fix-v1`, `scaled-kotor` |
-| `KMRP Controller.kpatch` | `kmrp-controller` | 28: the controller set, less the five KPM provides, the two frames the core holds, and the movie window's two | `kmrp` | `expanded-keyboard-control`, `xbox-controls-k1` |
+| `KMRP.kpatch` | `kmrp` | 7: `CoreGuiFrameK1`, `CoreMovieFrameK1` and the five memory-safety hooks; its module applies the executable changes. On CD 1.03 also the large-address flag, a static hook | none | `hud-minimap-map-size-fix-v1`, `scaled-kotor`, and the four KPM patches whose fixes it makes: `4gb-patch`, `grass-memory-safety`, `save_mem_leak`, `texture-bucket-safety` |
+| `KMRP Controller.kpatch` | `kmrp-controller` | 28: the controller set, less the two frames the core holds, the movie window's two and the memory-safety five | `kmrp` | `expanded-keyboard-control`, `xbox-controls-k1` |
 | `KMRP Movies.kpatch` | `kmrp-movies` | 2: `NativeMovieWindowOpenK1`, `NativeMovieWindowCloseK1`; selects the movie runs | `kmrp` | `better-movie-playback-v1` |
 | `KMRP Map Notes.kpatch` | `kmrp-map-notes` | none; selects the `.kmn` flag | `kmrp` | none |
 
-With all four ticked the hooked sites are the standalone's 37 with the controller
-on (32 KMRP's, 5 KPM's memory-safety patches'), and the executable is the
-standalone's with its marker fixes on.
+Every patch supports CD 1.03 (`kotor1_cdcrack_103`) and Steam's executable
+(`kotor1_steam_103`). With all four ticked the hooked sites are the standalone's 37
+with the controller on, and the executable is the standalone's with its marker
+fixes on -- on CD 1.03 including the large-address flag.
 
-Why these conflicts: Movie Patch (`better-movie-playback-v1`) also keeps movies in
+**Why KMRP carries the memory fixes itself.** KPM 0.7.1 has one `requires` list per
+patch, checked the same on every game version (`ManifestParser.cs`,
+`DependencyValidator.cs`), and Texture Bucket Safety and Grass Memory Safety list no
+Steam executable. KPM's 4GB Patch lists Steam's but writes the CD/GOG header offset
+(`0x00400926`; Steam's `e_lfanew` is `0x110`, its flag at `0x00400126`), so KPM
+refuses it -- and Steam refuses any changed executable anyway ("Application load
+error 3:0000065432", seen 2026-09-28 with the flag written at the right offset). So
+a KMRP that required them could not be installed on Steam. No KPM 0.7.1 patch
+requires any of the four, so conflicting with them costs a player nothing: KMRP
+does their job. The large-address flag is a static hook in a separate hooks file,
+`kotor1-cd-large-address.hooks.toml`, targeting CD 1.03 alone and derived by
+`build_kpatch.py` from the unmodified header (`Characteristics` OR `0x0020`, the
+standalone's own one-bit change).
+
+Why the other conflicts: Movie Patch (`better-movie-playback-v1`) also keeps movies in
 the game window and fits their aspect; its hook at `0x00405855` is 162 bytes past
 the jump into KMRP's `.kmv` fit at `0x004057AC`. Map Texture Patch
 (`hud-minimap-map-size-fix-v1`) forces a 512x256 minimap draw size at
@@ -256,8 +297,9 @@ is the core's; whether both are in one function was not established. Scaled Koto
 is a competing widescreen patch.
 
 `KMRP.kpatch`, `KMRP Controller.kpatch` and `KMRP Movies.kpatch` each hold
-`manifest.toml`, `kotor1.hooks.toml` (tagged with the CD 1.03 hash) and
-`binaries/windows_x86.dll`, the module. `KMRP Map Notes.kpatch` holds only its
+`manifest.toml`, `kotor1.hooks.toml` (tagged with the CD 1.03 and Steam hashes) and
+`binaries/windows_x86.dll`, the module; `KMRP.kpatch` also the CD-only
+large-address hooks file. `KMRP Map Notes.kpatch` holds only its
 manifest: KPM lists such a patch, installs it, writes it into `patch_config.toml`
 as `id = "kmrp-map-notes"` with an empty `dll`, and its runtime skips it -- read in
 KPM 0.7.1's `PatchRepository.cs`, `PatchApplicator.cs` (step 5 skips a patch with
@@ -266,11 +308,13 @@ skipping"). A module with no hooks would instead be loaded as a DLL-only patch,
 which `--check` refuses.
 
 **Measured, not guessed.** `tools/check_kpm_overlaps.py` intersects KMRP's
-footprint -- every byte the delta changes and every KMRP hook site, 115 spans, 754
-bytes -- with every hook of every K1 patch KPM 0.7.1 ships: **no overlap**, and no
-hook within 32 bytes, once the memory-safety patches are required. Checked against a
-known positive: with KMRP's own memory-safety hooks included it reports all five
-overlaps with KPM's. Movie Patch and Map Texture Patch are conflicts by behaviour,
+footprint -- every byte the delta changes, every KMRP hook site and the
+large-address flag, 121 spans, 795 bytes -- with every hook of every K1 patch KPM
+0.7.1 ships: exactly the four declared overlaps (4GB Patch at the flag; Grass
+Memory Safety, Save Game Memory Leak and Texture Bucket Safety at the five
+memory-safety sites), **no undeclared overlap**, and no hook within 32 bytes. It
+fails on an overlap no KMRP patch declares; checked by dropping `4gb-patch` from the
+conflicts. Movie Patch and Map Texture Patch are conflicts by behaviour,
 found by widening the search to 1,024 bytes; Semi-Transparent Letterbox, also near
 KMRP's letterbox runs, only changes the letterbox's alpha and is compatible. High
 FPS Fixes 1.0.0 (a third-party `.kpatch`, not in KPM's set) has no byte of its 36
@@ -282,12 +326,14 @@ fields; integer addresses in range; one hook per start address, across all four
 patches since a player may tick them all; detour with a function, five or more
 stolen bytes, and `eax` excluded when it has a consumed exit; a module exactly when
 there are detours; the original bytes against the unmodified executable (KPM's
-pre-install check); every function exported by the module; and exactly the four
-KMRP patches, so a stale one from an earlier build fails. Planted faults -- an
+pre-install check); every function exported by the module; exactly the four KMRP
+patches, so a stale one from an earlier build fails; both executables supported,
+and every hooks file targeting only supported ones; and a static hook only in the
+header, with the header's own bytes, targeting CD 1.03 alone. Planted faults -- an
 empty author, a wrong stolen byte, a missing export, a hook on a byte the delta
-changes, and (for the four-patch set) two patches on one address, a module in the
-marker patch, detours without a module and a leftover `kmrp-no-controller` -- are
-each reported.
+changes, two patches on one address, a module in the marker patch, detours without
+a module, a leftover `kmrp-no-controller`, the static hook aimed at Steam, a wrong
+header byte, and Steam dropped from a manifest -- are each reported.
 
 ## 6. The KMRP for KPM installer
 
@@ -296,7 +342,25 @@ The same code as the standalone, compiled with `KPM_EDITION`
 `Restore` and `TryReadInstalledResolution` go to `KpmEditionOperations`. It:
 
 - accepts the unmodified 1.03 executable, with or without the large-address flag,
-  and refuses a game the standalone installer patched (restore that first);
+  and Steam's (`KpmEditionOperations.IsSteam`), and refuses a game the standalone
+  installer patched (restore that first). The standalone refuses Steam's executable
+  with its own message: Steam will not start it patched, use KMRP for KPM;
+- builds the data file from the **unmodified executable's bytes it carries**, not
+  from the player's file, since Steam's is encrypted on disk: `Kmrp.kpm.originals`
+  (`tools/kpm_originals.py`, 91 ranges, 4,777 bytes, 681 of them past the header)
+  holds CD 1.03's header, its bytes under every gold-delta chunk, every inbound
+  relocation field whole and every field `ResolutionPatch` handles whole, and zero
+  stands for everything else (`OriginalsImage`, `GoldPatch.ApplyToOriginals`). The
+  resolution fields come from the installer itself: the build runs the standalone
+  it just compiled with `--kpm-sites`, which applies all 49 resolutions while
+  `ResolutionPatch` records every field it reads or writes (52), so the list cannot
+  drift from the code. The first version carried only the chunks and relocated
+  fields, and the installer refused its own picture -- "The stack-count label patch
+  did not match the verified gold build" -- because gold changed only some bytes of
+  some fields and none of a few (the powers row height stays vanilla's 40). The tool
+  proves the coverage before the build embeds it, and a data file built this way at
+  1920x1080 is byte for byte the one the earlier, file-reading installer wrote
+  (`28DAA6A9…`);
 - installs Override, `swkotor.ini`'s resolution, DPI and NVIDIA settings with the
   standalone's own code;
 - writes `kmrp-kpm.dat`, `kmrp-sdl3.dll` and its licence beside the game -- KPM
@@ -316,46 +380,61 @@ module and Synchro's standalone K1DC.
 | check | result |
 | --- | --- |
 | `tools/kpm_relocations.py` | 46 fields, both methods agree, 443 instructions proved after a move; dropping any entry fails |
-| `tools/build_kpatch.py --check` | the four patches pass KPM 0.7.1's rules; the earlier planted faults each caught, and four more for the split -- two patches on one address, a module in the marker patch, detours without a module, a leftover `kmrp-no-controller` |
-| `tools/check_kpm_overlaps.py` | no overlap with any K1 patch KPM 0.7.1 ships, with the footprint taken from the four patches (still 115 spans, 754 bytes); known positives found |
-| `Test-KpmEdition.ps1` (98 checks) | at 1920x1080, 3440x1440, 1024x768, the KPM install made with the standalone's marker setting off: the executable stays byte-for-byte unmodified; **the data file makes exactly the standalone's executable** with all four patches, every byte of every original section and of the eleven sections (`tools/kpm_data.py --equals`); **without Map Notes, exactly the standalone's with its marker fixes off**; without Movies, the same less exactly the movie sites; the Movies runs lie within the four operands and the aspect-fit entry and cover them all (5 runs), and Map Notes is exactly the `.kmn` flag; reinstall at another resolution; restore; a standalone-patched game refused and left alone |
-| In game, all four patches | KPM 0.7.1's own launcher, `KPatchLauncher.exe <exe> --patches <dir> kmrp kmrp-controller kmrp-movies kmrp-map-notes` and the four required, in a scratch copy at 1920x1080: KPM installed the manifest-only Map Notes and listed it in `patch_config.toml`; `kmrp-kpm.log`: `applied: KMRP + Movies + Map Notes -- 91 of 91 runs (577 bytes) and KMRP's code at 01600000 (moved by +14233600), 46 relocations.`; **`tools/kpm_data.py --memory`: every run and every block byte exactly** (the only exemption is `.kfs`'s own cache, which the game writes); all 37 hook sites hooked. Main menu with the A prompt; the D-pad moves focus; a movie plays at 1920x1080, fitted, and the pad's A skips it -- the core's two frames handing over to KMRP Controller's |
-| In game, KMRP and KMRP Controller | `applied: KMRP -- 86 of 91 runs (564 bytes)`, code at `0x01D90000`: memory exact with the five movie runs **left as the game's own** and the map-note flag clear; 35 sites hooked, the movie window's two untouched; the pad works; the Republic Commando teaser **switches the display to 640x480** as the unmodified game does, and the pad's skip returns to the list at 1920x1080 |
-| In game, KMRP, Movies and Map Notes, no controller | 91 of 91 runs, code at `0x010F0000`: memory exact; 9 sites hooked (KMRP's four and KPM's five); no prompts, the D-pad inert; the teaser, started with the mouse, plays at 1920x1080 fitted -- the core's own copy painting |
+| `tools/build_kpatch.py --check` | the four patches pass KPM 0.7.1's rules; eleven planted faults each caught (section 5) |
+| `tools/check_kpm_overlaps.py` | 121 spans, 795 bytes: exactly the four declared overlaps with KPM's 4GB and memory-safety patches, no undeclared one; dropping a declared conflict fails |
+| `tools/kpm_originals.py` | run by every build: the carried bytes cover every changed byte, every relocated field and all 52 resolution fields; a dropped range fails. The data file built from them at 1920x1080 is byte for byte the file-reading installer's (`28DAA6A9…`) |
+| `Test-KpmEdition.ps1` (107 checks, final build `603DC45D…`) | at 1920x1080, 3440x1440, 1024x768, the KPM install made with the standalone's marker setting off: the executable stays byte-for-byte unmodified; **the data file makes exactly the standalone's executable** with all four patches, every byte of every original section and of the eleven sections (`tools/kpm_data.py --equals`); **without Map Notes, exactly the standalone's with its marker fixes off**; without Movies, the same less exactly the movie sites; the Movies runs lie within the four operands and the aspect-fit entry and cover them all (5 runs), and Map Notes is exactly the `.kmn` flag; reinstall at another resolution; restore; a standalone-patched game refused and left alone. **Steam's executable**: installed over and left unmodified, the data file byte for byte the editable executable's at the same resolution, restored; the standalone refuses it |
+| In game, final build, the editable executable | `KPatchLauncher.exe <exe> --patches <dir> kmrp kmrp-controller kmrp-movies kmrp-map-notes` -- no KPM patch ticked -- in a scratch copy at 1920x1080: 91 of 91 runs, KMRP's code at `0x00F40000`, memory exact, **all 37 sites hooked** (the five memory-safety sites by KMRP's own copies), and **the large-address flag set by KMRP's static hook**: the file became `CA9D22EA…` (CD 1.03 with only that bit) and the running game's header reads `0x012F`. The applier logged 293 ms after start, before the window, 3 other threads paused. Main menu with the A prompt |
+| In game, Steam's executable, trial build | a clean Steam install lent by the maintainer, 1920x1080, KPM's proxy deployment, the game started by Steam: 91 of 91 runs at `0x02CD0000`, memory exact, 37 sites hooked; applied 457 ms after start, after the window, 8 other threads paused. Main menu, character creation (class selection, Quick or Custom), Options and a movie compared with the editable executable's captures: Options pixel-identical, the rest differing only in the randomly chosen character models and animation frames; the movie played at 1920x1080 with no mode switch. The trial had the final module (`4B1131DA…`) and the same data file (`28DAA6A9…`); only its KMRP patch differed, requiring KPM's Save Game Memory Leak instead of carrying that hook |
+| In game, Steam's executable, final build | 2026-09-29, the same install: the final installer installed over it (executable untouched, data file `28DAA6A9…`, 1,846 Override files), KPM applied the four KMRP patches through its proxy, and Steam started the game: `applied: KMRP + Movies + Map Notes -- 91 of 91 runs (577 bytes) and KMRP's code at 001D0000 (moved by -6934528)` -- the first run with the block placed *below* the image, and **`tools/kpm_data.py --memory` exact** there too -- 501 ms after start, before the window, 6 other threads paused; all 37 sites hooked. The same screen sequence as the trial, driven by the virtual pad: Options pixel-identical to the editable executable's capture, the others differing only in the random character models (checked by eye on the largest, Quick or Custom, 2.2%), the movie at 1920x1080 with no mode switch. A first attempt the evening before was not started: Steam reported the account already playing KOTOR on another computer (the maintainer's macOS session). After each run the install was restored and checked against its backups |
+| Steam's executable, measured | decrypted in memory, `.text` byte for byte the editable executable's, all 115 KMRP spans and the five memory-safety sites identical; `.rdata` differs only in the import table and in the letter case of eight DLL names. Writing the large-address flag into the file at its own offset made Steam refuse to start it ("Application load error 3:0000065432") |
+| In game, the four-patch build before it was self-contained (`125DEA64…`), all four patches | KPM 0.7.1's own launcher, `KPatchLauncher.exe <exe> --patches <dir> kmrp kmrp-controller kmrp-movies kmrp-map-notes` and the four required, in a scratch copy at 1920x1080: KPM installed the manifest-only Map Notes and listed it in `patch_config.toml`; `kmrp-kpm.log`: `applied: KMRP + Movies + Map Notes -- 91 of 91 runs (577 bytes) and KMRP's code at 01600000 (moved by +14233600), 46 relocations.`; **`tools/kpm_data.py --memory`: every run and every block byte exactly** (the only exemption is `.kfs`'s own cache, which the game writes); all 37 hook sites hooked. Main menu with the A prompt; the D-pad moves focus; a movie plays at 1920x1080, fitted, and the pad's A skips it -- the core's two frames handing over to KMRP Controller's |
+| In game, `125DEA64…`, KMRP and KMRP Controller | `applied: KMRP -- 86 of 91 runs (564 bytes)`, code at `0x01D90000`: memory exact with the five movie runs **left as the game's own** and the map-note flag clear; 35 sites hooked, the movie window's two untouched; the pad works; the Republic Commando teaser **switches the display to 640x480** as the unmodified game does, and the pad's skip returns to the list at 1920x1080 |
+| In game, `125DEA64…`, KMRP, Movies and Map Notes, no controller | 91 of 91 runs, code at `0x010F0000`: memory exact; 9 sites hooked (KMRP's four and KPM's five); no prompts, the D-pad inert; the teaser, started with the mouse, plays at 1920x1080 fitted -- the core's own copy painting |
 | The first, two-variant design | earlier the same day: memory exact at `0x01560000` and `0x01110000`, 37 and 9 sites hooked; the main menu, HUD, Map and Inventory matched the standalone's captures at 1920x1080 |
-| The standalone, with the new module | `Test-ControllerSupport.ps1` (143), `Test-ReinstallOverOlderBuild.ps1` (12), `Test-MovieResolution.ps1` (36) pass; with the first design's module also `Test-InstalledOverride.ps1` (28), and in game 37 hooks and no `kmrp-kpm.log`: the applier stood aside |
+| The standalone, final build `603DC45D…` | `Test-ControllerSupport.ps1` (143), `Test-ReinstallOverOlderBuild.ps1` (12), `Test-MovieResolution.ps1` (36), `Test-LargeAddressAware.ps1` (15), `Test-InstalledOverride.ps1` (28) pass; with the first design's module, in game, 37 hooks and no `kmrp-kpm.log`: the applier stood aside |
 
 **Not verified:** KPM's graphical launcher (its command line runs the same
-`InstallPatches` and `Launch`, read in `Program.cs`); the `binkw32.dll` proxy
-deployment; any executable but the CD 1.03 build; any resolution in game but
-1920x1080; the map notes on an area map in game (their flag is checked in memory
-both ways); KMRP alone without any add-on in game (its bytes are the second row's);
-play by hand.
+`InstallPatches` and `Launch`, read in `Program.cs`); gameplay on Steam's
+executable (only menus and character creation were opened); GOG's own
+executable; any resolution in game but 1920x1080; the map notes on an area map in
+game (their flag is checked in memory both ways); KMRP alone without any add-on in
+game (its bytes are the `125DEA64…` KMRP-and-Controller row's); play by hand.
 
 ## 8. Limits
 
-- **CD 1.03 only**, the same executable the standalone needs. GOG's `9C10E045…`
-  shares KPM's address tables for many patches, but KMRP's 754 bytes have not been
-  compared with it; the applier would refuse a mismatch rather than half-apply.
-- **Steam's own executable is not supported as built.** KPM knows it as
-  `kotor1_steam_103`, `34E6D971…`, SteamStub-wrapped: its code is encrypted on
-  disk, so KPM's runtime finds every hook site unreadable at load and hands the
-  apply to a worker thread that polls every 15 ms, for up to 30 s, until the stub
-  has decrypted the code -- while the game's main thread is already running (read
-  in KPM 0.7.1's `patcher.cpp`, `DeferredApply`). KMRP's module would load then,
-  late, and some of its changes are read once at start-up; which ones would be
-  missed has not been measured. Of the four patches KMRP requires, 4GB Patch and
-  Save Game Memory Leak list the Steam executable in 0.7.1 (22 of its 38 K1
-  patches do), but Texture Bucket Safety and Grass Memory Safety do not, so KMRP
-  as built could not be installed on it. (KPM's `main` after 0.7.1, commit
-  `7d53e52`, lists a different Steam hash for 4GB Patch, `C25E2D9C…`; the clone in
-  `build/research/Kotor-Patch-Manager` is at that commit, so read release facts
-  from the 0.7.1 zip.) Supporting it would take a Steam executable to compare
-  against, that timing measured, and KMRP carrying its own copies of those two
-  memory-safety hooks there. A Steam install
-  given the 1.03 executable (`761F9466…`) is simply the CD case: the maintainer's
-  own Steam copy's original, backed up by an earlier KMRP on 2026-09-05, is that
-  file.
+- **CD 1.03 and Steam only.** GOG's `9C10E045…` shares KPM's address tables for
+  many patches, but KMRP's 754 bytes have not been compared with it; the applier
+  would refuse a mismatch rather than half-apply.
+- **Steam needs KPM's proxy deployment.** Steam's executable hands its own start
+  to Steam and exits after about half a second, so a patcher KPM injects into the
+  process it started never reaches the game Steam starts. KPM 0.7.1 on Windows
+  injects unless the player switches to the proxy (`DeploymentPolicy.cs`); the
+  README and the installer say so.
+- **No large-address flag on Steam.** SteamStub refuses to start an executable
+  changed on disk -- "Application load error 3:0000065432", seen 2026-09-28 with
+  only the flag set, at the right offset -- and the flag must be in the file when
+  the process is created. KMRP has not been seen to need more than 2 GB
+  ([large-address-aware.md](../reverse-engineering/large-address-aware.md) calls
+  the flag a margin and memory-heavy play an empirical question); on Steam that
+  margin is absent.
+- **On Steam, KMRP applies after the game has started** (section 4). Every screen
+  checked was built after it applied; a change the game reads in its first ~450 ms
+  would be missed, and none has been found. Gameplay on Steam has not been played:
+  the test install's Steam Cloud save was left alone.
+- **No 4 GB patcher can work on Steam's executable, KPM's or KMRP's.** The flag
+  is read by Windows from the file's header when the process is created and fixes
+  the address space then; nothing running inside the game can set it later. So it
+  has to be written into the file, and SteamStub refuses to start a changed file
+  (measured, above). KPM's own 4GB Patch lists Steam's executable anyway: in 0.7.1,
+  and in KPM's `master` as fetched on 2026-09-29, its K1 hooks file targets
+  `34E6D971…` with the editable executable's offset, `0x00400926`, where Steam's
+  file holds `00 00` ("Byte mismatch", measured), so KPM refuses it; at the right
+  offset the DRM would refuse the file instead. (The older development commit
+  `7d53e52` in `build/research/Kotor-Patch-Manager` briefly listed a different
+  Steam hash, `C25E2D9C…`, that nothing else in KPM knows; read release facts from
+  the 0.7.1 zip.) Stripping SteamStub first, as Steamless does, would make it
+  possible, and is kept out of KMRP (section 9). Not reported upstream.
 - **The executable changes are invisible to KPM's conflict checks**, which see
   only hook tables: KMRP names its conflicts itself, from measurement. KPM would
   still refuse a patch whose own bytes KMRP changed (its runtime checks every hook's
@@ -386,11 +465,26 @@ play by hand.
   the block's address, which only the core's copy knows, and all or nothing across
   three modules has no single place to roll back from. The core reads which patches
   KPM installed instead.
+- **Requiring KPM's memory and 4GB patches** -- the four-patch design's first
+  version. Rejected once Steam was supported: two of them list no Steam executable,
+  the 4GB Patch cannot work on it, and KPM's `requires` cannot differ by game
+  version. A requirement list per executable was the maintainer's suggestion; KPM
+  0.7.1 has no such thing.
+- **A separate "KMRP (Steam)" patch.** It would have kept the requirements on CD
+  1.03, but doubled the core patch and made players pick by executable. Carrying the
+  fixes needs neither.
+- **Reading the unmodified bytes from the player's file.** What the installer did
+  until Steam support; Steam's file is encrypted, so the installer carries them.
+- **Stripping SteamStub** (what Steamless does) so the standalone could patch Steam's
+  executable. That is circumventing DRM, and kept out of KMRP.
 
 ## 10. Verifying by hand
 
 ```powershell
 python tools\kpm_relocations.py                       # the table, both methods, the proof
+python tools\kpm_originals.py --clean build-inputs\swkotornopatch.exe --delta build\kmrp\gold.kup `
+    --relocations build\kmrp\kpm-relocations.txt --sites build\kmrp\kpm-resolution-sites.txt `
+    --out build\kmrp\kpm-originals.bin                 # the carried bytes, and their proof
 python tools\build_kpatch.py --check "dist\KMRP for KPM"
 python tools\check_kpm_overlaps.py <folder of .kpatch files>
 .\testing\regression\Test-KpmEdition.ps1               # the editions agree, per resolution

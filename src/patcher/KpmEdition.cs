@@ -19,14 +19,16 @@ namespace Kmrp
     /// which this writes -- the Movies and Map Notes parts only when those patches
     /// are ticked in KOTOR Patch Manager.
     ///
-    /// The data file is derived, not restated: the final image is built exactly as the
+    /// The data file is derived, not restated: the final image is built as the
     /// standalone installer builds it -- the unmodified executable, the embedded gold
     /// delta, ResolutionPatch for the chosen resolution, the map-note flag on
-    /// (GoldPatch.Apply) -- and the file records only how that differs from the
-    /// unmodified executable, plus the eleven appended sections and the relocation
-    /// table tools/kpm_relocations.py computed from gold, each change tagged with the
-    /// patch it belongs to. So with all four patches the two editions run the same
-    /// bytes and cannot drift apart.
+    /// (GoldPatch.ApplyToOriginals) -- from the unmodified executable's bytes this
+    /// installer carries rather than the player's file, so that Steam's swkotor.exe,
+    /// encrypted on disk, is served the same way as CD 1.03. The file records only
+    /// how that differs from the unmodified executable, plus the eleven appended
+    /// sections and the relocation table tools/kpm_relocations.py computed from gold,
+    /// each change tagged with the patch it belongs to. So with all four patches the
+    /// two editions run the same bytes and cannot drift apart.
     ///
     /// Everything else is the standalone installer's own code: Override files,
     /// swkotor.ini, DPI and NVIDIA settings. Not installed here: the executable patch,
@@ -37,6 +39,12 @@ namespace Kmrp
         internal const string DataName = "kmrp-kpm.dat";
         internal const string ManifestName = "KMRP_KPM.manifest";
         private const string RelocationResource = "Kmrp.kpm.relocations";
+        // CD 1.03's bytes under gold's chunks, at the relocated fields and under every
+        // field ResolutionPatch handles (tools/kpm_originals.py): what the data file is
+        // built from, for CD 1.03 and Steam's swkotor.exe alike, since Steam's is
+        // encrypted on disk.
+        private const string OriginalsResource = "Kmrp.kpm.originals";
+        private const long SteamLength = 4395008;
         private const uint BlockVa = 0x0086D000;
         private const int BlockSize = 0xB000;
         private const int BlockSections = 11;
@@ -85,14 +93,37 @@ namespace Kmrp
             catch { return false; }
         }
 
+        /// <summary>Steam's swkotor.exe, which only this edition supports.</summary>
+        internal static bool IsSteam(string targetPath)
+        {
+            try
+            {
+                return File.Exists(targetPath) && new FileInfo(targetPath).Length == SteamLength &&
+                    GoldPatch.HashFile(targetPath) == GoldPatch.SteamHash;
+            }
+            catch
+            {
+                return false;
+            }
+        }
+
+        /// <summary>The executable as this edition sees it: CD 1.03 as the standalone
+        /// accepts it, or Steam's.</summary>
+        private static ExecutableState InspectSource(string targetPath)
+        {
+            ExecutableState standalone = PatchOperations.InspectStandalone(targetPath);
+            return standalone == ExecutableState.Unsupported && IsSteam(targetPath)
+                ? ExecutableState.SupportedClean : standalone;
+        }
+
         /// <summary>Gold here means "KMRP for KPM is installed": the executable is the
         /// unmodified one either way. An executable the standalone installer patched is
         /// Unsupported, and Describe says why.</summary>
         internal static ExecutableState Inspect(string targetPath)
         {
-            ExecutableState standalone = PatchOperations.InspectStandalone(targetPath);
-            if (standalone != ExecutableState.SupportedClean)
-                return standalone == ExecutableState.Gold ? ExecutableState.Unsupported : standalone;
+            ExecutableState source = InspectSource(targetPath);
+            if (source != ExecutableState.SupportedClean)
+                return source == ExecutableState.Gold ? ExecutableState.Unsupported : source;
             return IsInstalled(targetPath) ? ExecutableState.Gold : ExecutableState.SupportedClean;
         }
 
@@ -103,13 +134,14 @@ namespace Kmrp
                     "standalone installer first; the KPM edition needs the unmodified swkotor.exe.";
             if (IsInstalled(targetPath))
                 return "KMRP for KPM is installed.";
+            if (IsSteam(targetPath))
+                return "Steam's swkotor.exe — ready to install.";
             return PatchOperations.DescribeStandalone(targetPath);
         }
 
         internal static bool CanRestore(string targetPath)
         {
-            return IsInstalled(targetPath) &&
-                PatchOperations.InspectStandalone(targetPath) == ExecutableState.SupportedClean;
+            return IsInstalled(targetPath) && InspectSource(targetPath) == ExecutableState.SupportedClean;
         }
 
         internal static bool TryReadInstalledResolution(string targetPath, out int width, out int height)
@@ -144,7 +176,8 @@ namespace Kmrp
             SafeProgress(progress, 5, "Checking game files…");
             if (PatchOperations.InspectStandalone(targetPath) == ExecutableState.Gold)
                 throw new InvalidOperationException(Describe(targetPath));
-            if (!GoldPatch.IsSupportedSourceFile(targetPath))
+            bool steam = IsSteam(targetPath);
+            if (!steam && !GoldPatch.IsSupportedSourceFile(targetPath))
                 throw new InvalidDataException("This swkotor.exe is not supported. No changes were made.");
             if (!File.Exists(IniOperations.PathForExecutable(targetPath)))
                 throw new FileNotFoundException(
@@ -156,14 +189,13 @@ namespace Kmrp
                 Restore(targetPath, report, null);
             }
 
-            // The final image, built as the standalone installer builds it. Nothing of it
-            // is written to swkotor.exe.
+            // The final image, built as the standalone installer builds it, from the
+            // unmodified executable's bytes this installer carries -- the same for CD
+            // 1.03 and Steam, whose code is encrypted on disk. Nothing of it is written
+            // to swkotor.exe.
             SafeProgress(progress, 10, "Building KMRP's game changes…");
-            byte[] source = File.ReadAllBytes(targetPath);
-            byte[] clean;
-            if (!PeCompatibility.TryNormalizeSupportedSource(source, out clean))
-                throw new InvalidDataException("This swkotor.exe is not supported. No changes were made.");
-            byte[] final = GoldPatch.Load().Apply(source, resolution, true);
+            byte[] clean = OriginalsImage();
+            byte[] final = GoldPatch.Load().ApplyToOriginals(clean, resolution, true);
             byte[] data = BuildData(clean, final);
 
             string folder = FolderOf(targetPath);
@@ -209,10 +241,13 @@ namespace Kmrp
             SafeReport(report, "KMRP for KPM is installed for " +
                 width.ToString(CultureInfo.InvariantCulture) + " × " +
                 height.ToString(CultureInfo.InvariantCulture) + ". swkotor.exe was not modified.");
-            SafeReport(report, "Now open KOTOR Patch Manager and tick KMRP with 4GB Patch, " +
-                "Texture Bucket Safety, Grass Memory Safety and Save Game Memory Leak, plus " +
-                "whichever of KMRP Controller, KMRP Movies and KMRP Map Notes you want. " +
-                "Press Apply, and start the game with Launch.");
+            SafeReport(report, "Now open KOTOR Patch Manager and tick KMRP, plus whichever of " +
+                "KMRP Controller, KMRP Movies and KMRP Map Notes you want. KMRP includes the " +
+                "4 GB, texture, grass and save-game memory fixes, so leave KPM's own ones " +
+                "unticked. Press Apply, and start the game with Launch.");
+            if (steam)
+                SafeReport(report, "Steam: in KOTOR Patch Manager choose the proxy deployment, " +
+                    "and start the game from Steam. Steam's swkotor.exe cannot take the 4 GB flag.");
         }
 
         internal static void Restore(string targetPath, Action<string> report, Action<int, string> progress)
@@ -472,6 +507,82 @@ namespace Kmrp
             if (!goldMatches)
                 throw new InvalidDataException("The embedded relocation table was computed from a different gold build.");
             return relocations;
+        }
+
+        /// <summary>Build-time: every field ResolutionPatch reads or writes, at all 49
+        /// resolutions, as "FILE offset size" lines, for tools/kpm_originals.py. The
+        /// installer needs the unmodified executable's bytes under each whole field --
+        /// gold changed only some bytes of some fields, and none of a few (the powers
+        /// row height stays vanilla's 40 in gold) -- and this list is ResolutionPatch's
+        /// own, so it cannot drift from the fields it writes.</summary>
+        internal static void WriteResolutionSites(string cleanExe, string outPath)
+        {
+            byte[] source = File.ReadAllBytes(cleanExe);
+            GoldPatch gold = GoldPatch.Load();
+            SortedDictionary<long, int> sites = new SortedDictionary<long, int>();
+            ResolutionPatch.Touched = new List<long[]>();
+            try
+            {
+                foreach (ResolutionChoice resolution in ResolutionCatalog.Load())
+                    gold.Apply(source, resolution, true);
+                foreach (long[] touched in ResolutionPatch.Touched)
+                {
+                    int size;
+                    if (!sites.TryGetValue(touched[0], out size) || size < touched[1])
+                        sites[touched[0]] = (int)touched[1];
+                }
+            }
+            finally
+            {
+                ResolutionPatch.Touched = null;
+            }
+            StringBuilder text = new StringBuilder("# ResolutionPatch's fields, FILE offset and size, from all 49 resolutions\r\n");
+            foreach (KeyValuePair<long, int> site in sites)
+                text.Append(site.Key.ToString("X", CultureInfo.InvariantCulture)).Append(' ')
+                    .Append(site.Value.ToString(CultureInfo.InvariantCulture)).Append("\r\n");
+            File.WriteAllText(outPath, text.ToString(), new UTF8Encoding(false));
+        }
+
+        /// <summary>A picture of CD 1.03 as long as the file: its bytes where
+        /// tools/kpm_originals.py carried them (the header, under gold's chunks, the
+        /// relocated fields), zero elsewhere. Enough for BuildData, which records only
+        /// where gold differs from the unmodified executable.</summary>
+        internal static byte[] OriginalsImage()
+        {
+            byte[] resource = ReadResource(OriginalsResource);
+            if (resource.Length < 48 || Encoding.ASCII.GetString(resource, 0, 8) != "KMRPORG1")
+                throw new InvalidDataException("The embedded unmodified-executable bytes are damaged.");
+            uint hash = 2166136261u;
+            for (int i = 0; i < resource.Length - 4; i++)
+            {
+                hash ^= resource[i];
+                hash *= 16777619u;
+            }
+            if (hash != BitConverter.ToUInt32(resource, resource.Length - 4))
+                throw new InvalidDataException("The embedded unmodified-executable bytes are damaged (checksum).");
+            StringBuilder source = new StringBuilder();
+            for (int i = 8; i < 40; i++)
+                source.Append(resource[i].ToString("X2", CultureInfo.InvariantCulture));
+            if (source.ToString() != GoldPatch.SourceHash)
+                throw new InvalidDataException("The embedded unmodified-executable bytes are from a different executable.");
+
+            byte[] image = new byte[GoldPatch.SourceLength];
+            int count = BitConverter.ToInt32(resource, 40);
+            int at = 44;
+            for (int i = 0; i < count; i++)
+            {
+                int offset = BitConverter.ToInt32(resource, at);
+                int length = BitConverter.ToInt32(resource, at + 4);
+                at += 8;
+                if (offset < 0 || length <= 0 || offset + (long)length > image.Length ||
+                    at + (long)length > resource.Length - 4)
+                    throw new InvalidDataException("The embedded unmodified-executable bytes are damaged (range).");
+                Buffer.BlockCopy(resource, at, image, offset, length);
+                at += length;
+            }
+            if (at != resource.Length - 4)
+                throw new InvalidDataException("The embedded unmodified-executable bytes are damaged (length).");
+            return image;
         }
 
         private static byte[] ReadResource(string name)

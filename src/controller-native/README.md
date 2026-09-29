@@ -54,7 +54,11 @@ in `125DEA64…` and the four KPM edition patches, 241,664 bytes, SHA-256
 `0C89C330245F752A303A22D5B731C2E16D19D4731078413B195F01C71972E955`, where the
 applier reads which KMRP patches KPM installed and applies the Movies and Map
 Notes parts only when ticked, and `CoreGuiFrameK1` and `CoreMovieFrameK1` hand
-their site to KMRP Controller's frames when that patch is loaded
+their site to KMRP Controller's frames when that patch is loaded; in `603DC45D…`
+and its KPM patches, 245,248 bytes, SHA-256
+`4B1131DABC4550D5F4F18B2C52EE93291E8350C2B35FA2A5215660A0F4C13AD3`, where the
+applier also accepts Steam's executable and pauses the game's other threads while
+it writes
 -- and what
 `testing/controller/select_controller_path.py` installs into a test game. The
 reverse engineering behind the native path is in

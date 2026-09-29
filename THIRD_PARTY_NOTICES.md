@@ -152,10 +152,14 @@ the module. The phrase occurs once in `7933…`.
 Since 2026-09-28 KMRP also ships as four `.kpatch` files for KOTOR Patch Manager
 itself ([docs/kpm-edition.md](docs/kpm-edition.md)). Three carry KMRP's module
 (the same MIT-covered binary described above) and hook tables KMRP wrote; they do
-not carry KPM's runtime, which the player's own KPM supplies, and KMRP requires
-KPM's `4gb-patch`, `texture-bucket-safety`, `grass-memory-safety` and
-`save_mem_leak` rather than redistributing them. The fourth, KMRP Map Notes, is
-a manifest only. The edition's folder carries
+not carry KPM's runtime, which the player's own KPM supplies. The KMRP patch
+carries the same copies of KPM's three memory-safety fixes the standalone ships
+(next section), and on the editable 1.03 executable the one-bit large-address
+flag, so it declares
+conflicts with KPM's `4gb-patch`, `texture-bucket-safety`, `grass-memory-safety`
+and `save_mem_leak` instead of requiring them: two of those do not support
+Steam's executable, which the KPM edition does. The fourth KMRP patch, KMRP Map
+Notes, is a manifest only. The edition's folder carries
 `LICENSE-KOTOR-PATCH-MANAGER.txt` beside the `.kpatch` files. KPM's formats and
 rules were read from its source at release 0.7.1.
 

@@ -17,11 +17,13 @@ target_versions = [
 # tools/kmrp_controller.py derives both installed sets from this key, and
 # src/patcher/KmrpPatcher.cs (BuildConfig) must emit exactly those sets.
 #
-# `kpm_provided_by` names the KOTOR Patch Manager patch that already makes a
-# hook's change (KMRP adopted it from there). The KPM edition's .kpatch leaves
-# such hooks out and `requires` that patch instead -- two patches at one address
-# is an install error in KPM -- while the standalone edition keeps them
-# (tools/build_kpatch.py).
+# `kpm_provided_by` names the KOTOR Patch Manager patch that also makes a hook's
+# change (KMRP adopted it from there). Both editions carry such hooks. The KPM
+# edition's KMRP patch declares a conflict with that patch instead, since two
+# patches at one address is an install error in KPM (tools/build_kpatch.py).
+# Until later on 2026-09-28 it left these hooks out and required the KPM patches,
+# but Texture Bucket Safety and Grass Memory Safety do not support Steam's
+# swkotor.exe.
 #
 # `kpm_patch` says which of the KPM edition's patches carries a hook: by default
 # "kmrp" for `always` and `no-controller` hooks and "kmrp-controller" for

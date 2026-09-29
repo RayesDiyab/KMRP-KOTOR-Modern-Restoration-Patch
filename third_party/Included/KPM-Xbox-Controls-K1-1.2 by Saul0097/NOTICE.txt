@@ -103,6 +103,10 @@ built the same day with the KPM edition split into four patches, and inside
 three of them (KMRP, KMRP Controller, KMRP Movies) as binaries/windows_x86.dll,
 it is 241,664 bytes with SHA-256
 0C89C330245F752A303A22D5B731C2E16D19D4731078413B195F01C71972E955.
+In the installer 603DC45D80F935BA98AD4162657034CEE74FC579C3BE39F7754FCEAE46B47994,
+built the same day with the KPM edition supporting Steam's swkotor.exe, and in
+the same three KPM patches, it is 245,248 bytes with SHA-256
+4B1131DABC4550D5F4F18B2C52EE93291E8350C2B35FA2A5215660A0F4C13AD3.
 
 KMRP's changes to Saul0097's five files are recorded in
 KMRP-CONTROLLER-MODULE.diff, generated against the upstream commit above.

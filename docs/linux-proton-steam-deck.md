@@ -36,6 +36,17 @@ location is `steamapps/common/swkotor/swkotor.exe`; the library root varies.
 Choose the display's native resolution (Steam Deck LCD/OLED handheld mode is
 normally 1280×800), apply, then launch KOTOR normally through Steam.
 
+**First put the editable executable there.** The standalone installer accepts only
+the editable 1.03 `swkotor.exe` (`761F9466…`, see [README](../README.md#install)),
+and refuses Steam's own (`34E6D971…`): Steam's DRM will not start that file once
+it is changed. So replace Steam's `swkotor.exe` with the editable one before
+patching (the installer's *Get Editable EXE* button links it), and note that
+Steam's *Verify integrity of game files* puts Steam's back. *Added 2026-09-29:*
+this procedure said to select Steam's `swkotor.exe` without saying it has to be
+the editable one; Steam's executable was measured on Windows that day. The KPM
+edition, which does support Steam's executable
+([kpm-edition.md](kpm-edition.md)), has not been tried under Proton.
+
 Use the same command to open KMRP and choose **Restore Original**. A reinstall
 test is: apply, launch, restore, compare the restored hashes, then apply again.
 Do not delete the Proton prefix as a substitute for KMRP restore; the prefix does

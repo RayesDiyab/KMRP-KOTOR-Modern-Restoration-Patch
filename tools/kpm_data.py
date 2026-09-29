@@ -16,8 +16,9 @@ bytes:
                             patches that is no exception at all; without Map
                             Notes it is the standalone with the marker fixes
                             off. The one thing the two editions may differ in is
-                            the PE header, which the KPM edition never writes
-                            (KPM's 4gb-patch sets its large-address flag).
+                            the PE header, which the KPM edition's module never
+                            writes (on CD 1.03 KPM sets the large-address flag
+                            from the KMRP patch's static hook).
   --memory                  compare against the RUNNING game instead: find where
                             the module put the block, and require every applied
                             run and every block byte to be exactly the data

@@ -66,8 +66,11 @@ yet been run end-to-end on this workstation.
 ## KotOR Patch Manager
 
 *Since 2026-09-28* there is a KMRP edition for KPM itself, which never modifies
-the executable and so passes KPM's hash gate: see
-[kpm-edition.md](kpm-edition.md). What follows describes the standalone edition.
+the executable and so passes KPM's hash gate, and which also supports Steam's own
+`swkotor.exe` (seen in game on 2026-09-29): see [kpm-edition.md](kpm-edition.md).
+It carries the 4 GB and memory fixes itself, so KPM's own 4GB Patch, Texture
+Bucket Safety, Grass Memory Safety and Save Game Memory Leak stay unticked beside
+it. What follows describes the standalone edition.
 
 KotOR Patch Manager normally injects dynamic hooks without rewriting the
 executable, but patch manifests declare `supported_versions` by executable hash.
