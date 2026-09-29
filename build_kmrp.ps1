@@ -339,6 +339,7 @@ $compilerArgs += "/resource:$kpmRelocations,Kmrp.kpm.relocations"
 
 $compilerArgs += (Join-Path $projectRoot "src\patcher\KmrpPatcher.cs")
 $compilerArgs += (Join-Path $projectRoot "src\patcher\AbilityIconGenerator.cs")
+$compilerArgs += (Join-Path $projectRoot "src\patcher\GameArtGenerator.cs")
 $compilerArgs += (Join-Path $projectRoot "src\patcher\ControllerPromptGenerator.cs")
 $compilerArgs += (Join-Path $projectRoot "src\patcher\AssemblyInfo.cs")
 $compilerArgs += (Join-Path $projectRoot "src\patcher\KpmEdition.cs")
@@ -398,6 +399,7 @@ Invoke-Tool -Exe $compiler -Label "compile" -FailureMessage "Compiling the resol
     "/resource:$(Join-Path $resourceDir 'resolutions.tsv'),Kmrp.resolutions",
     (Join-Path $projectRoot "src\patcher\KmrpPatcher.cs"),
     (Join-Path $projectRoot "src\patcher\AbilityIconGenerator.cs"),
+    (Join-Path $projectRoot "src\patcher\GameArtGenerator.cs"),
     (Join-Path $projectRoot "src\patcher\ControllerPromptGenerator.cs"),
     (Join-Path $projectRoot "src\patcher\AssemblyInfo.cs"),
     (Join-Path $projectRoot "src\patcher\KpmEdition.cs"))

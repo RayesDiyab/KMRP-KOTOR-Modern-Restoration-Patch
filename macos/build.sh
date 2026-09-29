@@ -38,8 +38,10 @@ while (( $# )); do
     shift
 done
 WIDESCREEN=${WIDESCREEN:-"$KPM/Patches/K1WidescreenPatch"}
+[[ "$PYTHON" == */* ]] && PYTHON=${PYTHON:a}   # a path, made absolute (not resolved: a venv's python is a link) for steps run elsewhere
 [[ -f "$KPM/src/KotorPatcher/Makefile" ]] || { print -u2 "no KotOR Patch Manager at $KPM: run git submodule update --init, or pass --kpm"; exit 2; }
-[[ -n "$WIDESCREEN" && -x "$WIDESCREEN/build_mac.sh" ]] || { print -u2 "--widescreen must point at Patches/K1WidescreenPatch (with build_mac.sh)"; exit 2; }
+[[ -f "$WIDESCREEN/manifest.toml" ]] || { print -u2 "--widescreen must point at Patches/K1WidescreenPatch"; exit 2; }
+[[ -f "$KPM/Patches/create-patch.py" ]] || { print -u2 "no Patches/create-patch.py in $KPM"; exit 2; }
 
 EXE=${CLEAN_EXE:-"$GAME/Contents/MacOS/KOTOR_Exe"}
 ERF="$GAME/Contents/Assets/TexturePacks/swpc_tex_gui.erf"
@@ -62,7 +64,11 @@ make -C "$KPM/src/KotorPatcher" dylib CXX_MAC=clang++ >/dev/null
 cp "$KPM/src/KotorPatcher/build/KotorPatcher.dylib" "$BUILD/"
 
 step "Widescreen patch (with the KMRP engine fixes and UseGuiFileLayouts), the base KMRP runs on"
-"$WIDESCREEN/build_mac.sh" "$BUILD/widescreen" >/dev/null
+# Built as KotOR Patch Manager builds every patch, with its Patches/create-patch.py run from the
+# patch's folder. Until 2026-09-29 the patch carried its own build_mac.sh, with slightly
+# different compiler flags and an ad-hoc signature (FTD516/Kotor-Patch-Manager#2 removed it).
+rm -rf "$BUILD/widescreen"
+(cd "$WIDESCREEN" && "$PYTHON" "$KPM/Patches/create-patch.py" -o "$BUILD/widescreen" >/dev/null)
 cp "$BUILD/widescreen/K1WidescreenPatch.kpatch" "$BUILD/kpatch/"
 
 step "Map-note corrections patch"
@@ -111,8 +117,8 @@ clang -O2 -Wall -Wextra -arch x86_64 -arch arm64 -mmacosx-version-min=10.13 \
     -o "$PKG/bin/kmrp-macho" "$HERE/tools/kmrp-macho.c"
 codesign --force --sign - "$PKG/bin/kmrp-macho" 2>/dev/null
 
-step "kmrp-guiblend and kmrp-abilityicons (the installer's helpers)"
-for helper in kmrp-guiblend kmrp-abilityicons; do
+step "kmrp-guiblend, kmrp-abilityicons and kmrp-gameart (the installer's helpers)"
+for helper in kmrp-guiblend kmrp-abilityicons kmrp-gameart; do
     clang -O2 -Wall -Wextra -arch x86_64 -arch arm64 -mmacosx-version-min=10.13 \
         -o "$PKG/bin/$helper" "$HERE/tools/$helper.c"
     codesign --force --sign - "$PKG/bin/$helper" 2>/dev/null
@@ -145,8 +151,8 @@ fi
 
 step "Artwork (override-common.zip, less what macOS does not use)"
 # Left out, each for a stated reason (macos/README.md, "What is not installed"):
-#   kmr*           KMRP's controller prompt and layout art; the Aspyr port has its own
-#                  controller support and KMRP's controller layer is Windows-only
+#   kmr*           KMRP's controller prompt and layout art, for the controller layer, which
+#                  has no Mac port yet (KOTOR I on the Mac has no working controller support)
 #   the 18 fonts   every resolution's set in layouts.zip carries them at its own size
 FONT_NAMES=(dialogfont10x10 dialogfont10x10a dialogfont10x10b dialogfont12x16 dialogfont16x16
             dialogfont16x16a dialogfont16x16b dialogfont32x32 fnt_console fnt_credits fnt_creditsa

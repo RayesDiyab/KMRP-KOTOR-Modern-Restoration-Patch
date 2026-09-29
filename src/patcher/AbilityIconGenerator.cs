@@ -167,7 +167,9 @@ namespace Kmrp
             }
         }
 
-        private static IEnumerable<KeyValuePair<string, int[]>> EnumerateTpcEntries(byte[] pack)
+        /// <summary>Every TPC in the pack: lower-case resref -> {offset, size}, in
+        /// the pack's own order. Shared with GameArtGenerator.</summary>
+        internal static IEnumerable<KeyValuePair<string, int[]>> EnumerateTpcEntries(byte[] pack)
         {
             if (pack.Length < 0x20 ||
                 Encoding.ASCII.GetString(pack, 0, 4) != "ERF ")
@@ -264,7 +266,9 @@ namespace Kmrp
             return WriteTga(canvas, target, target);
         }
 
-        private static byte[] Resize(byte[] pixels, int width, int height, int newWidth, int newHeight)
+        /// <summary>Bilinear, sampled at pixel centres; the same arithmetic as
+        /// resize_rgba in tools/scale_row_icon_frames.py. Shared with GameArtGenerator.</summary>
+        internal static byte[] Resize(byte[] pixels, int width, int height, int newWidth, int newHeight)
         {
             byte[] result = new byte[newWidth * newHeight * 4];
             double xRatio = (double)width / newWidth;
@@ -305,8 +309,9 @@ namespace Kmrp
             return result;
         }
 
-        /// <summary>Uncompressed 32-bit BGRA TGA, bottom-up, matching the game's own.</summary>
-        private static byte[] WriteTga(byte[] rgba, int width, int height)
+        /// <summary>Uncompressed 32-bit BGRA TGA, bottom-up, matching the game's own.
+        /// `rgba` is bottom-up. Shared with GameArtGenerator.</summary>
+        internal static byte[] WriteTga(byte[] rgba, int width, int height)
         {
             byte[] tga = new byte[18 + width * height * 4];
             tga[2] = 2;                                   // uncompressed true-colour

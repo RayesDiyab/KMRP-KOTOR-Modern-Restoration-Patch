@@ -371,8 +371,9 @@ before:
   measurements and what was rejected are in
   [docs/kpm-edition.md](docs/kpm-edition.md), section 1a:
   - **The runtime is built from the submodule**, `third_party/Kotor-Patch-Manager`
-    at `17fd051` -- since that evening `9884466`, FTD's `widescreen-patch`
-    with the same tree, which builds the same bytes -- by the new
+    at `17fd051` -- since that evening FTD's `widescreen-patch`, first
+    `9884466` (the same tree), then `71ac5fa` (new patches, the runtime's
+    sources unchanged), both of which build the same bytes -- by the new
     `src/kpm-runtime/build.cmd`, which
     `build_kmrp.ps1` runs: `KotorPatcher.dll` and KProxy's `binkw32.dll`,
     statically linked, since KPM's own build needs the Visual C++
@@ -983,6 +984,57 @@ before:
   still escapes to reopen it.
 
 ### Changed
+
+- **No release carries anything taken from the game any more** (2026-09-29, Windows and
+  macOS, after an audit the maintainer asked for). Three things did:
+  - the four hex frames list rows tile behind item icons (`lbl_hex`, `lbl_hex_3`,
+    `lbl_hex_6`, `lbl_hex_7`, at `56s`), exported from the build machine's texture pack into
+    every resolution's archive;
+  - the tutorial popup's thirteen `tut_*` icons (`64s`), exported the same way;
+  - `tutorial.2da`, the game's table with its `icon` column pointed at those copies, committed
+    to the repository and shipped in `override-common.zip`.
+
+  Both installers now make all eighteen at install from the player's own game:
+  `src/patcher/GameArtGenerator.cs` on Windows and `macos/tools/kmrp-gameart.c` on the Mac.
+  They read `TexturePacks/swpc_tex_gui.erf`, and `tutorial.2da` through `chitin.key` from
+  `data/2da.bif`. `Test-GameArt.py` checks them:
+  - the two are byte-identical at 48 heights, on both Mac slices;
+  - an independent Python reference agrees;
+  - every texture has the size the sets shipped (1,122 compared);
+  - `tutorial.2da` is byte-identical to the file that was committed.
+
+  One difference is deliberate. The build decoded the DXT5 sources with pykotor, which weights
+  the eight-level alpha codes by i/7 instead of (i − 1)/7. The installers use the standard
+  formulas, so at 1964 the colour is identical to what shipped and the alpha differs by up to
+  36 on soft edges.
+
+  If the texture pack or `chitin.key` cannot be read, none of the eighteen is installed and the
+  game keeps its own: its small icons then tile in the enlarged popup, and its frames tile in
+  the enlarged rows. On the Mac, a blended size now gets its icons at exactly its own `64s`
+  instead of the nearest set's. The build also now refuses to ship the game's own font art.
+  It never did, since all 18 fonts have KMRP atlases, but nothing enforced it.
+
+  The same audit compared every image in both installers with the game's texture pack; nothing
+  else is the game's art (THIRD_PARTY_NOTICES.md, *The game's own files*). The Windows side
+  compiles as C# 5 against .NET Framework 4.8, checked on the Mac, but has not been built or
+  run on Windows.
+
+  *Updated the same evening, merging it into the Windows work:* built and run on Windows.
+  The installer `4EEA6F04…` (161,432,064 bytes) carries none of the eighteen, checked in all
+  66 archives, `override-common.zip` and the layout pool. `Test-GameArt.py`'s checks, run
+  through a harness because this machine has neither clang nor the .NET 8 SDK:
+  `GameArtGenerator.cs` compiled with .NET Framework's `csc`, as the installer is, and
+  `kmrp-gameart.c` built with MSVC for x64 (`/fp:strict`) made the same bytes at all 48 set
+  heights, matched the Python reference at five, and `tutorial.2da` passed against pykotor.
+  The x86 build of the helper was not compared: Bitdefender quarantined it each time it was
+  linked, a false positive on a test build that ships in nothing. Installed in a scratch copy
+  at 3440x1440, the eighteen files were byte-identical to that output, and in game the
+  inventory drew each hex frame whole around its item. The tutorial popup's icons were not
+  seen: no tutorial comes up in the save used. All nine Windows suites passed on
+  `4EEA6F04…` with the same counts as on `D25212D7…`. The merge needed `GameArtGenerator.cs`
+  in four more compile lists -- the resolution-site lister in `build_kmrp.ps1`, where the
+  first full build stopped, the NVIDIA and update-check self-tests, and
+  `Restore-TestNvidiaProfiles.ps1`, which every suite runs.
 
 - **Turning controller support off no longer removes fixes that have nothing to
   do with controllers** (2026-09-28, at the maintainer's request). KMRP's

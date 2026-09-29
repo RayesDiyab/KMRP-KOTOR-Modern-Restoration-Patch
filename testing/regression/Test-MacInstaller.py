@@ -2,12 +2,14 @@
 """Install, check and uninstall the macOS package into a stand-in game, twice.
 
 macos/kmrp-mac.sh writes into the game bundle and into swkotor.ini under $HOME. This runs it
-against a stand-in: a bundle holding a copy of the unmodified KOTOR_Exe and a link to the
-game's texture pack, and a temporary $HOME with a swkotor.ini of its own. Nothing of the real
-game or the real ini is read or written except the texture pack (read).
+against a stand-in: a bundle holding a copy of the unmodified KOTOR_Exe and links to the
+game's texture pack, chitin.key and data/, and a temporary $HOME with a swkotor.ini of its
+own. Nothing of the real game or the real ini is read or written except those (read).
 
 1. A listed size (--size 3024x1964): the engine files, the load command, the three ini keys,
-   the size's set from layouts.zip (less kmr*), the enlarged feat, power and skill icons; status
+   the size's set from layouts.zip (less kmr*), the enlarged feat, power and skill icons, and
+   what kmrp-gameart makes from the game (the four hex frames at 56s, the thirteen tut_*
+   icons at 64s, tutorial.2da pointing at them); status
    reports nothing changed; uninstall leaves the executable, the bundle and the ini exactly as
    they were.
 2. A size the build has no set for (--size 1800x1169): the .gui files are kmrp-guiblend's
@@ -70,6 +72,9 @@ def main() -> int:
         (game / "Contents/MacOS").mkdir(parents=True)
         (game / "Contents/Assets/TexturePacks").mkdir(parents=True)
         (game / "Contents/Assets/TexturePacks/swpc_tex_gui.erf").symlink_to(erf)
+        # tutorial.2da is read through chitin.key from data/2da.bif.
+        (game / "Contents/Assets/chitin.key").symlink_to(erf.parent.parent / "chitin.key")
+        (game / "Contents/Assets/data").symlink_to(erf.parent.parent / "data")
         exe = game / "Contents/MacOS/KOTOR_Exe"
         shutil.copy2(clean_exe, exe)
         vanilla = sha(exe)
@@ -138,6 +143,24 @@ def main() -> int:
                       for p in override.iterdir() if p.name.startswith("isk_")}
             if len(skills) != 8 or set(skills.values()) != {(want, want)}:
                 failures.append(f"{size}: skill icons {sorted(set(skills.values()))} x{len(skills)}, want 8 at {want}")
+            # What kmrp-gameart makes from the game: nothing of it ships in the package.
+            scale = max(1.0, height / 720.0)
+            art = {}
+            for name, native in [(f"lbl_hex{s}.tga", 56) for s in ("", "_3", "_6", "_7")] + \
+                                [(f"tut_{n}.tga", 64) for n in ("abi3", "char3", "inv3", "map3", "msg3", "attack",
+                                                                "credits", "dside", "lside", "plotxp", "quest",
+                                                                "receive", "taken")]:
+                path = override / name
+                side = round(native * scale)
+                if not path.is_file() or struct.unpack_from("<HH", path.read_bytes(), 12) != (side, side):
+                    failures.append(f"{size}: override/{name} missing or not {side} px")
+                art[name] = path
+            table = override / "tutorial.2da"
+            if not table.is_file() or b"tut_attack" not in table.read_bytes() or b"lbl_icn_abi3" in table.read_bytes():
+                failures.append(f"{size}: tutorial.2da missing or not pointing at the tut_* icons")
+            for name in list(art) + ["tutorial.2da"]:
+                if (package / "override" / name).exists():
+                    failures.append(f"{size}: the package itself carries {name}")
             status = run("status")
             if "0 changed or missing" not in status.stdout:
                 failures.append(f"{size}: status: {status.stdout.strip()[-200:]}")
@@ -157,7 +180,8 @@ def main() -> int:
             if (home / "Library/Application Support/KMRP").exists():
                 failures.append(f"{size}: the install state was left behind")
             print(f"     {size}: {'listed set' if listed else f'blended, fonts and art from {source}'}, "
-                  f"{len(expected)} set files, {len(icons)} feat and power icons, {len(skills)} skill icons")
+                  f"{len(expected)} set files, {len(icons)} feat and power icons, {len(skills)} skill icons, "
+                  f"{len(art) + 1} made from the game")
 
     for failure in failures:
         print("  " + failure)

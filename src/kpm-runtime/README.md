@@ -43,7 +43,9 @@ x86 (Visual Studio 2022 Build Tools). `/Brepro` makes the output reproducible: t
 builds in a row gave the same bytes, and so did every `build_kmrp.ps1` run that day.
 The same evening the submodule moved to `9884466`, FTD's `widescreen-patch` branch
 with KMRP's engine fixes merged, whose tree is `17fd051`'s (`7a6f19ec…`); built
-from it, both files were byte for byte the same.
+from it, both files were byte for byte the same. Later still it moved to `71ac5fa`,
+where FTD's branch gained new patches under `Patches/` and nothing under `src/`;
+built from it, again the same bytes.
 
 | File | Bytes | SHA-256 | Imports |
 | --- | --- | --- | --- |

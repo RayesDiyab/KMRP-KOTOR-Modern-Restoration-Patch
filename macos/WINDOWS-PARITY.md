@@ -103,6 +103,7 @@ States: **done** (behaves as on Windows, checked as stated), **to port**, **n/a*
 | install `0x006AB8EF`, `0x006ACB20` | skills icon and row height `42s` | **done** (`kmrp-layout`): icon `0x10022f256`, height `0x10022f60b`, text offsets pointed at the icon register. Seen in play |
 | install `0x006CD8D9`, `0x006CDB79` | feats and powers chain rows `50s` (vanilla 40) | **done** (`kmrp-layout`): both chain-row creators (`0x10028d7bc`, `0x10028dc90`) load one rect, `{0, 0, 242, 40}` at `0x100570ef0`, read by those two only; its height `0x100570efc` is written. Seen in play |
 | `AbilityIconGenerator.cs` (install) | feat and power icons enlarged to the chain row's icon box; skill icons to a canvas of `round(32s)` (new on both platforms 2026-09-29), with the picture `round(0.62 × 42s)` inside it, moved to the frame opening's centre, so it fits the frame (both platforms, later the same day) | **done**: `macos/tools/kmrp-abilityicons.c`, byte-identical to the C# at 10 heights, run by the installer. With it the icons fill their frames at 3024x1964, as on Windows; without it they stayed 32 px in 136 px frames (seen 2026-09-29) |
+| `GameArtGenerator.cs` (install, 2026-09-29) | the hex row frames (`56s`), the tutorial popup's `tut_*` icons (`64s`) and `tutorial.2da`, made from the player's game; the build shipped them until then | **done**: `macos/tools/kmrp-gameart.c`, byte-identical to the C# at 48 heights (`Test-GameArt.py`), run by the installer |
 | `0x0041A2F2`, `0x0041B1C4` … `0x0041B553`, `.klb` | list-box geometry (horizontal-only padding) | **done** (`kmrp-layout`, `listbox_padding.cpp`): the six `PADDING` reads in `OrganizeControls` (`0x1004a82b4`). The inventory went from 6 rows with gaps to 7 without at 3024x1964 |
 | `.kgs` | the gutter follows the scrollbar, in both row builders | **done** (`listbox_padding.cpp`): both builders (`OrganizeControls`' block `0x1004a8838`, and `0x1004a936e` for content taller than the box) jump to stubs that put the left edge at `PADDING` only with `LEFTSCROLLBAR` (bit `0x10` of `[listbox+0x370]`). The skills and journal description panes lost their left gutter in play (2026-09-29) |
 | `0x0041B507`, `0x0041B52E` | list rows stop growing | **done**: K2 |
@@ -135,7 +136,8 @@ States: **done** (behaves as on Windows, checked as stated), **to port**, **n/a*
 | Windows | Why not on the Mac |
 | --- | --- |
 | PE header, Large Address Aware | the Mac build is 64-bit |
-| controller layer, DPI, NVIDIA and driver settings | Windows and Direct3D specific; the Aspyr port has its own controller support |
+| DPI, NVIDIA and driver settings | Windows code (see `README.md`, section 7; whether the Mac needs a lighting fix like K1DC's is not yet checked) |
+| controller layer | **not ported.** *Corrected 2026-09-29:* this row said the Aspyr port has its own controller support. KOTOR I on the Mac has none that works: a pad did nothing in play, and Aspyr lists controllers for KOTOR II on the Mac only |
 
 *Corrected 2026-09-29:* this table listed `0x0045992A` as a texture-residency measure. It is the
 HUD minimap's content zoom (`.kmz`, `reverse-engineering/map-scaling.md` §3), done by K8 and now

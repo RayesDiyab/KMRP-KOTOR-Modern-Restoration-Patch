@@ -48,6 +48,7 @@ site; the files are the same.
 | Menus and fonts | every resolution's set from KMRP's resource build, pooled; any other size blended at install | `tools/prepare_universal_resources.py`, `pack_resolution_layouts.py`, `build_gui_blend_table.py`, all unchanged from Windows |
 | Artwork | `override-common.zip`, less what the Mac does not use | the same resource build |
 | Feat, power and skill icons | enlarged from the game's texture pack at install | `tools/kmrp-abilityicons.c`, a port of `AbilityIconGenerator.cs` |
+| Row frames, tutorial icons, `tutorial.2da` | made at install from the player's game: nothing of the game's ships | `tools/kmrp-gameart.c`, a port of `GameArtGenerator.cs` |
 | Installer | `kmrp-mac.sh`: install, uninstall, status, with a hashed manifest | this directory |
 
 **Why the widescreen patch is the base** (decided 2026-09-29, after a day on which KMRP was to
@@ -279,7 +280,18 @@ others: 99.89% of numeric fields within 1 px; the 17 Mac sets, held out, 99.90% 
 worst 12 px in a HUD variant the Mac does not load (`Test-GuiBlendHelper.py`). The tutorial
 icons of the nearest set can be a few pixels off `64s` for the blended size, and the engine
 draws them one texel per pixel, so the layout patch sizes the popup's icon rect from the
-installed icon instead (the same `64s` for every listed set: all 66 checked).
+installed icon instead (the same `64s` for every listed set: all 66 checked). Since
+2026-09-29 the installer makes the icons itself at exactly `64s` for any size, blended ones
+included, so the icon it reads is always that.
+
+**Made from the player's game.** The four hex frames list rows tile behind item icons
+(`lbl_hex*`, `56s`), the tutorial popup's thirteen `tut_*` icons (`64s`) and `tutorial.2da`
+(the game's own table, its `icon` column pointed at those copies) are made at install by
+`kmrp-gameart`, from `TexturePacks/swpc_tex_gui.erf` and, through `chitin.key`,
+`data/2da.bif`. Until 2026-09-29 the resource build exported them from the build machine's
+game and the package carried them. `GameArtGenerator.cs` does the same on Windows, byte for
+byte (`Test-GameArt.py`), and the sizes are the ones every set shipped (1,122 textures
+checked). If either file cannot be read, none is installed and the game keeps its own.
 
 **Feat, power and skill icons.** The engine draws them at their texture's size in rows
 that grow with `s`. `kmrp-abilityicons` enlarges every uncompressed square `i_*` and `ip_*`
@@ -303,9 +315,9 @@ icons, so items sit in their slots as vanilla's do (`ICON_PICTURE_SPAN` in
 
 | Left out | Why |
 | --- | --- |
-| `kmr*` textures and the `kmrplayout.gui` screen | KMRP's controller prompts and Controller Layout screen, for the Windows controller layer; the Aspyr port has its own controller support |
+| `kmr*` textures and the `kmrplayout.gui` screen | KMRP's controller prompts and Controller Layout screen, for the Windows controller layer, which has no Mac port yet. *Corrected 2026-09-29:* this said the Aspyr port has its own controller support. It does not, for KOTOR I: a pad did nothing in play (2026-09-29), and Aspyr's own support pages list controllers for KOTOR II on the Mac only. The executable carries SDL's game-controller code behind a DirectInput joystick layer, apparently from Aspyr's shared port library, with no setting that enables it |
 | The 18 fonts in `override-common.zip` | every set carries them at its own size |
-| Driver compatibility, DPI and NVIDIA settings, Large Address Aware | Windows or Direct3D specific; the Mac build is 64-bit OpenGL |
+| Driver compatibility, DPI and NVIDIA settings, Large Address Aware | Windows code (K1DC is a `dinput8.dll` proxy with an ASI plugin for the 32-bit `swkotor.exe`); the Mac build is 64-bit. *Corrected 2026-09-29:* this called them Direct3D-specific, but KOTOR renders with OpenGL on Windows too, and K1DC repairs an OpenGL lighting path. Whether the Mac port has the same fallback is **not yet checked**: this Mac's OpenGL (Apple M5, 2.1 on Metal) offers neither `GL_NV_register_combiners` nor `GL_ATI_text_fragment_shader`, the two old paths the executable names, but it does offer the ARB fragment programs and GLSL, which the executable also names |
 | Movie fixes | Aspyr's Bink 2 player pillarboxes and switches no display mode (checked in play) |
 | `swkotor.ini` beyond three keys | the video mode follows the target (K4), so `Width`/`Height` stay as they are |
 | Anti-aliasing and other graphics settings | the player's; the README recommends 2x at native (section 5) |
@@ -328,11 +340,12 @@ macos/build.sh --python .venv/bin/python [--reuse-resources]
 
 KotOR Patch Manager and FTD's widescreen patch come from the submodule
 `third_party/Kotor-Patch-Manager`: FTD's fork `FTD516/Kotor-Patch-Manager`, branch
-`widescreen-patch` (`9884466`), which is KPM's master (`1d3ccd2`) with his widescreen patch
-and KMRP's fixes, merged there on 2026-09-29 (FTD516/Kotor-Patch-Manager#1). Until then the
-submodule tracked the same commit's content on `RayesDiyab/Kotor-Patch-Manager`, branch
-`kmrp-engine-fixes`; the merge changed no file. `--kpm` and `--widescreen` build from other
-checkouts instead.
+`widescreen-patch` (`71ac5fa`), which is KPM's master (`5cafa6a`) with his widescreen patch
+and KMRP's fixes, merged there on 2026-09-29 (FTD516/Kotor-Patch-Manager#1, then #2, which
+builds it with KPM's own `create-patch.py`). Before that the submodule tracked the same fixes on
+`RayesDiyab/Kotor-Patch-Manager`, branch `kmrp-engine-fixes`, and then FTD's `9884466`. Since
+`1d3ccd2`, KPM's master has changed no file of the runtime, KPatchCore or the address databases
+the build uses. `--kpm` and `--widescreen` build from other checkouts instead.
 
 Needs: Xcode command line tools, the .NET 8 SDK, and a Python with `requirements.txt`. The
 unmodified game must be installed (the build resolves hooks against `KOTOR_Exe`'s hash and
@@ -340,7 +353,9 @@ reads `TexturePacks/swpc_tex_gui.erf` for the fonts); nothing from the game is p
 Output: `dist/macos/KMRP-macOS-<version>/` and its zip, 160 MB. Steps, in order:
 
 1. `make dylib` in KPM's `src/KotorPatcher`;
-2. the widescreen patch's `build_mac.sh`;
+2. the widescreen patch, with KPM's `Patches/create-patch.py`, as every KPM patch is built
+   (until 2026-09-29 with the patch's own `build_mac.sh`, which FTD516/Kotor-Patch-Manager#2
+   removed);
 3. the map-note patch, and the layout patch (`patches/kmrp-layout/*.cpp`);
 4. `tools/kpm-cli` (KPatchCore): `validate` all three, then `stage-many` writes
    `patch_config.toml` with and without the map notes, and checks for overlapping hooks

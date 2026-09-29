@@ -37,6 +37,8 @@ $compiler = "C:\Windows\Microsoft.NET\Framework\v4.0.30319\csc.exe"
 $sources = @(
     "src\patcher\KmrpPatcher.cs",
     "src\patcher\AbilityIconGenerator.cs",
+    # KmrpPatcher.cs's Override step calls it since 2026-09-29.
+    "src\patcher\GameArtGenerator.cs",
     "src\patcher\ControllerPromptGenerator.cs",
     "src\patcher\AssemblyInfo.cs",
     # KmrpPatcher.cs installs through it in either build since 2026-09-29.

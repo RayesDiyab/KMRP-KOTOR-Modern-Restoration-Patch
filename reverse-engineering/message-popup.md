@@ -209,10 +209,13 @@ absolute rather than relative, so re-running it over the already-tuned gold copy
 reproduces that copy byte for byte -- checked, and it is what makes it safe for
 gold to hold the hand-tuned file.
 
-The 13 icons ship **per resolution** in `gui-<res>.zip`, because their size is
-tied to the scaled rect; `tutorial.2da` is resolution-independent and ships once
-in `override-common.zip`. They are in exactly one archive each, which is what
-keeps the restore manifest sound.
+The 13 icons shipped **per resolution** in `gui-<res>.zip`, because their size is
+tied to the scaled rect; `tutorial.2da` is resolution-independent and shipped once
+in `override-common.zip`. They were in exactly one archive each, which is what
+keeps the restore manifest sound. Since 2026-09-29 neither ships: both installers
+make the icons (at the same `64s`) and the table from the player's own game
+(`src/patcher/GameArtGenerator.cs`, `macos/tools/kmrp-gameart.c`), as one more
+payload, so each is still written exactly once.
 
 ## Verified, and not
 

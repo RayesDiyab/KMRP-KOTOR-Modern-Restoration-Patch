@@ -305,7 +305,8 @@ file keeps its own version. KMRP's own interface files always install.
 
 **Tested against** KOTOR 1 Community Patch 1.10.0 and KOTOR 1 Restoration 1.2:
 neither ships `.gui` files, neither touches `swkotor.exe`, and neither patches
-`tutorial.2da`, the only 2DA KMRP ships. K1CP replaces two icons the HD Icon Pack
+`tutorial.2da`, the only 2DA KMRP installs (made at install from the game's own table since
+2026-09-29). K1CP replaces two icons the HD Icon Pack
 also provides; those now defer to it. **Install other content mods first, then
 KMRP** — KMRP records and restores whatever it replaces, whereas a mod installed
 afterward can invalidate that record. Do not also install UniWS, High Resolution

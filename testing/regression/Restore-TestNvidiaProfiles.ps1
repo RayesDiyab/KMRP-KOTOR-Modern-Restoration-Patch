@@ -9,6 +9,7 @@ function Restore-TestNvidiaProfiles([string]$FixtureRoot) {
     $harnessPath = Join-Path $fixturePath 'NvidiaRegressionCleanup.exe'
     $sourcePaths = @(
         'src/patcher/KmrpPatcher.cs', 'src/patcher/AbilityIconGenerator.cs',
+        'src/patcher/GameArtGenerator.cs',
         'src/patcher/ControllerPromptGenerator.cs', 'src/patcher/AssemblyInfo.cs',
         'src/patcher/KpmEdition.cs',
         'testing/regression/NvidiaPresentSelfTest.cs'

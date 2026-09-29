@@ -549,7 +549,7 @@ namespace Kmrp
             new[] { 1600,  800, 0x002256DC, 0x002256F6 },   // auto-fit width cap
             // The icon rect and the inset the message text is pushed down by. They
             // must move together or the text runs under the icon -- and the rect
-            // must match the shipped tut_*.tga size (export_tutorial_icons.py),
+            // must match the tut_*.tga size GameArtGenerator makes (64s),
             // because the engine draws GUI textures one texel per pixel: a smaller
             // texture TILES, a larger one is CROPPED.
             new[] {  128,   64, 0x00226F95, 0x0022540D },   // icon rect, message inset
@@ -2595,6 +2595,8 @@ namespace Kmrp
             try
             {
                 List<List<PayloadFile>> payloads = new List<List<PayloadFile>>();
+                // What the progress bar says while each payload installs.
+                List<string> payloadStages = new List<string>();
                 Stream commonResource = Assembly.GetExecutingAssembly()
                     .GetManifestResourceStream(CommonResourceName);
                 if (commonResource == null)
@@ -2602,9 +2604,11 @@ namespace Kmrp
                 ZipArchive common = new ZipArchive(commonResource, ZipArchiveMode.Read, false);
                 opened.Add(common);
                 payloads.Add(ArchiveFiles(common));
+                payloadStages.Add("Installing interface artwork…");
                 GuiPool layout = GuiPool.Open(resolution.Key);
                 opened.Add(layout);
                 payloads.Add(layout.Files);
+                payloadStages.Add("Installing resolution layout…");
 
                 // Feat/power icons are built here from the game's own texture pack
                 // rather than embedded: 200 icons x 48 resolutions would add ~57 MB of
@@ -2622,6 +2626,20 @@ namespace Kmrp
                     ZipArchive icons = new ZipArchive(generatedIcons, ZipArchiveMode.Read, false);
                     opened.Add(icons);
                     payloads.Add(ArchiveFiles(icons));
+                    payloadStages.Add("Installing ability icons…");
+                }
+                // The files made from the game's own art and data -- the hex row
+                // frames, the tutorial popup's icons and tutorial.2da -- built from
+                // this player's game, because no release carries anything of the
+                // game's (GameArtGenerator, 2026-09-29). Null when the texture pack
+                // or chitin.key cannot be read; the game then keeps its own.
+                MemoryStream gameArt = GameArtGenerator.TryBuild(executablePath, resolution.Height, shipped);
+                if (gameArt != null)
+                {
+                    ZipArchive art = new ZipArchive(gameArt, ZipArchiveMode.Read, false);
+                    opened.Add(art);
+                    payloads.Add(ArchiveFiles(art));
+                    payloadStages.Add("Installing row frames and tutorial icons…");
                 }
                 // The ten controller prompt badges, re-placed against the label this
                 // player's dialog.tlk actually draws. Null when that file is missing or
@@ -2632,9 +2650,10 @@ namespace Kmrp
                 // Each archive gets a slice of the 18-94 band proportional to its size.
                 // The ranges used to be hardcoded as "18 to 88 for the first, 88 to 94 for
                 // anything else", which was written when there were two archives. There are
-                // three: the common artwork, the resolution layout, and the generated
-                // ability icons. The second and third therefore shared one range, and the
-                // bar visibly fell back from 94% to 88% when the icons began installing.
+                // up to four: the common artwork, the resolution layout, the generated
+                // ability icons and the generated game art. The second and third once shared
+                // one range, and the bar visibly fell back from 94% to 88% when the icons
+                // began installing.
                 long[] archiveBytes = new long[payloads.Count];
                 long totalArchiveBytes = 0;
                 for (int sizingIndex = 0; sizingIndex < payloads.Count; sizingIndex++)
@@ -2653,11 +2672,7 @@ namespace Kmrp
                         / Math.Max(1L, totalArchiveBytes));
                     int rangeLength = (int)(76L * archiveBytes[resourceIndex]
                         / Math.Max(1L, totalArchiveBytes));
-                    string stage = resourceIndex >= 2
-                        ? "Installing ability icons…"
-                        : (resourceIndex == 0
-                            ? "Installing interface artwork…"
-                            : "Installing resolution layout…");
+                    string stage = payloadStages[resourceIndex];
                     SafeProgress(progress, rangeStart, stage);
 
                     foreach (PayloadFile file in payloads[resourceIndex])

@@ -6,6 +6,26 @@
 > site tabulated, rejected alternatives and corrections kept visible, and
 > anything untested labelled as untested.
 
+## The game's own files
+
+No KMRP release carries a file taken from *Star Wars: Knights of the Old Republic*.
+What KMRP needs of the game's own art and data it makes at install, from the
+player's copy:
+
+| Made at install | From | By |
+| --- | --- | --- |
+| enlarged feat, Force-power and skill icons | `TexturePacks/swpc_tex_gui.erf` | `AbilityIconGenerator.cs`, `macos/tools/kmrp-abilityicons.c` |
+| the four hex row frames (`lbl_hex*`), the tutorial popup's thirteen `tut_*` icons | `TexturePacks/swpc_tex_gui.erf` | `GameArtGenerator.cs`, `macos/tools/kmrp-gameart.c` |
+| `tutorial.2da`, its `icon` column pointed at the `tut_*` copies | `chitin.key`, `data/2da.bif` | the same |
+
+*Corrected 2026-09-29:* until then the hex frames and tutorial icons were exported
+from the build machine's game into every resolution's archive, and `tutorial.2da`
+was committed to this repository and shipped. Checked the same day against every
+shipped image: nothing else in either installer is the game's art. The fonts are
+KMRP's own renderings, and `lbl_mileftbot` is KMRP's own drawing under the game's
+name. The HD icons, portraits and menu art below are their authors' remakes,
+bundled with permission.
+
 
 ## Party Portraits
 
@@ -134,10 +154,11 @@ contributors**, licensed under MIT:
 https://github.com/LaneDibello/Kotor-Patch-Manager
 
 **Since 2026-09-29** KMRP's installer builds that runtime itself from the
-submodule `third_party/Kotor-Patch-Manager` (commit `9884466` of FTD's fork
-`FTD516/Kotor-Patch-Manager`, branch `widescreen-patch`, the same tree as the
-commit it was first built from, `17fd051` of `RayesDiyab/Kotor-Patch-Manager`,
-branch `kmrp-engine-fixes`) with `src/kpm-runtime/build.cmd`, and installs two
+submodule `third_party/Kotor-Patch-Manager` (commit `71ac5fa` of FTD's fork
+`FTD516/Kotor-Patch-Manager`, branch `widescreen-patch`, whose runtime sources
+are those of the commit it was first built from, `17fd051` of
+`RayesDiyab/Kotor-Patch-Manager`, branch `kmrp-engine-fixes`) with
+`src/kpm-runtime/build.cmd`, and installs two
 of its binaries: `KotorPatcher.dll`, compiled unmodified from `src/KotorPatcher` but statically
 linked, and KPM's `binkw32.dll` proxy, KProxy, compiled unmodified from
 `src/KProxy` ([src/kpm-runtime/README.md](src/kpm-runtime/README.md) has the hashes).
@@ -233,7 +254,7 @@ repository into the game's `Contents/MacOS`:
   `Patches/K1WidescreenPatch`, with KMRP's engine fixes.
 
 Both are built from FTD's fork https://github.com/FTD516/Kotor-Patch-Manager,
-branch `widescreen-patch` (commit `9884466`), where KMRP's fixes were merged on
+branch `widescreen-patch` (commit `71ac5fa`), where KMRP's fixes were merged on
 2026-09-29 (https://github.com/FTD516/Kotor-Patch-Manager/pull/1). Licensed under **MIT**,
 `Copyright (c) 2025 Lane Dibello and KotOR Patch Manager contributors`; the
 package carries the licence as `licenses/KotOR-Patch-Manager-LICENSE.txt`.

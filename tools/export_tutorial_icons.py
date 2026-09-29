@@ -1,6 +1,12 @@
 #!/usr/bin/env python3
 """Export the tutorial popup's icons at this resolution's icon-rect size.
 
+**No longer part of the build (2026-09-29).** The installers make these icons, and
+tutorial.2da, from the player's own game (src/patcher/GameArtGenerator.cs,
+macos/tools/kmrp-gameart.c), so no release carries the game's art. This module is
+kept as the reference testing/regression/Test-GameArt.py checks them against; its
+ICON_RENAMES is the table both installers carry.
+
 The message popup's icon control is created in code with a square rect
 (`0x00626F94`), and the engine draws GUI textures **one texel per pixel**. So the
 rect and the texture must be the same size:
@@ -18,8 +24,9 @@ hex row frames follow, and for the same reason.
 `scale_ability_icons.py` sizes for the Abilities rows, and the seven `lbl_i*` are
 HUD status icons KMRP ships in `override-common.zip`. Enlarging those in place
 would break them everywhere else they appear, so the popup gets private copies
-under a `tut_` prefix and `tutorial.2da` is repointed at them
-(`assets/override-common/tutorial.2da`). Nothing else in the game changes.
+under a `tut_` prefix and `tutorial.2da` is repointed at them (committed as
+`assets/override-common/tutorial.2da` until 2026-09-29, made at install since).
+Nothing else in the game changes.
 
 Sources are read from the **stock texture pack**, deliberately not through an
 `Installation`: the game's Override holds KMRP's own scaled copies of those same
@@ -43,8 +50,8 @@ from build_scaled_fonts import write_tga
 from scale_row_icon_frames import resize_rgba
 
 
-# Original resref -> the popup's private copy. Must stay in step with the `icon`
-# column of assets/override-common/tutorial.2da, which names the right-hand side.
+# Original resref -> the popup's private copy. The installers repoint tutorial.2da's
+# `icon` column through the same table (TutorialIcons in GameArtGenerator.cs).
 ICON_RENAMES = {
     "lbl_icn_abi3": "tut_abi3",
     "lbl_icn_char3": "tut_char3",
