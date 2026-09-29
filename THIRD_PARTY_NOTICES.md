@@ -195,13 +195,12 @@ repository into the game's `Contents/MacOS`:
 
 - **KotorPatcher**, KPM's runtime, by **Lane Dibello** and the KPM contributors,
   built from `src/KotorPatcher`;
-- **K1WidescreenPatch** by **FTD, Rayman, J and Vriff** (the authors its manifest
-  names), built from `Patches/K1WidescreenPatch`, with KMRP's engine fixes.
+- **K1WidescreenPatch** by **FTD, RaymanGT, J and Vriff**, built from
+  `Patches/K1WidescreenPatch`, with KMRP's engine fixes.
 
-Both are built from the fork https://github.com/RayesDiyab/Kotor-Patch-Manager,
-branch `kmrp-engine-fixes` (commit `17fd051`): FTD's `widescreen-patch` branch
-plus one commit with KMRP's fixes, offered back to FTD as
-https://github.com/FTD516/Kotor-Patch-Manager/pull/1. Licensed under **MIT**,
+Both are built from FTD's fork https://github.com/FTD516/Kotor-Patch-Manager,
+branch `widescreen-patch` (commit `9884466`), where KMRP's fixes were merged on
+2026-09-29 (https://github.com/FTD516/Kotor-Patch-Manager/pull/1). Licensed under **MIT**,
 `Copyright (c) 2025 Lane Dibello and KotOR Patch Manager contributors`; the
 package carries the licence as `licenses/KotOR-Patch-Manager-LICENSE.txt`.
 
