@@ -425,6 +425,25 @@ before:
     there (the manifest's `kpatch` rows, `created`), and KPM listed KMRP,
     Controller, Movies and Map Notes at 1.5.0 beside its own patches, with the
     game identified as "KOTOR 1.0.3". KPM's Apply was not part of that check.
+  - **KPM's Apply keeps KMRP's proxy, fixed in KPM itself** (that night). KPM
+    0.7.1 picks the deployment from its global *Use library proxy* setting alone,
+    so with it off an Apply in KPM moved this install to injection, and the game
+    started directly ran unpatched (0 of 37 hook sites, measured). The fix went
+    upstream as
+    [LaneDibello/Kotor-Patch-Manager#283](https://github.com/LaneDibello/Kotor-Patch-Manager/pull/283),
+    merged the same night: KPM keeps the method a game's `kpm_install_state.json`
+    records, both ways, on Apply and Launch. The installer records the proxy
+    there, and now on Steam's executable too, where it wrote no such file before:
+    KPM knows Steam's unchanged file by its hash, but on Steam only the proxy works.
+    KPM's merged code read the file the installer writes over Steam's executable
+    and kept the proxy with the setting off. So from KPM's first release after
+    0.7.1 nothing has to be set; with 0.7.1 the player ticks *Use library proxy*
+    first (README). Rejected the same night: having the installer turn that
+    global setting on in KPM's own settings file. It would be obsolete with KPM's
+    next release, and on 0.7.1 it would change the method for every other game
+    KPM manages. The installer with the Steam state file is `8AB56A02…`
+    (161,857,024 bytes); all nine Windows suites passed on it,
+    `Test-ControllerSupport.ps1` now checking the Steam state file (173 checks).
   - **It hands its runtime to KOTOR Patch Manager** when KPM takes it over. KPM
     0.7.1 reads a game's installed patches from `patch_config.toml`, and this
     config is KPM's format, so KPM lists KMRP's patches as installed and lets

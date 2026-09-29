@@ -566,9 +566,8 @@ namespace Kmrp
                 }
             }
             WriteOwned(folder, ConfigName, new UTF8Encoding(false).GetBytes(config.ToString()), records);
-            if (!steam)
-                WriteOwned(folder, KpmStateName, new UTF8Encoding(false).GetBytes(
-                    KpmState(Path.Combine(folder, exeName), patches)), records);
+            WriteOwned(folder, KpmStateName, new UTF8Encoding(false).GetBytes(
+                KpmState(Path.Combine(folder, exeName), steam, patches)), records);
 
             // The proxy last, since it is what makes the game load the rest.
             string bink = Path.Combine(folder, BinkName);
@@ -582,8 +581,8 @@ namespace Kmrp
         }
 
         /// <summary>kpm_install_state.json, as KOTOR Patch Manager 0.7.1 writes it
-        /// (ManagedInstallState, schema 1): the executable was CD 1.03 before a patch
-        /// changed it. KPM knows a game by its executable's hash, and the 4 GB flag this
+        /// (ManagedInstallState, schema 1): which executable this was before a patch
+        /// changed it, CD 1.03 or Steam's. KPM knows a game by its executable's hash, and the 4 GB flag this
         /// install sets makes CD 1.03's one KPM does not know. KPM's Apply first clears
         /// what is installed -- patch_config.toml, which also names the hash, with it --
         /// and then identifies the game, from this file when the hash is unknown
@@ -593,15 +592,21 @@ namespace Kmrp
         /// applied KMRP's patches and another beside them. Where this install set the
         /// flag, the backup lets KPM start from the unmodified file anyway; this is what
         /// identifies an executable that already had the flag, when there is no backup.
-        /// Enum values are KPM's (Platform.Windows 0, Distribution.GOG 0,
-        /// Architecture.x86 0, GameTitle.KOTOR1 1), as its table has CD 1.03.
-        /// Steam's executable is never changed, so KPM knows it by hash and this is
-        /// not written there.</summary>
-        private static string KpmState(string exePath, List<string> patches)
+        /// It also records the deployment, LibraryProxyInstalled: KPM releases after 0.7.1
+        /// keep the method a game's state records on Apply and Launch
+        /// (LaneDibello/Kotor-Patch-Manager#283), so pressing Apply in KPM keeps this
+        /// install's proxy whatever KPM's "Use library proxy" setting says, and the game
+        /// started directly stays patched. That is why Steam's executable gets one too,
+        /// though KPM knows its unchanged file by hash: there only the proxy works at all.
+        /// Enum values are KPM's (Platform.Windows 0, Distribution.GOG 0 or Steam 1,
+        /// Architecture.x86 0, GameTitle.KOTOR1 1), as its table has the two
+        /// executables.</summary>
+        private static string KpmState(string exePath, bool steam, List<string> patches)
         {
             string now = DateTime.Now.ToString("yyyy-MM-ddTHH:mm:ss", CultureInfo.InvariantCulture);
-            string hash = GoldPatch.SourceHash;
-            string size = GoldPatch.SourceLength.ToString(CultureInfo.InvariantCulture);
+            string hash = steam ? GoldPatch.SteamHash : GoldPatch.SourceHash;
+            string size = (steam ? SteamLength : GoldPatch.SourceLength).ToString(CultureInfo.InvariantCulture);
+            string distribution = steam ? "1" : "0";
             StringBuilder ids = new StringBuilder();
             foreach (string id in patches)
                 ids.Append(ids.Length > 0 ? ", " : "").Append('"').Append(id).Append('"');
@@ -612,7 +617,7 @@ namespace Kmrp
                 "  \"OriginalHash\": \"" + hash + "\",\r\n" +
                 "  \"OriginalFileSize\": " + size + ",\r\n" +
                 "  \"OriginalVersion\": {\r\n" +
-                "    \"Platform\": 0,\r\n    \"Distribution\": 0,\r\n    \"Version\": \"1.0.3\",\r\n" +
+                "    \"Platform\": 0,\r\n    \"Distribution\": " + distribution + ",\r\n    \"Version\": \"1.0.3\",\r\n" +
                 "    \"Architecture\": 0,\r\n    \"Title\": 1,\r\n" +
                 "    \"FileSize\": " + size + ",\r\n    \"Hash\": \"" + hash + "\"\r\n  },\r\n" +
                 "  \"CurrentHash\": null,\r\n  \"CurrentFileSize\": null,\r\n" +
@@ -1305,6 +1310,13 @@ namespace Kmrp
             catch { return false; }
         }
 
+        // KOTOR Patch Manager's settings file (KPatchLauncher AppSettings in KPM 0.7.1).
+        private static string KpmSettingsPath()
+        {
+            return Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData),
+                "KPatchLauncher", "settings.json");
+        }
+
         /// <summary>The patch folder KOTOR Patch Manager's app uses, from its settings
         /// (%APPDATA%\KPatchLauncher\settings.json, "PatchesPath", KPatchLauncher
         /// AppSettings in KPM 0.7.1), or null when KPM has none on this PC or it no longer
@@ -1313,8 +1325,7 @@ namespace Kmrp
         {
             try
             {
-                string settings = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData),
-                    "KPatchLauncher", "settings.json");
+                string settings = KpmSettingsPath();
                 if (!File.Exists(settings))
                     return null;
                 Match match = Regex.Match(File.ReadAllText(settings, Encoding.UTF8),

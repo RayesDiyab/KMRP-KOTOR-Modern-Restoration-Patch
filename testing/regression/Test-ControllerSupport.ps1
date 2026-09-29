@@ -107,7 +107,7 @@ $moduleHash = Get-Sha "src\controller-native\kmrp-controller.module"
 $runtimeHash = Get-Sha "build\kpm-runtime\KotorPatcher.dll"
 $proxyHash = Get-Sha "build\kpm-runtime\binkw32.dll"
 # kpm_install_state.json tells KOTOR Patch Manager the flagged CD 1.03 executable is
-# still CD 1.03 (Steam's is never flagged, so it gets none; Case 9).
+# still CD 1.03, and that the proxy is installed (Steam's gets one too; Case 9).
 $engineFiles = @("KotorPatcher.dll", "patch_config.toml", "binkw32Hooked.dll", "patches\kmrp.dll",
     "patches\kmrp-movies.dll", "kmrp-kpm.dat", "kmrp-sdl3.dll", "kmrp-sdl3-LICENSE.txt",
     "kmrp-kotor-patch-manager-LICENSE.txt", "kmrp-controller.ini", "KMRP_KPM.manifest",
@@ -337,12 +337,18 @@ try {
         Assert-Config $steamFolder $allIds $steamHash "patch_config.toml names Steam's executable, with the same four patches"
         Assert ((Get-Sha (Join-Path $steamFolder "binkw32.dll")) -eq $proxyHash) "the proxy is installed"
         Assert (-not ([IO.File]::ReadAllText((Join-Path $steamFolder "KMRP_KPM.manifest")) -match "(?m)^laa\t")) "no large-address flag is recorded"
-        Assert (-not (Test-Path -LiteralPath (Join-Path $steamFolder "kpm_install_state.json"))) "no KPM identity file: KPM knows Steam's executable by its hash"
+        # KPM knows Steam's unchanged executable by its hash, but its releases after 0.7.1
+        # read the deployment from this file, and on Steam only the proxy works.
+        $steamState = [IO.File]::ReadAllText((Join-Path $steamFolder "kpm_install_state.json")) | ConvertFrom-Json
+        Assert ($steamState.OriginalHash -eq $steamHash -and $steamState.OriginalFileSize -eq 4395008 -and
+                $steamState.OriginalVersion.Distribution -eq 1 -and $steamState.OriginalVersion.Hash -eq $steamHash) "kpm_install_state.json names Steam's executable"
+        Assert ($steamState.LibraryProxyInstalled -eq $true) "and records the proxy, which KPM's Apply then keeps"
         Assert (@(Get-ChildItem -LiteralPath $steamFolder -Filter "*.backup.*").Count -eq 0) "no KPM backup: the executable is not changed"
         Assert ((Invoke-Patcher @("--restore", $steamGame)) -eq 0) "restore succeeds"
         Assert ((Get-Sha $steamGame) -eq $steamHash) "Steam's executable is still unmodified"
         Assert ((Get-Sha (Join-Path $steamFolder "binkw32.dll")) -eq $standInHash) "the game's binkw32.dll is back"
         Assert (-not (Test-Path -LiteralPath (Join-Path $steamFolder "KotorPatcher.dll"))) "the runtime is removed"
+        Assert (-not (Test-Path -LiteralPath (Join-Path $steamFolder "kpm_install_state.json"))) "and kpm_install_state.json"
     }
 }
 finally {

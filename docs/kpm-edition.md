@@ -129,7 +129,7 @@ What KMRP's installer writes beside `swkotor.exe`:
 | `patches\kmrp.dll`, `patches\kmrp-movies.dll`, `patches\kmrp-controller.dll` | the module, one copy per patch with detours, as KPM extracts one per patch | `Kmrp.controller.module` |
 | `kmrp-kpm.dat`, `kmrp-sdl3.dll`, its licence, `kmrp-controller.ini` | as KMRP for KPM (sections 4 and 6) | |
 | `kmrp-kotor-patch-manager-LICENSE.txt` | KPM's MIT licence | the submodule's `LICENSE` |
-| `kpm_install_state.json` | CD 1.03 only: KPM's record that the executable was CD 1.03 before a patch changed it (`ManagedInstallState`, schema 1) | `KpmEditionOperations.KpmState` |
+| `kpm_install_state.json` | KPM's record of the game (`ManagedInstallState`, schema 1): on CD 1.03, that the flagged executable was CD 1.03; on both executables, that the proxy is installed (`LibraryProxyInstalled`), which KPM releases after 0.7.1 keep on Apply and Launch. Steam's executable has had one since the evening of 2026-09-29; before, CD 1.03 only | `KpmEditionOperations.KpmState` |
 | `swkotor.exe.backup.<yyyyMMdd_HHmmss>` and its `.json` | CD 1.03, when the installer sets the 4 GB flag: the unmodified `swkotor.exe` as KPM backs one up, and KPM's metadata for it (`BackupManager`, `BackupInfo`) | `KpmEditionOperations.WriteKpmBackup` |
 | `dinput8.dll`, `k1-modern-driver-compatibility.asi` | Synchro's K1DC, when that option is on | unchanged |
 | KMRP's four `.kpatch` files | into KPM's own patch folder when KPM's settings name one, on either kind of install; otherwise, for KPM only, a `KPM patches` folder here with the README and KPM's licence (above) | `Kmrp.kpatch.*`, `DeliverKpatches` |
@@ -228,6 +228,26 @@ state file, the backup and the 4 GB flag in place for KPM, removing only KMRP's
 own content (`ConfigChangedSinceInstall`, `IsRuntimeRecord`). Without that, a
 reinstall would have deleted the modules KPM's config names, since their bytes
 still matched the manifest. `Test-KpmEdition.ps1` Case 10 covers it.
+
+**Keeping the proxy when KPM applies.** KPM 0.7.1 picks the deployment on every
+Apply and Launch from its global *Use library proxy* setting alone. With it off,
+the Windows default, an Apply over this install moves the game to injection: the
+clean-up puts the game's `binkw32.dll` back, and KMRP then loads only when the
+game is started with KPM's Launch. Started directly it ran unpatched, 0 of 37
+hook sites (measured 2026-09-29). This was fixed in KPM rather than worked around:
+[LaneDibello/Kotor-Patch-Manager#283](https://github.com/LaneDibello/Kotor-Patch-Manager/pull/283),
+merged the same evening, keeps the method a game's `kpm_install_state.json`
+records, in both directions, on Apply and on Launch, and at Launch injects where
+a recorded proxy is gone after Steam's file check. KMRP's installer records the
+proxy there on both executables, so from KPM's first release after 0.7.1 an
+Apply in KPM keeps KMRP working with nothing to set. KPM's merged code, run
+against the state file the installer writes over Steam's executable, identified
+Steam's 1.03 and kept the proxy for Apply and Launch with the setting off. With
+0.7.1, tick *Use library proxy* before Apply; it is greyed out while patches are
+installed, so press Uninstall All first. A workaround in the installer, turning
+that global setting on in KPM's own settings file, was begun and dropped the same
+evening: it would have been obsolete with KPM's next release, and on 0.7.1 it
+would have changed the method for every other game KPM manages.
 
 *Corrected 2026-09-29:* this paragraph said the takeover was read from KPM's
 source and "not yet tried with the KPM app", that KPM would identify the flagged

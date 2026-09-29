@@ -58,7 +58,11 @@ folder, and it says which. In KPM, tick `KMRP` plus any of `KMRP Controller`,
 KMRP includes the 4 GB and memory fixes, so KPM's own ones stay unticked. On
 Steam, switch KPM to its proxy deployment and start the game from Steam. A
 normal install also puts the four files in KPM's patch folder when KPM has one,
-so adding KPM patches later needs nothing more. The installer is the only file
+so adding KPM patches later needs nothing more: from KPM's first release after
+0.7.1, pressing Apply there keeps KMRP's setup, and the game still starts
+directly. With KPM 0.7.1, tick *Use library proxy* in KPM first (press Uninstall
+All if it's greyed out), or its Apply switches the game to injection and only
+KPM's Launch starts it patched. The installer is the only file
 to download; `--export-kpm-patches <folder>` writes the `.kpatch` files out for
 sharing. [docs/kpm-edition.md](docs/kpm-edition.md) describes both ways. (Until
 2026-09-29 this took a separate installer, *KMRP for KPM*, and then, the same
