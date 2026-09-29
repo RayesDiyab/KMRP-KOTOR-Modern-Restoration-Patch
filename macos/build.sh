@@ -94,23 +94,64 @@ codesign --force --sign - "$LAYOUT/binaries/macos_x86_64.dylib" 2>/dev/null
 cp "$HERE/patches/kmrp-layout/manifest.toml" "$HERE/patches/kmrp-layout/kotor1-steam-aspyr-macos.hooks.toml" "$LAYOUT/"
 (cd "$LAYOUT" && zip -q -X "$BUILD/kpatch/kmrp-layout.kpatch" manifest.toml kotor1-steam-aspyr-macos.hooks.toml binaries/macos_x86_64.dylib)
 
+step "SDL 3.4.16 for the controller (the official release Windows pins too, tools/prepare_sdl3.ps1)"
+SDL_DMG="$ROOT/build/deps/SDL3-3.4.16.dmg"
+SDL_SHA=675660a9e457239af615f9e41f788612168d1639b9d2eda2957e8dace26687fd
+SDL_DIR="$ROOT/build/deps/SDL3-3.4.16-macos"
+if [[ ! -f "$SDL_DIR/SDL3.framework/Versions/A/SDL3" ]]; then
+    mkdir -p "$ROOT/build/deps"
+    [[ -f "$SDL_DMG" ]] || curl -sSL -o "$SDL_DMG" \
+        https://github.com/libsdl-org/SDL/releases/download/release-3.4.16/SDL3-3.4.16.dmg
+    [[ "$(shasum -a 256 "$SDL_DMG" | cut -d' ' -f1)" == "$SDL_SHA" ]] || { print -u2 "SDL3 image hash mismatch; refusing this dependency"; exit 1; }
+    SDL_MOUNT=$(mktemp -d)
+    hdiutil attach -nobrowse -readonly -mountpoint "$SDL_MOUNT" "$SDL_DMG" >/dev/null
+    rm -rf "$SDL_DIR"; mkdir -p "$SDL_DIR"
+    ditto "$SDL_MOUNT/SDL3.xcframework/macos-arm64_x86_64/SDL3.framework" "$SDL_DIR/SDL3.framework"
+    cp "$SDL_MOUNT/LICENSE.txt" "$SDL_DIR/LICENSE.txt"
+    hdiutil detach "$SDL_MOUNT" >/dev/null
+fi
+lipo "$SDL_DIR/SDL3.framework/Versions/A/SDL3" -verify_arch x86_64
+
+step "Controller patch (KMRP's native controller path, ported to the Mac)"
+CONTROLLER="$BUILD/controller"
+rm -rf "$CONTROLLER"; mkdir -p "$CONTROLLER/binaries"
+# SDL3 is not linked: the module opens kmrp-sdl3.dylib from its own folder, as the Windows
+# module opens kmrp-sdl3.dll. GameController, the fallback without it, is weak-linked.
+clang++ -arch x86_64 -std=c++17 -O2 -mmacosx-version-min=10.13 -dynamiclib -Wall -Wextra '-Wno-#warnings' -fobjc-arc \
+    -F "$SDL_DIR" -install_name @executable_path/macos_x86_64.dylib -framework Foundation -framework AppKit -framework ApplicationServices -weak_framework GameController \
+    -o "$CONTROLLER/binaries/macos_x86_64.dylib" "$HERE/patches/kmrp-controller/"*.cpp "$HERE/patches/kmrp-controller/"*.mm
+codesign --force --sign - "$CONTROLLER/binaries/macos_x86_64.dylib" 2>/dev/null
+cp "$HERE/patches/kmrp-controller/manifest.toml" "$HERE/patches/kmrp-controller/kotor1-steam-aspyr-macos.hooks.toml" "$CONTROLLER/"
+(cd "$CONTROLLER" && zip -q -X "$BUILD/kpatch/kmrp-controller.kpatch" manifest.toml kotor1-steam-aspyr-macos.hooks.toml binaries/macos_x86_64.dylib)
+
 step "patch_config.toml, written by KPM's own KPatchCore"
 dotnet build "$HERE/tools/kpm-cli" -c Release -p:KpmRoot="$KPM" -o "$BUILD/kpm-cli" >/dev/null
 KPMCLI=(dotnet "$BUILD/kpm-cli/kpm-cli.dll")
 $KPMCLI validate "$BUILD/kpatch/K1WidescreenPatch.kpatch" "$EXE" | { grep -v DEBUG || true; }
 $KPMCLI validate "$BUILD/kpatch/kmrp-map-notes.kpatch" "$EXE" | { grep -v DEBUG || true; }
 $KPMCLI validate "$BUILD/kpatch/kmrp-layout.kpatch" "$EXE" | { grep -v DEBUG || true; }
+$KPMCLI validate "$BUILD/kpatch/kmrp-controller.kpatch" "$EXE" | { grep -v DEBUG || true; }
 # In this order: the widescreen patch's byte hooks and constructor first, then KMRP's patches,
-# whose sites the widescreen patch's switch leaves vanilla (kmrp-layout checks each).
-$KPMCLI stage-many "$EXE" "$BUILD/engine/full" "$BUILD/kpatch/K1WidescreenPatch.kpatch" "$BUILD/kpatch/kmrp-map-notes.kpatch" "$BUILD/kpatch/kmrp-layout.kpatch" | { grep -v DEBUG || true; }
-$KPMCLI stage-many "$EXE" "$BUILD/engine/no-notes" "$BUILD/kpatch/K1WidescreenPatch.kpatch" "$BUILD/kpatch/kmrp-layout.kpatch" | { grep -v DEBUG || true; }
+# whose sites the widescreen patch's switch leaves vanilla (kmrp-layout checks each). The
+# controller last: KotorPatcher stops at the first hook it cannot apply, and nothing else
+# depends on it.
+$KPMCLI stage-many "$EXE" "$BUILD/engine/full" "$BUILD/kpatch/K1WidescreenPatch.kpatch" "$BUILD/kpatch/kmrp-map-notes.kpatch" "$BUILD/kpatch/kmrp-layout.kpatch" "$BUILD/kpatch/kmrp-controller.kpatch" | { grep -v DEBUG || true; }
+$KPMCLI stage-many "$EXE" "$BUILD/engine/no-notes" "$BUILD/kpatch/K1WidescreenPatch.kpatch" "$BUILD/kpatch/kmrp-layout.kpatch" "$BUILD/kpatch/kmrp-controller.kpatch" | { grep -v DEBUG || true; }
 mkdir -p "$PKG/engine/patches"
 cp "$BUILD/KotorPatcher.dylib" "$PKG/engine/"
 cp "$BUILD/engine/full/patches/"*.dylib "$PKG/engine/patches/"
+# SDL itself, under the name the module looks for. Its code is unchanged; its signature is
+# redone because the release's (ad-hoc, like ours) seals the framework's Info.plist, which
+# does not travel with the bare library.
+cp "$SDL_DIR/SDL3.framework/Versions/A/SDL3" "$PKG/engine/patches/kmrp-sdl3.dylib"
+codesign --force --sign - --identifier org.libsdl.SDL3 "$PKG/engine/patches/kmrp-sdl3.dylib" 2>/dev/null
+codesign --verify "$PKG/engine/patches/kmrp-sdl3.dylib"
+cp "$SDL_DIR/LICENSE.txt" "$PKG/licenses/SDL3-LICENSE.txt"
 cp "$BUILD/engine/full/patch_config.toml" "$PKG/engine/patch_config.toml"
 cp "$BUILD/engine/no-notes/patch_config.toml" "$PKG/engine/patch_config.no-map-notes.toml"
 cmp -s "$BUILD/engine/full/patches/k1widescreenpatch.dylib" "$BUILD/engine/no-notes/patches/k1widescreenpatch.dylib"
 cmp -s "$BUILD/engine/full/patches/kmrp-layout.dylib" "$BUILD/engine/no-notes/patches/kmrp-layout.dylib"
+cmp -s "$BUILD/engine/full/patches/kmrp-controller.dylib" "$BUILD/engine/no-notes/patches/kmrp-controller.dylib"
 
 step "kmrp-macho (adds the patcher's load command)"
 clang -O2 -Wall -Wextra -arch x86_64 -arch arm64 -mmacosx-version-min=10.13 \
@@ -150,16 +191,14 @@ if (( ! REUSE )) || [[ ! -f "$RESOURCES/override-common.zip" ]]; then
 fi
 
 step "Artwork (override-common.zip, less what macOS does not use)"
-# Left out, each for a stated reason (macos/README.md, "What is not installed"):
-#   kmr*           KMRP's controller prompt and layout art, for the controller layer, which
-#                  has no Mac port yet (KOTOR I on the Mac has no working controller support)
+# Left out, for a stated reason (macos/README.md, "What is not installed"):
 #   the 18 fonts   every resolution's set in layouts.zip carries them at its own size
+# KMRP's controller art (kmr*) is kept: the controller patch paints its button prompts with it.
 FONT_NAMES=(dialogfont10x10 dialogfont10x10a dialogfont10x10b dialogfont12x16 dialogfont16x16
             dialogfont16x16a dialogfont16x16b dialogfont32x32 fnt_console fnt_credits fnt_creditsa
             fnt_creditsb fnt_d10x10b fnt_d16x16 fnt_d16x16a fnt_d16x16b fnt_dialog16x16 fnt_galahad14)
 mkdir -p "$PKG/override"
 unzip -q -o "$RESOURCES/override-common.zip" -d "$PKG/override"
-for file in "$PKG/override"/(#i)kmr*(.N); do rm -f "$file"; done
 for font in $FONT_NAMES; do rm -f "$PKG/override/$font".(tga|tpc|txi)(N); done
 [[ -z "$(find "$PKG/override" -mindepth 1 -type d)" ]] || { print -u2 "override-common.zip has subdirectories"; exit 1; }
 cp "$RESOURCES/bundled-override.txt" "$PKG/bundled-override.txt"

@@ -137,6 +137,20 @@ has grown well past the original -- a native joystick path, an XInput/SDL
 backend, button prompts, the Controller Layout screen -- but the original's
 files are still in it, so the credit and licence below still apply.
 
+How much of it is KMRP's, measured on 2026-09-29 against
+`KMRP-CONTROLLER-MODULE.diff`, which reverse-applies cleanly to the tracked sources:
+
+| | Lines | KMRP | Saul0097 |
+| --- | --- | --- | --- |
+| KMRP's own files (`K1NativeJoystick`, `K1Rumble`, `K1ControllerLayout`, `K1ControllerBackend`, with headers) | 8,143 | 8,143 | 0 |
+| The three files that began as his (`vendor/K1XboxControls.cpp`, `K1XboxControlsXInput.cpp` and `.h`) | 5,420 | 1,843 | 3,577 |
+| **All C++** | 13,563 | **9,986 (74%)** | 3,577 (26%) |
+| Hooks in `kotor1.hooks.toml` | 44 | **38 (86%)** | 6 |
+
+His remaining code is the movie skipping, the action bar, focus fixes, and the
+cursor and device-switch policy. The native joystick path, the backend, the
+prompts' runtime, rumble and the Controller Layout screen are KMRP's.
+
 **Licence: MIT**, inherited. The module is a derivative of
 `ExpandedKeyboardControl`, a patch inside the KOTOR Patch Manager repository
 contributed by **J**, so it is covered by that project's licence --
@@ -410,6 +424,13 @@ It is installed as `kmrp-sdl3.dll` to avoid taking ownership of another mod's
 `SDL3.dll`. The original zlib licence is embedded in the installer and installed
 as `kmrp-sdl3-LICENSE.txt`. The build downloads a SHA-256-pinned SDK under ignored
 `build/deps`; see [the backend reference](docs/controller-sdl-backend.md).
+
+The macOS package ships the same release's macOS library (`SDL3.framework` from the
+official `SDL3-3.4.16.dmg`, SHA-256-pinned by `macos/build.sh`) as
+`engine/patches/kmrp-sdl3.dylib`, installed beside the controller module in
+`Contents/MacOS/patches`. Its code is unchanged; its ad-hoc signature is redone,
+because the release's seals the framework's `Info.plist`, which the bare library
+does not carry. The licence is shipped as `licenses/SDL3-LICENSE.txt`.
 
 Copyright (C) 1997-2026 Sam Lantinga <slouken@libsdl.org>
 

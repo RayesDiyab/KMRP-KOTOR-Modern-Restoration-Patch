@@ -224,11 +224,11 @@ nearest_size() {
         END { print best }'
 }
 
-# Extracts a listed size's files into <dir> under their Override names, leaving out KMRP's
-# Windows controller art (kmr*), and checks each against its object name.
+# Extracts a listed size's files into <dir> under their Override names, and checks each against
+# its object name.
 extract_set() {   # extract_set <WxH> <dir>
     local size=$1 dir=$2 index="$WORK/index-$1.txt" name object
-    unzip -p "$PAYLOAD/layouts.zip" "index/$size.txt" | tr -d '\r' | grep -iv '^kmr' > "$index"
+    unzip -p "$PAYLOAD/layouts.zip" "index/$size.txt" | tr -d '\r' > "$index"
     mkdir -p "$WORK/objects" "$dir"
     cut -f2 "$index" | sort -u | sed 's|^|objects/|' | xargs unzip -q -o "$PAYLOAD/layouts.zip" -d "$WORK"
     while IFS=$'\t' read -r name object; do
@@ -349,7 +349,6 @@ do_install() {
             die "kmrp-guiblend could not blend $size"
         local gui
         for gui in "$WORK/blend"/*.gui(N); do
-            [[ "${gui:t:l}" == kmr* ]] && continue   # Windows controller screens, as extract_set
             cp -f "$gui" "$WORK/set/${gui:t}"
         done
     fi
@@ -363,6 +362,8 @@ do_install() {
     mkdir "$MACOS/patches"; record dir "$MACOS/patches" "-" "-"
     install_file "$PAYLOAD/engine/patches/k1widescreenpatch.dylib" "$MACOS/patches"
     install_file "$PAYLOAD/engine/patches/kmrp-layout.dylib" "$MACOS/patches"
+    install_file "$PAYLOAD/engine/patches/kmrp-controller.dylib" "$MACOS/patches"
+    install_file "$PAYLOAD/engine/patches/kmrp-sdl3.dylib" "$MACOS/patches"
     if (( MAP_NOTES )); then
         install_file "$PAYLOAD/engine/patches/kmrp-map-notes.dylib" "$MACOS/patches"
         install_file "$PAYLOAD/engine/patch_config.toml" "$MACOS"

@@ -7,7 +7,8 @@ game's texture pack, chitin.key and data/, and a temporary $HOME with a swkotor.
 own. Nothing of the real game or the real ini is read or written except those (read).
 
 1. A listed size (--size 3024x1964): the engine files, the load command, the three ini keys,
-   the size's set from layouts.zip (less kmr*), the enlarged feat, power and skill icons, and
+   the size's set from layouts.zip (with KMRP's controller art, kmr*, since the controller
+   patch was ported, 2026-09-29), the enlarged feat, power and skill icons, and
    what kmrp-gameart makes from the game (the four hex frames at 56s, the thirteen tut_*
    icons at 64s, tutorial.2da pointing at them); status
    reports nothing changed; uninstall leaves the executable, the bundle and the ini exactly as
@@ -42,8 +43,7 @@ def sha(path: Path) -> str:
 def pool_set(package: Path, size: str) -> dict[str, bytes]:
     with zipfile.ZipFile(package / "layouts.zip") as pool:
         index = pool.read(f"index/{size}.txt").decode().replace("\r", "").splitlines()
-        return {name: pool.read(f"objects/{obj}") for name, obj in (line.split("\t") for line in index)
-                if not name.lower().startswith("kmr")}
+        return {name: pool.read(f"objects/{obj}") for name, obj in (line.split("\t") for line in index)}
 
 
 def listed_sizes(package: Path) -> list[tuple[int, int]]:
@@ -104,7 +104,8 @@ def main() -> int:
             override = game / "Contents/Assets/override"
             # Engine.
             for name in ("KotorPatcher.dylib", "patch_config.toml", "patches/k1widescreenpatch.dylib",
-                         "patches/kmrp-layout.dylib", "patches/kmrp-map-notes.dylib"):
+                         "patches/kmrp-layout.dylib", "patches/kmrp-map-notes.dylib",
+                         "patches/kmrp-controller.dylib", "patches/kmrp-sdl3.dylib"):
                 if not (game / "Contents/MacOS" / name).is_file():
                     failures.append(f"{size}: {name} not installed")
             if subprocess.run([str(package / "bin/kmrp-macho"), "has-dylib", str(exe), "KotorPatcher.dylib"],
@@ -122,15 +123,19 @@ def main() -> int:
                 subprocess.run([str(package / "bin/kmrp-guiblend"), str(package / "gui-blend.bin"),
                                 str(width), str(height), str(blend)], check=True, capture_output=True)
                 for gui in blend.glob("*.gui"):
-                    if not gui.name.lower().startswith("kmr"):  # Windows controller screens
-                        expected[gui.name] = gui.read_bytes()
+                    expected[gui.name] = gui.read_bytes()
             for name, data in expected.items():
                 path = override / name
                 if not path.is_file() or path.read_bytes() != data:
                     failures.append(f"{size}: override/{name} is not the {'blended' if name.endswith('.gui') and not listed else source} file")
                     break
-            if any(p.name.lower().startswith("kmr") for p in override.iterdir()):
-                failures.append(f"{size}: controller art (kmr*) was installed")
+            # The controller patch's art: the set's badges and Controller Layout screen (checked
+            # with the set above) and override-common.zip's cues and layout art.
+            if not (override / "kmrplayout.gui").is_file():
+                failures.append(f"{size}: the Controller Layout screen (kmrplayout.gui) was not installed")
+            for cue in ("kmrpr3_party.tga", "kmrslytdiag.tga"):
+                if not any(p.name.lower() == cue for p in override.iterdir()):
+                    failures.append(f"{size}: controller art {cue} was not installed")
             icons = [p for p in override.iterdir() if p.name.startswith(("i_", "ip_")) and p.name not in expected]
             if len(icons) < 200:
                 failures.append(f"{size}: only {len(icons)} enlarged ability icons")
