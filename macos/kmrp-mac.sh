@@ -2,6 +2,7 @@
 # KMRP for macOS -- installer, uninstaller and status.
 #
 #   kmrp-mac.sh install   [--game "<path>/Knights of the Old Republic.app"] [--no-map-notes]
+#                         [--no-controller]
 #                         [--resolution native|half | --size <W>x<H>] [--yes]
 #   kmrp-mac.sh uninstall [--game ...] [--yes]
 #   kmrp-mac.sh status    [--game ...] [--brief]
@@ -44,6 +45,7 @@ SETTINGS="${INI:h}/kmrp-controller.ini"
 
 GAME=""
 MAP_NOTES=1
+CONTROLLER=1   # KMRP's controller support: the module, SDL and its settings file (Windows' option too)
 RESOLUTION=""
 SIZE=""
 ASSUME_YES=0
@@ -369,6 +371,7 @@ do_install() {
         say "Menus: KMRP's $size set"
     fi
     say "Map note corrections: $([[ $MAP_NOTES == 1 ]] && echo on || echo off)"
+    say "Controller support: $([[ $CONTROLLER == 1 ]] && echo on || echo off)"
     confirm "Install KMRP into this game?" || die "cancelled"
 
     mkdir -p "$STATE/backup"
@@ -412,15 +415,20 @@ do_install() {
     mkdir "$MACOS/patches"; record dir "$MACOS/patches" "-" "-"
     install_file "$PAYLOAD/engine/patches/k1widescreenpatch.dylib" "$MACOS/patches"
     install_file "$PAYLOAD/engine/patches/kmrp-layout.dylib" "$MACOS/patches"
-    install_file "$PAYLOAD/engine/patches/kmrp-controller.dylib" "$MACOS/patches"
-    install_file "$PAYLOAD/engine/patches/kmrp-sdl3.dylib" "$MACOS/patches"
+    if (( CONTROLLER )); then
+        install_file "$PAYLOAD/engine/patches/kmrp-controller.dylib" "$MACOS/patches"
+        install_file "$PAYLOAD/engine/patches/kmrp-sdl3.dylib" "$MACOS/patches"
+    fi
     if (( MAP_NOTES )); then
         install_file "$PAYLOAD/engine/patches/kmrp-map-notes.dylib" "$MACOS/patches"
-        install_file "$PAYLOAD/engine/patch_config.toml" "$MACOS"
-    else
-        cp "$PAYLOAD/engine/patch_config.no-map-notes.toml" "$MACOS/patch_config.toml"
-        record added "$MACOS/patch_config.toml" "$(sha "$MACOS/patch_config.toml")" "-"
     fi
+    # KPM's list of the patches installed, staged by the build for each combination of the two
+    # options: patch_config[.no-map-notes][.no-controller].toml.
+    local config=patch_config
+    (( MAP_NOTES )) || config+=.no-map-notes
+    (( CONTROLLER )) || config+=.no-controller
+    cp "$PAYLOAD/engine/$config.toml" "$MACOS/patch_config.toml"
+    record added "$MACOS/patch_config.toml" "$(sha "$MACOS/patch_config.toml")" "-"
     "$BIN/kmrp-macho" add-dylib "$EXE" "$LOADER" >/dev/null
     codesign --force --sign - --identifier KOTOR_Exe "$EXE" 2>/dev/null
     codesign --verify "$EXE"
@@ -431,7 +439,7 @@ do_install() {
     set_ini UseGuiFileLayouts 1
     set_ini ForceWidth "$WIDTH"
     set_ini ForceHeight "$HEIGHT"
-    install_settings
+    if (( CONTROLLER )); then install_settings; fi
 
     say "Installing artwork and the menu set..."
     if [[ ! -d "$OVERRIDE" ]]; then
@@ -476,6 +484,7 @@ do_install() {
         print -r -- "ability_icons=$icons"
         print -r -- "game_art=$game_art"
         print -r -- "map_notes=$MAP_NOTES"
+        print -r -- "controller=$CONTROLLER"
         print -r -- "complete=1"
     } > "$STATE/install.info"
     INSTALLING=0
@@ -618,6 +627,7 @@ while (( $# )); do
     case "$1" in
         --game) GAME=${2:?--game needs a path}; shift ;;
         --no-map-notes) MAP_NOTES=0 ;;
+        --no-controller) CONTROLLER=0 ;;
         --resolution)
             RESOLUTION=${2:?--resolution needs native or half}; shift
             [[ "$RESOLUTION" == (native|half) ]] || die "--resolution is native or half, not $RESOLUTION" ;;

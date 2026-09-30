@@ -14,8 +14,9 @@ for your display's resolution, the same HD fonts, art and icons, and the same en
 ## Install
 
 1. Quit KOTOR.
-2. Open **KMRP-macOS-1.5.0.dmg** (or unzip the `.zip`, if that is the download you have), then
-   open **KMRP Installer** in it. It runs from there; nothing needs copying.
+2. Open **KMRP-macOS-1.5.0.dmg** and drag **KMRP Installer** onto **Applications**, then
+   open it from Applications. (From the `.zip`, if that is the download you have: open
+   **KMRP Installer** from the unzipped folder.)
    - KMRP is not signed by an Apple developer account, so the first time macOS asks you to
      allow it. On macOS 15 and later: macOS says it cannot open it; click **Done**, open
      **System Settings → Privacy & Security**, scroll down, click **Open Anyway** beside
@@ -54,7 +55,7 @@ again.
 - **250 map notes moved to where they belong** (Derslok's K1 Area Map Fixes).
 - **Controller support**, which the Mac version of KOTOR does not have on its own: KMRP's
   controls from Windows, button prompts drawn for your pad, rumble, and a Controller Layout
-  screen. See *Controller* below.
+  screen. See *Controller* below. On by default; it can be turned off (*Options*).
 
 ## Controller
 
@@ -93,17 +94,20 @@ other pads. The controls are KMRP's, the same as on Windows: the full list is on
   list has the sizes KMRP has a finished menu set for; **Custom size…** takes any other
   from 4:3 to 32:9, and the installer blends a set for it. The interface is laid out for one
   size; to change it later, **Restore Original** and patch again.
-- **Without the map-note corrections**: the gear button beside **Start Patching** opens
-  **Advanced Settings**; turn off *Area Map Marker Fixes*.
+- **Without the map-note corrections or controller support**: the gear button beside
+  **Start Patching** opens **Advanced Settings**, as on Windows; turn off *Area Map Marker
+  Fixes* or *Controller Support*. Both are on unless you turn them off, and the installer
+  remembers your choice. Without controller support the game has none: the Mac version of
+  KOTOR has no pad support of its own.
 - **From Terminal**, the installer is a script inside the app:
   `"KMRP Installer.app/Contents/Resources/kmrp/kmrp-mac.sh" install` asks the same
-  questions; add `--resolution native|half`, `--size 2560x1440`, `--no-map-notes` or
-  `--game "/path/to/Knights of the Old Republic.app"`. `uninstall` and `status` work
+  questions; add `--resolution native|half`, `--size 2560x1440`, `--no-map-notes`,
+  `--no-controller` or `--game "/path/to/Knights of the Old Republic.app"`. `uninstall` and `status` work
   the same way.
 
 ## Uninstall
 
-Quit KOTOR, open **KMRP Installer** and click **Restore Original**. It restores the
+Quit KOTOR, open **KMRP Installer** (in Applications) and click **Restore Original**. It restores the
 original `KOTOR_Exe`, your settings and every file KMRP replaced, and deletes what it added.
 A file you changed after installing is left alone and listed in the log.
 

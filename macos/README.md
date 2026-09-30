@@ -83,7 +83,7 @@ replaces), and runs the script:
 | The app | `kmrp-mac.sh` |
 | --- | --- |
 | at launch and after every run | `status --brief`: `install.info`, or the game and its build, without hashing every installed file (a full status takes seconds once KMRP is installed) |
-| **Start Patching** | `install --yes`, with `--resolution native` or `half` for this display's rows, `--size WxH` for any other, `--no-map-notes` when *Area Map Marker Fixes* is off, `--game` when one was chosen with **Browse** |
+| **Start Patching** | `install --yes`, with `--resolution native` or `half` for this display's rows, `--size WxH` for any other, `--no-map-notes` when *Area Map Marker Fixes* is off, `--no-controller` when *Controller Support* is off (Advanced Settings, as on Windows), `--game` when one was chosen with **Browse** |
 | **Restore Original** | `uninstall --yes` (and `--game`) |
 
 What the script refuses (the game running, another build, KotOR Patch Manager's files
@@ -96,9 +96,10 @@ lines move the progress fill.
 `LightField`'s smoke and motes (every constant Windows', rendered at 1/12 of the header's
 pixels on a background queue every 62 ms and resampled with vImage), the four-step card
 with the step and state art from `src/patcher/icons`, the pill buttons with the primary's
-progress fill, the Advanced Settings view with its toggle, the footer, and the Windows
-executable's icon (`src/patcher/favicon.ico`, converted by `sips`). Every rectangle is
-the Windows design-space one; the scale is `FitInitialSizeToWorkingArea`'s times 1.3,
+progress fill, the Advanced Settings view with its toggle, and the footer. Its icon is the
+Mac's own, shared with the disk image: the crest over "KMRP" (`tools/make_package_art.py`;
+the Windows executable's `src/patcher/favicon.ico` until 2026-09-30, when the player asked
+for the crest). Every rectangle is the Windows design-space one; the scale is `FitInitialSizeToWorkingArea`'s times 1.3,
 because a Mac's points are denser than the 96-dpi pixels the Windows formula assumes (the
 text was reported too small at 1.0, 2026-09-30); on a 14" MacBook Pro the window is
 1,310x717 points. Bahnschrift and Segoe UI are Microsoft's and cannot ship: DIN Alternate
@@ -147,12 +148,12 @@ floor of the controller's SDL3 and the helpers) and arm64, with `-Wunguarded-ava
 | `MacOS/patches/k1widescreenpatch.dylib` | added | the widescreen patch with the engine fixes |
 | `MacOS/patches/kmrp-layout.dylib` | added | the layout patch (section 4) |
 | `MacOS/patches/kmrp-map-notes.dylib` | added | omitted with `--no-map-notes` |
-| `MacOS/patches/kmrp-controller.dylib` | added | the controller module (section 7) |
-| `MacOS/patches/kmrp-sdl3.dylib` | added | SDL 3.4.16, the library of the official macOS release, its code unchanged and its signature redone ad hoc (`THIRD_PARTY_NOTICES.md`) |
-| `MacOS/patch_config.toml` | added | written at build time by KPM's own `ConfigGenerator`: 57 widescreen hooks, the map-note detour, the controller's 21 hooks, and the layout patch as a DLL-only entry |
+| `MacOS/patches/kmrp-controller.dylib` | added | the controller module (section 7); omitted with `--no-controller` |
+| `MacOS/patches/kmrp-sdl3.dylib` | added | omitted with `--no-controller`; SDL 3.4.16, the library of the official macOS release, its code unchanged and its signature redone ad hoc (`THIRD_PARTY_NOTICES.md`) |
+| `MacOS/patch_config.toml` | added | written at build time by KPM's own `ConfigGenerator`: 57 widescreen hooks, the map-note detour, the controller's 21 hooks, and the layout patch as a DLL-only entry; one of four, for the two options (`patch_config[.no-map-notes][.no-controller].toml`) |
 | `MacOS/KOTOR_Exe` | edited | one load command, then `codesign --force --sign - --identifier KOTOR_Exe` |
 | `~/Library/Application Support/Knights of the Old Republic/swkotor.ini` | three keys under `[Graphics Options]` | `UseGuiFileLayouts=1`, `ForceWidth`, `ForceHeight` (section 5); the file is created if the game never ran |
-| `~/Library/Application Support/Knights of the Old Republic/kmrp-controller.ini` | added if absent | the controller's settings, Windows' defaults (section 7); a copy already there is the player's and is kept |
+| `~/Library/Application Support/Knights of the Old Republic/kmrp-controller.ini` | added if absent | the controller's settings, Windows' defaults (section 7); a copy already there is the player's and is kept; not written with `--no-controller` |
 | `Assets/override/` | created if absent | the game's working directory is `Contents/Assets` and it reads `.\override` |
 | `Assets/override/*` | added or replaced | 1,855 files: 854 artwork files (98 of them the controller's: 22 prompt textures in each of the four pad families and 10 for the Controller Layout screen); the resolution's set, 673 files (82 `.gui`, 36 font files, `lbl_mileftbot`, and the controller's 552 prompt and cue textures sized for it, `kmrplayout.gui` and `kmrp_prompts.txt`); 18 made from the game (four row frames, 13 `tut_*` icons, `tutorial.2da`: section 6); 310 enlarged feat, power and skill icons |
 
@@ -556,7 +557,8 @@ Needs: Xcode command line tools, the .NET 8 SDK, and a Python with `requirements
 unmodified game must be installed (the build resolves hooks against `KOTOR_Exe`'s hash and
 reads `TexturePacks/swpc_tex_gui.erf` for the fonts); nothing from the game is packaged.
 Output: `dist/macos/KMRP-macOS-<version>/` (`KMRP Installer.app` and `README.md`), its disk
-image (the Mac download, 158 MB) and its zip (155 MB, for sites that take only archives).
+image (the Mac download: the app and a link to Applications, 157 MB) and its zip (155 MB, the
+folder with the README, for sites that take only archives).
 Steps, in order:
 
 1. `make dylib` in KPM's `src/KotorPatcher`;
@@ -569,8 +571,9 @@ Steps, in order:
    (`patches/kmrp-controller/`), which is not linked against SDL but opens
    `kmrp-sdl3.dylib` from its own folder, as the Windows module opens `kmrp-sdl3.dll`;
 5. `tools/kpm-cli` (KPatchCore): `validate` all four, then `stage-many` writes
-   `patch_config.toml` with and without the map notes, the controller last, and checks for
-   overlapping hooks across them;
+   `patch_config.toml` with and without the map notes and with and without the controller
+   (four configurations; the controller last), and checks for overlapping hooks across
+   them;
 6. `kmrp-macho`, `kmrp-guiblend` and `kmrp-abilityicons`, universal (arm64, x86_64), ad-hoc
    signed;
 7. `prepare_universal_resources.py` exactly as `build_kmrp.ps1` runs it, with the
@@ -590,9 +593,19 @@ Steps, in order:
    entry beside it in the zip. Finder's Archive Utility folds those back into the files,
    but `unzip` writes them out as files, which the installer would have copied into the
    game's override. The build now refuses an archive holding one.
-12. the disk image: `hdiutil`, HFS+ with LZFSE compression (readable from macOS 10.11),
-   then mounted read-only and checked as a player gets it: the app and `README.md` at its
-   root, the app's signature intact, the payload matching `SHA256SUMS`.
+12. the disk image: the app and a link to `/Applications`, in a Finder window laid out to
+   drag one onto the other. The background (`tools/make_package_art.py`: the installer's
+   navy, smoke, lockup and accent, with slate plates under the icon labels, which Finder draws
+   black in Light Mode and white in Dark Mode), the disk's icon (the crest, cut out of the
+   lockup with its wordmark removed, over "KMRP" in the wordmark's Georgia and metal) and the
+   layout are written by Finder through
+   AppleScript into a writable image, which is then compressed (HFS+, LZFSE, readable from
+   macOS 10.11). Finder must be allowed to take the build terminal's orders (Privacy &
+   Security, Automation); without that the image is made plain, with a warning. Then mounted
+   read-only and checked as a player gets it: the app and the link at its root, the app's
+   signature intact, the payload matching `SHA256SUMS`, and the window's settings and
+   background present. Read back from the image of 2026-09-30: both icons where placed and the
+   window 640x428. **Not yet looked at on screen.**
 
 ## 10. Coverage
 

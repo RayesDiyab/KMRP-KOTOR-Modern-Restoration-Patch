@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Install, check and uninstall the macOS package into a stand-in game, twice.
+"""Install, check and uninstall the macOS package into a stand-in game, four times.
 
 macos/kmrp-mac.sh writes into the game bundle and into swkotor.ini under $HOME. This runs it
 against a stand-in: a bundle holding a copy of the unmodified KOTOR_Exe and links to the
@@ -22,6 +22,10 @@ The controller's kmrp-controller.ini (beside swkotor.ini, since 2026-09-29), the
 as on Windows: round 1 has none, so install writes the defaults and uninstall removes them;
 in round 2 the player edits it after installing, and uninstall keeps it and still finishes;
 round 3 installs over that edited copy, which install and uninstall leave byte for byte.
+4. A listed size with both options off (--no-controller --no-map-notes), as the installer
+   app's Advanced Settings pass them: no controller module, no SDL and no map-notes patch,
+   the package's patch_config.no-map-notes.no-controller.toml, install.info saying
+   controller=0, and the player's kmrp-controller.ini untouched by install and uninstall.
 
     python testing/regression/Test-MacInstaller.py PACKAGE_KMRP_DIR CLEAN_KOTOR_EXE SWPC_TEX_GUI_ERF
 
@@ -103,18 +107,25 @@ def main() -> int:
 
         settings = ini.parent / "kmrp-controller.ini"
         player_settings = b""
+        # "off": both options off (--no-controller --no-map-notes), with the player's settings
+        # file from the round before still there, which the install must leave alone.
         for size, listed, mode in (("3024x1964", True, "fresh"), ("1800x1169", False, "edit"),
-                                   ("3024x1964", True, "kept")):
+                                   ("3024x1964", True, "kept"), ("1512x982", True, "off")):
             width, height = (int(v) for v in size.split("x"))
             ini.write_bytes(INI_BEFORE.encode())
-            if mode == "kept":
+            if mode in ("kept", "off"):
                 player_settings = settings.read_bytes() if settings.is_file() else b""
-            result = run("install", "--size", size, "--yes")
+            options = ["--no-controller", "--no-map-notes"] if mode == "off" else []
+            result = run("install", "--size", size, "--yes", *options)
             if result.returncode != 0:
                 failures.append(f"{size}: install failed: {result.stderr.strip()[-300:]}")
                 continue
-            # The controller's settings: Windows' defaults when there are none, else the player's.
-            if mode == "kept":
+            # The controller's settings: Windows' defaults when there are none, else the player's;
+            # without the controller, not touched at all.
+            if mode == "off":
+                if settings.read_bytes() != player_settings:
+                    failures.append(f"{size}: install without the controller touched kmrp-controller.ini")
+            elif mode == "kept":
                 if not player_settings or settings.read_bytes() != player_settings:
                     failures.append(f"{size}: the player's kmrp-controller.ini was not kept as it was")
                 if "Kept your kmrp-controller.ini" not in result.stdout:
@@ -127,12 +138,19 @@ def main() -> int:
             if mode == "edit":
                 settings.write_text(settings.read_text().replace("Strength=100", "Strength=40"))
             override = game / "Contents/Assets/override"
-            # Engine.
+            # Engine: every patch, or without the two optional ones, with the patch list for what
+            # is there.
+            optional = ("patches/kmrp-map-notes.dylib", "patches/kmrp-controller.dylib", "patches/kmrp-sdl3.dylib")
             for name in ("KotorPatcher.dylib", "patch_config.toml", "patches/k1widescreenpatch.dylib",
-                         "patches/kmrp-layout.dylib", "patches/kmrp-map-notes.dylib",
-                         "patches/kmrp-controller.dylib", "patches/kmrp-sdl3.dylib"):
-                if not (game / "Contents/MacOS" / name).is_file():
+                         "patches/kmrp-layout.dylib") + optional:
+                present = (game / "Contents/MacOS" / name).is_file()
+                if not present and not (mode == "off" and name in optional):
                     failures.append(f"{size}: {name} not installed")
+                if present and mode == "off" and name in optional:
+                    failures.append(f"{size}: {name} installed with its option off")
+            config = "patch_config.no-map-notes.no-controller.toml" if mode == "off" else "patch_config.toml"
+            if (game / "Contents/MacOS/patch_config.toml").read_bytes() != (package / "engine" / config).read_bytes():
+                failures.append(f"{size}: patch_config.toml is not the package's {config}")
             if subprocess.run([str(package / "bin/kmrp-macho"), "has-dylib", str(exe), "KotorPatcher.dylib"],
                               capture_output=True).returncode != 0:
                 failures.append(f"{size}: KOTOR_Exe has no load command for KotorPatcher")
@@ -202,6 +220,8 @@ def main() -> int:
             want = {"fresh": "the defaults KMRP wrote", "edit": "edited by you"}.get(mode)
             if want and f"kmrp-controller.ini: {want}" not in status.stdout:
                 failures.append(f"{size}: status does not say the settings are {want}")
+            if f"controller={0 if mode == 'off' else 1}" not in status.stdout:
+                failures.append(f"{size}: status does not record controller support as {'off' if mode == 'off' else 'on'}")
             # Uninstall.
             result = run("uninstall", "--yes")
             if result.returncode != 0:
@@ -211,7 +231,7 @@ def main() -> int:
             if mode == "edit" and ("Strength=40" not in (settings.read_text() if settings.is_file() else "")
                                    or "Kept your edited kmrp-controller.ini" not in result.stdout):
                 failures.append(f"{size}: uninstall did not keep the edited kmrp-controller.ini")
-            if mode == "kept" and (not settings.is_file() or settings.read_bytes() != player_settings):
+            if mode in ("kept", "off") and (not settings.is_file() or settings.read_bytes() != player_settings):
                 failures.append(f"{size}: uninstall touched the player's kmrp-controller.ini")
             if sha(exe) != vanilla:
                 failures.append(f"{size}: KOTOR_Exe is not back to the original")
@@ -226,12 +246,13 @@ def main() -> int:
                 failures.append(f"{size}: the install state was left behind")
             print(f"     {size}: {'listed set' if listed else f'blended, fonts and art from {source}'}, "
                   f"{len(expected)} set files, {len(icons)} feat and power icons, {len(skills)} skill icons, "
-                  f"{len(art) + 1} made from the game; controller settings {mode}")
+                  f"{len(art) + 1} made from the game; "
+                  f"{'controller and map notes off' if mode == 'off' else f'controller settings {mode}'}")
 
     for failure in failures:
         print("  " + failure)
     print(f"{'FAIL' if failures else 'ok  '} install, status and uninstall into a stand-in game, listed and "
-          f"blended sizes, controller settings: {len(failures)} problems")
+          f"blended sizes, controller settings, both options off: {len(failures)} problems")
     return 1 if failures else 0
 
 

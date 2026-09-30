@@ -18,12 +18,12 @@
                          the size macOS lays windows out at), then resolutions.txt grouped by
                          shape, then a custom size, checked with kmrp-guiblend's dry run
     4. Apply Patch       kmrp-mac.sh install or uninstall
-  and the one option (Advanced Settings): the area map's marker fixes (--no-map-notes when
-  off). The script's own stage lines drive the progress fill; its output goes to
+  and the two options (Advanced Settings), as on Windows: the area map's marker fixes
+  (--no-map-notes when off) and controller support (--no-controller). The script's own stage lines drive the progress fill; its output goes to
   ~/Library/Logs/KMRP/installer.log, which Open Log opens.
 
   kmrp-mac.sh is passed: install --yes, --resolution native|half for this display's rows or
-  --size WxH, --no-map-notes, --game when one was chosen; uninstall --yes; status --brief. What
+  --size WxH, --no-map-notes, --no-controller, --game when one was chosen; uninstall --yes; status --brief. What
   it refuses (the game running, another build, KotOR Patch Manager's files already there) it
   refuses here too, with its own message.
 
@@ -35,6 +35,7 @@
     -KMRPSelect native|half|WxH   the resolution to select, or the custom size to use
     -KMRPRun install|uninstall    press the action button once the status is in
     -KMRPNoMapNotes YES           turn the map-marker fixes off
+    -KMRPNoController YES         turn controller support off
     -KMRPSettings YES             show Advanced Settings
     -KMRPShowList YES             open the resolution list at its top and at its end
                                   (<prefix>-list.png, <prefix>-list-end.png), then close it
@@ -907,7 +908,7 @@ static const struct { const char *prefix, *stage; int percent; } kStages[] = {
 @property (nonatomic, strong) KMRPPill *browseButton, *actionButton, *settingsButton;
 @property (nonatomic, strong) KMRPCombo *resolutionBox;
 @property (nonatomic, strong) KMRPCard *settingsView;
-@property (nonatomic, strong) KMRPToggle *markerToggle;
+@property (nonatomic, strong) KMRPToggle *markerToggle, *controllerToggle;
 @property (nonatomic, strong) NSMutableArray<NSView *> *mainViews;
 @property (nonatomic, strong) NSMutableArray<KMRPRow *> *rows;
 @property (nonatomic, strong) NSSet<NSString *> *setSizes;
@@ -1127,7 +1128,8 @@ static const struct { const char *prefix, *stage; int percent; } kStages[] = {
     title.textColor = THEME_TEXT;
     title.frame = NSMakeRect(S(36), S(24), S(cardWidth - 72), S(48));
     [view addSubview:title];
-    NSTextField *subtitle = [NSTextField labelWithString:@"Choose optional components. It is on by default, and can be turned off."];
+    NSTextField *subtitle = [NSTextField labelWithString:@"Choose optional components. Both are on by default, and each can be "
+                                                         @"turned off on its own."];
     subtitle.font = BodyFont(Pt(14), NSFontWeightRegular);
     subtitle.textColor = THEME_TEXT_MUTED;
     subtitle.frame = NSMakeRect(S(36), S(74), S(cardWidth - 72), S(30));
@@ -1141,6 +1143,16 @@ static const struct { const char *prefix, *stage; int percent; } kStages[] = {
     if ([defaults boolForKey:@"KMRPNoMapNotes"]) self.markerToggle.on = NO;
     self.markerToggle.changed = ^(BOOL on) { [[NSUserDefaults standardUserDefaults] setBool:on forKey:@"MarkerFixes"]; };
     [view addSubview:self.markerToggle];
+    // MainForm's controllerToggle: KMRP's controller support, the module and SDL (kmrp-mac.sh
+    // --no-controller leaves both out, and its settings file).
+    self.controllerToggle = [[KMRPToggle alloc] initWithFrame:NSMakeRect(S(36), S(122 + 86 + 8), S(cardWidth - 72), S(86))];
+    self.controllerToggle.title = @"Controller Support";
+    self.controllerToggle.author = @"RaymanGT, based on Saul0097";
+    self.controllerToggle.detail = @"Xbox, PlayStation, Switch and Steam Deck: play, menus and matching button prompts.";
+    self.controllerToggle.on = [defaults objectForKey:@"ControllerSupport"] ? [defaults boolForKey:@"ControllerSupport"] : YES;
+    if ([defaults boolForKey:@"KMRPNoController"]) self.controllerToggle.on = NO;
+    self.controllerToggle.changed = ^(BOOL on) { [[NSUserDefaults standardUserDefaults] setBool:on forKey:@"ControllerSupport"]; };
+    [view addSubview:self.controllerToggle];
     CGFloat rowTop = cardHeight - 116, rowWidth = floor((cardWidth - 160 - 12) / 2);
     KMRPPill *defaultsButton = [self pill:@"Restore Defaults" frame:NSMakeRect(80, rowTop, rowWidth, 76)
                                    action:@selector(restoreDefaults:)];
@@ -1151,9 +1163,11 @@ static const struct { const char *prefix, *stage; int percent; } kStages[] = {
 
 - (void)openSettings:(id)sender { [self showSettings:YES]; }
 - (void)closeSettings:(id)sender { [self showSettings:NO]; }
-- (void)restoreDefaults:(id)sender {
+- (void)restoreDefaults:(id)sender {   // the documented defaults: both on
     self.markerToggle.on = YES;
+    self.controllerToggle.on = YES;
     [[NSUserDefaults standardUserDefaults] setBool:YES forKey:@"MarkerFixes"];
+    [[NSUserDefaults standardUserDefaults] setBool:YES forKey:@"ControllerSupport"];
 }
 
 // Cross-fades the card's two views, as FadeOverlay does.
@@ -1597,6 +1611,7 @@ static const struct { const char *prefix, *stage; int percent; } kStages[] = {
     if (self.selectedChoice) [arguments addObjectsFromArray:@[@"--resolution", self.selectedChoice]];
     else [arguments addObjectsFromArray:@[@"--size", self.selectedSize]];
     if (!self.markerToggle.on) [arguments addObject:@"--no-map-notes"];
+    if (!self.controllerToggle.on) [arguments addObject:@"--no-controller"];
     [self runOperation:@"Patch" arguments:arguments];
 }
 

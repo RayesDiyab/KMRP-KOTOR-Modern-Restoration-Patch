@@ -140,6 +140,10 @@ $KPMCLI validate "$BUILD/kpatch/kmrp-controller.kpatch" "$EXE" | { grep -v DEBUG
 # depends on it.
 $KPMCLI stage-many "$EXE" "$BUILD/engine/full" "$BUILD/kpatch/K1WidescreenPatch.kpatch" "$BUILD/kpatch/kmrp-map-notes.kpatch" "$BUILD/kpatch/kmrp-layout.kpatch" "$BUILD/kpatch/kmrp-controller.kpatch" | { grep -v DEBUG || true; }
 $KPMCLI stage-many "$EXE" "$BUILD/engine/no-notes" "$BUILD/kpatch/K1WidescreenPatch.kpatch" "$BUILD/kpatch/kmrp-layout.kpatch" "$BUILD/kpatch/kmrp-controller.kpatch" | { grep -v DEBUG || true; }
+# Controller support is optional too, as on Windows (Advanced Settings): the same patches
+# without it, with and without the map notes.
+$KPMCLI stage-many "$EXE" "$BUILD/engine/no-controller" "$BUILD/kpatch/K1WidescreenPatch.kpatch" "$BUILD/kpatch/kmrp-map-notes.kpatch" "$BUILD/kpatch/kmrp-layout.kpatch" | { grep -v DEBUG || true; }
+$KPMCLI stage-many "$EXE" "$BUILD/engine/neither" "$BUILD/kpatch/K1WidescreenPatch.kpatch" "$BUILD/kpatch/kmrp-layout.kpatch" | { grep -v DEBUG || true; }
 mkdir -p "$PKG/engine/patches"
 cp "$BUILD/KotorPatcher.dylib" "$PKG/engine/"
 cp "$BUILD/engine/full/patches/"*.dylib "$PKG/engine/patches/"
@@ -152,6 +156,12 @@ codesign --verify "$PKG/engine/patches/kmrp-sdl3.dylib"
 cp "$SDL_DIR/LICENSE.txt" "$PKG/licenses/SDL3-LICENSE.txt"
 cp "$BUILD/engine/full/patch_config.toml" "$PKG/engine/patch_config.toml"
 cp "$BUILD/engine/no-notes/patch_config.toml" "$PKG/engine/patch_config.no-map-notes.toml"
+cp "$BUILD/engine/no-controller/patch_config.toml" "$PKG/engine/patch_config.no-controller.toml"
+cp "$BUILD/engine/neither/patch_config.toml" "$PKG/engine/patch_config.no-map-notes.no-controller.toml"
+for variant in no-controller neither; do   # every variant ships the same patch binaries
+    cmp -s "$BUILD/engine/full/patches/k1widescreenpatch.dylib" "$BUILD/engine/$variant/patches/k1widescreenpatch.dylib"
+    cmp -s "$BUILD/engine/full/patches/kmrp-layout.dylib" "$BUILD/engine/$variant/patches/kmrp-layout.dylib"
+done
 cmp -s "$BUILD/engine/full/patches/k1widescreenpatch.dylib" "$BUILD/engine/no-notes/patches/k1widescreenpatch.dylib"
 cmp -s "$BUILD/engine/full/patches/kmrp-layout.dylib" "$BUILD/engine/no-notes/patches/kmrp-layout.dylib"
 cmp -s "$BUILD/engine/full/patches/kmrp-controller.dylib" "$BUILD/engine/no-notes/patches/kmrp-controller.dylib"
@@ -243,13 +253,19 @@ clang -fobjc-arc -O2 -Wall -Wextra -Wno-unused-parameter -arch x86_64 -arch arm6
 sed "s/@VERSION@/$VERSION/g" "$HERE/installer-app/Info.plist" > "$INSTALLER/Contents/Info.plist"
 plutil -lint "$INSTALLER/Contents/Info.plist" >/dev/null
 cp "$HERE/installer-app/resolutions.txt" "$INSTALLER/Contents/Resources/"
-# The Windows patcher's own art: its brand lockup, its step and state icons, and its
-# executable's icon (build_kmrp.ps1 embeds the same files), so the two look alike.
+# The Windows patcher's own art: its brand lockup and its step and state icons
+# (build_kmrp.ps1 embeds the same files), so the two windows look alike.
 cp "$ROOT/src/patcher/brand.png" "$INSTALLER/Contents/Resources/"
 for icon in folder shield monitor tools verified missing Settings; do
     cp "$ROOT/src/patcher/icons/$icon.png" "$INSTALLER/Contents/Resources/"
 done
-sips -s format icns "$ROOT/src/patcher/favicon.ico" --out "$INSTALLER/Contents/Resources/AppIcon.icns" >/dev/null
+# KMRP's icon on the Mac, the disk image's art with it (tools/make_package_art.py): the crest
+# over "KMRP", for the app and, below, for the disk.
+ART="$BUILD/art"
+rm -rf "$ART"
+"$PYTHON" "$HERE/tools/make_package_art.py" "$ART" "$VERSION" >/dev/null
+iconutil -c icns "$ART/Icon.iconset" -o "$ART/Icon.icns"
+cp "$ART/Icon.icns" "$INSTALLER/Contents/Resources/AppIcon.icns"
 # Ad hoc, as every binary here: the signature seals the bundle, so a changed file shows as
 # damaged. Without a Developer ID and notarization, Gatekeeper asks the player to allow the
 # app once (PLAYER-README.md, Install).
@@ -269,23 +285,82 @@ ls -la "$ROOT/dist/macos/$NAME.zip"
 shasum -a 256 "$ROOT/dist/macos/$NAME.zip"
 
 step "Disk image"
-# What a Mac player downloads: the folder as a read-only disk image, opened with a double-click
-# and nothing to unpack. HFS+ and LZFSE compression (ULFO), both readable from macOS 10.11, below
-# the app's 10.13. It keeps the bundle exactly as built and signed; the installer never writes
-# into its own bundle, so running it from the mounted image works as it does anywhere else.
+# What a Mac player downloads: KMRP Installer and a link to /Applications, in a window that
+# says to drag one onto the other (macos/tools/make_package_art.py: the installer's art
+# direction, its own composition). The README stays in the zip; the window carries the one step
+# a first launch needs. HFS+ with LZFSE compression (ULFO), both readable from macOS 10.11,
+# below the app's 10.13. It keeps the bundle exactly as built and signed, and the installer
+# never writes into its own bundle, so it also runs straight from the mounted image.
+#
+# The window's look lives in the volume's .DS_Store, which Finder writes: the image is made
+# writable, mounted where Finder sees it, laid out by AppleScript, then compressed. Finder
+# needs the build's terminal to be allowed to control it (System Settings, Privacy & Security,
+# Automation); without that the image is made plain, with a warning, rather than not at all.
 DMG="$ROOT/dist/macos/$NAME.dmg"
-hdiutil create -quiet -volname "KMRP $VERSION" -srcfolder "$OUT" -fs HFS+ -format ULFO -ov "$DMG"
-# Checked as a player gets it: mounted read-only, the two items at its root, the app's signature
-# intact, and the payload matching its SHA256SUMS.
+VOLUME="KMRP $VERSION"
+DMGWORK="$BUILD/dmg"
+rm -rf "$DMGWORK"; mkdir -p "$DMGWORK"
+tiffutil -cathidpicheck "$ART/background.png" "$ART/background@2x.png" -out "$DMGWORK/background.tiff" 2>/dev/null
+[[ -d "/Volumes/$VOLUME" ]] && { print -u2 "a volume named $VOLUME is already mounted; eject it first"; exit 1; }
+SIZE_MB=$(( $(du -sm "$INSTALLER" | cut -f1) + 40 ))
+hdiutil create -quiet -size "${SIZE_MB}m" -fs HFS+ -volname "$VOLUME" -ov "$DMGWORK/rw.dmg"
+hdiutil attach -quiet -noautoopen -noverify "$DMGWORK/rw.dmg"
+ditto "$INSTALLER" "/Volumes/$VOLUME/KMRP Installer.app"
+ln -s /Applications "/Volumes/$VOLUME/Applications"
+mkdir "/Volumes/$VOLUME/.background"
+cp "$DMGWORK/background.tiff" "/Volumes/$VOLUME/.background/background.tiff"
+cp "$ART/Icon.icns" "/Volumes/$VOLUME/.VolumeIcon.icns"
+SetFile -a C "/Volumes/$VOLUME" 2>/dev/null || true   # the disk shows the crest
+styled=1
+if ! osascript >/dev/null 2>"$DMGWORK/finder.log" <<APPLESCRIPT
+tell application "Finder"
+    tell disk "$VOLUME"
+        open
+        set current view of container window to icon view
+        set toolbar visible of container window to false
+        set statusbar visible of container window to false
+        set the bounds of container window to {160, 120, 800, 580}
+        set viewOptions to the icon view options of container window
+        set arrangement of viewOptions to not arranged
+        set icon size of viewOptions to 104
+        set text size of viewOptions to 13
+        set background picture of viewOptions to file ".background:background.tiff"
+        set position of item "KMRP Installer.app" of container window to {170, 262}
+        set position of item "Applications" of container window to {470, 262}
+        close
+        open
+        delay 1
+        close
+    end tell
+end tell
+APPLESCRIPT
+then
+    styled=0
+    print -u2 "warning: Finder could not lay out the disk image's window ($(tr '\n' ' ' < "$DMGWORK/finder.log")); it is plain"
+fi
+sync
+rm -rf "/Volumes/$VOLUME/.fseventsd" "/Volumes/$VOLUME/.Trashes" 2>/dev/null || true
+hdiutil detach -quiet "/Volumes/$VOLUME" || hdiutil detach -quiet -force "/Volumes/$VOLUME"
+hdiutil convert -quiet "$DMGWORK/rw.dmg" -format ULFO -ov -o "$DMG"
+rm -f "$DMGWORK/rw.dmg"
+
+# Checked as a player gets it: mounted read-only, the app and the Applications link at its root
+# (hidden files aside), the app's signature intact, the payload matching its SHA256SUMS, and,
+# when Finder laid it out, the window's settings and background in place.
 MOUNT=$(mktemp -d)
 hdiutil attach -quiet -nobrowse -readonly -mountpoint "$MOUNT" "$DMG"
 detach() { hdiutil detach -quiet "$MOUNT" 2>/dev/null || hdiutil detach -quiet -force "$MOUNT"; rmdir "$MOUNT" 2>/dev/null || true; }
-if [[ "$(ls "$MOUNT" | tr '\n' '|')" != "KMRP Installer.app|README.md|" ]]; then
-    print -u2 "the disk image's root is not the app and README.md: $(ls "$MOUNT")"; detach; exit 1
+if [[ "$(ls "$MOUNT" | tr '\n' '|')" != "Applications|KMRP Installer.app|" ||
+      "$(readlink "$MOUNT/Applications")" != /Applications ]]; then
+    print -u2 "the disk image's root is not the app and the Applications link: $(ls "$MOUNT")"; detach; exit 1
 fi
 if ! codesign --verify --strict "$MOUNT/KMRP Installer.app" ||
    ! (cd "$MOUNT/KMRP Installer.app/Contents/Resources/kmrp" && shasum -a 256 -s -c SHA256SUMS); then
     print -u2 "the app in the disk image does not verify"; detach; exit 1
+fi
+if (( styled )) && ! { [[ -f "$MOUNT/.background/background.tiff" && -f "$MOUNT/.DS_Store" ]] &&
+                       grep -q icvp "$MOUNT/.DS_Store"; }; then
+    print -u2 "the disk image's window settings are missing"; detach; exit 1
 fi
 detach
 ls -la "$DMG"
