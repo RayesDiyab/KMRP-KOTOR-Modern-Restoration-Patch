@@ -11,7 +11,8 @@ cannot be told apart from Windows at the same resolution. This lists every chang
 for Windows makes, from [`reverse-engineering/binary-inventory.md`](../reverse-engineering/binary-inventory.md)
 (68 code and data runs, 11 added sections, 12 runs written at install), with its state
 on the Mac. A row is **done** only when the Mac behaves the same in play, and says how
-that was checked.
+that was checked. The other direction -- what the Mac did first and Windows still needs --
+is [`docs/windows-changes-from-macos.md`](../docs/windows-changes-from-macos.md).
 
 ## How the Mac build gets there
 
@@ -69,6 +70,26 @@ the Mac loads, 78 fields were further off across 19 targets, all list scrollbars
 over, which is not linear. Blending them relative to the list's right edge did not help
 (73.2% exact against 78.2%).
 
+**Two files are made, not blended** (2026-09-30). *Corrected:* the paragraph above said
+KMRP's layout logic has one implementation, the build. Two files are laid out by rules no
+blend reproduces, and the helper now applies those rules itself, with the fonts of the
+set it installs (`macos/tools/kmrp-guiblend.c`, table version 2):
+
+| File | Rule | Blended, held out | Made at install, held out |
+| --- | --- | --- | --- |
+| `container.gui` | widened, in some sets, until "Switch To Give Item" and its badge fit (`fit_container_to_caption`) | 74 fields off by more than 1 px, up to 21 | 491 of 493 within 1 px |
+| `kmrplayout.gui` | generated from its panel's size and the caption font (`build_gui`) | 241 fields off, up to 32 px | 3,162 of 3,162 within 1 px |
+
+The table carries the Container unwidened, with each set's widening from its prompt
+manifest, and the generator's 53 constants by name with its 13 rows, so the helper keeps no
+numbers of its own. Its arithmetic is a second copy of `build_gui`'s, kept honest by
+`Test-GuiBlendHelper.py`: at 24 derived sizes the helper's file equals what `build_gui`
+itself makes from the same blended Gameplay panel and font, byte for byte, and every one of
+the 45 anchors the blend resolves to itself comes out as the build's set, byte for byte. The
+Intel and Apple Silicon slices write identical files. The 17 Mac sets, each held out and
+made from the others with its own fonts: 151,946 fields, every file counted, 99.90% within
+1 px, worst 12 px, in a HUD variant the Mac does not load.
+
 ## The table
 
 States: **done** (behaves as on Windows, checked as stated), **to port**, **n/a**
@@ -113,6 +134,8 @@ States: **done** (behaves as on Windows, checked as stated), **to port**, **n/a*
 | Windows | What | Mac |
 | --- | --- | --- |
 | `0x0062540D`, `0x006256DC`, `0x006256F6`, `0x00625759`, `0x00626F95`, install `0x0062540E`, `0x00626F96` | message popup auto-fit caps `450s` / `800s`, icon rect and inset `64s` | **done in code** (`resolution_sizes.cpp`): the four cap tests in `FixMessageLabel` (`0x100306877`, `0x10030687f`, `0x10030688b`, `0x1003068fd`; two compiled as `>=`), the icon offset `0x1003065a1` and the icon's rect `{0, 10, 32, 32}` at `0x100571bb0`. The quit confirmation drew in play with narrow OK and Cancel buttons: the popup auto-sizes buttons from 100 px to fit their label, as Windows' code does at `0x006254AC`, so Windows should look the same; **not yet compared with Windows**. Tutorial popups not yet seen. The `tut_*` icons and `tutorial.2da` are in the per-resolution archive and must stop being excluded by the Mac build |
+| none (Windows keeps `confirm.gui`'s height) | the message popup fitted to its contents | **Mac only, ahead of Windows** (2026-09-30, `popup_fit.cpp`): the message narrows to the least width that keeps its line count and shrinks to its text, the buttons follow it, the panel fits around it with the message's margins, and it keeps its centre. The Exit Game box went from 1,224x711 px to about 880x365 at 3024x1964; the Attributes, Skills and Feats tutorials and the unspent-points box seen fitted in play the same day. **Windows needs the same at the end of `0x006253A0` before the two look alike again**; not done |
+| none | the granted popup's rows (`skillinfo.gui`: "You have been granted the following feat(s) this level.") | **Mac only, ahead of Windows** (2026-09-30, `granted_popup.cpp`): the text inset by an eighth of the row, the hex, highlight and icon grown by a seventh so the hex spans the text frame, and the list cut to its rows at a pitch of the row plus an eleventh (the inventory's list spreads 8 to 10%), with OK and the panel following and the popup centred. At 3024x1964: rows 141 to 125 px apart, hex 97 to 111 px beside a 111-px frame, text 2 to 14 px inside the frame. **Windows needs the same** (`docs/windows-changes-from-macos.md`, item 10); not done |
 
 ### Area map and minimap
 
@@ -131,19 +154,37 @@ States: **done** (behaves as on Windows, checked as stated), **to port**, **n/a*
 | `0x00755788` | dialogue letterbox (`.klb` sites) | **done**: K7, the same `2H/3` rule. Seen with KMRP's layout at 3024x1964: bars a sixth of the screen each, three replies in the bottom bar (2026-09-29) |
 | `.kmv`, `0x004057AC` | movie aspect fit | **n/a**: Aspyr's Bink player pillarboxes (checked in play) |
 
+### Controller
+
+The Windows controller module (`src/controller-native/`) is a module with hooks, not part of
+the gold delta; its Mac port is `macos/patches/kmrp-controller` (`README.md`, section 7).
+*Corrected 2026-09-29:* this was one row under *Windows only*, first saying the Aspyr port has
+its own controller support, then **not ported**. KOTOR I on the Mac has none that works: a pad
+did nothing in play, and Aspyr lists controllers for KOTOR II on the Mac only.
+
+| Windows | What | Mac |
+| --- | --- | --- |
+| `K1NativeJoystick.cpp` | the pad into the engine's joystick chain; walking, the camera, L3, Start, R3, A on the target; the menus' focus, remaps, echo and confirm guards; movies; the action bar | **done**, with SDL 3.4.16 as on Windows. Played with a scripted pad and with the maintainer's pad (2026-09-29). The confirm guards in character generation, Solo Mode and resolution: **not yet played** |
+| the same, prompts and GUI cues | button prompts in the pad's family, hidden on mouse and keyboard use; the parked cursor; the cues | **done**: PlayStation art in play; the other three families not yet seen. The cursor is not confined to the window (macOS has no equivalent of `ClipCursor`) |
+| `K1Rumble.cpp` | one mixer for BioWare's patterns, the cut ones and KMRP's | **done** for the saber (read in `rumble.log`); combat events and a real pad's motors **not yet tested** |
+| `K1ControllerLayout.cpp` | the Controller Layout screen and its Gameplay entry; the confirm and dialogue A; the status summary's layout and A | the screen and the confirm A **done** (played 2026-09-29); the dialogue A and the status summary **not yet reached in play** |
+
 ### Windows only
 
 | Windows | Why not on the Mac |
 | --- | --- |
 | PE header, Large Address Aware | the Mac build is 64-bit |
-| DPI, NVIDIA and driver settings | Windows code (see `README.md`, section 7; whether the Mac needs a lighting fix like K1DC's is not yet checked) |
-| controller layer | **not ported.** *Corrected 2026-09-29:* this row said the Aspyr port has its own controller support. KOTOR I on the Mac has none that works: a pad did nothing in play, and Aspyr lists controllers for KOTOR II on the Mac only |
+| DPI, NVIDIA and driver settings | Windows code (see `README.md`, section 8; whether the Mac needs a lighting fix like K1DC's is not yet checked) |
 
 *Corrected 2026-09-29:* this table listed `0x0045992A` as a texture-residency measure. It is the
 HUD minimap's content zoom (`.kmz`, `reverse-engineering/map-scaling.md` §3), done by K8 and now
 listed under *Area map and minimap*.
 
 ## Done so far
+
+- **2026-09-29.** `macos/patches/kmrp-controller`: the Windows controller module ported, 21
+  hooks and ten sites written at load (`README.md`, section 7), with SDL 3.4.16 shipped as
+  `kmrp-sdl3.dylib` and KMRP's controller art installed. Committed as `0d147a1`.
 
 - **2026-09-29.** The package and installer carry it all: `build.sh` stages the widescreen
   patch, `kmrp-map-notes` and `kmrp-layout` through KPM's KPatchCore (no overlapping hooks),

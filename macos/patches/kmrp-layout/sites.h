@@ -2,6 +2,7 @@
 // rewrites, with the bytes it must hold first; a group is sites that must change together.
 #pragma once
 
+#include <cstddef>
 #include <cstdint>
 #include <initializer_list>
 #include <vector>
@@ -29,5 +30,13 @@ void AddListboxPadding(std::vector<Group>& groups);                // listbox_pa
 // AreaMapPage(height); 0 when none could be placed, which leaves the map's positions vanilla.
 void AddAreaMap(std::vector<Group>& groups, int width, int height, uintptr_t nearPage);
 std::vector<uint8_t> AreaMapPage(int height);
+// popup_fit.cpp: the message popup fitted to its contents, through the near page's thunk at
+// kPopupThunk (AreaMapPage puts it there).
+constexpr size_t kPopupThunk = 48;
+void AddPopupFit(std::vector<Group>& groups, uintptr_t nearPage);
+// granted_popup.cpp: the granted popup's rows, through the near page's thunks at
+// kGrantedFillThunk and kGrantedRowThunk (AreaMapPage puts them there).
+constexpr size_t kGrantedFillThunk = 64, kGrantedRowThunk = 80;
+void AddGrantedPopup(std::vector<Group>& groups, uintptr_t nearPage);
 
 }  // namespace kmrp

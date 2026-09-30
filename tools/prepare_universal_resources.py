@@ -18,10 +18,12 @@ from pathlib import Path
 from pykotor.resource.formats.gff import GFFStruct, read_gff, write_gff
 
 from apply_gold_hud_proportions import apply_proportions
-from build_controller_prompt_textures import (GLYPH_FAMILIES,
+from build_controller_prompt_textures import (GLYPH_FAMILIES, PROMPT_STRREFS,
+                                              PROMPT_TARGETS, badge_fit_width,
                                               build_prompt_textures,
                                               build_square_glyph_tga,
-                                              family_resref)
+                                              family_resref, measure_label,
+                                              parse_font_metrics, target_labels)
 from build_controller_layout import (DIALOG_BADGE_TAG, add_confirm_badge,
                                      add_entry as add_controller_layout_entry,
                                      build_art as build_controller_layout_art,
@@ -808,6 +810,61 @@ def widen_combat_message(source: Path, destination: Path, width: int) -> None:
         raise ValueError(f"{source.name}: found {found} of the combat-message labels")
     root.set_list("CONTROLS", controls)
     write_gff(gff, destination)
+
+
+# The Container's column, wide enough for "Switch To Give Item" and its badge.
+# BTN_GIVEITEMS has the longest caption for its width of any prompt button: at
+# 3024x1964 about 425 px of text in a 528 px button, where the X badge needs 70
+# px beside the text on either side (badge_fit_width), so the badge was pushed
+# against the button's edge and onto the "S" (seen in play on the Mac,
+# 2026-09-30; Windows lays the screen out the same). Measured at every
+# resolution, 45 of the 66 sets were short, by 2 to 182 px. The panel grows
+# about its centre and its title, item list and all three buttons with it, so
+# the column keeps one width; the rows' prototype and the scrollbar keep their
+# place. Measured with the fallback English wording, like the badge itself; a
+# longer localised wording is re-placed at install and still meets the edge.
+CONTAINER_SCREEN = "container.gui"
+CONTAINER_FIT_TAG = "BTN_GIVEITEMS"
+CONTAINER_WIDENED = ("LBL_MESSAGE", "LB_ITEMS", "BTN_OK", "BTN_GIVEITEMS", "BTN_CANCEL")
+
+
+def fit_container_to_caption(source: Path, destination: Path, font_txi: Path) -> int:
+    """Widen container.gui until BTN_GIVEITEMS holds its caption and badge.
+
+    Returns the pixels added; 0 means the file already fits and nothing is
+    written.
+    """
+    advances, spacing = parse_font_metrics(font_txi)
+    if not advances:
+        raise ValueError(f"{font_txi.name}: no glyph metrics")
+    target = next(t for t in PROMPT_TARGETS if (t.gui, t.tag) == (CONTAINER_SCREEN, CONTAINER_FIT_TAG))
+    labels = target_labels(target, PROMPT_STRREFS[(target.gui, target.tag)])
+    # To two places, as the prompt manifest carries it, so the Mac installer, which
+    # redoes this for a resolution with no set (kmrp-guiblend), computes the same.
+    caption = round(max(measure_label(label, advances, spacing) for label in labels), 2)
+    gff = read_gff(source)
+    root = gff.root
+    controls = root.get_list("CONTROLS")
+    by_tag = {control.get_string("TAG"): control for control in controls}
+    missing = [tag for tag in CONTAINER_WIDENED if tag not in by_tag]
+    if missing:
+        raise ValueError(f"{source.name}: no {', '.join(missing)}")
+    button = by_tag[CONTAINER_FIT_TAG].get_struct("EXTENT")
+    extra = math.ceil(badge_fit_width(caption, button.get_int32("HEIGHT")) - button.get_int32("WIDTH"))
+    if extra <= 0:
+        return 0
+    extra += extra % 2   # even, so the panel grows by the same either side
+    panel = root.get_struct("EXTENT")
+    panel.set_int32("LEFT", panel.get_int32("LEFT") - extra // 2)
+    panel.set_int32("WIDTH", panel.get_int32("WIDTH") + extra)
+    root.set_struct("EXTENT", panel)
+    for tag in CONTAINER_WIDENED:
+        extent = by_tag[tag].get_struct("EXTENT")
+        extent.set_int32("WIDTH", extent.get_int32("WIDTH") + extra)
+        by_tag[tag].set_struct("EXTENT", extent)
+    root.set_list("CONTROLS", controls)
+    write_gff(gff, destination)
+    return extra
 
 
 def add_combat_cues(source: Path, destination: Path) -> int:
@@ -1705,12 +1762,30 @@ def main() -> int:
                 # kept as the reference Test-GameArt.py checks against) and every
                 # release shipped them until 2026-09-29.
 
+                # The Container's column, widened where "Switch To Give Item"
+                # and its badge do not fit. Before the prompt textures, which take
+                # the buttons' size from this file, and after the fonts, whose
+                # metrics measure the caption.
+                container_index = next(
+                    (i for i, path in enumerate(packaged_files)
+                     if path.name.lower() == CONTAINER_SCREEN), None)
+                if container_index is None:
+                    raise ValueError(f"{resolution}: {CONTAINER_SCREEN} is missing")
+                container_dir = temp_dir / "container"
+                container_dir.mkdir(exist_ok=True)
+                container_gui = container_dir / CONTAINER_SCREEN
+                container_widened = fit_container_to_caption(
+                    packaged_files[container_index], container_gui, caption_txi)
+                if container_widened:
+                    packaged_files[container_index] = container_gui
+
                 # Original KMRP artwork for the optional controller runtime. The
                 # PC renderer stretches BORDER.FILL to each button, so these are
                 # generated from this resolution's final button extents. They are
                 # inert unless the runtime selects them after gamepad input.
                 packaged_files.extend(build_prompt_textures(
-                    packaged_files, temp_dir / "controller-prompts"))
+                    packaged_files, temp_dir / "controller-prompts",
+                    widened={CONTAINER_SCREEN: container_widened}))
 
 
                 if transferred:

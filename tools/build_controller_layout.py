@@ -162,6 +162,26 @@ TOP_CAPTION_W = 150                       # centred ABOVE the glyph, so it stays
 # the arrangement the author sketched on 2026-09-24.
 SPREAD = 78
 SPREAD_UP = 18
+
+# The rest of build_gui's layout, in design units unless marked. Named, not written
+# inline, because the Mac installer does this same arithmetic for a resolution with
+# no set (macos/tools/kmrp-guiblend.c) and takes every number from gui-blend.bin
+# (layout_constants), so there is one copy of each.
+SCALE_HEIGHT = 720                        # screen pixels per 720 design units' scale step
+COMPACT_H = 540                           # the compact layout's height
+SCREEN_MARGIN = 40                        # kept free when the layout opens out
+TOP_MIN_PX = 8                            # screen pixels above the title, at least
+TITLE_H = 32
+FAMILY_Y, FAMILY_H = 34, 22               # the heading naming the pad
+HELP_Y, HELP_H = 466, 22                  # the help line, compact form
+BACK_X, BACK_Y, BACK_W, BACK_H = 280, 494, 200, 40
+BACK_GLYPH_X, BACK_GLYPH_Y, BACK_GLYPH_TRIM = 8, 6, 12   # the B inside Back
+CAPTION_GAP = 6                           # between a glyph and its caption box
+LINE_BOX_H = 28                           # a one-line caption box
+TWO_LINES = 2.3                           # a two-line box, in the font's lines
+TOP_CAPTION_H, TOP_CAPTION_RISE = 26, 28  # the centre pair's captions, above their glyphs
+HEADING_BOTTOM, HAIR_BELOW_HEADING = 56, 12
+HAIR_ABOVE_HELP, HAIR_OPEN_DOWN, HAIR_COMPACT_Y = 18, 40, 546
 TEXTURE = (2048, 1024)                    # the board's aspect exactly: 760x380
 INK = (0, 168, 250)                       # KOTOR's own cyan
 BODY = (165, 214, 240)                    # the silhouette, a paler cyan
@@ -443,12 +463,19 @@ CYAN, YELLOW = Vector3(0, 0.66, 0.98), Vector3(0.98, 1, 0)
 # Prev tab" read "Tab". The labels now ask for the font they get, and the boxes
 # are sized from that font's own metrics at each resolution.
 #
-# measure_label() over-reads this font: vanilla 16x16 text on the Gameplay
-# screen and these captions both rendered at 0.88 of it. RENDER_FACTOR adds a
-# margin to that, since the engine wraps against its own slightly different
-# sum (reverse-engineering/font-atlases.md, "spacingR controls word wrap").
+# RENDER_FACTOR is a margin over measure_label(), since the engine wraps against
+# its own slightly different sum (reverse-engineering/font-atlases.md, "spacingR
+# controls word wrap"): each glyph's advance rounded, plus spacingR.
+# *Corrected 2026-09-30:* this was 0.92, below 1, because measure_label()
+# over-read the font -- vanilla 16x16 text on the Gameplay screen and these
+# captions rendered at 0.88 of it at 3440x1440. The over-read was
+# parse_font_metrics scaling spacingR by texturewidth, and it grew with the
+# resolution (the text drew at about 0.84 of it at 3024x1964). With the measure
+# corrected, 1.04 gives every resolution the same 4% margin: the boxes played at
+# 3440x1440 grow by 7 to 9 px, and the over-wide ones at 3024x1964 lose 18 to 32
+# (read from the resource builds before and after).
 CAPTION_FONT = 'dialogfont16x16'
-RENDER_FACTOR = 0.92
+RENDER_FACTOR = 1.04
 CAPTION_PAD = 4                           # design units beyond the text
 
 
@@ -457,6 +484,42 @@ def caption_width(text_value: str, metrics, scale: float) -> float:
     if not metrics:
         return 0.0
     return measure_label(text_value, *metrics) * RENDER_FACTOR / scale + CAPTION_PAD
+
+
+def layout_constants() -> dict[str, float]:
+    """Every number build_gui's geometry uses, by name, for gui-blend.bin: the Mac
+    installer redoes that geometry for a resolution with no set (kmrp-guiblend.c) and
+    looks each one up here by name rather than carrying a copy."""
+    return {name: float(value) for name, value in (
+        ("DESIGN_W", DESIGN_W), ("BOARD_X", BOARD[0]), ("BOARD_Y", BOARD[1]),
+        ("BOARD_W", BOARD[2]), ("BOARD_H", BOARD[3]), ("GLYPH", GLYPH),
+        ("LEFT_GLYPH_X", LEFT_GLYPH_X), ("RIGHT_GLYPH_X", RIGHT_GLYPH_X),
+        ("CAPTION_W", CAPTION_W), ("EDGE_GAP", EDGE_GAP), ("TOP_CAPTION_W", TOP_CAPTION_W),
+        ("SPREAD", SPREAD), ("SPREAD_UP", SPREAD_UP), ("RENDER_FACTOR", RENDER_FACTOR),
+        ("CAPTION_PAD", CAPTION_PAD), ("SCALE_HEIGHT", SCALE_HEIGHT), ("COMPACT_H", COMPACT_H),
+        ("SCREEN_MARGIN", SCREEN_MARGIN), ("TOP_MIN_PX", TOP_MIN_PX), ("TITLE_H", TITLE_H),
+        ("FAMILY_Y", FAMILY_Y), ("FAMILY_H", FAMILY_H), ("HELP_Y", HELP_Y), ("HELP_H", HELP_H),
+        ("BACK_X", BACK_X), ("BACK_Y", BACK_Y), ("BACK_W", BACK_W), ("BACK_H", BACK_H),
+        ("BACK_GLYPH_X", BACK_GLYPH_X), ("BACK_GLYPH_Y", BACK_GLYPH_Y),
+        ("BACK_GLYPH_TRIM", BACK_GLYPH_TRIM), ("CAPTION_GAP", CAPTION_GAP),
+        ("LINE_BOX_H", LINE_BOX_H), ("TWO_LINES", TWO_LINES), ("TOP_CAPTION_H", TOP_CAPTION_H),
+        ("TOP_CAPTION_RISE", TOP_CAPTION_RISE), ("HEADING_BOTTOM", HEADING_BOTTOM),
+        ("HAIR_BELOW_HEADING", HAIR_BELOW_HEADING), ("HAIR_ABOVE_HELP", HAIR_ABOVE_HELP),
+        ("HAIR_OPEN_DOWN", HAIR_OPEN_DOWN), ("HAIR_COMPACT_Y", HAIR_COMPACT_Y),
+        ("DECOR_CORNER", backdrop.CORNER), ("DECOR_EDGE_GAP", backdrop.EDGE_GAP),
+        ("READOUT_W", backdrop.READOUT[0]), ("READOUT_H", backdrop.READOUT[1]),
+        ("HAIR_H", backdrop.HAIR_H), ("ART_MAX_W", backdrop.ART_MAX_W),
+        ("ART_MIN_W", backdrop.ART_MIN_W), ("ART_MARGIN", backdrop.ART_MARGIN),
+        ("READOUT_INSET", backdrop.READOUT_INSET), ("HAIR_OVERLAP", backdrop.HAIR_OVERLAP),
+        ("DECOR_COUNT", len(backdrop.DECOR)), ("ROWS", ROWS))}
+
+
+def layout_rows() -> list[tuple[str, float, float, str]]:
+    """Per LAYOUT entry: its side, its glyph's x, its row centre on the board (rows(),
+    the same for every resolution), and its caption, for gui-blend.bin."""
+    return [(side, float({'L': LEFT_GLYPH_X, 'R': RIGHT_GLYPH_X}.get(side) or TOP_GLYPH_X[key]),
+             float(cy), caption)
+            for (_, caption, side, key), cy in zip(LAYOUT, rows())]
 
 
 def build_gui(source: Path, output: Path, width: int, height: int,
@@ -477,15 +540,15 @@ def build_gui(source: Path, output: Path, width: int, height: int,
     controls = {c.get_string('TAG'): c for c in g.root.get_list('CONTROLS')}
     label, button = controls['LBL_TITLE'], controls['BTN_BACK']
     out = GFFList()
-    scale = max(1, height / 720)
+    scale = max(1, height / SCALE_HEIGHT)
     # Keep the same shared text scale even on 540/576/600-pixel displays.
     left = width / 2 - DESIGN_W / 2 * scale
     # Open the layout out by as much of SPREAD as the screen allows, keeping
     # 40 units of margin; design y=0 stays the board's frame of reference.
-    spread = min(SPREAD, max(0.0, height / scale - 540 - 40))
+    spread = min(SPREAD, max(0.0, height / scale - COMPACT_H - SCREEN_MARGIN))
     up = round(spread * SPREAD_UP / SPREAD)
     down = spread - up
-    top = max(8 + up * scale, (height - (540 + spread) * scale) / 2 + up * scale)
+    top = max(TOP_MIN_PX + up * scale, (height - (COMPACT_H + spread) * scale) / 2 + up * scale)
 
     def add(i, tag, value, x, y, w, h, btn=False):
         c = copy.deepcopy(button if btn else label)
@@ -497,14 +560,14 @@ def build_gui(source: Path, output: Path, width: int, height: int,
         out.append(c)
         return c
 
-    title = add(0, 'LBL_TITLE', 'Controller Layout', 0, -up, DESIGN_W, 32)
+    title = add(0, 'LBL_TITLE', 'Controller Layout', 0, -up, DESIGN_W, TITLE_H)
     style(title, font='dialogfont16x16', align=ALIGN_CENTRE, color=YELLOW)
-    add(1, 'BTN_BACK', 'Back', 280, 494 + down, 200, 40, True)
+    add(1, 'BTN_BACK', 'Back', BACK_X, BACK_Y + down, BACK_W, BACK_H, True)
     names = ('Xbox / compatible controller', 'PlayStation controller',
              'Nintendo Switch controller', 'Steam controller')
     tags = ('LBL_XBOX', 'LBL_PS', 'LBL_SWITCH', 'LBL_DECK')
     for i, name in enumerate(names):
-        style(add(2 + i, tags[i], name, 0, 34 - up, DESIGN_W, 22),
+        style(add(2 + i, tags[i], name, 0, FAMILY_Y - up, DESIGN_W, FAMILY_H),
               align=ALIGN_CENTRE)
     # The active-device line is gone from the screen (2026-09-24): the heading
     # already names the pad. The two labels stay, empty and sizeless, because
@@ -518,7 +581,7 @@ def build_gui(source: Path, output: Path, width: int, height: int,
     fill(add(8, 'LBL_DIAGRAM', '', *BOARD), 'kmrplytdiag')
     style(add(9, 'LBL_HELP',
               'Buttons are shown by position. Menu actions vary by screen.',
-              0, 466 + down, DESIGN_W, 22), align=ALIGN_CENTRE)
+              0, HELP_Y + down, DESIGN_W, HELP_H), align=ALIGN_CENTRE)
 
     # Each column's box is as wide as its longest caption needs, growing
     # outward, away from the diagram; the glyphs and leader lines stay put.
@@ -531,15 +594,15 @@ def build_gui(source: Path, output: Path, width: int, height: int,
     # one-line box shows only the last.
     screen_left = -left / scale + EDGE_GAP
     screen_right = (width - left) / scale - EDGE_GAP
-    left_w = min(max(CAPTION_W, need['L']), LEFT_GLYPH_X - 6 - screen_left)
+    left_w = min(max(CAPTION_W, need['L']), LEFT_GLYPH_X - CAPTION_GAP - screen_left)
     right_w = min(max(CAPTION_W, need['R']),
-                  screen_right - (RIGHT_GLYPH_X + GLYPH + 6))
+                  screen_right - (RIGHT_GLYPH_X + GLYPH + CAPTION_GAP))
     top_w = max(TOP_CAPTION_W, need['T'])
     overhang = max(left_w, right_w) - CAPTION_W
-    two_lines = max(28.0, 2.3 * line_h / scale)
+    two_lines = max(float(LINE_BOX_H), TWO_LINES * line_h / scale)
 
     def box_height(caption, box_w):
-        return two_lines if caption_width(caption, metrics, scale) > box_w else 28
+        return two_lines if caption_width(caption, metrics, scale) > box_w else LINE_BOX_H
 
     # The rows sit where the texture's lines end, in the same design space.
     for i, ((glyph, caption, side, _), cy) in enumerate(zip(LAYOUT, rows())):
@@ -552,17 +615,17 @@ def build_gui(source: Path, output: Path, width: int, height: int,
              f'kmrplyt{i:02d}')
         if side == 'L':
             tw = left_w
-            tx, align = LEFT_GLYPH_X - 6 - tw, ALIGN_RIGHT
+            tx, align = LEFT_GLYPH_X - CAPTION_GAP - tw, ALIGN_RIGHT
         elif side == 'R':
             tw = right_w
-            tx, align = RIGHT_GLYPH_X + GLYPH + 6, ALIGN_LEFT
+            tx, align = RIGHT_GLYPH_X + GLYPH + CAPTION_GAP, ALIGN_LEFT
         else:
             # Centred above its glyph. Beside it, "Map / Close menu" reached
             # into the right column and the RT line ran through the word menu.
             tw = top_w
             tx, align = gx + GLYPH / 2 - tw / 2, ALIGN_CENTRE
             style(add(10 + ROWS + i, f'TEXT_{i:02d}', caption, tx,
-                      y - GLYPH / 2 - 28, tw, 26), align=align)
+                      y - GLYPH / 2 - TOP_CAPTION_RISE, tw, TOP_CAPTION_H), align=align)
             continue
         th = box_height(caption, tw)
         style(add(10 + ROWS + i, f'TEXT_{i:02d}', caption, tx, y - th / 2, tw, th),
@@ -579,8 +642,8 @@ def build_gui(source: Path, output: Path, width: int, height: int,
     deco_base = 10 + 2 * ROWS
     # Upper hairline just under the heading; lower one above the help line when
     # the layout is opened out, else under Back, where the compact form has room.
-    hair_upper = 56 - up + 12
-    hair_lower = 466 + down - 18 if down >= 40 else 546
+    hair_upper = HEADING_BOTTOM - up + HAIR_BELOW_HEADING
+    hair_lower = HELP_Y + down - HAIR_ABOVE_HELP if down >= HAIR_OPEN_DOWN else HAIR_COMPACT_Y
     for i, (resref, (x, y, w, h)) in enumerate(zip(
             backdrop.DECOR,
             # The side art makes room for captions that reach past the board.
@@ -596,12 +659,12 @@ def build_gui(source: Path, output: Path, width: int, height: int,
     # The B inside Back, at its left end: Back is what B does on this screen.
     # Last, so no earlier ID moves; the runtime binds it as GLYPH_BACK, sets
     # the pad's glyph and shows it only while a pad is in use.
-    back_x, back_y, back_h = 280, 494 + down, 40
-    size = back_h - 12
+    back_x, back_y, back_h = BACK_X, BACK_Y + down, BACK_H
+    size = back_h - BACK_GLYPH_TRIM
     c = copy.deepcopy(label)
     c.set_int32('ID', deco_base + len(backdrop.DECOR))
     c.set_string('TAG', 'GLYPH_BACK')
-    extent(c, left + (back_x + 8) * scale, top + (back_y + 6) * scale,
+    extent(c, left + (back_x + BACK_GLYPH_X) * scale, top + (back_y + BACK_GLYPH_Y) * scale,
            size * scale, size * scale)
     text(c, '')
     fill(c, 'kmrplytbk')

@@ -45,11 +45,12 @@ site; the files are the same.
 | Base patch | FTD's widescreen patch with KMRP's engine fixes: the resolution (Retina modes included), K1–K9, and, with `UseGuiFileLayouts=1`, no layout of its own | *K1WidescreenPatch* by FTD, RaymanGT, J and Vriff (MIT), a KPM patch, branch `widescreen-patch` of FTD's fork, KMRP's fixes merged as [FTD516/Kotor-Patch-Manager#1](https://github.com/FTD516/Kotor-Patch-Manager/pull/1) |
 | Layout patch | `patches/kmrp-layout/`: the sizes the Windows installer writes per resolution, and the list-box, area-map and popup changes the gold delta makes | this directory, a DLL-only KPM patch |
 | Map notes | Derslok's 250 map-note corrections | `patches/kmrp-map-notes/`, a KPM patch |
+| Controller | KMRP's Windows controller module, ported (section 7), reading the pad through SDL 3.4.16 | `patches/kmrp-controller/`, a KPM patch; SDL's official macOS release, shipped as `kmrp-sdl3.dylib` |
 | Menus and fonts | every resolution's set from KMRP's resource build, pooled; any other size blended at install | `tools/prepare_universal_resources.py`, `pack_resolution_layouts.py`, `build_gui_blend_table.py`, all unchanged from Windows |
 | Artwork | `override-common.zip`, less what the Mac does not use | the same resource build |
 | Feat, power and skill icons | enlarged from the game's texture pack at install | `tools/kmrp-abilityicons.c`, a port of `AbilityIconGenerator.cs` |
 | Row frames, tutorial icons, `tutorial.2da` | made at install from the player's game: nothing of the game's ships | `tools/kmrp-gameart.c`, a port of `GameArtGenerator.cs` |
-| Installer | `kmrp-mac.sh`: install, uninstall, status, with a hashed manifest | this directory |
+| Installer | `kmrp-mac.sh`: install, uninstall, status, with a hashed manifest; run by `KMRP Installer.app`, the Windows patcher's window ported | this directory, `installer-app/` |
 
 **Why the widescreen patch is the base** (decided 2026-09-29, after a day on which KMRP was to
 ship a patch of its own instead): it is the Mac's resolution unlock, and KMRP's engine fixes
@@ -71,6 +72,72 @@ layout patch's. The engine fixes are documented beside their code, in the branch
 | K8 | minimap keeps the vanilla zoom | `.kmz`, `.kfg` |
 | K9 | the display's pixel resolution is a valid mode (Retina) | none: Windows display modes are already in pixels |
 
+### The installer app
+
+The package is `KMRP Installer.app` and the player README (`PLAYER-README.md`, shipped as
+`README.md`). The app carries `kmrp-mac.sh` and
+everything it installs in `Contents/Resources/kmrp` (the folder the package held as `kmrp/`
+until 2026-09-30, beside `Install KMRP.command` and `Uninstall KMRP.command`, which it
+replaces), and runs the script:
+
+| The app | `kmrp-mac.sh` |
+| --- | --- |
+| at launch and after every run | `status --brief`: `install.info`, or the game and its build, without hashing every installed file (a full status takes seconds once KMRP is installed) |
+| **Start Patching** | `install --yes`, with `--resolution native` or `half` for this display's rows, `--size WxH` for any other, `--no-map-notes` when *Area Map Marker Fixes* is off, `--no-controller` when *Controller Support* is off (Advanced Settings, as on Windows), `--game` when one was chosen with **Browse** |
+| **Restore Original** | `uninstall --yes` (and `--game`) |
+
+What the script refuses (the game running, another build, KotOR Patch Manager's files
+already in the game), the app shows as a blocking message with the script's own words. The
+script's output goes to `~/Library/Logs/KMRP/installer.log` (**Open Log**), and its stage
+lines move the progress fill.
+
+**It looks like the Windows patcher** (`installer-app/main.m`, a port of `MainForm`):
+`UiTheme`'s colours, the brand lockup with the tagline set to the wordmark's ink width,
+`LightField`'s smoke and motes (every constant Windows', faded out over the header's lowest
+30% so they do not stop on a line beside the card, as they can on Windows:
+`docs/windows-changes-from-macos.md`, item 11; rendered at 1/12 of the header's
+pixels on a background queue every 62 ms and resampled with vImage), the four-step card
+with the step and state art from `src/patcher/icons`, the pill buttons with the primary's
+progress fill, the Advanced Settings view with its two toggles, and the footer. Its icon is the
+Mac's own, shared with the disk image: the crest over "KMRP" (`tools/make_package_art.py`;
+the Windows executable's `src/patcher/favicon.ico` until 2026-09-30, when the player asked
+for the crest). Every rectangle is the Windows design-space one; the scale is `FitInitialSizeToWorkingArea`'s times 1.3,
+because a Mac's points are denser than the 96-dpi pixels the Windows formula assumes (the
+text was reported too small at 1.0, 2026-09-30); on a 14" MacBook Pro the window is
+1,310x717 points. Bahnschrift and Segoe UI are Microsoft's and cannot ship: DIN Alternate
+Bold narrowed to 92% and the system font stand in. All text is one Core Text line at an
+explicit baseline: labels centred on their capitals, and each step's title and subtitle
+(baselines 30 apart, as on Windows) centred together on its badge. AppKit's box drawing had
+put the DIN labels about 5 pt low and clipped the step titles' descenders (both reported
+2026-09-30); measured on the window afterwards, Browse's label sits 0.5 px from its
+button's centre and the state labels on their badges' centre lines.
+
+**Resolutions** (step 3): this display first, native and on a Retina display half (the main
+display, as the widescreen patch reads it), then `installer-app/resolutions.txt`, 34 sizes
+grouped by shape (the 17 Mac sizes and common external displays), each one the build
+checks is in `layouts.zip`, then **Custom size…**. A custom size is checked with
+`kmrp-guiblend`'s dry run (exit 2: outside what the sets cover) before it can be chosen.
+
+**Quarantine.** A downloaded package keeps the quarantine flag on every file, and
+Gatekeeper kills a flagged helper as it starts: a flagged copy of `kmrp-guiblend` exited
+137, `spctl` "rejected" (tested 2026-09-30). The app's bundle is read-only when macOS runs it
+from where it was downloaded, so the flag cannot be taken off there: `kmrp-mac.sh` copies
+`bin/` into its work folder and removes the flag from the copy, and the app does the same
+for its own dry run. **Not yet tested:** a downloaded, quarantined copy of the app itself
+through Gatekeeper's first-run approval, and App Management (macOS 13 and later), which may
+ask the player to allow the app to change the game's bundle; the app says how if the script
+fails with "Operation not permitted".
+
+**Seen**, from the package at 3024x1964, 2026-09-30, through the app's scripted-check
+arguments (`-KMRPSelect`, `-KMRPRun`, `-KMRPSettings`, `-KMRPSnapshot`, `-KMRPQuit`; the
+comment at the top of `main.m`): the installed and not-installed states, Advanced Settings,
+the progress fill at "Installing artwork… 34%", the resolution list from top to end and the
+**Custom size…** dialog, a custom size outside the sets refused, and
+**Restore Original** then **Start Patching** on the live game, the second leaving the same
+`KOTOR_Exe` (`5294ae4f…`) and install as `kmrp-mac.sh` does alone. `Test-MacInstaller.py`
+passes on the app's `Contents/Resources/kmrp`. Built for x86_64 (macOS 10.13 and later, the
+floor of the controller's SDL3 and the helpers) and arm64, with `-Wunguarded-availability`.
+
 ## 2. Every file the installer writes
 
 `kmrp-mac.sh install`, run from the package, in this order. Paths are relative to
@@ -83,11 +150,20 @@ layout patch's. The engine fixes are documented beside their code, in the branch
 | `MacOS/patches/k1widescreenpatch.dylib` | added | the widescreen patch with the engine fixes |
 | `MacOS/patches/kmrp-layout.dylib` | added | the layout patch (section 4) |
 | `MacOS/patches/kmrp-map-notes.dylib` | added | omitted with `--no-map-notes` |
-| `MacOS/patch_config.toml` | added | written at build time by KPM's own `ConfigGenerator`: 57 widescreen hooks, the map-note detour, and the layout patch as a DLL-only entry |
+| `MacOS/patches/kmrp-controller.dylib` | added | the controller module (section 7); omitted with `--no-controller` |
+| `MacOS/patches/kmrp-sdl3.dylib` | added | omitted with `--no-controller`; SDL 3.4.16, the library of the official macOS release, its code unchanged and its signature redone ad hoc (`THIRD_PARTY_NOTICES.md`) |
+| `MacOS/patch_config.toml` | added | written at build time by KPM's own `ConfigGenerator`: 57 widescreen hooks, the map-note detour, the controller's 21 hooks, and the layout patch as a DLL-only entry; one of four, for the two options (`patch_config[.no-map-notes][.no-controller].toml`) |
 | `MacOS/KOTOR_Exe` | edited | one load command, then `codesign --force --sign - --identifier KOTOR_Exe` |
 | `~/Library/Application Support/Knights of the Old Republic/swkotor.ini` | three keys under `[Graphics Options]` | `UseGuiFileLayouts=1`, `ForceWidth`, `ForceHeight` (section 5); the file is created if the game never ran |
+| `~/Library/Application Support/Knights of the Old Republic/kmrp-controller.ini` | added if absent | the controller's settings, Windows' defaults (section 7); a copy already there is the player's and is kept; not written with `--no-controller` |
 | `Assets/override/` | created if absent | the game's working directory is `Contents/Assets` and it reads `.\override` |
-| `Assets/override/*` | added or replaced | 757 artwork files, the 136 files of the resolution's set (83 `.gui`, 36 font files, 13 `tut_*` icons and `tutorial.2da`, the row-frame art), 310 enlarged feat, power and skill icons |
+| `Assets/override/*` | added or replaced | 1,855 files: 854 artwork files (98 of them the controller's: 22 prompt textures in each of the four pad families and 10 for the Controller Layout screen); the resolution's set, 673 files (82 `.gui`, 36 font files, `lbl_mileftbot`, and the controller's 552 prompt and cue textures sized for it, `kmrplayout.gui` and `kmrp_prompts.txt`); 18 made from the game (four row frames, 13 `tut_*` icons, `tutorial.2da`: section 6); 310 enlarged feat, power and skill icons |
+
+*Corrected 2026-09-29:* the override row said 757 artwork files and a set of 136 (83 `.gui`,
+36 font files, the tutorial icons and `tutorial.2da`, the row-frame art). The tutorial files
+and the row frames are made at install since that day (section 6), and the controller's art
+is installed since it was ported; the counts above are read from the manifest of an install
+of the package built from `0d147a1`.
 
 The `KOTOR_Exe` edit, measured on the installed file:
 
@@ -136,6 +212,8 @@ walks it newest first:
 - puts the original `KOTOR_Exe` back only if the installed one is unchanged;
 - puts each INI key back to its old value, or removes it if it had none, only if it still
   holds what KMRP wrote (`ini` rows: key, value written, value before);
+- deletes `kmrp-controller.ini` only if it is still as written (`settings` row); an edited
+  one is the player's, kept without counting as a change, so it never holds back the rest;
 - reports anything that changed and keeps its backup.
 
 The INI is edited key by key, in place, keeping the file's CRLF line ends. An install and
@@ -212,6 +290,8 @@ sources' comments and, against the Windows sites, in `WINDOWS-PARITY.md`.
 | | stack-count label `21s`/`42s`, `37s`, `19s` | the label block `0x1002be4a0` re-encoded with 32-bit operands; the store's label x `0x1002bfbc0` | `StackCountSites`, `.ksc` |
 | | feat and power chain rows `50s` | the rect's height at `0x100570efc` | `RowSizeGroups` |
 | | message popup: caps `800s`, `450s`, icon `64s` | `0x100306877`, `0x10030687f`, `0x10030688b`, `0x1003068fd`, `0x1003065a1`, the icon rect at `0x100571bb0` | `PopupSizeGroups` |
+| `popup_fit.cpp` | the message popup fitted to its contents, centred (2026-09-30) | `FixMessageLabel`'s last call (`0x100306a88`), through the near page's third thunk | **none yet**: Windows keeps the height from `confirm.gui` |
+| `granted_popup.cpp` | the granted popup's rows: text inset `row/8`, hex grown `row/7`, pitch `row + row/11`, OK and panel fitted, centred (2026-09-30) | the fill's call to `AddControls` (`0x10028ea4f`) and the row's text-rect call in `CSWGuiInGameSkillEntry::SetExtent` (`0x10022f321`), through the near page's fourth and fifth thunks | **none yet** (`docs/windows-changes-from-macos.md`, item 10) |
 | `listbox_padding.cpp` | `PADDING` a gutter on the scrollbar's side | five reads zeroed in `OrganizeControls`, and stubs for its row block (`0x1004a8838`) and the single-row layout (`0x1004a937a`) | gold v11, v12 (`.klb`, `.kgs`) |
 | `area_map.cpp` | canvas and marker overlay | the map screen's two rect constants, `0x100571390`, `0x1005713a0` | `ResolutionPatch` map fields |
 | | marker positions | stubs for the three world-to-map calls in `CSWGuiMapHider::Draw` | the `.kui` wrappers |
@@ -221,7 +301,7 @@ Code that does not fit where it goes (the stubs) lives in the module; the game r
 a 14-byte absolute jump, or, where only a 5-byte call or a 32-bit displacement fits, through
 a page the module allocates within 2 GB of the game's code (at `0x101000000` or above, where
 KotorPatcher also places its wrappers). `testing/regression/Test-KmrpLayoutPatch.py` checks
-every site against the unmodified executable (48 sites at 76 resolutions), every value
+every site against the unmodified executable (51 sites at 76 resolutions), every value
 against the Windows formula, every rewritten instruction and stub by disassembly, that no
 site overlaps a widescreen-patch hook except the two declared, and that the module has a
 single load-time initialiser. *Found 2026-09-29:* a global `std::vector` of vanilla bytes was
@@ -235,8 +315,9 @@ and the area-map hit-test wrapper, because the widescreen patch's recentring alr
 
 ## 5. Resolution
 
-On a display with more pixels than points (every Retina Mac), the installer asks, or takes
-`--resolution native|half`; `--size WxH` sets any size (another display, a window):
+On a display with more pixels than points (every Retina Mac), the installer app offers both
+and chooses native; `kmrp-mac.sh` on its own asks, or takes `--resolution native|half`, and
+`--size WxH` sets any size (another display, a window):
 
 | choice | frame the game renders here | INI |
 | --- | --- | --- |
@@ -275,9 +356,18 @@ no font with the switch on, so a texel of the atlas is a pixel on screen, as on 
 **Other sizes.** For a size with no set, the installer blends the `.gui` files from the
 finished sets around it (`kmrp-guiblend` over `gui-blend.bin`: the two aspect-ratio families
 on either side, each at the two heights around it) and takes the fonts and art of the nearest
-set by height, then shape. Measured by hiding each finished set and predicting it from the
+set by height, then shape. Two files are not blended but made for the size, with that set's
+fonts (since 2026-09-30, `gui-blend.bin` version 2): the Container, widened by the build's
+own rule until "Switch To Give Item" and its badge fit, and the Controller Layout screen,
+which the helper lays out with `build_gui`'s arithmetic (`WINDOWS-PARITY.md`, *Resolutions
+the build has no set for*). Measured by hiding each finished set and predicting it from the
 others: 99.89% of numeric fields within 1 px; the 17 Mac sets, held out, 99.90% within 1 px,
-worst 12 px in a HUD variant the Mac does not load (`Test-GuiBlendHelper.py`). The tutorial
+every file counted, worst 12 px in a HUD variant the Mac does not load; the Controller
+Layout screen exactly, and the Container 491 of 493 fields (`Test-GuiBlendHelper.py`, which
+also requires the helper's Controller Layout to equal `build_gui`'s own, byte for byte, at
+24 sizes). *Corrected 2026-09-30:* the 99.90% of 2026-09-29 left the Controller Layout
+screen out as a file the Mac never loads; it loads it since the controller was ported, and
+blended it was up to 32 px off at the Mac sizes. The tutorial
 icons of the nearest set can be a few pixels off `64s` for the blended size, and the engine
 draws them one texel per pixel, so the layout patch sizes the popup's icon rect from the
 installed icon instead (the same `64s` for every listed set: all 66 checked). Since
@@ -311,11 +401,132 @@ Icon Pack, with each picture sized to 39/64 of its canvas, the size of the game'
 icons, so items sit in their slots as vanilla's do (`ICON_PICTURE_SPAN` in
 `tools/prepare_universal_resources.py`; the CHANGELOG has the measurements).
 
-## 7. What is deliberately not installed or changed
+## 7. Controller
+
+`patches/kmrp-controller/` is KMRP's Windows controller module (`src/controller-native/`:
+`K1NativeJoystick.cpp`, `K1Rumble.cpp`, `K1ControllerLayout.cpp`) ported to this executable,
+with the same bindings, event ids, tables, rumble patterns and art. What it does and why is
+written once, for Windows, in [`docs/controller-support.md`](../docs/controller-support.md)
+and the documents it links; this section covers what the Mac changes. The sources name each
+Mac address beside the Windows one it stands for.
+
+**Why a port.** KOTOR I on the Mac has no controller support that works: a pad that works in
+other macOS apps did nothing in play (2026-09-29), and Aspyr lists controllers for KOTOR II on
+the Mac only. The executable keeps the PC's joystick input chain, which the Windows module
+feeds, and a rumble subsystem whose output Aspyr stubbed: `CExoInput::SetRumble`,
+`PauseRumble` and `UnpauseRumble` (`0x10035738c`, `0x10035739c`, `0x1003573a2`) return
+without doing anything.
+
+**The pad** is read through SDL 3.4.16, the release the Windows installer pins, shipped as
+`patches/kmrp-sdl3.dylib`. Apple's GameController framework, weak-linked, is used only when
+that library cannot be loaded, so the two never hold a pad at once. The prompts are drawn in
+the pad's family, as on Windows: Xbox, PlayStation, Switch or Steam Deck art (`kmrp*`,
+`kmrs*`, `kmrn*`, `kmrd*`).
+
+**Sites.** The patch's 21 hooks, and ten writes the module makes as it loads, each after
+checking the bytes or the pointer it replaces; a site holding anything else is left alone and
+logged. `FILE = VA − 0x100000000`. *Prologue* below is `55 48 89 E5 41 57 41 56`
+(`push rbp; mov rbp, rsp; push r15; push r14`). A *consumed* hook skips the cut instruction
+and makes its call itself, because a relative call cannot run from KPM's wrapper.
+
+| VA | len | original | kind | handler (from) | site and purpose | Windows |
+| --- | --- | --- | --- | --- | --- | --- |
+| `0x100356276` | 13 | prologue, `41 55 41 54 53` | detour | `KmrpControllerTick` (rsi) | `CExoInputInternal::GetEvents`, entry: registers the pad's button descriptions, keeps a pad in the device count, reads it | the input poll, `0x005E23C0` |
+| `0x100356ff2` | 6 | `0F 87 02 01 00 00` (`ja 0x1003570fa`) | bytes: `E9 03 01 00 00 90` | — | Aspyr's pad mapping at the end of `GetEvents`, skipped (below) | none: Aspyr's code |
+| `0x1002249b2` | 8 | prologue | detour | `KmrpMovementFrame` (rdi) | `CSWPlayerControlCamRelative::Control`, entry: whether the left stick drives | `0x00679940` |
+| `0x100224c56` | 5 | `E8 33 A7 14 00` (`Vector::Normalize`) | consumed | `KmrpSkipNormalize` (rdi) | skipped while the stick drives, so the speed follows the deflection | `0x00679B71` |
+| `0x100268424` | 5 | `E8 87 11 00 00` (`UpdateCamera`) | consumed | `KmrpCameraFrame` (rdi) | the right stick's turn; L3's flourish, Start's Map, A on the target, R3 out of free look | `0x006039CF` |
+| `0x10049f636` | 8 | prologue | detour | `KmrpGuiFrame` (rdi) | `CSWGuiManager::Update`: focus moves, remaps, the party switch, description scrolling, the prompts, the Controller Layout screen | `0x0040CE70` |
+| `0x100237a86` | 8 | prologue | detour | `KmrpHudFrame` (rdi) | `CSWGuiMainInterface::Update`: the action bar on the D-pad | `0x00686BA0` |
+| `0x100014566` | 7 | `80 BD 51 FB FF FF 00` (`cmp byte [rbp-0x4af], 0`) | detour | `KmrpMovieFrame` (rbp−0x4b0) | Aspyr's movie loop: A and Start skip; the cut test re-runs after the handler | `NativeMovieFrameK1` |
+| `0x1003563f3` | 5 | `E8 54 34 00 00` (the keyboard buffer read) | consumed | `KmrpNoteKeyboard` (rdi, rsi) | a key hides the prompts and gives the cursor back | `NativeNoteKeyboardK1` |
+| `0x10049d986` | 6 | `55 48 89 E5 53 50` | detour | `KmrpPanelReleaseGff` (rdi) | `CSWGuiPanel::StopLoadFromLayout`: binds the GUI cues and badges while the panel's `.gui` is loaded, forgets them at the base destructor | `0x0040B8F0` |
+| `0x1002687f1` | 5 | `E8 00 27 00 00` (`UpdateRumble`) | consumed | `KmrpRumbleFrame` (r13) | the rumble mixer's frame and the pad's motors | `0x005F7617` |
+| `0x10027a106` | 6 | `89 F3 31 C0 85 DB` | consumed, exit `0x10027a185` | `KmrpRumblePlay` (rdi, esi) | `PlayRumblePattern`: the pattern goes to the mixer; returns 1 through the function's own epilogue (Windows 0; only a script reads it) | `0x005FB49F` |
+| `0x10027a1d2` | 11 | `55 48 89 E5 48 63 87 E8 04 00 00` | detour | `KmrpRumbleStop` (rdi, esi) | `StopRumblePattern`, observed | `0x005F74B0` |
+| `0x10027a892` | 8 | prologue | detour | `KmrpRumbleCutoff` (rdi, esi, edx, rcx) | `LookUpAndPerformRumbleWithCutOff`, observed | `0x005FB98E` |
+| `0x100359d86` | 8 | `55 48 89 E5 48 8B 7F 08` | detour | `KmrpRumblePause` | `PauseRumble`'s wrapper: the pause the Mac no longer keeps | `CExoInput::PauseRumble` |
+| `0x100359d94` | 8 | `55 48 89 E5 48 8B 7F 08` | detour | `KmrpRumbleUnpause` | `UnpauseRumble`'s wrapper | `CExoInput::UnpauseRumble` |
+| `0x1002d150e` | 8 | prologue | detour | `KmrpSaberPower` (rdi, esi) | `CSWCItem::ResolveCreaturePoweredAnimations`: a saber lit or put out | `0x00646BA0` |
+| `0x100295f16` | 8 | prologue | detour | `KmrpSaberContact` (rdi) | `CSWCCreature::ShowLightSaberContactVisual` | `0x0060DE20` |
+| `0x100296007` | 8 | prologue | detour | `KmrpMeleeHit` (rdx) | the creature animation event "hit" | `0x00617EB0` |
+| `0x10033cb7e` | 6 | `55 48 89 E5 53 50` | detour | `KmrpParry` (rdi) | `CSWCObject::AnimationParry` | `0x0063C4F0` |
+| `0x1002dd810` | 8 | prologue | detour | `KmrpMuzzleFlash` (rdi) | `CSWCProjectile::CreateMuzzleFlash` | `0x006D4440` |
+
+Written as the module loads (`native.cpp`, `InstallController`; `gui.cpp`, `Install`):
+
+| VA | written | checked first | purpose | Windows |
+| --- | --- | --- | --- | --- |
+| `0x100358cdc` | 14 bytes, `FF 25 00 00 00 00` and the handler's address | `55 48 89 E5 41 57 41 56 41 55 41 54 53 48` | `GetJoystickBuffer` replaced whole by `KmrpGetJoystickBuffer`: the pad's records, in the engine's own format | `0x005E30F6` |
+| `0x10049dc72` | 14 bytes, the same jump to `KmrpPanelHandleInputEvent` | the whole 28-byte function | `CSWGuiPanel::HandleInputEvent` replaced whole: the echo guard | a hook on `0x00409E60` |
+| eight vtable slots (`+0x80`), below | 8 bytes each, a wrapper's address | the class's own handler | the confirm guards | `GuardChargenConfirmK1` and the Solo Mode and resolution resolvers |
+
+| Class | vtable | slot | handler the wrapper calls |
+| --- | --- | --- | --- |
+| Attributes (character generation) | `0x1005b0950` | `0x1005b09d0` | `0x100349572` |
+| Skills (character generation) | `0x1005a7820` | `0x1005a78a0` | `0x100250a12` |
+| Feats | `0x1005adc40` | `0x1005adcc0` | `0x1002eedd2` |
+| Powers | `0x1005abb40` | `0x1005abbc0` | `0x1002c36ba` |
+| Portrait (character generation) | `0x1005afea0` | `0x1005aff20` | `0x10033fcca` |
+| Name (character generation) | `0x1005aac10` | `0x1005aac90` | `0x1002aa9f4` |
+| Solo Mode query | `0x1005abea0` | `0x1005abf20` | `0x1002c826a` |
+| Resolution | `0x1005ac3a0` | `0x1005ac420` | `0x1002cdb5a` |
+
+**What differs from Windows, and why:**
+
+- **Aspyr's pad mapping is switched off.** The Mac's `GetEvents` ends with a translation
+  Windows does not have: a scan of the first pad's records (`0x100356e39`–`0x100356fc5`) that
+  reads them as an Xbox 360 DirectInput pad, then an injection (`0x100356fee`–`0x1003570f4`)
+  of a second event per press, by input class. It never ran before KMRP, because Aspyr's own
+  pad layer finds no pad. With KMRP's records it doubled bindings, and where the layouts
+  disagree it acted on its own: KMRP's Start is button 8, which it reads as L3, Flourish.
+  Seen 2026-09-29: a Start press in the world opened the menu and queued a flourish. The
+  class check before the injection, `cmp r13d, 5; ja <end>`, becomes a jump to `<end>`.
+- **The confirm guards sit in vtables.** On Windows they rewrite the event before the
+  class's handler reads it. On the Mac the event is in `esi`, and KPM's x86_64 wrapper puts
+  the registers back after a detour's handler, so a detour cannot change it. The wrapper in
+  the vtable calls the class's handler itself, with the event it settled on.
+- **Mouse use is read from the pointer, not from `HandleMouseMove`.** The Mac's input
+  processing calls `CSWGuiManager::HandleMouseMove` only while its own cursor is shown and
+  was moved in the last 400 ms (the flag at `0x1005d34e4`, which `0x1003578dc` keeps). The
+  hidden cursor of pad play is exactly when it is not, so a hook there never saw a hand go
+  back to the mouse. The module compares the pointer Aspyr's frame loop samples
+  (`0x10068a188`, `0x10068a18c`) instead. *Rejected 2026-09-29:* the hook at
+  `HandleMouseMove`, as on Windows; it never fired while the cursor was hidden.
+- **The cursor is parked only while the game is the active application**, since a warp made
+  while the player is in another app would move the pointer they are using there, and it is
+  **not confined to the window** (Windows' `ClipCursor`): macOS has nothing that keeps the
+  pointer in a window and still lets it move.
+- **Rumble replaces `UpdateRumble`'s call** instead of reading the motors on the way to
+  `SetRumble`, which does nothing here, and keeps the rumble pause the engine no longer keeps.
+- **SDL3, then GameController.** The first builds read the pad through GameController alone,
+  and the maintainer's pad did nothing in game with them; the first build with SDL3 worked
+  (2026-09-29). Which part of that change mattered was not isolated. SDL3 is also what the
+  Windows module reads pads through, and it sends the rumble.
+
+**Settings and logs.** Rumble reads `kmrp-controller.ini`, section `[Rumble]`, from the
+game's settings folder, `~/Library/Application Support/Knights of the Old Republic/`, beside
+`swkotor.ini` (on Windows the file sits beside `swkotor.exe`). The keys, ranges and defaults
+are Windows': `Mode` = `Off`, `Original` or `Enhanced` (default); `Strength` 0–100 (100);
+`SaberHum` 0–100 (6); `SaberHumPulseMs` 0–1000 (100); `SaberHumPeriodMinMs` and
+`SaberHumPeriodMaxMs` 50–5000 (500, 2000); `Debug` 0 or 1. The file is re-read within a
+second of a change, and a missing file or key means its default. The installer writes the
+file as the Windows installer does (`DefaultSettings` in `KmrpPatcher.cs`, the same text but
+for the log's path and LF line ends): only when there is none, never over the player's, and
+uninstall removes it only if it is unchanged (section 2). The module logs to
+`~/Library/Logs/KMRP/controller.log` every run (a game started from Steam sends its stderr
+nowhere), and rumble events to `rumble.log` there with `Debug=1`.
+
+**Testing without a pad.** `KMRP_PAD_SCRIPT=<file>` replaces the pad with a script, one
+`<seconds> <control> <value>` a line, the controls being `A B X Y LB RB BACK START L3 R3
+UP DOWN LEFT RIGHT` (1 pressed, 0 released) and the axes `LX LY RX RY LT RT`.
+`KMRP_PAD_FAMILY=s`, `n` or `d` draws its prompts in PlayStation, Switch or Steam Deck art
+(Xbox otherwise). The scripted pad has no motors: its rumble is read from the logs.
+
+## 8. What is deliberately not installed or changed
 
 | Left out | Why |
 | --- | --- |
-| `kmr*` textures and the `kmrplayout.gui` screen | KMRP's controller prompts and Controller Layout screen, for the Windows controller layer, which has no Mac port yet. *Corrected 2026-09-29:* this said the Aspyr port has its own controller support. It does not, for KOTOR I: a pad did nothing in play (2026-09-29), and Aspyr's own support pages list controllers for KOTOR II on the Mac only. The executable carries SDL's game-controller code behind a DirectInput joystick layer, apparently from Aspyr's shared port library, with no setting that enables it |
 | The 18 fonts in `override-common.zip` | every set carries them at its own size |
 | Driver compatibility, DPI and NVIDIA settings, Large Address Aware | Windows code (K1DC is a `dinput8.dll` proxy with an ASI plugin for the 32-bit `swkotor.exe`); the Mac build is 64-bit. *Corrected 2026-09-29:* this called them Direct3D-specific, but KOTOR renders with OpenGL on Windows too, and K1DC repairs an OpenGL lighting path. Whether the Mac port has the same fallback is **not yet checked**: this Mac's OpenGL (Apple M5, 2.1 on Metal) offers neither `GL_NV_register_combiners` nor `GL_ATI_text_fragment_shader`, the two old paths the executable names, but it does offer the ARB fragment programs and GLSL, which the executable also names |
 | Movie fixes | Aspyr's Bink 2 player pillarboxes and switches no display mode (checked in play) |
@@ -331,7 +542,7 @@ visibly different from Windows (4:3 menus, larger inventory rows, no feat and po
 fix), and was replaced by what this document describes. Those three keys are gone from the
 widescreen patch.
 
-## 8. Building
+## 9. Building
 
 ```sh
 git submodule update --init
@@ -350,34 +561,58 @@ the build uses. `--kpm` and `--widescreen` build from other checkouts instead.
 Needs: Xcode command line tools, the .NET 8 SDK, and a Python with `requirements.txt`. The
 unmodified game must be installed (the build resolves hooks against `KOTOR_Exe`'s hash and
 reads `TexturePacks/swpc_tex_gui.erf` for the fonts); nothing from the game is packaged.
-Output: `dist/macos/KMRP-macOS-<version>/` and its zip, 160 MB. Steps, in order:
+Output: `dist/macos/KMRP-macOS-<version>/` (`KMRP Installer.app` and `README.md`), its disk
+image (the Mac download: the app and a link to Applications, 157 MB) and its zip (155 MB, the
+folder with the README, for sites that take only archives).
+Steps, in order:
 
 1. `make dylib` in KPM's `src/KotorPatcher`;
 2. the widescreen patch, with KPM's `Patches/create-patch.py`, as every KPM patch is built
    (until 2026-09-29 with the patch's own `build_mac.sh`, which FTD516/Kotor-Patch-Manager#2
    removed);
 3. the map-note patch, and the layout patch (`patches/kmrp-layout/*.cpp`);
-4. `tools/kpm-cli` (KPatchCore): `validate` all three, then `stage-many` writes
-   `patch_config.toml` with and without the map notes, and checks for overlapping hooks
-   across them;
-5. `kmrp-macho`, `kmrp-guiblend` and `kmrp-abilityicons`, universal (arm64, x86_64), ad-hoc
+4. SDL 3.4.16: the official `SDL3-3.4.16.dmg`, downloaded once into `build/deps` and refused
+   unless its SHA-256 is `675660a9…87fd`; then the controller patch
+   (`patches/kmrp-controller/`), which is not linked against SDL but opens
+   `kmrp-sdl3.dylib` from its own folder, as the Windows module opens `kmrp-sdl3.dll`;
+5. `tools/kpm-cli` (KPatchCore): `validate` all four, then `stage-many` writes
+   `patch_config.toml` with and without the map notes and with and without the controller
+   (four configurations; the controller last), and checks for overlapping hooks across
+   them;
+6. `kmrp-macho`, `kmrp-guiblend` and `kmrp-abilityicons`, universal (arm64, x86_64), ad-hoc
    signed;
-6. `prepare_universal_resources.py` exactly as `build_kmrp.ps1` runs it, with the
+7. `prepare_universal_resources.py` exactly as `build_kmrp.ps1` runs it, with the
    per-resolution fonts of `build/fonts` (`tools/build_font_scale_sets.py`) when they are
    there (`--reuse-resources` keeps the previous output). *Corrected 2026-09-29:* this step
    never passed the fonts, so a build without `--reuse-resources` would have shipped the
    shared 3.0 atlas at every size. The packages built so far reused resources built by hand
    with them, and a rebuild with them matched those in 69 of 70 files, the 70th being the
    item icons that had changed;
-7. the artwork, filtered as in section 7; the pool (`layouts.zip`) and `gui-blend.bin`;
-8. `SHA256SUMS` over the package, which the installer checks before it writes anything;
-9. the zip, by `ditto` without resource forks or extended attributes. *Corrected
+8. the artwork, filtered as in section 8; the pool (`layouts.zip`) and `gui-blend.bin`;
+9. `SHA256SUMS` over the package, which the installer checks before it writes anything;
+10. `KMRP Installer.app`: `installer-app/main.m`, universal, with `resolutions.txt` (every
+   size checked against `layouts.zip`), the Windows patcher's art and icon, and the payload
+   above inside it; the bundle signed ad hoc and verified;
+11. the zip, by `ditto` without resource forks or extended attributes. *Corrected
    2026-09-29:* until then every one of the package's 785 files had a `._` AppleDouble
    entry beside it in the zip. Finder's Archive Utility folds those back into the files,
    but `unzip` writes them out as files, which the installer would have copied into the
    game's override. The build now refuses an archive holding one.
+12. the disk image: the app and a link to `/Applications`, in a Finder window laid out to
+   drag one onto the other. The background (`tools/make_package_art.py`: the installer's
+   navy, smoke, lockup and accent, with slate plates under the icon labels, which Finder draws
+   black in Light Mode and white in Dark Mode), the disk's icon (the crest, cut out of the
+   lockup with its wordmark removed, over "KMRP" in the wordmark's Georgia and metal) and the
+   layout are written by Finder through
+   AppleScript into a writable image, which is then compressed (HFS+, LZFSE, readable from
+   macOS 10.11). Finder must be allowed to take the build terminal's orders (Privacy &
+   Security, Automation); without that the image is made plain, with a warning. Then mounted
+   read-only and checked as a player gets it: the app and the link at its root, the app's
+   signature intact, the payload matching `SHA256SUMS`, and the window's settings and
+   background present. Read back from the image of 2026-09-30: both icons where placed and the
+   window 640x428. **Not yet looked at on screen.**
 
-## 9. Coverage
+## 10. Coverage
 
 **Play-tested as installed by `kmrp-mac.sh`** from the package, native 3024x1964,
 fullscreen through Aspyr's launcher, 2026-09-29: main menu, Load Game (two-line save rows),
@@ -401,10 +636,40 @@ icons at 44 px, filling their frames where the 32 px ones had sat small in them,
 HD item icons at the stock size, the Jedi Knight Robe's sleeves inside its hex frame
 instead of past it.
 
+**The controller** (section 7), with builds of the code committed as `0d147a1`, at
+3024x1964, 2026-09-29. With a scripted pad (PlayStation art) and mouse events posted at the
+HID level: walking and running on the stick, the camera, L3's flourish, Start to the Map, the
+menus and their remaps, a movie skipped, the action bar on the D-pad, the prompts and their
+hiding on mouse and on keyboard use, the parked cursor, the GUI cues, the saber's rumble
+(lit, hum, put out; silent in menus and in the combat pause), read in `rumble.log`, and the
+Controller Layout screen (opened from Gameplay, closed, the focus given back, the press
+guards). With the package installed from `0d147a1`: the exit confirmation, reached on the pad
+through Options, showed the Cross beside OK, a disc OK's height a quarter of its size clear
+of it, and B cancelled the box. With the maintainer's own pad through SDL3: walking and the
+menus, in play; that session also found Aspyr's pad mapping (B out of a menu started a
+flourish), which is now off.
+
+**Message popups fitted to their contents** (section 4, `popup_fit.cpp`), at 3024x1964,
+2026-09-30, from the package installed on the live game:
+- the Exit Game box went from 1,224x711 px to 880x365, centred on the screen, with the pad's
+  Cross beside OK;
+- in New Game, Custom Character, the Attributes, Skills and Feats tutorials came out fitted
+  and centred, with their line counts unchanged (4, 7 and 5);
+- the unspent-points warning came out fitted, seen before the width step.
+
+**The granted popup's rows** (`granted_popup.cpp`), at 3024x1964, 2026-09-30, with the
+layout patch's test build on the live game, New Game, Custom, Feats, Recommended, OK: four
+feats, rows 125 px apart with 14 px between frames (141
+before), each hex 111 px tall beside its 111-px text frame (97 before), the first letter
+14 px inside the frame (2 before), the popup 876 px tall (941 before) and centred.
+
 **Tested outside the game:** `Test-KmrpLayoutPatch.py`, `Test-AbilityIcons.py`,
 `Test-GuiBlendHelper.py`, `Test-ResolutionDerivation.py`, and `Test-MacInstaller.py`
 (install, status, uninstall into a stand-in game for a listed size and a blended one; the
-executable, bundle and INI byte-identical after). Earlier, with the previous installer's
+executable, bundle and INI byte-identical after; the controller's two libraries and its art
+installed; its settings file written with the defaults and removed when unchanged, kept
+when edited after install without holding back the uninstall, and left alone when the
+player already had one). Earlier, with the previous installer's
 same code: rollback after a failure, the INI editor's cases, both resolution answers,
 `--no-map-notes`, the refusals, the Mach-O edit round trip, `codesign` leaving the bundle
 seal alone.
@@ -420,9 +685,21 @@ seal alone.
 - pressing Play in the Steam client itself. Aspyr's launcher, which Steam starts, was tested
   with the edited `KOTOR_Exe`, so the bundle seal is not checked on that path;
 - Intel Macs;
-- a game with other Override mods installed first.
+- a game with other Override mods installed first;
+- the controller's rumble in combat (hits, parries, shots, damage taken), and any rumble felt
+  on a real pad: the scripted pad has no motors;
+- the dialogue A and the status summary's layout and A. Their labels are made when their
+  panels are built (logged), but no conversation with replies and no status summary was
+  reached on the pad: the test save's Selkath only bark, and LB and RB do not target party
+  members;
+- the character-generation, Solo Mode and resolution confirm guards;
+- prompt art other than PlayStation's; the GameController fallback (SDL3 was always there);
+- the widened Container in play (2026-09-30; its layout and badge checked by the tests and
+  the installed file read back, the screen not yet opened), and a blended size since the
+  helper makes the Container and the Controller Layout screen itself (installed into a
+  stand-in game by `Test-MacInstaller.py`, not played).
 
-## 10. Verifying by hand
+## 11. Verifying by hand
 
 ```sh
 EXE="$HOME/Library/Application Support/Steam/steamapps/common/swkotor/Knights of the Old Republic.app/Contents/MacOS/KOTOR_Exe"
@@ -432,7 +709,11 @@ codesign -dv "$EXE" 2>&1 | grep -E 'Identifier|Signature'
 kmrp/bin/kmrp-macho info "$EXE"                        # ncmds=46 sizeofcmds=5912 free=1480 when installed
 kmrp/kmrp-mac.sh status                                # manifest entries changed since install
 KPATCH_LOG=/tmp/kpatch.log "$EXE"                      # then: grep "DLL-only patch" /tmp/kpatch.log
+head -3 ~/Library/Logs/KMRP/controller.log             # after a run: GetJoystickBuffer replaced, echo guard installed, SDL3 3.4.16 loaded
 ```
 
 A layout-patch group that finds other bytes at one of its sites prints `[KMRP] <group>:
 0x... holds other bytes, group left alone` with the bytes it found, on the game's stderr.
+The controller module logs a site it leaves alone the same way, in `controller.log`
+(`GetJoystickBuffer at 0x... holds other bytes`, `echo guard: ... not installed`,
+`<class> guard: the vtable slot holds 0x...`).

@@ -52,6 +52,8 @@ READOUT = (150, 40)
 HAIR_H = 6
 ART_MAX_W, ART_MIN_W = 200, 110
 ART_MARGIN = 20              # clear space either side of an illustration
+READOUT_INSET = 22           # the readouts, in from the corner brackets' gap
+HAIR_OVERLAP = 0.7           # of a corner bracket, how far the hairlines run into it
 
 # The fill of DECO_00, DECO_01, ... in ID order after the rows. The runtime
 # binds DECO_nn by tag; K1_LAYOUT_DECOR in K1ControllerLayout.cpp must equal
@@ -85,12 +87,12 @@ def placements(width: int, height: int, scale: float, top: float,
         (width - gap - c, height - gap - c, c, c),
     ]
     # Hairlines run between the corner brackets.
-    x0, x1 = gap + c * 0.7, width - gap - c * 0.7
+    x0, x1 = gap + c * HAIR_OVERLAP, width - gap - c * HAIR_OVERLAP
     for y in (upper_y, lower_y):
         cy = top + y * s
         out.append((x0, cy - HAIR_H * s / 2, x1 - x0, HAIR_H * s))
     rw, rh = READOUT[0] * s, READOUT[1] * s
-    inset = gap + 22 * s
+    inset = gap + READOUT_INSET * s
     out.append((inset, inset, rw, rh))
     out.append((width - inset - rw, height - inset - rh, rw, rh))
 

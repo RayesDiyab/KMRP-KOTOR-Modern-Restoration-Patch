@@ -616,6 +616,32 @@ def _composite_glyph_tga(control_width: int, control_height: int, glyph: str,
     return header + Image.merge("RGBA", (b, g, r, a)).tobytes() + TGA_FOOTER
 
 
+BADGE_GAP = 0.55          # of the radius, between the badge and the label
+BADGE_EDGE = 1.15         # of the radius, the least from the button's edge to the badge's centre
+BADGE_RADIUS = 0.29       # of the sizing height
+BADGE_RADIUS_SHORT = 0.40  # of the sizing height, for a control shorter than BADGE_SHORT_BELOW
+BADGE_SHORT_BELOW = 60
+# (Carried into gui-blend.bin too, for the Mac installer's Container fit:
+# tools/build_gui_blend_table.py.)
+
+
+def badge_radius(sizing_height: int) -> float:
+    # The badge is sized from the button, but the LABEL is the same height on
+    # every button, so on a short control 0.29 produced a glyph the player
+    # reads as a dot beside full-size text -- visible on the Map screen's
+    # 39px-tall Party Selection and Return To Ebon Hawk rows. Short controls
+    # take a larger share of their height; normal ones are untouched.
+    return sizing_height * (BADGE_RADIUS_SHORT if sizing_height < BADGE_SHORT_BELOW else BADGE_RADIUS)
+
+
+def badge_fit_width(label_width: float, sizing_height: int) -> float:
+    """The narrowest button that shows its centred label with the badge at the
+    designed gap, rather than pushed against the button's edge and onto the
+    text (build_prompt_tga's clamp)."""
+    radius = badge_radius(sizing_height)
+    return label_width + 2.0 * radius * (BADGE_GAP + 1.0 + BADGE_EDGE)
+
+
 @lru_cache(maxsize=None)
 def build_prompt_tga(control_width: int, control_height: int, glyph: str,
                      label_width: float = 0.0,
@@ -630,12 +656,7 @@ def build_prompt_tga(control_width: int, control_height: int, glyph: str,
     # is 81 tall where the rest are 66, and sizing it from itself made its A a
     # fifth larger than the others.
     sizing_height = radius_height if radius_height > 0 else control_height
-    # The badge is sized from the button, but the LABEL is the same height on
-    # every button, so on a short control 0.29 produced a glyph the player
-    # reads as a dot beside full-size text -- visible on the Map screen's
-    # 39px-tall Party Selection and Return To Ebon Hawk rows. Short controls
-    # take a larger share of their height; normal ones are untouched.
-    radius = sizing_height * (0.40 if sizing_height < 60 else 0.29)
+    radius = badge_radius(sizing_height)
 
     # Sit the badge immediately before the label, as the original Xbox build
     # does, instead of at a fixed inset from the button's left edge. KOTOR
@@ -647,10 +668,13 @@ def build_prompt_tga(control_width: int, control_height: int, glyph: str,
     # unknown -- no metrics, or a label we do not carry -- fall back to the old
     # fixed inset rather than guessing a position.
     if label_width > 0:
-        gap = radius * 0.55
+        gap = radius * BADGE_GAP
         center_x = (control_width - label_width) / 2.0 - gap - radius
-        # Never let it leave the button, however long the label.
-        center_x = max(radius * 1.15, center_x)
+        # Never let it leave the button, however long the label. A button too
+        # narrow for this puts the badge on the text; badge_fit_width is the
+        # width that avoids it (prepare_universal_resources.py widens the
+        # Container's buttons to it).
+        center_x = max(radius * BADGE_EDGE, center_x)
     else:
         center_x = control_height * 0.58
     return _composite_glyph_tga(control_width, control_height, glyph,
@@ -1127,6 +1151,25 @@ def parse_font_metrics(txi_path: Path):
     `(lowerright.u - upperleft.u) * texturewidth * 100` -- see
     `reverse-engineering/font-atlases.md`. Returns (advances, spacing_px), both
     already in pixels for the resolution this TXI was generated for.
+
+    `spacingR` is `spacingR * 100` pixels, NOT scaled by `texturewidth`: KMRP
+    writes it as a flat half pixel (`apply_letter_spacing`, 0.005), and the
+    engine adds 0.5 px a glyph when it measures a line (`0x0045ABDF`, the status
+    summary's measurement in the CHANGELOG).
+
+    *Corrected 2026-09-30:* this returned `spacingR * texturewidth * 100`, which
+    is 2.56 px at `texturewidth` 5.12 and 5.12 px at 10.24 instead of 0.5, so
+    every caption measured long by 2 to 5 px a letter -- more at higher
+    resolutions. The game drew them at 0.88 of the measure at 3440x1440 (below),
+    and seven Options captions read off a 3024x1964 screenshot inked 0.825 to
+    0.843 of it; their ink is 0.96 to 0.97 of the corrected measure, the rest
+    being the glyphs' side bearings. Every badge
+    therefore sat about twice its designed gap from its words, and where a long
+    caption filled its button the clamp below pushed the badge onto the text:
+    the Container's "Switch To Give Item" at 3024x1964, seen in play on the Mac.
+    Windows draws and places the same, so it had the same offset. The Controller
+    Layout screen's RENDER_FACTOR had absorbed the error as a 0.88 draw ratio
+    measured at 3440x1440.
     """
     text = txi_path.read_text(encoding="ascii", errors="replace").splitlines()
     texture_width = 0.0
@@ -1158,7 +1201,7 @@ def parse_font_metrics(txi_path: Path):
         return None, 0.0
     advances = [(lower[i] - upper[i]) * texture_width * 100.0
                 for i in range(min(len(upper), len(lower)))]
-    return advances, spacing * texture_width * 100.0
+    return advances, spacing * 100.0
 
 
 def measure_label(label: str, advances, spacing_px: float) -> float:
@@ -1174,7 +1217,12 @@ def measure_label(label: str, advances, spacing_px: float) -> float:
     return total
 
 
-def build_prompt_textures(gui_files: list[Path], output_dir: Path) -> list[Path]:
+def build_prompt_textures(gui_files: list[Path], output_dir: Path,
+                          widened: dict[str, int] | None = None) -> list[Path]:
+    """`widened`: pixels a screen was widened by to fit a caption and its badge
+    (prepare_universal_resources.py), recorded in the manifest so the Mac's blend
+    table can take the widening back out and its installer put it in again for a
+    resolution with no set (tools/build_gui_blend_table.py)."""
     by_name = {path.name.lower(): path for path in gui_files}
     output_dir.mkdir(parents=True, exist_ok=True)
     # The button font's metrics for THIS resolution, so the badge can be placed
@@ -1339,6 +1387,9 @@ def build_prompt_textures(gui_files: list[Path], output_dir: Path) -> list[Path]
                  f"texture {TEXTURE_WIDTH} {TEXTURE_HEIGHT}",
                  f"spacing {spacing_px:.6f}",
                  "advances " + " ".join(f"{value:.6f}" for value in advances)]
+        # Ignored by the Windows installer, which skips a line it does not know.
+        for gui, pixels in sorted((widened or {}).items()):
+            lines.append(f"widened {gui} {pixels}")
         for resref, width, height, baked, variants in manifest:
             encoded = ";".join("+".join(str(ref) for ref in variant)
                                for variant in variants) or "-"

@@ -1,5 +1,7 @@
 #!/bin/zsh
-# Builds the KMRP for macOS package: dist/macos/KMRP-macOS-<version>/ and its .zip.
+# Builds the KMRP for macOS package: dist/macos/KMRP-macOS-<version>/ (KMRP Installer.app, which
+# carries the installer and everything it installs, and README.md), its .dmg (the Mac download)
+# and its .zip (for sites that take only archives).
 #
 #   macos/build.sh [--game "<...>/Knights of the Old Republic.app"] [--exe <unmodified KOTOR_Exe>]
 #                  [--python <python3>] [--reuse-resources]
@@ -52,10 +54,11 @@ VANILLA_EXE_SHA="c1fcb8d37c702849882a17751c63ee0af7c2b9cbbc3b31b98a5f0edbc27c6d7
 BUILD="$ROOT/build/macos"
 NAME="KMRP-macOS-$VERSION"
 OUT="$ROOT/dist/macos/$NAME"
-PKG="$OUT/kmrp"
+INSTALLER="$OUT/KMRP Installer.app"
+PKG="$INSTALLER/Contents/Resources/kmrp"   # kmrp-mac.sh and its payload, inside the app
 step() { print -r -- ""; print -r -- "== $*"; }
 
-rm -rf "$BUILD/engine" "$BUILD/kpatch" "$OUT" "$ROOT/dist/macos/$NAME.zip"
+rm -rf "$BUILD/engine" "$BUILD/kpatch" "$OUT" "$ROOT/dist/macos/$NAME.zip" "$ROOT/dist/macos/$NAME.dmg"
 mkdir -p "$BUILD/kpatch" "$PKG/bin" "$PKG/engine" "$PKG/licenses"
 
 # ------------------------------------------------------------------------ engine
@@ -94,23 +97,74 @@ codesign --force --sign - "$LAYOUT/binaries/macos_x86_64.dylib" 2>/dev/null
 cp "$HERE/patches/kmrp-layout/manifest.toml" "$HERE/patches/kmrp-layout/kotor1-steam-aspyr-macos.hooks.toml" "$LAYOUT/"
 (cd "$LAYOUT" && zip -q -X "$BUILD/kpatch/kmrp-layout.kpatch" manifest.toml kotor1-steam-aspyr-macos.hooks.toml binaries/macos_x86_64.dylib)
 
+step "SDL 3.4.16 for the controller (the official release Windows pins too, tools/prepare_sdl3.ps1)"
+SDL_DMG="$ROOT/build/deps/SDL3-3.4.16.dmg"
+SDL_SHA=675660a9e457239af615f9e41f788612168d1639b9d2eda2957e8dace26687fd
+SDL_DIR="$ROOT/build/deps/SDL3-3.4.16-macos"
+if [[ ! -f "$SDL_DIR/SDL3.framework/Versions/A/SDL3" ]]; then
+    mkdir -p "$ROOT/build/deps"
+    [[ -f "$SDL_DMG" ]] || curl -sSL -o "$SDL_DMG" \
+        https://github.com/libsdl-org/SDL/releases/download/release-3.4.16/SDL3-3.4.16.dmg
+    [[ "$(shasum -a 256 "$SDL_DMG" | cut -d' ' -f1)" == "$SDL_SHA" ]] || { print -u2 "SDL3 image hash mismatch; refusing this dependency"; exit 1; }
+    SDL_MOUNT=$(mktemp -d)
+    hdiutil attach -nobrowse -readonly -mountpoint "$SDL_MOUNT" "$SDL_DMG" >/dev/null
+    rm -rf "$SDL_DIR"; mkdir -p "$SDL_DIR"
+    ditto "$SDL_MOUNT/SDL3.xcframework/macos-arm64_x86_64/SDL3.framework" "$SDL_DIR/SDL3.framework"
+    cp "$SDL_MOUNT/LICENSE.txt" "$SDL_DIR/LICENSE.txt"
+    hdiutil detach "$SDL_MOUNT" >/dev/null
+fi
+lipo "$SDL_DIR/SDL3.framework/Versions/A/SDL3" -verify_arch x86_64
+
+step "Controller patch (KMRP's native controller path, ported to the Mac)"
+CONTROLLER="$BUILD/controller"
+rm -rf "$CONTROLLER"; mkdir -p "$CONTROLLER/binaries"
+# SDL3 is not linked: the module opens kmrp-sdl3.dylib from its own folder, as the Windows
+# module opens kmrp-sdl3.dll. GameController, the fallback without it, is weak-linked.
+clang++ -arch x86_64 -std=c++17 -O2 -mmacosx-version-min=10.13 -dynamiclib -Wall -Wextra '-Wno-#warnings' -fobjc-arc \
+    -F "$SDL_DIR" -install_name @executable_path/macos_x86_64.dylib -framework Foundation -framework AppKit -framework ApplicationServices -weak_framework GameController \
+    -o "$CONTROLLER/binaries/macos_x86_64.dylib" "$HERE/patches/kmrp-controller/"*.cpp "$HERE/patches/kmrp-controller/"*.mm
+codesign --force --sign - "$CONTROLLER/binaries/macos_x86_64.dylib" 2>/dev/null
+cp "$HERE/patches/kmrp-controller/manifest.toml" "$HERE/patches/kmrp-controller/kotor1-steam-aspyr-macos.hooks.toml" "$CONTROLLER/"
+(cd "$CONTROLLER" && zip -q -X "$BUILD/kpatch/kmrp-controller.kpatch" manifest.toml kotor1-steam-aspyr-macos.hooks.toml binaries/macos_x86_64.dylib)
+
 step "patch_config.toml, written by KPM's own KPatchCore"
 dotnet build "$HERE/tools/kpm-cli" -c Release -p:KpmRoot="$KPM" -o "$BUILD/kpm-cli" >/dev/null
 KPMCLI=(dotnet "$BUILD/kpm-cli/kpm-cli.dll")
 $KPMCLI validate "$BUILD/kpatch/K1WidescreenPatch.kpatch" "$EXE" | { grep -v DEBUG || true; }
 $KPMCLI validate "$BUILD/kpatch/kmrp-map-notes.kpatch" "$EXE" | { grep -v DEBUG || true; }
 $KPMCLI validate "$BUILD/kpatch/kmrp-layout.kpatch" "$EXE" | { grep -v DEBUG || true; }
+$KPMCLI validate "$BUILD/kpatch/kmrp-controller.kpatch" "$EXE" | { grep -v DEBUG || true; }
 # In this order: the widescreen patch's byte hooks and constructor first, then KMRP's patches,
-# whose sites the widescreen patch's switch leaves vanilla (kmrp-layout checks each).
-$KPMCLI stage-many "$EXE" "$BUILD/engine/full" "$BUILD/kpatch/K1WidescreenPatch.kpatch" "$BUILD/kpatch/kmrp-map-notes.kpatch" "$BUILD/kpatch/kmrp-layout.kpatch" | { grep -v DEBUG || true; }
-$KPMCLI stage-many "$EXE" "$BUILD/engine/no-notes" "$BUILD/kpatch/K1WidescreenPatch.kpatch" "$BUILD/kpatch/kmrp-layout.kpatch" | { grep -v DEBUG || true; }
+# whose sites the widescreen patch's switch leaves vanilla (kmrp-layout checks each). The
+# controller last: KotorPatcher stops at the first hook it cannot apply, and nothing else
+# depends on it.
+$KPMCLI stage-many "$EXE" "$BUILD/engine/full" "$BUILD/kpatch/K1WidescreenPatch.kpatch" "$BUILD/kpatch/kmrp-map-notes.kpatch" "$BUILD/kpatch/kmrp-layout.kpatch" "$BUILD/kpatch/kmrp-controller.kpatch" | { grep -v DEBUG || true; }
+$KPMCLI stage-many "$EXE" "$BUILD/engine/no-notes" "$BUILD/kpatch/K1WidescreenPatch.kpatch" "$BUILD/kpatch/kmrp-layout.kpatch" "$BUILD/kpatch/kmrp-controller.kpatch" | { grep -v DEBUG || true; }
+# Controller support is optional too, as on Windows (Advanced Settings): the same patches
+# without it, with and without the map notes.
+$KPMCLI stage-many "$EXE" "$BUILD/engine/no-controller" "$BUILD/kpatch/K1WidescreenPatch.kpatch" "$BUILD/kpatch/kmrp-map-notes.kpatch" "$BUILD/kpatch/kmrp-layout.kpatch" | { grep -v DEBUG || true; }
+$KPMCLI stage-many "$EXE" "$BUILD/engine/neither" "$BUILD/kpatch/K1WidescreenPatch.kpatch" "$BUILD/kpatch/kmrp-layout.kpatch" | { grep -v DEBUG || true; }
 mkdir -p "$PKG/engine/patches"
 cp "$BUILD/KotorPatcher.dylib" "$PKG/engine/"
 cp "$BUILD/engine/full/patches/"*.dylib "$PKG/engine/patches/"
+# SDL itself, under the name the module looks for. Its code is unchanged; its signature is
+# redone because the release's (ad-hoc, like ours) seals the framework's Info.plist, which
+# does not travel with the bare library.
+cp "$SDL_DIR/SDL3.framework/Versions/A/SDL3" "$PKG/engine/patches/kmrp-sdl3.dylib"
+codesign --force --sign - --identifier org.libsdl.SDL3 "$PKG/engine/patches/kmrp-sdl3.dylib" 2>/dev/null
+codesign --verify "$PKG/engine/patches/kmrp-sdl3.dylib"
+cp "$SDL_DIR/LICENSE.txt" "$PKG/licenses/SDL3-LICENSE.txt"
 cp "$BUILD/engine/full/patch_config.toml" "$PKG/engine/patch_config.toml"
 cp "$BUILD/engine/no-notes/patch_config.toml" "$PKG/engine/patch_config.no-map-notes.toml"
+cp "$BUILD/engine/no-controller/patch_config.toml" "$PKG/engine/patch_config.no-controller.toml"
+cp "$BUILD/engine/neither/patch_config.toml" "$PKG/engine/patch_config.no-map-notes.no-controller.toml"
+for variant in no-controller neither; do   # every variant ships the same patch binaries
+    cmp -s "$BUILD/engine/full/patches/k1widescreenpatch.dylib" "$BUILD/engine/$variant/patches/k1widescreenpatch.dylib"
+    cmp -s "$BUILD/engine/full/patches/kmrp-layout.dylib" "$BUILD/engine/$variant/patches/kmrp-layout.dylib"
+done
 cmp -s "$BUILD/engine/full/patches/k1widescreenpatch.dylib" "$BUILD/engine/no-notes/patches/k1widescreenpatch.dylib"
 cmp -s "$BUILD/engine/full/patches/kmrp-layout.dylib" "$BUILD/engine/no-notes/patches/kmrp-layout.dylib"
+cmp -s "$BUILD/engine/full/patches/kmrp-controller.dylib" "$BUILD/engine/no-notes/patches/kmrp-controller.dylib"
 
 step "kmrp-macho (adds the patcher's load command)"
 clang -O2 -Wall -Wextra -arch x86_64 -arch arm64 -mmacosx-version-min=10.13 \
@@ -150,16 +204,14 @@ if (( ! REUSE )) || [[ ! -f "$RESOURCES/override-common.zip" ]]; then
 fi
 
 step "Artwork (override-common.zip, less what macOS does not use)"
-# Left out, each for a stated reason (macos/README.md, "What is not installed"):
-#   kmr*           KMRP's controller prompt and layout art, for the controller layer, which
-#                  has no Mac port yet (KOTOR I on the Mac has no working controller support)
+# Left out, for a stated reason (macos/README.md, "What is not installed"):
 #   the 18 fonts   every resolution's set in layouts.zip carries them at its own size
+# KMRP's controller art (kmr*) is kept: the controller patch paints its button prompts with it.
 FONT_NAMES=(dialogfont10x10 dialogfont10x10a dialogfont10x10b dialogfont12x16 dialogfont16x16
             dialogfont16x16a dialogfont16x16b dialogfont32x32 fnt_console fnt_credits fnt_creditsa
             fnt_creditsb fnt_d10x10b fnt_d16x16 fnt_d16x16a fnt_d16x16b fnt_dialog16x16 fnt_galahad14)
 mkdir -p "$PKG/override"
 unzip -q -o "$RESOURCES/override-common.zip" -d "$PKG/override"
-for file in "$PKG/override"/(#i)kmr*(.N); do rm -f "$file"; done
 for font in $FONT_NAMES; do rm -f "$PKG/override/$font".(tga|tpc|txi)(N); done
 [[ -z "$(find "$PKG/override" -mindepth 1 -type d)" ]] || { print -u2 "override-common.zip has subdirectories"; exit 1; }
 cp "$RESOURCES/bundled-override.txt" "$PKG/bundled-override.txt"
@@ -178,8 +230,6 @@ step "Menu layouts: every resolution's set, pooled, and the blend table for any 
 step "Installer, documentation, licences"
 cp "$HERE/kmrp-mac.sh" "$HERE/VERSION" "$PKG/"
 chmod +x "$PKG/kmrp-mac.sh"
-cp "$HERE/Install KMRP.command" "$HERE/Uninstall KMRP.command" "$OUT/"
-chmod +x "$OUT/"*.command
 cp "$HERE/PLAYER-README.md" "$OUT/README.md"
 cp "$ROOT/LICENSE" "$PKG/licenses/KMRP-LICENSE.txt"
 cp "$ROOT/THIRD_PARTY_NOTICES.md" "$PKG/licenses/THIRD_PARTY_NOTICES.md"
@@ -188,6 +238,39 @@ cp "$RESOURCES/GPL-3.0-KOTOR-High-Resolution-Menus.txt" "$PKG/licenses/" 2>/dev/
 
 (cd "$PKG" && find . -type f ! -name SHA256SUMS | sed 's|^\./||' | LC_ALL=C sort | while IFS= read -r f; do shasum -a 256 "$f"; done > SHA256SUMS)
 print -r -- "$(wc -l < "$PKG/SHA256SUMS" | tr -d ' ') files hashed"
+
+step "KMRP Installer.app (the window over kmrp-mac.sh, macos/installer-app)"
+# Every size the app lists must be one the package has a set for.
+missing=()
+for size in $(awk -F '\t' '$1 ~ /^[0-9]+x[0-9]+$/ { print $1 }' "$HERE/installer-app/resolutions.txt"); do
+    unzip -Z1 "$PKG/layouts.zip" "index/$size.txt" >/dev/null 2>&1 || missing+=($size)
+done
+(( ${#missing} == 0 )) || { print -u2 "resolutions.txt lists sizes layouts.zip has no set for: $missing"; exit 1; }
+mkdir -p "$INSTALLER/Contents/MacOS"
+clang -fobjc-arc -O2 -Wall -Wextra -Wno-unused-parameter -arch x86_64 -arch arm64 -mmacosx-version-min=10.13 \
+    -Wunguarded-availability -framework Cocoa -framework Accelerate -weak_framework UniformTypeIdentifiers \
+    -o "$INSTALLER/Contents/MacOS/KMRP Installer" "$HERE/installer-app/main.m"
+sed "s/@VERSION@/$VERSION/g" "$HERE/installer-app/Info.plist" > "$INSTALLER/Contents/Info.plist"
+plutil -lint "$INSTALLER/Contents/Info.plist" >/dev/null
+cp "$HERE/installer-app/resolutions.txt" "$INSTALLER/Contents/Resources/"
+# The Windows patcher's own art: its brand lockup and its step and state icons
+# (build_kmrp.ps1 embeds the same files), so the two windows look alike.
+cp "$ROOT/src/patcher/brand.png" "$INSTALLER/Contents/Resources/"
+for icon in folder shield monitor tools verified missing Settings; do
+    cp "$ROOT/src/patcher/icons/$icon.png" "$INSTALLER/Contents/Resources/"
+done
+# KMRP's icon on the Mac, the disk image's art with it (tools/make_package_art.py): the crest
+# over "KMRP", for the app and, below, for the disk.
+ART="$BUILD/art"
+rm -rf "$ART"
+"$PYTHON" "$HERE/tools/make_package_art.py" "$ART" "$VERSION" >/dev/null
+iconutil -c icns "$ART/Icon.iconset" -o "$ART/Icon.icns"
+cp "$ART/Icon.icns" "$INSTALLER/Contents/Resources/AppIcon.icns"
+# Ad hoc, as every binary here: the signature seals the bundle, so a changed file shows as
+# damaged. Without a Developer ID and notarization, Gatekeeper asks the player to allow the
+# app once (PLAYER-README.md, Install).
+codesign --force --sign - "$INSTALLER"
+codesign --verify --strict "$INSTALLER"
 
 step "Archive"
 # Without --norsrc --noextattr, ditto stores each file's extended attributes (every file here
@@ -200,3 +283,85 @@ if unzip -Z1 "$ROOT/dist/macos/$NAME.zip" | grep -q '/\._'; then
 fi
 ls -la "$ROOT/dist/macos/$NAME.zip"
 shasum -a 256 "$ROOT/dist/macos/$NAME.zip"
+
+step "Disk image"
+# What a Mac player downloads: KMRP Installer and a link to /Applications, in a window that
+# says to drag one onto the other (macos/tools/make_package_art.py: the installer's art
+# direction, its own composition). The README stays in the zip; the window carries the one step
+# a first launch needs. HFS+ with LZFSE compression (ULFO), both readable from macOS 10.11,
+# below the app's 10.13. It keeps the bundle exactly as built and signed, and the installer
+# never writes into its own bundle, so it also runs straight from the mounted image.
+#
+# The window's look lives in the volume's .DS_Store, which Finder writes: the image is made
+# writable, mounted where Finder sees it, laid out by AppleScript, then compressed. Finder
+# needs the build's terminal to be allowed to control it (System Settings, Privacy & Security,
+# Automation); without that the image is made plain, with a warning, rather than not at all.
+DMG="$ROOT/dist/macos/$NAME.dmg"
+VOLUME="KMRP $VERSION"
+DMGWORK="$BUILD/dmg"
+rm -rf "$DMGWORK"; mkdir -p "$DMGWORK"
+tiffutil -cathidpicheck "$ART/background.png" "$ART/background@2x.png" -out "$DMGWORK/background.tiff" 2>/dev/null
+[[ -d "/Volumes/$VOLUME" ]] && { print -u2 "a volume named $VOLUME is already mounted; eject it first"; exit 1; }
+SIZE_MB=$(( $(du -sm "$INSTALLER" | cut -f1) + 40 ))
+hdiutil create -quiet -size "${SIZE_MB}m" -fs HFS+ -volname "$VOLUME" -ov "$DMGWORK/rw.dmg"
+hdiutil attach -quiet -noautoopen -noverify "$DMGWORK/rw.dmg"
+ditto "$INSTALLER" "/Volumes/$VOLUME/KMRP Installer.app"
+ln -s /Applications "/Volumes/$VOLUME/Applications"
+mkdir "/Volumes/$VOLUME/.background"
+cp "$DMGWORK/background.tiff" "/Volumes/$VOLUME/.background/background.tiff"
+cp "$ART/Icon.icns" "/Volumes/$VOLUME/.VolumeIcon.icns"
+SetFile -a C "/Volumes/$VOLUME" 2>/dev/null || true   # the disk shows the crest
+styled=1
+if ! osascript >/dev/null 2>"$DMGWORK/finder.log" <<APPLESCRIPT
+tell application "Finder"
+    tell disk "$VOLUME"
+        open
+        set current view of container window to icon view
+        set toolbar visible of container window to false
+        set statusbar visible of container window to false
+        set the bounds of container window to {160, 120, 800, 580}
+        set viewOptions to the icon view options of container window
+        set arrangement of viewOptions to not arranged
+        set icon size of viewOptions to 104
+        set text size of viewOptions to 13
+        set background picture of viewOptions to file ".background:background.tiff"
+        set position of item "KMRP Installer.app" of container window to {170, 262}
+        set position of item "Applications" of container window to {470, 262}
+        close
+        open
+        delay 1
+        close
+    end tell
+end tell
+APPLESCRIPT
+then
+    styled=0
+    print -u2 "warning: Finder could not lay out the disk image's window ($(tr '\n' ' ' < "$DMGWORK/finder.log")); it is plain"
+fi
+sync
+rm -rf "/Volumes/$VOLUME/.fseventsd" "/Volumes/$VOLUME/.Trashes" 2>/dev/null || true
+hdiutil detach -quiet "/Volumes/$VOLUME" || hdiutil detach -quiet -force "/Volumes/$VOLUME"
+hdiutil convert -quiet "$DMGWORK/rw.dmg" -format ULFO -ov -o "$DMG"
+rm -f "$DMGWORK/rw.dmg"
+
+# Checked as a player gets it: mounted read-only, the app and the Applications link at its root
+# (hidden files aside), the app's signature intact, the payload matching its SHA256SUMS, and,
+# when Finder laid it out, the window's settings and background in place.
+MOUNT=$(mktemp -d)
+hdiutil attach -quiet -nobrowse -readonly -mountpoint "$MOUNT" "$DMG"
+detach() { hdiutil detach -quiet "$MOUNT" 2>/dev/null || hdiutil detach -quiet -force "$MOUNT"; rmdir "$MOUNT" 2>/dev/null || true; }
+if [[ "$(ls "$MOUNT" | tr '\n' '|')" != "Applications|KMRP Installer.app|" ||
+      "$(readlink "$MOUNT/Applications")" != /Applications ]]; then
+    print -u2 "the disk image's root is not the app and the Applications link: $(ls "$MOUNT")"; detach; exit 1
+fi
+if ! codesign --verify --strict "$MOUNT/KMRP Installer.app" ||
+   ! (cd "$MOUNT/KMRP Installer.app/Contents/Resources/kmrp" && shasum -a 256 -s -c SHA256SUMS); then
+    print -u2 "the app in the disk image does not verify"; detach; exit 1
+fi
+if (( styled )) && ! { [[ -f "$MOUNT/.background/background.tiff" && -f "$MOUNT/.DS_Store" ]] &&
+                       grep -q icvp "$MOUNT/.DS_Store"; }; then
+    print -u2 "the disk image's window settings are missing"; detach; exit 1
+fi
+detach
+ls -la "$DMG"
+shasum -a 256 "$DMG"

@@ -337,14 +337,18 @@ def main() -> int:
                 failures.append(f"{where}: marker centring at {address:#x} {struct.unpack('<b', found[address][1])[0]}")
         if struct.unpack("<2i", found[0x1005713c8][1]) != (marker_size(32, height),) * 2:
             failures.append(f"{where}: mm_barrow rect {struct.unpack('<2i', found[0x1005713c8][1])}")
-        for address, target in ((0x1002b4fca, NEAR_PAGE), (0x1002b541b, NEAR_PAGE + 16), (0x1002b54c2, NEAR_PAGE + 16)):
+        # The map's two thunks, then (after the circle's rect) the message popup's (popup_fit.cpp)
+        # and the granted popup's two (granted_popup.cpp).
+        for address, target in ((0x1002b4fca, NEAR_PAGE), (0x1002b541b, NEAR_PAGE + 16), (0x1002b54c2, NEAR_PAGE + 16),
+                                (0x100306a88, NEAR_PAGE + 48), (0x10028ea4f, NEAR_PAGE + 64),
+                                (0x10022f321, NEAR_PAGE + 80)):
             value = found[address][1]
             if value[0] != 0xE8 or address + 5 + struct.unpack("<i", value[1:])[0] != target:
                 failures.append(f"{where}: {address:#x} does not call the near page's thunk at {target:#x}")
         if 0x1002b626e + 7 + struct.unpack("<i", found[0x1002b6271][1])[0] != NEAR_PAGE + 32:
             failures.append(f"{where}: lbl_mapcircle's read does not point at the near page's copy")
         page = PAGES.get((width, height), b"")
-        for thunk in (page[0:16], page[16:32]):
+        for thunk in (page[0:16], page[16:32], page[48:64], page[64:80], page[80:96]):
             if thunk[:6] != bytes.fromhex("ff2500000000") or thunk[14:] != b"\xcc\xcc":
                 failures.append(f"{where}: a near-page thunk is malformed: {thunk.hex()}")
         if struct.unpack("<4i", page[32:48]) != (0, 0, marker_size(16, height), marker_size(16, height)):

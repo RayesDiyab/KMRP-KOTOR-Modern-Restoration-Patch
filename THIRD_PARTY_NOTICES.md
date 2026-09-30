@@ -137,6 +137,20 @@ has grown well past the original -- a native joystick path, an XInput/SDL
 backend, button prompts, the Controller Layout screen -- but the original's
 files are still in it, so the credit and licence below still apply.
 
+How much of it is KMRP's, measured on 2026-09-29 against
+`KMRP-CONTROLLER-MODULE.diff`, which reverse-applies cleanly to the tracked sources:
+
+| | Lines | KMRP | Saul0097 |
+| --- | --- | --- | --- |
+| KMRP's own files (`K1NativeJoystick`, `K1Rumble`, `K1ControllerLayout`, `K1ControllerBackend`, with headers) | 8,143 | 8,143 | 0 |
+| The three files that began as his (`vendor/K1XboxControls.cpp`, `K1XboxControlsXInput.cpp` and `.h`) | 5,420 | 1,843 | 3,577 |
+| **All C++** | 13,563 | **9,986 (74%)** | 3,577 (26%) |
+| Hooks in `kotor1.hooks.toml` | 44 | **38 (86%)** | 6 |
+
+His remaining code is the movie skipping, the action bar, focus fixes, and the
+cursor and device-switch policy. The native joystick path, the backend, the
+prompts' runtime, rumble and the Controller Layout screen are KMRP's.
+
 **Licence: MIT**, inherited. The module is a derivative of
 `ExpandedKeyboardControl`, a patch inside the KOTOR Patch Manager repository
 contributed by **J**, so it is covered by that project's licence --
@@ -258,6 +272,13 @@ branch `widescreen-patch` (commit `71ac5fa`), where KMRP's fixes were merged on
 2026-09-29 (https://github.com/FTD516/Kotor-Patch-Manager/pull/1). Licensed under **MIT**,
 `Copyright (c) 2025 Lane Dibello and KotOR Patch Manager contributors`; the
 package carries the licence as `licenses/KotOR-Patch-Manager-LICENSE.txt`.
+
+The package also installs **kmrp-controller**, KMRP's controller module ported to the
+Aspyr build (`macos/patches/kmrp-controller`), with SDL3 (above). Its code is written for
+the Mac executable, but it follows the Windows module's design, including the parts that
+began as **Saul0097**'s *KPM – Xbox Controls for KOTOR 1* (the movie skipping, the action
+bar, focus fixes, and the cursor and device-switch policy; see that section), so his credit
+and the MIT licence above apply to it as well. Its button art is Xelu's (below).
 
 ## NVIDIA NvAPI — interface identifiers
 
@@ -445,6 +466,13 @@ It is installed as `kmrp-sdl3.dll` to avoid taking ownership of another mod's
 `SDL3.dll`. The original zlib licence is embedded in the installer and installed
 as `kmrp-sdl3-LICENSE.txt`. The build downloads a SHA-256-pinned SDK under ignored
 `build/deps`; see [the backend reference](docs/controller-sdl-backend.md).
+
+The macOS package ships the same release's macOS library (`SDL3.framework` from the
+official `SDL3-3.4.16.dmg`, SHA-256-pinned by `macos/build.sh`) as
+`engine/patches/kmrp-sdl3.dylib`, installed beside the controller module in
+`Contents/MacOS/patches`. Its code is unchanged; its ad-hoc signature is redone,
+because the release's seals the framework's `Info.plist`, which the bare library
+does not carry. The licence is shipped as `licenses/SDL3-LICENSE.txt`.
 
 Copyright (C) 1997-2026 Sam Lantinga <slouken@libsdl.org>
 

@@ -76,6 +76,11 @@ mapping are in `docs/controller-native-path.md`.
 | `exports.def` | KMRP | the module's exports, including the native hooks |
 | `kotor1.hooks.toml` | Saul0097, modified by KMRP | hook addresses, including the native entries |
 
+`vendor/` names where the files came from, not whose most of the module is: by
+the measurement in `THIRD_PARTY_NOTICES.md` (2026-09-29), 74% of the module's
+C++ (9,986 of 13,563 lines) and 38 of its 44 hooks are KMRP's. Even inside the
+three `vendor/` files, 1,843 of 5,420 lines are KMRP additions.
+
 ## Why the vendor files are copied in rather than referenced
 
 They used to be compiled straight out of a clone of Saul0097's repository under

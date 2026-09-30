@@ -592,6 +592,32 @@ before:
   driving the menus, and the screens matching again. Steam gameplay was not
   played, to keep the install's cloud save untouched. Not GOG yet, not KPM's graphical
   launcher, not played by hand. See [kpm-edition.md](docs/kpm-edition.md).
+- **macOS: KMRP Installer, a window like the Windows patcher's** (2026-09-30). The Mac
+  package is now `KMRP Installer.app` with the installer and everything it installs inside
+  it, in place of `Install KMRP.command` and `Uninstall KMRP.command`, which ran the same
+  script in Terminal. It is the Windows patcher's window, ported: the same colours, brand
+  lockup and animated smoke header, the four-step card with its icons, the progress fill
+  on the action button, Advanced Settings and the footer. Advanced Settings has Windows'
+  two Mac-relevant options, the area map's marker fixes and controller support
+  (`kmrp-mac.sh --no-controller` is new: no module, SDL or settings file), both on by
+  default. Its icon, and the disk image's, is
+  the Jedi crest from the lockup over "KMRP". The Mac download is a disk image,
+  `KMRP-macOS-<version>.dmg`, whose window shows KMRP Installer, an arrow and Applications,
+  in the installer's art direction; the build also makes a zip for sites that take only
+  archives.
+  Step 3 lists this display first (native, and half on a Retina display), then 34 Mac and
+  external display sizes grouped by shape, and takes a custom size, which it checks the
+  menu sets can reach. It runs `kmrp-mac.sh` and shows what it refuses. For macOS 10.13 and
+  later, Intel and Apple Silicon. Restore Original and Start Patching were run through it on
+  the live game at 3024x1964, and `Test-MacInstaller.py` passes on its payload. Not yet
+  tried: a downloaded copy's first run through Gatekeeper (it is signed ad hoc, not by a
+  Developer ID, so macOS asks the player to allow it) (`macos/README.md`, *The installer
+  app*).
+- **macOS: the installer runs its helpers from a copy without the quarantine flag**
+  (2026-09-30). Gatekeeper kills a downloaded, flagged helper as it starts (exit 137,
+  tested), and the app's own copy is read-only, so `kmrp-mac.sh` copies `bin/` to its work
+  folder and clears the flag there. `status --brief` reports without hashing every
+  installed file, for the app.
 
 - **17 more resolutions, the sizes of current Mac displays** (2026-09-29): each display's
   default size and the pixel size it renders at on a Retina panel, from 1344x840 to
@@ -1276,6 +1302,67 @@ before:
   byte-identical at the ten heights, 2,704 icons, and every skill icon had the size
   and place the rule gives, with nothing drawn outside its picture.
 
+- **macOS: the granted popup's rows look like the inventory's** (2026-09-30, reported
+  from play: "You have been granted the following feat(s) this level."). The text touched
+  its frame's left line, the hex beside it was shorter than the text frame, and the rows
+  sat far apart. For this popup's rows only, the Mac's layout patch
+  (`granted_popup.cpp`) now insets the text by an eighth of the row, grows the hex, its
+  highlight and the icon by a seventh so the hex spans the text frame, and cuts the list
+  to the rows it shows at a pitch of the row plus an eleventh, about the share the
+  inventory's list spreads between its rows (8 to 10%); OK and the panel move up with it,
+  and the popup stays centred. At 3024x1964, with four feats: rows 141 px apart became
+  125 (14 px between frames), the hex went from 97 to 111 px beside a 111-px frame, the
+  first letter from 2 to 14 px inside the frame, and the popup from 941 to 876 px tall
+  (screenshots). Every size follows the row's height, so it holds at any resolution;
+  seen at 3024x1964 only, and a list long enough to scroll has not been seen. **Windows
+  does not have this yet** (`docs/windows-changes-from-macos.md`, item 10).
+- **macOS: message popups fit their contents** (2026-09-30, reported from play:
+  the tutorial boxes and the Exit Game box were far taller than their text).
+  The shared popup keeps the height `confirm.gui` gives it, sized for the
+  tallest case, and its message area keeps a height sized for a four-line
+  tutorial, with OK hung under it. At the end of the popup's own layout
+  (`FixMessageLabel`, `0x100306552`) the Mac's layout patch now narrows the
+  message to the least width at which its text keeps its line count (never
+  narrower than the buttons), shrinks it to its text, moves OK and Cancel up
+  under it with the engine's own spacing, fits the panel around it with the
+  message's own margins, and keeps the popup centred. At 3024x1964 the Exit
+  Game box went from 1,224x711 px to about 880x365, and the Attributes, Skills
+  and Feats tutorials were seen fitted and centred in play the same day, with
+  their line counts unchanged (screenshots). Only while the text fits without a scrollbar; otherwise the
+  popup is left as the engine made it. **Windows does not have this yet**: its
+  popups keep the file's height until the same step is added after
+  `0x006253A0` (`reverse-engineering/message-popup.md`).
+- **Controller badges sit at their designed distance from the words, and no
+  longer on them** (2026-09-30, reported from play on the Mac: the Square of
+  the Container's "Switch To Give Item" sat on the "S" at 3024x1964). The
+  prompt generator measured each caption with the font's `spacingR` scaled by
+  `texturewidth` -- 2.56 px a letter at `texturewidth` 5.12, 5.12 px at 10.24 --
+  where the engine adds `spacingR * 100`, half a pixel. Every caption measured
+  long, more so at higher resolutions, and every badge sat about twice its
+  designed gap from its text: the A of Gameplay's Controller Layout entry 50 px
+  away at 3024x1964, 13 px now (screenshots before and after). Seven Options
+  captions read off a 3024x1964 screenshot inked 0.825 to 0.843 of the old
+  measure and 0.96 to 0.97 of the corrected one, the rest being side bearings.
+  Where a long caption nearly filled its button, the generator's rule that a
+  badge never leaves its button put it on the text. Windows places badges from
+  the same textures and the same manifest, so this applies to both platforms.
+  The Controller Layout screen had absorbed the error as a 0.88 draw ratio
+  (`RENDER_FACTOR` 0.92); it is now a 4% margin over the corrected measure
+  (1.04): the caption boxes played at 3440x1440 grow by 7 to 9 px, and those at
+  3024x1964, which the error made wider, lose 18 to 32. Every caption still fits
+  its box (`Test-ControllerPromptAssets.py`).
+- **The Container's buttons are wide enough for "Switch To Give Item" and its
+  badge** (2026-09-30, the same report). With the measure corrected, the
+  caption is 425 px of text on a 528 px button at 3024x1964, where the badge
+  needs 70 px beside it on either side; 45 of the 66 sets were short, by 2 to
+  182 px. The build now widens `container.gui` -- the panel about its centre,
+  its title, item list and all three buttons -- by exactly what that button
+  needs, in each set that needs it (`fit_container_to_caption` in
+  `tools/prepare_universal_resources.py`): 38 px at 3024x1964, 44 at 1512x982,
+  none at 3440x1440. `Test-ControllerPromptAssets.py` checks every set.
+  Measured with the English wording, like the badge; a longer localised one is
+  re-placed at install as before and still meets the button's edge. **Not yet
+  seen in play**; the rest of the screen is unchanged.
 - **A with a button focused presses that button once, on every screen**
   (2026-09-28, at the maintainer's request after the Level Up freeze below:
   "create this for all screens"). Many buttons do nothing of their own: their

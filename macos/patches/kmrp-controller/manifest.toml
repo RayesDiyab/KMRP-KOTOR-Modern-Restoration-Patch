@@ -1,0 +1,9 @@
+[patch]
+id = "kmrp-controller"
+name = "KMRP Controller Support"
+version = "1.5.0"
+description = "Gamepad support for the Aspyr macOS build, ported from KMRP's Windows controller module: pads read through SDL 3 (kmrp-sdl3.dylib, beside this module), or Apple's GameController framework without it, and fed to the engine's own joystick input with KMRP's bindings; button prompts, rumble and the Controller Layout screen. Part of KMRP for macOS."
+author = "RaymanGT (KMRP)"
+
+[patch.supported_versions]
+kotor1_steam_aspyr_macos = "C1FCB8D37C702849882A17751C63EE0AF7C2B9CBBC3B31B98A5F0EDBC27C6D71"

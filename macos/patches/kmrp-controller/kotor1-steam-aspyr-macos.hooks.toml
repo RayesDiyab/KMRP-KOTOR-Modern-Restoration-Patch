@@ -1,0 +1,315 @@
+[metadata]
+target_versions = ["C1FCB8D37C702849882A17751C63EE0AF7C2B9CBBC3B31B98A5F0EDBC27C6D71"]
+
+# KMRP controller support (native.cpp).
+#
+# CExoInputInternal::GetEvents, entry: once per input poll, before the engine polls its
+# devices. KmrpControllerTick registers the pad's button descriptions, keeps a pad in the
+# device count and reads the pad. rsi is the CExoInputInternal (rdi is the returned list).
+# The stolen bytes are the prologue's pushes, nothing position-dependent.
+#   0x100356276  push rbp; mov rbp,rsp; push r15; push r14; push r13; push r12; push rbx
+#
+# GetJoystickBuffer (0x100358cdc) is replaced by the module's constructor, not here: the
+# whole function is swapped, with a jump over its prologue, checked before it is written.
+[[hooks]]
+address = 0x100356276
+type = "detour"
+function = "KmrpControllerTick"
+original_bytes = [0x55, 0x48, 0x89, 0xe5, 0x41, 0x57, 0x41, 0x56, 0x41, 0x55, 0x41, 0x54, 0x53]
+[[hooks.parameters]]
+source = "rsi"
+type = "pointer"
+
+# Aspyr's own pad mapping, switched off. The Mac port ends GetEvents with a translation
+# Windows does not have: a scan of the first pad's records (0x100356e39..0x100356fc5) that
+# reads them as an Xbox 360 DirectInput pad, then an injection (0x100356fee..0x1003570f4) of
+# a second event per press, by input class (column table at 0x100572110). It never ran before KMRP, because Aspyr's own pad layer never finds a pad;
+# with KMRP's records it would double every binding, and where the layouts disagree act on
+# its own: KMRP's Start is button 8, which Aspyr reads as L3 and turns into 0xF2, Flourish
+# (seen 2026-09-29: a Start press in the world opened the menu and queued a flourish).
+# KMRP's descriptions are the whole mapping, as on Windows, so the injection is skipped: the
+# class check before it, `cmp r13d, 5; ja <end>`, becomes an unconditional jump to <end>.
+#   0x100356ff2  ja  0x1003570fa   ->   jmp 0x1003570fa; nop
+[[hooks]]
+address = 0x100356ff2
+type = "simple"
+original_bytes = [0x0f, 0x87, 0x02, 0x01, 0x00, 0x00]
+replacement_bytes = [0xe9, 0x03, 0x01, 0x00, 0x00, 0x90]
+
+# The world (gameplay.cpp), K1NativeJoystick.cpp's gameplay hooks.
+#
+# CSWPlayerControlCamRelative::Control, entry (Windows 0x00679940): the movement heartbeat,
+# which decides once a frame whether the left stick drives the character. rdi is the player
+# control. The stolen bytes are the prologue's pushes.
+[[hooks]]
+address = 0x1002249b2
+type = "detour"
+function = "KmrpMovementFrame"
+original_bytes = [0x55, 0x48, 0x89, 0xe5, 0x41, 0x57, 0x41, 0x56]
+[[hooks.parameters]]
+source = "rdi"
+type = "pointer"
+
+# Control's call to Vector::Normalize (Windows 0x00679B71), skipped while the stick drives so
+# the speed follows the deflection. The stolen bytes are a relative call, which cannot run
+# from the wrapper, so the handler always consumes and makes the call itself when it should
+# happen; eax (the spelling the validator asks for) is left to it, as the consumed-exit test reads it.
+[[hooks]]
+address = 0x100224c56
+type = "detour"
+function = "KmrpSkipNormalize"
+original_bytes = [0xe8, 0x33, 0xa7, 0x14, 0x00]
+skip_original_bytes = true
+consumed_exit_address = 0x100224c5b
+exclude_from_restore = ["eax"]
+[[hooks.parameters]]
+source = "rdi"
+type = "pointer"
+
+# MainLoop's call to UpdateCamera (Windows: MainLoop after UpdateCamera, 0x006039CF), made in
+# play and in free look only. The handler makes the call, adds the right stick's turn, and
+# runs the world's bridges (L3's flourish, Start's Map, A on the target, R3 out of free look).
+# A relative call again, so it always consumes. rdi is CClientExoAppInternal.
+[[hooks]]
+address = 0x100268424
+type = "detour"
+function = "KmrpCameraFrame"
+original_bytes = [0xe8, 0x87, 0x11, 0x00, 0x00]
+skip_original_bytes = true
+consumed_exit_address = 0x100268429
+exclude_from_restore = ["eax"]
+[[hooks.parameters]]
+source = "rdi"
+type = "pointer"
+
+# Menus (gui.cpp), K1NativeJoystick.cpp's focus-navigation hook.
+#
+# CSWGuiManager::Update, entry (Windows 0x0040CE70): the GUI's own frame, where the focus
+# moves, the screen remaps, the party switch and the description scroll are performed, outside
+# the input poll. rdi is the manager (xmm0 the frame time). The stolen bytes are the prologue's
+# pushes. (The echo guard and the confirm guards are installed by the module itself: the first
+# replaces CSWGuiPanel::HandleInputEvent whole, the others sit in their classes' vtables; see
+# gui.cpp.)
+[[hooks]]
+address = 0x10049f636
+type = "detour"
+function = "KmrpGuiFrame"
+original_bytes = [0x55, 0x48, 0x89, 0xe5, 0x41, 0x57, 0x41, 0x56]
+[[hooks.parameters]]
+source = "rdi"
+type = "pointer"
+
+# The HUD (hud.cpp), K1NativeJoystick.cpp's NativeActionBarK1.
+#
+# CSWGuiMainInterface::Update, entry (Windows 0x00686BA0): the HUD's own frame, where the
+# action bar's moves and the combat buttons are performed. rdi is the HUD. The stolen bytes are
+# the prologue's pushes.
+[[hooks]]
+address = 0x100237a86
+type = "detour"
+function = "KmrpHudFrame"
+original_bytes = [0x55, 0x48, 0x89, 0xe5, 0x41, 0x57, 0x41, 0x56]
+[[hooks.parameters]]
+source = "rdi"
+type = "pointer"
+
+# Movies (gameplay.cpp), K1NativeJoystick.cpp's NativeMovieFrameK1.
+#
+# Aspyr's movie loop (0x1000139e4), at the top of each frame: `cmp byte ptr [rbp-0x4af], 0`,
+# the test of the loop's "cancelled" byte, seven position-independent bytes, re-run after the
+# handler so the jne that follows reads fresh flags. The handler gets the loop's state block,
+# rbp-0x4b0, whose byte 0 a key's release sets to skip the movie; A and Start set it too.
+[[hooks]]
+address = 0x100014566
+type = "detour"
+function = "KmrpMovieFrame"
+original_bytes = [0x80, 0xbd, 0x51, 0xfb, 0xff, 0xff, 0x00]
+[[hooks.parameters]]
+source = "rbp-0x4b0"
+type = "pointer"
+
+# Which device the player is on (prompts.cpp), K1NativeJoystick.cpp's NativeNoteKeyboardK1: a
+# key pressed hides the button prompts and gives the cursor back. (Windows' NativeNoteMouseK1, at
+# CSWGuiManager::HandleMouseMove, has no hook here: the Mac calls HandleMouseMove only while its
+# own cursor is shown, so prompts.cpp reads the pointer the frame loop samples instead.)
+#
+# GetEvents' call to read the keyboard's buffered records (0x10035984C), made while no text box
+# has the keyboard. The handler makes the read and then looks at its records, where Windows reads
+# each record in the loop that follows. A relative call again, so it always consumes; GetEvents
+# does not use its result. rdi is the raw input, rsi the {records, count} buffer.
+[[hooks]]
+address = 0x1003563f3
+type = "detour"
+function = "KmrpNoteKeyboard"
+original_bytes = [0xe8, 0x54, 0x34, 0x00, 0x00]
+skip_original_bytes = true
+consumed_exit_address = 0x1003563f8
+exclude_from_restore = ["eax"]
+[[hooks.parameters]]
+source = "rdi"
+type = "pointer"
+[[hooks.parameters]]
+source = "rsi"
+type = "pointer"
+
+# The GUI cues (cues.cpp), K1NativeJoystick.cpp's NativePanelReleaseGffK1.
+#
+# CSWGuiPanel::StopLoadFromLayout, entry (Windows 0x0040B8F0, ReleaseGff): every panel
+# constructor's last call, which deletes the panel's .gui, so the last instant a control can be
+# bound to it by tag; and the base destructor's first, where a panel's cues are forgotten. rdi is
+# the panel. The stolen bytes are the prologue's pushes.
+[[hooks]]
+address = 0x10049d986
+type = "detour"
+function = "KmrpPanelReleaseGff"
+original_bytes = [0x55, 0x48, 0x89, 0xe5, 0x53, 0x50]
+[[hooks.parameters]]
+source = "rdi"
+type = "pointer"
+
+# Rumble (rumble.cpp), K1Rumble.cpp's hooks. See docs/controller-rumble.md.
+#
+# Aspyr kept the rumble subsystem and stubbed its output: CExoInput::SetRumble, PauseRumble and
+# UnpauseRumble do nothing (0x10035738C, 0x10035739C, 0x1003573A2). One mixer owns both motors:
+# every pattern the engine starts is handed to it, and the observers supply the events BioWare
+# never wired to rumble.
+#
+# MainLoop's call to UpdateRumble (Windows: SetRumble's call in UpdateRumble, 0x005F7617),
+# replaced: the mixer's frame, with the frame time MainLoop passes (0x1005CA818, as for the
+# camera), and the pad's motors. A relative call, so it always consumes. r13 is the internal.
+[[hooks]]
+address = 0x1002687f1
+type = "detour"
+function = "KmrpRumbleFrame"
+original_bytes = [0xe8, 0x00, 0x27, 0x00, 0x00]
+skip_original_bytes = true
+consumed_exit_address = 0x1002687f6
+exclude_from_restore = ["eax"]
+[[hooks.parameters]]
+source = "r13"
+type = "pointer"
+
+# CClientExoAppInternal::PlayRumblePattern (0x10027A0FC; Windows 0x005FB49F), after its prologue:
+#   10027a106  mov ebx, esi / xor eax, eax / test ebx, ebx   <- here; the stolen bytes
+#   10027a185  add rsp, 8 / pop rbx / pop r14 / pop r15 / pop rbp / ret
+# The handler plays the index and returns 1, and the consumed exit is the function's own
+# epilogue, which returns that 1 (Windows' returns 0; only the script command reads it).
+[[hooks]]
+address = 0x10027a106
+type = "detour"
+function = "KmrpRumblePlay"
+original_bytes = [0x89, 0xf3, 0x31, 0xc0, 0x85, 0xdb]
+skip_original_bytes = false
+consumed_exit_address = 0x10027a185
+exclude_from_restore = ["eax"]
+[[hooks.parameters]]
+source = "rdi"
+type = "pointer"
+[[hooks.parameters]]
+source = "esi"
+type = "int"
+
+# CClientExoAppInternal::StopRumblePattern (Windows 0x005F74B0), at its entry. Observes: the
+# engine's search of its empty queue still runs and finds nothing.
+[[hooks]]
+address = 0x10027a1d2
+type = "detour"
+function = "KmrpRumbleStop"
+original_bytes = [0x55, 0x48, 0x89, 0xe5, 0x48, 0x63, 0x87, 0xe8, 0x04, 0x00, 0x00]
+[[hooks.parameters]]
+source = "rdi"
+type = "pointer"
+[[hooks.parameters]]
+source = "esi"
+type = "int"
+
+# CClientExoAppInternal::LookUpAndPerformRumbleWithCutOff (Windows 0x005FB98E), at its entry: the
+# 2DA row, the category (0 footstepsounds, 1 visualeffects) and the position. Observes.
+[[hooks]]
+address = 0x10027a892
+type = "detour"
+function = "KmrpRumbleCutoff"
+original_bytes = [0x55, 0x48, 0x89, 0xe5, 0x41, 0x57, 0x41, 0x56]
+[[hooks.parameters]]
+source = "rdi"
+type = "pointer"
+[[hooks.parameters]]
+source = "esi"
+type = "int"
+[[hooks.parameters]]
+source = "edx"
+type = "int"
+[[hooks.parameters]]
+source = "rcx"
+type = "pointer"
+
+# CExoInput::PauseRumble and UnpauseRumble, at their wrappers' entries: the combat and auto
+# pauses and the autosave. The Mac's own do nothing, so the module keeps the flag.
+[[hooks]]
+address = 0x100359d86
+type = "detour"
+function = "KmrpRumblePause"
+original_bytes = [0x55, 0x48, 0x89, 0xe5, 0x48, 0x8b, 0x7f, 0x08]
+
+[[hooks]]
+address = 0x100359d94
+type = "detour"
+function = "KmrpRumbleUnpause"
+original_bytes = [0x55, 0x48, 0x89, 0xe5, 0x48, 0x8b, 0x7f, 0x08]
+
+# CSWCItem::ResolveCreaturePoweredAnimations (Windows 0x00646BA0), at its entry: the item and the
+# power state CSWCItem::PowerItem (0x1002D110C) settled on, from its two calls.
+[[hooks]]
+address = 0x1002d150e
+type = "detour"
+function = "KmrpSaberPower"
+original_bytes = [0x55, 0x48, 0x89, 0xe5, 0x41, 0x57, 0x41, 0x56]
+[[hooks.parameters]]
+source = "rdi"
+type = "pointer"
+[[hooks.parameters]]
+source = "esi"
+type = "int"
+
+# CSWCCreature::ShowLightSaberContactVisual (Windows 0x0060DE20), at its entry; rdi the wielder.
+[[hooks]]
+address = 0x100295f16
+type = "detour"
+function = "KmrpSaberContact"
+original_bytes = [0x55, 0x48, 0x89, 0xe5, 0x41, 0x57, 0x41, 0x56]
+[[hooks.parameters]]
+source = "rdi"
+type = "pointer"
+
+# The creature animation event "hit" (Windows HitEvent, 0x00617EB0), registered by
+# CSWCCreature::RegisterCallbacks (0x10029C07C): rdx is the attack record.
+[[hooks]]
+address = 0x100296007
+type = "detour"
+function = "KmrpMeleeHit"
+original_bytes = [0x55, 0x48, 0x89, 0xe5, 0x41, 0x57, 0x41, 0x56]
+[[hooks.parameters]]
+source = "rdx"
+type = "pointer"
+
+# CSWCObject::AnimationParry (Windows 0x0063C4F0), at its entry; rdi the object parrying. Named
+# by its shape: the animation base at +0x80 (Windows +0x68), a zeroed local, a 2DA test, called
+# by the hit event for the parry results and by CSWCCreature::PlayHitSound.
+[[hooks]]
+address = 0x10033cb7e
+type = "detour"
+function = "KmrpParry"
+original_bytes = [0x55, 0x48, 0x89, 0xe5, 0x53, 0x50]
+[[hooks.parameters]]
+source = "rdi"
+type = "pointer"
+
+# CSWCProjectile::CreateMuzzleFlash (Windows 0x006D4440), at its entry; rdi the projectile.
+[[hooks]]
+address = 0x1002dd810
+type = "detour"
+function = "KmrpMuzzleFlash"
+original_bytes = [0x55, 0x48, 0x89, 0xe5, 0x41, 0x57, 0x41, 0x56]
+[[hooks.parameters]]
+source = "rdi"
+type = "pointer"
