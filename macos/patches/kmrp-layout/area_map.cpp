@@ -108,6 +108,7 @@ __asm__(
     "_kmrp_map_stubs_end:\n");
 
 extern "C" const uint8_t kmrp_notes_stub[], kmrp_party_stub[], kmrp_popup_stub[];
+extern "C" const uint8_t kmrp_replies_stub[];   // dialogue_replies.cpp
 extern "C" void KMRP_GrantedFill(void* list, void* rows, int a, int b, int c);
 extern "C" void KMRP_GrantedRowText(void* text, int32_t* rect);
 
@@ -151,11 +152,13 @@ std::vector<uint8_t> Thunk(const uint8_t* target) {  // jmp *0(%rip); .quad targ
 }
 
 // The near page's layout: two thunks, then the map's copy of lbl_mapcircle's rect, then the
-// message popup's thunk (popup_fit.cpp) and the granted popup's two (granted_popup.cpp).
+// message popup's thunk (popup_fit.cpp), the granted popup's two (granted_popup.cpp) and the
+// dialogue reply list's (dialogue_replies.cpp).
 const size_t kNotesThunk = 0, kPartyThunk = 16, kCircleRect = 32;
 static_assert(kCircleRect + 16 == kPopupThunk, "the popup's thunk follows the rect");
 static_assert(kPopupThunk + 16 == kGrantedFillThunk && kGrantedFillThunk + 16 == kGrantedRowThunk,
               "the granted popup's thunks follow the message popup's");
+static_assert(kGrantedRowThunk + 16 == kRepliesThunk, "the reply list's thunk follows them");
 
 template <typename F> const uint8_t* Code(F* function) { return reinterpret_cast<const uint8_t*>(function); }
 
@@ -165,7 +168,8 @@ std::vector<uint8_t> AreaMapPage(int height) {
     const int32_t circle = Size(16, MarkerScale(height));
     return Join({Thunk(kmrp_notes_stub), Thunk(kmrp_party_stub),
                  Int32(0), Int32(0), Int32(circle), Int32(circle), Thunk(kmrp_popup_stub),
-                 Thunk(Code(KMRP_GrantedFill)), Thunk(Code(KMRP_GrantedRowText))});
+                 Thunk(Code(KMRP_GrantedFill)), Thunk(Code(KMRP_GrantedRowText)),
+                 Thunk(kmrp_replies_stub)});
 }
 
 void AddAreaMap(std::vector<Group>& groups, int width, int height, uintptr_t nearPage) {

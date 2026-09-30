@@ -35,6 +35,8 @@ extern float g_rightX, g_rightY;
 extern std::uint64_t g_lastPadPressMs;   // the last button press on the pad
 extern std::uint32_t g_padButtons;       // the pad's buttons at the last poll (pad.h's bits)
 extern float g_analogMagnitude;
+// The left stick as the buffer sends it (after the radial deadzone), -1..1, Y growing downward.
+extern float g_leftX, g_leftY;
 extern std::uint64_t g_lastBufferMs;
 
 // gameplay.cpp: whether the left stick drives the character this frame, and one log line on

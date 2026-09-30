@@ -77,6 +77,12 @@ MAP_STUB_LISTING = [
 
 
 # listbox_padding.cpp's stubs, as they must disassemble, and where each jumps back to.
+# dialogue_replies.cpp's stub: the site's width, then the height stretched to the panel.
+REPLIES_STUB_LISTING = [
+    "mov eax, dword ptr [rbx + 0x10]", "mov dword ptr [r14 + 8], eax",
+    "mov eax, dword ptr [rbx + 0x14]", "sub eax, dword ptr [r14 + 4]", "cmp eax, dword ptr [r14 + 0xc]",
+    "jle X", "mov dword ptr [r14 + 0xc], eax", "jmp qword ptr [rip]",
+]
 STUB_LISTINGS = {
     "rows": ([
         "mov r14d, dword ptr [r12 + 0x344]", "movsx edi, word ptr [r12 + 0x378]", "mov eax, edi",
@@ -142,12 +148,17 @@ def read_macho(path: Path):
 
 
 def widescreen_hooks(patch_dir: Path) -> dict[int, tuple[bytes, bytes]]:
-    doc = tomllib.loads((patch_dir / "kotor1-steam-aspyr-macos.hooks.toml").read_text())
+    """The hooks of the widescreen patch and of the Stray Bug Fixes patch beside it, which it
+    requires since 2026-09-30: both are installed under KMRP's."""
     hooks = {}
-    for hook in doc.get("hooks", []):
-        original = bytes(hook.get("original_bytes", []))
-        replacement = bytes(hook.get("replacement_bytes", []))
-        hooks[hook["address"]] = (original, replacement)
+    for directory in (patch_dir, patch_dir.parent / "K1StrayBugFixes"):
+        if not (directory / "kotor1-steam-aspyr-macos.hooks.toml").is_file():
+            continue
+        doc = tomllib.loads((directory / "kotor1-steam-aspyr-macos.hooks.toml").read_text())
+        for hook in doc.get("hooks", []):
+            original = bytes(hook.get("original_bytes", []))
+            replacement = bytes(hook.get("replacement_bytes", []))
+            hooks[hook["address"]] = (original, replacement)
     return hooks
 
 
@@ -348,8 +359,13 @@ def main() -> int:
                 failures.append(f"{where}: {address:#x} does not call the near page's thunk at {target:#x}")
         if 0x1002b626e + 7 + struct.unpack("<i", found[0x1002b6271][1])[0] != NEAR_PAGE + 32:
             failures.append(f"{where}: lbl_mapcircle's read does not point at the near page's copy")
+        # The dialogue reply list (dialogue_replies.cpp): a jump to the near page's sixth thunk.
+        value = found.get(0x100244d7d, ("", b""))[1]
+        if value[:1] != b"\xe9" or 0x100244d7d + 5 + struct.unpack("<i", value[1:5])[0] != NEAR_PAGE + 96 \
+                or value[5:] != b"\x90\x90":
+            failures.append(f"{where}: 0x100244d7d does not jump to the near page's thunk at {NEAR_PAGE + 96:#x}")
         page = PAGES.get((width, height), b"")
-        for thunk in (page[0:16], page[16:32], page[48:64], page[64:80], page[80:96]):
+        for thunk in (page[0:16], page[16:32], page[48:64], page[64:80], page[80:96], page[96:112]):
             if thunk[:6] != bytes.fromhex("ff2500000000") or thunk[14:] != b"\xcc\xcc":
                 failures.append(f"{where}: a near-page thunk is malformed: {thunk.hex()}")
         if struct.unpack("<4i", page[32:48]) != (0, 0, marker_size(16, height), marker_size(16, height)):
@@ -389,6 +405,13 @@ def main() -> int:
             failures.append(f"{name} stub disassembles as {listing}")
         if len(code) < 8 or struct.unpack("<Q", code[-8:])[0] != resume:
             failures.append(f"{name} stub does not return to {resume:#x}")
+
+    code = STUBS.get("replies", b"")
+    listing = [re.sub(r"^jle 0x[0-9a-f]+$", "jle X", x) for x in disassemble(code[:-8], 0)]
+    if listing != REPLIES_STUB_LISTING:
+        failures.append(f"replies stub disassembles as {listing}")
+    if len(code) < 8 or struct.unpack("<Q", code[-8:])[0] != 0x100244d84:
+        failures.append("replies stub does not return to 0x100244d84")
 
     initialisers = initialiser_count()
     if initialisers != 1:

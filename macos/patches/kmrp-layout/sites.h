@@ -38,5 +38,9 @@ void AddPopupFit(std::vector<Group>& groups, uintptr_t nearPage);
 // kGrantedFillThunk and kGrantedRowThunk (AreaMapPage puts them there).
 constexpr size_t kGrantedFillThunk = 64, kGrantedRowThunk = 80;
 void AddGrantedPopup(std::vector<Group>& groups, uintptr_t nearPage);
+// dialogue_replies.cpp: the dialogue reply list stretched to its panel (K7), through the near
+// page's thunk at kRepliesThunk.
+constexpr size_t kRepliesThunk = 96;
+void AddDialogueReplies(std::vector<Group>& groups, uintptr_t nearPage);
 
 }  // namespace kmrp

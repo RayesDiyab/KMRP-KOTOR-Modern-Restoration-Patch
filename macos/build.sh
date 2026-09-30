@@ -7,8 +7,10 @@
 #                  [--python <python3>] [--reuse-resources]
 #                  [--kpm <Kotor-Patch-Manager checkout>] [--widescreen <K1WidescreenPatch dir>]
 #
-# KPM and the widescreen patch come from the submodule third_party/Kotor-Patch-Manager
-# (git submodule update --init); --kpm and --widescreen build from other checkouts instead.
+# KPM, the widescreen patch and the Stray Bug Fixes patch come from the submodule
+# third_party/Kotor-Patch-Manager (git submodule update --init): the kmrp branch of
+# RayesDiyab/Kotor-Patch-Manager, FTD's widescreen-patch branch as KMRP takes it. --kpm and
+# --widescreen build from other checkouts instead.
 #
 # Needs: Xcode command line tools (clang, codesign), .NET 8 SDK (KPM's KPatchCore writes
 # patch_config.toml), and a Python with requirements.txt installed (the resource build).
@@ -66,36 +68,12 @@ step "KotorPatcher.dylib (KotOR Patch Manager's Mac runtime)"
 make -C "$KPM/src/KotorPatcher" dylib CXX_MAC=clang++ >/dev/null
 cp "$KPM/src/KotorPatcher/build/KotorPatcher.dylib" "$BUILD/"
 
-step "Widescreen patch (with the KMRP engine fixes and UseGuiFileLayouts), the base KMRP runs on"
-# Built as KotOR Patch Manager builds every patch, with its Patches/create-patch.py run from the
-# patch's folder. Until 2026-09-29 the patch carried its own build_mac.sh, with slightly
-# different compiler flags and an ad-hoc signature (FTD516/Kotor-Patch-Manager#2 removed it).
-rm -rf "$BUILD/widescreen"
-(cd "$WIDESCREEN" && "$PYTHON" "$KPM/Patches/create-patch.py" -o "$BUILD/widescreen" >/dev/null)
-cp "$BUILD/widescreen/K1WidescreenPatch.kpatch" "$BUILD/kpatch/"
-
-step "Map-note corrections patch"
+step "Map-note table (Derslok's corrections, compiled into the kmrp patch)"
 NOTES="$BUILD/map-notes"
-rm -rf "$NOTES"; mkdir -p "$NOTES/binaries"
+rm -rf "$NOTES"; mkdir -p "$NOTES"
 "$PYTHON" "$HERE/tools/make_map_notes_table.py" \
     "$ROOT/third_party/Included/K1-Area-Map-Fixes-1.0.0 by derslok/More info/source/data/note_table.bin" \
     "$NOTES/map_notes_table.inc"
-clang++ -arch x86_64 -std=c++17 -O2 -mmacosx-version-min=10.9 -dynamiclib -w -I"$NOTES" \
-    -install_name @executable_path/macos_x86_64.dylib \
-    -o "$NOTES/binaries/macos_x86_64.dylib" "$HERE/patches/kmrp-map-notes/map_notes.cpp"
-codesign --force --sign - "$NOTES/binaries/macos_x86_64.dylib" 2>/dev/null
-cp "$HERE/patches/kmrp-map-notes/manifest.toml" "$HERE/patches/kmrp-map-notes/kotor1-steam-aspyr-macos.hooks.toml" "$NOTES/"
-(cd "$NOTES" && zip -q -X "$BUILD/kpatch/kmrp-map-notes.kpatch" manifest.toml kotor1-steam-aspyr-macos.hooks.toml binaries/macos_x86_64.dylib)
-
-step "Layout patch (the engine side of KMRP's menu layouts)"
-LAYOUT="$BUILD/layout"
-rm -rf "$LAYOUT"; mkdir -p "$LAYOUT/binaries"
-clang++ -arch x86_64 -std=c++17 -O2 -mmacosx-version-min=10.9 -dynamiclib -w \
-    -install_name @executable_path/macos_x86_64.dylib \
-    -o "$LAYOUT/binaries/macos_x86_64.dylib" "$HERE/patches/kmrp-layout/"*.cpp
-codesign --force --sign - "$LAYOUT/binaries/macos_x86_64.dylib" 2>/dev/null
-cp "$HERE/patches/kmrp-layout/manifest.toml" "$HERE/patches/kmrp-layout/kotor1-steam-aspyr-macos.hooks.toml" "$LAYOUT/"
-(cd "$LAYOUT" && zip -q -X "$BUILD/kpatch/kmrp-layout.kpatch" manifest.toml kotor1-steam-aspyr-macos.hooks.toml binaries/macos_x86_64.dylib)
 
 step "SDL 3.4.16 for the controller (the official release Windows pins too, tools/prepare_sdl3.ps1)"
 SDL_DMG="$ROOT/build/deps/SDL3-3.4.16.dmg"
@@ -115,56 +93,39 @@ if [[ ! -f "$SDL_DIR/SDL3.framework/Versions/A/SDL3" ]]; then
 fi
 lipo "$SDL_DIR/SDL3.framework/Versions/A/SDL3" -verify_arch x86_64
 
-step "Controller patch (KMRP's native controller path, ported to the Mac)"
-CONTROLLER="$BUILD/controller"
-rm -rf "$CONTROLLER"; mkdir -p "$CONTROLLER/binaries"
-# SDL3 is not linked: the module opens kmrp-sdl3.dylib from its own folder, as the Windows
-# module opens kmrp-sdl3.dll. GameController, the fallback without it, is weak-linked.
-clang++ -arch x86_64 -std=c++17 -O2 -mmacosx-version-min=10.13 -dynamiclib -Wall -Wextra '-Wno-#warnings' -fobjc-arc \
-    -F "$SDL_DIR" -install_name @executable_path/macos_x86_64.dylib -framework Foundation -framework AppKit -framework ApplicationServices -weak_framework GameController \
-    -o "$CONTROLLER/binaries/macos_x86_64.dylib" "$HERE/patches/kmrp-controller/"*.cpp "$HERE/patches/kmrp-controller/"*.mm
-codesign --force --sign - "$CONTROLLER/binaries/macos_x86_64.dylib" 2>/dev/null
-cp "$HERE/patches/kmrp-controller/manifest.toml" "$HERE/patches/kmrp-controller/kotor1-steam-aspyr-macos.hooks.toml" "$CONTROLLER/"
-(cd "$CONTROLLER" && zip -q -X "$BUILD/kpatch/kmrp-controller.kpatch" manifest.toml kotor1-steam-aspyr-macos.hooks.toml binaries/macos_x86_64.dylib)
-
-step "patch_config.toml, written by KPM's own KPatchCore"
+step "The kmrp patch: FTD's widescreen patch and Stray Bug Fixes with KMRP's layout, map notes and controller"
+# One KotOR Patch Manager patch, id kmrp, built by tools/make_kmrp_patch.py from FTD's two patches'
+# source (the submodule) and KMRP's patches/kmrp-layout, kmrp-map-notes and kmrp-controller, since
+# 2026-09-30: KMRP replaces an install of FTD's patches instead of building on it. Four versions,
+# for the installer's two options, each checked by KPM's own KPatchCore and staged in a folder of
+# its own (KPM finds a patch by its id, and the four share one).
+STRAY="$KPM/Patches/K1StrayBugFixes"
+[[ -f "$STRAY/manifest.toml" ]] || { print -u2 "no Patches/K1StrayBugFixes in $KPM"; exit 2; }
 dotnet build "$HERE/tools/kpm-cli" -c Release -p:KpmRoot="$KPM" -o "$BUILD/kpm-cli" >/dev/null
 KPMCLI=(dotnet "$BUILD/kpm-cli/kpm-cli.dll")
-$KPMCLI validate "$BUILD/kpatch/K1WidescreenPatch.kpatch" "$EXE" | { grep -v DEBUG || true; }
-$KPMCLI validate "$BUILD/kpatch/kmrp-map-notes.kpatch" "$EXE" | { grep -v DEBUG || true; }
-$KPMCLI validate "$BUILD/kpatch/kmrp-layout.kpatch" "$EXE" | { grep -v DEBUG || true; }
-$KPMCLI validate "$BUILD/kpatch/kmrp-controller.kpatch" "$EXE" | { grep -v DEBUG || true; }
-# In this order: the widescreen patch's byte hooks and constructor first, then KMRP's patches,
-# whose sites the widescreen patch's switch leaves vanilla (kmrp-layout checks each). The
-# controller last: KotorPatcher stops at the first hook it cannot apply, and nothing else
-# depends on it.
-$KPMCLI stage-many "$EXE" "$BUILD/engine/full" "$BUILD/kpatch/K1WidescreenPatch.kpatch" "$BUILD/kpatch/kmrp-map-notes.kpatch" "$BUILD/kpatch/kmrp-layout.kpatch" "$BUILD/kpatch/kmrp-controller.kpatch" | { grep -v DEBUG || true; }
-$KPMCLI stage-many "$EXE" "$BUILD/engine/no-notes" "$BUILD/kpatch/K1WidescreenPatch.kpatch" "$BUILD/kpatch/kmrp-layout.kpatch" "$BUILD/kpatch/kmrp-controller.kpatch" | { grep -v DEBUG || true; }
-# Controller support is optional too, as on Windows (Advanced Settings): the same patches
-# without it, with and without the map notes.
-$KPMCLI stage-many "$EXE" "$BUILD/engine/no-controller" "$BUILD/kpatch/K1WidescreenPatch.kpatch" "$BUILD/kpatch/kmrp-map-notes.kpatch" "$BUILD/kpatch/kmrp-layout.kpatch" | { grep -v DEBUG || true; }
-$KPMCLI stage-many "$EXE" "$BUILD/engine/neither" "$BUILD/kpatch/K1WidescreenPatch.kpatch" "$BUILD/kpatch/kmrp-layout.kpatch" | { grep -v DEBUG || true; }
-mkdir -p "$PKG/engine/patches"
+mkdir -p "$PKG/engine"
+for variant in kmrp kmrp.no-map-notes kmrp.no-controller kmrp.no-map-notes.no-controller; do
+    variant_options=()
+    [[ $variant == *no-map-notes* ]] && variant_options+=--no-map-notes
+    [[ $variant == *no-controller* ]] && variant_options+=--no-controller
+    mkdir -p "$BUILD/kpatch/$variant" "$PKG/engine/$variant"
+    "$PYTHON" "$HERE/tools/make_kmrp_patch.py" --widescreen "$WIDESCREEN" --stray "$STRAY" \
+        --layout "$HERE/patches/kmrp-layout" --notes "$HERE/patches/kmrp-map-notes" --notes-include "$NOTES" \
+        --controller "$HERE/patches/kmrp-controller" --sdl "$SDL_DIR" --version "$VERSION" $variant_options \
+        --out "$BUILD/kpatch/$variant/kmrp.kpatch"
+    $KPMCLI validate "$BUILD/kpatch/$variant/kmrp.kpatch" "$EXE" | { grep -v DEBUG || true; }
+    $KPMCLI stage-many "$EXE" "$BUILD/engine/$variant" "$BUILD/kpatch/$variant/kmrp.kpatch" | { grep -v DEBUG || true; }
+    grep -q '^id = "kmrp"$' "$BUILD/engine/$variant/patch_config.toml" || { print -u2 "$variant: not staged"; exit 1; }
+    cp "$BUILD/engine/$variant/patches/kmrp.dylib" "$BUILD/engine/$variant/patch_config.toml" "$PKG/engine/$variant/"
+done
 cp "$BUILD/KotorPatcher.dylib" "$PKG/engine/"
-cp "$BUILD/engine/full/patches/"*.dylib "$PKG/engine/patches/"
 # SDL itself, under the name the module looks for. Its code is unchanged; its signature is
 # redone because the release's (ad-hoc, like ours) seals the framework's Info.plist, which
 # does not travel with the bare library.
-cp "$SDL_DIR/SDL3.framework/Versions/A/SDL3" "$PKG/engine/patches/kmrp-sdl3.dylib"
-codesign --force --sign - --identifier org.libsdl.SDL3 "$PKG/engine/patches/kmrp-sdl3.dylib" 2>/dev/null
-codesign --verify "$PKG/engine/patches/kmrp-sdl3.dylib"
+cp "$SDL_DIR/SDL3.framework/Versions/A/SDL3" "$PKG/engine/kmrp-sdl3.dylib"
+codesign --force --sign - --identifier org.libsdl.SDL3 "$PKG/engine/kmrp-sdl3.dylib" 2>/dev/null
+codesign --verify "$PKG/engine/kmrp-sdl3.dylib"
 cp "$SDL_DIR/LICENSE.txt" "$PKG/licenses/SDL3-LICENSE.txt"
-cp "$BUILD/engine/full/patch_config.toml" "$PKG/engine/patch_config.toml"
-cp "$BUILD/engine/no-notes/patch_config.toml" "$PKG/engine/patch_config.no-map-notes.toml"
-cp "$BUILD/engine/no-controller/patch_config.toml" "$PKG/engine/patch_config.no-controller.toml"
-cp "$BUILD/engine/neither/patch_config.toml" "$PKG/engine/patch_config.no-map-notes.no-controller.toml"
-for variant in no-controller neither; do   # every variant ships the same patch binaries
-    cmp -s "$BUILD/engine/full/patches/k1widescreenpatch.dylib" "$BUILD/engine/$variant/patches/k1widescreenpatch.dylib"
-    cmp -s "$BUILD/engine/full/patches/kmrp-layout.dylib" "$BUILD/engine/$variant/patches/kmrp-layout.dylib"
-done
-cmp -s "$BUILD/engine/full/patches/k1widescreenpatch.dylib" "$BUILD/engine/no-notes/patches/k1widescreenpatch.dylib"
-cmp -s "$BUILD/engine/full/patches/kmrp-layout.dylib" "$BUILD/engine/no-notes/patches/kmrp-layout.dylib"
-cmp -s "$BUILD/engine/full/patches/kmrp-controller.dylib" "$BUILD/engine/no-notes/patches/kmrp-controller.dylib"
 
 step "kmrp-macho (adds the patcher's load command)"
 clang -O2 -Wall -Wextra -arch x86_64 -arch arm64 -mmacosx-version-min=10.13 \

@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Install, check and uninstall the macOS package into a stand-in game, four times.
+"""Install, check and uninstall the macOS package into a stand-in game, five times.
 
 macos/kmrp-mac.sh writes into the game bundle and into swkotor.ini under $HOME. This runs it
 against a stand-in: a bundle holding a copy of the unmodified KOTOR_Exe and links to the
@@ -27,6 +27,10 @@ round 3 installs over that edited copy, which install and uninstall leave byte f
    app's Advanced Settings pass them: no controller module, no SDL and no map-notes patch,
    the package's patch_config.no-map-notes.no-controller.toml, install.info saying
    controller=0, and the player's kmrp-controller.ini untouched by install and uninstall.
+5. FTD's widescreen patch installed through KotOR Patch Manager, laid out as KPM lays it out
+   on the Mac: KMRP replaces it (its files deleted, the untouched game put back from KPM's copy
+   before KMRP installs) and uninstall leaves the untouched game; with a KPM patch that is not
+   FTD's, the install is refused by name and changes nothing (2026-09-30).
 
     python testing/regression/Test-MacInstaller.py PACKAGE_KMRP_DIR CLEAN_KOTOR_EXE SWPC_TEX_GUI_ERF
 
@@ -139,19 +143,19 @@ def main() -> int:
             if mode == "edit":
                 settings.write_text(settings.read_text().replace("Strength=100", "Strength=40"))
             override = game / "Contents/Assets/override"
-            # Engine: every patch, or without the two optional ones, with the patch list for what
-            # is there.
-            optional = ("patches/kmrp-map-notes.dylib", "patches/kmrp-controller.dylib", "patches/kmrp-sdl3.dylib")
-            for name in ("KotorPatcher.dylib", "patch_config.toml", "patches/k1widescreenpatch.dylib",
-                         "patches/kmrp-layout.dylib") + optional:
-                present = (game / "Contents/MacOS" / name).is_file()
-                if not present and not (mode == "off" and name in optional):
-                    failures.append(f"{size}: {name} not installed")
-                if present and mode == "off" and name in optional:
-                    failures.append(f"{size}: {name} installed with its option off")
-            config = "patch_config.no-map-notes.no-controller.toml" if mode == "off" else "patch_config.toml"
-            if (game / "Contents/MacOS/patch_config.toml").read_bytes() != (package / "engine" / config).read_bytes():
-                failures.append(f"{size}: patch_config.toml is not the package's {config}")
+            # Engine: KMRP's one patch (FTD's widescreen patch and Stray Bug Fixes with KMRP's code),
+            # in the version for the options, with KPM's list for it; SDL with the controller only.
+            variant = "kmrp.no-map-notes.no-controller" if mode == "off" else "kmrp"
+            macos_dir = game / "Contents/MacOS"
+            files = sorted(str(p.relative_to(macos_dir)) for p in macos_dir.rglob("*") if p.is_file())
+            want = ["KOTOR_Exe", "KotorPatcher.dylib", "patch_config.toml", "patches/kmrp.dylib"] + \
+                   ([] if mode == "off" else ["patches/kmrp-sdl3.dylib"])
+            if files != sorted(want):
+                failures.append(f"{size}: MacOS holds {files}, not {sorted(want)}")
+            for installed, packaged in (("patch_config.toml", f"engine/{variant}/patch_config.toml"),
+                                        ("patches/kmrp.dylib", f"engine/{variant}/kmrp.dylib")):
+                if (macos_dir / installed).is_file() and (macos_dir / installed).read_bytes() != (package / packaged).read_bytes():
+                    failures.append(f"{size}: {installed} is not the package's {packaged}")
             if subprocess.run([str(package / "bin/kmrp-macho"), "has-dylib", str(exe), "KotorPatcher.dylib"],
                               capture_output=True).returncode != 0:
                 failures.append(f"{size}: KOTOR_Exe has no load command for KotorPatcher")
@@ -255,6 +259,72 @@ def main() -> int:
                   f"{len(expected)} set files, {len(icons)} feat and power icons, {len(skills)} skill icons, "
                   f"{len(art) + 1} made from the game; "
                   f"{'controller and map notes off' if mode == 'off' else f'controller settings {mode}'}")
+
+        # 5. FTD's widescreen patch installed through KotOR Patch Manager, laid out as KPM lays
+        #    it out on the Mac (KPatchCore: the patcher named in KOTOR_Exe's load commands, the
+        #    patch list, patches/, kpm_install_state.json, and KOTOR_Exe.backup.<time> with its
+        #    .json): KMRP deletes it and installs over the untouched game, and uninstall leaves
+        #    that game. With any other KPM patch installed, KMRP refuses and changes nothing.
+        macos = game / "Contents/MacOS"
+
+        def snapshot() -> dict[str, str]:
+            return {str(p.relative_to(macos)): sha(p) for p in sorted(macos.rglob("*")) if p.is_file()}
+
+        def kpm_install(ids: list[str]) -> None:
+            shutil.copy2(package / "engine/KotorPatcher.dylib", macos / "KotorPatcher.dylib")
+            (macos / "patches").mkdir()
+            for i in ids:   # KPM names each module after its patch id; the installer reads only names
+                (macos / "patches" / f"{i}.dylib").write_bytes(f"stand-in for {i}\n".encode())
+            (macos / "patch_config.toml").write_text(
+                "".join(f'[[patches]]\nid = "{i}"\ndll = "patches/{i}.dylib"\n\n' for i in ids))
+            (macos / "kpm_install_state.json").write_text('{"deployment": "LinkedDependency"}\n')
+            backup = macos / "KOTOR_Exe.backup.20260930_120000"
+            shutil.copy2(exe, backup)
+            (macos / f"{backup.name}.json").write_text('{"Hash": "%s"}\n' % vanilla.upper())
+            subprocess.run([str(package / "bin/kmrp-macho"), "add-dylib", str(exe), "@executable_path/KotorPatcher.dylib"],
+                           check=True, capture_output=True)
+            subprocess.run(["codesign", "--force", "--sign", "-", "--identifier", "KOTOR_Exe", str(exe)],
+                           check=True, capture_output=True)
+
+        ini.write_bytes(INI_BEFORE.encode())
+        kpm_install(["k1-stray-bug-fixes-patch", "k1widescreenpatch"])
+        before = snapshot()
+        status = run("status", "--brief")
+        if "(supported: KMRP replaces it)" not in status.stdout:
+            failures.append(f"KPM: status does not offer to replace FTD's install: {status.stdout.strip()[-200:]}")
+        ftd_install = before
+        result = run("install", "--size", "3024x1964", "--yes")
+        if result.returncode != 0:
+            failures.append(f"KPM: install over FTD's install failed: {result.stderr.strip()[-300:]}")
+        else:
+            now = snapshot()
+            gone = [name for name in ftd_install if name not in ("KOTOR_Exe", "KotorPatcher.dylib", "patch_config.toml")
+                    and name in now]
+            if gone:
+                failures.append(f"KPM: FTD's install was not removed: {gone}")
+            if "patches/kmrp.dylib" not in now:
+                failures.append("KPM: KMRP's patch not installed")
+            kept = home / "Library/Application Support/KMRP/macos/backup/KOTOR_Exe"
+            if not kept.is_file() or sha(kept) != vanilla:
+                failures.append("KPM: KMRP's backup is not the untouched game")
+            result = run("uninstall", "--yes")
+            if result.returncode != 0:
+                failures.append(f"KPM: uninstall failed: {result.stderr.strip()[-300:]}")
+            if snapshot() != {"KOTOR_Exe": vanilla}:
+                failures.append(f"KPM: uninstall did not leave the untouched game: {sorted(snapshot())[:6]}")
+            if ini.read_bytes() != INI_BEFORE.encode():
+                failures.append("KPM: swkotor.ini is not as it was")
+            if (home / "Library/Application Support/KMRP").exists():
+                failures.append("KPM: the install state was left behind")
+        # The same with a patch that is not FTD's: refused, nothing touched.
+        kpm_install(["k1-stray-bug-fixes-patch", "k1widescreenpatch", "someone-elses-patch"])
+        before = snapshot()
+        result = run("install", "--size", "3024x1964", "--yes")
+        if result.returncode == 0 or "someone-elses-patch" not in result.stderr:
+            failures.append("KPM: install over another KPM patch was not refused by name")
+        if snapshot() != before or (home / "Library/Application Support/KMRP").exists():
+            failures.append("KPM: a refused install changed the game or left state")
+        print("     KPM: FTD's install replaced, the untouched game left at uninstall; another KPM patch refused")
 
     for failure in failures:
         print("  " + failure)

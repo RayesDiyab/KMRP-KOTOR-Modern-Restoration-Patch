@@ -1491,6 +1491,39 @@ before:
   and one left: it sits about 4 px lower in its frame than the measurement above centred
   it. Not yet seen in play at the new sizes.
 
+- **macOS: the left stick steers where it points** (2026-10-01, reported from play: diagonals
+  went the wrong way; Windows was right). The Mac engine does not pass the analog axes through:
+  each comes back as sign(v) x (0.5 + 0.5 |v|), measured at Control's Normalize call (a stick
+  1,668/32,767 right of centre gave -0.525, 386 left gave +0.506), so any drift from straight up
+  steered half sideways and diagonals bent by up to 27 degrees. While the stick drives, KMRP's
+  hook there now writes the stick's own direction and deflection into the movement vector
+  (`gameplay.cpp`, `KmrpSkipNormalize`); the keyboard path is unchanged. Seen in play at
+  3024x1964 with a DualSense.
+- **macOS: one patch, built on FTD's current patches, replacing an install of his** (2026-09-30).
+  FTD's `widescreen-patch` moved on after the version KMRP shipped (`71ac5fa`, 27 commits to
+  `074972b`): he applied the chargen fix (bit `0x08` kept), split the fixes that hold at any
+  resolution (K1, K2, K3, K5, K6) into a separate *Stray Bug Fixes* patch that the widescreen
+  patch now requires, and dropped the K7 hook that stretches the dialogue reply list. As pushed,
+  the two did not install together: the widescreen patch still declared the 11 moved hooks, and
+  KPM's own check reported "Multiple hooks at address" for all of them. Now:
+  - the submodule is `RayesDiyab/Kotor-Patch-Manager`, branch `kmrp`: FTD's `074972b` with those
+    hooks declared once (it followed FTD's branch directly until now), so KMRP takes his changes
+    when they are merged there;
+  - KMRP is one KPM patch, `kmrp` (`patches/kmrp.dylib`), where it was five: FTD's two patches
+    compiled from their source with KMRP's layout, map-note and controller code linked in
+    (`macos/tools/make_kmrp_patch.py`), in four builds for the two options. Every byte hook comes
+    before every detour, as FTD's hook file requires; FTD's constructor runs before KMRP's layout
+    code (checked in the built module); a hook two parts declare identically is kept once. KPM
+    validates and stages each build with no overlapping hooks (78 hooks with both options);
+  - K7's reply-list stretch is KMRP's layout code (`dialogue_replies.cpp`), so KMRP no longer
+    depends on the base patch keeping it;
+  - an install of FTD's patches through KotOR Patch Manager is replaced, with FTD's agreement:
+    the installer puts back the untouched game from KPM's copy, deletes his patch files and KPM's
+    leftovers, and installs KMRP; Restore Original then leaves the untouched game. Any other KPM
+    patch stops the install, by name, and changes nothing.
+  `Test-KmrpLayoutPatch.py` (53 sites; it fails against the old base, whose K7 hook overlaps the
+  new site) and `Test-MacInstaller.py` (a fifth round: a stand-in KPM install replaced, and one
+  with another patch refused) pass. Installed at 3024x1964; **not yet played**.
 - **Lists are as tall as whole rows, spaced as the inventory's** (2026-09-30, found by an
   audit of every list at every resolution after the journal's report). A list box shares the
   height left under its last whole row between its rows, and rows sized in code (items 56s,

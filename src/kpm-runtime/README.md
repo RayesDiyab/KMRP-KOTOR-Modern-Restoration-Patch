@@ -45,7 +45,12 @@ The same evening the submodule moved to `9884466`, FTD's `widescreen-patch` bran
 with KMRP's engine fixes merged, whose tree is `17fd051`'s (`7a6f19ec…`); built
 from it, both files were byte for byte the same. Later still it moved to `71ac5fa`,
 where FTD's branch gained new patches under `Patches/` and nothing under `src/`;
-built from it, again the same bytes.
+built from it, again the same bytes. On 2026-10-01 (pull request #24) it moved to `2a784bf`,
+`RayesDiyab/Kotor-Patch-Manager` branch `kmrp`: FTD's `074972b` with the 11 hooks he moved into
+*K1StrayBugFixes* taken out of *K1WidescreenPatch*'s list. Between the two, `src/` changed only
+in KPM's C# launcher (`KPatchCore`, `KPatchLauncher`, including LaneDibello/Kotor-Patch-Manager#283),
+not in `src/KotorPatcher`; built from it, `KotorPatcher.dll` and `binkw32.dll` were again the
+same bytes.
 
 | File | Bytes | SHA-256 | Imports |
 | --- | --- | --- | --- |

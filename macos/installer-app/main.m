@@ -928,6 +928,9 @@ static const struct { const char *prefix, *stage; int percent; } kStages[] = {
 @property (nonatomic, copy) NSString *payload, *script, *chosenGame, *version, *installedSize, *blendTool, *gamePath;
 @property (nonatomic, copy) NSString *selectedSize, *selectedChoice, *selectedDetail, *stage;
 @property (nonatomic) BOOL running, checking, installed, incomplete, statusLoaded, gameFound, gameReady;
+// FTD's widescreen patch is installed through KotOR Patch Manager, and KMRP will replace it
+// (kmrp-mac.sh, kpm_remove).
+@property (nonatomic) BOOL replacesKpm;
 @property (nonatomic) int percent;
 @property (nonatomic, strong) NSMenu *openMenu;   // the resolution list while it is open
 @property (nonatomic) BOOL listAtEnd;               // a scripted check's second look at the list
@@ -1524,9 +1527,11 @@ static const struct { const char *prefix, *stage; int percent; } kStages[] = {
         self.installed = NO;
         self.incomplete = NO;
         self.gameReady = NO;
+        self.replacesKpm = NO;
         self.installedSize = nil;
         if (status == 0 && [output containsString:@"KMRP is not installed."]) {
-            self.gameReady = [output containsString:@"KOTOR_Exe: unmodified Steam build"];
+            self.replacesKpm = [output containsString:@"(supported: KMRP replaces it)"];
+            self.gameReady = self.replacesKpm || [output containsString:@"KOTOR_Exe: unmodified Steam build"];
         } else if (status == 0) {
             self.installed = YES;
             self.incomplete = ![output containsString:@"complete=1"];
@@ -1561,6 +1566,8 @@ static const struct { const char *prefix, *stage; int percent; } kStages[] = {
     if (self.statusLoaded) {
         if (done) self.stepVerify.subtitle = @"KOTOR Modern Restoration Patch detected.";
         else if (self.incomplete) self.stepVerify.subtitle = @"An install did not finish. Restore Original undoes it.";
+        else if (self.replacesKpm)
+            self.stepVerify.subtitle = @"FTD's widescreen patch found. KMRP replaces it with its own copy.";
         else if (self.gameReady) self.stepVerify.subtitle = @"Unmodified Steam version 1.4.0 detected.";
         else if (self.gameFound)
             self.stepVerify.subtitle = @"This copy cannot be patched. Steam's Verify Integrity restores the original.";

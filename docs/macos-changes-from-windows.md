@@ -34,7 +34,7 @@ reason).
 | 3 | `kmrp-mac.sh` installs every file the helper writes, not only the `.gui` files | **build and check** |
 | 4 | The installer window's second step names the game version it finds | **to do** |
 | 5 | Wording that says a blended size takes the nearest set's "fonts and art" | **to do** |
-| 6 | KOTOR Patch Manager recognises KMRP's install by itself, and KMRP installs for KPM when KPM manages the game | **to do** (the maintainer's next step) |
+| 6 | KOTOR Patch Manager recognises KMRP's install by itself, and KMRP installs for KPM when KPM manages the game | **partly, the Mac's own way** (pull request #24, 2026-09-30): see the section |
 | 7 | GOG's executable | **n/a**: the Mac build is Aspyr's Steam build only |
 | 8 | Step 1 finds Steam's KOTOR by itself | **n/a**: the Mac did it first (`find_game`); Windows follows it since 2026-09-30 |
 | 9 | `gui-blend.bin` version 4: the row fits and the badges in one table; the helper's manifest carries this blend's row fits | **build and check** |
@@ -143,6 +143,22 @@ paragraph and `WINDOWS-PARITY.md` were corrected with the change. **To do**: the
 messages, if the app shows them.
 
 ## 6. KOTOR Patch Manager recognises the install by itself
+
+**What the Mac did instead** (pull request #24, `45b7457`, merged into `master` on
+2026-10-01). KMRP on the Mac is one KPM patch, `kmrp`, built with KPM's own tools from FTD's
+widescreen patch and Stray Bug Fixes and KMRP's layout, map-note and controller code
+(`macos/tools/make_kmrp_patch.py`), each of its four builds checked and staged by KPM's own
+`KPatchCore`, and installed in KPM's layout beside `KOTOR_Exe` (`KotorPatcher.dylib`,
+`patch_config.toml`, `patches/`). An install of FTD's patches made through KPM is replaced,
+with FTD's agreement: the untouched game is put back from KPM's copy, his files and KPM's
+leftovers deleted, and KMRP installed; any other KPM patch stops the install, by name, with
+nothing changed (`kmrp-mac.sh`, `kpm_check` and `kpm_remove`). So the second half of this item
+is settled differently: the Mac does not install *for* KPM, it takes over FTD's install, which
+its own patch contains. The first half is not: read from `kmrp-mac.sh` on 2026-10-01, the Mac
+writes no `kpm_install_state.json`, no KPM-format backup of `KOTOR_Exe` and delivers no patch
+to KPM's patch folder, so KPM for macOS would not yet recognise KMRP's install as its own the
+way it does on Windows (the table below). Whether that is wanted now that KMRP carries FTD's
+patches is the maintainer's call; not tested with KPM's window on a Mac.
 
 Asked for by the maintainer on 2026-09-30 ("how on windows it gets detected automatically by
 kpm, this needs to happen as well on macos"), as the next step after the merge. Nothing is

@@ -42,10 +42,11 @@ site; the files are the same.
 | Layer | What | Where it comes from |
 | --- | --- | --- |
 | Hook runtime | `KotorPatcher.dylib`, loaded by one `LC_LOAD_DYLIB` in `KOTOR_Exe` | KotOR Patch Manager (MIT), built from source by `build.sh` |
-| Base patch | FTD's widescreen patch with KMRP's engine fixes: the resolution (Retina modes included), K1–K9, and, with `UseGuiFileLayouts=1`, no layout of its own | *K1WidescreenPatch* by FTD, RaymanGT, J and Vriff (MIT), a KPM patch, branch `widescreen-patch` of FTD's fork, KMRP's fixes merged as [FTD516/Kotor-Patch-Manager#1](https://github.com/FTD516/Kotor-Patch-Manager/pull/1) |
-| Layout patch | `patches/kmrp-layout/`: the sizes the Windows installer writes per resolution, and the list-box, area-map and popup changes the gold delta makes | this directory, a DLL-only KPM patch |
-| Map notes | Derslok's 250 map-note corrections | `patches/kmrp-map-notes/`, a KPM patch |
-| Controller | KMRP's Windows controller module, ported (section 7), reading the pad through SDL 3.4.16 | `patches/kmrp-controller/`, a KPM patch; SDL's official macOS release, shipped as `kmrp-sdl3.dylib` |
+| KMRP's patch | one KPM patch, `kmrp` (`patches/kmrp.dylib`), built by `tools/make_kmrp_patch.py` from four parts (since 2026-09-30; they were four patches before) | see below |
+| … FTD's patches | FTD's widescreen patch and the Stray Bug Fixes it requires, which carry KMRP's engine fixes: the resolution (Retina modes included), K1–K9 (K7's reply list is KMRP's layout code since 2026-09-30), and, with `UseGuiFileLayouts=1`, no layout of their own | *K1WidescreenPatch* by FTD, RaymanGT, J and Vriff and *K1StrayBugFixes* by RaymanGT and FTD (MIT), compiled from their source: branch `kmrp` of `RayesDiyab/Kotor-Patch-Manager`, FTD's `widescreen-patch` (where KMRP's fixes were merged as [FTD516/Kotor-Patch-Manager#1](https://github.com/FTD516/Kotor-Patch-Manager/pull/1)) as KMRP takes it (section 10) |
+| … layout | the sizes the Windows installer writes per resolution, and the list-box, area-map, popup and dialogue-reply changes the gold delta makes | `patches/kmrp-layout/` |
+| … map notes | Derslok's 250 map-note corrections (optional) | `patches/kmrp-map-notes/` |
+| … controller | KMRP's Windows controller module, ported (section 7), reading the pad through SDL 3.4.16 (optional) | `patches/kmrp-controller/`; SDL's official macOS release, shipped as `kmrp-sdl3.dylib` beside the patch |
 | Menus and fonts | every resolution's set from KMRP's resource build, pooled; any other size blended at install | `tools/prepare_universal_resources.py`, `pack_resolution_layouts.py`, `build_gui_blend_table.py`, all unchanged from Windows |
 | Artwork | `override-common.zip`, less what the Mac does not use | the same resource build |
 | Feat, power and skill icons | enlarged from the game's texture pack at install | `tools/kmrp-abilityicons.c`, a port of `AbilityIconGenerator.cs` |
@@ -68,9 +69,13 @@ layout patch's. The engine fixes are documented beside their code, in the branch
 | K4 | video mode follows the target resolution | none: the Windows patcher writes the resolution into the executable |
 | K5 | a line taller than its box is drawn, not dropped | none: Windows sizes the stack label with the font (`.ksc`) so the case does not arise |
 | K6 | 0.5 px wrap margin | TXI `spacingR` |
-| K7 | dialogue letterbox from the height; reply list fills the bar | `.klb`, nine sites |
+| K7 | dialogue letterbox from the height; reply list fills the bar (the list's stretch is KMRP's layout patch since 2026-09-30, `dialogue_replies.cpp`: the widescreen patch dropped its hook) | `.klb`, nine sites |
 | K8 | minimap keeps the vanilla zoom | `.kmz`, `.kfg` |
 | K9 | the display's pixel resolution is a valid mode (Retina) | none: Windows display modes are already in pixels |
+
+Since 2026-09-30 K1, K2, K3, K5 and K6, the fixes that hold at any resolution, are FTD's separate
+*Stray Bug Fixes* patch (`Patches/K1StrayBugFixes`), which the widescreen patch requires; K4, K8,
+K9 and the letterbox bars stay in the widescreen patch.
 
 ### The installer app
 
@@ -147,12 +152,9 @@ floor of the controller's SDL3 and the helpers) and arm64, with `-Wunguarded-ava
 | --- | --- | --- |
 | `~/Library/Application Support/KMRP/macos/backup/KOTOR_Exe` | copy | the original, re-hashed before anything is written |
 | `MacOS/KotorPatcher.dylib` | added | KPM runtime |
-| `MacOS/patches/k1widescreenpatch.dylib` | added | the widescreen patch with the engine fixes |
-| `MacOS/patches/kmrp-layout.dylib` | added | the layout patch (section 4) |
-| `MacOS/patches/kmrp-map-notes.dylib` | added | omitted with `--no-map-notes` |
-| `MacOS/patches/kmrp-controller.dylib` | added | the controller module (section 7); omitted with `--no-controller` |
+| `MacOS/patches/kmrp.dylib` | added | KMRP's one patch: FTD's widescreen patch and Stray Bug Fixes with KMRP's layout code, and the map notes and the controller unless `--no-map-notes` or `--no-controller` (one of four builds, `engine/kmrp[.no-map-notes][.no-controller]/`) |
 | `MacOS/patches/kmrp-sdl3.dylib` | added | omitted with `--no-controller`; SDL 3.4.16, the library of the official macOS release, its code unchanged and its signature redone ad hoc (`THIRD_PARTY_NOTICES.md`) |
-| `MacOS/patch_config.toml` | added | written at build time by KPM's own `ConfigGenerator`: 57 widescreen hooks, the map-note detour, the controller's 21 hooks, and the layout patch as a DLL-only entry; one of four, for the two options (`patch_config[.no-map-notes][.no-controller].toml`) |
+| `MacOS/patch_config.toml` | added | written at build time by KPM's own `ConfigGenerator` for the `kmrp` patch: 78 hooks with both options (the Stray Bug Fixes' 11, 45 of the widescreen patch's, the map-note detour and the controller's 21), 56 with neither; staged with the matching `kmrp.dylib` |
 | `MacOS/KOTOR_Exe` | edited | one load command, then `codesign --force --sign - --identifier KOTOR_Exe` |
 | `~/Library/Application Support/Knights of the Old Republic/swkotor.ini` | three keys under `[Graphics Options]` | `UseGuiFileLayouts=1`, `ForceWidth`, `ForceHeight` (section 5); the file is created if the game never ran |
 | `~/Library/Application Support/Knights of the Old Republic/kmrp-controller.ini` | added if absent | the controller's settings, Windows' defaults (section 7); a copy already there is the player's and is kept; not written with `--no-controller` |
@@ -293,6 +295,7 @@ sources' comments and, against the Windows sites, in `WINDOWS-PARITY.md`.
 | | Options check boxes: circle `25s`, label `30s`, drop `2s` (2026-09-30) | `CSWGuiOptionsCheckbox::SetExtent` (`0x1002cecee`) replaced by a jump into the module | **none yet** (`docs/windows-changes-from-macos.md`, item 13) |
 | `popup_fit.cpp` | the message popup fitted to its contents, centred (2026-09-30) | `FixMessageLabel`'s last call (`0x100306a88`), through the near page's third thunk | **none yet**: Windows keeps the height from `confirm.gui` |
 | `granted_popup.cpp` | the granted popup's rows: text inset `row/8`, hex grown `row/7`, pitch `row + row/11`, OK and panel fitted, centred (2026-09-30) | the fill's call to `AddControls` (`0x10028ea4f`) and the row's text-rect call in `CSWGuiInGameSkillEntry::SetExtent` (`0x10022f321`), through the near page's fourth and fifth thunks | **none yet** (`docs/windows-changes-from-macos.md`, item 10) |
+| `dialogue_replies.cpp` | the dialogue reply list stretched to its panel (K7; 2026-09-30, when the widescreen patch dropped its hook) | `CSWGuiDialogCinematic::SetExtent`'s width copy (`0x100244d7d`), through the near page's sixth thunk | `.klb` |
 | `listbox_padding.cpp` | `PADDING` a gutter on the scrollbar's side | five reads zeroed in `OrganizeControls`, and stubs for its row block (`0x1004a8838`) and the single-row layout (`0x1004a937a`) | gold v11, v12 (`.klb`, `.kgs`) |
 | `area_map.cpp` | canvas and marker overlay | the map screen's two rect constants, `0x100571390`, `0x1005713a0` | `ResolutionPatch` map fields |
 | | marker positions | stubs for the three world-to-map calls in `CSWGuiMapHider::Draw` | the `.kui` wrappers |
@@ -562,12 +565,17 @@ git submodule update --init
 macos/build.sh --python .venv/bin/python [--reuse-resources]
 ```
 
-KotOR Patch Manager and FTD's widescreen patch come from the submodule
-`third_party/Kotor-Patch-Manager`: FTD's fork `FTD516/Kotor-Patch-Manager`, branch
-`widescreen-patch` (`71ac5fa`), which is KPM's master (`5cafa6a`) with his widescreen patch
-and KMRP's fixes, merged there on 2026-09-29 (FTD516/Kotor-Patch-Manager#1, then #2, which
-builds it with KPM's own `create-patch.py`). Before that the submodule tracked the same fixes on
-`RayesDiyab/Kotor-Patch-Manager`, branch `kmrp-engine-fixes`, and then FTD's `9884466`. Since
+KotOR Patch Manager and FTD's two patches come from the submodule
+`third_party/Kotor-Patch-Manager`: `RayesDiyab/Kotor-Patch-Manager`, branch `kmrp`, which is
+FTD's `widescreen-patch` (`074972b`, 2026-09-30) with one change: the 11 hooks FTD moved into
+*K1StrayBugFixes* taken out of *K1WidescreenPatch*'s hook list, where they were still declared,
+so the two patches hooked the same addresses twice (KPM's own check: "Multiple hooks at
+address"). FTD's changes reach KMRP when they are merged into that branch; nothing follows his
+branch by itself. Until 2026-09-30 the submodule tracked FTD's `widescreen-patch` directly
+(`71ac5fa`: KPM's master `5cafa6a` with his widescreen patch and KMRP's fixes, merged there on
+2026-09-29 as FTD516/Kotor-Patch-Manager#1, then #2, which builds it with KPM's own
+`create-patch.py`); before that the same fixes on `RayesDiyab/Kotor-Patch-Manager`, branch
+`kmrp-engine-fixes`, and then FTD's `9884466`. Since
 `1d3ccd2`, KPM's master has changed no file of the runtime, KPatchCore or the address databases
 the build uses. `--kpm` and `--widescreen` build from other checkouts instead.
 
@@ -580,7 +588,11 @@ folder with the README, for sites that take only archives).
 Steps, in order:
 
 1. `make dylib` in KPM's `src/KotorPatcher`;
-2. the widescreen patch, with KPM's `Patches/create-patch.py`, as every KPM patch is built
+2. the map-note table; then KMRP's one patch, `kmrp`, in four builds for the two options
+   (`tools/make_kmrp_patch.py`: FTD's two patches compiled with `create-patch.py`'s Mac flags,
+   KMRP's parts with their own, one module linked with FTD's constructor first, the hook lists
+   merged with every byte hook before every detour), each checked and staged by KPM's own
+   KPatchCore. Until 2026-09-30 the widescreen patch was built with KPM's `Patches/create-patch.py`, as every KPM patch is built
    (until 2026-09-29 with the patch's own `build_mac.sh`, which FTD516/Kotor-Patch-Manager#2
    removed);
 3. the map-note patch, and the layout patch (`patches/kmrp-layout/*.cpp`);

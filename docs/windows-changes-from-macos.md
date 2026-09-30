@@ -26,7 +26,12 @@ documents and tests only; item 5 was found while writing `3366c33`), `4d1fe29` (
 4), `9eee359` (item 10), `0734db6` (the Mac installer's window, which has no Windows
 counterpart to change: it ports the Windows patcher's), `f59663a` (these documents), `13e676c`
 and `d44ee0d` (the Mac disk image, its icon and the Mac's controller option, which Windows
-already has), and the commits adding items 11 to 15.
+already has), and the commits adding items 11 to 15. Pull request #24 (`45b7457`, `2245026`,
+merged 2026-10-01) needs nothing on Windows: KMRP as one KPM patch on FTD's current patches is
+the Mac's install; the dialogue reply list's stretch (`dialogue_replies.cpp`) is Windows'
+`.klb` already; the stick fix answers the Mac engine's own normalising of the axes, which
+Windows' engine does not do; and KPM's runtime, rebuilt from the new submodule commit, was
+byte for byte the same.
 
 **Merged and built on 2026-09-30.** The branch up to `3fd22ad` was merged into `master` and
 the Windows installer built from it (`04C2DA20…`), with the resources made again from the
