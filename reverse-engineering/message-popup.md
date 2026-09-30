@@ -242,7 +242,27 @@ and 1,224 → about 880 px wide, centred on the screen, with 30 px above the mes
 the last button; the Attributes, Skills and Feats tutorials fitted and centred, keeping 4, 7
 and 5 lines; the unspent-points box fitted (seen before the width step). **Windows is not changed**: the
 same step belongs after `0x006253A0`, whose `0x006254AC` onward places the buttons the same
-way. Until it is added, the two platforms' popups differ in height.
+way. Until it is added, the two platforms' popups differ in height. *Windows since the same
+evening: below.*
+
+## Windows: fitted to its contents (2026-09-30)
+
+The same four steps, in KMRP's module (`src/controller-native/K1PopupFit.cpp`,
+`FitMessageBoxK1`), at a detour in `FixMessageLabel`'s epilogue (`0x006258E2`: `pop edi;
+pop esi; pop ebp; pop ebx; add esp, 0x30`, with esi the box), installed with every KMRP
+patch. Read from `0x006253A0`:
+
+| | Windows |
+| --- | --- |
+| the file's panel and message extents, saved | `+0x95C`, `+0x96C` (the message's top `+0x970`) |
+| the icon, and whether it is shown | the label at `+0x1B4`; bit `0x10` of `+0x64`: the panel grows 32 and the message moves down 32 |
+| OK, Cancel | `+0x2F4`, `+0x4B8`, each shown while bit `0x2` of its `+0x44` is set; widened 10 at a time while their caption does not fit (`0x00414EE0`) |
+| the message list | `+0x67C`; inner height `+0x298`, tallest item `+0x2B4`, padding (byte) `+0x2C0`; its `SetExtent` is vtable slot 1, then `0x006252F0` rebuilds the text label to its width |
+| the last call | `0x0040A600`: the panel's left and top centred on the screen from its width and height; the fit runs after it and calls it again |
+
+Seen in play at 3440x1440 (`17EE496D…`, a scratch copy): "Do you really want to quit?" in a box
+657x272 px, centred; the Attributes tutorial 776x413, centred; the Skills tutorial and the
+Solo Mode prompt fitted.
 
 ## Verified, and not
 

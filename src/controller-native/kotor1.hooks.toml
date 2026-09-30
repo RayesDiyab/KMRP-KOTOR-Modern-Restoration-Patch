@@ -1055,6 +1055,71 @@ exclude_from_restore = []
 source = "esi"
 type = "pointer"
 
+# --- The message popup, fitted to its contents ------------------------------
+#
+# CSWGuiMessageBox::FixMessageLabel (0x006253A0) keeps confirm.gui's panel, sized for
+# its tallest case, so a one-line question (Exit Game, Solo Mode) and a short tutorial
+# sat in a box far larger than their text. The handler narrows and shrinks the message
+# to its text, hangs the buttons under it and fits the panel around it, as the Mac's
+# layout patch does (K1PopupFit.cpp, macos/patches/kmrp-layout/popup_fit.cpp). The site
+# is FixMessageLabel's epilogue, after its last call centres the panel: `pop edi;
+# pop esi; pop ebp; pop ebx; add esp, 0x30`, nothing relative to relocate, and esi
+# still the box. Not the controller's: it installs with every patch.
+[[hooks]]
+address = 0x006258E2
+type = "detour"
+install = "always"
+function = "FitMessageBoxK1"
+original_bytes = [0x5F, 0x5E, 0x5D, 0x5B, 0x83, 0xC4, 0x30]
+skip_original_bytes = false
+exclude_from_restore = []
+
+[[hooks.parameters]]
+source = "esi"
+type = "pointer"
+
+# --- The "granted" popup's rows ----------------------------------------------
+#
+# The popup listing a level's feats or powers (skillinfo.gui) draws each row's hex
+# shorter than its text frame, with the text against the frame's left line, and keeps
+# the list's height when fewer rows were granted. K1GrantedPopup.cpp refits them, as
+# the Mac's layout patch does (macos/patches/kmrp-layout/granted_popup.cpp).
+#
+# After the popup's fill (0x006CDFC0) hands its rows to the list (AddControls at
+# 0x006CE0AB): `mov ecx, [esp+0xC]; mov eax, [ecx]`, and esi is LB_SKILLS.
+[[hooks]]
+address = 0x006CE0B0
+type = "detour"
+install = "always"
+function = "GrantedPopupFilledK1"
+original_bytes = [0x8B, 0x4C, 0x24, 0x0C, 0x8B, 0x01]
+skip_original_bytes = false
+exclude_from_restore = []
+
+[[hooks.parameters]]
+source = "esi"
+type = "pointer"
+
+# In CSWGuiInGameSkillEntry::SetExtent (0x006AB8E0), before its last call gives the
+# text its rect: `push eax; mov ecx, esi; call [ebp+4]`, the call through a register,
+# nothing to relocate. esi is the row's text control, eax the rect.
+[[hooks]]
+address = 0x006AB9D5
+type = "detour"
+install = "always"
+function = "GrantedRowTextK1"
+original_bytes = [0x50, 0x8B, 0xCE, 0xFF, 0x55, 0x04]
+skip_original_bytes = false
+exclude_from_restore = []
+
+[[hooks.parameters]]
+source = "esi"
+type = "pointer"
+
+[[hooks.parameters]]
+source = "eax"
+type = "pointer"
+
 # Notice keyboard activity, so the controller prompts hide themselves.
 #
 # The same site Saul0097's CaptureActionBarInputK1 uses. His also captures the

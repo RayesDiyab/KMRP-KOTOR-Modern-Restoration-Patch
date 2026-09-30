@@ -58,3 +58,6 @@ EXPORTS
     KmrpNoteKeyboardK1
     NativeNoteKeyboardK1
     NativeNoteMouseK1
+    FitMessageBoxK1
+    GrantedPopupFilledK1
+    GrantedRowTextK1

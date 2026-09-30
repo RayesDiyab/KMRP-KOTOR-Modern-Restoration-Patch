@@ -25,7 +25,7 @@ pushd "%~dp0"
 rem /I. so the vendor sources still find K1NativeJoystick.h, which now sits a
 rem directory above them. Their own header resolves from the includer's folder.
 cl /nologo /Brepro /O2 /EHsc /MT /LD /I. /I"..\..\build\deps\SDL3-3.4.16\include" ^
-   K1NativeJoystick.cpp K1ControllerBackend.cpp K1ControllerLayout.cpp K1Rumble.cpp K1KpmApplier.cpp vendor\K1XboxControls.cpp vendor\K1XboxControlsXInput.cpp ^
+   K1NativeJoystick.cpp K1ControllerBackend.cpp K1ControllerLayout.cpp K1Rumble.cpp K1KpmApplier.cpp K1PopupFit.cpp K1GrantedPopup.cpp vendor\K1XboxControls.cpp vendor\K1XboxControlsXInput.cpp ^
    xinput.lib gdi32.lib user32.lib ^
    /link /Brepro /DEF:exports.def /OUT:kmrp-controller.module /INCREMENTAL:NO
 set RC=%errorlevel%

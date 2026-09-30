@@ -116,9 +116,9 @@ it. Which hook goes where is the `install` key in
 
 | Set | Hooks | Installed |
 | --- | --- | --- |
-| core (`always`) | the movie window's two (`NativeMovieWindowOpenK1`, `NativeMovieWindowCloseK1`), the four memory-safety byte patches, `NativeFreeSaveBufferK1` | always, first in the table |
-| controller | the other 30 detours, including `NativeGuiFrameK1` and `NativeMovieFrameK1` | with the option on: 37 hooks in all |
-| core stand-ins (`no-controller`) | `CoreGuiFrameK1` at `0x0040CE70` (mouse confinement, the status summary's layout) and `CoreMovieFrameK1` at `0x00404D96` (the movie bars) | with the option off: 9 hooks in all |
+| core (`always`) | the movie window's two (`NativeMovieWindowOpenK1`, `NativeMovieWindowCloseK1`), the four memory-safety byte patches, `NativeFreeSaveBufferK1`, and since 2026-09-30 the popup fit (`FitMessageBoxK1`) and the granted popup's two (`GrantedPopupFilledK1`, `GrantedRowTextK1`) | always, first in the table |
+| controller | the other 30 detours, including `NativeGuiFrameK1` and `NativeMovieFrameK1` | with the option on: 40 hooks in all (37 until 2026-09-30) |
+| core stand-ins (`no-controller`) | `CoreGuiFrameK1` at `0x0040CE70` (mouse confinement, the status summary's layout) and `CoreMovieFrameK1` at `0x00404D96` (the movie bars) | with the option off: 12 hooks in all (9 until 2026-09-30) |
 
 The core goes first because KPM's runtime stops at the first hook that fails.
 With the option off nothing reads the pad, draws a prompt or rumbles. The files
@@ -232,7 +232,8 @@ on (33 detours, 4 `replace`) and 9 with it off (5 detours, 4 `replace`;
 Since 2026-09-29 the installer writes the KPM edition's patches instead, from
 sections `tools/build_kpatch.py` generates, and `check_patcher_hook_table.py`
 checks those: `kmrp` 7, `kmrp-movies` 2 and `kmrp-controller` 28, 37 hooks with
-every option on -- the same 37 sites, with `CoreGuiFrameK1` and `CoreMovieFrameK1`
+every option on (since the popups of 2026-09-30, `kmrp` 10 and 40 in all, 12 with the
+controller off) -- the same 37 sites, with `CoreGuiFrameK1` and `CoreMovieFrameK1`
 in place of `NativeGuiFrameK1` and `NativeMovieFrameK1`, which hand over to KMRP
 Controller's frames -- and 9 with the controller off.
 

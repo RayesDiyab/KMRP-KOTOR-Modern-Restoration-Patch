@@ -1344,6 +1344,20 @@ before:
 
 ### Fixed
 
+- **Windows: message popups fit their contents, and the granted popup's rows look like the
+  inventory's** (2026-09-30; the Mac did both first, `docs/windows-changes-from-macos.md`,
+  items 1 and 10; the maintainer: "you didnt apply the quit game fixes we did on macos").
+  Both are the Mac's layout-patch code ported to KMRP's module, which every KMRP patch
+  loads, as three detours installed with or without the controller option: the popup fit
+  (`K1PopupFit.cpp`, at `FixMessageLabel`'s end, `0x006258E2`) and the granted popup's
+  rows (`K1GrantedPopup.cpp`, after its fill hands the rows to the list, `0x006CE0B0`, and
+  before each row gives its text its rect, `0x006AB9D5`), with every offset read from the
+  Windows executable. Seen in play at 3440x1440: the Exit Game box ("Do you really want to
+  quit?") 657x272 px and centred, the Attributes and Skills tutorials and the Solo Mode
+  prompt fitted and centred, and the recommended-feat popup cut to its one row with the hex
+  as tall as the text frame and the text inside it. `KMRP.kpatch` carries 10 hooks, 40 in
+  all four. Installer `17EE496D…`. All nine Windows suites pass on it, `Test-ControllerSupport.ps1` checking the new hooks against the module's exports and KMRP's patch configurations.
+
 - **Windows: the Options check boxes scale with the resolution, and the Feedback list's rows
   with them, on both platforms** (2026-09-30; the Mac scaled the check boxes first the same
   day, `docs/windows-changes-from-macos.md`, item 13). The Options toggles (Gameplay,
@@ -1561,7 +1575,8 @@ before:
   first letter from 2 to 14 px inside the frame, and the popup from 941 to 876 px tall
   (screenshots). Every size follows the row's height, so it holds at any resolution;
   seen at 3024x1964 only, and a list long enough to scroll has not been seen. **Windows
-  does not have this yet** (`docs/windows-changes-from-macos.md`, item 10).
+  does not have this yet** (`docs/windows-changes-from-macos.md`, item 10). *Windows since the
+  same evening: above.*
 - **macOS: message popups fit their contents** (2026-09-30, reported from play:
   the tutorial boxes and the Exit Game box were far taller than their text).
   The shared popup keeps the height `confirm.gui` gives it, sized for the
@@ -1577,7 +1592,8 @@ before:
   their line counts unchanged (screenshots). Only while the text fits without a scrollbar; otherwise the
   popup is left as the engine made it. **Windows does not have this yet**: its
   popups keep the file's height until the same step is added after
-  `0x006253A0` (`reverse-engineering/message-popup.md`).
+  `0x006253A0` (`reverse-engineering/message-popup.md`). *Windows since the same
+  evening: above.*
 - **Controller badges sit at their designed distance from the words, and no
   longer on them** (2026-09-30, reported from play on the Mac: the Square of
   the Container's "Switch To Give Item" sat on the "S" at 3024x1964). The

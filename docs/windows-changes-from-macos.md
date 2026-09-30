@@ -43,7 +43,7 @@ does it, checked as stated), **doc** (a Windows document to correct).
 
 | # | Change | State |
 | --- | --- | --- |
-| 1 | Message popups fitted to their contents, width and height, centred | **to do** |
+| 1 | Message popups fitted to their contents, width and height, centred | **built** (2026-09-30; seen at 3440x1440) |
 | 2 | Any resolution, not only the listed ones | **built** (2026-09-30) |
 | 3 | Controller badges at their designed distance; the Container's buttons widened | **built** |
 | 4 | Controller Layout caption boxes: margin over the corrected measure | **built** |
@@ -52,7 +52,7 @@ does it, checked as stated), **doc** (a Windows document to correct).
 | 7 | HD item icons normalised to the game's own framing | **built** |
 | 8 | Row frames, tutorial icons and `tutorial.2da` made at install from the player's game | **built** |
 | 9 | The 17 Mac resolutions in the catalogue | **built** |
-| 10 | The granted popup's rows: hex as tall as the text frame, text inset, rows spaced like the inventory's | **to do** |
+| 10 | The granted popup's rows: hex as tall as the text frame, text inset, rows spaced like the inventory's | **built** (2026-09-30; seen at 3440x1440) |
 | 11 | The header's smoke fades out before the header's bottom edge | **built** (not yet watched) |
 | 12 | The journal's quest rows: six to the list, spaced as the inventory's | **built** (2026-09-30) |
 | 13 | The Options check boxes' circle and label offset scaled with the resolution | **built** (2026-09-30; seen at 3440x1440) |
@@ -109,6 +109,30 @@ message out at each try, about 11 times per popup, as the Mac's does.
 tutorial on each character-generation screen, and the Solo Mode prompt. Each box should hug
 its text, keep its line count, have even margins, and be centred. A text long enough to need
 the scrollbar should look exactly as before.
+
+**Built on Windows, 2026-09-30** (`17EE496D…`; the maintainer: "you didnt apply the quit game fixes
+we did on macos"). Not in the executable patch after all but in KMRP's module, which every
+one of KMRP's KPM patches loads, the core one included: `FitMessageBoxK1`
+(`src/controller-native/K1PopupFit.cpp`), a detour with `install = "always"` in
+`kotor1.hooks.toml` at `0x006258E2`, `FixMessageLabel`'s epilogue after its last call, with
+esi the box. It is `popup_fit.cpp`'s four steps with the same arithmetic, and one more call:
+Windows' last call, `0x0040A600`, centres the panel on the screen from its size, so the fit
+runs after it and calls it again. The Windows offsets, read from `0x006253A0`:
+
+| Mac | Windows | What |
+| --- | --- | --- |
+| `+0x8` | `+0x4` | the panel's extent, set through vtable slot 1 (the Mac's `+0x10`) |
+| `+0x850` | `+0x67C` | the message list; inner height `+0x298`, tallest item `+0x2B4`, padding (byte) `+0x2C0` |
+| `+0x3D0`, `+0x610` | `+0x2F4`, `+0x4B8` | OK and Cancel, shown while bit `0x2` of their `+0x44` is set |
+| `+0x238`, `+0x79` bit `0x10` | `+0x1B4`, `+0x64` bit `0x10` | the icon, and whether it is shown |
+| `+0xC04` | `+0x970` | the message's top in the file (the saved message extent is at `+0x96C`, the panel's at `+0x95C`) |
+| `0x100306B86` | `0x006252F0` | the message rebuild |
+| `0x10049DC36` | `0x0040A600` | the last call: the panel centred on the screen |
+
+Seen in play at 3440x1440 in a scratch copy: the Exit Game box ("Do you really want to
+quit?") 657x272 px, centred (1719, 720); the character-generation Attributes tutorial
+776x413, the Skills tutorial and the Solo Mode prompt fitted and centred. Not seen at a 16:9
+size, nor with a text long enough to scroll. All nine Windows suites pass on it, `Test-ControllerSupport.ps1` checking the new hooks against the module's exports and KMRP's patch configurations.
 
 ## 2. Any resolution, not only the listed ones
 
@@ -312,6 +336,31 @@ each fill on the Mac, lead to the fill's callers.
 and one 16:9 size. Its rows should sit as the inventory's do, each hex as tall as its text
 frame, the text clear of the frame's left line, and the popup centred. Level up with more
 than four feats or powers: the list should scroll, four rows high.
+
+**Built on Windows, 2026-09-30** (`17EE496D…`), in KMRP's module as item 1 is:
+`src/controller-native/K1GrantedPopup.cpp`, two `always` detours. The Windows side, read
+from the executable:
+
+| Mac | Windows | What |
+| --- | --- | --- |
+| `0x1005A9E18` | `0x00757940` | the popup's vtable (constructor `0x006CE7E0`) |
+| `+0x80`, `+0x5B8`, `+0x8` | `+0x64`, `+0x484`, `+0x4` | `LB_SKILLS`, `BTN_OK` and the panel's extent (`LBL_MESSAGE` is `+0x344`) |
+| `+0x7F8`, `0x3B8` apart | `+0x648`, `0x310` apart | the ten rows (row constructor `0x006ACC50`) |
+| `+0x228`, `+0x2B0`, `+0x338`; `+0x110` | `+0x1B4`, `+0x228`, `+0x29C`; `+0xD0` | a row's hex, highlight and icon (controls, extent at `+0x4`); its text |
+| `+0x344`, `+0x350`, `+0x368`, `+0x378` | `+0x298`, `+0x2A0`, `+0x2B4`, `+0x2C4` | the list's inner height, item count, row height and rows that fit (short), from `OrganizeControls` (`0x0041B140`) |
+| `0x10028E9CA`, `call` at `0x10028EA4F` | `0x006CDFC0`, `call 0x0041C1D0` at `0x006CE0AB` | the fill, and its hand-over of the rows to the list |
+| `0x10022F228`, last call at `0x10022F321` | `0x006AB8E0`, last call at `0x006AB9D8` | the row's `SetExtent`, and its call giving the text its rect |
+
+`GrantedPopupFilledK1` runs after the fill's hand-over (`0x006CE0B0`), with esi the list: it
+remembers the popup and fits the list, OK and the panel. The list's `SetExtent`
+(`0x0041BF80`) lays the rows out again (`OrganizeControls`), so the first fill's rows are
+refitted too; the Mac sets its popup before the hand-over instead, one hook more.
+`GrantedRowTextK1` runs before the row's last call (`0x006AB9D5`, with esi the text and eax its
+rect) and, for this popup's rows only, grows the three squares and insets the rect. Seen in
+play at 3440x1440: "The following feat(s) have been recommended." with one feat, the list cut
+to its one row, OK under it, the panel fitted and centred, the hex as tall as the text frame
+and the text 13 px inside the frame's left line. Not seen with four or more rows, nor on
+level-up.
 
 ## 11. The header's smoke fades out before its bottom edge
 
