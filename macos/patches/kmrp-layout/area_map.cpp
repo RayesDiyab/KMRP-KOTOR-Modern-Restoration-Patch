@@ -107,7 +107,7 @@ __asm__(
     ".globl _kmrp_map_stubs_end\n"
     "_kmrp_map_stubs_end:\n");
 
-extern "C" const uint8_t kmrp_notes_stub[], kmrp_party_stub[];
+extern "C" const uint8_t kmrp_notes_stub[], kmrp_party_stub[], kmrp_popup_stub[];
 
 namespace kmrp {
 namespace {
@@ -148,15 +148,17 @@ std::vector<uint8_t> Thunk(const uint8_t* target) {  // jmp *0(%rip); .quad targ
     return out;
 }
 
-// The near page's layout: two thunks, then the map's copy of lbl_mapcircle's rect.
+// The near page's layout: two thunks, then the map's copy of lbl_mapcircle's rect, then the
+// message popup's thunk (popup_fit.cpp).
 const size_t kNotesThunk = 0, kPartyThunk = 16, kCircleRect = 32;
+static_assert(kCircleRect + 16 == kPopupThunk, "the popup's thunk follows the rect");
 
 }  // namespace
 
 std::vector<uint8_t> AreaMapPage(int height) {
     const int32_t circle = Size(16, MarkerScale(height));
     return Join({Thunk(kmrp_notes_stub), Thunk(kmrp_party_stub),
-                 Int32(0), Int32(0), Int32(circle), Int32(circle)});
+                 Int32(0), Int32(0), Int32(circle), Int32(circle), Thunk(kmrp_popup_stub)});
 }
 
 void AddAreaMap(std::vector<Group>& groups, int width, int height, uintptr_t nearPage) {

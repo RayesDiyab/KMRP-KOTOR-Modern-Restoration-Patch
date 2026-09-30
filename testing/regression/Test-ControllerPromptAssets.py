@@ -30,6 +30,7 @@ from build_controller_prompt_textures import (  # noqa: E402
     PROMPT_TARGETS,
     TEXTURE_HEIGHT,
     TEXTURE_WIDTH,
+    badge_fit_width,
     family_resref,
     measure_label,
     parse_font_metrics,
@@ -182,6 +183,16 @@ def verify_placement_manifest(archive, archive_name, names, gui_cache):
         if abs(baked - round(widest, 2)) > 0.01:
             raise AssertionError(
                 f"{archive_name}: {target.resref} baked width {baked} != measured {widest:.2f}")
+
+        # The Container's Give Items button is widened until its badge sits at the
+        # designed gap instead of on the text (prepare_universal_resources.py,
+        # fit_container_to_caption; the overlap was seen in play at 3024x1964).
+        if (target.gui, target.tag) == ("container.gui", "BTN_GIVEITEMS"):
+            need = badge_fit_width(widest, height)
+            if width < need - 0.5:
+                raise AssertionError(
+                    f"{archive_name}: container.gui BTN_GIVEITEMS is {width}px, its caption "
+                    f"and badge need {need:.1f}px")
 
 
 PROFILE_BINS = 12
@@ -477,8 +488,10 @@ def main() -> int:
             # a one-line box too narrow for its caption shows only the last
             # line after wrapping -- "Free look" for "Camera / Click: free
             # look". So each caption asks for that font and either fits on one
-            # line, at the 0.88 of measure_label() the game was measured to
-            # draw, or has a box two lines tall.
+            # line, at the width measure_label() gives, or has a box two lines
+            # tall. (Until 2026-09-30 this took 0.88 of measure_label(), the
+            # ratio the game drew at 3440x1440 while the measure over-read
+            # spacingR; see parse_font_metrics.)
             txi_path = Path(tempfile.mkdtemp()) / f"{CAPTION_FONT}.txi"
             txi_path.write_bytes(archive.read(names[f"{CAPTION_FONT}.txi"]))
             caption_metrics = parse_font_metrics(txi_path)
@@ -494,7 +507,7 @@ def main() -> int:
                         f"not {CAPTION_FONT}")
                 extent = control.get_struct("EXTENT")
                 drawn = measure_label(
-                    control.get_struct("TEXT").get_string("TEXT"), *caption_metrics) * 0.88
+                    control.get_struct("TEXT").get_string("TEXT"), *caption_metrics)
                 if (drawn > extent.get_int32("WIDTH")
                         and extent.get_int32("HEIGHT") < 2 * line_px):
                     raise AssertionError(

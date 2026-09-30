@@ -865,6 +865,53 @@ before:
 
 ### Fixed
 
+- **macOS: message popups fit their contents** (2026-09-30, reported from play:
+  the tutorial boxes and the Exit Game box were far taller than their text).
+  The shared popup keeps the height `confirm.gui` gives it, sized for the
+  tallest case, and its message area keeps a height sized for a four-line
+  tutorial, with OK hung under it. At the end of the popup's own layout
+  (`FixMessageLabel`, `0x100306552`) the Mac's layout patch now narrows the
+  message to the least width at which its text keeps its line count (never
+  narrower than the buttons), shrinks it to its text, moves OK and Cancel up
+  under it with the engine's own spacing, fits the panel around it with the
+  message's own margins, and keeps the popup centred. At 3024x1964 the Exit
+  Game box went from 1,224x711 px to about 880x365, and the Attributes, Skills
+  and Feats tutorials were seen fitted and centred in play the same day, with
+  their line counts unchanged (screenshots). Only while the text fits without a scrollbar; otherwise the
+  popup is left as the engine made it. **Windows does not have this yet**: its
+  popups keep the file's height until the same step is added after
+  `0x006253A0` (`reverse-engineering/message-popup.md`).
+- **Controller badges sit at their designed distance from the words, and no
+  longer on them** (2026-09-30, reported from play on the Mac: the Square of
+  the Container's "Switch To Give Item" sat on the "S" at 3024x1964). The
+  prompt generator measured each caption with the font's `spacingR` scaled by
+  `texturewidth` -- 2.56 px a letter at `texturewidth` 5.12, 5.12 px at 10.24 --
+  where the engine adds `spacingR * 100`, half a pixel. Every caption measured
+  long, more so at higher resolutions, and every badge sat about twice its
+  designed gap from its text: the A of Gameplay's Controller Layout entry 50 px
+  away at 3024x1964, 13 px now (screenshots before and after). Seven Options
+  captions read off a 3024x1964 screenshot inked 0.825 to 0.843 of the old
+  measure and 0.96 to 0.97 of the corrected one, the rest being side bearings.
+  Where a long caption nearly filled its button, the generator's rule that a
+  badge never leaves its button put it on the text. Windows places badges from
+  the same textures and the same manifest, so this applies to both platforms.
+  The Controller Layout screen had absorbed the error as a 0.88 draw ratio
+  (`RENDER_FACTOR` 0.92); it is now a 4% margin over the corrected measure
+  (1.04): the caption boxes played at 3440x1440 grow by 7 to 9 px, and those at
+  3024x1964, which the error made wider, lose 18 to 32. Every caption still fits
+  its box (`Test-ControllerPromptAssets.py`).
+- **The Container's buttons are wide enough for "Switch To Give Item" and its
+  badge** (2026-09-30, the same report). With the measure corrected, the
+  caption is 425 px of text on a 528 px button at 3024x1964, where the badge
+  needs 70 px beside it on either side; 45 of the 66 sets were short, by 2 to
+  182 px. The build now widens `container.gui` -- the panel about its centre,
+  its title, item list and all three buttons -- by exactly what that button
+  needs, in each set that needs it (`fit_container_to_caption` in
+  `tools/prepare_universal_resources.py`): 38 px at 3024x1964, 44 at 1512x982,
+  none at 3440x1440. `Test-ControllerPromptAssets.py` checks every set.
+  Measured with the English wording, like the badge; a longer localised one is
+  re-placed at install as before and still meets the button's edge. **Not yet
+  seen in play**; the rest of the screen is unchanged.
 - **A with a button focused presses that button once, on every screen**
   (2026-09-28, at the maintainer's request after the Level Up freeze below:
   "create this for all screens"). Many buttons do nothing of their own: their

@@ -11,7 +11,8 @@ cannot be told apart from Windows at the same resolution. This lists every chang
 for Windows makes, from [`reverse-engineering/binary-inventory.md`](../reverse-engineering/binary-inventory.md)
 (68 code and data runs, 11 added sections, 12 runs written at install), with its state
 on the Mac. A row is **done** only when the Mac behaves the same in play, and says how
-that was checked.
+that was checked. The other direction -- what the Mac did first and Windows still needs --
+is [`docs/windows-changes-from-macos.md`](../docs/windows-changes-from-macos.md).
 
 ## How the Mac build gets there
 
@@ -69,6 +70,26 @@ the Mac loads, 78 fields were further off across 19 targets, all list scrollbars
 over, which is not linear. Blending them relative to the list's right edge did not help
 (73.2% exact against 78.2%).
 
+**Two files are made, not blended** (2026-09-30). *Corrected:* the paragraph above said
+KMRP's layout logic has one implementation, the build. Two files are laid out by rules no
+blend reproduces, and the helper now applies those rules itself, with the fonts of the
+set it installs (`macos/tools/kmrp-guiblend.c`, table version 2):
+
+| File | Rule | Blended, held out | Made at install, held out |
+| --- | --- | --- | --- |
+| `container.gui` | widened, in some sets, until "Switch To Give Item" and its badge fit (`fit_container_to_caption`) | 74 fields off by more than 1 px, up to 21 | 491 of 493 within 1 px |
+| `kmrplayout.gui` | generated from its panel's size and the caption font (`build_gui`) | 241 fields off, up to 32 px | 3,162 of 3,162 within 1 px |
+
+The table carries the Container unwidened, with each set's widening from its prompt
+manifest, and the generator's 53 constants by name with its 13 rows, so the helper keeps no
+numbers of its own. Its arithmetic is a second copy of `build_gui`'s, kept honest by
+`Test-GuiBlendHelper.py`: at 24 derived sizes the helper's file equals what `build_gui`
+itself makes from the same blended Gameplay panel and font, byte for byte, and every one of
+the 45 anchors the blend resolves to itself comes out as the build's set, byte for byte. The
+Intel and Apple Silicon slices write identical files. The 17 Mac sets, each held out and
+made from the others with its own fonts: 151,946 fields, every file counted, 99.90% within
+1 px, worst 12 px, in a HUD variant the Mac does not load.
+
 ## The table
 
 States: **done** (behaves as on Windows, checked as stated), **to port**, **n/a**
@@ -113,6 +134,7 @@ States: **done** (behaves as on Windows, checked as stated), **to port**, **n/a*
 | Windows | What | Mac |
 | --- | --- | --- |
 | `0x0062540D`, `0x006256DC`, `0x006256F6`, `0x00625759`, `0x00626F95`, install `0x0062540E`, `0x00626F96` | message popup auto-fit caps `450s` / `800s`, icon rect and inset `64s` | **done in code** (`resolution_sizes.cpp`): the four cap tests in `FixMessageLabel` (`0x100306877`, `0x10030687f`, `0x10030688b`, `0x1003068fd`; two compiled as `>=`), the icon offset `0x1003065a1` and the icon's rect `{0, 10, 32, 32}` at `0x100571bb0`. The quit confirmation drew in play with narrow OK and Cancel buttons: the popup auto-sizes buttons from 100 px to fit their label, as Windows' code does at `0x006254AC`, so Windows should look the same; **not yet compared with Windows**. Tutorial popups not yet seen. The `tut_*` icons and `tutorial.2da` are in the per-resolution archive and must stop being excluded by the Mac build |
+| none (Windows keeps `confirm.gui`'s height) | the message popup fitted to its contents | **Mac only, ahead of Windows** (2026-09-30, `popup_fit.cpp`): the message narrows to the least width that keeps its line count and shrinks to its text, the buttons follow it, the panel fits around it with the message's margins, and it keeps its centre. The Exit Game box went from 1,224x711 px to about 880x365 at 3024x1964; the Attributes, Skills and Feats tutorials and the unspent-points box seen fitted in play the same day. **Windows needs the same at the end of `0x006253A0` before the two look alike again**; not done |
 
 ### Area map and minimap
 

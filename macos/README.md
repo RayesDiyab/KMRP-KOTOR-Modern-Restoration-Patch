@@ -224,6 +224,7 @@ sources' comments and, against the Windows sites, in `WINDOWS-PARITY.md`.
 | | stack-count label `21s`/`42s`, `37s`, `19s` | the label block `0x1002be4a0` re-encoded with 32-bit operands; the store's label x `0x1002bfbc0` | `StackCountSites`, `.ksc` |
 | | feat and power chain rows `50s` | the rect's height at `0x100570efc` | `RowSizeGroups` |
 | | message popup: caps `800s`, `450s`, icon `64s` | `0x100306877`, `0x10030687f`, `0x10030688b`, `0x1003068fd`, `0x1003065a1`, the icon rect at `0x100571bb0` | `PopupSizeGroups` |
+| `popup_fit.cpp` | the message popup fitted to its contents, centred (2026-09-30) | `FixMessageLabel`'s last call (`0x100306a88`), through the near page's third thunk | **none yet**: Windows keeps the height from `confirm.gui` |
 | `listbox_padding.cpp` | `PADDING` a gutter on the scrollbar's side | five reads zeroed in `OrganizeControls`, and stubs for its row block (`0x1004a8838`) and the single-row layout (`0x1004a937a`) | gold v11, v12 (`.klb`, `.kgs`) |
 | `area_map.cpp` | canvas and marker overlay | the map screen's two rect constants, `0x100571390`, `0x1005713a0` | `ResolutionPatch` map fields |
 | | marker positions | stubs for the three world-to-map calls in `CSWGuiMapHider::Draw` | the `.kui` wrappers |
@@ -233,7 +234,7 @@ Code that does not fit where it goes (the stubs) lives in the module; the game r
 a 14-byte absolute jump, or, where only a 5-byte call or a 32-bit displacement fits, through
 a page the module allocates within 2 GB of the game's code (at `0x101000000` or above, where
 KotorPatcher also places its wrappers). `testing/regression/Test-KmrpLayoutPatch.py` checks
-every site against the unmodified executable (48 sites at 76 resolutions), every value
+every site against the unmodified executable (49 sites at 76 resolutions), every value
 against the Windows formula, every rewritten instruction and stub by disassembly, that no
 site overlaps a widescreen-patch hook except the two declared, and that the module has a
 single load-time initialiser. *Found 2026-09-29:* a global `std::vector` of vanilla bytes was
@@ -287,9 +288,18 @@ no font with the switch on, so a texel of the atlas is a pixel on screen, as on 
 **Other sizes.** For a size with no set, the installer blends the `.gui` files from the
 finished sets around it (`kmrp-guiblend` over `gui-blend.bin`: the two aspect-ratio families
 on either side, each at the two heights around it) and takes the fonts and art of the nearest
-set by height, then shape. Measured by hiding each finished set and predicting it from the
+set by height, then shape. Two files are not blended but made for the size, with that set's
+fonts (since 2026-09-30, `gui-blend.bin` version 2): the Container, widened by the build's
+own rule until "Switch To Give Item" and its badge fit, and the Controller Layout screen,
+which the helper lays out with `build_gui`'s arithmetic (`WINDOWS-PARITY.md`, *Resolutions
+the build has no set for*). Measured by hiding each finished set and predicting it from the
 others: 99.89% of numeric fields within 1 px; the 17 Mac sets, held out, 99.90% within 1 px,
-worst 12 px in a HUD variant the Mac does not load (`Test-GuiBlendHelper.py`). The tutorial
+every file counted, worst 12 px in a HUD variant the Mac does not load; the Controller
+Layout screen exactly, and the Container 491 of 493 fields (`Test-GuiBlendHelper.py`, which
+also requires the helper's Controller Layout to equal `build_gui`'s own, byte for byte, at
+24 sizes). *Corrected 2026-09-30:* the 99.90% of 2026-09-29 left the Controller Layout
+screen out as a file the Mac never loads; it loads it since the controller was ported, and
+blended it was up to 32 px off at the Mac sizes. The tutorial
 icons of the nearest set can be a few pixels off `64s` for the blended size, and the engine
 draws them one texel per pixel, so the layout patch sizes the popup's icon rect from the
 installed icon instead (the same `64s` for every listed set: all 66 checked). Since
@@ -548,6 +558,14 @@ of it, and B cancelled the box. With the maintainer's own pad through SDL3: walk
 menus, in play; that session also found Aspyr's pad mapping (B out of a menu started a
 flourish), which is now off.
 
+**Message popups fitted to their contents** (section 4, `popup_fit.cpp`), at 3024x1964,
+2026-09-30, from the package installed on the live game:
+- the Exit Game box went from 1,224x711 px to 880x365, centred on the screen, with the pad's
+  Cross beside OK;
+- in New Game, Custom Character, the Attributes, Skills and Feats tutorials came out fitted
+  and centred, with their line counts unchanged (4, 7 and 5);
+- the unspent-points warning came out fitted, seen before the width step.
+
 **Tested outside the game:** `Test-KmrpLayoutPatch.py`, `Test-AbilityIcons.py`,
 `Test-GuiBlendHelper.py`, `Test-ResolutionDerivation.py`, and `Test-MacInstaller.py`
 (install, status, uninstall into a stand-in game for a listed size and a blended one; the
@@ -578,7 +596,11 @@ seal alone.
   reached on the pad: the test save's Selkath only bark, and LB and RB do not target party
   members;
 - the character-generation, Solo Mode and resolution confirm guards;
-- prompt art other than PlayStation's; the GameController fallback (SDL3 was always there).
+- prompt art other than PlayStation's; the GameController fallback (SDL3 was always there);
+- the widened Container in play (2026-09-30; its layout and badge checked by the tests and
+  the installed file read back, the screen not yet opened), and a blended size since the
+  helper makes the Container and the Controller Layout screen itself (installed into a
+  stand-in game by `Test-MacInstaller.py`, not played).
 
 ## 11. Verifying by hand
 

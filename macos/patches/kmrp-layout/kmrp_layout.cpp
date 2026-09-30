@@ -169,6 +169,7 @@ std::vector<Group> Groups(int width, int height, uintptr_t nearPage) {
     AddResolutionSizes(groups, height);
     AddListboxPadding(groups);
     AddAreaMap(groups, width, height, nearPage);
+    AddPopupFit(groups, nearPage);
     return groups;
 }
 
@@ -222,12 +223,14 @@ extern "C" const uint8_t kmrp_rows_stub[], kmrp_rows_stub_end[];
 extern "C" const uint8_t kmrp_scroll_stub[], kmrp_scroll_stub_end[];
 extern "C" const uint8_t kmrp_button_stub[], kmrp_button_stub_end[];
 extern "C" const uint8_t kmrp_notes_stub[], kmrp_map_stubs_end[];
+extern "C" const uint8_t kmrp_popup_stub[], kmrp_popup_stub_end[];
 extern "C" void KMRP_LayoutStubs(FILE* out) {
     const struct { const char* name; const uint8_t *begin, *end; } stubs[] = {
         {"rows", kmrp_rows_stub, kmrp_rows_stub_end},
         {"scroll", kmrp_scroll_stub, kmrp_scroll_stub_end},
         {"button", kmrp_button_stub, kmrp_button_stub_end},
         {"map", kmrp_notes_stub, kmrp_map_stubs_end},
+        {"popup", kmrp_popup_stub, kmrp_popup_stub_end},
     };
     for (const auto& stub : stubs) {
         fprintf(out, "stub\t%s\t", stub.name);

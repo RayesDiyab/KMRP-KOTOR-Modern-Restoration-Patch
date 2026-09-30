@@ -144,8 +144,14 @@ def main() -> int:
             expected = pool_set(package, source)
             if not listed:
                 blend = tmp / f"blend-{size}"
+                # The set the installer takes fonts from, as it passes it to the helper.
+                set_dir = tmp / f"set-{source}"
+                set_dir.mkdir(exist_ok=True)
+                for name in ("kmrp_prompts.txt", "dialogfont16x16.txi"):
+                    (set_dir / name).write_bytes(expected[name])
                 subprocess.run([str(package / "bin/kmrp-guiblend"), str(package / "gui-blend.bin"),
-                                str(width), str(height), str(blend)], check=True, capture_output=True)
+                                str(width), str(height), str(blend), str(set_dir)],
+                               check=True, capture_output=True)
                 for gui in blend.glob("*.gui"):
                     expected[gui.name] = gui.read_bytes()
             for name, data in expected.items():

@@ -383,7 +383,10 @@ do_install() {
     say "Preparing the menu set..."
     extract_set "$from" "$WORK/set"
     if (( derived )); then
-        "$PAYLOAD/bin/kmrp-guiblend" "$PAYLOAD/gui-blend.bin" "$WIDTH" "$HEIGHT" "$WORK/blend" >/dev/null ||
+        # The set whose fonts are installed: its caption width fits the Container and its
+        # caption font lays out the Controller Layout screen for this size.
+        "$PAYLOAD/bin/kmrp-guiblend" "$PAYLOAD/gui-blend.bin" "$WIDTH" "$HEIGHT" "$WORK/blend" \
+            "$WORK/set" >/dev/null ||
             die "kmrp-guiblend could not blend $size"
         local gui
         for gui in "$WORK/blend"/*.gui(N); do

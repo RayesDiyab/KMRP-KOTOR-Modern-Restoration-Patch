@@ -217,6 +217,33 @@ make the icons (at the same `64s`) and the table from the player's own game
 (`src/patcher/GameArtGenerator.cs`, `macos/tools/kmrp-gameart.c`), as one more
 payload, so each is still written exactly once.
 
+## The Mac: fitted to its contents (2026-09-30)
+
+The layout above never shrinks anything: the panel keeps `confirm.gui`'s height (plus the
+icon, less one button's height when there is only one), and the message keeps the height
+tuned for a four-line tutorial, with OK anchored to its bottom. A short text therefore
+leaves space above OK, and every popup keeps the height its tallest case needed. Measured
+on the Mac at 3024x1964: the Exit Game box was 711 px tall for about 430 px of contents,
+165 px empty above OK and 250 below Cancel.
+
+The Mac's layout patch (`macos/patches/kmrp-layout/popup_fit.cpp`) now finishes the job at
+the end of the Mac's `FixMessageLabel` (`0x100306552`), in place of its last call:
+
+| step | how |
+| --- | --- |
+| the message narrows | to the least width at which its text wraps to the same height, found by halving with the engine's own wrapping (the list's `SetExtent` and the rebuild below, at each try), never narrower than the widest shown button or the icon: a one-line question shrinks to its sentence, a paragraph keeps its line count |
+| the message shrinks to its text | the list's inner height (`+0x344`) less its own fit test, padding (`+0x373`) plus the tallest item (`+0x368`); then the list's `SetExtent` (`0x1004A81AE`) and the message rebuild (`0x100306B86`), as `FixMessageLabel` does after each resize |
+| the buttons follow it | OK 4 px under the message, Cancel 2 px under OK, as `FixMessageLabel` places them |
+| the panel fits | as wide as the message plus its left inset on both sides, ending as far below the last shown button as the message starts below its top in the file (the saved top, `+0xC04`); the icon and buttons re-centred across it, and the panel keeps its centre (the corner moves by half of each change, as `FixMessageLabel` does) |
+
+Only when the text fits without the scrollbar; otherwise the popup is left as the engine
+made it. Seen in play at 3024x1964, 2026-09-30: the Exit Game box 711 → about 365 px tall
+and 1,224 → about 880 px wide, centred on the screen, with 30 px above the message and below
+the last button; the Attributes, Skills and Feats tutorials fitted and centred, keeping 4, 7
+and 5 lines; the unspent-points box fitted (seen before the width step). **Windows is not changed**: the
+same step belongs after `0x006253A0`, whose `0x006254AC` onward places the buttons the same
+way. Until it is added, the two platforms' popups differ in height.
+
 ## Verified, and not
 
 **Verified in play** at 3440x1440: the icon is upright and 128px; the message
