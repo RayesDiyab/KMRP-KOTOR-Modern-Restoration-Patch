@@ -12,19 +12,19 @@ direction: every Windows change and its state on the Mac). Some changes were mad
 first. Until Windows has them too, the two builds differ. This lists each one: what the Mac
 does, where, what Windows needs, and how to check it. Started 2026-09-30.
 
-**None of this is on `master` yet.** The shared code named below (the resource build, the
-patcher's generators, the tests) was changed on the `macos` branch. On 2026-09-30, at
-`4d1fe29`, that branch was 10 commits ahead of `master`, touching 38 files outside `macos/`
-and `third_party/` (`git diff --stat master..macos -- . ':!macos' ':!third_party'`); item 10
-came after. A Windows release has none of it until `master` takes those commits. Everything
-marked **build only** is written and needs only that merge, a Windows build and a check in
-play.
+**Where these come from.** The shared code named below (the resource build, the patcher's
+generators, the tests) was changed on the `macos` branch, which reaches `master` through
+[pull request #23](https://github.com/RayesDiyab/KMRP-KOTOR-Modern-Restoration-Patch/pull/23).
+No Windows build had been made from it by 2026-09-30. Everything marked **build only** is
+written and needs only a Windows build from a `master` that has it and a check in play.
 
-**Checked complete on 2026-09-30.** Every commit in `git log master..macos` was read for
-changes a Windows build lacks: `7d603c8` (items 2, 6, 7 and 9), `d48758c` (the Mac port and
-its tests only), `d9eb50a`, `8f098fe` and `1336d53` (the submodule and notices only),
-`7c52a84` (item 8), `8f6ac1e`, `0d147a1` and `3366c33` (Mac documents and tests only; item 5
-was found while writing `3366c33`), `4d1fe29` (items 1 to 4). Item 10 is not yet committed.
+**Checked complete on 2026-09-30.** Every commit on the branch (`git log master..macos`,
+twelve) was read for changes a Windows build lacks: `7d603c8` (items 2, 6, 7 and 9),
+`d48758c` (the Mac port and its tests only), `d9eb50a`, `8f098fe` and `1336d53` (the
+submodule and notices only), `7c52a84` (item 8), `8f6ac1e`, `0d147a1` and `3366c33` (Mac
+documents and tests only; item 5 was found while writing `3366c33`), `4d1fe29` (items 1 to
+4), `9eee359` (item 10) and `0734db6` (the Mac installer's window, which has no Windows
+counterpart to change: it ports the Windows patcher's).
 
 States: **to do** (Windows has nothing yet), **build only** (shared code already changed;
 Windows gets it with a build from the merged code and needs a check in play), **doc** (a
@@ -216,9 +216,9 @@ that one installs.
 **What the Mac does** (2026-09-30, `macos/patches/kmrp-layout/granted_popup.cpp`). The popup
 that lists what a level brought ("You have been granted the following feat(s) this level.",
 and the Force-power version; `skillinfo.gui`), at character generation and on level-up. Seen
-at 3024x1964 before the change (`work/runs/cg-custom4/08-custom.png`):
+at 3024x1964, measured on screenshots before and after the change:
 
-| | Before | After (`work/runs/cg-granted/08-granted.png`) |
+| | Before | After |
 | --- | --- | --- |
 | row pitch, for 115-px rows | 141 px (26 spread per row) | 125 px, 14 px between frames |
 | hex frame beside a 111-px text frame | 97 px tall | 111 px tall |

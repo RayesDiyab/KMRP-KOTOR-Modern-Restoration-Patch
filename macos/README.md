@@ -635,8 +635,8 @@ flourish), which is now off.
 - the unspent-points warning came out fitted, seen before the width step.
 
 **The granted popup's rows** (`granted_popup.cpp`), at 3024x1964, 2026-09-30, with the
-layout patch's test build on the live game, New Game, Custom, Feats, Recommended, OK
-(`work/runs/cg-granted`): four feats, rows 125 px apart with 14 px between frames (141
+layout patch's test build on the live game, New Game, Custom, Feats, Recommended, OK: four
+feats, rows 125 px apart with 14 px between frames (141
 before), each hex 111 px tall beside its 111-px text frame (97 before), the first letter
 14 px inside the frame (2 before), the popup 876 px tall (941 before) and centred.
 
