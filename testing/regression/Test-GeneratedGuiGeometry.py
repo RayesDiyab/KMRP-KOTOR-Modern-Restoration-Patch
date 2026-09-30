@@ -176,6 +176,31 @@ def check_scriptselect_centred(path: Path, resolution: str, width: int) -> list[
     return []
 
 
+def check_feedback_rows(path: Path, resolution: str, height: int) -> list[str]:
+    """The Feedback list's check box rows grow with the resolution.
+
+    The engine builds them at the template's own height (the row hook does not
+    reach them), so the build scales the template instead: round(43s), where the
+    template is upstream's. Unscaled, the 25s circles overlapped in 43-px rows
+    (seen at 3440x1440 on 2026-09-30; scale_listbox_padding.py, FEEDBACK_LIST).
+    """
+    from scale_listbox_padding import FEEDBACK_LIST, row_height
+    source = upstream_gui(resolution, path.name)
+    if source is None:
+        return [f"{resolution} optfeedback: no upstream {path.name} to compare against"]
+    tag = FEEDBACK_LIST[1]
+    control = controls_by_tag(read_gff(path)).get(tag)
+    reference = controls_by_tag(read_gff(source)).get(tag)
+    if control is None or reference is None:
+        return [f"{resolution} optfeedback: missing {tag}"]
+    template = extent_values(reference.get_struct("PROTOITEM"))[3]
+    actual = extent_values(control.get_struct("PROTOITEM"))[3]
+    if actual != row_height(template, height):
+        return [f"{resolution} optfeedback {tag}: rows {actual} px, expected "
+                f"{row_height(template, height)} (upstream's {template}, scaled)"]
+    return []
+
+
 def check_journal_rows(path: Path, resolution: str, height: int) -> list[str]:
     """The journal shows six quest rows, spaced as the inventory's.
 
@@ -514,6 +539,8 @@ def main() -> int:
                 extract_dir / "scriptselect.gui", resolution, "scriptselect", SCRIPTSELECT_LISTS
             ))
             errors.extend(check_feedback_gutter(
+                extract_dir / "optfeedback.gui", resolution, height))
+            errors.extend(check_feedback_rows(
                 extract_dir / "optfeedback.gui", resolution, height))
             errors.extend(check_scriptselect_centred(
                 extract_dir / "scriptselect.gui", resolution, width))

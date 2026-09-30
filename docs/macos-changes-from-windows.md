@@ -39,6 +39,8 @@ reason).
 | 8 | Step 1 finds Steam's KOTOR by itself | **n/a**: the Mac did it first (`find_game`); Windows follows it since 2026-09-30 |
 | 9 | `gui-blend.bin` version 4: the row fits and the badges in one table; the helper's manifest carries this blend's row fits | **build and check** |
 | 10 | The skill picture inside its frame grows with the `50s` row | **build and check** |
+| 11 | The Feedback list's rows grow with the resolution, so the `25s` circles fit | **build and check** |
+| 12 | Every font atlas at its set's own scale: check the Mac's cache | **check** |
 
 ## 1. Badges drawn for the blended buttons
 
@@ -255,3 +257,24 @@ checking the rule. At 1512x982 that is a 52 px canvas with a 42 px picture at (4
 3024x1964 the 64 px cap, filled. **Check** on the Mac: `Test-AbilityIcons.py` (both slices),
 then the Skills tab at 1512x982 and 3024x1964, each picture inside its hex. Not yet seen in
 play on either platform at the new sizes.
+
+## 11. The Feedback list's rows
+
+Seen on Windows at 3440x1440 once the check boxes scaled (`docs/windows-changes-from-macos.md`,
+item 13): the Feedback list's circles overlapped, 50 px circles 44 px apart. Its rows are
+check boxes built at the height of `LB_OPTIONS`'s row template, 43 in every set, which the
+row scale does not reach, so they stayed 43 px at every size. The same holds on the Mac: 68-px
+circles in 43-px rows at 3024x1964. The resource build now scales the template, `round(43s)`
+(`tools/scale_listbox_padding.py`, `FEEDBACK_LIST`), 117 px at 3024x1964; nothing changes in
+the layout patch. Ten rows fit the list at every scaled size. **Check** on the Mac, with
+resources built from `master`: Options, Feedback at 3024x1964, nine circles apart and each
+beside its label.
+
+## 12. Font atlases at the Mac sizes' own scales
+
+The Windows build machine's cache of fonts baked per scale (`build/fonts`, git-ignored, made
+by `tools/build_font_scale_sets.py`) had no set for 16 of the 17 Mac sizes' scales, so from
+2026-09-29 to 2026-09-30 the Windows builds' Mac sets used the shared 3.0 bake, resampled
+(`Test-FontAtlasScale.py` failed on those 16; the baker was run and they pass). The Mac's
+packages come from the Mac's own build, whose cache this repository cannot see. **Check**:
+`Test-FontAtlasScale.py` on the Mac's resources; it names any set drawn resampled.

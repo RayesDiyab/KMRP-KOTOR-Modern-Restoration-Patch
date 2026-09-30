@@ -769,6 +769,37 @@ namespace Kmrp
             new[] { 40, 50, 0x002CD8D9, 0x002CDB79 },               // abilities: powers/feats chain rows (1.25x)
         };
 
+        // The Options screens' check boxes (Feedback's list, Auto-pause, Gameplay, Graphics,
+        // Advanced Graphics, Mouse, Advanced Sound), CSWGuiOptionsCheckbox::SetExtent at
+        // 0x006DE000: the circle's four state images in a fixed 25x25 square at the control's
+        // left, 2 px below its middle, and the label 30 px in, at every resolution -- a 25 px
+        // circle in toggles over 100 px tall at 1440p and up, where vanilla drew it in 43- and
+        // 60-px ones. Scaled like the rows, 25s, 2s and 30s, as the Mac's layout patch does
+        // (macos/patches/kmrp-layout/resolution_sizes.cpp, AddCheckboxes; the Mac replaces the
+        // whole function). Found on the Mac by reading the code, 2026-09-30
+        // (docs/windows-changes-from-macos.md, item 13).
+        //
+        //   0x006DE011  ba 19000000     mov edx, 25            the square, imm32
+        //   0x006DE02E  8d 4c 01 02     lea ecx, [ecx+eax+2]   below the middle, disp8
+        //   0x006DE08E  83 e9 1e        sub ecx, 30            the label's width
+        //   0x006DE091  83 c0 1e        add eax, 30            the label's left
+        //
+        // The square takes any scale and the drop fits its signed byte up to s = 63, but the
+        // label's two immediates are signed bytes too, and 30s passes 127 above 3048 px tall
+        // (180 at 7680x4320). Rather than cap the scale, as the map markers do, the two are
+        // replaced by a jump into the 15 bytes of NOP padding after the function's `ret 4`
+        // (0x006DE0D1..0x006DE0DF, which nothing reaches), where the same two operations
+        // take imm32 operands and jump back to 0x006DE094. Flags are not read before the
+        // next write. Written at every resolution, 720 and below too, where 30 is vanilla's.
+        private const long CheckboxSquareOffset = 0x002DE012;
+        private const long CheckboxDropOffset = 0x002DE031;
+        private const long CheckboxLabelOffset = 0x002DE08E;
+        private const long CheckboxCaveOffset = 0x002DE0D1;
+        private static readonly byte[] CheckboxLabelVanilla = { 0x83, 0xE9, 0x1E, 0x83, 0xC0, 0x1E };
+        // jmp 0x006DE0D1 (rel32 0x3E from 0x006DE093), then a NOP never reached.
+        private static readonly byte[] CheckboxLabelJump = { 0xE9, 0x3E, 0x00, 0x00, 0x00, 0x90 };
+        private const int CheckboxCaveLength = 13;   // sub ecx, imm32 (6); add eax, imm32 (5); jmp short (2)
+
         private const long RowScaleOffset = 0x003DD004;
         private const float GoldRowScale = 1.75f;
         private const float ScaleHeightDivisor = 720.0f;
@@ -821,6 +852,27 @@ namespace Kmrp
                     ReplaceInt32(executable, group[i], expected, scaled, "message popup size");
             }
 
+            // The Options check boxes (CheckboxSquareOffset and the rest, above).
+            int checkboxLabel = (int)Math.Round(30 * rowSizeScale);
+            ReplaceInt32(executable, CheckboxSquareOffset, 25, (int)Math.Round(25 * rowSizeScale),
+                "check box size");
+            ReplaceSByte(executable, CheckboxDropOffset, 2, (int)Math.Round(2 * rowSizeScale),
+                "check box offset");
+            ReplaceBytes(executable, CheckboxLabelOffset, CheckboxLabelVanilla, CheckboxLabelJump,
+                "check box label");
+            byte[] cave = new byte[CheckboxCaveLength];
+            cave[0] = 0x81;                                  // sub ecx, imm32
+            cave[1] = 0xE9;
+            Buffer.BlockCopy(BitConverter.GetBytes(checkboxLabel), 0, cave, 2, 4);
+            cave[6] = 0x05;                                  // add eax, imm32
+            Buffer.BlockCopy(BitConverter.GetBytes(checkboxLabel), 0, cave, 7, 4);
+            cave[11] = 0xEB;                                 // jmp short 0x006DE094
+            cave[12] = 0xB6;
+            byte[] padding = new byte[CheckboxCaveLength];
+            for (int i = 0; i < padding.Length; i++)
+                padding[i] = 0x90;
+            ReplaceBytes(executable, CheckboxCaveOffset, padding, cave, "check box label");
+
             float markerScale = MarkerScaleForHeight(resolution.Height);
             foreach (int[] group in MarkerSizeSites)
             {
@@ -871,6 +923,19 @@ namespace Kmrp
                 throw new InvalidDataException("The " + label + " patch did not match the verified gold build.");
             byte[] value = BitConverter.GetBytes(replacement);
             Buffer.BlockCopy(value, 0, data, index, value.Length);
+        }
+
+        /// <summary>Code, not a value: `expected` must be there whole, and is replaced by
+        /// `replacement` of the same length.</summary>
+        private static void ReplaceBytes(byte[] data, long offset, byte[] expected, byte[] replacement, string label)
+        {
+            Touch(offset, expected.Length);
+            if (replacement.Length != expected.Length || offset < 0 || offset + expected.Length > data.LongLength)
+                throw new InvalidDataException("The " + label + " patch address is outside the executable.");
+            for (int i = 0; i < expected.Length; i++)
+                if (data[offset + i] != expected[i])
+                    throw new InvalidDataException("The " + label + " patch did not match the verified gold build.");
+            Buffer.BlockCopy(replacement, 0, data, checked((int)offset), replacement.Length);
         }
 
         private static void ReplaceSByte(byte[] data, long offset, int expected, int replacement, string label)

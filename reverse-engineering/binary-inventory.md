@@ -293,29 +293,37 @@ this paragraph counted three runs that did.
 Gold leaves some sites at their vanilla value for the patcher to fill in per
 resolution, so a clean-to-gold inventory never sees them. These are the bytes
 the installer's outputs change where gold does not, found by running the
-installer (`ECA3DE4B…`) with `--apply` at all 48 resolutions on 2026-09-24 (§2):
-**21 byte positions in 12 runs**, which with gold's 721 make **742** the
+installer (`97BEA480…`) with `--apply` at all 66 resolutions on 2026-09-30 (§2):
+**43 byte positions in 16 runs**, which with gold's 721 make **764** the
 installer writes at one resolution or another. Most are the list-row sizes
-`RowSizeGroups` scales in `src/patcher/KmrpPatcher.cs`; the last column counts
-the distinct values across the 48 outputs.
+`RowSizeGroups` scales in `src/patcher/KmrpPatcher.cs`; the last four are the
+Options check boxes, added that day
+([`listbox-geometry.md`](listbox-geometry.md), *The circle and label scaled*). The
+last column counts the distinct values across the 66 outputs. *Updated 2026-09-30:*
+on 2026-09-24, with installer `ECA3DE4B…` at 48 resolutions, it was 21 positions in
+12 runs, 742 in all. Gold, and so the table above, has not changed since.
 
 | VA | FILE | len | clean | distinct installed values | documented in |
 | --- | --- | --- | --- | --- | --- |
-| `0x0062540E` | `0x22540E` | 1 | `00` | 3 | `reverse-engineering/message-popup.md`, `reverse-engineering/text-padding.md` |
-| `0x00626F96` | `0x226F96` | 1 | `00` | 3 | `reverse-engineering/message-popup.md`, `reverse-engineering/text-padding.md` |
-| `0x006AB8EF` | `0x2AB8EF` | 2 | `2a00` | 24 | `reverse-engineering/inventory-item-rows.md` |
-| `0x006ACB20` | `0x2ACB20` | 2 | `2a00` | 24 | `reverse-engineering/inventory-item-rows.md` |
-| `0x006B4FA9` | `0x2B4FA9` | 2 | `3800` | 24 | `reverse-engineering/font-atlases.md`, `reverse-engineering/inventory-item-rows.md` |
-| `0x006B527F` | `0x2B527F` | 2 | `3800` | 24 | `reverse-engineering/font-atlases.md`, `reverse-engineering/inventory-item-rows.md`, `reverse-engineering/listbox-geometry.md` |
-| `0x006B5332` | `0x2B5332` | 1 | `13` | 23 | `reverse-engineering/font-atlases.md` |
-| `0x006B55E3` | `0x2B55E3` | 2 | `3800` | 24 | `reverse-engineering/font-atlases.md`, `reverse-engineering/inventory-item-rows.md` |
-| `0x006C265F` | `0x2C265F` | 2 | `3800` | 24 | `reverse-engineering/inventory-item-rows.md` |
-| `0x006C2A23` | `0x2C2A23` | 2 | `3800` | 24 | `reverse-engineering/inventory-item-rows.md` |
-| `0x006CD8D9` | `0x2CD8D9` | 2 | `2800` | 24 | `reverse-engineering/inventory-item-rows.md` |
-| `0x006CDB79` | `0x2CDB79` | 2 | `2800` | 24 | `reverse-engineering/inventory-item-rows.md` |
+| `0x0062540E` | `0x22540E` | 1 | `00` | 3 | `docs/universal-resolution-math.md`, `reverse-engineering/message-popup.md`, `reverse-engineering/text-padding.md` |
+| `0x00626F96` | `0x226F96` | 1 | `00` | 3 | `docs/universal-resolution-math.md`, `reverse-engineering/message-popup.md`, `reverse-engineering/text-padding.md` |
+| `0x006AB8EF` | `0x2AB8EF` | 2 | `2a00` | 39 | `docs/universal-resolution-math.md`, `docs/windows-changes-from-macos.md`, `reverse-engineering/inventory-item-rows.md` |
+| `0x006ACB20` | `0x2ACB20` | 2 | `2a00` | 39 | `docs/universal-resolution-math.md`, `docs/windows-changes-from-macos.md`, `reverse-engineering/inventory-item-rows.md` |
+| `0x006B4FA9` | `0x2B4FA9` | 2 | `3800` | 39 | `docs/universal-resolution-math.md`, `reverse-engineering/font-atlases.md`, `reverse-engineering/inventory-item-rows.md` |
+| `0x006B527F` | `0x2B527F` | 2 | `3800` | 39 | `docs/universal-resolution-math.md`, `reverse-engineering/font-atlases.md`, `reverse-engineering/inventory-item-rows.md`, `reverse-engineering/listbox-geometry.md` |
+| `0x006B5332` | `0x2B5332` | 1 | `13` | 37 | `docs/universal-resolution-math.md`, `reverse-engineering/font-atlases.md` |
+| `0x006B55E3` | `0x2B55E3` | 2 | `3800` | 39 | `docs/universal-resolution-math.md`, `reverse-engineering/font-atlases.md`, `reverse-engineering/inventory-item-rows.md` |
+| `0x006C265F` | `0x2C265F` | 2 | `3800` | 39 | `docs/universal-resolution-math.md`, `reverse-engineering/inventory-item-rows.md` |
+| `0x006C2A23` | `0x2C2A23` | 2 | `3800` | 39 | `docs/universal-resolution-math.md`, `reverse-engineering/inventory-item-rows.md` |
+| `0x006CD8D9` | `0x2CD8D9` | 2 | `2800` | 39 | `docs/universal-resolution-math.md`, `reverse-engineering/inventory-item-rows.md` |
+| `0x006CDB79` | `0x2CDB79` | 2 | `2800` | 39 | `docs/universal-resolution-math.md`, `reverse-engineering/inventory-item-rows.md` |
+| `0x006DE012` | `0x2DE012` | 2 | `1900` | 37 | `docs/universal-resolution-math.md`, `reverse-engineering/listbox-geometry.md` |
+| `0x006DE031` | `0x2DE031` | 1 | `02` | 11 | `docs/universal-resolution-math.md`, `reverse-engineering/listbox-geometry.md` |
+| `0x006DE08E` | `0x2DE08E` | 6 | `83e91e83c01e` | 1 | `docs/universal-resolution-math.md`, `reverse-engineering/listbox-geometry.md` |
+| `0x006DE0D1` | `0x2DE0D1` | 13 | `90909090909090909090909090` | 38 | `docs/universal-resolution-math.md`, `reverse-engineering/listbox-geometry.md` |
 
 Every one is documented. Before 2026-09-24 this document and its generator
-covered gold only, so these twelve runs were outside the inventory, however
+covered gold only, so the first twelve runs were outside the inventory, however
 well their subject documents described them.
 
 ## 5. Six runs that had no document until this one

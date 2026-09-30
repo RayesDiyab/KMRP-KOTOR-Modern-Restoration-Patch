@@ -32,7 +32,9 @@ already has), and the commits adding items 11 to 15.
 the Windows installer built from it (`04C2DA20…`), with the resources made again from the
 merged build code. Items 2, 5 and 11 were done on Windows the same day; the other direction,
 what the Mac now needs from that work, is
-[`macos-changes-from-windows.md`](macos-changes-from-windows.md).
+[`macos-changes-from-windows.md`](macos-changes-from-windows.md). **Merged again the same
+evening**, up to `d672b8d` (items 12 to 15), and built as `97BEA480…` with the resources made
+again: items 12, 14 and 15 are in that build, and item 13 was written for Windows then.
 
 States: **to do** (Windows has nothing yet), **build only** (shared code already changed;
 Windows gets it with a build from the merged code and needs a check in play), **built** (in
@@ -52,10 +54,10 @@ does it, checked as stated), **doc** (a Windows document to correct).
 | 9 | The 17 Mac resolutions in the catalogue | **built** |
 | 10 | The granted popup's rows: hex as tall as the text frame, text inset, rows spaced like the inventory's | **to do** |
 | 11 | The header's smoke fades out before the header's bottom edge | **built** (not yet watched) |
-| 12 | The journal's quest rows: six to the list, spaced as the inventory's | **build only** |
-| 13 | The Options check boxes' circle and label offset scaled with the resolution | **to do** |
-| 14 | Lists as tall as whole rows: the Container, the granted popup, character creation's Feats, low-resolution lists | **build only** |
-| 15 | Skill rows as tall as the Feats and Powers rows (`50s`), the skill icons with them | **build only** |
+| 12 | The journal's quest rows: six to the list, spaced as the inventory's | **built** (2026-09-30) |
+| 13 | The Options check boxes' circle and label offset scaled with the resolution | **built** (2026-09-30; seen at 3440x1440) |
+| 14 | Lists as tall as whole rows: the Container, the granted popup, character creation's Feats, low-resolution lists | **built** (2026-09-30) |
+| 15 | Skill rows as tall as the Feats and Powers rows (`50s`), the skill icons with them | **built** (2026-09-30) |
 
 ## 1. Message popups fitted to their contents
 
@@ -371,6 +373,10 @@ only.
 journal's Active and Completed quests show six rows, as evenly spaced as the inventory's,
 with each quest name centred in its frame.
 
+**Built on Windows, 2026-09-30** (`97BEA480…`). `Test-GeneratedGuiGeometry.py` recomputes the
+engine's layout of every set's journal and passes on the 66 sets the Windows build made. Not
+yet seen in play on Windows.
+
 ## 13. The Options check boxes
 
 **What the Mac does** (2026-09-30, `macos/patches/kmrp-layout/resolution_sizes.cpp`,
@@ -402,6 +408,35 @@ function needs relocating, as the stack-count label was (`.ksc`).
 **Check.** At 3440x1440 and 1920x1080: Options, then Feedback and Gameplay. Each circle is
 about 0.6 of its row's height, centred on the row, with its label clear of it.
 
+**Built on Windows, 2026-09-30** (`97BEA480…`). `ResolutionPatch.Apply` writes the three numbers
+into `0x006DE000` (`src/patcher/KmrpPatcher.cs`, `CheckboxSquareOffset` and the rest;
+[`../reverse-engineering/listbox-geometry.md`](../reverse-engineering/listbox-geometry.md),
+*The circle and label scaled*). The square's `0x19` is an imm32 and the drop's `+2` a signed
+byte, both written in place. The label's `0x1E` is two signed bytes, `sub ecx` and `add eax`
+at `0x006DE08E`, and `30s` passes 127 above 3048 px tall, so rather than relocate the
+function into a section, or cap the scale as the map markers do, those six bytes become a
+jump into the 15 bytes of padding after the function's `ret 4` (`0x006DE0D1`), where the two
+operations take 32-bit operands and jump back. Read back from the installer's `--apply`: 25,
+2, 30 at 800x600; 38, 3, 45 at 1920x1080; 50, 4, 60 at 3440x1440; 75, 6, 90 at 3840x2160;
+300, 24, 360 at 15360x8640. KOTOR Patch Manager installs carry the new sites by themselves
+(`--kpm-sites`): `Test-KpmEdition.ps1` requires the data file to give the standalone's
+executable byte for byte, and passed. `build_binary_inventory.py` finds all four runs
+documented.
+
+*Found in play, and fixed for both platforms:* at 3440x1440 the Gameplay, Auto-pause and
+Graphics circles were 50 px in 120-px toggles, as intended, but the Feedback list's circles
+overlapped, 50 px circles 44 px apart. Its rows are check boxes too, built at the height of
+`LB_OPTIONS`'s row template, 43 in every set, and the runtime row scale that grows text rows
+does not reach them, so they stayed 43 px at every resolution. The Mac's patch has the same
+effect there (68-px circles in 43-px rows at 3024x1964; not seen in play on the Mac). The
+resource build now scales that template as the row hook scales a text row's, `round(43s)`
+(`tools/scale_listbox_padding.py`, `FEEDBACK_LIST` and `scale_row_template`): 86 px at
+3440x1440, so the circle keeps vanilla's 25 of 43, and ten rows fit the list at every scaled
+size for its nine options (seven at 1920x540, as before). `Test-GeneratedGuiGeometry.py` checks
+it in the 66 sets; the Mac gets it with its next build
+([`macos-changes-from-windows.md`](macos-changes-from-windows.md), item 11). Seen in play at
+3440x1440 after the fix: see `CHANGELOG.md`.
+
 ## 14. Lists as tall as whole rows (shared build code)
 
 **What changed** (2026-09-30, `CHANGELOG.md`, *Fixed*). The list box shares the height left
@@ -430,6 +465,13 @@ granted popup at character creation (Custom, Feats, Recommended, OK) and the Fea
 itself. Rows as evenly spaced as the inventory's; the Container's and the popup's buttons
 under their lists, the panels centred.
 
+**Built on Windows, 2026-09-30** (`97BEA480…`). `Test-GeneratedGuiGeometry.py` checks every fitted
+list in the 66 sets the Windows build made and passes. For a size with no set, the Windows
+installer fits the lists itself: `src/patcher/GuiBlend.cs` reads the row fits from the blend
+table (version 4 since the merge, with the badges of item 2) and applies `fit_list_to_rows`
+as the helper does (`FitRows`); `Test-GuiBlendHelper.py` requires it to equal the helper
+byte for byte, and it did at 369 sizes. Not yet seen in play on Windows.
+
 ## 15. Skill rows as tall as the Feats and Powers rows (shared code)
 
 **What changed** (2026-09-30). The Abilities screen shows Skills, Feats and Powers in one list.
@@ -450,3 +492,11 @@ icons (were 63 and 48).
 
 **Check.** At 3440x1440 and 1920x1080: the Abilities screen's three tabs, rows of one height
 and the same spacing; the skill icons centred in their hexes; the granted popup's rows.
+
+**Built on Windows, 2026-09-30** (`97BEA480…`). The installer's `--apply` writes 50, 75, 100, 150
+and 600 at the skill rows' two sites at 800x600, 1920x1080, 3440x1440, 3840x2160 and
+15360x8640. The skill icons met `master`'s picture inside its frame (2026-09-29) in the
+merge: the picture grows with the `50s` box too (`CHANGELOG.md`, *The skill icons sit inside
+their frames*, and [`macos-changes-from-windows.md`](macos-changes-from-windows.md), item
+10), and `Test-AbilityIcons.py` passes on Windows with that rule, 2,704 icons at ten heights
+byte for byte. Not yet seen in play.

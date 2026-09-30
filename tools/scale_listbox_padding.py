@@ -234,6 +234,41 @@ def fit_rows_to_list(source: Path, dest: Path, screen_height: int, tag: str,
     return template, row, (inner - rows * row) // rows
 
 
+# The Feedback list's rows, grown with the resolution. Its items are the Options
+# check boxes (CSWGuiOptionsCheckbox, whose SetExtent is 0x006DE000 on Windows and
+# 0x1002CECEE on the Mac), and the row scale the .kfs hook applies to text rows
+# does not reach them: they are built at the template's own height, 43 in every
+# set, so the rows stayed 43 px tall at every resolution while the list around them
+# grew. Since 2026-09-30 the check box's circle is 25s on both platforms
+# (docs/windows-changes-from-macos.md, item 13), and in those rows the circles
+# overlapped: 50-px circles 44 px apart at 3440x1440, seen in play on Windows the
+# same day. So the template is scaled here as the row hook scales a text row's,
+# round(43s), and the circle keeps vanilla's 25 of 43, as in the other Options
+# screens, whose toggles the layouts already scale (60 at 720, 120 at 1440).
+FEEDBACK_LIST = ("optfeedback.gui", "LB_OPTIONS")
+
+
+def scale_row_template(source: Path, dest: Path, screen_height: int, tag: str) -> tuple[int, int]:
+    """Scale `tag`'s row template by the row scale, as row_height does, for rows the
+    engine builds at the template's own height; return (template, the scaled one).
+    Only PROTOITEM's HEIGHT changes, as in fit_rows_to_list."""
+    gff = read_gff(source)
+    controls = gff.root.get_list("CONTROLS")
+    target = next((c for c in controls if c.acquire("TAG", "").upper() == tag.upper()), None)
+    if target is None:
+        raise ValueError(f"{source.name}: no {tag}")
+    proto = target.get_struct("PROTOITEM")
+    extent = proto.get_struct("EXTENT")
+    template = extent.get_int32("HEIGHT")
+    scaled = row_height(template, screen_height)
+    extent.set_int32("HEIGHT", scaled)
+    proto.set_struct("EXTENT", extent)
+    target.set_struct("PROTOITEM", proto)
+    gff.root.set_list("CONTROLS", controls)
+    write_gff(gff, dest, ResourceType.GUI)
+    return template, scaled
+
+
 # Lists whose rows are sized in code, not by a template: their list is made as
 # tall as whole rows instead. Rows at round(base * s), as resolution_sizes.cpp
 # and the Windows patcher's RowSizeGroups scale them; a list shown on more than

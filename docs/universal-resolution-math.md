@@ -322,6 +322,9 @@ back from the installer's own output** (`--apply`, installer `ECA3DE4B…`,
 | Popup auto-fit height stop | `0x2256E3`, `0x225759` | 900 | `450s` | 450 | 675 | 900 | 1350 | 5400 |
 | Popup auto-fit width cap | `0x2256DC`, `0x2256F6` | 1600 | `800s` | 800 | 1200 | 1600 | 2400 | 9600 |
 | Popup icon rect, message inset | `0x226F95`, `0x22540D` | 128 | `64s` | 64 | 96 | 128 | 192 | 768 |
+| Options check box circle | `0x2DE012` | 25 | `25s` | 25 | 38 | 50 | 75 | 300 |
+| Options check box drop below the middle (disp8) | `0x2DE031` | 2 | `2s` | 2 | 3 | 4 | 6 | 24 |
+| Options check box label offset (a `jmp` at `0x2DE08E` to imm32s at `0x2DE0D3`, `0x2DE0D8`) | `0x2DE08E`, `0x2DE0D1` | 30 | `30s` | 30 | 45 | 60 | 90 | 360 |
 | Map note size, selected | `0x294720` | 40 | `20m` | 20 | 30 | 40 | 60 | 159 |
 | Map note size, unselected | `0x294763` | 28 | `14m` | 14 | 21 | 28 | 42 | 111 |
 | Party marker size | `0x294A13` | 32 | `16m` | 16 | 24 | 32 | 48 | 127 |
@@ -340,7 +343,13 @@ back from the installer's own output** (`--apply`, installer `ECA3DE4B…`,
 | Marker overlay height | `0x29508A` | 720 | `H//2` | 300 | 540 | 720 | 1080 | 4320 |
 
 The 33 rows are all 89 bytes that differ between the 48 outputs; none falls
-outside them. The movie fields are a separate display-mode policy, not Bink
+outside them. *Added 2026-09-30:* the three check box rows
+([`../reverse-engineering/listbox-geometry.md`](../reverse-engineering/listbox-geometry.md),
+*The circle and label scaled*), read back from installer `97BEA480…`'s `--apply` at
+these five sizes; the other rows were not read again that day, and the count above is
+2026-09-24's. The label offset is two signed-byte operands that `30s` outgrows above
+3048 px tall, so they move into the function's padding with 32-bit operands: the row
+names the jump and the moved code. The movie fields are a separate display-mode policy, not Bink
 render dimensions; see
 [`../reverse-engineering/movies.md`](../reverse-engineering/movies.md).
 

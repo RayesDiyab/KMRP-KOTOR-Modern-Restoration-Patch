@@ -1344,6 +1344,44 @@ before:
 
 ### Fixed
 
+- **Windows: the Options check boxes scale with the resolution, and the Feedback list's rows
+  with them, on both platforms** (2026-09-30; the Mac scaled the check boxes first the same
+  day, `docs/windows-changes-from-macos.md`, item 13). The Options toggles (Gameplay,
+  Feedback, Auto-pause, Graphics, Advanced Graphics, Mouse, Advanced Sound) drew their
+  circle in a fixed 25x25 square, 2 px below the middle, with the label 30 px in, at every
+  resolution (`CSWGuiOptionsCheckbox::SetExtent`, `0x006DE000`). The installer now writes
+  `25s`, `2s` and `30s` there: the square's operand in place, the drop's signed byte in
+  place, and the label's two signed-byte operands, which `30s` outgrows above 3048 px tall,
+  replaced by a jump into the 15 bytes of padding after the function, where they take 32-bit
+  operands. Read back from the installer's `--apply`: a 50-px circle, 4 below the middle,
+  the label 60 px in at 3440x1440; 38, 3 and 45 at 1920x1080; vanilla's at 720 and below.
+  Seen in play at 3440x1440: in Gameplay, Auto-pause and Graphics each circle is 50 px in its
+  120-px toggle. In the Feedback list they overlapped, 50-px circles 44 px apart: its rows
+  are check boxes too, built at the height of `LB_OPTIONS`'s row template, 43 in every set,
+  which the runtime row scale does not reach, so they had stayed 43 px at every resolution.
+  The Mac's patch does the same there (68-px circles in 43-px rows at 3024x1964). The
+  resource build now scales that template, `round(43s)` (`scale_listbox_padding.py`,
+  `FEEDBACK_LIST`): 86-px rows at 3440x1440, nine circles 87 px apart, all nine options on
+  screen, measured in play. And at the maintainer's request ("move the points more to the
+  right", the scrollbar left where it is) the list's gutter beside its scrollbar is 16 x
+  font scale, where it was 6: the circles 36 px from the scrollbar at 3440x1440, where they
+  were 16, the scrollbar unmoved (measured in play). `Test-GeneratedGuiGeometry.py` checks the
+  rows in the 66 sets; `Test-KpmEdition.ps1` shows KOTOR Patch Manager installs carry the new
+  sites; `build_binary_inventory.py` finds every byte documented. Installer `97BEA480…`. The Mac
+  gets the rows and the gutter with its next build (`docs/macos-changes-from-windows.md`,
+  item 11); not played on the Mac.
+
+- **Windows builds: the Mac sizes' fonts drawn one texel per pixel** (2026-09-30, found by
+  `Test-FontAtlasScale.py` while testing the merge). The build takes each resolution's font
+  atlases from a cache baked per scale (`build/fonts`, git-ignored, made by
+  `tools/build_font_scale_sets.py`). This machine's cache had no set for 16 of the 17 Mac
+  sizes' scales, so the Windows builds from 2026-09-29 gave those sizes the shared 3.0 bake,
+  resampled -- the ragged text of issue #16 -- and a custom size took them from its nearest
+  set. The 49 Windows sizes had their own. The baker filled the 16 scales in (15360x8640's
+  12.0 is still too large to bake, as before), and `Test-FontAtlasScale.py` passes on the 66
+  sets of `97BEA480…`. The Mac's own cache is unseen from here
+  (`docs/macos-changes-from-windows.md`, item 12).
+
 - **Controller badges and the HUD's button-row boxes at sizes with no set, on both
   platforms** (2026-09-30, found while bringing the Mac's blend to Windows; the maintainer:
   "the issue is significant this needs a fix on both mac and windows"). A badge is a 512x64
@@ -1466,7 +1504,9 @@ before:
   manifest says by how much it changed; blended as fitted, the 17 Mac sets missed by up to
   41 px, fitted at install they are back to 99.90% of fields within 1 px, worst 12 px
   (`Test-GuiBlendHelper.py`). Shared build code: Windows gets it with its next build
-  (`docs/windows-changes-from-macos.md`, item 14). The Container seen in play on the Mac at
+  (`docs/windows-changes-from-macos.md`, item 14). *Built for Windows the same evening*
+  (`97BEA480…`), whose installer fits the lists for a size with no set as the Mac's helper does
+  (`GuiBlend.cs`, equal to the helper at 369 sizes). The Container seen in play on the Mac at
   3024x1964; the others checked by `Test-GeneratedGuiGeometry.py`, not yet seen.
 - **Skill rows are as tall as the Feats and Powers rows** (2026-09-30). The Abilities
   screen shows its three tabs in one list, with skill rows at `42s` and the Feats and Powers
@@ -1482,7 +1522,7 @@ before:
   inside them grows with the row too: above, *The skill icons sit inside their frames*). Checked by
   `Test-KmrpLayoutPatch.py`, `Test-AbilityIcons.py` (the two generators byte for byte) and
   `Test-MacInstaller.py`; **not yet seen in play**. Windows: `docs/windows-changes-from-macos.md`,
-  item 15.
+  item 15; *built for Windows the same evening* (`97BEA480…`), `Test-AbilityIcons.py` passing there.
 - **macOS: the Options check boxes scale with the resolution** (2026-09-30, found by
   reading the code while auditing what does not scale). The Options screens' toggles
   (Feedback's list, Auto-pause, Gameplay, Graphics, Advanced Graphics, Mouse, Advanced
@@ -1494,6 +1534,7 @@ before:
   in at 3024x1964, 38 and 45 at 1920x1080, vanilla's at 720 and below. Checked against
   the game binary by `Test-KmrpLayoutPatch.py` (52 sites); **not yet seen in play**.
   **Windows does not have this yet** (`docs/windows-changes-from-macos.md`, item 13).
+  *Windows since the same evening, and the Feedback list's rows fixed for both: above.*
 - **The journal shows six quest rows, spaced as the inventory's** (2026-09-30, reported
   from play at 3024x1964: the rows sat far apart). A list box shares the height its rows
   leave over between them, and every set's `journal.gui` kept upstream's 78-unit row
@@ -1505,7 +1546,8 @@ before:
   15 px apart (the inventory's: 153 and 15); across the 66 sets, gaps of 8 to 11% of a
   row. Only the template's height changes. Shared build code: Windows gets it with its
   next build (`docs/windows-changes-from-macos.md`, item 12); seen in play on the Mac at
-  3024x1964 only. `Test-GeneratedGuiGeometry.py` checks every set.
+  3024x1964 only. `Test-GeneratedGuiGeometry.py` checks every set. *Built for Windows the
+  same evening* (`97BEA480…`).
 - **macOS: the granted popup's rows look like the inventory's** (2026-09-30, reported
   from play: "You have been granted the following feat(s) this level."). The text touched
   its frame's left line, the hex beside it was shorter than the text frame, and the rows

@@ -259,9 +259,51 @@ So no `.gui` extent opens a gap: moving the scrollbar is undone, moving the list
 moves both, widening the scrollbar draws it wider. What does is `PADDING`, which
 since gold v12 is a purely horizontal gutter on the scrollbar side. Feedback's
 `LB_OPTIONS` ships `PADDING 0`; `prepare_universal_resources.py`'s
-`HAND_TUNED_GUTTERS` now sets it to 6 x font scale (12px at 3440x1440), and
+`HAND_TUNED_GUTTERS` now sets it to 6 x font scale (12px at 3440x1440; 16 x since
+2026-09-30, below), and
 `Test-GeneratedGuiGeometry.py` checks it in all 49 archives. The row prototypes
 are untouched, as that test also insists. Not yet seen in game.
+
+### The circle and label scaled (2026-09-30)
+
+The fixed sizes above do not grow with the screen: at 3440x1440 the circle was
+25 px in toggles over 100 px tall. The Mac's layout patch scales them first
+(`macos/patches/kmrp-layout/resolution_sizes.cpp`, `AddCheckboxes`); on Windows
+`ResolutionPatch.Apply` (`src/patcher/KmrpPatcher.cs`, `CheckboxSquareOffset` and
+the rest) writes the same `25s`, `2s` and `30s` into `0x006DE000`, read from the
+clean executable:
+
+| VA | Bytes | Instruction | Written |
+| --- | --- | --- | --- |
+| `0x006DE011` | `ba 19000000` | `mov edx, 0x19`: the square, width, height and `(h - 25) / 2` | imm32 at `0x006DE012`, `25s` |
+| `0x006DE02E` | `8d 4c 01 02` | `lea ecx, [ecx + eax + 2]`: the drop below the middle | disp8 at `0x006DE031`, `2s` (a signed byte: enough to `s = 63`) |
+| `0x006DE08E` | `83 e9 1e` | `sub ecx, 0x1e`: the label's width | replaced, with the next, by `jmp 0x006DE0D1` and a `nop` |
+| `0x006DE091` | `83 c0 1e` | `add eax, 0x1e`: the label's left | |
+| `0x006DE0D1` | 15 x `90` | padding after the function's `ret 4` at `0x006DE0CE`; the next function starts at `0x006DE0E0` | `sub ecx, imm32; add eax, imm32; jmp 0x006DE094`, `30s` twice, 13 bytes |
+
+The label's operands are signed bytes, and `30s` passes 127 above 3048 px tall
+(180 at 7680x4320), so they could not be written in place. The map markers' signed
+bytes are handled by capping the scale; here the two instructions move into the
+function's own padding with 32-bit operands instead, so nothing is capped. Nothing
+jumps into the padding, and the code after the jump back reads no flags before
+writing them. Read back from the installer's `--apply` (`97BEA480…`): 25, 2, 30 at
+800x600; 38, 3, 45 at 1920x1080; 50, 4, 60 at 3440x1440; 75, 6, 90 at 3840x2160;
+300, 24, 360 at 15360x8640. The jump is written at every size, 720 and below too,
+where the values are vanilla's.
+
+**The Feedback list's rows, seen in game the same day.** At 3440x1440 the circles
+were 50 px in the Gameplay, Auto-pause and Graphics toggles (120 px tall), as meant,
+but in the Feedback list they overlapped, 44 px apart. Its rows are these check
+boxes, built at `LB_OPTIONS`'s row template height, 43 in every set: the `.kfs` row
+scale at `0x00417992` grows text rows and does not reach them. The build now scales
+that template itself (`tools/scale_listbox_padding.py`, `FEEDBACK_LIST`), `round(43s)`,
+86 px at 3440x1440, so each circle keeps vanilla's 25 of 43. Seen then, the gutter
+above left the 50-px circles 16 px from the scrollbar; at the maintainer's request
+("move the points more to the right", the scrollbar where it is) it is 16 x font
+scale since, 32 px at 3440x1440, a 36 px gap, measured in game. `PADDING` is a
+32-bit field in the `.gui` (a byte one is ignored: the circles then sat against the
+scrollbar in a first try), read as a byte by the engine; 16 x 12 = 192 at
+15360x8640.
 
 **Script Selection** (`LST_AIState`, the same shape, `PADDING 2`) had the rows
 off-centre in the box its background art draws: 12px outside the frame on the

@@ -35,9 +35,10 @@ from build_scaled_fonts import export_font_txis, export_fonts, scale_txi
 from fix_hud_menubg import fix_menubg_file
 from scale_hud_minimap import patch_gui
 from transfer_gold_gui_geometry import transfer_geometry
-from scale_listbox_padding import (JOURNAL_ROWS, LIST_GUTTER_AT_UNIT_SCALE, ROW_LISTS,
-                                   SCRIPTSELECT_FRAME, centre_rows_in_frame, fit_list_to_rows,
-                                   fit_rows_to_list, scale_listbox_padding)
+from scale_listbox_padding import (FEEDBACK_LIST, JOURNAL_ROWS, LIST_GUTTER_AT_UNIT_SCALE,
+                                   ROW_LISTS, SCRIPTSELECT_FRAME, centre_rows_in_frame,
+                                   fit_list_to_rows, fit_rows_to_list, scale_listbox_padding,
+                                   scale_row_template)
 from scale_message_popup import apply_tuned as apply_popup_layout
 from fix_feedback_list_prototypes import fix_feedback_prototypes, fix_scriptselect_prototypes
 from scale_row_icon_frames import FRAME_RESREFS
@@ -203,8 +204,11 @@ HAND_TUNED_GUTTERS = {
     # against the scrollbar -- reported 2026-09-24 at 3440x1440. Since gold v12
     # PADDING is a horizontal gutter on the scrollbar side and nothing else, so
     # it opens the gap without moving the rows apart: 12px at 3440x1440, about
-    # half a circle.
-    "optfeedback.gui": [({"LB_OPTIONS"}, 6.0)],
+    # half a circle. Since 2026-09-30 the circle is 25s, 50 px at 3440x1440, and
+    # the gutter 16 (32 px there, a 36 px gap to the circle, where 6 left 16): the
+    # maintainer asked for the circles further from the scrollbar, the scrollbar
+    # left where it is. PADDING is a byte, and 16 x 12 = 192 at 15360x8640.
+    "optfeedback.gui": [({"LB_OPTIONS"}, 16.0)],
 }
 
 # Files whose 3440x1440 gold layout is NOT transferred to other resolutions.
@@ -1527,6 +1531,12 @@ def main() -> int:
                     if path.name.lower() == "journal.gui":
                         fit_rows_to_list(gutter_file, gutter_file, height,
                                          "LB_ITEMS", JOURNAL_ROWS)
+                    # The Feedback list's check box rows, scaled as the row hook
+                    # scales text rows: the engine builds them at the template's
+                    # own height, and the circle grows with the resolution
+                    # (FEEDBACK_LIST).
+                    if path.name.lower() == FEEDBACK_LIST[0]:
+                        scale_row_template(gutter_file, gutter_file, height, FEEDBACK_LIST[1])
                     # Lists whose rows are sized in code: the list is made as tall
                     # as whole rows, spaced as the inventory's (ROW_LISTS). Before
                     # the Container is widened, which changes widths only.
