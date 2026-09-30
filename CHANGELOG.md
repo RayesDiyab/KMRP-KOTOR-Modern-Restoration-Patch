@@ -1491,6 +1491,14 @@ before:
   and one left: it sits about 4 px lower in its frame than the measurement above centred
   it. Not yet seen in play at the new sizes.
 
+- **macOS: the left stick steers where it points** (2026-10-01, reported from play: diagonals
+  went the wrong way; Windows was right). The Mac engine does not pass the analog axes through:
+  each comes back as sign(v) x (0.5 + 0.5 |v|), measured at Control's Normalize call (a stick
+  1,668/32,767 right of centre gave -0.525, 386 left gave +0.506), so any drift from straight up
+  steered half sideways and diagonals bent by up to 27 degrees. While the stick drives, KMRP's
+  hook there now writes the stick's own direction and deflection into the movement vector
+  (`gameplay.cpp`, `KmrpSkipNormalize`); the keyboard path is unchanged. Seen in play at
+  3024x1964 with a DualSense.
 - **macOS: one patch, built on FTD's current patches, replacing an install of his** (2026-09-30).
   FTD's `widescreen-patch` moved on after the version KMRP shipped (`71ac5fa`, 27 commits to
   `074972b`): he applied the chargen fix (bit `0x08` kept), split the fixes that hold at any

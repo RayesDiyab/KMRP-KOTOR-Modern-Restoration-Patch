@@ -551,6 +551,8 @@ extern "C" __attribute__((visibility("default"))) std::uint64_t KmrpGetJoystickB
 
     int x, y;
     kmrp::g_analogMagnitude = StickToAxes(pad.lx, pad.ly, &x, &y);
+    kmrp::g_leftX = x / 32767.0f;
+    kmrp::g_leftY = y / 32767.0f;
     emit(kSlotLeftX, x);
     emit(kSlotLeftY, y);
     // The right stick turns the camera through the engine (gameplay.cpp), as on Windows; its

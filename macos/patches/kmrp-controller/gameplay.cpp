@@ -29,6 +29,7 @@ float g_rightX = 0, g_rightY = 0;
 std::uint64_t g_lastPadPressMs = 0;
 std::uint32_t g_padButtons = 0;
 float g_analogMagnitude = 0;
+float g_leftX = 0, g_leftY = 0;
 std::uint64_t g_lastBufferMs = 0;
 
 std::uint64_t NowMs() {
@@ -169,6 +170,18 @@ extern "C" __attribute__((visibility("default"))) int KmrpSkipNormalize(void* ve
         engine::VectorNormalize()(vector);
         ++g_count.normalizeRun;
     } else {
+        // The Mac engine's analog axes are not the stick's: each comes back as sign(v) x (0.5 +
+        // 0.5 |v|) (measured 2026-10-01 at the Normalize call: a stick 1,668/32,767 right of centre
+        // gave -0.525, 386 left gave +0.506, 20,133 gave -0.807), so any drift from straight up
+        // steered half sideways and diagonals bent up to 27 degrees. Windows' engine passes the
+        // axes through. While the stick drives, the vector is the stick's own, in Control's
+        // convention (-LeftRight, UpDown), UpDown growing downward as the buffer sends it: the
+        // direction and the deflection as sent, as on Windows.
+        if (vector) {
+            float* v = static_cast<float*>(vector);
+            v[0] = -g_leftX;
+            v[1] = g_leftY;
+        }
         ++g_count.normalizeSkipped;
     }
     return 1;
