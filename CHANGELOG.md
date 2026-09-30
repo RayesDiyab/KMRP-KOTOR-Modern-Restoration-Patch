@@ -892,6 +892,48 @@ before:
 
 ### Fixed
 
+- **Lists are as tall as whole rows, spaced as the inventory's** (2026-09-30, found by an
+  audit of every list at every resolution after the journal's report). A list box shares the
+  height left under its last whole row between its rows, and rows sized in code (items 56s,
+  skills and feats 50s) sit in lists the upstream layouts scale with the screen, so the gaps
+  depended on what was left over. Measured over the 66 sets, where the inventory keeps 8 to
+  12.5% of a row:
+  - the Container (footlockers, bodies): 4 rows of 153 px, 34 px apart at 3024x1964 (22%), and
+    over 13% in 64 sets;
+  - the granted popup ("You have been granted the following feat(s) this level."): 22% in 64
+    sets, which only the Mac's layout patch corrected, at run time;
+  - character creation's Feats: 7 rows of 136 px, 19 px apart at 3024x1964, up to 18% in 46
+    sets;
+  - below 1024x768 and at 1920x540: the store, level-up powers, equipment, upgrade items and
+    the Abilities screen, up to 32%.
+  The resource build now makes each of these lists as tall as whole rows, each `row // 11`
+  from the next (`tools/scale_listbox_padding.py`, `ROW_LISTS` and `fit_list_to_rows`). In the
+  two popups the buttons below the list move with it and the panel keeps its centre: at
+  3024x1964 the Container is 4 rows 13 px apart and 85 px shorter (1,253 px), the granted
+  popup 4 rows 12 px apart. A full-screen list is only shortened, and only where its gaps
+  pass an eighth of a row: the Feats list by 51 px there, 12 px apart. All 66 sets now keep
+  7.5 to 12.5%. The Container with one row more (5 at 3024x1964, 166 px taller) was tried in
+  play against the 4 that fit and declined. The Mac's installer redoes the fit for a size with
+  no set: the blend table (version 3) holds each list as it was before and each set's
+  manifest says by how much it changed; blended as fitted, the 17 Mac sets missed by up to
+  41 px, fitted at install they are back to 99.90% of fields within 1 px, worst 12 px
+  (`Test-GuiBlendHelper.py`). Shared build code: Windows gets it with its next build
+  (`docs/windows-changes-from-macos.md`, item 14). The Container seen in play on the Mac at
+  3024x1964; the others checked by `Test-GeneratedGuiGeometry.py`, not yet seen.
+- **Skill rows are as tall as the Feats and Powers rows** (2026-09-30). The Abilities
+  screen shows its three tabs in one list, with skill rows at `42s` and the Feats and Powers
+  tabs' chain rows at `50s`, so one tab's gaps stayed loose in 11 of the 66 sets: the Skills
+  tab 8 to 11 px (18 to 21% of a row) from 800x600 to 1470x956, the Feats and Powers tabs
+  10 px at 1920x540 and 1024x576, and fitting either would have taken a row off the other.
+  Skill rows are now scaled from 50 on both platforms (`RowSizeGroups` in
+  `src/patcher/KmrpPatcher.cs`, `resolution_sizes.cpp` on the Mac): 136 px at 3024x1964, where
+  they were 115, so the Skills tab shows five of the eight skills at a time there rather than
+  six; the granted popup's rows grow with them. The skill icons keep their proportion to the
+  row, `round(32s x 50 / 42)` capped at 64, in `AbilityIconGenerator.cs` and the Mac's helper
+  alike: 38 px from 720 down, 52 at 982, 57 at 1080, 64 from about 1210 up. Checked by
+  `Test-KmrpLayoutPatch.py`, `Test-AbilityIcons.py` (the two generators byte for byte) and
+  `Test-MacInstaller.py`; **not yet seen in play**. Windows: `docs/windows-changes-from-macos.md`,
+  item 15.
 - **macOS: the Options check boxes scale with the resolution** (2026-09-30, found by
   reading the code while auditing what does not scale). The Options screens' toggles
   (Feedback's list, Auto-pause, Gameplay, Graphics, Advanced Graphics, Mouse, Advanced

@@ -48,7 +48,7 @@ installer's `--apply` output at 1280x720, 1920x1080, 2560x1440 and 3840x2160:
 | group | sites | read back |
 | --- | --- | --- |
 | Inventory, Store | the five above | 56 / 84 / 112 / 168 |
-| Abilities, skills tab | `0x002AB8EF`, `0x002ACB20` | 42 / 63 / 84 / 126 |
+| Abilities, skills tab | `0x002AB8EF`, `0x002ACB20` | 42 / 63 / 84 / 126 (scaled from 50 since 2026-09-30: 50 / 75 / 100 / 150, not yet read back) |
 | Abilities, powers and feats chain rows | `0x002CD8D9`, `0x002CDB79` (vanilla 40) | 50 / 75 / 100 / 150 |
 
 The chain rows scale from a base of **50**, 1.25 × vanilla 40 (the group is

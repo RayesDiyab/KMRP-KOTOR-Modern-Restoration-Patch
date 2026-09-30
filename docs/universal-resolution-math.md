@@ -316,7 +316,7 @@ back from the installer's own output** (`--apply`, installer `ECA3DE4B…`,
 | Stack label width, 1-2 and 3+ digits (`.ksc`) | `0x3DF003`, `0x3DF009` | 21 | `21s` | 21 | 32 | 42 | 63 | 252 |
 | Stack label top offset (`.ksc`) | `0x3DF020` | 37 | `37s` | 37 | 56 | 74 | 111 | 444 |
 | Inventory icon and row height | `0x2B527F`, `0x2B4FA9`, `0x2B55E3` | 56 | `56s` | 56 | 84 | 112 | 168 | 672 |
-| Abilities (skills) icon and row height | `0x2AB8EF`, `0x2ACB20` | 42 | `42s` | 42 | 63 | 84 | 126 | 504 |
+| Abilities (skills) icon and row height | `0x2AB8EF`, `0x2ACB20` | 42 | `50s` (vanilla 42; `42s` until 2026-09-30) | 50 | 75 | 100 | 150 | 600 |
 | Store icon and row height | `0x2C265F`, `0x2C2A23` | 56 | `56s` | 56 | 84 | 112 | 168 | 672 |
 | Powers/feats chain row height | `0x2CD8D9`, `0x2CDB79` | 40 | `50s` (vanilla 40) | 50 | 75 | 100 | 150 | 600 |
 | Popup auto-fit height stop | `0x2256E3`, `0x225759` | 900 | `450s` | 450 | 675 | 900 | 1350 | 5400 |

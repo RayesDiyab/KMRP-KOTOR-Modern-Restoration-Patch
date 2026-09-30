@@ -113,10 +113,11 @@ def main() -> int:
                     failures.append(f"{height} {arch}: {len(differ)} files differ, e.g. {differ[:3]}")
             if any(n.lower() in {r.lower() for r in RESERVED} for n in reference):
                 failures.append(f"{height}: a reserved name was generated")
-            # The skill icons (isk_*, 32 px) grow with the Skills row: round(32s), at most 64,
-            # none below s = 1 (checked against the rule itself, not only between the two ports).
+            # The skill icons (isk_*, 32 px) grow with the Skills row, scaled from 50 where
+            # vanilla's is 42: round(32 * s * 50 / 42), at most 64, so 38 already at s = 1
+            # (checked against the rule itself, not only between the two ports).
             s = max(1.0, struct.unpack("<f", struct.pack("<f", height / 720.0))[0])
-            want = min(round(32 * s), 64)
+            want = min(round(32 * s * 50 / 42), 64)
             skills = {n: struct.unpack_from("<HH", data, 12) for n, data in reference.items() if n.startswith("isk_")}
             if want <= 32 and skills:
                 failures.append(f"{height}: skill icons generated at scale {s:.3f}")

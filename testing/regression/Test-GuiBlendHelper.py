@@ -8,9 +8,11 @@ fonts of the nearest set it installs. This:
 1. builds the table and the helper from the resources given;
 2. derives several resolutions with the helper and with an independent Python derivation
    over the same table, and requires them to match byte for byte. The Python applies the
-   Container's fit itself and makes the Controller Layout screen with the build's own
-   generator (build_controller_layout.build_gui) from the blended Gameplay panel, so this
-   is also the check that the helper's copy of that generator matches it;
+   Container's fit itself, fits the lists made as tall as whole rows with the build's own
+   scale_listbox_padding.fit_list_to_rows, and makes the Controller Layout screen with the
+   build's own generator (build_controller_layout.build_gui) from the blended Gameplay
+   panel, so this is also the check that the helper's copies of that rule and that
+   generator match them;
 3. rebuilds every anchor of the table from the table, with its own fonts, and requires the
    build's set byte for byte;
 4. derives every macOS-group resolution (built by the full pipeline, and not anchors of the
@@ -40,6 +42,7 @@ sys.path.insert(0, str(ROOT / "tools"))
 import prepare_universal_resources as pur  # noqa: E402
 import build_controller_prompt_textures as prompts  # noqa: E402
 import build_controller_layout as layout  # noqa: E402
+import scale_listbox_padding as slp  # noqa: E402
 from build_gui_blend_table import LAYOUT_SCREEN  # noqa: E402
 
 RESOURCES = Path(sys.argv[1]) if len(sys.argv) > 1 else ROOT / "build" / "kmrp" / "resources"
@@ -56,7 +59,7 @@ def read_text(d: bytes, p: int) -> tuple[str, int]:
 
 def read_table(path: Path):
     d = path.read_bytes()
-    assert d[:4] == b"KGBL" and struct.unpack_from("<I", d, 4)[0] == 2
+    assert d[:4] == b"KGBL" and struct.unpack_from("<I", d, 4)[0] == 3
     p = 8
     nf = struct.unpack_from("<I", d, p)[0]; p += 4
     aspects = list(struct.unpack_from(f"<{nf}d", d, p)); p += 8 * nf
@@ -90,6 +93,15 @@ def read_table(path: Path):
             _, p = read_text(d, p)
         p += 8                                   # the root's WIDTH and HEIGHT offsets
         controls = struct.unpack_from("<I", d, p)[0]; p += 4 + 16 * controls
+    # Skipped: the Python side fits the lists with the build's own rule (ROW_LISTS).
+    nrowfits = struct.unpack_from("<I", d, p)[0]; p += 4
+    for _ in range(nrowfits):
+        _, p = read_text(d, p)
+        _, p = read_text(d, p)
+        p += 1 + 8 + 4
+        bases = struct.unpack_from("<I", d, p)[0]; p += 4 + 4 * bases
+        p += 20
+        below = struct.unpack_from("<I", d, p)[0]; p += 4 + 4 * below
     nfiles = struct.unpack_from("<I", d, p)[0]; p += 4
     files = []
     for _ in range(nfiles):
@@ -167,8 +179,9 @@ def apply_fit(fit: dict, data: bytearray, caption: float) -> None:
 
 
 def python_derive(table, width, height, set_dir: Path, scratch: Path) -> dict[str, bytes]:
-    """What the helper should write: the blend, the Container's fit, and the Controller
-    Layout screen made by the build's own generator from the blended Gameplay panel."""
+    """What the helper should write: the blend, the lists fitted to whole rows by the
+    build's own rule, the Container's fit, and the Controller Layout screen made by the
+    build's own generator from the blended Gameplay panel."""
     aspects, anchors, fits, layouts, files = table
     terms = terms_for(aspects, anchors, width, height)
     out = {}
@@ -179,6 +192,12 @@ def python_derive(table, width, height, set_dir: Path, scratch: Path) -> dict[st
             for i, w in terms:
                 v += values[i][s] * w
             struct.pack_into("<i", data, off, int(math.copysign(math.floor(abs(v) + 0.5), v)))
+        for (screen, tag), (kind, bases) in slp.ROW_LISTS.items():
+            if screen == name:
+                path = scratch / name
+                path.write_bytes(bytes(data))
+                if slp.fit_list_to_rows(path, path, height, tag, bases, kind == "popup"):
+                    data = bytearray(path.read_bytes())
         if name in fits:
             apply_fit(fits[name], data, caption_width((set_dir / prompts.PROMPT_MANIFEST_NAME).read_bytes(),
                                                       fits[name]["row"]))

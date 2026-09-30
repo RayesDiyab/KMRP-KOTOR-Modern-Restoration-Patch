@@ -26,7 +26,7 @@ documents and tests only; item 5 was found while writing `3366c33`), `4d1fe29` (
 4), `9eee359` (item 10), `0734db6` (the Mac installer's window, which has no Windows
 counterpart to change: it ports the Windows patcher's), `f59663a` (these documents), `13e676c`
 and `d44ee0d` (the Mac disk image, its icon and the Mac's controller option, which Windows
-already has), and the commits adding items 11 to 13.
+already has), and the commits adding items 11 to 15.
 
 States: **to do** (Windows has nothing yet), **build only** (shared code already changed;
 Windows gets it with a build from the merged code and needs a check in play), **doc** (a
@@ -47,6 +47,8 @@ Windows document to correct).
 | 11 | The header's smoke fades out before the header's bottom edge | **to do** |
 | 12 | The journal's quest rows: six to the list, spaced as the inventory's | **build only** |
 | 13 | The Options check boxes' circle and label offset scaled with the resolution | **to do** |
+| 14 | Lists as tall as whole rows: the Container, the granted popup, character creation's Feats, low-resolution lists | **build only** |
+| 15 | Skill rows as tall as the Feats and Powers rows (`50s`), the skill icons with them | **build only** |
 
 ## 1. Message popups fitted to their contents
 
@@ -111,6 +113,7 @@ set for*):
 | `.gui` files | blended from the finished sets around the size (`macos/tools/kmrp-guiblend.c` over `gui-blend.bin`, built by `tools/build_gui_blend_table.py`) |
 | the Container | made, not blended: widened by the build's own rule (`fit_container_to_caption`) for the caption width of the set whose fonts are installed |
 | the Controller Layout screen | made, not blended: `build_gui`'s arithmetic, with every number from the table by name |
+| the lists made as tall as whole rows (item 14) | made, not blended: the build's `fit_list_to_rows` on the blend, at the size's own row heights (table version 3) |
 | fonts, prompt art | the nearest listed set's, by height, then shape |
 | row frames, tutorial icons, ability icons | made at the exact size from the player's game, as Windows already does for listed sizes |
 | engine sizes | computed from the height by formula (`macos/patches/kmrp-layout`), not read from a table |
@@ -127,9 +130,9 @@ any other. `ResolutionChoice` carries per-size fields (the canvas and others) re
 catalogue, not computed.
 
 **What Windows needs.**
-- The blend in C#: a port of `kmrp-guiblend.c`, including the table's two rules (the
-  Container's fit and the Controller Layout generator), or the helper itself shipped for
-  Windows and run by the patcher.
+- The blend in C#: a port of `kmrp-guiblend.c`, including the table's three rules (the
+  Container's fit, the Controller Layout generator and the row fit of item 14), or the helper
+  itself shipped for Windows and run by the patcher.
 - `ResolutionChoice`'s fields computed for a size the catalogue lacks.
 - The fonts and prompt art of the nearest set.
 - A way to ask for the size in the patcher's UI.
@@ -180,10 +183,11 @@ document, not the code: removing an untouched default is the rule every other fi
 
 ## 6. Skill icons enlarged with the Skills rows
 
-The Skills tab's rows grow to `42s`. The eight `isk_*` icons are 32x32 textures the engine
-draws one texel per pixel, so at 3024x1964 a 32 px icon sat in a 115 px row.
-`src/patcher/AbilityIconGenerator.cs` now writes them at `round(32s)`, capped at 64 (commit
-`7d603c8`, `CHANGELOG.md`, *The skill icons grow with the Skills rows*). The Mac helper
+The Skills tab's rows grow to `42s` (`50s` since item 15). The eight `isk_*` icons are
+32x32 textures the engine draws one texel per pixel, so at 3024x1964 a 32 px icon sat in a
+115 px row. `src/patcher/AbilityIconGenerator.cs` now writes them at `round(32s)`, capped at
+64 (commit `7d603c8`, `CHANGELOG.md`, *The skill icons grow with the Skills rows*); since
+item 15, `round(32s x 50 / 42)`, so they keep their proportion to the taller rows. The Mac helper
 matches it byte for byte (`Test-AbilityIcons.py`, ten heights), and it was seen on the Mac at
 1512x982. **Check** the Skills tab on Windows at 1920x1080 (48 px) and 3440x1440 (64 px).
 
@@ -248,7 +252,8 @@ Three changes, for this popup's rows only:
 3. **The text.** The text's rect, the text frames' inner rect, is inset by an eighth of the
    row on each side.
 
-Every size is taken from the row's height (`42s`), so it holds at any resolution. Seen in play
+Every size is taken from the row's height (`42s` then; `50s` since item 15), so it holds at
+any resolution. Seen in play
 at 3024x1964 only, with four feats; a list long enough to scroll has not been seen.
 
 **Where, on the Mac.** Two calls go through the layout patch's near page:
@@ -263,7 +268,10 @@ at 3024x1964 only, with four feats; a list long enough to scroll has not been se
 | `+0x228`, `+0x2B0`, `+0x338` | a row's hex, highlight and icon squares; `+0x110` its text |
 | `+0x344`, `+0x350`, `+0x368`, `+0x378` | the list's inner height, row count, row height and visible count (short) |
 
-**What Windows needs.** The same three changes in the executable patch. The Windows row's
+**What Windows needs.** Since item 14 the first change comes from `skillinfo.gui` itself: the
+build makes the list as tall as its rows at the same pitch, so a Windows build has the spacing
+for a full popup. Still Mac-only: the cut to fewer rows when fewer are granted, the hex and
+the text. Those two, and that cut, in the executable patch. The Windows row's
 `SetExtent` is the function holding the icon's `42` at `0x006AB8EE`
 ([`reverse-engineering/inventory-item-rows.md`](../reverse-engineering/inventory-item-rows.md)),
 and the row's initialiser sets its height at `0x006ACB20`. Not yet read: that function's start
@@ -362,3 +370,52 @@ function needs relocating, as the stack-count label was (`.ksc`).
 
 **Check.** At 3440x1440 and 1920x1080: Options, then Feedback and Gameplay. Each circle is
 about 0.6 of its row's height, centred on the row, with its label clear of it.
+
+## 14. Lists as tall as whole rows (shared build code)
+
+**What changed** (2026-09-30, `CHANGELOG.md`, *Fixed*). The list box shares the height left
+under its last whole row between its rows (item 12). Rows sized in code (items `56s`, skills and
+feats `50s`) sit in lists the upstream layouts scale with the screen, so each list's gaps
+depended on what was left over. An audit of every multi-row list at the 66 sets found:
+
+| List | Before, at 3024x1964 | Sets past 13% | After, at 3024x1964 |
+| --- | --- | --- | --- |
+| `container.gui` `LB_ITEMS` | 4 x 153 px, 34 apart | 64 | 4 x 153 px, 13 apart; panel 85 px shorter, same centre |
+| `skillinfo.gui` `LB_SKILLS` (granted popup) | 4 x 115 px, 26 apart | 64 | 4 x 136 px (item 15), 12 apart; OK and panel with it |
+| `ftchrgen.gui` `LB_FEATS` | 7 x 136 px, 19 apart | 39 | 7 x 136 px, 12 apart; list 51 px shorter |
+| store, level-up powers, equipment, upgrade items, Abilities | within the inventory's range | up to 11, below 1024x768 and at 1920x540 | shortened there |
+
+`tools/scale_listbox_padding.py` (`ROW_LISTS`, `fit_list_to_rows`) makes each as tall as whole
+rows, `row // 11` apart: in the two popups the controls below move with the list and the panel
+keeps its centre; a full-screen list is only shortened, and only where a gap passes an eighth
+of a row. All 66 sets now keep 7.5 to 12.5%, the inventory's range. Each set's
+`kmrp_prompts.txt` records every change on a `fitted` line, which the Windows installer skips
+as it skips `widened` (read from its parser; not run).
+
+**What Windows needs.** Nothing written. The next Windows build's sets carry it.
+
+**Check.** On a Windows build at 3440x1440 and 1920x1080: a footlocker (the Container), the
+granted popup at character creation (Custom, Feats, Recommended, OK) and the Feats step
+itself. Rows as evenly spaced as the inventory's; the Container's and the popup's buttons
+under their lists, the panels centred.
+
+## 15. Skill rows as tall as the Feats and Powers rows (shared code)
+
+**What changed** (2026-09-30). The Abilities screen shows Skills, Feats and Powers in one list.
+With skill rows at `42s` and chain rows at `50s`, one tab stayed loose in 11 sets (Skills 8 to
+11 px from 800x600 to 1470x956; Feats and Powers 10 px at 1920x540 and 1024x576), and fitting
+the list to either took a row off the other. Skill rows are now scaled from 50:
+
+| | Windows | Mac |
+| --- | --- | --- |
+| row height and icon box | `RowSizeGroups`: `{ 42, 50, 0x002AB8EF, 0x002ACB20 }` (was `{ 42, 42, ... }`) | `resolution_sizes.cpp`, `AddListRows` |
+| skill icons | `AbilityIconGenerator.SkillTargetSize`: `round(32s x 50 / 42)`, capped at 64 | `kmrp-abilityicons.c`, the same, byte for byte |
+
+At 3024x1964 the rows are 136 px (were 115), so the Skills tab shows five skills at a time
+where it showed six; the icons stay at the 64 px cap there. At 1920x1080: 75 px rows, 57 px
+icons (were 63 and 48).
+
+**What Windows needs.** Nothing more: both changes are in the shared C#. A Windows build.
+
+**Check.** At 3440x1440 and 1920x1080: the Abilities screen's three tabs, rows of one height
+and the same spacing; the skill icons centred in their hexes; the granted popup's rows.

@@ -200,6 +200,51 @@ def check_journal_rows(path: Path, resolution: str, height: int) -> list[str]:
     return []
 
 
+def check_row_lists(extract_dir: Path, resolution: str, height: int) -> list[str]:
+    """Lists of code-sized rows are as tall as whole rows (ROW_LISTS).
+
+    The engine shares the height left under the last whole row between the
+    rows. In a popup (the Container, the granted popup) the list is fitted at
+    every size: each gap is exactly row // 11, and every control below the list
+    starts under it, inside the panel. A full-screen list keeps its gaps within
+    LOOSE_GAP of a row, for at least one kind of row where it has two (the
+    Abilities list serves the Skills tab and the Feats and Powers tabs, and
+    one height cannot fit both; see scale_listbox_padding.py).
+    """
+    from scale_listbox_padding import LOOSE_GAP, ROW_LISTS, row_height
+    errors: list[str] = []
+    for (screen, tag), (kind, bases) in ROW_LISTS.items():
+        root = read_gff(extract_dir / screen).root
+        controls = root.get_list("CONTROLS")
+        control = controls_by_tag(read_gff(extract_dir / screen)).get(tag)
+        if control is None:
+            errors.append(f"{resolution} {screen}: missing {tag}")
+            continue
+        _, top, _, list_height = extent_values(control)
+        inner = list_height - 2 * control.get_struct("BORDER").get_int32("DIMENSION")
+        gaps = []
+        for base in bases:
+            row = row_height(base, height)
+            rows = inner // row
+            gaps.append(((inner - rows * row) // rows, row, rows))
+        if kind == "popup":
+            gap, row, rows = gaps[0]
+            if gap != row // 11:
+                errors.append(f"{resolution} {screen} {tag}: {rows} rows of {row} px, {gap} px apart, "
+                              f"not {row // 11}")
+            panel_height = extent_values(root)[3]
+            for other in controls:
+                _, other_top, _, other_height = extent_values(other)
+                if other_top > top and other_top < top + list_height:
+                    errors.append(f"{resolution} {screen}: {other.get_string('TAG')} starts inside {tag}")
+                if other_top + other_height > panel_height:
+                    errors.append(f"{resolution} {screen}: {other.get_string('TAG')} ends below the panel")
+        elif min(gap / row for gap, row, _ in gaps) > LOOSE_GAP:
+            errors.append(f"{resolution} {screen} {tag}: rows " +
+                          ", ".join(f"{rows} of {row} px {gap} apart" for gap, row, rows in gaps))
+    return errors
+
+
 def check_party_switch_cue(path: Path, resolution: str) -> list[str]:
     """The R3 cue is 90% of a portrait, between the portraits or right of them.
 
@@ -452,8 +497,9 @@ def main() -> int:
             extract_dir = temp / resolution
             with zipfile.ZipFile(archive) as package:
                 names = set(package.namelist())
+                from scale_listbox_padding import ROW_LISTS
                 required = {"optfeedback.gui", "scriptselect.gui", "confirm.gui", "journal.gui",
-                            active_hud,
+                            *(screen for screen, _ in ROW_LISTS), active_hud,
                             "dialogfont10x10.txi", *R3_CUE_SCREENS}
                 missing = required - names
                 if missing:
@@ -472,6 +518,7 @@ def main() -> int:
             errors.extend(check_scriptselect_centred(
                 extract_dir / "scriptselect.gui", resolution, width))
             errors.extend(check_journal_rows(extract_dir / "journal.gui", resolution, height))
+            errors.extend(check_row_lists(extract_dir, resolution, height))
             for name in R3_CUE_SCREENS:
                 errors.extend(check_party_switch_cue(extract_dir / name, resolution))
             errors.extend(check_swap_cue(extract_dir / "abilities.gui", resolution))
@@ -487,7 +534,7 @@ def main() -> int:
         for error in errors:
             print(f"  {error}")
         return 1
-    print(f"PASS: Reported GUI repairs, the journal's rows, the cues and active HUD geometry "
+    print(f"PASS: Reported GUI repairs, the journal's and other lists' rows, the cues and active HUD geometry "
           f"in {len(archives)} archives")
     return 0
 

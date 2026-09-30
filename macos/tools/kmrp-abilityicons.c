@@ -11,7 +11,7 @@
  * uncompressed square i_* or ip_* texture in ERF (the game's TexturePacks/swpc_tex_gui.erf),
  * resized to the slot's icon box, round(50s) - 4 with s = max(1, HEIGHT / 720), capped at
  * twice its size, as a 32-bit TGA in OUTDIR. The skill icons (isk_*) grow with their row, the
- * Skills tab's 42s: round(size * s), capped the same way. Icons already at least that size
+ * Skills tab's 50s (vanilla's 42): round(size * s * 50 / 42), capped the same way. Icons already at least that size
  * are skipped, as are names listed in RESERVED (one file name per line: files KMRP installs
  * itself).
  *
@@ -39,6 +39,8 @@ enum {
     ERF_RESOURCE_SIZE = 8,
     RESOURCE_TYPE_TPC = 3007,
     FEAT_ROW_BASE = 50, /* the feat/power chain row group in RowSizeGroups */
+    SKILL_ROW_BASE = 50, /* the skills group in RowSizeGroups */
+    VANILLA_SKILL_ROW = 42, /* the row the 32 px skill icons were drawn for */
     ICON_INSET = 4,     /* the icon control is the row height minus this */
 };
 
@@ -63,7 +65,7 @@ static int target_size(double scale, int native) {
 
 /* AbilityIconGenerator.SkillTargetSize: grown with the Skills row, capped at 2x the source. */
 static int skill_target_size(double scale, int native) {
-    int grown = (int)nearbyint(native * scale);
+    int grown = (int)nearbyint(native * scale * SKILL_ROW_BASE / VANILLA_SKILL_ROW);
     if (grown <= native) return native;
     return grown < native * 2 ? grown : native * 2;
 }

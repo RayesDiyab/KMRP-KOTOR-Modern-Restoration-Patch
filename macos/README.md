@@ -286,7 +286,7 @@ sources' comments and, against the Windows sites, in `WINDOWS-PARITY.md`.
 | `resolution_sizes.cpp` | text-list rows `×s` | a stub over `CSWGuiButton::Initialize`'s rect copy (`0x1004a5a05`) | the row float and hook at `0x00417992` |
 | | inventory rows `56s` | icon `0x1002be441`, height `0x1002be870`, text offsets `0x1002be4da`, `0x1002be4e1` | `RowSizeGroups` |
 | | store rows `56s` | height `0x1002bff6d` (the icon follows it by the widescreen patch's hook) | `RowSizeGroups` |
-| | skills rows `42s` | icon `0x10022f256`, height `0x10022f60b`, text offsets `0x10022f297`, `0x10022f29d` | `RowSizeGroups` |
+| | skills rows `50s` (vanilla 42; `42s` until 2026-09-30) | icon `0x10022f256`, height `0x10022f60b`, text offsets `0x10022f297`, `0x10022f29d` | `RowSizeGroups` |
 | | stack-count label `21s`/`42s`, `37s`, `19s` | the label block `0x1002be4a0` re-encoded with 32-bit operands; the store's label x `0x1002bfbc0` | `StackCountSites`, `.ksc` |
 | | feat and power chain rows `50s` | the rect's height at `0x100570efc` | `RowSizeGroups` |
 | | message popup: caps `800s`, `450s`, icon `64s` | `0x100306877`, `0x10030687f`, `0x10030688b`, `0x1003068fd`, `0x1003065a1`, the icon rect at `0x100571bb0` | `PopupSizeGroups` |
@@ -357,10 +357,11 @@ no font with the switch on, so a texel of the atlas is a pixel on screen, as on 
 **Other sizes.** For a size with no set, the installer blends the `.gui` files from the
 finished sets around it (`kmrp-guiblend` over `gui-blend.bin`: the two aspect-ratio families
 on either side, each at the two heights around it) and takes the fonts and art of the nearest
-set by height, then shape. Two files are not blended but made for the size, with that set's
-fonts (since 2026-09-30, `gui-blend.bin` version 2): the Container, widened by the build's
-own rule until "Switch To Give Item" and its badge fit, and the Controller Layout screen,
-which the helper lays out with `build_gui`'s arithmetic (`WINDOWS-PARITY.md`, *Resolutions
+set by height, then shape. Some layouts are not blended but made for the size (since
+2026-09-30): the Container, widened by the build's own rule until "Switch To Give Item" and
+its badge fit, with that set's fonts; the Controller Layout screen, which the helper lays out
+with `build_gui`'s arithmetic; and (`gui-blend.bin` version 3) the lists the build makes as
+tall as whole rows, fitted at the size's own row heights (`WINDOWS-PARITY.md`, *Resolutions
 the build has no set for*). Measured by hiding each finished set and predicting it from the
 others: 99.89% of numeric fields within 1 px; the 17 Mac sets, held out, 99.90% within 1 px,
 every file counted, worst 12 px in a HUD variant the Mac does not load; the Controller
@@ -387,7 +388,8 @@ checked). If either file cannot be read, none is installed and the game keeps it
 **Feat, power and skill icons.** The engine draws them at their texture's size in rows
 that grow with `s`. `kmrp-abilityicons` enlarges every uncompressed square `i_*` and `ip_*`
 texture of the game's `swpc_tex_gui.erf` to `round(50s) − 4`, and the eight `isk_*` skill
-icons to `round(32s)`, each at most twice its size, as `AbilityIconGenerator.cs` does on
+icons to `round(32s)` (`round(32s x 50 / 42)` since 2026-09-30, with the skill rows at `50s`),
+each at most twice its size, as `AbilityIconGenerator.cs` does on
 Windows, byte for byte (`Test-AbilityIcons.py`: 2,688 icons at 10 heights, both slices).
 Without them the feat and power icons stayed 32 px in 136 px frames at 3024x1964 (seen
 2026-09-29), and the skill icons 32 px in rows of 115 (`42s`; reported from play the same

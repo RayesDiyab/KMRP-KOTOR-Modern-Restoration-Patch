@@ -23,10 +23,11 @@ namespace Kmrp
     /// is on the user's disk already.
     ///
     /// The eight skill icons (`isk_*`, 32x32) have the same problem in the
-    /// Skills tab, whose rows grow to 42s (RowSizeGroups): stock, a 32 px icon
-    /// sat in a 115 px row at 3024x1964. They grow by the same factor as their
-    /// row, `round(32s)`, so they keep their vanilla proportion to it (no change
-    /// at 720 and below), capped at 2x like the rest. They are drawn only in the
+    /// Skills tab, whose rows grow to 50s (RowSizeGroups; vanilla's are 42): stock,
+    /// a 32 px icon sat in a 136 px row at 3024x1964. They grow by the same factor
+    /// as their row, `round(32 * s * 50 / 42)`, so they keep their vanilla
+    /// proportion to it, capped at 2x like the rest. (From 2026-09-29 the rows grew
+    /// from 42 and the icons by `s` alone; the rows moved to 50 on 2026-09-30.) They are drawn only in the
     /// Skills tab and the skill info list (whose template rows grow by s too), so
     /// they fit wherever they appear; character creation shows no skill icons.
     /// Added 2026-09-29, for Windows and macOS together.
@@ -46,6 +47,8 @@ namespace Kmrp
         private const int ErfResourceRecordSize = 8;
         private const int ResourceTypeTpc = 3007;
         private const int FeatRowBase = 50;         // must match the feat/power group in RowSizeGroups
+        private const int SkillRowBase = 50;        // must match the skills group in RowSizeGroups
+        private const int VanillaSkillRow = 42;     // the row the 32 px skill icons were drawn for
         private const int IconInset = 4;            // icon control is the row height minus this
 
         /// <summary>Icon edge for this scale: the slot's icon box, capped at 2x the
@@ -59,10 +62,11 @@ namespace Kmrp
         }
 
         /// <summary>Skill icon edge for this scale: grown with the Skills row
-        /// (42s), so round(native * s), capped at 2x the source.</summary>
+        /// (50s, from vanilla's 42), so round(native * s * 50 / 42), capped at 2x
+        /// the source.</summary>
         private static int SkillTargetSize(double scale, int nativeSize)
         {
-            int grown = (int)Math.Round(nativeSize * scale);
+            int grown = (int)Math.Round(nativeSize * scale * SkillRowBase / VanillaSkillRow);
             if (grown <= nativeSize)
                 return nativeSize;
             return Math.Min(grown, nativeSize * 2);

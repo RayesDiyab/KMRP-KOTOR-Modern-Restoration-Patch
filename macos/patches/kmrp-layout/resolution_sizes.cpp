@@ -77,7 +77,9 @@ int32_t Scaled(int base, float scale) {
   List rows (Windows: RowSizeGroups; reverse-engineering/inventory-item-rows.md)
   ----------------------------------------------------------------------------------------------
   Three screens build their list rows in code, each with a square icon box and a row height of
-  the same size: inventory 56, store 56, skills 42. Windows scales icon and height together
+  the same size: inventory 56, store 56, skills 42 (vanilla's). The skills rows are scaled from
+  50, as the Feats and Powers tabs' chain rows below, since 2026-09-30: the Abilities screen
+  shows all three tabs in one list, and rows of two heights left one tab's gaps loose. Windows scales icon and height together
   (the icon alone grows into the row below). On the Mac each row's SetExtent keeps the icon
   size in a register (r13d, edx) but offsets the text by separate 8-bit copies of it, so those
   two instructions are pointed at the register: the text then starts after the icon whatever
@@ -96,7 +98,7 @@ int32_t Scaled(int base, float scale) {
                add eax, 42 at 0x10022f297, add esi, -42 at 0x10022f29d; height 42 at 0x10022f60b.
 */
 void AddListRows(std::vector<Group>& groups, float s) {
-    const int32_t row56 = Scaled(56, s), row42 = Scaled(42, s);
+    const int32_t row56 = Scaled(56, s), rowSkill = Scaled(50, s);
     groups.push_back({"inventory rows", {
         {0x1002be443, Int32(56), Int32(row56)},
         {0x1002be874, Int32(56), Int32(row56)},
@@ -109,8 +111,8 @@ void AddListRows(std::vector<Group>& groups, float s) {
         {0x1002bff71, Int32(56), Int32(row56)},
     }});
     groups.push_back({"skills rows", {
-        {0x10022f257, Int32(42), Int32(row42)},
-        {0x10022f60f, Int32(42), Int32(row42)},
+        {0x10022f257, Int32(42), Int32(rowSkill)},
+        {0x10022f60f, Int32(42), Int32(rowSkill)},
         {0x10022f297, Bytes({0x83, 0xc0, 0x2a}), Bytes({0x01, 0xd0, 0x90})},  // add eax, edx
         {0x10022f29d, Bytes({0x83, 0xc6, 0xd6}), Bytes({0x29, 0xd6, 0x90})},  // sub esi, edx
     }});
