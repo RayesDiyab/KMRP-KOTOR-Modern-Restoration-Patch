@@ -44,7 +44,9 @@ BRAND_WIDTH, BRAND_TOP = 285, 10
 # The icons' centres and size, as the build sets them in Finder, and each label's plate.
 APP_CENTRE, APPLICATIONS_CENTRE = (170, 262), (470, 262)
 ICON = 104
-PLATE_WIDTH, PLATE_TOP, PLATE_HEIGHT = 150, 316, 24   # Finder writes the label just under the icon
+# Finder writes each label just under its icon, the capitals' middle at y 331 (measured on
+# macOS 27 at icon size 104, text size 13); each plate is centred on that.
+PLATE_WIDTH, PLATE_TOP, PLATE_HEIGHT = 150, 319, 24
 # The crest in brand.png (tools/build_brand_image.py composes it; its source art is not in the
 # repository): the wordmark is taken out of the lockup, and the crest is whatever is left. The
 # letters start at row 345 and are the lockup's metal, grey or warm where the crest is blue;
