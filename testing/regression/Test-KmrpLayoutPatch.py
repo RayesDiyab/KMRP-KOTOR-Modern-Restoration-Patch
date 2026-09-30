@@ -14,7 +14,8 @@ ships, and checks:
    (int)Math.Round(base * max(1, height / 720f)), single precision, half to even);
 4. every rewritten instruction disassembles as intended, the two list-box blocks jump to
    the patch's stubs, the stubs disassemble to the listings in listbox_padding.cpp and jump
-   back where the blocks end, and at a height of 720 or less the stack-count block computes
+   back where the blocks end, the Options check boxes' layout (0x1002cecee) is replaced by an
+   absolute jump into the patch, and at a height of 720 or less the stack-count block computes
    exactly what vanilla does;
 5. the game's module has one load-time initialiser, the patch's constructor. A second one is a
    C++ global that needs initialising, which the constructor may run before: a global
@@ -367,6 +368,10 @@ def main() -> int:
             value = found[site][1]
             if value[:6] != bytes.fromhex("ff2500000000") or value[14:] != b"\xcc" * (length - 14):
                 failures.append(f"{height}: {site:#x} is not an absolute jump to the {name} stub")
+        # The Options check boxes' SetExtent, replaced whole (resolution_sizes.cpp, AddCheckboxes).
+        value = found.get(0x1002cecee, ("", b""))[1]
+        if value[:6] != bytes.fromhex("ff2500000000") or value[14:] != b"\xcc" * 3:
+            failures.append(f"{height}: 0x1002cecee is not an absolute jump to the check-box layout")
 
     code = STUBS.get("map", b"")
     listing = [re.sub(r"\[rip \+ 0x[0-9a-f]+\]", "[rip + X]", re.sub(r"^(jmp|je) 0x[0-9a-f]+$", r"\1 X", x))

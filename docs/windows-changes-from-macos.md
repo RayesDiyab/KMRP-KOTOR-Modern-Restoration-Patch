@@ -26,7 +26,7 @@ documents and tests only; item 5 was found while writing `3366c33`), `4d1fe29` (
 4), `9eee359` (item 10), `0734db6` (the Mac installer's window, which has no Windows
 counterpart to change: it ports the Windows patcher's), `f59663a` (these documents), `13e676c`
 and `d44ee0d` (the Mac disk image, its icon and the Mac's controller option, which Windows
-already has), and the commits adding items 11 and 12.
+already has), and the commits adding items 11 to 13.
 
 States: **to do** (Windows has nothing yet), **build only** (shared code already changed;
 Windows gets it with a build from the merged code and needs a check in play), **doc** (a
@@ -46,6 +46,7 @@ Windows document to correct).
 | 10 | The granted popup's rows: hex as tall as the text frame, text inset, rows spaced like the inventory's | **to do** |
 | 11 | The header's smoke fades out before the header's bottom edge | **to do** |
 | 12 | The journal's quest rows: six to the list, spaced as the inventory's | **build only** |
+| 13 | The Options check boxes' circle and label offset scaled with the resolution | **to do** |
 
 ## 1. Message popups fitted to their contents
 
@@ -330,3 +331,34 @@ only.
 **Check.** On a Windows build made from these resources, at 3440x1440 and 1920x1080: the
 journal's Active and Completed quests show six rows, as evenly spaced as the inventory's,
 with each quest name centred in its frame.
+
+## 13. The Options check boxes
+
+**What the Mac does** (2026-09-30, `macos/patches/kmrp-layout/resolution_sizes.cpp`,
+*Options check boxes*). The Options screens' toggles (Feedback's list, Auto-pause, Gameplay,
+Graphics, Advanced Graphics, Mouse, Advanced Sound) are `CSWGuiOptionsCheckbox`. Its
+`SetExtent` puts the circle's four state images in a fixed 25x25 square at the control's
+left, 2 px below its middle, and the label 30 px in, whatever the resolution
+([`../reverse-engineering/listbox-geometry.md`](../reverse-engineering/listbox-geometry.md),
+*Checkbox rows beside a left scrollbar*, read the same function on Windows). At 3024x1964 the
+toggles are 117 to 164 px tall, so the circle was about a sixth of them; vanilla drew it in
+43- and 60-px ones. The Mac replaces the function with the same layout at 25s, 30s and 2s,
+`s = max(1, H / 720)`:
+
+| | 1920x1080 | 3024x1964 |
+| --- | --- | --- |
+| circle | 38 px | 68 px |
+| label from the left edge | 45 px | 82 px |
+| below the middle | 3 px | 5 px |
+
+Only this class's objects use it: one vtable, built by the Options screens' code. The party
+selection and HUD controls of the same `.gui` type are other classes. Checked against the
+game binary by `Test-KmrpLayoutPatch.py`; not yet seen in play.
+
+**What Windows needs.** The same three numbers in `0x006DE000`: the square's `0x19`, the label
+offset `0x1E` and the `+2`, as `(int)Math.Round(base * s)` like the other sizes
+`ResolutionPatch.Apply` writes. Where an immediate is too short for the scaled value, the
+function needs relocating, as the stack-count label was (`.ksc`).
+
+**Check.** At 3440x1440 and 1920x1080: Options, then Feedback and Gameplay. Each circle is
+about 0.6 of its row's height, centred on the row, with its label clear of it.

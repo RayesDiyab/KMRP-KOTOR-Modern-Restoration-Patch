@@ -892,6 +892,17 @@ before:
 
 ### Fixed
 
+- **macOS: the Options check boxes scale with the resolution** (2026-09-30, found by
+  reading the code while auditing what does not scale). The Options screens' toggles
+  (Feedback's list, Auto-pause, Gameplay, Graphics, Advanced Graphics, Mouse, Advanced
+  Sound) draw their circle in a fixed 25x25 square and start the label 30 px in, at every
+  resolution (`CSWGuiOptionsCheckbox::SetExtent`, Mac `0x1002CECEE`, Windows `0x006DE000`),
+  so at 3024x1964 the circle was 25 px in toggles 117 to 164 px tall, where vanilla drew
+  it in 43- and 60-px ones. The Mac's layout patch replaces the function with the same
+  layout at 25s, 30s and 2s (`resolution_sizes.cpp`): a 68-px circle and the label 82 px
+  in at 3024x1964, 38 and 45 at 1920x1080, vanilla's at 720 and below. Checked against
+  the game binary by `Test-KmrpLayoutPatch.py` (52 sites); **not yet seen in play**.
+  **Windows does not have this yet** (`docs/windows-changes-from-macos.md`, item 13).
 - **The journal shows six quest rows, spaced as the inventory's** (2026-09-30, reported
   from play at 3024x1964: the rows sat far apart). A list box shares the height its rows
   leave over between them, and every set's `journal.gui` kept upstream's 78-unit row
