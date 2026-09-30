@@ -8,25 +8,42 @@ fonts of the nearest set it installs. This:
 1. builds the table and the helper from the resources given;
 2. derives several resolutions with the helper and with an independent Python derivation
    over the same table, and requires them to match byte for byte. The Python applies the
-   Container's fit itself and makes the Controller Layout screen with the build's own
-   generator (build_controller_layout.build_gui) from the blended Gameplay panel, so this
-   is also the check that the helper's copy of that generator matches it;
+   Container's fit itself, makes the Controller Layout screen with the build's own
+   generator (build_controller_layout.build_gui) from the blended Gameplay panel, and draws
+   every controller badge with the build's own build_prompt_tga for its blended button
+   and the HUD's button-row boxes with build_menubg_texture's for the blended HUD (table
+   version 3, 2026-09-30), so this is also the check that the helper's copies of those
+   generators match them;
 3. rebuilds every anchor of the table from the table, with its own fonts, and requires the
-   build's set byte for byte;
+   build's set byte for byte: its menus, its 552 badges, its prompt manifest and its
+   lbl_mileftbot.tga;
 4. derives every macOS-group resolution (built by the full pipeline, and not anchors of the
    table, so these are held-out cases), with the set's own fonts, and compares every varying
    field with the built set;
-5. at every derived size, the Container's Give Items badge sits at its designed gap.
+5. at every derived size, the Container's Give Items badge sits at its designed gap, and
+   every badge is round on its blended button: its drawn box, texels scaled to the button,
+   within 6% of square. Taken from the nearest set, as the installers did until
+   2026-09-30, the badges came out up to 1.86 times as wide as tall at 3440x1400;
+6. on Windows, the Windows installer's own blend (src/patcher/GuiBlend.cs, compiled from
+   src/patcher with the .NET Framework compiler the build uses, run through its
+   --derive-gui) against the helper, byte for byte: at every size above, at every anchor
+   with its own fonts, and at 300 random sizes across the families' reach, which also
+   requires both to refuse the same sizes the sets do not reach.
 
 Limits for 4, from the measurement of 2026-09-29: at least 99.5% of fields within 1 px and
 none further than 16 px. The misses are list scrollbars, whose positions come from the
 3440x1440 geometry the build carries over, which is not linear.
 
     python testing/regression/Test-GuiBlendHelper.py [RESOURCES_DIR]
+
+On Windows the helper is built as one x64 program with LLVM's clang
+(testing/regression/native_helpers.py); on macOS, as before, with clang for the host.
 """
 from __future__ import annotations
 
 import math
+import random
+import shutil
 import struct
 import subprocess
 import sys
@@ -40,7 +57,13 @@ sys.path.insert(0, str(ROOT / "tools"))
 import prepare_universal_resources as pur  # noqa: E402
 import build_controller_prompt_textures as prompts  # noqa: E402
 import build_controller_layout as layout  # noqa: E402
-from build_gui_blend_table import LAYOUT_SCREEN  # noqa: E402
+import build_menubg_texture as menubg  # noqa: E402
+from build_gui_blend_table import HUD_SCREEN, LAYOUT_SCREEN  # noqa: E402
+
+sys.path.insert(0, str(ROOT / "testing" / "regression"))
+import native_helpers  # noqa: E402
+
+CSC = Path(r"C:\Windows\Microsoft.NET\Framework\v4.0.30319\csc.exe")
 
 RESOURCES = Path(sys.argv[1]) if len(sys.argv) > 1 else ROOT / "build" / "kmrp" / "resources"
 # Listed and unlisted: the macOS group, and Mac scaled modes the build has no set for.
@@ -56,7 +79,7 @@ def read_text(d: bytes, p: int) -> tuple[str, int]:
 
 def read_table(path: Path):
     d = path.read_bytes()
-    assert d[:4] == b"KGBL" and struct.unpack_from("<I", d, 4)[0] == 2
+    assert d[:4] == b"KGBL" and struct.unpack_from("<I", d, 4)[0] == 3
     p = 8
     nf = struct.unpack_from("<I", d, p)[0]; p += 4
     aspects = list(struct.unpack_from(f"<{nf}d", d, p)); p += 8 * nf
@@ -90,6 +113,33 @@ def read_table(path: Path):
             _, p = read_text(d, p)
         p += 8                                   # the root's WIDTH and HEIGHT offsets
         controls = struct.unpack_from("<I", d, p)[0]; p += 4 + 16 * controls
+    # The badges: read for their recipes; the Python side draws them with build_prompt_tga.
+    p += 8 + 8 + 8 + 4 + 8 * 4
+    p += 2 + struct.unpack_from("<H", d, p)[0]
+    nglyphs = struct.unpack_from("<I", d, p)[0]; p += 4
+    for _ in range(nglyphs):
+        gw, gh = struct.unpack_from("<II", d, p); p += 8 + 4 * gw * gh
+    badges = []
+    nprompts = struct.unpack_from("<I", d, p)[0]; p += 4
+    for _ in range(nprompts):
+        resref, p = read_text(d, p)
+        gui, p = read_text(d, p)
+        width_at, height_at, glyph, backed = struct.unpack_from("<IIIB", d, p); p += 13
+        backing = tuple(d[p:p + 4]); p += 4
+        n = struct.unpack_from("<I", d, p)[0]; p += 4
+        sizing = list(struct.unpack_from(f"<{n}I", d, p)); p += 4 * n
+        badges.append(dict(resref=resref, gui=gui, width=width_at, height=height_at, glyph=glyph,
+                           backing=backing if backed else None, sizing=sizing))
+    # The HUD's button-row boxes: read for the texture's name; the Python side draws it with
+    # build_menubg_texture.
+    huds = []
+    nhuds = struct.unpack_from("<I", d, p)[0]; p += 4
+    for _ in range(nhuds):
+        gui, p = read_text(d, p)
+        texture, p = read_text(d, p)
+        p += 4 * 5
+        p += 4 + 8 * struct.unpack_from("<I", d, p)[0]
+        huds.append((gui, texture))
     nfiles = struct.unpack_from("<I", d, p)[0]; p += 4
     files = []
     for _ in range(nfiles):
@@ -102,7 +152,7 @@ def read_table(path: Path):
         values = [list(struct.unpack_from(f"<{s}i", d, p + 4 * s * a)) for a in range(na)]
         p += 4 * s * na
         files.append((name, template, offsets, values))
-    return aspects, anchors, fits, layouts, files
+    return aspects, anchors, fits, layouts, files, badges, huds
 
 
 def family_at_height(anchors, family, aspect, height):
@@ -147,8 +197,8 @@ def caption_width(manifest: bytes, row: str) -> float:
     raise AssertionError(f"the prompt manifest has no {row}")
 
 
-def apply_fit(fit: dict, data: bytearray, caption: float) -> None:
-    """prepare_universal_resources.fit_container_to_caption, on the blended file."""
+def apply_fit(fit: dict, data: bytearray, caption: float) -> int:
+    """prepare_universal_resources.fit_container_to_caption, on the blended file; the widening."""
     def get(offset):
         return struct.unpack_from("<i", data, offset)[0]
 
@@ -158,20 +208,58 @@ def apply_fit(fit: dict, data: bytearray, caption: float) -> None:
     radius = height * (fit["radius_short"] if height < fit["short_below"] else fit["radius"])
     extra = math.ceil(caption + 2.0 * radius * (fit["gap"] + 1.0 + fit["edge"]) - get(fit["button_width"]))
     if extra <= 0:
-        return
+        return 0
     extra += extra % 2
     add(fit["left"], -(extra // 2))
     add(fit["width"], extra)
     for offset in fit["widths"]:
         add(offset, extra)
+    return extra
+
+
+# The table's glyphs, in build_gui_blend_table.py's order.
+GLYPHS = [(family, glyph) for family in prompts.GLYPH_FAMILIES
+          for glyph in sorted({t.glyph for t in prompts.PROMPT_TARGETS})]
+
+
+def i32(data: bytes, offset: int) -> int:
+    return struct.unpack_from("<i", data, offset)[0]
+
+
+def python_badges(badges, out: dict[str, bytes], manifest: bytes, widened: dict[str, int]) -> dict[str, bytes]:
+    """Every badge drawn by the build's build_prompt_tga for its blended button, and the
+    manifest with those buttons' sizes and the blend's widening."""
+    labels, made, sizes = {}, {}, {}
+    for line in manifest.decode("utf-8").splitlines():
+        parts = line.split()
+        if len(parts) >= 5 and parts[0] == "prompt":
+            labels[parts[1]] = float(parts[4])
+    for badge in badges:
+        gui = out[badge["gui"]]
+        width, height = i32(gui, badge["width"]), i32(gui, badge["height"])
+        radius_height = min((i32(gui, at) for at in badge["sizing"]), default=0)
+        family, glyph = GLYPHS[badge["glyph"]]
+        made[badge["resref"] + ".tga"] = prompts.build_prompt_tga(
+            width, height, glyph, labels[badge["resref"]], radius_height, family, badge["backing"])
+        sizes[badge["resref"]] = (width, height)
+    lines = manifest.decode("utf-8").split("\n")
+    for i, line in enumerate(lines):
+        parts = line.split(" ")
+        if parts[0] == "prompt":
+            lines[i] = " ".join(["prompt", parts[1], str(sizes[parts[1]][0]), str(sizes[parts[1]][1])] + parts[4:])
+        elif parts[0] == "widened" and parts[1] in widened:
+            lines[i] = " ".join(["widened", parts[1], str(widened[parts[1]])]) + ("\r" if line.endswith("\r") else "")
+    made[prompts.PROMPT_MANIFEST_NAME] = "\n".join(lines).encode("utf-8")
+    return made
 
 
 def python_derive(table, width, height, set_dir: Path, scratch: Path) -> dict[str, bytes]:
     """What the helper should write: the blend, the Container's fit, and the Controller
     Layout screen made by the build's own generator from the blended Gameplay panel."""
-    aspects, anchors, fits, layouts, files = table
+    aspects, anchors, fits, layouts, files, badges, huds = table
     terms = terms_for(aspects, anchors, width, height)
     out = {}
+    widened = {}
     for name, template, offsets, values in files:
         data = bytearray(template)
         for s, off in enumerate(offsets):
@@ -180,8 +268,8 @@ def python_derive(table, width, height, set_dir: Path, scratch: Path) -> dict[st
                 v += values[i][s] * w
             struct.pack_into("<i", data, off, int(math.copysign(math.floor(abs(v) + 0.5), v)))
         if name in fits:
-            apply_fit(fits[name], data, caption_width((set_dir / prompts.PROMPT_MANIFEST_NAME).read_bytes(),
-                                                      fits[name]["row"]))
+            widened[name] = apply_fit(fits[name], data, caption_width(
+                (set_dir / prompts.PROMPT_MANIFEST_NAME).read_bytes(), fits[name]["row"]))
         out[name] = bytes(data)
     for name, font in layouts.items():
         source, made = scratch / "optgameplay.gui", scratch / name
@@ -190,6 +278,13 @@ def python_derive(table, width, height, set_dir: Path, scratch: Path) -> dict[st
         layout.build_gui(source, made, extent.get_int32("WIDTH"), extent.get_int32("HEIGHT"),
                          set_dir / f"{font}.txi")
         out[name] = made.read_bytes()
+    out.update(python_badges(badges, out, (set_dir / prompts.PROMPT_MANIFEST_NAME).read_bytes(), widened))
+    for gui, texture in huds:
+        assert gui == HUD_SCREEN, gui
+        source, made = scratch / gui, scratch / texture
+        source.write_bytes(out[gui])
+        menubg.build_texture_for_gui(source, made)
+        out[texture] = made.read_bytes()
     return out
 
 
@@ -200,8 +295,11 @@ def main() -> int:
         table_path, helper = tmp / "gui-blend.bin", tmp / "kmrp-guiblend"
         subprocess.run([sys.executable, str(ROOT / "tools" / "build_gui_blend_table.py"),
                         str(RESOURCES), str(table_path)], check=True, stdout=subprocess.DEVNULL)
-        subprocess.run(["clang", "-O2", "-o", str(helper), str(ROOT / "macos" / "tools" / "kmrp-guiblend.c")],
-                       check=True)
+        if native_helpers.WINDOWS:
+            helper = native_helpers.build(ROOT / "macos" / "tools" / "kmrp-guiblend.c", tmp, "kmrp-guiblend")["x64"]
+        else:
+            subprocess.run(["clang", "-O2", "-o", str(helper), str(ROOT / "macos" / "tools" / "kmrp-guiblend.c")],
+                           check=True)
         table = read_table(table_path)
         mac = pur.GROUPS["macOS"]
         listed = sorted(p.name[4:-4] for p in RESOURCES.glob("gui-*.zip"))
@@ -227,8 +325,8 @@ def main() -> int:
         def helper_derive(res: str, fonts: str) -> Path:
             w, h = (int(v) for v in res.split("x"))
             out = tmp / f"{res}-{fonts}"
-            subprocess.run([str(helper), str(table_path), str(w), str(h), str(out), str(set_dir(fonts))],
-                           check=True, stdout=subprocess.DEVNULL)
+            subprocess.run([str(helper), native_helpers.arg(table_path), str(w), str(h), native_helpers.arg(out),
+                            native_helpers.arg(set_dir(fonts))], check=True, stdout=subprocess.DEVNULL)
             return out
 
         # 2. Helper against the Python derivation, byte for byte, with the installer's fonts.
@@ -236,10 +334,14 @@ def main() -> int:
         for res in mac + UNLISTED:
             w, h = (int(v) for v in res.split("x"))
             out = helper_derive(res, nearest(res))
-            for name, data in python_derive(table, w, h, set_dir(nearest(res)), scratch).items():
+            expected = python_derive(table, w, h, set_dir(nearest(res)), scratch)
+            for name, data in expected.items():
                 if (out / name).read_bytes() != data:
                     mismatches += 1
                     print(f"  differs: {res} {name}")
+            if len(list(out.iterdir())) != len(expected):
+                mismatches += 1
+                print(f"  {res}: the helper wrote {len(list(out.iterdir()))} files, the Python {len(expected)}")
         ok = mismatches == 0
         failed |= not ok
         print(f"{'ok  ' if ok else 'FAIL'} helper matches the Python derivation byte for byte, "
@@ -256,11 +358,14 @@ def main() -> int:
         for res in anchors:
             out = helper_derive(res, res)
             with zipfile.ZipFile(RESOURCES / f"gui-{res}.zip") as z:
-                differ += [f"{res} {name}" for name, *_ in table[4] if (out / name).read_bytes() != z.read(name)]
+                differ += [f"{res} {f.name}" for f in out.iterdir() if f.read_bytes() != z.read(f.name)]
+                if len(list(out.iterdir())) != len(table[4]) + len(table[5]) + 1 + len(table[6]):
+                    differ.append(f"{res}: {len(list(out.iterdir()))} files written")
         ok = not differ
         failed |= not ok
         print(f"{'ok  ' if ok else 'FAIL'} every anchor rebuilt from the table is the build's set, byte "
-              f"for byte ({len(anchors)} sets{': ' + ', '.join(differ[:6]) if differ else ''})")
+              f"for byte, menus, badges, manifest and HUD boxes ({len(anchors)} sets"
+              f"{': ' + ', '.join(differ[:6]) if differ else ''})")
 
         # 4. Held-out accuracy against the sets the full pipeline built, with their own fonts.
         tally, worst, per_file = Counter(), (0, ""), Counter()
@@ -311,7 +416,96 @@ def main() -> int:
         print(f"{'ok  ' if ok else 'FAIL'} Container's Give Items badge at its designed gap at "
               f"{len(mac) + len(UNLISTED)} derived sizes (tightest {closest[0]:.1f} px of "
               f"{closest[1]:.1f}, {closest[2]}){'; closer at ' + ', '.join(short) if short else ''}")
+
+        # 5b. Every badge round on its blended button: the drawn box's texels, scaled to
+        #     the button the engine stretches the texture over, within 6% of square (a
+        #     glyph is 20 to 60 texels across, so rounding alone moves it by up to 5%).
+        worst = (1.0, "")
+        for res in mac + UNLISTED:
+            fonts = nearest(res)
+            made = tmp / f"{res}-{fonts}"
+            for badge in table[5]:
+                gui = (made / badge["gui"]).read_bytes()
+                width, height = i32(gui, badge["width"]), i32(gui, badge["height"])
+                tga = (made / (badge["resref"] + ".tga")).read_bytes()
+                tw, th = struct.unpack_from("<HH", tga, 12)
+                if badge["backing"] is not None:
+                    continue
+                alpha = tga[18 + 3:18 + tw * th * 4:4]
+                rows = [alpha[y * tw:(y + 1) * tw] for y in range(th)]
+                drawn = [row for row in rows if row.strip(b"\0")]
+                if not drawn:
+                    continue
+                left = min(len(row) - len(row.lstrip(b"\0")) for row in drawn)
+                right = max(len(row.rstrip(b"\0")) for row in drawn)
+                aspect = ((right - left) * width / tw) / (len(drawn) * height / th)
+                if abs(aspect - 1) > abs(worst[0] - 1):
+                    worst = (aspect, f"{res} {badge['resref']}")
+        ok = abs(worst[0] - 1) <= 0.06
+        failed |= not ok
+        print(f"{'ok  ' if ok else 'FAIL'} every badge round on its blended button at "
+              f"{len(mac) + len(UNLISTED)} derived sizes (worst {worst[0]:.3f} wide for tall, {worst[1]})")
+
+        # 6. The Windows installer's blend against the helper.
+        if native_helpers.WINDOWS:
+            failed |= not windows_matches(table, table_path, helper, tmp, mac + UNLISTED, anchors,
+                                          listed, nearest, set_dir)
+        else:
+            print("skip the Windows installer's blend (GuiBlend.cs) is checked on Windows")
     return 1 if failed else 0
+
+
+def windows_matches(table, table_path, helper, tmp, derived, anchors, listed, nearest, set_dir) -> bool:
+    """GuiBlend.cs, as the installer runs it, against the helper, byte for byte."""
+    installer = tmp / "kmrp-derive.exe"
+    sources = sorted(str(path) for path in (ROOT / "src" / "patcher").glob("*.cs"))
+    subprocess.run([str(CSC), "/nologo", "/optimize+", "/target:exe", "/platform:anycpu", f"/out:{installer}",
+                    "/reference:System.dll", "/reference:System.Drawing.dll",
+                    "/reference:System.IO.Compression.dll", "/reference:System.IO.Compression.FileSystem.dll",
+                    "/reference:System.Windows.Forms.dll", *sources], check=True, stdout=subprocess.DEVNULL)
+
+    def run(program, size: str, fonts: str, name: str) -> tuple[int, dict[str, bytes]]:
+        w, h = size.split("x")
+        out = tmp / f"win-{name}-{size}"
+        code = subprocess.run([str(program), *(["--derive-gui"] if program == installer else []),
+                               native_helpers.arg(table_path), w, h, native_helpers.arg(out),
+                               native_helpers.arg(set_dir(fonts))],
+                              stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL).returncode
+        files = {f.name: f.read_bytes() for f in out.iterdir()} if code == 0 else {}
+        # 637 files, 72 MB of them badges, for each of about 750 runs: gone once read.
+        shutil.rmtree(out, ignore_errors=True)
+        return code, files
+
+    # Random sizes the sets reach, by the Python derivation's rule, and some they do not.
+    rng = random.Random(20260930)
+    aspects = sorted(table[0])
+    sizes = []
+    while len(sizes) < 300:
+        h = rng.randint(480, 4400)
+        w = round(h * rng.uniform(aspects[0], aspects[-1]))
+        try:
+            reached = w >= 640 and bool(terms_for(table[0], table[1], w, h))
+        except (IndexError, TypeError, ZeroDivisionError):
+            reached = False
+        if reached:
+            sizes.append(f"{w}x{h}")
+    sizes += ["1280x1024", "5760x1080", "1080x1920", "640x480", "800x480", "3440x4000", "600x480"]
+    cases = [(size, nearest(size)) for size in derived + sizes] + [(size, size) for size in anchors]
+    differ, codes, blended = [], [], 0
+    for size, fonts in cases:
+        helper_code, helper_files = run(helper, size, fonts, "c")
+        csharp_code, csharp_files = run(installer, size, fonts, "cs")
+        if helper_code != csharp_code:
+            codes.append(f"{size} (helper {helper_code}, installer {csharp_code})")
+        elif helper_files != csharp_files:
+            differ.append(f"{size} {sorted(n for n in helper_files if helper_files[n] != csharp_files.get(n))[:3]}")
+        blended += helper_code == 0
+    ok = not differ and not codes and blended > 250
+    print(f"{'ok  ' if ok else 'FAIL'} the installer's blend (GuiBlend.cs) matches the helper byte for byte at "
+          f"{blended} sizes, and refuses the same {len(cases) - blended}"
+          + (f"; files differ at {', '.join(differ[:4])}" if differ else "")
+          + (f"; exit codes differ at {', '.join(codes[:4])}" if codes else ""))
+    return ok
 
 
 if __name__ == "__main__":

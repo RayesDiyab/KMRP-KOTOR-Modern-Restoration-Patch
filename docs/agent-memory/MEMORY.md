@@ -95,9 +95,9 @@ details still belong in `docs/` or `reverse-engineering/`.
   module. Since 2026-09-29 it is the `kmrp-controller` patch on KOTOR Patch
   Manager's runtime, which KMRP's installer installs itself (KPM's `binkw32.dll`
   proxy, `KotorPatcher.dll` from the submodule; `docs/kpm-edition.md` 1a), or for
-  KOTOR Patch Manager itself when KPM's runtime is in the folder or the
-  "KOTOR Patch Manager" option is on (KMRP for KPM was a separate installer until
-  that day). Until then it was
+  KOTOR Patch Manager itself when KPM's runtime is in the folder (KMRP for KPM
+  was a separate installer until that day; a "KOTOR Patch Manager" option that
+  also chose it was removed on 2026-09-30). Until then it was
   loaded by a statically linked KPM runtime through the ASI loader K1DC
   ships. It owns `patch_config.toml`, refuses an external one, and applies its
   hooks in memory without changing the executable on disk: 18 detours and 4 byte

@@ -1,9 +1,10 @@
 #!/usr/bin/env python3
-"""Pack the finished GUI sets into a table the Mac installer blends any resolution from.
+"""Pack the finished GUI sets into a table the installers blend any resolution from.
 
-KMRP for macOS installs the built `gui-<W>x<H>.zip` for a listed resolution. For a
-display the build has no set for, the installer derives one (macos/tools/kmrp-guiblend.c)
-by blending the finished sets around it, the same weighted blend
+KMRP's installers install the built `gui-<W>x<H>.zip` for a listed resolution. For a
+size the build has no set for, they derive one -- the Mac's with macos/tools/kmrp-guiblend.c,
+Windows' with src/patcher/GuiBlend.cs, which match byte for byte -- by blending the
+finished sets around it, the same weighted blend
 tools/derive_resolution_gui_set.py uses on upstream: the two aspect-ratio families on
 either side, each at the two heights around the target, rounded once. KMRP's layout logic
 stays in one place, the build; the installer only interpolates numbers the build made.
@@ -35,8 +36,25 @@ it installs:
     62 px. The table carries that generator's constants by name, its rows, and where each
     control's extent sits, and the helper does build_gui's arithmetic, step for step.
 
+Version 3 (2026-09-30) makes the controller badges for the size as well. Each badge is a
+512x64 texture the engine stretches over its whole button, drawn so that it comes out round
+on that button (build_controller_prompt_textures.py, build_prompt_tga). Taken from the
+nearest set, a badge was drawn for that set's button, and a blended button of another shape
+stretched it: 1.86 times as wide as tall at 3440x1400, whose nearest set by height is
+1856x1392 (measured on the blended files). So the table carries what build_prompt_tga needs
+-- its constants, the glyph artwork as it loads it (cropped, RGBA), and per badge (per row of
+the prompt manifest) the button's extent in its .gui, the glyph, the backing and the
+controls whose least height sizes it -- and the installers draw each badge again for the
+blended button, with the same arithmetic as Pillow's (Lanczos resample on premultiplied
+alpha, fixed-point with 22 bits; the masked paste; alpha_composite), so a set rebuilt from
+the table reproduces the build's badges byte for byte (testing/regression/Test-GuiBlendHelper.py).
+The same holds for lbl_mileftbot.tga, the HUD's button-row boxes, which the build draws per
+set from that set's mipc28x6.gui (build_menubg_texture.py) and which the nearest set's would
+draw out of step with the blended buttons: the table carries where LBL_MENUBG and the eight
+buttons sit, and the installers draw it from the blended HUD.
+
 Format (little-endian):
-    "KGBL" u32 version=2
+    "KGBL" u32 version=3
     u32 families; per family: f64 aspect
     u32 anchors;  per anchor: u32 width, u32 height, u32 family
     u32 fits;     per fit: u16 name length, name (the .gui), u16 length, resref (the
@@ -51,6 +69,21 @@ Format (little-endian):
                   u16 length, caption; u32 root WIDTH offset, u32 root HEIGHT offset,
                   u32 controls; per control, in the file's order: u32 LEFT, TOP, WIDTH,
                   HEIGHT offsets
+    badges:       u32 texture width, u32 texture height, f64 radius, f64 radius below,
+                  u32 height they switch at, f64 gap, f64 edge, f64 centre y, f64 centre x
+                  without a label (build_controller_prompt_textures.py's BADGE_*),
+                  u16 length, the TGA footer;
+                  u32 glyphs; per glyph: u32 width, u32 height, width x height x 4 bytes
+                  RGBA, top row first (_load_glyph_art's image);
+                  u32 prompts; per prompt: u16 length, resref (its manifest row), u16
+                  length, the .gui, u32 its control's WIDTH offset, u32 HEIGHT offset,
+                  u32 glyph, u8 1 when it stands on a backing and the backing's RGBA
+                  (4 bytes, zero without one), u32 n, n x u32 HEIGHT offsets in the same
+                  .gui whose least sizes the badge (none: its own height)
+    u32 huds;     per HUD texture (one): u16 length, the .gui, u16 length, the texture,
+                  u32 width, u32 height, u32 edge alpha (build_menubg_texture.py), u32
+                  LBL_MENUBG's LEFT offset, u32 its WIDTH offset, u32 n, n x (u32 LEFT,
+                  u32 WIDTH offsets) of the buttons, in the file's order
     u32 files;    per file: u16 name length, name bytes, u32 template size, template,
                   u32 slots; per slot: u32 offset, u32 type (GFF field type);
                   then anchors x slots u32 values (the raw field data dwords)
@@ -69,10 +102,15 @@ sys.path.insert(0, str(Path(__file__).resolve().parent))
 import prepare_universal_resources as pur  # noqa: E402
 import build_controller_prompt_textures as prompts  # noqa: E402
 import build_controller_layout as layout  # noqa: E402
+import build_menubg_texture as menubg  # noqa: E402
+from fix_hud_menubg import BUTTON_TAGS  # noqa: E402
 
 LAYOUT_SCREEN = "kmrplayout.gui"
+# The HUD every size but 3440x1440 loads, whose buttons lbl_mileftbot.tga's boxes follow
+# (prepare_universal_resources.py); a blended size is never 3440x1440.
+HUD_SCREEN = "mipc28x6.gui"
 
-VERSION = 2
+VERSION = 3
 # Field types whose value sits inline in the entry's data dword (GFF V3.2).
 INLINE_TYPES = {0: "BYTE", 1: "CHAR", 2: "WORD", 3: "SHORT", 4: "DWORD", 5: "INT", 8: "FLOAT"}
 FAMILY_ORDER = ["4:3", "16:10", "16:9", "21:9", "32:9"]
@@ -196,6 +234,103 @@ def unfit(blob: bytes, fit: dict, pixels: int) -> bytes:
     return bytes(data)
 
 
+def badge_section(templates: dict[str, bytes], manifest: bytes) -> bytes:
+    """The badges' constants, artwork and recipes, one recipe per prompt manifest row, as
+    build_prompt_textures makes that row's texture."""
+    out = struct.pack("<II", prompts.TEXTURE_WIDTH, prompts.TEXTURE_HEIGHT)
+    out += struct.pack("<dd", prompts.BADGE_RADIUS, prompts.BADGE_RADIUS_SHORT)
+    out += struct.pack("<I", prompts.BADGE_SHORT_BELOW)
+    out += struct.pack("<dddd", prompts.BADGE_GAP, prompts.BADGE_EDGE, prompts.BADGE_CENTER_Y,
+                       prompts.BADGE_FALLBACK_X)
+    out += struct.pack("<H", len(prompts.TGA_FOOTER)) + prompts.TGA_FOOTER
+
+    glyphs = []                                       # (family, glyph), in table order
+    for family in prompts.GLYPH_FAMILIES:
+        for glyph in sorted({t.glyph for t in prompts.PROMPT_TARGETS}):
+            glyphs.append((family, glyph))
+    out += struct.pack("<I", len(glyphs))
+    for family, glyph in glyphs:
+        art = prompts._load_glyph_art(glyph, family)
+        if art is None:
+            raise SystemExit(f"no {family} artwork for {glyph}: the installers cannot draw its badges")
+        out += struct.pack("<II", art.width, art.height) + art.convert("RGBA").tobytes()
+
+    offsets = {gui: extent_offsets(data)[1] for gui, data in templates.items()}
+
+    def control(gui: str, index: int, tag: str) -> tuple[int, int, int, int]:
+        gff = Gff(templates[gui])
+        entries = gff.list(gff.fields(0)["CONTROLS"])
+        actual = gff.string(gff.fields(entries[index])["TAG"])
+        if actual != tag:
+            raise SystemExit(f"{gui}[{index}] is {actual}, the badge expects {tag}")
+        return offsets[gui][index]
+
+    def index_of(gui: str, tag: str) -> int:
+        gff = Gff(templates[gui])
+        entries = gff.list(gff.fields(0)["CONTROLS"])
+        return next(i for i, e in enumerate(entries) if gff.string(gff.fields(e)["TAG"]) == tag)
+
+    by_resref = {t.resref: t for t in prompts.PROMPT_TARGETS}
+    rows = [line.split()[1] for line in manifest.decode("utf-8").splitlines() if line.startswith("prompt ")]
+    records = []
+    for resref in rows:
+        xbox = "kmrp" + resref[4:]
+        target, variant = by_resref.get(xbox), False
+        if target is None:
+            # One texture per caption (PER_CAPTION_TARGETS): the resref and an index.
+            base = xbox.rstrip("0123456789")
+            target, variant = by_resref.get(base), True
+            if target is None or (target.gui, target.tag) not in prompts.PER_CAPTION_TARGETS:
+                raise SystemExit(f"the prompt manifest's {resref} is no badge the build makes")
+        family = next(f for f, letter in prompts.FAMILY_LETTERS.items() if letter == resref[3])
+        extent = control(target.gui, target.control_index, target.tag)
+        sizing = []
+        backing = None
+        if not variant:
+            group = prompts.BADGE_GROUPS.get((target.gui, target.tag))
+            if group is not None:
+                for member in prompts.PROMPT_TARGETS:
+                    if prompts.BADGE_GROUPS.get((member.gui, member.tag)) == group:
+                        if member.gui != target.gui:
+                            raise SystemExit(f"badge group {group} spans two screens")
+                        sizing.append(control(member.gui, member.control_index, member.tag)[3])
+            elif target.size_like:
+                sizing.append(offsets[target.gui][index_of(target.gui, target.size_like)][3])
+            if target.backing:
+                backing = prompts.BACKINGS[target.backing]
+        record = text(resref) + text(target.gui)
+        record += struct.pack("<III", extent[2], extent[3], glyphs.index((family, target.glyph)))
+        record += struct.pack("<B4B", 1 if backing else 0, *(backing or (0, 0, 0, 0)))
+        record += struct.pack("<I", len(sizing)) + struct.pack(f"<{len(sizing)}I", *sizing)
+        records.append(record)
+    return out + struct.pack("<I", len(records)) + b"".join(records)
+
+
+def hud_section(templates: dict[str, bytes]) -> bytes:
+    """Where build_menubg_texture.geometry_from_gui reads LBL_MENUBG and the eight buttons."""
+    gff = Gff(templates[HUD_SCREEN])
+    backdrop, buttons = None, []
+    for index in gff.list(gff.fields(0)["CONTROLS"]):
+        control = gff.fields(index)
+        tag = gff.string(control["TAG"])
+        extent = gff.fields(gff.dword(control["EXTENT"]))
+        if tag in BUTTON_TAGS:
+            buttons.append((extent["LEFT"] + 8, extent["WIDTH"] + 8))
+        elif tag == "LBL_MENUBG":
+            backdrop = (extent["LEFT"] + 8, extent["WIDTH"] + 8)
+    if backdrop is None or len(buttons) != len(BUTTON_TAGS):
+        raise SystemExit(f"{HUD_SCREEN}: LBL_MENUBG and the {len(BUTTON_TAGS)} buttons were not found")
+    if menubg.TGA_FOOTER != prompts.TGA_FOOTER:
+        raise SystemExit("build_menubg_texture.py and build_controller_prompt_textures.py end their TGAs "
+                         "differently; the table carries one footer")
+    out = struct.pack("<I", 1) + text(HUD_SCREEN) + text(pur.MENUBG_TEXTURE_NAME)
+    out += struct.pack("<III", *menubg.TEXTURE_SIZE, menubg.EDGE_ALPHA)
+    out += struct.pack("<II", *backdrop) + struct.pack("<I", len(buttons))
+    for button in buttons:
+        out += struct.pack("<II", *button)
+    return out
+
+
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__.split("\n\n")[0])
     parser.add_argument("resources", type=Path)
@@ -242,6 +377,19 @@ def main() -> int:
     out += struct.pack("<III", root[0], root[1], len(controls))
     for offsets in controls:
         out += struct.pack("<4I", *offsets)
+
+    # The badges. Every set's manifest lists the same rows (checked), and the templates
+    # are the files' own layout, the same at every resolution (checked below).
+    templates = {name: archives[0].read(name) for name in names}
+    templates[pur.CONTAINER_SCREEN] = unfit(templates[pur.CONTAINER_SCREEN], fit,
+                                            widened_by(archives[0], pur.CONTAINER_SCREEN))
+    manifest = archives[0].read(prompts.PROMPT_MANIFEST_NAME)
+    row_names = lambda data: [l.split()[1] for l in data.decode("utf-8").splitlines() if l.startswith("prompt ")]
+    for archive in archives[1:]:
+        if row_names(archive.read(prompts.PROMPT_MANIFEST_NAME)) != row_names(manifest):
+            raise SystemExit(f"{archive.filename}: its prompt manifest lists other badges")
+    out += badge_section(templates, manifest)
+    out += hud_section(templates)
     out += struct.pack("<I", len(names))
 
     total_slots = 0

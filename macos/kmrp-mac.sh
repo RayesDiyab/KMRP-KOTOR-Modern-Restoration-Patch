@@ -23,7 +23,8 @@
 #   4. Installs into Contents/Assets/override KMRP's artwork and the menu set for that
 #      resolution, the same files the Windows installer writes for it: from the pooled sets in
 #      layouts.zip, or, for a size the build has no set for, .gui files blended by
-#      kmrp-guiblend with the fonts and art of the nearest set. Then makes, from the player's
+#      kmrp-guiblend with the fonts of the nearest set, and the controller badges drawn again
+#      for the blended buttons (since 2026-09-30). Then makes, from the player's
 #      own game, what KMRP builds from the game's art and data: the hex row frames, the tutorial
 #      popup's icons and tutorial.2da (kmrp-gameart), and the enlarged feat, power and skill
 #      icons (kmrp-abilityicons). No release carries anything of the game's. Bundled
@@ -400,9 +401,12 @@ do_install() {
         "$BIN/kmrp-guiblend" "$PAYLOAD/gui-blend.bin" "$WIDTH" "$HEIGHT" "$WORK/blend" \
             "$WORK/set" >/dev/null ||
             die "kmrp-guiblend could not blend $size"
-        local gui
-        for gui in "$WORK/blend"/*.gui(N); do
-            cp -f "$gui" "$WORK/set/${gui:t}"
+        # Every file it writes replaces the set's: the menus, the badges drawn for the
+        # blended buttons (a badge drawn for the nearest set's buttons was stretched on
+        # buttons of another shape), and the prompt manifest with those buttons' sizes.
+        local made
+        for made in "$WORK/blend"/*(N.); do
+            cp -f "$made" "$WORK/set/${made:t}"
         done
     fi
 

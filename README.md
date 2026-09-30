@@ -9,8 +9,8 @@
 Vanilla KOTOR draws its interface at a fixed pixel size. On a modern display the
 menus still work, but the text is tiny, list rows overlap once anything is
 enlarged, and several layouts were only ever authored for 640×480. KMRP fixes
-that in the engine itself rather than by swapping artwork — 66 resolutions, from
-800×600 to 15360×8640.
+that in the engine itself rather than by swapping artwork: 66 resolutions built in,
+from 800×600 to 15360×8640, and any other size from 4:3 to 32:9 made at install.
 
 [Install](#install) · [What it fixes](#what-it-fixes) · [How it works](#how-it-works) · [Build from source](#build-from-source) · [Documentation](#documentation) · [Case study](https://rayesdiyab.com/projects/kmrp/) · [Licence](#licence-and-attribution)
 
@@ -31,13 +31,23 @@ that in the engine itself rather than by swapping artwork — 66 resolutions, fr
 | | |
 | --- | --- |
 | Game | *Star Wars: Knights of the Old Republic* (2003 PC release) |
-| `swkotor.exe` | Either of two builds, and KMRP refuses every other: **Steam's** (`34E6D971…A439F34C88`), or the **4,042,752-byte editable 1.03 build**, SHA-256 `761F9466…C49E9886`, also with only the standard Large Address Aware bit already set (`CA9D22EA…A7E1889`). |
+| `swkotor.exe` | One of three builds, and KMRP refuses every other: **Steam's** (`34E6D971…A439F34C88`), **GOG's** (`9C10E045…DEA91435`), or the **4,042,752-byte editable 1.03 build** (`761F9466…C49E9886`). GOG's is the editable build without the 16 bytes of `Hellspawn Reborn` in its header padding, which nothing reads. GOG's and the editable build are also accepted with only the standard Large Address Aware bit already set (`01B80825…C2B4132F`, `CA9D22EA…A7E1889`). |
 | OS | Windows with .NET Framework 4.x (shipped with Windows 10/11). Linux/Proton and Steam Deck are experimental and not yet gameplay-verified; use the separate procedure below. |
 
 1. Launch KOTOR once so `swkotor.ini` exists.
-2. Run **`KMRP - KOTOR Modern Restoration Patch.exe`** and point it at `swkotor.exe`.
-3. Pick your resolution and choose **Start Patching**.
+2. Run **`KMRP - KOTOR Modern Restoration Patch.exe`**. It finds Steam's KOTOR by itself,
+   in any Steam library, and otherwise GOG's; **Browse** picks another `swkotor.exe`.
+   Step 2 names the version it finds: Steam, GOG or the editable 1.03 build.
+3. Pick your resolution and choose **Start Patching**. Your display's size is first
+   in the list; **Custom size…** at its end takes any other size from 4:3 to 32:9.
 4. Start KOTOR as usual.
+
+**Sizes without a built set.** The 66 listed resolutions install the menu set the
+build made for them. Any other size gets menus blended from the finished sets around
+it, the Container widened and the Controller Layout screen laid out for it, and the
+controller badges and the HUD's button-row boxes drawn again for its buttons, with the
+fonts of the nearest listed size. The macOS installer does the same, and the two
+write the same files byte for byte (`testing/regression/Test-GuiBlendHelper.py`).
 
 To change the resolution or an option later, use **Restore Original**, then
 patch again. An install by an earlier KMRP, which did rewrite `swkotor.exe`, is
@@ -105,10 +115,10 @@ KOTOR Patch Manager's runtime as KPM's own proxy deployment lays it out: KPM's
 `patch_config.toml`; and KMRP's patch modules under `patches\`. Beside them go
 `kmrp-kpm.dat`, the engine changes the runtime applies in memory, and SDL for
 the controller. It also writes `swkotor.ini` and the `Override` folder, and on
-the editable build sets the executable's standard Large Address Aware flag --
-one bit, the only change to `swkotor.exe`; Steam's is never changed, since Steam
-refuses to start a changed one. So that KOTOR Patch Manager still recognises the
-flagged executable, the editable build also gets `kpm_install_state.json` and,
+GOG's and the editable builds it sets the executable's standard Large Address Aware
+flag -- one bit, the only change to `swkotor.exe`; Steam's is never changed, since
+Steam refuses to start a changed one. So that KOTOR Patch Manager still recognises
+the flagged executable, those two also get `kpm_install_state.json` and,
 made just before the flag is set, a backup of the unmodified `swkotor.exe` in
 KPM's own format (`swkotor.exe.backup.<time>`); KPM starts from that file if
 you later add patches with it. It marks the executable as DPI-aware in the
@@ -120,8 +130,10 @@ contents in a verified backup, and the prior DPI setting in `KMRP_DPI.manifest`.
 **Restore Original** reverses each change from those records; a file changed
 after install is left alone, and said so. The installer refuses an executable
 it does not recognise. In a game folder where KOTOR Patch Manager's runtime is
-already installed, or with the *KOTOR Patch Manager* option on, it installs no
-runtime and does not touch `swkotor.exe`: KPM applies KMRP's patches. See [Windows DPI handling](docs/windows-dpi-scaling.md). The
+already installed it installs no runtime and does not touch `swkotor.exe`: KPM
+applies KMRP's patches. (An Advanced Settings option chose that too from
+2026-09-29 to 2026-09-30; it was removed, since KMRP's own install is one KPM
+recognises and takes over.) See [Windows DPI handling](docs/windows-dpi-scaling.md). The
 optional *Modern Driver Compatibility* component adds its ASI loader
 (`dinput8.dll`) and payload, recorded in `KMRP_DriverCompat.manifest` and
 removed on restore.

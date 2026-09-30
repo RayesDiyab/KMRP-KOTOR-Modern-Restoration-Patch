@@ -68,7 +68,16 @@ namespace Kmrp
             normalized = (byte[])source.Clone();
             normalized[CharacteristicsOffset] = (byte)(OriginalCharacteristics & 0xFF);
             normalized[CharacteristicsOffset + 1] = (byte)(OriginalCharacteristics >> 8);
-            if (GoldPatch.HashBytes(normalized) != GoldPatch.SourceHash)
+            string hash = GoldPatch.HashBytes(normalized);
+            if (hash == GameExecutable.Gog.Hash)
+            {
+                // GOG's file is the Editable one without its watermark (GameExecutable):
+                // with it put back, the image is the build gold was made from.
+                Buffer.BlockCopy(GameExecutable.Watermark, 0, normalized, GameExecutable.WatermarkOffset,
+                    GameExecutable.Watermark.Length);
+                hash = GoldPatch.HashBytes(normalized);
+            }
+            if (hash != GoldPatch.SourceHash)
             {
                 normalized = null;
                 return false;
@@ -76,6 +85,94 @@ namespace Kmrp
             return true;
         }
 
+    }
+
+    /// <summary>The swkotor.exe builds KMRP installs on, told apart by SHA-256 alone.
+    /// The patcher's second step names the one it finds.
+    ///
+    ///   Editable  KOTOR 1.03 as the KOTOR Editable Executable ships it, 761F9466...
+    ///             (GoldPatch.SourceHash), which KOTOR Patch Manager calls "HellSpawn
+    ///             CD Crack version 1.0.3" (kotor1_cdcrack_103): the build every KMRP
+    ///             patch site was measured on.
+    ///   GOG       GOG's own v1.03, 9C10E045... (kotor1_gog_103): the same file with
+    ///             the 16 bytes of "Hellspawn Reborn" at FILE 0x000AC0, header padding
+    ///             that nothing reads, zeroed. Zeroing them in the Editable file gives
+    ///             GOG's SHA-256 exactly (checked 2026-09-30), so every byte KMRP reads
+    ///             or writes is the same in both; gold's fifth section header lands on
+    ///             those 16 bytes anyway (reverse-engineering/binary-inventory.md).
+    ///   Steam     Steam's, 34E6D971... (kotor1_steam_103): the same program behind
+    ///             SteamStub, which refuses to start a changed file, so it never takes
+    ///             the 4 GB flag.
+    ///
+    /// Editable and GOG are also known with the 4 GB flag set, as KMRP's install leaves
+    /// them: IMAGE_FILE_LARGE_ADDRESS_AWARE in the header's Characteristics, the one
+    /// change PeCompatibility makes. Those two hashes were computed from the unmodified
+    /// files by setting the flag.</summary>
+    internal sealed class GameExecutable
+    {
+        internal const int WatermarkOffset = 0x000AC0;
+        internal static readonly byte[] Watermark = Encoding.ASCII.GetBytes("Hellspawn Reborn");
+
+        internal static readonly GameExecutable Editable = new GameExecutable("Editable",
+            GoldPatch.SourceHash, PeCompatibility.LargeAddressAwareSourceHash, GoldPatch.SourceLength);
+        internal static readonly GameExecutable Gog = new GameExecutable("GOG",
+            "9C10E0450A6EECA417E036E3CDE7474FED1F0A92AAB018446D156944DEA91435",
+            "01B808251B3EE85F86F4C893FD4EE1A0448F94D9316FE9B09BD8B222C2B4132F", GoldPatch.SourceLength);
+        internal static readonly GameExecutable Steam = new GameExecutable("Steam",
+            GoldPatch.SteamHash, null, GoldPatch.SteamLength);
+        private static readonly GameExecutable[] All = { Editable, Gog, Steam };
+
+        internal readonly string Name;
+        internal readonly string Hash;
+        internal readonly string LargeAddressAwareHash;   // null: Steam never takes the flag
+        internal readonly long Length;
+
+        private GameExecutable(string name, string hash, string largeAddressAwareHash, long length)
+        {
+            Name = name;
+            Hash = hash;
+            LargeAddressAwareHash = largeAddressAwareHash;
+            Length = length;
+        }
+
+        internal bool IsSteam
+        {
+            get { return this == Steam; }
+        }
+
+        /// <summary>KOTOR Patch Manager's Distribution for kpm_install_state.json: GOG 0
+        /// (its table has CD 1.03 there too), Steam 1.</summary>
+        internal int KpmDistribution
+        {
+            get { return IsSteam ? 1 : 0; }
+        }
+
+        /// <summary>Which build this file is, unmodified or with the 4 GB flag; null for
+        /// any other file, a missing one or one that cannot be read.</summary>
+        internal static GameExecutable Identify(string path)
+        {
+            try
+            {
+                if (String.IsNullOrWhiteSpace(path) || !File.Exists(path))
+                    return null;
+                long length = new FileInfo(path).Length;
+                if (length != GoldPatch.SourceLength && length != GoldPatch.SteamLength)
+                    return null;
+                return ForHash(GoldPatch.HashFile(path));
+            }
+            catch
+            {
+                return null;
+            }
+        }
+
+        internal static GameExecutable ForHash(string hash)
+        {
+            foreach (GameExecutable exe in All)
+                if (hash == exe.Hash || (exe.LargeAddressAwareHash != null && hash == exe.LargeAddressAwareHash))
+                    return exe;
+            return null;
+        }
     }
 
     internal sealed class GoldPatch
@@ -87,6 +184,7 @@ namespace Kmrp
         // ("Application load error 3:0000065432", measured 2026-09-28). Only the KPM
         // edition supports it, in memory; the standalone cannot patch it.
         internal const string SteamHash = "34E6D971C034222A417995D8E1E8FDD9F8781795C9C289BD86C499A439F34C88";
+        internal const long SteamLength = 4395008;
         internal const string TargetHash = "9DD81A75F4888FD67242B682BEE0AB4392EA8923CDF4A020CA3EDD2464C05E0A";
         internal const long SourceLength = 4042752;
         internal const long TargetLength = 4087808;
@@ -248,10 +346,21 @@ namespace Kmrp
         internal readonly int OverlayWidth;
         internal readonly int CenteringWidth;
         internal readonly int CenteringHeight;
+        /// <summary>The listed set whose files install: this size's own, or for a size
+        /// the build has no set for, the nearest one (ResolutionCatalog.Nearest), whose
+        /// fonts and art install and whose .gui files GuiBlend replaces.</summary>
+        internal readonly string SetKey;
         private readonly string displayName;
 
         internal ResolutionChoice(string category, int width, int height, int canvasWidth, int canvasHeight,
             int overlayWidth, int centeringWidth, int centeringHeight)
+            : this(category, width, height, canvasWidth, canvasHeight, overlayWidth, centeringWidth,
+                   centeringHeight, null)
+        {
+        }
+
+        private ResolutionChoice(string category, int width, int height, int canvasWidth, int canvasHeight,
+            int overlayWidth, int centeringWidth, int centeringHeight, string setKey)
         {
             Category = category;
             Width = width;
@@ -261,8 +370,27 @@ namespace Kmrp
             OverlayWidth = overlayWidth;
             CenteringWidth = centeringWidth;
             CenteringHeight = centeringHeight;
+            SetKey = setKey ?? Key;
             displayName = category + "   ·   " + width.ToString(CultureInfo.InvariantCulture) + " × " +
                 height.ToString(CultureInfo.InvariantCulture);
+        }
+
+        /// <summary>A size with its map fields computed as the catalogue's are
+        /// (tools/analyze_resolution_guis.py: the overlay W/2 by H/2, the canvas
+        /// round(overlay * 512/440) wide, centring at the screen), which every one of
+        /// the 66 listed rows equals (checked 2026-09-30).</summary>
+        internal static ResolutionChoice ForSize(string category, int width, int height, string setKey)
+        {
+            int overlay = width / 2;
+            return new ResolutionChoice(category, width, height,
+                (int)Math.Round(overlay * 512 / 440.0), height / 2, overlay, width, height, setKey);
+        }
+
+        /// <summary>The same size under another name in the list ("This display").</summary>
+        internal ResolutionChoice Relabel(string category)
+        {
+            return new ResolutionChoice(category, Width, Height, CanvasWidth, CanvasHeight, OverlayWidth,
+                CenteringWidth, CenteringHeight, SetKey);
         }
 
         internal string Key
@@ -272,6 +400,12 @@ namespace Kmrp
                 return Width.ToString(CultureInfo.InvariantCulture) + "x" +
                     Height.ToString(CultureInfo.InvariantCulture);
             }
+        }
+
+        /// <summary>No set of its own: its menus are blended at install.</summary>
+        internal bool Blended
+        {
+            get { return SetKey != Key; }
         }
 
         public override string ToString()
@@ -320,14 +454,73 @@ namespace Kmrp
             return choices;
         }
 
+        /// <summary>A listed size, or any other the menu sets reach (Derived).</summary>
         internal static ResolutionChoice Find(int width, int height)
         {
-            foreach (ResolutionChoice choice in Load())
+            List<ResolutionChoice> listed = Load();
+            foreach (ResolutionChoice choice in listed)
             {
                 if (choice.Width == width && choice.Height == height)
                     return choice;
             }
-            throw new ArgumentOutOfRangeException("resolution", "The selected resolution is not supported.");
+            return Derived("Custom", width, height, listed);
+        }
+
+        /// <summary>A size the catalogue does not list, installed as the Mac installer
+        /// installs one (macos/kmrp-mac.sh): the nearest listed set's fonts and art, and
+        /// .gui files GuiBlend blends from the finished sets around it. Throws when those
+        /// sets do not reach it.</summary>
+        internal static ResolutionChoice Derived(string category, int width, int height, List<ResolutionChoice> listed)
+        {
+            if (!GuiBlend.Shared().Covers(width, height))
+                throw new ArgumentException(OutOfReach(width, height));
+            return ResolutionChoice.ForSize(category, width, height, Nearest(listed, width, height).Key);
+        }
+
+        /// <summary>The listed size nearest WIDTHxHEIGHT, as the Mac installer's
+        /// nearest_size picks it: the nearest height (the fonts are baked at
+        /// max(1, H / 720)), then the nearest shape, the first in the list on a tie.</summary>
+        internal static ResolutionChoice Nearest(List<ResolutionChoice> listed, int width, int height)
+        {
+            ResolutionChoice best = null;
+            double bestHeight = 0, bestShape = 0;
+            foreach (ResolutionChoice choice in listed)
+            {
+                double dh = Math.Abs(choice.Height - height);
+                double da = Math.Abs((double)choice.Width / choice.Height - (double)width / height);
+                if (best == null || dh < bestHeight || (dh == bestHeight && da < bestShape))
+                {
+                    best = choice;
+                    bestHeight = dh;
+                    bestShape = da;
+                }
+            }
+            return best;
+        }
+
+        /// <summary>Why a size cannot be installed, with the heights the menu sets reach
+        /// at its shape when they reach it at all.</summary>
+        internal static string OutOfReach(int width, int height)
+        {
+            string size = width.ToString(CultureInfo.InvariantCulture) + " × " +
+                height.ToString(CultureInfo.InvariantCulture);
+            double aspect = (double)width / height;
+            int lowest = 0, highest = 0;
+            GuiBlend blend = GuiBlend.Shared();
+            for (int h = GuiBlend.MinimumHeight; h <= 8640; h++)
+            {
+                int w = (int)Math.Round(h * aspect);
+                if (!blend.Covers(w, h))
+                    continue;
+                if (lowest == 0)
+                    lowest = h;
+                highest = h;
+            }
+            if (lowest == 0)
+                return "KMRP's menus do not reach " + size + ": its shape is outside 4:3 to 32:9.";
+            return "KMRP's menus do not reach " + size + ". At this shape they reach heights from " +
+                lowest.ToString(CultureInfo.InvariantCulture) + " to " +
+                highest.ToString(CultureInfo.InvariantCulture) + " pixels.";
         }
     }
 
@@ -2605,10 +2798,11 @@ namespace Kmrp
                 opened.Add(common);
                 payloads.Add(ArchiveFiles(common));
                 payloadStages.Add("Installing interface artwork…");
-                GuiPool layout = GuiPool.Open(resolution.Key);
+                GuiPool layout = GuiPool.Open(resolution.SetKey);
                 opened.Add(layout);
                 payloads.Add(layout.Files);
-                payloadStages.Add("Installing resolution layout…");
+                payloadStages.Add(resolution.Blended ? "Installing menus made for this size…" :
+                    "Installing resolution layout…");
 
                 // Feat/power icons are built here from the game's own texture pack
                 // rather than embedded: 200 icons x 48 resolutions would add ~57 MB of
@@ -2644,8 +2838,37 @@ namespace Kmrp
                 // The ten controller prompt badges, re-placed against the label this
                 // player's dialog.tlk actually draws. Null when that file is missing or
                 // unreadable, in which case the shipped English placement stands.
-                Dictionary<string, byte[]> promptReplacements =
-                    ControllerPromptGenerator.TryBuild(executablePath, layout);
+                // A size the build has no set for installs the nearest set with its .gui
+                // files blended for the size and its badges drawn for the blended buttons
+                // (GuiBlend), each replacing the set's file, so that each stays one write of
+                // one path.
+                Dictionary<string, byte[]> replacements = BlendedMenus(resolution, layout);
+                if (resolution.Blended)
+                    SafeReport(report, "No menu set was built for " + resolution.Key + ", so its menus were " +
+                        "blended from the sets around it, and its controller badges drawn for them, with the " +
+                        "fonts of " + resolution.SetKey + ".");
+                // The badges re-centred for this player's dialog.tlk, from the manifest and
+                // badges that install: for a blended size, the ones drawn for it, which a
+                // re-centred one then replaces.
+                Dictionary<string, byte[]> promptReplacements = ControllerPromptGenerator.TryBuild(executablePath,
+                    delegate(string name)
+                    {
+                        byte[] made;
+                        if (replacements.TryGetValue(NormalizeRelativePath(name), out made))
+                            return made;
+                        ZipArchiveEntry entry = layout.GetEntry(name);
+                        if (entry == null)
+                            return null;
+                        using (Stream input = entry.Open())
+                        using (MemoryStream buffer = new MemoryStream())
+                        {
+                            input.CopyTo(buffer);
+                            return buffer.ToArray();
+                        }
+                    });
+                if (promptReplacements != null)
+                    foreach (KeyValuePair<string, byte[]> prompt in promptReplacements)
+                        replacements[prompt.Key] = prompt.Value;
 
                 // Each archive gets a slice of the 18-94 band proportional to its size.
                 // The ranges used to be hardcoded as "18 to 88 for the first, 88 to 94 for
@@ -2810,16 +3033,16 @@ namespace Kmrp
                         {
                             // A controller prompt badge whose position was
                             // recomputed against the player's own dialog.tlk
-                            // replaces the archive's English-placed copy. It is
-                            // substituted here rather than shipped as a fourth
-                            // archive so that it stays ONE write of one path: a
+                            // replaces the archive's English-placed copy, and a
+                            // blended .gui the nearest set's. They are
+                            // substituted here rather than shipped as another
+                            // archive so that each stays ONE write of one path: a
                             // second archive carrying the same name would trip
                             // the two-archives-disagree guard below, which
                             // exists for a real bug and should not be taught to
                             // tolerate exceptions.
-                            byte[] replacement = null;
-                            if (promptReplacements != null)
-                                promptReplacements.TryGetValue(relative, out replacement);
+                            byte[] replacement;
+                            replacements.TryGetValue(relative, out replacement);
                             if (replacement != null)
                             {
                                 using (FileStream output = new FileStream(temporary, FileMode.CreateNew, FileAccess.Write, FileShare.None))
@@ -2841,7 +3064,8 @@ namespace Kmrp
                             // A file from the layout pool must be the object it was
                             // stored as. The build verified the pool; this catches
                             // one damaged since. A prompt badge moved for this
-                            // player's dialog.tlk is meant to differ, so not those.
+                            // player's dialog.tlk, or a blended .gui, is meant to
+                            // differ, so not those.
                             if (file.Object != null && replacement == null &&
                                 !installedHash.StartsWith(file.Object, StringComparison.Ordinal))
                                 throw new InvalidDataException(
@@ -3051,6 +3275,39 @@ namespace Kmrp
                     File.Delete(target);
                 }
             }
+        }
+
+        /// <summary>For a size the build has no set for (ResolutionChoice.Blended), every
+        /// .gui of the table blended for it, every controller badge drawn for its blended
+        /// button, and the prompt manifest with those buttons' sizes, by Override path,
+        /// made with the fonts of the nearest set, which `layout` is; empty for a listed
+        /// size. Each one must be a file the set has, so that it replaces the set's copy.</summary>
+        private static Dictionary<string, byte[]> BlendedMenus(ResolutionChoice resolution, GuiPool layout)
+        {
+            Dictionary<string, byte[]> menus = new Dictionary<string, byte[]>(StringComparer.OrdinalIgnoreCase);
+            if (!resolution.Blended)
+                return menus;
+            List<KeyValuePair<string, byte[]>> blended = GuiBlend.Shared().Derive(resolution.Width, resolution.Height,
+                delegate(string name)
+                {
+                    ZipArchiveEntry entry = layout.GetEntry(name);
+                    if (entry == null)
+                        throw new InvalidDataException("The " + resolution.SetKey + " menu set has no " + name + ".");
+                    using (Stream input = entry.Open())
+                    using (MemoryStream bytes = new MemoryStream())
+                    {
+                        input.CopyTo(bytes);
+                        return GuiBlend.Text(bytes.ToArray());
+                    }
+                });
+            foreach (KeyValuePair<string, byte[]> file in blended)
+            {
+                if (layout.GetEntry(file.Key) == null)
+                    throw new InvalidDataException("The blend made " + file.Key + ", which the " +
+                        resolution.SetKey + " menu set does not. This build is inconsistent; please report it.");
+                menus.Add(NormalizeRelativePath(file.Key), file.Value);
+            }
+            return menus;
         }
 
         private static string NormalizeRelativePath(string value)
@@ -4117,9 +4374,11 @@ namespace Kmrp
         }
 
         internal const int HeaderHeight = 96;
-        /// <summary>How much taller step 2 becomes when it must offer the recovery
-        /// buttons. The card reserves this so the layout never has to grow.</summary>
-        internal const int RecoveryExtra = 67;
+        /// <summary>Room the card keeps between the last step and the action row. Step 2
+        /// grew into it to offer "Get Editable EXE" and "Check Again" until 2026-09-30,
+        /// when KMRP took Steam's and GOG's executables as they are; the space stays, so
+        /// the window keeps its proportions, and the Mac's window copies them.</summary>
+        internal const int ActionRoom = 67;
         internal const int ContentLeft = 120;
         internal string Title = String.Empty;
         internal string Subtitle = String.Empty;
@@ -4163,9 +4422,7 @@ namespace Kmrp
                 using (Pen line = new Pen(UiTheme.Hairline, Math.Max(1F, scale)))
                     g.DrawLine(line, horizontalInset, Height - 1, Width - horizontalInset, Height - 1);
 
-            // An unresolved verification step grows below its normal header. Keep the
-            // badge and text anchored to the 96px header so expanding the recovery area
-            // does not make the row's identity jump vertically.
+            // Anchored to the 96px header, whatever height the row is given.
             int headerHeight = Math.Min(Height, Math.Max(1, (int)Math.Round(HeaderHeight * scale)));
             int badge = Math.Max(1, (int)Math.Round(64 * scale));
             int badgeLeft = Math.Max(1, (int)Math.Round(28 * scale));
@@ -4830,9 +5087,26 @@ namespace Kmrp
                     }
                     float dens = 1F - (float)Math.Exp(-thickness * DensityGain);
 
-                    field[y * w + x] = dens * lit * Exposure;
+                    field[y * w + x] = dens * lit * Exposure * BottomFade(v);
                 }
             }
+        }
+
+        /// <summary>The header's bottom. The smoke and the motes are drawn only inside the
+        /// header, and in the columns where the plume reaches furthest they were still thick
+        /// at its edge, so beside the card, which does not cover the window's margins, they
+        /// stopped on a straight line (seen on the Mac's port of this code, 2026-09-30,
+        /// docs/windows-changes-from-macos.md item 11). Over the lowest 30% of the header
+        /// they fade to nothing, smoothly, as macos/installer-app/main.m's BottomFade.</summary>
+        private static float BottomFade(float v)
+        {
+            const float start = 0.70F;
+            if (v <= start)
+                return 1F;
+            if (v >= 1F)
+                return 0F;
+            float t = (1F - v) / (1F - start);
+            return t * t * (3F - 2F * t);
         }
 
         /// <summary>Light entering from above the top edge, across the full width, dying
@@ -4878,7 +5152,7 @@ namespace Kmrp
                     continue;
 
                 // A mote is only as bright as the light reaching it.
-                float bright = fade * m.Seed * LightAt(mx, my) * MoteAlpha;
+                float bright = fade * m.Seed * LightAt(mx, my) * MoteAlpha * BottomFade(my);
                 if (bright <= 0.004F)
                     continue;
                 if (bright > 1F)
@@ -5111,7 +5385,6 @@ namespace Kmrp
         private static bool driverCompatibility = DriverCompatibilityDefault;
         private static bool markerFixes = MarkerFixesDefault;
         private static bool controllerSupport = ControllerSupportDefault;
-        private static bool patchManager;
         // The newer version the player asked not to be reminded of again, or "".
         private static string skippedUpdate = "";
 
@@ -5176,24 +5449,10 @@ namespace Kmrp
             }
         }
 
-        /// <summary>Install for KOTOR Patch Manager: KMRP's files only, with the player
-        /// ticking KMRP's .kpatch files in KPM, instead of installing KPM's runtime
-        /// here. Off by default; the installer also chooses it by itself for a game
-        /// folder where KOTOR Patch Manager's runtime is already installed
-        /// (KpmEditionOperations.ManagedByPatchManager). Until 2026-09-29 this was a
-        /// separate installer, KMRP for KPM.</summary>
-        internal static bool PatchManager
-        {
-            get { Load(); return patchManager; }
-            set
-            {
-                Load();
-                if (patchManager == value)
-                    return;
-                patchManager = value;
-                Save();
-            }
-        }
+        // "kotorPatchManager", the Advanced Settings option to install for KOTOR Patch
+        // Manager (2026-09-29 to 2026-09-30), is no longer read or written: KPM's files in
+        // the game folder decide that by themselves (KpmEditionOperations.Install). A
+        // settings file that still has it loses it at the next save.
 
         /// <summary>The version the update prompt was told not to repeat ("Don't
         /// remind me again for 1.6.0"). A later version is announced as usual.</summary>
@@ -5240,12 +5499,6 @@ namespace Kmrp
                 if (controller.Success)
                     controllerSupport = String.Equals(controller.Groups[1].Value, "true",
                         StringComparison.OrdinalIgnoreCase);
-                Match manager = Regex.Match(json,
-                    "\\\"kotorPatchManager\\\"\\s*:\\s*(true|false)",
-                    RegexOptions.IgnoreCase | RegexOptions.CultureInvariant);
-                if (manager.Success)
-                    patchManager = String.Equals(manager.Groups[1].Value, "true",
-                        StringComparison.OrdinalIgnoreCase);
                 Match skipped = Regex.Match(json,
                     "\\\"skippedUpdate\\\"\\s*:\\s*\\\"([0-9.]{1,32})\\\"",
                     RegexOptions.CultureInvariant);
@@ -5269,9 +5522,7 @@ namespace Kmrp
                     "  \"markerFixes\": " +
                     (markerFixes ? "true" : "false") + ",\r\n" +
                     "  \"controllerSupport\": " +
-                    (controllerSupport ? "true" : "false") + ",\r\n" +
-                    "  \"kotorPatchManager\": " +
-                    (patchManager ? "true" : "false") +
+                    (controllerSupport ? "true" : "false") +
                     (skippedUpdate.Length > 0
                         ? ",\r\n  \"skippedUpdate\": \"" + skippedUpdate + "\""
                         : "") +
@@ -5445,6 +5696,157 @@ namespace Kmrp
             {
                 DialogResult = DialogResult.Cancel;
                 Close();
+                return;
+            }
+            base.OnKeyDown(e);
+        }
+    }
+
+    /// <summary>Step 3's "Custom size…": a width and a height. Use this size accepts one
+    /// the menu sets reach -- a listed size, or one ResolutionCatalog.Derived blends --
+    /// and says why not otherwise, with the heights they reach at that shape, as the
+    /// Mac installer's custom size does (macos/installer-app/main.m).</summary>
+    internal sealed class CustomSizeDialog : Form
+    {
+        private readonly TextBox widthBox;
+        private readonly TextBox heightBox;
+        private readonly Label message;
+        private readonly float scale;
+
+        /// <summary>The accepted size, once the dialog returns OK.</summary>
+        internal ResolutionChoice Choice { get; private set; }
+
+        internal CustomSizeDialog(ResolutionChoice current, float scale)
+        {
+            this.scale = Math.Max(0.35F, scale);
+            Text = "Custom resolution";
+            FormBorderStyle = FormBorderStyle.FixedDialog;
+            MaximizeBox = false;
+            MinimizeBox = false;
+            ShowInTaskbar = false;
+            StartPosition = FormStartPosition.CenterParent;
+            BackColor = UiTheme.Card;
+            Font = new Font("Segoe UI", Points(11F));
+            ClientSize = new Size(Px(680), Px(318));
+            KeyPreview = true;
+            HandleCreated += delegate { MainForm.UseDarkTitleBar(Handle); };
+
+            Label title = new Label();
+            title.Text = "Custom resolution";
+            title.Font = new Font("Segoe UI Semibold", Points(20F));
+            title.ForeColor = UiTheme.Text;
+            title.BackColor = UiTheme.Card;
+            title.SetBounds(Px(32), Px(26), Px(616), Px(42));
+            Controls.Add(title);
+
+            Label body = new Label();
+            body.Text = "Any size from 4:3 to 32:9. Sizes KMRP has no menu set for are made at install.";
+            body.Font = new Font("Segoe UI", Points(12F));
+            body.ForeColor = UiTheme.TextMuted;
+            body.BackColor = UiTheme.Card;
+            body.SetBounds(Px(32), Px(72), Px(616), Px(28));
+            Controls.Add(body);
+
+            widthBox = NewField(current == null ? String.Empty : current.Width.ToString(CultureInfo.InvariantCulture));
+            widthBox.SetBounds(Px(32), Px(118), Px(180), Px(44));
+            Controls.Add(widthBox);
+
+            Label times = new Label();
+            times.Text = "×";
+            times.Font = new Font("Segoe UI Semibold", Points(18F));
+            times.ForeColor = UiTheme.TextMuted;
+            times.BackColor = UiTheme.Card;
+            times.TextAlign = ContentAlignment.MiddleCenter;
+            times.SetBounds(Px(212), Px(118), Px(48), Px(44));
+            Controls.Add(times);
+
+            heightBox = NewField(current == null ? String.Empty : current.Height.ToString(CultureInfo.InvariantCulture));
+            heightBox.SetBounds(Px(260), Px(118), Px(180), Px(44));
+            Controls.Add(heightBox);
+
+            message = new Label();
+            message.Font = new Font("Segoe UI", Points(11F));
+            message.ForeColor = UiTheme.Warning;
+            message.BackColor = UiTheme.Card;
+            message.SetBounds(Px(32), Px(170), Px(616), Px(48));
+            Controls.Add(message);
+
+            PillButton use = new PillButton();
+            use.UiScale = this.scale;
+            use.Primary = true;
+            use.TextSize = 17F;
+            use.Text = "Use this size";
+            use.SetBounds(Px(32), Px(232), Px(300), Px(56));
+            use.Click += delegate { Accept(); };
+            Controls.Add(use);
+
+            PillButton cancel = new PillButton();
+            cancel.UiScale = this.scale;
+            cancel.TextSize = 17F;
+            cancel.Text = "Cancel";
+            cancel.SetBounds(Px(348), Px(232), Px(300), Px(56));
+            cancel.Click += delegate { DialogResult = DialogResult.Cancel; Close(); };
+            Controls.Add(cancel);
+        }
+
+        private TextBox NewField(string value)
+        {
+            TextBox box = new TextBox();
+            box.Text = value;
+            box.Font = new Font("Segoe UI Semibold", Points(17F));
+            box.BackColor = UiTheme.Field;
+            box.ForeColor = UiTheme.Text;
+            box.BorderStyle = BorderStyle.FixedSingle;
+            box.TextAlign = HorizontalAlignment.Center;
+            box.MaxLength = 5;
+            box.KeyPress += delegate(object sender, KeyPressEventArgs e)
+            {
+                if (!Char.IsControl(e.KeyChar) && !Char.IsDigit(e.KeyChar))
+                    e.Handled = true;
+            };
+            return box;
+        }
+
+        private void Accept()
+        {
+            int width, height;
+            if (!Int32.TryParse(widthBox.Text.Trim(), NumberStyles.None, CultureInfo.InvariantCulture, out width) ||
+                !Int32.TryParse(heightBox.Text.Trim(), NumberStyles.None, CultureInfo.InvariantCulture, out height) ||
+                width < GuiBlend.MinimumWidth || height < GuiBlend.MinimumHeight)
+            {
+                message.Text = "Enter a width of at least " + GuiBlend.MinimumWidth.ToString(CultureInfo.InvariantCulture) +
+                    " and a height of at least " + GuiBlend.MinimumHeight.ToString(CultureInfo.InvariantCulture) + " pixels.";
+                return;
+            }
+            try
+            {
+                Choice = ResolutionCatalog.Find(width, height);
+            }
+            catch (ArgumentException error)
+            {
+                message.Text = error.Message;
+                return;
+            }
+            DialogResult = DialogResult.OK;
+            Close();
+        }
+
+        private int Px(int design) { return Math.Max(1, (int)Math.Round(design * scale)); }
+        private float Points(float design) { return Math.Max(6F, design * scale); }
+
+        protected override void OnKeyDown(KeyEventArgs e)
+        {
+            if (e.KeyCode == Keys.Escape)
+            {
+                DialogResult = DialogResult.Cancel;
+                Close();
+                return;
+            }
+            if (e.KeyCode == Keys.Enter)
+            {
+                e.Handled = true;
+                e.SuppressKeyPress = true;
+                Accept();
                 return;
             }
             base.OnKeyDown(e);
@@ -5688,7 +6090,6 @@ namespace Kmrp
         private const double WordmarkInkRight = 0.9774;
         private const double WordmarkInkLeft = 0.0216;
         private const string Tagline = "M O D E R N .   R E S T O R E D .   S I M P L E .";
-        private const string EditableExeUrl = "https://deadlystream.com/files/file/1320-kotor-editable-executable/";
         private readonly int headerHeight;
         private readonly int brandWidth;
         private readonly int brandHeight;
@@ -5706,20 +6107,26 @@ namespace Kmrp
         private readonly StateLabel verifyState;
         private readonly StateLabel resolutionState;
         private readonly StateLabel applyState;
-        private readonly CardPanel verificationRecovery;
         private readonly CardPanel mainCard;
         private readonly PillButton settingsButton;
         private readonly CardPanel settingsView;
         private readonly OptionToggle driverToggle;
         private readonly OptionToggle markerToggle;
         private readonly OptionToggle controllerToggle;
-        private readonly OptionToggle patchManagerToggle;
         private readonly List<Control> mainViewControls = new List<Control>();
         private Timer fadeTimer;
         private FadeOverlay fadeOverlay;
         private bool settingsOpen;
-        private readonly PillButton downloadExecutableButton;
-        private readonly PillButton checkExecutableButton;
+        // The resolution list's last entry, which asks for a size of the player's own.
+        private sealed class CustomSizeEntry
+        {
+            public override string ToString()
+            {
+                return "Custom size…";
+            }
+        }
+        private readonly CustomSizeEntry customSizeEntry = new CustomSizeEntry();
+        private int lastResolutionIndex = -1;
         private readonly Panel optionsHost;           // reserved: future checkboxes land here
         private readonly LinkLabel logLink;
         private Image brand;
@@ -5858,45 +6265,15 @@ namespace Kmrp
             browseButton.Click += delegate { BrowseForExecutable(this); };
             stepFolder.Controls.Add(browseButton);
 
-            stepVerify = NewStep(card, 1, UiTheme.Glyph.Shield, "2. Verify Editable EXE",
-                "Checking for the required editable swkotor.exe.");
+            // Step 2 names the game version it finds; there is nothing to fetch. Until
+            // 2026-09-30 it was "Verify Editable EXE", and it grew to offer "Get Editable
+            // EXE" and "Check Again" when the file was not the editable one: KMRP now
+            // takes Steam's, GOG's and the editable swkotor.exe as they are
+            // (GameExecutable). The window checks again whenever it is activated, so a
+            // file replaced meanwhile is seen on return.
+            stepVerify = NewStep(card, 1, UiTheme.Glyph.Shield, "2. Detect Game Version",
+                "Looking for swkotor.exe.");
             verifyState = NewStateLabel(stepVerify, card.Width);
-
-            // Verification recovery lives in the step that owns the problem. While the
-            // executable is unresolved, this panel expands Step 2 into the space normally
-            // used by Steps 3 and 4; there is no interrupting modal and no taller window.
-            verificationRecovery = new CardPanel();
-            // Same fill and edge as the card it sits in, so it reads as part of step 2
-            // rather than as a panel within a panel. Every other step is a single flat
-            // row; a sunken bordered box here was the main reason this state looked like
-            // it came from a different application.
-            verificationRecovery.Fill = UiTheme.Card;
-            verificationRecovery.Edge = UiTheme.Card;
-            verificationRecovery.Radius = 10;
-            // 91, not 84: the gap between the subtitle and these buttons is then the same
-            // as the gap between the step title and the subtitle. Measured ink-to-ink,
-            // because the fonts carry different internal leading and box positions do not
-            // predict the visual gap.
-            verificationRecovery.SetBounds(StepRow.ContentLeft, 91, card.Width - StepRow.ContentLeft - 36, 48);
-            verificationRecovery.Anchor = AnchorStyles.Top | AnchorStyles.Left | AnchorStyles.Right;
-            verificationRecovery.Visible = false;
-            stepVerify.Controls.Add(verificationRecovery);
-
-            downloadExecutableButton = new PillButton();
-            downloadExecutableButton.Primary = true;
-            downloadExecutableButton.Text = "Get Editable EXE";
-            downloadExecutableButton.SetBounds(0, 0, 230, 48);
-            downloadExecutableButton.Click += delegate { OpenEditableExecutablePage(); };
-            verificationRecovery.Controls.Add(downloadExecutableButton);
-
-            checkExecutableButton = new PillButton();
-            checkExecutableButton.Text = "Check Again";
-            // Directly beside Get Editable EXE: the third button here was "Choose
-            // Editable EXE", which duplicated step 1's Browse -- the folder picker already
-            // selects the executable, and Check Again re-verifies it.
-            checkExecutableButton.SetBounds(242, 0, 164, 48);
-            checkExecutableButton.Click += delegate { RefreshStatus(); };
-            verificationRecovery.Controls.Add(checkExecutableButton);
 
             stepResolution = NewStep(card, 2, UiTheme.Glyph.Monitor, "3. Choose Resolution",
                 "Select the resolution you want to patch for.");
@@ -5905,17 +6282,28 @@ namespace Kmrp
             resolutionBox.SetBounds(card.Width - 448, 26, 412, 44);
             resolutionBox.Anchor = AnchorStyles.Top | AnchorStyles.Right;
             resolutionBox.DrawItem += ResolutionDrawItem;
-            int preferredResolution = 0;
+            // This display first, listed or blended, then the catalogue, then a size of
+            // the player's own, as the Mac installer lists them
+            // (macos/installer-app/main.m). This display is chosen to start with; the
+            // list began at 3440x1440 until 2026-09-30, which stays the fallback.
             List<ResolutionChoice> resolutions = ResolutionCatalog.Load();
-            for (int index = 0; index < resolutions.Count; index++)
+            ResolutionChoice display = DisplayChoice(resolutions);
+            int preferredResolution = -1;
+            if (display != null)
             {
-                resolutionBox.Items.Add(resolutions[index]);
-                if (resolutions[index].Width == 3440 && resolutions[index].Height == 1440)
-                    preferredResolution = index;
+                resolutionBox.Items.Add(display);
+                preferredResolution = 0;
             }
-            if (resolutionBox.Items.Count > 0)
-                resolutionBox.SelectedIndex = preferredResolution;
-            resolutionBox.SelectedIndexChanged += delegate { RefreshStatus(); };
+            foreach (ResolutionChoice choice in resolutions)
+            {
+                if (preferredResolution < 0 && choice.Width == 3440 && choice.Height == 1440)
+                    preferredResolution = resolutionBox.Items.Count;
+                resolutionBox.Items.Add(choice);
+            }
+            resolutionBox.Items.Add(customSizeEntry);
+            resolutionBox.SelectedIndex = Math.Max(0, preferredResolution);
+            lastResolutionIndex = resolutionBox.SelectedIndex;
+            resolutionBox.SelectedIndexChanged += delegate { ResolutionPicked(); };
             stepResolution.Controls.Add(resolutionBox);
             resolutionState = NewStateLabel(stepResolution, card.Width);
             resolutionState.Visible = false;
@@ -5946,15 +6334,10 @@ namespace Kmrp
             // the two always agree, whatever the row height becomes.
             const int ActionHeight = 76;
             const int ActionGap = 12;
-            // Step 2 grows by RecoveryExtra when it has to show the "get the editable
-            // exe" buttons, and the steps below it move down. That room is reserved here
-            // rather than found later: the card is a fixed height and the action row sits
-            // a fixed distance from its bottom, so nothing below the card -- the footer,
-            // the window, the settings view that covers it -- ever has to resize.
-            //
-            // Before this, only step 3 was repositioned and everything under it kept its
-            // place, so in the recovery state step 3 landed on top of step 4.
-            actionButton.SetBounds(80, optionsHost.Bottom + 30 + StepRow.RecoveryExtra,
+            // The card is a fixed height and the action row sits a fixed distance from
+            // its bottom, so nothing below the card -- the footer, the window, the
+            // settings view that covers it -- ever has to resize (StepRow.ActionRoom).
+            actionButton.SetBounds(80, optionsHost.Bottom + 30 + StepRow.ActionRoom,
                                    card.Width - 160 - ActionGap - ActionHeight, ActionHeight);
             actionButton.Anchor = AnchorStyles.Top | AnchorStyles.Left | AnchorStyles.Right;
             actionButton.Click += ActionClicked;
@@ -6002,8 +6385,8 @@ namespace Kmrp
 
             Label settingsSubtitle = new Label();
             settingsSubtitle.Text =
-                "Choose optional components. The first three are on by default, and each "
-                + "can be turned off on its own.";
+                "Choose optional components. Each is on by default and can be turned off "
+                + "on its own.";
             settingsSubtitle.Font = new Font("Segoe UI", 14F);
             settingsSubtitle.ForeColor = UiTheme.TextMuted;
             settingsSubtitle.BackColor = UiTheme.Card;
@@ -6061,33 +6444,14 @@ namespace Kmrp
             };
             settingsView.Controls.Add(controllerToggle);
 
-            // Since 2026-09-29 the one installer also serves KOTOR Patch Manager, which
-            // until then took a separate one, KMRP for KPM. Off by default; a folder that
-            // already holds KPM's runtime is installed for it regardless
-            // (KpmEditionOperations). The other three are then patches ticked in KPM.
-            patchManagerToggle = new OptionToggle();
-            patchManagerToggle.Title = "KOTOR Patch Manager";
-            patchManagerToggle.Author = "Lane Dibello";
-            patchManagerToggle.Detail =
-                "Install for KOTOR Patch Manager and tick KMRP's patches there. Automatic when KPM manages the game.";
-            patchManagerToggle.Checked = KmrpSettings.PatchManager;
-            patchManagerToggle.Anchor = AnchorStyles.Top | AnchorStyles.Left | AnchorStyles.Right;
-            patchManagerToggle.CheckedChanged += delegate
-            {
-                KmrpSettings.PatchManager = patchManagerToggle.Checked;
-            };
-            settingsView.Controls.Add(patchManagerToggle);
-
-            // Four rows since the fourth arrived: 78 px apart by 6, where three were 86
-            // by 8, so all four end above the button row (card.Height - 116). The two
-            // lines of text in a row need about 70 px.
-            OptionToggle[] toggles = { driverToggle, markerToggle, controllerToggle, patchManagerToggle };
-            int toggleTop = settingsSubtitle.Bottom + 12;
-            foreach (OptionToggle toggle in toggles)
-            {
-                toggle.SetBounds(36, toggleTop, card.Width - 72, 78);
-                toggleTop += 78 + 6;
-            }
+            // A fourth row, "KOTOR Patch Manager", installed for KPM on request from
+            // 2026-09-29 to 2026-09-30. It was removed: KPM's files in the game folder
+            // choose that install by themselves, and KMRP's own install is one KPM
+            // recognises and can take over (kpm_install_state.json, its backup, the
+            // .kpatch files in its folder), so it only decided who installed the runtime
+            // first -- and on Steam with KPM 0.7.1 it left a runtime KPM injected, which a
+            // game Steam starts never loads. The three rows are 86 px tall and 8 apart
+            // again, as before it came.
 
             // Two actions, sharing the row the single Back button used to have. Restore
             // Defaults is Subtle so Back stays the obvious way out.
@@ -6101,12 +6465,10 @@ namespace Kmrp
             settingsDefaults.Anchor = AnchorStyles.Top | AnchorStyles.Left;
             settingsDefaults.Click += delegate
             {
-                // The documented defaults: the three components on, and KMRP's own
-                // runtime rather than KOTOR Patch Manager's (KmrpSettings).
+                // The documented defaults: the three components on (KmrpSettings).
                 driverToggle.Checked = true;
                 markerToggle.Checked = true;
                 controllerToggle.Checked = true;
-                patchManagerToggle.Checked = false;
             };
             settingsView.Controls.Add(settingsDefaults);
 
@@ -6737,27 +7099,6 @@ namespace Kmrp
             return ScaleDesign(headerHeight);
         }
 
-        /// <summary>Moves a step in design space and applies it at the current scale.
-        /// The design rectangle is the source of truth -- ApplyControlScale restores every
-        /// control from it on each rescale -- so moving a control means moving that, not
-        /// just its live bounds.</summary>
-        private void PlaceStep(Control step, int designTop)
-        {
-            Rectangle logical;
-            if (!designBounds.TryGetValue(step, out logical))
-                return;
-            if (logical.Y != designTop)
-            {
-                logical.Y = designTop;
-                designBounds[step] = logical;
-            }
-            step.SetBounds(
-                (int)Math.Round(logical.X * uiScale),
-                (int)Math.Round(logical.Y * uiScale),
-                Math.Max(1, (int)Math.Round(logical.Width * uiScale)),
-                Math.Max(1, (int)Math.Round(logical.Height * uiScale)));
-        }
-
         private int ScaleDesign(int value)
         {
             return Math.Max(1, (int)Math.Round(value * uiScale));
@@ -7155,29 +7496,26 @@ namespace Kmrp
             }
         }
 
-        private void OpenEditableExecutablePage()
-        {
-            try
-            {
-                ProcessStartInfo start = new ProcessStartInfo();
-                start.FileName = EditableExeUrl;
-                start.UseShellExecute = true;
-                Process.Start(start);
-            }
-            catch (Exception ex)
-            {
-                MessageBox.Show(this, ex.Message, "Unable to open the download page",
-                    MessageBoxButtons.OK, MessageBoxIcon.Error);
-            }
-        }
-
+        /// <summary>Where step 1 starts: swkotor.exe beside the patcher or in the current
+        /// folder, as always; otherwise Steam's KOTOR, then GOG's, found as GameFolders
+        /// finds them (2026-09-30, at the maintainer's request: "can we auto detect steam
+        /// version if its there? cus macos can do that"). When none has one, the path
+        /// beside the patcher, which step 2 reports as missing.</summary>
         private static string FindDefaultExecutable()
         {
             string besidePatcher = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "swkotor.exe");
             if (File.Exists(besidePatcher))
                 return besidePatcher;
             string current = Path.Combine(Environment.CurrentDirectory, "swkotor.exe");
-            return File.Exists(current) ? current : besidePatcher;
+            if (File.Exists(current))
+                return current;
+            foreach (string folder in GameFolders.Installed())
+            {
+                string found = Path.Combine(folder, "swkotor.exe");
+                if (File.Exists(found))
+                    return found;
+            }
+            return besidePatcher;
         }
 
         private void BrowseForExecutable(IWin32Window owner)
@@ -7200,48 +7538,138 @@ namespace Kmrp
             label.ForeColor = color;
         }
 
-        private void UpdateVerificationRecovery(ExecutableState state, string target, bool executableReady)
+        /// <summary>Step 2: which swkotor.exe this is, in its subtitle and its state label,
+        /// and steps 3 and 4 dimmed until it is one KMRP installs on.</summary>
+        private void UpdateGameStep(ExecutableState state, string target, bool executableReady)
         {
-            bool needsRecovery = !executableReady;
-            verificationRecovery.Visible = needsRecovery;
-            // Step 3 stays in the flow while the executable is unresolved, dimmed and
-            // without its dropdown, so the card does not collapse into a different,
-            // shorter product. Step 4 has no room, and the action button below already
-            // stands for it.
-            stepResolution.Visible = true;
-            stepResolution.Dimmed = needsRecovery;
-            resolutionBox.Visible = executableReady;
-            stepApply.Visible = executableReady;
-
-            int verifyHeight = needsRecovery
-                ? StepRow.HeaderHeight + StepRow.RecoveryExtra
-                : StepRow.HeaderHeight;
-            stepVerify.Height = ScaleDesign(verifyHeight);
-            int below = StepRow.HeaderHeight + verifyHeight;
-            PlaceStep(stepResolution, below);
-            PlaceStep(stepApply, below + StepRow.HeaderHeight);
-
-            if (!needsRecovery)
+            stepResolution.Dimmed = !executableReady;
+            stepApply.Dimmed = !executableReady;
+            GameExecutable exe = GameExecutable.Identify(target);
+            if (executableReady)
             {
-                stepVerify.SetSubtitle(state == ExecutableState.Gold
-                    ? "KOTOR Modern Restoration Patch detected."
-                    : "Compatible editable executable detected.");
-                stepVerify.Invalidate();
+                SetState(verifyState, exe != null ? exe.Name : "Detected", UiTheme.Success);
+                verifyState.Badge = StateLabel.StatusBadge.Verified;
+                if (state == ExecutableState.Gold)
+                    stepVerify.SetSubtitle(exe != null
+                        ? "KOTOR Modern Restoration Patch detected, on the " + VersionName(exe) + "."
+                        : "An earlier KOTOR Modern Restoration Patch detected.");
+                else
+                    stepVerify.SetSubtitle(exe == null ? "A supported swkotor.exe detected."
+                        : exe == GameExecutable.Editable ? "The editable 1.03 swkotor.exe detected."
+                        : "The " + VersionName(exe) + " of KOTOR detected.");
                 return;
             }
-
-
-            // One line, on the step's own subtitle. This used to be three stacked
-            // restatements -- the subtitle, a heading, and a path line -- which made the
-            // step tall enough to push the rest of the flow off the card.
+            // The badge alone marks the step unsatisfied; the subtitle says which failure
+            // it is.
+            SetState(verifyState, String.Empty, state == ExecutableState.Error ? UiTheme.Error : UiTheme.Warning);
+            verifyState.Badge = StateLabel.StatusBadge.Missing;
             if (state == ExecutableState.Missing)
-                stepVerify.SetSubtitle("Put the editable swkotor.exe in your KOTOR folder, then check again.");
+                stepVerify.SetSubtitle("No swkotor.exe here. Choose your KOTOR folder in step 1.");
             else if (state == ExecutableState.Unsupported)
-                stepVerify.SetSubtitle("This copy cannot be patched. Replace it, then check again.");
+                stepVerify.SetSubtitle("This swkotor.exe is not the Steam, GOG or editable 1.03 version.");
             else
-                stepVerify.SetSubtitle("This file could not be read. Replace it, then check again.");
+                stepVerify.SetSubtitle("This swkotor.exe could not be read.");
+        }
 
-            stepVerify.Invalidate();
+        private static string VersionName(GameExecutable exe)
+        {
+            return exe == GameExecutable.Editable ? "editable 1.03 swkotor.exe" : exe.Name + " version";
+        }
+
+        [StructLayout(LayoutKind.Sequential, CharSet = CharSet.Unicode)]
+        private struct DisplayMode
+        {
+            [MarshalAs(UnmanagedType.ByValTStr, SizeConst = 32)] public string DeviceName;
+            public short SpecVersion, DriverVersion, StructSize, DriverExtra;
+            public int Fields, PositionX, PositionY, DisplayOrientation, DisplayFixedOutput;
+            public short ColorMode, Duplex, YResolution, TTOption, Collate;
+            [MarshalAs(UnmanagedType.ByValTStr, SizeConst = 32)] public string FormName;
+            public short LogPixels;
+            public int BitsPerPel, PelsWidth, PelsHeight, DisplayFlags, DisplayFrequency;
+            public int IcmMethod, IcmIntent, MediaType, DitherType, Reserved1, Reserved2, PanningWidth, PanningHeight;
+        }
+
+        private const int EnumCurrentSettings = -1;
+
+        [DllImport("user32.dll", CharSet = CharSet.Unicode, EntryPoint = "EnumDisplaySettingsW")]
+        private static extern bool EnumDisplaySettings(string deviceName, int modeNumber, ref DisplayMode mode);
+
+        /// <summary>The primary display's current mode as step 3's first entry, "This
+        /// display": its listed set when the build has one, otherwise blended at
+        /// install; null when the menu sets do not reach it (a portrait display) or it
+        /// cannot be read. From EnumDisplaySettings, which gives the mode in pixels: the
+        /// patcher is not DPI-aware, so Screen's bounds are scaled on a display set
+        /// above 100%.</summary>
+        private static ResolutionChoice DisplayChoice(List<ResolutionChoice> listed)
+        {
+            try
+            {
+                DisplayMode mode = new DisplayMode();
+                mode.StructSize = (short)Marshal.SizeOf(typeof(DisplayMode));
+                if (!EnumDisplaySettings(null, EnumCurrentSettings, ref mode))
+                    return null;
+                foreach (ResolutionChoice choice in listed)
+                    if (choice.Width == mode.PelsWidth && choice.Height == mode.PelsHeight)
+                        return choice.Relabel("This display");
+                if (!GuiBlend.Shared().Covers(mode.PelsWidth, mode.PelsHeight))
+                    return null;
+                return ResolutionCatalog.Derived("This display", mode.PelsWidth, mode.PelsHeight, listed);
+            }
+            catch
+            {
+                return null;
+            }
+        }
+
+        /// <summary>Step 3's list changed. "Custom size…" asks for a size, after the list
+        /// has closed: a dialog opened inside the combo box's own selection change
+        /// leaves its drop-down state behind.</summary>
+        private void ResolutionPicked()
+        {
+            if (resolutionBox.SelectedItem == customSizeEntry)
+            {
+                BeginInvoke(new MethodInvoker(AskForCustomSize));
+                return;
+            }
+            lastResolutionIndex = resolutionBox.SelectedIndex;
+            RefreshStatus();
+        }
+
+        /// <summary>A size the menu sets reach is selected where the list has it, or
+        /// added above "Custom size…" in place of the last one added; a cancelled
+        /// dialog puts the previous choice back.</summary>
+        private void AskForCustomSize()
+        {
+            ResolutionChoice current = lastResolutionIndex >= 0 && lastResolutionIndex < resolutionBox.Items.Count
+                ? resolutionBox.Items[lastResolutionIndex] as ResolutionChoice
+                : null;
+            ResolutionChoice picked = null;
+            using (CustomSizeDialog dialog = new CustomSizeDialog(current, uiScale))
+                if (dialog.ShowDialog(this) == DialogResult.OK)
+                    picked = dialog.Choice;
+            if (picked == null)
+            {
+                resolutionBox.SelectedIndex = Math.Max(0, Math.Min(lastResolutionIndex, resolutionBox.Items.Count - 2));
+                return;
+            }
+            for (int i = 0; i < resolutionBox.Items.Count; i++)
+            {
+                ResolutionChoice item = resolutionBox.Items[i] as ResolutionChoice;
+                if (item != null && item.Key == picked.Key)
+                {
+                    resolutionBox.SelectedIndex = i;
+                    return;
+                }
+            }
+            for (int i = resolutionBox.Items.Count - 1; i >= 0; i--)
+            {
+                ResolutionChoice item = resolutionBox.Items[i] as ResolutionChoice;
+                if (item != null && item.Category == "Custom")
+                    resolutionBox.Items.RemoveAt(i);
+            }
+            int at = resolutionBox.Items.IndexOf(customSizeEntry);
+            resolutionBox.Items.Insert(at, picked);
+            resolutionBox.SelectedIndex = at;
         }
 
         private void RefreshStatus()
@@ -7269,34 +7697,18 @@ namespace Kmrp
             actionButton.Text = actionIsRestore ? "Restore Original" : "Start Patching";
             actionButton.Enabled = actionIsRestore || (executableReady && iniExists);
 
-            if (state == ExecutableState.SupportedClean || state == ExecutableState.Gold)
-            {
-                SetState(verifyState, "Verified", UiTheme.Success);
-                verifyState.Badge = StateLabel.StatusBadge.Verified;
-            }
-            else
-            {
-                // Every unresolved state carries the missing badge: the chip beside it
-                // says which one it is, and the badge says the step is not satisfied.
-                // No words here: the badge alone marks the step unsatisfied, and the
-                // step's own subtitle already says which failure it is and what to do.
-                SetState(verifyState, String.Empty,
-                    state == ExecutableState.Error ? UiTheme.Error : UiTheme.Warning);
-                verifyState.Badge = StateLabel.StatusBadge.Missing;
-            }
-
-            UpdateVerificationRecovery(state, target, executableReady);
+            UpdateGameStep(state, target, executableReady);
 
             bool patchComplete = state == ExecutableState.Gold;
             stepFolder.SetTitle(patchComplete ? "1. Selected Game Folder" : "1. Select Game Folder");
-            stepVerify.SetTitle(patchComplete ? "2. Verified Editable EXE" : "2. Verify Editable EXE");
+            stepVerify.SetTitle(patchComplete ? "2. Detected Game Version" : "2. Detect Game Version");
             stepResolution.SetTitle(patchComplete ? "3. Chosen Resolution" : "3. Choose Resolution");
             stepResolution.SetSubtitle(patchComplete
                 ? "Installed resolution."
                 : "Select the resolution you want to patch for.");
-            // Also gated on the executable: step 3 is shown dimmed while verification is
-            // outstanding, and a live dropdown inside a dimmed row invites a click that
-            // does nothing.
+            // Also gated on the executable: step 3 is shown dimmed until step 2 finds a
+            // version KMRP installs on, and a live dropdown inside a dimmed row invites a
+            // click that does nothing.
             resolutionBox.Visible = !patchComplete && executableReady;
             resolutionState.Visible = patchComplete;
 
@@ -7496,6 +7908,119 @@ namespace Kmrp
         }
     }
 
+    /// <summary>Where Steam and GOG installed KOTOR, for the patcher's first step: Steam's
+    /// first, as the Mac installer finds it (macos/kmrp-mac.sh, find_game: every Steam
+    /// library's steamapps\common\swkotor), then GOG's. Read from the registry and Steam's
+    /// own files only; nothing is searched. Every source is optional, and a missing or
+    /// unreadable one is skipped.</summary>
+    internal static class GameFolders
+    {
+        // KOTOR's Steam app and GOG product ids.
+        private const string SteamAppId = "32370";
+        private const string GogGameId = "1207666283";
+
+        /// <summary>The folders, Steam's before GOG's, each once, whether or not
+        /// swkotor.exe is still there.</summary>
+        internal static List<string> Installed()
+        {
+            List<string> folders = new List<string>();
+            foreach (string folder in Steam())
+                AddOnce(folders, folder);
+            foreach (string folder in Gog())
+                AddOnce(folders, folder);
+            return folders;
+        }
+
+        /// <summary>Steam's own record of the install (its uninstall entry for app 32370),
+        /// then each library Steam lists in steamapps\libraryfolders.vdf, at the folder
+        /// its appmanifest names (steamapps\common\swkotor unless it says otherwise).</summary>
+        private static List<string> Steam()
+        {
+            List<string> folders = new List<string>();
+            AddOnce(folders, ReadValue(Registry.LocalMachine,
+                @"SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall\Steam App " + SteamAppId, "InstallLocation"));
+            List<string> roots = new List<string>();
+            AddOnce(roots, ReadValue(Registry.CurrentUser, @"Software\Valve\Steam", "SteamPath"));
+            AddOnce(roots, ReadValue(Registry.LocalMachine, @"SOFTWARE\WOW6432Node\Valve\Steam", "InstallPath"));
+            AddOnce(roots, ReadValue(Registry.LocalMachine, @"SOFTWARE\Valve\Steam", "InstallPath"));
+            List<string> libraries = new List<string>();
+            foreach (string root in roots)
+            {
+                AddOnce(libraries, root);
+                try
+                {
+                    string list = Path.Combine(root, "steamapps", "libraryfolders.vdf");
+                    if (File.Exists(list))
+                        foreach (Match path in Regex.Matches(File.ReadAllText(list),
+                                     "\"path\"\\s+\"([^\"]+)\"", RegexOptions.CultureInvariant))
+                            AddOnce(libraries, path.Groups[1].Value.Replace("\\\\", "\\"));
+                }
+                catch { }
+            }
+            foreach (string library in libraries)
+            {
+                string installDir = "swkotor";
+                try
+                {
+                    string manifest = Path.Combine(library, "steamapps", "appmanifest_" + SteamAppId + ".acf");
+                    if (File.Exists(manifest))
+                    {
+                        Match named = Regex.Match(File.ReadAllText(manifest),
+                            "\"installdir\"\\s+\"([^\"]+)\"", RegexOptions.CultureInvariant);
+                        if (named.Success)
+                            installDir = named.Groups[1].Value;
+                    }
+                }
+                catch { }
+                AddOnce(folders, Path.Combine(library, "steamapps", "common", installDir));
+            }
+            return folders;
+        }
+
+        /// <summary>GOG Galaxy's and GOG's installers' record of the game.</summary>
+        private static List<string> Gog()
+        {
+            List<string> folders = new List<string>();
+            AddOnce(folders, ReadValue(Registry.LocalMachine, @"SOFTWARE\WOW6432Node\GOG.com\Games\" + GogGameId, "path"));
+            AddOnce(folders, ReadValue(Registry.LocalMachine, @"SOFTWARE\GOG.com\Games\" + GogGameId, "path"));
+            return folders;
+        }
+
+        private static string ReadValue(RegistryKey hive, string key, string name)
+        {
+            try
+            {
+                using (RegistryKey opened = hive.OpenSubKey(key))
+                    return opened == null ? null : opened.GetValue(name) as string;
+            }
+            catch
+            {
+                return null;
+            }
+        }
+
+        /// <summary>A folder, with Steam's forward slashes turned round, unless it is
+        /// empty or already listed.</summary>
+        private static void AddOnce(List<string> folders, string folder)
+        {
+            if (String.IsNullOrWhiteSpace(folder))
+                return;
+            string normal;
+            try
+            {
+                normal = Path.GetFullPath(folder.Trim().Replace('/', '\\')).TrimEnd('\\');
+            }
+            catch
+            {
+                return;
+            }
+            foreach (string listed in folders)
+                if (String.Equals(listed, normal, StringComparison.OrdinalIgnoreCase))
+                    return;
+            folders.Add(normal);
+        }
+    }
+
     internal static class Program
     {
         [STAThread]
@@ -7539,6 +8064,27 @@ namespace Kmrp
                 if (args.Length == 2 && args[0] == "--export-kpm-patches")
                 {
                     KpmEditionOperations.ExportKpatches(args[1]);
+                    return 0;
+                }
+                // Test-only (Test-GuiBlendHelper.py): the menus for a size as the install
+                // blends them, with macos/tools/kmrp-guiblend's arguments -- the table,
+                // the size, where to write, and a folder holding the set's files it
+                // reads -- so the two can be compared byte for byte, and its exit codes:
+                // 1 below 640x480, 2 when the sets do not reach the size.
+                if (args.Length == 6 && args[0] == "--derive-gui")
+                {
+                    GuiBlend table = GuiBlend.Read(File.ReadAllBytes(args[1]));
+                    int width = Int32.Parse(args[2], CultureInfo.InvariantCulture);
+                    int height = Int32.Parse(args[3], CultureInfo.InvariantCulture);
+                    if (width < GuiBlend.MinimumWidth || height < GuiBlend.MinimumHeight)
+                        return 1;
+                    if (!table.Covers(width, height))
+                        return 2;
+                    string setDirectory = args[5];
+                    Directory.CreateDirectory(args[4]);
+                    foreach (KeyValuePair<string, byte[]> file in table.Derive(width, height,
+                        delegate(string name) { return GuiBlend.Text(File.ReadAllBytes(Path.Combine(setDirectory, name))); }))
+                        File.WriteAllBytes(Path.Combine(args[4], file.Key), file.Value);
                     return 0;
                 }
                 // Build-time only (build_kmrp.ps1): the fields ResolutionPatch handles.

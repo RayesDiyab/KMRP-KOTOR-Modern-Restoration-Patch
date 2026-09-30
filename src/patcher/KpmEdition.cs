@@ -15,21 +15,23 @@ namespace Kmrp
     /// KMRP's four KPM patches (tools/build_kpatch.py), whose core module applies
     /// them in memory when the game starts (src/controller-native/K1KpmApplier.cpp)
     /// from kmrp-kpm.dat, which this writes -- the Movies and Map Notes parts only
-    /// when those patches are installed. That is what lets one installer serve both
-    /// the editable CD 1.03 swkotor.exe and Steam's, whose DRM refuses a changed
-    /// file. It installs one of two ways, chosen per install (ManagedByPatchManager):
+    /// when those patches are installed. That is what lets one installer serve the
+    /// editable CD 1.03 swkotor.exe, GOG's (the same file without a 16-byte watermark,
+    /// GameExecutable) and Steam's, whose DRM refuses a changed file. It installs one
+    /// of two ways, chosen per install (ManagedByPatchManager):
     ///
     ///   On its own, it installs KOTOR Patch Manager's runtime itself, as KPM's
     ///   proxy deployment lays out a game folder (src/kpm-runtime/README.md): the
     ///   proxy as binkw32.dll, the game's own renamed binkw32Hooked.dll,
     ///   KotorPatcher.dll, patch_config.toml and the modules in patches\. The player
     ///   then starts the game as always, from Steam or from swkotor.exe. On CD 1.03
-    ///   it also sets the large-address flag, the one bit of swkotor.exe it changes,
+    ///   and GOG's it also sets the large-address flag, the one bit of swkotor.exe it changes,
     ///   leaving KPM a backup of the unmodified file (WriteKpmBackup).
     ///
-    ///   For KOTOR Patch Manager -- when KPM's runtime is already in the game folder,
-    ///   or the player chose it in Advanced Settings -- it installs everything but
-    ///   the patches, and the player ticks KMRP's .kpatch files in KPM. Until
+    ///   For KOTOR Patch Manager -- when KPM's runtime is already in the game folder
+    ///   (until 2026-09-30 also when the player chose it in Advanced Settings) -- it
+    ///   installs everything but the patches, and the player ticks KMRP's .kpatch
+    ///   files in KPM. Until
     ///   2026-09-29 this was a separate installer, KMRP for KPM, compiled from this
     ///   source with KPM_EDITION.
     ///
@@ -104,7 +106,6 @@ namespace Kmrp
         // built from, for CD 1.03 and Steam's swkotor.exe alike, since Steam's is
         // encrypted on disk.
         private const string OriginalsResource = "Kmrp.kpm.originals";
-        private const long SteamLength = 4395008;
         private const uint BlockVa = 0x0086D000;
         private const int BlockSize = 0xB000;
         private const int BlockSections = 11;
@@ -156,19 +157,11 @@ namespace Kmrp
         /// <summary>Steam's swkotor.exe, which only this edition supports.</summary>
         internal static bool IsSteam(string targetPath)
         {
-            try
-            {
-                return File.Exists(targetPath) && new FileInfo(targetPath).Length == SteamLength &&
-                    GoldPatch.HashFile(targetPath) == GoldPatch.SteamHash;
-            }
-            catch
-            {
-                return false;
-            }
+            return GameExecutable.Identify(targetPath) == GameExecutable.Steam;
         }
 
-        /// <summary>The executable as this edition sees it: CD 1.03 as the standalone
-        /// accepts it, or Steam's.</summary>
+        /// <summary>The executable as this edition sees it: CD 1.03 or GOG's as the
+        /// standalone accepts them, or Steam's.</summary>
         private static ExecutableState InspectSource(string targetPath)
         {
             ExecutableState standalone = PatchOperations.InspectStandalone(targetPath);
@@ -261,15 +254,17 @@ namespace Kmrp
                     "An earlier KMRP, which patched swkotor.exe, is installed, and its backup of " +
                     "the original swkotor.exe or swkotor.ini is missing or damaged, so it cannot " +
                     "be removed. Reinstall the game's original swkotor.exe, then install again.");
-            bool steam = IsSteam(targetPath);
-            if (!standalone && !steam && !GoldPatch.IsSupportedSourceFile(targetPath))
-                throw new InvalidDataException("This swkotor.exe is not supported. No changes were made.");
+            if (!standalone && GameExecutable.Identify(targetPath) == null)
+                throw new InvalidDataException("This swkotor.exe is not the Steam, GOG or Editable 1.03 " +
+                    "version KMRP supports. No changes were made.");
             if (!File.Exists(IniOperations.PathForExecutable(targetPath)))
                 throw new FileNotFoundException(
                     "swkotor.ini was not found beside swkotor.exe. Launch the game once or place the INI in the game folder before installing.",
                     IniOperations.PathForExecutable(targetPath));
             string foreign = ForeignRuntimeFile(targetPath, standalone);
-            bool engine = foreign == null && !KmrpSettings.PatchManager;
+            // KPM's own files decide, since 2026-09-30 alone: the Advanced Settings
+            // option that also chose an install for KPM was removed (MainForm).
+            bool engine = foreign == null;
             if (engine)
                 RequireBink(targetPath);
             else if (foreign != null)
@@ -293,6 +288,14 @@ namespace Kmrp
                 SafeReport(report, "Replacing the installed KMRP files.");
                 Restore(targetPath, report, null);
             }
+            // After the restores above, which leave it unmodified or with a 4 GB flag
+            // that was there before KMRP.
+            GameExecutable exe = GameExecutable.Identify(targetPath);
+            if (exe == null)
+                throw new InvalidDataException("swkotor.exe is not a version KMRP supports after the earlier " +
+                    "install was removed, so nothing of this one was installed.");
+            bool steam = exe.IsSteam;
+            SafeReport(report, "Game version: " + exe.Name + ".");
 
             // The final image, built as the standalone installer builds it, from the
             // unmodified executable's bytes this installer carries -- the same for CD
@@ -332,9 +335,9 @@ namespace Kmrp
                 if (engine)
                 {
                     List<string> patches = ChosenPatches();
-                    InstallEngine(folder, Path.GetFileName(targetPath), steam, patches, records, report);
+                    InstallEngine(folder, Path.GetFileName(targetPath), exe, patches, records, report);
                     SafeProgress(progress, 97, "Setting the 4 GB flag…");
-                    if (!steam && SetLargeAddressAware(targetPath, patches, records, report))
+                    if (!steam && SetLargeAddressAware(targetPath, exe, patches, records, report))
                         records.Add(new[] { "laa", "set" });
                     if (KmrpSettings.DriverCompatibility)
                         DriverCompatOperations.Install(targetPath, report);
@@ -542,7 +545,7 @@ namespace Kmrp
         /// modules and patch_config.toml -- the layout KPM's own proxy deployment gives
         /// a game folder. Every file goes through WriteOwned, which refuses one it did
         /// not write; the game's binkw32.dll is renamed, and recorded, first.</summary>
-        private static void InstallEngine(string folder, string exeName, bool steam, List<string> patches,
+        private static void InstallEngine(string folder, string exeName, GameExecutable exe, List<string> patches,
             List<string[]> records, Action<string> report)
         {
             WriteOwned(folder, RuntimeName, ReadResource("Kmrp.engine.runtime"), records);
@@ -553,8 +556,7 @@ namespace Kmrp
             // that one is loaded (K1NativeJoystick.cpp).
             byte[] module = ReadResource("Kmrp.controller.module");
             StringBuilder config = new StringBuilder();
-            config.Append("target_version_sha = \"").Append(steam ? GoldPatch.SteamHash : GoldPatch.SourceHash)
-                .Append("\"\n");
+            config.Append("target_version_sha = \"").Append(exe.Hash).Append("\"\n");
             foreach (string id in patches)
             {
                 string section = Encoding.UTF8.GetString(ReadResource("Kmrp.engine.config." + id));
@@ -567,7 +569,7 @@ namespace Kmrp
             }
             WriteOwned(folder, ConfigName, new UTF8Encoding(false).GetBytes(config.ToString()), records);
             WriteOwned(folder, KpmStateName, new UTF8Encoding(false).GetBytes(
-                KpmState(Path.Combine(folder, exeName), steam, patches)), records);
+                KpmState(Path.Combine(folder, exeName), exe, patches)), records);
 
             // The proxy last, since it is what makes the game load the rest.
             string bink = Path.Combine(folder, BinkName);
@@ -582,8 +584,8 @@ namespace Kmrp
 
         /// <summary>kpm_install_state.json, as KOTOR Patch Manager 0.7.1 writes it
         /// (ManagedInstallState, schema 1): which executable this was before a patch
-        /// changed it, CD 1.03 or Steam's. KPM knows a game by its executable's hash, and the 4 GB flag this
-        /// install sets makes CD 1.03's one KPM does not know. KPM's Apply first clears
+        /// changed it, CD 1.03, GOG's or Steam's. KPM knows a game by its executable's hash, and the 4 GB flag
+        /// this install sets makes CD 1.03's or GOG's one KPM does not know. KPM's Apply first clears
         /// what is installed -- patch_config.toml, which also names the hash, with it --
         /// and then identifies the game, from this file when the hash is unknown
         /// (GameDetector.DetectVersionFromManagedInstallState). With neither this nor
@@ -599,14 +601,14 @@ namespace Kmrp
         /// started directly stays patched. That is why Steam's executable gets one too,
         /// though KPM knows its unchanged file by hash: there only the proxy works at all.
         /// Enum values are KPM's (Platform.Windows 0, Distribution.GOG 0 or Steam 1,
-        /// Architecture.x86 0, GameTitle.KOTOR1 1), as its table has the two
+        /// Architecture.x86 0, GameTitle.KOTOR1 1), as its table has the three
         /// executables.</summary>
-        private static string KpmState(string exePath, bool steam, List<string> patches)
+        private static string KpmState(string exePath, GameExecutable exe, List<string> patches)
         {
             string now = DateTime.Now.ToString("yyyy-MM-ddTHH:mm:ss", CultureInfo.InvariantCulture);
-            string hash = steam ? GoldPatch.SteamHash : GoldPatch.SourceHash;
-            string size = (steam ? SteamLength : GoldPatch.SourceLength).ToString(CultureInfo.InvariantCulture);
-            string distribution = steam ? "1" : "0";
+            string hash = exe.Hash;
+            string size = exe.Length.ToString(CultureInfo.InvariantCulture);
+            string distribution = exe.KpmDistribution.ToString(CultureInfo.InvariantCulture);
             StringBuilder ids = new StringBuilder();
             foreach (string id in patches)
                 ids.Append(ids.Length > 0 ? ", " : "").Append('"').Append(id).Append('"');
@@ -642,26 +644,26 @@ namespace Kmrp
             return text.ToString();
         }
 
-        /// <summary>Sets IMAGE_FILE_LARGE_ADDRESS_AWARE on CD 1.03's swkotor.exe, the
-        /// one-bit change the standalone installer also made (PeCompatibility), and
+        /// <summary>Sets IMAGE_FILE_LARGE_ADDRESS_AWARE on CD 1.03's or GOG's swkotor.exe,
+        /// the one-bit change the standalone installer also made (PeCompatibility), and
         /// checks the result is the known large-address file; first it leaves a backup
         /// of the unmodified file for KOTOR Patch Manager (WriteKpmBackup). False when
         /// there was nothing to do: the flag already set, by the player or another tool,
         /// is left alone, and restore leaves it too.</summary>
-        private static bool SetLargeAddressAware(string targetPath, List<string> patches, List<string[]> records,
-            Action<string> report)
+        private static bool SetLargeAddressAware(string targetPath, GameExecutable exe, List<string> patches,
+            List<string[]> records, Action<string> report)
         {
             string hash = GoldPatch.HashFile(targetPath);
-            if (hash == PeCompatibility.LargeAddressAwareSourceHash)
+            if (hash == exe.LargeAddressAwareHash)
             {
                 SafeReport(report, "swkotor.exe already has the 4 GB flag.");
                 return false;
             }
-            if (hash != GoldPatch.SourceHash)
+            if (hash != exe.Hash || exe.LargeAddressAwareHash == null)
                 throw new InvalidDataException("swkotor.exe changed during the install. No changes were kept.");
-            WriteKpmBackup(targetPath, patches, records);
+            WriteKpmBackup(targetPath, exe, patches, records);
             WriteCharacteristics(targetPath, PeCompatibility.LargeAddressAwareCharacteristics);
-            if (GoldPatch.HashFile(targetPath) != PeCompatibility.LargeAddressAwareSourceHash)
+            if (GoldPatch.HashFile(targetPath) != exe.LargeAddressAwareHash)
             {
                 WriteCharacteristics(targetPath, PeCompatibility.OriginalCharacteristics);
                 throw new IOException("Setting the 4 GB flag on swkotor.exe could not be verified. No changes were kept.");
@@ -681,13 +683,14 @@ namespace Kmrp
         /// newest backup and deletes kpm_install_state.json, which would leave a flagged
         /// executable KPM no longer identifies (read in KPM's source). Restore removes
         /// both files while they are as written.</summary>
-        private static void WriteKpmBackup(string targetPath, List<string> patches, List<string[]> records)
+        private static void WriteKpmBackup(string targetPath, GameExecutable exe, List<string> patches,
+            List<string[]> records)
         {
             string folder = FolderOf(targetPath);
             string name = Path.GetFileName(targetPath) + KpmBackupInfix +
                 DateTime.Now.ToString("yyyyMMdd_HHmmss", CultureInfo.InvariantCulture);
             WriteOwned(folder, name, File.ReadAllBytes(targetPath), records);
-            if (records[records.Count - 1][2] != GoldPatch.SourceHash)
+            if (records[records.Count - 1][2] != exe.Hash)
                 throw new InvalidDataException("swkotor.exe changed during the install. No changes were kept.");
             StringBuilder ids = new StringBuilder();
             foreach (string id in patches)
@@ -695,8 +698,8 @@ namespace Kmrp
             string json = "{\r\n" +
                 "  \"OriginalPath\": \"" + JsonString(targetPath) + "\",\r\n" +
                 "  \"BackupPath\": \"" + JsonString(Path.Combine(folder, name)) + "\",\r\n" +
-                "  \"Hash\": \"" + GoldPatch.SourceHash + "\",\r\n" +
-                "  \"FileSize\": " + GoldPatch.SourceLength.ToString(CultureInfo.InvariantCulture) + ",\r\n" +
+                "  \"Hash\": \"" + exe.Hash + "\",\r\n" +
+                "  \"FileSize\": " + exe.Length.ToString(CultureInfo.InvariantCulture) + ",\r\n" +
                 "  \"CreatedAt\": \"" + DateTime.Now.ToString("yyyy-MM-ddTHH:mm:ss", CultureInfo.InvariantCulture) + "\",\r\n" +
                 "  \"DetectedVersion\": null,\r\n" +
                 "  \"InstalledPatches\": [" + ids + "]\r\n" +
@@ -774,11 +777,12 @@ namespace Kmrp
             catch { }
             if (records.Exists(r => r[0] == "laa" && r.Length == 2 && r[1] == "set"))
             {
-                if (File.Exists(targetPath) &&
-                    GoldPatch.HashFile(targetPath) == PeCompatibility.LargeAddressAwareSourceHash)
+                string hash = File.Exists(targetPath) ? GoldPatch.HashFile(targetPath) : null;
+                GameExecutable exe = hash == null ? null : GameExecutable.ForHash(hash);
+                if (exe != null && hash == exe.LargeAddressAwareHash)
                 {
                     WriteCharacteristics(targetPath, PeCompatibility.OriginalCharacteristics);
-                    if (GoldPatch.HashFile(targetPath) != GoldPatch.SourceHash)
+                    if (GoldPatch.HashFile(targetPath) != exe.Hash)
                         throw new IOException("Clearing the 4 GB flag on swkotor.exe could not be verified.");
                 }
                 else

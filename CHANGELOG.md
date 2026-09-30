@@ -355,6 +355,54 @@ before:
 
 ### Added
 
+- **Windows: any resolution, not only the listed ones** (2026-09-30, at the maintainer's
+  request: "make the choose resolution arbitrary ... macOS already achieved arbitrary
+  resolution ... look at the pull request and how it did it"). The patcher's third step lists
+  this display's size first, then the 66 listed sizes, and ends with **Custom size…**, which
+  takes any size from 640x480 up that the finished sets reach -- shapes from 4:3 to 32:9 --
+  and otherwise says which heights they reach at that shape. A listed size installs as
+  before. Any other size installs the nearest listed set (the nearest height, then the
+  nearest shape, the Mac installer's rule) with its `.gui` files blended from the finished
+  sets around it, the Container widened and the Controller Layout screen laid out for the
+  size: `src/patcher/GuiBlend.cs`, the C# of the Mac's `macos/tools/kmrp-guiblend.c`, over
+  the same table (`tools/build_gui_blend_table.py`, embedded gzipped as `Kmrp.guiblend`,
+  `build_kmrp.ps1` step 4a). The engine needs nothing new: every value `ResolutionPatch`
+  writes follows the height, and the five map fields the catalogue carried are computed
+  with the catalogue's own formula (`ResolutionChoice.ForSize`, from
+  `tools/analyze_resolution_guis.py`), which every one of the 66 listed rows equals. The
+  command line (`--apply`, `--in-place`) takes any such size too. `Test-GuiBlendHelper.py`
+  runs on Windows (the helper built with LLVM clang) and requires the installer's blend,
+  through its new `--derive-gui`, to equal the helper's byte for byte: it did at 369 sizes,
+  300 of them random, and both refused the same 7. `Test-InstalledOverride.ps1` installs
+  three sizes with no set. **Played** at 1600x1024, a mode the test monitor offers and no set
+  has (between the 4:3 and 16:10 families), fullscreen, on GOG's executable in a scratch copy
+  of a GOG install: KMRP applied in memory (91 of 91 runs), and the main menu, character
+  generation (class, the hub, portrait), Load Game and the game itself on Manaan laid out
+  with the blended menus. Windowed at 2560x1200 the engine's render window stayed 800x600 at
+  the intro in that copy, which was not pursued; fullscreen at such a size needs a mode the
+  display offers. The installer of these changes, `EE0CF629…` (159,756,800 bytes, with the game found in
+  step 1 and the KPM option removed, below), passes all nine Windows suites:
+  `Test-LargeAddressAware.ps1` (38), `Test-InstalledOverride.ps1` (1,963, with the three
+  sizes without a set), `Test-KpmEdition.ps1` (165), `Test-ControllerSupport.ps1`
+  (173), `Test-ReinstallOverOlderBuild.ps1` (38), `Test-MovieResolution.ps1` (36),
+  `Test-DpiCompatibility.ps1` (16), `Test-NvidiaPresentMethod.ps1` and `Test-UpdateCheck.ps1`.
+- **GOG's own `swkotor.exe`** (2026-09-30, at the maintainer's request: "the only two that
+  exist is GOG and Steam"). GOG's v1.03 (`9C10E045…`) is the editable 1.03 build with the 16
+  bytes of `Hellspawn Reborn` at FILE `0x000AC0`, header padding nothing reads, zeroed:
+  zeroing them in the editable build gives GOG's SHA-256 exactly (measured 2026-09-30; until
+  then KMRP had no copy and refused it by hash). The installer knows the three builds by hash
+  (`GameExecutable`), GOG's also with the 4 GB flag set (`01B80825…`, computed by setting the
+  flag), and on GOG's sets the flag as on the editable build and names GOG's file in
+  `patch_config.toml`, `kpm_install_state.json` and KPM's backup record. `--apply` normalises
+  GOG's file to the editable build by putting the watermark back; gold's fifth section header
+  lands on those bytes anyway, so both give the same output. KMRP's four `.kpatch` files list
+  it as `kotor1_gog_103`, the static 4 GB hook included. `Test-LargeAddressAware.ps1` Case 6
+  makes GOG's file from the editable build, requires GOG's hash, the same `--apply` output,
+  the flag, KPM's records naming GOG's file and an exact restore, and refuses another byte in
+  that padding (38 checks pass). In game: that file, in a scratch copy of a GOG install folder,
+  installed at 1600x1024 (the executable became `01B80825…`), started with KMRP applied (91
+  of 91 runs), was played to the Manaan save, and restored to `9C10E045…` byte for byte.
+
 - **One installer for the editable and Steam executables, on KOTOR Patch
   Manager's runtime** (2026-09-29, at the maintainer's request: "build its own
   KPM launcher that accepts the editable version and the Steam version ... just
@@ -1051,6 +1099,47 @@ before:
 
 ### Changed
 
+- **The patcher's second step names the game version** (2026-09-30, at the maintainer's
+  request: "drop the verify editable exe ... It should automatically say which one is it
+  Steam or GOG ... or the editable one"). "2. Verify Editable EXE" is now "2. Detect Game
+  Version": beside its badge it names what it found -- Steam, GOG or Editable -- and its
+  subtitle says so ("The Steam version of KOTOR detected.") or which file it could not use.
+  The recovery it grew into when the file was not the editable build, "Get Editable EXE" (a
+  link to the Deadly Stream page) and "Check Again", is gone: every version KMRP knows is
+  installed as it is, and the window checks again whenever it is activated. The room the
+  card kept for it stays, so the window keeps its proportions (the Mac's copies them). The
+  resolution list now starts at this display's size (`EnumDisplaySettings`, in pixels, since
+  the patcher is not DPI-aware), where it started at 3440x1440.
+- **Advanced Settings has no *KOTOR Patch Manager* option any more** (2026-09-30, the
+  maintainer: "I feel like the kpm option in advanced settings is redundant now right?").
+  It chose an install for KPM -- KMRP's files and data, no runtime, KMRP's patches ticked in
+  KPM -- where KPM did not manage the game yet. The installer still chooses that install by
+  itself where KPM's runtime is in the game folder, and anywhere else KMRP's own install is
+  one KPM recognises and takes over when its Apply is pressed (`kpm_install_state.json`,
+  the KPM-format backup, the `.kpatch` files in KPM's folder), so the option decided only
+  who installed the runtime first. On Steam with KPM 0.7.1 it also left the runtime to KPM,
+  which injects unless "Use library proxy" is ticked, and a game Steam starts then ran
+  without KMRP. The saved `kotorPatchManager` key is no longer read or written.
+  `Test-KpmEdition.ps1` now gives its for-KPM fixtures stand-ins for KPM's runtime, and its
+  Case 9 checks that a settings file with the old key on changes nothing. Advanced Settings
+  is back to three rows.
+- **The patcher finds Steam's and GOG's KOTOR by itself** (2026-09-30, at the maintainer's
+  request: "can we auto detect steam version if its there? cus macos can do that"). Step 1
+  started at `swkotor.exe` beside the patcher or in the current folder, and otherwise asked
+  for Browse. It now also looks where Steam installed app 32370 -- Steam's uninstall record,
+  then every library `steamapps\libraryfolders.vdf` lists, at the folder its appmanifest
+  names (`steamapps\common\swkotor`), as `kmrp-mac.sh`'s `find_game` looks on the Mac -- and
+  then at GOG's registry entry for the game (`GameFolders`). The registry and Steam's own files
+  are read; no drive is searched. On the test PC it found Steam's install in the first of
+  three libraries (identified as Steam) and GOG's entry for the main game folder (the editable
+  build); a harness listing `GameFolders.Installed()` was the check. **Browse** is unchanged.
+- **The patcher header's smoke fades out before the header's bottom edge** (2026-09-30,
+  `docs/windows-changes-from-macos.md` item 11, found on the Mac's port of the same code). The
+  smoke and the motes are drawn only inside the header, and where the plume reached furthest
+  they stopped on a straight line beside the card. Both are now multiplied by the Mac's
+  `BottomFade`, a smoothstep from 1 at 70% of the header's height to 0 at its bottom. **Not
+  yet watched on Windows.**
+
 - **No release carries anything taken from the game any more** (2026-09-29, Windows and
   macOS, after an audit the maintainer asked for). Three things did:
   - the four hex frames list rows tile behind item icons (`lbl_hex`, `lbl_hex_3`,
@@ -1254,6 +1343,35 @@ before:
   decoder shipped inside it. Its saving was not measured.
 
 ### Fixed
+
+- **Controller badges and the HUD's button-row boxes at sizes with no set, on both
+  platforms** (2026-09-30, found while bringing the Mac's blend to Windows; the maintainer:
+  "the issue is significant this needs a fix on both mac and windows"). A badge is a 512x64
+  texture the engine stretches over its whole button, drawn to come out round on that
+  button. At a size with no set both installers took the nearest set's, drawn for that set's
+  buttons, and the blended buttons have other shapes: measured on the blended files, the
+  worst badge came out 1.857 times as wide as tall at 3440x1400 (nearest set 1856x1392, the
+  resolution screen's OK drawn for 336x64 and shown on 624x64), 1.835 at 3200x1350 and 1.375
+  at 2560x1200. `lbl_mileftbot.tga`, the boxes under the HUD's eight top-right buttons, is
+  drawn per set from that set's `mipc28x6.gui` and so followed the nearest set's buttons too.
+  `gui-blend.bin` is version 3: it carries `build_prompt_tga`'s constants, the 16 glyph
+  artworks the badges use, and for each of the manifest's 552 badges where its button sits,
+  its glyph, its backing and the controls that size it, and where LBL_MENUBG and the HUD
+  buttons sit. The Mac helper and the Windows installer draw every badge again for its
+  blended button, with Pillow 12's arithmetic (the Lanczos resample on premultiplied alpha
+  in 22-bit fixed point, the masked paste, `alpha_composite`), write the prompt manifest with
+  the blended sizes, and draw the HUD boxes from the blended HUD. A plain-Python model of that
+  arithmetic reproduced Pillow's `resize` in 60 of 60 random cases and `build_prompt_tga` in
+  40 of 40. `Test-GuiBlendHelper.py`: the helper equals the build's own `build_prompt_tga` and
+  `build_menubg_texture` at 24 sizes; every one of the 45 anchors rebuilt from the table is
+  the build's set byte for byte, badges, manifest and HUD boxes included; every badge at the
+  24 sizes is round on its blended button within 5% (worst 1.049, texel rounding); the
+  Windows installer equals the helper. The table grew from 3.2 to 3.7 MB (0.8 MB gzipped).
+  `kmrp-mac.sh` installs every file the helper writes. **Built and tested on Windows only**;
+  what the Mac still has to build and check is `docs/macos-changes-from-windows.md`, a new
+  tracker of changes made on Windows first. Seen in play on Windows at 1600x1024: every badge
+  on the main menu, character generation and Load Game round and beside its words, and the
+  HUD's eight boxes under its eight buttons. Not played on the Mac.
 
 - **The skill icons sit inside their frames** (2026-09-29, Windows and macOS, at
   the maintainer's request: "The skills are a bit too big make it fit in the

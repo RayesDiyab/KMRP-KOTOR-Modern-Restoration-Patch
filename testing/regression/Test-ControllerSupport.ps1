@@ -11,7 +11,7 @@
     installed; KMRP and KMRP Movies always are. On CD 1.03 it sets the large-address
     flag, the one change to swkotor.exe; Steam's is never changed. A folder that
     already holds KOTOR Patch Manager's runtime is installed for KPM instead
-    (Case 2; the KOTOR Patch Manager option itself is Test-KpmEdition.ps1's).
+    (Case 2; Test-KpmEdition.ps1 covers the install for KPM).
 
     Until 2026-09-28 this file tested the controller option alone, and until
     2026-09-29 the standalone installer's runtime: an .asi loaded by K1DC's loader

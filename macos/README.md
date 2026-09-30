@@ -355,8 +355,8 @@ no font with the switch on, so a texel of the atlas is a pixel on screen, as on 
 
 **Other sizes.** For a size with no set, the installer blends the `.gui` files from the
 finished sets around it (`kmrp-guiblend` over `gui-blend.bin`: the two aspect-ratio families
-on either side, each at the two heights around it) and takes the fonts and art of the nearest
-set by height, then shape. Two files are not blended but made for the size, with that set's
+on either side, each at the two heights around it) and takes the fonts of the nearest set
+by height, then shape. Two files are not blended but made for the size, with that set's
 fonts (since 2026-09-30, `gui-blend.bin` version 2): the Container, widened by the build's
 own rule until "Switch To Give Item" and its badge fit, and the Controller Layout screen,
 which the helper lays out with `build_gui`'s arithmetic (`WINDOWS-PARITY.md`, *Resolutions
@@ -373,6 +373,15 @@ draws them one texel per pixel, so the layout patch sizes the popup's icon rect 
 installed icon instead (the same `64s` for every listed set: all 66 checked). Since
 2026-09-29 the installer makes the icons itself at exactly `64s` for any size, blended ones
 included, so the icon it reads is always that.
+
+*Corrected 2026-09-30:* this said the installer takes the nearest set's art as well as its
+fonts, and so it did until then: its controller badges, drawn for that set's buttons, were
+stretched on blended buttons of another shape, up to 1.86 times as wide as tall at 3440x1400
+(measured on the blended files, on both platforms). Since `gui-blend.bin` version 3 the helper
+draws every badge again for its blended button, with the build's own arithmetic, and the HUD's
+button-row boxes (`lbl_mileftbot.tga`) from the blended HUD; a set the blend resolves to itself
+comes out with the build's files byte for byte. Built and tested on Windows only so far:
+[`docs/macos-changes-from-windows.md`](../docs/macos-changes-from-windows.md), items 1 to 3.
 
 **Made from the player's game.** The four hex frames list rows tile behind item icons
 (`lbl_hex*`, `56s`), the tutorial popup's thirteen `tut_*` icons (`64s`) and `tutorial.2da`

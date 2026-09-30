@@ -621,8 +621,10 @@ BADGE_EDGE = 1.15         # of the radius, the least from the button's edge to t
 BADGE_RADIUS = 0.29       # of the sizing height
 BADGE_RADIUS_SHORT = 0.40  # of the sizing height, for a control shorter than BADGE_SHORT_BELOW
 BADGE_SHORT_BELOW = 60
-# (Carried into gui-blend.bin too, for the Mac installer's Container fit:
-# tools/build_gui_blend_table.py.)
+BADGE_CENTER_Y = 0.50     # of the control's height, where the badge's centre sits
+BADGE_FALLBACK_X = 0.58   # of the control's height, the centre when the label width is unknown
+# (Carried into gui-blend.bin too, for the installers' Container fit and the badges
+# they make for a size with no set: tools/build_gui_blend_table.py.)
 
 
 def badge_radius(sizing_height: int) -> float:
@@ -650,7 +652,7 @@ def build_prompt_tga(control_width: int, control_height: int, glyph: str,
                      backing: tuple | None = None) -> bytes:
     if control_width <= 0 or control_height <= 0:
         raise ValueError(f"Invalid prompt control extent {control_width}x{control_height}")
-    center_y = control_height * 0.50
+    center_y = control_height * BADGE_CENTER_Y
     # A badge in a group takes its size from the group's shortest control rather
     # than its own, so five entries in a menu carry five identical glyphs. Quit
     # is 81 tall where the rest are 66, and sizing it from itself made its A a
@@ -676,7 +678,7 @@ def build_prompt_tga(control_width: int, control_height: int, glyph: str,
         # Container's buttons to it).
         center_x = max(radius * BADGE_EDGE, center_x)
     else:
-        center_x = control_height * 0.58
+        center_x = control_height * BADGE_FALLBACK_X
     return _composite_glyph_tga(control_width, control_height, glyph,
                                 center_x, center_y, radius, family, backing)
 

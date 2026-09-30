@@ -17,7 +17,7 @@ data file is proved against (section 7); installing it is retired.
 
 | | |
 | --- | --- |
-| Unmodified executable | the editable KOTOR 1.03 `swkotor.exe`, `761F9466F456A83909036BAEBB5C43167D722387BE66E54617BA20A8C49E9886`, 4,042,752 bytes (`build-inputs/swkotornopatch.exe`). Called **CD 1.03** in this document and in the KPM edition's code, after KPM's own key for it, `kotor1_cdcrack_103` -- KPM's version table names it "HellSpawn CD Crack version 1.0.3", GOG's v1.03 with a 16-byte watermark ([map-scaling.md](../reverse-engineering/map-scaling.md)). It is not the retail CD's executable, which KMRP has not measured, nor GOG's own (`9C10E045…`), which KMRP refuses by hash |
+| Unmodified executable | the editable KOTOR 1.03 `swkotor.exe`, `761F9466F456A83909036BAEBB5C43167D722387BE66E54617BA20A8C49E9886`, 4,042,752 bytes (`build-inputs/swkotornopatch.exe`). Called **CD 1.03** in this document and in the KPM edition's code, after KPM's own key for it, `kotor1_cdcrack_103` -- KPM's version table names it "HellSpawn CD Crack version 1.0.3", GOG's v1.03 with a 16-byte watermark ([map-scaling.md](../reverse-engineering/map-scaling.md)). It is not the retail CD's executable, which KMRP has not measured. GOG's own (`9C10E045…`) is this file with those 16 bytes zeroed, measured 2026-09-30, and accepted since (section 8) |
 | Steam's executable | `34E6D971C034222A417995D8E1E8FDD9F8781795C9C289BD86C499A439F34C88`, 4,395,008 bytes, KPM's `kotor1_steam_103`; a clean Steam install lent by the maintainer on 2026-09-28 (`build-inputs/swkotor-steam.exe`, optional) |
 | Gold | `9DD81A75F4888FD67242B682BEE0AB4392EA8923CDF4A020CA3EDD2464C05E0A`, 4,087,808 bytes (`build/kmrp/swkotor_gold_v24_movieaspect.exe`) |
 | KOTOR Patch Manager | 0.7.1 (release zip `0EFEFAC8…`, source zip `Kotor-Patch-Manager-0.7.1.zip`), read and run on 2026-09-28; 0.7.1 (2026-09-21) was still KPM's newest release on 2026-09-29. The clone in `build/research/Kotor-Patch-Manager` is at an **older** development commit, `7d53e52` of 2026-09-05 -- before 0.7.0 (09-07) and 0.7.1 -- and differs. (*Corrected 2026-09-29:* this called it a later commit) |
@@ -87,13 +87,19 @@ version"). Until then the same code compiled with `KPM_EDITION` was a second
 installer, KMRP for KPM, for players who manage patches with KPM. Now the one
 installer chooses per install (`KpmEditionOperations.Install`,
 `src/patcher/KpmEdition.cs`): it installs **for KOTOR Patch Manager** -- the KPM
-edition's install, no runtime, `swkotor.exe` untouched -- when the *KOTOR Patch
-Manager* option is on in Advanced Settings (`KmrpSettings.PatchManager`, saved as
-`kotorPatchManager`), or by itself when KPM's runtime is already in the game
-folder (`ForeignRuntimeFile`: `binkw32Hooked.dll`, `KotorPatcher.dll`,
+edition's install, no runtime, `swkotor.exe` untouched -- when KPM's runtime is
+already in the game folder (`ForeignRuntimeFile`: `binkw32Hooked.dll`, `KotorPatcher.dll`,
 `patch_config.toml` or `kpm_install_state.json` that this install did not write,
 or that has changed since it did -- KPM's own Apply over KMRP's install replaces
-them). Otherwise it installs
+them). *Corrected 2026-09-30:* until that day a *KOTOR Patch Manager* option in
+Advanced Settings (`KmrpSettings.PatchManager`, saved as `kotorPatchManager`) chose
+this install as well. It was removed at the maintainer's request ("the kpm option in
+advanced settings is redundant now right?"): KMRP's own install is one KPM
+recognises and takes over (section 1a), so the option only decided who installed the
+runtime first, and on Steam with KPM 0.7.1 it left the runtime to KPM, which then
+injected into a process Steam's executable hands off. The key is no longer read, and
+`Test-KpmEdition.ps1` Case 9 checks a settings file that still has it on changes
+nothing. Otherwise it installs
 **with KPM's runtime**, as below.
 
 **The `.kpatch` files are inside the installer** (later that evening, at the
@@ -648,15 +654,25 @@ module and Synchro's standalone K1DC.
 **Not verified:** KPM's graphical launcher (its command line runs the same
 `InstallPatches` and `Launch`, read in `Program.cs`); gameplay on Steam's
 executable (only menus and character creation were opened); GOG's own
-executable; any resolution in game but 1920x1080; the map notes on an area map in
+executable in game (Case 6 of `Test-LargeAddressAware.ps1` installs over one made
+from CD 1.03, above); any resolution in game but 1920x1080; the map notes on an area map in
 game (their flag is checked in memory both ways); KMRP alone without any add-on in
 game (its bytes are the `125DEA64…` KMRP-and-Controller row's); play by hand.
 
 ## 8. Limits
 
-- **CD 1.03 and Steam only.** GOG's `9C10E045…` shares KPM's address tables for
-  many patches, but KMRP's 754 bytes have not been compared with it; the applier
-  would refuse a mismatch rather than half-apply.
+- **CD 1.03, GOG and Steam** (GOG since 2026-09-30). *Corrected 2026-09-30:* this
+  said "CD 1.03 and Steam only", GOG's `9C10E045…` sharing KPM's address tables
+  for many patches but KMRP's bytes not compared with it. They are now: zeroing the
+  16 bytes of `Hellspawn Reborn` at FILE `0x000AC0` in CD 1.03 gives GOG's SHA-256
+  exactly, so GOG's file is CD 1.03 but for header padding that nothing reads, and
+  the data file's runs, which lie inside the sections, never reach it. The installer
+  knows GOG's file and its 4 GB-flag form (`01B80825…`, the flag set in that file) by
+  hash (`GameExecutable` in `KmrpPatcher.cs`), writes GOG's hash into
+  `patch_config.toml`, `kpm_install_state.json` and KPM's backup record, and the four
+  `.kpatch` files list it as `kotor1_gog_103`, the static 4 GB hook included.
+  `Test-LargeAddressAware.ps1` Case 6 makes GOG's file from CD 1.03 that way and
+  installs, flags and restores it; not run on a GOG install, and not in game.
 - **Steam needs KPM's proxy deployment.** Steam's executable hands its own start
   to Steam and exits after about half a second, so a patcher KPM injects into the
   process it started never reaches the game Steam starts. KPM 0.7.1 on Windows

@@ -28,8 +28,14 @@ Patch Manager 0.7.1's version table (`GameDetector.cs`) lists GOG's as
 in header padding". The watermark is there: the only non-zero bytes of this
 file's header padding are the 16 bytes of `Hellspawn Reborn` at FILE `0x000AC0`
 ([binary-inventory.md](binary-inventory.md)). That the rest is GOG's file byte
-for byte is KPM's and derslok's statement (the Area Map Fixes' `TECHNICAL.txt`);
-KMRP has not compared the two, having no copy of `9C10E045…`.
+for byte was KPM's and derslok's statement (the Area Map Fixes' `TECHNICAL.txt`)
+until 2026-09-30, when it was measured: zeroing those 16 bytes in this file gives
+`9C10E045…` exactly. Since then the installer accepts GOG's file as well, knowing
+it by that hash (`GameExecutable` in `src/patcher/KmrpPatcher.cs`); gold's fifth
+section header lands on the 16 bytes, so both give the same gold image.
+
+*Corrected 2026-09-30:* the paragraph's first sentence said KMRP refuses GOG's
+v1.03, and that KMRP had not compared the two files. Both held until that day.
 
 *Corrected 2026-09-28:* this said the file "is also GOG's retail v1.03", taken from
 derslok's documentation, which calls GOG's file "this same file byte for byte"

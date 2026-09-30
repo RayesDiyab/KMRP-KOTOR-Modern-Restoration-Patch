@@ -36,7 +36,7 @@ describes today is gold v24; see [map-scaling.md](map-scaling.md).
 *Corrected 2026-09-28:* the note above said `761F9466…` "is also GOG's retail
 v1.03". It is not the same file: GOG's is `9C10E045…` in KOTOR Patch Manager's
 version table, and `761F9466…` carries a 16-byte `Hellspawn Reborn` watermark in
-its header padding (FILE `0x000AC0`). KMRP refuses GOG's by hash.
+its header padding (FILE `0x000AC0`). KMRP refused GOG's by hash until 2026-09-30; since then it accepts it, zeroing those 16 bytes in this file having given GOG's hash exactly ([map-scaling.md](map-scaling.md)).
 [map-scaling.md](map-scaling.md) has the evidence.
 
 ## Isolated analysis copies

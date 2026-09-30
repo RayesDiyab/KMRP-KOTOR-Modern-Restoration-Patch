@@ -591,8 +591,9 @@ parameter` JIT dialog.
 the gold image to `swkotor.exe`. In its order: every check that can refuse --
 the executable (CD 1.03 or Steam's), `swkotor.ini`, an earlier KMRP's backups,
 and, with KMRP's own runtime, the game's `binkw32.dll` -- and the choice of
-install: for KOTOR Patch Manager when its option is on or KPM's runtime is
-already in the folder, otherwise with KMRP's own; then restoring an
+install: for KOTOR Patch Manager when KPM's runtime is already in the folder
+(until 2026-09-30 also when an Advanced Settings option was on), otherwise with
+KMRP's own; then restoring an
 earlier KMRP, or this installer's own earlier install; building `kmrp-kpm.dat`
 from the carried originals; steps 5 to 8 below, unchanged; the data file, SDL
 and the controller settings; with KMRP's own runtime, KOTOR Patch Manager's

@@ -24,6 +24,19 @@
  *     the panel size from the blend and the caption font's TXI from SETDIR. The regression
  *     compares the result with build_gui's own, byte for byte, at every size it derives.
  *
+ * And since table version 3 (2026-09-30) the controller badges: every texture the prompt
+ * manifest lists, drawn again for its blended button. A badge is a 512x64 texture the engine
+ * stretches over its whole button, drawn to come out round on that button, so the nearest
+ * set's, drawn for that set's buttons, came out stretched on buttons of another shape (1.86
+ * times as wide as tall at 3440x1400). This is build_controller_prompt_textures.py's
+ * build_prompt_tga with Pillow's arithmetic -- the Lanczos resample on premultiplied alpha in
+ * 22-bit fixed point, the masked paste, alpha_composite -- from the artwork the table carries,
+ * with the label widths of SETDIR's manifest, so a set the blend resolves to itself comes out
+ * with the build's badges byte for byte. It also writes that manifest with the blended button
+ * sizes and the Container's widening, and lbl_mileftbot.tga, the HUD's button-row boxes, which
+ * build_menubg_texture.py draws from each set's mipc28x6.gui and which the nearest set's drew
+ * out of step with the blended buttons, from the blended HUD.
+ *
  * Exit status: 0 written, 1 usage or I/O error, 2 resolution outside the anchors' range.
  */
 #include <errno.h>
@@ -63,6 +76,31 @@ typedef struct {
 } Layout;
 /* A caption font as parse_font_metrics reads its TXI, and build_gui's line height. */
 typedef struct { double advances[256]; int count; double spacing, line_h; } Font;
+/* The badges (table version 3): build_prompt_tga's constants, the glyph artwork as
+ * _load_glyph_art loads it, and per prompt manifest row where its button is, its glyph, its
+ * backing and the controls whose least height sizes it. */
+typedef struct { uint32_t width, height; uint8_t *rgba; } Glyph;
+typedef struct {
+    char resref[32], gui[256];
+    uint32_t width_at, height_at, glyph, sizing_count, sizing[16];
+    uint8_t backed, backing[4];
+} Prompt;
+typedef struct {
+    uint32_t texture_w, texture_h, short_below, glyph_count, prompt_count;
+    double radius, radius_short, gap, edge, center_y, fallback_x;
+    uint8_t footer[64];
+    uint16_t footer_len;
+    Glyph *glyphs;
+    Prompt *prompts;
+} Badges;
+/* A blended file, kept until the badges are drawn from its buttons. */
+typedef struct { char name[256]; uint8_t *data; uint32_t size; } Output;
+/* build_menubg_texture.py's lbl_mileftbot.tga: the HUD's button-row boxes, drawn from where
+ * LBL_MENUBG and the eight buttons sit in the HUD the size loads. */
+typedef struct {
+    char gui[256], texture[64];
+    uint32_t width, height, edge_alpha, backdrop_left, backdrop_width, count, left[16], button_width[16];
+} Hud;
 
 static uint8_t *table;
 static size_t table_size, pos;
@@ -118,17 +156,226 @@ static void add_i32(uint8_t *data, uint32_t offset, int32_t delta) {
 }
 
 /* fit_container_to_caption on the blended file: widen until the button holds the caption
- * and its badge at the designed gap, by an even number of pixels, the panel about its centre. */
-static void apply_fit(const Fit *fit, uint8_t *data, double caption) {
+ * and its badge at the designed gap, by an even number of pixels, the panel about its centre.
+ * Returns the widening, for the manifest's "widened" line. */
+static int32_t apply_fit(const Fit *fit, uint8_t *data, double caption) {
     int32_t height = get_i32(data, fit->button_height);
     double radius = height * (height < (int32_t)fit->short_below ? fit->radius_short : fit->radius);
     double need = caption + 2.0 * radius * (fit->gap + 1.0 + fit->edge);
     int32_t extra = (int32_t)ceil(need - get_i32(data, fit->button_width));
-    if (extra <= 0) return;
+    if (extra <= 0) return 0;
     extra += extra % 2;
     add_i32(data, fit->left, -(extra / 2));
     add_i32(data, fit->width, extra);
     for (uint32_t i = 0; i < fit->count; i++) add_i32(data, fit->widths[i], extra);
+    return extra;
+}
+
+/* ------------------------------------------------------------------ the badges
+ * Pillow 12's arithmetic, as build_prompt_tga reaches it: Image.resize(LANCZOS) on RGBA goes
+ * through premultiplied RGBa (Convert.c's rgba2rgbA and rgbA2rgba), Resample.c's two passes
+ * with precompute_coeffs and normalize_coeffs_8bpc, and 64-bit sums where Pillow's are
+ * 32-bit, which never overflow here (255 x at most 1.3 x 2^22). */
+#define PRECISION_BITS (32 - 8 - 2)
+static const double PI = 3.14159265358979323846;   /* M_PI */
+
+static double sinc_filter(double x) {
+    if (x == 0.0) return 1.0;
+    x = x * PI;
+    return sin(x) / x;
+}
+
+static double lanczos_filter(double x) {
+    if (-3.0 <= x && x < 3.0) return sinc_filter(x) * sinc_filter(x / 3);
+    return 0.0;
+}
+
+/* Per output pixel: the first input pixel, how many, and their fixed-point weights. */
+static int precompute_coeffs(int in_size, int out_size, int **bounds_out, int32_t **kk_out) {
+    double scale = (double)(float)in_size / out_size, filterscale = scale;
+    if (filterscale < 1.0) filterscale = 1.0;
+    double support = 3.0 * filterscale;
+    int ksize = (int)ceil(support) * 2 + 1;
+    int *bounds = malloc(sizeof(int) * 2 * out_size);
+    int32_t *kk = calloc((size_t)out_size * ksize, sizeof(int32_t));
+    double *k = malloc(sizeof(double) * ksize);
+    for (int xx = 0; xx < out_size; xx++) {
+        double center = 0.0 + (xx + 0.5) * scale, ww = 0.0, ss = 1.0 / filterscale;
+        int xmin = (int)(center - support + 0.5);
+        if (xmin < 0) xmin = 0;
+        int xmax = (int)(center + support + 0.5);
+        if (xmax > in_size) xmax = in_size;
+        xmax -= xmin;
+        for (int x = 0; x < xmax; x++) {
+            double w = lanczos_filter((x + xmin - center + 0.5) * ss);
+            k[x] = w;
+            ww += w;
+        }
+        for (int x = 0; x < xmax; x++) {
+            if (ww != 0.0) k[x] /= ww;
+            kk[xx * ksize + x] = k[x] < 0 ? (int32_t)(-0.5 + k[x] * (1 << PRECISION_BITS))
+                                          : (int32_t)(0.5 + k[x] * (1 << PRECISION_BITS));
+        }
+        bounds[xx * 2] = xmin;
+        bounds[xx * 2 + 1] = xmax;
+    }
+    free(k);
+    *bounds_out = bounds;
+    *kk_out = kk;
+    return ksize;
+}
+
+static uint8_t clip8(int64_t in) {
+    if (in >= ((int64_t)1 << PRECISION_BITS << 8)) return 255;
+    if (in <= 0) return 0;
+    return (uint8_t)(in >> PRECISION_BITS);
+}
+
+static uint8_t muldiv255(unsigned a, unsigned b) {
+    unsigned t = a * b + 128;
+    return (uint8_t)(((t >> 8) + t) >> 8);
+}
+
+/* Image.resize((dw, dh), LANCZOS) of a straight-alpha RGBA image. */
+static uint8_t *resize_rgba(const uint8_t *in, int w, int h, int dw, int dh) {
+    uint8_t *out = malloc((size_t)dw * dh * 4);
+    if (dw == w && dh == h) {   /* resize() returns a copy */
+        memcpy(out, in, (size_t)w * h * 4);
+        return out;
+    }
+    uint8_t *pre = malloc((size_t)w * h * 4);
+    for (int i = 0; i < w * h; i++) {
+        unsigned a = in[i * 4 + 3];
+        for (int c = 0; c < 3; c++) pre[i * 4 + c] = muldiv255(in[i * 4 + c], a);
+        pre[i * 4 + 3] = (uint8_t)a;
+    }
+    int *hb, *vb;
+    int32_t *hk, *vk;
+    int hks = precompute_coeffs(w, dw, &hb, &hk);
+    int vks = precompute_coeffs(h, dh, &vb, &vk);
+    const uint8_t *img = pre;
+    int iw = w;
+    uint8_t *tmp = NULL;
+    if (dw != w) {
+        int first = vb[0], last = vb[(dh - 1) * 2] + vb[(dh - 1) * 2 + 1];
+        for (int i = 0; i < dh; i++) vb[i * 2] -= first;
+        tmp = malloc((size_t)dw * (last - first) * 4);
+        for (int yy = first; yy < last; yy++)
+            for (int xx = 0; xx < dw; xx++) {
+                int64_t ss[4] = {1 << (PRECISION_BITS - 1), 1 << (PRECISION_BITS - 1),
+                                 1 << (PRECISION_BITS - 1), 1 << (PRECISION_BITS - 1)};
+                const int32_t *k = &hk[xx * hks];
+                for (int x = 0; x < hb[xx * 2 + 1]; x++)
+                    for (int c = 0; c < 4; c++)
+                        ss[c] += (int64_t)img[((size_t)yy * iw + x + hb[xx * 2]) * 4 + c] * k[x];
+                for (int c = 0; c < 4; c++) tmp[((size_t)(yy - first) * dw + xx) * 4 + c] = clip8(ss[c]);
+            }
+        img = tmp;
+        iw = dw;
+    }
+    uint8_t *res = out;
+    if (dh != h) {
+        for (int yy = 0; yy < dh; yy++)
+            for (int xx = 0; xx < iw; xx++) {
+                int64_t ss[4] = {1 << (PRECISION_BITS - 1), 1 << (PRECISION_BITS - 1),
+                                 1 << (PRECISION_BITS - 1), 1 << (PRECISION_BITS - 1)};
+                const int32_t *k = &vk[yy * vks];
+                for (int y = 0; y < vb[yy * 2 + 1]; y++)
+                    for (int c = 0; c < 4; c++)
+                        ss[c] += (int64_t)img[((size_t)(y + vb[yy * 2]) * iw + xx) * 4 + c] * k[y];
+                for (int c = 0; c < 4; c++) res[((size_t)yy * dw + xx) * 4 + c] = clip8(ss[c]);
+            }
+    } else {
+        memcpy(res, img, (size_t)dw * dh * 4);
+    }
+    for (int i = 0; i < dw * dh; i++) {   /* RGBa back to RGBA */
+        unsigned a = res[i * 4 + 3];
+        if (a == 255 || a == 0) continue;
+        for (int c = 0; c < 3; c++) {
+            unsigned v = 255u * res[i * 4 + c] / a;
+            res[i * 4 + c] = (uint8_t)(v > 255 ? 255 : v);
+        }
+    }
+    free(pre); free(tmp); free(hb); free(vb); free(hk); free(vk);
+    return res;
+}
+
+static uint8_t div255(unsigned a) {
+    unsigned t = a + 128;
+    return (uint8_t)(((t >> 8) + t) >> 8);
+}
+
+/* build_prompt_tga for a control of cw x ch: the TGA, header and footer included. */
+static uint8_t *draw_badge(const Badges *B, const Glyph *art, int cw, int ch, double label,
+                           int radius_height, const uint8_t *backing, size_t *size) {
+    const int tw = (int)B->texture_w, th = (int)B->texture_h;
+    double center_y = ch * B->center_y;
+    int sizing = radius_height > 0 ? radius_height : ch;
+    double radius = sizing * (sizing < (int)B->short_below ? B->radius_short : B->radius);
+    double center_x;
+    if (label > 0) {
+        double gap = radius * B->gap;
+        center_x = (cw - label) / 2.0 - gap - radius;
+        center_x = fmax(radius * B->edge, center_x);
+    } else {
+        center_x = ch * B->fallback_x;
+    }
+    double diameter = radius * 2.0, aspect = (double)art->width / art->height;
+    double box_w = aspect < 1.0 ? diameter * aspect : diameter;
+    double box_h = aspect > 1.0 ? diameter / aspect : diameter;
+    int dst_w = (int)rint(box_w * tw / cw), dst_h = (int)rint(box_h * th / ch);
+    if (dst_w < 1) dst_w = 1;
+    if (dst_h < 1) dst_h = 1;
+    int left = (int)rint((center_x - box_w / 2.0) * tw / cw);
+    int top = (int)rint((center_y - box_h / 2.0) * th / ch);
+    uint8_t *glyph = resize_rgba(art->rgba, (int)art->width, (int)art->height, dst_w, dst_h);
+
+    uint8_t *sheet = calloc((size_t)tw * th, 4);   /* top row first, RGBA */
+    for (int y = 0; y < dst_h; y++) {
+        if (top + y < 0 || top + y >= th) continue;
+        for (int x = 0; x < dst_w; x++) {
+            if (left + x < 0 || left + x >= tw) continue;
+            const uint8_t *s = &glyph[((size_t)y * dst_w + x) * 4];
+            uint8_t *d = &sheet[((size_t)(top + y) * tw + left + x) * 4];
+            for (int c = 0; c < 4; c++)   /* paste(art, box, art): BLEND over nothing; else a copy */
+                d[c] = backing ? s[c] : div255((unsigned)s[c] * s[3]);
+        }
+    }
+    if (backing) {   /* alpha_composite(the backing, the sheet) */
+        for (int i = 0; i < tw * th; i++) {
+            uint8_t *s = &sheet[i * 4];
+            if (s[3] == 0) {
+                memcpy(s, backing, 4);
+                continue;
+            }
+            uint32_t blend = (uint32_t)backing[3] * (255 - s[3]);
+            uint32_t outa255 = (uint32_t)s[3] * 255 + blend;
+            uint32_t coef1 = (uint32_t)s[3] * 255 * 255 * (1 << 7) / outa255;
+            uint32_t coef2 = 255 * (1 << 7) - coef1;
+            for (int c = 0; c < 3; c++) {
+                uint32_t t = s[c] * coef1 + backing[c] * coef2 + (0x80 << 7);
+                s[c] = (uint8_t)(((((t >> 8) + t) >> 8)) >> 7);
+            }
+            uint32_t a = outa255 + 0x80;
+            s[3] = (uint8_t)(((a >> 8) + a) >> 8);
+        }
+    }
+    *size = 18 + (size_t)tw * th * 4 + B->footer_len;
+    uint8_t *tga = calloc(1, *size);
+    tga[2] = 2;
+    tga[12] = (uint8_t)tw; tga[13] = (uint8_t)(tw >> 8);
+    tga[14] = (uint8_t)th; tga[15] = (uint8_t)(th >> 8);
+    tga[16] = 32; tga[17] = 0x08;
+    for (int y = 0; y < th; y++)   /* bottom row first, BGRA */
+        for (int x = 0; x < tw; x++) {
+            const uint8_t *s = &sheet[((size_t)(th - 1 - y) * tw + x) * 4];
+            uint8_t *d = &tga[18 + ((size_t)y * tw + x) * 4];
+            d[0] = s[2]; d[1] = s[1]; d[2] = s[0]; d[3] = s[3];
+        }
+    memcpy(tga + 18 + (size_t)tw * th * 4, B->footer, B->footer_len);
+    free(glyph);
+    free(sheet);
+    return tga;
 }
 
 /* parse_font_metrics (build_controller_prompt_textures.py): glyph advances
@@ -302,6 +549,157 @@ static void generate(const Layout *L, const Font *font, uint8_t *data) {
 #undef K
 }
 
+static uint8_t *read_file(const char *path, size_t *size) {
+    FILE *f = fopen(path, "rb");
+    if (!f) return NULL;
+    fseek(f, 0, SEEK_END);
+    long n = ftell(f);
+    fseek(f, 0, SEEK_SET);
+    uint8_t *data = malloc(n > 0 ? (size_t)n + 1 : 1);
+    if (!data || (n > 0 && fread(data, 1, (size_t)n, f) != (size_t)n)) { fclose(f); return NULL; }
+    fclose(f);
+    data[n > 0 ? n : 0] = 0;
+    *size = n > 0 ? (size_t)n : 0;
+    return data;
+}
+
+typedef struct { int32_t left, right; } Box;
+
+static int box_order(const void *a, const void *b) {
+    const Box *x = a, *y = b;
+    if (x->left != y->left) return x->left < y->left ? -1 : 1;
+    return x->right < y->right ? -1 : x->right > y->right;
+}
+
+/* build_menubg_texture.py's build_tga, from geometry_from_gui's boxes in the blended HUD:
+ * one alpha row, each box opaque black with a 1 px edge at the edge alpha, every row alike. */
+static uint8_t *draw_hud(const Hud *m, const uint8_t *gui, const uint8_t *footer, uint16_t footer_len,
+                         size_t *size) {
+    int32_t origin = get_i32(gui, m->backdrop_left), span = get_i32(gui, m->backdrop_width);
+    Box boxes[16];
+    for (uint32_t i = 0; i < m->count; i++) {
+        boxes[i].left = get_i32(gui, m->left[i]) - origin;
+        boxes[i].right = boxes[i].left + get_i32(gui, m->button_width[i]);
+    }
+    qsort(boxes, m->count, sizeof boxes[0], box_order);
+    if (span <= 0 || m->count == 0 || boxes[0].left < 0 || boxes[m->count - 1].right > span) {
+        fprintf(stderr, "kmrp-guiblend: %s: buttons fall outside LBL_MENUBG\n", m->gui);
+        return NULL;
+    }
+    const int w = (int)m->width, h = (int)m->height;
+    double scale = (double)w / span;
+    uint8_t *alpha = calloc((size_t)w, 1);
+    for (uint32_t i = 0; i < m->count; i++) {
+        int start = (int)rint(boxes[i].left * scale), end = (int)rint(boxes[i].right * scale);
+        if (start < 0) start = 0;
+        if (end > w) end = w;
+        for (int x = start; x < end; x++) alpha[x] = (uint8_t)(x == start || x == end - 1 ? m->edge_alpha : 255);
+    }
+    *size = 18 + (size_t)w * h * 4 + footer_len;
+    uint8_t *tga = calloc(1, *size);
+    tga[2] = 2;
+    tga[12] = (uint8_t)w; tga[13] = (uint8_t)(w >> 8);
+    tga[14] = (uint8_t)h; tga[15] = (uint8_t)(h >> 8);
+    tga[16] = 32; tga[17] = 0x08;
+    for (int y = 0; y < h; y++)
+        for (int x = 0; x < w; x++) tga[18 + ((size_t)y * w + x) * 4 + 3] = alpha[x];
+    memcpy(tga + 18 + (size_t)w * h * 4, footer, footer_len);
+    free(alpha);
+    return tga;
+}
+
+static int write_file(const char *path, const uint8_t *data, size_t size) {
+    FILE *o = fopen(path, "wb");
+    if (!o || fwrite(data, 1, size, o) != size || fclose(o) != 0) {
+        fprintf(stderr, "kmrp-guiblend: %s: write failed\n", path);
+        return 0;
+    }
+    return 1;
+}
+
+/* The next line of a manifest, from *at: its length with its line end. */
+static size_t next_line(const uint8_t *text, size_t size, size_t at) {
+    size_t end = at;
+    while (end < size && text[end] != '\n') end++;
+    return (end < size ? end + 1 : end) - at;
+}
+
+/* The label width a manifest's row for `resref` bakes: "prompt <resref> <w> <h> <width> ...". */
+static int manifest_label(const uint8_t *text, size_t size, const char *resref, double *label) {
+    for (size_t at = 0, n; at < size; at += n) {
+        n = next_line(text, size, at);
+        char line[8192], name[64];
+        if (n >= sizeof line) continue;
+        memcpy(line, text + at, n);
+        line[n] = 0;
+        int w, h;
+        if (sscanf(line, "prompt %63s %d %d %lf", name, &w, &h, label) == 4 && strcmp(name, resref) == 0)
+            return 1;
+    }
+    return 0;
+}
+
+static void append(uint8_t **buffer, size_t *size, size_t *room, const void *data, size_t n) {
+    if (*size + n > *room) {
+        *room = (*size + n) * 2;
+        *buffer = realloc(*buffer, *room);
+    }
+    memcpy(*buffer + *size, data, n);
+    *size += n;
+}
+
+/* SETDIR's manifest with each row's button size the blended one, and each widened screen's
+ * widening this blend's; every other byte as it was, line ends included. */
+static uint8_t *rewrite_manifest(const uint8_t *text, size_t size, const Badges *B, const int *sizes,
+                                 const Fit *fits, uint32_t fit_count, const int32_t *widened, size_t *out_size) {
+    uint8_t *out = NULL;
+    size_t used = 0, room = 0;
+    uint32_t rows = 0;
+    for (size_t at = 0, n; at < size; at += n) {
+        n = next_line(text, size, at);
+        const char *line = (const char *)text + at;
+        char head[512];
+        if (n > 7 && memcmp(line, "prompt ", 7) == 0) {
+            /* "prompt", the resref, the two sizes, then the rest as it was. */
+            size_t f[4], k = 0;
+            for (size_t i = 0; i < n && k < 4; i++)
+                if (line[i] == ' ') f[k++] = i;
+            if (k < 4 || f[1] - f[0] - 1 >= 32) { fprintf(stderr, "kmrp-guiblend: a prompt manifest row is malformed\n"); return NULL; }
+            char resref[32];
+            memcpy(resref, line + f[0] + 1, f[1] - f[0] - 1);
+            resref[f[1] - f[0] - 1] = 0;
+            uint32_t i = 0;
+            while (i < B->prompt_count && strcmp(B->prompts[i].resref, resref) != 0) i++;
+            if (i == B->prompt_count) { fprintf(stderr, "kmrp-guiblend: the table has no badge %s\n", resref); return NULL; }
+            int m = snprintf(head, sizeof head, "prompt %s %d %d", resref, sizes[i * 2], sizes[i * 2 + 1]);
+            append(&out, &used, &room, head, (size_t)m);
+            append(&out, &used, &room, line + f[3], n - f[3]);
+            rows++;
+            continue;
+        }
+        if (n > 8 && memcmp(line, "widened ", 8) == 0) {
+            size_t g = 8, e;
+            while (g < n && line[g] != ' ') g++;
+            for (e = g + 1; e < n && line[e] >= '0' && line[e] <= '9'; e++) {}
+            uint32_t i = 0;
+            while (i < fit_count && (strlen(fits[i].name) != g - 8 || memcmp(fits[i].name, line + 8, g - 8) != 0)) i++;
+            if (i < fit_count && g < n) {
+                int m = snprintf(head, sizeof head, "widened %s %d", fits[i].name, widened[i]);
+                append(&out, &used, &room, head, (size_t)m);
+                append(&out, &used, &room, line + e, n - e);
+                continue;
+            }
+        }
+        append(&out, &used, &room, line, n);
+    }
+    if (rows != B->prompt_count) {
+        fprintf(stderr, "kmrp-guiblend: the manifest lists %u badges, the table %u\n", rows, B->prompt_count);
+        return NULL;
+    }
+    *out_size = used;
+    return out;
+}
+
 /* The family at `height`: one set, or the two around it with their weights. Among sets of
  * the same height, the one nearest the family's aspect ratio (1360x768 against 1366x768). */
 static int family_at_height(const Anchor *anchors, uint32_t count, uint32_t family, double aspect,
@@ -359,8 +757,8 @@ int main(int argc, char **argv) {
     fclose(f);
 
     char magic[4];
-    if (!take(magic, 4) || memcmp(magic, "KGBL", 4) != 0 || take_u32() != 2) {
-        fprintf(stderr, "kmrp-guiblend: not a version 2 blend table\n");
+    if (!take(magic, 4) || memcmp(magic, "KGBL", 4) != 0 || take_u32() != 3) {
+        fprintf(stderr, "kmrp-guiblend: not a version 3 blend table\n");
         return 1;
     }
     uint32_t family_count = take_u32();
@@ -435,6 +833,82 @@ int main(int argc, char **argv) {
             return 1;
         }
     }
+    static Badges badges;
+    badges.texture_w = take_u32();
+    badges.texture_h = take_u32();
+    take(&badges.radius, 8);
+    take(&badges.radius_short, 8);
+    badges.short_below = take_u32();
+    take(&badges.gap, 8);
+    take(&badges.edge, 8);
+    take(&badges.center_y, 8);
+    take(&badges.fallback_x, 8);
+    if (!take(&badges.footer_len, 2) || badges.footer_len > sizeof badges.footer ||
+        !take(badges.footer, badges.footer_len) || badges.texture_w == 0 || badges.texture_w > 4096 ||
+        badges.texture_h == 0 || badges.texture_h > 4096) {
+        fprintf(stderr, "kmrp-guiblend: bad badge record\n");
+        return 1;
+    }
+    badges.glyph_count = take_u32();
+    if (badges.glyph_count > 64) { fprintf(stderr, "kmrp-guiblend: bad glyph count\n"); return 1; }
+    badges.glyphs = calloc(badges.glyph_count ? badges.glyph_count : 1, sizeof(Glyph));
+    for (uint32_t i = 0; i < badges.glyph_count; i++) {
+        Glyph *g = &badges.glyphs[i];
+        g->width = take_u32();
+        g->height = take_u32();
+        if (g->width == 0 || g->height == 0 || g->width > 1024 || g->height > 1024 ||
+            pos + (size_t)g->width * g->height * 4 > table_size) {
+            fprintf(stderr, "kmrp-guiblend: bad glyph\n");
+            return 1;
+        }
+        g->rgba = table + pos;
+        pos += (size_t)g->width * g->height * 4;
+    }
+    badges.prompt_count = take_u32();
+    if (badges.prompt_count > 4096) { fprintf(stderr, "kmrp-guiblend: bad prompt count\n"); return 1; }
+    badges.prompts = calloc(badges.prompt_count ? badges.prompt_count : 1, sizeof(Prompt));
+    for (uint32_t i = 0; i < badges.prompt_count; i++) {
+        Prompt *pr = &badges.prompts[i];
+        if (!take_text(pr->resref, sizeof pr->resref) || !take_text(pr->gui, sizeof pr->gui)) {
+            fprintf(stderr, "kmrp-guiblend: bad prompt record\n");
+            return 1;
+        }
+        pr->width_at = take_u32();
+        pr->height_at = take_u32();
+        pr->glyph = take_u32();
+        if (!take(&pr->backed, 1) || !take(pr->backing, 4)) { fprintf(stderr, "kmrp-guiblend: bad prompt record\n"); return 1; }
+        pr->sizing_count = take_u32();
+        if (pr->glyph >= badges.glyph_count || pr->sizing_count > 16) {
+            fprintf(stderr, "kmrp-guiblend: bad prompt record\n");
+            return 1;
+        }
+        for (uint32_t k = 0; k < pr->sizing_count; k++) pr->sizing[k] = take_u32();
+    }
+    uint32_t hud_count = take_u32();
+    if (hud_count > 1) { fprintf(stderr, "kmrp-guiblend: bad HUD count\n"); return 1; }
+    static Hud huds[1];
+    for (uint32_t i = 0; i < hud_count; i++) {
+        Hud *m = &huds[i];
+        if (!take_text(m->gui, sizeof m->gui) || !take_text(m->texture, sizeof m->texture)) {
+            fprintf(stderr, "kmrp-guiblend: bad HUD record\n");
+            return 1;
+        }
+        m->width = take_u32();
+        m->height = take_u32();
+        m->edge_alpha = take_u32();
+        m->backdrop_left = take_u32();
+        m->backdrop_width = take_u32();
+        m->count = take_u32();
+        if (m->count > 16 || m->width == 0 || m->width > 4096 || m->height == 0 || m->height > 4096 ||
+            m->edge_alpha > 255 || strchr(m->texture, '/') || strchr(m->texture, '\\')) {
+            fprintf(stderr, "kmrp-guiblend: bad HUD record\n");
+            return 1;
+        }
+        for (uint32_t k = 0; k < m->count; k++) {
+            m->left[k] = take_u32();
+            m->button_width[k] = take_u32();
+        }
+    }
 
     /* Families in order of aspect ratio. */
     uint32_t order[16];
@@ -498,6 +972,8 @@ int main(int argc, char **argv) {
     }
     mkdir(outdir, 0755);
     uint32_t file_count = take_u32();
+    Output *outputs = calloc(file_count ? file_count : 1, sizeof(Output));
+    int32_t widened[4] = {0, 0, 0, 0};
     for (uint32_t fi = 0; fi < file_count; fi++) {
         uint16_t name_len = 0;
         take(&name_len, 2);
@@ -535,7 +1011,7 @@ int main(int argc, char **argv) {
                       fits[i].button_width + 4 > size || fits[i].button_height + 4 > size;
             for (uint32_t k = 0; k < fits[i].count; k++) bad |= fits[i].widths[k] + 4 > size;
             if (bad) { fprintf(stderr, "kmrp-guiblend: %s: fit outside the file\n", name); return 1; }
-            apply_fit(&fits[i], out, captions[i]);
+            widened[i] = apply_fit(&fits[i], out, captions[i]);
         }
         for (uint32_t i = 0; i < layout_count; i++) {
             if (strcmp(layouts[i].name, name) != 0) continue;
@@ -545,11 +1021,71 @@ int main(int argc, char **argv) {
             if (bad) { fprintf(stderr, "kmrp-guiblend: %s: layout outside the file\n", name); return 1; }
             generate(&layouts[i], &fonts[i], out);
         }
-        snprintf(path, sizeof path, "%s/%s", outdir, name);
-        FILE *o = fopen(path, "wb");
-        if (!o || fwrite(out, 1, size, o) != size || fclose(o) != 0) { fprintf(stderr, "kmrp-guiblend: %s: write failed\n", path); return 1; }
-        free(out);
+        strcpy(outputs[fi].name, name);
+        outputs[fi].data = out;
+        outputs[fi].size = size;
         free(offsets);
+    }
+
+    /* The badges, each for its blended button, with the label width SETDIR's manifest
+     * gives it, and that manifest with the blended button sizes and widening. */
+    snprintf(path, sizeof path, "%s/kmrp_prompts.txt", argv[5]);
+    size_t manifest_size = 0;
+    uint8_t *manifest = read_file(path, &manifest_size);
+    if (!manifest) { fprintf(stderr, "kmrp-guiblend: %s: %s\n", path, strerror(errno)); return 1; }
+    int *sizes = calloc((size_t)badges.prompt_count * 2 + 1, sizeof(int));
+    for (uint32_t i = 0; i < badges.prompt_count; i++) {
+        const Prompt *pr = &badges.prompts[i];
+        const Output *gui = NULL;
+        for (uint32_t k = 0; k < file_count; k++)
+            if (strcmp(outputs[k].name, pr->gui) == 0) gui = &outputs[k];
+        int bad = !gui || pr->width_at + 4 > gui->size || pr->height_at + 4 > gui->size;
+        for (uint32_t k = 0; !bad && k < pr->sizing_count; k++) bad |= pr->sizing[k] + 4 > gui->size;
+        if (bad) { fprintf(stderr, "kmrp-guiblend: %s: its button is outside %s\n", pr->resref, pr->gui); return 1; }
+        int cw = get_i32(gui->data, pr->width_at), ch = get_i32(gui->data, pr->height_at), radius_height = 0;
+        for (uint32_t k = 0; k < pr->sizing_count; k++) {
+            int h = get_i32(gui->data, pr->sizing[k]);
+            if (k == 0 || h < radius_height) radius_height = h;
+        }
+        double label = 0;
+        if (cw <= 0 || ch <= 0 || !manifest_label(manifest, manifest_size, pr->resref, &label)) {
+            fprintf(stderr, "kmrp-guiblend: %s: no manifest row, or no button\n", pr->resref);
+            return 1;
+        }
+        sizes[i * 2] = cw;
+        sizes[i * 2 + 1] = ch;
+        size_t tga_size;
+        uint8_t *tga = draw_badge(&badges, &badges.glyphs[pr->glyph], cw, ch, label, radius_height,
+                                  pr->backed ? pr->backing : NULL, &tga_size);
+        snprintf(path, sizeof path, "%s/%s.tga", outdir, pr->resref);
+        if (!write_file(path, tga, tga_size)) return 1;
+        free(tga);
+    }
+    size_t rewritten_size = 0;
+    uint8_t *rewritten = rewrite_manifest(manifest, manifest_size, &badges, sizes, fits, fit_count, widened,
+                                          &rewritten_size);
+    if (!rewritten) return 1;
+    snprintf(path, sizeof path, "%s/kmrp_prompts.txt", outdir);
+    if (!write_file(path, rewritten, rewritten_size)) return 1;
+    for (uint32_t i = 0; i < hud_count; i++) {
+        const Output *gui = NULL;
+        for (uint32_t k = 0; k < file_count; k++)
+            if (strcmp(outputs[k].name, huds[i].gui) == 0) gui = &outputs[k];
+        int bad = !gui || huds[i].backdrop_left + 4 > gui->size || huds[i].backdrop_width + 4 > gui->size;
+        for (uint32_t k = 0; !bad && k < huds[i].count; k++)
+            bad |= huds[i].left[k] + 4 > gui->size || huds[i].button_width[k] + 4 > gui->size;
+        if (bad) { fprintf(stderr, "kmrp-guiblend: %s: its HUD is outside %s\n", huds[i].texture, huds[i].gui); return 1; }
+        size_t hud_size;
+        uint8_t *tga = draw_hud(&huds[i], gui->data, badges.footer, badges.footer_len, &hud_size);
+        if (!tga) return 1;
+        snprintf(path, sizeof path, "%s/%s", outdir, huds[i].texture);
+        if (!write_file(path, tga, hud_size)) return 1;
+        free(tga);
+    }
+    for (uint32_t fi = 0; fi < file_count; fi++) {
+        snprintf(path, sizeof path, "%s/%s", outdir, outputs[fi].name);
+        if (!write_file(path, outputs[fi].data, outputs[fi].size)) return 1;
+        free(outputs[fi].data);
     }
     return 0;
 }

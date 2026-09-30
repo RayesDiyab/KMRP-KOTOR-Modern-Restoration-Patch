@@ -13,9 +13,10 @@ own. Nothing of the real game or the real ini is read or written except those (r
    icons at 64s, tutorial.2da pointing at them); status
    reports nothing changed; uninstall leaves the executable, the bundle and the ini exactly as
    they were.
-2. A size the build has no set for (--size 1800x1169): the .gui files are kmrp-guiblend's
-   for that size, everything else is the nearest listed set's (by height, then shape); then
-   the same clean uninstall.
+2. A size the build has no set for (--size 1800x1169): the .gui files, the controller badges,
+   the prompt manifest and the HUD's button-row boxes are kmrp-guiblend's for that size (the
+   badges and boxes since 2026-09-30), everything else is the nearest listed set's (by
+   height, then shape); then the same clean uninstall.
 3. The listed size again, over the settings round 2 left behind.
 
 The controller's kmrp-controller.ini (beside swkotor.ini, since 2026-09-29), the player's file
@@ -171,12 +172,15 @@ def main() -> int:
                 subprocess.run([str(package / "bin/kmrp-guiblend"), str(package / "gui-blend.bin"),
                                 str(width), str(height), str(blend), str(set_dir)],
                                check=True, capture_output=True)
-                for gui in blend.glob("*.gui"):
-                    expected[gui.name] = gui.read_bytes()
+                # Every file the helper writes replaces the set's: the menus, the badges drawn
+                # for the blended buttons, the prompt manifest and the HUD's button-row boxes.
+                for made in blend.iterdir():
+                    expected[made.name] = made.read_bytes()
             for name, data in expected.items():
                 path = override / name
                 if not path.is_file() or path.read_bytes() != data:
-                    failures.append(f"{size}: override/{name} is not the {'blended' if name.endswith('.gui') and not listed else source} file")
+                    made = not listed and (blend / name).is_file()
+                    failures.append(f"{size}: override/{name} is not the {'blended' if made else source} file")
                     break
             # The controller patch's art: the set's badges and Controller Layout screen (checked
             # with the set above) and override-common.zip's cues and layout art.

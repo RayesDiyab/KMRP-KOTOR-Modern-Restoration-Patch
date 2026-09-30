@@ -90,6 +90,16 @@ Intel and Apple Silicon slices write identical files. The 17 Mac sets, each held
 made from the others with its own fonts: 151,946 fields, every file counted, 99.90% within
 1 px, worst 12 px, in a HUD variant the Mac does not load.
 
+**And the badges and the HUD's boxes are drawn for the size** (2026-09-30, table version 3,
+[`docs/macos-changes-from-windows.md`](../docs/macos-changes-from-windows.md), items 1 to 3).
+The paragraphs above left the "art" of the nearest set in place, and two kinds of it depend
+on the buttons: each controller badge is a texture stretched over its whole button, drawn to
+be round on the button it was made for, and `lbl_mileftbot.tga` draws a box under each of the
+HUD's eight top-right buttons. From the nearest set a badge came out up to 1.86 times as wide
+as tall (3440x1400, whose nearest set by height is 1856x1392). The helper now draws both from
+the blended files, with the build's arithmetic (Pillow's Lanczos for the badges), and the
+Windows installer does the same byte for byte. Only the fonts still come from the nearest set.
+
 ## The table
 
 States: **done** (behaves as on Windows, checked as stated), **to port**, **n/a**

@@ -28,23 +28,30 @@ counterpart to change: it ports the Windows patcher's), `f59663a` (these documen
 and `d44ee0d` (the Mac disk image, its icon and the Mac's controller option, which Windows
 already has), and the commit adding item 11.
 
+**Merged and built on 2026-09-30.** The branch up to `3fd22ad` was merged into `master` and
+the Windows installer built from it (`04C2DA20…`), with the resources made again from the
+merged build code. Items 2, 5 and 11 were done on Windows the same day; the other direction,
+what the Mac now needs from that work, is
+[`macos-changes-from-windows.md`](macos-changes-from-windows.md).
+
 States: **to do** (Windows has nothing yet), **build only** (shared code already changed;
-Windows gets it with a build from the merged code and needs a check in play), **doc** (a
-Windows document to correct).
+Windows gets it with a build from the merged code and needs a check in play), **built** (in
+a Windows build, its automated checks passing; not yet seen in play), **done** (as the Mac
+does it, checked as stated), **doc** (a Windows document to correct).
 
 | # | Change | State |
 | --- | --- | --- |
 | 1 | Message popups fitted to their contents, width and height, centred | **to do** |
-| 2 | Any resolution, not only the listed ones | **to do** |
-| 3 | Controller badges at their designed distance; the Container's buttons widened | **build only** |
-| 4 | Controller Layout caption boxes: margin over the corrected measure | **build only** |
-| 5 | `kmrp-controller.ini` removal on restore | **doc** |
-| 6 | Skill icons enlarged with the Skills rows | **build only** |
-| 7 | HD item icons normalised to the game's own framing | **build only** |
-| 8 | Row frames, tutorial icons and `tutorial.2da` made at install from the player's game | **build only** |
-| 9 | The 17 Mac resolutions in the catalogue | **build only** |
+| 2 | Any resolution, not only the listed ones | **built** (2026-09-30) |
+| 3 | Controller badges at their designed distance; the Container's buttons widened | **built** |
+| 4 | Controller Layout caption boxes: margin over the corrected measure | **built** |
+| 5 | `kmrp-controller.ini` removal on restore | **done** (the document corrected) |
+| 6 | Skill icons enlarged with the Skills rows | **built** |
+| 7 | HD item icons normalised to the game's own framing | **built** |
+| 8 | Row frames, tutorial icons and `tutorial.2da` made at install from the player's game | **built** |
+| 9 | The 17 Mac resolutions in the catalogue | **built** |
 | 10 | The granted popup's rows: hex as tall as the text frame, text inset, rows spaced like the inventory's | **to do** |
-| 11 | The header's smoke fades out before the header's bottom edge | **to do** |
+| 11 | The header's smoke fades out before the header's bottom edge | **built** (not yet watched) |
 
 ## 1. Message popups fitted to their contents
 
@@ -137,6 +144,24 @@ catalogue, not computed.
 **Check.** `Test-GuiBlendHelper.py`'s cases against the C# output, byte for byte, then one
 unlisted size in play.
 
+**Done on Windows, 2026-09-30.** `src/patcher/GuiBlend.cs` is the helper's C#, step for step,
+and the installer carries the table gzipped (`Kmrp.guiblend`, `build_kmrp.ps1` step 4a). A
+size the catalogue lacks installs the nearest set (by height, then shape, as `kmrp-mac.sh`
+picks it) with its `.gui` files replaced by the blend; `ResolutionChoice.ForSize` computes the
+five map fields with the catalogue's own formula (`tools/analyze_resolution_guis.py`), which
+all 66 listed rows equal. The patcher's third step lists this display first and ends with
+"Custom size…", which takes any size the sets reach and says which heights they reach at a
+shape they do not. `Test-GuiBlendHelper.py` runs on Windows too (the helper built with LLVM
+clang through `native_helpers.py`) and requires the installer's own blend, through its
+`--derive-gui`, to equal the helper's byte for byte; it did at 369 sizes, 300 of them random,
+and both refused the same 7 (2026-09-30, before the badges below).
+
+*And found doing it:* the nearest set's controller badges are drawn for that set's buttons and
+came out stretched on the blended ones, up to 1.86 times as wide as tall at 3440x1400, on both
+platforms. Since table version 3 both installers draw every badge again for its blended button,
+and the HUD's button-row boxes from the blended HUD, byte for byte with the build's
+(`macos-changes-from-windows.md`, items 1 and 2). Not yet played at a blended size.
+
 ## 3. Controller badges and the Container (shared build code)
 
 **What changed** (2026-09-30, `CHANGELOG.md`, *Fixed*). Two changes to shared build code:
@@ -175,6 +200,7 @@ every caption on one line.
 usual rule. Its own comment says so, and so does the restore loop of the controller
 component, read 2026-09-30. The Mac installer does the same since 2026-09-30. Correct the
 document, not the code: removing an untouched default is the rule every other file follows.
+**Done 2026-09-30**: `controller-rumble.md` says so, with the correction kept visible.
 
 ## 6. Skill icons enlarged with the Skills rows
 
@@ -296,4 +322,8 @@ but nothing in the code prevents it.
 
 **Check.** Watch the Windows patcher's margins beside the card for a minute: no straight edge
 where the header ends.
+
+**Built, 2026-09-30.** `LightField.BottomFade` in `src/patcher/KmrpPatcher.cs`, the Mac's
+smoothstep over the lowest 30% of the header, on the smoke's emission in `RenderSmoke` and on
+each mote's brightness in `RenderMotes`. Not yet watched.
 

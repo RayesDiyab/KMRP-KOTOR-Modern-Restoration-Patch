@@ -35,8 +35,8 @@ backup of the unmodified file and kpm_install_state.json first -- KPM knows a ga
 only by its exe hash, and refused the flagged one without them (measured with
 KPM 0.7.1's launcher, 2026-09-29). It upgrades a standalone
 install through the standalone's own restore. For a folder holding KPM's own
-runtime, or with its "KOTOR Patch Manager" option on, it installs for KPM
-instead (no runtime; the player ticks the .kpatch files, which the installer
+runtime it installs for KPM instead (an Advanced Settings option that also chose
+this was removed on 2026-09-30) (no runtime; the player ticks the .kpatch files, which the installer
 carries and puts in KPM's patch folder -- from KPM's settings -- or a "KPM patches"
 folder in the game folder) -- what the separate KMRP for KPM installer did until
 the same day. `--apply` still writes the gold image, as the reference. The
@@ -51,9 +51,11 @@ fix: KMRP (required, self-contained: it carries the memory fixes and, on the
 editable 1.03 executable, the 4 GB flag), KMRP Controller, KMRP Movies, KMRP Map
 Notes; each hook's patch is `kpm_patch` in kotor1.hooks.toml. It supports the
 editable 1.03 executable (761F9466…, which KPM keys `kotor1_cdcrack_103`) and
-Steam's swkotor.exe (34E6D971…, decrypted identical to it); the standalone
-supports the editable executable only. GOG's own v1.03 (9C10E045…) is a different
-file -- see reverse-engineering/map-scaling.md.
+Steam's swkotor.exe (34E6D971…, decrypted identical to it), and since 2026-09-30
+GOG's own v1.03 (9C10E045…): the editable file with its 16-byte "Hellspawn Reborn"
+header watermark zeroed, measured by hash (GameExecutable in KmrpPatcher.cs; see
+reverse-engineering/map-scaling.md). The patcher's step 2 names which of the three it
+found.
 See docs/kpm-edition.md.
 
 - `src/patcher/KmrpPatcher.cs` contains the Windows patcher, executable validation,

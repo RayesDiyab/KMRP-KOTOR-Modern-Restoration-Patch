@@ -13,6 +13,12 @@
     what Cases 1 and 2 test. Where it sets the flag it first leaves KOTOR Patch
     Manager a backup of the unmodified file (Case 3), and none where the flag was
     already set (Case 4).
+
+    GOG's own swkotor.exe (Case 6, 2026-09-30) is the canonical input with the 16
+    bytes of "Hellspawn Reborn" in its header padding zeroed: this makes it from the
+    canonical input that way and requires GOG's SHA-256, then requires the same
+    patched output, the flag, KOTOR Patch Manager's records naming GOG's file, and
+    an exact restore. A file with other bytes there is still refused.
 #>
 [CmdletBinding()]
 param(
@@ -172,6 +178,46 @@ try {
     $otherHash = Get-Sha256 $otherInstall
     Assert ((Invoke-Patcher @("--in-place", $otherInstall, $Resolution)) -ne 0) "the install is refused"
     Assert ((Get-Sha256 $otherInstall) -eq $otherHash) "and the executable is untouched"
+
+    Write-Host ""
+    Write-Host "Case 6  GOG's executable: the canonical input without its 16-byte watermark"
+    $gogHash = "9C10E0450A6EECA417E036E3CDE7474FED1F0A92AAB018446D156944DEA91435"
+    $gogLaaHash = "01B808251B3EE85F86F4C893FD4EE1A0448F94D9316FE9B09BD8B222C2B4132F"
+    $watermarkOffset = 0x0AC0
+    $bytes = [System.IO.File]::ReadAllBytes($CleanExe)
+    Assert ([Text.Encoding]::ASCII.GetString($bytes, $watermarkOffset, 16) -eq "Hellspawn Reborn") "the canonical input carries the watermark at FILE 0x0AC0"
+    [Array]::Clear($bytes, $watermarkOffset, 16)
+    $gogInput = Join-Path $WorkRoot "swkotor-gog.exe"
+    [System.IO.File]::WriteAllBytes($gogInput, $bytes)
+    Assert ((Get-Sha256 $gogInput) -eq $gogHash) "zeroing it gives GOG's SHA-256 exactly"
+    $bytes[$characteristicsOffset] = [byte]($laaCharacteristics -band 0xFF)
+    $gogLaaInput = Join-Path $WorkRoot "swkotor-gog-laa.exe"
+    [System.IO.File]::WriteAllBytes($gogLaaInput, $bytes)
+    Assert ((Get-Sha256 $gogLaaInput) -eq $gogLaaHash) "and with the flag, the hash the installer knows it by"
+    $fromGog = Join-Path $WorkRoot "from-gog.exe"
+    Assert ((Invoke-Patcher @("--apply", $gogInput, $fromGog, $Resolution)) -eq 0) "GOG's input patches successfully"
+    Assert ((Get-Sha256 $fromGog) -eq (Get-Sha256 $fromClean)) "into the canonical input's output, byte for byte"
+    $gogInstall = New-Install "gog" $gogInput
+    Assert ((Invoke-Patcher @("--in-place", $gogInstall, $Resolution)) -eq 0) "GOG in-place install succeeds"
+    Assert ((Get-Sha256 $gogInstall) -eq $gogLaaHash) "and the flag is the only change to swkotor.exe"
+    $gogFolder = Split-Path -Parent $gogInstall
+    $backups = @(Get-KpmBackups $gogInstall)
+    Assert ($backups.Count -eq 1 -and (Get-Sha256 $backups[0]) -eq $gogHash) "one KPM backup, holding GOG's unmodified file"
+    $backupInfo = [IO.File]::ReadAllText($backups[0] + ".json") | ConvertFrom-Json
+    Assert ($backupInfo.Hash -eq $gogHash) "its metadata names GOG's hash"
+    $state = [IO.File]::ReadAllText((Join-Path $gogFolder "kpm_install_state.json")) | ConvertFrom-Json
+    Assert ($state.OriginalHash -eq $gogHash -and $state.OriginalVersion.Distribution -eq 0) "kpm_install_state.json names GOG's file, distribution GOG"
+    $config = [IO.File]::ReadAllText((Join-Path $gogFolder "patch_config.toml"))
+    Assert ($config.StartsWith("target_version_sha = `"$gogHash`"")) "patch_config.toml names GOG's version"
+    Assert ((Invoke-Patcher @("--restore", $gogInstall)) -eq 0) "GOG restore succeeds"
+    Assert ((Get-Sha256 $gogInstall) -eq $gogHash) "restore reproduces GOG's input byte-for-byte"
+    $bytes = [System.IO.File]::ReadAllBytes($gogInput)
+    $bytes[$watermarkOffset] = 0x21
+    $otherPadding = Join-Path $WorkRoot "swkotor-other-padding.exe"
+    [System.IO.File]::WriteAllBytes($otherPadding, $bytes)
+    $otherPaddingInstall = New-Install "other-padding" $otherPadding
+    Assert ((Invoke-Patcher @("--in-place", $otherPaddingInstall, $Resolution)) -ne 0) "another byte in the header padding is refused"
+    Assert ((Get-Sha256 $otherPaddingInstall) -eq (Get-Sha256 $otherPadding)) "and that executable is untouched"
 }
 finally {
     Restore-KpmLauncherSettings $kpmLauncherSettings

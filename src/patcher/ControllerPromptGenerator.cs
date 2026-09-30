@@ -73,6 +73,27 @@ namespace Kmrp
         internal static Dictionary<string, byte[]> TryBuild(string executablePath,
                                                             GuiPool layout)
         {
+            return TryBuild(executablePath, delegate(string name)
+            {
+                ZipArchiveEntry entry = layout.GetEntry(name);
+                if (entry == null)
+                    return null;
+                using (Stream input = entry.Open())
+                using (MemoryStream buffer = new MemoryStream())
+                {
+                    input.CopyTo(buffer);
+                    return buffer.ToArray();
+                }
+            });
+        }
+
+        /// <summary>The same, with the manifest and the textures read through
+        /// `readFile` (null for a file the set does not have): for a size with no set
+        /// of its own, the blended manifest and the badges drawn for its buttons
+        /// (GuiBlend), so the badges move on the buttons they were drawn for.</summary>
+        internal static Dictionary<string, byte[]> TryBuild(string executablePath,
+                                                            Func<string, byte[]> readFile)
+        {
             try
             {
                 string tlkPath = DialogTlkPath(executablePath);
@@ -87,7 +108,7 @@ namespace Kmrp
                 Dictionary<string, byte[]> baked =
                     new Dictionary<string, byte[]>(StringComparer.OrdinalIgnoreCase);
 
-                if (!ReadLayout(layout, prompts, baked,
+                if (!ReadLayout(readFile, prompts, baked,
                                  ref textureWidth, ref textureHeight,
                                  ref spacing, ref advances))
                     return null;
@@ -211,15 +232,15 @@ namespace Kmrp
             return total;
         }
 
-        private static bool ReadLayout(GuiPool layout, List<Prompt> prompts,
+        private static bool ReadLayout(Func<string, byte[]> readFile, List<Prompt> prompts,
                                        Dictionary<string, byte[]> baked,
                                        ref int textureWidth, ref int textureHeight,
                                        ref double spacing, ref double[] advances)
         {
-            ZipArchiveEntry manifest = layout.GetEntry(ManifestName);
+            byte[] manifest = readFile(ManifestName);
             if (manifest == null)
                 return false;   // a layout from before this existed
-            using (StreamReader reader = new StreamReader(manifest.Open(), Encoding.UTF8))
+            using (StreamReader reader = new StreamReader(new MemoryStream(manifest), Encoding.UTF8))
                 ParseManifest(reader, prompts, ref textureWidth, ref textureHeight,
                               ref spacing, ref advances);
             if (prompts.Count == 0)
@@ -228,15 +249,9 @@ namespace Kmrp
             foreach (Prompt prompt in prompts)
             {
                 string name = prompt.ResRef + ".tga";
-                ZipArchiveEntry entry = layout.GetEntry(name);
-                if (entry == null)
-                    continue;
-                using (Stream input = entry.Open())
-                using (MemoryStream buffer = new MemoryStream())
-                {
-                    input.CopyTo(buffer);
-                    baked[name] = buffer.ToArray();
-                }
+                byte[] texture = readFile(name);
+                if (texture != null)
+                    baked[name] = texture;
             }
             return true;
         }

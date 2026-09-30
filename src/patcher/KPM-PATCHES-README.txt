@@ -9,8 +9,8 @@ patches.
 
 If you do not use KOTOR Patch Manager, you do not need these: KMRP's
 installer, "KMRP - KOTOR Modern Restoration Patch.exe", installs KPM's
-runtime itself, for the editable swkotor.exe and Steam's alike, and you start
-the game as usual.
+runtime itself, for the editable swkotor.exe, GOG's and Steam's alike, and
+you start the game as usual.
 
   KMRP - KOTOR Modern Restoration Patch   required: the widescreen and
                                           high-resolution interface, with
@@ -23,22 +23,24 @@ the game as usual.
 
 Requirements
 ------------
-- KOTOR 1, version 1.03, with either
-    the "editable" swkotor.exe (SHA-256 761F9466...), or
+- KOTOR 1, version 1.03, with one of
+    the "editable" swkotor.exe (SHA-256 761F9466...),
+    GOG's own swkotor.exe (SHA-256 9C10E045...), or
     Steam's own swkotor.exe (SHA-256 34E6D971...).
-  GOG's executable is not supported yet.
 - KOTOR Patch Manager 0.7.1 or later.
 
 Install
 -------
 1. Run KMRP's installer, "KMRP - KOTOR Modern Restoration Patch.exe", choose
-   your KOTOR folder and a resolution. If KOTOR Patch Manager already manages
-   the game folder, the installer sees it and installs for KPM by itself;
-   otherwise open Advanced Settings and turn on "KOTOR Patch Manager" first.
-   Then press Start Patching. This installs KMRP's interface files, sets the
-   resolution in swkotor.ini, and writes kmrp-kpm.dat, the data KMRP's
-   patches read. swkotor.exe is not modified. An earlier KMRP install is
-   replaced.
+   your KOTOR folder and a resolution, and press Start Patching. If KOTOR
+   Patch Manager already manages the game folder, the installer sees it and
+   installs for KPM: KMRP's interface files, the resolution in swkotor.ini,
+   and kmrp-kpm.dat, the data KMRP's patches read; swkotor.exe is not
+   modified. Otherwise it installs KPM's own runtime with KMRP's patches, as
+   KPM's proxy deployment lays out a game folder, and KPM recognises that
+   install: open KPM on the game, and pressing Apply there takes it over.
+   (With KPM 0.7.1, tick "Use library proxy" in KPM first.) An earlier KMRP
+   install is replaced.
 2. The installer carries these four .kpatch files and puts them in KOTOR
    Patch Manager's patch directory, the one KPM's settings name. If KPM has
    none on this PC yet, it puts them in a "KPM patches" folder in your KOTOR

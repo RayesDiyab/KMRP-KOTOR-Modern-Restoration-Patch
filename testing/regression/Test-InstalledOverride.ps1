@@ -24,6 +24,14 @@
     archives themselves. A failure means the installer and the resource folder are
     not from the same build, or the installer rebuilt a layout wrongly.
 
+    Sizes the build has no set for (-Blended, 2026-09-30) install the nearest set --
+    the nearest height, then the nearest shape, as the Mac installer picks it -- with
+    its .gui files, controller badges and HUD button-row boxes replaced by the ones made
+    for the size (src/patcher/GuiBlend.cs). For those, each of these must be what the
+    installer's --derive-gui makes from build\kmrp\gui-blend.bin with that set's fonts,
+    and every other file the set's own; swkotor.ini must hold the size.
+    Test-GuiBlendHelper.py proves that blend equals the Mac's, byte for byte.
+
 .EXAMPLE
     .\testing\regression\Test-InstalledOverride.ps1
 
@@ -40,6 +48,10 @@ param(
     # 2560x1440, and 1920x1080 and 800x600 are upstream layouts of two aspects.
     # "all" installs every archive in -Resources, 49 installs.
     [string[]]$Resolutions = @("3440x1440", "2880x1620", "1920x1080", "800x600"),
+    # No set: between 16:9 and 21:9 at a 16:10 set's height, a 16:10 shape between
+    # two heights, and a 21:9 shape between two heights.
+    [string[]]$Blended = @("2560x1200", "1600x1000", "3440x1400"),
+    [string]$BlendTable = ".\build\kmrp\gui-blend.bin",
     [string]$WorkRoot,
     [switch]$KeepWorkRoot
 )
@@ -59,6 +71,7 @@ $Patcher   = Resolve-Input $Patcher
 $CleanExe  = Resolve-Input $CleanExe
 $SeedIni   = Resolve-Input $SeedIni
 $Resources = Resolve-Input $Resources
+$BlendTable = Resolve-Input $BlendTable
 
 foreach ($required in @($Patcher, $CleanExe, $SeedIni, (Join-Path $Resources "override-common.zip"))) {
     if (-not (Test-Path -LiteralPath $required)) {
@@ -239,6 +252,96 @@ try {
         Assert ($left.Count -eq 0) ("restore emptied Override ({0} left)" -f $left.Count)
         Assert (-not (Test-Path -LiteralPath (Join-Path $folder "KOTOR_UI_Override_Backup.manifest"))) `
             "restore removed the Override manifest"
+    }
+
+    # Start-Process splits arguments at spaces, and the project folder's name has them: the
+    # table goes to the work folder first.
+    $tableCopy = Join-Path $WorkRoot "gui-blend.bin"
+    Copy-Item -LiteralPath $BlendTable -Destination $tableCopy
+    # The listed sizes, as the installer lists them, for the nearest set.
+    $listed = @(Get-Content -LiteralPath (Join-Path $Resources "resolutions.tsv") |
+        Where-Object { $_ -and -not $_.StartsWith("#") } |
+        ForEach-Object { $f = $_.Split("`t"); [pscustomobject]@{ Key = "$($f[1])x$($f[2])"; W = [int]$f[1]; H = [int]$f[2] } })
+    foreach ($resolution in $Blended) {
+        Write-Host ""
+        Write-Host ("Resolution " + $resolution + ", no set: blended")
+        $w, $h = $resolution.Split("x") | ForEach-Object { [int]$_ }
+        Assert (-not ($listed | Where-Object { $_.Key -eq $resolution })) "the build has no set for $resolution"
+        $near = $null
+        foreach ($candidate in $listed) {
+            $dh = [Math]::Abs($candidate.H - $h)
+            $da = [Math]::Abs($candidate.W / $candidate.H - $w / $h)
+            if ($null -eq $near -or $dh -lt $nearDh -or ($dh -eq $nearDh -and $da -lt $nearDa)) {
+                $near = $candidate; $nearDh = $dh; $nearDa = $da
+            }
+        }
+        Write-Host ("  nearest set " + $near.Key)
+        $archive = Join-Path $Resources ("gui-" + $near.Key + ".zip")
+        $expected = Get-ExpectedFiles @($common, $archive)
+
+        # The blend, with the nearest set's two files it reads.
+        $setDir = Join-Path $WorkRoot ("set-" + $near.Key)
+        $blendDir = Join-Path $WorkRoot ("blend-" + $resolution)
+        New-Item -ItemType Directory -Force -Path $setDir | Out-Null
+        $zip = [System.IO.Compression.ZipFile]::OpenRead($archive)
+        try {
+            foreach ($name in @("kmrp_prompts.txt", "dialogfont16x16.txi")) {
+                [System.IO.Compression.ZipFileExtensions]::ExtractToFile($zip.GetEntry($name), (Join-Path $setDir $name), $true)
+            }
+        }
+        finally { $zip.Dispose() }
+        $exitCode = Invoke-Patcher @("--derive-gui", $tableCopy, "$w", "$h", $blendDir, $setDir)
+        Assert ($exitCode -eq 0) "the installer's blend writes the menus (exit $exitCode)"
+        # Every file the blend makes but the manifest, which the installer reads and does
+        # not install: the menus, the badges drawn for the blended buttons, the HUD boxes.
+        $sha = [System.Security.Cryptography.SHA256]::Create()
+        $madeGui = 0; $madeBadges = 0
+        try {
+            foreach ($file in Get-ChildItem -LiteralPath $blendDir -File) {
+                $name = $file.Name.ToLowerInvariant()
+                if ($name -eq "kmrp_prompts.txt") { continue }
+                $stream = [System.IO.File]::OpenRead($file.FullName)
+                try { $hash = Get-StreamHash $sha $stream } finally { $stream.Dispose() }
+                Assert ($expected.ContainsKey($name)) "the nearest set has $name, which the blend makes"
+                if ($expected[$name] -ne $hash) {
+                    if ($name.EndsWith(".gui")) { $madeGui++ } elseif ($name.StartsWith("kmr")) { $madeBadges++ }
+                }
+                $expected[$name] = $hash
+            }
+        }
+        finally { $sha.Dispose() }
+        Assert ($madeGui -gt 60 -and $madeBadges -gt 400) ("the blend differs from the nearest set's menus and badges ({0} .gui files, {1} badges)" -f $madeGui, $madeBadges)
+
+        $folder = Join-Path $WorkRoot $resolution
+        New-Item -ItemType Directory -Force -Path $folder | Out-Null
+        $exe = Join-Path $folder "kmrp-regression-selftest.exe"
+        Copy-Item -LiteralPath $CleanExe -Destination $exe
+        Copy-Item -LiteralPath $SeedIni -Destination (Join-Path $folder "swkotor.ini")
+        [IO.File]::WriteAllText((Join-Path $folder "binkw32.dll"), "stand-in for the game's binkw32.dll`r`n")
+        $script:OriginalLayerValues[$exe] = Get-LayerValue $exe
+        $override = Join-Path $folder "Override"
+
+        $exitCode = Invoke-Patcher @("--in-place", $exe, $resolution)
+        Assert ($exitCode -eq 0) "patch succeeded (exit $exitCode)"
+        $installed = Get-InstalledFiles $override
+        $missing = @($expected.Keys | Where-Object { -not $installed.ContainsKey($_) })
+        $extra = @($installed.Keys | Where-Object { -not $expected.ContainsKey($_) })
+        $different = @($expected.Keys | Where-Object {
+            $installed.ContainsKey($_) -and $installed[$_] -ne $expected[$_] })
+        Assert ($missing.Count -eq 0 -and $extra.Count -eq 0) ("the nearest set's files were installed, nothing else ({0} missing, {1} extra)" -f
+            $missing.Count, $extra.Count)
+        Show-Examples "missing" $missing
+        Show-Examples "extra" $extra
+        Assert ($different.Count -eq 0) ("every .gui is the blend and every other file the set's, byte for byte ({0} differ)" -f
+            $different.Count)
+        Show-Examples "differs" $different
+        $ini = [IO.File]::ReadAllText((Join-Path $folder "swkotor.ini"))
+        Assert (($ini -match "(?m)^Width=$w\r?$") -and ($ini -match "(?m)^Height=$h\r?$")) "swkotor.ini holds $resolution"
+
+        $exitCode = Invoke-Patcher @("--restore", $exe)
+        Assert ($exitCode -eq 0) "restore succeeded (exit $exitCode)"
+        $left = Get-InstalledFiles $override
+        Assert ($left.Count -eq 0) ("restore emptied Override ({0} left)" -f $left.Count)
     }
 }
 finally {

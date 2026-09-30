@@ -8,11 +8,14 @@
 
 
 `KMRP - KOTOR Modern Restoration Patch.exe` is the single-file installer for all 66
-supported resolutions. It contains the executable update, shared interface
-artwork, and every matching GUI set, so no companion folders need to be
-shipped.
+listed resolutions, and since 2026-09-30 for any other size from 4:3 to 32:9, whose
+menus it blends from the listed ones and whose controller badges and HUD boxes it
+draws for them (`GuiBlend.cs`, the C# of `macos/tools/kmrp-guiblend.c`). It contains
+the executable update, shared interface artwork, every matching GUI set and the
+blend table, so no companion folders need to be shipped.
 
-The patcher accepts the supported editable `swkotor.exe`, creates recoverable
+The patcher accepts Steam's, GOG's and the editable 1.03 `swkotor.exe` (`GameExecutable`
+in `KmrpPatcher.cs`), creates recoverable
 backups, updates the game executable, marks it DPI-aware for the current user,
 sets NVIDIA's present method for it where the driver would otherwise show
 half-drawn frames, and configures `swkotor.ini`. Three optional components,
@@ -44,10 +47,18 @@ conflicting files are backed up first -- except the bundled third-party art
 alone. **Restore Original** restores replaced
 files and removes files introduced by the patcher.
 
-At startup, a missing or unsupported executable expands an inline compatibility
-guide in Step 2. It links directly to the required
-[KOTOR Editable Executable](https://deadlystream.com/files/file/1320-kotor-editable-executable/)
-on Deadly Stream. **Start Patching** remains disabled until a compatible
+Step 1 starts at `swkotor.exe` beside the patcher, and otherwise at Steam's KOTOR (Steam's
+record of app 32370, then every library in `steamapps\libraryfolders.vdf`, at
+`steamapps\common\swkotor`, as the Mac installer looks), then GOG's (its registry entry,
+game 1207666283): `GameFolders` in `KmrpPatcher.cs`, since 2026-09-30.
+Step 2, *Detect Game Version*, names the executable it finds -- the Steam version,
+the GOG version or the editable 1.03 `swkotor.exe` -- beside its badge, or says which
+file it could not use; the window checks again whenever it is activated. Until
+2026-09-30 it was *Verify Editable EXE*, and a missing or unsupported executable
+expanded it into a guide linking to the KOTOR Editable Executable on Deadly Stream,
+with *Get Editable EXE* and *Check Again*: KMRP now takes all three versions as they
+are. Step 3 lists this display's size first and ends with *Custom size…*.
+**Start Patching** remains disabled until a supported
 executable and the initial game configuration are available. Once patched, the
 same button becomes **Restore Original** when the verified backups exist.
 While patching or restoring, that button becomes an in-button progress display:

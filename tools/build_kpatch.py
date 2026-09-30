@@ -27,13 +27,16 @@ memory fixes KPM's patches also make, and conflicts with those patches
 (kmrp_controller.kpm_same_fix), because Texture Bucket Safety and Grass Memory
 Safety do not support Steam's swkotor.exe and KPM has one `requires` list for
 every game version. On CD 1.03 it also sets the large-address flag, as the
-standalone does, with a static hook in a CD-only hooks file, and so conflicts
-with 4gb-patch; Steam's DRM refuses to start an executable changed on disk, so
-there it runs without the flag. The three add-ons require KMRP; KPM adds nothing
+standalone does, with a static hook in a hooks file for CD 1.03 and GOG, and so
+conflicts with 4gb-patch; Steam's DRM refuses to start an executable changed on
+disk, so there it runs without the flag. The three add-ons require KMRP; KPM adds nothing
 by itself, so the player ticks it.
 
-Every patch supports CD 1.03 and Steam's swkotor.exe (kotor1_steam_103), which
-is CD 1.03's program behind SteamStub: decrypted, its code is byte for byte CD
+Every patch supports CD 1.03, GOG's swkotor.exe (kotor1_gog_103) and Steam's
+(kotor1_steam_103). GOG's is CD 1.03 without the 16 bytes of "Hellspawn Reborn"
+in its header padding: zeroing them in CD 1.03 gives GOG's SHA-256 exactly
+(checked 2026-09-30), so every byte KMRP reads or writes is the same. Steam's is
+CD 1.03's program behind SteamStub: decrypted, its code is byte for byte CD
 1.03's (measured 2026-09-28). On Steam, KPM must use its binkw32.dll proxy,
 since the executable hands its launch to Steam and an injected process exits.
 
@@ -82,8 +85,9 @@ sys.path.insert(0, str(ROOT / "tools"))
 import kmrp_controller                                  # noqa: E402
 
 CD_1_03 = "761F9466F456A83909036BAEBB5C43167D722387BE66E54617BA20A8C49E9886"
+GOG = "9C10E0450A6EECA417E036E3CDE7474FED1F0A92AAB018446D156944DEA91435"
 STEAM = "34E6D971C034222A417995D8E1E8FDD9F8781795C9C289BD86C499A439F34C88"
-VERSIONS = {"kotor1_cdcrack_103": CD_1_03, "kotor1_steam_103": STEAM}
+VERSIONS = {"kotor1_cdcrack_103": CD_1_03, "kotor1_gog_103": GOG, "kotor1_steam_103": STEAM}
 CLEAN_EXE = ROOT / "build-inputs" / "swkotornopatch.exe"
 
 PATCHES = [
@@ -175,7 +179,7 @@ def large_address_hook() -> dict:
     """The large-address flag as a KPM static hook, derived from the unmodified CD
     1.03 executable's own header: IMAGE_FILE_HEADER.Characteristics OR 0x0020, the
     one-bit change the standalone makes (reverse-engineering/large-address-aware.md).
-    CD 1.03 only: Steam's header is elsewhere (its e_lfanew is 0x110), and Steam's DRM
+    CD 1.03 and GOG, whose headers differ only in padding: Steam's header is elsewhere (its e_lfanew is 0x110), and Steam's DRM
     refuses to start an executable changed on disk."""
     clean = CLEAN_EXE.read_bytes()
     field = struct.unpack_from("<I", clean, 0x3C)[0] + 22
@@ -185,7 +189,7 @@ def large_address_hook() -> dict:
             "replacement_bytes": list(struct.pack("<H", value))}
 
 
-def render_hooks(hooks, versions=(CD_1_03, STEAM),
+def render_hooks(hooks, versions=(CD_1_03, GOG, STEAM),
                  source="src/controller-native/kotor1.hooks.toml; edit that file, not this one.") -> str:
     """A hooks file in KPM's syntax: integer addresses, integer byte lists."""
     lines = [
@@ -261,8 +265,8 @@ def build(module: Path, out: Path, version: str, resolutions: int, config_dir: P
             entries.append(("binaries/windows_x86.dll", dll))
         if patch["id"] == "kmrp":
             entries.append(("kotor1-cd-large-address.hooks.toml", render_hooks(
-                [large_address_hook()], versions=(CD_1_03,),
-                source="the unmodified CD 1.03 header: the large-address flag.").encode()))
+                [large_address_hook()], versions=(CD_1_03, GOG),
+                source="the unmodified CD 1.03 and GOG header: the large-address flag.").encode()))
         target = out / patch["file"]
         buffer = io.BytesIO()
         with zipfile.ZipFile(buffer, "w", zipfile.ZIP_DEFLATED) as archive:
@@ -403,13 +407,14 @@ def check(folder: Path) -> int:
                         problems.append(f"{where}: replace needs 5+ bytes and a replacement")
                 elif kind == "static":
                     # Written to the file at install time: the header only, CD 1.03
-                    # only. Steam's DRM refuses to start an executable changed on disk.
+                    # and GOG only. Steam's DRM refuses to start an executable changed
+                    # on disk.
                     if rb is None or len(rb) != len(ob):
                         problems.append(f"{where}: static needs equal lengths")
                     if a + len(ob) > 0x00401000:
                         problems.append(f"{where}: a static hook outside the header")
-                    if hook["_targets"] != [CD_1_03]:
-                        problems.append(f"{where}: a static hook must target CD 1.03 alone")
+                    if sorted(hook["_targets"]) != sorted([CD_1_03, GOG]):
+                        problems.append(f"{where}: a static hook must target CD 1.03 and GOG alone")
                     header = CLEAN_EXE.read_bytes()[a - 0x00400000:a - 0x00400000 + len(ob)]
                     if header != bytes(ob):
                         problems.append(f"{where}: original bytes are not the unmodified header's")

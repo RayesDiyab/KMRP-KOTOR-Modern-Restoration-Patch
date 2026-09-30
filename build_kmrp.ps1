@@ -73,7 +73,7 @@ $script:StepIndex = 0
 # Two more since 2026-09-28: the KPM relocation table and the KPM edition; one
 # more since 2026-09-29, KOTOR Patch Manager's runtime and KMRP's patches, and one
 # fewer the same day, when KMRP for KPM became part of the one installer.
-$script:StepTotal = if ($ReuseResources) { 7 } else { 8 }
+$script:StepTotal = if ($ReuseResources) { 8 } else { 9 }
 $script:StepStart = Get-Date
 $script:BuildStart = Get-Date
 $script:BarWidth = 32
@@ -263,6 +263,24 @@ Invoke-Tool -Exe $Python -Label "pool" -FailureMessage "Pooling the resolution l
     (Join-Path $projectRoot "tools\pack_resolution_layouts.py"), $resourceDir, $layoutPool)
 Complete-Step ("{0:n1} MB" -f ((Get-Item $layoutPool).Length / 1MB))
 
+# ---------------------------------------------------------------- 4a. the blend table
+# For a resolution the build has no set for, the installer blends the .gui files
+# from the finished sets around it (src/patcher/GuiBlend.cs), from the table the
+# Mac installer blends from too (tools/build_gui_blend_table.py): per file a
+# template, the fields that vary and their value in each set. Gzipped, it embeds
+# as Kmrp.guiblend. Runs with -ReuseResources as well, so it always matches the
+# archives beside it.
+Start-Step "Packing the blend table for other resolutions"
+$blendTable = Join-Path $buildDir "gui-blend.bin"
+Invoke-Tool -Exe $Python -Label "blend" -FailureMessage "Packing the blend table failed" -Arguments @(
+    (Join-Path $projectRoot "tools\build_gui_blend_table.py"), $resourceDir, $blendTable)
+$blendResource = Join-Path $buildDir "gui-blend.bin.gz"
+$blendInput = [System.IO.File]::OpenRead($blendTable)
+$blendOutput = [System.IO.File]::Create($blendResource)
+$blendZip = New-Object System.IO.Compression.GZipStream($blendOutput, [System.IO.Compression.CompressionLevel]::Optimal)
+try { $blendInput.CopyTo($blendZip) } finally { $blendZip.Dispose(); $blendOutput.Dispose(); $blendInput.Dispose() }
+Complete-Step ("{0:n1} MB, {1:n1} MB gzipped" -f ((Get-Item $blendTable).Length / 1MB), ((Get-Item $blendResource).Length / 1MB))
+
 # ---------------------------------------------------------------- 4b. KPM relocations
 # The KPM edition cannot put gold's eleven appended sections back at their own
 # addresses, so its module moves them and re-points every address that names
@@ -336,6 +354,7 @@ Write-Detail ("embedding {0} of {1} UI icons" -f $iconCount, $iconNames.Count)
 # 49 archives was embedded whole, as Kmrp.override.gui.<W>x<H>.
 $compilerArgs += "/resource:$layoutPool,Kmrp.override.layouts"
 $compilerArgs += "/resource:$kpmRelocations,Kmrp.kpm.relocations"
+$compilerArgs += "/resource:$blendResource,Kmrp.guiblend"
 
 $compilerArgs += (Join-Path $projectRoot "src\patcher\KmrpPatcher.cs")
 $compilerArgs += (Join-Path $projectRoot "src\patcher\AbilityIconGenerator.cs")
@@ -343,6 +362,7 @@ $compilerArgs += (Join-Path $projectRoot "src\patcher\GameArtGenerator.cs")
 $compilerArgs += (Join-Path $projectRoot "src\patcher\ControllerPromptGenerator.cs")
 $compilerArgs += (Join-Path $projectRoot "src\patcher\AssemblyInfo.cs")
 $compilerArgs += (Join-Path $projectRoot "src\patcher\KpmEdition.cs")
+$compilerArgs += (Join-Path $projectRoot "src\patcher\GuiBlend.cs")
 
 # Properties -> Details must name the version the install record names. The two live
 # in different files and nothing compares them at run time, so they drifted twice:
@@ -402,7 +422,8 @@ Invoke-Tool -Exe $compiler -Label "compile" -FailureMessage "Compiling the resol
     (Join-Path $projectRoot "src\patcher\GameArtGenerator.cs"),
     (Join-Path $projectRoot "src\patcher\ControllerPromptGenerator.cs"),
     (Join-Path $projectRoot "src\patcher\AssemblyInfo.cs"),
-    (Join-Path $projectRoot "src\patcher\KpmEdition.cs"))
+    (Join-Path $projectRoot "src\patcher\KpmEdition.cs"),
+    (Join-Path $projectRoot "src\patcher\GuiBlend.cs"))
 $kpmSites = Join-Path $buildDir "kpm-resolution-sites.txt"
 Invoke-Tool -Exe $sitesExe -Label "sites" -FailureMessage "Listing the resolution fields failed" -Arguments @(
     "--kpm-sites", $resolvedSource, $kpmSites)
