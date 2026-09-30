@@ -116,9 +116,10 @@ A file you changed after installing is left alone and listed in the log.
 - `KOTOR_Exe`: one load command so the game loads KotOR Patch Manager's patcher, then an
   ad-hoc re-signature, exactly as KotOR Patch Manager itself does. The original is kept in
   `~/Library/Application Support/KMRP/macos/backup`.
-- Next to `KOTOR_Exe`: `KotorPatcher.dylib`, `patch_config.toml`, `patches/` (the
-  widescreen patch by FTD, RaymanGT, J and Vriff, with KMRP's engine fixes, KMRP's own
-  patches, and the SDL library the controller support reads pads with).
+- Next to `KOTOR_Exe`: `KotorPatcher.dylib`, `patch_config.toml` and `patches/`, which holds
+  KMRP's patch, `kmrp.dylib` (FTD's widescreen patch by FTD, RaymanGT, J and Vriff and his
+  Stray Bug Fixes by RaymanGT and FTD, with KMRP's own code built in), and the SDL library the
+  controller support reads pads with.
 - `swkotor.ini`: `UseGuiFileLayouts`, `ForceWidth` and `ForceHeight`, under
   `[Graphics Options]`. Uninstall puts back what was there before.
 - `kmrp-controller.ini` next to it, the controller settings, if you do not have one yet.
@@ -133,14 +134,18 @@ afterwards to clean up the rest.
 
 ## If you already use KotOR Patch Manager
 
-KMRP installs the widescreen patch itself, in the version with KMRP's engine fixes. The
-installer stops if KotOR Patch Manager patches are already installed, rather than overwrite
-them: remove them in KPM first, then install KMRP.
+KMRP carries FTD's widescreen patch and Stray Bug Fixes itself, built into its own patch. If
+you installed FTD's patches through KotOR Patch Manager, KMRP Installer replaces them: it puts
+back the untouched game from KPM's copy, removes FTD's patch files, and installs KMRP. Restore
+Original then leaves the untouched game; install FTD's patch in KPM again if you want it
+without KMRP. Any other KotOR Patch Manager patch stops the installer, which names it: remove
+it in KPM first. Afterwards KPM itself does not see KMRP's patch as its own install.
 
 ## Credits
 
-KMRP by Rayes Diyab (RaymanGT), GPL-3.0. Widescreen patch by FTD, RaymanGT, J and Vriff, and
-KotOR Patch Manager by LaneDibello and contributors, both MIT. The menu layouts derive from
+KMRP by Rayes Diyab (RaymanGT), GPL-3.0. Widescreen patch by FTD, RaymanGT, J and Vriff,
+Stray Bug Fixes by RaymanGT and FTD, and KotOR Patch Manager by LaneDibello and contributors,
+all MIT. The menu layouts derive from
 KOTOR High Resolution Menus by ndix UR, GPL-3.0. HD Icon Pack by JackInTheBox, Party Portraits by MadDerp and K1 Area Map Fixes by
 Derslok, each bundled with the author's permission. The controller support builds on
 Saul0097's KPM – Xbox Controls for KOTOR 1 (MIT, with his permission), reads pads through SDL

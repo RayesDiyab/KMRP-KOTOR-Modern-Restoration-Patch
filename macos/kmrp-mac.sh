@@ -13,8 +13,9 @@
 #   2. Copies KOTOR_Exe aside, then installs the engine the way KotOR Patch Manager does:
 #      KotorPatcher.dylib, patches/ and patch_config.toml next to KOTOR_Exe, one
 #      LC_LOAD_DYLIB for @executable_path/KotorPatcher.dylib, and an ad-hoc re-signature.
-#      The patches: the widescreen patch KMRP runs on (with KMRP's engine fixes), KMRP's
-#      layout patch, and the map-note corrections.
+#      The patch: KMRP's one patch, FTD's widescreen patch and Stray Bug Fixes (KMRP's engine
+#      fixes) with KMRP's layout code, the map-note corrections and the controller. An install
+#      of FTD's patches through KPM is replaced (kpm_check, kpm_remove).
 #   3. Picks the resolution: the display's size, and on a Retina display native (every pixel,
 #      e.g. 3024x1964) or half (the point size, e.g. 1512x982, which macOS scales up). Writes
 #      UseGuiFileLayouts=1, ForceWidth and ForceHeight to [Graphics Options] in swkotor.ini,
@@ -245,6 +246,67 @@ extract_set() {   # extract_set <WxH> <dir>
     done < "$index"
 }
 
+# ---------------------------------------------------------------------- KotOR Patch Manager
+# FTD's widescreen patch installed through KotOR Patch Manager, with the Stray Bug Fixes it
+# requires. KMRP's own patch carries both (tools/make_kmrp_patch.py), so it replaces such an
+# install instead of refusing it: FTD's files are deleted, as FTD agreed (2026-09-30), and the
+# untouched game is put back from KPM's copy before KMRP installs. On the Mac KPM names
+# KotorPatcher.dylib in KOTOR_Exe's load commands and leaves beside it the patch list, the
+# patches folder, its install record and that copy, KOTOR_Exe.backup.<time>, with a .json of its
+# details (KPatchCore: DeploymentPolicy's LinkedDependency, BackupManager, PatchRemover). FTD's
+# modules are patches/<patch id>.dylib, and the ids do not change between his versions. Only an
+# install of his two patches is replaced: another KPM patch stops the install, and nothing is
+# touched. KMRP's uninstall leaves the untouched game; FTD's patch is not put back.
+KPM_FILES=(KotorPatcher.dylib patch_config.toml patches kpm_install_state.json)
+FTD_PATCHES=(k1widescreenpatch k1-stray-bug-fixes-patch)
+KPM_ORIGINAL=""   # the untouched game, when an install is to be replaced
+KPM_PROBLEM=""    # why it cannot be, otherwise
+
+kpm_backups() {   # KPM's copies of the game and their .json, newest first
+    print -rl -- "$MACOS"/KOTOR_Exe.backup.*(Nom)
+}
+
+kpm_present() {   # 0 when KotOR Patch Manager left anything beside KOTOR_Exe
+    local f
+    for f in $KPM_FILES; do [[ -e "$MACOS/$f" ]] && return 0; done
+    [[ -n "$(kpm_backups)" ]]
+}
+
+kpm_check() {   # sets KPM_ORIGINAL, or KPM_PROBLEM to why the install cannot be replaced
+    KPM_ORIGINAL="" KPM_PROBLEM=""
+    local id module backup others=()
+    if [[ -f "$MACOS/patch_config.toml" ]]; then
+        for id in ${(f)"$(sed -n 's/^id = "\(.*\)"$/\1/p' "$MACOS/patch_config.toml")"}; do
+            (( ${FTD_PATCHES[(Ie)$id]} )) || others+=$id
+        done
+    fi
+    for module in "$MACOS"/patches/*(N); do
+        (( ${FTD_PATCHES[(Ie)${module:t:r}]} )) || others+=${module:t}
+    done
+    if (( ${#others} )); then
+        KPM_PROBLEM="KotOR Patch Manager has patches installed besides FTD's widescreen patch (${(j:, :)${(u)others}}); KMRP replaces only that and its Stray Bug Fixes, so remove the others in KPM first"
+        return 1
+    fi
+    if [[ "$(sha "$EXE")" == "$VANILLA_EXE_SHA" ]]; then KPM_ORIGINAL=$EXE; return 0; fi
+    for backup in ${(f)"$(kpm_backups)"}; do
+        [[ "$backup" == *.json ]] && continue
+        if [[ "$(sha "$backup")" == "$VANILLA_EXE_SHA" ]]; then KPM_ORIGINAL=$backup; return 0; fi
+    done
+    KPM_PROBLEM="KotOR Patch Manager's copy of the untouched game is missing or is not the Steam build this KMRP supports; remove the patches in KPM, or use Steam's 'Verify integrity of game files', then install KMRP"
+    return 1
+}
+
+kpm_remove() {   # puts the untouched game back from KPM's copy and deletes FTD's install
+    local f backup
+    if [[ "$KPM_ORIGINAL" != "$EXE" ]]; then
+        cp -p "$KPM_ORIGINAL" "$EXE.kmrp-tmp"
+        mv -f "$EXE.kmrp-tmp" "$EXE"
+    fi
+    [[ "$(sha "$EXE")" == "$VANILLA_EXE_SHA" ]] || die "the untouched game could not be put back from KotOR Patch Manager's copy"
+    for f in $KPM_FILES; do rm -rf -- "${MACOS:?}/$f"; done
+    for backup in ${(f)"$(kpm_backups)"}; do rm -f -- "$backup"; done
+}
+
 # ---------------------------------------------------------------------- manifest
 # One line per file KMRP wrote: kind<TAB>absolute path<TAB>sha256 as written<TAB>backup name
 #   added    -- did not exist before; uninstall deletes it if unchanged
@@ -265,7 +327,7 @@ set_ini() {   # set_ini <key> <value>: writes it and records what it replaced
     record ini "$1" "$2" "${before:--}"
 }
 
-# The controller's settings (rumble), read by kmrp-controller.dylib while the game runs. As on
+# The controller's settings (rumble), read by the controller code in kmrp.dylib while the game runs. As on
 # Windows (KmrpPatcher.cs, DefaultSettings, whose values these are): written only when there
 # is none, an existing copy is the player's and is never replaced, and uninstall removes it
 # only if it is still exactly as written. Only the log's location differs.
@@ -346,14 +408,14 @@ do_install() {
     if [[ -d "$STATE" ]]; then
         die "KMRP is already installed (state in $STATE). Run uninstall first."
     fi
-    local exe_sha; exe_sha=$(sha "$EXE")
-    if [[ "$exe_sha" != "$VANILLA_EXE_SHA" ]]; then
+    local exe_sha kpm=0; exe_sha=$(sha "$EXE")
+    if kpm_present; then
+        kpm_check || die "$KPM_PROBLEM."
+        kpm=1
+        say "FTD's widescreen patch is installed through KotOR Patch Manager: KMRP replaces it (its own patch carries the same fixes)."
+    elif [[ "$exe_sha" != "$VANILLA_EXE_SHA" ]]; then
         die "KOTOR_Exe is not the unmodified Steam build this KMRP supports (SHA-256 $exe_sha, expected ${VANILLA_EXE_SHA[1,16]}...). If another patch is installed, remove it first; Steam's 'Verify integrity of game files' restores the original."
     fi
-    local kpm_file
-    for kpm_file in KotorPatcher.dylib patch_config.toml patches; do
-        [[ -e "$MACOS/$kpm_file" ]] && die "KotOR Patch Manager files are already in the game ($MACOS/$kpm_file). KMRP installs the widescreen patch itself, in the version with KMRP's engine fixes; remove the patches in KPM first."
-    done
     [[ -f "$TEXTURE_PACK" ]] || die "the game's texture pack is missing: $TEXTURE_PACK"
 
     choose_resolution
@@ -410,6 +472,11 @@ do_install() {
         done
     fi
 
+    if (( kpm )); then
+        say "Removing FTD's KotOR Patch Manager install..."
+        kpm_remove
+    fi
+
     say "Backing up KOTOR_Exe..."
     cp -p "$EXE" "$STATE/backup/KOTOR_Exe"
     [[ "$(sha "$STATE/backup/KOTOR_Exe")" == "$VANILLA_EXE_SHA" ]] || die "the backup copy does not match"
@@ -417,21 +484,16 @@ do_install() {
     say "Installing the engine patches..."
     install_file "$PAYLOAD/engine/KotorPatcher.dylib" "$MACOS"
     mkdir "$MACOS/patches"; record dir "$MACOS/patches" "-" "-"
-    install_file "$PAYLOAD/engine/patches/k1widescreenpatch.dylib" "$MACOS/patches"
-    install_file "$PAYLOAD/engine/patches/kmrp-layout.dylib" "$MACOS/patches"
+    # KMRP's one patch (FTD's widescreen patch and Stray Bug Fixes with KMRP's code), built for
+    # each combination of the two options with KPM's list for it: kmrp[.no-map-notes][.no-controller].
+    local variant=kmrp
+    (( MAP_NOTES )) || variant+=.no-map-notes
+    (( CONTROLLER )) || variant+=.no-controller
+    install_file "$PAYLOAD/engine/$variant/kmrp.dylib" "$MACOS/patches"
     if (( CONTROLLER )); then
-        install_file "$PAYLOAD/engine/patches/kmrp-controller.dylib" "$MACOS/patches"
-        install_file "$PAYLOAD/engine/patches/kmrp-sdl3.dylib" "$MACOS/patches"
+        install_file "$PAYLOAD/engine/kmrp-sdl3.dylib" "$MACOS/patches"
     fi
-    if (( MAP_NOTES )); then
-        install_file "$PAYLOAD/engine/patches/kmrp-map-notes.dylib" "$MACOS/patches"
-    fi
-    # KPM's list of the patches installed, staged by the build for each combination of the two
-    # options: patch_config[.no-map-notes][.no-controller].toml.
-    local config=patch_config
-    (( MAP_NOTES )) || config+=.no-map-notes
-    (( CONTROLLER )) || config+=.no-controller
-    cp "$PAYLOAD/engine/$config.toml" "$MACOS/patch_config.toml"
+    cp "$PAYLOAD/engine/$variant/patch_config.toml" "$MACOS/patch_config.toml"
     record added "$MACOS/patch_config.toml" "$(sha "$MACOS/patch_config.toml")" "-"
     "$BIN/kmrp-macho" add-dylib "$EXE" "$LOADER" >/dev/null
     codesign --force --sign - --identifier KOTOR_Exe "$EXE" 2>/dev/null
@@ -612,7 +674,11 @@ do_status() {
         find_game; set_paths
         say "KMRP is not installed."
         say "game: $GAME"
-        [[ "$(sha "$EXE")" == "$VANILLA_EXE_SHA" ]] && say "KOTOR_Exe: unmodified Steam build (supported)" || say "KOTOR_Exe: modified or a different build"
+        if kpm_present; then
+            if kpm_check; then say "KOTOR_Exe: FTD's widescreen patch through KotOR Patch Manager (supported: KMRP replaces it)"
+            else say "KOTOR_Exe: a KotOR Patch Manager install KMRP cannot replace ($KPM_PROBLEM)"; fi
+        elif [[ "$(sha "$EXE")" == "$VANILLA_EXE_SHA" ]]; then say "KOTOR_Exe: unmodified Steam build (supported)"
+        else say "KOTOR_Exe: modified or a different build"; fi
         (( BRIEF )) && return 0
         local geo=(${=$(display_geometry)})
         say "display: ${geo[1]}x${geo[2]} points, ${geo[3]}x${geo[4]} pixels"

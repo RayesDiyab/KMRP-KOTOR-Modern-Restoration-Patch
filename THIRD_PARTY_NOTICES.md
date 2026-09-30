@@ -259,17 +259,25 @@ Background on the texture-bucket pair, including the measured
 
 ## KOTOR Patch Manager and the K1 Widescreen Patch — macOS
 
-The macOS package (`macos/`) installs two pieces of the **KOTOR Patch Manager**
-repository into the game's `Contents/MacOS`:
+The macOS package (`macos/`) installs pieces of the **KOTOR Patch Manager** repository into
+the game's `Contents/MacOS`:
 
 - **KotorPatcher**, KPM's runtime, by **Lane Dibello** and the KPM contributors,
   built from `src/KotorPatcher`;
-- **K1WidescreenPatch** by **FTD, RaymanGT, J and Vriff**, built from
-  `Patches/K1WidescreenPatch`, with KMRP's engine fixes.
+- **K1WidescreenPatch** by **FTD, RaymanGT, J and Vriff**, compiled from
+  `Patches/K1WidescreenPatch`;
+- **K1StrayBugFixes** by **RaymanGT and FTD**, compiled from `Patches/K1StrayBugFixes`:
+  KMRP's engine fixes that hold at any resolution, split out of the widescreen patch by FTD
+  on 2026-09-30.
 
-Both are built from FTD's fork https://github.com/FTD516/Kotor-Patch-Manager,
-branch `widescreen-patch` (commit `71ac5fa`), where KMRP's fixes were merged on
-2026-09-29 (https://github.com/FTD516/Kotor-Patch-Manager/pull/1). Licensed under **MIT**,
+The two patches are not installed as patches of their own: since 2026-09-30 they are compiled
+into KMRP's one patch, `kmrp.dylib` (`macos/tools/make_kmrp_patch.py`), with KMRP's code, and
+that patch as a whole is distributed under KMRP's GPL-3.0 with their MIT notice kept. All three
+pieces are built from https://github.com/RayesDiyab/Kotor-Patch-Manager, branch `kmrp`:
+FTD's fork https://github.com/FTD516/Kotor-Patch-Manager, branch `widescreen-patch`
+(commit `074972b`), where KMRP's fixes were merged on 2026-09-29
+(https://github.com/FTD516/Kotor-Patch-Manager/pull/1), with the two patches' duplicated
+hooks declared once. Until 2026-09-30, FTD's branch itself (commit `71ac5fa`). Licensed under **MIT**,
 `Copyright (c) 2025 Lane Dibello and KotOR Patch Manager contributors`; the
 package carries the licence as `licenses/KotOR-Patch-Manager-LICENSE.txt`.
 
