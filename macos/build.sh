@@ -117,6 +117,9 @@ for variant in kmrp kmrp.no-map-notes kmrp.no-controller kmrp.no-map-notes.no-co
     $KPMCLI stage-many "$EXE" "$BUILD/engine/$variant" "$BUILD/kpatch/$variant/kmrp.kpatch" | { grep -v DEBUG || true; }
     grep -q '^id = "kmrp"$' "$BUILD/engine/$variant/patch_config.toml" || { print -u2 "$variant: not staged"; exit 1; }
     cp "$BUILD/engine/$variant/patches/kmrp.dylib" "$BUILD/engine/$variant/patch_config.toml" "$PKG/engine/$variant/"
+    # The patch itself too, which the installer puts in KotOR Patch Manager's patch folder, as
+    # the Windows installer does with its .kpatch files, so KPM lists KMRP (2026-10-01).
+    cp "$BUILD/kpatch/$variant/kmrp.kpatch" "$PKG/engine/$variant/"
 done
 cp "$BUILD/KotorPatcher.dylib" "$PKG/engine/"
 # SDL itself, under the name the module looks for. Its code is unchanged; its signature is

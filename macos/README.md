@@ -91,8 +91,9 @@ replaces), and runs the script:
 | **Start Patching** | `install --yes`, with `--resolution native` or `half` for this display's rows, `--size WxH` for any other, `--no-map-notes` when *Area Map Marker Fixes* is off, `--no-controller` when *Controller Support* is off (Advanced Settings, as on Windows), `--game` when one was chosen with **Browse** |
 | **Restore Original** | `uninstall --yes` (and `--game`) |
 
-What the script refuses (the game running, another build, KotOR Patch Manager's files
-already in the game), the app shows as a blocking message with the script's own words. The
+What the script refuses (the game running, another build), the app shows as a blocking
+message with the script's own words. A game KotOR Patch Manager manages is not refused: the
+second step says whether KMRP replaces FTD's install or installs for KPM (below). The
 script's output goes to `~/Library/Logs/KMRP/installer.log` (**Open Log**), and its stage
 lines move the progress fill.
 
@@ -156,6 +157,9 @@ floor of the controller's SDL3 and the helpers) and arm64, with `-Wunguarded-ava
 | `MacOS/patches/kmrp-sdl3.dylib` | added | omitted with `--no-controller`; SDL 3.4.16, the library of the official macOS release, its code unchanged and its signature redone ad hoc (`THIRD_PARTY_NOTICES.md`) |
 | `MacOS/patch_config.toml` | added | written at build time by KPM's own `ConfigGenerator` for the `kmrp` patch: 78 hooks with both options (the Stray Bug Fixes' 11, 45 of the widescreen patch's, the map-note detour and the controller's 21), 56 with neither; staged with the matching `kmrp.dylib` |
 | `MacOS/KOTOR_Exe` | edited | one load command, then `codesign --force --sign - --identifier KOTOR_Exe` |
+| `MacOS/KOTOR_Exe.backup.<yyyyMMdd_HHmmss>` and its `.json` | added | the untouched game in KotOR Patch Manager's format (`BackupManager`, `BackupInfo`), made before the load command, from which KPM's Apply starts (since 2026-10-01, as Windows' `WriteKpmBackup`) |
+| `MacOS/kpm_install_state.json` | added | KPM's record of the install (`ManagedInstallState`, schema 1): the untouched game's hash and size, KPM's name for it ("1 1.4.0 (Aspyr macOS)", macOS, Steam, x86_64, its Mach-O identity), `InstalledPatches` `["kmrp"]`, `LinkedDependencyInstalled` true; KPM identifies the modified game by it (since 2026-10-01, as Windows' `KpmState`) |
+| KPM's patch folder`/kmrp.kpatch` | added, or an older KMRP's replaced | the installed build's `.kpatch`, where KPM's settings (`KPatchLauncher/settings.json` under `~/.config`, or `~/Library/Application Support`) say its patches are, so KPM lists KMRP; declares a conflict with FTD's two patches, which it carries (since 2026-10-01, as Windows' `DeliverKpatches`) |
 | `~/Library/Application Support/Knights of the Old Republic/swkotor.ini` | three keys under `[Graphics Options]` | `UseGuiFileLayouts=1`, `ForceWidth`, `ForceHeight` (section 5); the file is created if the game never ran |
 | `~/Library/Application Support/Knights of the Old Republic/kmrp-controller.ini` | added if absent | the controller's settings, Windows' defaults (section 7); a copy already there is the player's and is kept; not written with `--no-controller` |
 | `Assets/override/` | created if absent | the game's working directory is `Contents/Assets` and it reads `.\override` |
@@ -197,12 +201,22 @@ matches the executable, which nothing on the launch path checks; see *Coverage*.
   write would back up KMRP's own first copy as "the original", the bug the Windows installer
   had with `i_checkbox01.tga`. The feat and power icon generator is handed every name the
   install writes, so it never produces one of them.
-- The installer stops without writing anything when KotOR Patch Manager files are present
-  (`KotorPatcher.dylib`, `patch_config.toml` or `patches/` beside `KOTOR_Exe`), when
-  `KOTOR_Exe` is not the build above, when the game is running, when the texture pack is
-  missing, or when a KMRP install is already recorded. With the widescreen patch already
-  installed through KPM, the player removes it there first: KMRP installs it itself, in the
-  version with KMRP's engine fixes and the switch.
+- The installer stops without writing anything when `KOTOR_Exe` is not the build above,
+  when the game is running, when the texture pack is missing, or when a KMRP install is
+  already recorded.
+- With KotOR Patch Manager's files present (`KotorPatcher.dylib`, `patch_config.toml`,
+  `patches/`, `kpm_install_state.json` or `KOTOR_Exe.backup.*` beside `KOTOR_Exe`), since
+  2026-10-01 as the Windows installer does it (`KpmEdition.cs`): an install of FTD's two
+  patches alone is replaced (the untouched game put back from KPM's copy, his files deleted,
+  KMRP installed; the maintainer: that "should still work"); with any other patch installed,
+  KMRP installs *for* KPM: the menus, art, INI and the controller's SDL beside KPM's patches,
+  no runtime, no load command, `KOTOR_Exe` untouched, and `kmrp.kpatch` in KPM's patch folder
+  (or beside the game when KPM's settings name none) for the player to tick in KPM. Until
+  2026-10-01 that case was refused.
+- KMRP's own install is one KPM recognises and takes over: `kpm_install_state.json`, the
+  KPM-format backup and `kmrp.kpatch` (the file table above). Once KPM's Apply has rewritten
+  `patch_config.toml`, `uninstall` leaves the runtime, the load command and KPM's records to
+  KPM and removes only KMRP's own files, as Windows' Restore does.
 
 **The manifest.** Every write is recorded in
 `~/Library/Application Support/KMRP/macos/manifest.tsv` (kind, path, SHA-256 as written,

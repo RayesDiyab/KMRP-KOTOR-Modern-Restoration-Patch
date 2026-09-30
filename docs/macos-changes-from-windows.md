@@ -34,7 +34,7 @@ reason).
 | 3 | `kmrp-mac.sh` installs every file the helper writes, not only the `.gui` files | **build and check** |
 | 4 | The installer window's second step names the game version it finds | **to do** |
 | 5 | Wording that says a blended size takes the nearest set's "fonts and art" | **to do** |
-| 6 | KOTOR Patch Manager recognises KMRP's install by itself, and KMRP installs for KPM when KPM manages the game | **partly, the Mac's own way** (pull request #24, 2026-09-30): see the section |
+| 6 | KOTOR Patch Manager recognises KMRP's install by itself, and KMRP installs for KPM when KPM manages the game | **build and check** (written on Windows 2026-10-01, as Windows does it; FTD's install still replaced) |
 | 7 | GOG's executable | **n/a**: the Mac build is Aspyr's Steam build only |
 | 8 | Step 1 finds Steam's KOTOR by itself | **n/a**: the Mac did it first (`find_game`); Windows follows it since 2026-09-30 |
 | 9 | `gui-blend.bin` version 4: the row fits and the badges in one table; the helper's manifest carries this blend's row fits | **build and check** |
@@ -159,6 +159,28 @@ writes no `kpm_install_state.json`, no KPM-format backup of `KOTOR_Exe` and deli
 to KPM's patch folder, so KPM for macOS would not yet recognise KMRP's install as its own the
 way it does on Windows (the table below). Whether that is wanted now that KMRP carries FTD's
 patches is the maintainer's call; not tested with KPM's window on a Mac.
+
+**Written, 2026-10-01** (the maintainer: "It should do the same with kpm as windows", and of
+FTD's install, "that should still work"). `macos/kmrp-mac.sh`, from Windows' `KpmEdition.cs`,
+with KPM's Mac values read from the submodule's KPatchCore (`2a784bf`):
+
+| Windows | Mac |
+| --- | --- |
+| `KpmState`: `kpm_install_state.json`, `LibraryProxyInstalled` true | `write_kpm_state`: the same file beside `KOTOR_Exe`, Platform 1, Distribution 1, "1 1.4.0 (Aspyr macOS)", Architecture 1, Title 1, the `BuildIdentity`, `LinkedDependencyInstalled` true |
+| `WriteKpmBackup`: `swkotor.exe.backup.<time>` and `.json` | `write_kpm_backup`: `KOTOR_Exe.backup.<time>` and `.json`, before the load command |
+| `DeliverKpatches`: the four `.kpatch` files into KPM's patch folder from `%APPDATA%\KPatchLauncher\settings.json`, or a "KPM patches" folder for an install for KPM | `deliver_kpatch`: the installed build's `kmrp.kpatch` (now in the package, `build.sh`; its manifest declares a conflict with FTD's two patches, `make_kmrp_patch.py`) into the folder `PatchesPath` names in `~/.config/KPatchLauncher/settings.json` or `~/Library/Application Support/KPatchLauncher/settings.json`, or "KPM patches" beside the game for an install for KPM |
+| `ForeignRuntimeFile`: KPM's runtime present, install for KPM | `kpm_check` returning 2: KPM's files present with patches that are not FTD's, install for KPM; FTD's two alone are still replaced (return 0), as pull request #24 made it |
+| `Restore`, `ConfigChangedSinceInstall`: runtime left once KPM rewrote `patch_config.toml` | `handed_over` in `restore_from_manifest`: the same, `is_runtime_path` naming what stays |
+
+The app accepts the new case (`forKpm`, "KotOR Patch Manager manages this game. KMRP is
+installed for it."). Checked on Windows only: `zsh -n` on the script, and its KPM functions run
+against a stand-in game under WSL's zsh 5.9 (the state file and backup as valid JSON with KPM's
+values, delivery to KPM's folder and not over another's file, the fallback beside the game,
+`kpm_check`'s three answers, and uninstall before and after a takeover: 18 checks).
+`Test-MacInstaller.py` is extended (every round checks KPM's records and `kmrp.kpatch`; round 5
+installs for KPM beside another patch; round 6 is the takeover) but needs a Mac. **Check on
+a Mac**: `build.sh`, `Test-MacInstaller.py`, which .NET folder KPM's settings are really in,
+then KPM's own window over an install as the **Check** below says.
 
 Asked for by the maintainer on 2026-09-30 ("how on windows it gets detected automatically by
 kpm, this needs to happen as well on macos"), as the next step after the merge. Nothing is

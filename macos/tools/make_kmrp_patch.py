@@ -228,7 +228,11 @@ def main() -> int:
             f'description = "KMRP for macOS as one patch: {included}. FTD\'s Widescreen Patch and Stray Bug '
             "Fixes (MIT) built from their source with KMRP's layout support and options linked in. It replaces "
             'a separate install of FTD\'s patches. Run through KMRP Installer, which adds the menu layouts."\n'
-            'author = "FTD, RaymanGT, J, Vriff (Widescreen Patch); RaymanGT, FTD (Stray Bug Fixes); RaymanGT (KMRP)"\n\n'
+            'author = "FTD, RaymanGT, J, Vriff (Widescreen Patch); RaymanGT, FTD (Stray Bug Fixes); RaymanGT (KMRP)"\n'
+            # It carries FTD's two patches, so KPM must not apply them beside it: the conflict
+            # KMRP.kpatch declares on Windows with the KPM patches making KMRP's fixes (2026-10-01).
+            'requires = []\n'
+            'conflicts = ["k1widescreenpatch", "k1-stray-bug-fixes-patch"]\n\n'
             "[patch.supported_versions]\n"
             f'kotor1_steam_aspyr_macos = "{GAME_SHA}"\n')
         args.out.parent.mkdir(parents=True, exist_ok=True)

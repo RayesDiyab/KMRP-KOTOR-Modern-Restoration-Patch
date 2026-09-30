@@ -24,8 +24,9 @@
 
   kmrp-mac.sh is passed: install --yes, --resolution native|half for this display's rows or
   --size WxH, --no-map-notes, --no-controller, --game when one was chosen; uninstall --yes; status --brief. What
-  it refuses (the game running, another build, KotOR Patch Manager's files already there) it
-  refuses here too, with its own message.
+  it refuses (the game running, another build) it refuses here too, with its own message; a
+  game KotOR Patch Manager manages is installed for KPM, or FTD's install of his patches
+  replaced, as the script decides.
 
   Built by macos/build.sh for x86_64 and arm64, macOS 10.13 and later: the controller's SDL3
   and the installer's helpers need 10.13 (the game itself 10.11.6).
@@ -931,6 +932,9 @@ static const struct { const char *prefix, *stage; int percent; } kStages[] = {
 // FTD's widescreen patch is installed through KotOR Patch Manager, and KMRP will replace it
 // (kmrp-mac.sh, kpm_remove).
 @property (nonatomic) BOOL replacesKpm;
+// KotOR Patch Manager manages the game with other patches, and KMRP will install for it, as
+// the Windows installer does (kmrp-mac.sh, kpm_check; 2026-10-01).
+@property (nonatomic) BOOL forKpm;
 @property (nonatomic) int percent;
 @property (nonatomic, strong) NSMenu *openMenu;   // the resolution list while it is open
 @property (nonatomic) BOOL listAtEnd;               // a scripted check's second look at the list
@@ -1528,10 +1532,13 @@ static const struct { const char *prefix, *stage; int percent; } kStages[] = {
         self.incomplete = NO;
         self.gameReady = NO;
         self.replacesKpm = NO;
+        self.forKpm = NO;
         self.installedSize = nil;
         if (status == 0 && [output containsString:@"KMRP is not installed."]) {
             self.replacesKpm = [output containsString:@"(supported: KMRP replaces it)"];
-            self.gameReady = self.replacesKpm || [output containsString:@"KOTOR_Exe: unmodified Steam build"];
+            self.forKpm = [output containsString:@"supported: KMRP installs for KPM)"];
+            self.gameReady = self.replacesKpm || self.forKpm ||
+                [output containsString:@"KOTOR_Exe: unmodified Steam build"];
         } else if (status == 0) {
             self.installed = YES;
             self.incomplete = ![output containsString:@"complete=1"];
@@ -1568,6 +1575,8 @@ static const struct { const char *prefix, *stage; int percent; } kStages[] = {
         else if (self.incomplete) self.stepVerify.subtitle = @"An install did not finish. Restore Original undoes it.";
         else if (self.replacesKpm)
             self.stepVerify.subtitle = @"FTD's widescreen patch found. KMRP replaces it with its own copy.";
+        else if (self.forKpm)
+            self.stepVerify.subtitle = @"KotOR Patch Manager manages this game. KMRP is installed for it.";
         else if (self.gameReady) self.stepVerify.subtitle = @"Unmodified Steam version 1.4.0 detected.";
         else if (self.gameFound)
             self.stepVerify.subtitle = @"This copy cannot be patched. Steam's Verify Integrity restores the original.";

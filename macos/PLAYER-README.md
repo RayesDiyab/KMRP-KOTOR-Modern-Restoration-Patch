@@ -138,8 +138,15 @@ KMRP carries FTD's widescreen patch and Stray Bug Fixes itself, built into its o
 you installed FTD's patches through KotOR Patch Manager, KMRP Installer replaces them: it puts
 back the untouched game from KPM's copy, removes FTD's patch files, and installs KMRP. Restore
 Original then leaves the untouched game; install FTD's patch in KPM again if you want it
-without KMRP. Any other KotOR Patch Manager patch stops the installer, which names it: remove
-it in KPM first. Afterwards KPM itself does not see KMRP's patch as its own install.
+without KMRP.
+
+With other KotOR Patch Manager patches installed, KMRP Installer installs for KPM, as on
+Windows: it installs the menus and settings, leaves KPM's files and the game as they are, and
+puts KMRP's patch, `kmrp.kpatch`, in KPM's patch folder. Open KPM, tick KMRP (untick FTD's
+Widescreen Patch and Stray Bug Fixes if they are there: KMRP carries them), and press Apply.
+
+KPM also recognises an install KMRP Installer made by itself, as its own: it lists KMRP and
+can apply other patches beside it. Restore Original then leaves what KPM installed.
 
 ## Credits
 

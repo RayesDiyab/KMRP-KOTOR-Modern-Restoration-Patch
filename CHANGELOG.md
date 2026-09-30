@@ -1344,6 +1344,19 @@ before:
 
 ### Fixed
 
+- **macOS: KotOR Patch Manager handled as on Windows** (2026-10-01, the maintainer: "It should
+  do the same with kpm as windows"). KMRP's own install now leaves KPM's records as the
+  Windows installer does: `kpm_install_state.json` with KPM's identity for the Aspyr build, a
+  copy of the untouched `KOTOR_Exe` in KPM's backup format, and `kmrp.kpatch` (now in the
+  package, declaring a conflict with FTD's two patches, which it carries) in the patch folder
+  KPM's settings name, so KPM recognises the install and can take it over; uninstall then
+  leaves KPM's runtime to it. With KPM patches installed that are not FTD's, KMRP installs for
+  KPM instead of refusing: the menus and settings, `KOTOR_Exe` and KPM's files untouched,
+  `kmrp.kpatch` for the player to tick. An install of FTD's patches alone is still replaced.
+  Written on Windows: the script's syntax and its KPM functions checked under WSL's zsh (18
+  checks); `Test-MacInstaller.py` extended for it; **not yet built or run on a Mac**
+  (`docs/macos-changes-from-windows.md`, item 6).
+
 - **Windows: message popups fit their contents, and the granted popup's rows look like the
   inventory's** (2026-09-30; the Mac did both first, `docs/windows-changes-from-macos.md`,
   items 1 and 10; the maintainer: "you didnt apply the quit game fixes we did on macos").
@@ -1520,7 +1533,8 @@ before:
   - an install of FTD's patches through KotOR Patch Manager is replaced, with FTD's agreement:
     the installer puts back the untouched game from KPM's copy, deletes his patch files and KPM's
     leftovers, and installs KMRP; Restore Original then leaves the untouched game. Any other KPM
-    patch stops the install, by name, and changes nothing.
+    patch stops the install, by name, and changes nothing (*since 2026-10-01 it installs for
+    KPM instead, as Windows does: above*).
   `Test-KmrpLayoutPatch.py` (53 sites; it fails against the old base, whose K7 hook overlaps the
   new site) and `Test-MacInstaller.py` (a fifth round: a stand-in KPM install replaced, and one
   with another patch refused) pass. Installed at 3024x1964; **not yet played**.
