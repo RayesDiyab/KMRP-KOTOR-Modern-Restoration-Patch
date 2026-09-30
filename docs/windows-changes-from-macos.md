@@ -18,13 +18,15 @@ generators, the tests) was changed on the `macos` branch, which reaches `master`
 No Windows build had been made from it by 2026-09-30. Everything marked **build only** is
 written and needs only a Windows build from a `master` that has it and a check in play.
 
-**Checked complete on 2026-09-30.** Every commit on the branch (`git log master..macos`,
-twelve) was read for changes a Windows build lacks: `7d603c8` (items 2, 6, 7 and 9),
+**Checked complete on 2026-09-30.** Every commit on the branch (`git log master..macos`)
+was read for changes a Windows build lacks: `7d603c8` (items 2, 6, 7 and 9),
 `d48758c` (the Mac port and its tests only), `d9eb50a`, `8f098fe` and `1336d53` (the
 submodule and notices only), `7c52a84` (item 8), `8f6ac1e`, `0d147a1` and `3366c33` (Mac
 documents and tests only; item 5 was found while writing `3366c33`), `4d1fe29` (items 1 to
-4), `9eee359` (item 10) and `0734db6` (the Mac installer's window, which has no Windows
-counterpart to change: it ports the Windows patcher's).
+4), `9eee359` (item 10), `0734db6` (the Mac installer's window, which has no Windows
+counterpart to change: it ports the Windows patcher's), `f59663a` (these documents), `13e676c`
+and `d44ee0d` (the Mac disk image, its icon and the Mac's controller option, which Windows
+already has), and the commit adding item 11.
 
 States: **to do** (Windows has nothing yet), **build only** (shared code already changed;
 Windows gets it with a build from the merged code and needs a check in play), **doc** (a
@@ -42,6 +44,7 @@ Windows document to correct).
 | 8 | Row frames, tutorial icons and `tutorial.2da` made at install from the player's game | **build only** |
 | 9 | The 17 Mac resolutions in the catalogue | **build only** |
 | 10 | The granted popup's rows: hex as tall as the text frame, text inset, rows spaced like the inventory's | **to do** |
+| 11 | The header's smoke fades out before the header's bottom edge | **to do** |
 
 ## 1. Message popups fitted to their contents
 
@@ -270,3 +273,27 @@ each fill on the Mac, lead to the fill's callers.
 and one 16:9 size. Its rows should sit as the inventory's do, each hex as tall as its text
 frame, the text clear of the frame's left line, and the popup centred. Level up with more
 than four feats or powers: the list should scroll, four rows high.
+
+## 11. The header's smoke fades out before its bottom edge
+
+**What the Mac does** (2026-09-30, `macos/installer-app/main.m`, `BottomFade`). The patcher's
+smoke (`LightField`) is drawn only inside the header strip: `ComposeFrame` renders it into a
+bitmap exactly ClientWidth x the header's height, on the reasoning in `OnPaint` that "below
+it the card covers everything anyway". The card does not cover the window's margins beside
+it, and in the columns where the plume reaches furthest (the front billows as low as 0.58 of
+the header, and a low `colReach` leaves the wisps below it thick) the smoke was still dense at
+the header's bottom, so it stopped on a straight line there. Seen on the Mac's port of the
+same code (reported 2026-09-30). The Mac multiplies the smoke's emission, and each mote's
+brightness, by a smoothstep that runs from 1 at 70% of the header's height to 0 at its bottom.
+Measured on the window afterwards: the margins' brightness falls from 17.8 to the window's navy
+(13.3) about 45 pixels above the edge, with no step at it.
+
+**What Windows needs.** The same factor in `LightField`: in `RenderSmoke`, on
+`field[y * w + x] = dens * lit * Exposure`; in `RenderMotes`, on
+`float bright = fade * m.Seed * LightAt(mx, my) * MoteAlpha`, with `my` as `v`. **Not yet
+seen on Windows**: whether the line shows there depends on where the plume happens to reach,
+but nothing in the code prevents it.
+
+**Check.** Watch the Windows patcher's margins beside the card for a minute: no straight edge
+where the header ends.
+

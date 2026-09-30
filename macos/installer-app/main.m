@@ -312,6 +312,18 @@ static float Fbm(const Smoke *s, float x, float y, float z) {
     return norm <= 0 ? 0 : sum * 0.5f / norm;
 }
 
+// The header's bottom: the smoke and the motes are drawn only inside the header, and in the
+// columns where the plume reaches furthest they were still thick at its edge, so they stopped
+// on a straight line wherever the card does not cover them (reported 2026-09-30). Over the
+// lowest 30% of the header they now fade to nothing, smoothly.
+static float BottomFade(float v) {
+    const float start = 0.70f;
+    if (v <= start) return 1;
+    if (v >= 1) return 0;
+    float t = (1 - v) / (1 - start);
+    return t * t * (3 - 2 * t);
+}
+
 static float LightAt(const Smoke *s, float u, float v) {
     if (v < 0) v = 0;
     float fall = expf(-v * kTopFalloff);
@@ -396,7 +408,7 @@ static void SmokeRender(Smoke *s, int pixelWidth, int pixelHeight) {
             float n = Fbm(s, nx + kWarpStrength * wx, ny + kWarpStrength * wy, evolve);
             float thickness = (n * 0.5f + 0.5f - (kThreshold - s->colPatch[x])) * shape;
             if (thickness <= 0) { *out = 0; continue; }
-            *out = (1 - expf(-thickness * kDensityGain)) * lit * kExposure;
+            *out = (1 - expf(-thickness * kDensityGain)) * lit * kExposure * BottomFade(v);
         }
     }
     // Bloom: a separable box blur added back over the original.
@@ -1245,7 +1257,7 @@ static const struct { const char *prefix, *stage; int percent; } kStages[] = {
         if (fade <= 0) continue;
         float mx = m->x + sinf(m->phase) * m->drift, my = m->y;
         if (my < -0.05f || my > 1.05f) continue;
-        float bright = fminf(fade * m->seed * LightAt(&_smoke, mx, my), 1);
+        float bright = fminf(fade * m->seed * LightAt(&_smoke, mx, my) * BottomFade(my), 1);
         if (bright <= 0.004f) continue;
         int level = MIN(MAX((int)(bright * (kMoteLevels - 1) + 0.5f), 0), kMoteLevels - 1);
         CGFloat radius = m->size * kMoteGlowScale * _headerHeight;

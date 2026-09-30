@@ -93,10 +93,12 @@ lines move the progress fill.
 
 **It looks like the Windows patcher** (`installer-app/main.m`, a port of `MainForm`):
 `UiTheme`'s colours, the brand lockup with the tagline set to the wordmark's ink width,
-`LightField`'s smoke and motes (every constant Windows', rendered at 1/12 of the header's
+`LightField`'s smoke and motes (every constant Windows', faded out over the header's lowest
+30% so they do not stop on a line beside the card, as they can on Windows:
+`docs/windows-changes-from-macos.md`, item 11; rendered at 1/12 of the header's
 pixels on a background queue every 62 ms and resampled with vImage), the four-step card
 with the step and state art from `src/patcher/icons`, the pill buttons with the primary's
-progress fill, the Advanced Settings view with its toggle, and the footer. Its icon is the
+progress fill, the Advanced Settings view with its two toggles, and the footer. Its icon is the
 Mac's own, shared with the disk image: the crest over "KMRP" (`tools/make_package_art.py`;
 the Windows executable's `src/patcher/favicon.ico` until 2026-09-30, when the player asked
 for the crest). Every rectangle is the Windows design-space one; the scale is `FitInitialSizeToWorkingArea`'s times 1.3,
