@@ -300,6 +300,26 @@ before:
 
 ### Added
 
+- **macOS: KMRP Installer, a window like the Windows patcher's** (2026-09-30). The Mac
+  package is now `KMRP Installer.app` with the installer and everything it installs inside
+  it, in place of `Install KMRP.command` and `Uninstall KMRP.command`, which ran the same
+  script in Terminal. It is the Windows patcher's window, ported: the same colours, brand
+  lockup and animated smoke header, the four-step card with its icons, the progress fill
+  on the action button, Advanced Settings and the footer, and the same app icon.
+  Step 3 lists this display first (native, and half on a Retina display), then 34 Mac and
+  external display sizes grouped by shape, and takes a custom size, which it checks the
+  menu sets can reach. It runs `kmrp-mac.sh` and shows what it refuses. For macOS 10.13 and
+  later, Intel and Apple Silicon. Restore Original and Start Patching were run through it on
+  the live game at 3024x1964, and `Test-MacInstaller.py` passes on its payload. Not yet
+  tried: a downloaded copy's first run through Gatekeeper (it is signed ad hoc, not by a
+  Developer ID, so macOS asks the player to allow it) (`macos/README.md`, *The installer
+  app*).
+- **macOS: the installer runs its helpers from a copy without the quarantine flag**
+  (2026-09-30). Gatekeeper kills a downloaded, flagged helper as it starts (exit 137,
+  tested), and the app's own copy is read-only, so `kmrp-mac.sh` copies `bin/` to its work
+  folder and clears the flag there. `status --brief` reports without hashing every
+  installed file, for the app.
+
 - **17 more resolutions, the sizes of current Mac displays** (2026-09-29): each display's
   default size and the pixel size it renders at on a Retina panel, from 1344x840 to
   4480x2520, listed under **macOS** in the launcher, 66 in all. Upstream ships no set for

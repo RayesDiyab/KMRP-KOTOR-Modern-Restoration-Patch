@@ -4,7 +4,7 @@
 #   kmrp-mac.sh install   [--game "<path>/Knights of the Old Republic.app"] [--no-map-notes]
 #                         [--resolution native|half | --size <W>x<H>] [--yes]
 #   kmrp-mac.sh uninstall [--game ...] [--yes]
-#   kmrp-mac.sh status    [--game ...]
+#   kmrp-mac.sh status    [--game ...] [--brief]
 #
 # What install does, and what uninstall reverses (see macos/README.md):
 #   1. Checks the game is the Steam Aspyr build it was made for (KOTOR_Exe 1.4.0,
@@ -47,9 +47,11 @@ MAP_NOTES=1
 RESOLUTION=""
 SIZE=""
 ASSUME_YES=0
+BRIEF=0   # status without checking each installed file (KMRP Installer's view)
 BACKUP_SEQ=0
 INSTALLING=0
 WORK=""
+BIN=""
 
 say()  { print -r -- "$*"; }
 warn() { print -r -- "warning: $*" >&2; }
@@ -379,13 +381,20 @@ do_install() {
     # back what was already done.
     INSTALLING=1
     WORK=$(mktemp -d "${TMPDIR:-/tmp}/kmrp-install.XXXXXX")
+    # The helpers run from a copy without the quarantine flag. A downloaded package keeps the
+    # flag on every file (cp copies it too), and Gatekeeper kills a flagged helper as it
+    # starts: exit 137, `spctl` "rejected" (tested 2026-09-30). Inside KMRP Installer.app the
+    # package is read-only, so the flag cannot be taken off where it is.
+    cp -R "$PAYLOAD/bin" "$WORK/bin"
+    xattr -dr com.apple.quarantine "$WORK/bin" 2>/dev/null || true
+    BIN="$WORK/bin"
 
     say "Preparing the menu set..."
     extract_set "$from" "$WORK/set"
     if (( derived )); then
         # The set whose fonts are installed: its caption width fits the Container and its
         # caption font lays out the Controller Layout screen for this size.
-        "$PAYLOAD/bin/kmrp-guiblend" "$PAYLOAD/gui-blend.bin" "$WIDTH" "$HEIGHT" "$WORK/blend" \
+        "$BIN/kmrp-guiblend" "$PAYLOAD/gui-blend.bin" "$WIDTH" "$HEIGHT" "$WORK/blend" \
             "$WORK/set" >/dev/null ||
             die "kmrp-guiblend could not blend $size"
         local gui
@@ -412,10 +421,10 @@ do_install() {
         cp "$PAYLOAD/engine/patch_config.no-map-notes.toml" "$MACOS/patch_config.toml"
         record added "$MACOS/patch_config.toml" "$(sha "$MACOS/patch_config.toml")" "-"
     fi
-    "$PAYLOAD/bin/kmrp-macho" add-dylib "$EXE" "$LOADER" >/dev/null
+    "$BIN/kmrp-macho" add-dylib "$EXE" "$LOADER" >/dev/null
     codesign --force --sign - --identifier KOTOR_Exe "$EXE" 2>/dev/null
     codesign --verify "$EXE"
-    "$PAYLOAD/bin/kmrp-macho" has-dylib "$EXE" KotorPatcher.dylib
+    "$BIN/kmrp-macho" has-dylib "$EXE" KotorPatcher.dylib
     record exe "$EXE" "$(sha "$EXE")" "KOTOR_Exe"
 
     say "Setting the resolution in swkotor.ini..."
@@ -440,7 +449,7 @@ do_install() {
 
     say "Making the row frames, tutorial icons and tutorial.2da from the game for $size..."
     local game_art=0
-    if "$PAYLOAD/bin/kmrp-gameart" "$TEXTURE_PACK" "$CHITIN_KEY" "$HEIGHT" "$WORK/gameart" >/dev/null; then
+    if "$BIN/kmrp-gameart" "$TEXTURE_PACK" "$CHITIN_KEY" "$HEIGHT" "$WORK/gameart" >/dev/null; then
         for file in "$WORK/gameart"/*(.N); do install_file "$file" "$OVERRIDE"; game_art=$(( game_art + 1 )); done
     else
         warn "the row frames, tutorial icons and tutorial.2da could not be made; the game keeps its own"
@@ -448,7 +457,7 @@ do_install() {
 
     say "Enlarging the feat, power and skill icons for $size..."
     local icons=0
-    if "$PAYLOAD/bin/kmrp-abilityicons" "$TEXTURE_PACK" "$HEIGHT" "$WORK/icons" "$WORK/reserved.txt" >/dev/null; then
+    if "$BIN/kmrp-abilityicons" "$TEXTURE_PACK" "$HEIGHT" "$WORK/icons" "$WORK/reserved.txt" >/dev/null; then
         for file in "$WORK/icons"/*.tga(N); do install_file "$file" "$OVERRIDE"; icons=$(( icons + 1 )); done
     else
         warn "the feat, power and skill icons could not be generated; they stay their original size"
@@ -473,7 +482,7 @@ do_install() {
     rm -rf "$WORK"
     say "Installed: engine patches, $count Override files, $game_art files made from the game and $icons enlarged icons ($skipped bundled files left to mods already installed)."
     say "KOTOR_Exe was modified (one load command, re-signed ad hoc); the original is in $STATE/backup."
-    say "To undo everything: run Uninstall KMRP.command, or kmrp-mac.sh uninstall."
+    say "To undo everything: Uninstall in KMRP Installer, or kmrp-mac.sh uninstall."
 }
 
 # ---------------------------------------------------------------------- uninstall
@@ -569,6 +578,7 @@ do_status() {
         [[ -n "$GAME" ]] || GAME=$(sed -n 's/^game=//p' "$STATE/install.info")
         set_paths
         cat "$STATE/install.info"
+        (( BRIEF )) && return 0
         local total=0 changed=0 kind target recorded backup
         while IFS=$'\t' read -r kind target recorded backup; do
             case "$kind" in
@@ -590,6 +600,7 @@ do_status() {
         say "KMRP is not installed."
         say "game: $GAME"
         [[ "$(sha "$EXE")" == "$VANILLA_EXE_SHA" ]] && say "KOTOR_Exe: unmodified Steam build (supported)" || say "KOTOR_Exe: modified or a different build"
+        (( BRIEF )) && return 0
         local geo=(${=$(display_geometry)})
         say "display: ${geo[1]}x${geo[2]} points, ${geo[3]}x${geo[4]} pixels"
         local candidate
@@ -615,6 +626,7 @@ while (( $# )); do
             [[ "$SIZE" == <->x<-> ]] && (( ${SIZE%x*} >= 640 && ${SIZE#*x} >= 480 )) ||
                 die "--size is <width>x<height>, at least 640x480, not $SIZE" ;;
         --yes|-y) ASSUME_YES=1 ;;
+        --brief) BRIEF=1 ;;
         *) die "unknown option: $1" ;;
     esac
     shift

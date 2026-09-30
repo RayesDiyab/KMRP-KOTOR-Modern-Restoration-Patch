@@ -8,24 +8,33 @@ for your display's resolution, the same HD fonts, art and icons, and the same en
 
 - *Knights of the Old Republic* from **Steam**, the Aspyr macOS build, unmodified
   (`KOTOR_Exe` version 1.4.0). The installer checks this and refuses anything else.
-- Apple Silicon Macs need Rosetta 2, as the game itself does.
+- macOS 10.13 or later. Apple Silicon Macs need Rosetta 2, as the game itself does.
 - Run the game once before installing, so its settings file exists.
 
 ## Install
 
 1. Quit KOTOR.
-2. Double-click **Install KMRP.command**.
-   - If macOS says it cannot be opened because the developer cannot be verified,
-     Control-click it, choose **Open**, then **Open** again. Or open Terminal and run:
-     `xattr -dr com.apple.quarantine ~/Downloads/KMRP-macOS-1.5.0` (use the folder's
-     real path), then double-click it again.
-3. On a Retina display, choose the resolution (see *Options*): press Return for native,
-   or type `2` for half.
-4. Read the summary, type `y` and press Return.
-5. Start KOTOR from Steam as usual.
+2. Open **KMRP Installer**.
+   - KMRP is not signed by an Apple developer account, so the first time macOS asks you to
+     allow it. On macOS 15 and later: macOS says it cannot open it; click **Done**, open
+     **System Settings → Privacy & Security**, scroll down, click **Open Anyway** beside
+     *KMRP Installer*, and confirm. On earlier versions: Control-click the app, choose
+     **Open**, then **Open** again.
+   - Or, in Terminal: `xattr -dr com.apple.quarantine "/path/to/KMRP Installer.app"`,
+     then open it as usual.
+3. The installer finds the game in your Steam libraries (step 1; **Browse** for a copy
+   somewhere else) and checks it is the unmodified Steam version (step 2).
+4. Step 3 has this display's resolution chosen already. Click it to pick another: this
+   display's half size, the sizes of other Macs and displays, grouped by shape, or
+   **Custom size…** for any other (see *Options*).
+5. Click **Start Patching**. The button fills as it works; step 4 says **Patched
+   successfully** when it is done.
+6. Start KOTOR from Steam as usual.
 
-The installer finds the game in your Steam libraries. For a copy somewhere else, run in
-Terminal: `./kmrp/kmrp-mac.sh install --game "/path/to/Knights of the Old Republic.app"`.
+What the installer did is in **Open Log** (`~/Library/Logs/KMRP/installer.log`). If macOS
+stops it from changing the game ("Operation not permitted"), allow **KMRP Installer** in
+**System Settings → Privacy & Security → App Management** and click **Start Patching**
+again.
 
 ## What you get
 
@@ -74,21 +83,28 @@ other pads. The controls are KMRP's, the same as on Windows: the full list is on
 ## Options
 
 - **Resolution** (Retina displays). *Native* renders every pixel of the screen, for
-  example 3024x1964 on a 14" MacBook Pro: the sharpest picture. *Half* renders the size
-  macOS lays out its own windows at (1512x982 there) and lets macOS scale it up: lighter
-  on the GPU. At native, set **Anti-aliasing to 2x** in the game's graphics options: on an
-  M5, 6x at native ran at about 30 fps in game and 2x at about 120. From Terminal:
-  `--resolution native` or `--resolution half`.
-- **Another display or size**: `./kmrp/kmrp-mac.sh install --size 2560x1440`, for example
-  for an external monitor. The interface is laid out for one size; to change it later,
-  uninstall and install again.
-- **Without the map-note corrections**: `./kmrp/kmrp-mac.sh install --no-map-notes`.
+  example 3024x1964 on a 14" MacBook Pro: the sharpest picture, and the one the installer
+  chooses. *Half* renders the size macOS lays out its own windows at (1512x982 there) and
+  lets macOS scale it up: lighter on the GPU. At native, set **Anti-aliasing to 2x** in the
+  game's graphics options: on an M5, 6x at native ran at about 30 fps in game and 2x at
+  about 120.
+- **Another display or size**: pick it in step 3, for example for an external monitor. The
+  list has the sizes KMRP has a finished menu set for; **Custom size…** takes any other
+  from 4:3 to 32:9, and the installer blends a set for it. The interface is laid out for one
+  size; to change it later, **Restore Original** and patch again.
+- **Without the map-note corrections**: the gear button beside **Start Patching** opens
+  **Advanced Settings**; turn off *Area Map Marker Fixes*.
+- **From Terminal**, the installer is a script inside the app:
+  `"KMRP Installer.app/Contents/Resources/kmrp/kmrp-mac.sh" install` asks the same
+  questions; add `--resolution native|half`, `--size 2560x1440`, `--no-map-notes` or
+  `--game "/path/to/Knights of the Old Republic.app"`. `uninstall` and `status` work
+  the same way.
 
 ## Uninstall
 
-Quit KOTOR and double-click **Uninstall KMRP.command**. It restores the original
-`KOTOR_Exe`, your settings and every file KMRP replaced, and deletes what it added. A file
-you changed after installing is left alone and reported.
+Quit KOTOR, open **KMRP Installer** and click **Restore Original**. It restores the
+original `KOTOR_Exe`, your settings and every file KMRP replaced, and deletes what it added.
+A file you changed after installing is left alone and listed in the log.
 
 ## What it changes
 

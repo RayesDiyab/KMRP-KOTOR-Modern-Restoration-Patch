@@ -25,7 +25,8 @@ round 3 installs over that edited copy, which install and uninstall leave byte f
 
     python testing/regression/Test-MacInstaller.py PACKAGE_KMRP_DIR CLEAN_KOTOR_EXE SWPC_TEX_GUI_ERF
 
-PACKAGE_KMRP_DIR is dist/macos/KMRP-macOS-<version>/kmrp from macos/build.sh.
+PACKAGE_KMRP_DIR is dist/macos/KMRP-macOS-<version>/KMRP Installer.app/Contents/Resources/kmrp from
+macos/build.sh.
 """
 from __future__ import annotations
 

@@ -1,5 +1,6 @@
 #!/bin/zsh
-# Builds the KMRP for macOS package: dist/macos/KMRP-macOS-<version>/ and its .zip.
+# Builds the KMRP for macOS package: dist/macos/KMRP-macOS-<version>/ (KMRP Installer.app, which
+# carries the installer and everything it installs, and README.md) and its .zip.
 #
 #   macos/build.sh [--game "<...>/Knights of the Old Republic.app"] [--exe <unmodified KOTOR_Exe>]
 #                  [--python <python3>] [--reuse-resources]
@@ -52,7 +53,8 @@ VANILLA_EXE_SHA="c1fcb8d37c702849882a17751c63ee0af7c2b9cbbc3b31b98a5f0edbc27c6d7
 BUILD="$ROOT/build/macos"
 NAME="KMRP-macOS-$VERSION"
 OUT="$ROOT/dist/macos/$NAME"
-PKG="$OUT/kmrp"
+INSTALLER="$OUT/KMRP Installer.app"
+PKG="$INSTALLER/Contents/Resources/kmrp"   # kmrp-mac.sh and its payload, inside the app
 step() { print -r -- ""; print -r -- "== $*"; }
 
 rm -rf "$BUILD/engine" "$BUILD/kpatch" "$OUT" "$ROOT/dist/macos/$NAME.zip"
@@ -217,8 +219,6 @@ step "Menu layouts: every resolution's set, pooled, and the blend table for any 
 step "Installer, documentation, licences"
 cp "$HERE/kmrp-mac.sh" "$HERE/VERSION" "$PKG/"
 chmod +x "$PKG/kmrp-mac.sh"
-cp "$HERE/Install KMRP.command" "$HERE/Uninstall KMRP.command" "$OUT/"
-chmod +x "$OUT/"*.command
 cp "$HERE/PLAYER-README.md" "$OUT/README.md"
 cp "$ROOT/LICENSE" "$PKG/licenses/KMRP-LICENSE.txt"
 cp "$ROOT/THIRD_PARTY_NOTICES.md" "$PKG/licenses/THIRD_PARTY_NOTICES.md"
@@ -227,6 +227,33 @@ cp "$RESOURCES/GPL-3.0-KOTOR-High-Resolution-Menus.txt" "$PKG/licenses/" 2>/dev/
 
 (cd "$PKG" && find . -type f ! -name SHA256SUMS | sed 's|^\./||' | LC_ALL=C sort | while IFS= read -r f; do shasum -a 256 "$f"; done > SHA256SUMS)
 print -r -- "$(wc -l < "$PKG/SHA256SUMS" | tr -d ' ') files hashed"
+
+step "KMRP Installer.app (the window over kmrp-mac.sh, macos/installer-app)"
+# Every size the app lists must be one the package has a set for.
+missing=()
+for size in $(awk -F '\t' '$1 ~ /^[0-9]+x[0-9]+$/ { print $1 }' "$HERE/installer-app/resolutions.txt"); do
+    unzip -Z1 "$PKG/layouts.zip" "index/$size.txt" >/dev/null 2>&1 || missing+=($size)
+done
+(( ${#missing} == 0 )) || { print -u2 "resolutions.txt lists sizes layouts.zip has no set for: $missing"; exit 1; }
+mkdir -p "$INSTALLER/Contents/MacOS"
+clang -fobjc-arc -O2 -Wall -Wextra -Wno-unused-parameter -arch x86_64 -arch arm64 -mmacosx-version-min=10.13 \
+    -Wunguarded-availability -framework Cocoa -framework Accelerate -weak_framework UniformTypeIdentifiers \
+    -o "$INSTALLER/Contents/MacOS/KMRP Installer" "$HERE/installer-app/main.m"
+sed "s/@VERSION@/$VERSION/g" "$HERE/installer-app/Info.plist" > "$INSTALLER/Contents/Info.plist"
+plutil -lint "$INSTALLER/Contents/Info.plist" >/dev/null
+cp "$HERE/installer-app/resolutions.txt" "$INSTALLER/Contents/Resources/"
+# The Windows patcher's own art: its brand lockup, its step and state icons, and its
+# executable's icon (build_kmrp.ps1 embeds the same files), so the two look alike.
+cp "$ROOT/src/patcher/brand.png" "$INSTALLER/Contents/Resources/"
+for icon in folder shield monitor tools verified missing Settings; do
+    cp "$ROOT/src/patcher/icons/$icon.png" "$INSTALLER/Contents/Resources/"
+done
+sips -s format icns "$ROOT/src/patcher/favicon.ico" --out "$INSTALLER/Contents/Resources/AppIcon.icns" >/dev/null
+# Ad hoc, as every binary here: the signature seals the bundle, so a changed file shows as
+# damaged. Without a Developer ID and notarization, Gatekeeper asks the player to allow the
+# app once (PLAYER-README.md, Install).
+codesign --force --sign - "$INSTALLER"
+codesign --verify --strict "$INSTALLER"
 
 step "Archive"
 # Without --norsrc --noextattr, ditto stores each file's extended attributes (every file here

@@ -50,7 +50,7 @@ site; the files are the same.
 | Artwork | `override-common.zip`, less what the Mac does not use | the same resource build |
 | Feat, power and skill icons | enlarged from the game's texture pack at install | `tools/kmrp-abilityicons.c`, a port of `AbilityIconGenerator.cs` |
 | Row frames, tutorial icons, `tutorial.2da` | made at install from the player's game: nothing of the game's ships | `tools/kmrp-gameart.c`, a port of `GameArtGenerator.cs` |
-| Installer | `kmrp-mac.sh`: install, uninstall, status, with a hashed manifest | this directory |
+| Installer | `kmrp-mac.sh`: install, uninstall, status, with a hashed manifest; run by `KMRP Installer.app`, the Windows patcher's window ported | this directory, `installer-app/` |
 
 **Why the widescreen patch is the base** (decided 2026-09-29, after a day on which KMRP was to
 ship a patch of its own instead): it is the Mac's resolution unlock, and KMRP's engine fixes
@@ -71,6 +71,68 @@ layout patch's. The engine fixes are documented beside their code, in the branch
 | K7 | dialogue letterbox from the height; reply list fills the bar | `.klb`, nine sites |
 | K8 | minimap keeps the vanilla zoom | `.kmz`, `.kfg` |
 | K9 | the display's pixel resolution is a valid mode (Retina) | none: Windows display modes are already in pixels |
+
+### The installer app
+
+The package is `KMRP Installer.app` and the player README (`PLAYER-README.md`, shipped as
+`README.md`). The app carries `kmrp-mac.sh` and
+everything it installs in `Contents/Resources/kmrp` (the folder the package held as `kmrp/`
+until 2026-09-30, beside `Install KMRP.command` and `Uninstall KMRP.command`, which it
+replaces), and runs the script:
+
+| The app | `kmrp-mac.sh` |
+| --- | --- |
+| at launch and after every run | `status --brief`: `install.info`, or the game and its build, without hashing every installed file (a full status takes seconds once KMRP is installed) |
+| **Start Patching** | `install --yes`, with `--resolution native` or `half` for this display's rows, `--size WxH` for any other, `--no-map-notes` when *Area Map Marker Fixes* is off, `--game` when one was chosen with **Browse** |
+| **Restore Original** | `uninstall --yes` (and `--game`) |
+
+What the script refuses (the game running, another build, KotOR Patch Manager's files
+already in the game), the app shows as a blocking message with the script's own words. The
+script's output goes to `~/Library/Logs/KMRP/installer.log` (**Open Log**), and its stage
+lines move the progress fill.
+
+**It looks like the Windows patcher** (`installer-app/main.m`, a port of `MainForm`):
+`UiTheme`'s colours, the brand lockup with the tagline set to the wordmark's ink width,
+`LightField`'s smoke and motes (every constant Windows', rendered at 1/12 of the header's
+pixels on a background queue every 62 ms and resampled with vImage), the four-step card
+with the step and state art from `src/patcher/icons`, the pill buttons with the primary's
+progress fill, the Advanced Settings view with its toggle, the footer, and the Windows
+executable's icon (`src/patcher/favicon.ico`, converted by `sips`). Every rectangle is
+the Windows design-space one; the scale is `FitInitialSizeToWorkingArea`'s times 1.3,
+because a Mac's points are denser than the 96-dpi pixels the Windows formula assumes (the
+text was reported too small at 1.0, 2026-09-30); on a 14" MacBook Pro the window is
+1,310x717 points. Bahnschrift and Segoe UI are Microsoft's and cannot ship: DIN Alternate
+Bold narrowed to 92% and the system font stand in. All text is one Core Text line at an
+explicit baseline: labels centred on their capitals, and each step's title and subtitle
+(baselines 30 apart, as on Windows) centred together on its badge. AppKit's box drawing had
+put the DIN labels about 5 pt low and clipped the step titles' descenders (both reported
+2026-09-30); measured on the window afterwards, Browse's label sits 0.5 px from its
+button's centre and the state labels on their badges' centre lines.
+
+**Resolutions** (step 3): this display first, native and on a Retina display half (the main
+display, as the widescreen patch reads it), then `installer-app/resolutions.txt`, 34 sizes
+grouped by shape (the 17 Mac sizes and common external displays), each one the build
+checks is in `layouts.zip`, then **Custom size…**. A custom size is checked with
+`kmrp-guiblend`'s dry run (exit 2: outside what the sets cover) before it can be chosen.
+
+**Quarantine.** A downloaded package keeps the quarantine flag on every file, and
+Gatekeeper kills a flagged helper as it starts: a flagged copy of `kmrp-guiblend` exited
+137, `spctl` "rejected" (tested 2026-09-30). The app's bundle is read-only when macOS runs it
+from where it was downloaded, so the flag cannot be taken off there: `kmrp-mac.sh` copies
+`bin/` into its work folder and removes the flag from the copy, and the app does the same
+for its own dry run. **Not yet tested:** a downloaded, quarantined copy of the app itself
+through Gatekeeper's first-run approval, and App Management (macOS 13 and later), which may
+ask the player to allow the app to change the game's bundle; the app says how if the script
+fails with "Operation not permitted".
+
+**Seen**, from the package at 3024x1964, 2026-09-30, through the app's scripted-check
+arguments (`-KMRPSelect`, `-KMRPRun`, `-KMRPSettings`, `-KMRPSnapshot`, `-KMRPQuit`; the
+comment at the top of `main.m`): the installed and not-installed states, Advanced Settings,
+the progress fill at "Installing artwork… 34%", a custom size outside the sets refused, and
+**Restore Original** then **Start Patching** on the live game, the second leaving the same
+`KOTOR_Exe` (`5294ae4f…`) and install as `kmrp-mac.sh` does alone. `Test-MacInstaller.py`
+passes on the app's `Contents/Resources/kmrp`. Built for x86_64 (macOS 10.13 and later, the
+floor of the controller's SDL3 and the helpers) and arm64, with `-Wunguarded-availability`.
 
 ## 2. Every file the installer writes
 
@@ -249,8 +311,9 @@ and the area-map hit-test wrapper, because the widescreen patch's recentring alr
 
 ## 5. Resolution
 
-On a display with more pixels than points (every Retina Mac), the installer asks, or takes
-`--resolution native|half`; `--size WxH` sets any size (another display, a window):
+On a display with more pixels than points (every Retina Mac), the installer app offers both
+and chooses native; `kmrp-mac.sh` on its own asks, or takes `--resolution native|half`, and
+`--size WxH` sets any size (another display, a window):
 
 | choice | frame the game renders here | INI |
 | --- | --- | --- |
@@ -491,7 +554,8 @@ the build uses. `--kpm` and `--widescreen` build from other checkouts instead.
 Needs: Xcode command line tools, the .NET 8 SDK, and a Python with `requirements.txt`. The
 unmodified game must be installed (the build resolves hooks against `KOTOR_Exe`'s hash and
 reads `TexturePacks/swpc_tex_gui.erf` for the fonts); nothing from the game is packaged.
-Output: `dist/macos/KMRP-macOS-<version>/` and its zip, 160 MB. Steps, in order:
+Output: `dist/macos/KMRP-macOS-<version>/` (`KMRP Installer.app` and `README.md`) and its
+zip, 155 MB. Steps, in order:
 
 1. `make dylib` in KPM's `src/KotorPatcher`;
 2. the widescreen patch, with KPM's `Patches/create-patch.py`, as every KPM patch is built
@@ -516,7 +580,10 @@ Output: `dist/macos/KMRP-macOS-<version>/` and its zip, 160 MB. Steps, in order:
    item icons that had changed;
 8. the artwork, filtered as in section 8; the pool (`layouts.zip`) and `gui-blend.bin`;
 9. `SHA256SUMS` over the package, which the installer checks before it writes anything;
-10. the zip, by `ditto` without resource forks or extended attributes. *Corrected
+10. `KMRP Installer.app`: `installer-app/main.m`, universal, with `resolutions.txt` (every
+   size checked against `layouts.zip`), the Windows patcher's art and icon, and the payload
+   above inside it; the bundle signed ad hoc and verified;
+11. the zip, by `ditto` without resource forks or extended attributes. *Corrected
    2026-09-29:* until then every one of the package's 785 files had a `._` AppleDouble
    entry beside it in the zip. Finder's Archive Utility folds those back into the files,
    but `unzip` writes them out as files, which the installer would have copied into the

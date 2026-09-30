@@ -1,0 +1,47 @@
+# The resolutions KMRP Installer lists under the player's own display, grouped by shape.
+# "= <title>" starts a group; "<W>x<H><TAB><what it is>" is a row. Every size must be one the
+# package has a menu set for: macos/build.sh stops if one is not in layouts.zip. Any other
+# size can still be typed in as a custom size, which the installer blends.
+#
+# The Mac sizes are GROUPS["macOS"] in tools/prepare_universal_resources.py (native: the
+# panel's pixels at macOS's default; half: the size macOS lays its windows out at). The rest
+# are common external displays from the Windows catalogue.
+= 1.54:1 · MacBook Air and MacBook Pro (Apple silicon)
+3024x1964	14" MacBook Pro · native
+1512x982	14" MacBook Pro · half
+3456x2234	16" MacBook Pro · native
+1728x1117	16" MacBook Pro · half
+2940x1912	13" MacBook Air · native
+1470x956	13" MacBook Air · half
+2880x1864	15" MacBook Air · native
+1440x932	15" MacBook Air · half
+= 16:10
+3360x2100	15" MacBook Pro (Intel) at 1680 × 1050 · native
+3072x1920	16" MacBook Pro (Intel, 2019) · native
+1792x1120	16" MacBook Pro (Intel, 2019) · scaled
+1536x960	16" MacBook Pro (Intel, 2019) · scaled
+1344x840	16" MacBook Pro (Intel, 2019) · scaled
+2880x1800	16:10 displays
+2560x1600	16:10 displays
+1920x1200	16:10 displays
+1680x1050	16:10 displays
+1440x900	16:10 displays
+= 16:9
+6016x3384	Pro Display XDR · native
+3008x1692	Pro Display XDR · half
+5120x2880	Studio Display, 27" iMac 5K · native
+2560x1440	Studio Display, 27" iMac 5K · half; 1440p displays
+4480x2520	24" iMac · native
+2240x1260	24" iMac · half
+4096x2304	21.5" iMac 4K · native
+2048x1152	21.5" iMac 4K · half
+3840x2160	4K displays
+1920x1080	Full HD displays
+= 21:9
+5120x2160	ultrawide displays
+3840x1600	ultrawide displays
+3440x1440	ultrawide displays
+2560x1080	ultrawide displays
+= 32:9
+5120x1440	super-ultrawide displays
+3840x1080	super-ultrawide displays
