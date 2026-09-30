@@ -12,6 +12,9 @@
 //   listbox_padding.cpp   PADDING in a list box as a gutter on the scrollbar's side only
 //                         (Windows gold v11 and v12)
 //   area_map.cpp          the area map's canvas, marker overlay, marker positions and sizes
+//   popup_fit.cpp         the message popup fitted to its contents
+//   granted_popup.cpp     the granted popup's rows: hex as tall as the text frame, text inset,
+//                         rows spaced like the inventory's
 //
 // The resolution is the one the widescreen patch runs at: [Graphics Options] ForceWidth and
 // ForceHeight, which KMRP's installer writes, or the main display's size in points (both
@@ -170,6 +173,7 @@ std::vector<Group> Groups(int width, int height, uintptr_t nearPage) {
     AddListboxPadding(groups);
     AddAreaMap(groups, width, height, nearPage);
     AddPopupFit(groups, nearPage);
+    AddGrantedPopup(groups, nearPage);
     return groups;
 }
 

@@ -865,6 +865,20 @@ before:
 
 ### Fixed
 
+- **macOS: the granted popup's rows look like the inventory's** (2026-09-30, reported
+  from play: "You have been granted the following feat(s) this level."). The text touched
+  its frame's left line, the hex beside it was shorter than the text frame, and the rows
+  sat far apart. For this popup's rows only, the Mac's layout patch
+  (`granted_popup.cpp`) now insets the text by an eighth of the row, grows the hex, its
+  highlight and the icon by a seventh so the hex spans the text frame, and cuts the list
+  to the rows it shows at a pitch of the row plus an eleventh, about the share the
+  inventory's list spreads between its rows (8 to 10%); OK and the panel move up with it,
+  and the popup stays centred. At 3024x1964, with four feats: rows 141 px apart became
+  125 (14 px between frames), the hex went from 97 to 111 px beside a 111-px frame, the
+  first letter from 2 to 14 px inside the frame, and the popup from 941 to 876 px tall
+  (screenshots). Every size follows the row's height, so it holds at any resolution;
+  seen at 3024x1964 only, and a list long enough to scroll has not been seen. **Windows
+  does not have this yet** (`docs/windows-changes-from-macos.md`, item 10).
 - **macOS: message popups fit their contents** (2026-09-30, reported from play:
   the tutorial boxes and the Exit Game box were far taller than their text).
   The shared popup keeps the height `confirm.gui` gives it, sized for the

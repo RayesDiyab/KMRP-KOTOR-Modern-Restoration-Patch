@@ -34,5 +34,9 @@ std::vector<uint8_t> AreaMapPage(int height);
 // kPopupThunk (AreaMapPage puts it there).
 constexpr size_t kPopupThunk = 48;
 void AddPopupFit(std::vector<Group>& groups, uintptr_t nearPage);
+// granted_popup.cpp: the granted popup's rows, through the near page's thunks at
+// kGrantedFillThunk and kGrantedRowThunk (AreaMapPage puts them there).
+constexpr size_t kGrantedFillThunk = 64, kGrantedRowThunk = 80;
+void AddGrantedPopup(std::vector<Group>& groups, uintptr_t nearPage);
 
 }  // namespace kmrp

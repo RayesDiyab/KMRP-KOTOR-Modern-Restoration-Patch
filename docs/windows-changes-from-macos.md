@@ -13,11 +13,18 @@ first. Until Windows has them too, the two builds differ. This lists each one: w
 does, where, what Windows needs, and how to check it. Started 2026-09-30.
 
 **None of this is on `master` yet.** The shared code named below (the resource build, the
-patcher's generators, the tests) was changed on the `macos` branch. On 2026-09-30 that branch
-was 9 commits ahead of `master`, touching 34 files outside `macos/` and `third_party/`
-(`git diff --stat master..macos -- . ':!macos' ':!third_party'`). A Windows release has
-none of it until `master` takes those commits. Everything marked **build only** is written
-and needs only that merge, a Windows build and a check in play.
+patcher's generators, the tests) was changed on the `macos` branch. On 2026-09-30, at
+`4d1fe29`, that branch was 10 commits ahead of `master`, touching 38 files outside `macos/`
+and `third_party/` (`git diff --stat master..macos -- . ':!macos' ':!third_party'`); item 10
+came after. A Windows release has none of it until `master` takes those commits. Everything
+marked **build only** is written and needs only that merge, a Windows build and a check in
+play.
+
+**Checked complete on 2026-09-30.** Every commit in `git log master..macos` was read for
+changes a Windows build lacks: `7d603c8` (items 2, 6, 7 and 9), `d48758c` (the Mac port and
+its tests only), `d9eb50a`, `8f098fe` and `1336d53` (the submodule and notices only),
+`7c52a84` (item 8), `8f6ac1e`, `0d147a1` and `3366c33` (Mac documents and tests only; item 5
+was found while writing `3366c33`), `4d1fe29` (items 1 to 4). Item 10 is not yet committed.
 
 States: **to do** (Windows has nothing yet), **build only** (shared code already changed;
 Windows gets it with a build from the merged code and needs a check in play), **doc** (a
@@ -34,6 +41,7 @@ Windows document to correct).
 | 7 | HD item icons normalised to the game's own framing | **build only** |
 | 8 | Row frames, tutorial icons and `tutorial.2da` made at install from the player's game | **build only** |
 | 9 | The 17 Mac resolutions in the catalogue | **build only** |
+| 10 | The granted popup's rows: hex as tall as the text frame, text inset, rows spaced like the inventory's | **to do** |
 
 ## 1. Message popups fitted to their contents
 
@@ -53,7 +61,9 @@ Mac's layout patch:
 4. makes the panel as wide as the message plus its left inset on both sides, ending as far
    below the last shown button as the message starts below its top, and keeps its centre.
 
-It does nothing when the text needs the scrollbar. Seen in play at 3024x1964 on 2026-09-30:
+It does nothing when the text needs the scrollbar. It has no size of its own: every width and
+height comes from the popup's own layout and the engine's own wrapping, so it holds at any
+resolution. Seen in play at 3024x1964 only, on 2026-09-30:
 the Exit Game box went from 1,224x711 px to 880x365, centred on the screen. The Attributes,
 Skills and Feats tutorials came out fitted and centred with their line counts unchanged (4, 7
 and 5).
@@ -187,8 +197,11 @@ The four `lbl_hex*` row frames, the thirteen `tut_*` tutorial icons and `tutoria
 made from the player's own game at install. The package no longer carries anything taken
 from the game (commit `7c52a84`). `src/patcher/GameArtGenerator.cs` is the Windows side, and
 the Mac's `kmrp-gameart.c` matches it byte for byte (`Test-GameArt.py`). Only the Mac
-installer has run it. **Check** a Windows install: the files present, the same sizes as
-before, and the patcher's restore removing them.
+installer has run it. The same commit makes the resource build stop when a font has no atlas
+of ours, where it shipped the game's own atlas beside the scaled `.txi`; every font has one
+(`assets/hd-fonts`), so the package does not change. **Check** a Windows install: the files
+present, the same sizes as before, the progress bar's "Installing row frames and tutorial
+icons…" stage, and the patcher's restore removing them.
 
 ## 9. The 17 Mac resolutions in the catalogue
 
@@ -198,3 +211,62 @@ commit `7d603c8`). `ResolutionCatalog` now expects 66 entries, and the Windows l
 them under **macOS**. **Not yet run on Windows**: **check** that the launcher shows them and
 that one installs.
 
+## 10. The granted popup's rows
+
+**What the Mac does** (2026-09-30, `macos/patches/kmrp-layout/granted_popup.cpp`). The popup
+that lists what a level brought ("You have been granted the following feat(s) this level.",
+and the Force-power version; `skillinfo.gui`), at character generation and on level-up. Seen
+at 3024x1964 before the change (`work/runs/cg-custom4/08-custom.png`):
+
+| | Before | After (`work/runs/cg-granted/08-granted.png`) |
+| --- | --- | --- |
+| row pitch, for 115-px rows | 141 px (26 spread per row) | 125 px, 14 px between frames |
+| hex frame beside a 111-px text frame | 97 px tall | 111 px tall |
+| first letter from the text frame's left line | 2 px | 14 px |
+| panel height (4 feats) | 941 px | 876 px, same centre |
+
+Three changes, for this popup's rows only:
+
+1. **The rows' spacing.** The list box shares out the height it has left over between its
+   visible rows. `LB_SKILLS` holds four rows with 105 px to spare at 3024x1964; the inventory,
+   the same kind of list, spreads 8 to 10% of a row (15 px on 153-px rows at 3024x1964, 7 on 76
+   at 1512x982, 7 on 84 at 1920x1080, 10 on 112 at 3440x1440, from each set's
+   `inventory.gui`). After the popup's fill hands its rows to the list, the list goes back to
+   the file's extent, which gives the engine's own count of rows that fit; its height is then
+   cut to that many rows, or as many as were granted if fewer, at a pitch of the row plus an
+   eleventh of it. OK moves up by the height taken off, and the panel loses it too, keeping
+   its centre. The file's extents are kept at the first fill, so every fill starts from them.
+2. **The hex.** The row's hex frame (`lbl_hex_3`), its highlight and the icon are drawn in a
+   square as tall as the row, and the texture's hex fills 131 of its 153 rows. The squares grow
+   by a seventh of the row, about the same centre and 1/40 of the row lower, so the hex spans
+   the text frame.
+3. **The text.** The text's rect, the text frames' inner rect, is inset by an eighth of the
+   row on each side.
+
+Every size is taken from the row's height (`42s`), so it holds at any resolution. Seen in play
+at 3024x1964 only, with four feats; a list long enough to scroll has not been seen.
+
+**Where, on the Mac.** Two calls go through the layout patch's near page:
+
+| Mac | What |
+| --- | --- |
+| `0x10028E9CA` | the popup's fill; its `call 0x1004A9BE6` (`CSWGuiListBox::AddControls`) at `0x10028EA4F` is replaced |
+| `0x10022F228` | `CSWGuiInGameSkillEntry::SetExtent`; its last call, `call 0x1004A3D4C` (the text's rect) at `0x10022F321`, is replaced |
+| `0x1005A9E18` | the popup's vtable; the GUI manager keeps the one popup at its `+0x128` |
+| `+0x80`, `+0x5B8`, `+0x8` | the list (`LB_SKILLS`), OK and the panel's extent |
+| `+0x7F8`, `0x3B8` apart | the ten rows |
+| `+0x228`, `+0x2B0`, `+0x338` | a row's hex, highlight and icon squares; `+0x110` its text |
+| `+0x344`, `+0x350`, `+0x368`, `+0x378` | the list's inner height, row count, row height and visible count (short) |
+
+**What Windows needs.** The same three changes in the executable patch. The Windows row's
+`SetExtent` is the function holding the icon's `42` at `0x006AB8EE`
+([`reverse-engineering/inventory-item-rows.md`](../reverse-engineering/inventory-item-rows.md)),
+and the row's initialiser sets its height at `0x006ACB20`. Not yet read: that function's start
+and its call giving the text its rect, the popup's fill and its call to the list, and the
+Windows offsets above. The title's string refs (`0xA510`, `0xA511`, `0xA512`), set right after
+each fill on the Mac, lead to the fill's callers.
+
+**Check.** New game, Custom, the Feats step, Recommended, then OK: the popup at 3440x1440
+and one 16:9 size. Its rows should sit as the inventory's do, each hex as tall as its text
+frame, the text clear of the frame's left line, and the popup centred. Level up with more
+than four feats or powers: the list should scroll, four rows high.

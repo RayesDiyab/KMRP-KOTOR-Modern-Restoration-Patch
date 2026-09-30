@@ -225,6 +225,7 @@ sources' comments and, against the Windows sites, in `WINDOWS-PARITY.md`.
 | | feat and power chain rows `50s` | the rect's height at `0x100570efc` | `RowSizeGroups` |
 | | message popup: caps `800s`, `450s`, icon `64s` | `0x100306877`, `0x10030687f`, `0x10030688b`, `0x1003068fd`, `0x1003065a1`, the icon rect at `0x100571bb0` | `PopupSizeGroups` |
 | `popup_fit.cpp` | the message popup fitted to its contents, centred (2026-09-30) | `FixMessageLabel`'s last call (`0x100306a88`), through the near page's third thunk | **none yet**: Windows keeps the height from `confirm.gui` |
+| `granted_popup.cpp` | the granted popup's rows: text inset `row/8`, hex grown `row/7`, pitch `row + row/11`, OK and panel fitted, centred (2026-09-30) | the fill's call to `AddControls` (`0x10028ea4f`) and the row's text-rect call in `CSWGuiInGameSkillEntry::SetExtent` (`0x10022f321`), through the near page's fourth and fifth thunks | **none yet** (`docs/windows-changes-from-macos.md`, item 10) |
 | `listbox_padding.cpp` | `PADDING` a gutter on the scrollbar's side | five reads zeroed in `OrganizeControls`, and stubs for its row block (`0x1004a8838`) and the single-row layout (`0x1004a937a`) | gold v11, v12 (`.klb`, `.kgs`) |
 | `area_map.cpp` | canvas and marker overlay | the map screen's two rect constants, `0x100571390`, `0x1005713a0` | `ResolutionPatch` map fields |
 | | marker positions | stubs for the three world-to-map calls in `CSWGuiMapHider::Draw` | the `.kui` wrappers |
@@ -234,7 +235,7 @@ Code that does not fit where it goes (the stubs) lives in the module; the game r
 a 14-byte absolute jump, or, where only a 5-byte call or a 32-bit displacement fits, through
 a page the module allocates within 2 GB of the game's code (at `0x101000000` or above, where
 KotorPatcher also places its wrappers). `testing/regression/Test-KmrpLayoutPatch.py` checks
-every site against the unmodified executable (49 sites at 76 resolutions), every value
+every site against the unmodified executable (51 sites at 76 resolutions), every value
 against the Windows formula, every rewritten instruction and stub by disassembly, that no
 site overlaps a widescreen-patch hook except the two declared, and that the module has a
 single load-time initialiser. *Found 2026-09-29:* a global `std::vector` of vanilla bytes was
@@ -565,6 +566,12 @@ flourish), which is now off.
 - in New Game, Custom Character, the Attributes, Skills and Feats tutorials came out fitted
   and centred, with their line counts unchanged (4, 7 and 5);
 - the unspent-points warning came out fitted, seen before the width step.
+
+**The granted popup's rows** (`granted_popup.cpp`), at 3024x1964, 2026-09-30, with the
+layout patch's test build on the live game, New Game, Custom, Feats, Recommended, OK
+(`work/runs/cg-granted`): four feats, rows 125 px apart with 14 px between frames (141
+before), each hex 111 px tall beside its 111-px text frame (97 before), the first letter
+14 px inside the frame (2 before), the popup 876 px tall (941 before) and centred.
 
 **Tested outside the game:** `Test-KmrpLayoutPatch.py`, `Test-AbilityIcons.py`,
 `Test-GuiBlendHelper.py`, `Test-ResolutionDerivation.py`, and `Test-MacInstaller.py`
