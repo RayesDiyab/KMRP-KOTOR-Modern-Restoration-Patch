@@ -32,6 +32,7 @@ edge, `PADDING` decides how far short of it text stops.
 from __future__ import annotations
 
 import argparse
+import struct
 from pathlib import Path
 
 from pykotor.resource.formats.gff import read_gff, write_gff
@@ -162,6 +163,75 @@ def centre_rows_in_frame(source: Path, dest: Path, screen_width: int, tag: str,
     target.set_int32("PADDING", padding)
     write_gff(gff, dest, ResourceType.GUI)
     return padding
+
+
+# The journal's quest list, spaced as the inventory is. A list box shares the
+# height its visible rows leave over between them (CSWGuiListBox::
+# OrganizeControls: 0x0041B140 on Windows, 0x1004A82B4 on the Mac):
+#     inner = height - 2 * BORDER.DIMENSION,  n = inner // row,
+#     gap   = (inner - n * row) // n
+# A quest row is the list's PROTOITEM height times the row scale s = max(1, H/720)
+# (the .kfs hook at 0x00417992; on the Mac CSWGuiButton::Initialize, in
+# macos/patches/kmrp-layout/resolution_sizes.cpp), rounded half to even.
+# Upstream's template is 78 at every size, twice vanilla's 39, so four rows fit
+# and each gap is 22% of a row: 47 px under 213-px rows at 3024x1964, 25 under
+# 117 at 1920x1080. The inventory's gaps are 8 to 10% of its rows (15 under 153
+# at 3024x1964), and vanilla's journal showed six rows 2 px apart at 640x480.
+# Reported from play at 3024x1964, 2026-09-30.
+JOURNAL_ROWS = 6
+# Of a row: the inventory's gap, as macos/patches/kmrp-layout/granted_popup.cpp
+# spaces the level-up popup's rows.
+ROW_GAP = 1 / 11
+
+
+def _f32(value: float) -> float:
+    return struct.unpack("<f", struct.pack("<f", value))[0]
+
+
+def row_height(template: int, height: int) -> int:
+    """A template row's height on screen at a screen `height`: the template times
+    the row scale, both single precision, rounded half to even, as the Mac module
+    and the Windows x87 code compute it (ResolutionPatch.ScaleForHeight)."""
+    scale = max(1.0, _f32(height / 720.0))
+    return round(_f32(_f32(template) * scale))
+
+
+def fit_rows_to_list(source: Path, dest: Path, screen_height: int, tag: str,
+                     rows: int) -> tuple[int, int, int]:
+    """Size `tag`'s row template so `rows` rows fill the list, each ROW_GAP of a
+    row from the next, and return (template, row on screen, gap on screen).
+
+    The largest template whose rows leave at least ROW_GAP of a row between them.
+    Only PROTOITEM's HEIGHT changes; its LEFT, TOP and WIDTH are left as upstream
+    ships them (Test-GeneratedGuiGeometry.py, check_list_prototypes).
+    """
+    gff = read_gff(source)
+    controls = gff.root.get_list("CONTROLS")
+    target = next((c for c in controls if c.acquire("TAG", "").upper() == tag.upper()), None)
+    if target is None:
+        raise ValueError(f"{source.name}: no {tag}")
+    inner = (target.get_struct("EXTENT").get_int32("HEIGHT")
+             - 2 * target.get_struct("BORDER").get_int32("DIMENSION"))
+    scale = max(1.0, _f32(screen_height / 720.0))
+    fits = lambda t: row_height(t, screen_height) * rows * (1 + ROW_GAP) <= inner
+    template = int(inner / (rows * (1 + ROW_GAP)) / scale)
+    while not fits(template):
+        template -= 1
+    while fits(template + 1):
+        template += 1
+    row = row_height(template, screen_height)
+    if inner // row != rows:
+        raise ValueError(f"{source.name} {tag}: {inner} px fits {inner // row} rows of {row}, "
+                         f"not {rows}")
+    proto = target.get_struct("PROTOITEM")
+    extent = proto.get_struct("EXTENT")
+    extent.set_int32("HEIGHT", template)
+    proto.set_struct("EXTENT", extent)
+    target.set_struct("PROTOITEM", proto)
+    gff.root.set_list("CONTROLS", controls)
+    write_gff(gff, dest, ResourceType.GUI)
+    return template, row, (inner - rows * row) // rows
+
 
 
 def main() -> int:

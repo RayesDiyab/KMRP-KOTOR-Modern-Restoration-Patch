@@ -892,6 +892,18 @@ before:
 
 ### Fixed
 
+- **The journal shows six quest rows, spaced as the inventory's** (2026-09-30, reported
+  from play at 3024x1964: the rows sat far apart). A list box shares the height its rows
+  leave over between them, and every set's `journal.gui` kept upstream's 78-unit row
+  template, twice vanilla's 39, so four rows fit and each gap was 22% of a row: 47 px under
+  213-px rows at 3024x1964, 25 under 117 at 1920x1080, where the inventory's are 8 to 10%
+  and vanilla's journal showed six rows. The resource build now sizes the template per
+  resolution from its own list (`tools/scale_listbox_padding.py`, `fit_rows_to_list`) so
+  six rows fill it, each an eleventh of a row from the next: at 3024x1964, 158-px rows
+  15 px apart (the inventory's: 153 and 15); across the 66 sets, gaps of 8 to 11% of a
+  row. Only the template's height changes. Shared build code: Windows gets it with its
+  next build (`docs/windows-changes-from-macos.md`, item 12); seen in play on the Mac at
+  3024x1964 only. `Test-GeneratedGuiGeometry.py` checks every set.
 - **macOS: the granted popup's rows look like the inventory's** (2026-09-30, reported
   from play: "You have been granted the following feat(s) this level."). The text touched
   its frame's left line, the hex beside it was shorter than the text frame, and the rows

@@ -176,6 +176,30 @@ def check_scriptselect_centred(path: Path, resolution: str, width: int) -> list[
     return []
 
 
+def check_journal_rows(path: Path, resolution: str, height: int) -> list[str]:
+    """The journal shows six quest rows, spaced as the inventory's.
+
+    The list box shares the height its rows leave between them, so with
+    upstream's 78-unit template four rows fit and each gap was 22% of a row
+    (47 px at 3024x1964). fit_rows_to_list sizes the template per resolution;
+    this recomputes the engine's layout from the packaged file: six rows, each
+    gap between a thirteenth and an eighth of a row (the inventory's are 8 to
+    10%; ROW_GAP is an eleventh).
+    """
+    from scale_listbox_padding import JOURNAL_ROWS, row_height
+    control = controls_by_tag(read_gff(path)).get("LB_ITEMS")
+    if control is None:
+        return [f"{resolution} journal: missing LB_ITEMS"]
+    inner = extent_values(control)[3] - 2 * control.get_struct("BORDER").get_int32("DIMENSION")
+    row = row_height(extent_values(control.get_struct("PROTOITEM"))[3], height)
+    rows = inner // row
+    gap = (inner - rows * row) // rows
+    if rows != JOURNAL_ROWS or not row / 13 <= gap <= row / 8:
+        return [f"{resolution} journal LB_ITEMS: {rows} rows of {row} px, {gap} px apart; "
+                f"expected {JOURNAL_ROWS}, about a tenth of a row apart"]
+    return []
+
+
 def check_party_switch_cue(path: Path, resolution: str) -> list[str]:
     """The R3 cue is 90% of a portrait, between the portraits or right of them.
 
@@ -428,7 +452,8 @@ def main() -> int:
             extract_dir = temp / resolution
             with zipfile.ZipFile(archive) as package:
                 names = set(package.namelist())
-                required = {"optfeedback.gui", "scriptselect.gui", "confirm.gui", active_hud,
+                required = {"optfeedback.gui", "scriptselect.gui", "confirm.gui", "journal.gui",
+                            active_hud,
                             "dialogfont10x10.txi", *R3_CUE_SCREENS}
                 missing = required - names
                 if missing:
@@ -446,6 +471,7 @@ def main() -> int:
                 extract_dir / "optfeedback.gui", resolution, height))
             errors.extend(check_scriptselect_centred(
                 extract_dir / "scriptselect.gui", resolution, width))
+            errors.extend(check_journal_rows(extract_dir / "journal.gui", resolution, height))
             for name in R3_CUE_SCREENS:
                 errors.extend(check_party_switch_cue(extract_dir / name, resolution))
             errors.extend(check_swap_cue(extract_dir / "abilities.gui", resolution))
@@ -461,7 +487,7 @@ def main() -> int:
         for error in errors:
             print(f"  {error}")
         return 1
-    print(f"PASS: Reported GUI repairs, the cues and active HUD geometry "
+    print(f"PASS: Reported GUI repairs, the journal's rows, the cues and active HUD geometry "
           f"in {len(archives)} archives")
     return 0
 

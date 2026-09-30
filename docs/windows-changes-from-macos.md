@@ -26,7 +26,7 @@ documents and tests only; item 5 was found while writing `3366c33`), `4d1fe29` (
 4), `9eee359` (item 10), `0734db6` (the Mac installer's window, which has no Windows
 counterpart to change: it ports the Windows patcher's), `f59663a` (these documents), `13e676c`
 and `d44ee0d` (the Mac disk image, its icon and the Mac's controller option, which Windows
-already has), and the commit adding item 11.
+already has), and the commits adding items 11 and 12.
 
 States: **to do** (Windows has nothing yet), **build only** (shared code already changed;
 Windows gets it with a build from the merged code and needs a check in play), **doc** (a
@@ -45,6 +45,7 @@ Windows document to correct).
 | 9 | The 17 Mac resolutions in the catalogue | **build only** |
 | 10 | The granted popup's rows: hex as tall as the text frame, text inset, rows spaced like the inventory's | **to do** |
 | 11 | The header's smoke fades out before the header's bottom edge | **to do** |
+| 12 | The journal's quest rows: six to the list, spaced as the inventory's | **build only** |
 
 ## 1. Message popups fitted to their contents
 
@@ -297,3 +298,35 @@ but nothing in the code prevents it.
 **Check.** Watch the Windows patcher's margins beside the card for a minute: no straight edge
 where the header ends.
 
+## 12. The journal's quest rows (shared build code)
+
+**What changed** (2026-09-30, `CHANGELOG.md`, *Fixed*; reported from play on the Mac at
+3024x1964). A list box shares the height its rows leave over between them
+(`CSWGuiListBox::OrganizeControls`, Windows `0x0041B140`): with `inner` the list's height
+less twice its border, `n = inner // row` rows show, each `(inner - n * row) // n` from the
+next. A quest row is `journal.gui`'s `LB_ITEMS` template height times the row scale (the
+`.kfs` hook at `0x00417992`). Every set kept upstream's template of 78, twice vanilla's 39,
+so four rows fit and each gap was 22% of a row, at every size from 720p up:
+
+| Set | Before: rows, row, gap | After: template, row, gap |
+| --- | --- | --- |
+| 1920x1080 | 4 x 117 px, 25 px | 57, 6 x 86 px, 8 px |
+| 3440x1440 | 4 x 156 px, 34 px | 58, 6 x 116 px, 10 px |
+| 3024x1964 | 4 x 213 px, 47 px | 58, 6 x 158 px, 15 px |
+| 3840x2160 | 4 x 234 px, 52 px | 58, 6 x 174 px, 17 px |
+
+The inventory's gaps are 8 to 10% of its rows (15 px under 153 at 3024x1964), and vanilla's
+journal showed six rows at 640x480. The resource build (`tools/prepare_universal_resources.py`)
+now calls `fit_rows_to_list` (`tools/scale_listbox_padding.py`) on each set's `journal.gui`:
+the largest template whose six rows leave an eleventh of a row between each, from that set's
+own list. Only `PROTOITEM`'s height changes. Across the 66 sets the gaps come out at 8 to 11%
+of a row.
+
+**What Windows needs.** Nothing written. The row arithmetic is the same on both (the Mac's
+row code is ported from Windows' `.kfs` hook: `macos/patches/kmrp-layout/resolution_sizes.cpp`),
+so the next Windows build's `journal.gui` files give the same rows. Seen in play on the Mac
+only.
+
+**Check.** On a Windows build made from these resources, at 3440x1440 and 1920x1080: the
+journal's Active and Completed quests show six rows, as evenly spaced as the inventory's,
+with each quest name centred in its frame.
