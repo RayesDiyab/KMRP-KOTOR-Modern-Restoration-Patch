@@ -119,17 +119,18 @@ def main() -> int:
                     failures.append(f"{height} {arch}: {len(differ)} files differ, e.g. {differ[:3]}")
             if any(n.lower() in {r.lower() for r in RESERVED} for n in reference):
                 failures.append(f"{height}: a reserved name was generated")
-            # The skill icons (isk_*, 32 px) grow with the Skills row: a canvas of round(32s),
-            # at least 32 and at most 64, with the picture round(0.62 * 42s) in it, centred and
-            # moved (round(-0.5s), round(-2s)) to the frame opening's centre, and nothing
-            # outside it -- at every height since 2026-09-29, when it moved inside the row's
-            # frame (checked against the rule itself, not only between the two ports).
+            # The skill icons (isk_*, 32 px) grow with the Skills row, scaled from 50 where
+            # vanilla's is 42: a canvas of round(32 * s * 50 / 42), at least 32 and at most 64
+            # (38 already at s = 1), with the picture round(0.62 * 50s) in it, centred and moved
+            # (round(-0.5s * 50 / 42), round(-2s * 50 / 42)) to the frame opening's centre, and
+            # nothing outside it (checked against the rule itself, not only between the two
+            # ports). The picture since 2026-09-29, the rows at 50s since 2026-09-30.
             s = max(1.0, struct.unpack("<f", struct.pack("<f", height / 720.0))[0])
-            want = min(max(round(32 * s), 32), 64)
-            picture = min(round(42 * s * 0.62), want)
+            want = min(max(round(32 * s * 50 / 42), 32), 64)
+            picture = min(round(50 * s * 0.62), want)
             inset = (want - picture) // 2
-            left = min(max(inset + round(-0.5 * s), 0), want - picture)
-            top = min(max(inset + round(-2.0 * s), 0), want - picture)
+            left = min(max(inset + round(-0.5 * s * 50 / 42), 0), want - picture)
+            top = min(max(inset + round(-2.0 * s * 50 / 42), 0), want - picture)
             bottom = want - top - picture          # TGA rows run bottom-up
             skills = {n: data for n, data in reference.items() if n.startswith("isk_")}
             sizes = {struct.unpack_from("<HH", data, 12) for data in skills.values()}

@@ -751,7 +751,10 @@ namespace Kmrp
         private static readonly int[][] RowSizeGroups =
         {
             new[] { 56, 56, 0x002B527F, 0x002B4FA9, 0x002B55E3 },   // inventory
-            new[] { 42, 42, 0x002AB8EF, 0x002ACB20 },               // abilities: skills tab
+            // The Skills tab's rows from 50, as the Feats and Powers tabs' chain rows
+            // below: one list shows all three tabs, and rows of two heights left one
+            // tab's gaps loose at every height (2026-09-30).
+            new[] { 42, 50, 0x002AB8EF, 0x002ACB20 },               // abilities: skills tab (1.19x)
             new[] { 56, 56, 0x002C265F, 0x002C2A23 },               // store / merchant
             // The Abilities screen's Powers and Feats tabs are NOT listbox rows and
             // share nothing with the three above -- each row is a feat/power

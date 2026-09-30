@@ -77,7 +77,9 @@ int32_t Scaled(int base, float scale) {
   List rows (Windows: RowSizeGroups; reverse-engineering/inventory-item-rows.md)
   ----------------------------------------------------------------------------------------------
   Three screens build their list rows in code, each with a square icon box and a row height of
-  the same size: inventory 56, store 56, skills 42. Windows scales icon and height together
+  the same size: inventory 56, store 56, skills 42 (vanilla's). The skills rows are scaled from
+  50, as the Feats and Powers tabs' chain rows below, since 2026-09-30: the Abilities screen
+  shows all three tabs in one list, and rows of two heights left one tab's gaps loose. Windows scales icon and height together
   (the icon alone grows into the row below). On the Mac each row's SetExtent keeps the icon
   size in a register (r13d, edx) but offsets the text by separate 8-bit copies of it, so those
   two instructions are pointed at the register: the text then starts after the icon whatever
@@ -96,7 +98,7 @@ int32_t Scaled(int base, float scale) {
                add eax, 42 at 0x10022f297, add esi, -42 at 0x10022f29d; height 42 at 0x10022f60b.
 */
 void AddListRows(std::vector<Group>& groups, float s) {
-    const int32_t row56 = Scaled(56, s), row42 = Scaled(42, s);
+    const int32_t row56 = Scaled(56, s), rowSkill = Scaled(50, s);
     groups.push_back({"inventory rows", {
         {0x1002be443, Int32(56), Int32(row56)},
         {0x1002be874, Int32(56), Int32(row56)},
@@ -109,8 +111,8 @@ void AddListRows(std::vector<Group>& groups, float s) {
         {0x1002bff71, Int32(56), Int32(row56)},
     }});
     groups.push_back({"skills rows", {
-        {0x10022f257, Int32(42), Int32(row42)},
-        {0x10022f60f, Int32(42), Int32(row42)},
+        {0x10022f257, Int32(42), Int32(rowSkill)},
+        {0x10022f60f, Int32(42), Int32(rowSkill)},
         {0x10022f297, Bytes({0x83, 0xc0, 0x2a}), Bytes({0x01, 0xd0, 0x90})},  // add eax, edx
         {0x10022f29d, Bytes({0x83, 0xc6, 0xd6}), Bytes({0x29, 0xd6, 0x90})},  // sub esi, edx
     }});
@@ -272,6 +274,50 @@ void AddMessagePopup(std::vector<Group>& groups, float s) {
     }});
 }
 
+/*
+  Options check boxes (Windows: not yet; docs/windows-changes-from-macos.md, item 13)
+  ----------------------------------------------------------------------------------------------
+  The Options screens' toggles (Feedback's list, Auto-pause, Gameplay, Graphics, Advanced
+  Graphics, Mouse, Advanced Sound) are CSWGuiOptionsCheckbox, one vtable (0x1005AC6A8), built by
+  the Options screens' code only. Its SetExtent (0x1002CECEE; Windows 0x006DE000) puts the
+  circle's four state images (+0xB0, +0x138, +0x250, +0x2D8) in a fixed 25x25 square at the
+  control's left, 2 below its middle, and the label (the text control at +0x1B8) 30 in, at
+  every size: at 3024x1964 a 25-px circle in 117- to 164-px toggles, where vanilla drew it in
+  43- and 60-px ones at 640x480 and 1280x720 (found by reading the code, 2026-09-30). The
+  function is replaced: a 14-byte absolute jump over its 17-byte prologue goes to
+  CheckboxExtent, which does the same with 25s, 30s and 2s (68, 82 and 5 at 3024x1964),
+  the text through the same call (0x1004A3D4C), and returns to the caller as the original did.
+*/
+int32_t g_checkbox_box = 25, g_checkbox_label = 30, g_checkbox_drop = 2;
+
+void CheckboxExtent(void* self, const int32_t* rect) {
+    char* box = static_cast<char*>(self);
+    const int32_t left = rect[0], top = rect[1], width = rect[2], height = rect[3];
+    const int32_t y = top + g_checkbox_drop + (height - g_checkbox_box) / 2;  // truncated, as sar
+    for (const size_t image : {0xb0, 0x138, 0x2d8, 0x250}) {
+        const int32_t square[4] = {left, y, g_checkbox_box, g_checkbox_box};
+        memcpy(box + image, square, sizeof square);
+    }
+    const int32_t text[4] = {left + g_checkbox_label, top, width - g_checkbox_label, height};
+    reinterpret_cast<void (*)(void*, const int32_t*)>(0x1004a3d4cUL)(box + 0x1b8, text);
+    memcpy(box + 0x8, rect, 16);   // the control's own extent
+}
+
+void AddCheckboxes(std::vector<Group>& groups, float s) {
+    g_checkbox_box = Scaled(25, s);
+    g_checkbox_label = Scaled(30, s);
+    g_checkbox_drop = Scaled(2, s);
+    std::vector<uint8_t> jump = {0xff, 0x25, 0x00, 0x00, 0x00, 0x00};  // jmp *0(%rip)
+    const uint64_t target = reinterpret_cast<uintptr_t>(&CheckboxExtent);
+    jump.resize(14);
+    memcpy(jump.data() + 6, &target, 8);
+    jump.resize(17, 0xcc);
+    groups.push_back({"options check boxes", {
+        {0x1002cecee, Bytes({0x55, 0x48, 0x89, 0xe5, 0x41, 0x56, 0x53, 0x48, 0x83, 0xec, 0x10,
+                             0x49, 0x89, 0xf6, 0x48, 0x89, 0xfb}), jump},
+    }});
+}
+
 }  // namespace
 
 // AddResolutionSizes also sets kmrp_row_scale, which the text-list row stub reads.
@@ -282,6 +328,7 @@ void AddResolutionSizes(std::vector<Group>& groups, int height) {
     AddStackLabel(groups, s);
     AddChainRows(groups, s);
     AddMessagePopup(groups, s);
+    AddCheckboxes(groups, s);
 }
 
 }  // namespace kmrp

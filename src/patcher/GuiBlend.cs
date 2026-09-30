@@ -27,18 +27,28 @@ namespace Kmrp
     /// build_controller_layout.py's build_gui arithmetic, every number from the table
     /// by name.
     ///
-    /// And the controller badges (table version 3, 2026-09-30): every texture the prompt
+    /// The lists scale_listbox_padding.py makes as tall as whole rows (fit_list_to_rows:
+    /// the Container, the granted popup, character creation's Feats and a few
+    /// full-screen lists at low resolutions) are fitted again on the blend, at the size's
+    /// own row heights (FitRows), before the Container is widened, as the build does.
+    ///
+    /// And the controller badges (2026-09-30): every texture the prompt
     /// manifest lists, drawn again for its blended button. A badge is a 512x64 texture
     /// the engine stretches over its whole button, drawn to come out round on that
     /// button, so the nearest set's, drawn for that set's buttons, came out stretched on
     /// buttons of another shape (1.86 times as wide as tall at 3440x1400). DrawBadge is
     /// build_controller_prompt_textures.py's build_prompt_tga with Pillow's arithmetic,
     /// so a set the blend resolves to itself comes out with the build's badges byte for
-    /// byte; the manifest is rewritten with the blended button sizes, which is what the
-    /// installer's re-centring for the player's dialog.tlk then reads. So is
+    /// byte; the manifest is rewritten with the blended button sizes (and the widening
+    /// and row fits), which is what the installer's re-centring for the player's
+    /// dialog.tlk then reads. So is
     /// lbl_mileftbot.tga, the HUD's button-row boxes, which build_menubg_texture.py
     /// draws from each set's mipc28x6.gui and which the nearest set's drew out of step
     /// with the blended buttons (DrawHud).
+    ///
+    /// Table version 4: the row fits and the badges both came as version 3 on
+    /// 2026-09-30, on the macos branch and on master, in two formats; the merge of the
+    /// two the same day carries both.
     ///
     /// Byte-identical to the helper means the same rounding at every step, so the
     /// expressions below keep the C's order of operations, Round is half to even as
@@ -80,6 +90,20 @@ namespace Kmrp
             internal char Side;
             internal double GlyphX, RowY;
             internal string Caption;
+        }
+
+        /// <summary>build_gui_blend_table.py's row-fit record: a list
+        /// scale_listbox_padding.py's fit_list_to_rows makes as tall as whole rows. Offsets
+        /// of the list's HEIGHT, its border's DIMENSION, its scrollbar's HEIGHT (0: none),
+        /// and in a popup the panel's TOP and HEIGHT and the TOPs of the controls below
+        /// the list.</summary>
+        private sealed class RowFit
+        {
+            internal string Name, Tag;
+            internal bool Popup;
+            internal double Loose;
+            internal uint Divisor, Height, Dimension, Bar, PanelTop, PanelHeight;
+            internal uint[] Bases, Below;
         }
 
         /// <summary>build_gui_blend_table.py's layout record: build_controller_layout.py's
@@ -151,6 +175,7 @@ namespace Kmrp
         private readonly List<Anchor> anchors = new List<Anchor>();
         private readonly List<Fit> fits = new List<Fit>();
         private readonly List<Layout> layouts = new List<Layout>();
+        private readonly List<RowFit> rowFits = new List<RowFit>();
         private readonly List<GuiFile> files = new List<GuiFile>();
 
         private GuiBlend(double[] aspects)
@@ -192,8 +217,8 @@ namespace Kmrp
                 using (GZipStream unzip = new GZipStream(new MemoryStream(table), CompressionMode.Decompress))
                     table = ReadAll(unzip);
             Reader r = new Reader(table);
-            if (r.Ascii(4) != "KGBL" || r.U32() != 3)
-                throw new InvalidDataException("Not a version 3 blend table.");
+            if (r.Ascii(4) != "KGBL" || r.U32() != 4)
+                throw new InvalidDataException("Not a version 4 blend table.");
             uint familyCount = r.U32();
             if (familyCount == 0 || familyCount > 16)
                 throw new InvalidDataException("The blend table has a bad family count.");
@@ -272,6 +297,35 @@ namespace Kmrp
                 if (controls != expected || rows != (uint)Constant(layout, "ROWS"))
                     throw new InvalidDataException(layout.Name + ": " + controls + " controls, the layout makes " + expected + ".");
                 blend.layouts.Add(layout);
+            }
+
+            uint rowFitCount = r.U32();
+            if (rowFitCount > 16)
+                throw new InvalidDataException("The blend table has a bad row-fit count.");
+            for (uint i = 0; i < rowFitCount; i++)
+            {
+                RowFit fit = new RowFit { Name = r.Text(256), Tag = r.Text(64) };
+                fit.Popup = r.U8() != 0;
+                fit.Loose = r.F64();
+                fit.Divisor = r.U32();
+                uint bases = r.U32();
+                if (fit.Divisor == 0 || bases == 0 || bases > 4)
+                    throw new InvalidDataException("The blend table has a bad row-fit record.");
+                fit.Bases = new uint[bases];
+                for (int k = 0; k < fit.Bases.Length; k++)
+                    fit.Bases[k] = r.U32();
+                fit.Height = r.U32();
+                fit.Dimension = r.U32();
+                fit.Bar = r.U32();
+                fit.PanelTop = r.U32();
+                fit.PanelHeight = r.U32();
+                uint below = r.U32();
+                if (below > 16)
+                    throw new InvalidDataException("The blend table has a bad row-fit record.");
+                fit.Below = new uint[below];
+                for (int k = 0; k < fit.Below.Length; k++)
+                    fit.Below[k] = r.U32();
+                blend.rowFits.Add(fit);
             }
 
             blend.textureWidth = (int)r.U32();
@@ -435,6 +489,7 @@ namespace Kmrp
             List<KeyValuePair<string, byte[]>> result = new List<KeyValuePair<string, byte[]>>();
             Dictionary<string, byte[]> byName = new Dictionary<string, byte[]>(StringComparer.Ordinal);
             int[] widened = new int[fits.Count];
+            int[] fitted = new int[rowFits.Count];
             foreach (GuiFile file in files)
             {
                 byte[] output = (byte[])file.Template.Clone();
@@ -448,6 +503,21 @@ namespace Kmrp
                         sum = sum + product;
                     }
                     SetI32(output, file.Offsets[s], (int)RoundHalfAway(sum));
+                }
+                // The row fits first, as the build makes them before widening the Container.
+                for (int i = 0; i < rowFits.Count; i++)
+                {
+                    if (rowFits[i].Name != file.Name)
+                        continue;
+                    RowFit rowFit = rowFits[i];
+                    bool bad = rowFit.Height + 4 > output.Length || rowFit.Dimension + 4 > output.Length ||
+                        rowFit.Bar + 4 > output.Length || rowFit.PanelTop + 4 > output.Length ||
+                        rowFit.PanelHeight + 4 > output.Length;
+                    foreach (uint offset in rowFit.Below)
+                        bad |= offset + 4 > output.Length;
+                    if (bad || (rowFit.Popup && (rowFit.PanelTop == 0 || rowFit.PanelHeight == 0)))
+                        throw new InvalidDataException(file.Name + ": the row fit is outside the file.");
+                    fitted[i] = FitRows(rowFit, output, height);
                 }
                 for (int i = 0; i < fits.Count; i++)
                 {
@@ -509,7 +579,7 @@ namespace Kmrp
                     DrawBadge(glyphs[prompt.Glyph], controlWidth, controlHeight, label, radiusHeight, prompt.Backing)));
             }
             result.Add(new KeyValuePair<string, byte[]>(ControllerPromptGenerator.ManifestName,
-                RewriteManifest(promptManifest, sizes, widened)));
+                RewriteManifest(promptManifest, sizes, widened, fitted)));
             foreach (Hud hud in huds)
             {
                 byte[] gui;
@@ -636,6 +706,59 @@ namespace Kmrp
         }
 
         // ------------------------------------------------------------ the two made files
+
+        /// <summary>scale_listbox_padding.py's row_height: a row of `baseValue` at a
+        /// screen `height`, the base times s = max(1, height / 720) in single precision,
+        /// rounded half to even, as the game's layout patch and ResolutionPatch size
+        /// them.</summary>
+        private static int RowHeight(uint baseValue, int height)
+        {
+            float s = (float)((double)height / 720.0);
+            if (s < 1.0f)
+                s = 1.0f;
+            float product = (float)((double)(float)baseValue * (double)s);
+            return (int)Math.Round((double)product);
+        }
+
+        /// <summary>fit_list_to_rows on the blended file: the list as tall as whole rows,
+        /// each row / Divisor from the next, every kind of row keeping the count that fits;
+        /// a popup's controls below the list move with its bottom and its panel changes
+        /// about its centre; a full-screen list only shrinks, and only when a kind's gap
+        /// is looser than Loose of its row. Returns the change in height, for the
+        /// manifest's "fitted" line.</summary>
+        private static int FitRows(RowFit fit, byte[] data, int height)
+        {
+            int inner = GetI32(data, fit.Height) - 2 * GetI32(data, fit.Dimension);
+            int wanted = 0;
+            bool loose = false;
+            foreach (uint baseValue in fit.Bases)
+            {
+                int row = RowHeight(baseValue, height);
+                if (row < 1 || inner < row)
+                    throw new InvalidDataException(fit.Name + " " + fit.Tag + ": no " +
+                        row.ToString(CultureInfo.InvariantCulture) + "-px row fits " +
+                        inner.ToString(CultureInfo.InvariantCulture) + " px.");
+                int rows = inner / row;
+                loose |= (double)((inner - rows * row) / rows) > row * fit.Loose;
+                int rowsHeight = rows * (row + row / (int)fit.Divisor);
+                if (rowsHeight > wanted)
+                    wanted = rowsHeight;
+            }
+            int change = wanted - inner;
+            if (change == 0 || (!fit.Popup && (!loose || change > 0)))
+                return 0;
+            AddI32(data, fit.Height, change);
+            if (fit.Bar != 0)
+                AddI32(data, fit.Bar, change);
+            if (fit.Popup)
+            {
+                foreach (uint offset in fit.Below)
+                    AddI32(data, offset, change);
+                AddI32(data, fit.PanelTop, -(int)Math.Floor(change / 2.0));   // Python's change // 2
+                AddI32(data, fit.PanelHeight, change);
+            }
+            return change;
+        }
 
         /// <summary>fit_container_to_caption on the blended file: widen until the button
         /// holds the caption and its badge at the designed gap, by an even number of
@@ -1076,10 +1199,10 @@ namespace Kmrp
             return tga;
         }
 
-        /// <summary>The set's manifest with each row's button size the blended one, and
-        /// each widened screen's widening this blend's; every other byte as it was, line
-        /// ends included.</summary>
-        private byte[] RewriteManifest(string manifest, int[][] sizes, int[] widened)
+        /// <summary>The set's manifest with each row's button size the blended one, each
+        /// widened screen's widening and each fitted list's change this blend's; every
+        /// other byte as it was, line ends included.</summary>
+        private byte[] RewriteManifest(string manifest, int[][] sizes, int[] widened, int[] fitted)
         {
             StringBuilder output = new StringBuilder(manifest.Length + 256);
             int rows = 0;
@@ -1126,6 +1249,34 @@ namespace Kmrp
                             .Append(widened[fit].ToString(CultureInfo.InvariantCulture))
                             .Append(line, Math.Min(numberEnd, line.Length), line.Length - Math.Min(numberEnd, line.Length));
                         continue;
+                    }
+                }
+                if (line.StartsWith("fitted ", StringComparison.Ordinal))
+                {
+                    // "fitted", the .gui, the list's tag, the change (it may be negative).
+                    int nameEnd = 7;
+                    while (nameEnd < line.Length && line[nameEnd] != ' ')
+                        nameEnd++;
+                    int tagEnd = nameEnd + 1;
+                    while (tagEnd < line.Length && line[tagEnd] != ' ')
+                        tagEnd++;
+                    if (tagEnd < line.Length)
+                    {
+                        int numberEnd = tagEnd + 1;
+                        if (numberEnd < line.Length && line[numberEnd] == '-')
+                            numberEnd++;
+                        while (numberEnd < line.Length && line[numberEnd] >= '0' && line[numberEnd] <= '9')
+                            numberEnd++;
+                        string gui = line.Substring(7, nameEnd - 7);
+                        string tag = line.Substring(nameEnd + 1, tagEnd - nameEnd - 1);
+                        int fit = rowFits.FindIndex(f => f.Name == gui && f.Tag == tag);
+                        if (fit >= 0)
+                        {
+                            output.Append("fitted ").Append(gui).Append(' ').Append(tag).Append(' ')
+                                .Append(fitted[fit].ToString(CultureInfo.InvariantCulture))
+                                .Append(line, numberEnd, line.Length - numberEnd);
+                            continue;
+                        }
                     }
                 }
                 output.Append(line);

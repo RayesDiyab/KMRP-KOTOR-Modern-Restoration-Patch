@@ -11,10 +11,10 @@
  * uncompressed square i_* or ip_* texture in ERF (the game's TexturePacks/swpc_tex_gui.erf),
  * resized to the slot's icon box, round(50s) - 4 with s = max(1, HEIGHT / 720), capped at
  * twice its size, as a 32-bit TGA in OUTDIR. The skill icons (isk_*) grow with their row, the
- * Skills tab's 42s: a canvas of round(size * s), capped the same way, with the picture inside
- * it round(42s * 0.62) on transparent pixels, moved (round(-0.5s), round(-2s)) from the
- * centre, so it sits inside the row's frame (lbl_hex_3) rather than on its border (the C#'s
- * SkillPictureOfBox says why). Icons already
+ * Skills tab's 50s (vanilla's 42): a canvas of round(size * s * 50 / 42), capped the same way,
+ * with the picture inside it round(50s * 0.62) on transparent pixels, moved (round(-0.5s *
+ * 50 / 42), round(-2s * 50 / 42)) from the centre, so it sits inside the row's frame
+ * (lbl_hex_3) rather than on its border (the C#'s SkillPictureOfBox says why). Icons already
  * right for the height are skipped, as are names listed in RESERVED (one file name per line:
  * files KMRP installs itself).
  *
@@ -42,13 +42,15 @@ enum {
     ERF_RESOURCE_SIZE = 8,
     RESOURCE_TYPE_TPC = 3007,
     FEAT_ROW_BASE = 50, /* the feat/power chain row group in RowSizeGroups */
+    SKILL_ROW_BASE = 50, /* the skills group in RowSizeGroups */
+    VANILLA_SKILL_ROW = 42, /* the row the 32 px skill icons were drawn for */
     ICON_INSET = 4,     /* the icon control is the row height minus this */
-    SKILL_ROW_BASE = 42, /* the skills group in RowSizeGroups */
 };
 
 /* AbilityIconGenerator.SkillPictureOfBox, SkillShiftX, SkillShiftY: the skill picture's share
  * of the row's icon box, and its move from the canvas's centre to the frame opening's, in
- * pixels per unit of scale (the C# says how they were measured). */
+ * pixels per unit of scale of the vanilla box, so times SKILL_ROW_BASE / VANILLA_SKILL_ROW
+ * (the C# says how they were measured). */
 static const double SKILL_PICTURE_OF_BOX = 0.62;
 static const double SKILL_SHIFT_X = -0.5;
 static const double SKILL_SHIFT_Y = -2.0;
@@ -76,7 +78,7 @@ static int target_size(double scale, int native) {
 
 /* AbilityIconGenerator.SkillTargetSize: grown with the Skills row, capped at 2x the source. */
 static int skill_target_size(double scale, int native) {
-    int grown = (int)nearbyint(native * scale);
+    int grown = (int)nearbyint(native * scale * SKILL_ROW_BASE / VANILLA_SKILL_ROW);
     if (grown <= native) return native;
     return grown < native * 2 ? grown : native * 2;
 }
@@ -232,8 +234,10 @@ int main(int argc, char **argv) {
              * opening's centre, as the C# does. Rows are bottom-up. */
             uint8_t *canvas = calloc((size_t)target * target, 4);
             int inset = (target - picture) / 2;
-            int left = clamp(inset + (int)nearbyint(SKILL_SHIFT_X * scale), 0, target - picture);
-            int top = clamp(inset + (int)nearbyint(SKILL_SHIFT_Y * scale), 0, target - picture);
+            int left = clamp(inset + (int)nearbyint(SKILL_SHIFT_X * scale * SKILL_ROW_BASE / VANILLA_SKILL_ROW),
+                             0, target - picture);
+            int top = clamp(inset + (int)nearbyint(SKILL_SHIFT_Y * scale * SKILL_ROW_BASE / VANILLA_SKILL_ROW),
+                            0, target - picture);
             int bottom = target - top - picture;
             for (int y = 0; y < picture; y++)
                 memcpy(canvas + ((size_t)(y + bottom) * target + left) * 4,

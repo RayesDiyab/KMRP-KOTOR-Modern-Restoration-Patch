@@ -8,12 +8,13 @@ fonts of the nearest set it installs. This:
 1. builds the table and the helper from the resources given;
 2. derives several resolutions with the helper and with an independent Python derivation
    over the same table, and requires them to match byte for byte. The Python applies the
-   Container's fit itself, makes the Controller Layout screen with the build's own
-   generator (build_controller_layout.build_gui) from the blended Gameplay panel, and draws
-   every controller badge with the build's own build_prompt_tga for its blended button
-   and the HUD's button-row boxes with build_menubg_texture's for the blended HUD (table
-   version 3, 2026-09-30), so this is also the check that the helper's copies of those
-   generators match them;
+   Container's fit itself, fits the lists made as tall as whole rows with the build's own
+   scale_listbox_padding.fit_list_to_rows, makes the Controller Layout screen with the
+   build's own generator (build_controller_layout.build_gui) from the blended Gameplay
+   panel, and draws every controller badge with the build's own build_prompt_tga for its
+   blended button and the HUD's button-row boxes with build_menubg_texture's for the
+   blended HUD (table version 4, 2026-09-30), so this is also the check that the helper's
+   copies of that rule and those generators match them;
 3. rebuilds every anchor of the table from the table, with its own fonts, and requires the
    build's set byte for byte: its menus, its 552 badges, its prompt manifest and its
    lbl_mileftbot.tga;
@@ -58,6 +59,7 @@ import prepare_universal_resources as pur  # noqa: E402
 import build_controller_prompt_textures as prompts  # noqa: E402
 import build_controller_layout as layout  # noqa: E402
 import build_menubg_texture as menubg  # noqa: E402
+import scale_listbox_padding as slp  # noqa: E402
 from build_gui_blend_table import HUD_SCREEN, LAYOUT_SCREEN  # noqa: E402
 
 sys.path.insert(0, str(ROOT / "testing" / "regression"))
@@ -79,7 +81,7 @@ def read_text(d: bytes, p: int) -> tuple[str, int]:
 
 def read_table(path: Path):
     d = path.read_bytes()
-    assert d[:4] == b"KGBL" and struct.unpack_from("<I", d, 4)[0] == 3
+    assert d[:4] == b"KGBL" and struct.unpack_from("<I", d, 4)[0] == 4
     p = 8
     nf = struct.unpack_from("<I", d, p)[0]; p += 4
     aspects = list(struct.unpack_from(f"<{nf}d", d, p)); p += 8 * nf
@@ -113,6 +115,15 @@ def read_table(path: Path):
             _, p = read_text(d, p)
         p += 8                                   # the root's WIDTH and HEIGHT offsets
         controls = struct.unpack_from("<I", d, p)[0]; p += 4 + 16 * controls
+    # Skipped: the Python side fits the lists with the build's own rule (ROW_LISTS).
+    nrowfits = struct.unpack_from("<I", d, p)[0]; p += 4
+    for _ in range(nrowfits):
+        _, p = read_text(d, p)
+        _, p = read_text(d, p)
+        p += 1 + 8 + 4
+        bases = struct.unpack_from("<I", d, p)[0]; p += 4 + 4 * bases
+        p += 20
+        below = struct.unpack_from("<I", d, p)[0]; p += 4 + 4 * below
     # The badges: read for their recipes; the Python side draws them with build_prompt_tga.
     p += 8 + 8 + 8 + 4 + 8 * 4
     p += 2 + struct.unpack_from("<H", d, p)[0]
@@ -226,9 +237,10 @@ def i32(data: bytes, offset: int) -> int:
     return struct.unpack_from("<i", data, offset)[0]
 
 
-def python_badges(badges, out: dict[str, bytes], manifest: bytes, widened: dict[str, int]) -> dict[str, bytes]:
+def python_badges(badges, out: dict[str, bytes], manifest: bytes, widened: dict[str, int],
+                  fitted: dict[tuple[str, str], int]) -> dict[str, bytes]:
     """Every badge drawn by the build's build_prompt_tga for its blended button, and the
-    manifest with those buttons' sizes and the blend's widening."""
+    manifest with those buttons' sizes and the blend's widening and row fits."""
     labels, made, sizes = {}, {}, {}
     for line in manifest.decode("utf-8").splitlines():
         parts = line.split()
@@ -249,17 +261,21 @@ def python_badges(badges, out: dict[str, bytes], manifest: bytes, widened: dict[
             lines[i] = " ".join(["prompt", parts[1], str(sizes[parts[1]][0]), str(sizes[parts[1]][1])] + parts[4:])
         elif parts[0] == "widened" and parts[1] in widened:
             lines[i] = " ".join(["widened", parts[1], str(widened[parts[1]])]) + ("\r" if line.endswith("\r") else "")
+        elif parts[0] == "fitted" and len(parts) >= 4 and (parts[1], parts[2]) in fitted:
+            lines[i] = (" ".join(["fitted", parts[1], parts[2], str(fitted[parts[1], parts[2]])])
+                        + ("\r" if line.endswith("\r") else ""))
     made[prompts.PROMPT_MANIFEST_NAME] = "\n".join(lines).encode("utf-8")
     return made
 
 
 def python_derive(table, width, height, set_dir: Path, scratch: Path) -> dict[str, bytes]:
-    """What the helper should write: the blend, the Container's fit, and the Controller
-    Layout screen made by the build's own generator from the blended Gameplay panel."""
+    """What the helper should write: the blend, the lists fitted to whole rows by the
+    build's own rule, the Container's fit, the Controller Layout screen made by the build's
+    own generator from the blended Gameplay panel, the badges and the HUD's boxes."""
     aspects, anchors, fits, layouts, files, badges, huds = table
     terms = terms_for(aspects, anchors, width, height)
     out = {}
-    widened = {}
+    widened, fitted = {}, {}
     for name, template, offsets, values in files:
         data = bytearray(template)
         for s, off in enumerate(offsets):
@@ -267,6 +283,13 @@ def python_derive(table, width, height, set_dir: Path, scratch: Path) -> dict[st
             for i, w in terms:
                 v += values[i][s] * w
             struct.pack_into("<i", data, off, int(math.copysign(math.floor(abs(v) + 0.5), v)))
+        for (screen, tag), (kind, bases) in slp.ROW_LISTS.items():
+            if screen == name:
+                path = scratch / name
+                path.write_bytes(bytes(data))
+                fitted[screen, tag] = slp.fit_list_to_rows(path, path, height, tag, bases, kind == "popup")
+                if fitted[screen, tag]:
+                    data = bytearray(path.read_bytes())
         if name in fits:
             widened[name] = apply_fit(fits[name], data, caption_width(
                 (set_dir / prompts.PROMPT_MANIFEST_NAME).read_bytes(), fits[name]["row"]))
@@ -278,7 +301,8 @@ def python_derive(table, width, height, set_dir: Path, scratch: Path) -> dict[st
         layout.build_gui(source, made, extent.get_int32("WIDTH"), extent.get_int32("HEIGHT"),
                          set_dir / f"{font}.txi")
         out[name] = made.read_bytes()
-    out.update(python_badges(badges, out, (set_dir / prompts.PROMPT_MANIFEST_NAME).read_bytes(), widened))
+    out.update(python_badges(badges, out, (set_dir / prompts.PROMPT_MANIFEST_NAME).read_bytes(), widened,
+                             fitted))
     for gui, texture in huds:
         assert gui == HUD_SCREEN, gui
         source, made = scratch / gui, scratch / texture

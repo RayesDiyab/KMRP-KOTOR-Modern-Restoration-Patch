@@ -12,8 +12,8 @@
  * made; KMRP's layout logic stays in the build. Every step mirrors the Python, so the output
  * is byte-identical to it (testing/regression/Test-GuiBlendHelper.py checks that).
  *
- * Two exceptions, since table version 2 (2026-09-30), both done with the fonts of the set
- * the installer takes them from, SETDIR (its files extracted there):
+ * Three exceptions. Two since table version 2 (2026-09-30), both done with the fonts of the
+ * set the installer takes them from, SETDIR (its files extracted there):
  *   - the Container is widened, in some sets and not others, until "Switch To Give Item"
  *     and its badge fit. The table holds it unwidened, with the rule's fields and constants,
  *     and this applies the rule to the blend as prepare_universal_resources.py's
@@ -23,8 +23,12 @@
  *     (the float results must round the same), with every number from the table by name,
  *     the panel size from the blend and the caption font's TXI from SETDIR. The regression
  *     compares the result with build_gui's own, byte for byte, at every size it derives.
+ * And the lists scale_listbox_padding.py makes as tall as whole rows (the Container, the
+ * granted popup, the character-generation Feats list and a few full-screen lists at low
+ * resolutions): the table holds them before the fit, and this fits the blend with the same
+ * arithmetic (fit_rows), from the row sizes at HEIGHT.
  *
- * And since table version 3 (2026-09-30) the controller badges: every texture the prompt
+ * And the controller badges: every texture the prompt
  * manifest lists, drawn again for its blended button. A badge is a 512x64 texture the engine
  * stretches over its whole button, drawn to come out round on that button, so the nearest
  * set's, drawn for that set's buttons, came out stretched on buttons of another shape (1.86
@@ -33,9 +37,12 @@
  * 22-bit fixed point, the masked paste, alpha_composite -- from the artwork the table carries,
  * with the label widths of SETDIR's manifest, so a set the blend resolves to itself comes out
  * with the build's badges byte for byte. It also writes that manifest with the blended button
- * sizes and the Container's widening, and lbl_mileftbot.tga, the HUD's button-row boxes, which
- * build_menubg_texture.py draws from each set's mipc28x6.gui and which the nearest set's drew
- * out of step with the blended buttons, from the blended HUD.
+ * sizes, the Container's widening and the row fits, and lbl_mileftbot.tga, the HUD's
+ * button-row boxes, which build_menubg_texture.py draws from each set's mipc28x6.gui and which
+ * the nearest set's drew out of step with the blended buttons, from the blended HUD.
+ *
+ * The row fits and the badges both came as table version 3 on 2026-09-30, on two branches, in
+ * two formats; the merge of the two the same day is version 4, which carries both.
  *
  * Exit status: 0 written, 1 usage or I/O error, 2 resolution outside the anchors' range.
  */
@@ -74,9 +81,17 @@ typedef struct {
     Row row[32];
     uint32_t root_width, root_height, controls, extent[96][4];
 } Layout;
+/* build_gui_blend_table.py's row-fit record (table version 4): a list that
+ * scale_listbox_padding.py's fit_list_to_rows makes as tall as whole rows. */
+typedef struct {
+    char name[256], tag[64];
+    uint8_t popup;
+    double loose;
+    uint32_t divisor, bases, base[4], height, dimension, bar, panel_top, panel_height, below, below_top[16];
+} RowFit;
 /* A caption font as parse_font_metrics reads its TXI, and build_gui's line height. */
 typedef struct { double advances[256]; int count; double spacing, line_h; } Font;
-/* The badges (table version 3): build_prompt_tga's constants, the glyph artwork as
+/* The badges (table version 4): build_prompt_tga's constants, the glyph artwork as
  * _load_glyph_art loads it, and per prompt manifest row where its button is, its glyph, its
  * backing and the controls whose least height sizes it. */
 typedef struct { uint32_t width, height; uint8_t *rgba; } Glyph;
@@ -378,6 +393,50 @@ static uint8_t *draw_badge(const Badges *B, const Glyph *art, int cw, int ch, do
     return tga;
 }
 
+/* scale_listbox_padding.py's row_height: a row of `base` at a screen `height`, the base
+ * times s = max(1, height / 720) in single precision, rounded half to even, as the game's
+ * layout patch and the Windows installer size them. */
+static int32_t row_height(uint32_t base, uint32_t height) {
+    float s = (float)((double)height / 720.0);
+    if (s < 1.0f) s = 1.0f;
+    float product = (float)((double)(float)base * (double)s);
+    return (int32_t)nearbyint((double)product);
+}
+
+/* fit_list_to_rows on the blended file: the list as tall as whole rows, each row // divisor
+ * from the next, every kind of row keeping the count that fits; a popup's controls below
+ * the list move with its bottom and its panel changes about its centre; a full-screen list
+ * only shrinks, and only when a kind's gap is looser than `loose` of its row. 0 on success,
+ * with the change in height in *changed, for the manifest's "fitted" line. */
+static int fit_rows(const RowFit *fit, uint8_t *data, uint32_t height, int32_t *changed) {
+    *changed = 0;
+    int32_t inner = get_i32(data, fit->height) - 2 * get_i32(data, fit->dimension);
+    int32_t wanted = 0;
+    int loose = 0;
+    for (uint32_t i = 0; i < fit->bases; i++) {
+        int32_t row = row_height(fit->base[i], height);
+        if (row < 1 || inner < row) {
+            fprintf(stderr, "kmrp-guiblend: %s %s: no %d-px row fits %d px\n", fit->name, fit->tag, row, inner);
+            return 1;
+        }
+        int32_t rows = inner / row;
+        loose |= (double)((inner - rows * row) / rows) > row * fit->loose;
+        int32_t rows_height = rows * (row + row / (int32_t)fit->divisor);
+        if (rows_height > wanted) wanted = rows_height;
+    }
+    int32_t change = wanted - inner;
+    if (change == 0 || (!fit->popup && (!loose || change > 0))) return 0;
+    *changed = change;
+    add_i32(data, fit->height, change);
+    if (fit->bar) add_i32(data, fit->bar, change);
+    if (fit->popup) {
+        for (uint32_t i = 0; i < fit->below; i++) add_i32(data, fit->below_top[i], change);
+        add_i32(data, fit->panel_top, -(int32_t)floor(change / 2.0));   /* Python's change // 2 */
+        add_i32(data, fit->panel_height, change);
+    }
+    return 0;
+}
+
 /* parse_font_metrics (build_controller_prompt_textures.py): glyph advances
  * (lowerright.u - upperleft.u) * texturewidth * 100, spacingR * 100; and build_gui's line
  * height, fontheight * 100 from the first line matching "^fontheight (\S+)". */
@@ -648,10 +707,13 @@ static void append(uint8_t **buffer, size_t *size, size_t *room, const void *dat
     *size += n;
 }
 
-/* SETDIR's manifest with each row's button size the blended one, and each widened screen's
- * widening this blend's; every other byte as it was, line ends included. */
+/* SETDIR's manifest with each row's button size the blended one, each widened screen's
+ * widening and each fitted list's change this blend's; every other byte as it was, line ends
+ * included. */
 static uint8_t *rewrite_manifest(const uint8_t *text, size_t size, const Badges *B, const int *sizes,
-                                 const Fit *fits, uint32_t fit_count, const int32_t *widened, size_t *out_size) {
+                                 const Fit *fits, uint32_t fit_count, const int32_t *widened,
+                                 const RowFit *row_fits, uint32_t row_fit_count, const int32_t *fitted,
+                                 size_t *out_size) {
     uint8_t *out = NULL;
     size_t used = 0, room = 0;
     uint32_t rows = 0;
@@ -685,6 +747,26 @@ static uint8_t *rewrite_manifest(const uint8_t *text, size_t size, const Badges 
             while (i < fit_count && (strlen(fits[i].name) != g - 8 || memcmp(fits[i].name, line + 8, g - 8) != 0)) i++;
             if (i < fit_count && g < n) {
                 int m = snprintf(head, sizeof head, "widened %s %d", fits[i].name, widened[i]);
+                append(&out, &used, &room, head, (size_t)m);
+                append(&out, &used, &room, line + e, n - e);
+                continue;
+            }
+        }
+        if (n > 7 && memcmp(line, "fitted ", 7) == 0) {
+            /* "fitted", the .gui, the list's tag, the change (it may be negative). */
+            size_t g = 7, t, e;
+            while (g < n && line[g] != ' ') g++;
+            for (t = g + 1; t < n && line[t] != ' '; t++) {}
+            e = t + 1;
+            if (e < n && line[e] == '-') e++;
+            while (e < n && line[e] >= '0' && line[e] <= '9') e++;
+            uint32_t i = 0;
+            while (i < row_fit_count &&
+                   (strlen(row_fits[i].name) != g - 7 || memcmp(row_fits[i].name, line + 7, g - 7) != 0 ||
+                    t >= n || strlen(row_fits[i].tag) != t - g - 1 || memcmp(row_fits[i].tag, line + g + 1, t - g - 1) != 0))
+                i++;
+            if (i < row_fit_count) {
+                int m = snprintf(head, sizeof head, "fitted %s %s %d", row_fits[i].name, row_fits[i].tag, fitted[i]);
                 append(&out, &used, &room, head, (size_t)m);
                 append(&out, &used, &room, line + e, n - e);
                 continue;
@@ -757,8 +839,8 @@ int main(int argc, char **argv) {
     fclose(f);
 
     char magic[4];
-    if (!take(magic, 4) || memcmp(magic, "KGBL", 4) != 0 || take_u32() != 3) {
-        fprintf(stderr, "kmrp-guiblend: not a version 3 blend table\n");
+    if (!take(magic, 4) || memcmp(magic, "KGBL", 4) != 0 || take_u32() != 4) {
+        fprintf(stderr, "kmrp-guiblend: not a version 4 blend table\n");
         return 1;
     }
     uint32_t family_count = take_u32();
@@ -832,6 +914,29 @@ int main(int argc, char **argv) {
             fprintf(stderr, "kmrp-guiblend: %s: %u controls, the layout makes %u\n", l->name, l->controls, expected);
             return 1;
         }
+    }
+    uint32_t row_fit_count = take_u32();
+    if (row_fit_count > 16) { fprintf(stderr, "kmrp-guiblend: bad row-fit count\n"); return 1; }
+    static RowFit row_fits[16];
+    for (uint32_t i = 0; i < row_fit_count; i++) {
+        RowFit *r = &row_fits[i];
+        if (!take_text(r->name, sizeof r->name) || !take_text(r->tag, sizeof r->tag) ||
+            !take(&r->popup, 1) || !take(&r->loose, 8)) {
+            fprintf(stderr, "kmrp-guiblend: bad row-fit record\n");
+            return 1;
+        }
+        r->divisor = take_u32();
+        r->bases = take_u32();
+        if (r->divisor == 0 || r->bases == 0 || r->bases > 4) { fprintf(stderr, "kmrp-guiblend: bad row-fit record\n"); return 1; }
+        for (uint32_t k = 0; k < r->bases; k++) r->base[k] = take_u32();
+        r->height = take_u32();
+        r->dimension = take_u32();
+        r->bar = take_u32();
+        r->panel_top = take_u32();
+        r->panel_height = take_u32();
+        r->below = take_u32();
+        if (r->below > 16) { fprintf(stderr, "kmrp-guiblend: bad row-fit record\n"); return 1; }
+        for (uint32_t k = 0; k < r->below; k++) r->below_top[k] = take_u32();
     }
     static Badges badges;
     badges.texture_w = take_u32();
@@ -974,6 +1079,7 @@ int main(int argc, char **argv) {
     uint32_t file_count = take_u32();
     Output *outputs = calloc(file_count ? file_count : 1, sizeof(Output));
     int32_t widened[4] = {0, 0, 0, 0};
+    int32_t fitted[16] = {0};
     for (uint32_t fi = 0; fi < file_count; fi++) {
         uint16_t name_len = 0;
         take(&name_len, 2);
@@ -1005,6 +1111,19 @@ int main(int argc, char **argv) {
             int32_t blended = (int32_t)round_half_away(sum);
             memcpy(out + offsets[s], &blended, 4);
         }
+        /* The row fits first, as the build makes them before widening the Container. */
+        for (uint32_t i = 0; i < row_fit_count; i++) {
+            const RowFit *r = &row_fits[i];
+            if (strcmp(r->name, name) != 0) continue;
+            int bad = r->height + 4 > size || r->dimension + 4 > size || r->bar + 4 > size ||
+                      r->panel_top + 4 > size || r->panel_height + 4 > size;
+            for (uint32_t k = 0; k < r->below; k++) bad |= r->below_top[k] + 4 > size;
+            if (bad || (r->popup && (!r->panel_top || !r->panel_height))) {
+                fprintf(stderr, "kmrp-guiblend: %s: row fit outside the file\n", name);
+                return 1;
+            }
+            if (fit_rows(r, out, height, &fitted[i])) return 1;
+        }
         for (uint32_t i = 0; i < fit_count; i++) {
             if (strcmp(fits[i].name, name) != 0) continue;
             int bad = fits[i].left + 4 > size || fits[i].width + 4 > size ||
@@ -1028,7 +1147,7 @@ int main(int argc, char **argv) {
     }
 
     /* The badges, each for its blended button, with the label width SETDIR's manifest
-     * gives it, and that manifest with the blended button sizes and widening. */
+     * gives it, and that manifest with the blended button sizes, widening and row fits. */
     snprintf(path, sizeof path, "%s/kmrp_prompts.txt", argv[5]);
     size_t manifest_size = 0;
     uint8_t *manifest = read_file(path, &manifest_size);
@@ -1063,7 +1182,7 @@ int main(int argc, char **argv) {
     }
     size_t rewritten_size = 0;
     uint8_t *rewritten = rewrite_manifest(manifest, manifest_size, &badges, sizes, fits, fit_count, widened,
-                                          &rewritten_size);
+                                          row_fits, row_fit_count, fitted, &rewritten_size);
     if (!rewritten) return 1;
     snprintf(path, sizeof path, "%s/kmrp_prompts.txt", outdir);
     if (!write_file(path, rewritten, rewritten_size)) return 1;

@@ -192,11 +192,13 @@ def main() -> int:
             icons = [p for p in override.iterdir() if p.name.startswith(("i_", "ip_")) and p.name not in expected]
             if len(icons) < 200:
                 failures.append(f"{size}: only {len(icons)} enlarged ability icons")
-            # The eight skill icons, 32 px in the pack, on a canvas of round(32s), at most 64
-            # (the picture inside is smaller; Test-AbilityIcons.py checks it); all eight
-            # must be there.
+            # The eight skill icons, 32 px in the pack, on a canvas grown with their row (scaled
+            # from 50 where vanilla's is 42): round(32 * s * 50 / 42), at most 64, s as the
+            # generator computes it (single precision). The picture inside is smaller;
+            # Test-AbilityIcons.py checks it. All eight must be there.
             height = int(size.split("x")[1])
-            want = min(round(32 * height / 720), 64)
+            s = max(1.0, struct.unpack("<f", struct.pack("<f", height / 720.0))[0])
+            want = min(round(32 * s * 50 / 42), 64)
             skills = {p.name: struct.unpack_from("<HH", p.read_bytes(), 12)
                       for p in override.iterdir() if p.name.startswith("isk_")}
             if len(skills) != 8 or set(skills.values()) != {(want, want)}:

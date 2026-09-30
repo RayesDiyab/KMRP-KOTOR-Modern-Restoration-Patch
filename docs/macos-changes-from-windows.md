@@ -18,7 +18,10 @@ macos needs should be documented in another file as well".
 Windows work after it on the same day: any resolution on Windows, the game version named in
 the patcher's second step, GOG's executable, and the badge fix below. Everything was built and
 tested on Windows only (LLVM clang 18.1.8 for the helper, as one x64 program through
-`testing/regression/native_helpers.py`). No Mac build had been made from it.
+`testing/regression/native_helpers.py`). No Mac build had been made from it. Items 9 and 10
+come from merging the macos branch again the same evening (`e28a131`, `dc11efc`, `d672b8d`:
+the journal's rows, the Options check boxes, lists as tall as whole rows and skill rows at
+`50s`), where both branches had changed the same code.
 
 States: **build and check** (shared code already changed; the Mac gets it with a build from
 `master` and needs the checks named), **to do** (the Mac has nothing yet), **n/a** (with the
@@ -34,6 +37,8 @@ reason).
 | 6 | KOTOR Patch Manager recognises KMRP's install by itself, and KMRP installs for KPM when KPM manages the game | **to do** (the maintainer's next step) |
 | 7 | GOG's executable | **n/a**: the Mac build is Aspyr's Steam build only |
 | 8 | Step 1 finds Steam's KOTOR by itself | **n/a**: the Mac did it first (`find_game`); Windows follows it since 2026-09-30 |
+| 9 | `gui-blend.bin` version 4: the row fits and the badges in one table; the helper's manifest carries this blend's row fits | **build and check** |
+| 10 | The skill picture inside its frame grows with the `50s` row | **build and check** |
 
 ## 1. Badges drawn for the blended buttons
 
@@ -55,7 +60,8 @@ badge on each size, as drawn width over drawn height (1.0 is round):
 
 The maintainer confirmed it needs fixing on both platforms (2026-09-30).
 
-**What changed** (shared code, written on Windows). `gui-blend.bin` is version 3: after the
+**What changed** (shared code, written on Windows). `gui-blend.bin` was version 3 on `master`
+(version 4 since the macos branch's row fits were merged in the same day; item 9): after the
 layout records it carries `build_prompt_tga`'s constants, the 16 glyph artworks the badges use
 (A, B, X and Y in the four families, as `_load_glyph_art` loads them, RGBA) and, for each of
 the 552 rows of the prompt manifest, where its button's extent sits in its `.gui`, its glyph,
@@ -221,3 +227,31 @@ Browse. Since 2026-09-30 it also looks where Steam installed KOTOR -- Steam's re
 32370, then every library in `steamapps\libraryfolders.vdf`, at `steamapps\common\swkotor`,
 as `kmrp-mac.sh`'s `find_game` looks -- and then at GOG's registry entry (`GameFolders` in
 `src/patcher/KmrpPatcher.cs`). Nothing for the Mac to do.
+
+## 9. One blend table for both branches' additions
+
+Both branches made `gui-blend.bin` version 3 on 2026-09-30, in two formats: `master` added the
+badges and the HUD's boxes after the layout records (items 1 and 2), the macos branch the row
+fits there (`fit_list_to_rows`, `docs/windows-changes-from-macos.md`, item 14). The merge the
+same evening makes it version 4 and carries both, in this order: the fits, the layouts, the
+row fits, the badges, the HUD, the files (`tools/build_gui_blend_table.py`'s docstring). The
+helper refuses both version 3 tables. It applies the row fits before the Container's widening,
+as the build does, and since the merge it also writes each `fitted` line of the manifest with
+this blend's change, as it writes the `widened` line, so a set the blend resolves to itself
+still comes out byte for byte. `src/patcher/GuiBlend.cs` does the same (`FitRows`).
+**Check** on the Mac: `Test-GuiBlendHelper.py` (both slices; the Windows-only check 6 skips)
+and `Test-MacInstaller.py`, with resources built from `master`.
+
+## 10. The skill picture and the `50s` row
+
+`master` put the skill picture inside its frame on 2026-09-29: a canvas of `round(32s)` with
+the picture `round(0.62 × 42s)` in it, moved `(round(−0.5s), round(−2s))`, measured in play at
+3440x1440 with the box at 84. The macos branch moved the skill rows to `50s` and the canvas to
+`round(32s x 50 / 42)` the next day, without the picture. Merged, the picture is `round(0.62 ×
+50s)` and its move grows by `50 / 42` too, since the frame (`lbl_hex_3`, 64x64, outline x
+7..55, y 6..59) is stretched over the box: `AbilityIconGenerator.cs` and
+`macos/tools/kmrp-abilityicons.c` alike, with `Test-AbilityIcons.py` and `Test-MacInstaller.py`
+checking the rule. At 1512x982 that is a 52 px canvas with a 42 px picture at (4, 2); at
+3024x1964 the 64 px cap, filled. **Check** on the Mac: `Test-AbilityIcons.py` (both slices),
+then the Skills tab at 1512x982 and 3024x1964, each picture inside its hex. Not yet seen in
+play on either platform at the new sizes.

@@ -35,8 +35,9 @@ from build_scaled_fonts import export_font_txis, export_fonts, scale_txi
 from fix_hud_menubg import fix_menubg_file
 from scale_hud_minimap import patch_gui
 from transfer_gold_gui_geometry import transfer_geometry
-from scale_listbox_padding import (LIST_GUTTER_AT_UNIT_SCALE, SCRIPTSELECT_FRAME,
-                                   centre_rows_in_frame, scale_listbox_padding)
+from scale_listbox_padding import (JOURNAL_ROWS, LIST_GUTTER_AT_UNIT_SCALE, ROW_LISTS,
+                                   SCRIPTSELECT_FRAME, centre_rows_in_frame, fit_list_to_rows,
+                                   fit_rows_to_list, scale_listbox_padding)
 from scale_message_popup import apply_tuned as apply_popup_layout
 from fix_feedback_list_prototypes import fix_feedback_prototypes, fix_scriptselect_prototypes
 from scale_row_icon_frames import FRAME_RESREFS
@@ -1475,6 +1476,7 @@ def main() -> int:
                 # scrollbar. Confirmed in game -- see tools/scale_listbox_padding.py.
                 gutter_dir = temp_dir / "gutter"
                 gutter_dir.mkdir(exist_ok=True)
+                fitted: dict[tuple[str, str], int] = {}
                 for index, path in enumerate(packaged_files):
                     if path.suffix.lower() != ".gui":
                         continue
@@ -1519,6 +1521,19 @@ def main() -> int:
                     if path.name.lower() == "scriptselect.gui":
                         centre_rows_in_frame(gutter_file, gutter_file, width,
                                              "LST_AIState", SCRIPTSELECT_FRAME)
+                    # The journal's quest rows, six to the list and spaced as the
+                    # inventory's, from this resolution's own list height -- also
+                    # computed, because the gap is whatever the rows leave over.
+                    if path.name.lower() == "journal.gui":
+                        fit_rows_to_list(gutter_file, gutter_file, height,
+                                         "LB_ITEMS", JOURNAL_ROWS)
+                    # Lists whose rows are sized in code: the list is made as tall
+                    # as whole rows, spaced as the inventory's (ROW_LISTS). Before
+                    # the Container is widened, which changes widths only.
+                    for (screen, tag), (kind, bases) in ROW_LISTS.items():
+                        if path.name.lower() == screen:
+                            fitted[screen, tag] = fit_list_to_rows(
+                                gutter_file, gutter_file, height, tag, bases, popup=kind == "popup")
                     packaged_files[index] = gutter_file
 
                 # The R3 party-switch cue, on the four screens that switch.
@@ -1783,9 +1798,11 @@ def main() -> int:
                 # PC renderer stretches BORDER.FILL to each button, so these are
                 # generated from this resolution's final button extents. They are
                 # inert unless the runtime selects them after gamepad input.
+                if len(fitted) != len(ROW_LISTS):
+                    raise ValueError(f"{resolution}: fitted {len(fitted)} of the {len(ROW_LISTS)} row lists")
                 packaged_files.extend(build_prompt_textures(
                     packaged_files, temp_dir / "controller-prompts",
-                    widened={CONTAINER_SCREEN: container_widened}))
+                    widened={CONTAINER_SCREEN: container_widened}, fitted=fitted))
 
 
                 if transferred:

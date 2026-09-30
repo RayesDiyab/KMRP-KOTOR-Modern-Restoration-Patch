@@ -1220,11 +1220,14 @@ def measure_label(label: str, advances, spacing_px: float) -> float:
 
 
 def build_prompt_textures(gui_files: list[Path], output_dir: Path,
-                          widened: dict[str, int] | None = None) -> list[Path]:
+                          widened: dict[str, int] | None = None,
+                          fitted: dict[tuple[str, str], int] | None = None) -> list[Path]:
     """`widened`: pixels a screen was widened by to fit a caption and its badge
     (prepare_universal_resources.py), recorded in the manifest so the Mac's blend
     table can take the widening back out and its installer put it in again for a
-    resolution with no set (tools/build_gui_blend_table.py)."""
+    resolution with no set (tools/build_gui_blend_table.py). `fitted`: the same for
+    the lists made as tall as whole rows, by (screen, list), in pixels of height
+    (scale_listbox_padding.py, fit_list_to_rows)."""
     by_name = {path.name.lower(): path for path in gui_files}
     output_dir.mkdir(parents=True, exist_ok=True)
     # The button font's metrics for THIS resolution, so the badge can be placed
@@ -1392,6 +1395,8 @@ def build_prompt_textures(gui_files: list[Path], output_dir: Path,
         # Ignored by the Windows installer, which skips a line it does not know.
         for gui, pixels in sorted((widened or {}).items()):
             lines.append(f"widened {gui} {pixels}")
+        for (gui, tag), pixels in sorted((fitted or {}).items()):
+            lines.append(f"fitted {gui} {tag} {pixels}")
         for resref, width, height, baked, variants in manifest:
             encoded = ";".join("+".join(str(ref) for ref in variant)
                                for variant in variants) or "-"

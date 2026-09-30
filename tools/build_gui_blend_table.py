@@ -36,8 +36,8 @@ it installs:
     62 px. The table carries that generator's constants by name, its rows, and where each
     control's extent sits, and the helper does build_gui's arithmetic, step for step.
 
-Version 3 (2026-09-30) makes the controller badges for the size as well. Each badge is a
-512x64 texture the engine stretches over its whole button, drawn so that it comes out round
+Version 3 on master (2026-09-30) made the controller badges for the size as well. Each badge
+is a 512x64 texture the engine stretches over its whole button, drawn so that it comes out round
 on that button (build_controller_prompt_textures.py, build_prompt_tga). Taken from the
 nearest set, a badge was drawn for that set's button, and a blended button of another shape
 stretched it: 1.86 times as wide as tall at 3440x1400, whose nearest set by height is
@@ -53,8 +53,20 @@ set from that set's mipc28x6.gui (build_menubg_texture.py) and which the nearest
 draw out of step with the blended buttons: the table carries where LBL_MENUBG and the eight
 buttons sit, and the installers draw it from the blended HUD.
 
+Version 3 on the macos branch (2026-09-30) added a third made file: the lists made as tall
+as whole rows (scale_listbox_padding.py, fit_list_to_rows: the Container, the granted popup,
+the character-generation Feats list and a few full-screen lists at low resolutions). How much
+each list changes jumps with the row count, so a blend of fitted sets missed the Mac sets by
+up to 41 px (Feats) and put 76 of the Container's 493 fields more than a pixel off. The
+table holds each list as it was before the fit -- the manifest's "fitted" lines say by how
+much -- and a record of what the rule reads and writes; the helper fits the blend.
+
+Version 4 (2026-09-30, the merge of the two branches the same day) carries both, the
+row fits first: the two version 3 tables were different formats with one number, so
+the helpers refuse both.
+
 Format (little-endian):
-    "KGBL" u32 version=3
+    "KGBL" u32 version=4
     u32 families; per family: f64 aspect
     u32 anchors;  per anchor: u32 width, u32 height, u32 family
     u32 fits;     per fit: u16 name length, name (the .gui), u16 length, resref (the
@@ -69,6 +81,13 @@ Format (little-endian):
                   u16 length, caption; u32 root WIDTH offset, u32 root HEIGHT offset,
                   u32 controls; per control, in the file's order: u32 LEFT, TOP, WIDTH,
                   HEIGHT offsets
+    u32 row fits; per list: u16 length, name (the .gui), u16 length, tag, u8 popup,
+                  f64 loose gap (a full-screen list's largest gap, as a share of a row),
+                  u32 gap divisor (the gap is row // divisor), u32 n, n x u32 row bases
+                  (row = base x s), u32 list HEIGHT offset, u32 border DIMENSION offset,
+                  u32 scrollbar HEIGHT offset (0: none), u32 panel TOP offset, u32 panel
+                  HEIGHT offset (both 0 for a full-screen list), u32 n, n x u32 TOP offsets
+                  of the controls below the list
     badges:       u32 texture width, u32 texture height, f64 radius, f64 radius below,
                   u32 height they switch at, f64 gap, f64 edge, f64 centre y, f64 centre x
                   without a label (build_controller_prompt_textures.py's BADGE_*),
@@ -104,13 +123,14 @@ import build_controller_prompt_textures as prompts  # noqa: E402
 import build_controller_layout as layout  # noqa: E402
 import build_menubg_texture as menubg  # noqa: E402
 from fix_hud_menubg import BUTTON_TAGS  # noqa: E402
+import scale_listbox_padding as slp  # noqa: E402
 
 LAYOUT_SCREEN = "kmrplayout.gui"
 # The HUD every size but 3440x1440 loads, whose buttons lbl_mileftbot.tga's boxes follow
 # (prepare_universal_resources.py); a blended size is never 3440x1440.
 HUD_SCREEN = "mipc28x6.gui"
 
-VERSION = 3
+VERSION = 4
 # Field types whose value sits inline in the entry's data dword (GFF V3.2).
 INLINE_TYPES = {0: "BYTE", 1: "CHAR", 2: "WORD", 3: "SHORT", 4: "DWORD", 5: "INT", 8: "FLOAT"}
 FAMILY_ORDER = ["4:3", "16:10", "16:9", "21:9", "32:9"]
@@ -331,6 +351,62 @@ def hud_section(templates: dict[str, bytes]) -> bytes:
     return out
 
 
+def row_fit(template: bytes, tag: str, popup: bool) -> dict:
+    """The data-dword offsets scale_listbox_padding.fit_list_to_rows reads and changes for
+    list `tag`, in this file's layout: the list's HEIGHT and its border's DIMENSION, the
+    scrollbar's HEIGHT, and, in a popup, the panel's TOP and HEIGHT and the TOP of every
+    control below the list (the fit moves those with the list's bottom, so they stay below)."""
+    gff = Gff(template)
+    root = gff.fields(0)
+    panel = gff.fields(gff.dword(root["EXTENT"]))
+    target, others = None, []
+    for index in gff.list(root["CONTROLS"]):
+        control = gff.fields(index)
+        extent = gff.fields(gff.dword(control["EXTENT"]))
+        if gff.string(control["TAG"]).upper() == tag.upper():
+            target = (control, extent)
+        else:
+            others.append(extent)
+    if target is None:
+        raise SystemExit(f"no {tag} to fit")
+    control, extent = target
+    fit = {"height": extent["HEIGHT"] + 8,
+           "dimension": gff.fields(gff.dword(control["BORDER"]))["DIMENSION"] + 8,
+           "bar": 0, "panel_top": 0, "panel_height": 0, "below": []}
+    if "SCROLLBAR" in control:
+        bar = gff.fields(gff.dword(control["SCROLLBAR"]))
+        fit["bar"] = gff.fields(gff.dword(bar["EXTENT"]))["HEIGHT"] + 8
+    if popup:
+        bottom = gff.dword(extent["TOP"]) + gff.dword(extent["HEIGHT"])
+        fit["panel_top"], fit["panel_height"] = panel["TOP"] + 8, panel["HEIGHT"] + 8
+        fit["below"] = [e["TOP"] + 8 for e in others if gff.dword(e["TOP"]) >= bottom]
+    return fit
+
+
+def fitted_by(archive: zipfile.ZipFile, gui: str, tag: str) -> int:
+    """What the build changed list `tag` of `gui` by in this set, from its prompt manifest."""
+    for line in archive.read(prompts.PROMPT_MANIFEST_NAME).decode("utf-8").splitlines():
+        parts = line.split()
+        if parts[:3] == ["fitted", gui, tag]:
+            return int(parts[3])
+    raise SystemExit(f"{archive.filename}: the prompt manifest does not say whether {gui} {tag} was fitted")
+
+
+def unfit_rows(blob: bytes, fit: dict, change: int) -> bytes:
+    """`blob` as it was before fit_list_to_rows changed its list's height by `change`."""
+    data = bytearray(blob)
+    def add(offset, delta):
+        if offset:
+            struct.pack_into("<i", data, offset, struct.unpack_from("<i", data, offset)[0] + delta)
+    add(fit["height"], -change)
+    add(fit["bar"], -change)
+    for offset in fit["below"]:
+        add(offset, -change)
+    add(fit["panel_top"], change // 2)
+    add(fit["panel_height"], -change)
+    return bytes(data)
+
+
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__.split("\n\n")[0])
     parser.add_argument("resources", type=Path)
@@ -378,6 +454,27 @@ def main() -> int:
     for offsets in controls:
         out += struct.pack("<4I", *offsets)
 
+    # The lists made as tall as whole rows (scale_listbox_padding.ROW_LISTS): held as they
+    # were before, from each set's manifest, with what the rule reads and writes, so the
+    # installer fits the blend itself. The controls below a popup's list must be the same
+    # in every set: the record names them once.
+    row_fits = {}
+    for (gui, tag), (kind, bases) in slp.ROW_LISTS.items():
+        rows = row_fit(archives[0].read(gui), tag, kind == "popup")
+        for z in archives[1:]:
+            if row_fit(z.read(gui), tag, kind == "popup") != rows:
+                raise SystemExit(f"{z.filename}: {gui} {tag} is not laid out as in the first set")
+        row_fits[gui, tag] = rows
+    out += struct.pack("<I", len(row_fits))
+    for (gui, tag), rows in row_fits.items():
+        kind, bases = slp.ROW_LISTS[gui, tag]
+        out += text(gui) + text(tag)
+        out += struct.pack("<BdI", kind == "popup", slp.LOOSE_GAP, slp.ROW_GAP_DIVISOR)
+        out += struct.pack(f"<I{len(bases)}I", len(bases), *bases)
+        out += struct.pack("<6I", rows["height"], rows["dimension"], rows["bar"], rows["panel_top"],
+                           rows["panel_height"], len(rows["below"]))
+        out += struct.pack(f"<{len(rows['below'])}I", *rows["below"])
+
     # The badges. Every set's manifest lists the same rows (checked), and the templates
     # are the files' own layout, the same at every resolution (checked below).
     templates = {name: archives[0].read(name) for name in names}
@@ -395,6 +492,9 @@ def main() -> int:
     total_slots = 0
     for name in names:
         blobs = [z.read(name) for z in archives]
+        for (gui, tag), rows in row_fits.items():
+            if gui == name:
+                blobs = [unfit_rows(b, rows, fitted_by(z, gui, tag)) for b, z in zip(blobs, archives)]
         if name == pur.CONTAINER_SCREEN:
             blobs = [unfit(b, fit, widened_by(z, name)) for b, z in zip(blobs, archives)]
         template = blobs[0]

@@ -23,10 +23,11 @@ namespace Kmrp
     /// is on the user's disk already.
     ///
     /// The eight skill icons (`isk_*`, 32x32) have the same problem in the
-    /// Skills tab, whose rows grow to 42s (RowSizeGroups): stock, a 32 px icon
-    /// sat in a 115 px row at 3024x1964. They grow by the same factor as their
-    /// row, `round(32s)`, so they keep their vanilla proportion to it (the canvas
-    /// does not change at 720 and below), capped at 2x like the rest. They are drawn only in the
+    /// Skills tab, whose rows grow to 50s (RowSizeGroups; vanilla's are 42): stock,
+    /// a 32 px icon sat in a 136 px row at 3024x1964. They grow by the same factor
+    /// as their row, `round(32 * s * 50 / 42)`, so they keep their vanilla
+    /// proportion to it, capped at 2x like the rest. (From 2026-09-29 the rows grew
+    /// from 42 and the icons by `s` alone; the rows moved to 50 on 2026-09-30.) They are drawn only in the
     /// Skills tab and the skill info list (whose template rows grow by s too), so
     /// they fit wherever they appear; character creation shows no skill icons.
     /// Added 2026-09-29, for Windows and macOS together.
@@ -41,6 +42,13 @@ namespace Kmrp
     /// inside it is SkillPictureOfBox of the box, on transparent pixels, moved to
     /// the opening's centre (SkillShiftX, SkillShiftY): 52 px at 1440p, at every
     /// resolution including 720 and below.
+    ///
+    /// The two changes met in a merge on 2026-09-30: the box is 50s now, and the
+    /// frame is stretched over it (lbl_hex_3 is 64x64 with its outline at x 7..55,
+    /// y 6..59, which stretched to 84 gives the outline measured above), so the
+    /// picture stays SkillPictureOfBox of the box and its move grows with the box,
+    /// by 50 / 42. At 1440p that is a 62 px picture in the 64 px canvas, so the move
+    /// up is cut from 5 px to 1 by the canvas's edge. Not yet seen in play.
     ///
     /// Names another archive already installs are skipped: `reserved` carries them
     /// in, so this can never write a file the patcher also ships.
@@ -57,13 +65,15 @@ namespace Kmrp
         private const int ErfResourceRecordSize = 8;
         private const int ResourceTypeTpc = 3007;
         private const int FeatRowBase = 50;         // must match the feat/power group in RowSizeGroups
+        private const int SkillRowBase = 50;        // must match the skills group in RowSizeGroups
+        private const int VanillaSkillRow = 42;     // the row the 32 px skill icons were drawn for
         private const int IconInset = 4;            // icon control is the row height minus this
-        private const int SkillRowBase = 42;        // must match the skills group in RowSizeGroups
         // The skill picture's edge as a share of the Skills row's icon box, and how far
-        // it moves from the canvas's centre, in pixels per unit of scale: the canvas
-        // sits about 1.5 px right of and 2 px below lbl_hex_3's opening at 1440p, so the
-        // picture moves left and up to the opening's centre. Chosen by measurement at
-        // 3440x1440 (box 84): the largest picture whose every opaque pixel, for all
+        // it moves from the canvas's centre, in pixels per unit of scale of the vanilla
+        // box (42), so times SkillRowBase / VanillaSkillRow for the box it is now: the
+        // canvas sits about 1.5 px right of and 2 px below lbl_hex_3's opening at 1440p,
+        // so the picture moves left and up to the opening's centre. Chosen by measurement
+        // at 3440x1440 (box 84): the largest picture whose every opaque pixel, for all
         // eight skills, stays 2 px clear of the frame's border -- 52 px moved (-1, -4);
         // 46 px was the most without the move, and 55 px touches.
         private const double SkillPictureOfBox = 0.62;
@@ -81,17 +91,18 @@ namespace Kmrp
         }
 
         /// <summary>Skill icon edge for this scale: grown with the Skills row
-        /// (42s), so round(native * s), capped at 2x the source.</summary>
+        /// (50s, from vanilla's 42), so round(native * s * 50 / 42), capped at 2x
+        /// the source.</summary>
         private static int SkillTargetSize(double scale, int nativeSize)
         {
-            int grown = (int)Math.Round(nativeSize * scale);
+            int grown = (int)Math.Round(nativeSize * scale * SkillRowBase / VanillaSkillRow);
             if (grown <= nativeSize)
                 return nativeSize;
             return Math.Min(grown, nativeSize * 2);
         }
 
         /// <summary>The skill picture's edge inside that canvas: SkillPictureOfBox of
-        /// the row's icon box (42s), never more than the canvas.</summary>
+        /// the row's icon box (50s), never more than the canvas.</summary>
         private static int SkillPictureSize(double scale, int canvas)
         {
             int picture = (int)Math.Round(SkillRowBase * scale * SkillPictureOfBox);
@@ -256,8 +267,10 @@ namespace Kmrp
             // the canvas's edge.
             byte[] canvas = new byte[target * target * 4];
             int inset = (target - picture) / 2;
-            int left = Math.Max(0, Math.Min(target - picture, inset + (int)Math.Round(SkillShiftX * scale)));
-            int top = Math.Max(0, Math.Min(target - picture, inset + (int)Math.Round(SkillShiftY * scale)));
+            int left = Math.Max(0, Math.Min(target - picture,
+                inset + (int)Math.Round(SkillShiftX * scale * SkillRowBase / VanillaSkillRow)));
+            int top = Math.Max(0, Math.Min(target - picture,
+                inset + (int)Math.Round(SkillShiftY * scale * SkillRowBase / VanillaSkillRow)));
             // Rows are bottom-up here, as in the TGA: the picture's top is at row
             // target - top - picture from the bottom.
             int bottom = target - top - picture;

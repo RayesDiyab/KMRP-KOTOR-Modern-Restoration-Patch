@@ -41,6 +41,12 @@
        (an eleventh per row), so its arithmetic is unchanged.
   The file's extents are kept the first time the popup is filled, so every fill starts from
   them: the one popup is filled again at every level.
+
+  Since 2026-09-30 the build makes skillinfo.gui's list as tall as its rows at this same
+  pitch (tools/scale_listbox_padding.py, fit_list_to_rows), for Windows too, so with every
+  row filled step 2 cuts nothing; it still cuts the list to the rows granted when fewer are.
+  The skill rows are 50s since then, not 42s (resolution_sizes.cpp): the sizes above were
+  measured before.
 */
 #include "sites.h"
 
