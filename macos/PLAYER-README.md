@@ -14,7 +14,8 @@ for your display's resolution, the same HD fonts, art and icons, and the same en
 ## Install
 
 1. Quit KOTOR.
-2. Open **KMRP Installer**.
+2. Open **KMRP-macOS-1.5.0.dmg** (or unzip the `.zip`, if that is the download you have), then
+   open **KMRP Installer** in it. It runs from there; nothing needs copying.
    - KMRP is not signed by an Apple developer account, so the first time macOS asks you to
      allow it. On macOS 15 and later: macOS says it cannot open it; click **Done**, open
      **System Settings → Privacy & Security**, scroll down, click **Open Anyway** beside

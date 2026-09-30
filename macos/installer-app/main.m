@@ -36,6 +36,9 @@
     -KMRPRun install|uninstall    press the action button once the status is in
     -KMRPNoMapNotes YES           turn the map-marker fixes off
     -KMRPSettings YES             show Advanced Settings
+    -KMRPShowList YES             open the resolution list at its top and at its end
+                                  (<prefix>-list.png, <prefix>-list-end.png), then close it
+    -KMRPShowCustom YES           open the custom-size dialog (<prefix>-custom.png), then close it
     -KMRPSnapshot <prefix>        write <prefix>-ready.png when the window is ready,
                                   <prefix>-progress.png once a run is a third through, and
                                   <prefix>-done.png and <prefix>-log.txt when it ends
@@ -913,6 +916,9 @@ static const struct { const char *prefix, *stage; int percent; } kStages[] = {
 @property (nonatomic, copy) NSString *selectedSize, *selectedChoice, *selectedDetail, *stage;
 @property (nonatomic) BOOL running, checking, installed, incomplete, statusLoaded, gameFound, gameReady;
 @property (nonatomic) int percent;
+@property (nonatomic, strong) NSMenu *openMenu;   // the resolution list while it is open
+@property (nonatomic) BOOL listAtEnd;               // a scripted check's second look at the list
+@property (nonatomic, copy) NSString *listShot;     // the snapshot name the open list is taken as
 @end
 
 @implementation KMRPInstaller {
@@ -1325,6 +1331,10 @@ static const struct { const char *prefix, *stage; int percent; } kStages[] = {
     if (@available(macOS 10.14, *)) menu.appearance = [NSAppearance appearanceNamed:NSAppearanceNameDarkAqua];
     NSFont *sizeFont = [NSFont monospacedDigitSystemFontOfSize:MAX(12, Pt(14)) weight:NSFontWeightSemibold];
     NSFont *detailFont = BodyFont(MAX(11, Pt(12.5)), NSFontWeightRegular);
+    // Each description starts at one tab stop, past the widest size, so they line up.
+    NSMutableParagraphStyle *columns = [NSMutableParagraphStyle new];
+    CGFloat sizeWidth = [Pretty(@"0000x0000") sizeWithAttributes:Ink(sizeFont, THEME_TEXT)].width;
+    columns.tabStops = @[[[NSTextTab alloc] initWithTextAlignment:NSTextAlignmentLeft location:ceil(sizeWidth) + 22 options:@{}]];
     NSMenuItem *selected = nil;
     for (KMRPRow *row in self.rows) {
         NSMenuItem *item = [[NSMenuItem alloc] initWithTitle:row.text action:nil keyEquivalent:@""];
@@ -1338,8 +1348,9 @@ static const struct { const char *prefix, *stage; int percent; } kStages[] = {
         }
         NSMutableAttributedString *title = [[NSMutableAttributedString alloc] initWithString:Pretty(row.size)
                                                                                    attributes:Ink(sizeFont, THEME_TEXT)];
-        [title appendAttributedString:[[NSAttributedString alloc] initWithString:[@"      " stringByAppendingString:row.text]
+        [title appendAttributedString:[[NSAttributedString alloc] initWithString:[@"\t" stringByAppendingString:row.text]
                                                                       attributes:Ink(detailFont, THEME_TEXT_MUTED)]];
+        [title addAttribute:NSParagraphStyleAttributeName value:columns range:NSMakeRange(0, title.length)];
         item.attributedTitle = title;
         item.indentationLevel = 1;
         item.target = self;
@@ -1359,8 +1370,11 @@ static const struct { const char *prefix, *stage; int percent; } kStages[] = {
     if (self.selectedSize && !self.selectedChoice && [self.selectedDetail hasPrefix:@"Custom"]) custom.state = NSControlStateValueOn;
     [menu addItem:custom];
     menu.minimumWidth = self.resolutionBox.bounds.size.width;
-    [menu popUpMenuPositioningItem:nil atLocation:NSMakePoint(0, self.resolutionBox.bounds.size.height + 2)
-                            inView:self.resolutionBox];
+    self.openMenu = menu;
+    // Opens below the field, as Windows' dropdown does; a scripted check can open it on its last
+    // item instead, to see the end of a list taller than the screen.
+    [menu popUpMenuPositioningItem:self.listAtEnd ? custom : nil
+                        atLocation:NSMakePoint(0, self.resolutionBox.bounds.size.height + 2) inView:self.resolutionBox];
     (void)selected;
 }
 
@@ -1774,6 +1788,10 @@ static const struct { const char *prefix, *stage; int percent; } kStages[] = {
     // The smoke's first frames and the settings fade, then the snapshot and the run.
     dispatch_after(dispatch_time(DISPATCH_TIME_NOW, (int64_t)(1.5 * NSEC_PER_SEC)), dispatch_get_main_queue(), ^{
         [self snapshot:@"ready"];
+        if ([defaults boolForKey:@"KMRPShowList"] || [defaults boolForKey:@"KMRPShowCustom"]) {
+            [self showForSnapshots];
+            return;
+        }
         NSString *run = [defaults stringForKey:@"KMRPRun"];
         BOOL can = self.actionButton.enabled;
         if ([run isEqualToString:@"install"] && can && !self.installed) [self patch];
@@ -1798,13 +1816,66 @@ static const struct { const char *prefix, *stage; int percent; } kStages[] = {
     });
 }
 
-- (void)snapshot:(NSString *)name {
+// The list and the custom-size dialog are windows of their own, so each is opened and
+// photographed in turn. The list tracks the mouse modally: its snapshot is scheduled in the
+// run loop modes the tracking runs in, and closes it.
+- (void)showForSnapshots {
+    NSUserDefaults *defaults = [NSUserDefaults standardUserDefaults];
+    if ([defaults boolForKey:@"KMRPShowList"] && !self.resolutionBox.hidden) {
+        for (NSString *shot in @[@"list", @"list-end"]) {
+            self.listShot = shot;
+            self.listAtEnd = [shot isEqualToString:@"list-end"];
+            [self performSelector:@selector(snapshotList) withObject:nil afterDelay:1.0 inModes:@[NSRunLoopCommonModes]];
+            [self openResolutions:nil];   // returns when snapshotList closes it
+        }
+        self.listAtEnd = NO;
+    }
+    if ([defaults boolForKey:@"KMRPShowCustom"]) {
+        [self customSize:nil];
+        dispatch_after(dispatch_time(DISPATCH_TIME_NOW, (int64_t)(1.0 * NSEC_PER_SEC)), dispatch_get_main_queue(), ^{
+            NSWindow *sheet = self.window.attachedSheet;
+            if (sheet) {
+                [self snapshotView:sheet.contentView name:@"custom"];
+                [self.window endSheet:sheet];
+            }
+            [self finishAutomation];
+        });
+        return;
+    }
+    [self finishAutomation];
+}
+
+- (void)snapshotList {
+    for (NSWindow *window in NSApp.windows) {
+        if (window != self.window && window.isVisible && [NSStringFromClass(window.class) containsString:@"Menu"]) {
+            [self snapshotView:window.contentView.superview ?: window.contentView name:self.listShot];
+            break;
+        }
+    }
+    [self.openMenu cancelTracking];
+}
+
+- (void)snapshot:(NSString *)name { [self snapshotView:self.window.contentView name:name]; }
+
+// A view as a PNG, over the window's own background (a sheet's or a menu's material does not
+// draw into a cached image).
+- (void)snapshotView:(NSView *)view name:(NSString *)name {
     NSString *prefix = [[NSUserDefaults standardUserDefaults] stringForKey:@"KMRPSnapshot"];
-    if (!prefix.length) return;
-    NSView *view = self.window.contentView;
+    if (!prefix.length || !view) return;
     [view displayIfNeeded];
+    NSBitmapImageRep *controls = [view bitmapImageRepForCachingDisplayInRect:view.bounds];
+    [view cacheDisplayInRect:view.bounds toBitmapImageRep:controls];
     NSBitmapImageRep *image = [view bitmapImageRepForCachingDisplayInRect:view.bounds];
-    [view cacheDisplayInRect:view.bounds toBitmapImageRep:image];
+    [NSGraphicsContext saveGraphicsState];
+    NSGraphicsContext.currentContext = [NSGraphicsContext graphicsContextWithBitmapImageRep:image];
+    NSAppearance *appearance = NSAppearance.currentAppearance;
+    if (@available(macOS 10.14, *)) NSAppearance.currentAppearance = view.effectiveAppearance;
+    [(view.window == self.window ? THEME_WINDOW : [NSColor windowBackgroundColor]) setFill];
+    NSRectFill(view.bounds);
+    [controls drawInRect:view.bounds fromRect:NSZeroRect operation:NSCompositingOperationSourceOver fraction:1
+          respectFlipped:NO hints:nil];
+    NSAppearance.currentAppearance = appearance;
+    [NSGraphicsContext restoreGraphicsState];
     [[image representationUsingType:NSBitmapImageFileTypePNG properties:@{}]
         writeToFile:[NSString stringWithFormat:@"%@-%@.png", prefix, name] atomically:YES];
 }

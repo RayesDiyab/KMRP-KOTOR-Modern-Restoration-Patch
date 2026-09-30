@@ -305,7 +305,9 @@ before:
   it, in place of `Install KMRP.command` and `Uninstall KMRP.command`, which ran the same
   script in Terminal. It is the Windows patcher's window, ported: the same colours, brand
   lockup and animated smoke header, the four-step card with its icons, the progress fill
-  on the action button, Advanced Settings and the footer, and the same app icon.
+  on the action button, Advanced Settings and the footer, and the same app icon. The Mac
+  download is a disk image, `KMRP-macOS-<version>.dmg`; the build also makes a zip for sites
+  that take only archives.
   Step 3 lists this display first (native, and half on a Retina display), then 34 Mac and
   external display sizes grouped by shape, and takes a custom size, which it checks the
   menu sets can reach. It runs `kmrp-mac.sh` and shows what it refuses. For macOS 10.13 and

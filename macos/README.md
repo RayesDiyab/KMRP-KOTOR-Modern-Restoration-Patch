@@ -128,7 +128,8 @@ fails with "Operation not permitted".
 **Seen**, from the package at 3024x1964, 2026-09-30, through the app's scripted-check
 arguments (`-KMRPSelect`, `-KMRPRun`, `-KMRPSettings`, `-KMRPSnapshot`, `-KMRPQuit`; the
 comment at the top of `main.m`): the installed and not-installed states, Advanced Settings,
-the progress fill at "Installing artwork… 34%", a custom size outside the sets refused, and
+the progress fill at "Installing artwork… 34%", the resolution list from top to end and the
+**Custom size…** dialog, a custom size outside the sets refused, and
 **Restore Original** then **Start Patching** on the live game, the second leaving the same
 `KOTOR_Exe` (`5294ae4f…`) and install as `kmrp-mac.sh` does alone. `Test-MacInstaller.py`
 passes on the app's `Contents/Resources/kmrp`. Built for x86_64 (macOS 10.13 and later, the
@@ -554,8 +555,9 @@ the build uses. `--kpm` and `--widescreen` build from other checkouts instead.
 Needs: Xcode command line tools, the .NET 8 SDK, and a Python with `requirements.txt`. The
 unmodified game must be installed (the build resolves hooks against `KOTOR_Exe`'s hash and
 reads `TexturePacks/swpc_tex_gui.erf` for the fonts); nothing from the game is packaged.
-Output: `dist/macos/KMRP-macOS-<version>/` (`KMRP Installer.app` and `README.md`) and its
-zip, 155 MB. Steps, in order:
+Output: `dist/macos/KMRP-macOS-<version>/` (`KMRP Installer.app` and `README.md`), its disk
+image (the Mac download, 158 MB) and its zip (155 MB, for sites that take only archives).
+Steps, in order:
 
 1. `make dylib` in KPM's `src/KotorPatcher`;
 2. the widescreen patch, with KPM's `Patches/create-patch.py`, as every KPM patch is built
@@ -588,6 +590,9 @@ zip, 155 MB. Steps, in order:
    entry beside it in the zip. Finder's Archive Utility folds those back into the files,
    but `unzip` writes them out as files, which the installer would have copied into the
    game's override. The build now refuses an archive holding one.
+12. the disk image: `hdiutil`, HFS+ with LZFSE compression (readable from macOS 10.11),
+   then mounted read-only and checked as a player gets it: the app and `README.md` at its
+   root, the app's signature intact, the payload matching `SHA256SUMS`.
 
 ## 10. Coverage
 

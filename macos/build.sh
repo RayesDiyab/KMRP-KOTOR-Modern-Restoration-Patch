@@ -1,6 +1,7 @@
 #!/bin/zsh
 # Builds the KMRP for macOS package: dist/macos/KMRP-macOS-<version>/ (KMRP Installer.app, which
-# carries the installer and everything it installs, and README.md) and its .zip.
+# carries the installer and everything it installs, and README.md), its .dmg (the Mac download)
+# and its .zip (for sites that take only archives).
 #
 #   macos/build.sh [--game "<...>/Knights of the Old Republic.app"] [--exe <unmodified KOTOR_Exe>]
 #                  [--python <python3>] [--reuse-resources]
@@ -57,7 +58,7 @@ INSTALLER="$OUT/KMRP Installer.app"
 PKG="$INSTALLER/Contents/Resources/kmrp"   # kmrp-mac.sh and its payload, inside the app
 step() { print -r -- ""; print -r -- "== $*"; }
 
-rm -rf "$BUILD/engine" "$BUILD/kpatch" "$OUT" "$ROOT/dist/macos/$NAME.zip"
+rm -rf "$BUILD/engine" "$BUILD/kpatch" "$OUT" "$ROOT/dist/macos/$NAME.zip" "$ROOT/dist/macos/$NAME.dmg"
 mkdir -p "$BUILD/kpatch" "$PKG/bin" "$PKG/engine" "$PKG/licenses"
 
 # ------------------------------------------------------------------------ engine
@@ -266,3 +267,26 @@ if unzip -Z1 "$ROOT/dist/macos/$NAME.zip" | grep -q '/\._'; then
 fi
 ls -la "$ROOT/dist/macos/$NAME.zip"
 shasum -a 256 "$ROOT/dist/macos/$NAME.zip"
+
+step "Disk image"
+# What a Mac player downloads: the folder as a read-only disk image, opened with a double-click
+# and nothing to unpack. HFS+ and LZFSE compression (ULFO), both readable from macOS 10.11, below
+# the app's 10.13. It keeps the bundle exactly as built and signed; the installer never writes
+# into its own bundle, so running it from the mounted image works as it does anywhere else.
+DMG="$ROOT/dist/macos/$NAME.dmg"
+hdiutil create -quiet -volname "KMRP $VERSION" -srcfolder "$OUT" -fs HFS+ -format ULFO -ov "$DMG"
+# Checked as a player gets it: mounted read-only, the two items at its root, the app's signature
+# intact, and the payload matching its SHA256SUMS.
+MOUNT=$(mktemp -d)
+hdiutil attach -quiet -nobrowse -readonly -mountpoint "$MOUNT" "$DMG"
+detach() { hdiutil detach -quiet "$MOUNT" 2>/dev/null || hdiutil detach -quiet -force "$MOUNT"; rmdir "$MOUNT" 2>/dev/null || true; }
+if [[ "$(ls "$MOUNT" | tr '\n' '|')" != "KMRP Installer.app|README.md|" ]]; then
+    print -u2 "the disk image's root is not the app and README.md: $(ls "$MOUNT")"; detach; exit 1
+fi
+if ! codesign --verify --strict "$MOUNT/KMRP Installer.app" ||
+   ! (cd "$MOUNT/KMRP Installer.app/Contents/Resources/kmrp" && shasum -a 256 -s -c SHA256SUMS); then
+    print -u2 "the app in the disk image does not verify"; detach; exit 1
+fi
+detach
+ls -la "$DMG"
+shasum -a 256 "$DMG"
