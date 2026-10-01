@@ -170,7 +170,7 @@ with KPM's Mac values read from the submodule's KPatchCore (`2a784bf`):
 | `WriteKpmBackup`: `swkotor.exe.backup.<time>` and `.json` | `write_kpm_backup`: `KOTOR_Exe.backup.<time>` and `.json`, before the load command |
 | `DeliverKpatches`: the four `.kpatch` files into KPM's patch folder from `%APPDATA%\KPatchLauncher\settings.json`, or a "KPM patches" folder for an install for KPM | `deliver_kpatch`: the installed build's `kmrp.kpatch` (now in the package, `build.sh`; its manifest declares a conflict with FTD's two patches, `make_kmrp_patch.py`) into the folder `PatchesPath` names in `~/.config/KPatchLauncher/settings.json` or `~/Library/Application Support/KPatchLauncher/settings.json`, or "KPM patches" beside the game for an install for KPM |
 | `ForeignRuntimeFile`: KPM's runtime present, install for KPM | `kpm_check` returning 2: KPM's files present with patches that are not FTD's, install for KPM; FTD's two alone are still replaced (return 0), as pull request #24 made it |
-| `Restore`, `ConfigChangedSinceInstall`: runtime left once KPM rewrote `patch_config.toml` | `handed_over` in `restore_from_manifest`: the same, `is_runtime_path` naming what stays |
+| `Restore`, `ConfigChangedSinceInstall`: runtime left once KPM rewrote `patch_config.toml` (`RuntimeChangedSinceInstall`, any runtime file, since 2026-10-01 from the Mac) | `handed_over` in `restore_from_manifest`: the same, `is_runtime_path` naming what stays |
 
 The app accepts the new case (`forKpm`, "KotOR Patch Manager manages this game. KMRP is
 installed for it."). Checked on Windows only: `zsh -n` on the script, and its KPM functions run
@@ -208,7 +208,7 @@ yet compared with KPM's own `master`) and from `src/patcher/KpmEdition.cs`.
 | A backup of the unmodified executable in KPM's format, `swkotor.exe.backup.<yyyyMMdd_HHmmss>` and `<that>.json` (`BackupInfo`: path, hash, size, time), made before the one change to the executable | beside `swkotor.exe` (`WriteKpmBackup`) | KPM's Apply starts by restoring the newest backup (`PatchRemover.RemoveAllPatches`), so it applies from the unmodified file |
 | KMRP's `.kpatch` files | KPM's patch folder, from `PatchesPath` in `%APPDATA%\KPatchLauncher\settings.json` (`DeliverKpatches`) | KPM lists KMRP's patches without the player copying anything |
 | Installing for KPM when KPM already manages the game: a KPM runtime file the manifest does not record (`ForeignRuntimeFile`) makes it install the interface, the INI and the data file only | `Install` | the player ticks KMRP in KPM; nothing of KPM's is replaced |
-| On restore, leaving the runtime to KPM once KPM's Apply has rewritten `patch_config.toml` (`ConfigChangedSinceInstall`) | `Restore` | removing it would break KPM's install |
+| On restore, leaving the runtime to KPM once KPM's Apply has rewritten `patch_config.toml` (`ConfigChangedSinceInstall`; since 2026-10-01 any runtime file, and the whole runtime removed when KMRP is KPM's only patch) | `Restore` | removing it would break KPM's install |
 
 **What the Mac installer does today** (`macos/kmrp-mac.sh`): KotorPatcher.dylib, `patches/`
 and `patch_config.toml` (written by KPM's own KPatchCore at build time) beside `KOTOR_Exe` in

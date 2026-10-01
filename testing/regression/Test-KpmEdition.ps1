@@ -349,6 +349,50 @@ try {
     Assert ($changed.Count -eq 0) "restore leaves KOTOR Patch Manager's runtime too"
     Assert (-not (Test-Path -LiteralPath (Join-Path $takeoverFolder "kmrp-kpm.dat"))) "restore removes KMRP's data file"
 
+    # The same takeover, then restore straight away, with KMRP's patches all KPM has.
+    # patch_config.toml is left byte for byte, as KPM 0.7.1's Apply wrote it on the Mac
+    # (2026-10-01): the runtime and the state file show the takeover. Unticking KMRP in
+    # KPM would remove KPM's whole runtime, so restore does that itself, as KPM's
+    # PatchRemover.RemoveAllPatches does (windows-changes-from-macos.md, item 16).
+    Write-Host "Case 10b  KOTOR Patch Manager took over with KMRP alone: restore removes its runtime too"
+    $alone = New-Fixture "kpm-took-over-alone"
+    $aloneFolder = Split-Path -Parent $alone
+    $binkHash = Get-Sha (Join-Path $aloneFolder "binkw32.dll")
+    Assert ((Invoke-Exe $Installer @("--in-place", $alone, $Resolutions[0])) -eq 0) "the install with KMRP's own runtime succeeds"
+    $ours = @(Get-ChildItem -LiteralPath $aloneFolder -Filter "kmrp-kpm-selftest.exe.backup.*" -File | Where-Object { $_.Extension -ne ".json" })
+    $kpmBackup = "kmrp-kpm-selftest.exe.backup.20260101_000000"
+    Move-Item -LiteralPath $ours[0].FullName -Destination (Join-Path $aloneFolder $kpmBackup)
+    Move-Item -LiteralPath ($ours[0].FullName + ".json") -Destination (Join-Path $aloneFolder ($kpmBackup + ".json"))
+    [IO.File]::WriteAllText((Join-Path $aloneFolder "KotorPatcher.dll"), "KOTOR Patch Manager's own KotorPatcher.dll`r`n")
+    [IO.File]::AppendAllText((Join-Path $aloneFolder "kpm_install_state.json"), "`r`n")
+    [IO.File]::WriteAllText((Join-Path $aloneFolder "addresses.db"), "KOTOR Patch Manager's address database`r`n")
+    Assert ((Invoke-Exe $Installer @("--restore", $alone)) -eq 0) "restore succeeds"
+    Assert ((Get-Sha $alone) -eq $cleanHash) "the unmodified executable is back"
+    $left = @(@("KotorPatcher.dll", "patch_config.toml", "kpm_install_state.json", "addresses.db", "binkw32Hooked.dll",
+                "patches", $kpmBackup, ($kpmBackup + ".json"), "kmrp-kpm.dat", "KMRP_KPM.manifest") |
+              Where-Object { Test-Path -LiteralPath (Join-Path $aloneFolder $_) })
+    Assert ($left.Count -eq 0) ("no file of KPM's or KMRP's is left (" + ($left -join ", ") + ")")
+    Assert ((Get-Sha (Join-Path $aloneFolder "binkw32.dll")) -eq $binkHash) "the game's own binkw32.dll is back"
+
+    # With another patch in KPM's list, KMRP's module cannot go without KPM applying
+    # the rest again: restore leaves the runtime to KPM, as before.
+    Write-Host "Case 10c  KOTOR Patch Manager took over with another patch: restore leaves its runtime"
+    $beside = New-Fixture "kpm-took-over-beside"
+    $besideFolder = Split-Path -Parent $beside
+    Assert ((Invoke-Exe $Installer @("--in-place", $beside, $Resolutions[0])) -eq 0) "the install with KMRP's own runtime succeeds"
+    [IO.File]::AppendAllText((Join-Path $besideFolder "patch_config.toml"), "`n[[patches]]`nid = `"someone-elses-patch`"`ndll = `"patches/someone-elses-patch.dll`"`n")
+    [IO.File]::WriteAllText((Join-Path $besideFolder "patches\someone-elses-patch.dll"), "someone else's patch`r`n")
+    [IO.File]::WriteAllText((Join-Path $besideFolder "KotorPatcher.dll"), "KOTOR Patch Manager's own KotorPatcher.dll`r`n")
+    $kpmFiles = @{}
+    foreach ($name in @("patch_config.toml", "KotorPatcher.dll", "kpm_install_state.json", "binkw32.dll", "binkw32Hooked.dll",
+                        "patches\kmrp.dll", "patches\someone-elses-patch.dll", "kmrp-kpm-selftest.exe")) {
+        $kpmFiles[$name] = Get-Sha (Join-Path $besideFolder $name)
+    }
+    Assert ((Invoke-Exe $Installer @("--restore", $beside)) -eq 0) "restore succeeds"
+    $changed = @($kpmFiles.Keys | Where-Object { -not (Test-Path -LiteralPath (Join-Path $besideFolder $_)) -or (Get-Sha (Join-Path $besideFolder $_)) -ne $kpmFiles[$_] })
+    Assert ($changed.Count -eq 0) ("KOTOR Patch Manager's runtime and the other patch are left (" + ($changed -join ", ") + ")")
+    Assert (-not (Test-Path -LiteralPath (Join-Path $besideFolder "kmrp-kpm.dat"))) "restore removes KMRP's data file"
+
     # KOTOR Patch Manager's app keeps its patch folder in its settings, "PatchesPath",
     # written by System.Text.Json: backslashes escaped, and anything outside ASCII as
     # \uXXXX, which this folder's name has. The folder already holds an older

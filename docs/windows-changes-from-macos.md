@@ -63,7 +63,7 @@ does it, checked as stated), **doc** (a Windows document to correct).
 | 13 | The Options check boxes' circle and label offset scaled with the resolution | **built** (2026-09-30; seen at 3440x1440) |
 | 14 | Lists as tall as whole rows: the Container, the granted popup, character creation's Feats, low-resolution lists | **built** (2026-09-30) |
 | 15 | Skill rows as tall as the Feats and Powers rows (`50s`), the skill icons with them | **built** (2026-09-30) |
-| 16 | Uninstall after KPM's takeover: removes KPM's runtime too when KMRP is its only patch; a takeover found from any runtime file, not `patch_config.toml` alone | **to do** |
+| 16 | Uninstall after KPM's takeover: removes KPM's runtime too when KMRP is its only patch; a takeover found from any runtime file, not `patch_config.toml` alone | **built** (2026-10-01; `Test-KpmEdition.ps1` Cases 10b and 10c; not run under KPM's window on Windows) |
 
 ## 1. Message popups fitted to their contents
 
@@ -587,7 +587,8 @@ runtime loading nothing; the game had to be put back by hand (2026-10-01, the ma
 own install; the files kept in `~/KMRP-mac-backup/2026-10-01-kpm-takeover`). `handed_over`
 now counts a takeover when any runtime file KMRP recorded is still there and differs from what
 it wrote, except a `KOTOR_Exe` back to the untouched game (KPM's Remove, not a takeover).
-Windows' `ConfigChangedSinceInstall` compares `patch_config.toml` alone too. **Not checked on
+Windows' `ConfigChangedSinceInstall` compared `patch_config.toml` alone too (until 2026-10-01:
+below). **Not checked on
 Windows** whether KPM's Apply writes it differently there; KMRP's own `swkotor.exe`, KPM's
 `KotorPatcher.dll` and proxy, and `kpm_install_state.json` are the same kind of evidence.
 
@@ -598,6 +599,27 @@ own folder, as Windows already does (`K1ControllerBackend.cpp`, `KpmEdition.cs`'
 `SupportFiles`). Windows needs nothing for this.
 
 **What Windows needs.** Both changes in `KpmEdition.cs` `Restore`.
+
+**Built on Windows, 2026-10-01** (`src/patcher/KpmEdition.cs`):
+
+| Mac | Windows |
+| --- | --- |
+| `handed_over`: any recorded runtime file still there and changed, except `KOTOR_Exe` back to the untouched game | `RuntimeChangedSinceInstall`, replacing `ConfigChangedSinceInstall`: any `file` record `IsRuntimeRecord` names (the runtime, the config, the state file, the proxy, KMRP's backup, the modules) still there and changed, except `binkw32.dll` back to the game's own, which KPM's removal does (`KProxyInstaller.Uninstall`); the executable is not a `file` record on Windows |
+| `kpm_holds_only_kmrp`: the config's ids all `kmrp`, `patches/` only `kmrp.dylib` | `KpmHoldsOnlyKmrp`: the ids in `patch_config.toml` and `kpm_install_state.json`'s `InstalledPatches` (which also names patches without a module) all among KMRP's four, `patches\` only their `.dll` files; and the untouched executable recoverable: KPM's newest backup (by its `yyyyMMdd_HHmmss` name, as KPM finds it) is the untouched file, or with no backup the executable is the untouched file or has only the 4 GB flag. Otherwise the runtime is left, as before |
+| `kpm_remove` with KMRP's own backup | `RemoveKpmRuntime`, after the `.kpatch` files and before KMRP's own files: the executable copied back from KPM's backup and verified, that backup and its `.json` deleted, or else the 4 GB flag cleared and verified; `patch_config.toml`, `KotorPatcher.dll`, `addresses.toml`, `addresses.db`, `sqlite3.dll` and `kpm_install_state.json` deleted whatever their contents, as KPM 0.7.1's `PatchRemover.RemoveAllPatches` lists them, and KMRP's four modules; the proxy deleted when `binkw32Hooked.dll` is still the game's own, so `UndoEngineChanges` moves that back. KPM's app files, should it run from the game folder, are left |
+
+A reinstall that installs for KPM over a takeover keeps KPM's runtime even with KMRP alone in
+it (`Install` passes `keepKpmRuntime`), since that install puts no runtime in its place; this
+is what `Test-KpmEdition.ps1` Case 10 already checked. The final message is "The original game
+files and settings have been restored." when the whole install went.
+
+`Test-KpmEdition.ps1`, against stand-ins: **Case 10b**, KPM's Apply laid out as the Mac saw it
+(the config byte for byte, `KotorPatcher.dll` and the state file changed, KMRP's backup under
+KPM's name, an `addresses.db`), then restore: the untouched executable back from the flagged
+one, the game's own `binkw32.dll`, and no file of KPM's or KMRP's left. **Case 10c**, another
+patch in the config and `patches\`, then restore: KPM's runtime, the other patch and the
+flagged executable exactly as they were, KMRP's data file gone. Not run with KPM's own window
+on Windows.
 
 **Check.** The two cases on a game KMRP installed, each after pressing Apply in KPM:
 KMRP alone in KPM, then uninstall: the untouched `swkotor.exe` (`761F9466…` or the Steam

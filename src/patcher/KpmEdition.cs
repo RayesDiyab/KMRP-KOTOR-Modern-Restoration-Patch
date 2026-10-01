@@ -286,7 +286,9 @@ namespace Kmrp
             if (IsInstalled(targetPath))
             {
                 SafeReport(report, "Replacing the installed KMRP files.");
-                Restore(targetPath, report, null);
+                // Installing for KPM: a runtime KPM took over stays KPM's, even with
+                // only KMRP's patches in it, since this install puts nothing in its place.
+                Restore(targetPath, report, null, !engine);
             }
             // After the restores above, which leave it unmodified or with a 4 GB flag
             // that was there before KMRP.
@@ -405,6 +407,12 @@ namespace Kmrp
         /// restore's.</summary>
         internal static void Restore(string targetPath, Action<string> report, Action<int, string> progress)
         {
+            Restore(targetPath, report, progress, false);
+        }
+
+        private static void Restore(string targetPath, Action<string> report, Action<int, string> progress,
+            bool keepKpmRuntime)
+        {
             SafeProgress(progress, 0, "Preparing to restore…");
             targetPath = Path.GetFullPath(targetPath);
             if (!IsInstalled(targetPath) && IsStandaloneInstall(targetPath))
@@ -416,21 +424,37 @@ namespace Kmrp
             List<string[]> records = ReadRecords(targetPath);
             bool engine = records.Exists(r => r[0] == "moved");
             // KOTOR Patch Manager took over the runtime this install put in -- its Apply
-            // rewrote patch_config.toml, and it may have re-extracted KMRP's modules byte
-            // for byte and kept the proxy -- so the runtime is KPM's now, and removing
-            // any of it would break KPM's install. Only KMRP's own content goes.
-            bool handedOver = engine && ConfigChangedSinceInstall(folder, records);
-            if (handedOver)
+            // rewrote some of it, and it may have re-extracted KMRP's modules byte for
+            // byte and kept the proxy -- so the runtime is KPM's now, and removing any of
+            // it would break KPM's install. Only KMRP's own content goes. Unless KMRP's
+            // patches are all KPM has: unticking them in KPM and pressing Apply would
+            // remove KPM's whole runtime (PatchRemover.RemoveAllPatches), so that is done
+            // here instead, as KPM does it, and the player has nothing left to do in KPM
+            // (as the Mac's uninstall does since 2026-10-01, kmrp-mac.sh).
+            bool handedOver = engine && RuntimeChangedSinceInstall(folder, records);
+            string untouched = null;
+            bool whole = handedOver && !keepKpmRuntime && KpmHoldsOnlyKmrp(targetPath, out untouched);
+            if (whole)
+            {
+                // The executable is put back from KPM's backup or its flag cleared by
+                // RemoveKpmRuntime, not by this install's record of the flag.
+                records = records.FindAll(r => r[0] != "laa");
+                SafeReport(report, "KOTOR Patch Manager had taken over KMRP's install, with no other " +
+                    "patch, so its runtime is removed as KPM would remove it.");
+            }
+            else if (handedOver)
             {
                 records = records.FindAll(r => !IsRuntimeRecord(r));
                 SafeReport(report, "KOTOR Patch Manager has taken over the runtime KMRP installed " +
-                    "(its patch_config.toml changed), so the runtime was left in place for it.");
+                    "(its Apply rewrote it), so the runtime was left in place for it.");
             }
             OverrideOperations.Restore(targetPath, report, progress);
             // K1DC keeps its own manifest, and only an install with KMRP's own runtime
             // installs it; without the manifest this does nothing.
             DriverCompatOperations.Restore(targetPath, report);
             RemoveKpatches(records, report);
+            if (whole)
+                RemoveKpmRuntime(targetPath, untouched, records, report);
             RemoveOwned(folder, records, report);
             UndoEngineChanges(targetPath, records, report);
             DpiCompatibilityOperations.Restore(targetPath, report);
@@ -440,24 +464,191 @@ namespace Kmrp
             try { File.Delete(ManifestPath(targetPath)); }
             catch { }
             SafeProgress(progress, 100, "Restore complete");
-            SafeReport(report, engine && !handedOver
+            SafeReport(report, engine && (!handedOver || whole)
                 ? "The original game files and settings have been restored."
                 : "KMRP's files and settings have been removed. " +
                   "Untick KMRP in KOTOR Patch Manager and press Apply to finish.");
         }
 
-        /// <summary>The patch_config.toml this install wrote has been replaced by another
-        /// one. Gone altogether is not a takeover: KPM's own "remove all patches" deletes
-        /// it with the rest of the runtime, and then nothing runs the game through it,
-        /// so the usual restore cleans up what is left, the 4 GB flag included.</summary>
-        private static bool ConfigChangedSinceInstall(string folder, List<string[]> records)
+        /// <summary>A file of the runtime this install wrote (IsRuntimeRecord) has been
+        /// replaced by another one. Any of them, not patch_config.toml alone: on the Mac
+        /// KPM 0.7.1's Apply wrote the config byte for byte as KMRP had, and only the
+        /// runtime, the executable and kpm_install_state.json showed the takeover
+        /// (2026-10-01); Windows' Apply has not been measured file by file. Gone
+        /// altogether is not a takeover: KPM's own "remove all patches" deletes the
+        /// runtime, and then nothing runs the game through it, so the usual restore
+        /// cleans up what is left, the 4 GB flag included. Nor is the game's own
+        /// binkw32.dll back over the proxy, which that removal also does
+        /// (KProxyInstaller.Uninstall).</summary>
+        private static bool RuntimeChangedSinceInstall(string folder, List<string[]> records)
         {
-            string[] config = records.Find(r => r[0] == "file" &&
-                String.Equals(r[1], ConfigName, StringComparison.OrdinalIgnoreCase));
-            if (config == null)
-                return false;
-            string path = Path.Combine(folder, ConfigName);
-            return File.Exists(path) && GoldPatch.HashFile(path) != config[2];
+            string[] rename = records.Find(r => r[0] == "moved" && r.Length == 4);
+            foreach (string[] record in records)
+            {
+                if (record[0] != "file" || !IsRuntimeRecord(record))
+                    continue;
+                string path = Path.Combine(folder, record[1]);
+                if (!File.Exists(path))
+                    continue;
+                string hash = GoldPatch.HashFile(path);
+                if (hash == record[2])
+                    continue;
+                if (rename != null && hash == rename[3] &&
+                    String.Equals(record[1], BinkName, StringComparison.OrdinalIgnoreCase))
+                    continue;
+                return true;
+            }
+            return false;
+        }
+
+        /// <summary>KOTOR Patch Manager's install holds KMRP's patches and nothing else --
+        /// its patch_config.toml, the patch list in kpm_install_state.json (which also
+        /// names patches without a module) and the modules in patches\ -- and the
+        /// untouched executable can be put back, as KPM's removal would: from KPM's
+        /// newest backup when there is one (<paramref name="untouched"/>, which must be
+        /// the untouched file), otherwise the file itself, unmodified or with only the
+        /// 4 GB flag (<paramref name="untouched"/> empty).</summary>
+        private static bool KpmHoldsOnlyKmrp(string targetPath, out string untouched)
+        {
+            untouched = null;
+            try
+            {
+                string folder = FolderOf(targetPath);
+                string config = Path.Combine(folder, ConfigName);
+                if (!File.Exists(config))
+                    return false;
+                List<string> ids = new List<string>();
+                foreach (Match match in Regex.Matches(File.ReadAllText(config, Encoding.UTF8),
+                             "^\\s*id\\s*=\\s*\"([^\"]*)\"\\s*$", RegexOptions.Multiline | RegexOptions.CultureInvariant))
+                    ids.Add(match.Groups[1].Value);
+                string state = Path.Combine(folder, KpmStateName);
+                if (File.Exists(state))
+                {
+                    Match list = Regex.Match(File.ReadAllText(state, Encoding.UTF8),
+                        "\"InstalledPatches\"\\s*:\\s*\\[([^\\]]*)\\]", RegexOptions.CultureInvariant);
+                    if (!list.Success)
+                        return false;
+                    foreach (Match id in Regex.Matches(list.Groups[1].Value, "\"((?:[^\"\\\\]|\\\\.)*)\""))
+                        ids.Add(JsonUnescape(id.Groups[1].Value));
+                }
+                if (ids.Count == 0 || ids.Exists(id => Array.IndexOf(EnginePatches, id) < 0))
+                    return false;
+                string patches = Path.Combine(folder, PatchFolder);
+                if (Directory.Exists(patches))
+                {
+                    if (Directory.GetDirectories(patches).Length > 0)
+                        return false;
+                    foreach (string module in Directory.GetFiles(patches))
+                        if (!String.Equals(Path.GetExtension(module), ".dll", StringComparison.OrdinalIgnoreCase) ||
+                            Array.IndexOf(EnginePatches, Path.GetFileNameWithoutExtension(module).ToLowerInvariant()) < 0)
+                            return false;
+                }
+                string newest = NewestKpmBackup(targetPath);
+                if (newest != null)
+                {
+                    GameExecutable backup = GameExecutable.Identify(newest);
+                    if (backup == null || GoldPatch.HashFile(newest) != backup.Hash)
+                        return false;
+                    untouched = newest;
+                    return true;
+                }
+                if (GameExecutable.Identify(targetPath) == null)
+                    return false;
+                untouched = "";
+                return true;
+            }
+            catch (IOException) { return false; }
+            catch (UnauthorizedAccessException) { return false; }
+        }
+
+        /// <summary>KOTOR Patch Manager's newest backup of the executable, as its
+        /// BackupManager finds one (PathHelpers.FindLatestBackup: the name's
+        /// yyyyMMdd_HHmmss), or null.</summary>
+        private static string NewestKpmBackup(string targetPath)
+        {
+            string prefix = Path.GetFileName(targetPath) + KpmBackupInfix;
+            string newest = null;
+            foreach (string path in Directory.GetFiles(FolderOf(targetPath), prefix + "*"))
+            {
+                string stamp = Path.GetFileName(path).Substring(prefix.Length);
+                if (!Regex.IsMatch(stamp, "^[0-9]{8}_[0-9]{6}$"))
+                    continue;
+                if (newest == null || String.CompareOrdinal(Path.GetFileName(path), Path.GetFileName(newest)) > 0)
+                    newest = path;
+            }
+            return newest;
+        }
+
+        /// <summary>What KOTOR Patch Manager's own removal does
+        /// (PatchRemover.RemoveAllPatches, KPM 0.7.1), for an install KPM took over with
+        /// only KMRP's patches (KpmHoldsOnlyKmrp): the untouched executable back from
+        /// KPM's newest backup and that backup deleted, or else the 4 GB flag cleared;
+        /// KPM's runtime files and KMRP's modules deleted whatever their contents; and the
+        /// proxy deleted, so that UndoEngineChanges puts the game's own binkw32.dll back
+        /// (KProxyInstaller.Uninstall). KPM's app files, should it run from the game
+        /// folder, are left.</summary>
+        private static void RemoveKpmRuntime(string targetPath, string untouched, List<string[]> records,
+            Action<string> report)
+        {
+            string folder = FolderOf(targetPath);
+            if (!String.IsNullOrEmpty(untouched))
+            {
+                string hash = GoldPatch.HashFile(untouched);
+                try
+                {
+                    FileAttributes attributes = File.GetAttributes(targetPath);
+                    if ((attributes & FileAttributes.ReadOnly) != 0)
+                        File.SetAttributes(targetPath, attributes & ~FileAttributes.ReadOnly);
+                    File.Copy(untouched, targetPath, true);
+                }
+                catch (IOException error)
+                {
+                    throw new IOException(InUseMessage(targetPath), error);
+                }
+                catch (UnauthorizedAccessException error)
+                {
+                    throw new IOException(InUseMessage(targetPath), error);
+                }
+                if (GoldPatch.HashFile(targetPath) != hash)
+                    throw new IOException("Putting back the untouched swkotor.exe from KOTOR Patch Manager's " +
+                        "backup could not be verified.");
+                File.Delete(untouched);
+                if (File.Exists(untouched + ".json"))
+                    File.Delete(untouched + ".json");
+            }
+            else
+            {
+                string hash = GoldPatch.HashFile(targetPath);
+                GameExecutable exe = GameExecutable.ForHash(hash);
+                if (exe != null && hash == exe.LargeAddressAwareHash)
+                {
+                    WriteCharacteristics(targetPath, PeCompatibility.OriginalCharacteristics);
+                    if (GoldPatch.HashFile(targetPath) != exe.Hash)
+                        throw new IOException("Clearing the 4 GB flag on swkotor.exe could not be verified.");
+                }
+            }
+            foreach (string name in new[] { ConfigName, RuntimeName, "addresses.toml", "addresses.db",
+                                            "sqlite3.dll", KpmStateName })
+            {
+                string path = Path.Combine(folder, name);
+                if (File.Exists(path))
+                    File.Delete(path);
+            }
+            foreach (string id in EnginePatches)
+            {
+                string path = Path.Combine(folder, PatchFolder, id + ".dll");
+                if (File.Exists(path))
+                    File.Delete(path);
+            }
+            string[] rename = records.Find(r => r[0] == "moved" && r.Length == 4);
+            string moved = Path.Combine(folder, BinkMovedName);
+            if (rename != null && File.Exists(moved) && GoldPatch.HashFile(moved) == rename[3])
+            {
+                string proxy = Path.Combine(folder, BinkName);
+                if (File.Exists(proxy))
+                    File.Delete(proxy);
+            }
+            SafeReport(report, "Removed KOTOR Patch Manager's runtime and put back the untouched swkotor.exe.");
         }
 
         /// <summary>A record of KOTOR Patch Manager's runtime as this install laid it out:

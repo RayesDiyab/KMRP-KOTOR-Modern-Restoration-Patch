@@ -1364,12 +1364,24 @@ before:
   - With KMRP KPM's only patch, uninstall now also removes KPM's runtime as KPM's own Remove
     would (`addresses.db` included), leaving the untouched game and nothing to untick in KPM;
     beside another KPM patch it is as before. Windows does neither yet
-    (`docs/windows-changes-from-macos.md`, item 16).
+    (`docs/windows-changes-from-macos.md`, item 16). (*It does both since the same day:
+    below.*)
 
   KPM's settings are in `~/Library/Application Support/KPatchLauncher/settings.json` on the
   Mac (KPM 0.7.1 is .NET 8; seen 2026-10-01), one of the two places the script reads.
   `Test-MacInstaller.py`'s round 6 now does both takeovers as KPM 0.7.1 was seen to: 0
   problems. In play: KPM's Apply and launch, then Steam's launch, both ran the game.
+
+- **Windows: uninstall after KotOR Patch Manager's takeover, as on the Mac** (2026-10-01,
+  `docs/windows-changes-from-macos.md`, item 16). A takeover is found from any runtime file
+  the install recorded having changed, not `patch_config.toml` alone; the game's own
+  `binkw32.dll` back over the proxy is not one. With KMRP's patches all KPM has (its config,
+  its state file's patch list and `patches\`), Restore removes KPM's runtime too, as KPM's own
+  removal would (`addresses.db` and `sqlite3.dll` included), and puts back the untouched
+  `swkotor.exe` from KPM's newest backup or by clearing the 4 GB flag, so nothing is left to
+  untick in KPM; with another patch in KPM's list the runtime is left to KPM, as before. A
+  reinstall over a takeover still installs for KPM and keeps its runtime.
+  `Test-KpmEdition.ps1` Cases 10b and 10c; not run under KPM's own window on Windows.
 
 - **macOS: KotOR Patch Manager handled as on Windows** (2026-10-01, the maintainer: "It should
   do the same with kpm as windows"). KMRP's own install now leaves KPM's records as the

@@ -477,8 +477,8 @@ as `kmrp-sdl3-LICENSE.txt`. The build downloads a SHA-256-pinned SDK under ignor
 
 The macOS package ships the same release's macOS library (`SDL3.framework` from the
 official `SDL3-3.4.16.dmg`, SHA-256-pinned by `macos/build.sh`) as
-`engine/patches/kmrp-sdl3.dylib`, installed beside the controller module in
-`Contents/MacOS/patches`. Its code is unchanged; its ad-hoc signature is redone,
+`engine/kmrp-sdl3.dylib`, installed beside the game in `Contents/MacOS` (in
+`Contents/MacOS/patches` beside the controller module until 2026-10-01). Its code is unchanged; its ad-hoc signature is redone,
 because the release's seals the framework's `Info.plist`, which the bare library
 does not carry. The licence is shipped as `licenses/SDL3-LICENSE.txt`.
 

@@ -235,6 +235,16 @@ own content (`ConfigChangedSinceInstall`, `IsRuntimeRecord`). Without that, a
 reinstall would have deleted the modules KPM's config names, since their bytes
 still matched the manifest. `Test-KpmEdition.ps1` Case 10 covers it.
 
+Since 2026-10-01 (from the Mac, [`windows-changes-from-macos.md`](windows-changes-from-macos.md),
+item 16) two things differ. A takeover is any runtime file the manifest records
+changed, not `patch_config.toml` alone (`RuntimeChangedSinceInstall`): on the Mac
+KPM 0.7.1's Apply wrote the config byte for byte as KMRP had. And a restore
+(not a reinstall) after a takeover with only KMRP's patches in KPM's config, state
+file and `patches\` removes KPM's runtime too, as KPM's own removal would, and
+puts back the untouched executable from KPM's backup (`KpmHoldsOnlyKmrp`,
+`RemoveKpmRuntime`); with another patch there it leaves the runtime, as above.
+Cases 10b and 10c cover the two.
+
 **Keeping the proxy when KPM applies.** KPM 0.7.1 picks the deployment on every
 Apply and Launch from its global *Use library proxy* setting alone. With it off,
 the Windows default, an Apply over this install moves the game to injection: the
