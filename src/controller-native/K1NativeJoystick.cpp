@@ -113,6 +113,7 @@ constexpr int         K1_PAD_STATE_SLOTS      = 4;
 extern "C" void __cdecl KmrpActionBarApplyK1(void* mainInterface, int dx, int dy,
                                              int activate);
 extern "C" int  __cdecl KmrpActionBarFocusedK1(void* mainInterface);
+extern "C" int  __cdecl KmrpActionBarHeldK1(void* mainInterface);
 extern "C" int  __cdecl KmrpActionBarStateK1(void* mainInterface);
 extern "C" void __cdecl KmrpActionBarReleaseK1(void* mainInterface);
 
@@ -2613,7 +2614,8 @@ extern "C" void __cdecl NativeActionBarK1(void* mainInterface)
     int release = 0;
     if (g_stick.hudReleaseRequested != 0) {
         g_stick.hudReleaseRequested = 0;
-        release = KmrpActionBarFocusedK1(mainInterface);
+        // Any focused slot, one that can no longer act included: B lets go of it.
+        release = KmrpActionBarHeldK1(mainInterface);
     }
     // Taken now whatever happens below, so a press made in gameplay can never
     // act later on a different screen.

@@ -1363,6 +1363,10 @@ before:
   action was declined (76 such presses in one session's log). A focused slot now holds A
   only while it can act (`hud.cpp`, `ActionBarFocused`). Windows' `IsActionBarFocused` makes
   the same test (`docs/windows-changes-from-macos.md`, item 18).
+- **Windows: the same for A after a stale action-slot focus** (2026-10-01, from the Mac). A
+  uses a focused action slot, and the world action is declined, only while that slot can act
+  (`IsActionBarFocused`, with `IsActionButtonSelectable`, the D-pad's own test); B still lets
+  go of any focused slot (`KmrpActionBarHeldK1`). Not seen in play on Windows.
 - **macOS: the installer patches to the resolution macOS is set to** (2026-10-01; the
   maintainer: "I want it to patch to the currently running resolution"). On a Retina display
   it chose the pixel size (3024x1964 on a 14" MacBook Pro), which a tester reading 1512x982 in
@@ -1409,7 +1413,11 @@ before:
   `swkotor.exe` from KPM's newest backup or by clearing the 4 GB flag, so nothing is left to
   untick in KPM; with another patch in KPM's list the runtime is left to KPM, as before. A
   reinstall over a takeover still installs for KPM and keeps its runtime.
-  `Test-KpmEdition.ps1` Cases 10b and 10c; not run under KPM's own window on Windows.
+  `Test-KpmEdition.ps1` Cases 10b and 10c; then KPM 0.7.1's own Apply (its command line, not
+  its window) on a copy of the game: KMRP alone with injection and with the proxy, and beside
+  Fair Pazaak Turn Order, each followed by KMRP's restore, all as above; the game ran with
+  KMRP's 95 of 95 runs each time. Fair Pazaak has no module, so only KPM's state file showed
+  it was there.
 
 - **macOS: KotOR Patch Manager handled as on Windows** (2026-10-01, the maintainer: "It should
   do the same with kpm as windows"). KMRP's own install now leaves KPM's records as the

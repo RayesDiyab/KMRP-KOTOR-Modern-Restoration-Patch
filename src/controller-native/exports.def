@@ -48,6 +48,7 @@ EXPORTS
     CoreMovieFrameK1
     KmrpActionBarApplyK1
     KmrpActionBarFocusedK1
+    KmrpActionBarHeldK1
     KmrpActionBarStateK1
     KmrpActionBarReleaseK1
     KmrpGlyphLetterK1

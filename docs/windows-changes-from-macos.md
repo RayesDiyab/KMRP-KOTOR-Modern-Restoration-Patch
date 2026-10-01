@@ -63,9 +63,9 @@ does it, checked as stated), **doc** (a Windows document to correct).
 | 13 | The Options check boxes' circle and label offset scaled with the resolution | **built** (2026-09-30; seen at 3440x1440) |
 | 14 | Lists as tall as whole rows: the Container, the granted popup, character creation's Feats, low-resolution lists | **built** (2026-09-30) |
 | 15 | Skill rows as tall as the Feats and Powers rows (`50s`), the skill icons with them | **built** (2026-09-30) |
-| 16 | Uninstall after KPM's takeover: removes KPM's runtime too when KMRP is its only patch; a takeover found from any runtime file, not `patch_config.toml` alone | **built** (2026-10-01; `Test-KpmEdition.ps1` Cases 10b and 10c; not run under KPM's window on Windows) |
-| 17 | The target menu: buttons 1.5x the name strip, centred under it, never past the name box | **build only** |
-| 18 | A on the world after an action slot's focus has gone stale (a door after an enemy) | **to do** |
+| 16 | Uninstall after KPM's takeover: removes KPM's runtime too when KMRP is its only patch; a takeover found from any runtime file, not `patch_config.toml` alone | **done** (2026-10-01; `Test-KpmEdition.ps1` Cases 10b and 10c, then KPM 0.7.1's own Apply on the scratch copy, both deployments and beside another patch; not with KPM's window) |
+| 17 | The target menu: buttons 1.5x the name strip, centred under it, never past the name box | **built** (2026-10-01, installer `F9BB9E8D`; not seen in play on Windows) |
+| 18 | A on the world after an action slot's focus has gone stale (a door after an enemy) | **built** (2026-10-01; not seen in play) |
 
 ## 1. Message popups fitted to their contents
 
@@ -620,8 +620,29 @@ files and settings have been restored." when the whole install went.
 KPM's name, an `addresses.db`), then restore: the untouched executable back from the flagged
 one, the game's own `binkw32.dll`, and no file of KPM's or KMRP's left. **Case 10c**, another
 patch in the config and `patches\`, then restore: KPM's runtime, the other patch and the
-flagged executable exactly as they were, KMRP's data file gone. Not run with KPM's own window
-on Windows.
+flagged executable exactly as they were, KMRP's data file gone.
+
+**Checked against KPM 0.7.1, later on 2026-10-01** (installer `E133F3B6`, the scratch copy of
+CD 1.03, `761F9466…`; script `kpm_real_takeover.ps1` in the session scratchpad, not in the
+repository). KPM's own command line (`KPatchLauncher.exe <exe> --patches <folder> <ids>
+--deployment …`), which runs the window's Apply (`RemoveAllPatches` keeping the state file,
+then `InstallPatches` with a backup) and then launches the game; not the window itself. KMRP
+installed with its own runtime each time and delivered its four `.kpatch` files to the folder
+KPM's settings named (KPM's own settings parked and put back byte for byte, `85A4E55E…`).
+
+| Case | KPM's Apply | Then KMRP's restore |
+| --- | --- | --- |
+| KMRP alone, injection (KPM's default) | KMRP's four patches; the game launched and KMRP applied 95 of 95 runs; `swkotor.exe` flagged (`CA9D22EA…`), KPM's `KotorPatcher.dll`, `addresses.db`, `sqlite3.dll`, the game's own `binkw32.dll` back | the untouched `swkotor.exe`, the game's own `binkw32.dll`, no file or backup of KPM's left, the whole game folder as before the install, KMRP's `.kpatch` files gone from KPM's folder |
+| KMRP alone, proxy | the same, the proxy kept (`binkw32Hooked.dll`) | the same |
+| KMRP and Fair Pazaak Turn Order, injection | five patches; KMRP applied 95 of 95 runs | KPM's runtime, the three modules and the flagged `swkotor.exe` exactly as KPM wrote them; KMRP's data file and manifest gone |
+
+Fair Pazaak Turn Order has no module, so `patches\` held only KMRP's three and
+`patch_config.toml` names only patches with one: that case was told apart by the state file's
+`InstalledPatches` alone, which is why `KpmHoldsOnlyKmrp` reads it. (The Mac's
+`kpm_holds_only_kmrp` reads the config and `patches/` only; see
+[`macos-changes-from-windows.md`](macos-changes-from-windows.md), item 13.) KPM's install from
+the third case was then removed by hand as `RemoveAllPatches` does, and the folder compared
+equal to the start.
 
 **Check.** The two cases on a game KMRP installed, each after pressing Apply in KPM:
 KMRP alone in KPM, then uninstall: the untouched `swkotor.exe` (`761F9466…` or the Steam
@@ -643,6 +664,11 @@ bar widened only where needed; 3440x1440's own HUD too (`prepare_universal_resou
 **Check.** At 1920x1080 and 3440x1440: target an enemy (three buttons, whole, under the name),
 a locked door and a container.
 
+**Built on Windows, 2026-10-01**: installer `F9BB9E8D…` from the merged code, resources rebuilt
+(not reused). `Test-GeneratedGuiGeometry.py` passes at 66 sizes, `Test-GuiBlendHelper.py` (the
+installer's blend equals the helper's at 369 sizes) and the nine installer suites pass on it.
+**Not seen in play on Windows.**
+
 ## 18. A on the world after an action slot's focus has gone stale
 
 **What changed on the Mac** (2026-10-01, `macos/patches/kmrp-controller/hud.cpp`). With an
@@ -656,3 +682,20 @@ counts any focused slot the same way. **Not checked on Windows** whether its eng
 focus when the target changes; if not, the same fix.
 
 **Check.** Focus an enemy's action slot, target an unlocked door, press A: the door opens.
+
+**Built on Windows, 2026-10-01** (`src/controller-native/vendor/K1XboxControls.cpp`). Windows'
+A takes the same two paths as the Mac's: `NativeActionBarK1` uses the slot, and
+`PerformPendingInteractionK1` declines the world action, both while `KmrpActionBarFocusedK1`
+(`IsActionBarFocused`) says a slot has the focus, any slot. Whether the engine keeps the focus
+on Windows after the target changes was not checked in play; the code has nothing that drops
+it, so the fix is made either way:
+
+| | Mac (`hud.cpp`) | Windows |
+| --- | --- | --- |
+| a slot that can act | `Selectable` | `IsActionButtonSelectable`, split out of `FindSelectableButton` (a target slot needs an action for the current target; visible; `GetIsSelectable`), so D-pad moves and A use one test |
+| A | `ActionBarFocused`: focused and selectable | `IsActionBarFocused`: focused (`FocusedActionButton`) and selectable; so `KmrpActionBarFocusedK1`, the world action's guard and the `R` key's guard follow |
+| B | lets go of any focused slot | `KmrpActionBarHeldK1`, new: any focused slot, which `NativeActionBarK1` now asks before `KmrpActionBarReleaseK1`, so B still lets go of a slot that can no longer act |
+
+The module built (`kmrp-controller.module` `7050BD84…`), in installer `F9BB9E8D…`, on which
+`Test-ControllerSupport.ps1` and the other eight installer suites pass. **Not seen in play on
+Windows.**

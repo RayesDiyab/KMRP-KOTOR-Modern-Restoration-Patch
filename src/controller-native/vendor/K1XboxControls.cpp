@@ -3050,20 +3050,42 @@ int FindButton(
     return -1;
 }
 
-bool IsActionBarFocused(const GameConfig& config, void* mainInterface)
+bool IsActionButtonSelectable(
+    const GameConfig& config,
+    void* mainInterface,
+    const ActionButtons& buttons,
+    int index);
+
+// The index of the action slot holding the focus in gameplay, or -1.
+int FocusedActionButton(const GameConfig& config, void* mainInterface)
 {
     void* manager = mainInterface
         ? ReadPointer(mainInterface, config.panelManagerOffset)
         : nullptr;
     if (!manager || !IsGameplayHudActive(config, manager, mainInterface)) {
-        return false;
+        return -1;
     }
 
     ActionButtons buttons = GetActionButtons(config, mainInterface);
     void* activeControl = ReadPointer(
         mainInterface,
         config.panelActiveControlOffset);
-    return FindButton(config, buttons, activeControl) >= 0;
+    return FindButton(config, buttons, activeControl);
+}
+
+// A slot has the focus and can still act. The focus outlives what made it
+// useful: a target slot keeps it after the target changes to one with no
+// actions in that slot (a door after an enemy), and A then went to the empty
+// slot while the world's default action, opening the door, was declined (seen
+// on the Mac, 2026-10-01; macos/patches/kmrp-controller/hud.cpp makes the same
+// test). Such a slot no longer holds A. B still lets go of it
+// (KmrpActionBarHeldK1).
+bool IsActionBarFocused(const GameConfig& config, void* mainInterface)
+{
+    const int index = FocusedActionButton(config, mainInterface);
+    return index >= 0 &&
+        IsActionButtonSelectable(
+            config, mainInterface, GetActionButtons(config, mainInterface), index);
 }
 
 bool IsActionControl(
@@ -3089,28 +3111,39 @@ int FindSelectableButton(
     int direction)
 {
     const int buttonCount = ActionButtonCount(config);
-    const auto getIsSelectable =
-        reinterpret_cast<GetIsSelectableFn>(config.getIsSelectable);
     int index = start;
     for (int count = 0; count < buttonCount; ++count) {
         index = (index + direction + buttonCount) % buttonCount;
-        if (index < TARGET_ACTION_COUNT) {
-            void* targetMenu = OffsetPointer(
-                mainInterface,
-                config.targetActionMenuOffset);
-            if (ReadInt(
-                    targetMenu,
-                    index * TARGET_ACTION_LIST_SIZE +
-                        TARGET_ACTION_LIST_COUNT_OFFSET) <= 0) {
-                continue;
-            }
-        }
-        if ((ReadInt(buttons[index], config.panelFlagsOffset) & CONTROL_VISIBLE) != 0 &&
-            getIsSelectable(buttons[index])) {
+        if (IsActionButtonSelectable(config, mainInterface, buttons, index)) {
             return index;
         }
     }
     return -1;
+}
+
+// A target slot with at least one action for the current target, or a
+// personal slot, that is visible and the engine calls selectable.
+bool IsActionButtonSelectable(
+    const GameConfig& config,
+    void* mainInterface,
+    const ActionButtons& buttons,
+    int index)
+{
+    if (index < TARGET_ACTION_COUNT) {
+        void* targetMenu = OffsetPointer(
+            mainInterface,
+            config.targetActionMenuOffset);
+        if (ReadInt(
+                targetMenu,
+                index * TARGET_ACTION_LIST_SIZE +
+                    TARGET_ACTION_LIST_COUNT_OFFSET) <= 0) {
+            return false;
+        }
+    }
+    const auto getIsSelectable =
+        reinterpret_cast<GetIsSelectableFn>(config.getIsSelectable);
+    return (ReadInt(buttons[index], config.panelFlagsOffset) & CONTROL_VISIBLE) != 0 &&
+        getIsSelectable(buttons[index]);
 }
 
 void MoveFocus(
@@ -3832,6 +3865,14 @@ extern "C" int __cdecl KmrpActionBarFocusedK1(void* mainInterface)
     // interface after the screen it belonged to has gone, and answering a
     // question about a dead object is worse than declining to answer.
     return (mainInterface && IsActionBarFocused(K1_CONFIG, mainInterface)) ? 1 : 0;
+}
+
+// Any action slot holds the focus, whether or not it can act: what B lets go
+// of. KmrpActionBarFocusedK1 answers for A, and declines a slot that can no
+// longer act (2026-10-01).
+extern "C" int __cdecl KmrpActionBarHeldK1(void* mainInterface)
+{
+    return (mainInterface && FocusedActionButton(K1_CONFIG, mainInterface) >= 0) ? 1 : 0;
 }
 
 extern "C" void __cdecl UpdateActionBarControlsK1(void* mainInterface)

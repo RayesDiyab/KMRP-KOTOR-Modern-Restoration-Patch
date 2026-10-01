@@ -758,7 +758,11 @@ working cycle look dead.
 **A has exactly one destination.** It uses the slot while a slot has focus, and
 performs the world action otherwise. Both consumers ask
 `KmrpActionBarFocusedK1`, so precisely one acts however the two per-frame hooks
-happen to be ordered within a frame.
+happen to be ordered within a frame. Since 2026-10-01 "has focus" means a slot
+that can still act (`IsActionButtonSelectable`, the D-pad's own test): a target
+slot keeps the focus after the target changes to a door, which has no actions
+there, and A went to the empty slot instead of opening the door (seen on the Mac).
+B asks `KmrpActionBarHeldK1`, any focused slot, so it still lets go of one.
 
 **Using a slot keeps the bar; B lets go of it (issue #17).** After the
 activate callback -- `CSWGuiMainInterface::OnDefaultActionLeft`, `0x0068B970`,

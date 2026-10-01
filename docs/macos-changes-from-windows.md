@@ -41,6 +41,7 @@ reason).
 | 10 | The skill picture inside its frame grows with the `50s` row | **build and check** |
 | 11 | The Feedback list's rows grow with the resolution, so the `25s` circles fit | **build and check** |
 | 12 | Every font atlas at its set's own scale: check the Mac's cache | **check** |
+| 13 | `kpm_holds_only_kmrp` reads KPM's state file too: a patch without a module is in neither `patch_config.toml` nor `patches/` | **to do** |
 
 ## 1. Badges drawn for the blended buttons
 
@@ -327,3 +328,23 @@ by `tools/build_font_scale_sets.py`) had no set for 16 of the 17 Mac sizes' scal
 (`Test-FontAtlasScale.py` failed on those 16; the baker was run and they pass). The Mac's
 packages come from the Mac's own build, whose cache this repository cannot see. **Check**:
 `Test-FontAtlasScale.py` on the Mac's resources; it names any set drawn resampled.
+
+## 13. KMRP as KPM's only patch, judged from the state file too
+
+**What changed on Windows** (2026-10-01, the Windows side of
+[`windows-changes-from-macos.md`](windows-changes-from-macos.md), item 16). Before an uninstall
+removes KPM's whole runtime, `KpmHoldsOnlyKmrp` checks the ids in `patch_config.toml`, the
+modules in `patches\`, **and `InstalledPatches` in `kpm_install_state.json`**. Checked against
+KPM 0.7.1's own Apply: with Fair Pazaak Turn Order beside KMRP, the config named only KMRP's
+patches and `patches\` held only KMRP's modules, because Fair Pazaak has no module (its hooks
+are written into the executable). Only the state file listed it. Without that, the uninstall
+would have taken KPM's install for KMRP's alone and put back the untouched executable, losing
+the other patch.
+
+**What the Mac needs.** `kpm_holds_only_kmrp` in `macos/kmrp-mac.sh` reads the config and
+`patches/` only. Add the state file's `InstalledPatches` (every id `kmrp`), and refuse the
+whole removal when the file is there and the list cannot be read. Whether a module-less patch
+for the Aspyr build exists in KPM's set today is not checked; the rule is the same either way.
+
+**Check.** `Test-MacInstaller.py` round 6: a takeover whose state file lists `kmrp` and another
+id, with the config and `patches/` holding KMRP's alone; uninstall must leave KPM's runtime.
