@@ -34,7 +34,7 @@ reason).
 | 3 | `kmrp-mac.sh` installs every file the helper writes, not only the `.gui` files | **build and check** |
 | 4 | The installer window's second step names the game version it finds | **to do** |
 | 5 | Wording that says a blended size takes the nearest set's "fonts and art" | **to do** |
-| 6 | KOTOR Patch Manager recognises KMRP's install by itself, and KMRP installs for KPM when KPM manages the game | **build and check** (written on Windows 2026-10-01, as Windows does it; FTD's install still replaced) |
+| 6 | KOTOR Patch Manager recognises KMRP's install by itself, and KMRP installs for KPM when KPM manages the game | **done** (built and checked on a Mac 2026-10-01 with KPM 0.7.1's window; four fixes, see the section) |
 | 7 | GOG's executable | **n/a**: the Mac build is Aspyr's Steam build only |
 | 8 | Step 1 finds Steam's KOTOR by itself | **n/a**: the Mac did it first (`find_game`); Windows follows it since 2026-09-30 |
 | 9 | `gui-blend.bin` version 4: the row fits and the badges in one table; the helper's manifest carries this blend's row fits | **build and check** |
@@ -181,6 +181,17 @@ values, delivery to KPM's folder and not over another's file, the fallback besid
 installs for KPM beside another patch; round 6 is the takeover) but needs a Mac. **Check on
 a Mac**: `build.sh`, `Test-MacInstaller.py`, which .NET folder KPM's settings are really in,
 then KPM's own window over an install as the **Check** below says.
+
+**Built and checked on a Mac, 2026-10-01.** `build.sh` and `Test-MacInstaller.py` pass (0
+problems). KPM's settings are in `~/Library/Application Support/KPatchLauncher/settings.json`
+(KPM 0.7.1, .NET 8). With KPM 0.7.1's own window: KMRP delivered `kmrp.kpatch` to the folder
+named there, KPM listed it ticked over KMRP's install, and Apply, then a launch from KPM and
+one from Steam, ran the game. Four fixes came out of it (`CHANGELOG.md`, *KotOR Patch
+Manager's own window over KMRP*): the movie hook's parameter source, which 0.7.1 refused; SDL
+beside the game, which KPM's Apply had deleted from `patches/`; a takeover found from any
+runtime file, since KPM writes `patch_config.toml` as KMRP does; and uninstall removing KPM's
+runtime too when KMRP is its only patch. The last two are for Windows as well
+([`windows-changes-from-macos.md`](windows-changes-from-macos.md), item 16).
 
 Asked for by the maintainer on 2026-09-30 ("how on windows it gets detected automatically by
 kpm, this needs to happen as well on macos"), as the next step after the merge. Nothing is

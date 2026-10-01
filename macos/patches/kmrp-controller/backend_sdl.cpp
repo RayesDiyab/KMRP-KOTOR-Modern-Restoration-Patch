@@ -2,7 +2,8 @@
 //
 // The Mac port of src/controller-native/K1ControllerBackend.cpp's SDL path, and read against
 // it: the same official SDL release (3.4.16), loaded the same way (by full path, from beside
-// this module, as kmrp-sdl3.dylib; Windows loads kmrp-sdl3.dll), the same hints, the same
+// this module or else beside the game, as kmrp-sdl3.dylib; Windows loads kmrp-sdl3.dll), the
+// same hints, the same
 // button and axis normalisation, and the same choice of pad (the one last used, rescanned
 // once a second). What differs is only what Windows has and the Mac does not: there is no
 // XInput, so Xbox pads go through SDL too (its HIDAPI driver), where Windows keeps them on
@@ -17,6 +18,7 @@
 #include <SDL3/SDL.h>
 
 #include <dlfcn.h>
+#include <mach-o/dyld.h>
 #include <cmath>
 #include <cstdlib>
 #include <cstring>
@@ -59,13 +61,25 @@ double Now() {
     return t.tv_sec + t.tv_nsec / 1e9;
 }
 
-// Resolves the library beside this module, never one from elsewhere.
+// Resolves the library beside this module, else beside the game (KOTOR_Exe), never one from
+// elsewhere. KMRP's installer puts it beside the game: KPM extracts only a patch's module, and
+// its Apply empties patches/, so under KPM's runtime this module's folder has no SDL
+// (K1ControllerBackend.cpp looks in the same two places on Windows).
 void Load() {
     Dl_info self;
     if (!dladdr(reinterpret_cast<const void*>(&Load), &self) || !self.dli_fname) return;
     std::string path = self.dli_fname;
     path = path.substr(0, path.rfind('/') + 1) + "kmrp-sdl3.dylib";
     void* lib = dlopen(path.c_str(), RTLD_NOW | RTLD_LOCAL);
+    if (!lib) {
+        char exe[4096];
+        uint32_t size = sizeof(exe);
+        if (_NSGetExecutablePath(exe, &size) == 0) {
+            path = exe;
+            path = path.substr(0, path.rfind('/') + 1) + "kmrp-sdl3.dylib";
+            lib = dlopen(path.c_str(), RTLD_NOW | RTLD_LOCAL);
+        }
+    }
     if (!lib) { Log("SDL3: %s not loaded (%s); using GameController", path.c_str(), dlerror()); return; }
 #define RESOLVE(name) p##name = reinterpret_cast<decltype(&name)>(dlsym(lib, #name)); \
     if (!p##name) { Log("SDL3: %s missing; using GameController", #name); dlclose(lib); return; }

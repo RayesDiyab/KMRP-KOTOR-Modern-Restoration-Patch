@@ -117,15 +117,17 @@ type = "pointer"
 #
 # Aspyr's movie loop (0x1000139e4), at the top of each frame: `cmp byte ptr [rbp-0x4af], 0`,
 # the test of the loop's "cancelled" byte, seven position-independent bytes, re-run after the
-# handler so the jne that follows reads fresh flags. The handler gets the loop's state block,
-# rbp-0x4b0, whose byte 0 a key's release sets to skip the movie; A and Start set it too.
+# handler so the jne that follows reads fresh flags. The handler gets the frame pointer and finds
+# the loop's state block at rbp-0x4b0, whose byte 0 a key's release sets to skip the movie; A and
+# Start set it too. Plain "rbp" rather than "rbp-0x4b0": KPM 0.7.1, the current release, takes
+# only registers and rsp offsets as sources and refused the whole patch over this one.
 [[hooks]]
 address = 0x100014566
 type = "detour"
 function = "KmrpMovieFrame"
 original_bytes = [0x80, 0xbd, 0x51, 0xfb, 0xff, 0xff, 0x00]
 [[hooks.parameters]]
-source = "rbp-0x4b0"
+source = "rbp"
 type = "pointer"
 
 # Which device the player is on (prompts.cpp), K1NativeJoystick.cpp's NativeNoteKeyboardK1: a

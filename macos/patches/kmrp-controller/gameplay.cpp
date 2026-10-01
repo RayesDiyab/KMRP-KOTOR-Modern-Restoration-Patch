@@ -212,8 +212,10 @@ extern "C" __attribute__((visibility("default"))) int KmrpCameraFrame(void* inte
 // key, mouse or controller button's release there, and stops the movie once its unskippable
 // start has passed; byte 1 is set only on quitting. A and Start set byte 0, as a key does, and
 // only when pressed during the movie: a press held from before it (the Start that began a new
-// game) does not count until it has been let go.
-extern "C" __attribute__((visibility("default"))) void KmrpMovieFrame(std::uint8_t* state) {
+// game) does not count until it has been let go. The hook passes the loop's frame pointer; the
+// block is at rbp-0x4b0.
+extern "C" __attribute__((visibility("default"))) void KmrpMovieFrame(std::uint8_t* frame) {
+    std::uint8_t* state = frame ? frame - 0x4b0 : nullptr;
     static std::uint8_t* movie = nullptr;
     static bool armed = false;
     static unsigned long skips = 0;
