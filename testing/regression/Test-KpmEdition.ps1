@@ -156,7 +156,9 @@ if ($settingsExisted) { Copy-Item -LiteralPath $settingsPath -Destination $setti
 # Where KMRP Movies and KMRP Map Notes may write: the movie display-mode operands
 # (imm32, VA 0x00403D6C, 0x00403D78, 0x005F5B3B, 0x005F5B43), the jump into the movie
 # aspect fit (0x004057AC, 7 bytes), and the .kmn enable flag (0x00876000, 4 bytes).
-$movieSites = @(@(0x00403D6C, 4), @(0x00403D78, 4), @(0x005F5B3B, 4), @(0x005F5B43, 4), @(0x004057AC, 7))
+# The source template guards both temporary-mode operands with their unchanged
+# intervening instruction bytes as one 12-byte run.
+$movieSites = @(@(0x00403D6C, 4), @(0x00403D78, 4), @(0x005F5B3B, 12), @(0x004057AC, 7))
 $cdData = @{}
 # A refusal writes KMRP.startup-error.log beside the installer, in dist\, which would
 # then ship. One this run creates is removed at the end.

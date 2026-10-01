@@ -16,12 +16,8 @@ temporary directory—not beside tracked sources.
 ## Build ladder
 
 ```powershell
-# The controller module, first, whenever src\controller-native changed.
-# The installer embeds src\controller-native\kmrp-controller.module and
-# neither build below compiles it: on 2026-09-25 a -ReuseResources build
-# shipped the previous module unchanged. From Git Bash, run it in that folder
-# as cmd //c ".\\build.cmd" -- where NoDefaultCurrentDirectoryInExePath is
-# set, cmd will not run it by its bare name.
+# Optional module-only iteration. Both installer builds below compile it too
+# since 2026-10-01; before that a stale module could be embedded unchanged.
 & .\src\controller-native\build.cmd
 
 # Fast patcher compilation using already-generated resources
@@ -40,18 +36,20 @@ embedded in it (until later on 2026-09-29 they shipped in `dist\KPM patches\`;
 needs Capstone (`requirements.txt`) and stops the build if its two methods
 disagree. Since 2026-09-29 the build also compiles KOTOR Patch Manager's runtime
 from the submodule (`src\kpm-runtime\build.cmd`, MSVC; `git submodule update
---init` in a fresh clone), and before the compile runs a small `kmrp-sites.exe` with
-`--kpm-sites` and `tools/kpm_originals.py`, which stops it if the carried
-unmodified bytes miss any changed byte or resolution field, then
-`tools/build_kpatch.py`, which writes the `.kpatch` files and the config sections
-KMRP's installer embeds and checks one against the other. After a build,
+--init` in a fresh clone). Since 2026-10-01 it assembles
+`windows-engine.bin` through `tools/build_windows_engine.py`, compiles the
+controller module, then runs `tools/build_kpatch.py`, which writes the `.kpatch`
+files and config sections and verifies their hooks against the tracked table
+and source engine guards. **Correction:** the former `kmrp-sites.exe`,
+`--kpm-sites`, extracted-originals and gold-delta steps are retired. After a build,
 `.\testing\regression\Test-KpmEdition.ps1` proves the editions agree; put Steam's
 unmodified `swkotor.exe` at `build-inputs\swkotor-steam.exe` to include its Steam
 case. Steam-only facts: KPM needs its proxy deployment there, and SteamStub refuses
 any changed executable (docs/kpm-edition.md).
 
-Inputs default to ignored `build-inputs/swkotornopatch.exe` and
-`build-inputs/swpc_tex_gui.erf`. Machine overrides belong in ignored
+The only required game-derived build input defaults to ignored
+`build-inputs/swpc_tex_gui.erf`. The Windows engine recipe builds from source;
+no game executable or gold snapshot is required. Machine overrides belong in ignored
 `build.local.ps1`; copy `build.local.example.ps1` as the template.
 
 ## Baseline checks
@@ -112,4 +110,3 @@ python tools/build_binary_inventory.py build-inputs/swkotornopatch.exe build/kmr
 - Installation, reinstall, rollback, and restore have been exercised on throwaway
   copies.
 - Public issue and compatibility claims match what was actually verified.
-

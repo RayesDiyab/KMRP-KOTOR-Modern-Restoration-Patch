@@ -4,7 +4,6 @@
 # kept OUTSIDE the project folder. Without this file the build uses build-inputs\
 # inside the project, which is the normal, self-contained arrangement.
 
-# $KmrpSourceExe   = "D:\KOTOR\swkotornopatch.exe"
 # $KmrpTexturePack = "D:\KOTOR\TexturePacks\swpc_tex_gui.erf"
 
 # Only needed if `python` is not on PATH.

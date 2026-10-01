@@ -9,7 +9,9 @@
 
 This document describes the shipping Windows patcher in
 `src/patcher/KmrpPatcher.cs`, the assets compiled into it, and the
-build and verification workflow. Resolution and game-engine math remain in
+build and verification workflow. The current 1.5.0 candidate is unreleased;
+the dated measurements below are not all from the public 1.0 installer.
+Resolution and game-engine math remain in
 `docs/universal-resolution-math.md`; font and listbox patches remain in
 `docs/font-scaling.md` and `reverse-engineering/listbox-geometry.md`.
 
@@ -21,8 +23,33 @@ build and verification workflow. Resolution and game-engine math remain in
 dist/KMRP - KOTOR Modern Restoration Patch.exe
 ```
 
-No companion asset folder is required. The executable embeds 22 resources,
-listed here from the 2026-09-25 build (`4EF3C181…`, 145,208,320 bytes):
+No companion asset folder is required. **Current build, 2026-10-01:** installer
+1.5.0, 168,698,880 bytes, SHA-256
+`7C8CB15327EA353564CAFCF3F52E1459EBDC80178145AF9E4044A88565877B38`,
+cross-built on Ubuntu. Reflection over the actual assembly's
+`GetManifestResourceNames()` returned **33 resources**. The names and lengths
+are retained locally in ignored `build/windows-installer-resource-audit.json`.
+
+| Resource group | Count | Current payload |
+| --- | ---: | --- |
+| `Kmrp.engine.source` | 1 | 48,012-byte source-built engine template; no gold delta or clean-image fragments |
+| `Kmrp.resolutions`, `Kmrp.override.layouts`, `Kmrp.override.common`, `Kmrp.bundled`, `Kmrp.guiblend` | 5 | 66-resolution catalog, verified layout pool, common artwork, bundled-file list, custom-size blend table |
+| `Kmrp.controller.module`, `.sdl`, `.sdllicense` | 3 | Native KMRP module, SDL 3.4.16 and its licence |
+| `Kmrp.engine.runtime`, `.proxy`, `.license` | 3 | KPM DLL, Bink proxy and KPM licence |
+| `Kmrp.engine.config.kmrp`, `.kmrp-controller`, `.kmrp-movies`, `.kmrp-map-notes` | 4 | Four config sections generated from the patch hook table |
+| `Kmrp.kpatch.kmrp`, `.kmrp-controller`, `.kmrp-movies`, `.kmrp-map-notes`, `Kmrp.kpatch.readme` | 5 | Four KPM packages and their instructions |
+| `Kmrp.drivercompat.dinput8`, `.asi`, `Kmrp.license.drivercompat` | 3 | Optional Modern Driver Compatibility payload and licence |
+| `Kmrp.license.highresolutionmenus` | 1 | High Resolution Menus GPL notice |
+| `Kmrp.brand`, seven `Kmrp.icon.*` | 8 | Branding and installer icons |
+
+**Correction, 2026-10-01:** the former resources `Kmrp.goldpatch`,
+`Kmrp.kpm.relocations` and `Kmrp.kpm.originals` are absent. Relocations and
+original-byte guards are now in the source template. See
+[Windows engine source](windows-engine-source.md) for the recipe and regression.
+High FPS Fixes is not an embedded installer component.
+
+The historical 2026-09-25 build (`4EF3C181…`, 145,208,320 bytes) embedded
+22 resources:
 
 | resource | what |
 | --- | --- |
@@ -37,7 +64,8 @@ listed here from the 2026-09-25 build (`4EF3C181…`, 145,208,320 bytes):
 | `Kmrp.brand`, seven `Kmrp.icon.*` | the brand artwork and the UI icons: folder, missing, monitor, Settings, shield, tools, verified |
 
 Since 2026-09-29 the catalog and the pool hold 66 resolutions: the 17 of the macOS group
-were added. No Windows build with them has been measured yet.
+were added. The 2026-10-01 Ubuntu build above measured all 66; the older
+unmeasured-build wording is superseded by its package and source checks.
 
 Until 2026-09-25 each resolution's archive was embedded whole, as
 `Kmrp.override.gui.<W>x<H>`: 70 resources, and 208,672,256 bytes in the last
@@ -64,8 +92,9 @@ The supported editable executable is identified by SHA-256
 The current gold, v24, is 4,087,808 bytes with SHA-256
 `9DD81A75F4888FD67242B682BEE0AB4392EA8923CDF4A020CA3EDD2464C05E0A`.
 `TargetHash` and `TargetLength` in `GoldPatch`, `EXPECTED_GOLD_SHA256` in
-`tools/generate_gold_delta.py`, and the default `-GoldExe` argument in
-`build_kmrp.ps1` must always move together. *Corrected 2026-09-24:* this section
+`tools/generate_gold_delta.py` identify the historical gold reference.
+**Correction, 2026-10-01:** `build_kmrp.ps1` no longer has a `-GoldExe` argument
+and does not read that snapshot. *Corrected 2026-09-24:* this section
 named gold v14 as current, and listed six resources.
 
 ## Main-window flow
@@ -76,8 +105,8 @@ The interface is one four-step card. State is derived from the selected
 | Step | Before patching | After patching |
 | --- | --- | --- |
 | 1. Game folder | Browse for the KOTOR directory. | Shows the selected directory. |
-| 2. Editable EXE | Verifies the required Deadly Stream executable. Missing or incompatible files expand an inline recovery panel with download, choose, and recheck actions. | Shows the enlarged supplied Verified badge and `Verified`. |
-| 3. Resolution | Shows the 49-resolution dropdown, grouped by aspect ratio in each item. | Replaces the dropdown with the installed resolution as read from the patch manifest. |
+| 2. Game version | Hash-verifies a supported Steam, GOG or editable CD 1.03 executable and names the detected build. Missing or incompatible files expand the recovery panel. | Shows the supplied Verified badge and installed state. |
+| 3. Resolution | Shows 66 resolutions, grouped by aspect ratio, plus a custom-size choice. | Replaces the dropdown with the installed resolution as read from the patch manifest. |
 | 4. Apply | Shows readiness, progress, or a recovery instruction. | Permanently shows `Patched successfully` and `KOTOR is ready to play at W × H.` |
 
 The primary button has one identity at a time:
@@ -662,7 +691,8 @@ contract is in [`windows-dpi-scaling.md`](windows-dpi-scaling.md).
 
 Requirements currently encoded by the build script:
 
-- Python: `C:\Python314\python.exe`;
+- Python 3 with `requirements.txt`: found on PATH, or selected through `-Python`,
+  `KMRP_PYTHON` or `KmrpPython` in ignored `build.local.ps1`;
 - C# compiler: `.NET Framework` `csc.exe` under
   `C:\Windows\Microsoft.NET\Framework\v4.0.30319`;
 - Pillow, and the rest of `requirements.txt`. The resource pipeline needs it:
@@ -681,8 +711,10 @@ python .\tools\prepare_app_icons.py  # requires Pillow; skip if icons are unchan
 .\build_kmrp.ps1
 ```
 
-Use `-ReuseResources` only for a C#/icon-only iteration after a successful full
-resource build:
+Use `-ReuseResources` after a successful full resource build when interface
+resources have not changed. It skips resource regeneration, but still assembles
+the source engine, pools the archives, builds the blend table, compiles both
+native modules and packages the KPM patches before compiling the installer:
 
 ```powershell
 .\build_kmrp.ps1 -ReuseResources
@@ -714,8 +746,12 @@ The shipped name contains spaces, so quote it on the command line.
 "KMRP - KOTOR Modern Restoration Patch.exe" --restore swkotor.exe
 ```
 
-`--apply` changes only the output executable. `--in-place` performs the full
-EXE, DPI, INI, and Override transaction. `--restore` restores all four. None of
+`--apply` creates an offline reference from a supported editable CD/GOG input;
+it does not install KMRP. `--in-place` performs the full runtime, DPI, INI,
+Override and optional-component transaction. It preserves Steam's EXE and sets
+only the LAA header bit on the supported editable CD/GOG file. `--restore`
+restores KMRP-owned changes and preserves subsequently modified or foreign
+files. None of
 them checks for updates; that belongs to the window. Omitting
 the resolution in the legacy `--apply` and `--in-place` forms selects
 3440 × 1440.
@@ -724,7 +760,11 @@ the resolution in the legacy `--apply` and `--in-place` forms selects
 
 1. Run `prepare_app_icons.py`; confirm all seven supplied roles are reported.
 2. Run a full `build_kmrp.ps1` without `-ReuseResources`.
-3. Confirm the embedded source/target hashes and the 49-entry resolution table.
+3. Confirm the embedded source engine template, the 66-entry resolution table
+   and the four KPM packages. Run `Test-WindowsEngineSource.py` and
+   `Test-KpatchSource.py`; verify the guards, relocation omission checks and
+   corrupted-package rejection. Confirm the obsolete gold/originals resources
+   are absent by enumerating the assembly's manifest resources.
 4. Extract the executable's 32px and 256px icon frames and confirm both show the
    current `assets/branding/favicon.ico` artwork.
 5. Test missing, unsupported, clean, patched, restoring, error, and success UI
@@ -744,9 +784,12 @@ the resolution in the legacy `--apply` and `--in-place` forms selects
 11. Run `testing/regression/Test-LargeAddressAware.ps1`; verify canonical and
     pre-LAA inputs converge, unrelated header changes fail, and both exact
     source states survive patch/restore.
-12. Run `tools/build_binary_inventory.py` against the clean executable and
-    current gold, with `--installed` and the installer's `--apply` output at all
-    66 resolutions; verify it reports zero undocumented code/data runs.
+12. With optional historical fixtures available, run `tools/build_binary_inventory.py`
+    against the clean executable and historical gold, with `--installed` and
+    the installer's `--apply` output at all 66 resolutions. This is additional
+    binary comparison, not a build prerequisite; record unavailable fixtures
+    explicitly. The source regression independently checks all 68 documented
+    historical runs and the 81 current guarded runs without them.
 13. Run the rest of the regression set: `Test-ControllerSupport.ps1`,
     `Test-ReinstallOverOlderBuild.ps1`, `Test-InstalledOverride.ps1 -Resolutions all`,
     `Test-UpdateCheck.ps1 -Live`, `Test-MovieResolution.ps1`,

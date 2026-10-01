@@ -1,0 +1,351 @@
+{
+  "format": 1,
+  "reference": "CD/GOG 1.03 memory; binary-inventory.md section 4, v24",
+  "large_address_hook": {
+    "file": "00000926",
+    "original": "0f01",
+    "replacement": "2f01"
+  },
+  "sites": [
+    {
+      "va": "00403D6C",
+      "original": "8002",
+      "replacement": "700d"
+    },
+    {
+      "va": "00403D78",
+      "original": "e001",
+      "replacement": "a005"
+    },
+    {
+      "va": "004057AC",
+      "original": "8b4e488b013bd8",
+      "replacement": "e94f1847009090"
+    },
+    {
+      "va": "0040AA65",
+      "original": "8002",
+      "replacement": "700d"
+    },
+    {
+      "va": "0040AA85",
+      "original": "e001",
+      "replacement": "a005"
+    },
+    {
+      "va": "0040B6C7",
+      "original": "80fd",
+      "replacement": "90f2"
+    },
+    {
+      "va": "0040B6DA",
+      "original": "20fe",
+      "replacement": "60fa"
+    },
+    {
+      "va": "0040BA6C",
+      "original": "80fd",
+      "replacement": "90f2"
+    },
+    {
+      "va": "0040BA83",
+      "original": "20fe",
+      "replacement": "60fa"
+    },
+    {
+      "va": "00415E0D",
+      "original": "8b465085c0",
+      "replacement": "e9eed14500"
+    },
+    {
+      "va": "00417992",
+      "original": "8b400c89410c8b4c246c",
+      "replacement": "e92e7845009090909090"
+    },
+    {
+      "va": "0041A2F2",
+      "original": "8d043f2bc885db897c241c894c2424",
+      "replacement": "e92d7d450090909090909090909090"
+    },
+    {
+      "va": "0041B1C4",
+      "original": "03",
+      "replacement": "8b"
+    },
+    {
+      "va": "0041B26B",
+      "original": "03",
+      "replacement": "8b"
+    },
+    {
+      "va": "0041B339",
+      "original": "03",
+      "replacement": "8b"
+    },
+    {
+      "va": "0041B3AE",
+      "original": "03",
+      "replacement": "8b"
+    },
+    {
+      "va": "0041B46D",
+      "original": "897c2420c744242400000000",
+      "replacement": "e98e6b450090909090909090"
+    },
+    {
+      "va": "0041B48C",
+      "original": "8d043f2bc8",
+      "replacement": "2bcf33ff90"
+    },
+    {
+      "va": "0041B507",
+      "original": "03ea",
+      "replacement": "9090"
+    },
+    {
+      "va": "0041B52E",
+      "original": "01",
+      "replacement": "00"
+    },
+    {
+      "va": "0041B553",
+      "original": "03",
+      "replacement": "8b"
+    },
+    {
+      "va": "0045992A",
+      "original": "0fbf0560947b008d0480d1e00fbf906e947b000fbf806c947b00",
+      "replacement": "e9d1a64100909090909090909090909090909090909090909090"
+    },
+    {
+      "va": "0045A3B7",
+      "original": "0f8c7f040000",
+      "replacement": "909090909090"
+    },
+    {
+      "va": "0045A3DC",
+      "original": "0f8c5a040000",
+      "replacement": "909090909090"
+    },
+    {
+      "va": "0045A5E0",
+      "original": "8b46144b3bd8894c24100f84440200",
+      "replacement": "4b3b5c2418894c24107705e9105a41"
+    },
+    {
+      "va": "0045A850",
+      "original": "83ec4c894c2404",
+      "replacement": "e9454941009090"
+    },
+    {
+      "va": "004A1770",
+      "original": "6aff685c7e710064a100000000",
+      "replacement": "e903da3c009090909090909090"
+    },
+    {
+      "va": "005F0C65",
+      "original": "2003",
+      "replacement": "700d"
+    },
+    {
+      "va": "005F0C6F",
+      "original": "5802",
+      "replacement": "a005"
+    },
+    {
+      "va": "005F5B3B",
+      "original": "80020000c7442410e001",
+      "replacement": "700d0000c7442410a005"
+    },
+    {
+      "va": "0062540D",
+      "original": "20",
+      "replacement": "80"
+    },
+    {
+      "va": "006256DC",
+      "original": "b80100007c0b3d1801",
+      "replacement": "400600007c0b3d8403"
+    },
+    {
+      "va": "006256F6",
+      "original": "b801",
+      "replacement": "4006"
+    },
+    {
+      "va": "00625759",
+      "original": "1801",
+      "replacement": "8403"
+    },
+    {
+      "va": "00626F95",
+      "original": "20",
+      "replacement": "80"
+    },
+    {
+      "va": "0062B39C",
+      "original": "b09906",
+      "replacement": "901d24"
+    },
+    {
+      "va": "0068ACA1",
+      "original": "d4ffff",
+      "replacement": "a31e00"
+    },
+    {
+      "va": "0068C4E3",
+      "original": "0004",
+      "replacement": "700d"
+    },
+    {
+      "va": "0068C4F4",
+      "original": "05000074303d4006",
+      "replacement": "00000074303d0000"
+    },
+    {
+      "va": "006928B3",
+      "original": "8002",
+      "replacement": "be0a"
+    },
+    {
+      "va": "006928C3",
+      "original": "e001",
+      "replacement": "7805"
+    },
+    {
+      "va": "0069405B",
+      "original": "20",
+      "replacement": "40"
+    },
+    {
+      "va": "006940DC",
+      "original": "10",
+      "replacement": "20"
+    },
+    {
+      "va": "006944A8",
+      "original": "d83d48777400",
+      "replacement": "da7b0c909090"
+    },
+    {
+      "va": "006944C4",
+      "original": "d83dd4557400",
+      "replacement": "da7b10909090"
+    },
+    {
+      "va": "006946F6",
+      "original": "47eeff",
+      "replacement": "891d00"
+    },
+    {
+      "va": "0069471A",
+      "original": "f689442424b81400000083c1f6",
+      "replacement": "ec89442424b82800000083c1ec"
+    },
+    {
+      "va": "00694763",
+      "original": "0e",
+      "replacement": "1c"
+    },
+    {
+      "va": "00694777",
+      "original": "f983c2f9",
+      "replacement": "f283c2f2"
+    },
+    {
+      "va": "00694A13",
+      "original": "10",
+      "replacement": "20"
+    },
+    {
+      "va": "00694A3A",
+      "original": "7247eeff",
+      "replacement": "42861d00"
+    },
+    {
+      "va": "00694A53",
+      "original": "f883c2f8",
+      "replacement": "f083c2f0"
+    },
+    {
+      "va": "00694AAD",
+      "original": "ff46eeff",
+      "replacement": "cf851d00"
+    },
+    {
+      "va": "00694AC4",
+      "original": "20",
+      "replacement": "40"
+    },
+    {
+      "va": "00694AD0",
+      "original": "f05283c0f0",
+      "replacement": "e05283c0e0"
+    },
+    {
+      "va": "0069505C",
+      "original": "00020000c74424200001",
+      "replacement": "b8060000c7442420d002"
+    },
+    {
+      "va": "00695082",
+      "original": "b8010000c74424200001",
+      "replacement": "c6050000c7442420d002"
+    },
+    {
+      "va": "006A74D4",
+      "original": "4f6c894c240cdb44240cd80d88577500e8a33905000fbf576e2bd08954240cdb44240cd80dace97300e88a390500",
+      "replacement": "476e83c0035199b906000000f7f95990909090909090909090909090909090909090909090909090909090909090"
+    },
+    {
+      "va": "006A7562",
+      "original": "4f6c0fbf5f6e894c240cdb44240cd80d88577500e8113905008bd32bd08954240cdb44240cd80dace97300e8fa380500",
+      "replacement": "5f6e8bc383c0035199b906000000f7f95990909090909090909090909090909090909090909090909090909090909090"
+    },
+    {
+      "va": "006A7945",
+      "original": "556c89542410db442410d80d88577500e8323505000fbf4d6e2bc88bc1992bc2d1f82bc383e805",
+      "replacement": "456e83c0035199b906000000f7f9592bc383e80590909090909090909090909090909090909090"
+    },
+    {
+      "va": "006A7B5E",
+      "original": "576c89542424db442424d80d88577500e8193305000fbf4f6e2bc88bc18b4c2408992bc2d1f82bc183c0fb",
+      "replacement": "476e83c0035199b906000000f7f9592b44240883c0fb909090909090909090909090909090909090909090"
+    },
+    {
+      "va": "006A7CD0",
+      "original": "8b96c419000089442410894c240c8d8ec41900008d44240450ff5204",
+      "replacement": "e92b631c009090909090909090909090909090909090909090909090"
+    },
+    {
+      "va": "006A7F3F",
+      "original": "436c0fbf7b6e89442414db442414d80d88577500e8342f05008bcf2bc88bc1992bc28b542410d1f82bf8897c24280fbf4b6c8b7e10",
+      "replacement": "7b6e8bc783c0035199b906000000f7f9592bf88b542410897c2428909090909090909090909090909090909090900fbf4b6c6a645f"
+    },
+    {
+      "va": "006A8C4F",
+      "original": "6c89442410db442410d80de45a7500e8292205000fbf4f6e2bc88bc1992bc28b542464d1f889442428",
+      "replacement": "6e5083c00399b906000000f7f9592bc8894c24288b5424649090909090909090909090909090909090"
+    },
+    {
+      "va": "006A8E1D",
+      "original": "f686081a000002744f",
+      "replacement": "e91d521c0090909090"
+    },
+    {
+      "va": "006B5336",
+      "original": "4983e11583c1158bc18b4c24202bd0894424288b44242403ca83c025894c2420",
+      "replacement": "e9c5bc1b00909090909090909090909090909090909090909090909090909090"
+    },
+    {
+      "va": "0075477D",
+      "original": "3369",
+      "replacement": "d186"
+    },
+    {
+      "va": "00755788",
+      "original": "b96ddb",
+      "replacement": "254992"
+    }
+  ]
+}

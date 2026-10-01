@@ -3,13 +3,20 @@
 > **Documentation standard.** This document follows
 > [`documentation-standard.md`](documentation-standard.md). It separates the
 > reproducible installation procedure and package-level measurements from the
-> gameplay coverage that has not yet been performed.
+> observed gameplay and the coverage that remains untested.
 
 **Kind: compatibility procedure and test record.** KMRP is a Windows patcher for
-a Windows game. A community report says the patcher launches through Protontricks,
-but KMRP has not yet been play-tested under Proton or on Steam Deck. The procedure
-below follows the official Protontricks and Valve Proton interfaces; it is not a
-claim of completed gameplay support.
+a Windows game. Installer 1.5.0 passed install/restore tests under Proton
+Experimental on Ubuntu on 2026-10-01, followed by limited gameplay at 3440×1440:
+dialogue, save/load, NPC labels, menus, and virtual Xbox movement and camera.
+Steam Deck and stable Proton remain untested. The procedure below follows the
+official Protontricks and Valve Proton interfaces; the test record distinguishes
+the tested direct Proton/Sniper launch from the community-reported Protontricks
+launcher and does not claim full hardware or gameplay coverage.
+
+**Correction, 2026-10-01:** this page previously said no Proton gameplay or
+native hook execution had been tested. The initial installer-only record was
+superseded by the launch, menu and gameplay checks below.
 
 ## Installation procedure
 
@@ -41,9 +48,11 @@ longer rewrites `swkotor.exe`: it installs KOTOR Patch Manager's runtime, loaded
 through KPM's `binkw32.dll` proxy, which applies KMRP in memory when the game
 starts ([kpm-edition.md](kpm-edition.md), section 1a). So Steam's `swkotor.exe`
 (`34E6D971…`) no longer has to be replaced with the editable one. Measured on
-Windows only: **nothing of the new install has been run under Proton**. Wine has
-no built-in `binkw32.dll`, so it should load the proxy from the game folder
-without a DLL override, but that is untested. Steam's *Verify integrity of game
+Windows originally; the installer's file operations were subsequently tested
+on Ubuntu on 2026-10-01. The game subsequently loaded KPM and applied all 81
+engine guard runs under Proton Experimental; the controller hooks accepted
+virtual Xbox input. The Bink proxy loaded from the game folder without an added
+Bink DLL override in this test. Steam's *Verify integrity of game
 files* puts Steam's own `binkw32.dll` back, which unloads KMRP until it is
 installed again.
 
@@ -59,9 +68,122 @@ not own the executable, INI, or Override files in the Steam library.
 
 The official [`protontricks-launch` documentation](https://github.com/Matoking/protontricks#protontricks-launch)
 also documents `PROTON_VERSION` for selecting a specific installed Proton build.
-Use that to repeat the same test with Proton Experimental and one current stable
-Proton release. KMRP does not recommend one over the other until both have been
-measured.
+Use that to repeat the same test with Proton Experimental and one stable Proton
+release. **Tested choice:** Proton Experimental
+`experimental-11.0-20260924-x86_64` is the reproducible choice from the Ubuntu
+record below. Stable Proton has not been compared, so no superiority is claimed.
+
+## Ubuntu installer test (2026-10-01)
+
+Installer 1.5.0, 168,698,880 bytes, SHA-256
+`7C8CB15327EA353564CAFCF3F52E1459EBDC80178145AF9E4044A88565877B38`,
+was cross-built from source on Ubuntu 26.04.1 LTS, with Steam's texture pack as
+its only game-derived build input. No editable EXE or gold snapshot was present.
+See [the cross-build record](windows-engine-source.md#ubuntu-cross-build-and-installation-record-2026-10-01)
+for native artifact identities and package checks.
+
+The installer ran inside Steam App 32370's existing prefix using Proton
+Experimental `experimental-11.0-20260924-x86_64` and Steam's Sniper runtime.
+Its `--in-place` and `--restore` commands passed at 3440×1440 and 1920×1080 in
+isolated Steam fixtures: 1,526 installed Override files per resolution matched
+the build archives, and restore recovered the exact EXE, INI and Bink hashes.
+The live Steam copy was subsequently installed at 3440×1440, after a copy-aside
+checkpoint. Its EXE remained unchanged and all 1,854 live Override ownership
+hashes passed, including artwork generated from the installed game.
+
+The first capture attempts failed: native desktop capture was unavailable and
+GNOME's fallback produced black images. Later the same day, a locally installed
+Flameshot captured the installer showing Steam detection, 3440×1440 and
+“Patched successfully”. Steam then launched App 32370 with the installed patch;
+its introductory movie and main menu rendered. `kmrp-kpm.log` recorded all
+81 guarded runs (768 bytes) and 46 relocations applied before the game window,
+772 ms after startup. The Steam EXE remained 4,395,008 bytes, SHA-256
+`34E6D971C034222A417995D8E1E8FDD9F8781795C9C289BD86C499A439F34C88`.
+The running process mapped `KotorPatcher.dll`, the Bink proxy and the KMRP and
+controller patch DLLs; the driver compatibility log reported 8/8 startup hooks.
+
+Local evidence is recorded in ignored `build/proton-game-launch-validation.json`,
+`build/proton-runtime-kpm.log`, `build/proton-runtime-driver.log` and
+`build/screenshots/06-patched-game-menu.png`. An abandoned GNOME screenshot
+permission dialog initially overlaid the captures and blocked ordinary interaction;
+a later explicitly authorized keyboard script dismissed it with Escape.
+`build/screenshots/08-popup-dismissed.png` records the unobstructed main menu.
+A subsequent menu demonstration used a temporary Linux `uinput` virtual Xbox
+360 device (`045e:028e`) through Steam's existing joystick access. Its D-pad moved
+selection; A opened and B returned from the main Options screen, all five main
+settings menus (Gameplay, Feedback, Auto-pause, Graphics, Sound), and Controller
+Layout. Xbox A/B/Y prompts rendered at 3440×1440. No keyboard or mouse events
+were used for this menu demonstration. The virtual device was removed afterward,
+and the game remained at the main menu. Local identities and screenshots are in
+ignored `build/proton-virtual-xbox-menus.json`.
+
+At the end of the initial menu test, no game session, NPC/door labels,
+in-game inventory/map/abilities navigation,
+setting changes, physical controller, rumble, reconnect, launches after restore
+or reinstall, stable Proton, or Steam Deck gameplay was tested. Issue 13 was
+closed as completed at the maintainer's request on 2026-10-01 after this Ubuntu
+check and review of current master (`183c372`). The target/name-strip layout
+fix is in `4fdd5f3`, merged by `2f1daa9`; `183c372` adds the Windows stale
+action-slot interaction fix. Closing the issue does not extend the measured
+coverage listed above.
+
+## Ubuntu gameplay follow-up (2026-10-01)
+
+The same installer, original Steam EXE and Proton Experimental build were used
+at 3440×1440 on a 120 Hz monitor. This follow-up also loaded D3M0's **High FPS
+Fixes 1.0.0** as a separate KPM patch, after KMRP's four components. It is an
+additional live test component, not part of installer 1.5.0. Its 36 K1 hooks were
+checked in process memory on the first combined launch; all were installed.
+The subsequent gameplay launch again logged all 81 KMRP runs and 46 relocations.
+These observations establish the tested combination, not an A/B test of each
+FPS fix or completion of issue 22's installer integration.
+
+| Check | Observed result and method |
+| --- | --- |
+| New game and dialogue | A fresh soldier named `KMRP FPS Test` reached Trask's opening conversation. Reply choices worked; subtitles, reply text and the letterbox rendered. |
+| Save/load | A new test slot was saved. A separate copy of an existing Manaan save was loaded successfully; the source save's five file hashes remained unchanged when the copy was made. |
+| HUD and NPC labels | Manaan's HUD, minimap, action icons and `SELKATH` target name rendered. This checks an NPC label, not the reported door-name case or every HUD element. |
+| Controller movement and camera | A temporary Linux virtual Xbox 360 pad (`045e:028e`) reached XInput slot 0 with Steam Input enabled and its **Gamepad** template selected. Left-stick Y moved the character; right-stick X rotated the view. Screenshots and the native log corroborate both; `camwr` reached 117 after the camera test. |
+| Frame rate | Steam's visible performance monitor showed 119–121 FPS in dialogue and 120 FPS in Manaan. An independent 80-sample engine frame-delta reading had median 8.3395 ms, implying about 119.91 FPS. A 120 FPS MangoHud cap was configured. This is sampled coverage, not a sustained benchmark. |
+
+The first Steam Input template used keyboard/mouse mappings and triggered a
+GNOME remote-desktop permission dialog; it did not establish native controller
+support. Selecting the Gamepad template produced the XInput result above.
+**Measurement correction:** an earlier counter-rate estimate was discarded
+because that counter did not reliably measure rendered frames. The frame-delta
+sample and visible Steam counter are the FPS evidence used here.
+
+Local evidence is retained in ignored `build/proton-gameplay-validation.json`,
+`build/research/high-fps-live-hooks.json`,
+`build/research/high-fps-menu-deltas.json`,
+`build/research/fps-test-save-copy.json` and screenshots
+`57-large-fps-counter.png`, `58-dialogue-choice.png`,
+`82-template-applied.png`, `90-test-save-menu.png`,
+`96-manaan-test.png`, `97-manaan-camera.png` and `98-manaan-movement.png`
+under `build/screenshots/`. These screenshots are local evidence and are not
+shipped game resources.
+
+To repeat the covered checks, use the identified installer and Proton build,
+install at 3440×1440, and launch through Steam. Read `kmrp-kpm.log` for the
+81/81 runs and 46 relocations. Create a new test character, select a dialogue
+reply, and save to a new slot; load a private copy of a save for free movement.
+For controller gameplay, select Steam Input's Gamepad template and check
+left-stick movement and right-stick camera against the native joystick log.
+Turn on Steam's performance monitor to record the visible FPS alongside each
+scene. Testing KMRP alone requires omitting the separate High FPS patch; do not
+label the combined follow-up as that comparison.
+
+Still **untested**: door/object labels, in-game inventory/map/abilities
+navigation, combat and post-combat movement, physical pads and motor output,
+disconnect/reconnect, stable Proton, Steam Deck, 1280×800 gameplay, and game
+launches after restore/reinstall. Repeated tutorial conversations interrupted
+the fresh-character camera test; the camera check was therefore performed in
+the private Manaan save. No cause is attributed without a comparison test.
+
+[Issue 13](https://github.com/RayesDiyab/KMRP-KOTOR-Modern-Restoration-Patch/issues/13)
+was confirmed **closed / completed** through GitHub on 2026-10-01 (closure time
+14:47:45 UTC). That maintainer decision does not convert the remaining Steam
+Deck and hardware tests into completed acceptance criteria.
 
 ## What is verified without Proton
 
@@ -137,7 +259,8 @@ text rendering versus whole-control placement.
 The optional controller component has Windows structural and live-hook checks.
 It has also been play-tested on Windows with a physical Xbox controller; the
 2026-09-24 results are recorded entry by entry in `CHANGELOG.md`. Nothing has
-been run under Proton. There the component also depends on:
+been tested on a physical pad under Proton. The virtual Xbox menu and gameplay
+coverage above is now established. Under Proton the component also depends on:
 - KOTOR Patch Manager's runtime and its `binkw32.dll` proxy, since 2026-09-29
   (until then, the `dinput8.dll` ASI loader, which needed Wine's
   `dinput8=n,b` override; K1DC still does);
@@ -145,15 +268,20 @@ been run under Proton. There the component also depends on:
 
 The following remain gameplay tests under Proton, not automated claims:
 
-- movement, camera, combat/action-bar, dialogue, inventory, map, pause, and menus;
+- combat/action-bar interaction, controller dialogue confirmation, inventory,
+  map and pause; movement, camera and the listed settings menus have the limited
+  virtual-device coverage above;
 - controller connect, disconnect/reconnect, and multiple-device behavior;
-- whether Steam Input must be enabled or disabled for the selected controller;
+- physical-controller Steam Input settings; enabled with the Gamepad template
+  worked for the virtual Xbox gameplay test, but disabled was not validated there;
 - rumble (KMRP now supplies the engine's rumble table, BioWare's own 22 patterns
   since 2026-09-25, so it works on Windows; see *Rumble works* and *Rumble uses
   BioWare's own patterns* in `CHANGELOG.md`. The Enhanced haptics and the mixer
   of the same day are untested on any platform: `docs/controller-rumble.md`);
 - suspend/resume and handheld/docked switching on Steam Deck; and
-- patch, restore, and reinstall under Proton Experimental and stable Proton.
+- game launches following patch, restore, and reinstall under Proton Experimental
+  and stable Proton. Installer-only operations under Experimental passed in the
+  Ubuntu record above; launches after those operations remain untested.
 
 (Until 2026-09-24 this section said no physical XInput device was available and
 that there was no KMRP rumble claim. Both predate the controller work recorded in
@@ -164,5 +292,5 @@ that there was no KMRP rumble claim. Both predate the controller work recorded i
 - KMRP does not install Wine, Proton, Protontricks, Steam, or Flatpak permissions.
 - It does not weaken executable hash validation for a Wine/Proton path.
 - The package audit does not label archive inspection as gameplay verification.
-- No Proton version is advertised as supported until the matrix above is run.
-
+- The tested Experimental build is identified; broad Proton/Steam Deck support
+  is not inferred from the Ubuntu checks.

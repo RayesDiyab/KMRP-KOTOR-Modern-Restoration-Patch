@@ -1,10 +1,9 @@
 #!/usr/bin/env python3
 """Build the KPM edition's four .kpatch files, and check them as KPM would.
 
-KMRP ships two ways from one source. The standalone installer writes the gold
-delta into swkotor.exe and installs its own copy of the KOTOR Patch Manager
-runtime with patch_config.toml. The KPM edition leaves the executable unmodified
-and hands the same work to KOTOR Patch Manager, as one patch per fix:
+KMRP's installer writes source-built runtime data and installs KOTOR Patch
+Manager's runtime with patch_config.toml, or leaves an existing KPM runtime in
+charge. Steam's executable is unchanged. Both use one patch per fix:
 
   KMRP.kpatch             id "kmrp", required: the widescreen interface and
                           everything else KMRP always does, including the memory
@@ -51,8 +50,10 @@ HookTargetValidator, PatchRepository):
     a consumed exit; simple equal length; replace 5+ bytes;
   * a module (binaries/windows_x86.dll) exactly when there are detours, and it
     exports every function named;
-  * every hook's original bytes are the unmodified executable's (the pre-install
-    check); a static hook's are the file's own, in the header.
+  * runtime hooks exactly match the tracked, measured hook table, and the
+    source-built engine recipe changes none of their stolen bytes; the static
+    hook exactly matches the documented CD/GOG header edit. No clean game EXE
+    or gold snapshot is a build input. The runtime still checks the live bytes.
 
 Conflicts are declared from measurement, not guesswork: tools/check_kpm_overlaps.py
 finds no byte overlap with any K1 patch KPM 0.7.1 ships once the three
@@ -73,6 +74,7 @@ from __future__ import annotations
 import argparse
 import hashlib
 import io
+import json
 import struct
 import sys
 import tomllib
@@ -88,7 +90,6 @@ CD_1_03 = "761F9466F456A83909036BAEBB5C43167D722387BE66E54617BA20A8C49E9886"
 GOG = "9C10E0450A6EECA417E036E3CDE7474FED1F0A92AAB018446D156944DEA91435"
 STEAM = "34E6D971C034222A417995D8E1E8FDD9F8781795C9C289BD86C499A439F34C88"
 VERSIONS = {"kotor1_cdcrack_103": CD_1_03, "kotor1_gog_103": GOG, "kotor1_steam_103": STEAM}
-CLEAN_EXE = ROOT / "build-inputs" / "swkotornopatch.exe"
 
 PATCHES = [
     {
@@ -181,12 +182,14 @@ def large_address_hook() -> dict:
     one-bit change the standalone makes (reverse-engineering/large-address-aware.md).
     CD 1.03 and GOG, whose headers differ only in padding: Steam's header is elsewhere (its e_lfanew is 0x110), and Steam's DRM
     refuses to start an executable changed on disk."""
-    clean = CLEAN_EXE.read_bytes()
-    field = struct.unpack_from("<I", clean, 0x3C)[0] + 22
-    original = list(clean[field:field + 2])
-    value = struct.unpack_from("<H", clean, field)[0] | 0x0020
+    site = json.loads((ROOT / 'src/engine/windows-sites.json').read_text())["large_address_hook"]
+    field = int(site["file"], 16)
+    original = list(bytes.fromhex(site["original"]))
+    replacement = bytes.fromhex(site["replacement"])
+    if (field, original, replacement) != (0x926, [0x0F, 0x01], b'\x2f\x01'):
+        raise ValueError("Unexpected documented CD/GOG large-address hook")
     return {"address": 0x00400000 + field, "type": "static", "original_bytes": original,
-            "replacement_bytes": list(struct.pack("<H", value))}
+            "replacement_bytes": list(replacement)}
 
 
 def render_hooks(hooks, versions=(CD_1_03, GOG, STEAM),
@@ -312,28 +315,12 @@ def exports_of(dll: bytes) -> set:
     return out
 
 
-def clean_bytes(va: int, n: int) -> bytes:
-    data = CLEAN_EXE.read_bytes()
-    for sva, raw, size in [(0x401000, 0x1000, 0x33C000), (0x73D000, 0x33D000, 0x50000),
-                           (0x78D000, 0x38D000, 0x17000)]:
-        if sva <= va < sva + size:
-            return data[raw + va - sva: raw + va - sva + n]
-    raise ValueError(f"{va:#x} is not file-backed in the unmodified executable")
-
-
-GOLD_EXE = ROOT / "build" / "kmrp" / "swkotor_gold_v24_movieaspect.exe"
-
-
-def gold_bytes(va: int, n: int) -> bytes:
-    data = GOLD_EXE.read_bytes()
-    for sva, raw, size in [(0x401000, 0x1000, 0x33C000), (0x73D000, 0x33D000, 0x50000),
-                           (0x78D000, 0x38D000, 0x17000)]:
-        if sva <= va < sva + size:
-            return data[raw + va - sva: raw + va - sva + n]
-    raise ValueError(f"{va:#x} is not file-backed in gold")
-
-
 def check(folder: Path) -> int:
+    # The measured original bytes live in the tracked hook table; source engine
+    # guards independently cover any intersecting writes. No full game image is
+    # needed to validate packaged hooks or prove that the applier leaves them alone.
+    from build_windows_engine import assemble
+    recipe = assemble()
     problems = []
     ids = {}
     manifests = {}
@@ -342,6 +329,9 @@ def check(folder: Path) -> int:
         with zipfile.ZipFile(path) as archive:
             names = archive.namelist()
             manifest = tomllib.loads(archive.read("manifest.toml").decode())["patch"]
+            expected_hooks = {h["address"]: h for h in
+                              kmrp_controller.kpm_patch_hooks(manifest["id"])}
+            seen_hooks = set()
             for key in ("id", "name", "version", "author", "description"):
                 if not isinstance(manifest.get(key), str) or not manifest[key].strip():
                     problems.append(f"{path.name}: manifest needs a non-empty {key}")
@@ -415,25 +405,26 @@ def check(folder: Path) -> int:
                         problems.append(f"{where}: a static hook outside the header")
                     if sorted(hook["_targets"]) != sorted([CD_1_03, GOG]):
                         problems.append(f"{where}: a static hook must target CD 1.03 and GOG alone")
-                    header = CLEAN_EXE.read_bytes()[a - 0x00400000:a - 0x00400000 + len(ob)]
-                    if header != bytes(ob):
-                        problems.append(f"{where}: original bytes are not the unmodified header's")
+                    if kmrp_controller.normalised(hook) != kmrp_controller.normalised(large_address_hook()):
+                        problems.append(f"{where}: static hook differs from the documented header edit")
                     continue
                 else:
                     problems.append(f"{where}: unexpected type {kind}")
-                try:
-                    if clean_bytes(a, len(ob)) != bytes(ob):
-                        problems.append(f"{where}: original bytes are not the unmodified "
-                                        "executable's (KPM refuses the install)")
-                    # KPM checks a detour's bytes again as it writes it, which may be
-                    # AFTER the applier (running in the core module's DllMain, at its
-                    # first detour) has written the gold delta. So no hook may sit on a
-                    # byte the delta changes.
-                    if gold_bytes(a, len(ob)) != bytes(ob):
-                        problems.append(f"{where}: the gold delta changes these bytes, "
-                                        "so the hook would fail after the applier ran")
-                except ValueError as error:
-                    problems.append(f"{where}: {error}")
+                seen_hooks.add(a)
+                expected = expected_hooks.get(a)
+                if expected is None or kmrp_controller.normalised(hook) != kmrp_controller.normalised(expected):
+                    problems.append(f"{where}: runtime hook differs from the tracked measured hook")
+                if sorted(hook["_targets"]) != sorted([CD_1_03, GOG, STEAM]):
+                    problems.append(f"{where}: runtime hook must target all three supported builds")
+                # KPM rechecks stolen bytes after the core applier has run.
+                for offset, byte in enumerate(ob):
+                    at = a + offset
+                    if recipe.original.get(at, byte) != byte:
+                        problems.append(f"{where}: engine guard disagrees with hook at {at:#x}")
+                    if recipe.final.get(at, byte) != byte:
+                        problems.append(f"{where}: engine patch changes stolen bytes at {at:#x}")
+            if seen_hooks != set(expected_hooks):
+                problems.append(f"{path.name}: runtime hook set differs from tracked source")
     for patch_id, manifest in manifests.items():
         for other in manifest.get("conflicts", []):
             if other in manifests and patch_id not in manifests[other].get("conflicts", []):

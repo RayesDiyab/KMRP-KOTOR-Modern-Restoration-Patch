@@ -1,9 +1,9 @@
 # Deliberately small.
 #
-# A real build needs the game's own texture pack, a clean swkotor.exe and a gold
-# snapshot, none of which can be committed, so CI cannot build the patcher and
-# pretending otherwise would just be a permanently red badge. What it can do is
-# check the things that do not need the game.
+# A full installer build still needs the game's own texture pack, which cannot
+# be committed. Since 2026-10-01 engine assembly needs no clean EXE or gold
+# snapshot; Test-WindowsEngineSource.py verifies that source-only path separately.
+# This workflow byte-compiles Python tools and checks relative documentation links.
 name: CI
 
 on:

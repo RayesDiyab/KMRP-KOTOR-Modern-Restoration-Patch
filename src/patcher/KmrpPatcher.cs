@@ -29,12 +29,6 @@ namespace Kmrp
         Error
     }
 
-    internal sealed class PatchChunk
-    {
-        internal long Offset;
-        internal byte[] Data;
-    }
-
     internal static class PeCompatibility
     {
         // IMAGE_FILE_HEADER.Characteristics in the supported PE32 executable.
@@ -175,9 +169,10 @@ namespace Kmrp
         }
     }
 
-    internal sealed class GoldPatch
+    // Legacy executable identities are retained for validation and restoration.
+    // Engine installation is source-built by WindowsEnginePatch.
+    internal static class GoldPatch
     {
-        internal const string ResourceName = "Kmrp.goldpatch";
         internal const string SourceHash = "761F9466F456A83909036BAEBB5C43167D722387BE66E54617BA20A8C49E9886";
         // Steam's swkotor.exe (KOTOR Patch Manager's kotor1_steam_103): CD 1.03's program
         // behind SteamStub, which refuses to start if the file changes at all
@@ -189,116 +184,6 @@ namespace Kmrp
         internal const long SourceLength = 4042752;
         internal const long TargetLength = 4087808;
         internal const string PatchVersion = "1.5.0";
-
-        private readonly List<PatchChunk> chunks;
-
-        private GoldPatch(List<PatchChunk> chunksFromResource)
-        {
-            chunks = chunksFromResource;
-        }
-
-        internal static GoldPatch Load()
-        {
-            Stream stream = Assembly.GetExecutingAssembly().GetManifestResourceStream(ResourceName);
-            if (stream == null)
-                throw new InvalidDataException("Embedded gold patch resource is missing.");
-
-            using (stream)
-            using (BinaryReader reader = new BinaryReader(stream, Encoding.ASCII))
-            {
-                string magic = Encoding.ASCII.GetString(reader.ReadBytes(9));
-                if (magic != "KUIPATCH1")
-                    throw new InvalidDataException("Embedded patch has an invalid signature.");
-
-                string sourceHash = ToHex(reader.ReadBytes(32));
-                string targetHash = ToHex(reader.ReadBytes(32));
-                long sourceLength = reader.ReadInt64();
-                long targetLength = reader.ReadInt64();
-                int count = reader.ReadInt32();
-
-                if (sourceHash != SourceHash || targetHash != TargetHash ||
-                    sourceLength != SourceLength || targetLength != TargetLength)
-                    throw new InvalidDataException("Embedded patch metadata does not match this patcher.");
-                if (count < 1 || count > 100000)
-                    throw new InvalidDataException("Embedded patch chunk count is invalid.");
-
-                List<PatchChunk> loaded = new List<PatchChunk>(count);
-                for (int index = 0; index < count; index++)
-                {
-                    long offset = reader.ReadInt64();
-                    int length = reader.ReadInt32();
-                    if (offset < 0 || length < 1 || offset + length > TargetLength)
-                        throw new InvalidDataException("Embedded patch contains an invalid byte range.");
-                    byte[] data = reader.ReadBytes(length);
-                    if (data.Length != length)
-                        throw new EndOfStreamException("Embedded patch ended unexpectedly.");
-                    loaded.Add(new PatchChunk { Offset = offset, Data = data });
-                }
-
-                if (stream.Position != stream.Length)
-                    throw new InvalidDataException("Embedded patch contains unexpected trailing data.");
-                return new GoldPatch(loaded);
-            }
-        }
-
-        internal byte[] Apply(byte[] source, ResolutionChoice resolution)
-        {
-            return Apply(source, resolution, KmrpSettings.MarkerFixes);
-        }
-
-        /// <summary>The KPM edition passes mapNotes true whatever the setting says:
-        /// there KMRP Map Notes is a patch ticked in KOTOR Patch Manager, and the data
-        /// file carries the flag as that patch's edit (KpmEdition.cs).</summary>
-        internal byte[] Apply(byte[] source, ResolutionChoice resolution, bool mapNotes)
-        {
-            byte[] normalizedSource;
-            if (!PeCompatibility.TryNormalizeSupportedSource(source, out normalizedSource))
-                throw new InvalidDataException("The selected file is not the supported unpatched swkotor.exe.");
-            if (resolution == null)
-                throw new ArgumentNullException("resolution");
-
-            byte[] target = Overlay(normalizedSource);
-            if (HashBytes(target) != TargetHash)
-                throw new InvalidDataException("The game update could not be verified.");
-            return Finish(target, resolution, mapNotes);
-        }
-
-        /// <summary>The KPM edition's build: gold's chunks over a picture of the
-        /// unmodified executable that holds its bytes only under the chunks and at the
-        /// relocated fields, zero elsewhere (KpmEditionOperations.OriginalsImage). It is
-        /// what the installer has for Steam's swkotor.exe, whose code is encrypted on
-        /// disk. Gold's hash cannot be checked on such a picture; ResolutionPatch still
-        /// checks gold's value at every site it writes, tools/kpm_originals.py proves
-        /// the picture covers every changed byte, and Test-KpmEdition.ps1 proves the
-        /// data file built from it is the standalone's executable.</summary>
-        internal byte[] ApplyToOriginals(byte[] originals, ResolutionChoice resolution, bool mapNotes)
-        {
-            if (originals == null || originals.LongLength != SourceLength)
-                throw new InvalidDataException("The unmodified executable's bytes have an unexpected size.");
-            if (resolution == null)
-                throw new ArgumentNullException("resolution");
-            return Finish(Overlay(originals), resolution, mapNotes);
-        }
-
-        private byte[] Overlay(byte[] source)
-        {
-            byte[] target = new byte[TargetLength];
-            Buffer.BlockCopy(source, 0, target, 0, source.Length);
-            foreach (PatchChunk chunk in chunks)
-                Buffer.BlockCopy(chunk.Data, 0, target, checked((int)chunk.Offset), chunk.Data.Length);
-            return target;
-        }
-
-        private static byte[] Finish(byte[] target, ResolutionChoice resolution, bool mapNotes)
-        {
-            ResolutionPatch.Apply(target, resolution);
-            // The map-note corrections are data in .kmn plus a lookup the wrapper always
-            // calls; the flag is what decides whether the lookup does anything. Gold ships
-            // it enabled, so this only ever has to clear it.
-            if (!mapNotes)
-                ResolutionPatch.WriteInt32(target, ResolutionPatch.MapNoteFlagOffset, 0);
-            return target;
-        }
 
         internal static bool IsSupportedSourceFile(string path)
         {
@@ -901,9 +786,8 @@ namespace Kmrp
         }
 
         /// <summary>When set, every field Apply reads or writes, as {FILE offset, size}:
-        /// the KPM edition's build asks for them (KpmEditionOperations.WriteResolutionSites),
-        /// because its installer needs the unmodified executable's bytes under each whole
-        /// field, including fields gold left at their vanilla value.</summary>
+        /// WindowsEnginePatch checks them against its source-authored guard coverage,
+        /// including fields the old gold snapshot left at their vanilla value.</summary>
         internal static List<long[]> Touched;
 
         private static void Touch(long offset, int size)
@@ -3676,9 +3560,9 @@ namespace Kmrp
             if (File.Exists(outputPath))
                 throw new IOException("Output file already exists: " + outputPath);
 
-            GoldPatch patch = GoldPatch.Load();
             ResolutionChoice resolution = ResolutionCatalog.Find(width, height);
-            byte[] target = patch.Apply(File.ReadAllBytes(sourcePath), resolution);
+            byte[] target = WindowsEnginePatch.ApplyToExecutable(File.ReadAllBytes(sourcePath), resolution,
+                KmrpSettings.MarkerFixes);
             WriteVerifiedFile(outputPath, target, GoldPatch.HashBytes(target));
         }
 
@@ -8153,12 +8037,6 @@ namespace Kmrp
                     foreach (KeyValuePair<string, byte[]> file in table.Derive(width, height,
                         delegate(string name) { return GuiBlend.Text(File.ReadAllBytes(Path.Combine(setDirectory, name))); }))
                         File.WriteAllBytes(Path.Combine(args[4], file.Key), file.Value);
-                    return 0;
-                }
-                // Build-time only (build_kmrp.ps1): the fields ResolutionPatch handles.
-                if (args.Length == 3 && args[0] == "--kpm-sites")
-                {
-                    KpmEditionOperations.WriteResolutionSites(args[1], args[2]);
                     return 0;
                 }
                 if (args.Length != 0)

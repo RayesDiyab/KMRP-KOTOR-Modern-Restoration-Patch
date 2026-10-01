@@ -109,6 +109,42 @@ proxy, and it applies the executable changes above as well.
 
 ## [Unreleased]
 
+- The font cache builder now reports the documented scale-12 shared-atlas
+  fallback instead of failing after baking every other scale. Ubuntu regeneration
+  completed with 40 cached scale sets. The Proton archive audit checks the current
+  resolution catalog rather than a stale fixed count of 49. A missing or unexpected
+  resolution remains a failure. A whitespace fix in the native controller module
+  also permits its existing arithmetic expression to compile with MinGW.
+
+- Windows now assembles engine fixes from tracked patch sites and x86 source
+  builders. Building the installer needs no clean 1.03 executable, gold snapshot,
+  gold delta or extracted-originals resource. The build also compiles its native
+  module. Runtime byte guards, relocation, optional feature flags and restore
+  ownership remain in place. The source regression compiles the C# installer
+  code and checks all 66 shipped resolutions plus three edge cases on Ubuntu;
+  the native Windows/MSVC build remains untested. See
+  [the source build reference](docs/windows-engine-source.md).
+
+  The complete Ubuntu build exposed additional clean/gold file reads in the
+  `.kpatch` packager. It now takes the documented CD/GOG header edit from source,
+  checks packaged runtime hooks against the tracked measured table, and rejects
+  any source engine write over their stolen bytes. Corrupted original bytes,
+  static replacement bytes, missing hooks and missing target builds are rejected.
+
+  The complete installer was cross-built on Ubuntu on 2026-10-01 and passed
+  actual install/restore tests through Proton Experimental at 3440×1440 and
+  1920×1080. The live Steam game was then installed at 3440×1440, preserving its
+  executable hash. A subsequent Steam launch applied all 81 engine guard runs
+  and 46 relocations. Menus, dialogue, save/load, an NPC label, and virtual Xbox
+  movement/camera were exercised at 3440×1440; the gameplay follow-up also
+  loaded High FPS Fixes 1.0.0 separately and showed about 120 FPS. That extra
+  patch is not bundled in this installer. Stable Proton, Steam Deck and the
+  remaining hardware/gameplay matrix are untested. See
+  [the Ubuntu record](docs/linux-proton-steam-deck.md#ubuntu-installer-test-2026-10-01).
+
+  *Correction, 2026-10-01:* the initial entry described installer-only coverage
+  and said Proton gameplay was untested; the later checks supersede that limit.
+
 **This is KMRP 1.5**, the build in progress. Its installer reports 1.5.0 in
 Properties → Details and in the install record
 (`swkotor.exe.kotor-ui-patch.json`).

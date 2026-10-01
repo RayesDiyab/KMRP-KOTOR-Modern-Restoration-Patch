@@ -383,7 +383,7 @@ void logDialogGeometry(const DialogBadge& b, char* list, void** rows, int count,
     if (viewport>=0 && viewport<8)
         fprintf(f," viewport=%d:%dx%d",viewport,
                 *reinterpret_cast<const short*>(0x7B946C+viewport*10),
-                *reinterpret_cast<const short*>(0x7B946E+viewport*10));
+                *reinterpret_cast<const short*>(0x7B946E + viewport*10));
     for (int i=0;i<count && i<6;++i) {
         if (!readable(rows[i],0x14)) break;
         const int* r=reinterpret_cast<const int*>(static_cast<char*>(rows[i])+4);

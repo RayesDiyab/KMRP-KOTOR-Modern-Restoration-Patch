@@ -117,6 +117,30 @@ KMRP therefore does not currently advertise that combination. Preserving an
 external patch through apply and restore requires a separately specified,
 versioned overlay contract—not a blanket exception—and remains unfinished.
 
+## Issue #15: driver-component interaction reported, 2026-10-01
+
+The maintainer clarified on 2026-10-01 that the reported crashes occur with
+some mods **only when Modern Driver Compatibility is enabled**. This is a
+maintainer-reported on/off finding, not a new reproduction performed here.
+The remaining investigation is the interaction between those mods and the
+optional K1DC component; it is not an established crash in KMRP's core engine
+or interface fixes. The particular failing driver operation and affected-mod
+matrix have not been measured here.
+
+For the affected setup, use the [driver component's opt-out procedure](third-party-driver-compat.md#6-the-opt-out)
+and repeat the same new-game or module-transition test. Keep the content mods,
+save, resolution and Proton/Windows configuration fixed when comparing driver
+on and off. Record K1DC's version, its log and the crash module/offset.
+Disjoint hook addresses alone do not rule out a runtime interaction.
+
+**Correction to the historical analysis below:** its address-space, font-memory
+and texture-bucket hypotheses were not demonstrated causes of issue 15. The
+maintainer's driver-toggle finding narrows the reported failure; the earlier
+measurements remain useful independent facts, not proof of that failure's cause.
+The GitHub issue body retrieved on 2026-10-01 still contained the original broad
+report and no comments; this update attributes the clarification to the
+maintainer's direct report in this session.
+
 ## Issue #15: crashes on the next module load -- analysis, 2026-09-25
 
 **Status: a hypothesis, not a reproduction.** The ten reported mods were not

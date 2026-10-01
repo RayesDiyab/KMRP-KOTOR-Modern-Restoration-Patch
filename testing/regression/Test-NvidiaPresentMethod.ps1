@@ -47,6 +47,7 @@ $sources = @(
     "src\patcher\AssemblyInfo.cs",
     # KmrpPatcher.cs installs through it in either build since 2026-09-29.
     "src\patcher\KpmEdition.cs",
+    "src\patcher\WindowsEnginePatch.cs",
     # The resolution list and the install blend sizes without a set since 2026-09-30.
     "src\patcher\GuiBlend.cs",
     "testing\regression\NvidiaPresentSelfTest.cs"

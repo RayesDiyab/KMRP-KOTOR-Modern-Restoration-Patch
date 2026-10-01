@@ -11,12 +11,12 @@
 listed resolutions, and since 2026-09-30 for any other size from 4:3 to 32:9, whose
 menus it blends from the listed ones and whose controller badges and HUD boxes it
 draws for them (`GuiBlend.cs`, the C# of `macos/tools/kmrp-guiblend.c`). It contains
-the executable update, shared interface artwork, every matching GUI set and the
+the source-built runtime engine recipe, shared interface artwork, every matching GUI set and the
 blend table, so no companion folders need to be shipped.
 
 The patcher accepts Steam's, GOG's and the editable 1.03 `swkotor.exe` (`GameExecutable`
 in `KmrpPatcher.cs`), creates recoverable
-backups, updates the game executable, marks it DPI-aware for the current user,
+backups, installs KPM's runtime to apply engine fixes in memory, marks it DPI-aware for the current user,
 sets NVIDIA's present method for it where the driver would otherwise show
 half-drawn frames, and configures `swkotor.ini`. Three optional components,
 each on by default and each independent, are chosen under *Advanced Settings*:
@@ -31,6 +31,13 @@ Width=3440
 ```
 
 All other INI sections and settings are preserved.
+
+**Correction, 2026-10-01:** the normal build no longer reads a clean executable
+or gold snapshot, and the installer no longer writes an engine update into
+`swkotor.exe`. Steam's file stays unchanged; supported editable CD/GOG files
+receive only the existing LAA flag. `WindowsEnginePatch.cs` specializes the
+source template and checks scaling-field coverage. See the
+[source build reference](../../docs/windows-engine-source.md).
 
 The shared artwork is generated from the repository snapshot:
 
@@ -86,11 +93,15 @@ python .\tools\prepare_app_icons.py  # requires Pillow; only when source icons c
 .\build_kmrp.ps1
 ```
 
-For a C#/icon-only iteration after a successful full resource build:
+To reuse interface resources after a successful full resource build:
 
 ```powershell
 .\build_kmrp.ps1 -ReuseResources
 ```
+
+Both forms assemble the source engine, compile the native module and KPM
+runtime, and package their four patches. The only required game-derived build
+input is `TexturePacks/swpc_tex_gui.erf`; per-resolution font caches are optional.
 
 Automation-only command-line modes are also available:
 
@@ -100,6 +111,7 @@ Automation-only command-line modes are also available:
 "KMRP - KOTOR Modern Restoration Patch.exe" --restore swkotor.exe
 ```
 
-`--in-place` performs the complete installation. `--restore` restores the EXE,
-INI, and Override files. `--apply` creates only a patched executable and does
-not change the INI or Override directory.
+`--in-place` performs the complete installation. `--restore` restores owned
+runtime, EXE-header, INI and Override changes. `--apply` creates only an offline
+reference from a supported editable CD/GOG executable and does not change the
+INI or Override directory; it is not a build prerequisite or Steam install mode.

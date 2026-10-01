@@ -16,6 +16,16 @@ a user turns it off.
 It is **not** a KMRP fix. Every line of it is Synchro's work. KMRP's only
 contribution is installing it, removing it again, and the compatibility check below.
 
+## Reported mod interaction (2026-10-01)
+
+The maintainer reports that issue 15's module-loading crashes with some mods
+occur only with **Modern Driver Compatibility enabled**. This on/off result
+was reported by the maintainer, not reproduced during the Ubuntu test. Use the
+opt-out in section 6 for the affected setup and retest the same module load.
+The exact failing operation remains unmeasured; the zero-overlap check below
+establishes byte-site compatibility, not compatibility with every content mod.
+See the [dated compatibility record](mod-build-compatibility.md#issue-15-driver-component-interaction-reported-2026-10-01).
+
 ## The build this describes
 
 | | |

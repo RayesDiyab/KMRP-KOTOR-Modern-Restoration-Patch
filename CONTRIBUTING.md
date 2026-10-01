@@ -19,8 +19,11 @@ records is the *chain of hashes* that identifies them, in
 [docs/font-scaling.md](docs/font-scaling.md), so any of them can be rebuilt and
 verified from a clean executable.
 
-**Never experiment on the live `swkotor.exe`.** Work on a named copy, record its
-SHA-256 first, and keep the verified backup the patcher makes.
+**Preserve the original before executable experiments.** Work on a named copy,
+or on the live file when authorized, after copying it aside and recording its
+length and SHA-256. Keep the verified backup the patcher makes. The maintainer
+lifted the blanket live-file restriction; [AGENTS.md](AGENTS.md) carries the
+current authorization, reporting and rollback rules.
 
 **Measure; do not judge by eye.** "It looks about right" has been wrong here
 often enough to be a rule. Read the value back out of the file, capture the
@@ -56,22 +59,21 @@ the earlier reading was and why it was wrong.
 | MSVC, x86 | Visual Studio Build Tools, for `src\controller-native\build.cmd` and `src\kpm-runtime\build.cmd`, which `build_kmrp.ps1` runs |
 | The KPM submodule | `git submodule update --init` (or clone with `--recursive`): `third_party/Kotor-Patch-Manager`, the runtime's source |
 | Network, once | `tools/prepare_sdl3.ps1` downloads the pinned SDL 3 SDK into `build/deps` |
-| Game files | `swpc_tex_gui.erf` and a clean `swkotor.exe`, placed in [`build-inputs/`](build-inputs/README.md) |
+| Game files | `swpc_tex_gui.erf`, placed in [`build-inputs/`](build-inputs/README.md); no executable is required |
 
-**The project folder is self-contained**: everything the build reads is inside
-it, so it can live anywhere. Only the two game-derived files above must be
-supplied from outside, and `.gitignore` keeps them out of the repository. A
-fresh clone must also generate three inputs that are not committed: the gold
-snapshot (the tool chain in [docs/font-scaling.md](docs/font-scaling.md)), the
-controller module (`src\controller-native\build.cmd`) and, optionally, the
-per-resolution font sets (`tools/build_font_scale_sets.py`); see *Build from
-source* in the [README](README.md). (Until 2026-09-24 this said the two files
-were all a build needed.)
+**The project folder is self-contained**: the texture pack is its only
+required game-derived input, and `.gitignore` keeps it out of the repository.
+The Windows engine recipe is assembled by `tools/build_windows_engine.py` from
+tracked sites and assembly emitters. `build_kmrp.ps1` also compiles the controller
+module and KPM runtime. Optional per-resolution font sets still come from
+`tools/build_font_scale_sets.py`; see *Build from source* in the [README](README.md).
 
-Every path is still a parameter — see the `param()` block at the top of
-`build_kmrp.ps1` — and can be overridden with `-SourceExe` /
-`-TexturePack`, the `KMRP_*` environment variables, or a gitignored
-`build.local.ps1` (copy `build.local.example.ps1`).
+*Corrected 2026-10-01:* a separate editable clean 1.03 executable and a generated
+gold snapshot were build prerequisites before the source recipe migration.
+They remain useful for historical binary comparisons, and are not build inputs.
+
+Override the texture path with `-TexturePack`, `KMRP_TEXTURE_PACK`, or the
+ignored `build.local.ps1` (copy `build.local.example.ps1`).
 
 ### Commands
 
@@ -83,8 +85,9 @@ Every path is still a parameter — see the `param()` block at the top of
 .\build_kmrp.ps1 -ReuseResources
 ```
 
-Output lands in `dist/`. The script prints the source, gold and output hashes;
-check them against the constants in `src/patcher/KmrpPatcher.cs`.
+Output lands in `dist/`. The script prints the engine template and installer
+hashes. The source build reference and regression are in
+[docs/windows-engine-source.md](docs/windows-engine-source.md).
 
 ## Patching the executable
 
@@ -126,9 +129,17 @@ breaking them:
   committed, so it is on you. See
   [reverse-engineering/binary-inventory.md](reverse-engineering/binary-inventory.md).
 
-New engine code goes into its own PE section (`.kui`, `.klb`, `.kfs`, `.kwl`,
+The current engine build assembles guarded writes and relocatable pages without
+reading a game executable. Run `Test-WindowsEngineSource.py` and
+`Test-KpatchSource.py` as described in [the source reference](docs/windows-engine-source.md).
+The inventory command above additionally compares an optional clean/gold fixture;
+it is not a normal build prerequisite. Record that comparison as untested when
+the historical fixtures are unavailable.
+
+Historically, new engine code went into its own PE section (`.kui`, `.klb`, `.kfs`, `.kwl`,
 `.ksc`, `.kgs`, `.ktn`, `.kmz`, `.kfg`, `.kmn`, `.kmv` so far) via a builder in `tools/`; simple
-constant changes are in-place `imm32` rewrites. Each builder verifies the bytes
+constant changes were in-place `imm32` rewrites. The runtime pages retain those
+names and logical addresses. Each builder verifies the bytes
 it expects to find before writing anything, and refuses to proceed otherwise —
 keep that pattern.
 

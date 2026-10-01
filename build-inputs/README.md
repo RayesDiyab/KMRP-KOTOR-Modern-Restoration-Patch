@@ -17,23 +17,27 @@ build will tell you exactly what is missing.
 
 | File | Where to get it |
 | --- | --- |
-| `swkotornopatch.exe` | The editable 4,042,752-byte `swkotor.exe`, SHA-256 `761F9466…C49E9886`. The build verifies this hash and refuses anything else. |
+| `swkotornopatch.exe` | Optional for historical executable comparisons and installer regressions: the editable 4,042,752-byte `swkotor.exe`, SHA-256 `761F9466…C49E9886`. The normal build does not read it. |
 | `swpc_tex_gui.erf` | `TexturePacks\swpc_tex_gui.erf` from your KOTOR installation. Source art for the font atlases, hex row frames, and popup icons. |
 | `swkotor-steam.exe` | Optional, for tests only: Steam's own `swkotor.exe`, 4,395,008 bytes, SHA-256 `34E6D971…A439F34C88`, unmodified. `testing\regression\Test-KpmEdition.ps1` installs the KPM edition over it; without it that test skips its Steam case and says so. The build does not read it. |
-Copy them in, then:
+Copy the texture pack in, then:
 
 ```powershell
 .\build_kmrp.ps1
 ```
 
-The build also reads three generated inputs that a fresh clone does not have --
-the gold snapshot, the controller module and, optionally, the font sets; see
+The engine template, controller module and KPM runtime are built from source by
+the script. Optional per-resolution font sets may be generated first; see
 *Build from source* in the [main README](../README.md).
+
+*Corrected 2026-10-01:* the clean executable and gold snapshot used to be required.
+The source-built Windows engine recipe removes both requirements. A Steam game
+installation supplies the texture pack needed for the build.
 
 *Corrected 2026-09-24:* this file named `build_universal_patcher.ps1` as the
 build and listed `swkotor_gold_final_D8F0EEBF.exe` for `build_gold_patcher.ps1`.
 Both scripts were removed on 2026-09-03, when `build_kmrp.ps1` replaced them.
 
-To keep them somewhere else instead, pass `-SourceExe` / `-TexturePack`, set
-`KMRP_SOURCE_EXE` / `KMRP_TEXTURE_PACK`, or create a `build.local.ps1` from
+To keep them somewhere else instead, pass `-TexturePack`, set
+`KMRP_TEXTURE_PACK`, or create a `build.local.ps1` from
 `build.local.example.ps1`.

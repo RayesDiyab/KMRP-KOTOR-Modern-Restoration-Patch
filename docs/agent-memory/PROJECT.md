@@ -3,9 +3,9 @@
 ## Purpose
 
 KMRP is a resolution-aware interface and engine restoration patch for the 2003 PC
-release of *Star Wars: Knights of the Old Republic*. It generates resources for 49
-resolutions from 800×600 through 15360×8640 and applies a verified executable delta
-plus resolution-specific constants and Override resources.
+release of *Star Wars: Knights of the Old Republic*. It generates resources for 66
+resolutions from 800×600 through 15360×8640, blends other supported sizes at install,
+and applies source-built engine fixes in memory plus Override resources.
 
 The first public release is KMRP 1.0, tagged `v2.10.0` (its internal number;
 its Properties → Details say 2.7.0.0). The build in progress is KMRP 1.5, installer
@@ -15,16 +15,25 @@ refuses to compile unless `AssemblyInfo.cs` carries the same version.
 
 ## Architecture
 
-```text
-verified clean swkotor.exe + embedded gold delta
-    -> gold engine-fix image
-    -> ResolutionPatch constants for the selected resolution
-    -> patched swkotor.exe
+Since 2026-10-01 the normal Windows build uses tracked source sites and assembly
+emitters (`tools/build_windows_engine.py`, `src/patcher/WindowsEnginePatch.cs`)
+without a clean EXE or gold snapshot. See [the current source build](../windows-engine-source.md).
 
-override-common.zip + gui-<resolution>.zip (the 49 embedded as one pool of
+```text
+tracked source sites + x86 emitters
+    -> windows-engine.bin
+    -> ResolutionPatch constants for the selected resolution
+    -> kmrp-kpm.dat
+    -> guarded, relocated memory writes when KPM loads patches/kmrp.dll
+
+override-common.zip + gui-<resolution>.zip (the 66 embedded as one pool of
     distinct files since 2026-09-25; tools/pack_resolution_layouts.py)
     -> game Override directory with a hash-backed restore manifest
 ```
+
+*Correction, 2026-10-01:* this overview previously described the retired standalone
+gold-delta build and 49 resolutions. The source recipe is now the normal build;
+historical snapshots and the optional `--apply` reference command remain separate.
 
 **Since 2026-09-29 KMRP's installer does not write gold into swkotor.exe.** It is
 the KPM edition's install plus KOTOR Patch Manager's runtime (KPM's binkw32.dll
@@ -39,14 +48,15 @@ runtime it installs for KPM instead (an Advanced Settings option that also chose
 this was removed on 2026-09-30) (no runtime; the player ticks the .kpatch files, which the installer
 carries and puts in KPM's patch folder -- from KPM's settings -- or a "KPM patches"
 folder in the game folder) -- what the separate KMRP for KPM installer did until
-the same day. `--apply` still writes the gold image, as the reference. The
-diagram above is the standalone path, kept for that. See docs/kpm-edition.md 1a.
+the same day. `--apply` now builds an offline reference from the source recipe. The
+current diagram above describes the runtime path. See docs/kpm-edition.md 1a.
 
-Two editions from one build since 2026-09-28. The standalone above; and KMRP for
-KPM, the same installer compiled with KPM_EDITION, which leaves swkotor.exe
-unmodified and writes kmrp-kpm.dat (the same final bytes, as a diff from the
-clean executable) for KMRP's module to apply in memory under KOTOR Patch
-Manager, relocating gold's eleven sections. In KPM it is four patches, one per
+Historically two editions were built from one source since 2026-09-28: standalone
+and KMRP for KPM, compiled with KPM_EDITION. They became one installer on
+2026-09-29. The KPM route leaves swkotor.exe
+unmodified on Steam and writes kmrp-kpm.dat from the source recipe for KMRP's
+module to apply in memory under KOTOR Patch Manager, relocating eleven pages.
+In KPM it is four patches, one per
 fix: KMRP (required, self-contained: it carries the memory fixes and, on the
 editable 1.03 executable, the 4 GB flag), KMRP Controller, KMRP Movies, KMRP Map
 Notes; each hook's patch is `kpm_patch` in kotor1.hooks.toml. It supports the
@@ -101,4 +111,3 @@ engineering contract. `docs/documentation-standard.md` defines evidence quality.
   resolution, not only at 3440×1440.
 - Player-facing compatibility guidance must distinguish measured support, expected
   compatibility, known limitations, and untested configurations.
-

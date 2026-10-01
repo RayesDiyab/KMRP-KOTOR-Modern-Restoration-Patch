@@ -32,7 +32,7 @@ from 800×600 to 15360×8640, and any other size from 4:3 to 32:9 made at instal
 | --- | --- |
 | Game | *Star Wars: Knights of the Old Republic* (2003 PC release) |
 | `swkotor.exe` | One of three builds, and KMRP refuses every other: **Steam's** (`34E6D971…A439F34C88`), **GOG's** (`9C10E045…DEA91435`), or the **4,042,752-byte editable 1.03 build** (`761F9466…C49E9886`). GOG's is the editable build without the 16 bytes of `Hellspawn Reborn` in its header padding, which nothing reads. GOG's and the editable build are also accepted with only the standard Large Address Aware bit already set (`01B80825…C2B4132F`, `CA9D22EA…A7E1889`). |
-| OS | Windows with .NET Framework 4.x (shipped with Windows 10/11). Linux/Proton and Steam Deck are experimental and not yet gameplay-verified; use the separate procedure below. |
+| OS | Windows with .NET Framework 4.x (shipped with Windows 10/11). Ubuntu with Proton Experimental has installation, restore and limited gameplay verification; Steam Deck remains untested. See the separate procedure below. |
 
 1. Launch KOTOR once so `swkotor.ini` exists.
 2. Run **`KMRP - KOTOR Modern Restoration Patch.exe`**. It finds Steam's KOTOR by itself,
@@ -87,8 +87,11 @@ the instructions in the package.
 
 **Linux / Proton / Steam Deck (experimental).** Launch the patcher inside the
 game's Proton environment with `protontricks-launch --appid 32370`, and use the
-same route for restore. Package-level Linux checks pass, but Proton gameplay and
-physical-controller coverage are not yet complete. Follow the exact commands,
+same route for restore. On 2026-10-01, installer 1.5.0 passed install/restore
+tests on Ubuntu with Proton Experimental, and the patched Steam game was played
+at 3440×1440: dialogue, save/load, NPC labels, menus, and virtual Xbox movement
+and camera. Stable Proton, Steam Deck and physical-controller coverage remain
+untested. Follow the exact commands,
 diagnostic steps, and honest test matrix in the
 [Linux, Proton, and Steam Deck guide](docs/linux-proton-steam-deck.md).
 
@@ -213,43 +216,36 @@ More in [`assets/screenshots/`](assets/screenshots/).
 
 ## How it works
 
-KMRP ships **one verified executable delta plus per-resolution resources**, not a
-pile of loose file replacements.
+KMRP builds its engine fixes from tracked source and ships them with
+per-resolution interface resources.
 
-```
- vanilla swkotor.exe ─┐
- (bytes the installer ├─►  gold snapshot  ──►  ResolutionPatch  ──►  kmrp-kpm.dat
-  carries)            │   (all engine fixes)   (rescales constants    (how that differs
-     gold delta ──────┘                         for your resolution)   from vanilla)
-     (embedded)
-                                  game starts ──►  binkw32.dll (KPM proxy)
-                                                   ──►  KotorPatcher.dll ──►  patches\kmrp.dll
-                                                        applies kmrp-kpm.dat in memory
+```text
+ source patch sites + x86 assembly builders
+     -> Windows engine template -> ResolutionPatch -> kmrp-kpm.dat
+ game starts -> KPM proxy/runtime -> patches\kmrp.dll
+     -> verifies original instructions -> applies fixes in memory
 
-     override-common.zip  ──┐
-     gui-<resolution>.zip ──┴──►  Override/   (+ manifest for restore)
+ override-common.zip + resolution layouts -> Override/ (+ restore manifest)
 ```
 
-**The gold snapshot** is a reference executable carrying every engine fix, built
-by the scripts in [`tools/`](tools/). The patcher embeds the *delta* between the
-clean executable and that snapshot, verifies both hashes, and applies it. Engine
-patches are added either as eleven new PE sections (`.kui`, `.klb`, `.kfs`,
-`.kwl`, `.ksc`, `.kgs`, `.ktn`, `.kmz`, `.kfg`, `.kmn`, `.kmv`) holding
-hand-written x86 stubs, or as in-place `imm32` rewrites. The patched image
-is 4,087,808 bytes at every resolution: the 4,042,752-byte original plus those
-sections, with 742 byte positions of the original image changed at one
-resolution or another — every one listed in
-[reverse-engineering/binary-inventory.md](reverse-engineering/binary-inventory.md).
+The Windows build uses [`tools/build_windows_engine.py`](tools/build_windows_engine.py)
+to assemble the injected code and its original-byte guards. It needs neither a
+clean 1.03 executable nor a patched gold snapshot. The installer specializes the
+template for the selected resolution; KPM's module validates the decrypted game
+instructions before applying any memory changes. This serves the supported Steam,
+GOG and editable CD 1.03 variants through the same patch recipe.
 
-**Nothing of it is written to `swkotor.exe`** since 2026-09-29. The installer
-builds that image from the unmodified executable's bytes it carries -- Steam's
-file is encrypted on disk -- and writes how it differs from vanilla to
-`kmrp-kpm.dat`. When the game starts, KOTOR Patch Manager's runtime loads KMRP's
-module, which applies those bytes in memory, the eleven sections at an address
-of its own with every reference to them moved to match
-([docs/kpm-edition.md](docs/kpm-edition.md)). So the editable build and Steam's
-run the same bytes. Until then the installer wrote the image into
-`swkotor.exe`, which Steam's DRM refuses.
+The eleven code/data pages retain their existing layout and relocations. The
+[historical byte inventory](reverse-engineering/binary-inventory.md) records the
+sites; the [source build reference](docs/windows-engine-source.md) explains the
+new build and verification. Original game files remain hash-validated during
+installation, and backup/restore ownership remains unchanged. On the editable
+executable the installer still manages the existing 4 GB header flag; Steam's
+executable stays unchanged.
+
+*Corrected 2026-10-01:* previously this section described an embedded gold delta
+and carried clean-image fragments. The normal build now assembles the recipe
+from source; gold snapshots remain historical references.
 
 **Each interface file is stored once.** Most of the 66 resolutions' files are
 the same bytes at several resolutions, so the installer embeds them as one pool
@@ -345,42 +341,41 @@ executable.
 **Prerequisites**
 
 - Windows with .NET Framework 4.x (`csc.exe` from `v4.0.30319`)
-- Python 3 with `pykotor`, and `Pillow` + `numpy` for the asset tools
+- Python 3 with `pykotor`, `capstone`, and `Pillow` + `numpy` for the asset tools
   (`pip install -r requirements.txt`)
 - Visual Studio Build Tools (MSVC, x86) for the controller module and KOTOR
   Patch Manager's runtime, which the build compiles from the submodule
   (`git submodule update --init`; [src/kpm-runtime](src/kpm-runtime/README.md))
 - Network access on the first build: `tools/prepare_sdl3.ps1` downloads the
   pinned SDL 3 SDK into `build/deps` and checks its hash
-- Two files from your own copy of the game, placed in
-  [`build-inputs/`](build-inputs/README.md) — a clean `swkotor.exe`
-  (SHA-256 `761F9466…`, verified by the build) and `TexturePacks/swpc_tex_gui.erf`
+- `TexturePacks/swpc_tex_gui.erf` from your own game, placed in
+  [`build-inputs/`](build-inputs/README.md). Steam's texture pack is sufficient;
+  no game executable is a build input.
 
 ```powershell
 .\build_kmrp.ps1
 ```
 
 That regenerates all 66 resource archives and compiles the patcher to
-`dist/`. Add `-ReuseResources` to skip resource generation and only recompile.
+`dist/`. Add `-ReuseResources` to skip regenerating the interface archives;
+engine assembly, native compilation, pooling and KPM packaging still run.
 
-**A fresh clone needs three generated inputs first**, none of them committed:
+The build assembles the Windows engine template and compiles the controller
+module and KPM runtime itself. Optionally generate per-resolution font sets in
+`build/fonts` with `tools/build_font_scale_sets.py` first. Without them the build
+warns and each resolution falls back to the shared atlas.
 
-- the gold snapshot, `build/kmrp/swkotor_gold_v24_movieaspect.exe`, rebuilt from
-  the clean executable by the chain of tools tabulated in
-  [docs/font-scaling.md](docs/font-scaling.md), each step's output hash recorded
-  there;
-- the controller module, `src/controller-native/kmrp-controller.module`, from
-  `src\controller-native\build.cmd`;
-- optionally, the per-resolution font sets in `build/fonts`, from
-  `tools/build_font_scale_sets.py`. Without them the build warns and every
-  resolution falls back to the shared atlas.
+The source-only engine regression can run without game files:
 
-**The project folder is self-contained.** Everything the build reads lives
-inside it, so the folder can be moved or copied anywhere. Only the two
-game-derived files above have to be supplied from outside, and they are never
-committed. (This section said those two files were all a build needed until
-2026-09-24; the three above are generated inside the folder but are not in
-the repository.)
+```powershell
+python testing/regression/Test-WindowsEngineSource.py --csc C:\Windows\Microsoft.NET\Framework\v4.0.30319\csc.exe
+```
+
+**The project folder is self-contained.** The texture pack is the only required
+game-derived file supplied from outside, and is never committed. The build
+creates its engine template and native modules inside the project. Earlier
+versions needed two game files and a separately generated gold snapshot; the
+source recipe removed the executable requirement on 2026-10-01.
 
 > [!NOTE]
 > **Game binaries and game resources are never committed.** `.gitignore` blocks

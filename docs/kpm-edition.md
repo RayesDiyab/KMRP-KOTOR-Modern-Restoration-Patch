@@ -13,6 +13,15 @@ session notes summarised under *Rejected alternatives* below.
 writes that image to a new file with `--apply`, and it remains the reference the
 data file is proved against (section 7); installing it is retired.
 
+## Source-built Windows patches (2026-10-01)
+
+The normal Windows build now assembles its patch recipe from tracked source,
+without a clean executable, gold snapshot, `gold.kup`, or `Kmrp.kpm.originals`.
+[Windows engine source](windows-engine-source.md) documents the current build
+and checks. The historical measurements below still describe the earlier
+snapshot-derived implementation. `--apply` remains an optional offline reference
+command using a supported editable executable, not an installer build step.
+
 ## The build this describes
 
 | | |
@@ -644,6 +653,16 @@ module and Synchro's standalone K1DC.
 
 ## 7. How it was verified
 
+The table below is the snapshot-era record. **Current verification, 2026-10-01:**
+`Test-WindowsEngineSource.py` compiles the installer sources and verifies all
+68 historical runs, 81 authored guard runs, eleven pages, 46 relocations and
+69 sizes without a game executable. `Test-KpatchSource.py` checks the four
+packages and rejects corrupted original bytes, LAA replacement bytes, missing
+hooks and missing target versions. The current build no longer invokes
+`tools/kpm_originals.py` or the old executable-based relocation command.
+See [Windows engine source](windows-engine-source.md) and the
+[Ubuntu launch/gameplay record](linux-proton-steam-deck.md).
+
 | check | result |
 | --- | --- |
 | `tools/kpm_relocations.py` | 46 fields, both methods agree, 443 instructions proved after a move; dropping any entry fails |
@@ -756,6 +775,20 @@ game (its bytes are the `125DEA64…` KMRP-and-Controller row's); play by hand.
   executable. That is circumventing DRM, and kept out of KMRP.
 
 ## 10. Verifying by hand
+
+For the current source-built installer:
+
+```powershell
+python tools\build_windows_engine.py --out build\kmrp\windows-engine.bin
+python testing\regression\Test-WindowsEngineSource.py --csc C:\Windows\Microsoft.NET\Framework\v4.0.30319\csc.exe
+.\build_kmrp.ps1
+python testing\regression\Test-KpatchSource.py
+python tools\build_kpatch.py --check build\kmrp\kpm-patches
+```
+
+On Ubuntu the source regression accepts `--mono-root <extracted Mono tree>`.
+The following commands are the **historical snapshot comparison** and require
+optional clean/gold fixtures; they are no longer normal build steps:
 
 ```powershell
 python tools\kpm_relocations.py                       # the table, both methods, the proof

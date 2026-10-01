@@ -143,7 +143,8 @@ stack-label, gutter, and leading-newline investigations:
 
 Current gold: `swkotor_gold_v24_movieaspect.exe`, 4,087,808 bytes,
 `9DD81A75F4888FD67242B682BEE0AB4392EA8923CDF4A020CA3EDD2464C05E0A`.
-`build_kmrp.ps1` defaults to that file. Still confirm any
+*Corrected 2026-10-01:* `build_kmrp.ps1` no longer reads that file;
+[the Windows engine recipe](windows-engine-source.md) builds from source. Still confirm any
 future gold change by matching `GoldPatch.TargetHash` in
 `src/patcher/KmrpPatcher.cs` against the file on disk. (*Corrected 2026-09-24:*
 this said v23, and the table stopped there.)
@@ -298,6 +299,12 @@ does not, because silently falling back is exactly the defect being fixed.
 `dialogfont32x32` at that scale needs an atlas past what the baker can produce,
 so that resolution alone keeps the shared 3.0 atlas. It is listed as a known
 fallback in the regression rather than hidden.
+
+On 2026-10-01, regenerating the current 41 requested scales on Ubuntu baked
+40 sets and then failed at scale 12 because the underlying baker accepts only
+0.5 through 8.0. The cache builder now reports that known fallback and skips its
+bake, so the documented command succeeds. The scale-12 resolution still uses
+the shared atlas; no claim of native scale-12 rendering is added.
 
 **Rejected on the way.** Replacing Old Republic with a trace of the game's own
 32px master (`tools/build_kotor_font.py`) was built and measured — the trace

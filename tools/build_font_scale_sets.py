@@ -112,6 +112,12 @@ def main() -> int:
     print(f"{len(scales)} scales: "
           + ", ".join(f"{s:g}" for s in scales))
     for index, scale in enumerate(scales, 1):
+        # The 16K catalog entry uses the documented shared-atlas fallback.
+        # Its scale exceeds build_font_from_ttf.py's supported range; do not
+        # abort a complete cache build after baking every other scale.
+        if scale > 8.0:
+            print(f"[{index}/{len(scales)}] {scale:<9.6f} shared-atlas fallback (baker limit 8.0)")
+            continue
         out = scale_dir(arguments.output, scale)
         done = out / "dialogfont16x16.tga"
         if done.is_file() and not arguments.force:

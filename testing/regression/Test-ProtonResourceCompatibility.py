@@ -20,9 +20,11 @@ sys.path.insert(0, str(ROOT / "tools"))
 
 from apply_gold_hud_proportions import walk_controls  # noqa: E402
 from pykotor.resource.formats.gff import read_gff  # noqa: E402
+from prepare_universal_resources import GROUPS  # noqa: E402
 
 
-EXPECTED_ARCHIVE_COUNT = 49   # 48 upstream + 2880x1620, derived since 2026-09-25
+EXPECTED_RESOLUTIONS = {value for values in GROUPS.values() for value in values}
+EXPECTED_ARCHIVE_COUNT = len(EXPECTED_RESOLUTIONS)
 ARCHIVE_PATTERN = re.compile(r"gui-(\d+)x(\d+)\.zip$")
 TARGET_TAG = "LBL_NAME"
 TARGET_FONT = "dialogfont10x10"
@@ -79,6 +81,11 @@ def main() -> int:
         return 1
     if len(archives) != EXPECTED_ARCHIVE_COUNT:
         print(f"FAIL: found {len(archives)} GUI archives; expected {EXPECTED_ARCHIVE_COUNT}")
+        return 1
+    actual_resolutions = {path.stem.removeprefix("gui-") for path in archives}
+    if actual_resolutions != EXPECTED_RESOLUTIONS:
+        print(f"FAIL: resolution catalog mismatch: missing {sorted(EXPECTED_RESOLUTIONS - actual_resolutions)}, "
+              f"unexpected {sorted(actual_resolutions - EXPECTED_RESOLUTIONS)}")
         return 1
 
     with zipfile.ZipFile(common_path) as common:

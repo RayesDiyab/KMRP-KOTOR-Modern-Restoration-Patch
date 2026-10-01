@@ -1,19 +1,13 @@
 param(
-    # Inputs that come from your own copy of the game. They default to
-    # build-inputs\ inside the project, so the folder is self-contained and can be
-    # moved anywhere. They are NOT committed -- .gitignore blocks the executable
-    # and the texture pack, because they are BioWare's, not ours.
+    # The texture pack comes from your own copy of the game and defaults to
+    # build-inputs\ inside the project. It is ignored, as are all game binaries.
+    # Engine fixes are built from tracked source; no game EXE is required.
     #
-    # A "..\" default was used until the project folder moved and the build broke
-    # silently, which is why these now point inside the project. Override with a
-    # parameter, with KMRP_SOURCE_EXE / KMRP_TEXTURE_PACK / KMRP_PYTHON, or in a
-    # gitignored build.local.ps1 (copy build.local.example.ps1).
-    [string]$SourceExe,
+    # Override with -TexturePack, KMRP_TEXTURE_PACK or build.local.ps1.
     [string]$TexturePack,
     [string]$Python,
 
     # In-repository inputs. These always move with the project.
-    [string]$GoldExe = ".\build\kmrp\swkotor_gold_v24_movieaspect.exe",
     [string]$GoldOverride = ".\assets\override-3440x1440",
     [string]$UpstreamGuiRoot = ".\third_party\Included\kotor-high-resolution-menus-1.5",
     # Third-party Override mods bundled with their authors' permission.
@@ -38,16 +32,13 @@ $projectRoot = Split-Path -Parent $MyInvocation.MyCommand.Path
 $buildDir = Join-Path $projectRoot "build\kmrp"
 $resourceDir = Join-Path $buildDir "resources"
 $distDir = Join-Path $projectRoot "dist"
-$patchResource = Join-Path $buildDir "gold.kup"
+$engineSource = Join-Path $buildDir "windows-engine.bin"
 $outputExe = Join-Path $distDir ($OutputName + ".exe")
 
 # Local, uncommitted machine settings, if any.
 $localSettings = Join-Path $projectRoot "build.local.ps1"
 if (Test-Path -LiteralPath $localSettings) { . $localSettings }
 
-if (-not $SourceExe)   { $SourceExe   = $env:KMRP_SOURCE_EXE }
-if (-not $SourceExe)   { $SourceExe   = $KmrpSourceExe }
-if (-not $SourceExe)   { $SourceExe   = ".\build-inputs\swkotornopatch.exe" }
 if (-not $TexturePack) { $TexturePack = $env:KMRP_TEXTURE_PACK }
 if (-not $TexturePack) { $TexturePack = $KmrpTexturePack }
 if (-not $TexturePack) { $TexturePack = ".\build-inputs\swpc_tex_gui.erf" }
@@ -70,10 +61,8 @@ function Resolve-InputPath([string]$Path) {
 # -Plain turns that off for logs and non-interactive shells.
 
 $script:StepIndex = 0
-# Two more since 2026-09-28: the KPM relocation table and the KPM edition; one
-# more since 2026-09-29, KOTOR Patch Manager's runtime and KMRP's patches, and one
-# fewer the same day, when KMRP for KPM became part of the one installer.
-$script:StepTotal = if ($ReuseResources) { 8 } else { 9 }
+# The engine assembly step includes relocation generation and proof.
+$script:StepTotal = if ($ReuseResources) { 7 } else { 8 }
 $script:StepStart = Get-Date
 $script:BuildStart = Get-Date
 $script:BarWidth = 32
@@ -159,20 +148,16 @@ Write-Host "  build" -ForegroundColor DarkGray
 # ---------------------------------------------------------------- 1. inputs
 Start-Step "Checking build inputs"
 
-$resolvedSource = Resolve-InputPath $SourceExe
 $resolvedTexturePack = Resolve-InputPath $TexturePack
 
 $missing = @()
-if (-not (Test-Path -LiteralPath $resolvedSource)) {
-    $missing += "  clean swkotor.exe  ->  $resolvedSource"
-}
 if (-not (Test-Path -LiteralPath $resolvedTexturePack)) {
     $missing += "  swpc_tex_gui.erf   ->  $resolvedTexturePack"
 }
 if ($missing.Count -gt 0) {
     throw ("Build inputs from your copy of the game are missing:`r`n" +
         ($missing -join "`r`n") +
-        "`r`nCopy them there (see build-inputs\README.md), or pass -SourceExe / -TexturePack.")
+        "`r`nCopy them there (see build-inputs\README.md), or pass -TexturePack.")
 }
 if (-not $Python) {
     throw "Python was not found. Add it to PATH, pass -Python, or set KmrpPython in build.local.ps1."
@@ -186,9 +171,7 @@ if (-not (Test-Path -LiteralPath $compiler)) {
     throw ".NET Framework C# compiler was not found at $compiler"
 }
 
-$resolvedSource = (Resolve-Path -LiteralPath $resolvedSource).Path
 $resolvedTexturePack = (Resolve-Path -LiteralPath $resolvedTexturePack).Path
-$resolvedGold = (Resolve-Path -LiteralPath (Resolve-InputPath $GoldExe)).Path
 $resolvedGoldOverride = (Resolve-Path -LiteralPath (Resolve-InputPath $GoldOverride)).Path
 $resolvedUpstream = (Resolve-Path -LiteralPath (Resolve-InputPath $UpstreamGuiRoot)).Path
 $resolvedIcon = (Resolve-Path -LiteralPath (Resolve-InputPath $IconPath)).Path
@@ -196,19 +179,16 @@ $resolvedHdFonts = (Resolve-Path -LiteralPath (Resolve-InputPath $HdFonts)).Path
 $geometry = (Resolve-Path -LiteralPath (Resolve-InputPath "assets\resolution-geometry.json")).Path
 $resolvedBundled = @($BundledOverride | ForEach-Object { (Resolve-Path -LiteralPath (Resolve-InputPath $_)).Path })
 
-Write-Detail ("source exe   {0}  ({1:n0} bytes)" -f (Split-Path -Leaf $resolvedSource), (Get-Item $resolvedSource).Length)
-Write-Detail ("gold exe     {0}" -f (Split-Path -Leaf $resolvedGold))
 Write-Detail ("texture pack {0}  ({1:n0} MB)" -f (Split-Path -Leaf $resolvedTexturePack), ((Get-Item $resolvedTexturePack).Length / 1MB))
 Write-Detail ("python       {0}" -f $Python)
 New-Item -ItemType Directory -Force -Path $buildDir, $distDir | Out-Null
 Complete-Step
 
-# ---------------------------------------------------------------- 2. gold delta
-Start-Step "Building the gold delta"
-Invoke-Tool -Exe $Python -Label "chunk" -FailureMessage "Patch resource generation failed" -Arguments @(
-    (Join-Path $projectRoot "tools\generate_gold_delta.py"),
-    $resolvedSource, $resolvedGold, $patchResource)
-Complete-Step ("{0:n0} KB" -f ((Get-Item $patchResource).Length / 1KB))
+# ---------------------------------------------------------------- 2. source-built engine patches
+Start-Step "Assembling Windows engine fixes from source"
+Invoke-Tool -Exe $Python -Label "engine" -FailureMessage "Source engine patch generation failed" -Arguments @(
+    (Join-Path $projectRoot "tools\build_windows_engine.py"), "--out", $engineSource)
+Complete-Step ("{0:n0} KB" -f ((Get-Item $engineSource).Length / 1KB))
 
 # ---------------------------------------------------------------- 3. resources
 if (-not $ReuseResources) {
@@ -281,20 +261,6 @@ $blendZip = New-Object System.IO.Compression.GZipStream($blendOutput, [System.IO
 try { $blendInput.CopyTo($blendZip) } finally { $blendZip.Dispose(); $blendOutput.Dispose(); $blendInput.Dispose() }
 Complete-Step ("{0:n1} MB, {1:n1} MB gzipped" -f ((Get-Item $blendTable).Length / 1MB), ((Get-Item $blendResource).Length / 1MB))
 
-# ---------------------------------------------------------------- 4b. KPM relocations
-# The KPM edition cannot put gold's eleven appended sections back at their own
-# addresses, so its module moves them and re-points every address that names
-# them. tools/kpm_relocations.py finds those addresses in gold by two independent
-# methods, stops the build if they disagree, and proves the table by moving the
-# code. Both editions embed it (Kmrp.kpm.relocations): the KPM edition installs
-# from it, and the standalone can write a data file for tests.
-Start-Step "Computing the KPM relocation table"
-$kpmRelocations = Join-Path $buildDir "kpm-relocations.txt"
-Invoke-Tool -Exe $Python -Label "relocations" -FailureMessage "The KPM relocation table could not be proved" -Arguments @(
-    (Join-Path $projectRoot "tools\kpm_relocations.py"), "--gold", $resolvedGold,
-    "--clean", $resolvedSource, "--out", $kpmRelocations)
-Complete-Step ("{0} fields" -f @(Get-Content -LiteralPath $kpmRelocations | Where-Object { $_ -match "^[A-Z]" }).Count)
-
 # ---------------------------------------------------------------- 5. compiler arguments
 # What the installer embeds; step 7 compiles it from these.
 $compilerArgs = @(
@@ -309,7 +275,7 @@ $compilerArgs = @(
     "/reference:System.IO.Compression.dll",
     "/reference:System.IO.Compression.FileSystem.dll",
     "/reference:System.Windows.Forms.dll",
-    "/resource:$patchResource,Kmrp.goldpatch",
+    "/resource:$engineSource,Kmrp.engine.source",
     "/resource:$(Join-Path $resourceDir 'override-common.zip'),Kmrp.override.common",
     "/resource:$(Join-Path $resourceDir 'resolutions.tsv'),Kmrp.resolutions",
     "/resource:$(Join-Path $resourceDir 'bundled-override.txt'),Kmrp.bundled",
@@ -353,7 +319,6 @@ Write-Detail ("embedding {0} of {1} UI icons" -f $iconCount, $iconNames.Count)
 # it through GuiPool (src/patcher/KmrpPatcher.cs). Until 2026-09-25 each of the
 # 49 archives was embedded whole, as Kmrp.override.gui.<W>x<H>.
 $compilerArgs += "/resource:$layoutPool,Kmrp.override.layouts"
-$compilerArgs += "/resource:$kpmRelocations,Kmrp.kpm.relocations"
 $compilerArgs += "/resource:$blendResource,Kmrp.guiblend"
 
 $compilerArgs += (Join-Path $projectRoot "src\patcher\KmrpPatcher.cs")
@@ -362,6 +327,7 @@ $compilerArgs += (Join-Path $projectRoot "src\patcher\GameArtGenerator.cs")
 $compilerArgs += (Join-Path $projectRoot "src\patcher\ControllerPromptGenerator.cs")
 $compilerArgs += (Join-Path $projectRoot "src\patcher\AssemblyInfo.cs")
 $compilerArgs += (Join-Path $projectRoot "src\patcher\KpmEdition.cs")
+$compilerArgs += (Join-Path $projectRoot "src\patcher\WindowsEnginePatch.cs")
 $compilerArgs += (Join-Path $projectRoot "src\patcher\GuiBlend.cs")
 
 # Properties -> Details must name the version the install record names. The two live
@@ -389,14 +355,8 @@ if (-not $patchVersion -or
 Write-Host ("    version {0}, matching Properties -> Details" -f $patchVersion) -ForegroundColor DarkGray
 
 # ---------------------------------------------------------------- 6. KPM runtime and patches
-# Since 2026-09-29 the installer installs through KMRP's four KPM patches, with
-# KOTOR Patch Manager's runtime or for KPM itself. This step makes everything it
-# embeds that is not interface art: the runtime and its binkw32.dll proxy, from
-# the submodule (src\kpm-runtime\build.cmd); the unmodified executable's bytes the
-# data file is built from (Kmrp.kpm.originals: Steam's swkotor.exe is encrypted on
-# disk, so the installer never reads them from the player's file); and the
-# patches, as .kpatch files for KOTOR Patch Manager and as patch_config.toml
-# sections for the installer, from one hook table.
+# Build the runtime and KMRP module from their tracked sources, then package all
+# four patches. No game executable or prebuilt controller module is an input.
 Start-Step "Building KOTOR Patch Manager's runtime and KMRP's patches"
 $kpmRuntimeDir = Join-Path $projectRoot "build\kpm-runtime"
 $kpmSubmodule = Join-Path $projectRoot "third_party\Kotor-Patch-Manager"
@@ -406,32 +366,8 @@ if (-not (Test-Path -LiteralPath (Join-Path $kpmSubmodule "src\KotorPatcher\src\
 Invoke-Tool -Exe "cmd.exe" -Label "runtime" -FailureMessage "Building KOTOR Patch Manager's runtime failed (src\kpm-runtime\build.cmd)" `
     -Arguments @("/c", (Join-Path $projectRoot "src\kpm-runtime\build.cmd"))
 
-# The fields ResolutionPatch handles, which the originals must cover, listed by
-# ResolutionPatch itself: a small build of the installer's code with only the two
-# resources that listing reads.
-$sitesExe = Join-Path $buildDir "kmrp-sites.exe"
-Invoke-Tool -Exe $compiler -Label "compile" -FailureMessage "Compiling the resolution-site lister failed" -Arguments @(
-    "/nologo", "/optimize+", "/target:exe", "/platform:anycpu", "/out:$sitesExe",
-    "/reference:System.dll", "/reference:System.Drawing.dll",
-    "/reference:System.IO.Compression.dll", "/reference:System.IO.Compression.FileSystem.dll",
-    "/reference:System.Windows.Forms.dll",
-    "/resource:$patchResource,Kmrp.goldpatch",
-    "/resource:$(Join-Path $resourceDir 'resolutions.tsv'),Kmrp.resolutions",
-    (Join-Path $projectRoot "src\patcher\KmrpPatcher.cs"),
-    (Join-Path $projectRoot "src\patcher\AbilityIconGenerator.cs"),
-    (Join-Path $projectRoot "src\patcher\GameArtGenerator.cs"),
-    (Join-Path $projectRoot "src\patcher\ControllerPromptGenerator.cs"),
-    (Join-Path $projectRoot "src\patcher\AssemblyInfo.cs"),
-    (Join-Path $projectRoot "src\patcher\KpmEdition.cs"),
-    (Join-Path $projectRoot "src\patcher\GuiBlend.cs"))
-$kpmSites = Join-Path $buildDir "kpm-resolution-sites.txt"
-Invoke-Tool -Exe $sitesExe -Label "sites" -FailureMessage "Listing the resolution fields failed" -Arguments @(
-    "--kpm-sites", $resolvedSource, $kpmSites)
-$kpmOriginals = Join-Path $buildDir "kpm-originals.bin"
-Invoke-Tool -Exe $Python -Label "originals" -FailureMessage "The KPM originals could not be proved" -Arguments @(
-    (Join-Path $projectRoot "tools\kpm_originals.py"), "--clean", $resolvedSource,
-    "--delta", $patchResource, "--relocations", $kpmRelocations, "--sites", $kpmSites,
-    "--out", $kpmOriginals)
+Invoke-Tool -Exe "cmd.exe" -Label "module" -FailureMessage "Building KMRP's native module failed (src\controller-native\build.cmd)" `
+    -Arguments @("/c", (Join-Path $projectRoot "src\controller-native\build.cmd"))
 
 # KMRP's .kpatch files, for players who manage their patches with KOTOR Patch
 # Manager. The installer embeds them (step 7) and puts them where KPM finds them
@@ -462,7 +398,6 @@ Complete-Step
 
 # ---------------------------------------------------------------- 7. the installer
 Start-Step "Compiling the installer"
-$compilerArgs += "/resource:$kpmOriginals,Kmrp.kpm.originals"
 $engineArgs = @(
     "/resource:$(Join-Path $kpmRuntimeDir 'KotorPatcher.dll'),Kmrp.engine.runtime",
     "/resource:$(Join-Path $kpmRuntimeDir 'binkw32.dll'),Kmrp.engine.proxy",
