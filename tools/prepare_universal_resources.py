@@ -17,7 +17,7 @@ from pathlib import Path
 
 from pykotor.resource.formats.gff import GFFStruct, read_gff, write_gff
 
-from apply_gold_hud_proportions import apply_proportions
+from apply_gold_hud_proportions import apply_proportions, apply_target_menu
 from build_controller_prompt_textures import (GLYPH_FAMILIES, PROMPT_STRREFS,
                                               PROMPT_TARGETS, badge_fit_width,
                                               build_prompt_textures,
@@ -1406,6 +1406,14 @@ def main() -> int:
                         # at every resolution, that one included.
                         set_map_control_extent(gui_file, patched,
                                                item["map_control_target"])
+                        packaged_files.append(patched)
+                        continue
+                    if resolution == "3440x1440" and name == "mipc210x7.gui":
+                        # The HUD 3440x1440 loads is gold's own, shipped as it
+                        # is but for its target menu, which follows the rule
+                        # every other size does (target_menu_extents, 2026-10-01).
+                        apply_target_menu(args.gold_override / "mipc210x7.gui",
+                                          gui_file, patched, height)
                         packaged_files.append(patched)
                         continue
                     if resolution == "3440x1440":

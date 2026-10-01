@@ -64,6 +64,8 @@ does it, checked as stated), **doc** (a Windows document to correct).
 | 14 | Lists as tall as whole rows: the Container, the granted popup, character creation's Feats, low-resolution lists | **built** (2026-09-30) |
 | 15 | Skill rows as tall as the Feats and Powers rows (`50s`), the skill icons with them | **built** (2026-09-30) |
 | 16 | Uninstall after KPM's takeover: removes KPM's runtime too when KMRP is its only patch; a takeover found from any runtime file, not `patch_config.toml` alone | **built** (2026-10-01; `Test-KpmEdition.ps1` Cases 10b and 10c; not run under KPM's window on Windows) |
+| 17 | The target menu: buttons 1.5x the name strip, centred under it, never past the name box | **build only** |
+| 18 | A on the world after an action slot's focus has gone stale (a door after an enemy) | **to do** |
 
 ## 1. Message popups fitted to their contents
 
@@ -626,3 +628,31 @@ KMRP alone in KPM, then uninstall: the untouched `swkotor.exe` (`761F9466…` or
 build) and no KPM file left; KMRP and another patch, then uninstall: KPM's runtime and the
 other patch as they were, and the message to untick KMRP. `Test-MacInstaller.py`'s round 6
 does both on the Mac against a stand-in.
+
+## 17. The target menu (shared build code)
+
+**What changed** (2026-10-01). The target's second and third action buttons were cut off at
+every size but 3440x1440: the engine clips the target menu at `LBL_NAME`'s right edge, and the
+name strip (height-scaled since 2026-09-05) was narrower than the buttons' width-scaled
+places. `tools/apply_gold_hud_proportions.py`, `target_menu_extents`, now lays out the whole
+menu: buttons 1.5 times the strip's scale, centred under the bar, below the health line, the
+bar widened only where needed; 3440x1440's own HUD too (`prepare_universal_resources.py`).
+
+**What Windows needs.** A build from the merged code: the `.gui` files are shared.
+
+**Check.** At 1920x1080 and 3440x1440: target an enemy (three buttons, whole, under the name),
+a locked door and a container.
+
+## 18. A on the world after an action slot's focus has gone stale
+
+**What changed on the Mac** (2026-10-01, `macos/patches/kmrp-controller/hud.cpp`). With an
+action slot focused on an enemy, targeting a door (no actions) left that slot focused, and A
+pressed the empty slot instead of opening the door. `ActionBarFocused` now also requires the
+focused slot to be selectable (a target slot with actions, or a usable personal slot), and the
+HUD's A does nothing on a slot that is not.
+
+**What Windows needs.** `IsActionBarFocused` in `src/controller-native/vendor/K1XboxControls.cpp`
+counts any focused slot the same way. **Not checked on Windows** whether its engine drops the
+focus when the target changes; if not, the same fix.
+
+**Check.** Focus an enemy's action slot, target an unlocked door, press A: the door opens.

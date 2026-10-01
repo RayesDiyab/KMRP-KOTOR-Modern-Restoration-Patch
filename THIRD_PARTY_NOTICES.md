@@ -264,7 +264,7 @@ the game's `Contents/MacOS`:
 
 - **KotorPatcher**, KPM's runtime, by **Lane Dibello** and the KPM contributors,
   built from `src/KotorPatcher`;
-- **K1WidescreenPatch** by **FTD, RaymanGT, J and Vriff**, compiled from
+- **K1WidescreenPatch** by **FTD and RaymanGT**, compiled from
   `Patches/K1WidescreenPatch`;
 - **K1StrayBugFixes** by **RaymanGT and FTD**, compiled from `Patches/K1StrayBugFixes`:
   KMRP's engine fixes that hold at any resolution, split out of the widescreen patch by FTD

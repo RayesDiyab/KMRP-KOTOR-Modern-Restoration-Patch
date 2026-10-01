@@ -20,6 +20,7 @@ sys.path.insert(0, str(ROOT / "tools"))
 
 from apply_gold_hud_proportions import (  # noqa: E402
     TOP_LEFT_TRANSIENT_TAGS,
+    target_menu_extents,
     gold_extents,
     placed_top_left,
     walk_controls,
@@ -387,15 +388,26 @@ def check_hud(path: Path, resolution: str, height: int,
     errors: list[str] = []
     controls = controls_by_tag(read_gff(path))
     scale = max(1.0, height / 720.0) / 2.0
-    for tag in TOP_LEFT_TRANSIENT_TAGS:
+    menu = target_menu_extents(gold, height)
+    for tag in (*TOP_LEFT_TRANSIENT_TAGS, *(t for t in menu if t not in TOP_LEFT_TRANSIENT_TAGS)):
         control = controls.get(tag)
         if control is None:
             errors.append(f"{resolution} HUD: missing {tag}")
             continue
-        expected = placed_top_left(gold[tag], scale)
+        expected = menu[tag] if tag in menu else placed_top_left(gold[tag], scale)
         actual = extent_values(control)
         if actual != expected:
             errors.append(f"{resolution} HUD {tag}: {actual}, expected {expected}")
+    # The engine clips the target menu at the name label's right edge: every action button
+    # must end inside it (2026-10-01, buttons cut off at 1920x1200).
+    name = controls.get("LBL_NAME")
+    if name is not None:
+        name_right = sum(extent_values(name)[0::2])
+        for slot in range(3):
+            button = controls.get(f"BTN_TARGET{slot}")
+            if button is not None and sum(extent_values(button)[0::2]) > name_right:
+                errors.append(f"{resolution} HUD BTN_TARGET{slot} ends at "
+                              f"{sum(extent_values(button)[0::2])}, past LBL_NAME's {name_right}")
     return errors
 
 

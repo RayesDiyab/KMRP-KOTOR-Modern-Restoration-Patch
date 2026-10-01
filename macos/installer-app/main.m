@@ -22,7 +22,7 @@
   (--no-map-notes when off) and controller support (--no-controller). The script's own stage lines drive the progress fill; its output goes to
   ~/Library/Logs/KMRP/installer.log, which Open Log opens.
 
-  kmrp-mac.sh is passed: install --yes, --resolution native|half for this display's rows or
+  kmrp-mac.sh is passed: install --yes, --resolution half|native for this display's rows or
   --size WxH, --no-map-notes, --no-controller, --game when one was chosen; uninstall --yes; status --brief. What
   it refuses (the game running, another build) it refuses here too, with its own message; a
   game KotOR Patch Manager manages is installed for KPM, or FTD's install of his patches
@@ -865,7 +865,7 @@ static const double kWordmarkInkLeft = 0.0216, kWordmarkInkRight = 0.9774;
 @interface KMRPRow : NSObject
 @property (nonatomic, copy) NSString *size;    // "3024x1964"; nil for a group's title
 @property (nonatomic, copy) NSString *text;    // the group's title, or what the size is
-@property (nonatomic, copy) NSString *choice;  // "native" or "half" on this display's rows
+@property (nonatomic, copy) NSString *choice;  // "half" (current) or "native" (Retina) on this display's rows
 @end
 @implementation KMRPRow
 @end
@@ -1309,8 +1309,10 @@ static const struct { const char *prefix, *stage; int percent; } kStages[] = {
         NSString *native = [NSString stringWithFormat:@"%zux%zu", pixelWidth, pixelHeight];
         NSString *half = [NSString stringWithFormat:@"%ldx%ld", (long)pointWidth, (long)pointHeight];
         if (pixelWidth > (size_t)pointWidth) {
-            [self.rows addObject:[self row:native text:@"This display, native: every pixel, the sharpest" choice:@"native"]];
-            [self.rows addObject:[self row:half text:@"This display, half: scaled up by macOS, lighter on the GPU" choice:@"half"]];
+            // The resolution macOS is set to first, and chosen by default (2026-10-01): a
+            // player reading 1512x982 in System Settings took the pixel size for a wrong guess.
+            [self.rows addObject:[self row:half text:@"This display, current: the resolution macOS is set to" choice:@"half"]];
+            [self.rows addObject:[self row:native text:@"This display, Retina: every pixel, sharper, heavier on the GPU" choice:@"native"]];
         } else {
             [self.rows addObject:[self row:native text:@"This display" choice:@"native"]];
         }
@@ -1336,7 +1338,15 @@ static const struct { const char *prefix, *stage; int percent; } kStages[] = {
     return row;
 }
 
+- (BOOL)hasRetinaChoice {
+    for (KMRPRow *row in self.rows)
+        if ([row.choice isEqualToString:@"half"]) return YES;
+    return NO;
+}
+
 - (KMRPRow *)defaultRow {
+    for (KMRPRow *row in self.rows)
+        if ([row.choice isEqualToString:@"half"]) return row;
     for (KMRPRow *row in self.rows)
         if ([row.choice isEqualToString:@"native"]) return row;
     for (KMRPRow *row in self.rows)
@@ -1353,7 +1363,10 @@ static const struct { const char *prefix, *stage; int percent; } kStages[] = {
     self.selectedChoice = choice;
     self.selectedDetail = detail;
     self.resolutionBox.text = Pretty(size);
-    self.resolutionBox.detail = choice ? [@"This display, " stringByAppendingString:choice] : detail;
+    self.resolutionBox.detail = !choice ? detail
+        : [choice isEqualToString:@"half"] ? @"This display, current"
+        : [choice isEqualToString:@"native"] && [self hasRetinaChoice] ? @"This display, Retina"
+        : @"This display";
     self.resolutionBox.needsDisplay = YES;
 }
 

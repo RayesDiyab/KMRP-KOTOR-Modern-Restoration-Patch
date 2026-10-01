@@ -3,7 +3,7 @@
 #
 #   kmrp-mac.sh install   [--game "<path>/Knights of the Old Republic.app"] [--no-map-notes]
 #                         [--no-controller]
-#                         [--resolution native|half | --size <W>x<H>] [--yes]
+#                         [--resolution current|native | --size <W>x<H>] [--yes]
 #   kmrp-mac.sh uninstall [--game ...] [--yes]
 #   kmrp-mac.sh status    [--game ...] [--brief]
 #
@@ -191,9 +191,9 @@ display_geometry() {
         }'
 }
 
-# Sets WIDTH and HEIGHT: the display's pixel size (native) or point size (half). On a display
-# with no more pixels than points there is nothing to choose. Asks, unless --resolution or
-# --yes (native) decides. --size sets them directly (another display, or a window size).
+# Sets WIDTH and HEIGHT: the display's point size (half: the resolution macOS is set to) or
+# pixel size (native). On a display with no more pixels than points there is nothing to
+# choose. Asks, unless --resolution or --yes (half) decides. --size sets them directly (another display, or a window size).
 choose_resolution() {
     if [[ -n "$SIZE" ]]; then
         WIDTH=${SIZE%x*}; HEIGHT=${SIZE#*x}; RESOLUTION=size
@@ -201,21 +201,26 @@ choose_resolution() {
     fi
     local geo=(${=$(display_geometry)})
     (( ${#geo} >= 4 && geo[1] >= 640 && geo[2] >= 480 )) || die "could not read the display's size"
+    # The default is the resolution macOS is set to ("half", the display's size in points: the
+    # "Looks like" size in System Settings → Displays), since 2026-10-01 (the maintainer: "I
+    # want it to patch to the currently running resolution"); a player reading 1512x982 there
+    # took 3024x1964 for a wrong guess. "native", every pixel of a Retina display, is the
+    # other choice. Until then native was the default.
     if (( geo[3] <= geo[1] )); then
         RESOLUTION=native
     elif [[ -z "$RESOLUTION" ]] && (( ! ASSUME_YES )); then
         say "Resolution on this display:"
-        say "  1) Native  ${geo[3]}x${geo[4]}  every pixel of the screen, the sharpest"
-        say "  2) Half    ${geo[1]}x${geo[2]}  macOS scales it up, lighter on the GPU"
+        say "  1) Current  ${geo[1]}x${geo[2]}  the resolution macOS is set to"
+        say "  2) Retina   ${geo[3]}x${geo[4]}  every pixel of the screen: sharper, heavier on the GPU"
         local answer
         read -r "answer?Choose 1 or 2 [1]: " || answer=""
         case "$answer" in
-            2*) RESOLUTION=half ;;
-            ""|1*) RESOLUTION=native ;;
+            2*) RESOLUTION=native ;;
+            ""|1*) RESOLUTION=half ;;
             *) die "not a choice: $answer" ;;
         esac
     fi
-    [[ -n "$RESOLUTION" ]] || RESOLUTION=native
+    [[ -n "$RESOLUTION" ]] || RESOLUTION=half
     if [[ "$RESOLUTION" == native ]]; then WIDTH=${geo[3]}; HEIGHT=${geo[4]}; else WIDTH=${geo[1]}; HEIGHT=${geo[2]}; fi
 }
 
@@ -573,7 +578,7 @@ do_install() {
         [[ -n "$from" ]] || die "layouts.zip lists no menu sets"
         derived=1
     fi
-    say "Resolution: $size$([[ $RESOLUTION == half ]] && echo ' (scaled up by macOS)')"
+    say "Resolution: $size$([[ $RESOLUTION == half ]] && echo ' (the resolution macOS is set to)')"
     if (( derived )); then
         say "Menus: KMRP's layout blended for $size (the build has no set for it); fonts and art from $from"
     else
@@ -936,8 +941,9 @@ while (( $# )); do
         --no-map-notes) MAP_NOTES=0 ;;
         --no-controller) CONTROLLER=0 ;;
         --resolution)
-            RESOLUTION=${2:?--resolution needs native or half}; shift
-            [[ "$RESOLUTION" == (native|half) ]] || die "--resolution is native or half, not $RESOLUTION" ;;
+            RESOLUTION=${2:?--resolution needs current or native}; shift
+            [[ "$RESOLUTION" == current ]] && RESOLUTION=half   # the resolution macOS is set to
+            [[ "$RESOLUTION" == (native|half) ]] || die "--resolution is current (or half) or native, not $RESOLUTION" ;;
         --size)
             SIZE=${2:?--size needs <width>x<height>}; shift
             [[ "$SIZE" == <->x<-> ]] && (( ${SIZE%x*} >= 640 && ${SIZE#*x} >= 480 )) ||

@@ -4,7 +4,7 @@
 The patch is FTD's two patches, built from their source as KPM's Patches/create-patch.py builds
 them, with KMRP's own code linked into the same module:
 
-    K1WidescreenPatch   FTD, RaymanGT, J, Vriff (MIT): the resolution, and with
+    K1WidescreenPatch   FTD and RaymanGT (MIT): the resolution, and with
                         UseGuiFileLayouts=1 no layout of its own
     K1StrayBugFixes     RaymanGT, FTD (MIT): the engine fixes that hold at any resolution
     kmrp-layout         KMRP: the sizes, lists, popups and map of KMRP's menu layouts
@@ -228,7 +228,9 @@ def main() -> int:
             f'description = "KMRP for macOS as one patch: {included}. FTD\'s Widescreen Patch and Stray Bug '
             "Fixes (MIT) built from their source with KMRP's layout support and options linked in. It replaces "
             'a separate install of FTD\'s patches. Run through KMRP Installer, which adds the menu layouts."\n'
-            'author = "FTD, RaymanGT, J, Vriff (Widescreen Patch); RaymanGT, FTD (Stray Bug Fixes); RaymanGT (KMRP)"\n'
+            # The maintainer's credit (2026-10-01): RaymanGT, with FTD, who laid the foundation
+            # KMRP for macOS is built on. FTD's own manifest also names J and Vriff.
+            'author = "RaymanGT, FTD"\n'
             # It carries FTD's two patches, so KPM must not apply them beside it: the conflict
             # KMRP.kpatch declares on Windows with the KPM patches making KMRP's fixes (2026-10-01).
             'requires = []\n'

@@ -1344,6 +1344,34 @@ before:
 
 ### Fixed
 
+- **The target's action buttons cut off, at every size but 3440x1440** (2026-10-01; a
+  tester's screenshots at 1920x1200, Windows and the Mac alike). The engine clips the target
+  menu at the name box's right edge (`LBL_NAME`). Since 2026-09-05 the name strip has been
+  scaled by height while the buttons kept High Resolution Menus' width-scaled places, so the
+  second and third button reached past it (250 px against 377 at 1920x1200). The whole target
+  menu now follows one rule, `target_menu_extents` in `tools/apply_gold_hud_proportions.py`,
+  from the play-tested 3440x1440 HUD: the strip at `max(1, H/720) / 2`, the buttons and their
+  icons 1.5 times that (the maintainer, in play at 1512x982), centred under the bar and 8
+  gold pixels below the health line, the bar widened only where the buttons need it. 3440x1440
+  itself, whose HUD is gold's own file, gets the same. Gold's first slot had its up and down
+  arrows swapped, a slip of its hand editing; read the right way up. `Test-GeneratedGuiGeometry.py`
+  checks every target control at all 66 sizes and that no button ends past the name box.
+  Seen in play at 1512x982 on the Mac (an enemy, a door); not yet on Windows.
+- **macOS: A on a door did nothing after an action slot had the focus** (2026-10-01, in play).
+  The action bar's focus outlives the target: a slot focused on an enemy stayed focused on a
+  door, which has no actions there, and A pressed the empty slot while the world's default
+  action was declined (76 such presses in one session's log). A focused slot now holds A
+  only while it can act (`hud.cpp`, `ActionBarFocused`). Windows' `IsActionBarFocused` makes
+  the same test (`docs/windows-changes-from-macos.md`, item 18).
+- **macOS: the installer patches to the resolution macOS is set to** (2026-10-01; the
+  maintainer: "I want it to patch to the currently running resolution"). On a Retina display
+  it chose the pixel size (3024x1964 on a 14" MacBook Pro), which a tester reading 1512x982 in
+  System Settings took for a wrong guess. The current resolution is now first and chosen; full
+  Retina sharpness is the second choice (`--resolution current|native`; `half` still works).
+- **Credits** (2026-10-01, the maintainer): KMRP's Windows patches are RaymanGT's; the Mac
+  patch, `kmrp`, is RaymanGT's and FTD's, who laid its foundation. FTD's own widescreen patch
+  manifest also names J and Vriff.
+
 - **macOS: KotOR Patch Manager's own window over KMRP** (2026-10-01; built and run on a Mac
   with KPM 0.7.1, the current release, `KotorPatchManager-macos-arm64-v0.7.1`). Four fixes
   found by doing it:
