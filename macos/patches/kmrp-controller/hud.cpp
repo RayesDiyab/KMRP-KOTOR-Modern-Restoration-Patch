@@ -174,9 +174,15 @@ void RequestRelease() { g_pending.release = true; g_pending.madeMs = NowMs(); }
 void RequestClearOne() { g_pending.clearOne = true; g_pending.madeMs = NowMs(); }
 void RequestDisengage() { g_pending.disengage = true; g_pending.madeMs = NowMs(); }
 
+// A slot has the focus and can still act. The focus outlives what made it useful: a target slot
+// keeps it after the target changes to one with no actions in that slot (a door, which has
+// none), and A then pressed an empty slot while the world's default action, opening the door,
+// was declined (2026-10-01, in play). Such a slot no longer holds A.
 bool ActionBarFocused() {
     void* hud = LiveHud();
-    return hud && HudActive(hud) && FocusedIndex(hud) >= 0;
+    if (!hud || !HudActive(hud)) return false;
+    const int active = FocusedIndex(hud);
+    return active >= 0 && Selectable(hud, active);
 }
 
 void Status() {
@@ -212,7 +218,7 @@ extern "C" __attribute__((visibility("default"))) void KmrpHudFrame(void* hud) {
     }
     // A uses the focused slot's action, and the slot keeps the focus, so A can be pressed again
     // at once; only B lets go.
-    if (pending.activate && active >= 0) {
+    if (pending.activate && active >= 0 && Selectable(hud, active)) {
         Press(static_cast<char*>(Slot(hud, active)) + kSlotLabel);
         ++g_count.activations;
     }

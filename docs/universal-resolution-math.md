@@ -267,6 +267,14 @@ The affected notification tags are `LBL_JOURNAL`, `LBL_CASH`, `LBL_PLOTXP`,
 `LBL_LIGHTSHIFT`. The target strip uses `LBL_NAMEBG`, `LBL_NAME`,
 `LBL_HEALTHBG`, and `PB_HEALTH`.
 
+**The target's action buttons** (2026-10-01). The engine clips the target menu
+at `LBL_NAME`'s right edge, and the buttons, left at upstream's width-scaled
+places, reached past the narrower strip at every size but 3440×1440. The menu is
+now laid out as one (`target_menu_extents`): the buttons at 1.5 × the strip's
+scale, centred under one bar width (the widest strip control, or the buttons'
+span where wider) and `round(8 × scale)` below the health line. At 1512×982: bar
+273, buttons 54×91; at 1920×1080: 300 and 60×100; at 3840×2160: 600 and 119×200.
+
 The bottom HUD clusters retain their existing gold-proportion rule, and the
 centre combat queue remains untouched.
 

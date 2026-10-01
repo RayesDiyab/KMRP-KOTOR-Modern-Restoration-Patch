@@ -43,7 +43,7 @@ site; the files are the same.
 | --- | --- | --- |
 | Hook runtime | `KotorPatcher.dylib`, loaded by one `LC_LOAD_DYLIB` in `KOTOR_Exe` | KotOR Patch Manager (MIT), built from source by `build.sh` |
 | KMRP's patch | one KPM patch, `kmrp` (`patches/kmrp.dylib`), built by `tools/make_kmrp_patch.py` from four parts (since 2026-09-30; they were four patches before) | see below |
-| … FTD's patches | FTD's widescreen patch and the Stray Bug Fixes it requires, which carry KMRP's engine fixes: the resolution (Retina modes included), K1–K9 (K7's reply list is KMRP's layout code since 2026-09-30), and, with `UseGuiFileLayouts=1`, no layout of their own | *K1WidescreenPatch* by FTD, RaymanGT, J and Vriff and *K1StrayBugFixes* by RaymanGT and FTD (MIT), compiled from their source: branch `kmrp` of `RayesDiyab/Kotor-Patch-Manager`, FTD's `widescreen-patch` (where KMRP's fixes were merged as [FTD516/Kotor-Patch-Manager#1](https://github.com/FTD516/Kotor-Patch-Manager/pull/1)) as KMRP takes it (section 10) |
+| … FTD's patches | FTD's widescreen patch and the Stray Bug Fixes it requires, which carry KMRP's engine fixes: the resolution (Retina modes included), K1–K9 (K7's reply list is KMRP's layout code since 2026-09-30), and, with `UseGuiFileLayouts=1`, no layout of their own | *K1WidescreenPatch* by FTD and RaymanGT and *K1StrayBugFixes* by RaymanGT and FTD (MIT), compiled from their source: branch `kmrp` of `RayesDiyab/Kotor-Patch-Manager`, FTD's `widescreen-patch` (where KMRP's fixes were merged as [FTD516/Kotor-Patch-Manager#1](https://github.com/FTD516/Kotor-Patch-Manager/pull/1)) as KMRP takes it (section 10) |
 | … layout | the sizes the Windows installer writes per resolution, and the list-box, area-map, popup and dialogue-reply changes the gold delta makes | `patches/kmrp-layout/` |
 | … map notes | Derslok's 250 map-note corrections (optional) | `patches/kmrp-map-notes/` |
 | … controller | KMRP's Windows controller module, ported (section 7), reading the pad through SDL 3.4.16 (optional) | `patches/kmrp-controller/`; SDL's official macOS release, shipped as `kmrp-sdl3.dylib` beside the game |
@@ -88,7 +88,7 @@ replaces), and runs the script:
 | The app | `kmrp-mac.sh` |
 | --- | --- |
 | at launch and after every run | `status --brief`: `install.info`, or the game and its build, without hashing every installed file (a full status takes seconds once KMRP is installed) |
-| **Start Patching** | `install --yes`, with `--resolution native` or `half` for this display's rows, `--size WxH` for any other, `--no-map-notes` when *Area Map Marker Fixes* is off, `--no-controller` when *Controller Support* is off (Advanced Settings, as on Windows), `--game` when one was chosen with **Browse** |
+| **Start Patching** | `install --yes`, with `--resolution half` (current) or `native` (Retina) for this display's rows, `--size WxH` for any other, `--no-map-notes` when *Area Map Marker Fixes* is off, `--no-controller` when *Controller Support* is off (Advanced Settings, as on Windows), `--game` when one was chosen with **Browse** |
 | **Restore Original** | `uninstall --yes` (and `--game`) |
 
 What the script refuses (the game running, another build), the app shows as a blocking
@@ -118,7 +118,8 @@ put the DIN labels about 5 pt low and clipped the step titles' descenders (both 
 2026-09-30); measured on the window afterwards, Browse's label sits 0.5 px from its
 button's centre and the state labels on their badges' centre lines.
 
-**Resolutions** (step 3): this display first, native and on a Retina display half (the main
+**Resolutions** (step 3): this display first, its current resolution and on a Retina display
+its every pixel, the current one chosen (the main
 display, as the widescreen patch reads it), then `installer-app/resolutions.txt`, 34 sizes
 grouped by shape (the 17 Mac sizes and common external displays), each one the build
 checks is in `layouts.zip`, then **Custom size…**. A custom size is checked with
@@ -334,13 +335,15 @@ and the area-map hit-test wrapper, because the widescreen patch's recentring alr
 ## 5. Resolution
 
 On a display with more pixels than points (every Retina Mac), the installer app offers both
-and chooses native; `kmrp-mac.sh` on its own asks, or takes `--resolution native|half`, and
+and chooses half, the resolution macOS is set to (since 2026-10-01; native until then: a
+player reading 1512x982 in System Settings took 3024x1964 for a wrong guess); `kmrp-mac.sh` on
+its own asks, or takes `--resolution current|native` (`half` is `current`), and
 `--size WxH` sets any size (another display, a window):
 
 | choice | frame the game renders here | INI |
 | --- | --- | --- |
-| native (default) | 3024x1964, every pixel of the panel | `ForceWidth=3024`, `ForceHeight=1964` |
-| half | 1512x982, the point size, scaled up 2x by macOS | `ForceWidth=1512`, `ForceHeight=982` |
+| native ("Retina") | 3024x1964, every pixel of the panel | `ForceWidth=3024`, `ForceHeight=1964` |
+| half ("current", default) | 1512x982, the point size, the resolution macOS is set to, scaled up 2x by macOS | `ForceWidth=1512`, `ForceHeight=982` |
 
 and `UseGuiFileLayouts=1`. On a display whose pixels are its points there is nothing to
 choose. Native needs engine fix K9: without it the pixel size was not a valid display mode,

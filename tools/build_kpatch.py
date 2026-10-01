@@ -164,7 +164,7 @@ def render_manifest(patch, version: str, resolutions: int) -> str:
         f"id = {toml_string(patch['id'])}",
         f"name = {toml_string(patch['name'])}",
         f"version = {toml_string(version)}",
-        'author = "Rayes Diyab (KMRP)"',
+        'author = "RaymanGT"',
         f"description = {toml_string(patch['description'].format(resolutions=resolutions))}",
         f"requires = {toml_list(patch['requires'])}",
         f"conflicts = {toml_list(patch['conflicts'])}",
