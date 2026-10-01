@@ -46,7 +46,7 @@ site; the files are the same.
 | … FTD's patches | FTD's widescreen patch and the Stray Bug Fixes it requires, which carry KMRP's engine fixes: the resolution (Retina modes included), K1–K9 (K7's reply list is KMRP's layout code since 2026-09-30), and, with `UseGuiFileLayouts=1`, no layout of their own | *K1WidescreenPatch* by FTD, RaymanGT, J and Vriff and *K1StrayBugFixes* by RaymanGT and FTD (MIT), compiled from their source: branch `kmrp` of `RayesDiyab/Kotor-Patch-Manager`, FTD's `widescreen-patch` (where KMRP's fixes were merged as [FTD516/Kotor-Patch-Manager#1](https://github.com/FTD516/Kotor-Patch-Manager/pull/1)) as KMRP takes it (section 10) |
 | … layout | the sizes the Windows installer writes per resolution, and the list-box, area-map, popup and dialogue-reply changes the gold delta makes | `patches/kmrp-layout/` |
 | … map notes | Derslok's 250 map-note corrections (optional) | `patches/kmrp-map-notes/` |
-| … controller | KMRP's Windows controller module, ported (section 7), reading the pad through SDL 3.4.16 (optional) | `patches/kmrp-controller/`; SDL's official macOS release, shipped as `kmrp-sdl3.dylib` beside the patch |
+| … controller | KMRP's Windows controller module, ported (section 7), reading the pad through SDL 3.4.16 (optional) | `patches/kmrp-controller/`; SDL's official macOS release, shipped as `kmrp-sdl3.dylib` beside the game |
 | Menus and fonts | every resolution's set from KMRP's resource build, pooled; any other size blended at install | `tools/prepare_universal_resources.py`, `pack_resolution_layouts.py`, `build_gui_blend_table.py`, all unchanged from Windows |
 | Artwork | `override-common.zip`, less what the Mac does not use | the same resource build |
 | Feat, power and skill icons | enlarged from the game's texture pack at install | `tools/kmrp-abilityicons.c`, a port of `AbilityIconGenerator.cs` |
@@ -154,7 +154,7 @@ floor of the controller's SDL3 and the helpers) and arm64, with `-Wunguarded-ava
 | `~/Library/Application Support/KMRP/macos/backup/KOTOR_Exe` | copy | the original, re-hashed before anything is written |
 | `MacOS/KotorPatcher.dylib` | added | KPM runtime |
 | `MacOS/patches/kmrp.dylib` | added | KMRP's one patch: FTD's widescreen patch and Stray Bug Fixes with KMRP's layout code, and the map notes and the controller unless `--no-map-notes` or `--no-controller` (one of four builds, `engine/kmrp[.no-map-notes][.no-controller]/`) |
-| `MacOS/patches/kmrp-sdl3.dylib` | added | omitted with `--no-controller`; SDL 3.4.16, the library of the official macOS release, its code unchanged and its signature redone ad hoc (`THIRD_PARTY_NOTICES.md`) |
+| `MacOS/kmrp-sdl3.dylib` | added | omitted with `--no-controller`; SDL 3.4.16, the library of the official macOS release, its code unchanged and its signature redone ad hoc (`THIRD_PARTY_NOTICES.md`) |
 | `MacOS/patch_config.toml` | added | written at build time by KPM's own `ConfigGenerator` for the `kmrp` patch: 78 hooks with both options (the Stray Bug Fixes' 11, 45 of the widescreen patch's, the map-note detour and the controller's 21), 56 with neither; staged with the matching `kmrp.dylib` |
 | `MacOS/KOTOR_Exe` | edited | one load command, then `codesign --force --sign - --identifier KOTOR_Exe` |
 | `MacOS/KOTOR_Exe.backup.<yyyyMMdd_HHmmss>` and its `.json` | added | the untouched game in KotOR Patch Manager's format (`BackupManager`, `BackupInfo`), made before the load command, from which KPM's Apply starts (since 2026-10-01, as Windows' `WriteKpmBackup`) |
@@ -448,7 +448,7 @@ feeds, and a rumble subsystem whose output Aspyr stubbed: `CExoInput::SetRumble`
 without doing anything.
 
 **The pad** is read through SDL 3.4.16, the release the Windows installer pins, shipped as
-`patches/kmrp-sdl3.dylib`. Apple's GameController framework, weak-linked, is used only when
+`kmrp-sdl3.dylib` beside `KOTOR_Exe`. Apple's GameController framework, weak-linked, is used only when
 that library cannot be loaded, so the two never hold a pad at once. The prompts are drawn in
 the pad's family, as on Windows: Xbox, PlayStation, Switch or Steam Deck art (`kmrp*`,
 `kmrs*`, `kmrn*`, `kmrd*`).
@@ -613,7 +613,8 @@ Steps, in order:
 4. SDL 3.4.16: the official `SDL3-3.4.16.dmg`, downloaded once into `build/deps` and refused
    unless its SHA-256 is `675660a9…87fd`; then the controller patch
    (`patches/kmrp-controller/`), which is not linked against SDL but opens
-   `kmrp-sdl3.dylib` from its own folder, as the Windows module opens `kmrp-sdl3.dll`;
+   `kmrp-sdl3.dylib` from its own folder or else the game's, as the Windows module opens
+   `kmrp-sdl3.dll`;
 5. `tools/kpm-cli` (KPatchCore): `validate` all four, then `stage-many` writes
    `patch_config.toml` with and without the map notes and with and without the controller
    (four configurations; the controller last), and checks for overlapping hooks across

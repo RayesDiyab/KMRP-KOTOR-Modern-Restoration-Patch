@@ -36,7 +36,8 @@ round 3 installs over that edited copy, which install and uninstall leave byte f
 6. KPM's records of KMRP's own install, as Windows writes them (2026-10-01): every round above
    finds kpm_install_state.json and a KPM-format backup of the untouched KOTOR_Exe beside it,
    and kmrp.kpatch in the patch folder KPM's settings name; and once KPM's Apply has rewritten
-   patch_config.toml, uninstall leaves KPM's runtime, load command and records to it.
+   the runtime, uninstall removes KPM's runtime as well when KMRP is its only patch, leaving the
+   untouched game, and leaves the runtime, load command and records to KPM beside another patch.
 
     python testing/regression/Test-MacInstaller.py PACKAGE_KMRP_DIR CLEAN_KOTOR_EXE SWPC_TEX_GUI_ERF
 
@@ -167,7 +168,7 @@ def main() -> int:
             backups = [f for f in files if re.fullmatch(r"KOTOR_Exe\.backup\.\d{8}_\d{6}", f)]
             files = [f for f in files if f not in backups and f not in [b + ".json" for b in backups]]
             want = ["KOTOR_Exe", "KotorPatcher.dylib", "kpm_install_state.json", "patch_config.toml",
-                    "patches/kmrp.dylib"] + ([] if mode == "off" else ["patches/kmrp-sdl3.dylib"])
+                    "patches/kmrp.dylib"] + ([] if mode == "off" else ["kmrp-sdl3.dylib"])
             if files != sorted(want):
                 failures.append(f"{size}: MacOS holds {files}, not {sorted(want)}")
             # KPM's records, as Windows writes them: the untouched game in KPM's format, and
@@ -359,7 +360,7 @@ def main() -> int:
             if (home / "Library/Application Support/KMRP").exists():
                 failures.append("KPM: the install state was left behind")
         # With a patch that is not FTD's: installed for KPM, as on Windows. KOTOR_Exe and KPM's
-        # files as they were (the controller's SDL added beside KPM's patches), the menus in,
+        # files as they were (the controller's SDL added beside the game), the menus in,
         # kmrp.kpatch where KPM finds it; uninstall leaves KPM's install exactly.
         kpm_install(["k1-stray-bug-fixes-patch", "k1widescreenpatch", "someone-elses-patch"])
         ini.write_bytes(INI_BEFORE.encode())
@@ -372,10 +373,10 @@ def main() -> int:
             failures.append(f"KPM: install for KPM failed: {result.stderr.strip()[-300:]}")
         else:
             now = snapshot()
-            if {k: v for k, v in now.items() if k != "patches/kmrp-sdl3.dylib"} != before:
+            if {k: v for k, v in now.items() if k != "kmrp-sdl3.dylib"} != before:
                 failures.append("KPM: the install for KPM changed KOTOR_Exe or KPM's files")
-            if "patches/kmrp-sdl3.dylib" not in now:
-                failures.append("KPM: the controller's SDL was not put beside KPM's patches")
+            if "kmrp-sdl3.dylib" not in now:
+                failures.append("KPM: the controller's SDL was not put beside the game")
             if not (game / "Contents/Assets/override/kmrplayout.gui").is_file():
                 failures.append("KPM: the menus were not installed")
             if not (kpm_folder / "kmrp.kpatch").is_file():
@@ -398,25 +399,63 @@ def main() -> int:
         shutil.rmtree(macos / "patches", ignore_errors=True)
         shutil.copy2(clean_exe, exe)
 
-        # 6. KPM takes KMRP's install over: its Apply rewrites patch_config.toml. Uninstall then
-        #    removes KMRP's own files and leaves the runtime, the load command and KPM's records.
-        ini.write_bytes(INI_BEFORE.encode())
-        result = run("install", "--size", "3024x1964", "--yes")
-        if result.returncode != 0:
-            failures.append(f"takeover: install failed: {result.stderr.strip()[-300:]}")
-        else:
-            config = macos / "patch_config.toml"
-            config.write_text(config.read_text() + "\n# rewritten by KPM's Apply\n")
-            runtime = snapshot()
+        # 6. KPM takes KMRP's install over (its Apply rewrites the runtime). With KMRP its only
+        #    patch, uninstall removes KPM's runtime too, as KPM's Remove would, and leaves the
+        #    untouched game (2026-10-01); with another patch beside it, uninstall removes KMRP's
+        #    own files and leaves the runtime, the load command and KPM's records to KPM.
+        def take_over(other: bool) -> None:
+            # KPM 0.7.1's Apply, as seen on 2026-10-01: patch_config.toml and kmrp.dylib written
+            # back byte for byte as KMRP wrote them, its own KotorPatcher.dylib and state file,
+            # its address database, and patches/ emptied but for the patches' modules; the
+            # controller's SDL, beside the game, is out of its way.
+            with open(macos / "KotorPatcher.dylib", "ab") as f:
+                f.write(b"KPM's own build\n")
+            state = macos / "kpm_install_state.json"
+            state.write_text(state.read_text().replace('"UpdatedAt"', '"UpdatedAt" ', 1))
+            (macos / "addresses.db").write_bytes(b"KPM's address database\n")
+            for p in (macos / "patches").iterdir():
+                if p.name != "kmrp.dylib":
+                    p.unlink()
+            if other:
+                (macos / "patches/someone-elses-patch.dylib").write_bytes(b"stand-in\n")
+                config = macos / "patch_config.toml"
+                config.write_text(config.read_text() + '\n[[patches]]\nid = "someone-elses-patch"\n'
+                                  'dll = "patches/someone-elses-patch.dylib"\n')
+
+        for other in (False, True):
+            case = "takeover with another patch" if other else "takeover"
+            ini.write_bytes(INI_BEFORE.encode())
+            result = run("install", "--size", "3024x1964", "--yes")
+            if result.returncode != 0:
+                failures.append(f"{case}: install failed: {result.stderr.strip()[-300:]}")
+                break
+            take_over(other)
+            if not (macos / "kmrp-sdl3.dylib").is_file():
+                failures.append(f"{case}: the controller's SDL is not beside the game for KPM's install")
+            runtime = {k: v for k, v in snapshot().items() if k != "kmrp-sdl3.dylib"}
             result = run("uninstall", "--yes")
-            if "taken over the runtime" not in result.stdout:
-                failures.append("takeover: uninstall did not say KPM has the runtime")
-            if snapshot() != runtime:
-                failures.append("takeover: uninstall touched KPM's runtime, load command or records")
+            if result.returncode != 0:
+                failures.append(f"{case}: uninstall failed: {result.stderr.strip()[-300:]}")
+            if other:
+                if "taken over the runtime" not in result.stdout:
+                    failures.append(f"{case}: uninstall did not say KPM has the runtime")
+                if snapshot() != runtime:
+                    # SDL is KMRP's and goes, as Windows' Restore removes kmrp-sdl3.dll
+                    failures.append(f"{case}: uninstall touched KPM's runtime, load command or records, or left SDL")
+            else:
+                if "removing it as KPM would" not in result.stdout:
+                    failures.append(f"{case}: uninstall did not say it removes KPM's runtime")
+                if snapshot() != {"KOTOR_Exe": vanilla}:
+                    failures.append(f"{case}: uninstall did not leave the untouched game: {sorted(snapshot())[:8]}")
             if (game / "Contents/Assets/override").exists():
-                failures.append("takeover: uninstall left KMRP's menus")
+                failures.append(f"{case}: uninstall left KMRP's menus")
+            if (kpm_folder / "kmrp.kpatch").exists():
+                failures.append(f"{case}: uninstall left kmrp.kpatch")
+            if (home / "Library/Application Support/KMRP").exists():
+                failures.append(f"{case}: the install state was left behind")
         print("     KPM: FTD's install replaced, the untouched game left at uninstall; another KPM patch: "
-              "installed for KPM and left exactly; KMRP's install taken over by KPM left to it")
+              "installed for KPM and left exactly; KMRP's install taken over by KPM: removed whole when "
+              "KMRP is KPM's only patch, left to KPM beside another")
 
     for failure in failures:
         print("  " + failure)

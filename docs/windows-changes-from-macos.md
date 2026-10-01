@@ -63,6 +63,7 @@ does it, checked as stated), **doc** (a Windows document to correct).
 | 13 | The Options check boxes' circle and label offset scaled with the resolution | **built** (2026-09-30; seen at 3440x1440) |
 | 14 | Lists as tall as whole rows: the Container, the granted popup, character creation's Feats, low-resolution lists | **built** (2026-09-30) |
 | 15 | Skill rows as tall as the Feats and Powers rows (`50s`), the skill icons with them | **built** (2026-09-30) |
+| 16 | Uninstall after KPM's takeover: removes KPM's runtime too when KMRP is its only patch; a takeover found from any runtime file, not `patch_config.toml` alone | **to do** |
 
 ## 1. Message popups fitted to their contents
 
@@ -554,3 +555,52 @@ merge: the picture grows with the `50s` box too (`CHANGELOG.md`, *The skill icon
 their frames*, and [`macos-changes-from-windows.md`](macos-changes-from-windows.md), item
 10), and `Test-AbilityIcons.py` passes on Windows with that rule, 2,704 icons at ten heights
 byte for byte. Not yet seen in play.
+
+## 16. Uninstall after KotOR Patch Manager has taken KMRP's install over
+
+**What changed** (2026-10-01, `macos/kmrp-mac.sh`; asked for by the maintainer: "tell windows
+to do same"). Two changes to the uninstall after a takeover, which Windows' `KpmEdition.cs`
+`Restore` handles as the Mac did until now.
+
+**1. KMRP as KPM's only patch: the whole install goes.** Until now, an uninstall after a
+takeover removed KMRP's own files and asked the player to untick KMRP in KPM and press Apply.
+With KMRP the only patch in KPM's list, that Apply removes KPM's whole runtime
+(`PatchRemover.RemoveAllPatches`), so the uninstall now does it itself and leaves the untouched
+game. With another patch in KPM's list, KMRP's module cannot be taken out without KPM applying
+the rest again, so that case is as before.
+
+| | Mac (`kmrp-mac.sh`) | Windows (`KpmEdition.cs`) |
+| --- | --- | --- |
+| KMRP the only patch | `kpm_holds_only_kmrp`: `patch_config.toml`'s ids are all `kmrp` and `patches/` holds only `kmrp.dylib` | to write: the ids in `patch_config.toml` are only KMRP's four edition patches, and the patches folder holds only their modules |
+| then | `restore_from_manifest`: KMRP's own files first, then `kpm_remove` with KMRP's own backup of `KOTOR_Exe` (the untouched game), deleting `KotorPatcher.dylib`, `patch_config.toml`, `patches/`, `kpm_install_state.json`, `addresses.db` and KPM's `KOTOR_Exe.backup.*` | to write: what `PatchRemover.RemoveAllPatches` does on Windows: the executable from the backup, KPM's runtime, its proxy, `addresses.db` and its backups |
+| otherwise | as before: "Untick KMRP in KPM and press Apply to finish." | as now |
+
+KPM's `settings.json` still lists `kmrp` among its ticked patches afterwards; with
+`kmrp.kpatch` gone from its folder (removed with the rest), KPM no longer shows it.
+
+**2. A takeover found from any runtime file.** On the Mac, KPM 0.7.1's Apply over KMRP's
+install wrote `patch_config.toml` and `kmrp.dylib` byte for byte as KMRP had (the same
+KPatchCore, the same patch), while `KOTOR_Exe` (re-signed), `KotorPatcher.dylib` (KPM's own
+build) and `kpm_install_state.json` changed. `handed_over` compared `patch_config.toml` alone,
+found it unchanged, and the uninstall took out the patch list and `patches/` and left KPM's
+runtime loading nothing; the game had to be put back by hand (2026-10-01, the maintainer's
+own install; the files kept in `~/KMRP-mac-backup/2026-10-01-kpm-takeover`). `handed_over`
+now counts a takeover when any runtime file KMRP recorded is still there and differs from what
+it wrote, except a `KOTOR_Exe` back to the untouched game (KPM's Remove, not a takeover).
+Windows' `ConfigChangedSinceInstall` compares `patch_config.toml` alone too. **Not checked on
+Windows** whether KPM's Apply writes it differently there; KMRP's own `swkotor.exe`, KPM's
+`KotorPatcher.dll` and proxy, and `kpm_install_state.json` are the same kind of evidence.
+
+**Also seen on the Mac the same night.** KPM's Apply empties the patches folder and puts back
+only each patch's module, so `kmrp-sdl3.dylib` there was deleted and the controller fell back
+to Apple's GameController. SDL now goes beside the game and the module looks there after its
+own folder, as Windows already does (`K1ControllerBackend.cpp`, `KpmEdition.cs`'s
+`SupportFiles`). Windows needs nothing for this.
+
+**What Windows needs.** Both changes in `KpmEdition.cs` `Restore`.
+
+**Check.** The two cases on a game KMRP installed, each after pressing Apply in KPM:
+KMRP alone in KPM, then uninstall: the untouched `swkotor.exe` (`761F9466…` or the Steam
+build) and no KPM file left; KMRP and another patch, then uninstall: KPM's runtime and the
+other patch as they were, and the message to untick KMRP. `Test-MacInstaller.py`'s round 6
+does both on the Mac against a stand-in.

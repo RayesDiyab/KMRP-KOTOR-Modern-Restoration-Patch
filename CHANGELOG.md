@@ -1344,6 +1344,33 @@ before:
 
 ### Fixed
 
+- **macOS: KotOR Patch Manager's own window over KMRP** (2026-10-01; built and run on a Mac
+  with KPM 0.7.1, the current release, `KotorPatchManager-macos-arm64-v0.7.1`). Four fixes
+  found by doing it:
+  - KPM 0.7.1 refused `kmrp.kpatch` outright: the controller's movie hook took its argument
+    from `rbp-0x4b0`, a parameter source added to KPM after 0.7.1. It now takes `rbp` and the
+    handler subtracts `0x4b0`; all four builds pass 0.7.1's own KPatchCore (`LoadPatch`,
+    `ValidateHooks`, no overlaps). A and Start still skip movies (the maintainer, in play).
+  - KPM's Apply empties `patches/` and puts back only each patch's module, so the controller's
+    `kmrp-sdl3.dylib` there was deleted and the pad fell back to Apple's GameController. SDL
+    now goes beside `KOTOR_Exe` and the module looks there after its own folder, as Windows
+    does (`K1ControllerBackend.cpp`).
+  - Uninstall after that Apply took KPM's runtime half out: it found a takeover only from
+    `patch_config.toml` changing, and KPM writes it byte for byte as KMRP does (as it does
+    `kmrp.dylib`), while `KOTOR_Exe`, `KotorPatcher.dylib` and `kpm_install_state.json`
+    change. A takeover is now any recorded runtime file changed, except a `KOTOR_Exe` back to
+    the untouched game. The maintainer's install was put back by hand, the leftovers kept in
+    `~/KMRP-mac-backup/2026-10-01-kpm-takeover`.
+  - With KMRP KPM's only patch, uninstall now also removes KPM's runtime as KPM's own Remove
+    would (`addresses.db` included), leaving the untouched game and nothing to untick in KPM;
+    beside another KPM patch it is as before. Windows does neither yet
+    (`docs/windows-changes-from-macos.md`, item 16).
+
+  KPM's settings are in `~/Library/Application Support/KPatchLauncher/settings.json` on the
+  Mac (KPM 0.7.1 is .NET 8; seen 2026-10-01), one of the two places the script reads.
+  `Test-MacInstaller.py`'s round 6 now does both takeovers as KPM 0.7.1 was seen to: 0
+  problems. In play: KPM's Apply and launch, then Steam's launch, both ran the game.
+
 - **macOS: KotOR Patch Manager handled as on Windows** (2026-10-01, the maintainer: "It should
   do the same with kpm as windows"). KMRP's own install now leaves KPM's records as the
   Windows installer does: `kpm_install_state.json` with KPM's identity for the Aspyr build, a
@@ -1354,8 +1381,8 @@ before:
   KPM instead of refusing: the menus and settings, `KOTOR_Exe` and KPM's files untouched,
   `kmrp.kpatch` for the player to tick. An install of FTD's patches alone is still replaced.
   Written on Windows: the script's syntax and its KPM functions checked under WSL's zsh (18
-  checks); `Test-MacInstaller.py` extended for it; **not yet built or run on a Mac**
-  (`docs/macos-changes-from-windows.md`, item 6).
+  checks); `Test-MacInstaller.py` extended for it. Built and run on a Mac the same night (the
+  entry above).
 
 - **Windows: message popups fit their contents, and the granted popup's rows look like the
   inventory's** (2026-09-30; the Mac did both first, `docs/windows-changes-from-macos.md`,

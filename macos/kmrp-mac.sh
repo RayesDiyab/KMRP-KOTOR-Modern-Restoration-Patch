@@ -271,7 +271,9 @@ extract_set() {   # extract_set <WxH> <dir>
 # the untouched KOTOR_Exe in KPM's format beside it, from which KPM's Apply starts, and
 # kmrp.kpatch in KPM's patch folder. Uninstall leaves the runtime to KPM once KPM's Apply has
 # rewritten patch_config.toml (Restore, ConfigChangedSinceInstall).
-KPM_FILES=(KotorPatcher.dylib patch_config.toml patches kpm_install_state.json)
+# addresses.db: KPM's Apply copies its address database beside the game (PatchApplicator) and
+# its Remove deletes it (PatchRemover), as with the rest.
+KPM_FILES=(KotorPatcher.dylib patch_config.toml patches kpm_install_state.json addresses.db)
 FTD_PATCHES=(k1widescreenpatch k1-stray-bug-fixes-patch)
 KPM_ORIGINAL=""   # the untouched game, when an install is to be replaced
 KPM_PROBLEM=""    # why it cannot be, otherwise
@@ -629,10 +631,10 @@ do_install() {
 
     if (( for_kpm )); then
         # As Windows' install for KPM: KPM's runtime, its patch list and KOTOR_Exe stay KPM's.
-        # The controller's SDL goes where the module looks for it, beside KPM's patches, when
-        # KPM already has that folder.
-        if (( CONTROLLER )) && [[ -d "$MACOS/patches" ]]; then
-            install_file "$PAYLOAD/engine/kmrp-sdl3.dylib" "$MACOS/patches"
+        # The controller's SDL goes beside the game, where the module looks after its own
+        # folder: KPM extracts only a patch's module, and its Apply rewrites patches/.
+        if (( CONTROLLER )); then
+            install_file "$PAYLOAD/engine/kmrp-sdl3.dylib" "$MACOS"
         fi
     else
         say "Backing up KOTOR_Exe..."
@@ -643,8 +645,10 @@ do_install() {
         install_file "$PAYLOAD/engine/KotorPatcher.dylib" "$MACOS"
         mkdir "$MACOS/patches"; record dir "$MACOS/patches" "-" "-"
         install_file "$PAYLOAD/engine/$VARIANT/kmrp.dylib" "$MACOS/patches"
+        # SDL beside the game, not in patches/: KPM's Apply, taking this install over, empties
+        # patches/ and puts back only the patch's module (seen with KPM 0.7.1, 2026-10-01).
         if (( CONTROLLER )); then
-            install_file "$PAYLOAD/engine/kmrp-sdl3.dylib" "$MACOS/patches"
+            install_file "$PAYLOAD/engine/kmrp-sdl3.dylib" "$MACOS"
         fi
         cp "$PAYLOAD/engine/$VARIANT/patch_config.toml" "$MACOS/patch_config.toml"
         record added "$MACOS/patch_config.toml" "$(sha "$MACOS/patch_config.toml")" "-"
@@ -748,22 +752,42 @@ on_exit() {
     fi
 }
 
-handed_over() {   # 0 once KPM's Apply has rewritten the patch list KMRP's install wrote
-    local recorded
-    recorded=$(awk -F'\t' -v t="$MACOS/patch_config.toml" '$1 == "added" && $2 == t { print $3 }' "$STATE/manifest.tsv")
-    [[ -n "$recorded" && -f "$MACOS/patch_config.toml" && "$(sha "$MACOS/patch_config.toml")" != "$recorded" ]]
+handed_over() {   # 0 once KPM's Apply has rewritten any of the runtime KMRP's install put in
+    # Not patch_config.toml alone, as Windows can: on the Mac KPM's Apply writes it byte for
+    # byte as KMRP did (the same KPatchCore, the same patch), and re-extracts kmrp.dylib the
+    # same, while KOTOR_Exe (re-signed), KotorPatcher.dylib (KPM's own) and
+    # kpm_install_state.json change (seen with KPM 0.7.1, 2026-10-01). A KOTOR_Exe back to the
+    # untouched game is not a takeover but KPM removing everything; a file gone is not either.
+    local kind target recorded backup
+    while IFS=$'\t' read -r kind target recorded backup; do
+        [[ "$kind" == (added|exe) ]] && is_runtime_path "$target" && [[ -f "$target" ]] || continue
+        local now=$(sha "$target")
+        [[ "$now" == "$recorded" ]] && continue
+        [[ "$kind" == exe && "$now" == "$VANILLA_EXE_SHA" ]] && continue
+        return 0
+    done < "$STATE/manifest.tsv"
+    return 1
 }
 
 restore_from_manifest() {   # restore_from_manifest <quiet>
     local quiet=${1:-0} kept=0 kind target recorded backup now over=0
     [[ -f "$STATE/manifest.tsv" ]] || return 0
     # KotOR Patch Manager has taken over the runtime this install put in (its Apply rewrote
-    # patch_config.toml): the runtime, the load command and KPM's records are KPM's now, and
+    # the runtime; handed_over): the runtime, the load command and KPM's records are KPM's now, and
     # removing any of them would break its install. Only KMRP's own content goes, as on
     # Windows (KpmEdition.cs, Restore).
+    # When KMRP is the only patch KPM has, unticking it in KPM and pressing Apply would remove
+    # KPM's whole runtime (PatchRemover.RemoveAllPatches), so that is done here instead and the
+    # player has nothing left to do in KPM. With other patches in KPM's list, KMRP's module
+    # cannot be taken out without KPM re-applying the rest; that is left to the player.
+    local whole=0
     if handed_over; then
         over=1
-        (( quiet )) || say "KotOR Patch Manager has taken over the runtime KMRP installed (its patch_config.toml changed), so it is left in place for it. Untick KMRP in KPM and press Apply to finish."
+        if kpm_holds_only_kmrp; then
+            whole=1
+        else
+            (( quiet )) || say "KotOR Patch Manager has taken over the runtime KMRP installed (its Apply rewrote it), with other patches as well, so it is left in place for them. Untick KMRP in KPM and press Apply to finish."
+        fi
     fi
     # Newest first, so directories are removed after the files in them.
     while IFS=$'\t' read -r kind target recorded backup; do
@@ -817,7 +841,24 @@ restore_from_manifest() {   # restore_from_manifest <quiet>
                 fi ;;
         esac
     done < <(tail -r "$STATE/manifest.tsv")
+    if (( whole )); then
+        (( quiet )) || say "KotOR Patch Manager had taken over KMRP's install, with no other patch; removing it as KPM would, and putting back the untouched game..."
+        KPM_ORIGINAL="$STATE/backup/KOTOR_Exe"
+        kpm_remove
+    fi
     return $kept
+}
+
+kpm_holds_only_kmrp() {   # 0 when KPM's patch list and patches/ hold KMRP's patch and nothing else
+    local id module
+    [[ -f "$MACOS/patch_config.toml" ]] || return 1
+    for id in ${(f)"$(sed -n 's/^id = "\(.*\)"$/\1/p' "$MACOS/patch_config.toml")"}; do
+        [[ "$id" == kmrp ]] || return 1
+    done
+    for module in "$MACOS"/patches/*(N); do
+        [[ "${module:t}" == kmrp.dylib ]] || return 1
+    done
+    return 0
 }
 
 do_uninstall() {

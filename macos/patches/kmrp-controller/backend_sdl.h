@@ -7,7 +7,7 @@ namespace kmrp {
 
 struct PadState;
 
-// True once kmrp-sdl3.dylib, beside this module, is loaded with every function it needs.
+// True once kmrp-sdl3.dylib, beside this module or the game, is loaded with every function it needs.
 bool SdlAvailable();
 
 // The pad last used, normalised; false when there is none. Starts SDL's gamepad subsystem
