@@ -533,3 +533,59 @@ two-set derivation of 2880x1620 within 1 px (86.1% of fields identical).
   `testing/regression/Test-GeneratedGuiGeometry.py`; the installed 3840×2160
   files were hash-verified, but their reported scenarios still need visual
   in-game confirmation.
+
+
+### Mac action-height correction moved upstream, 2026-10-02
+
+The maintainer's new-DMG test reproduced the failure. Diagnostic logs showed
+GUI-frame fitting54→55px and HUD draw entry55px, but the actual label-draw
+entry54px. The earlier action-specific frame pass was overwritten before text
+rendering and has now been removed. The status-summary width/row repair remains.
+
+Clean Aspyr1.4.0 x86_64,6333424bytes,
+SHA256 `c1fcb8d37c702849882a17751c63ee0af7c2b9cbbc3b31b98a5f0edbc27c6d71`;
+preferred VA, FILE=VA−0x100000000. `CSWGuiText::GetIdealHeight`0x1004a3dc4
+calls `CAurGUIStringInternal::GetIdealPixelHeight`0x1001bc412. The action routine
+0x1002355e6 calls that getter at0x100235636, then computes y=bottom−height and
+sets both text/background extents. Its current-width path calculates
+`(fontheight + spacingB) * 100 * objectScale * nativeLineCount`, adds0.5,
+then truncates;54.0000038 therefore becomes54. The renderer needs at least55.
+
+Four guarded core REPLACE hooks now perform SSE2 upward rounding at the native
+quantization stages, preserving RAX, RFLAGS and XMM2 and replaying other stolen
+instructions. No action-description offsets or resolution-specific heights are
+needed in the runtime correction.
+
+| VA | FILE | Original8bytes | Purpose |
+| --- | --- | --- | --- |
+| 0x1001bc4a4 | 0x1bc4a4 | f30f58c1f30f2cc0 | Explicit-width query: ceil base line pixels, replay conversion to EAX |
+| 0x1001bc4ba | 0x1bc4ba | f30f58c1488b7dc0 | Explicit-width query: ceil scaled line pixels, replay load RDI |
+| 0x1001bc52c | 0x1bc52c | f30f580d90b83700 | Current wrapping: ceil total height before integer conversion |
+| 0x1001bc5d1 | 0x1bc5d1 | f30f580debb73700 | Newly computed wrapping: ceil total height before integer conversion |
+
+For finite height h, each payload truncates h to an integer, compares h with
+that integer converted back to float, increments if h is greater, then converts
+back to float. Thus integer heights stay unchanged. Explicit-width queries retain
+the engine's existing per-line quantization stages and may conservatively allocate
+more than ceiling the total: the measured27.0000019px font can produce56px for
+two queried lines, while the current-wrap total gives55px. This is intentional
+capacity rather than a claim of identical results between native branches.
+`Test-MacTextHeight.py` verifies clean guards and executes all four shipped
+ceiling payloads under Rosetta with zero, exact and fractional heights, preserving
+flags/XMM2. The isolated diagnostic run (`hud-upstream.log`) confirms that
+`Adrenal Stamina (self)` keeps two native lines in a55px text/background box
+at GUI update, HUD draw and label draw; `Medpac (self) (2)` keeps one line
+in28px. The previous54px reset is absent at label draw. Visual confirmation
+and broader menu layout testing remain pending.
+
+The exit-confirmation test exposed a required companion correction. A three-second
+process sample (`/tmp/kmrp-upstream-exit-sample.txt`, diagnostic PID8887) puts the
+game thread inside `CSWGuiMessageBox::FixMessageLabel`0x100306552, repeatedly
+widening the button at0x10030665b. Its loop compares `GetIdealHeight` with
+`GetFontHeight` and requires equality. The latter calls
+`CAurGUIStringInternal::GetFontPixelHeight`0x1001bc076, which retained nearest
+rounding at0x1001bc091. Single-line ideal height therefore rounded upward while
+font height did not, preventing termination. A fifth guarded REPLACE hook at
+0x1001bc091 (FILE0x1bc091, original `f30f58052bbd3700`) now ceilings XMM0
+before the existing conversion. The executable payload regression covers all
+five sites; the confirmation dialog must still be retested in game.

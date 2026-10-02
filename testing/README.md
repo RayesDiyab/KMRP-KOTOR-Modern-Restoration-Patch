@@ -229,8 +229,8 @@ Capstone and clang++; touches only temporary test files. See the
 `Test-MacStatusSummary.cpp` includes the production shared layout and executes it
 with synthetic native text/font/control objects. It covers native width482,
 fractional two-line height55, screen-capped and mandatory multiline text,
-unchanged-frame caching, and action-description grow/shrink with a fixed bottom
-anchor and matching background. Run on macOS with the x86_64 runtime:
+unchanged-frame caching, and cached unchanged frames. The removed action-specific resizing pass is no
+longer exercised. Run on macOS with the x86_64 runtime:
 
 ```sh
 clang++ -arch x86_64 -std=c++17 testing/regression/Test-MacStatusSummary.cpp -o /tmp/kmrp-status-summary-test
@@ -242,3 +242,8 @@ description has measured failing geometry and automated coverage; its runtime
 repair still needs play-testing. `Test-GeneratedGuiGeometry.py` reads the
 action label's assigned font from the packaged GUI and checks its three-line
 minimum with native float32 height arithmetic.
+
+`python testing/regression/Test-MacTextHeight.py --exe CLEAN_KOTOR_EXE` verifies
+the five native ideal-height hook guards and executes their SSE2 ceiling payloads
+under Rosetta. Exact integer heights, fractional boundaries, flags and XMM2 are
+checked. Live menu behavior still requires play-testing.

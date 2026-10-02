@@ -589,7 +589,10 @@ FTD's `widescreen-patch` (`074972b`, 2026-09-30) with one change: the 11 hooks F
 *K1StrayBugFixes* taken out of *K1WidescreenPatch*'s hook list, where they were still declared,
 so the two patches hooked the same addresses twice (KPM's own check: "Multiple hooks at
 address"). FTD's changes reach KMRP when they are merged into that branch; nothing follows his
-branch by itself. Until 2026-09-30 the submodule tracked FTD's `widescreen-patch` directly
+branch by itself. The [2026-10-02 audit](../docs/ftd-macos-upstream-audit.md)
+integrates FTD's separate Scripts Enter fix in KMRP's guarded core hooks; his
+new GUI writers overlap our existing layout patches and are not linked alongside
+them. The submodule pin is unchanged. Until 2026-09-30 the submodule tracked FTD's `widescreen-patch` directly
 (`71ac5fa`: KPM's master `5cafa6a` with his widescreen patch and KMRP's fixes, merged there on
 2026-09-29 as FTD516/Kotor-Patch-Manager#1, then #2, which builds it with KPM's own
 `create-patch.py`); before that the same fixes on `RayesDiyab/Kotor-Patch-Manager`, branch

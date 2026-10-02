@@ -36,17 +36,5 @@ int main(){
     Setup(400);assert(kmrp::Layout(manager,panel,nullptr));assert(At<int>(object,0x50)==2);assert(At<int>(controls[1],20)==55);assert(At<int>(panel,16)<=400);
     assert(At<int>(controls[2],12)>At<int>(controls[1],12)+At<int>(controls[1],20));
     minimumLines=2;Setup(1920);assert(kmrp::Layout(manager,panel,nullptr));assert(At<int>(object,0x50)==2);assert(At<int>(controls[1],20)==55);
-    static char hud[0xd200];
-    void* desc=hud+0xce40;void* bg=hud+0xcfd8;void* hudControls[2]={desc,bg};
-    At<void*>(hud,0x30)=hudControls;At<int>(hud,0x38)=2;
-    for(int i=0;i<2;i++){At<uintptr_t>(hudControls[i],0)=(uintptr_t)controlvt;At<int>(hudControls[i],0x74)=i;}
-    At<unsigned char>(desc,0x68)=2;At<void*>(desc,0x128)=object;
-    const int baseline[4]={1617,1034,295,54};memcpy((char*)desc+8,baseline,16);memcpy((char*)bg+8,baseline,16);
-    At<int>(object,0x50)=2;kmrp::FitActionDescription(manager,hud);
-    assert(At<int>(desc,20)==55);assert(At<int>(desc,12)==1033);assert(At<int>(bg,20)==55);
-    At<int>(object,0x50)=3;kmrp::FitActionDescription(manager,hud);
-    assert(At<int>(desc,20)==82);assert(At<int>(desc,12)+At<int>(desc,20)==1088);
-    At<int>(object,0x50)=1;kmrp::FitActionDescription(manager,hud);
-    assert(At<int>(desc,20)==54);assert(At<int>(desc,12)==1034);assert(At<int>(bg,20)==54);
-    puts("PASS native width, fractional height, capped multiline, explicit multiline, cached unchanged frames, dynamic HUD grow/shrink/anchor");
+    puts("PASS native width, fractional height, capped multiline, explicit multiline, cached unchanged frames");
 }

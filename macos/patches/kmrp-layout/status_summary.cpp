@@ -116,48 +116,6 @@ int FittingWidth(void* label, int cap, FitCache& cache, float& height) {
     return low;
 }
 
-// Main-interface action description: native text/font selection is authoritative.
-// Keep the installed bottom anchor and background margins when wrapped text grows.
-struct ActionBounds { void* panel; void* object; int viewportW, viewportH; int desc[4], bg[4], last[4]; };
-ActionBounds g_action = {};
-void FitActionDescription(void* manager, void* panel) {
-    void* label = static_cast<char*>(panel) + 0xce40;
-    void* background = static_cast<char*>(panel) + 0xcfd8;
-    if (!BoundTo(panel, label) || !BoundTo(panel, background) ||
-        !(At<std::uint8_t>(label, kCtlFlags) & kCtlVisible)) return;
-    void* object = At<void*>(static_cast<char*>(label) + text::kLabelText, text::kTextObject);
-    if (!text::Readable(object, 0x60)) return;
-    text::Font font{};
-    if (!text::FontOf(object, font)) return;
-    void* fontObject = At<void*>(object, text::kObjFont);
-    char* info = reinterpret_cast<FontInfoFn>(*reinterpret_cast<std::uintptr_t*>(
-        At<std::uintptr_t>(fontObject, 0) + kVtFontInfo))(fontObject);
-    const float height = At<float>(info, kInfoHeight) * At<float>(object, text::kObjScale) * 100.0f;
-    const int lines = At<int>(object, text::kObjLineCount);
-    if (!std::isfinite(height) || height <= 0 || height > 4096 || lines <= 0 || lines > 4096) return;
-    const int w = At<std::int16_t>(manager, kMgrViewportWidth), h = At<std::int16_t>(manager, kMgrViewportHeight);
-    const int* now = reinterpret_cast<int*>(static_cast<char*>(label) + kCtlExtent);
-    bool changed = false;
-    for (int i = 0; i < 4; ++i) if (now[i] != g_action.last[i]) changed = true;
-    if (g_action.panel != panel || g_action.object != object || g_action.viewportW != w ||
-        g_action.viewportH != h || changed) {
-        g_action.panel = panel; g_action.object = object; g_action.viewportW = w; g_action.viewportH = h;
-        for (int i = 0; i < 4; ++i) {
-            g_action.desc[i] = now[i];
-            g_action.bg[i] = At<int>(background, kCtlExtent + i * sizeof(int));
-        }
-    }
-    int desc[4], bg[4];
-    for (int i = 0; i < 4; ++i) { desc[i] = g_action.desc[i]; bg[i] = g_action.bg[i]; }
-    const int needed = static_cast<int>(std::ceil(height * static_cast<float>(lines)));
-    if (needed > desc[3]) { desc[1] -= needed - desc[3]; desc[3] = needed; }
-    const int growth = desc[3] - g_action.desc[3];
-    bg[1] -= growth; bg[3] += growth;
-    text::SetExtentIfChanged(label, desc);
-    text::SetExtentIfChanged(background, bg);
-    for (int i = 0; i < 4; ++i) g_action.last[i] = desc[i];
-}
-
 bool Layout(void* manager, void* panel, summary::Result* out) {
     char* const base = static_cast<char*>(panel);
     const int screenW = At<std::int16_t>(manager, kMgrViewportWidth), screenH = At<std::int16_t>(manager, kMgrViewportHeight);
@@ -310,7 +268,6 @@ bool Update(void* manager, Result* out) {
         const int count = At<int>(manager, list[1]);
         if (count <= 0 || count > 256 || !text::LooksLikePointer(panels)) continue;
         for (int i = 0; i < count; ++i) {
-            if (VtableOf(panels[i]) == 0x1005a6220UL) FitActionDescription(manager, panels[i]);
             if (VtableOf(panels[i]) == kStatusSummaryVtable) return Layout(manager, panels[i], out);
         }
     }

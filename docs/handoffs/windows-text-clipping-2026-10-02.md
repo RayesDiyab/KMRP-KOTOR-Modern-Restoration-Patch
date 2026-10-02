@@ -132,3 +132,23 @@ They are not required Windows inputs. The new Mac DMG SHA-256 is
 `b92f324177832dd8ee7ea72a19e1ad8ee018991b263c6976990ad08e44a2878e`.
 No Windows runtime changes, Windows installation, commit or push were performed
 as part of preparing this handoff.
+
+
+## Follow-up after the rebuilt Mac installer was tested
+
+The maintainer reported that the action-name repair still failed. Probes confirmed
+55px after the GUI callback and at HUD draw entry, then54px at the label's own
+draw entry. Native action layout overwrote the frame-based repair. That pass is
+removed; the correction now rounds upward in the upstream Mac ideal-height getter
+at its existing quantization stages. See the dated site table in the
+[resolution reference](../universal-resolution-math.md). The corrected diagnostic retains55px through label draw for the two-line
+action name. Visual confirmation is pending. The first upstream build exposed
+an exit-confirmation sizing loop: ideal height and font height must round
+consistently, so the font-height getter is also corrected. On Windows, measure the getter's rounding and the final
+label draw state rather than porting the superseded frame pass.
+
+The latest Mac package SHA256 is
+`5a1ec26ab9bb76b4b9fec07b7a6d09bd05bc7790822d833e2010ccd6be447d6e`.
+See the [Mac verification handoff](mac-text-and-upstream-2026-10-02.md) for
+the remaining checks. Do not port upward rounding to one getter without checking
+callers that compare it to the font-height getter.
