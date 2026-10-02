@@ -217,7 +217,12 @@ def main() -> int:
         if ftd < 0 or layout < 0 or ftd > layout:
             fail(f"FTD's DylibInit must run before KMRP's ApplyLayoutSupport; the module runs {order}")
 
-        hooks, count, duplicates = merge_hooks([(part, directory) for part, directory, _, _ in parts])
+        hook_parts = [(part, directory) for part, directory, _, _ in parts]
+        if args.no_controller:
+            # Without the controller, the GUI frame hook it would have made lays out the status
+            # summary alone (kmrp-layout/status_summary.cpp), as Windows' core stand-ins do.
+            hook_parts.append(("kmrp-layout without the controller", args.layout / "without-controller"))
+        hooks, count, duplicates = merge_hooks(hook_parts)
         (tmp / HOOKS_FILE).write_text(hooks)
         included = ", ".join(part for part, *_ in parts)
         (tmp / "manifest.toml").write_text(

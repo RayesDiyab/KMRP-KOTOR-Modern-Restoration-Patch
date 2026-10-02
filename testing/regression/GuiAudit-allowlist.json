@@ -1,0 +1,828 @@
+{
+  "schema": 1,
+  "entries": [
+    {
+      "gui": "*.gui",
+      "tag": "*/PROTOITEM",
+      "check": "containment",
+      "reason": "PROTOITEM LEFT/TOP/WIDTH are authored template coordinates, not list-local extents; retain literal diagnostic without moving the template.",
+      "established": "testing/regression/Test-GeneratedGuiGeometry.py check_list_prototypes; reverted after Character Scripts play-test 2026-09-06."
+    },
+    {
+      "gui": "computer.gui",
+      "tag": "*/PROTOITEM",
+      "check": "runtime single line width",
+      "reason": "Computer terminal row prototype is deliberately wider than the parent list; runtime list lays out the row.",
+      "established": "Maintainer audit request 2026-10-02; computer.gui upstream template."
+    },
+    {
+      "gui": "top.gui",
+      "tag": "*",
+      "check": "containment",
+      "reason": "Hover labels are positioned by the engine relative to the hovered control; file positions are not static panel placement.",
+      "established": "Maintainer audit request 2026-10-02 (top.gui hover labels)."
+    },
+    {
+      "gui": "mipc*.gui",
+      "tag": "root/LBL_MAPBORDER",
+      "check": "screen edge",
+      "sizes": [
+        "3440x1440"
+      ],
+      "max_amount": 3,
+      "reason": "Play-tested minimap border deliberately bleeds -2/-3 px at 3440x1440.",
+      "established": "Maintainer audit request 2026-10-02; assets/override-3440x1440/mipc210x7.gui."
+    },
+    {
+      "gui": "maininterface.gui",
+      "tag": "root/LBL_ACTIONDESCBG",
+      "check": "overlap:root/LBL_ACTIONDESC",
+      "reason": "The BG-tagged art is a background drawn behind its corresponding foreground control.",
+      "established": "third_party/Included/kotor-high-resolution-menus-1.5/16-by-10/gui.1024x640/maininterface.gui; tags and intersecting EXTENT read by gui_audit_model.nodes."
+    },
+    {
+      "gui": "mi8x6.gui",
+      "tag": "root/LBL_ACTIONDESCBG",
+      "check": "overlap:root/LBL_ACTIONDESC",
+      "reason": "The BG-tagged art is a background drawn behind its corresponding foreground control.",
+      "established": "third_party/Included/kotor-high-resolution-menus-1.5/16-by-10/gui.1024x640/mi8x6.gui; tags and intersecting EXTENT read by gui_audit_model.nodes."
+    },
+    {
+      "gui": "mipc10x7.gui",
+      "tag": "root/LBL_INDICATE",
+      "check": "overlap:root/LBL_INDICATEBG",
+      "reason": "The BG-tagged art is a background drawn behind its corresponding foreground control.",
+      "established": "third_party/Included/kotor-high-resolution-menus-1.5/16-by-10/gui.1024x640/mipc10x7.gui; tags and intersecting EXTENT read by gui_audit_model.nodes."
+    },
+    {
+      "gui": "mipc10x7.gui",
+      "tag": "root/LBL_CHAR3",
+      "check": "overlap:root/BTN_CHAR3",
+      "reason": "Portrait art and its matching clickable party-selection button occupy the same slot.",
+      "established": "third_party/Included/kotor-high-resolution-menus-1.5/16-by-10/gui.1024x640/mipc10x7.gui; tags and intersecting EXTENT read by gui_audit_model.nodes."
+    },
+    {
+      "gui": "mipc10x7.gui",
+      "tag": "root/BTN_ACTION0",
+      "check": "overlap:root/LBL_ACTION0",
+      "reason": "The icon label is drawn inside the matching action/target button frame.",
+      "established": "third_party/Included/kotor-high-resolution-menus-1.5/16-by-10/gui.1024x640/mipc10x7.gui; tags and intersecting EXTENT read by gui_audit_model.nodes."
+    },
+    {
+      "gui": "mipc10x7.gui",
+      "tag": "root/BTN_ACTION3",
+      "check": "overlap:root/LBL_ACTION3",
+      "reason": "The icon label is drawn inside the matching action/target button frame.",
+      "established": "third_party/Included/kotor-high-resolution-menus-1.5/16-by-10/gui.1024x640/mipc10x7.gui; tags and intersecting EXTENT read by gui_audit_model.nodes."
+    },
+    {
+      "gui": "mipc10x7.gui",
+      "tag": "root/BTN_ACTION4",
+      "check": "overlap:root/LBL_ACTION4",
+      "reason": "The icon label is drawn inside the matching action/target button frame.",
+      "established": "third_party/Included/kotor-high-resolution-menus-1.5/16-by-10/gui.1024x640/mipc10x7.gui; tags and intersecting EXTENT read by gui_audit_model.nodes."
+    },
+    {
+      "gui": "mipc10x7.gui",
+      "tag": "root/BTN_ACTION2",
+      "check": "overlap:root/LBL_ACTION2",
+      "reason": "The icon label is drawn inside the matching action/target button frame.",
+      "established": "third_party/Included/kotor-high-resolution-menus-1.5/16-by-10/gui.1024x640/mipc10x7.gui; tags and intersecting EXTENT read by gui_audit_model.nodes."
+    },
+    {
+      "gui": "mipc10x7.gui",
+      "tag": "root/BTN_ACTION1",
+      "check": "overlap:root/LBL_ACTION1",
+      "reason": "The icon label is drawn inside the matching action/target button frame.",
+      "established": "third_party/Included/kotor-high-resolution-menus-1.5/16-by-10/gui.1024x640/mipc10x7.gui; tags and intersecting EXTENT read by gui_audit_model.nodes."
+    },
+    {
+      "gui": "mipc10x7.gui",
+      "tag": "root/LBL_CHAR1",
+      "check": "overlap:root/BTN_CHAR1",
+      "reason": "Portrait art and its matching clickable party-selection button occupy the same slot.",
+      "established": "third_party/Included/kotor-high-resolution-menus-1.5/16-by-10/gui.1024x640/mipc10x7.gui; tags and intersecting EXTENT read by gui_audit_model.nodes."
+    },
+    {
+      "gui": "mipc10x7.gui",
+      "tag": "root/LBL_CHAR2",
+      "check": "overlap:root/BTN_CHAR2",
+      "reason": "Portrait art and its matching clickable party-selection button occupy the same slot.",
+      "established": "third_party/Included/kotor-high-resolution-menus-1.5/16-by-10/gui.1024x640/mipc10x7.gui; tags and intersecting EXTENT read by gui_audit_model.nodes."
+    },
+    {
+      "gui": "mipc10x7.gui",
+      "tag": "root/BTN_ACTION5",
+      "check": "overlap:root/LBL_ACTION5",
+      "reason": "The icon label is drawn inside the matching action/target button frame.",
+      "established": "third_party/Included/kotor-high-resolution-menus-1.5/16-by-10/gui.1024x640/mipc10x7.gui; tags and intersecting EXTENT read by gui_audit_model.nodes."
+    },
+    {
+      "gui": "mipc12x9.gui",
+      "tag": "root/BTN_CHAR2",
+      "check": "overlap:root/LBL_CHAR2",
+      "reason": "Portrait art and its matching clickable party-selection button occupy the same slot.",
+      "established": "third_party/Included/kotor-high-resolution-menus-1.5/16-by-10/gui.1024x640/mipc12x9.gui; tags and intersecting EXTENT read by gui_audit_model.nodes."
+    },
+    {
+      "gui": "mipc12x9.gui",
+      "tag": "root/LBL_INDICATE",
+      "check": "overlap:root/LBL_INDICATEBG",
+      "reason": "The BG-tagged art is a background drawn behind its corresponding foreground control.",
+      "established": "third_party/Included/kotor-high-resolution-menus-1.5/16-by-10/gui.1024x640/mipc12x9.gui; tags and intersecting EXTENT read by gui_audit_model.nodes."
+    },
+    {
+      "gui": "mipc12x9.gui",
+      "tag": "root/LBL_CHAR3",
+      "check": "overlap:root/BTN_CHAR3",
+      "reason": "Portrait art and its matching clickable party-selection button occupy the same slot.",
+      "established": "third_party/Included/kotor-high-resolution-menus-1.5/16-by-10/gui.1024x640/mipc12x9.gui; tags and intersecting EXTENT read by gui_audit_model.nodes."
+    },
+    {
+      "gui": "mipc12x9.gui",
+      "tag": "root/BTN_ACTION0",
+      "check": "overlap:root/LBL_ACTION0",
+      "reason": "The icon label is drawn inside the matching action/target button frame.",
+      "established": "third_party/Included/kotor-high-resolution-menus-1.5/16-by-10/gui.1024x640/mipc12x9.gui; tags and intersecting EXTENT read by gui_audit_model.nodes."
+    },
+    {
+      "gui": "mipc12x9.gui",
+      "tag": "root/BTN_ACTION3",
+      "check": "overlap:root/LBL_ACTION3",
+      "reason": "The icon label is drawn inside the matching action/target button frame.",
+      "established": "third_party/Included/kotor-high-resolution-menus-1.5/16-by-10/gui.1024x640/mipc12x9.gui; tags and intersecting EXTENT read by gui_audit_model.nodes."
+    },
+    {
+      "gui": "mipc12x9.gui",
+      "tag": "root/BTN_ACTION4",
+      "check": "overlap:root/LBL_ACTION4",
+      "reason": "The icon label is drawn inside the matching action/target button frame.",
+      "established": "third_party/Included/kotor-high-resolution-menus-1.5/16-by-10/gui.1024x640/mipc12x9.gui; tags and intersecting EXTENT read by gui_audit_model.nodes."
+    },
+    {
+      "gui": "mipc12x9.gui",
+      "tag": "root/BTN_ACTION2",
+      "check": "overlap:root/LBL_ACTION2",
+      "reason": "The icon label is drawn inside the matching action/target button frame.",
+      "established": "third_party/Included/kotor-high-resolution-menus-1.5/16-by-10/gui.1024x640/mipc12x9.gui; tags and intersecting EXTENT read by gui_audit_model.nodes."
+    },
+    {
+      "gui": "mipc12x9.gui",
+      "tag": "root/BTN_ACTION1",
+      "check": "overlap:root/LBL_ACTION1",
+      "reason": "The icon label is drawn inside the matching action/target button frame.",
+      "established": "third_party/Included/kotor-high-resolution-menus-1.5/16-by-10/gui.1024x640/mipc12x9.gui; tags and intersecting EXTENT read by gui_audit_model.nodes."
+    },
+    {
+      "gui": "mipc12x9.gui",
+      "tag": "root/LBL_CHAR1",
+      "check": "overlap:root/BTN_CHAR1",
+      "reason": "Portrait art and its matching clickable party-selection button occupy the same slot.",
+      "established": "third_party/Included/kotor-high-resolution-menus-1.5/16-by-10/gui.1024x640/mipc12x9.gui; tags and intersecting EXTENT read by gui_audit_model.nodes."
+    },
+    {
+      "gui": "mipc12x9.gui",
+      "tag": "root/BTN_ACTION5",
+      "check": "overlap:root/LBL_ACTION5",
+      "reason": "The icon label is drawn inside the matching action/target button frame.",
+      "established": "third_party/Included/kotor-high-resolution-menus-1.5/16-by-10/gui.1024x640/mipc12x9.gui; tags and intersecting EXTENT read by gui_audit_model.nodes."
+    },
+    {
+      "gui": "mipc16x12.gui",
+      "tag": "root/LBL_INDICATE",
+      "check": "overlap:root/LBL_INDICATEBG",
+      "reason": "The BG-tagged art is a background drawn behind its corresponding foreground control.",
+      "established": "third_party/Included/kotor-high-resolution-menus-1.5/16-by-10/gui.1024x640/mipc16x12.gui; tags and intersecting EXTENT read by gui_audit_model.nodes."
+    },
+    {
+      "gui": "mipc16x12.gui",
+      "tag": "root/LBL_CHAR3",
+      "check": "overlap:root/BTN_CHAR3",
+      "reason": "Portrait art and its matching clickable party-selection button occupy the same slot.",
+      "established": "third_party/Included/kotor-high-resolution-menus-1.5/16-by-10/gui.1024x640/mipc16x12.gui; tags and intersecting EXTENT read by gui_audit_model.nodes."
+    },
+    {
+      "gui": "mipc16x12.gui",
+      "tag": "root/BTN_ACTION0",
+      "check": "overlap:root/LBL_ACTION0",
+      "reason": "The icon label is drawn inside the matching action/target button frame.",
+      "established": "third_party/Included/kotor-high-resolution-menus-1.5/16-by-10/gui.1024x640/mipc16x12.gui; tags and intersecting EXTENT read by gui_audit_model.nodes."
+    },
+    {
+      "gui": "mipc16x12.gui",
+      "tag": "root/BTN_ACTION3",
+      "check": "overlap:root/LBL_ACTION3",
+      "reason": "The icon label is drawn inside the matching action/target button frame.",
+      "established": "third_party/Included/kotor-high-resolution-menus-1.5/16-by-10/gui.1024x640/mipc16x12.gui; tags and intersecting EXTENT read by gui_audit_model.nodes."
+    },
+    {
+      "gui": "mipc16x12.gui",
+      "tag": "root/BTN_ACTION4",
+      "check": "overlap:root/LBL_ACTION4",
+      "reason": "The icon label is drawn inside the matching action/target button frame.",
+      "established": "third_party/Included/kotor-high-resolution-menus-1.5/16-by-10/gui.1024x640/mipc16x12.gui; tags and intersecting EXTENT read by gui_audit_model.nodes."
+    },
+    {
+      "gui": "mipc16x12.gui",
+      "tag": "root/BTN_ACTION2",
+      "check": "overlap:root/LBL_ACTION2",
+      "reason": "The icon label is drawn inside the matching action/target button frame.",
+      "established": "third_party/Included/kotor-high-resolution-menus-1.5/16-by-10/gui.1024x640/mipc16x12.gui; tags and intersecting EXTENT read by gui_audit_model.nodes."
+    },
+    {
+      "gui": "mipc16x12.gui",
+      "tag": "root/BTN_ACTION1",
+      "check": "overlap:root/LBL_ACTION1",
+      "reason": "The icon label is drawn inside the matching action/target button frame.",
+      "established": "third_party/Included/kotor-high-resolution-menus-1.5/16-by-10/gui.1024x640/mipc16x12.gui; tags and intersecting EXTENT read by gui_audit_model.nodes."
+    },
+    {
+      "gui": "mipc16x12.gui",
+      "tag": "root/LBL_CHAR1",
+      "check": "overlap:root/BTN_CHAR1",
+      "reason": "Portrait art and its matching clickable party-selection button occupy the same slot.",
+      "established": "third_party/Included/kotor-high-resolution-menus-1.5/16-by-10/gui.1024x640/mipc16x12.gui; tags and intersecting EXTENT read by gui_audit_model.nodes."
+    },
+    {
+      "gui": "mipc16x12.gui",
+      "tag": "root/LBL_CHAR2",
+      "check": "overlap:root/BTN_CHAR2",
+      "reason": "Portrait art and its matching clickable party-selection button occupy the same slot.",
+      "established": "third_party/Included/kotor-high-resolution-menus-1.5/16-by-10/gui.1024x640/mipc16x12.gui; tags and intersecting EXTENT read by gui_audit_model.nodes."
+    },
+    {
+      "gui": "mipc16x12.gui",
+      "tag": "root/BTN_ACTION5",
+      "check": "overlap:root/LBL_ACTION5",
+      "reason": "The icon label is drawn inside the matching action/target button frame.",
+      "established": "third_party/Included/kotor-high-resolution-menus-1.5/16-by-10/gui.1024x640/mipc16x12.gui; tags and intersecting EXTENT read by gui_audit_model.nodes."
+    },
+    {
+      "gui": "mipc210x7.gui",
+      "tag": "root/LBL_ACTIONDESCBG",
+      "check": "overlap:root/LBL_ACTIONDESC",
+      "reason": "The BG-tagged art is a background drawn behind its corresponding foreground control.",
+      "established": "third_party/Included/kotor-high-resolution-menus-1.5/16-by-10/gui.1024x640/mipc210x7.gui; tags and intersecting EXTENT read by gui_audit_model.nodes."
+    },
+    {
+      "gui": "mipc210x7.gui",
+      "tag": "root/LBL_NAMEBG",
+      "check": "overlap:root/LBL_NAME",
+      "reason": "The BG-tagged art is a background drawn behind its corresponding foreground control.",
+      "established": "third_party/Included/kotor-high-resolution-menus-1.5/16-by-10/gui.1024x640/mipc210x7.gui; tags and intersecting EXTENT read by gui_audit_model.nodes."
+    },
+    {
+      "gui": "mipc210x7.gui",
+      "tag": "root/LBL_CHAR3",
+      "check": "overlap:root/BTN_CHAR3",
+      "reason": "Portrait art and its matching clickable party-selection button occupy the same slot.",
+      "established": "third_party/Included/kotor-high-resolution-menus-1.5/16-by-10/gui.1024x640/mipc210x7.gui; tags and intersecting EXTENT read by gui_audit_model.nodes."
+    },
+    {
+      "gui": "mipc210x7.gui",
+      "tag": "root/BTN_ACTION0",
+      "check": "overlap:root/LBL_ACTION0",
+      "reason": "The icon label is drawn inside the matching action/target button frame.",
+      "established": "third_party/Included/kotor-high-resolution-menus-1.5/16-by-10/gui.1024x640/mipc210x7.gui; tags and intersecting EXTENT read by gui_audit_model.nodes."
+    },
+    {
+      "gui": "mipc210x7.gui",
+      "tag": "root/BTN_ACTION3",
+      "check": "overlap:root/LBL_ACTION3",
+      "reason": "The icon label is drawn inside the matching action/target button frame.",
+      "established": "third_party/Included/kotor-high-resolution-menus-1.5/16-by-10/gui.1024x640/mipc210x7.gui; tags and intersecting EXTENT read by gui_audit_model.nodes."
+    },
+    {
+      "gui": "mipc210x7.gui",
+      "tag": "root/BTN_ACTION2",
+      "check": "overlap:root/LBL_ACTION2",
+      "reason": "The icon label is drawn inside the matching action/target button frame.",
+      "established": "third_party/Included/kotor-high-resolution-menus-1.5/16-by-10/gui.1024x640/mipc210x7.gui; tags and intersecting EXTENT read by gui_audit_model.nodes."
+    },
+    {
+      "gui": "mipc210x7.gui",
+      "tag": "root/BTN_ACTION1",
+      "check": "overlap:root/LBL_ACTION1",
+      "reason": "The icon label is drawn inside the matching action/target button frame.",
+      "established": "third_party/Included/kotor-high-resolution-menus-1.5/16-by-10/gui.1024x640/mipc210x7.gui; tags and intersecting EXTENT read by gui_audit_model.nodes."
+    },
+    {
+      "gui": "mipc210x7.gui",
+      "tag": "root/LBL_CHAR1",
+      "check": "overlap:root/BTN_CHAR1",
+      "reason": "Portrait art and its matching clickable party-selection button occupy the same slot.",
+      "established": "third_party/Included/kotor-high-resolution-menus-1.5/16-by-10/gui.1024x640/mipc210x7.gui; tags and intersecting EXTENT read by gui_audit_model.nodes."
+    },
+    {
+      "gui": "mipc210x7.gui",
+      "tag": "root/LBL_CHAR2",
+      "check": "overlap:root/BTN_CHAR2",
+      "reason": "Portrait art and its matching clickable party-selection button occupy the same slot.",
+      "established": "third_party/Included/kotor-high-resolution-menus-1.5/16-by-10/gui.1024x640/mipc210x7.gui; tags and intersecting EXTENT read by gui_audit_model.nodes."
+    },
+    {
+      "gui": "mipc210x7.gui",
+      "tag": "root/BTN_TARGET0",
+      "check": "overlap:root/LBL_TARGET0",
+      "reason": "The icon label is drawn inside the matching action/target button frame.",
+      "established": "third_party/Included/kotor-high-resolution-menus-1.5/16-by-10/gui.1024x640/mipc210x7.gui; tags and intersecting EXTENT read by gui_audit_model.nodes."
+    },
+    {
+      "gui": "mipc210x7.gui",
+      "tag": "root/BTN_TARGET1",
+      "check": "overlap:root/LBL_TARGET1",
+      "reason": "The icon label is drawn inside the matching action/target button frame.",
+      "established": "third_party/Included/kotor-high-resolution-menus-1.5/16-by-10/gui.1024x640/mipc210x7.gui; tags and intersecting EXTENT read by gui_audit_model.nodes."
+    },
+    {
+      "gui": "mipc210x7.gui",
+      "tag": "root/BTN_TARGET2",
+      "check": "overlap:root/LBL_TARGET2",
+      "reason": "The icon label is drawn inside the matching action/target button frame.",
+      "established": "third_party/Included/kotor-high-resolution-menus-1.5/16-by-10/gui.1024x640/mipc210x7.gui; tags and intersecting EXTENT read by gui_audit_model.nodes."
+    },
+    {
+      "gui": "mipc212x9.gui",
+      "tag": "root/LBL_ACTIONDESCBG",
+      "check": "overlap:root/LBL_ACTIONDESC",
+      "reason": "The BG-tagged art is a background drawn behind its corresponding foreground control.",
+      "established": "third_party/Included/kotor-high-resolution-menus-1.5/16-by-10/gui.1024x640/mipc212x9.gui; tags and intersecting EXTENT read by gui_audit_model.nodes."
+    },
+    {
+      "gui": "mipc212x9.gui",
+      "tag": "root/LBL_NAMEBG",
+      "check": "overlap:root/LBL_NAME",
+      "reason": "The BG-tagged art is a background drawn behind its corresponding foreground control.",
+      "established": "third_party/Included/kotor-high-resolution-menus-1.5/16-by-10/gui.1024x640/mipc212x9.gui; tags and intersecting EXTENT read by gui_audit_model.nodes."
+    },
+    {
+      "gui": "mipc212x9.gui",
+      "tag": "root/LBL_CHAR3",
+      "check": "overlap:root/BTN_CHAR3",
+      "reason": "Portrait art and its matching clickable party-selection button occupy the same slot.",
+      "established": "third_party/Included/kotor-high-resolution-menus-1.5/16-by-10/gui.1024x640/mipc212x9.gui; tags and intersecting EXTENT read by gui_audit_model.nodes."
+    },
+    {
+      "gui": "mipc212x9.gui",
+      "tag": "root/BTN_ACTION0",
+      "check": "overlap:root/LBL_ACTION0",
+      "reason": "The icon label is drawn inside the matching action/target button frame.",
+      "established": "third_party/Included/kotor-high-resolution-menus-1.5/16-by-10/gui.1024x640/mipc212x9.gui; tags and intersecting EXTENT read by gui_audit_model.nodes."
+    },
+    {
+      "gui": "mipc212x9.gui",
+      "tag": "root/BTN_ACTION3",
+      "check": "overlap:root/LBL_ACTION3",
+      "reason": "The icon label is drawn inside the matching action/target button frame.",
+      "established": "third_party/Included/kotor-high-resolution-menus-1.5/16-by-10/gui.1024x640/mipc212x9.gui; tags and intersecting EXTENT read by gui_audit_model.nodes."
+    },
+    {
+      "gui": "mipc212x9.gui",
+      "tag": "root/BTN_ACTION2",
+      "check": "overlap:root/LBL_ACTION2",
+      "reason": "The icon label is drawn inside the matching action/target button frame.",
+      "established": "third_party/Included/kotor-high-resolution-menus-1.5/16-by-10/gui.1024x640/mipc212x9.gui; tags and intersecting EXTENT read by gui_audit_model.nodes."
+    },
+    {
+      "gui": "mipc212x9.gui",
+      "tag": "root/BTN_ACTION1",
+      "check": "overlap:root/LBL_ACTION1",
+      "reason": "The icon label is drawn inside the matching action/target button frame.",
+      "established": "third_party/Included/kotor-high-resolution-menus-1.5/16-by-10/gui.1024x640/mipc212x9.gui; tags and intersecting EXTENT read by gui_audit_model.nodes."
+    },
+    {
+      "gui": "mipc212x9.gui",
+      "tag": "root/LBL_CHAR1",
+      "check": "overlap:root/BTN_CHAR1",
+      "reason": "Portrait art and its matching clickable party-selection button occupy the same slot.",
+      "established": "third_party/Included/kotor-high-resolution-menus-1.5/16-by-10/gui.1024x640/mipc212x9.gui; tags and intersecting EXTENT read by gui_audit_model.nodes."
+    },
+    {
+      "gui": "mipc212x9.gui",
+      "tag": "root/LBL_CHAR2",
+      "check": "overlap:root/BTN_CHAR2",
+      "reason": "Portrait art and its matching clickable party-selection button occupy the same slot.",
+      "established": "third_party/Included/kotor-high-resolution-menus-1.5/16-by-10/gui.1024x640/mipc212x9.gui; tags and intersecting EXTENT read by gui_audit_model.nodes."
+    },
+    {
+      "gui": "mipc212x9.gui",
+      "tag": "root/BTN_TARGET0",
+      "check": "overlap:root/LBL_TARGET0",
+      "reason": "The icon label is drawn inside the matching action/target button frame.",
+      "established": "third_party/Included/kotor-high-resolution-menus-1.5/16-by-10/gui.1024x640/mipc212x9.gui; tags and intersecting EXTENT read by gui_audit_model.nodes."
+    },
+    {
+      "gui": "mipc212x9.gui",
+      "tag": "root/BTN_TARGET1",
+      "check": "overlap:root/LBL_TARGET1",
+      "reason": "The icon label is drawn inside the matching action/target button frame.",
+      "established": "third_party/Included/kotor-high-resolution-menus-1.5/16-by-10/gui.1024x640/mipc212x9.gui; tags and intersecting EXTENT read by gui_audit_model.nodes."
+    },
+    {
+      "gui": "mipc212x9.gui",
+      "tag": "root/BTN_TARGET2",
+      "check": "overlap:root/LBL_TARGET2",
+      "reason": "The icon label is drawn inside the matching action/target button frame.",
+      "established": "third_party/Included/kotor-high-resolution-menus-1.5/16-by-10/gui.1024x640/mipc212x9.gui; tags and intersecting EXTENT read by gui_audit_model.nodes."
+    },
+    {
+      "gui": "mipc216x12.gui",
+      "tag": "root/LBL_ACTIONDESCBG",
+      "check": "overlap:root/LBL_ACTIONDESC",
+      "reason": "The BG-tagged art is a background drawn behind its corresponding foreground control.",
+      "established": "third_party/Included/kotor-high-resolution-menus-1.5/16-by-10/gui.1024x640/mipc216x12.gui; tags and intersecting EXTENT read by gui_audit_model.nodes."
+    },
+    {
+      "gui": "mipc216x12.gui",
+      "tag": "root/LBL_NAMEBG",
+      "check": "overlap:root/LBL_NAME",
+      "reason": "The BG-tagged art is a background drawn behind its corresponding foreground control.",
+      "established": "third_party/Included/kotor-high-resolution-menus-1.5/16-by-10/gui.1024x640/mipc216x12.gui; tags and intersecting EXTENT read by gui_audit_model.nodes."
+    },
+    {
+      "gui": "mipc216x12.gui",
+      "tag": "root/LBL_CHAR3",
+      "check": "overlap:root/BTN_CHAR3",
+      "reason": "Portrait art and its matching clickable party-selection button occupy the same slot.",
+      "established": "third_party/Included/kotor-high-resolution-menus-1.5/16-by-10/gui.1024x640/mipc216x12.gui; tags and intersecting EXTENT read by gui_audit_model.nodes."
+    },
+    {
+      "gui": "mipc216x12.gui",
+      "tag": "root/BTN_ACTION0",
+      "check": "overlap:root/LBL_ACTION0",
+      "reason": "The icon label is drawn inside the matching action/target button frame.",
+      "established": "third_party/Included/kotor-high-resolution-menus-1.5/16-by-10/gui.1024x640/mipc216x12.gui; tags and intersecting EXTENT read by gui_audit_model.nodes."
+    },
+    {
+      "gui": "mipc216x12.gui",
+      "tag": "root/BTN_ACTION3",
+      "check": "overlap:root/LBL_ACTION3",
+      "reason": "The icon label is drawn inside the matching action/target button frame.",
+      "established": "third_party/Included/kotor-high-resolution-menus-1.5/16-by-10/gui.1024x640/mipc216x12.gui; tags and intersecting EXTENT read by gui_audit_model.nodes."
+    },
+    {
+      "gui": "mipc216x12.gui",
+      "tag": "root/BTN_ACTION2",
+      "check": "overlap:root/LBL_ACTION2",
+      "reason": "The icon label is drawn inside the matching action/target button frame.",
+      "established": "third_party/Included/kotor-high-resolution-menus-1.5/16-by-10/gui.1024x640/mipc216x12.gui; tags and intersecting EXTENT read by gui_audit_model.nodes."
+    },
+    {
+      "gui": "mipc216x12.gui",
+      "tag": "root/BTN_ACTION1",
+      "check": "overlap:root/LBL_ACTION1",
+      "reason": "The icon label is drawn inside the matching action/target button frame.",
+      "established": "third_party/Included/kotor-high-resolution-menus-1.5/16-by-10/gui.1024x640/mipc216x12.gui; tags and intersecting EXTENT read by gui_audit_model.nodes."
+    },
+    {
+      "gui": "mipc216x12.gui",
+      "tag": "root/LBL_CHAR1",
+      "check": "overlap:root/BTN_CHAR1",
+      "reason": "Portrait art and its matching clickable party-selection button occupy the same slot.",
+      "established": "third_party/Included/kotor-high-resolution-menus-1.5/16-by-10/gui.1024x640/mipc216x12.gui; tags and intersecting EXTENT read by gui_audit_model.nodes."
+    },
+    {
+      "gui": "mipc216x12.gui",
+      "tag": "root/LBL_CHAR2",
+      "check": "overlap:root/BTN_CHAR2",
+      "reason": "Portrait art and its matching clickable party-selection button occupy the same slot.",
+      "established": "third_party/Included/kotor-high-resolution-menus-1.5/16-by-10/gui.1024x640/mipc216x12.gui; tags and intersecting EXTENT read by gui_audit_model.nodes."
+    },
+    {
+      "gui": "mipc216x12.gui",
+      "tag": "root/BTN_TARGET0",
+      "check": "overlap:root/LBL_TARGET0",
+      "reason": "The icon label is drawn inside the matching action/target button frame.",
+      "established": "third_party/Included/kotor-high-resolution-menus-1.5/16-by-10/gui.1024x640/mipc216x12.gui; tags and intersecting EXTENT read by gui_audit_model.nodes."
+    },
+    {
+      "gui": "mipc216x12.gui",
+      "tag": "root/BTN_TARGET1",
+      "check": "overlap:root/LBL_TARGET1",
+      "reason": "The icon label is drawn inside the matching action/target button frame.",
+      "established": "third_party/Included/kotor-high-resolution-menus-1.5/16-by-10/gui.1024x640/mipc216x12.gui; tags and intersecting EXTENT read by gui_audit_model.nodes."
+    },
+    {
+      "gui": "mipc216x12.gui",
+      "tag": "root/BTN_TARGET2",
+      "check": "overlap:root/LBL_TARGET2",
+      "reason": "The icon label is drawn inside the matching action/target button frame.",
+      "established": "third_party/Included/kotor-high-resolution-menus-1.5/16-by-10/gui.1024x640/mipc216x12.gui; tags and intersecting EXTENT read by gui_audit_model.nodes."
+    },
+    {
+      "gui": "mipc28x6.gui",
+      "tag": "root/LBL_ACTIONDESCBG",
+      "check": "overlap:root/LBL_ACTIONDESC",
+      "reason": "The BG-tagged art is a background drawn behind its corresponding foreground control.",
+      "established": "third_party/Included/kotor-high-resolution-menus-1.5/16-by-10/gui.1024x640/mipc28x6.gui; tags and intersecting EXTENT read by gui_audit_model.nodes."
+    },
+    {
+      "gui": "mipc28x6.gui",
+      "tag": "root/LBL_NAMEBG",
+      "check": "overlap:root/LBL_NAME",
+      "reason": "The BG-tagged art is a background drawn behind its corresponding foreground control.",
+      "established": "third_party/Included/kotor-high-resolution-menus-1.5/16-by-10/gui.1024x640/mipc28x6.gui; tags and intersecting EXTENT read by gui_audit_model.nodes."
+    },
+    {
+      "gui": "mipc28x6.gui",
+      "tag": "root/LBL_CHAR3",
+      "check": "overlap:root/BTN_CHAR3",
+      "reason": "Portrait art and its matching clickable party-selection button occupy the same slot.",
+      "established": "third_party/Included/kotor-high-resolution-menus-1.5/16-by-10/gui.1024x640/mipc28x6.gui; tags and intersecting EXTENT read by gui_audit_model.nodes."
+    },
+    {
+      "gui": "mipc28x6.gui",
+      "tag": "root/BTN_ACTION0",
+      "check": "overlap:root/LBL_ACTION0",
+      "reason": "The icon label is drawn inside the matching action/target button frame.",
+      "established": "third_party/Included/kotor-high-resolution-menus-1.5/16-by-10/gui.1024x640/mipc28x6.gui; tags and intersecting EXTENT read by gui_audit_model.nodes."
+    },
+    {
+      "gui": "mipc28x6.gui",
+      "tag": "root/BTN_ACTION3",
+      "check": "overlap:root/LBL_ACTION3",
+      "reason": "The icon label is drawn inside the matching action/target button frame.",
+      "established": "third_party/Included/kotor-high-resolution-menus-1.5/16-by-10/gui.1024x640/mipc28x6.gui; tags and intersecting EXTENT read by gui_audit_model.nodes."
+    },
+    {
+      "gui": "mipc28x6.gui",
+      "tag": "root/BTN_ACTION2",
+      "check": "overlap:root/LBL_ACTION2",
+      "reason": "The icon label is drawn inside the matching action/target button frame.",
+      "established": "third_party/Included/kotor-high-resolution-menus-1.5/16-by-10/gui.1024x640/mipc28x6.gui; tags and intersecting EXTENT read by gui_audit_model.nodes."
+    },
+    {
+      "gui": "mipc28x6.gui",
+      "tag": "root/BTN_ACTION1",
+      "check": "overlap:root/LBL_ACTION1",
+      "reason": "The icon label is drawn inside the matching action/target button frame.",
+      "established": "third_party/Included/kotor-high-resolution-menus-1.5/16-by-10/gui.1024x640/mipc28x6.gui; tags and intersecting EXTENT read by gui_audit_model.nodes."
+    },
+    {
+      "gui": "mipc28x6.gui",
+      "tag": "root/LBL_CHAR1",
+      "check": "overlap:root/BTN_CHAR1",
+      "reason": "Portrait art and its matching clickable party-selection button occupy the same slot.",
+      "established": "third_party/Included/kotor-high-resolution-menus-1.5/16-by-10/gui.1024x640/mipc28x6.gui; tags and intersecting EXTENT read by gui_audit_model.nodes."
+    },
+    {
+      "gui": "mipc28x6.gui",
+      "tag": "root/LBL_CHAR2",
+      "check": "overlap:root/BTN_CHAR2",
+      "reason": "Portrait art and its matching clickable party-selection button occupy the same slot.",
+      "established": "third_party/Included/kotor-high-resolution-menus-1.5/16-by-10/gui.1024x640/mipc28x6.gui; tags and intersecting EXTENT read by gui_audit_model.nodes."
+    },
+    {
+      "gui": "mipc28x6.gui",
+      "tag": "root/BTN_TARGET0",
+      "check": "overlap:root/LBL_TARGET0",
+      "reason": "The icon label is drawn inside the matching action/target button frame.",
+      "established": "third_party/Included/kotor-high-resolution-menus-1.5/16-by-10/gui.1024x640/mipc28x6.gui; tags and intersecting EXTENT read by gui_audit_model.nodes."
+    },
+    {
+      "gui": "mipc28x6.gui",
+      "tag": "root/BTN_TARGET1",
+      "check": "overlap:root/LBL_TARGET1",
+      "reason": "The icon label is drawn inside the matching action/target button frame.",
+      "established": "third_party/Included/kotor-high-resolution-menus-1.5/16-by-10/gui.1024x640/mipc28x6.gui; tags and intersecting EXTENT read by gui_audit_model.nodes."
+    },
+    {
+      "gui": "mipc28x6.gui",
+      "tag": "root/BTN_TARGET2",
+      "check": "overlap:root/LBL_TARGET2",
+      "reason": "The icon label is drawn inside the matching action/target button frame.",
+      "established": "third_party/Included/kotor-high-resolution-menus-1.5/16-by-10/gui.1024x640/mipc28x6.gui; tags and intersecting EXTENT read by gui_audit_model.nodes."
+    },
+    {
+      "gui": "mipc8x6.gui",
+      "tag": "root/LBL_INDICATE",
+      "check": "overlap:root/LBL_INDICATEBG",
+      "reason": "The BG-tagged art is a background drawn behind its corresponding foreground control.",
+      "established": "third_party/Included/kotor-high-resolution-menus-1.5/16-by-10/gui.1024x640/mipc8x6.gui; tags and intersecting EXTENT read by gui_audit_model.nodes."
+    },
+    {
+      "gui": "mipc8x6.gui",
+      "tag": "root/LBL_CHAR3",
+      "check": "overlap:root/BTN_CHAR3",
+      "reason": "Portrait art and its matching clickable party-selection button occupy the same slot.",
+      "established": "third_party/Included/kotor-high-resolution-menus-1.5/16-by-10/gui.1024x640/mipc8x6.gui; tags and intersecting EXTENT read by gui_audit_model.nodes."
+    },
+    {
+      "gui": "mipc8x6.gui",
+      "tag": "root/BTN_ACTION0",
+      "check": "overlap:root/LBL_ACTION0",
+      "reason": "The icon label is drawn inside the matching action/target button frame.",
+      "established": "third_party/Included/kotor-high-resolution-menus-1.5/16-by-10/gui.1024x640/mipc8x6.gui; tags and intersecting EXTENT read by gui_audit_model.nodes."
+    },
+    {
+      "gui": "mipc8x6.gui",
+      "tag": "root/BTN_ACTION3",
+      "check": "overlap:root/LBL_ACTION3",
+      "reason": "The icon label is drawn inside the matching action/target button frame.",
+      "established": "third_party/Included/kotor-high-resolution-menus-1.5/16-by-10/gui.1024x640/mipc8x6.gui; tags and intersecting EXTENT read by gui_audit_model.nodes."
+    },
+    {
+      "gui": "mipc8x6.gui",
+      "tag": "root/BTN_ACTION4",
+      "check": "overlap:root/LBL_ACTION4",
+      "reason": "The icon label is drawn inside the matching action/target button frame.",
+      "established": "third_party/Included/kotor-high-resolution-menus-1.5/16-by-10/gui.1024x640/mipc8x6.gui; tags and intersecting EXTENT read by gui_audit_model.nodes."
+    },
+    {
+      "gui": "mipc8x6.gui",
+      "tag": "root/BTN_ACTION2",
+      "check": "overlap:root/LBL_ACTION2",
+      "reason": "The icon label is drawn inside the matching action/target button frame.",
+      "established": "third_party/Included/kotor-high-resolution-menus-1.5/16-by-10/gui.1024x640/mipc8x6.gui; tags and intersecting EXTENT read by gui_audit_model.nodes."
+    },
+    {
+      "gui": "mipc8x6.gui",
+      "tag": "root/BTN_ACTION1",
+      "check": "overlap:root/LBL_ACTION1",
+      "reason": "The icon label is drawn inside the matching action/target button frame.",
+      "established": "third_party/Included/kotor-high-resolution-menus-1.5/16-by-10/gui.1024x640/mipc8x6.gui; tags and intersecting EXTENT read by gui_audit_model.nodes."
+    },
+    {
+      "gui": "mipc8x6.gui",
+      "tag": "root/LBL_CHAR1",
+      "check": "overlap:root/BTN_CHAR1",
+      "reason": "Portrait art and its matching clickable party-selection button occupy the same slot.",
+      "established": "third_party/Included/kotor-high-resolution-menus-1.5/16-by-10/gui.1024x640/mipc8x6.gui; tags and intersecting EXTENT read by gui_audit_model.nodes."
+    },
+    {
+      "gui": "mipc8x6.gui",
+      "tag": "root/LBL_CHAR2",
+      "check": "overlap:root/BTN_CHAR2",
+      "reason": "Portrait art and its matching clickable party-selection button occupy the same slot.",
+      "established": "third_party/Included/kotor-high-resolution-menus-1.5/16-by-10/gui.1024x640/mipc8x6.gui; tags and intersecting EXTENT read by gui_audit_model.nodes."
+    },
+    {
+      "gui": "mipc8x6.gui",
+      "tag": "root/BTN_ACTION5",
+      "check": "overlap:root/LBL_ACTION5",
+      "reason": "The icon label is drawn inside the matching action/target button frame.",
+      "established": "third_party/Included/kotor-high-resolution-menus-1.5/16-by-10/gui.1024x640/mipc8x6.gui; tags and intersecting EXTENT read by gui_audit_model.nodes."
+    },
+    {
+      "gui": "maininterface.gui",
+      "tag": "root/LBL_BACK4",
+      "check": "containment",
+      "reason": "Hidden fourth party slot is intentionally parked outside the playable three-member HUD.",
+      "established": "Maintainer audit request 2026-10-02; maininterface.gui upstream and assets/override-3440x1440/maininterface.gui EXTENT."
+    },
+    {
+      "gui": "maininterface.gui",
+      "tag": "root/LBL_BACK4",
+      "check": "screen edge",
+      "reason": "Hidden fourth party slot is intentionally parked outside the playable three-member HUD.",
+      "established": "Maintainer audit request 2026-10-02; maininterface.gui upstream and assets/override-3440x1440/maininterface.gui EXTENT."
+    },
+    {
+      "gui": "maininterface.gui",
+      "tag": "root/LBL_CHAR4",
+      "check": "containment",
+      "reason": "Hidden fourth party slot is intentionally parked outside the playable three-member HUD.",
+      "established": "Maintainer audit request 2026-10-02; maininterface.gui upstream and assets/override-3440x1440/maininterface.gui EXTENT."
+    },
+    {
+      "gui": "maininterface.gui",
+      "tag": "root/LBL_CHAR4",
+      "check": "screen edge",
+      "reason": "Hidden fourth party slot is intentionally parked outside the playable three-member HUD.",
+      "established": "Maintainer audit request 2026-10-02; maininterface.gui upstream and assets/override-3440x1440/maininterface.gui EXTENT."
+    },
+    {
+      "gui": "maininterface.gui",
+      "tag": "root/BTN_CHAR4",
+      "check": "containment",
+      "reason": "Hidden fourth party slot is intentionally parked outside the playable three-member HUD.",
+      "established": "Maintainer audit request 2026-10-02; maininterface.gui upstream and assets/override-3440x1440/maininterface.gui EXTENT."
+    },
+    {
+      "gui": "maininterface.gui",
+      "tag": "root/BTN_CHAR4",
+      "check": "screen edge",
+      "reason": "Hidden fourth party slot is intentionally parked outside the playable three-member HUD.",
+      "established": "Maintainer audit request 2026-10-02; maininterface.gui upstream and assets/override-3440x1440/maininterface.gui EXTENT."
+    },
+    {
+      "gui": "maininterface.gui",
+      "tag": "root/LBL_DISABLE4",
+      "check": "containment",
+      "reason": "Hidden fourth party slot is intentionally parked outside the playable three-member HUD.",
+      "established": "Maintainer audit request 2026-10-02; maininterface.gui upstream and assets/override-3440x1440/maininterface.gui EXTENT."
+    },
+    {
+      "gui": "maininterface.gui",
+      "tag": "root/LBL_DISABLE4",
+      "check": "screen edge",
+      "reason": "Hidden fourth party slot is intentionally parked outside the playable three-member HUD.",
+      "established": "Maintainer audit request 2026-10-02; maininterface.gui upstream and assets/override-3440x1440/maininterface.gui EXTENT."
+    },
+    {
+      "gui": "maininterface.gui",
+      "tag": "root/LBL_DEBILATATED4",
+      "check": "containment",
+      "reason": "Hidden fourth party slot is intentionally parked outside the playable three-member HUD.",
+      "established": "Maintainer audit request 2026-10-02; maininterface.gui upstream and assets/override-3440x1440/maininterface.gui EXTENT."
+    },
+    {
+      "gui": "maininterface.gui",
+      "tag": "root/LBL_DEBILATATED4",
+      "check": "screen edge",
+      "reason": "Hidden fourth party slot is intentionally parked outside the playable three-member HUD.",
+      "established": "Maintainer audit request 2026-10-02; maininterface.gui upstream and assets/override-3440x1440/maininterface.gui EXTENT."
+    },
+    {
+      "gui": "maininterface.gui",
+      "tag": "root/PB_VIT4",
+      "check": "containment",
+      "reason": "Hidden fourth party slot is intentionally parked outside the playable three-member HUD.",
+      "established": "Maintainer audit request 2026-10-02; maininterface.gui upstream and assets/override-3440x1440/maininterface.gui EXTENT."
+    },
+    {
+      "gui": "maininterface.gui",
+      "tag": "root/PB_VIT4",
+      "check": "screen edge",
+      "reason": "Hidden fourth party slot is intentionally parked outside the playable three-member HUD.",
+      "established": "Maintainer audit request 2026-10-02; maininterface.gui upstream and assets/override-3440x1440/maininterface.gui EXTENT."
+    },
+    {
+      "gui": "maininterface.gui",
+      "tag": "root/PB_FORCE4",
+      "check": "containment",
+      "reason": "Hidden fourth party slot is intentionally parked outside the playable three-member HUD.",
+      "established": "Maintainer audit request 2026-10-02; maininterface.gui upstream and assets/override-3440x1440/maininterface.gui EXTENT."
+    },
+    {
+      "gui": "maininterface.gui",
+      "tag": "root/PB_FORCE4",
+      "check": "screen edge",
+      "reason": "Hidden fourth party slot is intentionally parked outside the playable three-member HUD.",
+      "established": "Maintainer audit request 2026-10-02; maininterface.gui upstream and assets/override-3440x1440/maininterface.gui EXTENT."
+    },
+    {
+      "gui": "maininterface.gui",
+      "tag": "root/LBL_CMBTEFCTINC4",
+      "check": "containment",
+      "reason": "Hidden fourth party slot is intentionally parked outside the playable three-member HUD.",
+      "established": "Maintainer audit request 2026-10-02; maininterface.gui upstream and assets/override-3440x1440/maininterface.gui EXTENT."
+    },
+    {
+      "gui": "maininterface.gui",
+      "tag": "root/LBL_CMBTEFCTINC4",
+      "check": "screen edge",
+      "reason": "Hidden fourth party slot is intentionally parked outside the playable three-member HUD.",
+      "established": "Maintainer audit request 2026-10-02; maininterface.gui upstream and assets/override-3440x1440/maininterface.gui EXTENT."
+    },
+    {
+      "gui": "maininterface.gui",
+      "tag": "root/LBL_CMBTEFCTRED4",
+      "check": "containment",
+      "reason": "Hidden fourth party slot is intentionally parked outside the playable three-member HUD.",
+      "established": "Maintainer audit request 2026-10-02; maininterface.gui upstream and assets/override-3440x1440/maininterface.gui EXTENT."
+    },
+    {
+      "gui": "maininterface.gui",
+      "tag": "root/LBL_CMBTEFCTRED4",
+      "check": "screen edge",
+      "reason": "Hidden fourth party slot is intentionally parked outside the playable three-member HUD.",
+      "established": "Maintainer audit request 2026-10-02; maininterface.gui upstream and assets/override-3440x1440/maininterface.gui EXTENT."
+    },
+    {
+      "gui": "maininterface.gui",
+      "tag": "root/LBL_LEVELUP4",
+      "check": "containment",
+      "reason": "Hidden fourth party slot is intentionally parked outside the playable three-member HUD.",
+      "established": "Maintainer audit request 2026-10-02; maininterface.gui upstream and assets/override-3440x1440/maininterface.gui EXTENT."
+    },
+    {
+      "gui": "maininterface.gui",
+      "tag": "root/LBL_LEVELUP4",
+      "check": "screen edge",
+      "reason": "Hidden fourth party slot is intentionally parked outside the playable three-member HUD.",
+      "established": "Maintainer audit request 2026-10-02; maininterface.gui upstream and assets/override-3440x1440/maininterface.gui EXTENT."
+    },
+    {
+      "gui": "maininterface.gui",
+      "tag": "root/LBL_LVLUPBG4",
+      "check": "containment",
+      "reason": "Hidden fourth party slot is intentionally parked outside the playable three-member HUD.",
+      "established": "Maintainer audit request 2026-10-02; maininterface.gui upstream and assets/override-3440x1440/maininterface.gui EXTENT."
+    },
+    {
+      "gui": "maininterface.gui",
+      "tag": "root/LBL_LVLUPBG4",
+      "check": "screen edge",
+      "reason": "Hidden fourth party slot is intentionally parked outside the playable three-member HUD.",
+      "established": "Maintainer audit request 2026-10-02; maininterface.gui upstream and assets/override-3440x1440/maininterface.gui EXTENT."
+    },
+    {
+      "gui": "*.gui",
+      "tag": "*/SCROLLBAR",
+      "check": "containment",
+      "reason": "Scrollbar EXTENT uses authored panel coordinates; scrollbar inside checks the panel-to-list conversion separately.",
+      "established": "tools/scale_listbox_padding.py fit_list_to_rows moves the scrollbar with the list; archived matching TOP values."
+    }
+  ]
+}

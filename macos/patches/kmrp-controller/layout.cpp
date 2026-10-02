@@ -21,6 +21,7 @@
 // CSWGuiMessageBox 0x1005AE880 with OK at +0x3D0 and Cancel at +0x610; the Solo Mode query,
 // built on it, 0x1005ABEA0.
 #include "layout.h"
+#include "../kmrp-layout/status_summary.h"
 
 #include "engine.h"
 #include "pad.h"
@@ -359,55 +360,20 @@ void UpdateConfirmBadges() {
 // ---------------------------------------------------------------- text as drawn
 
 // A range that can be read: its first and last byte answer (readable()'s part).
-bool Readable(const void* p, std::size_t size) {
-    if (!LooksLikePointer(p) || size == 0) return false;
-    unsigned char probe;
-    mach_vm_size_t got = 0;
-    const auto at = reinterpret_cast<mach_vm_address_t>(p);
-    return mach_vm_read_overwrite(mach_task_self(), at, 1, reinterpret_cast<mach_vm_address_t>(&probe), &got) ==
-               KERN_SUCCESS &&
-           mach_vm_read_overwrite(mach_task_self(), at + size - 1, 1, reinterpret_cast<mach_vm_address_t>(&probe),
-                                  &got) == KERN_SUCCESS;
-}
-
-// A label's CSWGuiText is at +0x110; its text object at +0x18 of that keeps the string at
-// +0x18, the font at +0x20, each line's length at [+0x48] and the line count at +0x50, and its
-// scale at +0x58 (read from the object's draw, 0x1001BCB04). The font's vtable+0x78 is its
-// CAurFontInfo (CAurFontInfo::ParseField, 0x1001F850E): fontheight +0x04, texturewidth +0x0C,
-// spacingR +0x10, the upper-left and lower-right coordinates at [+0x18] and [+0x28], 12 bytes a
-// glyph. The Windows offsets are 0xD0, 0x14, 0x14, 0x18, 0x34, 0x38, 0x40, vtable+0x38, and the
-// same font fields but for the coordinates, at +0x18 and +0x24.
-const std::size_t kLabelText = 0x110, kTextObject = 0x18;
-const std::size_t kObjString = 0x18, kObjFont = 0x20, kObjLineLengths = 0x48, kObjLineCount = 0x50, kObjScale = 0x58;
-const std::size_t kVtFontInfo = 0x78;
-const std::size_t kInfoHeight = 0x04, kInfoTextureWidth = 0x0c, kInfoSpacingR = 0x10;
-const std::size_t kInfoUpperLeft = 0x18, kInfoLowerRight = 0x28;
-
-using FontInfoFn = char* (*)(void* font);
-
-struct Font { const char* upperLeft; const char* lowerRight; float texels, spacing; int lineHeight; };
-
-bool FontOf(void* object, Font& out) {
-    void* const font = At<void*>(object, kObjFont);
-    if (!Readable(font, 8)) return false;
-    const std::uintptr_t vtable = At<std::uintptr_t>(font, 0);
-    if (!Readable(reinterpret_cast<void*>(vtable), kVtFontInfo + 8)) return false;
-    char* const info = reinterpret_cast<FontInfoFn>(*reinterpret_cast<std::uintptr_t*>(vtable + kVtFontInfo))(font);
-    if (!Readable(info, 0x30)) return false;
-    out.upperLeft = At<const char*>(info, kInfoUpperLeft);
-    out.lowerRight = At<const char*>(info, kInfoLowerRight);
-    if (!Readable(out.upperLeft, 256 * 12) || !Readable(out.lowerRight, 256 * 12)) return false;
-    out.texels = At<float>(info, kInfoTextureWidth) * 100.0f;
-    out.spacing = At<float>(info, kInfoSpacingR) * 100.0f;
-    out.lineHeight = static_cast<int>(At<float>(info, kInfoHeight) * 100.0f + 0.5f);
-    return true;
-}
-
-float GlyphWidth(const Font& f, unsigned char c) {
-    const int glyph = c * 12;
-    return (*reinterpret_cast<const float*>(f.lowerRight + glyph) - *reinterpret_cast<const float*>(f.upperLeft + glyph)) *
-           f.texels;
-}
+// The text measuring is shared with the status summary's layout, which every build has
+// (kmrp-layout/status_summary.cpp).
+using text::Font;
+using text::FontOf;
+using text::GlyphWidth;
+using text::LabelTextWidth;
+using text::Readable;
+using text::SetExtentIfChanged;
+using text::kLabelText;
+using text::kObjLineCount;
+using text::kObjLineLengths;
+using text::kObjScale;
+using text::kObjString;
+using text::kTextObject;
 
 // Where a text's last line ends, in pixels from its left edge, from the layout the engine draws
 // (lastReplyLine): a negative length is the same length, and one space or newline after a line
@@ -441,29 +407,6 @@ bool LastLine(void* text, ReplyLine& out) {
     out.scale = At<float>(object, kObjScale);
     out.lineHeight = font.lineHeight;
     return out.width > 0;
-}
-
-// A label's whole text on one line, in pixels, plus the font's spacingR after each glyph but
-// the last (labelTextWidth), and that font's line height.
-int LabelTextWidth(void* label, int& lineHeight) {
-    char* const text = static_cast<char*>(label) + kLabelText;
-    char* const object = At<char*>(text, kTextObject);
-    if (!Readable(object, 0x60)) return 0;
-    const char* const string = At<const char*>(object, kObjString);
-    if (!Readable(string, 1)) return 0;
-    Font font{};
-    if (!FontOf(object, font)) return 0;
-    float width = 0.0f;
-    int glyphs = 0;
-    for (int i = 0; i < 256; ++i) {
-        if (!Readable(string + i, 1) || string[i] == '\0') break;
-        if (string[i] == '\n') continue;
-        width += GlyphWidth(font, static_cast<unsigned char>(string[i]));
-        ++glyphs;
-    }
-    if (glyphs > 1 && font.spacing > 0.0f && font.spacing < 8.0f) width += font.spacing * (glyphs - 1);
-    lineHeight = font.lineHeight;
-    return static_cast<int>(width + 0.5f);
 }
 
 // ---------------------------------------------------------------- dialogue A
@@ -564,16 +507,10 @@ void UpdateDialogBadges() {
 
 // ---------------------------------------------------------------- status summary
 
-// The box listing what just changed ("Journal Entry Added", "Credits Lost: 100"), laid out again
-// every frame after the engine's own pass: its 640x480 layout scaled by the lines' font height
-// over 16, each line as wide as the glyphs the engine draws for it, capped only by the screen
-// (K1ControllerLayout.cpp's layoutStatusSummary, whose measurements are Windows'). And the pad's
-// A beside OK. CSWGuiStatusSummary is 0x1005AE9A0 on the Mac: its nine icons from +0x3C8 and
-// their lines from +0x1220, 0x198 apart in the same order, OK at +0x2078.
+// The box listing what just changed ("Journal Entry Added", "Credits Lost: 100"): its layout at
+// the font's size is kmrp-layout/status_summary.cpp's since 2026-10-02, so it is made without
+// controller support too; here the pad's A beside OK. CSWGuiStatusSummary is 0x1005AE9A0.
 const std::uintptr_t kStatusSummaryVtable = 0x1005ae9a0UL;
-const std::size_t kSummaryIcons = 0x3c8, kSummaryLines = 0x1220, kSummaryOk = 0x2078;
-const int kSummaryRows = 9;
-const std::size_t kMgrViewportWidth = 0xa4, kMgrViewportHeight = 0xa6;
 
 struct SummaryBadge { void* panel; void* label; char family; bool shown; };
 SummaryBadge g_summaryBadges[4] = {};
@@ -604,17 +541,6 @@ void* BindExtraLabel(void* panel, const char* like) {
     return control;
 }
 
-bool BoundTo(void* panel, void* control) {
-    const int id = At<int>(control, kCtlId), count = At<int>(panel, kPanelControlCount);
-    void** const array = At<void**>(panel, kPanelControls);
-    return id >= 0 && id < count && LooksLikePointer(array) && array[id] == control;
-}
-
-void SetExtentIfChanged(void* control, const int* rect) {
-    const int* now = reinterpret_cast<const int*>(static_cast<char*>(control) + kCtlExtent);
-    if (now[0] != rect[0] || now[1] != rect[1] || now[2] != rect[2] || now[3] != rect[3]) SetExtent(control, rect);
-}
-
 bool UpdateSummaryBadge(void* panel, const int* ok) {
     for (SummaryBadge& b : g_summaryBadges) {
         if (b.panel != panel) continue;
@@ -638,73 +564,17 @@ bool UpdateSummaryBadge(void* panel, const int* ok) {
     return false;
 }
 
-void LayoutStatusSummary(void* manager, void* panel) {
-    char* const base = static_cast<char*>(panel);
-    int rows[kSummaryRows] = {};
-    int count = 0, widest = 0, lineHeight = 0;
-    for (int i = 0; i < kSummaryRows; ++i) {
-        void* const icon = base + kSummaryIcons + i * kLabelSize;
-        void* const line = base + kSummaryLines + i * kLabelSize;
-        // The engine shows a row by setting its icon's visible bit.
-        if (!(At<std::uint8_t>(icon, kCtlFlags) & kCtlVisible) || !BoundTo(panel, icon) || !BoundTo(panel, line)) continue;
-        int height = 0;
-        const int width = LabelTextWidth(line, height);
-        if (width <= 0 || height <= 0) continue;
-        if (width > widest) widest = width;
-        if (height > lineHeight) lineHeight = height;
-        rows[count++] = i;
-    }
-    if (!count) return;
-    auto at16 = [lineHeight](int v) { return (v * lineHeight + 8) / 16; };
-    const int screenW = At<std::int16_t>(manager, kMgrViewportWidth), screenH = At<std::int16_t>(manager, kMgrViewportHeight);
-    if (screenW <= 0 || screenH <= 0) return;
-    const int lineX = at16(52);
-    int lineW = widest + lineHeight / 4;
-    int boxW = lineX + lineW + at16(10);
-    if (boxW > screenW) { boxW = screenW; lineW = boxW - lineX - at16(10); }
-    const int okW = at16(100), okH = at16(22);
-    const int roomy = okW + 2 * (okH + okH / 4 + at16(4));
-    if (boxW < roomy) boxW = roomy < screenW ? roomy : screenW;
-    int y = at16(10);
-    for (int n = 0; n < count; ++n) {
-        void* const icon = base + kSummaryIcons + rows[n] * kLabelSize;
-        void* const line = base + kSummaryLines + rows[n] * kLabelSize;
-        const int iconRect[4] = {at16(10), y, at16(32), at16(32)};
-        const int lineRect[4] = {lineX, y - at16(1), lineW, at16(32)};
-        SetExtentIfChanged(icon, iconRect);
-        SetExtentIfChanged(line, lineRect);
-        y += at16(37);
-    }
-    const int okY = y - at16(7);
-    const int boxH = okY + at16(32);
-    const int okRect[4] = {(boxW - okW) / 2, okY, okW, okH};
-    const int boxRect[4] = {(screenW - boxW) / 2, (screenH - boxH) / 2, boxW, boxH};
-    SetExtentIfChanged(base + kSummaryOk, okRect);
-    SetExtentIfChanged(panel, boxRect);
-    const bool badged = UpdateSummaryBadge(panel, okRect);
+// The status summary laid out by the shared layout (status_summary.cpp), and the pad's A beside
+// its OK.
+void UpdateStatusSummary(void* manager) {
+    summary::Result r{};
+    if (!summary::Update(manager, &r)) return;
+    const bool badged = UpdateSummaryBadge(r.panel, r.ok);
     if (g_summaryLogs < 8) {
         ++g_summaryLogs;
-        Log("layout: status summary rows=%d lineHeight=%d widest=%d box=(%d,%d,%d,%d) ok=(%d,%d,%d,%d) badge=%d", count,
-            lineHeight, widest, boxRect[0], boxRect[1], boxRect[2], boxRect[3], okRect[0], okRect[1], okRect[2], okRect[3],
+        Log("layout: status summary rows=%d lineHeight=%d widest=%d box=(%d,%d,%d,%d) ok=(%d,%d,%d,%d) badge=%d", r.rows,
+            r.lineHeight, r.widest, r.box[0], r.box[1], r.box[2], r.box[3], r.ok[0], r.ok[1], r.ok[2], r.ok[3],
             badged ? 1 : 0);
-    }
-}
-
-// The status summary, wherever the manager holds it: its panel list or, while it waits for OK,
-// its modal list.
-void UpdateStatusSummary(void* manager) {
-    if (!LooksLikePointer(manager)) return;
-    static const std::size_t kLists[2][2] = {{0xd8, 0xe0}, {0xe8, 0xf0}};
-    for (const auto& list : kLists) {
-        void** const panels = At<void**>(manager, list[0]);
-        const int count = At<int>(manager, list[1]);
-        if (count <= 0 || count > 256 || !LooksLikePointer(panels)) continue;
-        for (int i = 0; i < count; ++i) {
-            if (VtableOf(panels[i]) == kStatusSummaryVtable) {
-                LayoutStatusSummary(manager, panels[i]);
-                return;
-            }
-        }
     }
 }
 

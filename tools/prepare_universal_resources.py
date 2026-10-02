@@ -1414,6 +1414,11 @@ def main() -> int:
                         # every other size does (target_menu_extents, 2026-10-01).
                         apply_target_menu(args.gold_override / "mipc210x7.gui",
                                           gui_file, patched, height)
+                        # Scale 1 is an identity for the hand-tuned HUD, except
+                        # for computed lower bounds such as the action label's
+                        # three baked-font lines. Gold needs those repairs too.
+                        apply_proportions(args.gold_override / "mipc210x7.gui",
+                                          patched, patched, width, height)
                         packaged_files.append(patched)
                         continue
                     if resolution == "3440x1440":

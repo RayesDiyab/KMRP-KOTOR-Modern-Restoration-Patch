@@ -1,0 +1,18 @@
+[metadata]
+target_versions = ["C1FCB8D37C702849882A17751C63EE0AF7C2B9CBBC3B31B98A5F0EDBC27C6D71"]
+
+# Merged into the kmrp patch only when it is built without controller support
+# (make_kmrp_patch.py --no-controller), as Windows' core stand-in hooks are.
+#
+# CSWGuiManager::Update, entry (Windows 0x0040CE70): the GUI's own frame, where the status
+# summary is laid out at the font's size (status_summary.cpp). The controller hooks the same
+# entry with KmrpGuiFrame, which does this among the rest. rdi is the manager. The stolen bytes
+# are the prologue's pushes.
+[[hooks]]
+address = 0x10049f636
+type = "detour"
+function = "KmrpCoreGuiFrame"
+original_bytes = [0x55, 0x48, 0x89, 0xe5, 0x41, 0x57, 0x41, 0x56]
+[[hooks.parameters]]
+source = "rdi"
+type = "pointer"

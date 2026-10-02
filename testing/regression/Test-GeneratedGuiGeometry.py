@@ -8,7 +8,9 @@ mistakes.
 
 from __future__ import annotations
 
+import math
 import re
+import struct
 import sys
 import tempfile
 import zipfile
@@ -20,6 +22,7 @@ sys.path.insert(0, str(ROOT / "tools"))
 
 from apply_gold_hud_proportions import (  # noqa: E402
     TOP_LEFT_TRANSIENT_TAGS,
+    action_description_extents,
     target_menu_extents,
     gold_extents,
     placed_top_left,
@@ -31,6 +34,8 @@ from pykotor.resource.formats.gff import read_gff  # noqa: E402
 EXPECTED_ARCHIVE_COUNT = 66   # 48 upstream + 2880x1620 (2026-09-25) + 17 macOS (2026-09-29)
 FEEDBACK_LISTS = ("LB_OPTIONS", "LB_DESC")
 SCRIPTSELECT_LISTS = ("LST_AIState", "LB_DESC")
+MAIN_MENU_FILES = ("mainmenu.gui", "mainmenu8x6.gui", "mainmenu10x7.gui",
+                   "mainmenu12x9.gui", "mainmenu16x12.gui")
 ARCHIVE_PATTERN = re.compile(r"gui-(\d+)x(\d+)\.zip$")
 
 
@@ -43,6 +48,33 @@ def extent_values(struct) -> tuple[int, int, int, int]:
 
 def controls_by_tag(gui) -> dict[str, object]:
     return {control.get_string("TAG"): control for control in walk_controls(gui)}
+
+
+def check_main_menu_navigation(path: Path, resolution: str) -> list[str]:
+    """Every vertical move follows the five visible buttons, by this file's IDs.
+
+    The hidden Warp button and Exit exchange IDs between mainmenu.gui and the
+    aspect variants, so literal ID assertions would report the correct files as
+    broken. Resolve each target by tag and check the semantic cycle instead.
+    """
+    controls = controls_by_tag(read_gff(path))
+    order = ("BTN_NEWGAME", "BTN_LOADGAME", "BTN_MOVIES", "BTN_OPTIONS", "BTN_EXIT")
+    missing = [tag for tag in (*order, "BTN_WARP") if tag not in controls]
+    if missing:
+        return [f"{resolution} {path.name}: missing {', '.join(missing)}"]
+    ids = {tag: controls[tag].get_int32("ID") for tag in order}
+    errors: list[str] = []
+    for index, tag in enumerate(order):
+        move = controls[tag].get_struct("MOVETO")
+        expected = (ids[order[index - 1]], ids[order[(index + 1) % len(order)]])
+        actual = (move.get_int32("UP"), move.get_int32("DOWN")) if move else None
+        if actual != expected:
+            errors.append(f"{resolution} {path.name} {tag}: UP/DOWN {actual}, expected {expected}")
+    warp = controls["BTN_WARP"].get_struct("MOVETO")
+    if warp is None or any(warp.get_int32(direction) != -1
+                           for direction in ("UP", "DOWN", "LEFT", "RIGHT")):
+        errors.append(f"{resolution} {path.name} BTN_WARP: hidden control has navigation")
+    return errors
 
 
 UPSTREAM_GUI_ROOT = ROOT / "third_party" / "Included" / "kotor-high-resolution-menus-1.5"
@@ -384,11 +416,12 @@ def check_confirmation(path: Path, resolution: str) -> list[str]:
 
 
 def check_hud(path: Path, resolution: str, height: int,
-              gold: dict[str, tuple[int, int, int, int]]) -> list[str]:
+              gold: dict[str, tuple[int, int, int, int]], font_txi: Path) -> list[str]:
     errors: list[str] = []
     controls = controls_by_tag(read_gff(path))
     scale = max(1.0, height / 720.0) / 2.0
     menu = target_menu_extents(gold, height)
+    action_description = action_description_extents(gold, extent_values(read_gff(path).root)[2], height)
     for tag in (*TOP_LEFT_TRANSIENT_TAGS, *(t for t in menu if t not in TOP_LEFT_TRANSIENT_TAGS)):
         control = controls.get(tag)
         if control is None:
@@ -408,6 +441,33 @@ def check_hud(path: Path, resolution: str, height: int,
             if button is not None and sum(extent_values(button)[0::2]) > name_right:
                 errors.append(f"{resolution} HUD BTN_TARGET{slot} ends at "
                               f"{sum(extent_values(button)[0::2])}, past LBL_NAME's {name_right}")
+    for tag, expected in action_description.items():
+        control = controls.get(tag)
+        if control is None:
+            errors.append(f"{resolution} HUD: missing {tag}")
+        elif extent_values(control) != expected:
+            errors.append(f"{resolution} HUD {tag}: {extent_values(control)}, expected {expected}")
+    description = controls.get("LBL_ACTIONDESC")
+    if description is not None:
+        font_name = str(description.get_struct("TEXT").acquire("FONT", "dialogfont16x16"))
+        font_txi = path.parent / (font_name.lower() + ".txi")
+    fontheight = next((float(line.split()[1]) for line in font_txi.read_text(encoding="ascii").splitlines()
+                       if line.lower().startswith("fontheight ")), None)
+    description, background = controls.get("LBL_ACTIONDESC"), controls.get("LBL_ACTIONDESCBG")
+    if fontheight is None:
+        errors.append(f"{resolution} HUD: no fontheight in {font_txi.name}")
+    elif description is not None:
+        left, top, width, box_height = extent_values(description)
+        f32 = lambda value: struct.unpack("<f", struct.pack("<f", value))[0]
+        needed = math.ceil(f32(f32(f32(fontheight) * 100.0) * 3.0))
+        if box_height < needed:
+            errors.append(f"{resolution} HUD LBL_ACTIONDESC {width}x{box_height}: "
+                          f"two name lines plus SELF need {needed}px")
+    if description is not None and background is not None:
+        _, text_top, _, text_height = extent_values(description)
+        _, bg_top, _, bg_height = extent_values(background)
+        if bg_top > text_top or bg_top + bg_height < text_top + text_height:
+            errors.append(f"{resolution} HUD LBL_ACTIONDESCBG does not vertically contain LBL_ACTIONDESC")
     return errors
 
 
@@ -537,7 +597,7 @@ def main() -> int:
                 from scale_listbox_padding import ROW_LISTS
                 required = {"optfeedback.gui", "scriptselect.gui", "confirm.gui", "journal.gui",
                             *(screen for screen, _ in ROW_LISTS), active_hud,
-                            "dialogfont10x10.txi", *R3_CUE_SCREENS}
+                            "dialogfont10x10.txi", *R3_CUE_SCREENS, *MAIN_MENU_FILES}
                 missing = required - names
                 if missing:
                     errors.append(f"{resolution}: package is missing {sorted(missing)}")
@@ -558,11 +618,14 @@ def main() -> int:
                 extract_dir / "scriptselect.gui", resolution, width))
             errors.extend(check_journal_rows(extract_dir / "journal.gui", resolution, height))
             errors.extend(check_row_lists(extract_dir, resolution, height))
+            for name in MAIN_MENU_FILES:
+                errors.extend(check_main_menu_navigation(extract_dir / name, resolution))
             for name in R3_CUE_SCREENS:
                 errors.extend(check_party_switch_cue(extract_dir / name, resolution))
             errors.extend(check_swap_cue(extract_dir / "abilities.gui", resolution))
             errors.extend(check_confirmation(extract_dir / "confirm.gui", resolution))
-            errors.extend(check_hud(extract_dir / active_hud, resolution, height, gold))
+            errors.extend(check_hud(extract_dir / active_hud, resolution, height, gold,
+                                    extract_dir / "dialogfont10x10.txi"))
             errors.extend(check_combat_cues(extract_dir / active_hud, resolution))
             errors.extend(check_combat_message(extract_dir / active_hud,
                                                extract_dir / "dialogfont10x10.txi",

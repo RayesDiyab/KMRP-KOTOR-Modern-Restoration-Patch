@@ -156,7 +156,7 @@ floor of the controller's SDL3 and the helpers) and arm64, with `-Wunguarded-ava
 | `MacOS/KotorPatcher.dylib` | added | KPM runtime |
 | `MacOS/patches/kmrp.dylib` | added | KMRP's one patch: FTD's widescreen patch and Stray Bug Fixes with KMRP's layout code, and the map notes and the controller unless `--no-map-notes` or `--no-controller` (one of four builds, `engine/kmrp[.no-map-notes][.no-controller]/`) |
 | `MacOS/kmrp-sdl3.dylib` | added | omitted with `--no-controller`; SDL 3.4.16, the library of the official macOS release, its code unchanged and its signature redone ad hoc (`THIRD_PARTY_NOTICES.md`) |
-| `MacOS/patch_config.toml` | added | written at build time by KPM's own `ConfigGenerator` for the `kmrp` patch: 78 hooks with both options (the Stray Bug Fixes' 11, 45 of the widescreen patch's, the map-note detour and the controller's 21), 56 with neither; staged with the matching `kmrp.dylib` |
+| `MacOS/patch_config.toml` | added | written at build time by KPM's own `ConfigGenerator` for the `kmrp` patch: 84 hooks with both options (the Stray Bug Fixes' 11, 45 of the widescreen patch's, five menu-input hooks, the map-note detour and the controller's 21), 62 with neither (the 61 and, without the controller, `KmrpCoreGuiFrame`, the status summary's layout; since 2026-10-02); staged with the matching `kmrp.dylib` |
 | `MacOS/KOTOR_Exe` | edited | one load command, then `codesign --force --sign - --identifier KOTOR_Exe` |
 | `MacOS/KOTOR_Exe.backup.<yyyyMMdd_HHmmss>` and its `.json` | added | the untouched game in KotOR Patch Manager's format (`BackupManager`, `BackupInfo`), made before the load command, from which KPM's Apply starts (since 2026-10-01, as Windows' `WriteKpmBackup`) |
 | `MacOS/kpm_install_state.json` | added | KPM's record of the install (`ManagedInstallState`, schema 1): the untouched game's hash and size, KPM's name for it ("1 1.4.0 (Aspyr macOS)", macOS, Steam, x86_64, its Mach-O identity), `InstalledPatches` `["kmrp"]`, `LinkedDependencyInstalled` true; KPM identifies the modified game by it (since 2026-10-01, as Windows' `KpmState`) |
@@ -289,8 +289,9 @@ the layout patch, which this data's GPL-3.0 licence and FTD's MIT patch argue ag
 
 ## 4. What the layout patch writes
 
-A KPM patch with no hooks (DLL_ONLY): KotorPatcher loads its module, whose constructor, when
-`UseGuiFileLayouts=1` is set, writes its sites before the game's code runs. Every site is
+The layout component includes the [menu-input hooks](../reverse-engineering/macos-keyboard-navigation.md).
+Its resolution-dependent sites remain constructor patches: when
+`UseGuiFileLayouts=1` is set, the constructor writes its sites before the game's code runs. Every site is
 checked for the bytes it must hold first, group by group; a group whose sites hold anything
 else is left alone and named on stderr. The resolution is the widescreen patch's:
 `ForceWidth`/`ForceHeight`, or the main display's point size. Sizes scale by the Windows
@@ -588,7 +589,10 @@ FTD's `widescreen-patch` (`074972b`, 2026-09-30) with one change: the 11 hooks F
 *K1StrayBugFixes* taken out of *K1WidescreenPatch*'s hook list, where they were still declared,
 so the two patches hooked the same addresses twice (KPM's own check: "Multiple hooks at
 address"). FTD's changes reach KMRP when they are merged into that branch; nothing follows his
-branch by itself. Until 2026-09-30 the submodule tracked FTD's `widescreen-patch` directly
+branch by itself. The [2026-10-02 audit](../docs/ftd-macos-upstream-audit.md)
+integrates FTD's separate Scripts Enter fix in KMRP's guarded core hooks; his
+new GUI writers overlap our existing layout patches and are not linked alongside
+them. The submodule pin is unchanged. Until 2026-09-30 the submodule tracked FTD's `widescreen-patch` directly
 (`71ac5fa`: KPM's master `5cafa6a` with his widescreen patch and KMRP's fixes, merged there on
 2026-09-29 as FTD516/Kotor-Patch-Manager#1, then #2, which builds it with KPM's own
 `create-patch.py`); before that the same fixes on `RayesDiyab/Kotor-Patch-Manager`, branch
@@ -731,7 +735,12 @@ seal alone.
 - a game with other Override mods installed first;
 - the controller's rumble in combat (hits, parries, shots, damage taken), and any rumble felt
   on a real pad: the scripted pad has no motors;
-- the dialogue A and the status summary's layout and A. Their labels are made when their
+- the dialogue A and the status summary's A, and the status summary's layout without
+  controller support. The layout is `kmrp-layout/status_summary.cpp`'s since 2026-10-02, so a
+  build without the controller has it too, as Windows' core stand-in does
+  (`StatusSummaryFrameK1`); before, such a build showed the game's own 640x480 box, the XP line
+  wrapped to "50" alone (a tester's screenshot). With the controller the layout was seen right
+  in play (the maintainer, 2026-10-01). The A labels are made when their
   panels are built (logged), but no conversation with replies and no status summary was
   reached on the pad: the test save's Selkath only bark, and LB and RB do not target party
   members;
@@ -760,3 +769,33 @@ A layout-patch group that finds other bytes at one of its sites prints `[KMRP] <
 The controller module logs a site it leaves alone the same way, in `controller.log`
 (`GetJoystickBuffer at 0x... holds other bytes`, `echo guard: ... not installed`,
 `<class> guard: the vtable slot holds 0x...`).
+
+### Fullscreen default
+
+Installation now sets `DisplayFullScreen=true` in
+`~/Library/Preferences/com.aspyr.kotor.steam.plist`, the launcher preference
+measured as 0 for windowed mode and 1 after enabling fullscreen on 2026-10-02.
+The installer records the previous key value in its manifest. Uninstall and rollback
+restore that key only while its value still matches KMRP’s 1; later player changes
+are preserved. An originally absent key is deleted, and other preferences remain
+untouched. The installer window itself keeps its normal windowed interface.
+
+Validation: `testing/regression/Test-MacFullscreen.py` exercises the actual installer
+functions against a temporary preference file: absent key, prior windowed value,
+install/uninstall, a later player change, and an unrelated key. All pass.
+
+### Uninstall ownership correction, 2026-10-02
+
+When KPM takes over an install, uninstall checks `patch_config.toml`,
+`kpm_install_state.json` → `InstalledPatches`, and the contents of `patches/`
+before deciding KMRP is the only patch. A foreign byte-only patch can exist in
+state without a module, so checking the config and modules alone was insufficient.
+The state list is parsed with macOS `plutil`; missing keys, malformed JSON,
+non-array values or IDs other than `kmrp` retain the runtime. An absent state
+file preserves legacy behavior, but the config must contain at least one KMRP
+ID and no foreign IDs. An empty valid state array is allowed when the config
+identifies KMRP, as in the Windows decision. The fixture regression
+`testing/regression/Test-MacKpmOwnership.py` exercises the actual shell function,
+including module-less foreign patches and invalid state. It passed; a complete
+installer takeover/uninstall play test was not run for this change. Existing
+DMGs predate this correction.
