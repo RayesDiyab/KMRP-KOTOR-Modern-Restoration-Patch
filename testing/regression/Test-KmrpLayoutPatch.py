@@ -288,6 +288,10 @@ def main() -> int:
     for (width, height), sites in by_height.items():
         found = {address: (group, value) for group, address, _, value in sites}
         where = f"{width}x{height}"
+        for address, opcode, dimension in ((0x10026f1f2, b"\x81\xfe", width),
+                                           (0x10026f1ff, b"\x81\xfa", height)):
+            if found[address][1] != opcode + struct.pack("<i", dimension):
+                failures.append(f"{where}: resolution menu acceptance differs from Windows target")
 
         def check(address: int, base: int, what: str) -> None:
             got = struct.unpack("<i", found[address][1])[0]

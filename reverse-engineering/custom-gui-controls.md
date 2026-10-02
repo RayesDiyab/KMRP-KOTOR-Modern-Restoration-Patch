@@ -558,6 +558,97 @@ glyphs the engine draws for it (the measure the dialogue A uses) plus a quarter
 line, the box capped at the screen's width. It writes an extent only when it
 differs, and logs `status-summary` with the geometry, eight times a session.
 
+The macOS port also calls `SetExtentIfChangedOrWrapped` when the embedded
+text object's line count exceeds one. **Correction, 2026-10-02:** the previous
+paragraph claimed that replacement text wrapped at a native 440 px cap while
+retaining an earlier widened extent. That was a hypothesis, not a runtime
+measurement. The user reports that XP text is still missing at 1920x1200 after
+this attempt; the screenshot's 3024x1964 dimensions are the Retina capture size.
+Do not treat the extra reflow condition as a verified XP fix. The last installed
+run's controller log confirms that the status-summary hook executed and that no
+pad was present; it does not establish which text or draw state caused the loss.
+
+**Investigation resumed, 2026-10-02:** archived log values `lineHeight=27`,
+`widest=290` match the generated 1920x1200 font's **Journal Entry Added** width
+289.999936. They are not evidence that the XP text was measured. The generated
+`Experience Points (XP) Received: 50` widths at 1920x1200, 2560x1600,
+3024x1964 and 3440x1440 are respectively 471.001152, 653.007,
+772.998 and 592.998 pixels; the shared formula supplies 477, 662, 784 and 601
+pixels. These offline TXI measurements fit one line in the model at every size.
+They do not establish the font, scale or actual string in the failing live object.
+
+Clean Aspyr x86_64 1.4.0 (6,333,424 bytes, SHA-256
+`c1fcb8d37c702849882a17751c63ee0af7c2b9cbbc3b31b98a5f0edbc27c6d71`)
+was disassembled; Mac original-text addresses are preferred VA, FILE = VA −
+0x100000000. `CSWGuiLabel::SetExtent` at `0x1004a56f0` calls the text-extent
+setter at `0x1004a3d4c`, which forwards the dimensions and invokes rewrapping
+through text-object vtable +0xa0. Thus repeating SetExtent does request reflow;
+it is not merely a rectangle write. The draw routine `0x1001bcb04` has a
+bottom-alignment path at `0x1001bcbcf`..`0x1001bcc28` that skips leading lines
+while `lineCount * fontHeight * objectScale * 100 > objectHeight`.
+The shared width helper omits the text object's +0x58 scale, whereas native
+WrapStrings at `0x1001bc644` uses it. A scale mismatch or a later native extent
+change remains a candidate, **not a measured cause**. A live failing popup must
+supply the full string, object scale, alignment, line lengths and both control
+and text extents; compare it with the actual working higher-resolution state.
+No production change made during this investigation.
+
+**Live failing XP captured, 2026-10-02:** the isolated XP diagnostic copy
+(6,324,304 bytes, SHA-256
+`5294ae4f8390dcee54473028a69546128a6d4c2308bd355a18b55692d6748e48`)
+logs viewport 1920x1200 and row 2 text
+`Experience Points (XP) Received: 50`. Object scale is 1, alignment 0x11
+(vertical centre, not the previously considered bottom-alignment path),
+fontheight 0.27, texturewidth 5.12 and spacingR 0.005. Both label and
+text-object extents are (88,15,477,54) before and after the layout callback.
+Native line count remains 2, with lengths 32 and 2. These measurements reject
+an object-scale mismatch in this sample and show that retrying SetExtent did
+not make the text a single line. Stable sampled extents do not exclude an
+unsampled later write. The centred draw path at 0x1001bcc40 also skips leading
+lines when its computed vertical offset is negative; floating-point height and
+native wrapping width still need measurement. Logs and expanded probe are in
+ignored `../work/xp-20261002/`; external task_for_pid access was denied, so the
+probe runs inside a separate copy and delegates to the installed layout export.
+
+**Native threshold measured, same session:** the expanded probe invokes the
+text object's vtable +0xa0 with explicit widths 477 through 482, leaving its
+extent unchanged, then restores wrapping at width 477. The first single-line
+width is **482**; restoring 477 restores two lines. This is a diagnostic-only
+probe, not an installed fix. Runtime float fontheight is 0.270000011 and the
+native height multiplication produces 27.0000019 per line. Two lines therefore
+need 54.0000038 pixels in float32, exceeding the 54-pixel extent. Alignment 0x11
+selects the centred path at 0x1001bcc40: its negative initial offset enters the
+leading-line skip at 0x1001bcc82, accounting for the first 32-character line
+being dropped and only `50` remaining. The shared width helper returns 471
+and adds 6 pixels, below the observed native threshold. Its offline float sum
+is not an authoritative wrapping requirement. Native advance sum including
+trailing spacing is 471.501; a separately modelled per-character truncated sum
+is 454 and also does not reproduce the observed 482 threshold. The complete
+native algorithm's extra width requirement has not yet been modelled; do not
+claim those sums reproduce it. The proposed repair is to use the native wrap
+result to find a fitting width and round actual required text height upward,
+including wrapped rows when the viewport caps the width. No production fix or
+new installer has been made from these measurements.
+
+**Repair implemented and XP confirmed in game, 2026-10-02:** shared
+`status_summary.cpp` now calls the native text object's vtable +0xa0 at the
+available screen width, then binary-searches the narrowest width retaining
+that achievable line count. A zero-line result is treated as an invalid narrow
+width, not a fit. Visible rows share their maximum fitting width. Each row's
+height is `max(scaled32, ceil(float32(fontheight * objectScale * 100) * lines))`;
+row pitch is that height plus scaled5. OK starts after the final row's gap,
+rather than subtracting scaled7 and overlapping its end. The search cache
+keys the label, text object, font, string hash, native height, scale and viewport
+cap, and invalidates when the live line count differs. Extent setters still
+perform native reflow; the unsuccessful wrapped-every-frame retry is removed.
+`Test-MacStatusSummary.cpp` executes this production code against synthetic
+native wrapping/font/control objects: threshold482, unchanged-frame cache,
+400px screen cap with two-line height55, and mandatory two-line text pass.
+The maintainer subsequently confirmed the real XP popup is fixed at1920×1200.
+The repaired live log records the full string on one line at482px. Other popup
+row combinations and resolutions remain untested in game.
+
+
 **Seen in game on 2026-09-25**, at 3440x1440 in a scratch copy of the game with
 `D407BF3A…` installed, driven by the virtual pad: one row, "Journal Entry
 Added", after Trask's first conversation. The log read `rows=1 lineHeight=32

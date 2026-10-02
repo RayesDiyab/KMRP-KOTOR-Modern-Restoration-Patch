@@ -169,6 +169,15 @@ uintptr_t NearPage() {
 
 std::vector<Group> Groups(int width, int height, uintptr_t nearPage) {
     std::vector<Group> groups;
+    // Windows ResolutionPatch replaces the first IsKnownResolution pair at
+    // 0x005F0C65/0x005F0C6F. Aspyr has a separate GUI whitelist in addition to
+    // its display-mode validator: K4/K9 alone do not update this one.
+    groups.push_back({"resolution menu acceptance", {
+        {0x10026f1f2, Join({Bytes({0x81, 0xfe}), Int32(800)}),
+                       Join({Bytes({0x81, 0xfe}), Int32(width)})},
+        {0x10026f1ff, Join({Bytes({0x81, 0xfa}), Int32(600)}),
+                       Join({Bytes({0x81, 0xfa}), Int32(height)})},
+    }});
     AddResolutionSizes(groups, height);
     AddListboxPadding(groups);
     AddAreaMap(groups, width, height, nearPage);

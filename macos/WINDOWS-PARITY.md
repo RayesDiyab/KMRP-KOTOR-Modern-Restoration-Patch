@@ -46,8 +46,8 @@ goes where:
 - **`macos/patches/kmrp-layout`** carries what KMRP's layouts need from the engine, as KMRP's
   Windows executable does: the sizes its installer writes per resolution (rows, stack
   label, chain rows, and still to come: popups, the area map) and the list-box `PADDING`
-  fix of gold v11. A DLL-only KPM patch: its module writes each site at start-up after
-  checking the bytes there (`testing/regression/Test-KmrpLayoutPatch.py`).
+  fix of gold v11. Its module writes the resolution-dependent sites at start-up after
+  checking their bytes; shared navigation handlers use KPM hooks (`testing/regression/Test-KmrpLayoutPatch.py`).
 - **The installer** writes what Windows' installer writes as files: the `.gui` set for the
   resolution (derived when unlisted), and the enlarged feat, power and skill icons
   (`macos/tools/kmrp-abilityicons.c`, byte-identical to `AbilityIconGenerator.cs`,
@@ -111,7 +111,8 @@ States: **done** (behaves as on Windows, checked as stated), **to port**, **n/a*
 
 | Windows | What | Mac |
 | --- | --- | --- |
-| `0x0040AA65`, `0x0040AA85`, `0x005F0C65`, `0x005F0C6F` | screen width and height | **done**: K4 (video mode follows the target), K9 (Retina modes) |
+| `0x0040AA65`, `0x0040AA85` | render width and height | K4 (video mode follows the target), K9 (Retina modes); separate from the menu whitelist below |
+| `0x005F0C65`, `0x005F0C6F` | resolution menu acceptance | **fixed and user-tested 2026-10-02** at 1920x1200: `kmrp_layout.cpp` writes the configured W/H into the first pair of `IsKnownResolution` comparisons at Mac VA `0x10026f1f2` / `0x10026f1ff`; guarded at 76 resolutions. [Audit](../reverse-engineering/macos-resolution-port-audit.md) |
 | `0x00403D6C`, `0x00403D78`, `0x005F5B3B` | movie display mode | **n/a**: Aspyr's Bink player switches no display mode (checked in play, 2026-09-28) |
 | `0x0040B6C7`, `0x0040B6DA`, `0x0040BA6C`, `0x0040BA83` | recentring references `-W`, `-H` | **done**: the widescreen patch with `UseGuiFileLayouts=1` writes `-W`, `-H` at its 20 sites. Clicks land on KMRP's menus at 1512x982 and 3024x1964 (2026-09-29) |
 | `0x0068C4E3`, `0x0068C4F4` | HUD resource selector (which `mipc*.gui` loads) | **done**: the same switch points all five `lea` sites of the `CSWGuiMainInterface` constructor (`0x100233429` … `0x1002334d8`, the only references to the names) at `mipc28x6`, or `mipc210x7` at 3440x1440. The HUD and minimap drew KMRP's layout in both runs |
@@ -145,7 +146,7 @@ States: **done** (behaves as on Windows, checked as stated), **to port**, **n/a*
 
 | Windows | What | Mac |
 | --- | --- | --- |
-| `0x0062540D`, `0x006256DC`, `0x006256F6`, `0x00625759`, `0x00626F95`, install `0x0062540E`, `0x00626F96` | message popup auto-fit caps `450s` / `800s`, icon rect and inset `64s` | **done in code** (`resolution_sizes.cpp`): the four cap tests in `FixMessageLabel` (`0x100306877`, `0x10030687f`, `0x10030688b`, `0x1003068fd`; two compiled as `>=`), the icon offset `0x1003065a1` and the icon's rect `{0, 10, 32, 32}` at `0x100571bb0`. The quit confirmation drew in play with narrow OK and Cancel buttons: the popup auto-sizes buttons from 100 px to fit their label, as Windows' code does at `0x006254AC`, so Windows should look the same; **not yet compared with Windows**. Tutorial popups not yet seen. The `tut_*` icons and `tutorial.2da` are in the per-resolution archive and must stop being excluded by the Mac build |
+| `0x0062540D`, `0x006256DC`, `0x006256F6`, `0x00625759`, `0x00626F95`, install `0x0062540E`, `0x00626F96` | message popup auto-fit caps `450s` / `800s`, icon rect and inset `64s` | **done in code** (`resolution_sizes.cpp`): the four cap tests in `FixMessageLabel` (`0x100306877`, `0x10030687f`, `0x10030688b`, `0x1003068fd`; two compiled as `>=`), the icon offset `0x1003065a1` and the icon's rect `{0, 10, 32, 32}` at `0x100571bb0`. The quit confirmation drew in play with narrow OK and Cancel buttons: the popup auto-sizes buttons from 100 px to fit their label, as Windows' code does at `0x006254AC`, so Windows should look the same; **not yet compared with Windows**. Tutorial popups not yet seen. **Corrected 2026-10-02:** `kmrp-gameart.c` already generates the `tut_*` icons and `tutorial.2da`; the earlier exclusion warning was stale |
 | `FitMessageBoxK1` at `0x006258E2` (`src/controller-native/K1PopupFit.cpp`, since the same evening) | the message popup fitted to its contents | **done on both** (2026-09-30, `popup_fit.cpp`; Windows' seen at 3440x1440, `docs/windows-changes-from-macos.md`, item 1): the message narrows to the least width that keeps its line count and shrinks to its text, the buttons follow it, the panel fits around it with the message's margins, and it keeps its centre. The Exit Game box went from 1,224x711 px to about 880x365 at 3024x1964; the Attributes, Skills and Feats tutorials and the unspent-points box seen fitted in play the same day. Windows the same since the same evening |
 | `0x006DE012`, `0x006DE031`, and `0x006DE08E` with the function's padding at `0x006DE0D1` (Windows since the same evening; `docs/windows-changes-from-macos.md`, item 13) | the Options check boxes: circle, label offset and drop scaled | **done** (2026-09-30, `resolution_sizes.cpp`; the Feedback list's rows grow with them since the same evening, shared build code, `docs/macos-changes-from-windows.md`, item 11): `CSWGuiOptionsCheckbox::SetExtent` (`0x1002cecee`) replaced by the same layout at `25s`, `30s` and `2s`, a 68-px circle at 3024x1964; checked against the binary, not yet seen in play (`docs/windows-changes-from-macos.md`, item 13) |
 | `GrantedPopupFilledK1` at `0x006CE0B0` and `GrantedRowTextK1` at `0x006AB9D5` (`src/controller-native/K1GrantedPopup.cpp`, since the same evening) | the granted popup's rows (`skillinfo.gui`: "You have been granted the following feat(s) this level.") | **done on both** (2026-09-30, `granted_popup.cpp`; Windows' seen at 3440x1440 with one row, item 10): the text inset by an eighth of the row, the hex, highlight and icon grown by a seventh so the hex spans the text frame, and the list cut to its rows at a pitch of the row plus an eleventh (the inventory's list spreads 8 to 10%), with OK and the panel following and the popup centred. At 3024x1964: rows 141 to 125 px apart, hex 97 to 111 px beside a 111-px frame, text 2 to 14 px inside the frame. Windows the same since the same evening |
@@ -180,7 +181,7 @@ did nothing in play, and Aspyr lists controllers for KOTOR II on the Mac only.
 | `K1NativeJoystick.cpp` | the pad into the engine's joystick chain; walking, the camera, L3, Start, R3, A on the target; the menus' focus, remaps, echo and confirm guards; movies; the action bar | **done**, with SDL 3.4.16 as on Windows. Played with a scripted pad and with the maintainer's pad (2026-09-29). The confirm guards in character generation, Solo Mode and resolution: **not yet played** |
 | the same, prompts and GUI cues | button prompts in the pad's family, hidden on mouse and keyboard use; the parked cursor; the cues | **done**: PlayStation art in play; the other three families not yet seen. The cursor is not confined to the window (macOS has no equivalent of `ClipCursor`) |
 | `K1Rumble.cpp` | one mixer for BioWare's patterns, the cut ones and KMRP's | **done** for the saber (read in `rumble.log`); combat events and a real pad's motors **not yet tested** |
-| `K1ControllerLayout.cpp` | the Controller Layout screen and its Gameplay entry; the confirm and dialogue A; the status summary's layout and A | the screen and the confirm A **done** (played 2026-09-29); the dialogue A and the status summary **not yet reached in play** |
+| `K1ControllerLayout.cpp` | the Controller Layout screen and its Gameplay entry; the confirm and dialogue A; the status summary's layout and A (the layout without the controller too: `kmrp-layout/status_summary.cpp`, `StatusSummaryFrameK1`'s counterpart, 2026-10-02) | the screen and the confirm A **done** (played 2026-09-29); the status summary's layout seen in play with the controller (2026-10-01); the dialogue A, its A and the layout without the controller **not yet seen in play** |
 
 ### Windows only
 
@@ -227,3 +228,18 @@ listed under *Area map and minimap*.
   from High Resolution Menus by a blend measured to reproduce upstream's own sets within
   1 px (`testing/regression/Test-ResolutionDerivation.py`), with a font set per new scale.
   The Windows launcher lists them under **macOS**. Not yet run on Windows.
+
+
+## Port audit correction, 2026-10-02
+
+The earlier resolution row combined rendering and menu acceptance and incorrectly
+marked both complete. K4/K9 did not change the separate menu whitelist. The
+[source comparison and live measurement](../reverse-engineering/macos-resolution-port-audit.md)
+record the correction and remaining gaps. In particular, the Windows texture-bucket,
+grass-buffer and save-buffer safety hooks were absent from this tracker. The
+[memory-safety audit](../reverse-engineering/macos-memory-safety-audit.md) now identifies
+implemented texture bounds/maximum protection and defensive grass alias checks.
+Controlled machine-code tests pass; gameplay failure reproduction remains pending. Mac already frees the save-resource
+buffer; adding that Windows free would duplicate cleanup.
+The missing XP text at 1920x1200 also remains unresolved despite the earlier layout
+attempt; neither a structural GUI audit nor a passing hook validator proves it fixed.

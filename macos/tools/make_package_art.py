@@ -3,7 +3,7 @@
 
     python macos/tools/make_package_art.py OUTDIR [VERSION]
 
-writes OUTDIR/Icon.iconset, KMRP's icon on the Mac (the Jedi crest with its lightsaber, cut
+writes OUTDIR/Icon.iconset and OUTDIR/Icon.icns, KMRP's icon on the Mac (the Jedi crest with its lightsaber, cut
 out of the lockup, over "KMRP"), which macos/build.sh makes into KMRP Installer's AppIcon.icns
 and the disk image's .VolumeIcon.icns; and OUTDIR/background.png (640x460) and
 OUTDIR/background@2x.png (1280x920), which it joins into one HiDPI TIFF for Finder. The window holds KMRP Installer on the
@@ -260,7 +260,13 @@ def main() -> int:
     for points in (16, 32, 128, 256, 512):
         icon(points).save(iconset / f"icon_{points}x{points}.png")
         icon(points * 2).save(iconset / f"icon_{points}x{points}@2x.png")
-    print(f"background.png {WIDTH}x{HEIGHT}, background@2x.png {WIDTH * 2}x{HEIGHT * 2}, Icon.iconset")
+    # Pillow writes the same PNG-backed ICNS family directly. On macOS 26.0.1,
+    # iconutil rejects both this complete iconset and an iconset it just extracted
+    # from Apple's QuickTime icon as "Invalid Iconset"; its ICNS decoder accepts
+    # the file Pillow writes here.
+    icon(1024).save(out / "Icon.icns", format="ICNS")
+    print(f"background.png {WIDTH}x{HEIGHT}, background@2x.png {WIDTH * 2}x{HEIGHT * 2}, "
+          "Icon.iconset, Icon.icns")
     return 0
 
 

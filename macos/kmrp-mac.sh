@@ -47,6 +47,7 @@ VANILLA_EXE_SHA="c1fcb8d37c702849882a17751c63ee0af7c2b9cbbc3b31b98a5f0edbc27c6d7
 LOADER="@executable_path/KotorPatcher.dylib"
 INI="$HOME/Library/Application Support/Knights of the Old Republic/swkotor.ini"
 SETTINGS="${INI:h}/kmrp-controller.ini"
+ASPYR_PREFS="$HOME/Library/Preferences/com.aspyr.kotor.steam.plist"
 
 GAME=""
 MAP_NOTES=1
@@ -542,6 +543,26 @@ install_file() {   # install_file <source> <destination directory>
 }
 
 # ---------------------------------------------------------------------- install
+# Explicit plist path keeps stand-in installs confined to their temporary HOME.
+fullscreen_value() { defaults read "$1" DisplayFullScreen 2>/dev/null || true; }
+set_fullscreen() {
+    local old=$(fullscreen_value "$ASPYR_PREFS")
+    [[ "$old" == 1 ]] && return 0
+    record fullscreen "$ASPYR_PREFS" 1 "${old:--}"
+    mkdir -p "${ASPYR_PREFS:h}"
+    defaults write "$ASPYR_PREFS" DisplayFullScreen -bool true
+    [[ "$(fullscreen_value "$ASPYR_PREFS")" == 1 ]] || die "could not enable fullscreen"
+}
+restore_fullscreen() {
+    local target=$1 recorded=$2 backup=$3
+    [[ "$(fullscreen_value "$target")" == "$recorded" ]] || return 0
+    if [[ "$backup" == - ]]; then
+        defaults delete "$target" DisplayFullScreen >/dev/null
+    else
+        defaults write "$target" DisplayFullScreen -bool "$([[ "$backup" == 1 ]] && echo true || echo false)"
+    fi
+}
+
 do_install() {
     find_game; set_paths; refuse_if_running
     [[ -f "$PAYLOAD/SHA256SUMS" ]] || die "the package is incomplete (SHA256SUMS missing)"
@@ -673,6 +694,8 @@ do_install() {
     set_ini UseGuiFileLayouts 1
     set_ini ForceWidth "$WIDTH"
     set_ini ForceHeight "$HEIGHT"
+    say "Making fullscreen the default in Aspyr’s launcher..."
+    set_fullscreen
     if (( CONTROLLER )); then install_settings; fi
 
     say "Installing artwork and the menu set..."
@@ -837,6 +860,8 @@ restore_from_manifest() {   # restore_from_manifest <quiet>
                 fi ;;
             dir)
                 rmdir "$target" 2>/dev/null || true ;;
+            fullscreen)
+                restore_fullscreen "$target" "$recorded" "$backup" ;;
             ini)
                 now=$(ini_value "$target")
                 if [[ "$now" == "$recorded" ]]; then
@@ -854,12 +879,20 @@ restore_from_manifest() {   # restore_from_manifest <quiet>
     return $kept
 }
 
-kpm_holds_only_kmrp() {   # 0 when KPM's patch list and patches/ hold KMRP's patch and nothing else
-    local id module
+kpm_holds_only_kmrp() {   # config, InstalledPatches (including module-less patches), and modules
+    local id module installed patch_state="$MACOS/kpm_install_state.json"
+    local count=0
     [[ -f "$MACOS/patch_config.toml" ]] || return 1
     for id in ${(f)"$(sed -n 's/^id = "\(.*\)"$/\1/p' "$MACOS/patch_config.toml")"}; do
         [[ "$id" == kmrp ]] || return 1
+        (( ++count ))
     done
+    (( count > 0 )) || return 1
+    if [[ -e "$patch_state" || -L "$patch_state" ]]; then
+        # plutil parses JSON; missing/malformed/non-array state must retain the runtime.
+        installed=$(plutil -extract InstalledPatches json -o - "$patch_state" 2>/dev/null) || return 1
+        [[ "$installed" =~ '^\[[[:space:]]*("kmrp"[[:space:]]*(,[[:space:]]*"kmrp"[[:space:]]*)*)?\]$' ]] || return 1
+    fi
     for module in "$MACOS"/patches/*(N); do
         [[ "${module:t}" == kmrp.dylib ]] || return 1
     done
@@ -895,6 +928,7 @@ do_status() {
         while IFS=$'\t' read -r kind target recorded backup; do
             case "$kind" in
                 dir) continue ;;
+                fullscreen) say "Aspyr fullscreen=$(fullscreen_value "$target") (KMRP set $recorded)"; continue ;;
                 ini) say "swkotor.ini: $target=$(ini_value "$target") (KMRP set $recorded)"; continue ;;
                 settings)
                     if [[ ! -f "$target" ]]; then say "${target:t}: removed (the defaults apply)"

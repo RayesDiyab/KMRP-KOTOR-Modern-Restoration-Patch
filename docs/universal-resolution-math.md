@@ -276,18 +276,59 @@ span where wider) and `round(8 × scale)` below the health line. At 1512×982: b
 273, buttons 54×91; at 1920×1080: 300 and 60×100; at 3840×2160: 600 and 119×200.
 
 The bottom HUD clusters retain their existing gold-proportion rule, and the
-centre combat queue remains untouched.
+centre combat queue remains untouched. One lower bound applies to the action
+description: `LBL_ACTIONDESC` must hold up to two wrapped action-name lines and
+its `(SELF)` line, so its height is at least
+`ceil(float32(3 × float32(float32(round(16 × max(1, screen_height / 720)) / 100) × 100)))`.
+This uses the packaged label's `dialogfont16x16`, mirrors font baking and native
+float32 height arithmetic, and reserves 82px at 1920×1200. The earlier 10-pixel
+baseline was incorrect; its historical calculations below are retained as the
+rejected assumption. Its bottom edge stays anchored and
+`LBL_ACTIONDESCBG` retains the gold layout's scaled top and bottom margins.
+Before this lower bound, pure gold-proportion scaling produced boxes of 19, 18,
+17, 18 and 19 px at 800×600, 1024×576, 1920×540, 1036×583 and 1077×606,
+respectively, while two dialogfont10x10 lines require 20 px. This is a numeric
+capacity repair; it has not been observed in game at those sizes. On 2026-10-02
+the maintainer reproduced the `(SELF)`-only result at 1920×1200: a one-line
+Medpac name rendered, while a name wrapping to two lines did not. The original
+38 px box held two 17 px lines, but the wrapped name plus `(SELF)` needs three,
+or 51 px. The three-line lower bound was intended to cover that reproduced case.
+
+**Correction from live Mac measurement, 2026-10-02:** the hovered
+`Adrenal Stamina (self)` label at 1920×1200 actually uses fontheight
+0.270000011, object scale1 and two native lines (lengths15/6), not the assumed
+17-pixel font. Its label, text object and background are all (1617,1034,295,54).
+Bottom alignment0x22 selects the native leading-line skip when its two-line
+height54.0000038 exceeds54. The resource lower bound therefore does not establish
+runtime capacity. Shared Mac `status_summary.cpp` now also fits MainInterface's
+`LBL_ACTIONDESC` (+0xce40) and `LBL_ACTIONDESCBG` (+0xcfd8), vtable0x1005a6220.
+It uses `ceil(float32(fontheight * objectScale * 100) * nativeLineCount)` and
+retains the original bottom anchor and background margins. It restores the
+baseline when the text becomes shorter. Actual viewport/extent changes reset
+the cached baseline. Two lines need55px and three need82px for this font.
+The ignored `../work/xp-20261002/hud.log` records the failing state; the
+synthetic production-code regression verifies grow/shrink, bottom anchor and
+background, while live confirmation of the action-label repair is pending.
+The regenerated 1920×1200 package assigns `dialogfont10x10` in `mipc28x6.gui`
+and `dialogfont16x16` in `maininterface.gui`; GUI assignment alone therefore
+does not prove the live HUD font. The generator now reserves the measured
+16-pixel runtime baseline conservatively, while runtime fitting reads the actual
+font object. The active `mipc28x6.gui` action box is82px after regeneration.
 
 ### Verification and limits
 
 After a full resource build,
-`python testing/regression/Test-GeneratedGuiGeometry.py` opens all 48 packaged
+`python testing/regression/Test-GeneratedGuiGeometry.py` opens all 66 packaged
 GUI archives. For each resolution it proves that the Feedback and Character
 Scripts prototypes are exactly upstream's, the Feedback list keeps its scrollbar
 gutter, the Character Scripts rows are centred in their frame, every direct
 confirmation child stays inside its panel, the HUD file KOTOR actually selects
 contains the exact height-scaled gold extents for all twelve transient
-controls, and the R3 party-switch cue is sized and placed by its rule. On
+controls, the five visible main-menu buttons form a complete Up/Down cycle by
+their IDs while the hidden Warp button has no navigation, and the R3
+party-switch cue is sized and placed by its rule. The main-menu check resolves
+IDs per file because `mainmenu.gui` gives Exit ID 12 and Warp ID 13 while the
+four aspect variants reverse those two IDs. On
 2026-09-05 the 3840×2160 package was installed through `--in-place`; the
 installed `optfeedback.gui` and `mipc28x6.gui` matched their archive members
 byte-for-byte, and the patched executable was then 4,083,712 bytes with SHA-256
@@ -488,7 +529,68 @@ two-set derivation of 2880x1620 within 1 px (86.1% of fields identical).
   the installer of 2026-09-25, `4EF3C181…`.
 - The remaining resolutions still require representative in-game play testing because structural verification cannot prove how every module and GPU driver renders them.
 - The Feedback prototype and active transient-HUD geometry are checked directly
-  in all 48 packaged archives by
+  in all 66 packaged archives by
   `testing/regression/Test-GeneratedGuiGeometry.py`; the installed 3840×2160
   files were hash-verified, but their reported scenarios still need visual
   in-game confirmation.
+
+
+### Mac action-height correction moved upstream, 2026-10-02
+
+The maintainer's new-DMG test reproduced the failure. Diagnostic logs showed
+GUI-frame fitting54→55px and HUD draw entry55px, but the actual label-draw
+entry54px. The earlier action-specific frame pass was overwritten before text
+rendering and has now been removed. The status-summary width/row repair remains.
+
+Clean Aspyr1.4.0 x86_64,6333424bytes,
+SHA256 `c1fcb8d37c702849882a17751c63ee0af7c2b9cbbc3b31b98a5f0edbc27c6d71`;
+preferred VA, FILE=VA−0x100000000. `CSWGuiText::GetIdealHeight`0x1004a3dc4
+calls `CAurGUIStringInternal::GetIdealPixelHeight`0x1001bc412. The action routine
+0x1002355e6 calls that getter at0x100235636, then computes y=bottom−height and
+sets both text/background extents. Its current-width path calculates
+`(fontheight + spacingB) * 100 * objectScale * nativeLineCount`, adds0.5,
+then truncates;54.0000038 therefore becomes54. The renderer needs at least55.
+
+Four guarded core REPLACE hooks now perform SSE2 upward rounding at the native
+quantization stages, preserving RAX, RFLAGS and XMM2 and replaying other stolen
+instructions. No action-description offsets or resolution-specific heights are
+needed in the runtime correction.
+
+| VA | FILE | Original8bytes | Purpose |
+| --- | --- | --- | --- |
+| 0x1001bc4a4 | 0x1bc4a4 | f30f58c1f30f2cc0 | Explicit-width query: ceil base line pixels, replay conversion to EAX |
+| 0x1001bc4ba | 0x1bc4ba | f30f58c1488b7dc0 | Explicit-width query: ceil scaled line pixels, replay load RDI |
+| 0x1001bc52c | 0x1bc52c | f30f580d90b83700 | Current wrapping: ceil total height before integer conversion |
+| 0x1001bc5d1 | 0x1bc5d1 | f30f580debb73700 | Newly computed wrapping: ceil total height before integer conversion |
+
+For finite height h, each payload truncates h to an integer, compares h with
+that integer converted back to float, increments if h is greater, then converts
+back to float. Thus integer heights stay unchanged. Explicit-width queries retain
+the engine's existing per-line quantization stages and may conservatively allocate
+more than ceiling the total: the measured27.0000019px font can produce56px for
+two queried lines, while the current-wrap total gives55px. This is intentional
+capacity rather than a claim of identical results between native branches.
+`Test-MacTextHeight.py` verifies clean guards and executes all four shipped
+ceiling payloads under Rosetta with zero, exact and fractional heights, preserving
+flags/XMM2. The isolated diagnostic run (`hud-upstream.log`) confirms that
+`Adrenal Stamina (self)` keeps two native lines in a55px text/background box
+at GUI update, HUD draw and label draw; `Medpac (self) (2)` keeps one line
+in28px. The previous54px reset is absent at label draw. Visual confirmation
+and broader menu layout testing remain pending.
+
+The exit-confirmation test exposed a required companion correction. A three-second
+process sample (`/tmp/kmrp-upstream-exit-sample.txt`, diagnostic PID8887) puts the
+game thread inside `CSWGuiMessageBox::FixMessageLabel`0x100306552, repeatedly
+widening the button at0x10030665b. Its loop compares `GetIdealHeight` with
+`GetFontHeight` and requires equality. The latter calls
+`CAurGUIStringInternal::GetFontPixelHeight`0x1001bc076, which retained nearest
+rounding at0x1001bc091. Single-line ideal height therefore rounded upward while
+font height did not, preventing termination. A fifth guarded REPLACE hook at
+0x1001bc091 (FILE0x1bc091, original `f30f58052bbd3700`) now ceilings XMM0
+before the existing conversion. The executable payload regression covers all
+five sites; the confirmation dialog must still be retested in game.
+
+Maintainer confirmation, 2026-10-02: the final rebuilt package works in the actual
+game for the two-line action name, Exit Game and Scripts-menu Enter. This closes
+the reported action clipping and exit-confirmation play-test checks; broader
+menu/resolution coverage remains unverified.
