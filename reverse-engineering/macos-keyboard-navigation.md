@@ -4,7 +4,9 @@ This reference follows [the documentation standard](../docs/documentation-standa
 This records the loader repair and follow-up keyboard/mouse fixes. The user verified main-menu and top-level Options fixes at 1920x1200, then
 reported unreachable submenu controls. The user confirmed the shared live-graph
 repair works, then requested Left/Right within horizontal button rows. That
-row-navigation refinement and Feedback list boundary handoff are user-confirmed. No commit has been made.
+row-navigation refinement and Feedback list boundary handoff are user-confirmed.
+**Status correction, 2026-10-03:** these changes are committed in PR #27 and
+merged locally as `1c18bef`; the earlier "No commit has been made" status is stale.
 
 ## Build and address convention
 
@@ -164,7 +166,10 @@ No 1920x1200 constant is used. **Rejected candidate:** replacing only the call a
 `0x100026535` missed the second cursor path; the pointer still stopped at 981.
 Both paths reach `0x100028581`, where the current hook is installed. The next
 probe measured (977,1058) inside Close with Close as the hovered control,
-confirming the corrected extent. The user then confirmed Close works with the final combined changes. XP text is a separate unresolved task.
+confirming the corrected extent. The user then confirmed Close works with the final combined changes.
+**Status correction, 2026-10-03:** XP was a separate unresolved task at this
+stage; the subsequent native-wrap/height repair was confirmed at 1920×1200.
+See the [status-summary evidence](custom-gui-controls.md).
 
 Manual verification: traverse the five main-menu buttons in both directions,
 including wraparound; enter Options, reach and activate Close; leave the pointer
@@ -195,3 +200,10 @@ The resolution-menu acceptance fix touches separate comparison operands and does
 not load MOVETO, connect disconnected controls, change mouse focus or resize the
 cursor clamp. It does not supersede these repairs. See the
 [Windows port comparison](macos-resolution-port-audit.md).
+
+**Windows source port, 2026-10-03:** row traversal, list boundaries, and a
+stationary-mouse latch now have core Windows hooks and synthetic layout coverage.
+They leave controller traversal and shared MOVETO links unchanged. The Windows
+main-menu loader already supplied correct links in the live measurement; the
+Mac loader/clamp/Close-flag patches are not copied. Physical-keyboard play
+verification remains pending. See the [Windows reference](windows-keyboard-navigation.md).

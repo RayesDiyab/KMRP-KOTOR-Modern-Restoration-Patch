@@ -62,3 +62,6 @@ EXPORTS
     FitMessageBoxK1
     GrantedPopupFilledK1
     GrantedRowTextK1
+    KeyboardNavigateK1
+    KeyboardListBoundaryK1
+    KeyboardKeepFocusK1

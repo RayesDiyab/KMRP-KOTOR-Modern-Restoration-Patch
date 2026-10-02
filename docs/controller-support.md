@@ -116,9 +116,14 @@ it. Which hook goes where is the `install` key in
 
 | Set | Hooks | Installed |
 | --- | --- | --- |
-| core (`always`) | the movie window's two (`NativeMovieWindowOpenK1`, `NativeMovieWindowCloseK1`), the four memory-safety byte patches, `NativeFreeSaveBufferK1`, and since 2026-09-30 the popup fit (`FitMessageBoxK1`) and the granted popup's two (`GrantedPopupFilledK1`, `GrantedRowTextK1`) | always, first in the table |
-| controller | the other 30 detours, including `NativeGuiFrameK1` and `NativeMovieFrameK1` | with the option on: 40 hooks in all (37 until 2026-09-30) |
-| core stand-ins (`no-controller`) | `CoreGuiFrameK1` at `0x0040CE70` (mouse confinement, the status summary's layout) and `CoreMovieFrameK1` at `0x00404D96` (the movie bars) | with the option off: 12 hooks in all (9 until 2026-09-30) |
+| core (`always`) | the movie window's two, four memory-safety byte patches, `NativeFreeSaveBufferK1`, three popup hooks, and three keyboard hooks (`KeyboardNavigateK1`, `KeyboardListBoundaryK1`, `KeyboardKeepFocusK1`) | 13, always |
+| controller | the other 30 detours, including `NativeGuiFrameK1` and `NativeMovieFrameK1` | with the option on: 43 hooks in all (40 before the 2026-10-03 keyboard source port) |
+| core stand-ins (`no-controller`) | `CoreGuiFrameK1` at `0x0040CE70` (mouse confinement, the status summary's layout) and `CoreMovieFrameK1` at `0x00404D96` (the movie bars) | with the option off: 15 hooks in all (12 before the keyboard source port) |
+
+The keyboard source port accepts keyboard arrow aliases, computes neighbours
+without changing shared links, and leaves controller traversal unchanged. Its
+synthetic layout tests pass; physical-keyboard and live mouse/controller checks
+remain pending. See the [Windows reference](../reverse-engineering/windows-keyboard-navigation.md).
 
 The core goes first because KPM's runtime stops at the first hook that fails.
 With the option off nothing reads the pad, draws a prompt or rumbles. The files
@@ -236,6 +241,12 @@ every option on (since the popups of 2026-09-30, `kmrp` 10 and 40 in all, 12 wit
 controller off) -- the same 37 sites, with `CoreGuiFrameK1` and `CoreMovieFrameK1`
 in place of `NativeGuiFrameK1` and `NativeMovieFrameK1`, which hand over to KMRP
 Controller's frames -- and 9 with the controller off.
+
+**Current count, 2026-10-03:** the keyboard source port adds three core hooks.
+Derived from `kmrp_controller.kpm_patch_hooks`, `kmrp` now has 13 runtime hooks,
+`kmrp-controller` 28, and `kmrp-movies` 2: 43 with controller support, 15 without.
+CD/GOG's separate static large-address header hook is additional. The preceding
+37/40/9/12 counts describe older tables, not this candidate.
 
 The table's size over time, counted from its `[[hooks]]` blocks at each commit
 that changed it: 29 entries on 2026-09-24 (`137fd5d`; 25 detours, 4 `replace`);

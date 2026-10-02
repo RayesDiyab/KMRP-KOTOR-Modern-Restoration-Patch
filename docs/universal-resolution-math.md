@@ -280,7 +280,7 @@ centre combat queue remains untouched. One lower bound applies to the action
 description: `LBL_ACTIONDESC` must hold up to two wrapped action-name lines and
 its `(SELF)` line, so its height is at least
 `ceil(float32(3 × float32(float32(round(16 × max(1, screen_height / 720)) / 100) × 100)))`.
-This uses the packaged label's `dialogfont16x16`, mirrors font baking and native
+This uses the 16-pixel conservative baseline, mirrors font baking and native
 float32 height arithmetic, and reserves 82px at 1920×1200. The earlier 10-pixel
 baseline was incorrect; its historical calculations below are retained as the
 rejected assumption. Its bottom edge stays anchored and
@@ -300,20 +300,28 @@ or 51 px. The three-line lower bound was intended to cover that reproduced case.
 17-pixel font. Its label, text object and background are all (1617,1034,295,54).
 Bottom alignment0x22 selects the native leading-line skip when its two-line
 height54.0000038 exceeds54. The resource lower bound therefore does not establish
-runtime capacity. Shared Mac `status_summary.cpp` now also fits MainInterface's
+runtime capacity. The first shared Mac `status_summary.cpp` candidate fitted MainInterface's
 `LBL_ACTIONDESC` (+0xce40) and `LBL_ACTIONDESCBG` (+0xcfd8), vtable0x1005a6220.
-It uses `ceil(float32(fontheight * objectScale * 100) * nativeLineCount)` and
-retains the original bottom anchor and background margins. It restores the
-baseline when the text becomes shorter. Actual viewport/extent changes reset
+It used `ceil(float32(fontheight * objectScale * 100) * nativeLineCount)` and
+retained the original bottom anchor and background margins. It restored the
+baseline when the text became shorter. Actual viewport/extent changes reset
 the cached baseline. Two lines need55px and three need82px for this font.
 The ignored `../work/xp-20261002/hud.log` records the failing state; the
-synthetic production-code regression verifies grow/shrink, bottom anchor and
-background, while live confirmation of the action-label repair is pending.
+synthetic regression for that candidate verified grow/shrink, bottom anchor and
+background. **Correction, 2026-10-03:** this frame-fitting candidate failed its
+subsequent play-test because native layout reset 55px to 54px before drawing.
+It was removed and replaced by the shared native getter repair documented
+below, including the companion font-height getter. The maintainer confirmed
+the final action name and Exit Game on 2026-10-02.
 The regenerated 1920×1200 package assigns `dialogfont10x10` in `mipc28x6.gui`
 and `dialogfont16x16` in `maininterface.gui`; GUI assignment alone therefore
 does not prove the live HUD font. The generator now reserves the measured
-16-pixel runtime baseline conservatively, while runtime fitting reads the actual
-font object. The active `mipc28x6.gui` action box is82px after regeneration.
+16-pixel runtime baseline conservatively, while the Mac native getters calculate
+height from the actual font object. The active `mipc28x6.gui` action box is82px
+after regeneration. The Windows build regenerated all 66 archives on 2026-10-03
+and passed geometry/installed-resource checks; Windows live font metrics,
+clipping and controller gameplay remain unverified. See the
+[Windows build and verification record](handoffs/windows-text-clipping-2026-10-02.md).
 
 ### Verification and limits
 
@@ -575,8 +583,9 @@ ceiling payloads under Rosetta with zero, exact and fractional heights, preservi
 flags/XMM2. The isolated diagnostic run (`hud-upstream.log`) confirms that
 `Adrenal Stamina (self)` keeps two native lines in a55px text/background box
 at GUI update, HUD draw and label draw; `Medpac (self) (2)` keeps one line
-in28px. The previous54px reset is absent at label draw. Visual confirmation
-and broader menu layout testing remain pending.
+in28px. The previous54px reset is absent at label draw. At that diagnostic stage,
+visual confirmation and broader menu layout testing were pending; the dated
+maintainer confirmation below closes the action-name and Exit Game checks.
 
 The exit-confirmation test exposed a required companion correction. A three-second
 process sample (`/tmp/kmrp-upstream-exit-sample.txt`, diagnostic PID8887) puts the
@@ -588,7 +597,8 @@ rounding at0x1001bc091. Single-line ideal height therefore rounded upward while
 font height did not, preventing termination. A fifth guarded REPLACE hook at
 0x1001bc091 (FILE0x1bc091, original `f30f58052bbd3700`) now ceilings XMM0
 before the existing conversion. The executable payload regression covers all
-five sites; the confirmation dialog must still be retested in game.
+five sites. At that diagnostic stage, the confirmation dialog still required
+retesting; the maintainer confirmation below records the subsequent result.
 
 Maintainer confirmation, 2026-10-02: the final rebuilt package works in the actual
 game for the two-line action name, Exit Game and Scripts-menu Enter. This closes

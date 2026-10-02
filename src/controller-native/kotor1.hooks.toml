@@ -33,6 +33,77 @@ target_versions = [
 # controller's frame when KMRP Controller is installed (K1NativeJoystick.cpp).
 # "kmrp-movies" marks the movie window's hooks, which belong to KMRP Movies.
 
+# Keyboard navigation is core behavior, independent of the controller option.
+# CSWGuiNavigable::HandleInputEvent: mov eax,[esp+8] / test eax,eax.
+# Handled events become the unused 0x41; the original entry remains intact.
+[[hooks]]
+address = 0x0041A9D0
+type = "detour"
+install = "always"
+function = "KeyboardNavigateK1"
+original_bytes = [0x8B, 0x44, 0x24, 0x08, 0x85, 0xC0]
+skip_original_bytes = false
+exclude_from_restore = []
+
+[[hooks.parameters]]
+source = "ecx"
+type = "pointer"
+
+[[hooks.parameters]]
+source = "esp+4"
+type = "pointer"
+
+[[hooks.parameters]]
+source = "esp+8"
+type = "pointer"
+
+# Lists retain native interior selection; keyboard arrows leave at a boundary.
+# Same six-byte entry, with handled events made inert before native dispatch.
+[[hooks]]
+address = 0x0041CE20
+type = "detour"
+install = "always"
+function = "KeyboardListBoundaryK1"
+original_bytes = [0x8B, 0x44, 0x24, 0x08, 0x85, 0xC0]
+skip_original_bytes = false
+exclude_from_restore = []
+
+[[hooks.parameters]]
+source = "ecx"
+type = "pointer"
+
+[[hooks.parameters]]
+source = "esp+4"
+type = "pointer"
+
+[[hooks.parameters]]
+source = "esp+8"
+type = "pointer"
+
+# GUI mouse hit testing, after coordinate storage and 3D cursor processing.
+# mov ecx,[esi+0x10] / test ecx,ecx; the consumed exit unwinds this exact frame.
+[[hooks]]
+address = 0x0040C24E
+type = "detour"
+install = "always"
+function = "KeyboardKeepFocusK1"
+original_bytes = [0x8B, 0x4E, 0x10, 0x85, 0xC9]
+skip_original_bytes = false
+consumed_exit_address = 0x0040C55A
+exclude_from_restore = ["eax"]
+
+[[hooks.parameters]]
+source = "esi"
+type = "pointer"
+
+[[hooks.parameters]]
+source = "ebx"
+type = "int"
+
+[[hooks.parameters]]
+source = "edi"
+type = "int"
+
 # Capture raw keyboard input before KOTOR applies its key bindings.
 [[hooks]]
 address = 0x005E271E

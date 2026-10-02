@@ -534,15 +534,20 @@ would fail either way, which is the conflict KPM's own byte checks are for.
 
 | file | id | hooks | requires | conflicts |
 | --- | --- | --- | --- | --- |
-| `KMRP.kpatch` | `kmrp` | 7: `CoreGuiFrameK1`, `CoreMovieFrameK1` and the five memory-safety hooks; its module applies the executable changes. On CD 1.03 also the large-address flag, a static hook | none | `hud-minimap-map-size-fix-v1`, `scaled-kotor`, and the four KPM patches whose fixes it makes: `4gb-patch`, `grass-memory-safety`, `save_mem_leak`, `texture-bucket-safety` |
+| `KMRP.kpatch` | `kmrp` | 13: two core frames, five memory-safety hooks, three popup hooks, and three keyboard hooks; its module applies the engine recipe. CD/GOG also carry the separate static large-address header hook | none | `hud-minimap-map-size-fix-v1`, `scaled-kotor`, and the four KPM patches whose fixes it makes: `4gb-patch`, `grass-memory-safety`, `save_mem_leak`, `texture-bucket-safety` |
 | `KMRP Controller.kpatch` | `kmrp-controller` | 28: the controller set, less the two frames the core holds, the movie window's two and the memory-safety five | `kmrp` | `expanded-keyboard-control`, `xbox-controls-k1` |
 | `KMRP Movies.kpatch` | `kmrp-movies` | 2: `NativeMovieWindowOpenK1`, `NativeMovieWindowCloseK1`; selects the movie runs | `kmrp` | `better-movie-playback-v1` |
 | `KMRP Map Notes.kpatch` | `kmrp-map-notes` | none; selects the `.kmn` flag | `kmrp` | none |
 
-Every patch supports CD 1.03 (`kotor1_cdcrack_103`) and Steam's executable
-(`kotor1_steam_103`). With all four ticked the hooked sites are the standalone's 37
-with the controller on, and the executable is the standalone's with its marker
-fixes on -- on CD 1.03 including the large-address flag.
+Every patch supports CD 1.03 (`kotor1_cdcrack_103`), GOG (`kotor1_gog_103`), and
+Steam (`kotor1_steam_103`). With all four ticked there are 43 runtime hook sites;
+turning controller support off leaves 15. These counts are derived from
+`kmrp_controller.kpm_patch_hooks`, excluding the CD/GOG static header hook.
+**Correction, 2026-10-03:** the earlier table's core count of 7 omitted the three
+popup hooks added on 2026-09-30. The keyboard source port adds three more core
+hooks, independent of controller support; its physical-keyboard and live mouse/
+controller checks remain pending. See the
+[Windows reference](../reverse-engineering/windows-keyboard-navigation.md).
 
 **Why KMRP carries the memory fixes itself.** KPM 0.7.1 has one `requires` list per
 patch, checked the same on every game version (`ManifestParser.cs`,

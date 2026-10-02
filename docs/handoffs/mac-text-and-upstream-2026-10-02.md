@@ -33,9 +33,16 @@ At1920×1200, diagnostic measurements show `Adrenal Stamina (self)` retains
 The first upstream diagnostic hung while opening exit confirmation. A process
 sample identifies the button-width loop comparing ideal height against font
 height. The companion font-height ceiling hook was added afterward; termination
-has not yet been play-tested. The latest DMG includes that companion hook.
+had not yet been play-tested at this diagnostic stage. The latest DMG includes
+that companion hook; the dated maintainer confirmation below records the
+subsequent successful Exit Game test.
 
-## Next checks
+## Original verification checklist
+
+**Status correction, 2026-10-03:** the maintainer subsequently confirmed the
+two-line action name, Exit Game and Scripts-menu Enter, as recorded below.
+Broader resolutions, controller selection, other confirmation dialogs and
+individual Cancel/Exit paths still need separately recorded coverage.
 
 1. Close the old frozen diagnostic process before launching the corrected copy.
 2. At1920×1200, confirm the full blue action name and `(SELF)` are visible for

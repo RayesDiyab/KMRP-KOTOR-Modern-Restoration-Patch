@@ -109,11 +109,19 @@ proxy, and it applies the executable changes above as well.
 
 ## [Unreleased]
 
+- Ported the Mac row traversal, list-boundary handoff, and stationary-mouse
+  focus mechanism to Windows core hooks, independently of the controller option.
+  Keyboard aliases alone enter the repair; controller traversal and shared MOVETO
+  links remain unchanged. Synthetic Windows-layout tests pass at five heights.
+  Physical-keyboard and live controller/mouse verification remain pending; this
+  is not yet a verified fix for the reported Windows keyboard failure. See the
+  [Windows navigation reference](reverse-engineering/windows-keyboard-navigation.md).
+
 - Mac uninstall now checks KPM’s `InstalledPatches` state before removing a runtime taken over by KPM. Byte-only foreign patches retain their runtime; invalid state also prevents removal.
 
-- Integrated FTD's Mac Scripts-menu Enter callback fix: dismissing the Combat Scripts tutorial should leave Scripts open. Clean executable bytes and hook compatibility are verified; in-game tutorial/selection testing remains pending. His new GUI-layout writers overlap KMRP's existing guarded layout patches and are not enabled alongside them.
+- Integrated FTD's Mac Scripts-menu Enter callback fix: dismissing the Combat Scripts tutorial leaves Scripts open. Clean executable bytes and hook compatibility are verified. **Status correction, 2026-10-03:** the maintainer confirmed Scripts-menu Enter in game on 2026-10-02; broader mouse/controller selection remains unverified. His new GUI-layout writers overlap KMRP's existing guarded layout patches and are not enabled alongside them.
 
-- macOS native ideal-text-height calculations now round upward at their existing quantization stages. The previous action-label frame adjustment was removed after a play-test showed native layout overwrote it before rendering. The correction uses the resolution-scaled font, object scale and wrapped line count. The font-height getter uses the same upward rounding so confirmation-button sizing can terminate; draw-time bounds are verified, with visual and exit-dialog retesting pending.
+- macOS native ideal-text-height calculations now round upward at their existing quantization stages. The previous action-label frame adjustment was removed after a play-test showed native layout overwrote it before rendering. The correction uses the resolution-scaled font, object scale and wrapped line count. The font-height getter uses the same upward rounding so confirmation-button sizing can terminate. **Status correction, 2026-10-03:** the maintainer confirmed the final two-line action name and Exit Game in game on 2026-10-02; broader resolution/controller gameplay remains unverified. These native hooks are Mac-only; the Windows port is unfinished.
 
 - macOS status-summary popups now choose text widths using native wrapping and round the rendered height upward. XP text at 1920×1200 no longer depends on an underestimated glyph-width calculation; rows that must wrap expand vertically, with OK below them. Automated coverage passes; the maintainer confirmed the XP popup in game at 1920×1200.
 
@@ -152,14 +160,17 @@ proxy, and it applies the executable changes above as well.
   and an iconset it had extracted from Apple's QuickTime icon, stopping the app,
   ZIP and disk-image build before signing.
 
-- The HUD action description now keeps enough height for a name wrapping to two
-  lines plus its `(SELF)` line. At 800×600, 1024×576, 1920×540 and the 1036×583/1077×606
-  blends, gold-proportion scaling made the box 1–3 px shorter than two 10 px font
-  lines; the engine can then retain only `(SELF)`. The generated box now has a
-  three-line lower bound, remains bottom-anchored, and expands its background with
-  the same scaled vertical margins. At 1920×1200, a one-line Medpac name rendered
-  but a name wrapping to two lines disappeared, leaving `(SELF)`; the original
-  38 px box held two 17 px lines, while the wrapped name plus `(SELF)` needs 51 px.
+- The generated HUD action description reserves three lines using the shared
+  `max(1, height / 720)` scale, a 16-pixel baseline and upward-rounded float32
+  height arithmetic. It remains bottom-anchored and expands its background with
+  the same scaled margins. **Correction, 2026-10-03:** the earlier entry assumed
+  10-pixel font lines and a 51-pixel requirement at 1920×1200. Live Mac measurement
+  instead found 27.0000019-pixel lines: two require 55px and three require 82px.
+  The rebuilt Windows archives reserve 48px at 800×600/1280×720, 82px at
+  1920×1200, 96px at 3440×1440 and 144px at 3840×2160. All 66 archives pass
+  geometry checks; these resource measurements do not establish Windows' live
+  font metrics or fix native height rounding. See the
+  [Windows verification record](docs/handoffs/windows-text-clipping-2026-10-02.md).
 
 - The generated-GUI regression now checks keyboard/controller Up and Down
   navigation through all five main-menu layouts in every resolution archive.
