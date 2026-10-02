@@ -276,18 +276,59 @@ span where wider) and `round(8 × scale)` below the health line. At 1512×982: b
 273, buttons 54×91; at 1920×1080: 300 and 60×100; at 3840×2160: 600 and 119×200.
 
 The bottom HUD clusters retain their existing gold-proportion rule, and the
-centre combat queue remains untouched.
+centre combat queue remains untouched. One lower bound applies to the action
+description: `LBL_ACTIONDESC` must hold up to two wrapped action-name lines and
+its `(SELF)` line, so its height is at least
+`ceil(float32(3 × float32(float32(round(16 × max(1, screen_height / 720)) / 100) × 100)))`.
+This uses the packaged label's `dialogfont16x16`, mirrors font baking and native
+float32 height arithmetic, and reserves 82px at 1920×1200. The earlier 10-pixel
+baseline was incorrect; its historical calculations below are retained as the
+rejected assumption. Its bottom edge stays anchored and
+`LBL_ACTIONDESCBG` retains the gold layout's scaled top and bottom margins.
+Before this lower bound, pure gold-proportion scaling produced boxes of 19, 18,
+17, 18 and 19 px at 800×600, 1024×576, 1920×540, 1036×583 and 1077×606,
+respectively, while two dialogfont10x10 lines require 20 px. This is a numeric
+capacity repair; it has not been observed in game at those sizes. On 2026-10-02
+the maintainer reproduced the `(SELF)`-only result at 1920×1200: a one-line
+Medpac name rendered, while a name wrapping to two lines did not. The original
+38 px box held two 17 px lines, but the wrapped name plus `(SELF)` needs three,
+or 51 px. The three-line lower bound was intended to cover that reproduced case.
+
+**Correction from live Mac measurement, 2026-10-02:** the hovered
+`Adrenal Stamina (self)` label at 1920×1200 actually uses fontheight
+0.270000011, object scale1 and two native lines (lengths15/6), not the assumed
+17-pixel font. Its label, text object and background are all (1617,1034,295,54).
+Bottom alignment0x22 selects the native leading-line skip when its two-line
+height54.0000038 exceeds54. The resource lower bound therefore does not establish
+runtime capacity. Shared Mac `status_summary.cpp` now also fits MainInterface's
+`LBL_ACTIONDESC` (+0xce40) and `LBL_ACTIONDESCBG` (+0xcfd8), vtable0x1005a6220.
+It uses `ceil(float32(fontheight * objectScale * 100) * nativeLineCount)` and
+retains the original bottom anchor and background margins. It restores the
+baseline when the text becomes shorter. Actual viewport/extent changes reset
+the cached baseline. Two lines need55px and three need82px for this font.
+The ignored `../work/xp-20261002/hud.log` records the failing state; the
+synthetic production-code regression verifies grow/shrink, bottom anchor and
+background, while live confirmation of the action-label repair is pending.
+The regenerated 1920×1200 package assigns `dialogfont10x10` in `mipc28x6.gui`
+and `dialogfont16x16` in `maininterface.gui`; GUI assignment alone therefore
+does not prove the live HUD font. The generator now reserves the measured
+16-pixel runtime baseline conservatively, while runtime fitting reads the actual
+font object. The active `mipc28x6.gui` action box is82px after regeneration.
 
 ### Verification and limits
 
 After a full resource build,
-`python testing/regression/Test-GeneratedGuiGeometry.py` opens all 48 packaged
+`python testing/regression/Test-GeneratedGuiGeometry.py` opens all 66 packaged
 GUI archives. For each resolution it proves that the Feedback and Character
 Scripts prototypes are exactly upstream's, the Feedback list keeps its scrollbar
 gutter, the Character Scripts rows are centred in their frame, every direct
 confirmation child stays inside its panel, the HUD file KOTOR actually selects
 contains the exact height-scaled gold extents for all twelve transient
-controls, and the R3 party-switch cue is sized and placed by its rule. On
+controls, the five visible main-menu buttons form a complete Up/Down cycle by
+their IDs while the hidden Warp button has no navigation, and the R3
+party-switch cue is sized and placed by its rule. The main-menu check resolves
+IDs per file because `mainmenu.gui` gives Exit ID 12 and Warp ID 13 while the
+four aspect variants reverse those two IDs. On
 2026-09-05 the 3840×2160 package was installed through `--in-place`; the
 installed `optfeedback.gui` and `mipc28x6.gui` matched their archive members
 byte-for-byte, and the patched executable was then 4,083,712 bytes with SHA-256
@@ -488,7 +529,7 @@ two-set derivation of 2880x1620 within 1 px (86.1% of fields identical).
   the installer of 2026-09-25, `4EF3C181…`.
 - The remaining resolutions still require representative in-game play testing because structural verification cannot prove how every module and GPU driver renders them.
 - The Feedback prototype and active transient-HUD geometry are checked directly
-  in all 48 packaged archives by
+  in all 66 packaged archives by
   `testing/regression/Test-GeneratedGuiGeometry.py`; the installed 3840×2160
   files were hash-verified, but their reported scenarios still need visual
   in-game confirmation.

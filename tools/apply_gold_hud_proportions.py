@@ -35,6 +35,8 @@ at 3440x1440. They scale with KMRP's font/HUD rule instead:
 from __future__ import annotations
 
 import argparse
+import math
+import struct
 from decimal import Decimal, ROUND_HALF_UP
 from pathlib import Path
 
@@ -44,6 +46,8 @@ from pykotor.resource.type import ResourceType
 
 GOLD_WIDTH = 3440
 GOLD_HEIGHT = 1440
+ACTION_DESCRIPTION_LINE_AT_720 = 16.0
+ACTION_DESCRIPTION_LINES = 3
 
 BOTTOM_LEFT_TAGS = (
     "LBL_MOULDING1", "LBL_MOULDING2", "TB_PAUSE", "TB_SOLO", "TB_STEALTH",
@@ -204,6 +208,44 @@ def placed_top_left(gold: tuple[int, int, int, int], scale: float) -> tuple[int,
     return tuple(round_half_up(value * scale) for value in gold)
 
 
+def action_description_extents(gold: dict[str, tuple[int, int, int, int]],
+                               target_width: int, target_height: int
+                               ) -> dict[str, tuple[int, int, int, int]]:
+    """Bottom-right description with room for a wrapped name and ``(SELF)``.
+
+    A name that wraps to two lines plus ``(SELF)`` needs three font lines. Gold
+    scaling leaves only two at 1920x1200 and less than two at several low-height
+    sizes. Keep the text box's bottom anchor, clamp it to three current-font
+    lines, and retain gold's scaled vertical margins in its background.
+    """
+    desc_tag, background_tag = "LBL_ACTIONDESC", "LBL_ACTIONDESCBG"
+    if desc_tag not in gold or background_tag not in gold:
+        return {}
+    scale = target_height / GOLD_HEIGHT
+    desc = list(placed(gold[desc_tag], scale, target_width, target_height, True))
+    # maininterface.gui assigns dialogfont16x16, confirmed in packaged resources
+    # and the live Mac text object. Mirror float32 TXI parsing and draw arithmetic
+    # before ceiling the total, so three nominal 27px lines get 82px, not 81.
+    line = max(1, round(ACTION_DESCRIPTION_LINE_AT_720 *
+                        max(1.0, target_height / 720.0)))
+    f32 = lambda value: struct.unpack("<f", struct.pack("<f", value))[0]
+    native_height = f32(f32(line / 100.0) * 100.0)
+    minimum = math.ceil(f32(native_height * ACTION_DESCRIPTION_LINES))
+    if desc[3] < minimum:
+        bottom = desc[1] + desc[3]
+        desc[1], desc[3] = bottom - minimum, minimum
+
+    background = list(placed(gold[background_tag], scale, target_width, target_height, True))
+    gold_desc, gold_background = gold[desc_tag], gold[background_tag]
+    top_margin = round_half_up((gold_desc[1] - gold_background[1]) * scale)
+    bottom_margin = round_half_up(
+        (gold_background[1] + gold_background[3] - gold_desc[1] - gold_desc[3]) * scale
+    )
+    background[1] = desc[1] - top_margin
+    background[3] = top_margin + desc[3] + bottom_margin
+    return {desc_tag: tuple(desc), background_tag: tuple(background)}
+
+
 def apply_proportions(gold_path: Path, source: Path, output: Path,
                       target_width: int, target_height: int) -> int:
     gold = gold_extents(gold_path)
@@ -211,6 +253,7 @@ def apply_proportions(gold_path: Path, source: Path, output: Path,
     bottom_scale = target_height / GOLD_HEIGHT
     transient_scale = max(1.0, target_height / 720.0) / 2.0
     target_menu = target_menu_extents(gold, target_height)
+    action_description = action_description_extents(gold, target_width, target_height)
     changed = 0
 
     for control in walk_controls(gui):
@@ -224,7 +267,8 @@ def apply_proportions(gold_path: Path, source: Path, output: Path,
         extent = control.get_struct("EXTENT")
         if extent is None:
             continue
-        values = (target_menu[tag] if tag in target_menu else
+        values = (action_description[tag] if tag in action_description else
+                  target_menu[tag] if tag in target_menu else
                   placed_top_left(gold[tag], transient_scale) if transient else
                   placed(gold[tag], bottom_scale, target_width, target_height, anchor_right))
         for field, value in zip(("LEFT", "TOP", "WIDTH", "HEIGHT"), values, strict=True):

@@ -109,6 +109,60 @@ proxy, and it applies the executable changes above as well.
 
 ## [Unreleased]
 
+- macOS action descriptions now fit their live font and wrapped line count, growing upward with their background and restoring their original size for shorter names. This addresses names disappearing while only `(self)` remains at 1920×1200.
+
+- macOS status-summary popups now choose text widths using native wrapping and round the rendered height upward. XP text at 1920×1200 no longer depends on an underestimated glyph-width calculation; rows that must wrap expand vertically, with OK below them. Automated coverage passes; the maintainer confirmed the XP popup in game at 1920×1200.
+
+- macOS: installation enables Aspyr fullscreen by default; uninstall restores the previous setting if the player has not changed it.
+
+- macOS: guard texture-bucket insertion and cap its clearing maximum at 4999; guard both grass cleanup paths against deleting an aliased buffer twice. These core protections also apply with controller support disabled.
+
+- Ported the Windows resolution-menu acceptance patch to macOS. The configured
+  size now replaces the vanilla 800x600 whitelist entry; display enumeration and
+  the other native accepted sizes remain unchanged. The user confirmed
+  1920x1200 at 120 Hz appears. Guards and output values pass at 76 resolutions.
+  See the [port audit](reverse-engineering/macos-resolution-port-audit.md).
+
+- Restored loading of macOS menu direction targets from GUI resources. The Mac
+  engine left those slots at zero, sending arrow-key focus to control 0. Main-menu
+  Up/Down and wraparound, Options Close navigation, and stationary-pointer
+  keyboard navigation are user-tested at 1920x1200. The default mouse clamp now
+  follows the active game viewport instead of the Mac desktop point size; the
+  user confirmed mouse clicks on Close and the corrected single highlight.
+  Follow-up submenu failures revealed incomplete resource navigation cycles; the
+  shared handler now repairs reachability from live actionable controls, including
+  late-bound buttons. The user confirmed submenu reachability. A further refinement
+  makes Up/Down move between rows and Left/Right move within a button row;
+  the user confirmed the row behavior and Feedback list boundary handoff. A structural audit of 87 effective GUI resources (67 menu layouts) passes; other runtime paths remain untested. See [runtime evidence](reverse-engineering/macos-keyboard-navigation.md).
+
+- The macOS status-summary layout attempts a text reflow when a row remains
+  wrapped despite an unchanged extent. **Correction, 2026-10-02:** the earlier
+  entry presented a stale-layout explanation as established fact. It was not
+  measured in-game, and the user's subsequent 1920x1200 play-test still shows
+  missing XP text. This unsuccessful retry has now been replaced by the native-wrap
+  and upward-rounded-height repair described above. Menu navigation was repaired
+  separately; see the runtime evidence linked above.
+
+- The macOS package-art builder now writes `Icon.icns` with Pillow instead of
+  `iconutil`. On macOS 26.0.1, `iconutil` rejected both KMRP's complete iconset
+  and an iconset it had extracted from Apple's QuickTime icon, stopping the app,
+  ZIP and disk-image build before signing.
+
+- The HUD action description now keeps enough height for a name wrapping to two
+  lines plus its `(SELF)` line. At 800×600, 1024×576, 1920×540 and the 1036×583/1077×606
+  blends, gold-proportion scaling made the box 1–3 px shorter than two 10 px font
+  lines; the engine can then retain only `(SELF)`. The generated box now has a
+  three-line lower bound, remains bottom-anchored, and expands its background with
+  the same scaled vertical margins. At 1920×1200, a one-line Medpac name rendered
+  but a name wrapping to two lines disappeared, leaving `(SELF)`; the original
+  38 px box held two 17 px lines, while the wrapped name plus `(SELF)` needs 51 px.
+
+- The generated-GUI regression now checks keyboard/controller Up and Down
+  navigation through all five main-menu layouts in every resolution archive.
+  The files use two different ID assignments for Exit and the hidden Warp
+  control, so the check resolves targets by tag; all existing navigation maps
+  already form the correct five-button cycle and leave Warp disconnected.
+
 - The font cache builder now reports the documented scale-12 shared-atlas
   fallback instead of failing after baking every other scale. Ubuntu regeneration
   completed with 40 cached scale sets. The Proton archive audit checks the current

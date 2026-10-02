@@ -9,8 +9,87 @@
 
 Material for checking KMRP at resolutions the build machine's monitor cannot
 display, plus the installer cases that can be checked without a display at all.
-Layout verification is still done by hand: patch at a resolution and compare the
-result against what the tooling intended. Installer behaviour is scripted.
+Layout verification combines the static GUI audit below with play-tests: patch
+at a resolution and compare the rendered result against the computed layout.
+Installer behaviour is scripted.
+
+## Exhaustive static GUI traversal
+
+Reference. [Test-GuiAudit.py](regression/Test-GuiAudit.py) reads every `.gui` in
+the 66 `gui-<W>x<H>.zip` archives, including recursive `CONTROLS`, `PROTOITEM`
+and `SCROLLBAR`. The [2026-10-02 lab record](GuiAudit-2026-10-02.md) contains
+the current measurements, input hashes, findings and explicit assumptions;
+its [console output](GuiAudit-2026-10-02.console.txt) is retained verbatim.
+No game execution is implied by these numeric checks.
+
+```sh
+# Use the project Python environment containing pykotor, as for the other GUI tests.
+python testing/regression/Test-GuiAudit.py build/kmrp/resources \
+  --game "/path/to/game/data" --report testing/GuiAudit-2026-10-02.md
+```
+
+`--game` is optional and names the directory containing `chitin.key` and
+`dialog.tlk` (on macOS, the app's `Contents/Assets`). It reads core KEY/BIF
+resources and Patch.erf for stock GUIs, and core/module item/creature templates, baseitems,
+spells and feats, and resolves GUI STRREFs through TLK. It does not write to
+the game or use installed Override files as stock references. Without game
+files it reports that coverage as **untested** and uses the documented long
+name corpus in the test. Save/placed-object overrides, installed Override
+modifications and player-created names are outside that corpus. Real item names
+are applied to item/inventory/shop row prototypes and action names to
+ability/power/feat row prototypes. Description, dialogue, option and module rows
+stay explicitly untested because this static audit cannot establish their runtime
+contents. Applying single-line item/action names to SELF description slots is an
+explicit upper-bound assumption; review the actual slot assignment before changing
+a layout. Multiline template labels are excluded from the two-line name/SELF probe.
+
+The default sweep calls the compiled native `kmrp-guiblend` helper with a
+freshly built `gui-blend.bin`: heights 560 through 4400 in steps of 23,
+at 4:3, 3:2, 16:10, 16:9, 21:9 and 32:9, plus 1036×583 and 1077×606.
+Listed duplicates are omitted and helper rejections are counted. Each accepted
+blend uses the nearest listed set's fonts, chosen by height then aspect ratio.
+Temporary outputs are removed after inspection. This is an extended regression
+run; `--listed-only --skip-build` is a quicker diagnostic and labels skipped
+coverage **untested**. On Windows, compiled C# parity is a separate run of
+[Test-GuiBlendHelper.py](regression/Test-GuiBlendHelper.py); it is untested
+on a Mac.
+
+Checks cover panel containment, font/known/runtime text capacity, intersections
+between sibling buttons, text labels and list boxes, identified fixed-aspect art
+and controller badges, list row pitch
+and scrollbar placement, screen edges, the target name's clipping edge,
+scaling classifications, and blended extents against all contributing anchors.
+The active HUD is distinguished from unused shipped HUD variants. Python
+reimplementations additionally exercise status-summary rows, popup fitting and
+granted-popup rows. Mac runs rebuild patches with and without the controller,
+inspect the hook metadata at VA `0x10049f636`, and check the modules' exported
+`KmrpCoreGuiFrame` symbol. Controller selectability and the Windows core-frame
+call are source-level checks, explicitly untested in game.
+
+The [data allowlist](regression/GuiAudit-allowlist.json) gives each intentional
+exception a reason and establishment source. Every finding stays in the report:
+**KMRP** fails the run; **inherited** and **by design** are listed without failing.
+Classifications use same-size upstream layouts (derived upstream layouts where
+needed), stock aspect evidence, and explicit exceptions. Gold extents are
+shown as additional evidence. Upstream text is evaluated with stock embedded
+font metrics when game files are available; without them text inheritance is
+untested and remains conservatively classified KMRP. New geometry/visibility assumptions require review,
+not blanket exemptions. Findings are grouped by GUI, recursive control path,
+check and class, with affected-size count, worst size and measured excess.
+
+This audit is deliberately static. It cannot establish simultaneous visibility,
+engine-created control membership, actual list-client dimensions, runtime font
+assignment, TPC-only art shape, readable contrast, focus behavior or rendered
+wrapping without game measurements. Runtime formulas use the explicit models
+recorded in the lab report. It does not alter layouts or resource generators.
+It is a regression screen for those measured/modelled invariants, not a claim
+that every possible in-game visual defect is excluded.
+
+To verify a finding by hand, open the named archive at its worst size, read the
+control EXTENT and matching font TXI, and recompute the report's formula. For a
+blend, follow the helper build and nearest-font-set steps in
+`Test-GuiBlendHelper.py`, then read the helper's output. Compare the named
+upstream/gold fields before deciding whether a finding needs a layout change.
 
 | | |
 | --- | --- |
@@ -135,3 +214,31 @@ Then compare the generated `gui-<resolution>.zip` and the patched executable's
 constants against what the scaling rule predicts — see
 [CONTRIBUTING.md](../CONTRIBUTING.md#resolution-scaling). Read the numbers back;
 do not judge a layout by eye.
+
+### Mac memory-safety hooks
+
+`python testing/regression/Test-MacMemorySafety.py --exe <clean KOTOR_Exe>`
+executes the four core x86_64 payloads (Rosetta supported), checks texture boundary
+IDs, flags, shadow continuation and both grass cleanup ownership cases. Supply
+`--kpatch <package>` repeatedly to verify all optional package variants. Requires
+Capstone and clang++; touches only temporary test files. See the
+[ownership and hook reference](../reverse-engineering/macos-memory-safety-audit.md).
+
+### Mac popup and action-description fitting
+
+`Test-MacStatusSummary.cpp` includes the production shared layout and executes it
+with synthetic native text/font/control objects. It covers native width482,
+fractional two-line height55, screen-capped and mandatory multiline text,
+unchanged-frame caching, and action-description grow/shrink with a fixed bottom
+anchor and matching background. Run on macOS with the x86_64 runtime:
+
+```sh
+clang++ -arch x86_64 -std=c++17 testing/regression/Test-MacStatusSummary.cpp -o /tmp/kmrp-status-summary-test
+/tmp/kmrp-status-summary-test
+```
+
+The real XP popup was confirmed fixed at 1920×1200 on 2026-10-02. The action
+description has measured failing geometry and automated coverage; its runtime
+repair still needs play-testing. `Test-GeneratedGuiGeometry.py` reads the
+action label's assigned font from the packaged GUI and checks its three-line
+minimum with native float32 height arithmetic.

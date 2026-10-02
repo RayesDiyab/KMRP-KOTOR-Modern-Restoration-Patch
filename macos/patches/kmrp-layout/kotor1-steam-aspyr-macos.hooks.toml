@@ -1,6 +1,123 @@
 [metadata]
 target_versions = ["C1FCB8D37C702849882A17751C63EE0AF7C2B9CBBC3B31B98A5F0EDBC27C6D71"]
 
-# No hooks: a DLL_ONLY patch. KotorPatcher loads the module (kmrp_layout.cpp and the sources
-# beside it), whose constructor writes its sites when the game starts, each checked for its
-# expected bytes first. The sizes depend on the resolution, so they cannot be fixed bytes here.
+# Resolution-dependent sites are still applied by the module constructor.
+# CSWGuiControl::Load entry: restore MOVETO IDs before the panel resolves them.
+# Stolen instructions: push rbp; mov rbp,rsp; push r15 (no relative operands).
+[[hooks]]
+address = 0x1004a4b78
+type = "detour"
+function = "KmrpLoadNavigation"
+original_bytes = [0x55, 0x48, 0x89, 0xe5, 0x41, 0x57]
+[[hooks.parameters]]
+source = "rdi"
+type = "pointer"
+[[hooks.parameters]]
+source = "rsi"
+type = "pointer"
+[[hooks.parameters]]
+source = "rdx"
+type = "pointer"
+
+# Observe native keyboard arrow events before CSWGuiNavigable handles them.
+[[hooks]]
+address = 0x1004a4972
+type = "detour"
+function = "KmrpNoteArrowNavigation"
+original_bytes = [0x55, 0x48, 0x89, 0xe5, 0x41, 0x57]
+[[hooks.parameters]]
+source = "rdi"
+type = "pointer"
+[[hooks.parameters]]
+source = "rsi"
+type = "int"
+[[hooks.parameters]]
+source = "rdx"
+type = "int"
+
+# HandleMouseMove: consume unchanged-coordinate samples after an arrow.
+# The wrapper replays push rbp/mov rbp,rsp/push r15 before testing EAX.
+# Exit through pop r15/pop rbp/ret to undo exactly those stolen instructions.
+[[hooks]]
+address = 0x1004a035e
+type = "detour"
+function = "KmrpKeepKeyboardFocus"
+original_bytes = [0x55, 0x48, 0x89, 0xe5, 0x41, 0x57]
+consumed_exit_address = 0x1004a077b
+exclude_from_restore = ["eax"]
+[[hooks.parameters]]
+source = "rdi"
+type = "pointer"
+[[hooks.parameters]]
+source = "rsi"
+type = "int"
+[[hooks.parameters]]
+source = "rdx"
+type = "int"
+
+# Shared cursor clamp: make the default mouse extent match the live viewport.
+[[hooks]]
+address = 0x100028581
+type = "detour"
+function = "KmrpResizeMouseBounds"
+original_bytes = [0x55, 0x48, 0x89, 0xe5, 0x8b, 0x0f]
+
+# Options Close participates in mouse focus just like the category buttons.
+# and byte [r15+0x1198],0xfb -> or byte [r15+0x1198],4.
+[[hooks]]
+address = 0x1002c891a
+type = "simple"
+original_bytes = [0x41, 0x80, 0xa7, 0x98, 0x11, 0x00, 0x00, 0xfb]
+replacement_bytes = [0x41, 0x80, 0x8f, 0x98, 0x11, 0x00, 0x00, 0x04]
+
+# Shared list handler: leave at a boundary, preserving interior list navigation.
+# Same six stolen prologue bytes as HandleMouseMove; reuse its pop r15/pop rbp/ret.
+[[hooks]]
+address = 0x1004a8a38
+type = "detour"
+function = "KmrpNavigateListBoundary"
+original_bytes = [0x55, 0x48, 0x89, 0xe5, 0x41, 0x57]
+consumed_exit_address = 0x1004a077b
+exclude_from_restore = ["eax"]
+[[hooks.parameters]]
+source = "rdi"
+type = "pointer"
+[[hooks.parameters]]
+source = "rsi"
+type = "int"
+[[hooks.parameters]]
+source = "rdx"
+type = "int"
+
+# Mac memory safety: see reverse-engineering/macos-memory-safety-audit.md.
+
+# Texture bucket insertion: unsigned IDs >=5000 skip insertion to native shadow continuation.
+# Target is non-PIE; push/mov/xchg/ret preserves RAX and balances RSP.
+[[hooks]]
+address = 0x1001d0663
+type = "replace"
+original_bytes = [0x48, 0x98, 0x48, 0xc1, 0xe0, 0x04]
+replacement_bytes = [0x3d, 0x88, 0x13, 0x00, 0x00, 0x72, 0x10, 0x50, 0x48, 0xb8, 0x7b, 0x06, 0x1d, 0x00, 0x01, 0x00, 0x00, 0x00, 0x48, 0x87, 0x04, 0x24, 0xc3, 0x48, 0x98, 0x48, 0xc1, 0xe0, 0x04]
+
+# Texture maximum: saturate unsigned ID to4999, preserving flags.
+# Non-PIE global is 0x100635ba8; resume native pop rbp/ret.
+[[hooks]]
+address = 0x1001fa2bf
+type = "replace"
+original_bytes = [0x8b, 0x05, 0xe3, 0xb8, 0x43, 0x00]
+replacement_bytes = [0x9c, 0x48, 0xb8, 0xa8, 0x5b, 0x63, 0x00, 0x01, 0x00, 0x00, 0x00, 0x8b, 0x00, 0x3d, 0x88, 0x13, 0x00, 0x00, 0x72, 0x05, 0xb8, 0x87, 0x13, 0x00, 0x00, 0x9d]
+
+# Grass destructor: zero only the alias argument when +0x40 equals +0x38.
+# Replay TEST RDI so the native JE skips delete[]; primary cleanup remains intact.
+[[hooks]]
+address = 0x1001e00cd
+type = "replace"
+original_bytes = [0x48, 0x8b, 0x7b, 0x40, 0x48, 0x85, 0xff]
+replacement_bytes = [0x48, 0x8b, 0x7b, 0x40, 0x48, 0x3b, 0x7b, 0x38, 0x75, 0x02, 0x31, 0xff, 0x48, 0x85, 0xff]
+
+# DestroyGrassPolys: same ownership guard; retain original flags and null cleanup.
+[[hooks]]
+address = 0x1001e1627
+type = "replace"
+original_bytes = [0x48, 0x8b, 0x7b, 0x40, 0x48, 0x85, 0xff]
+replacement_bytes = [0x48, 0x8b, 0x7b, 0x40, 0x48, 0x3b, 0x7b, 0x38, 0x75, 0x02, 0x31, 0xff, 0x48, 0x85, 0xff]

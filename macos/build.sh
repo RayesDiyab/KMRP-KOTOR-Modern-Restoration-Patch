@@ -228,7 +228,6 @@ done
 ART="$BUILD/art"
 rm -rf "$ART"
 "$PYTHON" "$HERE/tools/make_package_art.py" "$ART" "$VERSION" >/dev/null
-iconutil -c icns "$ART/Icon.iconset" -o "$ART/Icon.icns"
 cp "$ART/Icon.icns" "$INSTALLER/Contents/Resources/AppIcon.icns"
 # Ad hoc, as every binary here: the signature seals the bundle, so a changed file shows as
 # damaged. Without a Developer ID and notarization, Gatekeeper asks the player to allow the

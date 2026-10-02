@@ -1,0 +1,20 @@
+ok   archives: 66 (expected 66)
+ok   listed traversal: 66 sizes, 5478 files, 158268 controls
+ok   blend progress: 100 sizes traversed
+ok   blend progress: 200 sizes traversed
+ok   blend progress: 300 sizes traversed
+ok   blend progress: 400 sizes traversed
+ok   blend progress: 500 sizes traversed
+ok   blend progress: 600 sizes traversed
+ok   blend traversal: 606 sizes, 394 rejected
+ok   source gate: Mac focus requires Selectable (source inspection; untested in game)
+ok   source gate: Mac activate requires Selectable (source inspection; untested in game)
+ok   source gate: Windows focus requires selectable action (source inspection; untested in game)
+ok   source gate: Windows core frame calls StatusSummaryFrameK1 (source inspection; untested in game)
+ok   Mac built artifact with controller: GUI frame VA 0x10049f636 -> KmrpGuiFrame; core export
+ok   Mac built artifact without controller: GUI frame VA 0x10049f636 -> KmrpCoreGuiFrame; core export
+FAIL KMRP: 1201 finding groups
+ok   inherited: 1507 finding groups
+ok   by design: 218 finding groups
+ok   coverage: 672 sizes, 55776 files, 1611456 controls
+ok   report: /Users/rayes/KMRP - KOTOR Modern Restoration Patch/kmrp-macos/KMRP/testing/GuiAudit-2026-10-02.md
