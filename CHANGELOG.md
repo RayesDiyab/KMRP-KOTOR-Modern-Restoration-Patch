@@ -109,6 +109,8 @@ proxy, and it applies the executable changes above as well.
 
 ## [Unreleased]
 
+- Mac uninstall now checks KPM’s `InstalledPatches` state before removing a runtime taken over by KPM. Byte-only foreign patches retain their runtime; invalid state also prevents removal.
+
 - Integrated FTD's Mac Scripts-menu Enter callback fix: dismissing the Combat Scripts tutorial should leave Scripts open. Clean executable bytes and hook compatibility are verified; in-game tutorial/selection testing remains pending. His new GUI-layout writers overlap KMRP's existing guarded layout patches and are not enabled alongside them.
 
 - macOS native ideal-text-height calculations now round upward at their existing quantization stages. The previous action-label frame adjustment was removed after a play-test showed native layout overwrote it before rendering. The correction uses the resolution-scaled font, object scale and wrapped line count. The font-height getter uses the same upward rounding so confirmation-button sizing can terminate; draw-time bounds are verified, with visual and exit-dialog retesting pending.

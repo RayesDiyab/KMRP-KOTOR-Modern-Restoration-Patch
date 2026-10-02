@@ -247,3 +247,12 @@ minimum with native float32 height arithmetic.
 the five native ideal-height hook guards and executes their SSE2 ceiling payloads
 under Rosetta. Exact integer heights, fractional boundaries, flags and XMM2 are
 checked. Live menu behavior still requires play-testing.
+
+Mac KPM uninstall ownership decision (isolated fixtures; no game inputs):
+
+```sh
+python3 testing/regression/Test-MacKpmOwnership.py
+```
+
+Exercises the production shell function with state-only foreign patches,
+invalid/missing state lists, legacy absent state, and foreign config/modules.

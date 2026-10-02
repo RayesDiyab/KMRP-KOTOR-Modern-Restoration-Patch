@@ -879,12 +879,20 @@ restore_from_manifest() {   # restore_from_manifest <quiet>
     return $kept
 }
 
-kpm_holds_only_kmrp() {   # 0 when KPM's patch list and patches/ hold KMRP's patch and nothing else
-    local id module
+kpm_holds_only_kmrp() {   # config, InstalledPatches (including module-less patches), and modules
+    local id module installed patch_state="$MACOS/kpm_install_state.json"
+    local count=0
     [[ -f "$MACOS/patch_config.toml" ]] || return 1
     for id in ${(f)"$(sed -n 's/^id = "\(.*\)"$/\1/p' "$MACOS/patch_config.toml")"}; do
         [[ "$id" == kmrp ]] || return 1
+        (( ++count ))
     done
+    (( count > 0 )) || return 1
+    if [[ -e "$patch_state" || -L "$patch_state" ]]; then
+        # plutil parses JSON; missing/malformed/non-array state must retain the runtime.
+        installed=$(plutil -extract InstalledPatches json -o - "$patch_state" 2>/dev/null) || return 1
+        [[ "$installed" =~ '^\[[[:space:]]*("kmrp"[[:space:]]*(,[[:space:]]*"kmrp"[[:space:]]*)*)?\]$' ]] || return 1
+    fi
     for module in "$MACOS"/patches/*(N); do
         [[ "${module:t}" == kmrp.dylib ]] || return 1
     done

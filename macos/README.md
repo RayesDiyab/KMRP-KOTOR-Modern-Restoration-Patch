@@ -783,3 +783,19 @@ untouched. The installer window itself keeps its normal windowed interface.
 Validation: `testing/regression/Test-MacFullscreen.py` exercises the actual installer
 functions against a temporary preference file: absent key, prior windowed value,
 install/uninstall, a later player change, and an unrelated key. All pass.
+
+### Uninstall ownership correction, 2026-10-02
+
+When KPM takes over an install, uninstall checks `patch_config.toml`,
+`kpm_install_state.json` → `InstalledPatches`, and the contents of `patches/`
+before deciding KMRP is the only patch. A foreign byte-only patch can exist in
+state without a module, so checking the config and modules alone was insufficient.
+The state list is parsed with macOS `plutil`; missing keys, malformed JSON,
+non-array values or IDs other than `kmrp` retain the runtime. An absent state
+file preserves legacy behavior, but the config must contain at least one KMRP
+ID and no foreign IDs. An empty valid state array is allowed when the config
+identifies KMRP, as in the Windows decision. The fixture regression
+`testing/regression/Test-MacKpmOwnership.py` exercises the actual shell function,
+including module-less foreign patches and invalid state. It passed; a complete
+installer takeover/uninstall play test was not run for this change. Existing
+DMGs predate this correction.
