@@ -78,3 +78,7 @@ resource archives round-trip exactly through the pool;882payload files are
 hashed for package verification. The five native-height payload tests and479
 relative documentation links pass. These checks do not establish in-game
 Scripts tutorial/selection behavior or exit-dialog termination.
+
+The maintainer subsequently confirmed Scripts-menu Enter, Exit Game and the
+two-line action name all worked in the actual game (2026-10-02). Controller
+selection and broader menu/resolution coverage were not separately reported.

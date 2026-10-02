@@ -589,3 +589,8 @@ font height did not, preventing termination. A fifth guarded REPLACE hook at
 0x1001bc091 (FILE0x1bc091, original `f30f58052bbd3700`) now ceilings XMM0
 before the existing conversion. The executable payload regression covers all
 five sites; the confirmation dialog must still be retested in game.
+
+Maintainer confirmation, 2026-10-02: the final rebuilt package works in the actual
+game for the two-line action name, Exit Game and Scripts-menu Enter. This closes
+the reported action clipping and exit-confirmation play-test checks; broader
+menu/resolution coverage remains unverified.

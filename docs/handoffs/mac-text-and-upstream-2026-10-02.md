@@ -51,3 +51,11 @@ has not yet been play-tested. The latest DMG includes that companion hook.
 Diagnostic copies/logs and machine-specific state stay in ignored
 `docs/agent-memory/HANDOFF.md`; no game binaries, DMGs or logs belong in Git.
 The new package was built, not installed into the live game by this follow-up.
+
+## Maintainer confirmation, 2026-10-02
+
+After testing the actual game with the rebuilt package, the maintainer reported
+that Exit Game, the two-line action name and Scripts-menu Enter all worked
+perfectly, and that the game looked stable. These three requested scenarios are
+now play-tested. This does not establish every resolution, controller selection,
+or every other caller of the generic height getter.

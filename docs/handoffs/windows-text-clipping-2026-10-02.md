@@ -152,3 +152,7 @@ The latest Mac package SHA256 is
 See the [Mac verification handoff](mac-text-and-upstream-2026-10-02.md) for
 the remaining checks. Do not port upward rounding to one getter without checking
 callers that compare it to the font-height getter.
+
+The maintainer subsequently confirmed the final Mac two-line action name,
+Exit Game and Scripts-menu Enter all work in the actual game (2026-10-02).
+Windows reproduction and applicability remain unverified.
