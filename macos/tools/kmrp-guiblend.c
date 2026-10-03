@@ -52,13 +52,53 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#ifdef _WIN32
+#include <direct.h>
+#define strcasecmp _stricmp
+#define strncasecmp _strnicmp
+#define mkdir(path, mode) _mkdir(path)
+#else
 #include <strings.h>
+#endif
 #include <sys/stat.h>
+
+#ifdef KMRP_GUI_EMBEDDED
+/* The command-line helper exits after one derivation. The DLL can derive again
+ * after each mode change, so collect every temporary allocation even on error. */
+typedef struct BlendAllocation { void *data; struct BlendAllocation *next; } BlendAllocation;
+static BlendAllocation *blend_allocations;
+static void *blend_malloc(size_t size) {
+    void *data = malloc(size);
+    if (!data) return NULL;
+    BlendAllocation *node = malloc(sizeof *node);
+    if (!node) { free(data); return NULL; }
+    node->data = data; node->next = blend_allocations; blend_allocations = node;
+    return data;
+}
+static void *blend_calloc(size_t count, size_t size) {
+    if (size && count > SIZE_MAX / size) return NULL;
+    void *data = blend_malloc(count * size);
+    if (data) memset(data, 0, count * size);
+    return data;
+}
+static void blend_free(void *data) {
+    BlendAllocation **link = &blend_allocations;
+    while (*link && (*link)->data != data) link = &(*link)->next;
+    if (*link) { BlendAllocation *node = *link; *link = node->next; free(node); free(data); }
+}
+static void blend_clear(void) { while (blend_allocations) blend_free(blend_allocations->data); }
+#define malloc blend_malloc
+#define calloc blend_calloc
+#define free blend_free
+#define main blend_main
+#endif
 
 /* Byte-identical to the Python blend means the same rounding at every step: no fused
  * multiply-add, which clang emits by default on arm64 and which rounds exact .5 ties
  * differently (7 files differed before this, 2026-09-29). */
+#ifndef _MSC_VER
 #pragma STDC FP_CONTRACT OFF
+#endif
 
 typedef struct { uint32_t width, height, family; } Anchor;
 typedef struct { int index; double weight; } Term;
@@ -1173,12 +1213,14 @@ int main(int argc, char **argv) {
         }
         sizes[i * 2] = cw;
         sizes[i * 2 + 1] = ch;
+#ifndef KMRP_NO_CONTROLLER
         size_t tga_size;
         uint8_t *tga = draw_badge(&badges, &badges.glyphs[pr->glyph], cw, ch, label, radius_height,
                                   pr->backed ? pr->backing : NULL, &tga_size);
         snprintf(path, sizeof path, "%s/%s.tga", outdir, pr->resref);
         if (!write_file(path, tga, tga_size)) return 1;
         free(tga);
+#endif
     }
     size_t rewritten_size = 0;
     uint8_t *rewritten = rewrite_manifest(manifest, manifest_size, &badges, sizes, fits, fit_count, widened,
@@ -1202,9 +1244,28 @@ int main(int argc, char **argv) {
         free(tga);
     }
     for (uint32_t fi = 0; fi < file_count; fi++) {
+#ifdef KMRP_NO_CONTROLLER
+        if (strcmp(outputs[fi].name, "kmrplayout.gui") == 0) { free(outputs[fi].data); continue; }
+#endif
         snprintf(path, sizeof path, "%s/%s", outdir, outputs[fi].name);
         if (!write_file(path, outputs[fi].data, outputs[fi].size)) return 1;
         free(outputs[fi].data);
     }
     return 0;
 }
+
+#ifdef KMRP_GUI_EMBEDDED
+int KmrpGuiBlend(const char *table_path, unsigned width, unsigned height,
+                 const char *outdir, const char *setdir) {
+    char width_text[16], height_text[16];
+    snprintf(width_text, sizeof width_text, "%u", width);
+    snprintf(height_text, sizeof height_text, "%u", height);
+    char *args[] = { "kmrp-guiblend", (char *)table_path, width_text, height_text,
+                     (char *)outdir, (char *)setdir };
+    pos = 0; table = NULL; table_size = 0;
+    int result = blend_main(6, args);
+    blend_clear();
+    table = NULL; table_size = pos = 0;
+    return result;
+}
+#endif

@@ -355,10 +355,15 @@ bool WriteMemory(std::uint32_t va, const void* data, std::uint32_t n)
     return true;
 }
 
-void Apply(std::uint32_t features)
+#ifdef KMRP_NATIVE_RUNTIME
+std::uint8_t* g_nativeBlock = nullptr;
+#endif
+
+void Apply(std::uint32_t features, const std::vector<std::uint8_t>* embedded = nullptr)
 {
     std::vector<std::uint8_t> file;
-    if (!ReadFileBytes(L"kmrp-kpm.dat", file)) {
+    if (embedded) file = *embedded;
+    else if (!ReadFileBytes(L"kmrp-kpm.dat", file)) {
         Log("kmrp-kpm.dat not found: run KMRP's installer to choose a "
             "resolution. Nothing applied.");
         return;
@@ -546,7 +551,8 @@ void Apply(std::uint32_t features)
         if (!wanted(run.feature)) {
             continue;
         }
-        if (!WriteMemory(run.va, run.final_.data(), run.length)) {
+        if (!WriteMemory(run.va, run.final_.data(), run.length) ||
+            std::memcmp(reinterpret_cast<const void*>(run.va), run.final_.data(), run.length) != 0) {
             // Put back what was written; the block stays allocated, unreferenced.
             failed = &run;
             error = GetLastError();
@@ -565,6 +571,9 @@ void Apply(std::uint32_t features)
             "put back. Nothing applied.", failed->va, error, written.size());
         return;
     }
+#ifdef KMRP_NATIVE_RUNTIME
+    g_nativeBlock = block;
+#endif
     Log("applied: KMRP%s%s -- %zu of %zu runs (%u bytes) and KMRP's code at %p "
         "(moved by %+ld), %u relocations.",
         (features & kMovies) ? " + Movies" : "", (features & kMapNotes) ? " + Map Notes" : "",
@@ -600,6 +609,7 @@ bool KpmMoviesOffK1()
     return g_moviesOff;
 }
 
+#ifndef KMRP_NATIVE_RUNTIME
 BOOL WINAPI DllMain(HINSTANCE module, DWORD reason, LPVOID)
 {
     if (reason == DLL_PROCESS_ATTACH) {
@@ -624,3 +634,4 @@ BOOL WINAPI DllMain(HINSTANCE module, DWORD reason, LPVOID)
     }
     return TRUE;
 }
+#endif

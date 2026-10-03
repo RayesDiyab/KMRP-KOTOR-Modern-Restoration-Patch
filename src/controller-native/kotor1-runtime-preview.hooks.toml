@@ -1,0 +1,58 @@
+# First standalone vertical slice. These are measured CD/GOG/Steam K1 code sites.
+# Existing installer/core hook tables are unchanged.
+[metadata]
+target_versions = ["761F9466F456A83909036BAEBB5C43167D722387BE66E54617BA20A8C49E9886", "9C10E0450A6EECA417E036E3CDE7474FED1F0A92AAB018446D156944DEA91435", "34E6D971C034222A417995D8E1E8FDD9F8781795C9C289BD86C499A439F34C88"]
+
+# IsValidResolution: CMP EAX,800. Callback supplies the result in EAX.
+# Valid dimensions leave through the original RET 8. For rejection EAX=0:
+# replayed CMP takes JNE through each native width check, ending in XOR EAX,EAX.
+[[hooks]]
+address = 0x005F0C64
+type = "detour"
+function = "KmrpAllowRuntimeResolutionK1"
+original_bytes = [0x3D, 0x20, 0x03, 0x00, 0x00]
+exclude_from_restore = ["eax"]
+consumed_exit_address = 0x005F0CD2
+
+[[hooks.parameters]]
+source = "[esp+4]"
+type = "int"
+[[hooks.parameters]]
+source = "[esp+8]"
+type = "int"
+
+# SetSize entry: request only; native SetSize and panel/texture handling still run.
+[[hooks]]
+address = 0x0040BE70
+type = "detour"
+function = "KmrpResolutionRequestedK1"
+original_bytes = [0x8B, 0x44, 0x24, 0x04, 0x56]
+[[hooks.parameters]]
+source = "ecx"
+type = "pointer"
+
+[[hooks.parameters]]
+source = "[esp+4]"
+type = "int"
+[[hooks.parameters]]
+source = "[esp+8]"
+type = "int"
+
+# GUI frame: read actual viewport, do not mistake a rejected request for a switch.
+[[hooks]]
+address = 0x0040CE70
+type = "detour"
+function = "KmrpResolutionObservedK1"
+original_bytes = [0x51, 0x53, 0x55, 0x56, 0x8B, 0xE9]
+[[hooks.parameters]]
+source = "ecx"
+type = "pointer"
+
+# ToolTipPanel constructor: width 1280 with height other than 960/1024
+# skipped StartLoadFromLayout entirely. Route its existing JNE to the same
+# tooltip6X4 fallback already used for other non-vanilla widths.
+[[hooks]]
+address = 0x0062785F
+type = "simple"
+original_bytes = [0x75, 0x59]
+replacement_bytes = [0x75, 0x3F]

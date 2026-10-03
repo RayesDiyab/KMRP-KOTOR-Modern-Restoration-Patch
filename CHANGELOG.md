@@ -109,6 +109,21 @@ proxy, and it applies the executable changes above as well.
 
 ## [Unreleased]
 
+- Added an experimental embedded engine/resource bank and existing-panel geometry
+  migration for the standalone core. Removed the terminating zero from native
+  control tag keys. This is unfinished runtime
+  work, not a complete KMRP package; font cache migration and full mode-switch
+  coverage remain pending. See the [runtime experiment](reverse-engineering/runtime-resolution-preview.md).
+
+- Added an experimental, independent Windows native-resolution `.kpatch` build
+  without controller or installer-resource dependencies. It exposes native
+  driver modes through Graphics → Screen Resolution and includes existing
+  keyboard/memory repairs. Live testing found and corrected the native tooltip
+  layout-load hole for width 1280 with non-vanilla heights. This is a first slice,
+  **not complete standalone KMRP**: layout/font/map/movie migration and broader
+  input/mode-switch coverage remain unfinished. See the
+  [runtime resolution experiment](reverse-engineering/runtime-resolution-preview.md).
+
 - Ported the Mac row traversal, list-boundary handoff, and stationary-mouse
   focus mechanism to Windows core hooks, independently of the controller option.
   Keyboard aliases alone enter the repair; controller traversal and shared MOVETO

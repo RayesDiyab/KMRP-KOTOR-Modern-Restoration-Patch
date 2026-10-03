@@ -3,6 +3,18 @@
 This file records cross-cutting facts that prevent repeated mistakes. Subsystem
 details still belong in `docs/` or `reverse-engineering/`.
 
+## Native resolution changes
+
+- Widening Windows K1's resolution validator alone is insufficient. Clean CD
+  1.03's tooltip constructor has a width-1280 branch that loads neither layout
+  when height is neither 960 nor 1024. A live 1280x720 change then reached
+  `CSWGuiPanel::InitControl` with a missing GFF object and faulted at VA
+  `0x00411645`. The experimental preview redirects VA `0x0062785F` from the
+  skipped-load path to the existing `tooltip6X4` fallback. Revised startup at
+  1280x720 succeeded. See the measured
+  [runtime resolution reference](../../reverse-engineering/runtime-resolution-preview.md).
+  This does not establish full arbitrary-resolution KMRP or fullscreen support.
+
 ## Executable identity and patch safety
 
 - The supported clean executable is 4,042,752 bytes with SHA-256
