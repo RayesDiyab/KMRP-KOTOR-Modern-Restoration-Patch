@@ -19,7 +19,7 @@ body:
     attributes:
       label: Steps to reproduce
       placeholder: |
-        1. Patch at 1920x1080
+        1. Patch, start the game at 1920x1080
         2. Open the Abilities screen
         3. ...
     validations:
@@ -62,5 +62,6 @@ body:
       label: Anything else
       description: |
         For patch or restore failures: the SHA-256 of your `swkotor.exe`, and
-        whether `KOTOR_UI_Override_Backup.manifest` exists. If the patcher wrote
+        whether `KMRP_KPM.manifest` exists beside it. For problems in the game:
+        `kmrp-kpm.log` from the game folder. If the patcher wrote
         `KMRP.startup-error.log`, paste it here.

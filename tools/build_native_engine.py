@@ -62,7 +62,7 @@ def build():
     block = bytearray(recipe.block)
     # The .kmn page's first word (VA 0x876000) enables Derslok's map-note table. It is
     # cleared here and set by a block edit of the map-notes feature (4), exactly as
-    # kmrp-kpm.dat carries it: the standalone patch leaves map notes to its add-on.
+    # kmrp-kpm.dat carried it: map notes are an option of the patch.
     if struct.unpack_from('<I', block, 0x9000)[0] != 1:
         raise ValueError('Unexpected map-note flag in the engine block')
     struct.pack_into('<I', block, 0x9000, 0)

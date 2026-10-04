@@ -56,7 +56,7 @@ the earlier reading was and why it was wrong.
 | --- | --- |
 | .NET Framework 4.x | `csc.exe` from `C:\Windows\Microsoft.NET\Framework\v4.0.30319` |
 | Python 3 | with the packages in `requirements.txt`; the resource build itself needs `Pillow` |
-| MSVC, x86 | Visual Studio Build Tools, for `src\controller-native\build.cmd` and `src\kpm-runtime\build.cmd`, which `build_kmrp.ps1` runs |
+| MSVC, x86 | Visual Studio Build Tools, for `src\controller-native\build_native_runtime.cmd` (KMRP's module) and `src\kpm-runtime\build.cmd`, which `build_kmrp.ps1` runs |
 | The KPM submodule | `git submodule update --init` (or clone with `--recursive`): `third_party/Kotor-Patch-Manager`, the runtime's source |
 | Network, once | `tools/prepare_sdl3.ps1` downloads the pinned SDL 3 SDK into `build/deps` |
 | Game files | `swpc_tex_gui.erf`, placed in [`build-inputs/`](build-inputs/README.md); no executable is required |

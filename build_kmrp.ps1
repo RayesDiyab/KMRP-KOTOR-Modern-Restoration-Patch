@@ -276,9 +276,7 @@ $compilerArgs = @(
     "/reference:System.IO.Compression.FileSystem.dll",
     "/reference:System.Windows.Forms.dll",
     "/resource:$engineSource,Kmrp.engine.source",
-    "/resource:$(Join-Path $resourceDir 'override-common.zip'),Kmrp.override.common",
     "/resource:$(Join-Path $resourceDir 'resolutions.tsv'),Kmrp.resolutions",
-    "/resource:$(Join-Path $resourceDir 'bundled-override.txt'),Kmrp.bundled",
     "/resource:$(Join-Path $projectRoot 'src\patcher\brand.png'),Kmrp.brand",
     "/resource:$(Join-Path $resourceDir 'GPL-3.0-KOTOR-High-Resolution-Menus.txt'),Kmrp.license.highresolutionmenus",
     # The bundled K1 Modern Driver Compatibility standalone build (Synchro, MPL-2.0),
@@ -287,19 +285,8 @@ $compilerArgs = @(
     "/resource:$(Join-Path $projectRoot 'third_party\Included\k1-modern-driver-compatibility-1.2.0 by Synchro\dinput8.dll'),Kmrp.drivercompat.dinput8",
     "/resource:$(Join-Path $projectRoot 'third_party\Included\k1-modern-driver-compatibility-1.2.0 by Synchro\k1-modern-driver-compatibility.asi'),Kmrp.drivercompat.asi",
     "/resource:$(Join-Path $projectRoot 'third_party\Included\k1-modern-driver-compatibility-1.2.0 by Synchro\LICENSE'),Kmrp.license.drivercompat"
-    # KMRP's module, from src/controller-native/, which is what build.cmd there
-    # produces: KMRP's native path plus Saul0097's author-approved sources as
-    # modified by KMRP (vendor/, MIT; see THIRD_PARTY_NOTICES.md). KMRP's installer
-    # installs it as each of its KPM patches' module, and the .kpatch files carry
-    # it too.
-    #
-    # Until 2026-09-29 this list also embedded kmrp-controller-runtime.asi, a
-    # statically linked KPM runtime from Saul0097's package that K1DC's ASI loader
-    # loaded, and KPM's licence from the same folder. The runtime is built from the
-    # submodule now (step 6, Kmrp.engine.*).
-    "/resource:$(Join-Path $projectRoot 'src\controller-native\kmrp-controller.module'),Kmrp.controller.module"
-    "/resource:$(Join-Path $projectRoot 'build\deps\kmrp-sdl3.dll'),Kmrp.controller.sdl"
-    "/resource:$(Join-Path $projectRoot 'build\deps\SDL3-3.4.16\LICENSE.txt'),Kmrp.controller.sdllicense"
+    # KMRP's module, its SDL and its patch are embedded in step 7 as one file, the
+    # .kpatch (Kmrp.kpatch): the installer takes the module out of it.
 )
 
 # Hand-supplied UI icons are optional: step icons fall back to vector glyphs,
@@ -318,7 +305,10 @@ Write-Detail ("embedding {0} of {1} UI icons" -f $iconCount, $iconNames.Count)
 # Every resolution's layout, from the pool built in step 4. The installer reads
 # it through GuiPool (src/patcher/KmrpPatcher.cs). Until 2026-09-25 each of the
 # 49 archives was embedded whole, as Kmrp.override.gui.<W>x<H>.
-$compilerArgs += "/resource:$layoutPool,Kmrp.override.layouts"
+# Not embedded since 2026-10-04: the installer no longer writes Override files. The
+# patch's module carries every resolution's files (tools/build_native_assets.py reads
+# the same archives), so $layoutPool is still built, for the --derive-gui tooling and
+# the macOS build, but stays out of the installer.
 $compilerArgs += "/resource:$blendResource,Kmrp.guiblend"
 
 $compilerArgs += (Join-Path $projectRoot "src\patcher\KmrpPatcher.cs")
@@ -355,9 +345,9 @@ if (-not $patchVersion -or
 Write-Host ("    version {0}, matching Properties -> Details" -f $patchVersion) -ForegroundColor DarkGray
 
 # ---------------------------------------------------------------- 6. KPM runtime and patches
-# Build the runtime and KMRP module from their tracked sources, then package all
-# four patches. No game executable or prebuilt controller module is an input.
-Start-Step "Building KOTOR Patch Manager's runtime and KMRP's patches"
+# Build the runtime and KMRP's module from their tracked sources, then package the
+# patch. No game executable or prebuilt module is an input.
+Start-Step "Building KOTOR Patch Manager's runtime and KMRP's patch"
 $kpmRuntimeDir = Join-Path $projectRoot "build\kpm-runtime"
 $kpmSubmodule = Join-Path $projectRoot "third_party\Kotor-Patch-Manager"
 if (-not (Test-Path -LiteralPath (Join-Path $kpmSubmodule "src\KotorPatcher\src\core\patcher.cpp"))) {
@@ -366,34 +356,35 @@ if (-not (Test-Path -LiteralPath (Join-Path $kpmSubmodule "src\KotorPatcher\src\
 Invoke-Tool -Exe "cmd.exe" -Label "runtime" -FailureMessage "Building KOTOR Patch Manager's runtime failed (src\kpm-runtime\build.cmd)" `
     -Arguments @("/c", (Join-Path $projectRoot "src\kpm-runtime\build.cmd"))
 
-Invoke-Tool -Exe "cmd.exe" -Label "module" -FailureMessage "Building KMRP's native module failed (src\controller-native\build.cmd)" `
-    -Arguments @("/c", (Join-Path $projectRoot "src\controller-native\build.cmd"))
+# KMRP's module, with the engine recipe and every resolution's files inside it. Its
+# resource bank is rebuilt whenever the resources were (it is skipped only with
+# -ReuseResources and a bank already there), since build_native_runtime.cmd itself
+# builds one only when none exists.
+$nativeDir = Join-Path $projectRoot "build\native-runtime"
+$nativeBank = Join-Path $nativeDir "native-assets.bin"
+if (-not $ReuseResources -and (Test-Path -LiteralPath $nativeBank)) { Remove-Item -LiteralPath $nativeBank -Force }
+Invoke-Tool -Exe "cmd.exe" -Label "module" -FailureMessage "Building KMRP's module failed (src\controller-native\build_native_runtime.cmd)" `
+    -Arguments @("/c", (Join-Path $projectRoot "src\controller-native\build_native_runtime.cmd"))
 
-# KMRP's .kpatch files, for players who manage their patches with KOTOR Patch
-# Manager. The installer embeds them (step 7) and puts them where KPM finds them
-# (KpmEditionOperations.DeliverKpatches), so dist\ is the installer alone; its
-# --export-kpm-patches writes them out for sharing. Until 2026-09-29 they came in
-# dist\KMRP for KPM\ with an installer of their own, compiled with KPM_EDITION, and
-# then, later that day, in dist\KPM patches\; both folders are removed, so no stale
-# copy ships.
+# KMRP's patch, KMRP.kpatch, for players who manage their patches with KOTOR Patch
+# Manager, and the same patch's hooks as the installer writes them into
+# patch_config.toml itself. The installer embeds both (step 7) and puts the .kpatch
+# where KPM finds it (KpmEditionOperations.DeliverKpatches); its --export-kpm-patches
+# writes it out for sharing. One patch since 2026-10-04; until then four, built by
+# tools\build_kpatch.py, with a data file and the Override files beside them.
 $kpmDir = Join-Path $buildDir "kpm-patches"
 New-Item -ItemType Directory -Force -Path $kpmDir | Out-Null
 foreach ($retiredKpmDir in @((Join-Path $distDir "KMRP for KPM"), (Join-Path $distDir "KPM patches"))) {
     if (Test-Path -LiteralPath $retiredKpmDir) { Remove-Item -LiteralPath $retiredKpmDir -Recurse -Force }
 }
-# The set of patches is this build's alone: an earlier build's (two until
-# 2026-09-28) would sit beside it, fail the check and offer players a patch that
-# no longer exists.
+# The patch is this build's alone: an earlier build's files would sit beside it.
 Get-ChildItem -LiteralPath $kpmDir -Filter "*.kpatch" -File | Remove-Item -Force
 $kpmConfigDir = Join-Path $buildDir "kpm-config"
-# The patches: the tracked hook sets and the module src\controller-native\build.cmd
-# produced, checked against KPM 0.7.1's install rules, and each one's config
-# section checked against its .kpatch (tools/build_kpatch.py).
-Invoke-Tool -Exe $Python -Label "kpatch" -FailureMessage "Building KMRP's patches failed" -Arguments @(
-    (Join-Path $projectRoot "tools\build_kpatch.py"), "--module",
-    (Join-Path $projectRoot "src\controller-native\kmrp-controller.module"),
-    "--out", $kpmDir, "--config-dir", $kpmConfigDir,
-    "--resolutions", (Join-Path $resourceDir "resolutions.tsv"), "--version", $patchVersion)
+Get-ChildItem -LiteralPath $kpmConfigDir -Filter "*.toml" -File -ErrorAction SilentlyContinue | Remove-Item -Force
+Invoke-Tool -Exe $Python -Label "kpatch" -FailureMessage "Building KMRP's patch failed" -Arguments @(
+    (Join-Path $projectRoot "tools\build_native_kpatch.py"), "--module",
+    (Join-Path $nativeDir "kmrp-native.dll"),
+    "--out", $kpmDir, "--config-dir", $kpmConfigDir, "--version", $patchVersion)
 Complete-Step
 
 # ---------------------------------------------------------------- 7. the installer
@@ -402,18 +393,18 @@ $engineArgs = @(
     "/resource:$(Join-Path $kpmRuntimeDir 'KotorPatcher.dll'),Kmrp.engine.runtime",
     "/resource:$(Join-Path $kpmRuntimeDir 'binkw32.dll'),Kmrp.engine.proxy",
     "/resource:$(Join-Path $kpmSubmodule 'LICENSE'),Kmrp.engine.license")
-foreach ($patchId in @("kmrp", "kmrp-controller", "kmrp-movies", "kmrp-map-notes")) {
-    $engineArgs += "/resource:$(Join-Path $kpmConfigDir ($patchId + '.toml')),Kmrp.engine.config.$patchId"
+# The patch's hooks as patch_config.toml blocks: the ones always installed, and one
+# file per option that has hooks of its own (KpmEditionOperations.PatchConfigSection).
+$engineArgs += "/resource:$(Join-Path $kpmConfigDir 'kmrp.hooks.toml'),Kmrp.engine.hooks"
+foreach ($optionHooks in (Get-ChildItem -LiteralPath $kpmConfigDir -Filter "kmrp.hooks.*.toml" -File)) {
+    $option = $optionHooks.Name.Substring("kmrp.hooks.".Length, $optionHooks.Name.Length - "kmrp.hooks.".Length - ".toml".Length)
+    $engineArgs += "/resource:$($optionHooks.FullName),Kmrp.engine.hooks.$option"
 }
-# The .kpatch files themselves, and their README; the licence that goes with them is
-# Kmrp.engine.license. File names as tools/build_kpatch.py writes them, in the same
-# pairs as KpmEditionOperations.Kpatches.
-foreach ($kpatch in @(@("kmrp", "KMRP.kpatch"), @("kmrp-controller", "KMRP Controller.kpatch"),
-        @("kmrp-movies", "KMRP Movies.kpatch"), @("kmrp-map-notes", "KMRP Map Notes.kpatch"))) {
-    $kpatchPath = Join-Path $kpmDir $kpatch[1]
-    if (-not (Test-Path -LiteralPath $kpatchPath)) { throw "tools\build_kpatch.py did not write $kpatchPath" }
-    $engineArgs += "/resource:$kpatchPath,Kmrp.kpatch.$($kpatch[0])"
-}
+# The .kpatch itself, which also holds the module, and its README; the licence that
+# goes with it is Kmrp.engine.license.
+$kpatchPath = Join-Path $kpmDir "KMRP.kpatch"
+if (-not (Test-Path -LiteralPath $kpatchPath)) { throw "tools\build_native_kpatch.py did not write $kpatchPath" }
+$engineArgs += "/resource:$kpatchPath,Kmrp.kpatch"
 $engineArgs += "/resource:$(Join-Path $projectRoot 'src\patcher\KPM-PATCHES-README.txt'),Kmrp.kpatch.readme"
 Write-Bar -Percent 100 -Label "running the C# compiler"
 Invoke-Tool -Exe $compiler -Arguments ($compilerArgs + $engineArgs) -Label "compile" `

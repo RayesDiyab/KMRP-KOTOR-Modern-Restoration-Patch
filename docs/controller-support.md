@@ -74,7 +74,11 @@ controller mode active. Windows event 1000 and the matching crash dump identifie
 the exact call. That lookup was removed; the corrected module uses only the
 class-layout offsets below.
 
-The shipped module is built by `src/controller-native/build.cmd` (x86 MSVC,
+*Since 2026-10-04 the shipped module is `kmrp-native.dll`, built by
+`src/controller-native/build_native_runtime.cmd` from these same sources and
+installed as `patches\kmrp.dll`; `build.cmd` builds the four-patch edition's
+245 KB module, which the installer no longer carries.* Until then the shipped
+module was built by `src/controller-native/build.cmd` (x86 MSVC,
 `/Brepro`, SDL headers from the pinned SDK); see
 [`../src/controller-native/README.md`](../src/controller-native/README.md). The
 first integration was built from Saul0097's two source files alone, from an x86
@@ -130,7 +134,16 @@ With the option off nothing reads the pad, draws a prompt or rumbles. The files
 below are the same either way, and their names still say "controller" because
 renaming them would orphan older installs' manifests.
 
-**Since 2026-09-29** KMRP's installer runs KMRP on KOTOR Patch Manager's own
+**Since 2026-10-04** the controller is not a patch of its own but an option,
+`controller`, of KMRP's one patch ([one patch since 2026-10-04](kpm-edition.md#one-patch-since-2026-10-04)): with it on, the installer
+writes the controller's 28 hooks into `patch_config.toml` and `controller = true`
+into the patch's `[patches.options]` table; with it off, neither, and the one
+module, `patches\kmrp.dll`, runs the core's frames alone (`KmrpControllerOptionK1`).
+SDL is inside the module, not beside the game, and there is no `kmrp-kpm.dat`. The
+paragraphs and the file table that follow describe the four-patch layout of
+2026-09-29 to 2026-10-04.
+
+**Since 2026-09-29** KMRP's installer ran KMRP on KOTOR Patch Manager's own
 runtime, laid out as KPM's proxy deployment lays out a game folder, with KMRP's
 four KPM patches ([kpm-edition.md](kpm-edition.md), section 1a). The controller
 option decides whether the `kmrp-controller` patch goes into `patch_config.toml`,
@@ -242,7 +255,10 @@ controller off) -- the same 37 sites, with `CoreGuiFrameK1` and `CoreMovieFrameK
 in place of `NativeGuiFrameK1` and `NativeMovieFrameK1`, which hand over to KMRP
 Controller's frames -- and 9 with the controller off.
 
-**Current count, 2026-10-03:** the keyboard source port adds three core hooks.
+**Current count, 2026-10-04:** the one patch has 52 runtime hooks, 28 of them
+the controller option's, so 52 with controller support and 24 without (the
+standalone module's own sites are among the 24). **Count of 2026-10-03, four
+patches:** the keyboard source port adds three core hooks.
 Derived from `kmrp_controller.kpm_patch_hooks`, `kmrp` now has 13 runtime hooks,
 `kmrp-controller` 28, and `kmrp-movies` 2: 43 with controller support, 15 without.
 CD/GOG's separate static large-address header hook is additional. The preceding
@@ -656,7 +672,7 @@ Run:
 
 ```powershell
 .\build_kmrp.ps1 -ReuseResources
-.\testing\regression\Test-ControllerSupport.ps1
+.\testing\regression\Test-InstallerPatch.ps1    # Test-ControllerSupport.ps1 until 2026-10-04
 python .\testing\regression\Test-ControllerPromptAssets.py
 ```
 

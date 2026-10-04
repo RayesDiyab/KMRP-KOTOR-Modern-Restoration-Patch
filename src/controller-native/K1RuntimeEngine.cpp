@@ -51,22 +51,20 @@ std::uint32_t FieldAddress(const NativeField& field)
         static_cast<std::uint32_t>(reinterpret_cast<std::uintptr_t>(g_nativeBlock)) + field.va - kBlockVa : field.va;
 }
 
-// The optional parts, read from patch_config.toml, which KPM writes beside the game.
+// The optional parts, read from patch_config.toml, which KOTOR Patch Manager or
+// KMRP's installer writes beside the game.
 //
-// Two packages carry this module (tools/build_native_kpatch.py):
-//   * "kmrp-native-options": controller support, map notes and the movie fixes are
-//     options, each on by default. A KOTOR Patch Manager with patch options writes
-//     the player's choices as the [patches.options] table under the patch, one
-//     boolean per option. One without options (0.7.1) writes no table and installs
-//     every hook, which is every option at its default: on.
-//   * "kmrp-native": no options and no controller. Movies are always on, and map
-//     notes come with the add-on patch "kmrp-native-map-notes", which carries no
-//     hooks and no module and is installed when the file names it.
+// The patch is "kmrp" (tools/build_native_kpatch.py). Controller support and map
+// notes are its options, each on by default; the movie fixes are always in. Whoever installs it with
+// a choice writes the choices as the [patches.options] table under the patch, one
+// boolean per option: a KOTOR Patch Manager with patch options, or KMRP's installer.
+// A manager without options (0.7.1) writes no table and installs every hook, which
+// is every option at its default. So anything but an explicit false is on.
 //
 // -1 when the file has no such option, else 0 or 1.
 int OptionValue(const std::string& text, const char* option)
 {
-    const std::size_t patch = text.find("\"kmrp-native-options\"");
+    const std::size_t patch = text.find("id = \"kmrp\"");
     if (patch == std::string::npos) return -1;
     const std::size_t table = text.find("[patches.options]", patch);
     const std::size_t next = text.find("[[patches]]", patch);
@@ -86,21 +84,16 @@ int OptionValue(const std::string& text, const char* option)
     return -1;
 }
 
-bool g_controllerOption = false;
+bool g_controllerOption = true;
 
 std::uint32_t OptionalFeatures()
 {
     std::vector<std::uint8_t> config;
-    if (!ReadFileBytes(L"patch_config.toml", config)) return kMovies;
+    // An unreadable file says nothing, and nothing is the defaults.
+    if (!ReadFileBytes(L"patch_config.toml", config)) return kMovies | kMapNotes;
     const std::string text(config.begin(), config.end());
-    if (text.find("\"kmrp-native-options\"") != std::string::npos) {
-        // Anything but an explicit false is on: the default, and all a manager
-        // without options can say.
-        g_controllerOption = OptionValue(text, "controller") != 0;
-        return (OptionValue(text, "movies") != 0 ? kMovies : 0) |
-               (OptionValue(text, "map-notes") != 0 ? kMapNotes : 0);
-    }
-    return kMovies | (text.find("\"kmrp-native-map-notes\"") != std::string::npos ? kMapNotes : 0);
+    g_controllerOption = OptionValue(text, "controller") != 0;
+    return kMovies | (OptionValue(text, "map-notes") != 0 ? kMapNotes : 0);
 }
 
 // Apply the engine for one size: at load, for the size in swkotor.ini, or at the

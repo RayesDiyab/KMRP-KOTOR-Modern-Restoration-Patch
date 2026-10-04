@@ -10,9 +10,11 @@
 `KMRP - KOTOR Modern Restoration Patch.exe` is the single-file installer for all 66
 listed resolutions, and since 2026-09-30 for any other size from 4:3 to 32:9, whose
 menus it blends from the listed ones and whose controller badges and HUD boxes it
-draws for them (`GuiBlend.cs`, the C# of `macos/tools/kmrp-guiblend.c`). It contains
-the source-built runtime engine recipe, shared interface artwork, every matching GUI set and the
-blend table, so no companion folders need to be shipped.
+draws for them. Since 2026-10-04 that is done by KMRP's patch module while the game
+runs, with `macos/tools/kmrp-guiblend.c` compiled into it; `GuiBlend.cs` is its C#
+reference and decides which sizes the installer accepts. The installer contains
+`KMRP.kpatch`, whose module holds the engine recipe, the shared interface artwork and
+every GUI set, so no companion folders need to be shipped.
 
 The patcher accepts Steam's, GOG's and the editable 1.03 `swkotor.exe` (`GameExecutable`
 in `KmrpPatcher.cs`), creates recoverable
@@ -21,9 +23,9 @@ sets NVIDIA's present method for it where the driver would otherwise show
 half-drawn frames, and configures `swkotor.ini`. Three optional components,
 each on by default and each independent, are chosen under *Advanced Settings*:
 K1 Modern Driver Compatibility, the map-note corrections, and controller
-support. See `docs/patcher-ui-build.md` for the order of every step. Under
-`[Graphics Options]`, it removes duplicate resolution keys and writes the
-selected values, for example:
+support; the last two are the patch's options. See `docs/patcher-ui-build.md` for the
+order of every step. Under `[Graphics Options]`, it removes duplicate resolution keys
+and writes the display's current size, where the game starts, for example:
 
 ```ini
 Height=1440
@@ -47,12 +49,11 @@ assets\override-3440x1440
 
 The per-resolution GUI layouts come from the preserved KOTOR High Resolution
 Menus source package, with the exact final 3440 × 1440 GUI collection used for
-that gold selection. During installation the selected files are written to the
-game's `Override` directory and replace files with the same names. Existing
-conflicting files are backed up first -- except the bundled third-party art
-(portraits and item icons), which yields to a file already there and leaves it
-alone. **Restore Original** restores replaced
-files and removes files introduced by the patcher.
+that gold selection. Since 2026-10-04 they are carried inside the patch's module
+and nothing is written to the game's `Override` directory; the game reads them from
+the module's own folder. **Restore Original** still restores the files an older
+KMRP replaced in `Override` and removes the ones it introduced, from that install's
+manifest.
 
 Step 1 starts at `swkotor.exe` beside the patcher, and otherwise at Steam's KOTOR (Steam's
 record of app 32370, then every library in `steamapps\libraryfolders.vdf`, at
@@ -64,7 +65,8 @@ file it could not use; the window checks again whenever it is activated. Until
 2026-09-30 it was *Verify Editable EXE*, and a missing or unsupported executable
 expanded it into a guide linking to the KOTOR Editable Executable on Deadly Stream,
 with *Get Editable EXE* and *Check Again*: KMRP now takes all three versions as they
-are. Step 3 lists this display's size first and ends with *Custom size…*.
+are. Step 3 says how many resolutions the game will offer and where it starts;
+its *Choose* button opens the checklist (`ResolutionsDialog`).
 **Start Patching** remains disabled until a supported
 executable and the initial game configuration are available. Once patched, the
 same button becomes **Restore Original** when the verified backups exist.
@@ -99,8 +101,8 @@ To reuse interface resources after a successful full resource build:
 .\build_kmrp.ps1 -ReuseResources
 ```
 
-Both forms assemble the source engine, compile the native module and KPM
-runtime, and package their four patches. The only required game-derived build
+Both forms assemble the source engine, compile KMRP's module and KPM's
+runtime, and package the one patch, `KMRP.kpatch`. The only required game-derived build
 input is `TexturePacks/swpc_tex_gui.erf`; per-resolution font caches are optional.
 
 Automation-only command-line modes are also available:

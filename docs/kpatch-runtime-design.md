@@ -1,5 +1,13 @@
 # Self-contained KMRP and independent controller patches
 
+**Superseded on 2026-10-04.** The design below proposed two packages, KMRP and a
+separate controller patch that cooperates with it. What was built instead is one
+patch whose controller is an option
+([KPM edition, "One patch since 2026-10-04"](kpm-edition.md#one-patch-since-2026-10-04);
+measurements in [the runtime experiment](../reverse-engineering/runtime-resolution-preview.md)).
+The text is kept as the record of the proposal; its "not implemented" statements
+were true on 2026-10-03.
+
 **Design proposal, reviewed 2026-10-03; not an implemented runtime or release.**
 This document follows the [documentation standard](documentation-standard.md).
 It records the architecture selected after reviewing upstream discussions and

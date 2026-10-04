@@ -40,8 +40,10 @@ protontricks-launch --appid 32370 "/absolute/path/to/KMRP - KOTOR Modern Restora
 In the patcher, select the `swkotor.exe` inside the real Steam KOTOR directory,
 not the copy of the patcher and not a file under `compatdata`. Steam's usual
 location is `steamapps/common/swkotor/swkotor.exe`; the library root varies.
-Choose the display's native resolution (Steam Deck LCD/OLED handheld mode is
-normally 1280×800), apply, then launch KOTOR normally through Steam.
+Apply, then launch KOTOR normally through Steam. No resolution is chosen in the
+installer since 2026-10-04: the game starts at the display's current size (Steam
+Deck LCD/OLED handheld mode is normally 1280×800) and any other size the display
+offers is chosen in the game. Not run under Proton with that build.
 
 **Steam's own executable is supported since 2026-09-29.** KMRP's installer no
 longer rewrites `swkotor.exe`: it installs KOTOR Patch Manager's runtime, loaded
@@ -64,7 +66,7 @@ patching. That still describes any KMRP installer from before that day.
 Use the same command to open KMRP and choose **Restore Original**. A reinstall
 test is: apply, launch, restore, compare the restored hashes, then apply again.
 Do not delete the Proton prefix as a substitute for KMRP restore; the prefix does
-not own the executable, INI, or Override files in the Steam library.
+not own the executable, the INI or KMRP's files in the Steam library.
 
 The official [`protontricks-launch` documentation](https://github.com/Matoking/protontricks#protontricks-launch)
 also documents `PROTON_VERSION` for selecting a specific installed Proton build.

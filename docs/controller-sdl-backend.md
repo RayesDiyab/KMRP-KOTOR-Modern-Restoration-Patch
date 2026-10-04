@@ -7,8 +7,10 @@ Compilation and installer tests are separate from runtime and hardware coverage.
 
 ## Implementation
 
-Xbox remains on Windows XInput. The optional controller installation also carries
-the official SDL 3.4.16 **x86** library as `kmrp-sdl3.dll`, plus its zlib licence.
+Xbox remains on Windows XInput. KMRP also carries the official SDL 3.4.16 **x86**
+library: since 2026-10-04 inside the patch's module, which unpacks it to its own
+temporary folder as `kmrp-sdl3.dll` (the zlib licence travels in `KMRP.kpatch`);
+before that, installed beside the game with its licence.
 SDL opens mapped gamepads, and KMRP identifies the device it actually reads using
 SDL's gamepad type and vendor. It does not infer a family from unrelated HID
 devices connected to the computer.
@@ -66,8 +68,11 @@ and verifies the DLL's PE machine is `0x014C`. The SDK remains in ignored
 adjacent KMRP-named DLL, with dependency lookup restricted to its directory and
 System32. An absent/unloadable SDL DLL leaves XInput available.
 
-The existing controller manifest owns the SDL library and licence. A foreign
-file at either destination declines the whole controller installation. Restore
+*Until 2026-10-04:* the existing controller manifest owned the SDL library and
+licence, and a foreign file at either destination declined the whole controller
+installation. Nothing named SDL is installed now, so no manifest row exists for it;
+the module looks beside itself and beside the game first, and then in its own
+folder (`InitSdl`, `K1ControllerBackend.cpp`). Restore
 removes only matching hashes and accepts only recognized controller filenames;
 modified or foreign files remain. The on-disk game executable is unchanged by
 this backend.
@@ -107,10 +112,10 @@ acceptance test also remains outstanding.
 ## Verifying by hand
 
 ```powershell
-cmd /c src\controller-native\build.cmd
+cmd /c src\controller-native\build_native_runtime.cmd   # build.cmd until 2026-10-04
 cmd /c testing\controller\Test-SdlBackend.cmd
 .\build_kmrp.ps1 -ReuseResources
-.\testing\regression\Test-ControllerSupport.ps1
+.\testing\regression\Test-InstallerPatch.ps1          # Test-ControllerSupport.ps1 until 2026-10-04
 python tools/check_patcher_hook_table.py
 python tools/check_hook_stolen_bytes.py src/controller-native/kotor1.hooks.toml
 ```

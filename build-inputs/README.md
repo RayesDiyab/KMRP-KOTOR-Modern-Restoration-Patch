@@ -19,7 +19,7 @@ build will tell you exactly what is missing.
 | --- | --- |
 | `swkotornopatch.exe` | Optional for historical executable comparisons and installer regressions: the editable 4,042,752-byte `swkotor.exe`, SHA-256 `761F9466…C49E9886`. The normal build does not read it. |
 | `swpc_tex_gui.erf` | `TexturePacks\swpc_tex_gui.erf` from your KOTOR installation. Source art for the font atlases, hex row frames, and popup icons. |
-| `swkotor-steam.exe` | Optional, for tests only: Steam's own `swkotor.exe`, 4,395,008 bytes, SHA-256 `34E6D971…A439F34C88`, unmodified. `testing\regression\Test-KpmEdition.ps1` installs the KPM edition over it; without it that test skips its Steam case and says so. The build does not read it. |
+| `swkotor-steam.exe` | Optional, for tests only: Steam's own `swkotor.exe`, 4,395,008 bytes, SHA-256 `34E6D971…A439F34C88`, unmodified. `testing\regression\Test-KpmEdition.ps1` installed the KPM edition over it until that test was removed on 2026-10-04 (no test uses it now); without it that test skipped its Steam case and says so. The build does not read it. |
 Copy the texture pack in, then:
 
 ```powershell

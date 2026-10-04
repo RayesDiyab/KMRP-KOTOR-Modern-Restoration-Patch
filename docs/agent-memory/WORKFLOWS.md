@@ -18,7 +18,7 @@ temporary directory—not beside tracked sources.
 ```powershell
 # Optional module-only iteration. Both installer builds below compile it too
 # since 2026-10-01; before that a stale module could be embedded unchanged.
-& .\src\controller-native\build.cmd
+& .\src\controller-native\build_native_runtime.cmd   # KMRP's module since 2026-10-04 (build.cmd: the old 245 KB one)
 
 # Fast patcher compilation using already-generated resources
 .\build_kmrp.ps1 -ReuseResources
@@ -46,6 +46,17 @@ and source engine guards. **Correction:** the former `kmrp-sites.exe`,
 unmodified `swkotor.exe` at `build-inputs\swkotor-steam.exe` to include its Steam
 case. Steam-only facts: KPM needs its proxy deployment there, and SteamStub refuses
 any changed executable (docs/kpm-edition.md).
+
+**Since 2026-10-04:** one patch. The build runs `src\controller-native\build_native_runtime.cmd`
+(the module, with the engine recipe and the resource bank; the bank is rebuilt unless
+`-ReuseResources` finds one) and `tools/build_native_kpatch.py`, which writes
+`build\kmrp\kpm-patches\KMRP.kpatch` and the installer's hook files in
+`build\kmrp\kpm-config\`; `tools/build_kpatch.py` no longer runs in the build (the native
+builder imports its helpers). After a build run `.\testing\regression\Test-InstallerPatch.ps1`
+and `python testing/regression/Test-KpatchSource.py`; `Test-KpmEdition.ps1` is gone.
+A scratch install delivers `KMRP.kpatch` to the folder KOTOR Patch Manager's settings
+name, which on the maintainer's PC is the play-test game's `patches` folder: redirect
+`%APPDATA%\KPatchLauncher\settings.json` first, as `Test-InstallerPatch.ps1` does.
 
 The only required game-derived build input defaults to ignored
 `build-inputs/swpc_tex_gui.erf`. The Windows engine recipe builds from source;

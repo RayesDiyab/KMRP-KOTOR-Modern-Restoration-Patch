@@ -4,8 +4,17 @@
 
 KMRP is a resolution-aware interface and engine restoration patch for the 2003 PC
 release of *Star Wars: Knights of the Old Republic*. It generates resources for 66
-resolutions from 800×600 through 15360×8640, blends other supported sizes at install,
-and applies source-built engine fixes in memory plus Override resources.
+resolutions from 800×600 through 15360×8640, blends other supported sizes when the
+game runs at them, and applies source-built engine fixes in memory.
+
+**Since 2026-10-04 KMRP is one KPM patch, `kmrp`, with two options (`controller`,
+`map-notes`).** Its module, `kmrp-native.dll` (`src/controller-native/build_native_runtime.cmd`,
+packaged by `tools/build_native_kpatch.py`), embeds the engine recipe, every
+resolution's files, the controller and SDL; nothing is written to Override, there is
+no `kmrp-kpm.dat`, and the resolution is chosen in the game. Where this file below
+still says four patches, `kmrp-kpm.dat`, Override resources, `build.cmd` or
+`kmrp-controller.module`, it describes the layout before that day; see
+`docs/kpm-edition.md`, "One patch since 2026-10-04".
 
 The first public release is KMRP 1.0, tagged `v2.10.0` (its internal number;
 its Properties → Details say 2.7.0.0). The build in progress is KMRP 1.5, installer

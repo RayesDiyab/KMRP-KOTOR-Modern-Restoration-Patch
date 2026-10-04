@@ -5,6 +5,8 @@
 #include <cstring>
 #include <array>
 #include <set>
+#include <utility>
+#include <vector>
 #include <intrin.h>
 #ifdef KMRP_NATIVE_RUNTIME
 #include "K1RuntimeEngine.h"
@@ -119,15 +121,109 @@ namespace {
 using EnumModesFn = BOOL(WINAPI*)(LPCSTR, DWORD, DEVMODEA*);
 EnumModesFn g_enumModes = nullptr;
 
+// The sizes the player chose in KMRP's installer: kmrp-resolutions.txt beside the
+// game, one WIDTHxHEIGHT per line. With the file, Screen Resolution lists those
+// sizes and no others: a size the display reports is listed at its own rates, and a
+// size it does not report is added as a mode of the game's own, at 60 Hz. Without
+// the file the list is what the display reports.
+//
+// A size the display does not report exists for the game only because this adds it:
+// the game takes its modes from EnumDisplaySettingsA everywhere, at start as well as
+// in the dialog, and falls back to 800x600 for a size that is not among them
+// (measured 2026-10-04 with 3000x1300 in swkotor.ini, fullscreen and windowed).
+std::vector<std::pair<DWORD, DWORD>> g_chosen;
+bool g_haveChosen = false;
+
+void ReadChosenSizes()
+{
+    wchar_t path[MAX_PATH];
+    const DWORD n = GetModuleFileNameW(nullptr, path, MAX_PATH);
+    wchar_t* slash = n && n < MAX_PATH ? wcsrchr(path, L'\\') : nullptr;
+    if (!slash || wcscpy_s(slash + 1, MAX_PATH - (slash + 1 - path), L"kmrp-resolutions.txt")) return;
+    FILE* file = nullptr;
+    if (_wfopen_s(&file, path, L"r") || !file) return;
+    g_haveChosen = true;
+    char line[64];
+    while (fgets(line, sizeof line, file)) {
+        int width = 0, height = 0;
+        if (sscanf_s(line, "%dx%d", &width, &height) == 2 && KmrpRuntimeDimensions(width, height))
+            g_chosen.emplace_back(static_cast<DWORD>(width), static_cast<DWORD>(height));
+    }
+    fclose(file);
+}
+
+bool Chosen(DWORD width, DWORD height)
+{
+    for (const auto& size : g_chosen)
+        if (size.first == width && size.second == height) return true;
+    return false;
+}
+
+// How many modes the display reports, and which chosen sizes are not among them.
+DWORD g_reported = 0;
+std::vector<std::pair<DWORD, DWORD>> g_added;
+
+void CountReported(LPCSTR device)
+{
+    static bool counted = false;
+    if (counted) return;
+    counted = true;
+    std::set<std::pair<DWORD, DWORD>> reported;
+    DEVMODEA mode{};
+    mode.dmSize = sizeof mode;
+    while (g_enumModes(device, g_reported, &mode)) {
+        reported.insert({mode.dmPelsWidth, mode.dmPelsHeight});
+        ++g_reported;
+    }
+    for (const auto& size : g_chosen)
+        if (!reported.count(size)) g_added.push_back(size);
+}
+
+// Fullscreen at a size the display does not report. Windows refuses the mode, and
+// the game then exits (measured 2026-10-04: 3000x1300 fullscreen, the process gone
+// within seconds). So the display is not asked: the game is told the change
+// succeeded, keeps the desktop's mode and puts its borderless window of that size on
+// it. Every other request, the restore of the desktop's own mode among them (a null
+// mode), goes to Windows as it came.
+using ChangeModeFn = LONG(WINAPI*)(DEVMODEA*, DWORD);
+ChangeModeFn g_changeMode = nullptr;
+
+LONG WINAPI ChangeModeUnlessAdded(DEVMODEA* mode, DWORD flags)
+{
+    if (mode && (mode->dmFields & DM_PELSWIDTH) && (mode->dmFields & DM_PELSHEIGHT))
+        for (const auto& size : g_added)
+            if (size.first == mode->dmPelsWidth && size.second == mode->dmPelsHeight)
+                return DISP_CHANGE_SUCCESSFUL;
+    return g_changeMode(mode, flags);
+}
+
 BOOL WINAPI EnumModesOnce(LPCSTR device, DWORD index, DEVMODEA* mode)
 {
-    const BOOL ok = g_enumModes(device, index, mode);
+    BOOL ok = g_enumModes(device, index, mode);
+    // The current and the registry settings are asked for by index too; those and a
+    // null answer are Windows' alone.
+    if (!mode || index == ENUM_CURRENT_SETTINGS || index == ENUM_REGISTRY_SETTINGS) return ok;
+    if (!ok && !g_added.empty()) {
+        // Past the display's own modes: the chosen sizes it does not report, for every
+        // caller, so that the game can start at one and switch to one.
+        CountReported(device);
+        if (index < g_reported || index - g_reported >= g_added.size()) return ok;
+        const auto& size = g_added[index - g_reported];
+        mode->dmPelsWidth = size.first;
+        mode->dmPelsHeight = size.second;
+        mode->dmBitsPerPel = 32;
+        mode->dmDisplayFrequency = 60;
+        mode->dmFields = DM_PELSWIDTH | DM_PELSHEIGHT | DM_BITSPERPEL | DM_DISPLAYFREQUENCY;
+        ok = TRUE;
+    }
     const void* const caller = _ReturnAddress();
-    if (!ok || !mode || (caller != reinterpret_cast<void*>(0x006E0955) &&
-                         caller != reinterpret_cast<void*>(0x006E0BC9))) return ok;
+    if (!ok || (caller != reinterpret_cast<void*>(0x006E0955) &&
+                caller != reinterpret_cast<void*>(0x006E0BC9))) return ok;
     static std::set<std::array<DWORD, 4>> seen;
     if (index == 0) seen.clear();
-    if (!seen.insert({mode->dmPelsWidth, mode->dmPelsHeight, mode->dmBitsPerPel, mode->dmDisplayFrequency}).second)
+    // Hidden from the dialog: a repeat, and with a list of chosen sizes, a size not on it.
+    if (!seen.insert({mode->dmPelsWidth, mode->dmPelsHeight, mode->dmBitsPerPel, mode->dmDisplayFrequency}).second ||
+        (g_haveChosen && !Chosen(mode->dmPelsWidth, mode->dmPelsHeight)))
         mode->dmBitsPerPel = 0;
     return ok;
 }
@@ -149,8 +245,20 @@ void KmrpInstallModeListFilter()
     DWORD old = 0;
     if (!real || g_enumModes || *slot != real || !VirtualProtect(slot, sizeof *slot, PAGE_READWRITE, &old)) return;
     g_enumModes = real;
+    ReadChosenSizes();
+    CountReported(nullptr);
     *slot = &EnumModesOnce;
     VirtualProtect(slot, sizeof *slot, old, &old);
+
+    // ChangeDisplaySettingsA, the next slot: only when sizes were added, and only
+    // while it too holds user32's own function.
+    auto changeSlot = reinterpret_cast<ChangeModeFn*>(0x0073D3E8);
+    auto realChange = reinterpret_cast<ChangeModeFn>(GetProcAddress(user, "ChangeDisplaySettingsA"));
+    if (g_added.empty() || !realChange || *changeSlot != realChange ||
+        !VirtualProtect(changeSlot, sizeof *changeSlot, PAGE_READWRITE, &old)) return;
+    g_changeMode = realChange;
+    *changeSlot = &ChangeModeUnlessAdded;
+    VirtualProtect(changeSlot, sizeof *changeSlot, old, &old);
 }
 #endif
 

@@ -40,7 +40,8 @@ line in the debug log says which of the three a rumble is.
 `kmrp-controller.ini`, beside `swkotor.exe`. The installer writes it when it is
 absent. Once you edit it, it is yours: the installer never overwrites it, an
 edited copy never stops an install, and Restore leaves it in place.
-`Test-ControllerSupport.ps1` Case 7 checks all three.
+`Test-ControllerSupport.ps1` Case 7 checked all three until the test was removed
+with the four-patch layout on 2026-10-04; no test checks them now.
 
 ```ini
 [Rumble]

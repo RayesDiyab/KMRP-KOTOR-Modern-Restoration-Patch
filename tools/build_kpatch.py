@@ -1,6 +1,13 @@
 #!/usr/bin/env python3
 """Build the KPM edition's four .kpatch files, and check them as KPM would.
 
+RETIRED FROM THE BUILD ON 2026-10-04. KMRP is one patch since then, built by
+tools/build_native_kpatch.py, and build_kmrp.ps1 no longer runs this script. It
+stays because that builder and tools/build_runtime_kpatch.py import its helpers
+(render_manifest, render_hooks, the build hashes, large_address_hook, exports_of)
+and tools/check_kpm_overlaps.py reads PATCHES. The description below is of the
+four-patch edition as it was.
+
 KMRP's installer writes source-built runtime data and installs KOTOR Patch
 Manager's runtime with patch_config.toml, or leaves an existing KPM runtime in
 charge. Steam's executable is unchanged. Both use one patch per fix:

@@ -43,6 +43,7 @@ reason).
 | 12 | Every font atlas at its set's own scale: check the Mac's cache | **check** |
 | 13 | `kpm_holds_only_kmrp` reads KPM's state file too: a patch without a module is in neither `patch_config.toml` nor `patches/` | **to do** |
 | 14 | `kmrp.kpatch` dropped into KPM beside FTD's patches: KPM's own conflict refusal, and a description that says what to untick | **check**, and one wording change **to do** |
+| 15 | KMRP as one self-contained `.kpatch` with options, shipped inside the installer, as Windows is since 2026-10-04 | **to do**: the maintainer's next step for the Mac |
 
 ## 1. Badges drawn for the blended buttons
 
@@ -402,3 +403,49 @@ In KPM on a Mac, with FTD's Widescreen Patch and Stray Bug Fixes installed and t
 `kmrp.kpatch` in the patch folder, tick it and press Apply: KPM must show the refusal above
 and leave `patch_config.toml`, `patches/` and `KOTOR_Exe` as they were. Untick FTD's two and
 apply again: KMRP installs.
+
+## 15. One self-contained patch with options, as Windows now is
+
+**What was decided** (the maintainer, 2026-10-04): "Macos is next to become like the
+windows version as a one file kpatcher with options." Windows changed that day; this
+item says what Windows did, so the Mac can do the same in its own terms. The full
+record is [KPM edition, "One patch since 2026-10-04"](kpm-edition.md#one-patch-since-2026-10-04)
+and [the runtime experiment](../reverse-engineering/runtime-resolution-preview.md).
+
+**What Windows does now.**
+
+| | Windows since 2026-10-04 | Mac today (item 6) |
+| --- | --- | --- |
+| Patches | one, `kmrp`, file `KMRP.kpatch` (`tools/build_native_kpatch.py`) | one, `kmrp`, built by `macos/tools/make_kmrp_patch.py` |
+| Everything inside the module | the engine changes, every resolution's menu files, the controller, SDL: nothing in Override, no data file | the engine side is in `kmrp.dylib`; the menu layouts are installed by the installer ("Run through KMRP Installer, which adds the menu layouts") |
+| Resolution | not chosen at install: the game starts at the display's size and any size the display supports is chosen in the game; the module lays the menus out again on a switch | chosen at install |
+| Options | `controller` and `map-notes`, declared in the manifest as `[[patch.options]]`, both on by default; a hook that belongs to one carries `when = "controller"`. The movie fixes are not an option ("standard baked into KMRP, non-negotiable") | `--no-controller`, `--no-map-notes` at install, as separate config variants |
+| Who resolves the options | KMRP's installer, from Advanced Settings: it writes the hooks of the options left on and a `[patches.options]` table under the patch in `patch_config.toml`. A KPM with patch options (upstream pull request 310, open) does the same from its own window. KPM 0.7.1 ignores both keys and installs every hook: every option on | the installer picks a config variant |
+| How the module learns the choice | it reads `[patches.options]` under `id = "kmrp"` in `patch_config.toml`; a missing table or value is on (`OptionalFeatures`, `K1RuntimeEngine.cpp`) | n/a |
+| One hook per address | no address has two hooks, whatever their conditions, so a manager without options still installs the patch. A site that differs by option has one hook whose function decides at run time (`CoreGuiFrameK1` runs the controller's frame when the option is on) | n/a |
+
+**What the Mac needs** (none of it started; each line is a piece of work, not a measured fact):
+
+1. The menu layouts inside the patch, so that `kmrp.kpatch` put in KPM's folder by hand
+   is whole (item 14, second point, asked for the decision; this is it). Windows embeds
+   a compressed bank of every set's files in the module and unpacks the current size to
+   a private cache the game's resource manager reads (`tools/build_native_assets.py`,
+   `K1RuntimeAssets.cpp`); the blending is the Mac's own C tools, compiled into the
+   Windows module (`macos/tools/kmrp-guiblend.c`, `kmrp-abilityicons.c`,
+   `kmrp-gameart.c`, with a `KMRP_EMBEDDED` entry point added for it).
+2. The resolution chosen in the game, with the layouts applied again on a switch.
+   What Windows had to solve is in the runtime experiment: the fonts' glyph metrics are
+   read once per texture and must be read again, the new size's files must be in place
+   before the window is re-created, and panels drift unless each control's file extent
+   is tracked. The Mac's engine is a different binary; the addresses do not carry over.
+3. The two options in the manifest, `when` on the controller's hooks, no two hooks at
+   one address, and the dylib reading `[patches.options]`. Upstream's `validate-patches.py`
+   in pull request 310 checks the format.
+4. The installer writing the options table and the hooks left on, in place of its
+   config variants; the movie fixes always in.
+5. `conflicts` with FTD's two patches stays as item 14 has it.
+
+**Check.** As Windows': the patch installed through KPM 0.7.1 alone, with no installer
+run, gives the whole of KMRP with every option on; through the installer with both
+options off, only the unconditional hooks are in `patch_config.toml`; a resolution
+switch in the game keeps the fonts and the panel positions.

@@ -2,7 +2,8 @@
 """Build/check the first standalone native KMRP vertical slice (experimental).
 
 No installer data, generated GUI archives, controller module or game executable
-is a build input. Existing production package builds are deliberately separate.
+is a build input. This is the preview of 2026-10-03; the production package grew
+out of it and is tools/build_native_kpatch.py.
 """
 from __future__ import annotations
 import argparse

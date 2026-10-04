@@ -1,0 +1,195 @@
+<#
+.SYNOPSIS
+    Regression test for what KMRP's installer puts in a game folder since 2026-10-04:
+    KOTOR Patch Manager's runtime with one patch, "kmrp", and its options.
+
+.DESCRIPTION
+    Runs the built installer from the command line on throwaway game folders (the
+    editable 1.03 executable from build-inputs, a stand-in binkw32.dll and a small
+    swkotor.ini) and checks:
+
+      1. every option on: patch_config.toml holds the one patch with every hook the
+         .kpatch has, the [patches.options] table says both options are on, the
+         module under patches\ is the one inside KMRP.kpatch, nothing is written to
+         Override, no data file and no resolution list, and swkotor.ini holds the
+         size asked for;
+      2. controller support and map notes off: only the hooks without a condition
+         are written, and the table says both are off;
+      3. a resolution choice in the settings: kmrp-resolutions.txt lists it;
+      4. Restore Original: the folder is as it was, file for file;
+      5. the .kpatch delivered to KOTOR Patch Manager's patch folder passes
+         tools\build_native_kpatch.py --check.
+
+    The installer reads its options from %LOCALAPPDATA%\KMRP\settings.json and
+    KOTOR Patch Manager's patch folder from %APPDATA%\KPatchLauncher\settings.json.
+    Both are replaced for the run and put back in a finally block, from copies kept
+    on disk, so a stopped run can be repaired by hand from the work folder.
+
+    It does not start the game. See docs\kpm-edition.md, "One patch since 2026-10-04".
+
+.EXAMPLE
+    .\testing\regression\Test-InstallerPatch.ps1
+#>
+[CmdletBinding()]
+param(
+    [string]$Installer,
+    [string]$SourceExe,
+    [string]$WorkRoot
+)
+
+$ErrorActionPreference = "Stop"
+$projectRoot = Split-Path -Parent (Split-Path -Parent $PSScriptRoot)
+if (-not $Installer) { $Installer = Join-Path $projectRoot "dist\KMRP - KOTOR Modern Restoration Patch.exe" }
+if (-not $SourceExe) { $SourceExe = Join-Path $projectRoot "build-inputs\swkotornopatch.exe" }
+if (-not $WorkRoot) { $WorkRoot = Join-Path ([IO.Path]::GetTempPath()) ("kmrp-installer-patch-" + [Guid]::NewGuid().ToString("N")) }
+$WorkRoot = [IO.Path]::GetFullPath($WorkRoot)
+New-Item -ItemType Directory -Force -Path $WorkRoot | Out-Null
+foreach ($needed in @($Installer, $SourceExe)) {
+    if (-not (Test-Path -LiteralPath $needed)) { throw "Missing: $needed" }
+}
+
+$script:failures = 0
+function Assert([bool]$condition, [string]$what) {
+    if ($condition) { Write-Host "  PASS  $what" }
+    else { Write-Host "  FAIL  $what" -ForegroundColor Red; $script:failures++ }
+}
+function Get-Sha([string]$path) { (Get-FileHash -LiteralPath $path -Algorithm SHA256).Hash }
+function Invoke-Installer([string[]]$arguments) {
+    $process = Start-Process -FilePath $Installer -ArgumentList $arguments -Wait -PassThru
+    return $process.ExitCode
+}
+function New-Fixture([string]$name) {
+    $folder = Join-Path $WorkRoot $name
+    New-Item -ItemType Directory -Force -Path $folder | Out-Null
+    Copy-Item -LiteralPath $SourceExe -Destination (Join-Path $folder "swkotor.exe")
+    [IO.File]::WriteAllBytes((Join-Path $folder "binkw32.dll"), [byte[]](1..64))
+    [IO.File]::WriteAllText((Join-Path $folder "swkotor.ini"),
+        "[Graphics Options]`r`nFullScreen=1`r`nWidth=800`r`nHeight=600`r`n", [Text.UTF8Encoding]::new($false))
+    return (Join-Path $folder "swkotor.exe")
+}
+function Get-Listing([string]$folder) {
+    Get-ChildItem -LiteralPath $folder -Recurse -File | Sort-Object FullName | ForEach-Object {
+        $_.FullName.Substring($folder.Length) + " " + (Get-Sha $_.FullName)
+    }
+}
+function Set-KmrpSettings([bool]$controller, [bool]$markers, [string]$off = "", [string]$extra = "") {
+    $text = "{`r`n  `"driverCompatibility`": false,`r`n  `"markerFixes`": " + $markers.ToString().ToLowerInvariant() +
+        ",`r`n  `"controllerSupport`": " + $controller.ToString().ToLowerInvariant()
+    if ($off) { $text += ",`r`n  `"resolutionsOff`": `"$off`"" }
+    if ($extra) { $text += ",`r`n  `"resolutionsExtra`": `"$extra`"" }
+    New-Item -ItemType Directory -Force -Path (Split-Path -Parent $kmrpSettings) | Out-Null
+    [IO.File]::WriteAllText($kmrpSettings, $text + "`r`n}`r`n", [Text.UTF8Encoding]::new($false))
+}
+function Get-Config([string]$folder) {
+    $text = [IO.File]::ReadAllText((Join-Path $folder "patch_config.toml"))
+    return [pscustomobject]@{
+        Text = $text
+        Ids = @([regex]::Matches($text, '(?m)^id = "([^"]+)"') | ForEach-Object { $_.Groups[1].Value })
+        Hooks = [regex]::Matches($text, '(?m)^\[\[patches\.hooks\]\]').Count
+        Controller = [regex]::Match($text, '(?m)^controller = (true|false)').Groups[1].Value
+        MapNotes = [regex]::Match($text, '(?m)^map-notes = (true|false)').Groups[1].Value
+    }
+}
+
+$kmrpSettings = Join-Path ([Environment]::GetFolderPath([Environment+SpecialFolder]::LocalApplicationData)) "KMRP\settings.json"
+$kpmSettings = Join-Path ([Environment]::GetFolderPath([Environment+SpecialFolder]::ApplicationData)) "KPatchLauncher\settings.json"
+$kmrpCopy = Join-Path $WorkRoot "player-kmrp-settings.json"
+$kpmCopy = Join-Path $WorkRoot "player-kpm-settings.json"
+$hadKmrp = Test-Path -LiteralPath $kmrpSettings
+$hadKpm = Test-Path -LiteralPath $kpmSettings
+if ($hadKmrp) { Copy-Item -LiteralPath $kmrpSettings -Destination $kmrpCopy }
+if ($hadKpm) { Copy-Item -LiteralPath $kpmSettings -Destination $kpmCopy }
+$kpmPatches = Join-Path $WorkRoot "kpm-patch-folder"
+New-Item -ItemType Directory -Force -Path $kpmPatches | Out-Null
+
+try {
+    # KOTOR Patch Manager's patch folder for the run: a folder of this test's own.
+    New-Item -ItemType Directory -Force -Path (Split-Path -Parent $kpmSettings) | Out-Null
+    [IO.File]::WriteAllText($kpmSettings, "{`r`n  `"GamePath`": `"`",`r`n  `"PatchesPath`": `"" +
+        ($kpmPatches -replace '\\', '\\') + "`",`r`n  `"CheckedPatchIds`": []`r`n}", [Text.UTF8Encoding]::new($false))
+
+    Write-Host "Case 1  every option on"
+    Set-KmrpSettings $true $true
+    $game = New-Fixture "all-on"
+    $folder = Split-Path -Parent $game
+    $before = Get-Listing $folder
+    Assert ((Invoke-Installer @("--in-place", "`"$game`"", "1920x1080")) -eq 0) "the install succeeds"
+    $config = Get-Config $folder
+    Assert (($config.Ids -join ",") -eq "kmrp") "patch_config.toml holds the one patch, kmrp"
+    Assert ($config.Controller -eq "true" -and $config.MapNotes -eq "true") "the options table says controller and map-notes are on"
+    Assert (-not ($config.Text -match '(?m)^movies = ')) "the movie fixes are not an option"
+    $kpatch = Join-Path $kpmPatches "KMRP.kpatch"
+    Assert (Test-Path -LiteralPath $kpatch) "KMRP.kpatch is in KOTOR Patch Manager's patch folder"
+    Add-Type -AssemblyName System.IO.Compression.FileSystem
+    $zip = [IO.Compression.ZipFile]::OpenRead($kpatch)
+    try {
+        $hooksText = (New-Object IO.StreamReader ($zip.GetEntry("kotor1.hooks.toml").Open())).ReadToEnd()
+        $moduleStream = $zip.GetEntry("binaries/windows_x86.dll").Open()
+        $sha = [Security.Cryptography.SHA256]::Create()
+        $moduleHash = [BitConverter]::ToString($sha.ComputeHash($moduleStream)).Replace("-", "")
+        $moduleStream.Dispose()
+    } finally { $zip.Dispose() }
+    $allHooks = [regex]::Matches($hooksText, '(?m)^\[\[hooks\]\]').Count
+    $conditional = [regex]::Matches($hooksText, '(?m)^when = ').Count
+    Assert ($config.Hooks -eq $allHooks) "every hook of the patch is in the config ($allHooks)"
+    Assert ((Get-Sha (Join-Path $folder "patches\kmrp.dll")) -eq $moduleHash) "patches\kmrp.dll is the module inside KMRP.kpatch"
+    Assert (@(Get-ChildItem -LiteralPath (Join-Path $folder "patches")).Count -eq 1) "the patches folder holds that one module"
+    Assert (-not (Test-Path -LiteralPath (Join-Path $folder "Override"))) "nothing is written to Override"
+    foreach ($absent in @("kmrp-kpm.dat", "kmrp-sdl3.dll", "kmrp-resolutions.txt")) {
+        Assert (-not (Test-Path -LiteralPath (Join-Path $folder $absent))) "no $absent"
+    }
+    $ini = [IO.File]::ReadAllText((Join-Path $folder "swkotor.ini"))
+    Assert ($ini -match '(?m)^Width=1920' -and $ini -match '(?m)^Height=1080') "swkotor.ini starts the game at the size asked for"
+    Assert ((Test-Path -LiteralPath (Join-Path $folder "KotorPatcher.dll")) -and (Test-Path -LiteralPath (Join-Path $folder "binkw32Hooked.dll"))) "KOTOR Patch Manager's runtime and proxy are in place"
+
+    Write-Host "Case 4  Restore Original"
+    Assert ((Invoke-Installer @("--restore", "`"$game`"")) -eq 0) "the restore succeeds"
+    $after = Get-Listing $folder | Where-Object { $_ -notmatch 'swkotor\.ini\.kotor-ui-backup' }
+    Assert (($after -join "`n") -eq ($before -join "`n")) "the folder is as it was, file for file"
+    Assert (-not (Test-Path -LiteralPath $kpatch)) "the .kpatch this install created is removed"
+
+    Write-Host "Case 2  controller support and map notes off"
+    Set-KmrpSettings $false $false
+    $game = New-Fixture "all-off"
+    $folder = Split-Path -Parent $game
+    Assert ((Invoke-Installer @("--in-place", "`"$game`"", "1920x1080")) -eq 0) "the install succeeds"
+    $config = Get-Config $folder
+    Assert ($config.Hooks -eq ($allHooks - $conditional)) "only the hooks without a condition are written ($($allHooks - $conditional) of $allHooks)"
+    Assert ($config.Controller -eq "false" -and $config.MapNotes -eq "false") "the options table says both are off"
+
+    Write-Host "Case 5  the delivered .kpatch"
+    $python = (Get-Command python -ErrorAction SilentlyContinue).Source
+    if ($python) {
+        & $python (Join-Path $projectRoot "tools\build_native_kpatch.py") --check (Join-Path $kpmPatches "KMRP.kpatch") | Out-Null
+        Assert ($LASTEXITCODE -eq 0) "tools\build_native_kpatch.py --check accepts it"
+    } else { Write-Host "  SKIP  python is not on PATH" }
+    Assert ((Invoke-Installer @("--restore", "`"$game`"")) -eq 0) "the restore succeeds"
+
+    Write-Host "Case 3  a resolution choice"
+    Set-KmrpSettings $true $true "" "1000x700"
+    $game = New-Fixture "resolutions"
+    $folder = Split-Path -Parent $game
+    Assert ((Invoke-Installer @("--in-place", "`"$game`"", "1920x1080")) -eq 0) "the install succeeds"
+    $list = Join-Path $folder "kmrp-resolutions.txt"
+    Assert (Test-Path -LiteralPath $list) "kmrp-resolutions.txt is written"
+    if (Test-Path -LiteralPath $list) {
+        $sizes = @([IO.File]::ReadAllLines($list))
+        Assert ($sizes -contains "1000x700") "it lists the added size"
+        Assert (@($sizes | Where-Object { $_ -notmatch '^[0-9]+x[0-9]+$' }).Count -eq 0) "every line is WIDTHxHEIGHT"
+    }
+    Assert ((Invoke-Installer @("--restore", "`"$game`"")) -eq 0) "the restore succeeds"
+    Assert (-not (Test-Path -LiteralPath $list)) "restore removes the list"
+}
+finally {
+    if ($hadKmrp) { Copy-Item -LiteralPath $kmrpCopy -Destination $kmrpSettings -Force }
+    elseif (Test-Path -LiteralPath $kmrpSettings) { [IO.File]::Delete($kmrpSettings) }
+    if ($hadKpm) { Copy-Item -LiteralPath $kpmCopy -Destination $kpmSettings -Force }
+    elseif (Test-Path -LiteralPath $kpmSettings) { [IO.File]::Delete($kpmSettings) }
+}
+
+if ($script:failures -gt 0) {
+    Write-Host "FAILED ($($script:failures))" -ForegroundColor Red
+    exit 1
+}
+Write-Host "PASSED" -ForegroundColor Green
+exit 0

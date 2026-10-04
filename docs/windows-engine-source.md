@@ -187,6 +187,15 @@ the complete serialized runtime data at all tested sizes.
 
 ## Installer and runtime
 
+**Since 2026-10-04 the installer does none of what this section describes when it
+installs.** KMRP's patch module embeds the same template
+(`tools/build_native_engine.py`), fills in the size the game is running at, applies
+it with the applier below, and commits the size-dependent fields again when the
+game changes resolution ([runtime experiment](../reverse-engineering/runtime-resolution-preview.md)).
+No `kmrp-kpm.dat` is written. The installer still embeds the template and
+`WindowsEnginePatch.cs` still specializes it, for `--apply`, the reference
+executable the checks below compare.
+
 The installer embeds the template as `Kmrp.engine.source`.
 [`WindowsEnginePatch.cs`](../src/patcher/WindowsEnginePatch.cs) validates its
 checksum, layout, site ranges and relocation ownership, then specializes its
@@ -247,7 +256,8 @@ On Ubuntu the regression can use an extracted Mono tree with
 assemblies, but no system installation. Python needs `capstone`.
 
 With the Windows installer and optional editable game fixture available, run
-`testing/regression/Test-KpmEdition.ps1` and
+`testing/regression/Test-InstallerPatch.ps1` (until 2026-10-04,
+`Test-KpmEdition.ps1`, removed with the four-patch layout) and
 `testing/regression/Test-ReinstallOverOlderBuild.ps1`, then compare generated
 reference images with `tools/build_binary_inventory.py` and the historical
 gold. Finally launch under Proton and inspect `kmrp-kpm.log`; see the

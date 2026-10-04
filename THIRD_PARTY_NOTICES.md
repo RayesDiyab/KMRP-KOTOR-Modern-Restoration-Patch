@@ -9,13 +9,15 @@
 ## The game's own files
 
 No KMRP release carries a file taken from *Star Wars: Knights of the Old Republic*.
-What KMRP needs of the game's own art and data it makes at install, from the
-player's copy:
+What KMRP needs of the game's own art and data it makes on the player's machine,
+from the player's copy: on Windows when the game starts, by the patch's module,
+into its own temporary folder (since 2026-10-04; at install before that); on macOS
+at install.
 
-| Made at install | From | By |
+| Made from the player's copy | From | By |
 | --- | --- | --- |
-| enlarged feat, Force-power and skill icons | `TexturePacks/swpc_tex_gui.erf` | `AbilityIconGenerator.cs`, `macos/tools/kmrp-abilityicons.c` |
-| the four hex row frames (`lbl_hex*`), the tutorial popup's thirteen `tut_*` icons | `TexturePacks/swpc_tex_gui.erf` | `GameArtGenerator.cs`, `macos/tools/kmrp-gameart.c` |
+| enlarged feat, Force-power and skill icons | `TexturePacks/swpc_tex_gui.erf` | `macos/tools/kmrp-abilityicons.c`, compiled into the Windows module too (`AbilityIconGenerator.cs` is the C# reference it is compared with) |
+| the four hex row frames (`lbl_hex*`), the tutorial popup's thirteen `tut_*` icons | `TexturePacks/swpc_tex_gui.erf` | `macos/tools/kmrp-gameart.c`, likewise (`GameArtGenerator.cs`) |
 | `tutorial.2da`, its `icon` column pointed at the `tut_*` copies | `chitin.key`, `data/2da.bif` | the same |
 
 *Corrected 2026-09-29:* until then the hex frames and tutorial icons were exported
@@ -30,7 +32,8 @@ bundled with permission.
 ## Party Portraits
 
 Party and player portrait artwork is **Party Portraits** by **MadDerp**, bundled with
-the author's permission and installed as part of KMRP's Override payload:
+the author's permission and carried inside KMRP's patch module (until 2026-10-04,
+installed as part of KMRP's Override payload):
 
 169 `.tga` files, shipped unmodified. The mod also offers the same portraits as
 `.tpc` and its ReadMe says to install one format or the other; KMRP ships the TGAs,
@@ -64,12 +67,15 @@ Vendored at
 `third_party/Included/KOTOR1 HD ICON PACK ver1.0 1.0.0 by JackInTheBox/`.
 
 Both of the above are **not optional**: they are artwork, and they replace none of
-KMRP's own files. They also **never displace a player's file**: a portrait or icon
-already in `Override` that KMRP did not put there -- K1CP's `ia_class8_004` and
-`ia_class9_003`, for instance -- is left in place and not recorded, so the player's
-file keeps winning and restore does not touch it (`BundledNames` in
-`src/patcher/KmrpPatcher.cs`). An earlier version of this paragraph said
-`OverrideOperations` backed up whatever they displaced; they displace nothing.
+KMRP's own files. They also **never displace a player's file on disk**: since
+2026-10-04 KMRP writes nothing into `Override`, and the game reads the module's
+copies from the module's own folder, ahead of `Override`. Whether a player's
+portrait or icon of the same name is then still the one shown has not been
+compared; the main menu's layout was, and KMRP's won. (Until 2026-10-04 these
+files were installed into `Override`, and one already there that KMRP did not put
+there -- K1CP's `ia_class8_004` and `ia_class9_003`, for instance -- was left in
+place and kept winning. An earlier version of this paragraph said
+`OverrideOperations` backed up whatever they displaced; they displaced nothing.)
 
 ## K1 Area Map Fixes
 
@@ -130,7 +136,8 @@ with the author's permission:
 
 https://github.com/scopeking0117-alt/KPM-Xbox-Controls-K1
 
-KMRP builds `kmrp-controller.module` from its own sources and Saul0097's source at
+KMRP builds its patch module (`kmrp-native.dll`, installed as `patches\kmrp.dll`;
+until 2026-10-04 `kmrp-controller.module`) from its own sources and Saul0097's source at
 commit `78e7eaa3b9554ec0e6732f749424dc916f3a1895`, as modified by KMRP; the
 modifications are recorded in `KMRP-CONTROLLER-MODULE.diff` (below). The module
 has grown well past the original -- a native joystick path, an XInput/SDL
@@ -196,29 +203,32 @@ exact runtime design and test boundary are documented in
 
 **The installer carries the MIT text since 2026-09-25.** It embeds
 `LICENSE-KOTOR-PATCH-MANAGER.txt` as `Kmrp.controller.kpmlicense` and installs it
-beside the module as `kmrp-kotor-patch-manager-LICENSE.txt`, the way it installs
-`kmrp-sdl3-LICENSE.txt`. The copy covers the runtime, the module and the three
-memory-safety patches below. `Test-ControllerSupport.ps1` checks that the
-installed file is byte-identical to the vendored one and that Restore removes it.
+beside the game as `kmrp-kotor-patch-manager-LICENSE.txt` (the resource is
+`Kmrp.engine.license` since 2026-09-29). The copy covers the runtime, the module and
+the three memory-safety patches below. `KMRP.kpatch` carries the same text, and
+SDL's, in its `licenses` folder (2026-10-04), so the patch file is complete where
+it travels without the installer. `Test-ControllerSupport.ps1` checked that the
+installed file is byte-identical to the vendored one and that Restore removes it,
+until that test was removed with the four-patch layout on 2026-10-04.
 Until then, "Permission is hereby granted" occurred nowhere in the installer
 (`ECA3DE4B…`, 2026-09-24), although the installer shipped both the runtime and
 the module. The phrase occurs once in `7933…`.
 
 ## KOTOR Patch Manager — the KPM edition
 
-Since 2026-09-28 KMRP also ships as four `.kpatch` files for KOTOR Patch Manager
-itself ([docs/kpm-edition.md](docs/kpm-edition.md)); since 2026-09-29 KMRP's own
-installer installs the same four patches on the runtime above. Three carry KMRP's module
-(the same MIT-covered binary described above) and hook tables KMRP wrote; they do
-not carry KPM's runtime, which the player's own KPM supplies. The KMRP patch
-carries the same copies of KPM's three memory-safety fixes the standalone ships
+Since 2026-10-04 KMRP ships as one `.kpatch` file for KOTOR Patch Manager,
+`KMRP.kpatch` ([docs/kpm-edition.md](docs/kpm-edition.md)), and KMRP's own
+installer installs that same patch on the runtime above. It carries KMRP's module
+(the MIT-covered code described above is part of it) and hook tables KMRP wrote; it
+does not carry KPM's runtime, which the player's own KPM supplies. (From 2026-09-28
+it was four files, three with the module and KMRP Map Notes a manifest only.) The
+patch carries the same copies of KPM's three memory-safety fixes the standalone ships
 (next section), and on the editable 1.03 executable the one-bit large-address
 flag, so it declares
 conflicts with KPM's `4gb-patch`, `texture-bucket-safety`, `grass-memory-safety`
 and `save_mem_leak` instead of requiring them: two of those do not support
-Steam's executable, which the KPM edition does. The fourth KMRP patch, KMRP Map
-Notes, is a manifest only. The edition's folder carries
-`LICENSE-KOTOR-PATCH-MANAGER.txt` beside the `.kpatch` files. KPM's formats and
+Steam's executable, which KMRP does. A `KPM patches` folder the installer
+writes carries `LICENSE-KOTOR-PATCH-MANAGER.txt` beside the `.kpatch` file. KPM's formats and
 rules were read from its source at release 0.7.1.
 
 ## KOTOR Patch Manager — three memory-safety patches
@@ -241,7 +251,7 @@ contributors`, the same licence already vendored for the controller module as
 `LICENSE-KOTOR-PATCH-MANAGER.txt`.
 
 Only the save-game fix carries KMRP code: the detour calls a handler in
-`kmrp-controller.module` that frees the abandoned buffer, because KMRP's hook
+KMRP's module that frees the abandoned buffer, because KMRP's hook
 table reaches an exported function more cleanly than it reaches a code cave.
 The analysis of *which* buffer leaks is KPM's.
 
@@ -470,9 +480,12 @@ actually produced.
 
 The optional controller component ships unmodified **SDL 3.4.16, Windows x86**
 from the [official SDL release](https://github.com/libsdl-org/SDL/releases/tag/release-3.4.16).
-It is installed as `kmrp-sdl3.dll` to avoid taking ownership of another mod's
-`SDL3.dll`. The original zlib licence is embedded in the installer and installed
-as `kmrp-sdl3-LICENSE.txt`. The build downloads a SHA-256-pinned SDK under ignored
+Since 2026-10-04 it is carried inside KMRP's patch module, which unpacks it to
+its own temporary folder as `kmrp-sdl3.dll` and loads it from there; nothing named
+SDL is installed beside the game. The original zlib licence travels in
+`KMRP.kpatch` as `licenses/SDL3-LICENSE.txt`. (Before that it was installed beside
+the game as `kmrp-sdl3.dll`, with the licence as `kmrp-sdl3-LICENSE.txt`, under
+that name to avoid taking ownership of another mod's `SDL3.dll`.) The build downloads a SHA-256-pinned SDK under ignored
 `build/deps`; see [the backend reference](docs/controller-sdl-backend.md).
 
 The macOS package ships the same release's macOS library (`SDL3.framework` from the

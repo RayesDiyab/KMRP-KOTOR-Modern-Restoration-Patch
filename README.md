@@ -10,7 +10,8 @@ Vanilla KOTOR draws its interface at a fixed pixel size. On a modern display the
 menus still work, but the text is tiny, list rows overlap once anything is
 enlarged, and several layouts were only ever authored for 640×480. KMRP fixes
 that in the engine itself rather than by swapping artwork: 66 resolutions built in,
-from 800×600 to 15360×8640, and any other size from 4:3 to 32:9 made at install.
+from 800×600 to 15360×8640, and any other size from 4:3 to 32:9 made when the game
+runs at it. The resolution is chosen in the game, with no reinstall.
 
 [Install](#install) · [What it fixes](#what-it-fixes) · [How it works](#how-it-works) · [Build from source](#build-from-source) · [Documentation](#documentation) · [Case study](https://rayesdiyab.com/projects/kmrp/) · [Licence](#licence-and-attribution)
 
@@ -38,42 +39,49 @@ from 800×600 to 15360×8640, and any other size from 4:3 to 32:9 made at instal
 2. Run **`KMRP - KOTOR Modern Restoration Patch.exe`**. It finds Steam's KOTOR by itself,
    in any Steam library, and otherwise GOG's; **Browse** picks another `swkotor.exe`.
    Step 2 names the version it finds: Steam, GOG or the editable 1.03 build.
-3. Pick your resolution and choose **Start Patching**. Your display's size is first
-   in the list; **Custom size…** at its end takes any other size from 4:3 to 32:9.
+3. Choose **Start Patching**. There is no resolution to pick: the game starts at
+   your display's current size, and every size your display supports is offered in
+   the game, under Options, Graphics, Screen Resolution.
 4. Start KOTOR as usual.
 
-**Sizes without a built set.** The 66 listed resolutions install the menu set the
-build made for them. Any other size gets menus blended from the finished sets around
-it, the Container widened and the Controller Layout screen laid out for it, and the
-controller badges and the HUD's button-row boxes drawn again for its buttons, with the
-fonts of the nearest listed size. The macOS installer does the same, and the two
-write the same files byte for byte (`testing/regression/Test-GuiBlendHelper.py`).
+**Choosing resolutions.** Step 3's **Choose** opens a checklist with your display's
+sizes ticked. Untick a size to hide it in the game. Tick one of the other sizes, or
+**Add a custom size** (4:3 to 32:9), to add a size your display does not support:
+the game runs it in a window, and as a borderless window when fullscreen is on.
+The choice applies at the next install.
 
-To change the resolution or an option later, use **Restore Original**, then
-patch again. An install by an earlier KMRP, which did rewrite `swkotor.exe`, is
-restored from that version's own backup when you patch. If Steam verifies the
-game's files, it puts its own `binkw32.dll` back and KMRP stops loading: patch
-again.
+**Sizes without a built set.** The 66 listed resolutions have a menu set of their
+own. Any other size gets menus blended from the finished sets around it, the
+Container widened and the Controller Layout screen laid out for it, and the
+controller badges and the HUD's button-row boxes drawn again for its buttons, with
+the fonts of the nearest listed size. Since 2026-10-04 the patch's module does this
+when the game changes size, with the code the macOS installer uses.
 
-**With KOTOR Patch Manager.** If you manage your patches with KOTOR Patch Manager,
-KMRP combines with other KPM patches through the same installer. When KPM's
-runtime is already in the game folder the installer sees it and installs for
-KPM by itself; otherwise turn on *KOTOR Patch Manager* in Advanced Settings
-before patching. It then installs the interface files, the resolution and
-KMRP's data, and leaves the patches to KPM. The installer carries KMRP's four
-`.kpatch` files and puts them in KPM's patch folder, the one KPM's settings
-name; if KPM has none on the PC yet, in a `KPM patches` folder in the game
-folder, and it says which. In KPM, tick `KMRP` plus any of `KMRP Controller`,
-`KMRP Movies` and `KMRP Map Notes` -- one patch per fix -- Apply, and Launch.
-KMRP includes the 4 GB and memory fixes, so KPM's own ones stay unticked. On
-Steam, switch KPM to its proxy deployment and start the game from Steam. A
-normal install also puts the four files in KPM's patch folder when KPM has one,
-so adding KPM patches later needs nothing more: from KPM's first release after
+**Options.** Advanced Settings (the gear) turns off Modern Driver Compatibility, the
+area-map marker fixes and controller support, each on its own. The movie fixes are
+always installed.
+To change one later, use **Restore Original**, then patch again. An install by an
+earlier KMRP is replaced when you patch: one that rewrote `swkotor.exe` is restored
+from its own backup, and one that put four patches and about 1,850 files in
+`Override` (before 2026-10-04) is removed first. If Steam verifies the game's
+files, it puts its own `binkw32.dll` back and KMRP stops loading: patch again.
+
+**With KOTOR Patch Manager.** KMRP is one KPM patch, `KMRP.kpatch`, and combines
+with other KPM patches. The installer carries it and puts it in KPM's patch folder,
+the one KPM's settings name; if KPM's runtime is already in the game folder, the
+installer leaves the patches to KPM and says where the file is (a `KPM patches`
+folder in the game folder when KPM has no patch folder on the PC yet). In KPM,
+tick `KMRP`, Apply, and Launch. Its two options (controller support and map notes)
+are both on in KPM 0.7.1, which has no patch options; a KPM with them shows the two
+under the patch. KMRP includes the 4 GB and memory fixes, so
+KPM's own ones stay unticked. The file needs nothing else: you can also put it in
+KPM's patch folder by hand, without the installer. On Steam, switch KPM to its
+proxy deployment and start the game from Steam. From KPM's first release after
 0.7.1, pressing Apply there keeps KMRP's setup, and the game still starts
 directly. With KPM 0.7.1, tick *Use library proxy* in KPM first (press Uninstall
 All if it's greyed out), or its Apply switches the game to injection and only
 KPM's Launch starts it patched. The installer is the only file
-to download; `--export-kpm-patches <folder>` writes the `.kpatch` files out for
+to download; `--export-kpm-patches <folder>` writes `KMRP.kpatch` out for
 sharing. [docs/kpm-edition.md](docs/kpm-edition.md) describes both ways. (Until
 2026-09-29 this took a separate installer, *KMRP for KPM*, and then, the same
 day, a `KPM patches` folder beside the installer.)
@@ -115,10 +123,11 @@ said there was no v1, and said the numbering would not restart at 1.0.)
 KOTOR Patch Manager's runtime as KPM's own proxy deployment lays it out: KPM's
 `binkw32.dll` proxy in place of the game's, which it renames
 `binkw32Hooked.dll` and forwards every call to; `KotorPatcher.dll`;
-`patch_config.toml`; and KMRP's patch modules under `patches\`. Beside them go
-`kmrp-kpm.dat`, the engine changes the runtime applies in memory, and SDL for
-the controller. It also writes `swkotor.ini` and the `Override` folder, and on
-GOG's and the editable builds it sets the executable's standard Large Address Aware
+`patch_config.toml`; and KMRP's patch module, `patches\kmrp.dll`, which holds the
+engine changes it applies in memory, every resolution's interface files, the
+controller and SDL. Nothing is written to the `Override` folder. It also writes
+`swkotor.ini` (the starting resolution), `kmrp-resolutions.txt` when you changed
+the resolution checklist, and on GOG's and the editable builds it sets the executable's standard Large Address Aware
 flag -- one bit, the only change to `swkotor.exe`; Steam's is never changed, since
 Steam refuses to start a changed one. So that KOTOR Patch Manager still recognises
 the flagged executable, those two also get `kpm_install_state.json` and,
@@ -128,7 +137,7 @@ you later add patches with it. It marks the executable as DPI-aware in the
 current user's Windows compatibility settings, preventing Windows display
 scaling from enlarging an interface KMRP has already scaled. Every file it
 writes or renames, and the flag, is recorded with hashes in `KMRP_KPM.manifest`,
-the Override files in `KOTOR_UI_Override_Backup.manifest`, the INI's prior
+the INI's prior
 contents in a verified backup, and the prior DPI setting in `KMRP_DPI.manifest`.
 **Restore Original** reverses each change from those records; a file changed
 after install is left alone, and said so. The installer refuses an executable
@@ -157,8 +166,10 @@ KMRP.exe --in-place <game.exe> [WIDTHxHEIGHT]
 KMRP.exe --restore  <game.exe>
 ```
 
-`--apply` writes a patched copy and leaves the original alone. Resolution
-defaults to 3440×1440 when omitted.
+`--apply` writes a patched copy and leaves the original alone: the reference
+executable for one resolution, which the installer no longer installs. The
+resolution given to `--in-place` is where `swkotor.ini` starts the game; both
+default to 3440×1440 when omitted (the window uses the display's current size).
 
 </details>
 
@@ -183,7 +194,7 @@ BioWare bugs that only become visible once the interface is scaled.
 | **Message popups clipped** mid-word | An auto-fit loop widens the popup only while it is narrower than a cap authored for 640×480 | [message-popup](reverse-engineering/message-popup.md) |
 | **HUD notifications oversized at 4K**, and **Feedback option circles on the scrollbar** | Short-lived HUD controls were scaled from screen width instead of the common height rule; the Feedback list drew each circle at the row's very edge, which is where its left scrollbar ends, and now keeps a gutter | [universal resolution math](docs/universal-resolution-math.md#reported-4k-layout-repairs) |
 | **Out-of-memory failures near the 2 GB process ceiling** | The 32-bit executable did not declare that it can use addresses above 2 GB; KMRP now sets the standard PE Large Address Aware bit | [large-address-aware](reverse-engineering/large-address-aware.md) |
-| **Movies trigger a 640×480 mode switch, minimize, or lose focus** | Full-screen Bink playback has two resolution pairs independent of the normal render size; KMRP writes the selected resolution into both | [movies](reverse-engineering/movies.md) |
+| **Movies trigger a 640×480 mode switch, minimize, or lose focus** | Full-screen Bink playback has two resolution pairs independent of the normal render size; KMRP writes the resolution the game is running at into both | [movies](reverse-engineering/movies.md) |
 | **Movies cropped** on wide screens — a 640×480 logo drawn 3440×2580 at 3440×1440 | Retail scales a movie by the screen *width* alone; KMRP fits it by whichever of width and height runs out first | [movies](reverse-engineering/movies.md) |
 | **Map marker click offset** from where it is drawn | The hit test centred the map canvas in the window, while the control that crops it is placed by the marker overlay — 141px out horizontally | [map-markers](reverse-engineering/map-markers.md) |
 | **Unfogged strip** down the right of the area map | The map picture is drawn onto a canvas wider than the overlay the fog grid covers, and nothing cropped the surplus | [area-map-surface](reverse-engineering/area-map-surface.md) |
@@ -216,23 +227,24 @@ More in [`assets/screenshots/`](assets/screenshots/).
 
 ## How it works
 
-KMRP builds its engine fixes from tracked source and ships them with
-per-resolution interface resources.
+KMRP builds its engine fixes from tracked source and ships them, with every
+resolution's interface resources, inside one module.
 
 ```text
  source patch sites + x86 assembly builders
-     -> Windows engine template -> ResolutionPatch -> kmrp-kpm.dat
+     -> Windows engine template --------------------.
+ override-common.zip + resolution layouts -> bank --+-> kmrp-native.dll -> KMRP.kpatch
  game starts -> KPM proxy/runtime -> patches\kmrp.dll
-     -> verifies original instructions -> applies fixes in memory
-
- override-common.zip + resolution layouts -> Override/ (+ restore manifest)
+     -> verifies original instructions -> applies fixes in memory for the size in use
+     -> unpacks that size's files to a private cache the game reads
+     -> a resolution change in the game: both again, for the new size
 ```
 
 The Windows build uses [`tools/build_windows_engine.py`](tools/build_windows_engine.py)
 to assemble the injected code and its original-byte guards. It needs neither a
-clean 1.03 executable nor a patched gold snapshot. The installer specializes the
-template for the selected resolution; KPM's module validates the decrypted game
-instructions before applying any memory changes. This serves the supported Steam,
+clean 1.03 executable nor a patched gold snapshot. KMRP's module fills the
+template in for the resolution the game is running at, and validates the decrypted
+game instructions before applying any memory changes. This serves the supported Steam,
 GOG and editable CD 1.03 variants through the same patch recipe.
 
 The eleven code/data pages retain their existing layout and relocations. The
@@ -245,13 +257,17 @@ executable stays unchanged.
 
 *Corrected 2026-10-01:* previously this section described an embedded gold delta
 and carried clean-image fragments. The normal build now assembles the recipe
-from source; gold snapshots remain historical references.
+from source; gold snapshots remain historical references. *Corrected 2026-10-04:*
+until then the installer filled the template in for one chosen resolution, wrote
+it beside the game as `kmrp-kpm.dat`, and installed that resolution's files into
+`Override`.
 
 **Each interface file is stored once.** Most of the 66 resolutions' files are
-the same bytes at several resolutions, so the installer embeds them as one pool
-of distinct files, with an index per resolution. It rebuilds the chosen
-resolution's set from the pool and checks every file against its hash. That
-took the installer from 208,672,256 bytes to 145,208,320 (2026-09-25).
+the same bytes at several resolutions, so the module embeds them as one bank
+of distinct files, compressed, with an index per resolution, and unpacks the set
+of the size in use. The installer carries the module once, inside `KMRP.kpatch`,
+and is 195.8 MB (2026-10-04; 164.8 MB when it carried the files as a pool for
+`Override` instead).
 
 **One scaling rule, everywhere.** Font metrics, list rows, icon sizes and popup
 geometry all scale by `max(1.0, height / 720)` — 1.00× at 720p, 1.50× at 1080p,
@@ -300,12 +316,13 @@ positions KMRP's installer writes at any resolution, is in
 
 **KMRP's runtime** is KOTOR Patch Manager's (MIT), built from the
 [submodule](third_party/Kotor-Patch-Manager) and loaded through KPM's own
-`binkw32.dll` proxy, with KMRP's four KPM patches -- the same ones the
-installer carries as `.kpatch` files for KPM's app. It installs on every patch: KMRP's engine
+`binkw32.dll` proxy, with KMRP's one KPM patch -- the same one the
+installer carries as `KMRP.kpatch` for KPM's app. It installs on every patch: KMRP's engine
 changes, three memory-safety fixes, mouse confinement, the movies, the movie
 bars and the status summary's layout, whether or not controller support is on.
-**Controller support** adds the *KMRP Controller* patch, and the marker option
-the *KMRP Map Notes* patch.
+**Controller support** and the marker option are the patch's two options,
+`controller` and `map-notes`: the installer writes the controller's hooks only
+when the first is on, and both choices into `patch_config.toml`.
 Xbox devices retain XInput; SDL3/HIDAPI supplies mapped non-Xbox devices to the
 same normalized state. Input still travels through KOTOR's retained controller
 events rather than synthetic keys. Options → Gameplay also gains a live
@@ -316,17 +333,19 @@ dynamic prompt families, layout screen, and the remaining hardware/Proton test
 matrix are in [docs/controller-support.md](docs/controller-support.md) and
 [docs/controller-layout.md](docs/controller-layout.md).
 
-**The bundled artwork yields.** A portrait or icon already present in `Override`
-that KMRP did not put there is left alone — so a content mod that ships the same
-file keeps its own version. KMRP's own interface files always install.
+**KMRP's files take precedence, and replace nothing.** The module's files are
+read from its own cache ahead of `Override`, so no file of yours is overwritten
+or moved, and removing KMRP leaves `Override` exactly as it was. Measured for the
+main menu's layout on 2026-10-04; a content mod's portrait or icon of the same
+name has not been compared. *Until 2026-10-04 the bundled portraits and icons
+yielded to a file already in `Override`, because KMRP installed its own there.*
 
 **Tested against** KOTOR 1 Community Patch 1.10.0 and KOTOR 1 Restoration 1.2:
 neither ships `.gui` files, neither touches `swkotor.exe`, and neither patches
-`tutorial.2da`, the only 2DA KMRP installs (made at install from the game's own table since
-2026-09-29). K1CP replaces two icons the HD Icon Pack
-also provides; those now defer to it. **Install other content mods first, then
-KMRP** — KMRP records and restores whatever it replaces, whereas a mod installed
-afterward can invalidate that record. Do not also install UniWS, High Resolution
+`tutorial.2da`, the only 2DA KMRP supplies (made from the game's own table: at install
+from 2026-09-29, by the module when the game starts since 2026-10-04). K1CP replaces two icons the HD Icon Pack
+also provides. The order in which you install content mods and KMRP no longer
+matters, since KMRP writes nothing into `Override`. Do not also install UniWS, High Resolution
 Menus, or a separate 4 GB patch. KOTORganizer users should finish Sync and then
 run KMRP manually against the real game folder; see the full
 [mod-build compatibility and install-order guide](docs/mod-build-compatibility.md).
@@ -397,7 +416,7 @@ than eyeballing, and recording what was disproved alongside what worked.
 assets/               Build inputs
   branding/           Logo, favicon, and the patcher's UI icons
   fonts/  hd-fonts/   Font sources and the rendered atlases
-  override-*/         GUI layouts and artwork installed into the game
+  override-*/         GUI layouts and artwork the patch's module carries
 docs/                 Build and design documentation
 reverse-engineering/  Engine analysis, one document per subsystem
   patch-records/      Machine-readable descriptions of confirmed patches

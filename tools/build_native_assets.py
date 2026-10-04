@@ -4,8 +4,9 @@
 Generated game-derived data stays under ignored build/. Everything the installer
 installs is in it, the controller's badges and screen included (the installer
 installs those with the controller off too, since the shared layouts name them),
-plus the SDL library the controller's non-Xbox pads need, which the installer
-puts beside the game. Each content object is stored once.
+plus the SDL library the controller's non-Xbox pads need, which the module
+unpacks to its own folder and loads from there (the installer put it beside the
+game until 2026-10-04). Each content object is stored once.
 """
 from pathlib import Path
 import argparse

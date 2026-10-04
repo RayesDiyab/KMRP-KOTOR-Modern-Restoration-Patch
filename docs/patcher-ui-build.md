@@ -7,6 +7,21 @@
 > anything untested labelled as untested.
 
 
+**Corrections, 2026-10-04 ([one patch since 2026-10-04](kpm-edition.md#one-patch-since-2026-10-04)).** This document was
+written for the installer that installed four patches, a data file and the
+Override files, and most of its tables are measurements of that build. What no
+longer holds:
+
+| Here | Now |
+| --- | --- |
+| "Current build, 2026-10-01 ... 168,698,880 bytes ... 33 resources" and its table | 195,751,424 bytes (2026-10-04). Gone: `Kmrp.override.layouts`, `Kmrp.override.common`, `Kmrp.bundled`, `Kmrp.controller.module`, `Kmrp.controller.sdl`, `Kmrp.controller.sdllicense`, the four `Kmrp.engine.config.*` and the four `Kmrp.kpatch.*`. New: `Kmrp.kpatch` (the one patch, which holds the module), `Kmrp.engine.hooks` and `Kmrp.engine.hooks.controller` |
+| Step 3 as a list of 66 resolutions with a custom size, `resolutionBox` | "3. Resolutions": a line saying how many sizes the game will offer and where it starts, and a *Choose* button opening `ResolutionsDialog` (`resolutionButton`) |
+| Install building `kmrp-kpm.dat`, writing the data file, SDL and the modules, and the Override files | none of these: one module, `patches\kmrp.dll`, and `patch_config.toml` with the options table |
+| "restores replaced Override files" | only for an install made before 2026-10-04 |
+| "packages the KPM patches", "the four KPM packages", the pool "which the installer embeds" | one package, `KMRP.kpatch` (`tools/build_native_kpatch.py`); the pool is still built, for the module's resource bank and the macOS build, and is not embedded |
+| `--in-place` as the "full runtime, DPI, INI, Override" transaction | runtime, DPI, NVIDIA, INI; no Override |
+| The regression list naming `Test-ControllerSupport.ps1` and `Test-InstalledOverride.ps1` | corrected in place below: `Test-InstallerPatch.ps1` and `Test-KpatchSource.py` |
+
 This document describes the shipping Windows patcher in
 `src/patcher/KmrpPatcher.cs`, the assets compiled into it, and the
 build and verification workflow. The current 1.5.0 candidate is unreleased;
@@ -790,8 +805,8 @@ the resolution in the legacy `--apply` and `--in-place` forms selects
     binary comparison, not a build prerequisite; record unavailable fixtures
     explicitly. The source regression independently checks all 68 documented
     historical runs and the 81 current guarded runs without them.
-13. Run the rest of the regression set: `Test-ControllerSupport.ps1`,
-    `Test-ReinstallOverOlderBuild.ps1`, `Test-InstalledOverride.ps1 -Resolutions all`,
+13. Run the rest of the regression set: `Test-InstallerPatch.ps1`,
+    `Test-KpatchSource.py`, `Test-ReinstallOverOlderBuild.ps1`,
     `Test-UpdateCheck.ps1 -Live`, `Test-MovieResolution.ps1`,
     `Test-NvidiaPresentMethod.ps1`, `Test-ControllerPromptAssets.py`,
     `Test-FontAtlasScale.py` and `Test-ProtonResourceCompatibility.py`, then

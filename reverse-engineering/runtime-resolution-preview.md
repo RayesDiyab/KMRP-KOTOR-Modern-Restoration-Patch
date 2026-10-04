@@ -7,6 +7,11 @@ design and unfinished migration are in
 
 ## Status and scope
 
+**This section is the preview of 2026-10-03.** The complete patch built from it is
+described from [Standalone package](#standalone-package-2026-10-04) on, and since
+2026-10-04 it is KMRP's one patch, `kmrp`, which the installer installs
+([KPM edition](../docs/kpm-edition.md#one-patch-since-2026-10-04)).
+
 `KMRP Native Preview.kpatch` is an experimental first slice, not the complete
 KMRP replacement. It has no controller code, SDL dependency, generated Override
 archive or external `kmrp-kpm.dat`. It needs KOTOR Patch Manager and the player's

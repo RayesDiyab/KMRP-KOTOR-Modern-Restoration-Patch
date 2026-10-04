@@ -13,6 +13,63 @@ session notes summarised under *Rejected alternatives* below.
 writes that image to a new file with `--apply`, and it remains the reference the
 data file is proved against (section 7); installing it is retired.
 
+## One patch since 2026-10-04
+
+**Read this first: most of what follows describes the edition as it was until
+2026-10-04.** That day the maintainer made the standalone patch the final KMRP ("the
+final kmrp should be now the standalone kpatch with options shipped inside the
+installer"). What changed, and what the sections below still get right:
+
+| | Until 2026-10-04 (sections 1 to 7) | Now |
+| --- | --- | --- |
+| Patches | four: `kmrp`, `kmrp-controller`, `kmrp-movies`, `kmrp-map-notes` | one, `kmrp`, with two options, `controller` and `map-notes` (`tools/build_native_kpatch.py`). The movie fixes are part of it: an option for a few hours that day, then "standard baked into KMRP, non-negotiable" (the maintainer) |
+| Module | `kmrp-controller.module`, 245 KB, one copy per patch with detours | `kmrp-native.dll`, about 189 MB, once, as `patches\kmrp.dll`; it embeds the engine recipe, every resolution's files, the controller and SDL |
+| Engine data | `kmrp-kpm.dat`, built at install for the chosen resolution | none: the module applies the engine for the size the game runs at, and again when it changes |
+| `Override` | about 1,850 files for the chosen resolution | nothing |
+| `patch_config.toml` | four sections, from `Kmrp.engine.config.<id>` | one section, written by `KpmEditionOperations.PatchConfigSection`: the hooks that are always installed, those of each option left on, and a `[patches.options]` table |
+| Resolution | chosen in the installer, one | the display's current size in `swkotor.ini`; any size the display supports in the game; a checklist for fewer or other sizes (`kmrp-resolutions.txt`) |
+| `.kpatch` files delivered | four | one, `KMRP.kpatch` |
+
+Unchanged, and still as sections 1a and 5 describe: KOTOR Patch Manager's runtime
+and proxy and how the installer lays them out, `kpm_install_state.json` and the
+backup KPM restores from, the 4 GB flag, the install for KPM when its runtime is
+already in the folder, the takeover and restore rules, and Steam's executable left
+unmodified. The standalone module's own measurements are in
+[the runtime experiment](../reverse-engineering/runtime-resolution-preview.md), and
+its NVIDIA step in [NVIDIA present method](nvidia-present-method.md#the-standalone-module).
+
+Measured on 2026-10-04 with `dist\KMRP-next.exe` (195.8 MB) on scratch copies of
+the editable 1.03 game (`testing/regression/Test-InstallerPatch.ps1` repeats the
+first four rows):
+
+| Case | Result |
+| --- | --- |
+| Install, every option on | `patch_config.toml` holds `kmrp` alone, 52 hooks, `controller` and `map-notes` true (measured while `movies` was a third option, also true); `patches\kmrp.dll` is the module inside `KMRP.kpatch`; no `Override`, no `kmrp-kpm.dat`, no SDL beside the game; the game logs "KMRP + Movies + Map Notes" |
+| Install, controller support and map notes off | 24 hooks, the two options false; the game logs "KMRP + Movies" |
+| Resolutions chosen (12 of the display's 19 unticked, 3000x1300 added) | `kmrp-resolutions.txt` lists the 8 sizes; the game's list shows the 7 display sizes at their rates and 3000x1300 at 60 Hz; choosing it there switched the game to a 3000x1300 borderless window |
+| Restore Original | the folder as it was, `swkotor.exe` `761F9466...` |
+| The four-patch edition installed first (`dist` build of 2026-10-03, 1,854 `Override` files) | the new installer's restore removed it, installed the one patch, and the game started |
+| The play-test game (`C:\Star Wars - KotOR`), restored with the 2026-10-03 build and installed with the new one | 52 hooks, every option on, the game started |
+
+| Steam's executable (the maintainer's Steam install, holding the four-patch edition) | installed: the old edition removed (1,854 `Override` files), `kmrp` alone with 52 hooks, `target_version_sha` Steam's, `swkotor.exe` unmodified (`34E6D971...`). Started from Steam by the maintainer the same day ("I tested steam it works"); its `kmrp-kpm.log` of 15:04 records "Steam executable; 806 ms after the game started, before its window", the engine initialised for 3440x1440, and a switch in the game to 1600x1200 and back, each committed with 54 fields |
+
+| GOG's executable (`9C10E045...`, a scratch game) | `target_version_sha` GOG's, 52 hooks, the 4 GB flag set (`01B80825...`); the game reached the main menu at 3440x1440 with KMRP's interface; Restore Original left GOG's file. The module's log calls it "CD 1.03 executable": it tells the editable build and GOG's apart by nothing, as they differ only in header padding |
+
+**Not tested:** KOTOR
+Patch Manager's own Apply over this install; Proton.
+
+**Removed with it (2026-10-04):** `OverrideOperations.Install` and its helpers,
+`GuiPool` and the embedded Override archives, the per-resolution data file's install,
+and the three regressions of the four-patch layout (`Test-KpmEdition.ps1`,
+`Test-ControllerSupport.ps1`, `Test-InstalledOverride.ps1`). The sections below name
+them as they were. **Kept:** the whole restore side (`OverrideOperations.Restore`,
+`IniOperations.Restore`, the standalone installer's restore), which removes older
+installs; `--apply`, which still builds the reference executable from the engine
+source; and `--derive-gui` with the C# generators, the reference the macOS C tools
+are compared with. **Still in the tree and unused by the installer:**
+`tools/build_kpatch.py`'s four-patch packaging and `src/controller-native/build.cmd`
+(the 245 KB module), which other tools still import or name.
+
 ## Source-built Windows patches (2026-10-01)
 
 The normal Windows build now assembles its patch recipe from tracked source,

@@ -1,25 +1,31 @@
-KMRP's patches for KOTOR Patch Manager
-======================================
+KMRP's patch for KOTOR Patch Manager
+====================================
 
-The KOTOR Modern Restoration Patch as four patches for KOTOR Patch Manager
-(KPM), for players who manage their patches with KPM. They make the same
-changes KMRP's installer makes on its own, and never modify swkotor.exe: KPM
-applies them when the game starts, so KMRP can be combined with other KPM
+The KOTOR Modern Restoration Patch as one patch for KOTOR Patch Manager
+(KPM), for players who manage their patches with KPM. It makes the same
+changes KMRP's installer makes on its own, and never modifies swkotor.exe:
+KPM applies it when the game starts, so KMRP can be combined with other KPM
 patches.
 
-If you do not use KOTOR Patch Manager, you do not need these: KMRP's
+If you do not use KOTOR Patch Manager, you do not need this: KMRP's
 installer, "KMRP - KOTOR Modern Restoration Patch.exe", installs KPM's
 runtime itself, for the editable swkotor.exe, GOG's and Steam's alike, and
 you start the game as usual.
 
-  KMRP - KOTOR Modern Restoration Patch   required: the widescreen and
-                                          high-resolution interface, with
-                                          the 4 GB, texture, grass and
-                                          save-game memory fixes built in
-  KMRP Controller                         controller support
-  KMRP Movies                             movies at your resolution, fitted
-                                          to their aspect, black around them
-  KMRP Map Notes                          Derslok's area-map marker fixes
+  KMRP.kpatch   the widescreen and high-resolution interface at the
+                resolution you choose in the game, with the 4 GB, texture,
+                grass and save-game memory fixes and the movie fixes
+                (movies at your resolution, fitted to their aspect, black
+                around them) built in. Everything it needs is inside the
+                file: nothing goes into Override.
+
+It has two options, both on unless you turn them off:
+
+  Controller support   Xbox, PlayStation, Switch and Steam Deck pads
+  Map notes            Derslok's area-map marker fixes
+
+A KOTOR Patch Manager with patch options shows them under the patch. An
+older one (0.7.1) installs the patch with both on.
 
 Requirements
 ------------
@@ -31,55 +37,25 @@ Requirements
 
 Install
 -------
-1. Run KMRP's installer, "KMRP - KOTOR Modern Restoration Patch.exe", choose
-   your KOTOR folder and a resolution, and press Start Patching. If KOTOR
-   Patch Manager already manages the game folder, the installer sees it and
-   installs for KPM: KMRP's interface files, the resolution in swkotor.ini,
-   and kmrp-kpm.dat, the data KMRP's patches read; swkotor.exe is not
-   modified. Otherwise it installs KPM's own runtime with KMRP's patches, as
-   KPM's proxy deployment lays out a game folder, and KPM recognises that
-   install: open KPM on the game, and pressing Apply there takes it over.
-   (With KPM 0.7.1, tick "Use library proxy" in KPM first.) An earlier KMRP
-   install is replaced.
-2. The installer carries these four .kpatch files and puts them in KOTOR
-   Patch Manager's patch directory, the one KPM's settings name. If KPM has
-   none on this PC yet, it puts them in a "KPM patches" folder in your KOTOR
-   folder (where this README is), and says so: set KPM's patch directory to
-   that folder, or copy the four files into your own.
-3. Tick "KMRP - KOTOR Modern Restoration Patch", and any of KMRP Controller,
-   KMRP Movies and KMRP Map Notes. Leave KPM's own 4GB Patch, Texture Bucket
-   Safety, Grass Memory Safety and Save Game Memory Leak unticked: KMRP
-   already makes those fixes, and KPM refuses both at once.
-4. Press Apply, then start the game with Launch.
+1. Put KMRP.kpatch in KOTOR Patch Manager's patch folder. KMRP's installer
+   does this for you when it finds KPM on the PC.
+2. Open KPM, tick "KMRP - KOTOR Modern Restoration Patch" and press Apply.
+   Leave KPM's own 4 GB, texture bucket, grass and save-game memory patches
+   unticked: KMRP includes them, and KPM will say they conflict.
+3. Start the game with Launch. Choose your resolution in the game, under
+   Options, Graphics, Screen Resolution.
 
-Steam players, in addition:
-- Before pressing Apply, switch KOTOR Patch Manager to the proxy
-  deployment (binkw32.dll). Steam's swkotor.exe hands its own start over to
-  Steam, so KPM's default, injecting into the game it starts, never reaches
-  the game that actually runs.
-- Start the game from Steam as usual.
-- Steam refuses to start its swkotor.exe if the file is changed at all, so
-  on Steam the game runs without the 4 GB flag. KMRP has not been seen to
-  need it; it is a safety margin the editable executable gets.
+Steam: choose the proxy deployment in KPM and start the game from Steam.
+Steam's swkotor.exe cannot take the 4 GB flag.
 
-To add or remove one of the optional patches, tick or untick it in KOTOR
-Patch Manager and press Apply. To change the resolution, run KMRP's
-installer again. To remove KMRP, run it and press Restore Original, then
-untick the KMRP patches in KOTOR Patch Manager and press Apply.
+Patches KMRP replaces
+---------------------
+Until October 2026 KMRP came as four patches: KMRP, KMRP Controller, KMRP
+Movies and KMRP Map Notes. This one patch replaces all four. If the other
+three are still in your patch folder, remove them or leave them unticked.
 
-Until 2026-09-29 these came with an installer of their own, "KMRP for
-KPM.exe"; KMRP's installer does its job now, and carries them. To have them
-on their own, for sharing, run it as
-  "KMRP - KOTOR Modern Restoration Patch.exe" --export-kpm-patches <folder>
-
-Not compatible with
--------------------
-KMRP: Map Texture Patch and Scaled Kotor (they change the same things), and
-KPM's 4GB Patch, Texture Bucket Safety, Grass Memory Safety and Save Game
-Memory Leak (KMRP makes the same fixes itself).
-KMRP Movies: Movie Patch -- use one or the other.
-KMRP Controller: Expanded Keyboard Control and Xbox Controls K1.
-KPM refuses these combinations itself.
-
-If KMRP does not take effect, kmrp-kpm.log in the game folder says why.
-Nothing is applied unless every byte KMRP changes is exactly what it expects.
+Licences
+--------
+KMRP is GPL-3.0. The patch file carries its licence and the notices of the
+work it includes in its "licenses" folder. KOTOR Patch Manager's licence is
+LICENSE-KOTOR-PATCH-MANAGER.txt beside this file.

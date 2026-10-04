@@ -7,6 +7,18 @@
 compose without touching the same bytes, and the install order that keeps
 restore predictable. It does not turn unknown executables into supported ones.
 
+**Corrections, 2026-10-04.** Parts of this document predate two changes and are
+wrong where they touch them. (1) Since 2026-09-29 and 2026-09-30 KMRP does not
+rewrite `swkotor.exe` and accepts Steam's, GOG's and the editable build as they are
+([KPM edition](kpm-edition.md)): "exactly two states" below, and the paragraph on a
+"narrowly configured KPM runtime", describe the installer before that. (2) Since
+2026-10-04 KMRP installs nothing into `Override` ([one patch since 2026-10-04](kpm-edition.md#one-patch-since-2026-10-04)): it replaces
+no Override file, so there is nothing for its manifest to record there, the order
+of KMRP and content mods no longer matters, and a Mod Organizer profile cannot
+hide an installed copy because there is none. The game reads KMRP's files from the
+module's own folder ahead of `Override`; that has been measured for the main
+menu's layout only, and not under Mod Organizer's virtual file system.
+
 ## Executable boundary
 
 KMRP accepts the 4,042,752-byte editable PC 1.03 executable in exactly two

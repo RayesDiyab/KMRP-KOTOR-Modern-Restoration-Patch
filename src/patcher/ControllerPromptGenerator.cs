@@ -66,28 +66,9 @@ namespace Kmrp
             return Path.Combine(gameRoot, "dialog.tlk");
         }
 
-        /// <summary>
-        /// Relative Override path -> replacement bytes, for the prompt textures
-        /// whose badge needs to move. Null when there is nothing to do.
-        /// </summary>
-        internal static Dictionary<string, byte[]> TryBuild(string executablePath,
-                                                            GuiPool layout)
-        {
-            return TryBuild(executablePath, delegate(string name)
-            {
-                ZipArchiveEntry entry = layout.GetEntry(name);
-                if (entry == null)
-                    return null;
-                using (Stream input = entry.Open())
-                using (MemoryStream buffer = new MemoryStream())
-                {
-                    input.CopyTo(buffer);
-                    return buffer.ToArray();
-                }
-            });
-        }
-
-        /// <summary>The same, with the manifest and the textures read through
+        /// <summary>Relative Override path -> replacement bytes, for the prompt textures
+        /// whose badge needs to move; null when there is nothing to do. The manifest and
+        /// the textures are read through
         /// `readFile` (null for a file the set does not have): for a size with no set
         /// of its own, the blended manifest and the badges drawn for its buttons
         /// (GuiBlend), so the badges move on the buttons they were drawn for.</summary>

@@ -2147,12 +2147,6 @@ namespace Kmrp
         internal string InstalledHash;
     }
 
-    internal sealed class OverrideEditState
-    {
-        internal bool CreatedManifest;
-        internal string ExecutablePath;
-    }
-
     /// <summary>Installs and removes the bundled K1 Modern Driver Compatibility patch.
     ///
     /// K1DC is by Synchro, MPL-2.0, and is shipped here as the standalone build the
@@ -2466,217 +2460,9 @@ namespace Kmrp
         }
     }
 
-    /// <summary>A file the installer writes to Override: its name there, the zip
-    /// entry holding its bytes, and, for a file from the layout pool, its object
-    /// name -- the first 16 hex digits of its SHA-256.</summary>
-    internal sealed class PayloadFile
-    {
-        internal string Name;
-        internal ZipArchiveEntry Entry;
-        internal string Object;
-    }
-
-    /// <summary>
-    /// The per-resolution interface files, each distinct file stored once.
-    ///
-    /// The installer embedded one archive per resolution, 49 of them and 118 MB,
-    /// to install one. Most of their files are the same bytes at several
-    /// resolutions: a prompt badge is drawn for its button's size, and many
-    /// buttons share a size. On 2026-09-25 the 27,342 files held 11,930 distinct
-    /// ones. tools/pack_resolution_layouts.py packs them into one zip:
-    ///
-    ///     index/WxH.txt       one line per file, in that resolution's archive
-    ///                         order: the Override name, a tab, the object
-    ///     objects/OBJECT      each distinct file once, named by the first 16
-    ///                         hex digits of its SHA-256, upper case
-    ///
-    /// The build rebuilds every resolution from the pool and stops unless each
-    /// matches its archive. Install checks every file it writes against its
-    /// object name.
-    /// </summary>
-    internal sealed class GuiPool : IDisposable
-    {
-        internal const string ResourceName = "Kmrp.override.layouts";
-        private const string MissingMessage = "The matching interface files are missing from this patcher.";
-
-        private readonly ZipArchive archive;
-        private readonly List<PayloadFile> files = new List<PayloadFile>();
-        private readonly Dictionary<string, PayloadFile> byName =
-            new Dictionary<string, PayloadFile>(StringComparer.Ordinal);
-
-        private GuiPool(ZipArchive archive)
-        {
-            this.archive = archive;
-        }
-
-        /// <summary>This resolution's files, in its archive's order.</summary>
-        internal List<PayloadFile> Files
-        {
-            get { return files; }
-        }
-
-        /// <summary>One file by its exact Override name, as ZipArchive.GetEntry
-        /// found it in the resolution archive; null when the layout has none.</summary>
-        internal ZipArchiveEntry GetEntry(string name)
-        {
-            PayloadFile file;
-            return byName.TryGetValue(name, out file) ? file.Entry : null;
-        }
-
-        /// <summary>The pool opened at one resolution. Throws InvalidDataException
-        /// when this patcher has no layout for it, or names an object it lacks.</summary>
-        internal static GuiPool Open(string resolutionKey)
-        {
-            Stream stream = Assembly.GetExecutingAssembly().GetManifestResourceStream(ResourceName);
-            if (stream == null)
-                throw new InvalidDataException(MissingMessage);
-            ZipArchive archive = null;
-            try
-            {
-                archive = new ZipArchive(stream, ZipArchiveMode.Read, false);
-                GuiPool pool = new GuiPool(archive);
-                pool.ReadIndex(resolutionKey);
-                return pool;
-            }
-            catch
-            {
-                if (archive != null)
-                    archive.Dispose();
-                else
-                    stream.Dispose();
-                throw;
-            }
-        }
-
-        private void ReadIndex(string resolutionKey)
-        {
-            ZipArchiveEntry index = archive.GetEntry("index/" + resolutionKey + ".txt");
-            if (index == null)
-                throw new InvalidDataException(MissingMessage);
-            using (StreamReader reader = new StreamReader(index.Open(), Encoding.UTF8))
-            {
-                string line;
-                while ((line = reader.ReadLine()) != null)
-                {
-                    if (line.Length == 0)
-                        continue;
-                    int tab = line.IndexOf('\t');
-                    ZipArchiveEntry entry = tab > 0
-                        ? archive.GetEntry("objects/" + line.Substring(tab + 1))
-                        : null;
-                    if (entry == null)
-                        throw new InvalidDataException("The interface files in this patcher are damaged.");
-                    PayloadFile file = new PayloadFile
-                    {
-                        Name = line.Substring(0, tab),
-                        Entry = entry,
-                        Object = line.Substring(tab + 1)
-                    };
-                    files.Add(file);
-                    byName[file.Name] = file;
-                }
-            }
-            if (files.Count == 0)
-                throw new InvalidDataException(MissingMessage);
-        }
-
-        public void Dispose()
-        {
-            archive.Dispose();
-        }
-    }
-
     internal static class OverrideOperations
     {
-        private const string CommonResourceName = "Kmrp.override.common";
         private const string ManifestHeader = "KUIOVERRIDE1";
-
-        /// <summary>A zip archive's files as payload, leaving out folder entries.</summary>
-        private static List<PayloadFile> ArchiveFiles(ZipArchive archive)
-        {
-            List<PayloadFile> files = new List<PayloadFile>();
-            foreach (ZipArchiveEntry entry in archive.Entries)
-                if (!String.IsNullOrEmpty(entry.Name))
-                    files.Add(new PayloadFile { Name = entry.FullName, Entry = entry });
-            return files;
-        }
-
-        /// <summary>Is this texture already provided, under any texture extension?
-        ///
-        /// KOTOR resolves a texture by resref, and prefers .tpc over .tga when both
-        /// exist. So a bundled `icon.tpc` installed next to a player's `icon.tga`
-        /// does not sit harmlessly beside it -- it replaces it. Deferral therefore
-        /// has to look for the resref, not the filename.</summary>
-        private static bool TextureAlreadyPresent(string target, string relative,
-            Dictionary<string, OverrideRecord> known)
-        {
-            if (File.Exists(target))
-                return true;
-            string sibling = SiblingTexturePath(relative);
-            if (sibling == null)
-                return false;
-            // A sibling WE installed is not the player's file, and deferring to it
-            // means deferring to ourselves. That is how the DXT5 icons could never
-            // reach anyone upgrading: installing i_x.tpc looks up i_x.tpc in the
-            // manifest, does not find it -- the manifest holds i_x.tga from the
-            // build before -- and then yields to that .tga. Measured on a live
-            // install: 1095 .tga, zero .tpc, and 351 of the 399 uncompressed
-            // 147,500-byte icons were bundled as .tpc by the build it had just run.
-            if (known.ContainsKey(sibling))
-                return false;
-            return File.Exists(Path.ChangeExtension(target, Path.GetExtension(sibling)));
-        }
-
-        /// <summary>The same resref under the other texture extension, as a relative
-        /// path, or null when this is not a texture. KOTOR resolves a texture by
-        /// resref and prefers .tpc over .tga, so the two names are one resource.</summary>
-        private static string SiblingTexturePath(string relative)
-        {
-            string extension = Path.GetExtension(relative);
-            bool tpc = ".tpc".Equals(extension, StringComparison.OrdinalIgnoreCase);
-            bool tga = ".tga".Equals(extension, StringComparison.OrdinalIgnoreCase);
-            if (!tpc && !tga)
-                return null;
-            return Path.ChangeExtension(relative, tpc ? ".tga" : ".tpc");
-        }
-
-        private static HashSet<string> bundledNames;
-
-        /// <summary>The bundled third-party art -- Party Portraits, the HD Icon Pack --
-        /// as opposed to KMRP's own interface files.
-        ///
-        /// These defer to whatever is already in Override. K1CP, for example, replaces
-        /// `ia_class8_004.tga` and `ia_class9_003.tga`, which the HD Icon Pack also
-        /// ships; art we merely bundle should never overwrite a mod the player installed
-        /// on purpose. KMRP's own files are not in this set and install as always --
-        /// a blanket "skip what exists" would let any stray file suppress the interface
-        /// this patcher exists to deliver.</summary>
-        private static HashSet<string> BundledNames()
-        {
-            if (bundledNames != null)
-                return bundledNames;
-            bundledNames = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
-            try
-            {
-                using (Stream stream = Assembly.GetExecutingAssembly()
-                           .GetManifestResourceStream("Kmrp.bundled"))
-                {
-                    if (stream != null)
-                        using (StreamReader reader = new StreamReader(stream, Encoding.UTF8))
-                        {
-                            string line;
-                            while ((line = reader.ReadLine()) != null)
-                            {
-                                line = line.Trim();
-                                if (line.Length > 0)
-                                    bundledNames.Add(line);
-                            }
-                        }
-                }
-            }
-            catch { }
-            return bundledNames;
-        }
 
         internal static string OverridePath(string executablePath)
         {
@@ -2691,434 +2477,6 @@ namespace Kmrp
         private static string ManifestPath(string executablePath)
         {
             return Path.Combine(Path.GetDirectoryName(Path.GetFullPath(executablePath)), "KOTOR_UI_Override_Backup.manifest");
-        }
-
-        internal static OverrideEditState Install(string executablePath, ResolutionChoice resolution,
-            Action<string> report)
-        {
-            return Install(executablePath, resolution, report, null);
-        }
-
-        internal static OverrideEditState Install(string executablePath, ResolutionChoice resolution,
-            Action<string> report, Action<int, string> progress)
-        {
-            if (resolution == null)
-                throw new ArgumentNullException("resolution");
-            executablePath = Path.GetFullPath(executablePath);
-            string overrideRoot = OverridePath(executablePath);
-            string backupRoot = BackupRoot(executablePath);
-            string manifestPath = ManifestPath(executablePath);
-            bool existingInstallation = File.Exists(manifestPath);
-            List<OverrideRecord> records = existingInstallation ? ReadManifest(manifestPath) : new List<OverrideRecord>();
-            Dictionary<string, OverrideRecord> known = new Dictionary<string, OverrideRecord>(StringComparer.OrdinalIgnoreCase);
-            foreach (OverrideRecord record in records)
-                known.Add(record.RelativePath, record);
-
-            if (!existingInstallation && Directory.Exists(backupRoot))
-                throw new IOException("An old interface backup folder already exists. Move it aside before patching:\r\n" + backupRoot);
-
-            Directory.CreateDirectory(overrideRoot);
-            if (!existingInstallation)
-                Directory.CreateDirectory(backupRoot);
-
-            List<OverrideRecord> processed = new List<OverrideRecord>();
-            HashSet<string> processedPaths = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
-            // relative path -> hash written during THIS run, so a genuine
-            // two-archives-disagree conflict is still caught while an ordinary
-            // content update is not mistaken for one.
-            Dictionary<string, string> writtenThisRun =
-                new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
-            int deferred = 0;
-            // Our own earlier copies of a texture, under the extension the
-            // build no longer ships it with, removed as the new one lands.
-            int supersededRemoved = 0;
-            // The common artwork, this resolution's layout and the generated ability
-            // icons, each as the files it installs. Opened inside the try, so that a
-            // patcher without its interface files takes away the backup folder it has
-            // just made, rather than leaving it to block the next attempt.
-            List<IDisposable> opened = new List<IDisposable>();
-            try
-            {
-                List<List<PayloadFile>> payloads = new List<List<PayloadFile>>();
-                // What the progress bar says while each payload installs.
-                List<string> payloadStages = new List<string>();
-                Stream commonResource = Assembly.GetExecutingAssembly()
-                    .GetManifestResourceStream(CommonResourceName);
-                if (commonResource == null)
-                    throw new InvalidDataException("The matching interface files are missing from this patcher.");
-                ZipArchive common = new ZipArchive(commonResource, ZipArchiveMode.Read, false);
-                opened.Add(common);
-                payloads.Add(ArchiveFiles(common));
-                payloadStages.Add("Installing interface artwork…");
-                GuiPool layout = GuiPool.Open(resolution.SetKey);
-                opened.Add(layout);
-                payloads.Add(layout.Files);
-                payloadStages.Add(resolution.Blended ? "Installing menus made for this size…" :
-                    "Installing resolution layout…");
-
-                // Feat/power icons are built here from the game's own texture pack
-                // rather than embedded: 200 icons x 48 resolutions would add ~57 MB of
-                // pure duplication, and the source art is already on disk. Null when
-                // the pack is missing or the resolution needs no enlargement, in which
-                // case the icons simply stay vanilla-sized.
-                HashSet<string> shipped = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
-                foreach (List<PayloadFile> payload in payloads)
-                    foreach (PayloadFile listed in payload)
-                        shipped.Add(NormalizeRelativePath(listed.Name));
-                MemoryStream generatedIcons = AbilityIconGenerator.TryBuild(
-                    executablePath, ResolutionPatch.ScaleForHeight(resolution.Height), shipped);
-                if (generatedIcons != null)
-                {
-                    ZipArchive icons = new ZipArchive(generatedIcons, ZipArchiveMode.Read, false);
-                    opened.Add(icons);
-                    payloads.Add(ArchiveFiles(icons));
-                    payloadStages.Add("Installing ability icons…");
-                }
-                // The files made from the game's own art and data -- the hex row
-                // frames, the tutorial popup's icons and tutorial.2da -- built from
-                // this player's game, because no release carries anything of the
-                // game's (GameArtGenerator, 2026-09-29). Null when the texture pack
-                // or chitin.key cannot be read; the game then keeps its own.
-                MemoryStream gameArt = GameArtGenerator.TryBuild(executablePath, resolution.Height, shipped);
-                if (gameArt != null)
-                {
-                    ZipArchive art = new ZipArchive(gameArt, ZipArchiveMode.Read, false);
-                    opened.Add(art);
-                    payloads.Add(ArchiveFiles(art));
-                    payloadStages.Add("Installing row frames and tutorial icons…");
-                }
-                // The ten controller prompt badges, re-placed against the label this
-                // player's dialog.tlk actually draws. Null when that file is missing or
-                // unreadable, in which case the shipped English placement stands.
-                // A size the build has no set for installs the nearest set with its .gui
-                // files blended for the size and its badges drawn for the blended buttons
-                // (GuiBlend), each replacing the set's file, so that each stays one write of
-                // one path.
-                Dictionary<string, byte[]> replacements = BlendedMenus(resolution, layout);
-                if (resolution.Blended)
-                    SafeReport(report, "No menu set was built for " + resolution.Key + ", so its menus were " +
-                        "blended from the sets around it, and its controller badges drawn for them, with the " +
-                        "fonts of " + resolution.SetKey + ".");
-                // The badges re-centred for this player's dialog.tlk, from the manifest and
-                // badges that install: for a blended size, the ones drawn for it, which a
-                // re-centred one then replaces.
-                Dictionary<string, byte[]> promptReplacements = ControllerPromptGenerator.TryBuild(executablePath,
-                    delegate(string name)
-                    {
-                        byte[] made;
-                        if (replacements.TryGetValue(NormalizeRelativePath(name), out made))
-                            return made;
-                        ZipArchiveEntry entry = layout.GetEntry(name);
-                        if (entry == null)
-                            return null;
-                        using (Stream input = entry.Open())
-                        using (MemoryStream buffer = new MemoryStream())
-                        {
-                            input.CopyTo(buffer);
-                            return buffer.ToArray();
-                        }
-                    });
-                if (promptReplacements != null)
-                    foreach (KeyValuePair<string, byte[]> prompt in promptReplacements)
-                        replacements[prompt.Key] = prompt.Value;
-
-                // Each archive gets a slice of the 18-94 band proportional to its size.
-                // The ranges used to be hardcoded as "18 to 88 for the first, 88 to 94 for
-                // anything else", which was written when there were two archives. There are
-                // up to four: the common artwork, the resolution layout, the generated
-                // ability icons and the generated game art. The second and third once shared
-                // one range, and the bar visibly fell back from 94% to 88% when the icons
-                // began installing.
-                long[] archiveBytes = new long[payloads.Count];
-                long totalArchiveBytes = 0;
-                for (int sizingIndex = 0; sizingIndex < payloads.Count; sizingIndex++)
-                {
-                    foreach (PayloadFile sized in payloads[sizingIndex])
-                        archiveBytes[sizingIndex] += sized.Entry.Length;
-                    totalArchiveBytes += archiveBytes[sizingIndex];
-                }
-
-                long bytesBeforeArchive = 0;
-                for (int resourceIndex = 0; resourceIndex < payloads.Count; resourceIndex++)
-                {
-                    long totalBytes = archiveBytes[resourceIndex];
-                    long completedBytes = 0;
-                    int rangeStart = (int)(18 + 76L * bytesBeforeArchive
-                        / Math.Max(1L, totalArchiveBytes));
-                    int rangeLength = (int)(76L * archiveBytes[resourceIndex]
-                        / Math.Max(1L, totalArchiveBytes));
-                    string stage = payloadStages[resourceIndex];
-                    SafeProgress(progress, rangeStart, stage);
-
-                    foreach (PayloadFile file in payloads[resourceIndex])
-                    {
-                        string relative = NormalizeRelativePath(file.Name);
-
-                        // Build-time metadata, not a game resource. The prompt
-                        // placement manifest rides in the archive so the patcher
-                        // can read it (ControllerPromptGenerator), but the game
-                        // has no use for it and it should not be left sitting in
-                        // the player's Override folder.
-                        if (String.Equals(relative, ControllerPromptGenerator.ManifestName,
-                                          StringComparison.OrdinalIgnoreCase))
-                        {
-                            completedBytes += file.Entry.Length;
-                            continue;
-                        }
-
-                        string target = SafeDestination(overrideRoot, relative);
-
-                        // Bundled art yields to a file already there that we did not
-                        // put there. Not recorded either, so restore leaves it alone.
-                        //
-                        // The check has to span texture extensions, not just the exact
-                        // name. The bundled item icons ship as .tpc, and the engine
-                        // prefers .tpc over .tga for the same resref -- so testing only
-                        // for our own filename would install ours beside a player's
-                        // K1CP .tga and then silently win over it, which is the exact
-                        // thing this deferral exists to prevent.
-                        if (!known.ContainsKey(relative)
-                            && BundledNames().Contains(Path.GetFileName(relative))
-                            && TextureAlreadyPresent(target, relative, known))
-                        {
-                            deferred++;
-                            completedBytes += file.Entry.Length;
-                            continue;
-                        }
-
-                        string targetDirectory = Path.GetDirectoryName(target);
-                        Directory.CreateDirectory(targetDirectory);
-
-                        // Installing a texture over OUR OWN copy of the same
-                        // resref under the other extension: take the old one
-                        // away. The engine would ignore it -- .tpc wins over
-                        // .tga -- but leaving it means the uncompressed icons
-                        // this replaced stay on disk forever, and keep being
-                        // found by the deferral above on every future install.
-                        //
-                        // The manifest record for that sibling is deliberately
-                        // left in place. Restore skips its hash check when the
-                        // file is gone, and still copies the player's original
-                        // back if they had one.
-                        string superseded = SiblingTexturePath(relative);
-                        if (superseded != null && known.ContainsKey(superseded))
-                        {
-                            string supersededPath = SafeDestination(overrideRoot, superseded);
-                            if (File.Exists(supersededPath))
-                            {
-                                try
-                                {
-                                    File.Delete(supersededPath);
-                                    supersededRemoved++;
-                                }
-                                catch (IOException) { }
-                                catch (UnauthorizedAccessException) { }
-                            }
-                        }
-
-                        OverrideRecord record;
-                        if (known.TryGetValue(relative, out record))
-                        {
-                            if (!existingInstallation)
-                            {
-                                // Already installed by an earlier archive in this
-                                // same run. Keep the original record -- its
-                                // HadOriginal/OriginalHash describe the user's file,
-                                // and a second record would make the backup folder
-                                // hold the patcher's own file and stop restore.
-                                record.InstalledHash = String.Empty;
-                            }
-                        }
-                        else
-                        {
-                            // Not in the manifest. On a fresh install that is every
-                            // file; over an EXISTING install it is a file a newer
-                            // build added -- tutorial.2da and the thirteen tut_*.tga
-                            // popup icons arrived exactly this way in 2.7.0.
-                            //
-                            // This used to throw "belongs to a different resolution",
-                            // which was the wrong diagnosis and, worse, a permanent
-                            // block on ever shipping a NEW Override file to anyone
-                            // who already had the patch installed: the only way out
-                            // was a full restore. A real resolution mismatch is
-                            // already caught upstream in ApplyInPlace, which compares
-                            // the installed resolution against the requested one
-                            // before any of this runs, so nothing is lost by treating
-                            // an unknown path as what it is -- a new file, backed up
-                            // first if the user already had one.
-                            //
-                            record = new OverrideRecord();
-                            record.RelativePath = relative;
-                            record.HadOriginal = File.Exists(target);
-                            record.OriginalHash = String.Empty;
-                            if (record.HadOriginal)
-                            {
-                                string backup = SafeDestination(backupRoot, relative);
-                                Directory.CreateDirectory(Path.GetDirectoryName(backup));
-                                if (File.Exists(backup))
-                                {
-                                    // A backup with no manifest record: an earlier
-                                    // install was interrupted after copying this file
-                                    // but before the manifest was written. The file
-                                    // already on disk is the OLDER one, so it is the
-                                    // better claim to being the user's original --
-                                    // keep it and adopt its hash. Overwriting it with
-                                    // the current file would destroy the original,
-                                    // and File.Copy(false) used to just throw and
-                                    // leave the install permanently stuck.
-                                    record.OriginalHash = GoldPatch.HashFile(backup);
-                                }
-                                else
-                                {
-                                    File.Copy(target, backup, false);
-                                    record.OriginalHash = GoldPatch.HashFile(backup);
-                                    if (record.OriginalHash != GoldPatch.HashFile(target))
-                                        throw new IOException("An interface file could not be backed up safely: " + relative);
-                                }
-                            }
-                            records.Add(record);
-                            known.Add(relative, record);
-                        }
-
-                        string temporary = target + ".kotor-ui-new-" + Guid.NewGuid().ToString("N") + ".tmp";
-                        try
-                        {
-                            // A controller prompt badge whose position was
-                            // recomputed against the player's own dialog.tlk
-                            // replaces the archive's English-placed copy, and a
-                            // blended .gui the nearest set's. They are
-                            // substituted here rather than shipped as another
-                            // archive so that each stays ONE write of one path: a
-                            // second archive carrying the same name would trip
-                            // the two-archives-disagree guard below, which
-                            // exists for a real bug and should not be taught to
-                            // tolerate exceptions.
-                            byte[] replacement;
-                            replacements.TryGetValue(relative, out replacement);
-                            if (replacement != null)
-                            {
-                                using (FileStream output = new FileStream(temporary, FileMode.CreateNew, FileAccess.Write, FileShare.None))
-                                {
-                                    output.Write(replacement, 0, replacement.Length);
-                                    output.Flush(true);
-                                }
-                            }
-                            else
-                            {
-                                using (Stream input = file.Entry.Open())
-                                using (FileStream output = new FileStream(temporary, FileMode.CreateNew, FileAccess.Write, FileShare.None))
-                                {
-                                    input.CopyTo(output);
-                                    output.Flush(true);
-                                }
-                            }
-                            string installedHash = GoldPatch.HashFile(temporary);
-                            // A file from the layout pool must be the object it was
-                            // stored as. The build verified the pool; this catches
-                            // one damaged since. A prompt badge moved for this
-                            // player's dialog.tlk, or a blended .gui, is meant to
-                            // differ, so not those.
-                            if (file.Object != null && replacement == null &&
-                                !installedHash.StartsWith(file.Object, StringComparison.Ordinal))
-                                throw new InvalidDataException(
-                                    "An interface file inside this patcher is damaged: " + relative);
-                            // Guard the one thing this can actually catch: the SAME
-                            // relative path arriving from two archives in THIS run
-                            // with different content, which silently breaks restore
-                            // (see the override-manifest duplicate fixed 2026-08-31).
-                            //
-                            // It used to compare against record.InstalledHash, which
-                            // over an existing installation is the hash from the
-                            // PREVIOUS build -- so every file whose content changed
-                            // tripped it and no update could ever be installed
-                            // without a full restore first. That is not a duplicate;
-                            // it is the update working.
-                            string writtenEarlier;
-                            if (writtenThisRun.TryGetValue(relative, out writtenEarlier))
-                            {
-                                if (writtenEarlier != installedHash)
-                                    throw new InvalidDataException("Two interface archives disagree about " +
-                                        relative + ". This build is inconsistent; please report it.");
-                            }
-                            else
-                            {
-                                writtenThisRun.Add(relative, installedHash);
-                            }
-                            record.InstalledHash = installedHash;
-
-                            if (processedPaths.Add(relative))
-                                processed.Add(record);
-                            if (File.Exists(target))
-                                FileGuard.Replace(temporary, target);
-                            else
-                                File.Move(temporary, target);
-                            if (GoldPatch.HashFile(target) != record.InstalledHash)
-                                throw new IOException("An interface file could not be installed safely: " + relative);
-
-                            completedBytes += file.Entry.Length;
-                            int percent = rangeStart + (int)Math.Min((long)rangeLength,
-                                completedBytes * rangeLength / Math.Max(1L, totalBytes));
-                            SafeProgress(progress, percent, stage);
-                        }
-                        finally
-                        {
-                            if (File.Exists(temporary))
-                                File.Delete(temporary);
-                        }
-                    }
-                    bytesBeforeArchive += archiveBytes[resourceIndex];
-                }
-
-                // A record this run did not touch is a file an older build shipped and
-                // this one no longer does. It stays on disk and keeps its record, so
-                // restore still puts the user's original back -- which is exactly what
-                // should happen. This used to throw, which meant a build could never
-                // drop a file either. A genuine resolution mismatch is caught upstream
-                // in ApplyInPlace before any of this runs.
-                //
-                // The manifest is now rewritten on updates as well as fresh installs.
-                // Previously it was written only for a fresh install, so files a newer
-                // build ADDED (tutorial.2da and the tut_*.tga popup icons, 2.7.0) got
-                // no record at all and restore would have left them behind in Override.
-                if (deferred > 0)
-                    SafeReport(report, "Left " + deferred +
-                        " bundled art file(s) alone: another mod already provides them.");
-                if (supersededRemoved > 0)
-                    SafeReport(report, "Replaced " + supersededRemoved +
-                        " interface file(s) with a smaller compressed version.");
-                WriteManifest(manifestPath, records);
-                SafeProgress(progress, 95, "Finishing interface setup…");
-                SafeReport(report, "Installed " + records.Count.ToString(CultureInfo.InvariantCulture) +
-                    " interface files for " + resolution.Width.ToString(CultureInfo.InvariantCulture) + " × " +
-                    resolution.Height.ToString(CultureInfo.InvariantCulture) + ".");
-                return new OverrideEditState { CreatedManifest = !existingInstallation, ExecutablePath = executablePath };
-            }
-            catch
-            {
-                if (!existingInstallation)
-                {
-                    RollbackRecords(overrideRoot, backupRoot, processed);
-                    if (File.Exists(manifestPath))
-                        File.Delete(manifestPath);
-                    if (Directory.Exists(backupRoot))
-                        Directory.Delete(backupRoot, true);
-                }
-                throw;
-            }
-            finally
-            {
-                for (int index = opened.Count - 1; index >= 0; index--)
-                    opened[index].Dispose();
-            }
-        }
-
-        internal static void Rollback(OverrideEditState state)
-        {
-            if (state != null && state.CreatedManifest)
-            {
-                try { Restore(state.ExecutablePath, null); }
-                catch { }
-            }
         }
 
         internal static void Restore(string executablePath, Action<string> report)
@@ -3208,58 +2566,6 @@ namespace Kmrp
                 }
             }
             return collapsed;
-        }
-
-        private static void RollbackRecords(string overrideRoot, string backupRoot, List<OverrideRecord> records)
-        {
-            for (int index = records.Count - 1; index >= 0; index--)
-            {
-                OverrideRecord record = records[index];
-                string target = SafeDestination(overrideRoot, record.RelativePath);
-                if (record.HadOriginal)
-                {
-                    string backup = SafeDestination(backupRoot, record.RelativePath);
-                    if (File.Exists(backup))
-                        File.Copy(backup, target, true);
-                }
-                else if (File.Exists(target))
-                {
-                    File.Delete(target);
-                }
-            }
-        }
-
-        /// <summary>For a size the build has no set for (ResolutionChoice.Blended), every
-        /// .gui of the table blended for it, every controller badge drawn for its blended
-        /// button, and the prompt manifest with those buttons' sizes, by Override path,
-        /// made with the fonts of the nearest set, which `layout` is; empty for a listed
-        /// size. Each one must be a file the set has, so that it replaces the set's copy.</summary>
-        private static Dictionary<string, byte[]> BlendedMenus(ResolutionChoice resolution, GuiPool layout)
-        {
-            Dictionary<string, byte[]> menus = new Dictionary<string, byte[]>(StringComparer.OrdinalIgnoreCase);
-            if (!resolution.Blended)
-                return menus;
-            List<KeyValuePair<string, byte[]>> blended = GuiBlend.Shared().Derive(resolution.Width, resolution.Height,
-                delegate(string name)
-                {
-                    ZipArchiveEntry entry = layout.GetEntry(name);
-                    if (entry == null)
-                        throw new InvalidDataException("The " + resolution.SetKey + " menu set has no " + name + ".");
-                    using (Stream input = entry.Open())
-                    using (MemoryStream bytes = new MemoryStream())
-                    {
-                        input.CopyTo(bytes);
-                        return GuiBlend.Text(bytes.ToArray());
-                    }
-                });
-            foreach (KeyValuePair<string, byte[]> file in blended)
-            {
-                if (layout.GetEntry(file.Key) == null)
-                    throw new InvalidDataException("The blend made " + file.Key + ", which the " +
-                        resolution.SetKey + " menu set does not. This build is inconsistent; please report it.");
-                menus.Add(NormalizeRelativePath(file.Key), file.Value);
-            }
-            return menus;
         }
 
         private static string NormalizeRelativePath(string value)
@@ -5337,6 +4643,11 @@ namespace Kmrp
         private static bool driverCompatibility = DriverCompatibilityDefault;
         private static bool markerFixes = MarkerFixesDefault;
         private static bool controllerSupport = ControllerSupportDefault;
+        // The resolution checklist (ResolutionSelection): the display's sizes the player
+        // unticked, and the sizes the display does not offer that they ticked. Both
+        // empty is the default: every size the display supports, and no other.
+        private static string resolutionsOff = "";
+        private static string resolutionsExtra = "";
         // The newer version the player asked not to be reminded of again, or "".
         private static string skippedUpdate = "";
 
@@ -5401,6 +4712,38 @@ namespace Kmrp
             }
         }
 
+        /// <summary>Sizes this display supports that the player does not want offered
+        /// in the game, as "WxH,WxH".</summary>
+        internal static string ResolutionsOff
+        {
+            get { Load(); return resolutionsOff; }
+            set
+            {
+                Load();
+                string next = value ?? "";
+                if (resolutionsOff == next)
+                    return;
+                resolutionsOff = next;
+                Save();
+            }
+        }
+
+        /// <summary>Sizes this display does not support that the player wants offered
+        /// anyway, as "WxH,WxH". The game runs them in a window.</summary>
+        internal static string ResolutionsExtra
+        {
+            get { Load(); return resolutionsExtra; }
+            set
+            {
+                Load();
+                string next = value ?? "";
+                if (resolutionsExtra == next)
+                    return;
+                resolutionsExtra = next;
+                Save();
+            }
+        }
+
         // "kotorPatchManager", the Advanced Settings option to install for KOTOR Patch
         // Manager (2026-09-29 to 2026-09-30), is no longer read or written: KPM's files in
         // the game folder decide that by themselves (KpmEditionOperations.Install). A
@@ -5451,6 +4794,14 @@ namespace Kmrp
                 if (controller.Success)
                     controllerSupport = String.Equals(controller.Groups[1].Value, "true",
                         StringComparison.OrdinalIgnoreCase);
+                Match off = Regex.Match(json, "\\\"resolutionsOff\\\"\\s*:\\s*\\\"([0-9x,]{0,2048})\\\"",
+                    RegexOptions.CultureInvariant);
+                if (off.Success)
+                    resolutionsOff = off.Groups[1].Value;
+                Match extra = Regex.Match(json, "\\\"resolutionsExtra\\\"\\s*:\\s*\\\"([0-9x,]{0,2048})\\\"",
+                    RegexOptions.CultureInvariant);
+                if (extra.Success)
+                    resolutionsExtra = extra.Groups[1].Value;
                 Match skipped = Regex.Match(json,
                     "\\\"skippedUpdate\\\"\\s*:\\s*\\\"([0-9.]{1,32})\\\"",
                     RegexOptions.CultureInvariant);
@@ -5475,6 +4826,12 @@ namespace Kmrp
                     (markerFixes ? "true" : "false") + ",\r\n" +
                     "  \"controllerSupport\": " +
                     (controllerSupport ? "true" : "false") +
+                    (resolutionsOff.Length > 0
+                        ? ",\r\n  \"resolutionsOff\": \"" + resolutionsOff + "\""
+                        : "") +
+                    (resolutionsExtra.Length > 0
+                        ? ",\r\n  \"resolutionsExtra\": \"" + resolutionsExtra + "\""
+                        : "") +
                     (skippedUpdate.Length > 0
                         ? ",\r\n  \"skippedUpdate\": \"" + skippedUpdate + "\""
                         : "") +
@@ -5692,7 +5049,7 @@ namespace Kmrp
             Controls.Add(title);
 
             Label body = new Label();
-            body.Text = "Any size from 4:3 to 32:9. Sizes KMRP has no menu set for are made at install.";
+            body.Text = "Any size from 4:3 to 32:9 that KMRP's menus reach.";
             body.Font = new Font("Segoe UI", Points(12F));
             body.ForeColor = UiTheme.TextMuted;
             body.BackColor = UiTheme.Card;
@@ -5799,6 +5156,365 @@ namespace Kmrp
                 e.Handled = true;
                 e.SuppressKeyPress = true;
                 Accept();
+                return;
+            }
+            base.OnKeyDown(e);
+        }
+    }
+
+    /// <summary>Which resolutions the game offers under Options, Graphics, Screen
+    /// Resolution. KMRP's patch carries every resolution's files and the game lists the
+    /// sizes the display reports, so by default nothing is chosen here at all. The
+    /// player may untick some of the display's sizes, and tick sizes the display does
+    /// not report, which the game then runs in a window (K1RuntimeResolution.cpp).
+    /// Only then does the installer write the list, kmrp-resolutions.txt, beside the
+    /// game. The game starts at the display's current size, written to swkotor.ini.</summary>
+    internal static class ResolutionSelection
+    {
+        internal const string FileName = "kmrp-resolutions.txt";
+
+        internal sealed class Entry
+        {
+            internal int Width;
+            internal int Height;
+            internal bool Display;     // the display reports it
+            internal bool Current;     // the display is at it now
+            internal string Key { get { return Width.ToString(CultureInfo.InvariantCulture) + "x" +
+                Height.ToString(CultureInfo.InvariantCulture); } }
+            public override string ToString()
+            {
+                string size = Width.ToString(CultureInfo.InvariantCulture) + " × " +
+                    Height.ToString(CultureInfo.InvariantCulture);
+                if (Current)
+                    return size + "    this display, now";
+                return Display ? size : size + "    not offered by this display: runs in a window";
+            }
+        }
+
+        private static readonly Dictionary<string, bool> covered = new Dictionary<string, bool>();
+
+        /// <summary>KMRP has a layout for the size: a listed one, or one it blends.</summary>
+        internal static bool Covered(int width, int height)
+        {
+            string key = width.ToString(CultureInfo.InvariantCulture) + "x" + height.ToString(CultureInfo.InvariantCulture);
+            bool known;
+            if (covered.TryGetValue(key, out known))
+                return known;
+            try { ResolutionCatalog.Find(width, height); known = true; }
+            catch (ArgumentException) { known = false; }
+            catch (InvalidDataException) { known = false; }
+            covered[key] = known;
+            return known;
+        }
+
+        /// <summary>The primary display's current size, or null.</summary>
+        internal static int[] CurrentSize()
+        {
+            try
+            {
+                MainForm.DisplayMode mode = new MainForm.DisplayMode();
+                mode.StructSize = (short)Marshal.SizeOf(typeof(MainForm.DisplayMode));
+                if (MainForm.EnumDisplaySettings(null, MainForm.EnumCurrentSettings, ref mode))
+                    return new[] { mode.PelsWidth, mode.PelsHeight };
+            }
+            catch { }
+            return null;
+        }
+
+        /// <summary>The sizes the game would list for this display, that KMRP has a
+        /// layout for: 32-bit modes of 60 Hz or more, as the game's own list filters
+        /// them, each size once, smallest first.</summary>
+        internal static List<Entry> DisplaySizes()
+        {
+            List<Entry> sizes = new List<Entry>();
+            int[] current = CurrentSize();
+            try
+            {
+                MainForm.DisplayMode mode = new MainForm.DisplayMode();
+                mode.StructSize = (short)Marshal.SizeOf(typeof(MainForm.DisplayMode));
+                for (int i = 0; MainForm.EnumDisplaySettings(null, i, ref mode); i++)
+                {
+                    int width = mode.PelsWidth, height = mode.PelsHeight;
+                    if (mode.BitsPerPel != 32 || mode.DisplayFrequency < 60 ||
+                        sizes.Exists(e => e.Width == width && e.Height == height) || !Covered(width, height))
+                        continue;
+                    Entry entry = new Entry();
+                    entry.Width = width;
+                    entry.Height = height;
+                    entry.Display = true;
+                    entry.Current = current != null && current[0] == width && current[1] == height;
+                    sizes.Add(entry);
+                }
+            }
+            catch { }
+            sizes.Sort((a, b) => a.Width != b.Width ? a.Width.CompareTo(b.Width) : a.Height.CompareTo(b.Height));
+            return sizes;
+        }
+
+        internal static List<string> Keys(string list)
+        {
+            List<string> keys = new List<string>();
+            foreach (string part in (list ?? "").Split(new[] { ',' }, StringSplitOptions.RemoveEmptyEntries))
+                if (Regex.IsMatch(part, "^[0-9]{3,5}x[0-9]{3,5}$") && !keys.Contains(part))
+                    keys.Add(part);
+            return keys;
+        }
+
+        /// <summary>The sizes the game will offer: the display's, less the unticked
+        /// ones, and the ticked sizes it does not report.</summary>
+        internal static List<Entry> Chosen()
+        {
+            List<string> off = Keys(KmrpSettings.ResolutionsOff);
+            List<Entry> chosen = DisplaySizes().FindAll(e => !off.Contains(e.Key));
+            foreach (string key in Keys(KmrpSettings.ResolutionsExtra))
+            {
+                string[] parts = key.Split('x');
+                int width = Int32.Parse(parts[0], CultureInfo.InvariantCulture);
+                int height = Int32.Parse(parts[1], CultureInfo.InvariantCulture);
+                if (chosen.Exists(e => e.Width == width && e.Height == height) || !Covered(width, height))
+                    continue;
+                Entry entry = new Entry();
+                entry.Width = width;
+                entry.Height = height;
+                chosen.Add(entry);
+            }
+            return chosen;
+        }
+
+        /// <summary>Where swkotor.ini starts the game: the display's current size when
+        /// the game will offer it, otherwise the largest of the display's sizes that it
+        /// will; null when the game would offer none of the display's sizes.</summary>
+        internal static int[] Start()
+        {
+            List<Entry> chosen = Chosen().FindAll(e => e.Display);
+            Entry current = chosen.Find(e => e.Current);
+            if (current != null)
+                return new[] { current.Width, current.Height };
+            Entry largest = null;
+            foreach (Entry entry in chosen)
+                if (largest == null || (long)entry.Width * entry.Height > (long)largest.Width * largest.Height)
+                    largest = entry;
+            return largest == null ? null : new[] { largest.Width, largest.Height };
+        }
+
+        /// <summary>kmrp-resolutions.txt's contents, one WIDTHxHEIGHT a line, or null
+        /// when the player changed nothing: then no file is written and the game lists
+        /// what the display reports, whatever display that is later.</summary>
+        internal static string FileText()
+        {
+            if (Keys(KmrpSettings.ResolutionsOff).Count == 0 && Keys(KmrpSettings.ResolutionsExtra).Count == 0)
+                return null;
+            StringBuilder text = new StringBuilder();
+            foreach (Entry entry in Chosen())
+                text.Append(entry.Key).Append('\n');
+            return text.Length == 0 ? null : text.ToString();
+        }
+
+        /// <summary>Step 3's line under its title.</summary>
+        internal static string Summary()
+        {
+            List<Entry> chosen = Chosen();
+            int[] start = Start();
+            int windowed = chosen.FindAll(e => !e.Display).Count;
+            if (start == null)
+                return "No resolution of this display is chosen. Choose at least one.";
+            return chosen.Count.ToString(CultureInfo.InvariantCulture) +
+                (chosen.Count == 1 ? " resolution" : " resolutions") +
+                (FileText() == null ? " this display supports" : " chosen") +
+                (windowed > 0 ? ", " + windowed.ToString(CultureInfo.InvariantCulture) + " windowed" : "") +
+                ". The game starts at " + start[0].ToString(CultureInfo.InvariantCulture) + " × " +
+                start[1].ToString(CultureInfo.InvariantCulture) + ".";
+        }
+    }
+
+    /// <summary>Step 3's "Choose": the checklist of resolutions the game will offer.
+    /// This display's sizes come ticked; the catalogue's other sizes that fit on the
+    /// desktop, and any size of the player's own, can be ticked too and run in a
+    /// window. Done saves the choice to KMRP's settings; the next install applies it.</summary>
+    internal sealed class ResolutionsDialog : Form
+    {
+        private readonly CheckedListBox list;
+        private readonly Label message;
+        private readonly float scale;
+
+        internal ResolutionsDialog(float scale)
+        {
+            this.scale = Math.Max(0.35F, scale);
+            Text = "Resolutions";
+            FormBorderStyle = FormBorderStyle.FixedDialog;
+            MaximizeBox = false;
+            MinimizeBox = false;
+            ShowInTaskbar = false;
+            StartPosition = FormStartPosition.CenterParent;
+            BackColor = UiTheme.Card;
+            Font = new Font("Segoe UI", Points(11F));
+            ClientSize = new Size(Px(760), Px(660));
+            KeyPreview = true;
+            HandleCreated += delegate { MainForm.UseDarkTitleBar(Handle); };
+
+            Label title = new Label();
+            title.Text = "Resolutions";
+            title.Font = new Font("Segoe UI Semibold", Points(20F));
+            title.ForeColor = UiTheme.Text;
+            title.BackColor = UiTheme.Card;
+            title.SetBounds(Px(32), Px(26), Px(696), Px(42));
+            Controls.Add(title);
+
+            Label body = new Label();
+            body.Text = "Ticked sizes are offered in the game, under Options, Graphics, Screen Resolution. " +
+                "The sizes this display supports are ticked. A size it does not support runs in a window.";
+            body.Font = new Font("Segoe UI", Points(12F));
+            body.ForeColor = UiTheme.TextMuted;
+            body.BackColor = UiTheme.Card;
+            body.SetBounds(Px(32), Px(72), Px(696), Px(56));
+            Controls.Add(body);
+
+            list = new CheckedListBox();
+            list.CheckOnClick = true;
+            list.IntegralHeight = false;
+            list.BorderStyle = BorderStyle.FixedSingle;
+            list.BackColor = UiTheme.Field;
+            list.ForeColor = UiTheme.Text;
+            list.Font = new Font("Segoe UI", Points(13F));
+            list.SetBounds(Px(32), Px(140), Px(696), Px(388));
+            Controls.Add(list);
+
+            message = new Label();
+            message.Font = new Font("Segoe UI", Points(11F));
+            message.ForeColor = UiTheme.Warning;
+            message.BackColor = UiTheme.Card;
+            message.SetBounds(Px(32), Px(536), Px(696), Px(28));
+            Controls.Add(message);
+
+            PillButton custom = new PillButton();
+            custom.UiScale = this.scale;
+            custom.TextSize = 16F;
+            custom.Text = "Add a custom size";
+            custom.SetBounds(Px(32), Px(574), Px(220), Px(56));
+            custom.Click += delegate { AddCustom(); };
+            Controls.Add(custom);
+
+            PillButton done = new PillButton();
+            done.UiScale = this.scale;
+            done.Primary = true;
+            done.TextSize = 16F;
+            done.Text = "Done";
+            done.SetBounds(Px(270), Px(574), Px(220), Px(56));
+            done.Click += delegate { Accept(); };
+            Controls.Add(done);
+
+            PillButton cancel = new PillButton();
+            cancel.UiScale = this.scale;
+            cancel.TextSize = 16F;
+            cancel.Text = "Cancel";
+            cancel.SetBounds(Px(508), Px(574), Px(220), Px(56));
+            cancel.Click += delegate { DialogResult = DialogResult.Cancel; Close(); };
+            Controls.Add(cancel);
+
+            Fill();
+        }
+
+        private void Fill()
+        {
+            List<string> off = ResolutionSelection.Keys(KmrpSettings.ResolutionsOff);
+            List<string> extra = ResolutionSelection.Keys(KmrpSettings.ResolutionsExtra);
+            List<ResolutionSelection.Entry> display = ResolutionSelection.DisplaySizes();
+            foreach (ResolutionSelection.Entry entry in display)
+                list.Items.Add(entry, !off.Contains(entry.Key));
+
+            // The other sizes KMRP lists that fit on the desktop, then the player's own.
+            int[] desktop = ResolutionSelection.CurrentSize();
+            List<ResolutionSelection.Entry> others = new List<ResolutionSelection.Entry>();
+            foreach (ResolutionChoice choice in ResolutionCatalog.Load())
+            {
+                if (desktop != null && (choice.Width > desktop[0] || choice.Height > desktop[1]))
+                    continue;
+                AddOther(others, display, choice.Width, choice.Height);
+            }
+            foreach (string key in extra)
+            {
+                string[] parts = key.Split('x');
+                AddOther(others, display, Int32.Parse(parts[0], CultureInfo.InvariantCulture),
+                    Int32.Parse(parts[1], CultureInfo.InvariantCulture));
+            }
+            others.Sort((a, b) => a.Width != b.Width ? a.Width.CompareTo(b.Width) : a.Height.CompareTo(b.Height));
+            foreach (ResolutionSelection.Entry entry in others)
+                list.Items.Add(entry, extra.Contains(entry.Key));
+        }
+
+        private static void AddOther(List<ResolutionSelection.Entry> others, List<ResolutionSelection.Entry> display,
+            int width, int height)
+        {
+            if (display.Exists(e => e.Width == width && e.Height == height) ||
+                others.Exists(e => e.Width == width && e.Height == height) ||
+                !ResolutionSelection.Covered(width, height))
+                return;
+            ResolutionSelection.Entry entry = new ResolutionSelection.Entry();
+            entry.Width = width;
+            entry.Height = height;
+            others.Add(entry);
+        }
+
+        private void AddCustom()
+        {
+            ResolutionChoice picked = null;
+            using (CustomSizeDialog dialog = new CustomSizeDialog(null, scale))
+                if (dialog.ShowDialog(this) == DialogResult.OK)
+                    picked = dialog.Choice;
+            if (picked == null)
+                return;
+            for (int i = 0; i < list.Items.Count; i++)
+            {
+                ResolutionSelection.Entry item = (ResolutionSelection.Entry)list.Items[i];
+                if (item.Width == picked.Width && item.Height == picked.Height)
+                {
+                    list.SetItemChecked(i, true);
+                    list.SelectedIndex = i;
+                    return;
+                }
+            }
+            ResolutionSelection.Entry entry = new ResolutionSelection.Entry();
+            entry.Width = picked.Width;
+            entry.Height = picked.Height;
+            list.SelectedIndex = list.Items.Add(entry, true);
+        }
+
+        private void Accept()
+        {
+            List<string> off = new List<string>();
+            List<string> extra = new List<string>();
+            bool anyDisplay = false;
+            for (int i = 0; i < list.Items.Count; i++)
+            {
+                ResolutionSelection.Entry entry = (ResolutionSelection.Entry)list.Items[i];
+                bool ticked = list.GetItemChecked(i);
+                if (entry.Display && ticked)
+                    anyDisplay = true;
+                if (entry.Display && !ticked)
+                    off.Add(entry.Key);
+                if (!entry.Display && ticked)
+                    extra.Add(entry.Key);
+            }
+            if (!anyDisplay)
+            {
+                message.Text = "Keep at least one size this display supports: the game starts at one.";
+                return;
+            }
+            KmrpSettings.ResolutionsOff = String.Join(",", off.ToArray());
+            KmrpSettings.ResolutionsExtra = String.Join(",", extra.ToArray());
+            DialogResult = DialogResult.OK;
+            Close();
+        }
+
+        private int Px(int design) { return Math.Max(1, (int)Math.Round(design * scale)); }
+        private float Points(float design) { return Math.Max(6F, design * scale); }
+
+        protected override void OnKeyDown(KeyEventArgs e)
+        {
+            if (e.KeyCode == Keys.Escape)
+            {
+                DialogResult = DialogResult.Cancel;
+                Close();
                 return;
             }
             base.OnKeyDown(e);
@@ -6048,7 +5764,7 @@ namespace Kmrp
         private const string CreatorUrl = "https://deadlystream.com/profile/68365-raymangt/";
 
         private readonly TextBox pathBox;              // data holder; the path is shown in step 1's subtitle
-        private readonly DarkCombo resolutionBox;
+        private readonly PillButton resolutionButton;
         private readonly PillButton actionButton;
         private bool actionIsRestore;
         private readonly PillButton browseButton;
@@ -6069,16 +5785,6 @@ namespace Kmrp
         private Timer fadeTimer;
         private FadeOverlay fadeOverlay;
         private bool settingsOpen;
-        // The resolution list's last entry, which asks for a size of the player's own.
-        private sealed class CustomSizeEntry
-        {
-            public override string ToString()
-            {
-                return "Custom size…";
-            }
-        }
-        private readonly CustomSizeEntry customSizeEntry = new CustomSizeEntry();
-        private int lastResolutionIndex = -1;
         private readonly Panel optionsHost;           // reserved: future checkboxes land here
         private readonly LinkLabel logLink;
         private Image brand;
@@ -6227,36 +5933,21 @@ namespace Kmrp
                 "Looking for swkotor.exe.");
             verifyState = NewStateLabel(stepVerify, card.Width);
 
-            stepResolution = NewStep(card, 2, UiTheme.Glyph.Monitor, "3. Choose Resolution",
-                "Select the resolution you want to patch for.");
-            resolutionBox = new DarkCombo();
-            resolutionBox.Font = new Font("Segoe UI Semibold", 17F, FontStyle.Regular);
-            resolutionBox.SetBounds(card.Width - 448, 26, 412, 44);
-            resolutionBox.Anchor = AnchorStyles.Top | AnchorStyles.Right;
-            resolutionBox.DrawItem += ResolutionDrawItem;
-            // This display first, listed or blended, then the catalogue, then a size of
-            // the player's own, as the Mac installer lists them
-            // (macos/installer-app/main.m). This display is chosen to start with; the
-            // list began at 3440x1440 until 2026-09-30, which stays the fallback.
-            List<ResolutionChoice> resolutions = ResolutionCatalog.Load();
-            ResolutionChoice display = DisplayChoice(resolutions);
-            int preferredResolution = -1;
-            if (display != null)
-            {
-                resolutionBox.Items.Add(display);
-                preferredResolution = 0;
-            }
-            foreach (ResolutionChoice choice in resolutions)
-            {
-                if (preferredResolution < 0 && choice.Width == 3440 && choice.Height == 1440)
-                    preferredResolution = resolutionBox.Items.Count;
-                resolutionBox.Items.Add(choice);
-            }
-            resolutionBox.Items.Add(customSizeEntry);
-            resolutionBox.SelectedIndex = Math.Max(0, preferredResolution);
-            lastResolutionIndex = resolutionBox.SelectedIndex;
-            resolutionBox.SelectedIndexChanged += delegate { ResolutionPicked(); };
-            stepResolution.Controls.Add(resolutionBox);
+            // Step 3 chooses nothing by default: KMRP's patch carries every resolution,
+            // the game lists the sizes the display supports, and it starts at the
+            // display's current size. "Choose" opens the checklist for a player who wants
+            // fewer of them, or a size the display does not offer (ResolutionsDialog).
+            // Until 2026-10-04 this was a list to pick the one resolution KMRP was
+            // installed for.
+            stepResolution = NewStep(card, 2, UiTheme.Glyph.Monitor, "3. Resolutions",
+                ResolutionSelection.Summary());
+            resolutionButton = new PillButton();
+            resolutionButton.Text = "Choose";
+            resolutionButton.TextSize = 18F;
+            resolutionButton.SetBounds(card.Width - 168, 24, 132, 48);
+            resolutionButton.Anchor = AnchorStyles.Top | AnchorStyles.Right;
+            resolutionButton.Click += delegate { ChooseResolutions(); };
+            stepResolution.Controls.Add(resolutionButton);
             resolutionState = NewStateLabel(stepResolution, card.Width);
             resolutionState.Visible = false;
 
@@ -6403,7 +6094,8 @@ namespace Kmrp
             // .kpatch files in its folder), so it only decided who installed the runtime
             // first -- and on Steam with KPM 0.7.1 it left a runtime KPM injected, which a
             // game Steam starts never loads. The three rows are 86 px tall and 8 apart
-            // again, as before it came.
+            // again, as before it came. (A Movie Fixes row was a fourth for a few hours on
+            // 2026-10-04; the maintainer made the movie fixes part of KMRP, not an option.)
 
             // Two actions, sharing the row the single Back button used to have. Restore
             // Defaults is Subtle so Back stays the obvious way out.
@@ -7235,32 +6927,6 @@ namespace Kmrp
         private readonly SolidBrush rowBrush = new SolidBrush(UiTheme.Field);
         private readonly SolidBrush rowSelectedBrush = new SolidBrush(UiTheme.AccentDark);
 
-        private void ResolutionDrawItem(object sender, DrawItemEventArgs e)
-        {
-            if (e.Index < 0)
-                return;
-            bool selected = (e.State & DrawItemState.Selected) == DrawItemState.Selected;
-            // Cached brushes: a wheel notch repaints several rows, and allocating and
-            // finalising a GDI+ brush per row adds up while the list is being scrolled
-            // fast enough to back the message queue up.
-            e.Graphics.FillRectangle(selected ? rowSelectedBrush : rowBrush, e.Bounds);
-            int leftPadding = Math.Max(2, (int)Math.Round(10 * uiScale));
-            int rightPadding = Math.Max(2, (int)Math.Round(12 * uiScale));
-            Rectangle textBounds = new Rectangle(
-                e.Bounds.X + leftPadding,
-                e.Bounds.Y,
-                Math.Max(1, e.Bounds.Width - leftPadding - rightPadding),
-                e.Bounds.Height);
-            TextRenderer.DrawText(e.Graphics,
-                resolutionBox.Items[e.Index].ToString(),
-                e.Font,
-                textBounds,
-                UiTheme.Text,
-                TextFormatFlags.Left | TextFormatFlags.VerticalCenter |
-                TextFormatFlags.SingleLine | TextFormatFlags.NoPadding |
-                TextFormatFlags.NoPrefix);
-        }
-
         protected override void OnPaint(PaintEventArgs e)
         {
             if (resizePreviewActive && resizePreview != null)
@@ -7529,7 +7195,7 @@ namespace Kmrp
         }
 
         [StructLayout(LayoutKind.Sequential, CharSet = CharSet.Unicode)]
-        private struct DisplayMode
+        internal struct DisplayMode
         {
             [MarshalAs(UnmanagedType.ByValTStr, SizeConst = 32)] public string DeviceName;
             public short SpecVersion, DriverVersion, StructSize, DriverExtra;
@@ -7541,87 +7207,17 @@ namespace Kmrp
             public int IcmMethod, IcmIntent, MediaType, DitherType, Reserved1, Reserved2, PanningWidth, PanningHeight;
         }
 
-        private const int EnumCurrentSettings = -1;
+        internal const int EnumCurrentSettings = -1;
 
         [DllImport("user32.dll", CharSet = CharSet.Unicode, EntryPoint = "EnumDisplaySettingsW")]
-        private static extern bool EnumDisplaySettings(string deviceName, int modeNumber, ref DisplayMode mode);
+        internal static extern bool EnumDisplaySettings(string deviceName, int modeNumber, ref DisplayMode mode);
 
-        /// <summary>The primary display's current mode as step 3's first entry, "This
-        /// display": its listed set when the build has one, otherwise blended at
-        /// install; null when the menu sets do not reach it (a portrait display) or it
-        /// cannot be read. From EnumDisplaySettings, which gives the mode in pixels: the
-        /// patcher is not DPI-aware, so Screen's bounds are scaled on a display set
-        /// above 100%.</summary>
-        private static ResolutionChoice DisplayChoice(List<ResolutionChoice> listed)
+        /// <summary>Step 3's "Choose": the checklist, and the step's line afterwards.</summary>
+        private void ChooseResolutions()
         {
-            try
-            {
-                DisplayMode mode = new DisplayMode();
-                mode.StructSize = (short)Marshal.SizeOf(typeof(DisplayMode));
-                if (!EnumDisplaySettings(null, EnumCurrentSettings, ref mode))
-                    return null;
-                foreach (ResolutionChoice choice in listed)
-                    if (choice.Width == mode.PelsWidth && choice.Height == mode.PelsHeight)
-                        return choice.Relabel("This display");
-                if (!GuiBlend.Shared().Covers(mode.PelsWidth, mode.PelsHeight))
-                    return null;
-                return ResolutionCatalog.Derived("This display", mode.PelsWidth, mode.PelsHeight, listed);
-            }
-            catch
-            {
-                return null;
-            }
-        }
-
-        /// <summary>Step 3's list changed. "Custom size…" asks for a size, after the list
-        /// has closed: a dialog opened inside the combo box's own selection change
-        /// leaves its drop-down state behind.</summary>
-        private void ResolutionPicked()
-        {
-            if (resolutionBox.SelectedItem == customSizeEntry)
-            {
-                BeginInvoke(new MethodInvoker(AskForCustomSize));
-                return;
-            }
-            lastResolutionIndex = resolutionBox.SelectedIndex;
-            RefreshStatus();
-        }
-
-        /// <summary>A size the menu sets reach is selected where the list has it, or
-        /// added above "Custom size…" in place of the last one added; a cancelled
-        /// dialog puts the previous choice back.</summary>
-        private void AskForCustomSize()
-        {
-            ResolutionChoice current = lastResolutionIndex >= 0 && lastResolutionIndex < resolutionBox.Items.Count
-                ? resolutionBox.Items[lastResolutionIndex] as ResolutionChoice
-                : null;
-            ResolutionChoice picked = null;
-            using (CustomSizeDialog dialog = new CustomSizeDialog(current, uiScale))
+            using (ResolutionsDialog dialog = new ResolutionsDialog(uiScale))
                 if (dialog.ShowDialog(this) == DialogResult.OK)
-                    picked = dialog.Choice;
-            if (picked == null)
-            {
-                resolutionBox.SelectedIndex = Math.Max(0, Math.Min(lastResolutionIndex, resolutionBox.Items.Count - 2));
-                return;
-            }
-            for (int i = 0; i < resolutionBox.Items.Count; i++)
-            {
-                ResolutionChoice item = resolutionBox.Items[i] as ResolutionChoice;
-                if (item != null && item.Key == picked.Key)
-                {
-                    resolutionBox.SelectedIndex = i;
-                    return;
-                }
-            }
-            for (int i = resolutionBox.Items.Count - 1; i >= 0; i--)
-            {
-                ResolutionChoice item = resolutionBox.Items[i] as ResolutionChoice;
-                if (item != null && item.Category == "Custom")
-                    resolutionBox.Items.RemoveAt(i);
-            }
-            int at = resolutionBox.Items.IndexOf(customSizeEntry);
-            resolutionBox.Items.Insert(at, picked);
-            resolutionBox.SelectedIndex = at;
+                    RefreshStatus();
         }
 
         private void RefreshStatus()
@@ -7654,14 +7250,14 @@ namespace Kmrp
             bool patchComplete = state == ExecutableState.Gold;
             stepFolder.SetTitle(patchComplete ? "1. Selected Game Folder" : "1. Select Game Folder");
             stepVerify.SetTitle(patchComplete ? "2. Detected Game Version" : "2. Detect Game Version");
-            stepResolution.SetTitle(patchComplete ? "3. Chosen Resolution" : "3. Choose Resolution");
+            stepResolution.SetTitle("3. Resolutions");
             stepResolution.SetSubtitle(patchComplete
-                ? "Installed resolution."
-                : "Select the resolution you want to patch for.");
+                ? "The game starts at this size. Choose another in the game, under Options, Graphics."
+                : ResolutionSelection.Summary());
             // Also gated on the executable: step 3 is shown dimmed until step 2 finds a
             // version KMRP installs on, and a live dropdown inside a dimmed row invites a
             // click that does nothing.
-            resolutionBox.Visible = !patchComplete && executableReady;
+            resolutionButton.Visible = !patchComplete && executableReady;
             resolutionState.Visible = patchComplete;
 
             if (patchComplete)
@@ -7676,10 +7272,7 @@ namespace Kmrp
                 }
                 else
                 {
-                    ResolutionChoice selected = resolutionBox.SelectedItem as ResolutionChoice;
-                    SetState(resolutionState, selected == null ? "Installed" :
-                        selected.Width.ToString(CultureInfo.InvariantCulture) + " × " +
-                        selected.Height.ToString(CultureInfo.InvariantCulture), UiTheme.Text);
+                    SetState(resolutionState, "Installed", UiTheme.Text);
                 }
             }
             else
@@ -7749,16 +7342,18 @@ namespace Kmrp
 
         private void PatchClicked(object sender, EventArgs e)
         {
-            ResolutionChoice resolution = resolutionBox.SelectedItem as ResolutionChoice;
-            if (resolution == null)
+            // The display's current size, where the game will offer it.
+            int[] start = ResolutionSelection.Start();
+            if (start == null)
             {
-                MessageBox.Show(this, "Select a target resolution.", "Resolution required",
+                MessageBox.Show(this, "None of this display's resolutions is chosen. Press Choose in step 3 " +
+                    "and tick at least one.", "Resolution required",
                     MessageBoxButtons.OK, MessageBoxIcon.Warning);
                 return;
             }
             RunOperation("Patch", delegate(Action<string> report, Action<int, string> progress)
             {
-                PatchOperations.ApplyInPlace(pathBox.Text.Trim(), resolution.Width, resolution.Height, report, progress);
+                PatchOperations.ApplyInPlace(pathBox.Text.Trim(), start[0], start[1], report, progress);
             });
         }
 
@@ -7837,7 +7432,7 @@ namespace Kmrp
 
         private void SetBusyState(bool busy)
         {
-            resolutionBox.Enabled = !busy;
+            resolutionButton.Enabled = !busy;
             browseButton.Enabled = !busy;
             actionButton.Enabled = !busy;
             logLink.Enabled = !busy;
@@ -8011,7 +7606,7 @@ namespace Kmrp
                     PatchOperations.Restore(args[1], delegate { });
                     return 0;
                 }
-                // KMRP's four .kpatch files, their README and KPM's licence, for
+                // KMRP's .kpatch file, its README and KPM's licence, for
                 // sharing them on their own; the installer carries them since 2026-09-29.
                 if (args.Length == 2 && args[0] == "--export-kpm-patches")
                 {

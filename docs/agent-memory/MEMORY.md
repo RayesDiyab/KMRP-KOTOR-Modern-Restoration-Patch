@@ -163,7 +163,9 @@ details still belong in `docs/` or `reverse-engineering/`.
   Since 2026-09-25 they are embedded as one pool of distinct files
   (`tools/pack_resolution_layouts.py`, `build\kmrp\resolution-layouts.zip`).
   The archives are the build's intermediates, which the Python checks read;
-  `Test-InstalledOverride.ps1` checks what the installer writes from the pool.
+  `Test-InstalledOverride.ps1` checked what the installer wrote from the pool until
+  2026-10-04; since then the pool is not embedded and the installer writes no Override
+  file (the module's bank, `tools/build_native_assets.py`, is built from the same archives).
 - Do not infer play-tested coverage from archive inspection or numeric checks.
 - Do not copy the changing GitHub backlog into durable memory. Store only findings
   that remain useful after an issue closes.

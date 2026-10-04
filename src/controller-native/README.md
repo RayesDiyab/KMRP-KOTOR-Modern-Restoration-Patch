@@ -1,10 +1,20 @@
 # The KMRP controller module
 
-This directory is the **canonical, authoritative source** for
-`kmrp-controller.module`. Project sources are tracked here; SDL headers come from a hash-verified SDK
+This directory is the **canonical, authoritative source** for KMRP's module.
+Project sources are tracked here; SDL headers come from a hash-verified SDK
 under ignored `build/deps`.
 
-Build it with `build.cmd` (Visual Studio Build Tools, x86, and PowerShell 7).
+**Since 2026-10-04 the shipped module is `kmrp-native.dll`**, built by
+`build_native_runtime.cmd` into `build\native-runtime\`: these sources with the
+`K1Runtime*.cpp` files (the engine applier's embedded recipe, the resource bank,
+the resolution switch, the panel layout, the NVIDIA step), `K1KpmApplier.cpp` and
+`K1KeyboardNavigation.cpp`, and the macOS C tools for the blended sizes.
+`build_kmrp.ps1` runs it and embeds the result inside `KMRP.kpatch`
+(`tools/build_native_kpatch.py`). What follows describes `kmrp-controller.module`,
+the 245 KB module of the four-patch edition, which `build.cmd` still builds and
+the installer no longer carries; the sources and the hook table are the same.
+
+Build that one with `build.cmd` (Visual Studio Build Tools, x86, and PowerShell 7).
 The script prepares the pinned SDL SDK automatically. See
 [the hybrid backend reference](../../docs/controller-sdl-backend.md). The output,
 `kmrp-controller.module`, is what `build_kmrp.ps1` embeds in the installer as

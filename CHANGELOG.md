@@ -109,6 +109,50 @@ proxy, and it applies the executable changes above as well.
 
 ## [Unreleased]
 
+- **KMRP is one patch.** The installer installs KOTOR Patch Manager's runtime with a
+  single patch, `kmrp`, in place of four (KMRP, KMRP Controller, KMRP Movies, KMRP
+  Map Notes), a per-resolution data file and about 1,850 files in `Override`. The
+  patch's module carries the engine changes, every resolution's files, the controller
+  and SDL, so nothing is written to `Override` and nothing is built for one
+  resolution. Decided by the maintainer on 2026-10-04; measured the same day on
+  scratch copies of the editable 1.03 game and installed on the play-test game.
+  - **Options.** Controller support and map notes are options of the patch, chosen
+    in Advanced Settings as before; the installer writes the hooks of the options
+    left on and a `[patches.options]` table into `patch_config.toml` itself. With
+    both off it wrote 24 of the 52 hooks and the game logged "KMRP + Movies". The
+    movie fixes are always installed: they were a third option for a few hours and
+    the maintainer made them part of KMRP ("standard baked into KMRP, non-negotiable").
+  - **Resolutions.** The pick-one-resolution step is gone. The game starts at the
+    display's current size, written to `swkotor.ini`, and offers every size the
+    display supports under Options, Graphics. Step 3's **Choose** opens a checklist
+    with those sizes ticked: unticking one hides it in the game, and ticking a size
+    the display does not support (a listed one or a custom one) adds it. The choice
+    is written beside the game as `kmrp-resolutions.txt` only when it differs from
+    the default. The game takes its modes from Windows and fell back to 800x600 for
+    a size Windows does not report, so the module adds such a size to the modes it
+    sees; it runs in a window, and with fullscreen on as a borderless window on the
+    desktop's own mode, since asking Windows for the mode made the game exit
+    (3000x1300 on a 3440x1440 display).
+  - **One `.kpatch`.** `KMRP.kpatch` is delivered to KOTOR Patch Manager's patch
+    folder in place of four files, and `--export-kpm-patches` writes the one. KPM
+    0.7.1 installs it with every option on. The installer carries the 189 MB module
+    once, inside the `.kpatch`, and is 195.8 MB (164.8 MB before).
+  - **Upgrading.** An install of the four-patch edition is restored first, by the new
+    installer's own restore: on a scratch game its 1,854 `Override` files, data file,
+    modules and SDL were removed, the new patch installed, and Restore Original then
+    left the original files.
+  - **Patch ids.** `kmrp-controller`, `kmrp-movies`, `kmrp-map-notes` and the
+    experimental `kmrp-native`, `kmrp-native-options` and `kmrp-native-map-notes`
+    are retired; `kmrp` lists them as conflicts.
+  **Removed with the old layout:** the installer's Override install code and the
+  three regressions that asserted four patches (`Test-KpmEdition.ps1`,
+  `Test-ControllerSupport.ps1`, `Test-InstalledOverride.ps1`);
+  `Test-InstallerPatch.ps1` and a rewritten `Test-KpatchSource.py` cover the one
+  patch. The restore of older installs is unchanged. The sections of
+  [KPM edition](docs/kpm-edition.md) below its first describe the old layout. Steam's executable was run by the maintainer (a resolution
+  change in the game included) and GOG's to the main menu on a scratch game, both
+  on 2026-10-04.
+
 - Mouse confinement now applies in fullscreen only. A windowed game no longer
   traps the cursor inside its window: confinement is skipped, and released if
   held, whenever the client area does not cover its whole monitor. Both copies

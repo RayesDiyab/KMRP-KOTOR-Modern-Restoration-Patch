@@ -26,14 +26,21 @@ request, to `api.github.com/repos/RayesDiyab/KMRP-KOTOR-Modern-Restoration-Patch
   into the installer, never one from the answer.
 - **Failures:** any failure is silent, including a five-second timeout.
 
-The patcher modifies `swkotor.exe`, `swkotor.ini` and the `Override` folder; the
+The patcher modifies `swkotor.ini`; one bit of `swkotor.exe`'s header, the Large
+Address Aware flag, on GOG's and the editable builds (Steam's executable is never
+changed); the files beside `swkotor.exe` that make up KOTOR Patch Manager's runtime
+and KMRP's patch, with the game's `binkw32.dll` renamed; the
 current user's Windows compatibility value for that one executable, to mark it
 DPI-aware; on NVIDIA, where the driver would show half-drawn frames, that
-executable's present-method profile; and, for the optional components, the
-files they install beside `swkotor.exe`. Before writing, it copies the executable
-and INI aside and records everything else it adds or replaces, with hashes or
-prior values, in manifests used by **Restore Original**. (This paragraph listed
-only the first three until 2026-09-24.)
+executable's present-method profile; and, for the optional driver-compatibility
+component, the two files it installs beside `swkotor.exe`. Before writing, it
+copies the INI and the unmodified executable aside and records everything it adds,
+renames or sets, with hashes or prior values, in manifests used by **Restore
+Original**. While the game runs, KMRP's module unpacks interface files to a folder
+of its own under the user's temporary folder and removes it when the game closes.
+(This paragraph listed only the first three items until 2026-09-24, and said the
+patcher modified the `Override` folder until 2026-10-04: it no longer writes
+there, and only removes what an older KMRP put there.)
 
 ## Reporting
 
@@ -58,14 +65,18 @@ These are deliberate refusals, not bugs:
   and length. Patching an arbitrary binary is not supported.
 - It **refuses to restore an executable it did not create**, to avoid
   overwriting something it has no verified backup for.
-- It **refuses to install a different resolution** over an existing install
-  without a restore first, so the backup chain stays unambiguous.
+- Installing over an existing KMRP install **restores that install first**, from
+  its own records, and only then installs, so the backup chain stays unambiguous.
+  (Until 2026-10-04 this said it refused a different resolution over an existing
+  install; no resolution is installed any more.)
 
 ## For anyone building from source
 
-The build embeds a binary delta against a specific gold snapshot, identified by
-SHA-256 in `src/patcher/KmrpPatcher.cs`. If you change the gold
-snapshot, the hash constants must move with it — the patcher verifies both the
-source and the result and will refuse the delta otherwise. Do not weaken those
-checks to make a build work; they are the mechanism that stops a mismatched
-patch from being applied to a player's game.
+The engine changes are built from tracked source, each with the original
+instruction bytes it expects (`tools/build_windows_engine.py`), and KMRP's module
+checks those bytes in the running game before it changes anything; the installer
+recognises an executable by SHA-256 (`GameExecutable` in
+`src/patcher/KmrpPatcher.cs`). Do not weaken those checks to make a build work;
+they are the mechanism that stops a mismatched patch from being applied to a
+player's game. (Until 2026-10-01 the build embedded a binary delta against a gold
+snapshot, and this section described that.)
