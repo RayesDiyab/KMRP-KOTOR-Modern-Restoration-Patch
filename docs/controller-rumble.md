@@ -148,7 +148,7 @@ patched executable.
 The annotated disassembly for each is in
 [`src/controller-native/kotor1.hooks.toml`](../src/controller-native/kotor1.hooks.toml).
 `tools/check_hook_stolen_bytes.py` passes for all of them, and
-`tools/check_patcher_hook_table.py` finds the patcher's table and the TOML in
+`tools/check_patcher_hook_table.py` (removed on 2026-10-04) found the patcher's table and the TOML in
 agreement: 26 native hooks and 4 byte patches when the mixer shipped
 (2026-09-25). That count has since grown -- 35 native hooks and 4 byte patches
 on 2026-09-28, with the character-creation and echo guards and the no-controller

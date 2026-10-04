@@ -22,11 +22,11 @@ installer"). What changed, and what the sections below still get right:
 
 | | Until 2026-10-04 (sections 1 to 7) | Now |
 | --- | --- | --- |
-| Patches | four: `kmrp`, `kmrp-controller`, `kmrp-movies`, `kmrp-map-notes` | one, `kmrp`, with two options, `controller` and `map-notes` (`tools/build_native_kpatch.py`). The movie fixes are part of it: an option for a few hours that day, then "standard baked into KMRP, non-negotiable" (the maintainer) |
+| Patches | four: `kmrp`, `kmrp-controller`, `kmrp-movies`, `kmrp-map-notes` | one, `kmrp`, with three options: `controller` and `map-notes`, on by default, and `debug-logs`, off (`tools/build_native_kpatch.py`). The movie fixes are part of it: an option for a few hours that day, then "standard baked into KMRP, non-negotiable" (the maintainer) |
 | Module | `kmrp-controller.module`, 245 KB, one copy per patch with detours | `kmrp-native.dll`, about 189 MB, once, as `patches\kmrp.dll`; it embeds the engine recipe, every resolution's files, the controller and SDL |
 | Engine data | `kmrp-kpm.dat`, built at install for the chosen resolution | none: the module applies the engine for the size the game runs at, and again when it changes |
 | `Override` | about 1,850 files for the chosen resolution | nothing |
-| `patch_config.toml` | four sections, from `Kmrp.engine.config.<id>` | one section, written by `KpmEditionOperations.PatchConfigSection`: the hooks that are always installed, those of each option left on, and a `[patches.options]` table |
+| `patch_config.toml` | four sections, from `Kmrp.engine.config.<id>` | one section, written by `KpmEditionOperations.PatchConfigSection`: the hooks that are always installed and those of each option left on. The chosen values go to `configs\kmrp.ini`, section `[Patch Options]` (`WritePatchOptions`); until later on 2026-10-04 they were a `[patches.options]` table here |
 | Resolution | chosen in the installer, one | the display's current size in `swkotor.ini`; any size the display supports in the game; a checklist for fewer or other sizes (`kmrp-resolutions.txt`) |
 | `.kpatch` files delivered | four | one, `KMRP.kpatch` |
 
@@ -66,9 +66,31 @@ them as they were. **Kept:** the whole restore side (`OverrideOperations.Restore
 `IniOperations.Restore`, the standalone installer's restore), which removes older
 installs; `--apply`, which still builds the reference executable from the engine
 source; and `--derive-gui` with the C# generators, the reference the macOS C tools
-are compared with. **Still in the tree and unused by the installer:**
-`tools/build_kpatch.py`'s four-patch packaging and `src/controller-native/build.cmd`
-(the 245 KB module), which other tools still import or name.
+are compared with. **Removed later that day, on the maintainer's word:** `tools/build_kpatch.py` (the
+four-patch packaging), `src/controller-native/build.cmd` (the 245 KB module) and
+`tools/check_patcher_hook_table.py` (which compared the four config sections with the
+hook table). The helpers the other builders used moved to `tools/kpatch_common.py`.
+The sections below still name the three files, as they were.
+
+### Later on 2026-10-04: options in `configs`, debug logs, added sizes
+
+| | |
+| --- | --- |
+| Where the options are recorded | `configs\kmrp.ini` in the game folder, section `[Patch Options]`, one key per option, `1` or `0`: the layout upstream KOTOR Patch Manager adopted for patch options that day (LaneDibello/Kotor-Patch-Manager#310, not merged yet). The installer writes that section and leaves the rest of the file alone (`WritePatchOptions`, a manifest row `options`); Restore Original takes the section out again and deletes the file and the folder when nothing else is in them. `patch_config.toml` holds no options table |
+| How the module reads them | `KmrpPatchOption` in `src/controller-native/KmrpOptions.h`: `GetPrivateProfileIntW` on that file. A missing file, section or key is the default, so stock KPM 0.7.1, which writes none, runs controller support and map notes on and logs off |
+| Debug logs | the third option, `debug-logs`, off by default, a fourth row in Advanced Settings. Without it the module writes none of `kmrp-native-preview.log`, `kmrp-layout-lifecycle.log`, `kmrp-confirm-focus.log`, `kmrp-native-joystick.log`, and only errors and warnings to `kmrp-kpm.log` (so that file exists only when something went wrong; the NVIDIA warning is one of them). The rumble log keeps its own `Debug` key in `kmrp-rumble.ini`. The controller tests read `kmrp-native-joystick.log`, so a fixture needs `debug-logs=1` |
+| A size the display does not offer | the game's window of that size is now kept in the middle of the display (`KmrpCentreAddedSizeK1`, each GUI and movie frame), and the mouse is confined to it as in fullscreen (`KmrpAddedSizeWindowK1` in `UpdateCursorConfinementK1`): the game takes itself for fullscreen there and minimised when a click landed outside |
+
+Measured on the scratch game (editable 1.03, 3440x1440 display, 2000x1200 added):
+with `debug-logs=0` a run to the main menu wrote no `kmrp-*.log` at all; with `1` it
+wrote `kmrp-kpm.log`, `kmrp-native-preview.log` and `kmrp-native-joystick.log`. The
+window was 2000x1200 at 720,120 during the intro movies and at the main menu, and
+again after the game was minimised and brought back (a new window). The system cursor
+stayed within 720..2719 by 120..1319, the game's cursor was drawn where it was, and a
+click on Options opened the options screen. `Test-InstallerPatch.ps1` checks the file
+the installer writes and that restore removes it. Not run: a size larger than the
+display, more than one display, and KPM's own launcher writing the file (its PR is
+not merged).
 
 ## Source-built Windows patches (2026-10-01)
 

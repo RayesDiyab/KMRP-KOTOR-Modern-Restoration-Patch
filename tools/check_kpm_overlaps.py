@@ -14,7 +14,7 @@ conflicts.
 
 Since KMRP carries its own memory fixes and large-address flag (2026-09-28), it
 overlaps KPM's 4GB, Texture Bucket, Grass Memory and Save Game patches by design;
-those are reported as declared, from tools/build_kpatch.py's conflicts. An overlap
+those are reported as declared, from the conflicts of KMRP's patch (tools/build_native_kpatch.py). An overlap
 with a patch no KMRP patch declares fails the check.
 
 Usage:
@@ -34,7 +34,8 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / "tools"))
 
-import build_kpatch                                     # noqa: E402
+import build_native_kpatch                              # noqa: E402
+import kpatch_common                                    # noqa: E402
 import kmrp_controller                                  # noqa: E402
 import kpm_relocations                                  # noqa: E402
 
@@ -47,7 +48,7 @@ def kmrp_footprint():
     clean = kpm_relocations.Image(kpm_relocations.DEFAULT_CLEAN.read_bytes())
     spans = [(va, va + n, "gold delta") for va, n in kpm_relocations.changed_runs(clean, gold)]
     seen = set()
-    laa = build_kpatch.large_address_hook()
+    laa = kpatch_common.large_address_hook()
     spans.append((laa["address"], laa["address"] + len(laa["original_bytes"]), "large-address flag"))
     for patch_id in kmrp_controller.KPM_PATCHES:
         for hook in kmrp_controller.kpm_patch_hooks(patch_id):
@@ -107,7 +108,7 @@ def main() -> int:
             overlapping.append((label, hits))
         elif near:
             neighbouring.append((label, near))
-    declared = {c for p in build_kpatch.PATCHES for c in p["conflicts"]}
+    declared = set(build_native_kpatch.PATCH["conflicts"])
     undeclared = [(label, hits) for label, hits in overlapping if label.split()[0] not in declared]
     print(f"\nOVERLAP, declared as conflicts ({len(overlapping) - len(undeclared)}):")
     for label, hits in overlapping:

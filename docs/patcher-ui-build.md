@@ -21,6 +21,9 @@ longer holds:
 | "packages the KPM patches", "the four KPM packages", the pool "which the installer embeds" | one package, `KMRP.kpatch` (`tools/build_native_kpatch.py`); the pool is still built, for the module's resource bank and the macOS build, and is not embedded |
 | `--in-place` as the "full runtime, DPI, INI, Override" transaction | runtime, DPI, NVIDIA, INI; no Override |
 | The regression list naming `Test-ControllerSupport.ps1` and `Test-InstalledOverride.ps1` | corrected in place below: `Test-InstallerPatch.ps1` and `Test-KpatchSource.py` |
+| Advanced Settings with three rows | four: Debug Logs, off by default, is the fourth (`KmrpSettings.DebugLogs`, the patch's `debug-logs` option). The rows share the card's height, 86 px each where four fit |
+| The options written into `patch_config.toml` | written to `configs\kmrp.ini`, section `[Patch Options]` (`WritePatchOptions`); a manifest row `options` records it for restore |
+| `tools/build_kpatch.py`, `tools/check_patcher_hook_table.py`, `src/controller-native/build.cmd` | removed on 2026-10-04; `tools/kpatch_common.py` holds the shared helpers |
 
 This document describes the shipping Windows patcher in
 `src/patcher/KmrpPatcher.cs`, the assets compiled into it, and the

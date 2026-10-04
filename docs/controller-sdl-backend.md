@@ -116,7 +116,7 @@ cmd /c src\controller-native\build_native_runtime.cmd   # build.cmd until 2026-1
 cmd /c testing\controller\Test-SdlBackend.cmd
 .\build_kmrp.ps1 -ReuseResources
 .\testing\regression\Test-InstallerPatch.ps1          # Test-ControllerSupport.ps1 until 2026-10-04
-python tools/check_patcher_hook_table.py
+python tools/build_native_kpatch.py --check build\kmrp\kpm-patches\KMRP.kpatch   # check_patcher_hook_table.py until 2026-10-04
 python tools/check_hook_stolen_bytes.py src/controller-native/kotor1.hooks.toml
 ```
 

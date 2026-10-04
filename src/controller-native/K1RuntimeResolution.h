@@ -12,6 +12,13 @@ inline bool KmrpRuntimeDimensions(int width, int height)
 // One row per resolution and refresh rate in the Screen Resolution dialog.
 void KmrpInstallModeListFilter();
 
+// A size the display does not offer runs in a window of that size (the standalone
+// module answers the display change itself); this keeps that window centred.
+void KmrpCentreAddedSizeK1();
+// Whether a window of this size is that window: the game is in what it takes for a
+// fullscreen mode, so the mouse is confined to it as in fullscreen.
+bool KmrpAddedSizeWindowK1(int width, int height);
+
 // Stack arguments arrive as the address of their slot (KPM's "esp+N").
 extern "C" int __cdecl KmrpAllowRuntimeResolutionK1(const int* width, const int* height);
 extern "C" void __cdecl KmrpResolutionRequestedK1(void* manager, const int* width, const int* height);

@@ -76,8 +76,8 @@ class-layout offsets below.
 
 *Since 2026-10-04 the shipped module is `kmrp-native.dll`, built by
 `src/controller-native/build_native_runtime.cmd` from these same sources and
-installed as `patches\kmrp.dll`; `build.cmd` builds the four-patch edition's
-245 KB module, which the installer no longer carries.* Until then the shipped
+installed as `patches\kmrp.dll`; `build.cmd`, which built the four-patch edition's
+245 KB module, was removed that day.* Until then the shipped
 module was built by `src/controller-native/build.cmd` (x86 MSVC,
 `/Brepro`, SDL headers from the pinned SDK); see
 [`../src/controller-native/README.md`](../src/controller-native/README.md). The
@@ -137,7 +137,7 @@ renaming them would orphan older installs' manifests.
 **Since 2026-10-04** the controller is not a patch of its own but an option,
 `controller`, of KMRP's one patch ([one patch since 2026-10-04](kpm-edition.md#one-patch-since-2026-10-04)): with it on, the installer
 writes the controller's 28 hooks into `patch_config.toml` and `controller = true`
-into the patch's `[patches.options]` table; with it off, neither, and the one
+into `configs\kmrp.ini` (the `[Patch Options]` section; a `[patches.options]` table in `patch_config.toml` for the first hours); with it off, neither, and the one
 module, `patches\kmrp.dll`, runs the core's frames alone (`KmrpControllerOptionK1`).
 SDL is inside the module, not beside the game, and there is no `kmrp-kpm.dat`. The
 paragraphs and the file table that follow describe the four-patch layout of
@@ -247,9 +247,10 @@ what `tools/check_patcher_hook_table.py` found in agreement with
 on (33 detours, 4 `replace`) and 9 with it off (5 detours, 4 `replace`;
 *Installed files and ownership*, above).
 
-Since 2026-09-29 the installer writes the KPM edition's patches instead, from
-sections `tools/build_kpatch.py` generates, and `check_patcher_hook_table.py`
-checks those: `kmrp` 7, `kmrp-movies` 2 and `kmrp-controller` 28, 37 hooks with
+Since 2026-09-29 the installer wrote the KPM edition's patches instead, from
+sections `tools/build_kpatch.py` generated, and `check_patcher_hook_table.py`
+checked those (both tools were removed on 2026-10-04, with the four-patch edition;
+`tools/build_native_kpatch.py` builds and checks the one patch): `kmrp` 7, `kmrp-movies` 2 and `kmrp-controller` 28, 37 hooks with
 every option on (since the popups of 2026-09-30, `kmrp` 10 and 40 in all, 12 with the
 controller off) -- the same 37 sites, with `CoreGuiFrameK1` and `CoreMovieFrameK1`
 in place of `NativeGuiFrameK1` and `NativeMovieFrameK1`, which hand over to KMRP

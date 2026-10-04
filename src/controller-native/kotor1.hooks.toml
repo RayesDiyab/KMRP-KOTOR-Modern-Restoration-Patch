@@ -20,7 +20,7 @@ target_versions = [
 # `kpm_provided_by` names the KOTOR Patch Manager patch that also makes a hook's
 # change (KMRP adopted it from there). Both editions carry such hooks. The KPM
 # edition's KMRP patch declares a conflict with that patch instead, since two
-# patches at one address is an install error in KPM (tools/build_kpatch.py).
+# patches at one address is an install error in KPM (tools/build_native_kpatch.py).
 # Until later on 2026-09-28 it left these hooks out and required the KPM patches,
 # but Texture Bucket Safety and Grass Memory Safety do not support Steam's
 # swkotor.exe.

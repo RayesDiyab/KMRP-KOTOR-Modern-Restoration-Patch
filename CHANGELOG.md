@@ -109,6 +109,30 @@ proxy, and it applies the executable changes above as well.
 
 ## [Unreleased]
 
+- **Options in `configs`, and debug logs off by default** (2026-10-04, after the
+  entry below).
+  - **Where the options are recorded.** `configs\kmrp.ini` in the game folder,
+    section `[Patch Options]`, a key per option, `1` or `0`: the layout KOTOR Patch
+    Manager's patch-options pull request settled on that day (not merged yet). The
+    installer writes that section, leaves anything else in the file alone, and
+    Restore Original takes it out again. `patch_config.toml` no longer has a
+    `[patches.options]` table, and KMRP's module reads the file instead
+    (`KmrpOptions.h`); a missing file, section or key is the default, so KPM 0.7.1
+    still runs controller support and map notes on.
+  - **Debug logs.** A third option, `debug-logs`, off by default, with a fourth row
+    in Advanced Settings. Without it the module writes none of its diagnostic logs
+    (`kmrp-native-preview.log`, `kmrp-layout-lifecycle.log`, `kmrp-confirm-focus.log`,
+    `kmrp-native-joystick.log`) and only errors and warnings to `kmrp-kpm.log`; until
+    now all of them were written on every run. A run to the main menu wrote no
+    `kmrp-*.log` with it off and three with it on. The controller tests read
+    `kmrp-native-joystick.log`, so their game folder needs `debug-logs=1`.
+  - **Removed:** `tools/build_kpatch.py`, `src/controller-native/build.cmd` and
+    `tools/check_patcher_hook_table.py`, the last files of the four-patch edition.
+    What the other builders used of the first is now `tools/kpatch_common.py`.
+    `tools/check_controller_drift.py`, `tools/check_module_exports.py` and
+    `testing/controller/select_controller_path.py` still describe the four-patch
+    layout and were not run or changed.
+
 - **KMRP is one patch.** The installer installs KOTOR Patch Manager's runtime with a
   single patch, `kmrp`, in place of four (KMRP, KMRP Controller, KMRP Movies, KMRP
   Map Notes), a per-resolution data file and about 1,850 files in `Override`. The
@@ -118,7 +142,9 @@ proxy, and it applies the executable changes above as well.
   scratch copies of the editable 1.03 game and installed on the play-test game.
   - **Options.** Controller support and map notes are options of the patch, chosen
     in Advanced Settings as before; the installer writes the hooks of the options
-    left on and a `[patches.options]` table into `patch_config.toml` itself. With
+    left on into `patch_config.toml` itself and the chosen values into
+    `configs\kmrp.ini` (first a `[patches.options]` table in `patch_config.toml`; see
+    "Options in `configs`" below). With
     both off it wrote 24 of the 52 hooks and the game logged "KMRP + Movies". The
     movie fixes are always installed: they were a third option for a few hours and
     the maintainer made them part of KMRP ("standard baked into KMRP, non-negotiable").
@@ -132,7 +158,11 @@ proxy, and it applies the executable changes above as well.
     a size Windows does not report, so the module adds such a size to the modes it
     sees; it runs in a window, and with fullscreen on as a borderless window on the
     desktop's own mode, since asking Windows for the mode made the game exit
-    (3000x1300 on a 3440x1440 display).
+    (3000x1300 on a 3440x1440 display). That window is kept in the middle of the
+    display and the mouse is confined to it, as in fullscreen: it sat at the top
+    left corner at first, and a click outside it minimised the game (2000x1200 on
+    the same display: at 720,120 through the intro movies, the main menu and a
+    minimise and restore; a click on Options opened it).
   - **One `.kpatch`.** `KMRP.kpatch` is delivered to KOTOR Patch Manager's patch
     folder in place of four files, and `--export-kpm-patches` writes the one. KPM
     0.7.1 installs it with every option on. The installer carries the 189 MB module

@@ -269,7 +269,7 @@ for the measured launch/menu coverage and issue 13's closure.
 Ubuntu 26.04.1 LTS built KPM's DLL and Bink proxy from submodule `2a784bf`
 using its MinGW Makefile and `KProxy/build-mingw.sh`. The controller module used
 MinGW-w64 GCC 13.2, the same nine translation units and `exports.def` listed in
-`src/controller-native/build.cmd`, the pinned SDL 3.4.16 headers, and static GCC
+`src/controller-native/build.cmd` (removed on 2026-10-04), the pinned SDL 3.4.16 headers, and static GCC
 runtime linkage. Mono 6.14 compiled the eight installer sources with the same
 embedded-resource names and framework references as `build_kmrp.ps1`.
 

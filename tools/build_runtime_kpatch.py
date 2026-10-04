@@ -12,7 +12,7 @@ import json
 import tomllib
 import zipfile
 from pathlib import Path
-import build_kpatch
+import kpatch_common
 import kmrp_controller
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -35,7 +35,7 @@ def hooks():
     if {h['address'] for h in source} != REUSED:
         raise ValueError('Existing core hooks changed; review the preview explicitly')
     table = tomllib.loads(TABLE.read_text())
-    if set(table['metadata']['target_versions']) != set(build_kpatch.VERSIONS.values()):
+    if set(table['metadata']['target_versions']) != set(kpatch_common.VERSIONS.values()):
         raise ValueError('Preview table target builds changed')
     for h in table['hooks']:
         parameters = [(p['source'], p['type']) for p in h.get('parameters', [])]
@@ -56,15 +56,15 @@ def validate(path: Path):
                 raise ValueError(f'Invalid manifest {key}')
         if manifest['id'] != ID or manifest['requires']:
             raise ValueError('Preview must be independent')
-        if manifest['supported_versions'] != build_kpatch.VERSIONS:
+        if manifest['supported_versions'] != kpatch_common.VERSIONS:
             raise ValueError('Unexpected target builds')
         actual = tomllib.loads(z.read('kotor1.hooks.toml').decode())
-        if set(actual['metadata']['target_versions']) != set(build_kpatch.VERSIONS.values()):
+        if set(actual['metadata']['target_versions']) != set(kpatch_common.VERSIONS.values()):
             raise ValueError('Packaged target builds differ from source')
         if ([kmrp_controller.normalised(h) for h in actual['hooks']] !=
                 [kmrp_controller.normalised(h) for h in hooks()]):
             raise ValueError('Packaged hooks differ from source')
-        exports = build_kpatch.exports_of(z.read('binaries/windows_x86.dll'))
+        exports = kpatch_common.exports_of(z.read('binaries/windows_x86.dll'))
         requested = {h['function'] for h in hooks() if h.get('function')}
         if exports != requested:
             raise ValueError(f'Module exports differ: {exports ^ requested}')
@@ -86,7 +86,7 @@ def verify_clean(clean: Path):
     """Optional verification input, never an input to the shipped module/archive."""
     data = clean.read_bytes()
     sha = hashlib.sha256(data).hexdigest().upper()
-    if sha not in (build_kpatch.CD_1_03, build_kpatch.GOG):
+    if sha not in (kpatch_common.CD_1_03, kpatch_common.GOG):
         raise ValueError('Byte verification requires canonical clean CD 1.03 or GOG')
     for h in hooks():
         at = h['address'] - 0x400000
@@ -115,8 +115,8 @@ def build(module: Path, out: Path):
     target = out / NAME
     with zipfile.ZipFile(target, 'w', zipfile.ZIP_DEFLATED) as z:
         for name, data in [
-            ('manifest.toml', build_kpatch.render_manifest(patch, '0.0.1', 0).encode()),
-            ('kotor1.hooks.toml', build_kpatch.render_hooks(hooks(), source=str(TABLE.name)).encode()),
+            ('manifest.toml', kpatch_common.render_manifest(patch, '0.0.1', 0).encode()),
+            ('kotor1.hooks.toml', kpatch_common.render_hooks(hooks(), source=str(TABLE.name)).encode()),
             ('binaries/windows_x86.dll', module.read_bytes()),
         ]:
             info = zipfile.ZipInfo(name, (2026, 1, 1, 0, 0, 0))

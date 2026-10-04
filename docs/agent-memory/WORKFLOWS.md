@@ -18,7 +18,7 @@ temporary directory—not beside tracked sources.
 ```powershell
 # Optional module-only iteration. Both installer builds below compile it too
 # since 2026-10-01; before that a stale module could be embedded unchanged.
-& .\src\controller-native\build_native_runtime.cmd   # KMRP's module since 2026-10-04 (build.cmd: the old 245 KB one)
+& .\src\controller-native\build_native_runtime.cmd   # KMRP's module since 2026-10-04 (build.cmd, the old 245 KB one's, is removed)
 
 # Fast patcher compilation using already-generated resources
 .\build_kmrp.ps1 -ReuseResources
@@ -51,8 +51,8 @@ any changed executable (docs/kpm-edition.md).
 (the module, with the engine recipe and the resource bank; the bank is rebuilt unless
 `-ReuseResources` finds one) and `tools/build_native_kpatch.py`, which writes
 `build\kmrp\kpm-patches\KMRP.kpatch` and the installer's hook files in
-`build\kmrp\kpm-config\`; `tools/build_kpatch.py` no longer runs in the build (the native
-builder imports its helpers). After a build run `.\testing\regression\Test-InstallerPatch.ps1`
+`build\kmrp\kpm-config\`; `tools/build_kpatch.py` was removed on 2026-10-04 (its helpers are
+`tools/kpatch_common.py`). After a build run `.\testing\regression\Test-InstallerPatch.ps1`
 and `python testing/regression/Test-KpatchSource.py`; `Test-KpmEdition.ps1` is gone.
 A scratch install delivers `KMRP.kpatch` to the folder KOTOR Patch Manager's settings
 name, which on the maintainer's PC is the play-test game's `patches` folder: redirect

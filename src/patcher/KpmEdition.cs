@@ -315,6 +315,7 @@ namespace Kmrp
                 }
                 RemoveKpatches(records, null);
                 RemoveOwned(folder, records, null);
+                RemovePatchOptions(folder, records);
                 UndoEngineChanges(targetPath, records, null);
                 try { File.Delete(ManifestPath(targetPath)); }
                 catch { }
@@ -412,6 +413,7 @@ namespace Kmrp
             if (whole)
                 RemoveKpmRuntime(targetPath, untouched, records, report);
             RemoveOwned(folder, records, report);
+            RemovePatchOptions(folder, records);
             UndoEngineChanges(targetPath, records, report);
             DpiCompatibilityOperations.Restore(targetPath, report);
             NvidiaPresentOperations.Restore(targetPath, report);
@@ -613,7 +615,9 @@ namespace Kmrp
         /// sets too.</summary>
         private static bool IsRuntimeRecord(string[] record)
         {
-            if (record[0] == "moved" || record[0] == "laa")
+            // The options section is the installed patch's, so it goes with the runtime
+            // to whoever owns that now.
+            if (record[0] == "moved" || record[0] == "laa" || record[0] == "options")
                 return true;
             if (record[0] != "file")
                 return false;
@@ -687,16 +691,18 @@ namespace Kmrp
             {
                 new KeyValuePair<string, bool>("controller", KmrpSettings.ControllerSupport),
                 new KeyValuePair<string, bool>("map-notes", KmrpSettings.MarkerFixes),
+                new KeyValuePair<string, bool>("debug-logs", KmrpSettings.DebugLogs),
             };
         }
 
         /// <summary>The patch's part of patch_config.toml, as a KOTOR Patch Manager with
         /// patch options writes one: id and module, the hooks that are always installed
         /// and those of each option that is on (Kmrp.engine.hooks and
-        /// Kmrp.engine.hooks.&lt;option&gt;, tools/build_native_kpatch.py --config-dir), and
-        /// the chosen values as the [patches.options] table, which the module reads
-        /// (OptionalFeatures, K1RuntimeEngine.cpp). An option without hooks of its own,
-        /// map notes, has no resource and only its value.</summary>
+        /// Kmrp.engine.hooks.&lt;option&gt;, tools/build_native_kpatch.py --config-dir). An
+        /// option without hooks of its own, map notes or debug logs, has no resource. The
+        /// chosen values are not in this file: they go to configs\kmrp.ini
+        /// (WritePatchOptions), where the module reads them. Until 2026-10-04 they were a
+        /// [patches.options] table here.</summary>
         internal static string PatchConfigSection(KeyValuePair<string, bool>[] options)
         {
             StringBuilder section = new StringBuilder();
@@ -711,10 +717,86 @@ namespace Kmrp
                 if (hooks != null)
                     section.Append(Encoding.UTF8.GetString(hooks));
             }
-            section.Append("\n[patches.options]\n");
-            foreach (KeyValuePair<string, bool> option in options)
-                section.Append(option.Key).Append(" = ").Append(option.Value ? "true" : "false").Append('\n');
             return section.ToString();
+        }
+
+        // The patch's own settings file, as KOTOR Patch Manager with patch options lays
+        // one out: configs\<patch id>.ini in the game folder. The section below is the
+        // record of the option values the patch was applied with, a toggle as 1 or 0;
+        // KMRP's module reads it (KmrpOptions.h). Whoever installs the patch writes the
+        // section, this installer or KPM, and leaves the rest of the file alone.
+        internal const string OptionsFolder = "configs";
+        internal const string OptionsName = OptionsFolder + "\\" + PatchId + ".ini";
+        internal const string OptionsSection = "Patch Options";
+        // Latin-1 maps every byte to one character and back, so whatever else the file
+        // holds comes through a rewrite unchanged.
+        private static readonly Encoding OptionsEncoding = Encoding.GetEncoding(28591);
+
+        private static string WithoutOptionsSection(string text)
+        {
+            StringBuilder kept = new StringBuilder();
+            bool inSection = false, dropped = false;
+            foreach (string line in text.Split('\n'))
+            {
+                string trimmed = line.Trim();
+                if (trimmed.Length >= 2 && trimmed[0] == '[' && trimmed[trimmed.Length - 1] == ']')
+                {
+                    inSection = String.Equals(trimmed.Substring(1, trimmed.Length - 2).Trim(), OptionsSection,
+                        StringComparison.OrdinalIgnoreCase);
+                    dropped |= inSection;
+                }
+                if (!inSection)
+                    kept.Append(line).Append('\n');
+            }
+            if (!dropped)
+                return text;
+            if (kept.Length > 0)
+                kept.Length -= 1;
+            return kept.ToString().TrimStart('\r', '\n');
+        }
+
+        /// <summary>Writes the [Patch Options] section of configs\kmrp.ini, in place of
+        /// the one an earlier install left, and records that this install did.</summary>
+        private static void WritePatchOptions(string folder, KeyValuePair<string, bool>[] options,
+            List<string[]> records)
+        {
+            string path = Path.Combine(folder, OptionsName);
+            string rest = File.Exists(path) ? WithoutOptionsSection(File.ReadAllText(path, OptionsEncoding)) : "";
+            StringBuilder text = new StringBuilder();
+            text.Append('[').Append(OptionsSection).Append("]\r\n");
+            foreach (KeyValuePair<string, bool> option in options)
+                text.Append(option.Key).Append('=').Append(option.Value ? '1' : '0').Append("\r\n");
+            if (rest.Length > 0)
+                text.Append("\r\n").Append(rest);
+            Directory.CreateDirectory(Path.Combine(folder, OptionsFolder));
+            File.WriteAllText(path, text.ToString(), OptionsEncoding);
+            records.Add(new[] { "options", OptionsName });
+        }
+
+        /// <summary>Takes the section out again. A file that held nothing else is
+        /// deleted, and the folder once it is empty; anything else in them stays.</summary>
+        private static void RemovePatchOptions(string folder, List<string[]> records)
+        {
+            if (!records.Exists(r => r[0] == "options"))
+                return;
+            try
+            {
+                string path = Path.Combine(folder, OptionsName);
+                if (File.Exists(path))
+                {
+                    string text = File.ReadAllText(path, OptionsEncoding);
+                    string rest = WithoutOptionsSection(text);
+                    if (rest.Trim().Length == 0)
+                        File.Delete(path);
+                    else if (rest.Length != text.Length)
+                        File.WriteAllText(path, rest, OptionsEncoding);
+                }
+                string directory = Path.Combine(folder, OptionsFolder);
+                if (Directory.Exists(directory) && Directory.GetFileSystemEntries(directory).Length == 0)
+                    Directory.Delete(directory);
+            }
+            catch (IOException) { }
+            catch (UnauthorizedAccessException) { }
         }
 
         /// <summary>KOTOR Patch Manager's runtime, the proxy that loads it, KMRP's patch
@@ -731,6 +813,7 @@ namespace Kmrp
             WriteOwned(folder, PatchFolder + "\\" + PatchId + ".dll", PatchModule(), records);
             string config = "target_version_sha = \"" + exe.Hash + "\"\n\n" + PatchConfigSection(options);
             WriteOwned(folder, ConfigName, new UTF8Encoding(false).GetBytes(config), records);
+            WritePatchOptions(folder, options, records);
             WriteOwned(folder, KpmStateName, new UTF8Encoding(false).GetBytes(
                 KpmState(Path.Combine(folder, exeName), exe, patches)), records);
 
@@ -743,7 +826,7 @@ namespace Kmrp
             WriteOwned(folder, BinkName, ReadResource("Kmrp.engine.proxy"), records);
             List<string> off = new List<string>();
             foreach (KeyValuePair<string, bool> option in options)
-                if (!option.Value)
+                if (!option.Value && option.Key != "debug-logs")
                     off.Add(option.Key);
             SafeReport(report, "Installed KOTOR Patch Manager's runtime with KMRP's patch" +
                 (off.Count == 0 ? ", every option on." : ", without: " + String.Join(", ", off.ToArray()) + "."));
@@ -1007,6 +1090,8 @@ namespace Kmrp
         //                                    under patches\
         //   moved  <from> <to> <SHA-256>     a game file renamed (binkw32.dll)
         //   laa    set                       this install set the 4 GB flag
+        //   options <name>                   this install wrote the [Patch Options]
+        //                                    section of configs\kmrp.ini
         //   kpatch <full path> <SHA-256> created|replaced
         //                                    one of KMRP's .kpatch files, for KOTOR
         //                                    Patch Manager's app (DeliverKpatches)
@@ -1319,6 +1404,7 @@ namespace Kmrp
                     if ((parts.Length == 3 && parts[0] == "file" && IsOwnedName(parts[1])) ||
                         (parts.Length == 4 && parts[0] == "moved" && parts[1] == BinkName && parts[2] == BinkMovedName) ||
                         (parts.Length == 2 && parts[0] == "laa") ||
+                        (parts.Length == 2 && parts[0] == "options" && parts[1] == OptionsName) ||
                         (parts.Length == 4 && parts[0] == "kpatch" && IsKpatchPath(parts[1]) &&
                          (parts[3] == "created" || parts[3] == "replaced")))
                         records.Add(parts);

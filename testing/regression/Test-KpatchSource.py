@@ -4,7 +4,7 @@
 Run after building the module and the patch (build_kmrp.ps1, or
 src/controller-native/build_native_runtime.cmd and tools/build_native_kpatch.py);
 no game EXE is required. Until 2026-10-04 this checked the four patches of
-tools/build_kpatch.py.
+tools/build_kpatch.py, which was removed that day.
 
 The module is 189 MB and is stored, not compressed, so each corrupted copy is
 written with the same entries and the module's bytes untouched.
@@ -17,15 +17,16 @@ import zipfile
 
 ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(ROOT / 'tools'))
-import build_kpatch
+import kpatch_common
 import build_native_kpatch as native
 
 source = next((p for p in (ROOT / 'build/kmrp/kpm-patches' / native.NAME, ROOT / 'dist/native' / native.NAME)
                if p.exists()), None)
 assert source, 'KMRP.kpatch has not been built'
 result = native.validate(source)
-assert result['id'] == 'kmrp' and result['options'] == ['controller', 'map-notes'], result
+assert result['id'] == 'kmrp' and result['options'] == ['controller', 'map-notes', 'debug-logs'], result
 assert result['hooks_by_option']['map-notes'] == 0, 'map notes gate no hook'
+assert result['hooks_by_option']['debug-logs'] == 0, 'debug logs gate no hook'
 print(f"PASS: {source.name} validates ({result['hooks']} hooks, {result['hooks_by_option']['controller']} for the controller option)")
 
 with zipfile.ZipFile(source) as archive:
@@ -52,8 +53,8 @@ def corrupted(case):
     elif case == 'missing runtime hooks':
         text = text.split('[[hooks]]')[0]
     elif case == 'target versions':
-        assert ', "' + build_kpatch.STEAM + '"' in text
-        text = text.replace(', "' + build_kpatch.STEAM + '"', '', 1)
+        assert ', "' + kpatch_common.STEAM + '"' in text
+        text = text.replace(', "' + kpatch_common.STEAM + '"', '', 1)
     elif case == 'a condition dropped':
         assert 'when = "controller"\n' in text
         text = text.replace('when = "controller"\n', '', 1)

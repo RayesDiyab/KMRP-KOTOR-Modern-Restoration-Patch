@@ -127,7 +127,9 @@ def installed_set(controller: bool) -> list:
     return [h for h in _installable() if install_of(h) in wanted]
 
 
-# The KPM edition's patches (tools/build_kpatch.py). Movies and Map Notes also
+# The four-patch edition's patches (its builder, tools/build_kpatch.py, was removed on
+# 2026-10-04; tools/build_native_kpatch.py makes the one patch from these same hook
+# groups, and tools/check_kpm_overlaps.py reads them). Movies and Map Notes also
 # select which of KMRP's executable changes the core's applier makes
 # (K1KpmApplier.cpp); Map Notes carries no hooks at all.
 KPM_PATCHES = ("kmrp", "kmrp-controller", "kmrp-movies", "kmrp-map-notes")

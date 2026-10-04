@@ -1,6 +1,7 @@
 // KOTOR 1.03 GUI ABI. See reverse-engineering/custom-gui-controls.md.
 #include "K1ControllerLayout.h"
 #include <windows.h>
+#include "KmrpOptions.h"
 #include <cstdint>
 #include <cstdio>
 #include <cstring>
@@ -75,8 +76,9 @@ bool armed() { return releasedFrames >= K1_LAYOUT_ARM_FRAMES; }
 bool blockReopen = false;
 
 void log(const char* event) {
-    // Transition-only diagnostics for the manual validation build. There are no
-    // per-frame writes; a normal session produces only a few short records.
+    // Transition-only diagnostics, written with the debug-logs option on. There are
+    // no per-frame writes; a session produces only a few short records.
+    if (!KmrpDebugLogs()) return;
     FILE* f=nullptr;
     if (fopen_s(&f, "kmrp-layout-lifecycle.log", "a") || !f) return;
     fprintf(f,"%lu %s panel=%p parent=%p created=%u destroyed=%u controls=%u freed=%u callbacks=%u family=%c device=%d\n",
@@ -363,7 +365,7 @@ unsigned dialogGeometryLogs = 0;
 
 void logDialogGeometry(const DialogBadge& b, char* list, void** rows, int count,
                        int highlight, const int* placed, const ReplyLine& last) {
-    if (dialogGeometryLogs >= 24) return;           // a session's worth, no more
+    if (!KmrpDebugLogs() || dialogGeometryLogs >= 24) return;   // a session's worth, no more
     ++dialogGeometryLogs;
     FILE* f=nullptr;
     if (fopen_s(&f, "kmrp-layout-lifecycle.log", "a") || !f) return;
@@ -707,7 +709,7 @@ void layoutStatusSummary(void* manager, void* panel) {
     setExtentIfChanged(base+K1_SUMMARY_OK,okRect);
     setExtentIfChanged(panel,boxRect);
     const bool badged=updateSummaryBadge(panel,okRect);
-    if (summaryLogs<8) {
+    if (KmrpDebugLogs() && summaryLogs<8) {
         ++summaryLogs;
         FILE* f=nullptr;
         if (!fopen_s(&f,"kmrp-layout-lifecycle.log","a") && f) {

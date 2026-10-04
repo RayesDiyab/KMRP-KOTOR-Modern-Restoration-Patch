@@ -63,5 +63,7 @@ body:
       description: |
         For patch or restore failures: the SHA-256 of your `swkotor.exe`, and
         whether `KMRP_KPM.manifest` exists beside it. For problems in the game:
-        `kmrp-kpm.log` from the game folder. If the patcher wrote
+        `kmrp-kpm.log` from the game folder, if there is one (it holds errors and
+        warnings only). For more detail, turn on Debug Logs in Advanced Settings,
+        patch again, reproduce the problem and attach the `kmrp-*.log` files. If the patcher wrote
         `KMRP.startup-error.log`, paste it here.

@@ -7,8 +7,9 @@ release of *Star Wars: Knights of the Old Republic*. It generates resources for 
 resolutions from 800×600 through 15360×8640, blends other supported sizes when the
 game runs at them, and applies source-built engine fixes in memory.
 
-**Since 2026-10-04 KMRP is one KPM patch, `kmrp`, with two options (`controller`,
-`map-notes`).** Its module, `kmrp-native.dll` (`src/controller-native/build_native_runtime.cmd`,
+**Since 2026-10-04 KMRP is one KPM patch, `kmrp`, with three options (`controller`,
+`map-notes`, and `debug-logs`, off by default), recorded in `configs\kmrp.ini`
+under `[Patch Options]` and read there by the module (`KmrpOptions.h`).** Its module, `kmrp-native.dll` (`src/controller-native/build_native_runtime.cmd`,
 packaged by `tools/build_native_kpatch.py`), embeds the engine recipe, every
 resolution's files, the controller and SDL; nothing is written to Override, there is
 no `kmrp-kpm.dat`, and the resolution is chosen in the game. Where this file below

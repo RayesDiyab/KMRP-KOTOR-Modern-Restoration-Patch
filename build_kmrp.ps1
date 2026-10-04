@@ -371,7 +371,7 @@ Invoke-Tool -Exe "cmd.exe" -Label "module" -FailureMessage "Building KMRP's modu
 # patch_config.toml itself. The installer embeds both (step 7) and puts the .kpatch
 # where KPM finds it (KpmEditionOperations.DeliverKpatches); its --export-kpm-patches
 # writes it out for sharing. One patch since 2026-10-04; until then four, built by
-# tools\build_kpatch.py, with a data file and the Override files beside them.
+# tools\build_kpatch.py (removed), with a data file and the Override files beside them.
 $kpmDir = Join-Path $buildDir "kpm-patches"
 New-Item -ItemType Directory -Force -Path $kpmDir | Out-Null
 foreach ($retiredKpmDir in @((Join-Path $distDir "KMRP for KPM"), (Join-Path $distDir "KPM patches"))) {

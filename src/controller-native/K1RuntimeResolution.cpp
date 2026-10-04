@@ -1,5 +1,6 @@
 #include "K1RuntimeResolution.h"
 #include <windows.h>
+#include "KmrpOptions.h"
 #include <cstdio>
 #include <cstdint>
 #include <cstring>
@@ -20,6 +21,7 @@ namespace {
 struct Dimensions { int width = 0, height = 0; } g_requested, g_observed;
 void Log(const char* event, int width, int height)
 {
+    if (!KmrpDebugLogs()) return;
     wchar_t path[MAX_PATH];
     DWORD n = GetModuleFileNameW(nullptr, path, MAX_PATH);
     wchar_t* slash = n && n < MAX_PATH ? wcsrchr(path, L'\\') : nullptr;
@@ -188,15 +190,61 @@ void CountReported(LPCSTR device)
 using ChangeModeFn = LONG(WINAPI*)(DEVMODEA*, DWORD);
 ChangeModeFn g_changeMode = nullptr;
 
+// The added size the game believes the display is in, or 0x0 while the display is in a
+// mode of its own. The game puts its window of that size at the display's top left
+// corner; CentreAddedSize moves it to the middle.
+std::pair<int, int> g_addedMode{0, 0};
+
 LONG WINAPI ChangeModeUnlessAdded(DEVMODEA* mode, DWORD flags)
 {
+    g_addedMode = {0, 0};
     if (mode && (mode->dmFields & DM_PELSWIDTH) && (mode->dmFields & DM_PELSHEIGHT))
         for (const auto& size : g_added)
-            if (size.first == mode->dmPelsWidth && size.second == mode->dmPelsHeight)
+            if (size.first == mode->dmPelsWidth && size.second == mode->dmPelsHeight) {
+                g_addedMode = {static_cast<int>(size.first), static_cast<int>(size.second)};
                 return DISP_CHANGE_SUCCESSFUL;
+            }
     return g_changeMode(mode, flags);
 }
 
+// One of the game's own windows of exactly the added size, somewhere other than the
+// middle of its display: move it there. The game has two such windows, its main one
+// and the one its movies play in.
+BOOL CALLBACK CentreIfAddedSize(HWND window, LPARAM)
+{
+    DWORD process = 0;
+    GetWindowThreadProcessId(window, &process);
+    RECT at{};
+    MONITORINFO display{sizeof display};
+    if (process != GetCurrentProcessId() || !IsWindowVisible(window) || !GetWindowRect(window, &at) ||
+        at.right - at.left != g_addedMode.first || at.bottom - at.top != g_addedMode.second ||
+        !GetMonitorInfoW(MonitorFromWindow(window, MONITOR_DEFAULTTONEAREST), &display)) return TRUE;
+    const RECT& area = display.rcMonitor;
+    const int x = area.left + (area.right - area.left - g_addedMode.first) / 2;
+    const int y = area.top + (area.bottom - area.top - g_addedMode.second) / 2;
+    // A size larger than the display stays where the game put it: centring it would
+    // push its top left corner off the display.
+    if (x < area.left || y < area.top || (at.left == x && at.top == y)) return TRUE;
+    SetWindowPos(window, nullptr, x, y, 0, 0, SWP_NOSIZE | SWP_NOZORDER | SWP_NOACTIVATE);
+    return TRUE;
+}
+}
+
+// Once a frame, GUI or movie, while an added size is in use: keep the game's windows in
+// the middle of the display. Every frame because the game puts a window back at the
+// corner when it re-creates it or takes the foreground again; a window is moved only
+// when it is somewhere else.
+void KmrpCentreAddedSizeK1()
+{
+    if (g_addedMode.first) EnumWindows(&CentreIfAddedSize, 0);
+}
+
+bool KmrpAddedSizeWindowK1(int width, int height)
+{
+    return g_addedMode.first && width == g_addedMode.first && height == g_addedMode.second;
+}
+
+namespace {
 BOOL WINAPI EnumModesOnce(LPCSTR device, DWORD index, DEVMODEA* mode)
 {
     BOOL ok = g_enumModes(device, index, mode);
@@ -305,6 +353,7 @@ extern "C" void __cdecl KmrpResolutionObservedK1(void* manager)
     // The first GUI frame: the game's window and its OpenGL context exist, so the
     // driver is loaded. The installer makes this check at install time.
     KmrpNvidiaPresentOnce();
+    KmrpCentreAddedSizeK1();
 #endif
     Dimensions actual;
     if (!ReadViewport(manager, actual)) return;

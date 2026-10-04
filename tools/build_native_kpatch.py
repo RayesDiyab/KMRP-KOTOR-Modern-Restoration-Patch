@@ -9,13 +9,15 @@ handles any resolution KMRP has a layout for at run time.
   dist/native/KMRP.kpatch                       id "kmrp"
   (build_kmrp.ps1 writes it to build/kmrp/kpm-patches instead, with --out)
 
-Controller support and map notes are options of the patch, both on by default. The
-movie fixes are not an option: they are part of KMRP (the maintainer, 2026-10-04,
-after a day on which they were a third). A hook that belongs to an option carries `when`. No address has two
-hooks, so a KOTOR Patch Manager without patch options (0.7.1), which ignores `when`
-and the options, installs every hook: every option at its default. The module reads
-what was chosen from the patch's [patches.options] table in patch_config.toml and
-takes a missing table, or a missing value, as on.
+Controller support and map notes are options of the patch, both on by default, and
+debug logs a third, off by default. The movie fixes are not an option: they are part
+of KMRP (the maintainer, 2026-10-04, after a day on which they were one). A hook that
+belongs to an option carries `when`. No address has two hooks, so a KOTOR Patch
+Manager without patch options (0.7.1), which ignores `when` and the options, installs
+every hook: every option at its default. The module reads what was chosen from the
+[Patch Options] section of configs\kmrp.ini in the game folder, where a KOTOR Patch
+Manager with options records it, and takes a missing file, section or value as the
+default (src/controller-native/KmrpOptions.h).
 
 KMRP's installer installs the same patch itself. For it, --config-dir writes the
 patch's hooks as patch_config.toml blocks, in one file per condition:
@@ -23,8 +25,9 @@ patch's hooks as patch_config.toml blocks, in one file per condition:
   kmrp.hooks.toml                 the hooks that are always installed
   kmrp.hooks.<option>.toml        the hooks of one option, installed when it is on
 
-The installer writes the patch's header, the hooks of the options the player kept,
-and the [patches.options] table (KpmEditionOperations.InstallEngine).
+The installer writes the patch's header and the hooks of the options the player
+kept into patch_config.toml, and the chosen values into configs\kmrp.ini
+(KpmEditionOperations.InstallEngine).
 
 The hooks are those of kotor1.hooks.toml (its "kmrp", "kmrp-movies" and
 "kmrp-controller" groups) plus the module's own sites in
@@ -49,7 +52,7 @@ import json
 import tomllib
 import zipfile
 from pathlib import Path
-import build_kpatch
+import kpatch_common
 import kmrp_controller
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -101,8 +104,9 @@ PATCH = {
     'requires': [],
     'conflicts': RETIRED + OTHERS,
 }
-# What the player can turn off, in the order the launcher lists it. Both on by default.
-# The descriptions are the launcher's, so they say what the player gets.
+# What the player can choose, in the order the launcher lists it. On by default unless
+# an entry says otherwise. The descriptions are the launcher's, so they say what the
+# player gets.
 OPTIONS = [
     {'id': 'controller', 'name': 'Controller support',
      'description': 'Play with an Xbox, PlayStation, Switch or Steam Deck controller, in the '
@@ -110,12 +114,15 @@ OPTIONS = [
     {'id': 'map-notes', 'name': 'Map notes',
      'description': "Shows the area map's notes where they belong (Derslok's map marker "
                     'corrections).'},
+    {'id': 'debug-logs', 'name': 'Debug logs', 'default': False,
+     'description': 'Writes diagnostic log files beside the game. Leave off unless you are '
+                    'reporting a problem.'},
 ]
 
 
 def _table():
     table = tomllib.loads(TABLE.read_text())
-    if set(table['metadata']['target_versions']) != set(build_kpatch.VERSIONS.values()):
+    if set(table['metadata']['target_versions']) != set(kpatch_common.VERSIONS.values()):
         raise ValueError('Native table target builds changed')
     for h in table['hooks']:
         parameters = [(p['source'], p['type']) for p in h.get('parameters', [])]
@@ -171,10 +178,10 @@ def render_hooks():
     """The patch's hooks file: build_kpatch's rendering, each conditional hook with
     its `when` after its address."""
     source = 'kotor1.hooks.toml and kotor1-native-runtime.hooks.toml; edit those files, not this one.'
-    header = build_kpatch.render_hooks([], source=source)
+    header = kpatch_common.render_hooks([], source=source)
     parts = [header.rstrip('\n')]
     for h, when in option_hooks():
-        lines = build_kpatch.render_hooks([h], source=source)[len(header):].strip('\n').split('\n')
+        lines = kpatch_common.render_hooks([h], source=source)[len(header):].strip('\n').split('\n')
         if when:
             at = next(i for i, line in enumerate(lines) if line.startswith('address = '))
             lines.insert(at + 1, f'when = "{when}"')
@@ -183,14 +190,14 @@ def render_hooks():
 
 
 def render_manifest(version: str) -> str:
-    text = build_kpatch.render_manifest(PATCH, version, 0)
+    text = kpatch_common.render_manifest(PATCH, version, 0)
     for option in OPTIONS:
         text += '\n'.join([
             '', '[[patch.options]]',
-            f"id = {build_kpatch.toml_string(option['id'])}",
-            f"name = {build_kpatch.toml_string(option['name'])}",
-            f"description = {build_kpatch.toml_string(option['description'])}",
-            'type = "toggle"', 'default = true', ''])
+            f"id = {kpatch_common.toml_string(option['id'])}",
+            f"name = {kpatch_common.toml_string(option['name'])}",
+            f"description = {kpatch_common.toml_string(option['description'])}",
+            'type = "toggle"', f"default = {'true' if option.get('default', True) else 'false'}", ''])
     return text
 
 
@@ -218,14 +225,14 @@ def validate(path: Path):
             raise ValueError('The patch must be "kmrp" and require nothing')
         if not set(RETIRED) <= set(manifest['conflicts']) or ID in manifest['conflicts']:
             raise ValueError("Must conflict with KMRP's retired patches, and not with itself")
-        if manifest['supported_versions'] != build_kpatch.VERSIONS:
+        if manifest['supported_versions'] != kpatch_common.VERSIONS:
             raise ValueError('Unexpected target builds')
         declared = manifest.get('options', [])
         if [(o['id'], o['name'], o['description'], o['type'], o['default']) for o in declared] != \
-                [(o['id'], o['name'], o['description'], 'toggle', True) for o in OPTIONS]:
+                [(o['id'], o['name'], o['description'], 'toggle', o.get('default', True)) for o in OPTIONS]:
             raise ValueError('Packaged options differ from source')
         actual = tomllib.loads(z.read(HOOKS).decode())
-        if set(actual['metadata']['target_versions']) != set(build_kpatch.VERSIONS.values()):
+        if set(actual['metadata']['target_versions']) != set(kpatch_common.VERSIONS.values()):
             raise ValueError('Packaged target builds differ from source')
         expected = option_hooks()
         if ([(kmrp_controller.normalised(h), h.get('when')) for h in actual['hooks']] !=
@@ -238,15 +245,15 @@ def validate(path: Path):
             if when and when not in {o['id'] for o in OPTIONS}:
                 raise ValueError(f'A hook depends on an undeclared option: {when}')
         large = tomllib.loads(z.read(LARGE_ADDRESS).decode())
-        if (set(large['metadata']['target_versions']) != {build_kpatch.CD_1_03, build_kpatch.GOG}
+        if (set(large['metadata']['target_versions']) != {kpatch_common.CD_1_03, kpatch_common.GOG}
                 or [kmrp_controller.normalised(h) for h in large['hooks']] !=
-                [kmrp_controller.normalised(build_kpatch.large_address_hook())]):
+                [kmrp_controller.normalised(kpatch_common.large_address_hook())]):
             raise ValueError('Packaged large-address hook differs from the documented one')
         for name, source in LICENSES.items():
             if z.read(name) != source.read_bytes():
                 raise ValueError(f'{name} differs from its source')
         module = z.read(MODULE)
-        exports = build_kpatch.exports_of(module)
+        exports = kpatch_common.exports_of(module)
         missing = {h['function'] for h, _ in expected if h.get('function')} - exports
         if missing:
             raise ValueError(f'Module does not export: {sorted(missing)}')
@@ -263,7 +270,7 @@ def verify_clean(clean: Path):
     """Optional verification input, never an input to the shipped module/archive."""
     data = clean.read_bytes()
     sha = hashlib.sha256(data).hexdigest().upper()
-    if sha not in (build_kpatch.CD_1_03, build_kpatch.GOG):
+    if sha not in (kpatch_common.CD_1_03, kpatch_common.GOG):
         raise ValueError('Byte verification requires canonical clean CD 1.03 or GOG')
     for h in all_hooks():
         at = h['address'] - 0x400000
@@ -283,9 +290,9 @@ def build(module: Path, out: Path, version: str, config_dir: Path = None):
         for name, data, method in [
             ('manifest.toml', render_manifest(version).encode(), zipfile.ZIP_DEFLATED),
             (HOOKS, render_hooks().encode(), zipfile.ZIP_DEFLATED),
-            (LARGE_ADDRESS, build_kpatch.render_hooks(
-                [build_kpatch.large_address_hook()],
-                versions=(build_kpatch.CD_1_03, build_kpatch.GOG),
+            (LARGE_ADDRESS, kpatch_common.render_hooks(
+                [kpatch_common.large_address_hook()],
+                versions=(kpatch_common.CD_1_03, kpatch_common.GOG),
                 source='the unmodified CD 1.03 and GOG header: the large-address flag.').encode(),
              zipfile.ZIP_DEFLATED),
             # The module's resource bank is already compressed; deflating it again

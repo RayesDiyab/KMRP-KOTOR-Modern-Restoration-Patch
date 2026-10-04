@@ -11,10 +11,11 @@ the resolution switch, the panel layout, the NVIDIA step), `K1KpmApplier.cpp` an
 `K1KeyboardNavigation.cpp`, and the macOS C tools for the blended sizes.
 `build_kmrp.ps1` runs it and embeds the result inside `KMRP.kpatch`
 (`tools/build_native_kpatch.py`). What follows describes `kmrp-controller.module`,
-the 245 KB module of the four-patch edition, which `build.cmd` still builds and
-the installer no longer carries; the sources and the hook table are the same.
+the 245 KB module of the four-patch edition; its build script, `build.cmd`, was
+removed on 2026-10-04 with the last of that edition's files, so nothing builds it
+any more. The sources and the hook table are the same.
 
-Build that one with `build.cmd` (Visual Studio Build Tools, x86, and PowerShell 7).
+It was built with `build.cmd` (Visual Studio Build Tools, x86, and PowerShell 7).
 The script prepares the pinned SDL SDK automatically. See
 [the hybrid backend reference](../../docs/controller-sdl-backend.md). The output,
 `kmrp-controller.module`, is what `build_kmrp.ps1` embeds in the installer as

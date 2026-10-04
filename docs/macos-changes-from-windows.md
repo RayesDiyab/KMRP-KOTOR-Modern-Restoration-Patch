@@ -419,9 +419,9 @@ and [the runtime experiment](../reverse-engineering/runtime-resolution-preview.m
 | Patches | one, `kmrp`, file `KMRP.kpatch` (`tools/build_native_kpatch.py`) | one, `kmrp`, built by `macos/tools/make_kmrp_patch.py` |
 | Everything inside the module | the engine changes, every resolution's menu files, the controller, SDL: nothing in Override, no data file | the engine side is in `kmrp.dylib`; the menu layouts are installed by the installer ("Run through KMRP Installer, which adds the menu layouts") |
 | Resolution | not chosen at install: the game starts at the display's size and any size the display supports is chosen in the game; the module lays the menus out again on a switch | chosen at install |
-| Options | `controller` and `map-notes`, declared in the manifest as `[[patch.options]]`, both on by default; a hook that belongs to one carries `when = "controller"`. The movie fixes are not an option ("standard baked into KMRP, non-negotiable") | `--no-controller`, `--no-map-notes` at install, as separate config variants |
-| Who resolves the options | KMRP's installer, from Advanced Settings: it writes the hooks of the options left on and a `[patches.options]` table under the patch in `patch_config.toml`. A KPM with patch options (upstream pull request 310, open) does the same from its own window. KPM 0.7.1 ignores both keys and installs every hook: every option on | the installer picks a config variant |
-| How the module learns the choice | it reads `[patches.options]` under `id = "kmrp"` in `patch_config.toml`; a missing table or value is on (`OptionalFeatures`, `K1RuntimeEngine.cpp`) | n/a |
+| Options | `controller` and `map-notes`, declared in the manifest as `[[patch.options]]`, both on by default, and `debug-logs`, off by default (item 16); a hook that belongs to one carries `when = "controller"`. The movie fixes are not an option ("standard baked into KMRP, non-negotiable") | `--no-controller`, `--no-map-notes` at install, as separate config variants |
+| Who resolves the options | KMRP's installer, from Advanced Settings: it writes the hooks of the options left on into `patch_config.toml` and the chosen values into `configs\kmrp.ini`, section `[Patch Options]` (item 16; until later on 2026-10-04 a `[patches.options]` table in `patch_config.toml`). A KPM with patch options (upstream pull request 310, open) does the same from its own window. KPM 0.7.1 ignores both keys and installs every hook: every option on | the installer picks a config variant |
+| How the module learns the choice | it reads `[Patch Options]` in `configs\kmrp.ini` beside the game; a missing file, section or key is the option's default (`KmrpOptions.h`; item 16) | n/a |
 | One hook per address | no address has two hooks, whatever their conditions, so a manager without options still installs the patch. A site that differs by option has one hook whose function decides at run time (`CoreGuiFrameK1` runs the controller's frame when the option is on) | n/a |
 
 **What the Mac needs** (none of it started; each line is a piece of work, not a measured fact):
@@ -438,14 +438,48 @@ and [the runtime experiment](../reverse-engineering/runtime-resolution-preview.m
    read once per texture and must be read again, the new size's files must be in place
    before the window is re-created, and panels drift unless each control's file extent
    is tracked. The Mac's engine is a different binary; the addresses do not carry over.
-3. The two options in the manifest, `when` on the controller's hooks, no two hooks at
-   one address, and the dylib reading `[patches.options]`. Upstream's `validate-patches.py`
+3. The options in the manifest, `when` on the controller's hooks, no two hooks at
+   one address, and the dylib reading its file in `configs` (item 16). Upstream's `validate-patches.py`
    in pull request 310 checks the format.
-4. The installer writing the options table and the hooks left on, in place of its
-   config variants; the movie fixes always in.
+4. The installer writing the hooks left on and the options file (item 16), in place
+   of its config variants; the movie fixes always in.
 5. `conflicts` with FTD's two patches stays as item 14 has it.
 
 **Check.** As Windows': the patch installed through KPM 0.7.1 alone, with no installer
 run, gives the whole of KMRP with every option on; through the installer with both
 options off, only the unconditional hooks are in `patch_config.toml`; a resolution
 switch in the game keeps the fonts and the panel positions.
+
+## 16. Options in `configs/kmrp.ini`, and a debug-logs option
+
+**What changed on Windows** (2026-10-04, the same day as item 15, after it was
+written). Upstream KOTOR Patch Manager's patch-options pull request
+(LaneDibello/Kotor-Patch-Manager#310, open) moved the record of the chosen option
+values out of `patch_config.toml`. Windows follows it; the measurements are in
+[KPM edition, "Later on 2026-10-04"](kpm-edition.md#later-on-2026-10-04-options-in-configs-debug-logs-added-sizes).
+
+| | Windows now |
+| --- | --- |
+| The file | `configs/<patch id>.ini` in the game folder: for KMRP, `configs/kmrp.ini` |
+| The section | `[Patch Options]`, one key per option id, a toggle as `1` or `0` |
+| Who writes it | whoever installs the patch: a KPM with patch options on Apply, or KMRP's installer. Only that section; the rest of the file is the patch's own settings and is kept byte for byte |
+| On uninstall | the section is taken out; a file that held nothing else is deleted, and the folder once it is empty |
+| How the module reads it | per key, with the option's default when the file, the section or the key is missing (`src/controller-native/KmrpOptions.h`, `GetPrivateProfileIntW`). So KPM 0.7.1, which writes no file, gives controller support and map notes on and logs off |
+| `patch_config.toml` | no `[patches.options]` table any more |
+| The third option | `debug-logs`, a toggle, default off, gating no hook. Off, the module writes no diagnostic log and only errors and warnings to `kmrp-kpm.log` |
+
+**What the Mac needs** (not started):
+
+1. `kmrp.dylib` reading `configs/kmrp.ini` beside the game's executable in the same
+   way: where that folder is inside the app bundle, and whether KPM's macOS build
+   writes it there, is to be found out on the Mac. It is not known here.
+2. `make_kmrp_patch.py` declaring `debug-logs` (default false) beside `controller` and
+   `map-notes`, and the dylib's logs behind it. Which files the Mac's dylib writes
+   today is the Mac side's to list.
+3. The Mac installer writing the `[Patch Options]` section, keeping the rest of the
+   file, and its uninstall taking the section out.
+
+**Check.** With no `configs` folder the game runs with controller support and map
+notes on and writes no diagnostic log; with `debug-logs=1` in the section the logs
+appear; an install by the installer with an option off shows `0` for it in the file,
+and a section of another name already in the file is still there afterwards.

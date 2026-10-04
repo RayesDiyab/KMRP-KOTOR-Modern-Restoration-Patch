@@ -33,7 +33,7 @@ KPM allocates detours and replacement stubs in process memory.
 
 The package declares the same CD/GOG/Steam targets as the existing core. GOG and
 decrypted Steam code equivalence is documented in
-[the existing package builder](../tools/build_kpatch.py). Only CD 1.03 was run
+the package builder of the time (`tools/build_kpatch.py`, removed on 2026-10-04; its helpers are in [`tools/kpatch_common.py`](../tools/kpatch_common.py)). Only CD 1.03 was run
 in this experiment. The game's disk executable was unchanged in the fixture.
 
 | VA | FILE | Kind | Guarded original bytes | Callback or replacement |
@@ -282,9 +282,13 @@ The options package declares three toggles, all default on: `controller`,
 unconditional hook, `CoreGuiFrameK1` and `CoreMovieFrameK1`, which run
 `NativeGuiFrameK1` and `NativeMovieFrameK1` themselves when `controller` is on
 (`KmrpControllerOptionK1`). `map-notes` gates no hook: the module reads
-`[patches.options]` under its id in `patch_config.toml` (`OptionalFeatures` in
-`K1RuntimeEngine.cpp`) and passes the map-note and movie features to the engine
-applier. An option the file does not mention is on. Both GUI frames call
+its options (`OptionalFeatures` in `K1RuntimeEngine.cpp`) and passes the map-note
+and movie features to the engine applier. An option nobody recorded is at its
+default. *Since later on 2026-10-04 the options are read from `configs\kmrp.ini`,
+section `[Patch Options]` (`KmrpOptions.h`), and there is a third, `debug-logs`,
+off by default; when this was written they were a `[patches.options]` table under
+the patch's id in `patch_config.toml`, which is what the next paragraph's "options
+table" and "four lines" mean.* Both GUI frames call
 `KmrpResolutionObservedK1` first in this module.
 
 The first version had two hooks at each frame site, one per state of

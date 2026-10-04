@@ -9,12 +9,13 @@
     swkotor.ini) and checks:
 
       1. every option on: patch_config.toml holds the one patch with every hook the
-         .kpatch has, the [patches.options] table says both options are on, the
+         .kpatch has, configs\kmrp.ini says controller and map-notes are on and
+         debug-logs is off, keeping a section of its own that was there before, the
          module under patches\ is the one inside KMRP.kpatch, nothing is written to
          Override, no data file and no resolution list, and swkotor.ini holds the
          size asked for;
       2. controller support and map notes off: only the hooks without a condition
-         are written, and the table says both are off;
+         are written, and configs\kmrp.ini says both are off;
       3. a resolution choice in the settings: kmrp-resolutions.txt lists it;
       4. Restore Original: the folder is as it was, file for file;
       5. the .kpatch delivered to KOTOR Patch Manager's patch folder passes
@@ -86,8 +87,18 @@ function Get-Config([string]$folder) {
         Text = $text
         Ids = @([regex]::Matches($text, '(?m)^id = "([^"]+)"') | ForEach-Object { $_.Groups[1].Value })
         Hooks = [regex]::Matches($text, '(?m)^\[\[patches\.hooks\]\]').Count
-        Controller = [regex]::Match($text, '(?m)^controller = (true|false)').Groups[1].Value
-        MapNotes = [regex]::Match($text, '(?m)^map-notes = (true|false)').Groups[1].Value
+    }
+}
+# The [Patch Options] section of configs\kmrp.ini: the values the patch was installed with.
+function Get-Options([string]$folder) {
+    $path = Join-Path $folder "configs\kmrp.ini"
+    $text = if (Test-Path -LiteralPath $path) { [IO.File]::ReadAllText($path) } else { "" }
+    $section = [regex]::Match($text, '(?s)\[Patch Options\]\r?\n(.*?)(?=\r?\n\[|\z)').Groups[1].Value
+    return [pscustomobject]@{
+        Text = $text
+        Controller = [regex]::Match($section, '(?m)^controller=([01])').Groups[1].Value
+        MapNotes = [regex]::Match($section, '(?m)^map-notes=([01])').Groups[1].Value
+        DebugLogs = [regex]::Match($section, '(?m)^debug-logs=([01])').Groups[1].Value
     }
 }
 
@@ -112,12 +123,19 @@ try {
     Set-KmrpSettings $true $true
     $game = New-Fixture "all-on"
     $folder = Split-Path -Parent $game
+    # A settings file the patch already has, with a section that is not the installer's.
+    New-Item -ItemType Directory -Force -Path (Join-Path $folder "configs") | Out-Null
+    [IO.File]::WriteAllText((Join-Path $folder "configs\kmrp.ini"), "[Mine]`r`nkept=1`r`n", [Text.UTF8Encoding]::new($false))
     $before = Get-Listing $folder
     Assert ((Invoke-Installer @("--in-place", "`"$game`"", "1920x1080")) -eq 0) "the install succeeds"
     $config = Get-Config $folder
     Assert (($config.Ids -join ",") -eq "kmrp") "patch_config.toml holds the one patch, kmrp"
-    Assert ($config.Controller -eq "true" -and $config.MapNotes -eq "true") "the options table says controller and map-notes are on"
-    Assert (-not ($config.Text -match '(?m)^movies = ')) "the movie fixes are not an option"
+    $options = Get-Options $folder
+    Assert ($options.Controller -eq "1" -and $options.MapNotes -eq "1") "configs\kmrp.ini says controller and map-notes are on"
+    Assert ($options.DebugLogs -eq "0") "debug logs are off"
+    Assert ($options.Text -match '(?m)^\[Mine\]\r?\nkept=1') "the section that was already in the file is kept"
+    Assert (-not ($options.Text -match '(?m)^movies=')) "the movie fixes are not an option"
+    Assert (-not ($config.Text -match 'patches\.options')) "patch_config.toml has no options table"
     $kpatch = Join-Path $kpmPatches "KMRP.kpatch"
     Assert (Test-Path -LiteralPath $kpatch) "KMRP.kpatch is in KOTOR Patch Manager's patch folder"
     Add-Type -AssemblyName System.IO.Compression.FileSystem
@@ -155,7 +173,8 @@ try {
     Assert ((Invoke-Installer @("--in-place", "`"$game`"", "1920x1080")) -eq 0) "the install succeeds"
     $config = Get-Config $folder
     Assert ($config.Hooks -eq ($allHooks - $conditional)) "only the hooks without a condition are written ($($allHooks - $conditional) of $allHooks)"
-    Assert ($config.Controller -eq "false" -and $config.MapNotes -eq "false") "the options table says both are off"
+    $options = Get-Options $folder
+    Assert ($options.Controller -eq "0" -and $options.MapNotes -eq "0") "configs\kmrp.ini says both are off"
 
     Write-Host "Case 5  the delivered .kpatch"
     $python = (Get-Command python -ErrorAction SilentlyContinue).Source
@@ -164,6 +183,7 @@ try {
         Assert ($LASTEXITCODE -eq 0) "tools\build_native_kpatch.py --check accepts it"
     } else { Write-Host "  SKIP  python is not on PATH" }
     Assert ((Invoke-Installer @("--restore", "`"$game`"")) -eq 0) "the restore succeeds"
+    Assert (-not (Test-Path -LiteralPath (Join-Path $folder "configs"))) "restore removes the configs folder it created"
 
     Write-Host "Case 3  a resolution choice"
     Set-KmrpSettings $true $true "" "1000x700"

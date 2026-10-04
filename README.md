@@ -58,8 +58,9 @@ the fonts of the nearest listed size. Since 2026-10-04 the patch's module does t
 when the game changes size, with the code the macOS installer uses.
 
 **Options.** Advanced Settings (the gear) turns off Modern Driver Compatibility, the
-area-map marker fixes and controller support, each on its own. The movie fixes are
-always installed.
+area-map marker fixes and controller support, each on its own, and turns on debug
+logs, which are off unless you are asked for them with a bug report. The movie fixes
+are always installed.
 To change one later, use **Restore Original**, then patch again. An install by an
 earlier KMRP is replaced when you patch: one that rewrote `swkotor.exe` is restored
 from its own backup, and one that put four patches and about 1,850 files in
@@ -71,9 +72,9 @@ with other KPM patches. The installer carries it and puts it in KPM's patch fold
 the one KPM's settings name; if KPM's runtime is already in the game folder, the
 installer leaves the patches to KPM and says where the file is (a `KPM patches`
 folder in the game folder when KPM has no patch folder on the PC yet). In KPM,
-tick `KMRP`, Apply, and Launch. Its two options (controller support and map notes)
-are both on in KPM 0.7.1, which has no patch options; a KPM with them shows the two
-under the patch. KMRP includes the 4 GB and memory fixes, so
+tick `KMRP`, Apply, and Launch. Its options are controller support and map notes,
+both on, and debug logs, off. KPM 0.7.1 has no patch options and installs it that
+way; a KPM with them shows the three in the patch's details. KMRP includes the 4 GB and memory fixes, so
 KPM's own ones stay unticked. The file needs nothing else: you can also put it in
 KPM's patch folder by hand, without the installer. On Steam, switch KPM to its
 proxy deployment and start the game from Steam. From KPM's first release after
@@ -299,8 +300,9 @@ overwrites a mod you installed yourself.
 
 **Advanced Settings**, the button beside *Start Patching*, controls all three
 optional components. All three default to on, each can be turned off on its own,
-and *Restore Defaults* turns all three back on. The choices are remembered in
-`%LOCALAPPDATA%\KMRP\settings.json`.
+and *Restore Defaults* turns all three back on. A fourth row, *Debug Logs*, is off
+by default: it makes KMRP write diagnostic log files beside the game. The choices
+are remembered in `%LOCALAPPDATA%\KMRP\settings.json`.
 
 **Updates.** When its window opens, the installer asks GitHub whether a newer
 KMRP has been released. If one has, it offers the Deadly Stream page or a skip.
@@ -320,9 +322,11 @@ positions KMRP's installer writes at any resolution, is in
 installer carries as `KMRP.kpatch` for KPM's app. It installs on every patch: KMRP's engine
 changes, three memory-safety fixes, mouse confinement, the movies, the movie
 bars and the status summary's layout, whether or not controller support is on.
-**Controller support** and the marker option are the patch's two options,
-`controller` and `map-notes`: the installer writes the controller's hooks only
-when the first is on, and both choices into `patch_config.toml`.
+**Controller support** and the marker option are two of the patch's options,
+`controller` and `map-notes`; `debug-logs` is the third. The installer writes the
+controller's hooks into `patch_config.toml` only when the first is on, and the three
+choices into `configs\kmrp.ini` in the game folder (the `[Patch Options]` section),
+where a KOTOR Patch Manager with patch options records them too.
 Xbox devices retain XInput; SDL3/HIDAPI supplies mapped non-Xbox devices to the
 same normalized state. Input still travels through KOTOR's retained controller
 events rather than synthetic keys. Options → Gameplay also gains a live

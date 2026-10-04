@@ -13,7 +13,10 @@
 // block is moved by the difference -- the relocation table that
 // tools/kpm_relocations.py computes from the gold executable, and proves.
 //
-// The KPM edition is four patches (tools/build_kpatch.py): KMRP itself, and the
+// (This paragraph is the four-patch edition's build, until 2026-10-04; nothing builds
+// it any more. The standalone module, K1RuntimeEngine.cpp, includes this file with
+// KMRP_NATIVE_RUNTIME and takes its features from the patch's options instead.)
+// The KPM edition is four patches (tools/build_kpatch.py, since removed): KMRP itself, and the
 // optional KMRP Controller, KMRP Movies and KMRP Map Notes. KPM installs a copy of
 // this module for each of them that has hooks (Map Notes has none); only the
 // core's, patches\kmrp.dll, applies anything. Which features it applies follows
@@ -62,6 +65,7 @@
 
 #include <windows.h>
 #include <tlhelp32.h>
+#include "KmrpOptions.h"
 
 #include <cstdarg>
 #include <cstdint>
@@ -83,7 +87,7 @@ constexpr std::uint32_t kCore = 1, kMovies = 2, kMapNotes = 4;
 
 wchar_t g_folder[MAX_PATH];
 
-void Log(const char* format, ...)
+void LogLine(const char* format, va_list args)
 {
     wchar_t path[MAX_PATH];
     if (swprintf_s(path, L"%s\\kmrp-kpm.log", g_folder) < 0) {
@@ -97,12 +101,32 @@ void Log(const char* format, ...)
     GetLocalTime(&now);
     fprintf(f, "%04u-%02u-%02u %02u:%02u:%02u ", now.wYear, now.wMonth, now.wDay,
             now.wHour, now.wMinute, now.wSecond);
-    va_list args;
-    va_start(args, format);
     vfprintf(f, format, args);
-    va_end(args);
     fputc('\n', f);
     fclose(f);
+}
+
+// Progress: what was applied and for which size. Written only with the debug-logs
+// option on (KmrpOptions.h).
+void Info(const char* format, ...)
+{
+    if (!KmrpDebugLogs()) {
+        return;
+    }
+    va_list args;
+    va_start(args, format);
+    LogLine(format, args);
+    va_end(args);
+}
+
+// An error or a warning: why nothing was applied, or what KMRP changed on its own.
+// Always written, so kmrp-kpm.log exists only when there is something to read.
+void Log(const char* format, ...)
+{
+    va_list args;
+    va_start(args, format);
+    LogLine(format, args);
+    va_end(args);
 }
 
 struct Reader {
@@ -574,12 +598,12 @@ void Apply(std::uint32_t features, const std::vector<std::uint8_t>* embedded = n
 #ifdef KMRP_NATIVE_RUNTIME
     g_nativeBlock = block;
 #endif
-    Log("applied: KMRP%s%s -- %zu of %zu runs (%u bytes) and KMRP's code at %p "
+    Info("applied: KMRP%s%s -- %zu of %zu runs (%u bytes) and KMRP's code at %p "
         "(moved by %+ld), %u relocations.",
         (features & kMovies) ? " + Movies" : "", (features & kMapNotes) ? " + Map Notes" : "",
         chosen, runs.size(), bytes, static_cast<void*>(block),
         static_cast<long>(delta), relocCount);
-    Log("  %s executable; %.0f ms after the game started, %s its window; %zu other "
+    Info("  %s executable; %.0f ms after the game started, %s its window; %zu other "
         "thread(s) paused while writing.", g_steam ? "Steam" : "CD 1.03", startedMs,
         hadWindow ? "after" : "before", paused);
 }

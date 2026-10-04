@@ -117,8 +117,9 @@ details still belong in `docs/` or `reverse-engineering/`.
   detours and 4 byte patches since the echo guard of 2026-09-28 -- 37 entries;
   9 (5 detours) with controller support off, since the runtime installs on every
   patch (this entry said six detours, the first integration's count, and then
-  stopped at 26 until 2026-09-28). Recount with `tools/check_patcher_hook_table.py`,
-  which since 2026-09-29 reads the config sections the build generates
+  stopped at 26 until 2026-09-28). Recounted with `tools/check_patcher_hook_table.py`
+  (removed 2026-10-04; `tools/build_native_kpatch.py --check` reports the one patch's counts),
+  which since 2026-09-29 read the config sections the build generates
   (`ControllerOperations.BuildConfig`, the hand-written table, is gone); `kotor1.hooks.toml` holds more (46) than
   is installed. The paragraph below is the first integration's prompt design; the
   current one covers 57 controls in four controller families -- see

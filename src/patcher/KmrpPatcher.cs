@@ -4638,11 +4638,14 @@ namespace Kmrp
         // costs a keyboard-and-mouse player nothing -- prompts appear only while a pad
         // is the active device -- and it carries the cursor confinement (issue #20).
         private const bool ControllerSupportDefault = true;
+        // The one row that is off unless asked for: KMRP's diagnostic log files.
+        private const bool DebugLogsDefault = false;
 
         private static bool loaded;
         private static bool driverCompatibility = DriverCompatibilityDefault;
         private static bool markerFixes = MarkerFixesDefault;
         private static bool controllerSupport = ControllerSupportDefault;
+        private static bool debugLogs = DebugLogsDefault;
         // The resolution checklist (ResolutionSelection): the display's sizes the player
         // unticked, and the sizes the display does not offer that they ticked. Both
         // empty is the default: every size the display supports, and no other.
@@ -4708,6 +4711,22 @@ namespace Kmrp
                 if (controllerSupport == value)
                     return;
                 controllerSupport = value;
+                Save();
+            }
+        }
+
+        /// <summary>Have KMRP's module write its diagnostic logs beside the game: the
+        /// patch's debug-logs option (KmrpOptions.h). Off by default; errors and warnings
+        /// are written to kmrp-kpm.log either way.</summary>
+        internal static bool DebugLogs
+        {
+            get { Load(); return debugLogs; }
+            set
+            {
+                Load();
+                if (debugLogs == value)
+                    return;
+                debugLogs = value;
                 Save();
             }
         }
@@ -4794,6 +4813,12 @@ namespace Kmrp
                 if (controller.Success)
                     controllerSupport = String.Equals(controller.Groups[1].Value, "true",
                         StringComparison.OrdinalIgnoreCase);
+                Match debug = Regex.Match(json,
+                    "\\\"debugLogs\\\"\\s*:\\s*(true|false)",
+                    RegexOptions.IgnoreCase | RegexOptions.CultureInvariant);
+                if (debug.Success)
+                    debugLogs = String.Equals(debug.Groups[1].Value, "true",
+                        StringComparison.OrdinalIgnoreCase);
                 Match off = Regex.Match(json, "\\\"resolutionsOff\\\"\\s*:\\s*\\\"([0-9x,]{0,2048})\\\"",
                     RegexOptions.CultureInvariant);
                 if (off.Success)
@@ -4826,6 +4851,7 @@ namespace Kmrp
                     (markerFixes ? "true" : "false") + ",\r\n" +
                     "  \"controllerSupport\": " +
                     (controllerSupport ? "true" : "false") +
+                    (debugLogs ? ",\r\n  \"debugLogs\": true" : "") +
                     (resolutionsOff.Length > 0
                         ? ",\r\n  \"resolutionsOff\": \"" + resolutionsOff + "\""
                         : "") +
@@ -6028,8 +6054,8 @@ namespace Kmrp
 
             Label settingsSubtitle = new Label();
             settingsSubtitle.Text =
-                "Choose optional components. Each is on by default and can be turned off "
-                + "on its own.";
+                "Choose optional components. Each can be changed on its own; all but "
+                + "debug logs are on by default.";
             settingsSubtitle.Font = new Font("Segoe UI", 14F);
             settingsSubtitle.ForeColor = UiTheme.TextMuted;
             settingsSubtitle.BackColor = UiTheme.Card;
@@ -6044,7 +6070,12 @@ namespace Kmrp
             driverToggle.Detail =
                 "Restores modern GPU rendering features and fixes driver-related visual issues.";
             driverToggle.Checked = KmrpSettings.DriverCompatibility;
-            driverToggle.SetBounds(36, settingsSubtitle.Bottom + 18, card.Width - 72, 86);
+            // Four rows share what the card has between the subtitle and the buttons:
+            // 86 px each where that fits, less where it does not.
+            int optionRowGap = 8;
+            int optionRowHeight = Math.Min(86,
+                (card.Height - 116 - 14 - (settingsSubtitle.Bottom + 18) - 3 * optionRowGap) / 4);
+            driverToggle.SetBounds(36, settingsSubtitle.Bottom + 18, card.Width - 72, optionRowHeight);
             driverToggle.Anchor = AnchorStyles.Top | AnchorStyles.Left | AnchorStyles.Right;
             // Independent of the controller since 2026-09-24. This option installs
             // K1DC's ASI loader and its .asi together (DriverCompatOperations.Install);
@@ -6062,7 +6093,7 @@ namespace Kmrp
             markerToggle.Detail =
                 "Corrects misplaced area-map marker positions across the game.";
             markerToggle.Checked = KmrpSettings.MarkerFixes;
-            markerToggle.SetBounds(36, driverToggle.Bottom + 8, card.Width - 72, 86);
+            markerToggle.SetBounds(36, driverToggle.Bottom + optionRowGap, card.Width - 72, optionRowHeight);
             markerToggle.Anchor = AnchorStyles.Top | AnchorStyles.Left | AnchorStyles.Right;
             markerToggle.CheckedChanged += delegate
             {
@@ -6079,7 +6110,7 @@ namespace Kmrp
             controllerToggle.Detail =
                 "Xbox, PlayStation, Switch and Steam Deck: play, menus and matching button prompts.";
             controllerToggle.Checked = KmrpSettings.ControllerSupport;
-            controllerToggle.SetBounds(36, markerToggle.Bottom + 8, card.Width - 72, 86);
+            controllerToggle.SetBounds(36, markerToggle.Bottom + optionRowGap, card.Width - 72, optionRowHeight);
             controllerToggle.Anchor = AnchorStyles.Top | AnchorStyles.Left | AnchorStyles.Right;
             controllerToggle.CheckedChanged += delegate
             {
@@ -6087,15 +6118,31 @@ namespace Kmrp
             };
             settingsView.Controls.Add(controllerToggle);
 
-            // A fourth row, "KOTOR Patch Manager", installed for KPM on request from
+            // The patch's debug-logs option: off by default, for a player who was asked
+            // for logs with a bug report.
+            OptionToggle debugToggle = new OptionToggle();
+            debugToggle.Title = "Debug Logs";
+            debugToggle.Author = "KMRP";
+            debugToggle.Detail =
+                "Writes diagnostic log files beside the game. Turn on when reporting a problem.";
+            debugToggle.Checked = KmrpSettings.DebugLogs;
+            debugToggle.SetBounds(36, controllerToggle.Bottom + optionRowGap, card.Width - 72, optionRowHeight);
+            debugToggle.Anchor = AnchorStyles.Top | AnchorStyles.Left | AnchorStyles.Right;
+            debugToggle.CheckedChanged += delegate
+            {
+                KmrpSettings.DebugLogs = debugToggle.Checked;
+            };
+            settingsView.Controls.Add(debugToggle);
+
+            // An earlier fourth row, "KOTOR Patch Manager", installed for KPM on request from
             // 2026-09-29 to 2026-09-30. It was removed: KPM's files in the game folder
             // choose that install by themselves, and KMRP's own install is one KPM
             // recognises and can take over (kpm_install_state.json, its backup, the
             // .kpatch files in its folder), so it only decided who installed the runtime
             // first -- and on Steam with KPM 0.7.1 it left a runtime KPM injected, which a
-            // game Steam starts never loads. The three rows are 86 px tall and 8 apart
-            // again, as before it came. (A Movie Fixes row was a fourth for a few hours on
-            // 2026-10-04; the maintainer made the movie fixes part of KMRP, not an option.)
+            // game Steam starts never loads. (A Movie Fixes row was a fourth for a few
+            // hours on 2026-10-04; the maintainer made the movie fixes part of KMRP, not
+            // an option. Debug Logs is the fourth since later that day.)
 
             // Two actions, sharing the row the single Back button used to have. Restore
             // Defaults is Subtle so Back stays the obvious way out.
@@ -6109,10 +6156,12 @@ namespace Kmrp
             settingsDefaults.Anchor = AnchorStyles.Top | AnchorStyles.Left;
             settingsDefaults.Click += delegate
             {
-                // The documented defaults: the three components on (KmrpSettings).
+                // The documented defaults: the three components on, debug logs off
+                // (KmrpSettings).
                 driverToggle.Checked = true;
                 markerToggle.Checked = true;
                 controllerToggle.Checked = true;
+                debugToggle.Checked = false;
             };
             settingsView.Controls.Add(settingsDefaults);
 

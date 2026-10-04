@@ -19,13 +19,15 @@ you start the game as usual.
                 around them) built in. Everything it needs is inside the
                 file: nothing goes into Override.
 
-It has two options, both on unless you turn them off:
+It has three options:
 
-  Controller support   Xbox, PlayStation, Switch and Steam Deck pads
-  Map notes            Derslok's area-map marker fixes
+  Controller support   Xbox, PlayStation, Switch and Steam Deck pads   (on)
+  Map notes            Derslok's area-map marker fixes                 (on)
+  Debug logs           diagnostic log files beside the game            (off)
 
-A KOTOR Patch Manager with patch options shows them under the patch. An
-older one (0.7.1) installs the patch with both on.
+A KOTOR Patch Manager with patch options shows them in the patch's details
+and records what you chose in configs\kmrp.ini in the game folder. An older
+one (0.7.1) installs the patch with the first two on and no logs.
 
 Requirements
 ------------

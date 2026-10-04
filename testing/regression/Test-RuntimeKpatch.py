@@ -19,7 +19,7 @@ with tempfile.TemporaryDirectory(prefix='kmrp-native-preview-') as temporary:
         files = {name: archive.read(name) for name in archive.namelist()}
     cases = {
         'stolen-byte corruption': ('kotor1.hooks.toml', b'0x3D, 0x20, 0x03', b'0x3C, 0x20, 0x03'),
-        'missing target': ('kotor1.hooks.toml', preview.build_kpatch.STEAM.encode(), b'unsupported'),
+        'missing target': ('kotor1.hooks.toml', preview.kpatch_common.STEAM.encode(), b'unsupported'),
         'external dependency': ('manifest.toml', b'requires = []', b'requires = ["kmrp"]'),
         'wrong callback parameter': ('kotor1.hooks.toml', b'source = "esp+4"', b'source = "esp+12"'),
     }

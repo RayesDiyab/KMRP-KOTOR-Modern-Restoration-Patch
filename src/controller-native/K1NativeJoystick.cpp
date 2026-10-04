@@ -23,6 +23,7 @@
 #ifdef KMRP_NATIVE_RUNTIME
 #include "K1RuntimeResolution.h"
 #include "K1RuntimeEngine.h"
+#include "KmrpOptions.h"
 extern "C" void __cdecl NativeGuiFrameK1(void* guiManager);
 extern "C" void __cdecl NativeMovieFrameK1(void* moviePlayer);
 #endif
@@ -2122,11 +2123,11 @@ constexpr int K1_GUI_EVENT_CONFIRM = 0x27;
 constexpr int K1_GUI_EVENT_CONFIRM_ALIAS = 0x2D;   // Solo Mode also takes 0x2D
 constexpr int K1_GUI_EVENT_CANCEL = 0x28;
 
-// Diagnostic for the validation build, bounded to 64 lines a session.
+// Diagnostic, with the debug-logs option on, bounded to 64 lines a session.
 void LogConfirmK1(const char* panel, int event, int value, const char* why)
 {
     static int logged = 0;
-    if (logged >= 64) {
+    if (!KmrpDebugLogs() || logged >= 64) {
         return;
     }
     ++logged;
@@ -2495,6 +2496,7 @@ extern "C" void __cdecl CoreMovieFrameK1(void* moviePlayer)
         return;
     }
 #ifdef KMRP_NATIVE_RUNTIME
+    KmrpCentreAddedSizeK1();   // the movie window, at a size the display does not offer
     // The standalone module holds the controller's frame itself, and one hook
     // serves both states of its controller option (see CoreGuiFrameK1).
     if (KmrpControllerOptionK1()) {
@@ -3323,7 +3325,7 @@ constexpr std::uintptr_t K1_CONTROL_HANDLE_INPUT = 0x00418750;  // CSWGuiControl
 void LogGuardK1(const char* what, void* panel, int event, int value)
 {
     static int logged = 0;
-    if (logged >= 256) {
+    if (!KmrpDebugLogs() || logged >= 256) {
         return;
     }
     ++logged;
@@ -4933,11 +4935,19 @@ void UpdateCursorConfinementK1()
     // Fullscreen only: a window that does not cover its monitor is one the player
     // must be able to leave, to reach its border or another window. Confining a
     // windowed game trapped the cursor inside it (play-tested 2026-10-04).
+    // The window of a size the display does not offer is the exception: the game
+    // takes itself for fullscreen there, hides the system cursor and minimises when
+    // a click lands outside, so it is confined like fullscreen.
+    bool addedSize = false;
+#ifdef KMRP_NATIVE_RUNTIME
+    addedSize = KmrpAddedSizeWindowK1(screen.right - screen.left, screen.bottom - screen.top);
+#endif
     MONITORINFO monitor = {sizeof(monitor)};
-    if (!GetMonitorInfoW(MonitorFromWindow(foreground, MONITOR_DEFAULTTONEAREST), &monitor)
+    if (!addedSize
+            && (!GetMonitorInfoW(MonitorFromWindow(foreground, MONITOR_DEFAULTTONEAREST), &monitor)
             || screen.left > monitor.rcMonitor.left || screen.top > monitor.rcMonitor.top
             || screen.right < monitor.rcMonitor.right
-            || screen.bottom < monitor.rcMonitor.bottom) {
+            || screen.bottom < monitor.rcMonitor.bottom)) {
         if (g_stick.cursorConfined) {
             ClipCursor(nullptr);
             g_stick.cursorConfined = 0;
@@ -5692,7 +5702,9 @@ extern "C" void __cdecl NativeJoystickDumpK1()
         g_stick.cursorConfined, g_stick.cursorConfinements,
         g_stick.cursorReleases);
 
-    HANDLE file = CreateFileA("kmrp-native-joystick.log", FILE_APPEND_DATA,
+    // The counters line the controller tests read; with the debug-logs option on.
+    HANDLE file = !KmrpDebugLogs() ? INVALID_HANDLE_VALUE :
+                  CreateFileA("kmrp-native-joystick.log", FILE_APPEND_DATA,
                               FILE_SHARE_READ, nullptr, OPEN_ALWAYS,
                               FILE_ATTRIBUTE_NORMAL, nullptr);
     if (file != INVALID_HANDLE_VALUE) {
