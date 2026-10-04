@@ -2,7 +2,7 @@
 # KMRP for macOS -- installer, uninstaller and status.
 #
 #   kmrp-mac.sh install   [--game "<path>/Knights of the Old Republic.app"] [--no-map-notes]
-#                         [--no-controller]
+#                         [--no-controller] [--debug-logs]
 #                         [--resolution current|native | --size <W>x<H>] [--yes]
 #   kmrp-mac.sh uninstall [--game ...] [--yes]
 #   kmrp-mac.sh status    [--game ...] [--brief]
@@ -19,21 +19,19 @@
 #      installed, KMRP installs for KPM instead, leaving KOTOR_Exe and KPM's files alone. Leaves
 #      KPM's own records (kpm_install_state.json, KOTOR_Exe.backup.<time>) and kmrp.kpatch in
 #      KPM's patch folder, so KPM recognises the install, as on Windows.
-#   3. Picks the resolution: the display's size, and on a Retina display native (every pixel,
-#      e.g. 3024x1964) or half (the point size, e.g. 1512x982, which macOS scales up). Writes
-#      UseGuiFileLayouts=1, ForceWidth and ForceHeight to [Graphics Options] in swkotor.ini,
-#      and, beside it, kmrp-controller.ini with the controller's default settings unless the
-#      player already has one.
-#   4. Installs into Contents/Assets/override KMRP's artwork and the menu set for that
-#      resolution, the same files the Windows installer writes for it: from the pooled sets in
-#      layouts.zip, or, for a size the build has no set for, .gui files blended by
-#      kmrp-guiblend with the fonts of the nearest set, and the controller badges drawn again
-#      for the blended buttons (since 2026-09-30). Then makes, from the player's
-#      own game, what KMRP builds from the game's art and data: the hex row frames, the tutorial
-#      popup's icons and tutorial.2da (kmrp-gameart), and the enlarged feat, power and skill
-#      icons (kmrp-abilityicons). No release carries anything of the game's. Bundled
-#      third-party art yields to a file already there; KMRP's own files replace one after
-#      copying it aside.
+#   3. Picks the resolution the game starts at: the display's size, and on a Retina display
+#      native (every pixel, e.g. 3024x1964) or half (the point size, e.g. 1512x982, which macOS
+#      scales up). Writes it as Width and Height to [Graphics Options] in swkotor.ini (a size
+#      the display does not offer, given with --size, as ForceWidth and ForceHeight). In the
+#      game, Options, Graphics changes it at any time. And, beside swkotor.ini,
+#      kmrp-controller.ini with the controller's default settings unless the player already
+#      has one.
+#   4. Nothing goes into the game's override folder, since 2026-10-04: the menu set for every
+#      resolution, KMRP's artwork and SDL are inside the patch's module (patches/kmrp-assets),
+#      which unpacks what the resolution needs to ~/Library/Caches/KMRP when the game starts,
+#      blends a set for a size the build has none for, and makes from the player's own game
+#      what KMRP builds from its art and data. Until then this installer did all of that and
+#      wrote some 1,800 files into Contents/Assets/override.
 #   5. Records every file and INI value it wrote in a manifest outside the game folder
 #      (~/Library/Application Support/KMRP), so uninstall touches only what is still ours.
 set -euo pipefail
@@ -52,13 +50,13 @@ ASPYR_PREFS="$HOME/Library/Preferences/com.aspyr.kotor.steam.plist"
 GAME=""
 MAP_NOTES=1
 CONTROLLER=1   # KMRP's controller support: the module, SDL and its settings file (Windows' option too)
+DEBUG_LOGS=0   # the module's diagnostic log (Windows' third option, off unless asked for)
 RESOLUTION=""
 SIZE=""
 ASSUME_YES=0
 BRIEF=0   # status without checking each installed file (KMRP Installer's view)
 BACKUP_SEQ=0
 INSTALLING=0
-VARIANT=kmrp   # the patch build for the two options
 WORK=""
 BIN=""
 
@@ -103,9 +101,8 @@ find_game() {
 set_paths() {
     MACOS="$GAME/Contents/MacOS"
     EXE="$MACOS/KOTOR_Exe"
-    OVERRIDE="$GAME/Contents/Assets/override"
     TEXTURE_PACK="$GAME/Contents/Assets/TexturePacks/swpc_tex_gui.erf"
-    CHITIN_KEY="$GAME/Contents/Assets/chitin.key"
+    OPTIONS_INI="$MACOS/configs/kmrp.ini"
 }
 
 refuse_if_running() {
@@ -226,12 +223,11 @@ choose_resolution() {
 }
 
 # ---------------------------------------------------------------------- menu sets
-# layouts.zip is the pool the Windows installer embeds (tools/pack_resolution_layouts.py):
-# index/<W>x<H>.txt lists a resolution's files as "<Override name><TAB><object>", and
-# objects/<object> holds each distinct file once, named by the first 16 hex digits of its
-# SHA-256.
+# sizes.txt lists the resolutions the build has a menu set of its own for, one <W>x<H> a line
+# (the sets themselves are inside the patch's module). For any other size the module blends one
+# from the nearest set, when kmrp-guiblend's table covers the size.
 listed_sizes() {
-    unzip -Z1 "$PAYLOAD/layouts.zip" 'index/*' 2>/dev/null | sed -n 's|^index/\([0-9]*x[0-9]*\)\.txt$|\1|p'
+    tr -d '\r' < "$PAYLOAD/sizes.txt" 2>/dev/null | grep -E '^[0-9]+x[0-9]+$'
 }
 
 # The listed size nearest WIDTHxHEIGHT: the nearest height (the fonts are baked at
@@ -241,19 +237,6 @@ nearest_size() {
         { dh = $2 - H; if (dh < 0) dh = -dh; da = $1 / $2 - W / H; if (da < 0) da = -da
           if (best == "" || dh < bh || (dh == bh && da < ba)) { best = $0; bh = dh; ba = da } }
         END { print best }'
-}
-
-# Extracts a listed size's files into <dir> under their Override names, and checks each against
-# its object name.
-extract_set() {   # extract_set <WxH> <dir>
-    local size=$1 dir=$2 index="$WORK/index-$1.txt" name object
-    unzip -p "$PAYLOAD/layouts.zip" "index/$size.txt" | tr -d '\r' > "$index"
-    mkdir -p "$WORK/objects" "$dir"
-    cut -f2 "$index" | sort -u | sed 's|^|objects/|' | xargs unzip -q -o "$PAYLOAD/layouts.zip" -d "$WORK"
-    while IFS=$'\t' read -r name object; do
-        [[ "$(sha "$WORK/objects/$object" | cut -c1-16)" == "${(L)object}" ]] || die "layouts.zip: $object does not match its name"
-        cp "$WORK/objects/$object" "$dir/$name"
-    done < "$index"
 }
 
 # ---------------------------------------------------------------------- KotOR Patch Manager
@@ -281,6 +264,12 @@ extract_set() {   # extract_set <WxH> <dir>
 # its Remove deletes it (PatchRemover), as with the rest.
 KPM_FILES=(KotorPatcher.dylib patch_config.toml patches kpm_install_state.json addresses.db)
 FTD_PATCHES=(k1widescreenpatch k1-stray-bug-fixes-patch)
+# What this installer installs, since 2026-10-04: KMRP's own patch and the two of FTD's it
+# requires (until then KMRP's one patch carried a copy of them). The package's file for each and
+# the patch's id, which is also the name KPM gives its module in patches/. In KPM's order: a patch
+# after the ones it requires.
+KPATCH_FILES=(K1StrayBugFixes.kpatch K1WidescreenPatch.kpatch kmrp.kpatch)
+KPATCH_IDS=(k1-stray-bug-fixes-patch k1widescreenpatch kmrp)
 KPM_ORIGINAL=""   # the untouched game, when an install is to be replaced
 KPM_PROBLEM=""    # why it cannot be, otherwise
 KPM_OTHERS=""     # the other patches KPM has installed, when KMRP installs for KPM
@@ -319,9 +308,15 @@ kpm_patches_folder() {   # KPM's patch folder from its settings ("PatchesPath"),
 
 kpatch_is_kmrp() { unzip -p "$1" manifest.toml 2>/dev/null | grep -q '^id = "kmrp"$'; }
 
-deliver_kpatch() {   # deliver_kpatch <for_kpm>: kmrp.kpatch into KPM's patch folder
-    local src="$PAYLOAD/engine/$VARIANT/kmrp.kpatch" folder target state=created
-    if [[ ! -f "$src" ]]; then
+# The Widescreen Patch KMRP needs has the entry points KMRP asks for its .gui mode by
+# (K1Widescreen_UseGuiFileLayouts; FTD's patch has them from its 2026-10-04 adjustment).
+kpatch_has_entry_points() {
+    unzip -p "$1" binaries/macos_x86_64.dylib 2>/dev/null | grep -qa K1Widescreen_UseGuiFileLayouts
+}
+
+deliver_kpatch() {   # deliver_kpatch <for_kpm>: the three .kpatch files into KPM's patch folder
+    local folder file src target state
+    if [[ ! -f "$PAYLOAD/engine/kmrp.kpatch" ]]; then
         warn "the package has no kmrp.kpatch; KotOR Patch Manager will not list KMRP"
         return 0
     fi
@@ -334,17 +329,34 @@ deliver_kpatch() {   # deliver_kpatch <for_kpm>: kmrp.kpatch into KPM's patch fo
     else
         return 0
     fi
-    target="$folder/kmrp.kpatch"
-    if [[ -e "$target" ]]; then
-        if [[ "$(sha "$target")" != "$(sha "$src")" ]] && ! kpatch_is_kmrp "$target"; then
-            warn "left $target alone: it is not KMRP's"
-            return 0
+    for file in $KPATCH_FILES; do
+        src="$PAYLOAD/engine/$file"; target="$folder/$file"; state=created
+        [[ -f "$src" ]] || continue
+        if [[ -e "$target" ]]; then
+            [[ "$(sha "$target")" == "$(sha "$src")" ]] && continue   # already there: not KMRP's to remove
+            case "$file" in
+                kmrp.kpatch)
+                    if ! kpatch_is_kmrp "$target"; then warn "left $target alone: it is not KMRP's"; continue; fi
+                    state=replaced ;;   # an older KMRP's: brought up to this version, and left at uninstall
+                K1WidescreenPatch.kpatch)
+                    # FTD's own file. One KMRP can work with stays; one from before the entry
+                    # points is copied aside and replaced, and put back at uninstall.
+                    if kpatch_has_entry_points "$target"; then continue; fi
+                    cp -p "$target" "$STATE/backup/$file"
+                    state="swapped" ;;
+                *)  continue ;;         # FTD's Stray Bug Fixes, whatever its version: left as it is
+            esac
         fi
-        state=replaced   # an older KMRP's: brought up to this version, and left at uninstall
-    fi
-    cp -f "$src" "$target"
-    record kpatch "$target" "$(sha "$target")" "$state"
+        cp -f "$src" "$target"
+        record kpatch "$target" "$(sha "$target")" "$state"
+    done
     KPATCH_FOLDER=$folder
+}
+
+kpm_patch_list() {   # the installed patches' ids, as a JSON array's contents
+    local id list=""
+    for id in $KPATCH_IDS; do list+="${list:+, }\"$id\""; done
+    print -rn -- "$list"
 }
 
 write_kpm_backup() {   # KOTOR_Exe as KPM backs it up (BackupManager, BackupInfo), before it changes
@@ -363,7 +375,7 @@ write_kpm_backup() {   # KOTOR_Exe as KPM backs it up (BackupManager, BackupInfo
         print -r -- "  \"FileSize\": $KPM_EXE_SIZE,"
         print -r -- "  \"CreatedAt\": \"$now\","
         print -r -- '  "DetectedVersion": null,'
-        print -r -- '  "InstalledPatches": ["kmrp"]'
+        print -r -- "  \"InstalledPatches\": [$(kpm_patch_list)]"
         print -r -- '}'
     } > "$MACOS/$name.json"
     record added "$MACOS/$name.json" "$(sha "$MACOS/$name.json")" "-"
@@ -391,7 +403,7 @@ write_kpm_state() {   # kpm_install_state.json (ManagedInstallState, schema 1)
         print -r -- '  },'
         print -r -- '  "CurrentHash": null,'
         print -r -- '  "CurrentFileSize": null,'
-        print -r -- '  "InstalledPatches": ["kmrp"],'
+        print -r -- "  \"InstalledPatches\": [$(kpm_patch_list)],"
         print -r -- '  "LibraryProxyInstalled": false,'
         print -r -- '  "LinkedDependencyInstalled": true,'
         print -r -- "  \"CreatedAt\": \"$now\","
@@ -405,6 +417,8 @@ is_runtime_path() {   # KPM's runtime as KMRP's install laid it out, which KPM t
     case "${1:t}" in
         KotorPatcher.dylib|patch_config.toml|kpm_install_state.json|KOTOR_Exe|KOTOR_Exe.backup.*) return 0 ;;
     esac
+    # The options KPM's Apply records for the patches it installed are KPM's as well.
+    [[ "$1" == "$OPTIONS_INI" || "$1" == "${OPTIONS_INI:h}" ]] && return 0
     [[ "${1:h}" == "$MACOS/patches" || "$1" == "$MACOS/patches" ]]
 }
 
@@ -452,6 +466,60 @@ kpm_remove() {   # puts the untouched game back from KPM's copy and deletes FTD'
     [[ "$(sha "$EXE")" == "$VANILLA_EXE_SHA" ]] || die "the untouched game could not be put back from KotOR Patch Manager's copy"
     for f in $KPM_FILES; do rm -rf -- "${MACOS:?}/$f"; done
     for backup in ${(f)"$(kpm_backups)"}; do rm -f -- "$backup"; done
+    # What KPM's own removal does with the options it recorded (PatchOptionsIni.RemoveSections).
+    options_remove
+}
+
+# ---------------------------------------------------------------------- patch options
+# The values the kmrp patch was installed with, where a KotOR Patch Manager with patch options
+# records them (LaneDibello/Kotor-Patch-Manager#310, PatchOptionsIni) and kmrp.dylib reads them
+# (patches/kmrp-layout/options.cpp): configs/kmrp.ini beside KOTOR_Exe, section [Patch Options],
+# one key per option, a toggle as 1 or 0, CRLF line ends. Only that section is KMRP's installer's
+# or KPM's; the rest of the file is the patch's own settings and is kept byte for byte. As
+# Windows' installer (src/patcher/KpmEdition.cs, WritePatchOptions).
+options_rest() {   # the file without the section, as KPM's WithoutSection leaves it
+    [[ -f "$OPTIONS_INI" ]] || return 0
+    perl -e '
+        local $/; my $text = <STDIN>; my ($kept, $in, $dropped) = ("", 0, 0);
+        for my $line (split /\n/, $text, -1) {
+            (my $trimmed = $line) =~ s/^\s+|\s+$//g;
+            if ($trimmed =~ /^\[(.*)\]$/) {
+                (my $name = $1) =~ s/^\s+|\s+$//g;
+                $in = lc($name) eq "patch options"; $dropped ||= $in;
+            }
+            $kept .= "$line\n" unless $in;
+        }
+        if (!$dropped) { print $text; exit }
+        chop $kept if length $kept;
+        $kept =~ s/^[\r\n]+//;
+        print $kept;' < "$OPTIONS_INI"
+}
+
+options_write() {   # the section first, then whatever else the file held
+    local made_dir=0 existed=0 rest
+    [[ -d "${OPTIONS_INI:h}" ]] || { mkdir "${OPTIONS_INI:h}"; made_dir=1; }
+    [[ -f "$OPTIONS_INI" ]] && existed=1
+    rest=$(options_rest; print -n x); rest=${rest%x}
+    {
+        printf '[Patch Options]\r\ncontroller=%d\r\nmap-notes=%d\r\ndebug-logs=%d\r\n' $CONTROLLER $MAP_NOTES $DEBUG_LOGS
+        [[ -n "$rest" ]] && printf '\r\n%s' "$rest"
+    } > "$OPTIONS_INI.kmrp-tmp"
+    mv -f "$OPTIONS_INI.kmrp-tmp" "$OPTIONS_INI"
+    (( made_dir )) && record dir "${OPTIONS_INI:h}" "-" "-"
+    record options "$OPTIONS_INI" "-" "$existed"
+}
+
+options_remove() {   # the section out; a file with nothing else, and then an empty folder, go too
+    [[ -f "$OPTIONS_INI" ]] || return 0
+    local rest
+    rest=$(options_rest; print -n x); rest=${rest%x}
+    if [[ -z "${rest//[[:space:]]/}" ]]; then
+        rm -f "$OPTIONS_INI"
+        rmdir "${OPTIONS_INI:h}" 2>/dev/null || true
+    else
+        print -rn -- "$rest" > "$OPTIONS_INI.kmrp-tmp"
+        mv -f "$OPTIONS_INI.kmrp-tmp" "$OPTIONS_INI"
+    fi
 }
 
 # ---------------------------------------------------------------------- manifest
@@ -462,6 +530,8 @@ kpm_remove() {   # puts the untouched game back from KPM's copy and deletes FTD'
 #   dir      -- a directory KMRP created; removed if empty
 #   ini      -- a swkotor.ini key (path column), the value written, the value before or "-";
 #               uninstall puts the old value back if the key still holds KMRP's
+#   options  -- configs/kmrp.ini, whose [Patch Options] section KMRP wrote; uninstall takes the
+#               section out and keeps anything else in the file
 #   settings -- kmrp-controller.ini, written because it was absent; the player's to edit, so
 #               uninstall deletes it if unchanged and otherwise keeps it without complaint
 record() { print -r -- "$1	$2	$3	$4" >> "$STATE/manifest.tsv"; }
@@ -507,20 +577,6 @@ EOF
     record settings "$SETTINGS" "$(sha "$SETTINGS")" "-"
 }
 
-bundled_art() {
-    grep -qixF -- "${1:t}" "$PAYLOAD/bundled-override.txt" 2>/dev/null
-}
-
-# A texture resolves by resref: KOTOR prefers .tpc over .tga, so the other extension counts too.
-texture_present() {
-    local target=$1
-    [[ -e "$target" ]] && return 0
-    case "${target:e:l}" in
-        tga) [[ -e "${target:r}.tpc" || -e "${target:r}.TPC" ]] ;;
-        tpc) [[ -e "${target:r}.tga" || -e "${target:r}.TGA" ]] ;;
-        *) return 1 ;;
-    esac
-}
 
 install_file() {   # install_file <source> <destination directory>
     local src=$1 dir=$2 name=${1:t} target="$2/${1:t}" backup_name="-"
@@ -580,7 +636,7 @@ do_install() {
         kpm_check || check=$?
         case $check in
             0)  kpm=1
-                say "FTD's widescreen patch is installed through KotOR Patch Manager: KMRP replaces it (its own patch carries the same fixes)." ;;
+                say "FTD's widescreen patch is installed through KotOR Patch Manager: KMRP installs it again with its own patch on top (the version KMRP was built with)." ;;
             2)  for_kpm=1
                 say "KotOR Patch Manager manages this game ($KPM_OTHERS): KMRP is installed for it. KOTOR_Exe and KPM's files are left as they are." ;;
             *)  die "$KPM_PROBLEM." ;;
@@ -596,7 +652,7 @@ do_install() {
         from=$size
     else
         from=$(nearest_size)
-        [[ -n "$from" ]] || die "layouts.zip lists no menu sets"
+        [[ -n "$from" ]] || die "the package lists no menu sets (sizes.txt)"
         derived=1
     fi
     say "Resolution: $size$([[ $RESOLUTION == half ]] && echo ' (the resolution macOS is set to)')"
@@ -607,6 +663,7 @@ do_install() {
     fi
     say "Map note corrections: $([[ $MAP_NOTES == 1 ]] && echo on || echo off)"
     say "Controller support: $([[ $CONTROLLER == 1 ]] && echo on || echo off)"
+    say "Debug logs: $([[ $DEBUG_LOGS == 1 ]] && echo on || echo off)"
     confirm "Install KMRP into this game?" || die "cancelled"
 
     mkdir -p "$STATE/backup"
@@ -627,21 +684,10 @@ do_install() {
     xattr -dr com.apple.quarantine "$WORK/bin" 2>/dev/null || true
     BIN="$WORK/bin"
 
-    say "Preparing the menu set..."
-    extract_set "$from" "$WORK/set"
     if (( derived )); then
-        # The set whose fonts are installed: its caption width fits the Container and its
-        # caption font lays out the Controller Layout screen for this size.
-        "$BIN/kmrp-guiblend" "$PAYLOAD/gui-blend.bin" "$WIDTH" "$HEIGHT" "$WORK/blend" \
-            "$WORK/set" >/dev/null ||
-            die "kmrp-guiblend could not blend $size"
-        # Every file it writes replaces the set's: the menus, the badges drawn for the
-        # blended buttons (a badge drawn for the nearest set's buttons was stretched on
-        # buttons of another shape), and the prompt manifest with those buttons' sizes.
-        local made
-        for made in "$WORK/blend"/*(N.); do
-            cp -f "$made" "$WORK/set/${made:t}"
-        done
+        # The module blends the set when the game starts; whether it can is known now.
+        "$BIN/kmrp-guiblend" "$PAYLOAD/gui-blend.bin" "$WIDTH" "$HEIGHT" >/dev/null ||
+            die "KMRP has no menus for $size: it is outside the shapes its sets cover (4:3 to 32:9)"
     fi
 
     if (( kpm )); then
@@ -649,18 +695,19 @@ do_install() {
         kpm_remove
     fi
 
-    # KMRP's one patch (FTD's widescreen patch and Stray Bug Fixes with KMRP's code), built for
-    # each combination of the two options with KPM's list for it: kmrp[.no-map-notes][.no-controller].
-    VARIANT=kmrp
-    (( MAP_NOTES )) || VARIANT+=.no-map-notes
-    (( CONTROLLER )) || VARIANT+=.no-controller
-
+    # KMRP's one patch (FTD's widescreen patch and Stray Bug Fixes with KMRP's code), one build
+    # since 2026-10-04: controller support, map notes and debug logs are its options. This
+    # installer resolves them as a KotOR Patch Manager with patch options does: the hook list
+    # without the controller's hooks when that option is off, and the chosen values in
+    # configs/kmrp.ini, which the module reads. (Until then: four builds, one per choice.)
     if (( for_kpm )); then
         # As Windows' install for KPM: KPM's runtime, its patch list and KOTOR_Exe stay KPM's.
-        # The controller's SDL goes beside the game, where the module looks after its own
-        # folder: KPM extracts only a patch's module, and its Apply rewrites patches/.
-        if (( CONTROLLER )); then
-            install_file "$PAYLOAD/engine/kmrp-sdl3.dylib" "$MACOS"
+        # Nothing beside the game since 2026-10-04: SDL is inside the module. The options are
+        # chosen in KPM now, where controller support is on unless a KPM with patch options
+        # turns it off, and this installer's own choice does not reach KPM's Apply. So no
+        # options are recorded here either.
+        if (( ! CONTROLLER || ! MAP_NOTES || DEBUG_LOGS )); then
+            warn "KotOR Patch Manager installs KMRP here, so KMRP's options are chosen in KPM (with patch options; KPM 0.7.1 installs controller support and map notes, without logs). The choices made in this installer are not applied."
         fi
     else
         say "Backing up KOTOR_Exe..."
@@ -670,14 +717,27 @@ do_install() {
         say "Installing the engine patches..."
         install_file "$PAYLOAD/engine/KotorPatcher.dylib" "$MACOS"
         mkdir "$MACOS/patches"; record dir "$MACOS/patches" "-" "-"
-        install_file "$PAYLOAD/engine/$VARIANT/kmrp.dylib" "$MACOS/patches"
-        # SDL beside the game, not in patches/: KPM's Apply, taking this install over, empties
-        # patches/ and puts back only the patch's module (seen with KPM 0.7.1, 2026-10-01).
-        if (( CONTROLLER )); then
-            install_file "$PAYLOAD/engine/kmrp-sdl3.dylib" "$MACOS"
-        fi
-        cp "$PAYLOAD/engine/$VARIANT/patch_config.toml" "$MACOS/patch_config.toml"
+        # Each patch's module, out of the patch as KPM takes it (binaries/macos_x86_64.dylib) and
+        # under the name KPM gives it, the patch's id: the package does not carry them a second
+        # time. KMRP's holds SDL, the menu sets and the artwork.
+        local n module
+        for n in {1..${#KPATCH_FILES}}; do
+            module="$MACOS/patches/${KPATCH_IDS[n]}.dylib"
+            unzip -p "$PAYLOAD/engine/${KPATCH_FILES[n]}" binaries/macos_x86_64.dylib > "$module" || true
+            # Recorded before it is checked, so that an install that stops here takes it out again.
+            record added "$module" "$(sha "$module")" "-"
+            [[ -s "$module" ]] || die "${KPATCH_FILES[n]} holds no module"
+            # KMRP's own module is signed ad hoc by its build. FTD's are as KPM's
+            # create-patch.py leaves them, unsigned, which an x86_64 library may be.
+            if [[ "${KPATCH_IDS[n]}" == kmrp ]]; then
+                codesign --verify "$module" || die "the module taken out of ${KPATCH_FILES[n]} is damaged"
+            fi
+        done
+        local hook_list=patch_config.toml
+        (( CONTROLLER )) || hook_list=patch_config.controller-off.toml
+        cp "$PAYLOAD/engine/$hook_list" "$MACOS/patch_config.toml"
         record added "$MACOS/patch_config.toml" "$(sha "$MACOS/patch_config.toml")" "-"
+        options_write
         # KPM's own records of this install, so KPM recognises it and can take it over: the
         # untouched game in KPM's format first (KPM's Apply starts from it), then its state.
         write_kpm_backup
@@ -691,43 +751,28 @@ do_install() {
     deliver_kpatch $for_kpm
 
     say "Setting the resolution in swkotor.ini..."
-    set_ini UseGuiFileLayouts 1
-    set_ini ForceWidth "$WIDTH"
-    set_ini ForceHeight "$HEIGHT"
+    # UseGuiFileLayouts is not written any more (2026-10-04): the module answers for it itself
+    # whenever it has menus for the size (patches/kmrp-assets/layouts_ini.cpp).
+    # The size the game starts at. Since 2026-10-04 the resolution is chosen in the game
+    # (Options, Graphics, Screen Resolution lists every size this display offers, and KMRP
+    # follows a change at once), so a size of this display is written as the game's own Width
+    # and Height, which the game rewrites when the player chooses another. Only a size the
+    # display does not offer (--size, for a window or another display) is still forced with
+    # ForceWidth and ForceHeight, which the game's own list cannot change.
+    local geo=(${=$(display_geometry)}) offered=0
+    if (( ${#geo} >= 4 )) && { [[ "$size" == "${geo[1]}x${geo[2]}" ]] || [[ "$size" == "${geo[3]}x${geo[4]}" ]]; }; then offered=1; fi
+    if (( offered )); then
+        set_ini Width "$WIDTH"
+        set_ini Height "$HEIGHT"
+    else
+        set_ini ForceWidth "$WIDTH"
+        set_ini ForceHeight "$HEIGHT"
+    fi
     say "Making fullscreen the default in Aspyr’s launcher..."
     set_fullscreen
     if (( CONTROLLER )); then install_settings; fi
 
-    say "Installing artwork and the menu set..."
-    if [[ ! -d "$OVERRIDE" ]]; then
-        mkdir -p "$OVERRIDE"; record dir "$OVERRIDE" "-" "-"
-    fi
-    local file skipped=0 count=0
-    : > "$WORK/reserved.txt"
-    for file in "$PAYLOAD"/override/*(.N) "$WORK/set"/*(.N); do
-        print -r -- "${file:t}" >> "$WORK/reserved.txt"
-        if bundled_art "$file" && texture_present "$OVERRIDE/${file:t}"; then
-            skipped=$(( skipped + 1 )); continue
-        fi
-        install_file "$file" "$OVERRIDE"; count=$(( count + 1 ))
-    done
-
-    say "Making the row frames, tutorial icons and tutorial.2da from the game for $size..."
-    local game_art=0
-    if "$BIN/kmrp-gameart" "$TEXTURE_PACK" "$CHITIN_KEY" "$HEIGHT" "$WORK/gameart" >/dev/null; then
-        for file in "$WORK/gameart"/*(.N); do install_file "$file" "$OVERRIDE"; game_art=$(( game_art + 1 )); done
-    else
-        warn "the row frames, tutorial icons and tutorial.2da could not be made; the game keeps its own"
-    fi
-
-    say "Enlarging the feat, power and skill icons for $size..."
-    local icons=0
-    if "$BIN/kmrp-abilityicons" "$TEXTURE_PACK" "$HEIGHT" "$WORK/icons" "$WORK/reserved.txt" >/dev/null; then
-        for file in "$WORK/icons"/*.tga(N); do install_file "$file" "$OVERRIDE"; icons=$(( icons + 1 )); done
-    else
-        warn "the feat, power and skill icons could not be generated; they stay their original size"
-    fi
-    xattr -dr com.apple.quarantine "$MACOS" "$OVERRIDE" 2>/dev/null || true
+    xattr -dr com.apple.quarantine "$MACOS" 2>/dev/null || true
 
     {
         print -r -- "version=$KMRP_VERSION"
@@ -738,10 +783,9 @@ do_install() {
         print -r -- "resolution=$size"
         print -r -- "resolution_choice=$RESOLUTION"
         print -r -- "menu_set=$([[ $derived == 1 ]] && echo "blended, fonts and art from $from" || echo "$from")"
-        print -r -- "ability_icons=$icons"
-        print -r -- "game_art=$game_art"
         print -r -- "map_notes=$MAP_NOTES"
         print -r -- "controller=$CONTROLLER"
+        print -r -- "debug_logs=$DEBUG_LOGS"
         print -r -- "for_kpm=$for_kpm"
         print -r -- "kpatch=${KPATCH_FOLDER:--}"
         print -r -- "complete=1"
@@ -749,12 +793,12 @@ do_install() {
     INSTALLING=0
     rm -rf "$WORK"
     if (( for_kpm )); then
-        say "Installed for KotOR Patch Manager: $count Override files, $game_art files made from the game and $icons enlarged icons. KOTOR_Exe was not modified."
+        say "Installed for KotOR Patch Manager: the resolution and the controller's settings. KOTOR_Exe was not modified, and nothing was written to the game's override folder: the menus are inside KMRP's patch."
         if [[ -n "$KPATCH_FOLDER" ]]; then
-            say "KMRP's patch is in $KPATCH_FOLDER. Open KotOR Patch Manager, tick KMRP (untick FTD's Widescreen Patch and Stray Bug Fixes: KMRP carries them), and press Apply."
+            say "KMRP's patch is in $KPATCH_FOLDER, with FTD's Widescreen Patch and Stray Bug Fixes, which it requires. Open KotOR Patch Manager, tick all three, and press Apply."
         fi
     else
-        say "Installed: engine patches, $count Override files, $game_art files made from the game and $icons enlarged icons ($skipped bundled files left to mods already installed)."
+        say "Installed: KMRP's patch, on FTD's Widescreen Patch and Stray Bug Fixes, with the menus for every resolution inside it. Nothing was written to the game's override folder. The first start of the game unpacks what $size needs, which takes a few seconds."
         say "KOTOR_Exe was modified (one load command, re-signed ad hoc); the original is in $STATE/backup."
         [[ -n "$KPATCH_FOLDER" ]] && say "KMRP's patch is also in KotOR Patch Manager's patch folder ($KPATCH_FOLDER)."
     fi
@@ -824,8 +868,13 @@ restore_from_manifest() {   # restore_from_manifest <quiet>
             kpatch)
                 # "created": KMRP put it there, removed while it is as written. "replaced": an
                 # older KMRP's, brought up to date and left.
+                # "swapped": FTD's Widescreen Patch from before the entry points KMRP needs, which
+                # is put back while KMRP's copy is as written.
                 if [[ "$backup" == created && -f "$target" ]]; then
                     if [[ "$(sha "$target")" == "$recorded" ]]; then rm -f "$target"
+                    else (( quiet )) || warn "changed since install, left in place: $target"; fi
+                elif [[ "$backup" == swapped && -f "$target" && -f "$STATE/backup/${target:t}" ]]; then
+                    if [[ "$(sha "$target")" == "$recorded" ]]; then cp -pf "$STATE/backup/${target:t}" "$target"
                     else (( quiet )) || warn "changed since install, left in place: $target"; fi
                 fi ;;
             exe)
@@ -860,12 +909,16 @@ restore_from_manifest() {   # restore_from_manifest <quiet>
                 fi ;;
             dir)
                 rmdir "$target" 2>/dev/null || true ;;
+            options)
+                options_remove ;;
             fullscreen)
                 restore_fullscreen "$target" "$recorded" "$backup" ;;
             ini)
                 now=$(ini_value "$target")
                 if [[ "$now" == "$recorded" ]]; then
                     if [[ "$backup" == "-" ]]; then ini_edit delete "$target"; else ini_edit set "$target" "$backup"; fi
+                elif [[ -n "$now" && "$target" == (Width|Height) ]]; then
+                    :   # the game's own keys: the player chose another resolution in the game, which stays
                 elif [[ -n "$now" ]]; then
                     (( quiet )) || warn "swkotor.ini: $target is $now now, not what KMRP set; left as it is (it was ${backup/#-/unset} before)"
                 fi ;;
@@ -880,21 +933,27 @@ restore_from_manifest() {   # restore_from_manifest <quiet>
 }
 
 kpm_holds_only_kmrp() {   # config, InstalledPatches (including module-less patches), and modules
+    # "Only KMRP" is KMRP with the two patches it requires and installs, and nothing else.
     local id module installed patch_state="$MACOS/kpm_install_state.json"
     local count=0
     [[ -f "$MACOS/patch_config.toml" ]] || return 1
     for id in ${(f)"$(sed -n 's/^id = "\(.*\)"$/\1/p' "$MACOS/patch_config.toml")"}; do
-        [[ "$id" == kmrp ]] || return 1
-        (( ++count ))
+        (( ${KPATCH_IDS[(Ie)$id]} )) || return 1
+        [[ "$id" == kmrp ]] && (( ++count ))
     done
     (( count > 0 )) || return 1
     if [[ -e "$patch_state" || -L "$patch_state" ]]; then
         # plutil parses JSON; missing/malformed/non-array state must retain the runtime.
         installed=$(plutil -extract InstalledPatches json -o - "$patch_state" 2>/dev/null) || return 1
-        [[ "$installed" =~ '^\[[[:space:]]*("kmrp"[[:space:]]*(,[[:space:]]*"kmrp"[[:space:]]*)*)?\]$' ]] || return 1
+        [[ "$installed" == \[*\] ]] || return 1
+        for id in ${(s:,:)${${installed#\[}%\]}}; do
+            id=${${id//[[:space:]]/}//\"/}
+            [[ -z "$id" ]] && continue
+            (( ${KPATCH_IDS[(Ie)$id]} )) || return 1
+        done
     fi
     for module in "$MACOS"/patches/*(N); do
-        [[ "${module:t}" == kmrp.dylib ]] || return 1
+        (( ${KPATCH_IDS[(Ie)${module:t:r}]} )) || return 1
     done
     return 0
 }
@@ -928,6 +987,10 @@ do_status() {
         while IFS=$'\t' read -r kind target recorded backup; do
             case "$kind" in
                 dir) continue ;;
+                options)
+                    if [[ -f "$target" ]]; then say "patch options (${target:t}): $(tr -d '\r' < "$target" | awk '/^\[/ { on = tolower($0) == "[patch options]"; next } on && /=/ { printf "%s ", $0 }')"
+                    else say "patch options: none recorded (the defaults apply)"; fi
+                    continue ;;
                 fullscreen) say "Aspyr fullscreen=$(fullscreen_value "$target") (KMRP set $recorded)"; continue ;;
                 ini) say "swkotor.ini: $target=$(ini_value "$target") (KMRP set $recorded)"; continue ;;
                 settings)
@@ -974,6 +1037,7 @@ while (( $# )); do
         --game) GAME=${2:?--game needs a path}; shift ;;
         --no-map-notes) MAP_NOTES=0 ;;
         --no-controller) CONTROLLER=0 ;;
+        --debug-logs) DEBUG_LOGS=1 ;;
         --resolution)
             RESOLUTION=${2:?--resolution needs current or native}; shift
             [[ "$RESOLUTION" == current ]] && RESOLUTION=half   # the resolution macOS is set to

@@ -112,6 +112,44 @@ What does not carry over:
   installer wants the same list is the maintainer's call; the Mac's own installer
   already has a custom size.
 
+### 5a. State on the Mac, 2026-10-04
+
+Built and checked on macOS 27.0.1 (Apple Silicon) against the unmodified `KOTOR_Exe`
+(`C1FCB8D3…6D71`). Items 3 to 8 were checked without starting the game; item 1 was run in the
+Steam game (the main menu and Options only). The record is `macos/README.md`, "The menus inside
+the module", and
+[the tracker, item 16](macos-changes-from-windows.md#16-options-in-configskmrpini-and-a-debug-logs-option).
+
+| # | State | Where |
+| --- | --- | --- |
+| 1 | **done**: the bank in the module, unpacked to `~/Library/Caches/KMRP` and registered with the game; `kmrp.kpatch` applied by KPM alone gives KMRP's menus; the installer writes nothing to the override folder | `macos/tools/make_kmrp_assets.py`, `macos/patches/kmrp-assets/`, `testing/regression/Test-MacAssets.py` |
+| 2 | **done** for the menus outside a game world: the game's own Screen Resolution list offers the display's modes and a choice takes effect at once (`macos/README.md`, "The resolution chosen in the game"). **Not tested** in a loaded game, windowed, or on an external display | `macos/patches/kmrp-assets/resolution.cpp`, `layout.cpp`, `layouts_ini.cpp` |
+| 3 | **done**: three options, `when = "controller"` on 20 hooks, no address with two hooks | `macos/tools/make_kmrp_patch.py --options` |
+| 4 | **done**: `Contents/MacOS/configs/kmrp.ini`, which is where KPM's pull-request build (`90b5602`) writes it | `macos/patches/kmrp-layout/options.cpp` |
+| 5 | **done** for `controller.log`, the one file the dylib wrote unasked | `macos/patches/kmrp-controller/pad.mm` |
+| 6 | **done**: one patch, two hook lists, the `[Patch Options]` section written and removed | `macos/kmrp-mac.sh`, `macos/build.sh`, `testing/regression/Test-MacInstaller.py` |
+| 7 | **nothing to do**: Aspyr's Bink 2 player pillarboxes and switches no display mode (`macos/WINDOWS-PARITY.md`), so the Mac has no movie fix and no option for one | |
+| 8 | **changed the same day**: KMRP no longer carries FTD's two patches or conflicts with them. It `requires` them, and the installer installs all three (`macos/README.md`, "KMRP on FTD's patches"). This depends on entry points added to his Widescreen Patch and sent to him, not merged yet | `make_kmrp_patch.py --split`, `macos/build.sh`, `macos/kmrp-mac.sh` |
+
+For item 1, what Windows calls and where the same things are in the Mac's `KOTOR_Exe` 1.4.0,
+read with Ghidra from the unmodified executable (absolute addresses; the executable is not
+position-independent). All but the last two rows are what `assets.cpp` calls, and worked in
+the game on 2026-10-04.
+
+| Windows (`K1RuntimeAssets.cpp`) | Mac | How it was identified |
+| --- | --- | --- |
+| `CExoString` from text, `0x5E5A90` | `0x10034cca8` | called with each directory name before it is registered |
+| `CExoString` destructor, `0x5E5C20` | `0x10034cdf2` | called on the same local after |
+| the alias list, `[[0x7A39E0] + 0x0C]` | `[[0x100677cb8] + 0x18]` | `CExoBaseInternal::AddAlias` (`0x10034e914`) passes it to `CExoAliasList::Add` |
+| `CExoAliasList::Add`, `0x5E6880` | `0x10034c9de` | KPM's Mac address database |
+| the resource manager, `[0x7A39E8]` | `[0x100677cc8]` | stored at `0x10026c4f5`, read before every registration |
+| `CExoResMan::AddResourceDirectory`, `0x408800` | `0x1003693bc` | `AddKeyTable(this, name, 2, 0)`; the game calls it with `OVERRIDE:` at `0x10026c739` |
+| `CExoResMan::UpdateDirectoryKeyTable`, `0x4088E0` | not found | `AddKeyTable` (`0x100369130`) rebuilds a table it already has, so a second `AddResourceDirectory` may do |
+| the hook, `CExoResMan::GetKeyEntry` entry (`0x407230`) | not found; the Mac hooks the call at `0x10026c739` instead | a relative call the handler makes itself, as the controller's hooks on calls do, then registers KMRP's folders |
+
+A directory name without `alias:` resolves to nothing (`0x1003534e2` returns an empty
+string when the name has no colon), so the Mac needs a private alias as Windows does.
+
 ## 6. How to check it on a Mac
 
 | Check | Expected |

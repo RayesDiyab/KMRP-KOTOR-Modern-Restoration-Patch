@@ -103,7 +103,7 @@ other pads. The controls are KMRP's, the same as on Windows: the full list is on
 - **From Terminal**, the installer is a script inside the app:
   `"KMRP Installer.app/Contents/Resources/kmrp/kmrp-mac.sh" install` asks the same
   questions; add `--resolution current|native`, `--size 2560x1440`, `--no-map-notes`,
-  `--no-controller` or `--game "/path/to/Knights of the Old Republic.app"`. `uninstall` and `status` work
+  `--no-controller`, `--debug-logs` or `--game "/path/to/Knights of the Old Republic.app"`. `uninstall` and `status` work
   the same way.
 
 ## Uninstall

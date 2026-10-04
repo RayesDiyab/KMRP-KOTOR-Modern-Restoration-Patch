@@ -66,6 +66,7 @@ does it, checked as stated), **doc** (a Windows document to correct).
 | 16 | Uninstall after KPM's takeover: removes KPM's runtime too when KMRP is its only patch; a takeover found from any runtime file, not `patch_config.toml` alone | **done** (2026-10-01; `Test-KpmEdition.ps1` Cases 10b and 10c, then KPM 0.7.1's own Apply on the scratch copy, both deployments and beside another patch; not with KPM's window) |
 | 17 | The target menu: buttons 1.5x the name strip, centred under it, never past the name box | **built** (2026-10-01, installer `F9BB9E8D`; not seen in play on Windows) |
 | 18 | A on the world after an action slot's focus has gone stale (a door after an enemy) | **built** (2026-10-01; not seen in play) |
+| 19 | List rows centred between their box's borders (inventory, abilities, quests, quest items, scripts, store, workbench, character generation) | **to do** (Mac: 2026-10-04) |
 
 ## 1. Message popups fitted to their contents
 
@@ -699,3 +700,17 @@ it, so the fix is made either way:
 The module built (`kmrp-controller.module` `7050BD84…`), in installer `F9BB9E8D…`, on which
 `Test-ControllerSupport.ps1` and the other eight installer suites pass. **Not seen in play on
 Windows.**
+
+## 19. List rows centred between their box's borders
+
+**On the Mac since 2026-10-04**, at the maintainer's request. A list's box is in its panel's
+artwork, and the rows' rectangle the layout file gives is not centred in it; a row's icon is
+also further inside its rectangle than its button is. At 1512x982 the inventory had 17 dark
+columns between the box's left border and the icon and 7 between the button and the right
+border; it now has 7 and 7 (`CHANGELOG.md`, 2026-10-04, has every list and four sizes).
+
+Windows lays these rows out as before. The same layouts and artwork ship there, so the same
+offsets apply: `macos/patches/kmrp-assets/list_rows.inc` (made by
+`macos/tools/measure_list_rows.py`) is per menu set, not per platform. What Windows needs is
+the row kinds' vtables and the three places its `OrganizeControls` (`0x0041B140`) hands a row
+its rectangle, and `RowInset`'s numbers checked against Windows' picture.

@@ -88,7 +88,7 @@ replaces), and runs the script:
 | The app | `kmrp-mac.sh` |
 | --- | --- |
 | at launch and after every run | `status --brief`: `install.info`, or the game and its build, without hashing every installed file (a full status takes seconds once KMRP is installed) |
-| **Start Patching** | `install --yes`, with `--resolution half` (current) or `native` (Retina) for this display's rows, `--size WxH` for any other, `--no-map-notes` when *Area Map Marker Fixes* is off, `--no-controller` when *Controller Support* is off (Advanced Settings, as on Windows), `--game` when one was chosen with **Browse** |
+| **Start Patching** | `install --yes`, with `--resolution half` (current) or `native` (Retina) for this display's rows, `--size WxH` for any other, `--no-map-notes` when *Area Map Marker Fixes* is off, `--no-controller` when *Controller Support* is off, `--debug-logs` when *Debug Logs* is on (Advanced Settings, as on Windows), `--game` when one was chosen with **Browse** |
 | **Restore Original** | `uninstall --yes` (and `--game`) |
 
 What the script refuses (the game running, another build), the app shows as a blocking
@@ -154,8 +154,10 @@ floor of the controller's SDL3 and the helpers) and arm64, with `-Wunguarded-ava
 | --- | --- | --- |
 | `~/Library/Application Support/KMRP/macos/backup/KOTOR_Exe` | copy | the original, re-hashed before anything is written |
 | `MacOS/KotorPatcher.dylib` | added | KPM runtime |
-| `MacOS/patches/kmrp.dylib` | added | KMRP's one patch: FTD's widescreen patch and Stray Bug Fixes with KMRP's layout code, and the map notes and the controller unless `--no-map-notes` or `--no-controller` (one of four builds, `engine/kmrp[.no-map-notes][.no-controller]/`) |
-| `MacOS/kmrp-sdl3.dylib` | added | omitted with `--no-controller`; SDL 3.4.16, the library of the official macOS release, its code unchanged and its signature redone ad hoc (`THIRD_PARTY_NOTICES.md`) |
+| `MacOS/patches/kmrp.dylib` | added | KMRP's one patch: FTD's widescreen patch and Stray Bug Fixes with KMRP's layout code, the map notes and the controller: one build since 2026-10-04 (`engine/kmrp.dylib`), whose three options are recorded in `configs/kmrp.ini` (four builds before, one per choice of `--no-map-notes` and `--no-controller`) |
+| `MacOS/configs/kmrp.ini` | section `[Patch Options]` written | `controller`, `map-notes` and `debug-logs` as `1` or `0`, where a KotOR Patch Manager with patch options records them (LaneDibello/Kotor-Patch-Manager#310) and `kmrp.dylib` reads them. Anything else in the file is kept; uninstall takes the section out, and deletes the file and the folder when nothing else is left. Not written by an install for KPM, where the options are KPM's to choose |
+| `MacOS/patch_config.toml` | added | KPM's hook list for the patch: all 94 hooks, or with `--no-controller` the 74 without the controller's (`engine/patch_config.controller-off.toml`) |
+| `MacOS/kmrp-sdl3.dylib` | not installed since 2026-10-04 | SDL 3.4.16 is inside the module, which unpacks it to KMRP's cache and loads it from there; before, it was added beside the game unless `--no-controller`. The library of the official macOS release, its code unchanged and its signature redone ad hoc (`THIRD_PARTY_NOTICES.md`) |
 | `MacOS/patch_config.toml` | added | written at build time by KPM's own `ConfigGenerator` for the `kmrp` patch: 84 hooks with both options (the Stray Bug Fixes' 11, 45 of the widescreen patch's, five menu-input hooks, the map-note detour and the controller's 21), 62 with neither (the 61 and, without the controller, `KmrpCoreGuiFrame`, the status summary's layout; since 2026-10-02); staged with the matching `kmrp.dylib` |
 | `MacOS/KOTOR_Exe` | edited | one load command, then `codesign --force --sign - --identifier KOTOR_Exe` |
 | `MacOS/KOTOR_Exe.backup.<yyyyMMdd_HHmmss>` and its `.json` | added | the untouched game in KotOR Patch Manager's format (`BackupManager`, `BackupInfo`), made before the load command, from which KPM's Apply starts (since 2026-10-01, as Windows' `WriteKpmBackup`) |
@@ -163,8 +165,9 @@ floor of the controller's SDL3 and the helpers) and arm64, with `-Wunguarded-ava
 | KPM's patch folder`/kmrp.kpatch` | added, or an older KMRP's replaced | the installed build's `.kpatch`, where KPM's settings (`KPatchLauncher/settings.json` under `~/.config`, or `~/Library/Application Support`) say its patches are, so KPM lists KMRP; declares a conflict with FTD's two patches, which it carries (since 2026-10-01, as Windows' `DeliverKpatches`) |
 | `~/Library/Application Support/Knights of the Old Republic/swkotor.ini` | three keys under `[Graphics Options]` | `UseGuiFileLayouts=1`, `ForceWidth`, `ForceHeight` (section 5); the file is created if the game never ran |
 | `~/Library/Application Support/Knights of the Old Republic/kmrp-controller.ini` | added if absent | the controller's settings, Windows' defaults (section 7); a copy already there is the player's and is kept; not written with `--no-controller` |
-| `Assets/override/` | created if absent | the game's working directory is `Contents/Assets` and it reads `.\override` |
-| `Assets/override/*` | added or replaced | 1,855 files: 854 artwork files (98 of them the controller's: 22 prompt textures in each of the four pad families and 10 for the Controller Layout screen); the resolution's set, 673 files (82 `.gui`, 36 font files, `lbl_mileftbot`, and the controller's 552 prompt and cue textures sized for it, `kmrplayout.gui` and `kmrp_prompts.txt`); 18 made from the game (four row frames, 13 `tut_*` icons, `tutorial.2da`: section 6); 310 enlarged feat, power and skill icons |
+| `Assets/override/` | not written since 2026-10-04 | the menu set for every resolution, KMRP's artwork and what it makes from the player's game are inside `patches/kmrp.dylib` ("The menus inside the module", below). Until then the installer created the folder and wrote the files of the next row |
+| `Assets/override/*` | until 2026-10-04: added or replaced | 1,855 files: 854 artwork files (98 of them the controller's: 22 prompt textures in each of the four pad families and 10 for the Controller Layout screen); the resolution's set, 673 files (82 `.gui`, 36 font files, `lbl_mileftbot`, and the controller's 552 prompt and cue textures sized for it, `kmrplayout.gui` and `kmrp_prompts.txt`); 18 made from the game (four row frames, 13 `tut_*` icons, `tutorial.2da`: section 6); 310 enlarged feat, power and skill icons |
+| `~/Library/Caches/KMRP/<build>/` | made by the game, not the installer | the module's cache: `store/` (the artwork, 348 MB, unpacked once), `sets/<W>x<H>/` (a size's set, unpacked or blended the first time the game runs at it, with what is made from the player's game), `art-<pid>/` (this run's links to the store) and `kmrp-sdl3.dylib`. A new build starts a new folder and removes the old ones. Uninstall does not remove it |
 
 *Corrected 2026-09-29:* the override row said 757 artwork files and a set of 136 (83 `.gui`,
 36 font files, the tutorial icons and `tutorial.2da`, the row-frame art). The tutorial files
@@ -247,6 +250,144 @@ state before the install. *Corrected 2026-09-29:* the first version of the rollb
 trap and never ran, leaving a half-installed game. zsh does not run `EXIT` when errexit
 ends the script; it runs `ZERR`. The same test caught it, and both traps now run the
 rollback.
+
+### The menus inside the module
+
+Since 2026-10-04 `kmrp.kpatch` is the whole of KMRP, as Windows' is: applied by hand in KotOR
+Patch Manager, with no installer run, it brings its own menus. What Windows does is in
+`src/controller-native/K1RuntimeAssets.cpp`; the Mac follows it in its own terms.
+
+| | |
+| --- | --- |
+| The bank | `tools/make_kmrp_assets.py`: KMRP's artwork (335 files with SDL), the bundled third-party art (520), all 66 menu sets and `gui-blend.bin`, each distinct file once (17,127 objects), zlib-compressed: 158,594,907 bytes in the build measured here. Linked into the module as the section `__KMRP,__assets` |
+| The code | `patches/kmrp-assets/assets.cpp`, with the installer's three helpers compiled in (`tools/kmrp-guiblend.c`, `kmrp-abilityicons.c`, `kmrp-gameart.c`) |
+| When | the game's start-up registers its resource folders one after another; a detour on its call for `OVERRIDE:` (`0x10026c739`) makes that call and then registers KMRP's two folders, the artwork and the size's set. A folder registered later is searched first, so the set wins over the artwork and both over the game's override folder |
+| The size | the widescreen patch's: `ForceWidth` and `ForceHeight` when `swkotor.ini` has them, else the display's size in points |
+| A size without a set | the nearest set by height, then shape, with the files `kmrp-guiblend` blends over it: the installer's procedure, run by the module the first time the game starts at that size |
+| Bundled art | left out of this run's artwork folder when the game's override folder already has that texture, as `.tga` or `.tpc`: the installer's rule, applied each launch |
+| `UseGuiFileLayouts` | no longer written to `swkotor.ini`. The widescreen patch is compiled with `-Dfopen=kmrp_ini_fopen`, and that reader (`patches/kmrp-assets/layouts_ini.cpp`) adds the key to what the patch reads whenever the module has menus for the size. The player's file is not changed. For a size the sets do not cover, the file is passed through and the widescreen patch lays the menus out itself |
+| SDL | unpacked to the cache on first use and loaded from there (`backend_sdl.cpp`), before the two places it was looked for until now |
+
+Measured on 2026-10-04 (macOS 27.0.1, Apple Silicon, the Steam game):
+
+| Check | Result |
+| --- | --- |
+| The files the game is given at 1512x982 (a set of its own) and 1800x1169 (blended), against the installer's procedure run with the same tools | 1,756 and 1,855 files, every name and every byte the same (`testing/regression/Test-MacAssets.py`) |
+| `kmrp.kpatch` alone, applied to the untouched game by KPM's patch-options build (`90b5602`), no installer, empty override folder, no `UseGuiFileLayouts` in `swkotor.ini` | the game started at 1512x982, the module logged both folders registered, and the Options screen is KMRP's |
+| That Options screen against the same screen after an install by the installer of the build before (files in the override folder), same size | 2,362 of 1,484,784 pixels differ by more than 8 of 255, at most by 24 |
+| The new installer at 1920x1200, then the game | 8 files recorded, nothing in the override folder; SDL loaded from the cache; the 1920x1200 set registered |
+
+Not measured: how long the first start takes while the store is unpacked; any screen but the
+main menu and Options; a display other than the built-in one.
+
+
+### The resolution chosen in the game
+
+Since 2026-10-04, as on Windows (`src/controller-native/K1RuntimeResolution.cpp`,
+`K1RuntimeLayout.cpp`). The Mac's code is `patches/kmrp-assets/resolution.cpp`, `layout.cpp`
+and `layouts_ini.cpp`.
+
+What the engine does by itself (KOTOR_Exe 1.4.0, read with Ghidra): Options, Graphics, Screen
+Resolution (`CSWGuiOptionsResolution::OnResolutionChosen`, `0x1002cd6f8`) calls the game's mode
+switch (`0x10026ef34`), which reads the mode from Aspyr's list, stores its size
+(`0x1005d3b8c`, `0x1005d3b90`), re-initialises the renderer (`Global::ReInitAurora`,
+`0x1004ac827`), resizes the GUI manager (`0x10049ffdc`) and loads the main menu and the options
+screen again; then the popup writes `Width`, `Height` and `RefreshRate` to `swkotor.ini`.
+Before this work the switch changed nothing on screen: everything was laid out for one target
+size, fixed at start (measured: 1024x768 chosen, viewport still 1512x982, `Width=1024` written).
+
+| Piece | Where | What it does |
+| --- | --- | --- |
+| The list | detour at `0x10026f1ee`, the game's whitelist of five sizes | any size KMRP has menus for is accepted, so the list is the display's modes. `kmrp-layout` no longer writes the one configured size into that whitelist in this build |
+| Retina modes | `KMRP_DisplayModeScale`, at the widescreen patch's hook `0x10001de6c` | the display's pixel/point ratio always, so Aspyr's list has every mode's pixel twin whatever size the game started at (the patch's own function, compiled under another name, gave it only for a start above the point size) |
+| The switch | detour on the call to `ReInitAurora`, `0x10026f0ec` | before the call: the widescreen patch's target, `ApplyLayoutForSize` (each site rewritten from what the size before wrote), the new size's set registered under a new alias so it is searched first, and every font's TXI read again (`0x1001f866a` over the texture array `0x100635b58`). After it: the drawing surface resized |
+| The surface | `CGLSetParameter(kCGLCPSurfaceBackingSize)`, at the switch and once a GUI frame | Aspyr sizes its fullscreen surface once; without this a smaller mode was drawn into a corner of the old surface and a larger one cut off |
+| Existing panels | detours at `CSWGuiPanel::StartLoadFromLayout` `0x10049dfe4`, `InitControl` `0x10049e476`, `~CSWGuiPanel` `0x10049d8c8`; applied in the GUI frame | each control bound by tag gets the extent the new size's layout file has for it, keeping what the game's code had added, scaled by `max(1, height / 720)` |
+| The size at start | `layouts_ini.cpp` | `Width` and `Height` in `swkotor.ini`, when the display has a mode of that size in points or pixels and KMRP has menus for it, are handed to the widescreen patch as its forced size; otherwise the display's current size. `ForceWidth` and `ForceHeight`, when the file has them, still win |
+
+Measured on 2026-10-04 (14" MacBook Pro, built-in display, 1512x982 points, 3024x1964 pixels,
+fullscreen, the Steam game driven by the dev kit):
+
+| Check | Result |
+| --- | --- |
+| The list | 1147x716 … 1512x982 … 3024x1964 at 120 Hz, the current size selected |
+| 1512x982 to 1024x768, from the Graphics screen | viewport and surface 1024x768; Options and the main menu drawn for 1024x768 with their text intact; 36 extents set on 9 panels |
+| 1512x982 to 3024x1964 | viewport and surface 3024x1964; the Graphics screen that was open, Options and the main menu laid out for it |
+| A start with `Width=3024`, `Height=1964` | the game starts at 3024x1964, surface 3024x1964 |
+| Without the font reload | every label garbled after a switch (seen before it was added) |
+
+Not tested: a switch while a game is loaded (the HUD, the in-game menus), windowed mode,
+several switches in a row back to a size already used, an external display, the movies after a
+switch. 1024x768 is not one of this display's modes; it was reachable only while the list still
+held the game's five sizes, and is no longer offered here.
+
+### List rows, centred in their box
+
+A list's box is part of its panel's artwork (the panel's FILL texture, stretched over the
+panel), and the rows' rectangle the layout file gives is not centred in it: at 1512x982 the
+inventory's rows began 17 dark columns after the box's left border and ended 7 before its
+right one. Since 2026-10-04 the module centres them, for the lists whose box is in the artwork:
+
+| What | Where |
+| --- | --- |
+| Per set and list, how far right of centre the rows' rectangle is | `macos/tools/measure_list_rows.py` writes `macos/patches/kmrp-assets/list_rows.inc`, from `layouts.zip` and the artwork; `macos/build.sh` fails when the committed file is not what they measure to |
+| Per kind of row, how much further in its artwork begins on the left than it ends on the right | `RowInset` in `macos/patches/kmrp-assets/layout.cpp`, fitted to the game's picture at four sizes |
+| The row's rectangle, moved left by the sum and made as much wider | `KmrpListRow`, a detour at the three places `CSWGuiListBox::OrganizeControls` hands a row its rectangle (`0x1004a88be`, `0x1004a8950`, `0x1004a89be`) |
+| A list made wider instead, where the box reaches further right than the rows (store, workbench) | `KmrpPanelLoaded`, a detour after `CSWGuiPanel::StopLoadFromLayout`'s prologue (`0x10049d98c`; the entry is the controller's hook) |
+
+The lists: the inventory, the abilities (skills, and the charts of powers and feats), the
+quests, the quest items, a party member's scripts, the store's two, the workbench's items,
+and the feats and powers of character generation and level-up. A size with no set of its own
+takes the mean of the three sets nearest in shape and height. What was seen in the game and
+what was only measured from the artwork is in `CHANGELOG.md`, 2026-10-04.
+
+To measure a list again: `KMRP_LIST_ROWS_LOG=<file>` in the game's environment writes each
+list and row kind (its vtable) once as it is laid out.
+
+### KMRP on FTD's patches
+
+Since 2026-10-04 KMRP for macOS is three KotOR Patch Manager patches, not one. From 2026-09-30
+until then `kmrp` was built with a copy of FTD's two patches inside it and declared a conflict
+with them; anything in this document that says "KMRP's one patch" describes that build.
+
+| Patch | Whose | What |
+| --- | --- | --- |
+| `k1-stray-bug-fixes-patch` | FTD's | the engine fixes that hold at any resolution, the memory-safety fixes among them |
+| `k1widescreenpatch` | FTD's | the resolution, the video mode, and its `.gui` mode: no layout of its own, and the sizes, lists, popups and map that menus laid out for the resolution need |
+| `kmrp` | KMRP's | the menu sets and artwork, the resolution chosen in the game, keyboard navigation, the status summary, map notes, the controller; `requires` the two above |
+
+How the split is made:
+
+| | |
+| --- | --- |
+| The build | `tools/make_kmrp_patch.py --split`: KMRP's parts only. FTD's two are built from the KPM tree with its own `Patches/create-patch.py` (`build.sh`), and all three are staged together by KPatchCore, whose overlap check then covers them |
+| Hooks FTD's patches already declare | left out of `kmrp` when identical (five, the memory-safety fixes, since FTD's update of his Stray Bug Fixes); a different hook at the same address stops the build |
+| The `.gui` mode | asked for from KMRP's constructor through `K1Widescreen_UseGuiFileLayouts(1)`, so `swkotor.ini` needs no `UseGuiFileLayouts`. KPM loads a patch after the ones it requires; the Widescreen Patch writes its mode when the engine first sets its video mode, which is later |
+| A change of resolution | `K1Widescreen_SetTargetResolution(w, h)`, which applies that patch's size-dependent parts again; KMRP then registers the size's set, reads the fonts again and lays the panels out |
+| Finding those entry points | KotorPatcher loads each module privately: `patches/kmrp-assets/widescreen.cpp` looks in `patches/k1widescreenpatch.dylib`, opened with `RTLD_NOLOAD` |
+| The layout sites | not written by KMRP in this build (`kmrp-layout`'s 16 groups): the Widescreen Patch's `.gui` mode writes them. With debug logs on, `~/Library/Logs/KMRP/layout-sites.log` lists each site as found beside what KMRP would write |
+| A Widescreen Patch without the entry points | KMRP's menus are not used that run (its files laid out by that patch's own layout would be laid out twice), and the module says so on stderr |
+| The installer | takes each module out of its `.kpatch` into `patches/<id>.dylib`, records the three in KPM's state, and puts the three `.kpatch` files in KPM's patch folder; a Widescreen Patch there from before the entry points is copied aside and put back at uninstall |
+
+The entry points are an adjustment to FTD's patch made for this on 2026-10-04 and sent to him
+(`handoff-ftd/2026-10-04-entry-points/` in the workspace this was built in; the write-up is in
+his patch's `KMRP-ENGINE-FIXES.md`, "Entry points for a patch that brings its own menus").
+**They are not in his repository yet.** The submodule's copy of his patch does not have them,
+so `build.sh` refuses it and needs `--kpm` with a KPM tree that does.
+
+Measured on 2026-10-04 (14" MacBook Pro, the Steam game, fullscreen):
+
+| Check | Result |
+| --- | --- |
+| Installed by KMRP Installer | 12 files recorded; `patches/` holds the three modules; KotorPatcher applied 100 hooks (16, 45 and 39), none refused |
+| The Options screen at 1512x982 against the one-patch build's | 2,272 of 1,484,784 pixels differ by more than 8 of 255, at most by 14 |
+| The 53 sites of `kmrp-layout`'s 16 groups, as the Widescreen Patch's `.gui` mode left them | 41 hold KMRP's bytes exactly, 11 a jump or call to that patch's stub, 1 vanilla (the area map, done another way there) |
+| 1512x982 to 3024x1964 from Options | viewport and surface 3024x1964, 36 extents set on 9 panels |
+| The controller part | loads, replaces `GetJoystickBuffer`, loads SDL from the cache |
+
+Not tested: a controller in hand; a loaded game (the HUD, inventory, the area map, a
+conversation), which is where the Widescreen Patch's own stubs now do what KMRP's did; the
+three patches applied by hand in KPM's window rather than by the installer or its command line.
 
 ## 3. What the map-note patch writes
 
@@ -612,11 +753,19 @@ folder with the README, for sites that take only archives).
 Steps, in order:
 
 1. `make dylib` in KPM's `src/KotorPatcher`;
-2. the map-note table; then KMRP's one patch, `kmrp`, in four builds for the two options
+2. the map-note table; then KMRP's one patch, `kmrp` (in four builds for the two options until 2026-10-04; see the end of this step)
    (`tools/make_kmrp_patch.py`: FTD's two patches compiled with `create-patch.py`'s Mac flags,
    KMRP's parts with their own, one module linked with FTD's constructor first, the hook lists
    merged with every byte hook before every detour), each checked and staged by KPM's own
-   KPatchCore. Until 2026-09-30 the widescreen patch was built with KPM's `Patches/create-patch.py`, as every KPM patch is built
+   KPatchCore. Since 2026-10-04 it is built once (`--options`), with Windows' three options
+   declared in its manifest (`controller`, `map-notes`, `debug-logs`): the controller's 20
+   hooks carry `when = "controller"`, no address has two hooks, and the module reads the
+   choice from `configs/kmrp.ini` (`patches/kmrp-layout/options.cpp`). A KPM without options
+   installs every hook and writes no file, which reads as the defaults. The installer needs
+   the hook list for the controller off as well; `--without-option controller` writes the
+   patch as resolved that way, and KPatchCore stages it (the submodule's is from before patch
+   options). `build.sh` checks that both stagings hold one module and that the second list is
+   exactly the patch's unconditional hooks. Until 2026-09-30 the widescreen patch was built with KPM's `Patches/create-patch.py`, as every KPM patch is built
    (until 2026-09-29 with the patch's own `build_mac.sh`, which FTD516/Kotor-Patch-Manager#2
    removed);
 3. the map-note patch, and the layout patch (`patches/kmrp-layout/*.cpp`);

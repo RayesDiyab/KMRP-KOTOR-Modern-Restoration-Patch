@@ -43,7 +43,7 @@ reason).
 | 12 | Every font atlas at its set's own scale: check the Mac's cache | **check** |
 | 13 | `kpm_holds_only_kmrp` reads KPM's state file too: a patch without a module is in neither `patch_config.toml` nor `patches/` | **to do** |
 | 14 | `kmrp.kpatch` dropped into KPM beside FTD's patches: KPM's own conflict refusal, and a description that says what to untick | **check**, and one wording change **to do** |
-| 15 | KMRP as one self-contained `.kpatch` with options, shipped inside the installer, as Windows is since 2026-10-04 | **to do**: the maintainer's next step for the Mac |
+| 15 | KMRP as one self-contained `.kpatch` with options, shipped inside the installer, as Windows is since 2026-10-04 | options, `when`, the options file, the installer and the layouts inside the module **done on the Mac, 2026-10-04** (`macos/README.md`, "The menus inside the module"); the resolution chosen in the game **done for the menus, 2026-10-04** ("The resolution chosen in the game"; not tested in a loaded game or windowed) |
 
 ## 1. Badges drawn for the blended buttons
 
@@ -481,6 +481,19 @@ values out of `patch_config.toml`. Windows follows it; the measurements are in
    today is the Mac side's to list.
 3. The Mac installer writing the `[Patch Options]` section, keeping the rest of the
    file, and its uninstall taking the section out.
+
+**Done on the Mac, 2026-10-04** (built and checked on macOS 27, Apple Silicon; the game was
+not started, so nothing here is play-tested).
+
+| | Mac since 2026-10-04 |
+| --- | --- |
+| The reader | `macos/patches/kmrp-layout/options.cpp`: `configs/kmrp.ini` one folder above the module, so `Contents/MacOS/configs/kmrp.ini`; a missing file, section or key is the default |
+| Where KPM writes it | the same place: KPM's build of pull request 310 (`90b5602`) applied to a copy of `KOTOR_Exe` wrote `configs/kmrp.ini` beside it, `[Patch Options]`, CRLF, `controller=1` `map-notes=1` `debug-logs=0` by default |
+| The options | `make_kmrp_patch.py --options`: `controller`, `map-notes` (default on), `debug-logs` (default off). 20 of the controller's 21 hooks carry `when = "controller"`; the GUI frame hook at `0x10049f636` stays and `KmrpGuiFrame` lays out the status summary alone when the option is off. The map-note hook stays and its handler asks the option |
+| Hook counts | 94 with the controller, 74 without, by KPM `90b5602` and by the installer's two lists; KPM without options (`2a784bf`) stages 94 and writes no file |
+| The log | `~/Library/Logs/KMRP/controller.log` is written only with `debug-logs` on (it was written on every run). `rumble.log` keeps its own `Debug` key in `kmrp-controller.ini`, as on Windows |
+| The installer | `kmrp-mac.sh` writes the section, keeps the rest of the file, and takes the section out on uninstall; `--debug-logs`, and a *Debug Logs* toggle in Advanced Settings. `Test-MacInstaller.py` covers the four rounds |
+| Not done | a module whose controller hooks are installed while the file says `controller=0` (a file edited by hand) runs those hooks without the controller's own set-up; not guarded |
 
 **Check.** With no `configs` folder the game runs with controller support and map
 notes on and writes no diagnostic log; with `debug-logs=1` in the section the logs

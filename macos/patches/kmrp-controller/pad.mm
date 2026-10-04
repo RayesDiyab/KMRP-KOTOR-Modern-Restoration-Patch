@@ -18,6 +18,7 @@
 
 #include "pad.h"
 #include "backend_sdl.h"
+#include "../kmrp-layout/options.h"
 
 #include <atomic>
 #include <cstdarg>
@@ -30,10 +31,13 @@
 
 namespace kmrp {
 
-// Also appended to ~/Library/Logs/KMRP/controller.log: a game started from Steam sends its
-// stderr nowhere, and that log is how a player's own session can be read afterwards.
+// With the debug-logs option on, also written to ~/Library/Logs/KMRP/controller.log: a game
+// started from Steam sends its stderr nowhere, and that log is how a player's own session can be
+// read afterwards. Until 2026-10-04 it was written on every run.
 FILE* LogFile() {
     static FILE* file = [] {
+        // A diagnostic log: written only with the debug-logs option on (kmrp-layout/options.cpp).
+        if (!DebugLogs()) return static_cast<FILE*>(nullptr);
         const char* home = std::getenv("HOME");
         if (!home) return static_cast<FILE*>(nullptr);
         std::string dir = std::string(home) + "/Library/Logs/KMRP";
@@ -150,6 +154,7 @@ std::atomic<bool> g_mainQueueAlive{false};
 std::atomic<int> g_connects{0};
 
 __attribute__((constructor)) void StartGameController() {
+    if (!ControllerOption()) return;
     // SDL3 reads the pads when it is there (backend_sdl.cpp), as on Windows; GameController
     // only when it is not, so the two never both hold a pad.
     if (SdlAvailable()) return;
@@ -242,6 +247,7 @@ std::atomic<bool> g_appActive{true};
 
 // AppKit's own notifications, delivered on the main thread; the game's thread reads the flag.
 __attribute__((constructor)) void WatchAppActivation() {
+    if (!ControllerOption()) return;
     NSNotificationCenter* center = [NSNotificationCenter defaultCenter];
     [center addObserverForName:NSApplicationDidBecomeActiveNotification object:nil queue:nil
                     usingBlock:^(NSNotification*) { g_appActive = true; }];

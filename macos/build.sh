@@ -93,57 +93,24 @@ if [[ ! -f "$SDL_DIR/SDL3.framework/Versions/A/SDL3" ]]; then
 fi
 lipo "$SDL_DIR/SDL3.framework/Versions/A/SDL3" -verify_arch x86_64
 
-step "The kmrp patch: FTD's widescreen patch and Stray Bug Fixes with KMRP's layout, map notes and controller"
-# One KotOR Patch Manager patch, id kmrp, built by tools/make_kmrp_patch.py from FTD's two patches'
-# source (the submodule) and KMRP's patches/kmrp-layout, kmrp-map-notes and kmrp-controller, since
-# 2026-09-30: KMRP replaces an install of FTD's patches instead of building on it. Four versions,
-# for the installer's two options, each checked by KPM's own KPatchCore and staged in a folder of
-# its own (KPM finds a patch by its id, and the four share one).
-STRAY="$KPM/Patches/K1StrayBugFixes"
-[[ -f "$STRAY/manifest.toml" ]] || { print -u2 "no Patches/K1StrayBugFixes in $KPM"; exit 2; }
-dotnet build "$HERE/tools/kpm-cli" -c Release -p:KpmRoot="$KPM" -o "$BUILD/kpm-cli" >/dev/null
-KPMCLI=(dotnet "$BUILD/kpm-cli/kpm-cli.dll")
-mkdir -p "$PKG/engine"
-for variant in kmrp kmrp.no-map-notes kmrp.no-controller kmrp.no-map-notes.no-controller; do
-    variant_options=()
-    [[ $variant == *no-map-notes* ]] && variant_options+=--no-map-notes
-    [[ $variant == *no-controller* ]] && variant_options+=--no-controller
-    mkdir -p "$BUILD/kpatch/$variant" "$PKG/engine/$variant"
-    "$PYTHON" "$HERE/tools/make_kmrp_patch.py" --widescreen "$WIDESCREEN" --stray "$STRAY" \
-        --layout "$HERE/patches/kmrp-layout" --notes "$HERE/patches/kmrp-map-notes" --notes-include "$NOTES" \
-        --controller "$HERE/patches/kmrp-controller" --sdl "$SDL_DIR" --version "$VERSION" $variant_options \
-        --out "$BUILD/kpatch/$variant/kmrp.kpatch"
-    $KPMCLI validate "$BUILD/kpatch/$variant/kmrp.kpatch" "$EXE" | { grep -v DEBUG || true; }
-    $KPMCLI stage-many "$EXE" "$BUILD/engine/$variant" "$BUILD/kpatch/$variant/kmrp.kpatch" | { grep -v DEBUG || true; }
-    grep -q '^id = "kmrp"$' "$BUILD/engine/$variant/patch_config.toml" || { print -u2 "$variant: not staged"; exit 1; }
-    cp "$BUILD/engine/$variant/patches/kmrp.dylib" "$BUILD/engine/$variant/patch_config.toml" "$PKG/engine/$variant/"
-    # The patch itself too, which the installer puts in KotOR Patch Manager's patch folder, as
-    # the Windows installer does with its .kpatch files, so KPM lists KMRP (2026-10-01).
-    cp "$BUILD/kpatch/$variant/kmrp.kpatch" "$PKG/engine/$variant/"
-done
-cp "$BUILD/KotorPatcher.dylib" "$PKG/engine/"
-# SDL itself, under the name the module looks for. Its code is unchanged; its signature is
-# redone because the release's (ad-hoc, like ours) seals the framework's Info.plist, which
-# does not travel with the bare library.
-cp "$SDL_DIR/SDL3.framework/Versions/A/SDL3" "$PKG/engine/kmrp-sdl3.dylib"
-codesign --force --sign - --identifier org.libsdl.SDL3 "$PKG/engine/kmrp-sdl3.dylib" 2>/dev/null
-codesign --verify "$PKG/engine/kmrp-sdl3.dylib"
-cp "$SDL_DIR/LICENSE.txt" "$PKG/licenses/SDL3-LICENSE.txt"
-
 step "kmrp-macho (adds the patcher's load command)"
 clang -O2 -Wall -Wextra -arch x86_64 -arch arm64 -mmacosx-version-min=10.13 \
     -o "$PKG/bin/kmrp-macho" "$HERE/tools/kmrp-macho.c"
 codesign --force --sign - "$PKG/bin/kmrp-macho" 2>/dev/null
 
-step "kmrp-guiblend, kmrp-abilityicons and kmrp-gameart (the installer's helpers)"
-for helper in kmrp-guiblend kmrp-abilityicons kmrp-gameart; do
-    clang -O2 -Wall -Wextra -arch x86_64 -arch arm64 -mmacosx-version-min=10.13 \
-        -o "$PKG/bin/$helper" "$HERE/tools/$helper.c"
-    codesign --force --sign - "$PKG/bin/$helper" 2>/dev/null
-done
+step "kmrp-guiblend (the installer app checks a custom size with its dry run)"
+# kmrp-abilityicons and kmrp-gameart were packaged too until 2026-10-04, when the installer made
+# the game-derived art; the module makes it now, with all three compiled in (make_kmrp_patch.py).
+clang -O2 -Wall -Wextra -arch x86_64 -arch arm64 -mmacosx-version-min=10.13 \
+    -o "$PKG/bin/kmrp-guiblend" "$HERE/tools/kmrp-guiblend.c"
+codesign --force --sign - "$PKG/bin/kmrp-guiblend" 2>/dev/null
 
 # ------------------------------------------------------------------------ content
+# What the module carries (since 2026-10-04; the installer put it in the game's override folder
+# before): laid out here as the package used to hold it, then packed into one bank.
 RESOURCES="$ROOT/build/kmrp/resources"
+ASRC="$BUILD/assets-src"
+rm -rf "$ASRC"; mkdir -p "$ASRC/engine"
 if (( ! REUSE )) || [[ ! -f "$RESOURCES/override-common.zip" ]]; then
     step "Interface resources (tools/prepare_universal_resources.py, as build_kmrp.ps1 runs it)"
     # The fonts baked at each resolution's own scale, from tools/build_font_scale_sets.py,
@@ -174,12 +141,12 @@ step "Artwork (override-common.zip, less what macOS does not use)"
 FONT_NAMES=(dialogfont10x10 dialogfont10x10a dialogfont10x10b dialogfont12x16 dialogfont16x16
             dialogfont16x16a dialogfont16x16b dialogfont32x32 fnt_console fnt_credits fnt_creditsa
             fnt_creditsb fnt_d10x10b fnt_d16x16 fnt_d16x16a fnt_d16x16b fnt_dialog16x16 fnt_galahad14)
-mkdir -p "$PKG/override"
-unzip -q -o "$RESOURCES/override-common.zip" -d "$PKG/override"
-for font in $FONT_NAMES; do rm -f "$PKG/override/$font".(tga|tpc|txi)(N); done
-[[ -z "$(find "$PKG/override" -mindepth 1 -type d)" ]] || { print -u2 "override-common.zip has subdirectories"; exit 1; }
-cp "$RESOURCES/bundled-override.txt" "$PKG/bundled-override.txt"
-print -r -- "$(ls "$PKG/override" | wc -l | tr -d ' ') files"
+mkdir -p "$ASRC/override"
+unzip -q -o "$RESOURCES/override-common.zip" -d "$ASRC/override"
+for font in $FONT_NAMES; do rm -f "$ASRC/override/$font".(tga|tpc|txi)(N); done
+[[ -z "$(find "$ASRC/override" -mindepth 1 -type d)" ]] || { print -u2 "override-common.zip has subdirectories"; exit 1; }
+cp "$RESOURCES/bundled-override.txt" "$ASRC/bundled-override.txt"
+print -r -- "$(ls "$ASRC/override" | wc -l | tr -d ' ') files"
 
 step "Menu layouts: every resolution's set, pooled, and the blend table for any other"
 # The same pool the Windows installer embeds (tools/pack_resolution_layouts.py): each distinct
@@ -187,8 +154,130 @@ step "Menu layouts: every resolution's set, pooled, and the blend table for any 
 # size the build has none for, blends the .gui files from gui-blend.bin (tools/
 # build_gui_blend_table.py, macos/tools/kmrp-guiblend.c) and takes the fonts and art of the
 # nearest set.
-"$PYTHON" "$ROOT/tools/pack_resolution_layouts.py" "$RESOURCES" "$PKG/layouts.zip" | tail -2
-"$PYTHON" "$ROOT/tools/build_gui_blend_table.py" "$RESOURCES" "$PKG/gui-blend.bin" | tail -1
+"$PYTHON" "$ROOT/tools/pack_resolution_layouts.py" "$RESOURCES" "$ASRC/layouts.zip" | tail -2
+"$PYTHON" "$ROOT/tools/build_gui_blend_table.py" "$RESOURCES" "$ASRC/gui-blend.bin" | tail -1
+# The installer keeps the table, for its custom-size check, and the list of sizes with a set of
+# their own (it read both from layouts.zip until 2026-10-04).
+cp "$ASRC/gui-blend.bin" "$PKG/gui-blend.bin"
+unzip -Z1 "$ASRC/layouts.zip" 'index/*' | sed -n 's|^index/\([0-9]*x[0-9]*\)\.txt$|\1|p' > "$PKG/sizes.txt"
+[[ -s "$PKG/sizes.txt" ]] || { print -u2 "layouts.zip lists no set"; exit 1; }
+
+step "List rows: the committed offsets are what these sets and this artwork measure to"
+# macos/patches/kmrp-assets/list_rows.inc is compiled into the module (layout.cpp, "List rows").
+"$PYTHON" "$HERE/tools/measure_list_rows.py" "$ASRC/layouts.zip" "$ASRC/override" --check 2>/dev/null || {
+    print -u2 "run: $PYTHON macos/tools/measure_list_rows.py $ASRC/layouts.zip $ASRC/override"; exit 1; }
+
+step "The bank: artwork, every menu set, the blend table and SDL, for the module"
+# SDL itself, under the name the module unpacks it as. Its code is unchanged; its signature is
+# redone because the release's (ad-hoc, like ours) seals the framework's Info.plist, which
+# does not travel with the bare library.
+cp "$SDL_DIR/SDL3.framework/Versions/A/SDL3" "$ASRC/engine/kmrp-sdl3.dylib"
+codesign --force --sign - --identifier org.libsdl.SDL3 "$ASRC/engine/kmrp-sdl3.dylib" 2>/dev/null
+codesign --verify "$ASRC/engine/kmrp-sdl3.dylib"
+BANK="$BUILD/assets/kmrp-assets.bin"
+"$PYTHON" "$HERE/tools/make_kmrp_assets.py" --package "$ASRC" --out "$BANK"
+
+step "The patches: FTD's Widescreen Patch and Stray Bug Fixes, and KMRP's own on top of them"
+# Three KotOR Patch Manager patches since 2026-10-04 (one until then, id kmrp, which carried a
+# copy of FTD's two since 2026-09-30):
+#
+#   K1StrayBugFixes.kpatch    FTD's, built from the submodule's source with KPM's own
+#   K1WidescreenPatch.kpatch  Patches/create-patch.py, as every KPM patch is built
+#   kmrp.kpatch               KMRP's own code (tools/make_kmrp_patch.py --split): the menu sets
+#                             and artwork (the bank above), the resolution chosen in the game,
+#                             KMRP's navigation and status summary, map notes, the controller.
+#                             It requires the two, and asks the Widescreen Patch for its .gui
+#                             mode through that patch's entry points.
+#
+# Controller support, map notes and debug logs are kmrp's patch options
+# (LaneDibello/Kotor-Patch-Manager#310), recorded in configs/kmrp.ini, which the module reads.
+# Only the controller's hooks depend on an option, so the installer needs two hook lists: the
+# whole install, and the install without them. Each is staged by KPM's own KPatchCore; the second
+# from the list make_kmrp_patch.py writes for an installer that resolved the option
+# (--without-option), since the submodule's KPatchCore is from before patch options.
+STRAY="$KPM/Patches/K1StrayBugFixes"
+[[ -f "$STRAY/manifest.toml" ]] || { print -u2 "no Patches/K1StrayBugFixes in $KPM"; exit 2; }
+grep -q K1Widescreen_UseGuiFileLayouts "$WIDESCREEN/mac_widescreen.cpp" || {
+    print -u2 "the Widescreen Patch in $WIDESCREEN has no entry points for KMRP (K1Widescreen_UseGuiFileLayouts): KMRP needs FTD's patch with its 2026-10-04 adjustment. Pass --kpm with a KotOR Patch Manager tree that has it."
+    exit 2
+}
+dotnet build "$HERE/tools/kpm-cli" -c Release -p:KpmRoot="$KPM" -o "$BUILD/kpm-cli" >/dev/null
+KPMCLI=(dotnet "$BUILD/kpm-cli/kpm-cli.dll")
+mkdir -p "$PKG/engine" "$BUILD/kpatch/ftd"
+for patch in K1StrayBugFixes K1WidescreenPatch; do
+    (cd "$KPM/Patches/$patch" && "$PYTHON" ../create-patch.py -o "$BUILD/kpatch/ftd" >"$BUILD/kpatch/ftd/$patch.log" 2>&1) ||
+        { cat "$BUILD/kpatch/ftd/$patch.log" >&2; print -u2 "$patch does not build"; exit 1; }
+    [[ -f "$BUILD/kpatch/ftd/$patch.kpatch" ]] || { print -u2 "create-patch.py made no $patch.kpatch"; exit 1; }
+    $KPMCLI validate "$BUILD/kpatch/ftd/$patch.kpatch" "$EXE" | { grep -v DEBUG || true; }
+done
+kmrp_patch() {   # kmrp_patch <folder> [make_kmrp_patch.py options]: built, checked and staged with FTD's two
+    local name=$1; shift
+    mkdir -p "$BUILD/kpatch/$name"
+    "$PYTHON" "$HERE/tools/make_kmrp_patch.py" --split --widescreen "$WIDESCREEN" --stray "$STRAY" \
+        --layout "$HERE/patches/kmrp-layout" --notes "$HERE/patches/kmrp-map-notes" --notes-include "$NOTES" \
+        --controller "$HERE/patches/kmrp-controller" --sdl "$SDL_DIR" --version "$VERSION" --options "$@" \
+        --assets "$HERE/patches/kmrp-assets" --assets-bank "$BANK" --tools "$HERE/tools" \
+        --out "$BUILD/kpatch/$name/kmrp.kpatch"
+    $KPMCLI validate "$BUILD/kpatch/$name/kmrp.kpatch" "$EXE" | { grep -v DEBUG || true; }
+    # In KPM's order: a patch after the ones it requires. Its overlap check runs across all three.
+    $KPMCLI stage-many "$EXE" "$BUILD/engine/$name" "$BUILD/kpatch/ftd/K1StrayBugFixes.kpatch" \
+        "$BUILD/kpatch/ftd/K1WidescreenPatch.kpatch" "$BUILD/kpatch/$name/kmrp.kpatch" | { grep -v DEBUG || true; }
+    grep -q '^id = "kmrp"$' "$BUILD/engine/$name/patch_config.toml" || { print -u2 "$name: not staged"; exit 1; }
+}
+kmrp_patch kmrp
+kmrp_patch kmrp.controller-off --without-option controller
+# The same modules whatever was chosen: the choice is in the hook list and in configs/kmrp.ini.
+for module in kmrp k1widescreenpatch k1-stray-bug-fixes-patch; do
+    cmp -s "$BUILD/engine/kmrp/patches/$module.dylib" "$BUILD/engine/kmrp.controller-off/patches/$module.dylib" \
+        || { print -u2 "the two stagings hold different $module modules"; exit 1; }
+done
+# The option's hooks are exactly what the second list lacks, and it carries no condition.
+"$PYTHON" - "$BUILD/kpatch/kmrp/kmrp.kpatch" "$BUILD/engine/kmrp/patch_config.toml" \
+    "$BUILD/engine/kmrp.controller-off/patch_config.toml" <<'PY'
+import sys, tomllib, zipfile
+patch, on, off = sys.argv[1:]
+with zipfile.ZipFile(patch) as z:
+    name = next(n for n in z.namelist() if n.endswith(".hooks.toml"))
+    declared = tomllib.loads(z.read(name).decode())["hooks"]
+    manifest = tomllib.loads(z.read("manifest.toml").decode())["patch"]
+    options = [o["id"] for o in manifest["options"]]
+def staged(path):
+    patches = tomllib.loads(open(path, "rb").read().decode())["patches"]
+    return [p["id"] for p in patches], {p["id"]: [h["address"] for h in p.get("hooks", [])] for p in patches}
+ids_on, hooks_on = staged(on)
+ids_off, hooks_off = staged(off)
+order = ["k1-stray-bug-fixes-patch", "k1widescreenpatch", "kmrp"]
+if ids_on != order or ids_off != order or manifest["requires"] != order[:2]:
+    sys.exit(f"the staged patches are {ids_on} and {ids_off}, kmrp requires {manifest['requires']}")
+conditions = {h.get("when") for h in declared} - {None}
+if options != ["controller", "map-notes", "debug-logs"] or conditions != {"controller"}:
+    sys.exit(f"kmrp.kpatch: options {options}, conditions {sorted(conditions)}")
+everything = [a for i in order for a in hooks_on[i]]
+if len(set(everything)) != len(everything):
+    sys.exit("two of the three patches hook one address, which KotOR Patch Manager refuses")
+if hooks_on["kmrp"] != [h["address"] for h in declared]:
+    sys.exit("the staged hook list is not the patch's")
+if hooks_off["kmrp"] != [h["address"] for h in declared if "when" not in h]:
+    sys.exit("the list without the controller is not the patch's unconditional hooks")
+if any(hooks_on[i] != hooks_off[i] for i in order[:2]):
+    sys.exit("the two stagings differ in FTD's patches")
+print(f"kmrp.kpatch: {len(declared)} hooks, {len(hooks_off['kmrp'])} without the controller; options {', '.join(options)}; "
+      f"with FTD's {len(hooks_on[order[0]])} and {len(hooks_on[order[1]])}")
+PY
+# The modules are not packaged a second time: KMRP's is 150 MB with the menu sets inside, and the
+# installer takes each out of its .kpatch, as KPM does (binaries/macos_x86_64.dylib).
+for pair in kmrp:kmrp/kmrp.kpatch k1widescreenpatch:ftd/K1WidescreenPatch.kpatch k1-stray-bug-fixes-patch:ftd/K1StrayBugFixes.kpatch; do
+    cmp -s "$BUILD/engine/kmrp/patches/${pair%%:*}.dylib" <(unzip -p "$BUILD/kpatch/${pair#*:}" binaries/macos_x86_64.dylib) \
+        || { print -u2 "the staged ${pair%%:*} module is not the one in its .kpatch"; exit 1; }
+done
+cp "$BUILD/engine/kmrp/patch_config.toml" "$PKG/engine/"
+cp "$BUILD/engine/kmrp.controller-off/patch_config.toml" "$PKG/engine/patch_config.controller-off.toml"
+# The patches themselves, which the installer takes the modules from and puts in KotOR Patch
+# Manager's patch folder, as the Windows installer does with its .kpatch files, so KPM lists them.
+cp "$BUILD/kpatch/kmrp/kmrp.kpatch" "$BUILD/kpatch/ftd/K1WidescreenPatch.kpatch" "$BUILD/kpatch/ftd/K1StrayBugFixes.kpatch" "$PKG/engine/"
+cp "$BUILD/KotorPatcher.dylib" "$PKG/engine/"
+cp "$SDL_DIR/LICENSE.txt" "$PKG/licenses/SDL3-LICENSE.txt"
+
 
 # ------------------------------------------------------------------------ scripts, docs
 step "Installer, documentation, licences"
@@ -207,9 +296,9 @@ step "KMRP Installer.app (the window over kmrp-mac.sh, macos/installer-app)"
 # Every size the app lists must be one the package has a set for.
 missing=()
 for size in $(awk -F '\t' '$1 ~ /^[0-9]+x[0-9]+$/ { print $1 }' "$HERE/installer-app/resolutions.txt"); do
-    unzip -Z1 "$PKG/layouts.zip" "index/$size.txt" >/dev/null 2>&1 || missing+=($size)
+    grep -qx "$size" "$PKG/sizes.txt" || missing+=($size)
 done
-(( ${#missing} == 0 )) || { print -u2 "resolutions.txt lists sizes layouts.zip has no set for: $missing"; exit 1; }
+(( ${#missing} == 0 )) || { print -u2 "resolutions.txt lists sizes the build has no set for: $missing"; exit 1; }
 mkdir -p "$INSTALLER/Contents/MacOS"
 clang -fobjc-arc -O2 -Wall -Wextra -Wno-unused-parameter -arch x86_64 -arch arm64 -mmacosx-version-min=10.13 \
     -Wunguarded-availability -framework Cocoa -framework Accelerate -weak_framework UniformTypeIdentifiers \

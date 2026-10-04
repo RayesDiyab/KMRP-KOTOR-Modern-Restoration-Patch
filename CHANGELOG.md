@@ -109,6 +109,113 @@ proxy, and it applies the executable changes above as well.
 
 ## [Unreleased]
 
+- **macOS: every list's rows sit as far from their box's left border as from its right**
+  (2026-10-04, asked for by the maintainer: "all rows everywhere make sure they are centered
+  and measure correctly not against the scrollbar"). A list's box is drawn by its panel's
+  artwork, and the rows' rectangle in the layout file is not centred in it; a row's icon also
+  sits further inside its rectangle than its button does. Counted on the game's own picture
+  as the dark columns between the border and the row's artwork, left and right, before and
+  after:
+
+  | List | 1512x982 before | 1512x982 | 1280x720 | 1280x800 | 3024x1964 |
+  | --- | --- | --- | --- | --- | --- |
+  | Inventory | 17, 7 | 7, 7 | 7, 6 | 6, 6 | 8, 8 |
+  | Abilities, skills | 17, 7 | 7, 7 | 6, 6 | 5, 6 | 6, 6 |
+  | Abilities, powers and feats | 10, 7 | 7, 7 | | | |
+  | Quests | 12, 7 | 7, 7 | 7, 7 | 7, 7 | 8, 9 |
+  | Quest items | 23, 8 | 8, 8 | | | |
+  | A party member's scripts | 9, 7 | 7, 7 | | | |
+
+  The three other sizes were reached by changing the resolution in a loaded game; 1147x716, a
+  size the build has no set for, gave 9 and 7, 7 and 7, 6 and 7 before the icons' fit below.
+  How: `macos/tools/measure_list_rows.py` measures, for each of the 66 menu sets and ten
+  lists, where the rows' rectangle sits between the box's borders in the panel's artwork
+  (`macos/patches/kmrp-assets/list_rows.inc`, checked by `macos/build.sh`); the module adds
+  the row kind's own inset and moves each row's left edge by the sum, from three detours in
+  the list's own layout routine (`layout.cpp`, "List rows"). The file's PADDING and extents
+  are not changed. **Not seen in the game**, no save reaching them: the store's two lists
+  (by the artwork about 3 px, on the right), the workbench's item list (about 6 px, on the
+  right), and the feats and powers lists of character generation and level-up (5 to 6 px);
+  theirs is the artwork's measurement alone, which gave the inventory's, the quests' and the
+  quest items' numbers to within a pixel. Not changed: the equip screen's list and the
+  container's, whose rows have no outline on the right to compare with, and the lists that
+  have no box (saved games, movies, key mapping, messages, feedback options). The Mac only.
+  **Earlier the same day** the inventory alone was moved by a detour on its row's layout,
+  first 16 px times the scale, measured against the scrollbar's line instead of the box's
+  border (the icon landed on the border; the maintainer caught it in a screenshot), then 8.
+  That detour also moved the equip screen's icons, which use the same row, 11 px left; it is
+  gone, and the equip list is as it was.
+
+- **macOS: a list keeps up with a resolution changed in the game** (2026-10-04). A list
+  that existed during the switch kept the old size's PADDING and scrollbar width, which the
+  game reads once with the panel: after 1512x982 to 1147x716 the inventory's rows began where
+  the old, wider scrollbar ended. Both are now the new size's (`layout.cpp`, `Relayout`).
+  **Still wrong after a switch**, seen at 3024x1964: the skills' rows keep the old size's row
+  height and overlap until the game is started again at that size.
+
+- **macOS: KMRP is a patch on top of FTD's two, no longer a copy of them** (2026-10-04, the
+  maintainer: "instead of bundling his mod we make his mod required"). `kmrp.kpatch` now
+  holds KMRP's own code only and `requires` FTD's Widescreen Patch and Stray Bug Fixes;
+  KMRP Installer installs all three. KMRP asks the Widescreen Patch for its `.gui` mode and
+  tells it the resolution through entry points added to that patch for this
+  (`K1Widescreen_UseGuiFileLayouts`, `K1Widescreen_SetTargetResolution`), sent to FTD the
+  same day and **not merged yet**: until they are, the build needs `--kpm` with a tree that
+  has them, and a Widescreen Patch without them leaves KMRP's menus out. What FTD's
+  current patch already does is left to it: five memory-safety hooks now in his Stray Bug
+  Fixes, and all 16 groups of layout sizes and stubs, which his `.gui` mode writes itself
+  (measured: 41 of 53 sites byte for byte KMRP's, 11 a jump to his stub in place of
+  KMRP's, one left vanilla by another route). Measured in the Steam game: 100 hooks
+  applied, none refused; the Options screen within 2,272 of 1,484,784 pixels of the
+  one-patch build's; 1512x982 to 3024x1964 in the game as before. Not tested: a controller
+  in hand, a loaded game. See
+  [macos/README.md, "KMRP on FTD's patches"](macos/README.md#kmrp-on-ftds-patches).
+
+- **macOS: the resolution is chosen in the game, and changes at once** (2026-10-04).
+  Options, Graphics, Screen Resolution now lists every size this display offers that KMRP
+  has menus for, the Retina display's pixel sizes included (on a 14" MacBook Pro, 1147x716
+  up to 3024x1964), and choosing one takes effect immediately, fullscreen: the widescreen
+  patch's target, KMRP's layout constants and the menu set follow the game's own mode
+  switch, the fonts' metrics are read again, the drawing surface is resized, and the panels
+  that already exist are given the new size's extents. Before, a choice there only wrote
+  `swkotor.ini`. The game starts at the size last chosen when the display offers it, and
+  KMRP Installer writes the starting size as the game's `Width` and `Height` instead of
+  forcing one (`ForceWidth`/`ForceHeight` remain for a size the display does not offer).
+  Measured in the Steam game: 1512x982 to 1024x768 and to 3024x1964 from the Graphics
+  screen, then Options and the main menu, each drawn at the new size with its text intact;
+  a start at 3024x1964. Not tested: a switch while in a game world, windowed mode, an
+  external display. See
+  [macos/README.md, "The resolution chosen in the game"](macos/README.md#the-resolution-chosen-in-the-game).
+
+- **macOS: one `kmrp.kpatch` with options, as Windows** (2026-10-04). The Mac patch is
+  built once, not four times. Controller support, map notes and debug logs are patch
+  options in its manifest, in the format of KOTOR Patch Manager's patch-options pull
+  request (LaneDibello/Kotor-Patch-Manager#310): 20 of the controller's hooks carry
+  `when = "controller"`, no address has two hooks, and `kmrp.dylib` reads the choice from
+  `configs/kmrp.ini` beside `KOTOR_Exe`, with the defaults when the file is missing.
+  `kmrp-mac.sh` installs the hook list for the choice, writes the `[Patch Options]`
+  section and takes it out on uninstall; `--debug-logs` and a *Debug Logs* toggle are
+  new. `controller.log` is written only with debug logs on. Measured: 94 hooks, or 74
+  with the controller off, through KPM's pull-request build (`90b5602`) and through the
+  installer; 94 and no options file through KPM without options (`2a784bf`).
+  `Test-MacInstaller.py` and `Test-KmrpLayoutPatch.py` pass. The resolution chosen in
+  the game is not done; see
+  [the tracker, items 15 and 16](docs/macos-changes-from-windows.md).
+
+- **macOS: the menus inside the patch; nothing in the override folder** (2026-10-04).
+  `kmrp.dylib` now carries every resolution's menu set, KMRP's artwork and SDL (a bank of
+  158 MB, `macos/tools/make_kmrp_assets.py`), unpacks what the resolution needs to
+  `~/Library/Caches/KMRP` when the game starts, blends a set for a size the build has
+  none for and makes the game-derived art itself (`macos/patches/kmrp-assets/`). So
+  `kmrp.kpatch` applied by hand in KOTOR Patch Manager is the whole of KMRP, and KMRP
+  Installer no longer writes the override folder (some 1,800 files before),
+  `UseGuiFileLayouts` or SDL beside the game; it takes the module out of `kmrp.kpatch`.
+  Measured in the Steam game at 1512x982: the patch alone through KPM gives KMRP's
+  Options screen, which differs from the same screen after an install by the previous
+  build in 2,362 of 1,484,784 pixels (by at most 24 of 255). The files the game is given
+  are byte for byte the installer's for a listed and a blended size
+  (`Test-MacAssets.py`). Only the main menu and Options were looked at. See
+  [macos/README.md, "The menus inside the module"](macos/README.md#the-menus-inside-the-module).
+
 - **The resolution checklist shows every size KMRP has, in sections** (2026-10-04).
   Step 3's **Choose** listed the display's sizes and, of KMRP's other sizes, only
   those no larger than the desktop, so 3840x2160 was missing on a 3440x1440

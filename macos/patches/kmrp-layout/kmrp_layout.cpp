@@ -32,7 +32,9 @@
 // before such initialisers do (a global std::vector was still empty when it read it, 2026-09-29).
 // The test checks the module has one initialiser, this one.
 #include "sites.h"
+#include "options.h"
 
+#include <map>
 #include <mach/mach.h>
 #include <mach/mach_vm.h>
 #include <cstdio>
@@ -66,6 +68,41 @@ struct GraphicsIni {
     bool guiFileLayouts = false;
 };
 
+}  // namespace
+
+// How swkotor.ini is opened: fopen, unless the module carries KMRP's menu sets, whose part then
+// answers for UseGuiFileLayouts itself (kmrp-assets/layouts_ini.cpp sets this before any
+// constructor of this part runs). A plain pointer, so it needs no initialiser of its own.
+FILE* (*g_iniOpen)(const char*, const char*) = nullptr;
+
+// Where SDL is when the module carries it (kmrp-assets/assets.cpp unpacks it to KMRP's cache),
+// for the controller (kmrp-controller/backend_sdl.cpp); null in a build without the menu sets.
+const char* (*g_sdlPath)() = nullptr;
+
+// Called once a GUI frame with the manager, from the frame hook (KmrpGuiFrame, or KmrpCoreGuiFrame
+// in a build without the controller): kmrp-assets/layout.cpp lays the panels out again there
+// after a change of resolution. Null in a build without the menu sets.
+void (*g_frameHook)(void* manager) = nullptr;
+
+// Set when the module lets the game's Screen Resolution list offer every size it has menus for
+// (kmrp-assets/resolution.cpp hooks the game's whitelist itself). The one size written into that
+// whitelist below is then not needed, and must not be written: it is inside the hook's bytes.
+bool g_resolutionListOpen = false;
+
+// Set when the widescreen patch is a patch of its own that KMRP requires (make_kmrp_patch.py
+// --split). Since FTD's update of 2026-10-03 its .gui mode writes every site this part does (it
+// took them over from here: InstallListboxPaddingFix, InstallAreaMapLayout,
+// InstallMessageBoxLayout, InstallDialogueReplyStretch, InstallCheckboxScaling,
+// InstallGrantedPopupLayout and its row constants), and applies them again when the resolution
+// changes. So this part writes none of them then. Measured 2026-10-04 at 1512x982 with that
+// patch in its .gui mode: of the 53 sites of the 16 groups below, 41 held exactly the bytes this
+// part writes (every size and constant), 11 held a jump or call to that patch's own stub where
+// this part puts one to its own, and one of the area map's four was left vanilla by a different
+// route to the same end. With debug logs on, layout-sites.log shows the comparison again.
+bool g_widescreenOwnsLayout = false;
+
+namespace {
+
 // The file and keys the widescreen patch reads (LoadGraphicsIniSettings in mac_widescreen.cpp).
 GraphicsIni ReadGraphicsIni() {
     GraphicsIni ini;
@@ -73,9 +110,9 @@ GraphicsIni ReadGraphicsIni() {
     FILE* f = nullptr;
     if (const char* home = getenv("HOME")) {
         snprintf(path, sizeof path, "%s/Library/Application Support/Knights of the Old Republic/swkotor.ini", home);
-        f = fopen(path, "r");
+        f = g_iniOpen ? g_iniOpen(path, "r") : fopen(path, "r");
     }
-    if (!f) f = fopen("swkotor.ini", "r");
+    if (!f) f = g_iniOpen ? g_iniOpen("swkotor.ini", "r") : fopen("swkotor.ini", "r");
     if (!f) return ini;
     char line[256];
     bool graphics = false;
@@ -131,11 +168,16 @@ bool Write(const Site& site) {
     return true;
 }
 
-// Writes every site of the group, or none if any of them does not hold its expected bytes.
-void Apply(const Group& group) {
+// Writes every site of the group, or none if any of them does not hold its expected bytes. After
+// a change of resolution in the game a site holds what the size before wrote there instead
+// (previous, by address), and that counts as expected too.
+void Apply(const Group& group, const std::map<uintptr_t, std::vector<uint8_t>>& previous) {
     for (const Site& site : group.sites) {
-        if (site.expected.size() != site.value.size() ||
-            memcmp(reinterpret_cast<const void*>(site.address), site.expected.data(), site.expected.size()) != 0) {
+        const auto before = previous.find(site.address);
+        const bool ours = before != previous.end() && before->second.size() == site.value.size() &&
+            memcmp(reinterpret_cast<const void*>(site.address), before->second.data(), before->second.size()) == 0;
+        if (!ours && (site.expected.size() != site.value.size() ||
+            memcmp(reinterpret_cast<const void*>(site.address), site.expected.data(), site.expected.size()) != 0)) {
             fprintf(stderr, "[KMRP] %s: 0x%lx holds other bytes, group left alone:", group.name,
                     static_cast<unsigned long>(site.address));
             const uint8_t* found = reinterpret_cast<const uint8_t*>(site.address);
@@ -172,7 +214,7 @@ std::vector<Group> Groups(int width, int height, uintptr_t nearPage) {
     // Windows ResolutionPatch replaces the first IsKnownResolution pair at
     // 0x005F0C65/0x005F0C6F. Aspyr has a separate GUI whitelist in addition to
     // its display-mode validator: K4/K9 alone do not update this one.
-    groups.push_back({"resolution menu acceptance", {
+    if (!g_resolutionListOpen) groups.push_back({"resolution menu acceptance", {
         {0x10026f1f2, Join({Bytes({0x81, 0xfe}), Int32(800)}),
                        Join({Bytes({0x81, 0xfe}), Int32(width)})},
         {0x10026f1ff, Join({Bytes({0x81, 0xfa}), Int32(600)}),
@@ -189,22 +231,74 @@ std::vector<Group> Groups(int width, int height, uintptr_t nearPage) {
 
 namespace {
 
+// What the last size wrote: plain values, so they need no initialiser of their own.
+uintptr_t s_page = 0;
+bool s_pageTried = false;
+int s_width = 0, s_height = 0;
+
+}  // namespace
+
+// Writes the sizes, lists, popups and map of KMRP's layouts for a screen size: when the module
+// loads, and again when the resolution is changed in the game (kmrp-assets/resolution.cpp), where
+// every site then holds what the size before wrote and is rewritten from that.
+void ApplyLayoutForSize(int width, int height) {
+    if (width < 640 || height < 480 || (width == s_width && height == s_height)) return;
+    if (!s_pageTried) {
+        s_pageTried = true;
+        s_page = NearPage();
+        if (!s_page) fprintf(stderr, "[KMRP] no page free near the game's code: area map positions left vanilla\n");
+    }
+    std::map<uintptr_t, std::vector<uint8_t>> previous;
+    if (s_width)
+        for (const Group& group : Groups(s_width, s_height, s_page))
+            for (const Site& site : group.sites) previous[site.address] = site.value;
+    if (s_page) {
+        const std::vector<uint8_t> contents = AreaMapPage(height);
+        vm_protect(mach_task_self(), s_page, 0x1000, FALSE, VM_PROT_READ | VM_PROT_WRITE);
+        memcpy(reinterpret_cast<void*>(s_page), contents.data(), contents.size());
+        vm_protect(mach_task_self(), s_page, 0x1000, FALSE, VM_PROT_READ | VM_PROT_EXECUTE);
+    }
+    const std::vector<Group> groups = Groups(width, height, s_page);
+    // With debug logs on: every site as it was found, before anything is written, beside what
+    // this part writes there. How a widescreen patch that has written the same sites first is
+    // compared with this one.
+    if (DebugLogs()) {
+        if (const char* home = getenv("HOME")) {
+            char path[1024];
+            snprintf(path, sizeof path, "%s/Library/Logs/KMRP/layout-sites.log", home);
+            if (FILE* log = fopen(path, "w")) {
+                fprintf(log, "# %dx%d: group, address, vanilla, KMRP's value, found\n", width, height);
+                for (const Group& group : groups) {
+                    for (const Site& site : group.sites) {
+                        fprintf(log, "%s\t%lx\t", group.name, static_cast<unsigned long>(site.address));
+                        for (uint8_t b : site.expected) fprintf(log, "%02x", b);
+                        fputc('\t', log);
+                        for (uint8_t b : site.value) fprintf(log, "%02x", b);
+                        fputc('\t', log);
+                        const uint8_t* found = reinterpret_cast<const uint8_t*>(site.address);
+                        for (size_t i = 0; i < site.value.size(); i++) fprintf(log, "%02x", found[i]);
+                        fputc('\n', log);
+                    }
+                }
+                fclose(log);
+            }
+        }
+    }
+    if (!g_widescreenOwnsLayout)
+        for (const Group& group : groups) Apply(group, previous);
+    s_width = width;
+    s_height = height;
+}
+
+namespace {
+
 __attribute__((constructor)) void ApplyLayoutSupport() {
+    if (g_widescreenOwnsLayout) return;
     const GraphicsIni ini = ReadGraphicsIni();
     if (!ini.guiFileLayouts) return;
     int width = ini.forceWidth, height = ini.forceHeight;
     if (width < 640 || height < 480) DisplayPointSize(&width, &height);
-    if (width < 640 || height < 480) return;
-
-    uintptr_t page = NearPage();
-    if (page) {
-        const std::vector<uint8_t> contents = AreaMapPage(height);
-        memcpy(reinterpret_cast<void*>(page), contents.data(), contents.size());
-        vm_protect(mach_task_self(), page, 0x1000, FALSE, VM_PROT_READ | VM_PROT_EXECUTE);
-    } else {
-        fprintf(stderr, "[KMRP] no page free near the game's code: area map positions left vanilla\n");
-    }
-    for (const Group& group : Groups(width, height, page)) Apply(group);
+    ApplyLayoutForSize(width, height);
 }
 
 }  // namespace

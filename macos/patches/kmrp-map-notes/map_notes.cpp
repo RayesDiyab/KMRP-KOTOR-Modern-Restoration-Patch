@@ -19,6 +19,8 @@
 #include <cstdint>
 #include <cstring>
 
+#include "../kmrp-layout/options.h"
+
 namespace {
 struct NoteCorrection {
     uint32_t keyX, keyY;  // shipped position, bit pattern
@@ -31,7 +33,9 @@ const uintptr_t kPositionOffset = 0xd8;
 }  // namespace
 
 extern "C" void KMRP_CorrectMapNotePosition(char* note) {
-    if (!note) return;
+    // The hook stays whatever was chosen, as on Windows, where only the controller's depend on
+    // an option; with map notes off the positions are left as BioWare shipped them.
+    if (!note || !kmrp::MapNotesOption()) return;
     float* position = reinterpret_cast<float*>(note + kPositionOffset);
     uint32_t kx, ky;
     std::memcpy(&kx, &position[0], 4);

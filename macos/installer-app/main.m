@@ -23,7 +23,7 @@
   ~/Library/Logs/KMRP/installer.log, which Open Log opens.
 
   kmrp-mac.sh is passed: install --yes, --resolution half|native for this display's rows or
-  --size WxH, --no-map-notes, --no-controller, --game when one was chosen; uninstall --yes; status --brief. What
+  --size WxH, --no-map-notes, --no-controller, --debug-logs, --game when one was chosen; uninstall --yes; status --brief. What
   it refuses (the game running, another build) it refuses here too, with its own message; a
   game KotOR Patch Manager manages is installed for KPM, or FTD's install of his patches
   replaced, as the script decides.
@@ -921,7 +921,7 @@ static const struct { const char *prefix, *stage; int percent; } kStages[] = {
 @property (nonatomic, strong) KMRPPill *browseButton, *actionButton, *settingsButton;
 @property (nonatomic, strong) KMRPCombo *resolutionBox;
 @property (nonatomic, strong) KMRPCard *settingsView;
-@property (nonatomic, strong) KMRPToggle *markerToggle, *controllerToggle;
+@property (nonatomic, strong) KMRPToggle *markerToggle, *controllerToggle, *debugToggle;
 @property (nonatomic, strong) NSMutableArray<NSView *> *mainViews;
 @property (nonatomic, strong) NSMutableArray<KMRPRow *> *rows;
 @property (nonatomic, strong) NSSet<NSString *> *setSizes;
@@ -1147,8 +1147,8 @@ static const struct { const char *prefix, *stage; int percent; } kStages[] = {
     title.textColor = THEME_TEXT;
     title.frame = NSMakeRect(S(36), S(24), S(cardWidth - 72), S(48));
     [view addSubview:title];
-    NSTextField *subtitle = [NSTextField labelWithString:@"Choose optional components. Both are on by default, and each can be "
-                                                         @"turned off on its own."];
+    NSTextField *subtitle = [NSTextField labelWithString:@"Choose optional components. The first two are on by default, and each "
+                                                         @"can be changed on its own."];
     subtitle.font = BodyFont(Pt(14), NSFontWeightRegular);
     subtitle.textColor = THEME_TEXT_MUTED;
     subtitle.frame = NSMakeRect(S(36), S(74), S(cardWidth - 72), S(30));
@@ -1172,6 +1172,15 @@ static const struct { const char *prefix, *stage; int percent; } kStages[] = {
     if ([defaults boolForKey:@"KMRPNoController"]) self.controllerToggle.on = NO;
     self.controllerToggle.changed = ^(BOOL on) { [[NSUserDefaults standardUserDefaults] setBool:on forKey:@"ControllerSupport"]; };
     [view addSubview:self.controllerToggle];
+    // MainForm's debugToggle: the patch's debug-logs option (kmrp-mac.sh --debug-logs), off by
+    // default, for a player who was asked for logs with a bug report.
+    self.debugToggle = [[KMRPToggle alloc] initWithFrame:NSMakeRect(S(36), S(122 + 2 * (86 + 8)), S(cardWidth - 72), S(86))];
+    self.debugToggle.title = @"Debug Logs";
+    self.debugToggle.author = @"KMRP";
+    self.debugToggle.detail = @"Writes a diagnostic log file. Turn on when reporting a problem.";
+    self.debugToggle.on = [defaults boolForKey:@"DebugLogs"];
+    self.debugToggle.changed = ^(BOOL on) { [[NSUserDefaults standardUserDefaults] setBool:on forKey:@"DebugLogs"]; };
+    [view addSubview:self.debugToggle];
     CGFloat rowTop = cardHeight - 116, rowWidth = floor((cardWidth - 160 - 12) / 2);
     KMRPPill *defaultsButton = [self pill:@"Restore Defaults" frame:NSMakeRect(80, rowTop, rowWidth, 76)
                                    action:@selector(restoreDefaults:)];
@@ -1182,9 +1191,11 @@ static const struct { const char *prefix, *stage; int percent; } kStages[] = {
 
 - (void)openSettings:(id)sender { [self showSettings:YES]; }
 - (void)closeSettings:(id)sender { [self showSettings:NO]; }
-- (void)restoreDefaults:(id)sender {   // the documented defaults: both on
+- (void)restoreDefaults:(id)sender {   // the documented defaults: the two components on, logs off
     self.markerToggle.on = YES;
     self.controllerToggle.on = YES;
+    self.debugToggle.on = NO;
+    [[NSUserDefaults standardUserDefaults] setBool:NO forKey:@"DebugLogs"];
     [[NSUserDefaults standardUserDefaults] setBool:YES forKey:@"MarkerFixes"];
     [[NSUserDefaults standardUserDefaults] setBool:YES forKey:@"ControllerSupport"];
 }
@@ -1515,15 +1526,17 @@ static const struct { const char *prefix, *stage; int percent; } kStages[] = {
     return tool;
 }
 
+// The sizes the build has a menu set of its own for (sizes.txt; read from layouts.zip until
+// 2026-10-04, when the sets moved into the patch's module).
 - (void)loadSetSizes {
-    NSString *layouts = [self.payload stringByAppendingPathComponent:@"layouts.zip"];
-    [self run:@"/usr/bin/unzip" arguments:@[@"-Z1", layouts, @"index/*"] log:NO completion:^(int status, NSString *output) {
-        NSMutableSet *sizes = [NSMutableSet set];
-        for (NSString *line in [output componentsSeparatedByString:@"\n"])
-            if ([line hasPrefix:@"index/"] && [line hasSuffix:@".txt"])
-                [sizes addObject:[line substringWithRange:NSMakeRange(6, line.length - 10)]];
-        self.setSizes = sizes;
-    }];
+    NSString *text = [NSString stringWithContentsOfFile:[self.payload stringByAppendingPathComponent:@"sizes.txt"]
+                                               encoding:NSUTF8StringEncoding error:nil];
+    NSMutableSet *sizes = [NSMutableSet set];
+    for (NSString *line in [text componentsSeparatedByCharactersInSet:[NSCharacterSet newlineCharacterSet]]) {
+        NSInteger w = 0, h = 0;
+        if (ParseSize(line, &w, &h)) [sizes addObject:line];
+    }
+    self.setSizes = sizes;
 }
 
 // ---------------------------------------------------------------------------------- status
@@ -1653,6 +1666,7 @@ static const struct { const char *prefix, *stage; int percent; } kStages[] = {
     else [arguments addObjectsFromArray:@[@"--size", self.selectedSize]];
     if (!self.markerToggle.on) [arguments addObject:@"--no-map-notes"];
     if (!self.controllerToggle.on) [arguments addObject:@"--no-controller"];
+    if (self.debugToggle.on) [arguments addObject:@"--debug-logs"];
     [self runOperation:@"Patch" arguments:arguments];
 }
 

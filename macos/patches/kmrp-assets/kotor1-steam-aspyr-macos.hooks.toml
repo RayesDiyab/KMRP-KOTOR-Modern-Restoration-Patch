@@ -1,0 +1,192 @@
+[metadata]
+target_versions = ["C1FCB8D37C702849882A17751C63EE0AF7C2B9CBBC3B31B98A5F0EDBC27C6D71"]
+
+# KMRP's menu sets and artwork, from the module (assets.cpp).
+#
+# The client's start-up (0x10026c3f0) registers the game's resource directories one after
+# another; this is its call to CExoResMan::AddResourceDirectory (0x1003693bc) for "OVERRIDE:".
+# The handler makes that call and then registers KMRP's cache, which is then searched before the
+# override folder: a new key table goes to the head of the manager's list.
+#   0x10026c732  lea rsi, [rbp-0x40]     the name
+#   0x10026c736  mov rdi, rbx            the manager
+#   0x10026c739  call 0x1003693bc        <- here; a relative call, which cannot run from the
+#                                           wrapper, so the handler always consumes
+#   0x10026c73e  lea rdi, [rbp-0x40]     the game does not read the call's result
+[[hooks]]
+address = 0x10026c739
+type = "detour"
+function = "KmrpAddOverrideDirectory"
+original_bytes = [0xe8, 0x7e, 0xcc, 0x0f, 0x00]
+skip_original_bytes = true
+consumed_exit_address = 0x10026c73e
+exclude_from_restore = ["eax"]
+[[hooks.parameters]]
+source = "rdi"
+type = "pointer"
+[[hooks.parameters]]
+source = "rsi"
+type = "pointer"
+
+# The resolution changed in the game (resolution.cpp).
+#
+# The game's mode switch (0x10026ef34), at its call to Global::ReInitAurora (0x1004ac827), after
+# it has stored the new size and before the renderer is re-initialised and the menus are loaded
+# again. A relative call, so the handler makes it and always consumes; the routine does not read
+# its result.
+#   0x10026f0ec  call 0x1004ac827     edi width, esi height, edx depth, ecx windowed, r8d 1
+#   0x10026f0f1  mov [r12+0x274], r14d
+[[hooks]]
+address = 0x10026f0ec
+type = "detour"
+function = "KmrpModeSwitch"
+original_bytes = [0xe8, 0x36, 0xd7, 0x23, 0x00]
+skip_original_bytes = true
+consumed_exit_address = 0x10026f0f1
+exclude_from_restore = ["eax"]
+[[hooks.parameters]]
+source = "rdi"
+type = "int"
+[[hooks.parameters]]
+source = "rsi"
+type = "int"
+[[hooks.parameters]]
+source = "rdx"
+type = "int"
+[[hooks.parameters]]
+source = "rcx"
+type = "int"
+[[hooks.parameters]]
+source = "r8"
+type = "int"
+
+# The panels that exist when the resolution changes (layout.cpp): which layout file each panel
+# was loaded from, and which controls it bound by tag, so they can be given the new size's
+# extents. The stolen bytes are the prologues' pushes.
+#
+# CSWGuiPanel::StartLoadFromLayout, entry (Windows 0x0040A680): rdi the panel, rsi its CResRef.
+[[hooks]]
+address = 0x10049dfe4
+type = "detour"
+function = "KmrpPanelLayoutStart"
+original_bytes = [0x55, 0x48, 0x89, 0xe5, 0x41, 0x57]
+[[hooks.parameters]]
+source = "rdi"
+type = "pointer"
+[[hooks.parameters]]
+source = "rsi"
+type = "pointer"
+
+# CSWGuiPanel::InitControl, entry (Windows 0x0040B930): rdi the panel, rsi the control, rdx the tag.
+[[hooks]]
+address = 0x10049e476
+type = "detour"
+function = "KmrpPanelControl"
+original_bytes = [0x55, 0x48, 0x89, 0xe5, 0x41, 0x57]
+[[hooks.parameters]]
+source = "rdi"
+type = "pointer"
+[[hooks.parameters]]
+source = "rsi"
+type = "pointer"
+[[hooks.parameters]]
+source = "rdx"
+type = "pointer"
+
+# CSWGuiPanel::StopLoadFromLayout (0x10049d986), after its prologue: every panel constructor's
+# last call, where layout.cpp widens the lists its table says to. The entry itself is the
+# controller's (kmrp-controller, KmrpPanelReleaseGff, whose 6 stolen bytes end here); these 7 are
+# the next two instructions, nothing in them relative, and rdi is still the panel.
+#   0x10049d98c  mov rbx, rdi; test byte [rbx+0x5c], 2
+#   0x10049d993  jnz ...
+[[hooks]]
+address = 0x10049d98c
+type = "detour"
+function = "KmrpPanelLoaded"
+original_bytes = [0x48, 0x89, 0xfb, 0xf6, 0x43, 0x5c, 0x02]
+[[hooks.parameters]]
+source = "rdi"
+type = "pointer"
+
+# CSWGuiListBox::OrganizeControls (0x1004a82b4), the three places that hand a row its rectangle
+# (layout.cpp, list rows). Each is mov rax, [rdi]; lea rsi, [rbp-0x40], 7 bytes, nothing in them
+# relative, before call [rax+0x10]; no jump lands inside them (the loops' targets are 0x1004a88ae,
+# 0x1004a8927 and 0x1004a8944, 0x1004a89ae). The Stray Bug Fixes' two hooks in this routine are at
+# 0x1004a8927 and 0x1004a8939, before the second.
+[[hooks]]
+address = 0x1004a88be
+type = "detour"
+function = "KmrpListRow"
+original_bytes = [0x48, 0x8b, 0x07, 0x48, 0x8d, 0x75, 0xc0]
+[[hooks.parameters]]
+source = "r12"
+type = "pointer"
+[[hooks.parameters]]
+source = "rdi"
+type = "pointer"
+[[hooks.parameters]]
+source = "rbp"
+type = "pointer"
+
+[[hooks]]
+address = 0x1004a8950
+type = "detour"
+function = "KmrpListRow"
+original_bytes = [0x48, 0x8b, 0x07, 0x48, 0x8d, 0x75, 0xc0]
+[[hooks.parameters]]
+source = "r12"
+type = "pointer"
+[[hooks.parameters]]
+source = "rdi"
+type = "pointer"
+[[hooks.parameters]]
+source = "rbp"
+type = "pointer"
+
+[[hooks]]
+address = 0x1004a89be
+type = "detour"
+function = "KmrpListRow"
+original_bytes = [0x48, 0x8b, 0x07, 0x48, 0x8d, 0x75, 0xc0]
+[[hooks.parameters]]
+source = "r12"
+type = "pointer"
+[[hooks.parameters]]
+source = "rdi"
+type = "pointer"
+[[hooks.parameters]]
+source = "rbp"
+type = "pointer"
+
+# CSWGuiPanel::~CSWGuiPanel, entry (Windows 0x0040CF70): rdi the panel.
+[[hooks]]
+address = 0x10049d8c8
+type = "detour"
+function = "KmrpPanelDestroyed"
+original_bytes = [0x55, 0x48, 0x89, 0xe5, 0x41, 0x56]
+[[hooks.parameters]]
+source = "rdi"
+type = "pointer"
+
+# The sizes the game's Screen Resolution list accepts (resolution.cpp): the game's whitelist
+# routine, at its entry. The stolen bytes are its prologue and its first comparison, cmp esi, 800,
+# which run again when the handler does not accept the size; an accepted size leaves through the
+# routine's own `pop rbp; ret` with the handler's 1.
+#   0x10026f1ee  push rbp; mov rbp, rsp; cmp esi, 0x320
+#   0x10026f1f8  mov eax, 1; jnz ...
+#   0x10026f246  pop rbp; ret
+[[hooks]]
+address = 0x10026f1ee
+type = "detour"
+function = "KmrpResolutionKnown"
+original_bytes = [0x55, 0x48, 0x89, 0xe5, 0x81, 0xfe, 0x20, 0x03, 0x00, 0x00]
+consumed_exit_address = 0x10026f246
+exclude_from_restore = ["eax"]
+[[hooks.parameters]]
+source = "rdi"
+type = "pointer"
+[[hooks.parameters]]
+source = "rsi"
+type = "int"
+[[hooks.parameters]]
+source = "rdx"
+type = "int"

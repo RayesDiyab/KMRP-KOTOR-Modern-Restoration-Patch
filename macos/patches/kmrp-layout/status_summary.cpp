@@ -280,6 +280,8 @@ bool Update(void* manager, Result* out) {
 // CSWGuiManager::Update, entry (0x10049f636; Windows 0x0040CE70, StatusSummaryFrameK1): the GUI's
 // own frame, hooked here only in the build without controller support, whose own hook on the
 // same entry (gui.cpp, KmrpGuiFrame) calls summary::Update itself.
+namespace kmrp { extern void (*g_frameHook)(void* manager); }
 extern "C" __attribute__((visibility("default"))) void KmrpCoreGuiFrame(void* manager) {
+    if (kmrp::g_frameHook) kmrp::g_frameHook(manager);
     kmrp::summary::Update(manager, nullptr);
 }

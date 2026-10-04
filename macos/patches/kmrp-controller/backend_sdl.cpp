@@ -26,6 +26,7 @@
 #include <time.h>
 
 namespace kmrp {
+extern const char* (*g_sdlPath)();   // kmrp-layout/kmrp_layout.cpp
 namespace {
 
 #define SDL_FUNCTIONS(X) \
@@ -61,7 +62,8 @@ double Now() {
     return t.tv_sec + t.tv_nsec / 1e9;
 }
 
-// Resolves the library beside this module, else beside the game (KOTOR_Exe), never one from
+// Resolves the library the module carries itself, since 2026-10-04 (kmrp-assets, which unpacks
+// it to KMRP's cache), else beside this module, else beside the game (KOTOR_Exe), never one from
 // elsewhere. KMRP's installer puts it beside the game: KPM extracts only a patch's module, and
 // its Apply empties patches/, so under KPM's runtime this module's folder has no SDL
 // (K1ControllerBackend.cpp looks in the same two places on Windows).
@@ -69,8 +71,16 @@ void Load() {
     Dl_info self;
     if (!dladdr(reinterpret_cast<const void*>(&Load), &self) || !self.dli_fname) return;
     std::string path = self.dli_fname;
-    path = path.substr(0, path.rfind('/') + 1) + "kmrp-sdl3.dylib";
-    void* lib = dlopen(path.c_str(), RTLD_NOW | RTLD_LOCAL);
+    void* lib = nullptr;
+    if (const char* carried = g_sdlPath ? g_sdlPath() : nullptr) {
+        path = carried;
+        lib = dlopen(path.c_str(), RTLD_NOW | RTLD_LOCAL);
+    }
+    if (!lib) {
+        path = self.dli_fname;
+        path = path.substr(0, path.rfind('/') + 1) + "kmrp-sdl3.dylib";
+        lib = dlopen(path.c_str(), RTLD_NOW | RTLD_LOCAL);
+    }
     if (!lib) {
         char exe[4096];
         uint32_t size = sizeof(exe);

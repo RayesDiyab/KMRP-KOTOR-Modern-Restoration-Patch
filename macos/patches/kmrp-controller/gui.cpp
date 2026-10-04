@@ -37,6 +37,8 @@
 #include "pad.h"
 #include "prompts.h"
 #include "state.h"
+#include "../kmrp-layout/options.h"
+#include "../kmrp-layout/status_summary.h"
 
 #include <mach/mach.h>
 #include <mach/mach_vm.h>
@@ -46,6 +48,7 @@
 #include <cstdlib>
 #include <cstring>
 
+namespace kmrp { extern void (*g_frameHook)(void* manager); }   // kmrp-layout/kmrp_layout.cpp
 namespace kmrp {
 namespace gui {
 namespace {
@@ -913,7 +916,17 @@ extern "C" __attribute__((visibility("default"))) void KmrpPanelHandleInputEvent
 // own frame, where focus moves are made, the screen remaps and the party switch performed, and
 // the right stick scrolls descriptions; then the prompts and the cursor catch up with all of it
 // (prompts.cpp), so a badge that follows the focus is painted on the frame the focus moved.
+//
+// The one hook the module shares with the build without controller support (kmrp-layout's
+// KmrpCoreGuiFrame): two hooks on one address, one per value of the option, are refused by a
+// manager without options, so the patch with options keeps this one whatever was chosen and the
+// choice is made here. With the controller off, the frame is the status summary's alone.
 extern "C" __attribute__((visibility("default"))) void KmrpGuiFrame(void* manager) {
+    if (kmrp::g_frameHook) kmrp::g_frameHook(manager);
+    if (!kmrp::ControllerOption()) {
+        kmrp::summary::Update(manager, nullptr);
+        return;
+    }
     PerformPartySwitch();
     UpdateDescriptionScroll();
     PerformRemap();
