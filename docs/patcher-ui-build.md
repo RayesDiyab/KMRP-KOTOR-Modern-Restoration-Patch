@@ -24,6 +24,7 @@ longer holds:
 | Advanced Settings with three rows | four: Debug Logs, off by default, is the fourth (`KmrpSettings.DebugLogs`, the patch's `debug-logs` option). The rows share the card's height, 86 px each where four fit |
 | The options written into `patch_config.toml` | written to `configs\kmrp.ini`, section `[Patch Options]` (`WritePatchOptions`); a manifest row `options` records it for restore |
 | `tools/build_kpatch.py`, `tools/check_patcher_hook_table.py`, `src/controller-native/build.cmd` | removed on 2026-10-04; `tools/kpatch_common.py` holds the shared helpers |
+| The resolution checklist as a plain tick list of the sizes that fit the desktop | an owner-drawn list of every size KMRP has, in three sections (*This display*, *Fits this display*, *Larger than this display*), each row with its shape and common name (`ResolutionsDialog.DrawRow`, `ResolutionSelection.Aspect` and `CommonName`) |
 
 This document describes the shipping Windows patcher in
 `src/patcher/KmrpPatcher.cs`, the assets compiled into it, and the

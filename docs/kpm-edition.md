@@ -88,8 +88,10 @@ window was 2000x1200 at 720,120 during the intro movies and at the main menu, an
 again after the game was minimised and brought back (a new window). The system cursor
 stayed within 720..2719 by 120..1319, the game's cursor was drawn where it was, and a
 click on Options opened the options screen. `Test-InstallerPatch.ps1` checks the file
-the installer writes and that restore removes it. Not run: a size larger than the
-display, more than one display, and KPM's own launcher writing the file (its PR is
+the installer writes and that restore removes it. A size larger than the display (3840x2160)
+stays at the top left corner, by design, and its right and bottom are off the
+screen; the checklist offers such sizes under their own heading since later that
+day. Not run: more than one display, and KPM's own launcher writing the file (its PR is
 not merged).
 
 ## Source-built Windows patches (2026-10-01)

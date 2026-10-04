@@ -406,6 +406,9 @@ draws every badge again for its blended button, with the build's own arithmetic,
 button-row boxes (`lbl_mileftbot.tga`) from the blended HUD; a set the blend resolves to itself
 comes out with the build's files byte for byte. Built and tested on Windows only so far:
 [`docs/macos-changes-from-windows.md`](../docs/macos-changes-from-windows.md), items 1 to 3.
+What comes next for the Mac, KMRP as one standalone `.kpatch` with options as Windows
+is since 2026-10-04, is in
+[`docs/macos-standalone-kpatch-handoff.md`](../docs/macos-standalone-kpatch-handoff.md).
 
 **Made from the player's game.** The four hex frames list rows tile behind item icons
 (`lbl_hex*`, `56s`), the tutorial popup's thirteen `tut_*` icons (`64s`) and `tutorial.2da`

@@ -15,7 +15,7 @@ of KMRP (the maintainer, 2026-10-04, after a day on which they were one). A hook
 belongs to an option carries `when`. No address has two hooks, so a KOTOR Patch
 Manager without patch options (0.7.1), which ignores `when` and the options, installs
 every hook: every option at its default. The module reads what was chosen from the
-[Patch Options] section of configs\kmrp.ini in the game folder, where a KOTOR Patch
+[Patch Options] section of configs/kmrp.ini in the game folder, where a KOTOR Patch
 Manager with options records it, and takes a missing file, section or value as the
 default (src/controller-native/KmrpOptions.h).
 
@@ -26,7 +26,7 @@ patch's hooks as patch_config.toml blocks, in one file per condition:
   kmrp.hooks.<option>.toml        the hooks of one option, installed when it is on
 
 The installer writes the patch's header and the hooks of the options the player
-kept into patch_config.toml, and the chosen values into configs\kmrp.ini
+kept into patch_config.toml, and the chosen values into configs/kmrp.ini
 (KpmEditionOperations.InstallEngine).
 
 The hooks are those of kotor1.hooks.toml (its "kmrp", "kmrp-movies" and

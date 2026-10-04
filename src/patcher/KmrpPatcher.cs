@@ -5205,6 +5205,9 @@ namespace Kmrp
             internal int Height;
             internal bool Display;     // the display reports it
             internal bool Current;     // the display is at it now
+            internal bool Checked;     // ticked in the checklist
+            internal bool Custom;      // the player's own: neither the display's nor a listed size
+            internal bool TooLarge;    // wider or taller than the desktop
             internal string Key { get { return Width.ToString(CultureInfo.InvariantCulture) + "x" +
                 Height.ToString(CultureInfo.InvariantCulture); } }
             public override string ToString()
@@ -5218,6 +5221,59 @@ namespace Kmrp
         }
 
         private static readonly Dictionary<string, bool> covered = new Dictionary<string, bool>();
+
+        /// <summary>The shape of a size as people name it, "16:9" or "21:9": the nearest
+        /// common ratio when it is within a few hundredths, otherwise the reduced
+        /// fraction.</summary>
+        internal static string Aspect(int width, int height)
+        {
+            string[] names = { "5:4", "4:3", "3:2", "16:10", "5:3", "16:9", "21:9", "32:9" };
+            double[] values = { 5.0 / 4, 4.0 / 3, 3.0 / 2, 16.0 / 10, 5.0 / 3, 16.0 / 9, 2.37, 32.0 / 9 };
+            double ratio = (double)width / height;
+            int best = 0;
+            for (int i = 1; i < values.Length; i++)
+                if (Math.Abs(values[i] - ratio) < Math.Abs(values[best] - ratio))
+                    best = i;
+            if (Math.Abs(values[best] - ratio) <= 0.035)
+                return names[best];
+            int a = width, b = height;
+            while (b != 0) { int rest = a % b; a = b; b = rest; }
+            // A fraction nobody would say, 735:478, reads better as a number.
+            if (width / a > 21 || height / a > 10)
+                return ratio.ToString("0.00", CultureInfo.InvariantCulture) + ":1";
+            return (width / a).ToString(CultureInfo.InvariantCulture) + ":" +
+                (height / a).ToString(CultureInfo.InvariantCulture);
+        }
+
+        /// <summary>What a size is commonly called, or "".</summary>
+        internal static string CommonName(int width, int height)
+        {
+            switch (width.ToString(CultureInfo.InvariantCulture) + "x" + height.ToString(CultureInfo.InvariantCulture))
+            {
+                case "800x600": return "SVGA";
+                case "1024x768": return "XGA";
+                case "1280x720": return "HD 720p";
+                case "1280x800": return "Steam Deck handheld";
+                case "1280x1024": return "SXGA";
+                case "1366x768": return "HD";
+                case "1600x900": return "HD+";
+                case "1600x1200": return "UXGA";
+                case "1920x1080": return "Full HD 1080p";
+                case "1920x1200": return "WUXGA";
+                case "2560x1080": return "Ultrawide Full HD";
+                case "2560x1440": return "QHD 1440p";
+                case "2560x1600": return "WQXGA";
+                case "3440x1440": return "Ultrawide QHD";
+                case "3840x1080": return "Super ultrawide Full HD";
+                case "3840x1600": return "Ultrawide QHD+";
+                case "3840x2160": return "4K UHD";
+                case "5120x1440": return "Super ultrawide QHD";
+                case "5120x2160": return "Ultrawide 5K";
+                case "5120x2880": return "5K";
+                case "7680x4320": return "8K UHD";
+                default: return "";
+            }
+        }
 
         /// <summary>KMRP has a layout for the size: a listed one, or one it blends.</summary>
         internal static bool Covered(int width, int height)
@@ -5354,12 +5410,23 @@ namespace Kmrp
     }
 
     /// <summary>Step 3's "Choose": the checklist of resolutions the game will offer.
-    /// This display's sizes come ticked; the catalogue's other sizes that fit on the
-    /// desktop, and any size of the player's own, can be ticked too and run in a
+    /// This display's sizes come ticked; every other size KMRP lists, in two further
+    /// sections by whether it fits on the desktop (until 2026-10-04 only those that fit
+    /// were shown), and any size of the player's own, can be ticked too and run in a
     /// window. Done saves the choice to KMRP's settings; the next install applies it.</summary>
     internal sealed class ResolutionsDialog : Form
     {
-        private readonly CheckedListBox list;
+        private sealed class Header
+        {
+            internal string Title;
+            internal string Note;
+        }
+
+        // Every size the checklist can show, and the list box that draws them in
+        // sections: a heading row, then that section's sizes.
+        private readonly List<ResolutionSelection.Entry> entries = new List<ResolutionSelection.Entry>();
+        private readonly ListBox list;
+        private readonly Font sizeFont, detailFont, headerFont;
         private readonly Label message;
         private readonly float scale;
 
@@ -5388,21 +5455,40 @@ namespace Kmrp
 
             Label body = new Label();
             body.Text = "Ticked sizes are offered in the game, under Options, Graphics, Screen Resolution. " +
-                "The sizes this display supports are ticked. A size it does not support runs in a window.";
+                "The sizes this display supports are ticked. Any other size runs in a window.";
             body.Font = new Font("Segoe UI", Points(12F));
             body.ForeColor = UiTheme.TextMuted;
             body.BackColor = UiTheme.Card;
             body.SetBounds(Px(32), Px(72), Px(696), Px(56));
             Controls.Add(body);
 
-            list = new CheckedListBox();
-            list.CheckOnClick = true;
+            sizeFont = new Font("Segoe UI Semibold", Points(13F));
+            detailFont = new Font("Segoe UI", Points(11.5F));
+            headerFont = new Font("Segoe UI Semibold", Points(10.5F));
+            list = new ListBox();
+            list.DrawMode = DrawMode.OwnerDrawFixed;
+            list.ItemHeight = Px(34);
             list.IntegralHeight = false;
             list.BorderStyle = BorderStyle.FixedSingle;
             list.BackColor = UiTheme.Field;
             list.ForeColor = UiTheme.Text;
-            list.Font = new Font("Segoe UI", Points(13F));
+            list.Font = sizeFont;
             list.SetBounds(Px(32), Px(140), Px(696), Px(388));
+            list.HandleCreated += delegate { MainForm.UseDarkScrollBars(list.Handle); };
+            list.DrawItem += DrawRow;
+            list.MouseDown += delegate(object sender, MouseEventArgs e)
+            {
+                if (e.Button == MouseButtons.Left)
+                    Toggle(list.IndexFromPoint(e.Location));
+            };
+            list.KeyDown += delegate(object sender, KeyEventArgs e)
+            {
+                if (e.KeyCode == Keys.Space)
+                {
+                    Toggle(list.SelectedIndex);
+                    e.Handled = true;
+                }
+            };
             Controls.Add(list);
 
             message = new Label();
@@ -5440,45 +5526,155 @@ namespace Kmrp
             Fill();
         }
 
+        /// <summary>The model: the display's sizes, ticked unless the player unticked
+        /// them; every other size KMRP lists, whatever the desktop's size; and the
+        /// player's own. A size wider or taller than the desktop is offered too and
+        /// marked: its window does not fit on the display.</summary>
         private void Fill()
         {
             List<string> off = ResolutionSelection.Keys(KmrpSettings.ResolutionsOff);
             List<string> extra = ResolutionSelection.Keys(KmrpSettings.ResolutionsExtra);
-            List<ResolutionSelection.Entry> display = ResolutionSelection.DisplaySizes();
-            foreach (ResolutionSelection.Entry entry in display)
-                list.Items.Add(entry, !off.Contains(entry.Key));
-
-            // The other sizes KMRP lists that fit on the desktop, then the player's own.
-            int[] desktop = ResolutionSelection.CurrentSize();
-            List<ResolutionSelection.Entry> others = new List<ResolutionSelection.Entry>();
-            foreach (ResolutionChoice choice in ResolutionCatalog.Load())
+            foreach (ResolutionSelection.Entry entry in ResolutionSelection.DisplaySizes())
             {
-                if (desktop != null && (choice.Width > desktop[0] || choice.Height > desktop[1]))
-                    continue;
-                AddOther(others, display, choice.Width, choice.Height);
+                entry.Checked = !off.Contains(entry.Key);
+                entries.Add(entry);
             }
+            foreach (ResolutionChoice choice in ResolutionCatalog.Load())
+                AddOther(choice.Width, choice.Height, false, extra);
             foreach (string key in extra)
             {
                 string[] parts = key.Split('x');
-                AddOther(others, display, Int32.Parse(parts[0], CultureInfo.InvariantCulture),
-                    Int32.Parse(parts[1], CultureInfo.InvariantCulture));
+                AddOther(Int32.Parse(parts[0], CultureInfo.InvariantCulture),
+                    Int32.Parse(parts[1], CultureInfo.InvariantCulture), true, extra);
             }
-            others.Sort((a, b) => a.Width != b.Width ? a.Width.CompareTo(b.Width) : a.Height.CompareTo(b.Height));
-            foreach (ResolutionSelection.Entry entry in others)
-                list.Items.Add(entry, extra.Contains(entry.Key));
+            Rebuild(null);
         }
 
-        private static void AddOther(List<ResolutionSelection.Entry> others, List<ResolutionSelection.Entry> display,
-            int width, int height)
+        private ResolutionSelection.Entry AddOther(int width, int height, bool custom, List<string> ticked)
         {
-            if (display.Exists(e => e.Width == width && e.Height == height) ||
-                others.Exists(e => e.Width == width && e.Height == height) ||
+            if (entries.Exists(e => e.Width == width && e.Height == height) ||
                 !ResolutionSelection.Covered(width, height))
-                return;
+                return null;
+            int[] desktop = ResolutionSelection.CurrentSize();
             ResolutionSelection.Entry entry = new ResolutionSelection.Entry();
             entry.Width = width;
             entry.Height = height;
-            others.Add(entry);
+            entry.Custom = custom;
+            entry.TooLarge = desktop != null && (width > desktop[0] || height > desktop[1]);
+            entry.Checked = ticked != null && ticked.Contains(entry.Key);
+            entries.Add(entry);
+            return entry;
+        }
+
+        /// <summary>Lays the model out as rows: three sections, each a heading and its
+        /// sizes smallest first, an empty section left out.</summary>
+        private void Rebuild(ResolutionSelection.Entry select)
+        {
+            int top = list.TopIndex;
+            list.BeginUpdate();
+            list.Items.Clear();
+            AddSection("THIS DISPLAY", "fullscreen", e => e.Display);
+            AddSection("FITS THIS DISPLAY", "runs in a window", e => !e.Display && !e.TooLarge);
+            // Measured: 3840x2160 on a 3440x1440 display is a window at the display's top
+            // left corner, of which the right and the bottom are off the screen.
+            AddSection("LARGER THAN THIS DISPLAY", "cut off at the right and bottom", e => !e.Display && e.TooLarge);
+            list.EndUpdate();
+            if (select != null)
+            {
+                list.SelectedIndex = list.Items.IndexOf(select);
+                return;
+            }
+            if (top > 0 && top < list.Items.Count)
+                list.TopIndex = top;
+        }
+
+        private void AddSection(string title, string note, Predicate<ResolutionSelection.Entry> belongs)
+        {
+            List<ResolutionSelection.Entry> rows = entries.FindAll(belongs);
+            if (rows.Count == 0)
+                return;
+            rows.Sort((a, b) => a.Width != b.Width ? a.Width.CompareTo(b.Width) : a.Height.CompareTo(b.Height));
+            Header header = new Header();
+            header.Title = title;
+            header.Note = note;
+            list.Items.Add(header);
+            foreach (ResolutionSelection.Entry entry in rows)
+                list.Items.Add(entry);
+        }
+
+        private void Toggle(int index)
+        {
+            if (index < 0 || index >= list.Items.Count)
+                return;
+            ResolutionSelection.Entry entry = list.Items[index] as ResolutionSelection.Entry;
+            if (entry == null)
+                return;
+            entry.Checked = !entry.Checked;
+            message.Text = "";
+            list.Invalidate(list.GetItemRectangle(index));
+        }
+
+        /// <summary>One row. A heading: its title in the accent colour, what the section
+        /// means beside it, a hairline beneath. A size: a tick box, the size, its shape,
+        /// its common name, and on the right "current" or "custom".</summary>
+        private void DrawRow(object sender, DrawItemEventArgs e)
+        {
+            if (e.Index < 0 || e.Index >= list.Items.Count)
+                return;
+            Graphics g = e.Graphics;
+            Rectangle r = e.Bounds;
+            Header header = list.Items[e.Index] as Header;
+            bool selected = header == null && (e.State & DrawItemState.Selected) != 0;
+            using (SolidBrush back = new SolidBrush(selected ? UiTheme.CardHover : UiTheme.Field))
+                g.FillRectangle(back, r);
+            const TextFormatFlags Left = TextFormatFlags.Left | TextFormatFlags.VerticalCenter |
+                TextFormatFlags.NoPrefix | TextFormatFlags.NoPadding | TextFormatFlags.SingleLine;
+            if (header != null)
+            {
+                int width = TextRenderer.MeasureText(g, header.Title, headerFont, r.Size, Left).Width;
+                Rectangle line = new Rectangle(r.X + Px(14), r.Y + Px(6), r.Width - Px(28), r.Height - Px(8));
+                TextRenderer.DrawText(g, header.Title, headerFont, line, UiTheme.Accent, Left);
+                line.X += width + Px(12);
+                line.Width -= width + Px(12);
+                TextRenderer.DrawText(g, header.Note, detailFont, line, UiTheme.TextMuted, Left);
+                using (Pen rule = new Pen(UiTheme.CardEdge))
+                    g.DrawLine(rule, r.X + Px(14), r.Bottom - 1, r.Right - Px(14), r.Bottom - 1);
+                return;
+            }
+
+            ResolutionSelection.Entry entry = (ResolutionSelection.Entry)list.Items[e.Index];
+            int box = Px(18);
+            Rectangle check = new Rectangle(r.X + Px(18), r.Y + (r.Height - box) / 2, box, box);
+            System.Drawing.Drawing2D.SmoothingMode smoothing = g.SmoothingMode;
+            g.SmoothingMode = System.Drawing.Drawing2D.SmoothingMode.AntiAlias;
+            using (SolidBrush fill = new SolidBrush(entry.Checked ? UiTheme.Accent : UiTheme.Field))
+                g.FillRectangle(fill, check);
+            using (Pen edge = new Pen(entry.Checked ? UiTheme.Accent : UiTheme.Border))
+                g.DrawRectangle(edge, check);
+            if (entry.Checked)
+                using (Pen tick = new Pen(UiTheme.Window, Math.Max(1.6F, 2F * scale)))
+                    g.DrawLines(tick, new[]
+                    {
+                        new PointF(check.X + box * 0.22F, check.Y + box * 0.52F),
+                        new PointF(check.X + box * 0.43F, check.Y + box * 0.72F),
+                        new PointF(check.X + box * 0.80F, check.Y + box * 0.28F),
+                    });
+            g.SmoothingMode = smoothing;
+
+            string size = entry.Width.ToString(CultureInfo.InvariantCulture) + " \u00D7 " +
+                entry.Height.ToString(CultureInfo.InvariantCulture);
+            TextRenderer.DrawText(g, size, sizeFont, new Rectangle(r.X + Px(52), r.Y, Px(170), r.Height),
+                entry.Checked ? UiTheme.Text : UiTheme.TextMuted, Left);
+            TextRenderer.DrawText(g, ResolutionSelection.Aspect(entry.Width, entry.Height), detailFont,
+                new Rectangle(r.X + Px(226), r.Y, Px(70), r.Height), UiTheme.TextMuted, Left);
+            TextRenderer.DrawText(g, ResolutionSelection.CommonName(entry.Width, entry.Height), detailFont,
+                new Rectangle(r.X + Px(300), r.Y, Px(250), r.Height), UiTheme.TextMuted, Left);
+            string tag = entry.Current ? "current" : entry.Custom ? "custom" : "";
+            if (tag.Length > 0)
+                TextRenderer.DrawText(g, tag, detailFont, new Rectangle(r.Right - Px(130), r.Y, Px(112), r.Height),
+                    entry.Current ? UiTheme.Accent : UiTheme.Gold,
+                    TextFormatFlags.Right | TextFormatFlags.VerticalCenter | TextFormatFlags.NoPrefix |
+                    TextFormatFlags.NoPadding | TextFormatFlags.SingleLine);
         }
 
         private void AddCustom()
@@ -5489,20 +5685,14 @@ namespace Kmrp
                     picked = dialog.Choice;
             if (picked == null)
                 return;
-            for (int i = 0; i < list.Items.Count; i++)
-            {
-                ResolutionSelection.Entry item = (ResolutionSelection.Entry)list.Items[i];
-                if (item.Width == picked.Width && item.Height == picked.Height)
-                {
-                    list.SetItemChecked(i, true);
-                    list.SelectedIndex = i;
-                    return;
-                }
-            }
-            ResolutionSelection.Entry entry = new ResolutionSelection.Entry();
-            entry.Width = picked.Width;
-            entry.Height = picked.Height;
-            list.SelectedIndex = list.Items.Add(entry, true);
+            ResolutionSelection.Entry entry = entries.Find(e => e.Width == picked.Width && e.Height == picked.Height);
+            if (entry == null)
+                entry = AddOther(picked.Width, picked.Height, true, null);
+            if (entry == null)
+                return;
+            entry.Checked = true;
+            message.Text = "";
+            Rebuild(entry);
         }
 
         private void Accept()
@@ -5510,15 +5700,13 @@ namespace Kmrp
             List<string> off = new List<string>();
             List<string> extra = new List<string>();
             bool anyDisplay = false;
-            for (int i = 0; i < list.Items.Count; i++)
+            foreach (ResolutionSelection.Entry entry in entries)
             {
-                ResolutionSelection.Entry entry = (ResolutionSelection.Entry)list.Items[i];
-                bool ticked = list.GetItemChecked(i);
-                if (entry.Display && ticked)
+                if (entry.Display && entry.Checked)
                     anyDisplay = true;
-                if (entry.Display && !ticked)
+                if (entry.Display && !entry.Checked)
                     off.Add(entry.Key);
-                if (!entry.Display && ticked)
+                if (!entry.Display && entry.Checked)
                     extra.Add(entry.Key);
             }
             if (!anyDisplay)
@@ -6852,6 +7040,17 @@ namespace Kmrp
                 if (DwmSetWindowAttribute(handle, 20, ref on, sizeof(int)) != 0)
                     DwmSetWindowAttribute(handle, 19, ref on, sizeof(int));
             }
+            catch { }
+        }
+
+        [DllImport("uxtheme.dll", CharSet = CharSet.Unicode)]
+        private static extern int SetWindowTheme(IntPtr window, string application, string idList);
+
+        /// <summary>Ask for the shell's dark scrollbars on a control that draws its own
+        /// rows on a dark ground. Where the theme does not exist the light ones stay.</summary>
+        internal static void UseDarkScrollBars(IntPtr handle)
+        {
+            try { SetWindowTheme(handle, "DarkMode_Explorer", null); }
             catch { }
         }
 

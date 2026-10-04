@@ -109,6 +109,21 @@ proxy, and it applies the executable changes above as well.
 
 ## [Unreleased]
 
+- **The resolution checklist shows every size KMRP has, in sections** (2026-10-04).
+  Step 3's **Choose** listed the display's sizes and, of KMRP's other sizes, only
+  those no larger than the desktop, so 3840x2160 was missing on a 3440x1440
+  display. It now lists all of them under three headings: *This display*
+  (fullscreen, ticked), *Fits this display* (runs in a window) and *Larger than
+  this display* (cut off at the right and bottom). Each row shows the size, its
+  shape (16:9, 21:9, or a number such as 1.55:1 for a shape without a common name)
+  and its common name where it has one (4K UHD, Ultrawide QHD, Steam Deck handheld);
+  the display's current size is marked *current* and a size the player typed
+  *custom*. The list draws its own rows and has the shell's dark scrollbar.
+  Measured: 3840x2160 on that display ran as a 3840x2160 window at the top left
+  corner with the main menu's lower buttons off the screen, which is what the third
+  heading says. The dialog was looked at through a harness that opens it alone, not
+  from the installer's own window.
+
 - **Options in `configs`, and debug logs off by default** (2026-10-04, after the
   entry below).
   - **Where the options are recorded.** `configs\kmrp.ini` in the game folder,

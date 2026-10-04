@@ -406,6 +406,9 @@ apply again: KMRP installs.
 
 ## 15. One self-contained patch with options, as Windows now is
 
+*Start with [the handoff](macos-standalone-kpatch-handoff.md): it puts this item and
+items 14 and 16 in order, with the state at the end of 2026-10-04.*
+
 **What was decided** (the maintainer, 2026-10-04): "Macos is next to become like the
 windows version as a one file kpatcher with options." Windows changed that day; this
 item says what Windows did, so the Mac can do the same in its own terms. The full
