@@ -720,7 +720,8 @@ its import table — so nothing in the engine competes for this.
 
 `UpdateCursorConfinementK1` runs from `NativeGuiFrameK1`, the per-frame GUI hook,
 and clips the cursor to the game window's client rectangle whenever KOTOR owns
-the foreground window and is not minimised.
+the foreground window, is not minimised, and its client rectangle covers its
+whole monitor (fullscreen).
 
 | Case | Behaviour | Why |
 | --- | --- | --- |
@@ -728,7 +729,7 @@ the foreground window and is not minimised.
 | Alt-Tab, another app takes focus | released | Windows drops a clip when the foreground window changes; the explicit release covers focus loss without one |
 | Minimised | released | `IsIconic` |
 | Game exits or crashes | released | the clip does not outlive the process, so a crash cannot leave the pointer trapped |
-| Windowed | clipped to the window, not the monitor | it follows the window rectangle |
+| Windowed | not clipped, and released if it was | a window that does not cover its monitor must be leavable. Until 2026-10-04 it was clipped to the window, which trapped the cursor inside a windowed game (play-tested) |
 
 The diagnostic line reports `cur=<clipped>/<takes>/<releases>`.
 

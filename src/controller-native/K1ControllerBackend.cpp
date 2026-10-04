@@ -1,5 +1,8 @@
 #include "K1ControllerBackend.h"
 #include <SDL3/SDL.h>
+#ifdef KMRP_NATIVE_RUNTIME
+#include "K1RuntimeAssets.h"
+#endif
 #define SDL_MAIN_HANDLED
 #include <SDL3/SDL_main.h>
 #include <cstdlib>
@@ -61,6 +64,17 @@ void InitSdl()
                 LOAD_LIBRARY_SEARCH_DLL_LOAD_DIR | LOAD_LIBRARY_SEARCH_SYSTEM32);
         }
     }
+#ifdef KMRP_NATIVE_RUNTIME
+    // The standalone module has no installer to put SDL beside the game: it carries
+    // the library and unpacks it with its other files. Still an owned, absolute path.
+    if (!lib) {
+        const std::wstring cached = KmrpRuntimeAssetDirectory() + L"\\kmrp-sdl3.dll";
+        if (cached.size() < MAX_PATH) {
+            lib = LoadLibraryExW(cached.c_str(), nullptr,
+                LOAD_LIBRARY_SEARCH_DLL_LOAD_DIR | LOAD_LIBRARY_SEARCH_SYSTEM32);
+        }
+    }
+#endif
     if (!lib) return; // Xbox remains available if SDL is absent or rejected.
 #define RESOLVE(name) p##name = reinterpret_cast<decltype(&name)>(GetProcAddress(lib, #name)); if (!p##name) { FreeLibrary(lib); return; }
     SDL_FUNCTIONS(RESOLVE)

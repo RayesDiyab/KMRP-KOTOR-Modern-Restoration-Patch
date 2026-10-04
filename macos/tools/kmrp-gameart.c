@@ -30,11 +30,19 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-#include <strings.h>
 #include <sys/stat.h>
+#ifdef _WIN32
+#include <direct.h>
+#define strcasecmp _stricmp
+#define mkdir(path, mode) _mkdir(path)
+#else
+#include <strings.h>
+#endif
 
 /* The same rounding as the C# at every step: no fused multiply-add. */
+#ifndef _MSC_VER
 #pragma STDC FP_CONTRACT OFF
+#endif
 
 enum { TPC_HEADER = 128, ERF_KEY_SIZE = 24, ERF_RESOURCE_SIZE = 8, TYPE_TPC = 3007, TYPE_2DA = 2017 };
 enum { FRAME_BASE = 56, TUTORIAL_ICON_BASE = 64 };
@@ -400,11 +408,21 @@ static int add_tutorial_table(const char *key_path) {
     return 1;
 }
 
+#ifdef KMRP_EMBEDDED
+/* Windows standalone module: called once per resolution, in the game process. */
+#define main gameart_main
+static Buffer embedded_pack;
+#define erf embedded_pack
+#endif
 int main(int argc, char **argv) {
     if (argc != 5) { fprintf(stderr, "usage: kmrp-gameart ERF KEY HEIGHT OUTDIR\n"); return 2; }
     int height = atoi(argv[3]);
     if (height < 480) { fprintf(stderr, "kmrp-gameart: bad height\n"); return 2; }
+#ifdef KMRP_EMBEDDED
+    erf = read_file(argv[1]);
+#else
     Buffer erf = read_file(argv[1]);
+#endif
     if (!erf.data || erf.size < 32 || memcmp(erf.data, "ERF ", 4) != 0) { fail("the texture pack could not be read"); return 1; }
 
     int frame_size = scaled_size(FRAME_BASE, height), icon_size = scaled_size(TUTORIAL_ICON_BASE, height);
@@ -429,3 +447,18 @@ int main(int argc, char **argv) {
     printf("%zu files (%d px frames, %d px tutorial icons)\n", output_count, frame_size, icon_size);
     return 0;
 }
+
+#ifdef KMRP_EMBEDDED
+#undef erf
+int KmrpGameArt(const char *erf, const char *key, unsigned height, const char *outdir) {
+    char text[16];
+    snprintf(text, sizeof text, "%u", height);
+    char *args[] = { "kmrp-gameart", (char *)erf, (char *)key, text, (char *)outdir };
+    for (size_t i = 0; i < output_count; i++) free(outputs[i].file.data);
+    output_count = 0;
+    int result = gameart_main(5, args);
+    /* The command-line tool exits after one run; here the pack is 100 MB per call. */
+    free(embedded_pack.data); embedded_pack.data = NULL; embedded_pack.size = 0;
+    return result;
+}
+#endif

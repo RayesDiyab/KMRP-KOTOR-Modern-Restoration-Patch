@@ -45,6 +45,7 @@ namespace {
 
 constexpr std::uintptr_t kRebuildMessage = 0x006252F0;   // thiscall, the box
 constexpr std::uintptr_t kCentreOnScreen = 0x0040A600;   // thiscall, the box
+constexpr std::uintptr_t kIconSide = 0x00626F95;         // the constructor's icon square
 
 constexpr std::size_t kExtent = 0x4, kList = 0x67C, kOk = 0x2F4, kCancel = 0x4B8, kIcon = 0x1B4;
 constexpr std::size_t kSavedMessageTop = 0x970, kIconFlags = 0x64, kButtonFlags = 0x44;
@@ -87,6 +88,20 @@ extern "C" void __cdecl FitMessageBoxK1(void* box) {
     if (!box) return;
     char* const base = static_cast<char*>(box);
     void* list = base + kList;
+    // The icon's square is set once, in the box's constructor (`mov eax, imm32` at
+    // 0x00626F94), and a box outlives a change of resolution: after a switch from
+    // 1440 to 1080 lines it kept its 128 px square under a 96 px icon, which tiled,
+    // while FixMessageLabel pushed the text down by the new 96 (play-tested
+    // 2026-10-04). The operand is the size for the resolution in force, so bring the
+    // square to it. Installed for one resolution the two never differ.
+    const std::int32_t side = *reinterpret_cast<const std::int32_t*>(kIconSide);
+    std::int32_t square[4];
+    std::memcpy(square, &At<std::int32_t>(box, kIcon + kExtent), sizeof square);
+    if (side >= 16 && side <= 1024 && (square[2] != side || square[3] != side)) {
+        square[0] += (square[2] - side) / 2;
+        square[2] = square[3] = side;
+        SetExtent(base + kIcon, square);
+    }
     const std::int32_t item = At<std::int32_t>(list, kListItem);
     if (item <= 0 || !Fits(list)) return;   // no text, or it needs the scrollbar: as the engine left it
     std::int32_t message[4], ok[4], cancel[4], icon[4], panel[4];

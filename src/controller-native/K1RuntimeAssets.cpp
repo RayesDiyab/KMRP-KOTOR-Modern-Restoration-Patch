@@ -14,6 +14,10 @@
 #include <cstdio>
 
 extern "C" int KmrpGuiBlend(const char*, unsigned, unsigned, const char*, const char*);
+extern "C" int KmrpGuiBlendCovers(const char*, unsigned, unsigned);
+// macos/tools/kmrp-abilityicons.c and kmrp-gameart.c, compiled with KMRP_EMBEDDED.
+extern "C" int KmrpAbilityIcons(const char* erf, unsigned height, const char* outdir, const char* reserved);
+extern "C" int KmrpGameArt(const char* erf, const char* key, unsigned height, const char* outdir);
 
 namespace {
 using Key = std::array<unsigned char, 32>;
@@ -58,6 +62,53 @@ struct Reader {
     }
 };
 
+const wchar_t kLockSuffix[] = L".lock";
+
+// Remove the caches of games that are no longer running. Each launch makes its
+// own directory (about 100 MB), and until 2026-10-04 nothing ever removed one:
+// 63 had collected in %TEMP%, 5.4 GB.
+//
+// A cache is this module's when it is a KMR*.tmp directory, the name
+// GetTempFileNameW gave it, holding the font atlas every size has. It is in use
+// while its game holds the lock beside it, which cannot be deleted then. A cache
+// from before the lock existed has none and is taken as stale. Only plain files
+// directly inside are removed: this module never makes a subdirectory, so one that
+// has any is left alone.
+void RemoveStaleCaches(const std::wstring& temp)
+{
+    WIN32_FIND_DATAW found{};
+    HANDLE search = FindFirstFileW((temp + L"KMR*.tmp").c_str(), &found);
+    if (search == INVALID_HANDLE_VALUE) return;
+    do {
+        if (!(found.dwFileAttributes & FILE_ATTRIBUTE_DIRECTORY) ||
+            (found.dwFileAttributes & FILE_ATTRIBUTE_REPARSE_POINT)) continue;
+        const std::wstring directory = temp + found.cFileName;
+        if (GetFileAttributesW((directory + L"\\dialogfont16x16.txi").c_str()) == INVALID_FILE_ATTRIBUTES) continue;
+        const std::wstring lock = directory + kLockSuffix;
+        if (GetFileAttributesW(lock.c_str()) != INVALID_FILE_ATTRIBUTES && !DeleteFileW(lock.c_str())) continue;
+        WIN32_FIND_DATAW file{};
+        HANDLE files = FindFirstFileW((directory + L"\\*").c_str(), &file);
+        if (files == INVALID_HANDLE_VALUE) continue;
+        bool plain = true;
+        do {
+            if (!wcscmp(file.cFileName, L".") || !wcscmp(file.cFileName, L"..")) continue;
+            if (file.dwFileAttributes & FILE_ATTRIBUTE_DIRECTORY) { plain = false; break; }
+        } while (FindNextFileW(files, &file));
+        FindClose(files);
+        if (!plain) continue;
+        files = FindFirstFileW((directory + L"\\*").c_str(), &file);
+        if (files == INVALID_HANDLE_VALUE) continue;
+        do {
+            if (!(file.dwFileAttributes & FILE_ATTRIBUTE_DIRECTORY))
+                DeleteFileW((directory + L"\\" + file.cFileName).c_str());
+        } while (FindNextFileW(files, &file));
+        FindClose(files);
+        RemoveDirectoryW(directory.c_str());
+        DeleteFileW((directory + L".reserved.txt").c_str());
+    } while (FindNextFileW(search, &found));
+    FindClose(search);
+}
+
 bool Initialize()
 {
     if (!groups.empty()) return true;
@@ -71,7 +122,7 @@ bool Initialize()
     if (!data || size < 48 || std::memcmp(data, "KNAST001", 8)) return false;
     Reader reader{data + 8, data + size};
     unsigned groupCount, objectCount;
-    if (!reader.integer(groupCount) || groupCount != 67 || !reader.integer(objectCount) || objectCount > 20000 ||
+    if (!reader.integer(groupCount) || groupCount != 67 || !reader.integer(objectCount) || objectCount > 60000 ||
         !reader.bytes(tableKey.data(), 32)) return false;
     std::vector<Group> parsed;
     for (unsigned i = 0; i < groupCount; ++i) {
@@ -95,10 +146,16 @@ bool Initialize()
     for (const auto& group : parsed) for (const auto& entry : group.entries) if (!bank.count(entry.key)) return false;
     if (!CreateDecompressor(COMPRESS_ALGORITHM_XPRESS_HUFF, nullptr, &decompressor)) return false;
     wchar_t temp[MAX_PATH], reserved[MAX_PATH];
-    if (!GetTempPathW(MAX_PATH, temp) || !GetTempFileNameW(temp, L"KMR", 0, reserved)) return false;
+    if (!GetTempPathW(MAX_PATH, temp)) return false;
+    RemoveStaleCaches(temp);
+    if (!GetTempFileNameW(temp, L"KMR", 0, reserved)) return false;
     // This is exclusively the empty reservation just created by this process.
     if (!DeleteFileW(reserved) || !CreateDirectoryW(reserved, nullptr)) return false;
     cache = reserved;
+    // Held for the life of the process and deleted with it, even on a crash: the
+    // next launch reads a lock it can delete as "that game is gone".
+    CreateFileW((cache + kLockSuffix).c_str(), GENERIC_WRITE, 0, nullptr, CREATE_ALWAYS,
+                FILE_ATTRIBUTE_TEMPORARY | FILE_FLAG_DELETE_ON_CLOSE, nullptr);
     objects.swap(bank); groups.swap(parsed);
     return true;
 }
@@ -181,6 +238,55 @@ bool RegisterDirectory()
     if (result) registered = true;
     return result != 0;
 }
+
+// The files KMRP makes from the player's own game, which no release may carry:
+// the tutorial popup's icons and tutorial.2da, the hex row frames, and the feat,
+// power and skill icons at this height's row size. The installer makes them once,
+// for the resolution it installs (GameArtGenerator.cs, AbilityIconGenerator.cs);
+// this module has no installer, so it makes them here, for every size, with the
+// Mac installer's two helpers. Without them the engine draws the game's 32 and 64
+// pixel icons one texel per pixel inside the enlarged boxes, where they tile
+// (play-tested 2026-10-04: the tutorial popup showed its icon four and sixteen
+// times).
+//
+// Not fatal: a game without its texture pack keeps the game's own icons.
+void GameArt(const Group& selected, int height)
+{
+    // Whatever the previous size's helpers made. Everything else in this
+    // directory is a bank file this process wrote and still owns.
+    WIN32_FIND_DATAW found{};
+    HANDLE search = FindFirstFileW((cache + L"\\*").c_str(), &found);
+    if (search != INVALID_HANDLE_VALUE) {
+        do {
+            if (found.dwFileAttributes & FILE_ATTRIBUTE_DIRECTORY) continue;
+            const std::wstring path = cache + L"\\" + found.cFileName;
+            if (!written.count(path)) DeleteFileW(path.c_str());
+        } while (FindNextFileW(search, &found));
+        FindClose(search);
+    }
+    char directory[MAX_PATH], game[MAX_PATH]; BOOL substituted = FALSE;
+    if (!WideCharToMultiByte(CP_ACP, WC_NO_BEST_FIT_CHARS, cache.c_str(), -1, directory, MAX_PATH, nullptr, &substituted) || substituted) return;
+    DWORD size = GetModuleFileNameA(nullptr, game, MAX_PATH);
+    char* slash = size && size < MAX_PATH ? std::strrchr(game, '\\') : nullptr;
+    if (!slash) return;
+    *slash = 0;
+    const std::string pack = std::string(game) + "\\TexturePacks\\swpc_tex_gui.erf";
+    const std::string key = std::string(game) + "\\chitin.key";
+    // The icons this size's bank already supplies are not the helper's to make.
+    // Beside the directory, not in it: the game must not see it as a resource.
+    const std::string reserved = std::string(directory) + ".reserved.txt";
+    FILE* list = nullptr;
+    if (!fopen_s(&list, reserved.c_str(), "w") && list) {
+        for (const auto& group : groups) {
+            if (&group != &selected && group.width != 0) continue;
+            for (const auto& entry : group.entries) fprintf(list, "%s\n", entry.name.c_str());
+        }
+        fclose(list);
+    }
+    KmrpAbilityIcons(pack.c_str(), static_cast<unsigned>(height), directory, reserved.c_str());
+    DeleteFileA(reserved.c_str());
+    KmrpGameArt(pack.c_str(), key.c_str(), static_cast<unsigned>(height), directory);
+}
 }
 
 const std::wstring& KmrpRuntimeAssetDirectory() { return cache; }
@@ -201,10 +307,35 @@ extern "C" void __cdecl KmrpPrepareResourcesK1(void* manager)
     busy = false;
 }
 
+// The installer's rule (GuiBlend.Covers), asked of the same table by the same
+// helper. Asked once per size: the game's resolution list asks for every mode the
+// driver offers.
+bool KmrpRuntimeAssetsCovers(int width, int height)
+{
+    static std::map<std::pair<int, int>, bool> known;
+    if (width < 640 || height < 480 || width > 32767 || height > 32767) return false;
+    const auto size = std::make_pair(width, height);
+    const auto found = known.find(size);
+    if (found != known.end()) return found->second;
+    if (!Initialize()) return false;
+    bool covered = false;
+    for (const auto& group : groups)
+        if (static_cast<int>(group.width) == width && static_cast<int>(group.height) == height) covered = true;
+    std::vector<unsigned char> output;
+    char directory[MAX_PATH]; BOOL substituted = FALSE;
+    if (!covered && Decode(tableKey, output) && Write("gui-blend.bin", output) &&
+        WideCharToMultiByte(CP_ACP, WC_NO_BEST_FIT_CHARS, cache.c_str(), -1, directory, MAX_PATH, nullptr, &substituted) && !substituted) {
+        const std::string table = std::string(directory) + "\\gui-blend.bin";
+        covered = KmrpGuiBlendCovers(table.c_str(), static_cast<unsigned>(width), static_cast<unsigned>(height)) != 0;
+    }
+    known[size] = covered;
+    return covered;
+}
+
 bool KmrpRuntimeAssetsDimensions(int width, int height)
 {
     if (width == currentWidth && height == currentHeight) return true;
-    if (!Initialize()) return false;
+    if (!Initialize() || !KmrpRuntimeAssetsCovers(width, height)) return false;
     const Group* selected = nullptr;
     for (const auto& group : groups) {
         if (!group.width) continue;
@@ -233,6 +364,7 @@ bool KmrpRuntimeAssetsDimensions(int width, int height)
             if (!Read(owner.first, output) || !Sha(output.data(), static_cast<unsigned>(output.size()), owner.second)) return false;
         }
     }
+    GameArt(*selected, height);
     if (!RegisterDirectory()) return false;
     currentWidth = width; currentHeight = height;
     return true;

@@ -21,7 +21,7 @@ with tempfile.TemporaryDirectory(prefix='kmrp-native-preview-') as temporary:
         'stolen-byte corruption': ('kotor1.hooks.toml', b'0x3D, 0x20, 0x03', b'0x3C, 0x20, 0x03'),
         'missing target': ('kotor1.hooks.toml', preview.build_kpatch.STEAM.encode(), b'unsupported'),
         'external dependency': ('manifest.toml', b'requires = []', b'requires = ["kmrp"]'),
-        'wrong callback parameter': ('kotor1.hooks.toml', b'source = "[esp+4]"', b'source = "[esp+12]"'),
+        'wrong callback parameter': ('kotor1.hooks.toml', b'source = "esp+4"', b'source = "esp+12"'),
     }
     for case, (entry, before, after) in cases.items():
         assert before in files[entry]

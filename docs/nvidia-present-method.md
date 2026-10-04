@@ -75,6 +75,52 @@ retry. Driver unavailability also keeps the record for retry: it does not prove
 that the saved profile has disappeared. A successful save sets rollback ownership
 before the fresh-session verification, so a failed readback does not lose recovery.
 
+## The standalone module
+
+The single-file `.kpatch` has no installer, so its module makes the same check from
+inside the game (`src/controller-native/K1RuntimeNvidia.cpp`, a port of
+`NvidiaPresentOperations.Install` with the rules of [When it writes](#when-it-writes)
+unchanged). Decided by the maintainer on 2026-10-04: "log a warning and then set it
+(mention that in the warning)".
+
+| | Installer | Standalone module |
+| --- | --- | --- |
+| When | once, at install | at the first GUI frame of every run, on a thread of its own |
+| Where it reports | the installer's log | `kmrp-kpm.log` beside the game |
+| Library | `nvapi64.dll` or `nvapi.dll` | `nvapi.dll` (the game is 32-bit), from System32 only |
+| Takes effect | the next start of the game | the next start: the driver has read the profile by the time the module runs |
+| Record | `KMRP_NVIDIA.manifest` | the same file, in the same format |
+| Undo | Restore | by hand, as the log line says; the installer's Restore also accepts the record (tested below) |
+
+When it is about to write, the log holds two lines: a warning that NVIDIA would
+present the game through a DXGI swap chain, why that matters, and that KMRP now sets
+Prefer native in the named profile without touching the global setting; then a line
+that it is done, that it applies from the next start, and how to undo it. With the
+record present, later runs do nothing. A run that finds the game already on Auto or
+Prefer native logs nothing.
+
+A patch has no uninstall step, so removing the patch leaves the setting. That is the
+cost of doing this from a patch, and the reason the log line names the undo.
+
+| case (2026-10-04, RTX 3080, global Prefer layered; `testing/regression/Test-RuntimeNvidia.cpp` on the throwaway name `kmrp-nvapi-selftest.exe`) | result |
+| --- | --- |
+| stand-in profile holding only the executable, present method inherited | both lines logged, `Set`; the installer's `Describe` then reads Prefer native from the game's own profile; the record is `KMRPNV1`, the path in base64, `0` |
+| the same, a second run | nothing logged, nothing written |
+| the installer's `Restore` on that record | "Removed KMRP's NVIDIA present-method setting", the profile inherits Prefer layered again, the record is gone |
+| stand-in profile holding Prefer layered itself | left as chosen, one line saying so, no record |
+| stand-in profile shared with a second application | the warning, "left the shared NVIDIA profile alone", no record |
+| no profile names the executable, and a profile with KMRP's name already exists (a leftover on this machine) | the warning, "left the existing NVIDIA profile ... alone", no record |
+| the real game's path (its own profile holds Prefer native) | nothing logged, nothing written |
+| in the game: the options package in the fixture, stock KPM 0.7.1 | `nvapi.dll` loaded, the game reached the main menu and answered, no NVIDIA line in `kmrp-kpm.log`, no record |
+
+Every stand-in profile was removed afterwards and the real game's profile read the
+same before and after. **Not tested:** the module creating KMRP's own profile where no
+profile names the executable (the leftover profile above stops it on this machine;
+the installer's regression covers that path for the C# code); the write made from
+inside a running game, since the real game's profile here already holds Prefer native;
+whether the next start is then free of the flash, which needs a game profile that
+inherits the global value; drivers other than 32.0.16.1656.
+
 ## Tested
 
 | case | result |

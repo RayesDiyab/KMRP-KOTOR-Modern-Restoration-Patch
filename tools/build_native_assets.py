@@ -1,8 +1,11 @@
 #!/usr/bin/env python3
 """Embed the existing KMRP resource bank in the one native module.
 
-Generated game-derived data stays under ignored build/. Controller assets and
-the controller screen are excluded. Each content object is stored once.
+Generated game-derived data stays under ignored build/. Everything the installer
+installs is in it, the controller's badges and screen included (the installer
+installs those with the controller off too, since the shared layouts name them),
+plus the SDL library the controller's non-Xbox pads need, which the installer
+puts beside the game. Each content object is stored once.
 """
 from pathlib import Path
 import argparse
@@ -38,12 +41,6 @@ class Compressor:
         self.api.CloseCompressor(self.handle)
 
 
-def core_file(name):
-    # All authored controller families/cues start kmr. The manifest is build
-    # metadata used by the shared blend helper, not a game resource.
-    return (not name.lower().startswith('kmr') or name == 'kmrp_prompts.txt') and name != 'kmrplayout.gui'
-
-
 def text(value):
     data = value.encode('ascii')
     if not data or len(data) > 255 or '/' in value or '\\' in value or '..' in value:
@@ -63,16 +60,21 @@ def build(resources, out):
             entries = []
             with zipfile.ZipFile(archive) as source:
                 for name in source.namelist():
-                    if not core_file(name):
-                        continue
                     data = source.read(name)
                     digest = hashlib.sha256(data).digest()
                     if digest not in objects:
                         objects[digest] = (len(data), compressor.compress(data))
                     entries.append((name, digest))
+            if number == 0:
+                # Hash-pinned by tools/prepare_sdl3.ps1; loaded from the module's
+                # private cache (InitSdl in K1ControllerBackend.cpp).
+                data = (resources.parents[1] / 'deps/kmrp-sdl3.dll').read_bytes()
+                digest = hashlib.sha256(data).digest()
+                objects[digest] = (len(data), compressor.compress(data))
+                entries.append(('kmrp-sdl3.dll', digest))
             size = (0, 0) if number == 0 else tuple(map(int, archive.stem[4:].split('x')))
             groups.append((size, entries))
-            print(f'[{number + 1}/67] {archive.name}: {len(entries)} core files', flush=True)
+            print(f'[{number + 1}/67] {archive.name}: {len(entries)} files', flush=True)
         table = (resources.parent / 'gui-blend.bin').read_bytes()
         digest = hashlib.sha256(table).digest()
         objects[digest] = (len(table), compressor.compress(table))

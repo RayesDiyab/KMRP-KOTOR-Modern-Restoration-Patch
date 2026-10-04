@@ -109,6 +109,63 @@ proxy, and it applies the executable changes above as well.
 
 ## [Unreleased]
 
+- Mouse confinement now applies in fullscreen only. A windowed game no longer
+  traps the cursor inside its window: confinement is skipped, and released if
+  held, whenever the client area does not cover its whole monitor. Both copies
+  changed (the installer edition's module and the standalone module). See
+  [Mouse confinement](docs/controller-support.md#mouse-confinement-on-multi-monitor-setups).
+
+- Experimental standalone package: one `KMRP Standalone.kpatch` built by
+  `tools/build_native_kpatch.py` carries the core, movie and memory hooks with
+  the engine recipe and resource bank embedded in its module, and the licence
+  texts of the bundled work. It installs through KOTOR Patch Manager 0.7.1's own
+  installer on a clean CD 1.03 fixture and needs no KMRP installer. Changes made
+  while play-testing it on 2026-10-04:
+  - Stack arguments use KPM's `esp+N` slot-address form. The released runtime
+    drops a bracketed `[esp+N]` source, which crashed the first build at startup.
+  - A resolution change in Options keeps its text: a hook at `0x005F18F6` puts
+    the new size's files in place before the window is re-created, and every
+    font's TXI metrics are re-read. Play-tested by the maintainer across several
+    switches.
+  - The module makes the files the installer makes from the player's own game
+    (tutorial popup icons, `tutorial.2da`, hex row frames, feat, power and skill
+    icons), at startup and on every size change. Without them the tutorial
+    popup's icon tiled.
+  - The message popup's icon square follows the resolution in force
+    (`K1PopupFit.cpp`), where it kept the size the box was constructed with.
+  - The private resource cache of a game that has exited is removed at the next
+    launch; none was ever removed before.
+  - The module opts the process out of DPI virtualization, as the installer's
+    AppCompat value does.
+  - Map notes left the main patch: Derslok's corrections are the add-on
+    `KMRP Standalone Map Notes.kpatch`, which the module detects in
+    `patch_config.toml`.
+  - A size the layouts cannot reach is refused, as the installer refuses it: the
+    Screen Resolution list offers only sizes KMRP has a layout for.
+  - Screen Resolution lists each size and refresh rate once. Windows reports one
+    mode per scaling variant, and the game listed them all.
+  - After a switch, a control keeps what the engine's own code added to its
+    layout file. The Options screen's five buttons sat 20 px high at 1080 lines
+    after a round trip; they now return to the fresh-load position.
+  - A second package, `dist/native-options/KMRP.kpatch`, makes controller
+    support, map notes and the movie fixes options of the one patch, all on by
+    default. A KOTOR Patch Manager with patch options (upstream issue 13;
+    prototyped locally) lets the player turn each off. KPM 0.7.1, which has no
+    options, installs it with every option at its default: on. The first
+    package is unchanged in what it installs. Both carry the same module, which
+    now contains the controller code, its prompt art and SDL.
+  - The module makes the installer's NVIDIA check itself, at the first frame of
+    each run. If the game would inherit "Prefer layered on DXGI Swapchain" from
+    NVIDIA's global setting (the white flashes of issue #14), it writes a
+    warning to `kmrp-kpm.log` that says so and that KMRP is setting "Prefer
+    native" for `swkotor.exe`, then sets it in the game's own NVIDIA profile.
+    The global setting is never written, a value set for the game is left as it
+    is, and the change applies from the next start. `KMRP_NVIDIA.manifest`
+    beside the game records it in the installer's format. See
+    [NVIDIA present method](docs/nvidia-present-method.md#the-standalone-module).
+  **Still experimental.** Known gaps are listed in the
+  [runtime experiment](reverse-engineering/runtime-resolution-preview.md#standalone-package-2026-10-04).
+
 - Added an experimental embedded engine/resource bank and existing-panel geometry
   migration for the standalone core. Removed the terminating zero from native
   control tag keys. This is unfinished runtime

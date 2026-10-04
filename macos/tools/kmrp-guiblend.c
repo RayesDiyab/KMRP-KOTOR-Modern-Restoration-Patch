@@ -1255,6 +1255,20 @@ int main(int argc, char **argv) {
 }
 
 #ifdef KMRP_GUI_EMBEDDED
+/* 1 when the finished sets reach WIDTHxHEIGHT: the tool's own answer with no output
+ * directory, where it stops after choosing its sets (exit status 0), or 2 outside them. */
+int KmrpGuiBlendCovers(const char *table_path, unsigned width, unsigned height) {
+    char width_text[16], height_text[16];
+    snprintf(width_text, sizeof width_text, "%u", width);
+    snprintf(height_text, sizeof height_text, "%u", height);
+    char *args[] = { "kmrp-guiblend", (char *)table_path, width_text, height_text };
+    pos = 0; table = NULL; table_size = 0;
+    int result = blend_main(4, args);
+    blend_clear();
+    table = NULL; table_size = pos = 0;
+    return result == 0;
+}
+
 int KmrpGuiBlend(const char *table_path, unsigned width, unsigned height,
                  const char *outdir, const char *setdir) {
     char width_text[16], height_text[16];

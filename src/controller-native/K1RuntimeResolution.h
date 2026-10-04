@@ -9,6 +9,10 @@ inline bool KmrpRuntimeDimensions(int width, int height)
     return width >= 640 && height >= 480 && width <= 32767 && height <= 32767;
 }
 
-extern "C" int __cdecl KmrpAllowRuntimeResolutionK1(int width, int height);
-extern "C" void __cdecl KmrpResolutionRequestedK1(void* manager, int width, int height);
+// One row per resolution and refresh rate in the Screen Resolution dialog.
+void KmrpInstallModeListFilter();
+
+// Stack arguments arrive as the address of their slot (KPM's "esp+N").
+extern "C" int __cdecl KmrpAllowRuntimeResolutionK1(const int* width, const int* height);
+extern "C" void __cdecl KmrpResolutionRequestedK1(void* manager, const int* width, const int* height);
 extern "C" void __cdecl KmrpResolutionObservedK1(void* manager);

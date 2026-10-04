@@ -7,7 +7,7 @@ int main(int argc, char** argv)
     if (argc != 2) return 2;
     HMODULE module = LoadLibraryA(argv[1]);
     if (!module) return 3;
-    auto allow = reinterpret_cast<int(__cdecl*)(int,int)>(
+    auto allow = reinterpret_cast<int(__cdecl*)(const int*,const int*)>(
         GetProcAddress(module, "KmrpAllowRuntimeResolutionK1"));
     if (!allow) return 4;
     struct Case { int width, height, expected; };
@@ -21,7 +21,7 @@ int main(int argc, char** argv)
     for (const auto& c : cases) {
         unsigned before, after;
         __asm mov before, esp
-        const int actual = allow(c.width, c.height);
+        const int actual = allow(&c.width, &c.height);
         __asm mov after, esp
         if (actual != c.expected || before != after) {
             printf("FAIL %dx%d: result=%d expected=%d ESP=%08X/%08X\n",

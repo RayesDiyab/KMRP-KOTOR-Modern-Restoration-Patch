@@ -23,8 +23,8 @@ NAME = 'KMRP Native Preview.kpatch'
 REUSED = {0x41A9D0, 0x41CE20, 0x40C24E, 0x41FEB5, 0x46BE64,
           0x4A847C, 0x4A8380, 0x5DDE32}
 PREVIEW_PARAMETERS = {
-    'KmrpAllowRuntimeResolutionK1': [('[esp+4]', 'int'), ('[esp+8]', 'int')],
-    'KmrpResolutionRequestedK1': [('ecx', 'pointer'), ('[esp+4]', 'int'), ('[esp+8]', 'int')],
+    'KmrpAllowRuntimeResolutionK1': [('esp+4', 'pointer'), ('esp+8', 'pointer')],
+    'KmrpResolutionRequestedK1': [('ecx', 'pointer'), ('esp+4', 'pointer'), ('esp+8', 'pointer')],
     'KmrpResolutionObservedK1': [('ecx', 'pointer')],
 }
 

@@ -8,7 +8,7 @@ from pathlib import Path
 import argparse
 import struct
 import build_windows_engine as engine
-import build_runtime_kpatch
+import build_native_kpatch
 
 ROOT = Path(__file__).resolve().parents[1]
 
@@ -53,14 +53,19 @@ def build():
     omit = {0x5F0C65, 0x5F0C6F}
     runs = [r for r in recipe.runs() if r[1] not in omit]
     for feature, va, old, new in runs:
-        for hook in build_runtime_kpatch.hooks():
+        for hook in build_native_kpatch.all_hooks():
             if va < hook['address'] + len(hook['original_bytes']) and hook['address'] < va + len(old):
                 raise ValueError(f'Engine overlaps native hook at {va:08X}')
     data = bytearray(b'KMRPKPM2' + struct.pack('<IIII', 2, engine.BLOCK_VA, engine.BLOCK_SIZE, 11))
     data += b''.join(struct.pack('<I', 0x40 if p == 2 else 0x20) for p in range(11))
     block_at = len(data)
     block = bytearray(recipe.block)
-    struct.pack_into('<I', block, 0x9000, 1)  # .kmn flag at VA 0x876000
+    # The .kmn page's first word (VA 0x876000) enables Derslok's map-note table. It is
+    # cleared here and set by a block edit of the map-notes feature (4), exactly as
+    # kmrp-kpm.dat carries it: the standalone patch leaves map notes to its add-on.
+    if struct.unpack_from('<I', block, 0x9000)[0] != 1:
+        raise ValueError('Unexpected map-note flag in the engine block')
+    struct.pack_into('<I', block, 0x9000, 0)
     data += block
     data += struct.pack('<I', len(runs))
     regions = [(engine.BLOCK_VA, engine.BLOCK_SIZE, block_at)]
@@ -72,7 +77,8 @@ def build():
         data += struct.pack('<III', feature, va, len(old)) + old
         regions.append((va, len(new), len(data)))
         data += new
-    data += struct.pack('<II', 0, len(relocations))  # no optional block edits
+    data += struct.pack('<I', 1) + struct.pack('<III', 4, 0x9000, 4) + struct.pack('<I', 1)
+    data += struct.pack('<I', len(relocations))
     for kind, va in relocations:
         if not any(begin <= va and va + 4 <= begin + length for begin, length, _ in regions):
             raise ValueError(f'Relocation without retained owner {va:08X}')

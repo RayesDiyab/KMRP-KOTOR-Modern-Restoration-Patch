@@ -1,5 +1,8 @@
-# First standalone vertical slice. These are measured CD/GOG/Steam K1 code sites.
-# Existing installer/core hook tables are unchanged.
+# The standalone module's own sites, measured on CD/GOG/Steam K1. Its other hooks
+# are the core, movie and memory hooks of kotor1.hooks.toml, selected by
+# tools/build_native_kpatch.py; that table is unchanged.
+# Stack arguments are "esp+N": KPM 0.7.1 passes the ADDRESS of that slot, and its
+# released runtime drops a bracketed "[esp+N]" source without pushing anything.
 [metadata]
 target_versions = ["761F9466F456A83909036BAEBB5C43167D722387BE66E54617BA20A8C49E9886", "9C10E0450A6EECA417E036E3CDE7474FED1F0A92AAB018446D156944DEA91435", "34E6D971C034222A417995D8E1E8FDD9F8781795C9C289BD86C499A439F34C88"]
 
@@ -15,11 +18,11 @@ exclude_from_restore = ["eax"]
 consumed_exit_address = 0x005F0CD2
 
 [[hooks.parameters]]
-source = "[esp+4]"
-type = "int"
+source = "esp+4"
+type = "pointer"
 [[hooks.parameters]]
-source = "[esp+8]"
-type = "int"
+source = "esp+8"
+type = "pointer"
 
 # SetSize entry: request only; native SetSize and panel/texture handling still run.
 [[hooks]]
@@ -32,21 +35,26 @@ source = "ecx"
 type = "pointer"
 
 [[hooks.parameters]]
-source = "[esp+4]"
-type = "int"
-[[hooks.parameters]]
-source = "[esp+8]"
-type = "int"
-
-# GUI frame: read actual viewport, do not mistake a rejected request for a switch.
-[[hooks]]
-address = 0x0040CE70
-type = "detour"
-function = "KmrpResolutionObservedK1"
-original_bytes = [0x51, 0x53, 0x55, 0x56, 0x8B, 0xE9]
-[[hooks.parameters]]
-source = "ecx"
+source = "esp+4"
 type = "pointer"
+[[hooks.parameters]]
+source = "esp+8"
+type = "pointer"
+
+# The native mode switch, after it stores the new size (0x0078D1D4/0x0078D1D8) and
+# before it re-creates the window at 0x005F19B2, which reloads every texture:
+# `cmp dword ptr [0x7A3A2C], 1`, absolute, one whole instruction. It is a branch
+# target only at its first byte. KPM replays it after the callback, so the JNE at
+# 0x005F1909 reads the flags it always did.
+[[hooks]]
+address = 0x005F18F6
+type = "detour"
+function = "KmrpModeSwitchK1"
+original_bytes = [0x83, 0x3D, 0x2C, 0x3A, 0x7A, 0x00, 0x01]
+
+# The GUI frame (0x0040CE70) is the core table's CoreGuiFrameK1 site, defined for
+# this module in K1RuntimeCore.cpp: it samples the actual viewport first, so a
+# rejected request is never mistaken for a switch.
 
 # ToolTipPanel constructor: width 1280 with height other than 960/1024
 # skipped StartLoadFromLayout entirely. Route its existing JNE to the same
@@ -77,7 +85,7 @@ original_bytes = [0x64, 0xa1, 0x0, 0x0, 0x0, 0x0]
 source = "ecx"
 type = "pointer"
 [[hooks.parameters]]
-source = "[esp+4]"
+source = "esp+4"
 type = "pointer"
 
 [[hooks]]
@@ -89,10 +97,10 @@ original_bytes = [0x8b, 0x44, 0x24, 0x8, 0x55]
 source = "ecx"
 type = "pointer"
 [[hooks.parameters]]
-source = "[esp+4]"
+source = "esp+4"
 type = "pointer"
 [[hooks.parameters]]
-source = "[esp+8]"
+source = "esp+8"
 type = "pointer"
 
 [[hooks]]

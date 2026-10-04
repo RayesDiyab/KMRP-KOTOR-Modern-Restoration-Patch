@@ -210,6 +210,122 @@ alongside font-cache migration before declaring support.
 Height-change font metadata, child geometry, clipping, map/movie coverage,
 transaction rollback and full packaging remain unfinished.
 
+### Standalone package (2026-10-04)
+
+`src\controller-native\build_native_runtime.cmd` followed by
+`python tools/build_native_kpatch.py` now produces
+`dist/native/KMRP Standalone.kpatch`: patch id `kmrp-native`, 24 runtime hooks
+(the `kmrp` and `kmrp-movies` hooks of
+[the core table](../src/controller-native/kotor1.hooks.toml) plus
+[the standalone table](../src/controller-native/kotor1-native-runtime.hooks.toml)),
+one module, the CD/GOG large-address static hook and the licence texts. It
+conflicts with the installer edition's four patches. Addresses below are
+original-image VA on clean CD 1.03; FILE = VA minus `0x400000`.
+
+**Visible correction: the parameter spelling.** The hook tables above used
+`[esp+N]`. KOTOR Patch Manager 0.7.1's released runtime
+(`KotorPatcher.dll`, SHA-256 `20CD07AF...7DDE3B4`) accepts that spelling at
+install and then pushes nothing for it at run time ("Unsupported parameter
+source"), so every later argument is misplaced. Installed through KPM's own
+command line on a clean fixture, the first standalone build faulted seven seconds
+after launch in `KmrpPanelControlK1`, reading a label pointer that was the saved
+EFLAGS value `0x00200246`. The earlier fixture ran KMRP's own runtime build
+(`E7D6AE7F...79D7B532`), which hid it. Both tables now use `esp+N`, which passes
+the **address** of the slot, as `KeyboardNavigateK1` always has.
+
+| VA | Finding | How established |
+| --- | --- | --- |
+| `0x5F1830` | The native mode switch stores the new size at `0x78D1D4`/`0x78D1D8`, re-creates the window at `0x5F19B2` (`0x403800`), and only then calls GUI SetSize at `0x5F19DE` | Disassembly; x32dbg counted one hit of each per switch |
+| `0x5F18F6` | New detour, `KmrpModeSwitchK1`: `83 3D 2C 3A 7A 00 01`, one absolute `cmp`, a branch target only at its first byte | Guarded bytes; `switching WxH` in the trace precedes `requested` |
+| `0x422AF0` | A texture's TXI load, `__thiscall (texture, name)`. Called once, when the texture is created (`0x42359C`). Parses in place when the object at texture `+0x38` exists | x32dbg: 18 then 5 hits per switch, all for newly created panel textures (`load_default`, `dialog2`, `800x600load`), none for a font |
+| texture `+0x38` | The 0x30-byte TXI object is the `CAurFontInfo`: `+0x04` font height, `+0x08` baseline, `+0x0C` texture width, glyph coordinate arrays at `+0x18` and `+0x24` | Constructor `0x4221C0`, parser `0x422210`, array parser `0x421FF0` (resizes through `0x421310`) |
+| `0x7A4798` / `0x7A479C` | The texture registry and its count; the lookup by name walks it at `0x420AE0`, names at `+0x78` | Disassembly. `0x7A4770` is a queue of textures just created and is empty at a switch |
+
+So a switch reloaded each font's atlas image and kept its metrics: 1920x1080 to
+1920x1200 garbled every label, and switching back restored them. Moving the
+resource swap to `0x5F18F6` alone made it worse (new image, old metrics, and
+Alt-Tab, which had been reloading images, no longer repaired it). A first
+metrics reload walked `0x7A4770` and reloaded nothing. The module now calls
+`0x422AF0` on every registry texture that has a TXI object, after the swap; the
+trace line is `font-metrics <reloaded>x<textures>`. The maintainer play-tested
+3440x1440 to 1920x1200 to 1440x1080 with readable text.
+
+Measured input facts for anyone driving the fixture: with x32dbg attached,
+injected keys reach the menus and injected clicks do not; detached, the reverse.
+
+**Later the same day.** Measured or changed after the audit below was written:
+
+| Subject | Finding or change | How established |
+| --- | --- | --- |
+| Override priority | KMRP's private directory wins over Override | Five 800x600 `mainmenu*.gui` files in the fixture's Override; the 1440x1080 main menu was still KMRP's. One file family only. A `.tpc` in Override may still beat a KMRP `.tga`: the installer's check for that exists because the engine prefers the format, and it was not measured here |
+| Options buttons after a switch | `optionsmain` loads `BTN_GAMEPLAY` at file top 245 and the engine's code moves it to 265 (all five buttons, +20 at 1080 lines). The re-layout applied the bare file. It now keeps `position - file` per control, remembered at the scale it was measured and re-applied at the new one | Trace of every control before and after a 1440x1080 to 1366x768 to 1440x1080 round trip; only `optionsmain` differed. After the fix the button is at 265 again |
+| Screen Resolution dialog | No drift. Its scrollbar on the left and its translucent fill are `optresolution.gui` as authored (`LB_RESOLUTIONS` at 16,88 in a 666-wide panel, fill `dialog`), identical on a fresh start and after a switch | Layout dump and captures |
+| Repeated rows | `EnumDisplaySettingsA` reports each size and rate once per `dmDisplayFixedOutput` value (0, 1, 2 on the test machine: 27 modes for 1440x1080 at 32 bits). The constructor at `0x6E0710` calls it at `0x6E094F` (mode 0) and `0x6E0BC3` (the loop). The module replaces the import slot `0x73D3E4`, only when it holds user32's function, and for those two callers returns a repeat as a non-32-bit mode | Raw enumeration; filtering the first call alone changed nothing; with both, one row each, and a switch chosen from the list still landed (1366x768 at 75 Hz in the trace and the ini) |
+| Map notes | The engine payload carries the `.kmn` flag cleared and one block edit of feature 4 that sets it, as `kmrp-kpm.dat` does. The module adds feature 4 when `patch_config.toml` names `kmrp-native-map-notes` | `kmrp-kpm.log`: "KMRP + Movies + Map Notes" with the add-on installed through KPM, "KMRP + Movies" without |
+| Reachable sizes | `KmrpRuntimeAssetsCovers`: a catalogued size, or one the blend table reaches (the helper's own answer, exit status 0 with no output directory). Asked by the validator hook, the asset swap and the engine | The list still offers the covered sizes. No uncovered size was available on the test display to select |
+
+**Two packages, one module (2026-10-04, evening).** `tools/build_native_kpatch.py`
+now writes two archives from the same `kmrp-native.dll`:
+
+| Package | Id | For | Hooks |
+| --- | --- | --- | --- |
+| `dist/native/KMRP Standalone.kpatch` | `kmrp-native` | KOTOR Patch Manager 0.7.1 | 24, none conditional. No controller; map notes by the add-on |
+| `dist/native-options/KMRP.kpatch` | `kmrp-native-options` | A KPM with patch options (upstream issue 13; local prototype in `build/research/kpm-options-fork`), and KPM 0.7.1 with every option on | 52, of which 30 carry `when`: 28 for `controller`, 2 for `movies`. No address has two hooks |
+
+The options package declares three toggles, all default on: `controller`,
+`map-notes`, `movies`. The frame sites `0x0040CE70` and `0x00404D96` each have one
+unconditional hook, `CoreGuiFrameK1` and `CoreMovieFrameK1`, which run
+`NativeGuiFrameK1` and `NativeMovieFrameK1` themselves when `controller` is on
+(`KmrpControllerOptionK1`). `map-notes` gates no hook: the module reads
+`[patches.options]` under its id in `patch_config.toml` (`OptionalFeatures` in
+`K1RuntimeEngine.cpp`) and passes the map-note and movie features to the engine
+applier. An option the file does not mention is on. Both GUI frames call
+`KmrpResolutionObservedK1` first in this module.
+
+The first version had two hooks at each frame site, one per state of
+`controller`. KPM 0.7.1 ignores `when` and `[[patch.options]]`, so it took both
+and refused the package with "Hook conflicts detected". With one hook per
+address it installs all 52, writes no options table, and the module treats
+that as every default: the config it writes is the fork's default install minus
+the four `[patches.options]` lines (compared 2026-10-04). `option_hooks()` in
+`tools/build_native_kpatch.py` now fails the build if two hooks share an address.
+
+The module now compiles the controller sources (`K1NativeJoystick.cpp`,
+`K1ControllerBackend.cpp`, `K1Rumble.cpp`, the vendor pair), so
+`K1RuntimeCore.cpp`, a temporary copy of the core frames, is gone. The bank
+carries every installed file, the `kmr*` badges and `kmrplayout.gui` included,
+and `kmrp-sdl3.dll`, which `InitSdl` loads from the module's cache when it is
+neither beside the module nor beside the game: 17,127 objects, 188,437,845
+bytes, module 188,856,832 bytes.
+
+| Check | Result |
+| --- | --- |
+| Options package, defaults, through the fork's CLI | 52 hooks written, `controller = true`, `map-notes = true`, `movies = true`; engine log "KMRP + Movies + Map Notes"; game at the main menu |
+| Virtual Xbox pad (ViGEm) with `controller` on | D-pad moves the main menu focus and the A badge follows; A opens Options and Gameplay, which shows Controller Layout and Y/B badges |
+| Options package with all three off (`--option`) | 22 hooks; engine log "KMRP", 75 of 79 runs; the pad does nothing (the active control in the panel stack does not change) |
+| Stock package through KPM 0.7.1 | 24 hooks, engine log "KMRP + Movies", game runs |
+| Options package through KPM 0.7.1 | 52 hooks, no options table; engine log "KMRP + Movies + Map Notes"; the virtual pad walks the main menu and A opens Load Game, read from the panel stack (`testing/controller/dump_panel_stack.py`) |
+
+A fullscreen game must be captured with `ddagrab`: a GDI screen copy returned the
+same stale frame through every pad press and looked like dead input (2026-10-04).
+A pad connected after the game started was not picked up at the main menu.
+
+Not checked: the Gameplay screen with `controller` off, SDL pads (only the XInput
+virtual pad was used), rumble, a live resolution switch with the controller on,
+and map notes in an area map.
+
+**Gaps against the installer edition** (audit of `KmrpPatcher.cs` and
+`KpmEdition.cs`, 2026-10-04). Closed that day: installer-made game art, the DPI
+opt-out, licence texts, cache removal, map notes as an option, the refusal of
+unreachable sizes, the Options layout after a switch. Open:
+
+| Gap | Effect |
+| --- | --- |
+| NVIDIA present method (issue #14) | Closed 2026-10-04 at the maintainer's decision ("log a warning and then set it"): the module makes the installer's check at the first frame, logs a warning and sets Prefer native in the game's profile (`K1RuntimeNvidia.cpp`, [reference](../docs/nvidia-present-method.md#the-standalone-module)). Until then it was left out on purpose, as a machine-wide driver profile that a KPM patch has no uninstall step to restore; that still holds, and the log line says how to undo it by hand |
+| K1 Modern Driver Compatibility is not included | The player adds Synchro's own patch in KPM |
+| Movies are always on | No opt-out |
+| No controller in the 0.7.1 package | KPM 0.7.1 has one module per patch and no options. The options package has it |
+
 ```powershell
 .\src\controller-native\build_runtime_preview.cmd
 python tools/build_runtime_kpatch.py

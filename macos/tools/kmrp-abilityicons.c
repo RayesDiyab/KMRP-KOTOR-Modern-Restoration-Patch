@@ -32,9 +32,16 @@
 #include <stdlib.h>
 #include <string.h>
 #include <sys/stat.h>
+#ifdef _WIN32
+#include <direct.h>
+#define mkdir(path, mode) _mkdir(path)
+#define strdup _strdup
+#endif
 
 /* The same rounding as the C# at every step: no fused multiply-add. */
+#ifndef _MSC_VER
 #pragma STDC FP_CONTRACT OFF
+#endif
 
 enum {
     TPC_HEADER_SIZE = 128,
@@ -146,7 +153,14 @@ static size_t reserved_count;
 
 static void load_reserved(const char *path) {
     FILE *f = fopen(path, "r");
-    if (!f) { fprintf(stderr, "kmrp-abilityicons: %s: %s\n", path, strerror(errno)); exit(1); }
+    if (!f) {
+        fprintf(stderr, "kmrp-abilityicons: %s: %s\n", path, strerror(errno));
+#ifdef KMRP_EMBEDDED
+        return; /* inside the game: no list means nothing is reserved, never exit */
+#else
+        exit(1);
+#endif
+    }
     char line[512];
     while (fgets(line, sizeof line, f)) {
         line[strcspn(line, "\r\n")] = 0;
@@ -164,6 +178,10 @@ static int is_reserved(const char *file) {
     return 0;
 }
 
+#ifdef KMRP_EMBEDDED
+/* Windows standalone module: called once per resolution, in the game process. */
+#define main abilityicons_main
+#endif
 int main(int argc, char **argv) {
     if (argc != 4 && argc != 5) {
         fprintf(stderr, "usage: kmrp-abilityicons ERF HEIGHT OUTDIR [RESERVED]\n");
@@ -258,3 +276,17 @@ int main(int argc, char **argv) {
     printf("%d icons\n", written);
     return 0;
 }
+
+#ifdef KMRP_EMBEDDED
+int KmrpAbilityIcons(const char *erf, unsigned height, const char *outdir, const char *reserved_path) {
+    char text[16];
+    snprintf(text, sizeof text, "%u", height);
+    char *args[] = { "kmrp-abilityicons", (char *)erf, text, (char *)outdir, (char *)reserved_path };
+    int result = abilityicons_main(5, args);
+    /* The command-line tool exits after one run; here the pack is 100 MB per call. */
+    free(pack); pack = NULL; pack_size = 0;
+    for (size_t i = 0; i < reserved_count; i++) free(reserved[i]);
+    free(reserved); reserved = NULL; reserved_count = 0;
+    return result;
+}
+#endif

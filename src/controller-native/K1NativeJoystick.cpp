@@ -20,6 +20,12 @@
 #include "K1ControllerBackend.h"
 #include "K1ControllerLayout.h"
 #include "K1Rumble.h"
+#ifdef KMRP_NATIVE_RUNTIME
+#include "K1RuntimeResolution.h"
+#include "K1RuntimeEngine.h"
+extern "C" void __cdecl NativeGuiFrameK1(void* guiManager);
+extern "C" void __cdecl NativeMovieFrameK1(void* moviePlayer);
+#endif
 
 #include <windows.h>
 #include <xinput.h>
@@ -2488,6 +2494,14 @@ extern "C" void __cdecl CoreMovieFrameK1(void* moviePlayer)
         controllerFrame(moviePlayer);
         return;
     }
+#ifdef KMRP_NATIVE_RUNTIME
+    // The standalone module holds the controller's frame itself, and one hook
+    // serves both states of its controller option (see CoreGuiFrameK1).
+    if (KmrpControllerOptionK1()) {
+        NativeMovieFrameK1(moviePlayer);
+        return;
+    }
+#endif
     TrackMovieFrameK1(moviePlayer);
 }
 
@@ -4916,6 +4930,21 @@ void UpdateCursorConfinementK1()
         return;
     }
     RECT screen = {corners[0].x, corners[0].y, corners[1].x, corners[1].y};
+    // Fullscreen only: a window that does not cover its monitor is one the player
+    // must be able to leave, to reach its border or another window. Confining a
+    // windowed game trapped the cursor inside it (play-tested 2026-10-04).
+    MONITORINFO monitor = {sizeof(monitor)};
+    if (!GetMonitorInfoW(MonitorFromWindow(foreground, MONITOR_DEFAULTTONEAREST), &monitor)
+            || screen.left > monitor.rcMonitor.left || screen.top > monitor.rcMonitor.top
+            || screen.right < monitor.rcMonitor.right
+            || screen.bottom < monitor.rcMonitor.bottom) {
+        if (g_stick.cursorConfined) {
+            ClipCursor(nullptr);
+            g_stick.cursorConfined = 0;
+            ++g_stick.cursorReleases;
+        }
+        return;
+    }
     if (ClipCursor(&screen)) {
         if (!g_stick.cursorConfined) {
             ++g_stick.cursorConfinements;
@@ -4944,6 +4973,19 @@ extern "C" void __cdecl CoreGuiFrameK1(void* guiManager)
         controllerFrame(guiManager);
         return;
     }
+#ifdef KMRP_NATIVE_RUNTIME
+    // The standalone module holds the controller's frame itself. This site has one
+    // hook for both states of the controller option, not a variant for each: a
+    // KOTOR Patch Manager without options installs every hook it is given, and two
+    // at one address made 0.7.1 refuse the package (2026-10-04).
+    if (KmrpControllerOptionK1()) {
+        NativeGuiFrameK1(guiManager);
+        return;
+    }
+    // Sample the viewport first, so a mode change re-lays out the panels before
+    // anything below reads them.
+    KmrpResolutionObservedK1(guiManager);
+#endif
     UpdateCursorConfinementK1();
     StatusSummaryFrameK1(guiManager);
 }
@@ -4951,6 +4993,9 @@ extern "C" void __cdecl CoreGuiFrameK1(void* guiManager)
 extern "C" void __cdecl NativeGuiFrameK1(void* guiManager)
 {
     (void)guiManager;
+#ifdef KMRP_NATIVE_RUNTIME
+    KmrpResolutionObservedK1(guiManager);   // as CoreGuiFrameK1 does, above
+#endif
     g_stick.lastGuiTick = GetTickCount();
     UpdateCursorConfinementK1();
     EnsureDeviceCountK1();     // menus re-enumerate devices too

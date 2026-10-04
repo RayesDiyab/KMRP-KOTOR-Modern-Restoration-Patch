@@ -42,6 +42,7 @@ reason).
 | 11 | The Feedback list's rows grow with the resolution, so the `25s` circles fit | **build and check** |
 | 12 | Every font atlas at its set's own scale: check the Mac's cache | **check** |
 | 13 | `kpm_holds_only_kmrp` reads KPM's state file too: a patch without a module is in neither `patch_config.toml` nor `patches/` | **to do** |
+| 14 | `kmrp.kpatch` dropped into KPM beside FTD's patches: KPM's own conflict refusal, and a description that says what to untick | **check**, and one wording change **to do** |
 
 ## 1. Badges drawn for the blended buttons
 
@@ -348,3 +349,56 @@ for the Aspyr build exists in KPM's set today is not checked; the rule is the sa
 
 **Check.** `Test-MacInstaller.py` round 6: a takeover whose state file lists `kmrp` and another
 id, with the config and `patches/` holding KMRP's alone; uninstall must leave KPM's runtime.
+
+## 14. `kmrp.kpatch` beside FTD's patches in KPM: the generic conflict refusal
+
+**What was decided** (the maintainer, 2026-10-04, from Windows, while a patch-options feature
+for KPM was being prepared). KMRP for macOS stays one patch that carries FTD's Widescreen Patch
+and Stray Bug Fixes. Two ways in, and both stay:
+
+| Way in | What happens with FTD's patches already installed through KPM |
+| --- | --- |
+| KMRP Installer | As item 6: his install is replaced by KMRP's, which contains it |
+| `kmrp.kpatch` put in KPM's patch folder by hand and applied | KPM refuses, because the manifest declares the conflict, and names the patches. The player unticks FTD's two and applies again |
+
+The refusal is KPM's own text and a patch cannot add to it. Read from KPM's source
+(`DependencyValidator.ValidateNoConflicts`, upstream master `3f8b858`), it is:
+
+```
+Conflict validation failed:
+  - Patch 'kmrp' conflicts with: k1widescreenpatch, k1-stray-bug-fixes-patch
+```
+
+A note of KMRP's own under that line ("already included in KMRP, untick it") would need a new
+manifest field in KPM. No upstream issue or pull request asks for one (all 91 issues searched
+on 2026-10-04). The maintainer: "without the note for now".
+
+**Considered and not chosen now.** KMRP as a layer on FTD's patch (`requires` in place of
+`conflicts`, KMRP carrying none of his code). KPM refuses two patches that hook one address,
+so it needs KMRP's hooks to avoid every address his 56 hooks use, or his patch to change for
+KMRP at those sites; the two hook tables have not been compared. `requires` also has no
+version check, so his later changes could break KMRP's layer. A `.kpatch` cannot tick or
+untick another patch either way: `requires` and `conflicts` only make KPM refuse.
+
+**What the Mac already has.** `macos/tools/make_kmrp_patch.py` writes
+`conflicts = ["k1widescreenpatch", "k1-stray-bug-fixes-patch"]` into `kmrp`'s manifest
+(2026-10-01). The ids match FTD's manifests upstream (`Patches/K1WidescreenPatch`,
+`Patches/K1StrayBugFixes`, read 2026-10-04).
+
+**What the Mac needs.**
+
+1. The description is the only text of KMRP's the player sees in KPM (the right-hand panel).
+   It says "It replaces a separate install of FTD's patches", which does not tell someone
+   reading KPM's refusal what to do. Say it outright, for example: "Includes FTD's Widescreen
+   Patch and Stray Bug Fixes: untick those two."
+2. The same description ends "Run through KMRP Installer, which adds the menu layouts." So a
+   `kmrp.kpatch` dropped in by hand, with no installer run, has the engine side and not the
+   layouts. Either keep saying so there and in `macos/PLAYER-README.md`, or decide the patch
+   should be whole by itself, as the Windows standalone `.kpatch` is being made
+   (`reverse-engineering/runtime-resolution-preview.md`). Not decided.
+
+**Check** (not run: no Mac here, and KPM's window has not been driven on one from Windows).
+In KPM on a Mac, with FTD's Widescreen Patch and Stray Bug Fixes installed and ticked, put
+`kmrp.kpatch` in the patch folder, tick it and press Apply: KPM must show the refusal above
+and leave `patch_config.toml`, `patches/` and `KOTOR_Exe` as they were. Untick FTD's two and
+apply again: KMRP installs.

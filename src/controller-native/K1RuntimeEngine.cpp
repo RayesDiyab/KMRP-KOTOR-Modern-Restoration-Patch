@@ -6,6 +6,7 @@
 #include "K1KpmApplier.cpp"
 #include "K1RuntimeEngine.h"
 #include "K1RuntimeResolution.h"
+#include "K1RuntimeAssets.h"
 #include "NativeEngine.generated.h"
 #include <cmath>
 #include <array>
@@ -50,6 +51,80 @@ std::uint32_t FieldAddress(const NativeField& field)
         static_cast<std::uint32_t>(reinterpret_cast<std::uintptr_t>(g_nativeBlock)) + field.va - kBlockVa : field.va;
 }
 
+// The optional parts, read from patch_config.toml, which KPM writes beside the game.
+//
+// Two packages carry this module (tools/build_native_kpatch.py):
+//   * "kmrp-native-options": controller support, map notes and the movie fixes are
+//     options, each on by default. A KOTOR Patch Manager with patch options writes
+//     the player's choices as the [patches.options] table under the patch, one
+//     boolean per option. One without options (0.7.1) writes no table and installs
+//     every hook, which is every option at its default: on.
+//   * "kmrp-native": no options and no controller. Movies are always on, and map
+//     notes come with the add-on patch "kmrp-native-map-notes", which carries no
+//     hooks and no module and is installed when the file names it.
+//
+// -1 when the file has no such option, else 0 or 1.
+int OptionValue(const std::string& text, const char* option)
+{
+    const std::size_t patch = text.find("\"kmrp-native-options\"");
+    if (patch == std::string::npos) return -1;
+    const std::size_t table = text.find("[patches.options]", patch);
+    const std::size_t next = text.find("[[patches]]", patch);
+    if (table == std::string::npos || (next != std::string::npos && next < table)) return -1;
+    std::size_t at = text.find('\n', table);
+    while (at != std::string::npos && at + 1 < text.size() && text[at + 1] != '[') {
+        const std::size_t end = text.find('\n', at + 1);
+        const std::string line = text.substr(at + 1, end == std::string::npos ? end : end - at - 1);
+        const std::size_t equals = line.find('=');
+        if (equals != std::string::npos) {
+            std::string key = line.substr(0, equals);
+            key.erase(key.find_last_not_of(" \t") + 1);
+            if (key == option) return line.find("true", equals) != std::string::npos ? 1 : 0;
+        }
+        at = end;
+    }
+    return -1;
+}
+
+bool g_controllerOption = false;
+
+std::uint32_t OptionalFeatures()
+{
+    std::vector<std::uint8_t> config;
+    if (!ReadFileBytes(L"patch_config.toml", config)) return kMovies;
+    const std::string text(config.begin(), config.end());
+    if (text.find("\"kmrp-native-options\"") != std::string::npos) {
+        // Anything but an explicit false is on: the default, and all a manager
+        // without options can say.
+        g_controllerOption = OptionValue(text, "controller") != 0;
+        return (OptionValue(text, "movies") != 0 ? kMovies : 0) |
+               (OptionValue(text, "map-notes") != 0 ? kMapNotes : 0);
+    }
+    return kMovies | (text.find("\"kmrp-native-map-notes\"") != std::string::npos ? kMapNotes : 0);
+}
+
+// Apply the engine for one size: at load, for the size in swkotor.ini, or at the
+// first size the game sets when the ini's was one the layouts cannot reach.
+void InitializeEngineAt(int width, int height)
+{
+    if (!KmrpRuntimeDimensions(width, height) || !VanillaImage()) return;
+    std::vector<std::uint8_t> payload(std::begin(kNativeEngine), std::end(kNativeEngine));
+    for (const auto& field : kNativeFields) {
+        auto value = FieldValue(field, width, height);
+        std::memcpy(payload.data() + field.payload, value.data(), field.size);
+        g_engineValues.push_back(value);
+    }
+    auto checksum = Fnv1a(payload.data(), payload.size() - 4);
+    std::memcpy(payload.data() + payload.size() - 4, &checksum, 4);
+    const std::uint32_t features = kCore | OptionalFeatures();
+    g_moviesOff = (features & kMovies) == 0;   // the movie frame asks before painting its bars
+    Apply(features, &payload);
+    if (g_nativeBlock) {
+        g_engineWidth = width; g_engineHeight = height;
+        Log("native embedded engine initialized for %dx%d", width, height);
+    } else g_engineValues.clear();
+}
+
 void InitializeEngine()
 {
     DWORD n = GetModuleFileNameW(nullptr, g_folder, MAX_PATH);
@@ -60,28 +135,28 @@ void InitializeEngine()
     if (swprintf_s(ini, L"%s\\swkotor.ini", g_folder) < 0) return;
     int width = GetPrivateProfileIntW(L"Graphics Options", L"Width", 800, ini);
     int height = GetPrivateProfileIntW(L"Graphics Options", L"Height", 600, ini);
-    if (!KmrpRuntimeDimensions(width, height) || !VanillaImage()) return;
-    std::vector<std::uint8_t> payload(std::begin(kNativeEngine), std::end(kNativeEngine));
-    for (const auto& field : kNativeFields) {
-        auto value = FieldValue(field, width, height);
-        std::memcpy(payload.data() + field.payload, value.data(), field.size);
-        g_engineValues.push_back(value);
+    if (!KmrpRuntimeAssetsCovers(width, height)) {
+        // The installer refuses such a size (ResolutionCatalog.Derived). Here the
+        // game refuses it too, through the validator, and falls back to a size of
+        // its own; the engine is applied for that one when the game sets it.
+        Log("%dx%d is outside the sizes KMRP's layouts reach; waiting for the game's own size.", width, height);
+        return;
     }
-    auto checksum = Fnv1a(payload.data(), payload.size() - 4);
-    std::memcpy(payload.data() + payload.size() - 4, &checksum, 4);
-    Apply(kCore | kMovies | kMapNotes, &payload);
-    if (g_nativeBlock) {
-        g_engineWidth = width; g_engineHeight = height;
-        Log("native embedded engine initialized for %dx%d", width, height);
-    } else g_engineValues.clear();
+    InitializeEngineAt(width, height);
 }
 }
 
 bool KmrpRuntimeEngineReady() { return g_nativeBlock != nullptr; }
+bool KmrpControllerOptionK1() { return g_controllerOption; }
+void KmrpRuntimeLog(const char* line) { Log("%s", line); }
 
 bool KmrpRuntimeEngineDimensions(int width, int height)
 {
-    if (!g_nativeBlock || !KmrpRuntimeDimensions(width, height)) return false;
+    if (!KmrpRuntimeDimensions(width, height) || !KmrpRuntimeAssetsCovers(width, height)) return false;
+    if (!g_nativeBlock) {
+        InitializeEngineAt(width, height);
+        return g_nativeBlock != nullptr;
+    }
     if (width == g_engineWidth && height == g_engineHeight) return true;
     std::vector<std::array<std::uint8_t, 4>> next;
     std::vector<std::pair<std::uint32_t, std::uint32_t>> ranges;
@@ -122,7 +197,15 @@ BOOL WINAPI DllMain(HINSTANCE module, DWORD reason, LPVOID)
 {
     if (reason == DLL_PROCESS_ATTACH) {
         DisableThreadLibraryCalls(module);
+        // The installer opts swkotor.exe out of Windows' DPI virtualization with a
+        // per-user AppCompat value (DpiCompatibilityOperations in KmrpPatcher.cs),
+        // so a scaled desktop does not zoom an interface KMRP has already sized
+        // for the framebuffer. With no installer, say the same thing from inside,
+        // before the game makes its window. It fails harmlessly when the process
+        // already has an awareness, from that value or a manifest.
+        SetProcessDPIAware();
         InitializeEngine();
+        KmrpInstallModeListFilter();
     }
     return TRUE;
 }

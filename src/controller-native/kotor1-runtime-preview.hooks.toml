@@ -1,5 +1,7 @@
 # First standalone vertical slice. These are measured CD/GOG/Steam K1 code sites.
 # Existing installer/core hook tables are unchanged.
+# Stack arguments are "esp+N": KPM 0.7.1 passes the ADDRESS of that slot, and its
+# released runtime drops a bracketed "[esp+N]" source without pushing anything.
 [metadata]
 target_versions = ["761F9466F456A83909036BAEBB5C43167D722387BE66E54617BA20A8C49E9886", "9C10E0450A6EECA417E036E3CDE7474FED1F0A92AAB018446D156944DEA91435", "34E6D971C034222A417995D8E1E8FDD9F8781795C9C289BD86C499A439F34C88"]
 
@@ -15,11 +17,11 @@ exclude_from_restore = ["eax"]
 consumed_exit_address = 0x005F0CD2
 
 [[hooks.parameters]]
-source = "[esp+4]"
-type = "int"
+source = "esp+4"
+type = "pointer"
 [[hooks.parameters]]
-source = "[esp+8]"
-type = "int"
+source = "esp+8"
+type = "pointer"
 
 # SetSize entry: request only; native SetSize and panel/texture handling still run.
 [[hooks]]
@@ -32,11 +34,11 @@ source = "ecx"
 type = "pointer"
 
 [[hooks.parameters]]
-source = "[esp+4]"
-type = "int"
+source = "esp+4"
+type = "pointer"
 [[hooks.parameters]]
-source = "[esp+8]"
-type = "int"
+source = "esp+8"
+type = "pointer"
 
 # GUI frame: read actual viewport, do not mistake a rejected request for a switch.
 [[hooks]]
