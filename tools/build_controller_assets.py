@@ -63,7 +63,7 @@ from build_controller_prompt_textures import (GLYPH_FAMILIES, PROMPT_MANIFEST_NA
                                               PROMPT_TARGETS, build_prompt_textures,  # noqa: E402
                                               build_square_glyph_tga, family_resref)
 from build_scaled_fonts import export_font_txis                         # noqa: E402
-from build_xbox_hud import build as build_xbox_hud                      # noqa: E402
+from build_xbox_hud import DISENGAGE_FILL as XBOX_HUD_DISENGAGE_FILL    # noqa: E402
 from prepare_universal_resources import (COMBAT_CUES, CONTAINER_SCREEN, R3_CUE_FILL,  # noqa: E402
                                          R3_CUE_SCREENS, SWAP_CUE_ASPECT, SWAP_CUE_FILL,
                                          SWAP_CUE_GLYPH, SWAP_CUE_SCREEN, TAB_CUES,
@@ -74,10 +74,10 @@ from prepare_universal_resources import (COMBAT_CUES, CONTAINER_SCREEN, R3_CUE_F
 VANILLA_GUI = ROOT / "build-inputs/vanilla-gui"
 TEXTURE_PACK = ROOT / "build-inputs/swpc_tex_gui.erf"
 OUT = ROOT / "build/controller-standalone"
-# An Xbox-style HUD layout's name: its original's, with this in place of "mipc".
-XBOX_HUD_PREFIX = "kmxh"
-# The button in the Xbox-style HUD's combat-mode message: B, which disengages there.
-XBOX_HUD_DISENGAGE_FILL = "kmrpb_cmbt"
+# XBOX_HUD_DISENGAGE_FILL is the button in the Xbox-style HUD's combat-mode message:
+# B, which disengages there. The Xbox-style HUD needs no file besides that glyph: the
+# module lays the live HUD out itself (K1XboxHud.cpp, from tools/build_xbox_hud.py's
+# table).
 GUI_TYPE = 2047
 EXPECTED_GUI_FILES = 84
 # The main menu the game loads above 640x480. Its four files (8x6, 10x7, 12x9, 16x12)
@@ -194,19 +194,6 @@ def make(work: Path) -> dict:
 
     widened = step(CONTAINER_SCREEN, fit_container_to_caption, caption_txi)
 
-    # The Xbox-style HUD: a twin of every HUD layout the executable loads, made from
-    # the layout as it stands (with the combat cues), under a name of its own. The
-    # module copies the twins over the originals in its temporary folder when the
-    # option is on (K1ControllerStandalone.cpp). The HUD's constructor (0x0068C100)
-    # names mipc28x6, mipc210x7, mipc212x9, mipc212x10 and mipc216x12; the data has
-    # no mipc212x10, and its mipc8x6 to mipc16x12 are an older set nothing loads.
-    xbox_huds = {}
-    for name in (name for name in huds if name.startswith("mipc2")):
-        twin = work / "gui" / "xbox-hud" / (XBOX_HUD_PREFIX + name[len("mipc"):])
-        twin.parent.mkdir(parents=True, exist_ok=True)
-        build_xbox_hud(current[name], twin)
-        xbox_huds[twin.name] = twin
-
     # The badges, from the buttons as the game will draw them: the main menu's from
     # the file it loads above 640x480, under the name the generator looks up.
     badged = {t.tag for t in PROMPT_TARGETS if t.gui == "mainmenu.gui"}
@@ -256,7 +243,6 @@ def make(work: Path) -> dict:
     common += build_controller_layout_art(art / "layout")
 
     files = {name: current[name] for name in sorted(changed)}
-    files.update(xbox_huds)
     for path in prompts + common:
         if path.name == PROMPT_MANIFEST_NAME:
             continue   # for KMRP's installer, which re-centres badges; nothing reads it here

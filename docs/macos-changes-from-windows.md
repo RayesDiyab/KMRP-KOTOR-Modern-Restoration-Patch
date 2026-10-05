@@ -560,10 +560,11 @@ An option of the Windows standalone controller patch since 2026-10-05:
 [controller-xbox-hud.md](controller-xbox-hud.md). The Mac has no standalone
 controller patch (item 17), so there is nothing to carry over today. If it gets one:
 
-1. `tools/build_xbox_hud.py` is plain Python on a layout file and needs no change.
-   The Mac game's HUD layouts would have to be checked for the same controls in the
-   same order (the tool refuses a file whose mouldings do not bracket the action
-   description).
+1. `tools/build_xbox_hud.py` writes the table the module lays the live HUD out
+   from. Its rectangles carry over; its `OFFSETS`, each control's place in the
+   Windows executable's `CSWGuiMainInterface`, do not, and would have to be read
+   from the Mac game the same way (each tag's ID looked up in the running HUD
+   panel's control array).
 2. `src/controller-native/K1XboxHud.cpp` is addresses and structure offsets of the
    Windows executable: the two hook sites, the engine routines it calls
    (`GetDefaultActions`, `SetActionDescription`, `UpdateNameLabel`, the viewport

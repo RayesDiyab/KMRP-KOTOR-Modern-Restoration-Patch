@@ -109,6 +109,25 @@ proxy, and it applies the executable changes above as well.
 
 ## [Unreleased]
 
+- **The Xbox-style HUD follows the device and fits any screen** (2026-10-05). It no longer replaces the game's HUD layout files.
+  The module finds each of the HUD's controls at its fixed place in the game's HUD
+  object and moves and dresses it itself, from a table `tools/build_xbox_hud.py`
+  writes (`K1XboxHudLayout.inc`, 101 controls), for the screen the game is drawing:
+  - while the pad is in use the HUD is the Xbox one; the moment the mouse or
+    keyboard is used it is the game's own again, exactly as it was, and back with
+    the pad. Seen both ways at 1024x768, peaceful and in a fight, and after a
+    conversation;
+  - the layout is computed from the real screen size and does not depend on its
+    shape, and it no longer matters which HUD layout file is loaded, so another
+    mod's layout is left alone. Only the game's own sizes were run (the unchanged
+    executable refuses others); the regression test lays it out for ten screens
+    from 800x600 to 3840x2160;
+  - the minimap is the size the game's own HUD has it, in both;
+  - the box a line of speech appears in starts by the target bar's left edge, right
+    under the bar, as in the Xbox game, and is one and a half times the bar's width.
+  The four `kmxh*.gui` files are gone from the bank. No new hook: a call from the
+  existing panel hook tells the module of a new HUD object.
+  [docs/controller-xbox-hud.md](docs/controller-xbox-hud.md), "Laid out at run time".
 - **An Xbox-style HUD for the standalone controller patch** (2026-10-05). An
   option of `KMRP Controller.kpatch`, off by default (`Style=Xbox` under `[Hud]` in
   `kmrp-controller.ini`, or the patch's "Xbox-style HUD" option where the manager

@@ -17,11 +17,12 @@ What it proves, from the built files and the sources (it starts no game):
      texture maps to a round badge in the area that button's border really fills,
      normal and focused, and a focused-state texture exists exactly where the two
      borders fill different areas (docs/controller-standalone.md, section 3).
-  6. The Xbox-style HUD: a twin of every HUD layout the game loads, holding the
-     same controls, with what the module's half (K1XboxHud.cpp) relies on: the seven
-     slots in one row at one pitch, the first personal slot's frame at the size the
-     module recognises the layout by, the action box drawn before the description
-     and everything either on the screen or parked far off it.
+  6. The Xbox-style HUD: the table the module lays the live HUD out from
+     (K1XboxHudLayout.inc) is what tools/build_xbox_hud.py writes; every piece is a
+     control of the game's own HUD layouts, of the class the table says; and on
+     screens of several sizes and shapes, the game's own and others, the six places
+     are one row at one pitch, the groups do not run into each other and every
+     piece is on the screen. No layout file of the HUD's is in the bank for it.
 
 Needs the built package (src/controller-native/build_controller_standalone.cmd and
 tools/build_controller_kpatch.py) and build-inputs/vanilla-gui.
@@ -120,10 +121,9 @@ def main() -> int:
     guis = [n for n in names if n.endswith(".gui")]
     expected = sorted(list(assets.R3_CUE_SCREENS) + [assets.TAB_CUE_SCREEN, "optgameplay.gui", "confirm.gui",
                                                       "dialog.gui", "kmrplayout.gui"]
-                      + [p.name for p in assets.VANILLA_GUI.glob("mipc*.gui")]
-                      + [assets.XBOX_HUD_PREFIX + p.name[4:] for p in assets.VANILLA_GUI.glob("mipc2*.gui")])
+                      + [p.name for p in assets.VANILLA_GUI.glob("mipc*.gui")])
     check(guis == expected,
-          f"{len(guis)} layout files: the ones the controller changes, its own screen and the Xbox-style HUD's twins")
+          f"{len(guis)} layout files: the ones the controller changes and its own screen")
     check(all(n.endswith((".gui", ".tga")) for n in names), "nothing but layout files and textures")
     check(not any("font" in n or n.startswith(("fnt_", "kmxf")) for n in names), "no font: the game's own text is untouched")
     targets = prompts.PROMPT_TARGETS
@@ -169,47 +169,52 @@ def main() -> int:
     check(measured > 150 and worst <= 0.08,
           f"{measured} face-button badges map to round ones in their fill area (worst {worst * 100:.1f}% off square)")
 
-    # 6. The Xbox-style HUD's layouts.
-    twins = sorted(FILES.glob(assets.XBOX_HUD_PREFIX + "*.gui"))
+    # 6. The Xbox-style HUD's table.
+    table = xbox_hud.TABLE.read_text(encoding="utf-8").replace("\r\n", "\n") if xbox_hud.TABLE.exists() else ""
+    check(table == xbox_hud.table(), f"{xbox_hud.TABLE.name} is what tools/build_xbox_hud.py writes")
+    pieces = xbox_hud.pieces()
+    by_tag = {piece["tag"]: piece for piece in pieces}
     problems = []
-    for twin in twins:
-        original = FILES / ("mipc" + twin.name[len(assets.XBOX_HUD_PREFIX):])
-        mine_gui, theirs_gui = read_gff(twin).root, read_gff(original).root
-        controls = {c.get_string("TAG"): c for c in mine_gui.get_list("CONTROLS")}
-        order = [c.get_string("TAG") for c in mine_gui.get_list("CONTROLS")]
-        if order != [c.get_string("TAG") for c in theirs_gui.get_list("CONTROLS")]:
-            problems.append(f"{twin.name}: not the original's controls in the original's order")
-            continue
-        screen = mine_gui.get_struct("EXTENT")
-        width, height = screen.get_int32("WIDTH"), screen.get_int32("HEIGHT")
+    for hud in sorted(FILES.glob("mipc2*.gui")):
+        kinds = {c.get_string("TAG"): c.get_int32("CONTROLTYPE") for c in read_gff(hud).root.get_list("CONTROLS")}
+        problems += [f"{hud.name}: {p['tag']}" for p in pieces if kinds.get(p["tag"]) != p["kind"]]
+        order = [c.get_string("TAG") for c in read_gff(hud).root.get_list("CONTROLS")]
+        if not order.index("LBL_MOULDING1") < order.index("LBL_ACTIONDESC") < order.index("LBL_MOULDING3"):
+            problems.append(f"{hud.name}: the action box would be drawn over its description")
+    offsets = [piece["offset"] for piece in pieces]
+    check(not problems and len(set(offsets)) == len(offsets),
+          f"{len(pieces)} pieces, each a control of the game's four HUD layouts, of the class the table says"
+          + ("" if not problems else f": {problems[:4]}"))
 
-        def box(tag):
-            e = controls[tag].get_struct("EXTENT")
-            return [e.get_int32(k) for k in ("LEFT", "TOP", "WIDTH", "HEIGHT")]
-
-        frames = [box(f"BTN_TARGET{i}") for i in range(3)] + [box(f"BTN_ACTION{i}") for i in range(4)]
+    problems = []
+    screens = [(800, 600), (1024, 768), (1280, 960), (1600, 1200), (1280, 1024), (1280, 720), (1920, 1080),
+               (2560, 1080), (3440, 1440), (3840, 2160)]
+    for width, height in screens:
+        at = {tag: xbox_hud.rectangle(piece, width, height) for tag, piece in by_tag.items()}
+        frames = [at[f"BTN_TARGET{i}"] for i in range(3)] + [at[f"BTN_ACTION{i}"] for i in range(4)]
         row = [frames[i] for i in (3, 1, 2, 4, 5)]        # the second to sixth places, left to right
         pitches = {b[0] - a[0] for a, b in zip(row, row[1:])}
+        name = f"{width}x{height}"
         if len(pitches) != 1 or min(pitches) <= 0 or len({(f[1], f[2], f[3]) for f in frames}) != 1:
-            problems.append(f"{twin.name}: the six places are not one row at one pitch")
+            problems.append(f"{name}: the six places are not one row at one pitch")
         if frames[6] != frames[2] or frames[0] != frames[3]:
-            problems.append(f"{twin.name}: the mines' and skills' slots are not on the places they share")
+            problems.append(f"{name}: the mines' and skills' slots are not on the places they share")
         if row[0][0] - min(pitches) < 0:
-            problems.append(f"{twin.name}: no room for the first place")
-        if frames[3][2] != xbox_hud.scale_value(xbox_hud.SLOT_BORDER[2], height):
-            problems.append(f"{twin.name}: the first personal slot is not the size the module looks for")
-        if not order.index("LBL_MOULDING1") < order.index("LBL_ACTIONDESC"):
-            problems.append(f"{twin.name}: the action box would be drawn over its description")
-        for tag in order:
-            left, top, w, h = box(tag)
-            parked = left == xbox_hud.OFFSCREEN and top == xbox_hud.OFFSCREEN
-            # LBL_MAP is the map picture, larger than its window by design.
-            inside = 0 <= left and 0 <= top and left + w <= width and top + h <= height
-            if not (parked or inside or tag in ("LBL_MAP", "LBL_ARROW_MARGIN", "LBL_CMBTMODEMSG", "LBL_CMBTMSGBG")):
-                problems.append(f"{twin.name}: {tag} at {left},{top} {w}x{h} is partly off the {width}x{height} screen")
-    check(len(twins) == 4 and not problems,
-          f"{len(twins)} Xbox-style HUD layouts: the originals' controls, six places in a row, all on screen"
-          + ("" if not problems else f": {problems[:4]}"))
+            problems.append(f"{name}: no room for the first place")
+        box, queue, party = at["LBL_MOULDING1"], at["LBL_COMBATBG1"], at["PB_VIT1"]
+        if not box[0] + box[2] <= queue[0] or not queue[0] + queue[2] <= party[0]:
+            problems.append(f"{name}: the action box, the queue and the party run into each other")
+        if not at["LBL_NAMEBG"][0] + at["LBL_NAMEBG"][2] <= at["LBL_MAPBORDER"][0]:
+            problems.append(f"{name}: the target's bar reaches the minimap")
+        for tag, piece in by_tag.items():
+            if at[tag] is None or piece["side"] == xbox_hud.RELATIVE:
+                continue          # parked, or placed from its portrait's corner
+            left, top, w, h = at[tag]
+            if not (0 <= left and 0 <= top and left + w <= width and top + h <= height):
+                problems.append(f"{name}: {tag} at {left},{top} {w}x{h} is partly off the screen")
+    check(not problems,
+          f"the Xbox-style HUD laid out for {len(screens)} screens from 800x600 to 3840x2160, 5:4 to 21:9: "
+          "six places in a row, nothing overlapping, all on screen" + ("" if not problems else f": {problems[:4]}"))
 
     print()
     print(f"{PACKAGE.name}: {result['bytes']} bytes, SHA-256 {result['sha256']}")

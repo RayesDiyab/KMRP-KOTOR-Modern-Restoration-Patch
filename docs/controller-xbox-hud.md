@@ -8,7 +8,10 @@
 ([`controller-standalone.md`](controller-standalone.md)): the in-game HUD laid out
 and behaving as the original Xbox version's. Built on 2026-10-05 with the maintainer
 comparing each build against frames of the Xbox game; this is the layout he
-approved that day. KMRP's own patch does not have it.
+approved that day. Later the same day it stopped being a set of replaced layout
+files: the module lays the live HUD out itself, for any screen size, and gives the
+game's own HUD back while the mouse or keyboard is in use. KMRP's own patch does
+not have it.
 
 ## What the player sees
 
@@ -17,7 +20,8 @@ approved that day. KMRP's own patch does not have it.
 | Action menu | bottom left | a box with the selected action's name and a row of six slots; the selected slot is large with a yellow frame and yellow arrows |
 | Target bar | top left, fixed | the target's name over its health bar, in a blue frame, red for a hostile target |
 | Party | bottom right | the leader large, the others small above, each with a curved vitality bar on the left and Force bar on the right that empty from the top |
-| Minimap | top right | |
+| Minimap | top right | the size the game's own HUD has it (the maintainer's direction; the Xbox layout's is a little smaller) |
+| Speech box | under the target bar | a line of speech or a notice: it starts a little left of the target bar's frame, right under it, and is one and a half times as wide as the bar's frame |
 | Action queue | bottom, right of the action menu | with the pad's Y (take the last action off) beside it |
 | Combat mode | a strip across the top | "COMBAT MODE engaged. (B) to disengage." in red, the pad's B drawn in the line, a thin blue line under the strip; the target bar and minimap stand lower while it is there |
 
@@ -42,9 +46,16 @@ D-pad moves along the row as it is on screen; left from place 2, or B, returns t
 place 1. Up and down walk a slot's actions. B with place 1 selected disengages from
 combat; X does too.
 
+**It follows the device.** While the pad is what the player is using, the HUD is
+the Xbox one. The moment the mouse or keyboard is used it is the game's own HUD
+again, exactly as it was, and the pad brings the Xbox one back. Nothing is
+remembered between the two: before every frame the HUD is drawn the module asks
+which device was used last, so after a conversation, a movie or a loaded save the
+HUD is the one for the device in the player's hands.
+
 Every texture is the game's own, already in `swpc_tex_gui.erf` of the PC release.
-The patch carries no Xbox art and no font: four layout files, and one small button
-glyph per controller family for the combat line.
+The patch carries no Xbox art, no font and no layout file for this: only one small
+button glyph per controller family for the combat line.
 
 ## How it is switched on
 
@@ -55,16 +66,57 @@ glyph per controller family for the combat line.
 
 The module reads the manager's recorded option first (`configs\kmrp-controller.ini`,
 `[Patch Options]`, `xbox-hud`) and the settings file only when there is none, once,
-when the game starts. The HUD then stays the Xbox one for the session whichever
-device is used; only the button prompts and the combat line follow the device.
-
-The patch's file bank carries a twin of each HUD layout the game loads
-(`kmxh28x6.gui`, `kmxh210x7.gui`, `kmxh212x9.gui`, `kmxh216x12.gui`). With the option
-on, the module copies each twin over its original in the temporary folder it has
-just unpacked, before registering the folder (`K1ControllerStandalone.cpp`,
-`UseXboxHud`). With it off the twins are unused files and both hooks return at once.
+when the game starts. With the option off both hooks return at once.
 
 ## Why it is built this way
+
+### Laid out at run time
+
+Until the evening of 2026-10-05 `tools/build_xbox_hud.py` rewrote a copy of each PC
+HUD layout file and the patch loaded the copy in the original's place. That tied the
+HUD to the four screen sizes those files exist for, replaced whatever HUD layout
+another mod had installed, and could not be undone while the game ran. Now the tool
+writes a table, `src/controller-native/K1XboxHudLayout.inc` (101 controls: where
+each goes, how it is anchored, what art it wears), and `K1XboxHud.cpp` applies it to
+the live controls:
+
+- **A control is found by its place in the HUD object, not by the layout file.**
+  The executable builds every HUD control as a member of `CSWGuiMainInterface` at a
+  fixed offset. A control's ID, its index in the panel's array, comes from the file,
+  and differs between the game's own four files (compared: `mipc28x6`, `mipc210x7`,
+  `mipc212x9`, `mipc216x12`). The offsets were read from the running CD 1.03 game:
+  each tag's ID in `mipc210x7.gui` looked up in the panel's array (80 controls),
+  and the 22 the panel does not list (the target's menu, the combat-effect arrows)
+  found in the object's memory by class and ID.
+- **Kept, applied, put back.** At the first sight of a HUD object the module keeps
+  each control's rectangle, art and font as the layout file and the engine made
+  them (`Keep`). `ApplyXbox` moves and dresses them for the screen the game is
+  drawing (the GUI manager's viewport), with the engine's own setters:
+  `SetExtent`, `CSWGuiBorderParams::SetFillImage`, and
+  `CSWGuiTextParams::SetBaseFont` (`0x00415DD0`), which the layout loader uses.
+  `RestorePc` puts everything back, and with it what the hook changes each frame
+  that the engine does not set again by itself: the frames the engine last gave the
+  target's slots, the visibility of parked slots and hidden arrows, the action
+  description, and (through `UpdateNameLabel`) the stack under the target's name.
+- **Three things the HUD worked out from its layout when it was built** are set and
+  put back with the controls: the bottom edge the action description grows up from
+  (`+0xA454`, read by `SetActionDescription`), the rectangle the map is drawn in
+  (`+0x6080`, `LBL_MAPVIEW`'s in the file), and the target menu's origin, size and
+  clamp. The combat-effect arrows on a portrait are kept by the engine relative to
+  the portrait's corner (in the running game `LBL_CMBTEFCTINC1` was at (2, 23)
+  where the file has (8, 727) and `LBL_CHAR1` (6, 704)), so the table gives them so.
+- **The speech box is a panel of its own**, `CSWGuiBarkBubble`, held by
+  `CGuiInGame` at `+0x4C`. Its `Draw` (`0x006A9CE0`, decompiled) puts it back,
+  before every draw, on the rectangle its constructor copied from its layout file to
+  `+0x1A4`, so that rectangle is what `ApplyXbox` sets and `RestorePc` puts back.
+  The numbers are from a frame of the Xbox game the maintainer sent: the box from
+  49 to 509 across with its top at 82, the target bar from 53 to 307 and down to 73
+  (640x480 units). The Xbox width, 460, was tried and the maintainer asked for one
+  and a half times the bar's frame instead, 381. Seen at 1024x768: the box from 20
+  to 627 px, under a bar whose frame is 27 to 432; with the mouse, the game's own place again.
+- **A new HUD object is told to the module** from `CSWGuiPanel::ReleaseGff`, which
+  every panel calls as it is built and as it is destroyed
+  (`NativePanelReleaseGffK1`): a HUD at an address seen before is still a new HUD.
 
 ### The layout
 
@@ -155,6 +207,9 @@ frame:
   its button, and the rectangle at `+0x6080` the map is drawn in) 14 units down.
   The Xbox strip is 57 units tall with those 26 lower; the maintainer asked for a
   shorter one, 44.
+- **Keeps the minimap at the game's own size**: its frame takes the Xbox frame's top
+  right corner and the size the PC layout gives it, and the button and the map's
+  rectangle keep their places inside the frame.
 - **Writes the combat line.** In place of the PC's "COMBAT MODE engaged. Press the
   Disengage button to cancel." (dialog.tlk 48208), the Xbox game's own line, which
   is still in dialog.tlk (42475, "COMBAT MODE engaged. <bbutton> to disengage."):
@@ -176,12 +231,15 @@ the lower part. So a bar that is neither full nor empty is emptied for the panel
 draw and its fill is drawn here whole, through a viewport that is the filled
 part's rectangle (`AurGUISetupViewport`, as the engine clips the target menu).
 
+With the mouse or keyboard in use the first hook puts the game's HUD back and
+returns, and the second has nothing to draw.
+
 Elsewhere: `MoveFocus` in `vendor/K1XboxControls.cpp` walks the row in its on-screen
 order with the first place as "no slot"; `NativeActionBarK1` in
 `K1NativeJoystick.cpp` makes B disengage when there is no slot to let go of; the X
 cue label follows the combat message instead of the hidden Disengage button.
-Parked buttons in the layout hold every texture the hooks swap in and out, so that
-changing a fill twice a frame never loads or frees one.
+Five of the parked menu buttons hold the textures the hooks swap in and out before
+every draw, so that changing a fill twice a frame never loads or frees one.
 
 ## Measured against the Xbox game
 
@@ -220,16 +278,19 @@ measured again.
   `dialogfont12x16`, `fnt_d16x16b` and `fnt_galahad14`, and a copy of KMRP's HD
   atlas under a new name; on either label alone; and on the plain PC HUD with this
   option off, which crashes the same way.
-- **It does not change with the device.** The HUD is the Xbox one for the session.
-  Going back to the PC HUD when the mouse is used is wanted and not built.
-- **The game's four screen sizes only.** Each twin is made at build time for the
-  size written in its PC layout file: 800x600, 1024x768, 1280x960, 1600x1200. A
-  game changed to another size (a widescreen patcher) still loads one of those four
-  files, so the HUD would be laid out for the file's size and not the screen's,
-  unless a HUD mod for that size replaces the file, and then this option's twin
-  replaces that mod's. Not tried. Placing the controls at run time from the real
-  screen size is wanted and not built. The executable also names a layout for
-  1280x1024 that the data does not have.
+- **Other screen sizes are not run.** The layout is computed from the screen the
+  game is drawing and nothing in it depends on the shape; the regression test lays
+  it out for ten screens from 800x600 to 3840x2160 and 5:4 to 21:9 (one row, nothing
+  overlapping, all on screen). In the running game only the game's own four sizes
+  were seen: the unchanged executable falls back to 800x600 for any other size
+  (tried: 1280x720 in `swkotor.ini`), and KOTOR Patch Manager refuses an executable
+  a widescreen patcher has changed on disk, so the first real test is beside a
+  widescreen patch that is itself a KOTOR Patch Manager patch.
+- **The patch's other screens are still the game's four sizes.** The standalone
+  patch replaces 16 layout files (menus with badges, and the four HUD layouts with
+  the two queue cues added); beside an interface mod those replace the mod's. The
+  Xbox HUD itself no longer needs any of them: with another HUD layout loaded it
+  lays out the same, without the Y and B cues.
 - **Friendly Force powers and skills are not in the row during a fight** with a
   target that has feats: the second place holds the feats then, as on the Xbox.
 - **The mouse on the slots** was not tried. The up arrow's button covers the middle
@@ -241,9 +302,10 @@ measured again.
 ## Tested and not tested
 
 Run in a scratch copy of the CD 1.03 game, the patch installed by KOTOR Patch
-Manager 0.7.1's own launcher with `Style=Xbox`, driven by a virtual Xbox pad,
-judged from screenshots, on the build of 2026-10-05 whose package's SHA-256 begins
-`F4DB0879`:
+Manager 0.7.1's own launcher with `Style=Xbox`, driven by a virtual Xbox pad and a
+synthetic mouse, judged from screenshots.
+
+On the last build that replaced layout files (package SHA-256 `F4DB0879...`):
 
 - **1024x768, a friendly creature targeted:** "Dialog" selected in the first place,
   skills in the second, a dim frame in the third, a mine, medical and items; the
@@ -255,16 +317,32 @@ judged from screenshots, on the build of 2026-10-05 whose package's SHA-256 begi
   line and the B in it; B with a slot selected returned to the first place, and B
   again, unpaused, emptied the queue; a wounded companion's bar as the lower part
   of the arc.
-- **800x600, 1280x960, 1600x1200:** the friendly-creature save with a slot
-  selected. The same arrangement at each, the text the same pixel size.
-- **`testing/regression/Test-ControllerKpatch.py`:** the package against its
-  sources (33 hooks); the four twins hold their originals' controls in the
-  originals' order, the places are one row at one pitch with the shared places
-  shared, everything is on the screen or parked; no font in the bank.
+- **800x600, 1280x960, 1600x1200:** the friendly-creature save with a slot selected.
 
-Not run: the GOG and Steam executables, fullscreen, a real controller, any screen
-size but the game's four, the mouse on the slots and the combat line with the mouse
-in use, a door, a container or a droid as the target (the maintainer's frames of
+On the build that lays the HUD out at run time (package SHA-256 `DD9C8C9A...`,
+the minimap change included; the swaps were seen on the build before it,
+`AB92BDC8...`):
+
+- **1024x768 and 800x600, the friendly-creature save loaded with the pad:** the
+  Xbox HUD from the first frame, the same picture as the replaced-file build's.
+- **The swap, 1024x768:** the mouse moved, and the HUD was the game's own, the same
+  picture as with the option off (minimap top left, menu buttons, the target's name
+  beside the target); a D-pad press, and the Xbox HUD was back with that slot
+  selected.
+- **The swap in the fight:** the same, both ways; the game's HUD showed the target's
+  three slots in the engine's red frames under the name and the personal row as
+  the option-off game shows them in that fight (compared with a run with the
+  option off).
+- **After a conversation** started and ended with the pad: the Xbox HUD.
+- **`testing/regression/Test-ControllerKpatch.py`:** the table is what the tool
+  writes; its 101 pieces are controls of the game's four HUD layouts, of the class
+  the table says; the layout for ten screens (above); no HUD twin and no font in
+  the bank; 33 hooks.
+
+Not run: the GOG and Steam executables, fullscreen, a real controller and a real
+mouse, any screen size but the game's four, the run-time build at 1280x960 and
+1600x1200, another mod's HUD layout, the swap while the combat line is up, a movie,
+an area change, a door, a container or a droid as the target (the maintainer's frames of
 the Xbox game show "Open" with the lock in the second place, and "Dialog" with a
 second action; the same code decides them), using a grenade or an item from the
 row, a level-up, stealth and solo mode, the PlayStation, Switch and Steam Deck B

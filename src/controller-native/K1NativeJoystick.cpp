@@ -1233,6 +1233,7 @@ constexpr std::size_t    K1_HUD_CLEAR_ALL         = 0x7058;      // BTN_CLEARALL
 constexpr std::size_t    K1_HUD_COMBAT_MESSAGE    = 0x735C;      // LBL_CMBTMODEMSG
 #ifdef KMRP_CONTROLLER_STANDALONE
 bool KmrpXboxHudEnabledK1();                                     // K1XboxHud.cpp
+void KmrpXboxHudForgetK1(void* panel);
 #endif
 constexpr std::uintptr_t K1_ON_CLEAR_ONE          = 0x0068B050;  // CSWGuiMainInterface::OnClearOneButtonPressed
 constexpr std::uintptr_t K1_ON_CLEAR_ALL          = 0x0068B0A0;  // CSWGuiMainInterface::OnClearAllButtonPressed
@@ -2598,6 +2599,9 @@ extern "C" void __cdecl NativeFreeSaveBufferK1(void* buffer)
 extern "C" void __cdecl NativePanelReleaseGffK1(void* panel)
 {
     ControllerLayoutReleaseGffK1(panel);
+#ifdef KMRP_CONTROLLER_STANDALONE
+    KmrpXboxHudForgetK1(panel);
+#endif
     ForgetGuiCuesK1(panel);
     InstallGuiCuesK1(panel);
 }

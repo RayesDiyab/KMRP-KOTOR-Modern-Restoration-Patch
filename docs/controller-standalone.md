@@ -228,8 +228,9 @@ leave 12 design units between their words. Off for KMRP's sets, whose
 
 Since later on 2026-10-05 the patch has one more option, `xbox-hud`, and one more
 setting, `Style` under `[Hud]` in `kmrp-controller.ini`, both off by default. They
-add two hooks (33 in all), four layout files and a button glyph per controller
-family to the bank; the counts elsewhere in this document are the build before it.
+add two hooks (33 in all) and a button glyph per controller family to the bank;
+the counts elsewhere in this document are the build before it. The HUD is the Xbox
+one while the pad is in use and the game's own with the mouse and keyboard.
 [`controller-xbox-hud.md`](controller-xbox-hud.md) describes it.
 
 ## 6. Limits
