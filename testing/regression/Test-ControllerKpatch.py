@@ -49,6 +49,7 @@ import build_controller_kpatch as package                   # noqa: E402
 import build_controller_prompt_textures as prompts          # noqa: E402
 import build_native_kpatch as kmrp                          # noqa: E402
 import build_xbox_hud as xbox_hud                           # noqa: E402
+import build_xbox_hud_art                                   # noqa: E402
 import kmrp_controller                                      # noqa: E402
 
 PACKAGE = ROOT / "dist/controller" / package.NAME
@@ -129,7 +130,10 @@ def main() -> int:
                       + [p.name for p in assets.VANILLA_GUI.glob("mipc*.gui")])
     check(guis == expected,
           f"{len(guis)} layout files: the ones the controller changes and its own screen")
-    check(all(n.endswith((".gui", ".tga")) for n in names), "nothing but layout files and textures")
+    hud_art = sorted(n for n in names if n.startswith(build_xbox_hud_art.PREFIX))
+    check(hud_art == sorted(f"{v}.{kind}" for v in build_xbox_hud_art.NAMES.values() for kind in ("tga", "txi")),
+          f"{len(build_xbox_hud_art.NAMES)} drawn Xbox HUD frames, each with its clamp setting")
+    check(all(n.endswith((".gui", ".tga")) or n in hud_art for n in names), "nothing but layout files and textures")
     check(not any("font" in n or n.startswith(("fnt_", "kmxf")) for n in names), "no font: the game's own text is untouched")
     targets = prompts.PROMPT_TARGETS
     missing = [prompts.family_resref(t.resref, family) for t in targets for family in prompts.GLYPH_FAMILIES

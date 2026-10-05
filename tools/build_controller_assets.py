@@ -56,6 +56,7 @@ from pykotor.resource.formats.gff import GFFList, read_gff, write_gff           
 
 import build_native_assets                                              # noqa: E402
 import build_tab_arrows                                                 # noqa: E402
+import build_xbox_hud_art                                               # noqa: E402
 from build_controller_layout import (DIALOG_BADGE_TAG, add_confirm_badge,  # noqa: E402
                                      add_entry as add_controller_layout_entry,
                                      build_art as build_controller_layout_art,
@@ -247,6 +248,8 @@ def make(work: Path) -> dict:
         path.write_bytes(build_square_glyph_tga(SWAP_CUE_GLYPH, 256, 256 // SWAP_CUE_ASPECT, family=family))
         common.append(path)
     common += build_controller_layout_art(art / "layout")
+    # The Xbox-style HUD's frames, drawn (not the game's art): tools/build_xbox_hud_art.py.
+    common += build_xbox_hud_art.build(art / "xbox-hud")
 
     files = {name: current[name] for name in sorted(changed)}
     for path in prompts + common:

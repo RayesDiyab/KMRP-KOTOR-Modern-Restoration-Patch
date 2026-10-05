@@ -10,7 +10,7 @@ constexpr int kOutX = 38, kOutY = 30;
 constexpr int kSlotPitch = 36;
 constexpr int kPartyScale = 85;                         // hundredths
 constexpr int kPartyCorner[2] = {755, 559};             // right, bottom
-constexpr int kSeamOverlap = 1;
+constexpr int kSeamOverlap = 0;
 constexpr int kMapView[4] = {678, 39, 68, 68};          // right, top
 constexpr int kDescriptionBottom = 505;                  // left, bottom
 constexpr int kMessageRow[2] = {12, 22};                 // top and height, across the screen
@@ -18,42 +18,44 @@ constexpr int kBark[3] = {49, 82, 381};                 // left, top; width
 constexpr int kQueueCue[4] = {381, 523, 22, 22};        // centre, bottom
 constexpr char kLayoutFont[16] = "dialogfont16x16";
 constexpr char kDisengageFill[16] = "kmrpb_cmbt";
+constexpr double kPortraitHairline = 0.7;                // of the frame's 64: the black line beside a portrait
+constexpr double kPortraitInset[2] = {8.95, 3.5};        // of the frame's 64: where a portrait's side edge goes, the middle of its top line
 constexpr Piece kPieces[] = {
-    {0x1BC8, kLabel, kLeft, kBottom, {45, 446, 256, 90}, 0, 0, "lbl_mitextbox", nullptr, nullptr},   // LBL_MOULDING1
-    {0x1E48, kLabel, kLeft, kBottom, {45, 537, 256, 32}, 0, 0, "lbl_mitextbox2", nullptr, nullptr},   // LBL_MOULDING3
-    {0x1D08, kLabel, kRight, kBottom, {723, 467, 32, 72}, 0, kParty, "lbl_micurve", nullptr, nullptr},   // LBL_MOULDING2
+    {0x1BC8, kLabel, kLeft, kBottom, {45, 446, 256, 90}, 0, 0, "kmrx_mitextbox", nullptr, nullptr},   // LBL_MOULDING1
+    {0x1E48, kLabel, kLeft, kBottom, {45, 537, 256, 32}, 0, 0, "kmrx_mitextbox2", nullptr, nullptr},   // LBL_MOULDING3
+    {0x1D08, kLabel, kRight, kBottom, {723, 467, 32, 72}, 0, kParty, "kmrx_micurve", nullptr, nullptr},   // LBL_MOULDING2
     {0xA314, kLabel, kLeft, kBottom, {56, 455, 210, 50}, 0, 0, "", nullptr, nullptr},   // LBL_ACTIONDESCBG
     {0xA1D4, kLabel, kLeft, kBottom, {56, 455, 210, 50}, 0, kSetFont, nullptr, nullptr, nullptr},   // LBL_ACTIONDESC
-    {0x0110, kButton, kLeft, kBottom, {51, 515, 41, 41}, 1, 0, "lbl_mibox01", "lbl_mibox02", nullptr},   // BTN_TARGET0
+    {0x0110, kButton, kLeft, kBottom, {51, 515, 41, 41}, 1, 0, "kmrx_mibox01", "kmrx_mibox02", nullptr},   // BTN_TARGET0
     {0x02D4, kButton, kLeft, kBottom, {61, 524, 21, 21}, 1, 0, nullptr, nullptr, nullptr},   // LBL_TARGET0
-    {0x0498, kButton, kLeft, kBottom, {66, 515, 11, 41}, 1, 0, "lbl_miarrow01", "lbl_miarrow02", nullptr},   // BTN_TARGETUP0
+    {0x0498, kButton, kLeft, kBottom, {66, 515, 11, 41}, 1, 0, "kmrx_miarrow01", "kmrx_miarrow02", nullptr},   // BTN_TARGETUP0
     {0x065C, kButton, kLeft, kBottom, {66, 535, 11, 21}, 1, 0, "", "", nullptr},   // BTN_TARGETDOWN0
-    {0x772C, kButton, kLeft, kBottom, {51, 515, 41, 41}, 1, 0, "lbl_mibox01", "lbl_mibox02", nullptr},   // BTN_ACTION0
+    {0x772C, kButton, kLeft, kBottom, {51, 515, 41, 41}, 1, 0, "kmrx_mibox01", "kmrx_mibox02", nullptr},   // BTN_ACTION0
     {0x78F0, kButton, kLeft, kBottom, {61, 524, 21, 21}, 1, 0, nullptr, nullptr, nullptr},   // LBL_ACTION0
-    {0x7AB4, kButton, kLeft, kBottom, {66, 515, 11, 41}, 1, 0, "lbl_miarrow01", "lbl_miarrow02", nullptr},   // BTN_ACTIONUP0
+    {0x7AB4, kButton, kLeft, kBottom, {66, 515, 11, 41}, 1, 0, "kmrx_miarrow01", "kmrx_miarrow02", nullptr},   // BTN_ACTIONUP0
     {0x7C78, kButton, kLeft, kBottom, {66, 535, 11, 21}, 1, 0, "", "", nullptr},   // BTN_ACTIONDOWN0
-    {0x082C, kButton, kLeft, kBottom, {51, 515, 41, 41}, 2, 0, "lbl_mibox01", "lbl_mibox02", nullptr},   // BTN_TARGET1
+    {0x082C, kButton, kLeft, kBottom, {51, 515, 41, 41}, 2, 0, "kmrx_mibox01", "kmrx_mibox02", nullptr},   // BTN_TARGET1
     {0x09F0, kButton, kLeft, kBottom, {61, 524, 21, 21}, 2, 0, nullptr, nullptr, nullptr},   // LBL_TARGET1
-    {0x0BB4, kButton, kLeft, kBottom, {66, 515, 11, 41}, 2, 0, "lbl_miarrow01", "lbl_miarrow02", nullptr},   // BTN_TARGETUP1
+    {0x0BB4, kButton, kLeft, kBottom, {66, 515, 11, 41}, 2, 0, "kmrx_miarrow01", "kmrx_miarrow02", nullptr},   // BTN_TARGETUP1
     {0x0D78, kButton, kLeft, kBottom, {66, 535, 11, 21}, 2, 0, "", "", nullptr},   // BTN_TARGETDOWN1
-    {0x0F48, kButton, kLeft, kBottom, {51, 515, 41, 41}, 3, 0, "lbl_mibox01", "lbl_mibox02", nullptr},   // BTN_TARGET2
+    {0x0F48, kButton, kLeft, kBottom, {51, 515, 41, 41}, 3, 0, "kmrx_mibox01", "kmrx_mibox02", nullptr},   // BTN_TARGET2
     {0x110C, kButton, kLeft, kBottom, {61, 524, 21, 21}, 3, 0, nullptr, nullptr, nullptr},   // LBL_TARGET2
-    {0x12D0, kButton, kLeft, kBottom, {66, 515, 11, 41}, 3, 0, "lbl_miarrow01", "lbl_miarrow02", nullptr},   // BTN_TARGETUP2
+    {0x12D0, kButton, kLeft, kBottom, {66, 515, 11, 41}, 3, 0, "kmrx_miarrow01", "kmrx_miarrow02", nullptr},   // BTN_TARGETUP2
     {0x1494, kButton, kLeft, kBottom, {66, 535, 11, 21}, 3, 0, "", "", nullptr},   // BTN_TARGETDOWN2
-    {0x7E48, kButton, kLeft, kBottom, {51, 515, 41, 41}, 4, 0, "lbl_mibox01", "lbl_mibox02", nullptr},   // BTN_ACTION1
+    {0x7E48, kButton, kLeft, kBottom, {51, 515, 41, 41}, 4, 0, "kmrx_mibox01", "kmrx_mibox02", nullptr},   // BTN_ACTION1
     {0x800C, kButton, kLeft, kBottom, {61, 524, 21, 21}, 4, 0, nullptr, nullptr, nullptr},   // LBL_ACTION1
-    {0x81D0, kButton, kLeft, kBottom, {66, 515, 11, 41}, 4, 0, "lbl_miarrow01", "lbl_miarrow02", nullptr},   // BTN_ACTIONUP1
+    {0x81D0, kButton, kLeft, kBottom, {66, 515, 11, 41}, 4, 0, "kmrx_miarrow01", "kmrx_miarrow02", nullptr},   // BTN_ACTIONUP1
     {0x8394, kButton, kLeft, kBottom, {66, 535, 11, 21}, 4, 0, "", "", nullptr},   // BTN_ACTIONDOWN1
-    {0x8564, kButton, kLeft, kBottom, {51, 515, 41, 41}, 5, 0, "lbl_mibox01", "lbl_mibox02", nullptr},   // BTN_ACTION2
+    {0x8564, kButton, kLeft, kBottom, {51, 515, 41, 41}, 5, 0, "kmrx_mibox01", "kmrx_mibox02", nullptr},   // BTN_ACTION2
     {0x8728, kButton, kLeft, kBottom, {61, 524, 21, 21}, 5, 0, nullptr, nullptr, nullptr},   // LBL_ACTION2
-    {0x88EC, kButton, kLeft, kBottom, {66, 515, 11, 41}, 5, 0, "lbl_miarrow01", "lbl_miarrow02", nullptr},   // BTN_ACTIONUP2
+    {0x88EC, kButton, kLeft, kBottom, {66, 515, 11, 41}, 5, 0, "kmrx_miarrow01", "kmrx_miarrow02", nullptr},   // BTN_ACTIONUP2
     {0x8AB0, kButton, kLeft, kBottom, {66, 535, 11, 21}, 5, 0, "", "", nullptr},   // BTN_ACTIONDOWN2
-    {0x8C80, kButton, kLeft, kBottom, {51, 515, 41, 41}, 3, 0, "lbl_mibox01", "lbl_mibox02", nullptr},   // BTN_ACTION3
+    {0x8C80, kButton, kLeft, kBottom, {51, 515, 41, 41}, 3, 0, "kmrx_mibox01", "kmrx_mibox02", nullptr},   // BTN_ACTION3
     {0x8E44, kButton, kLeft, kBottom, {61, 524, 21, 21}, 3, 0, nullptr, nullptr, nullptr},   // LBL_ACTION3
-    {0x9008, kButton, kLeft, kBottom, {66, 515, 11, 41}, 3, 0, "lbl_miarrow01", "lbl_miarrow02", nullptr},   // BTN_ACTIONUP3
+    {0x9008, kButton, kLeft, kBottom, {66, 515, 11, 41}, 3, 0, "kmrx_miarrow01", "kmrx_miarrow02", nullptr},   // BTN_ACTIONUP3
     {0x91CC, kButton, kLeft, kBottom, {66, 535, 11, 21}, 3, 0, "", "", nullptr},   // BTN_ACTIONDOWN3
     {0x1688, kLabel, kLeft, kTop, {57, 38, 247, 26}, 0, kSetFont, nullptr, nullptr, nullptr},   // LBL_NAME
-    {0x17C8, kLabel, kLeft, kTop, {47, 24, 271, 64}, 0, 0, "lbl_miindic01f", nullptr, nullptr},   // LBL_NAMEBG
+    {0x17C8, kLabel, kLeft, kTop, {47, 24, 271, 64}, 0, 0, "kmrx_miindic01f", nullptr, nullptr},   // LBL_NAMEBG
     {0x1A48, kProgress, kLeft, kTop, {58, 64, 247, 9}, 0, 0, nullptr, nullptr, nullptr},   // PB_HEALTH
     {0x1908, kLabel, kLeft, kTop, {58, 64, 247, 9}, 0, 0, "", nullptr, nullptr},   // LBL_HEALTHBG
     {0x25F0, kLabel, kRight, kBottom, {643, 498, 58, 58}, 0, kParty, nullptr, nullptr, nullptr},   // LBL_CHAR1
@@ -71,24 +73,24 @@ constexpr Piece kPieces[] = {
     {0x3E40, kLabel, kRight, kBottom, {705, 425, 32, 32}, 0, kParty, nullptr, nullptr, nullptr},   // LBL_DEBILATATED3
     {0x4200, kLabel, kRight, kBottom, {705, 425, 32, 32}, 0, kParty, nullptr, nullptr, nullptr},   // LBL_LVLUPBG3
     {0x40C0, kLabel, kRight, kBottom, {705, 425, 32, 32}, 0, kParty, nullptr, nullptr, nullptr},   // LBL_LEVELUP3
-    {0x1FB0, kLabel, kRight, kBottom, {633, 495, 78, 64}, 0, kParty, "lbl_miport", nullptr, nullptr},   // LBL_BACK1
-    {0x2E58, kLabel, kRight, kBottom, {687, 459, 45, 36}, 0, kParty, "lbl_miport", nullptr, nullptr},   // LBL_BACK2
-    {0x3D00, kLabel, kRight, kBottom, {699, 423, 44, 36}, 0, kParty, "lbl_miport", nullptr, nullptr},   // LBL_BACK3
-    {0x2730, kProgress, kRight, kBottom, {626, 495, 16, 64}, 0, kParty, "lbl_health2", nullptr, "lbl_health"},   // PB_VIT1
-    {0x2880, kProgress, kRight, kBottom, {702, 495, 16, 64}, 0, kParty, "lbl_force2", nullptr, "lbl_force"},   // PB_FORCE1
-    {0x35D8, kProgress, kRight, kBottom, {683, 459, 11, 36}, 0, kParty, "lbl_health2", nullptr, "lbl_health"},   // PB_VIT2
-    {0x3728, kProgress, kRight, kBottom, {726, 459, 11, 36}, 0, kParty, "lbl_force2", nullptr, "lbl_force"},   // PB_FORCE2
-    {0x4480, kProgress, kRight, kBottom, {694, 423, 11, 36}, 0, kParty, "lbl_health2", nullptr, "lbl_health"},   // PB_VIT3
-    {0x45D0, kProgress, kRight, kBottom, {737, 423, 11, 36}, 0, kParty, "lbl_force2", nullptr, "lbl_force"},   // PB_FORCE3
+    {0x1FB0, kLabel, kRight, kBottom, {633, 495, 78, 64}, 0, kParty, "kmrx_miport", nullptr, nullptr},   // LBL_BACK1
+    {0x2E58, kLabel, kRight, kBottom, {687, 459, 45, 36}, 0, kParty, "kmrx_miport", nullptr, nullptr},   // LBL_BACK2
+    {0x3D00, kLabel, kRight, kBottom, {699, 423, 44, 36}, 0, kParty, "kmrx_miport", nullptr, nullptr},   // LBL_BACK3
+    {0x2730, kProgress, kRight, kBottom, {626, 495, 16, 64}, 0, kParty, "kmrx_health2", nullptr, "kmrx_health"},   // PB_VIT1
+    {0x2880, kProgress, kRight, kBottom, {702, 495, 16, 64}, 0, kParty, "kmrx_force2", nullptr, "kmrx_force"},   // PB_FORCE1
+    {0x35D8, kProgress, kRight, kBottom, {683, 459, 11, 36}, 0, kParty, "kmrx_health2", nullptr, "kmrx_health"},   // PB_VIT2
+    {0x3728, kProgress, kRight, kBottom, {726, 459, 11, 36}, 0, kParty, "kmrx_force2", nullptr, "kmrx_force"},   // PB_FORCE2
+    {0x4480, kProgress, kRight, kBottom, {694, 423, 11, 36}, 0, kParty, "kmrx_health2", nullptr, "kmrx_health"},   // PB_VIT3
+    {0x45D0, kProgress, kRight, kBottom, {737, 423, 11, 36}, 0, kParty, "kmrx_force2", nullptr, "kmrx_force"},   // PB_FORCE3
     {0x2B10, kLabel, kRelative, kBottom, {40, 21, 16, 16}, 0, kParty, nullptr, nullptr, nullptr},   // LBL_CMBTEFCTRED1
     {0x29D0, kLabel, kRelative, kBottom, {2, 21, 16, 16}, 0, kParty, nullptr, nullptr, nullptr},   // LBL_CMBTEFCTINC1
     {0x39B8, kLabel, kRelative, kBottom, {23, 12, 8, 8}, 0, kParty, nullptr, nullptr, nullptr},   // LBL_CMBTEFCTRED2
     {0x3878, kLabel, kRelative, kBottom, {1, 12, 8, 8}, 0, kParty, nullptr, nullptr, nullptr},   // LBL_CMBTEFCTINC2
     {0x4860, kLabel, kRelative, kBottom, {23, 12, 8, 8}, 0, kParty, nullptr, nullptr, nullptr},   // LBL_CMBTEFCTRED3
     {0x4720, kLabel, kRelative, kBottom, {1, 12, 8, 8}, 0, kParty, nullptr, nullptr, nullptr},   // LBL_CMBTEFCTINC3
-    {0x5CC0, kLabel, kRight, kTop, {673, 34, 78, 78}, 0, 0, "lbl_minimap", nullptr, nullptr},   // LBL_MAPBORDER
+    {0x5CC0, kLabel, kRight, kTop, {673, 34, 78, 78}, 0, 0, "kmrx_minimap", nullptr, nullptr},   // LBL_MAPBORDER
     {0x6098, kButton, kRight, kTop, {678, 39, 68, 68}, 0, 0, nullptr, nullptr, nullptr},   // BTN_MINIMAP
-    {0x675C, kLabel, kCentre, kBottom, {399, 504, 128, 64}, 0, 0, "lbl_micombat", nullptr, nullptr},   // LBL_COMBATBG1
+    {0x675C, kLabel, kCentre, kBottom, {399, 504, 128, 64}, 0, 0, "kmrx_micombat", nullptr, nullptr},   // LBL_COMBATBG1
     {0x625C, kLabel, kCentre, kBottom, {483, 518, 32, 32}, 0, 0, nullptr, nullptr, nullptr},   // LBL_QUEUE0
     {0x639C, kLabel, kCentre, kBottom, {445, 526, 16, 16}, 0, 0, nullptr, nullptr, nullptr},   // LBL_QUEUE1
     {0x64DC, kLabel, kCentre, kBottom, {428, 526, 16, 16}, 0, 0, nullptr, nullptr, nullptr},   // LBL_QUEUE2
@@ -108,13 +110,13 @@ constexpr Piece kPieces[] = {
     {0xAADC, kLabel, kCentre, kTop, {489, 41, 32, 32}, 0, 0, nullptr, nullptr, nullptr},   // LBL_LIGHTSHIFT
     {0xAD74, kLabel, kCentre, kTop, {522, 41, 32, 32}, 0, 0, nullptr, nullptr, nullptr},   // LBL_ITEMRCVD
     {0xAEC0, kLabel, kCentre, kTop, {555, 41, 32, 32}, 0, 0, nullptr, nullptr, nullptr},   // LBL_ITEMLOST
-    {0xB00C, kButton, kLeft, kBottom, {0, 0, 0, 0}, 0, kHide, "lbl_health", "lbl_healthp", nullptr},   // BTN_EQU
+    {0xB00C, kButton, kLeft, kBottom, {0, 0, 0, 0}, 0, kHide, "kmrx_health", "kmrx_healthp", nullptr},   // BTN_EQU
     {0xB1D0, kButton, kLeft, kBottom, {0, 0, 0, 0}, 0, kHide, "redfill", "greenfill", nullptr},   // BTN_INV
     {0xB394, kButton, kLeft, kBottom, {0, 0, 0, 0}, 0, kHide, nullptr, nullptr, nullptr},   // BTN_CHAR
     {0xB558, kButton, kLeft, kBottom, {0, 0, 0, 0}, 0, kHide, "lbl_miscroll_h", "lbl_miscroll_f", nullptr},   // BTN_ABI
     {0xB71C, kButton, kLeft, kBottom, {0, 0, 0, 0}, 0, kHide, "i_noaction", "i_noaction", nullptr},   // BTN_MSG
     {0xB8E0, kButton, kLeft, kBottom, {0, 0, 0, 0}, 0, kHide, "blackfill", "whitefill", nullptr},   // BTN_JOU
-    {0xBAA4, kButton, kLeft, kBottom, {0, 0, 0, 0}, 0, kHide, "lbl_minimap", "lbl_minimap", nullptr},   // BTN_MAP
+    {0xBAA4, kButton, kLeft, kBottom, {0, 0, 0, 0}, 0, kHide, "kmrx_minimap", "kmrx_minimap", nullptr},   // BTN_MAP
     {0xBC68, kButton, kLeft, kBottom, {0, 0, 0, 0}, 0, kHide, nullptr, nullptr, nullptr},   // BTN_OPT
     {0xBE2C, kLabel, kLeft, kBottom, {0, 0, 0, 0}, 0, kHide, nullptr, nullptr, nullptr},   // LBL_MENUBG
     {0xC0AC, kToggle, kLeft, kBottom, {0, 0, 0, 0}, 0, kHide, nullptr, nullptr, nullptr},   // TB_PAUSE

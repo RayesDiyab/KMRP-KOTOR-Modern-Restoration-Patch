@@ -55,6 +55,9 @@ from __future__ import annotations
 import sys
 from pathlib import Path
 
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+from build_xbox_hud_art import HAIRLINE, PORTRAIT_INSET, hd_name      # noqa: E402  the frames' drawings (kmrx_*)
+
 ROOT = Path(__file__).resolve().parents[1]
 TABLE = ROOT / "src" / "controller-native" / "K1XboxHudLayout.inc"
 
@@ -79,7 +82,7 @@ BARK = (49, 82, 381)
 OUT_X, OUT_Y = 38, 30              # how far each group is moved out towards its corner
 DISENGAGE_FILL = "kmrpb_cmbt"      # the B glyph (tools/build_controller_assets.py makes it per family)
 QUEUE_CUE = (381, 523, 22, 22)     # the Y cue beside the queue (a label the patch adds; K1NativeJoystick.cpp)
-SEAM_OVERLAP = 1                   # screen pixels the action box's upper half reaches into its lower one
+SEAM_OVERLAP = 0                   # screen pixels the action box's upper half reaches into its lower one
 # The party's group (portraits, bars, the curve beside them) is drawn smaller than
 # the Xbox layout has it, about its bottom right corner: the maintainer found it too
 # big (2026-10-05). In hundredths.
@@ -148,6 +151,9 @@ def pieces() -> list[dict]:
         if tag in seen:
             raise ValueError(f"{tag} placed twice")
         seen.add(tag)
+        # The frames are named here as the game names them, and dressed in their
+        # drawings (tools/build_xbox_hud_art.py); a texture with no drawing keeps its name.
+        fill, hilight, progress = (None if name is None else hd_name(name) for name in (fill, hilight, progress))
         out.append({"tag": tag, "box": tuple(box), "side": side, "edge": edge, "fill": fill, "hilight": hilight,
                     "progress": progress, "flags": flags, "places": places})
 
@@ -168,6 +174,11 @@ def pieces() -> list[dict]:
     # the pair showed a light line across the slots (seen 2026-10-05; the Xbox game
     # shows none). The lower half stays exactly where the file has it, since its rim
     # is the box's bottom edge and the slots' lower arrowheads sit just inside it.
+    # That was with the game's own art, and the overlap was 1. The box is drawn art now
+    # (tools/build_xbox_hud_art.py) whose textures do not repeat ("clamp 3"), so the
+    # row at the edge is whole, and a pixel of overlap showed as a DARK line instead,
+    # the two halves' shade twice (seen later the same day). The upper half now ends
+    # exactly where the lower begins: an overlap of 0.
     place("LBL_MOULDING1", (45, 446, 256, 90), fill="lbl_mitextbox")
     place("LBL_MOULDING3", (45, 537, 256, 32), fill="lbl_mitextbox2")
     place("LBL_MOULDING2", (723, 467, 32, 72), side=RIGHT, fill="lbl_micurve", flags=PARTY)
@@ -346,6 +357,8 @@ def table() -> str:
         "constexpr int kQueueCue[4] = {%d, %d, %d, %d};        // centre, bottom" % QUEUE_CUE,
         'constexpr char kLayoutFont[16] = "%s";' % FONT,
         'constexpr char kDisengageFill[16] = "%s";' % DISENGAGE_FILL,
+        "constexpr double kPortraitHairline = %s;                // of the frame's 64: the black line beside a portrait" % HAIRLINE,
+        "constexpr double kPortraitInset[2] = {%s, %s};        // of the frame's 64: where a portrait's side edge goes, the middle of its top line" % PORTRAIT_INSET,
         "constexpr Piece kPieces[] = {",
     ]
     for p in pieces():

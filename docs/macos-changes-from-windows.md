@@ -48,6 +48,7 @@ reason).
 | 18 | Badges made for the area a button's border fills, not the whole button: every set, blend table version 5, the helper | **to do**: the Mac's controller code must ask for the focused texture; **build and check** |
 | 19 | An Xbox-style HUD, an option of the standalone controller patch (Windows, 2026-10-05) | **nothing to do** while the Mac has no standalone controller patch (item 17); section 19 says what it would take |
 | 20 | The Windows module's resource bank leaves out what the blend helper makes: `KMRP.kpatch` 249 MB to 129 MB (2026-10-05) | **nothing to do**: the bank is the Windows module's alone and the shared helper is unchanged. **Worth copying** when the Mac ships one `.kpatch` (item 15) |
+| 21 | The Xbox-style HUD's frames are drawings, `kmrx_*`, and its portraits are framed by the module (Windows, 2026-10-05) | **nothing to do** while the Mac has no standalone controller patch (item 17); section 21 says what carries over |
 
 ## 1. Badges drawn for the blended buttons
 
@@ -591,3 +592,20 @@ output, and hold everything against the index. The build must decide what to lea
 out with a helper compiled as the shipped one is; on Windows that is x86 with
 `/fp:strict`, and an x64 helper built separately agreed on all six sets it was
 tried on.
+
+## 21. The Xbox-style HUD's frames are drawn
+
+The Windows standalone controller patch, 2026-10-05:
+[controller-xbox-hud.md](controller-xbox-hud.md), "Drawn frames". The Mac has no
+standalone controller patch (item 17), so there is nothing to carry over today. If
+it gets one:
+
+1. `tools/build_xbox_hud_art.py` is plain Python (numpy, Pillow) and reads nothing
+   from the game: the seventeen `kmrx_*` textures and their `clamp 3` `.txi` files
+   are the same on any platform. Check on the Mac game that a `.txi` beside a TGA
+   in the patch's folder is honoured: on Windows the description box showed a seam
+   without it.
+2. `FramePortraits` in `src/controller-native/K1XboxHud.cpp` places each portrait's
+   frame and bars from the portrait's rectangle. Its arithmetic carries over; the
+   offsets of the party's controls in `CSWGuiMainInterface` (`kPartyFrame` and its
+   neighbours) are the Windows executable's and would be read from the Mac game.

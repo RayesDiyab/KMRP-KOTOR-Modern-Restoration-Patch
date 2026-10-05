@@ -299,6 +299,94 @@ Not run with both: a fight, the combat strip, the swap back to the pad (the real
 mouse was in use on the test PC), other sizes, Scaled Kotor's own options screen,
 the menus' controller badges (the main menu showed none), a conversation.
 
+## Drawn frames
+
+Until the evening of 2026-10-05 the HUD wore the game's own HUD textures, which the
+Xbox layout names: 16 to 256 pixels across, stretched over the screen. The
+maintainer asked for a crisp HUD. What was tried and shown to him, and what he
+decided:
+
+| Tried | Outcome |
+| --- | --- |
+| The textures enlarged 4x: bilinear, Lanczos with steepened edges, a pixel-art scaler | "don't look good" |
+| Real-ESRGAN (`realesrgan-x4plus-anime`, `realesr-animevideov3`, `realesrgan-x4plus`) and six community models, colour and alpha enlarged apart | cleaner, but an enlarged copy of the game's art, which the patch may not carry; not chosen |
+| The speech icon modelled by hand from its pixels, and seven combat icons as geometry | "leave them all original": every icon stays the game's |
+| The frames redrawn as geometry | chosen |
+
+### What is drawn
+
+`tools/build_xbox_hud_art.py` holds one drawing per texture: the game's texture was
+measured row by row (where its lit and its dark pixels begin and end, with the soft
+pixels at the ends as fractions) and is described as lines, arcs and polygons in the
+texture's own pixel units, in its own colours. It is rendered at four times the
+size, each pixel from 4x4 samples, as a 32-bit TGA. The tool reads nothing from the
+game.
+
+| Game's texture | Drawing | What it is |
+| --- | --- | --- |
+| `lbl_mibox01`, `lbl_mibox02` | `kmrx_mibox01`, `kmrx_mibox02` | a slot's box, and the chosen slot's |
+| `lbl_miarrow01`, `lbl_miarrow02` | `kmrx_miarrow01`, `kmrx_miarrow02` | the two arrows beside a slot |
+| `lbl_minimap` | `kmrx_minimap` | the minimap's frame |
+| `lbl_miport` | `kmrx_miport` | a portrait's frame |
+| `lbl_health`, `lbl_healthp`, `lbl_force` | `kmrx_health`, `kmrx_healthp`, `kmrx_force` | the vitality bar, the same poisoned, the Force bar |
+| `lbl_health2`, `lbl_force2` | `kmrx_health2`, `kmrx_force2` | the two bars empty |
+| `lbl_mitextbox`, `lbl_mitextbox2` | `kmrx_mitextbox`, `kmrx_mitextbox2` | the description box's top and bottom |
+| `lbl_miindic01f`, `lbl_miindic01e` | `kmrx_miindic01f`, `kmrx_miindic01e` | the target's name bar, friend and enemy |
+| `lbl_micombat` | `kmrx_micombat` | the combat queue's frame |
+| `lbl_micurve` | `kmrx_micurve` | the curve beside the portraits |
+
+Not drawn: `i_noaction` and every other icon, and `lbl_miscroll_f` / `_h`, the round
+box the engine gives a target's slots, which the Xbox HUD replaces with the slot box.
+
+Where a drawing departs from the game's texture on purpose:
+
+- **The chosen slot's box** sits a pixel lower than the plain one in the game's art
+  and is thinner; both are one shape here.
+- **The slot box's sides** are 1.8 pixels thick, not the measured 2.1, which looked
+  heavy at full sharpness beside the one-pixel lines.
+- **A bar's arc** is half a pixel further from its texture's side, so its outline is
+  whole; **the empty bar** has that outline too (the game's is a bare shade), so the
+  outline stays when a bar empties.
+- **A portrait's frame** has blue lines three pixels thick, reaching inwards, and a
+  black hairline 0.7 of a pixel wide inside each lens, from the outline at the top
+  to the outline at the bottom.
+
+### Names, and the edge of a texture
+
+The drawings are `kmrx_*`, not the game's names: the game's textures stay what they
+are for the PC HUD, which the module gives back while the mouse or keyboard is in
+use, and for any other mod. `tools/build_xbox_hud.py` maps a name through
+`hd_name` as it writes the table, and the names the module sets itself are
+constants in `K1XboxHud.cpp`.
+
+Each drawing has a `.txi` holding `clamp 3`. Without it the first build showed a
+dark seam across the description box where its two ends meet: the engine repeats a
+texture past its edge and makes smaller copies of a TGA for drawing it small, and in
+those a frame's last row is mixed with its first. With the rows at the edge whole,
+the pixel by which the box's upper half used to reach into its lower one
+(`SEAM_OVERLAP`, there to hide the light line the game's own art showed) became a
+dark line, the two halves' shade twice; it is 0.
+
+### The portraits
+
+`FramePortraits` in `K1XboxHud.cpp` runs after the table is applied and places each
+portrait's frame and bars from the portrait's rectangle in screen pixels:
+
+| | Rule |
+| --- | --- |
+| Frame, height | the portrait's top and bottom edges fall 3.5 of the frame's 64 in: the middle of its blue line |
+| Frame, width | the portrait's side edges fall 8.95 of 64 in, the inner edge of the hairline; of the two whole-pixel widths nearest the exact one, the one that puts them closest |
+| Picture | kept one whole pixel clear of each lens, counted from the first pixel the lens does not touch; it gives up the same in height, so it stays square |
+| Bars | as tall as the frame, as wide as their art (16 to 64 of the height), reaching 9/78 of the frame's width into it: the leader's proportions in the Xbox layout, for all three |
+
+Why: the layout's three frames hold their portraits differently by fractions of a
+unit, and its companions' bars are wider for their height and further in than the
+leader's. Scaled, one portrait had a black strip under it, one beside it, and the
+second portrait's vitality arc lay on the picture's corners.
+
+The module no longer draws a bar's outer edge a second time beside itself (it did
+for some hours on 2026-10-05, for the game's art).
+
 ## Measured against the Xbox game
 
 One frame of the reference video (https://www.youtube.com/watch?v=b0X_7pRUkgo at
@@ -396,6 +484,22 @@ the minimap change included; the swaps were seen on the build before it,
   writes; its 101 pieces are controls of the game's four HUD layouts, of the class
   the table says; the layout for ten screens (above); no HUD twin and no font in
   the bank; 33 hooks.
+
+On the build with the drawn frames (package SHA-256 `A1D5A6D2...59786F8F`,
+10,027,574 bytes, 34 hooks):
+
+- **1280x960 in a window, the friendly-creature save loaded with the pad:** every
+  frame drawn and sharp; no seam in the description box; the leader's and one
+  companion's vitality bars part empty with their outlines whole; all three
+  portraits with a blue line above and below and a dark line at each side, and no
+  bar on a picture. Judged from screenshots enlarged four and eight times.
+- **`testing/regression/Test-ControllerKpatch.py`:** the bank holds exactly the
+  seventeen drawings, each with its `.txi`; everything above still passes.
+
+Not run on that build: a hostile target, a fight, a poisoned character, an empty
+Force bar, any other screen size (the portrait rule rounds to pixels, so other sizes
+are where it could show a fault), fullscreen, beside Scaled Kotor, and the swap to
+the game's HUD and back.
 
 Not run: the GOG and Steam executables, fullscreen, a real controller and a real
 mouse, any screen size but the game's four, the run-time build at 1280x960 and

@@ -109,6 +109,59 @@ proxy, and it applies the executable changes above as well.
 
 ## [Unreleased]
 
+- **The Xbox-style HUD's frames are drawn, and its portraits are framed alike**
+  (2026-10-05, the standalone controller patch). The HUD was dressed in the game's
+  own HUD textures, 16 to 256 pixels across and stretched over a modern screen:
+  soft lines, stair-stepped curves. The maintainer asked for a crisp HUD, looked at
+  upscaled versions (bilinear, Lanczos, a pixel-art scaler, Real-ESRGAN and six
+  community models) and at a hand-modelled speech icon, and chose: every icon stays
+  the game's own, and the frames are redrawn.
+  - *Seventeen frames, as geometry.* The slot box in blue and yellow, the slot
+    arrows in both, the minimap's frame, the portrait's frame, the vitality, poison
+    and Force bars with their two empty forms, the description box's two ends, the
+    target's name bar for a friend and for an enemy, the combat queue's frame and
+    the curve beside the portraits. Each of the game's textures was measured row by
+    row and is described as lines, arcs and polygons in its own pixel units and
+    colours, then rendered at four times its size
+    (`tools/build_xbox_hud_art.py`, new). Nothing is read from the game at build
+    time and no game art is in the patch. They have names of their own, `kmrx_*`,
+    so the game's textures are untouched for the PC HUD and for other mods; the
+    table and the module ask for the new names (`tools/build_xbox_hud.py`,
+    `K1XboxHud.cpp`). The package grew by 46 KB.
+  - *Each texture carries `clamp 3`* (a `.txi` beside it). The engine repeats a
+    texture past its edge and makes smaller copies of a TGA; in those a frame's
+    last row was mixed with its first, and the description box showed a dark seam
+    where its two ends meet. With the edge rows whole, the one-pixel overlap of the
+    box's two halves (`SEAM_OVERLAP`) showed as a dark line instead, so it is 0 now.
+  - *The bars keep their outline.* The empty bar was a bare half-opaque shape and
+    the filling carried the black outline, so a wounded character's bar lost its
+    outline from the top down. The empty bar has the outline now. The second
+    drawing of a bar's outer edge beside itself, added earlier that day because the
+    game's art has that edge cut by its texture's side, is removed at the
+    maintainer's request: the drawn arc is half a pixel further in and its outline
+    is whole.
+  - *The three portraits are framed alike.* The Xbox layout puts each portrait a
+    fraction of a unit off its frame's panel, differently for each: one showed a
+    black strip under it, one beside it, the leader's none. The module now puts
+    each frame around its portrait in screen pixels (`FramePortraits`): the
+    portrait's top and bottom edges fall in the middle of the frame's blue lines,
+    which are three pixels thick in the drawing for that; at each side a black
+    hairline stands between the picture and the lens, drawn from the frame's
+    outline at the top to its outline at the bottom, and the picture is kept one
+    whole pixel clear of each lens, giving up a pixel or two in width and height.
+    The bars are placed the leader's way on all three; the layout has the
+    companions' wider for their height and further in, and their ends lay on the
+    picture's corners.
+  - Seen in a scratch copy of the CD 1.03 game at 1280x960 in a window, the patch
+    alone, a save with a friendly creature targeted and two companions, one of
+    them and the leader wounded (package SHA-256 `A1D5A6D2...59786F8F`,
+    10,027,574 bytes, 34 hooks). `testing/regression/Test-ControllerKpatch.py`
+    passes and now checks that the bank holds exactly the seventeen drawings, each
+    with its `.txi`. **Not run:** a hostile target (the red name bar), a fight (the
+    queue's frame, the combat strip), a poisoned character, an empty Force bar, any
+    other screen size, fullscreen, beside Scaled Kotor or another patch, the swap to
+    the game's own HUD and back, and the GOG and Steam executables.
+    [`docs/controller-xbox-hud.md`](docs/controller-xbox-hud.md), "Drawn frames".
 - **KMRP's patch is half the size: 129 MB instead of 249 MB** (2026-10-05). The
   patch's module carried every file of every
   resolution's set, 62,898 files for 66 sizes. It also carries the blend helper

@@ -43,6 +43,7 @@
 //
 // Documentation standard: see `docs/documentation-standard.md`.
 #include <windows.h>
+#include <cmath>
 #include <cstddef>
 #include <cstdint>
 #include <cstring>
@@ -106,16 +107,18 @@ constexpr std::uintptr_t kSetFillImage = 0x00414C00;
 // The name's frame for a friendly and for a hostile target, both in the game's data
 // (mi8x6.gui names the first). The engine marks a hostile target by giving the
 // target slots the frame lbl_miscroll_h (CSWGuiMainInterfaceAction::Update).
-constexpr char kFrameFriendly[16] = "lbl_miindic01f";
-constexpr char kFrameHostile[16] = "lbl_miindic01e";
+// (Since 2026-10-05 the Xbox HUD wears drawings of the game's frames, kmrx_*, made by
+// tools/build_xbox_hud_art.py: the names below that begin so are those.)
+constexpr char kFrameFriendly[16] = "kmrx_miindic01f";
+constexpr char kFrameHostile[16] = "kmrx_miindic01e";
 constexpr char kSlotHostile[16] = "lbl_miscroll_h";
 // The vitality bar. The PC engine fills it with a flat colour, "redfill", or
 // "greenfill" for a poisoned character (CSWGuiMainInterface::UpdatePortraits); the
 // Xbox HUD's bar is the curved lbl_health, and the data has lbl_healthp beside it.
 constexpr char kFlatHealth[16] = "redfill";
 constexpr char kFlatPoison[16] = "greenfill";
-constexpr char kCurvedHealth[16] = "lbl_health";
-constexpr char kCurvedPoison[16] = "lbl_healthp";
+constexpr char kCurvedHealth[16] = "kmrx_health";
+constexpr char kCurvedPoison[16] = "kmrx_healthp";
 // The action box is as tall as its text. Measured in the reference video
 // (640x480 units): with the one-line "Attack" the box's top edge is at 364 and the
 // text's line ends at 385, where maininterface.gui ends LBL_ACTIONDESC; the file's
@@ -204,10 +207,10 @@ constexpr int kParked = -4000;
 // are put back before the draw. The red frame was the PC's sign of a hostile target;
 // the name bar's red frame says it here.
 constexpr char kSlotEnginePrefix[] = "lbl_miscroll";
-constexpr char kSlotFrame[16] = "lbl_mibox01";
-constexpr char kSlotFrameSelected[16] = "lbl_mibox02";
-constexpr char kArrows[16] = "lbl_miarrow01";
-constexpr char kArrowsSelected[16] = "lbl_miarrow02";
+constexpr char kSlotFrame[16] = "kmrx_mibox01";
+constexpr char kSlotFrameSelected[16] = "kmrx_mibox02";
+constexpr char kArrows[16] = "kmrx_miarrow01";
+constexpr char kArrowsSelected[16] = "kmrx_miarrow02";
 constexpr std::ptrdiff_t kButtonHilightParams = 0xF4;
 constexpr int kNameHeight = 26;                                // LBL_NAME
 constexpr int kNameFrame[4] = {-10, -14, 271, 64};             // LBL_INDICATE, from LBL_NAME's corner
@@ -616,6 +619,82 @@ Extent Placed(const Piece& piece, const Kept& kept, int width, int height)
 
 void ReadRow(void* hud, int height);
 
+// Each portrait's frame, put around the portrait as it stands in pixels, with its two
+// bars. The table's rectangles for the three frames are the Xbox layout's, in whole
+// units, and no two of them hold their portrait alike: scaled, one portrait showed a
+// black strip of the frame's panel under it, one beside it, and the leader's none
+// (the maintainer saw it, 2026-10-05). The frame's art has lines three pixels thick
+// for this (tools/build_xbox_hud_art.py), and the frame is sized and placed here, the
+// same way for all three. Above and below, the portrait's edge falls in the middle of
+// the frame's line. At the sides the art has a black hairline between the picture and
+// each lens, running from the frame's outline at the top to its outline at the bottom
+// (the maintainer asked for it from a picture of the Xbox game, 2026-10-05, and for it
+// to join the arcs' own black edges), and the portrait's side edges go exactly on the
+// hairlines' inner edges. The frame is a whole number of pixels wide, so of the two
+// widths nearest the exact one, the one that puts those edges closest is taken.
+constexpr std::ptrdiff_t kPartyFrame = 0x1FB0, kPartyPortrait = 0x25F0;   // LBL_BACK1, LBL_CHAR1
+constexpr std::ptrdiff_t kPartyVitality = 0x2730, kPartyForce = 0x2880;   // PB_VIT1, PB_FORCE1
+// What shares the portrait's rectangle: LBL_CHAR1, BTN_CHAR1, LBL_DEBILATATED1, LBL_LVLUPBG1, LBL_LEVELUP1.
+constexpr std::ptrdiff_t kPartyPictures[] = {0x25F0, 0x2C50, 0x20F0, 0x24B0, 0x2370};
+
+void FramePortraits(void* hud)
+{
+    auto nearest = [](double v) { return static_cast<int>(v + 0.5); };
+    for (int member = 0; member < 3; ++member) {
+        const std::ptrdiff_t at = member * kPartySize;
+        Extent portrait = At<Extent>(Part(hud, kPartyPortrait + at), kControlExtent);
+        void* frame = Part(hud, kPartyFrame + at);
+        const Extent was = At<Extent>(frame, kControlExtent);
+        if (portrait.width <= 0 || portrait.height <= 0 || was.width <= 0) continue;
+        Extent now{};
+        const double panel = (64.0 - 2 * kPortraitInset[0]) / 64.0;       // the picture's share of the frame's width
+        const int under = static_cast<int>(std::floor(portrait.width / panel));
+        double off = 4.0;
+        for (int width = under; width <= under + 1; ++width) {
+            const double left = portrait.left - width * kPortraitInset[0] / 64.0;
+            const double miss = std::fabs(left - std::floor(left + 0.5)) + std::fabs(width * panel - portrait.width) / 2.0;
+            if (miss < off) {
+                off = miss;
+                now.width = width;
+                now.left = static_cast<int>(std::floor(left + 0.5));
+            }
+        }
+        // The hairline is a share of the frame, and its edges seldom fall on a pixel's:
+        // beside a small portrait (the two companions' at 1280x960) it came to under a
+        // pixel, a grey smear on one side and nothing on the other. So the picture is
+        // kept a whole pixel clear of each lens, counted from the first pixel the lens
+        // does not touch: one full pixel of black shows on each side at any size, and
+        // the picture gives up a pixel or two for it, in height as in width (the
+        // maintainer's direction, 2026-10-05: "their pictures need to be smaller so
+        // both lines are showing on both sides").
+        {
+            const double lens = (kPortraitInset[0] - kPortraitHairline) / 64.0;      // the lens's inner edge
+            const int left = static_cast<int>(std::ceil(now.left + now.width * lens - 0.05)) + 1;
+            const int right = static_cast<int>(std::floor(now.left + now.width * (1.0 - lens) + 0.05)) - 1;
+            if ((left > portrait.left || right < portrait.left + portrait.width) && right - left > 8) {
+                const int less = portrait.width - (right - left);
+                portrait = {left, portrait.top + less / 2, right - left, portrait.height - less};
+                for (const std::ptrdiff_t part : kPartyPictures) SetExtent(Part(hud, part + at), portrait);
+            }
+        }
+        now.height = nearest(portrait.height * 64.0 / (64.0 - 2 * kPortraitInset[1]));
+        now.top = nearest(portrait.top + portrait.height / 2.0 - now.height / 2.0);
+        SetExtent(frame, now);
+        // The bars, on the frame's two sides and as tall as it. Each is as wide as its
+        // art is (16 to 64 of its height) and reaches 9/78 of the frame's width into
+        // the frame, which is how the layout has the leader's. It has the companions'
+        // bars wider for their height and further in, and their vitality arcs' ends
+        // lay over the lens and onto the picture's corners (the maintainer saw it on
+        // the second portrait, 2026-10-05), so all three are placed the leader's way.
+        const int reach = nearest(now.width * 9.0 / 78.0);
+        Extent bar{0, now.top, nearest(now.height * 16.0 / 64.0), now.height};
+        bar.left = now.left + reach - bar.width;
+        SetExtent(Part(hud, kPartyVitality + at), bar);
+        bar.left = now.left + now.width - reach;
+        SetExtent(Part(hud, kPartyForce + at), bar);
+    }
+}
+
 void ApplyXbox(void* hud, int width, int height)
 {
     for (int i = 0; i < kPieceCount; ++i) {
@@ -629,6 +708,7 @@ void ApplyXbox(void* hud, int width, int height)
         }
         if (piece.flags & kSetFont) SetFont(control, kLayoutFont);
     }
+    FramePortraits(hud);
     // The box's upper half down to a pixel inside its lower one (build_xbox_hud.py).
     {
         void* upper = Part(hud, kHudMouldings);
@@ -736,7 +816,7 @@ void ReadRow(void* hud, int height)
 // at 3440x1440 by the maintainer, 2026-10-05.)
 Extent g_mapBorderSet{};
 bool g_mapBorderForeign = false;
-constexpr char kMapFrame[16] = "lbl_minimap";
+constexpr char kMapFrame[16] = "kmrx_minimap";
 
 // What the hook changes before each draw that the engine does not set again by
 // itself: which slots it parked, the frames the engine last gave the target's slots,
@@ -940,14 +1020,11 @@ extern "C" void __cdecl KmrpXboxHudBarsK1(void* menu)
             // Drawn here whole, not by the panel: the empty bar, then its filling
             // through a viewport that is the filled part's rectangle, and each
             // texture told to clamp (ClampBoundTexture).
-            // Then the bar's outer edge once more, a pixel or two further out (the
-            // vitality bar's left, the Force bar's right). The texture is 16 wide and
-            // the arc's outline at its widest is the texture's first column alone,
-            // one texel where the outline is two elsewhere, which reads as the arc
-            // cut off at the side (the maintainer saw it, 2026-10-05). The edge
-            // repeated beside itself makes the outline as thick there as elsewhere.
+            // (Until later on 2026-10-05 the bar's outer edge was then drawn once more
+            // beside itself, because the game's art has its outline cut by the side
+            // of its texture. The bars are drawn art now, kmrx_health and the rest,
+            // whose outline is whole, and the maintainer had the extra line removed.)
             const int inset = 0, trim = 0;
-            const int edge = whole.width >= 30 ? 2 : 1;
             const int filled = value <= 0 ? 0 : value >= most ? whole.height : whole.height * value / most;
             using Viewport = int(__cdecl*)(int, int, int, int, void*, int, float);
             using Draw = void(__thiscall*)(void*, float);
@@ -962,20 +1039,6 @@ extern "C" void __cdecl KmrpXboxHudBarsK1(void* menu)
                     void* piece = Part(bar, which);
                     reinterpret_cast<Draw>((*reinterpret_cast<void***>(piece))[3])(piece, 0.0f);
                     ClampBoundTexture();
-                    reinterpret_cast<void(__cdecl*)()>(kCloseViewport)();
-                }
-                // Only the middle of it. The art has that column from row 20 to row 43
-                // of its 64; repeated over all of them the line stood out at its two
-                // ends, where the arc has already turned away (the maintainer saw it),
-                // so five rows are left off at each end.
-                const int bandTop = whole.top + whole.height * 25 / 64, bandBottom = whole.top + whole.height * 39 / 64;
-                const int clipTop = bandTop > whole.top + whole.height - rows ? bandTop : whole.top + whole.height - rows;
-                if (clipTop < bandBottom &&
-                    reinterpret_cast<Viewport>(kSetupViewport)(kind == 0 ? whole.left - edge : whole.left + whole.width,
-                        clipTop, edge, bandBottom - clipTop, reinterpret_cast<void*>(kNoColouring), 0, 1.0f)) {
-                    SetExtent(bar, {kind == 0 ? 0 : edge - whole.width, whole.top - clipTop, whole.width, whole.height});
-                    void* piece = Part(bar, which);
-                    reinterpret_cast<Draw>((*reinterpret_cast<void***>(piece))[3])(piece, 0.0f);
                     reinterpret_cast<void(__cdecl*)()>(kCloseViewport)();
                 }
                 reinterpret_cast<void(__cdecl*)()>(kStopLayer)();
