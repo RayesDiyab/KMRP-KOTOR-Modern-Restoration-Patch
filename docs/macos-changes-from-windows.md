@@ -47,6 +47,7 @@ reason).
 | 17 | KOTOR 1 Native Controller Mod + Xbox HUD ("KMRP Controller" until 2026-10-05): controller support as a standalone `.kpatch`, for a game without KMRP (Windows, 2026-10-05) | **to do**, if the Mac is to have it: no Mac module exists |
 | 18 | Badges made for the area a button's border fills, not the whole button: every set, blend table version 5, the helper | **to do**: the Mac's controller code must ask for the focused texture; **build and check** |
 | 19 | An Xbox-style HUD, an option of the standalone controller patch (Windows, 2026-10-05) | **nothing to do** while the Mac has no standalone controller patch (item 17); section 19 says what it would take |
+| 20 | The Windows module's resource bank leaves out what the blend helper makes: `KMRP.kpatch` 249 MB to 129 MB (2026-10-05) | **nothing to do**: the bank is the Windows module's alone and the shared helper is unchanged. **Worth copying** when the Mac ships one `.kpatch` (item 15) |
 
 ## 1. Badges drawn for the blended buttons
 
@@ -574,3 +575,19 @@ controller patch (item 17), so there is nothing to carry over today. If it gets 
    in dialog.tlk 42475 into the character `0x11`.
 3. The D-pad order and B's disengage are in `vendor/K1XboxControls.cpp` and
    `K1NativeJoystick.cpp`, behind `KMRP_CONTROLLER_STANDALONE`.
+
+## 20. The Windows bank leaves out what the helper makes
+
+`tools/build_native_assets.py` and `src/controller-native/K1RuntimeAssets.cpp`, 2026-10-05;
+the module reference has the format and the
+measurements ([runtime-resolution-preview.md](../reverse-engineering/runtime-resolution-preview.md),
+"The bank leaves out what the module makes"). `macos/tools/kmrp-guiblend.c` is
+unchanged, so the Mac build is unaffected.
+
+The idea carries over to whatever holds the Mac's sets when the Mac ships one
+`.kpatch`: keep each set's index of names and hashes, store only the files the helper
+does not write exactly, run the helper at start, put the stored files back over its
+output, and hold everything against the index. The build must decide what to leave
+out with a helper compiled as the shipped one is; on Windows that is x86 with
+`/fp:strict`, and an x64 helper built separately agreed on all six sets it was
+tried on.

@@ -109,6 +109,52 @@ proxy, and it applies the executable changes above as well.
 
 ## [Unreleased]
 
+- **KMRP's patch is half the size: 129 MB instead of 249 MB** (2026-10-05). The
+  patch's module carried every file of every
+  resolution's set, 62,898 files for 66 sizes. It also carries the blend helper
+  (`KmrpGuiBlend`, `macos/tools/kmrp-guiblend.c`), which writes a size's layouts,
+  badges, prompt manifest and HUD box from the blend table, and for most listed
+  sizes what the helper writes is the build's own set, byte for byte. So the build
+  now runs that helper for every set, compiled with the module's own flags, and
+  stores a file only if the helper does not write it exactly: the fonts, 1280x1080
+  (outside the blend), and the 32 to 329 files per set that the blend makes
+  differently at 20 sizes. 56,349 files are left to the module; the bank is
+  128,804,860 bytes instead of 248,545,368 (`tools/build_native_assets.py`, format
+  `KNAST002`), `KMRP.kpatch` 129,287,315 bytes instead of 249,026,195, and the
+  installer 136,111,616 bytes instead of 255,850,496 (130 MB for 244 MB; it was
+  196 MB before the focused badge textures).
+  - *The result is unchanged.* A set's index still names every file with its
+    SHA-256. The module writes the files it has, runs the helper, puts stored files
+    back over the helper's, and holds every file against the index; a difference is
+    reported in `kmrp-kpm.log` and the blend's file is used
+    (`K1RuntimeAssets.cpp`, `KmrpRuntimeAssetsDimensions`). Compared in a scratch
+    install against the module of the build pushed the same day, every file of the
+    module's folder hashed: identical at 1920x1080 (rebuilt whole), 1360x768 and
+    1344x840 (rebuilt in part), 1280x1080 (stored whole) and the unlisted 1700x1000.
+    Installed by the rebuilt installer and looked at: 1360x768 in a window and
+    3440x1440 fullscreen, where the 953 files of the set also hash to the build's
+    archive.
+  - *Starting the game takes as long as before.* Measured on this PC, 1920x1080:
+    6.5 s to produce the interface files, of which the helper 1.3 s; a size with
+    every file stored took 5.9 s. Two savings in the same change pay for the
+    helper: a decoded object is no longer hashed a second time before it is
+    written, and after the helper only the set's files are read back, not the
+    300 MB of common files. Most of the time is the creation of about 2,100 files,
+    which this change does not touch.
+  - `testing/regression/Test-NativeAssetsBank.py` (new) checks the index against
+    the archives, that nothing the module cannot make is missing, and that an
+    independently built helper makes every left-out file exactly (all 56,349, with
+    `--all`). It, `Test-KpatchSource.py` and `Test-InstallerPatch.ps1` pass on the
+    rebuilt installer (SHA-256 `928A35A8...0CE3E8`). `Test-GuiBlendHelper.py` and
+    `Test-ControllerPromptAssets.py` were not run again: the resources and the
+    helper are the pushed build's, unchanged.
+  - **Stronger compression is a build switch, and off.** With
+    `tools\build_native_assets.py --lzms` the bank is LZMS instead of
+    XPRESS-Huffman: 94,534,820 bytes instead of 128,804,860, the same files in the
+    scratch install at 1920x1080, and 9.0 s instead of 6.5 s to produce them at
+    every start of the game on this PC (two runs each). 34 MB of download against
+    2.5 s per start is the maintainer's trade to make; the module reads either
+    bank.
 - **LT and RT beside the menu's tab strip are arrows in the game's style** (2026-10-05,
   the standalone controller patch). In place of the controller family's trigger
   pictures: a triangle with rounded corners pointing along the strip, the trigger's
@@ -255,9 +301,8 @@ proxy, and it applies the executable changes above as well.
     3 px nearer the caption than designed at 24 blended sizes, which
     `Test-GuiBlendHelper.py` reported.
   Per set, 196 of the 552 badge textures change and 280 are new. **The installer
-  grows from 196 MB to 244 MB**, because every set carries the focused textures; the
-  plan to draw badges on the player's PC instead and ship none is agreed and not
-  started. Measured in a scratch install on the CD 1.03 executable: Options at
+  grows from 196 MB to 244 MB**, because every set carries the focused textures (the
+  entry above takes that back, and more, by making them on the player's PC). Measured in a scratch install on the CD 1.03 executable: Options at
   1920x1080 in a window, the focused Gameplay A 47x46 px, Close's B 32x32 and
   focused 31x31; at 3440x1440 fullscreen 61x61, 43x43 and 42x41. Other screens at
   those sizes were not measured, and the measurements are from the build before the

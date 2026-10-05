@@ -359,3 +359,108 @@ the observed viewport trace, native drawing and INI. Reproduce the tooltip case
 by switching to a driver-provided width-1280 mode whose height is neither 960 nor
 1024. Removing the preview through KPM reverses its runtime hook selection;
 it has no KMRP Override files to restore. Preserve any existing KPM ownership.
+
+### The bank leaves out what the module makes (2026-10-05)
+
+Until this change the module's resource bank (`build/native-runtime/native-assets.bin`,
+`KNAST001`) stored every file of every resolution's set: 62,898 files for 66 sizes,
+30,848 distinct objects, 248,545,368 bytes of a 249,026,195 byte patch. By kind,
+measured on the build of 2026-10-05 (packed sizes, XPRESS-Huffman):
+
+| Kind | Objects | Packed |
+| --- | ---: | ---: |
+| Badge and cue textures (`kmr...`) | 11,717 | 51.2 MB |
+| Focused-state badge textures (`kmf...`) | 12,021 | 50.7 MB |
+| Layouts (`.gui`) | 5,414 | 32.1 MB |
+| Fonts and the other common textures | 1,148 | 80.7 MB |
+| Loading screens | 23 | 25.6 MB |
+| Everything else (font metrics, SDL, the blend table, manifests) | 525 | 3.7 MB |
+
+The module already carried the means to make the first three: `KmrpGuiBlend`, the
+blend helper (`macos/tools/kmrp-guiblend.c`), which it ran for a size with no set.
+`Test-GuiBlendHelper.py` has long shown that for the 45 sizes the blend resolves to
+themselves, the helper's output is the build's set byte for byte.
+
+**The format, `KNAST002`.** Unchanged except that an object may be absent: the header
+(magic, group count, object count, the blend table's key), then each group's size and
+entries (name, SHA-256), then the stored objects (key, size, packed size, bytes).
+`tools/build_native_assets.py` builds the helper as an x86 program with the module's
+own compiler flags, runs it for every set on that set's own two input files
+(`kmrp_prompts.txt`, `dialogfont16x16.txi`), and marks each file it wrote exactly as
+the set has it. An object is stored if any file that is not so marked needs it. On
+the same build: 3,758 objects, 128,804,860 bytes; 45 sets rebuilt whole, 20 in part
+(32 to 329 files differ, 3440x1440 the most), and 1280x1080 stored whole because the
+helper answers that the blend does not cover it (exit status 2, the answer
+`KmrpGuiBlendCovers` gives the module).
+
+**The module, `KmrpRuntimeAssetsDimensions` in `K1RuntimeAssets.cpp`.**
+
+1. Every file of the common group and of the chosen set whose object is stored is
+   decoded and written. If the size is not a listed one, or any file of the set has
+   no object, the helper is needed.
+2. The helper writes the set for exactly this size into the same folder, reading
+   the two input files step 1 wrote. What it wrote is then adopted by name: the
+   set's entries are read back and hashed, since the next size change's ownership
+   check and `GameArt`'s sweep of unowned files both go by that list.
+3. At a listed size, each entry whose file does not hash to its key gets the stored
+   object written back over it (that is exactly why the object was stored), and an
+   entry that still differs is counted. A count above zero is written to
+   `kmrp-kpm.log` as a warning and the game continues with the helper's file. That
+   case is the helper computing differently on the player's PC than on the build's;
+   it was not seen.
+
+**Measured in a scratch install** (CD 1.03 executable, the committed installer's
+install with only `patches\kmrp.dll` replaced), every file of the module's folder
+hashed and compared with the folder the committed build's module made:
+
+| Size | Kind | Files | Differing |
+| --- | --- | ---: | ---: |
+| 1920x1080 | rebuilt whole | 2,136 | 0 |
+| 1360x768 | 244 files stored | 2,037 | 0 |
+| 1344x840 | 70 files stored | 2,037 | 0 |
+| 1280x1080 | stored whole, no helper | 2,037 | 0 |
+| 1700x1000 | not listed: the blend, as before | 2,038 | 0 |
+
+The new module's folder also holds `gui-blend.bin` at a listed size, which the old
+one wrote only for an unlisted one. The game asks for no resource of that name.
+
+**Time**, from the line the module writes with the `debug-logs` option on
+("interface files for WxH: N ms, of which the blend helper M ms"), on the
+maintainer's PC:
+
+| | Interface files | Of which the helper |
+| --- | ---: | ---: |
+| 1280x1080, every file stored (the path every listed size took before) | 5.9 s | 0 |
+| 1920x1080, rebuilt whole | 6.5 s | 1.3 s |
+| 1360x768, 244 files stored and written twice | 7.6 s | 1.4 s |
+
+The same change removes two costs, which is why a rebuilt size is not 1.3 s slower
+than before: `Write` no longer hashes a decoded object that `Decode` has just held
+against its key (each file was hashed three times: decoded, before writing, read
+back), and after the helper only the set's files are read back and hashed, not every
+file written so far. With only the second of those in, the same sizes took 6.4 s
+(1280x1080) and 6.7 s (1920x1080). The old module has no timing line, so its own
+figure was not measured; 6.4 s is the nearest to it. What remains is mostly the
+creation of about 2,100 files.
+
+**Stronger compression: a switch, off.** The bank's first eight bytes name its
+compression, `KNAST002` for XPRESS with Huffman and `KNASL002` for LZMS, and the
+module makes its decompressor to match. `tools/build_native_assets.py --lzms` builds
+the second. Measured on the same build, the module rebuilt around each bank and run in
+the scratch install at 1920x1080, twice each:
+
+| Bank | Bytes | Interface files | Files against the committed build's |
+| --- | ---: | ---: | --- |
+| XPRESS-Huffman (shipped) | 128,804,860 | 6.4 s, 6.6 s | identical |
+| LZMS | 94,534,820 | 9.0 s, 9.1 s | identical |
+
+So 34 MB less to download for 2.5 s more at every start of the game on this PC, and
+more than that on a slower one: the common files, 299 MB unpacked, are decoded at
+every start, and LZMS decoded them in 2.57 s where XPRESS took 0.64 s. Building the
+LZMS bank takes about four minutes instead of one. The shipped bank stays XPRESS
+until the maintainer decides otherwise.
+
+**Not run:** fullscreen, a size change inside the game (the folder is reused and the
+ownership check runs), the GOG and Steam executables, a PC other than this one, and
+the Mac, whose packaging does not use this bank.
+`testing/regression/Test-NativeAssetsBank.py` checks the bank itself.

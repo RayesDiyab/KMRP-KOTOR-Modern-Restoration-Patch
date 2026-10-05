@@ -58,6 +58,19 @@ A scratch install delivers `KMRP.kpatch` to the folder KOTOR Patch Manager's set
 name, which on the maintainer's PC is the play-test game's `patches` folder: redirect
 `%APPDATA%\KPatchLauncher\settings.json` first, as `Test-InstallerPatch.ps1` does.
 
+**The bank since 2026-10-05.** `tools/build_native_assets.py`
+stores only what the module's blend helper does not write exactly, so it needs the x86
+compiler: it runs inside `build_native_runtime.cmd`, or with `--helper` naming a helper
+already built (`build\native-runtime\bank-helper\kmrp-guiblend.exe` after one build).
+`--every-object` writes the old full bank, `--lzms` an LZMS one (smaller, slower at
+every start; off). After a build also run
+`python testing/regression/Test-NativeAssetsBank.py` (`--all` for every set, about ten
+minutes). To time or compare a module without a whole build: replace
+`patches\kmrp.dll` in a scratch install, set `debug-logs=1` in `configs\kmrp.ini`,
+start the game and read the "interface files" line in `kmrp-kpm.log`; the files are in
+the newest `%TEMP%\KMR*.tmp`. Only one copy of the game runs at a time: a second one
+exits at once with code -1.
+
 **The standalone controller patch (since 2026-10-05)** is a separate build, not part
 of `build_kmrp.ps1`:
 
