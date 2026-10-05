@@ -1783,7 +1783,7 @@ constexpr std::ptrdiff_t K1_TEXT_EXTENT_OFFSET = 0x04;
 constexpr std::ptrdiff_t K1_TEXT_STRING_OFFSET = 0x14;
 constexpr std::ptrdiff_t K1_TEXT_CHARS_OFFSET = 0x18;        // its CSWGuiTextParams begin with the text
 
-int MeasureK1Caption(void* button)
+int MeasureK1Caption(void* button, int* lineHeight = nullptr)
 {
     char* const text = static_cast<char*>(button) + K1_BUTTON_TEXT_OFFSET;
     void* const string = *reinterpret_cast<void**>(text + K1_TEXT_STRING_OFFSET);
@@ -1797,6 +1797,9 @@ int MeasureK1Caption(void* button)
     const int unwrapped = heightFor(string, widest);
     if (unwrapped <= 0 || heightFor(string, 1) == unwrapped) {
         return 0;
+    }
+    if (lineHeight) {
+        *lineHeight = unwrapped;
     }
     int narrower = 1, wide = widest;        // wraps at `narrower`, does not at `wide`
     while (wide - narrower > 1) {
@@ -1856,6 +1859,30 @@ bool ShowK1BadgeOverlay(void* control, const char resref[16])
             asMade = (liveFocus > madeFocus ? liveFocus - madeFocus : madeFocus - liveFocus) * 50 <= madeFocus;
         }
     }
+    // Or the shape is as made but the caption is no longer on the button's middle
+    // line, where the texture has the glyph: the Map screen's two rows beside Scaled
+    // Kotor, three times as tall with their text still at the top (the maintainer saw
+    // the glyphs below their captions at 3440x1440, 2026-10-05).
+    // Only on a button that has been resized: in the unchanged game a badge stays
+    // where its art has it, whatever its caption's alignment.
+    if (asMade && height != shape->height) {
+        int line = 0;
+        if (MeasureK1Caption(control, &line) > 0 && line > 0) {
+            const K1BadgeRect text = *reinterpret_cast<const K1BadgeRect*>(
+                static_cast<char*>(control) + K1_BUTTON_TEXT_OFFSET + K1_TEXT_EXTENT_OFFSET);
+            const std::uint32_t alignment = *reinterpret_cast<const std::uint32_t*>(
+                static_cast<char*>(control) + K1_BUTTON_TEXT_OFFSET + K1_TEXT_CHARS_OFFSET + 0x38);
+            const K1BadgeRect area = text.height > 0 ? text : at;
+            const int lineMiddle = (alignment & 16u) != 0 ? area.top + area.height / 2
+                                 : (alignment & 32u) != 0 ? area.top + area.height - line / 2
+                                 : area.top + line / 2;
+            const int off = lineMiddle - (at.top + at.height / 2);
+            const int allowed = height / 6 > 2 ? height / 6 : 2;
+            if (off > allowed || off < -allowed) {
+                asMade = false;
+            }
+        }
+    }
     if (asMade) {
         HideK1BadgeOverlay(control);        // the shape it was made for: on the button, as ever
         return false;
@@ -1899,6 +1926,7 @@ bool ShowK1BadgeOverlay(void* control, const char resref[16])
     }
     K1BadgeRect wanted;
     wanted.height = height;
+    wanted.top = at.top + inset;         // unless the caption's line says otherwise, below
     wanted.width = static_cast<int>((static_cast<long long>(height) * shape->width + shape->height / 2) / shape->height);
     {
         const int centred = (width - wanted.width) / 2;
@@ -1913,9 +1941,28 @@ bool ShowK1BadgeOverlay(void* control, const char resref[16])
     // layout's size; on a button three times as large with a caption hardly larger
     // (Scaled Kotor at 3440x1440) that left the glyph far out from the text, and
     // the maintainer asked why (2026-10-05). Kept inside the button.
-    if (const int caption = MeasureK1Caption(control)) {
+    int line = 0;
+    if (const int caption = MeasureK1Caption(control, &line)) {
         const K1BadgeRect text = *reinterpret_cast<const K1BadgeRect*>(
             static_cast<char*>(control) + K1_BUTTON_TEXT_OFFSET + K1_TEXT_EXTENT_OFFSET);
+        // And on the caption's line. A layout's ALIGNMENT is in the text's flags
+        // (+0x38 of its CSWGuiTextParams): 8 is the top of the button, 32 its bottom,
+        // 16 or neither its middle (the game's layouts: 9 and 10 top, 18 middle, 34
+        // bottom). On the Map screen the two rows are 13 units tall with their text
+        // at the top; made three times as tall, the text stayed at the top and the
+        // glyph stood in the row's middle, below it (the maintainer saw it at
+        // 3440x1440 with Scaled Kotor, 2026-10-05).
+        const std::uint32_t alignment = *reinterpret_cast<const std::uint32_t*>(
+            static_cast<char*>(control) + K1_BUTTON_TEXT_OFFSET + K1_TEXT_CHARS_OFFSET + 0x38);
+        // The text's own rectangle is what it is aligned in, and after a rescaling
+        // it need not be the button's (on those rows it stayed short, at the top).
+        const K1BadgeRect area = text.height > 0 ? text : at;
+        if (line > 0) {
+            const int lineMiddle = (alignment & 16u) != 0 ? area.top + area.height / 2
+                                 : (alignment & 32u) != 0 ? area.top + area.height - line / 2
+                                 : area.top + line / 2;
+            wanted.top = lineMiddle - wanted.height / 2;
+        }
         const int middle = text.width > 0 ? text.left + text.width / 2 : at.left + at.width / 2;
         const int gap = height / 4, air = height / 8;
         const int glyphLeft = static_cast<int>(static_cast<long long>(wanted.width) * (shape->glyph - shape->glyphWidth / 2) / 1000);
@@ -1931,7 +1978,6 @@ bool ShowK1BadgeOverlay(void* control, const char resref[16])
         }
         wanted.left = left;
     }
-    wanted.top = at.top + inset;
     void* const label = entry->label;
     using SetExtentFn = void(__thiscall*)(void*, const K1BadgeRect*);
     reinterpret_cast<SetExtentFn>((*reinterpret_cast<void***>(label))[1])(label, &wanted);

@@ -139,7 +139,10 @@ proxy, and it applies the executable changes above as well.
     (`K1ControllerBadgeShapes.inc`, 130 badges, written by
     `tools/build_controller_assets.py --badge-shapes`);
   - that label stands beside the caption as it is on screen, a quarter of the
-    button's height from the text, inside the button;
+    button's height from the text, inside the button, and on the caption's line: a
+    resized button whose caption is no longer on its middle line (the Map screen's
+    two rows, three times as tall with their text still at the top) has its badge
+    moved to a label for that reason alone;
   - the sub-tab cue is 1.2 times its size and the party cue sits nearer the portrait,
     on the portraits' middle line.
   In the unchanged game a badge is on its button as before. Seen by the maintainer on

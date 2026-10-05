@@ -312,6 +312,19 @@ text, on the side it stands on in its texture, and kept inside the button. Where
 caption cannot be measured, the glyph keeps its distance from the button's middle
 if that fits and from the button's end if not.
 
+**And on the caption's line.** A layout's `ALIGNMENT` is in the text's flags (`+0x38`
+of its `CSWGuiTextParams`): 8 is the top of the text's rectangle, 32 its bottom, 16
+its middle (the game's buttons have 9, 10, 18 and 34). The Map screen's two rows are
+13 units tall with their text at the top; beside Scaled Kotor at 3440x1440 they were
+39 px tall with a 16 px line still at the top, and their glyphs stood in the rows'
+middles, below the captions (the maintainer saw it; the numbers are a diagnostic
+log's). So the label is centred on the caption's line, and a resized button whose
+caption is more than a sixth of its height off its middle line has its badge moved
+to a label even when its shape is the one the badge was made for. A button that is
+the size its badge was made for is left alone, whatever its alignment. Seen after
+the change at 3440x1440: the two rows' glyphs on their captions' lines, and the
+other seven tabs as before.
+
 Seen by the maintainer at 3440x1440 with Scaled Kotor: the tab strip's LT and RT,
 Abilities' two cues, Options, Gameplay Options (the Controller Layout entry, placed
 from the live Mouse Settings and Key Mapping buttons), Graphics Options and its
