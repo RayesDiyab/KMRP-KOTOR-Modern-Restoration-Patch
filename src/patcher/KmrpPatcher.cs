@@ -6292,9 +6292,12 @@ namespace Kmrp
             controllerToggle = new OptionToggle();
             // What ships now, in one line: KMRP's native controller path with SDL3 beside
             // XInput, reading the pad family for its prompts. Saul0097's KPM Xbox Controls
-            // is where it began and is still credited in THIRD_PARTY_NOTICES.md.
+            // is where it began and is still credited in THIRD_PARTY_NOTICES.md and the
+            // README. The author line here named him too ("KMRP, based on Saul0097")
+            // until 2026-10-05, when the maintainer asked for the public-facing credit to
+            // be KMRP's alone; the notices and the documentation are unchanged.
             controllerToggle.Title = "Controller Support";
-            controllerToggle.Author = "KMRP, based on Saul0097";
+            controllerToggle.Author = "KMRP";
             controllerToggle.Detail =
                 "Xbox, PlayStation, Switch and Steam Deck: play, menus and matching button prompts.";
             controllerToggle.Checked = KmrpSettings.ControllerSupport;

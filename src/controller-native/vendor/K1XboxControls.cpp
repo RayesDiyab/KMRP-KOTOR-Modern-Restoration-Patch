@@ -1689,6 +1689,17 @@ const ControllerPromptBinding* GetK1ControllerPrompts(
     }
 }
 
+// How far inside the button one of its borders draws its fill. `paramsOffset` is
+// that border's CSWGuiBorderParams within the button: the params begin with the
+// DIMENSION, and the border's loaded corner image is the pointer just past them
+// (CSWGuiBorder: vtable, extent, params 0x54 long, corner, edge, fill).
+int K1ButtonFillInset(void* control, std::ptrdiff_t paramsOffset)
+{
+    const char* const params = static_cast<const char*>(control) + paramsOffset;
+    const void* const corner = *reinterpret_cast<void* const*>(params + 0x54);
+    return corner ? *reinterpret_cast<const int*>(params) : 0;
+}
+
 void SetK1ControllerPromptFill(void* control, const char* value)
 {
     if (!control) {
@@ -1722,6 +1733,21 @@ void SetK1ControllerPromptFill(void* control, const char* value)
     // place.
     setFill(
         OffsetPointer(control, K1_BUTTON_BORDER_PARAMS_OFFSET), resref, 1);
+    // A border with corner art draws its fill inside the border, by its DIMENSION on
+    // every side (CSWGuiBorder::Draw, 0x004168C0), so a badge is made for the area
+    // its border fills. Where the focused border fills a different area than the
+    // normal one, the badge has a second texture for it, "kmf..." beside "kmr..."
+    // (tools/build_controller_prompt_textures.py, fill_inset and FOCUS_PREFIX, which
+    // makes the same comparison on the layout file). The Close buttons are the
+    // case: no normal border, a 6 px focused one.
+    //
+    // Every set carries the "kmf" art since 2026-10-05: KMRP's own (and the sizes
+    // blended from them, kmrp-guiblend.c) and the standalone controller patch's.
+    if (resref[0] == 'k' && resref[1] == 'm' && resref[2] == 'r' &&
+            K1ButtonFillInset(control, K1_BUTTON_HILIGHT_PARAMS_OFFSET) !=
+            K1ButtonFillInset(control, K1_BUTTON_BORDER_PARAMS_OFFSET)) {
+        resref[2] = 'f';
+    }
     setFill(
         OffsetPointer(control, K1_BUTTON_HILIGHT_PARAMS_OFFSET), resref, 1);
 

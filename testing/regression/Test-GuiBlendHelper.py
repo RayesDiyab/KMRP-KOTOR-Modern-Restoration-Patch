@@ -14,7 +14,9 @@ fonts of the nearest set it installs. This:
    panel, and draws every controller badge with the build's own build_prompt_tga for its
    blended button and the HUD's button-row boxes with build_menubg_texture's for the
    blended HUD (table version 4, 2026-09-30), so this is also the check that the helper's
-   copies of that rule and those generators match them;
+   copies of that rule and those generators match them. Since table version 5
+   (2026-10-05) each badge is drawn for the area its button's border fills, with a second
+   texture for the focused border where the two differ;
 3. rebuilds every anchor of the table from the table, with its own fonts, and requires the
    build's set byte for byte: its menus, its 552 badges, its prompt manifest and its
    lbl_mileftbot.tga;
@@ -22,8 +24,8 @@ fonts of the nearest set it installs. This:
    table, so these are held-out cases), with the set's own fonts, and compares every varying
    field with the built set;
 5. at every derived size, the Container's Give Items badge sits at its designed gap, and
-   every badge is round on its blended button: its drawn box, texels scaled to the button,
-   within 6% of square. Taken from the nearest set, as the installers did until
+   every badge is round on its blended button: its drawn box, texels scaled to the area
+   the button's border fills, within 6% of square, the focused textures included. Taken from the nearest set, as the installers did until
    2026-09-30, the badges came out up to 1.86 times as wide as tall at 3440x1400;
 6. on Windows, the Windows installer's own blend (src/patcher/GuiBlend.cs, compiled from
    src/patcher with the .NET Framework compiler the build uses, run through its
@@ -81,7 +83,7 @@ def read_text(d: bytes, p: int) -> tuple[str, int]:
 
 def read_table(path: Path):
     d = path.read_bytes()
-    assert d[:4] == b"KGBL" and struct.unpack_from("<I", d, 4)[0] == 4
+    assert d[:4] == b"KGBL" and struct.unpack_from("<I", d, 4)[0] == 5
     p = 8
     nf = struct.unpack_from("<I", d, p)[0]; p += 4
     aspects = list(struct.unpack_from(f"<{nf}d", d, p)); p += 8 * nf
@@ -93,10 +95,12 @@ def read_table(path: Path):
         name, p = read_text(d, p)
         row, p = read_text(d, p)
         radius_short, radius, short_below, gap, edge = struct.unpack_from("<ddIdd", d, p); p += 36
+        fit_inset, fit_margin = struct.unpack_from("<Id", d, p); p += 12
         left, width, button_width, button_height, count = struct.unpack_from("<5I", d, p); p += 20
         widths = list(struct.unpack_from(f"<{count}I", d, p)); p += 4 * count
         fits[name] = dict(row=row, radius_short=radius_short, radius=radius, short_below=short_below,
-                          gap=gap, edge=edge, left=left, width=width, button_width=button_width,
+                          gap=gap, edge=edge, inset=fit_inset, margin=fit_margin,
+                          left=left, width=width, button_width=button_width,
                           button_height=button_height, widths=widths)
     layouts = {}
     nlayouts = struct.unpack_from("<I", d, p)[0]; p += 4
@@ -126,6 +130,7 @@ def read_table(path: Path):
         below = struct.unpack_from("<I", d, p)[0]; p += 4 + 4 * below
     # The badges: read for their recipes; the Python side draws them with build_prompt_tga.
     p += 8 + 8 + 8 + 4 + 8 * 4
+    p += 4 + 8                                   # MIN_BADGE_AREA and FIT_MARGIN: the build's own are used
     p += 2 + struct.unpack_from("<H", d, p)[0]
     nglyphs = struct.unpack_from("<I", d, p)[0]; p += 4
     for _ in range(nglyphs):
@@ -139,8 +144,9 @@ def read_table(path: Path):
         backing = tuple(d[p:p + 4]); p += 4
         n = struct.unpack_from("<I", d, p)[0]; p += 4
         sizing = list(struct.unpack_from(f"<{n}I", d, p)); p += 4 * n
+        insets = struct.unpack_from("<II", d, p); p += 8
         badges.append(dict(resref=resref, gui=gui, width=width_at, height=height_at, glyph=glyph,
-                           backing=backing if backed else None, sizing=sizing))
+                           backing=backing if backed else None, sizing=sizing, insets=insets))
     # The HUD's button-row boxes: read for the texture's name; the Python side draws it with
     # build_menubg_texture.
     huds = []
@@ -217,7 +223,10 @@ def apply_fit(fit: dict, data: bytearray, caption: float) -> int:
         struct.pack_into("<i", data, offset, get(offset) + delta)
     height = get(fit["button_height"])
     radius = height * (fit["radius_short"] if height < fit["short_below"] else fit["radius"])
-    extra = math.ceil(caption + 2.0 * radius * (fit["gap"] + 1.0 + fit["edge"]) - get(fit["button_width"]))
+    if fit["inset"] > 0:
+        radius = min(radius, (height - 2 * fit["inset"]) / 2.0 - fit["margin"])
+    extra = math.ceil(caption + 2.0 * (fit["inset"] + radius * (fit["gap"] + 1.0 + fit["edge"]))
+                      - get(fit["button_width"]))
     if extra <= 0:
         return 0
     extra += extra % 2
@@ -251,8 +260,14 @@ def python_badges(badges, out: dict[str, bytes], manifest: bytes, widened: dict[
         width, height = i32(gui, badge["width"]), i32(gui, badge["height"])
         radius_height = min((i32(gui, at) for at in badge["sizing"]), default=0)
         family, glyph = GLYPHS[badge["glyph"]]
+        normal, focused = badge["insets"]
         made[badge["resref"] + ".tga"] = prompts.build_prompt_tga(
-            width, height, glyph, labels[badge["resref"]], radius_height, family, badge["backing"])
+            width, height, glyph, labels[badge["resref"]], radius_height, family, badge["backing"],
+            normal, True)
+        if focused != normal:
+            made[prompts.focus_resref(badge["resref"]) + ".tga"] = prompts.build_prompt_tga(
+                width, height, glyph, labels[badge["resref"]], radius_height, family, badge["backing"],
+                focused, True)
         sizes[badge["resref"]] = (width, height)
     lines = manifest.decode("utf-8").split("\n")
     for i, line in enumerate(lines):
@@ -383,7 +398,8 @@ def main() -> int:
             out = helper_derive(res, res)
             with zipfile.ZipFile(RESOURCES / f"gui-{res}.zip") as z:
                 differ += [f"{res} {f.name}" for f in out.iterdir() if f.read_bytes() != z.read(f.name)]
-                if len(list(out.iterdir())) != len(table[4]) + len(table[5]) + 1 + len(table[6]):
+                focus_badges = sum(1 for b in table[5] if b["insets"][0] != b["insets"][1])
+                if len(list(out.iterdir())) != len(table[4]) + len(table[5]) + focus_badges + 1 + len(table[6]):
                     differ.append(f"{res}: {len(list(out.iterdir()))} files written")
         ok = not differ
         failed |= not ok
@@ -427,7 +443,11 @@ def main() -> int:
                           .root.get_list("CONTROLS") if c.get_string("TAG") == pur.CONTAINER_FIT_TAG)
             width, height = (button.get_struct("EXTENT").get_int32(k) for k in ("WIDTH", "HEIGHT"))
             radius = prompts.badge_radius(height)
+            inset = next(b for b in table[5] if b["resref"] == target.resref)["insets"][0]
+            if inset:
+                radius = min(radius, (height - 2 * inset) / 2 - prompts.FIT_MARGIN)
             badge_right = max(radius * prompts.BADGE_EDGE,
+                              inset + radius * prompts.BADGE_EDGE if inset else 0.0,
                               (width - caption) / 2 - radius * prompts.BADGE_GAP - radius) + radius
             gap = (width - caption) / 2 - badge_right
             designed = radius * prompts.BADGE_GAP
@@ -450,21 +470,28 @@ def main() -> int:
             made = tmp / f"{res}-{fonts}"
             for badge in table[5]:
                 gui = (made / badge["gui"]).read_bytes()
-                width, height = i32(gui, badge["width"]), i32(gui, badge["height"])
-                tga = (made / (badge["resref"] + ".tga")).read_bytes()
-                tw, th = struct.unpack_from("<HH", tga, 12)
                 if badge["backing"] is not None:
                     continue
-                alpha = tga[18 + 3:18 + tw * th * 4:4]
-                rows = [alpha[y * tw:(y + 1) * tw] for y in range(th)]
-                drawn = [row for row in rows if row.strip(b"\0")]
-                if not drawn:
-                    continue
-                left = min(len(row) - len(row.lstrip(b"\0")) for row in drawn)
-                right = max(len(row.rstrip(b"\0")) for row in drawn)
-                aspect = ((right - left) * width / tw) / (len(drawn) * height / th)
-                if abs(aspect - 1) > abs(worst[0] - 1):
-                    worst = (aspect, f"{res} {badge['resref']}")
+                normal, focused = badge["insets"]
+                textures = [(badge["resref"], normal)]
+                if focused != normal:
+                    textures.append((prompts.focus_resref(badge["resref"]), focused))
+                for resref, inset in textures:
+                    # The area the border fills: what the engine stretches the texture over.
+                    width = i32(gui, badge["width"]) - 2 * inset
+                    height = i32(gui, badge["height"]) - 2 * inset
+                    tga = (made / (resref + ".tga")).read_bytes()
+                    tw, th = struct.unpack_from("<HH", tga, 12)
+                    alpha = tga[18 + 3:18 + tw * th * 4:4]
+                    rows = [alpha[y * tw:(y + 1) * tw] for y in range(th)]
+                    drawn = [row for row in rows if row.strip(b"\0")]
+                    if not drawn:
+                        continue
+                    left = min(len(row) - len(row.lstrip(b"\0")) for row in drawn)
+                    right = max(len(row.rstrip(b"\0")) for row in drawn)
+                    aspect = ((right - left) * width / tw) / (len(drawn) * height / th)
+                    if abs(aspect - 1) > abs(worst[0] - 1):
+                        worst = (aspect, f"{res} {resref}")
         ok = abs(worst[0] - 1) <= 0.06
         failed |= not ok
         print(f"{'ok  ' if ok else 'FAIL'} every badge round on its blended button at "

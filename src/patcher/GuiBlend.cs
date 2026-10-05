@@ -80,8 +80,8 @@ namespace Kmrp
         private sealed class Fit
         {
             internal string Name, Row;
-            internal double RadiusShort, Radius, Gap, Edge;
-            internal uint ShortBelow, Left, Width, ButtonWidth, ButtonHeight;
+            internal double RadiusShort, Radius, Gap, Edge, Margin;
+            internal uint ShortBelow, Inset, Left, Width, ButtonWidth, ButtonHeight;
             internal uint[] Widths;
         }
 
@@ -150,11 +150,14 @@ namespace Kmrp
             internal int Glyph;
             internal byte[] Backing;   // null: none
             internal uint[] Sizing;
+            // Table version 5: how far inside the button each of its two borders draws
+            // its fill (build_controller_prompt_textures.py, fill_inset).
+            internal int InsetNormal, InsetFocus;
         }
 
         // build_prompt_tga's constants.
-        private int textureWidth, textureHeight, shortBelow;
-        private double radius, radiusShort, gap, edge, centerY, fallbackX;
+        private int textureWidth, textureHeight, shortBelow, minArea;
+        private double radius, radiusShort, gap, edge, centerY, fallbackX, fitMargin;
         private byte[] footer;
         private readonly List<Glyph> glyphs = new List<Glyph>();
         private readonly List<Prompt> prompts = new List<Prompt>();
@@ -217,8 +220,8 @@ namespace Kmrp
                 using (GZipStream unzip = new GZipStream(new MemoryStream(table), CompressionMode.Decompress))
                     table = ReadAll(unzip);
             Reader r = new Reader(table);
-            if (r.Ascii(4) != "KGBL" || r.U32() != 4)
-                throw new InvalidDataException("Not a version 4 blend table.");
+            if (r.Ascii(4) != "KGBL" || r.U32() != 5)
+                throw new InvalidDataException("Not a version 5 blend table.");
             uint familyCount = r.U32();
             if (familyCount == 0 || familyCount > 16)
                 throw new InvalidDataException("The blend table has a bad family count.");
@@ -243,6 +246,8 @@ namespace Kmrp
                 fit.ShortBelow = r.U32();
                 fit.Gap = r.F64();
                 fit.Edge = r.F64();
+                fit.Inset = r.U32();
+                fit.Margin = r.F64();
                 fit.Left = r.U32();
                 fit.Width = r.U32();
                 fit.ButtonWidth = r.U32();
@@ -337,6 +342,8 @@ namespace Kmrp
             blend.edge = r.F64();
             blend.centerY = r.F64();
             blend.fallbackX = r.F64();
+            blend.minArea = (int)r.U32();
+            blend.fitMargin = r.F64();
             int footerLength = r.U16();
             if (footerLength > 64 || blend.textureWidth <= 0 || blend.textureWidth > 4096 ||
                 blend.textureHeight <= 0 || blend.textureHeight > 4096)
@@ -371,6 +378,11 @@ namespace Kmrp
                 prompt.Sizing = new uint[sizing];
                 for (int k = 0; k < prompt.Sizing.Length; k++)
                     prompt.Sizing[k] = r.U32();
+                uint insetNormal = r.U32(), insetFocus = r.U32();
+                if (insetNormal > 4096 || insetFocus > 4096)
+                    throw new InvalidDataException("The blend table has a bad prompt record.");
+                prompt.InsetNormal = (int)insetNormal;
+                prompt.InsetFocus = (int)insetFocus;
                 blend.prompts.Add(prompt);
             }
             uint hudCount = r.U32();
@@ -575,8 +587,16 @@ namespace Kmrp
                 if (controlWidth <= 0 || controlHeight <= 0 || !CaptionWidth(promptManifest, prompt.ResRef, out label))
                     throw new InvalidDataException(prompt.ResRef + ": no manifest row, or no button.");
                 sizes[i] = new[] { controlWidth, controlHeight };
+                if (controlWidth <= 2 * prompt.InsetNormal || controlHeight <= 2 * prompt.InsetNormal ||
+                    controlWidth <= 2 * prompt.InsetFocus || controlHeight <= 2 * prompt.InsetFocus)
+                    throw new InvalidDataException(prompt.ResRef + ": its border leaves nothing of its button.");
                 result.Add(new KeyValuePair<string, byte[]>(prompt.ResRef + ".tga",
-                    DrawBadge(glyphs[prompt.Glyph], controlWidth, controlHeight, label, radiusHeight, prompt.Backing)));
+                    DrawBadge(glyphs[prompt.Glyph], controlWidth, controlHeight, label, radiusHeight, prompt.Backing,
+                        prompt.InsetNormal)));
+                if (prompt.InsetFocus != prompt.InsetNormal)   // focus_resref: "kmf" for "kmr"
+                    result.Add(new KeyValuePair<string, byte[]>("kmf" + prompt.ResRef.Substring(3) + ".tga",
+                        DrawBadge(glyphs[prompt.Glyph], controlWidth, controlHeight, label, radiusHeight, prompt.Backing,
+                            prompt.InsetFocus)));
             }
             result.Add(new KeyValuePair<string, byte[]>(ControllerPromptGenerator.ManifestName,
                 RewriteManifest(promptManifest, sizes, widened, fitted)));
@@ -767,7 +787,10 @@ namespace Kmrp
         {
             int height = GetI32(data, fit.ButtonHeight);
             double radius = height * (height < (int)fit.ShortBelow ? fit.RadiusShort : fit.Radius);
-            double need = caption + 2.0 * radius * (fit.Gap + 1.0 + fit.Edge);
+            // badge_fit_width with the border's inset: the badge fitted to the smaller area.
+            if (fit.Inset > 0)
+                radius = Math.Min(radius, (height - 2 * (int)fit.Inset) / 2.0 - fit.Margin);
+            double need = caption + 2.0 * (fit.Inset + radius * (fit.Gap + 1.0 + fit.Edge));
             int extra = (int)Math.Ceiling(need - GetI32(data, fit.ButtonWidth));
             if (extra <= 0)
                 return 0;
@@ -1076,12 +1099,16 @@ namespace Kmrp
         /// <summary>build_prompt_tga for a control of controlWidth x controlHeight: the
         /// TGA, header and footer included.</summary>
         private byte[] DrawBadge(Glyph art, int controlWidth, int controlHeight, double label, int radiusHeight,
-            byte[] backing)
+            byte[] backing, int inset)
         {
             int tw = textureWidth, th = textureHeight;
             double center = controlHeight * centerY;
             int sizing = radiusHeight > 0 ? radiusHeight : controlHeight;
             double r = sizing * (sizing < shortBelow ? radiusShort : radius);
+            // An area too short for a badge gets a transparent texture (_empty_tga).
+            bool blank = inset > 0 && controlHeight - 2 * inset < minArea;
+            if (inset > 0 && !blank)
+                r = Math.Min(r, (controlHeight - 2 * inset) / 2.0 - fitMargin);
             double centerX;
             if (label > 0)
             {
@@ -1091,6 +1118,16 @@ namespace Kmrp
             }
             else
                 centerX = controlHeight * fallbackX;
+            if (inset > 0)
+            {
+                // Designed on the whole control, then mapped onto the area the fill covers.
+                centerX = Math.Max(centerX, inset + r * edge) - inset;
+                center -= inset;
+                controlWidth -= 2 * inset;
+                controlHeight -= 2 * inset;
+            }
+            if (blank)
+                backing = null;
             double diameter = r * 2.0, aspect = (double)art.Width / art.Height;
             double boxWidth = aspect < 1.0 ? diameter * aspect : diameter;
             double boxHeight = aspect > 1.0 ? diameter / aspect : diameter;
@@ -1101,7 +1138,7 @@ namespace Kmrp
             byte[] glyph = ResizeRgba(art.Rgba, art.Width, art.Height, drawWidth, drawHeight);
 
             byte[] sheet = new byte[tw * th * 4];   // top row first, RGBA
-            for (int y = 0; y < drawHeight; y++)
+            for (int y = 0; y < drawHeight && !blank; y++)
             {
                 if (top + y < 0 || top + y >= th)
                     continue;

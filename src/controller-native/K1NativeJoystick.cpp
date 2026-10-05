@@ -20,10 +20,10 @@
 #include "K1ControllerBackend.h"
 #include "K1ControllerLayout.h"
 #include "K1Rumble.h"
+#include "KmrpOptions.h"
 #ifdef KMRP_NATIVE_RUNTIME
 #include "K1RuntimeResolution.h"
 #include "K1RuntimeEngine.h"
-#include "KmrpOptions.h"
 extern "C" void __cdecl NativeGuiFrameK1(void* guiManager);
 extern "C" void __cdecl NativeMovieFrameK1(void* moviePlayer);
 #endif

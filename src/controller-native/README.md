@@ -78,6 +78,7 @@ mapping are in `docs/controller-native-path.md`.
 
 | File | Whose | What |
 | --- | --- | --- |
+| `K1ControllerStandalone.cpp` | KMRP | only in the standalone controller patch (`build_controller_standalone.cmd`, `KMRP_CONTROLLER_STANDALONE`; `docs/controller-standalone.md`): its embedded files unpacked and registered, the default settings file, the module entry point. No engine change |
 | `K1ControllerBackend.cpp` / `.h` | KMRP | XInput and SDL/HIDAPI state normalization, active-device selection and rumble |
 | `K1ControllerLayout.cpp` / `.h` | KMRP | Options → Gameplay entry, modal Controller Layout panel, live glyph refresh, callbacks and explicit control ownership |
 | `K1NativeJoystick.cpp` / `.h` | KMRP | the native path: supplies the joystick device KOTOR's retained console input system expects, so the engine's own handlers drive movement, buttons, menus, camera and free look |

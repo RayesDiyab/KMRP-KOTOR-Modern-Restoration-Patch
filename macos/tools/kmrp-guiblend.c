@@ -106,8 +106,8 @@ typedef struct { int index; double weight; } Term;
  * build_controller_prompt_textures.py (badge_radius, badge_fit_width). */
 typedef struct {
     char name[256], row[64];
-    double radius_short, radius, gap, edge;
-    uint32_t short_below, left, width, button_width, button_height, count, widths[16];
+    double radius_short, radius, gap, edge, margin;
+    uint32_t short_below, inset, left, width, button_width, button_height, count, widths[16];
 } Fit;
 /* build_gui_blend_table.py's layout record: build_controller_layout.py's layout_constants,
  * layout_rows and where each control's extent sits. */
@@ -133,16 +133,23 @@ typedef struct {
 typedef struct { double advances[256]; int count; double spacing, line_h; } Font;
 /* The badges (table version 4): build_prompt_tga's constants, the glyph artwork as
  * _load_glyph_art loads it, and per prompt manifest row where its button is, its glyph, its
- * backing and the controls whose least height sizes it. */
+ * backing and the controls whose least height sizes it.
+ *
+ * Table version 5 (2026-10-05): a border that names corner art draws its fill inside itself
+ * by its DIMENSION on every side, so a badge is made for that area and not for the whole
+ * button (build_controller_prompt_textures.py, fill_inset). Each prompt carries its two
+ * borders' insets; where they differ a second texture is drawn for the focused border,
+ * "kmf..." beside "kmr...". */
 typedef struct { uint32_t width, height; uint8_t *rgba; } Glyph;
 typedef struct {
     char resref[32], gui[256];
     uint32_t width_at, height_at, glyph, sizing_count, sizing[16];
+    uint32_t inset_normal, inset_focus;
     uint8_t backed, backing[4];
 } Prompt;
 typedef struct {
-    uint32_t texture_w, texture_h, short_below, glyph_count, prompt_count;
-    double radius, radius_short, gap, edge, center_y, fallback_x;
+    uint32_t texture_w, texture_h, short_below, glyph_count, prompt_count, min_area;
+    double radius, radius_short, gap, edge, center_y, fallback_x, fit_margin;
     uint8_t footer[64];
     uint16_t footer_len;
     Glyph *glyphs;
@@ -216,7 +223,9 @@ static void add_i32(uint8_t *data, uint32_t offset, int32_t delta) {
 static int32_t apply_fit(const Fit *fit, uint8_t *data, double caption) {
     int32_t height = get_i32(data, fit->button_height);
     double radius = height * (height < (int32_t)fit->short_below ? fit->radius_short : fit->radius);
-    double need = caption + 2.0 * radius * (fit->gap + 1.0 + fit->edge);
+    /* badge_fit_width with the border's inset: the badge fitted to the smaller area. */
+    if (fit->inset > 0) radius = fmin(radius, (height - 2 * (int32_t)fit->inset) / 2.0 - fit->margin);
+    double need = caption + 2.0 * (fit->inset + radius * (fit->gap + 1.0 + fit->edge));
     int32_t extra = (int32_t)ceil(need - get_i32(data, fit->button_width));
     if (extra <= 0) return 0;
     extra += extra % 2;
@@ -360,13 +369,17 @@ static uint8_t div255(unsigned a) {
     return (uint8_t)(((t >> 8) + t) >> 8);
 }
 
-/* build_prompt_tga for a control of cw x ch: the TGA, header and footer included. */
+/* build_prompt_tga for a control of cw x ch whose border draws its fill `inset` inside it:
+ * the TGA, header and footer included. */
 static uint8_t *draw_badge(const Badges *B, const Glyph *art, int cw, int ch, double label,
-                           int radius_height, const uint8_t *backing, size_t *size) {
+                           int radius_height, const uint8_t *backing, int inset, size_t *size) {
     const int tw = (int)B->texture_w, th = (int)B->texture_h;
     double center_y = ch * B->center_y;
     int sizing = radius_height > 0 ? radius_height : ch;
     double radius = sizing * (sizing < (int)B->short_below ? B->radius_short : B->radius);
+    /* An area too short for a badge gets a transparent texture (_empty_tga). */
+    int blank = inset > 0 && ch - 2 * inset < (int)B->min_area;
+    if (inset > 0 && !blank) radius = fmin(radius, (ch - 2 * inset) / 2.0 - B->fit_margin);
     double center_x;
     if (label > 0) {
         double gap = radius * B->gap;
@@ -375,6 +388,14 @@ static uint8_t *draw_badge(const Badges *B, const Glyph *art, int cw, int ch, do
     } else {
         center_x = ch * B->fallback_x;
     }
+    if (inset > 0) {
+        /* Designed on the whole control, then mapped onto the area the fill covers. */
+        center_x = fmax(center_x, inset + radius * B->edge) - inset;
+        center_y -= inset;
+        cw -= 2 * inset;
+        ch -= 2 * inset;
+    }
+    if (blank) backing = NULL;
     double diameter = radius * 2.0, aspect = (double)art->width / art->height;
     double box_w = aspect < 1.0 ? diameter * aspect : diameter;
     double box_h = aspect > 1.0 ? diameter / aspect : diameter;
@@ -386,7 +407,7 @@ static uint8_t *draw_badge(const Badges *B, const Glyph *art, int cw, int ch, do
     uint8_t *glyph = resize_rgba(art->rgba, (int)art->width, (int)art->height, dst_w, dst_h);
 
     uint8_t *sheet = calloc((size_t)tw * th, 4);   /* top row first, RGBA */
-    for (int y = 0; y < dst_h; y++) {
+    for (int y = 0; y < dst_h && !blank; y++) {
         if (top + y < 0 || top + y >= th) continue;
         for (int x = 0; x < dst_w; x++) {
             if (left + x < 0 || left + x >= tw) continue;
@@ -879,8 +900,8 @@ int main(int argc, char **argv) {
     fclose(f);
 
     char magic[4];
-    if (!take(magic, 4) || memcmp(magic, "KGBL", 4) != 0 || take_u32() != 4) {
-        fprintf(stderr, "kmrp-guiblend: not a version 4 blend table\n");
+    if (!take(magic, 4) || memcmp(magic, "KGBL", 4) != 0 || take_u32() != 5) {
+        fprintf(stderr, "kmrp-guiblend: not a version 5 blend table\n");
         return 1;
     }
     uint32_t family_count = take_u32();
@@ -907,6 +928,8 @@ int main(int argc, char **argv) {
         fit->short_below = take_u32();
         take(&fit->gap, 8);
         take(&fit->edge, 8);
+        fit->inset = take_u32();
+        take(&fit->margin, 8);
         fit->left = take_u32();
         fit->width = take_u32();
         fit->button_width = take_u32();
@@ -988,6 +1011,8 @@ int main(int argc, char **argv) {
     take(&badges.edge, 8);
     take(&badges.center_y, 8);
     take(&badges.fallback_x, 8);
+    badges.min_area = take_u32();
+    take(&badges.fit_margin, 8);
     if (!take(&badges.footer_len, 2) || badges.footer_len > sizeof badges.footer ||
         !take(badges.footer, badges.footer_len) || badges.texture_w == 0 || badges.texture_w > 4096 ||
         badges.texture_h == 0 || badges.texture_h > 4096) {
@@ -1028,6 +1053,12 @@ int main(int argc, char **argv) {
             return 1;
         }
         for (uint32_t k = 0; k < pr->sizing_count; k++) pr->sizing[k] = take_u32();
+        pr->inset_normal = take_u32();
+        pr->inset_focus = take_u32();
+        if (pr->inset_normal > 4096 || pr->inset_focus > 4096) {
+            fprintf(stderr, "kmrp-guiblend: bad prompt record\n");
+            return 1;
+        }
     }
     uint32_t hud_count = take_u32();
     if (hud_count > 1) { fprintf(stderr, "kmrp-guiblend: bad HUD count\n"); return 1; }
@@ -1215,11 +1246,23 @@ int main(int argc, char **argv) {
         sizes[i * 2 + 1] = ch;
 #ifndef KMRP_NO_CONTROLLER
         size_t tga_size;
+        if (cw <= 2 * (int)pr->inset_normal || ch <= 2 * (int)pr->inset_normal ||
+            cw <= 2 * (int)pr->inset_focus || ch <= 2 * (int)pr->inset_focus) {
+            fprintf(stderr, "kmrp-guiblend: %s: its border leaves nothing of its button\n", pr->resref);
+            return 1;
+        }
         uint8_t *tga = draw_badge(&badges, &badges.glyphs[pr->glyph], cw, ch, label, radius_height,
-                                  pr->backed ? pr->backing : NULL, &tga_size);
+                                  pr->backed ? pr->backing : NULL, (int)pr->inset_normal, &tga_size);
         snprintf(path, sizeof path, "%s/%s.tga", outdir, pr->resref);
         if (!write_file(path, tga, tga_size)) return 1;
         free(tga);
+        if (pr->inset_focus != pr->inset_normal) {   /* focus_resref: "kmf" for "kmr" */
+            tga = draw_badge(&badges, &badges.glyphs[pr->glyph], cw, ch, label, radius_height,
+                             pr->backed ? pr->backing : NULL, (int)pr->inset_focus, &tga_size);
+            snprintf(path, sizeof path, "%s/kmf%s.tga", outdir, pr->resref + 3);
+            if (!write_file(path, tga, tga_size)) return 1;
+            free(tga);
+        }
 #endif
     }
     size_t rewritten_size = 0;

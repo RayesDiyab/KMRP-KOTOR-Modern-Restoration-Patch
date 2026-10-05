@@ -19,7 +19,7 @@ from pykotor.resource.formats.gff import GFFStruct, read_gff, write_gff
 
 from apply_gold_hud_proportions import apply_proportions, apply_target_menu
 from build_controller_prompt_textures import (GLYPH_FAMILIES, PROMPT_STRREFS,
-                                              PROMPT_TARGETS, badge_fit_width,
+                                              PROMPT_TARGETS, badge_fit_width, fill_inset,
                                               build_prompt_textures,
                                               build_square_glyph_tga,
                                               family_resref, measure_label,
@@ -855,7 +855,8 @@ def fit_container_to_caption(source: Path, destination: Path, font_txi: Path) ->
     if missing:
         raise ValueError(f"{source.name}: no {', '.join(missing)}")
     button = by_tag[CONTAINER_FIT_TAG].get_struct("EXTENT")
-    extra = math.ceil(badge_fit_width(caption, button.get_int32("HEIGHT")) - button.get_int32("WIDTH"))
+    inset = fill_inset(by_tag[CONTAINER_FIT_TAG].get_struct("BORDER"))
+    extra = math.ceil(badge_fit_width(caption, button.get_int32("HEIGHT"), inset) - button.get_int32("WIDTH"))
     if extra <= 0:
         return 0
     extra += extra % 2   # even, so the panel grows by the same either side
@@ -1823,9 +1824,14 @@ def main() -> int:
                 # inert unless the runtime selects them after gamepad input.
                 if len(fitted) != len(ROW_LISTS):
                     raise ValueError(f"{resolution}: fitted {len(fitted)} of the {len(ROW_LISTS)} row lists")
+                # Each badge for the area its button's border fills, with a second
+                # texture for the focused border where the two differ (fill_insets;
+                # since 2026-10-05, when the whole button was found to be the wrong
+                # area for a bordered one).
                 packaged_files.extend(build_prompt_textures(
                     packaged_files, temp_dir / "controller-prompts",
-                    widened={CONTAINER_SCREEN: container_widened}, fitted=fitted))
+                    widened={CONTAINER_SCREEN: container_widened}, fitted=fitted,
+                    fill_insets=True))
 
 
                 if transferred:

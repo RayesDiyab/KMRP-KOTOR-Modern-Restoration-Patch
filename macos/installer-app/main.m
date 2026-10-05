@@ -1166,7 +1166,9 @@ static const struct { const char *prefix, *stage; int percent; } kStages[] = {
     // --no-controller leaves both out, and its settings file).
     self.controllerToggle = [[KMRPToggle alloc] initWithFrame:NSMakeRect(S(36), S(122 + 86 + 8), S(cardWidth - 72), S(86))];
     self.controllerToggle.title = @"Controller Support";
-    self.controllerToggle.author = @"RaymanGT, based on Saul0097";
+    // "RaymanGT, based on Saul0097" until 2026-10-05: the maintainer asked for the
+    // public-facing credit to be KMRP's alone. THIRD_PARTY_NOTICES.md still credits him.
+    self.controllerToggle.author = @"RaymanGT";
     self.controllerToggle.detail = @"Xbox, PlayStation, Switch and Steam Deck: play, menus and matching button prompts.";
     self.controllerToggle.on = [defaults objectForKey:@"ControllerSupport"] ? [defaults boolForKey:@"ControllerSupport"] : YES;
     if ([defaults boolForKey:@"KMRPNoController"]) self.controllerToggle.on = NO;

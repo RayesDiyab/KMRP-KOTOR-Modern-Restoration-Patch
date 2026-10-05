@@ -32,6 +32,7 @@ from build_controller_prompt_textures import (  # noqa: E402
     TEXTURE_WIDTH,
     badge_fit_width,
     family_resref,
+    fill_inset,
     measure_label,
     parse_font_metrics,
     variant_strings,
@@ -186,9 +187,11 @@ def verify_placement_manifest(archive, archive_name, names, gui_cache):
 
         # The Container's Give Items button is widened until its badge sits at the
         # designed gap instead of on the text (prepare_universal_resources.py,
-        # fit_container_to_caption; the overlap was seen in play at 3024x1964).
+        # fit_container_to_caption; the overlap was seen in play at 3024x1964). The
+        # badge is fitted to the area the button's border fills, so the width is
+        # reckoned with that border's inset, as the build reckons it.
         if (target.gui, target.tag) == ("container.gui", "BTN_GIVEITEMS"):
-            need = badge_fit_width(widest, height)
+            need = badge_fit_width(widest, height, fill_inset(control.get_struct("BORDER")))
             if width < need - 0.5:
                 raise AssertionError(
                     f"{archive_name}: container.gui BTN_GIVEITEMS is {width}px, its caption "

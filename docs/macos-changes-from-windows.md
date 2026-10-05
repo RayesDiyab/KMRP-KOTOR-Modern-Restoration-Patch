@@ -44,6 +44,8 @@ reason).
 | 13 | `kpm_holds_only_kmrp` reads KPM's state file too: a patch without a module is in neither `patch_config.toml` nor `patches/` | **to do** |
 | 14 | `kmrp.kpatch` dropped into KPM beside FTD's patches: KPM's own conflict refusal, and a description that says what to untick | **check**, and one wording change **to do** |
 | 15 | KMRP as one self-contained `.kpatch` with options, shipped inside the installer, as Windows is since 2026-10-04 | **to do**: the maintainer's next step for the Mac |
+| 17 | KMRP Controller: controller support as a standalone `.kpatch`, for a game without KMRP (Windows, 2026-10-05) | **to do**, if the Mac is to have it: no Mac module exists |
+| 18 | Badges made for the area a button's border fills, not the whole button: every set, blend table version 5, the helper | **to do**: the Mac's controller code must ask for the focused texture; **build and check** |
 
 ## 1. Badges drawn for the blended buttons
 
@@ -486,3 +488,67 @@ values out of `patch_config.toml`. Windows follows it; the measurements are in
 notes on and writes no diagnostic log; with `debug-logs=1` in the section the logs
 appear; an install by the installer with an option off shows `0` for it in the file,
 and a section of another name already in the file is still there afterwards.
+
+## 17. KMRP Controller, the standalone controller patch
+
+Windows has, since 2026-10-05, a second package beside KMRP's own:
+`KMRP Controller.kpatch`, id `kmrp-controller`, controller support alone for a game
+without KMRP, on the game's original interface. The reference is
+[controller-standalone.md](controller-standalone.md). Nothing of it was built or run
+on a Mac.
+
+| | Windows now |
+| --- | --- |
+| The package | one `.kpatch`: manifest, 31 hooks, one module, licences |
+| The module | the controller's sources with `K1ControllerStandalone.cpp` (`KMRP_CONTROLLER_STANDALONE`); no engine recipe, no resolution sets |
+| Its files | 16 of the game's own layout files with the controller's cues, `kmrplayout.gui`, the badge art of four families and SDL, embedded and unpacked to a temporary folder (`tools/build_controller_assets.py`) |
+| Relation to `kmrp` | they conflict: KMRP contains controller support |
+
+**The question the maintainer asked** (2026-10-05): can one `.kpatch` serve Windows
+and macOS? The format allows it: a package may hold a module per platform and a
+hooks file per executable (KOTOR Patch Manager's own `K2AspyrShaderFixes.kpatch`
+carries `kotor2-steam-aspyr-macos.hooks.toml`). What is missing is the Mac half.
+
+**What the Mac would need** (not started, and only if it is wanted):
+
+1. A `kmrp-controller.dylib` built from `patches/kmrp-controller/` alone, without
+   the widescreen and layout code of `kmrp.dylib`.
+2. The controller's files made for the Mac game's own layouts and unpacked by the
+   dylib. Today the Mac installer puts them in `Assets/override`; a `.kpatch`
+   dropped into KOTOR Patch Manager has no installer.
+3. The Mac's hooks file added to the same package, and
+   `tools/build_controller_kpatch.py` taught to carry a second module.
+
+## 18. Badges made for the area a border fills
+
+Found on Windows on 2026-10-05, on the game's original Options screen: a button
+whose border names corner art draws its fill inside the border, by the border's
+`DIMENSION` on every side, so a badge made for the whole button is drawn squeezed.
+A 240x40 button with `DIMENSION` 6 drew its A as 28x20. Section 3 of
+[controller-standalone.md](controller-standalone.md) has the engine functions, the
+measurements and the rule.
+
+KMRP's own sets had the same stretch at a smaller proportion: a 720x90 button fills
+708x78, so its badge was about 13% wider than tall. Since later on 2026-10-05 every
+set is built with `fill_insets` (`tools/prepare_universal_resources.py`), which the
+Mac's sets are too, being the same build:
+
+| | Now |
+| --- | --- |
+| Each set | 196 of its 552 badge textures change, and 280 are new: the focused-state textures, `kmf...` beside `kmr...`, for the 70 badges per family whose two borders fill different areas |
+| `gui-blend.bin` | version 5: two constants in the badge header, and per prompt its two borders' insets. A version 4 table is refused |
+| `macos/tools/kmrp-guiblend.c` | draws each badge for its border's area and writes the `kmf` file where the insets differ. Shared with Windows; changed here |
+| Windows' module | `SetK1ControllerPromptFill` (`vendor/K1XboxControls.cpp`) gives the focused border the `kmf` texture when the button's two borders inset differently |
+
+**What the Mac needs** (not started):
+
+1. The Mac's controller code (`macos/patches/kmrp-controller/prompts.cpp`) making
+   the same comparison on the live button and asking for the `kmf` texture on the
+   focused border. Without it the Mac shows the normal texture in both states: right
+   where the two borders agree (most buttons), and squeezed as before on a focused
+   Close button, whose normal border has no art.
+2. Whether the Mac's engine draws a border's fill the same way was not checked here.
+   Measure a badge on a bordered button (Options, focused) in a screenshot before
+   and after: it should come out as wide as it is tall.
+3. `kmrp-mac.sh` already takes every file the helper writes (section 3), so the
+   `kmf` files need no list of their own; confirm it on an unlisted size.

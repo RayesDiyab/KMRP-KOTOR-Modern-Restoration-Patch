@@ -58,6 +58,21 @@ A scratch install delivers `KMRP.kpatch` to the folder KOTOR Patch Manager's set
 name, which on the maintainer's PC is the play-test game's `patches` folder: redirect
 `%APPDATA%\KPatchLauncher\settings.json` first, as `Test-InstallerPatch.ps1` does.
 
+**The standalone controller patch (since 2026-10-05)** is a separate build, not part
+of `build_kmrp.ps1`:
+
+```powershell
+python tools\build_controller_assets.py --extract "C:\path\to\clean game"   # once: build-inputs\vanilla-gui
+& .\src\controller-native\build_controller_standalone.cmd                   # assets, then the module
+python tools\build_controller_kpatch.py --verify-clean build-inputs\swkotornopatch.exe
+python testing\regression\Test-ControllerKpatch.py
+```
+
+It writes `dist\controller\KMRP Controller.kpatch`. Install it in a scratch copy with
+KOTOR Patch Manager's own launcher (`KPatchLauncher.exe <exe> --patches dist\controller
+kmrp-controller --deployment proxy`, which also starts the game and did not touch
+KPM's settings file). See `docs/controller-standalone.md`.
+
 The only required game-derived build input defaults to ignored
 `build-inputs/swpc_tex_gui.erf`. The Windows engine recipe builds from source;
 no game executable or gold snapshot is required. Machine overrides belong in ignored

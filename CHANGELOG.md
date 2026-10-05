@@ -109,6 +109,68 @@ proxy, and it applies the executable changes above as well.
 
 ## [Unreleased]
 
+- **Controller badges are made for the area a button's border really fills**
+  (2026-10-05). A badge is a texture on its button's fill, and a border that names
+  corner art draws that fill inside itself, by its `DIMENSION` on every side
+  (`CSWGuiBorder::Draw`, `0x004168C0`, read from the decompiled function). KMRP made
+  every badge for the whole button, so on a bordered button it was drawn squeezed:
+  about 13% wider than tall on a 720x90 one, and 28x20 on the game's original 240x40
+  Options buttons, where the standalone controller patch showed it. Now:
+  - each badge is drawn for its border's area and kept whole inside it;
+  - where a button's focused border fills a different area than its normal one (a
+    Close button has no normal border and a 6 px focused one), there is a second
+    texture for the focused state, `kmf...` beside `kmr...`, and the module asks for
+    it (`SetK1ControllerPromptFill`);
+  - the blend table is version 5 and carries each badge's two insets;
+    `macos/tools/kmrp-guiblend.c` and `src/patcher/GuiBlend.cs` draw the same for a
+    size with no set. A version 4 table is refused;
+  - the Container screen's Give Items button, which is widened until its badge sits
+    at the designed gap from the caption, is widened for the smaller area too
+    (`badge_fit_width` takes the border's inset). Without that the badge sat up to
+    3 px nearer the caption than designed at 24 blended sizes, which
+    `Test-GuiBlendHelper.py` reported.
+  Per set, 196 of the 552 badge textures change and 280 are new. **The installer
+  grows from 196 MB to 244 MB**, because every set carries the focused textures; the
+  plan to draw badges on the player's PC instead and ship none is agreed and not
+  started. Measured in a scratch install on the CD 1.03 executable: Options at
+  1920x1080 in a window, the focused Gameplay A 47x46 px, Close's B 32x32 and
+  focused 31x31; at 3440x1440 fullscreen 61x61, 43x43 and 42x41. Other screens at
+  those sizes were not measured, and the measurements are from the build before the
+  Give Items change, which touches no other screen. `Test-ControllerPromptAssets.py`
+  (66 archives, 34,848 textures), `Test-GuiBlendHelper.py`, `Test-InstallerPatch.ps1`
+  and `Test-KpatchSource.py` pass on the final build.
+  The Mac's controller code does not ask for the focused texture yet
+  ([docs/macos-changes-from-windows.md](docs/macos-changes-from-windows.md), item 18).
+- **The installer's Controller Support row names KMRP as its author** (2026-10-05).
+  It read "KMRP, based on Saul0097" (Windows) and "RaymanGT, based on Saul0097"
+  (macOS). The maintainer asked for the public-facing credit to be KMRP's alone; the
+  licence notices, `THIRD_PARTY_NOTICES.md` and the documentation still credit
+  Saul0097's KPM Xbox Controls, whose code is in the module. The macOS line was
+  changed in source and not built.
+
+- **KMRP Controller: controller support as a patch of its own** (2026-10-05).
+  `KMRP Controller.kpatch` (id `kmrp-controller`) is KMRP's native controller
+  support for a game without KMRP: the pad in the game and in every menu, the
+  button prompts of four controller families, rumble and the Controller Layout
+  screen, on the game's original interface. It needs no other patch and no
+  installer, writes nothing to Override, and carries none of KMRP's other work.
+  KMRP's own patch already contains it, so KOTOR Patch Manager refuses the two
+  together. Built by `src\controller-native\build_controller_standalone.cmd` and
+  `tools\build_controller_kpatch.py` into `dist\controller\`; its files are made
+  for the game's own layouts by `tools\build_controller_assets.py`.
+  - *Badges keep their shape on the game's small buttons.* A button's border
+    draws its fill inside the border when it has corner art, so a badge made for
+    the whole button came out oval (28x20 on the original Options screen) or cut
+    off (the focused Close). Badges in this patch are made for the area each
+    border fills, with a second texture for the focused border where the two
+    differ.
+  - Seen in scratch copies with the CD 1.03 and GOG executables, installed by KOTOR
+    Patch Manager 0.7.1, at 800x600, 1024x768, 1280x960 and 1600x1200, with a
+    virtual Xbox pad and a virtual DualShock 4. Not run: Steam's executable,
+    fullscreen, a real controller (so rumble), combat, another language.
+    [docs/controller-standalone.md](docs/controller-standalone.md) has the full
+    list. `testing\regression\Test-ControllerKpatch.py` passes.
+
 - **The resolution checklist shows every size KMRP has, in sections** (2026-10-04).
   Step 3's **Choose** listed the display's sizes and, of KMRP's other sizes, only
   those no larger than the desktop, so 3840x2160 was missing on a 3440x1440
