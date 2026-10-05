@@ -109,6 +109,35 @@ proxy, and it applies the executable changes above as well.
 
 ## [Unreleased]
 
+- **An Xbox-style HUD for the standalone controller patch** (2026-10-05). An
+  option of `KMRP Controller.kpatch`, off by default (`Style=Xbox` under `[Hud]` in
+  `kmrp-controller.ini`, or the patch's "Xbox-style HUD" option where the manager
+  offers options). The HUD is laid out and behaves as the original Xbox version's,
+  at its proportions:
+  - the action menu at the bottom left, a box with the selected action's name over
+    a row of six slots, the selected one large and yellow; the first place is the
+    default action ("Attack", "Open", "Dialog", or "No Action" without a target),
+    the target's feats and powers take the next two while there is a target, and
+    grenades take the mines' place while the target offers any;
+  - the target's name and health fixed at the top left, in a red frame for a
+    hostile target; the party at the bottom right with curved bars that empty from
+    the top; the minimap at the top right;
+  - in combat mode a strip across the top with the Xbox game's own line, "COMBAT
+    MODE engaged. (B) to disengage.", the pad's B drawn in it. B disengages when no
+    slot is selected; beside the queue only Y is left.
+  The layout is the Xbox HUD's own (`mi8x6.gui`, still in the PC data) applied to
+  the PC HUD's controls by `tools/build_xbox_hud.py`, each group moved a little
+  nearer its corner at the maintainer's direction; the art and the combat line are
+  the game's own, and the patch carries no font. Two new hooks, 33 in all
+  (`K1XboxHud.cpp`): one at `CSWGuiMainInterface::DrawMap` (`0x0068AB10`) places and
+  dresses the controls before each draw, one at `CSWGuiTargetActionMenu::Draw`
+  (`0x00685ED0`) draws the first place and the party's bars. Seen with a virtual
+  pad on the CD 1.03 executable: a friendly target and a fight at 1024x768, and the
+  layout at 800x600, 1280x960 and 1600x1200; `Test-ControllerKpatch.py` passes.
+  Not built: the PC HUD coming back when the mouse is used, and any screen size but
+  the game's four. Text is the PC's size, 0.61 of the Xbox's.
+  [docs/controller-xbox-hud.md](docs/controller-xbox-hud.md) has the design, the
+  limits and what was not run. KMRP's own patch does not have it.
 - **Controller badges are made for the area a button's border really fills**
   (2026-10-05). A badge is a texture on its button's fill, and a border that names
   corner art draws that fill inside itself, by its `DIMENSION` on every side

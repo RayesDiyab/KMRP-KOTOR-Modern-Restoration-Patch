@@ -82,6 +82,7 @@ mapping are in `docs/controller-native-path.md`.
 | `K1ControllerBackend.cpp` / `.h` | KMRP | XInput and SDL/HIDAPI state normalization, active-device selection and rumble |
 | `K1ControllerLayout.cpp` / `.h` | KMRP | Options → Gameplay entry, modal Controller Layout panel, live glyph refresh, callbacks and explicit control ownership |
 | `K1NativeJoystick.cpp` / `.h` | KMRP | the native path: supplies the joystick device KOTOR's retained console input system expects, so the engine's own handlers drive movement, buttons, menus, camera and free look |
+| `K1XboxHud.cpp` | KMRP | only in the standalone controller patch: the Xbox-style HUD's runtime half, two hooks (`CSWGuiMainInterface::DrawMap`, `CSWGuiTargetActionMenu::Draw`) that place and dress the HUD's controls before each draw and draw the first slot and the party's bars (`docs/controller-xbox-hud.md`) |
 | `K1Rumble.cpp` / `.h` | KMRP | rumble: BioWare's 22-row `rumble.2da`, KMRP's `KMRP_…` patterns, the mixer that plays both, and the hooks that feed it (`docs/controller-rumble.md`) |
 | `K1PopupFit.cpp` | KMRP | the message popup fitted to its contents, the Mac's `popup_fit.cpp` on Windows' offsets (2026-09-30; `docs/windows-changes-from-macos.md`, item 1). Not controller code: installed with every patch |
 | `K1GrantedPopup.cpp` | KMRP | the granted popup's rows like the inventory's, the Mac's `granted_popup.cpp` on Windows' offsets (2026-09-30; item 10). Not controller code either |

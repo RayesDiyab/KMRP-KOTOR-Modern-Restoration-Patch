@@ -46,6 +46,7 @@ reason).
 | 15 | KMRP as one self-contained `.kpatch` with options, shipped inside the installer, as Windows is since 2026-10-04 | **to do**: the maintainer's next step for the Mac |
 | 17 | KMRP Controller: controller support as a standalone `.kpatch`, for a game without KMRP (Windows, 2026-10-05) | **to do**, if the Mac is to have it: no Mac module exists |
 | 18 | Badges made for the area a button's border fills, not the whole button: every set, blend table version 5, the helper | **to do**: the Mac's controller code must ask for the focused texture; **build and check** |
+| 19 | An Xbox-style HUD, an option of the standalone controller patch (Windows, 2026-10-05) | **nothing to do** while the Mac has no standalone controller patch (item 17); section 19 says what it would take |
 
 ## 1. Badges drawn for the blended buttons
 
@@ -552,3 +553,23 @@ Mac's sets are too, being the same build:
    and after: it should come out as wide as it is tall.
 3. `kmrp-mac.sh` already takes every file the helper writes (section 3), so the
    `kmf` files need no list of their own; confirm it on an unlisted size.
+
+## 19. The Xbox-style HUD
+
+An option of the Windows standalone controller patch since 2026-10-05:
+[controller-xbox-hud.md](controller-xbox-hud.md). The Mac has no standalone
+controller patch (item 17), so there is nothing to carry over today. If it gets one:
+
+1. `tools/build_xbox_hud.py` is plain Python on a layout file and needs no change.
+   The Mac game's HUD layouts would have to be checked for the same controls in the
+   same order (the tool refuses a file whose mouldings do not bracket the action
+   description).
+2. `src/controller-native/K1XboxHud.cpp` is addresses and structure offsets of the
+   Windows executable: the two hook sites, the engine routines it calls
+   (`GetDefaultActions`, `SetActionDescription`, `UpdateNameLabel`, the viewport
+   calls), and the HUD's and target menu's fields. The Mac needs each from its own
+   binary, and two observations checked there: that `SetNameLabel` stores the
+   slots' offset from the name in one byte, and that the engine turns `<bbutton>`
+   in dialog.tlk 42475 into the character `0x11`.
+3. The D-pad order and B's disengage are in `vendor/K1XboxControls.cpp` and
+   `K1NativeJoystick.cpp`, behind `KMRP_CONTROLLER_STANDALONE`.

@@ -1230,6 +1230,10 @@ bool PressHudButtonK1(void* mainInterface, std::size_t member, std::uintptr_t ha
 constexpr std::uintptr_t K1_MAIN_INTERFACE_VTABLE = 0x00753F50;
 constexpr std::size_t    K1_HUD_CLEAR_ONE         = 0x6CD0;      // BTN_CLEARONE
 constexpr std::size_t    K1_HUD_CLEAR_ALL         = 0x7058;      // BTN_CLEARALL, "Disengage"
+constexpr std::size_t    K1_HUD_COMBAT_MESSAGE    = 0x735C;      // LBL_CMBTMODEMSG
+#ifdef KMRP_CONTROLLER_STANDALONE
+bool KmrpXboxHudEnabledK1();                                     // K1XboxHud.cpp
+#endif
 constexpr std::uintptr_t K1_ON_CLEAR_ONE          = 0x0068B050;  // CSWGuiMainInterface::OnClearOneButtonPressed
 constexpr std::uintptr_t K1_ON_CLEAR_ALL          = 0x0068B0A0;  // CSWGuiMainInterface::OnClearAllButtonPressed
 void ForgetGuiCuesK1(void* panel);
@@ -2628,15 +2632,22 @@ extern "C" void __cdecl NativeActionBarK1(void* mainInterface)
         }
     }
     int release = 0;
+    bool backOut = false;
     if (g_stick.hudReleaseRequested != 0) {
         g_stick.hudReleaseRequested = 0;
         // Any focused slot, one that can no longer act included: B lets go of it.
         release = KmrpActionBarHeldK1(mainInterface);
+        backOut = release == 0;
     }
     // Taken now whatever happens below, so a press made in gameplay can never
     // act later on a different screen.
     const bool clearOne = g_stick.combatClearRequested != 0;
-    const bool disengage = g_stick.disengageRequested != 0;
+    bool disengage = g_stick.disengageRequested != 0;
+#ifdef KMRP_CONTROLLER_STANDALONE
+    // With the Xbox-style HUD, B with no slot to let go of disengages, as B does on
+    // the Xbox ("COMBAT MODE engaged. (B) to disengage."). X still does.
+    if (backOut && KmrpXboxHudEnabledK1()) disengage = true;
+#endif
     g_stick.combatClearRequested = 0;
     g_stick.disengageRequested = 0;
 
@@ -3708,7 +3719,13 @@ void InstallGuiCuesK1(void* panel)
     }
     for (int i = 0; i < K1_GUI_CUE_COUNT; ++i) {
         if (K1_GUI_CUES[i].panelVtable == vtable) {
-            BindOneCueK1(panel, K1_GUI_CUES[i].tag, K1_GUI_CUES[i].follow);
+            std::size_t follow = K1_GUI_CUES[i].follow;
+#ifdef KMRP_CONTROLLER_STANDALONE
+            // With the Xbox-style HUD the X cue is the button in the combat-mode
+            // message (K1XboxHud.cpp), so it is shown while that message is.
+            if (follow == K1_HUD_CLEAR_ALL && KmrpXboxHudEnabledK1()) follow = K1_HUD_COMBAT_MESSAGE;
+#endif
+            BindOneCueK1(panel, K1_GUI_CUES[i].tag, follow);
         }
     }
 }
@@ -3918,6 +3935,18 @@ void MatchCueFamilyK1(void* label)
     resref[3] = wanted;
     EngineFn<SetFillImageFn>(K1_BORDER_SET_FILL_IMAGE)(params, resref, 1);
 }
+
+#ifdef KMRP_CONTROLLER_STANDALONE
+// The cue label bound to a panel that follows the control at `follow`, or null.
+void* KmrpGuiCueK1(void* panel, std::size_t follow)
+{
+    for (int i = 0; i < K1_GUI_CUE_SLOTS; ++i) {
+        if (g_guiCues[i].panel == panel && g_guiCues[i].follow == follow && GuiCueStillLiveK1(g_guiCues[i]))
+            return g_guiCues[i].control;
+    }
+    return nullptr;
+}
+#endif
 
 void UpdateGuiCuesK1()
 {

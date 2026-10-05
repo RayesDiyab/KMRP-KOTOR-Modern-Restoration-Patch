@@ -23,6 +23,7 @@ cl /nologo /Brepro /std:c++17 /O2 /fp:strict /EHsc /MT /LD /DKMRP_CONTROLLER_STA
   src\controller-native\K1ControllerStandalone.cpp ^
   src\controller-native\K1NativeJoystick.cpp src\controller-native\K1ControllerBackend.cpp ^
   src\controller-native\K1ControllerLayout.cpp src\controller-native\K1Rumble.cpp ^
+  src\controller-native\K1XboxHud.cpp ^
   src\controller-native\vendor\K1XboxControls.cpp src\controller-native\vendor\K1XboxControlsXInput.cpp ^
   build\controller-standalone\controller-assets.res ^
   /Fobuild\controller-standalone\ /Febuild\controller-standalone\kmrp-controller.dll ^

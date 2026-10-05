@@ -254,6 +254,12 @@ SaberHumPeriodMinMs=500
 SaberHumPeriodMaxMs=2000
 ; 1 writes every rumble event to kmrp-rumble.log in this folder
 Debug=0
+
+[Hud]
+; PC (the game's own HUD) or Xbox (laid out like the original Xbox version's).
+; Read when the game starts. KOTOR Patch Manager's "Xbox-style HUD" option, where
+; the manager offers options, decides instead of this line.
+Style=PC
 )";
 
 void WriteDefaultSettings()
@@ -269,6 +275,27 @@ void WriteDefaultSettings()
     CloseHandle(file);
 }
 
+// The Xbox-style HUD is the game's HUD layouts replaced: the bank carries a twin of
+// each ("kmxh210x7.gui" for "mipc210x7.gui", tools/build_controller_assets.py), and
+// with the option on each twin is copied over its original in the folder just
+// unpacked, before the folder is registered. K1XboxHud.cpp does the rest.
+bool KmrpXboxHudEnabledK1();   // K1XboxHud.cpp
+
+void UseXboxHud()
+{
+    if (!KmrpXboxHudEnabledK1()) return;
+    const std::wstring folder = KmrpRuntimeAssetDirectory();
+    if (folder.empty()) return;
+    WIN32_FIND_DATAW found;
+    HANDLE find = FindFirstFileW((folder + L"\\kmxh*.gui").c_str(), &found);
+    if (find == INVALID_HANDLE_VALUE) return;
+    do {
+        const std::wstring twin = found.cFileName;
+        CopyFileW((folder + L"\\" + twin).c_str(), (folder + L"\\mipc" + twin.substr(4)).c_str(), FALSE);
+    } while (FindNextFileW(find, &found));
+    FindClose(find);
+}
+
 // Hooked before the game's first resource lookup, on the game's own thread.
 extern "C" void __cdecl KmrpPrepareResourcesK1(void* manager)
 {
@@ -280,8 +307,9 @@ extern "C" void __cdecl KmrpPrepareResourcesK1(void* manager)
         failed = true;
         Report("The controller's files could not be unpacked to the temporary folder. The pad still "
                "works; its button prompts and the Controller Layout screen are missing.");
-    } else if (RegisterDirectory()) {
-        registered = true;
+    } else {
+        UseXboxHud();
+        if (RegisterDirectory()) registered = true;
     }
     busy = false;
 }

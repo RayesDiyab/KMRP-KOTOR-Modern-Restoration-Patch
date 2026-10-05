@@ -47,6 +47,17 @@ HOOKS = 'kotor1.hooks.toml'
 # The module's one site outside the controller's table: where its files are
 # registered, before the game's first resource lookup.
 RESOURCE_HOOK = 'KmrpPrepareResourcesK1'
+# The Xbox-style HUD's site, this patch's own: the entry of
+# CSWGuiMainInterface::DrawMap, ecx = the HUD (mov eax, [0x007A39FC], an absolute
+# address, nothing for a trampoline to relocate), which the HUD's Draw calls after
+# its updating and before it draws anything. The handler returns at once unless the
+# option is on (K1XboxHud.cpp).
+XBOX_HUD_HOOK = {
+    'address': 0x0068AB10, 'type': 'detour', 'function': 'KmrpXboxHudK1',
+    'original_bytes': [0xA1, 0xFC, 0x39, 0x7A, 0x00],
+    'skip_original_bytes': False, 'exclude_from_restore': [],
+    'parameters': [{'source': 'ecx', 'type': 'pointer'}],
+}
 # What travels with the file. The module carries SDL whole (zlib), Saul0097's
 # controller sources as modified by KMRP (MIT) and Xelu's prompt art (CC0); the
 # notices file says which is which.
@@ -72,7 +83,22 @@ PATCH = {
     'requires': [],
     'conflicts': KMRP_PATCHES + OTHERS,
 }
+# Its second site: the entry of CSWGuiTargetActionMenu::Draw, ecx = the menu (push esi
+# / mov esi, ecx / test byte ptr [esi+0x1AEC], 1; the jump after it reads the test's
+# flags, and the three instructions run after the handler). The HUD calls it right
+# after drawing its panel, which is when the party bars' filled parts are drawn.
+XBOX_HUD_BARS_HOOK = {
+    'address': 0x00685ED0, 'type': 'detour', 'function': 'KmrpXboxHudBarsK1',
+    'original_bytes': [0x56, 0x8B, 0xF1, 0xF6, 0x86, 0xEC, 0x1A, 0x00, 0x00, 0x01],
+    'skip_original_bytes': False, 'exclude_from_restore': [],
+    'parameters': [{'source': 'ecx', 'type': 'pointer'}],
+}
 OPTIONS = [
+    {'id': 'xbox-hud', 'name': 'Xbox-style HUD', 'default': False,
+     'description': "Lays the in-game HUD out like the original Xbox version's: the action "
+                    'slots in a box at the bottom left, the target\'s name at the top left, '
+                    'the party at the bottom right. Without a manager that offers options, '
+                    'set Style=Xbox under [Hud] in kmrp-controller.ini.'},
     {'id': 'debug-logs', 'name': 'Debug logs', 'default': False,
      'description': 'Writes diagnostic log files beside the game. Leave off unless you are '
                     'reporting a problem.'},
@@ -90,6 +116,8 @@ def hooks():
     if len(resource) != 1:
         raise ValueError(f'Expected one {RESOURCE_HOOK} site')
     selected += resource
+    selected.append(dict(XBOX_HUD_HOOK))
+    selected.append(dict(XBOX_HUD_BARS_HOOK))
     for index, h in enumerate(selected):
         span = range(h['address'], h['address'] + len(h['original_bytes']))
         if h['type'] != 'detour' or len(span) < 5:

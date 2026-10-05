@@ -1,0 +1,272 @@
+# The Xbox-style HUD
+
+> **Documentation standard.** This document follows
+> [`documentation-standard.md`](documentation-standard.md). Every claim says how
+> it was established; anything not run is listed under "Tested and not tested".
+
+**Kind: reference.** An option of the standalone controller patch
+([`controller-standalone.md`](controller-standalone.md)): the in-game HUD laid out
+and behaving as the original Xbox version's. Built on 2026-10-05 with the maintainer
+comparing each build against frames of the Xbox game; this is the layout he
+approved that day. KMRP's own patch does not have it.
+
+## What the player sees
+
+| Piece | Where | How it behaves |
+| --- | --- | --- |
+| Action menu | bottom left | a box with the selected action's name and a row of six slots; the selected slot is large with a yellow frame and yellow arrows |
+| Target bar | top left, fixed | the target's name over its health bar, in a blue frame, red for a hostile target |
+| Party | bottom right | the leader large, the others small above, each with a curved vitality bar on the left and Force bar on the right that empty from the top |
+| Minimap | top right | |
+| Action queue | bottom, right of the action menu | with the pad's Y (take the last action off) beside it |
+| Combat mode | a strip across the top | "COMBAT MODE engaged. (B) to disengage." in red, the pad's B drawn in the line, a thin blue line under the strip; the target bar and minimap stand lower while it is there |
+
+The PC HUD's row of eight menu buttons and its pause, solo and stealth toggles are
+not shown. A pad does without most of them: Start opens the menus, RT pauses, Back
+toggles solo mode (`tools/build_controller_layout.py`, `LAYOUT`). Stealth has no
+pad button; the keyboard's key still works.
+
+### The six slots
+
+| Place | Without a target | With a target |
+| --- | --- | --- |
+| 1 | "No Action" | the target's default action: "Attack", "Open", "Dialog" |
+| 2 | the character's skills and friendly powers | the target's other actions of that kind (feats, a door's lock); the skills when it has none |
+| 3 | a dim frame | the target's Force powers |
+| 4 | mines | grenades while the target offers any, mines otherwise |
+| 5 | medical items | the same |
+| 6 | other items | the same |
+
+Place 1 is selected whenever no other slot is. A there does the default action. The
+D-pad moves along the row as it is on screen; left from place 2, or B, returns to
+place 1. Up and down walk a slot's actions. B with place 1 selected disengages from
+combat; X does too.
+
+Every texture is the game's own, already in `swpc_tex_gui.erf` of the PC release.
+The patch carries no Xbox art and no font: four layout files, and one small button
+glyph per controller family for the combat line.
+
+## How it is switched on
+
+| Manager | How |
+| --- | --- |
+| A KOTOR Patch Manager with patch options | the patch's **Xbox-style HUD** option (`xbox-hud`, off by default) |
+| KOTOR Patch Manager 0.7.1, which has no options | `kmrp-controller.ini` beside the game: `Style=Xbox` under `[Hud]` |
+
+The module reads the manager's recorded option first (`configs\kmrp-controller.ini`,
+`[Patch Options]`, `xbox-hud`) and the settings file only when there is none, once,
+when the game starts. The HUD then stays the Xbox one for the session whichever
+device is used; only the button prompts and the combat line follow the device.
+
+The patch's file bank carries a twin of each HUD layout the game loads
+(`kmxh28x6.gui`, `kmxh210x7.gui`, `kmxh212x9.gui`, `kmxh216x12.gui`). With the option
+on, the module copies each twin over its original in the temporary folder it has
+just unpacked, before registering the folder (`K1ControllerStandalone.cpp`,
+`UseXboxHud`). With it off the twins are unused files and both hooks return at once.
+
+## Why it is built this way
+
+### The layout
+
+**The PC data holds the Xbox HUD's layout files, and the PC game cannot load them.**
+`maininterface.gui` (640x480) and `mi8x6.gui` (800x600) are in the PC data with 102
+controls each. The PC executable's HUD class, `CSWGuiMainInterface`, binds none of
+their tags (`LBL_ICON1`, `LBH_ARROW1`, `LBH_BORDER1B`...): its constructor
+(`0x0068C100`, decompiled) asks for `BTN_ACTION%d`, `BTN_TARGET%d`, `LBL_CHAR%d` and
+so on, from `mipc28x6`, `mipc210x7`, `mipc212x9`, `mipc212x10` or `mipc216x12` (the
+data has no `mipc212x10`). So the Xbox look is made from the PC HUD's own controls,
+each placed and dressed as the Xbox file places and dresses its counterpart.
+`tools/build_xbox_hud.py` does that to a PC layout.
+
+**Scaled by height / 480.** The console drew `maininterface.gui`, the 640x480 file,
+stretched over the whole picture. `mi8x6.gui` holds the same rectangles at the same
+pixel sizes, only moved out to an 800x600 screen's edges, so its numbers are used with
+lengths scaled by `height / 480`: left and top pieces from the top left, right-hand
+pieces from the right edge, bottom pieces from the bottom edge. (The first build
+scaled by `height / 600` and came out a fifth too small: the action box 28% of the
+screen's width where the Xbox has 35%.) The game's fonts are not scaled; see Limits.
+
+**Nearer the corners than the Xbox.** The Xbox layout keeps 45 units clear at every
+edge, a television's margin. At the maintainer's direction each group is moved out
+towards its own corner: 38 units sideways, and the bottom pieces 30 down
+(`OUT_X`, `OUT_Y`). The queue's Y button sits two units off the queue's art, on its
+middle line (measured on screen at 1024x768: both centres at row 710).
+
+**Draw order decides which control carries the box.** The panel draws its controls
+in the layout file's order. The description label comes after `LBL_MOULDING1` and
+before `LBL_MOULDING3`, so the box is on `LBL_MOULDING1` (on `LBL_MOULDING3` it was
+drawn over the text). The box's upper half reaches one screen pixel into its lower
+half: laid edge to edge, as the file has them, the pair showed a light line across
+the slots that the Xbox does not show.
+
+### What needs code
+
+`src/controller-native/K1XboxHud.cpp`, from two hooks.
+
+**`KmrpXboxHudK1`, at the entry of `CSWGuiMainInterface::DrawMap` (`0x0068AB10`,
+`ecx` = the HUD).** The HUD's `Draw` (`0x0068B4A0`) does its own updating and then
+calls `DrawMap`, the panel's draw and the target menu's draw, so that entry is after
+everything that moves or re-dresses a control and before anything is drawn. (The
+target menu's `Draw` is after the panel is drawn, and the entry of `Draw` is before
+the engine re-stacks the target's controls: both were tried.) It does this, every
+frame:
+
+- **Pins the target's menu.** The target's name, health bar and three slots are one
+  object, `CSWGuiTargetActionMenu`, that the engine draws in its own viewport and
+  moves to where the target is on screen (`PositionMenu`, `0x00686090`). The hook
+  pins the viewport to the whole screen and sets the rectangle the engine clamps it
+  into so that it cannot move; the menu's controls are laid out in screen
+  coordinates. `SetNameLabel` (`0x00685AF0`) re-stacks the health bar and slots
+  under the name from offsets `Initialize` (`0x0068BF50`) stored **as single
+  bytes**; top left to bottom left is more than 255 pixels, so the stored offset has
+  wrapped (measured: the layout's slot top 659, the live control's 130), and the
+  hook places the target's slots from a personal slot, which nothing moves.
+- **Places the seven PC slots in six places** and makes the selected one large
+  (64 against 41, the arrow strip 14x56 so that the arrowheads touch the bracket).
+  Two pairs share a place, feats with skills and grenades with mines; the one not
+  shown is parked off the screen with its button invisible, so the focus cannot
+  land on it. The target's slots get the Xbox frame (`lbl_mibox01`, `lbl_mibox02`)
+  in place of the engine's `lbl_miscroll_h` and `lbl_miscroll_f`.
+- **Makes the first place.** It is not an engine slot. On the PC the default action
+  is what A does while no slot has the focus, so the first place stands for exactly
+  that. Its name and icon come from a routine the PC executable still has and never
+  calls, `CClientExoAppInternal::GetDefaultActions` (`0x00620620`): for the HUD's
+  target it makes a one-entry list, "Dialog" with `i_dialog`, "Open", "Attack"; with
+  no target it is "No Action" with `i_noaction` (dialog.tlk 32236). Where that
+  action is also in the target's first list ("Attack" was the last of its list
+  after two feats), the target's first slot is kept off it: the engine's up and
+  down walk the whole list, and when they reach the default action the hook sends
+  the choice on to the next entry in the same direction.
+- **Puts the action's name in the box and the target's in the name bar.** The PC
+  puts a target slot's action in the name bar (`UpdateNameLabel`, `0x00685CB0`);
+  the hook calls it again with no slot named and gives the action's name to
+  `SetActionDescription` (`0x00685560`).
+- **Sizes the box to its text.** The Xbox file's 90 units are the box for three
+  lines; with one line its top edge is at 364.6, not 326 (measured in the reference
+  video). The engine keeps the description's bottom fixed and grows it upward, so
+  the box's top is put 6 units above the description's.
+- **Dresses the name bar and the party's bars.** The name's frame is
+  `lbl_miindic01f`, or `lbl_miindic01e` for a hostile target (the engine's sign is
+  the frame it gives the target's slots). The engine fills the vitality bars with a
+  flat `redfill` (`greenfill` when poisoned) at every update; the hook puts
+  `lbl_health` (`lbl_healthp`) back.
+- **Draws the combat strip** before the panel while the engine shows the
+  combat-mode message's label, and moves the name bar and the minimap (its border,
+  its button, and the rectangle at `+0x6080` the map is drawn in) 14 units down.
+  The Xbox strip is 57 units tall with those 26 lower; the maintainer asked for a
+  shorter one, 44.
+- **Writes the combat line.** In place of the PC's "COMBAT MODE engaged. Press the
+  Disengage button to cancel." (dialog.tlk 48208), the Xbox game's own line, which
+  is still in dialog.tlk (42475, "COMBAT MODE engaged. <bbutton> to disengage."):
+  the engine turns the token into the character `0x11`, which the PC fonts leave
+  blank, so the hook splits the line there, puts the first half in the message
+  label, the second in the message's background label, and the pad's B between
+  them (the X cue's label with a B glyph, `kmrpb_cmbt`, made per controller
+  family). Only while the pad is the device in use; with the mouse it is the game's
+  line.
+
+**`KmrpXboxHudBarsK1`, at the entry of `CSWGuiTargetActionMenu::Draw`
+(`0x00685ED0`), right after the panel is drawn.** It draws the first place (with
+two controls the Xbox layout has no use for, `LBL_MENUBG` and `BTN_MSG`), the dim
+frame of the Force place when there is no target, and the party's bars. A bar on
+the Xbox empties from the top and keeps its curve; the PC's progress bar gives its
+fill the rectangle of the filled part and stretches the texture into it
+(`CSWGuiProgressBar::SetExtent`, `0x00419300`), which squeezed the whole arc into
+the lower part. So a bar that is neither full nor empty is emptied for the panel's
+draw and its fill is drawn here whole, through a viewport that is the filled
+part's rectangle (`AurGUISetupViewport`, as the engine clips the target menu).
+
+Elsewhere: `MoveFocus` in `vendor/K1XboxControls.cpp` walks the row in its on-screen
+order with the first place as "no slot"; `NativeActionBarK1` in
+`K1NativeJoystick.cpp` makes B disengage when there is no slot to let go of; the X
+cue label follows the combat message instead of the hidden Disengage button.
+Parked buttons in the layout hold every texture the hooks swap in and out, so that
+changing a fill twice a frame never loads or frees one.
+
+## Measured against the Xbox game
+
+One frame of the reference video (https://www.youtube.com/watch?v=b0X_7pRUkgo at
+10:11), enlarged in the browser to 2.81 screenshot pixels per layout unit and
+measured by colour, against our screenshot at 1024x768 (1.6 pixels per unit), in
+units of the 640x480 layout. The video is compressed, so an edge is good to about
+one unit. Measured on the build before the groups were moved towards the corners;
+sizes and ratios are unchanged by that.
+
+| Part | Xbox, width x height | Ours | Ratio w/h, Xbox | Ours |
+| --- | --- | --- | ---: | ---: |
+| Name bar, red frame | 258.1 x 37.0 | 253.8 x 36.2 | 6.98 | 7.00 |
+| Action box, one line of text | 222.6 x 67.9 | 223.1 x 66.2 | 3.28 | 3.37 |
+| Slot frame, not selected | 27.0 x 21.7 | 26.9 x 21.9 | 1.24 | 1.23 |
+| Slot frame, selected | 42.6 x 35.5 | 64 in the layout, as the Xbox file | 1.20 | 1.20 |
+| Slot pitch | 36.1 | 36 in the layout | | |
+| Curve beside the portraits | 18.5 x 60.8 | 18.8 x 61.9 | 0.30 | 0.30 |
+| Minimap, blue line | 72.9 x 72.6 | 73.1 x 72.5 | 1.00 | 1.01 |
+| Capital letter height | 9.2 | 5.6 | | |
+
+The selected slot and the pitch were measured at 58 and 31 on an earlier build that
+had seven slots in the row; they are the Xbox file's numbers since, and were not
+measured again.
+
+## Limits
+
+- **Text is 0.61 of the Xbox's size.** The Xbox drew `dialogfont16x16` on 480
+  lines; the PC draws it at the same pixel size at every resolution. The standalone
+  patch carries no font, by the maintainer's decision (KMRP's HD font belongs to
+  KMRP, and this patch is for the game as it is). Enlarging the game's own font is
+  blocked by something not understood: with any font on `LBL_NAME` or
+  `LBL_ACTIONDESC` other than the two the HUD's layout already uses
+  (`dialogfont10x10`, `dialogfont16x16`), the game crashes while loading a save
+  (access violation at `0x61666564`, CD 1.03). Tried: the game's `dialogfont32x32`,
+  `dialogfont12x16`, `fnt_d16x16b` and `fnt_galahad14`, and a copy of KMRP's HD
+  atlas under a new name; on either label alone; and on the plain PC HUD with this
+  option off, which crashes the same way.
+- **It does not change with the device.** The HUD is the Xbox one for the session.
+  Going back to the PC HUD when the mouse is used is wanted and not built.
+- **The game's four screen sizes only.** Each twin is made at build time for the
+  size written in its PC layout file: 800x600, 1024x768, 1280x960, 1600x1200. A
+  game changed to another size (a widescreen patcher) still loads one of those four
+  files, so the HUD would be laid out for the file's size and not the screen's,
+  unless a HUD mod for that size replaces the file, and then this option's twin
+  replaces that mod's. Not tried. Placing the controls at run time from the real
+  screen size is wanted and not built. The executable also names a layout for
+  1280x1024 that the data does not have.
+- **Friendly Force powers and skills are not in the row during a fight** with a
+  target that has feats: the second place holds the feats then, as on the Xbox.
+- **The mouse on the slots** was not tried. The up arrow's button covers the middle
+  of an icon, as the Xbox arrow strip does.
+- **KMRP's own patch does not have it.** KMRP scales the whole interface and makes
+  its HUD layouts per resolution.
+- macOS: not built. The Mac has no standalone controller patch.
+
+## Tested and not tested
+
+Run in a scratch copy of the CD 1.03 game, the patch installed by KOTOR Patch
+Manager 0.7.1's own launcher with `Style=Xbox`, driven by a virtual Xbox pad,
+judged from screenshots, on the build of 2026-10-05 whose package's SHA-256 begins
+`F4DB0879`:
+
+- **1024x768, a friendly creature targeted:** "Dialog" selected in the first place,
+  skills in the second, a dim frame in the third, a mine, medical and items; the
+  D-pad through every place and back to the first; the action's name in the box.
+- **1024x768, a fight in the Sith base, paused and not:** "Attack" in the first
+  place; the second walked between Critical Strike and Master Power Attack with up
+  and down; Stasis and Frag Grenade selected, with the target's name staying in the
+  name bar; A on Master Power Attack put it in the queue; the strip with the red
+  line and the B in it; B with a slot selected returned to the first place, and B
+  again, unpaused, emptied the queue; a wounded companion's bar as the lower part
+  of the arc.
+- **800x600, 1280x960, 1600x1200:** the friendly-creature save with a slot
+  selected. The same arrangement at each, the text the same pixel size.
+- **`testing/regression/Test-ControllerKpatch.py`:** the package against its
+  sources (33 hooks); the four twins hold their originals' controls in the
+  originals' order, the places are one row at one pitch with the shared places
+  shared, everything is on the screen or parked; no font in the bank.
+
+Not run: the GOG and Steam executables, fullscreen, a real controller, any screen
+size but the game's four, the mouse on the slots and the combat line with the mouse
+in use, a door, a container or a droid as the target (the maintainer's frames of
+the Xbox game show "Open" with the lock in the second place, and "Dialog" with a
+second action; the same code decides them), using a grenade or an item from the
+row, a level-up, stealth and solo mode, the PlayStation, Switch and Steam Deck B
+glyph in the combat line, any language but English, and a clean end of combat mode
+after B (enemies were still attacking).

@@ -17,6 +17,11 @@ What it proves, from the built files and the sources (it starts no game):
      texture maps to a round badge in the area that button's border really fills,
      normal and focused, and a focused-state texture exists exactly where the two
      borders fill different areas (docs/controller-standalone.md, section 3).
+  6. The Xbox-style HUD: a twin of every HUD layout the game loads, holding the
+     same controls, with what the module's half (K1XboxHud.cpp) relies on: the seven
+     slots in one row at one pitch, the first personal slot's frame at the size the
+     module recognises the layout by, the action box drawn before the description
+     and everything either on the screen or parked far off it.
 
 Needs the built package (src/controller-native/build_controller_standalone.cmd and
 tools/build_controller_kpatch.py) and build-inputs/vanilla-gui.
@@ -42,6 +47,7 @@ import build_controller_assets as assets                    # noqa: E402
 import build_controller_kpatch as package                   # noqa: E402
 import build_controller_prompt_textures as prompts          # noqa: E402
 import build_native_kpatch as kmrp                          # noqa: E402
+import build_xbox_hud as xbox_hud                           # noqa: E402
 import kmrp_controller                                      # noqa: E402
 
 PACKAGE = ROOT / "dist/controller" / package.NAME
@@ -76,7 +82,7 @@ def alpha_box(tga: bytes):
 def main() -> int:
     # 1. The package against its sources.
     result = package.validate(PACKAGE)
-    check(result["hooks"] == len(package.hooks()) == 31, f"the package carries {result['hooks']} hooks, all from the sources")
+    check(result["hooks"] == len(package.hooks()) == 33, f"the package carries {result['hooks']} hooks, all from the sources")
     with zipfile.ZipFile(PACKAGE) as z:
         manifest = tomllib.loads(z.read("manifest.toml").decode())["patch"]
         packed = tomllib.loads(z.read(package.HOOKS).decode())["hooks"]
@@ -101,20 +107,25 @@ def main() -> int:
     # 3. Its sites against KMRP's.
     theirs = {h["address"]: h for h in kmrp.all_hooks()}
     stand_ins = {0x0040CE70, 0x00404D96}        # held by KMRP's core frames, which run the controller's
+    # the Xbox-style HUD's two, which KMRP's patch does not have
+    own = {package.XBOX_HUD_HOOK["address"], package.XBOX_HUD_BARS_HOOK["address"]}
     same = [a for a in mine if a in theirs and a not in stand_ins
             and kmrp_controller.normalised(mine[a]) == kmrp_controller.normalised(theirs[a])]
-    check(len(same) == len(mine) - len(stand_ins) and stand_ins <= set(theirs),
-          f"{len(same)} sites are KMRP's own hooks unchanged, and the other {len(stand_ins)} are the frame sites KMRP holds")
+    check(len(same) == len(mine) - len(stand_ins) - len(own) and stand_ins <= set(theirs) and not (own & set(theirs)),
+          f"{len(same)} sites are KMRP's own hooks unchanged, {len(stand_ins)} are the frame sites KMRP holds, "
+          f"and {len(own)} are the Xbox-style HUD's own, which KMRP's patch leaves alone")
 
     # 4. The file bank.
     names = sorted(p.name for p in FILES.iterdir())
     guis = [n for n in names if n.endswith(".gui")]
     expected = sorted(list(assets.R3_CUE_SCREENS) + [assets.TAB_CUE_SCREEN, "optgameplay.gui", "confirm.gui",
                                                       "dialog.gui", "kmrplayout.gui"]
-                      + [p.name for p in assets.VANILLA_GUI.glob("mipc*.gui")])
-    check(guis == expected, f"{len(guis)} layout files: the ones the controller changes and its own screen")
+                      + [p.name for p in assets.VANILLA_GUI.glob("mipc*.gui")]
+                      + [assets.XBOX_HUD_PREFIX + p.name[4:] for p in assets.VANILLA_GUI.glob("mipc2*.gui")])
+    check(guis == expected,
+          f"{len(guis)} layout files: the ones the controller changes, its own screen and the Xbox-style HUD's twins")
     check(all(n.endswith((".gui", ".tga")) for n in names), "nothing but layout files and textures")
-    check(not any("font" in n or n.startswith("fnt_") for n in names), "no font: the game's own text is untouched")
+    check(not any("font" in n or n.startswith(("fnt_", "kmxf")) for n in names), "no font: the game's own text is untouched")
     targets = prompts.PROMPT_TARGETS
     missing = [prompts.family_resref(t.resref, family) for t in targets for family in prompts.GLYPH_FAMILIES
                if prompts.family_resref(t.resref, family) + ".tga" not in names]
@@ -157,6 +168,48 @@ def main() -> int:
           + ("" if not wrong_focus else f": {wrong_focus[:6]}"))
     check(measured > 150 and worst <= 0.08,
           f"{measured} face-button badges map to round ones in their fill area (worst {worst * 100:.1f}% off square)")
+
+    # 6. The Xbox-style HUD's layouts.
+    twins = sorted(FILES.glob(assets.XBOX_HUD_PREFIX + "*.gui"))
+    problems = []
+    for twin in twins:
+        original = FILES / ("mipc" + twin.name[len(assets.XBOX_HUD_PREFIX):])
+        mine_gui, theirs_gui = read_gff(twin).root, read_gff(original).root
+        controls = {c.get_string("TAG"): c for c in mine_gui.get_list("CONTROLS")}
+        order = [c.get_string("TAG") for c in mine_gui.get_list("CONTROLS")]
+        if order != [c.get_string("TAG") for c in theirs_gui.get_list("CONTROLS")]:
+            problems.append(f"{twin.name}: not the original's controls in the original's order")
+            continue
+        screen = mine_gui.get_struct("EXTENT")
+        width, height = screen.get_int32("WIDTH"), screen.get_int32("HEIGHT")
+
+        def box(tag):
+            e = controls[tag].get_struct("EXTENT")
+            return [e.get_int32(k) for k in ("LEFT", "TOP", "WIDTH", "HEIGHT")]
+
+        frames = [box(f"BTN_TARGET{i}") for i in range(3)] + [box(f"BTN_ACTION{i}") for i in range(4)]
+        row = [frames[i] for i in (3, 1, 2, 4, 5)]        # the second to sixth places, left to right
+        pitches = {b[0] - a[0] for a, b in zip(row, row[1:])}
+        if len(pitches) != 1 or min(pitches) <= 0 or len({(f[1], f[2], f[3]) for f in frames}) != 1:
+            problems.append(f"{twin.name}: the six places are not one row at one pitch")
+        if frames[6] != frames[2] or frames[0] != frames[3]:
+            problems.append(f"{twin.name}: the mines' and skills' slots are not on the places they share")
+        if row[0][0] - min(pitches) < 0:
+            problems.append(f"{twin.name}: no room for the first place")
+        if frames[3][2] != xbox_hud.scale_value(xbox_hud.SLOT_BORDER[2], height):
+            problems.append(f"{twin.name}: the first personal slot is not the size the module looks for")
+        if not order.index("LBL_MOULDING1") < order.index("LBL_ACTIONDESC"):
+            problems.append(f"{twin.name}: the action box would be drawn over its description")
+        for tag in order:
+            left, top, w, h = box(tag)
+            parked = left == xbox_hud.OFFSCREEN and top == xbox_hud.OFFSCREEN
+            # LBL_MAP is the map picture, larger than its window by design.
+            inside = 0 <= left and 0 <= top and left + w <= width and top + h <= height
+            if not (parked or inside or tag in ("LBL_MAP", "LBL_ARROW_MARGIN", "LBL_CMBTMODEMSG", "LBL_CMBTMSGBG")):
+                problems.append(f"{twin.name}: {tag} at {left},{top} {w}x{h} is partly off the {width}x{height} screen")
+    check(len(twins) == 4 and not problems,
+          f"{len(twins)} Xbox-style HUD layouts: the originals' controls, six places in a row, all on screen"
+          + ("" if not problems else f": {problems[:4]}"))
 
     print()
     print(f"{PACKAGE.name}: {result['bytes']} bytes, SHA-256 {result['sha256']}")

@@ -224,6 +224,14 @@ leave 12 design units between their words. Off for KMRP's sets, whose
 | `configs\kmrp-controller.ini` | a KOTOR Patch Manager with patch options | `[Patch Options]`, `debug-logs`; a missing file means off |
 | `kmrp-controller.log` beside the game | the module, only on failure | written if the file bank cannot be unpacked; the pad still works without its prompts |
 
+### The Xbox-style HUD
+
+Since later on 2026-10-05 the patch has one more option, `xbox-hud`, and one more
+setting, `Style` under `[Hud]` in `kmrp-controller.ini`, both off by default. They
+add two hooks (33 in all), four layout files and a button glyph per controller
+family to the bank; the counts elsewhere in this document are the build before it.
+[`controller-xbox-hud.md`](controller-xbox-hud.md) describes it.
+
 ## 6. Limits
 
 - **The game's original interface only.** The badges and cues are made for the

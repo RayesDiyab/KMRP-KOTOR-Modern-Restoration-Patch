@@ -1,0 +1,897 @@
+// The Xbox-style HUD's runtime half.
+//
+// tools/build_xbox_hud.py lays the PC HUD's controls out the way the Xbox game's
+// mi8x6.gui lays out its own, and that is all most of the HUD needs. Two things a
+// layout file cannot do, and this file does:
+//
+// 1. The target's name, health bar and three action slots are one object,
+//    CSWGuiTargetActionMenu, which the engine draws in its own viewport and moves to
+//    wherever the target is on screen. On the Xbox they never move: the name is top
+//    left, the slots are the first three of the row in the action box. So the menu's
+//    origin is pinned to the screen's corner with a viewport as wide as the screen,
+//    and its controls are laid out in screen coordinates.
+//
+//    The slots still need putting back every time the name changes. SetNameLabel
+//    (0x00685AF0) re-stacks the health bar and the slots under the name from two
+//    offsets Initialize (0x0068BF50) stored as single bytes; top left to bottom left
+//    is more than 255 pixels, so the stored offset has wrapped and the slots land in
+//    the wrong place. The first personal slot is an ordinary control nothing moves,
+//    and the row is one pitch apart throughout, so the target slots are placed from
+//    it.
+//
+// 2. The Xbox drew the slot under the cursor large (a 64 px frame around a 32 px
+//    icon) and the others small (41 and 21). The layout holds the small size; the
+//    slot with the focus is grown about its centre here.
+//
+// 3. The action box is as tall as its text, the name's frame is red for a hostile
+//    target, and the party's vitality bars are the Xbox HUD's curved ones; each is
+//    explained where it is done.
+//
+// All of it runs from one hook at the entry of CSWGuiMainInterface::DrawMap
+// (0x0068AB10, ecx = the HUD). CSWGuiMainInterface::Draw (0x0068B4A0) does the HUD's
+// updating itself (UpdatePortraits, PopulateMenus, the slots' Update) and then calls
+// DrawMap, the panel's Draw and the target menu's Draw, in that order: DrawMap's
+// entry is after everything that moves or re-dresses a control and before anything
+// is drawn. Two other sites were tried on 2026-10-05. The target menu's Draw
+// (0x00685ED0) is after the panel has been drawn, so the vitality bars, which
+// UpdatePortraits re-fills with a flat colour every frame, were always drawn flat.
+// The entry of Draw is before that updating, so the name bar and the target slots
+// were put back where the engine stacks them.
+//
+// Documentation standard: see `docs/documentation-standard.md`.
+#include <windows.h>
+#include <cstddef>
+#include <cstdint>
+#include <cstring>
+#include <cstdio>
+
+#include "KmrpOptions.h"
+
+// K1XboxControls.cpp: which of the seven slots has the focus (0-2 the target's,
+// 3-6 personal), or -1.
+int KmrpFocusedActionSlotK1(void* mainInterface);
+// K1XboxControlsXInput.cpp: the pad is the device in use. K1NativeJoystick.cpp: the
+// cue label on a panel that follows the control at an offset.
+bool IsControllerInputActiveK1();
+void* KmrpGuiCueK1(void* panel, std::size_t follow);
+
+namespace {
+
+struct Extent { int left, top, width, height; };
+
+// CSWGuiTargetActionMenu (size 0x1AF0), inside CSWGuiMainInterface at +0xBC.
+constexpr std::ptrdiff_t kMenuActionLists = 0x00;      // CExoArrayList[3]: pointer, count, capacity
+constexpr std::ptrdiff_t kMenuActions = 0x54;          // CSWGuiMainInterfaceAction[3]
+constexpr std::ptrdiff_t kMenuOrigin = 0x15AC;         // x, y: where its viewport starts
+constexpr std::ptrdiff_t kMenuWidth = 0x15B4;          // the viewport's width
+constexpr std::ptrdiff_t kMenuHeight = 0x15B8;         // and height
+constexpr std::ptrdiff_t kMenuClamp = 0x15BC;          // left, top, width, height it is kept inside
+constexpr std::ptrdiff_t kMenuFlags = 0x1AEC;          // bit 0: there is a target, the menu is drawn
+constexpr std::ptrdiff_t kMenuNameLabel = 0x15CC;
+constexpr std::ptrdiff_t kMenuNameBackground = 0x170C;
+constexpr std::ptrdiff_t kMenuHealthBackground = 0x184C;
+constexpr std::ptrdiff_t kMenuHealthBar = 0x198C;
+// CSWGuiMainInterface.
+constexpr std::ptrdiff_t kHudTargetMenu = 0xBC;        // CSWGuiTargetActionMenu
+constexpr std::ptrdiff_t kHudManager = 0x18;           // CSWGuiPanel's manager
+constexpr std::ptrdiff_t kHudPersonalActions = 0x772C; // CSWGuiMainInterfaceAction[]
+// Measured in the running game, 2026-10-05: the three LBL_MOULDING labels in tag
+// order (the box, the curve, the box's lower strip), the action description, and in
+// each of the three portrait slots the parameters of the vitality bar's fill.
+constexpr std::ptrdiff_t kHudMouldings = 0x1BC8;       // CSWGuiLabel[3], 0x140 each
+constexpr std::ptrdiff_t kLabelSize = 0x140;
+constexpr std::ptrdiff_t kHudDescription = 0xA1D4;     // CSWGuiLabel
+constexpr std::ptrdiff_t kHudParty = 0x1F88;           // CSWGuiMainInterfaceChar[3], 0xEA8 each
+constexpr std::ptrdiff_t kPartySize = 0xEA8;
+constexpr std::ptrdiff_t kPartyVitalityFill = 0x898;   // CSWGuiBorderParams of the bar's progress
+// CSWGuiMainInterfaceAction (size 0x71C): four buttons.
+constexpr std::ptrdiff_t kActionSize = 0x71C;
+constexpr std::ptrdiff_t kActionParts[4] = {0x000, 0x1C4, 0x388, 0x54C};   // frame, icon, up, down
+// CSWGuiManager.
+constexpr std::ptrdiff_t kManagerViewportWidth = 0x6C;   // short
+constexpr std::ptrdiff_t kManagerViewportHeight = 0x6E;  // short
+// CSWGuiControl: vtable, then the extent; SetExtent is the vtable's second entry.
+constexpr std::ptrdiff_t kControlExtent = 0x04;
+// A control's border parameters (CSWGuiBorderParams): in a label, measured in the
+// running game (the border repeats the control's extent at +0x60, its parameters
+// follow); in a button, as K1XboxControls.cpp has it. The fill's name is 16 bytes
+// at +0x40 of the parameters, and CSWGuiBorderParams::SetFillImage loads another.
+constexpr std::ptrdiff_t kLabelBorderParams = 0x70;
+constexpr std::ptrdiff_t kButtonBorderParams = 0x80;
+constexpr std::ptrdiff_t kParamsFill = 0x40;
+constexpr std::uintptr_t kSetFillImage = 0x00414C00;
+// The name's frame for a friendly and for a hostile target, both in the game's data
+// (mi8x6.gui names the first). The engine marks a hostile target by giving the
+// target slots the frame lbl_miscroll_h (CSWGuiMainInterfaceAction::Update).
+constexpr char kFrameFriendly[16] = "lbl_miindic01f";
+constexpr char kFrameHostile[16] = "lbl_miindic01e";
+constexpr char kSlotHostile[16] = "lbl_miscroll_h";
+// The vitality bar. The PC engine fills it with a flat colour, "redfill", or
+// "greenfill" for a poisoned character (CSWGuiMainInterface::UpdatePortraits); the
+// Xbox HUD's bar is the curved lbl_health, and the data has lbl_healthp beside it.
+constexpr char kFlatHealth[16] = "redfill";
+constexpr char kFlatPoison[16] = "greenfill";
+constexpr char kCurvedHealth[16] = "lbl_health";
+constexpr char kCurvedPoison[16] = "lbl_healthp";
+// The action box is as tall as its text. Measured in the reference video
+// (640x480 units): with the one-line "Attack" the box's top edge is at 364 and the
+// text's line ends at 385, where maininterface.gui ends LBL_ACTIONDESC; the file's
+// 90 px box, top 326, is the size for three lines. The PC engine already keeps the
+// description's bottom there and grows it upward with its text, so the box's top
+// follows the description's: 6 above it, and a 16 px line when there is no text.
+constexpr int kBoxAboveText = 6;
+constexpr int kBoxEmptyLine = 16;
+
+constexpr int kSlots = 7;
+constexpr int kTargetSlots = 3;
+// mi8x6.gui (and maininterface.gui, the same sizes): the small and the large slot (LBH_BORDER1B/1, LBL_ICON1B/1,
+// LBH_ARROW1B/1), and LBL_INDICATE around LBL_NAME. build_xbox_hud.py has the same.
+constexpr int kBaseHeight = 480;   // the Xbox drew these pixel sizes on 480 lines (build_xbox_hud.py, SCALE_H)
+constexpr int kSmall[3][2] = {{41, 41}, {21, 21}, {11, 41}};   // frame, icon, arrow
+// The selected slot's arrow strip is the file's 16x64 drawn at 14x56, the same shape:
+// at 64 the arrowheads stood three units clear of the bracket, and on the Xbox they
+// touch it and reach a little outside the box (the maintainer's photograph of the
+// Xbox game, and the reference video at 21:21, where the heads are 26 from the
+// slot's centre).
+constexpr int kLarge[3][2] = {{64, 64}, {32, 32}, {14, 56}};
+// Six places for the PC's seven slots, as the Xbox row has six. The maintainer's
+// frames of the Xbox game show its rule: the right-hand places are the character's
+// own and stay (out of combat: a mine, medical, items), and the left-hand ones are
+// the target's when there is one (attack, feats, a Force power, grenades), the
+// fourth place changing from the mine to the grenade. With the PC's lists that is,
+// from the left: the target's attacks and feats; the character's skills and friendly
+// powers; the target's Force powers; the target's grenades while it offers any and
+// the character's mines otherwise; medical items; other items. The Xbox has the
+// plain attack in the first place and the feats in the second, which the PC keeps
+// in one list. The slot of the shared place that is not shown is parked off the
+// screen and made invisible, so that the focus cannot land on it.
+// K1XboxControls.cpp walks the focus in this order (MoveFocus).
+//
+// Later the same day, after more of the maintainer's frames: the Xbox's first place
+// is the target's default action alone ("Attack", "Open", or "No Action" without a
+// target) and is the selected one whenever nothing else is; its second place is the
+// target's other actions of that kind (the feats), or the character's skills when
+// the target has none. The PC has the default action and the feats in one list (the
+// target's first), and no slot for the default action: it is simply what the A
+// button does while no slot has the focus. So here the first place is drawn by this
+// file and stands for "no slot has the focus"; the target's first slot is kept off
+// its first entry and shown in the second place when it has more than that entry,
+// and the character's skills are there otherwise.
+constexpr int kPlace[kSlots] = {1, 2, 3, 1, 4, 5, 3};
+constexpr int kSharedTarget = 2;      // the grenade slot, of the seven
+constexpr int kSharedPersonal = 6;    // the mines' slot
+constexpr int kFeatsSlot = 0;         // the target's first slot
+constexpr int kSkillsSlot = 3;        // the first personal slot
+constexpr int kFirstPersonalPlace = 1;
+constexpr int kForcePlace = 2;
+// The target's lists (CExoArrayList<CSWGuiInterfaceAction>, three, at the menu's
+// start), an entry's fields, and where the menu remembers which entry of each list
+// is the chosen one: four kinds of target by three lists
+// (CSWGuiTargetActionMenu::PopulateMenus, 0x00689410; DoTargetAction, 0x00689610).
+constexpr std::ptrdiff_t kEntrySize = 0x38;
+constexpr std::ptrdiff_t kEntryId = 0x08;
+constexpr std::ptrdiff_t kEntryIcon = 0x20;
+constexpr std::ptrdiff_t kMenuChosen = 0x24;           // int[4][3]
+constexpr std::ptrdiff_t kMenuTargetKind = 0x1AEA;     // char
+constexpr std::ptrdiff_t kMenuNamedSlot = 0x1AEB;      // char: the slot whose action the name bar shows
+constexpr std::ptrdiff_t kMenuInterface = 0x15A8;      // CSWGuiMainInterface*
+constexpr std::ptrdiff_t kHudTargetId = 0x64;
+constexpr std::ptrdiff_t kHudPersonalLists = 0x74;     // CExoArrayList[6], as the target's
+constexpr std::ptrdiff_t kActionIcon = 0x1C4;          // the slot's icon, a CSWGuiButton
+// Two controls the Xbox layout has no use for, which draw the first place: the
+// menu row's background label is its frame and the Messages button its icon.
+constexpr std::ptrdiff_t kHudSpareLabel = 0xBE2C;      // LBL_MENUBG
+constexpr std::ptrdiff_t kHudSpareButton = 0xB71C;     // BTN_MSG
+constexpr std::ptrdiff_t kParamsAlpha = 0x0C;
+constexpr std::uintptr_t kAppManager = 0x007A39FC;     // [[it] + 4] is CClientExoApp
+constexpr std::uintptr_t kGetGameObject = 0x005ED580;  // CClientExoApp::GetGameObject(id)
+constexpr std::uintptr_t kGetGuiString = 0x005EDEB0;   // CClientExoApp::GetGUIString(CExoString*, strref)
+constexpr std::uintptr_t kStringDestroy = 0x005E5C20;  // CExoString::~CExoString
+constexpr std::uintptr_t kSetDescription = 0x00685560; // CSWGuiMainInterface::SetActionDescription(CExoString*)
+constexpr std::uintptr_t kUpdateNameLabel = 0x00685CB0;// CSWGuiTargetActionMenu::UpdateNameLabel(CSWCObject*)
+constexpr std::uintptr_t kGetDefaultActions = 0x00620620;  // CClientExoAppInternal::GetDefaultActions()
+constexpr std::ptrdiff_t kDefaultActions = 0x4C8;      // its list, in CClientExoAppInternal
+constexpr int kNoActionString = 32236;                 // dialog.tlk: "No Action"
+constexpr char kNoActionIcon[16] = "i_noaction";
+constexpr int kParked = -4000;
+// A target slot's frame is not the layout's art: the engine gives it lbl_miscroll_h
+// (hostile, red) or lbl_miscroll_f (CSWGuiMainInterfaceAction::Update, 0x006858E0).
+// The Xbox game frames a target's slots like the others, in lbl_mibox01 with
+// lbl_mibox02 for the selected one (reference video: "Attack", "Open"), so those
+// are put back before the draw. The red frame was the PC's sign of a hostile target;
+// the name bar's red frame says it here.
+constexpr char kSlotEnginePrefix[] = "lbl_miscroll";
+constexpr char kSlotFrame[16] = "lbl_mibox01";
+constexpr char kSlotFrameSelected[16] = "lbl_mibox02";
+constexpr char kArrows[16] = "lbl_miarrow01";
+constexpr char kArrowsSelected[16] = "lbl_miarrow02";
+constexpr std::ptrdiff_t kButtonHilightParams = 0xF4;
+constexpr int kNameHeight = 26;                                // LBL_NAME
+constexpr int kNameFrame[4] = {-10, -14, 271, 64};             // LBL_INDICATE, from LBL_NAME's corner
+constexpr int kHealthBar[4] = {1, 26, 247, 9};                 // PB_HEALTH, from the same corner
+
+template <typename T> T& At(void* base, std::ptrdiff_t offset)
+{
+    return *reinterpret_cast<T*>(static_cast<char*>(base) + offset);
+}
+
+void* Part(void* base, std::ptrdiff_t offset) { return static_cast<char*>(base) + offset; }
+
+void SetExtent(void* control, const Extent& wanted)
+{
+    Extent& now = At<Extent>(control, kControlExtent);
+    if (now.left == wanted.left && now.top == wanted.top && now.width == wanted.width && now.height == wanted.height)
+        return;
+    using Fn = void(__thiscall*)(void*, const Extent*);
+    Fn fn = reinterpret_cast<Fn>((*reinterpret_cast<void***>(control))[1]);
+    fn(control, &wanted);
+}
+
+bool SameName(const char* a, const char* b)
+{
+    return _strnicmp(a, b, 16) == 0;
+}
+
+void SetFill(void* params, const char name[16])
+{
+    if (SameName(&At<char>(params, kParamsFill), name)) return;
+    using Fn = void(__thiscall*)(void*, const char*, int);
+    reinterpret_cast<Fn>(kSetFillImage)(params, name, 1);
+}
+
+// A layout length on this screen, rounding half up, as build_xbox_hud.py rounds.
+int Scale(int value, int height)
+{
+    return value >= 0 ? (2 * value * height + kBaseHeight) / (2 * kBaseHeight)
+                      : -((2 * -value * height + kBaseHeight) / (2 * kBaseHeight));
+}
+
+// CSWGuiProgressBar (0x150 bytes): its greatest and current value, its border (the
+// empty bar) and its fill, each a CSWGuiBorder (Draw is 0x00417F60: the border's
+// draw, then the fill's). In a portrait slot the vitality bar is at +0x7A8 and the
+// force bar follows it.
+constexpr std::ptrdiff_t kPartyBars[2] = {0x7A8, 0x8F8};
+constexpr std::ptrdiff_t kBarMost = 0x5C;
+constexpr std::ptrdiff_t kBarValue = 0x60;
+constexpr std::ptrdiff_t kBarFill = 0xDC;
+constexpr std::uintptr_t kBarSetValue = 0x00417FB0;    // CSWGuiProgressBar::SetCurValue
+constexpr std::ptrdiff_t kControlFlags = 0x44;
+constexpr int kControlVisible = 2;
+// What CSWGuiTargetActionMenu::Draw calls to clip its own drawing to a rectangle.
+constexpr std::uintptr_t kStartLayer = 0x004591B0;     // AurGUIStartLayer
+constexpr std::uintptr_t kStopLayer = 0x004592B0;      // AurGUIStopLayer
+constexpr std::uintptr_t kSetupViewport = 0x004592F0;  // AurGUISetupViewport(x, y, w, h, colour, 0, 1.0)
+constexpr std::uintptr_t kCloseViewport = 0x00459580;  // AurGUICloseViewport
+constexpr std::uintptr_t kNoColouring = 0x0078D3D8;
+
+void SetBarValue(void* bar, int value)
+{
+    reinterpret_cast<void(__thiscall*)(void*, int)>(kBarSetValue)(bar, value);
+}
+
+// A bar emptied for the panel's draw, and the value to draw and give back.
+struct Bar { void* bar = nullptr; int value = 0; };
+Bar g_bars[3][2];
+
+// The combat-mode message. On the PC it reads "COMBAT MODE engaged. Press the
+// Disengage button to cancel." (dialog.tlk 48208), which names a button a pad does
+// not have. The Xbox game's line is still in dialog.tlk, 42475: "COMBAT MODE
+// engaged. <bbutton> to disengage.", and the PC engine draws no button for the
+// token (it becomes a character the PC fonts leave blank). So while that message is up and the pad is in use, the line is the Xbox's
+// with the pad's own disengage button in the token's place: the text before the
+// token in the message label, right-aligned up to the button; the button, which is
+// the X cue label (K1NativeJoystick.cpp shows it while the message is shown); and
+// the text after it in the message's background label, left-aligned from the
+// button. Any other message, and this one with the mouse in use, is the game's.
+//
+// CSWGuiMainInterface::SetCombatMessage (0x00687700) keeps the message's number at
+// +0x7728. A label's text parameters are at +0xE8 (CSWGuiTextParams: the text, a
+// number, the font, the colour at +0x1C and again at +0x2C, the opacity at +0x28,
+// the alignment at +0x38; read in the running game), and its CSWGuiText at +0xD0,
+// whose GetIdealWidthAndHeight (0x00414F10) gives a line's width to the nearest 10.
+constexpr std::ptrdiff_t kHudMessageNumber = 0x7728;
+constexpr std::ptrdiff_t kHudMessage = 0x735C;         // LBL_CMBTMODEMSG
+constexpr std::ptrdiff_t kHudMessageBack = 0x749C;     // LBL_CMBTMSGBG
+constexpr std::ptrdiff_t kLabelText = 0xD0;
+constexpr std::ptrdiff_t kLabelTextParams = 0xE8;
+constexpr std::ptrdiff_t kTextColour = 0x1C;           // three floats, opacity, three floats
+constexpr std::ptrdiff_t kTextOpacity = 0x28;
+constexpr std::uintptr_t kSetTextColour = 0x00414E10;  // CSWGuiTextParams::SetColor(Vector*)
+constexpr unsigned kEngagedString = 48208;
+constexpr int kEngagedPadString = 42475;
+constexpr char kButtonCharacter = 0x11;             // what the engine makes of "<bbutton>"
+constexpr std::uintptr_t kSetText = 0x00415E00;        // CSWGuiTextParams::SetText(CExoString*)
+constexpr std::uintptr_t kTextHeight = 0x00414EB0;     // CSWGuiText::GetIdealHeight()
+constexpr std::uintptr_t kMeasureText = 0x00414F10;    // CSWGuiText::GetIdealWidthAndHeight(CSWGuiExtent*)
+constexpr std::uintptr_t kStringFromText = 0x005E5A90; // CExoString::CExoString(const char*)
+constexpr int kButtonSize = 22;                        // pixels, beside a 16 px font
+constexpr int kButtonGap = 9;
+
+struct String { char* text = nullptr; unsigned length = 0; };   // CExoString
+
+void SetText(void* label, String* text)
+{
+    reinterpret_cast<void(__thiscall*)(void*, String*)>(kSetText)(Part(label, kLabelTextParams), text);
+}
+
+int LineWidth(void* label)
+{
+    Extent measured{};
+    reinterpret_cast<void(__thiscall*)(void*, Extent*)>(kMeasureText)(Part(label, kLabelText), &measured);
+    return measured.width;
+}
+
+// Called before each draw. `layout` are the two labels' rectangles as the layout has
+// them, read once per HUD.
+void CombatMessage(void* hud, void* client, int width)
+{
+    static void* seenHud = nullptr;
+    static Extent messageWas{}, backWas{};
+    static bool changed = false;
+    static String before, after, nothing;
+    static bool split = false, tried = false;
+    void* message = Part(hud, kHudMessage);
+    void* back = Part(hud, kHudMessageBack);
+    void* button = KmrpGuiCueK1(hud, kHudMessage);
+    if (seenHud != hud) {
+        seenHud = hud;
+        messageWas = At<Extent>(message, kControlExtent);
+        backWas = At<Extent>(back, kControlExtent);
+        changed = false;
+    }
+    if (!tried && client) {
+        tried = true;
+        String whole;
+        reinterpret_cast<void*(__thiscall*)(void*, String*, int)>(kGetGuiString)(client, &whole, kEngagedPadString);
+        // The engine has already turned the token into one character, 0x11, which is
+        // the B button in the Xbox game's font (seen in the running game: "COMBAT MODE
+        // engaged. [0x11] to disengage."); the PC fonts have nothing there.
+        const char* token = whole.text ? std::strchr(whole.text, kButtonCharacter) : nullptr;
+        if (token) {
+            char left[256] = {}, right[256] = {};
+            std::size_t n = static_cast<std::size_t>(token - whole.text);
+            while (n > 0 && whole.text[n - 1] == ' ') --n;
+            if (n < sizeof left) std::memcpy(left, whole.text, n);
+            const char* rest = token + 1;
+            while (*rest == ' ') ++rest;
+            strncpy_s(right, rest, _TRUNCATE);
+            using Make = void*(__thiscall*)(String*, const char*);
+            reinterpret_cast<Make>(kStringFromText)(&before, left);
+            reinterpret_cast<Make>(kStringFromText)(&after, right);
+            reinterpret_cast<Make>(kStringFromText)(&nothing, "");
+            split = before.text && after.text;
+        }
+        reinterpret_cast<void(__thiscall*)(String*)>(kStringDestroy)(&whole);
+    }
+    const bool engaged = split && button && IsControllerInputActiveK1() &&
+        At<unsigned>(hud, kHudMessageNumber) == kEngagedString &&
+        (At<int>(message, kControlFlags) & kControlVisible) != 0;
+    void* messageText = Part(message, kLabelTextParams);
+    void* backText = Part(back, kLabelTextParams);
+    if (engaged) {
+        // The first half keeps its centred text in a rectangle as wide as the text,
+        // which ends it at the button; the second half's label starts its text at
+        // its left. (Writing the alignment into the text parameters here changed
+        // nothing on screen, 2026-10-05.) The second half takes the first's colour
+        // and opacity, which the engine sets per message and fades.
+        SetText(message, &before);
+        SetText(back, &after);
+        reinterpret_cast<void(__thiscall*)(void*, void*)>(kSetTextColour)(backText, Part(messageText, kTextColour));
+        At<float>(backText, kTextOpacity) = At<float>(messageText, kTextOpacity);
+        // The whole line centred: the two texts' widths, with the button between.
+        const int first = LineWidth(message);
+        const int total = first + kButtonGap + kButtonSize + kButtonGap + LineWidth(back);
+        const int joint = (width - total) / 2 + first;
+        SetExtent(message, {joint - first, messageWas.top, first, messageWas.height});
+        SetExtent(button, {joint + kButtonGap, messageWas.top + (messageWas.height - kButtonSize) / 2, kButtonSize, kButtonSize});
+        const int from = joint + kButtonGap + kButtonSize + kButtonGap;
+        // The second label's text starts at its top left (the layout's alignment for
+        // it, which the engine keeps), the first's is centred in its row: the second
+        // is given the row the first's text is on. (Seen 2026-10-05: "to disengage."
+        // eight pixels higher than "COMBAT MODE engaged.")
+        const int line = reinterpret_cast<int(__thiscall*)(void*)>(kTextHeight)(Part(message, kLabelText));
+        const int down = line > 0 && line < messageWas.height ? (messageWas.height - line) / 2 : 0;
+        SetExtent(back, {from, messageWas.top + down, width - from, messageWas.height - down});
+        changed = true;
+        return;
+    }
+    if (button) SetExtent(button, {kParked, kParked, kButtonSize, kButtonSize});
+    if (changed) {
+        changed = false;
+        SetExtent(message, messageWas);
+        SetExtent(back, backWas);
+        SetText(back, &nothing);
+        // The game's own line again, if it is still this message (the mouse came back).
+        if (client && At<unsigned>(hud, kHudMessageNumber) == kEngagedString) {
+            String own;
+            reinterpret_cast<void*(__thiscall*)(void*, String*, int)>(kGetGuiString)(client, &own, static_cast<int>(kEngagedString));
+            SetText(message, &own);
+            reinterpret_cast<void(__thiscall*)(String*)>(kStringDestroy)(&own);
+        }
+    }
+}
+
+// The first place, as KmrpXboxHudK1 decided it and KmrpXboxHudBarsK1 draws it.
+struct FirstPlace {
+    bool draw = false, selected = false, dimForce = false;
+    char icon[16] = {};
+    Extent frame{}, picture{}, force{};
+    int width = 0, height = 0;
+} g_first;
+
+// The strip the Xbox game lays across the top of the screen in combat mode, with the
+// combat-mode message on it and a thin line in the text's blue along its lower edge;
+// the target's name bar and the minimap stand below it while it is there (the
+// maintainer's frames of the Xbox game: the strip ends 57 units down of 480, and the
+// name bar and minimap are 26 lower than without it). The PC HUD has neither. The
+// strip and line are drawn before the panel with the spare label, in two plain
+// textures of the game's.
+constexpr int kStripHeight = 44;        // the Xbox strip is 57; the maintainer asked for less (2026-10-05)
+constexpr int kStripShift = 14;         // 26 on the Xbox, under its taller strip
+constexpr float kStripAlpha = 0.55f;
+constexpr float kLineColour[3] = {0.32f, 0.46f, 0.92f};   // the HUD text's blue (the layout's TEXT colour)
+constexpr char kStripFill[16] = "blackfill";
+constexpr char kLineFill[16] = "whitefill";
+constexpr std::ptrdiff_t kParamsColour = 0x10;         // three floats
+constexpr std::ptrdiff_t kHudMapBorder = 0x5CC0;       // LBL_MAPBORDER
+constexpr std::ptrdiff_t kHudMapButton = 0x6098;       // BTN_MINIMAP
+constexpr std::ptrdiff_t kHudMapWindowTop = 0x6084;    // the rectangle the map is drawn in: left, TOP, width, height
+
+struct Row {
+    void* hud = nullptr;
+    int height = 0;        // the viewport height the row was read at
+    int nameTop = 0, mapBorderTop = 0, mapButtonTop = 0, mapWindowTop = 0;   // as the layout has them
+    Extent part[4]{};      // the first personal slot, as the layout has it
+    int pitch = 0;
+    bool usable = false;
+} g_row;
+
+// The layout's own geometry, read from the first two personal slots: nothing in the
+// engine moves those. Read again for another HUD object or another screen height.
+void ReadRow(void* hud, int height)
+{
+    g_row = Row{};
+    g_row.hud = hud;
+    g_row.height = height;
+    void* first = Part(hud, kHudPersonalActions);
+    void* second = Part(first, kActionSize);
+    for (int p = 0; p < 4; ++p) g_row.part[p] = At<Extent>(Part(first, kActionParts[p]), kControlExtent);
+    // The first two personal slots are kPlace[3] and kPlace[4]: three places apart.
+    g_row.pitch = (At<Extent>(second, kControlExtent).left - g_row.part[0].left) / (kPlace[4] - kPlace[3]);
+    g_row.nameTop = At<Extent>(Part(Part(hud, kHudTargetMenu), kMenuNameLabel), kControlExtent).top;
+    g_row.mapBorderTop = At<Extent>(Part(hud, kHudMapBorder), kControlExtent).top;
+    g_row.mapButtonTop = At<Extent>(Part(hud, kHudMapButton), kControlExtent).top;
+    g_row.mapWindowTop = At<int>(hud, kHudMapWindowTop);
+    // The Xbox layout has the frame at its scaled 41 px and a positive pitch. Anything
+    // else is not that layout (the file was replaced, or failed to load): leave it be.
+    g_row.usable = g_row.pitch > 0 && g_row.part[0].width == Scale(kSmall[0][0], height) &&
+                   g_row.part[0].left >= 0 && g_row.part[0].top >= 0;
+}
+
+Extent Centred(const Extent& on, int width, int height)
+{
+    return {on.left + (on.width - width) / 2, on.top + (on.height - height) / 2, width, height};
+}
+
+bool Enabled()
+{
+    // KOTOR Patch Manager's option when it recorded one; otherwise the setting in
+    // kmrp-controller.ini, [Hud] Style=Xbox.
+    static const bool on = [] {
+        const int option = KmrpPatchOption(L"xbox-hud", -1);
+        if (option >= 0) return option != 0;
+        wchar_t path[MAX_PATH], style[16];
+        const DWORD n = GetModuleFileNameW(nullptr, path, MAX_PATH);
+        wchar_t* slash = n && n < MAX_PATH ? wcsrchr(path, L'\\') : nullptr;
+        if (!slash || wcscpy_s(slash + 1, MAX_PATH - (slash + 1 - path), L"kmrp-controller.ini")) return false;
+        GetPrivateProfileStringW(L"Hud", L"Style", L"PC", style, 16, path);
+        return _wcsicmp(style, L"Xbox") == 0;
+    }();
+    return on;
+}
+
+}  // namespace
+
+bool KmrpXboxHudEnabledK1() { return Enabled(); }
+
+// Hooked at the entry of CSWGuiTargetActionMenu::Draw (0x00685ED0, ecx = the menu),
+// which the HUD calls right after it has drawn its panel: the filled part of each
+// party bar that KmrpXboxHudK1 emptied.
+//
+// A bar on the Xbox empties from the top and keeps its curve: at half health the
+// lower half of the red arc is there (reference video, a wounded companion). The PC's
+// progress bar (CSWGuiProgressBar::SetExtent, 0x00419300) instead gives its fill the
+// rectangle of the filled part and stretches the texture into it, which is invisible
+// with the PC's flat colour and squeezed the whole arc into the lower part with the
+// Xbox art (seen 2026-10-05). So the fill is drawn here whole, through a viewport that
+// is the filled part's rectangle, the way the engine itself clips the target menu.
+extern "C" void __cdecl KmrpXboxHudBarsK1(void* menu)
+{
+    // The first place of the action row, and without a target the dim frame of the
+    // target's Force place, which the engine draws only with a target.
+    if (g_first.draw && menu) {
+        const FirstPlace first = g_first;
+        g_first.draw = false;
+        void* hud = At<void*>(menu, kMenuInterface);
+        if (hud) {
+            void* label = Part(hud, kHudSpareLabel);
+            void* button = Part(hud, kHudSpareButton);
+            void* frame = Part(label, kLabelBorderParams);
+            const Extent labelWas = At<Extent>(label, kControlExtent), buttonWas = At<Extent>(button, kControlExtent);
+            using Draw = void(__thiscall*)(void*, float);
+            auto draw = [](void* control) {
+                reinterpret_cast<Draw>((*reinterpret_cast<void***>(control))[14])(control, 0.0f);
+            };
+            reinterpret_cast<void(__cdecl*)()>(kStartLayer)();
+            using Viewport = int(__cdecl*)(int, int, int, int, void*, int, float);
+            if (reinterpret_cast<Viewport>(kSetupViewport)(0, 0, first.width, first.height,
+                    reinterpret_cast<void*>(kNoColouring), 0, 1.0f)) {
+                if (first.dimForce) {
+                    SetFill(frame, kSlotFrame);
+                    At<float>(frame, kParamsAlpha) = 0.5f;
+                    SetExtent(label, first.force);
+                    draw(label);
+                    At<float>(frame, kParamsAlpha) = 1.0f;
+                }
+                SetFill(frame, first.selected ? kSlotFrameSelected : kSlotFrame);
+                SetExtent(label, first.frame);
+                draw(label);
+                SetFill(Part(button, kButtonBorderParams), first.icon);
+                SetExtent(button, first.picture);
+                draw(button);
+                reinterpret_cast<void(__cdecl*)()>(kCloseViewport)();
+            }
+            reinterpret_cast<void(__cdecl*)()>(kStopLayer)();
+            SetExtent(label, labelWas);
+            SetExtent(button, buttonWas);
+        }
+    }
+    for (auto& member : g_bars) {
+        for (Bar& held : member) {
+            if (!held.bar) continue;
+            void* bar = held.bar;
+            const int value = held.value;
+            held = Bar{};
+            const Extent whole = At<Extent>(bar, kControlExtent);
+            const int most = At<int>(bar, kBarMost);
+            if (most <= 0 || whole.width <= 0 || whole.height <= 0) { SetBarValue(bar, value); continue; }
+            const int filled = whole.height * value / most;
+            if (filled > 0) {
+                reinterpret_cast<void(__cdecl*)()>(kStartLayer)();
+                using Viewport = int(__cdecl*)(int, int, int, int, void*, int, float);
+                if (reinterpret_cast<Viewport>(kSetupViewport)(whole.left, whole.top + whole.height - filled,
+                        whole.width, filled, reinterpret_cast<void*>(kNoColouring), 0, 1.0f)) {
+                    // The bar full, placed so that its lower `filled` rows are the viewport's.
+                    SetExtent(bar, {0, filled - whole.height, whole.width, whole.height});
+                    SetBarValue(bar, most);
+                    void* fill = Part(bar, kBarFill);
+                    using Draw = void(__thiscall*)(void*, float);
+                    reinterpret_cast<Draw>((*reinterpret_cast<void***>(fill))[3])(fill, 0.0f);
+                    reinterpret_cast<void(__cdecl*)()>(kCloseViewport)();
+                }
+                reinterpret_cast<void(__cdecl*)()>(kStopLayer)();
+            }
+            SetExtent(bar, whole);
+            SetBarValue(bar, value);
+        }
+    }
+}
+
+// Hooked at the entry of CSWGuiMainInterface::DrawMap, ecx = the HUD.
+extern "C" void __cdecl KmrpXboxHudK1(void* hud)
+{
+    if (!hud || !Enabled()) return;
+    void* menu = Part(hud, kHudTargetMenu);
+    void* manager = At<void*>(hud, kHudManager);
+    if (!manager) return;
+    const int width = At<short>(manager, kManagerViewportWidth);
+    const int height = At<short>(manager, kManagerViewportHeight);
+    if (width <= 0 || height <= 0) return;
+    if (g_row.hud != hud || g_row.height != height) ReadRow(hud, height);
+    if (!g_row.usable) return;
+
+    // The menu's viewport starts at the screen's corner and is as wide as the screen.
+    // A clamp rectangle no taller than the menu keeps PositionMenu (0x00686090) from
+    // moving it between two draws.
+    int* origin = &At<int>(menu, kMenuOrigin);
+    origin[0] = 0;
+    origin[1] = 0;
+    At<int>(menu, kMenuWidth) = width;
+    int* clamp = &At<int>(menu, kMenuClamp);
+    clamp[0] = 0; clamp[1] = 0; clamp[2] = width; clamp[3] = 0;
+
+    // The default action, the first place's. The executable still has the routine
+    // that names it, CClientExoAppInternal::GetDefaultActions (0x00620620), which the
+    // PC game never calls (its list was empty in the running game, 2026-10-05): for
+    // the HUD's target it makes a one-entry list with the action's name and icon
+    // ("Dialog" for someone to talk to, "Open" for a door, "Attack", and "No Action"
+    // with i_noaction), which is what the maintainer's frames of the Xbox game show
+    // in the first place. It returns without touching its list when there is no
+    // target object, so that case is "No Action" here.
+    const bool target = (At<unsigned>(menu, kMenuFlags) & 1) != 0;
+    const int kind = At<signed char>(menu, kMenuTargetKind);
+    void* app = *reinterpret_cast<void**>(kAppManager);
+    void* client = app ? At<void*>(app, 4) : nullptr;
+    void* object = client && target
+        ? reinterpret_cast<void*(__thiscall*)(void*, unsigned)>(kGetGameObject)(client, At<unsigned>(hud, kHudTargetId))
+        : nullptr;
+    void* seen = object
+        ? reinterpret_cast<void*(__thiscall*)(void*)>((*reinterpret_cast<void***>(object))[3])(object)   // AsSWCObject
+        : nullptr;
+    char* usualEntry = nullptr;
+    if (seen) {
+        void* internal = At<void*>(client, 4);
+        reinterpret_cast<void(__thiscall*)(void*)>(kGetDefaultActions)(internal);
+        if (At<int>(internal, kDefaultActions + 4) > 0) usualEntry = At<char*>(internal, kDefaultActions);
+    }
+
+    CombatMessage(hud, client, width);
+
+    // The target's first list holds the default action too, where it is one of the
+    // target's own actions (read from a hostile target's lists in the running game:
+    // Critical Strike, Master Power Attack, Attack). The slot keeps to the others:
+    // the second place is the feats, a door's lock, a droid's repair.
+    char* first = target ? At<char*>(menu, kMenuActionLists) : nullptr;
+    const int firstCount = first ? At<int>(menu, kMenuActionLists + 4) : 0;
+    int usual = -1;
+    for (int i = 0; usualEntry && i < firstCount; ++i)
+        if (At<int>(first + i * kEntrySize, kEntryId) == At<int>(usualEntry, kEntryId)) usual = i;
+    const int others = firstCount - (usual >= 0 ? 1 : 0);
+    const bool feats = others >= 1 && kind >= 0 && kind < 4;
+    if (feats && usual >= 0) {
+        int& chosen = At<int>(menu, kMenuChosen + kind * 3 * 4);
+        int found = -1;
+        for (int i = 0; i < firstCount; ++i)
+            if (At<int>(first + i * kEntrySize, kEntryId) == chosen) found = i;
+        // The engine's up and down walk the whole list and so reach the default
+        // action: coming from the entry after it, it was going backwards, and is
+        // sent on to the entry before; otherwise on to the entry after.
+        static int last = -1;
+        if (found < 0 || found == usual) {
+            const int after = (usual + 1) % firstCount, before = (usual + firstCount - 1) % firstCount;
+            const bool backwards = found == usual && last == At<int>(first + after * kEntrySize, kEntryId);
+            char* entry = first + (backwards ? before : after) * kEntrySize;
+            chosen = At<int>(entry, kEntryId);
+            void* icon = Part(Part(menu, kMenuActions), kActionIcon);
+            SetFill(Part(icon, kButtonBorderParams), entry + kEntryIcon);
+            SetFill(Part(icon, kButtonHilightParams), entry + kEntryIcon);
+        }
+        last = chosen;
+    }
+
+    // The texts. The Xbox names the selected action in the box and keeps the
+    // target's name in the name bar; the PC puts a target slot's action in the name
+    // bar and nothing in the box (CSWGuiTargetActionMenu::UpdateNameLabel).
+    const int focused = KmrpFocusedActionSlotK1(hud);
+    {
+        using Describe = void(__thiscall*)(void*, void*);
+        const Describe describe = reinterpret_cast<Describe>(kSetDescription);
+        if (target && focused >= 0 && focused < kTargetSlots && kind >= 0 && kind < 4) {
+            char* list = At<char*>(menu, kMenuActionLists + focused * 0xC);
+            const int count = At<int>(menu, kMenuActionLists + focused * 0xC + 4);
+            if (list && count > 0) {
+                char* entry = list;
+                const int chosen = At<int>(menu, kMenuChosen + (kind * 3 + focused) * 4);
+                for (int i = 0; i < count; ++i)
+                    if (At<int>(list + i * kEntrySize, kEntryId) == chosen) entry = list + i * kEntrySize;
+                describe(hud, entry);      // an entry begins with its name, a CExoString
+            }
+            if (seen) {
+                char& named = At<char>(menu, kMenuNamedSlot);
+                const char was = named;
+                named = -1;
+                reinterpret_cast<void(__thiscall*)(void*, void*)>(kUpdateNameLabel)(menu, seen);
+                named = was;
+            }
+        } else if (focused < 0) {
+            if (usualEntry) {
+                describe(hud, usualEntry);
+            } else if (client) {
+                static void* noAction[2] = {};     // a CExoString, fetched once and kept
+                static bool fetched = false;
+                if (!fetched) {
+                    reinterpret_cast<void*(__thiscall*)(void*, void*, int)>(kGetGuiString)(client, noAction, kNoActionString);
+                    fetched = true;
+                }
+                describe(hud, noAction);
+            }
+        }
+    }
+
+    // The name, its frame and the health bar. SetNameLabel shrinks the name to its
+    // text, gives the background the same rectangle and stacks the bar right under
+    // it; the Xbox frame has a fixed row for each. A name too long for one row keeps
+    // the height the engine gave it.
+    // The strip is there while the engine shows the combat-mode message's label,
+    // which it does in combat mode.
+    const bool strip = (At<int>(Part(hud, kHudMessage), kControlFlags) & kControlVisible) != 0;
+    const int lower = strip ? Scale(kStripShift, height) : 0;
+    if (strip) {
+        void* label = Part(hud, kHudSpareLabel);
+        void* fill = Part(label, kLabelBorderParams);
+        const Extent was = At<Extent>(label, kControlExtent);
+        float* colour = &At<float>(fill, kParamsColour);
+        const float colourWas[3] = {colour[0], colour[1], colour[2]};
+        reinterpret_cast<void(__cdecl*)()>(kStartLayer)();
+        using Viewport = int(__cdecl*)(int, int, int, int, void*, int, float);
+        if (reinterpret_cast<Viewport>(kSetupViewport)(0, 0, width, height, reinterpret_cast<void*>(kNoColouring), 0, 1.0f)) {
+            using Draw = void(__thiscall*)(void*, float);
+            const Draw draw = reinterpret_cast<Draw>((*reinterpret_cast<void***>(label))[14]);
+            const int bottom = Scale(kStripHeight, height);
+            SetFill(fill, kStripFill);
+            At<float>(fill, kParamsAlpha) = kStripAlpha;
+            SetExtent(label, {0, 0, width, bottom});
+            draw(label, 0.0f);
+            SetFill(fill, kLineFill);
+            At<float>(fill, kParamsAlpha) = 1.0f;
+            std::memcpy(colour, kLineColour, sizeof kLineColour);
+            SetExtent(label, {0, bottom - 2, width, 2});
+            draw(label, 0.0f);
+            std::memcpy(colour, colourWas, sizeof colourWas);
+            reinterpret_cast<void(__cdecl*)()>(kCloseViewport)();
+        }
+        reinterpret_cast<void(__cdecl*)()>(kStopLayer)();
+        SetExtent(label, was);
+    }
+    {
+        void* border = Part(hud, kHudMapBorder);
+        void* window = Part(hud, kHudMapButton);
+        Extent at = At<Extent>(border, kControlExtent);
+        at.top = g_row.mapBorderTop + lower;
+        SetExtent(border, at);
+        at = At<Extent>(window, kControlExtent);
+        at.top = g_row.mapButtonTop + lower;
+        SetExtent(window, at);
+        At<int>(hud, kHudMapWindowTop) = g_row.mapWindowTop + lower;
+    }
+
+    void* nameLabel = Part(menu, kMenuNameLabel);
+    Extent name = At<Extent>(nameLabel, kControlExtent);
+    if (name.height < Scale(kNameHeight, height) || name.top != g_row.nameTop + lower) {
+        if (name.height < Scale(kNameHeight, height)) name.height = Scale(kNameHeight, height);
+        name.top = g_row.nameTop + lower;
+        SetExtent(nameLabel, name);
+    }
+    auto fromName = [&](const int box[4]) {
+        return Extent{name.left + Scale(box[0], height), name.top + Scale(box[1], height),
+                      Scale(box[2], height), Scale(box[3], height)};
+    };
+    SetExtent(Part(menu, kMenuNameBackground), fromName(kNameFrame));
+    // Red around a hostile target's name, as the Xbox game had it (seen in the
+    // reference video: "Sith Soldier" in a red frame over a red bar).
+    // The engine's frame on the first target slot is the sign; once the Xbox frame
+    // has replaced it, the last sign seen stands until the engine writes another.
+    static bool hostile = false;
+    {
+        const char* frame = &At<char>(Part(menu, kMenuActions), kButtonBorderParams + kParamsFill);
+        if (_strnicmp(frame, kSlotEnginePrefix, sizeof kSlotEnginePrefix - 1) == 0) hostile = SameName(frame, kSlotHostile);
+    }
+    SetFill(Part(Part(menu, kMenuNameBackground), kLabelBorderParams), hostile ? kFrameHostile : kFrameFriendly);
+    SetExtent(Part(menu, kMenuHealthBar), fromName(kHealthBar));
+    SetExtent(Part(menu, kMenuHealthBackground), fromName(kHealthBar));
+
+    // Its height: the whole screen. The engine ends the viewport at the health bar
+    // for a target with no action, which hides the three slots; the Xbox row shows a
+    // slot with nothing in it as a dim frame, and with the Xbox frame on them (below)
+    // that is what the engine's empty slots are.
+    At<int>(menu, kMenuHeight) = height;
+    const bool grenades = (At<unsigned>(menu, kMenuFlags) & 1) != 0 &&
+        At<int>(menu, kMenuActionLists + kSharedTarget * 0xC + 4) != 0;
+
+    // The action box, as tall as the description needs.
+    {
+        void* box = Part(hud, kHudMouldings);
+        const Extent text = At<Extent>(Part(hud, kHudDescription), kControlExtent);
+        Extent wanted = At<Extent>(box, kControlExtent);
+        const int bottom = wanted.top + wanted.height;
+        const int textTop = text.height > 0 ? text.top : text.top - Scale(kBoxEmptyLine, height);
+        wanted.top = textTop - Scale(kBoxAboveText, height);
+        wanted.height = bottom - wanted.top;
+        if (wanted.height > 0 && wanted.top >= 0) SetExtent(box, wanted);
+    }
+
+    // The party's vitality bars in the Xbox HUD's curved art, and every bar that is
+    // neither full nor empty emptied for the panel's draw: KmrpXboxHudBarsK1 draws
+    // its filled part afterwards.
+    for (int member = 0; member < 3; ++member) {
+        void* fill = Part(hud, kHudParty + member * kPartySize + kPartyVitalityFill);
+        const char* now = &At<char>(fill, kParamsFill);
+        if (SameName(now, kFlatHealth)) SetFill(fill, kCurvedHealth);
+        else if (SameName(now, kFlatPoison)) SetFill(fill, kCurvedPoison);
+        for (int kind = 0; kind < 2; ++kind) {
+            void* bar = Part(hud, kHudParty + member * kPartySize + kPartyBars[kind]);
+            Bar& held = g_bars[member][kind];
+            held = Bar{};
+            const int most = At<int>(bar, kBarMost), value = At<int>(bar, kBarValue);
+            if (!(At<int>(bar, kControlFlags) & kControlVisible) || value <= 0 || value >= most) continue;
+            held.bar = bar;
+            held.value = value;
+            SetBarValue(bar, 0);
+        }
+    }
+
+    // The first place: the default action, selected while no slot has the focus.
+    g_first = FirstPlace{};
+    g_first.draw = true;
+    g_first.selected = focused < 0;
+    g_first.dimForce = !target;
+    g_first.width = width;
+    g_first.height = height;
+    std::memcpy(g_first.icon, usualEntry ? usualEntry + kEntryIcon : kNoActionIcon, 16);
+    g_first.frame = g_row.part[0];
+    g_first.picture = g_row.part[1];
+    g_first.force = g_row.part[0];
+    g_first.frame.left -= kFirstPersonalPlace * g_row.pitch;
+    g_first.picture.left -= kFirstPersonalPlace * g_row.pitch;
+    g_first.force.left += (kForcePlace - kFirstPersonalPlace) * g_row.pitch;
+    if (g_first.selected) {
+        const Extent frame = g_first.frame;
+        g_first.frame = Centred(frame, Scale(kLarge[0][0], height), Scale(kLarge[0][1], height));
+        g_first.picture = Centred(frame, Scale(kLarge[1][0], height), Scale(kLarge[1][1], height));
+    }
+
+    // The slots: each at its place in the row, the focused one large.
+    for (int slot = 0; slot < kSlots; ++slot) {
+        void* action = slot < kTargetSlots
+            ? Part(Part(menu, kMenuActions), slot * kActionSize)
+            : Part(Part(hud, kHudPersonalActions), (slot - kTargetSlots) * kActionSize);
+        const int shift = (kPlace[slot] - kFirstPersonalPlace) * g_row.pitch;
+        Extent part[4];
+        for (int p = 0; p < 4; ++p) {
+            part[p] = g_row.part[p];
+            part[p].left += shift;
+        }
+        // The slot's button carries the focus, so it alone is made invisible while the
+        // slot is parked, and visible again when the slot comes back: the engine sets
+        // that flag when a slot's contents change, not every frame. (Clearing it on
+        // the icon as well left the grenade slot as two arrows around nothing when it
+        // came back, 2026-10-05.)
+        static bool parked[kSlots] = {};
+        if (slot == (grenades ? kSharedPersonal : kSharedTarget) || slot == (feats ? kSkillsSlot : kFeatsSlot)) {
+            for (int p = 0; p < 4; ++p) {
+                part[p].left = part[p].top = kParked;
+                SetExtent(Part(action, kActionParts[p]), part[p]);
+            }
+            At<int>(action, kControlFlags) &= ~kControlVisible;
+            parked[slot] = true;
+            continue;
+        }
+        if (parked[slot]) {
+            // Back, and able to take the focus again if it has anything to offer: the
+            // engine leaves an empty slot's button invisible (seen 2026-10-05: the
+            // focus on an empty mines slot after a fight, a large yellow frame around
+            // nothing).
+            const int count = slot < kTargetSlots
+                ? At<int>(menu, kMenuActionLists + slot * 0xC + 4)
+                : At<int>(hud, kHudPersonalLists + (slot - kTargetSlots) * 0xC + 4);
+            if (count > 0) At<int>(action, kControlFlags) |= kControlVisible;
+            parked[slot] = false;
+        }
+        const Extent frame = part[0];
+        const int (*size)[2] = slot == focused ? kLarge : kSmall;
+        if (slot == focused) {
+            for (int p = 0; p < 3; ++p)
+                part[p] = Centred(frame, Scale(size[p][0], height), Scale(size[p][1], height));
+            part[3] = {part[2].left, part[2].top + part[2].height / 2, part[2].width,
+                       part[2].height - part[2].height / 2};
+        }
+        if (slot < kTargetSlots) {
+            void* normal = Part(action, kButtonBorderParams);
+            void* selected = Part(action, kButtonHilightParams);
+            if (_strnicmp(&At<char>(normal, kParamsFill), kSlotEnginePrefix, sizeof kSlotEnginePrefix - 1) == 0)
+                SetFill(normal, kSlotFrame);
+            if (_strnicmp(&At<char>(selected, kParamsFill), kSlotEnginePrefix, sizeof kSlotEnginePrefix - 1) == 0)
+                SetFill(selected, kSlotFrameSelected);
+        }
+        // The selected slot's arrows are yellow on the Xbox (reference video, 21:21,
+        // "Adrenal Strength (self)"), the others' blue. The arrow strip is on the up
+        // button (build_xbox_hud.py).
+        SetFill(Part(Part(action, kActionParts[2]), kButtonBorderParams), slot == focused ? kArrowsSelected : kArrows);
+        for (int p = 0; p < 4; ++p) SetExtent(Part(action, kActionParts[p]), part[p]);
+        // With the default action and one feat, the slot has nothing to walk through.
+        if (slot == kFeatsSlot && others == 1) {
+            At<int>(Part(action, kActionParts[2]), kControlFlags) &= ~kControlVisible;
+            At<int>(Part(action, kActionParts[3]), kControlFlags) &= ~kControlVisible;
+        }
+    }
+}

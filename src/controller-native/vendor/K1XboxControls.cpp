@@ -10,6 +10,10 @@
 // texture resrefs ('p' Xbox, 's' PlayStation, 'n' Switch, 'd' Steam Deck).
 extern "C" char __cdecl KmrpGlyphLetterK1();
 
+#ifdef KMRP_CONTROLLER_STANDALONE
+bool KmrpXboxHudEnabledK1();   // K1XboxHud.cpp
+#endif
+
 namespace {
 
 constexpr int MAX_ACTION_BUTTON_COUNT = 9;
@@ -3180,6 +3184,33 @@ void MoveFocus(
     int direction)
 {
     const int buttonCount = ActionButtonCount(config);
+#ifdef KMRP_CONTROLLER_STANDALONE
+    // The Xbox-style HUD shows the seven slots in six places and in another order
+    // (K1XboxHud.cpp, kPlace): left and right follow what is on screen. The grenade
+    // and mine slots share a place, and the one not shown is not selectable.
+    // The first place is the default action and has no slot: it is "no slot has the
+    // focus", -1 here, and reaching it lets the focus go.
+    if (KmrpXboxHudEnabledK1() && buttonCount == 7) {
+        static const int order[8] = {-1, 0, 3, 1, 2, 6, 4, 5};
+        int at = 0;
+        for (int i = 0; i < 8; ++i) {
+            if (order[i] == activeIndex) at = i;
+        }
+        for (int step = 0; step < 8; ++step) {
+            at = (at + (direction > 0 ? 1 : 7)) % 8;
+            if (order[at] < 0) {
+                reinterpret_cast<SetActiveControlFn>(config.setActiveControl)(mainInterface, nullptr, 1);
+                return;
+            }
+            if (IsActionButtonSelectable(config, mainInterface, buttons, order[at])) {
+                reinterpret_cast<SetActiveControlFn>(config.setActiveControl)(
+                    mainInterface, buttons[order[at]], 1);
+                return;
+            }
+        }
+        return;
+    }
+#endif
     int start = activeIndex;
     if (start < 0) {
         start = direction > 0 ? buttonCount - 1 : 0;
@@ -3883,6 +3914,13 @@ extern "C" void __cdecl KmrpActionBarReleaseK1(void* mainInterface)
             nullptr,
             1);
     }
+}
+
+// Which of the seven action slots has the focus (0-2 the target's, 3-6 personal),
+// or -1. The Xbox-style HUD draws that slot large (K1XboxHud.cpp).
+int KmrpFocusedActionSlotK1(void* mainInterface)
+{
+    return mainInterface ? FocusedActionButton(K1_CONFIG, mainInterface) : -1;
 }
 
 extern "C" int __cdecl KmrpActionBarFocusedK1(void* mainInterface)
