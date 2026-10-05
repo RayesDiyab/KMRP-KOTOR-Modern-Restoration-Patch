@@ -180,6 +180,14 @@ def main() -> int:
           f"{assets.BADGE_SHAPES.name} is what tools/build_controller_assets.py --badge-shapes writes "
           f"({shapes.count('{') - 1} badges)")
 
+    # The tab strip's two cues are the drawn arrows, for every family.
+    import build_tab_arrows
+    wrong = [f"{family}/{fill}" for family in prompts.GLYPH_FAMILIES for index, (_, fill, _) in enumerate(assets.TAB_CUES)
+             if (FILES / (prompts.family_resref(fill, family) + ".tga")).read_bytes()
+             != build_tab_arrows.arrow_tga(family, index == 1)]
+    check(not wrong, "LT and RT beside the tab strip are tools/build_tab_arrows.py's arrows, in all 4 families"
+          + ("" if not wrong else f": {wrong}"))
+
     # 6. The Xbox-style HUD's table.
     table = xbox_hud.TABLE.read_text(encoding="utf-8").replace("\r\n", "\n") if xbox_hud.TABLE.exists() else ""
     check(table == xbox_hud.table(), f"{xbox_hud.TABLE.name} is what tools/build_xbox_hud.py writes")

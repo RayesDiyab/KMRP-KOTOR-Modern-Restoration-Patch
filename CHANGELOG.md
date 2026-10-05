@@ -109,6 +109,20 @@ proxy, and it applies the executable changes above as well.
 
 ## [Unreleased]
 
+- **LT and RT beside the menu's tab strip are arrows in the game's style** (2026-10-05,
+  the standalone controller patch). In place of the controller family's trigger
+  pictures: a triangle with rounded corners pointing along the strip, the trigger's
+  name in its wide end (LT and RT, L2 and R2, ZL and ZR by family), a dark blue body in
+  a bright blue frame, drawn by `tools/build_tab_arrows.py` with no one's art and no
+  font (the letters are strokes). The maintainer chose the look from four prototypes
+  and set the rest in the running game: the arrow's flat side is as tall as a tab's
+  box without its lip and level with it, and the arrow is as far from the strip as
+  the tabs are from each other. The module computes all three from the live tab
+  beside each cue, so they hold at any size. Measured in the unchanged game at
+  1280x960: 12 px between two tabs and 12 px from each arrow to its tab, the flat
+  side on the box's rows; seen the same with Scaled Kotor at 3440x1440.
+  [docs/controller-standalone.md](docs/controller-standalone.md), "Beside a patch
+  that rescales the interface".
 - **The standalone controller patch's prompts follow another patch's scaling, and a
   glyph never changes shape** (2026-10-05). Beside Scaled Kotor at 3440x1440 the
   maintainer found the LT, RT, sub-tab and party cues small in a corner, the badges on

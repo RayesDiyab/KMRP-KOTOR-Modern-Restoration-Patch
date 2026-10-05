@@ -3785,6 +3785,31 @@ void BindOneCueK1(void* panel, const char* tag, std::size_t follow, const char* 
             }
             changed = true;
         }
+        // LT and RT stand as far from the tab strip as its tabs stand from each other
+        // (the maintainer's direction, 2026-10-05). In top.gui a tab is 52 wide and
+        // the next begins 62 on, its frame drawn one unit inside its rectangle; the
+        // cue's arrow has its flat edge 3% of the cue's width inside the cue's
+        // rectangle and 76% of it long (tools/build_tab_arrows.py, EDGE and FLAT).
+        // All of it scaled with the live tab.
+        if (beside && (std::strcmp(tag, "LBL_KMRPLT") == 0 || std::strcmp(tag, "LBL_KMRPRT") == 0)) {
+            const Rect tab = *FieldAt<Rect>(beside, 4);
+            // And as tall as a tab's box, without the lip on top of it: the arrow's
+            // flat side is 76% of its square, and the box is 35 of the tab's 40 units,
+            // from 4 to 39 (measured on screen at 1280x960: the lip's three rows, then
+            // the box from its top line to its bottom line, 35 rows). So the square is
+            // 1.15 times the tab's height, centred on the box. Width and height
+            // together, as ever. (Tried that day and set aside by the maintainer:
+            // 1.25 times with the lip counted, and this size centred on the whole
+            // tab.)
+            const int size = (tab.height * 115 + 50) / 100;
+            at.top = tab.top + (tab.height * 43 + 40) / 80 - size / 2;
+            at.width = at.height = size;
+            const int gap = (tab.width * 10 + 26) / 52 + (tab.width + 26) / 52;     // between two tabs' frames, less our own edge
+            const int edge = (at.width * 3 + 50) / 100;
+            at.left = tag[8] == 'L' ? tab.left - gap + edge - at.width
+                                    : tab.left + tab.width + gap - edge;
+            changed = true;
+        }
         if (changed) {
             using SetExtentFn = void(__thiscall*)(void*, const Rect*);
             reinterpret_cast<SetExtentFn>((*FieldAt<void**>(control, 0))[1])(control, &at);

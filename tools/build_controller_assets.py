@@ -55,6 +55,7 @@ sys.path.insert(0, str(ROOT / "tools"))
 from pykotor.resource.formats.gff import GFFList, read_gff, write_gff                   # noqa: E402
 
 import build_native_assets                                              # noqa: E402
+import build_tab_arrows                                                 # noqa: E402
 from build_controller_layout import (DIALOG_BADGE_TAG, add_confirm_badge,  # noqa: E402
                                      add_entry as add_controller_layout_entry,
                                      build_art as build_controller_layout_art,
@@ -235,7 +236,12 @@ def make(work: Path) -> dict:
             + [(fill, glyph) for _, fill, glyph, _ in COMBAT_CUES] + [(XBOX_HUD_DISENGAGE_FILL, "B")]
         for fill, glyph in cues:
             path = art / f"{family_resref(fill, family)}.tga"
-            path.write_bytes(build_square_glyph_tga(glyph, family=family))
+            # The tab strip's two cues are arrows in the game's style, not the
+            # family's trigger pictures (tools/build_tab_arrows.py; this patch only).
+            if glyph in ("LT", "RT"):
+                path.write_bytes(build_tab_arrows.arrow_tga(family, glyph == "RT"))
+            else:
+                path.write_bytes(build_square_glyph_tga(glyph, family=family))
             common.append(path)
         path = art / f"{family_resref(SWAP_CUE_FILL, family)}.tga"
         path.write_bytes(build_square_glyph_tga(SWAP_CUE_GLYPH, 256, 256 // SWAP_CUE_ASPECT, family=family))

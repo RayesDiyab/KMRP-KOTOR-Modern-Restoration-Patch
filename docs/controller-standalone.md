@@ -255,6 +255,26 @@ maintainer asked: the sub-tab cue 1.2 times its size about the middle of its rig
 edge, the party cue an eighth of its size from the portrait and on the live
 portraits' middle line.
 
+**LT and RT are arrows** (`tools/build_tab_arrows.py`, later the same day): a
+triangle with rounded corners pointing along the strip, the trigger's name in its
+wide end, a dark blue body in a bright blue frame. The picture is drawn, letters
+included (strokes with round ends; LT and RT, L2 and R2, ZL and ZR by family), so
+it carries no one's art and no font. The maintainer chose it from four prototypes
+and set its size and place in the running game; `BindOneCueK1` computes them from
+the live tab beside each cue:
+
+| | Rule | From |
+| --- | --- | --- |
+| Size | the arrow's flat side as tall as a tab's box, without the lip on top | the box is 35 of the tab's 40 units (measured on screen: the lip's three rows, then 35), the flat side 76% of the cue's square (`FLAT`), so the square is 1.15 times the tab's height |
+| Height on screen | level with the box | the box's middle is 21.5 units down the tab |
+| Distance | as far from the strip as two tabs are from each other | a tab is 52 wide and the next begins 62 on, each frame one unit inside its rectangle; the arrow's flat side is 3% inside its square (`EDGE`) |
+
+Measured in the unchanged game at 1280x960: 12 px between two tabs' frames and
+12 px from each arrow to its tab; the flat side on rows 287 to 322, the box on 287
+to 321. Seen the same in proportion with Scaled Kotor at 3440x1440. Tried and set
+aside by the maintainer: the body in the tab strip's own blue, the lip counted in
+the height, and the arrow centred on the whole tab.
+
 **A badge never changes shape.** A badge is a texture stretched over the area its
 button's border fills, so it is round only on a button of the shape it was made for.
 `K1ControllerBadgeShapes.inc` (written by `tools/build_controller_assets.py
