@@ -56,7 +56,7 @@ import sys
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
-from build_xbox_hud_art import HAIRLINE, PORTRAIT_INSET, hd_name      # noqa: E402  the frames' drawings (kmrx_*)
+from build_xbox_hud_art import HAIRLINE, PORTRAIT_INSET, SLOT_BOX_CENTRE, hd_name      # noqa: E402  the frames' drawings (kmrx_*)
 
 ROOT = Path(__file__).resolve().parents[1]
 TABLE = ROOT / "src" / "controller-native" / "K1XboxHudLayout.inc"
@@ -357,6 +357,7 @@ def table() -> str:
         "constexpr int kQueueCue[4] = {%d, %d, %d, %d};        // centre, bottom" % QUEUE_CUE,
         'constexpr char kLayoutFont[16] = "%s";' % FONT,
         'constexpr char kDisengageFill[16] = "%s";' % DISENGAGE_FILL,
+        "constexpr double kSlotBoxCentre[2] = {%s, %s};          // of the slot box's 64: its middle, which is not the texture's" % SLOT_BOX_CENTRE,
         "constexpr double kPortraitHairline = %s;                // of the frame's 64: the black line beside a portrait" % HAIRLINE,
         "constexpr double kPortraitInset[2] = {%s, %s};        // of the frame's 64: where a portrait's side edge goes, the middle of its top line" % PORTRAIT_INSET,
         "constexpr Piece kPieces[] = {",

@@ -35,6 +35,17 @@ needed KMRP's core. This patch replaces that add-on and needs nothing.
 | Executables it declares | CD 1.03 `761F9466...C49E9886`, GOG `9C10E045...DEA91435`, Steam `34E6D971...A439F34C88` |
 | Address convention | `VA`, image base `0x00400000`; `FILE = VA - 0x400000`. Every site is in the original image. |
 
+**Later builds of the same day** are not measured in this document section by
+section. The one committed last on 2026-10-05 is
+`dist\controller\KOTOR 1 Native Controller Mod + Xbox HUD.kpatch`, 10,027,574 bytes,
+SHA-256 `A1D5A6D21B3B43FE16CFCF476C3A3BAD5F9D9F53C0F01E2A934CEE4959786F8F`, module
+9,999,872 bytes, SHA-256 `B995A05FE1400431C0D580C9E05E4A2914EF832522B5FE595A06BE894D0B6452`,
+34 hooks. What it adds to the build above (the Xbox-style HUD and its two hooks, the
+panel hooks that let it run beside Scaled Kotor, prompts placed from the running
+game, the tab strip's arrows, the HUD's drawn frames) is in
+[`controller-xbox-hud.md`](controller-xbox-hud.md) and the changelog's entries of
+that day.
+
 The build is reproducible: two builds from the same sources on 2026-10-05 gave the
 same package hash (an earlier state of the sources that day, `CE677F4C...`, twice).
 

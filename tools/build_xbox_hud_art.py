@@ -100,6 +100,9 @@ class Canvas:
 # beside the one-pixel lines, so they are 1.8. The game's yellow box sits a pixel lower
 # than its blue one and is a little thinner; both are this one shape here, so that a
 # slot does not jump when it is chosen.
+SLOT_BOX_CENTRE = (31.5, 29.5)     # the box's middle in its 64x64 texture, which is not the texture's
+
+
 def slot_box(colour):
     c = Canvas(64, 64)
     np = c.np

@@ -18,6 +18,7 @@ constexpr int kBark[3] = {49, 82, 381};                 // left, top; width
 constexpr int kQueueCue[4] = {381, 523, 22, 22};        // centre, bottom
 constexpr char kLayoutFont[16] = "dialogfont16x16";
 constexpr char kDisengageFill[16] = "kmrpb_cmbt";
+constexpr double kSlotBoxCentre[2] = {31.5, 29.5};          // of the slot box's 64: its middle, which is not the texture's
 constexpr double kPortraitHairline = 0.7;                // of the frame's 64: the black line beside a portrait
 constexpr double kPortraitInset[2] = {8.95, 3.5};        // of the frame's 64: where a portrait's side edge goes, the middle of its top line
 constexpr Piece kPieces[] = {

@@ -37,6 +37,8 @@ dist/
 
 # OS / editor noise
 Thumbs.db
+# Git Bash crash dumps (a grep.exe.stackdump sat in the root from 2026-09-25 to 2026-10-05)
+*.stackdump
 Desktop.ini
 .DS_Store
 .vscode/
