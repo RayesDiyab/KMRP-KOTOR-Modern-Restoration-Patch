@@ -88,7 +88,20 @@ PARAMETERS = {
 }
 # KMRP's earlier patches, which this one replaces: the add-ons of the four-patch
 # edition (whose core had this id), and the experimental packages of 2026-10.
-RETIRED = ['kmrp-controller', 'kmrp-movies', 'kmrp-map-notes', 'kmrp-native',
+# Since 2026-10-05 KMRP is two patches again, by the maintainer's decision: this one,
+# and the controller patch it requires (tools/build_controller_kpatch.py, id
+# "kmrp-controller": "KOTOR 1 Native Controller Mod + Xbox HUD", which also works on
+# the game without KMRP). This patch carries no controller hook and no controller
+# option. Three sites both would want are the controller patch's: the GUI frame
+# (0x0040CE70) and the movie frame (0x00404D96), from which its module calls this
+# module's share of each (KmrpCoreGuiWorkK1 and KmrpCoreMovieWorkK1, K1NativeJoystick.cpp),
+# and the resource hook, for which it has a site of its own.
+CONTROLLER = 'kmrp-controller'
+# The core's two frame hooks, which the controller patch holds instead.
+CORE_FRAMES = ('CoreGuiFrameK1', 'CoreMovieFrameK1')
+# What the controller patch's module calls in this one.
+CALLED_BY_CONTROLLER = ('KmrpCoreGuiWorkK1', 'KmrpCoreMovieWorkK1')
+RETIRED = ['kmrp-movies', 'kmrp-map-notes', 'kmrp-native',
            'kmrp-native-options', 'kmrp-native-map-notes', 'kmrp-native-preview']
 # Other authors' patches that make a change this one makes too, or hook its sites.
 OTHERS = (['hud-minimap-map-size-fix-v1', 'scaled-kotor', '4gb-patch', 'better-movie-playback-v1']
@@ -99,18 +112,16 @@ PATCH = {
     'description': (
         'KMRP in one patch: the widescreen and high-resolution interface at the '
         'resolution chosen in Options, with the 4 GB, texture, grass and save-game '
-        'memory fixes and the movie fixes. Controller support and map notes are options '
-        'you can turn off. Needs no installer and writes nothing to Override.'),
-    'requires': [],
+        'memory fixes and the movie fixes. Map notes are an option you can turn off. '
+        'Controller support is the patch it requires, KOTOR 1 Native Controller Mod + '
+        'Xbox HUD. Needs no installer and writes nothing to Override.'),
+    'requires': [CONTROLLER],
     'conflicts': RETIRED + OTHERS,
 }
 # What the player can choose, in the order the launcher lists it. On by default unless
 # an entry says otherwise. The descriptions are the launcher's, so they say what the
 # player gets.
 OPTIONS = [
-    {'id': 'controller', 'name': 'Controller support',
-     'description': 'Play with an Xbox, PlayStation, Switch or Steam Deck controller, in the '
-                    'game and in every menu, with matching button prompts and rumble.'},
     {'id': 'map-notes', 'name': 'Map notes',
      'description': "Shows the area map's notes where they belong (Derslok's map marker "
                     'corrections).'},
@@ -143,9 +154,8 @@ def option_hooks():
     # themselves when the option is on. A variant per state would be two hooks at
     # one address, which a manager without options installs both of and refuses.
     conditioned = [(kmrp_controller.as_installed(h), None)
-                   for h in kmrp_controller.kpm_patch_hooks('kmrp')]
-    for h in kmrp_controller.kpm_patch_hooks('kmrp-controller'):
-        conditioned.append((kmrp_controller.as_installed(h), 'controller'))
+                   for h in kmrp_controller.kpm_patch_hooks('kmrp')
+                   if h.get('function') not in CORE_FRAMES]
     for h in kmrp_controller.kpm_patch_hooks('kmrp-movies'):
         conditioned.append((kmrp_controller.as_installed(h), None))
     conditioned += [(h, None) for h in _table()]
@@ -171,7 +181,7 @@ def all_hooks():
 
 def functions():
     """Every callback a hook names: what the module exports."""
-    return {h['function'] for h in all_hooks() if h.get('function')}
+    return {h['function'] for h in all_hooks() if h.get('function')} | set(CALLED_BY_CONTROLLER)
 
 
 def render_hooks():
@@ -221,8 +231,8 @@ def validate(path: Path):
         for key in ('id', 'name', 'version', 'author', 'description'):
             if not isinstance(manifest.get(key), str) or not manifest[key].strip():
                 raise ValueError(f'Invalid manifest {key}')
-        if manifest['id'] != ID or manifest['requires']:
-            raise ValueError('The patch must be "kmrp" and require nothing')
+        if manifest['id'] != ID or manifest['requires'] != [CONTROLLER]:
+            raise ValueError('The patch must be "kmrp" and require the controller patch alone')
         if not set(RETIRED) <= set(manifest['conflicts']) or ID in manifest['conflicts']:
             raise ValueError("Must conflict with KMRP's retired patches, and not with itself")
         if manifest['supported_versions'] != kpatch_common.VERSIONS:

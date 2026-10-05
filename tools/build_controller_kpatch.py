@@ -51,6 +51,18 @@ HOOKS = 'kotor1.hooks.toml'
 # The module's one site outside the controller's table: where its files are
 # registered, before the game's first resource lookup.
 RESOURCE_HOOK = 'KmrpPrepareResourcesK1'
+# KMRP's own patch hooks that function's entry for its own files (0x00407230,
+# CExoResMan::GetKeyEntry: mov eax, [esp+4] / push ebx), and since 2026-10-05 the two
+# patches are installed together, so this one takes the next two instructions of the
+# same function: mov ebx, [esp+0x10] / push ebp, five bytes with nothing for a
+# trampoline to relocate, ecx still the resource manager. Neither is a branch target.
+RESOURCE_SITE_KMRP = 0x00407230
+RESOURCE_OWN_HOOK = {
+    'address': 0x00407235, 'type': 'detour', 'function': RESOURCE_HOOK,
+    'original_bytes': [0x8B, 0x5C, 0x24, 0x10, 0x55],
+    'skip_original_bytes': False, 'exclude_from_restore': [],
+    'parameters': [{'source': 'ecx', 'type': 'pointer'}],
+}
 # The Xbox-style HUD's site, this patch's own: the entry of
 # CSWGuiMainInterface::DrawMap, ecx = the HUD (mov eax, [0x007A39FC], an absolute
 # address, nothing for a trampoline to relocate), which the HUD's Draw calls after
@@ -71,7 +83,7 @@ LICENSES = {
     'licenses/SDL3-LICENSE.txt': ROOT / 'build/deps/SDL3-3.4.16/LICENSE.txt',
 }
 # KMRP's patches, every one of which either is or contains controller support.
-KMRP_PATCHES = ['kmrp', 'kmrp-movies', 'kmrp-map-notes', 'kmrp-native', 'kmrp-native-options',
+KMRP_PATCHES = ['kmrp-movies', 'kmrp-map-notes', 'kmrp-native', 'kmrp-native-options',
                 'kmrp-native-map-notes', 'kmrp-native-preview']
 # Other authors' patches that hook this patch's sites (tools/check_kpm_overlaps.py).
 OTHERS = ['expanded-keyboard-control', 'xbox-controls-k1']
@@ -83,8 +95,8 @@ PATCH = {
         'PlayStation, Switch or Steam Deck controller in the game and in every menu, with '
         'matching button prompts, rumble, a Controller Layout screen in Options and an '
         "optional HUD laid out like the original Xbox version's. "
-        'Standalone: needs no other patch and writes nothing to Override. KMRP already '
-        'includes it, so use one or the other.'),
+        'Needs no other patch and writes nothing to Override. KMRP installs it as its '
+        'controller support; it works the same on the game without KMRP.'),
     'requires': [],
     'conflicts': KMRP_PATCHES + OTHERS,
 }
@@ -147,9 +159,9 @@ def hooks():
     if set(table['metadata']['target_versions']) != set(kpatch_common.VERSIONS.values()):
         raise ValueError('Native table target builds changed')
     resource = [h for h in table['hooks'] if h.get('function') == RESOURCE_HOOK]
-    if len(resource) != 1:
-        raise ValueError(f'Expected one {RESOURCE_HOOK} site')
-    selected += resource
+    if len(resource) != 1 or resource[0]['address'] != RESOURCE_SITE_KMRP:
+        raise ValueError(f'Expected one {RESOURCE_HOOK} site, at {RESOURCE_SITE_KMRP:#010x}')
+    selected.append(dict(RESOURCE_OWN_HOOK))
     shared = [h for h in selected if h['address'] == PANEL_SITE and h['function'] == PANEL_FUNCTION]
     if len(shared) != 1:
         raise ValueError(f'Expected one {PANEL_FUNCTION} site at {PANEL_SITE:#010x}')
@@ -201,8 +213,8 @@ def validate(path: Path):
                 raise ValueError(f'Invalid manifest {key}')
         if manifest['id'] != ID or manifest['requires']:
             raise ValueError(f'The patch must be "{ID}" and require nothing')
-        if 'kmrp' not in manifest['conflicts'] or ID in manifest['conflicts']:
-            raise ValueError('Must conflict with KMRP, and not with itself')
+        if 'kmrp' in manifest['conflicts'] or ID in manifest['conflicts']:
+            raise ValueError('Must conflict neither with KMRP, which requires it, nor with itself')
         if manifest['supported_versions'] != kpatch_common.VERSIONS:
             raise ValueError('Unexpected target builds')
         actual = tomllib.loads(z.read(HOOKS).decode())

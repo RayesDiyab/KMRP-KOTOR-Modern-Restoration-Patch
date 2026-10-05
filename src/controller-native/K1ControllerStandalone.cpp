@@ -276,6 +276,23 @@ void WriteDefaultSettings()
     CloseHandle(file);
 }
 
+// Beside KMRP (its module is patches\kmrp.dll, loaded before the game runs) the
+// screens are KMRP's, laid out for the resolution in use, and they already hold the
+// controls this patch adds to the game's own layouts (the same tags, from the same
+// build step). So this patch's copies of the game's layouts are taken out of the
+// folder before it is registered, and only its textures are served.
+void LeaveLayoutsToKmrp()
+{
+    if (!GetModuleHandleW(L"kmrp.dll") || cache.empty()) return;
+    WIN32_FIND_DATAW found;
+    HANDLE find = FindFirstFileW((cache + L"\\*.gui").c_str(), &found);
+    if (find == INVALID_HANDLE_VALUE) return;
+    do {
+        DeleteFileW((cache + L"\\" + found.cFileName).c_str());
+    } while (FindNextFileW(find, &found));
+    FindClose(find);
+}
+
 // Hooked before the game's first resource lookup, on the game's own thread.
 extern "C" void __cdecl KmrpPrepareResourcesK1(void* manager)
 {
@@ -288,6 +305,7 @@ extern "C" void __cdecl KmrpPrepareResourcesK1(void* manager)
         Report("The controller's files could not be unpacked to the temporary folder. The pad still "
                "works; its button prompts and the Controller Layout screen are missing.");
     } else {
+        LeaveLayoutsToKmrp();
         if (RegisterDirectory()) registered = true;
     }
     busy = false;

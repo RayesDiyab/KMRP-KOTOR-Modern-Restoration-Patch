@@ -99,20 +99,31 @@ def main() -> int:
     core_bytes = {h["address"] for h in core if "function" not in h}
     check(not (core_functions & package.functions()) and not (core_bytes & set(mine)),
           f"none of the {len(core)} core hooks (keyboard, memory, popups, movies) is in it")
-    engine = [h for h in kmrp._table() if h.get("function") != package.RESOURCE_HOOK]
+    engine = kmrp._table()      # its resource hook included: this patch has a site of its own for that
     check(not any(h["address"] in mine for h in engine),
           f"none of the {len(engine)} resolution and layout hooks of KMRP's module is in it")
     check(all(h.get("type", "detour") == "detour" for h in packed), "every hook is a detour: nothing is written to the file on disk")
-    check("kmrp" in manifest["conflicts"] and not manifest["requires"], "it conflicts with KMRP and requires nothing")
-    check(package.ID in kmrp.PATCH["conflicts"], "KMRP's own patch lists it as a conflict")
+    check("kmrp" not in manifest["conflicts"] and not manifest["requires"], "it requires nothing, and does not conflict with KMRP")
+    check(kmrp.PATCH["requires"] == [package.ID] and package.ID not in kmrp.PATCH["conflicts"],
+          "KMRP's own patch requires it")
+    shared = sorted(a for a in mine if any(h["address"] < a + len(mine[a]["original_bytes"])
+                                           and a < h["address"] + len(h["original_bytes"]) for h in kmrp.all_hooks()))
+    check(not shared, "no site of it overlaps a site of KMRP's patch: the two install together"
+          + ("" if not shared else f": {[hex(a) for a in shared]}"))
 
     # 3. Its sites against KMRP's.
-    theirs = {h["address"]: h for h in kmrp.all_hooks()}
-    stand_ins = {0x0040CE70, 0x00404D96}        # held by KMRP's core frames, which run the controller's
+    # KMRP's controller hooks, as its sources define them. Its patch no longer
+    # installs them (the controller is this patch, since 2026-10-05); they are what
+    # this patch's sites are held against.
+    theirs = {h["address"]: kmrp_controller.as_installed(h) for h in kmrp_controller.kpm_patch_hooks("kmrp-controller")}
+    theirs.update({h["address"]: kmrp_controller.as_installed(h) for h in kmrp_controller.installable_hooks()
+                   if h.get("function") in ("NativeGuiFrameK1", "NativeMovieFrameK1")})
+    stand_ins = set()
     # the Xbox-style HUD's two, which KMRP's patch does not have, and the two that
     # stand in for KMRP's hook at StopLoadFromLayout's entry, left to other patches
     own = {package.XBOX_HUD_HOOK["address"], package.XBOX_HUD_BARS_HOOK["address"],
-           package.PANEL_LOADED_HOOK["address"], package.PANEL_DESTROYED_HOOK["address"]}
+           package.PANEL_LOADED_HOOK["address"], package.PANEL_DESTROYED_HOOK["address"],
+           package.RESOURCE_OWN_HOOK["address"]}
     check(package.PANEL_SITE not in mine and package.PANEL_SITE in theirs,
           "StopLoadFromLayout's entry, which KMRP's patch hooks, is left free for another patch")
     same = [a for a in mine if a in theirs and a not in stand_ins

@@ -2515,6 +2515,19 @@ extern "C" void __cdecl CoreMovieFrameK1(void* moviePlayer)
 
 extern "C" void __cdecl NativeMovieFrameK1(void* moviePlayer)
 {
+#ifdef KMRP_CONTROLLER_STANDALONE
+    // Beside KMRP, its module centres the movie window and paints its bars; this
+    // one tracks the movie for the pad's skip, below.
+    {
+        HMODULE kmrp = GetModuleHandleW(L"kmrp.dll");
+        using WorkFn = void(__cdecl*)(void*);
+        static const WorkFn kmrpMovie = kmrp
+            ? reinterpret_cast<WorkFn>(GetProcAddress(kmrp, "KmrpCoreMovieWorkK1")) : nullptr;
+        if (kmrpMovie) {
+            kmrpMovie(moviePlayer);
+        }
+    }
+#endif
     if (!TrackMovieFrameK1(moviePlayer)) {
         return;
     }
@@ -5203,6 +5216,37 @@ extern "C" void __cdecl CoreGuiFrameK1(void* guiManager)
     StatusSummaryFrameK1(guiManager);
 }
 
+#ifdef KMRP_NATIVE_RUNTIME
+// KMRP's own share of the GUI frame and of the movie frame. Since 2026-10-05 the
+// controller patch holds those two sites (KOTOR Patch Manager allows one patch per
+// address, and that patch must work without KMRP), and its module calls these in
+// this one from its frames: the resolution sampled and the cursor kept to the
+// picture, and the movie window centred, tracked and given its bars.
+extern "C" void __cdecl KmrpCoreGuiWorkK1(void* guiManager)
+{
+    KmrpResolutionObservedK1(guiManager);
+    UpdateCursorConfinementK1();
+}
+
+extern "C" void __cdecl KmrpCoreMovieWorkK1(void* moviePlayer)
+{
+    KmrpCentreAddedSizeK1();
+    TrackMovieFrameK1(moviePlayer);
+}
+#endif
+
+#ifdef KMRP_CONTROLLER_STANDALONE
+// KMRP's module, when KMRP is installed beside this patch: KOTOR Patch Manager
+// loads every patch's module as patches\<id>.dll before the game runs.
+using KmrpCoreWorkFnK1 = void(__cdecl*)(void*);
+
+KmrpCoreWorkFnK1 KmrpCoreWorkK1(const char* name)
+{
+    const HMODULE kmrp = GetModuleHandleW(L"kmrp.dll");
+    return kmrp ? reinterpret_cast<KmrpCoreWorkFnK1>(GetProcAddress(kmrp, name)) : nullptr;
+}
+#endif
+
 extern "C" void __cdecl NativeGuiFrameK1(void* guiManager)
 {
     (void)guiManager;
@@ -5210,7 +5254,18 @@ extern "C" void __cdecl NativeGuiFrameK1(void* guiManager)
     KmrpResolutionObservedK1(guiManager);   // as CoreGuiFrameK1 does, above
 #endif
     g_stick.lastGuiTick = GetTickCount();
+#ifdef KMRP_CONTROLLER_STANDALONE
+    // Beside KMRP its module samples the resolution and confines the cursor (it
+    // knows the sizes it adds); alone, the cursor is this module's to confine.
+    static const KmrpCoreWorkFnK1 kmrpGui = KmrpCoreWorkK1("KmrpCoreGuiWorkK1");
+    if (kmrpGui) {
+        kmrpGui(guiManager);
+    } else {
+        UpdateCursorConfinementK1();
+    }
+#else
     UpdateCursorConfinementK1();
+#endif
     EnsureDeviceCountK1();     // menus re-enumerate devices too
 
     // Which controller family the badges show, before they are updated.

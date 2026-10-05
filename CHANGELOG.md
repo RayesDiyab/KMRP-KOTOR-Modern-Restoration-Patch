@@ -109,6 +109,37 @@ proxy, and it applies the executable changes above as well.
 
 ## [Unreleased]
 
+- **KMRP as two patches, its own and the controller patch it requires: first stage,
+  on the branch `kmrp-two-patches` only** (2026-10-05). The maintainer decided that
+  day that KMRP ships `KMRP.kpatch` plus the standalone controller patch ("KOTOR 1
+  Native Controller Mod + Xbox HUD", id `kmrp-controller`) and no controller of its
+  own, with the controller always installed. **This branch does not build a working
+  installer and must not be released**: see "Not done" below.
+  - *Done.* `KMRP.kpatch` has 22 hooks, no controller group and no `controller`
+    option, and `requires = ["kmrp-controller"]`; its module's `g_controllerOption`
+    is always off (`tools/build_native_kpatch.py`, `K1RuntimeEngine.cpp`). KOTOR
+    Patch Manager allows one patch per address, so the GUI frame (`0x0040CE70`) and
+    the movie frame (`0x00404D96`) are the controller patch's, and its module calls
+    KMRP's share of each, `KmrpCoreGuiWorkK1` and `KmrpCoreMovieWorkK1`, which
+    KMRP's module exports (`K1NativeJoystick.cpp`). The controller patch has its
+    resource hook at `0x00407235`, two instructions into the function KMRP hooks at
+    `0x00407230`; it no longer lists `kmrp` as a conflict; and beside KMRP it
+    deletes its own copies of the game's layouts from its temporary folder, so that
+    KMRP's scaled ones are used (`tools/build_controller_kpatch.py`,
+    `K1ControllerStandalone.cpp`).
+  - *Seen.* The two installed together by KOTOR Patch Manager 0.7.1's launcher in a
+    scratch copy at 1920x1080: the main menu, all eight in-game tabs, the HUD, the
+    pad, and the Xbox-style HUD's swap to KMRP's HUD with the mouse and back.
+    `Test-ControllerKpatch.py` passes in the form it has on this branch.
+  - *Not done.* The installer (`src/patcher/KpmEdition.cs`) still installs only
+    `KMRP.kpatch`, still removes `kmrp-controller` as a retired patch and still has
+    a Controller Support setting, so an install made from this branch has a patch
+    whose requirement is missing (not run). KMRP's bank still carries its
+    per-resolution badge textures under the controller patch's names.
+    `Test-KpatchSource.py` fails on this branch (it validates the build's older
+    patch), and `Test-InstallerPatch.ps1`, `tools/check_kpm_overlaps.py`,
+    `docs/kpm-edition.md`, `docs/controller-standalone.md` and the README are not
+    updated. Not run in the pair: a fight, a movie, any other resolution.
 - **The Xbox-style HUD's frames are drawn, and its portraits are framed alike**
   (2026-10-05, the standalone controller patch). The HUD was dressed in the game's
   own HUD textures, 16 to 256 pixels across and stretched over a modern screen:
