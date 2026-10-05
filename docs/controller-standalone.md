@@ -257,7 +257,9 @@ portraits' middle line.
 
 **LT and RT are arrows** (`tools/build_tab_arrows.py`, later the same day): a
 triangle with rounded corners pointing along the strip, the trigger's name in its
-wide end, a dark blue body in a bright blue frame. The picture is drawn, letters
+wide end, in the strip's own colours: the dark fill of a tab's box, with the frame
+and the glow in the blue of the tabs' icons (sampled from a screenshot of the
+strip; the letters are lighter, to be read). The picture is drawn, letters
 included (strokes with round ends; LT and RT, L2 and R2, ZL and ZR by family), so
 it carries no one's art and no font. The maintainer chose it from four prototypes
 and set its size and place in the running game; `BindOneCueK1` computes them from
@@ -272,8 +274,12 @@ the live tab beside each cue:
 Measured in the unchanged game at 1280x960: 12 px between two tabs' frames and
 12 px from each arrow to its tab; the flat side on rows 287 to 322, the box on 287
 to 321. Seen the same in proportion with Scaled Kotor at 3440x1440. Tried and set
-aside by the maintainer: the body in the tab strip's own blue, the lip counted in
-the height, and the arrow centred on the whole tab.
+aside by the maintainer: a lighter body in a brighter frame (committed for one
+commit), the body in the icons' blue, the lip counted in the height, and the arrow
+centred on the whole tab. Also run with Scaled Kotor at 3440x1440 on that day's
+last build: the eight tabs of the in-game menu, the HUD, and the swap to the mouse
+and back to the pad (the module's target menu fields read after each: the Xbox
+layout, the game's own, the Xbox layout).
 
 **A badge never changes shape.** A badge is a texture stretched over the area its
 button's border fills, so it is round only on a button of the shape it was made for.

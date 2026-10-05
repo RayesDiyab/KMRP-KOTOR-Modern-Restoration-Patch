@@ -5,7 +5,7 @@ The standalone controller patch showed the controller family's own trigger pictu
 beside the tab strip. The maintainer asked for arrows instead (2026-10-05): a triangle
 with rounded corners pointing the way the trigger moves along the strip, the trigger's
 name in its wide end, drawn like the game's panels (a dark blue body in a bright blue
-frame with a soft glow). He chose this look from four prototypes and its size and
+frame with a soft glow, in the tab strip's own colours). He chose the look from prototypes and its size and
 place on screen in the running game; `K1NativeJoystick.cpp` (BindOneCueK1) does the
 placing, and relies on one number here, EDGE: how far the arrow's flat side is inside
 its square.
@@ -31,9 +31,16 @@ SAMPLES = 4                # drawn this many times larger and reduced
 EDGE = 0.03                # the flat side's distance from the square's edge, as a fraction of the side
 CORNER = 0.07              # the corners' radius
 FLAT = 0.76                # the flat side's length (K1NativeJoystick.cpp sizes the cue by it)
-FRAME = (40, 140, 255)
-BODY_TOP, BODY_BOTTOM, BODY_ALPHA = (8, 30, 90), (2, 10, 44), 235
-GLOW, GLOW_STRENGTH = (30, 110, 255), 0.55
+# The colours are the tab strip's own, sampled from the maintainer's screenshot of
+# it (Scaled Kotor at 3440x1440, 2026-10-05), so that an arrow reads as one more
+# piece of the strip: the body is the dark fill inside a tab's box, flat; the frame
+# and the glow are the blue of the tabs' icons. The letters stay lighter than that
+# blue so that they can be read. (Before he asked for this the body was a lighter
+# navy with a gradient, (8, 30, 90) to (2, 10, 44), in a bright frame, (40, 140, 255),
+# with a glow of (30, 110, 255); he chose this from sheets of four.)
+FRAME = (0, 96, 150)
+BODY_TOP, BODY_BOTTOM, BODY_ALPHA = (0, 0, 24), (0, 0, 24), 255
+GLOW, GLOW_STRENGTH = (0, 86, 138), 0.85
 LETTERS, LETTER_GLOW = (60, 190, 255), (0, 60, 160)
 
 # What each controller family calls its two triggers.
