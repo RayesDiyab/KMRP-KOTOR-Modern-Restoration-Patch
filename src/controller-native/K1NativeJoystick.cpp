@@ -1234,6 +1234,7 @@ constexpr std::size_t    K1_HUD_COMBAT_MESSAGE    = 0x735C;      // LBL_CMBTMODE
 #ifdef KMRP_CONTROLLER_STANDALONE
 bool KmrpXboxHudEnabledK1();                                     // K1XboxHud.cpp
 void KmrpXboxHudForgetK1(void* panel);
+void KmrpForgetBadgeOverlaysK1(void* panel);                     // K1XboxControls.cpp
 #endif
 constexpr std::uintptr_t K1_ON_CLEAR_ONE          = 0x0068B050;  // CSWGuiMainInterface::OnClearOneButtonPressed
 constexpr std::uintptr_t K1_ON_CLEAR_ALL          = 0x0068B0A0;  // CSWGuiMainInterface::OnClearAllButtonPressed
@@ -2893,27 +2894,30 @@ struct GuiCueBindingK1 {
     // A control on the panel, by its offset in the panel object, whose
     // visibility the cue copies; 0 for a cue shown whenever the pad is live.
     std::size_t    follow;
+    // The control the build placed the cue beside, by tag; null for the HUD's,
+    // which the HUD's own code places. See PlaceCueByReferenceK1.
+    const char*    reference;
 };
 
 constexpr GuiCueBindingK1 K1_GUI_CUES[] = {
     // R3 changes the party member these four are about. They are exactly the
     // four panels that implement 0xCE, and the four that carry the portraits.
-    {0x00755E50, "LBL_KMRPR3"},   // ABILITIES -- Skills / Powers / Feats
+    {0x00755E50, "LBL_KMRPR3", 0, "BTN_CHANGE1"},   // ABILITIES -- Skills / Powers / Feats
     // X cycles that screen's sub-tab -- its 0x29 handler (0x006AE714)
     // switches a byte at CGuiInGame+0xBC0 through 0/1/2 and wraps.
-    {0x00755E50, "LBL_KMRPSWAP"},
-    {0x00756100, "LBL_KMRPR3"},   // CHARACTER
-    {0x007569A0, "LBL_KMRPR3"},   // EQUIP
-    {0x007564E0, "LBL_KMRPR3"},   // INVENTORY
+    {0x00755E50, "LBL_KMRPSWAP", 0, "BTN_EXIT"},
+    {0x00756100, "LBL_KMRPR3", 0, "BTN_CHANGE1"},   // CHARACTER
+    {0x007569A0, "LBL_KMRPR3", 0, "BTN_CHANGE1"},   // EQUIP
+    {0x007564E0, "LBL_KMRPR3", 0, "BTN_CHANGE1"},   // INVENTORY
     // LT and RT move along the menu tab strip, which top.gui owns. Its panel
     // draws with the BASE CSWGuiPanel::Draw, the same array walk everything else
     // here relies on.
-    {0x00750148, "LBL_KMRPLT"},
-    {0x00750148, "LBL_KMRPRT"},
+    {0x00750148, "LBL_KMRPLT", 0, "BTN_EQU"},
+    {0x00750148, "LBL_KMRPRT", 0, "BTN_OPT"},
     // X and Y beside the HUD's combat buttons, each shown only while its button
     // is: Y by BTN_CLEARONE, X by BTN_CLEARALL (see PressHudButtonK1).
-    {K1_MAIN_INTERFACE_VTABLE, "LBL_KMRPY", K1_HUD_CLEAR_ONE},
-    {K1_MAIN_INTERFACE_VTABLE, "LBL_KMRPX", K1_HUD_CLEAR_ALL},
+    {K1_MAIN_INTERFACE_VTABLE, "LBL_KMRPY", K1_HUD_CLEAR_ONE, nullptr},
+    {K1_MAIN_INTERFACE_VTABLE, "LBL_KMRPX", K1_HUD_CLEAR_ALL, nullptr},
 };
 constexpr int K1_GUI_CUE_COUNT =
     sizeof(K1_GUI_CUES) / sizeof(K1_GUI_CUES[0]);
@@ -3651,8 +3655,81 @@ bool GuiCueStillLiveK1(const GuiCueK1& cue)
     return controls[cue.id] == cue.control;
 }
 
+// A cue's rectangle is the layout file's, for the screen as the file has it. Another
+// patch may have rescaled the screen's controls before the cue was bound (Scaled
+// Kotor does, as the layout finishes loading: at 3440x1440 the LT, RT, sub-tab and
+// party cues stood small in a corner; the maintainer saw them, 2026-10-05). So the
+// cue is put where the file puts it relative to the control the build placed it
+// beside, as that control is now.
+//
+// The file's rectangle of that control is read by loading the control's entry once
+// more, into a label of our own that the panel never holds (the binder's last
+// argument, 0), and its ID says which live control it is.
+// Returns the live control, or null.
+void* PlaceCueByReferenceK1(void* panel, void* cue, const char* referenceTag)
+{
+    struct Rect { int left, top, width, height; };
+    void** const before = *FieldAt<void**>(panel, K1_PANEL_CONTROL_ARRAY);
+    const int count = *FieldAt<int>(panel, K1_PANEL_CONTROL_COUNT);
+    if (!LooksLikePointerK1(before) || count <= 0 || count > 512) {
+        return nullptr;
+    }
+    void* held[512];                 // the array as it is, in case the binder files the probe after all
+    for (int i = 0; i < count; ++i) {
+        held[i] = before[i];
+    }
+    void* const probe = EngineFn<OperatorNewFn>(K1_OPERATOR_NEW)(K1_GUI_LABEL_SIZE);
+    if (!probe) {
+        return nullptr;
+    }
+    EngineFn<GuiLabelCtorFn>(K1_GUI_LABEL_CTOR)(probe);
+    *FieldAt<int>(probe, K1_CONTROL_ID) = -1;
+    void* name[2] = { nullptr, nullptr };
+    EngineFn<ExoStringCtorFn>(K1_EXOSTRING_CTOR)(&name, referenceTag);
+    EngineFn<BindControlFn>(K1_GUI_PANEL_BIND_CONTROL)(panel, probe, &name, 0);
+    EngineFn<ExoStringDtorFn>(K1_EXOSTRING_DTOR)(&name);
+
+    const int id = *FieldAt<int>(probe, K1_CONTROL_ID);
+    void** const controls = *FieldAt<void**>(panel, K1_PANEL_CONTROL_ARRAY);
+    void* live = nullptr;
+    if (controls == before && id >= 0 && id < count) {
+        if (controls[id] == probe) {
+            controls[id] = held[id];
+        }
+        if (held[id] != cue) {
+            live = held[id];
+        }
+    }
+    if (LooksLikePointerK1(live)) {
+        const Rect file = *FieldAt<Rect>(probe, 4);
+        const Rect now = *FieldAt<Rect>(live, 4);
+        const Rect was = *FieldAt<Rect>(cue, 4);
+        const bool same = file.left == now.left && file.top == now.top &&
+                          file.width == now.width && file.height == now.height;
+        if (!same && file.width > 0 && file.height > 0 && now.width > 0 && now.height > 0) {
+            const double sx = static_cast<double>(now.width) / file.width;
+            const double sy = static_cast<double>(now.height) / file.height;
+            const double s = sx < sy ? sx : sy;       // a glyph keeps its shape
+            const double cx = now.left + (was.left + was.width / 2.0 - file.left) * sx;
+            const double cy = now.top + (was.top + was.height / 2.0 - file.top) * sy;
+            Rect wanted;
+            wanted.width = static_cast<int>(was.width * s + 0.5);
+            wanted.height = static_cast<int>(was.height * s + 0.5);
+            wanted.left = static_cast<int>(cx - wanted.width / 2.0 + 0.5);
+            wanted.top = static_cast<int>(cy - wanted.height / 2.0 + 0.5);
+            if (wanted.width > 0 && wanted.height > 0) {
+                using SetExtentFn = void(__thiscall*)(void*, const Rect*);
+                reinterpret_cast<SetExtentFn>((*FieldAt<void**>(cue, 0))[1])(cue, &wanted);
+            }
+        }
+    }
+    using DeletingDtorFn = void*(__thiscall*)(void*, unsigned);
+    reinterpret_cast<DeletingDtorFn>((*FieldAt<void**>(probe, 0))[0])(probe, 1);
+    return LooksLikePointerK1(live) ? live : nullptr;
+}
+
 // Bind one cue by tag onto a panel that still has its .gui.
-void BindOneCueK1(void* panel, const char* tag, std::size_t follow)
+void BindOneCueK1(void* panel, const char* tag, std::size_t follow, const char* reference)
 {
     void* const control = EngineFn<OperatorNewFn>(K1_OPERATOR_NEW)(
         K1_GUI_LABEL_SIZE);
@@ -3678,6 +3755,42 @@ void BindOneCueK1(void* panel, const char* tag, std::size_t follow)
         ++g_stick.guiCuesRejected;
         return;
     }
+
+    void* beside = nullptr;
+    if (reference) {
+        beside = PlaceCueByReferenceK1(panel, control, reference);
+    }
+#ifdef KMRP_CONTROLLER_STANDALONE
+    // Two cues as the maintainer asked for them in this patch (2026-10-05, looking
+    // at the Abilities screen): the sub-tab cue larger, by 1.2 about the middle of
+    // its right edge, so that it stays as far from Close (1.4 was tried and was too
+    // much); and the party cue nearer the portrait on its left (an eighth of its
+    // size away, where the layout has a third) and exactly on the portraits' middle
+    // line, taken from the live portrait. (The layout's whole-pixel centring,
+    // scaled up, left it 2 px high at 3440x1440; its picture is centred in its box,
+    // measured in the four families' textures.)
+    {
+        struct Rect { int left, top, width, height; };
+        Rect at = *FieldAt<Rect>(control, 4);
+        bool changed = false;
+        if (std::strcmp(tag, "LBL_KMRPSWAP") == 0) {
+            const int width = (at.width * 12 + 5) / 10, height = (at.height * 12 + 5) / 10;
+            at = {at.left + at.width - width, at.top - (height - at.height) / 2, width, height};
+            changed = true;
+        } else if (std::strcmp(tag, "LBL_KMRPR3") == 0) {
+            at.left -= at.width / 3 - at.width / 8;
+            if (beside) {
+                const Rect portrait = *FieldAt<Rect>(beside, 4);
+                at.top = portrait.top + (portrait.height - at.height + 1) / 2;
+            }
+            changed = true;
+        }
+        if (changed) {
+            using SetExtentFn = void(__thiscall*)(void*, const Rect*);
+            reinterpret_cast<SetExtentFn>((*FieldAt<void**>(control, 0))[1])(control, &at);
+        }
+    }
+#endif
 
     // Hidden until the pad is the live device, the same rule the badges follow.
     *FieldAt<std::uint32_t>(control, K1_CONTROL_FLAGS) &= ~K1_CONTROL_FLAG_DRAWN;
@@ -3717,6 +3830,9 @@ void ForgetGuiCuesK1(void* panel)
         *FieldAt<void*>(panel, K1_PANEL_GFF) != nullptr) {
         return;
     }
+#ifdef KMRP_CONTROLLER_STANDALONE
+    KmrpForgetBadgeOverlaysK1(panel);
+#endif
     using DeletingDtorFn = void*(__thiscall*)(void*, unsigned);
     for (int i = 0; i < K1_GUI_CUE_SLOTS; ++i) {
         GuiCueK1& cue = g_guiCues[i];
@@ -3758,7 +3874,7 @@ void InstallGuiCuesK1(void* panel)
             // message (K1XboxHud.cpp), so it is shown while that message is.
             if (follow == K1_HUD_CLEAR_ALL && KmrpXboxHudEnabledK1()) follow = K1_HUD_COMBAT_MESSAGE;
 #endif
-            BindOneCueK1(panel, K1_GUI_CUES[i].tag, follow);
+            BindOneCueK1(panel, K1_GUI_CUES[i].tag, follow, K1_GUI_CUES[i].reference);
         }
     }
 }

@@ -236,6 +236,64 @@ the counts elsewhere in this document are the build before it. The HUD is the Xb
 one while the pad is in use and the game's own with the mouse and keyboard.
 [`controller-xbox-hud.md`](controller-xbox-hud.md) describes it.
 
+### Beside a patch that rescales the interface
+
+Worked out on 2026-10-05 beside Scaled Kotor 1.3.1 at 3440x1440, the maintainer
+looking at each build. Scaled Kotor rescales a screen's controls as its layout
+finishes loading, which is before this patch adds anything to the screen, and gives
+buttons shapes the game's layouts do not have. Three things follow it now.
+
+**The added cues** (LT and RT on the tab strip, the sub-tab cue, the party cue).
+Each is a label the patch's layout file adds, with the file's rectangle. As it is
+bound, the control the build placed it beside (`BTN_EQU`, `BTN_OPT`, `BTN_EXIT`,
+`BTN_CHANGE1`) is loaded once more into a label the panel never holds, which gives
+that control's rectangle in the file; its ID says which live control it is. The cue
+is then put where the file has it relative to that control, as the control is now,
+and scaled by the smaller of the two factors, so its shape is kept
+(`K1NativeJoystick.cpp`, `PlaceCueByReferenceK1`). Two cues are then adjusted as the
+maintainer asked: the sub-tab cue 1.2 times its size about the middle of its right
+edge, the party cue an eighth of its size from the portrait and on the live
+portraits' middle line.
+
+**A badge never changes shape.** A badge is a texture stretched over the area its
+button's border fills, so it is round only on a button of the shape it was made for.
+`K1ControllerBadgeShapes.inc` (written by `tools/build_controller_assets.py
+--badge-shapes` from the layouts and textures the badges were built on) gives that
+area for 130 of the 132 badges, with where the glyph stands across it and how wide
+it is. When the live button's fill area differs from it by more than a fiftieth,
+in the normal state or the focused one (a border's inset is a number of pixels a
+rescaled button keeps, so Options' Close was right until focused), the button
+carries no badge and the texture is drawn on a label of the patch's own: as tall as
+the button's fill area and as wide as the made-for shape makes it at that height
+(`vendor/K1XboxControls.cpp`, `ShowK1BadgeOverlay`). The label is constructed, given
+the panel as parent and the next free ID, and added to the panel's control array
+with the engine's `CExoArrayList::Add` (`0x00671C00`), as
+`CSWGuiPanel::InitControl` (`0x0040B930`) files a loaded control; its fill is set to
+stretch (the low two bits of the flags at `+0x1C` of `CSWGuiBorderParams`: 0 tiles,
+which drew the badge twice on Graphics Options' wide buttons, 1 centres, 2
+stretches); and it is freed when the panel is destroyed. In the unchanged game the
+shapes agree and the badge is on its button, as before.
+
+**The badge stands beside the caption as it is on screen.** Its texture has the
+glyph where the caption was when it was made, in the game's font at the layout's
+size; on a button three times as large with a caption hardly larger the glyph was
+far out from the text. The engine has no "width of this string", only the height a
+string takes when wrapped to a width (`CAurGUIStringInternal::GetIdealPixelHeight`,
+the virtual at `+0x50`; a button's `CSWGuiText` is at `+0x154`), so the caption's
+width is found as the narrowest width at which it is still one line high
+(`MeasureK1Caption`). The glyph is put a quarter of the button's height from the
+text, on the side it stands on in its texture, and kept inside the button. Where a
+caption cannot be measured, the glyph keeps its distance from the button's middle
+if that fits and from the button's end if not.
+
+Seen by the maintainer at 3440x1440 with Scaled Kotor: the tab strip's LT and RT,
+Abilities' two cues, Options, Gameplay Options (the Controller Layout entry, placed
+from the live Mouse Settings and Key Mapping buttons), Graphics Options and its
+resolution pop-up, character generation. Not run since: the unchanged game (the
+regression test passes; the code paths for it are the old ones), the remaining
+screens, other sizes and other families' art. The two badges left out are made for
+another control's size (`size_like`) and stay on their buttons.
+
 ## 6. Limits
 
 - **The game's original interface only.** The badges and cues are made for the

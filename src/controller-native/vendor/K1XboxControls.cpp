@@ -1704,6 +1704,253 @@ int K1ButtonFillInset(void* control, std::ptrdiff_t paramsOffset)
     return corner ? *reinterpret_cast<const int*>(params) : 0;
 }
 
+#ifdef KMRP_CONTROLLER_STANDALONE
+// A badge keeps its shape. It is a texture stretched over the area its button's
+// border fills, so it is round only on a button of the shape it was made for, and
+// another patch may have reshaped the button (Scaled Kotor lays the menus out anew:
+// at 3440x1440 the Y on Gameplay Options' Default was an oval; the maintainer's rule
+// is that a controller glyph's width and height never change apart, 2026-10-05).
+// So the live button's fill area is compared with the area the badge was made for
+// (K1ControllerBadgeShapes.inc, from the layouts the badges were built on). Where
+// they differ by more than a fiftieth, the button keeps no badge and the texture is
+// drawn on a label of our own instead: as tall as the button's fill area, as wide as
+// the made-for shape makes it at that height. Across, the glyph keeps its distance
+// from the button's middle, where the caption is, as long as that leaves it inside
+// the button; where it does not, the label is laid on the end of the button the
+// glyph belongs to, and the glyph keeps its distance from that edge. (Tried on
+// 2026-10-05 and seen by the maintainer: centred always, the bottom bars' glyphs
+// stood on their buttons' left frames; on the left end always, the resolution
+// pop-up's A stood on its caption, "OK".)
+//
+// The label's fill is set to stretch. A label constructed here has the engine's
+// default, which repeats the texture across a rectangle much wider than the
+// texture's own shape: on Graphics Options' wide buttons the badge was drawn twice,
+// each at half width (a diagnostic log that day: a label 1231x54 for a 512x64
+// texture, the two glyphs 615 apart).
+//
+// The label is made here, not loaded from a layout: constructed, given the panel
+// as its parent and the next free ID, and added to the panel's control array with
+// the engine's own CExoArrayList::Add, as CSWGuiPanel::InitControl (0x0040B930)
+// files a loaded control. The array does not own it; KmrpForgetBadgeOverlaysK1
+// frees it when the panel is destroyed.
+struct BadgeShape { const char* resref; short width, height, glyph, glyphWidth; };
+#include "../K1ControllerBadgeShapes.inc"
+
+struct K1BadgeOverlay { void* panel; void* button; void* label; int id; };
+constexpr int K1_BADGE_OVERLAYS = 96;
+K1BadgeOverlay g_k1BadgeOverlays[K1_BADGE_OVERLAYS] = {};
+void* g_k1BadgePaintPanel = nullptr;      // set by UpdateK1ControllerPrompts while it paints
+constexpr std::uintptr_t K1_BADGE_OPERATOR_NEW = 0x006FA7E6;
+constexpr std::uintptr_t K1_BADGE_LABEL_CTOR = 0x0041ACD0;      // CSWGuiLabel::CSWGuiLabel
+constexpr std::size_t K1_BADGE_LABEL_SIZE = 0x140;
+constexpr std::uintptr_t K1_BADGE_LIST_ADD = 0x00671C00;        // CExoArrayList::Add(item)
+constexpr std::ptrdiff_t K1_BADGE_LABEL_PARAMS = 0x70;          // a label's CSWGuiBorderParams
+constexpr std::ptrdiff_t K1_BADGE_CONTROL_PARENT = 0x34;
+constexpr std::ptrdiff_t K1_BADGE_CONTROL_FLAGS = 0x44;
+constexpr std::ptrdiff_t K1_BADGE_CONTROL_ID = 0x50;
+constexpr std::ptrdiff_t K1_BADGE_PANEL_ARRAY = 0x20;
+constexpr std::ptrdiff_t K1_BADGE_PANEL_COUNT = 0x24;
+
+struct K1BadgeRect { int left, top, width, height; };
+
+K1BadgeOverlay* FindK1BadgeOverlay(void* button)
+{
+    for (K1BadgeOverlay& entry : g_k1BadgeOverlays) {
+        if (entry.button == button && entry.label) {
+            return &entry;
+        }
+    }
+    return nullptr;
+}
+
+void HideK1BadgeOverlay(void* button)
+{
+    if (K1BadgeOverlay* entry = FindK1BadgeOverlay(button)) {
+        *reinterpret_cast<std::uint32_t*>(static_cast<char*>(entry->label) + K1_BADGE_CONTROL_FLAGS) &= ~2u;
+    }
+}
+
+// How wide a button's caption is on screen, in pixels; 0 when it cannot be told.
+//
+// A button's CSWGuiText is at +0x154 (after its two borders), and the text's
+// CAurGUIStringInternal at +0x14 of that. The engine has no "width of this string";
+// it has the height the string takes when wrapped to a width (the virtual at +0x50,
+// CAurGUIStringInternal::GetIdealPixelHeight, which CSWGuiText::GetIdealWidthAndHeight,
+// 0x00414F10, steps down by tens to find a width). The caption's width is the
+// narrowest width at which it is still as high as unwrapped, found by halving.
+constexpr std::ptrdiff_t K1_BUTTON_TEXT_OFFSET = 0x154;
+constexpr std::ptrdiff_t K1_TEXT_EXTENT_OFFSET = 0x04;
+constexpr std::ptrdiff_t K1_TEXT_STRING_OFFSET = 0x14;
+constexpr std::ptrdiff_t K1_TEXT_CHARS_OFFSET = 0x18;        // its CSWGuiTextParams begin with the text
+
+int MeasureK1Caption(void* button)
+{
+    char* const text = static_cast<char*>(button) + K1_BUTTON_TEXT_OFFSET;
+    void* const string = *reinterpret_cast<void**>(text + K1_TEXT_STRING_OFFSET);
+    const char* const chars = *reinterpret_cast<const char**>(text + K1_TEXT_CHARS_OFFSET);
+    if (!string || !chars || chars[0] == 0) {
+        return 0;
+    }
+    using HeightForFn = int(__thiscall*)(void*, int);
+    const HeightForFn heightFor = reinterpret_cast<HeightForFn>((*reinterpret_cast<void***>(string))[0x50 / 4]);
+    const int widest = 4096;
+    const int unwrapped = heightFor(string, widest);
+    if (unwrapped <= 0 || heightFor(string, 1) == unwrapped) {
+        return 0;
+    }
+    int narrower = 1, wide = widest;        // wraps at `narrower`, does not at `wide`
+    while (wide - narrower > 1) {
+        const int middle = (narrower + wide) / 2;
+        if (heightFor(string, middle) == unwrapped) {
+            wide = middle;
+        } else {
+            narrower = middle;
+        }
+    }
+    return wide < widest ? wide : 0;
+}
+
+// True when the badge is now on the label, and the button should carry none.
+bool ShowK1BadgeOverlay(void* control, const char resref[16])
+{
+    const BadgeShape* shape = nullptr;
+    for (const BadgeShape& candidate : kBadgeShapes) {
+        // One set of art per controller family, differing in the fourth letter.
+        bool same = true;
+        for (int i = 0; i < 16 && same; ++i) {
+            const char a = i == 3 ? 'p' : resref[i];
+            same = a == candidate.resref[i];
+            if (a == '\0') {
+                break;
+            }
+        }
+        if (same) {
+            shape = &candidate;
+            break;
+        }
+    }
+    const K1BadgeRect at = *reinterpret_cast<const K1BadgeRect*>(static_cast<char*>(control) + 4);
+    const int inset = K1ButtonFillInset(control, K1_BUTTON_BORDER_PARAMS_OFFSET);
+    const int width = at.width - 2 * inset, height = at.height - 2 * inset;
+    if (!shape || width <= 0 || height <= 0) {
+        HideK1BadgeOverlay(control);
+        return false;
+    }
+    const long long live = static_cast<long long>(width) * shape->height;
+    const long long made = static_cast<long long>(shape->width) * height;
+    bool asMade = (live > made ? live - made : made - live) * 50 <= made;
+    // The focused border too, where it fills another area than the normal one and
+    // so has a texture of its own ("kmf", SetK1ControllerPromptFill). A border's
+    // inset is a number of pixels that a rescaled button keeps: Options' Close,
+    // with no normal border and a 6 px focused one, was the shape its badge was
+    // made for until it was focused, and an oval then (the maintainer saw it,
+    // 2026-10-05). The area that texture was made for is the normal one's, less
+    // the difference of the two insets on every side.
+    const int focusInset = K1ButtonFillInset(control, K1_BUTTON_HILIGHT_PARAMS_OFFSET);
+    if (asMade && focusInset != inset) {
+        const int step = 2 * (inset - focusInset);
+        const long long focusWidth = at.width - 2 * focusInset, focusHeight = at.height - 2 * focusInset;
+        const long long madeWidth = shape->width + step, madeHeight = shape->height + step;
+        if (focusWidth > 0 && focusHeight > 0 && madeWidth > 0 && madeHeight > 0) {
+            const long long liveFocus = focusWidth * madeHeight, madeFocus = madeWidth * focusHeight;
+            asMade = (liveFocus > madeFocus ? liveFocus - madeFocus : madeFocus - liveFocus) * 50 <= madeFocus;
+        }
+    }
+    if (asMade) {
+        HideK1BadgeOverlay(control);        // the shape it was made for: on the button, as ever
+        return false;
+    }
+
+    K1BadgeOverlay* entry = FindK1BadgeOverlay(control);
+    if (!entry) {
+        // The panel being painted; a button's own parent pointer is not always it
+        // (the A that follows the focus on Graphics Options stayed on its button).
+        void* panel = g_k1BadgePaintPanel;
+        if (!panel) {
+            panel = *reinterpret_cast<void**>(static_cast<char*>(control) + K1_BADGE_CONTROL_PARENT);
+        }
+        K1BadgeOverlay* free = nullptr;
+        for (K1BadgeOverlay& candidate : g_k1BadgeOverlays) {
+            if (!candidate.label) {
+                free = &candidate;
+                break;
+            }
+        }
+        if (!panel || !free) {
+            return false;
+        }
+        void* const label = reinterpret_cast<void*(__cdecl*)(std::size_t)>(K1_BADGE_OPERATOR_NEW)(K1_BADGE_LABEL_SIZE);
+        if (!label) {
+            return false;
+        }
+        reinterpret_cast<void*(__thiscall*)(void*)>(K1_BADGE_LABEL_CTOR)(label);
+        const int id = *reinterpret_cast<int*>(static_cast<char*>(panel) + K1_BADGE_PANEL_COUNT);
+        *reinterpret_cast<void**>(static_cast<char*>(label) + K1_BADGE_CONTROL_PARENT) = panel;
+        *reinterpret_cast<int*>(static_cast<char*>(label) + K1_BADGE_CONTROL_ID) = id;
+        reinterpret_cast<void(__thiscall*)(void*, void*)>(K1_BADGE_LIST_ADD)(
+            static_cast<char*>(panel) + K1_BADGE_PANEL_ARRAY, label);
+        void** const array = *reinterpret_cast<void***>(static_cast<char*>(panel) + K1_BADGE_PANEL_ARRAY);
+        const int count = *reinterpret_cast<int*>(static_cast<char*>(panel) + K1_BADGE_PANEL_COUNT);
+        if (!array || id < 0 || id >= count || array[id] != label) {
+            return false;                   // not filed: leave it be rather than free what the panel may hold
+        }
+        *free = {panel, control, label, id};
+        entry = free;
+    }
+    K1BadgeRect wanted;
+    wanted.height = height;
+    wanted.width = static_cast<int>((static_cast<long long>(height) * shape->width + shape->height / 2) / shape->height);
+    {
+        const int centred = (width - wanted.width) / 2;
+        const int glyph = centred + static_cast<int>(static_cast<long long>(wanted.width) * shape->glyph / 1000);
+        const int reach = height / 2 + height / 8;      // half a glyph and a little air
+        const bool fits = glyph - reach >= 0 && glyph + reach <= width;
+        wanted.left = at.left + inset + (fits ? centred : shape->glyph < 500 ? 0 : width - wanted.width);
+    }
+    // Better than either, where the caption can be measured: beside the caption as
+    // it is on screen, a quarter of the button's height away. The texture has the
+    // glyph where the caption was when it was made, in the game's own font at the
+    // layout's size; on a button three times as large with a caption hardly larger
+    // (Scaled Kotor at 3440x1440) that left the glyph far out from the text, and
+    // the maintainer asked why (2026-10-05). Kept inside the button.
+    if (const int caption = MeasureK1Caption(control)) {
+        const K1BadgeRect text = *reinterpret_cast<const K1BadgeRect*>(
+            static_cast<char*>(control) + K1_BUTTON_TEXT_OFFSET + K1_TEXT_EXTENT_OFFSET);
+        const int middle = text.width > 0 ? text.left + text.width / 2 : at.left + at.width / 2;
+        const int gap = height / 4, air = height / 8;
+        const int glyphLeft = static_cast<int>(static_cast<long long>(wanted.width) * (shape->glyph - shape->glyphWidth / 2) / 1000);
+        const int glyphRight = static_cast<int>(static_cast<long long>(wanted.width) * (shape->glyph + shape->glyphWidth / 2) / 1000);
+        int left = shape->glyph < 500 ? middle - caption / 2 - gap - glyphRight
+                                      : middle + (caption + 1) / 2 + gap - glyphLeft;
+        const int first = at.left + inset, last = first + width;
+        if (left + glyphRight > last - air) {
+            left = last - air - glyphRight;
+        }
+        if (left + glyphLeft < first + air) {
+            left = first + air - glyphLeft;
+        }
+        wanted.left = left;
+    }
+    wanted.top = at.top + inset;
+    void* const label = entry->label;
+    using SetExtentFn = void(__thiscall*)(void*, const K1BadgeRect*);
+    reinterpret_cast<SetExtentFn>((*reinterpret_cast<void***>(label))[1])(label, &wanted);
+    // Stretched over the label, as a layout's FILLSTYLE 2 has a button's fill: the low
+    // two bits of the flags at +0x1C of CSWGuiBorderParams (CSWGuiBorder::Load,
+    // 0x004153E0, stores FILLSTYLE there; CSWGuiBorder::Draw, 0x004168C0, tiles for
+    // 0, centres for 1 and stretches for 2; a label constructed here has 0).
+    {
+        std::uint32_t& flags = *reinterpret_cast<std::uint32_t*>(
+            static_cast<char*>(label) + K1_BADGE_LABEL_PARAMS + 0x1C);
+        flags = (flags & ~3u) | 2u;
+    }
+    reinterpret_cast<SetFillImageFn>(K1_GUI_BORDER_SET_FILL_IMAGE)(
+        static_cast<char*>(label) + K1_BADGE_LABEL_PARAMS, resref, 1);
+    *reinterpret_cast<std::uint32_t*>(static_cast<char*>(label) + K1_BADGE_CONTROL_FLAGS) |= 2u;
+    return true;
+}
+#endif
+
 void SetK1ControllerPromptFill(void* control, const char* value)
 {
     if (!control) {
@@ -1722,6 +1969,16 @@ void SetK1ControllerPromptFill(void* control, const char* value)
     }
     SetFillImageFn setFill = reinterpret_cast<SetFillImageFn>(
         K1_GUI_BORDER_SET_FILL_IMAGE);
+#ifdef KMRP_CONTROLLER_STANDALONE
+    if (resref[0] == '\0') {
+        HideK1BadgeOverlay(control);
+    } else if (ShowK1BadgeOverlay(control, resref)) {
+        const char none[16] = {};
+        setFill(OffsetPointer(control, K1_BUTTON_BORDER_PARAMS_OFFSET), none, 1);
+        setFill(OffsetPointer(control, K1_BUTTON_HILIGHT_PARAMS_OFFSET), none, 1);
+        return;
+    }
+#endif
     // BOTH borders, and the pair is not optional.
     //
     // The engine draws the highlight border INSTEAD OF the normal one while a
@@ -1764,6 +2021,9 @@ void SetK1ControllerPromptArt(void* control, const char* border, const char* hil
     if (!control || !border) {
         return;
     }
+#ifdef KMRP_CONTROLLER_STANDALONE
+    HideK1BadgeOverlay(control);
+#endif
     char normal[16] = {};
     char focused[16] = {};
     const char* second = hilight ? hilight : border;
@@ -1778,6 +2038,28 @@ void SetK1ControllerPromptArt(void* control, const char* border, const char* hil
     setFill(OffsetPointer(control, K1_BUTTON_BORDER_PARAMS_OFFSET), normal, 1);
     setFill(OffsetPointer(control, K1_BUTTON_HILIGHT_PARAMS_OFFSET), focused, 1);
 }
+
+#ifdef KMRP_CONTROLLER_STANDALONE
+// A panel's end (K1NativeJoystick.cpp, ForgetGuiCuesK1): its badge labels are ours.
+void ForgetK1BadgeOverlays(void* panel)
+{
+    for (K1BadgeOverlay& entry : g_k1BadgeOverlays) {
+        if (!entry.label || entry.panel != panel) {
+            continue;
+        }
+        void** const array = *reinterpret_cast<void***>(static_cast<char*>(panel) + K1_BADGE_PANEL_ARRAY);
+        const int count = *reinterpret_cast<int*>(static_cast<char*>(panel) + K1_BADGE_PANEL_COUNT);
+        // Freed only while the panel still holds it at its place; otherwise a leak
+        // is safer than a double free.
+        if (array && entry.id >= 0 && entry.id < count && array[entry.id] == entry.label) {
+            array[entry.id] = nullptr;
+            using DeletingDtorFn = void*(__thiscall*)(void*, unsigned);
+            reinterpret_cast<DeletingDtorFn>((*reinterpret_cast<void***>(entry.label))[0])(entry.label, 1);
+        }
+        entry = K1BadgeOverlay{};
+    }
+}
+#endif
 
 void UpdateK1ControllerPrompts()
 {
@@ -1815,6 +2097,9 @@ void UpdateK1ControllerPrompts()
     const std::uintptr_t vtable = panel
         ? *reinterpret_cast<std::uintptr_t*>(panel)
         : 0;
+#ifdef KMRP_CONTROLLER_STANDALONE
+    g_k1BadgePaintPanel = panel;
+#endif
 
     // The caption can change without the panel or the mode changing, so it is
     // part of what "nothing has changed" means. So is the focus, now that a
@@ -3368,6 +3653,10 @@ void ClearActionBarKeyboardFocus(
 }
 
 } // namespace
+
+#ifdef KMRP_CONTROLLER_STANDALONE
+void KmrpForgetBadgeOverlaysK1(void* panel) { ForgetK1BadgeOverlays(panel); }
+#endif
 
 extern "C" void __cdecl CaptureActionBarInputK1(
     BufferedInputRecord* input,

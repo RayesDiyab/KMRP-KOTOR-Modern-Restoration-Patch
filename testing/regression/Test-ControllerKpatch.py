@@ -174,6 +174,12 @@ def main() -> int:
     check(measured > 150 and worst <= 0.08,
           f"{measured} face-button badges map to round ones in their fill area (worst {worst * 100:.1f}% off square)")
 
+    # The shapes the badges were made for, which the module keeps them to.
+    shapes = assets.BADGE_SHAPES.read_text(encoding="utf-8").replace(chr(13) + chr(10), chr(10)) if assets.BADGE_SHAPES.exists() else ""
+    check(shapes == assets.badge_shapes() and shapes.count("{") > 100,
+          f"{assets.BADGE_SHAPES.name} is what tools/build_controller_assets.py --badge-shapes writes "
+          f"({shapes.count('{') - 1} badges)")
+
     # 6. The Xbox-style HUD's table.
     table = xbox_hud.TABLE.read_text(encoding="utf-8").replace("\r\n", "\n") if xbox_hud.TABLE.exists() else ""
     check(table == xbox_hud.table(), f"{xbox_hud.TABLE.name} is what tools/build_xbox_hud.py writes")

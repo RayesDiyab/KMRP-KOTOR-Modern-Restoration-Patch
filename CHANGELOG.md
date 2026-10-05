@@ -109,6 +109,29 @@ proxy, and it applies the executable changes above as well.
 
 ## [Unreleased]
 
+- **The standalone controller patch's prompts follow another patch's scaling, and a
+  glyph never changes shape** (2026-10-05). Beside Scaled Kotor at 3440x1440 the
+  maintainer found the LT, RT, sub-tab and party cues small in a corner, the badges on
+  reshaped buttons oval, and badges far from their captions. Now, in this patch only:
+  - a cue (LT, RT, the sub-tab cue, the party cue) is put where its layout file puts
+    it relative to the control it was placed beside, as that control is now, and
+    scaled by one factor;
+  - a badge on a button whose shape is no longer the one the badge was made for, in
+    either its normal or its focused state, is drawn on a label of the made-for shape
+    instead of stretched over the button
+    (`K1ControllerBadgeShapes.inc`, 130 badges, written by
+    `tools/build_controller_assets.py --badge-shapes`);
+  - that label stands beside the caption as it is on screen, a quarter of the
+    button's height from the text, inside the button;
+  - the sub-tab cue is 1.2 times its size and the party cue sits nearer the portrait,
+    on the portraits' middle line.
+  In the unchanged game a badge is on its button as before. Seen by the maintainer on
+  the CD 1.03 executable with Scaled Kotor 1.3.1 at 3440x1440: the in-game menu's
+  tab strip, Abilities, Options, Gameplay and Graphics Options, the resolution
+  pop-up, character generation. Not run: the unchanged game since these changes
+  (the regression test passes), the other screens, other sizes.
+  [docs/controller-standalone.md](docs/controller-standalone.md), "Beside a patch
+  that rescales the interface".
 - **The standalone controller patch is now "KOTOR 1 Native Controller Mod + Xbox HUD"** (2026-10-05).
   The file is `KOTOR 1 Native Controller Mod + Xbox HUD.kpatch` and KOTOR Patch Manager
   lists it under that name; it was "KMRP Controller". Its id (`kmrp-controller`), its
