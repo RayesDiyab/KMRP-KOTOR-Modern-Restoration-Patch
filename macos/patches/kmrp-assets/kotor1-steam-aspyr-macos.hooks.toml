@@ -157,6 +157,22 @@ type = "pointer"
 source = "rbp"
 type = "pointer"
 
+# CSWGuiListBox::AddControls, entry (layout.cpp, KmrpListAddRows): the rows that outlive a
+# resolution change get the row height of the size in force before the list reads it. rdi the
+# list, rsi the rows. The stolen bytes are the prologue.
+#   0x1004a9be6  push rbp; mov rbp, rsp; push r15
+[[hooks]]
+address = 0x1004a9be6
+type = "detour"
+function = "KmrpListAddRows"
+original_bytes = [0x55, 0x48, 0x89, 0xe5, 0x41, 0x57]
+[[hooks.parameters]]
+source = "rdi"
+type = "pointer"
+[[hooks.parameters]]
+source = "rsi"
+type = "pointer"
+
 # CSWGuiPanel::~CSWGuiPanel, entry (Windows 0x0040CF70): rdi the panel.
 [[hooks]]
 address = 0x10049d8c8

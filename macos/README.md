@@ -341,6 +341,11 @@ and the feats and powers of character generation and level-up. A size with no se
 takes the mean of the three sets nearest in shape and height. What was seen in the game and
 what was only measured from the artwork is in `CHANGELOG.md`, 2026-10-04.
 
+After the resolution is changed in the game, a list that already existed takes the new
+size's PADDING and scrollbar width (`Relayout`), and the abilities' rows, which are made once
+with their panel, take the new size's row height when the list is next filled
+(`KmrpListAddRows`, a detour at `CSWGuiListBox::AddControls`, `0x1004a9be6`).
+
 To measure a list again: `KMRP_LIST_ROWS_LOG=<file>` in the game's environment writes each
 list and row kind (its vtable) once as it is laid out.
 

@@ -150,8 +150,12 @@ proxy, and it applies the executable changes above as well.
   that existed during the switch kept the old size's PADDING and scrollbar width, which the
   game reads once with the panel: after 1512x982 to 1147x716 the inventory's rows began where
   the old, wider scrollbar ended. Both are now the new size's (`layout.cpp`, `Relayout`).
-  **Still wrong after a switch**, seen at 3024x1964: the skills' rows keep the old size's row
-  height and overlap until the game is started again at that size.
+  The abilities' rows also kept the old size's height: a skill and a chart row of powers or
+  feats are made once with their panel, and after 1512x982 to 3024x1964 the skills overlapped,
+  the new size's icons at the old size's pitch (seen 2026-10-04). Each is now given the row
+  height of the size in force when its list is filled (`KmrpListAddRows`, a detour at
+  `CSWGuiListBox::AddControls`, `0x1004a9be6`). Seen 2026-10-05 after a switch to 3024x1964
+  (skills) and to 1280x720 (skills, powers, feats): rows apart, none overlapping.
 
 - **macOS: KMRP is a patch on top of FTD's two, no longer a copy of them** (2026-10-04, the
   maintainer: "instead of bundling his mod we make his mod required"). `kmrp.kpatch` now

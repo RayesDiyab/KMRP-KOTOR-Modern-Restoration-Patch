@@ -527,6 +527,30 @@ extern "C" __attribute__((visibility("default"))) void KmrpPanelLoaded(void* pan
     }
 }
 
+// CSWGuiListBox::AddControls, entry: rdi the list, rsi the rows (an array's pointer and count).
+// A list's pitch is the tallest of its rows' own heights, read here. The inventory's rows are
+// made again each time it fills; the abilities' rows (a skill, a chart row of powers or feats)
+// are made once with their panel, with the height their creator's constant had then, so after
+// the resolution changed in the game they kept the old size's pitch under the new size's icons
+// (seen 2026-10-04, 1512x982 to 3024x1964: the skills overlapped). Each is given the height the
+// constant has now: the skill's at 0x10022f60f, the chart row's rectangle's at 0x100570efc, both
+// rewritten for the size by the layout patch or the widescreen patch.
+extern "C" __attribute__((visibility("default"))) void KmrpListAddRows(void* list, void* rows) {
+    if (!list || !rows) return;
+    void** const row = Field<void**>(rows, 0);
+    const int count = Field<int>(rows, 8);
+    if (!row || count <= 0 || count > 4096) return;
+    for (int i = 0; i < count; ++i) {
+        if (!row[i]) continue;
+        const int* height = nullptr;
+        switch (Field<std::uintptr_t>(row[i], 0)) {
+            case 0x1005a6070: height = reinterpret_cast<const int*>(0x10022f60f); break;
+            case 0x1005a9cd0: height = reinterpret_cast<const int*>(0x100570efc); break;
+        }
+        if (height && *height >= 8 && *height <= 4096) Field<Extent>(row[i], kExtent).height = *height;
+    }
+}
+
 // CSWGuiListBox::OrganizeControls, where it hands a row its rectangle: r12 the list, rdi the row,
 // rbp the routine's frame, in which the rectangle is at -0x40 (left, top, width, height). The
 // stolen bytes, mov rax, [rdi]; lea rsi, [rbp-0x40], run after this.
