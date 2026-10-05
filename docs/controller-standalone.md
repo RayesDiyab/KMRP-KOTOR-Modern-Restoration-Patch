@@ -321,9 +321,16 @@ middles, below the captions (the maintainer saw it; the numbers are a diagnostic
 log's). So the label is centred on the caption's line, and a resized button whose
 caption is more than a sixth of its height off its middle line has its badge moved
 to a label even when its shape is the one the badge was made for. A button that is
-the size its badge was made for is left alone, whatever its alignment. Seen after
-the change at 3440x1440: the two rows' glyphs on their captions' lines, and the
-other seven tabs as before.
+the size its badge was made for is left alone, whatever its alignment.
+
+With the badge alone moved up to the caption, the two stood above the row and the
+maintainer found the whole line too high. So such a caption is brought to the
+button's middle line as well: it is given a rectangle one line tall there
+(`CSWGuiText::SetExtent`, `0x00416280`) for as long as the badge is shown, and its
+own rectangle back when the badge goes (the mouse or keyboard in use, or the panel
+closed). Seen after that at 3440x1440: both rows' captions and glyphs in the
+middle of their rows, and the other seven tabs as before. Not looked at: the
+caption going back when the mouse is used on that screen.
 
 Seen by the maintainer at 3440x1440 with Scaled Kotor: the tab strip's LT and RT,
 Abilities' two cues, Options, Gameplay Options (the Controller Layout entry, placed

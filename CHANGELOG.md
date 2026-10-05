@@ -142,7 +142,8 @@ proxy, and it applies the executable changes above as well.
     button's height from the text, inside the button, and on the caption's line: a
     resized button whose caption is no longer on its middle line (the Map screen's
     two rows, three times as tall with their text still at the top) has its badge
-    moved to a label for that reason alone;
+    moved to a label for that reason alone, and its caption brought to the button's
+    middle line with the badge while the badge is shown;
   - the sub-tab cue is 1.2 times its size and the party cue sits nearer the portrait,
     on the portraits' middle line.
   In the unchanged game a badge is on its button as before. Seen by the maintainer on

@@ -1736,7 +1736,10 @@ int K1ButtonFillInset(void* control, std::ptrdiff_t paramsOffset)
 struct BadgeShape { const char* resref; short width, height, glyph, glyphWidth; };
 #include "../K1ControllerBadgeShapes.inc"
 
-struct K1BadgeOverlay { void* panel; void* button; void* label; int id; };
+struct K1BadgeRect { int left, top, width, height; };
+// `textWas` is the caption's rectangle as it was before this file moved the caption
+// to the button's middle line (ShowK1BadgeOverlay); `textMoved` says that it has.
+struct K1BadgeOverlay { void* panel; void* button; void* label; int id; K1BadgeRect textWas; bool textMoved; };
 constexpr int K1_BADGE_OVERLAYS = 96;
 K1BadgeOverlay g_k1BadgeOverlays[K1_BADGE_OVERLAYS] = {};
 void* g_k1BadgePaintPanel = nullptr;      // set by UpdateK1ControllerPrompts while it paints
@@ -1751,7 +1754,14 @@ constexpr std::ptrdiff_t K1_BADGE_CONTROL_ID = 0x50;
 constexpr std::ptrdiff_t K1_BADGE_PANEL_ARRAY = 0x20;
 constexpr std::ptrdiff_t K1_BADGE_PANEL_COUNT = 0x24;
 
-struct K1BadgeRect { int left, top, width, height; };
+constexpr std::uintptr_t K1_TEXT_SET_EXTENT = 0x00416280;      // CSWGuiText::SetExtent(CSWGuiExtent*)
+constexpr std::ptrdiff_t K1_BADGE_BUTTON_TEXT = 0x154;         // a button's CSWGuiText
+
+void SetK1CaptionRect(void* button, const K1BadgeRect& rect)
+{
+    reinterpret_cast<void(__thiscall*)(void*, const K1BadgeRect*)>(K1_TEXT_SET_EXTENT)(
+        static_cast<char*>(button) + K1_BADGE_BUTTON_TEXT, &rect);
+}
 
 K1BadgeOverlay* FindK1BadgeOverlay(void* button)
 {
@@ -1767,6 +1777,10 @@ void HideK1BadgeOverlay(void* button)
 {
     if (K1BadgeOverlay* entry = FindK1BadgeOverlay(button)) {
         *reinterpret_cast<std::uint32_t*>(static_cast<char*>(entry->label) + K1_BADGE_CONTROL_FLAGS) &= ~2u;
+        if (entry->textMoved) {
+            SetK1CaptionRect(button, entry->textWas);      // the caption where the screen had it
+            entry->textMoved = false;
+        }
     }
 }
 
@@ -1868,8 +1882,10 @@ bool ShowK1BadgeOverlay(void* control, const char resref[16])
     if (asMade && height != shape->height) {
         int line = 0;
         if (MeasureK1Caption(control, &line) > 0 && line > 0) {
-            const K1BadgeRect text = *reinterpret_cast<const K1BadgeRect*>(
-                static_cast<char*>(control) + K1_BUTTON_TEXT_OFFSET + K1_TEXT_EXTENT_OFFSET);
+            const K1BadgeOverlay* const moved = FindK1BadgeOverlay(control);
+            const K1BadgeRect text = moved && moved->textMoved ? moved->textWas
+                : *reinterpret_cast<const K1BadgeRect*>(
+                    static_cast<char*>(control) + K1_BUTTON_TEXT_OFFSET + K1_TEXT_EXTENT_OFFSET);
             const std::uint32_t alignment = *reinterpret_cast<const std::uint32_t*>(
                 static_cast<char*>(control) + K1_BUTTON_TEXT_OFFSET + K1_TEXT_CHARS_OFFSET + 0x38);
             const K1BadgeRect area = text.height > 0 ? text : at;
@@ -1921,7 +1937,7 @@ bool ShowK1BadgeOverlay(void* control, const char resref[16])
         if (!array || id < 0 || id >= count || array[id] != label) {
             return false;                   // not filed: leave it be rather than free what the panel may hold
         }
-        *free = {panel, control, label, id};
+        *free = {panel, control, label, id, {}, false};
         entry = free;
     }
     K1BadgeRect wanted;
@@ -1943,7 +1959,7 @@ bool ShowK1BadgeOverlay(void* control, const char resref[16])
     // the maintainer asked why (2026-10-05). Kept inside the button.
     int line = 0;
     if (const int caption = MeasureK1Caption(control, &line)) {
-        const K1BadgeRect text = *reinterpret_cast<const K1BadgeRect*>(
+        K1BadgeRect text = *reinterpret_cast<const K1BadgeRect*>(
             static_cast<char*>(control) + K1_BUTTON_TEXT_OFFSET + K1_TEXT_EXTENT_OFFSET);
         // And on the caption's line. A layout's ALIGNMENT is in the text's flags
         // (+0x38 of its CSWGuiTextParams): 8 is the top of the button, 32 its bottom,
@@ -1956,6 +1972,25 @@ bool ShowK1BadgeOverlay(void* control, const char resref[16])
             static_cast<char*>(control) + K1_BUTTON_TEXT_OFFSET + K1_TEXT_CHARS_OFFSET + 0x38);
         // The text's own rectangle is what it is aligned in, and after a rescaling
         // it need not be the button's (on those rows it stayed short, at the top).
+        //
+        // A caption at the top or bottom of a button that has been made taller is
+        // brought to the button's middle line, and the badge with it: the caption is
+        // given a rectangle one line tall there (CSWGuiText::SetExtent, 0x00416280),
+        // and gets its own back when the badge goes (HideK1BadgeOverlay). With the
+        // badge alone moved up to the caption, the two stood above the row on the
+        // Map screen and the maintainer found the whole line too high (2026-10-05).
+        if (line > 0 && (alignment & 16u) == 0 && text.height > 0 && line < at.height) {
+            const K1BadgeRect centredLine{text.left, at.top + (at.height - line) / 2, text.width, line};
+            const bool there = text.top == centredLine.top && text.height == centredLine.height;
+            if (!there) {
+                if (!entry->textMoved) {
+                    entry->textWas = text;
+                    entry->textMoved = true;
+                }
+                SetK1CaptionRect(control, centredLine);
+            }
+            text = centredLine;
+        }
         const K1BadgeRect area = text.height > 0 ? text : at;
         if (line > 0) {
             const int lineMiddle = (alignment & 16u) != 0 ? area.top + area.height / 2
