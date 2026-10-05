@@ -109,6 +109,16 @@ proxy, and it applies the executable changes above as well.
 
 ## [Unreleased]
 
+- **A slot's picture sits in the middle of its box** (2026-10-05, the Xbox-style
+  HUD). The slot box is not in the middle of its texture: it is two and a half of
+  the texture's 64 pixels higher and half a pixel left. The module centred a slot's
+  picture and arrows on the frame's rectangle, so in the large frame of the selected
+  slot the picture sat five screen pixels low at 1280x960, and the maintainer saw
+  the speech icon off centre. The picture of every slot, and the selected slot's
+  arrows, are now centred on the box the frame draws (`OnBox` in `K1XboxHud.cpp`,
+  from `SLOT_BOX_CENTRE` in `tools/build_xbox_hud_art.py`). Seen at 1280x960 with
+  the first and the second slot selected (package SHA-256 `93000490...8EA6F009`);
+  `Test-ControllerKpatch.py` passes. Not run: any other size, a fight.
 - **KMRP as two patches, its own and the controller patch it requires: first stage,
   on the branch `kmrp-two-patches` only** (2026-10-05). The maintainer decided that
   day that KMRP ships `KMRP.kpatch` plus the standalone controller patch ("KOTOR 1

@@ -387,6 +387,14 @@ second portrait's vitality arc lay on the picture's corners.
 The module no longer draws a bar's outer edge a second time beside itself (it did
 for some hours on 2026-10-05, for the game's art).
 
+### The slots' pictures
+
+The slot box is not in the middle of its 64x64 texture: its middle is at (31.5,
+29.5), in the game's art as in the drawing. A slot's picture, and the selected
+slot's arrows, are centred on that point of the frame (`OnBox`), not on the frame's
+rectangle. Until then the selected slot's picture sat low in its large box, five
+screen pixels at 1280x960.
+
 ## Measured against the Xbox game
 
 One frame of the reference video (https://www.youtube.com/watch?v=b0X_7pRUkgo at

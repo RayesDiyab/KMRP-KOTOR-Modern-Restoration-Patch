@@ -895,6 +895,20 @@ Extent Centred(const Extent& on, int width, int height)
     return {on.left + (on.width - width) / 2, on.top + (on.height - height) / 2, width, height};
 }
 
+// Centred on the box a slot's frame DRAWS, which is not the middle of the frame's
+// rectangle: the art has the box two and a half of its 64 pixels above its texture's
+// middle and half a pixel left (kSlotBoxCentre). In the large frame of the selected
+// slot that is five screen pixels at 1280x960, and the picture and the arrows, put on
+// the rectangle's middle, sat low in the box (the maintainer saw the speech icon off
+// centre, 2026-10-05).
+Extent OnBox(const Extent& frame, int width, int height)
+{
+    Extent at = Centred(frame, width, height);
+    at.left += static_cast<int>(std::floor(frame.width * (kSlotBoxCentre[0] - 32.0) / 64.0 + 0.5));
+    at.top += static_cast<int>(std::floor(frame.height * (kSlotBoxCentre[1] - 32.0) / 64.0 + 0.5));
+    return at;
+}
+
 bool Enabled()
 {
     // KOTOR Patch Manager's option when it recorded one; otherwise the setting in
@@ -1313,7 +1327,9 @@ extern "C" void __cdecl KmrpXboxHudK1(void* hud)
     if (g_first.selected) {
         const Extent frame = g_first.frame;
         g_first.frame = Centred(frame, Scale(kLarge[0][0], height), Scale(kLarge[0][1], height));
-        g_first.picture = Centred(frame, Scale(kLarge[1][0], height), Scale(kLarge[1][1], height));
+        g_first.picture = OnBox(g_first.frame, Scale(kLarge[1][0], height), Scale(kLarge[1][1], height));
+    } else {
+        g_first.picture = OnBox(g_first.frame, g_first.picture.width, g_first.picture.height);
     }
 
     // The slots: each at its place in the row, the focused one large.
@@ -1356,10 +1372,13 @@ extern "C" void __cdecl KmrpXboxHudK1(void* hud)
         const Extent frame = part[0];
         const int (*size)[2] = slot == focused ? kLarge : kSmall;
         if (slot == focused) {
-            for (int p = 0; p < 3; ++p)
-                part[p] = Centred(frame, Scale(size[p][0], height), Scale(size[p][1], height));
+            part[0] = Centred(frame, Scale(size[0][0], height), Scale(size[0][1], height));
+            for (int p = 1; p < 3; ++p)
+                part[p] = OnBox(part[0], Scale(size[p][0], height), Scale(size[p][1], height));
             part[3] = {part[2].left, part[2].top + part[2].height / 2, part[2].width,
                        part[2].height - part[2].height / 2};
+        } else {
+            part[1] = OnBox(frame, part[1].width, part[1].height);     // a small slot's picture, in its box's middle too
         }
         if (slot < kTargetSlots) {
             void* normal = Part(action, kButtonBorderParams);

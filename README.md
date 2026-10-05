@@ -87,6 +87,23 @@ sharing. [docs/kpm-edition.md](docs/kpm-edition.md) describes both ways. (Until
 2026-09-29 this took a separate installer, *KMRP for KPM*, and then, the same
 day, a `KPM patches` folder beside the installer.)
 
+**Controller support without KMRP.** `KOTOR 1 Native Controller Mod + Xbox HUD.kpatch`
+is KMRP's controller support as a KOTOR Patch Manager patch of its own, for a game
+that has no KMRP: the pad in the game and in every menu, button prompts for Xbox,
+PlayStation, Switch and Steam Deck pads, rumble, and the Controller Layout screen,
+on the interface the game ships. It needs no other patch and no installer, writes
+nothing to `Override`, and places its prompts from the running game, so it runs
+beside a widescreen patch (seen with Scaled Kotor 1.3.1 at 1920x1080 and
+3440x1440, on the build before the HUD's frames were redrawn). Its one extra is an **Xbox-style HUD**, off by default: the in-game HUD
+laid out as the original Xbox version's while the pad is in use, in frames drawn
+for it at four times the game's size, and the game's own HUD back as soon as the
+mouse or keyboard is used. KMRP's own patch already contains controller support,
+so the two are not installed together; KMRP does not have the Xbox-style HUD.
+Built by `tools/build_controller_kpatch.py` into `dist\controller`; what it
+carries, what was run and what was not are in
+[docs/controller-standalone.md](docs/controller-standalone.md) and
+[docs/controller-xbox-hud.md](docs/controller-xbox-hud.md). Windows only.
+
 **macOS (Steam, in development).** A separate installer for the Aspyr build on Steam,
 made from the same resources as this one: the same menu sets, fonts, artwork and icons
 at any of the 66 resolutions, with any other size blended from them at install. The
@@ -266,9 +283,11 @@ it beside the game as `kmrp-kpm.dat`, and installed that resolution's files into
 **Each interface file is stored once.** Most of the 66 resolutions' files are
 the same bytes at several resolutions, so the module embeds them as one bank
 of distinct files, compressed, with an index per resolution, and unpacks the set
-of the size in use. The installer carries the module once, inside `KMRP.kpatch`,
-and is 195.8 MB (2026-10-04; 164.8 MB when it carried the files as a pool for
-`Override` instead).
+of the size in use. Since 2026-10-05 the bank also leaves out every file the
+module can write itself, exactly, from its blend table (most layouts and badges of
+most sizes), and checks each file it writes against the set's index. The installer
+carries the module once, inside `KMRP.kpatch`, and is 130 MB (136,111,616 bytes as
+built on 2026-10-05; 195.8 MB the day before, with every file in the bank).
 
 **One scaling rule, everywhere.** Font metrics, list rows, icon sizes and popup
 geometry all scale by `max(1.0, height / 720)` — 1.00× at 720p, 1.50× at 1080p,
