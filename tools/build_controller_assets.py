@@ -3,7 +3,7 @@
 changes and art, made for the game's ORIGINAL interface.
 
 KMRP's own patch carries these inside its resolution sets, made from KMRP's scaled
-layouts. The standalone controller patch ("KMRP Controller.kpatch",
+layouts. The standalone controller patch ("KOTOR 1 Native Controller Mod + Xbox HUD.kpatch",
 tools/build_controller_kpatch.py) runs without KMRP, on the layouts the game ships,
 so the same steps are run here on those:
 

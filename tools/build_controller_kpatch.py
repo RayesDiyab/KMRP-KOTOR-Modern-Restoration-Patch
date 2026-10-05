@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """Build and check the standalone controller patch for KOTOR Patch Manager:
-"KMRP Controller.kpatch", id "kmrp-controller".
+"KOTOR 1 Native Controller Mod + Xbox HUD.kpatch", id "kmrp-controller".
 
 KMRP's native controller support for a game WITHOUT KMRP: the pad in the game and in
 every menu, the button prompts of four controller families, rumble and the Controller
@@ -41,7 +41,11 @@ import kmrp_controller
 ROOT = Path(__file__).resolve().parents[1]
 RUNTIME_TABLE = ROOT / 'src/controller-native/kotor1-native-runtime.hooks.toml'
 ID = 'kmrp-controller'
-NAME = 'KMRP Controller.kpatch'
+# The patch was "KMRP Controller" until 2026-10-05, when the maintainer renamed it: it
+# is for the game without KMRP, and the name now says what it is. Its id, its
+# settings file (kmrp-controller.ini) and its log keep their names, since KMRP's own
+# patch lists the id as a conflict and players have the files.
+NAME = 'KOTOR 1 Native Controller Mod + Xbox HUD.kpatch'
 MODULE = 'binaries/windows_x86.dll'
 HOOKS = 'kotor1.hooks.toml'
 # The module's one site outside the controller's table: where its files are
@@ -73,11 +77,12 @@ KMRP_PATCHES = ['kmrp', 'kmrp-movies', 'kmrp-map-notes', 'kmrp-native', 'kmrp-na
 OTHERS = ['expanded-keyboard-control', 'xbox-controls-k1']
 PATCH = {
     'id': ID,
-    'name': 'KMRP Controller - Native Controller Support',
+    'name': 'KOTOR 1 Native Controller Mod + Xbox HUD',
     'description': (
         "Native controller support for KOTOR's original interface: play with an Xbox, "
         'PlayStation, Switch or Steam Deck controller in the game and in every menu, with '
-        'matching button prompts, rumble and a Controller Layout screen in Options. '
+        'matching button prompts, rumble, a Controller Layout screen in Options and an '
+        "optional HUD laid out like the original Xbox version's. "
         'Standalone: needs no other patch and writes nothing to Override. KMRP already '
         'includes it, so use one or the other.'),
     'requires': [],
@@ -92,6 +97,35 @@ XBOX_HUD_BARS_HOOK = {
     'original_bytes': [0x56, 0x8B, 0xF1, 0xF6, 0x86, 0xEC, 0x1A, 0x00, 0x00, 0x01],
     'skip_original_bytes': False, 'exclude_from_restore': [],
     'parameters': [{'source': 'ecx', 'type': 'pointer'}],
+}
+# Where a panel is told to the module, in this patch only. KMRP's own patch hooks the
+# entry of CSWGuiPanel::StopLoadFromLayout (0x0040B8F0), which every panel calls as
+# its constructor ends and again from the base destructor. Scaled Kotor 1.3.1, a
+# widescreen patch for KOTOR Patch Manager, hooks that same entry, and the manager
+# refuses two patches on one address (tried 2026-10-05: "Hook conflicts detected:
+# 0x0040B8F0"). So this patch reaches the same two moments from sites of its own:
+#
+# - as a panel finishes loading: the entry of CRes::Release (0x00409B80: push ecx /
+#   mov ecx, [0x007A39E8], an absolute address), which StopLoadFromLayout calls on
+#   the panel's parsed layout at 0x0040B8FC with the panel in esi. The handler acts
+#   only on that one call, known by its return address, 0x0040B901;
+# - as a panel is destroyed: 0x0040CFAB in CSWGuiPanel::~CSWGuiPanel (mov dword ptr
+#   [esi+0x5C], 0), the instruction before the destructor's own call of
+#   StopLoadFromLayout, with the base vtable already back and the panel in esi.
+PANEL_SITE = 0x0040B8F0
+PANEL_FUNCTION = 'NativePanelReleaseGffK1'
+PANEL_LOADED_HOOK = {
+    'address': 0x00409B80, 'type': 'detour', 'function': 'NativePanelLoadedK1',
+    'original_bytes': [0x51, 0x8B, 0x0D, 0xE8, 0x39, 0x7A, 0x00],
+    'skip_original_bytes': False, 'exclude_from_restore': [],
+    'parameters': [{'source': 'ecx', 'type': 'pointer'}, {'source': 'esi', 'type': 'pointer'},
+                   {'source': 'esp+0', 'type': 'pointer'}],
+}
+PANEL_DESTROYED_HOOK = {
+    'address': 0x0040CFAB, 'type': 'detour', 'function': 'NativePanelDestroyedK1',
+    'original_bytes': [0xC7, 0x46, 0x5C, 0x00, 0x00, 0x00, 0x00],
+    'skip_original_bytes': False, 'exclude_from_restore': [],
+    'parameters': [{'source': 'esi', 'type': 'pointer'}],
 }
 OPTIONS = [
     {'id': 'xbox-hud', 'name': 'Xbox-style HUD', 'default': False,
@@ -116,6 +150,12 @@ def hooks():
     if len(resource) != 1:
         raise ValueError(f'Expected one {RESOURCE_HOOK} site')
     selected += resource
+    shared = [h for h in selected if h['address'] == PANEL_SITE and h['function'] == PANEL_FUNCTION]
+    if len(shared) != 1:
+        raise ValueError(f'Expected one {PANEL_FUNCTION} site at {PANEL_SITE:#010x}')
+    selected.remove(shared[0])
+    selected.append(dict(PANEL_LOADED_HOOK))
+    selected.append(dict(PANEL_DESTROYED_HOOK))
     selected.append(dict(XBOX_HUD_HOOK))
     selected.append(dict(XBOX_HUD_BARS_HOOK))
     for index, h in enumerate(selected):

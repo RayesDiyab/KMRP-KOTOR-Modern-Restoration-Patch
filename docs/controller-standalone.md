@@ -1,10 +1,10 @@
-# KMRP Controller: the standalone controller patch
+# KOTOR 1 Native Controller Mod + Xbox HUD: the standalone controller patch
 
 > **Documentation standard.** This document follows
 > [`documentation-standard.md`](documentation-standard.md). Every claim says how
 > it was established; anything not run is listed under "Tested and not tested".
 
-**Kind: reference.** What `KMRP Controller.kpatch` is, what it carries, what it
+**Kind: reference.** What `KOTOR 1 Native Controller Mod + Xbox HUD.kpatch` is (it was `KMRP Controller.kpatch` until the evening of 2026-10-05, and the build this document measures still had that name), what it carries, what it
 writes into a running game, and how it differs from the controller support inside
 KMRP's own patch. Written 2026-10-05, the day it was built. The controller itself
 (the joystick device, the mapping, the prompts, rumble) is described in
@@ -228,7 +228,10 @@ leave 12 design units between their words. Off for KMRP's sets, whose
 
 Since later on 2026-10-05 the patch has one more option, `xbox-hud`, and one more
 setting, `Style` under `[Hud]` in `kmrp-controller.ini`, both off by default. They
-add two hooks (33 in all) and a button glyph per controller family to the bank;
+add two hooks and a button glyph per controller family to the bank (and the patch
+has 34 hooks since it left `StopLoadFromLayout`'s entry to other patches and took two
+sites of its own for it; [`controller-xbox-hud.md`](controller-xbox-hud.md), "Beside a
+widescreen patch");
 the counts elsewhere in this document are the build before it. The HUD is the Xbox
 one while the pad is in use and the game's own with the mouse and keyboard.
 [`controller-xbox-hud.md`](controller-xbox-hud.md) describes it.

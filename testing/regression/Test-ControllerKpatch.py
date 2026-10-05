@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Checks on the standalone controller patch, dist/controller/KMRP Controller.kpatch.
+"""Checks on the standalone controller patch, dist/controller/KOTOR 1 Native Controller Mod + Xbox HUD.kpatch.
 
 What it proves, from the built files and the sources (it starts no game):
 
@@ -83,7 +83,7 @@ def alpha_box(tga: bytes):
 def main() -> int:
     # 1. The package against its sources.
     result = package.validate(PACKAGE)
-    check(result["hooks"] == len(package.hooks()) == 33, f"the package carries {result['hooks']} hooks, all from the sources")
+    check(result["hooks"] == len(package.hooks()) == 34, f"the package carries {result['hooks']} hooks, all from the sources")
     with zipfile.ZipFile(PACKAGE) as z:
         manifest = tomllib.loads(z.read("manifest.toml").decode())["patch"]
         packed = tomllib.loads(z.read(package.HOOKS).decode())["hooks"]
@@ -108,13 +108,18 @@ def main() -> int:
     # 3. Its sites against KMRP's.
     theirs = {h["address"]: h for h in kmrp.all_hooks()}
     stand_ins = {0x0040CE70, 0x00404D96}        # held by KMRP's core frames, which run the controller's
-    # the Xbox-style HUD's two, which KMRP's patch does not have
-    own = {package.XBOX_HUD_HOOK["address"], package.XBOX_HUD_BARS_HOOK["address"]}
+    # the Xbox-style HUD's two, which KMRP's patch does not have, and the two that
+    # stand in for KMRP's hook at StopLoadFromLayout's entry, left to other patches
+    own = {package.XBOX_HUD_HOOK["address"], package.XBOX_HUD_BARS_HOOK["address"],
+           package.PANEL_LOADED_HOOK["address"], package.PANEL_DESTROYED_HOOK["address"]}
+    check(package.PANEL_SITE not in mine and package.PANEL_SITE in theirs,
+          "StopLoadFromLayout's entry, which KMRP's patch hooks, is left free for another patch")
     same = [a for a in mine if a in theirs and a not in stand_ins
             and kmrp_controller.normalised(mine[a]) == kmrp_controller.normalised(theirs[a])]
     check(len(same) == len(mine) - len(stand_ins) - len(own) and stand_ins <= set(theirs) and not (own & set(theirs)),
           f"{len(same)} sites are KMRP's own hooks unchanged, {len(stand_ins)} are the frame sites KMRP holds, "
-          f"and {len(own)} are the Xbox-style HUD's own, which KMRP's patch leaves alone")
+          f"and {len(own)} are this patch's own (the Xbox-style HUD's two and the two panel sites), "
+          "which KMRP's patch leaves alone")
 
     # 4. The file bank.
     names = sorted(p.name for p in FILES.iterdir())

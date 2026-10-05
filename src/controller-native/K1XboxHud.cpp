@@ -256,6 +256,7 @@ int Scale(int value, int height)
 constexpr std::ptrdiff_t kPartyBars[2] = {0x7A8, 0x8F8};
 constexpr std::ptrdiff_t kBarMost = 0x5C;
 constexpr std::ptrdiff_t kBarValue = 0x60;
+constexpr std::ptrdiff_t kBarBorder = 0x68;
 constexpr std::ptrdiff_t kBarFill = 0xDC;
 constexpr std::uintptr_t kBarSetValue = 0x00417FB0;    // CSWGuiProgressBar::SetCurValue
 constexpr std::ptrdiff_t kControlFlags = 0x44;
@@ -266,6 +267,29 @@ constexpr std::uintptr_t kStopLayer = 0x004592B0;      // AurGUIStopLayer
 constexpr std::uintptr_t kSetupViewport = 0x004592F0;  // AurGUISetupViewport(x, y, w, h, colour, 0, 1.0)
 constexpr std::uintptr_t kCloseViewport = 0x00459580;  // AurGUICloseViewport
 constexpr std::uintptr_t kNoColouring = 0x0078D3D8;
+
+// The party's bar art runs to the side edge of its texture (lbl_health2: the arc's
+// outline is the texture's first column), and the engine samples a GUI texture with
+// wrap, so the outer edge was mixed with the texture's far side: the arc's outer
+// outline came out half as thick, and a faint dark tick stood at the top and bottom
+// of that edge (the maintainer saw both, 2026-10-05). Right after a bar's piece is
+// drawn its texture is still the one bound, and it is told to clamp at its edges; the
+// setting belongs to the texture, so it holds from the next draw on. These four
+// textures are used by nothing but this HUD.
+void ClampBoundTexture()
+{
+    using GetInteger = void(__stdcall*)(unsigned, int*);
+    using TexParameter = void(__stdcall*)(unsigned, unsigned, int);
+    static const HMODULE gl = GetModuleHandleW(L"opengl32.dll");
+    static const GetInteger getInteger = gl ? reinterpret_cast<GetInteger>(GetProcAddress(gl, "glGetIntegerv")) : nullptr;
+    static const TexParameter texParameter = gl ? reinterpret_cast<TexParameter>(GetProcAddress(gl, "glTexParameteri")) : nullptr;
+    if (!getInteger || !texParameter) return;
+    int bound = 0;
+    getInteger(0x8069, &bound);                // GL_TEXTURE_BINDING_2D
+    if (!bound) return;
+    texParameter(0x0DE1, 0x2802, 0x812F);      // GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE
+    texParameter(0x0DE1, 0x2803, 0x812F);      // GL_TEXTURE_WRAP_T
+}
 
 void SetBarValue(void* bar, int value)
 {
@@ -449,7 +473,7 @@ constexpr std::ptrdiff_t kHudMapWindowTop = 0x6084;    // the rectangle the map 
 enum Kind : unsigned char { kLabel, kButton, kToggle, kProgress };
 enum Side : unsigned char { kLeft, kRight, kCentre, kRelative };
 enum Edge : unsigned char { kTop, kBottom };
-enum : unsigned char { kHide = 1, kRow = 2, kSetFont = 4 };
+enum : unsigned char { kHide = 1, kRow = 2, kSetFont = 4, kParty = 8 };
 struct Piece {
     unsigned short offset;
     Kind kind;
@@ -536,6 +560,7 @@ struct Layout {
     bool cues = false;
     int bubble[3]{};
     bool bubbleKept = false;
+    float spareAlpha = 1.0f;           // of LBL_MENUBG's fill, which the hooks draw with
 } g_layout;
 
 const char* Piece::* const kArt[3] = {&Piece::fill, &Piece::hilight, &Piece::progress};
@@ -555,6 +580,7 @@ void Keep(void* hud)
                 std::memcpy(kept.art[which], &At<char>(params, kParamsFill), 16);
         if (piece.kind == kLabel) std::memcpy(kept.font, &At<char>(control, kLabelTextParams + kTextFontName), 20);
     }
+    g_layout.spareAlpha = At<float>(Part(Part(hud, kHudSpareLabel), kLabelBorderParams), kParamsAlpha);
     g_layout.descriptionBottom = At<int>(hud, kHudDescriptionBottom);
     std::memcpy(g_layout.mapWindow, &At<int>(hud, kHudMapWindow), sizeof g_layout.mapWindow);
     std::memcpy(g_layout.menu, &At<int>(Part(hud, kHudTargetMenu), kMenuOrigin), sizeof g_layout.menu);
@@ -565,6 +591,18 @@ Extent Placed(const Piece& piece, const Kept& kept, int width, int height)
     const int x = piece.box[0], y = piece.box[1];
     const int w = Scale(piece.box[2], height), h = Scale(piece.box[3], height);
     if (piece.flags & kHide) return {kParked, kParked, kept.extent.width, kept.extent.height};
+    if (piece.flags & kParty) {
+        // The party's group, smaller about its bottom right corner (build_xbox_hud.py,
+        // PARTY_SCALE). Lengths here need not be whole units, so they are scaled as
+        // they are and rounded half up once.
+        const double f = kPartyScale / 100.0;
+        auto exact = [height](double units) { return static_cast<int>(units * height / kBaseHeight + 0.5); };
+        const int pw = exact(piece.box[2] * f), ph = exact(piece.box[3] * f);
+        if (piece.side == kRelative) return {exact(x * f), exact(y * f), pw > 0 ? pw : 1, ph > 0 ? ph : 1};
+        return {width - exact(kLayoutWidth - kOutX - kPartyCorner[0] + (kPartyCorner[0] - x) * f),
+                height - exact(kLayoutHeight - kOutY - kPartyCorner[1] + (kPartyCorner[1] - y) * f),
+                pw > 0 ? pw : 1, ph > 0 ? ph : 1};
+    }
     if (piece.flags & kRow) return {0, Scale(y, height), width, h};
     if (piece.side == kRelative) return {Scale(x, height), Scale(y, height), w > 0 ? w : 1, h > 0 ? h : 1};
     int left;
@@ -685,6 +723,21 @@ void ReadRow(void* hud, int height)
                    g_row.part[0].left >= 0 && g_row.part[0].top >= 0;
 }
 
+// The minimap's frame beside another patch. Scaled Kotor (a widescreen patch for
+// KOTOR Patch Manager, 1.3.1 read on 2026-10-05) puts LBL_MAPBORDER back on its PC
+// place, scaled, inside CSWGuiMainInterface::DrawMap (its hook at 0x0068ABB0, after
+// this file's at DrawMap's entry), and sets the map's size, but leaves where the map
+// is drawn alone: the map was at the Xbox place and its frame in the opposite corner
+// (seen at 1920x1080). So after the panel is drawn the frame is compared with where
+// this file put it. If something moved it, the engine's frame is left without art
+// while the Xbox layout is up and this file draws one around the map as it is.
+// (Without art, not invisible: the engine takes the frame's visibility for "is there
+// a minimap", and with none it draws the speech box across the whole screen. Seen
+// at 3440x1440 by the maintainer, 2026-10-05.)
+Extent g_mapBorderSet{};
+bool g_mapBorderForeign = false;
+constexpr char kMapFrame[16] = "lbl_minimap";
+
 // What the hook changes before each draw that the engine does not set again by
 // itself: which slots it parked, the frames the engine last gave the target's slots,
 // and the arrows it hid.
@@ -708,12 +761,15 @@ void RestorePc(void* hud, void* seen)
         const Kept& kept = g_layout.kept[i];
         void* control = Part(hud, piece.offset);
         SetExtent(control, kept.extent);
-        for (int which = 0; which < 3; ++which) {
-            void* params = Dress(control, piece.kind, which);
-            if (piece.*kArt[which] && params) SetFill(params, kept.art[which]);
-        }
+        // Every fill, not only the ones the table changes: the hooks borrow two parked
+        // controls to draw with (LBL_MENUBG, BTN_MSG), and LBL_MENUBG is the dark
+        // backing of the PC HUD's menu buttons. (Left in the last art drawn with it,
+        // the buttons had no backing after a swap; the maintainer saw it, 2026-10-05.)
+        for (int which = 0; which < 3; ++which)
+            if (void* params = Dress(control, piece.kind, which)) SetFill(params, kept.art[which]);
         if (piece.flags & kSetFont) SetFont(control, kept.font);
     }
+    At<float>(Part(Part(hud, kHudSpareLabel), kLabelBorderParams), kParamsAlpha) = g_layout.spareAlpha;
     At<int>(hud, kHudDescriptionBottom) = g_layout.descriptionBottom;
     std::memcpy(&At<int>(hud, kHudMapWindow), g_layout.mapWindow, sizeof g_layout.mapWindow);
     std::memcpy(&At<int>(menu, kMenuOrigin), g_layout.menu, sizeof g_layout.menu);
@@ -723,6 +779,7 @@ void RestorePc(void* hud, void* seen)
     }
     if (g_layout.bubbleKept)
         if (int* bubble = BarkBubble()) std::memcpy(bubble, g_layout.bubble, sizeof g_layout.bubble);
+    g_mapBorderForeign = false;        // its art came back with the other controls', above
     // The slots. The engine frames a target's slots when the target changes, and
     // shows a slot's button and arrows when its contents change, not every frame.
     for (int slot = 0; slot < 7; ++slot) {
@@ -790,6 +847,7 @@ void KmrpXboxHudForgetK1(void* panel)
     for (auto& member : g_bars)
         for (Bar& held : member) held = Bar{};
     for (bool& parked : g_parked) parked = false;
+    g_mapBorderForeign = false;
     std::memset(g_engineFrame, 0, sizeof g_engineFrame);
     g_arrowsHidden = false;
 }
@@ -824,8 +882,30 @@ extern "C" void __cdecl KmrpXboxHudBarsK1(void* menu)
             };
             reinterpret_cast<void(__cdecl*)()>(kStartLayer)();
             using Viewport = int(__cdecl*)(int, int, int, int, void*, int, float);
+            // The minimap's frame, when another patch has taken the engine's away.
+            Extent mapFrame{};
+            {
+                const Extent now = At<Extent>(Part(hud, kHudMapBorder), kControlExtent);
+                if (!g_mapBorderForeign && (now.left != g_mapBorderSet.left || now.top != g_mapBorderSet.top ||
+                                            now.width != g_mapBorderSet.width || now.height != g_mapBorderSet.height))
+                    g_mapBorderForeign = true;
+                Extent wasBorder{};
+                for (int i = 0; i < kPieceCount; ++i)
+                    if (kPieces[i].offset == kHudMapBorder) wasBorder = g_layout.kept[i].extent;
+                const int* map = &At<int>(hud, kHudMapWindow);
+                const int* was = g_layout.mapWindow;
+                if (g_mapBorderForeign && was[2] > 0 && was[3] > 0)
+                    mapFrame = {map[0] + (wasBorder.left - was[0]) * map[2] / was[2],
+                                map[1] + (wasBorder.top - was[1]) * map[3] / was[3],
+                                wasBorder.width * map[2] / was[2], wasBorder.height * map[3] / was[3]};
+            }
             if (reinterpret_cast<Viewport>(kSetupViewport)(0, 0, first.width, first.height,
                     reinterpret_cast<void*>(kNoColouring), 0, 1.0f)) {
+                if (mapFrame.width > 0 && mapFrame.height > 0) {
+                    SetFill(frame, kMapFrame);
+                    SetExtent(label, mapFrame);
+                    draw(label);
+                }
                 if (first.dimForce) {
                     SetFill(frame, kSlotFrame);
                     At<float>(frame, kParamsAlpha) = 0.5f;
@@ -847,30 +927,61 @@ extern "C" void __cdecl KmrpXboxHudBarsK1(void* menu)
         }
     }
     for (auto& member : g_bars) {
-        for (Bar& held : member) {
+        for (int kind = 0; kind < 2; ++kind) {
+            Bar& held = member[kind];
             if (!held.bar) continue;
             void* bar = held.bar;
             const int value = held.value;
             held = Bar{};
             const Extent whole = At<Extent>(bar, kControlExtent);
             const int most = At<int>(bar, kBarMost);
-            if (most <= 0 || whole.width <= 0 || whole.height <= 0) { SetBarValue(bar, value); continue; }
-            const int filled = whole.height * value / most;
-            if (filled > 0) {
+            At<int>(bar, kControlFlags) |= kControlVisible;
+            if (most <= 0 || whole.width <= 2 || whole.height <= 0) continue;
+            // Drawn here whole, not by the panel: the empty bar, then its filling
+            // through a viewport that is the filled part's rectangle, and each
+            // texture told to clamp (ClampBoundTexture).
+            // Then the bar's outer edge once more, a pixel or two further out (the
+            // vitality bar's left, the Force bar's right). The texture is 16 wide and
+            // the arc's outline at its widest is the texture's first column alone,
+            // one texel where the outline is two elsewhere, which reads as the arc
+            // cut off at the side (the maintainer saw it, 2026-10-05). The edge
+            // repeated beside itself makes the outline as thick there as elsewhere.
+            const int inset = 0, trim = 0;
+            const int edge = whole.width >= 30 ? 2 : 1;
+            const int filled = value <= 0 ? 0 : value >= most ? whole.height : whole.height * value / most;
+            using Viewport = int(__cdecl*)(int, int, int, int, void*, int, float);
+            using Draw = void(__thiscall*)(void*, float);
+            auto part = [&](std::ptrdiff_t which, int rows) {
+                if (rows <= 0) return;
                 reinterpret_cast<void(__cdecl*)()>(kStartLayer)();
-                using Viewport = int(__cdecl*)(int, int, int, int, void*, int, float);
-                if (reinterpret_cast<Viewport>(kSetupViewport)(whole.left, whole.top + whole.height - filled,
-                        whole.width, filled, reinterpret_cast<void*>(kNoColouring), 0, 1.0f)) {
-                    // The bar full, placed so that its lower `filled` rows are the viewport's.
-                    SetExtent(bar, {0, filled - whole.height, whole.width, whole.height});
+                if (reinterpret_cast<Viewport>(kSetupViewport)(whole.left + inset, whole.top + whole.height - rows,
+                        whole.width - trim, rows, reinterpret_cast<void*>(kNoColouring), 0, 1.0f)) {
+                    // The bar full, placed so that its lower `rows` rows are the viewport's.
+                    SetExtent(bar, {-inset, rows - whole.height, whole.width, whole.height});
                     SetBarValue(bar, most);
-                    void* fill = Part(bar, kBarFill);
-                    using Draw = void(__thiscall*)(void*, float);
-                    reinterpret_cast<Draw>((*reinterpret_cast<void***>(fill))[3])(fill, 0.0f);
+                    void* piece = Part(bar, which);
+                    reinterpret_cast<Draw>((*reinterpret_cast<void***>(piece))[3])(piece, 0.0f);
+                    ClampBoundTexture();
+                    reinterpret_cast<void(__cdecl*)()>(kCloseViewport)();
+                }
+                // Only the middle of it. The art has that column from row 20 to row 43
+                // of its 64; repeated over all of them the line stood out at its two
+                // ends, where the arc has already turned away (the maintainer saw it),
+                // so five rows are left off at each end.
+                const int bandTop = whole.top + whole.height * 25 / 64, bandBottom = whole.top + whole.height * 39 / 64;
+                const int clipTop = bandTop > whole.top + whole.height - rows ? bandTop : whole.top + whole.height - rows;
+                if (clipTop < bandBottom &&
+                    reinterpret_cast<Viewport>(kSetupViewport)(kind == 0 ? whole.left - edge : whole.left + whole.width,
+                        clipTop, edge, bandBottom - clipTop, reinterpret_cast<void*>(kNoColouring), 0, 1.0f)) {
+                    SetExtent(bar, {kind == 0 ? 0 : edge - whole.width, whole.top - clipTop, whole.width, whole.height});
+                    void* piece = Part(bar, which);
+                    reinterpret_cast<Draw>((*reinterpret_cast<void***>(piece))[3])(piece, 0.0f);
                     reinterpret_cast<void(__cdecl*)()>(kCloseViewport)();
                 }
                 reinterpret_cast<void(__cdecl*)()>(kStopLayer)();
-            }
+            };
+            part(kBarBorder, whole.height);
+            part(kBarFill, filled);
             SetExtent(bar, whole);
             SetBarValue(bar, value);
         }
@@ -1050,6 +1161,8 @@ extern "C" void __cdecl KmrpXboxHudK1(void* hud)
         Extent at = At<Extent>(border, kControlExtent);
         at.top = g_row.mapBorderTop + lower;
         SetExtent(border, at);
+        g_mapBorderSet = at;
+        if (g_mapBorderForeign) SetFillName(Part(border, kLabelBorderParams), "");
         at = At<Extent>(window, kControlExtent);
         at.top = g_row.mapButtonTop + lower;
         SetExtent(window, at);
@@ -1113,11 +1226,10 @@ extern "C" void __cdecl KmrpXboxHudK1(void* hud)
             void* bar = Part(hud, kHudParty + member * kPartySize + kPartyBars[kind]);
             Bar& held = g_bars[member][kind];
             held = Bar{};
-            const int most = At<int>(bar, kBarMost), value = At<int>(bar, kBarValue);
-            if (!(At<int>(bar, kControlFlags) & kControlVisible) || value <= 0 || value >= most) continue;
+            if (!(At<int>(bar, kControlFlags) & kControlVisible)) continue;
             held.bar = bar;
-            held.value = value;
-            SetBarValue(bar, 0);
+            held.value = At<int>(bar, kBarValue);
+            At<int>(bar, kControlFlags) &= ~kControlVisible;     // not by the panel: KmrpXboxHudBarsK1 draws it
         }
     }
 

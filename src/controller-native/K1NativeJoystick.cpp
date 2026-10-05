@@ -2606,6 +2606,35 @@ extern "C" void __cdecl NativePanelReleaseGffK1(void* panel)
     InstallGuiCuesK1(panel);
 }
 
+// The standalone controller patch reaches NativePanelReleaseGffK1's two moments from
+// sites of its own, because another KOTOR Patch Manager patch (Scaled Kotor) hooks
+// StopLoadFromLayout's entry and the manager allows one patch per address
+// (tools/build_controller_kpatch.py, PANEL_LOADED_HOOK and PANEL_DESTROYED_HOOK).
+//
+// CRes::Release (0x00409B80), with the resource in ecx, esi as the caller left it,
+// and the address of the return address. Only StopLoadFromLayout's call matters
+// (it returns to 0x0040B901, and has the panel in esi and the panel's parsed
+// layout, still whole, in ecx); every other release of a resource is none of ours.
+extern "C" void __cdecl NativePanelLoadedK1(void* resource, void* panel, void** returnSlot)
+{
+    if (!returnSlot || *returnSlot != reinterpret_cast<void*>(0x0040B901)) {
+        return;
+    }
+    if (!resource || !LooksLikePointerK1(panel) ||
+        *FieldAt<void*>(panel, 0x2C) != resource) {      // K1_PANEL_GFF
+        return;
+    }
+    NativePanelReleaseGffK1(panel);
+}
+
+// CSWGuiPanel::~CSWGuiPanel at 0x0040CFAB, esi = the panel: its vtable is the base
+// class's again, its layout long released and its control array not yet disposed
+// of, which is the state the destructor's own StopLoadFromLayout call sees.
+extern "C" void __cdecl NativePanelDestroyedK1(void* panel)
+{
+    NativePanelReleaseGffK1(panel);
+}
+
 // CSWGuiMainInterface's per-frame update, with ecx holding the interface. The
 // gameplay HUD's action bar is driven from here: the engine functions it calls
 // expect to run during GUI work, not inside CExoInput's polling.

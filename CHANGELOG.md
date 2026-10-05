@@ -109,6 +109,39 @@ proxy, and it applies the executable changes above as well.
 
 ## [Unreleased]
 
+- **The standalone controller patch is now "KOTOR 1 Native Controller Mod + Xbox HUD"** (2026-10-05).
+  The file is `KOTOR 1 Native Controller Mod + Xbox HUD.kpatch` and KOTOR Patch Manager
+  lists it under that name; it was "KMRP Controller". Its id (`kmrp-controller`), its
+  settings file and its log keep their names.
+- **The standalone controller patch installs beside Scaled Kotor, and the Xbox-style
+  HUD works with it at 1920x1080 and 3440x1440** (2026-10-05).
+  KOTOR Patch Manager refused the pair: both hooked the entry of
+  `CSWGuiPanel::StopLoadFromLayout` (`0x0040B8F0`). The standalone patch now reaches
+  the same two moments from sites of its own, the entry of `CRes::Release`
+  (`0x00409B80`, acting on one caller only) and `0x0040CFAB` in the panel's
+  destructor; 34 hooks. KMRP's own patch is unchanged. With Scaled Kotor 1.3.1 at
+  1920x1080 the Xbox HUD lays out as at the game's own sizes; the minimap's frame,
+  which Scaled Kotor moves back every frame, is drawn by the module around the map
+  when that happens. Also in the Xbox-style HUD:
+  - the PC HUD's menu buttons keep their dark backing after a swap (the module
+    draws with that label and had not put its art back);
+  - the party's bars have their whole outer outline and no faint ticks at their
+    ends: the module draws them and sets their textures to clamp at the edge;
+  - the party's group is 85% of the Xbox layout's size.
+  - the party's group is drawn with each bar's outer outline completed (the art's
+    edge column repeated once, in its middle rows);
+  - beside a patch that takes the minimap's frame, the frame is left without art
+    rather than made invisible: invisible, the engine drew the speech box across the
+    whole screen (seen at 3440x1440);
+  - the Controller Layout entry in Options, Gameplay is placed from the live Mouse
+    Settings and Key Mapping buttons, so it follows another patch's scaling (at
+    3440x1440 with Scaled Kotor it stood over the first rows). Not looked at since.
+  Seen: both patches at 1024x768, 1920x1080 and 3440x1440 with a loaded save and a
+  line of speech; the rest on the controller patch alone at 1024x768. Not run with
+  both: a fight, the swap back to the pad, the menus' badges. Text beside Scaled
+  Kotor is small at 3440x1440, as it is with Scaled Kotor alone (measured: the main
+  menu's capitals 9 px with and without this patch). [docs/controller-xbox-hud.md](docs/controller-xbox-hud.md),
+  "Beside a widescreen patch: Scaled Kotor".
 - **The Xbox-style HUD follows the device and fits any screen** (2026-10-05). It no longer replaces the game's HUD layout files.
   The module finds each of the HUD's controls at its fixed place in the game's HUD
   object and moves and dresses it itself, from a table `tools/build_xbox_hud.py`

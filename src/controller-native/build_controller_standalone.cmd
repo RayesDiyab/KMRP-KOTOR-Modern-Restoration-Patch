@@ -2,7 +2,7 @@
 rem Builds the standalone controller module, build\controller-standalone\kmrp-controller.dll:
 rem KMRP's controller support with its own files embedded, and nothing else of KMRP
 rem (no interface scaling, no engine recipe, no memory or movie fixes). Packaged by
-rem tools\build_controller_kpatch.py as "KMRP Controller.kpatch".
+rem tools\build_controller_kpatch.py as "KOTOR 1 Native Controller Mod + Xbox HUD.kpatch".
 setlocal
 set VC=E:\Microsoft Visual Studio\2022\BuildTools\VC\Auxiliary\Build\vcvarsall.bat
 if not exist "%VC%" exit /b 1

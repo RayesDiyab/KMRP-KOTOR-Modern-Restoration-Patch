@@ -68,7 +68,7 @@ python tools\build_controller_kpatch.py --verify-clean build-inputs\swkotornopat
 python testing\regression\Test-ControllerKpatch.py
 ```
 
-It writes `dist\controller\KMRP Controller.kpatch`. Install it in a scratch copy with
+It writes `dist\controller\KOTOR 1 Native Controller Mod + Xbox HUD.kpatch`. Install it in a scratch copy with
 KOTOR Patch Manager's own launcher (`KPatchLauncher.exe <exe> --patches dist\controller
 kmrp-controller --deployment proxy`, which also starts the game and did not touch
 KPM's settings file). See `docs/controller-standalone.md`.

@@ -1,4 +1,4 @@
-// The standalone controller patch ("KMRP Controller.kpatch"): KMRP's native
+// The standalone controller patch ("KOTOR 1 Native Controller Mod + Xbox HUD.kpatch"): KMRP's native
 // controller support on a game that has no KMRP. Built with
 // KMRP_CONTROLLER_STANDALONE by build_controller_standalone.cmd.
 //

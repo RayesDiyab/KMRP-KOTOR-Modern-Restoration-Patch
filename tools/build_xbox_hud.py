@@ -80,6 +80,11 @@ OUT_X, OUT_Y = 38, 30              # how far each group is moved out towards its
 DISENGAGE_FILL = "kmrpb_cmbt"      # the B glyph (tools/build_controller_assets.py makes it per family)
 QUEUE_CUE = (381, 523, 22, 22)     # the Y cue beside the queue (a label the patch adds; K1NativeJoystick.cpp)
 SEAM_OVERLAP = 1                   # screen pixels the action box's upper half reaches into its lower one
+# The party's group (portraits, bars, the curve beside them) is drawn smaller than
+# the Xbox layout has it, about its bottom right corner: the maintainer found it too
+# big (2026-10-05). In hundredths.
+PARTY_SCALE = 85
+PARTY_CORNER = (755, 559)          # the curve's right edge, the leader's bars' bottom
 FONT = "dialogfont16x16"           # the Xbox HUD's text; the PC layout has dialogfont10x10 on these labels
 
 LABEL, BUTTON, TOGGLE, PROGRESS = 4, 6, 7, 10      # CONTROLTYPE, as the layout files have it
@@ -126,6 +131,7 @@ TOP, BOTTOM = 0, 1                             # up and down (RELATIVE ignores i
 HIDE = 1        # parked off the screen at its own size
 ROW = 2         # the full width of the screen (the rectangle gives top and height)
 SET_FONT = 4    # the Xbox HUD's font
+PARTY = 8       # one of the party's group, drawn at PARTY_SCALE
 
 
 def scale_value(value: int, height: int) -> int:
@@ -164,7 +170,7 @@ def pieces() -> list[dict]:
     # is the box's bottom edge and the slots' lower arrowheads sit just inside it.
     place("LBL_MOULDING1", (45, 446, 256, 90), fill="lbl_mitextbox")
     place("LBL_MOULDING3", (45, 537, 256, 32), fill="lbl_mitextbox2")
-    place("LBL_MOULDING2", (723, 467, 32, 72), side=RIGHT, fill="lbl_micurve")
+    place("LBL_MOULDING2", (723, 467, 32, 72), side=RIGHT, fill="lbl_micurve", flags=PARTY)
     place("LBL_ACTIONDESCBG", DESCRIPTION, fill="")
     place("LBL_ACTIONDESC", DESCRIPTION, flags=SET_FONT)
 
@@ -201,17 +207,17 @@ def pieces() -> list[dict]:
     portraits = {1: (643, 498, 58, 58), 2: (694, 461, 32, 32), 3: (705, 425, 32, 32)}
     for i, box in portraits.items():
         for stem in ("LBL_CHAR", "BTN_CHAR", "LBL_DEBILATATED", "LBL_LVLUPBG", "LBL_LEVELUP"):
-            place(f"{stem}{i}", box, side=RIGHT)
-    place("LBL_BACK1", (633, 495, 78, 64), side=RIGHT, fill="lbl_miport")
-    place("LBL_BACK2", (687, 459, 45, 36), side=RIGHT, fill="lbl_miport")
-    place("LBL_BACK3", (699, 423, 44, 36), side=RIGHT, fill="lbl_miport")
+            place(f"{stem}{i}", box, side=RIGHT, flags=PARTY)
+    place("LBL_BACK1", (633, 495, 78, 64), side=RIGHT, fill="lbl_miport", flags=PARTY)
+    place("LBL_BACK2", (687, 459, 45, 36), side=RIGHT, fill="lbl_miport", flags=PARTY)
+    place("LBL_BACK3", (699, 423, 44, 36), side=RIGHT, fill="lbl_miport", flags=PARTY)
     bars = {"PB_VIT1": (626, 495, 16, 64), "PB_FORCE1": (702, 495, 16, 64),
             "PB_VIT2": (683, 459, 11, 36), "PB_FORCE2": (726, 459, 11, 36),
             "PB_VIT3": (694, 423, 11, 36), "PB_FORCE3": (737, 423, 11, 36)}
     for tag, box in bars.items():
         vit = tag.startswith("PB_VIT")
         place(tag, box, side=RIGHT, fill="lbl_health2" if vit else "lbl_force2",
-              progress="lbl_health" if vit else "lbl_force")
+              progress="lbl_health" if vit else "lbl_force", flags=PARTY)
     # The combat-effect arrows on a portrait. The engine keeps these relative to the
     # portrait's corner (in the running game LBL_CMBTEFCTINC1 was at (2, 23) where
     # the layout file has (8, 727) and LBL_CHAR1 (6, 704)), so they are given so.
@@ -220,7 +226,7 @@ def pieces() -> list[dict]:
                "LBL_CMBTEFCTRED3": (728, 437, 8, 8), "LBL_CMBTEFCTINC3": (706, 437, 8, 8)}
     for tag, box in effects.items():
         portrait = portraits[int(tag[-1])]
-        place(tag, (box[0] - portrait[0], box[1] - portrait[1], box[2], box[3]), side=RELATIVE)
+        place(tag, (box[0] - portrait[0], box[1] - portrait[1], box[2], box[3]), side=RELATIVE, flags=PARTY)
 
     # Minimap, top right. The map itself is drawn in a rectangle the HUD keeps beside
     # these controls (MAP_VIEW; the module sets it). LBL_MAP and LBL_ARROW are moved
@@ -259,10 +265,11 @@ def pieces() -> list[dict]:
     # twice a frame never loads or frees one: the curved and the flat vitality bars
     # (the engine puts its flat redfill or greenfill back at every update), the two
     # frames the engine gives the target's slots, the first place's icon without a
-    # target, and the combat strip's two plain fills.
+    # target, the combat strip's two plain fills, and the minimap's frame for when
+    # the module draws it (beside a patch that keeps moving the engine's).
     held = {"BTN_EQU": ("lbl_health", "lbl_healthp"), "BTN_INV": ("redfill", "greenfill"),
             "BTN_ABI": ("lbl_miscroll_h", "lbl_miscroll_f"), "BTN_MSG": ("i_noaction", "i_noaction"),
-            "BTN_JOU": ("blackfill", "whitefill")}
+            "BTN_JOU": ("blackfill", "whitefill"), "BTN_MAP": ("lbl_minimap", "lbl_minimap")}
     for tag in ("BTN_EQU", "BTN_INV", "BTN_CHAR", "BTN_ABI", "BTN_MSG", "BTN_JOU", "BTN_MAP", "BTN_OPT",
                 "LBL_MENUBG", "TB_PAUSE", "TB_SOLO", "TB_STEALTH"):
         hide(tag, *held.get(tag, (None, None)))
@@ -283,9 +290,20 @@ def rectangle(piece: dict, width: int, height: int, portraits: dict | None = Non
     def s(value):
         return scale_value(value, height)
 
+    def exact(value):       # a length that need not be whole, rounded half up as the module rounds it
+        return int((value * height) / SCALE_H + 0.5)
+
     x, y, w, h = piece["box"]
     if piece["flags"] & HIDE:
         return None
+    if piece["flags"] & PARTY:
+        f = PARTY_SCALE / 100
+        if piece["side"] == RELATIVE:
+            return (exact(x * f), exact(y * f), max(1, exact(w * f)), max(1, exact(h * f)))
+        right, bottom = PARTY_CORNER
+        left = width - exact(BASE_W - OUT_X - right + (right - x) * f)
+        top = height - exact(BASE_H - OUT_Y - bottom + (bottom - y) * f)
+        return (left, top, max(1, exact(w * f)), max(1, exact(h * f)))
     if piece["flags"] & ROW:
         return (0, s(y), width, s(h))
     if piece["side"] == RELATIVE:
@@ -318,6 +336,8 @@ def table() -> str:
         "constexpr int kLayoutWidth = %d, kLayoutHeight = %d;" % (BASE_W, BASE_H),
         "constexpr int kOutX = %d, kOutY = %d;" % (OUT_X, OUT_Y),
         "constexpr int kSlotPitch = %d;" % SLOT_PITCH,
+        "constexpr int kPartyScale = %d;                         // hundredths" % PARTY_SCALE,
+        "constexpr int kPartyCorner[2] = {%d, %d};             // right, bottom" % PARTY_CORNER,
         "constexpr int kSeamOverlap = %d;" % SEAM_OVERLAP,
         "constexpr int kMapView[4] = {%d, %d, %d, %d};          // right, top" % MAP_VIEW,
         "constexpr int kDescriptionBottom = %d;                  // left, bottom" % (DESCRIPTION[1] + DESCRIPTION[3]),
@@ -329,7 +349,7 @@ def table() -> str:
         "constexpr Piece kPieces[] = {",
     ]
     for p in pieces():
-        flags = " | ".join(n for bit, n in ((HIDE, "kHide"), (ROW, "kRow"), (SET_FONT, "kSetFont")) if p["flags"] & bit) or "0"
+        flags = " | ".join(n for bit, n in ((HIDE, "kHide"), (ROW, "kRow"), (SET_FONT, "kSetFont"), (PARTY, "kParty")) if p["flags"] & bit) or "0"
         lines.append("    {0x%04X, %s, %s, %s, {%d, %d, %d, %d}, %d, %s, %s, %s, %s},   // %s" % (
             p["offset"], kind[p["kind"]], side[p["side"]], edge[p["edge"]], *p["box"], p["places"], flags,
             name(p["fill"]), name(p["hilight"]), name(p["progress"]), p["tag"]))

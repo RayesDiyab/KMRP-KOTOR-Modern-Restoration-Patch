@@ -19,7 +19,7 @@ not have it.
 | --- | --- | --- |
 | Action menu | bottom left | a box with the selected action's name and a row of six slots; the selected slot is large with a yellow frame and yellow arrows |
 | Target bar | top left, fixed | the target's name over its health bar, in a blue frame, red for a hostile target |
-| Party | bottom right | the leader large, the others small above, each with a curved vitality bar on the left and Force bar on the right that empty from the top |
+| Party | bottom right | the leader large, the others small above, each with a curved vitality bar on the left and Force bar on the right that empty from the top; the group is 85% of the Xbox layout's size (the maintainer found it too big) |
 | Minimap | top right | the size the game's own HUD has it (the maintainer's direction; the Xbox layout's is a little smaller) |
 | Speech box | under the target bar | a line of speech or a notice: it starts a little left of the target bar's frame, right under it, and is one and a half times as wide as the bar's frame |
 | Action queue | bottom, right of the action menu | with the pad's Y (take the last action off) beside it |
@@ -238,8 +238,66 @@ Elsewhere: `MoveFocus` in `vendor/K1XboxControls.cpp` walks the row in its on-sc
 order with the first place as "no slot"; `NativeActionBarK1` in
 `K1NativeJoystick.cpp` makes B disengage when there is no slot to let go of; the X
 cue label follows the combat message instead of the hidden Disengage button.
+`RestorePc` puts back every fill of every control in the table, not only the ones
+the table changes: the hooks draw with two parked controls, and one of them,
+`LBL_MENUBG`, is the dark backing of the PC HUD's menu buttons (left in the last
+art drawn with it, the buttons had no backing after a swap; the maintainer saw it).
+
+**The party's bars are drawn by the module, whole.** Their art runs to the side
+edge of its texture (`lbl_health2`, 16x64: the arc's outline is the first column),
+and the engine samples a GUI texture with wrap, so the outer edge was mixed with
+the texture's far side: the arc's outer outline came out half as thick and a faint
+dark tick stood at the top and bottom of that edge. The first hook hides each bar
+from the panel's draw; the second draws the empty bar, then its filling through
+the clipping viewport, and right after each, while that texture is still the one
+bound, tells OpenGL to clamp it at its edges (`ClampBoundTexture`:
+`glTexParameteri`, `GL_CLAMP_TO_EDGE`). The setting belongs to the texture, so it
+holds from the second frame on. Those four textures are used by nothing else.
+Each piece's outer edge column is then drawn once more, one pixel further out (two
+on a bar 30 px wide or more): at the arc's widest its outline is the texture's first
+column alone, one texel where it is two elsewhere, which still read as the arc cut
+off at the side. Only the middle of that column is repeated (rows 25 to 38 of the
+64; the art has it from 20 to 43): over its whole length the added line stood out
+at its ends. Measured on the leader's vitality bar at 1024x768: 20 px, where the
+whole column was 35.
+
 Five of the parked menu buttons hold the textures the hooks swap in and out before
 every draw, so that changing a fill twice a frame never loads or frees one.
+
+## Beside a widescreen patch: Scaled Kotor
+
+Tried on 2026-10-05 with Scaled Kotor 1.3.1 (J and Vriff, a KOTOR Patch Manager
+patch that unlocks resolutions and scales menus and HUD at run time; release
+`ScaledKotor_1.3.1.zip` from the author's GitHub, SHA-256 `108D9C3E...`), its
+textures in the scratch game's Override, both patches applied by KOTOR Patch
+Manager 0.7.1's launcher to the CD 1.03 executable.
+
+- **They could not be installed together**: "Hook conflicts detected: Address
+  0x0040B8F0 used by multiple patches". Both hooked the entry of
+  `CSWGuiPanel::StopLoadFromLayout`. The standalone patch now leaves that entry
+  alone and reaches the same two moments from sites of its own
+  (`tools/build_controller_kpatch.py`, `PANEL_LOADED_HOOK` and
+  `PANEL_DESTROYED_HOOK`): the entry of `CRes::Release` (`0x00409B80`), acting only
+  on the call `StopLoadFromLayout` makes on the panel's layout (return address
+  `0x0040B901`, the panel in `esi`), and `0x0040CFAB` in the panel's destructor, the
+  instruction before its own call of `StopLoadFromLayout`. 34 hooks in all. KMRP's
+  own patch keeps the old site. Scaled Kotor's other 111 sites do not overlap this
+  patch's (compared from both hook tables).
+- **1920x1080 with both**: the Xbox HUD laid out as at the game's own sizes (action
+  menu, target bar, party, speech box), the first real run at a size and shape the
+  game does not have. With the mouse, Scaled Kotor's own scaled PC HUD.
+- **The minimap needed one change.** Scaled Kotor puts `LBL_MAPBORDER` back on its
+  PC place inside `DrawMap` (its hook at `0x0068ABB0`, after this patch's at the
+  entry) and sets the map's size, but not where the map is drawn: the map was at
+  the Xbox place and its frame in the opposite corner. So after the panel is drawn
+  the frame is compared with where this patch put it; if something moved it, the
+  engine's frame is not shown while the Xbox layout is up and the module draws one
+  around the map as it is (`g_mapBorderForeign`). Seen at 1920x1080: the frame
+  around the map, top right.
+
+Not run with both: a fight, the combat strip, the swap back to the pad (the real
+mouse was in use on the test PC), other sizes, Scaled Kotor's own options screen,
+the menus' controller badges (the main menu showed none), a conversation.
 
 ## Measured against the Xbox game
 

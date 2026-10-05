@@ -44,7 +44,7 @@ reason).
 | 13 | `kpm_holds_only_kmrp` reads KPM's state file too: a patch without a module is in neither `patch_config.toml` nor `patches/` | **to do** |
 | 14 | `kmrp.kpatch` dropped into KPM beside FTD's patches: KPM's own conflict refusal, and a description that says what to untick | **check**, and one wording change **to do** |
 | 15 | KMRP as one self-contained `.kpatch` with options, shipped inside the installer, as Windows is since 2026-10-04 | **to do**: the maintainer's next step for the Mac |
-| 17 | KMRP Controller: controller support as a standalone `.kpatch`, for a game without KMRP (Windows, 2026-10-05) | **to do**, if the Mac is to have it: no Mac module exists |
+| 17 | KOTOR 1 Native Controller Mod + Xbox HUD ("KMRP Controller" until 2026-10-05): controller support as a standalone `.kpatch`, for a game without KMRP (Windows, 2026-10-05) | **to do**, if the Mac is to have it: no Mac module exists |
 | 18 | Badges made for the area a button's border fills, not the whole button: every set, blend table version 5, the helper | **to do**: the Mac's controller code must ask for the focused texture; **build and check** |
 | 19 | An Xbox-style HUD, an option of the standalone controller patch (Windows, 2026-10-05) | **nothing to do** while the Mac has no standalone controller patch (item 17); section 19 says what it would take |
 
@@ -490,10 +490,10 @@ notes on and writes no diagnostic log; with `debug-logs=1` in the section the lo
 appear; an install by the installer with an option off shows `0` for it in the file,
 and a section of another name already in the file is still there afterwards.
 
-## 17. KMRP Controller, the standalone controller patch
+## 17. KOTOR 1 Native Controller Mod + Xbox HUD, the standalone controller patch
 
 Windows has, since 2026-10-05, a second package beside KMRP's own:
-`KMRP Controller.kpatch`, id `kmrp-controller`, controller support alone for a game
+`KOTOR 1 Native Controller Mod + Xbox HUD.kpatch` ("KMRP Controller" until 2026-10-05), id `kmrp-controller`, controller support alone for a game
 without KMRP, on the game's original interface. The reference is
 [controller-standalone.md](controller-standalone.md). Nothing of it was built or run
 on a Mac.
