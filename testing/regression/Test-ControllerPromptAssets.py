@@ -79,7 +79,7 @@ def verify_placement_manifest(archive, archive_name, names, gui_cache):
         raise AssertionError(
             f"{archive_name}: manifest carries {len(advances) if advances else 0} advances, "
             "expected 256")
-    if spacing is None or spacing <= 0:
+    if spacing is None or spacing < 0:
         raise AssertionError(f"{archive_name}: manifest spacing {spacing}")
 
     # The archive's own font metrics must be the ones embedded, or the patcher

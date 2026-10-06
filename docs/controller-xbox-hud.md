@@ -264,6 +264,80 @@ whole column was 35.
 Five of the parked menu buttons hold the textures the hooks swap in and out before
 every draw, so that changing a fill twice a frame never loads or frees one.
 
+## The pause notice and the target's circle
+
+Added on 2026-10-06, after the maintainer played beside KMRP at 3440x1440.
+
+### The pause notice
+
+The game has one: `CSWGuiInGamePause`, a panel `CGuiInGame` holds at `+0x7C`, with a
+label for the reason (`+0x64`: "PAUSED", "End of Combat Round"), a label for how to
+go on (`+0x1A4`: "PRESS THE PAUSE BUTTON TO CONTINUE", `pause.gui`'s text) and a
+button over both for the mouse (`+0x2E4`). For an enemy or a mine sighted the PC
+puts both lines in the first label and hides the second. Each time the game pauses,
+`OnPanelAdded` (`0x006C02F0`) has the HUD place the panel
+(`CSWGuiMainInterface::SetupPauseGuiExtent`, `0x00688DB0`): three pixels from the
+screen's right edge, under the Equipment button. This HUD parks the row that
+button is in, so a paused game showed nothing.
+
+With this HUD:
+
+- **Where.** Left of the minimap, as the Xbox game has "ENEMY SIGHTED!": level with
+  the minimap's frame and as far from it as the frame is from the screen's edge,
+  read from the frame on every frame (it stands lower in combat mode).
+- **What it says.** One line, "PAUSED. PRESS [the right trigger] TO CONTINUE", the
+  maintainer's wording; RT is what pauses on the pad. The reason is the game's
+  (its first line), so an enemy sighted reads "ENEMY SIGHTED! PRESS ... TO
+  CONTINUE". English only: the words are used where the game's own line
+  (dialog.tlk 48384) is the English one, and another language keeps its lines.
+- **How.** As the combat-mode message is made: the words before the picture in the
+  first label, the words after it in the second, the picture on the panel's own
+  button between them, each label as wide as its words. The picture is
+  `kmr?rt_pause`, one per family: Xelu's `360_RT_ALT` and `PS5_R2_Light`, which the
+  maintainer added to the pack for this, and the pack's `Switch_RT` and
+  `SteamDeck_R2`. The button's two borders are near black in `pause.gui` and draw a
+  fill at its own size, so while the picture is shown they are white and stretch
+  it (the first build drew a black square 128 pixels wide).
+- **Sizes.** All from the line height of the label's font as loaded: the picture
+  that and three eighths more (22 beside 16, as the B in the combat-mode message),
+  nine sixteenths of it either side of the picture, the line's height at the box's
+  ends, a third of it above and below.
+- **Checked every frame.** The game writes the reason and the rectangles anew at
+  every pause; what is there is compared with what was set and set again when it
+  differs.
+
+**With the mouse or keyboard the box is the game's own again.** The game lays the
+box out only in part when it pauses (`SetPauseReason`, `0x006C00C0`): the heights
+and the second label's place. The labels' left, top and width, the box's width and
+the second label's text it takes as it finds them. So those are kept from the box
+while it has nothing of this file's in it, and `RestorePauseNotice` puts them back
+and then does what `SetPauseReason` does, with the game's own measuring, before the
+game's own routine places the box. Read from the running game beside KMRP at
+3440x1440 after a pause on the pad (2026-10-06): box 540 wide, both labels at 27
+and 490 wide, the reason at 15 and 32 tall, the second line at 49 and 64 tall, the
+box 118 tall, the button the reason's rectangle 118 tall. Those are `pause.gui`'s
+numbers for that size, and the game's own next pause gave the same.
+
+### The target's circle
+
+`CSWGuiMainInterface::UpdateIndicator` (`0x0068A310`) draws one control (`+0x5A2C`)
+either as a circle on the target (`friendlyreticle2`, `hostilereticle2`,
+`combatreticle`) or, when the target's point on screen is outside the rectangle of
+`LBL_ARROW_MARGIN` (`+0xBF6C`), as an arrow on that rectangle's edge
+(`friendlyarrow`, `hostilearrow`).
+
+- **The rectangle** is the layout's, made for the PC HUD's bars. In KMRP's HUD for
+  3440x1440 (`mipc210x7.gui`) it is 3, 129, 2554, 501, and a target in the lower
+  half of the screen had the arrow on its head and no circle. While this HUD is up
+  it is the screen between the target's name frame and the action box, both read
+  as they stand, and the layout's own comes back with the PC's HUD. (The same
+  rectangle hides the circle with the PC's HUD in KMRP at that size; that is
+  KMRP's to correct in `assets/override-3440x1440/mipc210x7.gui`.)
+- **The size** is 16 to 64 pixels by distance, whatever the screen: the Xbox's on
+  480 lines, a dot at 1440. While this HUD is up the circle is scaled by the
+  screen's height over 480 about its middle, after the engine has placed it; the
+  arrow is not.
+
 ## Beside a widescreen patch: Scaled Kotor
 
 Tried on 2026-10-05 with Scaled Kotor 1.3.1 (J and Vriff, a KOTOR Patch Manager

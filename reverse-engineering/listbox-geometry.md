@@ -317,6 +317,93 @@ left scrollbar only the rows' left edge moves with `PADDING`, so
 per resolution: 35 at 3440x1440, 19 at 1920x1080, 9 at 800x600, equal margins
 within half a pixel at all 49. `Test-GeneratedGuiGeometry.py` checks it.
 
+## Rows centred in their box (2026-10-06, from the Mac)
+
+A list's box is drawn by its panel's artwork (the panel's fill, stretched over the
+panel), not by the list, and the rows' rectangle the layout gives is not centred in
+that box. A row's own artwork also begins further inside its rectangle on one side:
+an item row is an icon and then a button, and the icon's frame starts further in
+than the button ends. The Mac measured both and centred the rows on 2026-10-04
+(`macos/patches/kmrp-assets/layout.cpp` on the branch `macos-standalone-kpatch`);
+this is that work on Windows, in the module, not in bytes:
+`src/controller-native/K1RuntimeLayout.cpp`, "List rows".
+
+**Where.** `0x0041B140` builds one rectangle on its stack for every row,
+`[esp+0x20]` = `{left, top, width, height}`, and hands it to a row's `SetExtent` in
+three places. Each has a detour (`KmrpListRowK1`: `esi` the list, `ecx` the row,
+`esp+32` the rectangle's address) that writes `left` and `width` again for the row
+about to get it:
+
+| site | bytes the detour replaces | the rows it lays out |
+| --- | --- | --- |
+| `0x0041B4BF` | `8D 54 24 20 52` | those above the first one shown |
+| `0x0041B540` | `8D 44 24 20 50` | those shown |
+| `0x0041B59F` | `8D 44 24 20 50` | those below |
+
+**What.** `left = PADDING - shift`, `width = contentWidth - PADDING + shift`, so the
+row's right edge stays where it was. `shift` is the sum of two numbers, rounded,
+never more than `PADDING`:
+
+- the list's offset in the menu set in force, from `K1ListRows.inc`: for each of
+  the 66 sets and ten lists, (the rows' left less the box's left border) less (the
+  box's right border less the rows' right). The file is a copy of the Mac's
+  `list_rows.inc`, made there by `macos/tools/measure_list_rows.py`; that tool run on
+  the Windows build's sets (`build/kmrp/resources`) gave the same 66 rows on
+  2026-10-06. A size with no set takes the sets nearest in shape, then the three
+  nearest in height, each scaled by the heights (`MeasuredOffset`);
+- the row's inset by its kind, which the detour tells by the row's vtable
+  (`RowInset`; `s` is the screen's height over 720, never less than 1):
+
+| vtable | class (the Ghidra archive's name) | inset | from |
+| --- | --- | --- | --- |
+| `0x007568F8` | `CSWGuiInGameItemEntry` | `4.39 * (56s) / 56 - 0.89` | the Mac's fit; counted here |
+| `0x00756850` | `CSWGuiStoreItemEntry` | the same with the row's height for `56s` | the Mac's fit; counted here |
+| `0x00757108` | `CSWUpgradeItemEntry` | the same with 56 | the Mac's fit; not seen |
+| `0x00755ED0` | `CSWGuiInGameSkillEntry` | `5.89s - 2.97` | the Mac's fit; not counted here |
+| `0x0073EB88` | `CSWGuiButtonToggle` (a party member's script) | `1.47s` | the Mac's fit; not counted here |
+| `0x007578A8` | `CSWGuiSkillFlow` (a row of the powers' or feats' chart) | `0` | the game's code; the Mac has `-1.47s` |
+
+The item row and the store's row share one `SetExtent` (`0x006B5270`).
+
+**Where the sum is negative** for the list's usual row (the store's two lists, the
+workbench's: the box reaches further right than the rows), the list itself is made
+that much wider and its rows end further right (`PlaceLists`, on the first frame
+after the panel has loaded).
+
+**Counted at 3440x1440**, fullscreen, on screenshots of the maintainer's run of
+2026-10-06 (dark columns between the box's border and the row's artwork, left and
+right): the inventory 7 and 7, the journal 5 and 6, the store 0 and 1, the powers'
+chart 11 and 7. Before the port the inventory was 19 and 12, counted at about that
+size in a window.
+
+**Two differences from the Mac**, both made after that count and not yet seen:
+
+- *The chart's rows take 0, not the Mac's `-1.47s`.* `CSWGuiSkillFlow::SetExtent`
+  (`0x006CCE30`) puts the row's three pictures at `left`, `left + (width - height)
+  / 2` and `left + width - height`, each `height` square, so the artwork is no
+  further in on one side than on the other. With the Mac's number the pictures'
+  boxes stood 11 columns from the left border and 7 from the right. Why the Mac's
+  fit came out otherwise is not known here; one explanation, not checked, is that
+  its measure of a picture's box by brightness finds the box's lit edge and its
+  shaded edge at different depths.
+- *The store's and the workbench's rows are set in from both borders* (`kRowGap`):
+  `left` further right and `width` less by twice `round(3.5s)`. Centred, the
+  store's rows reached both borders of their box; 7 at this size is what the
+  inventory's rows keep. In the measured sets the two gaps of the store's rows add
+  up to nearly the same at every shape (10 to 13 pixels of the set at 1440 lines,
+  by the Mac's tool printed apart), which is why one number serves them all. The
+  workbench is in by the artwork's likeness alone: it has not been seen.
+
+**Not brought over:** the Mac's later change that gives the abilities' rows the new
+size's height after a resolution change in the game (its commit `3e0cc2b`); it needs
+a detour in `CSWGuiListBox::AddControls` whose Windows address has not been looked
+up. A list does take the new size's `PADDING` and scrollbar width here
+(`KmrpRuntimeLayoutDimensions`), which the centring is computed from.
+
+**Not touched**, as on the Mac: the equip screen's list and the container's, whose
+rows have no outline on the right to compare with, and the lists that have no box
+(saved games, movies, key mapping, messages, feedback options).
+
 ## The fit test — why a description that fits was scrolled anyway
 
 The two guards at `0x0041B339` and `0x0041B3AE` decide between the row layout

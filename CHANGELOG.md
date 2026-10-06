@@ -109,6 +109,181 @@ proxy, and it applies the executable changes above as well.
 
 ## [Unreleased]
 
+- **Two checks brought up to the two patches, and the build of 2026-10-06**
+  (2026-10-06). `tools/check_kpm_overlaps.py` took KMRP's hook sites from the four
+  patches retired on 2026-10-04, the controller's among them, and so reported the
+  controller patch as overlapping KMRP at six sites KMRP no longer hooks; it now
+  takes them from the patch KMRP ships (`build_native_kpatch.all_hooks`). Run on
+  KOTOR Patch Manager 0.7.1's patches with the controller patch among them: five
+  overlaps, all declared conflicts (KPM's 4 GB, grass, texture and save-game
+  patches and Better Movie Playback, at KMRP's movie site `0x00404D06`), none
+  undeclared; the controller patch only neighbours KMRP, at the two pairs of
+  adjacent sites. `Test-ReinstallOverOlderBuild.ps1`, Case 2, hashed
+  `kmrp-kpm.dat`, which the installer has not written since 2026-10-04, and
+  stopped there; it now hashes the patches' modules, and all five cases pass (40
+  checks, over the last standalone installer). Also run on this build:
+  `Test-KpatchSource.py`, `Test-ControllerKpatch.py` (on a `dist\controller`
+  package rebuilt from the same module, `1EA6A0D0...`, the file inside the
+  installer), `Test-ControllerPromptAssets.py` (66 archives, 135 targets),
+  `Test-InstallerPatch.ps1` (43 checks) and the link check. The installer is
+  146,874,368 bytes, SHA-256 `C5BDE472...EBF05FFC`, holding `KMRP.kpatch`
+  `4B0E818E...` (27 hooks) and the controller patch (34). Started once in a scratch
+  copy at 3440x1440 with both patches, no input: both modules loaded and the game
+  ran. Installed in the maintainer's Steam game by the installer, not started
+  there. **Not seen in play on this build:** the store's row gap and badges and
+  the chart rows.
+- **A list's rows stand as far from their box's left border as from its right**
+  (2026-10-06, KMRP's patch; the Mac's work of 2026-10-04, brought to Windows at the
+  maintainer's request). A list's box is drawn by its panel's artwork, not by the
+  list, and the rows' rectangle the layout gives is not centred in it; a row's own
+  artwork also begins further inside its rectangle on one side than on the other.
+  Counted before this, the inventory at about 3440x1440 in a window: 19 dark columns
+  between the box's left border and the icons, 12 between the buttons and the right
+  border. Now a row is handed a rectangle that begins further left, by two numbers
+  added together, and ends where it did:
+  - where the layout puts the rows in the box, from `K1ListRows.inc`: a copy of the
+    Mac's measured table (`macos/patches/kmrp-assets/list_rows.inc` on the branch
+    `macos-standalone-kpatch`), ten lists in each of the 66 menu sets. The Mac's
+    measuring tool run on the Windows build's sets gives the same 66 rows. A size
+    with no set takes the sets nearest in shape, then in height;
+  - where a row's artwork begins inside its rectangle, by the row's kind
+    (`RowInset`): an item, a skill, a row of the powers' or feats' chart, a store
+    item, a workbench item, a script.
+
+  Where the box reaches further right than the rows (the store, the workbench) the
+  list is made wider instead. Three detours in `CSWGuiListBox::OrganizeControls`,
+  where it hands a row its rectangle (`0x0041B4BF`, `0x0041B540`, `0x0041B59F`;
+  `KmrpListRowK1` in `K1RuntimeLayout.cpp`); KMRP's patch has 27 hooks with them.
+  A list also takes the new size's `PADDING` and scrollbar width when the
+  resolution is changed in the game, which it did not before.
+
+  Counted at 3440x1440 fullscreen, on screenshots of the maintainer's run, dark
+  columns left and right of the rows: the inventory 7 and 7, the journal 5 and 6,
+  the store 0 and 1, the powers' chart 11 and 7. Two things were changed after that
+  count, and neither has been seen yet:
+  - *The chart's rows.* The Mac's number for them (1.47 pixels to the right for each
+    720 lines) is wrong here: the game puts a chart row's first picture at its
+    rectangle's left and its third at the right
+    (`CSWGuiSkillFlow::SetExtent`, `0x006CCE30`), so the number is 0.
+  - *The store's rows* stood against both borders of their box, which the
+    maintainer asked to change on seeing a merchant. They are set in from both
+    sides by 3.5 pixels for each 720 lines, the 7 the inventory's rows keep at that
+    size (`kRowGap`). The workbench's rows get the same, because the artwork draws
+    their box alike; the workbench has not been seen on either platform.
+
+  Not counted: a skill's row, a script's row and Quest Items (no screenshot of
+  them), and every other size. Not seen in the game on either platform: the
+  workbench, character creation's feats, the level-up's powers. Not brought over:
+  the Mac's later fix for the abilities' row height after a resolution change (its
+  commit `3e0cc2b`). `Test-KpatchSource.py` compares `K1ListRows.inc` with the Mac's
+  file when both are in the tree. Details:
+  [`reverse-engineering/listbox-geometry.md`](reverse-engineering/listbox-geometry.md),
+  "Rows centred in their box".
+- **The store shows its controller buttons** (2026-10-06, the controller patch). It
+  had no badge at all, which the maintainer saw at a merchant. Now A stands on Buy
+  or Sell, X on Show Sell List or Show Buy List, and B on Close: what the screen's
+  own dispatcher does with the pad whatever holds focus
+  (`CSWGuiStore::HandleInputEvent`, `0x006C2190`: B closes it, X swaps the two
+  lists; A buys or sells the row in focus, the event the first button's own click
+  raises). At a shop that only buys or only sells the game does not draw the X
+  button (`InitializeStoreType`, `0x006C1B50`), and its badge is not drawn either.
+  `K1_STORE_PROMPTS` in `vendor/K1XboxControls.cpp` (the buttons at `0x20A8`,
+  `0x1EE4` and `0x1D20` of the panel, from its constructor at `0x006C1C00`); three
+  targets in `tools/build_controller_prompt_textures.py` (`kmrpa_storebuy`,
+  `kmrpx_storelist`, `kmrpb_storeback`), each placed against the wider of its two
+  captions; `K1ControllerBadgeShapes.inc` now has 133 rows. The same three are
+  built into KMRP's menu sets, which no longer use them. Not seen in the game yet.
+
+- **The controller patch's badges and cues on any layout** (2026-10-06). Beside
+  KMRP at 3440x1440 the maintainer saw four things: the X of Inventory's "Show ..."
+  button an oval, the party cue against the left portrait, an A beside Equip's empty
+  button, and the A of an Options row far from its caption. All four were the
+  standalone controller patch's own placement on a layout that is not the game's,
+  and none was in KMRP before the two patches were split (its module then drew
+  badges fitted to its own layouts). The maintainer's direction: the controller
+  patch scales itself to whatever interface is loaded, the game's, a widescreen
+  patch's or KMRP's, and takes nothing from another patch. Four changes, all in the
+  controller patch (`vendor/K1XboxControls.cpp`, `K1NativeJoystick.cpp`):
+  - a badge with one texture per caption (`kmrpx_invnew0` to `5`) finds its row in
+    `K1ControllerBadgeShapes.inc`, so the shape guard covers it;
+  - a caption's width is the sum `Draw` makes from its font, not a search with the
+    line breaker, which KMRP's patch changes (`MeasureK1CaptionByFont`);
+  - a badge on a label of its own is drawn only while its button is, and is placed
+    again when the caption or the button's rectangle changes
+    (`SyncK1BadgeOverlays`);
+  - the party cue is placed from the live portraits: an eighth of its size from the
+    one on its left, or in the middle of a narrower gap.
+  Seen in the scratch copies, pad driven: beside KMRP at 3440x1440 the main menu,
+  Options, Inventory, Equip with a slot and with an item chosen, Character,
+  Abilities and Map; the controller patch alone on the unchanged game, the main
+  menu, Options, Inventory and Equip. `Test-ControllerKpatch.py` passes. Not run:
+  any other size, a fight. Later that night, pad driven beside Scaled Kotor 1.3.1 at
+  3440x1440: the main menu, character generation, Options, Inventory, Equip with a
+  slot and with an item chosen, Abilities and Map, badges round and beside their
+  captions, the party cue after the second portrait.
+- **Level Up and Auto Level Up have a badge that can be read, and room for it**
+  (2026-10-06, the controller patch). Their badge was the button's own box with the
+  glyph on it, and the two buttons have a 16-unit border with corner art, so the
+  box was stretched over a strip 8 and 20 units tall: in the scratch copy of the
+  unchanged game at 1280x960, the first time the Character screen was seen with a
+  level to take, the A was a dot and the Y a smear over "Auto". Now the box stays
+  on the button and the glyph is drawn from a plain badge of the same letter on a
+  label of its own, at the size the Close badge has. The maintainer then set how it
+  stands, looking at four builds: the buttons are made wide enough for the badge
+  and the caption, both to the wider of the two needs, growing about their own
+  middles; a caption keeps the number of lines its layout gives it ("Auto / Level
+  Up" stays two); the badge stands at the button's left end with the caption
+  centred in the rest; three quarters of the badge's height at each end and a third
+  between badge and caption. Every length is a share of the button's height or a
+  measure of the caption in its own font, taken in the running game, and the
+  buttons get their own rectangles back when the badge goes. Seen by the maintainer
+  at 1280x960 in the unchanged game; `vendor/K1XboxControls.cpp`,
+  `ShowK1BackedBadge`. Not seen: beside KMRP, whose buttons are larger, and the
+  mouse taking the buttons back.
+- **The Xbox-style HUD shows that the game is paused, and marks its target as the
+  Xbox does** (2026-10-06, the controller patch, `K1XboxHud.cpp`). Three things the
+  maintainer saw beside KMRP at 3440x1440:
+  - *A paused game said nothing.* The game places its pause notice under the
+    Equipment button of the PC's row of menu buttons
+    (`CSWGuiMainInterface::SetupPauseGuiExtent`, `0x00688DB0`); this HUD parks that
+    row, and the notice went with it. It now stands left of the minimap, as on the
+    Xbox, and reads on one line "PAUSED. PRESS [the right trigger] TO CONTINUE",
+    the trigger drawn for the pad in use (Xelu's `360_RT_ALT` and `PS5_R2_Light`,
+    which the maintainer added to the pack for it, and the pack's Switch and Steam
+    Deck triggers), made the way the combat-mode message is: two labels with the
+    picture between them, every length from the font's line height. An enemy or a
+    mine sighted reads the same way. English only: another language keeps the
+    game's own lines. With the mouse or keyboard the box is the game's again,
+    exactly: read from the running game after a pause on the pad, its box was 540
+    wide with both labels at 27 and 490 wide, the reason 32 tall at 15, the second
+    line 64 tall at 49 and the box 118 tall, which are `pause.gui`'s numbers for
+    3440x1440 and what the game itself then made of them on its next pause.
+  - *A target in the lower half of the screen had an arrow on its head and no
+    circle.* The game draws the circle only inside `LBL_ARROW_MARGIN` and an arrow
+    on that rectangle's edge outside it (`UpdateIndicator`, `0x0068A310`), and in
+    KMRP's HUD for 3440x1440 (`mipc210x7.gui`) the rectangle is 3, 129, 2554, 501.
+    While this HUD is up the rectangle is the screen between the target's name frame
+    and the action box, read from both as they stand.
+  - *The circle was a dot.* The game sizes it 16 to 64 pixels by distance whatever
+    the screen, the Xbox's sizes on 480 lines. With this HUD it is scaled by the
+    screen's height over 480, about its middle.
+  The maintainer saw all three working at 3440x1440. **Not fixed, and KMRP's own:**
+  the same rectangle in `assets/override-3440x1440/mipc210x7.gui` hides the circle
+  for a target below 630 or right of 2557 with the PC's HUD too.
+- **Text no longer runs over the right edge of its box** (2026-10-05). KMRP's
+  fonts carried `spacingR 0.005`, half a pixel, as a margin for the engine's line
+  breaker. The engine draws that value after every glyph (`0x0045AF6F`), and its
+  line breaker adds it before truncating each glyph to a whole pixel
+  (`0x0045A552`), where it vanishes: KMRP's glyphs are whole pixels wide since the
+  sets are baked per resolution. So every line was drawn about 3% wider than it
+  had been measured. The maintainer saw speech lines cut off at the right of the
+  speech box at 1920x1080, with the game's own HUD and the Xbox-style one. In the
+  scratch copy the same line, stored as 763 px, drew 786 px with the value and
+  762 px with it set to 0 in memory. The font sets now carry `spacingR 0`, as the
+  game's own fonts do (`LETTER_SPACING_PX` in
+  `tools/prepare_universal_resources.py`); `reverse-engineering/font-atlases.md`
+  said the renderer did not read the value and is corrected. All text is drawn
+  that much narrower than in 1.4. Not yet seen in play from a built package.
 - **A slot's picture sits in the middle of its box** (2026-10-05, the Xbox-style
   HUD). The slot box is not in the middle of its texture: it is two and a half of
   the texture's 64 pixels higher and half a pixel left. The module centred a slot's
@@ -119,37 +294,63 @@ proxy, and it applies the executable changes above as well.
   from `SLOT_BOX_CENTRE` in `tools/build_xbox_hud_art.py`). Seen at 1280x960 with
   the first and the second slot selected (package SHA-256 `93000490...8EA6F009`);
   `Test-ControllerKpatch.py` passes. Not run: any other size, a fight.
-- **KMRP as two patches, its own and the controller patch it requires: first stage,
-  on the branch `kmrp-two-patches` only** (2026-10-05). The maintainer decided that
-  day that KMRP ships `KMRP.kpatch` plus the standalone controller patch ("KOTOR 1
-  Native Controller Mod + Xbox HUD", id `kmrp-controller`) and no controller of its
-  own, with the controller always installed. **This branch does not build a working
-  installer and must not be released**: see "Not done" below.
-  - *Done.* `KMRP.kpatch` has 22 hooks, no controller group and no `controller`
-    option, and `requires = ["kmrp-controller"]`; its module's `g_controllerOption`
-    is always off (`tools/build_native_kpatch.py`, `K1RuntimeEngine.cpp`). KOTOR
-    Patch Manager allows one patch per address, so the GUI frame (`0x0040CE70`) and
-    the movie frame (`0x00404D96`) are the controller patch's, and its module calls
-    KMRP's share of each, `KmrpCoreGuiWorkK1` and `KmrpCoreMovieWorkK1`, which
-    KMRP's module exports (`K1NativeJoystick.cpp`). The controller patch has its
-    resource hook at `0x00407235`, two instructions into the function KMRP hooks at
-    `0x00407230`; it no longer lists `kmrp` as a conflict; and beside KMRP it
-    deletes its own copies of the game's layouts from its temporary folder, so that
-    KMRP's scaled ones are used (`tools/build_controller_kpatch.py`,
-    `K1ControllerStandalone.cpp`).
-  - *Seen.* The two installed together by KOTOR Patch Manager 0.7.1's launcher in a
-    scratch copy at 1920x1080: the main menu, all eight in-game tabs, the HUD, the
-    pad, and the Xbox-style HUD's swap to KMRP's HUD with the mouse and back.
-    `Test-ControllerKpatch.py` passes in the form it has on this branch.
-  - *Not done.* The installer (`src/patcher/KpmEdition.cs`) still installs only
-    `KMRP.kpatch`, still removes `kmrp-controller` as a retired patch and still has
-    a Controller Support setting, so an install made from this branch has a patch
-    whose requirement is missing (not run). KMRP's bank still carries its
-    per-resolution badge textures under the controller patch's names.
-    `Test-KpatchSource.py` fails on this branch (it validates the build's older
-    patch), and `Test-InstallerPatch.ps1`, `tools/check_kpm_overlaps.py`,
-    `docs/kpm-edition.md`, `docs/controller-standalone.md` and the README are not
-    updated. Not run in the pair: a fight, a movie, any other resolution.
+- **KMRP and the controller patch are two patches, each working without the other**
+  (2026-10-05, on the branch `kmrp-two-patches`). The maintainer decided that day that
+  KMRP ships `KMRP.kpatch` and the standalone controller patch ("KOTOR 1 Native
+  Controller Mod + Xbox HUD", id `kmrp-controller`) and has no controller of its own,
+  and then that neither may need the other: the controller patch can be added to a
+  game that has KMRP, or taken away, in the installer or in KOTOR Patch Manager.
+  - *The patches.* `KMRP.kpatch` has 24 hooks, no controller group, no `controller`
+    option and requires nothing; its options are `map-notes` and `debug-logs`
+    (`tools/build_native_kpatch.py`, `K1RuntimeEngine.cpp`). KOTOR Patch Manager
+    allows one patch per address, and both patches work in the GUI frame, the movie
+    frame and the resource lookup, so each has sites of its own there:
+
+    | | The controller patch | KMRP |
+    | --- | --- | --- |
+    | GUI frame | `0x0040CE70` | `0x0040CE76`, the next instruction (`8B 85 8C 00 00 00`, EBP the GUI manager): `KmrpCoreGuiWorkK1` |
+    | Movie frame | `0x00404D96` | `0x00404D06`, earlier in the same loop, once per frame (`8B 56 48 50 8B 46 4C`, ESI the movie player): `KmrpCoreMovieWorkK1` |
+    | Resource lookup | `0x00407235` | `0x00407230` |
+
+    KMRP's two do its share of each frame: the resolution sampled, the cursor kept to
+    the picture and the status summary laid out; the movie window centred, tracked
+    and given its bars (`K1NativeJoystick.cpp`). The controller patch does not list
+    `kmrp` as a conflict; beside KMRP it leaves the cursor to KMRP and deletes its
+    own copies of the game's layouts from its temporary folder, so that KMRP's scaled
+    ones are used (`tools/build_controller_kpatch.py`, `K1ControllerStandalone.cpp`).
+    (For some hours that day the controller patch held KMRP's two frame sites and
+    called into KMRP's module, and KMRP required it.)
+  - *The installer* installs both while Controller Support is on in Advanced
+    Settings, the default (`src/patcher/KpmEdition.cs`): both modules under
+    `patches\`, KMRP's first; both patches' hooks in `patch_config.toml`;
+    `configs\kmrp.ini` and `configs\kmrp-controller.ini`, the second with
+    `debug-logs` only, so that the player's own `Style` under `[Hud]` in
+    `kmrp-controller.ini` still decides the Xbox-style HUD; both `.kpatch` files in
+    KOTOR Patch Manager's patch folder; and Restore Original removes all of it. With
+    Controller Support off, the controller patch is neither installed nor delivered:
+    KMRP's patch is the same either way. `build_kmrp.ps1` builds the controller
+    patch and embeds it and its hooks (`tools/build_controller_kpatch.py
+    --config-dir`). The installer is 146,088,960 bytes with both inside (SHA-256
+    `CB53B901...64D5C3D0`), ten megabytes more.
+  - *Run.* `Test-InstallerPatch.ps1` (on: both patches in the config in order, 24 + 34
+    hooks, both modules the ones inside their `.kpatch` files, both files delivered;
+    off: KMRP alone with the same 24 hooks, one module, nothing of the controller
+    patch; the folder as it was after a restore), `Test-KpatchSource.py` and
+    `Test-ControllerKpatch.py` pass, each updated for this. The two patches of that
+    build, installed by KOTOR Patch Manager 0.7.1's launcher into a scratch copy at
+    1920x1080, reached the main menu.
+  - **Not done, not run.** KMRP's movie hook is at a new place in the movie loop and
+    **no movie has been watched with it**: that a movie is centred, has its bars and
+    can be skipped is unverified, with either patch alone or both. Not started: KMRP
+    alone, the controller patch alone on this build, a save, the HUD. The installer
+    itself was not run on a game outside its test fixture. KMRP's bank still carries
+    its per-resolution badge textures under the controller patch's names (which set
+    wins is not established). Modern Driver Compatibility is still the installer's
+    loose files, not an option of the patch. `Test-ReinstallOverOlderBuild.ps1` and
+    `tools/check_kpm_overlaps.py` were not run or updated; `docs/kpm-edition.md`,
+    `docs/controller-standalone.md` and the README still describe one patch with a
+    controller option. Not run: a fight, any other resolution, the GOG and Steam
+    executables.
 - **The Xbox-style HUD's frames are drawn, and its portraits are framed alike**
   (2026-10-05, the standalone controller patch). The HUD was dressed in the game's
   own HUD textures, 16 to 256 pixels across and stretched over a modern screen:

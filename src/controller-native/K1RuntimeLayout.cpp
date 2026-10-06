@@ -22,13 +22,18 @@ struct Control {
     void* pointer; std::uintptr_t table;
     bool known = false; Extent file{};
     bool adjusted = false; Extent moved{}; double scale = 1;
+    int rowsRight = 0;   // how much wider a list was made for its rows (list rows, below)
 };
-struct Panel { std::string resource; std::map<std::string, Control> controls; std::map<std::string, Extent> file; };
+struct Panel {
+    std::string resource; std::map<std::string, Control> controls; std::map<std::string, Extent> file;
+    bool rowsPlaced = false;   // its lists have been made as wide as their rows need (PlaceLists)
+};
 std::map<void*, Panel> panels;
 int previousWidth = 0, previousHeight = 0;
 template<class T> T& Field(void* p, unsigned at) { return *reinterpret_cast<T*>(static_cast<char*>(p) + at); }
 
 struct Gff {
+    static constexpr unsigned kAnyType = 0xFFFFFFFFu;
     std::vector<unsigned char> data;
     unsigned structure = 0, structures = 0, fields = 0, fieldCount = 0;
     unsigned labels = 0, labelCount = 0, values = 0, indices = 0, lists = 0;
@@ -60,7 +65,7 @@ struct Gff {
             if (count > 1 && !integer(indices + start + i * 4, index)) return false;
             if (index >= fieldCount || !integer(fields + index * 12, actualType) || !integer(fields + index * 12 + 4, label) || label >= labelCount) return false;
             char text[17]{}; std::memcpy(text, data.data() + labels + label * 16, 16);
-            if (!std::strcmp(text, name)) return actualType == type && integer(fields + index * 12 + 8, value);
+            if (!std::strcmp(text, name)) return (type == kAnyType || actualType == type) && integer(fields + index * 12 + 8, value);
         }
         return false;
     }
@@ -101,6 +106,267 @@ bool FileExtents(const Gff& gff, std::map<std::string, Extent>& result)
     }
     return true;
 }
+
+// Every list's PADDING and scrollbar width in a layout file, by tag. The engine reads
+// both once, with the panel.
+struct ListFile { int padding, bar; };
+void FileLists(const Gff& gff, std::map<std::string, ListFile>& result)
+{
+    unsigned offset, count;
+    if (!gff.field(0, "CONTROLS", 15, offset) || !gff.integer(gff.lists + offset, count) || count > 512 ||
+        !gff.range(gff.lists + offset + 4, count, 4)) return;
+    for (unsigned i = 0; i < count; ++i) {
+        unsigned object, type, padding, bar, extent, width;
+        std::string tag;
+        if (!gff.integer(gff.lists + offset + 4 + i * 4, object) || !gff.tag(object, tag) ||
+            !gff.field(object, "CONTROLTYPE", 5, type) || type != 11 ||
+            !gff.field(object, "PADDING", Gff::kAnyType, padding)) continue;
+        ListFile list{static_cast<int>(padding & 0xff), -1};
+        if (gff.field(object, "SCROLLBAR", 14, bar) && gff.field(bar, "EXTENT", 14, extent) &&
+            gff.field(extent, "WIDTH", 5, width) && width <= 4096) list.bar = static_cast<int>(width);
+        result[tag] = list;
+    }
+}
+
+/*
+  List rows, as far from their box's left border as from its right.
+
+  The Mac's work of 2026-10-04 (macos/patches/kmrp-assets/layout.cpp on the branch
+  macos-standalone-kpatch, "List rows"), brought here on 2026-10-06 at the maintainer's
+  request. A list's box is drawn by its panel's artwork, not by the list, and the rows'
+  rectangle the layout file gives is not centred in it; a row's own artwork also begins
+  further inside its rectangle on one side than on the other. Counted on Windows before
+  this, the inventory at about 3440x1440 in a window (3432x1409, a blended size): 19 dark
+  columns between the box's left border and the icon's frame, 12 between the button and
+  the right border.
+
+  Two numbers make the difference, as on the Mac:
+
+    * where the file puts the rows' rectangle in the box: K1ListRows.inc, per menu set and
+      list, the Mac's measurement of the sets and the artwork. The Windows build's sets
+      measure to the same 66 rows (the Mac's tool run on build/kmrp/resources, 2026-10-06).
+      A size the build has no set for takes the sets nearest in shape, then in height,
+      scaled by the heights (MeasuredOffset).
+    * where a row's artwork begins inside its rectangle, by the row's kind (RowInset): the
+      Mac's numbers, fitted to what the Mac drew. For an item row they give 7 at that size
+      with the table's -1, which is the 19 less 12 counted above.
+
+  Counted on Windows at 3440x1440 with this in (2026-10-06, dark columns left and right of
+  the rows): the inventory 7 and 7, the journal 5 and 6, the store 0 and 1. The powers'
+  chart was 11 and 7 with the Mac's number for its row, and is 0 here instead: see
+  RowInset. A skill's row and a script's are the Mac's numbers, not counted here yet.
+
+  The store's rows, and by the same artwork the workbench's, reach both borders of their
+  box once they are centred. They are set in from both by kRowGap, at the maintainer's
+  request on seeing a merchant that day.
+
+  A row of any kind is given its rectangle by its list, in CSWGuiListBox::OrganizeControls
+  (0x0041B140): one rectangle on the stack for every row, [esp+0x20], left = PADDING on the
+  scrollbar's side and width = the content's less PADDING since KMRP's own changes to that
+  routine (reverse-engineering/listbox-geometry.md), and three places that hand it to a
+  row's SetExtent: 0x0041B4BF (the rows above the first shown), 0x0041B540 (the rows shown)
+  and 0x0041B59F (the rows below). A detour on each (KmrpListRowK1: esi the list, ecx the
+  row, the rectangle) writes the rectangle's left and width again for the row about to
+  get it: the sum of the two above further left, and as much wider, never further than
+  PADDING, so the row stays in the list and its right edge where it was. Where the sum is
+  negative for the list's usual row (the store, the workbench: the box reaches further
+  right than the rows), the list is made that much wider instead and the rows end further
+  right (PlaceLists, on the first frame after its panel has loaded: this module has no
+  hook at the end of a panel's loading).
+
+  The lists: K1ListRows.inc's ten. Not touched, as on the Mac: the equip screen's list and
+  the container's, whose rows have no outline on the right to compare with, and the lists
+  that have no box (saved games, movies, key mapping, messages, feedback options).
+*/
+#include "K1ListRows.inc"
+
+// CSWGuiListBox (reverse-engineering/listbox-geometry.md): the scrollbar's width, which
+// SetExtent (0x0041BF80) reads; the content's width; the rows' height; the flags, of which
+// 0x10 is the scrollbar on the left; PADDING, a byte.
+const unsigned kListBarWidth = 0x110, kListContentWidth = 0x294, kListRowHeight = 0x2B4, kListFlags = 0x2BC, kListPadding = 0x2C0;
+const std::uintptr_t kListTable = 0x0073E840;          // CSWGuiListBox's vtable
+const unsigned kControlPanel = 0x34, kPanelManager = 0x18, kManagerWidth = 0x6C, kManagerHeight = 0x6E;   // the last two are shorts
+
+// The row's kind, by its vtable (the names are the Ghidra archive's), and how much further
+// in its artwork begins on the left than it ends on the right, in pixels (RowInset). A
+// button's outline is as far in on both sides.
+enum RowKind { kButtonRow, kItemRow, kSkillRow, kChartRow, kStoreRow, kUpgradeRow, kScriptRow };
+RowKind KindOf(std::uintptr_t vtable, RowKind usual)
+{
+    switch (vtable) {
+        case 0x007568F8: return kItemRow;      // CSWGuiInGameItemEntry: inventory, equip, quest items, container
+        case 0x00755ED0: return kSkillRow;     // CSWGuiInGameSkillEntry
+        case 0x007578A8: return kChartRow;     // CSWGuiSkillFlow: a row of the powers' or the feats' chart
+        case 0x00756850: return kStoreRow;     // CSWGuiStoreItemEntry: its icon is the row's height
+        case 0x00757108: return kUpgradeRow;   // CSWUpgradeItemEntry: its icon is 56 at every size
+        case 0x0073EB88: return kScriptRow;    // CSWGuiButtonToggle: a party member's script (CSWGuiScriptSelect::CreateOption)
+    }
+    return usual;
+}
+double RowInset(RowKind kind, double scale, int rowHeight)
+{
+    // An item row's icon is a cell of 56 * scale; the store's is its row's height, the
+    // workbench's 56 at every size: the item's line, by the cell.
+    const auto item = [](double cell) { return 4.39 * cell / 56 - 0.89; };
+    switch (kind) {
+        case kItemRow:    return item(56 * scale);
+        case kSkillRow:   return 5.89 * scale - 2.97;
+        // Not the Mac's -1.47 * scale. A chart's row puts its first picture at its
+        // rectangle's left and its third at the right, each the row's height square
+        // (CSWGuiSkillFlow::SetExtent, 0x006CCE30: left, left + (width - height) / 2,
+        // left + width - height), so nothing is further in on one side; with the Mac's
+        // number the pictures' boxes stood 11 columns from the left border and 7 from
+        // the right at 3440x1440.
+        case kChartRow:   return 0;
+        case kStoreRow:   return item(rowHeight);
+        case kUpgradeRow: return item(56);
+        case kScriptRow:  return 1.47 * scale;
+        default:          return 0;
+    }
+}
+
+// The lists whose rows are placed: those of K1ListRows.inc, with the kind of row they usually hold.
+const RowKind kUsualRow[] = {kItemRow, kSkillRow, kButtonRow, kItemRow, kStoreRow, kStoreRow, kUpgradeRow, kChartRow, kChartRow, kScriptRow};
+constexpr int kMeasuredListCount = sizeof kMeasuredLists / sizeof *kMeasuredLists;
+static_assert(sizeof kUsualRow / sizeof *kUsualRow == kMeasuredListCount, "a usual row for every measured list");
+
+// The lists whose rows are set in from both borders of their box as well, and by how
+// much for each 720 lines of the screen: the store's two, whose rows stood against both
+// borders once centred (no dark column on the left and one on the right at 3440x1440),
+// and the workbench's, whose box the artwork draws alike (not seen in game). 3.5 is
+// what the inventory's rows keep at that size, 7 on each side.
+const double kRowGap[] = {0, 0, 0, 0, 3.5, 3.5, 3.5, 0, 0, 0};
+static_assert(sizeof kRowGap / sizeof *kRowGap == kMeasuredListCount, "a gap for every measured list");
+
+int MeasuredList(const std::string& name)
+{
+    for (int i = 0; i < kMeasuredListCount; ++i)
+        if (name == kMeasuredLists[i]) return i;
+    return -1;
+}
+
+// A list's offset at a size: the set's own; else, from the sets nearest in shape (shapes
+// within 2% are one, the families the sets are made in), the mean of the three nearest in
+// height, each scaled by the heights. False where the artwork has no box for the list.
+bool MeasuredOffset(int list, int width, int height, double& offset)
+{
+    if (list < 0 || width <= 0 || height <= 0) return false;
+    struct Near { double shape, tall, value; };
+    Near nearest[3];
+    int count = 0;
+    for (const MeasuredSet& set : kMeasuredSets) {
+        if (set.offset[list] == kNoBox) continue;
+        if (set.width == width && set.height == height) { offset = set.offset[list]; return true; }
+        Near one{std::floor(std::fabs(std::log(double(set.width) / set.height * height / width)) / 0.02),
+                 std::fabs(std::log(double(set.height) / height)),
+                 set.offset[list] * Scale(height) / Scale(set.height)};
+        // Kept in order: nearest in shape, then in height.
+        int at = count < 3 ? count : 3;
+        while (at > 0 && (one.shape < nearest[at - 1].shape ||
+                          (one.shape == nearest[at - 1].shape && one.tall < nearest[at - 1].tall))) {
+            if (at < 3) nearest[at] = nearest[at - 1];
+            --at;
+        }
+        if (at < 3) nearest[at] = one;
+        if (count < 3) ++count;
+    }
+    if (!count) return false;
+    double sum = 0;
+    int used = 0;
+    for (int i = 0; i < count; ++i)
+        if (nearest[i].shape == nearest[0].shape) { sum += nearest[i].value; ++used; }
+    offset = sum / used;
+    return true;
+}
+
+// A list bound to a panel by tag, for its rows: which measured list it is, and how much
+// wider it was made.
+struct BoundList { std::string name; int measured = -1; int wider = 0; };
+std::map<void*, BoundList> boundLists;
+
+// The size in force, from the list's panel's manager.
+bool SizeOf(void* list, int& width, int& height)
+{
+    void* panel = Field<void*>(list, kControlPanel);
+    void* manager = panel ? Field<void*>(panel, kPanelManager) : nullptr;
+    if (!manager) return false;
+    width = Field<short>(manager, kManagerWidth);
+    height = Field<short>(manager, kManagerHeight);
+    return width > 0 && height > 0;
+}
+
+// How much wider a list is to be at a size: what its usual row would have to move right.
+int ListWider(int measured, void* list, int width, int height)
+{
+    double offset;
+    if (!MeasuredOffset(measured, width, height, offset)) return 0;
+    const double total = offset + RowInset(kUsualRow[measured], Scale(height), Field<int>(list, kListRowHeight));
+    return total < 0 ? static_cast<int>(std::lround(-total)) : 0;
+}
+
+void SetExtent(void* object, const Extent& extent)
+{
+    auto table = Field<std::uintptr_t*>(object, 0);
+    reinterpret_cast<void(__thiscall*)(void*, const Extent*)>(table[1])(object, &extent);
+}
+
+// The lists of the panels that have finished loading since the last frame, made as wide
+// as their rows need. A panel is in `panels` from the start of its loading, which is over
+// before the next frame is drawn.
+void PlaceLists(void* manager, int width, int height)
+{
+    for (auto& item : panels) {
+        Panel& panel = item.second;
+        if (panel.rowsPlaced || Field<void*>(item.first, kPanelManager) != manager) continue;
+        panel.rowsPlaced = true;
+        for (auto& entry : panel.controls) {
+            Control& tracked = entry.second;
+            void* list = tracked.pointer;
+            const auto bound = boundLists.find(list);
+            if (bound == boundLists.end() || bound->second.measured < 0 || tracked.table != kListTable ||
+                Field<std::uintptr_t>(list, 0) != kListTable || !(Field<unsigned char>(list, kListFlags) & 0x10)) continue;
+            const int wider = ListWider(bound->second.measured, list, width, height);
+            bound->second.wider = wider;
+            if (!wider) continue;
+            Extent extent = Field<Extent>(list, 4);
+            extent.width += wider;
+            tracked.rowsRight = wider;
+            SetExtent(list, extent);   // the content's width with it, and the rows laid out again
+        }
+    }
+}
+}
+
+// CSWGuiListBox::OrganizeControls, where it hands a row its rectangle (left, top, width,
+// height): see "List rows" above.
+extern "C" void __cdecl KmrpListRowK1(void* list, void* row, int* rect)
+{
+    if (!list || !row || !rect) return;
+    const auto bound = boundLists.find(list);
+    if (bound == boundLists.end()) return;
+    const int measured = bound->second.measured;
+    if (measured < 0 || !(Field<unsigned char>(list, kListFlags) & 0x10)) return;
+    int width, height;
+    if (!SizeOf(list, width, height)) return;
+    double offset;
+    if (!MeasuredOffset(measured, width, height, offset)) return;
+    const int padding = Field<unsigned char>(list, kListPadding);
+    const double inset = RowInset(KindOf(Field<std::uintptr_t>(row, 0), kUsualRow[measured]), Scale(height), rect[3]);
+    int shift = static_cast<int>(std::lround(offset + inset)) + bound->second.wider;
+    if (shift > padding) shift = padding;
+    const int gap = static_cast<int>(std::lround(kRowGap[measured] * Scale(height)));
+    const int rowWidth = Field<int>(list, kListContentWidth) - padding + shift;
+    if (rowWidth <= 4 * gap) return;      // no list of the game's is this narrow
+    rect[0] = padding - shift + gap;
+    rect[2] = rowWidth - 2 * gap;
+}
+
+// Every GUI frame (KmrpCoreGuiWorkK1): the lists of newly loaded panels.
+void KmrpListRowsFrame(void* manager)
+{
+    if (!manager) return;
+    const int width = Field<short>(manager, kManagerWidth), height = Field<short>(manager, kManagerHeight);
+    if (width > 0 && height > 0) PlaceLists(manager, width, height);
 }
 
 // Stack arguments arrive as the address of their slot (KPM's "esp+N").
@@ -139,12 +405,27 @@ extern "C" void __cdecl KmrpPanelControlK1(void* panel, void** controlSlot, void
             const auto file = found->second.file.find(tag);
             if (file != found->second.file.end()) { entry.known = true; entry.file = file->second; }
             found->second.controls[tag] = entry;
+            // For its rows, if it is one of the measured lists (list rows, above).
+            BoundList bound;
+            bound.name = found->second.resource + "." + tag;
+            bound.measured = MeasuredList(bound.name);
+            if (bound.measured >= 0) boundLists[control] = bound; else boundLists.erase(control);
         }
     }
 }
-extern "C" void __cdecl KmrpPanelDestroyedK1(void* panel) { panels.erase(panel); }
+extern "C" void __cdecl KmrpPanelDestroyedK1(void* panel)
+{
+    const auto found = panels.find(panel);
+    if (found == panels.end()) return;
+    for (const auto& item : found->second.controls) {
+        const auto bound = boundLists.find(item.second.pointer);
+        if (bound != boundLists.end() && bound->second.name == found->second.resource + "." + item.first) boundLists.erase(bound);
+    }
+    panels.erase(found);
+}
 extern "C" void __cdecl KmrpControlDestroyedK1(void* control)
 {
+    boundLists.erase(control);
     for (auto& panel : panels) for (auto at = panel.second.controls.begin(); at != panel.second.controls.end();) {
         if (at->second.pointer == control) at = panel.second.controls.erase(at); else ++at;
     }
@@ -170,13 +451,17 @@ bool KmrpRuntimeLayoutDimensions(void* manager, int width, int height)
         changes.push_back({panel, root});
         std::map<std::string, Extent> file;
         if (!FileExtents(gff, file)) return false;
+        std::map<std::string, ListFile> lists;
+        FileLists(gff, lists);
         for (const auto& entry : file) {
             auto found = item.second.controls.find(entry.first);
             if (found == item.second.controls.end()) continue;
             Control& tracked = found->second;
             void* control = tracked.pointer;
             if (Field<void*>(control, 0x34) != panel || Field<std::uintptr_t>(control, 0) != tracked.table) return false;
-            const Extent now = Field<Extent>(control, 4);
+            const Extent actual = Field<Extent>(control, 4);
+            Extent now = actual;
+            now.width -= tracked.rowsRight;   // the rows' share is put back below, for the new size
             Extent target = entry.second;
             if (now == target) {
                 // The engine has already laid this one out for the new size.
@@ -202,7 +487,26 @@ bool KmrpRuntimeLayoutDimensions(void* manager, int width, int height)
                 }
             }
             tracked.known = true; tracked.file = entry.second;
-            if (!(now == target)) changes.push_back({control, target});
+            // A list's PADDING and its scrollbar's width are the new file's too (the engine
+            // read them once, with the panel, so they stayed the old size's and the rows
+            // began where the old size's bar ended: the Mac saw it on 2026-10-04, and this
+            // is the same code), and its rows are placed for the new size.
+            tracked.rowsRight = 0;
+            const auto list = lists.find(entry.first);
+            if (list != lists.end() && tracked.table == kListTable) {
+                Field<unsigned char>(control, kListPadding) = static_cast<unsigned char>(list->second.padding);
+                if (list->second.bar >= 0) Field<int>(control, kListBarWidth) = list->second.bar;
+                const auto bound = boundLists.find(control);
+                if (bound != boundLists.end() && bound->second.measured >= 0 &&
+                    (Field<unsigned char>(control, kListFlags) & 0x10)) {
+                    bound->second.wider = ListWider(bound->second.measured, control, width, height);
+                    tracked.rowsRight = bound->second.wider;
+                    target.width += tracked.rowsRight;
+                }
+                changes.push_back({control, target});   // SetExtent lays the rows out again
+            } else if (!(actual == target)) {
+                changes.push_back({control, target});
+            }
         }
         item.second.file.swap(file);
     }

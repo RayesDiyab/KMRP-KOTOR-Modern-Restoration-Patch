@@ -23,6 +23,7 @@
 #include "KmrpOptions.h"
 #ifdef KMRP_NATIVE_RUNTIME
 #include "K1RuntimeResolution.h"
+#include "K1RuntimeLayout.h"
 #include "K1RuntimeEngine.h"
 extern "C" void __cdecl NativeGuiFrameK1(void* guiManager);
 extern "C" void __cdecl NativeMovieFrameK1(void* moviePlayer);
@@ -31,6 +32,7 @@ extern "C" void __cdecl NativeMovieFrameK1(void* moviePlayer);
 #include <windows.h>
 #include <xinput.h>
 
+#include <climits>
 #include <cmath>
 #include <cstdint>
 #include <cstdio>
@@ -2515,19 +2517,6 @@ extern "C" void __cdecl CoreMovieFrameK1(void* moviePlayer)
 
 extern "C" void __cdecl NativeMovieFrameK1(void* moviePlayer)
 {
-#ifdef KMRP_CONTROLLER_STANDALONE
-    // Beside KMRP, its module centres the movie window and paints its bars; this
-    // one tracks the movie for the pad's skip, below.
-    {
-        HMODULE kmrp = GetModuleHandleW(L"kmrp.dll");
-        using WorkFn = void(__cdecl*)(void*);
-        static const WorkFn kmrpMovie = kmrp
-            ? reinterpret_cast<WorkFn>(GetProcAddress(kmrp, "KmrpCoreMovieWorkK1")) : nullptr;
-        if (kmrpMovie) {
-            kmrpMovie(moviePlayer);
-        }
-    }
-#endif
     if (!TrackMovieFrameK1(moviePlayer)) {
         return;
     }
@@ -3791,10 +3780,54 @@ void BindOneCueK1(void* panel, const char* tag, std::size_t follow, const char* 
             at = {at.left + at.width - width, at.top - (height - at.height) / 2, width, height};
             changed = true;
         } else if (std::strcmp(tag, "LBL_KMRPR3") == 0) {
-            at.left -= at.width / 3 - at.width / 8;
             if (beside) {
+                // From the live portrait, both ways, whatever layout is loaded. Until
+                // 2026-10-06 the distance was the layout file's, less the difference
+                // between a third and an eighth: right in the game's own layout, and
+                // beside KMRP, whose layout has the cue in the middle of a narrower
+                // gap, it stood against the portrait at 3440x1440 (the maintainer saw
+                // it).
+                //
+                // Which portrait it stands beside is the layout's to say: in the
+                // game's own the cue follows the last portrait, in KMRP's it is
+                // between two. So the portraits are found among the live controls
+                // (the size of the one the cue was built beside, on its line), and the
+                // cue goes an eighth of its size from the one on its left, or to the
+                // middle of the gap where the next portrait leaves less room.
                 const Rect portrait = *FieldAt<Rect>(beside, 4);
+                const int middle = at.left + at.width / 2;
+                int leftEdge = INT_MIN, rightEdge = INT_MAX;
+                void** const all = *FieldAt<void**>(panel, K1_PANEL_CONTROL_ARRAY);
+                const int total = *FieldAt<int>(panel, K1_PANEL_CONTROL_COUNT);
+                for (int i = 0; LooksLikePointerK1(all) && i < total && i < 512; ++i) {
+                    if (!LooksLikePointerK1(all[i]) || all[i] == control) {
+                        continue;
+                    }
+                    const Rect other = *FieldAt<Rect>(all[i], 4);
+                    const int lift = other.top - portrait.top;
+                    if (other.width != portrait.width || other.height != portrait.height ||
+                            lift > portrait.height / 4 || lift < -portrait.height / 4) {
+                        continue;
+                    }
+                    if (other.left + other.width / 2 <= middle) {
+                        if (other.left + other.width > leftEdge) leftEdge = other.left + other.width;
+                    } else if (other.left < rightEdge) {
+                        rightEdge = other.left;
+                    }
+                }
+                if (leftEdge != INT_MIN) {
+                    int gap = at.width / 8;
+                    if (rightEdge != INT_MAX && rightEdge - leftEdge >= at.width &&
+                            (rightEdge - leftEdge - at.width) / 2 < gap) {
+                        gap = (rightEdge - leftEdge - at.width) / 2;
+                    }
+                    if (rightEdge == INT_MAX || rightEdge - leftEdge >= at.width) {
+                        at.left = leftEdge + gap;
+                    }
+                }
                 at.top = portrait.top + (portrait.height - at.height + 1) / 2;
+            } else {
+                at.left -= at.width / 3 - at.width / 8;
             }
             changed = true;
         }
@@ -5217,15 +5250,19 @@ extern "C" void __cdecl CoreGuiFrameK1(void* guiManager)
 }
 
 #ifdef KMRP_NATIVE_RUNTIME
-// KMRP's own share of the GUI frame and of the movie frame. Since 2026-10-05 the
-// controller patch holds those two sites (KOTOR Patch Manager allows one patch per
-// address, and that patch must work without KMRP), and its module calls these in
-// this one from its frames: the resolution sampled and the cursor kept to the
-// picture, and the movie window centred, tracked and given its bars.
+// KMRP's own share of the GUI frame and of the movie frame, hooked at sites of
+// KMRP's own since 2026-10-05 (tools/build_native_kpatch.py, OWN_FRAME_HOOKS): the
+// controller patch has the frames' usual sites, KOTOR Patch Manager allows one patch
+// per address, and each patch must work without the other. (For some hours that day
+// the controller patch's module called these from its frames instead, which made
+// KMRP require it.) The resolution sampled, the cursor kept to the picture and the
+// status summary laid out; the movie window centred, tracked and given its bars.
 extern "C" void __cdecl KmrpCoreGuiWorkK1(void* guiManager)
 {
     KmrpResolutionObservedK1(guiManager);
+    KmrpListRowsFrame(guiManager);      // the lists of newly loaded panels (K1RuntimeLayout.cpp, "List rows")
     UpdateCursorConfinementK1();
+    StatusSummaryFrameK1(guiManager);
 }
 
 extern "C" void __cdecl KmrpCoreMovieWorkK1(void* moviePlayer)
@@ -5236,14 +5273,12 @@ extern "C" void __cdecl KmrpCoreMovieWorkK1(void* moviePlayer)
 #endif
 
 #ifdef KMRP_CONTROLLER_STANDALONE
-// KMRP's module, when KMRP is installed beside this patch: KOTOR Patch Manager
-// loads every patch's module as patches\<id>.dll before the game runs.
-using KmrpCoreWorkFnK1 = void(__cdecl*)(void*);
-
-KmrpCoreWorkFnK1 KmrpCoreWorkK1(const char* name)
+// Whether KMRP is installed beside this patch: KOTOR Patch Manager loads every
+// patch's module as patches\<id>.dll before the game runs.
+bool KmrpIsBesideK1()
 {
-    const HMODULE kmrp = GetModuleHandleW(L"kmrp.dll");
-    return kmrp ? reinterpret_cast<KmrpCoreWorkFnK1>(GetProcAddress(kmrp, name)) : nullptr;
+    static const bool beside = GetModuleHandleW(L"kmrp.dll") != nullptr;
+    return beside;
 }
 #endif
 
@@ -5255,14 +5290,9 @@ extern "C" void __cdecl NativeGuiFrameK1(void* guiManager)
 #endif
     g_stick.lastGuiTick = GetTickCount();
 #ifdef KMRP_CONTROLLER_STANDALONE
-    // Beside KMRP its module samples the resolution and confines the cursor (it
-    // knows the sizes it adds); alone, the cursor is this module's to confine.
-    static const KmrpCoreWorkFnK1 kmrpGui = KmrpCoreWorkK1("KmrpCoreGuiWorkK1");
-    if (kmrpGui) {
-        kmrpGui(guiManager);
-    } else {
-        UpdateCursorConfinementK1();
-    }
+    // Beside KMRP its module confines the cursor, from its own hook (it knows the
+    // sizes it adds); alone, the cursor is this module's to confine.
+    if (!KmrpIsBesideK1()) UpdateCursorConfinementK1();
 #else
     UpdateCursorConfinementK1();
 #endif

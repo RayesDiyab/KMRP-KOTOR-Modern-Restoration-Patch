@@ -104,8 +104,8 @@ def main() -> int:
           f"none of the {len(engine)} resolution and layout hooks of KMRP's module is in it")
     check(all(h.get("type", "detour") == "detour" for h in packed), "every hook is a detour: nothing is written to the file on disk")
     check("kmrp" not in manifest["conflicts"] and not manifest["requires"], "it requires nothing, and does not conflict with KMRP")
-    check(kmrp.PATCH["requires"] == [package.ID] and package.ID not in kmrp.PATCH["conflicts"],
-          "KMRP's own patch requires it")
+    check(not kmrp.PATCH["requires"] and package.ID not in kmrp.PATCH["conflicts"],
+          "KMRP's own patch neither requires it nor conflicts with it: each works without the other")
     shared = sorted(a for a in mine if any(h["address"] < a + len(mine[a]["original_bytes"])
                                            and a < h["address"] + len(h["original_bytes"]) for h in kmrp.all_hooks()))
     check(not shared, "no site of it overlaps a site of KMRP's patch: the two install together"

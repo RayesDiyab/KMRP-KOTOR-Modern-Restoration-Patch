@@ -150,7 +150,7 @@ Only these, and only with these labels:
 | Character | Y | Equip | S |
 | Messages | X | Clear | S |
 | Save / Load | X | **Delete** | S — destructive, so the label must be exact |
-| Store | X | Buy / Sell | S |
+| Store | X | the button's own caption, Show Sell List or Show Buy List | **ships** since 2026-10-06; read from the dispatcher, not yet seen in play |
 | Container | X | Take All | S |
 
 Every row marked S needs live confirmation before shipping its prompt. Inventory
@@ -160,6 +160,14 @@ is the only one confirmed.
 ships, and its Y is Auto Level Up (`0x006B233C`), not Equip; A is Level Up
 (`0x006B2295`). Decoded from the dispatcher, `0x006B2250`; see *Character
 screen* above.
+
+*Added 2026-10-06:* the store. Its dispatcher (`CSWGuiStore::HandleInputEvent`,
+`0x006C2190`) answers event `0x29`, X, by swapping the buy and the sell list
+whatever holds focus, and `0x28` or `0x2E`, B, by closing the screen. A buys or
+sells the row in focus. So the screen's three buttons carry A (Buy or Sell), X
+(Show Sell List or Show Buy List) and B (Close). At a shop that only buys or only
+sells the game does not draw the X button (`0x006C1B50`), and no badge is drawn
+for it.
 
 ### LB / RB
 

@@ -96,7 +96,7 @@ function Get-Options([string]$folder) {
     $section = [regex]::Match($text, '(?s)\[Patch Options\]\r?\n(.*?)(?=\r?\n\[|\z)').Groups[1].Value
     return [pscustomobject]@{
         Text = $text
-        Controller = [regex]::Match($section, '(?m)^controller=([01])').Groups[1].Value
+        Controller = [regex]::Match($section, '(?m)^controller=([01])').Groups[1].Value   # gone since 2026-10-05: must be empty
         MapNotes = [regex]::Match($section, '(?m)^map-notes=([01])').Groups[1].Value
         DebugLogs = [regex]::Match($section, '(?m)^debug-logs=([01])').Groups[1].Value
     }
@@ -129,9 +129,12 @@ try {
     $before = Get-Listing $folder
     Assert ((Invoke-Installer @("--in-place", "`"$game`"", "1920x1080")) -eq 0) "the install succeeds"
     $config = Get-Config $folder
-    Assert (($config.Ids -join ",") -eq "kmrp") "patch_config.toml holds the one patch, kmrp"
+    Assert (($config.Ids -join ",") -eq "kmrp,kmrp-controller") "patch_config.toml holds KMRP's patch and the controller patch, in that order"
     $options = Get-Options $folder
-    Assert ($options.Controller -eq "1" -and $options.MapNotes -eq "1") "configs\kmrp.ini says controller and map-notes are on"
+    Assert ($options.Controller -eq "" -and $options.MapNotes -eq "1") "configs\kmrp.ini says map-notes is on, and has no controller option"
+    $controllerIni = Join-Path $folder "configs\kmrp-controller.ini"
+    Assert ((Test-Path -LiteralPath $controllerIni) -and ([IO.File]::ReadAllText($controllerIni) -match '(?m)^debug-logs=0') -and
+        -not ([IO.File]::ReadAllText($controllerIni) -match '(?m)^xbox-hud=')) "configs\kmrp-controller.ini has debug-logs off and leaves the Xbox-style HUD to the player's own setting"
     Assert ($options.DebugLogs -eq "0") "debug logs are off"
     Assert ($options.Text -match '(?m)^\[Mine\]\r?\nkept=1') "the section that was already in the file is kept"
     Assert (-not ($options.Text -match '(?m)^movies=')) "the movie fixes are not an option"
@@ -149,9 +152,27 @@ try {
     } finally { $zip.Dispose() }
     $allHooks = [regex]::Matches($hooksText, '(?m)^\[\[hooks\]\]').Count
     $conditional = [regex]::Matches($hooksText, '(?m)^when = ').Count
-    Assert ($config.Hooks -eq $allHooks) "every hook of the patch is in the config ($allHooks)"
+    # The controller patch, delivered beside it and installed with it.
+    $controllerKpatch = Join-Path $kpmPatches "KOTOR 1 Native Controller Mod + Xbox HUD.kpatch"
+    Assert (Test-Path -LiteralPath $controllerKpatch) "the controller patch's .kpatch is in KOTOR Patch Manager's patch folder too"
+    $python = (Get-Command python -ErrorAction SilentlyContinue).Source
+    if ($python) {
+        & $python (Join-Path $projectRoot "tools\build_controller_kpatch.py") --check $controllerKpatch | Out-Null
+        Assert ($LASTEXITCODE -eq 0) "tools\build_controller_kpatch.py --check accepts the delivered controller patch"
+    }
+    $zip = [IO.Compression.ZipFile]::OpenRead($controllerKpatch)
+    try {
+        $controllerHooks = [regex]::Matches((New-Object IO.StreamReader ($zip.GetEntry("kotor1.hooks.toml").Open())).ReadToEnd(), '(?m)^\[\[hooks\]\]').Count
+        $moduleStream = $zip.GetEntry("binaries/windows_x86.dll").Open()
+        $sha = [Security.Cryptography.SHA256]::Create()
+        $controllerModuleHash = [BitConverter]::ToString($sha.ComputeHash($moduleStream)).Replace("-", "")
+        $moduleStream.Dispose()
+    } finally { $zip.Dispose() }
+    Assert ($conditional -eq 0) "no hook of KMRP's patch is an option's"
+    Assert ($config.Hooks -eq ($allHooks + $controllerHooks)) "every hook of both patches is in the config ($allHooks + $controllerHooks)"
     Assert ((Get-Sha (Join-Path $folder "patches\kmrp.dll")) -eq $moduleHash) "patches\kmrp.dll is the module inside KMRP.kpatch"
-    Assert (@(Get-ChildItem -LiteralPath (Join-Path $folder "patches")).Count -eq 1) "the patches folder holds that one module"
+    Assert ((Get-Sha (Join-Path $folder "patches\kmrp-controller.dll")) -eq $controllerModuleHash) "patches\kmrp-controller.dll is the module inside the controller patch"
+    Assert (@(Get-ChildItem -LiteralPath (Join-Path $folder "patches")).Count -eq 2) "the patches folder holds those two modules"
     Assert (-not (Test-Path -LiteralPath (Join-Path $folder "Override"))) "nothing is written to Override"
     foreach ($absent in @("kmrp-kpm.dat", "kmrp-sdl3.dll", "kmrp-resolutions.txt")) {
         Assert (-not (Test-Path -LiteralPath (Join-Path $folder $absent))) "no $absent"
@@ -165,6 +186,7 @@ try {
     $after = Get-Listing $folder | Where-Object { $_ -notmatch 'swkotor\.ini\.kotor-ui-backup' }
     Assert (($after -join "`n") -eq ($before -join "`n")) "the folder is as it was, file for file"
     Assert (-not (Test-Path -LiteralPath $kpatch)) "the .kpatch this install created is removed"
+    Assert (-not (Test-Path -LiteralPath $controllerKpatch)) "and the controller patch's"
 
     Write-Host "Case 2  controller support and map notes off"
     Set-KmrpSettings $false $false
@@ -172,9 +194,13 @@ try {
     $folder = Split-Path -Parent $game
     Assert ((Invoke-Installer @("--in-place", "`"$game`"", "1920x1080")) -eq 0) "the install succeeds"
     $config = Get-Config $folder
-    Assert ($config.Hooks -eq ($allHooks - $conditional)) "only the hooks without a condition are written ($($allHooks - $conditional) of $allHooks)"
+    Assert (($config.Ids -join ",") -eq "kmrp") "without controller support the controller patch is not installed"
+    Assert ($config.Hooks -eq $allHooks) "KMRP's hooks, the same as beside the controller patch ($allHooks)"
+    Assert (-not (Test-Path -LiteralPath (Join-Path $kpmPatches "KOTOR 1 Native Controller Mod + Xbox HUD.kpatch"))) "the controller patch's .kpatch is not delivered"
+    Assert (@(Get-ChildItem -LiteralPath (Join-Path $folder "patches")).Count -eq 1) "the patches folder holds KMRP's module alone"
+    Assert (-not (Test-Path -LiteralPath (Join-Path $folder "configs\kmrp-controller.ini"))) "no options file for the controller patch"
     $options = Get-Options $folder
-    Assert ($options.Controller -eq "0" -and $options.MapNotes -eq "0") "configs\kmrp.ini says both are off"
+    Assert ($options.Controller -eq "" -and $options.MapNotes -eq "0") "configs\kmrp.ini says map-notes is off"
 
     Write-Host "Case 5  the delivered .kpatch"
     $python = (Get-Command python -ErrorAction SilentlyContinue).Source

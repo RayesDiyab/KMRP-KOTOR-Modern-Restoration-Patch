@@ -192,7 +192,12 @@ try {
     $exitCode = Invoke-Patcher @("--in-place", $exe, $Resolution)
     Assert ($exitCode -eq 0) "first install succeeded (exit $exitCode)"
     $before = @{}
-    foreach ($name in @("kmrp-kpm.dat", "patch_config.toml", "KotorPatcher.dll", "binkw32.dll", "binkw32Hooked.dll")) {
+    # Until 2026-10-06 the first name here was kmrp-kpm.dat, which the installer has not
+    # written since 2026-10-04: the engine is inside the patch's module. The controller
+    # patch's module stands beside it while Controller Support is on (2026-10-05).
+    $names = @("patches\kmrp.dll", "patch_config.toml", "KotorPatcher.dll", "binkw32.dll", "binkw32Hooked.dll")
+    if (Test-Path -LiteralPath (Join-Path $folder "patches\kmrp-controller.dll")) { $names += "patches\kmrp-controller.dll" }
+    foreach ($name in $names) {
         $before[$name] = Get-Sha256 (Join-Path $folder $name)
     }
     $exitCode = Invoke-Patcher @("--in-place", $exe, $Resolution)

@@ -83,12 +83,28 @@ namespace Kmrp
         // Until then there were four, KMRP with KMRP Controller, KMRP Movies and KMRP Map
         // Notes beside it; their names are still accepted in an older install's records
         // (IsKpatchPath), so that restore can remove them.
+        //
+        // Since 2026-10-05 KMRP is two patches again, by the maintainer's decision: its
+        // own, and the controller patch it requires, "KOTOR 1 Native Controller Mod +
+        // Xbox HUD" (id kmrp-controller, tools/build_controller_kpatch.py), which also
+        // works on a game without KMRP. KMRP's patch has no controller code of its own
+        // and no controller option, and neither patch needs the other. Controller
+        // Support in Advanced Settings decides whether this installer installs the
+        // controller patch and delivers its .kpatch (the maintainer's direction,
+        // 2026-10-05; for an hour that day both were always installed).
+        // (The id was the controller add-on of the four-patch edition until
+        // 2026-10-04, and for a day one that restore removed as retired.)
         private const string PatchId = "kmrp";
+        private const string ControllerPatchId = "kmrp-controller";
         private const string KpatchResource = "Kmrp.kpatch";
+        private const string ControllerKpatchResource = "KmrpController.kpatch";
         private const string KpatchModuleEntry = "binaries/windows_x86.dll";
+        // File name, patch id, embedded resource, the resource prefix of its hooks.
         private static readonly string[,] Kpatches =
         {
-            { "KMRP.kpatch", PatchId },
+            { "KMRP.kpatch", PatchId, KpatchResource, "Kmrp.engine.hooks" },
+            { "KOTOR 1 Native Controller Mod + Xbox HUD.kpatch", ControllerPatchId, ControllerKpatchResource,
+              "KmrpController.engine.hooks" },
         };
         private static readonly string[] RetiredKpatchNames =
             { "KMRP Controller.kpatch", "KMRP Movies.kpatch", "KMRP Map Notes.kpatch" };
@@ -158,7 +174,7 @@ namespace Kmrp
                 return "An earlier KMRP, which patched swkotor.exe, is installed. Installing replaces it.";
             if (IsInstalled(targetPath))
                 return IsInstalledForPatchManager(targetPath)
-                    ? "KMRP is installed for KOTOR Patch Manager."
+                    ? "KMRP is installed. KOTOR Patch Manager manages this game and loads KMRP's patch."
                     : "KMRP is installed.";
             if (IsSteam(targetPath))
                 return "Steam's swkotor.exe — ready to install.";
@@ -233,7 +249,7 @@ namespace Kmrp
                 RequireBink(targetPath);
             else if (foreign != null)
                 SafeReport(report, foreign + " is in the game folder: KOTOR Patch Manager manages this " +
-                    "game, so KMRP is installed for it.");
+                    "game, so KMRP adds its patch there and leaves the game's files to it.");
 
             if (standalone)
             {
@@ -339,21 +355,26 @@ namespace Kmrp
                         "a changed one, so it runs without the 4 GB flag. If Steam verifies the game's " +
                         "files, it puts its own binkw32.dll back; install KMRP again afterwards.");
                 if (kpatchFolder != null)
-                    SafeReport(report, "KMRP's patch is also in KOTOR Patch Manager's patch " +
-                        "folder (" + kpatchFolder + "), so KPM lists it if you add other patches there.");
+                    SafeReport(report, "KMRP's patch" + (KmrpSettings.ControllerSupport ? " and the controller patch are" : " is") +
+                        " also in KOTOR Patch Manager's patch " +
+                        "folder (" + kpatchFolder + "), so KPM lists them if you add other patches there.");
                 return;
             }
-            SafeReport(report, "KMRP is prepared for KOTOR Patch Manager. swkotor.exe was not modified.");
+            SafeReport(report, "KMRP's patch is ready in KOTOR Patch Manager. swkotor.exe was not modified.");
             bool inGameFolder = String.Equals(kpatchFolder, Path.Combine(folder, KpatchFolderName),
                 StringComparison.OrdinalIgnoreCase);
             SafeReport(report, (inGameFolder
-                ? "KMRP's patch, KMRP.kpatch, is in " + kpatchFolder + ". Copy it into KOTOR Patch " +
+                ? "KMRP's patch, KMRP.kpatch" + (KmrpSettings.ControllerSupport
+                      ? ", and the controller patch, KOTOR 1 Native Controller Mod + Xbox HUD.kpatch, are in "
+                      : ", is in ") + kpatchFolder + ". Copy to KOTOR Patch " +
                   "Manager's patch folder (or choose this folder in KPM), then open KPM"
-                : "KMRP's patch, KMRP.kpatch, is in KOTOR Patch Manager's patch folder (" + kpatchFolder +
-                  "). Now open KPM") +
-                " and tick KMRP. It includes controller support, map notes, the movie fixes and " +
-                "the 4 GB, texture, grass and save-game memory fixes, so leave KPM's own ones " +
-                "unticked. Press Apply, and start the game with Launch.");
+                : "KMRP's patch, KMRP.kpatch" + (KmrpSettings.ControllerSupport
+                      ? ", and the controller patch, KOTOR 1 Native Controller Mod + Xbox HUD.kpatch, are in "
+                      : ", is in ") + "KOTOR Patch Manager's patch folder (" + kpatchFolder + "). Now open KPM") +
+                " and tick KMRP" + (KmrpSettings.ControllerSupport ? " and the controller patch" : "") +
+                ". KMRP includes map notes, the " +
+                "movie fixes and the 4 GB, texture, grass and save-game memory fixes, so leave " +
+                "KPM's own ones unticked. Press Apply, and start the game with Launch.");
             if (steam)
                 SafeReport(report, "Steam: in KOTOR Patch Manager choose the proxy deployment, " +
                     "and start the game from Steam. Steam's swkotor.exe cannot take the 4 GB flag.");
@@ -675,12 +696,17 @@ namespace Kmrp
                 "Files, Verify integrity) and try again.", Path.Combine(folder, BinkName));
         }
 
-        /// <summary>The patches this install puts in: the one. Its options are chosen
-        /// separately (PatchOptions).</summary>
+        /// <summary>The patches this install puts in: KMRP's, and the controller patch
+        /// unless Controller Support is off. KMRP's options are chosen separately
+        /// (PatchOptions).</summary>
         private static List<string> ChosenPatches()
         {
-            return new List<string> { PatchId };
+            List<string> patches = new List<string> { PatchId };
+            if (KmrpSettings.ControllerSupport)
+                patches.Add(ControllerPatchId);
+            return patches;
         }
+
 
         /// <summary>The patch's options as Advanced Settings has them, in the order its
         /// manifest declares them: id and value. The movie fixes are not among them:
@@ -689,10 +715,18 @@ namespace Kmrp
         {
             return new[]
             {
-                new KeyValuePair<string, bool>("controller", KmrpSettings.ControllerSupport),
                 new KeyValuePair<string, bool>("map-notes", KmrpSettings.MarkerFixes),
                 new KeyValuePair<string, bool>("debug-logs", KmrpSettings.DebugLogs),
             };
+        }
+
+        /// <summary>The controller patch's options as this installer sets them: only
+        /// debug logs. Its Xbox-style HUD option is left out on purpose: the module takes
+        /// a missing value as "use Style under [Hud] in kmrp-controller.ini", the
+        /// player's own setting, and a 0 written here would override it.</summary>
+        internal static KeyValuePair<string, bool>[] ControllerPatchOptions()
+        {
+            return new[] { new KeyValuePair<string, bool>("debug-logs", KmrpSettings.DebugLogs) };
         }
 
         /// <summary>The patch's part of patch_config.toml, as a KOTOR Patch Manager with
@@ -705,15 +739,22 @@ namespace Kmrp
         /// [patches.options] table here.</summary>
         internal static string PatchConfigSection(KeyValuePair<string, bool>[] options)
         {
+            return PatchConfigSection(PatchId, "Kmrp.engine.hooks", options);
+        }
+
+        /// <summary>The same for either patch: its id, and the resource its hooks are
+        /// under (Kpatches).</summary>
+        internal static string PatchConfigSection(string id, string hooksResource, KeyValuePair<string, bool>[] options)
+        {
             StringBuilder section = new StringBuilder();
-            section.Append("[[patches]]\nid = \"").Append(PatchId).Append("\"\ndll = \"")
-                .Append(PatchFolder).Append('/').Append(PatchId).Append(".dll\"\n");
-            section.Append(Encoding.UTF8.GetString(ReadResource("Kmrp.engine.hooks")));
+            section.Append("[[patches]]\nid = \"").Append(id).Append("\"\ndll = \"")
+                .Append(PatchFolder).Append('/').Append(id).Append(".dll\"\n");
+            section.Append(Encoding.UTF8.GetString(ReadResource(hooksResource)));
             foreach (KeyValuePair<string, bool> option in options)
             {
                 if (!option.Value)
                     continue;
-                byte[] hooks = TryReadResource("Kmrp.engine.hooks." + option.Key);
+                byte[] hooks = TryReadResource(hooksResource + "." + option.Key);
                 if (hooks != null)
                     section.Append(Encoding.UTF8.GetString(hooks));
             }
@@ -727,6 +768,7 @@ namespace Kmrp
         // section, this installer or KPM, and leaves the rest of the file alone.
         internal const string OptionsFolder = "configs";
         internal const string OptionsName = OptionsFolder + "\\" + PatchId + ".ini";
+        internal const string ControllerOptionsName = OptionsFolder + "\\" + ControllerPatchId + ".ini";
         internal const string OptionsSection = "Patch Options";
         // Latin-1 maps every byte to one character and back, so whatever else the file
         // holds comes through a rewrite unchanged.
@@ -757,10 +799,10 @@ namespace Kmrp
 
         /// <summary>Writes the [Patch Options] section of configs\kmrp.ini, in place of
         /// the one an earlier install left, and records that this install did.</summary>
-        private static void WritePatchOptions(string folder, KeyValuePair<string, bool>[] options,
+        private static void WritePatchOptions(string folder, string name, KeyValuePair<string, bool>[] options,
             List<string[]> records)
         {
-            string path = Path.Combine(folder, OptionsName);
+            string path = Path.Combine(folder, name);
             string rest = File.Exists(path) ? WithoutOptionsSection(File.ReadAllText(path, OptionsEncoding)) : "";
             StringBuilder text = new StringBuilder();
             text.Append('[').Append(OptionsSection).Append("]\r\n");
@@ -770,7 +812,7 @@ namespace Kmrp
                 text.Append("\r\n").Append(rest);
             Directory.CreateDirectory(Path.Combine(folder, OptionsFolder));
             File.WriteAllText(path, text.ToString(), OptionsEncoding);
-            records.Add(new[] { "options", OptionsName });
+            records.Add(new[] { "options", name });
         }
 
         /// <summary>Takes the section out again. A file that held nothing else is
@@ -781,9 +823,13 @@ namespace Kmrp
                 return;
             try
             {
-                string path = Path.Combine(folder, OptionsName);
-                if (File.Exists(path))
+                foreach (string[] record in records)
                 {
+                    if (record[0] != "options")
+                        continue;
+                    string path = Path.Combine(folder, record[1]);
+                    if (!File.Exists(path))
+                        continue;
                     string text = File.ReadAllText(path, OptionsEncoding);
                     string rest = WithoutOptionsSection(text);
                     if (rest.Trim().Length == 0)
@@ -809,11 +855,24 @@ namespace Kmrp
             WriteOwned(folder, RuntimeName, ReadResource("Kmrp.engine.runtime"), records);
             WriteOwned(folder, KpmLicenseName, ReadResource("Kmrp.engine.license"), records);
             KeyValuePair<string, bool>[] options = PatchOptions();
+            KeyValuePair<string, bool>[] controllerOptions = ControllerPatchOptions();
             Directory.CreateDirectory(Path.Combine(folder, PatchFolder));
-            WriteOwned(folder, PatchFolder + "\\" + PatchId + ".dll", PatchModule(), records);
-            string config = "target_version_sha = \"" + exe.Hash + "\"\n\n" + PatchConfigSection(options);
+            // KMRP's first: the controller patch's module looks for kmrp.dll when it
+            // starts, and KOTOR Patch Manager loads the modules in this order.
+            string config = "target_version_sha = \"" + exe.Hash + "\"\n";
+            bool controller = patches.Contains(ControllerPatchId);
+            for (int i = 0; i < Kpatches.GetLength(0); i++)
+            {
+                bool own = Kpatches[i, 1] == PatchId;
+                if (!own && !controller)
+                    continue;
+                WriteOwned(folder, PatchFolder + "\\" + Kpatches[i, 1] + ".dll", PatchModule(Kpatches[i, 2]), records);
+                config += "\n" + PatchConfigSection(Kpatches[i, 1], Kpatches[i, 3], own ? options : controllerOptions);
+            }
             WriteOwned(folder, ConfigName, new UTF8Encoding(false).GetBytes(config), records);
-            WritePatchOptions(folder, options, records);
+            WritePatchOptions(folder, OptionsName, options, records);
+            if (controller)
+                WritePatchOptions(folder, ControllerOptionsName, controllerOptions, records);
             WriteOwned(folder, KpmStateName, new UTF8Encoding(false).GetBytes(
                 KpmState(Path.Combine(folder, exeName), exe, patches)), records);
 
@@ -829,6 +888,7 @@ namespace Kmrp
                 if (!option.Value && option.Key != "debug-logs")
                     off.Add(option.Key);
             SafeReport(report, "Installed KOTOR Patch Manager's runtime with KMRP's patch" +
+                (controller ? " and the controller patch" : ", without controller support") +
                 (off.Count == 0 ? ", every option on." : ", without: " + String.Join(", ", off.ToArray()) + "."));
         }
 
@@ -1062,17 +1122,17 @@ namespace Kmrp
 
         /// <summary>The patch's module, out of the embedded .kpatch, which stores it
         /// uncompressed: the installer carries its 189 MB once, not twice.</summary>
-        private static byte[] PatchModule()
+        private static byte[] PatchModule(string resource)
         {
-            using (Stream stream = Assembly.GetExecutingAssembly().GetManifestResourceStream(KpatchResource))
+            using (Stream stream = Assembly.GetExecutingAssembly().GetManifestResourceStream(resource))
             {
                 if (stream == null)
-                    throw new InvalidDataException("This build does not carry " + KpatchResource + ".");
+                    throw new InvalidDataException("This build does not carry " + resource + ".");
                 using (ZipArchive zip = new ZipArchive(stream, ZipArchiveMode.Read, false))
                 {
                     ZipArchiveEntry entry = zip.GetEntry(KpatchModuleEntry);
                     if (entry == null)
-                        throw new InvalidDataException("KMRP's patch carries no module.");
+                        throw new InvalidDataException(resource + " carries no module.");
                     using (Stream module = entry.Open())
                     using (MemoryStream copy = new MemoryStream((int)entry.Length))
                     {
@@ -1193,8 +1253,13 @@ namespace Kmrp
         private static void WriteKpatches(string folder, bool withReadme, List<string[]> records, Action<string> report)
         {
             for (int i = 0; i < Kpatches.GetLength(0); i++)
-                WriteKpatch(Path.Combine(folder, Kpatches[i, 0]), ReadResource(KpatchResource),
+            {
+                // The controller patch's file only with Controller Support on.
+                if (Kpatches[i, 1] == ControllerPatchId && !KmrpSettings.ControllerSupport)
+                    continue;
+                WriteKpatch(Path.Combine(folder, Kpatches[i, 0]), ReadResource(Kpatches[i, 2]),
                     Kpatches[i, 1], records, report);
+            }
             if (!withReadme)
                 return;
             WriteKpatch(Path.Combine(folder, KpatchReadmeName), ReadResource("Kmrp.kpatch.readme"), null, records, report);
@@ -1374,7 +1439,7 @@ namespace Kmrp
         {
             Directory.CreateDirectory(folder);
             for (int i = 0; i < Kpatches.GetLength(0); i++)
-                File.WriteAllBytes(Path.Combine(folder, Kpatches[i, 0]), ReadResource(KpatchResource));
+                File.WriteAllBytes(Path.Combine(folder, Kpatches[i, 0]), ReadResource(Kpatches[i, 2]));
             File.WriteAllBytes(Path.Combine(folder, KpatchReadmeName), ReadResource("Kmrp.kpatch.readme"));
             File.WriteAllBytes(Path.Combine(folder, KpatchLicenseName), ReadResource("Kmrp.engine.license"));
         }
@@ -1404,7 +1469,8 @@ namespace Kmrp
                     if ((parts.Length == 3 && parts[0] == "file" && IsOwnedName(parts[1])) ||
                         (parts.Length == 4 && parts[0] == "moved" && parts[1] == BinkName && parts[2] == BinkMovedName) ||
                         (parts.Length == 2 && parts[0] == "laa") ||
-                        (parts.Length == 2 && parts[0] == "options" && parts[1] == OptionsName) ||
+                        (parts.Length == 2 && parts[0] == "options" &&
+                         (parts[1] == OptionsName || parts[1] == ControllerOptionsName)) ||
                         (parts.Length == 4 && parts[0] == "kpatch" && IsKpatchPath(parts[1]) &&
                          (parts[3] == "created" || parts[3] == "replaced")))
                         records.Add(parts);

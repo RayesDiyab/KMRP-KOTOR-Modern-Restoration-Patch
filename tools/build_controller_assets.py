@@ -66,6 +66,7 @@ from build_controller_prompt_textures import (GLYPH_FAMILIES, PROMPT_MANIFEST_NA
                                               build_square_glyph_tga, family_resref)
 from build_scaled_fonts import export_font_txis                         # noqa: E402
 from build_xbox_hud import DISENGAGE_FILL as XBOX_HUD_DISENGAGE_FILL    # noqa: E402
+from build_xbox_hud import PAUSE_FILL as XBOX_HUD_PAUSE_FILL            # noqa: E402
 from prepare_universal_resources import (COMBAT_CUES, CONTAINER_SCREEN, R3_CUE_FILL,  # noqa: E402
                                          R3_CUE_SCREENS, SWAP_CUE_ASPECT, SWAP_CUE_FILL,
                                          SWAP_CUE_GLYPH, SWAP_CUE_SCREEN, TAB_CUES,
@@ -234,7 +235,8 @@ def make(work: Path) -> dict:
     common = []
     for family in GLYPH_FAMILIES:
         cues = [(R3_CUE_FILL, "R3")] + [(fill, glyph) for _, fill, glyph in TAB_CUES] \
-            + [(fill, glyph) for _, fill, glyph, _ in COMBAT_CUES] + [(XBOX_HUD_DISENGAGE_FILL, "B")]
+            + [(fill, glyph) for _, fill, glyph, _ in COMBAT_CUES] + [(XBOX_HUD_DISENGAGE_FILL, "B")] \
+            + [(XBOX_HUD_PAUSE_FILL, "RT_NOTICE")]
         for fill, glyph in cues:
             path = art / f"{family_resref(fill, family)}.tga"
             # The tab strip's two cues are arrows in the game's style, not the

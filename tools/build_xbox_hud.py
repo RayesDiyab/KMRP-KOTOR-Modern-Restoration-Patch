@@ -81,6 +81,7 @@ MESSAGE_ROW = (12, 22)             # the combat-mode message's top and height
 BARK = (49, 82, 381)
 OUT_X, OUT_Y = 38, 30              # how far each group is moved out towards its corner
 DISENGAGE_FILL = "kmrpb_cmbt"      # the B glyph (tools/build_controller_assets.py makes it per family)
+PAUSE_FILL = "kmrprt_pause"        # the right trigger in the pause notice's line (the same; K1XboxHud.cpp names it)
 QUEUE_CUE = (381, 523, 22, 22)     # the Y cue beside the queue (a label the patch adds; K1NativeJoystick.cpp)
 SEAM_OVERLAP = 0                   # screen pixels the action box's upper half reaches into its lower one
 # The party's group (portraits, bars, the curve beside them) is drawn smaller than

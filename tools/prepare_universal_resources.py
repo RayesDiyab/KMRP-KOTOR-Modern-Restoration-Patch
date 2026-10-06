@@ -63,32 +63,38 @@ FONT_SCALE_OFFSET = 0.0
 # tools/build_font_from_ttf.py was run with to produce assets/hd-fonts.
 HD_FONT_BAKE_SCALE = 3.0
 
-# `spacingR` is added to each glyph's advance ONLY where the engine measures
-# text for line breaking (`fadd [edi+0x10]` at 0x0045A5C9). The path that
-# actually draws the glyphs (0x0045A806) does not read it. **Proven in game**:
-# raising it from 0.02px to 0.4px stopped long descriptions being clipped and
-# left the visible letter spacing completely unchanged.
+# `spacingR` is no wrap margin for a font set baked at its own scale, and such a
+# set gets none (2026-10-05).
 #
-# That makes it a wrap-safety margin, not a typographic control. It is needed
-# because the engine's own line measurement UNDERESTIMATES: comparing the
-# per-line widths it stores against the widths implied by the atlas's glyph
-# advances, it runs consistently ~3% low (203 vs 208, 106 vs 109, 1202 vs
-# 1238 -- read live out of the description listbox). It truncates each glyph's
-# advance to an integer, losing up to a pixel per character, so a long line it
-# believes fits in the 1293px content area really renders ~39px wider and the
-# last word is sliced off at the clip edge. Vanilla text rarely reached the
-# limit, so the bug only shows once the font is enlarged.
+# The engine adds it in BOTH passes, differently:
 #
-# Half a pixel per glyph covers the average truncation loss regardless of font
-# size -- the error is bounded by one pixel per character whatever the scale --
-# so a flat value is right here and does not need to scale with resolution.
-# `spacingR` is written AFTER `scale_txi` for exactly that reason.
-LETTER_SPACING_PX = 0.5
+#   - the line breaker (0x0045A2F0) takes each glyph as
+#     trunc((u width x texturewidth + spacingR) x scale x 100 + 0.25), the sum at
+#     0x0045A552 to 0x0045A56D. With a whole-pixel glyph width n and half a pixel
+#     of spacingR that is trunc(n + 0.75) = n: the margin vanishes;
+#   - Draw (0x0045A850) moves the pen by the glyph's width plus spacingR
+#     (0x0045AF6F to 0x0045AFBC), untruncated.
+#
+# So on a set whose glyphs are whole pixels wide -- every set under build/fonts
+# is, all 720 atlases -- a spacingR of half a pixel widened every drawn line and
+# no measured one: a line the breaker had fitted to its box was drawn about 3%
+# wider and ran over the right edge. Measured at 1920x1080 in the speech box,
+# fnt_d16x16b: a line stored as 763 px drew 786 px with spacingR 0.005 and 762 px
+# with 0, the same line in the same run. The game's own fonts have spacingR 0.
+#
+# This file said the opposite until 2026-10-05: that Draw did not read spacingR,
+# from 0x0045A806, which is the breaker seeding a new line and not Draw. The
+# margin of half a pixel dates from the atlases scaled down from one 3.0 bake,
+# whose glyph widths were fractions that the breaker truncated ("203 against
+# 208", read from the description listbox); there it did raise the measure. That
+# path remains for a resolution without a set of its own, and keeps the margin.
+LETTER_SPACING_PX = 0.0
+SCALED_SET_LETTER_SPACING_PX = 0.5
 
 
-def letter_spacing_for(scale: float) -> float:
-    """Pixels of per-glyph wrap margin. Affects line breaking only, not drawing."""
-    return LETTER_SPACING_PX
+def letter_spacing_for(own_scale: bool) -> float:
+    """Pixels of spacingR: none for a set baked at its own scale (whole-pixel glyphs)."""
+    return LETTER_SPACING_PX if own_scale else SCALED_SET_LETTER_SPACING_PX
 
 
 def font_scale_for(height: int) -> float:
@@ -1752,7 +1758,7 @@ def main() -> int:
                                 metrics.read_text(encoding="ascii"),
                                 scale / bake_scale,
                             ),
-                            letter_spacing_for(scale),
+                            letter_spacing_for(scale_set is not None),
                         ).encode("ascii")
                     )
                     packaged_files.append(scaled)
@@ -1771,7 +1777,7 @@ def main() -> int:
                         path.write_bytes(
                             apply_letter_spacing(
                                 path.read_text(encoding="ascii"),
-                                letter_spacing_for(scale),
+                                letter_spacing_for(False),
                             ).encode("ascii")
                         )
                         packaged_files.append(path)

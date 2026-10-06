@@ -49,6 +49,14 @@ reason).
 | 19 | An Xbox-style HUD, an option of the standalone controller patch (Windows, 2026-10-05) | **nothing to do** while the Mac has no standalone controller patch (item 17); section 19 says what it would take |
 | 20 | The Windows module's resource bank leaves out what the blend helper makes: `KMRP.kpatch` 249 MB to 129 MB (2026-10-05) | **nothing to do**: the bank is the Windows module's alone and the shared helper is unchanged. **Worth copying** when the Mac ships one `.kpatch` (item 15) |
 | 21 | The Xbox-style HUD's frames are drawings, `kmrx_*`, and its portraits are framed by the module (Windows, 2026-10-05) | **nothing to do** while the Mac has no standalone controller patch (item 17); section 21 says what carries over |
+| 22 | The font sets carry `spacingR 0`: text no longer runs over the right edge of its box (2026-10-05) | **build and check**: shared resources; correct K6 in `macos/README.md` |
+| 23 | KMRP and the controller are two patches, each working without the other (Windows, 2026-10-05) | **to do**: the Mac's `kmrp` patch still contains the controller |
+| 24 | The installer's wording for a game KOTOR Patch Manager manages (2026-10-05) | **to do**: one line in `macos/installer-app/main.m` |
+| 25 | `LBL_ARROW_MARGIN` is not scaled in the HUD for 3440x1440: the target's circle is missing over half the screen (found 2026-10-06, not fixed) | **check** which HUD file the Mac loads |
+| 26 | Four pictures added to the glyph pack and one glyph name, `RT_NOTICE` (2026-10-06) | **build and check**: the resource build stops without the files |
+| 27 | The controller patch lays itself out on any interface; Level Up and Auto Level Up; the Xbox-style HUD's pause notice and target circle (Windows, 2026-10-06) | **nothing to do** while the Mac has no standalone controller patch; two things to look at in the Mac's own controller |
+| 28 | The list rows' centring is on Windows too (the Mac's item 19 of `windows-changes-from-macos.md`), with two differences: a chart row's inset is 0, and the store's and the workbench's rows are set in from both borders (2026-10-06) | **decide**: both are in the shared logic's numbers, section 28; set the Mac tracker's item 19 to built when the branches meet |
+| 29 | The store has controller badges: A, X and B (the controller patch, 2026-10-06) | **to do** if the Mac's controller draws badges from the shared target list: three new targets and the panel's three button offsets on the Mac's build |
 
 ## 1. Badges drawn for the blended buttons
 
@@ -609,3 +617,119 @@ it gets one:
    frame and bars from the portrait's rectangle. Its arithmetic carries over; the
    offsets of the party's controls in `CSWGuiMainInterface` (`kPartyFrame` and its
    neighbours) are the Windows executable's and would be read from the Mac game.
+
+## 22. The font sets carry `spacingR 0`
+
+2026-10-05, `tools/prepare_universal_resources.py` (`LETTER_SPACING_PX`): the
+half pixel of `spacingR` is gone from every font set baked at its own scale. On
+Windows the engine draws `spacingR` after every glyph and its line breaker loses
+it to truncation, so lines were drawn about 3% wider than measured and ran over
+the right edge of the speech box
+([font-atlases.md](../reverse-engineering/font-atlases.md), "`spacingR` is
+drawn").
+
+1. The resources are shared, so the Mac build gets `spacingR 0` with them.
+2. `macos/README.md` lists K6, "0.5 px wrap margin", as a TXI fix. With this
+   change it is no longer applied; correct the row on the Mac.
+3. Check a long speech line and a long item description on the Mac game: its
+   line breaker was not read for this change.
+4. `kmrp-guiblend.c` and the status summary's measure read `spacingR` from the
+   font, so they follow by themselves.
+
+## 23. KMRP and the controller are two patches
+
+Windows, 2026-10-05, on the branch `kmrp-two-patches`: `KMRP.kpatch` has no
+controller and requires nothing; `KOTOR 1 Native Controller Mod + Xbox HUD.kpatch`
+(id `kmrp-controller`) is installed by the installer while Controller Support is
+on, and either can be added or taken away without the other. The Mac's `kmrp`
+patch still contains the controller unless built `--no-controller`
+(`macos/build.sh`). What Windows is, what the Mac is and the five steps the Mac
+needs: [macos-two-patches-handoff.md](macos-two-patches-handoff.md), section 2.
+The rule that carries over: KOTOR Patch Manager allows one patch per hook address,
+so where both patches work at one place each needs a site of its own.
+
+## 24. The installer's wording for a game KOTOR Patch Manager manages
+
+Windows no longer calls this a kind of install. Its four texts are in
+[macos-two-patches-handoff.md](macos-two-patches-handoff.md), section 4; the
+window's row reads "Managed by KOTOR Patch Manager: tick KMRP there, then Apply and
+Launch." `macos/installer-app/main.m` has "KotOR Patch Manager manages this game.
+KMRP is installed for it." Bring it in line and check that it fits its row: the
+first Windows wording was cut off.
+
+## 25. `LBL_ARROW_MARGIN` in the HUD for 3440x1440
+
+Found 2026-10-06, not fixed on either platform. The engine draws the circle on a
+target only inside this rectangle and an arrow on its edge outside it. In
+`assets/override-3440x1440/mipc210x7.gui` it is 3, 129, 2554, 501 (the game's file
+for 1024x768 has 3, 129, 1018, 501), so a target below 630 or right of 2557 has no
+circle. Check which HUD file the Mac loads at its sizes and what its rectangle is:
+[macos-two-patches-handoff.md](macos-two-patches-handoff.md), section 5.
+
+## 26. The glyph pack
+
+`third_party/Included/Xelu_Free_Controller&Key_Prompts/` has four more pictures
+(`Xbox/360_RT_ALT.png`, `Xbox/360_LT_ALT.png`, `PS5/PS5_R2_Light.png`,
+`PS5/PS5_L2_Light.png`) and `GLYPH_FAMILIES` one more name, `RT_NOTICE`, used only
+by the Windows controller patch's pause notice. The table is shared with KMRP's
+resource build, which stops when a glyph's file is missing: build once on the Mac
+with the files in the checkout.
+
+## 27. The controller patch on any interface
+
+Windows' standalone controller patch only:
+[controller-standalone.md](controller-standalone.md), "Beside a patch that rescales
+the interface", and [controller-xbox-hud.md](controller-xbox-hud.md), "The pause
+notice and the target's circle". The Mac's controller is a port with sources of its
+own and compiles none of it. Two things to look at in the Mac's own controller, both
+in [macos-two-patches-handoff.md](macos-two-patches-handoff.md), section 7: the
+Level Up and Auto Level Up badges with a level to take, and whether a caption is
+measured through the line breaker.
+
+## 28. The list rows' centring on Windows, and two differences
+
+Windows now centres the rows of the ten lists of `list_rows.inc` as the Mac does
+(the Mac's commit `40b96fa`): the same table, copied to
+`src/controller-native/K1ListRows.inc` (`Test-KpatchSource.py` fails if the two
+differ once both are in one tree), the same logic in
+`src/controller-native/K1RuntimeLayout.cpp`, three detours in
+`CSWGuiListBox::OrganizeControls` (`0x0041B4BF`, `0x0041B540`, `0x0041B59F`). The
+Mac's measuring tool run on the Windows build's sets gave the Mac's 66 rows.
+`reverse-engineering/listbox-geometry.md`, "Rows centred in their box", has the
+whole of it.
+
+Counted at 3440x1440 on Windows (dark columns left and right of the rows): the
+inventory 7 and 7, the journal 5 and 6, the store 0 and 1, the powers' chart 11 and
+7. Two changes followed, which the Mac does not have:
+
+1. **A chart row's inset is 0, not `-1.47 * scale`.** On Windows the game puts a
+   chart row's three pictures at the rectangle's left, middle and right, each the
+   row's height square (`CSWGuiSkillFlow::SetExtent`, `0x006CCE30`), so the
+   artwork is symmetric in the row. With `-1.47 * scale` the pictures' boxes were
+   11 columns from the left border and 7 from the right. Worth counting on the Mac
+   on a screenshot, at the boxes' own dark edge: if the Mac's routine is the same
+   code, its number moves the chart 1.47 pixels for each 720 lines to the right of
+   centre.
+2. **The store's and the workbench's rows are set in from both borders** by
+   `round(3.5 * scale)` pixels: `kRowGap` in `K1RuntimeLayout.cpp`, applied after
+   the shift (`left += gap`, `width -= 2 * gap`). Centred, the store's rows touch
+   both borders of their box; the maintainer asked for a gap on seeing a merchant.
+   3.5 is what the inventory's rows keep at 3440x1440 (7). The workbench is in by
+   the artwork's likeness and has not been seen on either platform.
+
+Not brought to Windows: the abilities' row height after a resolution change
+(the Mac's `3e0cc2b`).
+
+## 29. The store's controller badges
+
+The store had no badge. The controller patch now puts A on `BTN_Accept` (Buy or
+Sell), X on `BTN_Examine` (Show Sell List or Show Buy List) and B on `BTN_Cancel`
+(Close): `tools/build_controller_prompt_textures.py` has three new targets
+(`kmrpa_storebuy`, `kmrpx_storelist`, `kmrpb_storeback`; control indices 12, 10
+and 11 in `store.gui`, the same in the game's file and all 66 sets) with their
+caption strings (32132 and 32130, 41938 and 41937, 1582), and the module a table
+for the panel (`K1_STORE_PROMPTS`; on Windows the buttons are at `0x20A8`,
+`0x1EE4` and `0x1D20` of `CSWGuiStore`, vtable `0x00756E38`). The resource build
+makes the three textures for every set whether or not anything draws them. The
+game hides `BTN_Examine` at a shop that only buys or only sells, and the badge
+with it.

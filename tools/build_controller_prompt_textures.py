@@ -51,6 +51,10 @@ GLYPH_FAMILIES = {
         # either glyph, so this reaches the tab-strip cues and the Controller
         # Layout screen's LT and RT rows.
         "LT": "360_LT.png", "RT": "360_RT.png",
+        # The trigger as the Xbox-style HUD's pause notice shows it ("Press RT to
+        # continue"): the pack's lighter drawing where it has one, which the
+        # maintainer added for this on 2026-10-06 (360_RT_ALT, PS5_R2_Light).
+        "RT_NOTICE": "360_RT_ALT.png",
         "START": "360_Start.png", "BACK": "360_Back.png",
         "DPAD_LEFT": "360_Dpad_Left.png", "DPAD_RIGHT": "360_Dpad_Right.png",
         "DPAD_UP": "360_Dpad_Up.png", "DPAD_DOWN": "360_Dpad_Down.png",
@@ -75,6 +79,7 @@ GLYPH_FAMILIES = {
         "X": "PS5_Square.png", "Y": "PS5_Triangle.png",
         "LB": "PS5_L1.png", "RB": "PS5_R1.png",
         "LT": "PS5_L2.png", "RT": "PS5_R2.png",
+        "RT_NOTICE": "PS5_R2_Light.png",
         "START": "PS5_Options.png", "BACK": "PS5_Share.png",
         "DPAD_LEFT": "PS5_Dpad_Left.png", "DPAD_RIGHT": "PS5_Dpad_Right.png",
         "DPAD_UP": "PS5_Dpad_Up.png", "DPAD_DOWN": "PS5_Dpad_Down.png",
@@ -95,6 +100,7 @@ GLYPH_FAMILIES = {
         "X": "Switch_Y.png", "Y": "Switch_X.png",
         "LB": "Switch_LB.png", "RB": "Switch_RB.png",
         "LT": "Switch_LT.png", "RT": "Switch_RT.png",
+        "RT_NOTICE": "Switch_RT.png",
         "START": "Switch_Plus.png", "BACK": "Switch_Minus.png",
         "DPAD_LEFT": "Switch_Dpad_Left.png", "DPAD_RIGHT": "Switch_Dpad_Right.png",
         "DPAD_UP": "Switch_Dpad_Up.png", "DPAD_DOWN": "Switch_Dpad_Down.png",
@@ -108,6 +114,7 @@ GLYPH_FAMILIES = {
         "X": "SteamDeck_X.png", "Y": "SteamDeck_Y.png",
         "LB": "SteamDeck_L1.png", "RB": "SteamDeck_R1.png",
         "LT": "SteamDeck_L2.png", "RT": "SteamDeck_R2.png",
+        "RT_NOTICE": "SteamDeck_R2.png",
         # The Deck labels these Menu and Dots rather than Start and View.
         "START": "SteamDeck_Menu.png", "BACK": "SteamDeck_Dots.png",
         "DPAD_LEFT": "SteamDeck_Dpad_Left.png",
@@ -442,6 +449,16 @@ PROMPT_TARGETS = (
     # the notice Feats opens with. Its dispatcher (0x006CD3C0) closes it on A
     # whatever holds focus.
     PromptTarget("skillinfo.gui", "BTN_OK", 2, "A", "kmrpa_skillok"),
+    # The store (2026-10-06): it had no badge at all, which was seen at a
+    # merchant that day. Its own dispatcher (CSWGuiStore::HandleInputEvent,
+    # 0x006C2190) closes it on B and swaps the buy and the sell list on X
+    # whatever holds focus, and A buys or sells the row in focus, which is
+    # what the first button's own click raises. The X button is not drawn
+    # at a shop that only buys or only sells (0x006C1B50). Tags, indices
+    # and empty fills checked in the game's file and all 66 sets.
+    PromptTarget("store.gui", "BTN_Accept", 12, "A", "kmrpa_storebuy"),
+    PromptTarget("store.gui", "BTN_Examine", 10, "X", "kmrpx_storelist"),
+    PromptTarget("store.gui", "BTN_Cancel", 11, "B", "kmrpb_storeback"),
 )
 
 
@@ -1090,6 +1107,12 @@ PROMPT_STRREFS = {
     ("character.gui", "BTN_LEVELUP"): ((1071,),),
     ("character.gui", "BTN_AUTO"): ((36812,),),
     ("skillinfo.gui", "BTN_OK"): ((1580,),),
+    # The store's two swap with the list shown (ShowBuyGUI 0x006C1A50,
+    # ShowSellGUI 0x006C13C0): 32132 "Buy" or 32130 "Sell", 41938 "Show Sell
+    # List" or 41937 "Show Buy List".
+    ("store.gui", "BTN_Accept"): ((32132,), (32130,)),
+    ("store.gui", "BTN_Examine"): ((41938,), (41937,)),
+    ("store.gui", "BTN_Cancel"): ((1582,),),
 }
 
 # Buttons whose caption is inline text in the .gui rather than a STRREF: KMRP's
@@ -1159,6 +1182,11 @@ PROMPT_FALLBACK_STRINGS = {
     42393: "Wager",
     1071: "Level Up",
     36812: "Auto Level Up",
+    # The store, 2026-10-06.
+    32130: "Sell",
+    32132: "Buy",
+    41937: "Show Buy List",
+    41938: "Show Sell List",
 }
 
 # Buttons that get one badge texture PER CAPTION, named <resref><index>, chosen

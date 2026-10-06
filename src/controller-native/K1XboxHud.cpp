@@ -43,10 +43,12 @@
 //
 // Documentation standard: see `docs/documentation-standard.md`.
 #include <windows.h>
+#include <climits>
 #include <cmath>
 #include <cstddef>
 #include <cstdint>
 #include <cstring>
+#include <initializer_list>
 #include <cstdio>
 
 #include "KmrpOptions.h"
@@ -58,6 +60,8 @@ int KmrpFocusedActionSlotK1(void* mainInterface);
 // cue label on a panel that follows the control at an offset.
 bool IsControllerInputActiveK1();
 void* KmrpGuiCueK1(void* panel, std::size_t follow);
+
+extern "C" char __cdecl KmrpGlyphLetterK1();   // the pad family's letter in a texture's name (K1NativeJoystick.cpp)
 
 namespace {
 
@@ -517,6 +521,8 @@ constexpr std::ptrdiff_t kHudQueueButton = 0x6CD0;     // BTN_CLEARONE, which th
 constexpr std::uintptr_t kGetInGameGui = 0x005ED690;   // CClientExoApp::GetInGameGui()
 constexpr std::ptrdiff_t kInGameBarkBubble = 0x4C;
 constexpr std::ptrdiff_t kBubbleExtent = 0x1A4;
+// The minimap's frame art (kmrx_minimap) is a square line from 2.6 to 4.0 of its 64.
+constexpr double kMapFrameLine = 4.0;
 
 int* BarkBubble()
 {
@@ -526,6 +532,70 @@ int* BarkBubble()
     void* bubble = inGame ? At<void*>(inGame, kInGameBarkBubble) : nullptr;
     return bubble ? &At<int>(bubble, kBubbleExtent) : nullptr;
 }
+
+// The pause notice ("Paused", or why the game paused itself, and how to go on) is a
+// panel of its own too, CSWGuiInGamePause, which CGuiInGame holds at +0x7C. Each time
+// the game pauses, its OnPanelAdded (0x006C02F0) has the HUD place it
+// (CSWGuiMainInterface::SetupPauseGuiExtent, 0x00688DB0): three pixels in from the
+// screen's right edge, under the Equipment button of the PC's row of menu buttons.
+// The Xbox-style HUD shows no such row and parks its buttons, so the notice went
+// with them and a paused game said nothing (the maintainer saw it, 2026-10-06). The
+// Xbox game has it at the top, left of the minimap ("ENEMY SIGHTED!"), so that is
+// where it is put while this HUD is up: level with the minimap's frame and as far
+// from it as the frame is from the screen's edge, both read from the frame as it
+// stands. The panel's size and text are the game's.
+constexpr std::ptrdiff_t kInGamePause = 0x7C;
+// The marker on the target. CSWGuiMainInterface::UpdateIndicator (0x0068A310) draws
+// one control (+0x5A2C) either as the circle on the target (friendlyreticle2,
+// hostilereticle2, combatreticle) or, when the target's point on screen is outside
+// the rectangle of LBL_ARROW_MARGIN (+0xBF6C), as an arrow on that rectangle's edge
+// (friendlyarrow, hostilearrow), which is how the PC HUD points at a target hidden
+// behind its bars. The rectangle is the layout's, made for the PC HUD's bars, and
+// in KMRP's HUD for 3440x1440 (mipc210x7.gui) it is 3, 129, 2554, 501: a target in
+// the lower half of the screen got the arrow, standing on its head, and no circle
+// (the maintainer saw it with this HUD, 2026-10-06; on the Xbox the circle is the
+// mark of the target). So while this HUD is up the rectangle is the screen between
+// this HUD's own top and bottom parts: from under the target's name frame to the
+// top of the action box, the screen's width less the frame's distance from the left
+// edge on either side.
+constexpr std::ptrdiff_t kHudArrowMargin = 0xBF6C;     // LBL_ARROW_MARGIN
+// The circle's size is 16 to 64 pixels by the target's distance (UpdateIndicator's
+// 0x40 less a share of the distance), whatever the screen: the Xbox's sizes on its
+// 480 lines, where a target a few steps off has a circle a sixth of the screen's
+// height across (the maintainer's Xbox screenshot, 2026-10-06), and a dot at
+// 3440x1440. So with this HUD the circle is scaled by the screen's height over 480,
+// about its middle, after the engine has placed it.
+constexpr std::ptrdiff_t kHudMarker = 0x5A2C;          // the label UpdateIndicator draws the circle or the arrow on
+constexpr std::ptrdiff_t kHudNameFrame = 0x17C8;       // LBL_NAMEBG, the target's name frame
+constexpr std::ptrdiff_t kHudActionBox = 0x1BC8;       // LBL_MOULDING1, the action box
+constexpr std::uintptr_t kSetupPauseExtent = 0x00688DB0;   // CSWGuiMainInterface::SetupPauseGuiExtent(CSWGuiExtent*)
+
+void* PausePanel()
+{
+    void* app = *reinterpret_cast<void**>(kAppManager);
+    void* client = app ? At<void*>(app, 4) : nullptr;
+    void* inGame = client ? reinterpret_cast<void*(__thiscall*)(void*)>(kGetInGameGui)(client) : nullptr;
+    return inGame ? At<void*>(inGame, kInGamePause) : nullptr;
+}
+
+// What the notice says. The panel has a label for the reason ("PAUSED"; "End of
+// Combat Round"), a label under it for how to go on ("PRESS THE PAUSE BUTTON TO
+// CONTINUE", pause.gui's text) and a button over both for the mouse. For two reasons
+// the PC puts both lines in the first label and hides the second: "ENEMY SIGHTED!
+// / Press the Pause key (<Pause> or Pause) to continue" and "MINE SIGHTED! / Press
+// the Pause button to continue" (CSWGuiInGamePause::SetPauseReason, 0x006C00C0).
+//
+// With this HUD the notice is one line, "PAUSED. PRESS [the right trigger] TO
+// CONTINUE", the trigger drawn as the pad in use has it (the maintainer's wording
+// and choice of pictures, 2026-10-06; RT is what pauses on the pad). The picture is
+// the panel's own button, which nothing clicks while the pad is in use
+// (PauseNotice, below). The words are English and are used only where the game's
+// own line is the English one; another language keeps its lines.
+constexpr std::ptrdiff_t kPauseReason = 0x64;          // CSWGuiLabel
+constexpr std::ptrdiff_t kPausePress = 0x1A4;          // CSWGuiLabel
+constexpr std::ptrdiff_t kPauseButton = 0x2E4;         // CSWGuiButton
+constexpr int kPausePressString = 48384;               // dialog.tlk: "PRESS THE PAUSE BUTTON TO CONTINUE"
+constexpr char kPauseGlyph[16] = "kmrprt_pause";       // tools/build_xbox_hud.py, PAUSE_FILL
 
 void* Dress(void* control, Kind kind, int which)     // 0 the fill, 1 the focused fill, 2 a bar's filling
 {
@@ -563,6 +633,8 @@ struct Layout {
     bool cues = false;
     int bubble[3]{};
     bool bubbleKept = false;
+    Extent arrowMargin{};      // LBL_ARROW_MARGIN's rectangle as the layout has it
+    bool arrowMarginKept = false;
     float spareAlpha = 1.0f;           // of LBL_MENUBG's fill, which the hooks draw with
 } g_layout;
 
@@ -732,14 +804,28 @@ void ApplyXbox(void* hud, int width, int height)
         }
         const Extent xbox = At<Extent>(border, kControlExtent);
         const int left = xbox.left + xbox.width - wasBorder.width, top = xbox.top;
-        SetExtent(border, {left, top, wasBorder.width, wasBorder.height});
-        SetExtent(button, {left + wasButton.left - wasBorder.left, top + wasButton.top - wasBorder.top,
+        // The frame is fitted around the map, not taken from the layout: the Xbox
+        // frame's art is a square line, and the PC layout's own frame control need not
+        // be the map's size (beside KMRP, whose HUD is scaled, the map stood out of the
+        // frame on two sides; the maintainer saw it, 2026-10-05). The map's edges go on
+        // the inner edge of the line, 4 of the art's 64 in, and the whole keeps the
+        // Xbox frame's top right corner.
+        const int mapWidth = g_layout.mapWindow[2], mapHeight = g_layout.mapWindow[3];
+        Extent frame{};
+        frame.width = static_cast<int>(mapWidth * 64.0 / (64.0 - 2 * kMapFrameLine) + 0.5);
+        frame.height = static_cast<int>(mapHeight * 64.0 / (64.0 - 2 * kMapFrameLine) + 0.5);
+        frame.left = xbox.left + xbox.width - frame.width;
+        frame.top = top;
+        const int mapLeft = frame.left + (frame.width - mapWidth) / 2, mapTop = frame.top + (frame.height - mapHeight) / 2;
+        SetExtent(border, frame);
+        SetExtent(button, {mapLeft + wasButton.left - g_layout.mapWindow[0], mapTop + wasButton.top - g_layout.mapWindow[1],
                            wasButton.width, wasButton.height});
         int* map = &At<int>(hud, kHudMapWindow);
-        map[0] = left + g_layout.mapWindow[0] - wasBorder.left;
-        map[1] = top + g_layout.mapWindow[1] - wasBorder.top;
-        map[2] = g_layout.mapWindow[2];
-        map[3] = g_layout.mapWindow[3];
+        map[0] = mapLeft;
+        map[1] = mapTop;
+        map[2] = mapWidth;
+        map[3] = mapHeight;
+        (void)left;
     }
     g_messageRow = {0, Scale(kMessageRow[0], height), width, Scale(kMessageRow[1], height)};
     // The pad's two cues on the HUD, labels the patch's own layout adds (they are
@@ -988,10 +1074,14 @@ extern "C" void __cdecl KmrpXboxHudBarsK1(void* menu)
                     if (kPieces[i].offset == kHudMapBorder) wasBorder = g_layout.kept[i].extent;
                 const int* map = &At<int>(hud, kHudMapWindow);
                 const int* was = g_layout.mapWindow;
-                if (g_mapBorderForeign && was[2] > 0 && was[3] > 0)
-                    mapFrame = {map[0] + (wasBorder.left - was[0]) * map[2] / was[2],
-                                map[1] + (wasBorder.top - was[1]) * map[3] / was[3],
-                                wasBorder.width * map[2] / was[2], wasBorder.height * map[3] / was[3]};
+                if (g_mapBorderForeign && was[2] > 0 && was[3] > 0) {
+                    // Around the map as it stands now, as ApplyXbox fits it.
+                    mapFrame.width = static_cast<int>(map[2] * 64.0 / (64.0 - 2 * kMapFrameLine) + 0.5);
+                    mapFrame.height = static_cast<int>(map[3] * 64.0 / (64.0 - 2 * kMapFrameLine) + 0.5);
+                    mapFrame.left = map[0] - (mapFrame.width - map[2]) / 2;
+                    mapFrame.top = map[1] - (mapFrame.height - map[3]) / 2;
+                    (void)wasBorder;
+                }
             }
             if (reinterpret_cast<Viewport>(kSetupViewport)(0, 0, first.width, first.height,
                     reinterpret_cast<void*>(kNoColouring), 0, 1.0f)) {
@@ -1065,6 +1155,320 @@ extern "C" void __cdecl KmrpXboxHudBarsK1(void* menu)
     }
 }
 
+// Giving the box back to the mouse and keyboard as the game has it.
+//
+// The game lays the box out anew every time it pauses, but only in part
+// (CSWGuiInGamePause::SetPauseReason, 0x006C00C0): it writes the reason, makes the
+// reason's label as tall as its text, puts the second label two pixels under it and
+// as tall as its own text (or hides it), makes the box end five pixels under the
+// last label, and gives the button the reason's rectangle with the box's height.
+// Where the labels start, how wide they and the box are, and the second label's
+// text it takes as it finds them: they are the layout file's, set once.
+//
+// So two things are kept. From the box while nothing of this file's is in it
+// (PauseCarriesOurs: the button has no trigger on it), the layout's own: the
+// labels' left, top and width, the box's width, the second label's text. And from
+// each time the game writes a reason: the reason, and whether the second label is
+// shown. RestorePauseNotice puts the first back and then does what SetPauseReason
+// does, with the game's own measuring.
+//
+// (Two builds on 2026-10-06 kept less. The first put nothing back: the PC's box
+// read "PAUSED / TO CONTINUE". The second kept the rectangles it found when the
+// game wrote a reason, which from the second pause on were this file's own narrow
+// ones, since the game leaves the widths alone: the PC's box had "PAUSED" at its
+// left and the second line broken in three at its right. The maintainer saw both.)
+struct PauseOwn {
+    bool valid = false;
+    int reasonLeft = 0, reasonTop = 0, reasonWidth = 0;
+    int pressLeft = 0, pressWidth = 0;
+    int panelWidth = 0;
+    char press[256] = {};
+} g_pauseOwn;
+struct PauseKept {
+    bool kept = false;
+    char reason[256] = {};
+    bool pressShown = true;
+} g_pauseKept;
+bool g_pauseForget = false;        // PauseNotice is to forget what it last set
+
+// The pause button's two borders as pause.gui has them, kept while it shows the picture.
+bool g_pauseButtonKept[2] = {};
+float g_pauseButtonColour[2][3] = {};
+unsigned g_pauseButtonFlags[2] = {};
+
+// Whether the box carries this file's line: its button has the trigger's picture,
+// whichever family's (the fourth letter of the name).
+bool PauseCarriesOurs(void* pause)
+{
+    char fill[17] = {};
+    std::memcpy(fill, &At<char>(Part(Part(pause, kPauseButton), kButtonBorderParams), kParamsFill), 16);
+    return _strnicmp(fill, kPauseGlyph, 3) == 0 && _stricmp(fill + 4, kPauseGlyph + 4) == 0;
+}
+
+// The box as the game has it; true when there was something of this file's to undo.
+bool RestorePauseNotice(void* pause)
+{
+    if (!PauseCarriesOurs(pause)) return false;
+    void* reason = Part(pause, kPauseReason);
+    void* press = Part(pause, kPausePress);
+    void* button = Part(pause, kPauseButton);
+    if (g_pauseOwn.valid) {
+        using Height = int(__thiscall*)(void*);
+        // The layout's places and widths first: a text is measured in its label's width.
+        Extent first = At<Extent>(reason, kControlExtent);
+        first.left = g_pauseOwn.reasonLeft;
+        first.top = g_pauseOwn.reasonTop;
+        first.width = g_pauseOwn.reasonWidth;
+        SetExtent(reason, first);
+        Extent second = At<Extent>(press, kControlExtent);
+        second.left = g_pauseOwn.pressLeft;
+        second.width = g_pauseOwn.pressWidth;
+        SetExtent(press, second);
+        using Make = void*(__thiscall*)(String*, const char*);
+        if (g_pauseKept.kept) {
+            String text;
+            reinterpret_cast<Make>(kStringFromText)(&text, g_pauseKept.reason);
+            SetText(reason, &text);
+            reinterpret_cast<void(__thiscall*)(String*)>(kStringDestroy)(&text);
+        }
+        {
+            String text;
+            reinterpret_cast<Make>(kStringFromText)(&text, g_pauseOwn.press);
+            SetText(press, &text);
+            reinterpret_cast<void(__thiscall*)(String*)>(kStringDestroy)(&text);
+        }
+        // And SetPauseReason's own steps.
+        first.height = reinterpret_cast<Height>(kTextHeight)(Part(reason, kLabelText));
+        SetExtent(reason, first);
+        Extent last = first;
+        int& shown = At<int>(press, kControlFlags);
+        if (!g_pauseKept.kept || g_pauseKept.pressShown) {
+            shown |= kControlVisible;
+            second.top = first.top + 2 + first.height;
+            second.height = reinterpret_cast<Height>(kTextHeight)(Part(press, kLabelText));
+            SetExtent(press, second);
+            last = second;
+        } else {
+            shown &= ~kControlVisible;
+        }
+        Extent box = At<Extent>(pause, kControlExtent);
+        box.width = g_pauseOwn.panelWidth;
+        box.height = last.top + 5 + last.height;
+        SetExtent(pause, box);
+        SetExtent(button, {first.left, first.top, first.width, box.height});
+    }
+    // The button without the picture, its two borders as pause.gui has them.
+    const char none[16] = {};
+    int which = 0;
+    for (const std::ptrdiff_t border : {kButtonBorderParams, kButtonHilightParams}) {
+        void* params = Part(button, border);
+        SetFill(params, none);
+        if (g_pauseButtonKept[which]) {
+            std::memcpy(&At<float>(params, 0x10), g_pauseButtonColour[which], 3 * sizeof(float));
+            At<unsigned>(params, 0x1C) = g_pauseButtonFlags[which];
+            g_pauseButtonKept[which] = false;
+        }
+        ++which;
+    }
+    g_pauseKept.kept = false;
+    g_pauseForget = true;
+    return true;
+}
+
+// The pause notice as one line, "PAUSED. PRESS [the right trigger] TO CONTINUE", made
+// the way the combat-mode message is (CombatMessage, above): the words before the
+// picture in one label, the words after it in the other, the picture between them,
+// each label's rectangle as wide as its words so that where the line stands does not
+// depend on how a label places its text. The maintainer asked for it so after two
+// builds with the picture in a gap of spaces on a second line (2026-10-06; in the
+// second the game had given the button the box's size again and the trigger was
+// drawn over both lines).
+//
+// Called before every draw while the Xbox layout is up. The game writes the reason
+// and gives the three controls their rectangles anew every time it pauses
+// (SetPauseReason), so everything set here is compared with what is there and set
+// again when anything differs.
+void PauseNotice(void* pause, void* client)
+{
+    static bool tried = false, english = false;
+    if (!tried && client) {
+        tried = true;
+        String line;
+        reinterpret_cast<void*(__thiscall*)(void*, String*, int)>(kGetGuiString)(client, &line, kPausePressString);
+        english = line.text && _stricmp(line.text, "PRESS THE PAUSE BUTTON TO CONTINUE") == 0;
+        reinterpret_cast<void(__thiscall*)(String*)>(kStringDestroy)(&line);
+    }
+    if (!english) return;
+    void* reason = Part(pause, kPauseReason);
+    void* press = Part(pause, kPausePress);
+    void* button = Part(pause, kPauseButton);
+    const String& reasonNow = At<String>(reason, kLabelTextParams);
+    const String& pressNow = At<String>(press, kLabelTextParams);
+    if (!reasonNow.text) return;
+    // The layout's own, while the box has nothing of this file's in it (PauseOwn).
+    if (!PauseCarriesOurs(pause)) {
+        const Extent r = At<Extent>(reason, kControlExtent), p = At<Extent>(press, kControlExtent);
+        g_pauseOwn.valid = true;
+        g_pauseOwn.reasonLeft = r.left;
+        g_pauseOwn.reasonTop = r.top;
+        g_pauseOwn.reasonWidth = r.width;
+        g_pauseOwn.pressLeft = p.left;
+        g_pauseOwn.pressWidth = p.width;
+        g_pauseOwn.panelWidth = At<Extent>(pause, kControlExtent).width;
+        strncpy_s(g_pauseOwn.press, pressNow.text ? pressNow.text : "", _TRUNCATE);
+    }
+
+    static char first[160] = {};                    // the words before the picture, as last set
+    static const char second[] = "TO CONTINUE";
+    static Extent set[4]{};                         // reason, press, button, panel, as last set
+    static char familyShown = 0;
+    if (g_pauseForget) {
+        g_pauseForget = false;
+        first[0] = 0;
+        familyShown = 0;
+        for (Extent& one : set) one = Extent{};
+    }
+    char family[16] = {};
+    std::memcpy(family, kPauseGlyph, sizeof kPauseGlyph);
+    family[3] = KmrpGlyphLetterK1();
+    const auto same = [](const Extent& x, const Extent& y) {
+        return x.left == y.left && x.top == y.top && x.width == y.width && x.height == y.height;
+    };
+    const Extent panelNow = At<Extent>(pause, kControlExtent);
+    if (first[0] && std::strcmp(reasonNow.text, first) == 0 && pressNow.text && std::strcmp(pressNow.text, second) == 0 &&
+            same(At<Extent>(reason, kControlExtent), set[0]) && same(At<Extent>(press, kControlExtent), set[1]) &&
+            same(At<Extent>(button, kControlExtent), set[2]) &&
+            panelNow.width == set[3].width && panelNow.height == set[3].height &&
+            (At<int>(press, kControlFlags) & kControlVisible) != 0 && familyShown == family[3])
+        return;
+
+    // A reason that is not this file's line is the game's, just written, and with it
+    // whether the second label is shown (PauseKept).
+    if (!(first[0] && std::strcmp(reasonNow.text, first) == 0)) {
+        g_pauseKept.kept = true;
+        strncpy_s(g_pauseKept.reason, reasonNow.text, _TRUNCATE);
+        g_pauseKept.pressShown = (At<int>(press, kControlFlags) & kControlVisible) != 0;
+    }
+
+    // The font's measures, from the first label's string as it is drawn
+    // (CAurGUIStringInternal: the font at +0x18, its information by the virtual at
+    // +0x38: fontheight +0x04, texturewidth +0x0C, spacingR +0x10, the glyphs' two
+    // coordinate arrays at +0x18 and +0x24; the scale at +0x40 of the string).
+    void* string = At<void*>(Part(reason, kLabelText), 0x14);
+    void* font = string ? At<void*>(string, 0x18) : nullptr;
+    if (!font) return;
+    const char* info = reinterpret_cast<const char*(__thiscall*)(void*)>((*reinterpret_cast<void***>(font))[0x38 / 4])(font);
+    if (!info) return;
+    const char* upperLeft = *reinterpret_cast<const char* const*>(info + 0x18);
+    const char* lowerRight = *reinterpret_cast<const char* const*>(info + 0x24);
+    if (!upperLeft || !lowerRight) return;
+    float scale = At<float>(string, 0x40);
+    if (!(scale > 0.01f && scale < 100.0f)) scale = 1.0f;
+    const float texels = *reinterpret_cast<const float*>(info + 0x0C), spacing = *reinterpret_cast<const float*>(info + 0x10);
+    const auto wide = [&](const char* text) {
+        float sum = 0.0f;
+        for (; *text; ++text) {
+            const int glyph = static_cast<unsigned char>(*text) * 12;
+            sum += (*reinterpret_cast<const float*>(lowerRight + glyph) - *reinterpret_cast<const float*>(upperLeft + glyph)) * texels + spacing;
+        }
+        return static_cast<int>(sum * scale * 100.0f + 0.999f);
+    };
+    const int lineHeight = static_cast<int>(*reinterpret_cast<const float*>(info + 0x04) * scale * 100.0f + 0.5f);
+    if (lineHeight <= 0) return;
+
+    // The words before the picture: the reason's first line (the PC puts "Press the
+    // Pause key ..." on a second line for an enemy or a mine sighted), a full stop
+    // unless it ends in a mark of its own, and "PRESS". A reason that is already
+    // this line, from the last pause, is kept.
+    if (!(first[0] && std::strcmp(reasonNow.text, first) == 0)) {
+        char words[160] = {};
+        const char* end = std::strchr(reasonNow.text, '\n');
+        std::size_t n = end ? static_cast<std::size_t>(end - reasonNow.text) : std::strlen(reasonNow.text);
+        if (n > 120) n = 120;
+        while (n > 0 && reasonNow.text[n - 1] == ' ') --n;
+        std::memcpy(words, reasonNow.text, n);
+        const char last = n ? words[n - 1] : 0;
+        strcat_s(words, last == '.' || last == '!' || last == '?' ? " PRESS" : ". PRESS");
+        std::memcpy(first, words, sizeof first);
+        String text;
+        reinterpret_cast<void*(__thiscall*)(String*, const char*)>(kStringFromText)(&text, first);
+        SetText(reason, &text);
+        reinterpret_cast<void(__thiscall*)(String*)>(kStringDestroy)(&text);
+    }
+    if (!(pressNow.text && std::strcmp(pressNow.text, second) == 0)) {
+        String text;
+        reinterpret_cast<void*(__thiscall*)(String*, const char*)>(kStringFromText)(&text, second);
+        SetText(press, &text);
+        reinterpret_cast<void(__thiscall*)(String*)>(kStringDestroy)(&text);
+    }
+    At<int>(press, kControlFlags) |= kControlVisible;
+
+    // One line: the picture as tall as the line and three eighths more (22 pixels
+    // beside a 16-pixel font, as in the combat-mode message), nine sixteenths of the
+    // line between it and the words on either side, the line's height at the box's
+    // ends and a third of it above and below the picture. A label's rectangle is its
+    // words' width and half a line more on each side, so that the words, centred in
+    // it, stand where they are meant to and cannot break.
+    const int glyph = lineHeight + lineHeight * 3 / 8;
+    const int gap = (lineHeight * 9 + 8) / 16;
+    const int end = lineHeight, edge = lineHeight / 3, slack = lineHeight / 2;
+    int firstWide = wide(first), secondWide = wide(second);
+    // The second label in its own string's measures, where it has one: its words
+    // reached the box's frame in the first build of this line.
+    {
+        void* own = At<void*>(Part(press, kLabelText), 0x14);
+        void* ownFont = own ? At<void*>(own, 0x18) : nullptr;
+        const char* ownInfo = ownFont
+            ? reinterpret_cast<const char*(__thiscall*)(void*)>((*reinterpret_cast<void***>(ownFont))[0x38 / 4])(ownFont) : nullptr;
+        if (ownInfo && *reinterpret_cast<const char* const*>(ownInfo + 0x18) && *reinterpret_cast<const char* const*>(ownInfo + 0x24)) {
+            const char* ul = *reinterpret_cast<const char* const*>(ownInfo + 0x18);
+            const char* lr = *reinterpret_cast<const char* const*>(ownInfo + 0x24);
+            float ownScale = At<float>(own, 0x40);
+            if (!(ownScale > 0.01f && ownScale < 100.0f)) ownScale = 1.0f;
+            float sum = 0.0f;
+            for (const char* c = second; *c; ++c) {
+                const int g = static_cast<unsigned char>(*c) * 12;
+                sum += (*reinterpret_cast<const float*>(lr + g) - *reinterpret_cast<const float*>(ul + g)) *
+                       *reinterpret_cast<const float*>(ownInfo + 0x0C) + *reinterpret_cast<const float*>(ownInfo + 0x10);
+            }
+            const int measured = static_cast<int>(sum * ownScale * 100.0f + 0.999f);
+            if (measured > secondWide) secondWide = measured;
+        }
+    }
+    const int top = edge + (glyph - lineHeight) / 2;
+    set[0] = {end - slack, top, firstWide + 2 * slack, lineHeight};
+    set[2] = {end + firstWide + gap, edge, glyph, glyph};
+    set[1] = {set[2].left + glyph + gap - slack, top, secondWide + 2 * slack, lineHeight};
+    SetExtent(reason, set[0]);
+    SetExtent(press, set[1]);
+    SetExtent(button, set[2]);
+    Extent box = panelNow;
+    box.width = set[1].left + slack + secondWide + end;
+    box.height = glyph + 2 * edge;
+    SetExtent(pause, box);
+    set[3] = box;
+
+    // The button's two borders are near black in pause.gui (COLOR 0.004) and draw a
+    // fill at its own size in their middle (FILLSTYLE 1), since they have no fill:
+    // with the picture as their fill the first build drew a black square 128 pixels
+    // wide. So, while the picture is shown, white and stretched over the button
+    // (CSWGuiBorderParams: the colour at +0x10, the style in the low two bits of the
+    // flags at +0x1C).
+    for (const std::ptrdiff_t border : {kButtonBorderParams, kButtonHilightParams}) {
+        void* params = Part(button, border);
+        if (!g_pauseButtonKept[border == kButtonHilightParams]) {
+            g_pauseButtonKept[border == kButtonHilightParams] = true;
+            std::memcpy(g_pauseButtonColour[border == kButtonHilightParams], &At<float>(params, 0x10), 3 * sizeof(float));
+            g_pauseButtonFlags[border == kButtonHilightParams] = At<unsigned>(params, 0x1C);
+        }
+        At<float>(params, 0x10) = At<float>(params, 0x14) = At<float>(params, 0x18) = 1.0f;
+        At<unsigned>(params, 0x1C) = (At<unsigned>(params, 0x1C) & ~3u) | 2u;
+        SetFill(params, family);
+    }
+    At<int>(button, kControlFlags) |= kControlVisible;
+    familyShown = family[3];
+}
+
 // Hooked at the entry of CSWGuiMainInterface::DrawMap, ecx = the HUD.
 extern "C" void __cdecl KmrpXboxHudK1(void* hud)
 {
@@ -1089,13 +1493,73 @@ extern "C" void __cdecl KmrpXboxHudK1(void* hud)
     // The Xbox HUD while the pad is the device in use, the game's own otherwise.
     if (g_layout.hud != hud) Keep(hud);
     if (!IsControllerInputActiveK1()) {
+        const bool wasXbox = g_layout.xbox;
         if (g_layout.xbox) {
             CombatMessage(hud, client, width);
             RestorePc(hud, seen);
+            if (g_layout.arrowMarginKept) {
+                At<Extent>(Part(hud, kHudArrowMargin), kControlExtent) = g_layout.arrowMargin;
+                g_layout.arrowMarginKept = false;
+            }
+        }
+        // The pause notice as the game has it and where its own HUD has it
+        // (RestorePauseNotice). Looked at on every frame, not only as the Xbox layout
+        // comes off: it costs one comparison of a name while there is nothing to undo.
+        if (void* pause = PausePanel()) {
+            const bool undone = RestorePauseNotice(pause);
+            if (undone || wasXbox)
+                reinterpret_cast<void(__thiscall*)(void*, Extent*)>(kSetupPauseExtent)(hud, &At<Extent>(pause, kControlExtent));
         }
         return;
     }
     if (!g_layout.xbox || g_layout.width != width || g_layout.height != height) ApplyXbox(hud, width, height);
+    // Where the target's circle may stand (kHudArrowMargin, above). Every frame: the
+    // name frame stands lower in combat mode and the action box grows with its text.
+    {
+        const Extent name = At<Extent>(Part(hud, kHudNameFrame), kControlExtent);
+        const Extent box = At<Extent>(Part(hud, kHudActionBox), kControlExtent);
+        Extent& margin = At<Extent>(Part(hud, kHudArrowMargin), kControlExtent);
+        const int top = name.top + name.height, bottom = box.top;
+        const int side = name.left > 0 && name.left < width / 4 ? name.left : 0;
+        if (bottom - top > height / 4) {
+            if (!g_layout.arrowMarginKept) {
+                g_layout.arrowMargin = margin;
+                g_layout.arrowMarginKept = true;
+            }
+            margin = {side, top, width - 2 * side, bottom - top};
+        }
+    }
+    // The target's circle at the Xbox's size (kHudMarker, above). The engine sets the
+    // label's rectangle whenever it updates the indicator; a rectangle that is still
+    // the one set here has not been updated since and is left.
+    {
+        void* marker = Part(hud, kHudMarker);
+        static Extent set{};
+        const Extent now = At<Extent>(marker, kControlExtent);
+        char fill[17] = {};         // a resource's name is 16 bytes and need not end in a zero
+        std::memcpy(fill, &At<char>(Part(marker, kLabelBorderParams), kParamsFill), 16);
+        const bool circle = std::strstr(fill, "reticle") != nullptr;      // not the arrow on the rectangle's edge
+        const bool ours = now.left == set.left && now.top == set.top && now.width == set.width && now.height == set.height;
+        if (circle && !ours && now.width > 0 && height > kBaseHeight &&
+                (At<int>(marker, kControlFlags) & kControlVisible) != 0) {
+            const int size = (2 * now.width * height + kBaseHeight) / (2 * kBaseHeight);
+            set = {now.left + now.width / 2 - size / 2, now.top + now.height / 2 - size / 2, size, size};
+            SetExtent(marker, set);
+        }
+    }
+    // The pause notice left of the minimap (PausePanel, above). Every frame: the game
+    // places it anew whenever it pauses, and the minimap stands lower in combat mode.
+    if (void* pause = PausePanel()) {
+        PauseNotice(pause, client);
+        const Extent map = At<Extent>(Part(hud, kHudMapBorder), kControlExtent);
+        Extent& at = At<Extent>(pause, kControlExtent);
+        if (map.width > 0 && at.width > 0) {
+            const int margin = width - (map.left + map.width);
+            const int left = map.left - (margin > 0 ? margin : 0) - at.width;
+            at.left = left > 0 ? left : 0;
+            at.top = map.top;
+        }
+    }
     if (!g_row.usable) return;
 
     // The menu's viewport starts at the screen's corner and is as wide as the screen.

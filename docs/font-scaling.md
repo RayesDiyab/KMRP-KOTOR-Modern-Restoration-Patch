@@ -195,8 +195,10 @@ Note the two DIFFERENT scales. `fnt_d16x16b`'s `2.526316` is `3.0 x 16/19`,
 cancelling vanilla's 19px-vs-16px size difference so descriptions and menus
 match. **Baking it at plain 3.0 silently restores that mismatch.**
 
-Rendered letter spacing is fixed at bake time, in the glyph cell widths — the
-`spacingR` metric is **not** a typographic control (see below), so there is no
+Rendered letter spacing is fixed at bake time, in the glyph cell widths. The
+`spacingR` metric is drawn after every glyph but hardly counted when lines are
+broken, so KMRP's sets carry `spacingR 0`
+(`reverse-engineering/font-atlases.md`, corrected 2026-10-05) and there is no
 spacing table to regenerate. To adjust how tightly letters sit, change the
 padding/advance logic in `build_font_from_ttf.py` and re-bake.
 
@@ -342,9 +344,8 @@ shipped face is unchanged.
   - **0 of 94** glyphs clipped at their cell edge in either font, on either
     side — including glyphs whose ink starts left of the pen origin.
   - (Removed: an earlier gap/ink "letter spacing" figure here was produced by a
-    simulation that fed `spacingR` into the glyph advance. The renderer does not
-    read `spacingR` at all — see `reverse-engineering/font-atlases.md` — so the
-    number measured the model, not the game.)
+    simulation of the spacing between glyphs, not from the game. See
+    `reverse-engineering/font-atlases.md` for what `spacingR` does.)
   - Description and menu text render at identical heights at 1080p, 1440p,
     3440x1440 and 2160p.
   - Per-resolution scale: 720p 1.00x, 1080p 1.50x, 1440p 2.00x, 2160p 3.00x.

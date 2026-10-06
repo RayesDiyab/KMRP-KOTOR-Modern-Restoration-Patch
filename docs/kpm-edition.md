@@ -13,10 +13,36 @@ session notes summarised under *Rejected alternatives* below.
 writes that image to a new file with `--apply`, and it remains the reference the
 data file is proved against (section 7); installing it is retired.
 
+## Two patches since 2026-10-05
+
+**Read this before the next section.** On 2026-10-05 the maintainer took the
+controller out of KMRP's patch: KMRP ships `KMRP.kpatch` and the standalone controller
+patch, "KOTOR 1 Native Controller Mod + Xbox HUD" (id `kmrp-controller`), and neither
+needs the other. What the next section says about one patch with a `controller` option
+holds for 2026-10-04 and part of the next day only.
+
+| | 2026-10-04 (the next section) | Since 2026-10-05 |
+| --- | --- | --- |
+| Patches | one, `kmrp`, with the options `controller`, `map-notes` and `debug-logs` | two. `kmrp`: the options `map-notes`, on, and `debug-logs`, off; 27 hooks as built on 2026-10-06 (24 on 2026-10-05, then the list rows' three). `kmrp-controller`: 34 hooks, its own settings |
+| Modules | `patches\kmrp.dll`, with the controller and SDL inside | `patches\kmrp.dll` (the engine recipe and every resolution's files) and `patches\kmrp-controller.dll` (the controller, its own layout changes and art for the game's interface, SDL) |
+| Sites both need | one patch, one hook each | KOTOR Patch Manager allows one patch per address, so each has its own: the GUI frame at `0x0040CE70` (controller) and `0x0040CE76` (KMRP), the movie frame at `0x00404D96` and `0x00404D06`, the resource lookup at `0x00407235` and `0x00407230` |
+| The installer | wrote the controller's hooks while the option was on | installs the controller patch beside KMRP's while Controller Support is on in Advanced Settings, the default: both modules, both patches' hooks in `patch_config.toml` with KMRP's first, `configs\kmrp.ini` and `configs\kmrp-controller.ini`, both `.kpatch` files in KPM's patch folder. Off: nothing of the controller patch, and KMRP's patch the same |
+| Settings | `configs\kmrp.ini`, `[Patch Options]`: three values | `configs\kmrp.ini` with two; `configs\kmrp-controller.ini` with `debug-logs`, and the player's own `Style` under `[Hud]` for the Xbox-style HUD |
+| Side by side | -- | the controller patch does not list `kmrp` as a conflict. Beside KMRP it leaves the cursor to KMRP and uses KMRP's scaled layouts in place of its own copies of the game's; it draws its prompts from its own files and fits them to the layout in force at run time (2026-10-06) |
+
+Where the rest is: [`CHANGELOG.md`](../CHANGELOG.md), `[Unreleased]`, "KMRP and the
+controller patch are two patches, each working without the other", which lists what was
+run and what was not; [`controller-standalone.md`](controller-standalone.md) for the
+controller patch; [`macos-two-patches-handoff.md`](macos-two-patches-handoff.md) for the
+Mac. `Test-InstallerPatch.ps1` covers both installs (Controller Support on and off) and
+`Test-KpatchSource.py` and `Test-ControllerKpatch.py` the two packages. Sections 1 to 10
+below have not been rewritten for two patches: where they say "the patch" for controller
+work, read the controller patch.
+
 ## One patch since 2026-10-04
 
-**Read this first: most of what follows describes the edition as it was until
-2026-10-04.** That day the maintainer made the standalone patch the final KMRP ("the
+**Most of what follows describes the edition as it was until 2026-10-04**, and this
+section the one patch of that day, which the section above has since split in two. That day the maintainer made the standalone patch the final KMRP ("the
 final kmrp should be now the standalone kpatch with options shipped inside the
 installer"). What changed, and what the sections below still get right:
 

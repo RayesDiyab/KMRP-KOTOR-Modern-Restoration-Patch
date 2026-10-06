@@ -296,7 +296,7 @@ layout, the game's own, the Xbox layout).
 button's border fills, so it is round only on a button of the shape it was made for.
 `K1ControllerBadgeShapes.inc` (written by `tools/build_controller_assets.py
 --badge-shapes` from the layouts and textures the badges were built on) gives that
-area for 130 of the 132 badges, with where the glyph stands across it and how wide
+area for 133 of the 135 badges, with where the glyph stands across it and how wide
 it is. When the live button's fill area differs from it by more than a fiftieth,
 in the normal state or the focused one (a border's inset is a number of pixels a
 rescaled button keeps, so Options' Close was right until focused), the button
@@ -342,6 +342,72 @@ own rectangle back when the badge goes (the mouse or keyboard in use, or the pan
 closed). Seen after that at 3440x1440: both rows' captions and glyphs in the
 middle of their rows, and the other seven tabs as before. Not looked at: the
 caption going back when the mouse is used on that screen.
+
+**Beside KMRP, 2026-10-06.** KMRP's layouts are a third case: neither the game's
+nor a rescaling of them. Four defects the maintainer saw there at 3440x1440 were
+this patch's, and the rule he set is that it scales itself to any interface and
+takes nothing from another patch (KMRP's set has badges of the same names made for
+its own buttons; this patch does not use them).
+
+- *The X of Inventory's "Show ..." button was an oval.* That badge has six textures,
+  one per caption, `kmrpx_invnew0` to `5`; the shape table has one row,
+  `kmrpx_invnew`, and the lookup compared whole names. No row, no guard. The lookup
+  now also takes a name less its last digit.
+- *The A of an Options row stood about 90 px from "Load Game".* `MeasureK1Caption`
+  found a caption's width by asking the line breaker for heights, and KMRP's patch
+  changes the line breaker (a word that fits no line stays on it). The width is now
+  the sum `Draw` makes: for each character (lower-right u - upper-left u) x
+  `texturewidth` + `spacingR`, times the text's scale and 100, from the font
+  information of the caption's own string (`MeasureK1CaptionByFont`). The old search
+  remains for a font that cannot be read.
+- *An A stood beside Equip's empty button.* The game hides that button while a slot
+  has the focus; a badge on the button's fill went with it, a badge on a label of
+  its own did not. `SyncK1BadgeOverlays` runs every frame for the panel in front:
+  a label is drawn only while its button is, and is placed again when the caption
+  or the button's rectangle changes (Equip's button then reads "OK", and the A
+  stands beside it).
+- *The party cue stood against the left portrait.* It was moved by a fixed share of
+  its size from where the layout file has it, which is right in the game's layout
+  (the cue follows the last portrait) and wrong in KMRP's (the cue is between two).
+  `BindOneCueK1` now finds the portraits among the live controls, by the size of
+  the one the cue was built beside, and puts the cue an eighth of its size from
+  the one on its left, or in the middle of the gap where the next portrait leaves
+  less room.
+
+Seen in the scratch copies that night, pad driven: beside KMRP at 3440x1440, alone
+on the unchanged game, and beside Scaled Kotor 1.3.1 at 3440x1440.
+
+**Level Up and Auto Level Up, the same night.** These two badges stand on their
+buttons' own box (`dialog2`), which their texture carried under the glyph, and both
+buttons have a 16-unit border with corner art (`character.gui`: `BTN_LEVELUP`
+127x40, `BTN_AUTO` 127x52). So the fill, and the texture with it, is a strip 8 and
+20 units tall: in the unchanged game at 1280x960 the A was a dot and the Y a smear
+over "Auto", the first time this build's Character screen was seen with a level to
+take (a scratch save with the class levels lowered). They were also the two badges
+the shape guard left on their buttons whatever the shape.
+
+`ShowK1BackedBadge` now leaves the box on the button and draws the glyph from a
+plain badge of the same letter (`kmrpa_abcgok`, `kmrpy_abcgrec`) on a label, as
+tall as the Close button's 28 units are of the button's own height in the game's
+layout. Where it stands is the maintainer's, set over four builds he looked at:
+
+| | Rule |
+| --- | --- |
+| The buttons | made wide enough for badge and caption; both get the wider of the two needs and grow about their own middles; a layout whose buttons are wide enough is left alone |
+| The caption | keeps the number of lines its layout gives it ("Auto / Level Up" stays two), centred in the button right of the badge |
+| The badge | at the button's left end, so the two stand under each other |
+| The room | three quarters of the badge's height at each end, a third of it between badge and caption |
+
+Nothing is a fixed place or size: the badge's height is a share of the button's,
+the caption's width is the narrowest that holds it in its lines, summed from its
+own font (`MeasureK1CaptionByFont`, `wrapLines`), and the rest are shares of the
+badge's height. The buttons get their own rectangles back when the badge goes
+(`HideK1BadgeOverlay`). Where a button would need more than twice its width, which
+no layout seen does, the buttons are left and the badges stand outside them on the
+left. Tried and set aside by the maintainer that night: the badge shrunk to the
+room beside the caption (10 px, then 16 and 11 px), the badge inside with only the
+caption moved, the caption on one line, and half and a quarter of the badge's
+height for the room.
 
 Seen by the maintainer at 3440x1440 with Scaled Kotor: the tab strip's LT and RT,
 Abilities' two cues, Options, Gameplay Options (the Controller Layout entry, placed
@@ -415,7 +481,8 @@ window. Badge sizes were measured from screenshots.
 on Steam on 2026-10-04, but this package was not run there); fullscreen; a real
 controller of any kind, and so rumble; combat, and so the X and Y combat cues on
 screen; a dialogue with replies, and so the dialogue's A; the Container and store
-screens; Pazaak and the other minigames; level-up; another language's game; AMD or
+screens (the store had no badges until 2026-10-06, when the maintainer saw it bare
+beside KMRP; A, X and B were added that day, see the changelog); Pazaak and the other minigames; level-up; another language's game; AMD or
 Intel graphics; Proton.
 
 ## 9. Verifying by hand

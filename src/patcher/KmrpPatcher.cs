@@ -7537,7 +7537,7 @@ namespace Kmrp
                 int readyWidth;
                 int readyHeight;
                 if (KpmEditionOperations.IsInstalledForPatchManager(target))
-                    lastDetail = "Installed for KOTOR Patch Manager. Tick KMRP's patches there, then Apply and Launch.";
+                    lastDetail = "Managed by KOTOR Patch Manager: tick KMRP there, then Apply and Launch.";
                 else
                     lastDetail = PatchOperations.TryReadInstalledResolution(target, out readyWidth, out readyHeight)
                         ? "KOTOR is ready to play at " +

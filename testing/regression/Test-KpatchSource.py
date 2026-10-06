@@ -24,10 +24,11 @@ source = next((p for p in (ROOT / 'build/kmrp/kpm-patches' / native.NAME, ROOT /
                if p.exists()), None)
 assert source, 'KMRP.kpatch has not been built'
 result = native.validate(source)
-assert result['id'] == 'kmrp' and result['options'] == ['controller', 'map-notes', 'debug-logs'], result
+# No controller option since 2026-10-05: controller support is the patch this one requires.
+assert result['id'] == 'kmrp' and result['options'] == ['map-notes', 'debug-logs'], result
 assert result['hooks_by_option']['map-notes'] == 0, 'map notes gate no hook'
 assert result['hooks_by_option']['debug-logs'] == 0, 'debug logs gate no hook'
-print(f"PASS: {source.name} validates ({result['hooks']} hooks, {result['hooks_by_option']['controller']} for the controller option)")
+print(f"PASS: {source.name} validates ({result['hooks']} hooks, none an option's)")
 
 with zipfile.ZipFile(source) as archive:
     files = {name: archive.read(name) for name in archive.namelist()}
@@ -55,11 +56,12 @@ def corrupted(case):
     elif case == 'target versions':
         assert ', "' + kpatch_common.STEAM + '"' in text
         text = text.replace(', "' + kpatch_common.STEAM + '"', '', 1)
-    elif case == 'a condition dropped':
-        assert 'when = "controller"\n' in text
-        text = text.replace('when = "controller"\n', '', 1)
-    elif case == 'an undeclared option':
-        text = text.replace('when = "controller"', 'when = "rumble"', 1)
+    elif case in ('a condition added', 'an undeclared option'):
+        # No hook has a condition now, so one is put on the first hook: a declared
+        # option's, which the source does not give it, and an option that does not exist.
+        assert 'when = ' not in text
+        at = text.index('\n', text.index('address = ')) + 1
+        text = text[:at] + ('when = "map-notes"\n' if case == 'a condition added' else 'when = "rumble"\n') + text[at:]
     elif case == 'a third option':
         manifest += '\n[[patch.options]]\nid = "movies"\nname = "Movie fixes"\ndescription = "x"\ntype = "toggle"\ndefault = true\n'
     elif case == 'a conflict with itself':
@@ -78,7 +80,7 @@ def corrupted(case):
 with tempfile.TemporaryDirectory(prefix='kmrp-kpatch-source-') as temporary:
     path = Path(temporary) / native.NAME
     for case in ['original bytes', 'static replacement', 'missing runtime hooks', 'target versions',
-                 'a condition dropped', 'an undeclared option', 'a third option', 'a conflict with itself',
+                 'a condition added', 'an undeclared option', 'a third option', 'a conflict with itself',
                  'an external dependency', 'an extra file']:
         with zipfile.ZipFile(path, 'w', zipfile.ZIP_DEFLATED) as archive:
             for name, data in corrupted(case).items():
@@ -90,4 +92,24 @@ with tempfile.TemporaryDirectory(prefix='kmrp-kpatch-source-') as temporary:
             print(f'PASS: rejects {case} ({str(error)[:60]})')
         else:
             raise AssertionError(f'{case}: the corrupted patch was accepted')
+
+# The list rows' measured table is a copy of the Mac's (K1RuntimeLayout.cpp, "List rows"):
+# from its first declaration on the two files are the same, once the Mac's is in the tree.
+ROOT = Path(__file__).resolve().parents[2]
+
+
+def table_of(path):
+    text = path.read_text(encoding='utf-8').replace(chr(13) + chr(10), chr(10))
+    start = 'const char* const kMeasuredLists[] = {'
+    assert start in text, f'{path.name} has no table'
+    return text[text.index(start):].strip()
+
+
+ours = table_of(ROOT / 'src/controller-native/K1ListRows.inc')
+mac = ROOT / 'macos/patches/kmrp-assets/list_rows.inc'
+if mac.is_file():
+    assert ours == table_of(mac), 'K1ListRows.inc differs from macos/patches/kmrp-assets/list_rows.inc'
+    print('PASS: K1ListRows.inc is the Mac table')
+else:
+    print('PASS: K1ListRows.inc has its table (the Mac file is not in this tree to compare with)')
 print('PASS: KMRP.kpatch source guards')

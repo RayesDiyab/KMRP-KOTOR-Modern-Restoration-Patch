@@ -67,38 +67,45 @@ from its own backup, and one that put four patches and about 1,850 files in
 `Override` (before 2026-10-04) is removed first. If Steam verifies the game's
 files, it puts its own `binkw32.dll` back and KMRP stops loading: patch again.
 
-**With KOTOR Patch Manager.** KMRP is one KPM patch, `KMRP.kpatch`, and combines
-with other KPM patches. The installer carries it and puts it in KPM's patch folder,
-the one KPM's settings name; if KPM's runtime is already in the game folder, the
-installer leaves the patches to KPM and says where the file is (a `KPM patches`
-folder in the game folder when KPM has no patch folder on the PC yet). In KPM,
-tick `KMRP`, Apply, and Launch. Its options are controller support and map notes,
-both on, and debug logs, off. KPM 0.7.1 has no patch options and installs it that
-way; a KPM with them shows the three in the patch's details. KMRP includes the 4 GB and memory fixes, so
-KPM's own ones stay unticked. The file needs nothing else: you can also put it in
+**With KOTOR Patch Manager.** KMRP is two KPM patches, each working without the
+other: `KMRP.kpatch`, and its controller support, `KOTOR 1 Native Controller Mod +
+Xbox HUD.kpatch` (the next paragraph). Both combine with other KPM patches. The
+installer carries both and puts them in KPM's patch folder, the one KPM's settings
+name, the controller patch only while Controller Support is on; if KPM's runtime is
+already in the game folder, the installer leaves the patches to KPM and says where
+the files are (a `KPM patches` folder in the game folder when KPM has no patch
+folder on the PC yet). In KPM, tick `KMRP`, and the controller patch for the pad,
+Apply, and Launch. KMRP's options are map notes, on, and debug logs, off. KPM 0.7.1
+has no patch options and installs it that way; a KPM with them shows the two in the
+patch's details. KMRP includes the 4 GB and memory fixes, so
+KPM's own ones stay unticked. The files need nothing else: you can also put them in
 KPM's patch folder by hand, without the installer. On Steam, switch KPM to its
 proxy deployment and start the game from Steam. From KPM's first release after
 0.7.1, pressing Apply there keeps KMRP's setup, and the game still starts
 directly. With KPM 0.7.1, tick *Use library proxy* in KPM first (press Uninstall
 All if it's greyed out), or its Apply switches the game to injection and only
 KPM's Launch starts it patched. The installer is the only file
-to download; `--export-kpm-patches <folder>` writes `KMRP.kpatch` out for
+to download; `--export-kpm-patches <folder>` writes both `.kpatch` files out for
 sharing. [docs/kpm-edition.md](docs/kpm-edition.md) describes both ways. (Until
 2026-09-29 this took a separate installer, *KMRP for KPM*, and then, the same
-day, a `KPM patches` folder beside the installer.)
+day, a `KPM patches` folder beside the installer. On 2026-10-04 and 05 KMRP was one
+patch with controller support as an option of it.)
 
-**Controller support without KMRP.** `KOTOR 1 Native Controller Mod + Xbox HUD.kpatch`
-is KMRP's controller support as a KOTOR Patch Manager patch of its own, for a game
-that has no KMRP: the pad in the game and in every menu, button prompts for Xbox,
-PlayStation, Switch and Steam Deck pads, rumble, and the Controller Layout screen,
-on the interface the game ships. It needs no other patch and no installer, writes
-nothing to `Override`, and places its prompts from the running game, so it runs
-beside a widescreen patch (seen with Scaled Kotor 1.3.1 at 1920x1080 and
-3440x1440, on the build before the HUD's frames were redrawn). Its one extra is an **Xbox-style HUD**, off by default: the in-game HUD
+**Controller support, with KMRP or without.** `KOTOR 1 Native Controller Mod + Xbox HUD.kpatch`
+is KMRP's controller support as a KOTOR Patch Manager patch of its own: the pad in
+the game and in every menu, button prompts for Xbox, PlayStation, Switch and Steam
+Deck pads, rumble, and the Controller Layout screen. KMRP's installer installs it
+beside KMRP's patch while Controller Support is on, and it runs as well in a game
+that has no KMRP, on the interface the game ships. It needs no other patch and no
+installer, writes nothing to `Override`, draws from its own files and places its
+prompts from the running game, so it fits KMRP's menus and those of a widescreen
+patch alike (seen beside KMRP at 3440x1440, and beside Scaled Kotor 1.3.1 at
+1920x1080 and 3440x1440). Its one extra is an **Xbox-style HUD**, off by default: the in-game HUD
 laid out as the original Xbox version's while the pad is in use, in frames drawn
 for it at four times the game's size, and the game's own HUD back as soon as the
-mouse or keyboard is used. KMRP's own patch already contains controller support,
-so the two are not installed together; KMRP does not have the Xbox-style HUD.
+mouse or keyboard is used; it is `Style` under `[Hud]` in
+`configs\kmrp-controller.ini`. (On 2026-10-04 and 05 KMRP's own patch contained
+controller support and the two were not installed together.)
 Built by `tools/build_controller_kpatch.py` into `dist\controller`; what it
 carries, what was run and what was not are in
 [docs/controller-standalone.md](docs/controller-standalone.md) and
@@ -141,9 +148,12 @@ said there was no v1, and said the numbering would not restart at 1.0.)
 KOTOR Patch Manager's runtime as KPM's own proxy deployment lays it out: KPM's
 `binkw32.dll` proxy in place of the game's, which it renames
 `binkw32Hooked.dll` and forwards every call to; `KotorPatcher.dll`;
-`patch_config.toml`; and KMRP's patch module, `patches\kmrp.dll`, which holds the
-engine changes it applies in memory, every resolution's interface files, the
-controller and SDL. Nothing is written to the `Override` folder. It also writes
+`patch_config.toml`; KMRP's patch module, `patches\kmrp.dll`, which holds the
+engine changes it applies in memory and every resolution's interface files; and,
+while Controller Support is on, the controller patch's module,
+`patches\kmrp-controller.dll`, which holds the controller, its prompt art and SDL.
+Their settings are `configs\kmrp.ini` and `configs\kmrp-controller.ini`. Nothing is
+written to the `Override` folder. It also writes
 `swkotor.ini` (the starting resolution), `kmrp-resolutions.txt` when you changed
 the resolution checklist, and on GOG's and the editable builds it sets the executable's standard Large Address Aware
 flag -- one bit, the only change to `swkotor.exe`; Steam's is never changed, since
@@ -286,8 +296,10 @@ of distinct files, compressed, with an index per resolution, and unpacks the set
 of the size in use. Since 2026-10-05 the bank also leaves out every file the
 module can write itself, exactly, from its blend table (most layouts and badges of
 most sizes), and checks each file it writes against the set's index. The installer
-carries the module once, inside `KMRP.kpatch`, and is 130 MB (136,111,616 bytes as
-built on 2026-10-05; 195.8 MB the day before, with every file in the bank).
+carries the module once, inside `KMRP.kpatch`, and the controller patch beside it,
+and is 140 MB (146,874,368 bytes as built on 2026-10-06; 136,111,616 on 2026-10-05, before
+the controller patch was a file of its own inside it; 195.8 MB the day before that,
+with every file in the bank).
 
 **One scaling rule, everywhere.** Font metrics, list rows, icon sizes and popup
 geometry all scale by `max(1.0, height / 720)` — 1.00× at 720p, 1.50× at 1080p,
@@ -337,15 +349,16 @@ positions KMRP's installer writes at any resolution, is in
 
 **KMRP's runtime** is KOTOR Patch Manager's (MIT), built from the
 [submodule](third_party/Kotor-Patch-Manager) and loaded through KPM's own
-`binkw32.dll` proxy, with KMRP's one KPM patch -- the same one the
-installer carries as `KMRP.kpatch` for KPM's app. It installs on every patch: KMRP's engine
-changes, three memory-safety fixes, mouse confinement, the movies, the movie
-bars and the status summary's layout, whether or not controller support is on.
-**Controller support** and the marker option are two of the patch's options,
-`controller` and `map-notes`; `debug-logs` is the third. The installer writes the
-controller's hooks into `patch_config.toml` only when the first is on, and the three
-choices into `configs\kmrp.ini` in the game folder (the `[Patch Options]` section),
-where a KOTOR Patch Manager with patch options records them too.
+`binkw32.dll` proxy, with KMRP's two KPM patches -- the same ones the
+installer carries as `.kpatch` files for KPM's app. KMRP's own patch is installed
+every time: KMRP's engine changes, three memory-safety fixes, mouse confinement,
+the movies, the movie bars and the status summary's layout.
+**Controller support** is the second patch, `kmrp-controller`, installed while
+Controller Support is on: its module, its hooks in `patch_config.toml` after
+KMRP's, and `configs\kmrp-controller.ini`. The marker option and debug logs are
+the two options of KMRP's patch, `map-notes` and `debug-logs`; the installer writes
+the two choices into `configs\kmrp.ini` in the game folder (the `[Patch Options]`
+section), where a KOTOR Patch Manager with patch options records them too.
 Xbox devices retain XInput; SDL3/HIDAPI supplies mapped non-Xbox devices to the
 same normalized state. Input still travels through KOTOR's retained controller
 events rather than synthetic keys. Options → Gameplay also gains a live
@@ -444,7 +457,7 @@ docs/                 Build and design documentation
 reverse-engineering/  Engine analysis, one document per subsystem
   patch-records/      Machine-readable descriptions of confirmed patches
 src/patcher/          The Windows patcher application (C#)
-src/controller-native/ KMRP's module (C++), loaded by KOTOR Patch Manager
+src/controller-native/ KMRP's module and the controller patch's (C++), loaded by KOTOR Patch Manager
 src/kpm-runtime/      Builds KOTOR Patch Manager's runtime and proxy from the submodule
 tools/                Python tools that build the gold snapshot and resources
 testing/              Regression tests, controller harnesses, virtual-display profiles

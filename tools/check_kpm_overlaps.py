@@ -5,9 +5,9 @@ KPM itself catches only two patches hooking the SAME start address; overlapping
 ranges pass its checks and fail at run time, where the first failure stops every
 hook after it. So KMRP's manifest has to name its conflicts itself, and this
 measures them rather than guessing: KMRP's footprint -- every byte the gold delta
-changes in the original image, and every run-time hook site of the KPM edition's
-hook sets -- against every hook of every .kpatch in a directory, for the
-unmodified 1.03 executable. Hooks that only NEIGHBOUR KMRP's bytes are listed too
+changes in the original image, and every run-time hook site of KMRP's patch
+(tools/build_native_kpatch.py, all_hooks) -- against every hook of every .kpatch
+in a directory, for the unmodified 1.03 executable. Hooks that only NEIGHBOUR KMRP's bytes are listed too
 (within --near bytes), because a hook next to a change in the same routine can
 still disagree with it in behaviour; those are for a reviewer, not automatic
 conflicts.
@@ -16,6 +16,12 @@ Since KMRP carries its own memory fixes and large-address flag (2026-09-28), it
 overlaps KPM's 4GB, Texture Bucket, Grass Memory and Save Game patches by design;
 those are reported as declared, from the conflicts of KMRP's patch (tools/build_native_kpatch.py). An overlap
 with a patch no KMRP patch declares fails the check.
+
+Until 2026-10-06 the hook sites were those of the four patches of the edition
+retired on 2026-10-04, the controller's among them, so the controller patch that
+KMRP has shipped beside its own since 2026-10-05 was reported as overlapping at
+six sites that KMRP's patch no longer hooks. Put the controller patch in the
+folder to check the pair: it must come out with no overlap.
 
 Usage:
     python tools/check_kpm_overlaps.py <folder of .kpatch files> [--near 32]
@@ -36,27 +42,21 @@ sys.path.insert(0, str(ROOT / "tools"))
 
 import build_native_kpatch                              # noqa: E402
 import kpatch_common                                    # noqa: E402
-import kmrp_controller                                  # noqa: E402
 import kpm_relocations                                  # noqa: E402
 
 CD_1_03 = "761F9466F456A83909036BAEBB5C43167D722387BE66E54617BA20A8C49E9886"
 
 
 def kmrp_footprint():
-    """[(start, end, what)] of everything KMRP's KPM edition changes or hooks."""
+    """[(start, end, what)] of everything KMRP's patch changes or hooks."""
     gold = kpm_relocations.Image(kpm_relocations.DEFAULT_GOLD.read_bytes())
     clean = kpm_relocations.Image(kpm_relocations.DEFAULT_CLEAN.read_bytes())
     spans = [(va, va + n, "gold delta") for va, n in kpm_relocations.changed_runs(clean, gold)]
-    seen = set()
     laa = kpatch_common.large_address_hook()
     spans.append((laa["address"], laa["address"] + len(laa["original_bytes"]), "large-address flag"))
-    for patch_id in kmrp_controller.KPM_PATCHES:
-        for hook in kmrp_controller.kpm_patch_hooks(patch_id):
-            if hook["address"] in seen:
-                continue
-            seen.add(hook["address"])
-            spans.append((hook["address"], hook["address"] + len(hook["original_bytes"]),
-                          hook.get("function", "byte patch")))
+    for hook in build_native_kpatch.all_hooks():
+        spans.append((hook["address"], hook["address"] + len(hook["original_bytes"]),
+                      hook.get("function", "byte patch")))
     return spans
 
 

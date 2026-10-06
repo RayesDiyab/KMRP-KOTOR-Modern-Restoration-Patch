@@ -214,7 +214,7 @@ def validate(path: Path):
         if manifest['id'] != ID or manifest['requires']:
             raise ValueError(f'The patch must be "{ID}" and require nothing')
         if 'kmrp' in manifest['conflicts'] or ID in manifest['conflicts']:
-            raise ValueError('Must conflict neither with KMRP, which requires it, nor with itself')
+            raise ValueError('Must conflict neither with KMRP, beside which it installs, nor with itself')
         if manifest['supported_versions'] != kpatch_common.VERSIONS:
             raise ValueError('Unexpected target builds')
         actual = tomllib.loads(z.read(HOOKS).decode())
@@ -251,7 +251,15 @@ def verify_clean(clean: Path):
     return {'sha256': sha, 'bytes': len(data), 'guarded_hook_sites': len(hooks())}
 
 
-def build(module: Path, out: Path, version: str):
+def config_files():
+    """KMRP's installer's piece of patch_config.toml for this patch: every hook as a
+    [[patches.hooks]] block. Name to text. (No hook is an option's: the Xbox-style
+    HUD's two are always installed, and the module does nothing in them while the
+    option is off.)"""
+    return {f'{ID}.hooks.toml': kmrp_controller.render_patch_hooks(hooks())}
+
+
+def build(module: Path, out: Path, version: str, config_dir: Path = None):
     target = out / NAME
     target.parent.mkdir(parents=True, exist_ok=True)
     with zipfile.ZipFile(target, 'w', zipfile.ZIP_DEFLATED) as z:
@@ -266,7 +274,14 @@ def build(module: Path, out: Path, version: str):
             info.compress_type = method
             z.writestr(info, data)
     result = validate(target)
-    (out / 'verification.json').write_text(json.dumps(result, indent=2) + '\n')
+    # Named for the patch where KMRP's build puts both patches in one folder.
+    (out / ('verification.json' if config_dir is None else f'{ID}.verification.json')).write_text(
+        json.dumps(result, indent=2) + '\n')
+    if config_dir:
+        config_dir.mkdir(parents=True, exist_ok=True)
+        for name, text in config_files().items():
+            (config_dir / name).write_text(text, newline='\n')
+        result['config_files'] = sorted(config_files())
     return result
 
 
@@ -281,6 +296,7 @@ def main():
     p.add_argument('--module', type=Path, default=ROOT / 'build/controller-standalone/kmrp-controller.dll')
     p.add_argument('--out', type=Path, default=ROOT / 'dist/controller')
     p.add_argument('--version', default='1.0.0')
+    p.add_argument('--config-dir', type=Path, help="Also write KMRP's installer's patch_config.toml piece")
     p.add_argument('--check', type=Path)
     p.add_argument('--write-def', type=Path, help="Write the module's export list and stop")
     p.add_argument('--verify-clean', type=Path, help='Optional clean CD/GOG byte guard verification')
@@ -288,7 +304,7 @@ def main():
     if args.write_def:
         print(json.dumps(write_def(args.write_def), indent=2))
         return
-    result = validate(args.check) if args.check else build(args.module, args.out, args.version)
+    result = validate(args.check) if args.check else build(args.module, args.out, args.version, args.config_dir)
     if args.verify_clean:
         result['clean_verification'] = verify_clean(args.verify_clean)
     print(json.dumps(result, indent=2))
