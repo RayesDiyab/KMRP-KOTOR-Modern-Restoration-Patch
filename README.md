@@ -41,14 +41,14 @@ runs at it. The resolution is chosen in the game, with no reinstall.
    Step 2 names the version it finds: Steam, GOG or the editable 1.03 build.
 3. Choose **Start Patching**. There is no resolution to pick: the game starts at
    your display's current size, and every size your display supports is offered in
-   the game, under Options, Graphics, Screen Resolution.
+   the game, under Options, Graphics, Screen Resolution. Connect another display,
+   a 4K television for one, and the game offers that display's sizes.
 4. Start KOTOR as usual.
 
-**Choosing resolutions.** Step 3's **Choose** opens a checklist with your display's
-sizes ticked. Untick a size to hide it in the game. Tick one of the other sizes, or
-**Add a custom size** (4:3 to 32:9), to add a size your display does not support:
-the game runs it in a window, and as a borderless window when fullscreen is on.
-The choice applies at the next install.
+**No resolution choice.** The installer has nothing to choose in step 3: the list in
+the game is whatever the connected display reports, each time the settings are
+opened. (From 2026-10-04 to 2026-10-07 step 3 had a checklist to hide sizes and to
+add others, which ran in a window.)
 
 **Sizes without a built set.** The 66 listed resolutions have a menu set of their
 own. Any other size gets menus blended from the finished sets around it, the
@@ -154,8 +154,7 @@ while Controller Support is on, the controller patch's module,
 `patches\kmrp-controller.dll`, which holds the controller, its prompt art and SDL.
 Their settings are `configs\kmrp.ini` and `configs\kmrp-controller.ini`. Nothing is
 written to the `Override` folder. It also writes
-`swkotor.ini` (the starting resolution), `kmrp-resolutions.txt` when you changed
-the resolution checklist, and on GOG's and the editable builds it sets the executable's standard Large Address Aware
+`swkotor.ini` (the starting resolution), and on GOG's and the editable builds it sets the executable's standard Large Address Aware
 flag -- one bit, the only change to `swkotor.exe`; Steam's is never changed, since
 Steam refuses to start a changed one. So that KOTOR Patch Manager still recognises
 the flagged executable, those two also get `kpm_install_state.json` and,

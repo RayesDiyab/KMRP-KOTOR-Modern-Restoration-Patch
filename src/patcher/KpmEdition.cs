@@ -303,11 +303,6 @@ namespace Kmrp
                 if (!File.Exists(settings))
                     WriteOwned(folder, ControllerOperations.SettingsName,
                         new UTF8Encoding(false).GetBytes(ControllerOperations.DefaultSettings), records);
-                // The resolutions the game is to offer, when the player chose them: read
-                // by the patch's module whoever installs the patch (ResolutionSelection).
-                string chosenSizes = ResolutionSelection.FileText();
-                if (chosenSizes != null)
-                    WriteOwned(folder, ResolutionSelection.FileName, new UTF8Encoding(false).GetBytes(chosenSizes), records);
                 if (engine)
                 {
                     List<string> patches = ChosenPatches();

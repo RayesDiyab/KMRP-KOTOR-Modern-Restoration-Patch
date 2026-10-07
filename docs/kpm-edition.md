@@ -53,7 +53,7 @@ installer"). What changed, and what the sections below still get right:
 | Engine data | `kmrp-kpm.dat`, built at install for the chosen resolution | none: the module applies the engine for the size the game runs at, and again when it changes |
 | `Override` | about 1,850 files for the chosen resolution | nothing |
 | `patch_config.toml` | four sections, from `Kmrp.engine.config.<id>` | one section, written by `KpmEditionOperations.PatchConfigSection`: the hooks that are always installed and those of each option left on. The chosen values go to `configs\kmrp.ini`, section `[Patch Options]` (`WritePatchOptions`); until later on 2026-10-04 they were a `[patches.options]` table here |
-| Resolution | chosen in the installer, one | the display's current size in `swkotor.ini`; any size the display supports in the game; a checklist for fewer or other sizes (`kmrp-resolutions.txt`) |
+| Resolution (since 2026-10-07 there is no checklist and no `kmrp-resolutions.txt`: the game lists what the connected display reports) | chosen in the installer, one | the display's current size in `swkotor.ini`; any size the display supports in the game; a checklist for fewer or other sizes (`kmrp-resolutions.txt`) |
 | `.kpatch` files delivered | four | one, `KMRP.kpatch` |
 
 Unchanged, and still as sections 1a and 5 describe: KOTOR Patch Manager's runtime

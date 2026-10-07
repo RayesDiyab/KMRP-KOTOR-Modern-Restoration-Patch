@@ -109,6 +109,52 @@ proxy, and it applies the executable changes above as well.
 
 ## [Unreleased]
 
+- **No resolution choice: the game lists what the connected display supports**
+  (2026-10-07, at the maintainer's request; KMRP's patch and the installer). Since
+  2026-10-04 step 3 of the installer had a "Choose" button: a checklist to hide
+  sizes of the display and to add others, custom ones too, written beside the game
+  as `kmrp-resolutions.txt`; a chosen size the display did not report was added to
+  the game's list and run in a borderless window. The maintainer wanted the PC moved
+  to a 4K television to offer that television's sizes with nothing to set up, and
+  then no choice at all ("not have any choice in the resolution"). Now:
+  - the game's Screen Resolution list is what the connected display reports, made
+    from the display's modes each time the dialog opens, repeats removed as before;
+    KMRP's patch has a layout for each, built or blended;
+  - the installer's step 3 has no button. It reads "Starts at W × H. The game lists
+    every resolution the connected display supports.";
+  - nothing is written for it: no `kmrp-resolutions.txt`, and `resolutionsOff` and
+    `resolutionsExtra` in KMRP's settings are no longer read or saved. A list file
+    of an earlier install is removed when that install is replaced or restored,
+    and the module does not read one.
+
+  Removed: in the module (`K1RuntimeResolution.cpp`, `K1NativeJoystick.cpp`) the
+  reading of the list, the added modes past the display's own, the hook on the
+  game's `ChangeDisplaySettingsA` slot (`0x0073D3E8`), the centring of the game's
+  windows at an added size and the cursor confinement for that window; in the
+  installer (`KmrpPatcher.cs`, about 650 lines) `ResolutionsDialog`,
+  `CustomSizeDialog` and the selection model. `Test-InstallerPatch.ps1`, Case 3, now
+  requires that a choice left in the settings writes no list.
+  - *The game starts at the display's own size when it has no mode of
+    `swkotor.ini`'s size.* `swkotor.ini` holds the size of the display the installer
+    was run on. Measured that day with 3000x1300 in the file on a 3440x1440 display:
+    KMRP's answer to the game's `IsValidResolution` said yes to every size it has a
+    layout for, the game kept 3000x1300 as its size, the engine took the largest
+    mode that fits inside it (`CAurInternal::GetValidMode`, `0x0044D6E0`:
+    1920x1200), and the menu was drawn for 3000x1300 on a 1920x1200 screen,
+    unreadable. Now a size is valid only if the display reports a mode of it
+    (`DisplayReports`), and the game's two 800x600 fallbacks (`0x005F0FB2` in
+    `ReadVideoModeSettings`, `0x005F5B84` in `ReadAndSetVideoMode`) are written
+    again when the module loads as the desktop's size (`KmrpStartAtDisplaySize`,
+    `K1RuntimeResolution.cpp`). Run again the same way: the game came up at
+    3440x1440 with its menu drawn for that size, and `swkotor.ini` still held
+    3000x1300, which is used again once a display reports it. (A first attempt
+    wrote only the second fallback and changed nothing: the size was already
+    accepted before it.)
+
+  The installer's window was looked at on a clean fixture: step 3 has no button and
+  its line fits. **Not seen:** the game on a second display (no 4K television was
+  connected); the start on a display lacking the file's size was tested by putting
+  a size this display lacks into the file.
 - **Two checks brought up to the two patches, and the build of 2026-10-06**
   (2026-10-06). `tools/check_kpm_overlaps.py` took KMRP's hook sites from the four
   patches retired on 2026-10-04, the controller's among them, and so reported the

@@ -123,125 +123,16 @@ namespace {
 using EnumModesFn = BOOL(WINAPI*)(LPCSTR, DWORD, DEVMODEA*);
 EnumModesFn g_enumModes = nullptr;
 
-// The sizes the player chose in KMRP's installer: kmrp-resolutions.txt beside the
-// game, one WIDTHxHEIGHT per line. With the file, Screen Resolution lists those
-// sizes and no others: a size the display reports is listed at its own rates, and a
-// size it does not report is added as a mode of the game's own, at 60 Hz. Without
-// the file the list is what the display reports.
+// The list is what the connected display reports, whatever display that is: started
+// on a 4K television, the game lists that television's sizes. KMRP's patch has a
+// layout for every one of them, built or blended (KmrpRuntimeAssetsCovers).
 //
-// A size the display does not report exists for the game only because this adds it:
-// the game takes its modes from EnumDisplaySettingsA everywhere, at start as well as
-// in the dialog, and falls back to 800x600 for a size that is not among them
-// (measured 2026-10-04 with 3000x1300 in swkotor.ini, fullscreen and windowed).
-std::vector<std::pair<DWORD, DWORD>> g_chosen;
-bool g_haveChosen = false;
-
-void ReadChosenSizes()
-{
-    wchar_t path[MAX_PATH];
-    const DWORD n = GetModuleFileNameW(nullptr, path, MAX_PATH);
-    wchar_t* slash = n && n < MAX_PATH ? wcsrchr(path, L'\\') : nullptr;
-    if (!slash || wcscpy_s(slash + 1, MAX_PATH - (slash + 1 - path), L"kmrp-resolutions.txt")) return;
-    FILE* file = nullptr;
-    if (_wfopen_s(&file, path, L"r") || !file) return;
-    g_haveChosen = true;
-    char line[64];
-    while (fgets(line, sizeof line, file)) {
-        int width = 0, height = 0;
-        if (sscanf_s(line, "%dx%d", &width, &height) == 2 && KmrpRuntimeDimensions(width, height))
-            g_chosen.emplace_back(static_cast<DWORD>(width), static_cast<DWORD>(height));
-    }
-    fclose(file);
-}
-
-bool Chosen(DWORD width, DWORD height)
-{
-    for (const auto& size : g_chosen)
-        if (size.first == width && size.second == height) return true;
-    return false;
-}
-
-// How many modes the display reports, and which chosen sizes are not among them.
-DWORD g_reported = 0;
-std::vector<std::pair<DWORD, DWORD>> g_added;
-
-void CountReported(LPCSTR device)
-{
-    static bool counted = false;
-    if (counted) return;
-    counted = true;
-    std::set<std::pair<DWORD, DWORD>> reported;
-    DEVMODEA mode{};
-    mode.dmSize = sizeof mode;
-    while (g_enumModes(device, g_reported, &mode)) {
-        reported.insert({mode.dmPelsWidth, mode.dmPelsHeight});
-        ++g_reported;
-    }
-    for (const auto& size : g_chosen)
-        if (!reported.count(size)) g_added.push_back(size);
-}
-
-// Fullscreen at a size the display does not report. Windows refuses the mode, and
-// the game then exits (measured 2026-10-04: 3000x1300 fullscreen, the process gone
-// within seconds). So the display is not asked: the game is told the change
-// succeeded, keeps the desktop's mode and puts its borderless window of that size on
-// it. Every other request, the restore of the desktop's own mode among them (a null
-// mode), goes to Windows as it came.
-using ChangeModeFn = LONG(WINAPI*)(DEVMODEA*, DWORD);
-ChangeModeFn g_changeMode = nullptr;
-
-// The added size the game believes the display is in, or 0x0 while the display is in a
-// mode of its own. The game puts its window of that size at the display's top left
-// corner; CentreAddedSize moves it to the middle.
-std::pair<int, int> g_addedMode{0, 0};
-
-LONG WINAPI ChangeModeUnlessAdded(DEVMODEA* mode, DWORD flags)
-{
-    g_addedMode = {0, 0};
-    if (mode && (mode->dmFields & DM_PELSWIDTH) && (mode->dmFields & DM_PELSHEIGHT))
-        for (const auto& size : g_added)
-            if (size.first == mode->dmPelsWidth && size.second == mode->dmPelsHeight) {
-                g_addedMode = {static_cast<int>(size.first), static_cast<int>(size.second)};
-                return DISP_CHANGE_SUCCESSFUL;
-            }
-    return g_changeMode(mode, flags);
-}
-
-// One of the game's own windows of exactly the added size, somewhere other than the
-// middle of its display: move it there. The game has two such windows, its main one
-// and the one its movies play in.
-BOOL CALLBACK CentreIfAddedSize(HWND window, LPARAM)
-{
-    DWORD process = 0;
-    GetWindowThreadProcessId(window, &process);
-    RECT at{};
-    MONITORINFO display{sizeof display};
-    if (process != GetCurrentProcessId() || !IsWindowVisible(window) || !GetWindowRect(window, &at) ||
-        at.right - at.left != g_addedMode.first || at.bottom - at.top != g_addedMode.second ||
-        !GetMonitorInfoW(MonitorFromWindow(window, MONITOR_DEFAULTTONEAREST), &display)) return TRUE;
-    const RECT& area = display.rcMonitor;
-    const int x = area.left + (area.right - area.left - g_addedMode.first) / 2;
-    const int y = area.top + (area.bottom - area.top - g_addedMode.second) / 2;
-    // A size larger than the display stays where the game put it: centring it would
-    // push its top left corner off the display.
-    if (x < area.left || y < area.top || (at.left == x && at.top == y)) return TRUE;
-    SetWindowPos(window, nullptr, x, y, 0, 0, SWP_NOSIZE | SWP_NOZORDER | SWP_NOACTIVATE);
-    return TRUE;
-}
-}
-
-// Once a frame, GUI or movie, while an added size is in use: keep the game's windows in
-// the middle of the display. Every frame because the game puts a window back at the
-// corner when it re-creates it or takes the foreground again; a window is moved only
-// when it is somewhere else.
-void KmrpCentreAddedSizeK1()
-{
-    if (g_addedMode.first) EnumWindows(&CentreIfAddedSize, 0);
-}
-
-bool KmrpAddedSizeWindowK1(int width, int height)
-{
-    return g_addedMode.first && width == g_addedMode.first && height == g_addedMode.second;
+// From 2026-10-04 to 2026-10-07 the installer had a checklist of sizes, written
+// beside the game as kmrp-resolutions.txt, which this file read: the list was then
+// the chosen sizes, and a chosen size the display did not report was run in a
+// borderless window. The maintainer had the choice removed on 2026-10-07 ("not have
+// any choice in the resolution"). A kmrp-resolutions.txt left by such an install is
+// not read.
 }
 
 namespace {
@@ -251,27 +142,13 @@ BOOL WINAPI EnumModesOnce(LPCSTR device, DWORD index, DEVMODEA* mode)
     // The current and the registry settings are asked for by index too; those and a
     // null answer are Windows' alone.
     if (!mode || index == ENUM_CURRENT_SETTINGS || index == ENUM_REGISTRY_SETTINGS) return ok;
-    if (!ok && !g_added.empty()) {
-        // Past the display's own modes: the chosen sizes it does not report, for every
-        // caller, so that the game can start at one and switch to one.
-        CountReported(device);
-        if (index < g_reported || index - g_reported >= g_added.size()) return ok;
-        const auto& size = g_added[index - g_reported];
-        mode->dmPelsWidth = size.first;
-        mode->dmPelsHeight = size.second;
-        mode->dmBitsPerPel = 32;
-        mode->dmDisplayFrequency = 60;
-        mode->dmFields = DM_PELSWIDTH | DM_PELSHEIGHT | DM_BITSPERPEL | DM_DISPLAYFREQUENCY;
-        ok = TRUE;
-    }
     const void* const caller = _ReturnAddress();
     if (!ok || (caller != reinterpret_cast<void*>(0x006E0955) &&
                 caller != reinterpret_cast<void*>(0x006E0BC9))) return ok;
     static std::set<std::array<DWORD, 4>> seen;
     if (index == 0) seen.clear();
-    // Hidden from the dialog: a repeat, and with a list of chosen sizes, a size not on it.
-    if (!seen.insert({mode->dmPelsWidth, mode->dmPelsHeight, mode->dmBitsPerPel, mode->dmDisplayFrequency}).second ||
-        (g_haveChosen && !Chosen(mode->dmPelsWidth, mode->dmPelsHeight)))
+    // Hidden from the dialog: a repeat.
+    if (!seen.insert({mode->dmPelsWidth, mode->dmPelsHeight, mode->dmBitsPerPel, mode->dmDisplayFrequency}).second)
         mode->dmBitsPerPel = 0;
     return ok;
 }
@@ -293,20 +170,90 @@ void KmrpInstallModeListFilter()
     DWORD old = 0;
     if (!real || g_enumModes || *slot != real || !VirtualProtect(slot, sizeof *slot, PAGE_READWRITE, &old)) return;
     g_enumModes = real;
-    ReadChosenSizes();
-    CountReported(nullptr);
     *slot = &EnumModesOnce;
     VirtualProtect(slot, sizeof *slot, old, &old);
+}
+#endif
 
-    // ChangeDisplaySettingsA, the next slot: only when sizes were added, and only
-    // while it too holds user32's own function.
-    auto changeSlot = reinterpret_cast<ChangeModeFn*>(0x0073D3E8);
-    auto realChange = reinterpret_cast<ChangeModeFn>(GetProcAddress(user, "ChangeDisplaySettingsA"));
-    if (g_added.empty() || !realChange || *changeSlot != realChange ||
-        !VirtualProtect(changeSlot, sizeof *changeSlot, PAGE_READWRITE, &old)) return;
-    g_changeMode = realChange;
-    *changeSlot = &ChangeModeUnlessAdded;
-    VirtualProtect(changeSlot, sizeof *changeSlot, old, &old);
+#ifdef KMRP_NATIVE_RUNTIME
+// The size the game starts at on a display that does not have swkotor.ini's size.
+//
+// swkotor.ini holds the size of the display the installer was run on. The game reads
+// it in CClientExoAppInternal::ReadVideoModeSettings (0x005F0CE0), which ends:
+//
+//     005F0FA9  E8 B2 FC FF FF       call 0x005F0C60     IsValidResolution(width, height)
+//     005F0FAE  85 C0                test eax, eax
+//     005F0FB0  75 0C                jne 0x005F0FBE
+//     005F0FB2  C7 07 20 03 00 00    mov [edi], 800
+//     005F0FB8  C7 02 58 02 00 00    mov [edx], 600
+//
+// and, where the display has no mode of the size it read, asks for the mode nearest
+// 800x600 (ReadAndSetVideoMode, 0x005F5B80: push 60, push 32, push 600, push 800,
+// call GetNearestVideoMode).
+//
+// KMRP answers IsValidResolution itself (KmrpAllowRuntimeResolutionK1) and said yes to
+// every size it has a layout for. Measured 2026-10-07 with 3000x1300 in swkotor.ini on
+// a 3440x1440 display: the game kept 3000x1300 as its size (0x0078D1D4), the engine
+// took the largest mode that fits inside it (CAurInternal::GetValidMode, 0x0044D6E0:
+// 1920x1200) and the menu was drawn for 3000x1300 on a 1920x1200 screen, unreadable.
+// That is what a PC moved from one display to another would meet.
+//
+// So a size is valid only if the display reports a mode of it (DisplayReports), and
+// both 800x600s are written again, when the module loads and before the game reads
+// its settings, as the size the display is in then: the desktop's. A size the display
+// lacks is thus read as the desktop's size everywhere the game reads it. Left as they
+// are when the bytes are not the game's own, when the desktop's size cannot be read,
+// or when KMRP has no layout for it. swkotor.ini is not rewritten: its size is used
+// again as soon as a display reports it.
+namespace {
+bool DisplayReports(int width, int height)
+{
+    // The Screen Resolution dialog asks about every mode in turn: one enumeration
+    // serves the calls of a moment.
+    static std::set<std::pair<DWORD, DWORD>> sizes;
+    static ULONGLONG read = 0;
+    const ULONGLONG now = GetTickCount64();
+    if (sizes.empty() || now - read > 2000) {
+        sizes.clear();
+        DEVMODEA mode{};
+        mode.dmSize = sizeof mode;
+        for (DWORD index = 0; EnumDisplaySettingsA(nullptr, index, &mode); ++index)
+            if (mode.dmBitsPerPel == 32) sizes.insert({mode.dmPelsWidth, mode.dmPelsHeight});
+        read = now;
+    }
+    // No answer from the display at all: nothing is refused on that account.
+    return sizes.empty() || sizes.count({static_cast<DWORD>(width), static_cast<DWORD>(height)}) != 0;
+}
+
+bool WriteSize(std::uintptr_t address, const unsigned char* original, size_t size, size_t widthAt, size_t heightAt,
+               int width, int height)
+{
+    auto site = reinterpret_cast<unsigned char*>(address);
+    MEMORY_BASIC_INFORMATION info{};
+    if (!VirtualQuery(site, &info, sizeof info) || info.State != MEM_COMMIT ||
+        (info.Protect & (PAGE_NOACCESS | PAGE_GUARD)) || memcmp(site, original, size)) return false;
+    DWORD old = 0;
+    if (!VirtualProtect(site, size, PAGE_EXECUTE_READWRITE, &old)) return false;
+    memcpy(site + widthAt, &width, 4);
+    memcpy(site + heightAt, &height, 4);
+    VirtualProtect(site, size, old, &old);
+    FlushInstructionCache(GetCurrentProcess(), site, size);
+    return true;
+}
+}
+
+void KmrpStartAtDisplaySize()
+{
+    DEVMODEA desktop{};
+    desktop.dmSize = sizeof desktop;
+    if (!EnumDisplaySettingsA(nullptr, ENUM_CURRENT_SETTINGS, &desktop)) return;
+    const int width = static_cast<int>(desktop.dmPelsWidth), height = static_cast<int>(desktop.dmPelsHeight);
+    if (!KmrpRuntimeDimensions(width, height) || !KmrpRuntimeAssetsCovers(width, height)) return;
+    static const unsigned char read[] = {0xC7, 0x07, 0x20, 0x03, 0x00, 0x00, 0xC7, 0x02, 0x58, 0x02, 0x00, 0x00};
+    static const unsigned char nearest[] = {0x68, 0x58, 0x02, 0x00, 0x00, 0x68, 0x20, 0x03, 0x00, 0x00};
+    const bool first = WriteSize(0x005F0FB2, read, sizeof read, 2, 8, width, height);
+    const bool second = WriteSize(0x005F5B84, nearest, sizeof nearest, 6, 1, width, height);
+    if (first || second) Log("start fallback", width, height);
 }
 #endif
 
@@ -334,6 +281,8 @@ extern "C" int __cdecl KmrpAllowRuntimeResolutionK1(const int* width, const int*
 #ifdef KMRP_NATIVE_RUNTIME
     // And one KMRP has a layout for: the installer refuses the others.
     if (!KmrpRuntimeAssetsCovers(*width, *height)) return 0;
+    // And one the display has a mode of: see KmrpStartAtDisplaySize.
+    if (!DisplayReports(*width, *height)) return 0;
 #endif
     return 1;
 }
@@ -353,7 +302,6 @@ extern "C" void __cdecl KmrpResolutionObservedK1(void* manager)
     // The first GUI frame: the game's window and its OpenGL context exist, so the
     // driver is loaded. The installer makes this check at install time.
     KmrpNvidiaPresentOnce();
-    KmrpCentreAddedSizeK1();
 #endif
     Dimensions actual;
     if (!ReadViewport(manager, actual)) return;

@@ -2504,7 +2504,6 @@ extern "C" void __cdecl CoreMovieFrameK1(void* moviePlayer)
         return;
     }
 #ifdef KMRP_NATIVE_RUNTIME
-    KmrpCentreAddedSizeK1();   // the movie window, at a size the display does not offer
     // The standalone module holds the controller's frame itself, and one hook
     // serves both states of its controller option (see CoreGuiFrameK1).
     if (KmrpControllerOptionK1()) {
@@ -5184,19 +5183,11 @@ void UpdateCursorConfinementK1()
     // Fullscreen only: a window that does not cover its monitor is one the player
     // must be able to leave, to reach its border or another window. Confining a
     // windowed game trapped the cursor inside it (play-tested 2026-10-04).
-    // The window of a size the display does not offer is the exception: the game
-    // takes itself for fullscreen there, hides the system cursor and minimises when
-    // a click lands outside, so it is confined like fullscreen.
-    bool addedSize = false;
-#ifdef KMRP_NATIVE_RUNTIME
-    addedSize = KmrpAddedSizeWindowK1(screen.right - screen.left, screen.bottom - screen.top);
-#endif
     MONITORINFO monitor = {sizeof(monitor)};
-    if (!addedSize
-            && (!GetMonitorInfoW(MonitorFromWindow(foreground, MONITOR_DEFAULTTONEAREST), &monitor)
+    if (!GetMonitorInfoW(MonitorFromWindow(foreground, MONITOR_DEFAULTTONEAREST), &monitor)
             || screen.left > monitor.rcMonitor.left || screen.top > monitor.rcMonitor.top
             || screen.right < monitor.rcMonitor.right
-            || screen.bottom < monitor.rcMonitor.bottom)) {
+            || screen.bottom < monitor.rcMonitor.bottom) {
         if (g_stick.cursorConfined) {
             ClipCursor(nullptr);
             g_stick.cursorConfined = 0;
@@ -5267,7 +5258,6 @@ extern "C" void __cdecl KmrpCoreGuiWorkK1(void* guiManager)
 
 extern "C" void __cdecl KmrpCoreMovieWorkK1(void* moviePlayer)
 {
-    KmrpCentreAddedSizeK1();
     TrackMovieFrameK1(moviePlayer);
 }
 #endif

@@ -57,6 +57,7 @@ reason).
 | 27 | The controller patch lays itself out on any interface; Level Up and Auto Level Up; the Xbox-style HUD's pause notice and target circle (Windows, 2026-10-06) | **nothing to do** while the Mac has no standalone controller patch; two things to look at in the Mac's own controller |
 | 28 | The list rows' centring is on Windows too (the Mac's item 19 of `windows-changes-from-macos.md`), with two differences: a chart row's inset is 0, and the store's and the workbench's rows are set in from both borders (2026-10-06) | **decide**: both are in the shared logic's numbers, section 28; set the Mac tracker's item 19 to built when the branches meet |
 | 29 | The store has controller badges: A, X and B (the controller patch, 2026-10-06) | **to do** if the Mac's controller draws badges from the shared target list: three new targets and the panel's three button offsets on the Mac's build |
+| 30 | No resolution choice: the checklist and `kmrp-resolutions.txt` are gone, the game lists what the connected display reports (Windows, 2026-10-07) | **decide**: whether the Mac's installer keeps its own resolution list and custom size |
 
 ## 1. Badges drawn for the blended buttons
 
@@ -733,3 +734,22 @@ for the panel (`K1_STORE_PROMPTS`; on Windows the buttons are at `0x20A8`,
 makes the three textures for every set whether or not anything draws them. The
 game hides `BTN_Examine` at a shop that only buys or only sells, and the badge
 with it.
+
+## 30. No resolution choice
+
+On Windows the installer's step 3 had a checklist (hide sizes of the display, add
+others, a custom size), written beside the game as `kmrp-resolutions.txt`, and a
+chosen size the display did not report ran in a borderless window. Since 2026-10-07
+all of that is removed: the game lists what the connected display reports, each time
+its settings are opened, so a PC moved to a 4K television offers that television's
+sizes. `src/controller-native/K1RuntimeResolution.cpp` (`EnumModesOnce` keeps only
+its removal of repeated rows) and `src/patcher/KmrpPatcher.cs`
+(`ResolutionSelection`, now the display's sizes and the start size only). Nothing
+shared changed. The Mac's installer has its own list (`resolutions.txt`) and custom
+size, because the Mac game is installed for one size: whether that should change is
+the Mac's to decide.
+
+Also on Windows since that day: started on a display that does not report the size
+in `swkotor.ini`, the game starts at that display's own size (it drew a menu for the
+file's size on a smaller mode before, unreadable): `KmrpStartAtDisplaySize` and
+`DisplayReports` in `K1RuntimeResolution.cpp`. Windows addresses, nothing shared.

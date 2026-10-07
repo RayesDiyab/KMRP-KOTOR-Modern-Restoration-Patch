@@ -4649,8 +4649,6 @@ namespace Kmrp
         // The resolution checklist (ResolutionSelection): the display's sizes the player
         // unticked, and the sizes the display does not offer that they ticked. Both
         // empty is the default: every size the display supports, and no other.
-        private static string resolutionsOff = "";
-        private static string resolutionsExtra = "";
         // The newer version the player asked not to be reminded of again, or "".
         private static string skippedUpdate = "";
 
@@ -4731,38 +4729,6 @@ namespace Kmrp
             }
         }
 
-        /// <summary>Sizes this display supports that the player does not want offered
-        /// in the game, as "WxH,WxH".</summary>
-        internal static string ResolutionsOff
-        {
-            get { Load(); return resolutionsOff; }
-            set
-            {
-                Load();
-                string next = value ?? "";
-                if (resolutionsOff == next)
-                    return;
-                resolutionsOff = next;
-                Save();
-            }
-        }
-
-        /// <summary>Sizes this display does not support that the player wants offered
-        /// anyway, as "WxH,WxH". The game runs them in a window.</summary>
-        internal static string ResolutionsExtra
-        {
-            get { Load(); return resolutionsExtra; }
-            set
-            {
-                Load();
-                string next = value ?? "";
-                if (resolutionsExtra == next)
-                    return;
-                resolutionsExtra = next;
-                Save();
-            }
-        }
-
         // "kotorPatchManager", the Advanced Settings option to install for KOTOR Patch
         // Manager (2026-09-29 to 2026-09-30), is no longer read or written: KPM's files in
         // the game folder decide that by themselves (KpmEditionOperations.Install). A
@@ -4819,14 +4785,6 @@ namespace Kmrp
                 if (debug.Success)
                     debugLogs = String.Equals(debug.Groups[1].Value, "true",
                         StringComparison.OrdinalIgnoreCase);
-                Match off = Regex.Match(json, "\\\"resolutionsOff\\\"\\s*:\\s*\\\"([0-9x,]{0,2048})\\\"",
-                    RegexOptions.CultureInvariant);
-                if (off.Success)
-                    resolutionsOff = off.Groups[1].Value;
-                Match extra = Regex.Match(json, "\\\"resolutionsExtra\\\"\\s*:\\s*\\\"([0-9x,]{0,2048})\\\"",
-                    RegexOptions.CultureInvariant);
-                if (extra.Success)
-                    resolutionsExtra = extra.Groups[1].Value;
                 Match skipped = Regex.Match(json,
                     "\\\"skippedUpdate\\\"\\s*:\\s*\\\"([0-9.]{1,32})\\\"",
                     RegexOptions.CultureInvariant);
@@ -4852,12 +4810,6 @@ namespace Kmrp
                     "  \"controllerSupport\": " +
                     (controllerSupport ? "true" : "false") +
                     (debugLogs ? ",\r\n  \"debugLogs\": true" : "") +
-                    (resolutionsOff.Length > 0
-                        ? ",\r\n  \"resolutionsOff\": \"" + resolutionsOff + "\""
-                        : "") +
-                    (resolutionsExtra.Length > 0
-                        ? ",\r\n  \"resolutionsExtra\": \"" + resolutionsExtra + "\""
-                        : "") +
                     (skippedUpdate.Length > 0
                         ? ",\r\n  \"skippedUpdate\": \"" + skippedUpdate + "\""
                         : "") +
@@ -5037,245 +4989,21 @@ namespace Kmrp
         }
     }
 
-    /// <summary>Step 3's "Custom size…": a width and a height. Use this size accepts one
-    /// the menu sets reach -- a listed size, or one ResolutionCatalog.Derived blends --
-    /// and says why not otherwise, with the heights they reach at that shape, as the
-    /// Mac installer's custom size does (macos/installer-app/main.m).</summary>
-    internal sealed class CustomSizeDialog : Form
-    {
-        private readonly TextBox widthBox;
-        private readonly TextBox heightBox;
-        private readonly Label message;
-        private readonly float scale;
-
-        /// <summary>The accepted size, once the dialog returns OK.</summary>
-        internal ResolutionChoice Choice { get; private set; }
-
-        internal CustomSizeDialog(ResolutionChoice current, float scale)
-        {
-            this.scale = Math.Max(0.35F, scale);
-            Text = "Custom resolution";
-            FormBorderStyle = FormBorderStyle.FixedDialog;
-            MaximizeBox = false;
-            MinimizeBox = false;
-            ShowInTaskbar = false;
-            StartPosition = FormStartPosition.CenterParent;
-            BackColor = UiTheme.Card;
-            Font = new Font("Segoe UI", Points(11F));
-            ClientSize = new Size(Px(680), Px(318));
-            KeyPreview = true;
-            HandleCreated += delegate { MainForm.UseDarkTitleBar(Handle); };
-
-            Label title = new Label();
-            title.Text = "Custom resolution";
-            title.Font = new Font("Segoe UI Semibold", Points(20F));
-            title.ForeColor = UiTheme.Text;
-            title.BackColor = UiTheme.Card;
-            title.SetBounds(Px(32), Px(26), Px(616), Px(42));
-            Controls.Add(title);
-
-            Label body = new Label();
-            body.Text = "Any size from 4:3 to 32:9 that KMRP's menus reach.";
-            body.Font = new Font("Segoe UI", Points(12F));
-            body.ForeColor = UiTheme.TextMuted;
-            body.BackColor = UiTheme.Card;
-            body.SetBounds(Px(32), Px(72), Px(616), Px(28));
-            Controls.Add(body);
-
-            widthBox = NewField(current == null ? String.Empty : current.Width.ToString(CultureInfo.InvariantCulture));
-            widthBox.SetBounds(Px(32), Px(118), Px(180), Px(44));
-            Controls.Add(widthBox);
-
-            Label times = new Label();
-            times.Text = "×";
-            times.Font = new Font("Segoe UI Semibold", Points(18F));
-            times.ForeColor = UiTheme.TextMuted;
-            times.BackColor = UiTheme.Card;
-            times.TextAlign = ContentAlignment.MiddleCenter;
-            times.SetBounds(Px(212), Px(118), Px(48), Px(44));
-            Controls.Add(times);
-
-            heightBox = NewField(current == null ? String.Empty : current.Height.ToString(CultureInfo.InvariantCulture));
-            heightBox.SetBounds(Px(260), Px(118), Px(180), Px(44));
-            Controls.Add(heightBox);
-
-            message = new Label();
-            message.Font = new Font("Segoe UI", Points(11F));
-            message.ForeColor = UiTheme.Warning;
-            message.BackColor = UiTheme.Card;
-            message.SetBounds(Px(32), Px(170), Px(616), Px(48));
-            Controls.Add(message);
-
-            PillButton use = new PillButton();
-            use.UiScale = this.scale;
-            use.Primary = true;
-            use.TextSize = 17F;
-            use.Text = "Use this size";
-            use.SetBounds(Px(32), Px(232), Px(300), Px(56));
-            use.Click += delegate { Accept(); };
-            Controls.Add(use);
-
-            PillButton cancel = new PillButton();
-            cancel.UiScale = this.scale;
-            cancel.TextSize = 17F;
-            cancel.Text = "Cancel";
-            cancel.SetBounds(Px(348), Px(232), Px(300), Px(56));
-            cancel.Click += delegate { DialogResult = DialogResult.Cancel; Close(); };
-            Controls.Add(cancel);
-        }
-
-        private TextBox NewField(string value)
-        {
-            TextBox box = new TextBox();
-            box.Text = value;
-            box.Font = new Font("Segoe UI Semibold", Points(17F));
-            box.BackColor = UiTheme.Field;
-            box.ForeColor = UiTheme.Text;
-            box.BorderStyle = BorderStyle.FixedSingle;
-            box.TextAlign = HorizontalAlignment.Center;
-            box.MaxLength = 5;
-            box.KeyPress += delegate(object sender, KeyPressEventArgs e)
-            {
-                if (!Char.IsControl(e.KeyChar) && !Char.IsDigit(e.KeyChar))
-                    e.Handled = true;
-            };
-            return box;
-        }
-
-        private void Accept()
-        {
-            int width, height;
-            if (!Int32.TryParse(widthBox.Text.Trim(), NumberStyles.None, CultureInfo.InvariantCulture, out width) ||
-                !Int32.TryParse(heightBox.Text.Trim(), NumberStyles.None, CultureInfo.InvariantCulture, out height) ||
-                width < GuiBlend.MinimumWidth || height < GuiBlend.MinimumHeight)
-            {
-                message.Text = "Enter a width of at least " + GuiBlend.MinimumWidth.ToString(CultureInfo.InvariantCulture) +
-                    " and a height of at least " + GuiBlend.MinimumHeight.ToString(CultureInfo.InvariantCulture) + " pixels.";
-                return;
-            }
-            try
-            {
-                Choice = ResolutionCatalog.Find(width, height);
-            }
-            catch (ArgumentException error)
-            {
-                message.Text = error.Message;
-                return;
-            }
-            DialogResult = DialogResult.OK;
-            Close();
-        }
-
-        private int Px(int design) { return Math.Max(1, (int)Math.Round(design * scale)); }
-        private float Points(float design) { return Math.Max(6F, design * scale); }
-
-        protected override void OnKeyDown(KeyEventArgs e)
-        {
-            if (e.KeyCode == Keys.Escape)
-            {
-                DialogResult = DialogResult.Cancel;
-                Close();
-                return;
-            }
-            if (e.KeyCode == Keys.Enter)
-            {
-                e.Handled = true;
-                e.SuppressKeyPress = true;
-                Accept();
-                return;
-            }
-            base.OnKeyDown(e);
-        }
-    }
-
-    /// <summary>Which resolutions the game offers under Options, Graphics, Screen
-    /// Resolution. KMRP's patch carries every resolution's files and the game lists the
-    /// sizes the display reports, so by default nothing is chosen here at all. The
-    /// player may untick some of the display's sizes, and tick sizes the display does
-    /// not report, which the game then runs in a window (K1RuntimeResolution.cpp).
-    /// Only then does the installer write the list, kmrp-resolutions.txt, beside the
-    /// game. The game starts at the display's current size, written to swkotor.ini.</summary>
+    /// <summary>Step 3: nothing is chosen. KMRP's patch carries every resolution's
+    /// files and the game lists the sizes the connected display reports, whatever
+    /// display that is later: on a 4K television it lists that television's sizes. The
+    /// game starts at the display's current size, written to swkotor.ini.
+    ///
+    /// From 2026-10-04 to 2026-10-07 step 3 had a "Choose" button and a checklist
+    /// (ResolutionsDialog, CustomSizeDialog), saved as resolutionsOff and
+    /// resolutionsExtra in KMRP's settings and written beside the game as
+    /// kmrp-resolutions.txt. The maintainer had the choice removed on 2026-10-07; a
+    /// kmrp-resolutions.txt of an earlier install is removed with that install and
+    /// the patch's module no longer reads one.</summary>
     internal static class ResolutionSelection
     {
-        internal const string FileName = "kmrp-resolutions.txt";
-
-        internal sealed class Entry
-        {
-            internal int Width;
-            internal int Height;
-            internal bool Display;     // the display reports it
-            internal bool Current;     // the display is at it now
-            internal bool Checked;     // ticked in the checklist
-            internal bool Custom;      // the player's own: neither the display's nor a listed size
-            internal bool TooLarge;    // wider or taller than the desktop
-            internal string Key { get { return Width.ToString(CultureInfo.InvariantCulture) + "x" +
-                Height.ToString(CultureInfo.InvariantCulture); } }
-            public override string ToString()
-            {
-                string size = Width.ToString(CultureInfo.InvariantCulture) + " × " +
-                    Height.ToString(CultureInfo.InvariantCulture);
-                if (Current)
-                    return size + "    this display, now";
-                return Display ? size : size + "    not offered by this display: runs in a window";
-            }
-        }
-
         private static readonly Dictionary<string, bool> covered = new Dictionary<string, bool>();
 
-        /// <summary>The shape of a size as people name it, "16:9" or "21:9": the nearest
-        /// common ratio when it is within a few hundredths, otherwise the reduced
-        /// fraction.</summary>
-        internal static string Aspect(int width, int height)
-        {
-            string[] names = { "5:4", "4:3", "3:2", "16:10", "5:3", "16:9", "21:9", "32:9" };
-            double[] values = { 5.0 / 4, 4.0 / 3, 3.0 / 2, 16.0 / 10, 5.0 / 3, 16.0 / 9, 2.37, 32.0 / 9 };
-            double ratio = (double)width / height;
-            int best = 0;
-            for (int i = 1; i < values.Length; i++)
-                if (Math.Abs(values[i] - ratio) < Math.Abs(values[best] - ratio))
-                    best = i;
-            if (Math.Abs(values[best] - ratio) <= 0.035)
-                return names[best];
-            int a = width, b = height;
-            while (b != 0) { int rest = a % b; a = b; b = rest; }
-            // A fraction nobody would say, 735:478, reads better as a number.
-            if (width / a > 21 || height / a > 10)
-                return ratio.ToString("0.00", CultureInfo.InvariantCulture) + ":1";
-            return (width / a).ToString(CultureInfo.InvariantCulture) + ":" +
-                (height / a).ToString(CultureInfo.InvariantCulture);
-        }
-
-        /// <summary>What a size is commonly called, or "".</summary>
-        internal static string CommonName(int width, int height)
-        {
-            switch (width.ToString(CultureInfo.InvariantCulture) + "x" + height.ToString(CultureInfo.InvariantCulture))
-            {
-                case "800x600": return "SVGA";
-                case "1024x768": return "XGA";
-                case "1280x720": return "HD 720p";
-                case "1280x800": return "Steam Deck handheld";
-                case "1280x1024": return "SXGA";
-                case "1366x768": return "HD";
-                case "1600x900": return "HD+";
-                case "1600x1200": return "UXGA";
-                case "1920x1080": return "Full HD 1080p";
-                case "1920x1200": return "WUXGA";
-                case "2560x1080": return "Ultrawide Full HD";
-                case "2560x1440": return "QHD 1440p";
-                case "2560x1600": return "WQXGA";
-                case "3440x1440": return "Ultrawide QHD";
-                case "3840x1080": return "Super ultrawide Full HD";
-                case "3840x1600": return "Ultrawide QHD+";
-                case "3840x2160": return "4K UHD";
-                case "5120x1440": return "Super ultrawide QHD";
-                case "5120x2160": return "Ultrawide 5K";
-                case "5120x2880": return "5K";
-                case "7680x4320": return "8K UHD";
-                default: return "";
-            }
-        }
-
-        /// <summary>KMRP has a layout for the size: a listed one, or one it blends.</summary>
         internal static bool Covered(int width, int height)
         {
             string key = width.ToString(CultureInfo.InvariantCulture) + "x" + height.ToString(CultureInfo.InvariantCulture);
@@ -5303,13 +5031,12 @@ namespace Kmrp
             return null;
         }
 
-        /// <summary>The sizes the game would list for this display, that KMRP has a
-        /// layout for: 32-bit modes of 60 Hz or more, as the game's own list filters
-        /// them, each size once, smallest first.</summary>
-        internal static List<Entry> DisplaySizes()
+        /// <summary>The sizes the game lists for this display, that KMRP has a layout
+        /// for: 32-bit modes of 60 Hz or more, as the game's own list filters them,
+        /// each size once, as {width, height}.</summary>
+        internal static List<int[]> DisplaySizes()
         {
-            List<Entry> sizes = new List<Entry>();
-            int[] current = CurrentSize();
+            List<int[]> sizes = new List<int[]>();
             try
             {
                 MainForm.DisplayMode mode = new MainForm.DisplayMode();
@@ -5318,420 +5045,40 @@ namespace Kmrp
                 {
                     int width = mode.PelsWidth, height = mode.PelsHeight;
                     if (mode.BitsPerPel != 32 || mode.DisplayFrequency < 60 ||
-                        sizes.Exists(e => e.Width == width && e.Height == height) || !Covered(width, height))
+                        sizes.Exists(s => s[0] == width && s[1] == height) || !Covered(width, height))
                         continue;
-                    Entry entry = new Entry();
-                    entry.Width = width;
-                    entry.Height = height;
-                    entry.Display = true;
-                    entry.Current = current != null && current[0] == width && current[1] == height;
-                    sizes.Add(entry);
+                    sizes.Add(new[] { width, height });
                 }
             }
             catch { }
-            sizes.Sort((a, b) => a.Width != b.Width ? a.Width.CompareTo(b.Width) : a.Height.CompareTo(b.Height));
             return sizes;
         }
 
-        internal static List<string> Keys(string list)
-        {
-            List<string> keys = new List<string>();
-            foreach (string part in (list ?? "").Split(new[] { ',' }, StringSplitOptions.RemoveEmptyEntries))
-                if (Regex.IsMatch(part, "^[0-9]{3,5}x[0-9]{3,5}$") && !keys.Contains(part))
-                    keys.Add(part);
-            return keys;
-        }
-
-        /// <summary>The sizes the game will offer: the display's, less the unticked
-        /// ones, and the ticked sizes it does not report.</summary>
-        internal static List<Entry> Chosen()
-        {
-            List<string> off = Keys(KmrpSettings.ResolutionsOff);
-            List<Entry> chosen = DisplaySizes().FindAll(e => !off.Contains(e.Key));
-            foreach (string key in Keys(KmrpSettings.ResolutionsExtra))
-            {
-                string[] parts = key.Split('x');
-                int width = Int32.Parse(parts[0], CultureInfo.InvariantCulture);
-                int height = Int32.Parse(parts[1], CultureInfo.InvariantCulture);
-                if (chosen.Exists(e => e.Width == width && e.Height == height) || !Covered(width, height))
-                    continue;
-                Entry entry = new Entry();
-                entry.Width = width;
-                entry.Height = height;
-                chosen.Add(entry);
-            }
-            return chosen;
-        }
-
         /// <summary>Where swkotor.ini starts the game: the display's current size when
-        /// the game will offer it, otherwise the largest of the display's sizes that it
-        /// will; null when the game would offer none of the display's sizes.</summary>
+        /// the game lists it, otherwise the largest of the display's sizes; null when
+        /// the display reports none KMRP has a layout for.</summary>
         internal static int[] Start()
         {
-            List<Entry> chosen = Chosen().FindAll(e => e.Display);
-            Entry current = chosen.Find(e => e.Current);
-            if (current != null)
-                return new[] { current.Width, current.Height };
-            Entry largest = null;
-            foreach (Entry entry in chosen)
-                if (largest == null || (long)entry.Width * entry.Height > (long)largest.Width * largest.Height)
-                    largest = entry;
-            return largest == null ? null : new[] { largest.Width, largest.Height };
-        }
-
-        /// <summary>kmrp-resolutions.txt's contents, one WIDTHxHEIGHT a line, or null
-        /// when the player changed nothing: then no file is written and the game lists
-        /// what the display reports, whatever display that is later.</summary>
-        internal static string FileText()
-        {
-            if (Keys(KmrpSettings.ResolutionsOff).Count == 0 && Keys(KmrpSettings.ResolutionsExtra).Count == 0)
-                return null;
-            StringBuilder text = new StringBuilder();
-            foreach (Entry entry in Chosen())
-                text.Append(entry.Key).Append('\n');
-            return text.Length == 0 ? null : text.ToString();
+            List<int[]> sizes = DisplaySizes();
+            int[] current = CurrentSize();
+            if (current != null && sizes.Exists(s => s[0] == current[0] && s[1] == current[1]))
+                return current;
+            int[] largest = null;
+            foreach (int[] size in sizes)
+                if (largest == null || (long)size[0] * size[1] > (long)largest[0] * largest[1])
+                    largest = size;
+            return largest;
         }
 
         /// <summary>Step 3's line under its title.</summary>
         internal static string Summary()
         {
-            List<Entry> chosen = Chosen();
             int[] start = Start();
-            int windowed = chosen.FindAll(e => !e.Display).Count;
             if (start == null)
-                return "No resolution of this display is chosen. Choose at least one.";
-            return chosen.Count.ToString(CultureInfo.InvariantCulture) +
-                (chosen.Count == 1 ? " resolution" : " resolutions") +
-                (FileText() == null ? " this display supports" : " chosen") +
-                (windowed > 0 ? ", " + windowed.ToString(CultureInfo.InvariantCulture) + " windowed" : "") +
-                ". The game starts at " + start[0].ToString(CultureInfo.InvariantCulture) + " × " +
-                start[1].ToString(CultureInfo.InvariantCulture) + ".";
-        }
-    }
-
-    /// <summary>Step 3's "Choose": the checklist of resolutions the game will offer.
-    /// This display's sizes come ticked; every other size KMRP lists, in two further
-    /// sections by whether it fits on the desktop (until 2026-10-04 only those that fit
-    /// were shown), and any size of the player's own, can be ticked too and run in a
-    /// window. Done saves the choice to KMRP's settings; the next install applies it.</summary>
-    internal sealed class ResolutionsDialog : Form
-    {
-        private sealed class Header
-        {
-            internal string Title;
-            internal string Note;
-        }
-
-        // Every size the checklist can show, and the list box that draws them in
-        // sections: a heading row, then that section's sizes.
-        private readonly List<ResolutionSelection.Entry> entries = new List<ResolutionSelection.Entry>();
-        private readonly ListBox list;
-        private readonly Font sizeFont, detailFont, headerFont;
-        private readonly Label message;
-        private readonly float scale;
-
-        internal ResolutionsDialog(float scale)
-        {
-            this.scale = Math.Max(0.35F, scale);
-            Text = "Resolutions";
-            FormBorderStyle = FormBorderStyle.FixedDialog;
-            MaximizeBox = false;
-            MinimizeBox = false;
-            ShowInTaskbar = false;
-            StartPosition = FormStartPosition.CenterParent;
-            BackColor = UiTheme.Card;
-            Font = new Font("Segoe UI", Points(11F));
-            ClientSize = new Size(Px(760), Px(660));
-            KeyPreview = true;
-            HandleCreated += delegate { MainForm.UseDarkTitleBar(Handle); };
-
-            Label title = new Label();
-            title.Text = "Resolutions";
-            title.Font = new Font("Segoe UI Semibold", Points(20F));
-            title.ForeColor = UiTheme.Text;
-            title.BackColor = UiTheme.Card;
-            title.SetBounds(Px(32), Px(26), Px(696), Px(42));
-            Controls.Add(title);
-
-            Label body = new Label();
-            body.Text = "Ticked sizes are offered in the game, under Options, Graphics, Screen Resolution. " +
-                "The sizes this display supports are ticked. Any other size runs in a window.";
-            body.Font = new Font("Segoe UI", Points(12F));
-            body.ForeColor = UiTheme.TextMuted;
-            body.BackColor = UiTheme.Card;
-            body.SetBounds(Px(32), Px(72), Px(696), Px(56));
-            Controls.Add(body);
-
-            sizeFont = new Font("Segoe UI Semibold", Points(13F));
-            detailFont = new Font("Segoe UI", Points(11.5F));
-            headerFont = new Font("Segoe UI Semibold", Points(10.5F));
-            list = new ListBox();
-            list.DrawMode = DrawMode.OwnerDrawFixed;
-            list.ItemHeight = Px(34);
-            list.IntegralHeight = false;
-            list.BorderStyle = BorderStyle.FixedSingle;
-            list.BackColor = UiTheme.Field;
-            list.ForeColor = UiTheme.Text;
-            list.Font = sizeFont;
-            list.SetBounds(Px(32), Px(140), Px(696), Px(388));
-            list.HandleCreated += delegate { MainForm.UseDarkScrollBars(list.Handle); };
-            list.DrawItem += DrawRow;
-            list.MouseDown += delegate(object sender, MouseEventArgs e)
-            {
-                if (e.Button == MouseButtons.Left)
-                    Toggle(list.IndexFromPoint(e.Location));
-            };
-            list.KeyDown += delegate(object sender, KeyEventArgs e)
-            {
-                if (e.KeyCode == Keys.Space)
-                {
-                    Toggle(list.SelectedIndex);
-                    e.Handled = true;
-                }
-            };
-            Controls.Add(list);
-
-            message = new Label();
-            message.Font = new Font("Segoe UI", Points(11F));
-            message.ForeColor = UiTheme.Warning;
-            message.BackColor = UiTheme.Card;
-            message.SetBounds(Px(32), Px(536), Px(696), Px(28));
-            Controls.Add(message);
-
-            PillButton custom = new PillButton();
-            custom.UiScale = this.scale;
-            custom.TextSize = 16F;
-            custom.Text = "Add a custom size";
-            custom.SetBounds(Px(32), Px(574), Px(220), Px(56));
-            custom.Click += delegate { AddCustom(); };
-            Controls.Add(custom);
-
-            PillButton done = new PillButton();
-            done.UiScale = this.scale;
-            done.Primary = true;
-            done.TextSize = 16F;
-            done.Text = "Done";
-            done.SetBounds(Px(270), Px(574), Px(220), Px(56));
-            done.Click += delegate { Accept(); };
-            Controls.Add(done);
-
-            PillButton cancel = new PillButton();
-            cancel.UiScale = this.scale;
-            cancel.TextSize = 16F;
-            cancel.Text = "Cancel";
-            cancel.SetBounds(Px(508), Px(574), Px(220), Px(56));
-            cancel.Click += delegate { DialogResult = DialogResult.Cancel; Close(); };
-            Controls.Add(cancel);
-
-            Fill();
-        }
-
-        /// <summary>The model: the display's sizes, ticked unless the player unticked
-        /// them; every other size KMRP lists, whatever the desktop's size; and the
-        /// player's own. A size wider or taller than the desktop is offered too and
-        /// marked: its window does not fit on the display.</summary>
-        private void Fill()
-        {
-            List<string> off = ResolutionSelection.Keys(KmrpSettings.ResolutionsOff);
-            List<string> extra = ResolutionSelection.Keys(KmrpSettings.ResolutionsExtra);
-            foreach (ResolutionSelection.Entry entry in ResolutionSelection.DisplaySizes())
-            {
-                entry.Checked = !off.Contains(entry.Key);
-                entries.Add(entry);
-            }
-            foreach (ResolutionChoice choice in ResolutionCatalog.Load())
-                AddOther(choice.Width, choice.Height, false, extra);
-            foreach (string key in extra)
-            {
-                string[] parts = key.Split('x');
-                AddOther(Int32.Parse(parts[0], CultureInfo.InvariantCulture),
-                    Int32.Parse(parts[1], CultureInfo.InvariantCulture), true, extra);
-            }
-            Rebuild(null);
-        }
-
-        private ResolutionSelection.Entry AddOther(int width, int height, bool custom, List<string> ticked)
-        {
-            if (entries.Exists(e => e.Width == width && e.Height == height) ||
-                !ResolutionSelection.Covered(width, height))
-                return null;
-            int[] desktop = ResolutionSelection.CurrentSize();
-            ResolutionSelection.Entry entry = new ResolutionSelection.Entry();
-            entry.Width = width;
-            entry.Height = height;
-            entry.Custom = custom;
-            entry.TooLarge = desktop != null && (width > desktop[0] || height > desktop[1]);
-            entry.Checked = ticked != null && ticked.Contains(entry.Key);
-            entries.Add(entry);
-            return entry;
-        }
-
-        /// <summary>Lays the model out as rows: three sections, each a heading and its
-        /// sizes smallest first, an empty section left out.</summary>
-        private void Rebuild(ResolutionSelection.Entry select)
-        {
-            int top = list.TopIndex;
-            list.BeginUpdate();
-            list.Items.Clear();
-            AddSection("THIS DISPLAY", "fullscreen", e => e.Display);
-            AddSection("FITS THIS DISPLAY", "runs in a window", e => !e.Display && !e.TooLarge);
-            // Measured: 3840x2160 on a 3440x1440 display is a window at the display's top
-            // left corner, of which the right and the bottom are off the screen.
-            AddSection("LARGER THAN THIS DISPLAY", "cut off at the right and bottom", e => !e.Display && e.TooLarge);
-            list.EndUpdate();
-            if (select != null)
-            {
-                list.SelectedIndex = list.Items.IndexOf(select);
-                return;
-            }
-            if (top > 0 && top < list.Items.Count)
-                list.TopIndex = top;
-        }
-
-        private void AddSection(string title, string note, Predicate<ResolutionSelection.Entry> belongs)
-        {
-            List<ResolutionSelection.Entry> rows = entries.FindAll(belongs);
-            if (rows.Count == 0)
-                return;
-            rows.Sort((a, b) => a.Width != b.Width ? a.Width.CompareTo(b.Width) : a.Height.CompareTo(b.Height));
-            Header header = new Header();
-            header.Title = title;
-            header.Note = note;
-            list.Items.Add(header);
-            foreach (ResolutionSelection.Entry entry in rows)
-                list.Items.Add(entry);
-        }
-
-        private void Toggle(int index)
-        {
-            if (index < 0 || index >= list.Items.Count)
-                return;
-            ResolutionSelection.Entry entry = list.Items[index] as ResolutionSelection.Entry;
-            if (entry == null)
-                return;
-            entry.Checked = !entry.Checked;
-            message.Text = "";
-            list.Invalidate(list.GetItemRectangle(index));
-        }
-
-        /// <summary>One row. A heading: its title in the accent colour, what the section
-        /// means beside it, a hairline beneath. A size: a tick box, the size, its shape,
-        /// its common name, and on the right "current" or "custom".</summary>
-        private void DrawRow(object sender, DrawItemEventArgs e)
-        {
-            if (e.Index < 0 || e.Index >= list.Items.Count)
-                return;
-            Graphics g = e.Graphics;
-            Rectangle r = e.Bounds;
-            Header header = list.Items[e.Index] as Header;
-            bool selected = header == null && (e.State & DrawItemState.Selected) != 0;
-            using (SolidBrush back = new SolidBrush(selected ? UiTheme.CardHover : UiTheme.Field))
-                g.FillRectangle(back, r);
-            const TextFormatFlags Left = TextFormatFlags.Left | TextFormatFlags.VerticalCenter |
-                TextFormatFlags.NoPrefix | TextFormatFlags.NoPadding | TextFormatFlags.SingleLine;
-            if (header != null)
-            {
-                int width = TextRenderer.MeasureText(g, header.Title, headerFont, r.Size, Left).Width;
-                Rectangle line = new Rectangle(r.X + Px(14), r.Y + Px(6), r.Width - Px(28), r.Height - Px(8));
-                TextRenderer.DrawText(g, header.Title, headerFont, line, UiTheme.Accent, Left);
-                line.X += width + Px(12);
-                line.Width -= width + Px(12);
-                TextRenderer.DrawText(g, header.Note, detailFont, line, UiTheme.TextMuted, Left);
-                using (Pen rule = new Pen(UiTheme.CardEdge))
-                    g.DrawLine(rule, r.X + Px(14), r.Bottom - 1, r.Right - Px(14), r.Bottom - 1);
-                return;
-            }
-
-            ResolutionSelection.Entry entry = (ResolutionSelection.Entry)list.Items[e.Index];
-            int box = Px(18);
-            Rectangle check = new Rectangle(r.X + Px(18), r.Y + (r.Height - box) / 2, box, box);
-            System.Drawing.Drawing2D.SmoothingMode smoothing = g.SmoothingMode;
-            g.SmoothingMode = System.Drawing.Drawing2D.SmoothingMode.AntiAlias;
-            using (SolidBrush fill = new SolidBrush(entry.Checked ? UiTheme.Accent : UiTheme.Field))
-                g.FillRectangle(fill, check);
-            using (Pen edge = new Pen(entry.Checked ? UiTheme.Accent : UiTheme.Border))
-                g.DrawRectangle(edge, check);
-            if (entry.Checked)
-                using (Pen tick = new Pen(UiTheme.Window, Math.Max(1.6F, 2F * scale)))
-                    g.DrawLines(tick, new[]
-                    {
-                        new PointF(check.X + box * 0.22F, check.Y + box * 0.52F),
-                        new PointF(check.X + box * 0.43F, check.Y + box * 0.72F),
-                        new PointF(check.X + box * 0.80F, check.Y + box * 0.28F),
-                    });
-            g.SmoothingMode = smoothing;
-
-            string size = entry.Width.ToString(CultureInfo.InvariantCulture) + " \u00D7 " +
-                entry.Height.ToString(CultureInfo.InvariantCulture);
-            TextRenderer.DrawText(g, size, sizeFont, new Rectangle(r.X + Px(52), r.Y, Px(170), r.Height),
-                entry.Checked ? UiTheme.Text : UiTheme.TextMuted, Left);
-            TextRenderer.DrawText(g, ResolutionSelection.Aspect(entry.Width, entry.Height), detailFont,
-                new Rectangle(r.X + Px(226), r.Y, Px(70), r.Height), UiTheme.TextMuted, Left);
-            TextRenderer.DrawText(g, ResolutionSelection.CommonName(entry.Width, entry.Height), detailFont,
-                new Rectangle(r.X + Px(300), r.Y, Px(250), r.Height), UiTheme.TextMuted, Left);
-            string tag = entry.Current ? "current" : entry.Custom ? "custom" : "";
-            if (tag.Length > 0)
-                TextRenderer.DrawText(g, tag, detailFont, new Rectangle(r.Right - Px(130), r.Y, Px(112), r.Height),
-                    entry.Current ? UiTheme.Accent : UiTheme.Gold,
-                    TextFormatFlags.Right | TextFormatFlags.VerticalCenter | TextFormatFlags.NoPrefix |
-                    TextFormatFlags.NoPadding | TextFormatFlags.SingleLine);
-        }
-
-        private void AddCustom()
-        {
-            ResolutionChoice picked = null;
-            using (CustomSizeDialog dialog = new CustomSizeDialog(null, scale))
-                if (dialog.ShowDialog(this) == DialogResult.OK)
-                    picked = dialog.Choice;
-            if (picked == null)
-                return;
-            ResolutionSelection.Entry entry = entries.Find(e => e.Width == picked.Width && e.Height == picked.Height);
-            if (entry == null)
-                entry = AddOther(picked.Width, picked.Height, true, null);
-            if (entry == null)
-                return;
-            entry.Checked = true;
-            message.Text = "";
-            Rebuild(entry);
-        }
-
-        private void Accept()
-        {
-            List<string> off = new List<string>();
-            List<string> extra = new List<string>();
-            bool anyDisplay = false;
-            foreach (ResolutionSelection.Entry entry in entries)
-            {
-                if (entry.Display && entry.Checked)
-                    anyDisplay = true;
-                if (entry.Display && !entry.Checked)
-                    off.Add(entry.Key);
-                if (!entry.Display && entry.Checked)
-                    extra.Add(entry.Key);
-            }
-            if (!anyDisplay)
-            {
-                message.Text = "Keep at least one size this display supports: the game starts at one.";
-                return;
-            }
-            KmrpSettings.ResolutionsOff = String.Join(",", off.ToArray());
-            KmrpSettings.ResolutionsExtra = String.Join(",", extra.ToArray());
-            DialogResult = DialogResult.OK;
-            Close();
-        }
-
-        private int Px(int design) { return Math.Max(1, (int)Math.Round(design * scale)); }
-        private float Points(float design) { return Math.Max(6F, design * scale); }
-
-        protected override void OnKeyDown(KeyEventArgs e)
-        {
-            if (e.KeyCode == Keys.Escape)
-            {
-                DialogResult = DialogResult.Cancel;
-                Close();
-                return;
-            }
-            base.OnKeyDown(e);
+                return "This display reports no resolution KMRP can use.";
+            // One line: the step's row does not wrap.
+            return "Starts at " + start[0].ToString(CultureInfo.InvariantCulture) + " × " +
+                start[1].ToString(CultureInfo.InvariantCulture) + ". The game lists every resolution the connected display supports.";
         }
     }
 
@@ -5978,7 +5325,6 @@ namespace Kmrp
         private const string CreatorUrl = "https://deadlystream.com/profile/68365-raymangt/";
 
         private readonly TextBox pathBox;              // data holder; the path is shown in step 1's subtitle
-        private readonly PillButton resolutionButton;
         private readonly PillButton actionButton;
         private bool actionIsRestore;
         private readonly PillButton browseButton;
@@ -6147,21 +5493,13 @@ namespace Kmrp
                 "Looking for swkotor.exe.");
             verifyState = NewStateLabel(stepVerify, card.Width);
 
-            // Step 3 chooses nothing by default: KMRP's patch carries every resolution,
-            // the game lists the sizes the display supports, and it starts at the
-            // display's current size. "Choose" opens the checklist for a player who wants
-            // fewer of them, or a size the display does not offer (ResolutionsDialog).
-            // Until 2026-10-04 this was a list to pick the one resolution KMRP was
-            // installed for.
+            // Step 3 chooses nothing: KMRP's patch carries every resolution, the game
+            // lists the sizes the connected display supports, and it starts at the
+            // display's current size (ResolutionSelection). Until 2026-10-04 this was a
+            // list to pick the one resolution KMRP was installed for, and until
+            // 2026-10-07 it had a "Choose" button for a checklist of sizes.
             stepResolution = NewStep(card, 2, UiTheme.Glyph.Monitor, "3. Resolutions",
                 ResolutionSelection.Summary());
-            resolutionButton = new PillButton();
-            resolutionButton.Text = "Choose";
-            resolutionButton.TextSize = 18F;
-            resolutionButton.SetBounds(card.Width - 168, 24, 132, 48);
-            resolutionButton.Anchor = AnchorStyles.Top | AnchorStyles.Right;
-            resolutionButton.Click += delegate { ChooseResolutions(); };
-            stepResolution.Controls.Add(resolutionButton);
             resolutionState = NewStateLabel(stepResolution, card.Width);
             resolutionState.Visible = false;
 
@@ -7463,14 +6801,6 @@ namespace Kmrp
         [DllImport("user32.dll", CharSet = CharSet.Unicode, EntryPoint = "EnumDisplaySettingsW")]
         internal static extern bool EnumDisplaySettings(string deviceName, int modeNumber, ref DisplayMode mode);
 
-        /// <summary>Step 3's "Choose": the checklist, and the step's line afterwards.</summary>
-        private void ChooseResolutions()
-        {
-            using (ResolutionsDialog dialog = new ResolutionsDialog(uiScale))
-                if (dialog.ShowDialog(this) == DialogResult.OK)
-                    RefreshStatus();
-        }
-
         private void RefreshStatus()
         {
             if (actionButton == null || applyState == null)
@@ -7505,10 +6835,6 @@ namespace Kmrp
             stepResolution.SetSubtitle(patchComplete
                 ? "The game starts at this size. Choose another in the game, under Options, Graphics."
                 : ResolutionSelection.Summary());
-            // Also gated on the executable: step 3 is shown dimmed until step 2 finds a
-            // version KMRP installs on, and a live dropdown inside a dimmed row invites a
-            // click that does nothing.
-            resolutionButton.Visible = !patchComplete && executableReady;
             resolutionState.Visible = patchComplete;
 
             if (patchComplete)
@@ -7597,8 +6923,7 @@ namespace Kmrp
             int[] start = ResolutionSelection.Start();
             if (start == null)
             {
-                MessageBox.Show(this, "None of this display's resolutions is chosen. Press Choose in step 3 " +
-                    "and tick at least one.", "Resolution required",
+                MessageBox.Show(this, "This display reports no resolution KMRP can use.", "Resolution required",
                     MessageBoxButtons.OK, MessageBoxIcon.Warning);
                 return;
             }
@@ -7683,7 +7008,6 @@ namespace Kmrp
 
         private void SetBusyState(bool busy)
         {
-            resolutionButton.Enabled = !busy;
             browseButton.Enabled = !busy;
             actionButton.Enabled = !busy;
             logLink.Enabled = !busy;

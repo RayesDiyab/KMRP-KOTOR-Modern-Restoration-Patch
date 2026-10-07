@@ -16,7 +16,8 @@
          size asked for;
       2. controller support and map notes off: only the hooks without a condition
          are written, and configs\kmrp.ini says both are off;
-      3. a resolution choice in the settings: kmrp-resolutions.txt lists it;
+      3. a resolution choice left in the settings by a build before 2026-10-07:
+         no kmrp-resolutions.txt is written, the choice is gone;
       4. Restore Original: the folder is as it was, file for file;
       5. the .kpatch delivered to KOTOR Patch Manager's patch folder passes
          tools\build_native_kpatch.py --check.
@@ -211,20 +212,14 @@ try {
     Assert ((Invoke-Installer @("--restore", "`"$game`"")) -eq 0) "the restore succeeds"
     Assert (-not (Test-Path -LiteralPath (Join-Path $folder "configs"))) "restore removes the configs folder it created"
 
-    Write-Host "Case 3  a resolution choice"
+    Write-Host "Case 3  a resolution choice left in the settings by an earlier build"
     Set-KmrpSettings $true $true "" "1000x700"
     $game = New-Fixture "resolutions"
     $folder = Split-Path -Parent $game
     Assert ((Invoke-Installer @("--in-place", "`"$game`"", "1920x1080")) -eq 0) "the install succeeds"
     $list = Join-Path $folder "kmrp-resolutions.txt"
-    Assert (Test-Path -LiteralPath $list) "kmrp-resolutions.txt is written"
-    if (Test-Path -LiteralPath $list) {
-        $sizes = @([IO.File]::ReadAllLines($list))
-        Assert ($sizes -contains "1000x700") "it lists the added size"
-        Assert (@($sizes | Where-Object { $_ -notmatch '^[0-9]+x[0-9]+$' }).Count -eq 0) "every line is WIDTHxHEIGHT"
-    }
+    Assert (-not (Test-Path -LiteralPath $list)) "no kmrp-resolutions.txt is written"
     Assert ((Invoke-Installer @("--restore", "`"$game`"")) -eq 0) "the restore succeeds"
-    Assert (-not (Test-Path -LiteralPath $list)) "restore removes the list"
 }
 finally {
     if ($hadKmrp) { Copy-Item -LiteralPath $kmrpCopy -Destination $kmrpSettings -Force }
