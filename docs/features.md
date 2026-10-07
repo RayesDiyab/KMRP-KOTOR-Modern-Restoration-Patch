@@ -75,7 +75,8 @@ misplaced map notes.
 ## Sharper artwork
 
 - Party portraits in high quality (by MadDerp).
-- Item icons in high quality (by JackInTheBox).
+- Item icons in high quality (by JackInTheBox). Optional, on by default: switched
+  off, the game keeps its own icons.
 - Sharper menu art, and feat, power and skill icons that scale with the screen.
 
 ## Controller support
@@ -135,8 +136,8 @@ the rest of KMRP, on the unchanged game or beside another widescreen mod.
   replaces no file of another mod. It was tested with the KOTOR 1 Community Patch
   and KOTOR 1 Restoration, and the order you install them in does not matter.
 - **Restore Original** undoes everything KMRP did, file by file.
-- **Options** (the gear button): graphics-card compatibility, the map note fixes and
-  controller support can each be switched off; diagnostic logs can be switched on
+- **Options** (the gear button): graphics-card compatibility, the map note fixes, the
+  HD item icons and controller support can each be switched off; diagnostic logs can be switched on
   when a bug report needs them.
 - **An older KMRP** is replaced automatically when you patch again.
 - **Update notice.** The installer tells you when a newer KMRP is out.

@@ -334,6 +334,17 @@ extern "C" void __cdecl KmrpPrepareResourcesK1(void* manager)
     busy = false;
 }
 
+// A file of the bundled HD item icons (JackInTheBox's KOTOR 1 HD Icon Pack): among
+// the common files those are the .tpc files named ia_*, ii_* and iw_*, the game's
+// own names for armour, item and weapon icons, 351 of them and nothing else
+// (testing/regression/Test-NativeAssetsBank.py holds the bank to that).
+static bool HdIcon(const std::string& name)
+{
+    if (name.size() < 8 || _stricmp(name.c_str() + name.size() - 4, ".tpc") != 0) return false;
+    const char kind = static_cast<char>(name[1] | 0x20);
+    return (name[0] | 0x20) == 'i' && (kind == 'a' || kind == 'i' || kind == 'w') && name[2] == '_';
+}
+
 // The installer's rule (GuiBlend.Covers), asked of the same table by the same
 // helper. Asked once per size: the game's resolution list asks for every mode the
 // driver offers.
@@ -377,10 +388,14 @@ bool KmrpRuntimeAssetsDimensions(int width, int height)
     // 1. The files the bank holds: the common ones and this set's.
     const bool exact = static_cast<int>(selected->width) == width && static_cast<int>(selected->height) == height;
     bool derive = !exact;
+    const bool hdIcons = KmrpPatchOption(L"hd-icons", 1) != 0;
     std::vector<unsigned char> output;
     for (const auto& group : groups) {
         if (&group != selected && group.width != 0) continue;
         for (const auto& entry : group.entries) {
+            // The HD item icons are an option (hd-icons, on by default): left out,
+            // the game draws its own icons of the same names.
+            if (group.width == 0 && !hdIcons && HdIcon(entry.name)) continue;
             if (!objects.count(entry.key)) { derive = true; continue; }
             if (!Decode(entry.key, output) || !Write(entry.name, output, &entry.key)) return false;
         }

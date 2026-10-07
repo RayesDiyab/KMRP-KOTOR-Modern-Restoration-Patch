@@ -45,7 +45,8 @@ runs at it. The resolution is chosen in the game, with no reinstall.
 4. Start KOTOR as usual.
 
 **Options.** Advanced Settings (the gear) turns off Modern Driver Compatibility, the
-area-map marker fixes and controller support, each on its own, and turns on debug
+area-map marker fixes, the HD item icons and controller support, each on its own,
+and turns on debug
 logs, which are off unless you are asked for them with a bug report. To change one
 later, use **Restore Original**, then patch again.
 
@@ -87,7 +88,7 @@ controller patch above. Both combine with other KPM patches.
   folder, the installer leaves the patches to KPM and says where the files are.
 - In KPM, tick `KMRP`, and the controller patch for the pad, then Apply and Launch.
   KMRP includes the 4 GB and memory fixes, so KPM's own ones stay unticked.
-- KMRP's options are map notes, on, and debug logs, off. KPM 0.7.1 has no patch
+- KMRP's options are map notes and HD item icons, on, and debug logs, off. KPM 0.7.1 has no patch
   options and installs it that way.
 - On Steam, switch KPM to its proxy deployment and start the game from Steam.
 - With KPM 0.7.1, tick *Use library proxy* in KPM before pressing Apply (press
@@ -277,11 +278,11 @@ overwrites a mod you installed yourself.
 | Area map marker corrections (250 notes) | Derslok | GPL-3.0 | **Yes** -- Advanced Settings |
 | Controller support, based on [KPM – Xbox Controls for KOTOR 1](https://github.com/scopeking0117-alt/KPM-Xbox-Controls-K1) 1.2 | Saul0097 / KMRP | MIT, inherited from KOTOR Patch Manager, with each author's permission (his own licence file pending); SDL zlib | **Yes, on by default** -- Advanced Settings |
 | Party Portraits | MadDerp | -- | No |
-| KOTOR 1 HD Icon Pack 1.0 | JackInTheBox | -- | No |
+| KOTOR 1 HD Icon Pack 1.0 | JackInTheBox | -- | **Yes** -- Advanced Settings |
 
-**Advanced Settings**, the button beside *Start Patching*, controls all three
+**Advanced Settings**, the button beside *Start Patching*, controls the four
 optional components. All three default to on, each can be turned off on its own,
-and *Restore Defaults* turns all three back on. A fourth row, *Debug Logs*, is off
+and *Restore Defaults* turns all four back on. A fifth row, *Debug Logs*, is off
 by default: it makes KMRP write diagnostic log files beside the game. The choices
 are remembered in `%LOCALAPPDATA%\KMRP\settings.json`.
 

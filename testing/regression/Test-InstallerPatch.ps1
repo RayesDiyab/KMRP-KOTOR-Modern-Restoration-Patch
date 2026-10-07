@@ -100,6 +100,7 @@ function Get-Options([string]$folder) {
         Text = $text
         Controller = [regex]::Match($section, '(?m)^controller=([01])').Groups[1].Value   # gone since 2026-10-05: must be empty
         MapNotes = [regex]::Match($section, '(?m)^map-notes=([01])').Groups[1].Value
+        HdIcons = [regex]::Match($section, '(?m)^hd-icons=([01])').Groups[1].Value
         DebugLogs = [regex]::Match($section, '(?m)^debug-logs=([01])').Groups[1].Value
     }
 }
@@ -134,6 +135,7 @@ try {
     Assert (($config.Ids -join ",") -eq "kmrp,kmrp-controller") "patch_config.toml holds KMRP's patch and the controller patch, in that order"
     $options = Get-Options $folder
     Assert ($options.Controller -eq "" -and $options.MapNotes -eq "1") "configs\kmrp.ini says map-notes is on, and has no controller option"
+    Assert ($options.HdIcons -eq "1") "configs\kmrp.ini says hd-icons is on"
     $controllerIni = Join-Path $folder "configs\kmrp-controller.ini"
     Assert ((Test-Path -LiteralPath $controllerIni) -and ([IO.File]::ReadAllText($controllerIni) -match '(?m)^debug-logs=0') -and
         -not ([IO.File]::ReadAllText($controllerIni) -match '(?m)^xbox-hud=')) "configs\kmrp-controller.ini has debug-logs off and leaves the Xbox-style HUD to the player's own setting"

@@ -109,6 +109,32 @@ proxy, and it applies the executable changes above as well.
 
 ## [Unreleased]
 
+- **The HD item icons are an option, on by default** (2026-10-08, at the
+  maintainer's request; KMRP's patch and the installer). JackInTheBox's KOTOR 1 HD
+  Icon Pack was always installed; a player asked on Deadly Stream why it was
+  mandatory. Now:
+  - KMRP's patch has a third option, `hd-icons` (`tools/build_native_kpatch.py`),
+    which a KOTOR Patch Manager with patch options shows; 0.7.1 installs it on;
+  - Advanced Settings has a fifth row, *HD Item Icons* (`KmrpSettings.HdIcons`,
+    saved as `hdIcons` only when off), and the installer writes the choice as
+    `hd-icons` into `configs\kmrp.ini`;
+  - with it off the module does not unpack the pack's files, so the game draws its
+    own icons of the same names (`HdIcon`, `K1RuntimeAssets.cpp`). The pack's files
+    are the common `.tpc` files named `ia_`, `ii_` and `iw_`: 351, and no other
+    file, which `Test-NativeAssetsBank.py` now requires. No hook belongs to the
+    option, and the bank is unchanged.
+
+  Advanced Settings is laid out for five rows: its line of explanation shares the
+  title's row, the two buttons are 60 high (were 76), and a row centres its two
+  lines where it is shorter than before. Seen on the installer's window at
+  3440x1440: every row shows its whole description. Two descriptions changed:
+  Modern Driver Compatibility ("Fixes lighting, fog, reflections, soft shadows and
+  grass on modern graphics cards.") and Controller Support, which now names rumble
+  and the Xbox-style HUD.
+
+  The portraits stay part of KMRP. **Not seen in the game with the option off**:
+  the game's own 64-pixel icons are then drawn in KMRP's enlarged icon boxes.
+
 - **The Xbox-style HUD is on by default** (2026-10-08, at the maintainer's request;
   the controller patch). It was an option, off by default, since 2026-10-05. It is
   shown only while the pad is in use, as before; with mouse and keyboard the game's

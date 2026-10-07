@@ -711,6 +711,7 @@ namespace Kmrp
             return new[]
             {
                 new KeyValuePair<string, bool>("map-notes", KmrpSettings.MarkerFixes),
+                new KeyValuePair<string, bool>("hd-icons", KmrpSettings.HdIcons),
                 new KeyValuePair<string, bool>("debug-logs", KmrpSettings.DebugLogs),
             };
         }

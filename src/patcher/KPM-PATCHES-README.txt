@@ -20,8 +20,9 @@ you start the game as usual.
       inside the file: nothing goes into Override.
 
       Options:
-        Map notes     Derslok's area-map marker fixes          (on)
-        Debug logs    diagnostic log files beside the game     (off)
+        Map notes       Derslok's area-map marker fixes          (on)
+        HD item icons   JackInTheBox's high-resolution icons     (on)
+        Debug logs      diagnostic log files beside the game     (off)
 
   KOTOR 1 Native Controller Mod + Xbox HUD.kpatch
       Controller support: the pad in the game and in every menu, button

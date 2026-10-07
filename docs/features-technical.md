@@ -14,7 +14,7 @@ of 2026-10-08.
 | Piece | What it is | Source |
 | --- | --- | --- |
 | Installer | `KMRP - KOTOR Modern Restoration Patch.exe`, a .NET Framework 4 program. It installs KOTOR Patch Manager 0.7.1's runtime beside the game as KPM's own proxy deployment (`binkw32.dll` proxy, `KotorPatcher.dll`, `patch_config.toml`), the patches' modules under `patches\`, and their settings under `configs\`. | `src/patcher/KmrpPatcher.cs`, `src/patcher/KpmEdition.cs`; [patcher-ui-build.md](patcher-ui-build.md), [kpm-edition.md](kpm-edition.md) |
-| `KMRP.kpatch` | Patch id `kmrp`, 27 hooks, module `patches\kmrp.dll`. Options `map-notes` (on) and `debug-logs` (off), recorded in `configs\kmrp.ini`. Carries the engine recipe and every resolution's interface files. | `tools/build_native_kpatch.py`, `src/controller-native/K1Runtime*.cpp`, `K1KpmApplier.cpp` |
+| `KMRP.kpatch` | Patch id `kmrp`, 27 hooks, module `patches\kmrp.dll`. Options `map-notes` (on), `hd-icons` (on) and `debug-logs` (off), recorded in `configs\kmrp.ini`. Carries the engine recipe and every resolution's interface files. | `tools/build_native_kpatch.py`, `src/controller-native/K1Runtime*.cpp`, `K1KpmApplier.cpp` |
 | `KOTOR 1 Native Controller Mod + Xbox HUD.kpatch` | Patch id `kmrp-controller`, 34 hooks, module `patches\kmrp-controller.dll`. Options `xbox-hud` (on since 2026-10-08) and `debug-logs` (off), recorded in `configs\kmrp-controller.ini`; the player's settings (rumble, HUD style) are `kmrp-controller.ini` beside the game. Requires nothing and does not conflict with `kmrp`. Installed while Controller Support is on. | `tools/build_controller_kpatch.py`, `src/controller-native/`; [controller-standalone.md](controller-standalone.md) |
 | Engine changes | Applied in memory when the game starts, after the original instructions at every site have been checked. The recipe is built from source: no clean or patched executable is a build input. Eleven code and data pages are placed as one relocated block; per-resolution operands are computed for the size in use and again on a mode switch. | `src/engine/windows-sites.json`, `tools/build_windows_engine.py`, `tools/build_native_engine.py`; [windows-engine-source.md](windows-engine-source.md) |
 | Interface files | One bank of distinct files inside the module, with an index per resolution. The set of the size in use is unpacked to a private cache that the game reads ahead of `Override`. Files the module can produce exactly from its blend table are left out of the bank and written at run time. | `tools/build_native_assets.py`, `K1RuntimeAssets.cpp`; [universal-resolution-math.md](universal-resolution-math.md) |
@@ -80,7 +80,8 @@ with the Large Address Aware bit already set
 
 | Feature | Patch | How | Read |
 | --- | --- | --- | --- |
-| Portraits, item icons | `kmrp` | MadDerp's Party Portraits and JackInTheBox's HD Icon Pack, in the module's bank. | `THIRD_PARTY_NOTICES.md` |
+| Portraits | `kmrp` | MadDerp's Party Portraits, in the module's bank. | `THIRD_PARTY_NOTICES.md` |
+| Item icons | `kmrp`, option `hd-icons` | JackInTheBox's HD Icon Pack, 351 icons in the module's bank. With the option off the module does not unpack them (`HdIcon`, `K1RuntimeAssets.cpp`) and the game draws its own. **The option off has not been seen in the game.** | `THIRD_PARTY_NOTICES.md`, `testing/regression/Test-NativeAssetsBank.py` |
 | Menu art, ability icons | `kmrp` | Built by the resource tools; ability icons and row icon frames are scaled per resolution. | `tools/scale_ability_icons.py`, `tools/scale_row_icon_frames.py`; [patcher-ui-build.md](patcher-ui-build.md) |
 
 ## Controller support
@@ -107,7 +108,7 @@ All of it is the controller patch, `kmrp-controller`, unless a row says otherwis
 | Restore Original | Every written or renamed file and the flag are recorded with hashes in `KMRP_KPM.manifest`; a file changed since install is left alone and reported. | `KpmEdition.cs`; [patcher-ui-build.md](patcher-ui-build.md) |
 | Replaces older installs | A build that rewrote `swkotor.exe` is restored from its backup; a four-patch or `Override` install is removed first. | `testing/regression/Test-ReinstallOverOlderBuild.ps1` |
 | With KOTOR Patch Manager | The two `.kpatch` files go to KPM's patch folder; where KPM's runtime is already in the game folder, the installer leaves the patches to KPM. `--export-kpm-patches <folder>` writes both out. | [kpm-edition.md](kpm-edition.md) |
-| Advanced Settings | Driver compatibility, map notes, controller support (on), debug logs (off); remembered in `%LOCALAPPDATA%\KMRP\settings.json`. | `KmrpPatcher.cs` |
+| Advanced Settings | Driver compatibility, map notes, HD item icons, controller support (on), debug logs (off); remembered in `%LOCALAPPDATA%\KMRP\settings.json`. | `KmrpPatcher.cs` |
 | Update check | One request to GitHub's releases when the window opens. | [SECURITY.md](../SECURITY.md) |
 | Command line | `--in-place`, `--restore`, `--apply`, `--export-kpm-patches`. | [README](../README.md) |
 

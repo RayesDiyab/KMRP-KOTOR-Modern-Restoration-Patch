@@ -25,7 +25,7 @@ source = next((p for p in (ROOT / 'build/kmrp/kpm-patches' / native.NAME, ROOT /
 assert source, 'KMRP.kpatch has not been built'
 result = native.validate(source)
 # No controller option since 2026-10-05: controller support is a patch of its own.
-assert result['id'] == 'kmrp' and result['options'] == ['map-notes', 'debug-logs'], result
+assert result['id'] == 'kmrp' and result['options'] == ['map-notes', 'hd-icons', 'debug-logs'], result
 assert result['hooks_by_option']['map-notes'] == 0, 'map notes gate no hook'
 assert result['hooks_by_option']['debug-logs'] == 0, 'debug logs gate no hook'
 print(f"PASS: {source.name} validates ({result['hooks']} hooks, none an option's)")

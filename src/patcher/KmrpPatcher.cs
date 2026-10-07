@@ -4639,6 +4639,9 @@ namespace Kmrp
         private const bool DriverCompatibilityDefault = true;
 
         private const bool MarkerFixesDefault = true;
+        // The bundled HD item icons, an option since 2026-10-08 (always installed
+        // until then): a player asked on Deadly Stream why they were mandatory.
+        private const bool HdIconsDefault = true;
         // On by default since 2026-09-24, like the other two: Restore Defaults turns
         // all three on, and a default it does not restore would not be a default. It
         // costs a keyboard-and-mouse player nothing -- prompts appear only while a pad
@@ -4650,6 +4653,7 @@ namespace Kmrp
         private static bool loaded;
         private static bool driverCompatibility = DriverCompatibilityDefault;
         private static bool markerFixes = MarkerFixesDefault;
+        private static bool hdIcons = HdIconsDefault;
         private static bool controllerSupport = ControllerSupportDefault;
         private static bool debugLogs = DebugLogsDefault;
         // The resolution checklist (ResolutionSelection): the display's sizes the player
@@ -4691,6 +4695,20 @@ namespace Kmrp
                 if (markerFixes == value)
                     return;
                 markerFixes = value;
+                Save();
+            }
+        }
+
+        /// <summary>Show JackInTheBox's HD item icons (the patch's hd-icons option).</summary>
+        internal static bool HdIcons
+        {
+            get { Load(); return hdIcons; }
+            set
+            {
+                Load();
+                if (hdIcons == value)
+                    return;
+                hdIcons = value;
                 Save();
             }
         }
@@ -4779,6 +4797,12 @@ namespace Kmrp
                 if (markers.Success)
                     markerFixes = String.Equals(markers.Groups[1].Value, "true",
                         StringComparison.OrdinalIgnoreCase);
+                Match icons = Regex.Match(json,
+                    "\\\"hdIcons\\\"\\s*:\\s*(true|false)",
+                    RegexOptions.IgnoreCase | RegexOptions.CultureInvariant);
+                if (icons.Success)
+                    hdIcons = String.Equals(icons.Groups[1].Value, "true",
+                        StringComparison.OrdinalIgnoreCase);
                 Match controller = Regex.Match(json,
                     "\\\"controllerSupport\\\"\\s*:\\s*(true|false)",
                     RegexOptions.IgnoreCase | RegexOptions.CultureInvariant);
@@ -4815,6 +4839,7 @@ namespace Kmrp
                     (markerFixes ? "true" : "false") + ",\r\n" +
                     "  \"controllerSupport\": " +
                     (controllerSupport ? "true" : "false") +
+                    (hdIcons ? "" : ",\r\n  \"hdIcons\": false") +
                     (debugLogs ? ",\r\n  \"debugLogs\": true" : "") +
                     (skippedUpdate.Length > 0
                         ? ",\r\n  \"skippedUpdate\": \"" + skippedUpdate + "\""
@@ -5173,7 +5198,10 @@ namespace Kmrp
                 rightAlign.FormatFlags = StringFormatFlags.NoWrap;
 
                 int titleHeight = (int)Math.Ceiling(titleFont.GetHeight(g));
-                float titleTop = pad * 0.72F;
+                // Centred as a pair where the row is too short for the usual top margin
+                // (five rows since 2026-10-08).
+                float titleTop = Math.Max(2F, Math.Min(pad * 0.72F,
+                    (Height - titleHeight - detailFont.GetHeight(g) - 2 * scale) / 2F));
                 g.DrawString(Title, titleFont, titleInk, new RectangleF(
                     pad, titleTop, textWidth, titleHeight + 2));
 
@@ -5580,19 +5608,21 @@ namespace Kmrp
             settingsTitle.ForeColor = UiTheme.Text;
             settingsTitle.BackColor = UiTheme.Card;
             settingsTitle.TextAlign = ContentAlignment.MiddleLeft;
-            settingsTitle.SetBounds(36, 24, card.Width - 72, 48);
-            settingsTitle.Anchor = AnchorStyles.Top | AnchorStyles.Left | AnchorStyles.Right;
+            // The title and its line share one row since 2026-10-08, when a fifth
+            // option needed the height the line had below the title.
+            settingsTitle.SetBounds(36, 16, 340, 44);
+            settingsTitle.Anchor = AnchorStyles.Top | AnchorStyles.Left;
             settingsView.Controls.Add(settingsTitle);
 
             Label settingsSubtitle = new Label();
             settingsSubtitle.Text =
-                "Choose optional components. Each can be changed on its own; all but "
-                + "debug logs are on by default.";
+                "Each can be changed on its own; all but debug logs are on by default.";
             settingsSubtitle.Font = new Font("Segoe UI", 14F);
             settingsSubtitle.ForeColor = UiTheme.TextMuted;
             settingsSubtitle.BackColor = UiTheme.Card;
-            settingsSubtitle.TextAlign = ContentAlignment.MiddleLeft;
-            settingsSubtitle.SetBounds(36, settingsTitle.Bottom + 2, card.Width - 72, 30);
+            settingsSubtitle.TextAlign = ContentAlignment.MiddleRight;
+            settingsSubtitle.SetBounds(settingsTitle.Right, settingsTitle.Top + 4,
+                                       card.Width - 36 - settingsTitle.Right, settingsTitle.Height - 4);
             settingsSubtitle.Anchor = AnchorStyles.Top | AnchorStyles.Left | AnchorStyles.Right;
             settingsView.Controls.Add(settingsSubtitle);
 
@@ -5600,14 +5630,14 @@ namespace Kmrp
             driverToggle.Title = "Modern Driver Compatibility";
             driverToggle.Author = "Synchro";
             driverToggle.Detail =
-                "Restores modern GPU rendering features and fixes driver-related visual issues.";
+                "Fixes lighting, fog, reflections, soft shadows and grass on modern graphics cards.";
             driverToggle.Checked = KmrpSettings.DriverCompatibility;
-            // Four rows share what the card has between the subtitle and the buttons:
-            // 86 px each where that fits, less where it does not.
-            int optionRowGap = 8;
+            // Five rows (four until 2026-10-08) share what the card has between the
+            // subtitle and the buttons: 86 px each where that fits, less where it does not.
+            int optionRowGap = 6;
             int optionRowHeight = Math.Min(86,
-                (card.Height - 116 - 14 - (settingsSubtitle.Bottom + 18) - 3 * optionRowGap) / 4);
-            driverToggle.SetBounds(36, settingsSubtitle.Bottom + 18, card.Width - 72, optionRowHeight);
+                (card.Height - 96 - 8 - (settingsTitle.Bottom + 10) - 4 * optionRowGap) / 5);
+            driverToggle.SetBounds(36, settingsTitle.Bottom + 10, card.Width - 72, optionRowHeight);
             driverToggle.Anchor = AnchorStyles.Top | AnchorStyles.Left | AnchorStyles.Right;
             // Independent of the controller since 2026-09-24. This option installs
             // K1DC's ASI loader and its .asi together (DriverCompatOperations.Install);
@@ -5633,6 +5663,21 @@ namespace Kmrp
             };
             settingsView.Controls.Add(markerToggle);
 
+            // The patch's hd-icons option, a row since 2026-10-08.
+            OptionToggle iconsToggle = new OptionToggle();
+            iconsToggle.Title = "HD Item Icons";
+            iconsToggle.Author = "JackInTheBox";
+            iconsToggle.Detail =
+                "High-resolution item icons. Turn off to keep the game's own icons.";
+            iconsToggle.Checked = KmrpSettings.HdIcons;
+            iconsToggle.SetBounds(36, markerToggle.Bottom + optionRowGap, card.Width - 72, optionRowHeight);
+            iconsToggle.Anchor = AnchorStyles.Top | AnchorStyles.Left | AnchorStyles.Right;
+            iconsToggle.CheckedChanged += delegate
+            {
+                KmrpSettings.HdIcons = iconsToggle.Checked;
+            };
+            settingsView.Controls.Add(iconsToggle);
+
             controllerToggle = new OptionToggle();
             // What ships now, in one line: KMRP's native controller path with SDL3 beside
             // XInput, reading the pad family for its prompts. Saul0097's KPM Xbox Controls
@@ -5643,9 +5688,9 @@ namespace Kmrp
             controllerToggle.Title = "Controller Support";
             controllerToggle.Author = "KMRP";
             controllerToggle.Detail =
-                "Xbox, PlayStation, Switch and Steam Deck: play, menus and matching button prompts.";
+                "Xbox, PlayStation, Switch and Steam Deck: play, menus, button prompts, rumble and the Xbox-style HUD.";
             controllerToggle.Checked = KmrpSettings.ControllerSupport;
-            controllerToggle.SetBounds(36, markerToggle.Bottom + optionRowGap, card.Width - 72, optionRowHeight);
+            controllerToggle.SetBounds(36, iconsToggle.Bottom + optionRowGap, card.Width - 72, optionRowHeight);
             controllerToggle.Anchor = AnchorStyles.Top | AnchorStyles.Left | AnchorStyles.Right;
             controllerToggle.CheckedChanged += delegate
             {
@@ -5681,13 +5726,13 @@ namespace Kmrp
 
             // Two actions, sharing the row the single Back button used to have. Restore
             // Defaults is Subtle so Back stays the obvious way out.
-            int settingsRowTop = card.Height - 116;
+            int settingsRowTop = card.Height - 96;
             int settingsRowWidth = (card.Width - 160 - 12) / 2;
 
             PillButton settingsDefaults = new PillButton();
             settingsDefaults.Subtle = true;
             settingsDefaults.Text = "Restore Defaults";
-            settingsDefaults.SetBounds(80, settingsRowTop, settingsRowWidth, 76);
+            settingsDefaults.SetBounds(80, settingsRowTop, settingsRowWidth, 60);
             settingsDefaults.Anchor = AnchorStyles.Top | AnchorStyles.Left;
             settingsDefaults.Click += delegate
             {
@@ -5695,6 +5740,7 @@ namespace Kmrp
                 // (KmrpSettings).
                 driverToggle.Checked = true;
                 markerToggle.Checked = true;
+                iconsToggle.Checked = true;
                 controllerToggle.Checked = true;
                 debugToggle.Checked = false;
             };
@@ -5703,7 +5749,7 @@ namespace Kmrp
             PillButton settingsBack = new PillButton();
             settingsBack.Text = "Back";
             settingsBack.SetBounds(settingsDefaults.Right + 12, settingsRowTop,
-                                   settingsRowWidth, 76);
+                                   settingsRowWidth, 60);
             settingsBack.Anchor = AnchorStyles.Top | AnchorStyles.Right;
             settingsBack.Click += delegate { ShowSettings(false); };
             settingsView.Controls.Add(settingsBack);
