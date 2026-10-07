@@ -28,11 +28,17 @@
 #include <cstdint>
 #include <cstdio>
 #include <cstring>
+#include <dlfcn.h>
+#include <map>
+#include <string>
+#include <utility>
+#include <vector>
 
 #include "widescreen.h"
 
 namespace kmrp {
 void ApplyLayoutForSize(int width, int height);   // kmrp-layout/kmrp_layout.cpp
+bool DisplayHasMode(int width, int height);       // layouts_ini.cpp
 }
 
 namespace {
@@ -128,15 +134,29 @@ int KmrpModeSwitch(int width, int height, int depth, int windowed, int flag) {
 
 // The game's whitelist of sizes for its Screen Resolution list (0x10026f1ee; Windows
 // IsValidResolution, KmrpAllowRuntimeResolutionK1): 800x600, 1024x768, 1280x960, 1280x1024 and
-// 1600x1200, asked for every mode of Aspyr's display-mode list. Any size KMRP has menus for is
-// accepted here instead, so the list offers what the display offers. Until 2026-10-04 kmrp-layout
+// 1600x1200, asked for every mode of Aspyr's display-mode list. A size KMRP has menus for is
+// accepted here instead when the display reports it, so the list is what the connected display
+// supports, as on Windows since 2026-10-07 (DisplayReports there). Until 2026-10-04 kmrp-layout
 // wrote the one configured size into the first pair of that whitelist.
 //
+// Aspyr's list has three sizes of its own besides the display's modes (1280x720, 1024x768 and
+// 1344x756, added at 0x10001deca) and a twin of every mode at the display's pixels. Until
+// 2026-10-08 any size KMRP has menus for was accepted, so 1280x720 and 1344x756 were listed on
+// a display that reports neither; and for one day before that a checklist in KMRP Installer
+// (kmrp-resolutions.txt) could hide sizes and add others, which Windows had and removed.
+//
 // A size accepted leaves through the routine's own epilogue with 1 (the consumed exit); for any
-// other the stolen bytes, its prologue and first comparison, run again and the game's own list
-// decides. rsi is the width, rdx the height.
+// other the stolen bytes, its prologue and first comparison, run again and the game's own five
+// decide, which this hook cannot refuse: of those, one in Aspyr's list (1024x768) stays listed.
+// rsi is the width, rdx the height.
 extern "C" __attribute__((visibility("default"))) int KmrpResolutionKnown(void*, int width, int height) {
-    return kmrp::assets::Covers(width, height) ? 1 : 0;
+    if (!kmrp::assets::Covers(width, height)) return 0;
+    // Asked for every mode each time the list is made; the display's answer is kept per size.
+    static std::map<std::pair<int, int>, bool> reported;
+    const auto key = std::make_pair(width, height);
+    auto found = reported.find(key);
+    if (found == reported.end()) found = reported.emplace(key, kmrp::DisplayHasMode(width, height)).first;
+    return found->second ? 1 : 0;
 }
 
 #ifdef KMRP_BUNDLED_WIDESCREEN

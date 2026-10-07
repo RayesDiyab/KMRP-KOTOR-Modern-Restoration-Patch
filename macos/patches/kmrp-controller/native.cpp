@@ -579,9 +579,6 @@ bool Patch(std::uintptr_t address, const std::uint8_t* expected, const std::uint
 }
 
 __attribute__((constructor)) void InstallController() {
-    // The module is linked whole whatever the player chose; with the controller option off its
-    // hooks are not installed, and what it installs on its own is left out here.
-    if (!kmrp::ControllerOption()) { Log("the controller option is off"); return; }
     // jmp qword ptr [rip+0]; <KmrpGetJoystickBuffer>
     std::uint8_t jump[14] = {0xFF, 0x25, 0, 0, 0, 0};
     const std::uint64_t target = reinterpret_cast<std::uint64_t>(&KmrpGetJoystickBuffer);

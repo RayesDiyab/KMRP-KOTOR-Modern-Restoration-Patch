@@ -14,16 +14,21 @@
   What differs is what the Mac installs:
     1. Select Game       the Steam copy kmrp-mac.sh finds, or one chosen with Browse
     2. Verify Game       the unmodified Steam build (1.4.0), or KMRP already installed
-    3. Choose Resolution this display first (native, every pixel, and on a Retina display half,
-                         the size macOS lays windows out at), then resolutions.txt grouped by
-                         shape, then a custom size, checked with kmrp-guiblend's dry run
+    3. Resolutions       nothing to choose, and no button, as on Windows: the patch carries
+                         the menus for every resolution, the game starts at the size macOS is
+                         set to and lists every resolution the connected display supports.
+                         Until 2026-10-08 step 3 had a "Choose" button and a checklist of the
+                         sizes the game was to offer, saved in the app's defaults; removed
+                         to match Windows, which removed its own on 2026-10-07. A choice an
+                         earlier build saved is removed at launch
     4. Apply Patch       kmrp-mac.sh install or uninstall
   and the two options (Advanced Settings), as on Windows: the area map's marker fixes
-  (--no-map-notes when off) and controller support (--no-controller). The script's own stage lines drive the progress fill; its output goes to
+  (--no-map-notes when off), the HD icon pack (--no-hd-icons) and controller support (--no-controller). The script's own stage lines drive the progress fill; its output goes to
   ~/Library/Logs/KMRP/installer.log, which Open Log opens.
 
-  kmrp-mac.sh is passed: install --yes, --resolution half|native for this display's rows or
-  --size WxH, --no-map-notes, --no-controller, --debug-logs, --game when one was chosen; uninstall --yes; status --brief. What
+  kmrp-mac.sh is passed: install --yes, --game when one was chosen, --resolution current,
+  --no-map-notes, --no-hd-icons, --no-controller, --debug-logs; uninstall --yes; status --brief, whose
+  resolution= (the size the game starts at) step 3 shows afterwards. What
   it refuses (the game running, another build) it refuses here too, with its own message; a
   game KotOR Patch Manager manages is installed for KPM, or FTD's install of his patches
   replaced, as the script decides.
@@ -33,25 +38,22 @@
 
   For checking the app from a script (macos/README.md, "The installer app"), NSUserDefaults
   arguments after `open ... --args`:
-    -KMRPSelect native|half|WxH   the resolution to select, or the custom size to use
     -KMRPRun install|uninstall    press the action button once the status is in
     -KMRPNoMapNotes YES           turn the map-marker fixes off
+    -KMRPNoHdIcons YES            turn the HD icon pack off
     -KMRPNoController YES         turn controller support off
     -KMRPSettings YES             show Advanced Settings
-    -KMRPShowList YES             open the resolution list at its top and at its end
-                                  (<prefix>-list.png, <prefix>-list-end.png), then close it
-    -KMRPShowCustom YES           open the custom-size dialog (<prefix>-custom.png), then close it
     -KMRPSnapshot <prefix>        write <prefix>-ready.png when the window is ready,
                                   <prefix>-progress.png once a run is a third through, and
                                   <prefix>-done.png and <prefix>-log.txt when it ends
     -KMRPQuit YES                 quit after that
+  Until 2026-10-08 there were seven more, which set, opened and clicked through the checklist.
 */
 #import <Cocoa/Cocoa.h>
 #import <UniformTypeIdentifiers/UniformTypeIdentifiers.h>
 #import <Accelerate/Accelerate.h>
 #include <math.h>
 #include <mach/mach_time.h>
-#include <sys/xattr.h>
 
 // ------------------------------------------------------------------------------ theme (UiTheme)
 
@@ -728,49 +730,6 @@ static const double kWordmarkInkLeft = 0.0216, kWordmarkInkRight = 0.9774;
 }
 @end
 
-// DarkCombo: the dark resolution field with its chevron; the list opens as a menu.
-@interface KMRPCombo : KMRPFlippedView
-@property (nonatomic, copy) NSString *text, *detail;
-@property (nonatomic) BOOL enabled;
-@property (nonatomic, weak) id target;
-@property (nonatomic) SEL action;
-@end
-@implementation KMRPCombo
-- (void)setText:(NSString *)text { _text = [text copy]; self.needsDisplay = YES; }
-- (void)setEnabled:(BOOL)enabled { _enabled = enabled; self.needsDisplay = YES; }
-- (void)resetCursorRects { if (self.enabled) [self addCursorRect:self.bounds cursor:[NSCursor pointingHandCursor]]; }
-- (void)mouseDown:(NSEvent *)event {
-    if (self.enabled && self.target) [NSApp sendAction:self.action to:self.target from:self];
-}
-- (void)drawRect:(NSRect)dirty {
-    [THEME_FIELD setFill];
-    NSRectFill(self.bounds);
-    NSBezierPath *edge = [NSBezierPath bezierPathWithRect:NSInsetRect(self.bounds, 0.5, 0.5)];
-    edge.lineWidth = MAX(1, gScale);
-    [THEME_CARD_EDGE setStroke];
-    [edge stroke];
-    CGFloat button = MAX(18, S(30));
-    NSMutableAttributedString *line = [[NSMutableAttributedString alloc]
-        initWithString:self.text ?: @"" attributes:Ink(BodyFont(Pt(17), NSFontWeightSemibold), self.enabled ? THEME_TEXT : THEME_TEXT_FAINT)];
-    if (self.detail.length)
-        [line appendAttributedString:[[NSAttributedString alloc] initWithString:[@"   ·   " stringByAppendingString:self.detail]
-                                                                     attributes:Ink(BodyFont(Pt(13), NSFontWeightRegular), THEME_TEXT_MUTED)]];
-    DrawAttributed(line, S(10), CentredBaseline(self.bounds, BodyFont(Pt(17), NSFontWeightSemibold)),
-                   self.bounds.size.width - S(10) - button - S(4), NSTextAlignmentLeft);
-    // The chevron (DarkCombo.WndProc), in the button's column on the right.
-    CGFloat s = MAX(gScale * 1.6, 1), cx = self.bounds.size.width - button / 2 - 1, cy = self.bounds.size.height / 2 + 0.5;
-    NSBezierPath *chevron = [NSBezierPath bezierPath];
-    [chevron moveToPoint:NSMakePoint(cx - 4.5 * s, cy - 2 * s)];
-    [chevron lineToPoint:NSMakePoint(cx, cy + 2.5 * s)];
-    [chevron lineToPoint:NSMakePoint(cx + 4.5 * s, cy - 2 * s)];
-    chevron.lineWidth = MAX(1, 1.6 * s * 0.8);
-    chevron.lineCapStyle = NSLineCapStyleRound;
-    chevron.lineJoinStyle = NSLineJoinStyleRound;
-    [THEME_TEXT_MUTED setStroke];
-    [chevron stroke];
-}
-@end
-
 // OptionToggle: a component with its author, a description, and a switch.
 @interface KMRPToggle : KMRPFlippedView
 @property (nonatomic, copy) NSString *title, *author, *detail;
@@ -862,26 +821,7 @@ static const double kWordmarkInkLeft = 0.0216, kWordmarkInkRight = 0.9774;
 
 // ------------------------------------------------------------------------------ the installer
 
-@interface KMRPRow : NSObject
-@property (nonatomic, copy) NSString *size;    // "3024x1964"; nil for a group's title
-@property (nonatomic, copy) NSString *text;    // the group's title, or what the size is
-@property (nonatomic, copy) NSString *choice;  // "half" (current) or "native" (Retina) on this display's rows
-@end
-@implementation KMRPRow
-@end
-
 static NSString *Pretty(NSString *size) { return [size stringByReplacingOccurrencesOfString:@"x" withString:@" × "]; }
-
-static BOOL ParseSize(NSString *size, NSInteger *width, NSInteger *height) {
-    NSArray<NSString *> *parts = [size componentsSeparatedByString:@"x"];
-    if (parts.count != 2) return NO;
-    NSCharacterSet *other = [NSCharacterSet decimalDigitCharacterSet].invertedSet;
-    for (NSString *part in parts)
-        if (part.length == 0 || part.length > 5 || [part rangeOfCharacterFromSet:other].location != NSNotFound) return NO;
-    *width = parts[0].integerValue;
-    *height = parts[1].integerValue;
-    return YES;
-}
 
 static NSString *Value(NSString *output, NSString *prefix) {
     for (NSString *line in [output componentsSeparatedByString:@"\n"])
@@ -919,15 +859,15 @@ static const struct { const char *prefix, *stage; int percent; } kStages[] = {
 @property (nonatomic, strong) KMRPStep *stepGame, *stepVerify, *stepResolution, *stepApply;
 @property (nonatomic, strong) KMRPState *verifyState, *resolutionState, *applyState;
 @property (nonatomic, strong) KMRPPill *browseButton, *actionButton, *settingsButton;
-@property (nonatomic, strong) KMRPCombo *resolutionBox;
 @property (nonatomic, strong) KMRPCard *settingsView;
-@property (nonatomic, strong) KMRPToggle *markerToggle, *controllerToggle, *debugToggle;
+@property (nonatomic, strong) KMRPToggle *markerToggle, *iconsToggle, *controllerToggle, *debugToggle;
 @property (nonatomic, strong) NSMutableArray<NSView *> *mainViews;
-@property (nonatomic, strong) NSMutableArray<KMRPRow *> *rows;
-@property (nonatomic, strong) NSSet<NSString *> *setSizes;
+// The size macOS is set to, in points; 0 when it could not be read.
+@property (nonatomic) NSInteger currentWidth, currentHeight;
+@property (nonatomic) BOOL automationStarted;
 @property (nonatomic, strong) NSMutableString *output;
-@property (nonatomic, copy) NSString *payload, *script, *chosenGame, *version, *installedSize, *blendTool, *gamePath;
-@property (nonatomic, copy) NSString *selectedSize, *selectedChoice, *selectedDetail, *stage;
+@property (nonatomic, copy) NSString *payload, *script, *chosenGame, *version, *installedSize, *gamePath;
+@property (nonatomic, copy) NSString *stage;
 @property (nonatomic) BOOL running, checking, installed, incomplete, statusLoaded, gameFound, gameReady;
 // FTD's widescreen patch is installed through KotOR Patch Manager, and KMRP will replace it
 // (kmrp-mac.sh, kpm_remove).
@@ -936,9 +876,6 @@ static const struct { const char *prefix, *stage; int percent; } kStages[] = {
 // the Windows installer does (kmrp-mac.sh, kpm_check; 2026-10-01).
 @property (nonatomic) BOOL forKpm;
 @property (nonatomic) int percent;
-@property (nonatomic, strong) NSMenu *openMenu;   // the resolution list while it is open
-@property (nonatomic) BOOL listAtEnd;               // a scripted check's second look at the list
-@property (nonatomic, copy) NSString *listShot;     // the snapshot name the open list is taken as
 @end
 
 @implementation KMRPInstaller {
@@ -961,17 +898,16 @@ static const struct { const char *prefix, *stage; int percent; } kStages[] = {
     self.version = [version stringByTrimmingCharactersInSet:[NSCharacterSet whitespaceAndNewlineCharacterSet]] ?: @"";
     self.output = [NSMutableString string];
     self.percent = -1;
+    // The checklist's choice, which a build before 2026-10-08 saved.
+    [[NSUserDefaults standardUserDefaults] removeObjectForKey:@"KMRPResolutions"];
+    [self readCurrentSize];
     [self buildMenu];
-    [self loadRows];
     [self buildWindow];
-    [self selectRow:[self defaultRow]];
     [self updateView];
     [self.window makeKeyAndOrderFront:nil];
     if (@available(macOS 14, *)) [NSApp activate];
     else [NSApp activateIgnoringOtherApps:YES];
     [self startSmoke];
-    self.blendTool = [self copyBlendTool];
-    [self loadSetSizes];
     [self refreshStatus];
 }
 
@@ -1057,18 +993,12 @@ static const struct { const char *prefix, *stage; int percent; } kStages[] = {
     self.verifyState = [self stateIn:self.stepVerify width:cardWidth];
     self.stepVerify.textRight = 220;
 
-    self.stepResolution = [self step:2 icon:@"monitor" title:@"3. Choose Resolution" subtitle:@""];
-    self.stepResolution.textRight = 470;
-    self.resolutionBox = [[KMRPCombo alloc] initWithFrame:NSMakeRect(S(cardWidth - 448), S(26), S(412), S(44))];
-    self.resolutionBox.target = self;
-    self.resolutionBox.action = @selector(openResolutions:);
-    self.resolutionBox.enabled = YES;
-    [self.stepResolution addSubview:self.resolutionBox];
-    self.resolutionState = [self stateIn:self.stepResolution width:cardWidth];
-    self.resolutionState.hidden = YES;
+    self.stepResolution = [self step:2 icon:@"monitor" title:@"3. Resolutions" subtitle:@""];
 
     self.stepApply = [self step:3 icon:@"tools" title:@"4. Apply Patch" subtitle:@""];
     self.stepApply.separator = NO;
+    self.resolutionState = [self stateIn:self.stepResolution width:cardWidth];
+    self.resolutionState.hidden = YES;
     self.applyState = [self stateIn:self.stepApply width:cardWidth];
     self.stepApply.textRight = 300;
 
@@ -1147,13 +1077,15 @@ static const struct { const char *prefix, *stage; int percent; } kStages[] = {
     title.textColor = THEME_TEXT;
     title.frame = NSMakeRect(S(36), S(24), S(cardWidth - 72), S(48));
     [view addSubview:title];
-    NSTextField *subtitle = [NSTextField labelWithString:@"Choose optional components. The first two are on by default, and each "
+    NSTextField *subtitle = [NSTextField labelWithString:@"Choose optional components. The first three are on by default, and each "
                                                          @"can be changed on its own."];
     subtitle.font = BodyFont(Pt(14), NSFontWeightRegular);
     subtitle.textColor = THEME_TEXT_MUTED;
     subtitle.frame = NSMakeRect(S(36), S(74), S(cardWidth - 72), S(30));
     [view addSubview:subtitle];
-    self.markerToggle = [[KMRPToggle alloc] initWithFrame:NSMakeRect(S(36), S(122), S(cardWidth - 72), S(86))];
+    // Four rows since 2026-10-08, when HD Icons came: 80 tall and 8 apart, where three were 86.
+    const CGFloat rowHeight = 80, rowPitch = rowHeight + 8;
+    self.markerToggle = [[KMRPToggle alloc] initWithFrame:NSMakeRect(S(36), S(122), S(cardWidth - 72), S(rowHeight))];
     self.markerToggle.title = @"Area Map Marker Fixes";
     self.markerToggle.author = @"Derslok";
     self.markerToggle.detail = @"Corrects misplaced area-map marker positions across the game.";
@@ -1162,11 +1094,23 @@ static const struct { const char *prefix, *stage; int percent; } kStages[] = {
     if ([defaults boolForKey:@"KMRPNoMapNotes"]) self.markerToggle.on = NO;
     self.markerToggle.changed = ^(BOOL on) { [[NSUserDefaults standardUserDefaults] setBool:on forKey:@"MarkerFixes"]; };
     [view addSubview:self.markerToggle];
+    // The patch's hd-icons option (kmrp-mac.sh --no-hd-icons): the bundled HD icon pack, on
+    // unless turned off, as Windows' Advanced Settings has it since 2026-10-08.
+    self.iconsToggle = [[KMRPToggle alloc] initWithFrame:NSMakeRect(S(36), S(122 + rowPitch), S(cardWidth - 72), S(rowHeight))];
+    self.iconsToggle.title = @"HD Icons";
+    self.iconsToggle.author = @"JackInTheBox";
+    self.iconsToggle.detail = @"High-resolution item icons (KOTOR 1 HD Icon Pack). Off: the game's own icons.";
+    self.iconsToggle.on = [defaults objectForKey:@"HdIcons"] ? [defaults boolForKey:@"HdIcons"] : YES;
+    if ([defaults boolForKey:@"KMRPNoHdIcons"]) self.iconsToggle.on = NO;
+    self.iconsToggle.changed = ^(BOOL on) { [[NSUserDefaults standardUserDefaults] setBool:on forKey:@"HdIcons"]; };
+    [view addSubview:self.iconsToggle];
     // MainForm's controllerToggle: KMRP's controller support, the module and SDL (kmrp-mac.sh
     // --no-controller leaves both out, and its settings file).
-    self.controllerToggle = [[KMRPToggle alloc] initWithFrame:NSMakeRect(S(36), S(122 + 86 + 8), S(cardWidth - 72), S(86))];
+    self.controllerToggle = [[KMRPToggle alloc] initWithFrame:NSMakeRect(S(36), S(122 + 2 * rowPitch), S(cardWidth - 72), S(rowHeight))];
     self.controllerToggle.title = @"Controller Support";
-    self.controllerToggle.author = @"RaymanGT, based on Saul0097";
+    // "RaymanGT, based on Saul0097" until 2026-10-05: the maintainer asked for the
+    // public-facing credit to be KMRP's alone. THIRD_PARTY_NOTICES.md still credits him.
+    self.controllerToggle.author = @"RaymanGT";
     self.controllerToggle.detail = @"Xbox, PlayStation, Switch and Steam Deck: play, menus and matching button prompts.";
     self.controllerToggle.on = [defaults objectForKey:@"ControllerSupport"] ? [defaults boolForKey:@"ControllerSupport"] : YES;
     if ([defaults boolForKey:@"KMRPNoController"]) self.controllerToggle.on = NO;
@@ -1174,7 +1118,7 @@ static const struct { const char *prefix, *stage; int percent; } kStages[] = {
     [view addSubview:self.controllerToggle];
     // MainForm's debugToggle: the patch's debug-logs option (kmrp-mac.sh --debug-logs), off by
     // default, for a player who was asked for logs with a bug report.
-    self.debugToggle = [[KMRPToggle alloc] initWithFrame:NSMakeRect(S(36), S(122 + 2 * (86 + 8)), S(cardWidth - 72), S(86))];
+    self.debugToggle = [[KMRPToggle alloc] initWithFrame:NSMakeRect(S(36), S(122 + 3 * rowPitch), S(cardWidth - 72), S(rowHeight))];
     self.debugToggle.title = @"Debug Logs";
     self.debugToggle.author = @"KMRP";
     self.debugToggle.detail = @"Writes a diagnostic log file. Turn on when reporting a problem.";
@@ -1193,6 +1137,8 @@ static const struct { const char *prefix, *stage; int percent; } kStages[] = {
 - (void)closeSettings:(id)sender { [self showSettings:NO]; }
 - (void)restoreDefaults:(id)sender {   // the documented defaults: the two components on, logs off
     self.markerToggle.on = YES;
+    self.iconsToggle.on = YES;
+    [[NSUserDefaults standardUserDefaults] setBool:YES forKey:@"HdIcons"];
     self.controllerToggle.on = YES;
     self.debugToggle.on = NO;
     [[NSUserDefaults standardUserDefaults] setBool:NO forKey:@"DebugLogs"];
@@ -1296,247 +1242,30 @@ static const struct { const char *prefix, *stage; int percent; } kStages[] = {
 }
 
 // ------------------------------------------------------------------------------ resolutions
+//
+// Step 3 chooses nothing (ResolutionSelection on Windows): KMRP's patch carries the menus for
+// every resolution, the game starts at the size macOS is set to (kmrp-mac.sh --resolution
+// current), and it lists every resolution the connected display supports under Options,
+// Graphics. Until 2026-10-04 the step was a list to pick the one resolution KMRP was installed
+// for. Until 2026-10-08 it had a "Choose" button and a checklist of the sizes the game was to
+// offer, saved in the app's defaults and passed to kmrp-mac.sh as a list; removed to match
+// Windows, which removed its own on 2026-10-07.
 
-// This display, then resolutions.txt.
-- (void)loadRows {
-    self.rows = [NSMutableArray array];
-    CGDirectDisplayID display = CGMainDisplayID();
-    CGSize points = CGDisplayBounds(display).size;
-    size_t pixelWidth = 0, pixelHeight = 0;
-    CGDisplayModeRef mode = CGDisplayCopyDisplayMode(display);
-    if (mode) {
-        pixelWidth = CGDisplayModeGetPixelWidth(mode);
-        pixelHeight = CGDisplayModeGetPixelHeight(mode);
-        CGDisplayModeRelease(mode);
-    }
-    NSInteger pointWidth = (NSInteger)points.width, pointHeight = (NSInteger)points.height;
-    if (pointWidth >= 640 && pointHeight >= 480 && pixelWidth >= (size_t)pointWidth) {
-        NSString *name = @"This display";
-        if (@available(macOS 10.15, *)) {
-            NSString *screen = NSScreen.screens.firstObject.localizedName;
-            if (screen.length) name = [NSString stringWithFormat:@"This display · %@", screen];
-        }
-        [self.rows addObject:[self row:nil text:name choice:nil]];
-        NSString *native = [NSString stringWithFormat:@"%zux%zu", pixelWidth, pixelHeight];
-        NSString *half = [NSString stringWithFormat:@"%ldx%ld", (long)pointWidth, (long)pointHeight];
-        if (pixelWidth > (size_t)pointWidth) {
-            // The resolution macOS is set to first, and chosen by default (2026-10-01): a
-            // player reading 1512x982 in System Settings took the pixel size for a wrong guess.
-            [self.rows addObject:[self row:half text:@"This display, current: the resolution macOS is set to" choice:@"half"]];
-            [self.rows addObject:[self row:native text:@"This display, Retina: every pixel, sharper, heavier on the GPU" choice:@"native"]];
-        } else {
-            [self.rows addObject:[self row:native text:@"This display" choice:@"native"]];
-        }
-    }
-    NSString *list = [NSString stringWithContentsOfFile:[[NSBundle mainBundle] pathForResource:@"resolutions" ofType:@"txt"]
-                                               encoding:NSUTF8StringEncoding error:nil];
-    for (NSString *line in [list componentsSeparatedByCharactersInSet:[NSCharacterSet newlineCharacterSet]]) {
-        if ([line hasPrefix:@"= "]) {
-            [self.rows addObject:[self row:nil text:[line substringFromIndex:2] choice:nil]];
-            continue;
-        }
-        NSArray<NSString *> *fields = [line componentsSeparatedByString:@"\t"];
-        NSInteger w, h;
-        if (fields.count == 2 && ParseSize(fields[0], &w, &h)) [self.rows addObject:[self row:fields[0] text:fields[1] choice:nil]];
+// The size macOS is set to, in points, which the game starts at.
+- (void)readCurrentSize {
+    CGSize points = CGDisplayBounds(CGMainDisplayID()).size;
+    if (points.width >= 640 && points.height >= 480) {
+        self.currentWidth = (NSInteger)points.width;
+        self.currentHeight = (NSInteger)points.height;
     }
 }
 
-- (KMRPRow *)row:(NSString *)size text:(NSString *)text choice:(NSString *)choice {
-    KMRPRow *row = [KMRPRow new];
-    row.size = size;
-    row.text = text;
-    row.choice = choice;
-    return row;
-}
-
-- (BOOL)hasRetinaChoice {
-    for (KMRPRow *row in self.rows)
-        if ([row.choice isEqualToString:@"half"]) return YES;
-    return NO;
-}
-
-- (KMRPRow *)defaultRow {
-    for (KMRPRow *row in self.rows)
-        if ([row.choice isEqualToString:@"half"]) return row;
-    for (KMRPRow *row in self.rows)
-        if ([row.choice isEqualToString:@"native"]) return row;
-    for (KMRPRow *row in self.rows)
-        if (row.size) return row;
-    return nil;
-}
-
-- (void)selectRow:(KMRPRow *)row {
-    if (row) [self selectSize:row.size choice:row.choice detail:row.text];
-}
-
-- (void)selectSize:(NSString *)size choice:(NSString *)choice detail:(NSString *)detail {
-    self.selectedSize = size;
-    self.selectedChoice = choice;
-    self.selectedDetail = detail;
-    self.resolutionBox.text = Pretty(size);
-    self.resolutionBox.detail = !choice ? detail
-        : [choice isEqualToString:@"half"] ? @"This display, current"
-        : [choice isEqualToString:@"native"] && [self hasRetinaChoice] ? @"This display, Retina"
-        : @"This display";
-    self.resolutionBox.needsDisplay = YES;
-}
-
-// The list, as the dropdown's menu: this display, then each shape, then a custom size.
-- (void)openResolutions:(id)sender {
-    NSMenu *menu = [NSMenu new];
-    menu.autoenablesItems = NO;
-    if (@available(macOS 10.14, *)) menu.appearance = [NSAppearance appearanceNamed:NSAppearanceNameDarkAqua];
-    NSFont *sizeFont = [NSFont monospacedDigitSystemFontOfSize:MAX(12, Pt(14)) weight:NSFontWeightSemibold];
-    NSFont *detailFont = BodyFont(MAX(11, Pt(12.5)), NSFontWeightRegular);
-    // Each description starts at one tab stop, past the widest size, so they line up.
-    NSMutableParagraphStyle *columns = [NSMutableParagraphStyle new];
-    CGFloat sizeWidth = [Pretty(@"0000x0000") sizeWithAttributes:Ink(sizeFont, THEME_TEXT)].width;
-    columns.tabStops = @[[[NSTextTab alloc] initWithTextAlignment:NSTextAlignmentLeft location:ceil(sizeWidth) + 22 options:@{}]];
-    NSMenuItem *selected = nil;
-    for (KMRPRow *row in self.rows) {
-        NSMenuItem *item = [[NSMenuItem alloc] initWithTitle:row.text action:nil keyEquivalent:@""];
-        if (!row.size) {
-            if (menu.numberOfItems) [menu addItem:[NSMenuItem separatorItem]];
-            item.enabled = NO;
-            item.attributedTitle = [[NSAttributedString alloc] initWithString:row.text
-                                                                   attributes:Ink(BodyFont(MAX(11, Pt(12)), NSFontWeightBold), THEME_ACCENT)];
-            [menu addItem:item];
-            continue;
-        }
-        NSMutableAttributedString *title = [[NSMutableAttributedString alloc] initWithString:Pretty(row.size)
-                                                                                   attributes:Ink(sizeFont, THEME_TEXT)];
-        [title appendAttributedString:[[NSAttributedString alloc] initWithString:[@"\t" stringByAppendingString:row.text]
-                                                                      attributes:Ink(detailFont, THEME_TEXT_MUTED)]];
-        [title addAttribute:NSParagraphStyleAttributeName value:columns range:NSMakeRange(0, title.length)];
-        item.attributedTitle = title;
-        item.indentationLevel = 1;
-        item.target = self;
-        item.action = @selector(pickResolution:);
-        item.representedObject = row;
-        if ([row.size isEqualToString:self.selectedSize] && [row.text isEqualToString:self.selectedDetail]) {
-            item.state = NSControlStateValueOn;
-            selected = item;
-        }
-        [menu addItem:item];
-    }
-    [menu addItem:[NSMenuItem separatorItem]];
-    NSMenuItem *custom = [[NSMenuItem alloc] initWithTitle:@"Custom size…" action:@selector(customSize:) keyEquivalent:@""];
-    custom.attributedTitle = [[NSAttributedString alloc] initWithString:@"Custom size…" attributes:Ink(sizeFont, THEME_TEXT)];
-    custom.indentationLevel = 1;
-    custom.target = self;
-    if (self.selectedSize && !self.selectedChoice && [self.selectedDetail hasPrefix:@"Custom"]) custom.state = NSControlStateValueOn;
-    [menu addItem:custom];
-    menu.minimumWidth = self.resolutionBox.bounds.size.width;
-    self.openMenu = menu;
-    // Opens below the field, as Windows' dropdown does; a scripted check can open it on its last
-    // item instead, to see the end of a list taller than the screen.
-    [menu popUpMenuPositioningItem:self.listAtEnd ? custom : nil
-                        atLocation:NSMakePoint(0, self.resolutionBox.bounds.size.height + 2) inView:self.resolutionBox];
-    (void)selected;
-}
-
-- (void)pickResolution:(NSMenuItem *)item {
-    [self selectRow:item.representedObject];
-    [self updateView];
-}
-
-// A size the list does not have. The installer blends a set for it, so it is checked with
-// kmrp-guiblend's dry run: exit 0, the sets cover it; 2, they do not.
-- (void)customSize:(id)sender {
-    NSAlert *alert = [NSAlert new];
-    alert.messageText = @"Custom resolution";
-    alert.informativeText = @"KMRP has menu sets for the listed sizes. For any other, the installer blends one from the "
-                            @"sets around it, for shapes from 4:3 to 32:9.";
-    NSView *fields = [[NSView alloc] initWithFrame:NSMakeRect(0, 0, 220, 26)];
-    NSTextField *width = [[NSTextField alloc] initWithFrame:NSMakeRect(0, 0, 90, 24)];
-    NSTextField *height = [[NSTextField alloc] initWithFrame:NSMakeRect(126, 0, 90, 24)];
-    width.placeholderString = @"width";
-    height.placeholderString = @"height";
-    NSInteger w = 0, h = 0;
-    if (ParseSize(self.selectedSize ?: @"", &w, &h)) {
-        width.stringValue = [NSString stringWithFormat:@"%ld", (long)w];
-        height.stringValue = [NSString stringWithFormat:@"%ld", (long)h];
-    }
-    NSTextField *times = [NSTextField labelWithString:@"×"];
-    times.alignment = NSTextAlignmentCenter;
-    times.frame = NSMakeRect(90, 2, 36, 20);
-    [fields addSubview:width];
-    [fields addSubview:times];
-    [fields addSubview:height];
-    alert.accessoryView = fields;
-    [alert addButtonWithTitle:@"Use This Size"];
-    [alert addButtonWithTitle:@"Cancel"];
-    alert.window.initialFirstResponder = width;
-    [alert beginSheetModalForWindow:self.window completionHandler:^(NSModalResponse response) {
-        if (response != NSAlertFirstButtonReturn) return;
-        [self useCustomSize:[NSString stringWithFormat:@"%@x%@", width.stringValue, height.stringValue] tell:YES];
-    }];
-}
-
-- (BOOL)useCustomSize:(NSString *)size tell:(BOOL)tell {
-    NSInteger w, h;
-    NSString *problem = nil;
-    if (!ParseSize(size, &w, &h) || w < 640 || h < 480) problem = @"Type a size of at least 640 × 480.";
-    else if (![self.setSizes containsObject:size]) {
-        int status = [self blendCheck:w height:h];
-        if (status == 2) problem = @"KMRP's menu sets do not reach this size or shape. Sizes from 4:3 to 32:9 work.";
-        else if (status != 0) problem = @"The size could not be checked: the package may be damaged.";
-    }
-    if (problem) {
-        if (tell) {
-            NSAlert *alert = [NSAlert new];
-            alert.messageText = @"This size cannot be used";
-            alert.informativeText = problem;
-            dispatch_async(dispatch_get_main_queue(), ^{ [alert beginSheetModalForWindow:self.window completionHandler:nil]; });
-        }
-        return NO;
-    }
-    NSString *key = [NSString stringWithFormat:@"%ldx%ld", (long)w, (long)h];
-    [self selectSize:key choice:nil detail:[self.setSizes containsObject:key] ? @"Custom" : @"Custom, blended at install"];
-    [self updateView];
-    return YES;
-}
-
-- (int)blendCheck:(NSInteger)width height:(NSInteger)height {
-    if (!self.blendTool) return -1;
-    NSTask *task = [NSTask new];
-    task.executableURL = [NSURL fileURLWithPath:self.blendTool];
-    task.arguments = @[[self.payload stringByAppendingPathComponent:@"gui-blend.bin"],
-                       [NSString stringWithFormat:@"%ld", (long)width], [NSString stringWithFormat:@"%ld", (long)height]];
-    task.standardOutput = [NSFileHandle fileHandleWithNullDevice];
-    task.standardError = [NSFileHandle fileHandleWithNullDevice];
-    if (![task launchAndReturnError:nil]) return -1;
-    [task waitUntilExit];
-    return task.terminationStatus;
-}
-
-// kmrp-guiblend, copied out of the bundle without the quarantine flag: Gatekeeper kills a
-// flagged helper as it starts (exit 137), and a downloaded app's bundle is read-only
-// (kmrp-mac.sh does the same for its helpers).
-- (NSString *)copyBlendTool {
-    NSString *folder = [NSTemporaryDirectory() stringByAppendingPathComponent:
-                        [NSString stringWithFormat:@"kmrp-installer-%d", getpid()]];
-    NSString *tool = [folder stringByAppendingPathComponent:@"kmrp-guiblend"];
-    NSFileManager *files = [NSFileManager defaultManager];
-    [files createDirectoryAtPath:folder withIntermediateDirectories:YES attributes:nil error:nil];
-    [files removeItemAtPath:tool error:nil];
-    if (![files copyItemAtPath:[self.payload stringByAppendingPathComponent:@"bin/kmrp-guiblend"] toPath:tool error:nil])
-        return nil;
-    removexattr(tool.fileSystemRepresentation, "com.apple.quarantine", 0);
-    return tool;
-}
-
-// The sizes the build has a menu set of its own for (sizes.txt; read from layouts.zip until
-// 2026-10-04, when the sets moved into the patch's module).
-- (void)loadSetSizes {
-    NSString *text = [NSString stringWithContentsOfFile:[self.payload stringByAppendingPathComponent:@"sizes.txt"]
-                                               encoding:NSUTF8StringEncoding error:nil];
-    NSMutableSet *sizes = [NSMutableSet set];
-    for (NSString *line in [text componentsSeparatedByCharactersInSet:[NSCharacterSet newlineCharacterSet]]) {
-        NSInteger w = 0, h = 0;
-        if (ParseSize(line, &w, &h)) [sizes addObject:line];
-    }
-    self.setSizes = sizes;
+// Step 3's line under its title before an install (ResolutionSelection.Summary), with the
+// display's current size.
+- (NSString *)summary {
+    if (self.currentWidth <= 0) return @"This display reports no resolution KMRP can use.";
+    return [NSString stringWithFormat:@"Starts at %ld × %ld. The game lists every resolution the connected display supports.",
+            (long)self.currentWidth, (long)self.currentHeight];
 }
 
 // ---------------------------------------------------------------------------------- status
@@ -1570,10 +1299,9 @@ static const struct { const char *prefix, *stage; int percent; } kStages[] = {
             self.incomplete = ![output containsString:@"complete=1"];
             self.installedSize = Value(output, @"resolution=");
         }
-        BOOL first = !self.statusLoaded;
         self.statusLoaded = YES;
         [self updateView];
-        if (first) [self startAutomation];
+        [self startAutomation];
     }];
 }
 
@@ -1583,7 +1311,6 @@ static const struct { const char *prefix, *stage; int percent; } kStages[] = {
     BOOL verified = self.gameReady || self.installed;
     self.stepGame.title = done ? @"1. Selected Game" : @"1. Select Game";
     self.stepVerify.title = done ? @"2. Verified Game" : @"2. Verify Game";
-    self.stepResolution.title = done ? @"3. Chosen Resolution" : @"3. Choose Resolution";
     self.stepGame.subtitle = self.gamePath ? self.gamePath.stringByDeletingLastPathComponent.stringByAbbreviatingWithTildeInPath : (self.statusLoaded
         ? @"KOTOR was not found in your Steam libraries. Choose Knights of the Old Republic.app."
         : @"Looking for KOTOR in your Steam libraries…");
@@ -1602,7 +1329,7 @@ static const struct { const char *prefix, *stage; int percent; } kStages[] = {
         else if (self.replacesKpm)
             self.stepVerify.subtitle = @"FTD's widescreen patch found. KMRP replaces it with its own copy.";
         else if (self.forKpm)
-            self.stepVerify.subtitle = @"KotOR Patch Manager manages this game. KMRP is installed for it.";
+            self.stepVerify.subtitle = @"Managed by KotOR Patch Manager: tick KMRP there, then Apply and Launch.";
         else if (self.gameReady) self.stepVerify.subtitle = @"Unmodified Steam version 1.4.0 detected.";
         else if (self.gameFound)
             self.stepVerify.subtitle = @"This copy cannot be patched. Steam's Verify Integrity restores the original.";
@@ -1610,10 +1337,14 @@ static const struct { const char *prefix, *stage; int percent; } kStages[] = {
     }
 
     self.stepResolution.dimmed = self.statusLoaded && !verified;
-    self.stepResolution.subtitle = done ? @"Installed resolution." : @"Select the resolution you want to patch for.";
-    self.resolutionBox.hidden = done || (self.statusLoaded && !verified);
+    // As Windows' UpdateVisualState: installed, the size the game starts at on the right (from
+    // status's resolution=) over a line that says where another is chosen; otherwise the line
+    // of ResolutionSelection.Summary and nothing on the right.
+    self.stepResolution.subtitle = done
+        ? @"The game starts at this size. Choose another in the game, under Options, Graphics."
+        : [self summary];
     self.resolutionState.hidden = !done;
-    if (done) [self.resolutionState set:Pretty(self.installedSize ?: @"?") color:THEME_TEXT badge:nil];
+    if (done) [self.resolutionState set:(self.installedSize.length ? Pretty(self.installedSize) : @"Installed") color:THEME_TEXT badge:nil];
 
     if (self.running) return;
     if (done) {
@@ -1632,9 +1363,8 @@ static const struct { const char *prefix, *stage; int percent; } kStages[] = {
         self.stepApply.subtitle = @"Patches will be applied to make KOTOR modern-ready.";
     }
     self.actionButton.text = self.installed ? @"Restore Original" : @"Start Patching";
-    self.actionButton.enabled = self.statusLoaded && !self.checking && (self.installed || (self.gameReady && self.selectedSize));
+    self.actionButton.enabled = self.statusLoaded && !self.checking && (self.installed || self.gameReady);
     self.browseButton.enabled = YES;
-    self.resolutionBox.enabled = YES;
     self.settingsButton.enabled = YES;
 }
 
@@ -1662,9 +1392,10 @@ static const struct { const char *prefix, *stage; int percent; } kStages[] = {
 - (void)patch {
     NSMutableArray *arguments = [NSMutableArray arrayWithObjects:self.script, @"install", @"--yes", nil];
     [arguments addObjectsFromArray:self.gameArguments];
-    if (self.selectedChoice) [arguments addObjectsFromArray:@[@"--resolution", self.selectedChoice]];
-    else [arguments addObjectsFromArray:@[@"--size", self.selectedSize]];
+    // The game starts at the size macOS is set to, and lists what the display supports.
+    [arguments addObjectsFromArray:@[@"--resolution", @"current"]];
     if (!self.markerToggle.on) [arguments addObject:@"--no-map-notes"];
+    if (!self.iconsToggle.on) [arguments addObject:@"--no-hd-icons"];
     if (!self.controllerToggle.on) [arguments addObject:@"--no-controller"];
     if (self.debugToggle.on) [arguments addObject:@"--debug-logs"];
     [self runOperation:@"Patch" arguments:arguments];
@@ -1686,7 +1417,6 @@ static const struct { const char *prefix, *stage; int percent; } kStages[] = {
     self.stage = patch ? @"Preparing patch…" : @"Preparing restore…";
     [self showProgress];
     self.browseButton.enabled = NO;
-    self.resolutionBox.enabled = NO;
     self.settingsButton.enabled = NO;
     [self.applyState set:patch ? @"Patching…" : @"Restoring…" color:THEME_ACCENT badge:nil];
     self.stepApply.subtitle = patch ? @"KMRP is updating your game. Please wait."
@@ -1835,33 +1565,26 @@ static const struct { const char *prefix, *stage; int percent; } kStages[] = {
     return NSTerminateCancel;
 }
 
-- (void)applicationWillTerminate:(NSNotification *)notification {
-    if (self.blendTool) [[NSFileManager defaultManager] removeItemAtPath:self.blendTool.stringByDeletingLastPathComponent error:nil];
-}
-
 - (BOOL)applicationShouldTerminateAfterLastWindowClosed:(NSApplication *)sender { return YES; }
 
 // ------------------------------------------------------------------------ scripted checks
 
+// Once, when the first status is in.
 - (void)startAutomation {
+    if (self.automationStarted || !self.statusLoaded) return;
+    self.automationStarted = YES;
     NSUserDefaults *defaults = [NSUserDefaults standardUserDefaults];
-    NSString *select = [defaults stringForKey:@"KMRPSelect"];
-    if (select.length) {
-        KMRPRow *found = nil;
-        for (KMRPRow *row in self.rows)
-            if ([row.choice isEqualToString:select] || (!row.choice && [row.size isEqualToString:select])) { found = row; break; }
-        if (found) [self selectRow:found];
-        else [self useCustomSize:select tell:NO];
-        [self updateView];
-    }
     if ([defaults boolForKey:@"KMRPSettings"]) [self showSettings:YES];
     // The smoke's first frames and the settings fade, then the snapshot and the run.
     dispatch_after(dispatch_time(DISPATCH_TIME_NOW, (int64_t)(1.5 * NSEC_PER_SEC)), dispatch_get_main_queue(), ^{
         [self snapshot:@"ready"];
-        if ([defaults boolForKey:@"KMRPShowList"] || [defaults boolForKey:@"KMRPShowCustom"]) {
-            [self showForSnapshots];
-            return;
-        }
+        [self runScriptedAction];
+    });
+}
+
+- (void)runScriptedAction {
+    NSUserDefaults *defaults = [NSUserDefaults standardUserDefaults];
+    {
         NSString *run = [defaults stringForKey:@"KMRPRun"];
         BOOL can = self.actionButton.enabled;
         if ([run isEqualToString:@"install"] && can && !self.installed) [self patch];
@@ -1870,7 +1593,7 @@ static const struct { const char *prefix, *stage; int percent; } kStages[] = {
             if (run.length) [self.output appendFormat:@"KMRPRun %@: the action is not available\n", run];
             [self finishAutomation];
         }
-    });
+    }
 }
 
 - (void)finishAutomation {
@@ -1884,45 +1607,6 @@ static const struct { const char *prefix, *stage; int percent; } kStages[] = {
             [self.output writeToFile:[prefix stringByAppendingString:@"-log.txt"] atomically:YES encoding:NSUTF8StringEncoding error:nil];
         if ([defaults boolForKey:@"KMRPQuit"]) [NSApp terminate:nil];
     });
-}
-
-// The list and the custom-size dialog are windows of their own, so each is opened and
-// photographed in turn. The list tracks the mouse modally: its snapshot is scheduled in the
-// run loop modes the tracking runs in, and closes it.
-- (void)showForSnapshots {
-    NSUserDefaults *defaults = [NSUserDefaults standardUserDefaults];
-    if ([defaults boolForKey:@"KMRPShowList"] && !self.resolutionBox.hidden) {
-        for (NSString *shot in @[@"list", @"list-end"]) {
-            self.listShot = shot;
-            self.listAtEnd = [shot isEqualToString:@"list-end"];
-            [self performSelector:@selector(snapshotList) withObject:nil afterDelay:1.0 inModes:@[NSRunLoopCommonModes]];
-            [self openResolutions:nil];   // returns when snapshotList closes it
-        }
-        self.listAtEnd = NO;
-    }
-    if ([defaults boolForKey:@"KMRPShowCustom"]) {
-        [self customSize:nil];
-        dispatch_after(dispatch_time(DISPATCH_TIME_NOW, (int64_t)(1.0 * NSEC_PER_SEC)), dispatch_get_main_queue(), ^{
-            NSWindow *sheet = self.window.attachedSheet;
-            if (sheet) {
-                [self snapshotView:sheet.contentView name:@"custom"];
-                [self.window endSheet:sheet];
-            }
-            [self finishAutomation];
-        });
-        return;
-    }
-    [self finishAutomation];
-}
-
-- (void)snapshotList {
-    for (NSWindow *window in NSApp.windows) {
-        if (window != self.window && window.isVisible && [NSStringFromClass(window.class) containsString:@"Menu"]) {
-            [self snapshotView:window.contentView.superview ?: window.contentView name:self.listShot];
-            break;
-        }
-    }
-    [self.openMenu cancelTracking];
 }
 
 - (void)snapshot:(NSString *)name { [self snapshotView:self.window.contentView name:name]; }

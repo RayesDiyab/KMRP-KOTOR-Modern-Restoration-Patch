@@ -65,14 +65,24 @@ Version 4 (2026-09-30, the merge of the two branches the same day) carries both,
 row fits first: the two version 3 tables were different formats with one number, so
 the helpers refuse both.
 
+Version 5 (2026-10-05): a badge is made for the area its button's border fills, not the
+whole button. A border that names corner art draws its fill inside itself by its DIMENSION
+on every side (build_controller_prompt_textures.py, fill_inset), so a badge made for the
+whole button was drawn squeezed: 13% wider than tall on a 720x90 button with a 6 px
+border, and 28x20 on the game's original 240x40 one. Each prompt carries its two borders'
+insets, the normal one's and the focused one's, which are the same in every set (checked),
+and the header the two constants of the fit; where the insets differ the installers draw a
+second texture for the focused border, "kmf..." beside "kmr...".
+
 Format (little-endian):
-    "KGBL" u32 version=4
+    "KGBL" u32 version=5
     u32 families; per family: f64 aspect
     u32 anchors;  per anchor: u32 width, u32 height, u32 family
     u32 fits;     per fit: u16 name length, name (the .gui), u16 length, resref (the
                   prompt manifest row whose baked width is the caption),
                   f64 radius below, f64 radius from, u32 height they switch at,
                   f64 gap, f64 edge (the badge's geometry, build_controller_prompt_textures),
+                  u32 the button's border's fill inset, f64 the fit margin (version 5),
                   u32 panel LEFT offset, u32 panel WIDTH offset, u32 button WIDTH offset,
                   u32 button HEIGHT offset, u32 n, n x u32 WIDTH offsets to widen
     u32 layouts;  per layout: u16 length, name (the .gui), u16 length, font (the TXI's
@@ -91,6 +101,8 @@ Format (little-endian):
     badges:       u32 texture width, u32 texture height, f64 radius, f64 radius below,
                   u32 height they switch at, f64 gap, f64 edge, f64 centre y, f64 centre x
                   without a label (build_controller_prompt_textures.py's BADGE_*),
+                  u32 least fill height that gets a badge, f64 margin kept inside a
+                  fitted area (MIN_BADGE_AREA, FIT_MARGIN),
                   u16 length, the TGA footer;
                   u32 glyphs; per glyph: u32 width, u32 height, width x height x 4 bytes
                   RGBA, top row first (_load_glyph_art's image);
@@ -98,7 +110,8 @@ Format (little-endian):
                   length, the .gui, u32 its control's WIDTH offset, u32 HEIGHT offset,
                   u32 glyph, u8 1 when it stands on a backing and the backing's RGBA
                   (4 bytes, zero without one), u32 n, n x u32 HEIGHT offsets in the same
-                  .gui whose least sizes the badge (none: its own height)
+                  .gui whose least sizes the badge (none: its own height), u32 the normal
+                  border's fill inset, u32 the focused border's
     u32 huds;     per HUD texture (one): u16 length, the .gui, u16 length, the texture,
                   u32 width, u32 height, u32 edge alpha (build_menubg_texture.py), u32
                   LBL_MENUBG's LEFT offset, u32 its WIDTH offset, u32 n, n x (u32 LEFT,
@@ -130,7 +143,7 @@ LAYOUT_SCREEN = "kmrplayout.gui"
 # (prepare_universal_resources.py); a blended size is never 3440x1440.
 HUD_SCREEN = "mipc28x6.gui"
 
-VERSION = 4
+VERSION = 5
 # Field types whose value sits inline in the entry's data dword (GFF V3.2).
 INLINE_TYPES = {0: "BYTE", 1: "CHAR", 2: "WORD", 3: "SHORT", 4: "DWORD", 5: "INT", 8: "FLOAT"}
 FAMILY_ORDER = ["4:3", "16:10", "16:9", "21:9", "32:9"]
@@ -189,6 +202,10 @@ class Gff:
     def string(self, entry: int) -> str:
         at = self.field_data + self.dword(entry)
         return self.data[at + 4:at + 4 + struct.unpack_from("<I", self.data, at)[0]].decode("latin-1")
+
+    def resref(self, entry: int) -> str:
+        at = self.field_data + self.dword(entry)
+        return self.data[at + 1:at + 1 + self.data[at]].decode("latin-1")
 
     def list(self, entry: int) -> tuple[int, ...]:
         at = self.lists + self.dword(entry)
@@ -254,7 +271,29 @@ def unfit(blob: bytes, fit: dict, pixels: int) -> bytes:
     return bytes(data)
 
 
-def badge_section(templates: dict[str, bytes], manifest: bytes) -> bytes:
+def border_insets(blob: bytes, index: int) -> tuple[int, int]:
+    """The fill insets of control `index` of a .gui: its BORDER's and its HILIGHT's
+    (build_controller_prompt_textures.fill_inset, on the packed file)."""
+    gff = Gff(blob)
+    control = gff.fields(gff.list(gff.fields(0)["CONTROLS"])[index])
+
+    def inset(label: str):
+        if label not in control:
+            return None
+        border = gff.fields(gff.dword(control[label]))
+        if not gff.resref(border["CORNER"]):
+            return 0
+        dimension = struct.unpack_from("<i", blob, border["DIMENSION"] + 8)[0]
+        if dimension <= 0:
+            raise SystemExit("a border with corner art and no DIMENSION: its inset is the art's size")
+        return dimension
+
+    normal = inset("BORDER") or 0
+    focused = inset("HILIGHT")
+    return normal, normal if focused is None else focused
+
+
+def badge_section(templates: dict[str, bytes], manifest: bytes, sets: list[dict[str, bytes]]) -> bytes:
     """The badges' constants, artwork and recipes, one recipe per prompt manifest row, as
     build_prompt_textures makes that row's texture."""
     out = struct.pack("<II", prompts.TEXTURE_WIDTH, prompts.TEXTURE_HEIGHT)
@@ -262,6 +301,7 @@ def badge_section(templates: dict[str, bytes], manifest: bytes) -> bytes:
     out += struct.pack("<I", prompts.BADGE_SHORT_BELOW)
     out += struct.pack("<dddd", prompts.BADGE_GAP, prompts.BADGE_EDGE, prompts.BADGE_CENTER_Y,
                        prompts.BADGE_FALLBACK_X)
+    out += struct.pack("<Id", prompts.MIN_BADGE_AREA, prompts.FIT_MARGIN)
     out += struct.pack("<H", len(prompts.TGA_FOOTER)) + prompts.TGA_FOOTER
 
     glyphs = []                                       # (family, glyph), in table order
@@ -322,6 +362,10 @@ def badge_section(templates: dict[str, bytes], manifest: bytes) -> bytes:
         record += struct.pack("<III", extent[2], extent[3], glyphs.index((family, target.glyph)))
         record += struct.pack("<B4B", 1 if backing else 0, *(backing or (0, 0, 0, 0)))
         record += struct.pack("<I", len(sizing)) + struct.pack(f"<{len(sizing)}I", *sizing)
+        insets = {border_insets(files[target.gui], target.control_index) for files in sets}
+        if len(insets) != 1:
+            raise SystemExit(f"{resref}: its button's borders are not the same in every set: {sorted(insets)}")
+        record += struct.pack("<II", *insets.pop())
         records.append(record)
     return out + struct.pack("<I", len(records)) + b"".join(records)
 
@@ -432,6 +476,12 @@ def main() -> int:
     out += struct.pack("<I", 1) + text(pur.CONTAINER_SCREEN) + text(caption_row)
     out += struct.pack("<ddIdd", prompts.BADGE_RADIUS_SHORT, prompts.BADGE_RADIUS,
                        prompts.BADGE_SHORT_BELOW, prompts.BADGE_GAP, prompts.BADGE_EDGE)
+    fit_target = next(t for t in prompts.PROMPT_TARGETS
+                      if (t.gui, t.tag) == (pur.CONTAINER_SCREEN, pur.CONTAINER_FIT_TAG))
+    fit_insets = {border_insets(z.read(pur.CONTAINER_SCREEN), fit_target.control_index)[0] for z in archives}
+    if len(fit_insets) != 1:
+        raise SystemExit(f"{pur.CONTAINER_SCREEN}: its fitted button's border differs between sets")
+    out += struct.pack("<Id", fit_insets.pop(), prompts.FIT_MARGIN)
     out += struct.pack("<IIIII", fit["left"], fit["width"], fit["button_width"],
                        fit["button_height"], len(fit["widths"]))
     out += struct.pack(f"<{len(fit['widths'])}I", *fit["widths"])
@@ -485,7 +535,8 @@ def main() -> int:
     for archive in archives[1:]:
         if row_names(archive.read(prompts.PROMPT_MANIFEST_NAME)) != row_names(manifest):
             raise SystemExit(f"{archive.filename}: its prompt manifest lists other badges")
-    out += badge_section(templates, manifest)
+    badged = sorted({t.gui for t in prompts.PROMPT_TARGETS})
+    out += badge_section(templates, manifest, [{gui: z.read(gui) for gui in badged} for z in archives])
     out += hud_section(templates)
     out += struct.pack("<I", len(names))
 

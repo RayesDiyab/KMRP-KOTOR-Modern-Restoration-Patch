@@ -15,6 +15,10 @@ void RequestDisengage();            // X in combat: disengage
 // world (asked by the world's interaction bridge).
 bool ActionBarFocused();
 
+// Which of the seven slots has the focus on this HUD (0-2 the target's, 3-6 personal), or -1
+// (KmrpFocusedActionSlotK1). The Xbox-style HUD draws that slot large (xbox_hud.cpp).
+int FocusedSlot(void* hud);
+
 // One log line on what the HUD did.
 void Status();
 

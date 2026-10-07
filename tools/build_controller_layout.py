@@ -177,6 +177,7 @@ HELP_Y, HELP_H = 466, 22                  # the help line, compact form
 BACK_X, BACK_Y, BACK_W, BACK_H = 280, 494, 200, 40
 BACK_GLYPH_X, BACK_GLYPH_Y, BACK_GLYPH_TRIM = 8, 6, 12   # the B inside Back
 CAPTION_GAP = 6                           # between a glyph and its caption box
+TOP_CAPTION_GAP = 12                      # kept between two top captions' words (separate_top)
 LINE_BOX_H = 28                           # a one-line caption box
 TWO_LINES = 2.3                           # a two-line box, in the font's lines
 TOP_CAPTION_H, TOP_CAPTION_RISE = 26, 28  # the centre pair's captions, above their glyphs
@@ -523,11 +524,17 @@ def layout_rows() -> list[tuple[str, float, float, str]]:
 
 
 def build_gui(source: Path, output: Path, width: int, height: int,
-              font_txi: Path | None = None):
+              font_txi: Path | None = None, separate_top: bool = False):
     """kmrplayout.gui: every tag the runtime binds, laid out for one screen.
 
     `font_txi` is this resolution's CAPTION_FONT TXI; without it the caption
     boxes keep their minimum widths.
+
+    `separate_top`: move the captions above the diagram apart where their words
+    would meet. Each is centred over its glyph, and in the game's original font,
+    which is wider than KMRP's, "Solo mode" ran into "Map / Close menu" (seen in the
+    standalone controller patch on 2026-10-05). Off for KMRP's own sets, whose
+    files the installers' helper reproduces byte for byte.
     """
     metrics = parse_font_metrics(font_txi) if font_txi else None
     line_h = 0.0
@@ -604,6 +611,18 @@ def build_gui(source: Path, output: Path, width: int, height: int,
     def box_height(caption, box_w):
         return two_lines if caption_width(caption, metrics, scale) > box_w else LINE_BOX_H
 
+    # How far each top caption moves sideways, in design units, by LAYOUT index.
+    top_shift = {}
+    if separate_top and metrics:
+        tops = sorted((TOP_GLYPH_X[e[3]] + GLYPH / 2, caption_width(e[1], metrics, scale), i)
+                      for i, e in enumerate(LAYOUT) if e[2] == 'T')
+        for (c1, w1, i1), (c2, w2, i2) in zip(tops, tops[1:]):
+            c1 += top_shift.get(i1, 0.0)
+            short = (w1 + w2) / 2 + TOP_CAPTION_GAP - (c2 - c1)
+            if short > 0:
+                top_shift[i1] = top_shift.get(i1, 0.0) - short / 2
+                top_shift[i2] = top_shift.get(i2, 0.0) + short / 2
+
     # The rows sit where the texture's lines end, in the same design space.
     for i, ((glyph, caption, side, _), cy) in enumerate(zip(LAYOUT, rows())):
         y = BOARD[1] + cy
@@ -623,7 +642,7 @@ def build_gui(source: Path, output: Path, width: int, height: int,
             # Centred above its glyph. Beside it, "Map / Close menu" reached
             # into the right column and the RT line ran through the word menu.
             tw = top_w
-            tx, align = gx + GLYPH / 2 - tw / 2, ALIGN_CENTRE
+            tx, align = gx + GLYPH / 2 - tw / 2 + top_shift.get(i, 0.0), ALIGN_CENTRE
             style(add(10 + ROWS + i, f'TEXT_{i:02d}', caption, tx,
                       y - GLYPH / 2 - TOP_CAPTION_RISE, tw, TOP_CAPTION_H), align=align)
             continue

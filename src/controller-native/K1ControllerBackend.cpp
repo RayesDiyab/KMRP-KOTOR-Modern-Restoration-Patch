@@ -1,6 +1,6 @@
 #include "K1ControllerBackend.h"
 #include <SDL3/SDL.h>
-#ifdef KMRP_NATIVE_RUNTIME
+#if defined(KMRP_NATIVE_RUNTIME) || defined(KMRP_CONTROLLER_STANDALONE)
 #include "K1RuntimeAssets.h"
 #endif
 #define SDL_MAIN_HANDLED
@@ -64,7 +64,7 @@ void InitSdl()
                 LOAD_LIBRARY_SEARCH_DLL_LOAD_DIR | LOAD_LIBRARY_SEARCH_SYSTEM32);
         }
     }
-#ifdef KMRP_NATIVE_RUNTIME
+#if defined(KMRP_NATIVE_RUNTIME) || defined(KMRP_CONTROLLER_STANDALONE)
     // The standalone module has no installer to put SDL beside the game: it carries
     // the library and unpacks it with its other files. Still an owned, absolute path.
     if (!lib) {

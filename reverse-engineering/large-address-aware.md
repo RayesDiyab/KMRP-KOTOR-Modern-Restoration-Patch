@@ -8,6 +8,25 @@ Address Aware support and the deliberately narrow compatibility rule for inputs
 already processed by a 4 GB patcher. It does not claim that a particular mod set
 needs more than 2 GB; memory-heavy gameplay remains an empirical test.
 
+> **How the bit is set now (note of 2026-10-08, read from the source).** This is
+> the one change KMRP still makes to `swkotor.exe` on disk, and only to the CD
+> 1.03 and GOG files; Steam's is never changed, because its DRM refuses a file
+> that differs. Two paths write the same bit at the same FILE `0x000926`:
+>
+> | Install | Who writes it | Where in the source |
+> | --- | --- | --- |
+> | KMRP's installer on its own | the installer, after leaving KOTOR Patch Manager a backup of the unmodified file; a file that already has the bit is left as it is, and restore leaves it too | `KpmEditionOperations.SetLargeAddressAware`, `WriteKpmBackup` (`src/patcher/KpmEdition.cs`) |
+> | `KMRP.kpatch` ticked in KOTOR Patch Manager | KOTOR Patch Manager, from the patch's static hook (`0F 01` to `2F 01`, CD 1.03 and GOG only) | `kotor1-cd-large-address.hooks.toml` in the archive, from `large_address_hook()` (`tools/kpatch_common.py`, `src/engine/windows-sites.json`) |
+>
+> The gold rows of the table below and the clean-to-gold delta in "Existing 4
+> GB-patched inputs" describe the installer until 2026-09-29, which wrote the
+> whole patched image. The rule of that section still holds for the installer
+> (a known file, or the same file with only this bit set: `GameExecutable.Hash`
+> and `LargeAddressAwareHash` in `KmrpPatcher.cs`), now for CD 1.03, GOG and
+> Steam. `--apply` still writes the patched image to a new file, and
+> `Test-LargeAddressAware.ps1` covers both (its Cases 1 and 2 are `--apply`,
+> the later ones the install). The table and the edit itself are unchanged.
+
 ## The builds this describes
 
 | Build | Length | SHA-256 | PE characteristics |

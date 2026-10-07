@@ -876,6 +876,31 @@ void ControllerLayoutReleaseGffK1(void* panel) {
     for (auto& e:entries) if (!e.parent) {
         void* c=bind(panel,"BTN_KMRPLAY",true);
         if (!c) return;
+        // Under Keymapping, one step of the column below it, measured on the live
+        // buttons. The layout file says the same for the screen as it was made, but
+        // another patch may have rescaled the screen before this button existed
+        // (Scaled Kotor does, as the layout finishes loading: at 3440x1440 the
+        // button stood at the file's place, small, over the first rows; the
+        // maintainer saw it, 2026-10-05). optgameplay.gui: BTN_KEYMAP is ID 12,
+        // BTN_MOUSE ID 13, in the game's file and in ours.
+        {
+            struct Rect { int left, top, width, height; };
+            auto array=at<void**>(panel,0x20);
+            const int count=at<int>(panel,0x24);
+            void* keymap=array && count>13 ? array[12] : nullptr;
+            void* mouse=array && count>13 ? array[13] : nullptr;
+            if (keymap && mouse && keymap!=c && mouse!=c &&
+                at<std::uintptr_t>(keymap,0)==at<std::uintptr_t>(c,0) &&
+                at<std::uintptr_t>(mouse,0)==at<std::uintptr_t>(c,0)) {
+                const Rect k=at<Rect>(keymap,4), m=at<Rect>(mouse,4);
+                const int step=k.top-m.top;
+                if (step>0 && k.width>0 && k.height>0 && k.left==m.left) {
+                    const Rect wanted{k.left,k.top+step,k.width,k.height};
+                    using SetExtent=void(__thiscall*)(void*,const Rect*);
+                    reinterpret_cast<SetExtent>(at<void**>(c,0)[1])(c,&wanted);
+                }
+            }
+        }
         fn<Event>(0x41AB20)(c,0x27,panel,reinterpret_cast<void*>(&open));
         e={panel,c,false,0}; log("entry-create"); return;
     }

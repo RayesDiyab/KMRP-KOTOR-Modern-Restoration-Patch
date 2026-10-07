@@ -38,7 +38,8 @@
 #include "prompts.h"
 #include "state.h"
 #include "../kmrp-layout/options.h"
-#include "../kmrp-layout/status_summary.h"
+#include "../kmrp-layout/text.h"
+#include "standalone.h"
 
 #include <mach/mach.h>
 #include <mach/mach_vm.h>
@@ -48,7 +49,6 @@
 #include <cstdlib>
 #include <cstring>
 
-namespace kmrp { extern void (*g_frameHook)(void* manager); }   // kmrp-layout/kmrp_layout.cpp
 namespace kmrp {
 namespace gui {
 namespace {
@@ -922,10 +922,16 @@ extern "C" __attribute__((visibility("default"))) void KmrpPanelHandleInputEvent
 // manager without options, so the patch with options keeps this one whatever was chosen and the
 // choice is made here. With the controller off, the frame is the status summary's alone.
 extern "C" __attribute__((visibility("default"))) void KmrpGuiFrame(void* manager) {
-    if (kmrp::g_frameHook) kmrp::g_frameHook(manager);
-    if (!kmrp::ControllerOption()) {
-        kmrp::summary::Update(manager, nullptr);
-        return;
+    // Another patch adds a resource directory when the resolution is changed in the game (KMRP's
+    // menu set for the new size), which would then be searched before this patch's files.
+    static int lastWidth = 0, lastHeight = 0;
+    if (LooksLikePointer(manager)) {
+        const int width = At<std::int16_t>(manager, 0xa4), height = At<std::int16_t>(manager, 0xa6);
+        if (width > 0 && height > 0 && (width != lastWidth || height != lastHeight)) {
+            if (lastWidth) kmrp::standalone::RegisterAgain();
+            lastWidth = width;
+            lastHeight = height;
+        }
     }
     PerformPartySwitch();
     UpdateDescriptionScroll();

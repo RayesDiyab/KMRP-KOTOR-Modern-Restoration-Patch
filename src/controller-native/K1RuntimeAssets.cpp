@@ -1,7 +1,16 @@
 // Embedded resources, materialized into a private process cache and registered
 // through the game's resource manager. Never writes the player's Override.
+//
+// The bank (tools/build_native_assets.py, KNAST002) names every file of every
+// resolution's set with its SHA-256, and stores only the objects this module cannot
+// make: the build ran the blend helper below for every set and left out each file
+// the helper writes exactly as the set has it. So a set is produced in three steps
+// (KmrpRuntimeAssetsDimensions): the files the bank holds are written, the helper
+// writes the rest, and every file is held against the set's index. Until
+// 2026-10-05 the bank stored every file (KNAST001, 243 MB of a 249 MB patch).
 #include "K1RuntimeAssets.h"
 #include "NativeAssets.generated.h"
+#include "KmrpOptions.h"
 #include <windows.h>
 #include <compressapi.h>
 #include <bcrypt.h>
@@ -18,6 +27,7 @@ extern "C" int KmrpGuiBlendCovers(const char*, unsigned, unsigned);
 // macos/tools/kmrp-abilityicons.c and kmrp-gameart.c, compiled with KMRP_EMBEDDED.
 extern "C" int KmrpAbilityIcons(const char* erf, unsigned height, const char* outdir, const char* reserved);
 extern "C" int KmrpGameArt(const char* erf, const char* key, unsigned height, const char* outdir);
+void KmrpRuntimeLog(const char* line);       // K1RuntimeEngine.cpp: one line into kmrp-kpm.log
 
 namespace {
 using Key = std::array<unsigned char, 32>;
@@ -36,14 +46,18 @@ DECOMPRESSOR_HANDLE decompressor = nullptr;
 
 bool Sha(const unsigned char* data, unsigned size, Key& result)
 {
-    BCRYPT_ALG_HANDLE algorithm = nullptr;
+    // Opened once: a set is some 2,100 files, each hashed three times on its way to
+    // the cache, and opening the provider for every one of them was measurable.
+    static BCRYPT_ALG_HANDLE algorithm = nullptr;
     BCRYPT_HASH_HANDLE hash = nullptr;
-    if (BCryptOpenAlgorithmProvider(&algorithm, BCRYPT_SHA256_ALGORITHM, nullptr, 0) < 0) return false;
+    if (!algorithm && BCryptOpenAlgorithmProvider(&algorithm, BCRYPT_SHA256_ALGORITHM, nullptr, 0) < 0) {
+        algorithm = nullptr;
+        return false;
+    }
     bool ok = BCryptCreateHash(algorithm, &hash, nullptr, 0, nullptr, 0, 0) >= 0 &&
         BCryptHashData(hash, const_cast<unsigned char*>(data), size, 0) >= 0 &&
         BCryptFinishHash(hash, result.data(), static_cast<ULONG>(result.size()), 0) >= 0;
     if (hash) BCryptDestroyHash(hash);
-    BCryptCloseAlgorithmProvider(algorithm, 0);
     return ok;
 }
 
@@ -119,7 +133,11 @@ bool Initialize()
     if (!resource) return false;
     unsigned size = SizeofResource(module, resource);
     auto data = static_cast<const unsigned char*>(LockResource(LoadResource(module, resource)));
-    if (!data || size < 48 || std::memcmp(data, "KNAST001", 8)) return false;
+    // The first eight bytes name the compression (tools/build_native_assets.py):
+    // XPRESS with Huffman, the one shipped, or LZMS, the builder's --lzms.
+    if (!data || size < 48) return false;
+    const bool lzms = !std::memcmp(data, "KNASL002", 8);
+    if (!lzms && std::memcmp(data, "KNAST002", 8)) return false;
     Reader reader{data + 8, data + size};
     unsigned groupCount, objectCount;
     if (!reader.integer(groupCount) || groupCount != 67 || !reader.integer(objectCount) || objectCount > 60000 ||
@@ -143,8 +161,12 @@ bool Initialize()
         object.bytes = reader.at; reader.at += object.compressed; bank.emplace(key, object);
     }
     if (reader.at != reader.end || !bank.count(tableKey)) return false;
-    for (const auto& group : parsed) for (const auto& entry : group.entries) if (!bank.count(entry.key)) return false;
-    if (!CreateDecompressor(COMPRESS_ALGORITHM_XPRESS_HUFF, nullptr, &decompressor)) return false;
+    // The common files are all stored. A set's may be left to the blend helper.
+    for (const auto& group : parsed) {
+        if (group.width != 0) continue;
+        for (const auto& entry : group.entries) if (!bank.count(entry.key)) return false;
+    }
+    if (!CreateDecompressor(lzms ? COMPRESS_ALGORITHM_LZMS : COMPRESS_ALGORITHM_XPRESS_HUFF, nullptr, &decompressor)) return false;
     wchar_t temp[MAX_PATH], reserved[MAX_PATH];
     if (!GetTempPathW(MAX_PATH, temp)) return false;
     RemoveStaleCaches(temp);
@@ -184,11 +206,16 @@ bool Read(const std::wstring& path, std::vector<unsigned char>& output)
     CloseHandle(file); return ok;
 }
 
-bool Write(const std::string& name, const std::vector<unsigned char>& bytes)
+// `known`: the bytes' SHA-256 where the caller has just established it (Decode holds
+// every object against its key), so it is not computed a second time. Hashing is
+// most of what a set costs to write: measured 2026-10-05, 6.4 s for 2,038 files with
+// each hashed three times (decoded, before writing, read back).
+bool Write(const std::string& name, const std::vector<unsigned char>& bytes, const Key* known = nullptr)
 {
     std::wstring path = cache + L"\\" + std::wstring(name.begin(), name.end());
     Key key;
-    if (!Sha(bytes.data(), static_cast<unsigned>(bytes.size()), key)) return false;
+    if (known) key = *known;
+    else if (!Sha(bytes.data(), static_cast<unsigned>(bytes.size()), key)) return false;
     if (GetFileAttributesW(path.c_str()) != INVALID_FILE_ATTRIBUTES) {
         std::vector<unsigned char> existing; Key measured;
         if (!Read(path, existing) || !Sha(existing.data(), static_cast<unsigned>(existing.size()), measured)) return false;
@@ -323,7 +350,7 @@ bool KmrpRuntimeAssetsCovers(int width, int height)
         if (static_cast<int>(group.width) == width && static_cast<int>(group.height) == height) covered = true;
     std::vector<unsigned char> output;
     char directory[MAX_PATH]; BOOL substituted = FALSE;
-    if (!covered && Decode(tableKey, output) && Write("gui-blend.bin", output) &&
+    if (!covered && Decode(tableKey, output) && Write("gui-blend.bin", output, &tableKey) &&
         WideCharToMultiByte(CP_ACP, WC_NO_BEST_FIT_CHARS, cache.c_str(), -1, directory, MAX_PATH, nullptr, &substituted) && !substituted) {
         const std::string table = std::string(directory) + "\\gui-blend.bin";
         covered = KmrpGuiBlendCovers(table.c_str(), static_cast<unsigned>(width), static_cast<unsigned>(height)) != 0;
@@ -345,26 +372,73 @@ bool KmrpRuntimeAssetsDimensions(int width, int height)
              std::abs(double(selected->width) / selected->height - double(width) / height))) selected = &group;
     }
     if (!selected) return false;
+    const ULONGLONG started = GetTickCount64();
+    ULONGLONG helperTime = 0;
+    // 1. The files the bank holds: the common ones and this set's.
+    const bool exact = static_cast<int>(selected->width) == width && static_cast<int>(selected->height) == height;
+    bool derive = !exact;
     std::vector<unsigned char> output;
     for (const auto& group : groups) {
         if (&group != selected && group.width != 0) continue;
         for (const auto& entry : group.entries) {
-            if (!Decode(entry.key, output) || !Write(entry.name, output)) return false;
+            if (!objects.count(entry.key)) { derive = true; continue; }
+            if (!Decode(entry.key, output) || !Write(entry.name, output, &entry.key)) return false;
         }
     }
-    if (selected->width != width || selected->height != height) {
-        if (!Decode(tableKey, output) || !Write("gui-blend.bin", output)) return false;
+    // 2. The rest, from the blend helper: the layouts, badges, prompt manifest and
+    // HUD box of exactly this size. It reads the set's caption widths and font
+    // metrics, which step 1 wrote, and writes into the same directory.
+    if (derive) {
+        if (!Decode(tableKey, output) || !Write("gui-blend.bin", output, &tableKey)) return false;
         char directory[MAX_PATH]; BOOL substituted = FALSE;
         if (!WideCharToMultiByte(CP_ACP, WC_NO_BEST_FIT_CHARS, cache.c_str(), -1, directory, MAX_PATH, nullptr, &substituted) || substituted) return false;
         std::string table = std::string(directory) + "\\gui-blend.bin";
+        const ULONGLONG helperStarted = GetTickCount64();
         if (KmrpGuiBlend(table.c_str(), width, height, directory, directory)) return false;
-        // The shared helper wrote only our derived files. Adopt their new hashes
-        // before the next transition's ownership check.
-        for (auto& owner : written) {
-            if (!Read(owner.first, output) || !Sha(output.data(), static_cast<unsigned>(output.size()), owner.second)) return false;
+        helperTime = GetTickCount64() - helperStarted;
+        // Adopt what the helper wrote, over our files and beside them: the next
+        // transition's ownership check, and GameArt's sweep of files that are not
+        // ours, both go by this list. The helper writes a set's files and nothing
+        // else, and every set has the same file names, so the set's names are the
+        // ones to read again; the common files are as step 1 left them. (Until
+        // 2026-10-05 every file written so far was read and hashed again here,
+        // 300 MB of common files included.)
+        for (const auto& entry : selected->entries) {
+            const std::wstring path = cache + L"\\" + std::wstring(entry.name.begin(), entry.name.end());
+            Key measured;
+            if (!Read(path, output) || !Sha(output.data(), static_cast<unsigned>(output.size()), measured)) return false;
+            written[path] = measured;
+        }
+        // 3. A listed size is the build's own set, not a blend. Where the helper
+        // wrote a file differently the bank holds the set's (that is why it was
+        // kept), and it goes back over the helper's; then every file is held
+        // against the index. A difference left after that is the helper computing
+        // differently on this machine than on the build's: the interface is then
+        // the blend's, a pixel off here and there and whole, and the log says so.
+        if (exact) {
+            unsigned differing = 0;
+            for (const auto& entry : selected->entries) {
+                const std::wstring path = cache + L"\\" + std::wstring(entry.name.begin(), entry.name.end());
+                if (written[path] == entry.key) continue;
+                if (objects.count(entry.key) && Decode(entry.key, output) && Write(entry.name, output, &entry.key)) continue;
+                ++differing;
+            }
+            if (differing) {
+                char line[160];
+                sprintf_s(line, "[KMRP] warning: %u of %u interface files for %dx%d were made differently than the build made them",
+                          differing, static_cast<unsigned>(selected->entries.size()), width, height);
+                KmrpRuntimeLog(line);
+            }
         }
     }
+    const ULONGLONG filesTime = GetTickCount64() - started;
     GameArt(*selected, height);
+    if (KmrpDebugLogs()) {
+        char line[160];
+        sprintf_s(line, "[KMRP] interface files for %dx%d: %llu ms, of which the blend helper %llu ms; the game's own art %llu ms",
+                  width, height, filesTime, helperTime, GetTickCount64() - started - filesTime);
+        KmrpRuntimeLog(line);
+    }
     if (!RegisterDirectory()) return false;
     currentWidth = width; currentHeight = height;
     return true;

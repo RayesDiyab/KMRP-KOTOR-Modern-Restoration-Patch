@@ -111,7 +111,9 @@ that were never restored.
 | 2 × `%TEMP%\kmrp-controller-<guid>\standard\kmrp-controller-selftest.exe` | the current script's Case 1, from runs that stopped between install and restore | one folder, of 2026-09-21 01:02, still there with its `KMRP_DPI.manifest` |
 | `%TEMP%\kmrp-fontcheck4\swkotor.exe`, `%TEMP%\kmrp-case2-probe\swkotor.exe`, `build\movie-aspect-verify\swkotor.exe` | one-off probes: no tracked script and no commit names them | all three folders still there |
 
-**Not a product fault.** A foreign `patch_config.toml` does not refuse the
+**Not a product fault.** (As the installer was on 2026-09-25; since 2026-09-29 a
+folder holding KOTOR Patch Manager's own `patch_config.toml` is installed for KPM
+instead, by `KpmEditionOperations.Install`.) A foreign `patch_config.toml` does not refuse the
 install. `ControllerOperations.Install` reports and skips KMRP's runtime (then
 the optional controller component), on purpose, so the rest of the patch still
 applies.
@@ -126,7 +128,9 @@ assertion, an exception or an interrupt deleted the work folder and left the
 value. The four scripts that patch fixtures in place now call
 `Remove-TestDpiValues` (in `testing/regression/Restore-TestNvidiaProfiles.ps1`)
 in their `finally` whenever they delete the work folder:
-- `Test-ControllerSupport.ps1`
+- `Test-ControllerSupport.ps1` (removed on 2026-10-04 with the four-patch
+  edition; its successor, `Test-InstallerPatch.ps1`, does not call the helper and
+  relies on each fixture's own `--restore`, read 2026-10-08)
 - `Test-LargeAddressAware.ps1`
 - `Test-ReinstallOverOlderBuild.ps1`
 - `Test-DpiCompatibility.ps1`

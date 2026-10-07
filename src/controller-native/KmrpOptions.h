@@ -7,7 +7,6 @@
 // configs\kmrp.ini:
 //
 //   [Patch Options]
-//   controller=1
 //   map-notes=1
 //   debug-logs=0
 //
@@ -22,7 +21,14 @@ inline int KmrpPatchOption(const wchar_t* option, int fallback)
     wchar_t path[MAX_PATH];
     const DWORD n = GetModuleFileNameW(nullptr, path, MAX_PATH);
     wchar_t* slash = n && n < MAX_PATH ? std::wcsrchr(path, L'\\') : nullptr;
-    if (!slash || wcscpy_s(slash + 1, MAX_PATH - (slash + 1 - path), L"configs\\kmrp.ini")) return fallback;
+    // The standalone controller patch is its own patch, "kmrp-controller", with its
+    // own file.
+#ifdef KMRP_CONTROLLER_STANDALONE
+    const wchar_t* file = L"configs\\kmrp-controller.ini";
+#else
+    const wchar_t* file = L"configs\\kmrp.ini";
+#endif
+    if (!slash || wcscpy_s(slash + 1, MAX_PATH - (slash + 1 - path), file)) return fallback;
     return static_cast<int>(GetPrivateProfileIntW(L"Patch Options", option, fallback, path));
 }
 

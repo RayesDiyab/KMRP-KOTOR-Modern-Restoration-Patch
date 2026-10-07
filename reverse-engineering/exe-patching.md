@@ -7,6 +7,26 @@
 > anything untested labelled as untested.
 
 
+> **What this covers now (note of 2026-10-08, read from the source).** These
+> rules are for the tools that edit an executable *file*: the gold chain and its
+> candidates. Until 2026-09-29 that chain's result was what KMRP's installer
+> wrote into `swkotor.exe`. Since then the installer leaves the file's code
+> alone (on the CD 1.03 and GOG builds it sets the large-address flag, one bit;
+> Steam's file is not changed at all), and KMRP's changes are applied in memory
+> each time the game starts, by the modules of its two `.kpatch` files under
+> KOTOR Patch Manager's runtime: the same bytes the gold chain makes, from a
+> recipe built from source (`src/engine/windows-sites.json`,
+> `tools/build_windows_engine.py`, `tools/build_native_engine.py`,
+> `src/controller-native/K1KpmApplier.cpp`), and detours declared in the
+> patches' hook tables. The installer's `--apply` still writes the whole patched
+> image to a new file, as the reference. So rules 1 to 5 still apply to anyone
+> running or extending a gold tool or reading a patched image, and the encoding
+> notes apply to the recipe's stubs as well; rule 6 names a build that no longer
+> exists and is corrected in place. For the run-time side, where the appended
+> sections are one relocated block and every hook carries its original bytes,
+> see [`docs/kpm-edition.md`](../docs/kpm-edition.md) and
+> [`docs/kpatch-runtime-design.md`](../docs/history/kpatch-runtime-design.md).
+
 Over two dozen tools in `tools/` edit `swkotor.exe` -- every gold step, plus the
 candidates and abandoned attempts kept beside them. Two searches on 2026-09-24,
 for tools carrying a section name or the image base and for tools writing an
@@ -128,6 +148,20 @@ boundary.
 step is caught by the patcher's own startup check — "Embedded patch metadata
 does not match this patcher" — which has fired twice in this work. Reproduce it
 against the built `gold.kup` before shipping, not after.
+
+*Corrected 2026-10-08:* the paragraph above describes the build until
+2026-09-29. Read from the source that day: `build_kmrp.ps1` has no `-GoldExe`
+parameter and builds no `gold.kup`, and the installer has no such startup
+check. `EXPECTED_GOLD_SHA256` (`tools/generate_gold_delta.py`) and
+`GoldPatch.TargetHash` and `TargetLength` (`src/patcher/KmrpPatcher.cs`, now
+used to recognise an executable an earlier installer patched) still name gold
+v24 and still have to agree with each other. What moves together in the shipped
+build is the source-built recipe and its consumers: `src/engine/windows-sites.json`,
+`tools/build_windows_engine.py`, `tools/build_native_engine.py` (which refuses
+a recipe run that overlaps a hook of `tools/build_native_kpatch.py`) and the
+hook tables under `src/controller-native/`;
+`testing/regression/Test-WindowsEngineSource.py` and
+`testing/regression/Test-KpatchSource.py` are the checks.
 
 ## Encoding notes
 

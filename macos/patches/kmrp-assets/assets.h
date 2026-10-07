@@ -32,8 +32,5 @@ void Disable();
 // True once the artwork folder is registered with the game.
 bool Registered();
 
-// The SDL library the module carries, unpacked to the cache on first use; null without one.
-const char* SdlPath();
-
 }  // namespace assets
 }  // namespace kmrp

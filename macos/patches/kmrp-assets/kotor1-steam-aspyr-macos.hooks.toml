@@ -91,6 +91,9 @@ type = "pointer"
 [[hooks.parameters]]
 source = "rdx"
 type = "pointer"
+[[hooks.parameters]]
+source = "rcx"
+type = "int"
 
 # CSWGuiPanel::StopLoadFromLayout (0x10049d986), after its prologue: every panel constructor's
 # last call, where layout.cpp widens the lists its table says to. The entry itself is the

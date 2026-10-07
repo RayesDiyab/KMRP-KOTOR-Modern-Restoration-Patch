@@ -21,36 +21,44 @@ menu's layout only, and not under Mod Organizer's virtual file system.
 
 ## Executable boundary
 
-KMRP accepts the 4,042,752-byte editable PC 1.03 executable in exactly two
-states:
+KMRP accepts three builds of the PC 1.03 executable, two of them also with the
+4 GB flag already set (`GameExecutable` in `src/patcher/KmrpPatcher.cs`). (Until
+2026-09-29 this section said "exactly two states", the two editable rows; Steam's
+was added that day and GOG's on 2026-09-30.)
 
 | Input | SHA-256 | Supported |
 | --- | --- | --- |
-| Canonical editable executable | `761F9466F456A83909036BAEBB5C43167D722387BE66E54617BA20A8C49E9886` | yes |
+| Canonical editable executable, 4,042,752 bytes | `761F9466F456A83909036BAEBB5C43167D722387BE66E54617BA20A8C49E9886` | yes |
 | Same file with only `IMAGE_FILE_LARGE_ADDRESS_AWARE` set | `CA9D22EACB5BDFA8E2AD3F8935B0E8E2FED72DA8132D0622D576A650AA7E1889` | yes |
+| GOG's executable, 4,042,752 bytes (the editable one without its 16-byte header watermark) | `9C10E0450A6EECA417E036E3CDE7474FED1F0A92AAB018446D156944DEA91435` | yes |
+| GOG's with only that flag set | `01B808251B3EE85F86F4C893FD4EE1A0448F94D9316FE9B09BD8B222C2B4132F` | yes |
+| Steam's executable, 4,395,008 bytes, never changed by KMRP | `34E6D971C034222A417995D8E1E8FDD9F8781795C9C289BD86C499A439F34C88` | yes |
 | Any other changed byte | varies | no |
 
 The second row is proven by clearing only file-header bit `0x20` in memory and
 requiring the canonical hash. It is not a same-length exception or a relaxed
-hash check. Both inputs produce identical KMRP output, while restore returns the
-exact incoming file. See
+hash check. Restore returns the exact incoming file. See
 [`../reverse-engineering/large-address-aware.md`](../reverse-engineering/large-address-aware.md).
 
 ## Recommended order
 
-1. Start from the editable executable and a clean or deliberately prepared game
-   directory.
-2. Install K1 Community Patch, K1 Restoration, and other content mods first.
-   TSLPatcher/HoloPatcher can then merge their 2DA, TLK, module, and Override
-   changes without KMRP's interface files being an intermediate input.
+Since 2026-10-04 KMRP writes nothing into `Override`, so the order of KMRP and
+content mods no longer matters for the files; the list below is what remains.
+(Until then step 2 said to install content mods first and step 4 to run KMRP last,
+because its manifest recorded every Override file it replaced.)
+
+1. Start from a supported executable (Steam's, GOG's or the editable one) and a
+   clean or deliberately prepared game directory.
+2. Install K1 Community Patch, K1 Restoration, and other content mods before or
+   after KMRP.
 3. Do **not** install UniWS, KOTOR High Resolution Menus, or a separate 4 GB
-   patch. KMRP supplies the resolution executable changes, matching GUI set, and
-   LAA flag itself. An already-LAA clean executable is harmless and supported.
-4. Run KMRP last against the real game directory. Its ownership manifest records
-   every Override file it replaces and restores the preceding modded state.
-5. If another tool must modify `swkotor.exe` afterward, restore that tool to the
-   exact KMRP bytes before asking KMRP to restore. A post-KMRP executable edit
-   intentionally invalidates KMRP's ownership hash.
+   patch. KMRP supplies the resolution changes, matching GUI sets, and LAA flag
+   itself. An already-LAA editable or GOG executable is harmless and supported.
+4. Run KMRP against the real game directory.
+5. If another tool must modify `swkotor.exe` afterward, put back the exact bytes
+   KMRP left (the incoming file, with the 4 GB flag on the editable and GOG
+   builds) before asking KMRP to restore. A later executable edit intentionally
+   invalidates KMRP's ownership hash.
 
 K1 Community Patch 1.10.0 and K1 Restoration 1.2 were previously inspected and
 tested with KMRP: neither supplied GUI files nor edited the executable in those
@@ -68,21 +76,32 @@ manual steps outside Sync. KMRP replaces the first two steps:
    staging directory.
 3. Launch through MO2 as usual.
 
-MO2's virtual filesystem can take precedence over physical files. A profile that
-supplies its own `.gui`, font, portrait, or icon with the same name can therefore
-hide KMRP's installed copy at runtime even though KMRP's hash and manifest are
-correct. Disable separate widescreen/high-resolution UI packages in that profile.
+MO2's virtual filesystem can take precedence over physical files. Since
+2026-10-04 KMRP has no installed copy in `Override` for a profile to hide: the game
+reads KMRP's files from the module's own folder ahead of `Override` (measured for
+the main menu's layout only, and **not under Mod Organizer's virtual file
+system**). Disable separate widescreen/high-resolution UI packages in that profile
+all the same.
 This workflow follows KOTORganizer's published manual-patch boundary; it has not
 yet been run end-to-end on this workstation.
 
 ## KotOR Patch Manager
 
-*Since 2026-09-28* there is a KMRP edition for KPM itself, which never modifies
-the executable and so passes KPM's hash gate, and which also supports Steam's own
-`swkotor.exe` (seen in game on 2026-09-29): see [kpm-edition.md](kpm-edition.md).
-It carries the 4 GB and memory fixes itself, so KPM's own 4GB Patch, Texture
-Bucket Safety, Grass Memory Safety and Save Game Memory Leak stay unticked beside
-it. What follows describes the standalone edition.
+**Now:** KMRP itself runs on KOTOR Patch Manager's runtime, as two KPM patches,
+`KMRP.kpatch` and `KOTOR 1 Native Controller Mod + Xbox HUD.kpatch`, each working
+without the other (since 2026-10-05; [kpm-edition.md](kpm-edition.md)). It never
+rewrites the executable's code, so it passes KPM's hash gate, and it supports
+Steam's own `swkotor.exe` (seen in game on 2026-09-29). KMRP's own install is one
+KPM recognises and takes over; in a folder where KPM's runtime is already
+installed, the installer leaves the patches to KPM. KMRP carries the 4 GB and
+memory fixes itself, so KPM's own 4GB Patch, Texture Bucket Safety, Grass Memory
+Safety and Save Game Memory Leak stay unticked beside it, and both patches
+declare the other authors' patches they are known to conflict with
+(`tools/check_kpm_overlaps.py`). **The rest of this section describes the
+standalone edition, which installed until 2026-09-29, and is kept as its
+record**: the hash gate, the "narrowly configured KPM runtime" that owned
+`patch_config.toml`, and the advice to turn the controller option off beside
+external KPM patches no longer apply.
 
 KotOR Patch Manager normally injects dynamic hooks without rewriting the
 executable, but patch manifests declare `supported_versions` by executable hash.
@@ -121,9 +140,15 @@ the 742 byte positions KMRP writes; both set the same LAA bit. Checked
 v23, counted gold's then 702-byte delta. That proves the two patch sets do not
 overwrite the same bytes; it does **not** make the combined workflow supported:
 
-- applied first, its executable is not one of KMRP's two recognized inputs;
+- applied first, its executable is not one of KMRP's recognized inputs (the table
+  above);
 - applied after KMRP, its edits invalidate KMRP's exact manifest hash, so KMRP
   correctly blocks restore until its own output is put back.
+
+That measurement is of the executables the installer wrote until 2026-09-29, which
+`--apply` still writes. Since then KMRP applies the same bytes in memory, where a
+patcher that has rewritten the same file's code would meet KMRP's original-byte
+guards; that combination has **not been run**.
 
 KMRP therefore does not currently advertise that combination. Preserving an
 external patch through apply and restore requires a separately specified,
@@ -213,5 +238,7 @@ gold alone, add `--installed` with its `--apply` outputs; see
 [`../reverse-engineering/binary-inventory.md`](../reverse-engineering/binary-inventory.md) §2.
 
 For a real mod build, record the executable hash before KMRP, hash any existing
-backup, list colliding Override filenames, and perform a complete restore before
-calling the workflow compatible.
+backup, and perform a complete restore before calling the workflow compatible.
+(Until 2026-10-04 this also said to list colliding Override filenames; KMRP writes
+none now.) For other KPM patches beside KMRP's two, run
+`python tools\check_kpm_overlaps.py <folder of .kpatch files>`.

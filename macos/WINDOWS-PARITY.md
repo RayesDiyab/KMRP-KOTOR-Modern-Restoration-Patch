@@ -16,6 +16,33 @@ is [`docs/windows-changes-from-macos.md`](../docs/windows-changes-from-macos.md)
 
 ## How the Mac build gets there
 
+**Who does what changed after this section was written** (state on 2026-10-08;
+[`README.md`](README.md), section 1, has the present arrangement). The rows of the table
+further down name the code that first ported each Windows site, and what was seen with it.
+Since 2026-10-04:
+
+- the menu set, fonts and artwork are inside KMRP's module, which registers them with the
+  game when it starts and blends a set for a size without one; the installer writes nothing
+  into the game's override folder, and "the installer" and "at install" below describe the
+  builds before that day;
+- the resolution is chosen in the game, and the sites that depend on it are written again
+  when it changes;
+- the sites listed as `kmrp-layout`'s (`resolution_sizes.cpp`, `listbox_padding.cpp`,
+  `area_map.cpp`, `popup_fit.cpp`, `granted_popup.cpp`, `dialogue_replies.cpp`) are written
+  by FTD's Widescreen Patch in its `.gui` mode, which took them over; `kmrp-layout` keeps
+  the code and `Test-KmrpLayoutPatch.py` checks it, but it does not write them while that
+  patch is installed (measured that day: 41 of 53 sites byte for byte the same, 11 through
+  that patch's own stub, 1 by another route). What was seen in play with `kmrp-layout`'s
+  own writes has not all been seen again since: `README.md`, section 10, says what has;
+- `UseGuiFileLayouts` is not written to `swkotor.ini`: KMRP's module asks the Widescreen
+  Patch for that mode through an entry point.
+
+And since 2026-10-07 the controller is a patch of its own (`README.md`, section 7a).
+FTD's two patches are built unchanged from the KotOR Patch Manager tree given to `build.sh`;
+the entry points KMRP uses are upstream since 2026-10-05 (LaneDibello/Kotor-Patch-Manager#319,
+merge commit `7546ae5`). The submodule named below is the pin of 2026-09-30 and is no longer
+what the build takes them from (`README.md`, section 9).
+
 The first Mac build laid menus out with FTD's widescreen patch, which scales the
 vanilla `.gui` files at runtime to a centred 4:3 canvas and sizes lists, fonts and
 the HUD with its own calibrations. That works, but it is not what Windows does, and
@@ -112,7 +139,7 @@ States: **done** (behaves as on Windows, checked as stated), **to port**, **n/a*
 | Windows | What | Mac |
 | --- | --- | --- |
 | `0x0040AA65`, `0x0040AA85` | render width and height | K4 (video mode follows the target), K9 (Retina modes); separate from the menu whitelist below |
-| `0x005F0C65`, `0x005F0C6F` | resolution menu acceptance | **fixed and user-tested 2026-10-02** at 1920x1200: `kmrp_layout.cpp` writes the configured W/H into the first pair of `IsKnownResolution` comparisons at Mac VA `0x10026f1f2` / `0x10026f1ff`; guarded at 76 resolutions. [Audit](../reverse-engineering/macos-resolution-port-audit.md) |
+| `0x005F0C65`, `0x005F0C6F` | resolution menu acceptance | **done another way since 2026-10-04**: `KmrpResolutionKnown`, a detour at the head of the Mac's `IsKnownResolution` (`0x10026f1ee`), accepts a size when KMRP has menus for it and, since 2026-10-08, the display reports a mode of it, as Windows' `DisplayReports` does (`README.md`, "The resolution chosen in the game"). From 2026-10-02 to 2026-10-04 `kmrp_layout.cpp` wrote the one configured W/H into the first pair of comparisons at `0x10026f1f2` / `0x10026f1ff` (user-tested at 1920x1200; guarded at 76 resolutions; [audit](../reverse-engineering/macos-resolution-port-audit.md)); those bytes are inside the detour now and are not written |
 | `0x00403D6C`, `0x00403D78`, `0x005F5B3B` | movie display mode | **n/a**: Aspyr's Bink player switches no display mode (checked in play, 2026-09-28) |
 | `0x0040B6C7`, `0x0040B6DA`, `0x0040BA6C`, `0x0040BA83` | recentring references `-W`, `-H` | **done**: the widescreen patch with `UseGuiFileLayouts=1` writes `-W`, `-H` at its 20 sites. Clicks land on KMRP's menus at 1512x982 and 3024x1964 (2026-09-29) |
 | `0x0068C4E3`, `0x0068C4F4` | HUD resource selector (which `mipc*.gui` loads) | **done**: the same switch points all five `lea` sites of the `CSWGuiMainInterface` constructor (`0x100233429` … `0x1002334d8`, the only references to the names) at `mipc28x6`, or `mipc210x7` at 3440x1440. The HUD and minimap drew KMRP's layout in both runs |
@@ -171,7 +198,9 @@ States: **done** (behaves as on Windows, checked as stated), **to port**, **n/a*
 ### Controller
 
 The Windows controller module (`src/controller-native/`) is a module with hooks, not part of
-the gold delta; its Mac port is `macos/patches/kmrp-controller` (`README.md`, section 7).
+the gold delta; its Mac port is `macos/patches/kmrp-controller` (`README.md`, section 7),
+a KotOR Patch Manager patch of its own since 2026-10-07, with Windows' Xbox-style HUD and
+badge overlays ported the same day (`README.md`, section 7a, which says what was seen).
 *Corrected 2026-09-29:* this was one row under *Windows only*, first saying the Aspyr port has
 its own controller support, then **not ported**. KOTOR I on the Mac has none that works: a pad
 did nothing in play, and Aspyr lists controllers for KOTOR II on the Mac only.
@@ -241,5 +270,8 @@ grass-buffer and save-buffer safety hooks were absent from this tracker. The
 implemented texture bounds/maximum protection and defensive grass alias checks.
 Controlled machine-code tests pass; gameplay failure reproduction remains pending. Mac already frees the save-resource
 buffer; adding that Windows free would duplicate cleanup.
-The missing XP text at 1920x1200 also remains unresolved despite the earlier layout
-attempt; neither a structural GUI audit nor a passing hook validator proves it fixed.
+The missing XP text at 1920x1200 also remained unresolved that day despite the earlier layout
+attempt; neither a structural GUI audit nor a passing hook validator proved it fixed.
+**Status, 2026-10-03:** the native-wrap and height repair that followed was confirmed in the
+game at 1920x1200 (the audit's own status correction); other resolutions and popup wordings
+were not looked at.

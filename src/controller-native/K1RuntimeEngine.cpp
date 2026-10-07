@@ -62,7 +62,10 @@ bool g_controllerOption = true;
 
 std::uint32_t OptionalFeatures()
 {
-    g_controllerOption = KmrpPatchOption(L"controller", 1) != 0;
+    // Never, since 2026-10-05: controller support is the controller patch's, a module
+    // of its own, and this module's copy of that code is not run (its hooks are not
+    // installed; tools/build_native_kpatch.py).
+    g_controllerOption = false;
     return kMovies | (KmrpPatchOption(L"map-notes", 1) != 0 ? kMapNotes : 0);
 }
 
@@ -169,6 +172,7 @@ BOOL WINAPI DllMain(HINSTANCE module, DWORD reason, LPVOID)
         SetProcessDPIAware();
         InitializeEngine();
         KmrpInstallModeListFilter();
+        KmrpStartAtDisplaySize();
     }
     return TRUE;
 }

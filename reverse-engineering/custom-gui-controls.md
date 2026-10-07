@@ -5,6 +5,26 @@ Everything below was read out of the tracked gold image
 (`build-inputs/swkotornopatch.exe`) statically. Where a claim came from watching
 the game instead, it says so.
 
+> **Which patch does this now (note of 2026-10-08, read from
+> `tools/build_native_kpatch.py`, `tools/build_controller_kpatch.py` and
+> `K1NativeJoystick.cpp`).** The sections below were written between
+> 2026-09-14 and 2026-10-02, when the controller was a component of KMRP,
+> installed by its installer with the `.gui` files and badge textures in
+> `Override`. Since 2026-10-05 KMRP ships as two `.kpatch` files:
+>
+> | Work described here | Where it runs now |
+> | --- | --- |
+> | The added cue and badge controls (R3, LT/RT, X beside the tabs, the A of confirmation boxes, of dialogue replies and beside OK, X and Y on the HUD) and the `ReleaseGff` binding | the controller patch, "KOTOR 1 Native Controller Mod + Xbox HUD" (id `kmrp-controller`): its module compiles `K1NativeJoystick.cpp`, `K1ControllerLayout.cpp` and `vendor/K1XboxControls.cpp`, and its hooks are the controller's own in `src/controller-native/kotor1.hooks.toml`. KMRP's module still contains that code, but none of its hooks is installed by KMRP's patch (`OptionalFeatures` in `K1RuntimeEngine.cpp`) |
+> | The status summary laid out again | KMRP's own patch, every GUI frame: `StatusSummaryFrameK1`, called from `KmrpCoreGuiWorkK1` at `0x0040CE76` |
+> | The `.gui` entries and textures the controls are bound from | no longer `Override` files: each module carries its files and registers them with the game's resource manager. The controller patch carries its own copies of the game's layouts and, beside KMRP, leaves KMRP's scaled layouts in force (CHANGELOG, `[Unreleased]`, "KMRP and the controller patch are two patches") |
+>
+> **Not checked for this note:** each section's build-time and binding details
+> against the controller patch as it stands (the patch changed how several
+> badges are placed on 2026-10-06: "The controller patch's badges and cues on any
+> layout" in the CHANGELOG). "Status: implementation in progress" above is the
+> status of September; [`docs/controller-standalone.md`](../docs/controller-standalone.md)
+> is the present reference for the controller patch.
+
 The motivating case: R3 changes which party member Character, Equipment,
 Inventory and Skills/Powers/Feats are showing, and there is nowhere to put the
 cue. The portraits' `BORDER.FILL` *is* the portrait, rewritten per character; the

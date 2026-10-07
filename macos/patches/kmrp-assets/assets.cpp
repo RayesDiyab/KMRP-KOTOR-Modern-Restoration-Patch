@@ -2,7 +2,7 @@
   KMRP for macOS: the menu sets and artwork inside the module.
 
   Until 2026-10-04 KMRP Installer put the menu set for the chosen resolution, KMRP's artwork and
-  what it makes from the player's game into the game's override folder, and kmrp.kpatch applied
+  what it makes from the player's game into the game's override folder, and KMRP-macOS.kpatch applied
   by hand in KotOR Patch Manager had the engine side only. Now the module carries all of it, as
   Windows' does (src/controller-native/K1RuntimeAssets.cpp, whose design this follows): a bank of
   every resolution's set and the artwork (macos/tools/make_kmrp_assets.py), linked into the
@@ -12,7 +12,7 @@
   The cache: ~/Library/Caches/KMRP/<build>/, <build> being the bank's identity, so a new build
   starts a new cache and the old ones are removed.
 
-      store/             every file of KMRP's artwork, the bundled third-party art, and SDL
+      store/             every file of KMRP's artwork and the bundled third-party art
       sets/<W>x<H>/      the set for that size: the bank's, or for a size it has no set for the
                          nearest set (by height, then shape) with the .gui files, badges and
                          prompt manifest kmrp-guiblend blends for it; and what KMRP makes from the
@@ -86,13 +86,14 @@ struct Object { const unsigned char* bytes; unsigned size, stored; };
 struct Entry { std::string name; Key key; };
 struct Group { unsigned width, height; std::vector<Entry> entries; };
 
-const char kMagic[] = "KMAST001";
+const char kMagic[] = "KMAST002";
+const std::size_t kArtGroups = 3;   // the groups before the sets
 
 // One object made on first use, not globals: a global with a constructor is one more load-time
 // initialiser of the module, run in an order the hooks and the other parts cannot rely on.
 struct State {
     std::map<Key, Object> objects;
-    std::vector<Group> groups;   // [0] KMRP's artwork and SDL, [1] the bundled art, then the sets
+    std::vector<Group> groups;   // [0] KMRP's artwork, [1] the bundled art, [2] the HD icon pack, then the sets
     Key table{};
     std::string build, root, store;
     bool loaded = false, registered = false, disabled = false;
@@ -221,7 +222,7 @@ bool Load() {
     Reader reader{data + 8, data + size};
     unsigned char build[32];
     unsigned groupCount, objectCount;
-    if (!reader.bytes(build, 32) || !reader.integer(groupCount) || groupCount < 3 || groupCount > 4096 ||
+    if (!reader.bytes(build, 32) || !reader.integer(groupCount) || groupCount < 4 || groupCount > 4096 ||
         !reader.integer(objectCount) || objectCount > 200000 || !reader.bytes(g_table.data(), 32)) return false;
     std::vector<Group> groups;
     for (unsigned i = 0; i < groupCount; i++) {
@@ -247,9 +248,12 @@ bool Load() {
         objects.emplace(key, object);
     }
     if (reader.at != reader.end || !objects.count(g_table)) return false;
-    if (groups[0].width || groups[0].height || groups[1].width || groups[1].height != 1) return false;
-    for (const Group& group : groups)
-        for (const Entry& entry : group.entries)
+    if (groups[0].width || groups[0].height || groups[1].width || groups[1].height != 1 ||
+        groups[2].width || groups[2].height != 2) return false;
+    // The artwork is all in the bank. A set's file may be one the module makes itself (BuildSet):
+    // its entry then names an object the bank does not hold.
+    for (std::size_t i = 0; i < kArtGroups; i++)
+        for (const Entry& entry : groups[i].entries)
             if (!objects.count(entry.key)) return false;
     const char* home = getenv("HOME");
     if (!home || !*home) return false;
@@ -272,12 +276,13 @@ bool Decode(const Key& key, std::vector<unsigned char>& output) {
     return measured == key;
 }
 
-const char kSdl[] = "kmrp-sdl3.dylib";   // carried with the artwork, unpacked on its own (SdlPath)
 
-bool Unpack(const Group& group, const std::string& directory) {
+// The group's files that the bank holds; `left`, when given, counts those it does not (a set's
+// files the module makes itself), which without it are an error.
+bool Unpack(const Group& group, const std::string& directory, unsigned* left = nullptr) {
     std::vector<unsigned char> data;
     for (const Entry& entry : group.entries) {
-        if (entry.name == kSdl) continue;
+        if (left && !g_objects.count(entry.key)) { ++*left; continue; }
         if (!Decode(entry.key, data) || !WriteFile(directory + "/" + entry.name, data.data(), data.size())) {
             Log("could not unpack %s", entry.name.c_str());
             return false;
@@ -396,14 +401,21 @@ bool LinkArtwork(std::string& directory) {
     if (!assets.empty())
         for (const std::string& name : Names(assets + "/override")) playerFiles.push_back(Lower(name));
     for (const Entry& entry : g_groups[0].entries)
-        if (entry.name != kSdl && !Link(g_store + "/" + entry.name, directory + "/" + entry.name)) return false;
-    unsigned yielded = 0;
-    for (const Entry& entry : g_groups[1].entries) {
-        if (PlayerHas(playerFiles, entry.name)) { yielded++; continue; }
         if (!Link(g_store + "/" + entry.name, directory + "/" + entry.name)) return false;
+    // The HD icon pack is bundled art like the rest, and the patch's hd-icons option leaves it
+    // out (since 2026-10-08): the game then shows its own item icons, or the player's.
+    const bool icons = HdIconsOption();
+    unsigned yielded = 0, given = 0;
+    for (const Group* bundled : {&g_groups[1], &g_groups[2]}) {
+        if (bundled == &g_groups[2] && !icons) continue;
+        for (const Entry& entry : bundled->entries) {
+            if (PlayerHas(playerFiles, entry.name)) { yielded++; continue; }
+            if (!Link(g_store + "/" + entry.name, directory + "/" + entry.name)) return false;
+            given++;
+        }
     }
-    Log("artwork: %zu files of KMRP's, %zu bundled (%u left to files in the game's override)",
-        g_groups[0].entries.size(), g_groups[1].entries.size() - yielded, yielded);
+    Log("artwork: %zu files of KMRP's, %u bundled (%u left to files in the game's override), the HD icon pack %s",
+        g_groups[0].entries.size(), given, yielded, icons ? "among them" : "left out: the option is off");
     TheState().art = directory;
     return true;
 }
@@ -411,7 +423,7 @@ bool LinkArtwork(std::string& directory) {
 const Group* SetFor(int width, int height, bool& exact) {
     const Group* nearest = nullptr;
     exact = false;
-    for (std::size_t i = 2; i < g_groups.size(); i++) {
+    for (std::size_t i = kArtGroups; i < g_groups.size(); i++) {
         const Group& group = g_groups[i];
         if (static_cast<int>(group.width) == width && static_cast<int>(group.height) == height) { exact = true; return &group; }
         // The nearest set by height, then by shape (Windows' rule and the installer's).
@@ -449,21 +461,55 @@ bool BuildSet(int width, int height, std::string& directory) {
     directory = g_root + "/sets/" + std::to_string(width) + "x" + std::to_string(height);
     if (!MakeDirectories(g_root + "/sets")) return false;
     return Build(directory, stamp, [&](const std::string& work) {
-        if (!Unpack(*group, work)) return false;
-        if (!exact) {
+        // Since 2026-10-08 the bank leaves out what the helper writes exactly as the build's set
+        // has it (make_kmrp_assets.py --helper, as Windows' bank since 2026-10-05: most layouts
+        // and badges of most sizes), which halved the module. So, for a size with a set: the
+        // files the bank holds, then the helper's, then the bank's again where the helper wrote
+        // one differently than the build did, and every file held against the set's index. For
+        // a size without one, as before: the nearest set's files with the helper's for the size
+        // over them, which are all the names a set has that the bank does not hold.
+        unsigned left = 0;
+        if (!Unpack(*group, work, &left)) return false;
+        if (!exact || left) {
             std::string table;
             if (!TablePath(table)) return false;
-            // The helper writes the blended .gui files, badges and prompt manifest over the set's.
             if (KmrpGuiBlend(table.c_str(), static_cast<unsigned>(width), static_cast<unsigned>(height),
                              work.c_str(), work.c_str()) != 0) {
-                Log("kmrp-guiblend could not blend %dx%d", width, height);
+                Log("kmrp-guiblend could not %s %dx%d", exact ? "rebuild" : "blend", width, height);
                 return false;
             }
+        }
+        if (exact && left) {
+            unsigned restored = 0;
+            std::vector<unsigned char> data, stored;
+            for (const Entry& entry : group->entries) {
+                const std::string path = work + "/" + entry.name;
+                FILE* f = fopen(path.c_str(), "rb");
+                if (!f) { Log("set %dx%d: %s was not made", width, height, entry.name.c_str()); return false; }
+                data.clear();
+                unsigned char buffer[65536];
+                std::size_t n;
+                while ((n = fread(buffer, 1, sizeof buffer, f)) > 0) data.insert(data.end(), buffer, buffer + n);
+                fclose(f);
+                Key measured;
+                CC_SHA256(data.data(), static_cast<CC_LONG>(data.size()), measured.data());
+                if (measured == entry.key) continue;
+                // The helper's version of a file the build made otherwise: the bank's goes back.
+                if (!g_objects.count(entry.key) || !Decode(entry.key, stored) || !WriteFile(path, stored.data(), stored.size())) {
+                    Log("set %dx%d: %s is not the build's file and the bank has none", width, height, entry.name.c_str());
+                    return false;
+                }
+                restored++;
+            }
+            Log("set %dx%d: %u files made by the module, %u of the bank's put back over its own", width, height, left, restored);
+        } else if (!exact) {
+            for (const Entry& entry : group->entries)
+                if (!Exists(work + "/" + entry.name)) { Log("set %dx%d: %s is missing", width, height, entry.name.c_str()); return false; }
         }
         // The icons the bank already supplies are not the helper's to make. Beside the folder.
         const std::string reserved = work + ".reserved.txt";
         if (FILE* list = fopen(reserved.c_str(), "w")) {
-            for (const Group* listed : std::initializer_list<const Group*>{&g_groups[0], &g_groups[1], group})
+            for (const Group* listed : std::initializer_list<const Group*>{&g_groups[0], &g_groups[1], &g_groups[2], group})
                 for (const Entry& entry : listed->entries) fprintf(list, "%s\n", entry.name.c_str());
             fclose(list);
         }
@@ -481,7 +527,7 @@ bool BuildSet(int width, int height, std::string& directory) {
 bool BuildStore() {
     g_store = g_root + "/store";
     return Build(g_store, "store\n", [&](const std::string& work) {
-        return Unpack(g_groups[0], work) && Unpack(g_groups[1], work);
+        return Unpack(g_groups[0], work) && Unpack(g_groups[1], work) && Unpack(g_groups[2], work);
     });
 }
 
@@ -510,30 +556,6 @@ bool AddAliasedDirectory(void* manager, const char* alias, const std::string& pa
 }
 
 }  // namespace
-
-// SDL for the controller, which loads it when the module loads, before anything else is
-// unpacked: its own file in the cache, written once.
-const char* SdlPath() {
-    static std::string* path = nullptr;
-    if (path) return path->c_str();
-    if (!Load()) return nullptr;
-    for (const Entry& entry : g_groups[0].entries) {
-        if (entry.name != kSdl) continue;
-        const std::string target = g_root + "/" + kSdl;
-        if (!Exists(target)) {
-            std::vector<unsigned char> data;
-            const std::string work = target + ".tmp" + std::to_string(getpid());
-            if (!MakeDirectories(g_root) || !Decode(entry.key, data) || !WriteFile(work, data.data(), data.size()) ||
-                chmod(work.c_str(), 0755) != 0 || rename(work.c_str(), target.c_str()) != 0) {
-                unlink(work.c_str());
-                return nullptr;
-            }
-        }
-        path = new std::string(target);
-        return path->c_str();
-    }
-    return nullptr;
-}
 
 bool Registered() { return g_registered; }
 void Disable() { TheState().disabled = true; }

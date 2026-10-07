@@ -20,10 +20,11 @@
 #include "K1ControllerBackend.h"
 #include "K1ControllerLayout.h"
 #include "K1Rumble.h"
+#include "KmrpOptions.h"
 #ifdef KMRP_NATIVE_RUNTIME
 #include "K1RuntimeResolution.h"
+#include "K1RuntimeLayout.h"
 #include "K1RuntimeEngine.h"
-#include "KmrpOptions.h"
 extern "C" void __cdecl NativeGuiFrameK1(void* guiManager);
 extern "C" void __cdecl NativeMovieFrameK1(void* moviePlayer);
 #endif
@@ -31,6 +32,7 @@ extern "C" void __cdecl NativeMovieFrameK1(void* moviePlayer);
 #include <windows.h>
 #include <xinput.h>
 
+#include <climits>
 #include <cmath>
 #include <cstdint>
 #include <cstdio>
@@ -1230,6 +1232,12 @@ bool PressHudButtonK1(void* mainInterface, std::size_t member, std::uintptr_t ha
 constexpr std::uintptr_t K1_MAIN_INTERFACE_VTABLE = 0x00753F50;
 constexpr std::size_t    K1_HUD_CLEAR_ONE         = 0x6CD0;      // BTN_CLEARONE
 constexpr std::size_t    K1_HUD_CLEAR_ALL         = 0x7058;      // BTN_CLEARALL, "Disengage"
+constexpr std::size_t    K1_HUD_COMBAT_MESSAGE    = 0x735C;      // LBL_CMBTMODEMSG
+#ifdef KMRP_CONTROLLER_STANDALONE
+bool KmrpXboxHudEnabledK1();                                     // K1XboxHud.cpp
+void KmrpXboxHudForgetK1(void* panel);
+void KmrpForgetBadgeOverlaysK1(void* panel);                     // K1XboxControls.cpp
+#endif
 constexpr std::uintptr_t K1_ON_CLEAR_ONE          = 0x0068B050;  // CSWGuiMainInterface::OnClearOneButtonPressed
 constexpr std::uintptr_t K1_ON_CLEAR_ALL          = 0x0068B0A0;  // CSWGuiMainInterface::OnClearAllButtonPressed
 void ForgetGuiCuesK1(void* panel);
@@ -2496,7 +2504,6 @@ extern "C" void __cdecl CoreMovieFrameK1(void* moviePlayer)
         return;
     }
 #ifdef KMRP_NATIVE_RUNTIME
-    KmrpCentreAddedSizeK1();   // the movie window, at a size the display does not offer
     // The standalone module holds the controller's frame itself, and one hook
     // serves both states of its controller option (see CoreGuiFrameK1).
     if (KmrpControllerOptionK1()) {
@@ -2594,8 +2601,40 @@ extern "C" void __cdecl NativeFreeSaveBufferK1(void* buffer)
 extern "C" void __cdecl NativePanelReleaseGffK1(void* panel)
 {
     ControllerLayoutReleaseGffK1(panel);
+#ifdef KMRP_CONTROLLER_STANDALONE
+    KmrpXboxHudForgetK1(panel);
+#endif
     ForgetGuiCuesK1(panel);
     InstallGuiCuesK1(panel);
+}
+
+// The standalone controller patch reaches NativePanelReleaseGffK1's two moments from
+// sites of its own, because another KOTOR Patch Manager patch (Scaled Kotor) hooks
+// StopLoadFromLayout's entry and the manager allows one patch per address
+// (tools/build_controller_kpatch.py, PANEL_LOADED_HOOK and PANEL_DESTROYED_HOOK).
+//
+// CRes::Release (0x00409B80), with the resource in ecx, esi as the caller left it,
+// and the address of the return address. Only StopLoadFromLayout's call matters
+// (it returns to 0x0040B901, and has the panel in esi and the panel's parsed
+// layout, still whole, in ecx); every other release of a resource is none of ours.
+extern "C" void __cdecl NativePanelLoadedK1(void* resource, void* panel, void** returnSlot)
+{
+    if (!returnSlot || *returnSlot != reinterpret_cast<void*>(0x0040B901)) {
+        return;
+    }
+    if (!resource || !LooksLikePointerK1(panel) ||
+        *FieldAt<void*>(panel, 0x2C) != resource) {      // K1_PANEL_GFF
+        return;
+    }
+    NativePanelReleaseGffK1(panel);
+}
+
+// CSWGuiPanel::~CSWGuiPanel at 0x0040CFAB, esi = the panel: its vtable is the base
+// class's again, its layout long released and its control array not yet disposed
+// of, which is the state the destructor's own StopLoadFromLayout call sees.
+extern "C" void __cdecl NativePanelDestroyedK1(void* panel)
+{
+    NativePanelReleaseGffK1(panel);
 }
 
 // CSWGuiMainInterface's per-frame update, with ecx holding the interface. The
@@ -2628,15 +2667,22 @@ extern "C" void __cdecl NativeActionBarK1(void* mainInterface)
         }
     }
     int release = 0;
+    bool backOut = false;
     if (g_stick.hudReleaseRequested != 0) {
         g_stick.hudReleaseRequested = 0;
         // Any focused slot, one that can no longer act included: B lets go of it.
         release = KmrpActionBarHeldK1(mainInterface);
+        backOut = release == 0;
     }
     // Taken now whatever happens below, so a press made in gameplay can never
     // act later on a different screen.
     const bool clearOne = g_stick.combatClearRequested != 0;
-    const bool disengage = g_stick.disengageRequested != 0;
+    bool disengage = g_stick.disengageRequested != 0;
+#ifdef KMRP_CONTROLLER_STANDALONE
+    // With the Xbox-style HUD, B with no slot to let go of disengages, as B does on
+    // the Xbox ("COMBAT MODE engaged. (B) to disengage."). X still does.
+    if (backOut && KmrpXboxHudEnabledK1()) disengage = true;
+#endif
     g_stick.combatClearRequested = 0;
     g_stick.disengageRequested = 0;
 
@@ -2849,27 +2895,30 @@ struct GuiCueBindingK1 {
     // A control on the panel, by its offset in the panel object, whose
     // visibility the cue copies; 0 for a cue shown whenever the pad is live.
     std::size_t    follow;
+    // The control the build placed the cue beside, by tag; null for the HUD's,
+    // which the HUD's own code places. See PlaceCueByReferenceK1.
+    const char*    reference;
 };
 
 constexpr GuiCueBindingK1 K1_GUI_CUES[] = {
     // R3 changes the party member these four are about. They are exactly the
     // four panels that implement 0xCE, and the four that carry the portraits.
-    {0x00755E50, "LBL_KMRPR3"},   // ABILITIES -- Skills / Powers / Feats
+    {0x00755E50, "LBL_KMRPR3", 0, "BTN_CHANGE1"},   // ABILITIES -- Skills / Powers / Feats
     // X cycles that screen's sub-tab -- its 0x29 handler (0x006AE714)
     // switches a byte at CGuiInGame+0xBC0 through 0/1/2 and wraps.
-    {0x00755E50, "LBL_KMRPSWAP"},
-    {0x00756100, "LBL_KMRPR3"},   // CHARACTER
-    {0x007569A0, "LBL_KMRPR3"},   // EQUIP
-    {0x007564E0, "LBL_KMRPR3"},   // INVENTORY
+    {0x00755E50, "LBL_KMRPSWAP", 0, "BTN_EXIT"},
+    {0x00756100, "LBL_KMRPR3", 0, "BTN_CHANGE1"},   // CHARACTER
+    {0x007569A0, "LBL_KMRPR3", 0, "BTN_CHANGE1"},   // EQUIP
+    {0x007564E0, "LBL_KMRPR3", 0, "BTN_CHANGE1"},   // INVENTORY
     // LT and RT move along the menu tab strip, which top.gui owns. Its panel
     // draws with the BASE CSWGuiPanel::Draw, the same array walk everything else
     // here relies on.
-    {0x00750148, "LBL_KMRPLT"},
-    {0x00750148, "LBL_KMRPRT"},
+    {0x00750148, "LBL_KMRPLT", 0, "BTN_EQU"},
+    {0x00750148, "LBL_KMRPRT", 0, "BTN_OPT"},
     // X and Y beside the HUD's combat buttons, each shown only while its button
     // is: Y by BTN_CLEARONE, X by BTN_CLEARALL (see PressHudButtonK1).
-    {K1_MAIN_INTERFACE_VTABLE, "LBL_KMRPY", K1_HUD_CLEAR_ONE},
-    {K1_MAIN_INTERFACE_VTABLE, "LBL_KMRPX", K1_HUD_CLEAR_ALL},
+    {K1_MAIN_INTERFACE_VTABLE, "LBL_KMRPY", K1_HUD_CLEAR_ONE, nullptr},
+    {K1_MAIN_INTERFACE_VTABLE, "LBL_KMRPX", K1_HUD_CLEAR_ALL, nullptr},
 };
 constexpr int K1_GUI_CUE_COUNT =
     sizeof(K1_GUI_CUES) / sizeof(K1_GUI_CUES[0]);
@@ -3607,8 +3656,81 @@ bool GuiCueStillLiveK1(const GuiCueK1& cue)
     return controls[cue.id] == cue.control;
 }
 
+// A cue's rectangle is the layout file's, for the screen as the file has it. Another
+// patch may have rescaled the screen's controls before the cue was bound (Scaled
+// Kotor does, as the layout finishes loading: at 3440x1440 the LT, RT, sub-tab and
+// party cues stood small in a corner; the maintainer saw them, 2026-10-05). So the
+// cue is put where the file puts it relative to the control the build placed it
+// beside, as that control is now.
+//
+// The file's rectangle of that control is read by loading the control's entry once
+// more, into a label of our own that the panel never holds (the binder's last
+// argument, 0), and its ID says which live control it is.
+// Returns the live control, or null.
+void* PlaceCueByReferenceK1(void* panel, void* cue, const char* referenceTag)
+{
+    struct Rect { int left, top, width, height; };
+    void** const before = *FieldAt<void**>(panel, K1_PANEL_CONTROL_ARRAY);
+    const int count = *FieldAt<int>(panel, K1_PANEL_CONTROL_COUNT);
+    if (!LooksLikePointerK1(before) || count <= 0 || count > 512) {
+        return nullptr;
+    }
+    void* held[512];                 // the array as it is, in case the binder files the probe after all
+    for (int i = 0; i < count; ++i) {
+        held[i] = before[i];
+    }
+    void* const probe = EngineFn<OperatorNewFn>(K1_OPERATOR_NEW)(K1_GUI_LABEL_SIZE);
+    if (!probe) {
+        return nullptr;
+    }
+    EngineFn<GuiLabelCtorFn>(K1_GUI_LABEL_CTOR)(probe);
+    *FieldAt<int>(probe, K1_CONTROL_ID) = -1;
+    void* name[2] = { nullptr, nullptr };
+    EngineFn<ExoStringCtorFn>(K1_EXOSTRING_CTOR)(&name, referenceTag);
+    EngineFn<BindControlFn>(K1_GUI_PANEL_BIND_CONTROL)(panel, probe, &name, 0);
+    EngineFn<ExoStringDtorFn>(K1_EXOSTRING_DTOR)(&name);
+
+    const int id = *FieldAt<int>(probe, K1_CONTROL_ID);
+    void** const controls = *FieldAt<void**>(panel, K1_PANEL_CONTROL_ARRAY);
+    void* live = nullptr;
+    if (controls == before && id >= 0 && id < count) {
+        if (controls[id] == probe) {
+            controls[id] = held[id];
+        }
+        if (held[id] != cue) {
+            live = held[id];
+        }
+    }
+    if (LooksLikePointerK1(live)) {
+        const Rect file = *FieldAt<Rect>(probe, 4);
+        const Rect now = *FieldAt<Rect>(live, 4);
+        const Rect was = *FieldAt<Rect>(cue, 4);
+        const bool same = file.left == now.left && file.top == now.top &&
+                          file.width == now.width && file.height == now.height;
+        if (!same && file.width > 0 && file.height > 0 && now.width > 0 && now.height > 0) {
+            const double sx = static_cast<double>(now.width) / file.width;
+            const double sy = static_cast<double>(now.height) / file.height;
+            const double s = sx < sy ? sx : sy;       // a glyph keeps its shape
+            const double cx = now.left + (was.left + was.width / 2.0 - file.left) * sx;
+            const double cy = now.top + (was.top + was.height / 2.0 - file.top) * sy;
+            Rect wanted;
+            wanted.width = static_cast<int>(was.width * s + 0.5);
+            wanted.height = static_cast<int>(was.height * s + 0.5);
+            wanted.left = static_cast<int>(cx - wanted.width / 2.0 + 0.5);
+            wanted.top = static_cast<int>(cy - wanted.height / 2.0 + 0.5);
+            if (wanted.width > 0 && wanted.height > 0) {
+                using SetExtentFn = void(__thiscall*)(void*, const Rect*);
+                reinterpret_cast<SetExtentFn>((*FieldAt<void**>(cue, 0))[1])(cue, &wanted);
+            }
+        }
+    }
+    using DeletingDtorFn = void*(__thiscall*)(void*, unsigned);
+    reinterpret_cast<DeletingDtorFn>((*FieldAt<void**>(probe, 0))[0])(probe, 1);
+    return LooksLikePointerK1(live) ? live : nullptr;
+}
+
 // Bind one cue by tag onto a panel that still has its .gui.
-void BindOneCueK1(void* panel, const char* tag, std::size_t follow)
+void BindOneCueK1(void* panel, const char* tag, std::size_t follow, const char* reference)
 {
     void* const control = EngineFn<OperatorNewFn>(K1_OPERATOR_NEW)(
         K1_GUI_LABEL_SIZE);
@@ -3634,6 +3756,111 @@ void BindOneCueK1(void* panel, const char* tag, std::size_t follow)
         ++g_stick.guiCuesRejected;
         return;
     }
+
+    void* beside = nullptr;
+    if (reference) {
+        beside = PlaceCueByReferenceK1(panel, control, reference);
+    }
+#ifdef KMRP_CONTROLLER_STANDALONE
+    // Two cues as the maintainer asked for them in this patch (2026-10-05, looking
+    // at the Abilities screen): the sub-tab cue larger, by 1.2 about the middle of
+    // its right edge, so that it stays as far from Close (1.4 was tried and was too
+    // much); and the party cue nearer the portrait on its left (an eighth of its
+    // size away, where the layout has a third) and exactly on the portraits' middle
+    // line, taken from the live portrait. (The layout's whole-pixel centring,
+    // scaled up, left it 2 px high at 3440x1440; its picture is centred in its box,
+    // measured in the four families' textures.)
+    {
+        struct Rect { int left, top, width, height; };
+        Rect at = *FieldAt<Rect>(control, 4);
+        bool changed = false;
+        if (std::strcmp(tag, "LBL_KMRPSWAP") == 0) {
+            const int width = (at.width * 12 + 5) / 10, height = (at.height * 12 + 5) / 10;
+            at = {at.left + at.width - width, at.top - (height - at.height) / 2, width, height};
+            changed = true;
+        } else if (std::strcmp(tag, "LBL_KMRPR3") == 0) {
+            if (beside) {
+                // From the live portrait, both ways, whatever layout is loaded. Until
+                // 2026-10-06 the distance was the layout file's, less the difference
+                // between a third and an eighth: right in the game's own layout, and
+                // beside KMRP, whose layout has the cue in the middle of a narrower
+                // gap, it stood against the portrait at 3440x1440 (the maintainer saw
+                // it).
+                //
+                // Which portrait it stands beside is the layout's to say: in the
+                // game's own the cue follows the last portrait, in KMRP's it is
+                // between two. So the portraits are found among the live controls
+                // (the size of the one the cue was built beside, on its line), and the
+                // cue goes an eighth of its size from the one on its left, or to the
+                // middle of the gap where the next portrait leaves less room.
+                const Rect portrait = *FieldAt<Rect>(beside, 4);
+                const int middle = at.left + at.width / 2;
+                int leftEdge = INT_MIN, rightEdge = INT_MAX;
+                void** const all = *FieldAt<void**>(panel, K1_PANEL_CONTROL_ARRAY);
+                const int total = *FieldAt<int>(panel, K1_PANEL_CONTROL_COUNT);
+                for (int i = 0; LooksLikePointerK1(all) && i < total && i < 512; ++i) {
+                    if (!LooksLikePointerK1(all[i]) || all[i] == control) {
+                        continue;
+                    }
+                    const Rect other = *FieldAt<Rect>(all[i], 4);
+                    const int lift = other.top - portrait.top;
+                    if (other.width != portrait.width || other.height != portrait.height ||
+                            lift > portrait.height / 4 || lift < -portrait.height / 4) {
+                        continue;
+                    }
+                    if (other.left + other.width / 2 <= middle) {
+                        if (other.left + other.width > leftEdge) leftEdge = other.left + other.width;
+                    } else if (other.left < rightEdge) {
+                        rightEdge = other.left;
+                    }
+                }
+                if (leftEdge != INT_MIN) {
+                    int gap = at.width / 8;
+                    if (rightEdge != INT_MAX && rightEdge - leftEdge >= at.width &&
+                            (rightEdge - leftEdge - at.width) / 2 < gap) {
+                        gap = (rightEdge - leftEdge - at.width) / 2;
+                    }
+                    if (rightEdge == INT_MAX || rightEdge - leftEdge >= at.width) {
+                        at.left = leftEdge + gap;
+                    }
+                }
+                at.top = portrait.top + (portrait.height - at.height + 1) / 2;
+            } else {
+                at.left -= at.width / 3 - at.width / 8;
+            }
+            changed = true;
+        }
+        // LT and RT stand as far from the tab strip as its tabs stand from each other
+        // (the maintainer's direction, 2026-10-05). In top.gui a tab is 52 wide and
+        // the next begins 62 on, its frame drawn one unit inside its rectangle; the
+        // cue's arrow has its flat edge 3% of the cue's width inside the cue's
+        // rectangle and 76% of it long (tools/build_tab_arrows.py, EDGE and FLAT).
+        // All of it scaled with the live tab.
+        if (beside && (std::strcmp(tag, "LBL_KMRPLT") == 0 || std::strcmp(tag, "LBL_KMRPRT") == 0)) {
+            const Rect tab = *FieldAt<Rect>(beside, 4);
+            // And as tall as a tab's box, without the lip on top of it: the arrow's
+            // flat side is 76% of its square, and the box is 35 of the tab's 40 units,
+            // from 4 to 39 (measured on screen at 1280x960: the lip's three rows, then
+            // the box from its top line to its bottom line, 35 rows). So the square is
+            // 1.15 times the tab's height, centred on the box. Width and height
+            // together, as ever. (Tried that day and set aside by the maintainer:
+            // 1.25 times with the lip counted, and this size centred on the whole
+            // tab.)
+            const int size = (tab.height * 115 + 50) / 100;
+            at.top = tab.top + (tab.height * 43 + 40) / 80 - size / 2;
+            at.width = at.height = size;
+            const int gap = (tab.width * 10 + 26) / 52 + (tab.width + 26) / 52;     // between two tabs' frames, less our own edge
+            const int edge = (at.width * 3 + 50) / 100;
+            at.left = tag[8] == 'L' ? tab.left - gap + edge - at.width
+                                    : tab.left + tab.width + gap - edge;
+            changed = true;
+        }
+        if (changed) {
+            using SetExtentFn = void(__thiscall*)(void*, const Rect*);
+            reinterpret_cast<SetExtentFn>((*FieldAt<void**>(control, 0))[1])(control, &at);
+        }
+    }
+#endif
 
     // Hidden until the pad is the live device, the same rule the badges follow.
     *FieldAt<std::uint32_t>(control, K1_CONTROL_FLAGS) &= ~K1_CONTROL_FLAG_DRAWN;
@@ -3673,6 +3900,9 @@ void ForgetGuiCuesK1(void* panel)
         *FieldAt<void*>(panel, K1_PANEL_GFF) != nullptr) {
         return;
     }
+#ifdef KMRP_CONTROLLER_STANDALONE
+    KmrpForgetBadgeOverlaysK1(panel);
+#endif
     using DeletingDtorFn = void*(__thiscall*)(void*, unsigned);
     for (int i = 0; i < K1_GUI_CUE_SLOTS; ++i) {
         GuiCueK1& cue = g_guiCues[i];
@@ -3708,7 +3938,13 @@ void InstallGuiCuesK1(void* panel)
     }
     for (int i = 0; i < K1_GUI_CUE_COUNT; ++i) {
         if (K1_GUI_CUES[i].panelVtable == vtable) {
-            BindOneCueK1(panel, K1_GUI_CUES[i].tag, K1_GUI_CUES[i].follow);
+            std::size_t follow = K1_GUI_CUES[i].follow;
+#ifdef KMRP_CONTROLLER_STANDALONE
+            // With the Xbox-style HUD the X cue is the button in the combat-mode
+            // message (K1XboxHud.cpp), so it is shown while that message is.
+            if (follow == K1_HUD_CLEAR_ALL && KmrpXboxHudEnabledK1()) follow = K1_HUD_COMBAT_MESSAGE;
+#endif
+            BindOneCueK1(panel, K1_GUI_CUES[i].tag, follow, K1_GUI_CUES[i].reference);
         }
     }
 }
@@ -3918,6 +4154,18 @@ void MatchCueFamilyK1(void* label)
     resref[3] = wanted;
     EngineFn<SetFillImageFn>(K1_BORDER_SET_FILL_IMAGE)(params, resref, 1);
 }
+
+#ifdef KMRP_CONTROLLER_STANDALONE
+// The cue label bound to a panel that follows the control at `follow`, or null.
+void* KmrpGuiCueK1(void* panel, std::size_t follow)
+{
+    for (int i = 0; i < K1_GUI_CUE_SLOTS; ++i) {
+        if (g_guiCues[i].panel == panel && g_guiCues[i].follow == follow && GuiCueStillLiveK1(g_guiCues[i]))
+            return g_guiCues[i].control;
+    }
+    return nullptr;
+}
+#endif
 
 void UpdateGuiCuesK1()
 {
@@ -4935,19 +5183,11 @@ void UpdateCursorConfinementK1()
     // Fullscreen only: a window that does not cover its monitor is one the player
     // must be able to leave, to reach its border or another window. Confining a
     // windowed game trapped the cursor inside it (play-tested 2026-10-04).
-    // The window of a size the display does not offer is the exception: the game
-    // takes itself for fullscreen there, hides the system cursor and minimises when
-    // a click lands outside, so it is confined like fullscreen.
-    bool addedSize = false;
-#ifdef KMRP_NATIVE_RUNTIME
-    addedSize = KmrpAddedSizeWindowK1(screen.right - screen.left, screen.bottom - screen.top);
-#endif
     MONITORINFO monitor = {sizeof(monitor)};
-    if (!addedSize
-            && (!GetMonitorInfoW(MonitorFromWindow(foreground, MONITOR_DEFAULTTONEAREST), &monitor)
+    if (!GetMonitorInfoW(MonitorFromWindow(foreground, MONITOR_DEFAULTTONEAREST), &monitor)
             || screen.left > monitor.rcMonitor.left || screen.top > monitor.rcMonitor.top
             || screen.right < monitor.rcMonitor.right
-            || screen.bottom < monitor.rcMonitor.bottom)) {
+            || screen.bottom < monitor.rcMonitor.bottom) {
         if (g_stick.cursorConfined) {
             ClipCursor(nullptr);
             g_stick.cursorConfined = 0;
@@ -5000,6 +5240,38 @@ extern "C" void __cdecl CoreGuiFrameK1(void* guiManager)
     StatusSummaryFrameK1(guiManager);
 }
 
+#ifdef KMRP_NATIVE_RUNTIME
+// KMRP's own share of the GUI frame and of the movie frame, hooked at sites of
+// KMRP's own since 2026-10-05 (tools/build_native_kpatch.py, OWN_FRAME_HOOKS): the
+// controller patch has the frames' usual sites, KOTOR Patch Manager allows one patch
+// per address, and each patch must work without the other. (For some hours that day
+// the controller patch's module called these from its frames instead, which made
+// KMRP require it.) The resolution sampled, the cursor kept to the picture and the
+// status summary laid out; the movie window centred, tracked and given its bars.
+extern "C" void __cdecl KmrpCoreGuiWorkK1(void* guiManager)
+{
+    KmrpResolutionObservedK1(guiManager);
+    KmrpListRowsFrame(guiManager);      // the lists of newly loaded panels (K1RuntimeLayout.cpp, "List rows")
+    UpdateCursorConfinementK1();
+    StatusSummaryFrameK1(guiManager);
+}
+
+extern "C" void __cdecl KmrpCoreMovieWorkK1(void* moviePlayer)
+{
+    TrackMovieFrameK1(moviePlayer);
+}
+#endif
+
+#ifdef KMRP_CONTROLLER_STANDALONE
+// Whether KMRP is installed beside this patch: KOTOR Patch Manager loads every
+// patch's module as patches\<id>.dll before the game runs.
+bool KmrpIsBesideK1()
+{
+    static const bool beside = GetModuleHandleW(L"kmrp.dll") != nullptr;
+    return beside;
+}
+#endif
+
 extern "C" void __cdecl NativeGuiFrameK1(void* guiManager)
 {
     (void)guiManager;
@@ -5007,7 +5279,13 @@ extern "C" void __cdecl NativeGuiFrameK1(void* guiManager)
     KmrpResolutionObservedK1(guiManager);   // as CoreGuiFrameK1 does, above
 #endif
     g_stick.lastGuiTick = GetTickCount();
+#ifdef KMRP_CONTROLLER_STANDALONE
+    // Beside KMRP its module confines the cursor, from its own hook (it knows the
+    // sizes it adds); alone, the cursor is this module's to confine.
+    if (!KmrpIsBesideK1()) UpdateCursorConfinementK1();
+#else
     UpdateCursorConfinementK1();
+#endif
     EnsureDeviceCountK1();     // menus re-enumerate devices too
 
     // Which controller family the badges show, before they are updated.

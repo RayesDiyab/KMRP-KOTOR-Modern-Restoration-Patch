@@ -136,6 +136,12 @@ output (`ECA3DE4B…`).
 v20 -- an earlier gold's count, and gold rather than what the installer writes. The
 result has not changed.
 
+Since 2026-09-29 the installer writes none of those bytes to the file: KMRP's module
+applies the same positions in memory when the game starts, and `--apply` still
+writes the executables this check read. The check has not been repeated against the
+17 resolutions added on 2026-09-29 or against a running game's memory; K1DC's own
+log on a KMRP install (section 3, `hooks installed=8/8`) is the evidence there.
+
 His `target_versions` list already includes `761F9466F456A83909036BAEBB5C43167D722387BE66E54617BA20A8C49E9886`,
 which is the clean executable KMRP builds from.
 
@@ -167,9 +173,9 @@ AMD or Intel at all.
 ## 6. The opt-out
 
 **Advanced Settings**, the square gear button beside *Start Patching*, opens a
-settings view with three independent switches. The first, *Modern driver
-compatibility*, is **on by default**, like the other two (map-note corrections
-and controller support).
+settings view with four independent switches. The first, *Modern Driver
+Compatibility*, is **on by default**, like the next two (map-note corrections
+and controller support); the fourth, *Debug Logs*, added 2026-10-04, is off.
 
 Opt-out rather than opt-in because the people who most need it — anyone not on
 NVIDIA — are the least likely to know it exists, and the grass fix helps everyone.
@@ -179,7 +185,8 @@ The choices are stored in `%LOCALAPPDATA%\KMRP\settings.json` as
 "controllerSupport": true|false}`, deliberately beside the user's profile rather
 than next to the patcher, so they survive re-downloading a single-file executable.
 Since 2026-09-25 the file can also hold `"skippedUpdate": "1.6.0"`: the one
-newer version the player told the installer's update prompt not to repeat.
+newer version the player told the installer's update prompt not to repeat; and
+since 2026-10-04 `"debugLogs": true` while that switch is on.
 Every read is defensive: a missing file, an unreadable folder or a malformed value
 all fall back to the default. A settings file is never worth failing a patch over.
 
@@ -188,10 +195,15 @@ all fall back to the default. A settings file is never worth failing a patch ove
 * **K1DC's binaries.** Shipped byte-for-byte as released. We do not rebuild, strip or
   repack them, so a user can hash them against the author's release.
 * **`swkotor.exe`.** K1DC does not touch it and neither does KMRP on its behalf.
-* **The Patch Manager route.** Synchro's ordinary install goes through his own manager,
-  which will not recognise a KMRP-patched executable. That is his documented reason for
-  publishing the standalone build, and it is the one we bundle. Users who prefer the
-  manager should turn our option off and follow `INSTALLING.md` in his release.
+* **The Patch Manager route.** Synchro's ordinary install goes through KOTOR Patch
+  Manager, which did not recognise an executable KMRP had rewritten. That is his
+  documented reason for publishing the standalone build, and it is the one we bundle.
+  Since 2026-09-29 KMRP does not rewrite the executable and installs on KPM's
+  runtime itself, so both routes work: users who prefer the manager turn our option
+  off and tick Synchro's own `.kpatch` in KPM (`INSTALLING.md` in his release), and
+  in a game folder KPM already manages, KMRP's installer leaves K1DC to KPM
+  (`KpmEdition.cs`). K1DC's `.kpatch` beside KMRP's two patches in KPM has not been
+  run here.
 * **His hook addresses.** We read `kotor1.hooks.toml`; we never write to those sites.
 
 ## 8. Verifying by hand
@@ -228,13 +240,16 @@ sha256sum third_party/Included/k1-modern-driver-compatibility-1.2.0 by Synchro/k
 ```
 
 Confirm an install did what it claims — the manifest lists both files and their
-hashes, and the executable is untouched by K1DC. It is never gold's hash: the
-patcher writes per-resolution values on top of gold, even at 3440x1440. (This
-comment said "still the gold hash" until 2026-09-24.)
+hashes, and the executable is untouched by K1DC. Since 2026-09-29 its hash is the
+incoming file's on Steam, and the incoming file's with the 4 GB flag set on GOG's
+and the editable build (`CA9D22EA…` for the editable one). (This comment said
+"still the gold hash" until 2026-09-24, and then, until 2026-10-08, that the
+patcher writes per-resolution values on top of gold, which it stopped doing on
+2026-09-29.)
 
 ```powershell
 Get-Content "C:\Star Wars - KotOR\KMRP_DriverCompat.manifest"
-Get-FileHash "C:\Star Wars - KotOR\swkotor.exe"   # unchanged by K1DC: still what KMRP wrote
+Get-FileHash "C:\Star Wars - KotOR\swkotor.exe"   # unchanged by K1DC: still what KMRP left
 ```
 
 ## 9. Licence and credit

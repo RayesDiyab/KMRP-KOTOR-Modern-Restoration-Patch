@@ -14,7 +14,8 @@ draws for them. Since 2026-10-04 that is done by KMRP's patch module while the g
 runs, with `macos/tools/kmrp-guiblend.c` compiled into it; `GuiBlend.cs` is its C#
 reference and decides which sizes the installer accepts. The installer contains
 `KMRP.kpatch`, whose module holds the engine recipe, the shared interface artwork and
-every GUI set, so no companion folders need to be shipped.
+every GUI set, and since 2026-10-05 the controller patch, `KOTOR 1 Native Controller
+Mod + Xbox HUD.kpatch`, so no companion folders need to be shipped.
 
 The patcher accepts Steam's, GOG's and the editable 1.03 `swkotor.exe` (`GameExecutable`
 in `KmrpPatcher.cs`), creates recoverable
@@ -23,7 +24,10 @@ sets NVIDIA's present method for it where the driver would otherwise show
 half-drawn frames, and configures `swkotor.ini`. Three optional components,
 each on by default and each independent, are chosen under *Advanced Settings*:
 K1 Modern Driver Compatibility, the map-note corrections, and controller
-support; the last two are the patch's options. See `docs/patcher-ui-build.md` for the
+support. The map notes are an option of KMRP's patch (`map-notes` in
+`configs\kmrp.ini`); controller support is a patch of its own, `kmrp-controller`,
+installed only while that switch is on (`KpmEdition.cs`; from 2026-10-04 to
+2026-10-05 it was an option of KMRP's patch). See `docs/patcher-ui-build.md` for the
 order of every step. Under `[Graphics Options]`, it removes duplicate resolution keys
 and writes the display's current size, where the game starts, for example:
 
@@ -65,8 +69,10 @@ file it could not use; the window checks again whenever it is activated. Until
 2026-09-30 it was *Verify Editable EXE*, and a missing or unsupported executable
 expanded it into a guide linking to the KOTOR Editable Executable on Deadly Stream,
 with *Get Editable EXE* and *Check Again*: KMRP now takes all three versions as they
-are. Step 3 says how many resolutions the game will offer and where it starts;
-its *Choose* button opens the checklist (`ResolutionsDialog`).
+are. Step 3 has nothing to choose: it reads "Starts at W × H. The game lists every
+resolution the connected display supports." (From 2026-10-04 to 2026-10-07 it had a
+*Choose* button opening a checklist, `ResolutionsDialog`, removed at the
+maintainer's request.)
 **Start Patching** remains disabled until a supported
 executable and the initial game configuration are available. Once patched, the
 same button becomes **Restore Original** when the verified backups exist.
@@ -101,9 +107,12 @@ To reuse interface resources after a successful full resource build:
 .\build_kmrp.ps1 -ReuseResources
 ```
 
-Both forms assemble the source engine, compile KMRP's module and KPM's
-runtime, and package the one patch, `KMRP.kpatch`. The only required game-derived build
-input is `TexturePacks/swpc_tex_gui.erf`; per-resolution font caches are optional.
+Both forms assemble the source engine, compile KMRP's module, the controller
+patch's module and KPM's runtime, and package the two patches, `KMRP.kpatch` and
+`KOTOR 1 Native Controller Mod + Xbox HUD.kpatch`. The required game-derived build
+inputs are `TexturePacks/swpc_tex_gui.erf` and, for the controller patch, the game's
+own layout files in `build-inputs\vanilla-gui` (`build-inputs/README.md`);
+per-resolution font caches are optional.
 
 Automation-only command-line modes are also available:
 

@@ -44,7 +44,8 @@ do not load every project document on every task.
     `KOTOR_UI_Override_Backup.manifest` in an install made before, which wrote
     Override files), update its row so ownership stays intact -- otherwise Restore
     Original meets a file it no longer recognizes. A single interface file can no
-    longer be swapped in the game folder: they are inside `patches\kmrp.dll`.
+    longer be swapped in the game folder: they are inside `patches\kmrp.dll` (the
+    controller patch's are inside `patches\kmrp-controller.dll`).
   - Report the path, both hashes, and how to undo it.
 - Do not weaken executable validation merely to accept more inputs. Recognize a
   variant only through explicit, documented byte-level invariants, and preserve
@@ -111,9 +112,11 @@ do not load every project document on every task.
 - Standard build: `.\build_kmrp.ps1`.
 - Compile-only iteration with existing resources: `.\build_kmrp.ps1 -ReuseResources`.
 - Installer regression: `.\testing\regression\Test-ReinstallOverOlderBuild.ps1`.
-- What the installer puts in a game folder (the one patch, its options, the
-  resolution list, restore): `.\testing\regression\Test-InstallerPatch.ps1`.
-  The packaged patch: `python testing/regression/Test-KpatchSource.py`.
+- What the installer puts in a game folder (KMRP's patch and, with Controller
+  Support on, the controller patch; their options files; no resolution list;
+  restore): `.\testing\regression\Test-InstallerPatch.ps1`.
+  The packaged patches: `python testing/regression/Test-KpatchSource.py` and
+  `python testing/regression/Test-ControllerKpatch.py`.
 - Documentation links: `python .github/scripts/check_links.py`.
 - Executable changes also require `tools/build_binary_inventory.py` against the
   clean input and final gold snapshot, plus representative resolution outputs.

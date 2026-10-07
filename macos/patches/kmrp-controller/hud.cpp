@@ -21,6 +21,7 @@
 #include "engine.h"
 #include "pad.h"
 #include "state.h"
+#include "xbox_hud.h"
 
 #include <cstdint>
 
@@ -136,6 +137,30 @@ bool Selectable(void* hud, int i) {
 }
 
 void MoveFocus(void* hud, int active, int direction) {
+    // The Xbox-style HUD shows the seven slots in six places and in another order (xbox_hud.cpp,
+    // kPlace): left and right follow what is on screen. The grenade and mine slots share a
+    // place, and the one not shown is not selectable. The first place is the default action and
+    // has no slot: it is "no slot has the focus", -1 here, and reaching it lets the focus go.
+    if (xboxhud::Enabled()) {
+        static const int order[8] = {-1, 0, 3, 1, 2, 6, 4, 5};
+        int at = 0;
+        for (int i = 0; i < 8; ++i)
+            if (order[i] == active) at = i;
+        for (int step = 0; step < 8; ++step) {
+            at = (at + (direction > 0 ? 1 : 7)) % 8;
+            if (order[at] < 0) {
+                SetActiveControl()(hud, nullptr, 1);
+                ++g_count.moves;
+                return;
+            }
+            if (Selectable(hud, order[at])) {
+                SetActiveControl()(hud, Slot(hud, order[at]), 1);
+                ++g_count.moves;
+                return;
+            }
+        }
+        return;
+    }
     int index = active >= 0 ? active : (direction > 0 ? kSlotCount - 1 : 0);
     for (int n = 0; n < kSlotCount; ++n) {
         index = (index + direction + kSlotCount) % kSlotCount;
@@ -185,6 +210,10 @@ bool ActionBarFocused() {
     return active >= 0 && Selectable(hud, active);
 }
 
+int FocusedSlot(void* hud) {
+    return LooksLikePointer(hud) && VtableOf(hud) == kHudVtable ? FocusedIndex(hud) : -1;
+}
+
 void Status() {
     Log("HUD: %lu slot moves, %lu action cycles, %lu slot actions, %lu releases, %lu last-action removals, "
         "%lu disengages",
@@ -201,8 +230,11 @@ extern "C" __attribute__((visibility("default"))) void KmrpHudFrame(void* hud) {
     if (engine::CurrentInputClass() != engine::kClassPC || !HudActive(hud)) return;
     int active = FocusedIndex(hud);
     // Y, then X: remove the last queued action, then disengage altogether.
+    // With the Xbox-style HUD, B with no slot to let go of disengages, as B does on the Xbox
+    // ("COMBAT MODE engaged. (B) to disengage."). X still does.
+    const bool disengage = pending.disengage || (pending.release && active < 0 && xboxhud::Enabled());
     if (pending.clearOne && PressIfShown(hud, kClearOne)) ++g_count.clearOnes;
-    if (pending.disengage && PressIfShown(hud, kClearAll)) ++g_count.disengages;
+    if (disengage && PressIfShown(hud, kClearAll)) ++g_count.disengages;
     if (pending.release && active >= 0) {   // B: let go of the bar, and nothing else
         SetActiveControl()(hud, nullptr, 1);
         ++g_count.releases;

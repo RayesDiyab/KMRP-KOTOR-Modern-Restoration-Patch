@@ -1,13 +1,20 @@
 # Windows engine fixes built without a game executable
 
 Since 2026-10-01 the normal Windows installer build assembles its engine recipe
-from tracked patch sites and x86 emitters. Its only required game-derived input
-is `TexturePacks/swpc_tex_gui.erf`. Neither an editable clean 1.03 executable nor
-a patched gold snapshot is read by `build_kmrp.ps1`.
+from tracked patch sites and x86 emitters. The engine recipe needs no game file;
+the build's required game-derived inputs are `TexturePacks/swpc_tex_gui.erf` and,
+since the installer carries the controller patch (2026-10-05), the game's own
+layout files in `build-inputs\vanilla-gui` ([build-inputs](../build-inputs/README.md)).
+Neither an editable clean 1.03 executable nor a patched gold snapshot is read by
+`build_kmrp.ps1`.
 
 The full Ubuntu cross-build on 2026-10-01 found that `tools/build_kpatch.py`
-still read both files while generating and checking packages. Those reads have
-also been removed. `windows-sites.json` now records the measured CD/GOG LAA
+still read both files while generating and checking packages. Those reads were
+removed, and the tool itself on 2026-10-04: the packages are now made and checked
+by `tools/build_native_kpatch.py` (KMRP's patch) and
+`tools/build_controller_kpatch.py` (the controller patch), from
+`kotor1.hooks.toml` and `kotor1-native-runtime.hooks.toml`. The rest of this
+paragraph describes the checker of 2026-10-01. `windows-sites.json` now records the measured CD/GOG LAA
 header edit separately: FILE `0x926`, little-endian `0F 01` → `2F 01`.
 The package checker requires runtime hooks to match
 `src/controller-native/kotor1.hooks.toml` exactly, with all three target builds;
@@ -84,7 +91,8 @@ are in the [font and text-fix record](font-scaling.md).
 The table below is generated from `assemble().runs()` in
 `tools/build_windows_engine.py`: **81 runs covering 768 guarded bytes**.
 `Original` is the source-authored runtime guard; `Recipe` is the replacement
-before `ResolutionPatch` specializes it for the chosen size. Guards include
+before `ResolutionPatch` specializes it for the size the game runs at (one size
+chosen in the installer until 2026-10-04). Guards include
 unchanged instruction/operand bytes where needed; 768 is a guarded-byte count,
 not the number of bytes whose values differ. Feature 1 is the core engine and
 resolution layout; feature 2 is movie playback. The per-site mechanisms are
@@ -204,7 +212,8 @@ the established FILE coordinates; it has no executable header and is never
 installed as a game executable. Every field scaling touches must be covered by
 an authored guard or an injected page, otherwise installation fails.
 
-The installer writes the same `KMRPKPM2` runtime format to `kmrp-kpm.dat`.
+Until 2026-10-04 the installer wrote the same `KMRPKPM2` runtime format to
+`kmrp-kpm.dat`; the module now builds it in memory.
 [`K1KpmApplier.cpp`](../src/controller-native/K1KpmApplier.cpp) continues to
 check every chosen original byte before writing anything, allocate and relocate
 the pages, pause the game's other threads during writes and roll back written
@@ -224,8 +233,10 @@ must fail the proof.
 The shared scale is still `max(1.0, height / 720)`. The same C# code computes map
 geometry, list rows, popups, checkbox geometry and marker sizes. Marker signed
 offsets retain their existing clamp. Game hash validation, ownership manifests,
-upgrade/restore, the controller hooks, and optional feature selection are
-unchanged. The editable CD/GOG installation still manages the 4 GB header flag;
+upgrade/restore, the controller hooks, and optional feature selection were
+unchanged by the source build of 2026-10-01. (Since 2026-10-05 the controller
+hooks are a patch of their own, `kmrp-controller`; see
+[the KPM edition](kpm-edition.md#two-patches-since-2026-10-05).) The editable CD/GOG installation still manages the 4 GB header flag;
 Steam's executable is unchanged by installation.
 
 `--apply` remains an optional **offline reference** command: it requires a
@@ -248,6 +259,7 @@ binary-inventory and offline-reference comparison.
 ```powershell
 python tools/build_windows_engine.py --out build/kmrp/windows-engine.bin
 python testing/regression/Test-WindowsEngineSource.py --csc C:\Windows\Microsoft.NET\Framework\v4.0.30319\csc.exe
+python tools\build_controller_assets.py --extract "<Steam game>"   # once: build-inputs\vanilla-gui, for the controller patch
 .\build_kmrp.ps1 -TexturePack "<Steam game>\TexturePacks\swpc_tex_gui.erf"
 ```
 

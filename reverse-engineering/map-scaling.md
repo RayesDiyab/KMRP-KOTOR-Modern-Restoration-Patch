@@ -12,6 +12,31 @@ someone who is not us, and so that a determined person can reproduce or undo the
 work by hand. Everything here was read out of the binaries with a disassembler,
 or computed from values read out of them. Where something is untested it says so.
 
+> **Where these bytes are written (note of 2026-10-08, read from the source).**
+> Until 2026-09-29 KMRP's installer wrote everything below into `swkotor.exe`.
+> It no longer does: the same bytes are applied in memory each time the game
+> starts, by the module of `KMRP.kpatch` under KOTOR Patch Manager's runtime
+> (`src/controller-native/K1KpmApplier.cpp`, `K1RuntimeEngine.cpp`), from a
+> recipe built from source (`src/engine/windows-sites.json`,
+> `tools/build_windows_engine.py`, `tools/build_native_engine.py`), each write
+> after its original bytes are checked. Two things follow for a reader:
+>
+> - *Addresses from `0x0086D000` up are the patched image's.* The eleven
+>   appended sections are one block in memory the module allocates, and every
+>   reference to it is moved by the difference. In a running game add the
+>   block's base less `0x0086D000`; the base is in the `applied:` line of
+>   `kmrp-kpm.log`, written while the patch's `debug-logs` option is on.
+> - *The per-resolution constants are computed in the game.* `ResolutionPatch`
+>   makes them for `--apply`; the module makes the same values for the size the
+>   game runs at (`FieldValue`, over the fields `resolution_fields()` lists) and
+>   writes them again when the size is changed in the game.
+>
+> So this document, byte for byte, describes the image the installer's `--apply`
+> writes to a new file, which is still the reference the in-memory result is
+> held to ([`docs/kpm-edition.md`](../docs/kpm-edition.md)); section 8's command
+> still works. The map's `.gui` files no longer go to `Override`: the module
+> carries every size's set.
+
 `map.md` is the lab record — what was tried, what failed, what was disproved.
 This is the reference for the map surface and the coordinate chain.
 **[map-markers.md](map-markers.md)** is the reference for the icons drawn on it.

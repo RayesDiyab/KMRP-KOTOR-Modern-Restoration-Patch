@@ -1,5 +1,13 @@
 # Mac memory-safety fixes for your PR
 
+> **Done.** This note was written for FTD on 2026-10-02 or 2026-10-03 (it carries no date).
+> His Stray Bug Fixes patch now declares all four hooks at the addresses below
+> (`Patches/K1StrayBugFixes/kotor1-steam-aspyr-macos.hooks.toml` in the KotOR Patch Manager
+> tree KMRP builds from, read 2026-10-08), so they have one owner: KMRP's build leaves its
+> own identical declarations out of its patch
+> ([`macos/README.md`](../../macos/README.md), "KMRP on FTD's patches"). The rest is the
+> note as sent.
+
 We have four non-GUI safety hooks in KMRP that you could add to your PR. They're
 Mac versions of the texture-bucket and grass protections already available on
 Windows. They don't need any GUI files, resolution settings, controller code or

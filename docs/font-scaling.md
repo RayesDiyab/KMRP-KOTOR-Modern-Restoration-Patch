@@ -71,16 +71,22 @@ resolutions now also carries this one.
 
 ## Building the patcher
 
-The gold snapshot already contains every executable fix, and the universal
-build script defaults to the current gold, v24:
+Since 2026-10-01 `build_kmrp.ps1` reads no gold snapshot: the engine recipe is
+assembled from source by the same emitters the gold builders use
+([Windows engine source](windows-engine-source.md)), and since 2026-09-29 the fixes
+are applied in memory by KMRP's module rather than written into `swkotor.exe`. The
+gold chain below is the historical reference the recipe was measured against, and
+what `--apply` still reproduces. (Until 2026-10-08 this section said the build
+script defaults to the current gold, v24.)
 
 ```powershell
 .\build_kmrp.ps1
 ```
 
-To roll a *new* executable fix into the gold, run its build script against the
-current gold, then update both hash constants (see "Integration status") before
-rebuilding:
+To add a *new* executable fix now, add its sites and emitter to the source recipe
+(`src/engine/windows-sites.json`, `tools/build_windows_engine.py`). Historically it
+was rolled into the gold by running its build script against the current gold and
+updating both hash constants (see "Integration status"):
 
 ```powershell
 python tools\build_wrap_progress_fix.py OLD_GOLD.exe NEW_GOLD.exe
@@ -149,14 +155,17 @@ future gold change by matching `GoldPatch.TargetHash` in
 `src/patcher/KmrpPatcher.cs` against the file on disk. (*Corrected 2026-09-24:*
 this said v23, and the table stopped there.)
 
-Changing the gold means updating its identity in four places together, or the
-build fails: `TargetHash` and `TargetLength` in `KmrpPatcher.cs`,
-`EXPECTED_GOLD_SHA256` in `tools/generate_gold_delta.py`, and `-GoldExe` in
-`build_kmrp.ps1`. The guard in `generate_gold_delta.py` is deliberate — it is
-what catches a stale or unexpected gold, and it did.
+The gold's identity is recorded in three places: `TargetHash` and `TargetLength`
+in `KmrpPatcher.cs` and `EXPECTED_GOLD_SHA256` in `tools/generate_gold_delta.py`.
+(Until 2026-10-01 there was a fourth, `-GoldExe` in `build_kmrp.ps1`, and the build
+failed unless all four agreed; that argument is gone.) The guard in
+`generate_gold_delta.py` is deliberate: it is what catches a stale or unexpected
+gold, and it did.
 
-A live install's hash will not match the gold: the patcher writes
-per-resolution constants on top, so `live = gold + ResolutionPatch`.
+A live install's `swkotor.exe` never matches the gold. Since 2026-09-29 it is the
+player's own file, unchanged on Steam and with only the 4 GB flag set on GOG's and
+the editable build. An `--apply` output, and an install made before that day, is
+`gold + ResolutionPatch`: the per-resolution constants written on top.
 
 **Font sizing no longer uses the runtime `--scale` constant.** It rides on the
 atlases' TXI metrics per resolution, via `font_scale_for(height) =
@@ -195,8 +204,10 @@ Note the two DIFFERENT scales. `fnt_d16x16b`'s `2.526316` is `3.0 x 16/19`,
 cancelling vanilla's 19px-vs-16px size difference so descriptions and menus
 match. **Baking it at plain 3.0 silently restores that mismatch.**
 
-Rendered letter spacing is fixed at bake time, in the glyph cell widths — the
-`spacingR` metric is **not** a typographic control (see below), so there is no
+Rendered letter spacing is fixed at bake time, in the glyph cell widths. The
+`spacingR` metric is drawn after every glyph but hardly counted when lines are
+broken, so KMRP's sets carry `spacingR 0`
+(`reverse-engineering/font-atlases.md`, corrected 2026-10-05) and there is no
 spacing table to regenerate. To adjust how tightly letters sit, change the
 padding/advance logic in `build_font_from_ttf.py` and re-bake.
 
@@ -334,17 +345,17 @@ shipped face is unchanged.
   - Every embedded resource appears **byte-verbatim** in the built `.exe`.
     That was measured before 2026-09-25. Since then the per-resolution
     archives are embedded as one pool, so they no longer appear verbatim;
-    `Test-InstalledOverride.ps1` compares what the installer writes with them
-    instead.
+    `Test-InstalledOverride.ps1` compared what the installer wrote with them
+    until 2026-10-04, and since then `Test-NativeAssetsBank.py` checks the
+    module's bank against them.
   - Each of the 18 atlases was matched back to the typeface it was rendered
     from by extracting glyphs and diffing against candidate renders —
     17 → Old Republic, `fnt_d16x16b` → Arimo Medium, all zero-pixel exact.
   - **0 of 94** glyphs clipped at their cell edge in either font, on either
     side — including glyphs whose ink starts left of the pen origin.
   - (Removed: an earlier gap/ink "letter spacing" figure here was produced by a
-    simulation that fed `spacingR` into the glyph advance. The renderer does not
-    read `spacingR` at all — see `reverse-engineering/font-atlases.md` — so the
-    number measured the model, not the game.)
+    simulation of the spacing between glyphs, not from the game. See
+    `reverse-engineering/font-atlases.md` for what `spacingR` does.)
   - Description and menu text render at identical heights at 1080p, 1440p,
     3440x1440 and 2160p.
   - Per-resolution scale: 720p 1.00x, 1080p 1.50x, 1440p 2.00x, 2160p 3.00x.

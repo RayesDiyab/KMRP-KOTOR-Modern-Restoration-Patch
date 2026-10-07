@@ -9,9 +9,11 @@ handles any resolution KMRP has a layout for at run time.
   dist/native/KMRP.kpatch                       id "kmrp"
   (build_kmrp.ps1 writes it to build/kmrp/kpm-patches instead, with --out)
 
-Controller support and map notes are options of the patch, both on by default, and
-debug logs a third, off by default. The movie fixes are not an option: they are part
-of KMRP (the maintainer, 2026-10-04, after a day on which they were one). A hook that
+Map notes is an option of the patch, on by default, and debug logs a second, off by
+default. Controller support is not in this patch since 2026-10-05: it is a patch of
+its own (tools/build_controller_kpatch.py), and each works without the other. The
+movie fixes are not an option: they are part of KMRP (the maintainer, 2026-10-04,
+after a day on which they were one). A hook that
 belongs to an option carries `when`. No address has two hooks, so a KOTOR Patch
 Manager without patch options (0.7.1), which ignores `when` and the options, installs
 every hook: every option at its default. The module reads what was chosen from the
@@ -85,10 +87,49 @@ PARAMETERS = {
     'KmrpPanelControlK1': [('ecx', 'pointer'), ('esp+4', 'pointer'), ('esp+8', 'pointer')],
     'KmrpPanelDestroyedK1': [('ecx', 'pointer')],
     'KmrpControlDestroyedK1': [('ecx', 'pointer')],
+    'KmrpListRowK1': [('esi', 'pointer'), ('ecx', 'pointer'), ('esp+32', 'pointer')],
 }
 # KMRP's earlier patches, which this one replaces: the add-ons of the four-patch
 # edition (whose core had this id), and the experimental packages of 2026-10.
-RETIRED = ['kmrp-controller', 'kmrp-movies', 'kmrp-map-notes', 'kmrp-native',
+# Since 2026-10-05 KMRP is two patches again, by the maintainer's decision: this one,
+# and the controller patch beside it (tools/build_controller_kpatch.py, id
+# "kmrp-controller": "KOTOR 1 Native Controller Mod + Xbox HUD", which also works on
+# the game without KMRP). This patch carries no controller hook and no controller
+# option. Three sites both would want are the controller patch's: the GUI frame
+# (0x0040CE70) and the movie frame (0x00404D96), from which its module calls this
+# module's share of each (KmrpCoreGuiWorkK1 and KmrpCoreMovieWorkK1, K1NativeJoystick.cpp),
+# and the resource hook, for which it has a site of its own.
+CONTROLLER = 'kmrp-controller'
+# The core's two frame hooks, which the controller patch holds instead.
+CORE_FRAMES = ('CoreGuiFrameK1', 'CoreMovieFrameK1')
+# What the controller patch's module calls in this one.
+CALLED_BY_CONTROLLER = ()
+# Later on 2026-10-05 the two patches were made independent, at the maintainer's
+# direction: either works without the other, and the controller patch can be added to
+# or taken from a game that has KMRP. KOTOR Patch Manager allows one patch per
+# address, so KMRP's share of the GUI frame and of the movie frame has sites of its
+# own, where the controller patch has none (as the controller patch has its own site
+# for the resource hook):
+#   the GUI frame    0x0040CE76, the instruction after the controller patch's site at
+#                    0x0040CE70 (push ecx/ebx/ebp/esi, mov ebp, ecx): mov eax,
+#                    [ebp+0x8C], six bytes, nothing to relocate, EBP the GUI manager;
+#   the movie frame  0x00404D06, in the same loop as the controller patch's site at
+#                    0x00404D96, once per frame, before the frame is shown: mov edx,
+#                    [esi+0x48] / push eax / mov eax, [esi+0x4C], seven bytes, nothing
+#                    to relocate, ESI the movie player. (The instructions after
+#                    0x00404D96 are a compare and a relative jump, which a detour
+#                    cannot carry.) Neither site is a branch target.
+OWN_FRAME_HOOKS = [
+    {'address': 0x0040CE76, 'type': 'detour', 'function': 'KmrpCoreGuiWorkK1',
+     'original_bytes': [0x8B, 0x85, 0x8C, 0x00, 0x00, 0x00],
+     'skip_original_bytes': False, 'exclude_from_restore': [],
+     'parameters': [{'source': 'ebp', 'type': 'pointer'}]},
+    {'address': 0x00404D06, 'type': 'detour', 'function': 'KmrpCoreMovieWorkK1',
+     'original_bytes': [0x8B, 0x56, 0x48, 0x50, 0x8B, 0x46, 0x4C],
+     'skip_original_bytes': False, 'exclude_from_restore': [],
+     'parameters': [{'source': 'esi', 'type': 'pointer'}]},
+]
+RETIRED = ['kmrp-movies', 'kmrp-map-notes', 'kmrp-native',
            'kmrp-native-options', 'kmrp-native-map-notes', 'kmrp-native-preview']
 # Other authors' patches that make a change this one makes too, or hook its sites.
 OTHERS = (['hud-minimap-map-size-fix-v1', 'scaled-kotor', '4gb-patch', 'better-movie-playback-v1']
@@ -99,8 +140,10 @@ PATCH = {
     'description': (
         'KMRP in one patch: the widescreen and high-resolution interface at the '
         'resolution chosen in Options, with the 4 GB, texture, grass and save-game '
-        'memory fixes and the movie fixes. Controller support and map notes are options '
-        'you can turn off. Needs no installer and writes nothing to Override.'),
+        'memory fixes and the movie fixes. Map notes are an option you can turn off. '
+        'Controller support is a patch of its own, KOTOR 1 Native Controller Mod + '
+        'Xbox HUD, which works beside this one. Needs no installer and writes nothing '
+        'to Override.'),
     'requires': [],
     'conflicts': RETIRED + OTHERS,
 }
@@ -108,9 +151,6 @@ PATCH = {
 # an entry says otherwise. The descriptions are the launcher's, so they say what the
 # player gets.
 OPTIONS = [
-    {'id': 'controller', 'name': 'Controller support',
-     'description': 'Play with an Xbox, PlayStation, Switch or Steam Deck controller, in the '
-                    'game and in every menu, with matching button prompts and rumble.'},
     {'id': 'map-notes', 'name': 'Map notes',
      'description': "Shows the area map's notes where they belong (Derslok's map marker "
                     'corrections).'},
@@ -143,12 +183,12 @@ def option_hooks():
     # themselves when the option is on. A variant per state would be two hooks at
     # one address, which a manager without options installs both of and refuses.
     conditioned = [(kmrp_controller.as_installed(h), None)
-                   for h in kmrp_controller.kpm_patch_hooks('kmrp')]
-    for h in kmrp_controller.kpm_patch_hooks('kmrp-controller'):
-        conditioned.append((kmrp_controller.as_installed(h), 'controller'))
+                   for h in kmrp_controller.kpm_patch_hooks('kmrp')
+                   if h.get('function') not in CORE_FRAMES]
     for h in kmrp_controller.kpm_patch_hooks('kmrp-movies'):
         conditioned.append((kmrp_controller.as_installed(h), None))
     conditioned += [(h, None) for h in _table()]
+    conditioned += [(dict(h), None) for h in OWN_FRAME_HOOKS]
     for index, (h, _) in enumerate(conditioned):
         span = range(h['address'], h['address'] + len(h['original_bytes']))
         if not span or (h['type'] in ('detour', 'replace') and len(span) < 5):

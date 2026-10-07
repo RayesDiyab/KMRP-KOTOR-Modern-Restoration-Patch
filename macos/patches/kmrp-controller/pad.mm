@@ -154,7 +154,6 @@ std::atomic<bool> g_mainQueueAlive{false};
 std::atomic<int> g_connects{0};
 
 __attribute__((constructor)) void StartGameController() {
-    if (!ControllerOption()) return;
     // SDL3 reads the pads when it is there (backend_sdl.cpp), as on Windows; GameController
     // only when it is not, so the two never both hold a pad.
     if (SdlAvailable()) return;
@@ -247,7 +246,6 @@ std::atomic<bool> g_appActive{true};
 
 // AppKit's own notifications, delivered on the main thread; the game's thread reads the flag.
 __attribute__((constructor)) void WatchAppActivation() {
-    if (!ControllerOption()) return;
     NSNotificationCenter* center = [NSNotificationCenter defaultCenter];
     [center addObserverForName:NSApplicationDidBecomeActiveNotification object:nil queue:nil
                     usingBlock:^(NSNotification*) { g_appActive = true; }];

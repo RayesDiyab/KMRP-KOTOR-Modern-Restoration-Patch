@@ -7,17 +7,34 @@ release of *Star Wars: Knights of the Old Republic*. It generates resources for 
 resolutions from 800×600 through 15360×8640, blends other supported sizes when the
 game runs at them, and applies source-built engine fixes in memory.
 
-**Since 2026-10-04 KMRP is one KPM patch, `kmrp`, with three options (`controller`,
-`map-notes`, and `debug-logs`, off by default), recorded in `configs\kmrp.ini`
-under `[Patch Options]` and read there by the module (`KmrpOptions.h`).** Its module, `kmrp-native.dll` (`src/controller-native/build_native_runtime.cmd`,
-packaged by `tools/build_native_kpatch.py`), embeds the engine recipe, every
-resolution's files, the controller and SDL; nothing is written to Override, there is
-no `kmrp-kpm.dat`, and the resolution is chosen in the game. Where this file below
-still says four patches, `kmrp-kpm.dat`, Override resources, `build.cmd` or
-`kmrp-controller.module`, it describes the layout before that day; see
-`docs/kpm-edition.md`, "One patch since 2026-10-04".
+**Since 2026-10-05 KMRP is two independent KPM patches, and the installer carries
+both.** Neither requires the other:
 
-The first public release is KMRP 1.0, tagged `v2.10.0` (its internal number;
+- `kmrp` (`KMRP.kpatch`): the interface, the engine fixes, the memory and movie
+  fixes. Options `map-notes` (on) and `debug-logs` (off), recorded in
+  `configs\kmrp.ini` under `[Patch Options]` and read there by the module
+  (`KmrpOptions.h`). Its module, `kmrp-native.dll`
+  (`src/controller-native/build_native_runtime.cmd`, packaged by
+  `tools/build_native_kpatch.py`), embeds the engine recipe and every resolution's
+  files, and is installed as `patches\kmrp.dll`.
+- `kmrp-controller` (`KOTOR 1 Native Controller Mod + Xbox HUD.kpatch`): controller
+  support, with the controller code, its prompt art and SDL. Options `xbox-hud` and
+  `debug-logs`, both off, in `configs\kmrp-controller.ini`. Its module is built by
+  `src/controller-native/build_controller_standalone.cmd` and packaged by
+  `tools/build_controller_kpatch.py`. The installer installs it only while
+  Controller Support is on in Advanced Settings (`src/patcher/KpmEdition.cs`).
+
+Nothing is written to Override and there is no `kmrp-kpm.dat`. Since 2026-10-07
+there is no resolution choice in the installer and no `kmrp-resolutions.txt`:
+`swkotor.ini` gets the display's current size, and the game lists every size the
+connected display reports. (From 2026-10-04 to 2026-10-05 KMRP was one patch with
+`controller` as a third option; before 2026-10-04 it was four patches.) Where this
+file below still says four patches, `kmrp-kpm.dat`, Override resources, `build.cmd`
+or `kmrp-controller.module`, it describes the layout before 2026-10-04; see
+`docs/kpm-edition.md`.
+
+The first public release is KMRP 1.0, tagged `v1.0.0` since 2026-09-25 (`v2.10.0`,
+its internal number, until then, and still a plain tag on the same commit;
 its Properties → Details say 2.7.0.0). The build in progress is KMRP 1.5, installer
 version 1.5.0. Do not assume that remains the latest release; verify tags, releases,
 `CHANGELOG.md`, and `GoldPatch.PatchVersion` for release work. `build_kmrp.ps1`
@@ -31,15 +48,18 @@ without a clean EXE or gold snapshot. See [the current source build](../windows-
 
 ```text
 tracked source sites + x86 emitters
-    -> windows-engine.bin
-    -> ResolutionPatch constants for the selected resolution
-    -> kmrp-kpm.dat
-    -> guarded, relocated memory writes when KPM loads patches/kmrp.dll
+    -> windows-engine.bin, embedded in the module
+    -> ResolutionPatch constants for the size the game runs at
+    -> guarded, relocated memory writes when KPM loads patches/kmrp.dll,
+       and again when the resolution is changed in the game
 
-override-common.zip + gui-<resolution>.zip (the 66 embedded as one pool of
-    distinct files since 2026-09-25; tools/pack_resolution_layouts.py)
-    -> game Override directory with a hash-backed restore manifest
+override-common.zip + gui-<resolution>.zip (66 sets)
+    -> the module's bank of distinct files (tools/build_native_assets.py)
+    -> unpacked for the size in use to a private folder the game reads
 ```
+
+(Until 2026-10-04 the diagram ended in `kmrp-kpm.dat` for one selected resolution
+and in the game's Override directory with a restore manifest.)
 
 *Correction, 2026-10-01:* this overview previously described the retired standalone
 gold-delta build and 49 resolutions. The source recipe is now the normal build;
@@ -48,7 +68,7 @@ historical snapshots and the optional `--apply` reference command remain separat
 **Since 2026-09-29 KMRP's installer does not write gold into swkotor.exe.** It is
 the KPM edition's install plus KOTOR Patch Manager's runtime (KPM's binkw32.dll
 proxy and KotorPatcher.dll, built from the submodule by src/kpm-runtime/build.cmd)
-with KMRP's four patches, so one installer serves the editable 1.03 executable and
+with KMRP's patches (four until 2026-10-04, two now), so one installer serves the editable 1.03 executable and
 Steam's; on the editable one it sets only the 4 GB bit, leaving KPM a KPM-format
 backup of the unmodified file and kpm_install_state.json first -- KPM knows a game
 only by its exe hash, and refused the flagged one without them (measured with
@@ -64,12 +84,13 @@ current diagram above describes the runtime path. See docs/kpm-edition.md 1a.
 Historically two editions were built from one source since 2026-09-28: standalone
 and KMRP for KPM, compiled with KPM_EDITION. They became one installer on
 2026-09-29. The KPM route leaves swkotor.exe
-unmodified on Steam and writes kmrp-kpm.dat from the source recipe for KMRP's
-module to apply in memory under KOTOR Patch Manager, relocating eleven pages.
-In KPM it is four patches, one per
+unmodified on Steam; until 2026-10-04 it wrote kmrp-kpm.dat from the source recipe
+for KMRP's module to apply in memory under KOTOR Patch Manager, relocating eleven
+pages, and since then the module carries the recipe itself.
+In KPM it was four patches until 2026-10-04, one per
 fix: KMRP (required, self-contained: it carries the memory fixes and, on the
 editable 1.03 executable, the 4 GB flag), KMRP Controller, KMRP Movies, KMRP Map
-Notes; each hook's patch is `kpm_patch` in kotor1.hooks.toml. It supports the
+Notes; each hook's patch was `kpm_patch` in kotor1.hooks.toml. It supports the
 editable 1.03 executable (761F9466…, which KPM keys `kotor1_cdcrack_103`) and
 Steam's swkotor.exe (34E6D971…, decrypted identical to it), and since 2026-09-30
 GOG's own v1.03 (9C10E045…): the editable file with its 16-byte "Hellspawn Reborn"
@@ -79,13 +100,17 @@ found.
 See docs/kpm-edition.md.
 
 - `src/patcher/KmrpPatcher.cs` contains the Windows patcher, executable validation,
-  resolution constants, INI/Override installation, backup/restore logic, settings,
-  and UI.
-- `src/controller-native/` is the controller module -- KMRP's native path plus
-  Saul0097's files as modified by KMRP, built by `build.cmd` into
-  `kmrp-controller.module`, which the installer embeds with SDL 3 and, since
-  2026-09-29, the KPM runtime `src/kpm-runtime/build.cmd` builds from the
-  submodule (until then a prebuilt one from `third_party/`).
+  resolution constants, INI handling, backup/restore logic (including the removal
+  of an older install's Override files), settings, and UI;
+  `src/patcher/KpmEdition.cs` contains the install on KOTOR Patch Manager's
+  runtime: the two patches, their config and options files, and restore.
+- `src/controller-native/` holds both modules' C++: KMRP's module
+  (`build_native_runtime.cmd`, `kmrp-native.dll`) and the controller patch's
+  (`build_controller_standalone.cmd`, `kmrp-controller.dll`: KMRP's native path
+  plus Saul0097's files as modified by KMRP, with SDL 3). The installer embeds
+  both `.kpatch` files and the KPM runtime `src/kpm-runtime/build.cmd` builds from
+  the submodule. (Until 2026-10-04 `build.cmd` here built one
+  `kmrp-controller.module`.)
 - `tools/` contains binary builders, resource generators, inspection utilities,
   and verification scripts.
 - `assets/override-3440x1440/` is the hand-tuned gold GUI/art source.

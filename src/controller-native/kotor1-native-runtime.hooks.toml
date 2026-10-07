@@ -120,3 +120,55 @@ original_bytes = [0x6a, 0xff, 0x68, 0xae, 0x51, 0x71, 0x0]
 [[hooks.parameters]]
 source = "ecx"
 type = "pointer"
+
+# CSWGuiListBox::OrganizeControls (0x41b140), the three places it hands a row its
+# rectangle, which is on the stack at [esp+0x20]: the rows above the first shown, the
+# rows shown, the rows below. Each is "lea reg, [esp+0x20] / push reg", five bytes with
+# nothing to relocate, before the call to the row's SetExtent; none is a branch target
+# and none is among the bytes KMRP's own changes to this routine rewrite
+# (reverse-engineering/listbox-geometry.md). ESI the list, ECX the row.
+# K1RuntimeLayout.cpp, "List rows".
+[[hooks]]
+address = 0x41b4bf
+type = "detour"
+function = "KmrpListRowK1"
+original_bytes = [0x8d, 0x54, 0x24, 0x20, 0x52]
+[[hooks.parameters]]
+source = "esi"
+type = "pointer"
+[[hooks.parameters]]
+source = "ecx"
+type = "pointer"
+[[hooks.parameters]]
+source = "esp+32"
+type = "pointer"
+
+[[hooks]]
+address = 0x41b540
+type = "detour"
+function = "KmrpListRowK1"
+original_bytes = [0x8d, 0x44, 0x24, 0x20, 0x50]
+[[hooks.parameters]]
+source = "esi"
+type = "pointer"
+[[hooks.parameters]]
+source = "ecx"
+type = "pointer"
+[[hooks.parameters]]
+source = "esp+32"
+type = "pointer"
+
+[[hooks]]
+address = 0x41b59f
+type = "detour"
+function = "KmrpListRowK1"
+original_bytes = [0x8d, 0x44, 0x24, 0x20, 0x50]
+[[hooks.parameters]]
+source = "esi"
+type = "pointer"
+[[hooks.parameters]]
+source = "ecx"
+type = "pointer"
+[[hooks.parameters]]
+source = "esp+32"
+type = "pointer"

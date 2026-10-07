@@ -385,6 +385,24 @@ Invoke-Tool -Exe $Python -Label "kpatch" -FailureMessage "Building KMRP's patch 
     (Join-Path $projectRoot "tools\build_native_kpatch.py"), "--module",
     (Join-Path $nativeDir "kmrp-native.dll"),
     "--out", $kpmDir, "--config-dir", $kpmConfigDir, "--version", $patchVersion)
+# The controller patch, "KOTOR 1 Native Controller Mod + Xbox HUD", which the
+# installer installs beside KMRP's patch while Controller Support is on: its module
+# (assets, then the module), then the .kpatch into the same folder and its hooks beside
+# KMRP's. It keeps its own version number: it is also released on its own.
+Invoke-Tool -Exe "cmd.exe" -Label "controller module" -FailureMessage "Building the controller patch's module failed (src\controller-native\build_controller_standalone.cmd)" `
+    -Arguments @("/c", (Join-Path $projectRoot "src\controller-native\build_controller_standalone.cmd"))
+Invoke-Tool -Exe $Python -Label "controller kpatch" -FailureMessage "Building the controller patch failed" -Arguments @(
+    (Join-Path $projectRoot "tools\build_controller_kpatch.py"),
+    "--out", $kpmDir, "--config-dir", $kpmConfigDir)
+# The same file is the standalone release, dist\controller, which
+# Test-ControllerKpatch.py reads. Copied here so the two cannot differ: until
+# 2026-10-08 dist\controller was written only by running the tool by hand, and a
+# build left it holding an older patch than the installer carried.
+$controllerName = "KOTOR 1 Native Controller Mod + Xbox HUD.kpatch"
+$controllerDist = Join-Path $distDir "controller"
+New-Item -ItemType Directory -Force -Path $controllerDist | Out-Null
+Copy-Item -LiteralPath (Join-Path $kpmDir $controllerName) -Destination (Join-Path $controllerDist $controllerName) -Force
+Copy-Item -LiteralPath (Join-Path $kpmDir "kmrp-controller.verification.json") -Destination (Join-Path $controllerDist "verification.json") -Force
 Complete-Step
 
 # ---------------------------------------------------------------- 7. the installer
@@ -405,6 +423,10 @@ foreach ($optionHooks in (Get-ChildItem -LiteralPath $kpmConfigDir -Filter "kmrp
 $kpatchPath = Join-Path $kpmDir "KMRP.kpatch"
 if (-not (Test-Path -LiteralPath $kpatchPath)) { throw "tools\build_native_kpatch.py did not write $kpatchPath" }
 $engineArgs += "/resource:$kpatchPath,Kmrp.kpatch"
+$controllerKpatchPath = Join-Path $kpmDir "KOTOR 1 Native Controller Mod + Xbox HUD.kpatch"
+if (-not (Test-Path -LiteralPath $controllerKpatchPath)) { throw "tools\build_controller_kpatch.py did not write $controllerKpatchPath" }
+$engineArgs += "/resource:$controllerKpatchPath,KmrpController.kpatch"
+$engineArgs += "/resource:$(Join-Path $kpmConfigDir 'kmrp-controller.hooks.toml'),KmrpController.engine.hooks"
 $engineArgs += "/resource:$(Join-Path $projectRoot 'src\patcher\KPM-PATCHES-README.txt'),Kmrp.kpatch.readme"
 Write-Bar -Percent 100 -Label "running the C# compiler"
 Invoke-Tool -Exe $compiler -Arguments ($compilerArgs + $engineArgs) -Label "compile" `

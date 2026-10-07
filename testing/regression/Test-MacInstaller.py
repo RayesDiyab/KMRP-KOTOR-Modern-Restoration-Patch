@@ -6,7 +6,7 @@ against a stand-in: a bundle holding a copy of the unmodified KOTOR_Exe and link
 game's texture pack, chitin.key and data/, and a temporary $HOME with a swkotor.ini of its
 own. Nothing of the real game or the real ini is read or written except those (read).
 
-1. A listed size (--size 3024x1964): the engine files, the module taken out of kmrp.kpatch,
+1. A listed size (--size 3024x1964): the engine files, the module taken out of KMRP-macOS.kpatch,
    the load command, the two ini keys of the size, and nothing in the game's override folder
    (since 2026-10-04 the menu sets, the artwork and what is made from the game are inside the
    module, which Test-MacAssets.py checks; until then this test compared some 1,800 installed
@@ -35,11 +35,11 @@ section of the patch's own, which install and uninstall keep byte for byte.
    on the Mac: KMRP replaces it (its files deleted, the untouched game put back from KPM's copy
    before KMRP installs) and uninstall leaves the untouched game; with a KPM patch that is not
    FTD's, KMRP installs for KPM, as on Windows: KOTOR_Exe and KPM's files as they were, the
-   menus installed and kmrp.kpatch delivered, and uninstall leaves KPM's install exactly
+   menus installed and KMRP-macOS.kpatch delivered, and uninstall leaves KPM's install exactly
    (until 2026-10-01 that was refused).
 6. KPM's records of KMRP's own install, as Windows writes them (2026-10-01): every round above
    finds kpm_install_state.json and a KPM-format backup of the untouched KOTOR_Exe beside it,
-   and kmrp.kpatch in the patch folder KPM's settings name; and once KPM's Apply has rewritten
+   and KMRP-macOS.kpatch in the patch folder KPM's settings name; and once KPM's Apply has rewritten
    the runtime, uninstall removes KPM's runtime as well when KMRP is its only patch, leaving the
    untouched game, and leaves the runtime, load command and records to KPM beside another patch.
 
@@ -64,8 +64,12 @@ from pathlib import Path
 
 # What the installer installs since 2026-10-04: KMRP's patch and the two of FTD's it requires, each
 # a .kpatch in the package, with the id KPM names its module by, in KPM's order.
-PATCHES = (("K1StrayBugFixes.kpatch", "k1-stray-bug-fixes-patch"), ("K1WidescreenPatch.kpatch", "k1widescreenpatch"),
-           ("kmrp.kpatch", "kmrp"))
+# What an install holds: FTD's two, KMRP's own, and, while Controller Support is on, the
+# controller patch (a patch of its own since 2026-10-07).
+CORE_PATCHES = (("K1StrayBugFixes.kpatch", "k1-stray-bug-fixes-patch"), ("K1WidescreenPatch.kpatch", "k1widescreenpatch"),
+                ("KMRP-macOS.kpatch", "kmrp"))
+CONTROLLER_PATCH = ("KOTOR 1 Native Controller Mod + Xbox HUD (macOS).kpatch", "kmrp-controller")
+PATCHES = CORE_PATCHES + (CONTROLLER_PATCH,)
 
 INI_BEFORE = "[Graphics Options]\r\nWidth=1024\r\nHeight=768\r\nForceWidth=1600\r\nAnti Aliasing=2\r\n\r\n[Sound Options]\r\nMusic=1\r\n"
 
@@ -115,13 +119,13 @@ def main() -> int:
         settings = ini.parent / "kmrp-controller.ini"
         player_settings = b""
         # KotOR Patch Manager's settings, naming its patch folder, where the install puts
-        # kmrp.kpatch (KPatchLauncher's AppSettings under .NET's ApplicationData, ~/.config).
+        # KMRP-macOS.kpatch (KPatchLauncher's AppSettings under .NET's ApplicationData, ~/.config).
         kpm_folder = tmp / "kpm-patches"
         kpm_folder.mkdir()
         (home / ".config/KPatchLauncher").mkdir(parents=True)
         (home / ".config/KPatchLauncher/settings.json").write_text(
             '{\n  "PatchesPath": "%s",\n  "GamePath": ""\n}\n' % kpm_folder)
-        # "off": both options off (--no-controller --no-map-notes), with the player's settings
+        # "off": the options off (--no-controller --no-map-notes --no-hd-icons), with the player's settings
         # file from the round before still there, which the install must leave alone.
         for size, listed, mode in (("3024x1964", True, "fresh"), ("1800x1169", False, "edit"),
                                    ("3024x1964", True, "kept"), ("1512x982", True, "off")):
@@ -129,7 +133,21 @@ def main() -> int:
             ini.write_bytes(INI_BEFORE.encode())
             if mode in ("kept", "off"):
                 player_settings = settings.read_bytes() if settings.is_file() else b""
-            options = {"off": ["--no-controller", "--no-map-notes"], "edit": ["--debug-logs"]}.get(mode, [])
+            if mode == "kept" and player_settings:
+                # A settings file from before the Xbox-style HUD: no [Hud] section. Install adds
+                # the section and touches nothing else.
+                cut = player_settings.find(b"[Hud]")
+                if cut < 0:
+                    failures.append(f"{size}: the settings file the installer wrote has no [Hud] section")
+                else:
+                    settings.write_bytes(player_settings[:cut].rstrip(b"\n") + b"\n")
+                    player_settings = settings.read_bytes()
+            options = {"off": ["--no-controller", "--no-map-notes", "--no-hd-icons"],
+                       "edit": ["--debug-logs"]}.get(mode, [])
+            # A list of resolutions left beside KOTOR_Exe by an install of 2026-10-07, whose
+            # checklist wrote one: removed, and nothing is written for the game's list.
+            if mode == "edit":
+                (game / "Contents/MacOS/kmrp-resolutions.txt").write_text("1800x1169\n1280x800\n")
             # The patch's own settings, already in its file in configs: kept by install and uninstall.
             options_ini = game / "Contents/MacOS/configs/kmrp.ini"
             own_section = b"[Presets]\r\nlast=enhanced\r\n" if mode == "kept" else b""
@@ -146,8 +164,11 @@ def main() -> int:
                 if settings.read_bytes() != player_settings:
                     failures.append(f"{size}: install without the controller touched kmrp-controller.ini")
             elif mode == "kept":
-                if not player_settings or settings.read_bytes() != player_settings:
-                    failures.append(f"{size}: the player's kmrp-controller.ini was not kept as it was")
+                now = settings.read_bytes()
+                if not player_settings or not now.startswith(player_settings) or b"[Hud]" in player_settings \
+                        or not now.rstrip().endswith(b"Style=Xbox") or now.count(b"[Hud]") != 1:
+                    failures.append(f"{size}: the player's kmrp-controller.ini was not kept with the [Hud] section added")
+                player_settings = now
                 if "Kept your kmrp-controller.ini" not in result.stdout:
                     failures.append(f"{size}: install did not say it kept kmrp-controller.ini")
             else:
@@ -162,12 +183,17 @@ def main() -> int:
             # the same file whatever the options; KPM's hook list for the controller option, the
             # options recorded in configs/kmrp.ini; SDL with the controller only.
             hook_list = "patch_config.controller-off.toml" if mode == "off" else "patch_config.toml"
+            installed = CORE_PATCHES if mode == "off" else PATCHES
             macos_dir = game / "Contents/MacOS"
             files = sorted(str(p.relative_to(macos_dir)) for p in macos_dir.rglob("*") if p.is_file())
             backups = [f for f in files if re.fullmatch(r"KOTOR_Exe\.backup\.\d{8}_\d{6}", f)]
             files = [f for f in files if f not in backups and f not in [b + ".json" for b in backups]]
             want = ["KOTOR_Exe", "KotorPatcher.dylib", "kpm_install_state.json", "patch_config.toml",
-                    "configs/kmrp.ini"] + [f"patches/{patch_id}.dylib" for _, patch_id in PATCHES]
+                    "configs/kmrp.ini"] + [f"patches/{patch_id}.dylib" for _, patch_id in installed]
+            if mode != "off":
+                want.append("configs/kmrp-controller.ini")
+            if (macos_dir / "kmrp-resolutions.txt").exists():
+                failures.append(f"{size}: a list of resolutions is beside KOTOR_Exe")
             if files != sorted(want):
                 failures.append(f"{size}: MacOS holds {files}, not {sorted(want)}")
             # KPM's records, as Windows writes them: the untouched game in KPM's format, and
@@ -182,17 +208,25 @@ def main() -> int:
                 state = json.loads((macos_dir / "kpm_install_state.json").read_text())
                 version = state["OriginalVersion"]
                 if (state["OriginalHash"] != vanilla.upper() or not state["LinkedDependencyInstalled"]
-                        or state["LibraryProxyInstalled"] or state["InstalledPatches"] != [patch_id for _, patch_id in PATCHES]
+                        or state["LibraryProxyInstalled"] or state["InstalledPatches"] != [patch_id for _, patch_id in installed]
                         or version["Version"] != "1 1.4.0 (Aspyr macOS)" or version["Platform"] != 1):
                     failures.append(f"{size}: kpm_install_state.json is not KPM's record of this game")
             except (OSError, ValueError, KeyError) as error:
                 failures.append(f"{size}: kpm_install_state.json unreadable: {error}")
-            for name, _ in PATCHES:
+            for name, _ in installed:
                 delivered = kpm_folder / name
                 if not delivered.is_file() or delivered.read_bytes() != (package / "engine" / name).read_bytes():
                     failures.append(f"{size}: {name} is not in KPM's patch folder as packaged")
-            chosen = (0, 0, 0) if mode == "off" else (1, 1, 1 if mode == "edit" else 0)
-            section = "[Patch Options]\r\ncontroller=%d\r\nmap-notes=%d\r\ndebug-logs=%d\r\n" % chosen
+            if mode == "off" and (kpm_folder / CONTROLLER_PATCH[0]).exists():
+                failures.append(f"{size}: the controller patch was delivered with Controller Support off")
+            chosen = (0, 0) if mode == "off" else (1, 1 if mode == "edit" else 0)
+            # hd-icons (since 2026-10-08) is on unless --no-hd-icons, which the "off" round passes.
+            section = "[Patch Options]\r\nmap-notes=%d\r\nhd-icons=%d\r\ndebug-logs=%d\r\n" % (chosen[0], chosen[0], chosen[1])
+            controller_ini = macos_dir / "configs/kmrp-controller.ini"
+            want_controller = ("[Patch Options]\r\ndebug-logs=%d\r\n" % chosen[1]).encode()
+            if mode != "off" and (not controller_ini.is_file() or controller_ini.read_bytes() != want_controller):
+                failures.append(f"{size}: configs/kmrp-controller.ini is "
+                                f"{controller_ini.read_bytes() if controller_ini.is_file() else None!r}, not {want_controller!r}")
             want_ini = section.encode() + (b"\r\n" + own_section if own_section else b"")
             if not options_ini.is_file() or options_ini.read_bytes() != want_ini:
                 failures.append(f"{size}: configs/kmrp.ini is "
@@ -200,15 +234,15 @@ def main() -> int:
             if (macos_dir / "patch_config.toml").read_bytes() != (package / f"engine/{hook_list}").read_bytes():
                 failures.append(f"{size}: patch_config.toml is not the package's {hook_list}")
             # Each module is its patch's own, taken out of the .kpatch as KPM takes it.
-            for name, patch_id in PATCHES:
+            for name, patch_id in installed:
                 with zipfile.ZipFile(package / "engine" / name) as patch:
                     module = macos_dir / f"patches/{patch_id}.dylib"
                     if not module.is_file() or module.read_bytes() != patch.read("binaries/macos_x86_64.dylib"):
                         failures.append(f"{size}: patches/{patch_id}.dylib is not the module in {name}")
-            with zipfile.ZipFile(package / "engine/kmrp.kpatch") as patch:
+            with zipfile.ZipFile(package / "engine/KMRP-macOS.kpatch") as patch:
                 manifest = patch.read("manifest.toml").decode()
                 if 'requires = ["k1-stray-bug-fixes-patch", "k1widescreenpatch"]' not in manifest:
-                    failures.append(f"{size}: kmrp.kpatch does not require FTD's two patches")
+                    failures.append(f"{size}: KMRP-macOS.kpatch does not require FTD's two patches")
             if subprocess.run([str(package / "bin/kmrp-macho"), "has-dylib", str(exe), "KotorPatcher.dylib"],
                               capture_output=True).returncode != 0:
                 failures.append(f"{size}: KOTOR_Exe has no load command for KotorPatcher")
@@ -236,6 +270,8 @@ def main() -> int:
             want = {"fresh": "the defaults KMRP wrote", "edit": "edited by you"}.get(mode)
             if want and f"kmrp-controller.ini: {want}" not in status.stdout:
                 failures.append(f"{size}: status does not say the settings are {want}")
+            if "resolutions=" in status.stdout:
+                failures.append(f"{size}: status still has a line for chosen resolutions")
             if f"controller={0 if mode == 'off' else 1}" not in status.stdout:
                 failures.append(f"{size}: status does not record controller support as {'off' if mode == 'off' else 'on'}")
             # Uninstall.
@@ -328,15 +364,15 @@ def main() -> int:
                 failures.append(f"KPM: uninstall failed: {result.stderr.strip()[-300:]}")
             if snapshot() != {"KOTOR_Exe": vanilla}:
                 failures.append(f"KPM: uninstall did not leave the untouched game: {sorted(snapshot())[:6]}")
-            if (kpm_folder / "kmrp.kpatch").exists():
-                failures.append("KPM: uninstall left kmrp.kpatch")
+            if (kpm_folder / "KMRP-macOS.kpatch").exists():
+                failures.append("KPM: uninstall left KMRP-macOS.kpatch")
             if ini.read_bytes() != INI_BEFORE.encode():
                 failures.append("KPM: swkotor.ini is not as it was")
             if (home / "Library/Application Support/KMRP").exists():
                 failures.append("KPM: the install state was left behind")
         # With a patch that is not FTD's: installed for KPM, as on Windows. KOTOR_Exe and KPM's
         # files as they were (the controller's SDL added beside the game), the menus in,
-        # kmrp.kpatch where KPM finds it; uninstall leaves KPM's install exactly.
+        # KMRP-macOS.kpatch where KPM finds it; uninstall leaves KPM's install exactly.
         kpm_install(["k1-stray-bug-fixes-patch", "k1widescreenpatch", "someone-elses-patch"])
         ini.write_bytes(INI_BEFORE.encode())
         before = snapshot()
@@ -352,8 +388,8 @@ def main() -> int:
                 failures.append("KPM: the install for KPM changed KOTOR_Exe or KPM's files, or added to them")
             if (game / "Contents/Assets/override").exists():
                 failures.append("KPM: the install for KPM wrote the game's override folder")
-            if not (kpm_folder / "kmrp.kpatch").is_file():
-                failures.append("KPM: kmrp.kpatch was not delivered")
+            if not (kpm_folder / "KMRP-macOS.kpatch").is_file():
+                failures.append("KPM: KMRP-macOS.kpatch was not delivered")
             if "for_kpm=1" not in run("status").stdout:
                 failures.append("KPM: status does not record the install for KPM")
             result = run("uninstall", "--yes")
@@ -361,7 +397,7 @@ def main() -> int:
                 failures.append(f"KPM: uninstall of the install for KPM failed: {result.stderr.strip()[-300:]}")
             if snapshot() != before:
                 failures.append("KPM: uninstall did not leave KPM's install exactly as it was")
-            if (game / "Contents/Assets/override").exists() or (kpm_folder / "kmrp.kpatch").exists():
+            if (game / "Contents/Assets/override").exists() or (kpm_folder / "KMRP-macOS.kpatch").exists():
                 failures.append("KPM: uninstall left KMRP's files")
             if ini.read_bytes() != INI_BEFORE.encode():
                 failures.append("KPM: swkotor.ini is not as it was after the install for KPM")
@@ -419,8 +455,8 @@ def main() -> int:
                     failures.append(f"{case}: uninstall did not leave the untouched game: {sorted(snapshot())[:8]}")
             if (game / "Contents/Assets/override").exists():
                 failures.append(f"{case}: uninstall left KMRP's menus")
-            if (kpm_folder / "kmrp.kpatch").exists():
-                failures.append(f"{case}: uninstall left kmrp.kpatch")
+            if (kpm_folder / "KMRP-macOS.kpatch").exists():
+                failures.append(f"{case}: uninstall left KMRP-macOS.kpatch")
             if (home / "Library/Application Support/KMRP").exists():
                 failures.append(f"{case}: the install state was left behind")
         print("     KPM: FTD's install replaced, the untouched game left at uninstall; another KPM patch: "

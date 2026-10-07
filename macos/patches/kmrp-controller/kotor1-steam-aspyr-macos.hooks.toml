@@ -315,3 +315,56 @@ original_bytes = [0x55, 0x48, 0x89, 0xe5, 0x41, 0x57, 0x41, 0x56]
 [[hooks.parameters]]
 source = "rdi"
 type = "pointer"
+
+# The patch's own files (standalone.cpp, KmrpControllerResources): registered with the game's
+# resource manager right after the game adds its OVERRIDE: directory, which is where KMRP's
+# patch adds its menu set (0x10026c739, the call before), so this patch's folder is added last
+# and searched first. rbx is the resource manager, rbp the frame holding the alias's string.
+# The stolen bytes hold a relative call, so they are not run again: the handler frees the
+# string as they would have.
+#   0x10026c73e  lea rdi, [rbp-0x40]; call 0x10034cdf2 (CExoString::~CExoString)
+#   0x10026c747  mov rbx, [r14]
+[[hooks]]
+address = 0x10026c73e
+type = "detour"
+function = "KmrpControllerResources"
+original_bytes = [0x48, 0x8d, 0x7d, 0xc0, 0xe8, 0xab, 0x06, 0x0e, 0x00]
+skip_original_bytes = true
+[[hooks.parameters]]
+source = "rbx"
+type = "pointer"
+[[hooks.parameters]]
+source = "rbp"
+type = "pointer"
+
+# The Xbox-style HUD (xbox_hud.cpp), K1XboxHud.cpp's two hooks. Both observe; their handlers do
+# nothing unless the option is on (xboxhud::Enabled).
+#
+# The HUD's map drawing, entry (Windows CSWGuiMainInterface::DrawMap, 0x0068AB10):
+# CSWGuiMainInterface::Draw (0x100235E44) calls it after its own updating and immediately before
+# CSWGuiPanel::Draw, so it is after everything that moves or re-dresses a control and before
+# anything is drawn. rdi is the HUD (xmm0 the frame time, stored at 0x100237859, after the
+# stolen bytes). The stolen bytes are the prologue's first pushes, nothing position-dependent.
+#   0x100237848  push rbp; mov rbp,rsp; push r15; push r14
+[[hooks]]
+address = 0x100237848
+type = "detour"
+function = "KmrpXboxHud"
+original_bytes = [0x55, 0x48, 0x89, 0xe5, 0x41, 0x57, 0x41, 0x56]
+[[hooks.parameters]]
+source = "rdi"
+type = "pointer"
+
+# The target menu's Draw, entry (Windows CSWGuiTargetActionMenu::Draw, 0x00685ED0), the call
+# right after CSWGuiPanel::Draw: the first place of the action row and the party's bars are
+# drawn here, over the panel. rdi is the menu (xmm0 the frame time, stored at 0x100230f0f). The
+# stolen bytes are the prologue's pushes, nothing position-dependent.
+#   0x100230eee  push rbp; mov rbp,rsp; push r14; push rbx
+[[hooks]]
+address = 0x100230eee
+type = "detour"
+function = "KmrpXboxHudBars"
+original_bytes = [0x55, 0x48, 0x89, 0xe5, 0x41, 0x56, 0x53]
+[[hooks.parameters]]
+source = "rdi"
+type = "pointer"

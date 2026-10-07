@@ -30,6 +30,8 @@
 //     macOS has nothing that keeps the pointer in a window and still lets it move.
 #include "prompts.h"
 
+#include "overlays.h"
+
 #include "engine.h"
 #include "gui.h"
 #include "pad.h"
@@ -51,6 +53,8 @@ using engine::At;
 using SetFillImageFn = void (*)(void* params, const void* resref, int force);
 const auto SetFillImage = reinterpret_cast<SetFillImageFn>(0x1004a17c2UL);
 const std::size_t kButtonBorderFill = 0xc0, kButtonHilightFill = 0x148;
+// A border's params are 0x58 long on the Mac (Windows 0x54); its corner image follows them.
+const std::size_t kBorderParamsCorner = 0x58;
 
 // CClientExoAppInternal::HideMouse and ShowMouse(internal, reason) (Windows 0x0061F9C0 and
 // 0x0061FA00, reached on the Mac through CClientExoApp's 0x10028C72C and 0x10028C73A): a mask of
@@ -146,6 +150,13 @@ const PromptBinding kSaveloadPrompts[] = {   // CSWGuiSaveLoad
     {0x13d8, "kmrpx_savdel", Variant::None, nullptr, nullptr},   // BTN_DELETE (Windows 0x0F9C)
     {0x1198, "kmrpb_savback", Variant::None, nullptr, nullptr},   // BTN_BACK (Windows 0x0DD8)
     {0xf58, "kmrpa_savload", Variant::None, nullptr, nullptr},   // BTN_SAVELOAD (Windows 0x0C14)
+};
+// The store (Windows' K1_STORE_PROMPTS, 2026-10-06; the offsets from the Mac constructor's bind
+// calls, 0x1002D6300). The game hides BTN_Examine at a shop that only buys or sells.
+const PromptBinding kStorePrompts[] = {   // CSWGuiStore
+    {0x2980, "kmrpa_storebuy", Variant::None, nullptr, nullptr},    // BTN_Accept (Windows 0x20A8)
+    {0x2740, "kmrpx_storelist", Variant::None, nullptr, nullptr},   // BTN_Examine (Windows 0x1EE4)
+    {0x2500, "kmrpb_storeback", Variant::None, nullptr, nullptr},   // BTN_Cancel (Windows 0x1D20)
 };
 const PromptBinding kUpgradeSelectionPrompts[] = {   // CSWGuiUpgradeSelection
     {0x218, "kmrpa_upgitem", Variant::None, nullptr, nullptr},   // BTN_UPGRADEITEMS (Windows 0x01A4)
@@ -370,6 +381,7 @@ const PromptScreen kPromptScreens[] = {
     {0x1005a59a0UL, kPazaakWagerPrompts, sizeof kPazaakWagerPrompts / sizeof kPazaakWagerPrompts[0]},   // CSWGuiWagerPopup
     {0x1005a9e18UL, kSkillInfoPrompts, sizeof kSkillInfoPrompts / sizeof kSkillInfoPrompts[0]},   // CSWGuiSkillInfoBox
     {0x1005a5180UL, kUpgradePrompts, sizeof kUpgradePrompts / sizeof kUpgradePrompts[0]},   // CSWGuiUpgrade
+    {0x1005ad040UL, kStorePrompts, sizeof kStorePrompts / sizeof kStorePrompts[0]},   // CSWGuiStore
     {0x1005a5090UL, kUpgradeItemSelectPrompts, sizeof kUpgradeItemSelectPrompts / sizeof kUpgradeItemSelectPrompts[0]},   // CSWGuiUpgradeItemSelect
     {0x1005af890UL, kClassSelectPrompts, sizeof kClassSelectPrompts / sizeof kClassSelectPrompts[0]},   // CSWGuiClassSelection
     {0x1005a9a30UL, kQuickOrCustomPrompts, sizeof kQuickOrCustomPrompts / sizeof kQuickOrCustomPrompts[0]},   // CSWGuiQuickOrCustomPanel
@@ -581,6 +593,7 @@ struct PromptState {
     int variant = -1;
     void* focus = nullptr;
     char family = 'p';
+    std::uint32_t shapes = 0;   // the watched buttons' rectangles and captions (overlays::Signature)
     unsigned long paints = 0, clears = 0;
 } g_prompt;
 
@@ -665,14 +678,35 @@ ResRef MakeResRef(const char* value, bool family) {
 // SetK1ControllerPromptFill: both borders, always as a pair: the engine draws the highlight
 // border instead of the normal one while the control has the focus, so a badge written to one
 // alone vanishes the moment it is focused.
-void SetPromptFill(void* control, const char* value) {
-    const ResRef r = MakeResRef(value, true);
+//
+// A border that holds a corner image draws its fill inside itself, by its DIMENSION on every
+// side, and one without fills the whole button (CSWGuiBorder::Draw, 0x1004A1E40: the corner at
+// border +0x70, the size from 0x1004A1518 on the params, whose first field is the DIMENSION;
+// Windows 0x004168C0). A badge is made for the area its border fills, and where the focused
+// border fills another area than the normal one it has a second texture, "kmf..." beside
+// "kmr..." (tools/build_controller_prompt_textures.py, fill_inset; every set and every blended
+// size has them since 2026-10-05). The Close buttons are the case: no normal border, a 6 px
+// focused one. K1XboxControls.cpp's K1ButtonFillInset makes the same comparison.
+int FillInset(void* control, std::size_t params) {
+    char* const at = static_cast<char*>(control) + params;
+    return At<void*>(at, kBorderParamsCorner) ? At<int>(at, 0) : 0;
+}
+
+void SetPromptFill(void* panel, void* control, const char* value) {
+    ResRef r = MakeResRef(value, true);
+    // On a button of another shape than the badge was made for, the badge is drawn on a label
+    // of its own beside the caption (overlays.cpp) and the button carries none.
+    if (!r.name[0]) overlays::Hide(control);
+    else if (overlays::Show(panel, control, r.name)) r = ResRef{};
     SetFillImage(static_cast<char*>(control) + kButtonBorderFill, r.name, 1);
+    if (std::strncmp(r.name, "kmr", 3) == 0 &&
+        FillInset(control, kButtonHilightFill) != FillInset(control, kButtonBorderFill)) r.name[2] = 'f';
     SetFillImage(static_cast<char*>(control) + kButtonHilightFill, r.name, 1);
 }
 
 // SetK1ControllerPromptArt: the button's own art back on both borders, verbatim.
 void SetPromptArt(void* control, const char* border, const char* hilight) {
+    overlays::Hide(control);
     const ResRef normal = MakeResRef(border, false);
     const ResRef focused = MakeResRef(hilight ? hilight : border, false);
     SetFillImage(static_cast<char*>(control) + kButtonBorderFill, normal.name, 1);
@@ -693,8 +727,20 @@ void UpdatePrompts() {
     const int variant = padMode ? InventoryFilterVariant() : -1;
     void* const focused = padMode ? ActiveControl(panel) : nullptr;
 
+    // Where a badge stands depends on its button's rectangle and caption, which another patch may
+    // change after the screen is first painted (the Widescreen Patch's own layout rescales a
+    // panel at its first draw), so those are part of what is watched.
+    const PromptScreen* const watched = padMode && panel ? PromptsFor(panel) : nullptr;
+    std::uint32_t shapes = 0;
+    if (watched) {
+        for (std::size_t i = 0; i < watched->count; ++i)
+            shapes = shapes * 31 + overlays::Signature(static_cast<char*>(panel) + watched->prompts[i].offset);
+        overlays::Sync(panel);
+    }
+
     if (g_prompt.known && panel == g_prompt.panel && vtable == g_prompt.vtable && padMode == g_prompt.padMode &&
-        variant == g_prompt.variant && focused == g_prompt.focus && g_familyLetter == g_prompt.family)
+        variant == g_prompt.variant && focused == g_prompt.focus && g_familyLetter == g_prompt.family &&
+        shapes == g_prompt.shapes)
         return;
 
     const bool clearing =
@@ -706,8 +752,23 @@ void UpdatePrompts() {
             const PromptBinding& binding = screen->prompts[i];
             void* control = static_cast<char*>(panel) + binding.offset;
             const char* shown = padMode ? PromptResref(binding, panel, control, *screen) : nullptr;
-            if (!shown && binding.restore) SetPromptArt(control, binding.restore, binding.restoreHilight);
-            else SetPromptFill(control, shown);
+            if (!shown && binding.restore) {
+                SetPromptArt(control, binding.restore, binding.restoreHilight);
+            } else if (shown && binding.restore && overlays::IsBacked(shown)) {
+                // The button keeps its own box and the glyph is drawn beside the caption on a
+                // label (overlays.cpp, ShowBacked); without a shape to draw it from, as before.
+                const ResRef badge = MakeResRef(shown, true);
+                if (overlays::ShowBacked(panel, control, badge.name)) {
+                    const ResRef normal = MakeResRef(binding.restore, false);
+                    const ResRef focused = MakeResRef(binding.restoreHilight ? binding.restoreHilight : binding.restore, false);
+                    SetFillImage(static_cast<char*>(control) + kButtonBorderFill, normal.name, 1);
+                    SetFillImage(static_cast<char*>(control) + kButtonHilightFill, focused.name, 1);
+                } else {
+                    SetPromptFill(panel, control, shown);
+                }
+            } else {
+                SetPromptFill(panel, control, shown);
+            }
         }
         if (padMode) {
             RememberPainted(panel, vtable);
@@ -724,6 +785,7 @@ void UpdatePrompts() {
     g_prompt.variant = variant;
     g_prompt.focus = focused;
     g_prompt.family = g_familyLetter;
+    g_prompt.shapes = shapes;
 }
 
 }  // namespace
@@ -760,7 +822,9 @@ namespace prompts {
 
 char FamilyLetter() { return g_familyLetter; }
 
-void PaintLayoutEntry(void* button, bool shown) { SetPromptFill(button, shown ? "kmrpa_optgamelay" : nullptr); }
+void PaintLayoutEntry(void* button, bool shown) {
+    SetPromptFill(At<void*>(button, 0x50), button, shown ? "kmrpa_optgamelay" : nullptr);   // +0x50: its panel
+}
 
 void Frame() {
     if (MouseIsBeingUsed(*reinterpret_cast<const int*>(kSampledPointerX),

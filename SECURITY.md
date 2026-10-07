@@ -29,7 +29,10 @@ request, to `api.github.com/repos/RayesDiyab/KMRP-KOTOR-Modern-Restoration-Patch
 The patcher modifies `swkotor.ini`; one bit of `swkotor.exe`'s header, the Large
 Address Aware flag, on GOG's and the editable builds (Steam's executable is never
 changed); the files beside `swkotor.exe` that make up KOTOR Patch Manager's runtime
-and KMRP's patch, with the game's `binkw32.dll` renamed; the
+and KMRP's patch, and the controller patch while Controller Support is on (modules
+under `patches\`, settings under `configs\`), with the game's `binkw32.dll` renamed;
+the two `.kpatch` files in KOTOR Patch Manager's own patch folder, where KPM is on
+the PC; the
 current user's Windows compatibility value for that one executable, to mark it
 DPI-aware; on NVIDIA, where the driver would show half-drawn frames, that
 executable's present-method profile; and, for the optional driver-compatibility

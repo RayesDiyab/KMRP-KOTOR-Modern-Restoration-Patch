@@ -2,6 +2,8 @@
 // (prompts.cpp): the button badges on the screens, and the parked, hidden cursor.
 #pragma once
 
+#include <cstddef>
+
 namespace kmrp {
 
 struct PadState;
@@ -42,6 +44,9 @@ namespace cues {
 
 // The GUI cues (cues.cpp), from the prompt layer's frame: shown or hidden with the device.
 void Update();
+
+// The cue label bound to a panel that follows the control at `follow`, or null (KmrpGuiCueK1).
+void* Following(void* panel, std::size_t follow);
 
 // One log line on the cues.
 void Status();

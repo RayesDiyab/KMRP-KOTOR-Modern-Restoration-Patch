@@ -4,6 +4,17 @@ This reference follows [the documentation standard](../docs/documentation-standa
 Audit date: 2026-10-02. Source comparison, guarded generated-byte checks, a live
 mode enumeration, and the user's resolution-popup check are distinguished below.
 
+**This is a record of 2026-10-02, not the present build.** What has changed since
+(`macos/README.md` has the present state):
+
+| Statement below | Since |
+| --- | --- |
+| `kmrp_layout.cpp` writes the configured W/H into the first accepted pair (`0x10026f1f2`, `0x10026f1ff`) | 2026-10-04: not written. `KmrpResolutionKnown`, a detour at `0x10026f1ee` (`macos/patches/kmrp-assets/resolution.cpp`), decides, and those bytes are inside it. Since 2026-10-08 it accepts a size when KMRP has menus for it and the display reports a mode of it |
+| "resources are installed for a selected size: exposing other native modes does not regenerate their GUI assets on the fly" | 2026-10-04: KMRP's module carries every size's set and lays the menus out again when the resolution is changed in the game (`macos/README.md`, "The resolution chosen in the game") |
+| The rows mapped to `resolution_sizes.cpp`, `listbox_padding.cpp`, `area_map.cpp`, `popup_fit.cpp`, `granted_popup.cpp`, `dialogue_replies.cpp` | 2026-10-04: those sites are written by FTD's Widescreen Patch in its `.gui` mode; `kmrp-layout` keeps the code and does not write them beside it (`macos/README.md`, section 4) |
+| The texture-bucket and grass hooks as KMRP's | they are FTD's Stray Bug Fixes' in the shipped patches; KMRP's identical declarations are left out of its patch |
+| "combined package 84 hooks and minimal package 63"; `validate PATH_TO/kmrp.kpatch` | four patches of 16, 45, 24 and 24 hooks in the package of 2026-10-08; KMRP's file is `KMRP-macOS.kpatch` |
+
 ## Confirmed missing port and repair
 
 Windows `ResolutionPatch.Apply` writes the selected width/height into the first

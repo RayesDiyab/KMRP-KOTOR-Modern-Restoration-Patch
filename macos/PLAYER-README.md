@@ -26,10 +26,10 @@ for your display's resolution, the same HD fonts, art and icons, and the same en
      then open it as usual.
 3. The installer finds the game in your Steam libraries (step 1; **Browse** for a copy
    somewhere else) and checks it is the unmodified Steam version (step 2).
-4. Step 3 has this display's current resolution chosen already: the one macOS is set to,
-   as **System Settings → Displays** shows it (1512 × 982 on a 14" MacBook Pro by default).
-   Click it to pick another: this display at full Retina sharpness, the sizes of other Macs
-   and displays, grouped by shape, or **Custom size…** for any other (see *Options*).
+4. Step 3 says the resolution the game will start at: the one macOS is set to, as
+   **System Settings → Displays** shows it (1512 × 982 on a 14" MacBook Pro by default).
+   There is nothing to choose: the game lists every resolution the connected display
+   supports (see *Options*).
 5. Click **Start Patching**. The button fills as it works; step 4 says **Patched
    successfully** when it is done.
 6. Start KOTOR from Steam as usual.
@@ -44,19 +44,21 @@ again.
 - **KMRP's interface, full screen**, laid out for your resolution: the menu set KMRP builds
   for it, with every list, icon, popup and the area map sized as on Windows. The package
   has sets for every Mac display and every resolution the Windows version offers (66 in
-  all); for any other size the installer blends one from the sets around it.
+  all); for any other size KMRP blends one from the sets around it, the first time the game
+  starts at that size.
 - **HD fonts** baked for your resolution, sharp at any size.
 - **KMRP's engine fixes**: no hang on long item descriptions, stack counts that stay
   visible, list rows that stop growing, no blank first line in descriptions, a dialogue
   letterbox that works on any display with a reply list that fills it, and a minimap at the
-  vanilla zoom. On a Retina Mac, the screen's full resolution if you choose it.
+  vanilla zoom. On a Retina Mac, the screen's full resolution if you choose it in the game.
 - **HD art**: JackInTheBox's HD Icon Pack, MadDerp's Party Portraits, KMRP's HD interface
   textures, and feat, power and skill icons enlarged to fit KMRP's rows. Item icons are
   sized to sit in their slots the way the game's own do.
 - **250 map notes moved to where they belong** (Derslok's K1 Area Map Fixes).
 - **Controller support**, which the Mac version of KOTOR does not have on its own: KMRP's
-  controls from Windows, button prompts drawn for your pad, rumble, and a Controller Layout
-  screen. See *Controller* below. On by default; it can be turned off (*Options*).
+  controls from Windows, button prompts drawn for your pad, rumble, an Xbox-style HUD while
+  you play with the pad, and a Controller Layout screen. See *Controller* below. On by
+  default; it can be turned off (*Options*).
 
 ## Controller
 
@@ -80,31 +82,45 @@ other pads. The controls are KMRP's, the same as on Windows: the full list is on
   what the game had) or `Off`. `Strength` is 0 to 100. The file explains the other settings.
   The game picks up a change within a second, without restarting. Once you edit the file it
   is yours: installing again never overwrites it, and uninstalling leaves it.
-- If the pad does not respond, the log `~/Library/Logs/KMRP/controller.log` says what the
-  game saw; include it when you report a problem.
+- **Xbox-style HUD.** While you play with the pad the in-game HUD is laid out like the
+  original Xbox version's: the action slots in a box at the bottom left, the target's name at
+  the top left, the party at the bottom right. With the mouse or keyboard the game's own HUD
+  comes back. To keep the game's own HUD with the pad as well, set `Style=PC` under `[Hud]`
+  in the same file; it is read when the game starts.
+
+  ```ini
+  [Hud]
+  Style=PC
+  ```
+- If the pad does not respond, turn on **Debug Logs** in Advanced Settings and install again:
+  the log `~/Library/Logs/KMRP/controller.log` then says what the game saw; include it when
+  you report a problem.
 
 ## Options
 
-- **Resolution** (Retina displays). *Current*, the one the installer chooses, is the
-  resolution macOS is set to, the size it lays out its own windows at (1512x982 on a 14"
-  MacBook Pro by default; whatever **System Settings → Displays** says if you changed it).
-  *Retina* renders every pixel of the screen instead, 3024x1964 there: sharper, and heavier
-  on the GPU. At Retina, set **Anti-aliasing to 2x** in the game's graphics options: on an
-  M5, 6x at 3024x1964 ran at about 30 fps in game and 2x at about 120.
-- **Another display or size**: pick it in step 3, for example for an external monitor. The
-  list has the sizes KMRP has a finished menu set for; **Custom size…** takes any other
-  from 4:3 to 32:9, and the installer blends a set for it. The interface is laid out for one
-  size; to change it later, **Restore Original** and patch again.
-- **Without the map-note corrections or controller support**: the gear button beside
-  **Start Patching** opens **Advanced Settings**, as on Windows; turn off *Area Map Marker
-  Fixes* or *Controller Support*. Both are on unless you turn them off, and the installer
-  remembers your choice. Without controller support the game has none: the Mac version of
-  KOTOR has no pad support of its own.
+- **Resolution.** Nothing to choose when installing. The game starts at the resolution macOS
+  is set to (1512x982 on a 14" MacBook Pro by default; whatever **System Settings →
+  Displays** says if you changed it), and every size your display offers is in the game under
+  **Options → Graphics → Screen Resolution**, the Retina size among them (3024x1964 there:
+  sharper, and heavier on the GPU). A change takes effect at once and is kept for the next
+  start, as long as the display then connected supports it; otherwise the game starts at
+  that display's own size. The list is whatever the connected display supports when the game
+  starts: connect another display, start the game, and it offers that display's sizes.
+  At Retina, set **Anti-aliasing to 2x** in the game's graphics options: on an M5, 6x at
+  3024x1964 ran at about 30 fps in game and 2x at about 120.
+- **Without the map-note corrections, the HD icons or controller support**: the gear button
+  beside **Start Patching** opens **Advanced Settings**, as on Windows; turn off *Area Map
+  Marker Fixes*, *HD Icons* or *Controller Support*. All three are on unless you turn them
+  off, and the installer remembers your choice. With *HD Icons* off the game shows its own
+  item icons instead of JackInTheBox's HD Icon Pack; everything else stays. Without controller support the game has none: the Mac version of
+  KOTOR has no pad support of its own. *Debug Logs*, off unless you turn it on, is there too.
 - **From Terminal**, the installer is a script inside the app:
-  `"KMRP Installer.app/Contents/Resources/kmrp/kmrp-mac.sh" install` asks the same
-  questions; add `--resolution current|native`, `--size 2560x1440`, `--no-map-notes`,
-  `--no-controller`, `--debug-logs` or `--game "/path/to/Knights of the Old Republic.app"`. `uninstall` and `status` work
-  the same way.
+  `"KMRP Installer.app/Contents/Resources/kmrp/kmrp-mac.sh" install`. On a Retina display it
+  asks whether the game should start at the resolution macOS is set to or at the Retina
+  size, then asks before it installs; add `--resolution current|native`, `--size 2560x1440`,
+  `--no-map-notes`, `--no-hd-icons`, `--no-controller`, `--debug-logs`, `--yes` or
+  `--game "/path/to/Knights of the Old Republic.app"`. `uninstall` and `status` work the same
+  way.
 
 ## Uninstall
 
@@ -117,39 +133,67 @@ A file you changed after installing is left alone and listed in the log.
 - `KOTOR_Exe`: one load command so the game loads KotOR Patch Manager's patcher, then an
   ad-hoc re-signature, exactly as KotOR Patch Manager itself does. The original is kept in
   `~/Library/Application Support/KMRP/macos/backup`.
-- Next to `KOTOR_Exe`: `KotorPatcher.dylib`, `patch_config.toml` and `patches/`, which holds
-  KMRP's patch, `kmrp.dylib` (FTD's widescreen patch by FTD and RaymanGT and his
-  Stray Bug Fixes by RaymanGT and FTD, with KMRP's own code built in); and `kmrp-sdl3.dylib`,
-  the SDL library the controller support reads pads with.
-- `swkotor.ini`: `UseGuiFileLayouts`, `ForceWidth` and `ForceHeight`, under
-  `[Graphics Options]`. Uninstall puts back what was there before.
-- `kmrp-controller.ini` next to it, the controller settings, if you do not have one yet.
-- `Contents/Assets/override`: the interface, fonts and art. Portraits and icons you already
-  have from another mod are kept; KMRP's own files replace older copies after saving them.
-  A few files are made from your own copy of the game while installing (the enlarged ability
-  icons, the list-row frames, the tutorial popup's icons and `tutorial.2da`), because KMRP
-  does not ship anything taken from the game.
+- Next to `KOTOR_Exe`: `KotorPatcher.dylib`, `patch_config.toml`, KotOR Patch Manager's own
+  record of the install (`kpm_install_state.json` and a copy of the untouched game,
+  `KOTOR_Exe.backup.<date>`), `configs/` with each patch's options (`kmrp.ini`,
+  `kmrp-controller.ini`), and `patches/`, which holds four KotOR Patch Manager patches:
+  FTD's Widescreen Patch and Stray Bug Fixes, KMRP's own (`kmrp.dylib`, with the interface
+  for every resolution inside it), and, while Controller Support is on, the controller's
+  (`kmrp-controller.dylib`, which also works in a game without KMRP).
+- `swkotor.ini`: the resolution the game starts at, under `[Graphics Options]`. Uninstall
+  puts back what was there before, unless you have chosen another resolution in the game
+  since, which stays.
+- Aspyr's launcher is set to start the game full screen. Uninstall puts that back too,
+  unless you changed it yourself afterwards.
+- `kmrp-controller.ini` next to `swkotor.ini`, the controller settings, if you do not have
+  one yet.
+- Nothing in `Contents/Assets/override`. The interface, fonts and art are inside KMRP's
+  patch and are unpacked to `~/Library/Caches/KMRP` when the game starts; the controller's
+  to `~/Library/Caches/KMRP-Controller`. A few files are made there from your own copy of
+  the game (the enlarged ability icons, the list-row frames, the tutorial popup's icons and
+  `tutorial.2da`), because KMRP does not ship anything taken from the game. Uninstall leaves
+  these two cache folders; you can delete them.
 
 Steam's **Verify integrity of game files** also restores `KOTOR_Exe`; run the uninstaller
 afterwards to clean up the rest.
 
 ## If you already use KotOR Patch Manager
 
-KMRP carries FTD's widescreen patch and Stray Bug Fixes itself, built into its own patch. If
-you installed FTD's patches through KotOR Patch Manager, KMRP Installer replaces them: it puts
-back the untouched game from KPM's copy, removes FTD's patch files, and installs KMRP. Restore
-Original then leaves the untouched game; install FTD's patch in KPM again if you want it
-without KMRP.
+KMRP for macOS is four KotOR Patch Manager patches. KMRP Installer installs them itself, and
+when you have KotOR Patch Manager it also puts the four files in KPM's patch folder, so KPM
+lists them:
 
-With other KotOR Patch Manager patches installed, KMRP Installer installs for KPM, as on
-Windows: it installs the menus and settings, leaves KPM's files and the game as they are, and
-puts KMRP's patch, `kmrp.kpatch`, in KPM's patch folder. Open KPM, tick KMRP (untick FTD's
-Widescreen Patch and Stray Bug Fixes if they are there: KMRP carries them), and press Apply.
+| File | Name in KotOR Patch Manager |
+| --- | --- |
+| `K1StrayBugFixes.kpatch` | Stray Bug Fixes (FTD's) |
+| `K1WidescreenPatch.kpatch` | Widescreen Patch (beta) (FTD's) |
+| `KMRP-macOS.kpatch` | KMRP for macOS; it needs the two above ticked with it |
+| `KOTOR 1 Native Controller Mod + Xbox HUD (macOS).kpatch` | KOTOR 1 Native Controller Mod + Xbox HUD (macOS); it needs none of the others, and works in a game without KMRP |
 
-KPM also recognises an install KMRP Installer made by itself, as its own: it lists KMRP and
-can apply other patches beside it. If you press Apply in KPM with only KMRP ticked, Restore
-Original still puts back the untouched game. With other KPM patches beside KMRP, it removes
-KMRP's own files and leaves KPM's to it: then untick KMRP in KPM and press Apply.
+**The two KMRP files in this package work on the Mac only.** The Windows package has files
+for the same two patches, `KMRP.kpatch` and `KOTOR 1 Native Controller Mod + Xbox
+HUD.kpatch`, and those work on Windows only. Use the files that came with the package for
+your system. (Before 8 October 2026 the Mac files were named `kmrp.kpatch` and
+`kmrp-controller.kpatch`; the installer removes those from KPM's patch folder so the patches
+are not listed twice.)
+
+- **FTD's Widescreen Patch and Stray Bug Fixes already installed through KPM, and nothing
+  else:** KMRP Installer replaces that install. It puts back the untouched game from KPM's
+  copy, removes the patch files beside the game, and installs the four patches, FTD's two
+  among them in the version KMRP was built with. Restore Original then leaves the untouched
+  game; install FTD's patches in KPM again if you want them without KMRP.
+- **Other KotOR Patch Manager patches installed:** KMRP Installer installs for KPM, as on
+  Windows. It writes the resolution, the full-screen setting and the controller settings,
+  leaves the game and KPM's files as they are, and puts the four files in KPM's patch
+  folder. Open KPM, tick **KMRP for macOS**, **Widescreen Patch (beta)** and **Stray Bug
+  Fixes** (and the controller patch if you
+  want it), and press Apply. The options (map notes, debug logs, the Xbox-style HUD) are
+  then chosen in KPM, if your version of KPM offers patch options.
+- **An install KMRP Installer made by itself:** KPM recognises it as its own, lists the
+  patches and can apply others beside them. If you press Apply in KPM with only KMRP's
+  patches ticked, Restore Original still puts back the untouched game. With other KPM
+  patches beside KMRP's, it removes KMRP's own files and leaves the rest to KPM: then untick
+  KMRP's patches in KPM and press Apply.
 
 ## Credits
 
@@ -160,4 +204,4 @@ KOTOR High Resolution Menus by ndix UR, GPL-3.0. HD Icon Pack by JackInTheBox, P
 Derslok, each bundled with the author's permission. The controller support builds on
 Saul0097's KPM – Xbox Controls for KOTOR 1 (MIT, with his permission), reads pads through SDL
 (zlib licence), and draws its buttons with Xelu's free controller prompts (CC0). Licences and
-notices are in `kmrp/licenses/`.
+notices are inside the app, in `Contents/Resources/kmrp/licenses`.

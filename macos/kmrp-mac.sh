@@ -1,7 +1,7 @@
 #!/bin/zsh
 # KMRP for macOS -- installer, uninstaller and status.
 #
-#   kmrp-mac.sh install   [--game "<path>/Knights of the Old Republic.app"] [--no-map-notes]
+#   kmrp-mac.sh install   [--game "<path>/Knights of the Old Republic.app"] [--no-map-notes] [--no-hd-icons]
 #                         [--no-controller] [--debug-logs]
 #                         [--resolution current|native | --size <W>x<H>] [--yes]
 #   kmrp-mac.sh uninstall [--game ...] [--yes]
@@ -17,7 +17,7 @@
 #      fixes) with KMRP's layout code, the map-note corrections and the controller. An install
 #      of FTD's patches through KPM is replaced (kpm_check, kpm_remove); with other KPM patches
 #      installed, KMRP installs for KPM instead, leaving KOTOR_Exe and KPM's files alone. Leaves
-#      KPM's own records (kpm_install_state.json, KOTOR_Exe.backup.<time>) and kmrp.kpatch in
+#      KPM's own records (kpm_install_state.json, KOTOR_Exe.backup.<time>) and KMRP-macOS.kpatch in
 #      KPM's patch folder, so KPM recognises the install, as on Windows.
 #   3. Picks the resolution the game starts at: the display's size, and on a Retina display
 #      native (every pixel, e.g. 3024x1964) or half (the point size, e.g. 1512x982, which macOS
@@ -49,7 +49,8 @@ ASPYR_PREFS="$HOME/Library/Preferences/com.aspyr.kotor.steam.plist"
 
 GAME=""
 MAP_NOTES=1
-CONTROLLER=1   # KMRP's controller support: the module, SDL and its settings file (Windows' option too)
+HD_ICONS=1       # --no-hd-icons: the patch's hd-icons option, the bundled HD icon pack (since 2026-10-08)
+CONTROLLER=1   # controller support: its own patch, kmrp-controller, and its settings file (Windows' switch too)
 DEBUG_LOGS=0   # the module's diagnostic log (Windows' third option, off unless asked for)
 RESOLUTION=""
 SIZE=""
@@ -105,8 +106,11 @@ set_paths() {
     OPTIONS_INI="$MACOS/configs/kmrp.ini"
 }
 
+# This game, not any copy of it: another copy running elsewhere does not stop an install here.
 refuse_if_running() {
-    if pgrep -f "Contents/MacOS/KOTOR_Exe" >/dev/null 2>&1; then
+    local running
+    running=$(ps -axo command= 2>/dev/null)
+    if print -r -- "$running" | grep -qF -e "$EXE" -e "${EXE:A}"; then
         die "KOTOR is running. Quit the game first."
     fi
 }
@@ -252,13 +256,13 @@ nearest_size() {
 # With any other KPM patch installed, KMRP installs for KotOR Patch Manager instead, as the
 # Windows installer does (src/patcher/KpmEdition.cs, ForeignRuntimeFile, since 2026-10-01; it
 # refused until then): the menus, art and INI only, no runtime, no load command, KOTOR_Exe
-# untouched, and kmrp.kpatch where KPM finds it, for the player to tick in KPM. KMRP's
+# untouched, and KMRP-macOS.kpatch where KPM finds it, for the player to tick in KPM. KMRP's
 # uninstall leaves the untouched game; FTD's patch is not put back.
 #
 # And KMRP's own install is one KPM recognises and takes over, as on Windows (KpmState,
 # WriteKpmBackup, DeliverKpatches): kpm_install_state.json with the game's identity, a copy of
 # the untouched KOTOR_Exe in KPM's format beside it, from which KPM's Apply starts, and
-# kmrp.kpatch in KPM's patch folder. Uninstall leaves the runtime to KPM once KPM's Apply has
+# KMRP-macOS.kpatch in KPM's patch folder. Uninstall leaves the runtime to KPM once KPM's Apply has
 # rewritten patch_config.toml (Restore, ConfigChangedSinceInstall).
 # addresses.db: KPM's Apply copies its address database beside the game (PatchApplicator) and
 # its Remove deletes it (PatchRemover), as with the rest.
@@ -268,12 +272,31 @@ FTD_PATCHES=(k1widescreenpatch k1-stray-bug-fixes-patch)
 # requires (until then KMRP's one patch carried a copy of them). The package's file for each and
 # the patch's id, which is also the name KPM gives its module in patches/. In KPM's order: a patch
 # after the ones it requires.
-KPATCH_FILES=(K1StrayBugFixes.kpatch K1WidescreenPatch.kpatch kmrp.kpatch)
-KPATCH_IDS=(k1-stray-bug-fixes-patch k1widescreenpatch kmrp)
+#
+# Since 2026-10-07 controller support is a fourth patch, kmrp-controller, which works with or
+# without KMRP and is installed while Controller Support is on (until then it was part of KMRP's
+# patch, an option of it). KPATCH_FILES and KPATCH_IDS are what this install installs, set by
+# choose_patches once the options are read; KMRP_IDS is every patch a KMRP install can hold, for
+# telling an install that is only KMRP's.
+# The two of KMRP's own are named for the Mac since 2026-10-08, as Windows' files are named
+# KMRP.kpatch and "KOTOR 1 Native Controller Mod + Xbox HUD.kpatch": the ids are the same on
+# both systems and neither system's files run on the other. Until then they were kmrp.kpatch
+# and kmrp-controller.kpatch (OLD_KPATCH_FILES, removed from KPM's folder when they are KMRP's).
+KMRP_KPATCH="KMRP-macOS.kpatch"
+PAD_KPATCH="KOTOR 1 Native Controller Mod + Xbox HUD (macOS).kpatch"
+OLD_KPATCH_FILES=(kmrp.kpatch kmrp-controller.kpatch)
+KPATCH_FILES=(K1StrayBugFixes.kpatch K1WidescreenPatch.kpatch "$KMRP_KPATCH" "$PAD_KPATCH")
+KPATCH_IDS=(k1-stray-bug-fixes-patch k1widescreenpatch kmrp kmrp-controller)
+KMRP_IDS=($KPATCH_IDS)
+choose_patches() {
+    (( CONTROLLER )) && return 0
+    KPATCH_FILES=(${KPATCH_FILES:#$PAD_KPATCH})
+    KPATCH_IDS=(${KPATCH_IDS:#kmrp-controller})
+}
 KPM_ORIGINAL=""   # the untouched game, when an install is to be replaced
 KPM_PROBLEM=""    # why it cannot be, otherwise
 KPM_OTHERS=""     # the other patches KPM has installed, when KMRP installs for KPM
-KPATCH_FOLDER=""  # where kmrp.kpatch went
+KPATCH_FOLDER=""  # where KMRP-macOS.kpatch went
 # KPM's identity for the game (KPatchCore GameDetector: Platform.macOS 1, Distribution.Steam 1,
 # Architecture.x86_64 1, GameTitle.KOTOR1 1), in its upper-case hex.
 KPM_VERSION_NAME="1 1.4.0 (Aspyr macOS)"
@@ -307,6 +330,7 @@ kpm_patches_folder() {   # KPM's patch folder from its settings ("PatchesPath"),
 }
 
 kpatch_is_kmrp() { unzip -p "$1" manifest.toml 2>/dev/null | grep -q '^id = "kmrp"$'; }
+kpatch_is_controller() { unzip -p "$1" manifest.toml 2>/dev/null | grep -q '^id = "kmrp-controller"$'; }
 
 # The Widescreen Patch KMRP needs has the entry points KMRP asks for its .gui mode by
 # (K1Widescreen_UseGuiFileLayouts; FTD's patch has them from its 2026-10-04 adjustment).
@@ -314,10 +338,10 @@ kpatch_has_entry_points() {
     unzip -p "$1" binaries/macos_x86_64.dylib 2>/dev/null | grep -qa K1Widescreen_UseGuiFileLayouts
 }
 
-deliver_kpatch() {   # deliver_kpatch <for_kpm>: the three .kpatch files into KPM's patch folder
+deliver_kpatch() {   # deliver_kpatch <for_kpm>: this install's .kpatch files into KPM's patch folder
     local folder file src target state
-    if [[ ! -f "$PAYLOAD/engine/kmrp.kpatch" ]]; then
-        warn "the package has no kmrp.kpatch; KotOR Patch Manager will not list KMRP"
+    if [[ ! -f "$PAYLOAD/engine/$KMRP_KPATCH" ]]; then
+        warn "the package has no KMRP-macOS.kpatch; KotOR Patch Manager will not list KMRP"
         return 0
     fi
     if folder=$(kpm_patches_folder); then
@@ -329,15 +353,25 @@ deliver_kpatch() {   # deliver_kpatch <for_kpm>: the three .kpatch files into KP
     else
         return 0
     fi
+    # A patch file under its name of before 2026-10-08, of the same id as one delivered now:
+    # KPM would list the patch twice. Removed when it is KMRP's; anyone else's file is left.
+    for file in $OLD_KPATCH_FILES; do
+        target="$folder/$file"
+        [[ -f "$target" ]] || continue
+        if kpatch_is_kmrp "$target" || kpatch_is_controller "$target"; then rm -f "$target"; fi
+    done
     for file in $KPATCH_FILES; do
         src="$PAYLOAD/engine/$file"; target="$folder/$file"; state=created
         [[ -f "$src" ]] || continue
         if [[ -e "$target" ]]; then
             [[ "$(sha "$target")" == "$(sha "$src")" ]] && continue   # already there: not KMRP's to remove
             case "$file" in
-                kmrp.kpatch)
+                "$KMRP_KPATCH")
                     if ! kpatch_is_kmrp "$target"; then warn "left $target alone: it is not KMRP's"; continue; fi
                     state=replaced ;;   # an older KMRP's: brought up to this version, and left at uninstall
+                "$PAD_KPATCH")
+                    if ! kpatch_is_controller "$target"; then warn "left $target alone: it is not KMRP's controller patch"; continue; fi
+                    state=replaced ;;
                 K1WidescreenPatch.kpatch)
                     # FTD's own file. One KMRP can work with stays; one from before the entry
                     # points is copied aside and replaced, and put back at uninstall.
@@ -418,7 +452,7 @@ is_runtime_path() {   # KPM's runtime as KMRP's install laid it out, which KPM t
         KotorPatcher.dylib|patch_config.toml|kpm_install_state.json|KOTOR_Exe|KOTOR_Exe.backup.*) return 0 ;;
     esac
     # The options KPM's Apply records for the patches it installed are KPM's as well.
-    [[ "$1" == "$OPTIONS_INI" || "$1" == "${OPTIONS_INI:h}" ]] && return 0
+    [[ "${1:h}" == "${OPTIONS_INI:h}" || "$1" == "${OPTIONS_INI:h}" ]] && return 0
     [[ "${1:h}" == "$MACOS/patches" || "$1" == "$MACOS/patches" ]]
 }
 
@@ -466,8 +500,11 @@ kpm_remove() {   # puts the untouched game back from KPM's copy and deletes FTD'
     [[ "$(sha "$EXE")" == "$VANILLA_EXE_SHA" ]] || die "the untouched game could not be put back from KotOR Patch Manager's copy"
     for f in $KPM_FILES; do rm -rf -- "${MACOS:?}/$f"; done
     for backup in ${(f)"$(kpm_backups)"}; do rm -f -- "$backup"; done
-    # What KPM's own removal does with the options it recorded (PatchOptionsIni.RemoveSections).
-    options_remove
+    # What KPM's own removal does with the options it recorded (PatchOptionsIni.RemoveSections):
+    # KMRP's and the controller patch's.
+    local kmrp_ini=$OPTIONS_INI
+    for OPTIONS_INI in "$kmrp_ini" "${kmrp_ini:h}/kmrp-controller.ini"; do options_remove; done
+    OPTIONS_INI=$kmrp_ini
 }
 
 # ---------------------------------------------------------------------- patch options
@@ -495,18 +532,32 @@ options_rest() {   # the file without the section, as KPM's WithoutSection leave
         print $kept;' < "$OPTIONS_INI"
 }
 
-options_write() {   # the section first, then whatever else the file held
+options_write_one() {   # options_write_one <key=value lines, CRLF>: the section first, then whatever else $OPTIONS_INI held
     local made_dir=0 existed=0 rest
     [[ -d "${OPTIONS_INI:h}" ]] || { mkdir "${OPTIONS_INI:h}"; made_dir=1; }
     [[ -f "$OPTIONS_INI" ]] && existed=1
     rest=$(options_rest; print -n x); rest=${rest%x}
     {
-        printf '[Patch Options]\r\ncontroller=%d\r\nmap-notes=%d\r\ndebug-logs=%d\r\n' $CONTROLLER $MAP_NOTES $DEBUG_LOGS
+        printf '[Patch Options]\r\n%s' "$1"
         [[ -n "$rest" ]] && printf '\r\n%s' "$rest"
     } > "$OPTIONS_INI.kmrp-tmp"
     mv -f "$OPTIONS_INI.kmrp-tmp" "$OPTIONS_INI"
     (( made_dir )) && record dir "${OPTIONS_INI:h}" "-" "-"
     record options "$OPTIONS_INI" "-" "$existed"
+}
+
+# Each patch's own file: configs/kmrp.ini, and configs/kmrp-controller.ini while the controller
+# patch is installed.
+options_write() {
+    local kmrp_ini=$OPTIONS_INI lines
+    lines=$(printf 'map-notes=%d\r\nhd-icons=%d\r\ndebug-logs=%d\r\n' $MAP_NOTES $HD_ICONS $DEBUG_LOGS; print -n x)
+    options_write_one "${lines%x}"
+    if (( CONTROLLER )); then
+        OPTIONS_INI="${kmrp_ini:h}/kmrp-controller.ini"
+        lines=$(printf 'debug-logs=%d\r\n' $DEBUG_LOGS; print -n x)
+        options_write_one "${lines%x}"
+        OPTIONS_INI=$kmrp_ini
+    fi
 }
 
 options_remove() {   # the section out; a file with nothing else, and then an empty folder, go too
@@ -548,9 +599,27 @@ set_ini() {   # set_ini <key> <value>: writes it and records what it replaced
 # Windows (KmrpPatcher.cs, DefaultSettings, whose values these are): written only when there
 # is none, an existing copy is the player's and is never replaced, and uninstall removes it
 # only if it is still exactly as written. Only the log's location differs.
+# The Xbox-style HUD is the controller's standard on the Mac (the maintainer, 2026-10-07: "always
+# add this to the ini file ... this is standard with controller"), so a settings file from before
+# it, which has no [Hud] section, is given one; nothing else in the player's file is touched, and
+# a file that has the section keeps what it says.
 install_settings() {
     if [[ -e "$SETTINGS" ]]; then
-        say "Kept your ${SETTINGS:t}."
+        if grep -qi '^[[:space:]]*\[hud\]' "$SETTINGS"; then
+            say "Kept your ${SETTINGS:t}."
+        else
+            [[ -z "$(tail -c 1 "$SETTINGS")" ]] || print >> "$SETTINGS"
+            cat >> "$SETTINGS" <<'EOF'
+
+[Hud]
+; Xbox (laid out like the original Xbox version's while the pad is in use; the
+; game's own with mouse and keyboard) or PC (the game's own HUD always).
+; Read when the game starts. KotOR Patch Manager's "Xbox-style HUD" option, where
+; the manager offers options, decides instead of this line.
+Style=Xbox
+EOF
+            say "Kept your ${SETTINGS:t}, and added the Xbox-style HUD's setting to it ([Hud] Style=Xbox)."
+        fi
         return 0
     fi
     mkdir -p "${SETTINGS:h}"
@@ -573,6 +642,13 @@ SaberHumPeriodMinMs=500
 SaberHumPeriodMaxMs=2000
 ; 1 writes every rumble event to ~/Library/Logs/KMRP/rumble.log
 Debug=0
+
+[Hud]
+; Xbox (laid out like the original Xbox version's while the pad is in use; the
+; game's own with mouse and keyboard) or PC (the game's own HUD always).
+; Read when the game starts. KotOR Patch Manager's "Xbox-style HUD" option, where
+; the manager offers options, decides instead of this line.
+Style=Xbox
 EOF
     record settings "$SETTINGS" "$(sha "$SETTINGS")" "-"
 }
@@ -662,6 +738,7 @@ do_install() {
         say "Menus: KMRP's $size set"
     fi
     say "Map note corrections: $([[ $MAP_NOTES == 1 ]] && echo on || echo off)"
+    say "HD icons: $([[ $HD_ICONS == 1 ]] && echo on || echo off)"
     say "Controller support: $([[ $CONTROLLER == 1 ]] && echo on || echo off)"
     say "Debug logs: $([[ $DEBUG_LOGS == 1 ]] && echo on || echo off)"
     confirm "Install KMRP into this game?" || die "cancelled"
@@ -706,7 +783,7 @@ do_install() {
         # chosen in KPM now, where controller support is on unless a KPM with patch options
         # turns it off, and this installer's own choice does not reach KPM's Apply. So no
         # options are recorded here either.
-        if (( ! CONTROLLER || ! MAP_NOTES || DEBUG_LOGS )); then
+        if (( ! CONTROLLER || ! MAP_NOTES || ! HD_ICONS || DEBUG_LOGS )); then
             warn "KotOR Patch Manager installs KMRP here, so KMRP's options are chosen in KPM (with patch options; KPM 0.7.1 installs controller support and map notes, without logs). The choices made in this installer are not applied."
         fi
     else
@@ -729,7 +806,7 @@ do_install() {
             [[ -s "$module" ]] || die "${KPATCH_FILES[n]} holds no module"
             # KMRP's own module is signed ad hoc by its build. FTD's are as KPM's
             # create-patch.py leaves them, unsigned, which an x86_64 library may be.
-            if [[ "${KPATCH_IDS[n]}" == kmrp ]]; then
+            if [[ "${KPATCH_IDS[n]}" == kmrp* ]]; then
                 codesign --verify "$module" || die "the module taken out of ${KPATCH_FILES[n]} is damaged"
             fi
         done
@@ -768,6 +845,11 @@ do_install() {
         set_ini ForceWidth "$WIDTH"
         set_ini ForceHeight "$HEIGHT"
     fi
+    # Nothing is written for the game's Screen Resolution list: it is what the connected display
+    # reports, as on Windows since 2026-10-07. (For one day a checklist in KMRP Installer wrote
+    # its choice beside KOTOR_Exe as kmrp-resolutions.txt; the list of such an install is removed
+    # with it, being a file that install recorded, and one left over is removed here.)
+    rm -f "$MACOS/kmrp-resolutions.txt"
     say "Making fullscreen the default in Aspyr’s launcher..."
     set_fullscreen
     if (( CONTROLLER )); then install_settings; fi
@@ -784,6 +866,7 @@ do_install() {
         print -r -- "resolution_choice=$RESOLUTION"
         print -r -- "menu_set=$([[ $derived == 1 ]] && echo "blended, fonts and art from $from" || echo "$from")"
         print -r -- "map_notes=$MAP_NOTES"
+        print -r -- "hd_icons=$HD_ICONS"
         print -r -- "controller=$CONTROLLER"
         print -r -- "debug_logs=$DEBUG_LOGS"
         print -r -- "for_kpm=$for_kpm"
@@ -795,7 +878,7 @@ do_install() {
     if (( for_kpm )); then
         say "Installed for KotOR Patch Manager: the resolution and the controller's settings. KOTOR_Exe was not modified, and nothing was written to the game's override folder: the menus are inside KMRP's patch."
         if [[ -n "$KPATCH_FOLDER" ]]; then
-            say "KMRP's patch is in $KPATCH_FOLDER, with FTD's Widescreen Patch and Stray Bug Fixes, which it requires. Open KotOR Patch Manager, tick all three, and press Apply."
+            say "KMRP's patch is in $KPATCH_FOLDER, with FTD's Widescreen Patch and Stray Bug Fixes, which it requires"$( (( CONTROLLER )) && print -n ', and the controller patch' )". Open KotOR Patch Manager, tick them, and press Apply."
         fi
     else
         say "Installed: KMRP's patch, on FTD's Widescreen Patch and Stray Bug Fixes, with the menus for every resolution inside it. Nothing was written to the game's override folder. The first start of the game unpacks what $size needs, which takes a few seconds."
@@ -910,7 +993,7 @@ restore_from_manifest() {   # restore_from_manifest <quiet>
             dir)
                 rmdir "$target" 2>/dev/null || true ;;
             options)
-                options_remove ;;
+                OPTIONS_INI=$target; options_remove ;;
             fullscreen)
                 restore_fullscreen "$target" "$recorded" "$backup" ;;
             ini)
@@ -933,12 +1016,13 @@ restore_from_manifest() {   # restore_from_manifest <quiet>
 }
 
 kpm_holds_only_kmrp() {   # config, InstalledPatches (including module-less patches), and modules
-    # "Only KMRP" is KMRP with the two patches it requires and installs, and nothing else.
+    # "Only KMRP" is KMRP with the two patches it requires and installs, with or without its
+    # controller patch, and nothing else.
     local id module installed patch_state="$MACOS/kpm_install_state.json"
     local count=0
     [[ -f "$MACOS/patch_config.toml" ]] || return 1
     for id in ${(f)"$(sed -n 's/^id = "\(.*\)"$/\1/p' "$MACOS/patch_config.toml")"}; do
-        (( ${KPATCH_IDS[(Ie)$id]} )) || return 1
+        (( ${KMRP_IDS[(Ie)$id]} )) || return 1
         [[ "$id" == kmrp ]] && (( ++count ))
     done
     (( count > 0 )) || return 1
@@ -949,11 +1033,11 @@ kpm_holds_only_kmrp() {   # config, InstalledPatches (including module-less patc
         for id in ${(s:,:)${${installed#\[}%\]}}; do
             id=${${id//[[:space:]]/}//\"/}
             [[ -z "$id" ]] && continue
-            (( ${KPATCH_IDS[(Ie)$id]} )) || return 1
+            (( ${KMRP_IDS[(Ie)$id]} )) || return 1
         done
     fi
     for module in "$MACOS"/patches/*(N); do
-        (( ${KPATCH_IDS[(Ie)${module:t:r}]} )) || return 1
+        (( ${KMRP_IDS[(Ie)${module:t:r}]} )) || return 1
     done
     return 0
 }
@@ -1036,6 +1120,7 @@ while (( $# )); do
     case "$1" in
         --game) GAME=${2:?--game needs a path}; shift ;;
         --no-map-notes) MAP_NOTES=0 ;;
+        --no-hd-icons) HD_ICONS=0 ;;
         --no-controller) CONTROLLER=0 ;;
         --debug-logs) DEBUG_LOGS=1 ;;
         --resolution)
@@ -1056,6 +1141,7 @@ done
 # returns, and it must run when the shell exits mid-install. ZERR as well as EXIT: when
 # errexit aborts on a failed command, zsh runs ZERR and exits without running EXIT
 # (tested 2026-09-29); an explicit exit (die) runs EXIT.
+choose_patches
 trap 'on_exit' EXIT
 trap 'on_exit' ZERR
 trap 'exit 1' INT TERM

@@ -51,6 +51,10 @@ GLYPH_FAMILIES = {
         # either glyph, so this reaches the tab-strip cues and the Controller
         # Layout screen's LT and RT rows.
         "LT": "360_LT.png", "RT": "360_RT.png",
+        # The trigger as the Xbox-style HUD's pause notice shows it ("Press RT to
+        # continue"): the pack's lighter drawing where it has one, which the
+        # maintainer added for this on 2026-10-06 (360_RT_ALT, PS5_R2_Light).
+        "RT_NOTICE": "360_RT_ALT.png",
         "START": "360_Start.png", "BACK": "360_Back.png",
         "DPAD_LEFT": "360_Dpad_Left.png", "DPAD_RIGHT": "360_Dpad_Right.png",
         "DPAD_UP": "360_Dpad_Up.png", "DPAD_DOWN": "360_Dpad_Down.png",
@@ -75,6 +79,7 @@ GLYPH_FAMILIES = {
         "X": "PS5_Square.png", "Y": "PS5_Triangle.png",
         "LB": "PS5_L1.png", "RB": "PS5_R1.png",
         "LT": "PS5_L2.png", "RT": "PS5_R2.png",
+        "RT_NOTICE": "PS5_R2_Light.png",
         "START": "PS5_Options.png", "BACK": "PS5_Share.png",
         "DPAD_LEFT": "PS5_Dpad_Left.png", "DPAD_RIGHT": "PS5_Dpad_Right.png",
         "DPAD_UP": "PS5_Dpad_Up.png", "DPAD_DOWN": "PS5_Dpad_Down.png",
@@ -95,6 +100,7 @@ GLYPH_FAMILIES = {
         "X": "Switch_Y.png", "Y": "Switch_X.png",
         "LB": "Switch_LB.png", "RB": "Switch_RB.png",
         "LT": "Switch_LT.png", "RT": "Switch_RT.png",
+        "RT_NOTICE": "Switch_RT.png",
         "START": "Switch_Plus.png", "BACK": "Switch_Minus.png",
         "DPAD_LEFT": "Switch_Dpad_Left.png", "DPAD_RIGHT": "Switch_Dpad_Right.png",
         "DPAD_UP": "Switch_Dpad_Up.png", "DPAD_DOWN": "Switch_Dpad_Down.png",
@@ -108,6 +114,7 @@ GLYPH_FAMILIES = {
         "X": "SteamDeck_X.png", "Y": "SteamDeck_Y.png",
         "LB": "SteamDeck_L1.png", "RB": "SteamDeck_R1.png",
         "LT": "SteamDeck_L2.png", "RT": "SteamDeck_R2.png",
+        "RT_NOTICE": "SteamDeck_R2.png",
         # The Deck labels these Menu and Dots rather than Start and View.
         "START": "SteamDeck_Menu.png", "BACK": "SteamDeck_Dots.png",
         "DPAD_LEFT": "SteamDeck_Dpad_Left.png",
@@ -442,6 +449,16 @@ PROMPT_TARGETS = (
     # the notice Feats opens with. Its dispatcher (0x006CD3C0) closes it on A
     # whatever holds focus.
     PromptTarget("skillinfo.gui", "BTN_OK", 2, "A", "kmrpa_skillok"),
+    # The store (2026-10-06): it had no badge at all, which was seen at a
+    # merchant that day. Its own dispatcher (CSWGuiStore::HandleInputEvent,
+    # 0x006C2190) closes it on B and swaps the buy and the sell list on X
+    # whatever holds focus, and A buys or sells the row in focus, which is
+    # what the first button's own click raises. The X button is not drawn
+    # at a shop that only buys or only sells (0x006C1B50). Tags, indices
+    # and empty fills checked in the game's file and all 66 sets.
+    PromptTarget("store.gui", "BTN_Accept", 12, "A", "kmrpa_storebuy"),
+    PromptTarget("store.gui", "BTN_Examine", 10, "X", "kmrpx_storelist"),
+    PromptTarget("store.gui", "BTN_Cancel", 11, "B", "kmrpb_storeback"),
 )
 
 
@@ -636,12 +653,20 @@ def badge_radius(sizing_height: int) -> float:
     return sizing_height * (BADGE_RADIUS_SHORT if sizing_height < BADGE_SHORT_BELOW else BADGE_RADIUS)
 
 
-def badge_fit_width(label_width: float, sizing_height: int) -> float:
+def badge_fit_width(label_width: float, sizing_height: int, inset: int = 0) -> float:
     """The narrowest button that shows its centred label with the badge at the
     designed gap, rather than pushed against the button's edge and onto the
-    text (build_prompt_tga's clamp)."""
+    text (build_prompt_tga's clamp).
+
+    `inset`: the button's border's fill inset (fill_inset). The badge is then fitted
+    to the smaller area and kept BADGE_EDGE radii inside it, so the button needs the
+    inset on both sides as well. Without it the Container's Give Items badge sat up
+    to 3 px nearer its caption than designed at 24 blended sizes
+    (Test-GuiBlendHelper.py, 2026-10-05)."""
     radius = badge_radius(sizing_height)
-    return label_width + 2.0 * radius * (BADGE_GAP + 1.0 + BADGE_EDGE)
+    if inset > 0:
+        radius = min(radius, (sizing_height - 2 * inset) / 2.0 - FIT_MARGIN)
+    return label_width + 2.0 * (inset + radius * (BADGE_GAP + 1.0 + BADGE_EDGE))
 
 
 @lru_cache(maxsize=None)
@@ -649,9 +674,24 @@ def build_prompt_tga(control_width: int, control_height: int, glyph: str,
                      label_width: float = 0.0,
                      radius_height: int = 0,
                      family: str = GLYPH_FAMILY,
-                     backing: tuple | None = None) -> bytes:
+                     backing: tuple | None = None,
+                     inset: int = 0, fit: bool = False) -> bytes:
+    """`inset`: how far inside the control the engine draws this border's fill, on
+    every side (fill_inset). The badge is designed on the whole control, as before,
+    and then mapped onto the smaller area the texture is actually stretched across,
+    so it keeps its shape and its place. 0 is the whole control.
+
+    `fit`: keep the badge whole inside the inset area, smaller if it must be.
+    Measured 2026-10-05 on the original Close button (142x28, focused border 6 px):
+    a 22 px badge in a 16 px fill came out with its top and bottom cut off. Each
+    border's texture is fitted to its own area, so a button keeps its full-size
+    badge while it is not focused. (Fitting both to the smaller area was tried the
+    same day: the Map screen's 13 px rows, whose focused border leaves 1 px, lost
+    their badges altogether.) An area under MIN_BADGE_AREA tall holds no badge."""
     if control_width <= 0 or control_height <= 0:
         raise ValueError(f"Invalid prompt control extent {control_width}x{control_height}")
+    if inset < 0 or control_width - 2 * inset <= 0 or control_height - 2 * inset <= 0:
+        raise ValueError(f"Fill inset {inset} leaves nothing of {control_width}x{control_height}")
     center_y = control_height * BADGE_CENTER_Y
     # A badge in a group takes its size from the group's shortest control rather
     # than its own, so five entries in a menu carry five identical glyphs. Quit
@@ -659,6 +699,12 @@ def build_prompt_tga(control_width: int, control_height: int, glyph: str,
     # fifth larger than the others.
     sizing_height = radius_height if radius_height > 0 else control_height
     radius = badge_radius(sizing_height)
+    if fit and inset > 0:
+        if control_height - 2 * inset < MIN_BADGE_AREA:
+            return _empty_tga()
+        # Half a pixel short of the area, so the disc's soft edge is inside the
+        # texture rather than on its last row.
+        radius = min(radius, (control_height - 2 * inset) / 2.0 - FIT_MARGIN)
 
     # Sit the badge immediately before the label, as the original Xbox build
     # does, instead of at a fixed inset from the button's left edge. KOTOR
@@ -679,8 +725,64 @@ def build_prompt_tga(control_width: int, control_height: int, glyph: str,
         center_x = max(radius * BADGE_EDGE, center_x)
     else:
         center_x = control_height * BADGE_FALLBACK_X
-    return _composite_glyph_tga(control_width, control_height, glyph,
-                                center_x, center_y, radius, family, backing)
+    if fit and inset > 0:
+        # The same least distance from the area's edge as from a button's
+        # (BADGE_EDGE). With no margin a badge clamped to a small area sat on the
+        # texture's first column (the Auto Level Up button at 1024x576, whose 16 px
+        # border leaves 8 px; Test-ControllerPromptAssets.py, 2026-10-05).
+        center_x = max(center_x, inset + radius * BADGE_EDGE)
+    return _composite_glyph_tga(control_width - 2 * inset, control_height - 2 * inset, glyph,
+                                center_x - inset, center_y - inset, radius, family, backing)
+
+
+# A border with corner art draws its fill INSIDE the border, not across the control:
+# CSWGuiBorder::Draw (0x004168C0) starts the fill at the corner's size from the left
+# and top and shortens it by twice that, and the corner's size is the border's
+# DIMENSION when that is not zero (CSWGuiBorderParams::GetBorderDim, 0x00414CD0).
+# With no corner image the fill covers the whole extent. Read from the decompiled
+# functions on 2026-10-05 and measured in the game's original Options screen: a
+# 240x40 button with DIMENSION 6 drew a badge made for 240x40 as 28x20, not round.
+#
+# A button has two borders, BORDER and HILIGHT (the one drawn while it has focus),
+# and they need not agree: the original Close buttons have no normal border and a
+# 6 px focused one. Where they differ the badge needs a second texture for the
+# focused state, named with FOCUS_PREFIX; the module makes the same comparison on
+# the live control and asks for it (SetK1ControllerPromptFill).
+FOCUS_PREFIX = "kmf"
+# The shortest fill area, in pixels, that is given a badge at all.
+MIN_BADGE_AREA = 8
+# Kept free above and below a badge fitted to its area, in pixels.
+FIT_MARGIN = 0.5
+
+
+def _empty_tga() -> bytes:
+    """A fully transparent badge texture."""
+    header = struct.pack("<BBBHHBHHHHBB", 0, 0, 2, 0, 0, 0, 0, 0,
+                         TEXTURE_WIDTH, TEXTURE_HEIGHT, 32, 0x08)
+    return header + b"\x00" * (TEXTURE_WIDTH * TEXTURE_HEIGHT * 4) + TGA_FOOTER
+
+
+def fill_inset(border) -> int:
+    """How far inside its control a border draws its fill: see above."""
+    # Corner ART decides it, not the DIMENSION alone. The main menu's buttons name no
+    # corner or edge art and have DIMENSION 4, and their fill covers the whole
+    # 235x24: a badge made for the whole button drew 17x16 there, round within the
+    # measurement, and one made for a 4 px inset (this function returned the
+    # DIMENSION regardless for one build on 2026-10-05) drew 14x20.
+    if border is None or not str(border.get_resref("CORNER")):
+        return 0
+    dimension = border.get_int32("DIMENSION")
+    if dimension <= 0:
+        raise ValueError("A border with corner art and no DIMENSION takes its inset "
+                         "from the art's size, which this generator does not read")
+    return dimension
+
+
+def focus_resref(resref: str) -> str:
+    """The focused-state texture of a badge whose two borders inset differently."""
+    if not resref.startswith("kmr"):
+        raise ValueError(f"{resref} is not a badge resref")
+    return FOCUS_PREFIX + resref[3:]
 
 
 # A cue that is nothing but a glyph sits on its own square control, so unlike
@@ -1005,6 +1107,12 @@ PROMPT_STRREFS = {
     ("character.gui", "BTN_LEVELUP"): ((1071,),),
     ("character.gui", "BTN_AUTO"): ((36812,),),
     ("skillinfo.gui", "BTN_OK"): ((1580,),),
+    # The store's two swap with the list shown (ShowBuyGUI 0x006C1A50,
+    # ShowSellGUI 0x006C13C0): 32132 "Buy" or 32130 "Sell", 41938 "Show Sell
+    # List" or 41937 "Show Buy List".
+    ("store.gui", "BTN_Accept"): ((32132,), (32130,)),
+    ("store.gui", "BTN_Examine"): ((41938,), (41937,)),
+    ("store.gui", "BTN_Cancel"): ((1582,),),
 }
 
 # Buttons whose caption is inline text in the .gui rather than a STRREF: KMRP's
@@ -1074,6 +1182,11 @@ PROMPT_FALLBACK_STRINGS = {
     42393: "Wager",
     1071: "Level Up",
     36812: "Auto Level Up",
+    # The store, 2026-10-06.
+    32130: "Sell",
+    32132: "Buy",
+    41937: "Show Buy List",
+    41938: "Show Sell List",
 }
 
 # Buttons that get one badge texture PER CAPTION, named <resref><index>, chosen
@@ -1221,13 +1334,23 @@ def measure_label(label: str, advances, spacing_px: float) -> float:
 
 def build_prompt_textures(gui_files: list[Path], output_dir: Path,
                           widened: dict[str, int] | None = None,
-                          fitted: dict[tuple[str, str], int] | None = None) -> list[Path]:
+                          fitted: dict[tuple[str, str], int] | None = None,
+                          fill_insets: bool = False) -> list[Path]:
     """`widened`: pixels a screen was widened by to fit a caption and its badge
     (prepare_universal_resources.py), recorded in the manifest so the Mac's blend
     table can take the widening back out and its installer put it in again for a
     resolution with no set (tools/build_gui_blend_table.py). `fitted`: the same for
     the lists made as tall as whole rows, by (screen, list), in pixels of height
-    (scale_listbox_padding.py, fit_list_to_rows)."""
+    (scale_listbox_padding.py, fit_list_to_rows).
+
+    `fill_insets`: make each badge for the area its border really fills (fill_inset),
+    with a focused-state texture where the two borders differ. Every build passes it
+    since 2026-10-05: KMRP's own sets (prepare_universal_resources.py), whose badges
+    were until then made for the whole control and so drawn about 13% wider than
+    tall on a bordered 720x90 button, and the standalone controller patch
+    (build_controller_assets.py). The blend table (version 5), kmrp-guiblend.c and
+    GuiBlend.cs draw the same for a size with no set. False is the old behaviour,
+    kept for comparing against sets built before."""
     by_name = {path.name.lower(): path for path in gui_files}
     output_dir.mkdir(parents=True, exist_ok=True)
     # The button font's metrics for THIS resolution, so the badge can be placed
@@ -1339,6 +1462,11 @@ def build_prompt_textures(gui_files: list[Path], output_dir: Path,
                                  f"{target.tag}'s badge like")
             radius_height = like.get_struct("EXTENT").get_int32("HEIGHT")
         backing = BACKINGS[target.backing] if target.backing else None
+        normal_inset = focus_inset = 0
+        if fill_insets:
+            normal_inset = fill_inset(border)
+            focus_inset = (fill_inset(control.get_struct("HILIGHT"))
+                           if control.exists("HILIGHT") else normal_inset)
 
         # Once per family, identically placed: only the art differs, so the
         # installer's re-centring treats every family's copy the same way.
@@ -1347,10 +1475,16 @@ def build_prompt_textures(gui_files: list[Path], output_dir: Path,
             output = output_dir / f"{resref}.tga"
             output.write_bytes(build_prompt_tga(
                 width, height, target.glyph, round(label_width, 2), radius_height,
-                family, backing))
+                family, backing, normal_inset, fill_insets))
             results.append(output)
             manifest.append((resref, width, height, round(label_width, 2),
                              variants))
+            if focus_inset != normal_inset:
+                focused = output_dir / f"{focus_resref(resref)}.tga"
+                focused.write_bytes(build_prompt_tga(
+                    width, height, target.glyph, round(label_width, 2), radius_height,
+                    family, backing, focus_inset, fill_insets))
+                results.append(focused)
 
         # One texture per caption, for the buttons the module can index. Each is
         # placed against its OWN wording and carries only that wording in the
@@ -1371,8 +1505,15 @@ def build_prompt_textures(gui_files: list[Path], output_dir: Path,
                     resref = family_resref(f"{target.resref}{index}", family)
                     path = output_dir / f"{resref}.tga"
                     path.write_bytes(build_prompt_tga(
-                        width, height, target.glyph, round(one_width, 2), 0, family))
+                        width, height, target.glyph, round(one_width, 2), 0, family,
+                        None, normal_inset, fill_insets))
                     results.append(path)
+                    if focus_inset != normal_inset:
+                        focused = output_dir / f"{focus_resref(resref)}.tga"
+                        focused.write_bytes(build_prompt_tga(
+                            width, height, target.glyph, round(one_width, 2), 0, family,
+                            None, focus_inset, fill_insets))
+                        results.append(focused)
                     manifest.append((resref, width, height, round(one_width, 2),
                                      (variant,)))
 

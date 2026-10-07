@@ -2,6 +2,13 @@
 
 This handoff follows [the documentation standard](../documentation-standard.md).
 
+> **A record of 2026-10-02.** The three scenarios it asked for were confirmed that day (the
+> last section). What it calls the current implementation has changed in shape since: the
+> four variants of one patch are now four patches, the Scripts Enter fix is carried by FTD's
+> Stray Bug Fixes, and FTD's layout writers, which this note says are not linked alongside
+> KMRP's, are what writes the layout sites since 2026-10-04. The five text-height hooks and
+> the XP fitting are still KMRP's. Present state: [`macos/README.md`](../../macos/README.md).
+
 ## Current implementation
 
 The failed action-label GUI-frame resizing pass is removed. Five guarded native

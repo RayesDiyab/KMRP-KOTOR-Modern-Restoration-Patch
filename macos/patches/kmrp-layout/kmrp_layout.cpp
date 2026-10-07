@@ -75,10 +75,6 @@ struct GraphicsIni {
 // constructor of this part runs). A plain pointer, so it needs no initialiser of its own.
 FILE* (*g_iniOpen)(const char*, const char*) = nullptr;
 
-// Where SDL is when the module carries it (kmrp-assets/assets.cpp unpacks it to KMRP's cache),
-// for the controller (kmrp-controller/backend_sdl.cpp); null in a build without the menu sets.
-const char* (*g_sdlPath)() = nullptr;
-
 // Called once a GUI frame with the manager, from the frame hook (KmrpGuiFrame, or KmrpCoreGuiFrame
 // in a build without the controller): kmrp-assets/layout.cpp lays the panels out again there
 // after a change of resolution. Null in a build without the menu sets.

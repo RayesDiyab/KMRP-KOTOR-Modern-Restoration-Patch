@@ -166,3 +166,19 @@ address = 0x1002d3e34
 type = "simple"
 original_bytes = [0x55]
 replacement_bytes = [0xc3]
+
+# KMRP's work in the GUI's frame (status_summary.cpp, KmrpCoreGuiFrame): the resolution watched,
+# open panels laid out again after a change, the status summary laid out at the font's size.
+# CSWGuiManager::Update (0x10049f636) after its first four pushes; rdi is still the manager.
+# The entry itself is the controller patch's: KotOR Patch Manager allows one patch per address,
+# and the two were one module, sharing the entry, until 2026-10-07. The stolen bytes are
+#   0x10049f63e  push r12; push rbx; sub rsp, 0x10
+#   0x10049f645  movss [rbp-0x24], xmm0
+[[hooks]]
+address = 0x10049f63e
+type = "detour"
+function = "KmrpCoreGuiFrame"
+original_bytes = [0x41, 0x54, 0x53, 0x48, 0x83, 0xec, 0x10]
+[[hooks.parameters]]
+source = "rdi"
+type = "pointer"

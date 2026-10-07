@@ -289,6 +289,16 @@ const RowKind kUsualRow[] = {kItemRow, kSkillRow, kButtonRow, kItemRow, kStoreRo
 constexpr int kMeasuredListCount = sizeof kMeasuredLists / sizeof *kMeasuredLists;
 static_assert(sizeof kUsualRow / sizeof *kUsualRow == kMeasuredListCount, "a usual row for every measured list");
 
+// The lists whose rows are set in from both borders of their box as well, and by how much for
+// each 720 lines of the screen: the store's two and the workbench's. Windows' kRowGap
+// (src/controller-native/K1RuntimeLayout.cpp, 2026-10-06): centred, the store's rows stood
+// against both borders of their box there (no dark column on the left and one on the right at
+// 3440x1440), and the maintainer asked for a gap on seeing a merchant; 3.5 is what the
+// inventory's rows keep at that size. Taken over on the Mac on 2026-10-07 so the two platforms
+// agree; neither list has been seen in the game on the Mac.
+const double kRowGap[] = {0, 0, 0, 0, 3.5, 3.5, 3.5, 0, 0, 0};
+static_assert(sizeof kRowGap / sizeof *kRowGap == kMeasuredListCount, "a gap for every measured list");
+
 int MeasuredList(const std::string& name) {
     for (int i = 0; i < kMeasuredListCount; ++i)
         if (name == kMeasuredLists[i]) return i;
@@ -479,8 +489,9 @@ extern "C" __attribute__((visibility("default"))) void KmrpPanelLayoutStart(void
     if (LoadLayout(name, gff)) FileExtents(gff, entry.file);
 }
 
-// CSWGuiPanel::InitControl, entry: rdi the panel, rsi the control, rdx the tag (a CExoString).
-extern "C" __attribute__((visibility("default"))) void KmrpPanelControl(void* panel, void* control, void* label) {
+// CSWGuiPanel::InitControl, entry: rdi the panel, rsi the control, rdx the tag (a CExoString),
+// ecx whether the panel files the control in its array.
+extern "C" __attribute__((visibility("default"))) void KmrpPanelControl(void* panel, void* control, void* label, int filed) {
     if (!control || !label) return;
     State& state = TheState();
     const auto found = state.panels.find(panel);
@@ -490,6 +501,18 @@ extern "C" __attribute__((visibility("default"))) void KmrpPanelControl(void* pa
     if (!name || size <= 0 || size > 256) return;
     const std::string tag(name, strnlen(name, static_cast<std::size_t>(size)));
     if (tag.empty()) return;
+    // A second control loaded from a tag whose own control is still there, and not filed with the
+    // panel, is someone reading the layout (the controller patch finds where a control is in its
+    // file that way, cues.cpp, and frees what it loaded): the tag stays its control's. Until
+    // 2026-10-07 it became the reader's, and after a resolution change the control kept the old
+    // size's place while whatever had taken the freed memory was given its rectangle.
+    if (!filed) {
+        const auto held = found->second.controls.find(tag);
+        if (held != found->second.controls.end() && held->second.pointer != control &&
+            Readable(held->second.pointer, 0x60) && Field<void*>(held->second.pointer, kControlPanel) == panel &&
+            Field<std::uintptr_t>(held->second.pointer, 0) == held->second.table)
+            return;
+    }
     Control entry{control, Field<std::uintptr_t>(control, 0)};
     const auto file = found->second.file.find(tag);
     if (file != found->second.file.end()) { entry.known = true; entry.file = file->second; }
@@ -580,8 +603,11 @@ extern "C" __attribute__((visibility("default"))) void KmrpListRow(void* list, v
     const double inset = RowInset(KindOf(vtable, kUsualRow[measured]), Scale(height), rect[3]);
     int shift = static_cast<int>(std::lround(offset + inset)) + bound->second.wider;
     if (shift > padding) shift = padding;
-    rect[0] = padding - shift;
-    rect[2] = Field<int>(list, kListContentWidth) - padding + shift;
+    const int gap = static_cast<int>(std::lround(kRowGap[measured] * Scale(height)));
+    const int rowWidth = Field<int>(list, kListContentWidth) - padding + shift;
+    if (rowWidth <= 4 * gap) return;   // no list of the game's is this narrow
+    rect[0] = padding - shift + gap;
+    rect[2] = rowWidth - 2 * gap;
 }
 
 // CSWGuiPanel::~CSWGuiPanel, entry: rdi the panel.

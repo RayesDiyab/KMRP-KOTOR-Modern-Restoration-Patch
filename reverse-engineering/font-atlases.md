@@ -13,6 +13,33 @@ how the format actually works (established by measurement, not
 documentation — none exists), and which screen each resref renders. Written
 so this doesn't need re-discovering next session.
 
+> **How the atlases reach the game now (note of 2026-10-08, read from the
+> source).** This document was written while KMRP's installer put the rendered
+> atlases and their `.txi` files into `Override`, from `override-common.zip` and
+> one `gui-<res>.zip` per resolution, and wrote the stack-count operands into
+> `swkotor.exe`. Neither is so any more:
+>
+> - *No file goes to `Override` since 2026-10-04.* The module of `KMRP.kpatch`
+>   carries every size's set in its bank, writes the set for the size the game
+>   runs at into a folder of its own and registers that folder with the game's
+>   resource manager (`src/controller-native/K1RuntimeAssets.cpp`,
+>   [runtime-resolution-preview.md](runtime-resolution-preview.md)). Finding 7
+>   below, on a `.txi` beside a packed `.tpc`, is an engine fact and applies to
+>   that folder as it did to `Override`.
+> - *A size changed in the game swaps the font set.* A texture's TXI is parsed
+>   once, so the module reads every font's TXI again after a mode switch
+>   (`ReloadFontMetrics` in `K1RuntimeResolution.cpp`, the engine's own load at
+>   `0x00422AF0`).
+> - *The stack-count operands are written in memory*, for the size the game runs
+>   at, by the same module (`FieldValue` in `K1RuntimeEngine.cpp`);
+>   `StackCountSites` makes them only for the installer's `--apply` output, and
+>   the `.ksc` file offsets below are that output's.
+>
+> The list of what "the patcher carries" under *Decision taken* is the installer
+> of that time; today it carries the two `.kpatch` files, and the atlases are
+> in the bank inside KMRP's module. That no `.ttf` or `.otf` is among the bank's
+> objects was not checked again for this note.
+
 ## The 18 font resrefs
 
 All live in `TexturePacks/swpc_tex_gui.erf` (`FONT_RESREFS` in
@@ -483,58 +510,60 @@ Consequences until the mechanism is found: size any KMRP-authored text as
 The 1.406 ratio is also 1440/1024, a coincidence not yet ruled out; only one
 resolution was measured.
 
-## `spacingR` controls word wrap, not letter spacing
+## `spacingR` is drawn, and a whole-pixel set must not carry it
 
-**Proven in game, and it overturns what this document previously claimed.**
-Raising `spacingR` for `fnt_d16x16b` at 3440x1440 from 0.02px to 0.40px — a
-change larger than any value the old spacing table ever emitted — stopped long
-item descriptions being clipped and left the visible letter spacing *completely
-unchanged*. Confirmed from play: "fixed and width is unchanged".
+**Corrected 2026-10-05.** This section said that `spacingR` was a wrap margin
+the renderer never read. It is read by both passes, and on KMRP's own font sets
+only the renderer's use of it has any effect.
 
-The disassembly agrees, and says why:
-
-| site | reads `spacingR`? |
+| site | what it does with `spacingR` |
 |---|---|
-| `0x0045A5C9` — line-breaker, accumulating a candidate line's width (`fadd [edi+0x10]`) | **yes** |
-| `0x0045A806` — `Draw`, advancing the pen between glyphs | **no** |
+| line breaker `0x0045A2F0`, the sum at `0x0045A552` to `0x0045A56D` | trunc((u width x `texturewidth` + `spacingR`) x scale x 100 + 0.25) a glyph |
+| `Draw` `0x0045A850`, the pen at `0x0045AF6F` to `0x0045AFBC` | the glyph's width plus `spacingR`, not truncated |
 
-So `spacingR` is a **wrap-safety margin**. Rendered letter spacing comes from
-the glyph cell widths in the atlas UV rects, and is fixed at bake time by
-`build_font_from_ttf.py`; `spacingR` cannot influence it at all.
+`0x0045A806`, which this section called "`Draw`, advancing the pen", is the
+breaker seeding a new line with its first glyph. It is not in `Draw`.
 
-### What the margin is for
+Every set under `build/fonts` is baked at its own scale and its glyphs are whole
+pixels wide (all 720 atlases, the largest distance from a whole number 0.004).
+With a width n and half a pixel of `spacingR` the breaker counts trunc(n + 0.75),
+which is n: nothing. `Draw` adds it to every glyph. So the margin widened every
+drawn line and no measured one, and a line fitted to its box ran over the box's
+right edge by about 3%.
 
-The engine's line measurement *underestimates*. Read live out of the
-description listbox, its stored per-line widths against the widths implied by
-the atlas advances:
+Measured at 1920x1080 in the speech box (`fnt_d16x16b`, the scratch copy,
+2026-10-05), the same line in the same run, `spacingR` changed in the game's
+memory:
 
-| engine | true | error |
+| `spacingR` | width the breaker stored | width drawn |
 |---|---|---|
-| 203 | 208 | −2.4% |
-| 106 | 109 | −2.8% |
-| 1202 | 1238 | −2.9% |
+| 0.005 | 763 | 786 |
+| 0 | 763 | 762 |
 
-It truncates each glyph advance to an integer, losing up to a pixel per
-character. A long line it believes fits the 1293px content area really renders
-~39px wider, and the last word is sliced off at the clip edge — under the
-scrollbar, which is what made it look like a gutter bug. Vanilla text rarely
-reached the limit, so it only surfaces once the font is enlarged.
+The stored width is exactly the sum of the atlas's advances (764 with the
+leading glyph's rounding). The game's own fonts have `spacingR 0`.
 
-`LETTER_SPACING_PX = 0.5` in `prepare_universal_resources.py` covers the
-average truncation loss. The error is bounded by one pixel per character
-*whatever the font size*, so a flat value is correct here and must **not** scale
-with resolution — which is why `spacingR` is written **after** `scale_txi`, not
-through it. It is applied to the stock 17 fonts too: they are enlarged by the
-same metrics and clip the same way.
+So `prepare_universal_resources.py` writes `spacingR 0` for a set baked at its
+own scale (`LETTER_SPACING_PX`), which is every set a release ships.
 
-> **Superseded:** an earlier `tools/measure_letter_spacing.py` and
+### Where the half pixel came from
+
+From the atlases scaled down from one 3.0 bake. Their glyph widths were
+fractions, the breaker truncated each one, and its lines came out short of the
+drawn ones: 203 against 208, 106 against 109, 1202 against 1238, read out of the
+description listbox at 3440x1440. Half a pixel of `spacingR` raised the measure
+there and long descriptions stopped being clipped ("fixed and width is
+unchanged", from play). That path remains in the build for a resolution without
+a set of its own and keeps the half pixel (`SCALED_SET_LETTER_SPACING_PX`); no
+shipped resolution takes it.
+
+Rendered letter spacing otherwise comes from the glyph cell widths in the atlas
+UV rects, fixed at bake time by `build_font_from_ttf.py`.
+
+> **Superseded earlier:** `tools/measure_letter_spacing.py` and
 > `assets/letter-spacing.json` tuned `spacingR` per font and scale to correct a
-> gap/ink ratio (menu text measured 0.098 at 1080p against 0.126 at 1440p).
-> The ratio measurements were real, but they came from a simulation that
-> included `spacingR` in the advance — which the game's renderer does not. That
-> table was silently changing wrap points and nothing else. Both files are
-> deleted. The cramped-text complaint that motivated them was genuinely fixed,
-> but by the atlas rebuild landing alongside it: correct left-side bearings,
+> gap/ink ratio. Both files are deleted. The cramped-text complaint that
+> motivated them was fixed by the atlas rebuild: correct left-side bearings,
 > `GLYPH_PADDING = 4`, and the guaranteed non-zero advance.
 
 ### Hand-refining the font (the intended finishing step)

@@ -9,15 +9,18 @@
       Knights of the Old Republic.app/Contents/MacOS/configs/kmrp.ini
 
       [Patch Options]
-      controller=1
       map-notes=1
       debug-logs=0
+
+  The controller patch, a patch of its own since 2026-10-07 (id kmrp-controller), compiles this
+  file too, with KMRP_CONTROLLER_PATCH, and reads configs/kmrp-controller.ini: xbox-hud and
+  debug-logs. Until then controller support was an option of KMRP's patch, `controller`.
 
   A hook whose `when` does not hold is left out by whoever installs. A manager without options
   (0.7.1) installs every hook and writes no file. So the hooks alone cannot say what was chosen,
   and everything the module does on its own (its constructors, and the hooks that stay whatever
   was chosen) asks here instead. A missing file, section or key is the option's default, which
-  is what such a manager installs: controller support and map notes on, logs off.
+  is what such a manager installs: map notes on, logs off, the Xbox-style HUD off.
 
   The folder is found from the module's own path: patches/kmrp.dylib is one folder below the
   executable. Each value is read once, the first time it is asked for. The manager writes the
@@ -36,7 +39,11 @@
 namespace kmrp {
 namespace {
 
+#ifdef KMRP_CONTROLLER_PATCH
+const char kFile[] = "/configs/kmrp-controller.ini";
+#else
 const char kFile[] = "/configs/kmrp.ini";
+#endif
 const char kSection[] = "Patch Options";
 
 std::string Trimmed(const std::string& s) {
@@ -85,13 +92,18 @@ int PatchOption(const char* id, int fallback) {
     return value;
 }
 
-bool ControllerOption() {
-    static const bool on = PatchOption("controller", 1) != 0;
+bool XboxHudOption() {
+    static const bool on = PatchOption("xbox-hud", 0) != 0;
     return on;
 }
 
 bool MapNotesOption() {
     static const bool on = PatchOption("map-notes", 1) != 0;
+    return on;
+}
+
+bool HdIconsOption() {
+    static const bool on = PatchOption("hd-icons", 1) != 0;
     return on;
 }
 

@@ -96,28 +96,48 @@ CONTROLLER_LINK = ["-fobjc-arc", "-fobjc-link-runtime", "-framework", "Foundatio
                    "-framework", "ApplicationServices", "-weak_framework", "GameController"]
 
 
-# The patch's options (--options), in the order the launcher lists them: Windows' three, with
-# its names and descriptions (tools/build_native_kpatch.py, OPTIONS). Controller support and map
-# notes default to on: a manager without options installs every hook, and the default has to be
-# what it installs.
+# KMRP's options (--options), in the order the launcher lists them: Windows' (tools/
+# build_native_kpatch.py, OPTIONS). Map notes default to on: a manager without options installs
+# every hook, and the default has to be what it installs. Controller support was the first of
+# them until 2026-10-07; it is a patch of its own now (--controller-patch).
 OPTIONS = [
-    ("controller", "Controller support", True,
-     "Play with an Xbox, PlayStation, Switch or Steam Deck controller, in the game and in every menu, "
-     "with matching button prompts and rumble."),
     ("map-notes", "Map notes", True,
      "Shows the area map's notes where they belong (Derslok's map marker corrections)."),
+    # Since 2026-10-08 (the maintainer, after a player asked whether the bundled mods have to be
+    # installed): the icon pack is in the module either way, and the module leaves its files out
+    # of what it gives the game when this is off (kmrp-assets/assets.cpp, LinkArtwork).
+    ("hd-icons", "HD icons", True,
+     "Uses JackInTheBox's HD Icon Pack for the item icons. Off: the game's own item icons."),
     ("debug-logs", "Debug logs", False,
      "Writes a diagnostic log file. Leave off unless you are reporting a problem."),
 ]
-# The parts whose hooks are installed only while an option is on. The map notes' one hook is not
-# among them: it stays, and its handler asks the option (kmrp-map-notes/map_notes.cpp).
-PART_OPTION = {"kmrp-controller": "controller"}
-# Hooks of an optional part that are installed whatever was chosen, because the patch needs the
-# place either way and a second hook there would be refused by a manager without options.
-#   0x10049f636  CSWGuiManager::Update, entry: KmrpGuiFrame, which lays out the status summary
-#                alone when the controller option is off (kmrp-controller/gui.cpp), as
-#                kmrp-layout/without-controller's KmrpCoreGuiFrame does in a --no-controller build.
-SHARED_HOOKS = {0x10049f636}
+# The controller patch's (tools/build_controller_kpatch.py, OPTIONS).
+CONTROLLER_OPTIONS = [
+    # On by default on the Mac (the maintainer, 2026-10-07: "this is standard with controller"); off
+    # by default on Windows.
+    ("xbox-hud", "Xbox-style HUD", True,
+     "Lays the in-game HUD out like the original Xbox version's while the pad is in use: the action slots in a "
+     "box at the bottom left, the target's name at the top left, the party at the bottom right. Without a "
+     "manager that offers options, set Style=PC under [Hud] in kmrp-controller.ini to keep the game's own HUD."),
+    ("debug-logs", "Debug logs", False,
+     "Writes diagnostic log files. Leave off unless you are reporting a problem."),
+]
+CONTROLLER_ID = "kmrp-controller"
+# "(macOS)": the Windows patch of this id has the name without it, and neither runs on the
+# other system (the maintainer, 2026-10-08: the Mac's patch files say what they are for).
+CONTROLLER_NAME = "KOTOR 1 Native Controller Mod + Xbox HUD (macOS)"
+CONTROLLER_DESCRIPTION = (
+    "Native controller support for KOTOR: play with an Xbox, PlayStation, Switch or Steam Deck "
+    "controller in the game and in every menu, with matching button prompts, rumble and a Controller "
+    "Layout screen in Options. Needs no other patch and writes nothing to the game's override folder. "
+    "KMRP installs it as its controller support; it works the same on the game without KMRP.")
+# Other authors' patches that hook this patch's sites on Windows (tools/check_kpm_overlaps.py);
+# listed here as there, though neither has a macOS build.
+CONTROLLER_CONFLICTS = ["expanded-keyboard-control", "xbox-controls-k1"]
+# The parts whose hooks are installed only while an option is on: none. The map notes' one hook
+# stays, and its handler asks the option (kmrp-map-notes/map_notes.cpp).
+PART_OPTION: dict[str, str] = {}
+SHARED_HOOKS: set[int] = set()
 
 
 def fail(message: str) -> None:
@@ -265,19 +285,86 @@ def first(order: list[str], needle: str) -> int:
     return next((i for i, name in enumerate(order) if needle in name), -1)
 
 
+def controller_patch(args) -> int:
+    """KOTOR 1 Native Controller Mod + Xbox HUD (macOS).kpatch: the controller's sources, the two shared sources they need
+    (kmrp-layout/text.cpp and options.cpp, the latter reading the controller's own options
+    file), and its files in the section __KMRPC,__assets."""
+    if not (args.controller and args.sdl and args.controller_bank and args.controller_bank.is_file()):
+        fail("--controller-patch needs --controller DIR, --sdl DIR and --controller-bank FILE")
+    define = "-DKMRP_CONTROLLER_PATCH"
+    with tempfile.TemporaryDirectory(prefix="kmrp-controller-patch-") as tmp:
+        tmp = Path(tmp)
+        (tmp / "objects").mkdir()
+        (tmp / "binaries").mkdir()
+        files = sources(args.controller, ("*.cpp", "*.mm"))
+        if not files:
+            fail(f"no sources in {args.controller}")
+        objects = compile_part(files, [*CONTROLLER_FLAGS, define, "-F", str(args.sdl)], tmp / "objects", "kmrp-controller")
+        objects += compile_part([args.layout / "text.cpp", args.layout / "options.cpp"], [*LAYOUT_FLAGS, define],
+                                tmp / "objects", "shared")
+        module = tmp / "binaries" / "macos_x86_64.dylib"
+        link = ["clang++", *LINK_FLAGS, *CONTROLLER_LINK, "-F", str(args.sdl), "-lz",
+                f"-Wl,-sectcreate,__KMRPC,__assets,{args.controller_bank}", "-o", str(module), *map(str, objects)]
+        result = subprocess.run(link, capture_output=True, text=True)
+        if result.returncode != 0:
+            fail(f"the controller module does not link\n{result.stderr}")
+        subprocess.run(["codesign", "--force", "--sign", "-", str(module)], check=True, capture_output=True)
+        hooks = read_hooks("kmrp-controller", args.controller / HOOKS_FILE)
+        addresses = [h.address for h in hooks]
+        if len(set(addresses)) != len(addresses):
+            fail("the controller's hook list names an address twice")
+        ordered = [h for h in hooks if h.kind != "detour"] + [h for h in hooks if h.kind == "detour"]
+        (tmp / HOOKS_FILE).write_text(
+            "# The controller patch for macOS, from macos/patches/kmrp-controller by make_kmrp_patch.py.\n"
+            "[metadata]\n"
+            f'target_versions = ["{GAME_SHA}"]\n\n' + "\n".join(h.text(conditions=False) for h in ordered))
+        (tmp / "manifest.toml").write_text(
+            "[patch]\n"
+            f'id = "{CONTROLLER_ID}"\n'
+            f'name = "{CONTROLLER_NAME}"\n'
+            f'version = "{args.version}"\n'
+            f'description = "{CONTROLLER_DESCRIPTION}"\n'
+            'author = "RaymanGT"\n'
+            "requires = []\n"
+            "conflicts = [" + ", ".join(f'"{c}"' for c in CONTROLLER_CONFLICTS) + "]\n\n"
+            + "".join(
+                "[[patch.options]]\n"
+                f'id = "{option}"\n'
+                f'name = "{name}"\n'
+                f'description = "{description}"\n'
+                'type = "toggle"\n'
+                f"default = {'true' if default else 'false'}\n\n"
+                for option, name, default, description in CONTROLLER_OPTIONS) +
+            "[patch.supported_versions]\n"
+            f'kotor1_steam_aspyr_macos = "{GAME_SHA}"\n')
+        args.out.parent.mkdir(parents=True, exist_ok=True)
+        with zipfile.ZipFile(args.out, "w", zipfile.ZIP_DEFLATED) as z:
+            for name in ("manifest.toml", HOOKS_FILE, "binaries/macos_x86_64.dylib"):
+                z.write(tmp / name, name)
+        order = constructor_order(module)
+    print(f"{args.out.name}: the controller patch; {len(hooks)} hooks; {len(order)} constructors; options "
+          + ", ".join(option for option, *_ in CONTROLLER_OPTIONS))
+    return 0
+
+
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__.split("\n\n")[0])
     for name in ("widescreen", "stray"):
         parser.add_argument(f"--{name}", type=Path,
                             help="FTD's patch source; with --split only its hooks are read, to leave out "
                                  "of KMRP what that patch already declares")
-    for name in ("layout", "notes", "notes-include", "controller", "sdl"):
+    for name in ("layout", "notes", "notes-include"):
         parser.add_argument(f"--{name}", type=Path, required=True)
+    parser.add_argument("--controller", type=Path, help="patches/kmrp-controller, for --controller-patch")
+    parser.add_argument("--sdl", type=Path, help="the SDL3 framework's folder, for --controller-patch")
+    parser.add_argument("--controller-patch", action="store_true",
+                        help="the controller patch instead of KMRP's: KOTOR 1 Native Controller Mod + Xbox HUD (macOS).kpatch, a patch of its "
+                             "own with its files inside (--controller-bank)")
+    parser.add_argument("--controller-bank", type=Path, help="the bank make_controller_assets.py packed")
     parser.add_argument("--split", action="store_true",
                         help="KMRP's own code only, as a patch that requires FTD's two patches")
     parser.add_argument("--version", required=True)
     parser.add_argument("--no-map-notes", action="store_true")
-    parser.add_argument("--no-controller", action="store_true")
     parser.add_argument("--options", action="store_true",
                         help="the optional parts as patch options instead of build flags")
     parser.add_argument("--assets", type=Path, help="patches/kmrp-assets: the menu sets inside the module")
@@ -288,8 +375,10 @@ def main() -> int:
                              "installs it with this one off, for staging its hook list only")
     parser.add_argument("--out", type=Path, required=True)
     args = parser.parse_args()
-    if args.options and (args.no_map_notes or args.no_controller):
-        fail("--options builds the whole patch; it does not go with --no-map-notes or --no-controller")
+    if args.controller_patch:
+        return controller_patch(args)
+    if args.options and args.no_map_notes:
+        fail("--options builds the whole patch; it does not go with --no-map-notes")
     off = set(args.without_option) if args.without_option else None
     if off is not None and (not args.options or off - {option for option, *_ in OPTIONS}):
         fail("--without-option goes with --options and names one of " + ", ".join(option for option, *_ in OPTIONS))
@@ -319,8 +408,6 @@ def main() -> int:
              ("kmrp-layout", args.layout, LAYOUT_FLAGS, ("*.cpp",))]
     if not args.no_map_notes:
         parts.append(("kmrp-map-notes", args.notes, [*LAYOUT_FLAGS, "-I", str(args.notes_include)], ("*.cpp",)))
-    if not args.no_controller:
-        parts.append(("kmrp-controller", args.controller, [*CONTROLLER_FLAGS, "-F", str(args.sdl)], ("*.cpp", "*.mm")))
 
     with tempfile.TemporaryDirectory(prefix="kmrp-patch-") as tmp:
         tmp = Path(tmp)
@@ -338,8 +425,7 @@ def main() -> int:
                 objects += compile_part([args.tools / name], [*HELPER_FLAGS, define], tmp / "objects", "helper")
             assets_link = ["-lz", f"-Wl,-sectcreate,__KMRP,__assets,{args.assets_bank}"]
         module = tmp / "binaries" / "macos_x86_64.dylib"
-        link = ["clang++", *LINK_FLAGS, *([] if args.no_controller else [*CONTROLLER_LINK, "-F", str(args.sdl)]),
-                *assets_link, "-o", str(module), *map(str, objects)]
+        link = ["clang++", *LINK_FLAGS, *assets_link, "-o", str(module), *map(str, objects)]
         result = subprocess.run(link, capture_output=True, text=True)
         if result.returncode != 0:
             fail(f"the module does not link\n{result.stderr}")
@@ -362,10 +448,6 @@ def main() -> int:
 
         hook_parts = [(part, directory, PART_OPTION.get(part) if args.options else None)
                       for part, directory, _, _ in parts]
-        if args.no_controller:
-            # Without the controller, the GUI frame hook it would have made lays out the status
-            # summary alone (kmrp-layout/status_summary.cpp), as Windows' core stand-ins do.
-            hook_parts.append(("kmrp-layout without the controller", args.layout / "without-controller", None))
         required = [(name, directory) for name, directory in
                     (("K1StrayBugFixes", args.stray), ("K1WidescreenPatch", args.widescreen))
                     if args.split and directory]
@@ -379,8 +461,9 @@ def main() -> int:
             f'version = "{args.version}"\n'
             + ('description = "KMRP in one patch, on FTD\'s Widescreen Patch and Stray Bug Fixes, which it '
                'requires: tick those two as well. The high-resolution interface for every resolution this '
-               'display offers, chosen in Options; controller support and map notes are options you can turn '
-               'off. Needs no installer and writes nothing to the game\'s override folder."\n' if args.split else
+               'display offers, chosen in Options; the map notes are an option you can turn '
+               'off. Controller support is a patch of its own, KOTOR 1 Native Controller Mod, which works '
+               'beside this one. Needs no installer and writes nothing to the game\'s override folder."\n' if args.split else
                f'description = "KMRP for macOS as one patch: {included}. FTD\'s Widescreen Patch and Stray Bug '
             "Fixes (MIT) built from their source with KMRP's layout support and options linked in. It includes "
             'those two patches: untick them. '

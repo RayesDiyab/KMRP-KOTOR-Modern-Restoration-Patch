@@ -4,13 +4,20 @@ This directory is the **canonical, authoritative source** for KMRP's module.
 Project sources are tracked here; SDL headers come from a hash-verified SDK
 under ignored `build/deps`.
 
-**Since 2026-10-04 the shipped module is `kmrp-native.dll`**, built by
-`build_native_runtime.cmd` into `build\native-runtime\`: these sources with the
-`K1Runtime*.cpp` files (the engine applier's embedded recipe, the resource bank,
-the resolution switch, the panel layout, the NVIDIA step), `K1KpmApplier.cpp` and
-`K1KeyboardNavigation.cpp`, and the macOS C tools for the blended sizes.
-`build_kmrp.ps1` runs it and embeds the result inside `KMRP.kpatch`
-(`tools/build_native_kpatch.py`). What follows describes `kmrp-controller.module`,
+**Since 2026-10-05 two modules are built from this directory, one for each patch
+KMRP ships** (both run under KOTOR Patch Manager's runtime, and neither needs the
+other):
+
+| Module | Built by | Goes into | What |
+| --- | --- | --- | --- |
+| `build\native-runtime\kmrp-native.dll` | `build_native_runtime.cmd` (`KMRP_NATIVE_RUNTIME`) | `KMRP.kpatch`, id `kmrp` (`tools/build_native_kpatch.py`), 27 hooks | these sources with the `K1Runtime*.cpp` files (the engine applier's embedded recipe, the resource bank, the resolution switch, the panel layout, the NVIDIA step), `K1KpmApplier.cpp`, `K1KeyboardNavigation.cpp`, the two popup files and the macOS C tools for the blended sizes. The controller sources are compiled in as well (KMRP's own frame and movie work is in `K1NativeJoystick.cpp`), but the patch installs no controller hook since 2026-10-05 |
+| `build\controller-standalone\kmrp-controller.dll` | `build_controller_standalone.cmd` (`KMRP_CONTROLLER_STANDALONE`) | `KOTOR 1 Native Controller Mod + Xbox HUD.kpatch`, id `kmrp-controller` (`tools/build_controller_kpatch.py`), 34 hooks | the controller sources, `K1XboxHud.cpp` and `K1ControllerStandalone.cpp` with its own file bank; none of the `K1Runtime*.cpp` files ([`docs/controller-standalone.md`](../../docs/controller-standalone.md)) |
+
+`build_kmrp.ps1` runs both scripts and embeds both patches in the installer, whose
+Controller Support switch decides whether the second is installed. (From
+2026-10-04 to 2026-10-05 there was one module, `kmrp-native.dll`, with controller
+support as an option of the one patch.) The hook counts are what the two tools
+return on 2026-10-08. What follows describes `kmrp-controller.module`,
 the 245 KB module of the four-patch edition; its build script, `build.cmd`, was
 removed on 2026-10-04 with the last of that edition's files, so nothing builds it
 any more. The sources and the hook table are the same.
@@ -78,11 +85,13 @@ mapping are in `docs/controller-native-path.md`.
 
 | File | Whose | What |
 | --- | --- | --- |
+| `K1ControllerStandalone.cpp` | KMRP | only in the standalone controller patch (`build_controller_standalone.cmd`, `KMRP_CONTROLLER_STANDALONE`; `docs/controller-standalone.md`): its embedded files unpacked and registered, the default settings file, the module entry point. No engine change |
 | `K1ControllerBackend.cpp` / `.h` | KMRP | XInput and SDL/HIDAPI state normalization, active-device selection and rumble |
 | `K1ControllerLayout.cpp` / `.h` | KMRP | Options → Gameplay entry, modal Controller Layout panel, live glyph refresh, callbacks and explicit control ownership |
 | `K1NativeJoystick.cpp` / `.h` | KMRP | the native path: supplies the joystick device KOTOR's retained console input system expects, so the engine's own handlers drive movement, buttons, menus, camera and free look |
+| `K1XboxHud.cpp` | KMRP | only in the standalone controller patch: the Xbox-style HUD's runtime half, two hooks (`CSWGuiMainInterface::DrawMap`, `CSWGuiTargetActionMenu::Draw`) that lay the live HUD out as the Xbox one while the pad is in use, from `K1XboxHudLayout.inc` (written by `tools/build_xbox_hud.py`), put the game's own back for mouse and keyboard, and draw the first slot and the party's bars (`docs/controller-xbox-hud.md`) |
 | `K1Rumble.cpp` / `.h` | KMRP | rumble: BioWare's 22-row `rumble.2da`, KMRP's `KMRP_…` patterns, the mixer that plays both, and the hooks that feed it (`docs/controller-rumble.md`) |
-| `K1PopupFit.cpp` | KMRP | the message popup fitted to its contents, the Mac's `popup_fit.cpp` on Windows' offsets (2026-09-30; `docs/windows-changes-from-macos.md`, item 1). Not controller code: installed with every patch |
+| `K1PopupFit.cpp` | KMRP | the message popup fitted to its contents, the Mac's `popup_fit.cpp` on Windows' offsets (2026-09-30; `docs/windows-changes-from-macos.md`, item 1). Not controller code: part of KMRP's patch, not of the controller patch |
 | `K1GrantedPopup.cpp` | KMRP | the granted popup's rows like the inventory's, the Mac's `granted_popup.cpp` on Windows' offsets (2026-09-30; item 10). Not controller code either |
 | `vendor/K1XboxControls.cpp` | Saul0097, modified by KMRP | movie skipping, the action bar, focus fixes, cursor and device-switch policy |
 | `vendor/K1XboxControlsXInput.cpp` / `.h` | Saul0097, modified by KMRP | XInput reading and the last-input-device state the prompts depend on |

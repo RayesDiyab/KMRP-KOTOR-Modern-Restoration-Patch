@@ -3,14 +3,74 @@
 Reference and measured experiment, 2026-10-03. This follows the
 [documentation standard](../docs/documentation-standard.md). The broader package
 design and unfinished migration are in
-[the runtime design](../docs/kpatch-runtime-design.md).
+[the runtime design](../docs/history/kpatch-runtime-design.md).
+
+## What the module does now (read from the source, 2026-10-08)
+
+Everything below this section is a dated record: the preview of 2026-10-03, the
+standalone package of 2026-10-04 and the bank of 2026-10-05. This section is the
+present state, read from `tools/build_native_kpatch.py`,
+`src/controller-native/kotor1-native-runtime.hooks.toml`, `K1RuntimeResolution.cpp`
+and `K1RuntimeEngine.cpp` on 2026-10-08. Nothing in it was measured again that day;
+what was measured, and what was not, is in [`CHANGELOG.md`](../CHANGELOG.md),
+`[Unreleased]`.
+
+**The patch.** `KMRP.kpatch`, id `kmrp`, run by KOTOR Patch Manager 0.7.1 on the
+unmodified `swkotor.exe`: one module (`patches\kmrp.dll`), 27 hooks
+(`build_native_kpatch.all_hooks()`), the options `map-notes` (on) and `debug-logs`
+(off), no `controller` option and no controller hook. Controller support is a second
+patch with its own module, "KOTOR 1 Native Controller Mod + Xbox HUD", id
+`kmrp-controller`, since 2026-10-05; neither needs the other
+([KPM edition](../docs/kpm-edition.md#two-patches-since-2026-10-05)). Where the
+records below say one patch with a `controller` option, 24 or 52 hooks, or the frame
+sites `0x0040CE70` and `0x00404D96`, that is the state of their day: KMRP's own frame
+sites are `0x0040CE76` (`KmrpCoreGuiWorkK1`) and `0x00404D06`
+(`KmrpCoreMovieWorkK1`), and the two older ones are the controller patch's.
+
+**The resolution: no choice, the display's own modes (since 2026-10-07).** Addresses
+are original-image VA on clean CD 1.03, FILE = VA minus `0x400000`.
+
+| VA | Kind | What the module does there |
+| --- | --- | --- |
+| `0x005F0C64` | Detour, `KmrpAllowRuntimeResolutionK1` | `IsValidResolution` (`0x005F0C60`) answers yes only if all three hold: width in `[640,32767]` and height in `[480,32767]` (`KmrpRuntimeDimensions`); KMRP has a layout for the size, built or blended (`KmrpRuntimeAssetsCovers`); and the display reports a 32-bit mode of that size (`DisplayReports`, one `EnumDisplaySettingsA` pass kept for two seconds; if the display reports nothing at all, nothing is refused on that account) |
+| `0x0073D3E4` | Import slot, `EnumDisplaySettingsA` | Replaced by `EnumModesOnce` only when it holds user32's function. For the Screen Resolution dialog's two callers (returning to `0x006E0955` and `0x006E0BC9`) a repeated size, depth and rate is handed back as a mode that is not 32-bit, so each row is listed once. No mode is added |
+| `0x005F0FB2` | 12 bytes rewritten at load, guarded: `C7 07 20 03 00 00 C7 02 58 02 00 00` | The 800x600 that `ReadVideoModeSettings` (`0x005F0CE0`) falls back to when the size in `swkotor.ini` is not valid becomes the desktop's size (`KmrpStartAtDisplaySize`) |
+| `0x005F5B84` | 10 bytes rewritten at load, guarded: `68 58 02 00 00 68 20 03 00 00` | The 800x600 that `ReadAndSetVideoMode` asks the nearest mode of becomes the desktop's size. Both are left alone when the bytes are not the game's own, when the desktop's size cannot be read, or when KMRP has no layout for it |
+| `0x0040BE70` | Detour, `KmrpResolutionRequestedK1` | GUI `SetSize`: the size's interface files and the engine's per-resolution operands are put in place (`Prepare`) |
+| `0x005F18F6` | Detour, `KmrpModeSwitchK1` | The mode switch, before the window is made again: the same, then every font's TXI is read again (`ReloadFontMetrics`) |
+| `0x0062785F` | Simple, `75 59` to `75 3F` | The tooltip fallback for a 1280-wide size, as in the preview below |
+
+So the game's Screen Resolution list is what the connected display reports, and a
+game whose `swkotor.ini` holds a size this display lacks starts at the desktop's
+size; `swkotor.ini` is not rewritten.
+
+**Removed on 2026-10-07**, at the maintainer's request ("not have any choice in the
+resolution"), after standing from 2026-10-04: the installer's resolution checklist
+and the file it wrote beside the game, `kmrp-resolutions.txt`, which the module read;
+the modes the module added past the display's own; the hook on the game's
+`ChangeDisplaySettingsA` import slot (`0x0073D3E8`), which ran an added size in a
+borderless window; the centring of the game's windows and the cursor confinement for
+that window. A `kmrp-resolutions.txt` left by such an install is not read, and the
+installer removes it with that install. The validator also said yes to every size it
+had a layout for until that day; why that was wrong on a display lacking the size is
+in the comment above `KmrpStartAtDisplaySize` and in the CHANGELOG entry "No
+resolution choice". **Not seen:** the game on a second display.
+
+**The engine and the interface files.** The module applies KMRP's executable changes
+in memory when it loads, for the size in `swkotor.ini` if KMRP has a layout for it,
+otherwise at the first size the game sets (`InitializeEngine`,
+`KmrpRuntimeEngineDimensions`), and writes the per-resolution operands again at each
+later size (`kNativeFields`, `tools/build_native_engine.py`). It needs no
+`kmrp-kpm.dat` and no `Override` file: the interface files come from the bank
+described at the end of this document.
 
 ## Status and scope
 
 **This section is the preview of 2026-10-03.** The complete patch built from it is
 described from [Standalone package](#standalone-package-2026-10-04) on, and since
-2026-10-04 it is KMRP's one patch, `kmrp`, which the installer installs
-([KPM edition](../docs/kpm-edition.md#one-patch-since-2026-10-04)).
+2026-10-04 it is KMRP's patch `kmrp`, which the installer installs
+([KPM edition](../docs/kpm-edition.md#one-patch-since-2026-10-04)); what that patch
+is today is in the section above.
 
 `KMRP Native Preview.kpatch` is an experimental first slice, not the complete
 KMRP replacement. It has no controller code, SDL dependency, generated Override
@@ -359,3 +419,108 @@ the observed viewport trace, native drawing and INI. Reproduce the tooltip case
 by switching to a driver-provided width-1280 mode whose height is neither 960 nor
 1024. Removing the preview through KPM reverses its runtime hook selection;
 it has no KMRP Override files to restore. Preserve any existing KPM ownership.
+
+### The bank leaves out what the module makes (2026-10-05)
+
+Until this change the module's resource bank (`build/native-runtime/native-assets.bin`,
+`KNAST001`) stored every file of every resolution's set: 62,898 files for 66 sizes,
+30,848 distinct objects, 248,545,368 bytes of a 249,026,195 byte patch. By kind,
+measured on the build of 2026-10-05 (packed sizes, XPRESS-Huffman):
+
+| Kind | Objects | Packed |
+| --- | ---: | ---: |
+| Badge and cue textures (`kmr...`) | 11,717 | 51.2 MB |
+| Focused-state badge textures (`kmf...`) | 12,021 | 50.7 MB |
+| Layouts (`.gui`) | 5,414 | 32.1 MB |
+| Fonts and the other common textures | 1,148 | 80.7 MB |
+| Loading screens | 23 | 25.6 MB |
+| Everything else (font metrics, SDL, the blend table, manifests) | 525 | 3.7 MB |
+
+The module already carried the means to make the first three: `KmrpGuiBlend`, the
+blend helper (`macos/tools/kmrp-guiblend.c`), which it ran for a size with no set.
+`Test-GuiBlendHelper.py` has long shown that for the 45 sizes the blend resolves to
+themselves, the helper's output is the build's set byte for byte.
+
+**The format, `KNAST002`.** Unchanged except that an object may be absent: the header
+(magic, group count, object count, the blend table's key), then each group's size and
+entries (name, SHA-256), then the stored objects (key, size, packed size, bytes).
+`tools/build_native_assets.py` builds the helper as an x86 program with the module's
+own compiler flags, runs it for every set on that set's own two input files
+(`kmrp_prompts.txt`, `dialogfont16x16.txi`), and marks each file it wrote exactly as
+the set has it. An object is stored if any file that is not so marked needs it. On
+the same build: 3,758 objects, 128,804,860 bytes; 45 sets rebuilt whole, 20 in part
+(32 to 329 files differ, 3440x1440 the most), and 1280x1080 stored whole because the
+helper answers that the blend does not cover it (exit status 2, the answer
+`KmrpGuiBlendCovers` gives the module).
+
+**The module, `KmrpRuntimeAssetsDimensions` in `K1RuntimeAssets.cpp`.**
+
+1. Every file of the common group and of the chosen set whose object is stored is
+   decoded and written. If the size is not a listed one, or any file of the set has
+   no object, the helper is needed.
+2. The helper writes the set for exactly this size into the same folder, reading
+   the two input files step 1 wrote. What it wrote is then adopted by name: the
+   set's entries are read back and hashed, since the next size change's ownership
+   check and `GameArt`'s sweep of unowned files both go by that list.
+3. At a listed size, each entry whose file does not hash to its key gets the stored
+   object written back over it (that is exactly why the object was stored), and an
+   entry that still differs is counted. A count above zero is written to
+   `kmrp-kpm.log` as a warning and the game continues with the helper's file. That
+   case is the helper computing differently on the player's PC than on the build's;
+   it was not seen.
+
+**Measured in a scratch install** (CD 1.03 executable, the committed installer's
+install with only `patches\kmrp.dll` replaced), every file of the module's folder
+hashed and compared with the folder the committed build's module made:
+
+| Size | Kind | Files | Differing |
+| --- | --- | ---: | ---: |
+| 1920x1080 | rebuilt whole | 2,136 | 0 |
+| 1360x768 | 244 files stored | 2,037 | 0 |
+| 1344x840 | 70 files stored | 2,037 | 0 |
+| 1280x1080 | stored whole, no helper | 2,037 | 0 |
+| 1700x1000 | not listed: the blend, as before | 2,038 | 0 |
+
+The new module's folder also holds `gui-blend.bin` at a listed size, which the old
+one wrote only for an unlisted one. The game asks for no resource of that name.
+
+**Time**, from the line the module writes with the `debug-logs` option on
+("interface files for WxH: N ms, of which the blend helper M ms"), on the
+maintainer's PC:
+
+| | Interface files | Of which the helper |
+| --- | ---: | ---: |
+| 1280x1080, every file stored (the path every listed size took before) | 5.9 s | 0 |
+| 1920x1080, rebuilt whole | 6.5 s | 1.3 s |
+| 1360x768, 244 files stored and written twice | 7.6 s | 1.4 s |
+
+The same change removes two costs, which is why a rebuilt size is not 1.3 s slower
+than before: `Write` no longer hashes a decoded object that `Decode` has just held
+against its key (each file was hashed three times: decoded, before writing, read
+back), and after the helper only the set's files are read back and hashed, not every
+file written so far. With only the second of those in, the same sizes took 6.4 s
+(1280x1080) and 6.7 s (1920x1080). The old module has no timing line, so its own
+figure was not measured; 6.4 s is the nearest to it. What remains is mostly the
+creation of about 2,100 files.
+
+**Stronger compression: a switch, off.** The bank's first eight bytes name its
+compression, `KNAST002` for XPRESS with Huffman and `KNASL002` for LZMS, and the
+module makes its decompressor to match. `tools/build_native_assets.py --lzms` builds
+the second. Measured on the same build, the module rebuilt around each bank and run in
+the scratch install at 1920x1080, twice each:
+
+| Bank | Bytes | Interface files | Files against the committed build's |
+| --- | ---: | ---: | --- |
+| XPRESS-Huffman (shipped) | 128,804,860 | 6.4 s, 6.6 s | identical |
+| LZMS | 94,534,820 | 9.0 s, 9.1 s | identical |
+
+So 34 MB less to download for 2.5 s more at every start of the game on this PC, and
+more than that on a slower one: the common files, 299 MB unpacked, are decoded at
+every start, and LZMS decoded them in 2.57 s where XPRESS took 0.64 s. Building the
+LZMS bank takes about four minutes instead of one. The shipped bank stays XPRESS
+until the maintainer decides otherwise.
+
+**Not run:** fullscreen, a size change inside the game (the folder is reused and the
+ownership check runs), the GOG and Steam executables, a PC other than this one, and
+the Mac, whose packaging does not use this bank.
+`testing/regression/Test-NativeAssetsBank.py` checks the bank itself.

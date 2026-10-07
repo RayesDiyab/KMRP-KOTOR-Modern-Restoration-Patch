@@ -21,7 +21,7 @@
 // CSWGuiMessageBox 0x1005AE880 with OK at +0x3D0 and Cancel at +0x610; the Solo Mode query,
 // built on it, 0x1005ABEA0.
 #include "layout.h"
-#include "../kmrp-layout/status_summary.h"
+#include "../kmrp-layout/text.h"
 
 #include "engine.h"
 #include "pad.h"
@@ -564,17 +564,17 @@ bool UpdateSummaryBadge(void* panel, const int* ok) {
     return false;
 }
 
-// The status summary laid out by the shared layout (status_summary.cpp), and the pad's A beside
-// its OK.
+// The pad's A beside the status summary's OK, wherever that button is: the game's own place, or
+// the one KMRP's patch gives it when it lays the summary out at the font's size (its own frame
+// hook, kmrp-layout/status_summary.cpp; until 2026-10-07 this module called that layout itself).
 void UpdateStatusSummary(void* manager) {
-    summary::Result r{};
-    if (!summary::Update(manager, &r)) return;
-    const bool badged = UpdateSummaryBadge(r.panel, r.ok);
+    void* const panel = summary::Find(manager);
+    if (!panel) return;
+    const int* const ok = &At<int>(static_cast<char*>(panel) + summary::kSummaryOk, kCtlExtent);
+    const bool badged = UpdateSummaryBadge(panel, ok);
     if (g_summaryLogs < 8) {
         ++g_summaryLogs;
-        Log("layout: status summary rows=%d lineHeight=%d widest=%d box=(%d,%d,%d,%d) ok=(%d,%d,%d,%d) badge=%d", r.rows,
-            r.lineHeight, r.widest, r.box[0], r.box[1], r.box[2], r.box[3], r.ok[0], r.ok[1], r.ok[2], r.ok[3],
-            badged ? 1 : 0);
+        Log("layout: status summary ok=(%d,%d,%d,%d) badge=%d", ok[0], ok[1], ok[2], ok[3], badged ? 1 : 0);
     }
 }
 

@@ -7,6 +7,29 @@ live 1.0.3 process under x32dbg on 2026-09-14, party selection screen, 3440x1440
 Nothing here is implemented. The live heap writes used to get these numbers were
 all reverted in the same session.
 
+> **Resolved elsewhere on 2026-10-05 (note of 2026-10-08).** The status above is
+> that of 2026-09-14 and the document below is kept as the record of that
+> session. The answer came from the decompiled `CSWGuiBorder::Draw`
+> (`0x004168C0`), not from the measurement this document asks for: a border
+> that names corner art draws its fill inside itself, by its `DIMENSION` on
+> every side. So of the two candidates below it is the first, `DIMENSION`: a
+> button whose focused border has a `DIMENSION` its normal border lacks fills a
+> smaller area on focus, and the badge, being that fill, is drawn smaller.
+> What was done about it: each badge is drawn for the area its border really
+> fills, and where the two borders fill different areas the focused state has
+> a texture of its own, `kmf...` beside `kmr...`, which the controller code
+> asks for (`SetK1ControllerPromptFill`, `src/controller-native/vendor/K1XboxControls.cpp`).
+> That code runs in the controller patch's module (`kmrp-controller`) since
+> 2026-10-05. Details and what was seen:
+> [`docs/controller-standalone.md`](../docs/controller-standalone.md) and
+> `CHANGELOG.md`, `[Unreleased]`, "Controller badges are made for the area a
+> button's border really fills". **Not done:** the reading of both borders'
+> rectangles that the last sections describe was never made, so this document's
+> own numbers remain as corrected below; and "Related damage, still open" at the
+> end describes a live install of September that no longer exists (KMRP writes
+> no `Override` file since 2026-10-04); whether `map.gui`'s captions were ever
+> confirmed after it is not recorded here.
+
 ## The report
 
 The party screen's Cancel carries a permanent B badge. On focus the B is drawn

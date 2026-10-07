@@ -10,6 +10,10 @@
 // texture resrefs ('p' Xbox, 's' PlayStation, 'n' Switch, 'd' Steam Deck).
 extern "C" char __cdecl KmrpGlyphLetterK1();
 
+#ifdef KMRP_CONTROLLER_STANDALONE
+bool KmrpXboxHudEnabledK1();   // K1XboxHud.cpp
+#endif
+
 namespace {
 
 constexpr int MAX_ACTION_BUTTON_COUNT = 9;
@@ -1151,6 +1155,19 @@ constexpr ControllerPromptBinding K1_SKILL_INFO_PROMPTS[] = {
     {0x0484, "kmrpa_skillok"},
 };
 
+// The store (2026-10-06; it had none). The screen answers the pad itself
+// whatever holds focus (CSWGuiStore::HandleInputEvent, 0x006C2190): B closes it
+// and X swaps the buy and the sell list, at a shop that does both -- at one that
+// does not, the game does not draw that button (InitializeStoreType,
+// 0x006C1B50). A buys or sells the row in focus, which is the event the first
+// button's own click raises. Offsets from the constructor's InitControl calls
+// (0x006C2073 BTN_Accept, 0x006C203D BTN_Examine, 0x006C2007 BTN_Cancel).
+constexpr ControllerPromptBinding K1_STORE_PROMPTS[] = {
+    {0x20A8, "kmrpa_storebuy"},
+    {0x1EE4, "kmrpx_storelist"},
+    {0x1D20, "kmrpb_storeback"},
+};
+
 constexpr ControllerPromptBinding K1_UPGRADE_PROMPTS[] = {
     {K1_UPGRADE_BACK_OFFSET, "kmrpb_upgasm"},
     {K1_UPGRADE_ASSEMBLE_OFFSET, "kmrpa_upgasm"},
@@ -1684,12 +1701,866 @@ const ControllerPromptBinding* GetK1ControllerPrompts(
     case K1_SKILL_INFO_PANEL_VTABLE:
         *count = sizeof(K1_SKILL_INFO_PROMPTS) / sizeof(K1_SKILL_INFO_PROMPTS[0]);
         return K1_SKILL_INFO_PROMPTS;
+    case K1_STORE_PANEL_VTABLE:
+        *count = sizeof(K1_STORE_PROMPTS) / sizeof(K1_STORE_PROMPTS[0]);
+        return K1_STORE_PROMPTS;
     default:
         return nullptr;
     }
 }
 
-void SetK1ControllerPromptFill(void* control, const char* value)
+// How far inside the button one of its borders draws its fill. `paramsOffset` is
+// that border's CSWGuiBorderParams within the button: the params begin with the
+// DIMENSION, and the border's loaded corner image is the pointer just past them
+// (CSWGuiBorder: vtable, extent, params 0x54 long, corner, edge, fill).
+int K1ButtonFillInset(void* control, std::ptrdiff_t paramsOffset)
+{
+    const char* const params = static_cast<const char*>(control) + paramsOffset;
+    const void* const corner = *reinterpret_cast<void* const*>(params + 0x54);
+    return corner ? *reinterpret_cast<const int*>(params) : 0;
+}
+
+#ifdef KMRP_CONTROLLER_STANDALONE
+// A badge keeps its shape. It is a texture stretched over the area its button's
+// border fills, so it is round only on a button of the shape it was made for, and
+// another patch may have reshaped the button (Scaled Kotor lays the menus out anew:
+// at 3440x1440 the Y on Gameplay Options' Default was an oval; the maintainer's rule
+// is that a controller glyph's width and height never change apart, 2026-10-05).
+// So the live button's fill area is compared with the area the badge was made for
+// (K1ControllerBadgeShapes.inc, from the layouts the badges were built on). Where
+// they differ by more than a fiftieth, the button keeps no badge and the texture is
+// drawn on a label of our own instead: as tall as the button's fill area, as wide as
+// the made-for shape makes it at that height. Across, the glyph keeps its distance
+// from the button's middle, where the caption is, as long as that leaves it inside
+// the button; where it does not, the label is laid on the end of the button the
+// glyph belongs to, and the glyph keeps its distance from that edge. (Tried on
+// 2026-10-05 and seen by the maintainer: centred always, the bottom bars' glyphs
+// stood on their buttons' left frames; on the left end always, the resolution
+// pop-up's A stood on its caption, "OK".)
+//
+// The label's fill is set to stretch. A label constructed here has the engine's
+// default, which repeats the texture across a rectangle much wider than the
+// texture's own shape: on Graphics Options' wide buttons the badge was drawn twice,
+// each at half width (a diagnostic log that day: a label 1231x54 for a 512x64
+// texture, the two glyphs 615 apart).
+//
+// The label is made here, not loaded from a layout: constructed, given the panel
+// as its parent and the next free ID, and added to the panel's control array with
+// the engine's own CExoArrayList::Add, as CSWGuiPanel::InitControl (0x0040B930)
+// files a loaded control. The array does not own it; KmrpForgetBadgeOverlaysK1
+// frees it when the panel is destroyed.
+struct BadgeShape { const char* resref; short width, height, glyph, glyphWidth; };
+#include "../K1ControllerBadgeShapes.inc"
+
+struct K1BadgeRect { int left, top, width, height; };
+// `textWas` is the caption's rectangle as it was before this file moved the caption
+// to the button's middle line (ShowK1BadgeOverlay); `textMoved` says that it has.
+// `resref` and `shown` are what the label draws while the pad is in use, and
+// `caption` the caption and button it was placed for (K1CaptionSignature), so that
+// SyncK1BadgeOverlays can place it again when either changes.
+// `tall`, when not 0, is the height the label was given instead of the button's
+// (a badge that stands on its button's own box, ShowK1BackedBadge).
+struct K1BadgeOverlay { void* panel; void* button; void* label; int id; K1BadgeRect textWas; bool textMoved;
+                        char resref[16]; bool shown; std::uint32_t caption; int tall; bool outside;
+                        // The button's rectangle as the screen had it and as this file made
+                        // it, while it is grown to hold its badge (ShowK1BackedBadge).
+                        K1BadgeRect buttonWas, grownTo; bool grown;
+                        int lines; };       // the lines the layout gives the caption (K1BackedCaptionLines)
+constexpr int K1_BADGE_OVERLAYS = 96;
+K1BadgeOverlay g_k1BadgeOverlays[K1_BADGE_OVERLAYS] = {};
+void* g_k1BadgePaintPanel = nullptr;      // set by UpdateK1ControllerPrompts while it paints
+constexpr std::uintptr_t K1_BADGE_OPERATOR_NEW = 0x006FA7E6;
+constexpr std::uintptr_t K1_BADGE_LABEL_CTOR = 0x0041ACD0;      // CSWGuiLabel::CSWGuiLabel
+constexpr std::size_t K1_BADGE_LABEL_SIZE = 0x140;
+constexpr std::uintptr_t K1_BADGE_LIST_ADD = 0x00671C00;        // CExoArrayList::Add(item)
+constexpr std::ptrdiff_t K1_BADGE_LABEL_PARAMS = 0x70;          // a label's CSWGuiBorderParams
+constexpr std::ptrdiff_t K1_BADGE_CONTROL_PARENT = 0x34;
+constexpr std::ptrdiff_t K1_BADGE_CONTROL_FLAGS = 0x44;
+constexpr std::ptrdiff_t K1_BADGE_CONTROL_ID = 0x50;
+constexpr std::ptrdiff_t K1_BADGE_PANEL_ARRAY = 0x20;
+constexpr std::ptrdiff_t K1_BADGE_PANEL_COUNT = 0x24;
+
+constexpr std::uintptr_t K1_TEXT_SET_EXTENT = 0x00416280;      // CSWGuiText::SetExtent(CSWGuiExtent*)
+constexpr std::ptrdiff_t K1_BADGE_BUTTON_TEXT = 0x154;         // a button's CSWGuiText
+
+void SetK1CaptionRect(void* button, const K1BadgeRect& rect)
+{
+    reinterpret_cast<void(__thiscall*)(void*, const K1BadgeRect*)>(K1_TEXT_SET_EXTENT)(
+        static_cast<char*>(button) + K1_BADGE_BUTTON_TEXT, &rect);
+}
+
+K1BadgeOverlay* FindK1BadgeOverlay(void* button)
+{
+    for (K1BadgeOverlay& entry : g_k1BadgeOverlays) {
+        if (entry.button == button && entry.label) {
+            return &entry;
+        }
+    }
+    return nullptr;
+}
+
+void HideK1BadgeOverlay(void* button)
+{
+    if (K1BadgeOverlay* entry = FindK1BadgeOverlay(button)) {
+        entry->shown = false;
+        *reinterpret_cast<std::uint32_t*>(static_cast<char*>(entry->label) + K1_BADGE_CONTROL_FLAGS) &= ~2u;
+        if (entry->textMoved) {
+            SetK1CaptionRect(button, entry->textWas);      // the caption where the screen had it
+            entry->textMoved = false;
+        }
+        if (entry->grown) {
+            // The button the size the screen had it, unless something else has given
+            // it another since.
+            const K1BadgeRect now = *reinterpret_cast<const K1BadgeRect*>(static_cast<char*>(button) + 4);
+            if (now.left == entry->grownTo.left && now.top == entry->grownTo.top &&
+                    now.width == entry->grownTo.width && now.height == entry->grownTo.height) {
+                using SetExtentFn = void(__thiscall*)(void*, const K1BadgeRect*);
+                reinterpret_cast<SetExtentFn>((*reinterpret_cast<void***>(button))[1])(button, &entry->buttonWas);
+            }
+            entry->grown = false;
+        }
+    }
+}
+
+// How wide a button's caption is on screen, in pixels; 0 when it cannot be told.
+//
+// A button's CSWGuiText is at +0x154 (after its two borders), and the text's
+// CAurGUIStringInternal at +0x14 of that. The engine has no "width of this string";
+// it has the height the string takes when wrapped to a width (the virtual at +0x50,
+// CAurGUIStringInternal::GetIdealPixelHeight, which CSWGuiText::GetIdealWidthAndHeight,
+// 0x00414F10, steps down by tens to find a width). The caption's width is the
+// narrowest width at which it is still as high as unwrapped, found by halving.
+constexpr std::ptrdiff_t K1_BUTTON_TEXT_OFFSET = 0x154;
+constexpr std::ptrdiff_t K1_TEXT_EXTENT_OFFSET = 0x04;
+constexpr std::ptrdiff_t K1_TEXT_STRING_OFFSET = 0x14;
+constexpr std::ptrdiff_t K1_TEXT_CHARS_OFFSET = 0x18;        // its CSWGuiTextParams begin with the text
+
+//
+// That is the second way, kept for a text whose font cannot be read. The first, since
+// 2026-10-06, is the sum Draw itself makes (CAurGUIStringInternal::Draw, 0x0045A850,
+// the pen at 0x0045AF6F): for each character (lower-right u - upper-left u) x
+// texturewidth + spacingR, times the text's scale and 100. The font information is
+// the virtual at +0x38 of the font at +0x18 of the string object; its two coordinate
+// arrays are at +0x24 and +0x18, 12 bytes a glyph, texturewidth at +0x0C, spacingR
+// at +0x10 and fontheight at +0x04; the scale is at +0x40 of the string object
+// (K1ControllerLayout.cpp reads the same for the status summary). It asks nothing of
+// the line breaker, which other patches change: beside KMRP, whose patch lets a
+// word that fits no line stay on it, the halving below answered with a width far
+// from the caption's, and at 3440x1440 the A of an Options row stood about 90 px
+// from "Load Game" (the maintainer saw it, 2026-10-06).
+bool K1BadgeReadable(const void* p, std::size_t size)
+{
+    const auto v = reinterpret_cast<std::uintptr_t>(p);
+    if (v < 0x10000u || v >= 0x7FFF0000u) {
+        return false;
+    }
+    MEMORY_BASIC_INFORMATION info{};
+    constexpr DWORD ok = PAGE_READONLY | PAGE_READWRITE | PAGE_WRITECOPY |
+        PAGE_EXECUTE_READ | PAGE_EXECUTE_READWRITE | PAGE_EXECUTE_WRITECOPY;
+    if (!VirtualQuery(p, &info, sizeof(info)) || info.State != MEM_COMMIT ||
+            !(info.Protect & ok) || (info.Protect & (PAGE_GUARD | PAGE_NOACCESS))) {
+        return false;
+    }
+    return static_cast<const char*>(p) + size <=
+           static_cast<const char*>(info.BaseAddress) + info.RegionSize;
+}
+
+// `wrapLines` 0: as the engine has it now, the widest of its lines. Otherwise the
+// narrowest width that holds the caption in that many lines, broken at spaces as the
+// engine breaks it (1: the whole caption on one line).
+int MeasureK1CaptionByFont(void* string, const char* chars, int* lineHeight, int wrapLines = 0)
+{
+    if (!K1BadgeReadable(string, 0x44)) {
+        return 0;
+    }
+    void* const font = *reinterpret_cast<void**>(static_cast<char*>(string) + 0x18);
+    if (!K1BadgeReadable(font, sizeof(void*))) {
+        return 0;
+    }
+    void** const vtable = *reinterpret_cast<void***>(font);
+    if (!K1BadgeReadable(vtable, 0x3C)) {
+        return 0;
+    }
+    const char* const info = reinterpret_cast<const char*(__thiscall*)(void*)>(vtable[0x38 / 4])(font);
+    if (!K1BadgeReadable(info, 0x28)) {
+        return 0;
+    }
+    const char* const upperLeft = *reinterpret_cast<const char* const*>(info + 0x18);
+    const char* const lowerRight = *reinterpret_cast<const char* const*>(info + 0x24);
+    if (!K1BadgeReadable(upperLeft, 256 * 12) || !K1BadgeReadable(lowerRight, 256 * 12)) {
+        return 0;
+    }
+    float scale = *reinterpret_cast<const float*>(static_cast<char*>(string) + 0x40);
+    if (!(scale > 0.01f && scale < 100.0f)) {
+        scale = 1.0f;
+    }
+    const float texels = *reinterpret_cast<const float*>(info + 0x0C);
+    const float spacing = *reinterpret_cast<const float*>(info + 0x10);
+    const auto advance = [&](char c) {
+        const int glyph = static_cast<unsigned char>(c) * 12;
+        return (*reinterpret_cast<const float*>(lowerRight + glyph) -
+                *reinterpret_cast<const float*>(upperLeft + glyph)) * texels + spacing;
+    };
+    // A caption the engine has broken into lines ("Auto Level / Up" on the Character
+    // screen) is as wide as its widest line: the lines' lengths are at [+0x34] of the
+    // string object and their number at +0x38, a negative length meaning the same
+    // length, and one space or newline after a line is not drawn (Draw walks them
+    // so; K1ControllerLayout.cpp reads the same for a reply's last line).
+    float width = 0.0f;
+    const int lines = *reinterpret_cast<const int*>(static_cast<char*>(string) + 0x38);
+    const int* const lengths = *reinterpret_cast<const int* const*>(static_cast<char*>(string) + 0x34);
+    const char* const drawn = *reinterpret_cast<const char* const*>(static_cast<char*>(string) + 0x14);
+    if (wrapLines > 0) {
+        // The words' widths, and a space's.
+        float words[32];
+        int count = 0;
+        float total = 0.0f, widest = 0.0f, one = 0.0f;
+        bool inWord = false;
+        for (int i = 0; i < 256; ++i) {
+            const char c = chars[i];
+            const bool gap = c == ' ' || c == '\n' || c == '\0';
+            if (!gap) {
+                one += advance(c);
+                inWord = true;
+            } else if (inWord) {
+                if (count < 32) {
+                    words[count++] = one;
+                }
+                total += one;
+                if (one > widest) {
+                    widest = one;
+                }
+                one = 0.0f;
+                inWord = false;
+            }
+            if (c == '\0') {
+                break;
+            }
+        }
+        const float space = advance(' ');
+        total += space * (count > 1 ? count - 1 : 0);
+        // The narrowest width at which filling each line in turn needs no more lines
+        // than allowed: one of the sums of consecutive words, tried from the smallest.
+        width = total;
+        for (int first = 0; first < count; ++first) {
+            float candidate = 0.0f;
+            for (int last = first; last < count; ++last) {
+                candidate += words[last] + (last > first ? space : 0.0f);
+                if (candidate < widest || candidate >= width) {
+                    continue;
+                }
+                int used = 1;
+                float line = 0.0f;
+                for (int w = 0; w < count; ++w) {
+                    const float with = line > 0.0f ? line + space + words[w] : words[w];
+                    if (with > candidate + 0.01f && line > 0.0f) {
+                        ++used;
+                        line = words[w];
+                    } else {
+                        line = with;
+                    }
+                }
+                if (used <= wrapLines) {
+                    width = candidate;
+                }
+            }
+        }
+    } else if (lines > 1 && lines <= 16 && K1BadgeReadable(lengths, lines * sizeof(int)) && K1BadgeReadable(drawn, 1)) {
+        const char* at = drawn;
+        for (int line = 0; line < lines; ++line) {
+            const int length = lengths[line] < 0 ? -lengths[line] : lengths[line];
+            if (length > 512 || !K1BadgeReadable(at, static_cast<std::size_t>(length) + 1)) {
+                return 0;
+            }
+            float one = 0.0f;
+            for (int i = 0; i < length && at[i] != '\0'; ++i) {
+                one += advance(at[i]);
+            }
+            if (one > width) {
+                width = one;
+            }
+            at += length;
+            if (*at == ' ' || *at == '\n') {
+                ++at;
+            }
+        }
+    } else {
+        for (int i = 0; i < 256 && chars[i] != '\0'; ++i) {
+            if (chars[i] == '\n') {
+                return 0;                   // lines of its own that the engine has not laid out yet
+            }
+            width += advance(chars[i]);
+        }
+    }
+    if (!(width > 0.0f)) {
+        return 0;
+    }
+    if (lineHeight) {
+        *lineHeight = static_cast<int>(*reinterpret_cast<const float*>(info + 0x04) * scale * 100.0f + 0.5f);
+    }
+    return static_cast<int>(width * scale * 100.0f + 0.5f);
+}
+
+// `wrapLines`: see MeasureK1CaptionByFont.
+int MeasureK1Caption(void* button, int* lineHeight = nullptr, int wrapLines = 0)
+{
+    char* const text = static_cast<char*>(button) + K1_BUTTON_TEXT_OFFSET;
+    void* const string = *reinterpret_cast<void**>(text + K1_TEXT_STRING_OFFSET);
+    const char* const chars = *reinterpret_cast<const char**>(text + K1_TEXT_CHARS_OFFSET);
+    if (!string || !chars || chars[0] == 0) {
+        return 0;
+    }
+    if (const int byFont = MeasureK1CaptionByFont(string, chars, lineHeight, wrapLines)) {
+        return byFont;
+    }
+    using HeightForFn = int(__thiscall*)(void*, int);
+    const HeightForFn heightFor = reinterpret_cast<HeightForFn>((*reinterpret_cast<void***>(string))[0x50 / 4]);
+    const int widest = 4096;
+    const int unwrapped = heightFor(string, widest);
+    if (unwrapped <= 0 || heightFor(string, 1) == unwrapped) {
+        return 0;
+    }
+    if (lineHeight) {
+        *lineHeight = unwrapped;
+    }
+    int narrower = 1, wide = widest;        // wraps at `narrower`, does not at `wide`
+    while (wide - narrower > 1) {
+        const int middle = (narrower + wide) / 2;
+        if (heightFor(string, middle) == unwrapped) {
+            wide = middle;
+        } else {
+            narrower = middle;
+        }
+    }
+    return wide < widest ? wide : 0;
+}
+
+// What a badge's label was placed for: the button's rectangle and its caption. A
+// caption is set by the screen as the player moves (Equip's button reads "Equip" or
+// nothing), and another patch may lay a screen out again while it is up.
+std::uint32_t K1CaptionSignature(void* button)
+{
+    std::uint32_t hash = 2166136261u;
+    const unsigned char* const rect = reinterpret_cast<const unsigned char*>(button) + 4;
+    for (int i = 0; i < 16; ++i) {
+        hash = (hash ^ rect[i]) * 16777619u;
+    }
+    const char* const chars = *reinterpret_cast<const char**>(
+        static_cast<char*>(button) + K1_BUTTON_TEXT_OFFSET + K1_TEXT_CHARS_OFFSET);
+    if (K1BadgeReadable(chars, 1)) {
+        for (int i = 0; i < 96 && K1BadgeReadable(chars + i, 1) && chars[i] != '\0'; ++i) {
+            hash = (hash ^ static_cast<unsigned char>(chars[i])) * 16777619u;
+        }
+    }
+    return hash;
+}
+
+// True when the badge is now on the label, and the button should carry none.
+// `tall`, when not 0, is the label's height and puts the badge on a label whatever
+// the button's shape, and `outside` then puts it left of the button instead of
+// beside the caption (ShowK1BackedBadge).
+bool ShowK1BadgeOverlay(void* control, const char resref[16], int tall = 0, bool outside = false)
+{
+    const BadgeShape* shape = nullptr;
+    for (const BadgeShape& candidate : kBadgeShapes) {
+        // One set of art per controller family, differing in the fourth letter.
+        bool same = true;
+        for (int i = 0; i < 16 && same; ++i) {
+            const char a = i == 3 ? 'p' : resref[i];
+            same = a == candidate.resref[i];
+            if (a == '\0') {
+                break;
+            }
+        }
+        if (same) {
+            shape = &candidate;
+            break;
+        }
+    }
+    // A badge with one texture per caption (Inventory's filter button: kmrpx_invnew0
+    // to 5, K1_INVENTORY_FILTER_RESREFS) has one row, without the digit: the button
+    // is the same for all of them. Until 2026-10-06 no row was found for these, the
+    // guard below was skipped, and beside KMRP at 3440x1440 the X of "Show Utility
+    // Items" was an oval (the maintainer saw it).
+    if (!shape) {
+        int length = 0;
+        while (length < 16 && resref[length] != '\0') {
+            ++length;
+        }
+        if (length > 1 && resref[length - 1] >= '0' && resref[length - 1] <= '9') {
+            for (const BadgeShape& candidate : kBadgeShapes) {
+                bool same = candidate.resref[length - 1] == '\0';
+                for (int i = 0; i < length - 1 && same; ++i) {
+                    same = (i == 3 ? 'p' : resref[i]) == candidate.resref[i];
+                }
+                if (same) {
+                    shape = &candidate;
+                    break;
+                }
+            }
+        }
+    }
+    const K1BadgeRect at = *reinterpret_cast<const K1BadgeRect*>(static_cast<char*>(control) + 4);
+    const int inset = K1ButtonFillInset(control, K1_BUTTON_BORDER_PARAMS_OFFSET);
+    const int width = at.width - 2 * inset;
+    int height = at.height - 2 * inset;
+    if (!shape || width <= 0 || height <= 0) {
+        HideK1BadgeOverlay(control);
+        return false;
+    }
+    const long long live = static_cast<long long>(width) * shape->height;
+    const long long made = static_cast<long long>(shape->width) * height;
+    bool asMade = (live > made ? live - made : made - live) * 50 <= made;
+    // The focused border too, where it fills another area than the normal one and
+    // so has a texture of its own ("kmf", SetK1ControllerPromptFill). A border's
+    // inset is a number of pixels that a rescaled button keeps: Options' Close,
+    // with no normal border and a 6 px focused one, was the shape its badge was
+    // made for until it was focused, and an oval then (the maintainer saw it,
+    // 2026-10-05). The area that texture was made for is the normal one's, less
+    // the difference of the two insets on every side.
+    const int focusInset = K1ButtonFillInset(control, K1_BUTTON_HILIGHT_PARAMS_OFFSET);
+    if (asMade && focusInset != inset) {
+        const int step = 2 * (inset - focusInset);
+        const long long focusWidth = at.width - 2 * focusInset, focusHeight = at.height - 2 * focusInset;
+        const long long madeWidth = shape->width + step, madeHeight = shape->height + step;
+        if (focusWidth > 0 && focusHeight > 0 && madeWidth > 0 && madeHeight > 0) {
+            const long long liveFocus = focusWidth * madeHeight, madeFocus = madeWidth * focusHeight;
+            asMade = (liveFocus > madeFocus ? liveFocus - madeFocus : madeFocus - liveFocus) * 50 <= madeFocus;
+        }
+    }
+    // Or the shape is as made but the caption is no longer on the button's middle
+    // line, where the texture has the glyph: the Map screen's two rows beside Scaled
+    // Kotor, three times as tall with their text still at the top (the maintainer saw
+    // the glyphs below their captions at 3440x1440, 2026-10-05).
+    // Only on a button that has been resized: in the unchanged game a badge stays
+    // where its art has it, whatever its caption's alignment.
+    if (asMade && height != shape->height) {
+        int line = 0;
+        if (MeasureK1Caption(control, &line) > 0 && line > 0) {
+            const K1BadgeOverlay* const moved = FindK1BadgeOverlay(control);
+            const K1BadgeRect text = moved && moved->textMoved ? moved->textWas
+                : *reinterpret_cast<const K1BadgeRect*>(
+                    static_cast<char*>(control) + K1_BUTTON_TEXT_OFFSET + K1_TEXT_EXTENT_OFFSET);
+            const std::uint32_t alignment = *reinterpret_cast<const std::uint32_t*>(
+                static_cast<char*>(control) + K1_BUTTON_TEXT_OFFSET + K1_TEXT_CHARS_OFFSET + 0x38);
+            const K1BadgeRect area = text.height > 0 ? text : at;
+            const int lineMiddle = (alignment & 16u) != 0 ? area.top + area.height / 2
+                                 : (alignment & 32u) != 0 ? area.top + area.height - line / 2
+                                 : area.top + line / 2;
+            const int off = lineMiddle - (at.top + at.height / 2);
+            const int allowed = height / 6 > 2 ? height / 6 : 2;
+            if (off > allowed || off < -allowed) {
+                asMade = false;
+            }
+        }
+    }
+    if (asMade && tall <= 0) {
+        HideK1BadgeOverlay(control);        // the shape it was made for: on the button, as ever
+        return false;
+    }
+
+    K1BadgeOverlay* entry = FindK1BadgeOverlay(control);
+    if (!entry) {
+        // The panel being painted; a button's own parent pointer is not always it
+        // (the A that follows the focus on Graphics Options stayed on its button).
+        void* panel = g_k1BadgePaintPanel;
+        if (!panel) {
+            panel = *reinterpret_cast<void**>(static_cast<char*>(control) + K1_BADGE_CONTROL_PARENT);
+        }
+        K1BadgeOverlay* free = nullptr;
+        for (K1BadgeOverlay& candidate : g_k1BadgeOverlays) {
+            if (!candidate.label) {
+                free = &candidate;
+                break;
+            }
+        }
+        if (!panel || !free) {
+            return false;
+        }
+        void* const label = reinterpret_cast<void*(__cdecl*)(std::size_t)>(K1_BADGE_OPERATOR_NEW)(K1_BADGE_LABEL_SIZE);
+        if (!label) {
+            return false;
+        }
+        reinterpret_cast<void*(__thiscall*)(void*)>(K1_BADGE_LABEL_CTOR)(label);
+        const int id = *reinterpret_cast<int*>(static_cast<char*>(panel) + K1_BADGE_PANEL_COUNT);
+        *reinterpret_cast<void**>(static_cast<char*>(label) + K1_BADGE_CONTROL_PARENT) = panel;
+        *reinterpret_cast<int*>(static_cast<char*>(label) + K1_BADGE_CONTROL_ID) = id;
+        reinterpret_cast<void(__thiscall*)(void*, void*)>(K1_BADGE_LIST_ADD)(
+            static_cast<char*>(panel) + K1_BADGE_PANEL_ARRAY, label);
+        void** const array = *reinterpret_cast<void***>(static_cast<char*>(panel) + K1_BADGE_PANEL_ARRAY);
+        const int count = *reinterpret_cast<int*>(static_cast<char*>(panel) + K1_BADGE_PANEL_COUNT);
+        if (!array || id < 0 || id >= count || array[id] != label) {
+            return false;                   // not filed: leave it be rather than free what the panel may hold
+        }
+        *free = {panel, control, label, id, {}, false};
+        entry = free;
+    }
+    K1BadgeRect wanted;
+    // The label is as tall as the button's fill area, or as it was asked to be; the
+    // distances below are shares of that height.
+    const int fillHeight = height;
+    if (tall > 0) {
+        // On the whole button, whose box is its own: its border's inset is not ours.
+        height = tall < at.height ? tall : at.height;
+    }
+    wanted.height = height;
+    wanted.top = tall > 0 ? at.top + (at.height - height) / 2
+                          : at.top + inset + (fillHeight - height) / 2;   // unless the caption's line says otherwise, below
+    wanted.width = static_cast<int>((static_cast<long long>(height) * shape->width + shape->height / 2) / shape->height);
+    {
+        const int centred = (width - wanted.width) / 2;
+        const int glyph = centred + static_cast<int>(static_cast<long long>(wanted.width) * shape->glyph / 1000);
+        const int reach = height / 2 + height / 8;      // half a glyph and a little air
+        const bool fits = glyph - reach >= 0 && glyph + reach <= width;
+        wanted.left = at.left + inset + (fits ? centred : shape->glyph < 500 ? 0 : width - wanted.width);
+    }
+    // Better than either, where the caption can be measured: beside the caption as
+    // it is on screen, a quarter of the button's height away. The texture has the
+    // glyph where the caption was when it was made, in the game's own font at the
+    // layout's size; on a button three times as large with a caption hardly larger
+    // (Scaled Kotor at 3440x1440) that left the glyph far out from the text, and
+    // the maintainer asked why (2026-10-05). Kept inside the button.
+    int line = 0;
+    if (const int caption = MeasureK1Caption(control, &line)) {
+        K1BadgeRect text = *reinterpret_cast<const K1BadgeRect*>(
+            static_cast<char*>(control) + K1_BUTTON_TEXT_OFFSET + K1_TEXT_EXTENT_OFFSET);
+        // And on the caption's line. A layout's ALIGNMENT is in the text's flags
+        // (+0x38 of its CSWGuiTextParams): 8 is the top of the button, 32 its bottom,
+        // 16 or neither its middle (the game's layouts: 9 and 10 top, 18 middle, 34
+        // bottom). On the Map screen the two rows are 13 units tall with their text
+        // at the top; made three times as tall, the text stayed at the top and the
+        // glyph stood in the row's middle, below it (the maintainer saw it at
+        // 3440x1440 with Scaled Kotor, 2026-10-05).
+        const std::uint32_t alignment = *reinterpret_cast<const std::uint32_t*>(
+            static_cast<char*>(control) + K1_BUTTON_TEXT_OFFSET + K1_TEXT_CHARS_OFFSET + 0x38);
+        // The text's own rectangle is what it is aligned in, and after a rescaling
+        // it need not be the button's (on those rows it stayed short, at the top).
+        //
+        // A caption at the top or bottom of a button that has been made taller is
+        // brought to the button's middle line, and the badge with it: the caption is
+        // given a rectangle one line tall there (CSWGuiText::SetExtent, 0x00416280),
+        // and gets its own back when the badge goes (HideK1BadgeOverlay). With the
+        // badge alone moved up to the caption, the two stood above the row on the
+        // Map screen and the maintainer found the whole line too high (2026-10-05).
+        // (Not a badge of a given height: its caption may be two lines, and it
+        // stands on the button's middle line.)
+        if (tall <= 0 && line > 0 && (alignment & 16u) == 0 && text.height > 0 && line < at.height) {
+            const K1BadgeRect centredLine{text.left, at.top + (at.height - line) / 2, text.width, line};
+            const bool there = text.top == centredLine.top && text.height == centredLine.height;
+            if (!there) {
+                if (!entry->textMoved) {
+                    entry->textWas = text;
+                    entry->textMoved = true;
+                }
+                SetK1CaptionRect(control, centredLine);
+            }
+            text = centredLine;
+        }
+        const K1BadgeRect area = text.height > 0 ? text : at;
+        if (line > 0 && tall <= 0) {
+            const int lineMiddle = (alignment & 16u) != 0 ? area.top + area.height / 2
+                                 : (alignment & 32u) != 0 ? area.top + area.height - line / 2
+                                 : area.top + line / 2;
+            wanted.top = lineMiddle - wanted.height / 2;
+        }
+        const int middle = text.width > 0 ? text.left + text.width / 2 : at.left + at.width / 2;
+        const int gap = height / 4, air = height / 8;
+        const int glyphLeft = static_cast<int>(static_cast<long long>(wanted.width) * (shape->glyph - shape->glyphWidth / 2) / 1000);
+        const int glyphRight = static_cast<int>(static_cast<long long>(wanted.width) * (shape->glyph + shape->glyphWidth / 2) / 1000);
+        int left = shape->glyph < 500 ? middle - caption / 2 - gap - glyphRight
+                                      : middle + (caption + 1) / 2 + gap - glyphLeft;
+        // Inside the area the border fills; a badge of a given height stands on the
+        // button's own box, whose border is not in its way.
+        const int first = tall > 0 ? at.left : at.left + inset;
+        const int last = tall > 0 ? at.left + at.width : first + width;
+        if (tall > 0 && outside) {
+            // Left of its button, a quarter of its height away: ShowK1BackedBadge
+            // found no room for it beside the caption.
+            left = at.left - gap - glyphRight;
+        } else if (tall > 0) {
+            // Inside: at the button's left end, half its height in, and the caption in
+            // the rest of the button, which ShowK1BackedBadge has made wide enough for
+            // it in the lines the layout gives it. So the two buttons' badges stand
+            // under each other and a caption cannot reach its badge. The caption gets
+            // the button's rectangle back when the badge goes (HideK1BadgeOverlay).
+            // Three quarters of the badge's height at each end and a third of it
+            // between glyph and caption (K1BackedWidthNeeded counts the same): with
+            // half and a quarter the caption "felt squished" to the maintainer at
+            // 1280x960, 2026-10-06.
+            left = first + height * 3 / 4 - glyphLeft;
+            const K1BadgeRect whole = entry->textMoved ? entry->textWas : text;
+            const int from = left + glyphRight + height / 3;
+            const int until = last - height * 3 / 4;
+            if (whole.height > 0 && until > from) {
+                const K1BadgeRect beside{from, whole.top, until - from, whole.height};
+                if (!entry->textMoved) {
+                    entry->textWas = whole;
+                    entry->textMoved = true;
+                }
+                SetK1CaptionRect(control, beside);
+            }
+        } else {
+            if (left + glyphRight > last - air) {
+                left = last - air - glyphRight;
+            }
+            if (left + glyphLeft < first + air) {
+                left = first + air - glyphLeft;
+            }
+        }
+        wanted.left = left;
+    }
+    void* const label = entry->label;
+    using SetExtentFn = void(__thiscall*)(void*, const K1BadgeRect*);
+    reinterpret_cast<SetExtentFn>((*reinterpret_cast<void***>(label))[1])(label, &wanted);
+    // Stretched over the label, as a layout's FILLSTYLE 2 has a button's fill: the low
+    // two bits of the flags at +0x1C of CSWGuiBorderParams (CSWGuiBorder::Load,
+    // 0x004153E0, stores FILLSTYLE there; CSWGuiBorder::Draw, 0x004168C0, tiles for
+    // 0, centres for 1 and stretches for 2; a label constructed here has 0).
+    {
+        std::uint32_t& flags = *reinterpret_cast<std::uint32_t*>(
+            static_cast<char*>(label) + K1_BADGE_LABEL_PARAMS + 0x1C);
+        flags = (flags & ~3u) | 2u;
+    }
+    reinterpret_cast<SetFillImageFn>(K1_GUI_BORDER_SET_FILL_IMAGE)(
+        static_cast<char*>(label) + K1_BADGE_LABEL_PARAMS, resref, 1);
+    for (int i = 0; i < 16; ++i) {
+        entry->resref[i] = resref[i];
+    }
+    entry->shown = true;
+    entry->tall = tall;
+    entry->outside = outside;
+    entry->caption = K1CaptionSignature(control);
+    // Drawn while its button is: SyncK1BadgeOverlays keeps it so afterwards.
+    std::uint32_t& drawn = *reinterpret_cast<std::uint32_t*>(static_cast<char*>(label) + K1_BADGE_CONTROL_FLAGS);
+    const bool buttonDrawn = (*reinterpret_cast<const std::uint32_t*>(
+        static_cast<char*>(control) + K1_BADGE_CONTROL_FLAGS) & 2u) != 0;
+    drawn = buttonDrawn ? (drawn | 2u) : (drawn & ~2u);
+    return true;
+}
+
+// A badge that stands on its button's own box (Level Up and Auto Level Up on the
+// Character screen: their texture is the box, dialog2, with the glyph on it, sized
+// like the screen's Close badge and not from these taller buttons). On a button of
+// another shape that texture is stretched like any other, and it cannot go on a
+// label, being a box. And in the game's own layout it is no better off: these two
+// buttons have a 16-unit border with corner art (character.gui: BTN_LEVELUP 127x40,
+// BTN_AUTO 127x52), so their fill is a strip 8 and 20 units tall, and in the scratch
+// copy at 1280x960 the A was a dot and the Y a smear over "Auto" (2026-10-06, the
+// first time this build's Character screen was seen with a level to take).
+//
+// So in this patch the box always stays on the button and the glyph is drawn from
+// another badge of the same letter that stands on nothing, on a label: as tall as
+// the Close button's 28 units are of this button's own height in the game's layout.
+//
+// The game's own layout leaves no room for it beside the caption ("Auto Level" fills
+// most of 127 units), so the buttons are made wider: the maintainer's choice of
+// 2026-10-06, after he had seen the badge shrunk to the room (10 px, then 16 and
+// 11 px at 1280x960: "why aren't these icons bigger"), and with the condition that
+// nothing about it is a fixed place or size. Each button needs its badge's height
+// at its ends, the glyph, a quarter of that height and its caption
+// (K1BackedWidthNeeded, measured on screen); both get the wider of the two needs, if
+// that is more than they have, and grow about their own middles, so they stay
+// alike and where the layout has them. A caption keeps the number of lines the
+// layout gives it ("Auto Level / Up" stays two: on one line the buttons were wider
+// than he wanted, the same day). A layout whose buttons are wide enough is left
+// alone. They get their own rectangles back when the badge goes
+// (HideK1BadgeOverlay). Where the need is more than twice a button's width, which
+// no layout seen has, the buttons are left and the badges stand outside them on
+// the left.
+struct K1BackedBadge { const char* resref; short height; const char* plain; };
+constexpr K1BackedBadge K1_BACKED_BADGES[] = {
+    {"kmrpa_charlvl", 40, "kmrpa_abcgok"},
+    {"kmrpy_charauto", 52, "kmrpy_abcgrec"},
+};
+
+// The button's rectangle as the screen has it: its own, not the one it was grown to.
+K1BadgeRect K1BackedOwnRect(void* control)
+{
+    const K1BadgeRect now = *reinterpret_cast<const K1BadgeRect*>(static_cast<char*>(control) + 4);
+    const K1BadgeOverlay* const entry = FindK1BadgeOverlay(control);
+    if (entry && entry->grown && now.left == entry->grownTo.left && now.top == entry->grownTo.top &&
+            now.width == entry->grownTo.width && now.height == entry->grownTo.height) {
+        return entry->buttonWas;
+    }
+    return now;
+}
+
+const BadgeShape* K1PlainBadgeShape(const K1BackedBadge& backed)
+{
+    for (const BadgeShape& candidate : kBadgeShapes) {
+        bool same = true;
+        for (int i = 0; i < 16 && same; ++i) {
+            same = backed.plain[i] == candidate.resref[i];
+            if (backed.plain[i] == '\0') {
+                break;
+            }
+        }
+        if (same) {
+            return &candidate;
+        }
+    }
+    return nullptr;
+}
+
+// How many lines the layout gives the button's caption: the lines the engine has it
+// in ("Auto Level / Up" is two in the game's layout, "Level Up" one), as first seen
+// and kept while this file has the button (the record's `lines`).
+int K1BackedCaptionLines(void* control)
+{
+    if (const K1BadgeOverlay* const entry = FindK1BadgeOverlay(control)) {
+        if (entry->lines > 0) {
+            return entry->lines;
+        }
+    }
+    void* const string = *reinterpret_cast<void**>(
+        static_cast<char*>(control) + K1_BUTTON_TEXT_OFFSET + K1_TEXT_STRING_OFFSET);
+    if (!K1BadgeReadable(string, 0x44)) {
+        return 1;
+    }
+    const int lines = *reinterpret_cast<const int*>(static_cast<char*>(string) + 0x38);
+    return lines < 1 ? 1 : lines > 4 ? 4 : lines;
+}
+
+// How wide the button has to be for its badge at full size and its caption in the
+// lines the layout gives it: three quarters of the badge's height at each end, the
+// glyph, a third of that height, the caption and two pixels so that it does not
+// break again at the last one. All of it from the button's own height and the caption's font as
+// they are on screen; 0 when the caption cannot be measured.
+int K1BackedWidthNeeded(void* control, const K1BackedBadge& backed)
+{
+    const K1BadgeRect own = K1BackedOwnRect(control);
+    const BadgeShape* const shape = K1PlainBadgeShape(backed);
+    const int caption = MeasureK1Caption(control, nullptr, K1BackedCaptionLines(control));
+    if (!shape || caption <= 0 || own.height <= 0) {
+        return 0;
+    }
+    const long long tall = static_cast<long long>(own.height) * 28 / backed.height;
+    const long long glyph = tall * shape->width * shape->glyphWidth / (static_cast<long long>(shape->height) * 1000);
+    return static_cast<int>(2 * (tall * 3 / 4) + glyph + tall / 3 + caption + 2);
+}
+
+bool IsK1BackedBadge(const char resref[16])
+{
+    for (const K1BackedBadge& candidate : K1_BACKED_BADGES) {
+        bool same = true;
+        for (int i = 0; i < 16 && same; ++i) {
+            const char c = i == 3 ? 'p' : resref[i];
+            same = c == candidate.resref[i];
+            if (c == 0) {
+                break;
+            }
+        }
+        if (same) {
+            return true;
+        }
+    }
+    return false;
+}
+
+// True when the glyph is now on a label and the button should have its box back.
+bool ShowK1BackedBadge(void* control, const char resref[16])
+{
+    const K1BackedBadge* backed = nullptr;
+    for (const K1BackedBadge& candidate : K1_BACKED_BADGES) {
+        bool same = true;
+        for (int i = 0; i < 16 && same; ++i) {
+            const char a = i == 3 ? 'p' : resref[i];
+            same = a == candidate.resref[i];
+            if (a == '\0') {
+                break;
+            }
+        }
+        if (same) {
+            backed = &candidate;
+            break;
+        }
+    }
+    const K1BadgeRect at = *reinterpret_cast<const K1BadgeRect*>(static_cast<char*>(control) + 4);
+    if (!backed || at.width <= 0 || at.height <= 0) {
+        HideK1BadgeOverlay(control);
+        return false;
+    }
+    char plain[16] = {};
+    for (int i = 0; i < 15 && backed->plain[i] != '\0'; ++i) {
+        plain[i] = backed->plain[i];
+    }
+    plain[3] = resref[3];                 // the family in use
+    int tall = static_cast<int>((static_cast<long long>(at.height) * 28 + backed->height / 2) / backed->height);
+    if (tall < 8) {
+        tall = 8;
+    }
+    // The width both buttons are to have.
+    const K1BadgeRect own = K1BackedOwnRect(control);
+    const int captionLines = K1BackedCaptionLines(control);
+    int needed = K1BackedWidthNeeded(control, *backed);
+    if (g_k1BadgePaintPanel) {
+        static const std::ptrdiff_t both[2] = {K1_CHARACTER_LEVELUP_OFFSET, K1_CHARACTER_AUTO_LEVELUP_OFFSET};
+        for (int i = 0; i < 2; ++i) {
+            if (static_cast<char*>(g_k1BadgePaintPanel) + both[i] == control) {
+                const int other = K1BackedWidthNeeded(static_cast<char*>(g_k1BadgePaintPanel) + both[1 - i],
+                                                      K1_BACKED_BADGES[1 - i]);
+                if (other > needed) {
+                    needed = other;
+                }
+            }
+        }
+    }
+    tall = static_cast<int>((static_cast<long long>(own.height) * 28 + backed->height / 2) / backed->height);
+    if (tall < 8) {
+        tall = 8;
+    }
+    const bool outside = needed > 2 * own.width;
+    K1BadgeRect grown = own;
+    if (!outside && needed > own.width) {
+        grown.left = own.left - (needed - own.width) / 2;
+        grown.width = needed;
+    }
+    if (grown.width != at.width || grown.left != at.left) {
+        using SetExtentFn = void(__thiscall*)(void*, const K1BadgeRect*);
+        reinterpret_cast<SetExtentFn>((*reinterpret_cast<void***>(control))[1])(control, &grown);
+        if (K1BadgeOverlay* const entry = FindK1BadgeOverlay(control)) {
+            entry->textMoved = false;       // the caption has the new button's rectangle
+        }
+    }
+    const bool shown = ShowK1BadgeOverlay(control, plain, tall, outside);
+    if (K1BadgeOverlay* const entry = FindK1BadgeOverlay(control)) {
+        entry->lines = captionLines;
+        entry->grown = grown.width != own.width;
+        entry->buttonWas = own;
+        entry->grownTo = grown;
+        entry->caption = K1CaptionSignature(control);
+    }
+    return shown;
+}
+
+// The same for a badge that is already on its label, given the plain texture the
+// label draws (SyncK1BadgeOverlays).
+bool ReplaceK1BackedBadge(void* control, const char plain[16])
+{
+    for (const K1BackedBadge& candidate : K1_BACKED_BADGES) {
+        bool same = true;
+        for (int i = 0; i < 16 && same; ++i) {
+            const char a = i == 3 ? 'p' : plain[i];
+            same = a == candidate.plain[i];
+            if (a == '\0') {
+                break;
+            }
+        }
+        if (same) {
+            char resref[16] = {};
+            for (int i = 0; i < 15 && candidate.resref[i] != '\0'; ++i) {
+                resref[i] = candidate.resref[i];
+            }
+            resref[3] = plain[3];
+            return ShowK1BackedBadge(control, resref);
+        }
+    }
+    return false;
+}
+#endif
+
+void SetK1ControllerPromptFill(void* control, const char* value, const char* box = nullptr,
+                               const char* boxFocused = nullptr)
 {
     if (!control) {
         return;
@@ -1707,6 +2578,31 @@ void SetK1ControllerPromptFill(void* control, const char* value)
     }
     SetFillImageFn setFill = reinterpret_cast<SetFillImageFn>(
         K1_GUI_BORDER_SET_FILL_IMAGE);
+#ifdef KMRP_CONTROLLER_STANDALONE
+    if (resref[0] == '\0') {
+        HideK1BadgeOverlay(control);
+    } else if (box && IsK1BackedBadge(resref)) {
+        // On the button's own box: see ShowK1BackedBadge.
+        if (ShowK1BackedBadge(control, resref)) {
+            char normal[16] = {}, focused[16] = {};
+            const char* const second = boxFocused ? boxFocused : box;
+            for (int i = 0; i < 15 && box[i] != '\0'; ++i) {
+                normal[i] = box[i];
+            }
+            for (int i = 0; i < 15 && second[i] != '\0'; ++i) {
+                focused[i] = second[i];
+            }
+            setFill(OffsetPointer(control, K1_BUTTON_BORDER_PARAMS_OFFSET), normal, 1);
+            setFill(OffsetPointer(control, K1_BUTTON_HILIGHT_PARAMS_OFFSET), focused, 1);
+            return;
+        }
+    } else if (ShowK1BadgeOverlay(control, resref)) {
+        const char none[16] = {};
+        setFill(OffsetPointer(control, K1_BUTTON_BORDER_PARAMS_OFFSET), none, 1);
+        setFill(OffsetPointer(control, K1_BUTTON_HILIGHT_PARAMS_OFFSET), none, 1);
+        return;
+    }
+#endif
     // BOTH borders, and the pair is not optional.
     //
     // The engine draws the highlight border INSTEAD OF the normal one while a
@@ -1722,6 +2618,21 @@ void SetK1ControllerPromptFill(void* control, const char* value)
     // place.
     setFill(
         OffsetPointer(control, K1_BUTTON_BORDER_PARAMS_OFFSET), resref, 1);
+    // A border with corner art draws its fill inside the border, by its DIMENSION on
+    // every side (CSWGuiBorder::Draw, 0x004168C0), so a badge is made for the area
+    // its border fills. Where the focused border fills a different area than the
+    // normal one, the badge has a second texture for it, "kmf..." beside "kmr..."
+    // (tools/build_controller_prompt_textures.py, fill_inset and FOCUS_PREFIX, which
+    // makes the same comparison on the layout file). The Close buttons are the
+    // case: no normal border, a 6 px focused one.
+    //
+    // Every set carries the "kmf" art since 2026-10-05: KMRP's own (and the sizes
+    // blended from them, kmrp-guiblend.c) and the standalone controller patch's.
+    if (resref[0] == 'k' && resref[1] == 'm' && resref[2] == 'r' &&
+            K1ButtonFillInset(control, K1_BUTTON_HILIGHT_PARAMS_OFFSET) !=
+            K1ButtonFillInset(control, K1_BUTTON_BORDER_PARAMS_OFFSET)) {
+        resref[2] = 'f';
+    }
     setFill(
         OffsetPointer(control, K1_BUTTON_HILIGHT_PARAMS_OFFSET), resref, 1);
 
@@ -1734,6 +2645,9 @@ void SetK1ControllerPromptArt(void* control, const char* border, const char* hil
     if (!control || !border) {
         return;
     }
+#ifdef KMRP_CONTROLLER_STANDALONE
+    HideK1BadgeOverlay(control);
+#endif
     char normal[16] = {};
     char focused[16] = {};
     const char* second = hilight ? hilight : border;
@@ -1748,6 +2662,70 @@ void SetK1ControllerPromptArt(void* control, const char* border, const char* hil
     setFill(OffsetPointer(control, K1_BUTTON_BORDER_PARAMS_OFFSET), normal, 1);
     setFill(OffsetPointer(control, K1_BUTTON_HILIGHT_PARAMS_OFFSET), focused, 1);
 }
+
+#ifdef KMRP_CONTROLLER_STANDALONE
+// A badge on a label of its own is not part of its button, so what the game does to
+// the button has to be done to it: every frame, for the panel in front.
+//
+// - Drawn only while the button is. The game hides a button it has no use for
+//   (Equip's "Equip" while a slot, not an item, has the focus), and the badge on the
+//   button's fill went with it; the label stayed, an A beside nothing (the maintainer
+//   saw it beside KMRP at 3440x1440, 2026-10-06).
+// - Placed again when the button's rectangle or its caption has changed, since it
+//   stands beside the caption (ShowK1BadgeOverlay): the paint in
+//   UpdateK1ControllerPrompts runs only when the panel, the device, the focus or
+//   the family changes.
+void SyncK1BadgeOverlays(void* panel)
+{
+    if (!panel) {
+        return;
+    }
+    for (K1BadgeOverlay& entry : g_k1BadgeOverlays) {
+        if (!entry.label || entry.panel != panel || !entry.shown) {
+            continue;
+        }
+        if (K1CaptionSignature(entry.button) != entry.caption) {
+            char resref[16];
+            for (int i = 0; i < 16; ++i) {
+                resref[i] = entry.resref[i];
+            }
+            if (entry.tall > 0) {
+                ReplaceK1BackedBadge(entry.button, resref);   // its button keeps its box
+            } else {
+                SetK1ControllerPromptFill(entry.button, resref);
+            }
+            if (!entry.label || !entry.shown) {
+                continue;               // the button has the shape its badge was made for again
+            }
+        }
+        std::uint32_t& drawn = *reinterpret_cast<std::uint32_t*>(
+            static_cast<char*>(entry.label) + K1_BADGE_CONTROL_FLAGS);
+        const bool buttonDrawn = (*reinterpret_cast<const std::uint32_t*>(
+            static_cast<char*>(entry.button) + K1_BADGE_CONTROL_FLAGS) & 2u) != 0;
+        drawn = buttonDrawn ? (drawn | 2u) : (drawn & ~2u);
+    }
+}
+
+// A panel's end (K1NativeJoystick.cpp, ForgetGuiCuesK1): its badge labels are ours.
+void ForgetK1BadgeOverlays(void* panel)
+{
+    for (K1BadgeOverlay& entry : g_k1BadgeOverlays) {
+        if (!entry.label || entry.panel != panel) {
+            continue;
+        }
+        void** const array = *reinterpret_cast<void***>(static_cast<char*>(panel) + K1_BADGE_PANEL_ARRAY);
+        const int count = *reinterpret_cast<int*>(static_cast<char*>(panel) + K1_BADGE_PANEL_COUNT);
+        // Freed only while the panel still holds it at its place; otherwise a leak
+        // is safer than a double free.
+        if (array && entry.id >= 0 && entry.id < count && array[entry.id] == entry.label) {
+            array[entry.id] = nullptr;
+            using DeletingDtorFn = void*(__thiscall*)(void*, unsigned);
+            reinterpret_cast<DeletingDtorFn>((*reinterpret_cast<void***>(entry.label))[0])(entry.label, 1);
+        }
+        entry = K1BadgeOverlay{};
+    }
+}
+#endif
 
 void UpdateK1ControllerPrompts()
 {
@@ -1785,6 +2763,12 @@ void UpdateK1ControllerPrompts()
     const std::uintptr_t vtable = panel
         ? *reinterpret_cast<std::uintptr_t*>(panel)
         : 0;
+#ifdef KMRP_CONTROLLER_STANDALONE
+    g_k1BadgePaintPanel = panel;
+    if (controllerMode) {
+        SyncK1BadgeOverlays(panel);
+    }
+#endif
 
     // The caption can change without the panel or the mode changing, so it is
     // part of what "nothing has changed" means. So is the focus, now that a
@@ -1826,7 +2810,7 @@ void UpdateK1ControllerPrompts()
                 SetK1ControllerPromptArt(control, prompts[i].restore,
                                          prompts[i].restoreHilight);
             } else {
-                SetK1ControllerPromptFill(control, shown);
+                SetK1ControllerPromptFill(control, shown, prompts[i].restore, prompts[i].restoreHilight);
             }
         }
         if (controllerMode && count > 0) {
@@ -3154,6 +4138,33 @@ void MoveFocus(
     int direction)
 {
     const int buttonCount = ActionButtonCount(config);
+#ifdef KMRP_CONTROLLER_STANDALONE
+    // The Xbox-style HUD shows the seven slots in six places and in another order
+    // (K1XboxHud.cpp, kPlace): left and right follow what is on screen. The grenade
+    // and mine slots share a place, and the one not shown is not selectable.
+    // The first place is the default action and has no slot: it is "no slot has the
+    // focus", -1 here, and reaching it lets the focus go.
+    if (KmrpXboxHudEnabledK1() && buttonCount == 7) {
+        static const int order[8] = {-1, 0, 3, 1, 2, 6, 4, 5};
+        int at = 0;
+        for (int i = 0; i < 8; ++i) {
+            if (order[i] == activeIndex) at = i;
+        }
+        for (int step = 0; step < 8; ++step) {
+            at = (at + (direction > 0 ? 1 : 7)) % 8;
+            if (order[at] < 0) {
+                reinterpret_cast<SetActiveControlFn>(config.setActiveControl)(mainInterface, nullptr, 1);
+                return;
+            }
+            if (IsActionButtonSelectable(config, mainInterface, buttons, order[at])) {
+                reinterpret_cast<SetActiveControlFn>(config.setActiveControl)(
+                    mainInterface, buttons[order[at]], 1);
+                return;
+            }
+        }
+        return;
+    }
+#endif
     int start = activeIndex;
     if (start < 0) {
         start = direction > 0 ? buttonCount - 1 : 0;
@@ -3311,6 +4322,10 @@ void ClearActionBarKeyboardFocus(
 }
 
 } // namespace
+
+#ifdef KMRP_CONTROLLER_STANDALONE
+void KmrpForgetBadgeOverlaysK1(void* panel) { ForgetK1BadgeOverlays(panel); }
+#endif
 
 extern "C" void __cdecl CaptureActionBarInputK1(
     BufferedInputRecord* input,
@@ -3857,6 +4872,13 @@ extern "C" void __cdecl KmrpActionBarReleaseK1(void* mainInterface)
             nullptr,
             1);
     }
+}
+
+// Which of the seven action slots has the focus (0-2 the target's, 3-6 personal),
+// or -1. The Xbox-style HUD draws that slot large (K1XboxHud.cpp).
+int KmrpFocusedActionSlotK1(void* mainInterface)
+{
+    return mainInterface ? FocusedActionButton(K1_CONFIG, mainInterface) : -1;
 }
 
 extern "C" int __cdecl KmrpActionBarFocusedK1(void* mainInterface)

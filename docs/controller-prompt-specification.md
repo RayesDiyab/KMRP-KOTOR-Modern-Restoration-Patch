@@ -3,6 +3,18 @@
 What each screen should show, and when. Drawn from
 `controller-behaviour-matrix.md`, with every rule tracing to a measurement in it.
 
+**Status, 2026-10-08.** This file grew section by section from 2026-09-08 to
+2026-10-06, and each section says when it was written. What draws the prompts
+now: the controller patch, `KOTOR 1 Native Controller Mod + Xbox HUD.kpatch` (id
+`kmrp-controller`), which KMRP's installer installs while Controller Support is
+on and which also runs without KMRP. It carries the badges in four controller
+families, keeps a badge round and beside its caption on whatever interface is
+loaded (the game's, a widescreen patch's or KMRP's), and adds the cues the game's
+layouts have no control for: [`controller-standalone.md`](controller-standalone.md),
+sections 3 and 5. Three things below that read "specified, not implemented" or
+"not shipped" have shipped since and are marked where they stand: LT and RT on the
+tab strip, the confirmation boxes' A, and the store.
+
 **Status, 2026-09-08.** The badge layer is implemented and live. It was written
 by Saul0097 -- per-panel tables swapping a button's `BORDER.FILL` to a
 pre-baked glyph-plus-label texture -- and was **unreachable in native mode**
@@ -32,9 +44,11 @@ in classes 0 and 2, plus five events in class 3 for dialogue. Class 4 carries
 only free look's own exit event, and classes 1 and 5 carry nothing.
 
 **Dialogue is now bound and verified**, so its prompts are live specifications.
-Minigames (class 1) and movies (class 5) are still unbound, so **no prompt should
-be specified for them**: a glyph there would advertise a button that provably
-does nothing.
+When this section was written minigames (class 1) and movies (class 5) were
+unbound. Since then class 1 has B, Y, LT and RT, never observed in a minigame, and
+a movie is skipped with A or Start by a bridge (the note above); class 5 itself
+still carries nothing. No prompt is specified or shipped for either, apart from
+Pazaak's wager box ("Settings screens", below).
 
 ## Global glyph vocabulary
 
@@ -45,8 +59,8 @@ does nothing.
 | X | **screen-specific label, never generic** | only on the screens listed below |
 | Y | **screen-specific label, never generic** | only on the screens listed below |
 | LB / RB | "Scroll" | the focused control is a list box |
-| LT / RT | tab names or arrows | the in-game 8-tab strip is active **and** no modal is up |
-| Start | "Menu" | gameplay only |
+| LT / RT | tab names or arrows (shipped as a cue at each end of the strip; arrows in the strip's style since 2026-10-05) | the in-game 8-tab strip is active **and** no modal is up |
+| Start | "Map" ("Menu" until issue #18, when Start became the Map key; no such prompt is shipped) | gameplay only |
 | L3 | "Flourish" | gameplay only |
 | R3 | "Free Look" | gameplay only |
 | Back/View | — | **never**; it does nothing on 39 of 40 panels |
@@ -150,7 +164,7 @@ Only these, and only with these labels:
 | Character | Y | Equip | S |
 | Messages | X | Clear | S |
 | Save / Load | X | **Delete** | S — destructive, so the label must be exact |
-| Store | X | Buy / Sell | S |
+| Store | X | the button's own caption, Show Sell List or Show Buy List | **ships** since 2026-10-06; read from the dispatcher, not yet seen in play |
 | Container | X | Take All | S |
 
 Every row marked S needs live confirmation before shipping its prompt. Inventory
@@ -160,6 +174,14 @@ is the only one confirmed.
 ships, and its Y is Auto Level Up (`0x006B233C`), not Equip; A is Level Up
 (`0x006B2295`). Decoded from the dispatcher, `0x006B2250`; see *Character
 screen* above.
+
+*Added 2026-10-06:* the store. Its dispatcher (`CSWGuiStore::HandleInputEvent`,
+`0x006C2190`) answers event `0x29`, X, by swapping the buy and the sell list
+whatever holds focus, and `0x28` or `0x2E`, B, by closing the screen. A buys or
+sells the row in focus. So the screen's three buttons carry A (Buy or Sell), X
+(Show Sell List or Show Buy List) and B (Close). At a shop that only buys or only
+sells the game does not draw the X button (`0x006C1B50`), and no badge is drawn
+for it.
 
 ### LB / RB
 
@@ -333,7 +355,13 @@ Known limits, not changed:
   recognised as menu panels. They have no buttons, and recognising one that sat
   above its screen would hide that screen's badges.
 
-**Untested in game**, level-up included.
+**Untested in game when written**, level-up included. Recorded since: four
+level-ups on the pad on 2026-09-28
+([`controller-behaviour-matrix.md`](controller-behaviour-matrix.md), "Changed
+since this measurement"), and on 2026-10-05, with the virtual pad on the game's
+own interface, class selection, Quick or Custom, Portrait, Name and the Play list
+seen with their badges ([`controller-standalone.md`](controller-standalone.md),
+section 8). Attributes, Skills, Feats and Powers are not named in either record.
 
 ## Settings screens — built 2026-09-25
 
@@ -379,7 +407,11 @@ is painted from `K1ControllerLayout.cpp` through `KmrpPaintLayoutEntryPromptK1`;
 its caption is inline text, so its badge is placed against "Controller Layout"
 and never re-measured by the installer (`PROMPT_INLINE_LABELS`).
 
-**Untested in game.**
+**Untested in game when written.** Seen since: Options, Gameplay and Sound with
+Default and Close, the Controller Layout entry, Graphics Options and its
+resolution box ([`controller-standalone.md`](controller-standalone.md), sections 5
+and 8, 2026-10-05). Not named in any record: Y pressing Default, Left and Right on
+a -/+ row, and Pazaak's wager.
 
 ## Screens needing no prompts
 
@@ -390,7 +422,17 @@ Abilities) beyond their A/B/X/Y rows; free look, where only Start works and
 leaving is R3; and gameplay beyond the three listed.
 
 
-## LT / RT on the in-game tab strip — specified, not implemented
+## LT / RT on the in-game tab strip: specified here, shipped since
+
+**Shipped, by option 1 below:** two labels added to `top.gui` at build time and
+bound by tag while the panel still has its layout
+([`../reverse-engineering/custom-gui-controls.md`](../reverse-engineering/custom-gui-controls.md)),
+played on a real pad on 2026-09-24
+([`controller-playtest-checklist.md`](controller-playtest-checklist.md)). Since
+2026-10-05 the two are arrows in the strip's own style, sized and placed from the
+live tabs ([`controller-standalone.md`](controller-standalone.md), section 5).
+The rest of this section is the reasoning as it stood on 2026-09-08, when nothing
+had shipped.
 
 The strip should show LT at its far left and RT at its far right. **It cannot be
 done with the mechanism this layer uses**, and the reason is a measurement:

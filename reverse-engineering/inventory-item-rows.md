@@ -7,6 +7,26 @@
 > anything untested labelled as untested.
 
 
+> **Where these bytes are written (note of 2026-10-08, read from the source).**
+> Until 2026-09-29 KMRP's installer wrote the changes below into `swkotor.exe`.
+> It no longer does: the same bytes are applied in memory each time the game
+> starts, by the module of `KMRP.kpatch` under KOTOR Patch Manager's runtime
+> (`src/controller-native/K1KpmApplier.cpp`, `K1RuntimeEngine.cpp`), from a
+> recipe built from source (`src/engine/windows-sites.json`,
+> `tools/build_windows_engine.py`, `tools/build_native_engine.py`), each write
+> after its original bytes are checked. The per-resolution sizes are computed for
+> the size the game runs at and written again when the size is changed in the
+> game (`FieldValue` over the fields `resolution_fields()` lists: bases 56, 50
+> and 19/21/37 for the stack count). `RowSizeGroups` and "the patcher writes
+> them at install" below describe the installer's `--apply` output, a patched
+> executable written to a new file, which is still the reference
+> ([`docs/kpm-edition.md`](../docs/kpm-edition.md)). No interface file goes to
+> `Override` either since 2026-10-04: the module carries or makes them
+> ([runtime-resolution-preview.md](runtime-resolution-preview.md)). Since
+> 2026-10-06 the module also moves each row's left edge so the rows stand
+> centred in their box
+> ([listbox-geometry.md](listbox-geometry.md#rows-centred-in-their-box-2026-10-06-from-the-mac)).
+
 The Inventory, Abilities and Store lists size their rows and item icons from
 **hardcoded constants in the executable** — 56, 42 and 56 respectively. Nothing
 in the `.gui` files can change them. This document

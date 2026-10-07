@@ -1,7 +1,7 @@
 # Phase 0: Map Fix Proof Plan
 
 > **Documentation standard.** This document follows
-> [`docs/documentation-standard.md`](documentation-standard.md). Read it before editing
+> [`docs/documentation-standard.md`](../documentation-standard.md). Read it before editing
 > this file, and check the result still meets it — measured claims only, every
 > site tabulated, rejected alternatives and corrections kept visible, and
 > anything untested labelled as untested.
@@ -12,7 +12,7 @@ map fix, committed on 2026-08-29 and kept as written below. The coordinates it
 names were true of that build. The current map model sizes the map from each
 resolution (overlay W/2, canvas height H/2; at 3440×1440 those are still
 1720×720). It is described in
-[map-scaling.md](../reverse-engineering/map-scaling.md).
+[map-scaling.md](../../reverse-engineering/map-scaling.md).
 
 The last box below is half done. The map geometry is now generated for all 49
 resolutions and read back from the installer's own `--apply` output. The

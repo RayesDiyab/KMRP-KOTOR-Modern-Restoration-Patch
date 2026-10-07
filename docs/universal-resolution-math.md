@@ -9,6 +9,21 @@
 
 ## What this build does
 
+**How this reaches the game now (added 2026-10-08).** The rules and fields in this
+document are current; the delivery described in this section is not. Since
+2026-09-29 the installer does not write the values into `swkotor.exe`, and since
+2026-10-04 it installs no GUI set for one chosen resolution: KMRP's patch module
+(`patches\kmrp.dll`) computes the same fields for the size the game is running at,
+applies them in memory, unpacks that size's files to its own folder, and does both
+again when the resolution is changed in the game
+([Windows engine source](windows-engine-source.md),
+[KPM edition](kpm-edition.md)). Since 2026-10-07 the game offers every size the
+connected display reports, and a size with no built set gets one blended from the
+sets around it. `--apply` still writes the executable described below, as an
+offline reference; "selected" and "chosen" below mean the size given to `--apply`
+or the size the game runs at. The paragraph that follows is the standalone
+installer's, kept as written.
+
 KMRP starts from the supported editable `swkotor.exe`, applies the already play-tested 3440×1440 gold transformation, and then replaces only the verified resolution-dependent values. It also updates `swkotor.ini` and installs the matching high-resolution GUI set plus the shared HD artwork.
 
 The original 3440×1440 patcher is frozen separately as
@@ -352,7 +367,9 @@ game.
 ## Executable fields
 
 `ResolutionPatch.Apply` in `src/patcher/KmrpPatcher.cs` replaces these fields
-after applying the gold delta. Every replacement first checks that the field
+after applying the gold delta (since 2026-10-01 in the source-built engine
+template, for `--apply`; the module computes the same fields for the running size
+from `resolution_fields` in `tools/build_native_engine.py`). Every replacement first checks that the field
 holds gold's value, and a mismatch blocks patching rather than writing to an
 unknown executable. `s = max(1, H / 720)`, the shared scale; `m = min(s, 127/16)`,
 because the marker centring offsets are signed bytes. C#'s `Math.Round` rounds
@@ -419,6 +436,15 @@ HUD. *Corrected 2026-09-24:* this table listed it as a replaced screen-width
 field, and listed only ten fields.
 
 ## Interface packaging
+
+*Since 2026-10-04 nothing below is embedded in the installer or written to
+`Override`.* The same archives and pool are still built; `tools/build_native_assets.py`
+makes the module's bank from them (each distinct file once, and since 2026-10-05
+without the files the module's blend helper writes exactly), the hex frames,
+tutorial icons and `tutorial.2da` are made by the module when the game starts, and
+the INI gets the display's current size. No Override file is replaced, so none is
+backed up; an older install's are restored from its manifest. The list is the
+packaging until that day:
 
 - The 236 shared TGA assets are stored once in the standalone patcher; three
   more, `lbl_mileftbot`, `lbl_hex_3` and `lbl_hex_6`, are built per resolution
@@ -531,10 +557,13 @@ two-set derivation of 2880x1620 within 1 px (86.1% of fields identical).
   fields in *Executable fields* that gold holds at an earlier or vanilla value.
   *Corrected 2026-09-24:* this line said it matched gold byte-for-byte.
 - A complete 1920×1080 install verified the EXE, INI, selected GUI files, shared artwork, backup records, resolution-switch protection, and full restore.
-- `Test-InstalledOverride.ps1` installs through the real installer and requires
+- `Test-InstalledOverride.ps1` installed through the real installer and required
   Override to hold exactly `override-common.zip` and the resolution's archive,
   byte for byte, and nothing after restore. It passed at all 49 resolutions on
-  the installer of 2026-09-25, `4EF3C181…`.
+  the installer of 2026-09-25, `4EF3C181…`. It was removed on 2026-10-04, when the
+  installer stopped writing Override files; `Test-NativeAssetsBank.py` now checks
+  the module's bank against the same archives, and `Test-InstallerPatch.ps1` that
+  nothing is written to Override.
 - The remaining resolutions still require representative in-game play testing because structural verification cannot prove how every module and GPU driver renders them.
 - The Feedback prototype and active transient-HUD geometry are checked directly
   in all 66 packaged archives by

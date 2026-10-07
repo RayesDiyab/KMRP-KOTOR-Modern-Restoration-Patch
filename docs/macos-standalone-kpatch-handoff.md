@@ -6,6 +6,25 @@
 > site tabulated, rejected alternatives and corrections kept visible, and
 > anything untested labelled as untested.
 
+> **Done on the Mac, 2026-10-04 to 2026-10-08.** Everything this handoff asked for is in the
+> Mac build; section 5's table records each item, and section 5a's addresses are still what
+> `macos/patches/kmrp-assets/assets.cpp` calls. Three things went further than it describes:
+>
+> - KMRP's patch does not carry FTD's two patches or conflict with them: it `requires` them
+>   (2026-10-04), and the entry points that depends on are upstream since 2026-10-05
+>   (LaneDibello/Kotor-Patch-Manager#319, merge commit `7546ae5`);
+> - the controller is not an option of `kmrp` but a patch of its own (2026-10-07,
+>   [the second handoff](macos-two-patches-handoff.md)), so `kmrp`'s options are `map-notes`
+>   and `debug-logs` and no hook carries `when`;
+> - the Mac patch file is `KMRP-macOS.kpatch` since 2026-10-08, where this document says
+>   `kmrp.kpatch`.
+>
+> Its two open questions about the Mac are closed: the installer offers no resolution
+> checklist (Windows removed its own on 2026-10-07 and the Mac followed on 2026-10-08), and
+> `debug-logs` gates the modules' logs only. Present state:
+> [`macos/README.md`](../macos/README.md); item by item:
+> [`macos-changes-from-windows.md`](macos-changes-from-windows.md), items 14 to 16.
+
 **Kind: handoff.** Written on Windows on 2026-10-04 for whoever does the Mac side
 next. It says what the Windows build became that day, why, and what the Mac build
 has to become to match. Nothing in it was built or run on a Mac: every statement

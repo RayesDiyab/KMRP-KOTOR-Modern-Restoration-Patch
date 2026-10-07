@@ -3,7 +3,7 @@
 
   The widescreen patch lays the menus out itself unless swkotor.ini says UseGuiFileLayouts=1 in
   [Graphics Options], which is for menu files already laid out at the screen's size: KMRP's.
-  Until 2026-10-04 KMRP Installer wrote that key. A kmrp.kpatch applied by hand in KotOR Patch
+  Until 2026-10-04 KMRP Installer wrote that key. A KMRP-macOS.kpatch applied by hand in KotOR Patch
   Manager has no installer, and it carries the menu files itself now (assets.cpp), so the key has
   to hold whenever the module has a set for the size, whatever the file says.
 
@@ -45,7 +45,6 @@
 
 namespace kmrp {
 extern FILE* (*g_iniOpen)(const char*, const char*);   // kmrp-layout/kmrp_layout.cpp
-extern const char* (*g_sdlPath)();
 extern bool g_resolutionListOpen;
 extern bool g_widescreenOwnsLayout;
 }
@@ -145,6 +144,11 @@ bool EndsWith(const char* text, const char* end) {
 
 }  // namespace
 
+// For resolution.cpp: whether the main display has a mode of this size.
+namespace kmrp {
+bool DisplayHasMode(int width, int height) { return DisplayOffers(width, height); }
+}  // namespace kmrp
+
 extern "C" FILE* kmrp_ini_fopen(const char* path, const char* mode) {
     if (!path || !mode || mode[0] != 'r' || strchr(mode, '+') || !EndsWith(path, "swkotor.ini")) return fopen(path, mode);
     std::string text;
@@ -223,13 +227,37 @@ extern "C" FILE* kmrp_ini_fopen(const char* path, const char* mode) {
 namespace {
 __attribute__((constructor)) void UseKmrpIni() {
     kmrp::g_iniOpen = kmrp_ini_fopen;
-    kmrp::g_sdlPath = kmrp::assets::SdlPath;
     kmrp::g_resolutionListOpen = true;
     // A widescreen patch of its own, loaded before this module: asked directly for the .gui
     // mode, when the size it is about to use is one KMRP has menus for. (Built into this module
     // it has no such entry point in the version KMRP carries, and reads the file through
     // kmrp_ini_fopen above.)
     int width = 0, height = 0;
+#ifndef KMRP_BUNDLED_WIDESCREEN
+    // The size last chosen in the game. A widescreen patch of its own reads swkotor.ini itself,
+    // not through kmrp_ini_fopen, so the ForceWidth and ForceHeight that reader is given never
+    // reached it and the game started at the display's size whatever had been chosen (seen
+    // 2026-10-07: 1280x720 chosen and saved, 1512x982 at the next start). The same answer is
+    // read back here and handed over as the patch's target, before it writes its mode.
+    if (const char* home = getenv("HOME")) {
+        const std::string path = std::string(home) + "/Library/Application Support/Knights of the Old Republic/swkotor.ini";
+        if (FILE* ini = kmrp_ini_fopen(path.c_str(), "r")) {
+            char line[256];
+            bool graphics = false;
+            int forceWidth = 0, forceHeight = 0;
+            while (fgets(line, sizeof line, ini)) {
+                bool header = false;
+                if (IsHeader(line, &header)) { graphics = header; continue; }
+                const char* eq = strchr(line, '=');
+                if (!graphics || !eq) continue;
+                if (IsKey(line, "ForceWidth")) forceWidth = atoi(eq + 1);
+                if (IsKey(line, "ForceHeight")) forceHeight = atoi(eq + 1);
+            }
+            fclose(ini);
+            if (forceWidth >= 640 && forceHeight >= 480) kmrp::widescreen::SetTarget(forceWidth, forceHeight);
+        }
+    }
+#endif
     kmrp::widescreen::Target(&width, &height);
 #ifdef KMRP_BUNDLED_WIDESCREEN
     (void)width; (void)height;

@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Check what the Mac module unpacks for the game against what the installer used to install.
 
-Since 2026-10-04 kmrp.dylib carries every resolution's menu set, KMRP's artwork and SDL
+Since 2026-10-04 kmrp.dylib carries every resolution's menu set and KMRP's artwork
 (macos/tools/make_kmrp_assets.py packs them; macos/patches/kmrp-assets/assets.cpp unpacks them
 to ~/Library/Caches/KMRP and registers the cache with the game). Until then KMRP Installer wrote
 the same files into the game's override folder. This builds the part with a small driver, with
@@ -15,15 +15,14 @@ the bank linked in as the module links it, runs it without a game, and checks:
 2. A second run for the same size rewrites nothing.
 3. Bundled third-party art is left out of the artwork folder when the game's override folder
    already has that texture, as a .tga or as a .tpc, and KMRP's own files are not.
-4. SDL is unpacked beside the cache's folders, as the build signed it.
-5. The part's load-time initialisers are exactly its two constructors (UseKmrpIni in
+4. The part's load-time initialisers are exactly its two constructors (UseKmrpIni in
    layouts_ini.cpp, WatchFrames in layout.cpp): a C++ global needing construction would be
    another, run in an order nothing can rely on.
 
     python testing/regression/Test-MacAssets.py ASSETS_SOURCE_DIR BANK SWPC_TEX_GUI_ERF
 
 ASSETS_SOURCE_DIR is build/macos/assets-src (override/, bundled-override.txt, layouts.zip,
-gui-blend.bin, engine/kmrp-sdl3.dylib), BANK build/macos/assets/kmrp-assets.bin, both made by
+gui-blend.bin), BANK build/macos/assets/kmrp-assets.bin, both made by
 macos/build.sh. The texture pack, chitin.key and data/ beside it are only read.
 """
 from __future__ import annotations
@@ -40,7 +39,10 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[2]
 PART = ROOT / "macos/patches/kmrp-assets"
 TOOLS = ROOT / "macos/tools"
-SIZES = ((1512, 982), (1800, 1169))   # a set of its own; none, blended from the nearest
+# A set the module rebuilds in part (the bank holds what the blend makes differently); one it
+# rebuilds whole; one outside the blend, stored whole; and a size with no set, blended from the
+# nearest. Since 2026-10-08 the bank leaves out what the module's blend helper writes exactly.
+SIZES = ((1512, 982), (1920, 1080), (1280, 1080), (1800, 1169))
 
 DRIVER = r"""
 #include "assets.h"
@@ -48,12 +50,11 @@ DRIVER = r"""
 #include <cstdlib>
 int g_targetWidth, g_targetHeight;
 void InitTargetResolution() {}
-namespace kmrp { FILE* (*g_iniOpen)(const char*, const char*) = nullptr; const char* (*g_sdlPath)() = nullptr; }
+namespace kmrp { FILE* (*g_iniOpen)(const char*, const char*) = nullptr; }
 int main(int argc, char** argv) {
     std::string art, set;
     const bool ok = kmrp::assets::Prepare(atoi(argv[1]), atoi(argv[2]), &art, &set);
-    const char* sdl = kmrp::assets::SdlPath();
-    printf("art\t%s\nset\t%s\nsdl\t%s\n", art.c_str(), set.c_str(), sdl ? sdl : "");
+    printf("art\t%s\nset\t%s\n", art.c_str(), set.c_str());
     return ok ? 0 : 1;
 }
 """
@@ -146,7 +147,13 @@ def main() -> int:
                 return {}
             return dict(line.split("\t", 1) for line in result.stdout.splitlines() if line.count("\t") == 1)
 
-        for width, height in SIZES:
+        # KMRP_ALL_SETS=1 in the environment: every set the build has, which takes some minutes.
+        sizes = SIZES
+        if os.environ.get("KMRP_ALL_SETS"):
+            with zipfile.ZipFile(source / "layouts.zip") as layouts:
+                sizes = tuple(sorted(tuple(map(int, n[len("index/"):-len(".txt")].split("x")))
+                                     for n in layouts.namelist() if n.startswith("index/") and n.endswith(".txt")))
+        for width, height in sizes:
             size = f"{width}x{height}"
             made = prepare(width, height)
             if not made:
@@ -165,10 +172,6 @@ def main() -> int:
             again = prepare(width, height)
             if again and {p.name: p.stat().st_mtime_ns for p in Path(again["set"]).iterdir()} != before:
                 failures.append(f"{size}: a second run rewrote the set")
-            # 4. SDL, once, as the build signed it.
-            sdl = Path(made["sdl"]) if made.get("sdl") else None
-            if not sdl or not sdl.is_file() or digest(sdl) != digest(source / "engine/kmrp-sdl3.dylib"):
-                failures.append(f"{size}: SDL was not unpacked as the build made it")
             print(f"     {size}: {len(got)} files, as the installer made them (set from {chosen})")
 
         # 3. Bundled art yields to the player's own texture of that name, of either kind.
@@ -188,7 +191,7 @@ def main() -> int:
             if len(linked) != len(list((source / "override").iterdir())) - 2:
                 failures.append("more than the two shadowed files are missing from the artwork folder")
 
-        # 5. Two load-time initialisers, the part's own constructors.
+        # 4. Two load-time initialisers, the part's own constructors.
         check = tmp / "part.dylib"
         run("clang++", "-arch", "x86_64", "-std=c++17", "-O2", "-w", "-dynamiclib", "-undefined", "dynamic_lookup",
             "-I", str(PART), *(str(p) for p in sorted(PART.glob("*.cpp"))), "-o", str(check))

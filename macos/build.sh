@@ -98,7 +98,7 @@ clang -O2 -Wall -Wextra -arch x86_64 -arch arm64 -mmacosx-version-min=10.13 \
     -o "$PKG/bin/kmrp-macho" "$HERE/tools/kmrp-macho.c"
 codesign --force --sign - "$PKG/bin/kmrp-macho" 2>/dev/null
 
-step "kmrp-guiblend (the installer app checks a custom size with its dry run)"
+step "kmrp-guiblend (kmrp-mac.sh blends the menus of a size with no set of its own)"
 # kmrp-abilityicons and kmrp-gameart were packaged too until 2026-10-04, when the installer made
 # the game-derived art; the module makes it now, with all three compiled in (make_kmrp_patch.py).
 clang -O2 -Wall -Wextra -arch x86_64 -arch arm64 -mmacosx-version-min=10.13 \
@@ -167,34 +167,66 @@ step "List rows: the committed offsets are what these sets and this artwork meas
 "$PYTHON" "$HERE/tools/measure_list_rows.py" "$ASRC/layouts.zip" "$ASRC/override" --check 2>/dev/null || {
     print -u2 "run: $PYTHON macos/tools/measure_list_rows.py $ASRC/layouts.zip $ASRC/override"; exit 1; }
 
-step "The bank: artwork, every menu set, the blend table and SDL, for the module"
-# SDL itself, under the name the module unpacks it as. Its code is unchanged; its signature is
-# redone because the release's (ad-hoc, like ours) seals the framework's Info.plist, which
-# does not travel with the bare library.
-cp "$SDL_DIR/SDL3.framework/Versions/A/SDL3" "$ASRC/engine/kmrp-sdl3.dylib"
-codesign --force --sign - --identifier org.libsdl.SDL3 "$ASRC/engine/kmrp-sdl3.dylib" 2>/dev/null
-codesign --verify "$ASRC/engine/kmrp-sdl3.dylib"
+step "The bank: artwork, every menu set and the blend table, for KMRP's module"
 BANK="$BUILD/assets/kmrp-assets.bin"
-"$PYTHON" "$HERE/tools/make_kmrp_assets.py" --package "$ASRC" --out "$BANK"
+"$PYTHON" "$HERE/tools/make_kmrp_assets.py" --package "$ASRC" --out "$BANK" --helper "$PKG/bin/kmrp-guiblend" \
+    --hd-icons "$ROOT/third_party/Included/KOTOR1 HD ICON PACK ver1.0 1.0.0 by JackInTheBox/Override"
 
-step "The patches: FTD's Widescreen Patch and Stray Bug Fixes, and KMRP's own on top of them"
-# Three KotOR Patch Manager patches since 2026-10-04 (one until then, id kmrp, which carried a
-# copy of FTD's two since 2026-09-30):
+step "The controller patch's own files (tools/build_controller_assets.py's steps, on this game's layouts)"
+# The controller patch works on a game without KMRP, so it carries its own files: the game's
+# layouts with the controller's cues, its badge art, the Controller Layout screen and SDL
+# (macos/tools/make_controller_assets.py). SDL under the name the module unpacks it as: its code
+# is unchanged; its signature is redone because the release's (ad-hoc, like ours) seals the
+# framework's Info.plist, which does not travel with the bare library.
+CSRC="$BUILD/controller-assets"
+mkdir -p "$CSRC"
+cp "$SDL_DIR/SDL3.framework/Versions/A/SDL3" "$CSRC/kmrp-sdl3.dylib"
+codesign --force --sign - --identifier org.libsdl.SDL3 "$CSRC/kmrp-sdl3.dylib" 2>/dev/null
+codesign --verify "$CSRC/kmrp-sdl3.dylib"
+"$PYTHON" "$HERE/tools/make_controller_assets.py" --extract "$GAME/Contents/Assets" | tail -1
+CBANK="$CSRC/kmrp-controller-assets.bin"
+"$PYTHON" "$HERE/tools/make_controller_assets.py" --erf "$ERF" --sdl "$CSRC/kmrp-sdl3.dylib" \
+    --out "$CBANK" --files "$CSRC/files" 2>&1 | { grep -v "DEBUG" || true; } | tail -1
+
+# The shapes the badges were made for, which the controller module compiles in to tell a button
+# of another shape (patches/kmrp-controller/overlays.cpp): one file for both platforms,
+# src/controller-native/K1ControllerBadgeShapes.inc, which has to be what this bank measures to.
+"$PYTHON" - "$ROOT" "$CSRC/files" <<'PY' || { print -u2 "K1ControllerBadgeShapes.inc is not what the Mac bank's layouts and textures give: the Mac needs a table of its own"; exit 1; }
+import logging, sys
+from pathlib import Path
+logging.disable(logging.DEBUG)
+root, files = Path(sys.argv[1]), Path(sys.argv[2])
+sys.path.insert(0, str(root / "tools"))
+import build_controller_assets
+same = build_controller_assets.badge_shapes(files) == (root / "src/controller-native/K1ControllerBadgeShapes.inc").read_text()
+print(f"{'ok  ' if same else 'FAIL'} the badge shapes are the shared table's")
+sys.exit(0 if same else 1)
+PY
+
+# The Xbox-style HUD's table for the Mac (patches/kmrp-controller/xbox_hud_layout.inc) is what
+# tools/build_xbox_hud.py writes from the layout Windows uses and the Mac's control offsets.
+"$PYTHON" "$ROOT/tools/build_xbox_hud.py" --mac --check ||
+    { print -u2 "run: $PYTHON tools/build_xbox_hud.py --mac"; exit 1; }
+
+step "The patches: FTD's Widescreen Patch and Stray Bug Fixes, KMRP's own on top of them, and the controller's"
+# Four KotOR Patch Manager patches since 2026-10-07 (three from 2026-10-04, when controller
+# support was part of KMRP's; one until then, id kmrp, which carried a copy of FTD's two):
 #
 #   K1StrayBugFixes.kpatch    FTD's, built from the submodule's source with KPM's own
 #   K1WidescreenPatch.kpatch  Patches/create-patch.py, as every KPM patch is built
-#   kmrp.kpatch               KMRP's own code (tools/make_kmrp_patch.py --split): the menu sets
+#   KMRP-macOS.kpatch               KMRP's own code (tools/make_kmrp_patch.py --split): the menu sets
 #                             and artwork (the bank above), the resolution chosen in the game,
-#                             KMRP's navigation and status summary, map notes, the controller.
-#                             It requires the two, and asks the Widescreen Patch for its .gui
-#                             mode through that patch's entry points.
+#                             KMRP's navigation and status summary, map notes. It requires the
+#                             two, and asks the Widescreen Patch for its .gui mode through that
+#                             patch's entry points.
+#   KOTOR 1 Native Controller Mod + Xbox HUD (macOS).kpatch    controller support (--controller-patch), with its own files. It
+#                             requires nothing: it works beside KMRP, beside the Widescreen
+#                             Patch alone, and on the game with neither.
 #
-# Controller support, map notes and debug logs are kmrp's patch options
-# (LaneDibello/Kotor-Patch-Manager#310), recorded in configs/kmrp.ini, which the module reads.
-# Only the controller's hooks depend on an option, so the installer needs two hook lists: the
-# whole install, and the install without them. Each is staged by KPM's own KPatchCore; the second
-# from the list make_kmrp_patch.py writes for an installer that resolved the option
-# (--without-option), since the submodule's KPatchCore is from before patch options.
+# The installer installs the fourth while Controller Support is on, so it needs two hook lists:
+# with it and without. Each is staged by KPM's own KPatchCore, whose overlap check runs across
+# all the patches of a list. The controller patch is also staged alone, as a player who adds it
+# to an unpatched game in KotOR Patch Manager gets it.
 STRAY="$KPM/Patches/K1StrayBugFixes"
 [[ -f "$STRAY/manifest.toml" ]] || { print -u2 "no Patches/K1StrayBugFixes in $KPM"; exit 2; }
 grep -q K1Widescreen_UseGuiFileLayouts "$WIDESCREEN/mac_widescreen.cpp" || {
@@ -203,70 +235,76 @@ grep -q K1Widescreen_UseGuiFileLayouts "$WIDESCREEN/mac_widescreen.cpp" || {
 }
 dotnet build "$HERE/tools/kpm-cli" -c Release -p:KpmRoot="$KPM" -o "$BUILD/kpm-cli" >/dev/null
 KPMCLI=(dotnet "$BUILD/kpm-cli/kpm-cli.dll")
-mkdir -p "$PKG/engine" "$BUILD/kpatch/ftd"
+mkdir -p "$PKG/engine" "$BUILD/kpatch/ftd" "$BUILD/kpatch/kmrp"
 for patch in K1StrayBugFixes K1WidescreenPatch; do
     (cd "$KPM/Patches/$patch" && "$PYTHON" ../create-patch.py -o "$BUILD/kpatch/ftd" >"$BUILD/kpatch/ftd/$patch.log" 2>&1) ||
         { cat "$BUILD/kpatch/ftd/$patch.log" >&2; print -u2 "$patch does not build"; exit 1; }
     [[ -f "$BUILD/kpatch/ftd/$patch.kpatch" ]] || { print -u2 "create-patch.py made no $patch.kpatch"; exit 1; }
     $KPMCLI validate "$BUILD/kpatch/ftd/$patch.kpatch" "$EXE" | { grep -v DEBUG || true; }
 done
-kmrp_patch() {   # kmrp_patch <folder> [make_kmrp_patch.py options]: built, checked and staged with FTD's two
-    local name=$1; shift
-    mkdir -p "$BUILD/kpatch/$name"
-    "$PYTHON" "$HERE/tools/make_kmrp_patch.py" --split --widescreen "$WIDESCREEN" --stray "$STRAY" \
-        --layout "$HERE/patches/kmrp-layout" --notes "$HERE/patches/kmrp-map-notes" --notes-include "$NOTES" \
-        --controller "$HERE/patches/kmrp-controller" --sdl "$SDL_DIR" --version "$VERSION" --options "$@" \
-        --assets "$HERE/patches/kmrp-assets" --assets-bank "$BANK" --tools "$HERE/tools" \
-        --out "$BUILD/kpatch/$name/kmrp.kpatch"
-    $KPMCLI validate "$BUILD/kpatch/$name/kmrp.kpatch" "$EXE" | { grep -v DEBUG || true; }
-    # In KPM's order: a patch after the ones it requires. Its overlap check runs across all three.
-    $KPMCLI stage-many "$EXE" "$BUILD/engine/$name" "$BUILD/kpatch/ftd/K1StrayBugFixes.kpatch" \
-        "$BUILD/kpatch/ftd/K1WidescreenPatch.kpatch" "$BUILD/kpatch/$name/kmrp.kpatch" | { grep -v DEBUG || true; }
-    grep -q '^id = "kmrp"$' "$BUILD/engine/$name/patch_config.toml" || { print -u2 "$name: not staged"; exit 1; }
-}
-kmrp_patch kmrp
-kmrp_patch kmrp.controller-off --without-option controller
-# The same modules whatever was chosen: the choice is in the hook list and in configs/kmrp.ini.
+PATCH_ARGS=(--layout "$HERE/patches/kmrp-layout" --notes "$HERE/patches/kmrp-map-notes" --notes-include "$NOTES"
+            --version "$VERSION")
+"$PYTHON" "$HERE/tools/make_kmrp_patch.py" --split --widescreen "$WIDESCREEN" --stray "$STRAY" $PATCH_ARGS --options \
+    --assets "$HERE/patches/kmrp-assets" --assets-bank "$BANK" --tools "$HERE/tools" \
+    --out "$BUILD/kpatch/kmrp/KMRP-macOS.kpatch"
+"$PYTHON" "$HERE/tools/make_kmrp_patch.py" --controller-patch $PATCH_ARGS \
+    --controller "$HERE/patches/kmrp-controller" --sdl "$SDL_DIR" --controller-bank "$CBANK" \
+    --out "$BUILD/kpatch/kmrp/KOTOR 1 Native Controller Mod + Xbox HUD (macOS).kpatch"
+FTD_PATCHES=("$BUILD/kpatch/ftd/K1StrayBugFixes.kpatch" "$BUILD/kpatch/ftd/K1WidescreenPatch.kpatch")
+for patch in "KMRP-macOS" "KOTOR 1 Native Controller Mod + Xbox HUD (macOS)"; do
+    $KPMCLI validate "$BUILD/kpatch/kmrp/$patch.kpatch" "$EXE" | { grep -v DEBUG || true; }
+done
+# In KPM's order: a patch after the ones it requires.
+$KPMCLI stage-many "$EXE" "$BUILD/engine/kmrp" $FTD_PATCHES "$BUILD/kpatch/kmrp/KMRP-macOS.kpatch" \
+    "$BUILD/kpatch/kmrp/KOTOR 1 Native Controller Mod + Xbox HUD (macOS).kpatch" | { grep -v DEBUG || true; }
+$KPMCLI stage-many "$EXE" "$BUILD/engine/kmrp.controller-off" $FTD_PATCHES "$BUILD/kpatch/kmrp/KMRP-macOS.kpatch" | { grep -v DEBUG || true; }
+$KPMCLI stage-many "$EXE" "$BUILD/engine/controller-alone" "$BUILD/kpatch/kmrp/KOTOR 1 Native Controller Mod + Xbox HUD (macOS).kpatch" | { grep -v DEBUG || true; }
+$KPMCLI stage-many "$EXE" "$BUILD/engine/controller-widescreen" $FTD_PATCHES "$BUILD/kpatch/kmrp/KOTOR 1 Native Controller Mod + Xbox HUD (macOS).kpatch" | { grep -v DEBUG || true; }
+# The same modules whichever list: the choice is which patches are in it.
 for module in kmrp k1widescreenpatch k1-stray-bug-fixes-patch; do
     cmp -s "$BUILD/engine/kmrp/patches/$module.dylib" "$BUILD/engine/kmrp.controller-off/patches/$module.dylib" \
         || { print -u2 "the two stagings hold different $module modules"; exit 1; }
 done
-# The option's hooks are exactly what the second list lacks, and it carries no condition.
-"$PYTHON" - "$BUILD/kpatch/kmrp/kmrp.kpatch" "$BUILD/engine/kmrp/patch_config.toml" \
-    "$BUILD/engine/kmrp.controller-off/patch_config.toml" <<'PY'
+"$PYTHON" - "$BUILD/kpatch/kmrp" "$BUILD/engine" <<'PY'
 import sys, tomllib, zipfile
-patch, on, off = sys.argv[1:]
-with zipfile.ZipFile(patch) as z:
-    name = next(n for n in z.namelist() if n.endswith(".hooks.toml"))
-    declared = tomllib.loads(z.read(name).decode())["hooks"]
-    manifest = tomllib.loads(z.read("manifest.toml").decode())["patch"]
-    options = [o["id"] for o in manifest["options"]]
-def staged(path):
-    patches = tomllib.loads(open(path, "rb").read().decode())["patches"]
-    return [p["id"] for p in patches], {p["id"]: [h["address"] for h in p.get("hooks", [])] for p in patches}
-ids_on, hooks_on = staged(on)
-ids_off, hooks_off = staged(off)
-order = ["k1-stray-bug-fixes-patch", "k1widescreenpatch", "kmrp"]
-if ids_on != order or ids_off != order or manifest["requires"] != order[:2]:
-    sys.exit(f"the staged patches are {ids_on} and {ids_off}, kmrp requires {manifest['requires']}")
-conditions = {h.get("when") for h in declared} - {None}
-if options != ["controller", "map-notes", "debug-logs"] or conditions != {"controller"}:
-    sys.exit(f"kmrp.kpatch: options {options}, conditions {sorted(conditions)}")
-everything = [a for i in order for a in hooks_on[i]]
-if len(set(everything)) != len(everything):
-    sys.exit("two of the three patches hook one address, which KotOR Patch Manager refuses")
-if hooks_on["kmrp"] != [h["address"] for h in declared]:
-    sys.exit("the staged hook list is not the patch's")
-if hooks_off["kmrp"] != [h["address"] for h in declared if "when" not in h]:
-    sys.exit("the list without the controller is not the patch's unconditional hooks")
-if any(hooks_on[i] != hooks_off[i] for i in order[:2]):
-    sys.exit("the two stagings differ in FTD's patches")
-print(f"kmrp.kpatch: {len(declared)} hooks, {len(hooks_off['kmrp'])} without the controller; options {', '.join(options)}; "
-      f"with FTD's {len(hooks_on[order[0]])} and {len(hooks_on[order[1]])}")
+from pathlib import Path
+patches, engine = map(Path, sys.argv[1:])
+def declared(name):
+    with zipfile.ZipFile(patches / name) as z:
+        hooks = tomllib.loads(z.read(next(n for n in z.namelist() if n.endswith(".hooks.toml"))).decode())["hooks"]
+        return hooks, tomllib.loads(z.read("manifest.toml").decode())["patch"]
+def staged(name):
+    listed = tomllib.loads((engine / name / "patch_config.toml").read_text())["patches"]
+    return [p["id"] for p in listed], {p["id"]: [h["address"] for h in p.get("hooks", [])] for p in listed}
+kmrp_hooks, kmrp = declared("KMRP-macOS.kpatch")
+pad_hooks, pad = declared("KOTOR 1 Native Controller Mod + Xbox HUD (macOS).kpatch")
+ftd = ["k1-stray-bug-fixes-patch", "k1widescreenpatch"]
+expected = {"kmrp": ftd + ["kmrp", "kmrp-controller"], "kmrp.controller-off": ftd + ["kmrp"],
+            "controller-alone": ["kmrp-controller"], "controller-widescreen": ftd + ["kmrp-controller"]}
+lists = {}
+for name, order in expected.items():
+    ids, hooks = staged(name)
+    if ids != order:
+        sys.exit(f"{name}: staged {ids}, expected {order}")
+    everything = [a for i in order for a in hooks[i]]
+    if len(set(everything)) != len(everything):
+        sys.exit(f"{name}: two of its patches hook one address, which KotOR Patch Manager refuses")
+    lists[name] = hooks
+if kmrp["requires"] != ftd or pad["requires"] or "kmrp" in pad["conflicts"] or "kmrp-controller" in kmrp["conflicts"]:
+    sys.exit(f"kmrp requires {kmrp['requires']}; the controller patch requires {pad['requires']}, conflicts {pad['conflicts']}")
+if [o["id"] for o in kmrp["options"]] != ["map-notes", "hd-icons", "debug-logs"] or any("when" in h for h in kmrp_hooks + pad_hooks):
+    sys.exit("KMRP-macOS.kpatch: its options are not map-notes, hd-icons and debug-logs, or a hook carries a condition")
+for name in expected:
+    if "kmrp" in lists[name] and lists[name]["kmrp"] != [h["address"] for h in kmrp_hooks]:
+        sys.exit(f"{name}: KMRP's staged hook list is not the patch's")
+    if "kmrp-controller" in lists[name] and lists[name]["kmrp-controller"] != [h["address"] for h in pad_hooks]:
+        sys.exit(f"{name}: the controller patch's staged hook list is not the patch's")
+print(f"KMRP-macOS.kpatch: {len(kmrp_hooks)} hooks; KOTOR 1 Native Controller Mod + Xbox HUD (macOS).kpatch: {len(pad_hooks)} hooks, options "
+      f"{', '.join(o['id'] for o in pad['options'])}; with FTD's {len(lists['kmrp'][ftd[0]])} and {len(lists['kmrp'][ftd[1]])}")
 PY
 # The modules are not packaged a second time: KMRP's is 150 MB with the menu sets inside, and the
 # installer takes each out of its .kpatch, as KPM does (binaries/macos_x86_64.dylib).
-for pair in kmrp:kmrp/kmrp.kpatch k1widescreenpatch:ftd/K1WidescreenPatch.kpatch k1-stray-bug-fixes-patch:ftd/K1StrayBugFixes.kpatch; do
+for pair in "kmrp:kmrp/KMRP-macOS.kpatch" "kmrp-controller:kmrp/KOTOR 1 Native Controller Mod + Xbox HUD (macOS).kpatch" k1widescreenpatch:ftd/K1WidescreenPatch.kpatch k1-stray-bug-fixes-patch:ftd/K1StrayBugFixes.kpatch; do
     cmp -s "$BUILD/engine/kmrp/patches/${pair%%:*}.dylib" <(unzip -p "$BUILD/kpatch/${pair#*:}" binaries/macos_x86_64.dylib) \
         || { print -u2 "the staged ${pair%%:*} module is not the one in its .kpatch"; exit 1; }
 done
@@ -274,7 +312,8 @@ cp "$BUILD/engine/kmrp/patch_config.toml" "$PKG/engine/"
 cp "$BUILD/engine/kmrp.controller-off/patch_config.toml" "$PKG/engine/patch_config.controller-off.toml"
 # The patches themselves, which the installer takes the modules from and puts in KotOR Patch
 # Manager's patch folder, as the Windows installer does with its .kpatch files, so KPM lists them.
-cp "$BUILD/kpatch/kmrp/kmrp.kpatch" "$BUILD/kpatch/ftd/K1WidescreenPatch.kpatch" "$BUILD/kpatch/ftd/K1StrayBugFixes.kpatch" "$PKG/engine/"
+cp "$BUILD/kpatch/kmrp/KMRP-macOS.kpatch" "$BUILD/kpatch/kmrp/KOTOR 1 Native Controller Mod + Xbox HUD (macOS).kpatch" \
+    "$BUILD/kpatch/ftd/K1WidescreenPatch.kpatch" "$BUILD/kpatch/ftd/K1StrayBugFixes.kpatch" "$PKG/engine/"
 cp "$BUILD/KotorPatcher.dylib" "$PKG/engine/"
 cp "$SDL_DIR/LICENSE.txt" "$PKG/licenses/SDL3-LICENSE.txt"
 
@@ -293,19 +332,12 @@ cp "$RESOURCES/GPL-3.0-KOTOR-High-Resolution-Menus.txt" "$PKG/licenses/" 2>/dev/
 print -r -- "$(wc -l < "$PKG/SHA256SUMS" | tr -d ' ') files hashed"
 
 step "KMRP Installer.app (the window over kmrp-mac.sh, macos/installer-app)"
-# Every size the app lists must be one the package has a set for.
-missing=()
-for size in $(awk -F '\t' '$1 ~ /^[0-9]+x[0-9]+$/ { print $1 }' "$HERE/installer-app/resolutions.txt"); do
-    grep -qx "$size" "$PKG/sizes.txt" || missing+=($size)
-done
-(( ${#missing} == 0 )) || { print -u2 "resolutions.txt lists sizes the build has no set for: $missing"; exit 1; }
 mkdir -p "$INSTALLER/Contents/MacOS"
 clang -fobjc-arc -O2 -Wall -Wextra -Wno-unused-parameter -arch x86_64 -arch arm64 -mmacosx-version-min=10.13 \
     -Wunguarded-availability -framework Cocoa -framework Accelerate -weak_framework UniformTypeIdentifiers \
     -o "$INSTALLER/Contents/MacOS/KMRP Installer" "$HERE/installer-app/main.m"
 sed "s/@VERSION@/$VERSION/g" "$HERE/installer-app/Info.plist" > "$INSTALLER/Contents/Info.plist"
 plutil -lint "$INSTALLER/Contents/Info.plist" >/dev/null
-cp "$HERE/installer-app/resolutions.txt" "$INSTALLER/Contents/Resources/"
 # The Windows patcher's own art: its brand lockup and its step and state icons
 # (build_kmrp.ps1 embeds the same files), so the two windows look alike.
 cp "$ROOT/src/patcher/brand.png" "$INSTALLER/Contents/Resources/"

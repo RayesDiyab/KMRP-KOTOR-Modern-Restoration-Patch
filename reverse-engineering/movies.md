@@ -24,6 +24,23 @@ the first version of this document:
 KMRP fixes both: gold v23 writes the selected resolution into the mode pair, and
 gold v24 replaces the scaling with a true aspect fit (§ Aspect fit).
 
+> **Where these bytes are written (note of 2026-10-08, read from the source).**
+> Until 2026-09-29 KMRP's installer wrote the four operands and the `.kmv`
+> routine into `swkotor.exe`. It no longer does: the module of `KMRP.kpatch`
+> applies the same bytes in memory each time the game starts, under KOTOR Patch
+> Manager's runtime (`src/controller-native/K1KpmApplier.cpp`,
+> `K1RuntimeEngine.cpp`), from a recipe built from source
+> (`src/engine/windows-sites.json`, `tools/build_windows_engine.py`,
+> `tools/build_native_engine.py`). The four operands are not the resolution
+> "selected in KMRP" any more: no resolution is chosen in the installer since
+> 2026-10-04, and the module writes them for the size the game runs at, again
+> when the size is changed in the game (`FieldValue`, kinds 1 and 2). `.kmv` is
+> in the block of memory the module allocates, not at its gold address.
+> "Shipped", `ResolutionPatch` and `Test-MovieResolution.ps1` below describe the
+> installer's `--apply` output, a patched executable written to a new file,
+> which is still the reference ([`docs/kpm-edition.md`](../docs/kpm-edition.md)).
+> The movie fixes are part of KMRP's patch and not an option.
+
 ### Correction, 2026-09-06
 
 An earlier revision of this section claimed the path "computes an aspect-preserving
@@ -248,7 +265,19 @@ Two detours, both in `src/controller-native/kotor1.hooks.toml`. Until
 2026-09-28 they shipped only with the controller component, and with it turned
 off the bars and the flash were back. Since then they install on every patch:
 the window hooks as core hooks, and the per-frame one as `NativeMovieFrameK1`
-with controller support or `CoreMovieFrameK1` (bars only) without:
+with controller support or `CoreMovieFrameK1` (bars only) without.
+
+*Since 2026-10-05 (note of 2026-10-08, read from `tools/build_native_kpatch.py`
+and `K1NativeJoystick.cpp`):* KMRP is two patches, and the two window hooks
+below are in KMRP's own, `KMRP.kpatch`, always installed. Its per-frame hook is
+no longer either of the two named above: it is `KmrpCoreMovieWorkK1` at
+`0x00404D06` (`8B 56 48 50 8B 46 4C`, ESI the movie player), earlier in the
+same loop, which centres and tracks the movie window and gives it its bars
+(`TrackMovieFrameK1`). The site `0x00404D96` belongs to the controller patch
+(`kmrp-controller`), which works with or without KMRP. **No movie has been
+watched with the hook at its new place** (CHANGELOG, `[Unreleased]`, "KMRP and
+the controller patch are two patches"): that a movie is centred, has its bars
+and can be skipped is unverified there.
 
 | address | function | when |
 | --- | --- | --- |

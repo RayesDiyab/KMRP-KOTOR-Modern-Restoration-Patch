@@ -41,6 +41,27 @@ what the Mac now needs from that work, is
 evening**, up to `d672b8d` (items 12 to 15), and built as `97BEA480…` with the resources made
 again: items 12, 14 and 15 are in that build, and item 13 was written for Windows then.
 
+**The Mac side, brought up to date on 2026-10-08.** Each section says what the Mac did on the
+day it was written, which is what Windows was asked to match. How the Mac does several of
+them has changed since, without changing what the player gets
+([`macos/README.md`](../macos/README.md) has the present state):
+
+- since 2026-10-04 nothing is made "at install" on the Mac: KMRP's module carries every
+  size's set, blends one for any other size and makes the row frames, tutorial icons and
+  ability icons from the player's game when the game starts (items 2, 6 and 8), and the
+  resolution is chosen in the game, not in the installer;
+- since 2026-10-04 the engine sizes item 2 lists under `macos/patches/kmrp-layout`, the
+  popup fitting (item 1), the granted popup's rows (item 10) and the Options check boxes
+  (item 13) are written on the Mac by FTD's Widescreen Patch, which took them over from
+  `kmrp-layout`; KMRP builds on his two patches instead of carrying them;
+- since 2026-10-07 KMRP on the Mac is four KotOR Patch Manager patches (FTD's two, `kmrp`
+  and the controller patch), so in item 16 "KMRP the only patch" means those four ids on
+  the Mac, and the patch file there called `kmrp.kpatch` is `KMRP-macOS.kpatch` since
+  2026-10-08.
+
+The Windows states in the table are as the Windows side last recorded them; only row 19 was
+changed on 2026-10-08, from the other tracker's item 28.
+
 States: **to do** (Windows has nothing yet), **build only** (shared code already changed;
 Windows gets it with a build from the merged code and needs a check in play), **built** (in
 a Windows build, its automated checks passing; not yet seen in play), **done** (as the Mac
@@ -66,7 +87,7 @@ does it, checked as stated), **doc** (a Windows document to correct).
 | 16 | Uninstall after KPM's takeover: removes KPM's runtime too when KMRP is its only patch; a takeover found from any runtime file, not `patch_config.toml` alone | **done** (2026-10-01; `Test-KpmEdition.ps1` Cases 10b and 10c, then KPM 0.7.1's own Apply on the scratch copy, both deployments and beside another patch; not with KPM's window) |
 | 17 | The target menu: buttons 1.5x the name strip, centred under it, never past the name box | **built** (2026-10-01, installer `F9BB9E8D`; not seen in play on Windows) |
 | 18 | A on the world after an action slot's focus has gone stale (a door after an enemy) | **built** (2026-10-01; not seen in play) |
-| 19 | List rows centred between their box's borders (inventory, abilities, quests, quest items, scripts, store, workbench, character generation) | **to do** (Mac: 2026-10-04) |
+| 19 | List rows centred between their box's borders (inventory, abilities, quests, quest items, scripts, store, workbench, character generation) | **done on Windows, 2026-10-06** (Mac: 2026-10-04), with two differences from the Mac's, of which the Mac took one: [`macos-changes-from-windows.md`](macos-changes-from-windows.md), item 28. Not brought to Windows: the abilities' row height after a resolution change |
 
 ## 1. Message popups fitted to their contents
 
