@@ -10,21 +10,22 @@
 **Corrections, 2026-10-04 ([one patch since 2026-10-04](kpm-edition.md#one-patch-since-2026-10-04)).** This document was
 written for the installer that installed four patches, a data file and the
 Override files, and most of its tables are measurements of that build. What no
-longer holds:
+longer holds (the right-hand column was brought up to 2026-10-08: two patches since
+2026-10-05, no resolution choice since 2026-10-07):
 
 | Here | Now |
 | --- | --- |
-| "Current build, 2026-10-01 ... 168,698,880 bytes ... 33 resources" and its table | 195,751,424 bytes (2026-10-04). Gone: `Kmrp.override.layouts`, `Kmrp.override.common`, `Kmrp.bundled`, `Kmrp.controller.module`, `Kmrp.controller.sdl`, `Kmrp.controller.sdllicense`, the four `Kmrp.engine.config.*` and the four `Kmrp.kpatch.*`. New: `Kmrp.kpatch` (the one patch, which holds the module), `Kmrp.engine.hooks` and `Kmrp.engine.hooks.controller` |
-| Step 3 as a list of 66 resolutions with a custom size, `resolutionBox` | "3. Resolutions": a line saying how many sizes the game will offer and where it starts, and a *Choose* button opening `ResolutionsDialog` (`resolutionButton`) |
-| Install building `kmrp-kpm.dat`, writing the data file, SDL and the modules, and the Override files | none of these: one module, `patches\kmrp.dll`, and `patch_config.toml` with the options table |
+| "Current build, 2026-10-01 ... 168,698,880 bytes ... 33 resources" and its table | 146,874,368 bytes as built on 2026-10-06 (195,751,424 on 2026-10-04, before the bank left out what the module can write itself). Gone: `Kmrp.override.layouts`, `Kmrp.override.common`, `Kmrp.bundled`, `Kmrp.controller.module`, `Kmrp.controller.sdl`, `Kmrp.controller.sdllicense`, the four `Kmrp.engine.config.*` and the four `Kmrp.kpatch.*`. New: `Kmrp.kpatch` (KMRP's patch, which holds its module), `KmrpController.kpatch` (the controller patch, since 2026-10-05), `Kmrp.engine.hooks` and `KmrpController.engine.hooks`; `Kmrp.kpatch.readme` is kept (resource names read from `build_kmrp.ps1`; the assembly's resources were not enumerated again) |
+| Step 3 as a list of 66 resolutions with a custom size, `resolutionBox` | "3. Resolutions": one line and no control, "Starts at W × H. The game lists every resolution the connected display supports." (`ResolutionSelection.Summary`). From 2026-10-04 to 2026-10-07 it had a *Choose* button opening `ResolutionsDialog`, a checklist with custom sizes; both were removed with the choice |
+| Install building `kmrp-kpm.dat`, writing the data file, SDL and the modules, and the Override files | none of these: KMRP's module, `patches\kmrp.dll`, the controller patch's, `patches\kmrp-controller.dll`, while Controller Support is on, and `patch_config.toml` with both patches' hooks and no options table |
 | "restores replaced Override files" | only for an install made before 2026-10-04 |
-| "packages the KPM patches", "the four KPM packages", the pool "which the installer embeds" | one package, `KMRP.kpatch` (`tools/build_native_kpatch.py`); the pool is still built, for the module's resource bank and the macOS build, and is not embedded |
+| "packages the KPM patches", "the four KPM packages", the pool "which the installer embeds" | two packages, `KMRP.kpatch` (`tools/build_native_kpatch.py`) and `KOTOR 1 Native Controller Mod + Xbox HUD.kpatch` (`tools/build_controller_kpatch.py`); the pool is still built, for the module's resource bank and the macOS build, and is not embedded |
 | `--in-place` as the "full runtime, DPI, INI, Override" transaction | runtime, DPI, NVIDIA, INI; no Override |
-| The regression list naming `Test-ControllerSupport.ps1` and `Test-InstalledOverride.ps1` | corrected in place below: `Test-InstallerPatch.ps1` and `Test-KpatchSource.py` |
-| Advanced Settings with three rows | four: Debug Logs, off by default, is the fourth (`KmrpSettings.DebugLogs`, the patch's `debug-logs` option). The rows share the card's height, 86 px each where four fit |
-| The options written into `patch_config.toml` | written to `configs\kmrp.ini`, section `[Patch Options]` (`WritePatchOptions`); a manifest row `options` records it for restore |
+| The regression list naming `Test-ControllerSupport.ps1` and `Test-InstalledOverride.ps1` | corrected in place below: `Test-InstallerPatch.ps1`, `Test-KpatchSource.py` and `Test-ControllerKpatch.py` |
+| Advanced Settings with three rows | four: Debug Logs, off by default, is the fourth (`KmrpSettings.DebugLogs`, the `debug-logs` option of both patches). Controller Support decides whether the controller patch is installed at all, not an option of KMRP's patch |
+| The options written into `patch_config.toml` | written to `configs\kmrp.ini` (`map-notes`, `debug-logs`) and, with the controller patch, `configs\kmrp-controller.ini` (`debug-logs`), section `[Patch Options]` (`WritePatchOptions`); a manifest row `options` records it for restore |
 | `tools/build_kpatch.py`, `tools/check_patcher_hook_table.py`, `src/controller-native/build.cmd` | removed on 2026-10-04; `tools/kpatch_common.py` holds the shared helpers |
-| The resolution checklist as a plain tick list of the sizes that fit the desktop | an owner-drawn list of every size KMRP has, in three sections (*This display*, *Fits this display*, *Larger than this display*), each row with its shape and common name (`ResolutionsDialog.DrawRow`, `ResolutionSelection.Aspect` and `CommonName`) |
+| Any resolution list, dropdown or checklist in the window, wherever the text below names one (the dimmed step 3, the animation measured "while scrolling the resolution dropdown") | there is none since 2026-10-07; those passages are measurements of the builds that had one |
 
 This document describes the shipping Windows patcher in
 `src/patcher/KmrpPatcher.cs`, the assets compiled into it, and the
@@ -124,9 +125,9 @@ The interface is one four-step card. State is derived from the selected
 | Step | Before patching | After patching |
 | --- | --- | --- |
 | 1. Game folder | Browse for the KOTOR directory. | Shows the selected directory. |
-| 2. Game version | Hash-verifies a supported Steam, GOG or editable CD 1.03 executable and names the detected build. Missing or incompatible files expand the recovery panel. | Shows the supplied Verified badge and installed state. |
-| 3. Resolution | Shows 66 resolutions, grouped by aspect ratio, plus a custom-size choice. | Replaces the dropdown with the installed resolution as read from the patch manifest. |
-| 4. Apply | Shows readiness, progress, or a recovery instruction. | Permanently shows `Patched successfully` and `KOTOR is ready to play at W × H.` |
+| 2. Game version | Hash-verifies a supported Steam, GOG or editable CD 1.03 executable and names the detected build. A missing or unsupported file is named on the step's subtitle line (until 2026-09-30 it expanded a recovery panel). | Shows the supplied Verified badge and installed state. |
+| 3. Resolutions | Nothing to choose since 2026-10-07: "Starts at W × H. The game lists every resolution the connected display supports." (Until 2026-10-04 a dropdown of the listed resolutions, grouped by aspect ratio, with a custom size; then a *Choose* checklist until 2026-10-07.) | Shows the size the game starts at, read from the install's record, and "The game starts at this size. Choose another in the game, under Options, Graphics." |
+| 4. Apply | Shows readiness, progress, or a recovery instruction. | Permanently shows `Patched successfully` and `KOTOR is ready to play at W × H.`, or, in a game KOTOR Patch Manager manages, "Managed by KOTOR Patch Manager: tick KMRP there, then Apply and Launch." |
 
 The primary button has one identity at a time:
 
@@ -147,7 +148,14 @@ message. There is no second post-click "protected resolution" message.
 
 ### The verification recovery state
 
-When the editable executable is missing or wrong, step 2 expands to carry the recovery
+*Retired 2026-09-30, kept as the record of its design.* Step 2 no longer expands:
+since KMRP takes Steam's, GOG's and the editable executable as they are, it names
+the version found, or says on its one subtitle line which file it could not use,
+with no *Get Editable EXE* or *Check Again* buttons. What remains in the code is
+the dimming: steps 3 and 4 are drawn dimmed (`StepRow.Dimmed`) until a supported
+executable is found. `resolutionBox`, named below, no longer exists.
+
+When the editable executable was missing or wrong, step 2 expanded to carry the recovery
 actions. It has to look like the same product as the rest of the card, and three
 things were making it look borrowed from somewhere else:
 
@@ -651,6 +659,16 @@ back. [kpm-edition.md](kpm-edition.md), section 1a, has the details. The list
 below is the standalone path as it was until then, kept as its record; its
 restore still runs to upgrade an install it made.
 
+**Since 2026-10-04** the paragraph above no longer holds in three places: no
+`kmrp-kpm.dat` is built or written, no SDL or controller settings file is written
+beside the game, and step 8 below (the Override archives) is gone. What is written
+is KOTOR Patch Manager's runtime, `patch_config.toml`, `patches\kmrp.dll`,
+`configs\kmrp.ini`, and since 2026-10-05, while Controller Support is on,
+`patches\kmrp-controller.dll` and `configs\kmrp-controller.ini`
+([kpm-edition.md](kpm-edition.md), its first two sections). The INI step writes
+the display's current size; since 2026-10-07 nothing else is written for the
+resolution.
+
 The in-place patch path is deliberately conservative. In the order
 `PatchOperations.ApplyInPlace` ran it until 2026-09-29:
 
@@ -732,16 +750,21 @@ python .\tools\prepare_app_icons.py  # requires Pillow; skip if icons are unchan
 
 Use `-ReuseResources` after a successful full resource build when interface
 resources have not changed. It skips resource regeneration, but still assembles
-the source engine, pools the archives, builds the blend table, compiles both
-native modules and packages the KPM patches before compiling the installer:
+the source engine, pools the archives, builds the blend table, compiles KOTOR
+Patch Manager's runtime, KMRP's module and the controller patch's module, and
+packages the two KPM patches before compiling the installer. The controller
+patch's step needs the game's layout files in `build-inputs\vanilla-gui`
+([build-inputs](../build-inputs/README.md)):
 
 ```powershell
 .\build_kmrp.ps1 -ReuseResources
 ```
 
 Between the resources and the compile, `build_kmrp.ps1` packs the 66 resolution
-archives into one pool, `build\kmrp\resolution-layouts.zip`, which the
-installer embeds in their place (`tools/pack_resolution_layouts.py`). The step
+archives into one pool, `build\kmrp\resolution-layouts.zip`
+(`tools/pack_resolution_layouts.py`), which the installer embedded in their place
+until 2026-10-04 and which now feeds the module's resource bank and the macOS
+build. The step
 runs with `-ReuseResources` as well. It stops the build unless every resolution
 rebuilt from the pool matches its archive, and took 41 seconds on 2026-09-25.
 
@@ -766,8 +789,9 @@ The shipped name contains spaces, so quote it on the command line.
 ```
 
 `--apply` creates an offline reference from a supported editable CD/GOG input;
-it does not install KMRP. `--in-place` performs the full runtime, DPI, INI,
-Override and optional-component transaction. It preserves Steam's EXE and sets
+it does not install KMRP. `--in-place` performs the full runtime, DPI, NVIDIA, INI
+and optional-component transaction (and wrote the Override files until
+2026-10-04); its resolution is the size `swkotor.ini` starts the game at. It preserves Steam's EXE and sets
 only the LAA header bit on the supported editable CD/GOG file. `--restore`
 restores KMRP-owned changes and preserves subsequently modified or foreign
 files. None of
@@ -780,8 +804,9 @@ the resolution in the legacy `--apply` and `--in-place` forms selects
 1. Run `prepare_app_icons.py`; confirm all seven supplied roles are reported.
 2. Run a full `build_kmrp.ps1` without `-ReuseResources`.
 3. Confirm the embedded source engine template, the 66-entry resolution table
-   and the four KPM packages. Run `Test-WindowsEngineSource.py` and
-   `Test-KpatchSource.py`; verify the guards, relocation omission checks and
+   and the two KPM packages, `KMRP.kpatch` and `KOTOR 1 Native Controller Mod +
+   Xbox HUD.kpatch` (four until 2026-10-04). Run `Test-WindowsEngineSource.py`,
+   `Test-KpatchSource.py` and `Test-ControllerKpatch.py`; verify the guards, relocation omission checks and
    corrupted-package rejection. Confirm the obsolete gold/originals resources
    are absent by enumerating the assembly's manifest resources.
 4. Extract the executable's 32px and 256px icon frames and confirm both show the
@@ -793,8 +818,11 @@ the resolution in the legacy `--apply` and `--in-place` forms selects
 7. Resize from the minimum size to a large size and confirm the aspect ratio,
    snapshot preview, final sharp text, complete footer, and absence of flicker
    or JIT errors.
-8. Patch a clean install, verify the EXE/INI/Override contents, launch the game,
-   then restore and compare all backups.
+8. Patch a clean install; verify the EXE (unchanged but for the 4 GB flag, and
+   unchanged on Steam), the INI, `patch_config.toml`, the modules under
+   `patches\` and that nothing was written to `Override`; launch the game, check
+   that Options, Graphics lists the display's resolutions, then restore and
+   compare all backups.
 9. Run `testing/regression/Test-DpiCompatibility.ps1`; verify its exact registry
    paths are absent or restored after completion.
 10. Run `python testing/regression/Test-GeneratedGuiGeometry.py`; verify all 66
@@ -810,12 +838,15 @@ the resolution in the legacy `--apply` and `--in-place` forms selects
     explicitly. The source regression independently checks all 68 documented
     historical runs and the 81 current guarded runs without them.
 13. Run the rest of the regression set: `Test-InstallerPatch.ps1`,
-    `Test-KpatchSource.py`, `Test-ReinstallOverOlderBuild.ps1`,
+    `Test-KpatchSource.py`, `Test-ControllerKpatch.py`,
+    `Test-NativeAssetsBank.py`, `Test-ReinstallOverOlderBuild.ps1`,
     `Test-UpdateCheck.ps1 -Live`, `Test-MovieResolution.ps1`,
     `Test-NvidiaPresentMethod.ps1`, `Test-ControllerPromptAssets.py`,
     `Test-FontAtlasScale.py` and `Test-ProtonResourceCompatibility.py`, then
-    `tools/check_controller_drift.py`, `tools/check_patcher_hook_table.py`,
-    `tools/check_hook_stolen_bytes.py` and `.github/scripts/check_links.py`.
+    `tools/check_controller_drift.py`, `tools/check_kpm_overlaps.py` on the two
+    packages, `tools/check_hook_stolen_bytes.py` and
+    `.github/scripts/check_links.py`. (`tools/check_patcher_hook_table.py`, named
+    here until 2026-10-08, was removed on 2026-10-04.)
 14. Record the final `dist/KMRP - KOTOR Modern Restoration Patch.exe` SHA-256 in the release directory.
 15. Confirm Properties → Details on the built installer shows the release's
     version (1.5.0 for KMRP 1.5), the same string as `PatchVersion` in

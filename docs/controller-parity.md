@@ -7,11 +7,20 @@
 **Kind: reference.** It describes what each of the two controller paths does
 today. The narrative of how the native path was built is in
 [`controller-native-path.md`](controller-native-path.md); what may be removed
-once QA passes is in [`controller-handover-plan.md`](controller-handover-plan.md).
+once QA passes is in [`controller-handover-plan.md`](history/controller-handover-plan.md).
+
+**What ships, checked on 2026-10-08:** only the native path. It is the controller
+patch, `KOTOR 1 Native Controller Mod + Xbox HUD.kpatch` (id `kmrp-controller`;
+[`controller-standalone.md`](controller-standalone.md)), which KMRP installs as
+its controller support since 2026-10-05. The legacy sources are compiled into its
+module, and no patch installs `DispatchMenuInputK1`, so the legacy transport never
+runs in a shipped game. The comparison below is kept as the evidence the native
+path was built from; "legacy" is what Saul0097's module does when installed by
+itself.
 
 ## What this compares, and where the claims come from
 
-Two implementations ship in the same module binary:
+Two implementations are compiled into the same module binary:
 
 | path | source | how input reaches the game |
 | --- | --- | --- |
@@ -23,10 +32,12 @@ out of `src/controller-native/kotor1.hooks.toml`. (Until 2026-09-24 this documen
 pointed at line numbers; all five had drifted, so it names symbols instead.) Nothing here is measured from the
 executable; the byte-level evidence for the native events lives in
 [`../reverse-engineering/retained-xbox-gui-events.md`](../reverse-engineering/retained-xbox-gui-events.md).
-Only one path's input transport is active at a time —
-`testing/controller/select_controller_path.py` drops the legacy
-`DispatchMenuInputK1` hook, and `PollXInputK1()` has exactly one call site, in
-`DispatchMenuInputK1` (`vendor/K1XboxControls.cpp`).
+Only one path's input transport is active at a time: `PollXInputK1()` has exactly
+one call site, in `DispatchMenuInputK1` (`vendor/K1XboxControls.cpp`), and that
+hook is installed by neither shipped patch.
+(`testing/controller/select_controller_path.py`, which dropped or kept it for
+comparison, writes the install layout of before 2026-09-29 and has not been
+brought up to the two patches.)
 
 ## Button parity
 
@@ -42,8 +53,8 @@ GUI panels, and the gameplay HUD implements only five of them.
 | --- | --- | --- | --- |
 | A | `Return` + `R` = ActionMenuQueue + DefaultAction | event `0x27` / the interaction bridge | equivalent |
 | B | `Delete` = ActionMenuRemoveQ | event `0x28` / `0x28` | equivalent |
-| X | `G` + `End` = STEALTH | event `0x29` / nothing | **native does nothing** in gameplay |
-| Y | `F` + `Home` = CancleCombat | event `0x2A` / nothing | **native does nothing** in gameplay |
+| X | `G` + `End` = STEALTH | event `0x29` / in combat, presses the HUD's Disengage button (since 2026-09-25); otherwise nothing | differs: no stealth on the pad |
+| Y | `F` + `Home` = CancleCombat | event `0x2A` / in combat, removes the last queued action (since 2026-09-25); otherwise nothing | differs: cancelling combat is X's on the native path |
 | LB | `Space` + `Insert` = Pause | nothing / `0x06` SelectPrev, and leaves free look | differs |
 | RB | `Tab` = ChangeChar | nothing / `0x05` SelectNext | differs |
 | LT | `Q` = SelectPrev | `0x35` previous screen / `0x09` ChangeChar | differs |
@@ -57,10 +68,14 @@ GUI panels, and the gameplay HUD implements only five of them.
 only their GUI events, with nothing in gameplay, and Start as `0x0B` in both.
 The gameplay verbs below have been bound since, Start became the Map key for
 issue #18, and R3 gained the party switch and a second press to leave free
-look.
+look. *Corrected 2026-10-08:* X and Y read "native does nothing in gameplay";
+since 2026-09-25 they press the HUD's own Disengage and clear-one buttons while
+those are drawn (`NativeActionBarK1`, `PressHudButtonK1`). The right stick's row
+named `CSWCModule::AcclTurnCamera`; the module calls `CSWCModule::RotateCamera`
+(`K1_ROTATE_CAMERA`, `0x00640090`).
 | D-pad | arrow keys, as repeating taps | codes `0x384`/`0x388`/`0x38C`/`0x390` | see below |
 | Left stick | `W`/`S`/`Z`/`C`, plus a walk modifier on `B` | the movement fields directly, proportional | native is strictly better |
-| Right stick | `A`/`D` taps | `CSWCModule::AcclTurnCamera` | native is strictly better |
+| Right stick | `A`/`D` taps | `CSWCModule::RotateCamera` | native is strictly better |
 
 **Four legacy buttons send two scancodes at once** — the `secondary` column,
 applied in `vendor/K1XboxControlsXInput.cpp` where `binding.secondary` is added
@@ -200,8 +215,18 @@ only**. No low console id reaches their handlers, so there is no description to
 register and they cannot be bound this way. They would need an engine bridge,
 the pattern L3's flourish uses.
 
-**Untested.** Every binding in this section is measured from the router and
-compiles, and none of it has been played.
+Since 2026-09-25 the combat half of `CancleCombat` has such a bridge of another
+kind: X presses the HUD's own Disengage button while it is drawn
+(`controller-native-path.md`, "The gameplay HUD action bar"). Stealth has no pad
+button.
+
+**Untested when written:** every binding in this section was measured from the
+router and compiled, and none of it had been played. Recorded since: the Solo
+Mode query that Back opens was play-tested on 2026-09-24 and 2026-09-25
+([`controller-playtest-checklist.md`](controller-playtest-checklist.md)), and RB's
+targeting was driven with the virtual pad on 2026-10-05
+([`controller-standalone.md`](controller-standalone.md), section 8). No record
+names LB, LT's party switch or RT's pause as tested one by one.
 
 ## What the native path has and the legacy path does not
 
@@ -215,8 +240,11 @@ compiles, and none of it has been played.
 | World interaction on A in gameplay, where nothing has focus | interaction bridge |
 | Free look on R3, including the pad state block the engine needs for it | `K1_STICK_CLICKS`, `EnsurePadStateK1` |
 | Flourish weapons on L3, gated to input class 0 so it cannot fire in menus | `PerformPendingStickActionsK1` |
-| Movie margins painted black | `NativeMovieWindowOpenK1`, `NativeMovieWindowCloseK1` |
-| Controller prompt badges, generated per resolution at install time | `tools/build_controller_prompt_textures.py` |
+| Movie margins painted black | `NativeMovieWindowOpenK1`, `NativeMovieWindowCloseK1`. Not controller code, and since 2026-10-05 part of KMRP's patch only: the controller patch leaves the movie window alone |
+| Controller prompt badges in four controller families, built per layout (`kmrp` Xbox, `kmrs` PlayStation, `kmrn` Switch, `kmrd` Steam Deck) | `tools/build_controller_prompt_textures.py` |
+| Rumble: BioWare's table and KMRP's haptics | `K1Rumble.cpp`, [`controller-rumble.md`](controller-rumble.md) |
+| PlayStation, Switch and Steam Deck pads read directly, through SDL | `K1ControllerBackend.cpp`, [`controller-sdl-backend.md`](controller-sdl-backend.md) |
+| An optional HUD laid out like the Xbox version's | `K1XboxHud.cpp`, [`controller-xbox-hud.md`](controller-xbox-hud.md) |
 | R3 switches party member on Abilities, Character, Equipment and Inventory, with an on-screen cue | `PerformPendingPartySwitchK1`, `K1_PARTY_SWITCH_PANELS` |
 | Start opens and closes the Map | the `0xD7` bridge, `K1_START_OPENS_MAP` |
 | Cues for LT/RT on the menu tab strip and X on the Abilities sub-tabs; an A beside a confirmation box's focused button | `reverse-engineering/custom-gui-controls.md` |
@@ -262,7 +290,12 @@ gap list above.
 
 The native path replaces input *transport*. It does not replace the legacy
 module's UI integration, which is why eight legacy hooks remain in
-`kotor1.hooks.toml`.
+`kotor1.hooks.toml`. **Only one of the eight is installed**,
+`ClearActionBarControlsK1` (`tools/build_controller_kpatch.py`, `hooks()`, read on
+2026-10-08); the other seven are legacy exports outside `REQUIRED_LEGACY` in
+`tools/kmrp_controller.py`, which no build selects, and are in the table as a
+record. The table below says what each did; the native hooks that hold their
+sites now are listed in [`controller-handover-plan.md`](history/controller-handover-plan.md).
 
 | Hook | Keeps doing |
 | --- | --- |

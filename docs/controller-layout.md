@@ -6,6 +6,15 @@ separate from the manual acceptance test that still has to be performed.
 
 ## What ships
 
+**Which patch, since 2026-10-05:** the screen belongs to the controller patch,
+`KOTOR 1 Native Controller Mod + Xbox HUD.kpatch` (id `kmrp-controller`), which
+KMRP's installer installs while Controller Support is on and which also runs
+without KMRP. Beside KMRP it uses KMRP's `kmrplayout.gui` for the resolution in
+use, the one this document describes; on the game's own interface it carries one
+of its own, laid out for 800x600
+([controller-standalone.md](controller-standalone.md), section 4). The archive
+counts below (49) are those of 2026-09-24; KMRP has 66 menu sets since.
+
 **Options → Gameplay** gains a `Controller Layout` button directly under
 Keymapping, a copy of that button in the same column. It opens the dedicated
 `kmrplayout.gui` panel, built from KOTOR's own controls, so it scales, takes
@@ -156,7 +165,9 @@ captions, the fills and the per-control placement instead of only tags and IDs.
 
 KOTOR does not instantiate an unfamiliar control merely because it appears in a
 `.gui`. The existing `CSWGuiPanel::ReleaseGff` hook runs at the last safe point,
-while the parsed layout still exists. On `CSWGuiOptionsGameplay` it allocates one
+while the parsed layout still exists (since 2026-10-05 the controller patch
+reaches that moment from a site of its own, `NativePanelLoadedK1` at `0x00409B80`,
+and calls the same handler). On `CSWGuiOptionsGameplay` it allocates one
 engine `CSWGuiButton`, binds `BTN_KMRPLAY`, and registers its A/click callback.
 
 **The opening press does not close it.** A on the entry opens the screen with

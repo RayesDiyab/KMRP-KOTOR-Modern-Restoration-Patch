@@ -22,6 +22,31 @@ unbuilt -- neither `XInputGetStateEx` nor any Guide binding is in the source, an
 `virtual_pad_server.py` has no refusal or idle timeout. §3 shipped and §3b and
 §3c are done. Of §4, R3 shipped and LB/RB did not.
 
+**Status on 2026-10-08, searched again in `src/controller-native/` and
+`testing/controller/`:** the same. §1 and §2 are the only open items, and two
+things about them have changed since they were written:
+
+- **§1's steps are written for the legacy keyboard path**, which no shipped patch
+  installs ([`controller-parity.md`](controller-parity.md)): `BUTTON_BINDINGS`,
+  `PollXInputK1` and a synthesised `I` key never run. The pad is read by
+  `ReadControllerK1` (`K1ControllerBackend.cpp`) and bound in
+  `K1NativeJoystick.cpp`. The blocker is unchanged (the Guide bit needs
+  `XInputGetStateEx`); the binding would be an engine bridge like Start's Map
+  hotkey (`0xD7`; the Inventory hotkey is one of `0xD1` to `0xD8`,
+  [`controller-native-path.md`](controller-native-path.md)), not a key.
+- **§2's trap belongs to the legacy `ReadPad`.** Since the hybrid backend of
+  2026-09-19 the module samples every connected pad and reads the one used last
+  (`K1ControllerBackend.cpp`: a pad with new activity becomes the active one), so
+  an idle virtual pad on a lower slot no longer hides a real controller, and the
+  reverse. Read from the code; not tried with two pads. The server's refusal and
+  idle timeout are still unbuilt, and still tidy.
+- **§3b and §3c describe the legacy path's focus fix.** Their hook,
+  `OnSetActiveControlK1` at `0x0040A638`, is in `kotor1.hooks.toml` and is not
+  installed by the controller patch; menu focus is the native path's navigation
+  layer now ("Focus navigation" and "The in-game tab bar" in
+  `controller-native-path.md`). They are kept as the record of how the double
+  `SetActiveControl` was found.
+
 ---
 
 ## 1. Xbox Guide button opens the Inventory

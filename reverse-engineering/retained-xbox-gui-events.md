@@ -15,6 +15,17 @@ written is in [`../docs/controller-planned-work.md`](../docs/controller-planned-
 original-image sites, so `FILE = VA - 0x400000` throughout; none of them is in an
 appended KMRP section and none is written by the patch.
 
+*Note of 2026-10-08:* the engine facts below do not depend on how KMRP is
+installed, but two phrases do. "The controller component" and "the module the
+installer ships" are, since 2026-10-05, the patch "KOTOR 1 Native Controller Mod
++ Xbox HUD" (id `kmrp-controller`, `tools/build_controller_kpatch.py`), a
+`.kpatch` of its own with its own module, which KMRP's installer installs beside
+`KMRP.kpatch` while Controller Support is on and which also works on a game
+without KMRP ([`../docs/controller-standalone.md`](../docs/controller-standalone.md)).
+And the build above is a patched file of September: since 2026-09-29 no patched
+`swkotor.exe` is installed, the same sites being reached in the unmodified
+executable at run time by KOTOR Patch Manager's detours.
+
 ## What this is
 
 KOTOR's PC build kept the console UI's input model. Menu panels still implement

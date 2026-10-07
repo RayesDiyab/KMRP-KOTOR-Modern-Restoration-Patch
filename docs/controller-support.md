@@ -17,14 +17,32 @@ pad into KOTOR's own retained joystick pipeline rather than pressing keys
 ([`controller-native-path.md`](controller-native-path.md)), reads Xbox pads
 through XInput and PlayStation, Switch and Steam Deck controllers through SDL 3
 ([`controller-sdl-backend.md`](controller-sdl-backend.md)), draws button
-prompts in four families, and adds the Controller Layout screen. A KOTOR Patch
-Manager runtime applies its hooks in memory from `patch_config.toml`: 18
-detours and 4 byte patches in the 2026-09-24 build, 26 detours and 4 byte
-patches after the rumble mixer of 2026-09-25, and 33 detours and 4 byte patches
-since the echo guard of 2026-09-28 (`tools/check_patcher_hook_table.py`; the
-eight rumble hooks are in [`controller-rumble.md`](controller-rumble.md)).
-Without controller support the runtime still installs, with 5 detours and the
-same 4 byte patches (*Installation*, below).
+prompts in four families, and adds the Controller Layout screen, rumble
+([`controller-rumble.md`](controller-rumble.md)) and an optional HUD laid out
+like the Xbox version's ([`controller-xbox-hud.md`](controller-xbox-hud.md)).
+
+**How it ships, since 2026-10-05 (checked against the code on 2026-10-08).**
+Controller support is a patch of its own for KOTOR Patch Manager's runtime:
+`KOTOR 1 Native Controller Mod + Xbox HUD.kpatch`, id `kmrp-controller`, 34
+detours applied in memory from `patch_config.toml`, module
+`patches\kmrp-controller.dll` (`tools/build_controller_kpatch.py`;
+[`controller-standalone.md`](controller-standalone.md) is its reference). KMRP's
+installer installs it beside `KMRP.kpatch` (id `kmrp`, 27 hooks, no controller
+hook and no controller option) while Controller Support is on, and leaves it out
+otherwise; KMRP's patch is the same either way (`src/patcher/KpmEdition.cs`). The
+controller patch also runs without KMRP, on the game's own interface or a
+widescreen patch's, and takes no file from another patch.
+
+Everything below was written for earlier ways of shipping the same code, and each
+section says which: the first integration (2026-09-06), the standalone installer's
+own runtime (until 2026-09-29), four KOTOR Patch Manager patches (until
+2026-10-04) and one patch with a `controller` option (2026-10-04 to 2026-10-05).
+The hook counts of those: 18 detours and 4 byte patches in the 2026-09-24 build,
+26 and 4 after the rumble mixer of 2026-09-25, 33 and 4 since the echo guard of
+2026-09-28 (`tools/check_patcher_hook_table.py`, since removed), and without
+controller support 5 detours and the same 4 byte patches. The mechanisms the
+sections describe (the prompts, the families, the navigation) are the same code
+and still hold unless a note says otherwise.
 
 *Corrected 2026-09-24:* this introduction still described the first
 integration -- an adapter feeding keyboard and GUI events through six detours,
@@ -74,10 +92,12 @@ controller mode active. Windows event 1000 and the matching crash dump identifie
 the exact call. That lookup was removed; the corrected module uses only the
 class-layout offsets below.
 
-*Since 2026-10-04 the shipped module is `kmrp-native.dll`, built by
-`src/controller-native/build_native_runtime.cmd` from these same sources and
-installed as `patches\kmrp.dll`; `build.cmd`, which built the four-patch edition's
-245 KB module, was removed that day.* Until then the shipped
+*Since 2026-10-05 the controller's module is `kmrp-controller.dll`, built by
+`src/controller-native/build_controller_standalone.cmd` from these same sources
+and installed as `patches\kmrp-controller.dll`. From 2026-10-04 until then it was
+part of `kmrp-native.dll` (`build_native_runtime.cmd`, installed as
+`patches\kmrp.dll`), which is KMRP's own module still; `build.cmd`, which built
+the four-patch edition's 245 KB module, was removed on 2026-10-04.* Until then the shipped
 module was built by `src/controller-native/build.cmd` (x86 MSVC,
 `/Brepro`, SDL headers from the pinned SDK); see
 [`../src/controller-native/README.md`](../src/controller-native/README.md). The
@@ -112,7 +132,24 @@ unlicensed.
 
 ## Installed files and ownership
 
-**Since 2026-09-28 the runtime installs on every patch, and this option switches
+**Since 2026-10-05**, with Controller Support on, the installer adds to what it
+installs for KMRP's own patch ([kpm-edition.md](kpm-edition.md)):
+
+| File | Purpose |
+| --- | --- |
+| `patches\kmrp-controller.dll` | the controller patch's module, the one inside its `.kpatch`; SDL and the prompt art are inside it |
+| the patch's block in `patch_config.toml` | its 34 hooks, after KMRP's |
+| `configs\kmrp-controller.ini` | `[Patch Options]` with `debug-logs` only, so the player's `Style` under `[Hud]` in `kmrp-controller.ini` decides the Xbox-style HUD |
+| `KOTOR 1 Native Controller Mod + Xbox HUD.kpatch` | delivered into KOTOR Patch Manager's patch folder, beside `KMRP.kpatch` |
+| `kmrp-controller.ini` beside the game | the player's rumble settings, written only when absent (with Controller Support off as well) |
+
+With Controller Support off none of the first four is installed, and Restore
+Original removes whatever was. Checked by
+`testing/regression/Test-InstallerPatch.ps1` (both patches in the config in
+order, both modules the ones inside their `.kpatch` files; off: KMRP alone). The
+rest of this section is the record of the earlier layouts, newest first.
+
+**From 2026-09-28 the runtime installed on every patch, and this option switched
 only the controller's own hooks.** The runtime also carries fixes that have
 nothing to do with a pad, and until then turning the option off took them with
 it. Which hook goes where is the `install` key in
@@ -134,9 +171,9 @@ With the option off nothing reads the pad, draws a prompt or rumbles. The files
 below are the same either way, and their names still say "controller" because
 renaming them would orphan older installs' manifests.
 
-**Since 2026-10-04** the controller is not a patch of its own but an option,
+**From 2026-10-04 to 2026-10-05** the controller was not a patch of its own but an option,
 `controller`, of KMRP's one patch ([one patch since 2026-10-04](kpm-edition.md#one-patch-since-2026-10-04)): with it on, the installer
-writes the controller's 28 hooks into `patch_config.toml` and `controller = true`
+wrote the controller's 28 hooks into `patch_config.toml` and `controller = true`
 into `configs\kmrp.ini` (the `[Patch Options]` section; a `[patches.options]` table in `patch_config.toml` for the first hours); with it off, neither, and the one
 module, `patches\kmrp.dll`, runs the core's frames alone (`KmrpControllerOptionK1`).
 SDL is inside the module, not beside the game, and there is no `kmrp-kpm.dat`. The
@@ -256,7 +293,16 @@ controller off) -- the same 37 sites, with `CoreGuiFrameK1` and `CoreMovieFrameK
 in place of `NativeGuiFrameK1` and `NativeMovieFrameK1`, which hand over to KMRP
 Controller's frames -- and 9 with the controller off.
 
-**Current count, 2026-10-04:** the one patch has 52 runtime hooks, 28 of them
+**Current count, 2026-10-08, two patches:** the controller patch has 34 hooks,
+all detours, and KMRP's patch 27; so 61 with Controller Support on and 27 without
+(`hooks()` in `tools/build_controller_kpatch.py`, `all_hooks()` in
+`tools/build_native_kpatch.py`). The controller's 34 are the 28 of the count
+below less `NativePanelReleaseGffK1`, plus its own resource hook, the two panel
+hooks that replaced that one, the two of the Xbox-style HUD, and
+`NativeGuiFrameK1` and `NativeMovieFrameK1`, which it holds at the frame sites
+itself; they are listed in [`controller-standalone.md`](controller-standalone.md),
+section 2. `src/controller-native/kotor1.hooks.toml` has 52 entries.
+**Count of 2026-10-04, one patch:** the one patch had 52 runtime hooks, 28 of them
 the controller option's, so 52 with controller support and 24 without (the
 standalone module's own sites are among the 24). **Count of 2026-10-03, four
 patches:** the keyboard source port adds three core hooks.
@@ -513,6 +559,17 @@ edge and overlaps it. Nothing can be placed well in that case; the screen is
 broken independently of the badge, and no retail localisation is known to hit it.
 It is recorded here rather than papered over.
 
+**Read on 2026-10-08, and not resolved here:** nothing in `src/patcher` calls
+`ControllerPromptGenerator.TryBuild` any more (only its manifest name is used, by
+`GuiBlend.cs`), so the current installer does not appear to perform this
+re-placement; the interface files are inside the patches' modules since
+2026-10-04, not written by the installer. What stands in its place is in the
+module: a badge whose button or caption is not the one it was made for is drawn
+on a label of its own, beside the caption as measured from the live font
+(`MeasureK1CaptionByFont`; [`controller-standalone.md`](controller-standalone.md),
+section 5). On a button of the size its badge was made for the English placement
+stands. No game in another language has been looked at.
+
 A missing or unreadable `dialog.tlk` is not an error: the shipped English
 placement simply stands. Because that degradation is silent, the manifest is
 checked by `testing/regression/Test-ControllerPromptAssets.py`, which verifies
@@ -525,7 +582,9 @@ When controller support is disabled, the runtime installs only its core hooks
 controller hooks, so no prompt is ever drawn and keyboard/mouse screens show no
 badge. *Corrected 2026-09-28:* this said no prompt override was installed; the
 per-resolution interface files carry the badge controls either way, empty and
-invisible until the module fills one.
+invisible until the module fills one. Since 2026-10-05 "disabled" means the
+controller patch is not installed at all: KMRP's patch has no prompt code, and its
+interface files still carry the empty controls.
 
 ### Controller families (issue #19)
 
@@ -588,7 +647,11 @@ ones that always shipped. The module's tables name the Xbox art;
 the letters in the module and the build disagree, or if any family's art is
 missing. The cost is the badge art three more times: the installer grew from
 114.1 MB to 142.2 MB (28.1 MB), and each installed resolution gets 61 more
-badge textures per family in Override, plus four cue textures per family.
+badge textures per family in Override, plus four cue textures per family. (The
+figures of 2026-09-19. Nothing is written to Override since 2026-10-04; the
+controller patch's module carries 640 badge, cue and layout-glyph textures and 280
+focused-state ones for the game's own layouts, counted on its first build,
+[`controller-standalone.md`](controller-standalone.md), section 1.)
 
 The Switch and Steam Deck sets are Xelu's dark-grey style -- the same low
 contrast against KOTOR's dark blue panels that ruled out the Series X set for
@@ -634,10 +697,15 @@ buttons and nothing routed focus to them. Offsets are from `kotor1_0_3.db`, clas
 | `ability_listbox` | `0x30DC` | the column; rows are allocated at runtime, so the entry sets `dynamicColumn` |
 | `exit_button` | `0x369C` | Close, `LEFT=2112 TOP=1230` |
 
-**Untested.** The entry is built and installed but the play-test has not been
-done. What is verified is that it compiles, that the offsets come from the
-database, and that the badge on `exit_button` is generated for all 49
-resolutions -- not that pressing Up in game lands on a tab.
+**Untested when written.** The entry was built and installed but the play-test had
+not been done. What was verified is that it compiles, that the offsets come from
+the database, and that the badge on `exit_button` is generated for all 49
+resolutions -- not that pressing Up in game lands on a tab. *Since:*
+[`controller-planned-work.md`](controller-planned-work.md), section 4, records it
+verified in play later on 2026-09-06, on the keyboard path of the time. On the
+native path that ships, focus on this screen and the others is moved by the
+navigation layer of [`controller-native-path.md`](controller-native-path.md)
+("Focus navigation", "The in-game tab bar"), and X cycles the three sub-tabs.
 
 ## Prompt coverage
 
@@ -675,7 +743,13 @@ Run:
 .\build_kmrp.ps1 -ReuseResources
 .\testing\regression\Test-InstallerPatch.ps1    # Test-ControllerSupport.ps1 until 2026-10-04
 python .\testing\regression\Test-ControllerPromptAssets.py
+python .\testing\regression\Test-ControllerKpatch.py    # the controller patch's package, since 2026-10-05
 ```
+
+The paragraphs below describe what `Test-ControllerSupport.ps1` verified until it
+was removed on 2026-10-04. What the two tests that replaced it check is in
+[`controller-standalone.md`](controller-standalone.md), sections 8 and 9, and in
+`CHANGELOG.md`, 2026-10-05 and 2026-10-06.
 
 The regression verifies install/restore ownership, valid TOML whose hooks and
 parameters match the source table entry for entry -- no fixed count, since a
@@ -719,6 +793,11 @@ slot wins and the other is invisible to the module.
 - Earlier the same day the physical pad held slot 0 and the virtual pad on slot 1
   could not drive the game at all.
 
+*Since the hybrid backend of 2026-09-19 that trap is the legacy `ReadPad`'s only.*
+The module samples every connected pad and reads the one used last
+(`K1ControllerBackend.cpp`), so an idle pad on a lower slot does not hide another.
+Read from the code; not tried with two pads.
+
 Shut the pad server down when finished. `XInputGetBatteryInformation` tells the
 two apart for the wireless case -- a physical pad reports `NIMH` or `ALKALINE`, a
 ViGEm pad reports `WIRED` -- but a wired physical pad also reports `WIRED`, so it
@@ -735,10 +814,22 @@ display, and the camera stops following. The game imports no `ClipCursor` at
 all — `SetCapture`, `ShowCursor` and `SetCursorPos` are the only cursor calls in
 its import table — so nothing in the engine competes for this.
 
-`UpdateCursorConfinementK1` runs from `NativeGuiFrameK1`, the per-frame GUI hook,
-and clips the cursor to the game window's client rectangle whenever KOTOR owns
-the foreground window, is not minimised, and its client rectangle covers its
-whole monitor (fullscreen).
+`UpdateCursorConfinementK1` runs once per GUI frame and clips the cursor to the
+game window's client rectangle whenever KOTOR owns the foreground window, is not
+minimised, and its client rectangle covers its whole monitor (fullscreen).
+
+Who runs it, since 2026-10-05 (read from `K1NativeJoystick.cpp` on 2026-10-08):
+
+| Installed | Runs from |
+| --- | --- |
+| KMRP's patch, with or without the controller patch | `KmrpCoreGuiWorkK1`, KMRP's own GUI-frame hook at `0x0040CE76` |
+| The controller patch without KMRP | `NativeGuiFrameK1` at `0x0040CE70`; beside KMRP (`patches\kmrp.dll` loaded) it leaves the cursor to KMRP |
+
+One rule in both: fullscreen only. From 2026-10-04 to 2026-10-07 KMRP could add
+resolutions the display does not report and ran them in a borderless window,
+centred, with the cursor confined to that window as an exception to this rule;
+that choice of resolutions was removed on 2026-10-07 and the exception and the
+centring went with it (`CHANGELOG.md`, "No resolution choice").
 
 | Case | Behaviour | Why |
 | --- | --- | --- |
@@ -753,19 +844,26 @@ The diagnostic line reports `cur=<clipped>/<takes>/<releases>`.
 **Installed with or without controller support since 2026-09-28.** Until then
 it lived in the optional controller component, so a mouse-only player who
 declined controller support got no confinement; this said the honest fix was a
-small always-installed component of KMRP's own. That is what the runtime now
-is: without controller support, `CoreGuiFrameK1` holds the GUI frame and
-confines the cursor (*Installation*, above). Issue #20.
+small always-installed component of KMRP's own. That is what KMRP's patch now is
+(the table above); from 2026-09-28 to 2026-10-05 the stand-in `CoreGuiFrameK1`
+held the GUI frame without controller support and confined the cursor. Issue #20.
 
-**Untested.** Written from the Win32 contract and the game's import table; no
-multi-monitor session has exercised it, and neither has Alt-Tab, minimise or a
-windowed game.
+**Mostly untested.** Written from the Win32 contract and the game's import table;
+no multi-monitor session is recorded as having exercised it, nor Alt-Tab or
+minimise. A windowed game was play-tested on 2026-10-04, which is how the trapped
+cursor was found and the fullscreen-only rule made. (Until 2026-10-08 this
+paragraph said a windowed game had not been exercised either.)
 
 ## Deliberately not changed
 
 - `swkotor.exe` receives no controller-specific on-disk edits.
-- `dialog.tlk`, `tutorial.2da`, and every `.gui` remain unchanged; only existing
-  controls' empty normal-fill state is changed in memory while prompts are active.
+- `dialog.tlk` and `tutorial.2da` remain unchanged, and no file is written to
+  Override. (When written, for the first integration, this also said every `.gui`
+  remained unchanged and only existing controls' fills were set in memory. Since
+  the cues of 2026-09-15 the build adds controls to layout files: the controller
+  patch serves its own copies of 16 of the game's layouts from its module, or none
+  beside KMRP, whose layouts already have them;
+  [`controller-standalone.md`](controller-standalone.md), section 1.)
 - Existing external KPM configuration is never merged or overwritten.
 - Keyboard/mouse operation remains the engine's underlying input path, and the
   cursor is visible and usable by default when controller support is enabled.

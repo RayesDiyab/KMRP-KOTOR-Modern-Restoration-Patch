@@ -2365,7 +2365,7 @@ namespace Kmrp
         // 2026-09-25. Debug was 1 in the hardware-test builds, writing every
         // rumble event to kmrp-rumble.log; it is off now that those tests passed.
         internal const string DefaultSettings =
-            "; KMRP controller settings. Read by kmrp-controller.module while the game runs;\r\n" +
+            "; KMRP controller settings. Read by the controller patch while the game runs;\r\n" +
             "; changes take effect within a second, no restart needed.\r\n" +
             "[Rumble]\r\n" +
             "; Off, Original (BioWare's shipped rumble only) or Enhanced (adds KMRP's haptics)\r\n" +
@@ -2382,7 +2382,13 @@ namespace Kmrp
             "SaberHumPeriodMinMs=500\r\n" +
             "SaberHumPeriodMaxMs=2000\r\n" +
             "; 1 writes every rumble event to kmrp-rumble.log in this folder\r\n" +
-            "Debug=0\r\n";
+            "Debug=0\r\n" +
+            "\r\n" +
+            "[Hud]\r\n" +
+            "; Xbox (laid out like the original Xbox version's while the pad is in use; the\r\n" +
+            "; game's own with mouse and keyboard) or PC (the game's own HUD always).\r\n" +
+            "; Read when the game starts.\r\n" +
+            "Style=Xbox\r\n";
 
         private static string ManifestPath(string executablePath)
         {

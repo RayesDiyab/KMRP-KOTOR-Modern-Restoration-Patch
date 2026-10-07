@@ -59,13 +59,16 @@ the earlier reading was and why it was wrong.
 | MSVC, x86 | Visual Studio Build Tools, for `src\controller-native\build_native_runtime.cmd` (KMRP's module) and `src\kpm-runtime\build.cmd`, which `build_kmrp.ps1` runs |
 | The KPM submodule | `git submodule update --init` (or clone with `--recursive`): `third_party/Kotor-Patch-Manager`, the runtime's source |
 | Network, once | `tools/prepare_sdl3.ps1` downloads the pinned SDL 3 SDK into `build/deps` |
-| Game files | `swpc_tex_gui.erf`, placed in [`build-inputs/`](build-inputs/README.md); no executable is required |
+| Game files | `swpc_tex_gui.erf` and, for the controller patch, the game's 84 layout files in `vanilla-gui\` (`python tools\build_controller_assets.py --extract <game folder>`), both in [`build-inputs/`](build-inputs/README.md); no executable is required |
 
-**The project folder is self-contained**: the texture pack is its only
-required game-derived input, and `.gitignore` keeps it out of the repository.
+**The project folder is self-contained**: the texture pack and the extracted
+layout files are its only required game-derived inputs, and `.gitignore` keeps
+them out of the repository. (Until 2026-10-08 this named the texture pack alone;
+the layout files became a build input on 2026-10-05, with the controller patch.)
 The Windows engine recipe is assembled by `tools/build_windows_engine.py` from
-tracked sites and assembly emitters. `build_kmrp.ps1` also compiles the controller
-module and KPM runtime. Optional per-resolution font sets still come from
+tracked sites and assembly emitters. `build_kmrp.ps1` also compiles KMRP's module,
+the controller patch's module (`src\controller-native\build_controller_standalone.cmd`)
+and KPM's runtime. Optional per-resolution font sets still come from
 `tools/build_font_scale_sets.py`; see *Build from source* in the [README](README.md).
 
 *Corrected 2026-10-01:* a separate editable clean 1.03 executable and a generated

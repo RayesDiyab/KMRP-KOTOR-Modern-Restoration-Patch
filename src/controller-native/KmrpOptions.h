@@ -7,7 +7,6 @@
 // configs\kmrp.ini:
 //
 //   [Patch Options]
-//   controller=1
 //   map-notes=1
 //   debug-logs=0
 //

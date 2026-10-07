@@ -2,7 +2,7 @@
 
 <img src="assets/branding/release-cover.png" alt="KMRP - KOTOR Modern Restoration Patch" width="100%">
 
-# KMRP — KOTOR Modern Restoration Patch
+# KMRP - KOTOR Modern Restoration Patch
 
 **A resolution-aware interface patch for *Star Wars: Knights of the Old Republic* (2003).**
 
@@ -13,7 +13,7 @@ that in the engine itself rather than by swapping artwork: 66 resolutions built 
 from 800×600 to 15360×8640, and any other size from 4:3 to 32:9 made when the game
 runs at it. The resolution is chosen in the game, with no reinstall.
 
-[Install](#install) · [What it fixes](#what-it-fixes) · [How it works](#how-it-works) · [Build from source](#build-from-source) · [Documentation](#documentation) · [Case study](https://rayesdiyab.com/projects/kmrp/) · [Licence](#licence-and-attribution)
+[Install](#install) · [Features](docs/features.md) · [What it fixes](#what-it-fixes) · [How it works](#how-it-works) · [Build from source](#build-from-source) · [Documentation](#documentation) · [Case study](https://rayesdiyab.com/projects/kmrp/) · [Licence](#licence-and-attribution)
 
 </div>
 
@@ -32,171 +32,129 @@ runs at it. The resolution is chosen in the game, with no reinstall.
 | | |
 | --- | --- |
 | Game | *Star Wars: Knights of the Old Republic* (2003 PC release) |
-| `swkotor.exe` | One of three builds, and KMRP refuses every other: **Steam's** (`34E6D971…A439F34C88`), **GOG's** (`9C10E045…DEA91435`), or the **4,042,752-byte editable 1.03 build** (`761F9466…C49E9886`). GOG's is the editable build without the 16 bytes of `Hellspawn Reborn` in its header padding, which nothing reads. GOG's and the editable build are also accepted with only the standard Large Address Aware bit already set (`01B80825…C2B4132F`, `CA9D22EA…A7E1889`). |
-| OS | Windows with .NET Framework 4.x (shipped with Windows 10/11). Ubuntu with Proton Experimental has installation, restore and limited gameplay verification; Steam Deck remains untested. See the separate procedure below. |
+| `swkotor.exe` | One of three builds, and KMRP refuses every other: **Steam's** (`34E6D971…A439F34C88`), **GOG's** (`9C10E045…DEA91435`), or the **4,042,752-byte editable 1.03 build** (`761F9466…C49E9886`). GOG's and the editable build are also accepted with only the standard Large Address Aware bit already set. |
+| OS | Windows with .NET Framework 4.x (shipped with Windows 10/11). Linux with Proton is experimental; see [Other platforms](#other-platforms). |
 
 1. Launch KOTOR once so `swkotor.ini` exists.
 2. Run **`KMRP - KOTOR Modern Restoration Patch.exe`**. It finds Steam's KOTOR by itself,
    in any Steam library, and otherwise GOG's; **Browse** picks another `swkotor.exe`.
-   Step 2 names the version it finds: Steam, GOG or the editable 1.03 build.
 3. Choose **Start Patching**. There is no resolution to pick: the game starts at
-   your display's current size, and every size your display supports is offered in
-   the game, under Options, Graphics, Screen Resolution. Connect another display,
-   a 4K television for one, and the game offers that display's sizes.
+   your display's current resolution, and every resolution your display supports is
+   offered in the game, under Options, Graphics, Screen Resolution. Connect another
+   display, a 4K television for one, and the game offers that display's resolutions.
 4. Start KOTOR as usual.
-
-**No resolution choice.** The installer has nothing to choose in step 3: the list in
-the game is whatever the connected display reports, each time the settings are
-opened. (From 2026-10-04 to 2026-10-07 step 3 had a checklist to hide sizes and to
-add others, which ran in a window.)
-
-**Sizes without a built set.** The 66 listed resolutions have a menu set of their
-own. Any other size gets menus blended from the finished sets around it, the
-Container widened and the Controller Layout screen laid out for it, and the
-controller badges and the HUD's button-row boxes drawn again for its buttons, with
-the fonts of the nearest listed size. Since 2026-10-04 the patch's module does this
-when the game changes size, with the code the macOS installer uses.
 
 **Options.** Advanced Settings (the gear) turns off Modern Driver Compatibility, the
 area-map marker fixes and controller support, each on its own, and turns on debug
-logs, which are off unless you are asked for them with a bug report. The movie fixes
-are always installed.
-To change one later, use **Restore Original**, then patch again. An install by an
-earlier KMRP is replaced when you patch: one that rewrote `swkotor.exe` is restored
-from its own backup, and one that put four patches and about 1,850 files in
-`Override` (before 2026-10-04) is removed first. If Steam verifies the game's
-files, it puts its own `binkw32.dll` back and KMRP stops loading: patch again.
+logs, which are off unless you are asked for them with a bug report. To change one
+later, use **Restore Original**, then patch again.
 
-**With KOTOR Patch Manager.** KMRP is two KPM patches, each working without the
-other: `KMRP.kpatch`, and its controller support, `KOTOR 1 Native Controller Mod +
-Xbox HUD.kpatch` (the next paragraph). Both combine with other KPM patches. The
-installer carries both and puts them in KPM's patch folder, the one KPM's settings
-name, the controller patch only while Controller Support is on; if KPM's runtime is
-already in the game folder, the installer leaves the patches to KPM and says where
-the files are (a `KPM patches` folder in the game folder when KPM has no patch
-folder on the PC yet). In KPM, tick `KMRP`, and the controller patch for the pad,
-Apply, and Launch. KMRP's options are map notes, on, and debug logs, off. KPM 0.7.1
-has no patch options and installs it that way; a KPM with them shows the two in the
-patch's details. KMRP includes the 4 GB and memory fixes, so
-KPM's own ones stay unticked. The files need nothing else: you can also put them in
-KPM's patch folder by hand, without the installer. On Steam, switch KPM to its
-proxy deployment and start the game from Steam. From KPM's first release after
-0.7.1, pressing Apply there keeps KMRP's setup, and the game still starts
-directly. With KPM 0.7.1, tick *Use library proxy* in KPM first (press Uninstall
-All if it's greyed out), or its Apply switches the game to injection and only
-KPM's Launch starts it patched. The installer is the only file
-to download; `--export-kpm-patches <folder>` writes both `.kpatch` files out for
-sharing. [docs/kpm-edition.md](docs/kpm-edition.md) describes both ways. (Until
-2026-09-29 this took a separate installer, *KMRP for KPM*, and then, the same
-day, a `KPM patches` folder beside the installer. On 2026-10-04 and 05 KMRP was one
-patch with controller support as an option of it.)
+**Undo.** **Restore Original** reverses every change KMRP made, from the hashes it
+recorded when it installed; a file changed since is left alone, and said so.
 
-**Controller support, with KMRP or without.** `KOTOR 1 Native Controller Mod + Xbox HUD.kpatch`
-is KMRP's controller support as a KOTOR Patch Manager patch of its own: the pad in
-the game and in every menu, button prompts for Xbox, PlayStation, Switch and Steam
-Deck pads, rumble, and the Controller Layout screen. KMRP's installer installs it
-beside KMRP's patch while Controller Support is on, and it runs as well in a game
-that has no KMRP, on the interface the game ships. It needs no other patch and no
-installer, writes nothing to `Override`, draws from its own files and places its
-prompts from the running game, so it fits KMRP's menus and those of a widescreen
-patch alike (seen beside KMRP at 3440x1440, and beside Scaled Kotor 1.3.1 at
-1920x1080 and 3440x1440). Its one extra is an **Xbox-style HUD**, off by default: the in-game HUD
-laid out as the original Xbox version's while the pad is in use, in frames drawn
-for it at four times the game's size, and the game's own HUD back as soon as the
-mouse or keyboard is used; it is `Style` under `[Hud]` in
-`configs\kmrp-controller.ini`. (On 2026-10-04 and 05 KMRP's own patch contained
-controller support and the two were not installed together.)
-Built by `tools/build_controller_kpatch.py` into `dist\controller`; what it
-carries, what was run and what was not are in
+**Updating.** Patching over an older KMRP replaces it, whichever way that version
+installed itself. If Steam verifies the game's files, it puts its own `binkw32.dll`
+back and KMRP stops loading: patch again.
+
+**What it changes** compared with the unmodified game is listed for players in
+[docs/features.md](docs/features.md).
+
+### Controller support
+
+`KOTOR 1 Native Controller Mod + Xbox HUD.kpatch` is KMRP's controller support as a
+patch of its own: the pad in the game and in every menu, button prompts for Xbox,
+PlayStation, Switch and Steam Deck pads, rumble, and the Controller Layout screen.
+The installer installs it beside KMRP's patch while Controller Support is on. It
+also runs in a game that has no KMRP, on the interface the game ships or beside
+another widescreen patch: it needs no other patch, writes nothing to `Override`,
+and places its prompts from the running game (seen beside KMRP at 3440x1440, and
+beside Scaled Kotor 1.3.1 at 1920x1080 and 3440x1440).
+
+It also brings an **Xbox-style HUD**, on by default: the in-game HUD laid out as
+the original Xbox version's while the pad is in use, and the game's own HUD back as
+soon as the mouse or keyboard is used. To keep the game's own HUD with the pad too,
+set `Style=PC` under `[Hud]` in `kmrp-controller.ini` beside the game. See
 [docs/controller-standalone.md](docs/controller-standalone.md) and
 [docs/controller-xbox-hud.md](docs/controller-xbox-hud.md). Windows only.
 
+### With KOTOR Patch Manager
+
+KMRP is two KPM patches, each working without the other: `KMRP.kpatch` and the
+controller patch above. Both combine with other KPM patches.
+
+- The installer carries both and puts them in KPM's patch folder, the controller
+  patch only while Controller Support is on. If KPM's runtime is already in the game
+  folder, the installer leaves the patches to KPM and says where the files are.
+- In KPM, tick `KMRP`, and the controller patch for the pad, then Apply and Launch.
+  KMRP includes the 4 GB and memory fixes, so KPM's own ones stay unticked.
+- KMRP's options are map notes, on, and debug logs, off. KPM 0.7.1 has no patch
+  options and installs it that way.
+- On Steam, switch KPM to its proxy deployment and start the game from Steam.
+- With KPM 0.7.1, tick *Use library proxy* in KPM before pressing Apply (press
+  Uninstall All if it is greyed out), or only KPM's Launch starts the game patched.
+- `--export-kpm-patches <folder>` writes both `.kpatch` files out for sharing.
+
+[docs/kpm-edition.md](docs/kpm-edition.md) describes both ways.
+
+### Other platforms
+
 **macOS (Steam, in development).** A separate installer for the Aspyr build on Steam,
-made from the same resources as this one: the same menu sets, fonts, artwork and icons
-at any of the 66 resolutions, with any other size blended from them at install. The
-engine side is FTD's widescreen patch for KotOR Patch Manager, carrying KMRP's engine
-fixes, plus a KMRP layout patch. See [macos/README.md](macos/README.md); players get
-the instructions in the package.
+made from the same resources as this one. See [macos/README.md](macos/README.md).
 
-**Linux / Proton / Steam Deck (experimental).** Launch the patcher inside the
+**Linux / Proton / Steam Deck (experimental).** Launch the installer inside the
 game's Proton environment with `protontricks-launch --appid 32370`, and use the
-same route for restore. On 2026-10-01, installer 1.5.0 passed install/restore
-tests on Ubuntu with Proton Experimental, and the patched Steam game was played
-at 3440×1440: dialogue, save/load, NPC labels, menus, and virtual Xbox movement
-and camera. Stable Proton, Steam Deck and physical-controller coverage remain
-untested. Follow the exact commands,
-diagnostic steps, and honest test matrix in the
-[Linux, Proton, and Steam Deck guide](docs/linux-proton-steam-deck.md).
+same route for restore. The last run under Proton was the installer of 2026-10-01
+on Ubuntu, which still wrote `Override` files; the current build has not been run
+under Proton, and Steam Deck is untested. The commands and the test matrix are in
+the [Linux, Proton, and Steam Deck guide](docs/linux-proton-steam-deck.md).
 
-**On the version number.** The first public release is **KMRP 1.0**,
-published on 2026-09-04. On GitHub it is tagged
-[v2.10.0](https://github.com/RayesDiyab/KMRP-KOTOR-Modern-Restoration-Patch/releases/tag/v2.10.0)
-and titled "KMRP 2.10.0", its internal development number, and its
-Properties → Details report 2.7.0.0, a mislabel. The build in progress is
-**KMRP 1.5**, and its installer reports 1.5.0. The internal numbers appear in
-[`CHANGELOG.md`](CHANGELOG.md):
-- 2.0.0 to 2.9.x were private development builds;
-- 2.10.0 is 1.0;
-- 2.11.0 was this build's number until it was relabelled 1.5.0 on 2026-09-24.
+### What the installer touches
 
-One 2.0.0 build left the machine before 1.0. Its hash is recorded in
-[`releases/universal-v2.0.0/`](releases/universal-v2.0.0/), so it can still be
-identified. (Until 2026-09-24 this paragraph called v2.10.0 the first release,
-said there was no v1, and said the numbering would not restart at 1.0.)
+| Where | What |
+| --- | --- |
+| Beside `swkotor.exe` | KOTOR Patch Manager's runtime, laid out as KPM's own proxy deployment: KPM's `binkw32.dll` proxy in place of the game's (renamed `binkw32Hooked.dll`), `KotorPatcher.dll` and `patch_config.toml`. |
+| `patches\` | `kmrp.dll`, KMRP's module, with the engine changes and every resolution's interface files; and `kmrp-controller.dll` while Controller Support is on. |
+| `configs\` | `kmrp.ini` and `kmrp-controller.ini`, the options the patches were installed with. |
+| `kmrp-controller.ini` | Beside the game: rumble and HUD style, yours to edit. Written only when it is not there. |
+| `swkotor.ini` | The starting resolution. Its prior contents are kept in a verified backup. |
+| `swkotor.exe` | On GOG's and the editable build, the standard Large Address Aware flag: one bit, with a backup of the unmodified file in KPM's own format. **Steam's is never changed.** |
+| `Override` | Nothing. |
+| Windows | A per-user compatibility value that marks the game DPI-aware ([details](docs/windows-dpi-scaling.md)). |
+| NVIDIA driver | Only where the global present method would show half-drawn frames: **Prefer native** for `swkotor.exe` ([details](docs/nvidia-present-method.md)). |
+| Optional | *Modern Driver Compatibility* adds its loader (`dinput8.dll`) and payload beside the game. |
 
-**What it touches, and how to undo it.** Beside `swkotor.exe` KMRP installs
-KOTOR Patch Manager's runtime as KPM's own proxy deployment lays it out: KPM's
-`binkw32.dll` proxy in place of the game's, which it renames
-`binkw32Hooked.dll` and forwards every call to; `KotorPatcher.dll`;
-`patch_config.toml`; KMRP's patch module, `patches\kmrp.dll`, which holds the
-engine changes it applies in memory and every resolution's interface files; and,
-while Controller Support is on, the controller patch's module,
-`patches\kmrp-controller.dll`, which holds the controller, its prompt art and SDL.
-Their settings are `configs\kmrp.ini` and `configs\kmrp-controller.ini`. Nothing is
-written to the `Override` folder. It also writes
-`swkotor.ini` (the starting resolution), and on GOG's and the editable builds it sets the executable's standard Large Address Aware
-flag -- one bit, the only change to `swkotor.exe`; Steam's is never changed, since
-Steam refuses to start a changed one. So that KOTOR Patch Manager still recognises
-the flagged executable, those two also get `kpm_install_state.json` and,
-made just before the flag is set, a backup of the unmodified `swkotor.exe` in
-KPM's own format (`swkotor.exe.backup.<time>`); KPM starts from that file if
-you later add patches with it. It marks the executable as DPI-aware in the
-current user's Windows compatibility settings, preventing Windows display
-scaling from enlarging an interface KMRP has already scaled. Every file it
-writes or renames, and the flag, is recorded with hashes in `KMRP_KPM.manifest`,
-the INI's prior
-contents in a verified backup, and the prior DPI setting in `KMRP_DPI.manifest`.
-**Restore Original** reverses each change from those records; a file changed
-after install is left alone, and said so. The installer refuses an executable
-it does not recognise. In a game folder where KOTOR Patch Manager's runtime is
-already installed it installs no runtime and does not touch `swkotor.exe`: KPM
-applies KMRP's patches. (An Advanced Settings option chose that too from
-2026-09-29 to 2026-09-30; it was removed, since KMRP's own install is one KPM
-recognises and takes over.) See [Windows DPI handling](docs/windows-dpi-scaling.md). The
-optional *Modern Driver Compatibility* component adds its ASI loader
-(`dinput8.dll`) and payload, recorded in `KMRP_DriverCompat.manifest` and
-removed on restore.
-
-On NVIDIA, if the driver's global "Vulkan/OpenGL present method" prefers a DXGI
-swap chain, KOTOR shows half-drawn frames -- a one-frame white flash in the
-menus among them -- so the patcher sets **Prefer native** for `swkotor.exe` in
-that case only, records it in `KMRP_NVIDIA.manifest`, and removes it again on
-restore. A value set for the game on purpose is left alone. See
-[NVIDIA present method](docs/nvidia-present-method.md).
+Every change is recorded with hashes in manifests beside the game, and **Restore
+Original** reverses each from those records. In a game folder where KOTOR Patch
+Manager's runtime is already installed, the installer installs no runtime and does
+not touch `swkotor.exe`: KPM applies KMRP's patches.
 
 <details>
 <summary><b>Command line</b> (same operations, no window)</summary>
 
 ```
-KMRP.exe --apply    <source.exe> <output.exe> [WIDTHxHEIGHT]
 KMRP.exe --in-place <game.exe> [WIDTHxHEIGHT]
 KMRP.exe --restore  <game.exe>
+KMRP.exe --export-kpm-patches <folder>
+KMRP.exe --apply    <source.exe> <output.exe> [WIDTHxHEIGHT]
 ```
 
-`--apply` writes a patched copy and leaves the original alone: the reference
-executable for one resolution, which the installer no longer installs. The
-resolution given to `--in-place` is where `swkotor.ini` starts the game; both
-default to 3440×1440 when omitted (the window uses the display's current size).
+The resolution given to `--in-place` is where `swkotor.ini` starts the game.
+`--apply` writes a patched copy and leaves the original alone: a reference
+executable for one resolution, which the installer does not install.
+
+</details>
+
+<details>
+<summary><b>On the version number</b></summary>
+
+The first public release is **KMRP 1.0**, published on 2026-09-04 and tagged
+[v1.0.0](https://github.com/RayesDiyab/KMRP-KOTOR-Modern-Restoration-Patch/releases/tag/v1.0.0).
+The build in progress is **KMRP 1.5**, and its installer reports 1.5.0. Internal
+development numbers appear in [`CHANGELOG.md`](CHANGELOG.md): 2.0.0 to 2.9.x were
+private builds, 2.10.0 is 1.0 (that tag remains on the same commit, and 1.0's
+Properties report 2.7.0.0, a mislabel), and 2.11.0 was this build's number until it
+was relabelled 1.5.0. One 2.0.0 build left the machine before 1.0; its hash is
+recorded in [`releases/universal-v2.0.0/`](releases/universal-v2.0.0/).
 
 </details>
 
@@ -204,14 +162,17 @@ default to 3440×1440 when omitted (the window uses the display's current size).
 
 ## What it fixes
 
-Every entry below was diagnosed against the executable, and each links to the
-full trace. These are engine defects, not preferences — several are vanilla
-BioWare bugs that only become visible once the interface is scaled.
+The full list of what changes, in plain words, is in
+[docs/features.md](docs/features.md), and with the mechanism of each in
+[docs/features-technical.md](docs/features-technical.md). The table below is the
+engine defects: every entry was diagnosed against the executable, and each links to
+the full trace. Several are vanilla BioWare bugs that only become visible once the
+interface is scaled.
 
 | Symptom | Cause | Where |
 | --- | --- | --- |
 | **Text unreadably small** at high resolution | UI text renders at a fixed pixel size regardless of resolution | [font-scaling](docs/font-scaling.md) |
-| **Inventory crash** on items with long descriptions | The line-breaker restarts an unbreakable line at the position it began at, comparing against the start of the *string* rather than the current *line* — it loops until the allocator fails | [font-atlases](reverse-engineering/font-atlases.md) |
+| **Inventory crash** on items with long descriptions | The line-breaker restarts an unbreakable line at the position it began at, comparing against the start of the *string* rather than the current *line* -- it loops until the allocator fails | [font-atlases](reverse-engineering/font-atlases.md) |
 | **List rows grow** every time a list is repopulated | `CAurGUIListBox` adds a row *count* to a row *height*, then writes the inflated rect back into reused controls. A vanilla bug, reproduced with an unmodified `.gui` | [listbox-geometry](reverse-engineering/listbox-geometry.md) |
 | **Rows and icons stay vanilla-sized** | Row and icon sizes are hardcoded constants, unreachable from any `.gui` | [inventory-item-rows](reverse-engineering/inventory-item-rows.md) |
 | **Stack-count numbers vanish** when the font grows | The label is built in the inventory row's `SetRect`, bottom-right-aligned inside the icon box, so scaling the icon leaves it behind | [inventory-item-rows](reverse-engineering/inventory-item-rows.md) |
@@ -222,8 +183,8 @@ BioWare bugs that only become visible once the interface is scaled.
 | **HUD notifications oversized at 4K**, and **Feedback option circles on the scrollbar** | Short-lived HUD controls were scaled from screen width instead of the common height rule; the Feedback list drew each circle at the row's very edge, which is where its left scrollbar ends, and now keeps a gutter | [universal resolution math](docs/universal-resolution-math.md#reported-4k-layout-repairs) |
 | **Out-of-memory failures near the 2 GB process ceiling** | The 32-bit executable did not declare that it can use addresses above 2 GB; KMRP now sets the standard PE Large Address Aware bit | [large-address-aware](reverse-engineering/large-address-aware.md) |
 | **Movies trigger a 640×480 mode switch, minimize, or lose focus** | Full-screen Bink playback has two resolution pairs independent of the normal render size; KMRP writes the resolution the game is running at into both | [movies](reverse-engineering/movies.md) |
-| **Movies cropped** on wide screens — a 640×480 logo drawn 3440×2580 at 3440×1440 | Retail scales a movie by the screen *width* alone; KMRP fits it by whichever of width and height runs out first | [movies](reverse-engineering/movies.md) |
-| **Map marker click offset** from where it is drawn | The hit test centred the map canvas in the window, while the control that crops it is placed by the marker overlay — 141px out horizontally | [map-markers](reverse-engineering/map-markers.md) |
+| **Movies cropped** on wide screens -- a 640×480 logo drawn 3440×2580 at 3440×1440 | Retail scales a movie by the screen *width* alone; KMRP fits it by whichever of width and height runs out first | [movies](reverse-engineering/movies.md) |
+| **Map marker click offset** from where it is drawn | The hit test centred the map canvas in the window, while the control that crops it is placed by the marker overlay -- 141px out horizontally | [map-markers](reverse-engineering/map-markers.md) |
 | **Unfogged strip** down the right of the area map | The map picture is drawn onto a canvas wider than the overlay the fog grid covers, and nothing cropped the surplus | [area-map-surface](reverse-engineering/area-map-surface.md) |
 | **250 map notes in the wrong place** | A 2003 content bug: the notes' stored world positions do not match their subjects | [map-markers](reverse-engineering/map-markers.md) |
 
@@ -243,7 +204,7 @@ names and the description panel reads at a glance.
 The map fills its frame, fog reaches the right edge, and the map note sits clear of
 the buttons.
 
-It holds at 21:9 as well — every resolution is generated from the same rules, not
+It holds at 21:9 as well -- every resolution is generated from the same rules, not
 hand-tuned one at a time:
 
 <img src="assets/screenshots/uw-1-hud.png" alt="In-game HUD at 3440x1440" width="100%">
@@ -282,26 +243,16 @@ installation, and backup/restore ownership remains unchanged. On the editable
 executable the installer still manages the existing 4 GB header flag; Steam's
 executable stays unchanged.
 
-*Corrected 2026-10-01:* previously this section described an embedded gold delta
-and carried clean-image fragments. The normal build now assembles the recipe
-from source; gold snapshots remain historical references. *Corrected 2026-10-04:*
-until then the installer filled the template in for one chosen resolution, wrote
-it beside the game as `kmrp-kpm.dat`, and installed that resolution's files into
-`Override`.
-
 **Each interface file is stored once.** Most of the 66 resolutions' files are
 the same bytes at several resolutions, so the module embeds them as one bank
 of distinct files, compressed, with an index per resolution, and unpacks the set
-of the size in use. Since 2026-10-05 the bank also leaves out every file the
-module can write itself, exactly, from its blend table (most layouts and badges of
-most sizes), and checks each file it writes against the set's index. The installer
-carries the module once, inside `KMRP.kpatch`, and the controller patch beside it,
-and is 140 MB (146,874,368 bytes as built on 2026-10-06; 136,111,616 on 2026-10-05, before
-the controller patch was a file of its own inside it; 195.8 MB the day before that,
-with every file in the bank).
+of the size in use. The bank also leaves out every file the module can write itself, exactly, from
+its blend table (most layouts and badges of most sizes), and checks each file it
+writes against the set's index. The installer carries the module once, inside
+`KMRP.kpatch`, and the controller patch beside it, and is about 140 MB.
 
 **One scaling rule, everywhere.** Font metrics, list rows, icon sizes and popup
-geometry all scale by `max(1.0, height / 720)` — 1.00× at 720p, 1.50× at 1080p,
+geometry all scale by `max(1.0, height / 720)` -- 1.00× at 720p, 1.50× at 1080p,
 2.00× at 1440p, 3.00× at 2160p. The `.gui` files and the executable constants
 are generated from that same rule so they cannot drift apart.
 
@@ -309,7 +260,7 @@ are generated from that same rule so they cannot drift apart.
 outlines at build time, once per resolution at that resolution's own scale, so
 one atlas texel lands on one screen pixel and nothing is resampled. 15360×8640
 is the one exception: its scale-12.0 atlas is larger than the baker can produce.
-No font file is redistributed — see
+No font file is redistributed -- see
 [Licence and attribution](#licence-and-attribution).
 
 ---
@@ -317,16 +268,16 @@ No font file is redistributed — see
 ## What else it installs
 
 Alongside its own fixes, KMRP bundles work by other authors, each with that
-author's permission. All of it is optional or deferential — none of it silently
+author's permission. All of it is optional or deferential -- none of it silently
 overwrites a mod you installed yourself.
 
 | Component | Author | Licence | Optional |
 | --- | --- | --- | --- |
-| [K1 Modern Driver Compatibility](https://codeberg.org/Synchro/kotor-modern-driver-compatibility) 1.2.0 | Synchro | MPL-2.0 | **Yes** — Advanced Settings |
-| Area map marker corrections (250 notes) | Derslok | GPL-3.0 | **Yes** — Advanced Settings |
-| Controller support, based on [KPM – Xbox Controls for KOTOR 1](https://github.com/scopeking0117-alt/KPM-Xbox-Controls-K1) 1.2 | Saul0097 / KMRP | MIT, inherited from KOTOR Patch Manager, with each author's permission (his own licence file pending); SDL zlib | **Yes, on by default** — Advanced Settings |
-| Party Portraits | MadDerp | — | No |
-| KOTOR 1 HD Icon Pack 1.0 | JackInTheBox | — | No |
+| [K1 Modern Driver Compatibility](https://codeberg.org/Synchro/kotor-modern-driver-compatibility) 1.2.0 | Synchro | MPL-2.0 | **Yes** -- Advanced Settings |
+| Area map marker corrections (250 notes) | Derslok | GPL-3.0 | **Yes** -- Advanced Settings |
+| Controller support, based on [KPM – Xbox Controls for KOTOR 1](https://github.com/scopeking0117-alt/KPM-Xbox-Controls-K1) 1.2 | Saul0097 / KMRP | MIT, inherited from KOTOR Patch Manager, with each author's permission (his own licence file pending); SDL zlib | **Yes, on by default** -- Advanced Settings |
+| Party Portraits | MadDerp | -- | No |
+| KOTOR 1 HD Icon Pack 1.0 | JackInTheBox | -- | No |
 
 **Advanced Settings**, the button beside *Start Patching*, controls all three
 optional components. All three default to on, each can be turned off on its own,
@@ -372,13 +323,12 @@ matrix are in [docs/controller-support.md](docs/controller-support.md) and
 read from its own cache ahead of `Override`, so no file of yours is overwritten
 or moved, and removing KMRP leaves `Override` exactly as it was. Measured for the
 main menu's layout on 2026-10-04; a content mod's portrait or icon of the same
-name has not been compared. *Until 2026-10-04 the bundled portraits and icons
-yielded to a file already in `Override`, because KMRP installed its own there.*
+name has not been compared.
 
 **Tested against** KOTOR 1 Community Patch 1.10.0 and KOTOR 1 Restoration 1.2:
 neither ships `.gui` files, neither touches `swkotor.exe`, and neither patches
-`tutorial.2da`, the only 2DA KMRP supplies (made from the game's own table: at install
-from 2026-09-29, by the module when the game starts since 2026-10-04). K1CP replaces two icons the HD Icon Pack
+`tutorial.2da`, the only 2DA KMRP supplies (made from the game's own table by the
+module when the game starts). K1CP replaces two icons the HD Icon Pack
 also provides. The order in which you install content mods and KMRP no longer
 matters, since KMRP writes nothing into `Override`. Do not also install UniWS, High Resolution
 Menus, or a separate 4 GB patch. KOTORganizer users should finish Sync and then
@@ -405,6 +355,10 @@ executable.
 - `TexturePacks/swpc_tex_gui.erf` from your own game, placed in
   [`build-inputs/`](build-inputs/README.md). Steam's texture pack is sufficient;
   no game executable is a build input.
+- The game's own 84 layout files in `build-inputs/vanilla-gui`, for the controller
+  patch the installer carries since 2026-10-05: written once by
+  `python tools\build_controller_assets.py --extract <game folder>` from an
+  unmodified game.
 
 ```powershell
 .\build_kmrp.ps1
@@ -414,8 +368,8 @@ That regenerates all 66 resource archives and compiles the patcher to
 `dist/`. Add `-ReuseResources` to skip regenerating the interface archives;
 engine assembly, native compilation, pooling and KPM packaging still run.
 
-The build assembles the Windows engine template and compiles the controller
-module and KPM runtime itself. Optionally generate per-resolution font sets in
+The build assembles the Windows engine template and compiles KMRP's module, the
+controller patch's module and KPM's runtime itself. Optionally generate per-resolution font sets in
 `build/fonts` with `tools/build_font_scale_sets.py` first. Without them the build
 warns and each resolution falls back to the shared atlas.
 
@@ -425,11 +379,10 @@ The source-only engine regression can run without game files:
 python testing/regression/Test-WindowsEngineSource.py --csc C:\Windows\Microsoft.NET\Framework\v4.0.30319\csc.exe
 ```
 
-**The project folder is self-contained.** The texture pack is the only required
-game-derived file supplied from outside, and is never committed. The build
-creates its engine template and native modules inside the project. Earlier
-versions needed two game files and a separately generated gold snapshot; the
-source recipe removed the executable requirement on 2026-10-01.
+**The project folder is self-contained.** The texture pack and the extracted
+layout files are the only required game-derived files supplied from outside, and
+are never committed. The build
+creates its engine template and native modules inside the project.
 
 > [!NOTE]
 > **Game binaries and game resources are never committed.** `.gitignore` blocks
@@ -439,7 +392,7 @@ source recipe removed the executable requirement on 2026-10-01.
 > verified.
 
 See [CONTRIBUTING.md](CONTRIBUTING.md) for the working rules this project holds
-itself to — verifying before and after every executable edit, measuring rather
+itself to -- verifying before and after every executable edit, measuring rather
 than eyeballing, and recording what was disproved alongside what worked.
 
 ---
@@ -458,7 +411,7 @@ reverse-engineering/  Engine analysis, one document per subsystem
 src/patcher/          The Windows patcher application (C#)
 src/controller-native/ KMRP's module and the controller patch's (C++), loaded by KOTOR Patch Manager
 src/kpm-runtime/      Builds KOTOR Patch Manager's runtime and proxy from the submodule
-tools/                Python tools that build the gold snapshot and resources
+tools/                Python tools that build the engine recipe, the patches and resources
 testing/              Regression tests, controller harnesses, virtual-display profiles
 build-inputs/         Files from your own game copy (never committed)
 third_party/          Upstream inputs: GUI layouts, bundled mods, glyph art, a font
@@ -470,13 +423,13 @@ releases/             Notes and hashes for past releases
 
 | | |
 | --- | --- |
-| [docs/](docs/) | Build and design documentation — start at [docs/README.md](docs/README.md) |
-| [reverse-engineering/](reverse-engineering/) | Engine analysis, one document per subsystem — index at [reverse-engineering/README.md](reverse-engineering/README.md) |
+| [docs/](docs/) | Build and design documentation -- start at [docs/README.md](docs/README.md) |
+| [reverse-engineering/](reverse-engineering/) | Engine analysis, one document per subsystem -- index at [reverse-engineering/README.md](reverse-engineering/README.md) |
 | [CHANGELOG.md](CHANGELOG.md) | What changed, per release |
 | [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md) | Upstream work this builds on, and the licensing position |
 
 The reverse-engineering notes are written to be read by someone who was not
-there: they record the addresses, the measurements, and — deliberately — the
+there: they record the addresses, the measurements, and -- deliberately -- the
 theories that turned out to be **wrong**, so the same dead ends are not explored
 twice.
 
@@ -484,7 +437,7 @@ twice.
 
 ## Licence and attribution
 
-KMRP is distributed under the **GNU General Public License v3.0** — see
+KMRP is distributed under the **GNU General Public License v3.0** -- see
 [LICENSE](LICENSE). The per-resolution GUI layouts derive from *KOTOR High
 Resolution Menus 1.5* by **ndix UR**, which is GPL-3.0, and that licence carries
 forward.
@@ -500,7 +453,7 @@ icons are downscaled from 192 to 160 px and compressed to DXT5 at build time.
 
 Interface artwork derives from the HD menu/UI asset set used in **RaymanGT**'s
 3440×1440 release. Full credits, links, and the reasoning behind each decision
-are in [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md) — including one
+are in [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md) -- including one
 **unresolved** point recorded honestly: the *Old Republic* typeface used for
 menu text is marked "free for personal use" by its author, who states it cannot
 be licensed further because it reproduces someone else's intellectual property.

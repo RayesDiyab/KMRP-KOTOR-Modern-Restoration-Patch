@@ -12,6 +12,20 @@ bonuses or penalties…") and the game's Yes/No confirmations. Every value below
 was read back out of the installed files after the change; nothing here is
 intent or inference. Where something is untested it says so.
 
+> **Where the changes live (note of 2026-10-08, read from the source).** The
+> values are as described; where they are written is not what the sections of
+> September say. Since 2026-09-29 KMRP's installer does not write the six sizes
+> into `swkotor.exe`, and since 2026-10-04 it puts no file into `Override`.
+> Everything here is done by the module of `KMRP.kpatch` under KOTOR Patch
+> Manager's runtime:
+>
+> | Part | Now |
+> | --- | --- |
+> | The six sizes of `PopupSizeGroups` (450, 800 and 64 at scale 1.0) | applied in memory, computed for the size the game runs at and written again when it changes (`FieldValue` in `K1RuntimeEngine.cpp`, over `resolution_fields()` in `tools/build_native_engine.py`: `0x6256E3`, `0x625759`, `0x6256DC`, `0x6256F6`, `0x626F95`, `0x62540D`). `ResolutionPatch` makes them only for `--apply`, the patched executable written to a new file as the reference |
+> | `confirm.gui` per resolution | in the module's bank or written by its blend helper, never in `Override` ([runtime-resolution-preview.md](runtime-resolution-preview.md)) |
+> | The 13 `tut_` icons and `tutorial.2da` | made by the module from the player's own game each time a size's files are produced (`KmrpGameArt`, `macos/tools/kmrp-gameart.c` compiled into it, called from `K1RuntimeAssets.cpp`) |
+> | The fit to the contents | the detour at `0x006258E2`, as "Windows: fitted to its contents" below describes; one of the 27 hooks of KMRP's patch |
+
 ## What the popup is
 
 `confirm.gui` backs the engine's shared message-popup class, whose constructor
@@ -283,3 +297,11 @@ left the render byte-identical, on both `dialogfont16x16` and `fnt_d16x16`. So
 this text does not pass through the line-breaker at `0x0045A5C9` that the font
 work targets, and `PADDING` is the lever that works instead. Both fonts were
 restored to `0.005`.
+
+*Note of 2026-10-08:* the fonts no longer carry `0.005`. Since 2026-10-05 every
+set a release ships has `spacingR 0`, after the engine's `Draw` was found to add
+the value after every glyph
+([font-atlases.md](font-atlases.md#spacingr-is-drawn-and-a-whole-pixel-set-must-not-carry-it)).
+That finding and the observation above ("no effect" at `0.300`) do not agree,
+and the observation was not repeated; treat it as unexplained, not as evidence
+about `Draw`.

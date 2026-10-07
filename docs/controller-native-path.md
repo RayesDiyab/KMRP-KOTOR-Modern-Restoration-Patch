@@ -25,6 +25,15 @@ the core set, installed with the option off as well, beside two stand-ins: 9
 entries ([`controller-support.md`](controller-support.md), *Installed files and
 ownership*). *Corrected 2026-09-28:* this stopped at "26 detours since the rumble
 mixer", seven detours short.
+
+**Since 2026-10-05 the native path ships as a patch of its own**, `KOTOR 1 Native
+Controller Mod + Xbox HUD.kpatch` (id `kmrp-controller`), run by KOTOR Patch
+Manager's runtime with or without KMRP: 34 detours and no byte patch
+(`hooks()` in `tools/build_controller_kpatch.py`, counted on 2026-10-08; the list
+is in [`controller-standalone.md`](controller-standalone.md), section 2). The
+memory fixes, the movie bars and the keyboard hooks counted above are KMRP's
+patch's, `KMRP.kpatch`, which installs no controller hook. The counts above are
+those of the installers of their dates.
 The first four:
 
 | Hook | Address | Purpose |
@@ -252,9 +261,12 @@ buys behaviour the event system cannot express, at the cost of being a genuine
 modification: the call site is ours, the arguments are ours, and a wrong guess
 about a calling convention is a crash rather than a dead button.
 
-**Nothing currently ships as B.** It was the fallback planned for Start and
-turned out to be unnecessary. The one place it may still be warranted is
-main-menu navigation (below).
+When this section was written nothing shipped as B: it was the fallback planned
+for Start and turned out to be unnecessary there. **Several bindings are bridges
+now**, each described in its own section of this file: L3's flourish, A's world
+action (`0xEF`), the right stick's `RotateCamera`, Start's Map hotkey (`0xD7`),
+R3's exit from free look, X and Y pressing the HUD's combat buttons, the movie
+skip, and focus navigation itself (`SetActiveControl`).
 
 ### C — legacy synthetic input
 
@@ -449,9 +461,15 @@ exactly, at every deflection. KOTOR retained true proportional movement.
 The engine's own joystick deadzone is `8191.75 / 32767` — exactly 25%, matching
 Microsoft's `XINPUT_GAMEPAD_LEFT_THUMB_DEADZONE` of 7849 and the era's advice for
 a square per-axis deadzone. It is neutralised at startup and replaced with a
-**radial 8%** applied in the module, with the remaining travel rescaled to the
-full range. 8% clears the test controller's measured 4.8% resting drift and sits
-inside the 5–8% modern practice band.
+**radial 15%** applied in the module (`K1_STICK_DEADZONE = 0.15f`), with the
+remaining travel rescaled to the full range. *Corrected 2026-10-08, from the
+constant and its comment in `K1NativeJoystick.cpp`:* this said a radial 8%, which
+cleared the 4.8% resting drift first measured. A pad's left stick was then
+measured resting at 9.6%; past an 8% deadzone it moved the character,
+overrode keyboard movement and kept the pad counted as the device in use, so the
+value went to 15%, still under the engine's 25%. The camera's deadzone stayed at
+12% (the same pad's right stick rests at 4.8%), and whether the pad counts as in
+use is a third threshold, `K1_ACTIVITY_STICK`, 0.35.
 
 `K1_STICK_DEADZONE` and `K1_CAMERA_DEADZONE` are named constants, tunable
 without touching logic.
@@ -677,7 +695,10 @@ behaviour itself as human-QA.
 `AddEvent` survey found X registered exactly once in the whole executable and
 Black not at all, so there is nothing for them to do that is not invented. The
 mouse-look camera in class 2 has no meaning. Nothing at all is registered in
-class 5.
+class 5. (Since 2026-09-14 Back's slot carries the Solo Mode query in gameplay,
+and since 2026-09-25 X presses the HUD's Disengage button in combat, neither
+through these two events: "The gameplay HUD action bar", below, and *Gameplay
+verbs* in [`controller-parity.md`](controller-parity.md).)
 
 ## Movies
 
@@ -963,7 +984,23 @@ sides, and a grey frame before playback began.
 `BinkBufferLock`/`BinkBufferUnlock`, bounds-checked before the write. Once is
 enough, because the copy only ever writes the picture rect.
 
+This is not controller code, and since 2026-10-05 it belongs to KMRP's patch
+alone (`KmrpCoreMovieWorkK1` at `0x00404D06`, with `NativeMovieWindowOpenK1` and
+`NativeMovieWindowCloseK1`). The controller patch's movie frame only reads the
+pad for the skip (`KpmMoviesOffK1` returns true in its module), and without KMRP
+the aspect fit that leaves those margins is not applied either.
+
 ## Testing
+
+Read on 2026-10-08: the package is checked without a game by
+`testing/regression/Test-ControllerKpatch.py`, and the runs in a game since
+2026-10-05 were made in scratch copies with KOTOR Patch Manager 0.7.1's launcher
+and `testing/controller/virtual_pad_server.py`
+([`controller-standalone.md`](controller-standalone.md), section 8). The two
+tools below date from the installer that put `kmrp-controller.module` beside the
+game (until 2026-09-29); neither has been brought up to the two patches, and
+whether `test_native_input.py` still runs against a current install was not
+tried.
 
 * `testing/controller/select_controller_path.py [saul|native|both]` switches the
   install. All of the legacy path's controller input is driven from

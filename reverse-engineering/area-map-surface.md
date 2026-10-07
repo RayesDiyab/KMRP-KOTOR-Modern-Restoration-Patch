@@ -31,6 +31,20 @@ This covers the surface itself.
 Sections 1-3 measure the map **before** the fix, on gold v19; §4 records the fix
 and what shipped.
 
+> **Where the fix is written (note of 2026-10-08, read from the source).** "What
+> ships now" above and "the patcher's `ResolutionPatch` writes it into the
+> executable" in §4 hold for the installer's `--apply` output, a patched
+> executable written to a new file. Since 2026-09-29 the installer does not
+> write them into `swkotor.exe`: the module of `KMRP.kpatch` applies the same
+> bytes in memory at each start, under KOTOR Patch Manager's runtime, and
+> computes the six Option D values for the size the game runs at, again when
+> the size is changed in the game (`FieldValue` in
+> `src/controller-native/K1RuntimeEngine.cpp`, kinds 6 to 8 and 1 and 2, over
+> the fields `resolution_fields()` lists in `tools/build_native_engine.py`).
+> `map.gui` is no longer an `Override` file either since 2026-10-04: the module
+> carries every size's set. The geometry and the measurements are unchanged;
+> see [`docs/kpm-edition.md`](../docs/kpm-edition.md).
+
 Addresses are `VA` unless labelled `FILE`. `FILE = VA − 0x400000` for the
 original sections; appended sections use `FILE = VA − 0x492000`.
 

@@ -38,7 +38,11 @@ line in the debug log says which of the three a rumble is.
 ## Settings
 
 `kmrp-controller.ini`, beside `swkotor.exe`. The installer writes it when it is
-absent. Once you edit it, it is yours: the installer never overwrites it, an
+absent; where the controller patch is installed without KMRP's installer (by
+KOTOR Patch Manager), its module writes the same defaults once, when the file is
+not there (`WriteDefaultSettings`, `K1ControllerStandalone.cpp`, since
+2026-10-05; that copy also has the `[Hud]` section of
+[`controller-xbox-hud.md`](controller-xbox-hud.md)). Once you edit it, it is yours: the installer never overwrites it, an
 edited copy never stops an install, and Restore leaves it in place.
 `Test-ControllerSupport.ps1` Case 7 checked all three until the test was removed
 with the four-patch layout on 2026-10-04; no test checks them now.
@@ -129,9 +133,13 @@ change, every layer is stopped and the health baseline forgotten.
 Build: the clean executable, `build-inputs/swkotornopatch.exe`, 4,042,752
 bytes, SHA-256 `761F9466F456A83909036BAEBB5C43167D722387BE66E54617BA20A8C49E9886`.
 All sites are in `.text`, so `FILE = VA − 0x400000`. None of them changes a byte
-on disk. KPM detours them in memory from `patch_config.toml`, and
-`Test-ControllerSupport.ps1` checks that the stolen bytes are intact in the
-patched executable.
+on disk. KPM detours them in memory from `patch_config.toml`. Since 2026-10-05
+all nine belong to the controller patch (`KOTOR 1 Native Controller Mod + Xbox
+HUD.kpatch`, id `kmrp-controller`); KMRP's own patch has none of them, so there is
+no rumble with Controller Support off. `tools/build_controller_kpatch.py
+--verify-clean` compares their stolen bytes with the clean executable. (Until
+2026-10-04 `Test-ControllerSupport.ps1` checked that the stolen bytes were intact
+in the executable the installer of the time patched on disk.)
 
 | VA | FILE | Stolen bytes | Function | Handler | Kind |
 | --- | --- | --- | --- | --- | --- |
@@ -152,7 +160,8 @@ The annotated disassembly for each is in
 agreement: 26 native hooks and 4 byte patches when the mixer shipped
 (2026-09-25). That count has since grown -- 35 native hooks and 4 byte patches
 on 2026-09-28, with the character-creation and echo guards and the no-controller
-stand-ins -- and the eight hooks above are unchanged.
+stand-ins -- and the eight hooks above are unchanged. On 2026-10-08 the controller
+patch has 34 hooks, all detours, these nine among them.
 
 **The play hook is the only one that declines the original.** It returns 1,
 and KPM exits to `0x005FB536`, the function's own `pop edi / pop esi / xor

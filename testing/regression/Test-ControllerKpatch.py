@@ -8,7 +8,7 @@ What it proves, from the built files and the sources (it starts no game):
      callback a hook names.
   2. It is a controller patch and nothing else: no hook of KMRP's core (the engine
      recipe's sites, the keyboard navigation, the memory and movie fixes), no static
-     hook, and KMRP's own patch among its conflicts.
+     hook; it requires nothing and does not conflict with KMRP's own patch.
   3. No hook of it overlaps a hook of KMRP's own patch at a different address span:
      every site it holds, KMRP holds identically or not at all.
   4. The file bank holds exactly the layout files the controller changes and the

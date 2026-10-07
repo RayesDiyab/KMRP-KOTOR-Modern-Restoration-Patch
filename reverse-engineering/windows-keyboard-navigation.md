@@ -5,6 +5,22 @@ Reference for the source port of the Mac row and list-boundary repair. Read the
 [Mac measurements](macos-keyboard-navigation.md). This is not yet a verified fix
 for the maintainer's physical-keyboard failure.
 
+> **Packaging since then (note of 2026-10-08, read from
+> `tools/build_native_kpatch.py`).** The source and the three hook sites
+> (`0x0040C24E` `KeyboardKeepFocusK1`, `0x0041A9D0` `KeyboardNavigateK1`,
+> `0x0041CE20` `KeyboardListBoundaryK1`) are as described. The packaging in
+> "Verification" below is that of 2026-10-03, one installer-made configuration
+> of 43 hooks with controller support as a switch. Since 2026-10-05 the three
+> are among the 27 hooks of `KMRP.kpatch` (id `kmrp`), always installed, and the
+> controller is a separate patch that may be present or not; the candidate's
+> hashes and sizes below are of that day's build.
+> `Test-ControllerSupport.ps1`, named twice below, was removed with the one-patch
+> installer on 2026-10-04 (commit `35f1c77`); the installer is now covered by
+> `testing\regression\Test-InstallerPatch.ps1` and the patch by
+> `testing/regression/Test-KpatchSource.py`. The status in the first paragraph is
+> unchanged as far as this document records: physical-keyboard delivery is not
+> shown here as verified.
+
 ## Builds and measurements
 
 Static disassembly uses clean CD 1.03, 4,042,752 bytes, SHA-256

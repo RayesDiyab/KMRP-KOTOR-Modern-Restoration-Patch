@@ -2,12 +2,14 @@
 """Build and check the standalone controller patch for KOTOR Patch Manager:
 "KOTOR 1 Native Controller Mod + Xbox HUD.kpatch", id "kmrp-controller".
 
-KMRP's native controller support for a game WITHOUT KMRP: the pad in the game and in
+KMRP's native controller support as a patch of its own: the pad in the game and in
 every menu, the button prompts of four controller families, rumble and the Controller
-Layout screen, on the game's original interface. It carries none of KMRP's other
-work (no interface scaling, no memory, movie or map fixes) and needs nothing else
-installed. KMRP's own patch already contains controller support as an option, so
-the two conflict.
+Layout screen, on whatever interface the game runs with (its own, KMRP's, another
+widescreen patch's). It carries none of KMRP's other work (no interface scaling, no
+memory, movie or map fixes) and needs nothing else installed. KMRP's installer
+installs it beside KMRP's patch while Controller Support is on; neither patch
+requires the other and they do not conflict (since 2026-10-06; on 2026-10-04 and 05
+KMRP's patch contained controller support and the two conflicted).
 
 One module (src/controller-native/build_controller_standalone.cmd) with its files
 embedded (tools/build_controller_assets.py). Its hooks are the controller's own in
@@ -140,11 +142,13 @@ PANEL_DESTROYED_HOOK = {
     'parameters': [{'source': 'esi', 'type': 'pointer'}],
 }
 OPTIONS = [
-    {'id': 'xbox-hud', 'name': 'Xbox-style HUD', 'default': False,
-     'description': "Lays the in-game HUD out like the original Xbox version's: the action "
-                    'slots in a box at the bottom left, the target\'s name at the top left, '
-                    'the party at the bottom right. Without a manager that offers options, '
-                    'set Style=Xbox under [Hud] in kmrp-controller.ini.'},
+    {'id': 'xbox-hud', 'name': 'Xbox-style HUD', 'default': True,
+     'description': "While the pad is in use, lays the in-game HUD out like the original "
+                    "Xbox version's: the action slots in a box at the bottom left, the "
+                    "target's name at the top left, the party at the bottom right. With "
+                    "mouse and keyboard the game's own HUD is shown. Without a manager "
+                    'that offers options, set Style=PC under [Hud] in kmrp-controller.ini '
+                    'to turn it off.'},
     {'id': 'debug-logs', 'name': 'Debug logs', 'default': False,
      'description': 'Writes diagnostic log files beside the game. Leave off unless you are '
                     'reporting a problem.'},

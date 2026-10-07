@@ -1,7 +1,8 @@
 <#
 .SYNOPSIS
     Regression test for what KMRP's installer puts in a game folder since 2026-10-04:
-    KOTOR Patch Manager's runtime with one patch, "kmrp", and its options.
+    KOTOR Patch Manager's runtime with KMRP's patch, "kmrp", its options, and
+    (since 2026-10-05) the controller patch, "kmrp-controller", beside it.
 
 .DESCRIPTION
     Runs the built installer from the command line on throwaway game folders (the

@@ -29,6 +29,7 @@ holds for 2026-10-04 and part of the next day only.
 | The installer | wrote the controller's hooks while the option was on | installs the controller patch beside KMRP's while Controller Support is on in Advanced Settings, the default: both modules, both patches' hooks in `patch_config.toml` with KMRP's first, `configs\kmrp.ini` and `configs\kmrp-controller.ini`, both `.kpatch` files in KPM's patch folder. Off: nothing of the controller patch, and KMRP's patch the same |
 | Settings | `configs\kmrp.ini`, `[Patch Options]`: three values | `configs\kmrp.ini` with two; `configs\kmrp-controller.ini` with `debug-logs`, and the player's own `Style` under `[Hud]` for the Xbox-style HUD |
 | Side by side | -- | the controller patch does not list `kmrp` as a conflict. Beside KMRP it leaves the cursor to KMRP and uses KMRP's scaled layouts in place of its own copies of the game's; it draws its prompts from its own files and fits them to the layout in force at run time (2026-10-06) |
+| Resolution | the display's current size in `swkotor.ini`, and a checklist in the installer's step 3 to hide sizes or add others (`kmrp-resolutions.txt`; an added size ran in a borderless window) | since 2026-10-07 no choice: step 3 only states the start size, the game lists every size the connected display reports, nothing is written for it, and on a display that lacks `swkotor.ini`'s size the game starts at the display's own (`DisplayReports`, `KmrpStartAtDisplaySize` in `K1RuntimeResolution.cpp`). A `kmrp-resolutions.txt` of an earlier install is removed when that install is replaced or restored |
 
 Where the rest is: [`CHANGELOG.md`](../CHANGELOG.md), `[Unreleased]`, "KMRP and the
 controller patch are two patches, each working without the other", which lists what was
@@ -46,7 +47,7 @@ section the one patch of that day, which the section above has since split in tw
 final kmrp should be now the standalone kpatch with options shipped inside the
 installer"). What changed, and what the sections below still get right:
 
-| | Until 2026-10-04 (sections 1 to 7) | Now |
+| | Until 2026-10-04 (sections 1 to 7) | On 2026-10-04 (changed since: the section above) |
 | --- | --- | --- |
 | Patches | four: `kmrp`, `kmrp-controller`, `kmrp-movies`, `kmrp-map-notes` | one, `kmrp`, with three options: `controller` and `map-notes`, on by default, and `debug-logs`, off (`tools/build_native_kpatch.py`). The movie fixes are part of it: an option for a few hours that day, then "standard baked into KMRP, non-negotiable" (the maintainer) |
 | Module | `kmrp-controller.module`, 245 KB, one copy per patch with detours | `kmrp-native.dll`, about 189 MB, once, as `patches\kmrp.dll`; it embeds the engine recipe, every resolution's files, the controller and SDL |
@@ -54,7 +55,7 @@ installer"). What changed, and what the sections below still get right:
 | `Override` | about 1,850 files for the chosen resolution | nothing |
 | `patch_config.toml` | four sections, from `Kmrp.engine.config.<id>` | one section, written by `KpmEditionOperations.PatchConfigSection`: the hooks that are always installed and those of each option left on. The chosen values go to `configs\kmrp.ini`, section `[Patch Options]` (`WritePatchOptions`); until later on 2026-10-04 they were a `[patches.options]` table here |
 | Resolution (since 2026-10-07 there is no checklist and no `kmrp-resolutions.txt`: the game lists what the connected display reports) | chosen in the installer, one | the display's current size in `swkotor.ini`; any size the display supports in the game; a checklist for fewer or other sizes (`kmrp-resolutions.txt`) |
-| `.kpatch` files delivered | four | one, `KMRP.kpatch` |
+| `.kpatch` files delivered | four | one, `KMRP.kpatch` (two since 2026-10-05) |
 
 Unchanged, and still as sections 1a and 5 describe: KOTOR Patch Manager's runtime
 and proxy and how the installer lays them out, `kpm_install_state.json` and the
@@ -99,6 +100,12 @@ hook table). The helpers the other builders used moved to `tools/kpatch_common.p
 The sections below still name the three files, as they were.
 
 ### Later on 2026-10-04: options in `configs`, debug logs, added sizes
+
+**Retired since:** the last row of this table and the measurements of an added size
+below it describe the resolution choice removed on 2026-10-07
+(`KmrpCentreAddedSizeK1`, `KmrpAddedSizeWindowK1` and the checklist are gone); and
+`controller` has not been an option of `kmrp` since 2026-10-05, so stock KPM 0.7.1
+runs map notes on and logs off, and the controller only if its own patch is ticked.
 
 | | |
 | --- | --- |
@@ -152,7 +159,12 @@ Addresses are **VA** unless marked FILE. For the original sections `FILE = VA âˆ
 
 ## 1. Two editions, one source
 
-KMRP ships two ways, built by one `build_kmrp.ps1` run from the same sources.
+*Historical (2026-09-28): neither edition of this section is built any more. The
+separate KMRP for KPM installer ended on 2026-09-29, the four patches and
+`kmrp-kpm.dat` on 2026-10-04; the first two sections of this document say what is
+installed now.*
+
+KMRP shipped two ways, built by one `build_kmrp.ps1` run from the same sources.
 This table compares the KPM edition with the standalone as they stood on
 2026-09-28; section 1a says what KMRP's installer does since 2026-09-29, which is
 the KPM edition's install plus KOTOR Patch Manager's runtime.
@@ -895,12 +907,20 @@ python tools\build_windows_engine.py --out build\kmrp\windows-engine.bin
 python testing\regression\Test-WindowsEngineSource.py --csc C:\Windows\Microsoft.NET\Framework\v4.0.30319\csc.exe
 .\build_kmrp.ps1
 python testing\regression\Test-KpatchSource.py
-python tools\build_kpatch.py --check build\kmrp\kpm-patches
+python tools\build_native_kpatch.py --check build\kmrp\kpm-patches\KMRP.kpatch
+python tools\build_controller_kpatch.py --check "build\kmrp\kpm-patches\KOTOR 1 Native Controller Mod + Xbox HUD.kpatch"
+python tools\check_kpm_overlaps.py <folder of .kpatch files>
+.\testing\regression\Test-InstallerPatch.ps1           # both patches installed, the controller patch left out, restore
 ```
 
+(Until 2026-10-08 this list ended with `tools\build_kpatch.py --check`, a tool
+removed on 2026-10-04 with the four-patch packaging.)
+
 On Ubuntu the source regression accepts `--mono-root <extracted Mono tree>`.
-The following commands are the **historical snapshot comparison** and require
-optional clean/gold fixtures; they are no longer normal build steps:
+The following commands are the **historical snapshot comparison** of the four-patch
+edition and require optional clean/gold fixtures; they are no longer normal build
+steps, and `tools\build_kpatch.py`, `Test-KpmEdition.ps1` and `kmrp-kpm.dat` no
+longer exist:
 
 ```powershell
 python tools\kpm_relocations.py                       # the table, both methods, the proof

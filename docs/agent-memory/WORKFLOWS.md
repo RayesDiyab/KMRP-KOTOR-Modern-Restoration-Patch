@@ -30,33 +30,38 @@ temporary directory—not beside tracked sources.
 Both write `dist\KMRP - KOTOR Modern Restoration Patch.exe`, the one installer
 (since 2026-09-29 it also installs for KOTOR Patch Manager; until then a second
 installer, `dist\KMRP for KPM\KMRP for KPM.exe`, compiled with `KPM_EDITION`,
-did); the four `.kpatch` files are built into `build\kmrp\kpm-patches\` and
-embedded in it (until later on 2026-09-29 they shipped in `dist\KPM patches\`;
-`--export-kpm-patches <folder>` writes them out). The relocation step
-needs Capstone (`requirements.txt`) and stops the build if its two methods
-disagree. Since 2026-09-29 the build also compiles KOTOR Patch Manager's runtime
-from the submodule (`src\kpm-runtime\build.cmd`, MSVC; `git submodule update
---init` in a fresh clone). Since 2026-10-01 it assembles
-`windows-engine.bin` through `tools/build_windows_engine.py`, compiles the
-controller module, then runs `tools/build_kpatch.py`, which writes the `.kpatch`
-files and config sections and verifies their hooks against the tracked table
-and source engine guards. **Correction:** the former `kmrp-sites.exe`,
-`--kpm-sites`, extracted-originals and gold-delta steps are retired. After a build,
-`.\testing\regression\Test-KpmEdition.ps1` proves the editions agree; put Steam's
-unmodified `swkotor.exe` at `build-inputs\swkotor-steam.exe` to include its Steam
-case. Steam-only facts: KPM needs its proxy deployment there, and SteamStub refuses
+did); the two `.kpatch` files, `KMRP.kpatch` and `KOTOR 1 Native Controller Mod +
+Xbox HUD.kpatch`, are built into `build\kmrp\kpm-patches\` and embedded in it
+(`--export-kpm-patches <folder>` writes them out). The build compiles KOTOR Patch
+Manager's runtime from the submodule (`src\kpm-runtime\build.cmd`, MSVC; `git
+submodule update --init` in a fresh clone), assembles `windows-engine.bin` through
+`tools/build_windows_engine.py`, and then:
+
+- runs `src\controller-native\build_native_runtime.cmd` (KMRP's module, with the
+  engine recipe and the resource bank; the bank is rebuilt unless
+  `-ReuseResources` finds one) and `tools/build_native_kpatch.py`, which writes
+  `KMRP.kpatch` and the installer's hook files in `build\kmrp\kpm-config\`;
+- runs `src\controller-native\build_controller_standalone.cmd` (the controller
+  patch's assets, then its module; needs `build-inputs\vanilla-gui`) and
+  `tools/build_controller_kpatch.py --out ... --config-dir ...`, which writes the
+  controller patch and its hooks beside KMRP's.
+
+After a build run `.\testing\regression\Test-InstallerPatch.ps1`,
+`python testing/regression/Test-KpatchSource.py` and
+`python testing/regression/Test-ControllerKpatch.py` (the last reads
+`dist\controller`, which `build_kmrp.ps1` does not write: see below).
+A scratch install delivers the `.kpatch` files to the folder KOTOR Patch Manager's
+settings name, which on the maintainer's PC is the play-test game's `patches` folder:
+redirect `%APPDATA%\KPatchLauncher\settings.json` first, as `Test-InstallerPatch.ps1`
+does. Steam-only facts: KPM needs its proxy deployment there, and SteamStub refuses
 any changed executable (docs/kpm-edition.md).
 
-**Since 2026-10-04:** one patch. The build runs `src\controller-native\build_native_runtime.cmd`
-(the module, with the engine recipe and the resource bank; the bank is rebuilt unless
-`-ReuseResources` finds one) and `tools/build_native_kpatch.py`, which writes
-`build\kmrp\kpm-patches\KMRP.kpatch` and the installer's hook files in
-`build\kmrp\kpm-config\`; `tools/build_kpatch.py` was removed on 2026-10-04 (its helpers are
-`tools/kpatch_common.py`). After a build run `.\testing\regression\Test-InstallerPatch.ps1`
-and `python testing/regression/Test-KpatchSource.py`; `Test-KpmEdition.ps1` is gone.
-A scratch install delivers `KMRP.kpatch` to the folder KOTOR Patch Manager's settings
-name, which on the maintainer's PC is the play-test game's `patches` folder: redirect
-`%APPDATA%\KPatchLauncher\settings.json` first, as `Test-InstallerPatch.ps1` does.
+**History of this ladder.** Until 2026-10-04 the build made four `.kpatch` files
+with `tools/build_kpatch.py` (removed that day; its helpers are
+`tools/kpatch_common.py`) and `Test-KpmEdition.ps1` (also removed) proved the
+editions agreed; from 2026-10-04 to 2026-10-05 it made one patch; since 2026-10-05
+two. The former `kmrp-sites.exe`, `--kpm-sites`, extracted-originals and gold-delta
+steps were retired on 2026-10-01.
 
 **The bank since 2026-10-05.** `tools/build_native_assets.py`
 stores only what the module's blend helper does not write exactly, so it needs the x86
@@ -71,8 +76,9 @@ start the game and read the "interface files" line in `kmrp-kpm.log`; the files 
 the newest `%TEMP%\KMR*.tmp`. Only one copy of the game runs at a time: a second one
 exits at once with code -1.
 
-**The standalone controller patch (since 2026-10-05)** is a separate build, not part
-of `build_kmrp.ps1`:
+**The controller patch on its own (since 2026-10-05).** `build_kmrp.ps1` builds it
+into the installer (above). To build and check the released package without the
+installer:
 
 ```powershell
 python tools\build_controller_assets.py --extract "C:\path\to\clean game"   # once: build-inputs\vanilla-gui
@@ -86,8 +92,9 @@ KOTOR Patch Manager's own launcher (`KPatchLauncher.exe <exe> --patches dist\con
 kmrp-controller --deployment proxy`, which also starts the game and did not touch
 KPM's settings file). See `docs/controller-standalone.md`.
 
-The only required game-derived build input defaults to ignored
-`build-inputs/swpc_tex_gui.erf`. The Windows engine recipe builds from source;
+The required game-derived build inputs are ignored
+`build-inputs/swpc_tex_gui.erf` and, for the controller patch,
+`build-inputs/vanilla-gui` (the `--extract` line above). The Windows engine recipe builds from source;
 no game executable or gold snapshot is required. Machine overrides belong in ignored
 `build.local.ps1`; copy `build.local.example.ps1` as the template.
 
@@ -95,6 +102,7 @@ no game executable or gold snapshot is required. Machine overrides belong in ign
 
 ```powershell
 .\testing\regression\Test-ReinstallOverOlderBuild.ps1
+.\testing\regression\Test-InstallerPatch.ps1
 python .github/scripts/check_links.py
 ```
 

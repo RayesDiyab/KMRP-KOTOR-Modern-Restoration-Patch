@@ -77,6 +77,12 @@ before the fresh-session verification, so a failed readback does not lose recove
 
 ## The standalone module
 
+"Standalone" here is `KMRP.kpatch` used without KMRP's installer, in KOTOR Patch
+Manager; it is the same file and module (`patches\kmrp.dll`) the installer installs
+since 2026-10-04, so the check below also runs in an installed game, where the
+installer's own step has normally left it nothing to do. The controller patch's
+module does not carry it (`build_controller_standalone.cmd`).
+
 The single-file `.kpatch` has no installer, so its module makes the same check from
 inside the game (`src/controller-native/K1RuntimeNvidia.cpp`, a port of
 `NvidiaPresentOperations.Install` with the rules of [When it writes](#when-it-writes)

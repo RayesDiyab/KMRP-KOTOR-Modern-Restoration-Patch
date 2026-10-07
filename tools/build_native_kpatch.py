@@ -9,9 +9,11 @@ handles any resolution KMRP has a layout for at run time.
   dist/native/KMRP.kpatch                       id "kmrp"
   (build_kmrp.ps1 writes it to build/kmrp/kpm-patches instead, with --out)
 
-Controller support and map notes are options of the patch, both on by default, and
-debug logs a third, off by default. The movie fixes are not an option: they are part
-of KMRP (the maintainer, 2026-10-04, after a day on which they were one). A hook that
+Map notes is an option of the patch, on by default, and debug logs a second, off by
+default. Controller support is not in this patch since 2026-10-05: it is a patch of
+its own (tools/build_controller_kpatch.py), and each works without the other. The
+movie fixes are not an option: they are part of KMRP (the maintainer, 2026-10-04,
+after a day on which they were one). A hook that
 belongs to an option carries `when`. No address has two hooks, so a KOTOR Patch
 Manager without patch options (0.7.1), which ignores `when` and the options, installs
 every hook: every option at its default. The module reads what was chosen from the
@@ -90,7 +92,7 @@ PARAMETERS = {
 # KMRP's earlier patches, which this one replaces: the add-ons of the four-patch
 # edition (whose core had this id), and the experimental packages of 2026-10.
 # Since 2026-10-05 KMRP is two patches again, by the maintainer's decision: this one,
-# and the controller patch it requires (tools/build_controller_kpatch.py, id
+# and the controller patch beside it (tools/build_controller_kpatch.py, id
 # "kmrp-controller": "KOTOR 1 Native Controller Mod + Xbox HUD", which also works on
 # the game without KMRP). This patch carries no controller hook and no controller
 # option. Three sites both would want are the controller patch's: the GUI frame

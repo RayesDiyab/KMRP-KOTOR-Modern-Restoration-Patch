@@ -7,6 +7,26 @@
 > anything untested labelled as untested.
 
 
+> **Where these bytes are written (note of 2026-10-08, read from the source).**
+> Until 2026-09-29 KMRP's installer wrote the hooks, the `.kfs` and `.klb`
+> sections and the row scale below into `swkotor.exe`. It no longer does: the
+> same bytes are applied in memory each time the game starts, by the module of
+> `KMRP.kpatch` under KOTOR Patch Manager's runtime
+> (`src/controller-native/K1KpmApplier.cpp`, `K1RuntimeEngine.cpp`), from a
+> recipe built from source (`src/engine/windows-sites.json`,
+> `tools/build_windows_engine.py`, `tools/build_native_engine.py`), each write
+> after its original bytes are checked. The appended sections are one block in
+> memory the module allocates, so `.kfs` is not at `0x0086F000` in the running
+> game and every reference to it is moved to match. The list-row float
+> (`.kfs+0x004`) is computed for the size the game runs at and written again
+> when the size is changed in the game (`FieldValue`, kind 9). "The patcher
+> rewrites it per resolution" and `ResolutionPatch.ScaleForHeight` below
+> describe the installer's `--apply` output, a patched executable written to a
+> new file, which is still the reference
+> ([`docs/kpm-edition.md`](../docs/kpm-edition.md)). The font atlases and `.gui`
+> files no longer go to `Override` since 2026-10-04: the module carries every
+> size's set ([runtime-resolution-preview.md](runtime-resolution-preview.md)).
+
 **See also `font-atlases.md`** for the later HD-font-atlas work: the 18 font
 resrefs, the packed/proportional atlas format, the "one texel per pixel"
 rendering rule, and which resref renders which screen (in progress).

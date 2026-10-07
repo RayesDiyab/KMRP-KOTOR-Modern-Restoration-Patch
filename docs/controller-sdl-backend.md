@@ -8,9 +8,15 @@ Compilation and installer tests are separate from runtime and hardware coverage.
 ## Implementation
 
 Xbox remains on Windows XInput. KMRP also carries the official SDL 3.4.16 **x86**
-library: since 2026-10-04 inside the patch's module, which unpacks it to its own
-temporary folder as `kmrp-sdl3.dll` (the zlib licence travels in `KMRP.kpatch`);
-before that, installed beside the game with its licence.
+library: since 2026-10-04 inside the module, which unpacks it to its own
+temporary folder as `kmrp-sdl3.dll`; before that, installed beside the game with
+its licence. Since 2026-10-05 the module that reads the pad is the controller
+patch's (`KOTOR 1 Native Controller Mod + Xbox HUD.kpatch`, id `kmrp-controller`;
+[controller-standalone.md](controller-standalone.md)): its file bank holds the
+library (`tools/build_controller_assets.py`) and its package the zlib licence
+(`licenses/SDL3-LICENSE.txt`). `KMRP.kpatch` installs no controller hook any more;
+its bank and its licences still include SDL (`tools/build_native_assets.py`,
+`tools/build_native_kpatch.py`), read on 2026-10-08.
 SDL opens mapped gamepads, and KMRP identifies the device it actually reads using
 SDL's gamepad type and vendor. It does not infer a family from unrelated HID
 devices connected to the computer.
@@ -85,6 +91,10 @@ machine type, source/installed TOML equality, foreign-file refusal, and removal
 of owned payloads. The source table and patcher agreed on 16 detours and four
 byte patches after removal of the obsolete renderer-clear workaround; on
 2026-09-24 they agree on 18 and four (`tools/check_patcher_hook_table.py`).
+Those fixtures, that tool and `Test-ControllerSupport.ps1` belonged to the
+installer of the time and were removed on 2026-10-04. The controller patch of
+2026-10-05 has 34 detours and no byte patch, and its package is checked by
+`testing/regression/Test-ControllerKpatch.py`, which starts no game and no pad.
 
 `Test-SdlBackend.cpp` uses real SDL virtual gamepads and fake XInput calls to
 exercise normalization, family selection, handoff, disconnect, and rumble.
@@ -112,11 +122,12 @@ acceptance test also remains outstanding.
 ## Verifying by hand
 
 ```powershell
-cmd /c src\controller-native\build_native_runtime.cmd   # build.cmd until 2026-10-04
+cmd /c src\controller-native\build_controller_standalone.cmd   # the controller patch's module; build.cmd until 2026-10-04
+python tools\build_controller_kpatch.py                         # dist\controller\KOTOR 1 Native Controller Mod + Xbox HUD.kpatch
 cmd /c testing\controller\Test-SdlBackend.cmd
 .\build_kmrp.ps1 -ReuseResources
 .\testing\regression\Test-InstallerPatch.ps1          # Test-ControllerSupport.ps1 until 2026-10-04
-python tools/build_native_kpatch.py --check build\kmrp\kpm-patches\KMRP.kpatch   # check_patcher_hook_table.py until 2026-10-04
+python testing\regression\Test-ControllerKpatch.py    # check_patcher_hook_table.py until 2026-10-04
 python tools/check_hook_stolen_bytes.py src/controller-native/kotor1.hooks.toml
 ```
 

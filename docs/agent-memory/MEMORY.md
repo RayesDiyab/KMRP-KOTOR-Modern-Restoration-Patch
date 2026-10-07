@@ -104,7 +104,15 @@ details still belong in `docs/` or `reverse-engineering/`.
   never adopt it. Evidence: `reverse-engineering/movies.md`.
 - Controller support -- an Advanced Settings component, on by default since
   2026-09-24 -- is KMRP's native path, grown from Saul0097's KPM Xbox Controls K1
-  module. Since 2026-09-29 it is the `kmrp-controller` patch on KOTOR Patch
+  module. **Current state (2026-10-05):** it is an independent KPM patch,
+  `kmrp-controller` ("KOTOR 1 Native Controller Mod + Xbox HUD",
+  `tools/build_controller_kpatch.py`), with its own module
+  `patches\kmrp-controller.dll` and `configs\kmrp-controller.ini`; KMRP's patch has
+  no controller code or option, and the installer installs the controller patch
+  only while Controller Support is on. The counts and file names in the rest of
+  this entry are the history before that; take current hook counts from
+  `tools/build_native_kpatch.py --check` and `tools/build_controller_kpatch.py
+  --check`. Since 2026-09-29 it is the `kmrp-controller` patch on KOTOR Patch
   Manager's runtime, which KMRP's installer installs itself (KPM's `binkw32.dll`
   proxy, `KotorPatcher.dll` from the submodule; `docs/kpm-edition.md` 1a), or for
   KOTOR Patch Manager itself when KPM's runtime is in the folder (KMRP for KPM

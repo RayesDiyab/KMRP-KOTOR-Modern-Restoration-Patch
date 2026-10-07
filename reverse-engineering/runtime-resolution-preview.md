@@ -3,14 +3,74 @@
 Reference and measured experiment, 2026-10-03. This follows the
 [documentation standard](../docs/documentation-standard.md). The broader package
 design and unfinished migration are in
-[the runtime design](../docs/kpatch-runtime-design.md).
+[the runtime design](../docs/history/kpatch-runtime-design.md).
+
+## What the module does now (read from the source, 2026-10-08)
+
+Everything below this section is a dated record: the preview of 2026-10-03, the
+standalone package of 2026-10-04 and the bank of 2026-10-05. This section is the
+present state, read from `tools/build_native_kpatch.py`,
+`src/controller-native/kotor1-native-runtime.hooks.toml`, `K1RuntimeResolution.cpp`
+and `K1RuntimeEngine.cpp` on 2026-10-08. Nothing in it was measured again that day;
+what was measured, and what was not, is in [`CHANGELOG.md`](../CHANGELOG.md),
+`[Unreleased]`.
+
+**The patch.** `KMRP.kpatch`, id `kmrp`, run by KOTOR Patch Manager 0.7.1 on the
+unmodified `swkotor.exe`: one module (`patches\kmrp.dll`), 27 hooks
+(`build_native_kpatch.all_hooks()`), the options `map-notes` (on) and `debug-logs`
+(off), no `controller` option and no controller hook. Controller support is a second
+patch with its own module, "KOTOR 1 Native Controller Mod + Xbox HUD", id
+`kmrp-controller`, since 2026-10-05; neither needs the other
+([KPM edition](../docs/kpm-edition.md#two-patches-since-2026-10-05)). Where the
+records below say one patch with a `controller` option, 24 or 52 hooks, or the frame
+sites `0x0040CE70` and `0x00404D96`, that is the state of their day: KMRP's own frame
+sites are `0x0040CE76` (`KmrpCoreGuiWorkK1`) and `0x00404D06`
+(`KmrpCoreMovieWorkK1`), and the two older ones are the controller patch's.
+
+**The resolution: no choice, the display's own modes (since 2026-10-07).** Addresses
+are original-image VA on clean CD 1.03, FILE = VA minus `0x400000`.
+
+| VA | Kind | What the module does there |
+| --- | --- | --- |
+| `0x005F0C64` | Detour, `KmrpAllowRuntimeResolutionK1` | `IsValidResolution` (`0x005F0C60`) answers yes only if all three hold: width in `[640,32767]` and height in `[480,32767]` (`KmrpRuntimeDimensions`); KMRP has a layout for the size, built or blended (`KmrpRuntimeAssetsCovers`); and the display reports a 32-bit mode of that size (`DisplayReports`, one `EnumDisplaySettingsA` pass kept for two seconds; if the display reports nothing at all, nothing is refused on that account) |
+| `0x0073D3E4` | Import slot, `EnumDisplaySettingsA` | Replaced by `EnumModesOnce` only when it holds user32's function. For the Screen Resolution dialog's two callers (returning to `0x006E0955` and `0x006E0BC9`) a repeated size, depth and rate is handed back as a mode that is not 32-bit, so each row is listed once. No mode is added |
+| `0x005F0FB2` | 12 bytes rewritten at load, guarded: `C7 07 20 03 00 00 C7 02 58 02 00 00` | The 800x600 that `ReadVideoModeSettings` (`0x005F0CE0`) falls back to when the size in `swkotor.ini` is not valid becomes the desktop's size (`KmrpStartAtDisplaySize`) |
+| `0x005F5B84` | 10 bytes rewritten at load, guarded: `68 58 02 00 00 68 20 03 00 00` | The 800x600 that `ReadAndSetVideoMode` asks the nearest mode of becomes the desktop's size. Both are left alone when the bytes are not the game's own, when the desktop's size cannot be read, or when KMRP has no layout for it |
+| `0x0040BE70` | Detour, `KmrpResolutionRequestedK1` | GUI `SetSize`: the size's interface files and the engine's per-resolution operands are put in place (`Prepare`) |
+| `0x005F18F6` | Detour, `KmrpModeSwitchK1` | The mode switch, before the window is made again: the same, then every font's TXI is read again (`ReloadFontMetrics`) |
+| `0x0062785F` | Simple, `75 59` to `75 3F` | The tooltip fallback for a 1280-wide size, as in the preview below |
+
+So the game's Screen Resolution list is what the connected display reports, and a
+game whose `swkotor.ini` holds a size this display lacks starts at the desktop's
+size; `swkotor.ini` is not rewritten.
+
+**Removed on 2026-10-07**, at the maintainer's request ("not have any choice in the
+resolution"), after standing from 2026-10-04: the installer's resolution checklist
+and the file it wrote beside the game, `kmrp-resolutions.txt`, which the module read;
+the modes the module added past the display's own; the hook on the game's
+`ChangeDisplaySettingsA` import slot (`0x0073D3E8`), which ran an added size in a
+borderless window; the centring of the game's windows and the cursor confinement for
+that window. A `kmrp-resolutions.txt` left by such an install is not read, and the
+installer removes it with that install. The validator also said yes to every size it
+had a layout for until that day; why that was wrong on a display lacking the size is
+in the comment above `KmrpStartAtDisplaySize` and in the CHANGELOG entry "No
+resolution choice". **Not seen:** the game on a second display.
+
+**The engine and the interface files.** The module applies KMRP's executable changes
+in memory when it loads, for the size in `swkotor.ini` if KMRP has a layout for it,
+otherwise at the first size the game sets (`InitializeEngine`,
+`KmrpRuntimeEngineDimensions`), and writes the per-resolution operands again at each
+later size (`kNativeFields`, `tools/build_native_engine.py`). It needs no
+`kmrp-kpm.dat` and no `Override` file: the interface files come from the bank
+described at the end of this document.
 
 ## Status and scope
 
 **This section is the preview of 2026-10-03.** The complete patch built from it is
 described from [Standalone package](#standalone-package-2026-10-04) on, and since
-2026-10-04 it is KMRP's one patch, `kmrp`, which the installer installs
-([KPM edition](../docs/kpm-edition.md#one-patch-since-2026-10-04)).
+2026-10-04 it is KMRP's patch `kmrp`, which the installer installs
+([KPM edition](../docs/kpm-edition.md#one-patch-since-2026-10-04)); what that patch
+is today is in the section above.
 
 `KMRP Native Preview.kpatch` is an experimental first slice, not the complete
 KMRP replacement. It has no controller code, SDL dependency, generated Override

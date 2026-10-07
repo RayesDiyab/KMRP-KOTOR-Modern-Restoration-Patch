@@ -501,6 +501,14 @@ already installs a 2DA that way -- `tutorial.2da`, shipped in `override-common.z
 until 2026-09-29 and made at install from the game's own table since -- so the
 delivery mechanism exists and is proven.
 
+*Note of 2026-10-08:* since 2026-10-04 KMRP puts nothing into `Override`.
+`tutorial.2da` is made by the module of `KMRP.kpatch` when it produces a size's
+files (`KmrpGameArt`, from `src/controller-native/K1RuntimeAssets.cpp`), into the
+module's own folder, which it registers with the game's resource manager. A
+`texpacks.2da` would travel the same way now; that a 2DA in that folder is read
+ahead of the game's own is shown by `tutorial.2da`, and was not measured for
+`texpacks.2da`.
+
 The two columns are `mem` and `dynmemratio`, and the engine does nothing exotic
 with either:
 

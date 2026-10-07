@@ -256,11 +256,11 @@ SaberHumPeriodMaxMs=2000
 Debug=0
 
 [Hud]
-; PC (the game's own HUD always) or Xbox (laid out like the original Xbox
-; version's while the pad is in use; the game's own with mouse and keyboard).
+; Xbox (laid out like the original Xbox version's while the pad is in use; the
+; game's own with mouse and keyboard) or PC (the game's own HUD always).
 ; Read when the game starts. KOTOR Patch Manager's "Xbox-style HUD" option, where
 ; the manager offers options, decides instead of this line.
-Style=PC
+Style=Xbox
 )";
 
 void WriteDefaultSettings()

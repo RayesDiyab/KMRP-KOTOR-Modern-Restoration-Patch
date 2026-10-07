@@ -385,8 +385,8 @@ Invoke-Tool -Exe $Python -Label "kpatch" -FailureMessage "Building KMRP's patch 
     (Join-Path $projectRoot "tools\build_native_kpatch.py"), "--module",
     (Join-Path $nativeDir "kmrp-native.dll"),
     "--out", $kpmDir, "--config-dir", $kpmConfigDir, "--version", $patchVersion)
-# The controller patch, "KOTOR 1 Native Controller Mod + Xbox HUD", which KMRP's patch
-# requires since 2026-10-05 and the installer always installs beside it: its module
+# The controller patch, "KOTOR 1 Native Controller Mod + Xbox HUD", which the
+# installer installs beside KMRP's patch while Controller Support is on: its module
 # (assets, then the module), then the .kpatch into the same folder and its hooks beside
 # KMRP's. It keeps its own version number: it is also released on its own.
 Invoke-Tool -Exe "cmd.exe" -Label "controller module" -FailureMessage "Building the controller patch's module failed (src\controller-native\build_controller_standalone.cmd)" `

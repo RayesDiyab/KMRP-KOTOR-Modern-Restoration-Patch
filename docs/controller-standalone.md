@@ -5,8 +5,10 @@
 > it was established; anything not run is listed under "Tested and not tested".
 
 **Kind: reference.** What `KOTOR 1 Native Controller Mod + Xbox HUD.kpatch` is (it was `KMRP Controller.kpatch` until the evening of 2026-10-05, and the build this document measures still had that name), what it carries, what it
-writes into a running game, and how it differs from the controller support inside
-KMRP's own patch. Written 2026-10-05, the day it was built. The controller itself
+writes into a running game, and how it stands beside KMRP's own patch. Written
+2026-10-05, the day it was built, when KMRP's patch still had controller support
+of its own; since that evening this patch is KMRP's controller support, and
+"What it is" below says how the two relate now. The controller itself
 (the joystick device, the mapping, the prompts, rumble) is described in
 [`controller-support.md`](controller-support.md) and
 [`controller-native-path.md`](controller-native-path.md), and is the same code.
@@ -14,16 +16,39 @@ KMRP's own patch. Written 2026-10-05, the day it was built. The controller itsel
 ## What it is
 
 One file for KOTOR Patch Manager, id `kmrp-controller`: KMRP's native controller
-support for a game that has **no KMRP**. It needs no other patch, no installer and
-no Override file. It carries none of KMRP's other work: no interface scaling, no
-engine recipe, no memory, movie or map fixes. It runs on the interface the game
-ships.
+support, **with or without KMRP**. It needs no other patch, no installer and no
+Override file. It carries none of KMRP's other work: no interface scaling, no
+engine recipe, no memory, movie or map fixes. It runs on whatever interface is
+loaded: the game's own, a widescreen patch's or KMRP's (section 5, "Beside a patch
+that rescales the interface").
 
-KMRP's own patch (`kmrp`) already contains controller support as an option, and
-both hold the same hook sites, so the two conflict. Every `kmrp` patch since
-2026-10-04 already lists `kmrp-controller` as a conflict, because the id was the
-controller add-on of the four-patch edition (2026-09-28 to 2026-10-04), which
-needed KMRP's core. This patch replaces that add-on and needs nothing.
+**Since the evening of 2026-10-05 it is one of the two patches KMRP ships**, by the
+maintainer's decision that day (`CHANGELOG.md`, "KMRP and the controller patch are
+two patches"). `KMRP.kpatch` (id `kmrp`) has no controller hook and no controller
+option; KMRP's installer installs this patch beside it while Controller Support is
+on in Advanced Settings, the default, and leaves it out otherwise
+(`src/patcher/KpmEdition.cs`). Neither patch requires the other or lists the other
+as a conflict (read from both manifests on 2026-10-08). Where both would want one
+address each has a site of its own, because KOTOR Patch Manager allows one patch
+per address:
+
+| | This patch | KMRP |
+| --- | --- | --- |
+| GUI frame | `0x0040CE70` | `0x0040CE76` |
+| Movie frame | `0x00404D96` | `0x00404D06` |
+| Resource lookup | `0x00407235` | `0x00407230` |
+
+Beside KMRP (it looks for `patches\kmrp.dll`) this patch leaves the cursor
+confinement to KMRP and deletes its own copies of the game's layouts from its
+temporary folder, so KMRP's scaled ones are used (`KmrpIsBesideK1` in
+`K1NativeJoystick.cpp`, `LeaveLayoutsToKmrp` in `K1ControllerStandalone.cpp`).
+
+*Until that evening* this section said KMRP's own patch contained controller
+support as an option, that both held the same hook sites and so conflicted, and
+that every `kmrp` patch since 2026-10-04 listed `kmrp-controller` as a conflict.
+That was the state of the build measured below. The id had been the controller
+add-on of the four-patch edition (2026-09-28 to 2026-10-04), which needed KMRP's
+core; the retired ids of that edition are still this patch's conflicts.
 
 ## The build this describes
 
@@ -53,8 +78,8 @@ same package hash (an earlier state of the sources that day, `CE677F4C...`, twic
 
 | Entry | What |
 | --- | --- |
-| `manifest.toml` | id, name, description, conflicts, the three executables, one option (`debug-logs`, off by default) |
-| `kotor1.hooks.toml` | the 31 hooks below |
+| `manifest.toml` | id, name, description, conflicts, the three executables, one option (`debug-logs`, off by default); two since later that day, with `xbox-hud`, off by default until 2026-10-08 and on since |
+| `kotor1.hooks.toml` | the 31 hooks below; 34 since later that day (section 2) |
 | `binaries/windows_x86.dll` | the module, with the file bank as resource 101 |
 | `licenses/` | KMRP's licence, `THIRD_PARTY_NOTICES.md`, SDL's licence |
 
@@ -140,10 +165,25 @@ executables: equal at every site.
 | `0x006F8FF0` | `53 8B 5C 24 08` | `GuardPortraitConfirmK1` |
 | `0x006FA220` | `53 8B 5C 24 08` | `GuardNameConfirmK1` |
 
+**The table since later on 2026-10-05: 34 hooks** (`hooks()` in
+`tools\build_controller_kpatch.py`, counted on 2026-10-08; the package in
+`dist\controller` holds the same 34). Two rows above changed and four were added:
+
+| VA | Original bytes | Function | Change |
+| --- | --- | --- | --- |
+| `0x00407235` | `8B 5C 24 10 55` | `KmrpPrepareResourcesK1` | in place of `0x00407230`, which is KMRP's |
+| `0x00409B80` | `51 8B 0D E8 39 7A 00` | `NativePanelLoadedK1` | with the next row, in place of `NativePanelReleaseGffK1` at `0x0040B8F0`, which Scaled Kotor hooks |
+| `0x0040CFAB` | `C7 46 5C 00 00 00 00` | `NativePanelDestroyedK1` | |
+| `0x0068AB10` | `A1 FC 39 7A 00` | `KmrpXboxHudK1` | new: the Xbox-style HUD |
+| `0x00685ED0` | `56 8B F1 F6 86 EC 1A 00 00 01` | `KmrpXboxHudBarsK1` | new: the Xbox-style HUD |
+
 Checked against every patch in KOTOR Patch Manager 0.7.1 for an overlapping site:
 four overlaps, all with `expanded-keyboard-control` (`0x0040C1F6`, `0x005E271E`,
 `0x00686BA0`, `0x0068B170`), which the manifest therefore lists as a conflict
-beside `xbox-controls-k1` and KMRP's patches.
+beside `xbox-controls-k1` and KMRP's retired patches (not `kmrp`). Run again on
+2026-10-06 with both of KMRP's patches (`tools\check_kpm_overlaps.py`): this patch
+only neighbours KMRP, at two pairs of adjacent sites (the GUI frame's and the
+resource lookup's, above), and overlaps it nowhere.
 
 ## 3. Badges on the game's small buttons
 
@@ -199,8 +239,9 @@ and, since later the same day, KMRP's own sets):
 `SetK1ControllerPromptFill` (`vendor\K1XboxControls.cpp`) makes the same comparison
 on the live button, reading each border's `DIMENSION` (the first field of its
 params) and its corner image pointer (the field after the params), and asks for the
-`kmf` texture on the focused border when they differ. The same code runs in
-KMRP's own module, whose sets carry the `kmf` art since 2026-10-05.
+`kmf` texture on the focused border when they differ. KMRP's sets carry the `kmf`
+art since 2026-10-05 too; KMRP's patch installs no controller hook since that
+evening, so the code runs only from this patch's module.
 
 **Rejected the same day.** Fitting both states to the smaller of the two areas, so
 a button's badge never changed size: the Map screen's two 13 px rows, whose focused
@@ -231,14 +272,15 @@ leave 12 design units between their words. Off for KMRP's sets, whose
 
 | File | Who writes it | What |
 | --- | --- | --- |
-| `kmrp-controller.ini` beside the game | the module, once, if it is not there | the rumble settings, with the installer's defaults; a file already there is never touched |
-| `configs\kmrp-controller.ini` | a KOTOR Patch Manager with patch options | `[Patch Options]`, `debug-logs`; a missing file means off |
+| `kmrp-controller.ini` beside the game | KMRP's installer, or else the module, once, if it is not there | the rumble settings, with the installer's defaults; both with `[Hud]` and `Style=Xbox` since 2026-10-08 (until then the module's copy had `Style=PC` and the installer's no `[Hud]`). A file already there is never touched |
+| `configs\kmrp-controller.ini` | a KOTOR Patch Manager with patch options, or KMRP's installer | `[Patch Options]`: `debug-logs`, and from a manager `xbox-hud`; a missing `debug-logs` means off, a missing `xbox-hud` means the settings file decides. KMRP's installer writes `debug-logs` only, so that `Style` under `[Hud]` still decides the HUD (`ControllerPatchOptions`, `KpmEdition.cs`) |
 | `kmrp-controller.log` beside the game | the module, only on failure | written if the file bank cannot be unpacked; the pad still works without its prompts |
 
 ### The Xbox-style HUD
 
 Since later on 2026-10-05 the patch has one more option, `xbox-hud`, and one more
-setting, `Style` under `[Hud]` in `kmrp-controller.ini`, both off by default. They
+setting, `Style` under `[Hud]` in `kmrp-controller.ini`, both on by default since
+2026-10-08 (off until then). They
 add two hooks and a button glyph per controller family to the bank (and the patch
 has 34 hooks since it left `StopLoadFromLayout`'s entry to other patches and took two
 sites of its own for it; [`controller-xbox-hud.md`](controller-xbox-hud.md), "Beside a
@@ -419,10 +461,14 @@ another control's size (`size_like`) and stay on their buttons.
 
 ## 6. Limits
 
-- **The game's original interface only.** The badges and cues are made for the
-  layouts the game ships. With another interface mod's layouts in Override the 16
-  changed layout files replace that mod's, and the badges are the wrong shape for
-  its buttons. A player who wants a scaled interface and a controller uses KMRP.
+- **Another mod's layout files in Override.** The badges and cues are made for the
+  layouts the game ships, and the patch serves its 16 changed layout files in
+  their place. Beside KMRP it serves none of them, and beside a patch that rescales
+  the game's own layouts at run time (Scaled Kotor) the badges and cues follow the
+  live controls (section 5). With another interface mod's layout files in Override
+  the 16 replace that mod's: not tried. (Until 2026-10-06 this limit read "the
+  game's original interface only", with KMRP as the answer for a scaled interface;
+  the patch now runs beside KMRP.)
 - **An executable changed on disk is refused by KOTOR Patch Manager**, which
   accepts the three declared executables by hash. UniWS changes the executable.
 - **640x480** loads `mainmenu.gui`, whose buttons are 210x22; the main-menu badges
@@ -433,9 +479,13 @@ another control's size (`size_like`) and stay on their buttons.
   so its focused texture is empty by rule 3 of section 3 (not seen: focus was not
   moved onto a row).
 - **English badge placement.** Each badge sits beside its button's English caption.
-  KMRP's installer re-centres badges against the player's `dialog.tlk`; nothing does
-  here, so in another language a badge sits a little further from, or closer to,
-  its words.
+  KMRP's installer re-centred badges against the player's `dialog.tlk` while it
+  wrote the interface files itself (until 2026-10-04; no call of that step is left
+  in `src/patcher`, read on 2026-10-08); nothing does here, so in another language
+  a badge on a button of the game's own size sits a little further from, or closer
+  to, its words. A badge moved to a label of its own (section 5) is placed from
+  the caption as measured in the running game, whatever the language. No game in
+  another language has been looked at.
 - **Windows only.** A macOS module does not exist; see
   [`macos-changes-from-windows.md`](macos-changes-from-windows.md), item 17.
 

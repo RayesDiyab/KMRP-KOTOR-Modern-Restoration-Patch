@@ -13,6 +13,33 @@ how the format actually works (established by measurement, not
 documentation — none exists), and which screen each resref renders. Written
 so this doesn't need re-discovering next session.
 
+> **How the atlases reach the game now (note of 2026-10-08, read from the
+> source).** This document was written while KMRP's installer put the rendered
+> atlases and their `.txi` files into `Override`, from `override-common.zip` and
+> one `gui-<res>.zip` per resolution, and wrote the stack-count operands into
+> `swkotor.exe`. Neither is so any more:
+>
+> - *No file goes to `Override` since 2026-10-04.* The module of `KMRP.kpatch`
+>   carries every size's set in its bank, writes the set for the size the game
+>   runs at into a folder of its own and registers that folder with the game's
+>   resource manager (`src/controller-native/K1RuntimeAssets.cpp`,
+>   [runtime-resolution-preview.md](runtime-resolution-preview.md)). Finding 7
+>   below, on a `.txi` beside a packed `.tpc`, is an engine fact and applies to
+>   that folder as it did to `Override`.
+> - *A size changed in the game swaps the font set.* A texture's TXI is parsed
+>   once, so the module reads every font's TXI again after a mode switch
+>   (`ReloadFontMetrics` in `K1RuntimeResolution.cpp`, the engine's own load at
+>   `0x00422AF0`).
+> - *The stack-count operands are written in memory*, for the size the game runs
+>   at, by the same module (`FieldValue` in `K1RuntimeEngine.cpp`);
+>   `StackCountSites` makes them only for the installer's `--apply` output, and
+>   the `.ksc` file offsets below are that output's.
+>
+> The list of what "the patcher carries" under *Decision taken* is the installer
+> of that time; today it carries the two `.kpatch` files, and the atlases are
+> in the bank inside KMRP's module. That no `.ttf` or `.otf` is among the bank's
+> objects was not checked again for this note.
+
 ## The 18 font resrefs
 
 All live in `TexturePacks/swpc_tex_gui.erf` (`FONT_RESREFS` in

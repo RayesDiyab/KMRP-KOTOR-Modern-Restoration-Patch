@@ -14,6 +14,16 @@ official Protontricks and Valve Proton interfaces; the test record distinguishes
 the tested direct Proton/Sniper launch from the community-reported Protontricks
 launcher and does not claim full hardware or gameplay coverage.
 
+**What that test did not cover (added 2026-10-08).** The installer tested on
+2026-10-01 (`7C8CB153…`) installed four patches, a data file and about 1,850
+`Override` files. The installer built since 2026-10-04 installs none of those:
+KMRP's module carries every resolution's files and unpacks the set in use to a
+folder under the user's temporary folder, the controller is a second patch since
+2026-10-05, and since 2026-10-07 the game lists the sizes the display reports.
+**None of that has been run under Proton**: the records below, including every
+count of Override files and "KMRP's four components", describe the 2026-10-01
+build.
+
 **Correction, 2026-10-01:** this page previously said no Proton gameplay or
 native hook execution had been tested. The initial installer-only record was
 superseded by the launch, menu and gameplay checks below.
@@ -43,7 +53,9 @@ location is `steamapps/common/swkotor/swkotor.exe`; the library root varies.
 Apply, then launch KOTOR normally through Steam. No resolution is chosen in the
 installer since 2026-10-04: the game starts at the display's current size (Steam
 Deck LCD/OLED handheld mode is normally 1280×800) and any other size the display
-offers is chosen in the game. Not run under Proton with that build.
+reports is chosen in the game; since 2026-10-07 the installer has no resolution
+control at all. Not run under Proton with that build, so what display modes
+Proton reports to the game, and which sizes its list then shows, is unmeasured.
 
 **Steam's own executable is supported since 2026-09-29.** KMRP's installer no
 longer rewrites `swkotor.exe`: it installs KOTOR Patch Manager's runtime, loaded
@@ -247,7 +259,7 @@ Valve's authoritative configuration reference is the
 For missing NPC or door names specifically, compare these cases without deleting
 the prefix:
 
-1. a current unreleased KMRP package versus public KMRP 1.0 (tag v2.10.0);
+1. a current unreleased KMRP package versus public KMRP 1.0 (tag v1.0.0, v2.10.0 until 2026-09-25);
 2. KMRP alone versus the same install with K1CP/K1R; and
 3. the same save at 1280×800 and 1920×1080.
 

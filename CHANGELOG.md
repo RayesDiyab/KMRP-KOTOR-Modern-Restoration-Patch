@@ -109,6 +109,54 @@ proxy, and it applies the executable changes above as well.
 
 ## [Unreleased]
 
+- **The Xbox-style HUD is on by default** (2026-10-08, at the maintainer's request;
+  the controller patch). It was an option, off by default, since 2026-10-05. It is
+  shown only while the pad is in use, as before; with mouse and keyboard the game's
+  own HUD is shown. Changed: the module's fallback when `kmrp-controller.ini` has no
+  `Style` under `[Hud]` (`Enabled`, `K1XboxHud.cpp`: `Xbox`, was `PC`), the settings
+  file the module writes when there is none (`K1ControllerStandalone.cpp`), the
+  settings file the installer writes (`ControllerOperations.DefaultSettings`, which
+  had no `[Hud]` section), and the `xbox-hud` option's default in the patch's
+  manifest (`tools/build_controller_kpatch.py`). To turn it off: `Style=PC`, or the
+  option in a KOTOR Patch Manager that offers options. A settings file already
+  beside the game is never rewritten, so one the module wrote before this day
+  holds `Style=PC` and keeps the game's own HUD until the line is changed or the
+  file deleted. **Not seen in the game with the new default**; the code path is the
+  one `Style=Xbox` took, last seen on 2026-10-06.
+
+- **Documentation brought up to the two patches and put in order for release**
+  (2026-10-08). Every tracked document outside the macOS ones was read against the
+  code and corrected where it described an earlier design as current (the patched
+  executable, the four-patch edition, one patch with a controller option, the
+  resolution checklist); the macOS documents were left as they are, at the
+  maintainer's request.
+  - New: [`docs/features.md`](docs/features.md), for players, everything KMRP changes
+    compared with the unmodified game in plain words; and
+    [`docs/features-technical.md`](docs/features-technical.md), the same list with
+    the mechanism, the patch, the source and the reference document of each, and
+    what has not been seen in the game.
+  - `docs/README.md` is grouped by subject. Five records that describe nothing in
+    the current build moved to `docs/history/`: `kpatch-runtime-design.md`,
+    `controller-handover-plan.md`, `v1.5-development-validation.md`,
+    `phase-0-plan.md` and `technical-reconstruction/`.
+  - `README.md`: the install section is rewritten as steps, short subsections and a
+    table of what the installer touches. Its dated asides about earlier builds were
+    taken out; this file holds that history.
+  - **Wrong and shipped to players until this day:** `KPM-PATCHES-README.txt`, which
+    the installer writes beside the `.kpatch` files, still described one patch with
+    three options, controller support among them, and did not name the controller
+    patch. Rewritten for the two patches.
+  - Corrected along the way: the README linked the release tag `v2.10.0` (the
+    release is `v1.0.0`); the build needs the game's 84 layout files in
+    `build-inputs\vanilla-gui` since the installer carries the controller patch, where
+    five documents named the texture pack as the only game-derived input;
+    docstrings and comments that still called controller support an option of
+    KMRP's patch or a patch it requires (`tools/build_native_kpatch.py`,
+    `tools/build_controller_kpatch.py`, `build_kmrp.ps1`, `KpmEdition.cs`,
+    `KmrpOptions.h`, two tests).
+  - Run on the build of this day: `Test-KpatchSource.py`, `Test-InstallerPatch.ps1`,
+    `Test-ReinstallOverOlderBuild.ps1` and the link check.
+
 - **No resolution choice: the game lists what the connected display supports**
   (2026-10-07, at the maintainer's request; KMRP's patch and the installer). Since
   2026-10-04 step 3 of the installer had a "Choose" button: a checklist to hide

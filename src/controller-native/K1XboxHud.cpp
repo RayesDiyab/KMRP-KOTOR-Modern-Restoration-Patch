@@ -998,7 +998,8 @@ Extent OnBox(const Extent& frame, int width, int height)
 bool Enabled()
 {
     // KOTOR Patch Manager's option when it recorded one; otherwise the setting in
-    // kmrp-controller.ini, [Hud] Style=Xbox.
+    // kmrp-controller.ini, [Hud] Style. Xbox unless that line says otherwise: the
+    // default since 2026-10-08, by the maintainer's decision (PC until then).
     static const bool on = [] {
         const int option = KmrpPatchOption(L"xbox-hud", -1);
         if (option >= 0) return option != 0;
@@ -1006,7 +1007,7 @@ bool Enabled()
         const DWORD n = GetModuleFileNameW(nullptr, path, MAX_PATH);
         wchar_t* slash = n && n < MAX_PATH ? wcsrchr(path, L'\\') : nullptr;
         if (!slash || wcscpy_s(slash + 1, MAX_PATH - (slash + 1 - path), L"kmrp-controller.ini")) return false;
-        GetPrivateProfileStringW(L"Hud", L"Style", L"PC", style, 16, path);
+        GetPrivateProfileStringW(L"Hud", L"Style", L"Xbox", style, 16, path);
         return _wcsicmp(style, L"Xbox") == 0;
     }();
     return on;

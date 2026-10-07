@@ -1,15 +1,22 @@
 # Self-contained KMRP and independent controller patches
 
-**Superseded on 2026-10-04.** The design below proposed two packages, KMRP and a
-separate controller patch that cooperates with it. What was built instead is one
-patch whose controller is an option
-([KPM edition, "One patch since 2026-10-04"](kpm-edition.md#one-patch-since-2026-10-04);
-measurements in [the runtime experiment](../reverse-engineering/runtime-resolution-preview.md)).
+**Superseded on 2026-10-04, and its split built after all on 2026-10-05.** The
+design below proposed two packages, KMRP and a separate controller patch that
+cooperates with it. What was built first, on 2026-10-04, was one patch whose
+controller was an option
+([KPM edition, "One patch since 2026-10-04"](../kpm-edition.md#one-patch-since-2026-10-04);
+measurements in [the runtime experiment](../../reverse-engineering/runtime-resolution-preview.md)).
+On 2026-10-05 the maintainer split it into two independent patches, `kmrp` and
+`kmrp-controller` ("KOTOR 1 Native Controller Mod + Xbox HUD"), which is what ships
+([KPM edition, "Two patches since 2026-10-05"](../kpm-edition.md#two-patches-since-2026-10-05);
+[the controller patch](../controller-standalone.md)). That is this proposal's scope,
+but not its mechanism: nothing below was used as a specification for it, and the
+details here (package names, shared entry points) are not what was built.
 The text is kept as the record of the proposal; its "not implemented" statements
 were true on 2026-10-03.
 
 **Design proposal, reviewed 2026-10-03; not an implemented runtime or release.**
-This document follows the [documentation standard](documentation-standard.md).
+This document follows the [documentation standard](../documentation-standard.md).
 It records the architecture selected after reviewing upstream discussions and
 available source. Statements about future behavior are requirements, not test
 results. The two requested packages have not been produced.
@@ -112,7 +119,7 @@ must follow the same dimension-change contract.
 This is the full migration requirement. A subsequent experimental first slice
 preserves the native constructor and callback and broadens the GUI validator;
 its limited live results and rejected first attempt are recorded in the
-[runtime resolution experiment](../reverse-engineering/runtime-resolution-preview.md).
+[runtime resolution experiment](../../reverse-engineering/runtime-resolution-preview.md).
 It does not yet implement the layout/font change transaction.
 
 ## Independent packages and upstream boundaries

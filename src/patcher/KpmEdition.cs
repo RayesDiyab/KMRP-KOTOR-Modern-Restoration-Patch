@@ -12,7 +12,7 @@ namespace Kmrp
     /// <summary>KMRP's install, on KOTOR Patch Manager's runtime.
     ///
     /// KMRP's installer does not rewrite swkotor.exe: the executable changes are
-    /// KMRP's one KPM patch, "kmrp" (tools/build_native_kpatch.py), whose module
+    /// KMRP's own KPM patch, "kmrp" (tools/build_native_kpatch.py), whose module
     /// applies them in memory when the game starts
     /// (src/controller-native/K1KpmApplier.cpp, K1RuntimeEngine.cpp) from the recipe
     /// it carries, for the size the game runs at -- the Map Notes part only when that
@@ -85,7 +85,7 @@ namespace Kmrp
         // (IsKpatchPath), so that restore can remove them.
         //
         // Since 2026-10-05 KMRP is two patches again, by the maintainer's decision: its
-        // own, and the controller patch it requires, "KOTOR 1 Native Controller Mod +
+        // own, and the controller patch beside it, "KOTOR 1 Native Controller Mod +
         // Xbox HUD" (id kmrp-controller, tools/build_controller_kpatch.py), which also
         // works on a game without KMRP. KMRP's patch has no controller code of its own
         // and no controller option, and neither patch needs the other. Controller

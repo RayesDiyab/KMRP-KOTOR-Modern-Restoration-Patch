@@ -10,8 +10,10 @@ and behaving as the original Xbox version's. Built on 2026-10-05 with the mainta
 comparing each build against frames of the Xbox game; this is the layout he
 approved that day. Later the same day it stopped being a set of replaced layout
 files: the module lays the live HUD out itself, for any screen size, and gives the
-game's own HUD back while the mouse or keyboard is in use. KMRP's own patch does
-not have it.
+game's own HUD back while the mouse or keyboard is in use. KMRP's own patch
+(`kmrp`) does not contain it; KMRP ships the controller patch beside its own since
+that evening, so a KMRP install with Controller Support on has the option too, and
+the HUD was seen beside KMRP at 3440x1440 on 2026-10-06.
 
 ## What the player sees
 
@@ -53,16 +55,27 @@ remembered between the two: before every frame the HUD is drawn the module asks
 which device was used last, so after a conversation, a movie or a loaded save the
 HUD is the one for the device in the player's hands.
 
-Every texture is the game's own, already in `swpc_tex_gui.erf` of the PC release.
-The patch carries no Xbox art, no font and no layout file for this: only one small
-button glyph per controller family for the combat line.
+Every icon is the game's own, already in `swpc_tex_gui.erf` of the PC release. The
+frames were the game's textures too until the evening of 2026-10-05; since then
+they are seventeen drawings the patch carries, `kmrx_*` ("Drawn frames", below).
+The patch carries no Xbox art, no game art, no font and no layout file for this:
+beside the drawings, one small button glyph per controller family for the combat
+line and, since 2026-10-06, one trigger picture per family for the pause notice.
 
-## How it is switched on
+## How it is switched on and off
+
+On by default since 2026-10-08, by the maintainer's decision (off by default from
+2026-10-05 until then). It is shown only while the pad is in use; with mouse and
+keyboard the game's own HUD is shown whatever this is set to. A `kmrp-controller.ini`
+written before that day by the module holds `Style=PC` and keeps the game's own HUD
+until the line is changed or the file deleted. **The new default has not been seen
+in the game**: the code path is the one `Style=Xbox` took.
 
 | Manager | How |
 | --- | --- |
-| A KOTOR Patch Manager with patch options | the patch's **Xbox-style HUD** option (`xbox-hud`, off by default) |
-| KOTOR Patch Manager 0.7.1, which has no options | `kmrp-controller.ini` beside the game: `Style=Xbox` under `[Hud]` |
+| A KOTOR Patch Manager with patch options | the patch's **Xbox-style HUD** option (`xbox-hud`, on by default) |
+| KOTOR Patch Manager 0.7.1, which has no options | `kmrp-controller.ini` beside the game: `Style` under `[Hud]`, `Xbox` (the default, also when the line or the file is missing) or `PC` |
+| KMRP's installer | the same line in `kmrp-controller.ini`. The installer has no switch for it and records no `xbox-hud` value, so the file decides (`ControllerPatchOptions`, `src/patcher/KpmEdition.cs`). The file it writes has `[Hud]` with `Style=Xbox` since 2026-10-08 (no `[Hud]` section until then) |
 
 The module reads the manager's recorded option first (`configs\kmrp-controller.ini`,
 `[Patch Options]`, `xbox-hud`) and the settings file only when there is none, once,
@@ -114,9 +127,11 @@ the live controls:
   (640x480 units). The Xbox width, 460, was tried and the maintainer asked for one
   and a half times the bar's frame instead, 381. Seen at 1024x768: the box from 20
   to 627 px, under a bar whose frame is 27 to 432; with the mouse, the game's own place again.
-- **A new HUD object is told to the module** from `CSWGuiPanel::ReleaseGff`, which
-  every panel calls as it is built and as it is destroyed
-  (`NativePanelReleaseGffK1`): a HUD at an address seen before is still a new HUD.
+- **A new HUD object is told to the module** as every panel is built and as it is
+  destroyed: a HUD at an address seen before is still a new HUD. (Through
+  `NativePanelReleaseGffK1` at `CSWGuiPanel::ReleaseGff` when this was written;
+  since later that day through `NativePanelLoadedK1` and `NativePanelDestroyedK1`,
+  sites of this patch's own: "Beside a widescreen patch", below.)
 
 ### The layout
 
@@ -147,13 +162,18 @@ middle line (measured on screen at 1024x768: both centres at row 710).
 **Draw order decides which control carries the box.** The panel draws its controls
 in the layout file's order. The description label comes after `LBL_MOULDING1` and
 before `LBL_MOULDING3`, so the box is on `LBL_MOULDING1` (on `LBL_MOULDING3` it was
-drawn over the text). The box's upper half reaches one screen pixel into its lower
-half: laid edge to edge, as the file has them, the pair showed a light line across
-the slots that the Xbox does not show.
+drawn over the text). With the game's art the box's upper half reached one screen
+pixel into its lower half: laid edge to edge, as the file has them, the pair showed
+a light line across the slots that the Xbox does not show. With the drawn frames
+the two are edge to edge again (`SEAM_OVERLAP` is 0; "Names, and the edge of a
+texture", below).
 
 ### What needs code
 
-`src/controller-native/K1XboxHud.cpp`, from two hooks.
+`src/controller-native/K1XboxHud.cpp`, from two hooks. The texture names in this
+section are the game's, as when it was written; since the evening of 2026-10-05
+each frame is its `kmrx_` drawing ("Drawn frames", below), and the icons are
+unchanged.
 
 **`KmrpXboxHudK1`, at the entry of `CSWGuiMainInterface::DrawMap` (`0x0068AB10`,
 `ecx` = the HUD).** The HUD's `Draw` (`0x0068B4A0`) does its own updating and then
@@ -253,7 +273,9 @@ the clipping viewport, and right after each, while that texture is still the one
 bound, tells OpenGL to clamp it at its edges (`ClampBoundTexture`:
 `glTexParameteri`, `GL_CLAMP_TO_EDGE`). The setting belongs to the texture, so it
 holds from the second frame on. Those four textures are used by nothing else.
-Each piece's outer edge column is then drawn once more, one pixel further out (two
+*The rest of this paragraph was true for some hours on 2026-10-05 and is not done
+any more ("The portraits", below): the drawn arc is half a pixel further in and
+its outline is whole.* Each piece's outer edge column was then drawn once more, one pixel further out (two
 on a bar 30 px wide or more): at the arc's widest its outline is the texture's first
 column alone, one texel where it is two elsewhere, which still read as the arc cut
 off at the side. Only the middle of that column is repeated (rows 25 to 38 of the
@@ -506,25 +528,32 @@ measured again.
   `dialogfont12x16`, `fnt_d16x16b` and `fnt_galahad14`, and a copy of KMRP's HD
   atlas under a new name; on either label alone; and on the plain PC HUD with this
   option off, which crashes the same way.
-- **Other screen sizes are not run.** The layout is computed from the screen the
-  game is drawing and nothing in it depends on the shape; the regression test lays
-  it out for ten screens from 800x600 to 3840x2160 and 5:4 to 21:9 (one row, nothing
-  overlapping, all on screen). In the running game only the game's own four sizes
-  were seen: the unchanged executable falls back to 800x600 for any other size
-  (tried: 1280x720 in `swkotor.ini`), and KOTOR Patch Manager refuses an executable
-  a widescreen patcher has changed on disk, so the first real test is beside a
-  widescreen patch that is itself a KOTOR Patch Manager patch.
+- **Few screen sizes are run.** The layout is computed from the screen the game is
+  drawing and nothing in it depends on the shape; the regression test lays it out
+  for ten screens from 800x600 to 3840x2160 and 5:4 to 21:9 (one row, nothing
+  overlapping, all on screen). In the running game: the game's own four sizes with
+  the patch alone (the unchanged executable falls back to 800x600 for any other
+  size; tried: 1280x720 in `swkotor.ini`), 1920x1080 and 3440x1440 beside Scaled
+  Kotor, and 3440x1440 beside KMRP (2026-10-06, the maintainer's own play). Every
+  other size is unseen. (Until 2026-10-06 this limit said only the game's four
+  sizes had been seen.)
 - **The patch's other screens are still the game's four sizes.** The standalone
   patch replaces 16 layout files (menus with badges, and the four HUD layouts with
-  the two queue cues added); beside an interface mod those replace the mod's. The
+  the two queue cues added); beside an interface mod's layout files those replace
+  the mod's. Beside KMRP the patch serves none of them and KMRP's layouts are used
+  ([`controller-standalone.md`](controller-standalone.md), "What it is"). The
   Xbox HUD itself no longer needs any of them: with another HUD layout loaded it
   lays out the same, without the Y and B cues.
 - **Friendly Force powers and skills are not in the row during a fight** with a
   target that has feats: the second place holds the feats then, as on the Xbox.
 - **The mouse on the slots** was not tried. The up arrow's button covers the middle
   of an icon, as the Xbox arrow strip does.
-- **KMRP's own patch does not have it.** KMRP scales the whole interface and makes
-  its HUD layouts per resolution.
+- **KMRP's own patch does not contain it.** KMRP scales the whole interface and
+  makes its HUD layouts per resolution; the option belongs to the controller patch,
+  which KMRP's installer installs beside KMRP's patch. One fault seen beside KMRP
+  is KMRP's and open: with the PC's HUD at 3440x1440, `LBL_ARROW_MARGIN` in
+  `assets/override-3440x1440/mipc210x7.gui` hides the target's circle in the lower
+  part of the screen ("The target's circle", above).
 - macOS: not built. The Mac has no standalone controller patch.
 
 ## Tested and not tested

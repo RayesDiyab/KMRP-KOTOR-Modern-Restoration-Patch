@@ -11,6 +11,23 @@ How the engine turns a `.gui` listbox into rows on screen, which field controls
 which margin, and the method for finding the next one. Everything here was read
 out of `swkotornopatch.exe` or a live process — no inference unless labelled.
 
+> **Where these bytes are written (note of 2026-10-08, read from the source).**
+> Until 2026-09-29 KMRP's installer wrote the gold changes below into
+> `swkotor.exe`. It no longer does: the same bytes are applied in memory each
+> time the game starts, by the module of `KMRP.kpatch` under KOTOR Patch
+> Manager's runtime (`src/controller-native/K1KpmApplier.cpp`,
+> `K1RuntimeEngine.cpp`), from a recipe built from source
+> (`src/engine/windows-sites.json`, `tools/build_windows_engine.py`,
+> `tools/build_native_engine.py`), each write after its original bytes are
+> checked. The appended sections (`.ksc`, `.kgs`, `.ktn`) are in one block of
+> memory the module allocates, and the check boxes' sizes are computed for the
+> size the game runs at and written again when it changes. The gold versions,
+> their tools and "`ResolutionPatch.Apply` writes" below are how each change was
+> derived and what the installer's `--apply` still writes to a new file, the
+> reference ([`docs/kpm-edition.md`](../docs/kpm-edition.md)). The one part
+> here that never was bytes is the section "Rows centred in their box": three
+> detours of the same module.
+
 > **Scope.** This file covers listboxes. They are 81 of the 640 text-bearing
 > controls in the game; the other 559 -- labels, buttons, toggles -- have no
 > `PADDING` field and share none of this code. For changing gaps *uniformly*
@@ -83,6 +100,15 @@ in `build_kmrp.ps1` all move together -- all four name v24 as of 2026-09-24.
 (This paragraph gave v14's 4079616 until then.) Getting one out of step is caught by the patcher's own startup
 check, which has fired twice in this work — reproduce it against the built
 `gold.kup` before shipping rather than after.
+
+*Note of 2026-10-08:* that sentence describes the build until 2026-09-29. Read
+from the source that day: `build_kmrp.ps1` has no `-GoldExe` parameter and
+builds no `gold.kup`, and the installer has no such startup check; it embeds a
+recipe built from source by `tools/build_windows_engine.py`.
+`GoldPatch.TargetHash` and `TargetLength` remain in `KmrpPatcher.cs`, to
+recognise an executable an earlier installer patched, and
+`tools/generate_gold_delta.py` remains with its `EXPECTED_GOLD_SHA256`; both
+still name v24.
 
 ## The patches
 

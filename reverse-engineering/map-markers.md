@@ -15,6 +15,37 @@ it is.
 Everything below was disassembled from the clean executable or read out of gold
 and a patcher-produced executable. Where something is untested it says so.
 
+> **Where these bytes are written (note of 2026-10-08, read from the source).**
+> Until 2026-09-29 KMRP's installer wrote everything below into `swkotor.exe`.
+> It no longer does: the same bytes are applied in memory each time the game
+> starts, by the module of `KMRP.kpatch` under KOTOR Patch Manager's runtime
+> (`src/controller-native/K1KpmApplier.cpp`, `K1RuntimeEngine.cpp`), from a
+> recipe built from source (`src/engine/windows-sites.json`,
+> `tools/build_windows_engine.py`, `tools/build_native_engine.py`,
+> `tools/build_map_note_table.py`), each write after its original bytes are
+> checked. Three things follow for a reader:
+>
+> - *Addresses from `0x0086D000` up are the patched image's* (the wrappers, the
+>   hit test, `.kmn` at `0x00876000`). The appended sections are one block in
+>   memory the module allocates, and every reference to it is moved by the
+>   difference. In a running game add the block's base less `0x0086D000`; the
+>   base is in the `applied:` line of `kmrp-kpm.log`, written while the patch's
+>   `debug-logs` option is on. The breakpoint at `0x0086D112` in the last
+>   section is such an address.
+> - *The fourteen per-resolution values are computed in the game*, for the size
+>   it runs at, and written again when the size is changed in the game
+>   (`FieldValue`, kinds 10 and 11, with the same cap at `127 / 16`).
+>   `ResolutionPatch` makes them for `--apply`.
+> - *The map-note switch is the patch's `map-notes` option*, read from
+>   `configs\kmrp.ini` (`OptionalFeatures`): the recipe carries the `.kmn` flag
+>   cleared, and the module sets it while the option is on. The installer's *Area
+>   Map Marker Fixes* setting writes that option; a file offset `0x3E4000` exists
+>   only in an `--apply` output.
+>
+> So this document, byte for byte, describes the image the installer's `--apply`
+> writes to a new file, which is still the reference
+> ([`docs/kpm-edition.md`](../docs/kpm-edition.md)).
+
 ## The build this describes
 
 Clean `swkotor.exe`, 4,042,752 bytes, SHA-256 `761F9466…C49E9886`. Gold v21

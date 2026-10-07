@@ -91,7 +91,7 @@ real device behaves like the virtual one.
 | Journal / Active Quests: same | **FIXED** by the same change; not yet driven live |
 | R3 free look crashed | **FIXED** — reproduced on a real pad, cause measured, fix played |
 | Right stick does not scroll item descriptions | **FIXED** — dispatches the retained 0x39/0x3A pair to the screen's own panel |
-| Missing art on Close / Show New Items / Use Item | **AUDITED, not implemented** — all three are focus + A, so `[A]` is the only truthful badge; see the prompt specification |
+| Missing art on Close / Show New Items / Use Item | **SHIPPED** later the same day as `[B] Close`, `[X] Show New Items`, `[A] Use Item`, after each button was pressed and measured; see "Tab-screen badges" in the prompt specification. (This row said "audited, not implemented -- all three are focus + A", the reasoning that measurement overturned.) |
 
 ### L3 — physically verified in gameplay, and now menu-safe
 
@@ -142,6 +142,21 @@ here: it drove the buttons but never made the engine ask for raw device state.
 
 ---
 
+## The checklist, as brought up to the code on 2026-10-08
+
+Sections 0 to 8 were written on 2026-09-08. The rows whose expected result the
+code has changed since were corrected on 2026-10-08, each from
+`src/controller-native/K1NativeJoystick.cpp` and the documents named in the row;
+none of the corrected rows was played again for it. Not in the checklist at all,
+because they came later: rumble ([`controller-rumble.md`](controller-rumble.md)
+has its own checklist), the Controller Layout screen
+([`controller-layout.md`](controller-layout.md), "Manual acceptance test"), the
+Xbox-style HUD ([`controller-xbox-hud.md`](controller-xbox-hud.md), "Tested and
+not tested"), and PlayStation, Switch and Steam Deck pads.
+
+Build under test: the controller patch, `KOTOR 1 Native Controller Mod + Xbox
+HUD.kpatch`, alone or installed by KMRP's installer with Controller Support on.
+
 ## 0. Known-broken before you start
 
 Do not spend time diagnosing these; they are measured and understood.
@@ -150,9 +165,9 @@ Do not spend time diagnosing these; they are measured and understood.
 | --- | --- | --- | --- |
 | [ ] | Dialogue | B, X, Y, Back, LT, RT, Start | **nothing** — no handler in the dialogue dispatcher |
 | [ ] | Dialogue | right stick | camera still moves |
-| [ ] | Free look | A, B, D-pad | nothing; only Start works, R3 exits |
-| [ ] | Pazaak / swoop | buttons | **expect nothing** — class 1 is unbound |
-| [ ] | Cutscenes | buttons | **expect nothing** — class 5 has no retained event |
+| [ ] | Free look | A, B, D-pad | nothing; only Start works (the game's own event), R3 or LB exits |
+| [ ] | Pazaak / swoop | buttons | only B, Y, LT and RT are registered in class 1, the four events the minigame dispatchers implement; A is not. **Never observed**, please note what responds |
+| [ ] | Cutscenes | buttons | A or Start skips a movie the game allows to be skipped; nothing else does anything (class 5 has no retained event) |
 
 ---
 
@@ -195,9 +210,15 @@ Do not spend time diagnosing these; they are measured and understood.
 
 | | Context | Input | Expected | P/F | Kind |
 | --- | --- | --- | --- | --- | --- |
-| [ ] | Gameplay | Start | in-game menu opens | | FUNC [auto] |
-| [ ] | In-game menu | Start again | **nothing** — B closes, not Start | | FUNC [auto] |
+| [ ] | Gameplay | Start | the Map opens (since issue #18; the in-game menu's Options until then) | | FUNC, played 2026-09-25 |
+| [ ] | In-game menu | Start again | closes the menu, from the Map or any tab | | FUNC, played 2026-09-25 from the Map |
 | [ ] | In-game menu | B | back to the world | | FUNC [auto] |
+| [ ] | Gameplay | LB / RB | previous / next target | | FUNC |
+| [ ] | Gameplay | LT | the next living party member | | FUNC |
+| [ ] | Gameplay | RT | pause, and again to continue | | FUNC |
+| [ ] | Gameplay | Back | the Solo Mode question; A on OK turns it on, A on Cancel or B does not | | FUNC, played 2026-09-24 |
+| [ ] | Gameplay | D-pad Left / Right, then Up / Down, then A | walks the action bar's slots, cycles a slot's actions, uses the slot and keeps it; B lets go | | FUNC, A played 2026-09-25 |
+| [ ] | Combat | X, Y | X disengages, Y takes the last action off the queue, each only while its button is drawn | | FUNC |
 | [ ] | Gameplay | L3 | weapons flourish | | FUNC [auto] |
 | [ ] | Gameplay | R3 | free look on; R3 again, off | | FUNC [auto] |
 | [ ] | Gameplay | **L3 then R3 immediately** | free look refuses for 4–7s, then works | | FUNC — known |
@@ -237,11 +258,13 @@ Cycle: Equipment → Inventory → Character → Abilities → Messages → Jour
 | | Tab | Input | Expected | P/F | Kind |
 | --- | --- | --- | --- | --- | --- |
 | [ ] | Inventory | X | item filter changes | | FUNC [auto] |
-| [ ] | Inventory | LB / RB | item list scrolls | | FUNC |
-| [ ] | Equipment | LB / RB | list scrolls | | FUNC |
+| [ ] | Inventory, Equipment | LB / RB | **nothing**: they carry no menu event since 2026-09-14 | | FUNC |
+| [ ] | Inventory, Equipment | right stick up / down | scrolls the item's description | | FUNC |
 | [ ] | Equipment | D-pad between slots and list | transitions make sense | | **FEEL** |
-| [ ] | Character | X | character sheet | | FUNC |
-| [ ] | Character | Y | equip screen | | FUNC |
+| [ ] | Abilities, Character, Equipment, Inventory | R3 | the next party member, with the cue between the portraits | | FUNC, cue played 2026-09-24 |
+| [ ] | Character | X | Scripts | | FUNC |
+| [ ] | Character, a level to take | A, Y | Level Up, Auto Level Up; the D-pad moves no focus on this screen | | FUNC, seen 2026-09-26 and 2026-09-28 |
+| [ ] | Abilities | X | the next of Skills / Powers / Feats | | FUNC |
 | [ ] | Abilities | D-pad | engine's own navigation, not KMRP's | | FUNC |
 | [ ] | Journal | X | sorts | | FUNC |
 | [ ] | Journal | Y | quest selection | | FUNC |
@@ -256,7 +279,7 @@ Cycle: Equipment → Inventory → Character → Abilities → Messages → Jour
 | | Context | Input | Expected | P/F | Kind |
 | --- | --- | --- | --- | --- | --- |
 | [ ] | Save/Load | D-pad | moves through the save list | | FUNC |
-| [ ] | Save/Load | LB / RB | list scrolls | | FUNC |
+| [ ] | Save/Load | LB / RB | **nothing** (this row said "list scrolls"; they carry no menu event since 2026-09-14) | | FUNC |
 | [ ] | Save/Load | A | loads or saves the highlighted slot | | FUNC |
 | [ ] | Save/Load | **X** | **Delete — confirm the prompt appears before anything is destroyed** | | FUNC |
 | [ ] | Save/Load | B | back | | FUNC |
@@ -283,9 +306,15 @@ Everything here is **static-only**. Please note anything that does not respond.
 | [ ] | Key mappings | D-pad, A, B | |
 | [ ] | Upgrade / workbench | D-pad, A, B, LB/RB | |
 | [ ] | Pazaak setup | D-pad, A, B, Y, LT/RT | |
-| [ ] | Pazaak game | **expect nothing to work** — predicted class 1 | |
+| [ ] | Pazaak game | B, Y, LT, RT are registered (class 1); A is not. On the wager, the D-pad lowers and raises it and A wagers | |
 | [ ] | Solo mode query | B should dismiss it | |
-| [ ] | Any cutscene | **expect nothing** — predicted class 5 | |
+| [ ] | Any cutscene | A or Start skips it when the game allows; nothing else | |
+
+In this table "LB/RB" was listed for the screens with a list. They carry no menu
+event since 2026-09-14; try the right stick for a description instead. On the
+settings screens Y presses Default, and Left and Right step a row's - and +
+(2026-09-25). The store shows A, X and B on its three buttons since 2026-10-06,
+not yet seen in play.
 
 ## 7. Device handoff and robustness
 
@@ -307,8 +336,8 @@ These are the decisions only you can make. Everything else above is pass/fail.
 
 | | Question | Current value |
 | --- | --- | --- |
-| [ ] | Camera turn speed | `K1_CAMERA_SPEED = 14.0` |
-| [ ] | Movement deadzone | radial 8% |
+| [ ] | Camera turn speed | `K1_CAMERA_SPEED = 1.0`, a full keyboard turn at full deflection (14.0 until the camera was moved to `RotateCamera`: mouse pixels, for a field the camera does not read) |
+| [ ] | Movement deadzone | radial 15% (`K1_STICK_DEADZONE`; 8% until a pad's left stick was measured resting at 9.6%); the camera's is 12% |
 | [ ] | Menu repeat: delay before repeating | 400 ms |
 | [ ] | Menu repeat: rate once repeating | 120 ms |
 | [ ] | Stick-to-navigate push distance | engage 0.55, release 0.35 |

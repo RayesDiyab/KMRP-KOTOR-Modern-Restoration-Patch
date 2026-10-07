@@ -58,6 +58,17 @@ subtraction (`width = content - 2*PADDING`) in **both** builders: builder A in
 the `.kgs` fit stub, builder B at its own copy of the arithmetic. Keep v11's
 vertical fixes — the doubling is separable from the row pitch.
 
+*Note of 2026-10-08:* two things have changed around this since it was written.
+The gold bytes are no longer written into `swkotor.exe`: KMRP's module applies
+them in memory at each start (the note at the top of
+[listbox-geometry.md](listbox-geometry.md)). And since 2026-10-06 the same module
+writes a row's `left` and `width` again in builder A, for ten lists that stand in
+a drawn box (inventory, store, workbench, the abilities' lists and others):
+`left = PADDING - shift`, `width = contentWidth - PADDING + shift`, with the
+store's and the workbench's rows set in from both sides as well. The formula
+above is what every other list still gets, and what builder B gets. See
+[listbox-geometry.md](listbox-geometry.md#rows-centred-in-their-box-2026-10-06-from-the-mac).
+
 Where the values live:
 
 | | |
