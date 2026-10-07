@@ -394,6 +394,15 @@ Invoke-Tool -Exe "cmd.exe" -Label "controller module" -FailureMessage "Building 
 Invoke-Tool -Exe $Python -Label "controller kpatch" -FailureMessage "Building the controller patch failed" -Arguments @(
     (Join-Path $projectRoot "tools\build_controller_kpatch.py"),
     "--out", $kpmDir, "--config-dir", $kpmConfigDir)
+# The same file is the standalone release, dist\controller, which
+# Test-ControllerKpatch.py reads. Copied here so the two cannot differ: until
+# 2026-10-08 dist\controller was written only by running the tool by hand, and a
+# build left it holding an older patch than the installer carried.
+$controllerName = "KOTOR 1 Native Controller Mod + Xbox HUD.kpatch"
+$controllerDist = Join-Path $distDir "controller"
+New-Item -ItemType Directory -Force -Path $controllerDist | Out-Null
+Copy-Item -LiteralPath (Join-Path $kpmDir $controllerName) -Destination (Join-Path $controllerDist $controllerName) -Force
+Copy-Item -LiteralPath (Join-Path $kpmDir "kmrp-controller.verification.json") -Destination (Join-Path $controllerDist "verification.json") -Force
 Complete-Step
 
 # ---------------------------------------------------------------- 7. the installer
