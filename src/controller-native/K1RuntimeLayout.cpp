@@ -27,6 +27,10 @@ struct Control {
 struct Panel {
     std::string resource; std::map<std::string, Control> controls; std::map<std::string, Extent> file;
     bool rowsPlaced = false;   // its lists have been made as wide as their rows need (PlaceLists)
+    // The size its controls stand for: the one in force when it was loaded, then the
+    // one it was last laid out for (KmrpRuntimeLayoutDimensions). 0 where it could not
+    // be read.
+    int width = 0, height = 0;
 };
 std::map<void*, Panel> panels;
 int previousWidth = 0, previousHeight = 0;
@@ -364,6 +368,41 @@ extern "C" void __cdecl KmrpListRowK1(void* list, void* row, int* rect)
     rect[2] = rowWidth - 2 * gap;
 }
 
+// CSWGuiListBox::AddControls (0x0041C1D0), its entry: ecx the list, the first argument
+// the rows (an array: its pointer, then its count).
+//
+//     0041C1D0  83 EC 08        sub esp, 8
+//     0041C1D3  8B 44 24 0C     mov eax, [esp+0xC]
+//
+// A list's pitch is the tallest of its rows' own heights, read here. The inventory's
+// rows are made again each time it fills. The abilities' rows (a skill; a row of the
+// powers' or the feats' chart) are made once, with the height their maker's constant
+// had then, so after the resolution was changed in the game they kept the old size's
+// pitch under the new size's icons. Found on the Mac on 2026-10-04 (1512x982 to
+// 3024x1964: the skills overlapped) and repaired there the next day; brought here on
+// 2026-10-09. Each such row is given the height its constant has now: the skill's
+// at 0x006ACB20 (CSWGuiInGameSkillEntry::Initialize) and the chart row's at
+// 0x006CD8D9 (CSWGuiSkillFlowChart::AddPowerSet; AddFeatSet's at 0x006CDB79 is the
+// same number), both written for the size in force by the engine recipe.
+// CSWGuiInGameAbilities::UpdateView calls this routine for all three lists.
+extern "C" void __cdecl KmrpListAddRowsK1(void* list, void** slot)
+{
+    void* rows = slot ? *slot : nullptr;
+    if (!list || !rows) return;
+    void** const row = Field<void**>(rows, 0);
+    const int count = Field<int>(rows, 4);
+    if (!row || count <= 0 || count > 4096) return;
+    for (int i = 0; i < count; ++i) {
+        if (!row[i]) continue;
+        const int* height = nullptr;
+        switch (Field<std::uintptr_t>(row[i], 0)) {
+            case 0x00755ED0: height = reinterpret_cast<const int*>(0x006ACB20); break;   // CSWGuiInGameSkillEntry
+            case 0x007578A8: height = reinterpret_cast<const int*>(0x006CD8D9); break;   // CSWGuiSkillFlow
+        }
+        if (height && *height >= 8 && *height <= 4096) Field<Extent>(row[i], 4).height = *height;
+    }
+}
+
 // Every GUI frame (KmrpCoreGuiWorkK1): the lists of newly loaded panels.
 void KmrpListRowsFrame(void* manager)
 {
@@ -382,13 +421,19 @@ extern "C" void __cdecl KmrpPanelLayoutStartK1(void* panel, const char** slot)
     Panel& entry = panels[panel];
     entry = Panel{};
     entry.resource = name;
+    // The size in force now. While the game makes its own panels again after a change
+    // of size (CGuiInGame::ResetInterfaceForSize) that is already the new one.
+    if (void* manager = Field<void*>(panel, 0x18)) {
+        entry.width = Field<short>(manager, 0x6C);
+        entry.height = Field<short>(manager, 0x6E);
+    }
     // The file the engine is about to load, for the size in force: the baseline
     // each control's later position is compared with.
     Gff gff;
     if (gff.load(KmrpRuntimeAssetDirectory() + L"\\" + std::wstring(name.begin(), name.end()) + L".gui"))
         FileExtents(gff, entry.file);
 }
-extern "C" void __cdecl KmrpPanelControlK1(void* panel, void** controlSlot, void** labelSlot)
+extern "C" void __cdecl KmrpPanelControlK1(void* panel, void** controlSlot, void** labelSlot, int* filedSlot)
 {
     if (!controlSlot || !labelSlot) return;
     void* control = *controlSlot;
@@ -404,6 +449,23 @@ extern "C" void __cdecl KmrpPanelControlK1(void* panel, void** controlSlot, void
         const auto length = strnlen_s(name, size);
         if (length) {
             const std::string tag(name, length);
+            // A second control loaded from a tag whose own control is still there, and
+            // not filed with the panel (InitControl's last argument 0), is someone
+            // reading the layout: the controller patch finds where a control is in its
+            // file that way and frees what it loaded (PlaceCueByReferenceK1,
+            // K1NativeJoystick.cpp, for BTN_CHANGE1 on the four party screens). The tag
+            // stays its control's. Until 2026-10-09 it became the reader's, and went
+            // with it when the reader was freed (KmrpControlDestroyedK1), so after a
+            // change of resolution in the game the first party portrait kept the old
+            // size's place (seen that day on Abilities, 1920x1080 to 1680x1050). The
+            // Mac found the same on 2026-10-07 in the code ported from this file.
+            if (filedSlot && !*filedSlot) {
+                const auto held = found->second.controls.find(tag);
+                if (held != found->second.controls.end() && held->second.pointer != control &&
+                        Field<std::uintptr_t>(held->second.pointer, 0) == held->second.table &&
+                        Field<void*>(held->second.pointer, kControlPanel) == panel)
+                    return;
+            }
             Control entry{control, Field<std::uintptr_t>(control, 0)};
             const auto file = found->second.file.find(tag);
             if (file != found->second.file.end()) { entry.known = true; entry.file = file->second; }
@@ -443,6 +505,18 @@ bool KmrpRuntimeLayoutDimensions(void* manager, int width, int height)
     for (auto& item : panels) {
         void* panel = item.first;
         if (Field<void*>(panel, 0x18) != manager) continue;
+        // A panel loaded since the size became this one is left alone: the game makes
+        // the HUD, the dialogue and the message box again on a change of size, from the
+        // new size's files, with what its own code adds already worked out for the new
+        // size. Laid out again here, that addition was taken for the old size's and
+        // scaled a second time. Found on the Mac on 2026-10-08, in the code ported
+        // from this file: after 1512x982 to 1920x1200 the conversation's message label
+        // was 2108 wide where the game had made it 1824, and black covered most of the
+        // picture (docs/windows-changes-from-macos.md, item 22). Brought here on
+        // 2026-10-09; not seen on Windows before or after.
+        if (item.second.width == width && item.second.height == height) continue;
+        item.second.width = width;
+        item.second.height = height;
         Gff gff;
         std::wstring name(item.second.resource.begin(), item.second.resource.end());
         if (!gff.load(KmrpRuntimeAssetDirectory() + L"\\" + name + L".gui")) continue;

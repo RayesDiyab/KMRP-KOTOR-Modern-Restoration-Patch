@@ -102,6 +102,9 @@ type = "pointer"
 [[hooks.parameters]]
 source = "esp+8"
 type = "pointer"
+[[hooks.parameters]]
+source = "esp+12"
+type = "pointer"
 
 [[hooks]]
 address = 0x40cf70
@@ -171,4 +174,21 @@ source = "ecx"
 type = "pointer"
 [[hooks.parameters]]
 source = "esp+32"
+type = "pointer"
+
+# CSWGuiListBox::AddControls, entry (K1RuntimeLayout.cpp, KmrpListAddRowsK1): the rows
+# that outlive a change of resolution get the row height of the size in force before
+# the list reads it. ECX the list, the first argument the rows. The two instructions
+# are sub esp, 8 and mov eax, [esp+0xC]; nothing to relocate, not a branch's target
+# (the routine's entry). Brought over from the Mac on 2026-10-09.
+[[hooks]]
+address = 0x41c1d0
+type = "detour"
+function = "KmrpListAddRowsK1"
+original_bytes = [0x83, 0xec, 0x08, 0x8b, 0x44, 0x24, 0x0c]
+[[hooks.parameters]]
+source = "ecx"
+type = "pointer"
+[[hooks.parameters]]
+source = "esp+4"
 type = "pointer"

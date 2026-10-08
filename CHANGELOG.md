@@ -109,6 +109,67 @@ proxy, and it applies the executable changes above as well.
 
 ## [Unreleased]
 
+- **After a change of resolution in the game, with the controller patch: three
+  repairs** (2026-10-09; all three seen in a scratch copy, 1920x1080 to 1680x1050
+  with the pad, before and after;
+  [`reverse-engineering/resolution-switch.md`](reverse-engineering/resolution-switch.md),
+  section 8a).
+  - *A party portrait at the old size's place* (KMRP's patch). On Abilities,
+    Character, Equip and Inventory the controller patch reads the layout file's
+    place of the first portrait by loading its entry a second time and freeing
+    what it loaded; KMRP's record of that control went with the freed one, so the
+    portrait was never laid out for the new size and stood over the second.
+    `KmrpPanelControlK1` now takes `InitControl`'s last argument and leaves a
+    tag's record alone when a second, unfiled control is loaded from it (found on
+    the Mac on 2026-10-07 in the ported code).
+  - *A caption and its badge at the old size's place* (the controller patch).
+    Abilities' Close had its caption and B below and right of the button, and
+    after 3440x1440 to 1920x1080 off the screen. A caption this patch had moved
+    was given its remembered rectangle back after the button had been laid out
+    again; the rectangle is now dropped once the button's is another
+    (`DropK1StaleCaptionRect`, `vendor/K1XboxControls.cpp`).
+  - *No badges until the next press* (the controller patch). The window is made
+    again and the pointer put into it, which was taken for mouse use; for a
+    second and a half after the screen's size changes no pointer movement counts
+    (`MouseIsBeingUsedK1`).
+
+- **Five repairs brought over from the Mac** (2026-10-09; the Mac's tracker,
+  [`docs/windows-changes-from-macos.md`](docs/windows-changes-from-macos.md), items
+  19 to 22, which arrived with the Mac's pull request 28, merged that day). KMRP's
+  patch has 28 hooks with them and the controller patch 36.
+  - *Xbox-style HUD: a parked action slot comes back as it was* (the controller
+    patch; the maintainer reproduced the fault on Windows on 2026-10-08). The
+    layout parks one of two slots in each of two places and hides its button; the
+    engine sets that button's visible flag only when the slot's contents change. A
+    slot was shown again only if it had something in it, so one the engine had
+    been showing empty stayed missing from the action row. Its flag is now
+    remembered when it is parked and given back (`g_shownWhenParked`,
+    `K1XboxHud.cpp`). **Not seen in the game on Windows.**
+  - *Xbox-style HUD: the pause box while the game lays it out* (the controller
+    patch; item 21, reproduced on Windows by the maintainer on 2026-10-08). Each
+    time the game pauses or changes the reason it lays the box out its own way,
+    and the box could be drawn once before the HUD put it right: the trigger's
+    picture as large as the game's button for a frame. Two hooks on
+    `CSWGuiInGamePause::SetPauseReason` (`0x006C00C0` and `0x006C02A4`): the
+    picture comes off at the entry, and the box is laid out and placed at the end
+    (`KmrpXboxHudPauseReasonK1`, `KmrpXboxHudPauseReasonDoneK1`). The box was
+    seen right with them; **the one-frame fault was not looked for.**
+  - *After a change of resolution in the game, the conversation* (KMRP's patch;
+    found on the Mac, where black covered most of the picture). The game makes the
+    HUD, the dialogue and the message box again for the new size, and KMRP's
+    re-layout of live panels ran over those too and scaled what the game's code
+    adds a second time. A panel loaded at the size being laid out for is now left
+    alone (`KmrpRuntimeLayoutDimensions`, `K1RuntimeLayout.cpp`). **Not tried in
+    a conversation on Windows**; the HUD was seen right after a change.
+  - *After a change of resolution in the game, the abilities' rows* (KMRP's
+    patch; a new hook on `CSWGuiListBox::AddControls`, `0x0041C1D0`). A skill's
+    row and a row of the powers' or the feats' chart are made once and kept the
+    old size's height under the new size's icons. Each is given the height its
+    constant has now (`KmrpListAddRowsK1`). Seen on the skills' list; **the two
+    charts were not looked at.**
+  - *The area map after a change* (already here since 2026-10-09) was seen in the
+    same runs: the picture fits its frame after 3440x1440 to 1920x1080.
+
 - **macOS: High FPS Fixes, a port of D3M0's patch, as a patch of its own** (2026-10-08, the
   maintainer: "create a standalone Mac version of D3M0's fix"; KOTOR 1 only, KOTOR 2 not being
   installed here). `macos/patches/high-fps-fixes` and `macos/tools/make_high_fps_patch.py`

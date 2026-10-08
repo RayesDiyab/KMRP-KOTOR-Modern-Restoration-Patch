@@ -23,7 +23,7 @@ holds for 2026-10-04 and part of the next day only.
 
 | | 2026-10-04 (the next section) | Since 2026-10-05 |
 | --- | --- | --- |
-| Patches | one, `kmrp`, with the options `controller`, `map-notes` and `debug-logs` | two. `kmrp`: the options `map-notes`, on, and `debug-logs`, off; 27 hooks as built on 2026-10-06 (24 on 2026-10-05, then the list rows' three). `kmrp-controller`: 34 hooks, its own settings |
+| Patches | one, `kmrp`, with the options `controller`, `map-notes` and `debug-logs` | two. `kmrp`: the options `map-notes`, on, and `debug-logs`, off; 28 hooks as built on 2026-10-09 (24 on 2026-10-05, then the list rows' three, then the abilities' rows'). `kmrp-controller`: 36 hooks, its own settings |
 | Modules | `patches\kmrp.dll`, with the controller and SDL inside | `patches\kmrp.dll` (the engine recipe and every resolution's files) and `patches\kmrp-controller.dll` (the controller, its own layout changes and art for the game's interface, SDL) |
 | Sites both need | one patch, one hook each | KOTOR Patch Manager allows one patch per address, so each has its own: the GUI frame at `0x0040CE70` (controller) and `0x0040CE76` (KMRP), the movie frame at `0x00404D96` and `0x00404D06`, the resource lookup at `0x00407235` and `0x00407230` |
 | The installer | wrote the controller's hooks while the option was on | installs the controller patch beside KMRP's while Controller Support is on in Advanced Settings, the default: both modules, both patches' hooks in `patch_config.toml` with KMRP's first, `configs\kmrp.ini` and `configs\kmrp-controller.ini`, both `.kpatch` files in KPM's patch folder. Off: nothing of the controller patch, and KMRP's patch the same |

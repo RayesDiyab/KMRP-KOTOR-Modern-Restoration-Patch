@@ -27,7 +27,7 @@ Controller support is a patch of its own for KOTOR Patch Manager's runtime:
 detours applied in memory from `patch_config.toml`, module
 `patches\kmrp-controller.dll` (`tools/build_controller_kpatch.py`;
 [`controller-standalone.md`](controller-standalone.md) is its reference). KMRP's
-installer installs it beside `KMRP.kpatch` (id `kmrp`, 27 hooks, no controller
+installer installs it beside `KMRP.kpatch` (id `kmrp`, 28 hooks, no controller
 hook and no controller option) while Controller Support is on, and leaves it out
 otherwise; KMRP's patch is the same either way (`src/patcher/KpmEdition.cs`). The
 controller patch also runs without KMRP, on the game's own interface or a
@@ -138,7 +138,7 @@ installs for KMRP's own patch ([kpm-edition.md](kpm-edition.md)):
 | File | Purpose |
 | --- | --- |
 | `patches\kmrp-controller.dll` | the controller patch's module, the one inside its `.kpatch`; SDL and the prompt art are inside it |
-| the patch's block in `patch_config.toml` | its 34 hooks, after KMRP's |
+| the patch's block in `patch_config.toml` | its 36 hooks, after KMRP's |
 | `configs\kmrp-controller.ini` | `[Patch Options]` with `debug-logs` only, so the player's `Style` under `[Hud]` in `kmrp-controller.ini` decides the Xbox-style HUD |
 | `KOTOR 1 Native Controller Mod + Xbox HUD.kpatch` | delivered into KOTOR Patch Manager's patch folder, beside `KMRP.kpatch` |
 | `kmrp-controller.ini` beside the game | the player's rumble settings, written only when absent (with Controller Support off as well) |
@@ -293,8 +293,8 @@ controller off) -- the same 37 sites, with `CoreGuiFrameK1` and `CoreMovieFrameK
 in place of `NativeGuiFrameK1` and `NativeMovieFrameK1`, which hand over to KMRP
 Controller's frames -- and 9 with the controller off.
 
-**Current count, 2026-10-08, two patches:** the controller patch has 34 hooks,
-all detours, and KMRP's patch 27; so 61 with Controller Support on and 27 without
+**Current count, 2026-10-09, two patches:** the controller patch has 36 hooks,
+all detours, and KMRP's patch 28; so 64 with Controller Support on and 28 without
 (`hooks()` in `tools/build_controller_kpatch.py`, `all_hooks()` in
 `tools/build_native_kpatch.py`). The controller's 34 are the 28 of the count
 below less `NativePanelReleaseGffK1`, plus its own resource hook, the two panel

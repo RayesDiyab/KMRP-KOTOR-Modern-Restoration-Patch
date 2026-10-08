@@ -85,7 +85,7 @@ def alpha_box(tga: bytes):
 def main() -> int:
     # 1. The package against its sources.
     result = package.validate(PACKAGE)
-    check(result["hooks"] == len(package.hooks()) == 34, f"the package carries {result['hooks']} hooks, all from the sources")
+    check(result["hooks"] == len(package.hooks()) == 36, f"the package carries {result['hooks']} hooks, all from the sources")
     with zipfile.ZipFile(PACKAGE) as z:
         manifest = tomllib.loads(z.read("manifest.toml").decode())["patch"]
         packed = tomllib.loads(z.read(package.HOOKS).decode())["hooks"]
@@ -120,9 +120,11 @@ def main() -> int:
     theirs.update({h["address"]: kmrp_controller.as_installed(h) for h in kmrp_controller.installable_hooks()
                    if h.get("function") in ("NativeGuiFrameK1", "NativeMovieFrameK1")})
     stand_ins = set()
-    # the Xbox-style HUD's two, which KMRP's patch does not have, and the two that
+    # the Xbox-style HUD's four (two more since 2026-10-09, on the pause box's own
+    # layout), which KMRP's patch does not have, and the two that
     # stand in for KMRP's hook at StopLoadFromLayout's entry, left to other patches
     own = {package.XBOX_HUD_HOOK["address"], package.XBOX_HUD_BARS_HOOK["address"],
+           package.XBOX_HUD_PAUSE_HOOK["address"], package.XBOX_HUD_PAUSE_DONE_HOOK["address"],
            package.PANEL_LOADED_HOOK["address"], package.PANEL_DESTROYED_HOOK["address"],
            package.RESOURCE_OWN_HOOK["address"]}
     check(package.PANEL_SITE not in mine and package.PANEL_SITE in theirs,
@@ -131,7 +133,7 @@ def main() -> int:
             and kmrp_controller.normalised(mine[a]) == kmrp_controller.normalised(theirs[a])]
     check(len(same) == len(mine) - len(stand_ins) - len(own) and stand_ins <= set(theirs) and not (own & set(theirs)),
           f"{len(same)} sites are KMRP's own hooks unchanged, {len(stand_ins)} are the frame sites KMRP holds, "
-          f"and {len(own)} are this patch's own (the Xbox-style HUD's two and the two panel sites), "
+          f"and {len(own)} are this patch's own (the Xbox-style HUD's four, the two panel sites and the resource site), "
           "which KMRP's patch leaves alone")
 
     # 4. The file bank.
