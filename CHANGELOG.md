@@ -109,6 +109,65 @@ proxy, and it applies the executable changes above as well.
 
 ## [Unreleased]
 
+- **Step 4's line after patching** (2026-10-09, reported by the maintainer; the
+  installer). When an install finished, step 4 showed the operation's last message,
+  whichever sentence that was: on a PC with KOTOR Patch Manager it was the one
+  naming KPM's patch folder with its whole path, which ran under "Patched
+  successfully" on the right and was cut off. A message of up to 80 characters is
+  shown; a longer one stays in the log, and the step says what it says when the
+  window is opened on a patched game, "KOTOR is ready to play at 3440 × 1440."
+  Step 3 on a patched game reads "The game starts at this resolution. Choose
+  another in the game's Graphics options." (it said "size"). Seen on the window
+  opened on a patched game; **not seen straight after a patch run**, which I did
+  not start on the maintainer's Steam copy.
+
+- **Button badges: one way to the screen, one factor for width and height**
+  (2026-10-09, reported by the maintainer; the controller patch). Beside KMRP at
+  3440x1440 the main menu's A on Quit was "stretched vertically": measured from a
+  screenshot, 46 wide and 50 tall where the other rows' was 39 by 41. Three things
+  were wrong, found in this order:
+  - *The badge's size followed its button's height alone.* Quit's row is 630x81
+    there and the other four are 630x66, so its A was a fifth larger. A badge is
+    now as large as fits its area both ways (`K1UniformBadge`,
+    `vendor/K1XboxControls.cpp`), the one place its size is decided.
+  - *Two ways to the screen.* A badge whose button had the shape its texture was
+    made for, within 2 per cent, stayed the button's fill, stretched over it; the
+    others went on a label of their own, whose width is its height times the
+    texture's proportions. Every badge goes on a label now. In the unchanged game it
+    lies exactly where the fill was; on an interface of another size every badge
+    stands beside its caption (the four equal rows had theirs 85 px from the caption
+    and Quit 17).
+  - *The table of made shapes was wrong for the main menu*, which is what was left
+    after the first two: Quit still measured 39 by 43. Its texture is the other
+    rows' byte for byte, made for 235x24 from the layout the game loads above
+    640x480, but `K1ControllerBadgeShapes.inc` was written from `mainmenu.gui`, where
+    Quit is 210x27 with a 2 px border: 206x23 for Quit and 210x22 for the others,
+    so all five were drawn in the wrong proportions, Quit most.
+    `build_controller_assets.py --badge-shapes` now reads the loaded file.
+  - *In the middle of its button, top to bottom* (the maintainer, the same day): a
+    badge's middle is its button's, always. Until then it stood on its caption's
+    line where the caption could be measured, wherever in the button that was; now
+    a caption that is not on the button's middle line is brought there with it
+    (until then only a caption aligned to the top or the bottom was). Measured on
+    Quit: the row is 954 to 1035, the A 974 to 1012.
+  `Test-ControllerKpatch.py` held the table only to "what the tool writes"; it now
+  also requires every face-button texture to be round in the area the table names
+  (133 badges, worst 3.3 per cent off square). **Seen in a scratch copy** with the
+  virtual pad after the three: the A on New Game, Options and Quit the same size
+  and beside its caption, Quit's 39 by 39; Options and Graphics Options looked as
+  before. Not looked at: every other screen, where badges that stood where their
+  art had them now stand beside their captions.
+
+- **The game in front when it starts** (2026-10-09, reported by the maintainer; the
+  controller patch). The pad would not skip an intro movie until the mouse had been
+  clicked, "like the window isnt focused but its fullscreen". The pad is read only
+  while a window of the game is the foreground one, and Windows does not always make
+  a newly started program's window that. Measured: the scratch game started by a
+  script drew full screen for 45 seconds with another program's window in front
+  throughout. `TakeForegroundAtStartK1` (`K1ControllerBackend.cpp`) brings the
+  game's window to the front until it has been there once, for its first 20 seconds
+  only. Started the same way after it: in front from the twelfth second.
+
 - **macOS: the hand-off of 2026-10-09 taken up** (2026-10-09; `docs/macos-handoff-2026-10-09.md`,
   rows 31 to 37 of `docs/macos-changes-from-windows.md`). Ported: a button made wider for its
   badge (Level Up, Auto Level Up) is its screen's own size again while another screen is in

@@ -1766,7 +1766,7 @@ struct K1BadgeOverlay { void* panel; void* button; void* label; int id; K1BadgeR
                         // it, while it is grown to hold its badge (ShowK1BackedBadge).
                         K1BadgeRect buttonWas, grownTo; bool grown;
                         int lines; };       // the lines the layout gives the caption (K1BackedCaptionLines)
-constexpr int K1_BADGE_OVERLAYS = 96;
+constexpr int K1_BADGE_OVERLAYS = 256;      // 96 until every badge went on a label (2026-10-09)
 K1BadgeOverlay g_k1BadgeOverlays[K1_BADGE_OVERLAYS] = {};
 void* g_k1BadgePaintPanel = nullptr;      // set by UpdateK1ControllerPrompts while it paints
 constexpr std::uintptr_t K1_BADGE_OPERATOR_NEW = 0x006FA7E6;
@@ -2083,6 +2083,43 @@ std::uint32_t K1CaptionSignature(void* button)
 // `tall`, when not 0, is the label's height and puts the badge on a label whatever
 // the button's shape, and `outside` then puts it left of the button instead of
 // beside the caption (ShowK1BackedBadge).
+// The one place a badge's size on screen is decided: its texture was made for an area
+// `madeWidth` by `madeHeight`, and it is drawn `*width` by `*height`, always in the
+// made proportions, so a badge is never wider without being as much taller. It is as
+// large as fits the area `areaWidth` by `areaHeight` both ways; `byHeight` asks for
+// exactly the area's height instead (a badge of a given height, ShowK1BackedBadge).
+void K1UniformBadge(long long areaWidth, long long areaHeight, long long madeWidth, long long madeHeight,
+                    bool byHeight, int* width, int* height)
+{
+    if (madeWidth <= 0 || madeHeight <= 0 || areaWidth <= 0 || areaHeight <= 0) {
+        *width = static_cast<int>(areaWidth > 0 ? areaWidth : 0);
+        *height = static_cast<int>(areaHeight > 0 ? areaHeight : 0);
+        return;
+    }
+    if (byHeight || areaWidth * madeHeight >= madeWidth * areaHeight) {
+        *height = static_cast<int>(areaHeight);
+        *width = static_cast<int>((areaHeight * madeWidth + madeHeight / 2) / madeHeight);
+    } else {
+        *width = static_cast<int>(areaWidth);
+        *height = static_cast<int>((areaWidth * madeHeight + madeWidth / 2) / madeWidth);
+    }
+}
+
+// Whether a texture made for an area `madeWidth` by `madeHeight` is drawn in its own
+// proportions when stretched over an area `width` by `height`: the two scales, across
+// and down, differ by less than half a pixel over the area's height, which is about
+// the badge's own. Exact for the same area at any whole scale.
+bool K1BadgeKeepsShape(long long width, long long height, long long madeWidth, long long madeHeight)
+{
+    if (width <= 0 || height <= 0 || madeWidth <= 0 || madeHeight <= 0) {
+        return false;
+    }
+    const double across = static_cast<double>(width) / static_cast<double>(madeWidth);
+    const double down = static_cast<double>(height) / static_cast<double>(madeHeight);
+    const double apart = across > down ? across / down - 1.0 : down / across - 1.0;
+    return apart * static_cast<double>(height) < 0.5;
+}
+
 bool ShowK1BadgeOverlay(void* control, const char resref[16], int tall = 0, bool outside = false)
 {
     const BadgeShape* shape = nullptr;
@@ -2132,9 +2169,18 @@ bool ShowK1BadgeOverlay(void* control, const char resref[16], int tall = 0, bool
         HideK1BadgeOverlay(control);
         return false;
     }
-    const long long live = static_cast<long long>(width) * shape->height;
-    const long long made = static_cast<long long>(shape->width) * height;
-    bool asMade = (live > made ? live - made : made - live) * 50 <= made;
+    // A badge is never drawn wider without being drawn as much taller, or the other
+    // way round. It reaches the screen in one of two ways. As its button's fill it is
+    // stretched over the area the border fills, so it keeps its shape only while that
+    // area has the shape the texture was made for; on a label of its own (below) its
+    // width is its height times the texture's own proportions, one factor for both.
+    // So the fill is used only where it cannot be told from the label: where the two
+    // shapes differ by less than half a pixel over the badge's height
+    // (K1BadgeKeepsShape). Until 2026-10-09 the test was 2 per cent of the shape,
+    // which let the main menu's Quit through at 3440x1440: its A was drawn 46 wide
+    // and 50 tall, and larger than the other rows' (the maintainer saw it; measured
+    // from a screenshot).
+    bool asMade = K1BadgeKeepsShape(width, height, shape->width, shape->height);
     // The focused border too, where it fills another area than the normal one and
     // so has a texture of its own ("kmf", SetK1ControllerPromptFill). A border's
     // inset is a number of pixels that a rescaled button keeps: Options' Close,
@@ -2148,8 +2194,7 @@ bool ShowK1BadgeOverlay(void* control, const char resref[16], int tall = 0, bool
         const long long focusWidth = at.width - 2 * focusInset, focusHeight = at.height - 2 * focusInset;
         const long long madeWidth = shape->width + step, madeHeight = shape->height + step;
         if (focusWidth > 0 && focusHeight > 0 && madeWidth > 0 && madeHeight > 0) {
-            const long long liveFocus = focusWidth * madeHeight, madeFocus = madeWidth * focusHeight;
-            asMade = (liveFocus > madeFocus ? liveFocus - madeFocus : madeFocus - liveFocus) * 50 <= madeFocus;
+            asMade = K1BadgeKeepsShape(focusWidth, focusHeight, madeWidth, madeHeight);
         }
     }
     // Or the shape is as made but the caption is no longer on the button's middle
@@ -2178,10 +2223,21 @@ bool ShowK1BadgeOverlay(void* control, const char resref[16], int tall = 0, bool
             }
         }
     }
-    if (asMade && tall <= 0) {
-        HideK1BadgeOverlay(control);        // the shape it was made for: on the button, as ever
-        return false;
-    }
+    // One way to the screen for every badge, since 2026-10-09 (the maintainer: "why
+    // cant we join them into one rendering path?"): the label below, whose width is
+    // its height times the texture's proportions. Until then a badge whose button had
+    // the shape its texture was made for stayed the button's fill, stretched over it,
+    // and only the others went to a label. Such a badge now goes on a label too, laid
+    // exactly over the area the fill covered, so it stands where its art has it; the
+    // others stand beside their caption as before.
+    //
+    // "Where its art has it" is for the unchanged game alone: the area exactly as
+    // large as the texture was made for. On an interface of another size the art's
+    // place was right for the game's own caption at the game's own size, and the
+    // caption there is another font's: beside KMRP at 3440x1440 the main menu's four
+    // equal rows had their A 85 px left of the caption and Quit, whose row is another
+    // shape, 17 px (seen 2026-10-09). There every badge stands beside its caption.
+    const bool whereMade = asMade && tall <= 0 && width == shape->width && height == shape->height;
 
     K1BadgeOverlay* entry = FindK1BadgeOverlay(control);
     if (!entry) {
@@ -2222,15 +2278,22 @@ bool ShowK1BadgeOverlay(void* control, const char resref[16], int tall = 0, bool
     K1BadgeRect wanted;
     // The label is as tall as the button's fill area, or as it was asked to be; the
     // distances below are shares of that height.
-    const int fillHeight = height;
     if (tall > 0) {
         // On the whole button, whose box is its own: its border's inset is not ours.
         height = tall < at.height ? tall : at.height;
     }
-    wanted.height = height;
-    wanted.top = tall > 0 ? at.top + (at.height - height) / 2
-                          : at.top + inset + (fillHeight - height) / 2;   // unless the caption's line says otherwise, below
-    wanted.width = static_cast<int>((static_cast<long long>(height) * shape->width + shape->height / 2) / shape->height);
+    // The badge's size: one factor for its width and its height (K1UniformBadge),
+    // the largest at which it fits the area both ways. Until 2026-10-09 the factor
+    // was the area's height over the made height alone, so a button made taller
+    // than its fellows had a larger badge: the main menu's Quit beside KMRP at
+    // 3440x1440, 630x81 where the other four rows are 630x66, had an A a fifth
+    // larger than theirs (the probe of that day: label 725x81 for a shape of
+    // 206x23, the others 630x66 for 210x22).
+    K1UniformBadge(width, height, shape->width, shape->height, tall > 0, &wanted.width, &wanted.height);
+    height = wanted.height;
+    // In the middle of the button it is drawn in, top to bottom, whatever its size
+    // and wherever its caption was (the caption is brought to the same line, below).
+    wanted.top = at.top + (at.height - height) / 2;
     {
         const int centred = (width - wanted.width) / 2;
         const int glyph = centred + static_cast<int>(static_cast<long long>(wanted.width) * shape->glyph / 1000);
@@ -2245,7 +2308,11 @@ bool ShowK1BadgeOverlay(void* control, const char resref[16], int tall = 0, bool
     // (Scaled Kotor at 3440x1440) that left the glyph far out from the text, and
     // the maintainer asked why (2026-10-05). Kept inside the button.
     int line = 0;
-    if (const int caption = MeasureK1Caption(control, &line)) {
+    if (whereMade && entry->textMoved) {
+        SetK1CaptionRect(control, entry->textWas);      // the caption where the screen had it
+        entry->textMoved = false;
+    }
+    if (const int caption = whereMade ? 0 : MeasureK1Caption(control, &line)) {
         K1BadgeRect text = *reinterpret_cast<const K1BadgeRect*>(
             static_cast<char*>(control) + K1_BUTTON_TEXT_OFFSET + K1_TEXT_EXTENT_OFFSET);
         // And on the caption's line. A layout's ALIGNMENT is in the text's flags
@@ -2268,7 +2335,15 @@ bool ShowK1BadgeOverlay(void* control, const char resref[16], int tall = 0, bool
         // Map screen and the maintainer found the whole line too high (2026-10-05).
         // (Not a badge of a given height: its caption may be two lines, and it
         // stands on the button's middle line.)
-        if (tall <= 0 && line > 0 && (alignment & 16u) == 0 && text.height > 0 && line < at.height) {
+        //
+        // Since 2026-10-09 for a caption in the middle of its own rectangle as well,
+        // where that rectangle's middle is not the button's: the badge stands in the
+        // middle of the button it is drawn in, always (the maintainer, that day), and
+        // its caption on the same line.
+        const int buttonMiddle = at.top + at.height / 2;
+        const bool offMiddle = (alignment & 16u) == 0 ||
+            (text.top + text.height / 2 > buttonMiddle + 1 || text.top + text.height / 2 < buttonMiddle - 1);
+        if (tall <= 0 && line > 0 && offMiddle && text.height > 0 && line < at.height) {
             const K1BadgeRect centredLine{text.left, at.top + (at.height - line) / 2, text.width, line};
             const bool there = text.top == centredLine.top && text.height == centredLine.height;
             if (!there) {
@@ -2280,12 +2355,10 @@ bool ShowK1BadgeOverlay(void* control, const char resref[16], int tall = 0, bool
             }
             text = centredLine;
         }
-        const K1BadgeRect area = text.height > 0 ? text : at;
-        if (line > 0 && tall <= 0) {
-            const int lineMiddle = (alignment & 16u) != 0 ? area.top + area.height / 2
-                                 : (alignment & 32u) != 0 ? area.top + area.height - line / 2
-                                 : area.top + line / 2;
-            wanted.top = lineMiddle - wanted.height / 2;
+        if (tall <= 0) {
+            // In the middle of its button, top to bottom; the caption is on that line
+            // (above), or was there already.
+            wanted.top = buttonMiddle - wanted.height / 2;
         }
         const int middle = text.width > 0 ? text.left + text.width / 2 : at.left + at.width / 2;
         const int gap = height / 4, air = height / 8;

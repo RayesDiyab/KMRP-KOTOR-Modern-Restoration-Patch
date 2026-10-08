@@ -32,6 +32,7 @@ Documentation standard: see `docs/documentation-standard.md`.
 from __future__ import annotations
 
 import logging
+import re
 import struct
 import sys
 import tomllib
@@ -194,6 +195,31 @@ def main() -> int:
     check(shapes == assets.badge_shapes() and shapes.count("{") > 100,
           f"{assets.BADGE_SHAPES.name} is what tools/build_controller_assets.py --badge-shapes writes "
           f"({shapes.count('{') - 1} badges)")
+
+    # And the table by itself: the module sizes a badge by the area the table gives,
+    # so a row that names another area than its texture was made for draws the badge
+    # out of shape, whatever the texture. (Until 2026-10-09 the main menu's rows were
+    # read from mainmenu.gui, not the file the game loads: Quit was given 206x23 for a
+    # texture made for 235x24 and its A was drawn 39 wide and 43 tall.)
+    table_worst, table_measured, table_wrong = 0.0, 0, []
+    faces = {t.resref for t in targets if t.glyph in "ABXY" and not t.backing}
+    for name, made_w, made_h in re.findall(r'\{"(\w+)", (\d+), (\d+), \d+, \d+\}', shapes):
+        art = FILES / (name + ".tga")
+        if name not in faces or not art.exists():
+            continue
+        box = alpha_box(art.read_bytes())
+        if box is None:
+            continue
+        off = abs((box[2] * int(made_w) / prompts.TEXTURE_WIDTH) / (box[3] * int(made_h) / prompts.TEXTURE_HEIGHT) - 1.0)
+        table_worst = max(table_worst, off)
+        table_measured += 1
+        # 4%: three textures measure 3.3% off by this file's box, in the fill-area check
+        # above as here; Quit's row was 8% off.
+        if off > 0.04:
+            table_wrong.append(name)
+    check(table_measured > 100 and not table_wrong,
+          f"{table_measured} face-button badges are round in the area the table names for them "
+          f"(worst {table_worst * 100:.1f}% off square)" + ("" if not table_wrong else f": {table_wrong[:6]}"))
 
     # The tab strip's two cues are the drawn arrows, for every family.
     import build_tab_arrows
