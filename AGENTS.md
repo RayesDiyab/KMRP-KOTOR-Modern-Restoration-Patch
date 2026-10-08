@@ -114,7 +114,8 @@ do not load every project document on every task.
 - Installer regression: `.\testing\regression\Test-ReinstallOverOlderBuild.ps1`.
 - What the installer puts in a game folder (KMRP's patch and, with Controller
   Support on, the controller patch; their options files; no resolution list;
-  restore): `.\testing\regression\Test-InstallerPatch.ps1`.
+  restore, and the bundled High FPS Fixes patch as a third while its option is on):
+  `.\testing\regression\Test-InstallerPatch.ps1`.
   The packaged patches: `python testing/regression/Test-KpatchSource.py` and
   `python testing/regression/Test-ControllerKpatch.py`.
 - Documentation links: `python .github/scripts/check_links.py`.

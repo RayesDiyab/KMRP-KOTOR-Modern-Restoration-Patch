@@ -35,7 +35,11 @@ Where the rest is: [`CHANGELOG.md`](../CHANGELOG.md), `[Unreleased]`, "KMRP and 
 controller patch are two patches, each working without the other", which lists what was
 run and what was not; [`controller-standalone.md`](controller-standalone.md) for the
 controller patch; [`macos-two-patches-handoff.md`](macos-two-patches-handoff.md) for the
-Mac. `Test-InstallerPatch.ps1` covers both installs (Controller Support on and off) and
+Mac. Since 2026-10-09 a third patch can stand beside the two: D3M0's High FPS Fixes,
+the author's own `HighFpsFixes.kpatch` (id `high-fps-fixes`, 36 hooks, no options),
+installed and delivered only while High FPS Fix is on in Advanced Settings; its
+hook blocks come from `tools/build_bundled_kpatch_config.py`.
+`Test-InstallerPatch.ps1` covers both installs (Controller Support on and off) and
 `Test-KpatchSource.py` and `Test-ControllerKpatch.py` the two packages. Sections 1 to 10
 below have not been rewritten for two patches: where they say "the patch" for controller
 work, read the controller patch.

@@ -80,6 +80,12 @@ which repairs these. The installer switches it on by itself when your display
 runs above 60 Hz, and leaves it off on a 60 Hz display; you can change it in the
 options either way. It is another author's work, included unchanged.
 
+The frame rate itself is chosen in the game, in the same list as the resolution:
+Options, Graphics, Screen Resolution shows each resolution once for every refresh
+rate your display has, for example "3440 x 1440 @ 120 Hz". The original game hides
+the rates above 85 Hz; with High FPS Fix they are all there and the game starts at
+the highest. Without it the game is held at 60.
+
 ## Sharper artwork
 
 - Party portraits in high quality (by MadDerp).

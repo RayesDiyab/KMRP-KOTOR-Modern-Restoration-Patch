@@ -42,6 +42,9 @@ runs at it. The resolution is chosen in the game, with no reinstall.
    your display's current resolution, and every resolution your display supports is
    offered in the game, under Options, Graphics, Screen Resolution. Connect another
    display, a 4K television for one, and the game offers that display's resolutions.
+   The same list sets the frame rate: with High FPS Fix it offers every refresh
+   rate of your display ("3440 x 1440 @ 120 Hz") and the game starts at the
+   highest; without it the game is held at 60.
 4. Start KOTOR as usual.
 
 **Options.** Advanced Settings (the gear) turns off Modern Driver Compatibility, the
@@ -65,7 +68,8 @@ back and KMRP stops loading: patch again.
 `KOTOR 1 Native Controller Mod + Xbox HUD.kpatch` is KMRP's controller support as a
 patch of its own: the pad in the game and in every menu, button prompts for Xbox,
 PlayStation, Switch and Steam Deck pads, rumble, and the Controller Layout screen.
-The installer installs it beside KMRP's patch while Controller Support is on. It
+The installer installs it beside KMRP's patch while Native Controller Support (the
+first tile of Advanced Settings; "Controller Support" until 2026-10-09) is on. It
 also runs in a game that has no KMRP, on the interface the game ships or beside
 another widescreen patch: it needs no other patch, writes nothing to `Override`,
 and places its prompts from the running game (seen beside KMRP at 3440x1440, and
@@ -81,10 +85,13 @@ set `Style=PC` under `[Hud]` in `kmrp-controller.ini` beside the game. See
 ### With KOTOR Patch Manager
 
 KMRP is two KPM patches, each working without the other: `KMRP.kpatch` and the
-controller patch above. Both combine with other KPM patches.
+controller patch above. Both combine with other KPM patches. With High FPS Fix on,
+the installer adds a third beside them, D3M0's `HighFpsFixes.kpatch`, as its author
+released it.
 
 - The installer carries both and puts them in KPM's patch folder, the controller
-  patch only while Controller Support is on. If KPM's runtime is already in the game
+  patch only while Native Controller Support is on, the High FPS Fixes patch only
+  while High FPS Fix is on. If KPM's runtime is already in the game
   folder, the installer leaves the patches to KPM and says where the files are.
 - In KPM, tick `KMRP`, and the controller patch for the pad, then Apply and Launch.
   KMRP includes the 4 GB and memory fixes, so KPM's own ones stay unticked.
@@ -93,7 +100,7 @@ controller patch above. Both combine with other KPM patches.
 - On Steam, switch KPM to its proxy deployment and start the game from Steam.
 - With KPM 0.7.1, tick *Use library proxy* in KPM before pressing Apply (press
   Uninstall All if it is greyed out), or only KPM's Launch starts the game patched.
-- `--export-kpm-patches <folder>` writes both `.kpatch` files out for sharing.
+- `--export-kpm-patches <folder>` writes the `.kpatch` files out for sharing.
 
 [docs/kpm-edition.md](docs/kpm-edition.md) describes both ways.
 
@@ -114,10 +121,10 @@ the [Linux, Proton, and Steam Deck guide](docs/linux-proton-steam-deck.md).
 | Where | What |
 | --- | --- |
 | Beside `swkotor.exe` | KOTOR Patch Manager's runtime, laid out as KPM's own proxy deployment: KPM's `binkw32.dll` proxy in place of the game's (renamed `binkw32Hooked.dll`), `KotorPatcher.dll` and `patch_config.toml`. |
-| `patches\` | `kmrp.dll`, KMRP's module, with the engine changes and every resolution's interface files; and `kmrp-controller.dll` while Controller Support is on. |
+| `patches\` | `kmrp.dll`, KMRP's module, with the engine changes and every resolution's interface files; `kmrp-controller.dll` while Native Controller Support is on; and `high-fps-fixes.dll` while High FPS Fix is on. |
 | `configs\` | `kmrp.ini` and `kmrp-controller.ini`, the options the patches were installed with. |
 | `kmrp-controller.ini` | Beside the game: rumble and HUD style, yours to edit. Written only when it is not there. |
-| `swkotor.ini` | The starting resolution. Its prior contents are kept in a verified backup. |
+| `swkotor.ini` | The starting resolution, and the game's own frame-rate lines: `AllowHighMonitorFrequency` and `RefreshRate` (the display's highest with High FPS Fix; 60 without it, with `V-Sync=1`). Its prior contents are kept in a verified backup. |
 | `swkotor.exe` | On GOG's and the editable build, the standard Large Address Aware flag: one bit, with a backup of the unmodified file in KPM's own format. **Steam's is never changed.** |
 | `Override` | Nothing. |
 | Windows | A per-user compatibility value that marks the game DPI-aware ([details](docs/windows-dpi-scaling.md)). |
@@ -281,9 +288,10 @@ overwrites a mod you installed yourself.
 | KOTOR 1 HD Icon Pack 1.0 | JackInTheBox | -- | **Yes** -- Advanced Settings |
 | [High FPS Fixes](https://github.com/gnw-d3m0/D3M0s-KPatches) 1.0.1 | D3M0 | MIT | **Yes, on where the display runs above 60 Hz** -- Advanced Settings |
 
-**Advanced Settings**, the button beside *Start Patching*, controls the four
-optional components. All three default to on, each can be turned off on its own,
-and *Restore Defaults* turns all four back on. *High FPS Fix* installs D3M0's High
+**Advanced Settings**, the button beside *Start Patching*, is six tiles: Native
+Controller Support, Modern Driver Compatibility, Area Map Marker Fixes, HD Item
+Icons, High FPS Fix and Debug Logs. The first four are on by default, each can be
+turned off on its own, and *Restore Defaults* puts every tile back. *High FPS Fix* installs D3M0's High
 FPS Fixes as a third patch beside KMRP's two (timing and animation fixes for play
 above 60 frames per second); it is on by itself where your display runs above
 60 Hz and off on a 60 Hz display, until you set it yourself. *Debug Logs* is off
@@ -309,7 +317,7 @@ installer carries as `.kpatch` files for KPM's app. KMRP's own patch is installe
 every time: KMRP's engine changes, three memory-safety fixes, mouse confinement,
 the movies, the movie bars and the status summary's layout.
 **Controller support** is the second patch, `kmrp-controller`, installed while
-Controller Support is on: its module, its hooks in `patch_config.toml` after
+Native Controller Support is on: its module, its hooks in `patch_config.toml` after
 KMRP's, and `configs\kmrp-controller.ini`. The marker option and debug logs are
 the two options of KMRP's patch, `map-notes` and `debug-logs`; the installer writes
 the two choices into `configs\kmrp.ini` in the game folder (the `[Patch Options]`

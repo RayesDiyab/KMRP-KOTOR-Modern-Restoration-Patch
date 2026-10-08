@@ -76,6 +76,7 @@ Design and build documentation. Engine analysis lives one level over, in
 | [macos/README.md](../macos/README.md) | The macOS build. |
 | [macos-changes-from-windows.md](macos-changes-from-windows.md) | Changes made on Windows first that the macOS build still needs or has to check. |
 | [windows-changes-from-macos.md](windows-changes-from-macos.md) | The other direction: changes the macOS build made first. |
+| [macos-handoff-2026-10-09.md](macos-handoff-2026-10-09.md) | **Handoff to the Mac side, 2026-10-09:** the area map and the grown buttons after a change of resolution, the Xbox-style HUD on by default, HD icons and High FPS Fixes as options, frame rates through the game's own list, and what each asks of the Mac. The newest; read it first. |
 | [macos-two-patches-handoff.md](macos-two-patches-handoff.md) | Handoff to the Mac side, 2026-10-06: KMRP and the controller as two patches. |
 | [macos-standalone-kpatch-handoff.md](macos-standalone-kpatch-handoff.md) | Handoff to the Mac side, 2026-10-04: the self-contained patch and its options format. |
 | [ftd-macos-upstream-audit.md](ftd-macos-upstream-audit.md) | Audit of FTD's upstream macOS patches against KMRP's. |
