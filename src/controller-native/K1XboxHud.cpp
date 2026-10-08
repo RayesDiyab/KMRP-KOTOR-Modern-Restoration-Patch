@@ -908,6 +908,14 @@ constexpr char kMapFrame[16] = "kmrx_minimap";
 // itself: which slots it parked, the frames the engine last gave the target's slots,
 // and the arrows it hid.
 bool g_parked[7] = {};
+// Whether a parked slot's button was visible when it was parked, so that it comes
+// back as it was. The engine shows some slots while they are empty (the dim frame is
+// part of the HUD) and sets the flag only when a slot's contents change; brought back
+// by its contents alone, such a slot stayed invisible after one round of parking and
+// a place in the action row was missing. Found and repaired on the Mac on 2026-10-07
+// (docs/windows-changes-from-macos.md, item 20), reproduced on Windows by the
+// maintainer on 2026-10-08, brought here on 2026-10-09.
+bool g_shownWhenParked[7] = {};
 char g_engineFrame[3][2][16] = {};
 bool g_arrowsHidden = false;
 
@@ -956,7 +964,7 @@ void RestorePc(void* hud, void* seen)
         }
         const int count = slot < 3 ? At<int>(menu, kMenuActionLists + slot * 0xC + 4)
                                    : At<int>(hud, kHudPersonalLists + (slot - 3) * 0xC + 4);
-        if (g_parked[slot] && count > 0) At<int>(action, kControlFlags) |= kControlVisible;
+        if (g_parked[slot] && (g_shownWhenParked[slot] || count > 0)) At<int>(action, kControlFlags) |= kControlVisible;
         g_parked[slot] = false;
         if (slot == 0 && g_arrowsHidden && count > 1) {
             At<int>(Part(action, kActionParts[2]), kControlFlags) |= kControlVisible;
@@ -1191,6 +1199,7 @@ struct PauseKept {
     bool pressShown = true;
 } g_pauseKept;
 bool g_pauseForget = false;        // PauseNotice is to forget what it last set
+bool g_pauseStripped = false;      // KmrpXboxHudPauseReasonK1 took the picture off: the box is still this file's
 
 // The pause button's two borders as pause.gui has them, kept while it shows the picture.
 bool g_pauseButtonKept[2] = {};
@@ -1307,7 +1316,9 @@ void PauseNotice(void* pause, void* client)
     const String& pressNow = At<String>(press, kLabelTextParams);
     if (!reasonNow.text) return;
     // The layout's own, while the box has nothing of this file's in it (PauseOwn).
-    if (!PauseCarriesOurs(pause)) {
+    // Not while KmrpXboxHudPauseReasonK1 has only taken the picture off: the labels'
+    // places and words are still this file's then.
+    if (!PauseCarriesOurs(pause) && !g_pauseStripped) {
         const Extent r = At<Extent>(reason, kControlExtent), p = At<Extent>(press, kControlExtent);
         g_pauseOwn.valid = true;
         g_pauseOwn.reasonLeft = r.left;
@@ -1340,7 +1351,8 @@ void PauseNotice(void* pause, void* client)
             same(At<Extent>(reason, kControlExtent), set[0]) && same(At<Extent>(press, kControlExtent), set[1]) &&
             same(At<Extent>(button, kControlExtent), set[2]) &&
             panelNow.width == set[3].width && panelNow.height == set[3].height &&
-            (At<int>(press, kControlFlags) & kControlVisible) != 0 && familyShown == family[3])
+            (At<int>(press, kControlFlags) & kControlVisible) != 0 && familyShown == family[3] &&
+            !g_pauseStripped)
         return;
 
     // A reason that is not this file's line is the game's, just written, and with it
@@ -1468,6 +1480,24 @@ void PauseNotice(void* pause, void* client)
     }
     At<int>(button, kControlFlags) |= kControlVisible;
     familyShown = family[3];
+    g_pauseStripped = false;        // the picture is on the button again, at its size
+}
+
+// The pause notice as this HUD has it, left of the minimap. From the HUD's hook every
+// frame (the game places the box anew whenever it pauses, and the minimap stands
+// lower in combat mode), and from the end of the game's own layout of the box
+// (KmrpXboxHudPauseReasonDoneK1).
+void PlacePause(void* hud, void* pause, void* client, int width)
+{
+    PauseNotice(pause, client);
+    const Extent map = At<Extent>(Part(hud, kHudMapBorder), kControlExtent);
+    Extent& at = At<Extent>(pause, kControlExtent);
+    if (map.width > 0 && at.width > 0) {
+        const int margin = width - (map.left + map.width);
+        const int left = map.left - (margin > 0 ? margin : 0) - at.width;
+        at.left = left > 0 ? left : 0;
+        at.top = map.top;
+    }
 }
 
 // Hooked at the entry of CSWGuiMainInterface::DrawMap, ecx = the HUD.
@@ -1550,17 +1580,7 @@ extern "C" void __cdecl KmrpXboxHudK1(void* hud)
     }
     // The pause notice left of the minimap (PausePanel, above). Every frame: the game
     // places it anew whenever it pauses, and the minimap stands lower in combat mode.
-    if (void* pause = PausePanel()) {
-        PauseNotice(pause, client);
-        const Extent map = At<Extent>(Part(hud, kHudMapBorder), kControlExtent);
-        Extent& at = At<Extent>(pause, kControlExtent);
-        if (map.width > 0 && at.width > 0) {
-            const int margin = width - (map.left + map.width);
-            const int left = map.left - (margin > 0 ? margin : 0) - at.width;
-            at.left = left > 0 ? left : 0;
-            at.top = map.top;
-        }
-    }
+    if (void* pause = PausePanel()) PlacePause(hud, pause, client, width);
     if (!g_row.usable) return;
 
     // The menu's viewport starts at the screen's corner and is as wide as the screen.
@@ -1819,6 +1839,7 @@ extern "C" void __cdecl KmrpXboxHudK1(void* hud)
                 part[p].left = part[p].top = kParked;
                 SetExtent(Part(action, kActionParts[p]), part[p]);
             }
+            if (!parked[slot]) g_shownWhenParked[slot] = (At<int>(action, kControlFlags) & kControlVisible) != 0;
             At<int>(action, kControlFlags) &= ~kControlVisible;
             parked[slot] = true;
             continue;
@@ -1831,7 +1852,7 @@ extern "C" void __cdecl KmrpXboxHudK1(void* hud)
             const int count = slot < kTargetSlots
                 ? At<int>(menu, kMenuActionLists + slot * 0xC + 4)
                 : At<int>(hud, kHudPersonalLists + (slot - kTargetSlots) * 0xC + 4);
-            if (count > 0) At<int>(action, kControlFlags) |= kControlVisible;
+            if (g_shownWhenParked[slot] || count > 0) At<int>(action, kControlFlags) |= kControlVisible;
             parked[slot] = false;
         }
         const Extent frame = part[0];
@@ -1869,4 +1890,51 @@ extern "C" void __cdecl KmrpXboxHudK1(void* hud)
             At<int>(Part(action, kActionParts[3]), kControlFlags) &= ~kControlVisible;
         }
     }
+}
+
+// The pause box while the game lays it out its own way. Found and repaired on the Mac
+// on 2026-10-08 (docs/windows-changes-from-macos.md, item 21), reproduced on Windows by
+// the maintainer the same day, brought here on 2026-10-09.
+//
+// Each time the game pauses or changes the reason (an enemy sighted, "Action added to
+// queue"), CSWGuiInGamePause::SetPauseReason (0x006C00C0) lays the box out again: two
+// lines, with the box's button over both. KmrpXboxHudK1 puts everything right before
+// the HUD's next draw, but the pause panel can be drawn once before that. Seen on the
+// Mac: the trigger's picture, which is the button's fill, drawn as large as the game's
+// button for a frame, and in a slow-motion film the game's two lines for a frame.
+//
+// So two hooks on that routine:
+//
+//   its entry (ecx = the pause panel):
+//     006C00C0  6A FF                 push -1
+//     006C00C2  64 A1 00 00 00 00     mov eax, fs:[0]
+//   while the box carries this file's line, the picture comes off both of the
+//   button's borders, so the game lays the box out with a button that draws nothing;
+//
+//   its end, after the last call and before the registers are restored (esi = the
+//   pause panel, as since 0x006C00E7):
+//     006C02A4  8B 4C 24 48           mov ecx, [esp+0x48]
+//     006C02A8  5F                    pop edi
+//   the box is laid out as this HUD has it and put left of the minimap at once, when
+//   the Xbox layout is up and the pad is the device in use.
+//
+// Neither place is a branch's target (the routine's jumps were read for it), and
+// neither has an address for a trampoline to relocate.
+extern "C" void __cdecl KmrpXboxHudPauseReasonK1(void* pause)
+{
+    if (!pause || !Enabled() || pause != PausePanel() || !PauseCarriesOurs(pause)) return;
+    const char none[16] = {};
+    void* button = Part(pause, kPauseButton);
+    for (const std::ptrdiff_t border : {kButtonBorderParams, kButtonHilightParams}) SetFill(Part(button, border), none);
+    g_pauseStripped = true;
+}
+
+extern "C" void __cdecl KmrpXboxHudPauseReasonDoneK1(void* pause)
+{
+    if (!pause || !Enabled() || pause != PausePanel()) return;
+    void* hud = g_layout.hud;
+    if (!g_layout.xbox || !hud || !IsControllerInputActiveK1()) return;
+    void* app = *reinterpret_cast<void**>(kAppManager);
+    void* client = app ? At<void*>(app, 4) : nullptr;
+    PlacePause(hud, pause, client, g_layout.width);
 }

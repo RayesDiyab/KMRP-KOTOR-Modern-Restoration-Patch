@@ -28,8 +28,8 @@ mixer", seven detours short.
 
 **Since 2026-10-05 the native path ships as a patch of its own**, `KOTOR 1 Native
 Controller Mod + Xbox HUD.kpatch` (id `kmrp-controller`), run by KOTOR Patch
-Manager's runtime with or without KMRP: 34 detours and no byte patch
-(`hooks()` in `tools/build_controller_kpatch.py`, counted on 2026-10-08; the list
+Manager's runtime with or without KMRP: 36 detours and no byte patch
+(`hooks()` in `tools/build_controller_kpatch.py`, counted on 2026-10-09; the list
 is in [`controller-standalone.md`](controller-standalone.md), section 2). The
 memory fixes, the movie bars and the keyboard hooks counted above are KMRP's
 patch's, `KMRP.kpatch`, which installs no controller hook. The counts above are

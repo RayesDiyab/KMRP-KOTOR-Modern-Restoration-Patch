@@ -1765,7 +1765,8 @@ struct K1BadgeOverlay { void* panel; void* button; void* label; int id; K1BadgeR
                         // The button's rectangle as the screen had it and as this file made
                         // it, while it is grown to hold its badge (ShowK1BackedBadge).
                         K1BadgeRect buttonWas, grownTo; bool grown;
-                        int lines; };       // the lines the layout gives the caption (K1BackedCaptionLines)
+                        int lines;          // the lines the layout gives the caption (K1BackedCaptionLines)
+                        K1BadgeRect textFor; };     // the button's rectangle `textWas` was saved under
 constexpr int K1_BADGE_OVERLAYS = 256;      // 96 until every badge went on a label (2026-10-09)
 K1BadgeOverlay g_k1BadgeOverlays[K1_BADGE_OVERLAYS] = {};
 void* g_k1BadgePaintPanel = nullptr;      // set by UpdateK1ControllerPrompts while it paints
@@ -1799,9 +1800,31 @@ K1BadgeOverlay* FindK1BadgeOverlay(void* button)
     return nullptr;
 }
 
+// `textWas` is the caption's place in the button as the button then was. A button
+// that is given a rectangle gives its caption one too (CSWGuiButton's SetExtent), so
+// once the button's rectangle is another, the saved one is nobody's and is dropped
+// instead of being put back. Until 2026-10-09 it was put back whatever had happened
+// to the button: after a change of resolution in the game, which lays every live
+// button out again, a caption that had been moved went back to the old size's
+// place and its badge with it. Seen that day on Abilities' Close: below and right
+// of its button after 1920x1080 to 1680x1050, and off the screen after 3440x1440
+// to 1920x1080.
+void DropK1StaleCaptionRect(K1BadgeOverlay* entry)
+{
+    if (!entry->textMoved) {
+        return;
+    }
+    const K1BadgeRect now = *reinterpret_cast<const K1BadgeRect*>(static_cast<char*>(entry->button) + 4);
+    if (now.left != entry->textFor.left || now.top != entry->textFor.top ||
+            now.width != entry->textFor.width || now.height != entry->textFor.height) {
+        entry->textMoved = false;
+    }
+}
+
 void HideK1BadgeOverlay(void* button)
 {
     if (K1BadgeOverlay* entry = FindK1BadgeOverlay(button)) {
+        DropK1StaleCaptionRect(entry);
         entry->shown = false;
         *reinterpret_cast<std::uint32_t*>(static_cast<char*>(entry->label) + K1_BADGE_CONTROL_FLAGS) &= ~2u;
         if (entry->textMoved) {
@@ -2122,6 +2145,9 @@ bool K1BadgeKeepsShape(long long width, long long height, long long madeWidth, l
 
 bool ShowK1BadgeOverlay(void* control, const char resref[16], int tall = 0, bool outside = false)
 {
+    if (K1BadgeOverlay* const known = FindK1BadgeOverlay(control)) {
+        DropK1StaleCaptionRect(known);
+    }
     const BadgeShape* shape = nullptr;
     for (const BadgeShape& candidate : kBadgeShapes) {
         // One set of art per controller family, differing in the fourth letter.
@@ -2349,6 +2375,7 @@ bool ShowK1BadgeOverlay(void* control, const char resref[16], int tall = 0, bool
             if (!there) {
                 if (!entry->textMoved) {
                     entry->textWas = text;
+                    entry->textFor = at;
                     entry->textMoved = true;
                 }
                 SetK1CaptionRect(control, centredLine);
@@ -2392,6 +2419,7 @@ bool ShowK1BadgeOverlay(void* control, const char resref[16], int tall = 0, bool
                 const K1BadgeRect beside{from, whole.top, until - from, whole.height};
                 if (!entry->textMoved) {
                     entry->textWas = whole;
+                    entry->textFor = at;
                     entry->textMoved = true;
                 }
                 SetK1CaptionRect(control, beside);
@@ -5732,6 +5760,37 @@ bool MouseIsBeingUsedK1(int mouseX, int mouseY)
     }
 
     const DWORD now = GetTickCount();
+    // The size of the screen has changed (the game's screenWidth and screenHeight,
+    // 0x0078D1D4 and 0x0078D1D8, which SetVideoMode writes): the window is made
+    // again and the pointer is put into it, at the same place counted in other
+    // pixels, in steps too short to be told from a hand by their length. For a
+    // second and a half nothing is mouse use. Until 2026-10-09 the game was taken
+    // to be on the mouse after every change of resolution made with the pad, and
+    // the badges were gone until the pad's next press (seen that day on Options
+    // and Graphics Options, 1920x1080 to 1680x1050).
+    {
+        static int screenWidth = 0, screenHeight = 0;
+        static DWORD changed = 0;
+        static bool quiet = false;
+        const int width = *reinterpret_cast<const int*>(0x0078D1D4);
+        const int height = *reinterpret_cast<const int*>(0x0078D1D8);
+        if (width != screenWidth || height != screenHeight) {
+            screenWidth = width;
+            screenHeight = height;
+            changed = now;
+            quiet = true;
+        }
+        if (quiet) {
+            if (now - changed < 1500) {
+                g_lastMouseX = mouseX;
+                g_lastMouseY = mouseY;
+                g_mouseWindowEvents = 0;
+                g_mouseWindowDistance = 0;
+                return false;
+            }
+            quiet = false;
+        }
+    }
     if (g_lastMouseX == 0x7FFFFFFF) {
         g_lastMouseX = mouseX;
         g_lastMouseY = mouseY;

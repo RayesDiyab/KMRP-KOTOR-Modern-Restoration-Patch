@@ -11,7 +11,7 @@ for the maintainer's physical-keyboard failure.
 > `0x0041CE20` `KeyboardListBoundaryK1`) are as described. The packaging in
 > "Verification" below is that of 2026-10-03, one installer-made configuration
 > of 43 hooks with controller support as a switch. Since 2026-10-05 the three
-> are among the 27 hooks of `KMRP.kpatch` (id `kmrp`), always installed, and the
+> are among the 28 hooks of `KMRP.kpatch` (id `kmrp`), always installed, and the
 > controller is a separate patch that may be present or not; the candidate's
 > hashes and sizes below are of that day's build.
 > `Test-ControllerSupport.ps1`, named twice below, was removed with the one-patch

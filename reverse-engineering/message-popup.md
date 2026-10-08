@@ -24,7 +24,7 @@ intent or inference. Where something is untested it says so.
 > | The six sizes of `PopupSizeGroups` (450, 800 and 64 at scale 1.0) | applied in memory, computed for the size the game runs at and written again when it changes (`FieldValue` in `K1RuntimeEngine.cpp`, over `resolution_fields()` in `tools/build_native_engine.py`: `0x6256E3`, `0x625759`, `0x6256DC`, `0x6256F6`, `0x626F95`, `0x62540D`). `ResolutionPatch` makes them only for `--apply`, the patched executable written to a new file as the reference |
 > | `confirm.gui` per resolution | in the module's bank or written by its blend helper, never in `Override` ([runtime-resolution-preview.md](runtime-resolution-preview.md)) |
 > | The 13 `tut_` icons and `tutorial.2da` | made by the module from the player's own game each time a size's files are produced (`KmrpGameArt`, `macos/tools/kmrp-gameart.c` compiled into it, called from `K1RuntimeAssets.cpp`) |
-> | The fit to the contents | the detour at `0x006258E2`, as "Windows: fitted to its contents" below describes; one of the 27 hooks of KMRP's patch |
+> | The fit to the contents | the detour at `0x006258E2`, as "Windows: fitted to its contents" below describes; one of the 28 hooks of KMRP's patch |
 
 ## What the popup is
 

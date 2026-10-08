@@ -160,8 +160,8 @@ The annotated disassembly for each is in
 agreement: 26 native hooks and 4 byte patches when the mixer shipped
 (2026-09-25). That count has since grown -- 35 native hooks and 4 byte patches
 on 2026-09-28, with the character-creation and echo guards and the no-controller
-stand-ins -- and the eight hooks above are unchanged. On 2026-10-08 the controller
-patch has 34 hooks, all detours, these nine among them.
+stand-ins -- and the eight hooks above are unchanged. On 2026-10-09 the controller
+patch has 36 hooks, all detours, these nine among them.
 
 **The play hook is the only one that declines the original.** It returns 1,
 and KPM exits to `0x005FB536`, the function's own `pop edi / pop esi / xor

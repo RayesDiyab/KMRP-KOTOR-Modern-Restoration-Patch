@@ -87,11 +87,10 @@ does it, checked as stated), **doc** (a Windows document to correct).
 | 16 | Uninstall after KPM's takeover: removes KPM's runtime too when KMRP is its only patch; a takeover found from any runtime file, not `patch_config.toml` alone | **done** (2026-10-01; `Test-KpmEdition.ps1` Cases 10b and 10c, then KPM 0.7.1's own Apply on the scratch copy, both deployments and beside another patch; not with KPM's window) |
 | 17 | The target menu: buttons 1.5x the name strip, centred under it, never past the name box | **built** (2026-10-01, installer `F9BB9E8D`; not seen in play on Windows) |
 | 18 | A on the world after an action slot's focus has gone stale (a door after an enemy) | **built** (2026-10-01; not seen in play) |
-| 19 | List rows centred between their box's borders (inventory, abilities, quests, quest items, scripts, store, workbench, character generation) | **done on Windows, 2026-10-06** (Mac: 2026-10-04), with two differences from the Mac's, of which the Mac took one: [`macos-changes-from-windows.md`](macos-changes-from-windows.md), item 28. Not brought to Windows: the abilities' row height after a resolution change |
-| 20 | Xbox-style HUD: an action slot that was parked comes back as it was, so a slot the game had shown does not stay missing | **to do**: reproduced on Windows by the maintainer (2026-10-08) |
-| 21 | Xbox-style HUD: the trigger's picture in the pause box drawn huge for a frame each time the game rewrites the pause reason | **to do**: reproduced on Windows by the maintainer (2026-10-08) |
-| 22 | After a change of resolution in the game, the conversation's black panel over most of the picture | **to check**: found on the Mac (2026-10-08); the maintainer expects the same on Windows |
-| 23 | Controller badges: one size rule, one way to the screen, one table of made shapes, centred in the button | **done on Windows** (master `843320b`); recorded here with the Mac's state: table taken, rule not yet ported |
+| 19 | List rows centred between their box's borders (inventory, abilities, quests, quest items, scripts, store, workbench, character generation) | **done on Windows, 2026-10-06** (Mac: 2026-10-04), with two differences from the Mac's, of which the Mac took one: [`macos-changes-from-windows.md`](macos-changes-from-windows.md), item 28. The abilities' row height after a resolution change: **built on Windows, 2026-10-09**, and the skills' list seen right after 3440x1440 to 1920x1080 and after 1920x1080 to 1680x1050; the powers' and the feats' charts not looked at (`KmrpListAddRowsK1` in `src/controller-native/K1RuntimeLayout.cpp`, a hook on `CSWGuiListBox::AddControls`, `0x0041C1D0`) |
+| 20 | Xbox-style HUD: an action slot that was parked comes back as it was, so a slot the game had shown does not stay missing | **built on Windows, 2026-10-09**, not seen in the game: `g_shownWhenParked` in `src/controller-native/K1XboxHud.cpp`, at the three places a parked slot's button is hidden or shown again |
+| 21 | Xbox-style HUD: the trigger's picture in the pause box drawn huge for a frame each time the game rewrites the pause reason | **built on Windows, 2026-10-09**: two hooks on `CSWGuiInGamePause::SetPauseReason` (`0x006C00C0`, `0x006C02A4`; `KmrpXboxHudPauseReasonK1` and `KmrpXboxHudPauseReasonDoneK1` in `src/controller-native/K1XboxHud.cpp`). The pause box seen as one line left of the minimap with them; the one-frame fault itself was not looked for before or after |
+| 22 | After a change of resolution in the game, the conversation's black panel over most of the picture | **built on Windows, 2026-10-09**, not seen in the game before or after: `KmrpRuntimeLayoutDimensions` in `src/controller-native/K1RuntimeLayout.cpp` leaves a panel loaded at the size it is laying out for (`Panel::width`, `height`, from the manager's size at `KmrpPanelLayoutStartK1`) |
 
 ## 1. Message popups fitted to their contents
 
@@ -855,62 +854,3 @@ set where 407 had been.
 the same test: skip a tracked panel whose layout was loaded after the size became the new one.
 If Windows records the panel at the same point (the start of its load from the layout), the
 size in force then is the one to compare.
-
-## 23. Controller badges: one size rule, one way to the screen, one table
-
-**Recorded here at the maintainer's request** (2026-10-08). The repair itself was made on
-Windows (master `843320b`, dated 2026-10-09 there), not on the Mac; this item writes it down in
-one place from that commit and its `CHANGELOG.md` entry, and says where the Mac stands, so
-that both sides read the same account. **Nothing for Windows to take.**
-
-**What the maintainer saw on Windows.** Beside KMRP at 3440x1440 the main menu's A on Quit was
-"stretched vertically": 46 wide and 50 tall in a screenshot where the other rows' A was 39 by
-41. The badges were not uniform, in size or in shape. Four causes, each fixed:
-
-1. **A badge's size followed its button's height alone.** Quit's row is 630x81 there and the
-   other four are 630x66, so its A was a fifth larger. Now one function decides every badge's
-   size, `K1UniformBadge` (`src/controller-native/vendor/K1XboxControls.cpp`): the texture was
-   made for an area `madeWidth` by `madeHeight` and is always drawn in those proportions, as
-   large as fits the live area **both ways** (one factor for width and height). A badge asked
-   for at a given height (`ShowK1BackedBadge`, Level Up) takes that height.
-2. **Two ways to the screen.** A badge whose button had the shape its texture was made for,
-   within 2 per cent, stayed the button's fill, stretched over it; the others went on a label
-   of the patch's own. Now **every badge goes on a label**, whose width is its height times
-   the texture's proportions. The test for "the shape it was made for" is
-   `K1BadgeKeepsShape`: the two scales differ by less than half a pixel over the badge's
-   height (2 per cent let Quit through). Only where the area is exactly the made one, the
-   unchanged game, does the label lie where the fill was and the caption stay where the
-   screen had it; on any other interface every badge stands beside its caption. The pool of
-   labels went from 96 to 256 (`K1_BADGE_OVERLAYS`).
-3. **One table of made shapes, and it was wrong for the main menu.**
-   `K1ControllerBadgeShapes.inc` is the single table of the area each badge texture was made
-   for, written by `tools/build_controller_assets.py --badge-shapes`. It was written from
-   `mainmenu.gui`, where Quit is 210x27 with a 2 px border, giving 206x23 for Quit and 210x22
-   for the other four; the textures are made from the layout the game loads above 640x480
-   (`MAIN_MENU_LOADED`), where all five are 235x24 and Quit's texture is the others' byte for
-   byte. The tool now reads the loaded file: five rows changed (`kmrpa_mmexit`,
-   `kmrpa_mmload`, `kmrpa_mmmovi`, `kmrpa_mmnew`, `kmrpa_mmopt`, each `235, 24`).
-4. **In the middle of its button, top to bottom.** A badge's middle is its button's, always.
-   Until then it stood on its caption's line where that could be measured; now a caption that
-   is not on the button's middle line is brought there, also one aligned to the middle of a
-   rectangle whose middle is not the button's (until then only top- or bottom-aligned ones).
-
-`testing/regression/Test-ControllerKpatch.py` now also requires every face-button texture to
-be round in the area the table names (133 badges, worst 3.3 per cent off square).
-
-**The Mac.** `macos/patches/kmrp-controller/overlays.cpp` is the port of Windows'
-`ShowK1BadgeOverlay` as it was before this change, and includes the same table file:
-
-| | Windows now | Mac (`overlays.cpp`, `Show`) |
-| --- | --- | --- |
-| Table | corrected | **the same file**, compiled since the merge; `macos/build.sh`'s check of the 133 rows against the Mac's layouts passed on 2026-10-08 |
-| Size | fits the area both ways (`K1UniformBadge`) | the fill area's height alone: `wanted.height = height`, width from the made shape |
-| Way to the screen | always a label | the button's fill when the shape is within a fiftieth (`within`, `* 50`) and the caption's line within a sixth of the height; a label otherwise |
-| Top to bottom | the button's middle, the caption brought there | the caption's line (`lineMiddle`); a caption is moved only when it is not middle-aligned |
-
-So the first, second and fourth faults can still occur on the Mac wherever a row is taller
-than its fellows. Not measured on the Mac: the main menu's Quit at the Mac's sizes (the Mac
-sets' main menu is KMRP's own, and the maintainer said of the Mac's badges on 2026-10-04 that
-they are fine as long as they are round). **To port:** `K1UniformBadge`, `K1BadgeKeepsShape`
-and the three changes in `Show` (always the label, the button's middle, `whereMade` for the
-unchanged game), then look at the main menu and the menus with the pad.

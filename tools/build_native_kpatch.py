@@ -84,10 +84,11 @@ PARAMETERS = {
     'KmrpModeSwitchK1': [],
     'KmrpPrepareResourcesK1': [('ecx', 'pointer')],
     'KmrpPanelLayoutStartK1': [('ecx', 'pointer'), ('esp+4', 'pointer')],
-    'KmrpPanelControlK1': [('ecx', 'pointer'), ('esp+4', 'pointer'), ('esp+8', 'pointer')],
+    'KmrpPanelControlK1': [('ecx', 'pointer'), ('esp+4', 'pointer'), ('esp+8', 'pointer'), ('esp+12', 'pointer')],
     'KmrpPanelDestroyedK1': [('ecx', 'pointer')],
     'KmrpControlDestroyedK1': [('ecx', 'pointer')],
     'KmrpListRowK1': [('esi', 'pointer'), ('ecx', 'pointer'), ('esp+32', 'pointer')],
+    'KmrpListAddRowsK1': [('ecx', 'pointer'), ('esp+4', 'pointer')],
 }
 # KMRP's earlier patches, which this one replaces: the add-ons of the four-patch
 # edition (whose core had this id), and the experimental packages of 2026-10.

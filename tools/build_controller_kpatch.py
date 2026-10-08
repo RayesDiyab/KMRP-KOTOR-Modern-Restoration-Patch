@@ -112,6 +112,24 @@ XBOX_HUD_BARS_HOOK = {
     'skip_original_bytes': False, 'exclude_from_restore': [],
     'parameters': [{'source': 'ecx', 'type': 'pointer'}],
 }
+# Its third and fourth: the entry and the end of CSWGuiInGamePause::SetPauseReason
+# (0x006C00C0), where the game lays the pause box out its own way (K1XboxHud.cpp,
+# KmrpXboxHudPauseReasonK1). Entry: push -1 / mov eax, fs:[0], ecx = the pause panel.
+# End: mov ecx, [esp+0x48] / pop edi, after the routine's last call, esi = the pause
+# panel. Brought over from the Mac on 2026-10-09 (docs/windows-changes-from-macos.md,
+# item 21).
+XBOX_HUD_PAUSE_HOOK = {
+    'address': 0x006C00C0, 'type': 'detour', 'function': 'KmrpXboxHudPauseReasonK1',
+    'original_bytes': [0x6A, 0xFF, 0x64, 0xA1, 0x00, 0x00, 0x00, 0x00],
+    'skip_original_bytes': False, 'exclude_from_restore': [],
+    'parameters': [{'source': 'ecx', 'type': 'pointer'}],
+}
+XBOX_HUD_PAUSE_DONE_HOOK = {
+    'address': 0x006C02A4, 'type': 'detour', 'function': 'KmrpXboxHudPauseReasonDoneK1',
+    'original_bytes': [0x8B, 0x4C, 0x24, 0x48, 0x5F],
+    'skip_original_bytes': False, 'exclude_from_restore': [],
+    'parameters': [{'source': 'esi', 'type': 'pointer'}],
+}
 # Where a panel is told to the module, in this patch only. KMRP's own patch hooks the
 # entry of CSWGuiPanel::StopLoadFromLayout (0x0040B8F0), which every panel calls as
 # its constructor ends and again from the base destructor. Scaled Kotor 1.3.1, a
@@ -174,6 +192,8 @@ def hooks():
     selected.append(dict(PANEL_DESTROYED_HOOK))
     selected.append(dict(XBOX_HUD_HOOK))
     selected.append(dict(XBOX_HUD_BARS_HOOK))
+    selected.append(dict(XBOX_HUD_PAUSE_HOOK))
+    selected.append(dict(XBOX_HUD_PAUSE_DONE_HOOK))
     for index, h in enumerate(selected):
         span = range(h['address'], h['address'] + len(h['original_bytes']))
         if h['type'] != 'detour' or len(span) < 5:

@@ -16,7 +16,7 @@ what was measured, and what was not, is in [`CHANGELOG.md`](../CHANGELOG.md),
 `[Unreleased]`.
 
 **The patch.** `KMRP.kpatch`, id `kmrp`, run by KOTOR Patch Manager 0.7.1 on the
-unmodified `swkotor.exe`: one module (`patches\kmrp.dll`), 27 hooks
+unmodified `swkotor.exe`: one module (`patches\kmrp.dll`), 28 hooks
 (`build_native_kpatch.all_hooks()`), the options `map-notes` (on) and `debug-logs`
 (off), no `controller` option and no controller hook. Controller support is a second
 patch with its own module, "KOTOR 1 Native Controller Mod + Xbox HUD", id

@@ -177,6 +177,19 @@ executables: equal at every site.
 | `0x0068AB10` | `A1 FC 39 7A 00` | `KmrpXboxHudK1` | new: the Xbox-style HUD |
 | `0x00685ED0` | `56 8B F1 F6 86 EC 1A 00 00 01` | `KmrpXboxHudBarsK1` | new: the Xbox-style HUD |
 
+**Since 2026-10-09: 36 hooks.** Two more for the Xbox-style HUD's pause notice, on the
+game's own layout of the pause box (`CSWGuiInGamePause::SetPauseReason`;
+[`controller-xbox-hud.md`](controller-xbox-hud.md), "The pause notice"):
+
+| VA | Original bytes | Function | Change |
+| --- | --- | --- | --- |
+| `0x006C00C0` | `6A FF 64 A1 00 00 00 00` | `KmrpXboxHudPauseReasonK1` | new: the routine's entry, `ecx` the pause panel |
+| `0x006C02A4` | `8B 4C 24 48 5F` | `KmrpXboxHudPauseReasonDoneK1` | new: after the routine's last call, `esi` the pause panel |
+
+Neither site is in KMRP's table or in High FPS Fixes' (`Test-InstallerPatch.ps1`
+installs the three together). Not compared again with the other patches of KOTOR
+Patch Manager 0.7.1.
+
 Checked against every patch in KOTOR Patch Manager 0.7.1 for an overlapping site:
 four overlaps, all with `expanded-keyboard-control` (`0x0040C1F6`, `0x005E271E`,
 `0x00686BA0`, `0x0068B170`), which the manifest therefore lists as a conflict

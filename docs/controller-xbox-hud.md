@@ -288,6 +288,19 @@ every draw, so that changing a fill twice a frame never loads or frees one.
 
 ## The pause notice and the target's circle
 
+> **Since 2026-10-09** the patch also hooks the game's own layout of the box,
+> `CSWGuiInGamePause::SetPauseReason` (`0x006C00C0`), at its entry and after its
+> last call (`0x006C02A4`). Each time the game pauses or changes the reason it lays
+> the box out its own way, two lines with the button over both, and the pause
+> panel can be drawn once before the HUD's hook puts it right: on the Mac the
+> trigger's picture was seen as large as the game's button for a frame
+> (`docs/windows-changes-from-macos.md`, item 21; the maintainer reproduced it on
+> Windows on 2026-10-08). At the entry the picture comes off the button while the
+> box carries this patch's line (`KmrpXboxHudPauseReasonK1`); at the end the box is
+> laid out and placed as below at once (`KmrpXboxHudPauseReasonDoneK1`,
+> `PlacePause`). The box was seen right with the two hooks; the one-frame fault
+> itself was not looked for on Windows, before or after.
+
 Added on 2026-10-06, after the maintainer played beside KMRP at 3440x1440.
 
 ### The pause notice
