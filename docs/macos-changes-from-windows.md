@@ -74,6 +74,9 @@ is. The Mac's own reference is [`macos/README.md`](../macos/README.md).
 | 35 | High FPS Fixes (D3M0) as a third patch (item 5) | the installer's option is **not ported**. D3M0's patch has no hooks for the Mac executable; a Mac port exists since 2026-10-08 as a patch of its own, outside the package (`macos/README.md`, section 7b) |
 | 36 | Frame rates through the game's own resolution list (item 6) | **not done, the Mac's to decide**: the mechanism is Windows'. The Mac's list shows each size with its rate ("@ 120 Hz") as the game makes it |
 | 37 | Advanced Settings: names and order (item 8) | **done 2026-10-09** for the four the Mac has, in Windows' order and words: Native Controller Support (by RaymanGT), Area Map Marker Fixes, HD Item Icons, Debug Logs; rows, not tiles |
+| 38 | Controller badges: one size rule, one way to the screen, one table of made shapes, centred in the button (Windows, 2026-10-09, master `843320b`) | **table taken, rule not ported**: the corrected `K1ControllerBadgeShapes.inc` is the file the Mac compiles and is in the Mac build since the merge of 2026-10-08; `overlays.cpp` still has the rule Windows had before (section 38) |
+| 39 | The game's window brought to the front in its first 20 seconds, so the pad can skip the intro movies (Windows, 2026-10-09) | **not looked at on the Mac**: Windows code (`TakeForegroundAtStartK1`); whether the Mac game reads the pad before its window has been clicked is not checked |
+| 40 | Installer: step 4 keeps to one line after patching; step 3 says "resolution", not "size" (Windows, 2026-10-09, master `a46d0f3`) | **not done**: the Mac's step 3 still reads "The game starts at this size. Choose another in the game, under Options, Graphics." Step 4's long message is KPM's folder line on Windows; not checked whether the Mac's step can run long |
 
 ## 1. Badges drawn for the blended buttons
 
@@ -836,3 +839,78 @@ Also on Windows since that day: started on a display that does not report the si
 in `swkotor.ini`, the game starts at that display's own size (it drew a menu for the
 file's size on a smaller mode before, unreadable): `KmrpStartAtDisplaySize` and
 `DisplayReports` in `K1RuntimeResolution.cpp`. Windows addresses, nothing shared.
+
+## 38. Controller badges: one size rule, one way to the screen, one table
+
+**State, 2026-10-08.** On Windows since master `843320b` (dated 2026-10-09 there). On the Mac:
+the table is in, the rule is not. No hand-off file came with it; this is written from the
+commit and its `CHANGELOG.md` entry.
+
+**What the maintainer saw on Windows.** Beside KMRP at 3440x1440 the main menu's A on Quit was
+"stretched vertically": 46 wide and 50 tall in a screenshot where the other rows' A was 39 by
+41. The badges were not uniform, in size or in shape. Four causes, each fixed:
+
+1. **A badge's size followed its button's height alone.** Quit's row is 630x81 there and the
+   other four are 630x66, so its A was a fifth larger. Now one function decides every badge's
+   size, `K1UniformBadge` (`src/controller-native/vendor/K1XboxControls.cpp`): the texture was
+   made for an area `madeWidth` by `madeHeight` and is always drawn in those proportions, as
+   large as fits the live area **both ways** (one factor for width and height). A badge asked
+   for at a given height (`ShowK1BackedBadge`, Level Up) takes that height.
+2. **Two ways to the screen.** A badge whose button had the shape its texture was made for,
+   within 2 per cent, stayed the button's fill, stretched over it; the others went on a label
+   of the patch's own. Now **every badge goes on a label**, whose width is its height times
+   the texture's proportions. The test for "the shape it was made for" is
+   `K1BadgeKeepsShape`: the two scales differ by less than half a pixel over the badge's
+   height (2 per cent let Quit through). Only where the area is exactly the made one, the
+   unchanged game, does the label lie where the fill was and the caption stay where the
+   screen had it; on any other interface every badge stands beside its caption. The pool of
+   labels went from 96 to 256 (`K1_BADGE_OVERLAYS`).
+3. **One table of made shapes, and it was wrong for the main menu.**
+   `K1ControllerBadgeShapes.inc` is the single table of the area each badge texture was made
+   for, written by `tools/build_controller_assets.py --badge-shapes`. It was written from
+   `mainmenu.gui`, where Quit is 210x27 with a 2 px border, giving 206x23 for Quit and 210x22
+   for the other four; the textures are made from the layout the game loads above 640x480
+   (`MAIN_MENU_LOADED`), where all five are 235x24 and Quit's texture is the others' byte for
+   byte. The tool now reads the loaded file: five rows changed (`kmrpa_mmexit`,
+   `kmrpa_mmload`, `kmrpa_mmmovi`, `kmrpa_mmnew`, `kmrpa_mmopt`, each `235, 24`).
+4. **In the middle of its button, top to bottom.** A badge's middle is its button's, always.
+   Until then it stood on its caption's line where that could be measured; now a caption that
+   is not on the button's middle line is brought there, also one aligned to the middle of a
+   rectangle whose middle is not the button's (until then only top- or bottom-aligned ones).
+
+`testing/regression/Test-ControllerKpatch.py` now also requires every face-button texture to
+be round in the area the table names (133 badges, worst 3.3 per cent off square).
+
+**The Mac.** `macos/patches/kmrp-controller/overlays.cpp` is the port of Windows'
+`ShowK1BadgeOverlay` as it was before this change, and includes the same table file:
+
+| | Windows now | Mac (`overlays.cpp`, `Show`) |
+| --- | --- | --- |
+| Table | corrected | **the same file**, compiled since the merge; `macos/build.sh`'s check of the 133 rows against the Mac's layouts passed on 2026-10-08 |
+| Size | fits the area both ways (`K1UniformBadge`) | the fill area's height alone: `wanted.height = height`, width from the made shape |
+| Way to the screen | always a label | the button's fill when the shape is within a fiftieth (`within`, `* 50`) and the caption's line within a sixth of the height; a label otherwise |
+| Top to bottom | the button's middle, the caption brought there | the caption's line (`lineMiddle`); a caption is moved only when it is not middle-aligned |
+
+So the first, second and fourth faults can still occur on the Mac wherever a row is taller
+than its fellows. Not measured on the Mac: the main menu's Quit at the Mac's sizes (the Mac
+sets' main menu is KMRP's own, and the maintainer said of the Mac's badges on 2026-10-04 that
+they are fine as long as they are round). **To port:** `K1UniformBadge`, `K1BadgeKeepsShape`
+and the three changes in `Show` (always the label, the button's middle, `whereMade` for the
+unchanged game), then look at the main menu and the menus with the pad.
+
+## 39. The game in front when it starts
+
+Windows, 2026-10-09 (`K1ControllerBackend.cpp`, `TakeForegroundAtStartK1`): the pad is read
+only while a window of the game is the foreground one, and a newly started game was not
+always that, so the pad could not skip an intro movie until the mouse was clicked. The game's
+window is brought to the front until it has been there once, in its first 20 seconds only.
+Windows code. On the Mac the pad is read through SDL or GameController in the game's own
+process; whether it is read before the window has been clicked was not checked.
+
+## 40. Installer: step 4's line, and "resolution"
+
+Windows, 2026-10-09 (`src/patcher/KmrpPatcher.cs`): after an install step 4 shows a message of
+up to 80 characters and otherwise what it says for a patched game, "KOTOR is ready to play at
+3440 x 1440."; step 3 on a patched game reads "The game starts at this resolution. Choose
+another in the game's Graphics options." The Mac's installer (`macos/installer-app/main.m`)
+still says "size" in step 3.
