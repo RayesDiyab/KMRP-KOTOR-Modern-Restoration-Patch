@@ -13,7 +13,7 @@ present state, read from `tools/build_native_kpatch.py`,
 `src/controller-native/kotor1-native-runtime.hooks.toml`, `K1RuntimeResolution.cpp`
 and `K1RuntimeEngine.cpp` on 2026-10-08. Nothing in it was measured again that day;
 what was measured, and what was not, is in [`CHANGELOG.md`](../CHANGELOG.md),
-`[Unreleased]`.
+`[1.5.0]`.
 
 **The patch.** `KMRP.kpatch`, id `kmrp`, run by KOTOR Patch Manager 0.7.1 on the
 unmodified `swkotor.exe`: one module (`patches\kmrp.dll`), 28 hooks

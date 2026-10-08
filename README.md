@@ -163,12 +163,14 @@ executable for one resolution, which the installer does not install.
 <details>
 <summary><b>On the version number</b></summary>
 
-The first public release is **KMRP 1.0**, published on 2026-09-04 and tagged
+The current release is **KMRP 1.5**, published on 2026-10-09 and tagged
+[v1.5.0](https://github.com/RayesDiyab/KMRP-KOTOR-Modern-Restoration-Patch/releases/tag/v1.5.0),
+for Windows and, for the first time, for macOS. Its installers report 1.5.0. The
+first public release was **KMRP 1.0**, published on 2026-09-04 and tagged
 [v1.0.0](https://github.com/RayesDiyab/KMRP-KOTOR-Modern-Restoration-Patch/releases/tag/v1.0.0).
-The build in progress is **KMRP 1.5**, and its installer reports 1.5.0. Internal
-development numbers appear in [`CHANGELOG.md`](CHANGELOG.md): 2.0.0 to 2.9.x were
-private builds, 2.10.0 is 1.0 (that tag remains on the same commit, and 1.0's
-Properties report 2.7.0.0, a mislabel), and 2.11.0 was this build's number until it
+Internal development numbers appear in [`CHANGELOG.md`](CHANGELOG.md): 2.0.0 to
+2.9.x were private builds, 2.10.0 is 1.0 (that tag remains on the same commit, and
+1.0's Properties report 2.7.0.0, a mislabel), and 2.11.0 was 1.5's number until it
 was relabelled 1.5.0. One 2.0.0 build left the machine before 1.0; its hash is
 recorded in [`releases/universal-v2.0.0/`](releases/universal-v2.0.0/).
 

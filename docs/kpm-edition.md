@@ -31,7 +31,7 @@ holds for 2026-10-04 and part of the next day only.
 | Side by side | -- | the controller patch does not list `kmrp` as a conflict. Beside KMRP it leaves the cursor to KMRP and uses KMRP's scaled layouts in place of its own copies of the game's; it draws its prompts from its own files and fits them to the layout in force at run time (2026-10-06) |
 | Resolution | the display's current size in `swkotor.ini`, and a checklist in the installer's step 3 to hide sizes or add others (`kmrp-resolutions.txt`; an added size ran in a borderless window) | since 2026-10-07 no choice: step 3 only states the start size, the game lists every size the connected display reports, nothing is written for it, and on a display that lacks `swkotor.ini`'s size the game starts at the display's own (`DisplayReports`, `KmrpStartAtDisplaySize` in `K1RuntimeResolution.cpp`). A `kmrp-resolutions.txt` of an earlier install is removed when that install is replaced or restored |
 
-Where the rest is: [`CHANGELOG.md`](../CHANGELOG.md), `[Unreleased]`, "KMRP and the
+Where the rest is: [`CHANGELOG.md`](../CHANGELOG.md), `[1.5.0]`, "KMRP and the
 controller patch are two patches, each working without the other", which lists what was
 run and what was not; [`controller-standalone.md`](controller-standalone.md) for the
 controller patch; [`macos-two-patches-handoff.md`](macos-two-patches-handoff.md) for the

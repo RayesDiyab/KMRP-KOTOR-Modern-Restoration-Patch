@@ -29,8 +29,9 @@ longer holds (the right-hand column was brought up to 2026-10-08: two patches si
 
 This document describes the shipping Windows patcher in
 `src/patcher/KmrpPatcher.cs`, the assets compiled into it, and the
-build and verification workflow. The current 1.5.0 candidate is unreleased;
-the dated measurements below are not all from the public 1.0 installer.
+build and verification workflow. That is the installer of KMRP 1.5, released on 2026-10-09;
+the dated measurements below are from development builds on the way to it and,
+where they say so, from the public 1.0 installer.
 Resolution and game-engine math remain in
 `docs/universal-resolution-math.md`; font and listbox patches remain in
 `docs/font-scaling.md` and `reverse-engineering/listbox-geometry.md`.

@@ -22,7 +22,7 @@ all reverted in the same session.
 > That code runs in the controller patch's module (`kmrp-controller`) since
 > 2026-10-05. Details and what was seen:
 > [`docs/controller-standalone.md`](../docs/controller-standalone.md) and
-> `CHANGELOG.md`, `[Unreleased]`, "Controller badges are made for the area a
+> `CHANGELOG.md`, `[1.5.0]`, "Controller badges are made for the area a
 > button's border really fills". **Not done:** the reading of both borders'
 > rectangles that the last sections describe was never made, so this document's
 > own numbers remain as corrected below; and "Related damage, still open" at the

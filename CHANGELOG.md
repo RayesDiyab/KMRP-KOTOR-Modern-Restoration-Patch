@@ -23,12 +23,13 @@ All notable changes to KMRP are recorded here. The format follows
 > 2026-09-24 this said "every entry above it is reconstructed". Newest entries
 > are at the top, so that had the direction backwards.)
 >
-> **Public names.** 2.10.0 is **KMRP 1.0**, and [Unreleased] is **KMRP 1.5**.
-> The headings keep the internal `PatchVersion` numbers, because the 2.0.0
-> hash record uses them. The 1.0 release is tagged `v1.0.0` since 2026-09-25,
+> **Public names.** 2.10.0 is **KMRP 1.0**, and [1.5.0] is **KMRP 1.5**, released
+> on 2026-10-09 for Windows and for macOS. The headings up to 2.10.0 keep the
+> internal `PatchVersion` numbers, because the 2.0.0 hash record uses them; from
+> 1.5.0 on a heading is the public version, which is what the installer reports. The 1.0 release is tagged `v1.0.0` since 2026-09-25,
 > on the same commit. Until then its tag was `v2.10.0`, which remains as a
 > plain tag; it moved because the installer's update check reads release tags
-> as versions (see [Unreleased]). (Until that day this note also gave the tag
+> as versions (see [1.5.0]). (Until that day this note also gave the tag
 > as a reason to keep the internal numbers.)
 
 ## Everything the patch changes in the executable
@@ -108,6 +109,19 @@ Manager's own, built from the submodule and loaded through KPM's `binkw32.dll`
 proxy, and it applies the executable changes above as well.
 
 ## [Unreleased]
+
+Nothing since 1.5.0.
+
+## [1.5.0] -- 2026-10-09
+
+**KMRP 1.5**, the second public release, tagged `v1.5.0`: the Windows installer
+(`KMRP - KOTOR Modern Restoration Patch.exe`, which reports 1.5.0) and, for the
+first time, a macOS installer for the Steam game (`KMRP-macOS-1.5.0.dmg`). What a
+player gets is in [`docs/features.md`](docs/features.md); how it is made is in
+[`docs/features-technical.md`](docs/features-technical.md). The entries below are
+everything since 1.0, newest first, each as it was written on its day: a later
+entry corrects or replaces an earlier one, and each says what was and was not
+seen in the game.
 
 - **macOS: High FPS Fixes in the installer, and Advanced Settings as tiles** (2026-10-08, at
   the maintainer's request: the installer ships the patches that work together). The Mac port
@@ -4738,7 +4752,7 @@ before:
 
 First tagged release, and the first public one: **KMRP 1.0**. The tag and the
 GitHub release keep the internal number, and its Properties → Details report
-2.7.0.0 (see [Unreleased]). `PatchVersion` in
+2.7.0.0 (see [1.5.0]). `PatchVersion` in
 `src/patcher/KmrpPatcher.cs` reads `2.10.0-mapnotes`; gold snapshot
 `swkotor_gold_v21_mapnotes.exe`, SHA-256
 `9ACE45023EAB9063803136E6C312E5E87DD85E07E33CCB5525C04DCA38C478DC`.
@@ -4913,5 +4927,6 @@ Gold snapshot `swkotor_gold_v14_minimap.exe`
   letterbox.
 - Verified backup and restore for the executable, INI and Override folder.
 
-[Unreleased]: https://github.com/RayesDiyab/KMRP-KOTOR-Modern-Restoration-Patch/compare/v2.10.0...HEAD
+[Unreleased]: https://github.com/RayesDiyab/KMRP-KOTOR-Modern-Restoration-Patch/compare/v1.5.0...HEAD
+[1.5.0]: https://github.com/RayesDiyab/KMRP-KOTOR-Modern-Restoration-Patch/compare/v1.0.0...v1.5.0
 [2.10.0]: https://github.com/RayesDiyab/KMRP-KOTOR-Modern-Restoration-Patch/releases/tag/v2.10.0

@@ -275,7 +275,7 @@ no longer either of the two named above: it is `KmrpCoreMovieWorkK1` at
 same loop, which centres and tracks the movie window and gives it its bars
 (`TrackMovieFrameK1`). The site `0x00404D96` belongs to the controller patch
 (`kmrp-controller`), which works with or without KMRP. **No movie has been
-watched with the hook at its new place** (CHANGELOG, `[Unreleased]`, "KMRP and
+watched with the hook at its new place** (CHANGELOG, `[1.5.0]`, "KMRP and
 the controller patch are two patches"): that a movie is centred, has its bars
 and can be skipped is unverified there.
 

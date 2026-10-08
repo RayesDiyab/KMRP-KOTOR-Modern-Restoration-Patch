@@ -16,7 +16,7 @@ the game instead, it says so.
 > | --- | --- |
 > | The added cue and badge controls (R3, LT/RT, X beside the tabs, the A of confirmation boxes, of dialogue replies and beside OK, X and Y on the HUD) and the `ReleaseGff` binding | the controller patch, "KOTOR 1 Native Controller Mod + Xbox HUD" (id `kmrp-controller`): its module compiles `K1NativeJoystick.cpp`, `K1ControllerLayout.cpp` and `vendor/K1XboxControls.cpp`, and its hooks are the controller's own in `src/controller-native/kotor1.hooks.toml`. KMRP's module still contains that code, but none of its hooks is installed by KMRP's patch (`OptionalFeatures` in `K1RuntimeEngine.cpp`) |
 > | The status summary laid out again | KMRP's own patch, every GUI frame: `StatusSummaryFrameK1`, called from `KmrpCoreGuiWorkK1` at `0x0040CE76` |
-> | The `.gui` entries and textures the controls are bound from | no longer `Override` files: each module carries its files and registers them with the game's resource manager. The controller patch carries its own copies of the game's layouts and, beside KMRP, leaves KMRP's scaled layouts in force (CHANGELOG, `[Unreleased]`, "KMRP and the controller patch are two patches") |
+> | The `.gui` entries and textures the controls are bound from | no longer `Override` files: each module carries its files and registers them with the game's resource manager. The controller patch carries its own copies of the game's layouts and, beside KMRP, leaves KMRP's scaled layouts in force (CHANGELOG, `[1.5.0]`, "KMRP and the controller patch are two patches") |
 >
 > **Not checked for this note:** each section's build-time and binding details
 > against the controller patch as it stands (the patch changed how several

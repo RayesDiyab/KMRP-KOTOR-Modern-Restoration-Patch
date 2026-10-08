@@ -219,8 +219,8 @@ are byte-identical to the installer's resources:
 This rules out an absent or case-only-mismatched KMRP font resource as the direct
 cause of the reported missing NPC and door names. It does **not** prove that
 Proton loads or renders that resource correctly. The same target strip had a
-separate width-driven geometry defect in the public release; the unreleased
-generator now gives it the shared `max(1, height / 720)` scale and verifies its
+separate width-driven geometry defect in KMRP 1.0; the generator of KMRP 1.5
+gives it the shared `max(1, height / 720)` scale and verifies its
 numeric extent at every resolution.
 
 Run the package audit after a full build:
@@ -259,7 +259,7 @@ Valve's authoritative configuration reference is the
 For missing NPC or door names specifically, compare these cases without deleting
 the prefix:
 
-1. a current unreleased KMRP package versus public KMRP 1.0 (tag v1.0.0, v2.10.0 until 2026-09-25);
+1. KMRP 1.5 (tag v1.5.0) versus KMRP 1.0 (tag v1.0.0, v2.10.0 until 2026-09-25);
 2. KMRP alone versus the same install with K1CP/K1R; and
 3. the same save at 1280×800 and 1920×1080.
 
