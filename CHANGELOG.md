@@ -139,7 +139,7 @@ proxy, and it applies the executable changes above as well.
   and the HUD's pass puts it back at its size. The maintainer's slow-motion film then showed
   the box as the game's two lines for one frame, so the box is also laid out and placed the
   HUD's way at the routine's end (`KmrpXboxHudPauseReasonDone`, `0x1002E0D04`), before
-  anything draws it. The second part is not yet seen in the game. For Windows: item 21
+  anything draws it. Seen in the game by the maintainer the same day. For Windows: item 21
   there; item 20 is the parked action slot of 2026-10-07.
 
 - **Step 4's line after patching** (2026-10-09, reported by the maintainer; the

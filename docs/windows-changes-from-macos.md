@@ -802,7 +802,8 @@ drawn once, not only the picture. A second detour at the routine's end (Mac `0x1
 `add rsp, 0x40 ; pop rbx ; pop r12`; `rbx` is the box's button there, the panel is `0x3B0`
 before it) calls `KmrpXboxHudPauseReasonDone`, which lays the box out as the Xbox HUD has it
 and puts it left of the minimap at once (`PlacePause`, the same code the HUD's pass runs), when
-the Xbox layout is up and the pad is the device in use. **Not yet seen in the game.**
+the Xbox layout is up and the pad is the device in use. **Seen in the game by the maintainer**
+the same day: the box stays one line.
 
 **Why queuing an action touches the box at all.** That is the game's: `SetPauseReason` has one
 caller, `CGuiInGame`'s routine that sets the paused state with a reason (Mac `0x10026087A`,
