@@ -368,3 +368,27 @@ original_bytes = [0x55, 0x48, 0x89, 0xe5, 0x41, 0x56, 0x53]
 [[hooks.parameters]]
 source = "rdi"
 type = "pointer"
+
+# CSWGuiInGamePause::SetPauseReason, entry (xbox_hud.cpp, KmrpXboxHudPauseReason): the trigger's
+# picture comes off the pause box's button before the game lays the box out its own way.
+#   1002e0ba4  push rbp ; mov rbp, rsp ; push r15
+[[hooks]]
+address = 0x1002e0ba4
+type = "detour"
+function = "KmrpXboxHudPauseReason"
+original_bytes = [0x55, 0x48, 0x89, 0xe5, 0x41, 0x57]
+[[hooks.parameters]]
+source = "rdi"
+type = "pointer"
+
+# CSWGuiInGamePause::SetPauseReason, its end (xbox_hud.cpp, KmrpXboxHudPauseReasonDone): the box
+# is made the Xbox HUD's one line again before anything draws the game's two.
+#   1002e0d04  add rsp, 0x40 ; pop rbx ; pop r12
+[[hooks]]
+address = 0x1002e0d04
+type = "detour"
+function = "KmrpXboxHudPauseReasonDone"
+original_bytes = [0x48, 0x83, 0xc4, 0x40, 0x5b, 0x41, 0x5c]
+[[hooks.parameters]]
+source = "rbx"
+type = "pointer"

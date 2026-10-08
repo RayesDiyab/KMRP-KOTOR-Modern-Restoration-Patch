@@ -109,6 +109,39 @@ proxy, and it applies the executable changes above as well.
 
 ## [Unreleased]
 
+- **macOS: High FPS Fixes, a port of D3M0's patch, as a patch of its own** (2026-10-08, the
+  maintainer: "create a standalone Mac version of D3M0's fix"; KOTOR 1 only, KOTOR 2 not being
+  installed here). `macos/patches/high-fps-fixes` and `macos/tools/make_high_fps_patch.py`
+  build `High FPS Fixes (macOS).kpatch`, id `high-fps-fixes` as on Windows: 26 hooks for the 36
+  Windows sites of High FPS Fixes 1.0.1 (MIT), each found in the Mac game (the same per-frame
+  code everywhere; nothing Aspyr had already made time-based), several cut differently because
+  a handler here can return a value and write memory and cannot set another register, an xmm
+  register or the flags. Not yet part of KMRP's package or installer. Seen on the Steam game,
+  beside KMRP's four patches, at 230 to 500 frames a second: every hook loads; the letterbox
+  bars arrive in about 0.5 s where they took about 1.75 s without the patch; the maintainer
+  played two fights and moved on after each. **Not established:** that movement after combat
+  fails without the patch on this Mac; water, animated and scrolling textures, dangly meshes,
+  lightsaber trails, particles, camera shake and the mouse's free look, none compared at 60
+  frames a second. **Taken, not read from the Windows game** (no copy of it here): the global
+  the Windows patch divides by is 60; and what the two one-byte patches of the lightsaber's and
+  the dangly meshes' animation step over (the lower clamps of the frame's length).
+- **macOS: the conversation after a change of resolution in the game** (2026-10-08, reported
+  from play: black over most of the picture). The game makes the HUD, the dialogue and the
+  message box again for the new size, and KMRP's re-layout of live panels ran over those as
+  well, scaling the game's own additions a second time. `Relayout` now leaves a panel that was
+  loaded for the size alone (`layout.cpp`). Seen: bars 200 and 175 at 1920x1200 after a change
+  from 1512x982, and the menus and the HUD after a change as before. For Windows:
+  `docs/windows-changes-from-macos.md`, item 22.
+- **macOS: the trigger's picture in the pause box no longer drawn huge for a frame**
+  (2026-10-08, reported from play and reproduced on Windows by the maintainer). The picture
+  comes off the pause box's button when the game is about to lay the box out its own way
+  (`KmrpXboxHudPauseReason`, a detour at `CSWGuiInGamePause::SetPauseReason`, `0x1002E0BA4`),
+  and the HUD's pass puts it back at its size. The maintainer's slow-motion film then showed
+  the box as the game's two lines for one frame, so the box is also laid out and placed the
+  HUD's way at the routine's end (`KmrpXboxHudPauseReasonDone`, `0x1002E0D04`), before
+  anything draws it. The second part is not yet seen in the game. For Windows: item 21
+  there; item 20 is the parked action slot of 2026-10-07.
+
 - **Step 4's line after patching** (2026-10-09, reported by the maintainer; the
   installer). When an install finished, step 4 showed the operation's last message,
   whichever sentence that was: on a PC with KOTOR Patch Manager it was the one

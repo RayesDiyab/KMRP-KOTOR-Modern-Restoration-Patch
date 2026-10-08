@@ -244,7 +244,7 @@ controller became a patch of its own.
 | `MacOS/KotorPatcher.dylib` | added | KPM's runtime |
 | `MacOS/patches/k1-stray-bug-fixes-patch.dylib`, `k1widescreenpatch.dylib`, `kmrp.dylib` | added | each patch's module, taken out of its `.kpatch` (`binaries/macos_x86_64.dylib`) under the name KPM gives it, the patch's id. `kmrp.dylib` holds the menu set for every resolution and the artwork; KMRP's two modules are signed ad hoc by the build and verified here |
 | `MacOS/patches/kmrp-controller.dylib` | added unless `--no-controller` | the controller patch's module, with its own files and SDL 3.4.16 inside (section 7a) |
-| `MacOS/patch_config.toml` | added | KPM's hook list, written at build time by KPM's own KPatchCore: the four patches' 109 hooks (16, 45, 24 and 24), or with `--no-controller` the three patches' 85 (`engine/patch_config.controller-off.toml`); counted in the package built on 2026-10-08 |
+| `MacOS/patch_config.toml` | added | KPM's hook list, written at build time by KPM's own KPatchCore: the four patches' 111 hooks (16, 45, 24 and 26), or with `--no-controller` the three patches' 85 (`engine/patch_config.controller-off.toml`); counted in the package built on 2026-10-08 |
 | `MacOS/configs/kmrp.ini` | section `[Patch Options]` written | `map-notes`, `hd-icons` (since 2026-10-08: off, the module leaves the bundled HD icon pack out of the artwork it gives the game, `LinkArtwork`) and `debug-logs` as `1` or `0`, where a KotOR Patch Manager with patch options records them (LaneDibello/Kotor-Patch-Manager#310) and `kmrp.dylib` reads them. Anything else in the file is kept; uninstall takes the section out, and deletes the file and the folder when nothing else is left. Not written by an install for KPM, where the options are KPM's to choose |
 | `MacOS/configs/kmrp-controller.ini` | section `[Patch Options]` written, unless `--no-controller` | `debug-logs` only: the patch's other option, `xbox-hud`, is left to `Style` under `[Hud]` in the player's settings file (below) |
 | `MacOS/KOTOR_Exe.backup.<yyyyMMdd_HHmmss>` and its `.json` | added | the untouched game in KotOR Patch Manager's format (`BackupManager`, `BackupInfo`), made before the load command, from which KPM's Apply starts (since 2026-10-01, as Windows' `WriteKpmBackup`) |
@@ -473,6 +473,12 @@ After the resolution is changed in the game, a list that already existed takes t
 size's PADDING and scrollbar width (`Relayout`), and the abilities' rows, which are made once
 with their panel, take the new size's row height when the list is next filled
 (`KmrpListAddRows`, a detour at `CSWGuiListBox::AddControls`, `0x1004a9be6`).
+
+`Relayout` leaves alone a panel that was already loaded for the new size (since 2026-10-08).
+With a game loaded the game makes the HUD, the conversation screen and the message box again
+itself when the resolution changes, and laying those out a second time left the
+conversation's lower bar over most of the picture (1512x982 to 1920x1200: black from row 399
+of 1200). After the change the bars measure 200 above and 175 below.
 
 To measure a list again: `KMRP_LIST_ROWS_LOG=<file>` in the game's environment writes each
 list and row kind (its vtable) once as it is laid out.
@@ -774,9 +780,11 @@ that library cannot be loaded, so the two never hold a pad at once. The prompts 
 the pad's family, as on Windows: Xbox, PlayStation, Switch or Steam Deck art (`kmrp*`,
 `kmrs*`, `kmrn*`, `kmrd*`).
 
-**Sites.** The patch has 24 hooks: the 21 of the port in the table below, the registration
+**Sites.** The patch has 26 hooks: the 21 of the port in the table below, the registration
 of the patch's own files (`KmrpControllerResources`, `0x10026c73e`) and the Xbox-style HUD's
-two (`KmrpXboxHud`, `0x100237848`; `KmrpXboxHudBars`, `0x100230eee`), which section 7a
+four (`KmrpXboxHud`, `0x100237848`; `KmrpXboxHudBars`, `0x100230eee`; and since 2026-10-08
+`KmrpXboxHudPauseReason` and `KmrpXboxHudPauseReasonDone` at the entry and the end of
+`CSWGuiInGamePause::SetPauseReason`, `0x1002e0ba4` and `0x1002e0d04`), which section 7a
 describes. Besides them, ten writes the module makes as it loads, each after
 checking the bytes or the pointer it replaces; a site holding anything else is left alone and
 logged. `FILE = VA − 0x100000000`. *Prologue* below is `55 48 89 E5 41 57 41 56`
@@ -929,6 +937,31 @@ reaches a store), and everything added on the evening of 2026-10-07, which the m
 tests himself: Level Up and Auto Level Up (`ShowBacked`), the cues placed from live controls
 (`cues.cpp`, `Adjust`), the HUD's font and texture clamp, the parked slot's return and the
 action box's empty line.
+
+## 7b. High FPS Fixes for the Mac, a patch of its own
+
+A port of D3M0's [High FPS Fixes](https://github.com/gnw-d3m0/D3M0s-KPatches) 1.0.1 (MIT) for
+KOTOR 1 to the Steam Aspyr build, made on 2026-10-08. D3M0's patch has hooks for the Windows
+game only. **It is not part of KMRP's package and the installer does not install it**: it is
+built by itself, needs no other patch and no other patch needs it.
+
+| | |
+| --- | --- |
+| Source | `macos/patches/high-fps-fixes/`: `high_fps_fixes.cpp`, `letterbox_input.cpp`, `kotor1-steam-aspyr-macos.hooks.toml` |
+| Build | `python macos/tools/make_high_fps_patch.py --exe CLEAN_KOTOR_EXE --out "High FPS Fixes (macOS).kpatch"`; it holds every `original_bytes` against the unmodified game and refuses overlapping hooks before it builds |
+| Patch | id `high-fps-fixes` (D3M0's, with his list of conflicts), name "High FPS Fixes (macOS)", 26 hooks: 19 detours, 3 replaced, 4 simple |
+| What it makes time-based | the dialogue letterbox, movement after combat, the jitter of dangly meshes and leaves, UV animation, the lightsaber's and dangly meshes' gates, water, cycling textures, the particle fountain's budget, camera shake, the character preview's pause |
+| KOTOR 2 | not ported: the game is not installed here |
+
+**Seen in the game** (2026-10-08, beside KMRP's four patches): all 26 hooks apply; the
+letterbox takes about half a second where it took about 1.75 without the patch at a high frame
+rate; the maintainer played two fights and walked on after each.
+**Not seen:** water, cycling textures, dangly meshes, lightsaber trails, particles, camera
+shake and free look; and whether movement after combat fails at all on this Mac without the
+patch. **Inferred, not read from the Windows executable:** that its global at `0x0078E564` is
+60, and what the one-byte lightsaber and dangly-mesh patches mean. KotOR Patch Manager's own
+Post-Combat Movement Fix hooks `0x1002f9db1`, beside one of these; its ids are in the
+conflicts list.
 
 ## 8. What is deliberately not installed or changed
 
@@ -1178,7 +1211,7 @@ KMRP="/Applications/KMRP Installer.app/Contents/Resources/kmrp"   # the package,
 "$KMRP/bin/kmrp-macho" info "$EXE"                     # ncmds=46 sizeofcmds=5912 free=1480 when installed
 "$KMRP/kmrp-mac.sh" status                             # manifest entries changed since install
 ls "${EXE:h}/patches"                                  # k1-stray-bug-fixes-patch, k1widescreenpatch, kmrp, kmrp-controller (.dylib)
-grep -c '^\[\[patches.hooks\]\]' "${EXE:h}/patch_config.toml" # 109 with the controller patch, 85 without (the package built 2026-10-08)
+grep -c '^\[\[patches.hooks\]\]' "${EXE:h}/patch_config.toml" # 111 with the controller patch, 85 without (the package built 2026-10-08)
 KPATCH_LOG=/tmp/kpatch.log "$EXE"                      # then: grep "DLL-only patch" /tmp/kpatch.log
 head -3 ~/Library/Logs/KMRP/controller.log             # with Debug Logs on, after a run: GetJoystickBuffer replaced, echo guard installed, SDL3 3.4.16 loaded
 ```

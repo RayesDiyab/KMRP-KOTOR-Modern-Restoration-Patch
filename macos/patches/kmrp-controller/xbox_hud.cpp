@@ -907,6 +907,7 @@ struct PauseKept {
     bool pressShown = true;
 } g_pauseKept;
 bool g_pauseForget = false;        // PauseNotice is to forget what it last set
+bool g_pauseStripped = false;      // KmrpXboxHudPauseReason took the picture off: the box is still this file's
 
 // The pause button's two borders as pause.gui has them, kept while it shows the picture.
 bool g_pauseButtonKept[2] = {};
@@ -1026,7 +1027,7 @@ void PauseNotice(void* pause, void* client) {
     const char* const pressNow = TextOf(At<String>(press, kLabelTextParams));
     if (!reasonNow) return;
     // The layout's own, while the box has nothing of this file's in it (PauseOwn).
-    if (!PauseCarriesOurs(pause)) {
+    if (!PauseCarriesOurs(pause) && !g_pauseStripped) {
         const Extent r = At<Extent>(reason, kControlExtent), p = At<Extent>(press, kControlExtent);
         g_pauseOwn.valid = true;
         g_pauseOwn.reasonLeft = r.left;
@@ -1142,8 +1143,23 @@ void PauseNotice(void* pause, void* client) {
         SetFill(params, family);
         ++which;
     }
+    g_pauseStripped = false;
     Show(button);
     familyShown = family[3];
+}
+
+// The pause notice as this HUD has it and where: left of the minimap, level with the minimap's
+// frame and as far from it as the frame is from the screen's edge.
+void PlacePause(void* hud, void* pause, void* client, int width) {
+    PauseNotice(pause, client);
+    const Extent map = At<Extent>(Part(hud, kHudMapBorder), kControlExtent);
+    Extent& at = At<Extent>(pause, kControlExtent);
+    if (map.width > 0 && at.width > 0) {
+        const int margin = width - (map.left + map.width);
+        const int left = map.left - (margin > 0 ? margin : 0) - at.width;
+        at.left = left > 0 ? left : 0;
+        at.top = map.top;
+    }
 }
 
 // The first hook's work (K1XboxHud.cpp, KmrpXboxHudK1), before every draw of the HUD.
@@ -1228,17 +1244,7 @@ void Frame(void* hud) {
     // The pause notice left of the minimap: level with the minimap's frame and as far from it
     // as the frame is from the screen's edge. Every frame: the game places it anew whenever it
     // pauses, and the minimap stands lower in combat mode.
-    if (void* pause = PausePanel()) {
-        PauseNotice(pause, client);
-        const Extent map = At<Extent>(Part(hud, kHudMapBorder), kControlExtent);
-        Extent& at = At<Extent>(pause, kControlExtent);
-        if (map.width > 0 && at.width > 0) {
-            const int margin = width - (map.left + map.width);
-            const int left = map.left - (margin > 0 ? margin : 0) - at.width;
-            at.left = left > 0 ? left : 0;
-            at.top = map.top;
-        }
-    }
+    if (void* pause = PausePanel()) PlacePause(hud, pause, client, width);
     if (!g_row.usable) return;
 
     // The menu's viewport starts at the screen's corner and is as wide as the screen. A clamp
@@ -1699,4 +1705,35 @@ extern "C" __attribute__((visibility("default"))) void KmrpXboxHudBars(void* men
     using namespace kmrp::xboxhud;
     if (!Enabled() || !Readable(menu, kMenuFlags + 1)) return;
     Bars(menu);
+}
+
+// CSWGuiInGamePause::SetPauseReason, entry (0x1002E0BA4): the game is about to write a reason
+// and lay the box out its own way, which puts the button on the reason's rectangle with the
+// panel's height. While the button carried the trigger's picture, stretched over it, the
+// picture was drawn that size for the one frame before PauseNotice next ran (the maintainer,
+// 2026-10-08, in a fight: the trigger "zoomed out very big every time" an action was queued
+// while the game was paused). The picture comes off here and PauseNotice puts it back at its
+// size; the box is still this file's meanwhile (g_pauseStripped), so its places are not taken
+// for the layout's own.
+extern "C" __attribute__((visibility("default"))) void KmrpXboxHudPauseReason(void* pause) {
+    using namespace kmrp::xboxhud;
+    if (!Enabled() || !Readable(pause, kPauseSize) || !PauseCarriesOurs(pause)) return;
+    const char none[kResRefBytes] = {};
+    void* button = Part(pause, kPauseButton);
+    for (const std::size_t border : {kButtonBorderParams, kButtonHilightParams}) SetFill(Part(button, border), none);
+    g_pauseStripped = true;
+}
+
+// CSWGuiInGamePause::SetPauseReason, its end (0x1002E0D04): the game has laid the box out its
+// own way, two lines with the button over both. Frame only puts that right before the HUD's
+// next draw, and the box could be drawn first: the maintainer's slow-motion film of 2026-10-08
+// shows one frame with "TO CONTINUE" under the reason each time an action was queued in the
+// first pause after a cutscene. The box is made this HUD's here, before anything can draw it.
+// rbx is the box's button at this place.
+extern "C" __attribute__((visibility("default"))) void KmrpXboxHudPauseReasonDone(void* button) {
+    using namespace kmrp::xboxhud;
+    if (!Enabled() || !LooksLikePointer(button)) return;
+    void* pause = static_cast<char*>(button) - kPauseButton;
+    if (!g_layout.xbox || !kmrp::device::PadInUse() || pause != PausePanel() || !Readable(g_layout.hud, 8)) return;
+    PlacePause(g_layout.hud, pause, Client(), g_layout.width);
 }

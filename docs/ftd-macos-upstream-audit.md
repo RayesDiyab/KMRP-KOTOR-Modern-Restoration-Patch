@@ -13,7 +13,7 @@ no longer advertised. These are source comparisons, not upstream play-test claim
 | The submodule stays pinned at `2a784bf`, and KMRP is one patch with FTD's two compiled in | 2026-10-04: KMRP's patch `requires` FTD's two, which are built unchanged from the KotOR Patch Manager tree given to `macos/build.sh` as `--kpm`. The pin is still `2a784bf` but is not what the build uses: it has no entry points and `build.sh` refuses it |
 | FTD's new GUI writers are not linked alongside KMRP; KMRP's `kmrp-layout` keeps the sites in the table of conflicts | 2026-10-04: the other way round. His Widescreen Patch's `.gui` mode writes those sites, and `kmrp-layout` writes none of them beside it. KMRP asks for that mode and hands over a change of resolution through two entry points, `K1Widescreen_UseGuiFileLayouts` and `K1Widescreen_SetTargetResolution`, merged upstream on 2026-10-05 (LaneDibello/Kotor-Patch-Manager#319, merge commit `7546ae5`) |
 | The Scripts Enter fix is incorporated in KMRP's core hook list | FTD's Stray Bug Fixes carries it, with the four memory-safety hooks KMRP sent him ([handoff](handoffs/ftd-mac-memory-safety-integration.md)); KMRP's identical declarations are left out of its patch by the build |
-| Four variants of 94, 74, 93 and 73 hooks | four patches of 16, 45, 24 and 24 hooks (the package built on 2026-10-08) |
+| Four variants of 94, 74, 93 and 73 hooks | four patches of 16, 45, 24 and 26 hooks (the package built on 2026-10-08) |
 
 The commit comparison, the byte table and the verification below stand as what was read and
 run that day.

@@ -88,6 +88,9 @@ does it, checked as stated), **doc** (a Windows document to correct).
 | 17 | The target menu: buttons 1.5x the name strip, centred under it, never past the name box | **built** (2026-10-01, installer `F9BB9E8D`; not seen in play on Windows) |
 | 18 | A on the world after an action slot's focus has gone stale (a door after an enemy) | **built** (2026-10-01; not seen in play) |
 | 19 | List rows centred between their box's borders (inventory, abilities, quests, quest items, scripts, store, workbench, character generation) | **done on Windows, 2026-10-06** (Mac: 2026-10-04), with two differences from the Mac's, of which the Mac took one: [`macos-changes-from-windows.md`](macos-changes-from-windows.md), item 28. Not brought to Windows: the abilities' row height after a resolution change |
+| 20 | Xbox-style HUD: an action slot that was parked comes back as it was, so a slot the game had shown does not stay missing | **to do**: reproduced on Windows by the maintainer (2026-10-08) |
+| 21 | Xbox-style HUD: the trigger's picture in the pause box drawn huge for a frame each time the game rewrites the pause reason | **to do**: reproduced on Windows by the maintainer (2026-10-08) |
+| 22 | After a change of resolution in the game, the conversation's black panel over most of the picture | **to check**: found on the Mac (2026-10-08); the maintainer expects the same on Windows |
 
 ## 1. Message popups fitted to their contents
 
@@ -735,3 +738,118 @@ offsets apply: `macos/patches/kmrp-assets/list_rows.inc` (made by
 `macos/tools/measure_list_rows.py`) is per menu set, not per platform. What Windows needs is
 the row kinds' vtables and the three places its `OrganizeControls` (`0x0041B140`) hands a row
 its rectangle, and `RowInset`'s numbers checked against Windows' picture.
+
+## 20. Xbox-style HUD: a parked action slot comes back as it was
+
+**Reported** by the maintainer on the Mac on 2026-10-07 ("why did the second slot disappear?
+from xbox ui") and **reproduced by him on Windows** on 2026-10-08. Fixed on the Mac on
+2026-10-07; seen right in his play since.
+
+**What happens.** The Xbox layout shows one of two slots in each of two places (the target's
+shared slot or the personal one; feats or skills) and parks the other: its four parts are moved
+off the screen and its button, which carries the focus, is made invisible. The engine sets a
+slot button's visible flag only when the slot's contents change, not every frame. So when the
+layout brought a parked slot back it had to decide the flag itself, and it showed the button
+only when the slot had something in it (`count > 0`). A slot the engine had been showing while
+it was empty (its dim frame is part of the HUD) therefore stayed invisible after one round of
+parking: a place in the action row was missing until the slot's contents next changed.
+
+**The Mac's repair** (`macos/patches/kmrp-controller/xbox_hud.cpp`): the button's visible flag
+is remembered at the moment the slot is parked, and given back when it returns.
+
+- `g_shownWhenParked[kSlots]`, beside `g_parked[kSlots]`.
+- Where a slot is parked (in the layout pass, the block that sets the four parts to `kParked`
+  and calls `Hide(action)`): `if (!g_parked[slot]) g_shownWhenParked[slot] = <the button's
+  visible flag>;` before the `Hide`.
+- Where the first hook undoes the parking before each draw: `if (g_parked[slot] &&
+  (g_shownWhenParked[slot] || count > 0)) Show(action);` in place of `count > 0` alone.
+
+**For Windows.** `src/controller-native/K1XboxHud.cpp` is the file this was ported from and
+parks slots the same way; the same two lines at the same two places. The Mac's flag is bit
+`0x02` of the control's byte at `+0x68`; use the Windows control's visible flag.
+
+## 21. Xbox-style HUD: the trigger's picture in the pause box, huge for a frame
+
+**Reported** by the maintainer on the Mac on 2026-10-08, in a fight with the game paused: each
+time an action was queued, the R2 picture in "... PRESS [R2] TO CONTINUE" was drawn very large
+for an instant. **Reproduced by him on Windows** the same day. Fixed on the Mac on 2026-10-08;
+the huge picture was gone in the maintainer's slow-motion film of the same day, which showed
+what was left (the second part below).
+
+**What happens.** With the Xbox layout the pause notice is one line and the trigger's picture
+is the fill of the pause panel's own button, stretched over a button made the picture's size
+(`PauseNotice`). Each time the game pauses or changes the reason (an enemy sighted, "Action
+added to queue"), `CSWGuiInGamePause::SetPauseReason` lays the box out its own way again, which
+puts that button on the reason's rectangle with the panel's height. The layout pass puts
+everything right before the next draw of the HUD, but the pause panel is drawn once before
+that with the button at the game's size and the picture stretched over all of it.
+
+**The Mac's repair** (`xbox_hud.cpp`, `KmrpXboxHudPauseReason`, and the hook list): a detour at
+the entry of `SetPauseReason` (Mac `0x1002E0BA4`; `rdi` is the pause panel). While the box
+carries the layout's line (`PauseCarriesOurs`: the button's fill is the trigger's picture) it
+takes the picture off both of the button's borders (`SetFill` with an empty name). The game then
+lays the box out with a button that draws nothing, and `PauseNotice` puts the picture back at
+its size on the next pass. One flag keeps the bookkeeping straight: `g_pauseStripped` is set by
+the hook and cleared when `PauseNotice` has set the fill again, and while it is set
+`PauseNotice` does not take the box's places for "the layout's own" (`g_pauseOwn`), as it does
+when it finds a box without the picture, because the labels' places and words are still this
+layout's.
+
+**Second part, the same day.** The maintainer filmed the box in slow motion with the first
+repair in: the picture was no longer huge, but for one frame the box was the game's two lines,
+"TO CONTINUE" under the reason, each time an action was queued. So the game's layout itself is
+drawn once, not only the picture. A second detour at the routine's end (Mac `0x1002E0D04`,
+`add rsp, 0x40 ; pop rbx ; pop r12`; `rbx` is the box's button there, the panel is `0x3B0`
+before it) calls `KmrpXboxHudPauseReasonDone`, which lays the box out as the Xbox HUD has it
+and puts it left of the minimap at once (`PlacePause`, the same code the HUD's pass runs), when
+the Xbox layout is up and the pad is the device in use. **Not yet seen in the game.**
+
+**Why queuing an action touches the box at all.** That is the game's: `SetPauseReason` has one
+caller, `CGuiInGame`'s routine that sets the paused state with a reason (Mac `0x10026087A`,
+called from the main loop and two others), and the box in the film reads "Action added to
+queue", which is a reason of its own. Each action queued in such a pause gives the reason
+again and the game lays the box out again. The maintainer saw it only in the first pause after
+a cutscene and not after pausing again by hand; which reason that second pause has was not
+looked at.
+
+**For Windows.** The same routine and the same order of events: hook `SetPauseReason`'s entry
+(the Windows address is in `K1XboxHud.cpp`'s notes on the pause notice), strip the fill there,
+and guard the capture of the layout's own places with the same flag; and run the pause notice's
+layout and placing once more at the routine's end.
+
+## 22. The conversation after a change of resolution in the game
+
+**Reported** by the maintainer on the Mac on 2026-10-08: after changing the resolution in
+Options (1512x982 to 3024x1964 to 1920x1200) with a game loaded, the next conversation had
+black over most of the picture. Reproduced on the Mac with one change, 1512x982 to 1920x1200,
+and measured from the picture: the upper bar 200 pixels, right for that size, and black from
+row 399 of 1200 down. It is not the High FPS Fixes port (the same without it). Fixed on the Mac
+on 2026-10-08 and seen: bars 200 above and 175 below at 1920x1200, and the HUD and the eight
+in-game screens after 1512x982 to 3024x1890 as before. **Not tried on Windows**; the maintainer
+expects the same there, since `K1RuntimeLayout.cpp` is what the Mac's code was ported from.
+
+**What happens.** On a change of size the game itself makes the HUD, the dialogue and the
+message box again (`CGuiInGame::ResetInterfaceForSize`, as `reverse-engineering/
+resolution-switch.md` records): new panels, from the new size's layout files, with what the
+game's own code adds to a control's rectangle already worked out for the new size. KMRP's
+re-layout of live panels then ran over those too. Its rule, "what the game's code added to the
+file's rectangle is kept, scaled from the old size to the new", took the new panel's additions
+for the old size's and scaled them again. Traced on the Mac for that change:
+
+    dialog.LBL_MESSAGE  was 0,0 1824x100 (the game's, for 1920 wide), file 0,0 544x100  ->  0,0 2108x100
+    dialog.LB_REPLIES   was 0,0 1824x164,                             file 0,0 544x98   ->  0,0 2108x179
+
+and the panel itself was given the layout file's own place, where the game had put it under
+the picture.
+
+**The Mac's repair** (`macos/patches/kmrp-assets/layout.cpp`): a panel remembers the size in
+force when it was loaded (`Panel::width`, `height`, set in `KmrpPanelLayoutStart` from the
+widescreen patch's target, which is already the new size while the game re-makes its panels)
+and the size it was last laid out for. `Relayout` leaves a panel alone when that is the size
+it is laying out for, and records the size for the others. On that change 374 rectangles were
+set where 407 had been.
+
+**For Windows.** In `KmrpRuntimeLayoutDimensions` (`src/controller-native/K1RuntimeLayout.cpp`),
+the same test: skip a tracked panel whose layout was loaded after the size became the new one.
+If Windows records the panel at the same point (the start of its load from the layout), the
+size in force then is the one to compare.

@@ -1,0 +1,386 @@
+# High FPS Fixes for the Steam Aspyr macOS build of KOTOR 1: the hook list.
+# A port of D3M0's High FPS Fixes 1.0.1 (MIT); each block names the Windows site it stands for
+# (HighFpsFixes/src/kotor1.hooks.toml of https://github.com/gnw-d3m0/D3M0s-KPatches). The
+# handlers are in high_fps_fixes.cpp. Parameters are plain registers only: released KotOR Patch
+# Manager 0.7.1 takes no register+offset source, so a handler given rbp applies the offset.
+#
+# make_high_fps_patch.py holds every original_bytes against the unmodified game.
+
+# ---------------------------------------------------------------- the 60 Hz gate for jitter
+# CClientExoAppInternal::MainLoop (0x1002677d4): eax = microseconds elapsed on the frame timer.
+# Windows 0x0060335D, K1UpdateJitterTick.
+#   100267cfe  xorps xmm0, xmm0 ; cvtsi2ss xmm0, eax
+[[hooks]]
+address = 0x100267cfe
+type = "detour"
+function = "HfpsUpdateJitterTick"
+original_bytes = [0x0f, 0x57, 0xc0, 0xf3, 0x0f, 0x2a, 0xc0]
+[[hooks.parameters]]
+source = "eax"
+type = "int"
+
+# Global::ProceduralAnimateHierarchy (0x1001ae5a7): r15 = mesh node, rbp = frame. The Mac has
+# one uv loop where Windows has three. Windows 0x004836C7, 0x00483916, 0x00483B72.
+#   1001ae676  xor r14d, r14d ; movaps [rbp-0x50], xmm2
+[[hooks]]
+address = 0x1001ae676
+type = "detour"
+function = "HfpsGateUvJitter"
+original_bytes = [0x45, 0x31, 0xf6, 0x0f, 0x29, 0x55, 0xb0]
+[[hooks.parameters]]
+source = "r15"
+type = "pointer"
+[[hooks.parameters]]
+source = "rbp"
+type = "pointer"
+
+# The same loop: the texture's drift a frame becomes its drift a sixtieth of a second times the
+# frame's length (uvdir * dt * 60). Windows 0x004836E6, 0x00483703, 0x00483936, 0x00483950,
+# 0x00483BA4, 0x00483BB3, which multiply by the frame's seconds and by a global taken here to
+# be 60 (not read from the Windows game: every other reference rate of the patch is 60).
+# Raw code, no handler: this runs once a vertex. It touches rax, xmm0 and xmm1, all dead here,
+# and no flag, so the jump that follows still reads the compare before it.
+#   movabs rax, 0x1005ca818 ; movss xmm1, [rax] ; mov eax, 60.0f ; movd xmm0, eax ; mulss xmm1, xmm0
+#   movss xmm0, [r15+0x17c] ; mulss xmm0, xmm1 ; addss xmm0, [r12+8*r14]   ; movss [r12+8*r14], xmm0
+#   movss xmm0, [r15+0x180] ; mulss xmm0, xmm1 ; addss xmm0, [r12+8*r14+4] ; movss [r12+8*r14+4], xmm0
+[[hooks]]
+address = 0x1001ae688
+type = "replace"
+original_bytes = [
+    0xf3, 0x41, 0x0f, 0x10, 0x87, 0x7c, 0x01, 0x00, 0x00, 0xf3, 0x43, 0x0f, 0x58, 0x04, 0xf4,
+    0xf3, 0x43, 0x0f, 0x11, 0x04, 0xf4, 0xf3, 0x41, 0x0f, 0x10, 0x87, 0x80, 0x01, 0x00, 0x00,
+    0xf3, 0x43, 0x0f, 0x58, 0x44, 0xf4, 0x04, 0xf3, 0x43, 0x0f, 0x11, 0x44, 0xf4, 0x04,
+]
+replacement_bytes = [
+    0x48, 0xb8, 0x18, 0xa8, 0x5c, 0x00, 0x01, 0x00, 0x00, 0x00,
+    0xf3, 0x0f, 0x10, 0x08,
+    0xb8, 0x00, 0x00, 0x70, 0x42,
+    0x66, 0x0f, 0x6e, 0xc0,
+    0xf3, 0x0f, 0x59, 0xc8,
+    0xf3, 0x41, 0x0f, 0x10, 0x87, 0x7c, 0x01, 0x00, 0x00,
+    0xf3, 0x0f, 0x59, 0xc1,
+    0xf3, 0x43, 0x0f, 0x58, 0x04, 0xf4,
+    0xf3, 0x43, 0x0f, 0x11, 0x04, 0xf4,
+    0xf3, 0x41, 0x0f, 0x10, 0x87, 0x80, 0x01, 0x00, 0x00,
+    0xf3, 0x0f, 0x59, 0xc1,
+    0xf3, 0x43, 0x0f, 0x58, 0x44, 0xf4, 0x04,
+    0xf3, 0x43, 0x0f, 0x11, 0x44, 0xf4, 0x04,
+]
+
+# ------------------------------------------------------------ lightsaber trails, dangly meshes
+# PartLightsaber::Animate (0x1001aea62): the frame's length is no longer raised to 0.01 s before
+# it ages the trail's samples, which die at 0.012 s. Windows 0x00481AF8 (jz made a jump).
+#   1001aeacd  maxss xmm2, [rbp-0x38]   ->   movss xmm2, [rbp-0x38]
+[[hooks]]
+address = 0x1001aeacd
+type = "simple"
+original_bytes = [0xf3, 0x0f, 0x5f, 0x55, 0xc8]
+replacement_bytes = [0xf3, 0x0f, 0x10, 0x55, 0xc8]
+
+# PartDanglyMesh::Animate (0x1001aecde): the frame's length is no longer raised to 0.0125 s
+# (the upper clamp, 0.035 s, stays). Windows 0x004842EA (jp made a jump).
+#   1001aed33  jbe 0x1001aed38   ->   jmp 0x1001aed38
+[[hooks]]
+address = 0x1001aed33
+type = "simple"
+original_bytes = [0x76, 0x03]
+replacement_bytes = [0xeb, 0x03]
+
+# -------------------------------------------------------------------------------- camera shake
+# CSWCModule::UpdateCameraBumpAndShake (0x100294aa4): rbx = module, [rbp-0x2c] = frame seconds.
+# Windows 0x00641827, K1AccumulateShakeMilliseconds.
+#   100294b97  movss xmm0, [rbp-0x2c]     re-run after the handler rewrote the slot
+[[hooks]]
+address = 0x100294b97
+type = "detour"
+function = "HfpsShakeMilliseconds"
+original_bytes = [0xf3, 0x0f, 0x10, 0x45, 0xd4]
+[[hooks.parameters]]
+source = "rbx"
+type = "pointer"
+[[hooks.parameters]]
+source = "rbp"
+type = "pointer"
+
+# CSWCModule::ShakeCamera (0x100294a42): rdi = module. Windows 0x00641700, K1ResetShakeNewEffect.
+#   100294a52  mov [rdi+0x10c], edx
+[[hooks]]
+address = 0x100294a52
+type = "detour"
+function = "HfpsResetShake"
+original_bytes = [0x89, 0x97, 0x0c, 0x01, 0x00, 0x00]
+[[hooks.parameters]]
+source = "rdi"
+type = "pointer"
+
+# ------------------------------------------------- the character preview's idle ("pause cycle")
+# CSWCCreature::CGPauseCycle (0x1002a48f0): r15 = creature, [rbp-0x50] = frame seconds.
+# Windows 0x0060F92E, K1AccumulatePreviewMilliseconds.
+#   1002a4973  mulss xmm0, [1000.0f] ; cvttss2si eax, xmm0     replaced: eax = the handler's result
+[[hooks]]
+address = 0x1002a4973
+type = "detour"
+function = "HfpsPreviewMilliseconds"
+original_bytes = [0xf3, 0x0f, 0x59, 0x05, 0x79, 0x59, 0x29, 0x00, 0xf3, 0x0f, 0x2c, 0xc0]
+skip_original_bytes = true
+exclude_from_restore = ["rax"]
+[[hooks.parameters]]
+source = "r15"
+type = "pointer"
+[[hooks.parameters]]
+source = "rbp"
+type = "pointer"
+
+# Windows 0x0060FABD, K1ResetPreviewIdle.
+#   1002a4d23  mov dword [r15+0x4ec], 0
+[[hooks]]
+address = 0x1002a4d23
+type = "detour"
+function = "HfpsResetPreview"
+original_bytes = [0x41, 0xc7, 0x87, 0xec, 0x04, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00]
+[[hooks.parameters]]
+source = "r15"
+type = "pointer"
+
+# CSWCCreature's constructor (0x100297e3a). Windows 0x00616E98, K1ResetPreviewObject.
+#   100298287  mov [rbx+0x4ec], r15d      (r15d = 0)
+[[hooks]]
+address = 0x100298287
+type = "detour"
+function = "HfpsResetPreview"
+original_bytes = [0x44, 0x89, 0xbb, 0xec, 0x04, 0x00, 0x00]
+[[hooks.parameters]]
+source = "rbx"
+type = "pointer"
+
+# --------------------------------------------------------------------------------------- water
+# WaterTextureController::Control (0x1001fc6a0), entry: rdi = controller.
+# Windows 0x00461823, K1GateWaterControllerFrame.
+[[hooks]]
+address = 0x1001fc6a0
+type = "detour"
+function = "HfpsWaterGate"
+original_bytes = [0x55, 0x48, 0x89, 0xe5, 0x41, 0x57]
+[[hooks.parameters]]
+source = "rdi"
+type = "pointer"
+
+# Windows 0x004618BF, K1FixWaterVirtualFrameDelta.
+#   1001fc73e  lea rax, [0x1005ca818]     replaced: rax = the handler's result
+#   1001fc745  movss xmm0, [rax]
+[[hooks]]
+address = 0x1001fc73e
+type = "detour"
+function = "HfpsWaterDelta"
+original_bytes = [0x48, 0x8d, 0x05, 0xd3, 0xe0, 0x3c, 0x00]
+skip_original_bytes = true
+exclude_from_restore = ["rax"]
+
+# --------------------------------------------------------------------------- animated textures
+# CycleTIDTextureController::Control (0x1001fe268): rbx = controller, past the once-a-frame
+# test. Windows 0x00460981, K1UpdateCycleTexture.
+#   1001fe28a  lea rax, [0x1005ca818]     from here to the tail call is the handler's
+#   1001fe307  the function's epilogue    which the handler always leaves through
+[[hooks]]
+address = 0x1001fe28a
+type = "detour"
+function = "HfpsCycleTexture"
+original_bytes = [0x48, 0x8d, 0x05, 0x87, 0xc5, 0x3c, 0x00]
+skip_original_bytes = true
+consumed_exit_address = 0x1001fe307
+exclude_from_restore = ["eax"]
+[[hooks.parameters]]
+source = "rbx"
+type = "pointer"
+
+# --------------------------------------------------------------------------- particle fountains
+# FountainEmitter::Update (0x10018f57e): r15 = emitter, rbp = frame. Windows 0x004973F7 and
+# 0x004974AB, K1AccumulateParticleTime and K1CalculateParticleBudget, as one handler: the
+# accumulation, the rate's random spread and the budget, 146 bytes. 1 leaves through the
+# epilogue; 0 resumes at the loop body, 0x10018fa70, with the budget in [rbp-0x40].
+[[hooks]]
+address = 0x10018f9de
+type = "detour"
+function = "HfpsFountainEmit"
+skip_original_bytes = true
+consumed_exit_address = 0x10018fb8a
+exclude_from_restore = ["eax"]
+original_bytes = [
+    0xf3, 0x41, 0x0f, 0x10, 0x87, 0xe4, 0x00, 0x00, 0x00, 0xf3, 0x0f, 0x58, 0x45, 0xd4, 0xf3, 0x41,
+    0x0f, 0x11, 0x87, 0xe4, 0x00, 0x00, 0x00, 0x0f, 0x2e, 0xc1, 0x0f, 0x82, 0x8c, 0x01, 0x00, 0x00,
+    0xf3, 0x41, 0x0f, 0x2c, 0x9f, 0x08, 0x01, 0x00, 0x00, 0x85, 0xdb, 0x7e, 0x38, 0xe8, 0x8b, 0xb7,
+    0xe9, 0xff, 0x41, 0x89, 0xc4, 0xe8, 0x83, 0xb7, 0xe9, 0xff, 0x99, 0xf7, 0xfb, 0x41, 0xf6, 0xc4,
+    0x01, 0x0f, 0x57, 0xc0, 0xf3, 0x0f, 0x2a, 0xc2, 0x75, 0x07, 0x0f, 0x57, 0x05, 0xc1, 0x84, 0x3a,
+    0x00, 0xf3, 0x0f, 0x10, 0x5d, 0xc0, 0xf3, 0x0f, 0x58, 0xd8, 0x0f, 0x57, 0xc0, 0x0f, 0x2e, 0xc3,
+    0x76, 0x03, 0x0f, 0x57, 0xdb, 0xf3, 0x41, 0x0f, 0x10, 0x87, 0xe4, 0x00, 0x00, 0x00, 0xf3, 0x0f,
+    0x59, 0xc3, 0xf3, 0x0f, 0x2c, 0xc0, 0xf3, 0x44, 0x0f, 0x2c, 0xe3, 0x41, 0xff, 0xc4, 0x99, 0x41,
+    0xf7, 0xfc, 0x85, 0xd2, 0x0f, 0x8e, 0x17, 0x01, 0x00, 0x00, 0x45, 0x31, 0xed, 0xf3, 0x0f, 0x11,
+    0x5d, 0xc0,
+]
+[[hooks.parameters]]
+source = "r15"
+type = "pointer"
+[[hooks.parameters]]
+source = "rbp"
+type = "pointer"
+
+# The loop's tail counts the budget down and steps over the zeroing of the accumulated time.
+# Windows 0x004975F1 and 0x00497610. It goes with the hook above and never without it.
+#   10018fb5d  dec dword [rbp-0x40] ; jg 0x10018fa70 ; jmp 0x10018fb8a ; nop x23
+[[hooks]]
+address = 0x10018fb5d
+type = "simple"
+original_bytes = [
+    0x41, 0xff, 0xc5, 0xf3, 0x41, 0x0f, 0x10, 0x87, 0xe4, 0x00, 0x00, 0x00, 0xf3, 0x0f, 0x59, 0x45,
+    0xc0, 0xf3, 0x0f, 0x2c, 0xc0, 0x99, 0x41, 0xf7, 0xfc, 0x41, 0x39, 0xd5, 0x0f, 0x8c, 0xf1, 0xfe,
+    0xff, 0xff,
+]
+replacement_bytes = [
+    0xff, 0x4d, 0xc0, 0x0f, 0x8f, 0x0a, 0xff, 0xff, 0xff, 0xeb, 0x22,
+    0x90, 0x90, 0x90, 0x90, 0x90, 0x90, 0x90, 0x90, 0x90, 0x90, 0x90, 0x90,
+    0x90, 0x90, 0x90, 0x90, 0x90, 0x90, 0x90, 0x90, 0x90, 0x90, 0x90,
+]
+
+# PartEmitter::Initialize (0x10018dd62): rbx = emitter. Windows 0x0049CC96, K1ResetParticleInit.
+#   10018df5e  mov [rbx+0xe4], eax        (eax = 0)
+[[hooks]]
+address = 0x10018df5e
+type = "detour"
+function = "HfpsResetParticle"
+original_bytes = [0x89, 0x83, 0xe4, 0x00, 0x00, 0x00]
+[[hooks.parameters]]
+source = "rbx"
+type = "pointer"
+
+# PartEmitter's destructor (0x1001876f6), entry: rdi = emitter. Windows 0x0049CFC0,
+# K1ResetParticleDestroy.
+[[hooks]]
+address = 0x1001876f6
+type = "detour"
+function = "HfpsResetParticle"
+original_bytes = [0x55, 0x48, 0x89, 0xe5, 0x41, 0x57, 0x41, 0x56]
+[[hooks.parameters]]
+source = "rdi"
+type = "pointer"
+
+# ------------------------------------------------------------------------ the dialogue letterbox
+# CSWGuiDialogLetterbox::SetTop (0x100244174) and SetBottom (0x100244218): rbx = the letterbox;
+# an animation starts. Windows 0x006A7529 and 0x006A75C8.
+#   100244206  mov dword [rbx+0x9c], 1
+[[hooks]]
+address = 0x100244206
+type = "detour"
+function = "HfpsLetterboxReset"
+original_bytes = [0xc7, 0x83, 0x9c, 0x00, 0x00, 0x00, 0x01, 0x00, 0x00, 0x00]
+[[hooks.parameters]]
+source = "rbx"
+type = "pointer"
+
+#   1002442bb  mov dword [rbx+0x9c], 2
+[[hooks]]
+address = 0x1002442bb
+type = "detour"
+function = "HfpsLetterboxReset"
+original_bytes = [0xc7, 0x83, 0x9c, 0x00, 0x00, 0x00, 0x02, 0x00, 0x00, 0x00]
+[[hooks.parameters]]
+source = "rbx"
+type = "pointer"
+
+# CSWGuiDialogLetterbox::Draw (0x1002443b4): rbx = the letterbox, rbp = frame. The upper bar's
+# step and the store of its new height, 30 bytes, are the handler's. Windows 0x006A77A9.
+[[hooks]]
+address = 0x1002444a1
+type = "detour"
+function = "HfpsLetterboxTopStep"
+original_bytes = [
+    0x2b, 0x8b, 0x98, 0x00, 0x00, 0x00, 0x0f, 0x57, 0xc0, 0xf3, 0x0f, 0x2a, 0xc1, 0xf3, 0x0f,
+    0x58, 0xc0, 0xf3, 0x0f, 0x59, 0xc1, 0xf3, 0x0f, 0x2c, 0xc8, 0x01, 0xc1, 0x89, 0x4d, 0xe4,
+]
+skip_original_bytes = true
+[[hooks.parameters]]
+source = "rbx"
+type = "pointer"
+[[hooks.parameters]]
+source = "rbp"
+type = "pointer"
+
+# The lower bar's step and the stores of its new y and height, 38 bytes. Windows 0x006A7842.
+[[hooks]]
+address = 0x1002444e9
+type = "detour"
+function = "HfpsLetterboxBottomStep"
+original_bytes = [
+    0x2b, 0x8b, 0x90, 0x00, 0x00, 0x00, 0x0f, 0x57, 0xc0, 0xf3, 0x0f, 0x2a, 0xc1, 0xf3, 0x0f,
+    0x58, 0xc0, 0xf3, 0x0f, 0x59, 0xc1, 0xf3, 0x0f, 0x2c, 0xc8, 0x01, 0xc8, 0x89, 0x45, 0xdc,
+    0x8b, 0x43, 0x14, 0x29, 0xc8, 0x89, 0x45, 0xe4,
+]
+skip_original_bytes = true
+[[hooks.parameters]]
+source = "rbx"
+type = "pointer"
+[[hooks.parameters]]
+source = "rbp"
+type = "pointer"
+
+# ------------------------------------------------------------------------- movement after combat
+# CClientExoAppInternal::ProcessInput (0x1002f8226): r15 = the application, rbp = frame.
+# Windows 0x00623C16: the timer's reset value, 0.1, becomes 1.0 + 7/60, which marks D3M0's cycle.
+[[hooks]]
+address = 0x1002f9e49
+type = "simple"
+original_bytes = [0xcd, 0xcc, 0xcc, 0x3d]
+replacement_bytes = [0xef, 0xee, 0x8e, 0x3f]
+
+# Windows 0x00623B54, in two hooks: the timer as it was before this frame's subtraction,
+#   1002f9d43  movss [r15+0x3f0], xmm0
+[[hooks]]
+address = 0x1002f9d43
+type = "detour"
+function = "HfpsPostCombatBefore"
+original_bytes = [0xf3, 0x41, 0x0f, 0x11, 0x87, 0xf0, 0x03, 0x00, 0x00]
+[[hooks.parameters]]
+source = "r15"
+type = "pointer"
+
+# and the decision, in place of the game's three-way branch: 1 leaves through 0x1002f9e63 (the
+# handler having put the movement inputs back where they are to pass), 0 goes on to the game's
+# re-check at 0x1002f9db1. eax = the server creature's flag (+0x130), or 1.
+#   1002f9da3  jb 0x1002f9e63 ; test eax, eax ; je 0x1002f9e4d
+[[hooks]]
+address = 0x1002f9da3
+type = "detour"
+function = "HfpsPostCombatGate"
+original_bytes = [0x0f, 0x82, 0xba, 0x00, 0x00, 0x00, 0x85, 0xc0, 0x0f, 0x84, 0x9c, 0x00, 0x00, 0x00]
+skip_original_bytes = true
+consumed_exit_address = 0x1002f9e63
+exclude_from_restore = ["eax"]
+[[hooks.parameters]]
+source = "r15"
+type = "pointer"
+[[hooks.parameters]]
+source = "rbp"
+type = "pointer"
+[[hooks.parameters]]
+source = "eax"
+type = "int"
+
+# ------------------------------------------------------------------------- turning with the mouse
+# The mouse's movement of a frame, already in proportion to the frame's length, was multiplied
+# by the frame's length again, so a turn was slower the higher the frame rate. The step is a
+# fixed sixtieth of a second instead. Windows divides by a global (0x0078E564) taken here to be
+# 60, as for the scrolling textures above: not read from the Windows game.
+# CSWCameraFreeLook::Control (0x1002b2908). Windows 0x00639E01.
+#   1002b2a63  movss xmm2, [rbp-0x1c]   ->   mov eax, 1/60 ; movd xmm2, eax
+[[hooks]]
+address = 0x1002b2a63
+type = "replace"
+original_bytes = [0xf3, 0x0f, 0x10, 0x55, 0xe4]
+replacement_bytes = [0xb8, 0x89, 0x88, 0x88, 0x3c, 0x66, 0x0f, 0x6e, 0xd0]
+
+# CSWCModule::TurnCamera (0x1002912e0). Windows 0x0063FF0E.
+#   10029142e  mulss xmm0, [rbp-0x18]   ->   mov eax, 60.0 ; movd xmm3, eax ; divss xmm0, xmm3
+[[hooks]]
+address = 0x10029142e
+type = "replace"
+original_bytes = [0xf3, 0x0f, 0x59, 0x45, 0xe8]
+replacement_bytes = [0xb8, 0x00, 0x00, 0x70, 0x42, 0x66, 0x0f, 0x6e, 0xd8, 0xf3, 0x0f, 0x5e, 0xc3]

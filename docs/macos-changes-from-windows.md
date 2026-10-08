@@ -71,7 +71,7 @@ is. The Mac's own reference is [`macos/README.md`](../macos/README.md).
 | 32 | Level Up and Auto Level Up left wider after a change of size and back (item 2) | **ported 2026-10-09**: `overlays::RestoreGrown`, called every frame from `prompts.cpp`. The hand-off found nothing on the Mac that widens a button; `ShowBacked` in `overlays.cpp` does, since 2026-10-07. Not seen in the game: no save here can level up |
 | 33 | The Xbox-style HUD is on by default (item 3) | **done 2026-10-07**, a day before Windows. The hand-off found no Xbox-style HUD on the Mac; it is `macos/patches/kmrp-controller/xbox_hud.cpp`, since 2026-10-07 |
 | 34 | HD item icons are an option, on by default (item 4) | **done 2026-10-08**, the same id `hd-icons` and the same 351 files; the Mac leaves them out of the artwork folder it links for the game, where Windows does not unpack them |
-| 35 | High FPS Fixes (D3M0) as a third patch (item 5) | **nothing to port**: the patch has no hooks for the Mac executable |
+| 35 | High FPS Fixes (D3M0) as a third patch (item 5) | the installer's option is **not ported**. D3M0's patch has no hooks for the Mac executable; a Mac port exists since 2026-10-08 as a patch of its own, outside the package (`macos/README.md`, section 7b) |
 | 36 | Frame rates through the game's own resolution list (item 6) | **not done, the Mac's to decide**: the mechanism is Windows'. The Mac's list shows each size with its rate ("@ 120 Hz") as the game makes it |
 | 37 | Advanced Settings: names and order (item 8) | **done 2026-10-09** for the four the Mac has, in Windows' order and words: Native Controller Support (by RaymanGT), Area Map Marker Fixes, HD Item Icons, Debug Logs; rows, not tiles |
 

@@ -72,6 +72,7 @@ struct Panel {
     std::map<std::string, Control> controls;
     std::map<std::string, Extent> file;
     bool rowsPlaced = false;
+    int width = 0, height = 0;   // the size in force when the panel was loaded, or last laid out for
 };
 struct State {
     std::map<void*, Panel> panels;
@@ -380,6 +381,16 @@ bool Relayout(void* manager, int width, int height) {
     for (auto& item : state.panels) {
         void* panel = item.first;
         if (!Readable(panel, 0x60) || Field<void*>(panel, kPanelManager) != manager) continue;
+        // A panel the game made for this size is the game's: on a change of size it makes the
+        // HUD, the dialogue and the message box again (CGuiInGame::ResetInterfaceForSize), from
+        // the new size's files and with its own code's additions already for the new size.
+        // Until 2026-10-08 those were laid out here as well, as if what the code had added were
+        // the old size's: the conversation's message and reply list came out wider than the
+        // screen and its panel at the layout file's place, a black block over most of the
+        // picture (seen after 1512x982 to 1920x1200, and by the maintainer after two changes).
+        if (item.second.width == width && item.second.height == height) continue;
+        item.second.width = width;
+        item.second.height = height;
         Gff gff;
         if (!LoadLayout(item.second.resource, gff)) continue;
         Extent root;
@@ -483,6 +494,7 @@ extern "C" __attribute__((visibility("default"))) void KmrpPanelLayoutStart(void
     Panel& entry = TheState().panels[panel];
     entry = Panel{};
     entry.resource = name;
+    SizeNow(entry.width, entry.height);
     // The file the engine is about to load, for the size in force: the baseline each control's
     // later position is compared with.
     Gff gff;
