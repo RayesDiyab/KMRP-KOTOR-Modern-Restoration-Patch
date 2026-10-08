@@ -329,6 +329,16 @@ def badge_shapes(files: Path = OUT / "files") -> str:
         gui = files / target.gui
         if not gui.exists():
             gui = VANILLA_GUI / target.gui       # a screen this patch leaves as the game has it
+        if target.gui == "mainmenu.gui":
+            # The main menu's badges are made from the file the game loads above
+            # 640x480 (build(), MAIN_MENU_LOADED), not from mainmenu.gui: there Quit is
+            # 210x22 with no corner art, like the other four, where mainmenu.gui has it
+            # 210x27 with a 2 px border. Until 2026-10-09 this table read mainmenu.gui,
+            # gave Quit's texture, which is the other rows' byte for byte, a made area
+            # of 206x23, and the module drew its A in those proportions: 39 wide and
+            # 43 tall beside KMRP at 3440x1440 where the other rows' is 39 by 41 (the
+            # maintainer saw it, "stretched vertically").
+            gui = VANILLA_GUI / MAIN_MENU_LOADED[0]
         if target.size_like or not gui.exists():
             continue                # made for another control's size, or not a screen of the game's
         if target.gui not in cache:

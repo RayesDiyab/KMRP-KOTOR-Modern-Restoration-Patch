@@ -161,10 +161,61 @@ bool Rumble(int index, WORD low, WORD high)
 }
 }
 
+// The game in front when it starts.
+//
+// The pad is read only while a window of the game is the foreground one (below), as
+// the keyboard is by Windows itself. Windows does not always make a newly started
+// program's window the foreground one: where the program that started it did not
+// hand the foreground over, the game drew its intro movies full screen and was not
+// in front. Measured 2026-10-09, the scratch game started by a script: full screen
+// for 45 seconds with another program's window the foreground one throughout, and
+// the maintainer reported the same from play (the pad would not skip a movie until
+// the mouse had been clicked, "like the window isnt focused but its fullscreen").
+//
+// So, until the game has been in front once and for its first 20 seconds only, its
+// visible window is brought to the front. Never after that: a player who switches
+// away is left alone. The thread is attached to the foreground window's for the
+// call, which is what lets a window that is not in front bring itself there.
+BOOL CALLBACK FindGameWindowK1(HWND window, LPARAM result)
+{
+    DWORD pid = 0;
+    GetWindowThreadProcessId(window, &pid);
+    RECT rect{};
+    if (pid != GetCurrentProcessId() || !IsWindowVisible(window) || GetWindow(window, GW_OWNER) ||
+        !GetClientRect(window, &rect) || rect.right < 320 || rect.bottom < 240) return TRUE;
+    *reinterpret_cast<HWND*>(result) = window;
+    return FALSE;
+}
+
+void TakeForegroundAtStartK1(bool focused)
+{
+    static bool done = false;
+    static DWORD first = 0, next = 0;
+    if (done) return;
+    if (focused) { done = true; return; }
+    const DWORD now = GetTickCount();
+    if (!first) first = now ? now : 1;
+    if (now - first > 20000) { done = true; return; }
+    if (static_cast<LONG>(now - next) < 0) return;
+    next = now + 500;
+    HWND ours = nullptr;
+    EnumWindows(FindGameWindowK1, reinterpret_cast<LPARAM>(&ours));
+    if (!ours || IsIconic(ours)) return;
+    HWND front = GetForegroundWindow();
+    const DWORD frontThread = front ? GetWindowThreadProcessId(front, nullptr) : 0, here = GetCurrentThreadId();
+    const bool attached = frontThread && frontThread != here && AttachThreadInput(here, frontThread, TRUE);
+    BringWindowToTop(ours);
+    SetForegroundWindow(ours);
+    if (attached) AttachThreadInput(here, frontThread, FALSE);
+}
+
 bool ReadControllerK1(XINPUT_STATE& state)
 {
     InitSdl();
     DWORD foregroundPid = 0;
+    GetWindowThreadProcessId(GetForegroundWindow(), &foregroundPid);
+    TakeForegroundAtStartK1(foregroundPid == GetCurrentProcessId());
+    foregroundPid = 0;
     GetWindowThreadProcessId(GetForegroundWindow(), &foregroundPid);
     const bool focused = foregroundPid == GetCurrentProcessId();
     const DWORD now = GetTickCount();
