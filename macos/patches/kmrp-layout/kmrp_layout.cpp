@@ -222,6 +222,30 @@ std::vector<Group> Groups(int width, int height, uintptr_t nearPage) {
     AddPopupFit(groups, nearPage);
     AddGrantedPopup(groups, nearPage);
     AddDialogueReplies(groups, nearPage);
+    // The message popup's widening step. CSWGuiMessageBox::FixMessageLabel (0x100306552) grows a
+    // box whose text does not fit by 40 px of width and one line of height per pass, up to its
+    // two caps. The caps follow the screen (800 and 450 at 720 lines, the widescreen patch's
+    // InstallMessageBoxLayout) and a line is the font's, but the 40 was left: at 3840x2160 a
+    // pass added 40 px across and about 66 down, so a long text made a tall, narrow box where
+    // 1280x720 makes a wide one (the maintainer, 2026-10-08, on a 4K television: "doesn't
+    // expand horizontally as wide as normally"). The step is 40 at 720 lines too now, and the
+    // panel moves left by half of it as before:
+    //   mov eax, step ; add [rbp-0x58], eax ; add edi, eax ; mov [rbp-0x30], edi ;
+    //   sar eax, 1 ; sub [rbp-0x38], eax
+    // in the 18 bytes of  mov eax, 0x28 ; add [rbp-0x58], eax ; add edi, 0x28 ;
+    // mov [rbp-0x30], edi ; add dword [rbp-0x38], -0x14.  eax is not read before the call that
+    // follows, and nothing jumps into these bytes.
+    {
+        const int step = height > 720 ? (40 * height + 360) / 720 : 40;
+        Group popupStep{"message popup widening step", {
+            {0x1003068a0,
+             Bytes({0xb8, 0x28, 0x00, 0x00, 0x00, 0x01, 0x45, 0xa8, 0x83, 0xc7, 0x28, 0x89, 0x7d, 0xd0, 0x83, 0x45, 0xc8, 0xec}),
+             Join({Bytes({0xb8}), Int32(step),
+                   Bytes({0x01, 0x45, 0xa8, 0x01, 0xc7, 0x89, 0x7d, 0xd0, 0xd1, 0xf8, 0x29, 0x45, 0xc8})})},
+        }};
+        popupStep.own = true;
+        groups.push_back(popupStep);
+    }
     return groups;
 }
 
@@ -280,8 +304,8 @@ void ApplyLayoutForSize(int width, int height) {
             }
         }
     }
-    if (!g_widescreenOwnsLayout)
-        for (const Group& group : groups) Apply(group, previous);
+    for (const Group& group : groups)
+        if (!g_widescreenOwnsLayout || group.own) Apply(group, previous);
     s_width = width;
     s_height = height;
 }

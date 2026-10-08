@@ -111,6 +111,8 @@ other pads. The controls are KMRP's, the same as on Windows: the full list is on
   start, as long as the display then connected supports it; otherwise the game starts at
   that display's own size. The list is whatever the connected display supports when the game
   starts: connect another display, start the game, and it offers that display's sizes.
+  On a display of 4K or more (3840x2160), the installer turns **Anti-aliasing off**: with it
+  on, the main menu stutters there. You can turn it back on in the game's graphics options.
   At Retina, set **Anti-aliasing to 2x** in the game's graphics options: on an M5, 6x at
   3024x1964 ran at about 30 fps in game and 2x at about 120.
 - **Without the map-note corrections, the HD icons or controller support, and High FPS Fix
@@ -127,7 +129,7 @@ other pads. The controls are KMRP's, the same as on Windows: the full list is on
   asks whether the game should start at the resolution macOS is set to or at the Retina
   size, then asks before it installs; add `--resolution current|native`, `--size 2560x1440`,
   `--no-map-notes`, `--no-hd-icons`, `--no-controller`, `--high-fps` or `--no-high-fps`,
-  `--debug-logs`, `--yes` or
+  `--keep-anti-aliasing`, `--debug-logs`, `--yes` or
   `--game "/path/to/Knights of the Old Republic.app"`. `uninstall` and `status` work the same
   way.
 
@@ -150,7 +152,8 @@ A file you changed after installing is left alone and listed in the log.
   for every resolution inside it), while Native Controller Support is on the controller's
   (`kmrp-controller.dylib`, which also works in a game without KMRP), and while High FPS Fix
   is on High FPS Fixes (`high-fps-fixes.dylib`, which works by itself too).
-- `swkotor.ini`: the resolution the game starts at, under `[Graphics Options]`. Uninstall
+- `swkotor.ini`: the resolution the game starts at, under `[Graphics Options]`, and on a 4K
+  or larger display `Anti Aliasing=0`. Uninstall
   puts back what was there before, unless you have chosen another resolution in the game
   since, which stays.
 - Aspyr's launcher is set to start the game full screen. Uninstall puts that back too,

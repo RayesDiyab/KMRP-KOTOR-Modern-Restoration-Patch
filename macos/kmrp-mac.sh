@@ -2,7 +2,8 @@
 # KMRP for macOS -- installer, uninstaller and status.
 #
 #   kmrp-mac.sh install   [--game "<path>/Knights of the Old Republic.app"] [--no-map-notes] [--no-hd-icons]
-#                         [--no-controller] [--high-fps | --no-high-fps] [--debug-logs]
+#                         [--no-controller] [--high-fps | --no-high-fps] [--keep-anti-aliasing]
+#                         [--debug-logs]
 #                         [--resolution current|native | --size <W>x<H>] [--yes]
 #   kmrp-mac.sh uninstall [--game ...] [--yes]
 #   kmrp-mac.sh status    [--game ...] [--brief]
@@ -52,6 +53,7 @@ MAP_NOTES=1
 HD_ICONS=1       # --no-hd-icons: the patch's hd-icons option, the bundled HD icon pack (since 2026-10-08)
 CONTROLLER=1   # controller support: its own patch, kmrp-controller, and its settings file (Windows' switch too)
 HIGH_FPS=""    # High FPS Fixes for the Mac, a fifth patch: 1, 0, or unset for Windows' rule, on where the display runs above 60 Hz
+KEEP_AA=0      # --keep-anti-aliasing: the game's Anti Aliasing setting is left as it is on a 4K display too
 DEBUG_LOGS=0   # the module's diagnostic log (Windows' third option, off unless asked for)
 RESOLUTION=""
 SIZE=""
@@ -177,6 +179,8 @@ display_geometry() {
     # display has twice as many pixels as points. system_profiler is only a fallback: it
     # omits the "UI Looks like" point size while the display sleeps.
     local g
+    # For the installer's own test, which has to give the same answer on any Mac.
+    if [[ "${KMRP_DISPLAY_GEOMETRY:-}" == <->" "<->" "<->" "<-> ]]; then print -r -- "$KMRP_DISPLAY_GEOMETRY"; return; fi
     g=$(osascript -l JavaScript -e 'ObjC.import("CoreGraphics"); var d = $.CGMainDisplayID(); var b = $.CGDisplayBounds(d).size; var m = $.CGDisplayCopyDisplayMode(d); [b.width, b.height, $.CGDisplayModeGetPixelWidth(m), $.CGDisplayModeGetPixelHeight(m)].join(" ")' 2>/dev/null) || g=""
     if [[ "$g" == <->" "<->" "<->" "<-> ]]; then print -r -- "$g"; return; fi
     system_profiler SPDisplaysDataType 2>/dev/null | awk '
@@ -879,6 +883,19 @@ do_install() {
         set_ini ForceWidth "$WIDTH"
         set_ini ForceHeight "$HEIGHT"
     fi
+    # Anti-aliasing off on a display of 3840x2160 pixels or more (2026-10-09, at the maintainer's
+    # word). Measured on a 4K television at 60 Hz, the main menu, whose layers of smoke make it
+    # the game's heaviest scene: 59 frames a second at 2x, a frame in twenty over the 16.7 ms a
+    # refresh allows, which V-Sync shows as a stutter; 82 with it off. Frame-buffer effects and
+    # soft shadows made no difference (60 and 61). Recorded like the size: uninstall puts back
+    # what was there, unless the player has chosen another setting in the game since.
+    if (( ! KEEP_AA )) && (( ${#geo} >= 4 )) && (( geo[3] * geo[4] >= 3840 * 2160 )); then
+        local aa; aa=$(ini_value "Anti Aliasing")
+        if [[ -n "$aa" && "$aa" != 0 ]]; then
+            say "Turning anti-aliasing off for this ${geo[3]}x${geo[4]} display (it was ${aa}x)..."
+            set_ini "Anti Aliasing" 0
+        fi
+    fi
     # Nothing is written for the game's Screen Resolution list: it is what the connected display
     # reports, as on Windows since 2026-10-07. (For one day a checklist in KMRP Installer wrote
     # its choice beside KOTOR_Exe as kmrp-resolutions.txt; the list of such an install is removed
@@ -1159,6 +1176,7 @@ while (( $# )); do
         --no-controller) CONTROLLER=0 ;;
         --high-fps) HIGH_FPS=1 ;;
         --no-high-fps) HIGH_FPS=0 ;;
+        --keep-anti-aliasing) KEEP_AA=1 ;;
         --debug-logs) DEBUG_LOGS=1 ;;
         --resolution)
             RESOLUTION=${2:?--resolution needs current or native}; shift

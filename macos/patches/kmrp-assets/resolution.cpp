@@ -96,6 +96,36 @@ void SizeSurface(int width, int height) {
     else fprintf(stderr, "[KMRP] surface sized %dx%d\n", width, height);
 }
 
+// The mouse after a switch. Aspyr's window object keeps the game's size (+0x18, +0x1c) and, as
+// two doubles (+0x8, +0x10), how many game pixels a point of the window is; every mouse position
+// SDL reports in window points is multiplied by them (0x100025802). They are worked out when the
+// window is set up (0x10002537c, from 0x100024c24) and were not after a change of resolution in
+// the game: started at 1512x982 and changed to 3840x2160 on a 4K television, the pointer reached
+// 1512x982 of the screen and nothing below or right of that could be pointed at (the
+// maintainer, 2026-10-08: "it went to almost the middle of the screen"; the same on the
+// built-in display at 3024x1964, where it reached half). The window is found as the port's
+// own display-settings routine finds it (0x10003ecf6), given the new size and asked for its
+// ratio again.
+void RefreshMouseScale(int width, int height) {
+    const auto currentWindow = reinterpret_cast<void* (*)()>(0x1000c0240UL);
+    const auto windowData = reinterpret_cast<void* (*)(void*, const char*)>(0x1000be310UL);
+    const auto mainWindow = reinterpret_cast<void* (*)()>(0x100028518UL);
+    const auto computeScale = reinterpret_cast<void (*)(void*)>(0x10002537cUL);
+    void* sdl = currentWindow();
+    char* window = sdl ? static_cast<char*>(windowData(sdl, "H")) : nullptr;
+    if (!window) window = static_cast<char*>(mainWindow());
+    if (!window || !*reinterpret_cast<void**>(window)) return;
+    int& gameWidth = *reinterpret_cast<int*>(window + 0x18);
+    int& gameHeight = *reinterpret_cast<int*>(window + 0x1c);
+    const double beforeX = *reinterpret_cast<double*>(window + 0x8), beforeY = *reinterpret_cast<double*>(window + 0x10);
+    const int wasWidth = gameWidth, wasHeight = gameHeight;
+    gameWidth = width;
+    gameHeight = height;
+    computeScale(window);
+    fprintf(stderr, "[KMRP] mouse scale %dx%d %.3f,%.3f -> %dx%d %.3f,%.3f\n", wasWidth, wasHeight, beforeX, beforeY,
+            width, height, *reinterpret_cast<double*>(window + 0x8), *reinterpret_cast<double*>(window + 0x10));
+}
+
 }  // namespace
 
 namespace kmrp {
@@ -129,6 +159,7 @@ int KmrpModeSwitch(int width, int height, int depth, int windowed, int flag) {
     }
     ReInitAurora(width, height, depth, windowed, flag);
     SizeSurface(width, height);
+    RefreshMouseScale(width, height);
     return 1;
 }
 

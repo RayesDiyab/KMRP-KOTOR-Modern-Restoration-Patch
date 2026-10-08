@@ -102,7 +102,9 @@ def main() -> int:
         shutil.copy2(clean_exe, exe)
         vanilla = sha(exe)
         exe_size = exe.stat().st_size
-        env = dict(os.environ, HOME=str(home))
+        # The display the installer is told it runs on: a 14" MacBook Pro's, so that a round is
+        # the same on any Mac; the first round's is a 4K television's (anti-aliasing).
+        env = dict(os.environ, HOME=str(home), KMRP_DISPLAY_GEOMETRY="1512 982 3024 1964")
         script = package / "kmrp-mac.sh"
 
         def run(*args: str) -> subprocess.CompletedProcess:
@@ -162,7 +164,13 @@ def main() -> int:
             if own_section:
                 options_ini.parent.mkdir()
                 options_ini.write_bytes(own_section)
+            env["KMRP_DISPLAY_GEOMETRY"] = "1920 1080 3840 2160" if mode == "fresh" else "1512 982 3024 1964"
             result = run("install", "--size", size, "--yes", *options)
+            # Anti-aliasing: off on a display of 3840x2160 or more, left alone on any other;
+            # uninstall's check below (the file as it was) covers putting it back.
+            want_aa = "0" if mode == "fresh" else "2"
+            if result.returncode == 0 and ini_value("Anti Aliasing") != want_aa:
+                failures.append(f"{size}: Anti Aliasing is {ini_value('Anti Aliasing')} after install, not {want_aa}")
             if result.returncode != 0:
                 failures.append(f"{size}: install failed: {result.stderr.strip()[-300:]}")
                 continue

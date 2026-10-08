@@ -130,6 +130,19 @@ void UniformBadge(long areaWidth, long areaHeight, long madeWidth, long madeHeig
         width = static_cast<int>(areaWidth);
         height = static_cast<int>((areaWidth * madeHeight + madeWidth / 2) / madeWidth);
     }
+    // Never less than three quarters of the area's height. A texture is as wide as the button
+    // it was made for and the glyph is a small part of it, so where the layout in force has
+    // made a button much taller in proportion, fitting the whole texture across it leaves a
+    // glyph a fraction of the button's height: the container's three buttons, made for a fill
+    // area of 273x10, had badges a quarter as tall as their buttons in KMRP's sets (the
+    // maintainer, 2026-10-08, at 3840x2160: "too small"). The label is then wider than its
+    // button, as it was before 2026-10-08, and is placed by its glyph. The main menu's Quit,
+    // which the fit both ways is for, is at 0.79 of its row and is not touched.
+    const int least = static_cast<int>((areaHeight * 3 + 2) / 4);
+    if (height < least) {
+        height = least;
+        width = static_cast<int>((static_cast<long>(least) * madeWidth + madeHeight / 2) / madeHeight);
+    }
 }
 
 // Whether a texture made for one area is drawn in its own proportions when stretched over

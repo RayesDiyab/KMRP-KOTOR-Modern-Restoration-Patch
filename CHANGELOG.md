@@ -129,6 +129,61 @@ everything since 1.0, newest first, each as it was written on its day: a later
 entry corrects or replaces an earlier one, and each says what was and was not
 seen in the game.
 
+- **macOS installer: anti-aliasing off on a 4K display** (2026-10-09, at the maintainer's
+  word, after the main menu still stuttered on a 4K television at 60 Hz with the repair below
+  in). Measured there, the main menu over twelve seconds: 59 frames a second at the game's 2x
+  anti-aliasing, with a frame in twenty over the 16.7 ms a refresh allows; **82 with
+  anti-aliasing off**; 60 and 61 with frame-buffer effects and with soft shadows off. Without
+  the High FPS patch the menu ran at 56 to 63, the same edge, so the patch is not the cause
+  there. `kmrp-mac.sh` writes `Anti Aliasing=0` when the main display has 3840x2160 pixels or
+  more, records it like the size (uninstall puts back what was there, unless the player has
+  chosen again since), and leaves it with `--keep-anti-aliasing`. `Test-MacInstaller.py` is
+  told its display (`KMRP_DISPLAY_GEOMETRY`), so its rounds are the same on any Mac, and has
+  one round on a 4K display. Not covered: a game installed on a smaller display and played
+  on a 4K one later.
+
+- **macOS: High FPS Fixes no longer slows the main menu** (2026-10-09, reported by the
+  maintainer: "very low frame rate" on the menu at 3840x2160 on a 60 Hz television, high in
+  the game). Measured on the main menu at 3024x1964, five seconds of frames each: 83 frames a
+  second without the patch, **70 with it**; at 1512x982 both are at the display's 120. The
+  menu's smoke is what the frame rate hangs on at a high resolution, and the patch emitted
+  116 particles a second where the unpatched game emitted 100 at the same frame rate
+  (counted with a module made for it): D3M0's rule emits an emitter's rate exactly, the
+  game's own drops the part of a particle left over. With V-Sync at 60 Hz, a little under 60
+  becomes 30. `HfpsFountainEmit` (`macos/patches/high-fps-fixes/high_fps_fixes.cpp`) now runs
+  the game's own rule in steps of a sixtieth of a second, whatever the frame rate: what the
+  game emits at 60 frames a second. **Measured after it: 80 frames a second** on the same
+  menu. No particle effect in the game was looked at with it; at 3840x2160 see the entry
+  above. This
+  is where the Mac's port departs from D3M0's on purpose.
+
+- **macOS: four repairs from play at 3840x2160 on a television** (2026-10-08, reported by
+  the maintainer with photographs; **all four seen right by him on the same television on
+  2026-10-09**, "all is good").
+  - *The pointer after a change of resolution in the game* (KMRP's patch,
+    `kmrp-assets/resolution.cpp`, `RefreshMouseScale`). Aspyr's window keeps how many game
+    pixels a point of the window is, worked out when the window is set up (`0x10002537C`) and
+    not again after a switch: started at 1512x982 and changed to 3840x2160 the pointer reached
+    only the first size's part of the screen. The window is given the new size and asked for
+    the ratio again after every switch; the old and new ratio are printed.
+  - *The message popup's widening step* (KMRP's patch, `kmrp-layout/kmrp_layout.cpp`). The
+    game grows a box whose text does not fit by 40 px of width and one line of height per
+    pass; the 40 was never scaled, so at 4K a long text made a tall, narrow box. The step is
+    `40 * height / 720` now. Item 24 of `docs/windows-changes-from-macos.md`: Windows has the
+    same loop.
+  - *Badges never less than three quarters of their button's height* (the controller patch,
+    `overlays.cpp`). The rule taken from Windows that morning, as large as fits both ways,
+    left the container's three badges a quarter of their buttons' height, at every size:
+    their textures are strips 27 times as wide as tall. Item 23 of the same document.
+  - *The combat-mode message* (the controller patch, `xbox_hud.cpp`, `CombatMessage`). The
+    button's picture was 22 px and the gaps 9, made beside a 16 px font, and the two texts'
+    widths were the engine's, to the nearest 10: at 4K the picture was a dot and the first
+    text broke in two lines. All of it comes from the font's line height now, as the pause
+    notice's does.
+  Left as they are, at the maintainer's word: the journal and experience icons, top centre.
+  Not found by reading: badges on their captions in a 1024x768 window, which a forced size
+  the display does not have fell back to.
+
 - **macOS: High FPS Fixes in the installer, and Advanced Settings as tiles** (2026-10-08, at
   the maintainer's request: the installer ships the patches that work together). The Mac port
   of D3M0's High FPS Fixes is a fifth patch of the package, `High FPS Fixes (macOS).kpatch`:

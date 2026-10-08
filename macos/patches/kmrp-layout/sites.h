@@ -17,6 +17,8 @@ struct Site {
 struct Group {
     const char* name;
     std::vector<Site> sites;
+    // KMRP's alone: written also when the widescreen patch writes the layout's other sites.
+    bool own = false;
 };
 
 std::vector<uint8_t> Bytes(std::initializer_list<uint8_t> bytes);

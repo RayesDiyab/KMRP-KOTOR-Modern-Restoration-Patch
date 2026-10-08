@@ -972,6 +972,7 @@ loaded by hand.
 | Source | `macos/patches/high-fps-fixes/`: `high_fps_fixes.cpp`, `letterbox_input.cpp`, `kotor1-steam-aspyr-macos.hooks.toml` |
 | Build | `python macos/tools/make_high_fps_patch.py --exe CLEAN_KOTOR_EXE --out "High FPS Fixes (macOS).kpatch"`; it holds every `original_bytes` against the unmodified game and refuses overlapping hooks before it builds |
 | Patch | id `high-fps-fixes` (D3M0's, with his list of conflicts), name "High FPS Fixes (macOS)", 26 hooks: 19 detours, 3 replaced, 4 simple |
+| Where it departs from D3M0's | particle fountains (2026-10-09): the game's own emission rule run in steps of a sixtieth of a second, not D3M0's exact rate, which cost the main menu 16 per cent of its frame rate at 3024x1964 (83 without the patch, 70 with D3M0's rule, 80 with this) |
 | What it makes time-based | the dialogue letterbox, movement after combat, the jitter of dangly meshes and leaves, UV animation, the lightsaber's and dangly meshes' gates, water, cycling textures, the particle fountain's budget, camera shake, the character preview's pause |
 | KOTOR 2 | not ported: the game is not installed here |
 
@@ -994,7 +995,7 @@ conflicts list.
 | Driver compatibility, DPI and NVIDIA settings, Large Address Aware | Windows code (K1DC is a `dinput8.dll` proxy with an ASI plugin for the 32-bit `swkotor.exe`); the Mac build is 64-bit. *Corrected 2026-09-29:* this called them Direct3D-specific, but KOTOR renders with OpenGL on Windows too, and K1DC repairs an OpenGL lighting path. Whether the Mac port has the same fallback is **not yet checked**: this Mac's OpenGL (Apple M5, 2.1 on Metal) offers neither `GL_NV_register_combiners` nor `GL_ATI_text_fragment_shader`, the two old paths the executable names, but it does offer the ARB fragment programs and GLSL, which the executable also names |
 | Movie fixes | Aspyr's Bink 2 player pillarboxes and switches no display mode (checked in play) |
 | `swkotor.ini` beyond the size | only the two keys of section 2 are written: `Width` and `Height`, or `ForceWidth` and `ForceHeight` for a size the display does not have. (Until 2026-10-04 it was three keys, `UseGuiFileLayouts`, `ForceWidth` and `ForceHeight`, and `Width`/`Height` were left alone) |
-| Anti-aliasing and other graphics settings | the player's; the README recommends 2x at native (section 5) |
+| Graphics settings other than anti-aliasing on a 4K display | the player's. Anti-aliasing is the player's too, and the README recommends 2x at native (section 5), except on a display of 3840x2160 pixels or more, where the installer turns it off since 2026-10-09 (`Anti Aliasing=0`, recorded and put back like the size; `--keep-anti-aliasing` leaves it). Measured on a 4K television at 60 Hz, the main menu: 59 frames a second at 2x, 82 with it off; frame-buffer effects and soft shadows off made 60 and 61 |
 | Update check | the Windows installer's; KMRP Installer for the Mac has none |
 | Anything in the game's override folder | since 2026-10-04 (section 2); a mod's files there keep their place, and KMRP's bundled third-party art yields to them |
 

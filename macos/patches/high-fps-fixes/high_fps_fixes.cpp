@@ -287,52 +287,65 @@ HFPS_EXPORT int HfpsCycleTexture(char* owner) {
     return 1;
 }
 
-// FountainEmitter::Update, 0x10018f9de: r15 the emitter, rbp the function's frame. Windows
-// K1AccumulateParticleTime and K1CalculateParticleBudget (0x004973F7, 0x004974AB) in one,
-// because the randomised rate lives in xmm3 between the two on the Mac: the time is
-// accumulated (+0xe4; Windows +0xCC), the rate is spread by the game's own two rand() calls in
-// their order, and the budget is D3M0's, with a fraction carried per emitter. Returns 1 for no
-// particle this frame (the function is left through its epilogue) and 0 with the budget in
-// [rbp-0x40], which the patched loop tail (0x10018fb5d) counts down.
+// FountainEmitter::Update, 0x10018f9de: r15 the emitter, rbp the function's frame. In the place
+// of Windows' K1AccumulateParticleTime and K1CalculateParticleBudget (0x004973F7, 0x004974AB),
+// one handler, because the randomised rate lives in xmm3 between the two on the Mac. Returns 1
+// for no particle this frame (the function is left through its epilogue) and 0 with the budget
+// in [rbp-0x40], which the patched loop tail (0x10018fb5d) counts down.
+//
+// The game's own rule, which depends on the frame rate: the frame's time is added to the
+// emitter's (+0xe4; Windows +0xCC); once that reaches one particle's time, 1 / rate, it emits
+// (int)(time * rate') % ((int)rate' + 1) particles, rate' being the rate spread by two rand()
+// calls, and sets the time to 0, dropping the part of a particle left over. So it emits fewer
+// than the rate, and fewer still the shorter a frame is.
+//
+// D3M0's patch emits the rate exactly, carrying the fraction. Until 2026-10-09 this did the
+// same, and the Mac paid for it: on the main menu, whose smoke is what the frame rate hangs
+// on at a high resolution, it emitted 116 particles a second where the unpatched game emitted
+// 100 at the same frame rate (counted at 3024x1964), and the menu ran at 70 frames a second
+// instead of 83. On a 4K television at 60 Hz that was the difference between 60 and, with
+// V-Sync, 30 (the maintainer saw it: "very low frame rate" on the menu only).
+//
+// So the Mac keeps the game's rule and takes the frame rate out of it another way: the rule
+// is run in steps of one sixtieth of a second, however long the frames are. The time not yet
+// in a step is kept per emitter (ParticleState.fraction, in seconds here), the game's own
+// field holds the stepped time as it always did, and what comes out is what the game emits at
+// 60 frames a second, at any frame rate.
 HFPS_EXPORT int HfpsFountainEmit(char* emitter, char* frame) {
     const float dt = At<float>(frame, -0x2c);
-    float rate = At<float>(frame, -0x40);
-    float& accumulated = At<float>(emitter, 0xe4);
-    if (!PositiveFinite(dt) || !PositiveFinite(rate)) return 1;
-    const double total = Positive(accumulated) + dt;
-    const float stored = static_cast<float>(total > 3.0e38 ? 3.0e38 : total);
-    accumulated = stored;
-    if (!(static_cast<double>(stored) * rate >= 1.0)) return 1;
-
-    const int spread = _mm_cvttss_si32(_mm_set_ss(At<float>(emitter, 0x108)));
-    if (spread > 0) {
-        const int sign = GameRand();
-        const int roll = GameRand();
-        float offset = static_cast<float>(roll % spread);
-        if ((sign & 1) == 0) offset = -offset;
-        rate += offset;
-        if (0.0f > rate) rate = 0.0f;
-    }
-
-    const double seconds = Positive(accumulated);
-    const float baseRate = At<float>(emitter, 0x70);
+    const float rate = At<float>(frame, -0x40);
+    if (!PositiveFinite(dt) || !PositiveFinite(rate) || static_cast<int>(rate) <= 0) return 1;
+    constexpr double kStep = 1.0 / 60.0;
+    ParticleState& state = ParticleFor(reinterpret_cast<std::uintptr_t>(emitter));
+    double pending = state.fraction + dt;
+    if (!(pending >= 0.0)) pending = 0.0;
+    if (pending > 8 * kStep) pending = 8 * kStep;       // a hitch is not made up for in particles
+    float& stepped = At<float>(emitter, 0xe4);
     std::int32_t budget = 0;
-    if (PositiveFinite(baseRate)) {
-        const double baseProgress = seconds * baseRate;
-        const double pending = std::fmod(baseProgress, 1.0);
-        const double opportunities = baseProgress - pending;
-        accumulated = StoreRemainder(pending / baseRate, 1.0 / baseRate);
-        ParticleState& state = ParticleFor(reinterpret_cast<std::uintptr_t>(emitter));
-        if (PositiveFinite(rate)) {
-            const double credit = opportunities * rate / baseRate + state.fraction;
-            const double fraction = std::fmod(credit, 1.0);
-            const double whole = credit - fraction;
-            state.fraction = fraction;
-            const std::int32_t limit = rate >= 4095.0f ? 4096 : static_cast<std::int32_t>(rate) + 1;
-            budget = whole >= limit ? limit : static_cast<std::int32_t>(whole);
+    while (pending >= kStep) {
+        pending -= kStep;
+        const double time = Positive(stepped) + kStep;
+        stepped = static_cast<float>(time);
+        if (time * rate < 1.0) continue;
+        // The rate's spread, by the game's own two rand() calls in their order.
+        float spreadRate = rate;
+        const int spread = _mm_cvttss_si32(_mm_set_ss(At<float>(emitter, 0x108)));
+        if (spread > 0) {
+            const int sign = GameRand();
+            const int roll = GameRand();
+            float offset = static_cast<float>(roll % spread);
+            if ((sign & 1) == 0) offset = -offset;
+            spreadRate += offset;
+            if (0.0f > spreadRate) spreadRate = 0.0f;
         }
+        const std::int32_t whole = static_cast<std::int32_t>(spreadRate);
+        const std::int32_t count = static_cast<std::int32_t>(static_cast<float>(time) * spreadRate) % (whole + 1);
+        if (count > 0) budget += count;
+        stepped = 0.0f;
     }
+    state.fraction = pending;
     if (budget <= 0) return 1;
+    if (budget > 4096) budget = 4096;
     At<std::int32_t>(frame, -0x40) = budget;
     return 0;
 }

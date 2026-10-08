@@ -91,6 +91,9 @@ does it, checked as stated), **doc** (a Windows document to correct).
 | 20 | Xbox-style HUD: an action slot that was parked comes back as it was, so a slot the game had shown does not stay missing | **built on Windows, 2026-10-09**, not seen in the game: `g_shownWhenParked` in `src/controller-native/K1XboxHud.cpp`, at the three places a parked slot's button is hidden or shown again |
 | 21 | Xbox-style HUD: the trigger's picture in the pause box drawn huge for a frame each time the game rewrites the pause reason | **built on Windows, 2026-10-09**: two hooks on `CSWGuiInGamePause::SetPauseReason` (`0x006C00C0`, `0x006C02A4`; `KmrpXboxHudPauseReasonK1` and `KmrpXboxHudPauseReasonDoneK1` in `src/controller-native/K1XboxHud.cpp`). The pause box seen as one line left of the minimap with them; the one-frame fault itself was not looked for before or after |
 | 22 | After a change of resolution in the game, the conversation's black panel over most of the picture | **built on Windows, 2026-10-09**, not seen in the game before or after: `KmrpRuntimeLayoutDimensions` in `src/controller-native/K1RuntimeLayout.cpp` leaves a panel loaded at the size it is laying out for (`Panel::width`, `height`, from the manager's size at `KmrpPanelLayoutStartK1`) |
+| 23 | Controller badges: never less than three quarters of the button's height (the container's badges were a quarter of it under the rule of master `843320b`) | **to do**: the same rule and the same table are Windows'; not looked at on Windows |
+| 24 | Message popup: the widening step follows the screen (40 px at 720 lines), so a long text no longer makes a tall, narrow box at 4K | **to do**: the same loop and the same unscaled 40 on Windows (`0x006253A0`); not looked at on Windows |
+| 25 | Xbox-style HUD: the combat-mode message's picture, gaps and widths from the font's line height (the picture was 22 px at any size, and the first text broke in two lines at 4K) | **to do**: `K1XboxHud.cpp` has the same 22 and 9; not looked at on Windows |
 
 ## 1. Message popups fitted to their contents
 
@@ -854,3 +857,88 @@ set where 407 had been.
 the same test: skip a tracked panel whose layout was loaded after the size became the new one.
 If Windows records the panel at the same point (the start of its load from the layout), the
 size in force then is the one to compare.
+
+## 23. Controller badges: a least size
+
+**Reported** by the maintainer on the Mac on 2026-10-08, at 3840x2160 on a television with a
+PlayStation pad: the badges on the container's three buttons (Get Items, Switch To Give Item,
+Close) were "too small". Fixed on the Mac that evening; **seen right by him on the same
+television on 2026-10-09.**
+
+**What happens.** Since master `843320b` a badge is as large as fits its button's fill area
+**both ways**, in the proportions its texture was made for (`K1UniformBadge`). A texture is as
+wide as the button it was made for, and the glyph is a small part of it. The container's
+three were made for a fill area of **273x10** (`kmrpa_contok`, `kmrpb_contback`,
+`kmrpx_contgive` in `K1ControllerBadgeShapes.inc`): 27 times as wide as tall. KMRP's sets have
+those buttons about 7 times as wide as tall, so fitting the whole strip across the button
+gives a badge 10/273 of the button's width tall: about 22 px in an 85 px button at 3840x2160,
+a quarter of the height. It is a matter of proportions, not of 4K: the same quarter at every
+size, and on Windows, which has the same rule and the same table. The Mac took the rule on
+2026-10-08 and looked at the main menu and the in-game menus, not at a container.
+
+**The Mac's repair** (`macos/patches/kmrp-controller/overlays.cpp`, `UniformBadge`): after the
+fit both ways, a badge is never less than three quarters of the area's height; where the fit
+gave less, the height is three quarters and the width follows from the made proportions, so
+the label is wider than its button, as every label was before `843320b`, and is placed by its
+glyph beside the caption as before. The case the fit both ways was made for is not touched:
+the main menu's Quit comes out at 0.79 of its row (64 of 81).
+
+**For Windows.** The same three lines at the end of `K1UniformBadge`
+(`vendor/K1XboxControls.cpp`), not for `byHeight`. Worth a look at every screen whose badge
+texture is a long strip: the rows of `K1ControllerBadgeShapes.inc` whose width is more than
+about ten times their height.
+
+## 24. Message popup: the widening step follows the screen
+
+**Reported** by the maintainer on the Mac on 2026-10-08, at 3840x2160: a tutorial popup with a
+long text "doesn't expand horizontally as wide as normally" (ten lines in a narrow box). Fixed
+on the Mac that evening; **seen right by him on the same television on 2026-10-09** (not
+reproduced on the Mac's own display, which has no size that large).
+
+**What happens.** `CSWGuiMessageBox::FixMessageLabel` (Mac `0x100306552`, Windows
+`0x006253A0`) grows a box whose text does not fit, in a loop: each pass adds **40** to the
+width while the width is under its cap, and one line of the font to the height while the
+height is under its cap, then lays the text out again. The two caps follow the screen (on the
+Mac 800 and 450 at 720 lines, scaled; on Windows the patched caps of
+`reverse-engineering/message-popup.md`), and a line is the font's, which is baked for the
+screen's height. The 40 is the game's own and was never scaled. At 1280x720 a pass adds 40
+across and about 20 down; at 3840x2160 it adds 40 across and about 66 down. So the same text
+makes a wide box at a low resolution and a tall, narrow one at a high one. KMRP's own fit
+afterwards (`K1PopupFit.cpp`; the Mac's `popup_fit.cpp`) only narrows a box to the least width
+that keeps its line count, so it does not undo this.
+
+**The Mac's repair** (`macos/patches/kmrp-layout/kmrp_layout.cpp`, the group "message popup
+widening step"): the step is `40 * height / 720`, never less than 40, written into the loop
+at `0x1003068A0`. The game has `mov eax, 0x28 ; add [rbp-0x58], eax ; add edi, 0x28 ;
+mov [rbp-0x30], edi ; add dword [rbp-0x38], -0x14` there (18 bytes), where two of the three
+numbers are one byte and cannot hold 120; the same 18 bytes now read `mov eax, step ;
+add [rbp-0x58], eax ; add edi, eax ; mov [rbp-0x30], edi ; sar eax, 1 ; sub [rbp-0x38], eax`.
+It is written again at every change of resolution in the game.
+
+**For Windows.** The same loop: find the `0x28` after the width cap's comparison in
+`0x006253A0` and give it the screen's scale. Whether Windows' numbers there are one byte too
+was not looked at.
+
+## 25. Xbox-style HUD: the combat-mode message at a large size
+
+**Reported** by the maintainer on the Mac on 2026-10-08, at 3840x2160: in "COMBAT MODE
+ENGAGED. [B] TO DISENGAGE." the button's picture was a dot beside the text, and the first
+text stood on two lines. **Seen right by him on the 4K television on 2026-10-09** with the
+repair.
+
+**What happens.** `CombatMessage` makes the line of two labels with the button's picture
+between them. The picture was `kButtonSize`, 22 px, and the gaps `kButtonGap`, 9 px, "beside
+a 16 px font": right at 640x480 and nowhere else, since the font is baked for the screen's
+height. The two labels' widths were `LineWidth`, the engine's measure, which it gives to the
+nearest 10; a label a few pixels narrower than its text breaks the text.
+
+**The Mac's repair** (`macos/patches/kmrp-controller/xbox_hud.cpp`, `CombatMessage`): as the
+pause notice is made. From the first label's font (`MeasuresOf`): the picture is a line and
+three eighths tall, there are nine sixteenths of a line between it and the words on either
+side, each text's width is the sum of its glyphs' widths (`Wide`), and the first label, whose
+text is centred in it, has half a line to spare on either side. The engine's measure is kept
+where it is the larger, and the old numbers where the font cannot be read.
+
+**For Windows.** `K1XboxHud.cpp` has the same two constants (`kButtonSize = 22`,
+`kButtonGap = 9`) and the same `LineWidth`; its pause notice already measures the font the
+way this now does.
