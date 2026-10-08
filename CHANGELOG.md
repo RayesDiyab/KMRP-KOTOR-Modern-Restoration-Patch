@@ -109,6 +109,18 @@ proxy, and it applies the executable changes above as well.
 
 ## [Unreleased]
 
+- **Step 4's line after patching** (2026-10-09, reported by the maintainer; the
+  installer). When an install finished, step 4 showed the operation's last message,
+  whichever sentence that was: on a PC with KOTOR Patch Manager it was the one
+  naming KPM's patch folder with its whole path, which ran under "Patched
+  successfully" on the right and was cut off. A message of up to 80 characters is
+  shown; a longer one stays in the log, and the step says what it says when the
+  window is opened on a patched game, "KOTOR is ready to play at 3440 × 1440."
+  Step 3 on a patched game reads "The game starts at this resolution. Choose
+  another in the game's Graphics options." (it said "size"). Seen on the window
+  opened on a patched game; **not seen straight after a patch run**, which I did
+  not start on the maintainer's Steam copy.
+
 - **Button badges: one way to the screen, one factor for width and height**
   (2026-10-09, reported by the maintainer; the controller patch). Beside KMRP at
   3440x1440 the main menu's A on Quit was "stretched vertically": measured from a

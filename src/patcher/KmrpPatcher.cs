@@ -5566,6 +5566,8 @@ namespace Kmrp
         private Font taglineFont;      // sized so the tagline matches the wordmark's width
         private bool operationRunning;
         private string lastDetail = String.Empty;
+        // The most characters a step's line shows beside the state on its right.
+        private const int StepLineLimit = 80;
         private readonly Dictionary<Control, Rectangle> designBounds = new Dictionary<Control, Rectangle>();
         private readonly Dictionary<Control, FontTemplate> designFonts = new Dictionary<Control, FontTemplate>();
         private readonly Dictionary<Control, Font> scaledFonts = new Dictionary<Control, Font>();
@@ -7072,7 +7074,7 @@ namespace Kmrp
             stepVerify.SetTitle(patchComplete ? "2. Detected Game Version" : "2. Detect Game Version");
             stepResolution.SetTitle("3. Resolutions");
             stepResolution.SetSubtitle(patchComplete
-                ? "The game starts at this size. Choose another in the game, under Options, Graphics."
+                ? "The game starts at this resolution. Choose another in the game's Graphics options."
                 : ResolutionSelection.Summary());
             resolutionState.Visible = patchComplete;
 
@@ -7240,7 +7242,15 @@ namespace Kmrp
                 string result = e.Result as string;
                 RefreshStatus();
                 SetState(applyState, name == "Patch" ? "Patched successfully" : "Restored successfully", UiTheme.Success);
-                stepApply.SetSubtitle(result ?? (name + " completed."));
+                // The step has one line. `result` is the operation's last message, which
+                // for an install is whichever sentence came last, the one about KOTOR
+                // Patch Manager's patch folder with its whole path among them: it ran
+                // under the state on the right and was cut off (the maintainer saw it on
+                // 2026-10-09, "step 4 gets mangled"). A message that fits is shown; a
+                // longer one stays in the log (Open Log), and the step says what
+                // RefreshStatus found, "KOTOR is ready to play at W × H."
+                stepApply.SetSubtitle(result == null ? name + " completed."
+                    : result.Length <= StepLineLimit ? result : lastDetail);
             };
             worker.RunWorkerAsync();
         }
