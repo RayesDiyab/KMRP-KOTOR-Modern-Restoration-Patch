@@ -23,6 +23,9 @@ both.** Neither requires the other:
   `src/controller-native/build_controller_standalone.cmd` and packaged by
   `tools/build_controller_kpatch.py`. The installer installs it only while
   Controller Support is on in Advanced Settings (`src/patcher/KpmEdition.cs`).
+  Since 2026-10-09 a third patch, D3M0's High FPS Fixes (the author's file,
+  `third_party/Included/HighFpsFixes-1.0.1 by D3M0`), is installed while High FPS
+  Fix is on, which it is by itself where the display reports more than 60 Hz.
 
 Nothing is written to Override and there is no `kmrp-kpm.dat`. Since 2026-10-07
 there is no resolution choice in the installer and no `kmrp-resolutions.txt`:

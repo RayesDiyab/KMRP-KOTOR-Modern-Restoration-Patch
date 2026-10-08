@@ -731,6 +731,7 @@ void UpdatePrompts() {
     // change after the screen is first painted (the Widescreen Patch's own layout rescales a
     // panel at its first draw), so those are part of what is watched.
     const PromptScreen* const watched = padMode && panel ? PromptsFor(panel) : nullptr;
+    overlays::RestoreGrown(panel);
     std::uint32_t shapes = 0;
     if (watched) {
         for (std::size_t i = 0; i < watched->count; ++i)

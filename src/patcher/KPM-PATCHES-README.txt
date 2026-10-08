@@ -20,8 +20,9 @@ you start the game as usual.
       inside the file: nothing goes into Override.
 
       Options:
-        Map notes     Derslok's area-map marker fixes          (on)
-        Debug logs    diagnostic log files beside the game     (off)
+        Map notes       Derslok's area-map marker fixes          (on)
+        HD item icons   JackInTheBox's high-resolution icons     (on)
+        Debug logs      diagnostic log files beside the game     (off)
 
   KOTOR 1 Native Controller Mod + Xbox HUD.kpatch
       Controller support: the pad in the game and in every menu, button
@@ -33,6 +34,12 @@ you start the game as usual.
         Xbox-style HUD   the in-game HUD laid out like the original Xbox
                          version's while the pad is in use         (on)
         Debug logs       diagnostic log files beside the game      (off)
+
+  HighFpsFixes.kpatch   (only if High FPS Fix was on in KMRP's installer)
+      D3M0's High FPS Fixes 1.0.1, unchanged: timing and animation fixes
+      for play above 60 frames per second. It is not KMRP's work; its
+      home is https://github.com/gnw-d3m0/D3M0s-KPatches (MIT licence,
+      Copyright (c) 2026 D3M0). It has no options.
 
 Each patch works without the other. Tick both for KMRP with a controller,
 KMRP.kpatch alone for mouse and keyboard, or the controller patch alone

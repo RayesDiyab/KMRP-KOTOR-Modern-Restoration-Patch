@@ -98,6 +98,14 @@ namespace Kmrp
         private const string ControllerPatchId = "kmrp-controller";
         private const string KpatchResource = "Kmrp.kpatch";
         private const string ControllerKpatchResource = "KmrpController.kpatch";
+        // D3M0's High FPS Fixes (MIT), a third patch since 2026-10-09, installed only
+        // while High FPS Fix is on in Advanced Settings (off by default). It is the
+        // author's own file, unchanged (third_party/Included/HighFpsFixes-1.0.1 by
+        // D3M0); its hooks for patch_config.toml are made from it by
+        // tools/build_bundled_kpatch_config.py, which also holds it against both of
+        // KMRP's patches for overlaps.
+        private const string HighFpsPatchId = "high-fps-fixes";
+        private const string HighFpsKpatchResource = "KmrpHighFps.kpatch";
         private const string KpatchModuleEntry = "binaries/windows_x86.dll";
         // File name, patch id, embedded resource, the resource prefix of its hooks.
         private static readonly string[,] Kpatches =
@@ -105,6 +113,7 @@ namespace Kmrp
             { "KMRP.kpatch", PatchId, KpatchResource, "Kmrp.engine.hooks" },
             { "KOTOR 1 Native Controller Mod + Xbox HUD.kpatch", ControllerPatchId, ControllerKpatchResource,
               "KmrpController.engine.hooks" },
+            { "HighFpsFixes.kpatch", HighFpsPatchId, HighFpsKpatchResource, "KmrpHighFps.engine.hooks" },
         };
         private static readonly string[] RetiredKpatchNames =
             { "KMRP Controller.kpatch", "KMRP Movies.kpatch", "KMRP Map Notes.kpatch" };
@@ -115,7 +124,7 @@ namespace Kmrp
         // an install made before 2026-10-04 has. Restore recognises an install that
         // KOTOR Patch Manager took over by these (KpmHoldsOnlyKmrp, RemoveKpmRuntime).
         private static readonly string[] EnginePatches =
-            { "kmrp", "kmrp-movies", "kmrp-map-notes", "kmrp-controller" };
+            { "kmrp", "kmrp-movies", "kmrp-map-notes", "kmrp-controller", "high-fps-fixes" };
         // ------------------------------------------------------------ state
 
         internal static string ManifestPath(string executablePath)
@@ -699,6 +708,8 @@ namespace Kmrp
             List<string> patches = new List<string> { PatchId };
             if (KmrpSettings.ControllerSupport)
                 patches.Add(ControllerPatchId);
+            if (KmrpSettings.HighFpsFix)
+                patches.Add(HighFpsPatchId);
             return patches;
         }
 
@@ -711,6 +722,7 @@ namespace Kmrp
             return new[]
             {
                 new KeyValuePair<string, bool>("map-notes", KmrpSettings.MarkerFixes),
+                new KeyValuePair<string, bool>("hd-icons", KmrpSettings.HdIcons),
                 new KeyValuePair<string, bool>("debug-logs", KmrpSettings.DebugLogs),
             };
         }
@@ -856,13 +868,17 @@ namespace Kmrp
             // starts, and KOTOR Patch Manager loads the modules in this order.
             string config = "target_version_sha = \"" + exe.Hash + "\"\n";
             bool controller = patches.Contains(ControllerPatchId);
+            bool highFps = patches.Contains(HighFpsPatchId);
+            // The High FPS Fixes patch has no options.
+            KeyValuePair<string, bool>[] none = new KeyValuePair<string, bool>[0];
             for (int i = 0; i < Kpatches.GetLength(0); i++)
             {
                 bool own = Kpatches[i, 1] == PatchId;
-                if (!own && !controller)
+                if (!patches.Contains(Kpatches[i, 1]))
                     continue;
                 WriteOwned(folder, PatchFolder + "\\" + Kpatches[i, 1] + ".dll", PatchModule(Kpatches[i, 2]), records);
-                config += "\n" + PatchConfigSection(Kpatches[i, 1], Kpatches[i, 3], own ? options : controllerOptions);
+                config += "\n" + PatchConfigSection(Kpatches[i, 1], Kpatches[i, 3],
+                    own ? options : Kpatches[i, 1] == ControllerPatchId ? controllerOptions : none);
             }
             WriteOwned(folder, ConfigName, new UTF8Encoding(false).GetBytes(config), records);
             WritePatchOptions(folder, OptionsName, options, records);
@@ -884,6 +900,7 @@ namespace Kmrp
                     off.Add(option.Key);
             SafeReport(report, "Installed KOTOR Patch Manager's runtime with KMRP's patch" +
                 (controller ? " and the controller patch" : ", without controller support") +
+                (highFps ? ", and D3M0's High FPS Fixes" : "") +
                 (off.Count == 0 ? ", every option on." : ", without: " + String.Join(", ", off.ToArray()) + "."));
         }
 
@@ -1249,11 +1266,17 @@ namespace Kmrp
         {
             for (int i = 0; i < Kpatches.GetLength(0); i++)
             {
-                // The controller patch's file only with Controller Support on.
+                // The controller patch's file only with Controller Support on, and the
+                // High FPS Fixes patch's only with High FPS Fix on.
                 if (Kpatches[i, 1] == ControllerPatchId && !KmrpSettings.ControllerSupport)
                     continue;
+                if (Kpatches[i, 1] == HighFpsPatchId && !KmrpSettings.HighFpsFix)
+                    continue;
+                // A copy of KMRP's own patches is brought up to this version. The High
+                // FPS Fixes patch is its author's: a file of that name already in the
+                // folder is the player's and is left as it is (no id to match).
                 WriteKpatch(Path.Combine(folder, Kpatches[i, 0]), ReadResource(Kpatches[i, 2]),
-                    Kpatches[i, 1], records, report);
+                    Kpatches[i, 1] == HighFpsPatchId ? null : Kpatches[i, 1], records, report);
             }
             if (!withReadme)
                 return;

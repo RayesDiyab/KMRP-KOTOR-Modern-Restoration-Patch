@@ -403,6 +403,13 @@ $controllerDist = Join-Path $distDir "controller"
 New-Item -ItemType Directory -Force -Path $controllerDist | Out-Null
 Copy-Item -LiteralPath (Join-Path $kpmDir $controllerName) -Destination (Join-Path $controllerDist $controllerName) -Force
 Copy-Item -LiteralPath (Join-Path $kpmDir "kmrp-controller.verification.json") -Destination (Join-Path $controllerDist "verification.json") -Force
+# D3M0's High FPS Fixes (MIT), carried as its author released it and installed only
+# while High FPS Fix is on in Advanced Settings: its hooks as patch_config.toml blocks,
+# after it has been held against both of KMRP's patches and the engine recipe.
+$highFpsKpatch = Join-Path $projectRoot "third_party\Included\HighFpsFixes-1.0.1 by D3M0\HighFpsFixes.kpatch"
+Invoke-Tool -Exe $Python -Label "High FPS Fixes" -FailureMessage "The bundled High FPS Fixes patch cannot be installed beside KMRP" -Arguments @(
+    (Join-Path $projectRoot "tools\build_bundled_kpatch_config.py"), $highFpsKpatch,
+    "--config-dir", $kpmConfigDir, "--id", "high-fps-fixes")
 Complete-Step
 
 # ---------------------------------------------------------------- 7. the installer
@@ -427,6 +434,9 @@ $controllerKpatchPath = Join-Path $kpmDir "KOTOR 1 Native Controller Mod + Xbox 
 if (-not (Test-Path -LiteralPath $controllerKpatchPath)) { throw "tools\build_controller_kpatch.py did not write $controllerKpatchPath" }
 $engineArgs += "/resource:$controllerKpatchPath,KmrpController.kpatch"
 $engineArgs += "/resource:$(Join-Path $kpmConfigDir 'kmrp-controller.hooks.toml'),KmrpController.engine.hooks"
+$engineArgs += "/resource:$highFpsKpatch,KmrpHighFps.kpatch"
+$engineArgs += "/resource:$(Join-Path $kpmConfigDir 'high-fps-fixes.hooks.toml'),KmrpHighFps.engine.hooks"
+$engineArgs += "/resource:$(Join-Path $projectRoot 'third_party\Included\HighFpsFixes-1.0.1 by D3M0\LICENSE'),Kmrp.license.highfps"
 $engineArgs += "/resource:$(Join-Path $projectRoot 'src\patcher\KPM-PATCHES-README.txt'),Kmrp.kpatch.readme"
 Write-Bar -Percent 100 -Label "running the C# compiler"
 Invoke-Tool -Exe $compiler -Arguments ($compilerArgs + $engineArgs) -Label "compile" `

@@ -26,6 +26,10 @@ void Hide(void* button);
 // What a badge's place depends on: the button's rectangle, whether it is drawn, and its caption.
 std::uint32_t Signature(void* button);
 
+// Each frame, with the panel in front: a button made wider on another screen is that screen's
+// own size again (it is made wider again when its screen is shown).
+void RestoreGrown(void* front);
+
 // Each frame, for the panel in front: a label is drawn only while its button is.
 void Sync(void* panel);
 

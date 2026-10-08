@@ -117,7 +117,7 @@ replaces), and runs the script:
 | The app | `kmrp-mac.sh` |
 | --- | --- |
 | at launch and after every run | `status --brief`: `install.info`, or the game and its build, without hashing every installed file (a full status takes seconds once KMRP is installed) |
-| **Start Patching** | `install --yes --resolution current` (the size macOS is set to; `native` and `--size WxH` are the script's alone since 2026-10-07, section 5), with `--no-map-notes` when *Area Map Marker Fixes* is off, `--no-hd-icons` when *HD Icons* is off (since 2026-10-08), `--no-controller` when *Controller Support* is off, `--debug-logs` when *Debug Logs* is on (Advanced Settings, as on Windows), `--game` when one was chosen with **Browse** |
+| **Start Patching** | `install --yes --resolution current` (the size macOS is set to; `native` and `--size WxH` are the script's alone since 2026-10-07, section 5), with `--no-map-notes` when *Area Map Marker Fixes* is off, `--no-hd-icons` when *HD Item Icons* is off (since 2026-10-08), `--no-controller` when *Native Controller Support* is off, `--debug-logs` when *Debug Logs* is on (Advanced Settings, as on Windows), `--game` when one was chosen with **Browse** |
 | **Restore Original** | `uninstall --yes` (and `--game`) |
 
 What the script refuses (the game running, another build), the app shows as a blocking
@@ -136,7 +136,7 @@ lines move the progress fill.
 pixels on a background queue every 62 ms and resampled with vImage), the four-step card
 with the step and state art from `src/patcher/icons`, the pill buttons with the primary's
 progress fill, the Advanced Settings view with its four toggles (*Area Map Marker Fixes*,
-*HD Icons* since 2026-10-08, *Controller Support*, *Debug Logs*), and the footer. Its icon is the
+*HD Item Icons* since 2026-10-08, *Native Controller Support*, *Debug Logs*), and the footer. Its icon is the
 Mac's own, shared with the disk image: the crest over "KMRP" (`tools/make_package_art.py`;
 the Windows executable's `src/patcher/favicon.ico` until 2026-09-30, when the player asked
 for the crest). Every rectangle is the Windows design-space one; the scale is `FitInitialSizeToWorkingArea`'s times 1.3,
@@ -221,8 +221,8 @@ the top of `installer-app/main.m`:
 | --- | --- |
 | `-KMRPRun install\|uninstall` | presses the action button once the status is in |
 | `-KMRPNoMapNotes YES` | turns *Area Map Marker Fixes* off |
-| `-KMRPNoHdIcons YES` | turns *HD Icons* off |
-| `-KMRPNoController YES` | turns *Controller Support* off |
+| `-KMRPNoHdIcons YES` | turns *HD Item Icons* off |
+| `-KMRPNoController YES` | turns *Native Controller Support* off |
 | `-KMRPSettings YES` | shows Advanced Settings |
 | `-KMRPSnapshot <prefix>` | writes `<prefix>-ready.png` when the window is ready, `<prefix>-progress.png` once a run is a third through, and `<prefix>-done.png` and `<prefix>-log.txt` when it ends |
 | `-KMRPQuit YES` | quits after that |
@@ -905,7 +905,7 @@ whatever interface is loaded and takes nothing from another patch.
 | Hooks | 24: the port's 21 (section 7), the registration of its files, and the two of the Xbox-style HUD; none at an address `kmrp`, the Widescreen Patch or the Stray Bug Fixes hook (`build.sh` stages the four together, and the controller patch alone and with FTD's two) |
 | After a change of resolution in the game | the files are registered again, and the badges and cues are placed again for the new size: three fixes of 2026-10-07 (`CHANGELOG.md`, "the pad's badges and cues after the resolution is changed in the game"), in `KmrpPanelControl` of KMRP's patch and `overlays.cpp` here |
 | Options | `xbox-hud` (on by default; on Windows too since 2026-10-08, off there until then), `debug-logs`; the installer records only `debug-logs`, as Windows' does, so `Style` under `[Hud]` in the player's `kmrp-controller.ini` decides the HUD: `PC` turns the Xbox-style HUD off. The HUD is shown only while the pad is the device in use |
-| The installer | installs it while Controller Support is on (`--no-controller` leaves it out), and delivers its `.kpatch` to KPM's patch folder with the others |
+| The installer | installs it while Native Controller Support is on (`--no-controller` leaves it out), and delivers its `.kpatch` to KPM's patch folder with the others |
 
 Seen in the game on 2026-10-07 with the scripted pad (section 7, "Testing without a pad"), at
 1512x982, the eight tabs of the in-game menu in each: beside KMRP; beside FTD's Widescreen

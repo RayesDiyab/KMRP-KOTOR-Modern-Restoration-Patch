@@ -82,7 +82,7 @@ place and kept winning. An earlier version of this paragraph said
 The 250-entry map-note correction table is from **K1 Area Map Fixes** by **Derslok**,
 used with the author's permission:
 
-https://deadlystream.com/files/file/3062-k1-area-map-fixes/
+https://deadlystream.com/files/file/3091-k1-area-map-fixes-high-resolution-area-map-map-marker-fix/
 
 Licensed under the **GNU General Public License version 3**. A copy travels with the
 data at:
@@ -127,6 +127,31 @@ K1DC, and none of its code is altered. It does not modify `swkotor.exe`.
 
 What it writes, and the check showing it does not collide with anything KMRP writes,
 is documented in [`docs/third-party-driver-compat.md`](docs/third-party-driver-compat.md).
+
+## High FPS Fixes
+
+**High FPS Fixes 1.0.1** by **D3M0** is carried inside the installer and installed
+only while *High FPS Fix* is on under *Advanced Settings* (on by itself where the
+display runs above 60 Hz, off otherwise; since 2026-10-09). It is a KOTOR Patch Manager patch: timing and animation fixes for
+play above 60 frames per second.
+
+https://github.com/gnw-d3m0/D3M0s-KPatches
+https://github.com/gnw-d3m0/D3M0s-KPatches/releases/tag/HighFpsFixes-1.0.1
+
+Licensed under the **MIT License**, Copyright (c) 2026 D3M0. The licence text ships
+inside the installer and a copy is preserved at:
+
+`third_party/Included/HighFpsFixes-1.0.1 by D3M0/LICENSE`
+
+`HighFpsFixes.kpatch` is the release's own file, unmodified (SHA-256
+`B02313D83129691BE383E312EA28A13FC97ED586A8DB627C177F28A911AA868D`), so it can be
+hashed against the release. KMRP changes nothing in it and derives no code from it:
+the installer installs its module and its hooks as KOTOR Patch Manager would, and
+puts the same file in KOTOR Patch Manager's patch folder.
+`tools/build_bundled_kpatch_config.py` checks at every build that none of its 36 hooks
+overlaps a hook of KMRP's two patches or a byte KMRP's engine recipe writes. The author
+was not asked before it was bundled: the licence permits it, and the notice above
+travels with it.
 
 ## KPM – Xbox Controls for KOTOR 1
 

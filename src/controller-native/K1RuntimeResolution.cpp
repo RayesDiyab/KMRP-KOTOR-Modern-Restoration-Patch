@@ -5,6 +5,7 @@
 #include <cstdint>
 #include <cstring>
 #include <array>
+#include <map>
 #include <set>
 #include <utility>
 #include <vector>
@@ -146,10 +147,37 @@ BOOL WINAPI EnumModesOnce(LPCSTR device, DWORD index, DEVMODEA* mode)
     if (!ok || (caller != reinterpret_cast<void*>(0x006E0955) &&
                 caller != reinterpret_cast<void*>(0x006E0BC9))) return ok;
     static std::set<std::array<DWORD, 4>> seen;
-    if (index == 0) seen.clear();
+    // Each size's lowest rate of 60 Hz or more, and whether the rates above 60 are
+    // offered: see "Refresh rates" below.
+    static std::map<std::pair<DWORD, DWORD>, DWORD> lowest;
+    static bool highRates = false;
+    if (index == 0) {
+        seen.clear();
+        lowest.clear();
+        highRates = GetModuleHandleW(L"high-fps-fixes.dll") != nullptr;
+        DEVMODEA each{};
+        each.dmSize = sizeof each;
+        for (DWORD i = 0; g_enumModes(device, i, &each); ++i) {
+            if (each.dmBitsPerPel != 32 || each.dmDisplayFrequency < 60) continue;
+            const auto found = lowest.find({each.dmPelsWidth, each.dmPelsHeight});
+            if (found == lowest.end()) lowest[{each.dmPelsWidth, each.dmPelsHeight}] = each.dmDisplayFrequency;
+            else if (each.dmDisplayFrequency < found->second) found->second = each.dmDisplayFrequency;
+        }
+    }
     // Hidden from the dialog: a repeat.
     if (!seen.insert({mode->dmPelsWidth, mode->dmPelsHeight, mode->dmBitsPerPel, mode->dmDisplayFrequency}).second)
         mode->dmBitsPerPel = 0;
+    // Refresh rates. The dialog lists a size once for each rate of 60 Hz or more, as
+    // "W x H @ N Hz" (its constructor, 0x006E0710; above 85 Hz only with
+    // AllowHighMonitorFrequency=1 in swkotor.ini, which KMRP's installer writes with
+    // High FPS Fix). The game's timing breaks above 60 frames a second, so without
+    // D3M0's High FPS Fixes loaded beside this module only a size's rate of 60 is
+    // listed: its lowest of 60 or more, so that a display with no 60 Hz mode of a size
+    // still offers the size (the maintainer, 2026-10-09).
+    else if (!highRates && mode->dmBitsPerPel == 32 && mode->dmDisplayFrequency > 61) {
+        const auto found = lowest.find({mode->dmPelsWidth, mode->dmPelsHeight});
+        if (found != lowest.end() && mode->dmDisplayFrequency != found->second) mode->dmBitsPerPel = 0;
+    }
     return ok;
 }
 }

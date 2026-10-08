@@ -173,7 +173,8 @@ AMD or Intel at all.
 ## 6. The opt-out
 
 **Advanced Settings**, the square gear button beside *Start Patching*, opens a
-settings view with four independent switches. The first, *Modern Driver
+settings view with six independent tiles since 2026-10-09 (four switches until
+2026-10-08, when HD Item Icons was added, and High FPS Fix the day after). The first, *Modern Driver
 Compatibility*, is **on by default**, like the next two (map-note corrections
 and controller support); the fourth, *Debug Logs*, added 2026-10-04, is off.
 

@@ -8,6 +8,7 @@
 //
 //   [Patch Options]
 //   map-notes=1
+//   hd-icons=1
 //   debug-logs=0
 //
 // A manager without options (0.7.1) writes no file and installs every hook, which is

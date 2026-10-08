@@ -1083,9 +1083,12 @@ static const struct { const char *prefix, *stage; int percent; } kStages[] = {
     subtitle.textColor = THEME_TEXT_MUTED;
     subtitle.frame = NSMakeRect(S(36), S(74), S(cardWidth - 72), S(30));
     [view addSubview:subtitle];
-    // Four rows since 2026-10-08, when HD Icons came: 80 tall and 8 apart, where three were 86.
+    // Four rows since 2026-10-08, when HD Item Icons came: 80 tall and 8 apart, where three were
+    // 86. In Windows' order and with its names since 2026-10-09 (its six tiles, less the two the
+    // Mac has no counterpart of, Modern Driver Compatibility and High FPS Fix): controller
+    // support first, then the bundled work of others, debug logs last.
     const CGFloat rowHeight = 80, rowPitch = rowHeight + 8;
-    self.markerToggle = [[KMRPToggle alloc] initWithFrame:NSMakeRect(S(36), S(122), S(cardWidth - 72), S(rowHeight))];
+    self.markerToggle = [[KMRPToggle alloc] initWithFrame:NSMakeRect(S(36), S(122 + rowPitch), S(cardWidth - 72), S(rowHeight))];
     self.markerToggle.title = @"Area Map Marker Fixes";
     self.markerToggle.author = @"Derslok";
     self.markerToggle.detail = @"Corrects misplaced area-map marker positions across the game.";
@@ -1096,22 +1099,22 @@ static const struct { const char *prefix, *stage; int percent; } kStages[] = {
     [view addSubview:self.markerToggle];
     // The patch's hd-icons option (kmrp-mac.sh --no-hd-icons): the bundled HD icon pack, on
     // unless turned off, as Windows' Advanced Settings has it since 2026-10-08.
-    self.iconsToggle = [[KMRPToggle alloc] initWithFrame:NSMakeRect(S(36), S(122 + rowPitch), S(cardWidth - 72), S(rowHeight))];
-    self.iconsToggle.title = @"HD Icons";
+    self.iconsToggle = [[KMRPToggle alloc] initWithFrame:NSMakeRect(S(36), S(122 + 2 * rowPitch), S(cardWidth - 72), S(rowHeight))];
+    self.iconsToggle.title = @"HD Item Icons";
     self.iconsToggle.author = @"JackInTheBox";
-    self.iconsToggle.detail = @"High-resolution item icons (KOTOR 1 HD Icon Pack). Off: the game's own icons.";
+    self.iconsToggle.detail = @"High-resolution item icons. Turn off to keep the game's own icons.";
     self.iconsToggle.on = [defaults objectForKey:@"HdIcons"] ? [defaults boolForKey:@"HdIcons"] : YES;
     if ([defaults boolForKey:@"KMRPNoHdIcons"]) self.iconsToggle.on = NO;
     self.iconsToggle.changed = ^(BOOL on) { [[NSUserDefaults standardUserDefaults] setBool:on forKey:@"HdIcons"]; };
     [view addSubview:self.iconsToggle];
     // MainForm's controllerToggle: KMRP's controller support, the module and SDL (kmrp-mac.sh
     // --no-controller leaves both out, and its settings file).
-    self.controllerToggle = [[KMRPToggle alloc] initWithFrame:NSMakeRect(S(36), S(122 + 2 * rowPitch), S(cardWidth - 72), S(rowHeight))];
-    self.controllerToggle.title = @"Controller Support";
+    self.controllerToggle = [[KMRPToggle alloc] initWithFrame:NSMakeRect(S(36), S(122), S(cardWidth - 72), S(rowHeight))];
+    self.controllerToggle.title = @"Native Controller Support";
     // "RaymanGT, based on Saul0097" until 2026-10-05: the maintainer asked for the
     // public-facing credit to be KMRP's alone. THIRD_PARTY_NOTICES.md still credits him.
     self.controllerToggle.author = @"RaymanGT";
-    self.controllerToggle.detail = @"Xbox, PlayStation, Switch and Steam Deck: play, menus and matching button prompts.";
+    self.controllerToggle.detail = @"Xbox, PlayStation, Switch and Steam Deck pads: prompts, rumble and the Xbox-style HUD.";
     self.controllerToggle.on = [defaults objectForKey:@"ControllerSupport"] ? [defaults boolForKey:@"ControllerSupport"] : YES;
     if ([defaults boolForKey:@"KMRPNoController"]) self.controllerToggle.on = NO;
     self.controllerToggle.changed = ^(BOOL on) { [[NSUserDefaults standardUserDefaults] setBool:on forKey:@"ControllerSupport"]; };

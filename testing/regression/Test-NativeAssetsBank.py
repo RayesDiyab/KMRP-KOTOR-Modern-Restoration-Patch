@@ -119,6 +119,14 @@ def main() -> int:
     # 2. What is stored and what is not.
     missing_common = [n for n, key in groups["0x0"].items() if key not in objects]
     check(not missing_common, f"all {len(groups['0x0'])} common files are stored")
+    # The module's rule for the hd-icons option (HdIcon, K1RuntimeAssets.cpp) against
+    # the pack itself: the same 351 names, and no other common file.
+    pack = ROOT / "third_party/Included/KOTOR1 HD ICON PACK ver1.0 1.0.0 by JackInTheBox/Override"
+    pack_names = {p.stem.lower() + ".tpc" for p in pack.glob("*.tga")}
+    by_rule = {n.lower() for n in groups["0x0"]
+               if n.lower().endswith(".tpc") and len(n) >= 8 and n[0] in "iI" and n[1] in "aiwAIW" and n[2] == "_"}
+    check(by_rule == pack_names and len(pack_names) == 351,
+          f"the hd-icons option's name rule picks the HD Icon Pack's {len(pack_names)} icons and nothing else")
     bad, left_out, whole = [], {}, []
     for size, entries in groups.items():
         if size == "0x0":

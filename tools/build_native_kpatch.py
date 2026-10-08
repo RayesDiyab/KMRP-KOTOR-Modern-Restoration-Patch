@@ -154,6 +154,9 @@ OPTIONS = [
     {'id': 'map-notes', 'name': 'Map notes',
      'description': "Shows the area map's notes where they belong (Derslok's map marker "
                     'corrections).'},
+    {'id': 'hd-icons', 'name': 'HD item icons',
+     'description': "High-resolution item icons (JackInTheBox's KOTOR 1 HD Icon Pack). Off, "
+                    "the game's own icons are shown."},
     {'id': 'debug-logs', 'name': 'Debug logs', 'default': False,
      'description': 'Writes diagnostic log files beside the game. Leave off unless you are '
                     'reporting a problem.'},

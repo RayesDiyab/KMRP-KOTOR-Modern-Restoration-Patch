@@ -547,6 +547,25 @@ std::uint32_t Signature(void* button) {
     return hash;
 }
 
+// A button made wider for its badge (ShowBacked) is its screen's own size again while another
+// screen is the one in front; shown again, it is made wider again from what its screen then
+// gives it. Windows' RestoreK1GrownButtons (2026-10-09): after the resolution is changed in the
+// game every live control is laid out again from where it stands, so a button left wide on a
+// screen that was not in front was laid out from the wide rectangle, taken here as the
+// screen's own at the new size, and stayed wider than its layout's after a change and back.
+void RestoreGrown(void* front) {
+    for (Overlay& entry : g_overlays) {
+        if (!entry.label || !entry.button || !entry.grown || entry.panel == front) continue;
+        const Rect& now = At<Rect>(entry.button, kCtlExtent);
+        if (now.left == entry.grownTo.left && now.top == entry.grownTo.top && now.width == entry.grownTo.width &&
+            now.height == entry.grownTo.height) {
+            if (entry.textMoved) entry.textMoved = false;   // the button lays its caption out again
+            SetExtent(entry.button, entry.buttonWas);
+        }
+        entry.grown = false;
+    }
+}
+
 void Sync(void* panel) {
     for (Overlay& entry : g_overlays) {
         if (!entry.label || entry.panel != panel || !entry.shown) continue;

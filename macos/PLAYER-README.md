@@ -110,8 +110,8 @@ other pads. The controls are KMRP's, the same as on Windows: the full list is on
   3024x1964 ran at about 30 fps in game and 2x at about 120.
 - **Without the map-note corrections, the HD icons or controller support**: the gear button
   beside **Start Patching** opens **Advanced Settings**, as on Windows; turn off *Area Map
-  Marker Fixes*, *HD Icons* or *Controller Support*. All three are on unless you turn them
-  off, and the installer remembers your choice. With *HD Icons* off the game shows its own
+  Marker Fixes*, *HD Item Icons* or *Native Controller Support*. All three are on unless you turn them
+  off, and the installer remembers your choice. With *HD Item Icons* off the game shows its own
   item icons instead of JackInTheBox's HD Icon Pack; everything else stays. Without controller support the game has none: the Mac version of
   KOTOR has no pad support of its own. *Debug Logs*, off unless you turn it on, is there too.
 - **From Terminal**, the installer is a script inside the app:
@@ -138,7 +138,7 @@ A file you changed after installing is left alone and listed in the log.
   `KOTOR_Exe.backup.<date>`), `configs/` with each patch's options (`kmrp.ini`,
   `kmrp-controller.ini`), and `patches/`, which holds four KotOR Patch Manager patches:
   FTD's Widescreen Patch and Stray Bug Fixes, KMRP's own (`kmrp.dylib`, with the interface
-  for every resolution inside it), and, while Controller Support is on, the controller's
+  for every resolution inside it), and, while Native Controller Support is on, the controller's
   (`kmrp-controller.dylib`, which also works in a game without KMRP).
 - `swkotor.ini`: the resolution the game starts at, under `[Graphics Options]`. Uninstall
   puts back what was there before, unless you have chosen another resolution in the game
