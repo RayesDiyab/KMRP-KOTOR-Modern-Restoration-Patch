@@ -13,9 +13,182 @@ that in the engine itself rather than by swapping artwork: 66 resolutions built 
 from 800×600 to 15360×8640, and any other size from 4:3 to 32:9 made when the game
 runs at it. The resolution is chosen in the game, with no reinstall.
 
-[Install](#install) · [Features](docs/features.md) · [What it fixes](#what-it-fixes) · [How it works](#how-it-works) · [Build from source](#build-from-source) · [Documentation](#documentation) · [Case study](https://rayesdiyab.com/projects/kmrp/) · [Licence](#licence-and-attribution)
+[Features](#features) · [Install](#install) · [What it fixes](#what-it-fixes) · [How it works](#how-it-works) · [Build from source](#build-from-source) · [Documentation](#documentation) · [Case study](https://rayesdiyab.com/projects/kmrp/) · [Licence](#licence-and-attribution)
 
 </div>
+
+---
+
+## Features
+
+Everything KMRP 1.5 changes compared with the game as it comes from Steam or GOG.
+The same list as a before-and-after comparison is in
+[docs/features.md](docs/features.md), and with how each item is done in
+[docs/features-technical.md](docs/features-technical.md). KMRP changes how the game
+looks, fits and controls. It does not change the story, the quests or the balance;
+the one change to content is the optional map note fix. The list is the Windows
+version's; what differs on the Mac is at its end.
+
+**Resolution and screen**
+
+- The game starts at your display's current resolution. Nothing to choose, no
+  widescreen tool to install.
+- The game's own Screen Resolution setting lists every resolution your display
+  supports, each once, and you switch between them in the game: at once, with no
+  restart and no patching again.
+- Connect another display and its resolutions appear on their own. If it cannot show
+  the resolution you last used, the game starts at that display's own.
+- Every shape from 4:3 to 32:9, from 800x600 up to 8K and beyond: 66 common
+  resolutions have menus built for them, and any other size gets menus fitted to it.
+- The game is shown at its true size whatever Windows display scaling is set to.
+- The mouse stays inside the game in fullscreen on a PC with several monitors.
+
+**Text and menus**
+
+- Text grows with the resolution and is drawn sharp for it, not enlarged from a
+  small picture.
+- Inventory, shop, equipment, quest and other lists have rows and icons sized to
+  match the text, each row sitting neatly in its box.
+- Item stack numbers stay on their icons.
+- Descriptions stay inside their box and clear of the scrollbar, and no longer begin
+  with an empty line.
+- List rows keep their size instead of growing each time a list is refreshed.
+- Message, tutorial and confirmation boxes grow to fit what they say, the "Journal
+  Entry Added" and "Items Received" notice among them.
+- The tick circles on the options screens grow with the screen.
+- Short on-screen notices are the right size at 4K, and the Feedback options no
+  longer sit on the scrollbar.
+- The black bars in conversations fit the screen.
+
+**Map**
+
+- The area map fills its frame, and fog covers the whole of it.
+- You click the map marker you see, and markers scale with the screen.
+- The small map in the corner follows your character at every resolution.
+- About 250 map notes that have sat in the wrong place since 2003 are where they
+  belong (optional, on by default; Derslok's work).
+
+**Movies**
+
+- Movies play at the resolution the game is running at: no switch to 640x480, no
+  flicker, no minimised game.
+- The whole picture is shown on wide screens, with black bars at the sides, instead
+  of being zoomed in and cropped.
+
+**Stability**
+
+- The inventory crash on items with long descriptions is fixed.
+- The GOG and disc versions may use twice as much memory (Steam's version cannot
+  take this change).
+- Rare crashes tied to textures, grass and saving are fixed, with the fixes from
+  KOTOR Patch Manager.
+- Lighting, fog, reflections, soft shadows and grass work on modern graphics cards
+  (optional, on by default; Synchro's K1 Modern Driver Compatibility).
+- On NVIDIA setups where the menus flash white, the installer sets the one driver
+  option that prevents it, for this game only, and removes it again on undo.
+
+**Above 60 frames per second**
+
+- High FPS Fix installs D3M0's High FPS Fixes, which repairs the timing and
+  animation faults the original has above 60 frames per second. It is on by itself
+  where your display runs above 60 Hz and off on a 60 Hz display, and its tile in
+  the installer says what your display can do.
+- The frame rate is chosen in the game, in the same list as the resolution
+  ("3440 x 1440 @ 120 Hz"), including the rates above 85 Hz that the original
+  hides. Without High FPS Fix the game is held at 60, as long as V-Sync stays on.
+
+**Sharper artwork**
+
+- Party portraits in high quality (MadDerp).
+- Item icons in high quality (JackInTheBox; optional, on by default), each drawn at
+  the game's own size in its slot.
+- Sharper menu art, and feat, power and skill icons that scale with the screen.
+
+**Controller support** (installed by default, can be left out)
+
+- A pad works in the game and in every menu: Xbox, PlayStation and Switch pads and
+  the Steam Deck. The button pictures match the pad in your hands and go away when
+  you use the mouse or keyboard; the mouse pointer hides while you use the pad.
+- Playing: the left stick moves, as slowly or quickly as you push it, and the right
+  stick turns the camera; A talks, opens, uses or attacks; a click of the left stick
+  flourishes your weapon; the shoulder buttons change target; the left trigger
+  switches party member and the right trigger pauses; Start opens the map and closes
+  the menus, Back asks about Solo Mode, and a click of the right stick switches free
+  look.
+- The action bar: the D-pad picks an action and A uses it; the bar keeps your place,
+  so A again repeats it, and B lets go. In a fight X disengages and Y removes the
+  last queued action.
+- Menus: the D-pad or left stick moves through every screen, and holding a direction
+  keeps moving; A selects, B goes back; the triggers switch tabs, shown as arrows
+  named for your pad; the right stick scrolls long text. An A picture follows the
+  selection, down the main menu, on Yes or No and on the reply you are about to give.
+- Screens: a click of the right stick switches the party member on Character,
+  Equipment, Inventory and Abilities; X switches between Skills, Powers and Feats;
+  A is Level Up and Y is Auto Level Up; in the Journal A switches between active and
+  completed quests and Y changes the order; in a shop A buys or sells and X switches
+  between the two lists; on the options screens D-pad left and right change a
+  setting and Y restores the defaults.
+- Conversations, character creation, level-up, shops, containers, saving and
+  loading, the options and Pazaak's wager need no mouse. In character creation the
+  D-pad picks the portrait, D-pad left and right set attributes and skills, and Y is
+  Recommended or Random Name (typing a name of your own needs the keyboard). Notices
+  close with A. A or Start skips a movie, and the game comes to the front at start
+  so that works without a mouse click.
+- A Controller Layout screen under Options, Gameplay shows what every button does.
+- Rumble: off, the original Xbox version's (with the rumble BioWare made for the PC
+  and never switched on), or an enhanced one that adds lightsabers igniting, humming
+  and clashing, blaster recoil, hits taken and explosions. Silent in menus and while
+  paused. Mode and strength are set in `kmrp-controller.ini` beside the game.
+- Xbox-style HUD while you play with a pad: the action menu at the bottom left, the
+  target at the top left, the party at the bottom right, the minimap at the top
+  right, with frames drawn sharp for your resolution, a pause notice that shows your
+  pad's trigger, and a combat-mode line across the top. The PC display is back the
+  moment you use the mouse or keyboard, and the Xbox layout can be switched off
+  (`Style=PC` in `kmrp-controller.ini`).
+- Controller support is a patch of its own: it also installs without the rest of
+  KMRP, on the unchanged game or beside another widescreen mod (tried beside Scaled
+  Kotor), and sizes itself to the interface it finds.
+
+**Installing and removing**
+
+- One program: run it, press Start Patching, play. It finds the Steam or GOG game by
+  itself and says which version it found.
+- The game's main file is not rewritten. Steam's copy stays exactly as Steam
+  installed it, and you start the game the way you always do.
+- Nothing goes into the `Override` folder and no file of another mod is replaced.
+  Tested with the KOTOR 1 Community Patch and KOTOR 1 Restoration, in either order.
+- Restore Original undoes everything KMRP did, file by file.
+- Options behind the gear button: controller support, graphics-card compatibility,
+  the map note fixes, the HD item icons, High FPS Fix and diagnostic logs. Your
+  choices are remembered, and Restore Defaults puts them back.
+- An older KMRP is replaced when you patch again, and the installer tells you when a
+  newer one is out.
+- KOTOR Patch Manager users get KMRP as two patches that sit beside their others,
+  and D3M0's High FPS Fixes as a third while High FPS Fix is on. Where KOTOR Patch
+  Manager already looks after the game, the installer hands the patches to it.
+- Everything the installer does can also be run from the command line.
+- KMRP replaces UniWS and other widescreen patchers, High Resolution Menus, a
+  separate 4 GB patch, and KOTOR Patch Manager's own 4 GB, texture, grass, save-game
+  and Better Movie Playback patches. Do not install those alongside it.
+
+**On the Mac** (new in 1.5: the Steam version, with its own installer)
+
+- The same menus for your resolution, text, lists, icons, popups, map and note
+  fixes, conversation bars, crash fix, HD art and all of controller support. The Mac
+  game has no controller support at all without KMRP.
+- Retina: the game starts at the resolution macOS is set to, and the display's full
+  Retina resolution is in the game's list.
+- Five options: controller support, the map note fixes, the HD item icons, High FPS
+  Fix (KMRP's port of D3M0's patch to the Mac game) and diagnostic logs.
+- It builds on FTD's Widescreen Patch and Stray Bug Fixes, which the installer
+  brings with it.
+- Not on the Mac, because they are fixes for Windows: display scaling, the extra
+  memory, the NVIDIA setting, Modern Driver Compatibility, the mouse kept inside the
+  game, and the movie fixes.
+
+**Where it works.** Windows: the Steam, GOG and disc 1.03 versions. macOS: the Steam
+version ([Other platforms](#other-platforms)). Linux with Proton and the Steam Deck:
+experimental.
 
 ---
 
@@ -180,10 +353,8 @@ recorded in [`releases/universal-v2.0.0/`](releases/universal-v2.0.0/).
 
 ## What it fixes
 
-The full list of what changes, in plain words, is in
-[docs/features.md](docs/features.md), and with the mechanism of each in
-[docs/features-technical.md](docs/features-technical.md). The table below is the
-engine defects: every entry was diagnosed against the executable, and each links to
+The full list of what changes is under [Features](#features) above. The table
+below is the engine defects: every entry was diagnosed against the executable, and each links to
 the full trace. Several are vanilla BioWare bugs that only become visible once the
 interface is scaled.
 
