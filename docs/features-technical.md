@@ -130,6 +130,10 @@ The full list is in [testing/README.md](../testing/README.md).
 
 - **macOS:** a separate installer for the Aspyr build, maintained on its own; see
   [macos/README.md](../macos/README.md).
-- **Linux and Proton:** the last run under Proton was the build of 2026-10-01, which
-  still wrote `Override` files. The current two-patch build **has not been run under
-  Proton.** See [linux-proton-steam-deck.md](linux-proton-steam-deck.md).
+- **Linux and Proton:** the build of 2026-10-01, which still wrote `Override`
+  files, has a measured record under Proton Experimental on Ubuntu. A later
+  development build of 1.5, without `Override` files, was run by the maintainer on
+  Ubuntu under the stable Proton and Proton Experimental and worked (his report of
+  2026-10-08; the build's hash, the Proton versions and what was played were not
+  recorded). The released build **has not been run under Proton**, and **no Steam
+  Deck has been tried.** See [linux-proton-steam-deck.md](linux-proton-steam-deck.md).

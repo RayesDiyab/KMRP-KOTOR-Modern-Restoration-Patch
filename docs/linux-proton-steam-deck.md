@@ -9,7 +9,8 @@
 a Windows game. Installer 1.5.0 passed install/restore tests under Proton
 Experimental on Ubuntu on 2026-10-01, followed by limited gameplay at 3440×1440:
 dialogue, save/load, NPC labels, menus, and virtual Xbox movement and camera.
-Steam Deck and stable Proton remain untested. The procedure below follows the
+Stable Proton was untested in that record, and the Steam Deck still is. The
+procedure below follows the
 official Protontricks and Valve Proton interfaces; the test record distinguishes
 the tested direct Proton/Sniper launch from the community-reported Protontricks
 launcher and does not claim full hardware or gameplay coverage.
@@ -23,6 +24,18 @@ folder under the user's temporary folder, the controller is a second patch since
 **None of that has been run under Proton**: the records below, including every
 count of Override files and "KMRP's four components", describe the 2026-10-01
 build.
+
+**The maintainer's later test (reported 2026-10-08).** A development build of 1.5
+from after 2026-10-04, so one that writes nothing to `Override` and offers the
+resolution in the game, was installed and played by the maintainer on Ubuntu under
+the stable Proton of the day and under Proton Experimental, and worked. This is
+his report, not a measured record like the one below: the build's hash, the two
+Proton versions, the Ubuntu version, the resolution and what was played were not
+written down. It lifts two statements of this page, "stable Proton untested" and
+"none of that has been run under Proton", for that build. **Still not done:** the
+released 1.5 installer itself under Proton, any distribution other than Ubuntu,
+and a Steam Deck, which is why the two are named separately wherever KMRP's
+platforms are listed.
 
 **Correction, 2026-10-01:** this page previously said no Proton gameplay or
 native hook execution had been tested. The initial installer-only record was

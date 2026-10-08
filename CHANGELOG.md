@@ -110,7 +110,13 @@ proxy, and it applies the executable changes above as well.
 
 ## [Unreleased]
 
-Nothing since 1.5.0.
+- **Documents: Linux with Proton told apart from the Steam Deck** (2026-10-08). The
+  maintainer ran a development build of 1.5 on Ubuntu under the stable Proton and
+  under Proton Experimental, and it worked; the platform lists (`README.md`,
+  `docs/features.md`, `docs/features-technical.md`) said "experimental" for both and
+  now say what was tested and that no Steam Deck was. His report is recorded in
+  `docs/linux-proton-steam-deck.md` with what it does not include (hashes, Proton
+  versions, what was played).
 
 ## [1.5.0] -- 2026-10-09
 

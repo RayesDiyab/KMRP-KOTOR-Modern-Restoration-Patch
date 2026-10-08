@@ -187,8 +187,9 @@ version's; what differs on the Mac is at its end.
   game, and the movie fixes.
 
 **Where it works.** Windows: the Steam, GOG and disc 1.03 versions. macOS: the Steam
-version ([Other platforms](#other-platforms)). Linux with Proton and the Steam Deck:
-experimental.
+version ([Other platforms](#other-platforms)). Linux with Proton: tested by the
+maintainer on Ubuntu, with the stable Proton and Proton Experimental. Steam Deck:
+not tested on the device.
 
 ---
 
@@ -206,7 +207,7 @@ experimental.
 | --- | --- |
 | Game | *Star Wars: Knights of the Old Republic* (2003 PC release) |
 | `swkotor.exe` | One of three builds, and KMRP refuses every other: **Steam's** (`34E6D971…A439F34C88`), **GOG's** (`9C10E045…DEA91435`), or the **4,042,752-byte editable 1.03 build** (`761F9466…C49E9886`). GOG's and the editable build are also accepted with only the standard Large Address Aware bit already set. |
-| OS | Windows with .NET Framework 4.x (shipped with Windows 10/11). Linux with Proton is experimental; see [Other platforms](#other-platforms). |
+| OS | Windows with .NET Framework 4.x (shipped with Windows 10/11). Linux with Proton works on Ubuntu, as tested by the maintainer; the Steam Deck is untested. See [Other platforms](#other-platforms). |
 
 1. Launch KOTOR once so `swkotor.ini` exists.
 2. Run **`KMRP - KOTOR Modern Restoration Patch.exe`**. It finds Steam's KOTOR by itself,
@@ -290,11 +291,16 @@ Its two patch files, `KMRP-macOS.kpatch` and
 `KOTOR 1 Native Controller Mod + Xbox HUD (macOS).kpatch`, work on the Mac game only, and
 the Windows files named above on Windows only.
 
-**Linux / Proton / Steam Deck (experimental).** Launch the installer inside the
-game's Proton environment with `protontricks-launch --appid 32370`, and use the
-same route for restore. The last run under Proton was the installer of 2026-10-01
-on Ubuntu, which still wrote `Override` files; the current build has not been run
-under Proton, and Steam Deck is untested. The commands and the test matrix are in
+**Linux with Proton.** Launch the installer inside the game's Proton environment
+with `protontricks-launch --appid 32370`, and use the same route for restore.
+Tested by the maintainer on Ubuntu, with the stable Proton and with Proton
+Experimental, on a development build of 1.5 that already worked as the release
+does (nothing in `Override`, the resolution chosen in the game): it installed and
+played. The released build itself has not been run again under Proton, and other
+distributions are untested.
+
+**Steam Deck.** Not tested on the device. It runs the game through the same
+Proton, so the same steps apply. The commands and the test record for both are in
 the [Linux, Proton, and Steam Deck guide](docs/linux-proton-steam-deck.md).
 
 ### What the installer touches
