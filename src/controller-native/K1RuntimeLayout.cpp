@@ -185,6 +185,9 @@ void FileLists(const Gff& gff, std::map<std::string, ListFile>& result)
 // 0x10 is the scrollbar on the left; PADDING, a byte.
 const unsigned kListBarWidth = 0x110, kListContentWidth = 0x294, kListRowHeight = 0x2B4, kListFlags = 0x2BC, kListPadding = 0x2C0;
 const std::uintptr_t kListTable = 0x0073E840;          // CSWGuiListBox's vtable
+// CSWGuiInGameMap: its vtable, its CSWGuiMapHider and its canvas (KmrpRuntimeLayoutDimensions).
+const std::uintptr_t kMapPanelTable = 0x00754830;
+const unsigned kMapOverlay = 0xE38, kMapCanvas = 0x1080;
 const unsigned kControlPanel = 0x34, kPanelManager = 0x18, kManagerWidth = 0x6C, kManagerHeight = 0x6E;   // the last two are shorts
 
 // The row's kind, by its vtable (the names are the Ghidra archive's), and how much further
@@ -509,6 +512,47 @@ bool KmrpRuntimeLayoutDimensions(void* manager, int width, int height)
             }
         }
         item.second.file.swap(file);
+        // The area map's two surfaces, which no layout file holds.
+        // CSWGuiInGameMap's constructor (0x00694D50) gives them their sizes after its
+        // layout has loaded: the picture's canvas, a CSWGuiImage at +0x1080, {0, 0,
+        // 512, 256}, and the markers' and fog's overlay, the CSWGuiMapHider at +0xE38,
+        // {0, 0, 440, 256}. Those four numbers are the engine recipe's (0x0069505C,
+        // 0x00695064, 0x00695082, 0x0069508A: FieldValue kinds 6, 7 and 8 in
+        // K1RuntimeEngine.cpp), written again for the new size, but the panel is made
+        // once, with the game, and kept the first size's: after 3440x1440 to
+        // 1920x1080 the map was drawn 2001x720 over a 960x540 frame (the maintainer,
+        // 2026-10-09). The instance the HUD makes for its minimap is put back to the
+        // game's own 512x256 and 440x256 by the recipe's wrapper and is left so.
+        if (Field<std::uintptr_t>(panel, 0) == kMapPanelTable) {
+            void* canvas = static_cast<char*>(panel) + kMapCanvas;
+            void* overlay = static_cast<char*>(panel) + kMapOverlay;
+            const Extent canvasNow = Field<Extent>(canvas, 4), overlayNow = Field<Extent>(overlay, 4);
+            const bool minimap = canvasNow.width == 512 && canvasNow.height == 256 &&
+                                 overlayNow.width == 440 && overlayNow.height == 256;
+            if (!minimap) {
+                const double exact = (width / 2) * 512 / 440.0, lower = std::floor(exact), part = exact - lower;
+                const int canvasWidth = static_cast<int>(lower) +
+                    (part > .5 || (part == .5 && std::fmod(lower, 2.) != 0.) ? 1 : 0);
+                changes.push_back({canvas, {canvasNow.left, canvasNow.top, canvasWidth, height / 2}});
+                changes.push_back({overlay, {overlayNow.left, overlayNow.top, width / 2, height / 2}});
+            }
+            // The overlay's own two pictures, made by CSWGuiMapHider's constructor
+            // (0x00693F60) at the recipe's marker sizes: the player's arrow (+0x60, 32
+            // at the game's size, 0x0069405B) and the selection circle (+0x64, 16,
+            // 0x006940DC). FieldValue's kind 10. Not seen wrong; set with the rest.
+            const float scale = height > 720 ? static_cast<float>(height) / 720.f : 1.f;
+            const float marker = scale > 127.f / 16.f ? 127.f / 16.f : scale;
+            const struct { unsigned at; int base; } pictures[] = {{0x60, 32}, {0x64, 16}};
+            for (const auto& picture : pictures) {
+                void* image = Field<void*>(overlay, picture.at);
+                if (!image) continue;
+                const double exact = static_cast<float>(picture.base) * marker, lower = std::floor(exact), part = exact - lower;
+                int side = static_cast<int>(lower) + (part > .5 || (part == .5 && std::fmod(lower, 2.) != 0.) ? 1 : 0);
+                if (side < 1) side = 1;
+                const Extent now = Field<Extent>(image, 4);
+                changes.push_back({image, {now.left, now.top, side, side}});
+            }
+        }
     }
     for (const auto& change : changes) {
         auto table = Field<std::uintptr_t*>(change.pointer, 0);

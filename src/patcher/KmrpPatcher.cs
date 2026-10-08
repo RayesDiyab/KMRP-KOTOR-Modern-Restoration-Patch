@@ -1072,6 +1072,7 @@ namespace Kmrp
                 output.Add("[Graphics Options]");
                 output.Add("Height=" + height.ToString(CultureInfo.InvariantCulture));
                 output.Add("Width=" + width.ToString(CultureInfo.InvariantCulture));
+                output.AddRange(FrameRateLines(width, height));
             }
             else
             {
@@ -1079,6 +1080,7 @@ namespace Kmrp
                     output.Add(lines[index]);
                 output.Add("Height=" + height.ToString(CultureInfo.InvariantCulture));
                 output.Add("Width=" + width.ToString(CultureInfo.InvariantCulture));
+                output.AddRange(FrameRateLines(width, height));
                 for (int index = sectionStart + 1; index < sectionEnd; index++)
                 {
                     if (!IsResolutionKey(lines[index]))
@@ -1139,8 +1141,46 @@ namespace Kmrp
             if (equals < 0)
                 return false;
             string key = line.Substring(0, equals).Trim();
-            return String.Equals(key, "Width", StringComparison.OrdinalIgnoreCase) ||
-                String.Equals(key, "Height", StringComparison.OrdinalIgnoreCase);
+            if (String.Equals(key, "Width", StringComparison.OrdinalIgnoreCase) ||
+                String.Equals(key, "Height", StringComparison.OrdinalIgnoreCase))
+                return true;
+            // The frame-rate lines, written again with the two above (FrameRateLines).
+            foreach (string written in FrameRateLines(0, 0))
+                if (String.Equals(key, written.Substring(0, written.IndexOf('=')), StringComparison.OrdinalIgnoreCase))
+                    return true;
+            return false;
+        }
+
+        /// <summary>The game's own frame-rate settings in [Graphics Options], as this
+        /// install sets them (2026-10-09, at the maintainer's request).
+        ///
+        /// The game's Screen Resolution list shows a size once for each refresh rate of
+        /// 60 Hz or more, and in fullscreen with V-Sync it draws as many frames a second
+        /// as the mode's rate. Rates above 85 Hz are hidden, and a RefreshRate above 85
+        /// is read as 60, unless AllowHighMonitorFrequency is 1
+        /// (CClientExoAppInternal::ReadVideoModeSettings, 0x005F0CE0, and the dialog's
+        /// constructor, 0x006E0710). Above 60 frames a second the game's timing breaks,
+        /// which D3M0's High FPS Fixes repairs. So:
+        ///   with High FPS Fix: every rate allowed, and the game starts at the highest
+        ///     the display reports at the start size; V-Sync is left as it is;
+        ///   without it: 60, the higher rates not allowed, and V-Sync on, since without
+        ///     it the game draws as fast as it can. KMRP's module also hides the rates
+        ///     above 60 from the list then (EnumModesOnce, K1RuntimeResolution.cpp).
+        /// Restore puts the whole file back from its backup.</summary>
+        private static List<string> FrameRateLines(int width, int height)
+        {
+            bool high = KmrpSettings.HighFpsFix;
+            int rate = 60;
+            if (high && width > 0 && height > 0)
+                rate = Math.Max(60, ResolutionSelection.HighestRefresh(new[] { width, height }));
+            List<string> lines = new List<string>
+            {
+                "AllowHighMonitorFrequency=" + (high ? "1" : "0"),
+                "RefreshRate=" + rate.ToString(CultureInfo.InvariantCulture),
+            };
+            if (!high)
+                lines.Add("V-Sync=1");
+            return lines;
         }
 
         private static void DetectEncoding(byte[] data, out Encoding encoding, out int preambleLength)
@@ -4642,6 +4682,32 @@ namespace Kmrp
         // The bundled HD item icons, an option since 2026-10-08 (always installed
         // until then): a player asked on Deadly Stream why they were mandatory.
         private const bool HdIconsDefault = true;
+        // D3M0's High FPS Fixes, a third patch. Off unless asked for, on the morning of
+        // 2026-10-09; since that afternoon, at the maintainer's request, on by itself
+        // where the display can run above 60 Hz (HighFpsFixAuto), because the game's
+        // timing breaks above 60 frames a second without it. What the player sets in
+        // Advanced Settings is kept either way (highFpsFixChosen).
+        private const int HighFpsRefreshFloor = 62;   // 59, 60 and 61 Hz all count as 60
+
+        /// <summary>The highest refresh rate the display reports (ResolutionSelection),
+        /// asked once.</summary>
+        internal static int DisplayRefresh
+        {
+            get
+            {
+                if (displayRefresh < 0)
+                    displayRefresh = ResolutionSelection.HighestRefresh();
+                return displayRefresh;
+            }
+        }
+        private static int displayRefresh = -1;
+
+        /// <summary>High FPS Fix where the player has not chosen: on for a display that
+        /// reports more than 60 Hz.</summary>
+        internal static bool HighFpsFixAuto
+        {
+            get { return DisplayRefresh >= HighFpsRefreshFloor; }
+        }
         // On by default since 2026-09-24, like the other two: Restore Defaults turns
         // all three on, and a default it does not restore would not be a default. It
         // costs a keyboard-and-mouse player nothing -- prompts appear only while a pad
@@ -4654,6 +4720,8 @@ namespace Kmrp
         private static bool driverCompatibility = DriverCompatibilityDefault;
         private static bool markerFixes = MarkerFixesDefault;
         private static bool hdIcons = HdIconsDefault;
+        private static bool highFpsFix;
+        private static bool highFpsFixChosen;   // the settings file holds the player's own choice
         private static bool controllerSupport = ControllerSupportDefault;
         private static bool debugLogs = DebugLogsDefault;
         // The resolution checklist (ResolutionSelection): the display's sizes the player
@@ -4711,6 +4779,32 @@ namespace Kmrp
                 hdIcons = value;
                 Save();
             }
+        }
+
+        /// <summary>Install D3M0's High FPS Fixes patch beside KMRP's.</summary>
+        internal static bool HighFpsFix
+        {
+            get { Load(); return highFpsFixChosen ? highFpsFix : HighFpsFixAuto; }
+            set
+            {
+                Load();
+                if (highFpsFixChosen && highFpsFix == value)
+                    return;
+                highFpsFix = value;
+                highFpsFixChosen = true;
+                Save();
+            }
+        }
+
+        /// <summary>Forgets the player's choice: High FPS Fix follows the display again
+        /// (Restore Defaults).</summary>
+        internal static void ResetHighFpsFix()
+        {
+            Load();
+            if (!highFpsFixChosen)
+                return;
+            highFpsFixChosen = false;
+            Save();
         }
 
         /// <summary>Install KMRP's optional controller support.
@@ -4803,6 +4897,15 @@ namespace Kmrp
                 if (icons.Success)
                     hdIcons = String.Equals(icons.Groups[1].Value, "true",
                         StringComparison.OrdinalIgnoreCase);
+                Match fps = Regex.Match(json,
+                    "\\\"highFpsFix\\\"\\s*:\\s*(true|false)",
+                    RegexOptions.IgnoreCase | RegexOptions.CultureInvariant);
+                if (fps.Success)
+                {
+                    highFpsFix = String.Equals(fps.Groups[1].Value, "true",
+                        StringComparison.OrdinalIgnoreCase);
+                    highFpsFixChosen = true;
+                }
                 Match controller = Regex.Match(json,
                     "\\\"controllerSupport\\\"\\s*:\\s*(true|false)",
                     RegexOptions.IgnoreCase | RegexOptions.CultureInvariant);
@@ -4840,6 +4943,7 @@ namespace Kmrp
                     "  \"controllerSupport\": " +
                     (controllerSupport ? "true" : "false") +
                     (hdIcons ? "" : ",\r\n  \"hdIcons\": false") +
+                    (highFpsFixChosen ? ",\r\n  \"highFpsFix\": " + (highFpsFix ? "true" : "false") : "") +
                     (debugLogs ? ",\r\n  \"debugLogs\": true" : "") +
                     (skippedUpdate.Length > 0
                         ? ",\r\n  \"skippedUpdate\": \"" + skippedUpdate + "\""
@@ -5062,6 +5166,40 @@ namespace Kmrp
             return null;
         }
 
+        /// <summary>The highest refresh rate the primary display reports at its current
+        /// size, in hertz, or 0 when it cannot be told. What High FPS Fix's default goes
+        /// by (KmrpSettings.HighFpsFix): a display that can run above 60 is one the game
+        /// can run above 60 frames a second on.</summary>
+        internal static int HighestRefresh()
+        {
+            return HighestRefresh(CurrentSize());
+        }
+
+        /// <summary>The same at a given size, {width, height}; at the display's current
+        /// size when null.</summary>
+        internal static int HighestRefresh(int[] current)
+        {
+            int highest = 0;
+            try
+            {
+                MainForm.DisplayMode mode = new MainForm.DisplayMode();
+                mode.StructSize = (short)Marshal.SizeOf(typeof(MainForm.DisplayMode));
+                for (int i = 0; MainForm.EnumDisplaySettings(null, i, ref mode); i++)
+                {
+                    if (mode.BitsPerPel != 32 ||
+                        (current != null && (mode.PelsWidth != current[0] || mode.PelsHeight != current[1])))
+                        continue;
+                    if (mode.DisplayFrequency > highest)
+                        highest = mode.DisplayFrequency;
+                }
+                if (MainForm.EnumDisplaySettings(null, MainForm.EnumCurrentSettings, ref mode) &&
+                    mode.DisplayFrequency > highest)
+                    highest = mode.DisplayFrequency;
+            }
+            catch { }
+            return highest;
+        }
+
         /// <summary>The sizes the game lists for this display, that KMRP has a layout
         /// for: 32-bit modes of 60 Hz or more, as the game's own list filters them,
         /// each size once, as {width, height}.</summary>
@@ -5126,6 +5264,9 @@ namespace Kmrp
         /// <summary>Who wrote the component. Set right of the title, never folded into
         /// the description.</summary>
         internal string Author = "";
+        /// <summary>A short fact about this PC, in green beside the title: "Display
+        /// supports 120 Hz" on the High FPS Fix tile. Empty for none.</summary>
+        internal string Note = "";
         internal event EventHandler CheckedChanged;
 
         internal bool Checked
@@ -5163,7 +5304,6 @@ namespace Kmrp
             float scale = Math.Max(0.1F, UiScale);
             int radius = Math.Max(1, (int)Math.Round(10 * scale));
             Rectangle body = new Rectangle(0, 0, Width - 1, Height - 1);
-
             using (GraphicsPath path = UiTheme.RoundedRect(body, radius))
             {
                 using (SolidBrush fill = new SolidBrush(hover ? UiTheme.CardHover : UiTheme.Badge))
@@ -5172,59 +5312,68 @@ namespace Kmrp
                     g.DrawPath(edge, path);
             }
 
-            int pad = Math.Max(1, (int)Math.Round(20 * scale));
+            // A tile since 2026-10-09 (a full-width row until then; the maintainer asked
+            // for tiles once there were six): the title on top, over as many lines as it
+            // needs, the description under it, and along the bottom the credit on the
+            // left and the switch on the right. The description has what is left
+            // between the two and ends in an ellipsis where that is not enough.
+            int pad = Math.Max(1, (int)Math.Round(16 * scale));
             int switchWidth = Math.Max(8, (int)Math.Round(64 * scale));
             int switchHeight = Math.Max(6, (int)Math.Round(32 * scale));
-            int gutter = Math.Max(1, (int)Math.Round(18 * scale));
-            // Everything written stops a gutter short of the switch's column. The credit
-            // used to end 42px from the edge, over a switch anchored bottom-right in an
-            // 86px row, so the two overlapped (reported 2026-09-24).
+            int textWidth = Math.Max(1, Width - 2 * pad);
             int switchLeft = Width - pad - switchWidth;
-            int textWidth = Math.Max(1, switchLeft - gutter - pad);
+            Rectangle track = new Rectangle(switchLeft, Height - pad - switchHeight, switchWidth, switchHeight);
 
-            // Two lines. Title and author share the first and are centred on each other;
-            // the description and the switch share the second. The description stops
-            // short of the switch so the row never looks crowded.
-            using (Font titleFont = new Font("Segoe UI Semibold", Math.Max(6F, 17F * scale)))
-            using (Font authorFont = new Font("Segoe UI", Math.Max(6F, 13.5F * scale)))
-            using (Font detailFont = new Font("Segoe UI", Math.Max(6F, 13.5F * scale)))
+            using (Font titleFont = new Font("Segoe UI Semibold", Math.Max(6F, 16F * scale)))
+            using (Font authorFont = new Font("Segoe UI", Math.Max(6F, 13F * scale)))
+            using (Font detailFont = new Font("Segoe UI", Math.Max(6F, 13F * scale)))
             using (SolidBrush titleInk = new SolidBrush(UiTheme.Text))
             using (SolidBrush authorInk = new SolidBrush(UiTheme.AuthorInk))
             using (SolidBrush detailInk = new SolidBrush(UiTheme.TextMuted))
-            using (StringFormat rightAlign = new StringFormat())
+            using (StringFormat wrap = new StringFormat())
+            using (StringFormat credit = new StringFormat())
             {
-                rightAlign.Alignment = StringAlignment.Far;
-                rightAlign.LineAlignment = StringAlignment.Center;
-                rightAlign.FormatFlags = StringFormatFlags.NoWrap;
+                wrap.Trimming = StringTrimming.EllipsisWord;
+                credit.LineAlignment = StringAlignment.Center;
+                credit.FormatFlags = StringFormatFlags.NoWrap;
+                credit.Trimming = StringTrimming.EllipsisCharacter;
 
-                int titleHeight = (int)Math.Ceiling(titleFont.GetHeight(g));
-                // Centred as a pair where the row is too short for the usual top margin
-                // (five rows since 2026-10-08).
-                float titleTop = Math.Max(2F, Math.Min(pad * 0.72F,
-                    (Height - titleHeight - detailFont.GetHeight(g) - 2 * scale) / 2F));
-                g.DrawString(Title, titleFont, titleInk, new RectangleF(
-                    pad, titleTop, textWidth, titleHeight + 2));
+                float lineHeight = titleFont.GetHeight(g);
+                float titleTop = pad * 0.75F;
+                // The note, where there is one, ends the title's first line on the right,
+                // centred on that line, and the title keeps clear of it.
+                int titleWidth = textWidth;
+                if (!String.IsNullOrEmpty(Note))
+                {
+                    using (SolidBrush noteInk = new SolidBrush(UiTheme.Success))
+                    using (StringFormat right = new StringFormat())
+                    {
+                        right.Alignment = StringAlignment.Far;
+                        right.LineAlignment = StringAlignment.Center;
+                        right.FormatFlags = StringFormatFlags.NoWrap;
+                        int noteWidth = (int)Math.Ceiling(g.MeasureString(Note, authorFont).Width);
+                        g.DrawString(Note, authorFont, noteInk,
+                            new RectangleF(pad, titleTop, textWidth, lineHeight), right);
+                        titleWidth = Math.Max(1, textWidth - noteWidth - Math.Max(1, (int)Math.Round(8 * scale)));
+                    }
+                }
+                float titleHeight = Math.Min(2 * lineHeight + 1,
+                    (float)Math.Ceiling(g.MeasureString(Title, titleFont, titleWidth, wrap).Height));
+                g.DrawString(Title, titleFont, titleInk, new RectangleF(pad, titleTop, titleWidth, titleHeight), wrap);
+
+                float detailTop = titleTop + titleHeight + Math.Max(1, 3 * scale);
+                float detailLine = detailFont.GetHeight(g);
+                // Whole lines only, so no line is cut through its middle.
+                float room = track.Top - Math.Max(1, 4 * scale) - detailTop;
+                int lines = Math.Max(1, (int)Math.Floor(room / detailLine));
+                g.DrawString(Detail, detailFont, detailInk,
+                    new RectangleF(pad, detailTop, textWidth, lines * detailLine + 1), wrap);
 
                 if (!String.IsNullOrEmpty(Author))
-                {
-                    // Centred on the title's own box, so the two sit on one optical line
-                    // whatever the two fonts' ascents do, and right-aligned to the same
-                    // column the description stops at -- clear of the switch.
                     g.DrawString("by " + Author, authorFont, authorInk, new RectangleF(
-                        pad, titleTop, textWidth, titleHeight + 2), rightAlign);
-                }
-
-                RectangleF detailBox = new RectangleF(
-                    pad, titleTop + titleHeight + Math.Max(1, 2 * scale),
-                    textWidth,
-                    Math.Max(1, Height - titleTop - titleHeight - pad * 0.5F));
-                g.DrawString(Detail, detailFont, detailInk, detailBox);
+                        pad, track.Top, Math.Max(1, switchLeft - pad - Math.Max(1, 8 * scale)), switchHeight), credit);
             }
 
-            // The switch has the right-hand column to itself, centred on the row.
-            Rectangle track = new Rectangle(switchLeft,
-                                            (Height - switchHeight) / 2,
-                                            switchWidth, switchHeight);
             using (GraphicsPath path = UiTheme.RoundedRect(track, switchHeight / 2))
             {
                 using (SolidBrush fill = new SolidBrush(isChecked ? UiTheme.AccentStrong : UiTheme.Disabled))
@@ -5616,7 +5765,7 @@ namespace Kmrp
 
             Label settingsSubtitle = new Label();
             settingsSubtitle.Text =
-                "Each can be changed on its own; all but debug logs are on by default.";
+                "Each can be changed on its own. Restore Defaults puts them back.";
             settingsSubtitle.Font = new Font("Segoe UI", 14F);
             settingsSubtitle.ForeColor = UiTheme.TextMuted;
             settingsSubtitle.BackColor = UiTheme.Card;
@@ -5626,19 +5775,50 @@ namespace Kmrp
             settingsSubtitle.Anchor = AnchorStyles.Top | AnchorStyles.Left | AnchorStyles.Right;
             settingsView.Controls.Add(settingsSubtitle);
 
+            // Six tiles, three by two, since 2026-10-09 (rows until then: four, then five
+            // on 2026-10-08, then six that morning), in the order the maintainer set
+            // that day, read row by row: controller support first, then the bundled
+            // work of others, debug logs last. They share what the card has between the
+            // title and the buttons.
+            int optionGap = 10;
+            int optionWidth = (card.Width - 72 - 2 * optionGap) / 3;
+            int optionRowHeight =
+                (card.Height - 96 - 8 - (settingsTitle.Bottom + 10) - optionGap) / 2;
+            int optionRowTop = settingsTitle.Bottom + 10;
+            int optionSecondTop = optionRowTop + optionRowHeight + optionGap;
+            int optionColumn2 = 36 + optionWidth + optionGap;
+            int optionColumn3 = optionColumn2 + optionWidth + optionGap;
+
+            controllerToggle = new OptionToggle();
+            // What ships now, in one line: KMRP's native controller path with SDL3 beside
+            // XInput, reading the pad family for its prompts. Saul0097's KPM Xbox Controls
+            // is where it began and is still credited in THIRD_PARTY_NOTICES.md and the
+            // README. The author line here named him too ("KMRP, based on Saul0097")
+            // until 2026-10-05, when the maintainer asked for the public-facing credit to
+            // be KMRP's alone, and reads "RaymanGT" since 2026-10-09 ("KMRP" until then),
+            // with the row named "Native Controller Support" ("Controller Support"
+            // before); the notices and the documentation are unchanged.
+            controllerToggle.Title = "Native Controller Support";
+            controllerToggle.Author = "RaymanGT";
+            controllerToggle.Detail =
+                "Xbox, PlayStation, Switch and Steam Deck pads: prompts, rumble and the Xbox-style HUD.";
+            controllerToggle.Checked = KmrpSettings.ControllerSupport;
+            controllerToggle.SetBounds(36, optionRowTop, optionWidth, optionRowHeight);
+            controllerToggle.Anchor = AnchorStyles.Top | AnchorStyles.Left;
+            controllerToggle.CheckedChanged += delegate
+            {
+                KmrpSettings.ControllerSupport = controllerToggle.Checked;
+            };
+            settingsView.Controls.Add(controllerToggle);
+
             driverToggle = new OptionToggle();
             driverToggle.Title = "Modern Driver Compatibility";
             driverToggle.Author = "Synchro";
             driverToggle.Detail =
                 "Fixes lighting, fog, reflections, soft shadows and grass on modern graphics cards.";
             driverToggle.Checked = KmrpSettings.DriverCompatibility;
-            // Five rows (four until 2026-10-08) share what the card has between the
-            // subtitle and the buttons: 86 px each where that fits, less where it does not.
-            int optionRowGap = 6;
-            int optionRowHeight = Math.Min(86,
-                (card.Height - 96 - 8 - (settingsTitle.Bottom + 10) - 4 * optionRowGap) / 5);
-            driverToggle.SetBounds(36, settingsTitle.Bottom + 10, card.Width - 72, optionRowHeight);
-            driverToggle.Anchor = AnchorStyles.Top | AnchorStyles.Left | AnchorStyles.Right;
+            driverToggle.SetBounds(optionColumn2, optionRowTop, optionWidth, optionRowHeight);
+            driverToggle.Anchor = AnchorStyles.Top | AnchorStyles.Left;
             // Independent of the controller since 2026-09-24. This option installs
             // K1DC's ASI loader and its .asi together (DriverCompatOperations.Install);
             // KMRP's runtime needs neither since 2026-09-29, when it moved to KOTOR
@@ -5655,8 +5835,8 @@ namespace Kmrp
             markerToggle.Detail =
                 "Corrects misplaced area-map marker positions across the game.";
             markerToggle.Checked = KmrpSettings.MarkerFixes;
-            markerToggle.SetBounds(36, driverToggle.Bottom + optionRowGap, card.Width - 72, optionRowHeight);
-            markerToggle.Anchor = AnchorStyles.Top | AnchorStyles.Left | AnchorStyles.Right;
+            markerToggle.SetBounds(optionColumn3, optionRowTop, optionWidth, optionRowHeight);
+            markerToggle.Anchor = AnchorStyles.Top | AnchorStyles.Left;
             markerToggle.CheckedChanged += delegate
             {
                 KmrpSettings.MarkerFixes = markerToggle.Checked;
@@ -5670,33 +5850,36 @@ namespace Kmrp
             iconsToggle.Detail =
                 "High-resolution item icons. Turn off to keep the game's own icons.";
             iconsToggle.Checked = KmrpSettings.HdIcons;
-            iconsToggle.SetBounds(36, markerToggle.Bottom + optionRowGap, card.Width - 72, optionRowHeight);
-            iconsToggle.Anchor = AnchorStyles.Top | AnchorStyles.Left | AnchorStyles.Right;
+            iconsToggle.SetBounds(36, optionSecondTop, optionWidth, optionRowHeight);
+            iconsToggle.Anchor = AnchorStyles.Top | AnchorStyles.Left;
             iconsToggle.CheckedChanged += delegate
             {
                 KmrpSettings.HdIcons = iconsToggle.Checked;
             };
             settingsView.Controls.Add(iconsToggle);
 
-            controllerToggle = new OptionToggle();
-            // What ships now, in one line: KMRP's native controller path with SDL3 beside
-            // XInput, reading the pad family for its prompts. Saul0097's KPM Xbox Controls
-            // is where it began and is still credited in THIRD_PARTY_NOTICES.md and the
-            // README. The author line here named him too ("KMRP, based on Saul0097")
-            // until 2026-10-05, when the maintainer asked for the public-facing credit to
-            // be KMRP's alone; the notices and the documentation are unchanged.
-            controllerToggle.Title = "Controller Support";
-            controllerToggle.Author = "KMRP";
-            controllerToggle.Detail =
-                "Xbox, PlayStation, Switch and Steam Deck: play, menus, button prompts, rumble and the Xbox-style HUD.";
-            controllerToggle.Checked = KmrpSettings.ControllerSupport;
-            controllerToggle.SetBounds(36, iconsToggle.Bottom + optionRowGap, card.Width - 72, optionRowHeight);
-            controllerToggle.Anchor = AnchorStyles.Top | AnchorStyles.Left | AnchorStyles.Right;
-            controllerToggle.CheckedChanged += delegate
+            // D3M0's High FPS Fixes, a third patch, off unless turned on here: a row
+            // since 2026-10-09.
+            OptionToggle fpsToggle = new OptionToggle();
+            fpsToggle.Title = "High FPS Fix";
+            fpsToggle.Author = "D3M0";
+            fpsToggle.Detail =
+                "Fixes timing and animation faults above 60 frames per second." +
+                (KmrpSettings.HighFpsFixAuto ? " On by default for this display."
+                                             : " Off by default on a 60 Hz display.");
+            // In green beside the title, at the maintainer's request (2026-10-09): the
+            // highest rate the display reports, where that is above 60.
+            if (KmrpSettings.HighFpsFixAuto)
+                fpsToggle.Note = "Display supports " +
+                    KmrpSettings.DisplayRefresh.ToString(CultureInfo.InvariantCulture) + " Hz";
+            fpsToggle.Checked = KmrpSettings.HighFpsFix;
+            fpsToggle.SetBounds(optionColumn2, optionSecondTop, optionWidth, optionRowHeight);
+            fpsToggle.Anchor = AnchorStyles.Top | AnchorStyles.Left;
+            fpsToggle.CheckedChanged += delegate
             {
-                KmrpSettings.ControllerSupport = controllerToggle.Checked;
+                KmrpSettings.HighFpsFix = fpsToggle.Checked;
             };
-            settingsView.Controls.Add(controllerToggle);
+            settingsView.Controls.Add(fpsToggle);
 
             // The patch's debug-logs option: off by default, for a player who was asked
             // for logs with a bug report.
@@ -5706,8 +5889,8 @@ namespace Kmrp
             debugToggle.Detail =
                 "Writes diagnostic log files beside the game. Turn on when reporting a problem.";
             debugToggle.Checked = KmrpSettings.DebugLogs;
-            debugToggle.SetBounds(36, controllerToggle.Bottom + optionRowGap, card.Width - 72, optionRowHeight);
-            debugToggle.Anchor = AnchorStyles.Top | AnchorStyles.Left | AnchorStyles.Right;
+            debugToggle.SetBounds(optionColumn3, optionSecondTop, optionWidth, optionRowHeight);
+            debugToggle.Anchor = AnchorStyles.Top | AnchorStyles.Left;
             debugToggle.CheckedChanged += delegate
             {
                 KmrpSettings.DebugLogs = debugToggle.Checked;
@@ -5742,6 +5925,10 @@ namespace Kmrp
                 markerToggle.Checked = true;
                 iconsToggle.Checked = true;
                 controllerToggle.Checked = true;
+                // High FPS Fix follows the display again: the toggle first, since
+                // setting it records a choice, then the choice forgotten.
+                fpsToggle.Checked = KmrpSettings.HighFpsFixAuto;
+                KmrpSettings.ResetHighFpsFix();
                 debugToggle.Checked = false;
             };
             settingsView.Controls.Add(settingsDefaults);

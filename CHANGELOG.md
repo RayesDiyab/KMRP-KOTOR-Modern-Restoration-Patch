@@ -109,6 +109,125 @@ proxy, and it applies the executable changes above as well.
 
 ## [Unreleased]
 
+- **Frame rates: the game's own list, opened up with High FPS Fix and held at 60
+  without it** (2026-10-09, at the maintainer's request; the installer and KMRP's
+  patch). The maintainer asked for 60, 90 and 120 in the graphics options where the
+  display supports them and the fix is installed, and 60 otherwise. The game has
+  this already, half hidden: its Screen Resolution list shows a size once for each
+  refresh rate of 60 Hz or more ("3440 x 1440 @ 120 Hz"), and in fullscreen with
+  V-Sync it draws as many frames a second as the mode's rate; but rates above 85 Hz
+  are left out, and a `RefreshRate` above 85 is read as 60, unless `swkotor.ini`
+  has `AllowHighMonitorFrequency=1` (`CClientExoAppInternal::ReadVideoModeSettings`,
+  `0x005F0CE0`; the dialog's constructor, `0x006E0710`, compares with 85.0 at
+  `0x00752C90`). So no new control was made:
+  - *with High FPS Fix* the installer writes `AllowHighMonitorFrequency=1` and
+    `RefreshRate` as the highest rate the display reports at the start size, and
+    leaves `V-Sync` alone. The list then offers every rate of the display, not only
+    60, 90 and 120;
+  - *without it* the installer writes `AllowHighMonitorFrequency=0`, `RefreshRate=60`
+    and `V-Sync=1`, and KMRP's module hides every rate above 60 from the list
+    (`EnumModesOnce`, `K1RuntimeResolution.cpp`: a size keeps its lowest rate of 60
+    or more, so a display with no 60 Hz mode of a size still offers the size). The
+    module goes by whether `high-fps-fixes.dll` is loaded beside it.
+  - The installer's High FPS Fix tile says in green what the display can do
+    ("Display supports 120 Hz").
+  - `Test-InstallerPatch.ps1` requires the three lines in each case.
+
+  **Seen in a scratch copy of the game** that day, installed by this installer's
+  command line and driven with the virtual pad, on a 3440x1440 display that
+  reports 60, 75, 85, 100 and 120 Hz. With High FPS Fix: `swkotor.ini` held
+  `RefreshRate=120`, the list offered 3440 x 1440 at all five rates with 120
+  selected, and the screen was updated 599 times in 5 s at the main menu (120 a
+  second). Without it: `RefreshRate=60` and `V-Sync=1`, the list offered every size
+  at 60 Hz only, and the screen was updated 300 times in 5 s (60 a second). The
+  updates were counted from the desktop's duplication (`ffmpeg`, `ddagrab` with
+  `dup_frames=0`), since PresentMon needs an elevated prompt; that counts what the
+  screen showed, at the menu, not the game's own frames in play. The list's rows
+  are in the display's order (60, 85, 75, 100, 120), not sorted.
+
+  Not covered: V-Sync switched off in the game's own
+  options without the fix (the game then draws as fast as it can, as it always
+  did); a windowed game; a game whose patches KOTOR Patch Manager applied, where
+  the installer writes no `swkotor.ini`.
+
+- **High FPS Fix: D3M0's High FPS Fixes as an option, on by itself above 60 Hz**
+  (2026-10-09,
+  at the maintainer's request; the installer). [High FPS Fixes
+  1.0.1](https://github.com/gnw-d3m0/D3M0s-KPatches/releases/tag/HighFpsFixes-1.0.1)
+  (MIT) is a KOTOR Patch Manager patch for play above 60 frames per second. The
+  installer carries the release's own `HighFpsFixes.kpatch`, unchanged, and with
+  *High FPS Fix* on in Advanced Settings installs it as a third patch, id
+  `high-fps-fixes`: its module under `patches`, its 36 hooks in `patch_config.toml`
+  after KMRP's two patches, and the file itself in KOTOR Patch Manager's patch
+  folder (a file of that name already there is the player's and is left alone).
+  Restore removes all of it.
+  - New: `tools/build_bundled_kpatch_config.py` makes the installer's hook blocks
+    from a patch file as KOTOR Patch Manager's own applier writes them, and refuses
+    a patch that does not declare KMRP's three executables, names a function its
+    module does not export, has a static hook, or overlaps a hook of KMRP's two
+    patches or a byte of the engine recipe. For this patch: no overlap.
+  - `Test-InstallerPatch.ps1`, Case 6: with the option on, three patches in order,
+    27 + 34 + 36 hooks, the module and the delivered file are the bundled ones,
+    restore leaves the folder as it was. Off, as in every other case, nothing of it
+    is installed.
+  - Advanced Settings has six rows, in the order the maintainer set: Native
+    Controller Support (by RaymanGT; "Controller Support" by KMRP until this day),
+    Modern Driver Compatibility, Area Map Marker Fixes, HD Item Icons, High FPS
+    Fix, Debug Logs. They are tiles, three by two, since later that day (rows
+    across the card until then, which six no longer fitted without smaller text;
+    the maintainer asked for tiles): the title on top, the description under it,
+    the credit and the switch along the bottom. Seen on the installer's window at
+    3440x1440, every description whole.
+
+  *The default follows the display* (the same afternoon, at the maintainer's request:
+  the game's timing breaks above 60 frames a second without the fix). The option was
+  off unless turned on; now it is on by itself where the display reports a refresh rate above 60 Hz at its current
+  size (62 or more: 59, 60 and 61 count as 60), off otherwise
+  (`ResolutionSelection.HighestRefresh`, `KmrpSettings.HighFpsFixAuto`). A choice the
+  player makes in Advanced Settings is kept (`highFpsFix` in the settings file, written
+  only then), and Restore Defaults forgets it. The tile says which it is: "On by
+  default: this display runs at 120 Hz." on the maintainer's display.
+  `Test-InstallerPatch.ps1` now writes the choice in every case, so its cases do
+  not depend on the test machine's display.
+
+  **Not run in the game:** KMRP with High FPS Fixes beside it. The patch's own
+  behaviour is its author's; what was checked here is that it installs, that its
+  sites are free, and that it comes out again.
+
+- **Bundled work checked for newer versions** (2026-10-09). K1 Area Map Fixes is at
+  1.0.3; its note table, the one file KMRP takes from it, is byte for byte the
+  1.0.0 one (SHA-256 `880A325D...C0CCAA5`), so nothing changes. K1 Modern Driver
+  Compatibility is at 1.3.0 (KMRP bundles 1.2.0): **not updated yet.**
+  `THIRD_PARTY_NOTICES.md` linked the wrong Deadly Stream page for the map fixes
+  (file 3062, another mod); corrected to file 3091.
+
+- **Two faults after changing the resolution in the game** (2026-10-09, reported by
+  the maintainer; KMRP's patch and the controller patch). Both are in
+  [`reverse-engineering/resolution-switch.md`](reverse-engineering/resolution-switch.md),
+  written that day, with the game's whole path for a change of size.
+  - *The area map kept the first size's surfaces.* Started at 3440x1440 and changed
+    to 1920x1080, the map's picture and grid were drawn far larger than their
+    frame. `CSWGuiInGameMap`'s constructor (`0x00694D50`) sizes the picture's canvas
+    and the markers' overlay from four operands of the recipe; the module wrote
+    them for the new size, but the panel is made once, with the game, and the game
+    does not make it again on a change (`CGuiInGame::ResetInterfaceForSize`,
+    `0x0062F5F0`, makes the HUD, the dialogue and the message box again, nothing
+    else). `KmrpRuntimeLayoutDimensions` now gives a live map panel's canvas,
+    overlay and the overlay's two pictures the new size's rectangles. The HUD's own
+    instance, for the minimap, is left as the recipe's wrapper made it.
+  - *Buttons wider after a change there and back.* The controller patch grows the
+    Character screen's Level Up and Auto Level Up buttons for their badges and left
+    them grown while another screen was in front; a change of size laid them out
+    from the grown rectangles, which the controller patch then took for the
+    screen's own. It now makes a grown button its screen's size again whenever
+    another screen is in front (`RestoreK1GrownButtons`,
+    `vendor/K1XboxControls.cpp`). This cause is read from the source: which buttons
+    the maintainer saw is not established.
+
+  **Neither repair has been seen in the game.** Not repaired: the abilities'
+  chart, whose rows the Mac found keeping the old size's height after a change
+  (repaired there on 2026-10-05, not ported).
+
 - **The HD item icons are an option, on by default** (2026-10-08, at the
   maintainer's request; KMRP's patch and the installer). JackInTheBox's KOTOR 1 HD
   Icon Pack was always installed; a player asked on Deadly Stream why it was

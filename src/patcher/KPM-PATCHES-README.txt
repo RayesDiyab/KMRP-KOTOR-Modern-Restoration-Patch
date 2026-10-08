@@ -35,6 +35,12 @@ you start the game as usual.
                          version's while the pad is in use         (on)
         Debug logs       diagnostic log files beside the game      (off)
 
+  HighFpsFixes.kpatch   (only if High FPS Fix was on in KMRP's installer)
+      D3M0's High FPS Fixes 1.0.1, unchanged: timing and animation fixes
+      for play above 60 frames per second. It is not KMRP's work; its
+      home is https://github.com/gnw-d3m0/D3M0s-KPatches (MIT licence,
+      Copyright (c) 2026 D3M0). It has no options.
+
 Each patch works without the other. Tick both for KMRP with a controller,
 KMRP.kpatch alone for mouse and keyboard, or the controller patch alone
 for a game without KMRP.

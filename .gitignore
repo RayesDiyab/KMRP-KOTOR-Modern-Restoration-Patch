@@ -117,6 +117,10 @@ third_party/Included/Xelu_Free_Controller&Key_Prompts/*
 # because the global *.dll rule above would otherwise drop the proxy DLL from the
 # release we distribute. See docs/third-party-driver-compat.md.
 !third_party/Included/k1-modern-driver-compatibility-1.2.0 by Synchro/
+# High FPS Fixes 1.0.1 (D3M0, MIT), the release's own .kpatch and the repository's
+# licence: the installer carries the file unchanged as an option, off by default
+# (2026-10-09). Its module is inside the .kpatch, so no *.dll negation is needed.
+!third_party/Included/HighFpsFixes-1.0.1 by D3M0/
 # K1 Area Map Fixes (Derslok, GPL-3.0). We redistribute ONE file from it: the 250-entry
 # map-note correction table, which gold bakes into .kmn. Its licence and the author's
 # own technical notes ship with it so the data's provenance travels with the data. His

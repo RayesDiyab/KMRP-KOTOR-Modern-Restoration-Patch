@@ -72,6 +72,14 @@ misplaced map notes.
 | On many modern graphics cards lighting, fog, reflections, soft shadows and grass are broken or have to be switched off. | They work. This part is optional (on by default) and is Synchro's K1 Modern Driver Compatibility. |
 | On some NVIDIA setups the menus flash white or show half-drawn pictures. | The installer sets the one driver option that prevents it, for this game only, and removes it again when you undo KMRP. |
 
+## Above 60 frames per second
+
+The original game misbehaves above 60 frames per second: timing and animations
+run wrong. With **High FPS Fix** on, KMRP also installs D3M0's High FPS Fixes,
+which repairs these. The installer switches it on by itself when your display
+runs above 60 Hz, and leaves it off on a 60 Hz display; you can change it in the
+options either way. It is another author's work, included unchanged.
+
 ## Sharper artwork
 
 - Party portraits in high quality (by MadDerp).
@@ -137,7 +145,8 @@ the rest of KMRP, on the unchanged game or beside another widescreen mod.
   and KOTOR 1 Restoration, and the order you install them in does not matter.
 - **Restore Original** undoes everything KMRP did, file by file.
 - **Options** (the gear button): graphics-card compatibility, the map note fixes, the
-  HD item icons and controller support can each be switched off; diagnostic logs can be switched on
+  HD item icons and controller support can each be switched off; the High FPS Fix
+  can be switched on; diagnostic logs can be switched on
   when a bug report needs them.
 - **An older KMRP** is replaced automatically when you patch again.
 - **Update notice.** The installer tells you when a newer KMRP is out.

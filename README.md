@@ -46,7 +46,7 @@ runs at it. The resolution is chosen in the game, with no reinstall.
 
 **Options.** Advanced Settings (the gear) turns off Modern Driver Compatibility, the
 area-map marker fixes, the HD item icons and controller support, each on its own,
-and turns on debug
+and turns on D3M0's High FPS Fix and debug
 logs, which are off unless you are asked for them with a bug report. To change one
 later, use **Restore Original**, then patch again.
 
@@ -279,10 +279,14 @@ overwrites a mod you installed yourself.
 | Controller support, based on [KPM – Xbox Controls for KOTOR 1](https://github.com/scopeking0117-alt/KPM-Xbox-Controls-K1) 1.2 | Saul0097 / KMRP | MIT, inherited from KOTOR Patch Manager, with each author's permission (his own licence file pending); SDL zlib | **Yes, on by default** -- Advanced Settings |
 | Party Portraits | MadDerp | -- | No |
 | KOTOR 1 HD Icon Pack 1.0 | JackInTheBox | -- | **Yes** -- Advanced Settings |
+| [High FPS Fixes](https://github.com/gnw-d3m0/D3M0s-KPatches) 1.0.1 | D3M0 | MIT | **Yes, on where the display runs above 60 Hz** -- Advanced Settings |
 
 **Advanced Settings**, the button beside *Start Patching*, controls the four
 optional components. All three default to on, each can be turned off on its own,
-and *Restore Defaults* turns all four back on. A fifth row, *Debug Logs*, is off
+and *Restore Defaults* turns all four back on. *High FPS Fix* installs D3M0's High
+FPS Fixes as a third patch beside KMRP's two (timing and animation fixes for play
+above 60 frames per second); it is on by itself where your display runs above
+60 Hz and off on a 60 Hz display, until you set it yourself. *Debug Logs* is off
 by default: it makes KMRP write diagnostic log files beside the game. The choices
 are remembered in `%LOCALAPPDATA%\KMRP\settings.json`.
 

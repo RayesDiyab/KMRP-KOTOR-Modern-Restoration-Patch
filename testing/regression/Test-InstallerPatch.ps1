@@ -21,7 +21,10 @@
          no kmrp-resolutions.txt is written, the choice is gone;
       4. Restore Original: the folder is as it was, file for file;
       5. the .kpatch delivered to KOTOR Patch Manager's patch folder passes
-         tools\build_native_kpatch.py --check.
+         tools\build_native_kpatch.py --check;
+      6. High FPS Fix on (off by default, and absent from every case above): D3M0's
+         High FPS Fixes is the third patch in patch_config.toml with its 36 hooks,
+         its module and its .kpatch are the bundled file's, and restore removes them.
 
     The installer reads its options from %LOCALAPPDATA%\KMRP\settings.json and
     KOTOR Patch Manager's patch folder from %APPDATA%\KPatchLauncher\settings.json.
@@ -75,11 +78,14 @@ function Get-Listing([string]$folder) {
         $_.FullName.Substring($folder.Length) + " " + (Get-Sha $_.FullName)
     }
 }
-function Set-KmrpSettings([bool]$controller, [bool]$markers, [string]$off = "", [string]$extra = "") {
+function Set-KmrpSettings([bool]$controller, [bool]$markers, [string]$off = "", [string]$extra = "", [bool]$highFps = $false) {
     $text = "{`r`n  `"driverCompatibility`": false,`r`n  `"markerFixes`": " + $markers.ToString().ToLowerInvariant() +
         ",`r`n  `"controllerSupport`": " + $controller.ToString().ToLowerInvariant()
     if ($off) { $text += ",`r`n  `"resolutionsOff`": `"$off`"" }
     if ($extra) { $text += ",`r`n  `"resolutionsExtra`": `"$extra`"" }
+    # Always written: left out, High FPS Fix follows this PC's display (on above 60 Hz),
+    # and the cases would differ from one test machine to the next.
+    $text += ",`r`n  `"highFpsFix`": " + $highFps.ToString().ToLowerInvariant()
     New-Item -ItemType Directory -Force -Path (Split-Path -Parent $kmrpSettings) | Out-Null
     [IO.File]::WriteAllText($kmrpSettings, $text + "`r`n}`r`n", [Text.UTF8Encoding]::new($false))
 }
@@ -183,6 +189,7 @@ try {
     }
     $ini = [IO.File]::ReadAllText((Join-Path $folder "swkotor.ini"))
     Assert ($ini -match '(?m)^Width=1920' -and $ini -match '(?m)^Height=1080') "swkotor.ini starts the game at the size asked for"
+    Assert ($ini -match '(?m)^AllowHighMonitorFrequency=0' -and $ini -match '(?m)^RefreshRate=60' -and $ini -match '(?m)^V-Sync=1') "without High FPS Fix swkotor.ini holds the game at 60: no higher rates, RefreshRate=60, V-Sync on"
     Assert ((Test-Path -LiteralPath (Join-Path $folder "KotorPatcher.dll")) -and (Test-Path -LiteralPath (Join-Path $folder "binkw32Hooked.dll"))) "KOTOR Patch Manager's runtime and proxy are in place"
 
     Write-Host "Case 4  Restore Original"
@@ -223,6 +230,36 @@ try {
     $list = Join-Path $folder "kmrp-resolutions.txt"
     Assert (-not (Test-Path -LiteralPath $list)) "no kmrp-resolutions.txt is written"
     Assert ((Invoke-Installer @("--restore", "`"$game`"")) -eq 0) "the restore succeeds"
+
+    Write-Host "Case 6  High FPS Fix on"
+    Set-KmrpSettings $true $true "" "" $true
+    $game = New-Fixture "high-fps"
+    $folder = Split-Path -Parent $game
+    $before = Get-Listing $folder
+    Assert ((Invoke-Installer @("--in-place", "`"$game`"", "1920x1080")) -eq 0) "the install succeeds"
+    $config = Get-Config $folder
+    Assert (($config.Ids -join ",") -eq "kmrp,kmrp-controller,high-fps-fixes") "patch_config.toml holds KMRP's patch, the controller patch and High FPS Fixes, in that order"
+    $bundled = Join-Path $projectRoot "third_party\Included\HighFpsFixes-1.0.1 by D3M0\HighFpsFixes.kpatch"
+    $zip = [IO.Compression.ZipFile]::OpenRead($bundled)
+    try {
+        $fpsHooks = [regex]::Matches((New-Object IO.StreamReader ($zip.GetEntry("kotor1.hooks.toml").Open())).ReadToEnd(), '(?m)^\[\[hooks\]\]').Count
+        $moduleStream = $zip.GetEntry("binaries/windows_x86.dll").Open()
+        $fpsModuleHash = [BitConverter]::ToString([Security.Cryptography.SHA256]::Create().ComputeHash($moduleStream)).Replace("-", "")
+        $moduleStream.Dispose()
+    } finally { $zip.Dispose() }
+    Assert ($fpsHooks -eq 36 -and $config.Hooks -eq (27 + 34 + $fpsHooks)) "every hook of the three patches is in the config (27 + 34 + $fpsHooks)"
+    $fpsModule = Join-Path $folder "patches\high-fps-fixes.dll"
+    Assert ((Test-Path -LiteralPath $fpsModule) -and (Get-FileHash -LiteralPath $fpsModule -Algorithm SHA256).Hash -eq $fpsModuleHash) "patches\high-fps-fixes.dll is the module inside the bundled patch"
+    $fpsKpatch = Join-Path $kpmPatches "HighFpsFixes.kpatch"
+    Assert ((Test-Path -LiteralPath $fpsKpatch) -and (Get-FileHash -LiteralPath $fpsKpatch -Algorithm SHA256).Hash -eq (Get-FileHash -LiteralPath $bundled -Algorithm SHA256).Hash) "HighFpsFixes.kpatch in KOTOR Patch Manager's patch folder is the bundled file, unchanged"
+    Assert (-not (Test-Path -LiteralPath (Join-Path $folder "configs\high-fps-fixes.ini"))) "no options file for it: it has no options"
+    $ini = [IO.File]::ReadAllText((Join-Path $folder "swkotor.ini"))
+    $rate = [int][regex]::Match($ini, '(?m)^RefreshRate=(\d+)').Groups[1].Value
+    Assert ($ini -match '(?m)^AllowHighMonitorFrequency=1' -and $rate -ge 60 -and $ini -notmatch '(?m)^V-Sync=') "with it swkotor.ini allows the higher rates, starts at the display's highest ($rate Hz here) and leaves V-Sync alone"
+    Assert ((Invoke-Installer @("--restore", "`"$game`"")) -eq 0) "the restore succeeds"
+    $after = Get-Listing $folder | Where-Object { $_ -notmatch 'swkotor\.ini\.kotor-ui-backup' }
+    Assert (($after -join "`n") -eq ($before -join "`n")) "the folder is as it was, file for file"
+    Assert (-not (Test-Path -LiteralPath $fpsKpatch)) "the .kpatch this install created is removed"
 }
 finally {
     if ($hadKmrp) { Copy-Item -LiteralPath $kmrpCopy -Destination $kmrpSettings -Force }

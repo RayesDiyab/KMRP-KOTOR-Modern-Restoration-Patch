@@ -1822,6 +1822,30 @@ void HideK1BadgeOverlay(void* button)
     }
 }
 
+// A button grown for its badge is its screen's own size again while another screen
+// is the one in front. A grown button left that way on a screen that is not shown
+// was found on 2026-10-09 through KMRP: changing the resolution in the Options lays
+// every live control out again for the new size from where it stands, so the
+// Character screen's two buttons were laid out from their grown rectangles, taken
+// by this file as the screen's own at the new size, and stayed wider than their
+// layout's after a change there and back. Shown again, a button is grown again from
+// what its screen then gives it (ShowK1BackedBadge).
+void RestoreK1GrownButtons(void* front)
+{
+    for (K1BadgeOverlay& entry : g_k1BadgeOverlays) {
+        if (!entry.button || !entry.label || !entry.grown || entry.panel == front) {
+            continue;
+        }
+        const K1BadgeRect now = *reinterpret_cast<const K1BadgeRect*>(static_cast<char*>(entry.button) + 4);
+        if (now.left == entry.grownTo.left && now.top == entry.grownTo.top &&
+                now.width == entry.grownTo.width && now.height == entry.grownTo.height) {
+            using SetExtentFn = void(__thiscall*)(void*, const K1BadgeRect*);
+            reinterpret_cast<SetExtentFn>((*reinterpret_cast<void***>(entry.button))[1])(entry.button, &entry.buttonWas);
+        }
+        entry.grown = false;
+    }
+}
+
 // How wide a button's caption is on screen, in pixels; 0 when it cannot be told.
 //
 // A button's CSWGuiText is at +0x154 (after its two borders), and the text's
@@ -2765,6 +2789,7 @@ void UpdateK1ControllerPrompts()
         : 0;
 #ifdef KMRP_CONTROLLER_STANDALONE
     g_k1BadgePaintPanel = panel;
+    RestoreK1GrownButtons(panel);
     if (controllerMode) {
         SyncK1BadgeOverlays(panel);
     }
