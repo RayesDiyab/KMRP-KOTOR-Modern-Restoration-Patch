@@ -2,7 +2,8 @@
 """Build High FPS Fixes for the Mac game as a KotOR Patch Manager patch of its own.
 
 A port of D3M0's High FPS Fixes 1.0.1 (MIT) to the Steam Aspyr macOS build of KOTOR 1
-(macos/patches/high-fps-fixes). The patch needs no other patch and no other patch needs it.
+(macos/patches/high-fps-fixes). The patch needs no other patch and no other patch needs it;
+macos/build.sh puts it in KMRP's package, and the installer installs it while High FPS Fix is on.
 
 Before anything is built, every original_bytes of the hook list is held against the unmodified
 game, and no two hooks may overlap: a list that does not describe this executable is refused

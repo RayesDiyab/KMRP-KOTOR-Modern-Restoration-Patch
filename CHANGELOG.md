@@ -109,6 +109,20 @@ proxy, and it applies the executable changes above as well.
 
 ## [Unreleased]
 
+- **macOS: High FPS Fixes in the installer, and Advanced Settings as tiles** (2026-10-08, at
+  the maintainer's request: the installer ships the patches that work together). The Mac port
+  of D3M0's High FPS Fixes is a fifth patch of the package, `High FPS Fixes (macOS).kpatch`:
+  built, validated and staged by `macos/build.sh` (two more hook lists,
+  `patch_config.high-fps.toml` and `patch_config.controller-off.high-fps.toml`), installed
+  by `kmrp-mac.sh` while *High FPS Fix* is on (`--high-fps`, `--no-high-fps`; with neither,
+  on where the display reports 62 Hz or more, Windows' rule), delivered to KPM's patch folder
+  with the others, and switched in Advanced Settings. Advanced Settings shows its five
+  options as tiles, three to a row, as Windows does. Seen: the Steam game started with all
+  five patches' 137 hooks loaded; the installer suite with the patch on and off, with and
+  without the controller; the tiles in the app's own snapshot. Not seen: the patch's visual
+  fixes (as before), a 60 Hz display, the tiles clicked by hand. D3M0's licence ships in the
+  package.
+
 - **macOS: the documents for the release of KMRP 1.5** (2026-10-08). `README.md` and
   `docs/features.md` no longer call the Mac installer "in development": it is part of 1.5,
   with what it was tested on (one Apple Silicon Mac; Intel Macs untested) and where its own

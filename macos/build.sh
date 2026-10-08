@@ -250,14 +250,23 @@ PATCH_ARGS=(--layout "$HERE/patches/kmrp-layout" --notes "$HERE/patches/kmrp-map
 "$PYTHON" "$HERE/tools/make_kmrp_patch.py" --controller-patch $PATCH_ARGS \
     --controller "$HERE/patches/kmrp-controller" --sdl "$SDL_DIR" --controller-bank "$CBANK" \
     --out "$BUILD/kpatch/kmrp/KOTOR 1 Native Controller Mod + Xbox HUD (macOS).kpatch"
+# High FPS Fixes for the Mac (patches/high-fps-fixes, a port of D3M0's patch): a fifth patch,
+# installed while High FPS Fix is on, as on Windows. It needs none of the others.
+HFPS="High FPS Fixes (macOS)"
+"$PYTHON" "$HERE/tools/make_high_fps_patch.py" --exe "$EXE" --out "$BUILD/kpatch/kmrp/$HFPS.kpatch"
 FTD_PATCHES=("$BUILD/kpatch/ftd/K1StrayBugFixes.kpatch" "$BUILD/kpatch/ftd/K1WidescreenPatch.kpatch")
-for patch in "KMRP-macOS" "KOTOR 1 Native Controller Mod + Xbox HUD (macOS)"; do
+for patch in "KMRP-macOS" "KOTOR 1 Native Controller Mod + Xbox HUD (macOS)" "$HFPS"; do
     $KPMCLI validate "$BUILD/kpatch/kmrp/$patch.kpatch" "$EXE" | { grep -v DEBUG || true; }
 done
 # In KPM's order: a patch after the ones it requires.
 $KPMCLI stage-many "$EXE" "$BUILD/engine/kmrp" $FTD_PATCHES "$BUILD/kpatch/kmrp/KMRP-macOS.kpatch" \
     "$BUILD/kpatch/kmrp/KOTOR 1 Native Controller Mod + Xbox HUD (macOS).kpatch" | { grep -v DEBUG || true; }
 $KPMCLI stage-many "$EXE" "$BUILD/engine/kmrp.controller-off" $FTD_PATCHES "$BUILD/kpatch/kmrp/KMRP-macOS.kpatch" | { grep -v DEBUG || true; }
+# The same two with High FPS Fixes, which comes last in a list.
+$KPMCLI stage-many "$EXE" "$BUILD/engine/kmrp.high-fps" $FTD_PATCHES "$BUILD/kpatch/kmrp/KMRP-macOS.kpatch" \
+    "$BUILD/kpatch/kmrp/KOTOR 1 Native Controller Mod + Xbox HUD (macOS).kpatch" "$BUILD/kpatch/kmrp/$HFPS.kpatch" | { grep -v DEBUG || true; }
+$KPMCLI stage-many "$EXE" "$BUILD/engine/kmrp.controller-off.high-fps" $FTD_PATCHES "$BUILD/kpatch/kmrp/KMRP-macOS.kpatch" \
+    "$BUILD/kpatch/kmrp/$HFPS.kpatch" | { grep -v DEBUG || true; }
 $KPMCLI stage-many "$EXE" "$BUILD/engine/controller-alone" "$BUILD/kpatch/kmrp/KOTOR 1 Native Controller Mod + Xbox HUD (macOS).kpatch" | { grep -v DEBUG || true; }
 $KPMCLI stage-many "$EXE" "$BUILD/engine/controller-widescreen" $FTD_PATCHES "$BUILD/kpatch/kmrp/KOTOR 1 Native Controller Mod + Xbox HUD (macOS).kpatch" | { grep -v DEBUG || true; }
 # The same modules whichever list: the choice is which patches are in it.
@@ -279,7 +288,10 @@ def staged(name):
 kmrp_hooks, kmrp = declared("KMRP-macOS.kpatch")
 pad_hooks, pad = declared("KOTOR 1 Native Controller Mod + Xbox HUD (macOS).kpatch")
 ftd = ["k1-stray-bug-fixes-patch", "k1widescreenpatch"]
+hfps_hooks, hfps = declared("High FPS Fixes (macOS).kpatch")
 expected = {"kmrp": ftd + ["kmrp", "kmrp-controller"], "kmrp.controller-off": ftd + ["kmrp"],
+            "kmrp.high-fps": ftd + ["kmrp", "kmrp-controller", "high-fps-fixes"],
+            "kmrp.controller-off.high-fps": ftd + ["kmrp", "high-fps-fixes"],
             "controller-alone": ["kmrp-controller"], "controller-widescreen": ftd + ["kmrp-controller"]}
 lists = {}
 for name, order in expected.items():
@@ -299,23 +311,32 @@ for name in expected:
         sys.exit(f"{name}: KMRP's staged hook list is not the patch's")
     if "kmrp-controller" in lists[name] and lists[name]["kmrp-controller"] != [h["address"] for h in pad_hooks]:
         sys.exit(f"{name}: the controller patch's staged hook list is not the patch's")
+    if "high-fps-fixes" in lists[name] and lists[name]["high-fps-fixes"] != [h["address"] for h in hfps_hooks]:
+        sys.exit(f"{name}: High FPS Fixes' staged hook list is not the patch's")
+if hfps["requires"] or {"kmrp", "kmrp-controller", *ftd} & set(hfps["conflicts"]):
+    sys.exit(f"High FPS Fixes requires {hfps['requires']}, conflicts {hfps['conflicts']}")
 print(f"KMRP-macOS.kpatch: {len(kmrp_hooks)} hooks; KOTOR 1 Native Controller Mod + Xbox HUD (macOS).kpatch: {len(pad_hooks)} hooks, options "
-      f"{', '.join(o['id'] for o in pad['options'])}; with FTD's {len(lists['kmrp'][ftd[0]])} and {len(lists['kmrp'][ftd[1]])}")
+      f"{', '.join(o['id'] for o in pad['options'])}; with FTD's {len(lists['kmrp'][ftd[0]])} and {len(lists['kmrp'][ftd[1]])}; "
+      f"High FPS Fixes (macOS).kpatch: {len(hfps_hooks)} hooks")
 PY
 # The modules are not packaged a second time: KMRP's is 150 MB with the menu sets inside, and the
 # installer takes each out of its .kpatch, as KPM does (binaries/macos_x86_64.dylib).
-for pair in "kmrp:kmrp/KMRP-macOS.kpatch" "kmrp-controller:kmrp/KOTOR 1 Native Controller Mod + Xbox HUD (macOS).kpatch" k1widescreenpatch:ftd/K1WidescreenPatch.kpatch k1-stray-bug-fixes-patch:ftd/K1StrayBugFixes.kpatch; do
-    cmp -s "$BUILD/engine/kmrp/patches/${pair%%:*}.dylib" <(unzip -p "$BUILD/kpatch/${pair#*:}" binaries/macos_x86_64.dylib) \
+for pair in "kmrp:kmrp/KMRP-macOS.kpatch" "kmrp-controller:kmrp/KOTOR 1 Native Controller Mod + Xbox HUD (macOS).kpatch" k1widescreenpatch:ftd/K1WidescreenPatch.kpatch k1-stray-bug-fixes-patch:ftd/K1StrayBugFixes.kpatch "high-fps-fixes:kmrp/High FPS Fixes (macOS).kpatch"; do
+    staged=kmrp; [[ "${pair%%:*}" == high-fps-fixes ]] && staged=kmrp.high-fps
+    cmp -s "$BUILD/engine/$staged/patches/${pair%%:*}.dylib" <(unzip -p "$BUILD/kpatch/${pair#*:}" binaries/macos_x86_64.dylib) \
         || { print -u2 "the staged ${pair%%:*} module is not the one in its .kpatch"; exit 1; }
 done
 cp "$BUILD/engine/kmrp/patch_config.toml" "$PKG/engine/"
 cp "$BUILD/engine/kmrp.controller-off/patch_config.toml" "$PKG/engine/patch_config.controller-off.toml"
+cp "$BUILD/engine/kmrp.high-fps/patch_config.toml" "$PKG/engine/patch_config.high-fps.toml"
+cp "$BUILD/engine/kmrp.controller-off.high-fps/patch_config.toml" "$PKG/engine/patch_config.controller-off.high-fps.toml"
 # The patches themselves, which the installer takes the modules from and puts in KotOR Patch
 # Manager's patch folder, as the Windows installer does with its .kpatch files, so KPM lists them.
 cp "$BUILD/kpatch/kmrp/KMRP-macOS.kpatch" "$BUILD/kpatch/kmrp/KOTOR 1 Native Controller Mod + Xbox HUD (macOS).kpatch" \
-    "$BUILD/kpatch/ftd/K1WidescreenPatch.kpatch" "$BUILD/kpatch/ftd/K1StrayBugFixes.kpatch" "$PKG/engine/"
+    "$BUILD/kpatch/ftd/K1WidescreenPatch.kpatch" "$BUILD/kpatch/ftd/K1StrayBugFixes.kpatch" "$BUILD/kpatch/kmrp/$HFPS.kpatch" "$PKG/engine/"
 cp "$BUILD/KotorPatcher.dylib" "$PKG/engine/"
 cp "$SDL_DIR/LICENSE.txt" "$PKG/licenses/SDL3-LICENSE.txt"
+cp "$ROOT/third_party/Included/HighFpsFixes-1.0.1 by D3M0/LICENSE" "$PKG/licenses/High-FPS-Fixes-D3M0-LICENSE.txt"
 
 
 # ------------------------------------------------------------------------ scripts, docs

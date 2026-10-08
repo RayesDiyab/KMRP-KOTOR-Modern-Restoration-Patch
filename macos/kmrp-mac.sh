@@ -2,7 +2,7 @@
 # KMRP for macOS -- installer, uninstaller and status.
 #
 #   kmrp-mac.sh install   [--game "<path>/Knights of the Old Republic.app"] [--no-map-notes] [--no-hd-icons]
-#                         [--no-controller] [--debug-logs]
+#                         [--no-controller] [--high-fps | --no-high-fps] [--debug-logs]
 #                         [--resolution current|native | --size <W>x<H>] [--yes]
 #   kmrp-mac.sh uninstall [--game ...] [--yes]
 #   kmrp-mac.sh status    [--game ...] [--brief]
@@ -51,6 +51,7 @@ GAME=""
 MAP_NOTES=1
 HD_ICONS=1       # --no-hd-icons: the patch's hd-icons option, the bundled HD icon pack (since 2026-10-08)
 CONTROLLER=1   # controller support: its own patch, kmrp-controller, and its settings file (Windows' switch too)
+HIGH_FPS=""    # High FPS Fixes for the Mac, a fifth patch: 1, 0, or unset for Windows' rule, on where the display runs above 60 Hz
 DEBUG_LOGS=0   # the module's diagnostic log (Windows' third option, off unless asked for)
 RESOLUTION=""
 SIZE=""
@@ -193,6 +194,20 @@ display_geometry() {
         }'
 }
 
+# The highest refresh rate the main display offers, in hertz; nothing when it cannot be told.
+display_refresh() {
+    osascript -l JavaScript -e 'ObjC.import("AppKit"); var s = $.NSScreen.mainScreen; s.respondsToSelector("maximumFramesPerSecond") ? s.maximumFramesPerSecond : 0' 2>/dev/null |
+        grep -x '[0-9][0-9]*' || true
+}
+
+# High FPS Fix where it was not chosen: Windows' rule (KmrpSettings.HighFpsFixAuto), on for a
+# display that reports more than 60 Hz; 59, 60 and 61 count as 60.
+choose_high_fps() {
+    [[ -n "$HIGH_FPS" ]] && return 0
+    local rate; rate=$(display_refresh)
+    if [[ -n "$rate" ]] && (( rate >= 62 )); then HIGH_FPS=1; else HIGH_FPS=0; fi
+}
+
 # Sets WIDTH and HEIGHT: the display's point size (half: the resolution macOS is set to) or
 # pixel size (native). On a display with no more pixels than points there is nothing to
 # choose. Asks, unless --resolution or --yes (half) decides. --size sets them directly (another display, or a window size).
@@ -284,14 +299,24 @@ FTD_PATCHES=(k1widescreenpatch k1-stray-bug-fixes-patch)
 # and kmrp-controller.kpatch (OLD_KPATCH_FILES, removed from KPM's folder when they are KMRP's).
 KMRP_KPATCH="KMRP-macOS.kpatch"
 PAD_KPATCH="KOTOR 1 Native Controller Mod + Xbox HUD (macOS).kpatch"
+# Since 2026-10-08 a fifth, High FPS Fixes for the Mac (a port of D3M0's patch, whose id it
+# keeps), installed while High FPS Fix is on: Windows installs D3M0's own the same way.
+HFPS_KPATCH="High FPS Fixes (macOS).kpatch"
 OLD_KPATCH_FILES=(kmrp.kpatch kmrp-controller.kpatch)
-KPATCH_FILES=(K1StrayBugFixes.kpatch K1WidescreenPatch.kpatch "$KMRP_KPATCH" "$PAD_KPATCH")
-KPATCH_IDS=(k1-stray-bug-fixes-patch k1widescreenpatch kmrp kmrp-controller)
+KPATCH_FILES=(K1StrayBugFixes.kpatch K1WidescreenPatch.kpatch "$KMRP_KPATCH" "$PAD_KPATCH" "$HFPS_KPATCH")
+KPATCH_IDS=(k1-stray-bug-fixes-patch k1widescreenpatch kmrp kmrp-controller high-fps-fixes)
 KMRP_IDS=($KPATCH_IDS)
 choose_patches() {
-    (( CONTROLLER )) && return 0
-    KPATCH_FILES=(${KPATCH_FILES:#$PAD_KPATCH})
-    KPATCH_IDS=(${KPATCH_IDS:#kmrp-controller})
+    choose_high_fps
+    if (( ! CONTROLLER )); then
+        KPATCH_FILES=(${KPATCH_FILES:#$PAD_KPATCH})
+        KPATCH_IDS=(${KPATCH_IDS:#kmrp-controller})
+    fi
+    if (( ! HIGH_FPS )); then
+        KPATCH_FILES=(${KPATCH_FILES:#$HFPS_KPATCH})
+        KPATCH_IDS=(${KPATCH_IDS:#high-fps-fixes})
+    fi
+    return 0
 }
 KPM_ORIGINAL=""   # the untouched game, when an install is to be replaced
 KPM_PROBLEM=""    # why it cannot be, otherwise
@@ -331,6 +356,8 @@ kpm_patches_folder() {   # KPM's patch folder from its settings ("PatchesPath"),
 
 kpatch_is_kmrp() { unzip -p "$1" manifest.toml 2>/dev/null | grep -q '^id = "kmrp"$'; }
 kpatch_is_controller() { unzip -p "$1" manifest.toml 2>/dev/null | grep -q '^id = "kmrp-controller"$'; }
+# The Mac port, not D3M0's own file for Windows, which has the same id.
+kpatch_is_high_fps() { unzip -p "$1" manifest.toml 2>/dev/null | grep -q '^name = "High FPS Fixes (macOS)"$'; }
 
 # The Widescreen Patch KMRP needs has the entry points KMRP asks for its .gui mode by
 # (K1Widescreen_UseGuiFileLayouts; FTD's patch has them from its 2026-10-04 adjustment).
@@ -371,6 +398,9 @@ deliver_kpatch() {   # deliver_kpatch <for_kpm>: this install's .kpatch files in
                     state=replaced ;;   # an older KMRP's: brought up to this version, and left at uninstall
                 "$PAD_KPATCH")
                     if ! kpatch_is_controller "$target"; then warn "left $target alone: it is not KMRP's controller patch"; continue; fi
+                    state=replaced ;;
+                "$HFPS_KPATCH")
+                    if ! kpatch_is_high_fps "$target"; then warn "left $target alone: it is not the Mac's High FPS Fixes"; continue; fi
                     state=replaced ;;
                 K1WidescreenPatch.kpatch)
                     # FTD's own file. One KMRP can work with stays; one from before the entry
@@ -740,6 +770,7 @@ do_install() {
     say "Map note corrections: $([[ $MAP_NOTES == 1 ]] && echo on || echo off)"
     say "HD icons: $([[ $HD_ICONS == 1 ]] && echo on || echo off)"
     say "Controller support: $([[ $CONTROLLER == 1 ]] && echo on || echo off)"
+    say "High FPS Fix: $([[ $HIGH_FPS == 1 ]] && echo on || echo off)"
     say "Debug logs: $([[ $DEBUG_LOGS == 1 ]] && echo on || echo off)"
     confirm "Install KMRP into this game?" || die "cancelled"
 
@@ -806,12 +837,15 @@ do_install() {
             [[ -s "$module" ]] || die "${KPATCH_FILES[n]} holds no module"
             # KMRP's own module is signed ad hoc by its build. FTD's are as KPM's
             # create-patch.py leaves them, unsigned, which an x86_64 library may be.
-            if [[ "${KPATCH_IDS[n]}" == kmrp* ]]; then
+            if [[ "${KPATCH_IDS[n]}" == (kmrp*|high-fps-fixes) ]]; then
                 codesign --verify "$module" || die "the module taken out of ${KPATCH_FILES[n]} is damaged"
             fi
         done
-        local hook_list=patch_config.toml
-        (( CONTROLLER )) || hook_list=patch_config.controller-off.toml
+        # One hook list per choice of the two optional patches, each staged by KPM's own code.
+        local hook_list=patch_config
+        (( CONTROLLER )) || hook_list+=.controller-off
+        (( HIGH_FPS )) && hook_list+=.high-fps
+        hook_list+=.toml
         cp "$PAYLOAD/engine/$hook_list" "$MACOS/patch_config.toml"
         record added "$MACOS/patch_config.toml" "$(sha "$MACOS/patch_config.toml")" "-"
         options_write
@@ -868,6 +902,7 @@ do_install() {
         print -r -- "map_notes=$MAP_NOTES"
         print -r -- "hd_icons=$HD_ICONS"
         print -r -- "controller=$CONTROLLER"
+        print -r -- "high_fps=$HIGH_FPS"
         print -r -- "debug_logs=$DEBUG_LOGS"
         print -r -- "for_kpm=$for_kpm"
         print -r -- "kpatch=${KPATCH_FOLDER:--}"
@@ -1122,6 +1157,8 @@ while (( $# )); do
         --no-map-notes) MAP_NOTES=0 ;;
         --no-hd-icons) HD_ICONS=0 ;;
         --no-controller) CONTROLLER=0 ;;
+        --high-fps) HIGH_FPS=1 ;;
+        --no-high-fps) HIGH_FPS=0 ;;
         --debug-logs) DEBUG_LOGS=1 ;;
         --resolution)
             RESOLUTION=${2:?--resolution needs current or native}; shift

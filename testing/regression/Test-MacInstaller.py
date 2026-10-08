@@ -70,6 +70,8 @@ CORE_PATCHES = (("K1StrayBugFixes.kpatch", "k1-stray-bug-fixes-patch"), ("K1Wide
                 ("KMRP-macOS.kpatch", "kmrp"))
 CONTROLLER_PATCH = ("KOTOR 1 Native Controller Mod + Xbox HUD (macOS).kpatch", "kmrp-controller")
 PATCHES = CORE_PATCHES + (CONTROLLER_PATCH,)
+# High FPS Fixes for the Mac (since 2026-10-08), installed while High FPS Fix is on.
+HIGH_FPS_PATCH = ("High FPS Fixes (macOS).kpatch", "high-fps-fixes")
 
 INI_BEFORE = "[Graphics Options]\r\nWidth=1024\r\nHeight=768\r\nForceWidth=1600\r\nAnti Aliasing=2\r\n\r\n[Sound Options]\r\nMusic=1\r\n"
 
@@ -104,6 +106,10 @@ def main() -> int:
         script = package / "kmrp-mac.sh"
 
         def run(*args: str) -> subprocess.CompletedProcess:
+            # High FPS Fix follows the display unless it is said: off here, so that a round is
+            # the same on any Mac, and on where a round asks for it.
+            if args[0] == "install" and "--high-fps" not in args:
+                args += ("--no-high-fps",)
             return subprocess.run([str(script), *args, "--game", str(game)], env=env, text=True,
                                   capture_output=True)
 
@@ -142,8 +148,10 @@ def main() -> int:
                 else:
                     settings.write_bytes(player_settings[:cut].rstrip(b"\n") + b"\n")
                     player_settings = settings.read_bytes()
-            options = {"off": ["--no-controller", "--no-map-notes", "--no-hd-icons"],
-                       "edit": ["--debug-logs"]}.get(mode, [])
+            # High FPS Fix on in the first round and in the last, with and without the controller.
+            options = {"off": ["--no-controller", "--no-map-notes", "--no-hd-icons", "--high-fps"],
+                       "fresh": ["--high-fps"], "edit": ["--debug-logs"]}.get(mode, [])
+            high_fps = "--high-fps" in options
             # A list of resolutions left beside KOTOR_Exe by an install of 2026-10-07, whose
             # checklist wrote one: removed, and nothing is written for the game's list.
             if mode == "edit":
@@ -182,8 +190,9 @@ def main() -> int:
             # Engine: KMRP's one patch (FTD's widescreen patch and Stray Bug Fixes with KMRP's code),
             # the same file whatever the options; KPM's hook list for the controller option, the
             # options recorded in configs/kmrp.ini; SDL with the controller only.
-            hook_list = "patch_config.controller-off.toml" if mode == "off" else "patch_config.toml"
-            installed = CORE_PATCHES if mode == "off" else PATCHES
+            hook_list = ("patch_config" + (".controller-off" if mode == "off" else "")
+                         + (".high-fps" if high_fps else "") + ".toml")
+            installed = (CORE_PATCHES if mode == "off" else PATCHES) + ((HIGH_FPS_PATCH,) if high_fps else ())
             macos_dir = game / "Contents/MacOS"
             files = sorted(str(p.relative_to(macos_dir)) for p in macos_dir.rglob("*") if p.is_file())
             backups = [f for f in files if re.fullmatch(r"KOTOR_Exe\.backup\.\d{8}_\d{6}", f)]
@@ -219,6 +228,8 @@ def main() -> int:
                     failures.append(f"{size}: {name} is not in KPM's patch folder as packaged")
             if mode == "off" and (kpm_folder / CONTROLLER_PATCH[0]).exists():
                 failures.append(f"{size}: the controller patch was delivered with Controller Support off")
+            if not high_fps and (kpm_folder / HIGH_FPS_PATCH[0]).exists():
+                failures.append(f"{size}: High FPS Fixes was delivered with High FPS Fix off")
             chosen = (0, 0) if mode == "off" else (1, 1 if mode == "edit" else 0)
             # hd-icons (since 2026-10-08) is on unless --no-hd-icons, which the "off" round passes.
             section = "[Patch Options]\r\nmap-notes=%d\r\nhd-icons=%d\r\ndebug-logs=%d\r\n" % (chosen[0], chosen[0], chosen[1])

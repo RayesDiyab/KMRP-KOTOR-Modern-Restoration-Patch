@@ -59,6 +59,11 @@ again.
   controls from Windows, button prompts drawn for your pad, rumble, an Xbox-style HUD while
   you play with the pad, and a Controller Layout screen. See *Controller* below. On by
   default; it can be turned off (*Options*).
+- **High FPS Fix**: D3M0's High FPS Fixes, ported to the Mac game. Above 60 frames per second
+  the game's timing goes wrong in places (the dialogue's black bars, standing still after a
+  fight, water, particles and other animation); this makes them run by time. On by itself
+  where your display runs above 60 Hz, as a MacBook Pro's does; it can be turned on or off
+  (*Options*).
 
 ## Controller
 
@@ -108,17 +113,21 @@ other pads. The controls are KMRP's, the same as on Windows: the full list is on
   starts: connect another display, start the game, and it offers that display's sizes.
   At Retina, set **Anti-aliasing to 2x** in the game's graphics options: on an M5, 6x at
   3024x1964 ran at about 30 fps in game and 2x at about 120.
-- **Without the map-note corrections, the HD icons or controller support**: the gear button
-  beside **Start Patching** opens **Advanced Settings**, as on Windows; turn off *Area Map
-  Marker Fixes*, *HD Item Icons* or *Native Controller Support*. All three are on unless you turn them
-  off, and the installer remembers your choice. With *HD Item Icons* off the game shows its own
+- **Without the map-note corrections, the HD icons or controller support, and High FPS Fix
+  on or off**: the gear button beside **Start Patching** opens **Advanced Settings**, as on
+  Windows, with a tile for each: *Native Controller Support*, *Area Map Marker Fixes*, *HD
+  Item Icons*, *High FPS Fix* and *Debug Logs*. The first three are on unless you turn them
+  off; *High FPS Fix* is on where your display runs above 60 Hz and off on a 60 Hz display,
+  until you set it yourself. The installer remembers your choice, and **Restore Defaults**
+  puts every tile back. With *HD Item Icons* off the game shows its own
   item icons instead of JackInTheBox's HD Icon Pack; everything else stays. Without controller support the game has none: the Mac version of
   KOTOR has no pad support of its own. *Debug Logs*, off unless you turn it on, is there too.
 - **From Terminal**, the installer is a script inside the app:
   `"KMRP Installer.app/Contents/Resources/kmrp/kmrp-mac.sh" install`. On a Retina display it
   asks whether the game should start at the resolution macOS is set to or at the Retina
   size, then asks before it installs; add `--resolution current|native`, `--size 2560x1440`,
-  `--no-map-notes`, `--no-hd-icons`, `--no-controller`, `--debug-logs`, `--yes` or
+  `--no-map-notes`, `--no-hd-icons`, `--no-controller`, `--high-fps` or `--no-high-fps`,
+  `--debug-logs`, `--yes` or
   `--game "/path/to/Knights of the Old Republic.app"`. `uninstall` and `status` work the same
   way.
 
@@ -136,10 +145,11 @@ A file you changed after installing is left alone and listed in the log.
 - Next to `KOTOR_Exe`: `KotorPatcher.dylib`, `patch_config.toml`, KotOR Patch Manager's own
   record of the install (`kpm_install_state.json` and a copy of the untouched game,
   `KOTOR_Exe.backup.<date>`), `configs/` with each patch's options (`kmrp.ini`,
-  `kmrp-controller.ini`), and `patches/`, which holds four KotOR Patch Manager patches:
+  `kmrp-controller.ini`), and `patches/`, which holds up to five KotOR Patch Manager patches:
   FTD's Widescreen Patch and Stray Bug Fixes, KMRP's own (`kmrp.dylib`, with the interface
-  for every resolution inside it), and, while Native Controller Support is on, the controller's
-  (`kmrp-controller.dylib`, which also works in a game without KMRP).
+  for every resolution inside it), while Native Controller Support is on the controller's
+  (`kmrp-controller.dylib`, which also works in a game without KMRP), and while High FPS Fix
+  is on High FPS Fixes (`high-fps-fixes.dylib`, which works by itself too).
 - `swkotor.ini`: the resolution the game starts at, under `[Graphics Options]`. Uninstall
   puts back what was there before, unless you have chosen another resolution in the game
   since, which stays.
@@ -159,9 +169,9 @@ afterwards to clean up the rest.
 
 ## If you already use KotOR Patch Manager
 
-KMRP for macOS is four KotOR Patch Manager patches. KMRP Installer installs them itself, and
-when you have KotOR Patch Manager it also puts the four files in KPM's patch folder, so KPM
-lists them:
+KMRP for macOS is five KotOR Patch Manager patches that work together. KMRP Installer
+installs them itself, and when you have KotOR Patch Manager it also puts the files in KPM's
+patch folder, so KPM lists them:
 
 | File | Name in KotOR Patch Manager |
 | --- | --- |
@@ -169,8 +179,9 @@ lists them:
 | `K1WidescreenPatch.kpatch` | Widescreen Patch (beta) (FTD's) |
 | `KMRP-macOS.kpatch` | KMRP for macOS; it needs the two above ticked with it |
 | `KOTOR 1 Native Controller Mod + Xbox HUD (macOS).kpatch` | KOTOR 1 Native Controller Mod + Xbox HUD (macOS); it needs none of the others, and works in a game without KMRP |
+| `High FPS Fixes (macOS).kpatch` | High FPS Fixes (macOS), D3M0's patch ported to the Mac; it needs none of the others. Delivered while High FPS Fix is on |
 
-**The two KMRP files in this package work on the Mac only.** The Windows package has files
+**The two KMRP files and High FPS Fixes (macOS) in this package work on the Mac only.** The Windows package has files
 for the same two patches, `KMRP.kpatch` and `KOTOR 1 Native Controller Mod + Xbox
 HUD.kpatch`, and those work on Windows only. Use the files that came with the package for
 your system. (Before 8 October 2026 the Mac files were named `kmrp.kpatch` and
@@ -179,15 +190,15 @@ are not listed twice.)
 
 - **FTD's Widescreen Patch and Stray Bug Fixes already installed through KPM, and nothing
   else:** KMRP Installer replaces that install. It puts back the untouched game from KPM's
-  copy, removes the patch files beside the game, and installs the four patches, FTD's two
+  copy, removes the patch files beside the game, and installs its patches, FTD's two
   among them in the version KMRP was built with. Restore Original then leaves the untouched
   game; install FTD's patches in KPM again if you want them without KMRP.
 - **Other KotOR Patch Manager patches installed:** KMRP Installer installs for KPM, as on
   Windows. It writes the resolution, the full-screen setting and the controller settings,
-  leaves the game and KPM's files as they are, and puts the four files in KPM's patch
+  leaves the game and KPM's files as they are, and puts its files in KPM's patch
   folder. Open KPM, tick **KMRP for macOS**, **Widescreen Patch (beta)** and **Stray Bug
   Fixes** (and the controller patch if you
-  want it), and press Apply. The options (map notes, debug logs, the Xbox-style HUD) are
+  want it, and **High FPS Fixes (macOS)** if you want that), and press Apply. The options (map notes, debug logs, the Xbox-style HUD) are
   then chosen in KPM, if your version of KPM offers patch options.
 - **An install KMRP Installer made by itself:** KPM recognises it as its own, lists the
   patches and can apply others beside them. If you press Apply in KPM with only KMRP's
@@ -197,7 +208,7 @@ are not listed twice.)
 
 ## Credits
 
-KMRP by Rayes Diyab (RaymanGT), GPL-3.0. Widescreen patch by FTD and RaymanGT,
+KMRP by Rayes Diyab (RaymanGT), GPL-3.0. High FPS Fixes by D3M0, MIT, ported to the Mac by RaymanGT. Widescreen patch by FTD and RaymanGT,
 Stray Bug Fixes by RaymanGT and FTD, and KotOR Patch Manager by LaneDibello and contributors,
 all MIT. The menu layouts derive from
 KOTOR High Resolution Menus by ndix UR, GPL-3.0. HD Icon Pack by JackInTheBox, Party Portraits by MadDerp and K1 Area Map Fixes by

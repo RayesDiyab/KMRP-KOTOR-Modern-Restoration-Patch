@@ -23,11 +23,11 @@
                          earlier build saved is removed at launch
     4. Apply Patch       kmrp-mac.sh install or uninstall
   and the two options (Advanced Settings), as on Windows: the area map's marker fixes
-  (--no-map-notes when off), the HD icon pack (--no-hd-icons) and controller support (--no-controller). The script's own stage lines drive the progress fill; its output goes to
+  (--no-map-notes when off), the HD icon pack (--no-hd-icons), controller support (--no-controller) and High FPS Fix (--high-fps or --no-high-fps). The script's own stage lines drive the progress fill; its output goes to
   ~/Library/Logs/KMRP/installer.log, which Open Log opens.
 
   kmrp-mac.sh is passed: install --yes, --game when one was chosen, --resolution current,
-  --no-map-notes, --no-hd-icons, --no-controller, --debug-logs; uninstall --yes; status --brief, whose
+  --no-map-notes, --no-hd-icons, --no-controller, --high-fps or --no-high-fps, --debug-logs; uninstall --yes; status --brief, whose
   resolution= (the size the game starts at) step 3 shows afterwards. What
   it refuses (the game running, another build) it refuses here too, with its own message; a
   game KotOR Patch Manager manages is installed for KPM, or FTD's install of his patches
@@ -42,6 +42,7 @@
     -KMRPNoMapNotes YES           turn the map-marker fixes off
     -KMRPNoHdIcons YES            turn the HD icon pack off
     -KMRPNoController YES         turn controller support off
+    -KMRPHighFps YES|NO           turn High FPS Fix on or off, whatever the display
     -KMRPSettings YES             show Advanced Settings
     -KMRPSnapshot <prefix>        write <prefix>-ready.png when the window is ready,
                                   <prefix>-progress.png once a run is a third through, and
@@ -733,6 +734,8 @@ static const double kWordmarkInkLeft = 0.0216, kWordmarkInkRight = 0.9774;
 // OptionToggle: a component with its author, a description, and a switch.
 @interface KMRPToggle : KMRPFlippedView
 @property (nonatomic, copy) NSString *title, *author, *detail;
+// A short fact about this Mac, in green beside the title: "Display supports 120 Hz".
+@property (nonatomic, copy) NSString *note;
 @property (nonatomic) BOOL on;
 @property (nonatomic, copy) void (^changed)(BOOL on);
 @end
@@ -762,18 +765,35 @@ static const double kWordmarkInkLeft = 0.0216, kWordmarkInkRight = 0.9774;
     [body fill];
     [(_hover ? THEME_BORDER : THEME_CARD_EDGE) setStroke];
     [body stroke];
-    CGFloat pad = S(20), switchWidth = S(64), switchHeight = S(32), gutter = S(18);
-    CGFloat switchLeft = self.bounds.size.width - pad - switchWidth, textWidth = switchLeft - gutter - pad;
-    NSFont *titleFont = BodyFont(Pt(17), NSFontWeightSemibold), *small = BodyFont(Pt(13.5), NSFontWeightRegular);
-    CGFloat titleTop = pad * 0.72, titleHeight = ceil(titleFont.ascender - titleFont.descender);
-    DrawText(self.title, NSMakeRect(pad, titleTop, textWidth, titleHeight + 2), titleFont, THEME_TEXT, NSTextAlignmentLeft, NO);
+    // A tile since 2026-10-08, as Windows' OptionToggle since its 2026-10-09 (a full-width row
+    // until then; the maintainer asked for tiles): the title on top, over as many lines as it
+    // needs, the description under it, and along the bottom the credit on the left and the
+    // switch on the right. The description has what is left between the two.
+    CGFloat pad = S(16), switchWidth = S(64), switchHeight = S(32);
+    CGFloat textWidth = self.bounds.size.width - 2 * pad, switchLeft = self.bounds.size.width - pad - switchWidth;
+    NSRect track = NSMakeRect(switchLeft, self.bounds.size.height - pad - switchHeight, switchWidth, switchHeight);
+    NSFont *titleFont = BodyFont(Pt(16), NSFontWeightSemibold), *small = BodyFont(Pt(13), NSFontWeightRegular);
+    const NSStringDrawingOptions wrap = NSStringDrawingUsesLineFragmentOrigin | NSStringDrawingTruncatesLastVisibleLine;
+    CGFloat lineHeight = ceil(titleFont.ascender - titleFont.descender + titleFont.leading);
+    CGFloat titleTop = pad * 0.75, titleWidth = textWidth;
+    // The note, where there is one, ends the title's first line on the right.
+    if (self.note.length) {
+        NSAttributedString *note = [[NSAttributedString alloc] initWithString:self.note attributes:Ink(small, THEME_SUCCESS)];
+        DrawAttributed(note, pad, titleTop + titleFont.ascender, textWidth, NSTextAlignmentRight);
+        titleWidth = MAX(1, textWidth - ceil(note.size.width) - S(8));
+    }
+    NSAttributedString *title = [[NSAttributedString alloc] initWithString:self.title ?: @"" attributes:Ink(titleFont, THEME_TEXT)];
+    CGFloat titleHeight = MIN(2 * lineHeight + 1,
+                              ceil([title boundingRectWithSize:NSMakeSize(titleWidth, 4 * lineHeight) options:wrap].size.height));
+    [title drawWithRect:NSMakeRect(pad, titleTop, titleWidth, titleHeight) options:wrap];
+    // Whole lines only, so no line is cut through its middle.
+    CGFloat detailTop = titleTop + titleHeight + S(3), detailLine = ceil(small.ascender - small.descender + small.leading);
+    NSInteger lines = MAX(1, (NSInteger)floor((track.origin.y - S(4) - detailTop) / detailLine));
+    [[[NSAttributedString alloc] initWithString:self.detail ?: @"" attributes:Ink(small, THEME_TEXT_MUTED)]
+        drawWithRect:NSMakeRect(pad, detailTop, textWidth, lines * detailLine + 1) options:wrap];
     if (self.author.length)
-        DrawAttributed([[NSAttributedString alloc] initWithString:[@"by " stringByAppendingString:self.author]
-                                                       attributes:Ink(small, THEME_AUTHOR)],
-                       pad, titleTop + titleFont.ascender, textWidth, NSTextAlignmentRight);
-    DrawText(self.detail, NSMakeRect(pad, titleTop + titleHeight + S(2), textWidth, self.bounds.size.height - titleTop - titleHeight),
-             small, THEME_TEXT_MUTED, NSTextAlignmentLeft, NO);
-    NSRect track = NSMakeRect(switchLeft, (self.bounds.size.height - switchHeight) / 2, switchWidth, switchHeight);
+        DrawText([@"by " stringByAppendingString:self.author], NSMakeRect(pad, track.origin.y, switchLeft - pad - S(8), switchHeight),
+                 small, THEME_AUTHOR, NSTextAlignmentLeft, YES);
     NSBezierPath *pill = Rounded(track, switchHeight / 2);
     [(self.on ? THEME_ACCENT_STRONG : THEME_DISABLED) setFill];
     [pill fill];
@@ -860,7 +880,7 @@ static const struct { const char *prefix, *stage; int percent; } kStages[] = {
 @property (nonatomic, strong) KMRPState *verifyState, *resolutionState, *applyState;
 @property (nonatomic, strong) KMRPPill *browseButton, *actionButton, *settingsButton;
 @property (nonatomic, strong) KMRPCard *settingsView;
-@property (nonatomic, strong) KMRPToggle *markerToggle, *iconsToggle, *controllerToggle, *debugToggle;
+@property (nonatomic, strong) KMRPToggle *markerToggle, *iconsToggle, *controllerToggle, *fpsToggle, *debugToggle;
 @property (nonatomic, strong) NSMutableArray<NSView *> *mainViews;
 // The size macOS is set to, in points; 0 when it could not be read.
 @property (nonatomic) NSInteger currentWidth, currentHeight;
@@ -930,6 +950,14 @@ static const struct { const char *prefix, *stage; int percent; } kStages[] = {
     [bar addItem:editItem];
     NSApp.mainMenu = bar;
 }
+
+// Whether the main display reports more than 60 Hz: where High FPS Fix is on unless the player
+// says otherwise (Windows' KmrpSettings.HighFpsFixAuto, floor 62).
+static NSInteger DisplayRefresh(void) {
+    if (@available(macOS 12.0, *)) return NSScreen.mainScreen.maximumFramesPerSecond;
+    return 0;
+}
+static BOOL HighFpsAuto(void) { return DisplayRefresh() >= 62; }
 
 // MainForm's constructor and FitInitialSizeToWorkingArea, in its design space.
 - (void)buildWindow {
@@ -1077,18 +1105,24 @@ static const struct { const char *prefix, *stage; int percent; } kStages[] = {
     title.textColor = THEME_TEXT;
     title.frame = NSMakeRect(S(36), S(24), S(cardWidth - 72), S(48));
     [view addSubview:title];
-    NSTextField *subtitle = [NSTextField labelWithString:@"Choose optional components. The first three are on by default, and each "
-                                                         @"can be changed on its own."];
+    NSTextField *subtitle = [NSTextField labelWithString:@"Choose optional components. The first three are on by default, High FPS Fix "
+                                                         @"where the display runs above 60 Hz."];
     subtitle.font = BodyFont(Pt(14), NSFontWeightRegular);
     subtitle.textColor = THEME_TEXT_MUTED;
     subtitle.frame = NSMakeRect(S(36), S(74), S(cardWidth - 72), S(30));
     [view addSubview:subtitle];
-    // Four rows since 2026-10-08, when HD Item Icons came: 80 tall and 8 apart, where three were
-    // 86. In Windows' order and with its names since 2026-10-09 (its six tiles, less the two the
-    // Mac has no counterpart of, Modern Driver Compatibility and High FPS Fix): controller
-    // support first, then the bundled work of others, debug logs last.
-    const CGFloat rowHeight = 80, rowPitch = rowHeight + 8;
-    self.markerToggle = [[KMRPToggle alloc] initWithFrame:NSMakeRect(S(36), S(122 + rowPitch), S(cardWidth - 72), S(rowHeight))];
+    // Tiles, three to a row, since 2026-10-08, as Windows has since its 2026-10-09 (rows until
+    // then: three, then four). Windows' six less the one the Mac has no counterpart of, Modern
+    // Driver Compatibility, in its order read row by row: controller support first, then the
+    // bundled work of others, debug logs last. They share what the card has between the
+    // subtitle and the buttons.
+    const CGFloat tileGap = 10, tileTop = 122, tileWidth = floor((cardWidth - 72 - 2 * tileGap) / 3);
+    const CGFloat tileHeight = floor((cardHeight - 116 - 8 - tileTop - tileGap) / 2);
+    NSRect (^tile)(int) = ^NSRect(int index) {
+        return NSMakeRect(S(36 + (index % 3) * (tileWidth + tileGap)), S(tileTop + (index / 3) * (tileHeight + tileGap)),
+                          S(tileWidth), S(tileHeight));
+    };
+    self.markerToggle = [[KMRPToggle alloc] initWithFrame:tile(1)];
     self.markerToggle.title = @"Area Map Marker Fixes";
     self.markerToggle.author = @"Derslok";
     self.markerToggle.detail = @"Corrects misplaced area-map marker positions across the game.";
@@ -1099,7 +1133,7 @@ static const struct { const char *prefix, *stage; int percent; } kStages[] = {
     [view addSubview:self.markerToggle];
     // The patch's hd-icons option (kmrp-mac.sh --no-hd-icons): the bundled HD icon pack, on
     // unless turned off, as Windows' Advanced Settings has it since 2026-10-08.
-    self.iconsToggle = [[KMRPToggle alloc] initWithFrame:NSMakeRect(S(36), S(122 + 2 * rowPitch), S(cardWidth - 72), S(rowHeight))];
+    self.iconsToggle = [[KMRPToggle alloc] initWithFrame:tile(2)];
     self.iconsToggle.title = @"HD Item Icons";
     self.iconsToggle.author = @"JackInTheBox";
     self.iconsToggle.detail = @"High-resolution item icons. Turn off to keep the game's own icons.";
@@ -1109,7 +1143,7 @@ static const struct { const char *prefix, *stage; int percent; } kStages[] = {
     [view addSubview:self.iconsToggle];
     // MainForm's controllerToggle: KMRP's controller support, the module and SDL (kmrp-mac.sh
     // --no-controller leaves both out, and its settings file).
-    self.controllerToggle = [[KMRPToggle alloc] initWithFrame:NSMakeRect(S(36), S(122), S(cardWidth - 72), S(rowHeight))];
+    self.controllerToggle = [[KMRPToggle alloc] initWithFrame:tile(0)];
     self.controllerToggle.title = @"Native Controller Support";
     // "RaymanGT, based on Saul0097" until 2026-10-05: the maintainer asked for the
     // public-facing credit to be KMRP's alone. THIRD_PARTY_NOTICES.md still credits him.
@@ -1121,7 +1155,21 @@ static const struct { const char *prefix, *stage; int percent; } kStages[] = {
     [view addSubview:self.controllerToggle];
     // MainForm's debugToggle: the patch's debug-logs option (kmrp-mac.sh --debug-logs), off by
     // default, for a player who was asked for logs with a bug report.
-    self.debugToggle = [[KMRPToggle alloc] initWithFrame:NSMakeRect(S(36), S(122 + 3 * rowPitch), S(cardWidth - 72), S(rowHeight))];
+    // MainForm's fpsToggle: High FPS Fixes for the Mac, a fifth patch (kmrp-mac.sh --high-fps,
+    // --no-high-fps). Windows' rule where the player has not chosen: on for a display that
+    // reports more than 60 Hz (59, 60 and 61 count as 60).
+    self.fpsToggle = [[KMRPToggle alloc] initWithFrame:tile(3)];
+    self.fpsToggle.title = @"High FPS Fix";
+    self.fpsToggle.author = @"D3M0";
+    self.fpsToggle.detail = [@"Fixes timing and animation faults above 60 frames per second." stringByAppendingString:
+                             HighFpsAuto() ? @" On by default for this display." : @" Off by default on a 60 Hz display."];
+    // In green beside the title, as on Windows: the highest rate the display reports, above 60.
+    if (HighFpsAuto()) self.fpsToggle.note = [NSString stringWithFormat:@"Display supports %ld Hz", (long)DisplayRefresh()];
+    self.fpsToggle.on = [defaults objectForKey:@"HighFpsFix"] ? [defaults boolForKey:@"HighFpsFix"] : HighFpsAuto();
+    if ([defaults objectForKey:@"KMRPHighFps"]) self.fpsToggle.on = [defaults boolForKey:@"KMRPHighFps"];
+    self.fpsToggle.changed = ^(BOOL on) { [[NSUserDefaults standardUserDefaults] setBool:on forKey:@"HighFpsFix"]; };
+    [view addSubview:self.fpsToggle];
+    self.debugToggle = [[KMRPToggle alloc] initWithFrame:tile(4)];
     self.debugToggle.title = @"Debug Logs";
     self.debugToggle.author = @"KMRP";
     self.debugToggle.detail = @"Writes a diagnostic log file. Turn on when reporting a problem.";
@@ -1143,6 +1191,9 @@ static const struct { const char *prefix, *stage; int percent; } kStages[] = {
     self.iconsToggle.on = YES;
     [[NSUserDefaults standardUserDefaults] setBool:YES forKey:@"HdIcons"];
     self.controllerToggle.on = YES;
+    // High FPS Fix follows the display again.
+    [[NSUserDefaults standardUserDefaults] removeObjectForKey:@"HighFpsFix"];
+    self.fpsToggle.on = HighFpsAuto();
     self.debugToggle.on = NO;
     [[NSUserDefaults standardUserDefaults] setBool:NO forKey:@"DebugLogs"];
     [[NSUserDefaults standardUserDefaults] setBool:YES forKey:@"MarkerFixes"];
@@ -1400,6 +1451,7 @@ static const struct { const char *prefix, *stage; int percent; } kStages[] = {
     if (!self.markerToggle.on) [arguments addObject:@"--no-map-notes"];
     if (!self.iconsToggle.on) [arguments addObject:@"--no-hd-icons"];
     if (!self.controllerToggle.on) [arguments addObject:@"--no-controller"];
+    [arguments addObject:self.fpsToggle.on ? @"--high-fps" : @"--no-high-fps"];
     if (self.debugToggle.on) [arguments addObject:@"--debug-logs"];
     [self runOperation:@"Patch" arguments:arguments];
 }

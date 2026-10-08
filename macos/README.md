@@ -35,8 +35,11 @@ The installer refuses any other `KOTOR_Exe`.
 
 ## 1. How the Mac port is put together
 
-**What KMRP for macOS is now** (2026-10-08): four KotOR Patch Manager patches, installed by
-KMRP Installer or ticked by hand in KotOR Patch Manager.
+**What KMRP for macOS is now** (2026-10-08): five KotOR Patch Manager patches that work
+together, installed by KMRP Installer or ticked by hand in KotOR Patch Manager. The fifth,
+High FPS Fixes for the Mac, came that evening (section 7b) and is not in the table: file
+`High FPS Fixes (macOS).kpatch`, id `high-fps-fixes`, module `patches/high-fps-fixes.dylib`,
+installed while *High FPS Fix* is on.
 
 | Patch file | Id, and the module it installs | Whose | What |
 | --- | --- | --- | --- |
@@ -117,7 +120,7 @@ replaces), and runs the script:
 | The app | `kmrp-mac.sh` |
 | --- | --- |
 | at launch and after every run | `status --brief`: `install.info`, or the game and its build, without hashing every installed file (a full status takes seconds once KMRP is installed) |
-| **Start Patching** | `install --yes --resolution current` (the size macOS is set to; `native` and `--size WxH` are the script's alone since 2026-10-07, section 5), with `--no-map-notes` when *Area Map Marker Fixes* is off, `--no-hd-icons` when *HD Item Icons* is off (since 2026-10-08), `--no-controller` when *Native Controller Support* is off, `--debug-logs` when *Debug Logs* is on (Advanced Settings, as on Windows), `--game` when one was chosen with **Browse** |
+| **Start Patching** | `install --yes --resolution current` (the size macOS is set to; `native` and `--size WxH` are the script's alone since 2026-10-07, section 5), with `--no-map-notes` when *Area Map Marker Fixes* is off, `--no-hd-icons` when *HD Item Icons* is off (since 2026-10-08), `--no-controller` when *Native Controller Support* is off, `--high-fps` or `--no-high-fps` as *High FPS Fix* is set (always one of them, since 2026-10-08), `--debug-logs` when *Debug Logs* is on (Advanced Settings, as on Windows), `--game` when one was chosen with **Browse** |
 | **Restore Original** | `uninstall --yes` (and `--game`) |
 
 What the script refuses (the game running, another build), the app shows as a blocking
@@ -135,8 +138,12 @@ lines move the progress fill.
 `docs/windows-changes-from-macos.md`, item 11; rendered at 1/12 of the header's
 pixels on a background queue every 62 ms and resampled with vImage), the four-step card
 with the step and state art from `src/patcher/icons`, the pill buttons with the primary's
-progress fill, the Advanced Settings view with its four toggles (*Area Map Marker Fixes*,
-*HD Item Icons* since 2026-10-08, *Native Controller Support*, *Debug Logs*), and the footer. Its icon is the
+progress fill, the Advanced Settings view with its five toggles (*Native Controller Support*, *Area Map
+Marker Fixes*, *HD Item Icons* and *High FPS Fix* since 2026-10-08, *Debug Logs*), which are
+tiles, three to a row, since that evening as on Windows (full-width rows until then; seen in
+the app's own snapshot), and the footer. *High FPS Fix* is on unless the player says
+otherwise where the main display reports 62 Hz or more (`NSScreen.maximumFramesPerSecond`,
+Windows' rule), and its tile then says "Display supports 120 Hz" in green. Its icon is the
 Mac's own, shared with the disk image: the crest over "KMRP" (`tools/make_package_art.py`;
 the Windows executable's `src/patcher/favicon.ico` until 2026-09-30, when the player asked
 for the crest). Every rectangle is the Windows design-space one; the scale is `FitInitialSizeToWorkingArea`'s times 1.3,
@@ -224,6 +231,7 @@ the top of `installer-app/main.m`:
 | `-KMRPNoMapNotes YES` | turns *Area Map Marker Fixes* off |
 | `-KMRPNoHdIcons YES` | turns *HD Item Icons* off |
 | `-KMRPNoController YES` | turns *Native Controller Support* off |
+| `-KMRPHighFps YES` or `NO` | turns *High FPS Fix* on or off, whatever the display |
 | `-KMRPSettings YES` | shows Advanced Settings |
 | `-KMRPSnapshot <prefix>` | writes `<prefix>-ready.png` when the window is ready, `<prefix>-progress.png` once a run is a third through, and `<prefix>-done.png` and `<prefix>-log.txt` when it ends |
 | `-KMRPQuit YES` | quits after that |
@@ -245,7 +253,7 @@ controller became a patch of its own.
 | `MacOS/KotorPatcher.dylib` | added | KPM's runtime |
 | `MacOS/patches/k1-stray-bug-fixes-patch.dylib`, `k1widescreenpatch.dylib`, `kmrp.dylib` | added | each patch's module, taken out of its `.kpatch` (`binaries/macos_x86_64.dylib`) under the name KPM gives it, the patch's id. `kmrp.dylib` holds the menu set for every resolution and the artwork; KMRP's two modules are signed ad hoc by the build and verified here |
 | `MacOS/patches/kmrp-controller.dylib` | added unless `--no-controller` | the controller patch's module, with its own files and SDL 3.4.16 inside (section 7a) |
-| `MacOS/patch_config.toml` | added | KPM's hook list, written at build time by KPM's own KPatchCore: the four patches' 111 hooks (16, 45, 24 and 26), or with `--no-controller` the three patches' 85 (`engine/patch_config.controller-off.toml`); counted in the package built on 2026-10-08 |
+| `MacOS/patch_config.toml` | added | KPM's hook list, written at build time by KPM's own KPatchCore: the four patches' 111 hooks (16, 45, 24 and 26), or with `--no-controller` the three patches' 85 (`engine/patch_config.controller-off.toml`); counted in the package built on 2026-10-08. With *High FPS Fix* on, the list with that patch's 26 hooks after them: `engine/patch_config.high-fps.toml` (137) or `engine/patch_config.controller-off.high-fps.toml` (111) |
 | `MacOS/configs/kmrp.ini` | section `[Patch Options]` written | `map-notes`, `hd-icons` (since 2026-10-08: off, the module leaves the bundled HD icon pack out of the artwork it gives the game, `LinkArtwork`) and `debug-logs` as `1` or `0`, where a KotOR Patch Manager with patch options records them (LaneDibello/Kotor-Patch-Manager#310) and `kmrp.dylib` reads them. Anything else in the file is kept; uninstall takes the section out, and deletes the file and the folder when nothing else is left. Not written by an install for KPM, where the options are KPM's to choose |
 | `MacOS/configs/kmrp-controller.ini` | section `[Patch Options]` written, unless `--no-controller` | `debug-logs` only: the patch's other option, `xbox-hud`, is left to `Style` under `[Hud]` in the player's settings file (below) |
 | `MacOS/KOTOR_Exe.backup.<yyyyMMdd_HHmmss>` and its `.json` | added | the untouched game in KotOR Patch Manager's format (`BackupManager`, `BackupInfo`), made before the load command, from which KPM's Apply starts (since 2026-10-01, as Windows' `WriteKpmBackup`) |
@@ -940,12 +948,24 @@ given the experience: both badges round, the same size, under each other): the c
 (`cues.cpp`, `Adjust`), the HUD's font and texture clamp, the parked slot's return and the
 action box's empty line.
 
-## 7b. High FPS Fixes for the Mac, a patch of its own
+## 7b. High FPS Fixes for the Mac, the fifth patch
 
 A port of D3M0's [High FPS Fixes](https://github.com/gnw-d3m0/D3M0s-KPatches) 1.0.1 (MIT) for
 KOTOR 1 to the Steam Aspyr build, made on 2026-10-08. D3M0's patch has hooks for the Windows
-game only. **It is not part of KMRP's package and the installer does not install it**: it is
-built by itself, needs no other patch and no other patch needs it.
+game only. It needs no other patch and no other patch needs it.
+
+**In the package and installed by KMRP Installer since the evening of 2026-10-08** (the
+maintainer: the installer ships the patches that work together, FTD's two, KMRP's, the
+controller's "and then also now the high FPS one"). `macos/build.sh` builds it, has KotOR
+Patch Manager validate it and stage it after the others in two more hook lists, and checks
+that no two patches of a list hook one address. `kmrp-mac.sh` installs its module and the
+list that has it while *High FPS Fix* is on (`--high-fps`, `--no-high-fps`; with neither,
+on where the main display reports 62 Hz or more, which is Windows' rule), puts the file in
+KPM's patch folder with the others, and records `high_fps=` in `install.info`. A file of
+that name in KPM's folder is replaced only when its manifest names the Mac port; D3M0's own
+file for Windows, which has the same id, is left alone. D3M0's licence ships as
+`licenses/High-FPS-Fixes-D3M0-LICENSE.txt`. Until that evening it was built by itself and
+loaded by hand.
 
 | | |
 | --- | --- |
@@ -955,7 +975,8 @@ built by itself, needs no other patch and no other patch needs it.
 | What it makes time-based | the dialogue letterbox, movement after combat, the jitter of dangly meshes and leaves, UV animation, the lightsaber's and dangly meshes' gates, water, cycling textures, the particle fountain's budget, camera shake, the character preview's pause |
 | KOTOR 2 | not ported: the game is not installed here |
 
-**Seen in the game** (2026-10-08, beside KMRP's four patches): all 26 hooks apply; the
+**Seen in the game** (2026-10-08, beside KMRP's four patches, loaded by hand and then as
+the installer installs it): all 26 hooks apply, 137 with the others'; the
 letterbox takes about half a second where it took about 1.75 without the patch at a high frame
 rate; the maintainer played two fights and walked on after each.
 **Not seen:** water, cycling textures, dangly meshes, lightsaber trails, particles, camera
