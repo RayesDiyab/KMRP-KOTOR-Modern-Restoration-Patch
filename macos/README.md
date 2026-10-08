@@ -152,8 +152,9 @@ button's centre and the state labels on their badges' centre lines.
 
 **Resolutions** (step 3), exactly as on Windows since 2026-10-08: no button, and before an
 install the line "Starts at W × H. The game lists every resolution the connected display
-supports." Installed, it reads "The game starts at this size. Choose another in the game,
-under Options, Graphics.", with the size on the right. The game's
+supports." Installed, it reads "The game starts at this resolution. Choose another in the game's
+Graphics options." (Windows' words since 2026-10-09; "size" and "under Options, Graphics"
+until 2026-10-08), with the size on the right. The game's
 Screen Resolution list is Aspyr's list of the display's modes (each with its twin at the
 display's pixels), of which `KmrpResolutionKnown` accepts a size when KMRP has menus for it and
 the display reports a mode of it, in points or in pixels. Nothing is written for the list. For
@@ -934,7 +935,8 @@ place.
 
 **Not seen:** a real pad, rumble, a fight, a conversation, the store's three badges (no save
 reaches a store), and everything added on the evening of 2026-10-07, which the maintainer
-tests himself: Level Up and Auto Level Up (`ShowBacked`), the cues placed from live controls
+tests himself (Level Up and Auto Level Up, `ShowBacked`, were seen on 2026-10-08 in a save
+given the experience: both badges round, the same size, under each other): the cues placed from live controls
 (`cues.cpp`, `Adjust`), the HUD's font and texture clamp, the parked slot's return and the
 action box's empty line.
 

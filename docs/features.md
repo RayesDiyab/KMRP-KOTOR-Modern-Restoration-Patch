@@ -176,5 +176,5 @@ KMRP replaces these. Do not install them alongside it:
 | Windows, Steam version | Yes |
 | Windows, GOG version | Yes |
 | Windows, disc version 1.03 | Yes |
-| macOS, Steam version | A separate installer, in development. See [macos/README.md](../macos/README.md). |
+| macOS, Steam version | Yes, since KMRP 1.5, with a separate installer (`KMRP-macOS-1.5.0.dmg`); tested on one Apple Silicon Mac, Intel Macs untested. See [macos/PLAYER-README.md](../macos/PLAYER-README.md) and [macos/README.md](../macos/README.md). |
 | Linux, Proton, Steam Deck | Experimental. See [linux-proton-steam-deck.md](linux-proton-steam-deck.md). |

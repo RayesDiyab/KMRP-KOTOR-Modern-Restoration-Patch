@@ -106,8 +106,13 @@ released it.
 
 ### Other platforms
 
-**macOS (Steam, in development).** A separate installer for the Aspyr build on Steam,
-made from the same resources as this one. See [macos/README.md](macos/README.md).
+**macOS (Steam), new in KMRP 1.5.** A separate installer, `KMRP-macOS-1.5.0.dmg`, for the
+Aspyr build on Steam, made from the same resources as this one: the same interface for
+every resolution, fonts, art and engine fixes, and controller support, which the Mac game
+does not have on its own. How to install it is in the package's own README
+([macos/PLAYER-README.md](macos/PLAYER-README.md)); what it writes, byte for byte, and what
+was and was not tested is in [macos/README.md](macos/README.md). Tested on one Mac, a 14"
+MacBook Pro with Apple Silicon; Intel Macs are untested.
 Its two patch files, `KMRP-macOS.kpatch` and
 `KOTOR 1 Native Controller Mod + Xbox HUD (macOS).kpatch`, work on the Mac game only, and
 the Windows files named above on Windows only.

@@ -13,18 +13,21 @@
 
   The shape each badge was made for is K1ControllerBadgeShapes.inc, the file Windows compiles
   (tools/build_controller_assets.py --badge-shapes): the Mac game's layouts and this patch's
-  textures give the same 133 rows, which macos/build.sh checks. When the live button's fill
-  area has another shape, by more than a fiftieth in either state, or its caption's line is
-  more than a sixth of its height off its middle, the button carries no badge and the texture
-  is drawn on a label of this patch's own:
+  textures give the same 133 rows, which macos/build.sh checks. Every badge is drawn on a label
+  of this patch's own and its button carries none (since 2026-10-08, Windows' master 843320b;
+  until then only a button of another shape than the made one, by more than a fiftieth, had a
+  label, and the others kept the texture as their fill):
 
-    - as tall as the button's fill area and as wide as the made-for shape makes it at that
-      height, so the glyph is as round as it was drawn;
-    - placed so the glyph stands a quarter of that height from the caption as the caption is
-      drawn now, measured from the caption's own font, on the side it has in its texture, and
-      kept inside the button;
-    - on the caption's line. A caption that is not on the button's middle line is brought
-      there, in a rectangle one line tall, for as long as the badge is shown.
+    - in the made-for proportions and as large as fits the button's fill area both ways
+      (UniformBadge), so the glyph is as round as it was drawn and a row taller than its
+      fellows has no larger badge;
+    - placed so the glyph stands a quarter of the badge's height from the caption as the
+      caption is drawn now, measured from the caption's own font, on the side it has in its
+      texture, and kept inside the button;
+    - in the middle of its button, top to bottom. A caption that is not on the button's middle
+      line is brought there, in a rectangle one line tall, for as long as the badge is shown;
+    - in the unchanged game, where the area is exactly the made one, laid over the area the
+      fill covered, the caption left where the screen has it.
 
   The label is a CSWGuiLabel made here (constructor 0x1004A54AA, 0x198 bytes), given the panel
   (+0x50) and the next free id (+0x74) and added to the panel's control array with the engine's
@@ -96,7 +99,7 @@ struct Overlay {
     bool grown;
     int lines;
 };
-Overlay g_overlays[96] = {};
+Overlay g_overlays[256] = {};     // 96 until every badge went on a label (2026-10-08)
 unsigned g_made = 0, g_refused = 0, g_freed = 0;
 
 std::uintptr_t VtableOf(void* object) { return LooksLikePointer(object) ? At<std::uintptr_t>(object, 0) : 0; }
@@ -113,6 +116,31 @@ bool SetExtent(void* control, const Rect& rect) {
 int FillInset(void* button, std::size_t border) {
     char* const params = static_cast<char*>(button) + border + kBorderParams;
     return At<void*>(params, kParamsCorner) ? At<int>(params, 0) : 0;
+}
+
+// The one place a badge's size on screen is decided (Windows' K1UniformBadge): its texture was
+// made for an area `madeWidth` by `madeHeight` and is drawn in those proportions, as large as
+// fits the area both ways, so a badge is never wider without being as much taller and a button
+// taller than its fellows has no larger badge.
+void UniformBadge(long areaWidth, long areaHeight, long madeWidth, long madeHeight, int& width, int& height) {
+    if (areaWidth * madeHeight >= madeWidth * areaHeight) {
+        height = static_cast<int>(areaHeight);
+        width = static_cast<int>((areaHeight * madeWidth + madeHeight / 2) / madeHeight);
+    } else {
+        width = static_cast<int>(areaWidth);
+        height = static_cast<int>((areaWidth * madeHeight + madeWidth / 2) / madeWidth);
+    }
+}
+
+// Whether a texture made for one area is drawn in its own proportions when stretched over
+// another (Windows' K1BadgeKeepsShape): the two scales, across and down, differ by less than
+// half a pixel over the area's height.
+bool KeepsShape(long width, long height, long madeWidth, long madeHeight) {
+    if (width <= 0 || height <= 0 || madeWidth <= 0 || madeHeight <= 0) return false;
+    const double across = static_cast<double>(width) / static_cast<double>(madeWidth);
+    const double down = static_cast<double>(height) / static_cast<double>(madeHeight);
+    const double apart = across > down ? across / down - 1.0 : down / across - 1.0;
+    return apart * static_cast<double>(height) < 0.5;
 }
 
 const BadgeShape* ShapeOf(const char* resref) {
@@ -297,7 +325,8 @@ bool Show(void* panel, void* button, const char* resref) {
     const BadgeShape* const shape = resref ? ShapeOf(resref) : nullptr;
     const Rect at = At<Rect>(button, kCtlExtent);
     const int inset = FillInset(button, kButtonBorder), focusInset = FillInset(button, kButtonHilight);
-    const int width = at.width - 2 * inset, height = at.height - 2 * inset;
+    const int width = at.width - 2 * inset;
+    int height = at.height - 2 * inset;
     if (!shape || width <= 0 || height <= 0) { Hide(button); return false; }
 
     char* const caption = static_cast<char*>(button) + kButtonText;
@@ -313,37 +342,51 @@ bool Show(void* panel, void* button, const char* resref) {
     };
 
     // The shape it was made for, in the normal state and the focused one, and its caption's line.
-    const auto within = [](long live, long made) { return std::labs(live - made) * 50 <= made; };
-    bool asMade = within(static_cast<long>(width) * shape->height, static_cast<long>(shape->width) * height);
+    bool asMade = KeepsShape(width, height, shape->width, shape->height);
     if (asMade && focusInset != inset) {
         const int step = 2 * (inset - focusInset);
         const int focusWidth = at.width - 2 * focusInset, focusHeight = at.height - 2 * focusInset;
         const int madeWidth = shape->width + step, madeHeight = shape->height + step;
         if (focusWidth > 0 && focusHeight > 0 && madeWidth > 0 && madeHeight > 0)
-            asMade = within(static_cast<long>(focusWidth) * madeHeight, static_cast<long>(madeWidth) * focusHeight);
+            asMade = KeepsShape(focusWidth, focusHeight, madeWidth, madeHeight);
     }
     if (asMade && height != shape->height && captionWidth > 0 && line > 0) {
         const int off = lineMiddle(text.height > 0 ? text : at) - (at.top + at.height / 2);
         const int allowed = height / 6 > 2 ? height / 6 : 2;
         if (std::abs(off) > allowed) asMade = false;
     }
-    if (asMade) { Hide(button); return false; }
+    // One way to the screen for every badge (Windows, master 843320b): the label below. Until
+    // 2026-10-08 a badge whose button had the shape its texture was made for stayed the button's
+    // fill. Only in the unchanged game, where the area is exactly the made one, does the label
+    // lie where the fill was and the caption stay where the screen has it; on any other
+    // interface every badge stands beside its caption.
+    const bool whereMade = asMade && width == shape->width && height == shape->height;
 
     Overlay* const entry = Make(panel, button);
     if (!entry) return false;
 
+    // One factor for width and height, the largest at which the badge fits the area both ways;
+    // and in the middle of its button, top to bottom.
     Rect wanted;
-    wanted.height = height;
-    wanted.top = at.top + inset;
-    wanted.width = (height * shape->width + shape->height / 2) / shape->height;
+    UniformBadge(width, height, shape->width, shape->height, wanted.width, wanted.height);
+    height = wanted.height;
+    wanted.top = at.top + (at.height - height) / 2;
     const int centred = (width - wanted.width) / 2;
     const int glyph = centred + wanted.width * shape->glyph / 1000, reach = height / 2 + height / 8;
     const bool fits = glyph - reach >= 0 && glyph + reach <= width;
     wanted.left = at.left + inset + (fits ? centred : shape->glyph < 500 ? 0 : width - wanted.width);
 
-    if (captionWidth > 0) {
-        // The caption to the button's middle line, in a rectangle one line tall.
-        if (line > 0 && (alignment & 16) == 0 && text.height > 0 && line < at.height) {
+    if (whereMade && entry->textMoved) {
+        TextSetExtent(caption, &entry->textWas);     // the caption where the screen had it
+        entry->textMoved = false;
+    }
+    if (captionWidth > 0 && !whereMade) {
+        // The caption to the button's middle line, in a rectangle one line tall: one that is
+        // aligned to the top or the bottom, and one in the middle of a rectangle whose middle
+        // is not the button's.
+        const int buttonMiddle = at.top + at.height / 2;
+        const bool offMiddle = (alignment & 16) == 0 || std::abs(text.top + text.height / 2 - buttonMiddle) > 1;
+        if (line > 0 && offMiddle && text.height > 0 && line < at.height) {
             const Rect centredLine = {text.left, at.top + (at.height - line) / 2, text.width, line};
             const Rect& now = At<Rect>(caption, kTextExtent);
             if (now.left != centredLine.left || now.top != centredLine.top || now.width != centredLine.width ||
@@ -353,7 +396,7 @@ bool Show(void* panel, void* button, const char* resref) {
             }
             text = centredLine;
         }
-        wanted.top = lineMiddle(text.height > 0 ? text : at) - wanted.height / 2;
+        wanted.top = buttonMiddle - wanted.height / 2;
         const int middle = text.width > 0 ? text.left + text.width / 2 : at.left + at.width / 2;
         const int gap = height / 4, air = height / 8;
         const int glyphLeft = wanted.width * (shape->glyph - shape->glyphWidth / 2) / 1000;

@@ -1344,7 +1344,7 @@ static const struct { const char *prefix, *stage; int percent; } kStages[] = {
     // status's resolution=) over a line that says where another is chosen; otherwise the line
     // of ResolutionSelection.Summary and nothing on the right.
     self.stepResolution.subtitle = done
-        ? @"The game starts at this size. Choose another in the game, under Options, Graphics."
+        ? @"The game starts at this resolution. Choose another in the game's Graphics options."
         : [self summary];
     self.resolutionState.hidden = !done;
     if (done) [self.resolutionState set:(self.installedSize.length ? Pretty(self.installedSize) : @"Installed") color:THEME_TEXT badge:nil];

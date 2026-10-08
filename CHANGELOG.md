@@ -109,6 +109,28 @@ proxy, and it applies the executable changes above as well.
 
 ## [Unreleased]
 
+- **macOS: the documents for the release of KMRP 1.5** (2026-10-08). `README.md` and
+  `docs/features.md` no longer call the Mac installer "in development": it is part of 1.5,
+  with what it was tested on (one Apple Silicon Mac; Intel Macs untested) and where its own
+  instructions are. The Mac tracker has Windows' changes of 2026-10-09 as items 38 to 41.
+
+- **macOS installer: step 3 says "resolution"** (2026-10-08, Windows' wording of master
+  `a46d0f3`). On an installed game step 3 reads "The game starts at this resolution. Choose
+  another in the game's Graphics options." Checked the same day and left as it is: the Mac
+  does not need Windows' bringing of the game's window to the front, the pad is read from
+  the start (rows 39 and 40 of `docs/macos-changes-from-windows.md`).
+
+- **macOS: the badge rule of Windows' master `843320b` ported** (2026-10-08, at the
+  maintainer's request; the controller patch, `overlays.cpp`). Every badge is drawn on a label
+  of the patch's own, none as its button's fill; it is as large as fits its button's fill
+  area both ways, in the proportions its texture was made for (`UniformBadge`), so a row
+  taller than its fellows has no larger badge; and it stands in the middle of its button,
+  the caption brought to that line. The corrected table of made shapes came with the merge.
+  Seen at 1512x982 with the scripted pad: the main menu's A is 27 px tall on New Game, Load
+  Game and Quit; the in-game menus look as before; Level Up and Auto Level Up, seen for the
+  first time on the Mac in a save given the experience, have their Y and A round, the same
+  size and under each other. Not seen: other resolutions, the store. Row and section 38 of `docs/macos-changes-from-windows.md`.
+
 - **After a change of resolution in the game, with the controller patch: three
   repairs** (2026-10-09; all three seen in a scratch copy, 1920x1080 to 1680x1050
   with the pad, before and after;
