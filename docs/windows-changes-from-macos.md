@@ -94,6 +94,7 @@ does it, checked as stated), **doc** (a Windows document to correct).
 | 23 | Controller badges: never less than three quarters of the button's height (the container's badges were a quarter of it under the rule of master `843320b`) | **to do**: the same rule and the same table are Windows'; not looked at on Windows |
 | 24 | Message popup: the widening step follows the screen (40 px at 720 lines), so a long text no longer makes a tall, narrow box at 4K | **to do**: the same loop and the same unscaled 40 on Windows (`0x006253A0`); not looked at on Windows |
 | 25 | Xbox-style HUD: the combat-mode message's picture, gaps and widths from the font's line height (the picture was 22 px at any size, and the first text broke in two lines at 4K) | **to do**: `K1XboxHud.cpp` has the same 22 and 9; not looked at on Windows |
+| 26 | The store row's stack count: width, height and place below the row's top follow the icon (it stood beside the icon's upper corner at 4K) | **to do**: Windows scales only the inventory's label; not looked at on Windows |
 
 ## 1. Message popups fitted to their contents
 
@@ -942,3 +943,29 @@ where it is the larger, and the old numbers where the font cannot be read.
 **For Windows.** `K1XboxHud.cpp` has the same two constants (`kButtonSize = 22`,
 `kButtonGap = 9`) and the same `LineWidth`; its pause notice already measures the font the
 way this now does.
+
+## 26. The store row's stack count
+
+**Reported** by the maintainer on the Mac on 2026-10-09, at 3840x2160, with a photograph of a
+shop: the counts ("5", "2") stood at the upper right corner of their icons, half outside the
+frame, "wrong only in the shop". Fixed on the Mac that night; **not yet seen in the game with
+the repair.**
+
+**What happens.** The count is a label made in code, in no `.gui` file. The inventory's row
+places it 21 wide (42 for three digits or more) and 19 high, 37 under the row's top,
+right-aligned in the 56 icon, and KMRP scales all four with the screen (Windows'
+`StackCountSites`, the Mac's `StackLabelBlock`). The store's row
+(`CSWGuiStoreItemEntry::SetExtent`, Mac `0x1002BFB06`) has the same block of instructions,
+byte for byte on the Mac, and only the icon in it was scaled: the Mac's note there said
+"Windows scales only the inventory's label; the store's keeps 21x19 at 37". With an icon of
+168 at 3840x2160 the label was 21 wide and 19 high, 37 under the top: in the icon's upper
+right corner, where the inventory's is in the lower right.
+
+**The Mac's repair** (`macos/patches/kmrp-layout/resolution_sizes.cpp`, the group "store
+stack-count label's size and place"): the block at `0x1002BFBA8` is rewritten around the
+icon's number, which stays where it is: the width is `21s` (twice for three digits or more),
+the height `19s`, and the top is the row's top and the icon less the label's height, which is
+the game's 37 at its own size (56 - 19). The code is in the file's comment.
+
+**For Windows.** The store's count label in `CSWGuiStoreItemEntry::SetExtent`, by the same
+rule as the inventory's. The workbench's rows were not looked at on the Mac.

@@ -129,6 +129,16 @@ everything since 1.0, newest first, each as it was written on its day: a later
 entry corrects or replaces an earlier one, and each says what was and was not
 seen in the game.
 
+- **macOS: the stack count in a shop** (2026-10-09, reported by the maintainer with a
+  photograph at 3840x2160: the counts stood at their icons' upper right corner, "wrong only
+  in the shop"). The count's label is made in code; the inventory's width, height and place
+  were scaled with the screen and the store's row, which has the same instructions, had only
+  its icon scaled. `kmrp-layout/resolution_sizes.cpp` now writes the store's width (`21s`),
+  height (`19s`) and top (the icon less the label's height) around the icon's number, which
+  whoever writes the layout's sizes still writes. `Test-KmrpLayoutPatch.py`: 58 sites at 76
+  resolutions. **Not yet seen in the game.** Item 26 of `docs/windows-changes-from-macos.md`
+  and item 4 of `docs/windows-handoff-2026-10-09.md`: Windows scales only the inventory's.
+
 - **macOS installer: anti-aliasing off on a 4K display** (2026-10-09, at the maintainer's
   word, after the main menu still stuttered on a 4K television at 60 Hz with the repair below
   in). Measured there, the main menu over twelve seconds: 59 frames a second at the game's 2x

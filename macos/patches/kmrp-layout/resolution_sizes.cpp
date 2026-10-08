@@ -177,9 +177,38 @@ void AddStackLabel(std::vector<Group>& groups, float s) {
     const std::vector<uint8_t> vanilla(std::begin(kVanillaStackLabelBlock), std::end(kVanillaStackLabelBlock));
     groups.push_back({"stack-count label", {{0x1002be4a0, vanilla, StackLabelBlock(s)}}});
     // The store row draws the same label; its x follows the store icon, as the inventory's does.
-    // (Windows scales only the inventory's label; the store's keeps 21x19 at 37.)
+    // (Windows scales only the inventory's label; the store's kept 21x19 at 37 here too until
+    // 2026-10-09: the group after this one.)
     // The widescreen patch restores the vanilla mov eax, 56 here with UseGuiFileLayouts.
     groups.push_back({"store stack-count label", {{0x1002bfbc0, Int32(56), Int32(Scaled(56, s))}}});
+    // And its width, height and place below the row's top, since 2026-10-09. The store's row
+    // (CSWGuiStoreItemEntry::SetExtent, 0x1002bfb06) has the inventory's block byte for byte at
+    // 0x1002bfba8, and only the icon in it was scaled: at 3840x2160 the count stood 37 px
+    // under the top of a 168 px icon, 21 px wide, beside the icon's upper corner (the
+    // maintainer saw it in a shop: "wrong only in the shop"). The icon's number, the five
+    // bytes at 0x1002bfbbf, stays where it is and whoever writes the layout's sizes writes it
+    // (above, or the widescreen patch); the 23 bytes before it and the 22 after are KMRP's:
+    //
+    //   cmp eax, 2 ; mov ecx, W ; jle +2 ; add ecx, ecx ; lea rsi, [rbp-0x68] ;
+    //   mov [rsi+8], ecx ; mov edx, r12d ; nop                      W = 21s, twice for 3+ digits
+    //   (mov eax, I)                                               I = 56s, the icon
+    //   add edx, eax ; sub eax, ecx ; add eax, r15d ; mov [rsi], eax ;
+    //   mov dword [rsi+0xc], H ; sub edx, [rsi+0xc] ; mov [rsi+4], edx      H = 19s
+    //
+    // The top is the row's top and the icon less the label's height, which is the game's 37
+    // at its own size (56 - 19). edx is free here: the call that follows takes two arguments.
+    const std::vector<uint8_t> before(std::begin(kVanillaStackLabelBlock), std::begin(kVanillaStackLabelBlock) + 23);
+    const std::vector<uint8_t> after(std::begin(kVanillaStackLabelBlock) + 28, std::end(kVanillaStackLabelBlock));
+    Group store{"store stack-count label's size and place", {
+        {0x1002bfba8, before,
+         Join({Bytes({0x83, 0xf8, 0x02, 0xb9}), Int32(Scaled(21, s)),
+               Bytes({0x7e, 0x02, 0x01, 0xc9, 0x48, 0x8d, 0x75, 0x98, 0x89, 0x4e, 0x08, 0x44, 0x89, 0xe2, 0x90})})},
+        {0x1002bfbc4, after,
+         Join({Bytes({0x01, 0xc2, 0x29, 0xc8, 0x44, 0x01, 0xf8, 0x89, 0x06, 0xc7, 0x46, 0x0c}), Int32(Scaled(19, s)),
+               Bytes({0x2b, 0x56, 0x0c, 0x89, 0x56, 0x04})})},
+    }};
+    store.own = true;
+    groups.push_back(store);
 }
 
 /*

@@ -28,10 +28,11 @@ Each item is one of:
 | 1 | Controller badges are never less than three quarters of their button's height | **port** | item 23 |
 | 2 | The message popup's widening step follows the screen | **port** | item 24 |
 | 3 | The combat-mode message's picture, gaps and widths come from the font | **port** | item 25 |
-| 4 | High FPS Fixes: particle fountains emit what the game emits at 60 frames a second | **check** | below |
-| 5 | Anti-aliasing off on a 4K display | **check** | below |
-| 6 | The pointer after a change of resolution in the game | **Mac only** | below |
-| 7 | Still open from 2026-10-08: items 20 to 22 seen in the game on Windows | **check** | items 20 to 22 |
+| 4 | The store row's stack count sits in the icon's lower right corner, as the inventory's | **port** | item 26 |
+| 5 | High FPS Fixes: particle fountains emit what the game emits at 60 frames a second | **check** | below |
+| 6 | Anti-aliasing off on a 4K display | **check** | below |
+| 7 | The pointer after a change of resolution in the game | **Mac only** | below |
+| 8 | Still open from 2026-10-08: items 20 to 22 seen in the game on Windows | **check** | items 20 to 22 |
 
 ## 1. Badges: a least size (port)
 
@@ -57,7 +58,18 @@ widths from the engine's measure, to the nearest 10. At 4K the picture is a dot 
 text breaks. The Mac sizes all of it from the font's line height, as the pause notice is.
 **Seen right on the Mac at 3840x2160.**
 
-## 4. High FPS Fixes and particles (check)
+## 4. The store's stack count (port)
+
+In a shop the count on a stack of items stood at the icon's upper right corner, half outside
+the frame, where the inventory's is at the lower right. The label is made in code. KMRP
+scales the inventory's width, height and place with the screen; the store's row has the same
+instructions and only its icon was scaled, on the Mac and, by the Mac's own note, on Windows
+("Windows scales only the inventory's label; the store's keeps 21x19 at 37"). The Mac now
+gives the store's the same three numbers and puts its top at the icon less the label's
+height. **Built and installed on the Mac; not yet seen in the game.** The workbench was not
+looked at.
+
+## 5. High FPS Fixes and particles (check)
 
 Windows installs D3M0's own patch; the Mac has a port of it
 (`macos/patches/high-fps-fixes`). D3M0's rule for particle fountains emits an emitter's rate
@@ -73,7 +85,7 @@ for a long frame: 70 to 74, no long frames.
 Worth one look at the main menu at 4K with High FPS Fix on and off; if it stutters only with
 it on, this is why. Nothing to change in KMRP either way.
 
-## 5. Anti-aliasing at 4K (check)
+## 6. Anti-aliasing at 4K (check)
 
 On the Mac's 4K television at 60 Hz the main menu ran at 59 frames a second at 2x
 anti-aliasing and 82 with it off; frame-buffer effects and soft shadows made no difference.
@@ -83,13 +95,13 @@ the display has 3840x2160 pixels or more, and puts the old value back at uninsta
 **For Windows:** the Mac draws through Rosetta and Apple's OpenGL on Metal, so the numbers do
 not carry over. Only if the menu stutters at 4K on a 60 Hz display there.
 
-## 6. The pointer after a change of resolution (Mac only)
+## 7. The pointer after a change of resolution (Mac only)
 
 Aspyr's port keeps a ratio of game pixels to window points that it worked out once; after a
 change of resolution in the game the pointer reached only the old size's part of the screen.
 The Mac refreshes it after every switch. Windows has no such ratio.
 
-## 7. Still open from 2026-10-08
+## 8. Still open from 2026-10-08
 
 Items 20 (the parked action slot), 21 (the pause box, both hooks) and 22 (the conversation
 after a change of resolution) are built on Windows since master `aaaa037` and, by that
