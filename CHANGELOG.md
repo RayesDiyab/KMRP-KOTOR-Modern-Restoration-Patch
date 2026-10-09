@@ -110,6 +110,32 @@ proxy, and it applies the executable changes above as well.
 
 ## [Unreleased]
 
+- **Windows: four repairs from the Mac's play at 3840x2160** (2026-10-09, master
+  `da12c81`; items 23 to 26 of `docs/windows-changes-from-macos.md`, from
+  `docs/windows-handoff-2026-10-09.md`). The maintainer tested the installer on the Steam
+  copy at 3440x1440 that day and found all of it right; none of it was looked at on
+  Windows at 3840x2160.
+  - *Controller badges have a least size.* A badge is never less than three quarters of
+    its button's height (`K1UniformBadge`, not for a badge of a given height). The
+    container's three buttons, whose textures were made for an area 273x10, had badges a
+    quarter as tall as the button.
+  - *The message popup's widening step follows the screen.* The game widens a box whose
+    text does not fit by 40 per pass, a signed byte; the 27 bytes at `0x006256FC` now use
+    one 32-bit step, `40 * height / 720`, so a long text makes a wide box at a high
+    resolution and not a tall, narrow one.
+  - *The combat-mode message is sized from its font.* The button's picture, the gaps and
+    the two texts' widths come from the label's font, as the pause notice's do, in place of
+    22 px, 9 px and the engine's measure to the nearest 10.
+  - *A shop's stack count sits in its icon's lower right corner.* On Windows the store
+    row's count label was 21 or 42 wide whatever the screen and as tall as the icon; the
+    49 bytes at `0x006C2704` now follow the inventory's rule (21s or 42s wide, 19s tall,
+    its top at the icon less its height).
+
+  The two byte changes are in the run-time recipe (`tools/build_native_engine.py`, three
+  new resolution fields) and in the installer's reference image (`ResolutionPatch`).
+  **Not yet in `reverse-engineering/binary-inventory.md`** or in the table of executable
+  changes above.
+
 - **Documents: the Mac version works on Intel and on Apple Silicon Macs** (2026-10-09, the
   maintainer's report: both tried). `README.md`, `docs/features.md` and the press kit's
   macOS card said "Intel Macs untested" and now say both were tested. `macos/README.md`
