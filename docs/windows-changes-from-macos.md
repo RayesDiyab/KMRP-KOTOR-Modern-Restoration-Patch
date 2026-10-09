@@ -889,7 +889,7 @@ the main menu's Quit comes out at 0.79 of its row (64 of 81).
 texture is a long strip: the rows of `K1ControllerBadgeShapes.inc` whose width is more than
 about ten times their height.
 
-**Windows, 2026-10-09: ported, built, not seen in the game.** `K1UniformBadge` has the same least size, not for `byHeight`.
+**Windows, 2026-10-09: ported, and seen right in the game by the maintainer that day (Steam, 3440x1440).** `K1UniformBadge` has the same least size, not for `byHeight`.
 
 ## 24. Message popup: the widening step follows the screen
 
@@ -922,7 +922,7 @@ It is written again at every change of resolution in the game.
 `0x006253A0` and give it the screen's scale. Whether Windows' numbers there are one byte too
 was not looked at.
 
-**Windows, 2026-10-09: ported, built, not seen in the game.** The 27 bytes at `0x006256FC` (`add [esp+38], 40` to `mov [esp+20], eax`; the three numbers are signed bytes there too) are rewritten with one 32-bit step, `40 * height / 720`, in `tools/build_native_engine.py` (`POPUP_STEP`, a run-time field) and in `ResolutionPatch` (`PopupStepOffset`).
+**Windows, 2026-10-09: ported, and seen right in the game by the maintainer that day (Steam, 3440x1440).** The 27 bytes at `0x006256FC` (`add [esp+38], 40` to `mov [esp+20], eax`; the three numbers are signed bytes there too) are rewritten with one 32-bit step, `40 * height / 720`, in `tools/build_native_engine.py` (`POPUP_STEP`, a run-time field) and in `ResolutionPatch` (`PopupStepOffset`).
 
 ## 25. Xbox-style HUD: the combat-mode message at a large size
 
@@ -948,7 +948,7 @@ where it is the larger, and the old numbers where the font cannot be read.
 `kButtonGap = 9`) and the same `LineWidth`; its pause notice already measures the font the
 way this now does.
 
-**Windows, 2026-10-09: ported, built, not seen in the game.** `CombatMessage` in `K1XboxHud.cpp` sizes the picture, the gaps and the widths from the first label's font (`FontOfLabel`, `WideIn`).
+**Windows, 2026-10-09: ported, and seen right in the game by the maintainer that day (Steam, 3440x1440).** `CombatMessage` in `K1XboxHud.cpp` sizes the picture, the gaps and the widths from the first label's font (`FontOfLabel`, `WideIn`).
 
 ## 26. The store row's stack count
 
@@ -976,4 +976,4 @@ the game's 37 at its own size (56 - 19). The code is in the file's comment.
 **For Windows.** The store's count label in `CSWGuiStoreItemEntry::SetExtent`, by the same
 rule as the inventory's. The workbench's rows were not looked at on the Mac.
 
-**Windows, 2026-10-09: ported, built, not seen in the game.** Windows' block differs from the Mac's: at `0x006C2704` the game makes the label 21 wide (42 for three digits or more) whatever the screen, as tall as the icon, at the row's top. The 49 bytes are rewritten by the inventory's rule, 21s or 42s wide and 19s tall with its top at the icon less its height (`STORE_COUNT` in `tools/build_native_engine.py`, two run-time fields; `StoreCountOffset` in `ResolutionPatch`).
+**Windows, 2026-10-09: ported, and seen right in the game by the maintainer that day (Steam, 3440x1440).** Windows' block differs from the Mac's: at `0x006C2704` the game makes the label 21 wide (42 for three digits or more) whatever the screen, as tall as the icon, at the row's top. The 49 bytes are rewritten by the inventory's rule, 21s or 42s wide and 19s tall with its top at the icon less its height (`STORE_COUNT` in `tools/build_native_engine.py`, two run-time fields; `StoreCountOffset` in `ResolutionPatch`).
