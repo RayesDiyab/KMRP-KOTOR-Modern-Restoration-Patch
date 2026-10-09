@@ -51,93 +51,92 @@ AMBER = GOLD                    # the version and the controller pages: the cove
 SILVER = (198, 206, 218)        # the original game's frames and the plain words
 ORIGINAL = "ORIGINAL GAME"
 SHOTS = Path("build/controller-standalone/shots")
-OUT = Path("releases/v1.5.0/press-kit")      # with 00-cover.png, which build_release_cover.py writes
+OUT = Path("releases/v1.5.0/press-kit")      # with 01-cover.png, which build_release_cover.py writes
 
 # (output name, kind, subject, the line under the frames, frames)
 # A frame is (screenshot name without .png, label). Screenshot names: k1080 and k1440
 # are KMRP at 1920x1080 and 3440x1440, v960 and v1200 the original interface at
 # 1280x960 and 1600x1200; "-pad" is the frame as the pad left it.
 PAGES = (
-    ("01-inventory-1080p", "pair", "INVENTORY",
+    # The maintainer's order of 2026-10-09: 01 is the cover (build_release_cover.py), 02 to 10
+    # the pages a post leads with, and the rest follow. A page whose screenshot is not in
+    # the folder is skipped and named; nothing stands in for it.
+    ("02-new-platform-macos", "card", "NEW PLATFORM",
+     "For the Steam version of the game on the Mac. Tested on an Apple Silicon MacBook Pro; Intel Macs are untested.",
+     (("mac-installer", "THE INSTALLER ON macOS"),)),
+    ("03-macos-character", "solo", "NEW IN 1.5: macOS",
+     "The same menus and text on the Mac, with controller support, which the Mac game does not have on its own.",
+     (("mac-character", "macOS  1512x982"),)),
+    ("04-linux-proton", "card", "LINUX",
+     "Tested on Ubuntu with a development build of 1.5. The Steam Deck was not tested on the device.",
+     ()),
+    ("05-inventory-1080p", "pair", "INVENTORY",
      "Rows, icons and text sized for the screen. HD item icons. Nothing cut off.",
      (("v960-inventory", "1280x960"), ("k1080-inventory", "1920x1080"))),
-    ("02-equipment-1080p", "pair", "EQUIPMENT",
-     "The whole screen is used. Every slot and every row in its place.",
-     (("v960-equip", "1280x960"), ("k1080-equip", "1920x1080"))),
-    ("03-area-map-1080p", "pair", "AREA MAP",
-     "The map fills its frame, fog covers all of it, and markers are where you click.",
-     (("v960-map", "1280x960"), ("k1080-map", "1920x1080"))),
-    ("04-abilities-1080p", "pair", "ABILITIES",
-     "Skills, powers and feats with icons and descriptions you can read.",
-     (("v960-abilities", "1280x960"), ("k1080-abilities", "1920x1080"))),
-    ("05-character-1080p", "pair", "CHARACTER",
-     "Text drawn sharp for the resolution, not enlarged from a small picture.",
-     (("v960-character", "1280x960"), ("k1080-character", "1920x1080"))),
-    ("06-journal-1080p", "pair", "JOURNAL",
-     "Lists keep their rows, and long text stays inside its box.",
-     (("v960-journal", "1280x960"), ("k1080-journal", "1920x1080"))),
-    ("07-hud-1080p", "pair", "IN THE GAME",
-     "Widescreen without stretching, with the display scaled to the screen.",
-     (("v960-hud", "1280x960"), ("k1080-hud", "1920x1080"))),
-    ("11-inventory-ultrawide", "wide", "INVENTORY, ULTRAWIDE",
+    ("06-inventory-ultrawide", "wide", "INVENTORY, ULTRAWIDE",
      "21:9 has its own menus: not stretched, not letterboxed.",
      (("v1200-inventory", "1600x1200"), ("k1440-inventory", "3440x1440"))),
-    ("12-equipment-ultrawide", "wide", "EQUIPMENT, ULTRAWIDE",
-     "Every resolution your display has is in the game's own list.",
-     (("v1200-equip", "1600x1200"), ("k1440-equip", "3440x1440"))),
-    ("13-area-map-ultrawide", "wide", "AREA MAP, ULTRAWIDE",
-     "The map and its markers, sized for 3440x1440.",
-     (("v1200-map", "1600x1200"), ("k1440-map", "3440x1440"))),
-    ("14-abilities-ultrawide", "wide", "ABILITIES, ULTRAWIDE",
-     "From 4:3 to 32:9, the menus are made for the shape of the screen.",
-     (("v1200-abilities", "1600x1200"), ("k1440-abilities", "3440x1440"))),
-    ("15-hud-ultrawide", "wide", "IN THE GAME, ULTRAWIDE",
-     "The game starts at your display's resolution. Nothing to set up.",
-     (("v1200-hud", "1600x1200"), ("k1440-hud", "3440x1440"))),
-    ("21-controller-xbox-hud", "solo", "CONTROLLER: XBOX-STYLE HUD",
+    ("07-4k", "solo", "4K",
+     "On a 4K television the display and its text are made for 3840x2160, not enlarged.",
+     (("k2160-game", "3840x2160"),)),      # the maintainer's frame from a 4K television; it reached the repo reduced to 2000x1125
+    ("08-controller-xbox-hud", "solo", "CONTROLLER: XBOX-STYLE HUD",
      "New in 1.5. With a pad the display is laid out like the Xbox game's; touch the mouse and the PC display is back.",
      (("k1080-paused-pad", "1920x1080"),)),
-    ("22-controller-xbox-hud-ultrawide", "solo", "CONTROLLER: XBOX-STYLE HUD, ULTRAWIDE",
-     "Action menu, target, party and minimap in the corners, the pause notice with your pad's trigger.",
-     (("k1440-paused-pad", "3440x1440"),)),
-    ("23-controller-layout", "solo", "CONTROLLER: LAYOUT SCREEN",
-     "New in 1.5. Options, Gameplay, Controller Layout shows what every button does, drawn for your pad.",
-     (("k1440-layout-pad", "3440x1440"),)),
-    ("24-controller-menus", "grid", "CONTROLLER: EVERY MENU",
+    ("09-controller-menus", "grid", "CONTROLLER: EVERY MENU",
      "Button pictures for Xbox, PlayStation and Switch pads on every screen. They go away when you use the mouse.",
      (("k1080-inventory-pad", "INVENTORY"), ("k1080-character-pad", "CHARACTER"),
       ("k1080-journal-pad", "JOURNAL"), ("k1080-map-pad", "AREA MAP"))),
-    # Announcements. A card's frames tuple holds its picture, if any; its facts are in CARDS.
-    ("40-new-platform-macos", "card", "NEW PLATFORM",
-     "For the Steam version of the game on the Mac. Tested on an Apple Silicon MacBook Pro; Intel Macs are untested.",
-     (("mac-installer", "THE INSTALLER ON macOS"),)),
-    ("50-linux-proton", "card", "LINUX",
-     "Tested by the maintainer on a development build of 1.5. The Steam Deck was not tested on the device.",
-     ()),
-    # Pages that wait for screenshots from other machines (the Mac, a 4K television). A
-    # page whose screenshot is not in the folder is skipped and named; nothing stands in
-    # for it. The label is the frame's own size, read from the file.
-    ("31-4k", "solo", "4K",
-     "On a 4K television the display and its text are made for 3840x2160, not enlarged.",
-     (("k2160-game", "3840x2160"),)),      # the maintainer's frame from a 4K television; it reached the repo reduced to 2000x1125
-    ("32-4k-menu", "solo", "4K",
-     "Connect another display and the game offers that display's resolutions.",
-     (("k2160-menu", None),)),
-    ("41-mac-installer", "solo", "NEW IN 1.5: macOS",
+    ("10-controller-layout", "solo", "CONTROLLER: LAYOUT SCREEN",
+     "New in 1.5. Options, Gameplay, Controller Layout shows what every button does, drawn for your pad.",
+     (("k1440-layout-pad", "3440x1440"),)),
+    ("11-equipment-1080p", "pair", "EQUIPMENT",
+     "The whole screen is used. Every slot and every row in its place.",
+     (("v960-equip", "1280x960"), ("k1080-equip", "1920x1080"))),
+    ("12-area-map-1080p", "pair", "AREA MAP",
+     "The map fills its frame, fog covers all of it, and markers are where you click.",
+     (("v960-map", "1280x960"), ("k1080-map", "1920x1080"))),
+    ("13-abilities-1080p", "pair", "ABILITIES",
+     "Skills, powers and feats with icons and descriptions you can read.",
+     (("v960-abilities", "1280x960"), ("k1080-abilities", "1920x1080"))),
+    ("14-character-1080p", "pair", "CHARACTER",
+     "Text drawn sharp for the resolution, not enlarged from a small picture.",
+     (("v960-character", "1280x960"), ("k1080-character", "1920x1080"))),
+    ("15-journal-1080p", "pair", "JOURNAL",
+     "Lists keep their rows, and long text stays inside its box.",
+     (("v960-journal", "1280x960"), ("k1080-journal", "1920x1080"))),
+    ("16-hud-1080p", "pair", "IN THE GAME",
+     "Widescreen without stretching, with the display scaled to the screen.",
+     (("v960-hud", "1280x960"), ("k1080-hud", "1920x1080"))),
+    ("17-equipment-ultrawide", "wide", "EQUIPMENT, ULTRAWIDE",
+     "Every resolution your display has is in the game's own list.",
+     (("v1200-equip", "1600x1200"), ("k1440-equip", "3440x1440"))),
+    ("18-area-map-ultrawide", "wide", "AREA MAP, ULTRAWIDE",
+     "The map and its markers, sized for 3440x1440.",
+     (("v1200-map", "1600x1200"), ("k1440-map", "3440x1440"))),
+    ("19-abilities-ultrawide", "wide", "ABILITIES, ULTRAWIDE",
+     "From 4:3 to 32:9, the menus are made for the shape of the screen.",
+     (("v1200-abilities", "1600x1200"), ("k1440-abilities", "3440x1440"))),
+    ("20-hud-ultrawide", "wide", "IN THE GAME, ULTRAWIDE",
+     "The game starts at your display's resolution. Nothing to set up.",
+     (("v1200-hud", "1600x1200"), ("k1440-hud", "3440x1440"))),
+    ("21-controller-xbox-hud-ultrawide", "solo", "CONTROLLER: XBOX-STYLE HUD, ULTRAWIDE",
+     "Action menu, target, party and minimap in the corners, the pause notice with your pad's trigger.",
+     (("k1440-paused-pad", "3440x1440"),)),
+    ("22-macos-installer", "solo", "NEW IN 1.5: macOS",
      "The Mac has its own installer, for the Steam version of the game: one click to patch, one click to undo.",
      (("mac-installer", "THE INSTALLER ON macOS"),)),
-    ("42-mac-options", "solo", "NEW IN 1.5: macOS",
+    ("23-macos-options", "solo", "NEW IN 1.5: macOS",
      "The same options as on Windows. High FPS Fix switches itself on where the display runs above 60 Hz.",
      (("mac-settings", "THE INSTALLER ON macOS"),)),
-    ("43-mac-character", "solo", "NEW IN 1.5: macOS",
-     "The same menus and text on the Mac, with controller support, which the Mac game does not have on its own.",
-     (("mac-character", "macOS  1512x982"),)),
-    ("44-mac-map", "solo", "NEW IN 1.5: macOS",
+    ("24-macos-map", "solo", "NEW IN 1.5: macOS",
      "The area map and its fixes on a MacBook Pro, with the buttons of the pad in use.",
      (("mac-map", "macOS  1512x982"),)),
-    ("45-mac-screens", "solo", "NEW IN 1.5: macOS",
+    ("25-macos-screens", "solo", "NEW IN 1.5: macOS",
      "In the game, the map, the options, equipment, inventory and character on a MacBook Pro.",
      (("mac-screens", "macOS  SIX SCREENS AT 1512x982"),)),
+    ("26-4k-menu", "solo", "4K",
+     "Connect another display and the game offers that display's resolutions.",
+     (("k2160-menu", None),)),
 )
 
 
@@ -222,13 +221,13 @@ def frame(canvas, theme, shot: Image.Image, box, label, kmrp, controller=False):
 
 # A card's words: the silver line, the gold line, and its facts.
 CARDS = {
-    "40-new-platform-macos": ("NEW PLATFORM", "macOS SUPPORT", (
+    "02-new-platform-macos": ("NEW PLATFORM", "macOS SUPPORT", (
         "Its own installer: one click to patch, one click to undo",
         "The same menus, text and art, Retina included",
         "Controller support, new to the Mac game",
         "High FPS Fix, ported to the Mac game",
     )),
-    "50-linux-proton": ("TESTED ON LINUX", "UBUNTU WITH PROTON", (
+    "04-linux-proton": ("TESTED ON LINUX", "UBUNTU WITH PROTON", (
         "Installed and played on Ubuntu",
         "With the stable Proton and with Proton Experimental",
         "The Windows installer, run through protontricks",
@@ -358,7 +357,7 @@ def main() -> int:
         if not name.startswith(args.only):
             continue
         missing = [shot for shot, _ in frames if not (shots / (shot + ".png")).exists()]
-        if missing and name[:1] in "34":
+        if missing:
             print(f"  {name}: waiting for {', '.join(m + '.png' for m in missing)} in {shots}")
             continue
         page = (card(name, subject, line, frames, theme, shots) if kind == "card"

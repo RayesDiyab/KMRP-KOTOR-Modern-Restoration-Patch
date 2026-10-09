@@ -392,11 +392,11 @@ interface is scaled.
 The original game beside KMRP 1.5, every frame whole and uncropped. The original
 is shown at the largest size it offers on that monitor.
 
-<img src="releases/v1.5.0/press-kit/01-inventory-1080p.png" alt="Inventory: the original game at 1280x960 beside KMRP 1.5 at 1920x1080" width="100%">
+<img src="releases/v1.5.0/press-kit/05-inventory-1080p.png" alt="Inventory: the original game at 1280x960 beside KMRP 1.5 at 1920x1080" width="100%">
 
 Rows, icons and stack counts scale with the text, and the screen is used.
 
-<img src="releases/v1.5.0/press-kit/03-area-map-1080p.png" alt="Area map: the original game at 1280x960 beside KMRP 1.5 at 1920x1080" width="100%">
+<img src="releases/v1.5.0/press-kit/12-area-map-1080p.png" alt="Area map: the original game at 1280x960 beside KMRP 1.5 at 1920x1080" width="100%">
 
 The map fills its frame, fog reaches the edge, and the notes sit clear of the
 buttons.
@@ -404,24 +404,24 @@ buttons.
 It holds at 21:9 as well: every resolution is made from the same rules, not
 hand-tuned one at a time.
 
-<img src="releases/v1.5.0/press-kit/11-inventory-ultrawide.png" alt="Inventory: the original game at 1600x1200 above KMRP 1.5 at 3440x1440" width="100%">
+<img src="releases/v1.5.0/press-kit/06-inventory-ultrawide.png" alt="Inventory: the original game at 1600x1200 above KMRP 1.5 at 3440x1440" width="100%">
 
 **New in 1.5: controller support.** With a pad the display is laid out like the
 Xbox game's, every menu shows the buttons of the pad in your hands, and a new
 screen under Options, Gameplay shows what each one does.
 
-<img src="releases/v1.5.0/press-kit/21-controller-xbox-hud.png" alt="The Xbox-style HUD with a controller, KMRP 1.5 at 1920x1080" width="100%">
+<img src="releases/v1.5.0/press-kit/08-controller-xbox-hud.png" alt="The Xbox-style HUD with a controller, KMRP 1.5 at 1920x1080" width="100%">
 
-<img src="releases/v1.5.0/press-kit/23-controller-layout.png" alt="The Controller Layout screen, KMRP 1.5 at 3440x1440" width="100%">
+<img src="releases/v1.5.0/press-kit/10-controller-layout.png" alt="The Controller Layout screen, KMRP 1.5 at 3440x1440" width="100%">
 
-<img src="releases/v1.5.0/press-kit/24-controller-menus.png" alt="Controller button pictures on the Inventory, Character, Journal and Area Map screens" width="100%">
+<img src="releases/v1.5.0/press-kit/09-controller-menus.png" alt="Controller button pictures on the Inventory, Character, Journal and Area Map screens" width="100%">
 
 **New in 1.5: macOS.** The Steam version of the game on the Mac has its own
 installer and the same menus, text and controller support.
 
-<img src="releases/v1.5.0/press-kit/41-mac-installer.png" alt="The KMRP 1.5 installer on macOS, after patching" width="100%">
+<img src="releases/v1.5.0/press-kit/22-macos-installer.png" alt="The KMRP 1.5 installer on macOS, after patching" width="100%">
 
-<img src="releases/v1.5.0/press-kit/43-mac-character.png" alt="The Character screen with controller buttons, KMRP 1.5 on macOS at 1512x982" width="100%">
+<img src="releases/v1.5.0/press-kit/03-macos-character.png" alt="The Character screen with controller buttons, KMRP 1.5 on macOS at 1512x982" width="100%">
 
 The whole 1.5 set, with the cover, is the release's press kit:
 [`releases/v1.5.0/press-kit/`](releases/v1.5.0/press-kit/). The 1.0 pictures are in
