@@ -685,6 +685,85 @@ namespace Kmrp
         private static readonly byte[] CheckboxLabelJump = { 0xE9, 0x3E, 0x00, 0x00, 0x00, 0x90 };
         private const int CheckboxCaveLength = 13;   // sub ecx, imm32 (6); add eax, imm32 (5); jmp short (2)
 
+        // The message popup's widening step, in CSWGuiMessageBox::FixMessageLabel
+        // (0x006253A0). A box whose text does not fit grows in a loop: each pass adds 40
+        // to the width (and takes 20 off the left) while the width is under its cap, and
+        // one line of the font to the height. The caps and the line follow the screen
+        // (PopupSizeGroups; the font is baked for the height); the 40 never did, so the
+        // same text made a wide box at a low resolution and a tall, narrow one at a high
+        // one (seen on the Mac at 3840x2160; docs/windows-changes-from-macos.md, item 24).
+        //
+        //   0x006256FC  83 44 24 38 28   add [esp+38], 40
+        //   0x00625701  8b 44 24 20      mov eax, [esp+20]
+        //   0x00625705  83 c1 28         add ecx, 40
+        //   0x00625708  89 4c 24 28      mov [esp+28], ecx
+        //   0x0062570C  83 e8 14         sub eax, 20
+        //   0x0062570F  8d 4c 24 30      lea ecx, [esp+30]
+        //   0x00625713  89 44 24 20      mov [esp+20], eax
+        //
+        // The three numbers are signed bytes and cannot hold 120. The same 27 bytes with
+        // one 32-bit step, 40s (eax is loaded anew at 0x00625717 and no flag is read):
+        //   mov eax, step ; add [esp+38], eax ; add ecx, eax ; mov [esp+28], ecx ;
+        //   sar eax, 1 ; sub [esp+20], eax ; lea ecx, [esp+30] ; nop ; nop
+        private const long PopupStepOffset = 0x002256FC;
+        private static readonly byte[] PopupStepVanilla =
+        {
+            0x83, 0x44, 0x24, 0x38, 0x28, 0x8B, 0x44, 0x24, 0x20, 0x83, 0xC1, 0x28, 0x89, 0x4C,
+            0x24, 0x28, 0x83, 0xE8, 0x14, 0x8D, 0x4C, 0x24, 0x30, 0x89, 0x44, 0x24, 0x20,
+        };
+        private static readonly byte[] PopupStepCode =
+        {
+            0xB8, 0x28, 0x00, 0x00, 0x00, 0x01, 0x44, 0x24, 0x38, 0x01, 0xC1, 0x89, 0x4C, 0x24,
+            0x28, 0xD1, 0xF8, 0x29, 0x44, 0x24, 0x20, 0x8D, 0x4C, 0x24, 0x30, 0x90, 0x90,
+        };
+
+        // The stack-count label of a STORE row, in CSWGuiStoreItemEntry::SetExtent
+        // (0x006C2650). The inventory's is 21s wide (42s for three digits or more) and 19s
+        // tall in the icon's lower right corner (StackCountSites). The store's kept the
+        // game's own: 21 or 42 wide whatever the screen, as tall as the icon, at the row's
+        // top (docs/windows-changes-from-macos.md, item 26; on the Mac the count stood in
+        // the icon's upper right corner, half outside the frame).
+        //
+        //   0x006C2704  33 c9            xor ecx, ecx
+        //   0x006C2706  83 f8 02         cmp eax, 2            the count's length
+        //   0x006C2709  0f 9e c1         setle cl
+        //   0x006C270C  8b d7            mov edx, edi          edi: the icon's size
+        //   0x006C270E  89 7c 24 2c      mov [esp+2c], edi     height
+        //   0x006C2712  49               dec ecx
+        //   0x006C2713  83 e1 15         and ecx, 21
+        //   0x006C2716  83 c1 15         add ecx, 21
+        //   0x006C2719  8b c1            mov eax, ecx
+        //   0x006C271B  2b d0            sub edx, eax
+        //   0x006C271D  89 44 24 28      mov [esp+28], eax     width
+        //   0x006C2721  8b 44 24 20      mov eax, [esp+20]
+        //   0x006C2725  03 c2            add eax, edx
+        //   0x006C2727  8d 8e 34030000   lea ecx, [esi+334]
+        //   0x006C272D  8d 54 24 20      lea edx, [esp+20]
+        //   0x006C2731  89 44 24 20      mov [esp+20], eax     left
+        //
+        // The same 49 bytes by the inventory's rule, with 32-bit operands (eax is loaded
+        // anew at 0x006C2735; ecx and edx leave as the game leaves them):
+        //   cmp eax, 2 ; mov ecx, 21s ; jle +2 ; add ecx, ecx ; mov [esp+28], ecx ;
+        //   add [esp+20], edi ; sub [esp+20], ecx ; mov eax, 19s ; mov [esp+2c], eax ;
+        //   sub eax, edi ; sub [esp+24], eax ; lea ecx, [esi+334] ; lea edx, [esp+20]
+        // so the top is the row's top and the icon less the label's height: the game's 37
+        // at its own size (56 - 19). Built, not yet seen in the game.
+        private const long StoreCountOffset = 0x002C2704;
+        private static readonly byte[] StoreCountVanilla =
+        {
+            0x33, 0xC9, 0x83, 0xF8, 0x02, 0x0F, 0x9E, 0xC1, 0x8B, 0xD7, 0x89, 0x7C, 0x24, 0x2C,
+            0x49, 0x83, 0xE1, 0x15, 0x83, 0xC1, 0x15, 0x8B, 0xC1, 0x2B, 0xD0, 0x89, 0x44, 0x24,
+            0x28, 0x8B, 0x44, 0x24, 0x20, 0x03, 0xC2, 0x8D, 0x8E, 0x34, 0x03, 0x00, 0x00, 0x8D,
+            0x54, 0x24, 0x20, 0x89, 0x44, 0x24, 0x20,
+        };
+        private static readonly byte[] StoreCountCode =
+        {
+            0x83, 0xF8, 0x02, 0xB9, 0x15, 0x00, 0x00, 0x00, 0x7E, 0x02, 0x03, 0xC9, 0x89, 0x4C,
+            0x24, 0x28, 0x01, 0x7C, 0x24, 0x20, 0x29, 0x4C, 0x24, 0x20, 0xB8, 0x13, 0x00, 0x00,
+            0x00, 0x89, 0x44, 0x24, 0x2C, 0x2B, 0xC7, 0x29, 0x44, 0x24, 0x24, 0x8D, 0x8E, 0x34,
+            0x03, 0x00, 0x00, 0x8D, 0x54, 0x24, 0x20,
+        };
+
         private const long RowScaleOffset = 0x003DD004;
         private const float GoldRowScale = 1.75f;
         private const float ScaleHeightDivisor = 720.0f;
@@ -757,6 +836,17 @@ namespace Kmrp
             for (int i = 0; i < padding.Length; i++)
                 padding[i] = 0x90;
             ReplaceBytes(executable, CheckboxCaveOffset, padding, cave, "check box label");
+
+            // The message popup's widening step (PopupStepOffset, above).
+            byte[] popupStep = (byte[])PopupStepCode.Clone();
+            Buffer.BlockCopy(BitConverter.GetBytes((int)Math.Round(40 * rowSizeScale)), 0, popupStep, 1, 4);
+            ReplaceBytes(executable, PopupStepOffset, PopupStepVanilla, popupStep, "message popup step");
+
+            // The store row's stack-count label (StoreCountOffset, above).
+            byte[] storeCount = (byte[])StoreCountCode.Clone();
+            Buffer.BlockCopy(BitConverter.GetBytes((int)Math.Round(21 * rowSizeScale)), 0, storeCount, 4, 4);
+            Buffer.BlockCopy(BitConverter.GetBytes((int)Math.Round(19 * rowSizeScale)), 0, storeCount, 25, 4);
+            ReplaceBytes(executable, StoreCountOffset, StoreCountVanilla, storeCount, "store stack-count label");
 
             float markerScale = MarkerScaleForHeight(resolution.Height);
             foreach (int[] group in MarkerSizeSites)

@@ -135,6 +135,14 @@ def assemble():
     label = bytes.fromhex('83e91e83c01e')
     recipe.site(0x6DE08E, label, label)
     recipe.site(0x6DE0D1, b'\x90' * 13, b'\x90' * 13)
+    # The message popup's widening step and the store row's stack-count label
+    # (docs/windows-changes-from-macos.md, items 24 and 26): guarded here as the
+    # game has them; rewritten with 32-bit operands by the installer's
+    # ResolutionPatch and by tools/build_native_engine.py.
+    popup_step = bytes.fromhex('83442438288b44242083c128894c242883e8148d4c243089442420')
+    recipe.site(0x6256FC, popup_step, popup_step)
+    store_count = bytes.fromhex('33c983f8020f9ec18bd7897c242c4983e11583c1158bc12bd0894424288b44242003c28d8e340300008d54242089442420')
+    recipe.site(0x6C2704, store_count, store_count)
 
     table_path = ROOT / 'third_party/Included/K1-Area-Map-Fixes-1.0.0 by derslok/More info/source/data/note_table.bin'
     table = table_path.read_bytes()

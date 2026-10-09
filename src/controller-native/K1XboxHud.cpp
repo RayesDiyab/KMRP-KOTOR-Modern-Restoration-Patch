@@ -357,6 +357,48 @@ int LineWidth(void* label)
 
 Extent g_messageRow{};     // the combat-mode message's row in the Xbox layout (ApplyXbox)
 
+// A label's font as its string is drawn, the way PauseNotice reads it below
+// (CAurGUIStringInternal: the font at +0x18, its information by the virtual at +0x38:
+// fontheight +0x04, texturewidth +0x0C, spacingR +0x10, the glyphs' two coordinate
+// arrays at +0x18 and +0x24; the scale at +0x40 of the string).
+struct LabelFont
+{
+    const char* upperLeft = nullptr;
+    const char* lowerRight = nullptr;
+    float texels = 0.0f, spacing = 0.0f, scale = 1.0f;
+    int lineHeight = 0;
+};
+
+bool FontOfLabel(void* label, LabelFont& out)
+{
+    void* string = At<void*>(Part(label, kLabelText), 0x14);
+    void* font = string ? At<void*>(string, 0x18) : nullptr;
+    if (!font) return false;
+    const char* info = reinterpret_cast<const char*(__thiscall*)(void*)>((*reinterpret_cast<void***>(font))[0x38 / 4])(font);
+    if (!info) return false;
+    out.upperLeft = *reinterpret_cast<const char* const*>(info + 0x18);
+    out.lowerRight = *reinterpret_cast<const char* const*>(info + 0x24);
+    if (!out.upperLeft || !out.lowerRight) return false;
+    out.scale = At<float>(string, 0x40);
+    if (!(out.scale > 0.01f && out.scale < 100.0f)) out.scale = 1.0f;
+    out.texels = *reinterpret_cast<const float*>(info + 0x0C);
+    out.spacing = *reinterpret_cast<const float*>(info + 0x10);
+    out.lineHeight = static_cast<int>(*reinterpret_cast<const float*>(info + 0x04) * out.scale * 100.0f + 0.5f);
+    return out.lineHeight > 0;
+}
+
+// A text's width in that font: the sum of its glyphs' widths, rounded up.
+int WideIn(const LabelFont& f, const char* text)
+{
+    if (!text) return 0;
+    float sum = 0.0f;
+    for (; *text; ++text) {
+        const int glyph = static_cast<unsigned char>(*text) * 12;
+        sum += (*reinterpret_cast<const float*>(f.lowerRight + glyph) - *reinterpret_cast<const float*>(f.upperLeft + glyph)) * f.texels + f.spacing;
+    }
+    return static_cast<int>(sum * f.scale * 100.0f + 0.999f);
+}
+
 // Called before each draw while the Xbox layout is up, and once more as it is taken
 // off, when the pad is no longer the device in use and the game's line comes back.
 void CombatMessage(void* hud, void* client, int width)
@@ -408,12 +450,36 @@ void CombatMessage(void* hud, void* client, int width)
         reinterpret_cast<void(__thiscall*)(void*, void*)>(kSetTextColour)(backText, Part(messageText, kTextColour));
         At<float>(backText, kTextOpacity) = At<float>(messageText, kTextOpacity);
         // The whole line centred: the two texts' widths, with the button between.
-        const int first = LineWidth(message);
-        const int total = first + kButtonGap + kButtonSize + kButtonGap + LineWidth(back);
+        // Everything from the line's own height, as the pause notice is made: the
+        // picture a line and three eighths tall, nine sixteenths of a line between it
+        // and the words, and each text's width from its font, so that neither can
+        // break. Until 2026-10-09 the picture was 22 px and the gaps 9, right beside a
+        // 16 px font, and the widths were the engine's, to the nearest 10: at 3840x2160
+        // the picture was a dot and "COMBAT MODE ENGAGED." stood on two lines (the
+        // maintainer saw it on the Mac on a 4K television; tracker item 25). The engine's
+        // measure is kept where it is the larger, and the old numbers where the font
+        // cannot be read.
+        LabelFont font;
+        const bool measured = FontOfLabel(message, font);
+        const int lineHeight = measured ? font.lineHeight : 16;
+        const int size = measured ? lineHeight + lineHeight * 3 / 8 : kButtonSize;
+        const int gap = measured ? (lineHeight * 9 + 8) / 16 : kButtonGap;
+        const int slack = measured ? lineHeight / 2 : 0;
+        int first = LineWidth(message), second = LineWidth(back);
+        if (measured) {
+            const int wide = WideIn(font, before.text);
+            if (wide > first) first = wide;
+            LabelFont own;
+            const int rest = WideIn(FontOfLabel(back, own) ? own : font, after.text);
+            if (rest > second) second = rest;
+        }
+        const int total = first + gap + size + gap + second;
         const int joint = (width - total) / 2 + first;
-        SetExtent(message, {joint - first, messageWas.top, first, messageWas.height});
-        SetExtent(button, {joint + kButtonGap, messageWas.top + (messageWas.height - kButtonSize) / 2, kButtonSize, kButtonSize});
-        const int from = joint + kButtonGap + kButtonSize + kButtonGap;
+        // The first text is centred in its rectangle, which has half a line to spare on
+        // either side of it.
+        SetExtent(message, {joint - first - slack, messageWas.top, first + 2 * slack, messageWas.height});
+        SetExtent(button, {joint + gap, messageWas.top + (messageWas.height - size) / 2, size, size});
+        const int from = joint + gap + size + gap;
         // The second label's text starts at its top left (the layout's alignment for
         // it, which the engine keeps), the first's is centred in its row: the second
         // is given the row the first's text is on. (Seen 2026-10-05: "to disengage."

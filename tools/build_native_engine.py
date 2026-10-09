@@ -13,6 +13,23 @@ import build_native_kpatch
 ROOT = Path(__file__).resolve().parents[1]
 
 
+# The message popup's widening step (CSWGuiMessageBox::FixMessageLabel, 0x006253A0).
+# The game adds 40 to the width and takes 20 off the left per pass, both as signed
+# bytes; the same 27 bytes with one 32-bit step, which follows the screen:
+#   mov eax, step ; add [esp+38], eax ; add ecx, eax ; mov [esp+28], ecx ;
+#   sar eax, 1 ; sub [esp+20], eax ; lea ecx, [esp+30] ; nop ; nop
+POPUP_STEP = bytes.fromhex('B8 28 00 00 00  01 44 24 38  01 C1  89 4C 24 28  D1 F8  29 44 24 20  8D 4C 24 30  90 90')
+# The store row's stack-count label (CSWGuiStoreItemEntry::SetExtent, 0x006C2650).
+# The game makes it 21 wide (42 for three digits or more) and as tall as the icon,
+# at the row's top; the same 49 bytes by the inventory's rule: 21s or 42s wide,
+# 19s tall, right-aligned in the icon and its top at the icon less its height:
+#   cmp eax, 2 ; mov ecx, 21s ; jle +2 ; add ecx, ecx ; mov [esp+28], ecx ;
+#   add [esp+20], edi ; sub [esp+20], ecx ; mov eax, 19s ; mov [esp+2c], eax ;
+#   sub eax, edi ; sub [esp+24], eax ; lea ecx, [esi+334] ; lea edx, [esp+20]
+STORE_COUNT = bytes.fromhex('83 F8 02  B9 15 00 00 00  7E 02  03 C9  89 4C 24 28  01 7C 24 20  29 4C 24 20'
+                            '  B8 13 00 00 00  89 44 24 2C  2B C7  29 44 24 24  8D 8E 34 03 00 00  8D 54 24 20')
+
+
 def resolution_fields():
     # kind: width, height, scaled integer, negative width/height, map canvas,
     # half width/height, scaled float, clamped marker integer/byte.
@@ -34,6 +51,8 @@ def resolution_fields():
         (450, [0x6256E3, 0x625759]), (800, [0x6256DC, 0x6256F6]),
         (64, [0x626F95, 0x62540D]), (25, [0x6DE012]),
         (30, [0x6DE0D3, 0x6DE0D8]),
+        # the popup's widening step; the store row's count label: width, height
+        (40, [0x6256FD]), (21, [0x6C2708]), (19, [0x6C271D]),
     ]:
         add(3, base, addresses)
     add(3, 2, [0x6DE031], 1)
@@ -74,6 +93,10 @@ def build():
             new = bytes.fromhex('E9 3E 00 00 00 90')
         elif va == 0x6DE0D1:
             new = bytes.fromhex('81 E9 1E 00 00 00 05 1E 00 00 00 EB B6')
+        elif va == 0x6256FC:
+            new = POPUP_STEP
+        elif va == 0x6C2704:
+            new = STORE_COUNT
         data += struct.pack('<III', feature, va, len(old)) + old
         regions.append((va, len(new), len(data)))
         data += new
