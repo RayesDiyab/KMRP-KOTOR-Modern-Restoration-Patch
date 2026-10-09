@@ -4,7 +4,7 @@ Release art for KMRP 1.5 (2026-10-09, Windows and macOS): the cover and the page
 for mod pages, posts and articles. Use them as they are; please do not crop a frame
 out of its page without saying what it shows.
 
-The first ten are the set to lead with, in this order.
+The first twelve are the set to lead with, in this order.
 
 | File | What |
 | --- | --- |
@@ -13,31 +13,15 @@ The first ten are the set to lead with, in this order.
 | [`03-macos-character.png`](03-macos-character.png) | macOS: the Character screen with a pad, 1512x982 |
 | [`04-linux-proton.png`](04-linux-proton.png) | Linux: tested on Ubuntu with Proton |
 | [`05-inventory-1080p.png`](05-inventory-1080p.png) | Inventory: the original game at 1280x960 beside KMRP at 1920x1080 |
-| [`06-inventory-ultrawide.png`](06-inventory-ultrawide.png) | Inventory, ultrawide: the original at 1600x1200 above KMRP at 3440x1440 |
-| [`07-4k.png`](07-4k.png) | 4K: in the game, 3840x2160 |
-| [`08-controller-xbox-hud.png`](08-controller-xbox-hud.png) | Controller: the Xbox-style HUD, 1920x1080 |
-| [`09-controller-menus.png`](09-controller-menus.png) | Controller: button pictures on every menu |
-| [`10-controller-layout.png`](10-controller-layout.png) | Controller: the Controller Layout screen |
+| [`06-equipment-1080p.png`](06-equipment-1080p.png) | Equipment: the original game at 1280x960 beside KMRP at 1920x1080 |
+| [`07-inventory-ultrawide.png`](07-inventory-ultrawide.png) | Inventory, ultrawide: the original at 1600x1200 above KMRP at 3440x1440 |
+| [`08-4k.png`](08-4k.png) | 4K: in the game, 3840x2160 |
+| [`09-controller-xbox-hud.png`](09-controller-xbox-hud.png) | Controller: the Xbox-style HUD, 1920x1080 |
+| [`10-controller-xbox-hud-ultrawide.png`](10-controller-xbox-hud-ultrawide.png) | Controller: the Xbox-style HUD, 3440x1440 |
+| [`11-controller-menus.png`](11-controller-menus.png) | Controller: button pictures on every menu |
+| [`12-controller-layout.png`](12-controller-layout.png) | Controller: the Controller Layout screen |
 
-More pages of the same kinds:
 
-| File | What |
-| --- | --- |
-| [`11-equipment-1080p.png`](11-equipment-1080p.png) | Equipment, 1080p comparison |
-| [`12-area-map-1080p.png`](12-area-map-1080p.png) | Area map, 1080p comparison |
-| [`13-abilities-1080p.png`](13-abilities-1080p.png) | Abilities, 1080p comparison |
-| [`14-character-1080p.png`](14-character-1080p.png) | Character, 1080p comparison |
-| [`15-journal-1080p.png`](15-journal-1080p.png) | Journal, 1080p comparison |
-| [`16-hud-1080p.png`](16-hud-1080p.png) | In the game, 1080p comparison |
-| [`17-equipment-ultrawide.png`](17-equipment-ultrawide.png) | Equipment, ultrawide comparison |
-| [`18-area-map-ultrawide.png`](18-area-map-ultrawide.png) | Area map, ultrawide comparison |
-| [`19-abilities-ultrawide.png`](19-abilities-ultrawide.png) | Abilities, ultrawide comparison |
-| [`20-hud-ultrawide.png`](20-hud-ultrawide.png) | In the game, ultrawide comparison |
-| [`21-controller-xbox-hud-ultrawide.png`](21-controller-xbox-hud-ultrawide.png) | Controller: the Xbox-style HUD, 3440x1440 |
-| [`22-macos-installer.png`](22-macos-installer.png) | macOS: the installer after patching |
-| [`23-macos-options.png`](23-macos-options.png) | macOS: the installer's Advanced Settings |
-| [`24-macos-map.png`](24-macos-map.png) | macOS: the area map with a pad, 1512x982 |
-| [`25-macos-screens.png`](25-macos-screens.png) | macOS: six screens on one sheet |
 
 ## How they were made
 

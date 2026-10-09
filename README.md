@@ -287,8 +287,8 @@ Aspyr build on Steam, made from the same resources as this one: the same interfa
 every resolution, fonts, art and engine fixes, and controller support, which the Mac game
 does not have on its own. How to install it is in the package's own README
 ([macos/PLAYER-README.md](macos/PLAYER-README.md)); what it writes, byte for byte, and what
-was and was not tested is in [macos/README.md](macos/README.md). Tested on one Mac, a 14"
-MacBook Pro with Apple Silicon; Intel Macs are untested.
+was and was not tested is in [macos/README.md](macos/README.md). Tested on Apple
+Silicon and on Intel Macs.
 Its two patch files, `KMRP-macOS.kpatch` and
 `KOTOR 1 Native Controller Mod + Xbox HUD (macOS).kpatch`, work on the Mac game only, and
 the Windows files named above on Windows only.
@@ -396,7 +396,7 @@ is shown at the largest size it offers on that monitor.
 
 Rows, icons and stack counts scale with the text, and the screen is used.
 
-<img src="releases/v1.5.0/press-kit/12-area-map-1080p.png" alt="Area map: the original game at 1280x960 beside KMRP 1.5 at 1920x1080" width="100%">
+<img src="releases/v1.5.0/press-kit/13-area-map-1080p.png" alt="Area map: the original game at 1280x960 beside KMRP 1.5 at 1920x1080" width="100%">
 
 The map fills its frame, fog reaches the edge, and the notes sit clear of the
 buttons.
@@ -404,17 +404,17 @@ buttons.
 It holds at 21:9 as well: every resolution is made from the same rules, not
 hand-tuned one at a time.
 
-<img src="releases/v1.5.0/press-kit/06-inventory-ultrawide.png" alt="Inventory: the original game at 1600x1200 above KMRP 1.5 at 3440x1440" width="100%">
+<img src="releases/v1.5.0/press-kit/07-inventory-ultrawide.png" alt="Inventory: the original game at 1600x1200 above KMRP 1.5 at 3440x1440" width="100%">
 
 **New in 1.5: controller support.** With a pad the display is laid out like the
 Xbox game's, every menu shows the buttons of the pad in your hands, and a new
 screen under Options, Gameplay shows what each one does.
 
-<img src="releases/v1.5.0/press-kit/08-controller-xbox-hud.png" alt="The Xbox-style HUD with a controller, KMRP 1.5 at 1920x1080" width="100%">
+<img src="releases/v1.5.0/press-kit/09-controller-xbox-hud.png" alt="The Xbox-style HUD with a controller, KMRP 1.5 at 1920x1080" width="100%">
 
-<img src="releases/v1.5.0/press-kit/10-controller-layout.png" alt="The Controller Layout screen, KMRP 1.5 at 3440x1440" width="100%">
+<img src="releases/v1.5.0/press-kit/12-controller-layout.png" alt="The Controller Layout screen, KMRP 1.5 at 3440x1440" width="100%">
 
-<img src="releases/v1.5.0/press-kit/09-controller-menus.png" alt="Controller button pictures on the Inventory, Character, Journal and Area Map screens" width="100%">
+<img src="releases/v1.5.0/press-kit/11-controller-menus.png" alt="Controller button pictures on the Inventory, Character, Journal and Area Map screens" width="100%">
 
 **New in 1.5: macOS.** The Steam version of the game on the Mac has its own
 installer and the same menus, text and controller support.

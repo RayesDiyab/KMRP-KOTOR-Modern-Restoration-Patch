@@ -110,6 +110,12 @@ proxy, and it applies the executable changes above as well.
 
 ## [Unreleased]
 
+- **Documents: the Mac version works on Intel and on Apple Silicon Macs** (2026-10-09, the
+  maintainer's report: both tried). `README.md`, `docs/features.md` and the press kit's
+  macOS card said "Intel Macs untested" and now say both were tested. `macos/README.md`
+  keeps its measurements, all from the M5 MacBook Pro, and records the report with what it
+  does not include (the Intel model, its macOS version, what was played).
+
 - **Documents: Linux with Proton told apart from the Steam Deck** (2026-10-08). The
   maintainer ran a development build of 1.5 on Ubuntu under the stable Proton and
   under Proton Experimental, and it worked; the platform lists (`README.md`,

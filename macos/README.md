@@ -1204,7 +1204,9 @@ revision of this document of 2026-10-08.
   buttons to their label from 100 px in both builds' code);
 - pressing Play in the Steam client itself. Aspyr's launcher, which Steam starts, was tested
   with the edited `KOTOR_Exe`, so the bundle seal is not checked on that path;
-- Intel Macs;
+- Intel Macs, by measurement. The maintainer reported on 2026-10-09 that the package works on
+  an Intel Mac as on an Apple Silicon one, both tried; the Intel model, its macOS version and
+  what was played were not recorded, and nothing in this document was measured there;
 - a game with other Override mods installed first;
 - the controller's rumble in combat (hits, parries, shots, damage taken), and any rumble felt
   on a real pad: the scripted pad has no motors;

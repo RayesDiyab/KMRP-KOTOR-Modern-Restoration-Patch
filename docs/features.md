@@ -260,8 +260,7 @@ Mac game has no controller support at all without KMRP.
 - **The game is set to start full screen.**
 - **The dialogue's reply list fills the bar at the bottom** of a conversation.
 - **Needs** the unmodified Steam version of the game, macOS 10.13 or later, and
-  Rosetta 2 on an Apple Silicon Mac. Tested on one Apple Silicon Mac; Intel Macs
-  are untested.
+  Rosetta 2 on an Apple Silicon Mac. Tested on Apple Silicon and on Intel Macs.
 
 **Windows only:** the fix for Windows display scaling, the extra memory for the GOG
 and disc versions, the NVIDIA setting, Modern Driver Compatibility, the mouse kept
@@ -275,6 +274,6 @@ not need.
 | Windows, Steam version | Yes |
 | Windows, GOG version | Yes |
 | Windows, disc version 1.03 | Yes |
-| macOS, Steam version | Yes, since KMRP 1.5, with a separate installer (`KMRP-macOS-1.5.0.dmg`); tested on one Apple Silicon Mac, Intel Macs untested. See [macos/PLAYER-README.md](../macos/PLAYER-README.md) and [macos/README.md](../macos/README.md). |
+| macOS, Steam version | Yes, since KMRP 1.5, with a separate installer (`KMRP-macOS-1.5.0.dmg`); tested on Apple Silicon and on Intel Macs. See [macos/PLAYER-README.md](../macos/PLAYER-README.md) and [macos/README.md](../macos/README.md). |
 | Linux with Proton | Tested by the maintainer on Ubuntu, with the stable Proton and with Proton Experimental: it installed and played. Other distributions are untested. See [linux-proton-steam-deck.md](linux-proton-steam-deck.md). |
 | Steam Deck | Not tested on the device. It uses the same Proton, so it is expected to work the same way, and the Deck's controls are among the pads KMRP knows. |
