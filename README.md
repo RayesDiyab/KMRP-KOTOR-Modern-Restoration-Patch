@@ -396,10 +396,9 @@ is shown at the largest size it offers on that monitor.
 
 Rows, icons and stack counts scale with the text, and the screen is used.
 
-<img src="releases/v1.5.0/press-kit/13-area-map-1080p.png" alt="Area map: the original game at 1280x960 beside KMRP 1.5 at 1920x1080" width="100%">
+<img src="releases/v1.5.0/press-kit/06-equipment-1080p.png" alt="Equipment: the original game at 1280x960 beside KMRP 1.5 at 1920x1080" width="100%">
 
-The map fills its frame, fog reaches the edge, and the notes sit clear of the
-buttons.
+Every slot and every row has its place, and the whole screen is used.
 
 It holds at 21:9 as well: every resolution is made from the same rules, not
 hand-tuned one at a time.
@@ -419,7 +418,7 @@ screen under Options, Gameplay shows what each one does.
 **New in 1.5: macOS.** The Steam version of the game on the Mac has its own
 installer and the same menus, text and controller support.
 
-<img src="releases/v1.5.0/press-kit/22-macos-installer.png" alt="The KMRP 1.5 installer on macOS, after patching" width="100%">
+<img src="releases/v1.5.0/press-kit/02-new-platform-macos.png" alt="New platform: macOS support, with the KMRP 1.5 installer on macOS" width="100%">
 
 <img src="releases/v1.5.0/press-kit/03-macos-character.png" alt="The Character screen with controller buttons, KMRP 1.5 on macOS at 1512x982" width="100%">
 

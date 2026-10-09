@@ -4,7 +4,7 @@ Release art for KMRP 1.5 (2026-10-09, Windows and macOS): the cover and the page
 for mod pages, posts and articles. Use them as they are; please do not crop a frame
 out of its page without saying what it shows.
 
-The first twelve are the set to lead with, in this order.
+Twelve pages, in the order to show them.
 
 | File | What |
 | --- | --- |
@@ -36,7 +36,7 @@ The first twelve are the set to lead with, in this order.
   beside 3440x1440). They were taken in a copy that has only the controller patch,
   with the pointer moved so that no controller picture is on screen.
 - **macOS frames** are the maintainer's screenshots from an Apple Silicon MacBook
-  Pro. The six-screen sheet arrived reduced, so its screens are small.
+  Pro.
 - **The Linux card** has no screenshot: the test on Ubuntu is the maintainer's
   report, recorded in [`docs/linux-proton-steam-deck.md`](../../../docs/linux-proton-steam-deck.md).
 - **The 4K frame** is the maintainer's screenshot from a 4K television at 3840x2160.
