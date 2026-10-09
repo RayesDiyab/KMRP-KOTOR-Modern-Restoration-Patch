@@ -184,9 +184,14 @@ mouse or keyboard and the PC display is back at once.
   `kmrp-controller.ini`, or switch the option off in KOTOR Patch Manager.
 
 **On its own.** Controller support is a separate patch. It can be installed without
-the rest of KMRP, on the unchanged game or beside another widescreen mod (tried
-beside Scaled Kotor). It sizes its button pictures and its HUD to whatever interface
-it finds.
+the rest of KMRP.
+
+**Works with other interface and widescreen mods.** The controller patch puts no
+file into the game's folders and replaces none of another mod's. Its button
+pictures and its HUD are placed while the game runs, from the screens as they are,
+so they fit whatever interface is installed. Tried on the unchanged game, with
+KMRP, and beside Scaled Kotor 1.3.1, the widescreen patch by J and Vriff. Other
+widescreen mods have not been tried.
 
 ## Installing and removing
 

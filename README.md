@@ -145,9 +145,11 @@ version's; what differs on the Mac is at its end.
   pad's trigger, and a combat-mode line across the top. The PC display is back the
   moment you use the mouse or keyboard, and the Xbox layout can be switched off
   (`Style=PC` in `kmrp-controller.ini`).
-- Controller support is a patch of its own: it also installs without the rest of
-  KMRP, on the unchanged game or beside another widescreen mod (tried beside Scaled
-  Kotor), and sizes itself to the interface it finds.
+- Controller support is a patch of its own and installs without the rest of KMRP.
+- It works with other interface and widescreen mods: it puts no file into the
+  game's folders, and its button pictures and HUD are placed while the game runs,
+  to fit whatever interface is installed. Tried on the unchanged game, with KMRP,
+  and beside Scaled Kotor 1.3.1, the widescreen patch by J and Vriff.
 
 **Installing and removing**
 
@@ -387,24 +389,43 @@ interface is scaled.
 
 ## What it looks like
 
-Vanilla on the left, KMRP on the right, both frames whole and uncropped.
+The original game beside KMRP 1.5, every frame whole and uncropped. The original
+is shown at the largest size it offers on that monitor.
 
-<img src="assets/screenshots/2-inventory.png" alt="Party inventory, vanilla 800x600 next to KMRP 1920x1080" width="100%">
+<img src="releases/v1.5.0/press-kit/01-inventory-1080p.png" alt="Inventory: the original game at 1280x960 beside KMRP 1.5 at 1920x1080" width="100%">
 
-Rows, icons and stack counts scale with the text, so the item list stops truncating
-names and the description panel reads at a glance.
+Rows, icons and stack counts scale with the text, and the screen is used.
 
-<img src="assets/screenshots/3-area-map.png" alt="Area map, vanilla 800x600 next to KMRP 1920x1080" width="100%">
+<img src="releases/v1.5.0/press-kit/03-area-map-1080p.png" alt="Area map: the original game at 1280x960 beside KMRP 1.5 at 1920x1080" width="100%">
 
-The map fills its frame, fog reaches the right edge, and the map note sits clear of
-the buttons.
+The map fills its frame, fog reaches the edge, and the notes sit clear of the
+buttons.
 
-It holds at 21:9 as well -- every resolution is generated from the same rules, not
-hand-tuned one at a time:
+It holds at 21:9 as well: every resolution is made from the same rules, not
+hand-tuned one at a time.
 
-<img src="assets/screenshots/uw-1-hud.png" alt="In-game HUD at 3440x1440" width="100%">
+<img src="releases/v1.5.0/press-kit/11-inventory-ultrawide.png" alt="Inventory: the original game at 1600x1200 above KMRP 1.5 at 3440x1440" width="100%">
 
-More in [`assets/screenshots/`](assets/screenshots/).
+**New in 1.5: controller support.** With a pad the display is laid out like the
+Xbox game's, every menu shows the buttons of the pad in your hands, and a new
+screen under Options, Gameplay shows what each one does.
+
+<img src="releases/v1.5.0/press-kit/21-controller-xbox-hud.png" alt="The Xbox-style HUD with a controller, KMRP 1.5 at 1920x1080" width="100%">
+
+<img src="releases/v1.5.0/press-kit/23-controller-layout.png" alt="The Controller Layout screen, KMRP 1.5 at 3440x1440" width="100%">
+
+<img src="releases/v1.5.0/press-kit/24-controller-menus.png" alt="Controller button pictures on the Inventory, Character, Journal and Area Map screens" width="100%">
+
+**New in 1.5: macOS.** The Steam version of the game on the Mac has its own
+installer and the same menus, text and controller support.
+
+<img src="releases/v1.5.0/press-kit/41-mac-installer.png" alt="The KMRP 1.5 installer on macOS, after patching" width="100%">
+
+<img src="releases/v1.5.0/press-kit/43-mac-character.png" alt="The Character screen with controller buttons, KMRP 1.5 on macOS at 1512x982" width="100%">
+
+The whole 1.5 set, with the cover, is the release's press kit:
+[`releases/v1.5.0/press-kit/`](releases/v1.5.0/press-kit/). The 1.0 pictures are in
+[`assets/screenshots/`](assets/screenshots/).
 
 ---
 
@@ -632,6 +653,19 @@ The reverse-engineering notes are written to be read by someone who was not
 there: they record the addresses, the measurements, and -- deliberately -- the
 theories that turned out to be **wrong**, so the same dead ends are not explored
 twice.
+
+---
+
+## Community and media coverage
+
+Coverage of **KMRP 1.0**, the first release. Thank you to both.
+
+| | By | |
+| --- | --- | --- |
+| Video | **LucianDarth** | [Patch KOTOR with 1 Installer \| KOTOR Modern Restoration Patch](https://www.youtube.com/watch?v=IRK-3XjTKjU) |
+| Article | **SWTOR Strategies** | [While We Wait for the KOTOR Remake, Modders Just Fixed the Original for Modern PCs](https://swtorstrategies.com/2026/09/kotor-modern-restoration-patch.html) |
+
+Both describe 1.0. What has changed since is under [Features](#features).
 
 ---
 

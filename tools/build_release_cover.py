@@ -217,7 +217,40 @@ def tracked(draw, xy, text, font, fill, tracking, anchor_centre_x=None):
     return total
 
 
-def build(out: Path, size, font_path: Path, root: Path) -> None:
+# Gold for the version and the feature lines (the maintainer, 2026-10-08: silver, gold
+# and the blue). GOLD_RAMP is dark, middle and highlight; gold_metal maps the silver
+# metal's own light and shade onto it, so the bevel is the lockup's.
+GOLD = (232, 190, 96)
+GOLD_RAMP = ((96, 62, 14), (214, 164, 62), (255, 240, 184))
+BOLD_FONT = Path(r"C:\Windows\Fonts\georgiab.ttf")
+
+
+def gold_metal(metal: Image.Image) -> Image.Image:
+    """A silver `metal_text` image with the same shading in gold."""
+    arr = np.asarray(metal).astype(np.float32)
+    lum = arr[..., :3].max(axis=2) / 255.0
+    low, mid, high = (np.array(c, dtype=np.float32) for c in GOLD_RAMP)
+    lower = low + (mid - low) * np.clip(lum / 0.6, 0, 1)[..., None]
+    upper = mid + (high - mid) * np.clip((lum - 0.6) / 0.4, 0, 1)[..., None]
+    rgb = np.where((lum < 0.6)[..., None], lower, upper)
+    out = np.dstack([rgb, arr[..., 3:4]])
+    return Image.fromarray(np.clip(out, 0, 255).astype(np.uint8), "RGBA")
+
+
+# What the cover says under the name since KMRP 1.5: the version beside KMRP, and the
+# things every install gets or is offered, in the installer's own order. Until 1.5 the
+# foot line read "48 RESOLUTIONS   4:3 TO 32:9", the count of the first release.
+VERSION = "1.5"
+FEATURES = ("WIDESCREEN  \u00b7  CONTROLLER SUPPORT  \u00b7  HIGH FPS FIX",
+            "HD ICONS  \u00b7  MAP FIXES  \u00b7  MODERN DRIVER COMPATIBILITY*",
+            "WINDOWS AND macOS")
+# The one thing on the cover that the Mac version does not have (it is a fix for
+# Windows graphics drivers), said so in small under the lines.
+FOOTNOTE = "* Windows only"
+
+
+def build(out: Path, size, font_path: Path, root: Path, version: str = VERSION,
+          features=FEATURES) -> None:
     theme = read_theme(root / THEME_SOURCE)
     width, height = size
     canvas = ground(size, theme)
@@ -231,16 +264,25 @@ def build(out: Path, size, font_path: Path, root: Path) -> None:
 
     # The lockup is the hero: give it 62% of the width, and let everything else
     # follow from its cap height so the composition scales with the canvas.
-    target_w = int(width * 0.62)
+    target_w = int(width * (0.56 if features else 0.62))
     lockup = lockup.resize((target_w, int(lockup.height * target_w / lockup.width)),
                            Image.LANCZOS)
-    lockup_y = int(height * 0.085)
+    lockup_y = int(height * (0.03 if features else 0.085))
     canvas.alpha_composite(lockup, ((width - lockup.width) // 2, lockup_y))
 
     cursor = lockup_y + lockup.height
 
     # KMRP, in the lockup's own metal, at a third of KOTOR's presence.
     kmrp = metal_text("KMRP", max(18, int(height * 0.088)), font_path)
+    if version:
+        number = gold_metal(metal_text(version, max(18, int(height * 0.088)), font_path))
+        number = number.crop((number.getbbox()[0], 0, number.getbbox()[2], number.height))
+        word = kmrp.crop((kmrp.getbbox()[0], 0, kmrp.getbbox()[2], kmrp.height))
+        gap = int(height * 0.05)
+        both = Image.new("RGBA", (word.width + gap + number.width, max(word.height, number.height)), (0, 0, 0, 0))
+        both.alpha_composite(word, (0, 0))
+        both.alpha_composite(number, (word.width + gap, 0))
+        kmrp = both
     kmrp_y = cursor + int(height * 0.012)
     canvas.alpha_composite(kmrp, ((width - kmrp.width) // 2, kmrp_y))
 
@@ -261,18 +303,26 @@ def build(out: Path, size, font_path: Path, root: Path) -> None:
         sub_font = ImageFont.truetype(str(font_path), sub_size)
     except OSError:
         sub_font = ImageFont.load_default()
-    sub_y = kmrp_y + kmrp.height + int(height * 0.072)
+    sub_y = kmrp_y + kmrp.height + int(height * (0.05 if features else 0.072))
     tracked(draw, (0, sub_y), "MODERN RESTORATION PATCH", sub_font,
             theme["Accent"] + (255,), sub_size * 0.42, anchor_centre_x=width / 2)
 
-    foot_size = max(9, int(height * 0.019))
+    foot_size = max(9, int(height * (0.031 if features else 0.019)))
     try:
-        foot_font = ImageFont.truetype(str(font_path), foot_size)
+        foot_font = ImageFont.truetype(str(BOLD_FONT if features and BOLD_FONT.exists() else font_path), foot_size)
     except OSError:
         foot_font = ImageFont.load_default()
-    foot_y = sub_y + int(height * 0.052)
-    tracked(draw, (0, foot_y), "48 RESOLUTIONS   4:3 TO 32:9", foot_font,
-            theme["TextMuted"] + (190,), foot_size * 0.34, anchor_centre_x=width / 2)
+    foot_y = sub_y + int(height * 0.066)
+    for row, line in enumerate(features or ()):
+        last = row == len(features) - 1 and len(features) > 1
+        tracked(draw, (0, foot_y + row * int(foot_size * 1.75)), line, foot_font,
+                (theme["Text"] if last else GOLD) + (255,), foot_size * 0.22,
+                anchor_centre_x=width / 2)
+    if features and FOOTNOTE:
+        note_size = max(9, int(height * 0.02))
+        note_font = ImageFont.truetype(str(font_path), note_size)
+        tracked(draw, (0, foot_y + len(features) * int(foot_size * 1.75) - int(foot_size * 0.2)), FOOTNOTE,
+                note_font, theme["TextMuted"] + (230,), note_size * 0.2, anchor_centre_x=width / 2)
 
     out.parent.mkdir(parents=True, exist_ok=True)
     canvas.convert("RGB").save(out, quality=95)
@@ -286,10 +336,11 @@ def main() -> int:
     parser.add_argument("--height", type=int, default=1080)
     parser.add_argument("--font", type=Path, default=DEFAULT_FONT)
     parser.add_argument("--root", type=Path, default=Path("."))
+    parser.add_argument("--version", default=VERSION, help="shown beside KMRP; empty for none")
     args = parser.parse_args()
     if not args.font.exists():
         raise SystemExit(f"Not found: {args.font}")
-    build(args.out, (args.width, args.height), args.font, args.root)
+    build(args.out, (args.width, args.height), args.font, args.root, args.version)
     return 0
 
 
