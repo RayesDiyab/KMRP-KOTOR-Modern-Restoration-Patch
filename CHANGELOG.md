@@ -133,7 +133,8 @@ proxy, and it applies the executable changes above as well.
 ## [1.5.0] -- 2026-10-09
 
 **KMRP 1.5**, the second public release, tagged `v1.5.0`: the Windows installer
-(`KMRP - KOTOR Modern Restoration Patch.exe`, which reports 1.5.0) and, for the
+(`KMRP-Windows-1.5.0.exe` on the release; the build writes it as
+`KMRP - KOTOR Modern Restoration Patch.exe`; it reports 1.5.0) and, for the
 first time, a macOS installer for the Steam game (`KMRP-macOS-1.5.0.dmg`). What a
 player gets is in [`docs/features.md`](docs/features.md); how it is made is in
 [`docs/features-technical.md`](docs/features-technical.md). The entries below are

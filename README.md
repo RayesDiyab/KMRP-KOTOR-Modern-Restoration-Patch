@@ -212,7 +212,7 @@ not tested on the device.
 | OS | Windows with .NET Framework 4.x (shipped with Windows 10/11). Linux with Proton works on Ubuntu, as tested by the maintainer; the Steam Deck is untested. See [Other platforms](#other-platforms). |
 
 1. Launch KOTOR once so `swkotor.ini` exists.
-2. Run **`KMRP - KOTOR Modern Restoration Patch.exe`**. It finds Steam's KOTOR by itself,
+2. Download **`KMRP-Windows-1.5.0.exe`** from the [1.5.0 release](https://github.com/RayesDiyab/KMRP-KOTOR-Modern-Restoration-Patch/releases/tag/v1.5.0) and run it. It finds Steam's KOTOR by itself,
    in any Steam library, and otherwise GOG's; **Browse** picks another `swkotor.exe`.
 3. Choose **Start Patching**. There is no resolution to pick: the game starts at
    your display's current resolution, and every resolution your display supports is

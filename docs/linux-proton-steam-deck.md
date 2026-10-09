@@ -57,7 +57,7 @@ the same installation documentation.
 Run the patcher inside KOTOR's Proton environment:
 
 ```bash
-protontricks-launch --appid 32370 "/absolute/path/to/KMRP - KOTOR Modern Restoration Patch.exe"
+protontricks-launch --appid 32370 "/absolute/path/to/KMRP-Windows-1.5.0.exe"
 ```
 
 In the patcher, select the `swkotor.exe` inside the real Steam KOTOR directory,
