@@ -47,6 +47,10 @@ differs from the clean executable and the 21 more it writes over values gold
 leaves vanilla -- and refuses to pass if any run of them has no technical
 write-up. If something appears there and not here, this section is out of date.
 
+*Updated 2026-10-09:* with the two rows at the top of the table below, the installer
+(`7FF9DAE4…`) changes **833** byte positions, measured at 66 resolutions; the figures in
+the next paragraph are the measurement of 2026-09-24 and are kept as they were written.
+
 **The size of it.** KMRP's installer changes 742 byte positions inside the
 original 4,042,752-byte executable, at one resolution or another — 0.018% — and
 appends eleven new 4KB sections holding the code and data the original has no
@@ -73,6 +77,8 @@ zoom and fog, and two of the resolution fields.
 
 | What you see in game | What changes in the executable |
 | --- | --- |
+| A long message in a popup makes a wide box at a high resolution, not a tall, narrow one | The popup's widening loop adds 40 per pass as a signed byte. Its 27 bytes at `0x006256FC` are rewritten with one 32-bit step that follows the screen's height |
+| A shop's stack counts sit in their icons' lower right corner, as the inventory's do | The store row's count label (49 bytes at `0x006C2704`) is rewritten by the inventory's rule: its width and height follow the screen, and its top is the icon less its height |
 | **Text is legible at modern resolutions** instead of tiny. | Text size is carried on the font atlases' own metrics rather than scaled at runtime, because scaling it at runtime changed the size one frame *after* the engine had already measured and centred the text, which visibly shifted the first screen of each session. The executable keeps a scale constant for list rows, which are built after nothing has measured them and so have no such ordering problem. |
 | **List rows grow with the text**, so save/load and dialogue entries stop overlapping. | A hook rewrites each row's height as the row is constructed. Rows never shrink below vanilla, so short screens are untouched. |
 | **Inventory, Abilities and Store rows and icons are sized to match.** | Three separate hardcoded 56s decide the icon box, the text offset and the row height, none of them reachable from any `.gui` file. That is why editing the interface files alone never moved them. |
@@ -110,32 +116,6 @@ proxy, and it applies the executable changes above as well.
 
 ## [Unreleased]
 
-- **Windows: four repairs from the Mac's play at 3840x2160** (2026-10-09, master
-  `da12c81`; items 23 to 26 of `docs/windows-changes-from-macos.md`, from
-  `docs/windows-handoff-2026-10-09.md`). The maintainer tested the installer on the Steam
-  copy at 3440x1440 that day and found all of it right; none of it was looked at on
-  Windows at 3840x2160.
-  - *Controller badges have a least size.* A badge is never less than three quarters of
-    its button's height (`K1UniformBadge`, not for a badge of a given height). The
-    container's three buttons, whose textures were made for an area 273x10, had badges a
-    quarter as tall as the button.
-  - *The message popup's widening step follows the screen.* The game widens a box whose
-    text does not fit by 40 per pass, a signed byte; the 27 bytes at `0x006256FC` now use
-    one 32-bit step, `40 * height / 720`, so a long text makes a wide box at a high
-    resolution and not a tall, narrow one.
-  - *The combat-mode message is sized from its font.* The button's picture, the gaps and
-    the two texts' widths come from the label's font, as the pause notice's do, in place of
-    22 px, 9 px and the engine's measure to the nearest 10.
-  - *A shop's stack count sits in its icon's lower right corner.* On Windows the store
-    row's count label was 21 or 42 wide whatever the screen and as tall as the icon; the
-    49 bytes at `0x006C2704` now follow the inventory's rule (21s or 42s wide, 19s tall,
-    its top at the icon less its height).
-
-  The two byte changes are in the run-time recipe (`tools/build_native_engine.py`, three
-  new resolution fields) and in the installer's reference image (`ResolutionPatch`).
-  **Not yet in `reverse-engineering/binary-inventory.md`** or in the table of executable
-  changes above.
-
 - **Documents: the Mac version works on Intel and on Apple Silicon Macs** (2026-10-09, the
   maintainer's report: both tried). `README.md`, `docs/features.md` and the press kit's
   macOS card said "Intel Macs untested" and now say both were tested. `macos/README.md`
@@ -160,6 +140,33 @@ player gets is in [`docs/features.md`](docs/features.md); how it is made is in
 everything since 1.0, newest first, each as it was written on its day: a later
 entry corrects or replaces an earlier one, and each says what was and was not
 seen in the game.
+
+- **Windows: four repairs from the Mac's play at 3840x2160** (2026-10-09, master
+  `da12c81`; items 23 to 26 of `docs/windows-changes-from-macos.md`, from
+  `docs/windows-handoff-2026-10-09.md`). The maintainer tested the installer on the Steam
+  copy at 3440x1440 that day and found all of it right; none of it was looked at on
+  Windows at 3840x2160.
+  - *Controller badges have a least size.* A badge is never less than three quarters of
+    its button's height (`K1UniformBadge`, not for a badge of a given height). The
+    container's three buttons, whose textures were made for an area 273x10, had badges a
+    quarter as tall as the button.
+  - *The message popup's widening step follows the screen.* The game widens a box whose
+    text does not fit by 40 per pass, a signed byte; the 27 bytes at `0x006256FC` now use
+    one 32-bit step, `40 * height / 720`, so a long text makes a wide box at a high
+    resolution and not a tall, narrow one.
+  - *The combat-mode message is sized from its font.* The button's picture, the gaps and
+    the two texts' widths come from the label's font, as the pause notice's do, in place of
+    22 px, 9 px and the engine's measure to the nearest 10.
+  - *A shop's stack count sits in its icon's lower right corner.* On Windows the store
+    row's count label was 21 or 42 wide whatever the screen and as tall as the icon; the
+    49 bytes at `0x006C2704` now follow the inventory's rule (21s or 42s wide, 19s tall,
+    its top at the icon less its height).
+
+  The two byte changes are in the run-time recipe (`tools/build_native_engine.py`, three
+  new resolution fields) and in the installer's reference image (`ResolutionPatch`).
+  Both are in `reverse-engineering/binary-inventory.md` (*Written at install*: 112
+  positions in 18 runs, 833 with gold's 721, measured with installer `7FF9DAE4…` at 66
+  resolutions) and in the table of executable changes above.
 
 - **macOS: the stack count in a shop** (2026-10-09, reported by the maintainer with a
   photograph at 3840x2160: the counts stood at their icons' upper right corner, "wrong only

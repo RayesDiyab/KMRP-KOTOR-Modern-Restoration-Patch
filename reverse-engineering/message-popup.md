@@ -305,3 +305,47 @@ the value after every glyph
 That finding and the observation above ("no effect" at `0.300`) do not agree,
 and the observation was not repeated; treat it as unexplained, not as evidence
 about `Draw`.
+
+## The widening step (2026-10-09)
+
+**Status: applied, and seen right in the game on Windows on 2026-10-09 (Steam, 3440x1440).
+Not looked at on Windows at 3840x2160, where the Mac's maintainer saw the fault.**
+
+The auto-fit loop of `0x006253A0` grows a box whose text does not fit. Each pass adds 40 to
+the width, takes 20 off the left so that the box stays centred, and adds one line of the
+font to the height. The two caps follow the screen (above), and a line is the font's, which
+is baked for the screen's height; the 40 and the 20 are the game's own and never scaled. At
+1280x720 a pass adds 40 across and about 20 down; at 3840x2160 it adds 40 across and about
+66 down, so the same text makes a wide box at a low resolution and a tall, narrow one at a
+high one. Reported on the Mac on 2026-10-08 (`docs/windows-changes-from-macos.md`, item 24).
+
+| VA | bytes | instruction |
+| --- | --- | --- |
+| `0x006256FC` | `83 44 24 38 28` | `add [esp+0x38], 0x28` |
+| `0x00625701` | `8B 44 24 20` | `mov eax, [esp+0x20]` |
+| `0x00625705` | `83 C1 28` | `add ecx, 0x28` |
+| `0x00625708` | `89 4C 24 28` | `mov [esp+0x28], ecx` |
+| `0x0062570C` | `83 E8 14` | `sub eax, 0x14` |
+| `0x0062570F` | `8D 4C 24 30` | `lea ecx, [esp+0x30]` |
+| `0x00625713` | `89 44 24 20` | `mov [esp+0x20], eax` |
+
+The three numbers are signed bytes: 120, the step at 2160 lines, does not fit. The same 27
+bytes are rewritten with one 32-bit step, `40 * height / 720` and never less than 40:
+
+```
+006256FC  B8 <step>      mov eax, step
+00625701  01 44 24 38    add [esp+0x38], eax
+00625705  01 C1          add ecx, eax
+00625707  89 4C 24 28    mov [esp+0x28], ecx
+0062570B  D1 F8          sar eax, 1
+0062570D  29 44 24 20    sub [esp+0x20], eax
+00625711  8D 4C 24 30    lea ecx, [esp+0x30]
+00625715  90 90          nop ; nop
+```
+
+`eax` is loaded anew at `0x00625717` and no flag set here is read. No branch of the function
+lands inside the 27 bytes (checked by disassembling `0x006253A0` to its end). The step is a
+run-time field of the engine recipe (`POPUP_STEP` in `tools/build_native_engine.py`, at
+`0x006256FD`), written again at every change of resolution in the game, and
+`PopupStepOffset` in `ResolutionPatch` writes the same bytes into the installer's reference
+image.

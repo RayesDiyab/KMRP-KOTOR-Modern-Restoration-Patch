@@ -368,3 +368,61 @@ code constant. At higher scales the engine upscales it, so it will soften the
 way the fonts did before they were re-rendered. If it reads blurry rather than
 merely bigger, re-render the frame art at the baked size and ship it in the
 Override, exactly as the font atlases are handled.
+
+## The store row's stack count (2026-10-09)
+
+**Status: applied, and seen right in the game on Windows on 2026-10-09 (Steam, 3440x1440).
+The workbench's rows were not looked at.**
+
+The count on a stack of items is a label made in code. The inventory's row makes it 21 wide
+(42 for three digits or more) and 19 tall, 37 under the row's top, and all four follow the
+screen since gold v10 (`StackCountSites`). The store's row, `CSWGuiStoreItemEntry::SetExtent`
+at `0x006C2650`, was left as the game has it, and on Windows it is not the inventory's
+block: the label is 21 or 42 wide whatever the screen, **as tall as the icon**, and at the
+row's top.
+
+| VA | bytes | instruction |
+| --- | --- | --- |
+| `0x006C2704` | `33 C9` | `xor ecx, ecx` |
+| `0x006C2706` | `83 F8 02` | `cmp eax, 2` (the count's length) |
+| `0x006C2709` | `0F 9E C1` | `setle cl` |
+| `0x006C270C` | `8B D7` | `mov edx, edi` (`edi`: the icon's size) |
+| `0x006C270E` | `89 7C 24 2C` | `mov [esp+0x2C], edi` (height) |
+| `0x006C2712` | `49` | `dec ecx` |
+| `0x006C2713` | `83 E1 15` | `and ecx, 21` |
+| `0x006C2716` | `83 C1 15` | `add ecx, 21` |
+| `0x006C2719` | `8B C1` | `mov eax, ecx` |
+| `0x006C271B` | `2B D0` | `sub edx, eax` |
+| `0x006C271D` | `89 44 24 28` | `mov [esp+0x28], eax` (width) |
+| `0x006C2721` | `8B 44 24 20` | `mov eax, [esp+0x20]` |
+| `0x006C2725` | `03 C2` | `add eax, edx` |
+| `0x006C2727` | `8D 8E 34 03 00 00` | `lea ecx, [esi+0x334]` |
+| `0x006C272D` | `8D 54 24 20` | `lea edx, [esp+0x20]` |
+| `0x006C2731` | `89 44 24 20` | `mov [esp+0x20], eax` (left) |
+
+The Mac's note said Windows' store label "keeps 21x19 at 37"; read here, it is 21 wide and
+as tall as the icon at the row's top. Either way the width never grew with the font. The 49
+bytes are rewritten by the inventory's rule, with 32-bit operands (`s` is the row scale,
+`max(1, height / 720)`):
+
+```
+006C2704  83 F8 02           cmp eax, 2
+006C2707  B9 <21s>           mov ecx, 21s
+006C270C  7E 02              jle +2
+006C270E  03 C9              add ecx, ecx          ; 42s for three digits or more
+006C2710  89 4C 24 28        mov [esp+0x28], ecx   ; width
+006C2714  01 7C 24 20        add [esp+0x20], edi
+006C2718  29 4C 24 20        sub [esp+0x20], ecx   ; left: right-aligned in the icon
+006C271C  B8 <19s>           mov eax, 19s
+006C2721  89 44 24 2C        mov [esp+0x2C], eax   ; height
+006C2725  2B C7              sub eax, edi
+006C2727  29 44 24 24        sub [esp+0x24], eax   ; top: the icon less the label's height
+006C272B  8D 8E 34 03 00 00  lea ecx, [esi+0x334]
+006C2731  8D 54 24 20        lea edx, [esp+0x20]
+```
+
+The top is the game's 37 at its own size (56 - 19). `eax` is loaded anew at `0x006C2735`;
+`ecx` and `edx` leave as the game leaves them; `esp` does not move inside the block; no
+branch of the function lands inside it. Two run-time fields of the engine recipe
+(`STORE_COUNT` in `tools/build_native_engine.py`: 21 at `0x006C2708`, 19 at `0x006C271D`),
+and `StoreCountOffset` in `ResolutionPatch` for the installer's reference image.

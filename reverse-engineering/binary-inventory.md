@@ -43,8 +43,8 @@ byte positions. The threshold is presentation only; nothing depends on it.
 
 **A calibration for how small 721 bytes is.** It is 0.018% of the image. Every
 behavioural change KMRP makes to the executable is either one of these 82 runs,
-one of the twelve runs the installer writes where gold keeps vanilla (§4,
-*Written at install*; 742 positions in all), or lives in the appended sections,
+one of the eighteen runs the installer writes where gold keeps vanilla (§4,
+*Written at install*; 833 positions in all), or lives in the appended sections,
 which no vanilla byte can reach except through them.
 
 ### Correction, 2026-09-24
@@ -303,9 +303,22 @@ last column counts the distinct values across the 66 outputs. *Updated 2026-09-3
 on 2026-09-24, with installer `ECA3DE4B…` at 48 resolutions, it was 21 positions in
 12 runs, 742 in all. Gold, and so the table above, has not changed since.
 
+*Updated 2026-10-09:* installer `7FF9DAE4…` at the same 66 resolutions writes **112 byte
+positions in 18 runs** where gold keeps vanilla, **833** with gold's 721. The two new
+runs are whole stretches of code rewritten in place with 32-bit operands, which is why
+69 positions came with them: the message popup's widening step, 27 bytes at
+`0x006256FC` ([`message-popup.md`](message-popup.md), *The widening step*), and the
+store row's stack-count label, 49 bytes at `0x006C2704` of which the last two are the
+same as the game's ([`inventory-item-rows.md`](inventory-item-rows.md), *The store
+row's stack count*). Both were seen right in the game on Windows that day, on the
+Steam copy at 3440x1440. No hook of KMRP's two patches or of D3M0's High FPS Fixes
+lies in or within 16 bytes before either run (checked against the three hook tables
+of that build).
+
 | VA | FILE | len | clean | distinct installed values | documented in |
 | --- | --- | --- | --- | --- | --- |
 | `0x0062540E` | `0x22540E` | 1 | `00` | 3 | `docs/universal-resolution-math.md`, `reverse-engineering/message-popup.md`, `reverse-engineering/text-padding.md` |
+| `0x006256FC` | `0x2256FC` | 27 | `83442438288b44242083c128894c242883e8148d4c243089442420` | 39 | `docs/universal-resolution-math.md`, `docs/windows-changes-from-macos.md`, `reverse-engineering/message-popup.md` |
 | `0x00626F96` | `0x226F96` | 1 | `00` | 3 | `docs/universal-resolution-math.md`, `reverse-engineering/message-popup.md`, `reverse-engineering/text-padding.md` |
 | `0x006AB8EF` | `0x2AB8EF` | 2 | `2a00` | 39 | `docs/universal-resolution-math.md`, `docs/windows-changes-from-macos.md`, `reverse-engineering/inventory-item-rows.md` |
 | `0x006ACB20` | `0x2ACB20` | 2 | `2a00` | 39 | `docs/universal-resolution-math.md`, `docs/windows-changes-from-macos.md`, `reverse-engineering/inventory-item-rows.md` |
@@ -314,6 +327,7 @@ on 2026-09-24, with installer `ECA3DE4B…` at 48 resolutions, it was 21 positio
 | `0x006B5332` | `0x2B5332` | 1 | `13` | 37 | `docs/universal-resolution-math.md`, `reverse-engineering/font-atlases.md` |
 | `0x006B55E3` | `0x2B55E3` | 2 | `3800` | 39 | `docs/universal-resolution-math.md`, `reverse-engineering/font-atlases.md`, `reverse-engineering/inventory-item-rows.md` |
 | `0x006C265F` | `0x2C265F` | 2 | `3800` | 39 | `docs/universal-resolution-math.md`, `reverse-engineering/inventory-item-rows.md` |
+| `0x006C2704` | `0x2C2704` | 47 | `33c983f8020f9ec18bd7897c242c4983e11583c1158bc12bd0894424288b44242003c28d8e340300008d5424208944` | 40 | `docs/windows-changes-from-macos.md`, `reverse-engineering/inventory-item-rows.md` |
 | `0x006C2A23` | `0x2C2A23` | 2 | `3800` | 39 | `docs/universal-resolution-math.md`, `reverse-engineering/inventory-item-rows.md` |
 | `0x006CD8D9` | `0x2CD8D9` | 2 | `2800` | 39 | `docs/universal-resolution-math.md`, `reverse-engineering/inventory-item-rows.md` |
 | `0x006CDB79` | `0x2CDB79` | 2 | `2800` | 39 | `docs/universal-resolution-math.md`, `reverse-engineering/inventory-item-rows.md` |
