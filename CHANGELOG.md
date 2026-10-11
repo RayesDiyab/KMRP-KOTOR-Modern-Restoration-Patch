@@ -155,6 +155,68 @@ proxy, and it applies the executable changes above as well.
   - **First run on SteamOS (2026-10-11, Proton 11.0-100, the build above): the game
     starts.** The `Cabinet.dll.40` abort did not come back in 28 logged launches.
 
+- **Controller: one pad seen twice no longer stutters** (2026-10-11; sixth test build,
+  `dist\KMRP-Windows-1.5.0-proton-test6.exe`). A translator that leaves the real pad
+  visible (PadForge, DS4Windows, reWASD), and possibly Steam Input, shows the module one
+  pad twice: through XInput and, through SDL, as the device behind it. Whichever showed
+  new activity became the pad read at once, and each change blanks the input for a
+  frame, restarts rumble and changes the button pictures. Measured in the scratch game
+  with PadForge presenting an Xbox pad as a Steam Controller, 202 seconds: 77 changes of
+  family and 2,556 times the game was taken to be on the mouse (the emulated pad also
+  moves the pointer), with stuttering movement; two sessions with the Xbox pad alone had
+  0 changes and 0 and 1. Two changes:
+  - `K1ControllerBackend.cpp`: another pad takes over only when the one being read has
+    been at rest for 80 ms after the other moved, so the second view of the same pad
+    never does.
+  - `MouseIsBeingUsedK1` (`vendor/K1XboxControls.cpp`): pointer movement within a second
+    and a half of the pad being held is not mouse use.
+
+  Played once with those two (test6, 91 seconds, the same PadForge setup): no change of
+  family, 77 times taken for the keyboard or mouse instead of 2,556, menus and the right
+  stick right; the left stick pushed in two directions still stuttered, and the log
+  showed the game taken for the keyboard with the stick held. So, in the seventh test
+  build (`dist\KMRP-Windows-1.5.0-proton-test7.exe`):
+  - `KmrpNoteKeyboardK1`: a Steam Controller types by itself while held (its stick is
+    also arrow keys) unless something turns that off, and the emulated one does not. A
+    key pressed while the pad is held, with one of Valve's pads among SDL's, is made a
+    release and is not keyboard use. A keyboard beside any other pad is as it was.
+  - When no pad is being read, SDL's are tried before XInput's, so a pad seen both ways
+    is read as the device it is.
+
+  Played by the maintainer with the seventh build and the same PadForge setup, 66
+  seconds: "it works perfectly"; one change of family (the first pick, SDL's pad), twice
+  taken for the keyboard or mouse. Two things were left, and both were traced to the
+  emulation, with SDL 3.4.16 set up as the module sets it up and the game closed:
+  - **No rumble.** SDL reports the pad (`28DE:1302`, the 2026 Steam Controller) as able
+    to rumble and accepted a three-second command at full strength; the real pad behind
+    PadForge did not move. The module had sent 48 rumble commands in that session.
+  - **Start and Back the other way round.** Start, then Back, pressed on the real pad:
+    SDL reported Back, then Start. SDL's driver for this pad reads the report's "menu"
+    bit as Back and its "view" bit as Start (`SDL_hidapi_steam_triton.c`, the same in
+    SDL's main branch), and the module passes SDL's two buttons through unchanged.
+
+  **Not tried: a real Steam Controller.** A log from one (issue 32, crocer211, KMRP
+  1.5.0, 43 seconds) shows none of this: one SDL pad, never taken for the keyboard or
+  mouse, the stick at rest within 900 of the centre, and the game's movement values and
+  the character's velocity following the stick in every direction. So these changes are
+  for pads behind a translator, and what that reporter sees is not explained by them. A
+  pointer that moves by itself while the pad is at rest is still taken for the mouse
+  after a second and a half. Which keys the emulated pad sends was not logged.
+
+- **Controller, Pazaak: A plays the focused hand card** (2026-10-11, issue 42; fifth test
+  build, `dist\KMRP-Windows-1.5.0-proton-test5.exe`). Reported from play with a
+  DualSense: A on a card ended the turn and played nothing. Read from the executable:
+  each hand card has the Xbox's handler for A (`0x00680790`), which plays the card only
+  in a "choose a card" mode (`[panel+0x86E4] == 1`) that nothing on the PC enters, and
+  the mouse's (`0x0067EF80`). With the focus on a card, A is now the mouse's click on it
+  and the engine's own A is not sent (`PazaakPlayFocusedCardK1`, a row of
+  `K1_BUTTON_REMAPS` in `K1NativeJoystick.cpp`). Played by the maintainer the same day in
+  the scratch game (a save at Yavin Station, against Suvam Tan): it works. Which input
+  class the table runs in was not measured, so the remap is asked about in the menu
+  class and the mini-game class. The flip buttons, End Turn,
+  Stand, the wager box, swoop racing and the turret are as they were and still unplayed
+  with a controller.
+
 - **Windows 7: the two modules can be loaded** (2026-10-11, issue 41; fourth test build,
   `dist\KMRP-Windows-1.5.0-proton-test4.exe`). 1.5.0 showed "ordinal 40 not found in
   Cabinet.dll" there and ran unscaled: the Compression API is of Windows 8 and later,

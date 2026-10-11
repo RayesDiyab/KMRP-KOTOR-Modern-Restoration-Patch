@@ -6,6 +6,9 @@
 
 #include "K1XboxControlsXInput.h"
 
+bool ControllerHeldRecentlyK1();    // K1ControllerBackend.cpp
+bool ControllerTypesByItselfK1();
+
 // K1NativeJoystick.cpp: the fourth letter of the detected controller family's
 // texture resrefs ('p' Xbox, 's' PlayStation, 'n' Switch, 'd' Steam Deck).
 extern "C" char __cdecl KmrpGlyphLetterK1();
@@ -4865,12 +4868,29 @@ extern "C" void __cdecl CaptureActionBarInputK2(
 // KMRP's own pad records must not be mistaken for someone reaching for the keys.
 extern "C" void __cdecl KmrpNoteKeyboardK1(void* record, int inputDevice)
 {
-    const BufferedInputRecord* input =
-        static_cast<const BufferedInputRecord*>(record);
+    BufferedInputRecord* input =
+        static_cast<BufferedInputRecord*>(record);
     if (input &&
         inputDevice == *reinterpret_cast<int*>(K1_CONFIG.keyboardDeviceIndex) &&
         (input->value & KEY_PRESSED) != 0 &&
         !IsControllerGeneratedKeyK1(input->offset)) {
+        // A Steam Controller types by itself while it is held: its stick is also
+        // the arrow keys and its buttons Enter and Escape, unless Steam or the
+        // program reading it turns that off, and an emulated one (PadForge) does
+        // not turn it off for SDL. The game then got the stick twice, once as the
+        // analog axes and once as keys, and the keys turn the character: "moves
+        // mostly left" (issue 37), and stuttering when the stick was pushed in two
+        // directions (the maintainer's play of 2026-10-11, PadForge as the 2026
+        // Steam Controller: the game was still taken for the keyboard with the
+        // stick held, kmrp-native-joystick.log dev=3, after pointer movement had
+        // been ruled out). A key pressed while such a pad is in the hand is made a
+        // release, which is how this site has always swallowed a key, and is not
+        // the keyboard being used. Only with one of Valve's pads among SDL's, and
+        // only while the pad is held: a keyboard beside any other pad is as it was.
+        if (ControllerTypesByItselfK1()) {
+            input->value = 0;
+            return;
+        }
         MarkKeyboardMouseInputK1();
     }
 }
@@ -5772,6 +5792,20 @@ bool MouseIsBeingUsedK1(int mouseX, int mouseY)
         // actually is, but report nothing.
         g_lastMouseX = mouseX;
         g_lastMouseY = mouseY;
+        return false;
+    }
+
+    // The pad is in the player's hands: a pointer that moves meanwhile is not a hand
+    // on the mouse. A translator that presents a pad as a Steam Controller also moves
+    // the pointer (its trackpad and gyro), and the game then went back and forth
+    // between the two devices while the player walked. Measured 2026-10-11 with
+    // PadForge: 2,556 times taken for the mouse in 202 seconds, against 0 and 1 in two
+    // sessions with an Xbox pad alone (kmrp-native-joystick.log, dev=).
+    if (ControllerHeldRecentlyK1()) {
+        g_lastMouseX = mouseX;
+        g_lastMouseY = mouseY;
+        g_mouseWindowEvents = 0;
+        g_mouseWindowDistance = 0;
         return false;
     }
 

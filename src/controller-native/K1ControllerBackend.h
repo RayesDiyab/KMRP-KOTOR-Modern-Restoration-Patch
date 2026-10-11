@@ -6,6 +6,8 @@
 // positions, including Nintendo B/A/Y/X. Y is up-positive at this boundary.
 bool ReadControllerK1(XINPUT_STATE& state);
 int ControllerXInputSlotK1();       // -1 for SDL or disconnected
+bool ControllerHeldRecentlyK1();    // the pad read was in use in the last 1.5 s
+bool ControllerTypesByItselfK1();   // held now, with a Steam Controller or Deck among SDL's pads
 int ControllerSdlFamilyK1();        // -1 for XInput; 0/1/2/3 glyph families
 unsigned long ControllerGenerationK1();
 bool SetControllerRumbleK1(WORD low, WORD high);

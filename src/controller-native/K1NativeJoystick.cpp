@@ -3547,7 +3547,68 @@ void PressFocusedRaiseButtonK1(void*)
         button, K1_GUI_EVENT_CONFIRM, 1);
 }
 
+// Pazaak's table (CSWGuiPazaakGame, dispatcher 0x0067E8F0): A on a card of the hand.
+//
+// Each of the four hand cards (panel+0x2DE0, 0x31C apart) carries two handlers,
+// registered at 0x006814F2 and 0x00681513:
+//
+//   0x27   0x00680790   the Xbox's: plays the card only in "choose a card" mode
+//                       ([panel+0x86E4] == 1), then leaves that mode (0x0067DBB0)
+//   0x1F9  0x0067EF80   the mouse's: plays the card when it is the player's turn
+//                       ([panel+0x86D4] == 3)
+//
+// Nothing on the PC ever enters the Xbox's mode, so with the focus on a card A ran
+// the first handler with the mode at 0: no card was played, and the handler left a
+// mode it was not in, which hands the table back to End Turn. Reported from play as
+// "X ends the turn instead of playing the selected card" (issue 42, a DualSense).
+// So A on a focused hand card is the mouse's click on it, and the engine's own A is
+// not sent. A on anything else at the table is left alone: the flip buttons take
+// 0x27 themselves (0x0067DDA0), and End Turn and Stand are ordinary buttons.
+//
+// READ FROM THE EXECUTABLE, NOT YET PLAYED. The legacy keyboard layer did the same
+// with Enter (vendor/K1XboxControls.cpp, PENDING_K1_PAZAAK_GAME_PLAY_CARD).
+constexpr std::uintptr_t K1_PAZAAK_GAME_DISPATCHER = 0x0067E8F0;
+constexpr std::size_t    K1_PAZAAK_HAND_CARDS      = 0x2DE0;
+constexpr std::size_t    K1_PAZAAK_HAND_STRIDE     = 0x031C;
+constexpr std::size_t    K1_PAZAAK_CARD_MODE       = 0x86E4;
+constexpr std::uintptr_t K1_PAZAAK_CLICK_CARD      = 0x0067EF80;
+
+void* PazaakFocusedHandCardK1(void* panel)
+{
+    if (!panel || DispatcherOfK1(panel) != K1_PAZAAK_GAME_DISPATCHER ||
+        !IsReadableK1(panel, K1_PAZAAK_CARD_MODE + sizeof(int)) ||
+        *FieldAt<int>(panel, K1_PAZAAK_CARD_MODE) != 0) {
+        return nullptr;
+    }
+    void* const focused = *FieldAt<void*>(panel, K1_PANEL_ACTIVE);
+    for (std::size_t i = 0; i < 4; ++i) {
+        if (focused != static_cast<char*>(panel) + K1_PAZAAK_HAND_CARDS + i * K1_PAZAAK_HAND_STRIDE) {
+            continue;
+        }
+        const std::uint32_t flags = *FieldAt<std::uint32_t>(focused, K1_CTL_FLAGS);
+        return (flags & K1_CTL_FLAG_VISIBLE) != 0 && (flags & K1_CTL_FLAG_DISABLED) == 0 ? focused : nullptr;
+    }
+    return nullptr;
+}
+
+bool PazaakHandCardFocusedK1(void* panel)
+{
+    return PazaakFocusedHandCardK1(panel) != nullptr;
+}
+
+void PazaakPlayFocusedCardK1(void* panel)
+{
+    void* const card = PazaakFocusedHandCardK1(panel);
+    if (!card) {
+        return;
+    }
+    LogGuardK1("A plays the focused Pazaak card", panel, K1_GUI_EVENT_CONFIRM, 1);
+    reinterpret_cast<void(__thiscall*)(void*, void*)>(K1_PAZAAK_CLICK_CARD)(panel, card);
+}
+
 constexpr ButtonRemapK1 K1_BUTTON_REMAPS[] = {
+    { K1_PAZAAK_GAME_DISPATCHER, 0x74, K1_EVENT_A, "A: play the card (Pazaak)", PazaakPlayFocusedCardK1,
+      PazaakHandCardFocusedK1 },
     { K1_JOURNAL_DISPATCHER, 0x74, K1_EVENT_Y,     "A: Active/Completed", nullptr },
     { K1_JOURNAL_DISPATCHER, 0x77, K1_EVENT_BLACK, "Y: sort order",       nullptr },
     { K1_FEATS_DISPATCHER,   0x74, K1_EVENT_X,     "A: OK (Feats)",       FeatsConfirmK1 },
@@ -4236,11 +4297,18 @@ void UpdateGuiCuesK1()
 
 int RemappedButtonEventK1(int slot)
 {
-    if (InputClassK1() != K1_CLASS_PCGUI) {
-        return 0;                       // gameplay keeps every button as it is
+    // Gameplay keeps every button as it is. Pazaak's table is asked about in the
+    // mini-game class as well: which of the two classes it runs in has not been
+    // measured (docs/controller-behaviour-matrix.md), and its remap names its panel.
+    const int inputClass = InputClassK1();
+    if (inputClass != K1_CLASS_PCGUI && inputClass != K1_CLASS_MINIGAME) {
+        return 0;
     }
     for (int i = 0; i < K1_BUTTON_REMAP_COUNT; ++i) {
         if (K1_BUTTON_REMAPS[i].slot != slot) {
+            continue;
+        }
+        if (inputClass != K1_CLASS_PCGUI && K1_BUTTON_REMAPS[i].panel != K1_PAZAAK_GAME_DISPATCHER) {
             continue;
         }
         if (K1_BUTTON_REMAPS[i].action != nullptr) {
@@ -5370,9 +5438,14 @@ extern "C" void __cdecl NativeGuiFrameK1(void* guiManager)
     if (g_stick.remapRequestedSlot != 0) {
         const int slot = g_stick.remapRequestedSlot;
         g_stick.remapRequestedSlot = 0;
-        if (InputClassK1() == K1_CLASS_PCGUI) {
+        const int inputClass = InputClassK1();
+        if (inputClass == K1_CLASS_PCGUI || inputClass == K1_CLASS_MINIGAME) {
             for (int i = 0; i < K1_BUTTON_REMAP_COUNT; ++i) {
                 if (K1_BUTTON_REMAPS[i].slot != slot) {
+                    continue;
+                }
+                // As RemappedButtonEventK1: outside the menus, Pazaak's alone.
+                if (inputClass != K1_CLASS_PCGUI && K1_BUTTON_REMAPS[i].panel != K1_PAZAAK_GAME_DISPATCHER) {
                     continue;
                 }
                 void* panel = nullptr;

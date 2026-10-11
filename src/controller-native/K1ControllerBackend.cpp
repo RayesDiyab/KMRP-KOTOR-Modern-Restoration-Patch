@@ -186,6 +186,34 @@ bool Activity(const XINPUT_GAMEPAD& g, const XINPUT_GAMEPAD& prev)
     return false;
 }
 
+// Nothing pressed and both sticks near the centre, by Activity's own thresholds.
+bool Idle(const XINPUT_GAMEPAD& g)
+{
+    if (g.wButtons || g.bLeftTrigger > 30 || g.bRightTrigger > 30) return false;
+    const SHORT axes[] = {g.sThumbLX,g.sThumbLY,g.sThumbRX,g.sThumbRY};
+    for (SHORT axis : axes)
+        if (std::abs(static_cast<int>(axis)) > 8000) return false;
+    return true;
+}
+
+// One pad can be here twice: as an XInput pad and, through SDL, as the device
+// behind it. A translator that leaves the real pad visible does that (PadForge,
+// DS4Windows, reWASD), and so can Steam Input. Until 2026-10-11 whichever of the
+// two showed new activity became the pad read, at once, and every change blanks
+// the input for a frame, restarts rumble and changes the button pictures. Measured
+// that day with PadForge presenting an Xbox pad as a Steam Controller: 77 changes
+// of family in 202 seconds of play, walking in stutters, against none in two
+// sessions with the Xbox pad alone (kmrp-native-joystick.log, gly=).
+//
+// So another pad takes over only when the one being read has been at rest, and
+// stays at rest for kTakeOverMs after the other moved: the second view of the same
+// pad moves with the first and never qualifies, and a pad really picked up instead
+// waits that long, once.
+constexpr DWORD kTakeOverMs = 80;
+int pending = -1;
+DWORD pendingTick = 0;
+DWORD heldTick = 0;
+
 bool Rumble(int index, WORD low, WORD high)
 {
     if (index < 0 || !devices[index].connected) return false;
@@ -282,6 +310,8 @@ bool ReadControllerK1(XINPUT_STATE& state)
         }
     }
     int chosen = active;
+    int other = -1;
+    bool activeMoved = false;
     for (int i=0; i<20; ++i) {
         Device& d = devices[i];
         if (i < 4) {
@@ -296,12 +326,35 @@ bool ReadControllerK1(XINPUT_STATE& state)
                 d.previous = {};
             }
         }
-        if (focused && d.connected && Activity(d.state.Gamepad, d.previous)) chosen = i;
+        if (focused && d.connected && Activity(d.state.Gamepad, d.previous)) {
+            if (i == active) activeMoved = true;
+            else other = i;
+        }
         d.previous = d.connected ? d.state.Gamepad : XINPUT_GAMEPAD{};
     }
+    const bool activeHeld = active >= 0 && devices[active].connected &&
+        (activeMoved || !Idle(devices[active].state.Gamepad));
+    if (activeHeld && focused) heldTick = now ? now : 1;
+    if (active < 0 || !devices[active].connected) {
+        // Nothing is being read: the pad that moved, else the first one there.
+        pending = -1;
+        chosen = other;
+    } else if (activeHeld) {
+        pending = -1;                   // the same pad seen a second time, or a second pad waiting
+    } else if (other >= 0 && pending != other) {
+        pending = other;
+        pendingTick = now;
+    }
+    if (pending >= 0) {
+        if (!devices[pending].connected) pending = -1;
+        else if (now - pendingTick >= kTakeOverMs) { chosen = pending; pending = -1; }
+    }
     if (chosen < 0 || !devices[chosen].connected) {
+        // SDL's before XInput's: where one pad is here both ways, SDL's is the
+        // device itself and names it, and XInput's is the copy.
         chosen = -1;
-        for (int i=0; i<20; ++i) if (devices[i].connected) { chosen=i; break; }
+        for (int i=4; i<20; ++i) if (devices[i].connected) { chosen=i; break; }
+        for (int i=0; i<4 && chosen<0; ++i) if (devices[i].connected) chosen=i;
     }
     if (chosen != active) {
         Rumble(active, 0, 0);
@@ -322,6 +375,19 @@ bool ReadControllerK1(XINPUT_STATE& state)
 }
 
 int ControllerXInputSlotK1() { return active >= 0 && active < 4 ? active : -1; }
+// The pad being read had something pressed or a stick away from the centre, with
+// the game in front, within the last second and a half.
+bool ControllerHeldRecentlyK1() { return heldTick != 0 && GetTickCount() - heldTick < 1500; }
+// A Steam Controller or Steam Deck is among SDL's pads and the pad read is being
+// held right now (300 ms). Those pads also type and move the pointer by themselves
+// ("lizard mode") unless something turns that off; see KmrpNoteKeyboardK1.
+bool ControllerTypesByItselfK1()
+{
+    if (!sdlReady || heldTick == 0 || GetTickCount() - heldTick >= 300) return false;
+    for (int i=4; i<20; ++i)
+        if (devices[i].connected && devices[i].pad && pSDL_GetGamepadVendor(devices[i].pad) == 0x28de) return true;
+    return false;
+}
 unsigned long ControllerGenerationK1() { return generation; }
 int ControllerSdlFamilyK1()
 {
