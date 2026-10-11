@@ -700,9 +700,13 @@ void MarkKeyboardMouseInputK1()
 // PollXInputK1 -- the only other place that raises this flag -- runs solely from
 // the legacy DispatchMenuInputK1 hook, so without this the flag was never set in
 // native mode and the prompts stayed hidden forever.
+void ControllerLogK1(const char* text);     // K1NativeJoystick.cpp, the debug log
+
 extern "C" void __cdecl KmrpMarkControllerActiveK1()
 {
-    InterlockedExchange(&g_controllerInputActive, 1);
+    if (InterlockedExchange(&g_controllerInputActive, 1) == 0) {
+        ControllerLogK1("the game goes to the pad");
+    }
     InterlockedExchange(&g_inputDeviceChosen, 1);
 }
 

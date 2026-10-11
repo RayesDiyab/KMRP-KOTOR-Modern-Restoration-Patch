@@ -8,6 +8,8 @@
 
 bool ControllerHeldRecentlyK1();    // K1ControllerBackend.cpp
 bool ControllerTypesByItselfK1();
+void ControllerLogK1(const char* text);     // K1NativeJoystick.cpp, the debug log
+extern "C" void __cdecl KmrpLogPanelsK1(const char* what);
 
 // K1NativeJoystick.cpp: the fourth letter of the detected controller family's
 // texture resrefs ('p' Xbox, 's' PlayStation, 'n' Switch, 'd' Steam Deck).
@@ -4888,8 +4890,23 @@ extern "C" void __cdecl KmrpNoteKeyboardK1(void* record, int inputDevice)
         // the keyboard being used. Only with one of Valve's pads among SDL's, and
         // only while the pad is held: a keyboard beside any other pad is as it was.
         if (ControllerTypesByItselfK1()) {
+            // For the debug log: the first ten, then every two-hundredth.
+            static unsigned long dropped = 0;
+            if (++dropped <= 10 || dropped % 200 == 0) {
+                char line[96];
+                wsprintfA(line, "key %02X dropped: a Steam pad is held (%lu so far)", input->offset & 0xFF, dropped);
+                ControllerLogK1(line);
+            }
             input->value = 0;
             return;
+        }
+        if (IsControllerInputActiveK1()) {
+            char line[96];
+            wsprintfA(line, "the game goes to keyboard and mouse (key %02X)", input->offset & 0xFF);
+            ControllerLogK1(line);
+        }
+        if ((input->offset & 0xFF) == 0x01) {
+            KmrpLogPanelsK1("Escape pressed");
         }
         MarkKeyboardMouseInputK1();
     }
@@ -4952,6 +4969,9 @@ extern "C" void __cdecl KmrpUpdateCursorK1()
 extern "C" void __cdecl KmrpNoteMouseK1(int mouseX, int mouseY)
 {
     if (MouseIsBeingUsedK1(mouseX, mouseY)) {
+        if (IsControllerInputActiveK1()) {
+            ControllerLogK1("the game goes to keyboard and mouse (the pointer moved)");
+        }
         MarkKeyboardMouseInputK1();
     }
 }

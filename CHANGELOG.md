@@ -155,6 +155,25 @@ proxy, and it applies the executable changes above as well.
   - **First run on SteamOS (2026-10-11, Proton 11.0-100, the build above): the game
     starts.** The `Cabinet.dll.40` abort did not come back in 28 logged launches.
 
+- **Controller: a log of events for a player's report** (2026-10-12; tenth test build,
+  `dist\KMRP-Windows-1.5.0-proton-test10.exe`). `kmrp-native-joystick.log` is the
+  counters twice a second, which could not show the faults found on 2026-10-11 until
+  they were counted by hand, nor a fault that lasts a frame (the log a reporter sent for
+  issue 32 showed nothing wrong). With `debug-logs` on the controller module now also
+  writes `kmrp-controller-events.log` beside the game (`ControllerLogK1`,
+  `K1NativeJoystick.cpp`): every pad there is with its USB ids, SDL's type and name, and
+  the one read, whenever either changes, with the reason; each change between the pad
+  and keyboard and mouse, with the key or the pointer that did it; the keys dropped
+  while a Steam pad is held; the screens the game has up when Start asks for the Map or
+  Escape is pressed. `debug-logs=2`, written into `configs\kmrp-controller.ini` by hand
+  (the installer's switch writes 1), adds the pad read each time anything on it changes
+  and what the game's movement was given. A file of its own, because the controller
+  tests read the other by its last line. Written and read in the scratch game through
+  three sessions with PadForge. In one of them Start, Back and Escape opened nothing for
+  the last 30 seconds, after a match of Pazaak, while the log showed the module passing
+  all three on; the screen listing was added for that, and the next two sessions, one
+  with a match, did not show it again. **Unexplained.**
+
 - **A font from Override is drawn at the size of KMRP's own** (2026-10-11, issue 34;
   eighth test build, `dist\KMRP-Windows-1.5.0-proton-test8.exe`). With Override first, a
   translation's fonts replace KMRP's whole, texture and metrics, and they are made for

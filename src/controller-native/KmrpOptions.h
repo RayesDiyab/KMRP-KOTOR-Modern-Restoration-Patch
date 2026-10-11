@@ -43,3 +43,11 @@ inline bool KmrpDebugLogs()
     static const bool on = KmrpPatchOption(L"debug-logs", 0) != 0;
     return on;
 }
+// The option's number: 1 is what the installer's switch writes. 2, written by hand,
+// adds the controller's frame-by-frame lines to kmrp-controller-events.log
+// (ControllerLogK1, K1NativeJoystick.cpp).
+inline int KmrpDebugLevel()
+{
+    static const int level = KmrpPatchOption(L"debug-logs", 0);
+    return level;
+}

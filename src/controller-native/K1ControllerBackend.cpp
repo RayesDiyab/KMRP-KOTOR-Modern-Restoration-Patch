@@ -1,4 +1,5 @@
 #include "K1ControllerBackend.h"
+#include "KmrpOptions.h"
 #include <SDL3/SDL.h>
 #if defined(KMRP_NATIVE_RUNTIME) || defined(KMRP_CONTROLLER_STANDALONE)
 #include "K1RuntimeAssets.h"
@@ -14,7 +15,7 @@ namespace {
     X(SDL_SetJoystickEventsEnabled) X(SDL_UpdateGamepads) X(SDL_GetGamepads) \
     X(SDL_OpenGamepad) X(SDL_CloseGamepad) X(SDL_GamepadConnected) \
     X(SDL_GetGamepadAxis) X(SDL_GetGamepadButton) X(SDL_GetGamepadType) \
-    X(SDL_GetGamepadVendor) X(SDL_RumbleGamepad) X(SDL_free)
+    X(SDL_GetGamepadVendor) X(SDL_GetGamepadProduct) X(SDL_GetGamepadName)     X(SDL_RumbleGamepad) X(SDL_free)
 #define DECLARE(name) decltype(&name) p##name = nullptr;
 SDL_FUNCTIONS(DECLARE)
 #undef DECLARE
@@ -214,6 +215,28 @@ int pending = -1;
 DWORD pendingTick = 0;
 DWORD heldTick = 0;
 
+// For the debug log: every pad there is and which one is read, written whenever
+// either changes. An XInput pad is "x" and its slot; one of SDL's is "s", its place,
+// its USB vendor and product, SDL's type for it and the name SDL gives it.
+void ReportPads(const char* why)
+{
+    if (!KmrpDebugLogs()) return;
+    char line[512];
+    int at = wsprintfA(line, "pads, %s: reading %d;", why, active);
+    for (int i=0; i<20 && at < 400; ++i) {
+        const Device& d = devices[i];
+        if (!d.connected) continue;
+        if (i < 4) { at += wsprintfA(line + at, " x%d", i); continue; }
+        const char* name = d.pad ? pSDL_GetGamepadName(d.pad) : nullptr;
+        char shortName[32] = {};
+        if (name) strncpy_s(shortName, name, _TRUNCATE);
+        at += wsprintfA(line + at, " s%d=%04X:%04X type %d \"%s\"", i,
+                        d.pad ? pSDL_GetGamepadVendor(d.pad) : 0, d.pad ? pSDL_GetGamepadProduct(d.pad) : 0,
+                        d.pad ? static_cast<int>(pSDL_GetGamepadType(d.pad)) : 0, shortName);
+    }
+    ControllerLogK1(line);
+}
+
 bool Rumble(int index, WORD low, WORD high)
 {
     if (index < 0 || !devices[index].connected) return false;
@@ -345,9 +368,15 @@ bool ReadControllerK1(XINPUT_STATE& state)
         pending = other;
         pendingTick = now;
     }
+    const char* why = "pads came or went";
+    if (active < 0) why = "the first pad";
+    else if (!devices[active].connected) why = "the pad read went away";
     if (pending >= 0) {
         if (!devices[pending].connected) pending = -1;
-        else if (now - pendingTick >= kTakeOverMs) { chosen = pending; pending = -1; }
+        else if (now - pendingTick >= kTakeOverMs) {
+            chosen = pending; pending = -1;
+            why = "another pad moved while this one was at rest";
+        }
     }
     if (chosen < 0 || !devices[chosen].connected) {
         // SDL's before XInput's: where one pad is here both ways, SDL's is the
@@ -356,9 +385,18 @@ bool ReadControllerK1(XINPUT_STATE& state)
         for (int i=4; i<20; ++i) if (devices[i].connected) { chosen=i; break; }
         for (int i=0; i<4 && chosen<0; ++i) if (devices[i].connected) chosen=i;
     }
+    // The pads there are, as one number, so a change of any of them is reported once.
+    unsigned present = 0;
+    for (int i=0; i<20; ++i) if (devices[i].connected) present |= 1u << i;
+    static unsigned reported = 0;
+    static int reportedActive = -2;
+    const bool changed = present != reported || chosen != reportedActive;
+    reported = present;
+    reportedActive = chosen;
     if (chosen != active) {
         Rumble(active, 0, 0);
         active = chosen;
+        ReportPads(why);
         motors = 0;
         motorAccepted = true;
         ++generation;
@@ -366,9 +404,22 @@ bool ReadControllerK1(XINPUT_STATE& state)
         state = {};
         return active >= 0;
     }
+    if (changed) ReportPads(why);
     if (!focused && motors) {
         Rumble(active, 0, 0);
         motors = 0;
+    }
+    // debug-logs=2: the pad read, each time anything on it changes.
+    if (KmrpDebugLevel() >= 2 && active >= 0 && focused) {
+        static XINPUT_GAMEPAD last{};
+        const XINPUT_GAMEPAD& g = devices[active].state.Gamepad;
+        if (std::memcmp(&g, &last, sizeof g) != 0) {
+            last = g;
+            char line[160];
+            wsprintfA(line, "pad %d L=%d,%d R=%d,%d buttons=%04X triggers=%d,%d", active, g.sThumbLX, g.sThumbLY,
+                      g.sThumbRX, g.sThumbRY, g.wButtons, g.bLeftTrigger, g.bRightTrigger);
+            ControllerLogK1(line);
+        }
     }
     state = focused && active >= 0 ? devices[active].state : XINPUT_STATE{};
     return active >= 0;

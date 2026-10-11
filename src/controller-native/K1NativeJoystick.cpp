@@ -1260,6 +1260,9 @@ int RemappedButtonEventK1(int slot);
 void PerformPendingFreeLookExitK1();
 void PerformPendingPartySwitchK1();
 void PerformPendingMapOpenK1();
+extern "C" void __cdecl KmrpLogPanelsK1(const char* what);
+void* PanelAtK1(int index);
+int PanelCountK1();
 void* TabBarPanelK1();
 void InstallGuiCuesK1(void* panel);
 bool PressHudButtonK1(void* mainInterface, std::size_t member, std::uintptr_t handler);
@@ -5583,6 +5586,31 @@ void PerformPendingMapOpenK1()
     }
     EngineFn<HandleInputEventFn>(K1_HANDLE_INPUT_EVENT)(internal, K1_EVENT_MENU_MAP, 1);
     ++g_stick.mapOpens;
+    KmrpLogPanelsK1("Start asked the game for the Map");
+}
+
+// For the debug log: the screens the game has up, front last, each by its
+// dispatcher (which names its class) and its flags, with the input class. Written
+// when Start asks for the Map and when Escape is pressed: the game refuses both
+// with a screen it counts as open, seen 2026-10-12 after a match of Pazaak (seven
+// presses of Start and two of Escape in the world, and no menu).
+extern "C" void __cdecl KmrpLogPanelsK1(const char* what)
+{
+    if (!KmrpDebugLogs()) {
+        return;
+    }
+    char line[560];
+    int at = wsprintfA(line, "%s; class %d; %d screens:", what ? what : "screens", InputClassK1(), PanelCountK1());
+    const int count = PanelCountK1();
+    for (int i = count > 12 ? count - 12 : 0; i < count && at < 480; ++i) {
+        void* const panel = PanelAtK1(i);
+        if (!panel) {
+            continue;
+        }
+        at += wsprintfA(line + at, " %08lX/%lX", static_cast<unsigned long>(DispatcherOfK1(panel)),
+                        static_cast<unsigned long>(*FieldAt<std::uint32_t>(panel, K1_PANEL_FLAGS)));
+    }
+    ControllerLogK1(line);
 }
 
 // R3 on a screen that is about a party member: show the next one.
@@ -5828,10 +5856,57 @@ bool NativeAnalogDrivingK1()
     return g_stick.analogMagnitude > 0.0f;
 }
 
+// The controller's events, for a report from a player: one line each, with the
+// tick, into kmrp-controller-events.log beside the game, when debug-logs is on.
+// A file of its own: kmrp-native-joystick.log is the counters line twice a second,
+// which the controller tests read by its last line.
+//
+//   pads, <why>: reading N; x0 s4=28DE:1302 type 1 "Steam Controller"
+//                      every pad there is and the one read, whenever either changes
+//   the game goes to the pad / to keyboard and mouse (<what did it>)
+//   key XX dropped: a Steam pad is held
+//
+// and with debug-logs=2, written into configs\kmrp-controller.ini by hand, the pad
+// read each time anything on it changes ("pad N L=x,y R=x,y buttons=.. triggers=..")
+// and what the game's movement was given ("move ud=.. lr=.. class N", thousandths).
+// Two samples a second could not show a fault that lasts a frame (issue 32).
+void ControllerLogK1(const char* text)
+{
+    if (!KmrpDebugLogs() || !text) {
+        return;
+    }
+    char line[640];
+    char bounded[600];
+    lstrcpynA(bounded, text, sizeof(bounded));
+    const int length = wsprintfA(line, "%lu %s\r\n", GetTickCount(), bounded);
+    HANDLE file = CreateFileA("kmrp-controller-events.log", FILE_APPEND_DATA, FILE_SHARE_READ, nullptr,
+                              OPEN_ALWAYS, FILE_ATTRIBUTE_NORMAL, nullptr);
+    if (file == INVALID_HANDLE_VALUE) {
+        return;
+    }
+    DWORD done = 0;
+    WriteFile(file, line, static_cast<DWORD>(length), &done, nullptr);
+    CloseHandle(file);
+}
+
 extern "C" void __cdecl NativeJoystickMovementK1(void* playerControl)
 {
     if (!playerControl) {
         return;
+    }
+    if (KmrpDebugLevel() >= 2) {
+        // What ProcessInput has put into the two movement fields by now, keyboard
+        // and stick together, whenever it changes by a fiftieth.
+        static int lastUd = 0, lastLr = 0;
+        const int ud = static_cast<int>(*FloatAt(playerControl, 0x10) * 1000.0f);
+        const int lr = static_cast<int>(*FloatAt(playerControl, 0x14) * 1000.0f);
+        if (ud - lastUd > 20 || lastUd - ud > 20 || lr - lastLr > 20 || lastLr - lr > 20) {
+            lastUd = ud;
+            lastLr = lr;
+            char line[96];
+            wsprintfA(line, "move ud=%d lr=%d class %d", ud, lr, InputClassK1());
+            ControllerLogK1(line);
+        }
     }
     g_stick.lastMovementTick = GetTickCount();
     g_stick.playerControl = playerControl;
