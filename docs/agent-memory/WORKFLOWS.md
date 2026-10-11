@@ -70,7 +70,9 @@ already built (`build\native-runtime\bank-helper\kmrp-guiblend.exe` after one bu
 `--every-object` writes the old full bank, `--lzms` an LZMS one (smaller, slower at
 every start; off). After a build also run
 `python testing/regression/Test-NativeAssetsBank.py` (`--all` for every set, about ten
-minutes). To time or compare a module without a whole build: replace
+minutes) and `python testing/regression/Test-Xpress.py` (the modules' own decoder,
+`K1Xpress.cpp`, against both banks; since 2026-10-11 the modules do not use the
+Compression API, which Wine lacks). To time or compare a module without a whole build: replace
 `patches\kmrp.dll` in a scratch install, set `debug-logs=1` in `configs\kmrp.ini`,
 start the game and read the "interface files" line in `kmrp-kpm.log`; the files are in
 the newest `%TEMP%\KMR*.tmp`. Only one copy of the game runs at a time: a second one

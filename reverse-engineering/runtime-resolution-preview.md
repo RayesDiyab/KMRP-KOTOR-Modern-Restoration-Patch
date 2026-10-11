@@ -520,6 +520,20 @@ every start, and LZMS decoded them in 2.57 s where XPRESS took 0.64 s. Building 
 LZMS bank takes about four minutes instead of one. The shipped bank stays XPRESS
 until the maintainer decides otherwise.
 
+**Override priority, 2026-10-11.** The table above records that KMRP's directory wins
+over Override. Why, read from the executable: `CExoResMan::AddKeyTable` (`0x00406E20`)
+links each new directory at the head of its list (`0x005E9D70`), and the module
+registers its directory after the game registered Override. The maintainer decided
+that day that Override must win. The order is left alone; the module removes from its
+directory each file Override also has (`YieldToOverride`), which also settles a `.tga`
+against a `.tpc`. Not yet run in a game.
+
+**Correction, 2026-10-11: the module no longer reads the LZMS bank.** Both figures
+above were measured with Windows' own decoder (the Compression API in `cabinet.dll`),
+which Wine and Proton do not have, so 1.5.0 did not start there (issue 30). The module
+now decodes XPRESS with Huffman itself (`src/controller-native/K1Xpress.cpp`) and
+refuses `KNASL002`. LZMS would need a decoder of its own.
+
 **Not run:** fullscreen, a size change inside the game (the folder is reused and the
 ownership check runs), the GOG and Steam executables, a PC other than this one, and
 the Mac, whose packaging does not use this bank.

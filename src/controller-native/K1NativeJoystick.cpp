@@ -929,6 +929,41 @@ bool DescriptionPresentK1(void* input, int eventId)
     return table[eventId] != nullptr;
 }
 
+// g_stick.input while it is still the engine's input object, with this module's
+// events on it; null otherwise.
+//
+// g_stick.input is what the GetEvents hook last saw, and the engine can destroy
+// that object before the hook runs again. A change of resolution does (the
+// CExoInput at 0x007A39E4 is deleted and the global zeroed at 0x00604344, then a
+// new one is made), from the Options screen's OK, which is after GetEvents in the
+// frame; with a save loaded the movement hook then ran in that same frame and
+// wrote the device count into the freed object, read a raw-input pointer out of it
+// and polled it. Measured on SteamOS under Proton 11 on 2026-10-11, in this
+// module's build 8659381A: a read of 0x00200753 in EnsureDeviceCountK1 at
+// module+0x5556 (the "pointer" was 0x00200723, whatever the heap had put there),
+// and three times a null read at 0x005E0DFB under PollInput, called from
+// module+0x9968. The engine's global is the object's owner, so it is asked each
+// time; the address alone is not enough, for the reason given above
+// DescriptionPresentK1.
+constexpr std::uintptr_t K1_EXO_INPUT          = 0x007A39E4;  // CExoInput*, null while there is none
+constexpr std::size_t    K1_EXO_INPUT_INTERNAL = 0x04;        // CExoInputInternal*, as 0x005DF6B9 reads it
+
+void* LiveStickInputK1()
+{
+    if (!g_stick.input) {
+        return nullptr;
+    }
+    const std::uintptr_t exo = *reinterpret_cast<const std::uintptr_t*>(K1_EXO_INPUT);
+    if (exo < 0x00010000u || exo >= 0x7FFF0000u) {
+        return nullptr;
+    }
+    void* const live = *reinterpret_cast<void**>(exo + K1_EXO_INPUT_INTERNAL);
+    if (live != g_stick.input || !DescriptionPresentK1(live, K1_EVENT_JOY_X)) {
+        return nullptr;
+    }
+    return live;
+}
+
 void EnsureNativeJoystickK1(void* exoInputInternal)
 {
     if (!exoInputInternal) {
@@ -1724,7 +1759,8 @@ void FillNativeJoystickBufferK1(int deviceIndex, void* outBuffer)
 
 bool ReadNativeStickK1(float& x, float& y)
 {
-    if (!g_stick.registered || !g_stick.input) {
+    void* const input = LiveStickInputK1();
+    if (!g_stick.registered || !input) {
         return false;
     }
 
@@ -1733,12 +1769,12 @@ bool ReadNativeStickK1(float& x, float& y)
     // matching are not all working, this returns zero and the keyboard keeps
     // control, instead of movement silently bypassing the pipeline under test.
     auto poll = EngineFn<PollInputFn>(K1_POLL_INPUT);
-    const float rawX = poll(g_stick.input, K1_EVENT_JOY_X, K1_CLASS_PC);
-    const float rawY = poll(g_stick.input, K1_EVENT_JOY_Y, K1_CLASS_PC);
+    const float rawX = poll(input, K1_EVENT_JOY_X, K1_CLASS_PC);
+    const float rawY = poll(input, K1_EVENT_JOY_Y, K1_CLASS_PC);
     g_stick.lastPollX = rawX;
     g_stick.lastPollY = rawY;
     for (int cls = 0; cls < 6; ++cls) {
-        g_stick.pollByClass[cls] = poll(g_stick.input, K1_EVENT_JOY_X, cls);
+        g_stick.pollByClass[cls] = poll(input, K1_EVENT_JOY_X, cls);
     }
 
     // Treat the stick as one vector. Deadzoning each axis separately makes a
@@ -5650,7 +5686,11 @@ void PerformPendingInteractionK1()
 // real DirectInput joystick would have its own block and must keep it.
 void EnsurePadStateK1()
 {
-    void* const raw = *FieldAt<void*>(g_stick.input, K1_INPUT_RAW_INPUT);
+    void* const input = LiveStickInputK1();
+    if (!input) {
+        return;
+    }
+    void* const raw = *FieldAt<void*>(input, K1_INPUT_RAW_INPUT);
     if (!LooksLikePointerK1(raw)) {
         return;
     }
@@ -5670,10 +5710,11 @@ void EnsurePadStateK1()
 
 void EnsureDeviceCountK1()
 {
-    if (!g_stick.input) {
-        return;
+    void* const input = LiveStickInputK1();
+    if (!input) {
+        return;                     // none, or not this module's yet: GetEvents registers first
     }
-    std::int32_t* const count = IntAt(g_stick.input, K1_INPUT_DEVICE_COUNT);
+    std::int32_t* const count = IntAt(input, K1_INPUT_DEVICE_COUNT);
     if (*count < K1_DEVICE_JOYSTICK + 1) {
         *count = K1_DEVICE_JOYSTICK + 1;
         ++g_stick.deviceCountRestored;
@@ -5837,9 +5878,13 @@ extern "C" void __cdecl NativeJoystickDumpK1()
     // The engine's live device count, read back rather than assumed: if the
     // count did not take, the poll loop never calls the buffer hook and nothing
     // downstream can work.
+    // Through LiveStickInputK1, like the two polls below: this runs from the
+    // movement hook too, where g_stick.input can be an object the engine has
+    // already destroyed (the null read at 0x005E0DFB, from module+0x9968).
+    void* const liveInput = LiveStickInputK1();
     long liveCount = -1;
-    if (g_stick.input) {
-        liveCount = *IntAt(g_stick.input, K1_INPUT_DEVICE_COUNT);
+    if (liveInput) {
+        liveCount = *IntAt(liveInput, K1_INPUT_DEVICE_COUNT);
     }
 
     // 2048, not 512, and the size is load-bearing.
@@ -5907,10 +5952,10 @@ extern "C" void __cdecl NativeJoystickDumpK1()
         static_cast<long>(g_stick.pollByClass[4]), static_cast<long>(g_stick.pollByClass[5]),
         // The engine's OWN analog joystick events, and what the movement code
         // did with them. ev7/ev8 are vanilla descriptions on DIJOFS_Y / DIJOFS_X.
-        static_cast<long>(g_stick.input
-            ? EngineFn<PollInputFn>(K1_POLL_INPUT)(g_stick.input, 7, K1_CLASS_PC) : 0.0f),
-        static_cast<long>(g_stick.input
-            ? EngineFn<PollInputFn>(K1_POLL_INPUT)(g_stick.input, 8, K1_CLASS_PC) : 0.0f),
+        static_cast<long>(liveInput
+            ? EngineFn<PollInputFn>(K1_POLL_INPUT)(liveInput, 7, K1_CLASS_PC) : 0.0f),
+        static_cast<long>(liveInput
+            ? EngineFn<PollInputFn>(K1_POLL_INPUT)(liveInput, 8, K1_CLASS_PC) : 0.0f),
         static_cast<long>(g_stick.playerControl ? *FloatAt(g_stick.playerControl, 0x10) * 1000.0f : 0.0f),
         static_cast<long>(g_stick.playerControl ? *FloatAt(g_stick.playerControl, 0x14) * 1000.0f : 0.0f),
         static_cast<long>(g_stick.playerControl ? *FloatAt(g_stick.playerControl, 0x5C) * 1000.0f : 0.0f),

@@ -116,6 +116,82 @@ proxy, and it applies the executable changes above as well.
 
 ## [Unreleased]
 
+- **Linux and Proton: the game starts again, the installer finds it, and Restore Original
+  no longer stops at the high-DPI record** (2026-10-11; issues 30, 31 and 36). Built as
+  `dist\KMRP-Windows-1.5.0-proton-test.exe` for the maintainer's SteamOS test. **Not yet
+  run under Wine or Proton:** everything below was checked on Windows only.
+  - **The modules decode their own banks.** KMRP 1.5.0's two modules unpacked their
+    embedded files with the Windows Compression API (`CreateDecompressor`, `Decompress`:
+    `cabinet.dll` ordinals 40 and 43). Wine has no such exports up to 11.0, nor do Valve's
+    `proton_9.0` and `proton_10.0` branches (their `cabinet.spec` read 2026-10-10), so the
+    game ended at startup with `unimplemented function Cabinet.dll.40`; Wine's later
+    exports are stubs that decode nothing. `src/controller-native/K1Xpress.cpp` now decodes
+    the same streams (the API's 24-byte container, 64 MB chunks, XPRESS with Huffman as
+    [MS-XCA] describes it), and neither module links `cabinet.lib`. The banks and their
+    builders are unchanged, and the builders still use the API, on Windows. Checked by
+    `testing/regression/Test-Xpress.py`: all 3,866 objects of KMRP's bank and all 1,014 of
+    the controller patch's decode to their SHA-256, as do 14 streams made with the API
+    (among them one above a chunk and blocks at the 65,536-byte table boundary), and about
+    189,000 cut or altered streams neither crash it nor are accepted when cut. In the
+    scratch install at 3440x1440 the interface files took 9.9 s, as with 1.5.0's module
+    (9.9 s on 2026-10-09).
+  - **The LZMS bank is refused.** `tools/build_native_assets.py --lzms` still builds
+    `KNASL002`, but the module no longer reads it: it needed the same API. It was never
+    shipped.
+  - **The installer looks for Steam's game under Wine** (`GameFolders.Wine`,
+    `KmrpPatcher.cs`). There the registry is the prefix's, so the game was found only with
+    the installer in its folder. Under Wine alone (ntdll's `wine_get_version`) it now also
+    tries `STEAM_COMPAT_INSTALL_PATH`, `steamapps\common\swkotor` on each drive (Proton
+    maps the game's library to `S:`), and the libraries Linux's Steam lists under each home
+    folder, with their Linux paths read through `Z:`. Nothing of it runs on Windows.
+  - **Restore Original with the game at another path.** `DpiCompatibilityOperations.Restore`
+    threw "The Windows high-DPI manifest belongs to a different executable path" when the
+    path differed from the one recorded at install: the same folder through another Wine
+    drive, or a game folder moved on Windows. That came after the patches were removed and
+    before `swkotor.ini` was put back. It now restores the setting under the recorded path
+    when the game is no longer there or is this same folder, and leaves the setting alone,
+    with a line in the log, when another copy of the game is still at that path.
+    `Test-DpiCompatibility.ps1` passes; it has no case for a moved folder yet.
+  - **First run on SteamOS (2026-10-11, Proton 11.0-100, the build above): the game
+    starts.** The `Cabinet.dll.40` abort did not come back in 28 logged launches.
+
+- **Controller: the game no longer uses a destroyed input object after a change of
+  resolution** (2026-10-11, second test build, `dist\KMRP-Windows-1.5.0-proton-test2.exe`).
+  Found on SteamOS: with a save loaded, the second or third change of resolution in a
+  session ended the game, four sessions of four, with a null read at `0x005E0DFB` or a
+  wild read inside the controller module. The change destroys the game's input object
+  after the module's `GetEvents` hook has run for the frame, and the movement hook then
+  wrote to and polled the old one (`g_stick.input`). `LiveStickInputK1`
+  (`K1NativeJoystick.cpp`) now asks the engine's own global each time. Measurements and
+  what is not verified: `docs/controller-native-path.md`, "The same crash from a change
+  of resolution". **Not yet run under Proton, and not reproduced on Windows.**
+
+- **The player's Override comes before KMRP's files** (2026-10-11, the maintainer's
+  decision after a player's own Override files had no effect; third test build,
+  `dist\KMRP-Windows-1.5.0-proton-test3.exe`). Since 2026-10-04 the game read KMRP's
+  unpacked files ahead of `Override`, so a layout, texture or font put there was ignored
+  whenever KMRP had one of the same name. The module now takes out of its own folder
+  every file the player has in `Override` before the game is shown the folder
+  (`YieldToOverride`, `K1RuntimeAssets.cpp`): a file of the same name, and for a texture
+  KMRP's `.tga`, `.tpc` and `.txi` of that name whichever of the two formats Override
+  holds. `kmrp-kpm.log` says how many were left out. Consequences: an interface mod's
+  `.gui` in Override now replaces KMRP's scaled layout for that screen, at whatever size
+  it was made for, and a font from Override is drawn with its own or the game's metrics.
+  The controller patch's own files are unchanged and still come first. Run once, on
+  Windows, 2026-10-11: a scratch copy of the game with this build and then K1 Community
+  Patch 1.10.0 (561 Override files, installed with PyKotor's installer), 3440x1440; the
+  log read "18 of KMRP's interface files left out", and the maintainer played to Trask in
+  the party without the black screen of issue 35. Which of the 18 are which was not
+  listed, and no layout or font from Override has been looked at.
+
+- **Controller beside KMRP: the folder of unpacked files is removed again** (2026-10-11,
+  same build). Every start of the game with both patches left 177 MB in `%TEMP%`: a
+  stale folder was known by `kmrplayout.gui`, which the module itself deletes beside
+  KMRP. 83 folders and 15 GB had gathered on the maintainer's PC. The marker is now
+  `kmrp-sdl3.dll`, so the first start of this build also removes the old folders. See
+  `docs/controller-standalone.md`. Run on that PC the same day: after one start one
+  folder was left, the running game's, and the drive had 15 GB more free.
+
 - **Documents: the Mac version works on Intel and on Apple Silicon Macs** (2026-10-09, the
   maintainer's report: both tried). `README.md`, `docs/features.md` and the press kit's
   macOS card said "Intel Macs untested" and now say both were tested. `macos/README.md`

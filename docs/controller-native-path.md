@@ -892,6 +892,30 @@ says. Registration is idempotent to match: `CreateNewEvent` returning 0 is only
 a failure when the description is genuinely absent, because it also returns 0
 for one that already exists.
 
+**The same crash from a change of resolution (2026-10-11).** That fix made the
+`GetEvents` hook notice a new object, and left the pointer cached between two runs of
+the hook. A change of resolution in the game destroys the object too (`0x00604344`
+deletes the `CExoInput` at `0x007A39E4` and zeroes the global), from the Options
+screen's OK, which the frame reaches after `GetEvents`. With a save loaded the
+movement hook then ran later in the same frame with the old pointer. Measured on
+SteamOS 3.8 under Proton 11.0-100, Steam executable, the controller module's build
+`8659381A`, four sessions, each dying on the second or third switch between 1280x800
+and 3440x1440:
+
+| Fault | Where in the module | What it was doing |
+| --- | --- | --- |
+| null read at `0x005E0DFB`, three times | called from module `+0x9968`, in `NativeJoystickDumpK1` | polling events 7 and 8 on the destroyed object |
+| read of `0x00200753` at module `+0x5556`, once | `EnsureDeviceCountK1` (`EnsurePadStateK1` inlined) | `[input+0x140]` of the freed object held `0x00200723`, taken for the raw-input pointer |
+
+The offsets were resolved with that build's `.map`. `LiveStickInputK1` now gives the
+cached pointer only while `[[0x007A39E4]+4]` is still it and the module's description
+is on it, and the device count, the pad's state block, the stick read and the dump
+all go through it. **Not verified where it failed:** the fixed module was built and
+passed `Test-ControllerKpatch.py`, which starts no game; the crash was not reproduced
+on Windows, where the same use of freed memory is present and has not been seen to
+fault. The handoff also tied the crash to launches whose log says "after its window; 3
+other thread(s)"; that link is not explained by this and was not investigated.
+
 ### `add=[0 3 3 3 0 3]` is correct, and always was
 
 Classes 0 (ICPC) and 4 (ICFreeLook) return 0 from `AddEvent` for the two analog

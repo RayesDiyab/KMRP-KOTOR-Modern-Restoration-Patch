@@ -19,6 +19,12 @@ hide an installed copy because there is none. The game reads KMRP's files from t
 module's own folder ahead of `Override`; that has been measured for the main
 menu's layout only, and not under Mod Organizer's virtual file system.
 
+**Changed 2026-10-11: Override wins.** A file in `Override` now replaces KMRP's of
+the same name (for a texture, in either format, with its `.txi`): the module leaves
+its own copy out. So the order matters again in one way: a `.gui` from another
+interface mod in `Override` replaces KMRP's layout of that screen. Built that day and
+not yet run in a game; see `CHANGELOG.md`.
+
 ## Executable boundary
 
 KMRP accepts three builds of the PC 1.03 executable, two of them also with the

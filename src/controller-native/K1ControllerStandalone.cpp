@@ -18,8 +18,8 @@
 #include "K1RuntimeAssets.h"
 #include "KmrpOptions.h"
 #include "ControllerAssets.generated.h"
+#include "K1Xpress.h"
 #include <windows.h>
-#include <compressapi.h>
 #include <bcrypt.h>
 #include <array>
 #include <cstring>
@@ -37,8 +37,14 @@ bool registered = false;
 std::string directoryAlias;
 
 // One file, always present in a cache this module made: how a stale one is known.
-const char kMarker[] = "kmrplayout.gui";
-const wchar_t kMarkerW[] = L"kmrplayout.gui";
+// Until 2026-10-11 it was kmrplayout.gui, which LeaveLayoutsToKmrp deletes beside
+// KMRP: no cache made with both patches installed was ever recognised, and each
+// start of the game left its 177 MB behind (83 folders, 15 GB, on the maintainer's
+// PC that day; 5.5 GB in a Proton prefix after one afternoon). The controller
+// library is in every bank (tools/build_controller_assets.py, pack) and is never
+// taken out of the folder, so those older folders are recognised by it too.
+const char kMarker[] = "kmrp-sdl3.dll";
+const wchar_t kMarkerW[] = L"kmrp-sdl3.dll";
 const wchar_t kLockSuffix[] = L".lock";
 
 void Report(const char* text)
@@ -171,16 +177,13 @@ bool Unpack()
 {
     if (unpacked) return true;
     if (!ReadBank() || !MakeCache()) return false;
-    DECOMPRESSOR_HANDLE decompressor = nullptr;
-    if (!CreateDecompressor(COMPRESS_ALGORITHM_XPRESS_HUFF, nullptr, &decompressor)) return false;
     std::vector<unsigned char> output;
     bool ok = true;
     for (const File& file : files) {
         output.resize(file.size);
-        SIZE_T size = 0;
         Key measured;
-        if (!Decompress(decompressor, file.bytes, file.compressed, output.data(), output.size(), &size) ||
-            size != output.size() || !Sha(output.data(), file.size, measured) || measured != file.key) { ok = false; break; }
+        if (!KmrpXpressDecode(file.bytes, file.compressed, output.data(), output.size()) ||
+            !Sha(output.data(), file.size, measured) || measured != file.key) { ok = false; break; }
         const std::wstring path = cache + L"\\" + std::wstring(file.name.begin(), file.name.end());
         HANDLE handle = CreateFileW(path.c_str(), GENERIC_WRITE, 0, nullptr, CREATE_NEW, FILE_ATTRIBUTE_NORMAL, nullptr);
         if (handle == INVALID_HANDLE_VALUE) { ok = false; break; }
@@ -189,7 +192,6 @@ bool Unpack()
         CloseHandle(handle);
         if (!ok) break;
     }
-    CloseDecompressor(decompressor);
     unpacked = ok;
     return ok;
 }

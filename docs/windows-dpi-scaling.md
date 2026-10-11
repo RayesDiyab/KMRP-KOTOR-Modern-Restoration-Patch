@@ -122,6 +122,13 @@ DPI value belongs to a completed install, and Restore Original removes it
 through `KMRP_DPI.manifest`, as described above. An install that does throw
 rolls the value back in its `catch` (`DpiCompatibilityOperations.Rollback`).
 
+**The game at another path, since 2026-10-11.** The value is filed under the path
+the game had at install. Until then Restore Original stopped with "belongs to a
+different executable path" when the path differed (issue 36: one folder through two
+Wine drives; a folder moved on Windows). It now restores the value under the recorded
+path when no game is there any more or it is this same folder, and leaves the value
+alone when another copy of the game is still at that path.
+
 **A test fault.** A fixture's value is removed only by that fixture's own
 `--restore`, which the scripts reach only on the success path. A failed
 assertion, an exception or an interrupt deleted the work folder and left the

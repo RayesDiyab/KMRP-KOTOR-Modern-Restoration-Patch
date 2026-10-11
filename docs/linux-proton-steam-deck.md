@@ -37,6 +37,17 @@ released 1.5 installer itself under Proton, any distribution other than Ubuntu,
 and a Steam Deck, which is why the two are named separately wherever KMRP's
 platforms are listed.
 
+**Correction, 2026-10-11: released 1.5.0 does not start under Proton.** Its modules
+call Windows' Compression API (`cabinet.dll` ordinal 40, `CreateDecompressor`), which
+no Wine up to 11.0 and neither Valve's `proton_9.0` nor `proton_10.0` branch exports;
+the game ends with `unimplemented function Cabinet.dll.40` (issue 30: Nobara, CachyOS,
+and the maintainer's SteamOS 3.8.14 on 2026-10-11). That call has been in the source
+since 2026-10-03, so the report of 2026-10-08 above cannot have been of a build that
+contained it, and what it ran is unknown. A build that decodes the files itself,
+finds Steam's game from inside the prefix and no longer stops Restore Original at the
+high-DPI record was made on 2026-10-11 (`CHANGELOG.md`); **it has not been run under
+Proton yet.**
+
 **Correction, 2026-10-01:** this page previously said no Proton gameplay or
 native hook execution had been tested. The initial installer-only record was
 superseded by the launch, menu and gameplay checks below.

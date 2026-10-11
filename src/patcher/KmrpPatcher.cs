@@ -1499,8 +1499,26 @@ namespace Kmrp
                 return;
 
             DpiRecord record = ReadManifest(manifestPath);
+            // The setting is filed under the path the game had at install. Until
+            // 2026-10-10 any other path stopped the whole restore here, after the
+            // patches were removed and before swkotor.ini was put back (issue 36):
+            // under Wine one folder has several paths (S:\ and Z:\ under Proton), and
+            // on Windows a game folder moved after install has a new one. The record's
+            // path is used when the game is no longer there or is this same folder; a
+            // game still at that path in another folder is a different install, whose
+            // setting is left alone.
+            string valueName = executablePath;
             if (!String.Equals(record.ExecutablePath, executablePath, StringComparison.OrdinalIgnoreCase))
-                throw new InvalidDataException("The Windows high-DPI manifest belongs to a different executable path.");
+            {
+                if (File.Exists(record.ExecutablePath) && !SameFolder(record.ExecutablePath, executablePath))
+                {
+                    File.Delete(manifestPath);
+                    SafeReport(report, "Left the Windows high-DPI compatibility setting alone: it was recorded for " +
+                        "another copy of the game, " + record.ExecutablePath + ".");
+                    return;
+                }
+                valueName = record.ExecutablePath;
+            }
 
             bool restored = false;
             bool kept = false;
@@ -1508,7 +1526,7 @@ namespace Kmrp
             {
                 if (key == null)
                     throw new IOException("The Windows compatibility settings key could not be opened for restore.");
-                object raw = key.GetValue(executablePath, null, RegistryValueOptions.DoNotExpandEnvironmentNames);
+                object raw = key.GetValue(valueName, null, RegistryValueOptions.DoNotExpandEnvironmentNames);
                 string current = raw as string;
                 if (raw != null && current == null)
                 {
@@ -1516,7 +1534,7 @@ namespace Kmrp
                 }
                 else if (String.Equals(current, record.InstalledValue, StringComparison.Ordinal))
                 {
-                    RestoreRegistryValue(key, executablePath, record.HadPreviousValue, record.PreviousValue);
+                    RestoreRegistryValue(key, valueName, record.HadPreviousValue, record.PreviousValue);
                     restored = true;
                 }
                 else
@@ -1530,6 +1548,30 @@ namespace Kmrp
                 SafeReport(report, "Restored the previous Windows high-DPI compatibility setting.");
             if (kept)
                 SafeReport(report, "Left the Windows high-DPI compatibility setting in place because it changed after install.");
+        }
+
+        /// <summary>Whether two paths of swkotor.exe name the same file in the same
+        /// folder: a file made beside one is seen beside the other. False when that
+        /// cannot be tried.</summary>
+        private static bool SameFolder(string recordedPath, string executablePath)
+        {
+            string probe = "KMRP_DPI." + Guid.NewGuid().ToString("N") + ".tmp";
+            string here = Path.Combine(Path.GetDirectoryName(executablePath), probe);
+            try
+            {
+                string there = Path.Combine(Path.GetDirectoryName(Path.GetFullPath(recordedPath)), probe);
+                File.WriteAllBytes(here, new byte[0]);
+                return File.Exists(there);
+            }
+            catch
+            {
+                return false;
+            }
+            finally
+            {
+                try { File.Delete(here); }
+                catch { }
+            }
         }
 
         private static bool ContainsToken(string value, string token)
@@ -7385,10 +7427,85 @@ namespace Kmrp
         internal static List<string> Installed()
         {
             List<string> folders = new List<string>();
+            foreach (string folder in Wine())
+                AddOnce(folders, folder);
             foreach (string folder in Steam())
                 AddOnce(folders, folder);
             foreach (string folder in Gog())
                 AddOnce(folders, folder);
+            return folders;
+        }
+
+        [DllImport("kernel32.dll", CharSet = CharSet.Unicode)]
+        private static extern IntPtr GetModuleHandleW(string name);
+
+        [DllImport("kernel32.dll", CharSet = CharSet.Ansi, ExactSpelling = true)]
+        private static extern IntPtr GetProcAddress(IntPtr module, string name);
+
+        /// <summary>Whether this is Wine (Proton included), by the export its ntdll.dll
+        /// has for the purpose.</summary>
+        internal static bool UnderWine()
+        {
+            try
+            {
+                IntPtr ntdll = GetModuleHandleW("ntdll.dll");
+                return ntdll != IntPtr.Zero && GetProcAddress(ntdll, "wine_get_version") != IntPtr.Zero;
+            }
+            catch
+            {
+                return false;
+            }
+        }
+
+        /// <summary>A Linux path as Wine shows it, on the Z: drive every Wine and Proton
+        /// prefix maps to "/"; any other path as it is.</summary>
+        private static string FromUnix(string path)
+        {
+            if (String.IsNullOrWhiteSpace(path) || !path.Trim().StartsWith("/", StringComparison.Ordinal))
+                return path;
+            return "Z:" + path.Trim().Replace('/', '\\');
+        }
+
+        /// <summary>Steam's KOTOR under Wine and Proton, where the registry is the
+        /// prefix's and names no real Steam folder (issue 30: until 2026-10-10 the game
+        /// was found there only with the installer in its folder). None of this is read
+        /// on Windows. In order: the game folder Steam names to what it starts under
+        /// Proton (STEAM_COMPAT_INSTALL_PATH); steamapps\common\swkotor at the root of
+        /// each drive, since Proton maps the game's Steam library to a drive of its own
+        /// (S:, measured on SteamOS 3.8.14, 2026-10-11); then the libraries Linux's Steam
+        /// lists, from the folders it installs to under each home folder.</summary>
+        private static List<string> Wine()
+        {
+            List<string> folders = new List<string>();
+            if (!UnderWine())
+                return folders;
+            try
+            {
+                AddOnce(folders, FromUnix(Environment.GetEnvironmentVariable("STEAM_COMPAT_INSTALL_PATH")));
+                foreach (string drive in Environment.GetLogicalDrives())
+                    if (!drive.StartsWith("Z", StringComparison.OrdinalIgnoreCase))
+                        AddOnce(folders, Path.Combine(drive, "steamapps", "common", "swkotor"));
+
+                List<string> homes = new List<string>();
+                AddOnce(homes, FromUnix(Environment.GetEnvironmentVariable("HOME")));
+                try
+                {
+                    if (Directory.Exists(@"Z:\home"))
+                        foreach (string home in Directory.GetDirectories(@"Z:\home"))
+                            AddOnce(homes, home);
+                }
+                catch { }
+                List<string> roots = new List<string>();
+                AddOnce(roots, FromUnix(Environment.GetEnvironmentVariable("STEAM_COMPAT_CLIENT_INSTALL_PATH")));
+                foreach (string home in homes)
+                    foreach (string steam in new[] { @".local\share\Steam", @".steam\steam", @".steam\root",
+                                 @".var\app\com.valvesoftware.Steam\.local\share\Steam",
+                                 @"snap\steam\common\.local\share\Steam" })
+                        AddOnce(roots, Path.Combine(home, steam));
+                foreach (string folder in InLibraries(roots))
+                    AddOnce(folders, folder);
+            }
+            catch { }
             return folders;
         }
 
@@ -7404,6 +7521,17 @@ namespace Kmrp
             AddOnce(roots, ReadValue(Registry.CurrentUser, @"Software\Valve\Steam", "SteamPath"));
             AddOnce(roots, ReadValue(Registry.LocalMachine, @"SOFTWARE\WOW6432Node\Valve\Steam", "InstallPath"));
             AddOnce(roots, ReadValue(Registry.LocalMachine, @"SOFTWARE\Valve\Steam", "InstallPath"));
+            foreach (string folder in InLibraries(roots))
+                AddOnce(folders, folder);
+            return folders;
+        }
+
+        /// <summary>KOTOR's folder in each Steam folder given and in each library its
+        /// steamapps\libraryfolders.vdf lists, whether or not the game is there. Linux's
+        /// Steam lists Linux paths, read through Z: (FromUnix).</summary>
+        private static List<string> InLibraries(List<string> roots)
+        {
+            List<string> folders = new List<string>();
             List<string> libraries = new List<string>();
             foreach (string root in roots)
             {
@@ -7414,7 +7542,7 @@ namespace Kmrp
                     if (File.Exists(list))
                         foreach (Match path in Regex.Matches(File.ReadAllText(list),
                                      "\"path\"\\s+\"([^\"]+)\"", RegexOptions.CultureInvariant))
-                            AddOnce(libraries, path.Groups[1].Value.Replace("\\\\", "\\"));
+                            AddOnce(libraries, FromUnix(path.Groups[1].Value.Replace("\\\\", "\\")));
                 }
                 catch { }
             }

@@ -11,8 +11,8 @@
 #include "K1RuntimeAssets.h"
 #include "NativeAssets.generated.h"
 #include "KmrpOptions.h"
+#include "K1Xpress.h"
 #include <windows.h>
-#include <compressapi.h>
 #include <bcrypt.h>
 #include <array>
 #include <map>
@@ -42,7 +42,6 @@ std::map<std::wstring, Key> written;
 int currentWidth = 0, currentHeight = 0;
 bool registered = false;
 std::string directoryAlias;
-DECOMPRESSOR_HANDLE decompressor = nullptr;
 
 bool Sha(const unsigned char* data, unsigned size, Key& result)
 {
@@ -134,10 +133,10 @@ bool Initialize()
     unsigned size = SizeofResource(module, resource);
     auto data = static_cast<const unsigned char*>(LockResource(LoadResource(module, resource)));
     // The first eight bytes name the compression (tools/build_native_assets.py):
-    // XPRESS with Huffman, the one shipped, or LZMS, the builder's --lzms.
-    if (!data || size < 48) return false;
-    const bool lzms = !std::memcmp(data, "KNASL002", 8);
-    if (!lzms && std::memcmp(data, "KNAST002", 8)) return false;
+    // XPRESS with Huffman, the one shipped and the one this module decodes itself
+    // (K1Xpress.cpp). The builder's --lzms bank, KNASL002, needed Windows' own
+    // decoder, which Wine and Proton do not have (issue 30), and is refused.
+    if (!data || size < 48 || std::memcmp(data, "KNAST002", 8)) return false;
     Reader reader{data + 8, data + size};
     unsigned groupCount, objectCount;
     if (!reader.integer(groupCount) || groupCount != 67 || !reader.integer(objectCount) || objectCount > 60000 ||
@@ -166,7 +165,6 @@ bool Initialize()
         if (group.width != 0) continue;
         for (const auto& entry : group.entries) if (!bank.count(entry.key)) return false;
     }
-    if (!CreateDecompressor(lzms ? COMPRESS_ALGORITHM_LZMS : COMPRESS_ALGORITHM_XPRESS_HUFF, nullptr, &decompressor)) return false;
     wchar_t temp[MAX_PATH], reserved[MAX_PATH];
     if (!GetTempPathW(MAX_PATH, temp)) return false;
     RemoveStaleCaches(temp);
@@ -187,8 +185,8 @@ bool Decode(const Key& key, std::vector<unsigned char>& output)
     auto found = objects.find(key);
     if (found == objects.end()) return false;
     const auto& object = found->second;
-    output.resize(object.size); SIZE_T size = 0;
-    if (!Decompress(decompressor, object.bytes, object.compressed, output.data(), output.size(), &size) || size != output.size()) return false;
+    output.resize(object.size);
+    if (!KmrpXpressDecode(object.bytes, object.compressed, output.data(), output.size())) return false;
     Key measured;
     return Sha(output.data(), static_cast<unsigned>(output.size()), measured) && measured == key;
 }
@@ -313,6 +311,78 @@ void GameArt(const Group& selected, int height)
     KmrpAbilityIcons(pack.c_str(), static_cast<unsigned>(height), directory, reserved.c_str());
     DeleteFileA(reserved.c_str());
     KmrpGameArt(pack.c_str(), key.c_str(), static_cast<unsigned>(height), directory);
+}
+
+std::wstring Lower(std::wstring text)
+{
+    if (!text.empty()) CharLowerBuffW(&text[0], static_cast<DWORD>(text.size()));
+    return text;
+}
+
+// The player's Override comes before KMRP's files (the maintainer's decision,
+// 2026-10-11, after a player's own Override files had no effect). The game searches
+// the directory registered last first (CExoResMan::AddKeyTable, 0x00406E20, links a
+// new table at the head of its list with 0x005E9D70), and this module's is
+// registered after Override, so until then KMRP's file won whenever both had one.
+//
+// The order of the two directories is left as it is, and a file the player has in
+// Override is taken out of this one before the game is shown it: that also covers
+// a texture in the other format, which the order alone would not (the game prefers
+// a .tpc to a .tga wherever each is). A texture is one thing with its .txi: a .tga
+// or .tpc in Override removes KMRP's .tga, .tpc and .txi of that name, so a font
+// from Override is read with its own metrics or the game's, never KMRP's.
+//
+// Override is listed once, as the game lists it once: a file put there while the
+// game runs is not seen by either. What is taken out is forgotten in `written`, so
+// the next size writes it again (the blend helper reads some of these files) and
+// this runs again after it. Returns how many files were left to Override.
+unsigned YieldToOverride()
+{
+    static bool listed = false;
+    static std::map<std::wstring, bool> names, textures;
+    if (!listed) {
+        listed = true;
+        wchar_t folder[MAX_PATH];
+        const DWORD size = GetModuleFileNameW(nullptr, folder, MAX_PATH);
+        wchar_t* slash = size && size < MAX_PATH ? wcsrchr(folder, L'\\') : nullptr;
+        if (!slash) return 0;
+        *slash = 0;
+        WIN32_FIND_DATAW found{};
+        HANDLE search = FindFirstFileW((std::wstring(folder) + L"\\override\\*").c_str(), &found);
+        if (search == INVALID_HANDLE_VALUE) return 0;
+        do {
+            if (found.dwFileAttributes & FILE_ATTRIBUTE_DIRECTORY) continue;
+            const std::wstring name = Lower(found.cFileName);
+            names[name] = true;
+            const std::size_t dot = name.find_last_of(L'.');
+            if (dot != std::wstring::npos && (!name.compare(dot, std::wstring::npos, L".tga") ||
+                                              !name.compare(dot, std::wstring::npos, L".tpc")))
+                textures[name.substr(0, dot)] = true;
+        } while (FindNextFileW(search, &found));
+        FindClose(search);
+    }
+    if (names.empty()) return 0;
+    unsigned yielded = 0;
+    WIN32_FIND_DATAW found{};
+    HANDLE search = FindFirstFileW((cache + L"\\*").c_str(), &found);
+    if (search == INVALID_HANDLE_VALUE) return 0;
+    do {
+        if (found.dwFileAttributes & FILE_ATTRIBUTE_DIRECTORY) continue;
+        const std::wstring name = Lower(found.cFileName);
+        const std::size_t dot = name.find_last_of(L'.');
+        const std::wstring extension = dot == std::wstring::npos ? std::wstring() : name.substr(dot);
+        // Not resources of the game: the controller library, which is loaded from
+        // here, and the blend helper's table.
+        if (extension == L".dll" || extension == L".bin") continue;
+        const bool texture = extension == L".tga" || extension == L".tpc" || extension == L".txi";
+        if (!names.count(name) && !(texture && textures.count(name.substr(0, dot)))) continue;
+        const std::wstring path = cache + L"\\" + found.cFileName;
+        if (!DeleteFileW(path.c_str())) continue;
+        written.erase(path);
+        ++yielded;
+    } while (FindNextFileW(search, &found));
+    FindClose(search);
+    return yielded;
 }
 }
 
@@ -448,6 +518,11 @@ bool KmrpRuntimeAssetsDimensions(int width, int height)
     }
     const ULONGLONG filesTime = GetTickCount64() - started;
     GameArt(*selected, height);
+    if (const unsigned yielded = YieldToOverride()) {
+        char line[160];
+        sprintf_s(line, "[KMRP] %u of KMRP's interface files left out for %dx%d: the Override folder has its own", yielded, width, height);
+        KmrpRuntimeLog(line);
+    }
     if (KmrpDebugLogs()) {
         char line[160];
         sprintf_s(line, "[KMRP] interface files for %dx%d: %llu ms, of which the blend helper %llu ms; the game's own art %llu ms",

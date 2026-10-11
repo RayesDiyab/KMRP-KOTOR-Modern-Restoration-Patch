@@ -123,6 +123,15 @@ registered with the game's resource manager through a private alias, as
 running is removed at the next start. Seen after a dozen starts of the scratch game:
 one folder, the running game's.
 
+**Correction, 2026-10-11: beside KMRP no folder was ever removed.** That count was of
+the controller patch alone. A stale folder was known by `kmrplayout.gui` inside it,
+and beside KMRP the module deletes its own `.gui` files (`LeaveLayoutsToKmrp`), so
+with both patches installed every start left its folder: 83 folders and 15 GB in
+`%TEMP%` on the maintainer's PC, 5.5 GB in a Proton prefix after one afternoon. The
+marker is now `kmrp-sdl3.dll`, which every folder holds, the old ones too, so the
+first start of a fixed build removes them. Run on the maintainer's PC that day: after
+one start of the fixed module one folder was left, the running game's.
+
 ## 2. Every site it hooks
 
 All are KPM detours. 30 are the hooks marked `install = "controller"` in
