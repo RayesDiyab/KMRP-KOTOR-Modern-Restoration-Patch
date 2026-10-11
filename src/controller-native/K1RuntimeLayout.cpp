@@ -406,6 +406,7 @@ extern "C" void __cdecl KmrpListAddRowsK1(void* list, void** slot)
 // Every GUI frame (KmrpCoreGuiWorkK1): the lists of newly loaded panels.
 void KmrpListRowsFrame(void* manager)
 {
+    KmrpScaleOverrideFontsK1(false);
     if (!manager) return;
     const int width = Field<short>(manager, kManagerWidth), height = Field<short>(manager, kManagerHeight);
     if (width > 0 && height > 0) PlaceLists(manager, width, height);
@@ -414,6 +415,7 @@ void KmrpListRowsFrame(void* manager)
 // Stack arguments arrive as the address of their slot (KPM's "esp+N").
 extern "C" void __cdecl KmrpPanelLayoutStartK1(void* panel, const char** slot)
 {
+    KmrpScaleOverrideFontsK1(false);
     const char* resource = slot ? *slot : nullptr;
     if (!panel || !resource) return;
     std::string name(resource, strnlen_s(resource, 16));

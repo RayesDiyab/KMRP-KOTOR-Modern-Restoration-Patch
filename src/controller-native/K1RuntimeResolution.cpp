@@ -98,6 +98,7 @@ void ReloadFontMetrics()
         ++reloaded;
     }
     Log("font-metrics", reloaded, count);
+    KmrpScaleOverrideFontsK1(true);     // the reload put Override's fonts back at their own size
 }
 #endif
 }

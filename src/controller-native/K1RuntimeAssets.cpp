@@ -19,6 +19,7 @@
 #include <vector>
 #include <string>
 #include <cstring>
+#include <cstdlib>
 #include <cmath>
 #include <cstdio>
 
@@ -336,6 +337,24 @@ std::wstring Lower(std::wstring text)
 // game runs is not seen by either. What is taken out is forgotten in `written`, so
 // the next size writes it again (the blend helper reads some of these files) and
 // this runs again after it. Returns how many files were left to Override.
+// The glyph height KMRP's own font of each name has at the size in use, for the
+// fonts Override supplies in its place (lower-case names, without extension).
+std::map<std::string, float> overrideFontHeights;
+bool overrideFontsChanged = false;
+
+// `fontheight` out of a .txi's text, or 0.
+float FontHeightOf(const std::vector<unsigned char>& txi)
+{
+    static const char key[] = "fontheight";
+    const std::string text(txi.begin(), txi.end());
+    for (std::size_t at = text.find(key); at != std::string::npos; at = text.find(key, at + 1)) {
+        if (at != 0 && text[at - 1] != '\n' && text[at - 1] != '\r') continue;
+        const double value = std::atof(text.c_str() + at + sizeof(key) - 1);
+        if (value > 0.0 && value < 100.0) return static_cast<float>(value);
+    }
+    return 0.0f;
+}
+
 unsigned YieldToOverride()
 {
     static bool listed = false;
@@ -377,6 +396,17 @@ unsigned YieldToOverride()
         const bool texture = extension == L".tga" || extension == L".tpc" || extension == L".txi";
         if (!names.count(name) && !(texture && textures.count(name.substr(0, dot)))) continue;
         const std::wstring path = cache + L"\\" + found.cFileName;
+        // A font of Override's: what KMRP's own of that name measures here is kept,
+        // for KmrpScaleOverrideFontsK1.
+        if (extension == L".txi" && textures.count(name.substr(0, dot))) {
+            std::vector<unsigned char> txi;
+            const float height = Read(path, txi) ? FontHeightOf(txi) : 0.0f;
+            if (height > 0.0f) {
+                const std::wstring stem = name.substr(0, dot);
+                overrideFontHeights[std::string(stem.begin(), stem.end())] = height;
+                overrideFontsChanged = true;
+            }
+        }
         if (!DeleteFileW(path.c_str())) continue;
         written.erase(path);
         ++yielded;
@@ -387,6 +417,59 @@ unsigned YieldToOverride()
 }
 
 const std::wstring& KmrpRuntimeAssetDirectory() { return cache; }
+
+// A font from Override is drawn at the size KMRP's own font of that name has.
+//
+// A font is a texture and its metrics, and since 2026-10-11 Override's replaces
+// KMRP's whole (YieldToOverride). A translation's fonts are made for the game's
+// own interface: the Polish one's dialogfont16x16 is 16 pixels high in a 256-pixel
+// texture, where KMRP's at 1440 lines is 32. Its letters were right and half the
+// size the layouts are made for (the maintainer's play of that day, 3440x1440:
+// "the text is tiny").
+//
+// The engine draws a glyph (its width in the texture x texturewidth + spacingR) x
+// 100 pixels wide and fontheight x 100 high (0x0045A2F0, 0x0045A850), from the
+// font information at texture+0x38, which the TXI parser fills (0x00422245 on:
+// fontheight +0x04, baselineheight +0x08, texturewidth +0x0C, spacingR +0x10,
+// spacingB +0x14; the glyphs' places in the texture, +0x18 and +0x24, are
+// fractions and stay). So those five are multiplied by KMRP's height over the
+// font's own: the same letters, enlarged, as sharp as the texture is.
+//
+// A texture's metrics are parsed when it is made and when KMRP reads them again
+// after a change of size (ReloadFontMetrics), so this is asked at every GUI frame,
+// as each panel starts loading and after that reload, and walks the textures only
+// when their number has changed or `again` says the metrics were just read. The
+// first text laid out with a font in the moment it is made is measured small.
+void KmrpScaleOverrideFontsK1(bool again)
+{
+    static int walked = -1;
+    if (overrideFontHeights.empty()) return;
+    void** const textures = *reinterpret_cast<void***>(0x007A4798);
+    const int count = *reinterpret_cast<const int*>(0x007A479C);
+    if (!textures || count <= 0 || count > 0x100000) return;
+    if (!again && !overrideFontsChanged && count == walked) return;
+    walked = count;
+    overrideFontsChanged = false;
+    for (int i = 0; i < count; ++i) {
+        char* const texture = static_cast<char*>(textures[i]);
+        float* const info = texture ? *reinterpret_cast<float**>(texture + 0x38) : nullptr;
+        if (!info) continue;
+        char name[20] = {};
+        strncpy_s(name, texture + 0x98, 16);
+        CharLowerBuffA(name, static_cast<DWORD>(std::strlen(name)));
+        const auto found = overrideFontHeights.find(name);
+        if (found == overrideFontHeights.end()) continue;
+        const float own = info[1];
+        if (!(own > 0.001f) || !(own < 100.0f)) continue;
+        const float factor = found->second / own;
+        if (factor > 0.99f && factor < 1.01f) continue;
+        if (!(factor > 0.1f) || !(factor < 16.0f)) continue;
+        for (int field = 1; field <= 5; ++field) info[field] *= factor;
+        char line[160];
+        sprintf_s(line, "[KMRP] Override's font %s drawn %.2f times its size, as KMRP's own is here", name, factor);
+        KmrpRuntimeLog(line);
+    }
+}
 
 extern "C" void __cdecl KmrpPrepareResourcesK1(void* manager)
 {

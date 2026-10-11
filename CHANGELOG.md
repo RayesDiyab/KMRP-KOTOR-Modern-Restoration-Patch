@@ -155,6 +155,26 @@ proxy, and it applies the executable changes above as well.
   - **First run on SteamOS (2026-10-11, Proton 11.0-100, the build above): the game
     starts.** The `Cabinet.dll.40` abort did not come back in 28 logged launches.
 
+- **A font from Override is drawn at the size of KMRP's own** (2026-10-11, issue 34;
+  eighth test build, `dist\KMRP-Windows-1.5.0-proton-test8.exe`). With Override first, a
+  translation's fonts replace KMRP's whole, texture and metrics, and they are made for
+  the game's own interface: the Polish translation's `dialogfont16x16` is 16 pixels high
+  in a 256-pixel texture where KMRP's at 1440 lines is 32. Seen by the maintainer at
+  3440x1440 in a scratch game with that translation: the letters right, the text tiny.
+  The module now keeps the glyph height of each of its own fonts that Override replaces,
+  and multiplies the five metrics of the live font (`fontheight`, `baselineheight`,
+  `texturewidth`, `spacingR`, `spacingB`, at texture+0x38) by KMRP's height over the
+  font's own, whatever that is: at every GUI frame, as a panel starts loading and after
+  the metrics are read again on a change of size (`KmrpScaleOverrideFontsK1`,
+  `K1RuntimeAssets.cpp`). Seen by the maintainer the same day with the Polish
+  translation: the main menu, Options and Graphics Options at the usual size with the
+  Polish letters; the log read `dialogfont16x16b` 2.00 times its size and `fnt_d16x16b`
+  1.68 times. **Not tried:** a change of resolution with it, a dialogue, the Czech
+  translation. The letters are enlarged, not redrawn, so they are as sharp as the
+  translation's texture. A font in Override under a name KMRP has no font for is left at
+  its own size. The first text laid out with a font in the moment it is made is still
+  measured at the small size.
+
 - **Controller: one pad seen twice no longer stutters** (2026-10-11; sixth test build,
   `dist\KMRP-Windows-1.5.0-proton-test6.exe`). A translator that leaves the real pad
   visible (PadForge, DS4Windows, reWASD), and possibly Steam Input, shows the module one

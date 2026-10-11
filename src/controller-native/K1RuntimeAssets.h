@@ -5,3 +5,5 @@ bool KmrpRuntimeAssetsDimensions(int width, int height);
 // blend derives from the sets around it (4:3 to 32:9, from 640x480 up).
 bool KmrpRuntimeAssetsCovers(int width, int height);
 const std::wstring& KmrpRuntimeAssetDirectory();
+// Override's fonts at the size of KMRP's own; `again` after the metrics were read anew.
+void KmrpScaleOverrideFontsK1(bool again);
