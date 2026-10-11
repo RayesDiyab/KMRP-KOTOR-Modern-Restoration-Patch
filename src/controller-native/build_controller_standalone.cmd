@@ -27,7 +27,7 @@ cl /nologo /Brepro /std:c++17 /O2 /fp:strict /EHsc /MT /LD /DKMRP_CONTROLLER_STA
   src\controller-native\vendor\K1XboxControls.cpp src\controller-native\vendor\K1XboxControlsXInput.cpp ^
   build\controller-standalone\controller-assets.res ^
   /Fobuild\controller-standalone\ /Febuild\controller-standalone\kmrp-controller.dll ^
-  /link /Brepro xinput.lib user32.lib gdi32.lib bcrypt.lib ^
+  /link /Brepro user32.lib gdi32.lib bcrypt.lib ^
   /DEF:build\controller-standalone\controller-exports.def /INCREMENTAL:NO ^
   /MAP:build\controller-standalone\kmrp-controller.map
 set RESULT=%errorlevel%

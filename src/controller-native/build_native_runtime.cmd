@@ -43,7 +43,7 @@ cl /nologo /Brepro /std:c++17 /O2 /fp:strict /EHsc /MT /LD /DKMRP_NATIVE_RUNTIME
   build\native-runtime\kmrp-abilityicons.obj build\native-runtime\kmrp-gameart.obj ^
   build\native-runtime\native-assets.res ^
   /Fobuild\native-runtime\ /Febuild\native-runtime\kmrp-native.dll ^
-  /link /Brepro xinput.lib user32.lib gdi32.lib bcrypt.lib crypt32.lib ^
+  /link /Brepro user32.lib gdi32.lib bcrypt.lib crypt32.lib ^
   /DEF:build\native-runtime\native-exports.def /INCREMENTAL:NO ^
   /MAP:build\native-runtime\kmrp-native.map
 set RESULT=%errorlevel%

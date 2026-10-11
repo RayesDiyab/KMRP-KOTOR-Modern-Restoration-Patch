@@ -155,6 +155,18 @@ proxy, and it applies the executable changes above as well.
   - **First run on SteamOS (2026-10-11, Proton 11.0-100, the build above): the game
     starts.** The `Cabinet.dll.40` abort did not come back in 28 logged launches.
 
+- **Windows 7: the two modules can be loaded** (2026-10-11, issue 41; fourth test build,
+  `dist\KMRP-Windows-1.5.0-proton-test4.exe`). 1.5.0 showed "ordinal 40 not found in
+  Cabinet.dll" there and ran unscaled: the Compression API is of Windows 8 and later,
+  and the decoder above already removes it. The controller module was also linked to
+  `xinput1_4.dll`, again of Windows 8 and later. `K1ControllerBackend.cpp` now loads
+  XInput at run time from the system folder, `xinput1_4.dll` first as before, then
+  `xinput1_3.dll` and `xinput9_1_0.dll`, and neither module links `xinput.lib`; their
+  import tables name nothing Windows 7 lacks. **Not run on Windows 7**, and with a pad
+  not yet run on any Windows since the change. Synchro's Modern Driver Compatibility
+  (`dinput8.dll` and its `.asi`) imports Windows 8 functions itself and stays
+  unavailable on Windows 7, as the reporter had found with 1.0.
+
 - **Controller: the game no longer uses a destroyed input object after a change of
   resolution** (2026-10-11, second test build, `dist\KMRP-Windows-1.5.0-proton-test2.exe`).
   Found on SteamOS: with a save loaded, the second or third change of resolution in a

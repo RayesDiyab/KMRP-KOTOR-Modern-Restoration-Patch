@@ -35,6 +35,43 @@ DWORD motorTick = 0;
 DWORD motors = 0;
 bool motorAccepted = true;
 
+// XInput by name, at run time. Until 2026-10-11 the two calls below were linked
+// against xinput.lib, which names xinput1_4.dll: a library of Windows 8 and later,
+// so on Windows 7 the controller module could not be loaded at all (issue 41, read
+// from the module's import table; no Windows 7 machine was at hand). The same
+// library is still the first asked for, so nothing changes where it exists;
+// xinput1_3.dll comes with the DirectX runtime, and xinput9_1_0.dll with Windows
+// since Vista. From the system folder by its full path, never the cwd or PATH,
+// and without LOAD_LIBRARY_SEARCH_SYSTEM32, which an unpatched Windows 7 rejects.
+using XInputGetStateFn = DWORD (WINAPI*)(DWORD, XINPUT_STATE*);
+using XInputSetStateFn = DWORD (WINAPI*)(DWORD, XINPUT_VIBRATION*);
+XInputGetStateFn pXInputGetState = nullptr;
+XInputSetStateFn pXInputSetState = nullptr;
+
+void InitXInput()
+{
+    static bool tried = false;
+    if (tried) return;
+    tried = true;
+    wchar_t folder[MAX_PATH];
+    const UINT length = GetSystemDirectoryW(folder, MAX_PATH);
+    if (!length || length + 20 >= MAX_PATH) return;
+    static const wchar_t* const names[] = { L"\\xinput1_4.dll", L"\\xinput1_3.dll", L"\\xinput9_1_0.dll" };
+    for (const wchar_t* name : names) {
+        wchar_t path[MAX_PATH];
+        wcscpy_s(path, folder);
+        wcscat_s(path, name);
+        const HMODULE library = LoadLibraryW(path);
+        if (!library) continue;
+        pXInputGetState = reinterpret_cast<XInputGetStateFn>(GetProcAddress(library, "XInputGetState"));
+        pXInputSetState = reinterpret_cast<XInputSetStateFn>(GetProcAddress(library, "XInputSetState"));
+        if (pXInputGetState && pXInputSetState) return;
+        pXInputGetState = nullptr;
+        pXInputSetState = nullptr;
+        FreeLibrary(library);
+    }
+}
+
 void InitSdl()
 {
     if (attempted) return;
@@ -154,7 +191,8 @@ bool Rumble(int index, WORD low, WORD high)
     if (index < 0 || !devices[index].connected) return false;
     if (index < 4) {
         XINPUT_VIBRATION v = {low, high};
-        return XInputSetState(index, &v) == ERROR_SUCCESS;
+        InitXInput();
+        return pXInputSetState && pXInputSetState(index, &v) == ERROR_SUCCESS;
     }
     // Finite lease: SDL stops the motors if game polling stalls or exits.
     return pSDL_RumbleGamepad(devices[index].pad, low, high, 1500);
@@ -211,6 +249,7 @@ void TakeForegroundAtStartK1(bool focused)
 
 bool ReadControllerK1(XINPUT_STATE& state)
 {
+    InitXInput();
     InitSdl();
     DWORD foregroundPid = 0;
     GetWindowThreadProcessId(GetForegroundWindow(), &foregroundPid);
@@ -247,7 +286,7 @@ bool ReadControllerK1(XINPUT_STATE& state)
         Device& d = devices[i];
         if (i < 4) {
             if (d.connected || scan)
-                d.connected = XInputGetState(i, &d.state) == ERROR_SUCCESS;
+                d.connected = pXInputGetState && pXInputGetState(i, &d.state) == ERROR_SUCCESS;
         } else if (d.pad) {
             d.connected = pSDL_GamepadConnected(d.pad);
             if (d.connected) ReadSdl(d);
