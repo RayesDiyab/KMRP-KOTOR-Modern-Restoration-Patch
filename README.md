@@ -173,7 +173,7 @@ version's; what differs on the Mac is at its end.
   separate 4 GB patch, and KOTOR Patch Manager's own 4 GB, texture, grass, save-game
   and Better Movie Playback patches. Do not install those alongside it.
 
-**On the Mac** (new in 1.5: the Steam version, with its own installer; since 1.5.1 the Mac App Store version too)
+**On the Mac** (new in 1.5: the Steam version, with its own installer)
 
 - The same menus for your resolution, text, lists, icons, popups, map and note
   fixes, conversation bars, crash fix, HD art and all of controller support. The Mac
@@ -282,20 +282,13 @@ released it.
 
 ### Other platforms
 
-**macOS (Steam and Mac App Store), new in KMRP 1.5.** A separate installer,
-`KMRP-macOS-1.5.1.dmg`, for Aspyr's Mac game, made from the same resources as this one: the same interface for
+**macOS (Steam), new in KMRP 1.5.** A separate installer, `KMRP-macOS-1.5.0.dmg`, for the
+Aspyr build on Steam, made from the same resources as this one: the same interface for
 every resolution, fonts, art and engine fixes, and controller support, which the Mac game
 does not have on its own. How to install it is in the package's own README
 ([macos/PLAYER-README.md](macos/PLAYER-README.md)); what it writes, byte for byte, and what
 was and was not tested is in [macos/README.md](macos/README.md). Tested on Apple
 Silicon and on Intel Macs.
-**It supports two games since 1.5.1:** the Steam version (1.4.0), into which KMRP is
-installed, and the Mac App Store version (1.4.1), which macOS does not let anyone change:
-there the installer adds an app beside the game, **KOTOR with KMRP**, that starts the
-unchanged game with KMRP. The game is the same with either; how the two differ underneath is
-tabulated in [macos/README.md](macos/README.md), "The two games", and measured in
-[docs/macos-app-store.md](docs/macos-app-store.md). The App Store version was seen in the
-game's menus on Apple Silicon and not yet played through.
 Its two patch files, `KMRP-macOS.kpatch` and
 `KOTOR 1 Native Controller Mod + Xbox HUD (macOS).kpatch`, work on the Mac game only, and
 the Windows files named above on Windows only.
@@ -360,8 +353,7 @@ for Windows and, for the first time, for macOS. Its installers report 1.5.0.
 **KMRP 1.5.1**, a hotfix for Windows and for Linux with Proton, was published on
 2026-10-12 and tagged
 [v1.5.1](https://github.com/RayesDiyab/KMRP-KOTOR-Modern-Restoration-Patch/releases/tag/v1.5.1);
-its installer reports 1.5.1, and the macOS installer of that day stayed 1.5.0. The macOS
-installer is 1.5.1 with the Mac App Store's game supported (built 2026-10-12). The
+its installer reports 1.5.1, and the macOS installer stays 1.5.0. The
 first public release was **KMRP 1.0**, published on 2026-09-04 and tagged
 [v1.0.0](https://github.com/RayesDiyab/KMRP-KOTOR-Modern-Restoration-Patch/releases/tag/v1.0.0).
 Internal development numbers appear in [`CHANGELOG.md`](CHANGELOG.md): 2.0.0 to
@@ -431,8 +423,7 @@ screen under Options, Gameplay shows what each one does.
 <img src="releases/v1.5.0/press-kit/11-controller-menus.png" alt="Controller button pictures on the Inventory, Character, Journal and Area Map screens" width="100%">
 
 **New in 1.5: macOS.** The Steam version of the game on the Mac has its own
-installer and the same menus, text and controller support; since 1.5.1 so has the
-Mac App Store version.
+installer and the same menus, text and controller support.
 
 <img src="releases/v1.5.0/press-kit/02-new-platform-macos.png" alt="New platform: macOS support, with the KMRP 1.5 installer on macOS" width="100%">
 

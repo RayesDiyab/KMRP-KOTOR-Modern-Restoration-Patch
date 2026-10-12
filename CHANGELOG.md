@@ -117,6 +117,29 @@ proxy, and it applies the executable changes above as well.
 
 ## [Unreleased]
 
+- **macOS, the Mac App Store's game: work in progress** (2026-10-13; `docs/macos-app-store.md`,
+  sections 7.7 and 7.8). Not released: the macOS installer on the 1.5.1 release was taken
+  down again the day it was added, and `README.md` and `docs/features.md` say 1.5.0 and
+  Steam's game, as before. With a save loaded the game ran at a few frames a second with KMRP
+  (92 frames in five seconds, then fewer; about 600 without FTD's Stray Bug Fixes), and the
+  maintainer reported that everything moves very fast. Three hooks load an address as a
+  64-bit constant, which the translation of the hook list left as Steam's: two in Stray Bug
+  Fixes (its texture-bucket guards) and one in High FPS Fixes (the frame's length).
+  `macos/tools/appstore/make_runtime.py` now translates them. **Written, not yet built or
+  tested.** An audit of every address the sources use is in section 7.7.
+
+- **macOS, the Mac App Store's game: a message box, a dialogue and the area map no longer end
+  the game** (2026-10-12; `macos/tools/appstore/rewrite_sources.py`; `docs/macos-app-store.md`,
+  section 7.6). Reported by the maintainer: "when pressing load game in the kotor with kmrp it
+  crashes". With no save, Load Game opens "You have no saved games", and the game ended at
+  that box. FTD's widescreen patch writes 14 calls, jumps and addresses as bytes (stubs in the
+  padding before an unused routine, and the 5-byte calls to them); the build's translation
+  from Steam's addresses changed literals and not those bytes, and site and stub do not move
+  by the same amount between the two builds, so each landed 0x40 short and ran into the
+  routine after the padding. The translation now rewrites calls, jumps and addresses inside
+  byte arrays that are written to a literal address, and stops the build on one it cannot.
+  Steam's game was never affected: its bytes are the ones FTD wrote.
+
 - **macOS: the Mac App Store's game covers the display, and the macOS version is 1.5.1**
   (2026-10-12; `macos/appstore/fullscreen.m`; `docs/macos-app-store.md`, section 7.5). With
   "Full screen" chosen in Aspyr's launcher, and full screen in the game's own settings

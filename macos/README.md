@@ -38,6 +38,10 @@ The installer refuses any other `KOTOR_Exe` but the Mac App Store's (next).
 
 ## The two games
 
+**Work in progress (2026-10-13):** the App Store's game is not released yet, and a repair for
+it is written and not tested (`docs/macos-app-store.md`, section 7.8). The released macOS
+installer is 1.5.0, for Steam's game.
+
 KMRP for macOS supports two games since 1.5.1 (2026-10-12): Steam's, above, since 1.5.0, and
 the Mac App Store's. They are the same game built twice, and KMRP is the same five patches
 in both, but it reaches each another way, because the App Store's game is sandboxed and

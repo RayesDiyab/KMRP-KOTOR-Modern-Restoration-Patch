@@ -6,6 +6,12 @@
 > site tabulated, rejected alternatives and corrections kept visible, and
 > anything untested labelled as untested.
 
+> **Work in progress (2026-10-13).** Support for the App Store's game is not finished and is
+> not released: the macOS installer on the release is still 1.5.0, for Steam's game. Section
+> 7.8 describes a repair that is written and **not yet built or tested**; until it is, the
+> game with a save loaded runs at a few frames a second with KMRP. Sections 7.6 to 7.8 are
+> the state of the work, not of a release.
+
 **Kind: investigation and what was built from it, 2026-10-12.** The maintainer asked for
 "detection and support for the appstore version of the game". Sections 1 to 6 are the
 investigation of that morning, kept as written: they end with support shown possible by a
@@ -332,3 +338,129 @@ window is expected to be sized by the game and covered again half a second later
 second display, another app brought in front and back, "In a window" chosen in the
 launcher, the unmodified proportions of a size that is not the display's shape (the picture
 is stretched to the display, as a covered window does).
+
+### 7.6 Addresses written as bytes (the crash at the first message box)
+
+**The fault** (the maintainer, 2026-10-12: "when pressing load game in the kotor with kmrp
+it crashes"). The App Store copy has no save, so Load Game opens the message box "You have
+no saved games", and the game ended there: `EXC_BAD_ACCESS` at `0x1000efae0`, in a routine of
+OpenSSL's that the game never calls (`0x1000efa00`; Steam's `0x1000f5000`). The unmodified
+game shows the box.
+
+**The cause.** FTD's widescreen patch writes small stubs into the padding before that routine
+and 5-byte calls and jumps to them, as bytes: `uint8_t callFit[5] = { 0xe8, 0x2b, 0xe5, 0xde,
+0xff }; writeMemBytes(0x100306a88, callFit, 5);`. `rewrite_sources.py` translated the literal
+(`0x100301488` here) and not the four bytes, which are the distance from that site to the stub
+in Steam's build. In this build the site is 0x5600 lower and the stub 0x5640 lower, so the
+call landed 0x40 short of its stub, in the padding, and ran on into the routine after it. The
+stub's own `mov rax, 0x10049dc36` was Steam's address too.
+
+Found from the fault itself: the routine saves the stack pointer it was entered with
+(`[rsp+0x110]`), and the word there was `0x10030148d`, the return address of
+`CSWGuiMessageBox::FixMessageLabel`'s last call. (A handler for the fault in a test build of
+the loader printed it; it is not in the package.)
+
+| In FTD's `mac_widescreen.cpp` | Sites | What it is for |
+| --- | --- | --- |
+| `callFit`, `bridge` | `0x100306a88` to the stub at `0x1000f4fb8`, and the stub's return to `0x10049dc36` | the message box fitted to its text |
+| `stub`, `hook` | `0x100244d7d` to `0x1000f4fd4` and back to `0x100244d84` | the dialogue's reply list |
+| `callWorld`, `callParty`, `callPlayer` (twice each) | `0x1002b4fca`, `0x1002b541b`, `0x1002b54c2` to `0x1000f4f68` and `0x1000f4f78` | the area map's markers |
+| `stretchFillStub`, `stretchFillHook` | `0x1004a2350` to `0x1000f4f90` and back to `0x1004a2376`, `0x1004a2355` | item icon borders (not in `.gui` mode) |
+
+14 distances and addresses in all (Steam's addresses above), each 0x40 out in the App Store
+build: with KMRP a message box, a dialogue and the area map each ended the game. None of the
+three had been opened in this game (section 7.4).
+
+**The repair** (`macos/tools/appstore/rewrite_sources.py`, `rewrite_byte_arrays`). Before the
+literals, in every byte array that is written to a literal address: a call or jump (`e8`,
+`e9`, `0f 8x`) whose target is in Steam's image gets the distance from the translated site to
+the translated target, and eight bytes that are an address of the image get the translated
+address. One that cannot be translated stops the build. An array with a call or jump and no
+literal address to be written to is listed and left (one, KMRP's `kVanillaScrollBlock`, which
+is compared, not written). The build prints the count: 14 in FTD's widescreen patch, 0 in
+FTD's Stray Bug Fixes and in KMRP's own five trees, which work their distances out when they
+run. The padding is long enough in both builds: 155 bytes of `nop` before the routine in
+Steam's, 219 in the App Store's; the stubs end 15 bytes before it.
+
+**Not covered:** an address inside bytes that are not a call, a jump or eight whole bytes (a
+RIP-relative operand, `8b 05 ...`). None is in the sources today; the rewriter does not look
+for them.
+
+### 7.7 The audit of every address (2026-10-12, evening)
+
+Asked for by the maintainer after 7.6 ("reinspect all the hooks ... dont assume steam version
+is the same"), with a report from play: "camera doesnt work keyboard binds are wrong right
+does left". The scripts and their output are in
+`kmrp-macos/work/appstore-20261012/audit-20261012/` (outside the repository).
+
+**How the two builds differ.** 1,294,360 instructions in Steam's `__text` and 1,290,183 in the
+App Store's; 1,178,379 are paired by the map, 1,112 of them as "weak", of which 580 differ in
+an operand the pairing keeps (a register, a stack slot, a field offset: 48 for 40 and 64 for
+56 in Aspyr's own layer near `0x100037000`). About 116,000 instructions of each build have no
+partner. `__bss` and `__common` are in the other order, as are `__TEXT,__const` and
+`__cstring`. So the builds are not the same code at other addresses everywhere, and each
+address KMRP uses was checked by itself.
+
+**What was checked.** Every address in the sources of the seven trees and their hook tables
+that is in Steam's image: 696, of which 576 stand outside comments.
+
+| Check | Result |
+| --- | --- |
+| The 253 functions those addresses lie in, instruction by instruction against the App Store's | 229 the same in every operand. 20 more differ only in naming `0x1005106f8`, which the map does not translate and no source uses. 1 (`0x10001e36c`) calls a routine the map pairs wrongly (`0x1000a85f0`), which no source uses. 1 is the routine before the stubs' padding (three `loope` distances). 2 are SDL's (`0x1000c0240`, `0x1000be310`), 18 of 20 and 2 of 55 instructions without a partner: their starts are paired, their bodies are another SDL's |
+| Each address against every paired instruction that names it (97,917 targets voted on) | none of KMRP's disagrees. In the whole map 106 code targets do, all below `0x1000c0000`, none used |
+| The 11 data addresses no paired instruction names (9 constants and 2 vtables in FTD's widescreen patch, mapped as "between" or "content") | the 9 constants hold the same bytes, with the same 96 bytes around them; the vtables' first 48 entries are each other's translations but for 5 type-information pointers the map does not hold, which lie at the section's own distance |
+| The 138 hooks in the game | all applied, none refused, nothing logged as not written |
+| Addresses inside byte arrays | 14, repaired (7.6) |
+
+**Not checked by this:** a field offset KMRP takes from Steam's code where the App Store's
+routine that uses the field has no partner (the two SDL routines above are the only bodies of
+that kind among the 253); what the 138 hooks do once applied, beyond the screens seen.
+
+**The report from play.** With Game 22 loaded (the first save loaded in this game: the saves
+were copied in from Steam's), D and then A held for one second each, the game's own
+screenshots taken at fixed times, through **KOTOR with KMRP** and in the unmodified game: in
+both the minimap's arrow turns clockwise for D and back for A. The key bindings in the App
+Store game's `swkotor.ini` are the 62 of Steam's, entry for entry. The maintainer then said
+what was meant: "the character that you play he moves very fast and everything in the world
+moves very fast", and a two-finger swipe does not turn the camera. That is section 7.8; this
+audit did not find it, because it compared sources and hooks' addresses and not the constants
+inside the hooks' replacement bytes.
+
+### 7.8 Addresses loaded as 64-bit constants in the hook list (work in progress)
+
+**Measured** (2026-10-12 and 13, Game 22 loaded, V-Sync on, the devkit's frame times, five
+seconds each):
+
+| | Frames in 5 s, median frame |
+| --- | --- |
+| the unmodified game (V-Sync off, as installed) | about 1,200, 4 ms |
+| with KMRP | 92, 56 ms, falling to 34, 148 ms after 40 s more |
+| with KMRP less FTD's Stray Bug Fixes | 603, 7.3 ms |
+| with KMRP less four of that patch's hooks (`0x1001d0663`, `0x1001fa2bf`, `0x1001e00cd`, `0x1001e1627` in Steam's addresses) | 606, 7.4 ms |
+
+**The cause, read from the hook list.** `make_runtime.py` put right what moves in a hook's
+replacement bytes when it is the target after `jmp [rip+0]`, a rip-relative operand or a
+relative branch. An address loaded as a 64-bit constant (`48 b8`, `movabs`) was left as
+Steam's. Three hooks have one:
+
+| Patch, hook (Steam's address) | Loads | Left as Steam's, in the App Store's game |
+| --- | --- | --- |
+| Stray Bug Fixes `0x1001fa2bf`, the clamp on the highest texture id | `0x100635ba8`, the variable | another variable is read: the loop that clears the texture buckets runs over a count that grows. Taken to be the slowdown: it is among the four hooks above; not yet separated from the other three |
+| Stray Bug Fixes `0x1001d0663`, the guard on a texture id of 5,000 or more | `0x1001d067b`, where to return | a return into other code, only for such an id |
+| High FPS Fixes `0x1001ae688` | `0x1005ca818`, the frame's length in seconds | another variable is read as the frame's length. Taken to be "everything moves very fast"; not measured |
+
+**The repair, written and not yet built or tested:** `make_runtime.py` (`rebase`) translates a
+64-bit immediate that is an address of Steam's image and stops the build on one it cannot.
+A build with it was started on 2026-10-13 and stopped before it finished.
+
+**Corrected on the way.** A first conclusion blamed KMRP's surface check in the GUI's frame
+(`KeepSurface`): runs with it left out were fast. In those runs the scripted click on Load
+had missed (the mouse ratio was not refreshed with the frame hook off), so they measured the
+menu. With each run checked to be in the game, the frame hook makes no difference. A change
+to `KeepSurface` made on that conclusion was taken out again.
+
+**Open:** the build and its measurement; walking and turning speed against the unmodified
+game with the repair; the two-finger swipe (not looked at; it may be the frame rate);
+whether V-Sync off, as the App Store's game is installed, needs anything from KMRP (the
+unmodified game ran at about 240 frames a second in play). For these tests V-Sync was
+switched on in the maintainer's copy of the game and left on.

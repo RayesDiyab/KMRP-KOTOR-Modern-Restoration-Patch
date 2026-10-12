@@ -9,7 +9,7 @@ second: every hook's address through the map, its original bytes read from the s
 at that address (and compared with the first build's, instruction by instruction), and its
 replacement bytes with what moves put right: the absolute target after a `jmp [rip+0]`, the
 displacement of a rip-relative operand, the distance of a relative call or jump that leaves
-the hook. Each patch's module is taken from the .kpatch of its id in the folders given: built
+the hook, and an address of the image loaded as a 64-bit constant (`movabs`). Each patch's module is taken from the .kpatch of its id in the folders given: built
 from sources whose addresses were translated the same way (rewrite_sources.py).
 """
 import struct
@@ -84,6 +84,18 @@ def rebase(code: bytes, old: int, new: int, m: Map, notes: list) -> bytes:
                     if distance != target - (ins.address + ins.size):
                         raise ValueError(f"short branch at {ins.address:#x} would need another distance")
                 notes.append(f"rel {target:#x}->{to:#x} ({how})")
+            elif op.type == x86.X86_OP_IMM and ins.imm_size == 8 and m.section(op.imm & 0xFFFFFFFFFFFFFFFF) != "?":
+                # movabs reg, <an address of the image>: FTD's Stray Bug Fixes loads a global's
+                # address and a return address that way (its texture-bucket guards). Left as
+                # Steam's until 2026-10-12, the guard on the highest texture id read another
+                # variable of the App Store's build, and the game with a save loaded took 56 ms
+                # a frame and 17 ms more every five seconds (docs/macos-app-store.md, 7.8).
+                target = op.imm & 0xFFFFFFFFFFFFFFFF
+                to, how = m.to(target)
+                if to is None:
+                    raise ValueError(f"the address {target:#x} loaded at {ins.address:#x}: {how}")
+                struct.pack_into("<Q", out, at + ins.imm_offset, to)
+                notes.append(f"imm64 {target:#x}->{to:#x} ({how})")
         at += ins.size
     return bytes(out)
 

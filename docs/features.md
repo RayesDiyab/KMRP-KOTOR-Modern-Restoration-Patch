@@ -233,8 +233,7 @@ KMRP replaces these. Do not install them alongside it:
 ## On the Mac
 
 New in KMRP 1.5: the Steam version of the game on macOS, with an installer of its
-own (`KMRP-macOS-1.5.1.dmg`) that looks and works like the Windows one. Since 1.5.1
-the same installer also supports the Mac App Store version. How to
+own (`KMRP-macOS-1.5.0.dmg`) that looks and works like the Windows one. How to
 install it is in [macos/PLAYER-README.md](../macos/PLAYER-README.md).
 
 **The same as on Windows:** the menus made for your resolution (the same 66 sets,
@@ -259,14 +258,8 @@ Mac game has no controller support at all without KMRP.
   the installer brings with it. With KOTOR Patch Manager the Mac version is five
   patches.
 - **The game is set to start full screen.**
-- **Two games, one installer.** Into the Steam version KMRP is installed, as on
-  Windows. The Mac App Store version cannot be changed, so the installer adds an app
-  beside it, **KOTOR with KMRP**: start the game with that and it has KMRP, start the
-  game itself and it has not. There the game starts at the display's resolution, and
-  KOTOR Patch Manager is not supported.
 - **The dialogue's reply list fills the bar at the bottom** of a conversation.
-- **Needs** the unmodified Steam version of the game (1.4.0) or the Mac App Store
-  version (1.4.1), macOS 10.13 or later, and
+- **Needs** the unmodified Steam version of the game, macOS 10.13 or later, and
   Rosetta 2 on an Apple Silicon Mac. Tested on Apple Silicon and on Intel Macs.
 
 **Windows only:** the fix for Windows display scaling, the extra memory for the GOG
@@ -281,7 +274,6 @@ not need.
 | Windows, Steam version | Yes |
 | Windows, GOG version | Yes |
 | Windows, disc version 1.03 | Yes |
-| macOS, Steam version | Yes, since KMRP 1.5, with a separate installer (`KMRP-macOS-1.5.1.dmg`); tested on Apple Silicon and on Intel Macs. See [macos/PLAYER-README.md](../macos/PLAYER-README.md) and [macos/README.md](../macos/README.md). |
-| macOS, Mac App Store version | Yes, since KMRP 1.5.1, with the same installer: the game is not changed, and is started with the app **KOTOR with KMRP**. Seen in the menus on Apple Silicon; not yet played through, and not tried with a controller or on an Intel Mac. See [macos-app-store.md](macos-app-store.md). |
+| macOS, Steam version | Yes, since KMRP 1.5, with a separate installer (`KMRP-macOS-1.5.0.dmg`); tested on Apple Silicon and on Intel Macs. See [macos/PLAYER-README.md](../macos/PLAYER-README.md) and [macos/README.md](../macos/README.md). |
 | Linux with Proton | **SteamOS: tested and working with 1.5.1** (the maintainer, SteamOS 3.8 on a desktop PC with an NVIDIA RTX 3080, Proton 11.0, 2026-10-12: installed, played with a controller, resolution changed in the game, restored). Ubuntu: tested with a development build of 1.5, with the stable Proton and with Proton Experimental. 1.5.0 does not start under Proton. Other distributions are untested. See [linux-proton-steam-deck.md](linux-proton-steam-deck.md). |
 | Steam Deck | Not tested on the device. It runs SteamOS and the same Proton, so it is expected to work the same way, and the Deck's controls are among the pads KMRP knows. |
