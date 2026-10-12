@@ -4868,6 +4868,29 @@ extern "C" void __cdecl CaptureActionBarInputK2(
 // A buffered input record, asked whether it is a genuine keyboard press. The
 // device check matters: the same buffer carries mouse and joystick records, and
 // KMRP's own pad records must not be mistaken for someone reaching for the keys.
+// A DirectInput keyboard code that is a key of the keyboard's own: the main block,
+// the keypad and F1 to F12 (0x01 to 0x58), the keys Japanese and Brazilian
+// keyboards add, and the extended keys (keypad Enter and /, right Ctrl and Alt,
+// Print Screen, Pause, the arrows and the six above them). Not the media, browser,
+// power and Windows keys, and not a code with no key at all.
+static bool IsKeyboardUseKeyK1(std::uint32_t offset)
+{
+    const std::uint32_t code = offset & 0xFF;
+    if (code >= 0x01 && code <= 0x58) {
+        return true;
+    }
+    switch (code) {
+    case 0x70: case 0x73: case 0x79: case 0x7B: case 0x7D: case 0x7E:
+    case 0x8D: case 0x91: case 0x92: case 0x93: case 0x94: case 0x96:
+    case 0x9C: case 0x9D: case 0xB3: case 0xB5: case 0xB7: case 0xB8:
+    case 0xC5: case 0xC7: case 0xC8: case 0xC9: case 0xCB: case 0xCD:
+    case 0xCF: case 0xD0: case 0xD1: case 0xD2: case 0xD3:
+        return true;
+    default:
+        return false;
+    }
+}
+
 extern "C" void __cdecl KmrpNoteKeyboardK1(void* record, int inputDevice)
 {
     BufferedInputRecord* input =
@@ -4889,6 +4912,25 @@ extern "C" void __cdecl KmrpNoteKeyboardK1(void* record, int inputDevice)
         // release, which is how this site has always swallowed a key, and is not
         // the keyboard being used. Only with one of Valve's pads among SDL's, and
         // only while the pad is held: a keyboard beside any other pad is as it was.
+        // Not a key a hand on the keyboard presses: a media or browser key, or a
+        // code DirectInput has no key for. Under Linux an Xbox pad on Bluetooth is
+        // also a keyboard to the system (the kernel's hid-microsoft driver gives it
+        // KEY_BACK and KEY_HOMEPAGE), Steam Input hides only its pad side, and each
+        // press of Back reached the game as keyboard code 0x80 as well: the HUD
+        // went to keyboard and mouse for some 30 ms and back, five presses of five
+        // (SteamOS, Proton 11, an Elite Series 2, 2026-10-12, kmrp-controller-
+        // events.log). The record is left as it is; it is only not keyboard use.
+        if (!IsKeyboardUseKeyK1(input->offset)) {
+            static std::uint8_t told[32] = {};
+            const std::uint32_t code = input->offset & 0xFF;
+            if ((told[code >> 3] & (1u << (code & 7))) == 0) {
+                told[code >> 3] |= static_cast<std::uint8_t>(1u << (code & 7));
+                char line[96];
+                wsprintfA(line, "key %02X is not a key of the keyboard's: not taken for keyboard use", code);
+                ControllerLogK1(line);
+            }
+            return;
+        }
         if (ControllerTypesByItselfK1()) {
             // For the debug log: the first ten, then every two-hundredth.
             static unsigned long dropped = 0;

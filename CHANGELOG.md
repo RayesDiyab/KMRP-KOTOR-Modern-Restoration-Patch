@@ -118,8 +118,12 @@ proxy, and it applies the executable changes above as well.
 
 - **Linux and Proton: the game starts again, the installer finds it, and Restore Original
   no longer stops at the high-DPI record** (2026-10-11; issues 30, 31 and 36). Built as
-  `dist\KMRP-Windows-1.5.0-proton-test.exe` for the maintainer's SteamOS test. **Not yet
-  run under Wine or Proton:** everything below was checked on Windows only.
+  `dist\KMRP-Windows-1.5.0-proton-test.exe` for the maintainer's SteamOS test. Checked
+  on Windows when written. Run by the maintainer on SteamOS (Proton 11.0, RTX 3080) on
+  2026-10-11 and 2026-10-12 with the later test builds: the game starts, the installer
+  finds the game, and Restore Original completes (his report for the last two; the
+  installer's log of the tenth build shows the restore and the install at
+  `S:\steamapps\common\swkotor`).
   - **The modules decode their own banks.** KMRP 1.5.0's two modules unpacked their
     embedded files with the Windows Compression API (`CreateDecompressor`, `Decompress`:
     `cabinet.dll` ordinals 40 and 43). Wine has no such exports up to 11.0, nor do Valve's
@@ -154,6 +158,36 @@ proxy, and it applies the executable changes above as well.
     `Test-DpiCompatibility.ps1` passes; it has no case for a moved folder yet.
   - **First run on SteamOS (2026-10-11, Proton 11.0-100, the build above): the game
     starts.** The `Cabinet.dll.40` abort did not come back in 28 logged launches.
+
+- **Installer on Linux: the controller layout has to be Gamepad, and says so**
+  (2026-10-12; thirteenth test build, `dist\KMRP-Windows-1.5.0-proton-test13.exe`). On
+  SteamOS the game got no pad at all with Steam's default layout for KOTOR, which sends
+  keyboard and mouse (the game is listed without controller support): Steam's log read
+  "Controller 0 mapping uses xinput : false" until the layout was changed to the Gamepad
+  template. After an install under Wine or Proton with Controller Support on, the
+  installer now shows a notice saying so, with the steps, and writes it to the log
+  (`OfferSteamLayout`, `KmrpPatcher.cs`). Nothing of Steam's is written or opened, and
+  nothing is shown on Windows, where Steam Input is off for an Xbox pad unless the
+  player turned it on. **Not yet seen under Proton.**
+
+- **Controller: a key that is not the keyboard's is not keyboard use** (2026-10-12;
+  eleventh test build, `dist\KMRP-Windows-1.5.0-proton-test11.exe`). First run of the
+  tenth build on SteamOS (Proton 11.0, RTX 3080, 3440x1440, an Xbox Elite Series 2 on
+  Bluetooth through Steam Input): each press of Back showed the keyboard and mouse HUD
+  for some 30 ms. The events log had "the game goes to keyboard and mouse (key 80)" and
+  "the game goes to the pad" 29 to 35 ms apart, five presses of five. Under Linux that
+  pad is also a keyboard to the system (the kernel's `hid-microsoft` driver; it has
+  `KEY_BACK` and `KEY_HOMEPAGE`), Steam Input hides only the pad side, and 0x80 is no
+  DirectInput key. `KmrpNoteKeyboardK1` now takes for keyboard use only the keyboard's
+  own keys (`IsKeyboardUseKeyK1`: the main block, the keypad, F1 to F12, the Japanese
+  and Brazilian extras, the extended keys), not media, browser, power or Windows keys
+  nor a code with no key; the record itself is passed on as before. Run by the
+  maintainer on the same SteamOS machine afterwards: Back no longer shows the keyboard
+  and mouse HUD. That Back is the button sent as `KEY_BACK` is inferred, not observed.
+  From the same run, not faults of the patch: the installer ran and Restore Original
+  completed under Proton; one pad was seen, through XInput, with no second view of it;
+  with Steam's default layout for KOTOR the game got no pad at all until the layout was
+  changed to the Gamepad template, which belongs in the Linux notes.
 
 - **Controller: a log of events for a player's report** (2026-10-12; tenth test build,
   `dist\KMRP-Windows-1.5.0-proton-test10.exe`). `kmrp-native-joystick.log` is the
@@ -277,7 +311,9 @@ proxy, and it applies the executable changes above as well.
   wrote to and polled the old one (`g_stick.input`). `LiveStickInputK1`
   (`K1NativeJoystick.cpp`) now asks the engine's own global each time. Measurements and
   what is not verified: `docs/controller-native-path.md`, "The same crash from a change
-  of resolution". **Not yet run under Proton, and not reproduced on Windows.**
+  of resolution". Not reproduced on Windows. Run by the maintainer on SteamOS on
+  2026-10-12, where it had failed: changes of resolution with a save loaded, and the
+  game stayed up (his report; the number of changes was not written down).
 
 - **The player's Override comes before KMRP's files** (2026-10-11, the maintainer's
   decision after a player's own Override files had no effect; third test build,

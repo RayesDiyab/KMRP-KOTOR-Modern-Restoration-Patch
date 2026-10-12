@@ -7383,8 +7383,37 @@ namespace Kmrp
                 // RefreshStatus found, "KOTOR is ready to play at W × H."
                 stepApply.SetSubtitle(result == null ? name + " completed."
                     : result.Length <= StepLineLimit ? result : lastDetail);
+                if (name == "Patch")
+                    OfferSteamLayout(target);
             };
             worker.RunWorkerAsync();
+        }
+
+        /// <summary>After an install under Wine or Proton with Controller Support on:
+        /// Steam's controller layout for KOTOR has to be the Gamepad one. Steam's
+        /// default layout for the game sends keyboard and mouse, the game being listed
+        /// without controller support, and KMRP's controller support then gets no pad
+        /// at all (SteamOS, Proton 11, 2026-10-12: "Controller 0 mapping uses xinput :
+        /// false" until the layout was changed to the Gamepad template). Steam Input is
+        /// always on there; on Windows it is off for an Xbox pad unless the player
+        /// turned it on, so nothing is said on Windows. Told, not done: nothing of
+        /// Steam's is written or opened here.</summary>
+        private void OfferSteamLayout(string target)
+        {
+            if (!GameFolders.UnderWine() || !KmrpSettings.ControllerSupport)
+                return;
+            const string notice = "For the controller to work, KOTOR's controller layout in Steam has to be " +
+                "set to Gamepad.\n\nSteam gives KOTOR a keyboard and mouse layout by default, and the game " +
+                "then gets no controller at all.\n\nIn Steam: KOTOR -> the controller icon -> Edit Layout -> " +
+                "Templates -> Gamepad -> Apply.";
+            try
+            {
+                PatchOperations.AppendLog(target, "Controller under Steam on Linux: " +
+                    notice.Replace("\n\n", " "));
+                MessageBox.Show(this, notice, "Set the controller layout to Gamepad in Steam",
+                    MessageBoxButtons.OK, MessageBoxIcon.Information);
+            }
+            catch { }
         }
 
         private void SetBusyState(bool busy)
