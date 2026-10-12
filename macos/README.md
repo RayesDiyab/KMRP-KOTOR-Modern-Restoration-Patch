@@ -6,8 +6,11 @@
 > site tabulated, rejected alternatives and corrections kept visible, and
 > anything untested labelled as untested.
 
-The macOS port of KMRP for the Steam Aspyr build of KOTOR: how it is built, what the
-installer writes, and how each part of the Windows patch is carried over. The goal is a Mac
+The macOS port of KMRP for Aspyr's build of KOTOR: how it is built, what the
+installer writes, and how each part of the Windows patch is carried over. Since 1.5.1 it
+supports two games, Steam's and the Mac App Store's; this document is written from Steam's,
+and *The two games* below says how the other differs
+([`docs/macos-app-store.md`](../docs/macos-app-store.md) has it in full). The goal is a Mac
 build that cannot be told apart from Windows at the same resolution; the tracker for that,
 Windows site by Windows site, is [`WINDOWS-PARITY.md`](WINDOWS-PARITY.md). The player-facing
 instructions ship in the package as `README.md` ([`PLAYER-README.md`](PLAYER-README.md)).
@@ -31,7 +34,39 @@ it held, and keeps what was measured then.
 The image always loads at `0x100000000`, and within `__TEXT` the file offset is
 `VA − 0x100000000`. The Windows convention (`FILE = VA − 0x400000`) does not apply here.
 
-The installer refuses any other `KOTOR_Exe`.
+The installer refuses any other `KOTOR_Exe` but the Mac App Store's (next).
+
+## The two games
+
+KMRP for macOS supports two games since 1.5.1 (2026-10-12): Steam's, above, since 1.5.0, and
+the Mac App Store's. They are the same game built twice, and KMRP is the same five patches
+in both, but it reaches each another way, because the App Store's game is sandboxed and
+macOS does not start it once a file of its bundle is added or changed. One package and one
+installer serve both. Everything else in this document describes Steam's game unless it
+names the other; the App Store column is from `docs/macos-app-store.md`, section 7, where
+each row is measured or marked as not seen.
+
+| | Steam | Mac App Store |
+| --- | --- | --- |
+| Bundle id, version | `com.aspyr.kotor.steam`, 1.4.0 (176481) | `com.aspyr.kotor`, 1.4.1 (199106) |
+| `KOTOR_Exe` | 6,333,424 bytes, `c1fcb8d3...6d71` | 6,313,504 bytes, `d03315aa...ad7ca` |
+| Where it is | the Steam library, the player's files | `/Applications`, owned by root, sandboxed, with a receipt |
+| How KMRP gets in | installed into the game: KPM's runtime, the modules and `patch_config.toml` in `Contents/MacOS`, one load command added to `KOTOR_Exe`, signed again ad hoc (section 2) | nothing written into the game. An app beside it, `KOTOR with KMRP.app`, holds the runtime, the modules and the hook list, and starts Aspyr's `AppBundleExe` with `loader.dylib` in `DYLD_INSERT_LIBRARIES`; the loader loads KotorPatcher in `KOTOR_Exe` (`macos/appstore/launcher.c`, `loader.c`) |
+| How the player starts it | as before, from Steam or the game's icon: the game is KMRP's | with **KOTOR with KMRP**. *Knights of the Old Republic* itself still starts the game without KMRP |
+| Addresses and hooks | written for this build, by hand | translated from Steam's by the build (`macos/tools/appstore/`): the two files matched instruction by instruction, 1,175 addresses and 138 hooks, none failed |
+| Modules in the package | whole, inside each `.kpatch` | as what turns Steam's module into the other (`*.dylib.delta`), put together at install |
+| A game that is not the expected build | the installer refuses it | the installer refuses it; after an update from the App Store the loader finds another SHA-256 and the game runs without KMRP |
+| Resolution at first start | `Width` and `Height` written to `swkotor.ini` by the installer | the display's size: `swkotor.ini` is in the game's container, closed to the installer. Changed in the game as in Steam's |
+| Fullscreen | `DisplayFullScreen` set by the installer in `com.aspyr.kotor.steam.plist`; uninstall puts the old value back | set by the loader inside Aspyr's launcher at the first start, once; uninstall cannot put it back (`docs/macos-app-store.md`, section 7.5) |
+| Controller settings file | written by the installer if absent | written by the module on first start, in the container |
+| SDL for the controller | inside the module, unpacked to its cache and loaded from there | beside the module in KMRP's app: the sandboxed game stopped at loading a library it had unpacked itself |
+| Caches | `~/Library/Caches/KMRP`, `KMRP-Controller` | in the game's container, `~/Library/Containers/com.aspyr.kotor/Data/Library/Caches` |
+| The game's output | where the game was started from | `~/Library/Logs/KMRP/appstore-game.log`, opened by KMRP's app |
+| KMRP's records | `~/Library/Application Support/KMRP/macos` | `~/Library/Application Support/KMRP/macos-appstore` |
+| Uninstall | every file removed, `KOTOR_Exe`, `swkotor.ini` and the preference put back | the one app deleted |
+| KotOR Patch Manager | supported: KMRP installs for it, or it installs KMRP's patches | not: KPM does not know this build, and could not install into it |
+| Installer | found by itself in the Steam libraries | found when there is no Steam copy; with both, Browse or `--app-store` |
+| Seen in the game | played, see *Coverage* | the menus, Options, a change of resolution, the first screen of a new game; no save loaded, no controller connected (`docs/macos-app-store.md`, 7.3 and 7.4) |
 
 ## 1. How the Mac port is put together
 
@@ -388,10 +423,11 @@ requires, with no installer run, it is the whole of KMRP's interface. What Windo
 | --- | --- |
 | The bank | `tools/make_kmrp_assets.py`: KMRP's artwork, the bundled third-party art, all 66 menu sets and `gui-blend.bin`, each distinct file once, zlib-compressed, linked into the module as the section `__KMRP,__assets`. In the build measured on 2026-10-04: 335 artwork files (SDL among them then; it is the controller patch's since 2026-10-07), 520 of third-party art, 17,127 objects, 158,594,907 bytes. Since 2026-10-08 the bank leaves out what the module makes itself, as Windows' does since 2026-10-05: the module's blend helper writes most layouts and badges of most sizes exactly as the build's set has them, `make_kmrp_assets.py --helper` runs it for every set (as x86_64 code, like the module's copy) and stores an object only where some file that needs it is not what the helper writes, and `BuildSet` in `assets.cpp` writes the bank's files, runs the helper, puts the bank's back where the helper differs and holds every file against the set's index. Measured that day: 216,600,987 bytes with every object (32,135 objects), 104,605,483 like this (3,865 objects; 59,285 of the sets' 64,482 files left to the module; 45 sets rebuilt whole, 20 in part, 1280x1080 stored whole). `Test-MacAssets.py` with `KMRP_ALL_SETS=1` made all 66 sets through the module and each was the build's, byte for byte; in the game, 1512x982 (867 files made, 65 of the bank's put back) and 3024x1890 (blended) were seen |
 | The code | `patches/kmrp-assets/assets.cpp`, with the installer's three helpers compiled in (`tools/kmrp-guiblend.c`, `kmrp-abilityicons.c`, `kmrp-gameart.c`) |
-| When | the game's start-up registers its resource folders one after another; a detour on its call for `OVERRIDE:` (`0x10026c739`) makes that call and then registers KMRP's two folders, the artwork and the size's set. A folder registered later is searched first, so the set wins over the artwork and both over the game's override folder |
+| When | the game's start-up registers its resource folders one after another; a detour on its call for `OVERRIDE:` (`0x10026c739`) makes that call and then registers KMRP's two folders, the artwork and the size's set. A folder registered later is searched first, so the set wins over the artwork and both would win over the game's override folder: since 2026-10-12 a file the player has there is left out of both instead (next row) |
 | The size | the widescreen patch's target: `ForceWidth` and `ForceHeight` when `swkotor.ini` has them, else `Width` and `Height` when the display reports that size, else the display's size in points ("The resolution chosen in the game") |
 | A size without a set | the nearest set by height, then shape, with the files `kmrp-guiblend` blends over it: the installer's procedure, run by the module the first time the game starts at that size |
-| Bundled art | left out of this run's artwork folder when the game's override folder already has that texture, as `.tga` or `.tpc`: the installer's rule, applied each launch |
+| The player's override first | since 2026-10-12, as Windows' 1.5.1 (`YieldToOverride`): the game is given links to the cache, this run's artwork (`art-<pid>`) and this run's view of the set (`set-<pid>-<n>`), without any file the game's override folder has: one of the same name, and for a texture KMRP's `.tga`, `.tpc` and `.txi` of that name whichever of the two formats the player's is. A mod's layout, texture or font there now wins; the set stays whole in the cache. Until then only the bundled third-party art yielded, to a texture of either kind (the installer's rule) |
+| A font from the override | drawn at the size KMRP's own font of that name has: its five metrics multiplied by KMRP's `fontheight` over its own (`ScaleOverrideFonts`, as Windows' `KmrpScaleOverrideFontsK1`), asked each GUI frame, as a panel starts loading and after the metrics are read again on a change of size. Not seen in the game: no translation was installed |
 | `UseGuiFileLayouts` | no longer written to `swkotor.ini`. KMRP's module asks the Widescreen Patch for its `.gui` mode through `K1Widescreen_UseGuiFileLayouts(1)` whenever it has menus for the size (`patches/kmrp-assets/layouts_ini.cpp`, `widescreen.cpp`). The player's file is not changed. For a size the sets do not cover, nothing is asked and the widescreen patch lays the menus out itself. (On 2026-10-04, for the hours the widescreen patch was still compiled into `kmrp.dylib`, it was compiled with `-Dfopen=kmrp_ini_fopen` and a reader added the key to what it read; that reader is still what KMRP's own parts read the file through) |
 | SDL | not in this module since 2026-10-07: the controller patch carries it and unpacks it to its own cache (section 7a) |
 
@@ -995,7 +1031,7 @@ conflicts list.
 | Driver compatibility, DPI and NVIDIA settings, Large Address Aware | Windows code (K1DC is a `dinput8.dll` proxy with an ASI plugin for the 32-bit `swkotor.exe`); the Mac build is 64-bit. *Corrected 2026-09-29:* this called them Direct3D-specific, but KOTOR renders with OpenGL on Windows too, and K1DC repairs an OpenGL lighting path. Whether the Mac port has the same fallback is **not yet checked**: this Mac's OpenGL (Apple M5, 2.1 on Metal) offers neither `GL_NV_register_combiners` nor `GL_ATI_text_fragment_shader`, the two old paths the executable names, but it does offer the ARB fragment programs and GLSL, which the executable also names |
 | Movie fixes | Aspyr's Bink 2 player pillarboxes and switches no display mode (checked in play) |
 | `swkotor.ini` beyond the size | only the two keys of section 2 are written: `Width` and `Height`, or `ForceWidth` and `ForceHeight` for a size the display does not have. (Until 2026-10-04 it was three keys, `UseGuiFileLayouts`, `ForceWidth` and `ForceHeight`, and `Width`/`Height` were left alone) |
-| Graphics settings other than anti-aliasing on a 4K display | the player's. Anti-aliasing is the player's too, and the README recommends 2x at native (section 5), except on a display of 3840x2160 pixels or more, where the installer turns it off since 2026-10-09 (`Anti Aliasing=0`, recorded and put back like the size; `--keep-anti-aliasing` leaves it). Measured on a 4K television at 60 Hz, the main menu: 59 frames a second at 2x, 82 with it off; frame-buffer effects and soft shadows off made 60 and 61 |
+| Graphics settings other than anti-aliasing on a 4K display | the player's. Anti-aliasing is the player's too, and the README recommends 2x at native (section 5), except on a display of 3840x2160 pixels or more, where the installer turns it off since 2026-10-09 (`Anti Aliasing=0`, recorded and put back like the size; `--keep-anti-aliasing` leaves it), and where since 2026-10-12 the module starts the renderer without it whatever the setting says (`resolution.cpp`, `ApplyAntiAliasRule`; `keep-anti-aliasing=1` in `configs/kmrp.ini` leaves it). Measured on a 4K television at 60 Hz, the main menu: 59 frames a second at 2x, 82 with it off; frame-buffer effects and soft shadows off made 60 and 61 |
 | Update check | the Windows installer's; KMRP Installer for the Mac has none |
 | Anything in the game's override folder | since 2026-10-04 (section 2); a mod's files there keep their place, and KMRP's bundled third-party art yields to them |
 
@@ -1019,6 +1055,7 @@ zsh macos/build.sh --kpm "../third_party/Kotor-Patch-Manager" --exe <clean KOTOR
 | `--kpm <dir>` | the KotOR Patch Manager tree the runtime, KPatchCore and FTD's two patches are built from. It must have the Widescreen Patch's entry points (upstream since `7546ae5`, 2026-10-05); `build.sh` looks for `K1Widescreen_UseGuiFileLayouts` in `Patches/K1WidescreenPatch/mac_widescreen.cpp` and stops without it. The path above is the clone the maintainer's workspace keeps beside this repository |
 | `--exe <file>` | an unmodified `KOTOR_Exe`, when the installed game's own is patched (KMRP's backup copy, `~/Library/Application Support/KMRP/macos/backup/KOTOR_Exe`, is one). Without it the game's own is used and must be unmodified |
 | `--python <python3>` | a Python with `requirements.txt` installed |
+| `--appstore-exe <file>` | the Mac App Store game's `KOTOR_Exe` (1.4.1, SHA-256 `d03315aa...ad7ca`), for the second set of hooks and modules (`docs/macos-app-store.md`, section 7). Default: the game in `/Applications`. Without that file the build says "NOT built" and the package supports Steam's game only; `--no-appstore` asks for that. It is read, never packaged |
 | `--reuse-resources` | keeps the interface resources of the previous build (`build/kmrp/resources`) |
 | `--game <app>`, `--widescreen <dir>` | the game bundle, when it is not in the default Steam library; another `Patches/K1WidescreenPatch` |
 
@@ -1257,6 +1294,10 @@ The installer records the previous key value in its manifest. Uninstall and roll
 restore that key only while its value still matches KMRP’s 1; later player changes
 are preserved. An originally absent key is deleted, and other preferences remain
 untouched. The installer window itself keeps its normal windowed interface.
+
+This is Steam's game. The Mac App Store game's preferences cannot be written by the
+installer; there KMRP's loader sets the same key from inside the game at the first start
+(`docs/macos-app-store.md`, section 7.5; written 2026-10-12, not seen in the game).
 
 Validation: `testing/regression/Test-MacFullscreen.py` exercises the actual installer
 functions against a temporary preference file: absent key, prior windowed value,

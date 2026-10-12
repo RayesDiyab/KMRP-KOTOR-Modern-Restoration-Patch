@@ -17,9 +17,11 @@
                          nearest set (by height, then shape) with the .gui files, badges and
                          prompt manifest kmrp-guiblend blends for it; and what KMRP makes from the
                          player's own game for that height (kmrp-gameart, kmrp-abilityicons)
-      art-<pid>/         hard links to store/ for this run of the game: KMRP's artwork, and of
-                         the bundled art whatever the player's override folder does not already
-                         have (the installer's rule: third-party art yields to a file already there)
+      art-<pid>/         hard links to store/ for this run of the game: KMRP's artwork and the
+                         bundled art, but for what the player's override folder has
+      set-<pid>-<n>/     hard links to a set for this run, likewise: the folder the game is given
+
+  The player's override comes first (2026-10-12, as Windows' 1.5.1): see PlayerHas.
 
   Unlike Windows, which unpacks about 100 MB on every launch into a folder of that launch, the
   store and each set are unpacked once and kept: the Mac's artwork is 348 MB.
@@ -102,6 +104,14 @@ struct State {
     std::pair<int, int> newest{0, 0};              // the size registered last, which is searched first
     std::string newestDirectory;
     int generation = 0;
+    // The player's override folder, listed once, as the game lists it once: every file's name
+    // in lower case, and the names of its textures without their extension.
+    bool overrideListed = false;
+    std::map<std::string, bool> overrideNames, overrideTextures;
+    // The glyph height KMRP's own font of each name has at the size in use, for the fonts the
+    // player's override supplies in its place (lower-case names, without extension).
+    std::map<std::string, float> overrideFontHeights;
+    bool overrideFontsChanged = false;
     std::map<std::pair<int, int>, bool> covered;
 };
 State& TheState() {
@@ -342,7 +352,7 @@ void RemoveStale() {
     }
     for (const std::string& name : Names(g_root)) {
         if (name.find(".tmp") != std::string::npos && !IsDirectory(g_root + "/" + name)) continue;
-        if (name.compare(0, 4, "art-") != 0) continue;
+        if (name.compare(0, 4, "art-") != 0 && name.compare(0, 4, "set-") != 0) continue;
         const int pid = atoi(name.c_str() + 4);
         if (pid > 0 && pid != getpid() && kill(pid, 0) != 0 && errno == ESRCH) RemoveFlat(g_root + "/" + name);
     }
@@ -368,19 +378,73 @@ std::string Lower(std::string text) {
     return text;
 }
 
-// The installer's rule for the bundled art (kmrp-mac.sh, texture_present): a texture resolves by
-// its name, and the game prefers .tpc over .tga, so a file of either kind in the player's
-// override folder counts.
-bool PlayerHas(const std::vector<std::string>& playerFiles, const std::string& name) {
-    const std::string lower = Lower(name);
-    const std::size_t dot = lower.rfind('.');
-    const std::string stem = dot == std::string::npos ? lower : lower.substr(0, dot);
-    const std::string kind = dot == std::string::npos ? "" : lower.substr(dot);
-    for (const std::string& file : playerFiles) {
-        if (file == lower) return true;
-        if ((kind == ".tga" && file == stem + ".tpc") || (kind == ".tpc" && file == stem + ".tga")) return true;
+// The player's override folder comes before KMRP's files (2026-10-12, as Windows since 1.5.1:
+// K1RuntimeAssets.cpp, YieldToOverride). KMRP's folders are registered after OVERRIDE: and so
+// searched before it; a file the player has there, a mod's layout, texture or font, was ignored
+// wherever KMRP had one of the same name. So what the player has is left out of the folders the
+// game is shown: a file of the same name, and for a texture KMRP's .tga, .tpc and .txi of that
+// name whichever of the two formats the player's is (the game prefers a .tpc to a .tga wherever
+// each is, and a texture is one thing with its .txi). Until then only the bundled third-party
+// art yielded, to a texture of either kind (the installer's rule, kmrp-mac.sh, texture_present).
+void ListOverride() {
+    State& state = TheState();
+    if (state.overrideListed) return;
+    state.overrideListed = true;
+    const std::string assets = AssetsDirectory();
+    if (assets.empty()) return;
+    for (const std::string& file : Names(assets + "/override")) {
+        const std::string name = Lower(file);
+        state.overrideNames[name] = true;
+        const std::size_t dot = name.rfind('.');
+        if (dot != std::string::npos && (name.compare(dot, std::string::npos, ".tga") == 0 ||
+                                         name.compare(dot, std::string::npos, ".tpc") == 0))
+            state.overrideTextures[name.substr(0, dot)] = true;
     }
-    return false;
+}
+
+bool PlayerHas(const std::string& file) {
+    ListOverride();
+    const State& state = TheState();
+    const std::string name = Lower(file);
+    if (state.overrideNames.count(name)) return true;
+    const std::size_t dot = name.rfind('.');
+    if (dot == std::string::npos) return false;
+    const std::string kind = name.substr(dot);
+    return (kind == ".tga" || kind == ".tpc" || kind == ".txi") && state.overrideTextures.count(name.substr(0, dot)) != 0;
+}
+
+// `fontheight` out of a .txi's text, or 0 (FontHeightOf).
+float FontHeightOf(const std::string& path) {
+    FILE* f = fopen(path.c_str(), "rb");
+    if (!f) return 0.0f;
+    std::string text;
+    char buffer[4096];
+    std::size_t n;
+    while ((n = fread(buffer, 1, sizeof buffer, f)) > 0 && text.size() < (1u << 20)) text.append(buffer, n);
+    fclose(f);
+    static const char key[] = "fontheight";
+    for (std::size_t at = text.find(key); at != std::string::npos; at = text.find(key, at + 1)) {
+        if (at != 0 && text[at - 1] != '\n' && text[at - 1] != '\r') continue;
+        const double value = atof(text.c_str() + at + sizeof(key) - 1);
+        if (value > 0.0 && value < 100.0) return static_cast<float>(value);
+    }
+    return 0.0f;
+}
+
+// A file of KMRP's the player's override replaces. When it is the metrics of a font whose
+// texture the player supplies, what KMRP's own font measures here is kept, for
+// ScaleOverrideFonts.
+void NoteYielded(const std::string& path, const std::string& file) {
+    const std::string name = Lower(file);
+    const std::size_t dot = name.rfind('.');
+    if (dot == std::string::npos || name.compare(dot, std::string::npos, ".txi") != 0) return;
+    State& state = TheState();
+    if (!state.overrideTextures.count(name.substr(0, dot))) return;
+    const float height = FontHeightOf(path);
+    if (height > 0.0f) {
+        state.overrideFontHeights[name.substr(0, dot)] = height;
+        state.overrideFontsChanged = true;
+    }
 }
 
 bool Link(const std::string& from, const std::string& to) {
@@ -396,12 +460,12 @@ bool LinkArtwork(std::string& directory) {
     directory = g_root + "/art-" + std::to_string(getpid());
     RemoveFlat(directory);
     if (!MakeDirectories(directory)) return false;
-    std::vector<std::string> playerFiles;
-    const std::string assets = AssetsDirectory();
-    if (!assets.empty())
-        for (const std::string& name : Names(assets + "/override")) playerFiles.push_back(Lower(name));
-    for (const Entry& entry : g_groups[0].entries)
+    unsigned own = 0, ownYielded = 0;
+    for (const Entry& entry : g_groups[0].entries) {
+        if (PlayerHas(entry.name)) { NoteYielded(g_store + "/" + entry.name, entry.name); ownYielded++; continue; }
         if (!Link(g_store + "/" + entry.name, directory + "/" + entry.name)) return false;
+        own++;
+    }
     // The HD icon pack is bundled art like the rest, and the patch's hd-icons option leaves it
     // out (since 2026-10-08): the game then shows its own item icons, or the player's.
     const bool icons = HdIconsOption();
@@ -409,14 +473,35 @@ bool LinkArtwork(std::string& directory) {
     for (const Group* bundled : {&g_groups[1], &g_groups[2]}) {
         if (bundled == &g_groups[2] && !icons) continue;
         for (const Entry& entry : bundled->entries) {
-            if (PlayerHas(playerFiles, entry.name)) { yielded++; continue; }
+            if (PlayerHas(entry.name)) { yielded++; continue; }
             if (!Link(g_store + "/" + entry.name, directory + "/" + entry.name)) return false;
             given++;
         }
     }
-    Log("artwork: %zu files of KMRP's, %u bundled (%u left to files in the game's override), the HD icon pack %s",
-        g_groups[0].entries.size(), given, yielded, icons ? "among them" : "left out: the option is off");
+    Log("artwork: %u files of KMRP's (%u left to files in the game's override), %u bundled (%u left to them), the HD "
+        "icon pack %s",
+        own, ownYielded, given, yielded, icons ? "among them" : "left out: the option is off");
     TheState().art = directory;
+    return true;
+}
+
+// The folder the game is shown for a set: links to the set's files but for those the player's
+// override has (above). The set itself stays whole in the cache, where the blend helper and the
+// next run read it. One folder a registration: a key table already given to the game keeps its
+// path.
+bool LinkSet(const std::string& set, int generation, std::string& view) {
+    view = g_root + "/set-" + std::to_string(getpid()) + "-" + std::to_string(generation);
+    RemoveFlat(view);
+    if (!MakeDirectories(view)) return false;
+    unsigned linked = 0, yielded = 0;
+    for (const std::string& name : Names(set)) {
+        const std::string path = set + "/" + name;
+        if (IsDirectory(path)) continue;
+        if (PlayerHas(name)) { NoteYielded(path, name); yielded++; continue; }
+        if (!Link(path, view + "/" + name)) return false;
+        linked++;
+    }
+    Log("set %s: %u files, %u left to files in the game's override", view.c_str(), linked, yielded);
     return true;
 }
 
@@ -562,6 +647,57 @@ void Disable() { TheState().disabled = true; }
 const std::string& NewestSetDirectory() { return TheState().newestDirectory; }
 const std::string& ArtworkDirectory() { return TheState().art; }
 
+std::string OverrideDirectory() {
+    const std::string assets = AssetsDirectory();
+    return assets.empty() ? assets : assets + "/override";
+}
+
+// A font from the player's override is drawn at the size KMRP's own font of that name has
+// (2026-10-12, as Windows since 1.5.1: K1RuntimeAssets.cpp, KmrpScaleOverrideFontsK1).
+//
+// A font is a texture and its metrics, and the player's replaces KMRP's whole. A translation's
+// fonts are made for the game's own interface: its dialogfont16x16 is 16 pixels high where
+// KMRP's at 1440 lines is 32, so its letters were right and half the size the layouts are made
+// for. The engine draws a glyph (its width in the texture x texturewidth + spacingR) x 100 pixels
+// wide and fontheight x 100 high, from the font information the TXI parser fills (the object at
+// texture+0x48: fontheight +0x04, baselineheight +0x08, texturewidth +0x0C, spacingR +0x10,
+// spacingB +0x14; the glyphs' places in the texture are fractions and stay). Those five are
+// multiplied by KMRP's height over the font's own: the same letters, enlarged, as sharp as the
+// texture is. A font in the override under a name KMRP has no font for is left as it is.
+//
+// A texture's metrics are parsed when it is made and when KMRP reads them again after a change
+// of size (resolution.cpp, ReloadFontMetrics), so this is asked at every GUI frame, as each
+// panel starts loading and after that reload, and walks the textures (the array at 0x100635b58,
+// 0x100635b60 of them, names at +0xbc) only when their number has changed or `again` says the
+// metrics were just read. The first text laid out with a font in the moment it is made is
+// measured small, as on Windows.
+void ScaleOverrideFonts(bool again) {
+    static int walked = -1;
+    State& state = TheState();
+    if (state.overrideFontHeights.empty()) return;
+    void** const textures = *reinterpret_cast<void***>(0x100635b58);
+    const int count = *reinterpret_cast<const int*>(0x100635b60);
+    if (!textures || count <= 0 || count > 0x100000) return;
+    if (!again && !state.overrideFontsChanged && count == walked) return;
+    walked = count;
+    state.overrideFontsChanged = false;
+    for (int i = 0; i < count; i++) {
+        char* const texture = static_cast<char*>(textures[i]);
+        float* const info = texture ? *reinterpret_cast<float**>(texture + 0x48) : nullptr;
+        if (!info) continue;
+        const std::string name = Lower(std::string(texture + 0xbc, strnlen(texture + 0xbc, 16)));
+        const auto found = state.overrideFontHeights.find(name);
+        if (found == state.overrideFontHeights.end()) continue;
+        const float own = info[1];
+        if (!(own > 0.001f) || !(own < 100.0f)) continue;
+        const float factor = found->second / own;
+        if (factor > 0.99f && factor < 1.01f) continue;
+        if (!(factor > 0.1f) || !(factor < 16.0f)) continue;
+        for (int field = 1; field <= 5; field++) info[field] *= factor;
+        Log("the override's font %s drawn %.2f times its size, as KMRP's own is here", name.c_str(), factor);
+    }
+}
+
 bool Covers(int width, int height) {
     if (TheState().disabled) return false;
     if (width < 640 || height < 480 || width > 32767 || height > 32767 || !Load()) return false;
@@ -585,7 +721,11 @@ bool Prepare(int width, int height, std::string* art, std::string* set) {
         return false;
     }
     RemoveStale();
-    if (!BuildStore() || !BuildSet(width, height, *set) || !LinkArtwork(*art)) {
+    // The set whole in the cache, and of it and the artwork what the game is shown this run:
+    // links, without what the player's override has (PlayerHas).
+    std::string whole;
+    if (!BuildStore() || !BuildSet(width, height, whole) || !LinkArtwork(*art) ||
+        !LinkSet(whole, TheState().generation + 1, *set)) {
         Log("the cache in %s could not be written: the game keeps its own files", g_root.c_str());
         return false;
     }

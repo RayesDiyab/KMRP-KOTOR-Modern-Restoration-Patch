@@ -14,6 +14,9 @@ bool SdlAvailable();
 // on the first call, on the calling thread, which must be the thread that polls.
 bool ReadSdlPad(PadState* out, std::string* name);
 
+// True within a second and a half of the pad read being held or moved.
+bool PadHeldRecently();
+
 // The active pad's glyph family (0 Xbox or generic, 1 PlayStation, 2 Nintendo, 3 Steam), or
 // -1; and a count that changes whenever the active pad does.
 int SdlPadFamily();

@@ -8,6 +8,11 @@
 #   kmrp-mac.sh uninstall [--game ...] [--yes]
 #   kmrp-mac.sh status    [--game ...] [--brief]
 #
+# --app-store with any of the three is about the Mac App Store's game (as is --game with that
+# game's path, and install on a Mac with no Steam copy): KMRP is then an app of its own beside
+# the game, "KOTOR with KMRP", and the game is not changed (the section "the Mac App Store's
+# game" below, docs/macos-app-store.md).
+#
 # What install does, and what uninstall reverses (see macos/README.md):
 #   1. Checks the game is the Steam Aspyr build it was made for (KOTOR_Exe 1.4.0,
 #      SHA-256 C1FCB8D3...6D71) and is not running. Anything else is refused.
@@ -43,6 +48,15 @@ PAYLOAD="${0:A:h}"
 STATE_ROOT="$HOME/Library/Application Support/KMRP"
 STATE="$STATE_ROOT/macos"
 VANILLA_EXE_SHA="c1fcb8d37c702849882a17751c63ee0af7c2b9cbbc3b31b98a5f0edbc27c6d71"
+# The Mac App Store's game (bundle id com.aspyr.kotor, 1.4.1 build 199106, read 2026-10-12): the
+# same game built without Steam's library, another KOTOR_Exe, every address of the patches
+# another one there. It is not one KMRP can install into as it does into Steam's: on macOS 27
+# the App Store game's launcher did not start once any file in the bundle had been added or
+# changed (docs/macos-app-store.md). Supported since 2026-10-12 another way, by an app beside
+# it (do_install_app_store).
+APPSTORE_EXE_SHA="d03315aace822908d6b7ca936d47c644ffe6ebf79822c8c62225bfaaf79ad7ca"
+APPSTORE_BUNDLE_ID="com.aspyr.kotor"
+APPSTORE=0     # --app-store: this run is about the Mac App Store's game
 LOADER="@executable_path/KotorPatcher.dylib"
 INI="$HOME/Library/Application Support/Knights of the Old Republic/swkotor.ini"
 SETTINGS="${INI:h}/kmrp-controller.ini"
@@ -86,10 +100,33 @@ steam_libraries() {
     sed -n 's/^[[:space:]]*"path"[[:space:]]*"\(.*\)"[[:space:]]*$/\1/p' "$vdf"
 }
 
+# A Mac App Store copy of the game: the usual places, then Spotlight by its bundle id. Prints
+# its path, or nothing.
+app_store_game() {
+    local candidate
+    for candidate in "/Applications/Knights of the Old Republic.app" "$HOME/Applications/Knights of the Old Republic.app" \
+                     ${(f)"$(mdfind "kMDItemCFBundleIdentifier == '$APPSTORE_BUNDLE_ID'" 2>/dev/null)"}; do
+        [[ -x "$candidate/Contents/MacOS/KOTOR_Exe" ]] || continue
+        is_app_store_game "$candidate" && { print -r -- "$candidate"; return 0; }
+    done
+    return 1
+}
+
+is_app_store_game() {   # by its bundle id or its receipt, without hashing the executable
+    local id
+    id=$(/usr/libexec/PlistBuddy -c 'Print :CFBundleIdentifier' "$1/Contents/Info.plist" 2>/dev/null)
+    [[ "$id" == "$APPSTORE_BUNDLE_ID" || -e "$1/Contents/_MASReceipt/receipt" ]]
+}
+
 find_game() {
     if [[ -n "$GAME" ]]; then
         [[ -d "$GAME/Contents/MacOS" ]] || die "not a game bundle: $GAME"
-        return
+        is_app_store_game "$GAME" && APPSTORE=1
+        return 0
+    fi
+    if (( APPSTORE )); then
+        GAME=$(app_store_game) || die "KOTOR from the Mac App Store was not found in Applications."
+        return 0
     fi
     local lib
     for lib in ${(f)"$(steam_libraries)"}; do
@@ -99,6 +136,11 @@ find_game() {
             return
         fi
     done
+    local store
+    if store=$(app_store_game); then
+        GAME=$store; APPSTORE=1
+        return 0
+    fi
     die "KOTOR was not found in any Steam library. Pass --game \"/path/to/Knights of the Old Republic.app\"."
 }
 
@@ -585,6 +627,9 @@ options_write_one() {   # options_write_one <key=value lines, CRLF>: the section
 options_write() {
     local kmrp_ini=$OPTIONS_INI lines
     lines=$(printf 'map-notes=%d\r\nhd-icons=%d\r\ndebug-logs=%d\r\n' $MAP_NOTES $HD_ICONS $DEBUG_LOGS; print -n x)
+    # keep-anti-aliasing is no option of the patch's manifest: a line only when asked for
+    # (--keep-anti-aliasing), which the module reads (kmrp-assets/resolution.cpp).
+    (( KEEP_AA )) && lines="${lines%x}"$'keep-anti-aliasing=1\r\n'x
     options_write_one "${lines%x}"
     if (( CONTROLLER )); then
         OPTIONS_INI="${kmrp_ini:h}/kmrp-controller.ini"
@@ -731,6 +776,7 @@ restore_fullscreen() {
 
 do_install() {
     find_game; set_paths; refuse_if_running
+    if (( APPSTORE )); then do_install_app_store; return 0; fi
     [[ -f "$PAYLOAD/SHA256SUMS" ]] || die "the package is incomplete (SHA256SUMS missing)"
     say "KMRP $KMRP_VERSION for macOS"
     say "Game: $GAME"
@@ -751,6 +797,8 @@ do_install() {
                 say "KotOR Patch Manager manages this game ($KPM_OTHERS): KMRP is installed for it. KOTOR_Exe and KPM's files are left as they are." ;;
             *)  die "$KPM_PROBLEM." ;;
         esac
+    elif [[ "$exe_sha" == "$APPSTORE_EXE_SHA" ]]; then
+        die "this is the Mac App Store's KOTOR_Exe in a folder that is not that game's. KMRP installs for the App Store's game where the App Store put it (kmrp-mac.sh install --app-store)."
     elif [[ "$exe_sha" != "$VANILLA_EXE_SHA" ]]; then
         die "KOTOR_Exe is not the unmodified Steam build this KMRP supports (SHA-256 $exe_sha, expected ${VANILLA_EXE_SHA[1,16]}...). If another patch is installed, remove it first; Steam's 'Verify integrity of game files' restores the original."
     fi
@@ -1082,8 +1130,12 @@ kpm_holds_only_kmrp() {   # config, InstalledPatches (including module-less patc
         # plutil parses JSON; missing/malformed/non-array state must retain the runtime.
         installed=$(plutil -extract InstalledPatches json -o - "$patch_state" 2>/dev/null) || return 1
         [[ "$installed" == \[*\] ]] || return 1
+        # Only the space around an id and its quotes go: an id with a space inside it is not
+        # one of KMRP's (until 2026-10-12 every space was removed, and "k mrp" passed for kmrp).
+        setopt localoptions extendedglob
         for id in ${(s:,:)${${installed#\[}%\]}}; do
-            id=${${id//[[:space:]]/}//\"/}
+            id=${id##[[:space:]]##}; id=${id%%[[:space:]]##}
+            id=${${id#\"}%\"}
             [[ -z "$id" ]] && continue
             (( ${KMRP_IDS[(Ie)$id]} )) || return 1
         done
@@ -1095,6 +1147,14 @@ kpm_holds_only_kmrp() {   # config, InstalledPatches (including module-less patc
 }
 
 do_uninstall() {
+    if (( APPSTORE )) || { [[ -n "$GAME" ]] && is_app_store_game "$GAME"; } ||
+       [[ ! -f "$STATE/install.info" && -f "$APPSTORE_STATE/install.info" ]]; then
+        [[ -n "$GAME" ]] || GAME=$(sed -n 's/^game=//p' "$APPSTORE_STATE/install.info" 2>/dev/null || true)
+        [[ -n "$GAME" ]] || GAME=$(app_store_game) || die "KOTOR from the Mac App Store was not found in Applications."
+        APPSTORE=1; set_paths
+        do_uninstall_app_store
+        return 0
+    fi
     [[ -f "$STATE/install.info" ]] || die "KMRP is not installed (no $STATE/install.info)."
     [[ -n "$GAME" ]] || GAME=$(sed -n 's/^game=//p' "$STATE/install.info")
     set_paths; refuse_if_running
@@ -1114,6 +1174,11 @@ do_uninstall() {
 
 # ---------------------------------------------------------------------- status
 do_status() {
+    if (( APPSTORE )) || { [[ -n "$GAME" ]] && is_app_store_game "$GAME"; }; then
+        APPSTORE=1; find_game; set_paths
+        do_status_app_store
+        return 0
+    fi
     if [[ -f "$STATE/install.info" ]]; then
         [[ -n "$GAME" ]] || GAME=$(sed -n 's/^game=//p' "$STATE/install.info")
         set_paths
@@ -1142,6 +1207,7 @@ do_status() {
         grep -qx "complete=1" "$STATE/install.info" || say "This install did not finish. Run uninstall to undo what it did."
     else
         find_game; set_paths
+        if (( APPSTORE )); then do_status_app_store; return 0; fi
         say "KMRP is not installed."
         say "game: $GAME"
         if kpm_present; then
@@ -1153,6 +1219,8 @@ do_status() {
                 *) say "KOTOR_Exe: a KotOR Patch Manager install KMRP cannot replace ($KPM_PROBLEM)" ;;
             esac
         elif [[ "$(sha "$EXE")" == "$VANILLA_EXE_SHA" ]]; then say "KOTOR_Exe: unmodified Steam build (supported)"
+        elif [[ "$(sha "$EXE")" == "$APPSTORE_EXE_SHA" ]]; then
+            say "KOTOR_Exe: the Mac App Store's, in a folder that is not that game's (not supported)"
         else say "KOTOR_Exe: modified or a different build"; fi
         (( BRIEF )) && return 0
         local geo=(${=$(display_geometry)})
@@ -1165,12 +1233,201 @@ do_status() {
     fi
 }
 
+# ---------------------------------------------------------------------- the Mac App Store's game
+# Nothing is written into the App Store's game (docs/macos-app-store.md): macOS does not start it
+# once its bundle has changed. KMRP is an app of its own beside it, "KOTOR with KMRP", which
+# holds the patcher, the hook list and the modules for that build (the package's appstore/,
+# translated from Steam's by the build) and starts the game with them brought in
+# (appstore/launcher.c, loader.c). The game started by its own icon is the game without KMRP.
+#
+# The sandboxed game reads /Applications and its own container and nothing else of the player's
+# (measured 2026-10-12), so the app has to be in the folder the game is in. The game's settings
+# are in its container, which this installer cannot write: nothing is set there. The module
+# starts the game at the display's size, makes its menu sets in the container's caches, and the
+# controller uses its default settings.
+APPSTORE_STATE="$STATE_ROOT/macos-appstore"
+APPSTORE_LAUNCHER_ID="io.github.rayesdiyab.kmrp.appstore-launcher"
+APPSTORE_LAUNCHER_NAME="KOTOR with KMRP"
+
+appstore_launcher_is_ours() {
+    [[ "$(/usr/libexec/PlistBuddy -c 'Print :CFBundleIdentifier' "$1/Contents/Info.plist" 2>/dev/null)" == "$APPSTORE_LAUNCHER_ID" ]]
+}
+
+# apply_delta <base> <delta> <out>: the file tools/appstore/make_delta.py described, made from
+# its base. Both ends are held against the hashes the delta names.
+apply_delta() {
+    local want_base want_new
+    want_base=$(sed -n 's/^base //p;/^data$/q' "$2" | head -1)
+    want_new=$(sed -n 's/^new //p;/^data$/q' "$2" | head -1)
+    [[ "$(sha "$1")" == "$want_base" ]] || return 1
+    perl -e '
+        use strict;
+        my ($base, $delta, $out) = @ARGV;
+        open my $d, "<:raw", $delta or die "$delta: $!\n";
+        my $line = <$d>; chomp $line;
+        $line eq "KMRP-DELTA 1" or die "not a delta\n";
+        my ($size, @runs);
+        while (defined($line = <$d>)) {
+            chomp $line;
+            last if $line eq "data";
+            if ($line =~ /^size (\d+)$/) { $size = $1 }
+            elsif ($line =~ /^(\d+) (\d+)$/) { push @runs, [$1, $2] }
+        }
+        open my $b, "<:raw", $base or die "$base: $!\n";
+        my $data = do { local $/; <$b> };
+        close $b;
+        defined $size && length($data) == $size or die "the base has another length\n";
+        for my $run (@runs) {
+            my $got = read($d, my $bytes, $run->[1]);
+            defined $got && $got == $run->[1] or die "the delta is short\n";
+            substr($data, $run->[0], $run->[1]) = $bytes;
+        }
+        open my $o, ">:raw", $out or die "$out: $!\n";
+        print $o $data;
+        close $o or die "$out: $!\n";' "$1" "$2" "$3" || return 1
+    [[ "$(sha "$3")" == "$want_new" ]]
+}
+
+do_install_app_store() {
+    local payload="$PAYLOAD/appstore" folder="${GAME:h}"
+    local app="$folder/$APPSTORE_LAUNCHER_NAME.app"
+    [[ -f "$payload/loader.dylib" ]] || die "this package was built without the Mac App Store's game: it supports the Steam version only."
+    say "KMRP $KMRP_VERSION for macOS"
+    say "Game: $GAME (Mac App Store)"
+    say "Checking the package..."
+    (cd "$PAYLOAD" && shasum -a 256 -s -c SHA256SUMS) || die "the package is damaged: a file does not match SHA256SUMS. Download it again."
+    local exe_sha; exe_sha=$(sha "$EXE")
+    [[ "$exe_sha" == "$APPSTORE_EXE_SHA" ]] ||
+        die "this is not the Mac App Store version this KMRP was made for (1.4.1; KOTOR_Exe is ${exe_sha[1,16]}..., expected ${APPSTORE_EXE_SHA[1,16]}...). After an update of the game, KMRP needs an update too."
+    [[ -d "$APPSTORE_STATE" ]] && die "KMRP is already installed for the Mac App Store's game (state in $APPSTORE_STATE). Run uninstall --app-store first."
+    if [[ -e "$app" ]] && ! appstore_launcher_is_ours "$app"; then
+        die "$app exists and is not KMRP's. Move it away first."
+    fi
+    [[ -w "$folder" ]] || die "$folder cannot be written by this account. KMRP's app has to be beside the game there (the game reads nothing else of yours): install from an administrator's account."
+    [[ -n "$SIZE" || "$RESOLUTION" == native ]] && warn "the resolution is not set for the Mac App Store's game (its settings are closed to this installer): it starts at the display's size, and Options, Graphics changes it."
+
+    say "Map note corrections: $([[ $MAP_NOTES == 1 ]] && echo on || echo off)"
+    say "HD icons: $([[ $HD_ICONS == 1 ]] && echo on || echo off)"
+    say "Controller support: $([[ $CONTROLLER == 1 ]] && echo on || echo off)"
+    say "High FPS Fix: $([[ $HIGH_FPS == 1 ]] && echo on || echo off)"
+    say "Debug logs: $([[ $DEBUG_LOGS == 1 ]] && echo on || echo off)"
+    confirm "Install KMRP for this game? The game itself is not changed: KMRP is added as the app \"$APPSTORE_LAUNCHER_NAME\" beside it." || die "cancelled"
+
+    WORK=$(mktemp -d "${TMPDIR:-/tmp}/kmrp-install.XXXXXX")
+    local staging="$WORK/$APPSTORE_LAUNCHER_NAME.app"
+    local kmrp="$staging/Contents/Resources/kmrp"
+    mkdir -p "$staging/Contents/MacOS" "$kmrp/patches" "$kmrp/configs"
+    say "Making KMRP's modules for the Mac App Store's game..."
+    local n id base
+    for n in {1..${#KPATCH_FILES}}; do
+        id=${KPATCH_IDS[n]}
+        if [[ -f "$payload/$id.dylib" ]]; then
+            cp "$payload/$id.dylib" "$kmrp/patches/$id.dylib"
+            continue
+        fi
+        base="$WORK/$id.steam.dylib"
+        unzip -p "$PAYLOAD/engine/${KPATCH_FILES[n]}" binaries/macos_x86_64.dylib > "$base" || true
+        [[ -s "$base" ]] || { rm -rf "$WORK"; die "${KPATCH_FILES[n]} holds no module"; }
+        apply_delta "$base" "$payload/$id.dylib.delta" "$kmrp/patches/$id.dylib" ||
+            { rm -rf "$WORK"; die "the module $id for the Mac App Store's game could not be made from the package"; }
+        rm -f "$base"
+    done
+    local hook_list=patch_config
+    (( CONTROLLER )) || hook_list+=.controller-off
+    (( HIGH_FPS )) && hook_list+=.high-fps
+    cp "$payload/$hook_list.toml" "$kmrp/patch_config.toml"
+    cp "$PAYLOAD/engine/KotorPatcher.dylib" "$payload/loader.dylib" "$kmrp/"
+    print -r -- "$GAME" > "$kmrp/game-path.txt"
+    # The patch options, as kmrp.dylib and the controller's module read them (options_write).
+    printf '[Patch Options]\r\nmap-notes=%d\r\nhd-icons=%d\r\ndebug-logs=%d\r\n' $MAP_NOTES $HD_ICONS $DEBUG_LOGS > "$kmrp/configs/kmrp.ini"
+    (( KEEP_AA )) && printf 'keep-anti-aliasing=1\r\n' >> "$kmrp/configs/kmrp.ini"
+    if (( CONTROLLER )); then
+        printf '[Patch Options]\r\ndebug-logs=%d\r\n' $DEBUG_LOGS > "$kmrp/configs/kmrp-controller.ini"
+        # SDL beside the controller's module: the sandboxed game does not load the copy that
+        # module unpacks to the game's container.
+        cp "$payload/kmrp-sdl3.dylib" "$kmrp/patches/kmrp-sdl3.dylib"
+    fi
+    cp "$payload/kmrp-appstore-launcher" "$staging/Contents/MacOS/$APPSTORE_LAUNCHER_NAME"
+    chmod 755 "$staging/Contents/MacOS/$APPSTORE_LAUNCHER_NAME"
+    cp "$payload/Info.plist" "$staging/Contents/Info.plist"
+    # The game's own icon, from the player's copy; KMRP's when it has none to give.
+    local icon
+    icon=$(/usr/libexec/PlistBuddy -c 'Print :CFBundleIconFile' "$GAME/Contents/Info.plist" 2>/dev/null || true)
+    icon="$GAME/Contents/Resources/${icon%.icns}.icns"
+    [[ -f "$icon" ]] || icon="${PAYLOAD:h}/AppIcon.icns"
+    [[ -f "$icon" ]] && cp "$icon" "$staging/Contents/Resources/AppIcon.icns"
+    # A downloaded package's files carry the quarantine flag, with which the app would not start.
+    xattr -cr "$staging" 2>/dev/null || true
+    codesign --force --sign - "$staging" 2>/dev/null
+    codesign --verify --strict "$staging" || { rm -rf "$WORK"; die "KMRP's app could not be signed"; }
+
+    say "Adding \"$APPSTORE_LAUNCHER_NAME\" to ${folder}..."
+    [[ -e "$app" ]] && rm -rf "$app"
+    mv "$staging" "$app" || { rm -rf "$WORK"; die "could not write $app"; }
+    rm -rf "$WORK"; WORK=""
+    mkdir -p "$APPSTORE_STATE"
+    {
+        print -r -- "game=$GAME"
+        print -r -- "store=mac-app-store"
+        print -r -- "app=$app"
+        print -r -- "version=$KMRP_VERSION"
+        print -r -- "map_notes=$MAP_NOTES"
+        print -r -- "hd_icons=$HD_ICONS"
+        print -r -- "controller=$CONTROLLER"
+        print -r -- "high_fps=$HIGH_FPS"
+        print -r -- "debug_logs=$DEBUG_LOGS"
+        print -r -- "complete=1"
+    } > "$APPSTORE_STATE/install.info"
+    say "Installed. Start the game with \"$APPSTORE_LAUNCHER_NAME\" in Applications (or Launchpad): that is the game with KMRP. \"Knights of the Old Republic\" itself is unchanged and starts without KMRP."
+    say "The first start unpacks the menus for the display's size, which takes a few seconds. The game's log of a run: ~/Library/Logs/KMRP/appstore-game.log."
+    say "To undo: Uninstall in KMRP Installer, or kmrp-mac.sh uninstall --app-store."
+}
+
+do_uninstall_app_store() {
+    local app=""
+    [[ -f "$APPSTORE_STATE/install.info" ]] && app=$(sed -n 's/^app=//p' "$APPSTORE_STATE/install.info")
+    [[ -n "$app" ]] || app="${GAME:h}/$APPSTORE_LAUNCHER_NAME.app"
+    [[ -f "$APPSTORE_STATE/install.info" || -d "$app" ]] || die "KMRP is not installed for the Mac App Store's game."
+    refuse_if_running
+    say "Removing KMRP's app for the Mac App Store's game ($app)"
+    confirm "Uninstall KMRP?" || die "cancelled"
+    if [[ -d "$app" ]]; then
+        appstore_launcher_is_ours "$app" || die "$app is not KMRP's app; it is left alone."
+        rm -rf "$app"
+    fi
+    rm -rf "$APPSTORE_STATE"
+    rmdir "$STATE_ROOT" 2>/dev/null || true
+    say "KMRP removed. The game was never changed. What KMRP unpacked while the game ran is in the game's own data (~/Library/Containers/$APPSTORE_BUNDLE_ID/Data/Library/Caches/KMRP), which macOS keeps closed to this installer; it is unused, and deleting the game deletes it."
+}
+
+do_status_app_store() {
+    if [[ -f "$APPSTORE_STATE/install.info" ]]; then
+        cat "$APPSTORE_STATE/install.info"
+        local app; app=$(sed -n 's/^app=//p' "$APPSTORE_STATE/install.info")
+        if [[ ! -d "$app" ]]; then say "KMRP's app is missing: $app (install again)"
+        elif ! codesign --verify --strict "$app" 2>/dev/null; then say "KMRP's app was changed since install: $app (install again)"
+        else say "KMRP's app: $app, as installed"; fi
+        local now; now=$(sha "$EXE" 2>/dev/null || true)
+        [[ "$now" == "$APPSTORE_EXE_SHA" ]] || say "KOTOR_Exe is no longer the version KMRP was made for (1.4.1): the game runs without KMRP until KMRP is updated."
+    else
+        say "KMRP is not installed."
+        say "game: $GAME"
+        if [[ "$(sha "$EXE")" == "$APPSTORE_EXE_SHA" ]]; then
+            if [[ -f "$PAYLOAD/appstore/loader.dylib" ]]; then say "KOTOR_Exe: the Mac App Store's game, 1.4.1 (supported: KMRP is added as an app beside it; the game is not changed)"
+            else say "KOTOR_Exe: the Mac App Store's game, 1.4.1 (this package was built without it)"; fi
+        else
+            say "KOTOR_Exe: the Mac App Store's game, in a version KMRP was not made for"
+        fi
+    fi
+}
+
 # ---------------------------------------------------------------------- main
 [[ $# -ge 1 ]] || { sed -n '2,7p' "$0"; exit 2; }
 command=$1; shift
 while (( $# )); do
     case "$1" in
         --game) GAME=${2:?--game needs a path}; shift ;;
+        --app-store) APPSTORE=1 ;;
         --no-map-notes) MAP_NOTES=0 ;;
         --no-hd-icons) HD_ICONS=0 ;;
         --no-controller) CONTROLLER=0 ;;

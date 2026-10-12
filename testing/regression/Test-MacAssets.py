@@ -13,8 +13,10 @@ the bank linked in as the module links it, runs it without a game, and checks:
    nearest by height, then shape, with kmrp-guiblend's files over it for a size without one),
    what kmrp-gameart makes from the game, and kmrp-abilityicons' icons.
 2. A second run for the same size rewrites nothing.
-3. Bundled third-party art is left out of the artwork folder when the game's override folder
-   already has that texture, as a .tga or as a .tpc, and KMRP's own files are not.
+3. The player's override comes first (2026-10-12, as Windows' 1.5.1): a file the game's override
+   folder has is left out of both folders the game is given, KMRP's own files as well as the
+   bundled art; a texture counts as a .tga or a .tpc and takes KMRP's .txi with it; the cache
+   keeps the set whole.
 4. The part's load-time initialisers are exactly its two constructors (UseKmrpIni in
    layouts_ini.cpp, WatchFrames in layout.cpp): a C++ global needing construction would be
    another, run in an order nothing can rely on.
@@ -174,22 +176,49 @@ def main() -> int:
                 failures.append(f"{size}: a second run rewrote the set")
             print(f"     {size}: {len(got)} files, as the installer made them (set from {chosen})")
 
-        # 3. Bundled art yields to the player's own texture of that name, of either kind.
+        # 3. The player's override comes first (2026-10-12, as Windows' 1.5.1): a file there is
+        #    left out of both folders the game is given, KMRP's own as well as the bundled art.
+        #    A texture counts in either format and takes KMRP's .tga, .tpc and .txi of its name;
+        #    a layout takes the set's; nothing else goes missing, and the cache keeps the set
+        #    whole.
         bundled = [line.strip() for line in (source / "bundled-override.txt").read_text().splitlines() if line.strip()]
-        own = next(p.name for p in (source / "override").iterdir() if p.name.lower() not in {b.lower() for b in bundled})
-        same, other = bundled[0], bundled[1]
-        other_kind = Path(other).with_suffix(".tga" if other.lower().endswith(".tpc") else ".tpc").name
-        for name in (same, other_kind, own):
-            (assets / "override" / name).write_bytes(b"the player's")
-        made = prepare(*SIZES[0])
+        lower_bundled = {b.lower() for b in bundled}
+        clean = prepare(*SIZES[0])
+        made = {}
+        if clean:
+            art_before = {p.name.lower() for p in Path(clean["art"]).iterdir()}
+            set_before = {p.name.lower() for p in Path(clean["set"]).iterdir()}
+            same, other = bundled[0], bundled[1]
+            other_kind = Path(other).with_suffix(".tga" if other.lower().endswith(".tpc") else ".tpc").name
+            own = next(n for n in sorted(art_before) if n not in lower_bundled and n.endswith((".tga", ".tpc")))
+            layout = next(n for n in sorted(set_before) if n.endswith(".gui"))
+            font = next(n for n in sorted(set_before) if n.endswith(".txi") and (n[:-4] + ".tga") in set_before)
+            font_texture = font[:-4] + ".tpc"       # the other format than the set's .tga
+            for name in (same, other_kind, own, layout, font_texture):
+                (assets / "override" / name).write_bytes(b"the player's")
+            made = prepare(*SIZES[0])
         if made:
-            linked = {p.name.lower() for p in Path(made["art"]).iterdir()}
-            if same.lower() in linked or other.lower() in linked:
-                failures.append("bundled art was given to the game over the player's own texture")
-            if own.lower() not in linked:
-                failures.append("KMRP's own file was left out because the player's override has one of that name")
-            if len(linked) != len(list((source / "override").iterdir())) - 2:
-                failures.append("more than the two shadowed files are missing from the artwork folder")
+            art_after = {p.name.lower() for p in Path(made["art"]).iterdir()}
+            set_after = {p.name.lower() for p in Path(made["set"]).iterdir()}
+            stem = lambda n: n.rsplit(".", 1)[0]
+            gone_art = {n for n in art_before if n in (same.lower(), own) or
+                        (stem(n) in (stem(other.lower()), stem(own)) and n.endswith((".tga", ".tpc", ".txi")))}
+            gone_set = {layout} | {n for n in set_before if stem(n) == stem(font) and n.endswith((".tga", ".tpc", ".txi"))}
+            if art_before - art_after != gone_art:
+                failures.append(f"override first, artwork: left out {sorted(art_before - art_after)[:6]}, "
+                                f"expected {sorted(gone_art)[:6]}")
+            if set_before - set_after != gone_set:
+                failures.append(f"override first, set: left out {sorted(set_before - set_after)[:6]}, "
+                                f"expected {sorted(gone_set)[:6]}")
+            if art_after - art_before or set_after - set_before:
+                failures.append("override first: files appeared that were not there before")
+            whole = Path(made["set"]).parent / "sets" / f"{SIZES[0][0]}x{SIZES[0][1]}"
+            if not (whole / layout).is_file() or not (whole / font).is_file():
+                failures.append("override first: the set in the cache lost the files left to the override")
+            print(f"     override first: {len(gone_art)} of the artwork and {len(gone_set)} of the set left to the "
+                  f"player's files ({own}, {layout}, {font} with its texture, two of the bundled art)")
+            for name in (same, other_kind, own, layout, font_texture):
+                (assets / "override" / name).unlink()
 
         # 4. Two load-time initialisers, the part's own constructors.
         check = tmp / "part.dylib"

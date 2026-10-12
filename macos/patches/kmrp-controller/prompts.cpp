@@ -35,6 +35,7 @@
 #include "engine.h"
 #include "gui.h"
 #include "pad.h"
+#include "backend_sdl.h"
 #include "state.h"
 
 #include <cmath>
@@ -420,9 +421,13 @@ struct Device {
     unsigned long keyboardMarks = 0, mouseMarks = 0, padMarks = 0;
 } g_device;
 
-// MarkKeyboardMouseInputK1.
-void MarkKeyboardMouse(bool keyboard) {
-    if (g_device.padActive || !g_device.chosen) Log("device: %s in use", keyboard ? "keyboard" : "mouse");
+// MarkKeyboardMouseInputK1. `key` is the record's code when a key did it: Windows' events log
+// names it since 1.5.1, which is what showed a pad's Back arriving as a key under Linux.
+void MarkKeyboardMouse(bool keyboard, int key = -1) {
+    if (g_device.padActive || !g_device.chosen) {
+        if (keyboard && key >= 0) Log("device: keyboard in use (key 0x%x)", key);
+        else Log("device: %s in use", keyboard ? "keyboard" : "mouse");
+    }
     g_device.padActive = false;
     g_device.chosen = true;
     ++(keyboard ? g_device.keyboardMarks : g_device.mouseMarks);
@@ -459,6 +464,18 @@ bool MouseIsBeingUsed(int x, int y) {
         g_mouse.lastX = x;
         g_mouse.lastY = y;
         g_mouse.windowStart = now;
+        return false;
+    }
+    // The pad is in the player's hands: a pointer that moves meanwhile is not a hand on the
+    // mouse (2026-10-12, as Windows since 1.5.1). A pad presented a second time as a Steam
+    // Controller also moves the pointer (its trackpad and gyro), and the game then went back and
+    // forth between the two devices while the player walked: on Windows 2,556 times taken for
+    // the mouse in 202 seconds. Not measured on the Mac.
+    if (PadHeldRecently()) {
+        g_mouse.lastX = x;
+        g_mouse.lastY = y;
+        g_mouse.windowEvents = 0;
+        g_mouse.windowDistance = 0;
         return false;
     }
     const int dx = x - g_mouse.lastX, dy = y - g_mouse.lastY;
@@ -860,7 +877,7 @@ extern "C" __attribute__((visibility("default"))) int KmrpNoteKeyboard(void* raw
     for (int i = 0; records && i < count && i < 256; ++i) {
         const std::uint32_t value = *reinterpret_cast<const std::uint32_t*>(records + i * kmrp::kRecordBytes + kmrp::kRecordValue);
         if (value & kmrp::kKeyPressed) {
-            kmrp::MarkKeyboardMouse(true);
+            kmrp::MarkKeyboardMouse(true, *reinterpret_cast<const std::int32_t*>(records + i * kmrp::kRecordBytes));
             break;
         }
     }

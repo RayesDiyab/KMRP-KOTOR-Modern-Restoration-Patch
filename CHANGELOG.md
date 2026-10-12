@@ -117,6 +117,91 @@ proxy, and it applies the executable changes above as well.
 
 ## [Unreleased]
 
+- **macOS: the Mac App Store's game starts full screen, and the macOS version is 1.5.1**
+  (2026-10-12; `macos/appstore/loader.c`, `FullscreenOnce`; `docs/macos-app-store.md`,
+  section 7.5). Steam's game is set to full screen by the installer, in Aspyr's preferences.
+  The App Store game's preferences are in its container, closed to the installer, so the game
+  started through **KOTOR with KMRP** came up as Aspyr's launcher was last left. The library
+  KMRP starts the game with now sets `DisplayFullScreen` in the game's own preferences from
+  inside Aspyr's launcher, before it reads them, the first time only (`KMRPFullScreenSet`
+  marks it): windowed mode chosen in the launcher afterwards stays. Uninstall leaves the
+  setting, which it cannot reach. `macos/VERSION` and the three macOS manifests are 1.5.1,
+  so the package is `KMRP-macOS-1.5.1` and holds everything below. **Not seen in the game:**
+  the loader compiles and the key is the one Steam's game and this game's binaries use; the
+  game was not started with it.
+  **Docs:** that the Mac version supports two games, and how KMRP differs between them, is
+  now said where the Mac is described: `macos/README.md` ("The two games", a table row by
+  row), `macos/PLAYER-README.md`, `README.md`, `docs/features.md` and
+  `docs/macos-changes-from-windows.md` (items 7 and 51).
+
+- **macOS: anti-aliasing off at 3840x2160 pixels or more, by the size the game runs at**
+  (2026-10-12, at the maintainer's word; `macos/patches/kmrp-assets/resolution.cpp`,
+  `ApplyAntiAliasRule`). The installer's rule of 2026-10-09 went by the display at the time
+  of install. A size chosen later in the game, a display connected later, the setting put
+  back in the options screen, and a game whose `swkotor.ini` the installer cannot write were
+  not covered. KMRP's module now sets the renderer's sample count to 0 before each start of
+  the renderer at such a size: start-up's own (a new hook, `KmrpStartRenderer`, at its call
+  to `Global::ReInitAurora`, `0x10026cf81`) and the mode switch's (`KmrpModeSwitch`). Only
+  the renderer's count (`0x1006338e4`, through `0x1001bb7fb`) is changed, not the player's
+  setting (`CClientOptions` +0x38): the options screen and `swkotor.ini` keep what the
+  player chose, and a smaller size chosen in the same run is started with it again.
+  `--keep-anti-aliasing` now also writes `keep-anti-aliasing=1` to `configs/kmrp.ini`,
+  which the module reads and then leaves the game alone. Measured on the built-in display
+  with the cut-off lowered for the run (`KMRP_AA_OFF_PIXELS=1000000`, the setting at 2x,
+  1512x982): "anti-aliasing off at 1512x982 (the game's setting is 2x)", and the context
+  the renderer made has 0 sample buffers; without it, 1 sample buffer and 2 samples.
+  **Not seen:** a display of 3840x2160 (none was connected), a change of size in the game
+  across the cut-off, the setting changed in the options screen while the rule holds (the
+  engine sets the count itself there, so the choice probably lasts until the next start of
+  the renderer), and the frame rate.
+
+- **macOS: the Mac App Store's game is supported** (2026-10-12; `docs/macos-app-store.md`).
+  It is another build of the same game (bundle id `com.aspyr.kotor`, 1.4.1, `KOTOR_Exe`
+  `d03315aa...`), sandboxed, and macOS does not start it once any file of its bundle has been
+  added or changed, so KMRP does not install into it. The installer adds an app of its own
+  beside it, **KOTOR with KMRP**, which starts the unchanged game with KMRP brought in
+  (`macos/appstore/launcher.c`, `loader.c`): the game started by its own icon is the game
+  without KMRP, and uninstall deletes that one app. The build makes a second set of all five
+  patches for that executable when it is at hand (`macos/build.sh`, `--appstore-exe`;
+  `macos/tools/appstore/`): the two files are matched instruction by instruction, every
+  address in the sources and every hook is translated (1,175 addresses and 138 hooks, none
+  failed), and the package carries each module as what turns Steam's into it (about 3 MB more,
+  nearly all of it SDL). `kmrp-mac.sh` takes `--app-store`, or the game's path, or finds the
+  App Store copy when there is no Steam copy; KMRP Installer does the same with Browse.
+  **Seen in the game** (1512x982, through the installed app, all five patches): the main
+  menu, Options, Graphics, the Screen Resolution list with the display's sizes, a change to
+  1280x800 and the first screen of a new game, each laid out as in Steam's game; SDL loaded
+  for the controller; the game's settings file put back afterwards. **Not seen:** a save
+  loaded and play, a controller connected, High FPS Fix's effect, the installer's window with
+  that game chosen, an Intel Mac, macOS before 27. New: `testing/regression/Test-MacAppStore.py`.
+  Two things differ from Steam's game because the installer cannot write the game's sandboxed
+  settings: the game starts at the display's size (not a chosen one), and the controller's
+  settings file is the one the module writes on first start. The controller patch now looks
+  for SDL beside its module before the copy it unpacks: the sandboxed game stopped at loading
+  a library it had unpacked itself.
+
+- **macOS: the repairs of 1.5.1 that the Mac needed** (2026-10-12; `docs/macos-changes-from-windows.md`,
+  items 42 to 49). 1.5.1's note that none of its faults is in the Mac build did not hold for
+  three of them:
+  - **The player's Override comes before KMRP's files.** As on Windows until 1.5.1, the Mac
+    registered its folders after the game's override folder and so ahead of it: a mod's layout,
+    texture or font was ignored wherever KMRP had a file of that name. The game is now given
+    links to KMRP's cache without what the override folder has (a file of the same name; for a
+    texture KMRP's `.tga`, `.tpc` and `.txi`, whichever format the player's is).
+    `Test-MacAssets.py` checks it; not seen in the game with a mod.
+  - **A font from Override is drawn at the size of KMRP's own**, as on Windows (issue 34).
+    Not seen in the game: no translation was installed.
+  - **Pazaak with a controller: A plays the focused hand card** (issue 42), read from the Mac
+    executable; not played.
+  - **One pad seen twice** (Steam Input, a translator): another pad takes over only after the
+    one read has been at rest for 80 ms, and a pointer that moves while the pad is held is not
+    mouse use. Not measured on the Mac.
+  - `controller.log` names the key that took the game to the keyboard, and a pad's product id.
+
+  Not needed on the Mac: the destroyed input object after a change of resolution (the Mac
+  never uses the pointer it keeps outside the engine's own poll), the key filter for Linux,
+  and everything about Wine, Proton, Windows 7 and `%TEMP%`.
+
 ## [1.5.1] -- 2026-10-12
 
 **A hotfix for 1.5.0, for Windows and for Linux with Proton. SteamOS is tested and

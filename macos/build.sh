@@ -6,6 +6,7 @@
 #   macos/build.sh [--game "<...>/Knights of the Old Republic.app"] [--exe <unmodified KOTOR_Exe>]
 #                  [--python <python3>] [--reuse-resources]
 #                  [--kpm <Kotor-Patch-Manager checkout>] [--widescreen <K1WidescreenPatch dir>]
+#                  [--appstore-exe <the Mac App Store game's KOTOR_Exe> | --no-appstore]
 #
 # KPM, the widescreen patch and the Stray Bug Fixes patch come from the submodule
 # third_party/Kotor-Patch-Manager (git submodule update --init): the kmrp branch of
@@ -29,12 +30,19 @@ GAME="$HOME/Library/Application Support/Steam/steamapps/common/swkotor/Knights o
 PYTHON=${KMRP_PYTHON:-python3}
 REUSE=0
 CLEAN_EXE=""   # an unmodified KOTOR_Exe, when the game's own is patched (e.g. KMRP's backup copy)
+# The Mac App Store's KOTOR_Exe (1.4.1), for the second set of hooks and modules
+# (docs/macos-app-store.md). Read, never written or packaged. Without one the package supports
+# Steam's game only, and the build says so.
+APPSTORE_EXE="/Applications/Knights of the Old Republic.app/Contents/MacOS/KOTOR_Exe"
+APPSTORE_EXE_SHA="d03315aace822908d6b7ca936d47c644ffe6ebf79822c8c62225bfaaf79ad7ca"
 while (( $# )); do
     case "$1" in
         --kpm) KPM=${2:A}; shift ;;
         --widescreen) WIDESCREEN=${2:A}; shift ;;
         --game) GAME=${2:A}; shift ;;
         --exe) CLEAN_EXE=${2:A}; shift ;;
+        --appstore-exe) APPSTORE_EXE=${2:A}; shift ;;
+        --no-appstore) APPSTORE_EXE="" ;;
         --python) PYTHON=$2; shift ;;
         --reuse-resources) REUSE=1 ;;
         *) print -u2 "unknown option: $1"; exit 2 ;;
@@ -338,6 +346,79 @@ cp "$BUILD/KotorPatcher.dylib" "$PKG/engine/"
 cp "$SDL_DIR/LICENSE.txt" "$PKG/licenses/SDL3-LICENSE.txt"
 cp "$ROOT/third_party/Included/HighFpsFixes-1.0.1 by D3M0/LICENSE" "$PKG/licenses/High-FPS-Fixes-D3M0-LICENSE.txt"
 
+# ------------------------------------------------------------------------ the App Store's game
+# The same patches for the Mac App Store's KOTOR_Exe (docs/macos-app-store.md): the same source
+# compiled without Steam's library, every function and every datum at another address. The two
+# files are matched instruction by instruction (tools/appstore/translate.py); the sources are
+# copied with every address of Steam's build replaced (rewrite_sources.py) and compiled by the
+# same tools as above; and each staged hook list is rewritten for the other file, its original
+# bytes read from it (make_runtime.py). Nothing is installed into that game: KMRP's launcher app
+# (appstore/launcher.c) starts it with appstore/loader.c inserted.
+if [[ -n "$APPSTORE_EXE" && -f "$APPSTORE_EXE" && "$(shasum -a 256 "$APPSTORE_EXE" | cut -d' ' -f1)" == "$APPSTORE_EXE_SHA" ]]; then
+    step "The Mac App Store's game (1.4.1): addresses, sources, modules and hook lists translated"
+    AS="$BUILD/appstore"
+    ASTOOLS="$HERE/tools/appstore"
+    rm -rf "$AS"; mkdir -p "$AS/src/ftd" "$AS/src/macos/patches" "$AS/kpatch" "$PKG/appstore"
+    # KMRP's sources at the depth they have in the repository, beside what they include from it
+    # by relative path (src/controller-native's shared tables, which hold no address of the Mac's).
+    ln -s "$ROOT/src" "$AS/src/src"
+    ln -s "$AS/src/macos/patches" "$AS/src/kmrp"
+    "$PYTHON" "$ASTOOLS/translate.py" "$EXE" "$APPSTORE_EXE" "$AS/map.json"
+    for pair in "${WIDESCREEN}:ftd/K1WidescreenPatch" "${STRAY}:ftd/K1StrayBugFixes" \
+                "$HERE/patches/kmrp-layout:kmrp/kmrp-layout" "$HERE/patches/kmrp-assets:kmrp/kmrp-assets" \
+                "$HERE/patches/kmrp-map-notes:kmrp/kmrp-map-notes" "$HERE/patches/kmrp-controller:kmrp/kmrp-controller" \
+                "$HERE/patches/high-fps-fixes:kmrp/high-fps-fixes"; do
+        "$PYTHON" "$ASTOOLS/rewrite_sources.py" "$AS/map.json" "${pair%%:*}" "$AS/src/${pair#*:}" "$EXE" "$APPSTORE_EXE"
+    done
+    for patch in K1StrayBugFixes K1WidescreenPatch; do
+        (cd "$AS/src/ftd/$patch" && "$PYTHON" "$KPM/Patches/create-patch.py" -o "$AS/kpatch" >"$AS/kpatch/$patch.log" 2>&1) ||
+            { cat "$AS/kpatch/$patch.log" >&2; print -u2 "$patch does not build from the translated sources"; exit 1; }
+    done
+    AS_ARGS=(--layout "$AS/src/kmrp/kmrp-layout" --notes "$AS/src/kmrp/kmrp-map-notes" --notes-include "$NOTES" --version "$VERSION")
+    "$PYTHON" "$HERE/tools/make_kmrp_patch.py" --split --widescreen "$AS/src/ftd/K1WidescreenPatch" --stray "$AS/src/ftd/K1StrayBugFixes" \
+        $AS_ARGS --options --assets "$AS/src/kmrp/kmrp-assets" --assets-bank "$BANK" --tools "$HERE/tools" \
+        --out "$AS/kpatch/KMRP-macOS.kpatch" >/dev/null
+    "$PYTHON" "$HERE/tools/make_kmrp_patch.py" --controller-patch $AS_ARGS \
+        --controller "$AS/src/kmrp/kmrp-controller" --sdl "$SDL_DIR" --controller-bank "$CBANK" \
+        --out "$AS/kpatch/KOTOR 1 Native Controller Mod + Xbox HUD (macOS).kpatch" >/dev/null
+    "$PYTHON" "$HERE/tools/make_high_fps_patch.py" --exe "$EXE" --source "$AS/src/kmrp/high-fps-fixes" \
+        --out "$AS/kpatch/$HFPS.kpatch" >/dev/null
+    for staged in kmrp kmrp.controller-off kmrp.high-fps kmrp.controller-off.high-fps; do
+        "$PYTHON" "$ASTOOLS/make_runtime.py" "$AS/map.json" "$EXE" "$APPSTORE_EXE" "$BUILD/engine/$staged/patch_config.toml" \
+            "$BUILD/KotorPatcher.dylib" "$AS/rt/$staged" "$AS/kpatch" > "$AS/rt-$staged.log" ||
+            { cat "$AS/rt-$staged.log" >&2; print -u2 "the hook list $staged does not translate"; exit 1; }
+        tail -1 "$AS/rt-$staged.log"
+    done
+    cp "$AS/rt/kmrp/patch_config.toml" "$PKG/appstore/"
+    cp "$AS/rt/kmrp.controller-off/patch_config.toml" "$PKG/appstore/patch_config.controller-off.toml"
+    cp "$AS/rt/kmrp.high-fps/patch_config.toml" "$PKG/appstore/patch_config.high-fps.toml"
+    cp "$AS/rt/kmrp.controller-off.high-fps/patch_config.toml" "$PKG/appstore/patch_config.controller-off.high-fps.toml"
+    # Each module as what turns Steam's into it (make_delta.py), or whole when the two differ
+    # in length. The installer makes the module from the one in Steam's .kpatch.
+    for module in k1-stray-bug-fixes-patch k1widescreenpatch kmrp kmrp-controller high-fps-fixes; do
+        new="$AS/rt/kmrp.high-fps/patches/$module.dylib"
+        for staged in kmrp kmrp.controller-off kmrp.controller-off.high-fps; do
+            [[ ! -f "$AS/rt/$staged/patches/$module.dylib" ]] || cmp -s "$new" "$AS/rt/$staged/patches/$module.dylib" ||
+                { print -u2 "the App Store stagings hold different $module modules"; exit 1; }
+        done
+        "$PYTHON" "$ASTOOLS/make_delta.py" "$BUILD/engine/kmrp.high-fps/patches/$module.dylib" "$new" "$PKG/appstore/$module.dylib.delta" ||
+            { rm -f "$PKG/appstore/$module.dylib.delta"; cp "$new" "$PKG/appstore/$module.dylib"; }
+    done
+    # SDL beside the controller's module there: the sandboxed game does not load the copy the
+    # module unpacks to the game's container (backend_sdl.cpp, Load). The game's architecture only.
+    lipo "$CSRC/kmrp-sdl3.dylib" -thin x86_64 -output "$PKG/appstore/kmrp-sdl3.dylib"
+    codesign --force --sign - --identifier org.libsdl.SDL3 "$PKG/appstore/kmrp-sdl3.dylib" 2>/dev/null
+    clang -O2 -Wall -Wextra -arch x86_64 -mmacosx-version-min=10.13 -dynamiclib \
+        -DKMRP_APPSTORE_EXE_SHA="\"$APPSTORE_EXE_SHA\"" -framework CoreFoundation \
+        -o "$PKG/appstore/loader.dylib" "$HERE/appstore/loader.c"
+    clang -O2 -Wall -Wextra -arch x86_64 -arch arm64 -mmacosx-version-min=10.13 \
+        -o "$PKG/appstore/kmrp-appstore-launcher" "$HERE/appstore/launcher.c"
+    codesign --force --sign - "$PKG/appstore/loader.dylib" "$PKG/appstore/kmrp-appstore-launcher" 2>/dev/null
+    sed "s/@VERSION@/$VERSION/g" "$HERE/appstore/Info.plist" > "$PKG/appstore/Info.plist"
+    plutil -lint "$PKG/appstore/Info.plist" >/dev/null
+else
+    step "The Mac App Store's game: NOT built (no KOTOR_Exe of 1.4.1 at ${APPSTORE_EXE:-<none given>}); this package supports Steam's game only"
+fi
 
 # ------------------------------------------------------------------------ scripts, docs
 step "Installer, documentation, licences"

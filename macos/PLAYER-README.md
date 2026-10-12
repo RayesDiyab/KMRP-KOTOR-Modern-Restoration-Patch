@@ -1,20 +1,21 @@
 # KMRP for macOS
 
-KMRP (KOTOR Modern Restoration Patch) for the Steam version of *Star Wars: Knights of
-the Old Republic* on the Mac. It is the same KMRP as on Windows: the same menus, laid out
+KMRP (KOTOR Modern Restoration Patch) for *Star Wars: Knights of the Old Republic* on the
+Mac: the Steam version and, since 1.5.1, the Mac App Store version. It is the same KMRP as on Windows: the same menus, laid out
 for your display's resolution, the same HD fonts, art and icons, and the same engine fixes.
 
 ## Requirements
 
 - *Knights of the Old Republic* from **Steam**, the Aspyr macOS build, unmodified
-  (`KOTOR_Exe` version 1.4.0). The installer checks this and refuses anything else.
+  (`KOTOR_Exe` version 1.4.0), or from the **Mac App Store** (version 1.4.1). The installer
+  checks this and refuses anything else.
 - macOS 10.13 or later. Apple Silicon Macs need Rosetta 2, as the game itself does.
 - Run the game once before installing, so its settings file exists.
 
 ## Install
 
 1. Quit KOTOR.
-2. Open **KMRP-macOS-1.5.0.dmg** and drag **KMRP Installer** onto **Applications**, then
+2. Open **KMRP-macOS-1.5.1.dmg** and drag **KMRP Installer** onto **Applications**, then
    open it from Applications. (From the `.zip`, if that is the download you have: open
    **KMRP Installer** from the unzipped folder.)
    - KMRP is not signed by an Apple developer account, so the first time macOS asks you to
@@ -25,7 +26,8 @@ for your display's resolution, the same HD fonts, art and icons, and the same en
    - Or, in Terminal: `xattr -dr com.apple.quarantine "/path/to/KMRP Installer.app"`,
      then open it as usual.
 3. The installer finds the game in your Steam libraries (step 1; **Browse** for a copy
-   somewhere else) and checks it is the unmodified Steam version (step 2).
+   somewhere else) and checks it is the unmodified Steam version, or the Mac App Store
+   version (step 2).
 4. Step 3 says the resolution the game will start at: the one macOS is set to, as
    **System Settings → Displays** shows it (1512 × 982 on a 14" MacBook Pro by default).
    There is nothing to choose: the game lists every resolution the connected display
@@ -111,8 +113,10 @@ other pads. The controls are KMRP's, the same as on Windows: the full list is on
   start, as long as the display then connected supports it; otherwise the game starts at
   that display's own size. The list is whatever the connected display supports when the game
   starts: connect another display, start the game, and it offers that display's sizes.
-  On a display of 4K or more (3840x2160), the installer turns **Anti-aliasing off**: with it
-  on, the main menu stutters there. You can turn it back on in the game's graphics options.
+  At 4K or more (3840x2160), KMRP runs the game with **anti-aliasing off**, whatever the
+  graphics options say: with it on, the main menu stutters there. At a smaller size the
+  game's own setting is used again. To keep anti-aliasing at 4K, install with
+  `--keep-anti-aliasing`.
   At Retina, set **Anti-aliasing to 2x** in the game's graphics options: on an M5, 6x at
   3024x1964 ran at about 30 fps in game and 2x at about 120.
 - **Without the map-note corrections, the HD icons or controller support, and High FPS Fix
@@ -132,6 +136,33 @@ other pads. The controls are KMRP's, the same as on Windows: the full list is on
   `--keep-anti-aliasing`, `--debug-logs`, `--yes` or
   `--game "/path/to/Knights of the Old Republic.app"`. `uninstall` and `status` work the same
   way.
+
+## The Mac App Store version
+
+The App Store's game cannot be modified, so KMRP does not change it. The installer adds an app
+of its own to Applications, **KOTOR with KMRP**: start the game with that app and you get KMRP;
+start *Knights of the Old Republic* itself and you get the game without it.
+
+- With both a Steam copy and an App Store copy, the installer picks the Steam copy. For the
+  App Store copy, click **Browse** and choose *Knights of the Old Republic* in Applications.
+- The game starts at your display's resolution; change it in the game under Options,
+  Graphics. The installer cannot set it, because the App Store game's settings are closed to
+  other apps.
+- **Restore Original** deletes *KOTOR with KMRP*. Nothing else was changed.
+- After an update of the game from the App Store, the game runs without KMRP until KMRP is
+  updated for the new version.
+- The first start through *KOTOR with KMRP* sets Aspyr's launcher to full screen. Untick it
+  there if you want a window; KMRP does not set it again.
+
+What you get in the game is the same in both versions. What differs is how KMRP is put there:
+
+| | Steam version | Mac App Store version |
+| --- | --- | --- |
+| The game's files | KMRP is installed into the game; the originals are kept and put back by Restore Original | not touched |
+| Starting the game | as always | with **KOTOR with KMRP** |
+| The game without KMRP | after Restore Original | any time, by starting *Knights of the Old Republic* itself |
+| Resolution at the first start | the one the installer shows | your display's |
+| KOTOR Patch Manager | works with it | not supported |
 
 ## Uninstall
 
@@ -157,12 +188,17 @@ A file you changed after installing is left alone and listed in the log.
   puts back what was there before, unless you have chosen another resolution in the game
   since, which stays.
 - Aspyr's launcher is set to start the game full screen. Uninstall puts that back too,
-  unless you changed it yourself afterwards.
+  unless you changed it yourself afterwards. For the Mac App Store's game this is done at
+  the first start through **KOTOR with KMRP**, once: windowed mode chosen in Aspyr's
+  launcher after that stays, and uninstall leaves the setting as it is.
 - `kmrp-controller.ini` next to `swkotor.ini`, the controller settings, if you do not have
   one yet.
 - Nothing in `Contents/Assets/override`. The interface, fonts and art are inside KMRP's
   patch and are unpacked to `~/Library/Caches/KMRP` when the game starts; the controller's
-  to `~/Library/Caches/KMRP-Controller`. A few files are made there from your own copy of
+  to `~/Library/Caches/KMRP-Controller`. A file you or another mod put in
+  `Contents/Assets/override` always wins over KMRP's file of the same name (a texture in
+  either format, a layout, a font), and a translation's fonts are drawn at the interface's
+  size. A few files are made there from your own copy of
   the game (the enlarged ability icons, the list-row frames, the tutorial popup's icons and
   `tutorial.2da`), because KMRP does not ship anything taken from the game. Uninstall leaves
   these two cache folders; you can delete them.

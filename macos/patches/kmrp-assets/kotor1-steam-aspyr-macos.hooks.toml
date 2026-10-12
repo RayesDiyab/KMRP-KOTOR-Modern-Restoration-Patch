@@ -59,6 +59,38 @@ type = "int"
 source = "r8"
 type = "int"
 
+# The renderer's first start (resolution.cpp, anti-aliasing off at 3840x2160 pixels or more).
+#
+# The client's start-up (0x10026c3f0), at its own call to Global::ReInitAurora, after it has read
+# `Anti Aliasing` from swkotor.ini into the options (0x10026ceb3, CClientOptions::SetAntiAlias).
+# A relative call, so the handler makes it and always consumes; start-up does not read its result.
+#   0x10026cf7c  mov edi, r14d; mov esi, ebx     width, height (edx depth, ecx windowed, r8d 1)
+#   0x10026cf81  call 0x1004ac827
+#   0x10026cf86  mov rsi, [r15]
+[[hooks]]
+address = 0x10026cf81
+type = "detour"
+function = "KmrpStartRenderer"
+original_bytes = [0xe8, 0xa1, 0xf8, 0x23, 0x00]
+skip_original_bytes = true
+consumed_exit_address = 0x10026cf86
+exclude_from_restore = ["eax"]
+[[hooks.parameters]]
+source = "rdi"
+type = "int"
+[[hooks.parameters]]
+source = "rsi"
+type = "int"
+[[hooks.parameters]]
+source = "rdx"
+type = "int"
+[[hooks.parameters]]
+source = "rcx"
+type = "int"
+[[hooks.parameters]]
+source = "r8"
+type = "int"
+
 # The panels that exist when the resolution changes (layout.cpp): which layout file each panel
 # was loaded from, and which controls it bound by tag, so they can be given the new size's
 # extents. The stolen bytes are the prologues' pushes.

@@ -76,11 +76,16 @@ def check_hooks(exe: bytes, hooks: list[dict], exported: set[str]) -> None:
 
 
 def main() -> int:
+    global SOURCE
     parser = argparse.ArgumentParser(description=__doc__.split("\n\n")[0])
     parser.add_argument("--exe", type=Path, required=True, help="the unmodified KOTOR_Exe")
     parser.add_argument("--version", default="1.0.1")
     parser.add_argument("--out", type=Path, required=True)
+    parser.add_argument("--source", type=Path, default=SOURCE,
+                        help="the patch's sources, when not macos/patches/high-fps-fixes (the App Store "
+                             "build's translated copy; its hook list is still Steam's)")
     args = parser.parse_args()
+    SOURCE = args.source
 
     exe = args.exe.read_bytes()
     if hashlib.sha256(exe).hexdigest().upper() != GAME_SHA:

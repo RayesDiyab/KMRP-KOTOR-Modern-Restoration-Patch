@@ -11,7 +11,8 @@ namespace assets {
 bool Covers(int width, int height);
 
 // Unpacks what the size needs into the cache, once, and names the two folders the game is given:
-// this run's artwork and the size's set. Register does this itself; the regression test calls it
+// this run's artwork and this run's view of the size's set, both links to the cache without what
+// the player's override folder has. Register does this itself; the regression test calls it
 // without a game.
 bool Prepare(int width, int height, std::string* artDirectory, std::string* setDirectory);
 
@@ -24,6 +25,16 @@ bool Register(void* resourceManager, int width, int height);
 // folder; empty before they are registered.
 const std::string& NewestSetDirectory();
 const std::string& ArtworkDirectory();
+
+// The game's own override folder, the player's, which comes before both: a file there is left
+// out of the two folders above (assets.cpp, PlayerHas). Empty when the game's folders are not
+// found.
+std::string OverrideDirectory();
+
+// Gives the fonts the player's override supplies the size KMRP's own fonts of those names have.
+// Asked every GUI frame and as a panel starts loading; `again` after the fonts' metrics were
+// read again. Does nothing when the override has no font of KMRP's.
+void ScaleOverrideFonts(bool again);
 
 // KMRP's menus are not to be used this run: Covers answers no from then on, so nothing is
 // registered and the resolution list stays the game's.

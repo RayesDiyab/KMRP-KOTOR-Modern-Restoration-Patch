@@ -43,7 +43,7 @@ is. The Mac's own reference is [`macos/README.md`](../macos/README.md).
 | 4 | The installer window's second step names the game version it finds | **to do** (still "2. Verify Game" in `main.m`, read 2026-10-08) |
 | 5 | Wording that says a blended size takes the nearest set's "fonts and art" | **to do** (`kmrp-mac.sh` still says "fonts and art from" in its summary and in `menu_set=`, read 2026-10-08) |
 | 6 | KOTOR Patch Manager recognises KMRP's install by itself, and KMRP installs for KPM when KPM manages the game | **done** (built and checked on a Mac 2026-10-01 with KPM 0.7.1's window; four fixes, see the section) |
-| 7 | GOG's executable | **n/a**: the Mac build is Aspyr's Steam build only |
+| 7 | GOG's executable | **n/a**: the Mac has no GOG build. Its second game is the Mac App Store's, since 2026-10-12 (item 51) |
 | 8 | Step 1 finds Steam's KOTOR by itself | **n/a**: the Mac did it first (`find_game`); Windows follows it since 2026-09-30 |
 | 9 | `gui-blend.bin` version 4: the row fits and the badges in one table; the helper's manifest carries this blend's row fits | **built** (the table is version 5 since item 18); checks as item 1 |
 | 10 | The skill picture inside its frame grows with the `50s` row | **built**; not recorded on a Mac: `Test-AbilityIcons.py` on the merged rule, and the Skills tab at `50s` |
@@ -78,6 +78,14 @@ is. The Mac's own reference is [`macos/README.md`](../macos/README.md).
 | 39 | The game's window brought to the front in its first 20 seconds, so the pad can skip the intro movies (Windows, 2026-10-09) | **not needed on the Mac** (checked 2026-10-08): the Mac takes the game for active until macOS says it is not, and the pad skipped the movies in a game started without being brought forward (section 39) |
 | 40 | Installer: step 4 keeps to one line after patching; step 3 says "resolution", not "size" (Windows, 2026-10-09, master `a46d0f3`) | **done 2026-10-08**: step 3 has Windows' sentence; step 4 already showed "KOTOR is ready to play at W × H." and never the operation's last message |
 | 41 | After a change of resolution in the game, with the controller patch: a portrait, a caption with its badge, and no badges until the next press (Windows, 2026-10-09, master `aaaa037`) | **not found on the Mac** (checked 2026-10-08, two changes with every tab visited first): the portrait was the Mac's own repair of 2026-10-07; the other two did not show (section 41) |
+| 42 | 1.5.1: the player's Override comes before KMRP's files (`YieldToOverride`, 2026-10-11) | **ported 2026-10-12**: the Mac had the same fault, not "none" as 1.5.1's note says. `assets.cpp`, `PlayerHas`, `LinkSet`; `Test-MacAssets.py` case 3. Not seen in the game with a mod's files |
+| 43 | 1.5.1: a font from Override is drawn at the size of KMRP's own (`KmrpScaleOverrideFontsK1`, issue 34) | **ported 2026-10-12** (`assets.cpp`, `ScaleOverrideFonts`), from the Mac's texture array and font object. **Not seen in the game**: no translation installed |
+| 44 | 1.5.1: Pazaak, A plays the focused hand card (issue 42) | **ported 2026-10-12** from the executable (`gui.cpp`, `PazaakPlayFocusedCard`). **Not played**: no save reaches a table |
+| 45 | 1.5.1: one pad seen twice no longer stutters (the 80 ms take-over; the pointer while the pad is held) | **ported 2026-10-12** (`backend_sdl.cpp`, `prompts.cpp`). **Not measured**: no translator or second view of a pad at hand |
+| 46 | 1.5.1: a log of controller events for a player's report | **the Mac's `controller.log` is such a log already**; added 2026-10-12: the key that took the game to the keyboard, and a pad's product id beside its vendor |
+| 47 | 1.5.1: a key that is not the keyboard's is not keyboard use (a pad's Back as `KEY_BACK` under Linux) | **not needed on the Mac**: the fault is Linux's kernel driver presenting the pad as a keyboard too; the key is now logged (item 46) should it ever show |
+| 48 | 1.5.1: a destroyed input object used after a change of resolution (seen on SteamOS) | **not on the Mac**: see the section |
+| 49 | 1.5.1: the modules decode their own banks (no `cabinet.dll`), XInput loaded at run time (Windows 7), the installer under Wine, Restore Original at another path, the `%TEMP%` folders | **n/a**: Windows, Wine and Proton only; the Mac's banks are zlib and its caches are per build, with ended runs' folders removed |
 
 ## 1. Badges drawn for the blended buttons
 
@@ -962,3 +970,82 @@ button. So neither the second nor the third fault showed. **Not ported:** the te
 second, since nothing was seen to repair; why the Mac's remembered rectangle does no harm was
 not worked out. **Not tried:** a change to fewer pixels than the start size, a real mouse
 lying on the desk, the store, Level Up.
+
+## KMRP 1.5.1 on the Mac (items 42 to 49)
+
+**2026-10-12.** 1.5.1 was released for Windows and for Linux with Proton with the note that
+none of its faults is in the Mac build. Each entry of `CHANGELOG.md`'s [1.5.1] was read against
+the Mac's code that day; three faults were there too.
+
+**Override first (42).** The Mac registers its two folders after `OVERRIDE:`, and a folder
+registered later is searched first (`macos/README.md`, "The menus inside the module"): exactly
+Windows' 1.5.0. Only the bundled third-party art yielded to the player's files. Now `Prepare`
+(`patches/kmrp-assets/assets.cpp`) gives the game links to the cache without any file the
+override folder has (`PlayerHas`: the same name, and for a texture the `.tga`, `.tpc` and
+`.txi` of that name, as `YieldToOverride`). Where Windows deletes the files from its folder of
+the launch, the Mac leaves the set whole in its cache and makes a folder of links a
+registration, `set-<pid>-<n>`, beside `art-<pid>`; both are removed when their run has ended.
+`layout.cpp`'s `LoadLayout` reads a layout from the override folder when the player's has taken
+the set's place. `Test-MacAssets.py`, case 3: with five files in the override folder (a KMRP
+texture, a layout, a font's texture in the other format, two of the bundled art) exactly those
+and their `.txi` are left out, and the cache keeps the set. **Not seen in the game.**
+
+**Fonts (43).** The Mac's textures are the array at `0x100635b58` (`0x100635b60` of them),
+names at +0xBC, the font object at +0x48 (`resolution.cpp`, `ReloadFontMetrics`); its fields
+are Windows' (`kmrp-layout/text.h`). `ScaleOverrideFonts` multiplies fontheight,
+baselineheight, texturewidth, spacingR and spacingB (+0x04 to +0x14) by KMRP's `fontheight`
+for that name over the font's own. The five offsets were read from the Mac's TXI parser
+(`CAurFontInfo::ParseField`, `0x1001F850E`), which writes them in that order. Called where
+Windows calls it: each GUI frame, as a panel starts loading, and
+after the metrics are read again.
+
+**Pazaak (44).** `CSWGuiPazaakGame` (constructor `0x1002204A6`, vtable `0x1005A5B80`,
+`HandleInputEvent` `0x100222B9C`) has four `CSWGuiPazaakCard`s from +0x3A40, 0x3F0 apart
+(`SetHandEnabled`, `0x100222AC4`). Each gets four handlers (`0x100220F4E` on): A (0x27)
+`0x100221B7C`, which plays the card only when `[panel+0xAB30] == 1`; the drop of a drag
+(0x17FEB) `0x100221BD6`; 0x1F9 `0x100221C5A`, which plays it on the player's turn
+(`[panel+0xAB20] == 3`); 0x44 `0x100221C78`. Windows calls "the mouse's" handler
+(`0x0067EF80`); here that is taken to be `0x100221C5A`, the one that plays a card with no
+further condition, **not matched to Windows' by its code**. A on a focused card with no mode
+set calls it and the engine's A is not sent, in the menu class and the mini-game class.
+
+**Two views of one pad (45).** `ReadSdlPad` took whichever pad moved, at once, as Windows'
+did. The 80 ms rule and the second and a half in which a moving pointer is not mouse use are
+Windows' (`K1ControllerBackend.cpp`, `MouseIsBeingUsedK1`). The Mac reads pads through SDL
+only (GameController only when SDL is missing), so one pad twice needs Steam Input or a
+translator; none was tried.
+
+**The input object (48).** Windows kept the object its `GetEvents` hook saw and polled it
+later in the frame from the movement hook, after a change of resolution had destroyed it. The
+Mac keeps the pointer too (`native.cpp`, `g_input`) but uses it only inside the engine's own
+poll of that object (the device read), and its movement, camera and HUD hooks are handed
+their object by the engine each call. Changes of resolution with a save loaded and the pad in
+use were made on 2026-10-08 (items 31, 32 and 41) without a crash.
+
+## 50. Anti-aliasing off at 3840x2160 pixels or more, in the module
+
+**Mac only, 2026-10-12.** Windows has no such rule. The installer's (2026-10-09) went by the
+display at the time of install; the module now keeps it by the size the renderer is started
+with, at start-up (`KmrpStartRenderer`, hook `0x10026cf81`) and at a change of size
+(`KmrpModeSwitch`), by setting the renderer's sample count (`0x1006338e4`) and leaving the
+player's setting (`CClientOptions` +0x38, `swkotor.ini`) as it is. `keep-anti-aliasing=1` in
+`configs/kmrp.ini` (the installer's `--keep-anti-aliasing`) turns the rule off. Measured with
+the cut-off lowered on a 1512x982 game: 0 sample buffers with the rule, 1 buffer of 2 samples
+without. Not seen at 3840x2160 itself, nor across a change of size in the game.
+
+## 51. The Mac App Store's game
+
+**Mac only, 2026-10-12** (`docs/macos-app-store.md`, section 7). A second build of the game
+that cannot be installed into: KMRP is an app beside it that starts it with the patcher
+inserted, every address translated from Steam's build by the Mac build's tools
+(`macos/tools/appstore/`). Nothing of it is in Windows' code or installer.
+
+So the Mac version supports two games since 1.5.1, as Windows supports three executables,
+but not in the same way. Windows' three are told apart by the installer and patched in
+place by one runtime with an address table for each. The Mac's two are told apart by bundle
+id and SHA-256; Steam's is patched in place, and the App Store's is left as it is and
+started by KMRP's app, with the sources' addresses translated at build time instead of
+looked up at run time. The row-by-row comparison is in `macos/README.md`, "The two games".
+Since the same day that game is also set to full screen, from inside it
+(`docs/macos-app-store.md`, section 7.5), where Steam's is set by the installer.
+

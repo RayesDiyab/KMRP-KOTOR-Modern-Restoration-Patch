@@ -895,6 +895,7 @@ static const struct { const char *prefix, *stage; int percent; } kStages[] = {
 // KotOR Patch Manager manages the game with other patches, and KMRP will install for it, as
 // the Windows installer does (kmrp-mac.sh, kpm_check; 2026-10-01).
 @property (nonatomic) BOOL forKpm;
+@property (nonatomic) BOOL appStore;   // the game is the Mac App Store's: KMRP is an app beside it (kmrp-mac.sh, do_install_app_store)
 @property (nonatomic) int percent;
 @end
 
@@ -1343,11 +1344,15 @@ static BOOL HighFpsAuto(void) { return DisplayRefresh() >= 62; }
         self.replacesKpm = NO;
         self.forKpm = NO;
         self.installedSize = nil;
+        // kmrp-mac.sh names the Mac App Store's game in its status line, and in what it recorded
+        // of an install for it.
+        self.appStore = [output containsString:@"Mac App Store"] || [output containsString:@"store=mac-app-store"];
         if (status == 0 && [output containsString:@"KMRP is not installed."]) {
             self.replacesKpm = [output containsString:@"(supported: KMRP replaces it)"];
             self.forKpm = [output containsString:@"supported: KMRP installs for KPM)"];
             self.gameReady = self.replacesKpm || self.forKpm ||
-                [output containsString:@"KOTOR_Exe: unmodified Steam build"];
+                [output containsString:@"KOTOR_Exe: unmodified Steam build"] ||
+                [output containsString:@"(supported: KMRP is added as an app beside it"];
         } else if (status == 0) {
             self.installed = YES;
             self.incomplete = ![output containsString:@"complete=1"];
@@ -1366,12 +1371,12 @@ static BOOL HighFpsAuto(void) { return DisplayRefresh() >= 62; }
     self.stepGame.title = done ? @"1. Selected Game" : @"1. Select Game";
     self.stepVerify.title = done ? @"2. Verified Game" : @"2. Verify Game";
     self.stepGame.subtitle = self.gamePath ? self.gamePath.stringByDeletingLastPathComponent.stringByAbbreviatingWithTildeInPath : (self.statusLoaded
-        ? @"KOTOR was not found in your Steam libraries. Choose Knights of the Old Republic.app."
-        : @"Looking for KOTOR in your Steam libraries…");
+        ? @"KOTOR was not found in your Steam libraries or in Applications. Choose Knights of the Old Republic.app."
+        : @"Looking for KOTOR in your Steam libraries and in Applications…");
 
     if (!self.statusLoaded) {
         [self.verifyState set:@"" color:THEME_TEXT_MUTED badge:nil];
-        self.stepVerify.subtitle = @"Checking for the Steam version of KOTOR.";
+        self.stepVerify.subtitle = @"Checking for the Steam or Mac App Store version of KOTOR.";
     } else if (verified) {
         [self.verifyState set:@"Verified" color:THEME_SUCCESS badge:@"verified"];
     } else {
@@ -1384,7 +1389,11 @@ static BOOL HighFpsAuto(void) { return DisplayRefresh() >= 62; }
             self.stepVerify.subtitle = @"FTD's widescreen patch found. KMRP replaces it with its own copy.";
         else if (self.forKpm)
             self.stepVerify.subtitle = @"Managed by KotOR Patch Manager: tick KMRP there, then Apply and Launch.";
+        else if (self.gameReady && self.appStore)
+            self.stepVerify.subtitle = @"Mac App Store version 1.4.1 detected. KMRP is added as its own app; the game is not changed.";
         else if (self.gameReady) self.stepVerify.subtitle = @"Unmodified Steam version 1.4.0 detected.";
+        else if (self.appStore)
+            self.stepVerify.subtitle = @"A Mac App Store version this KMRP was not made for (it supports 1.4.1).";
         else if (self.gameFound)
             self.stepVerify.subtitle = @"This copy cannot be patched. Steam's Verify Integrity restores the original.";
         else self.stepVerify.subtitle = @"Choose the game with Browse, then it is checked again.";
@@ -1394,8 +1403,10 @@ static BOOL HighFpsAuto(void) { return DisplayRefresh() >= 62; }
     // As Windows' UpdateVisualState: installed, the size the game starts at on the right (from
     // status's resolution=) over a line that says where another is chosen; otherwise the line
     // of ResolutionSelection.Summary and nothing on the right.
-    self.stepResolution.subtitle = done
-        ? @"The game starts at this resolution. Choose another in the game's Graphics options."
+    // The App Store game's settings are closed to the installer: it starts at the display's size.
+    self.stepResolution.subtitle = self.appStore && (done || self.gameReady)
+        ? @"The game starts at the display's resolution. Choose another in the game's Graphics options."
+        : done ? @"The game starts at this resolution. Choose another in the game's Graphics options."
         : [self summary];
     self.resolutionState.hidden = !done;
     if (done) [self.resolutionState set:(self.installedSize.length ? Pretty(self.installedSize) : @"Installed") color:THEME_TEXT badge:nil];
@@ -1403,7 +1414,9 @@ static BOOL HighFpsAuto(void) { return DisplayRefresh() >= 62; }
     if (self.running) return;
     if (done) {
         [self.applyState set:@"Patched successfully" color:THEME_SUCCESS badge:nil];
-        self.stepApply.subtitle = self.installedSize
+        self.stepApply.subtitle = self.appStore
+            ? @"Start the game with “KOTOR with KMRP” in Applications."
+            : self.installedSize
             ? [NSString stringWithFormat:@"KOTOR is ready to play at %@.", Pretty(self.installedSize)]
             : @"KOTOR is ready to play.";
     } else if (self.incomplete) {

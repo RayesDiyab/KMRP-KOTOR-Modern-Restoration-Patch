@@ -361,9 +361,12 @@ int ListWider(int measured, void* list, int width, int height) {
     return total < 0 ? static_cast<int>(std::lround(-total)) : 0;
 }
 
-// The layout file the game reads for a panel at the size in force: the set's, else the artwork's.
+// The layout file the game reads for a panel at the size in force: the set's, else the
+// artwork's, else the player's own in the override folder, which has taken its place in both
+// (assets.cpp, PlayerHas; since 2026-10-12).
 bool LoadLayout(const std::string& resource, Gff& gff) {
-    for (const std::string& directory : {kmrp::assets::NewestSetDirectory(), kmrp::assets::ArtworkDirectory()})
+    for (const std::string& directory : {kmrp::assets::NewestSetDirectory(), kmrp::assets::ArtworkDirectory(),
+                                         kmrp::assets::OverrideDirectory()})
         if (!directory.empty() && gff.load(directory + "/" + resource + ".gui")) return true;
     return false;
 }
@@ -471,6 +474,7 @@ bool Relayout(void* manager, int width, int height) {
 // for. The switch itself has finished by then, with the engine's own reloads.
 void Frame(void* manager) {
     if (!manager) return;
+    kmrp::assets::ScaleOverrideFonts(false);
     State& state = TheState();
     const int width = Field<short>(manager, kManagerWidth), height = Field<short>(manager, kManagerHeight);
     if (width < 640 || height < 480) return;
@@ -488,6 +492,7 @@ __attribute__((constructor)) void WatchFrames() { kmrp::g_frameHook = Frame; }
 // not always terminated).
 extern "C" __attribute__((visibility("default"))) void KmrpPanelLayoutStart(void* panel, const char* resref) {
     if (!panel || !resref) return;
+    kmrp::assets::ScaleOverrideFonts(false);   // before the panel's texts are laid out
     std::string name(resref, strnlen(resref, 16));
     for (char& c : name) c = static_cast<char>(tolower(static_cast<unsigned char>(c)));
     if (name.empty() || name.find_first_of("/\\:") != std::string::npos) return;

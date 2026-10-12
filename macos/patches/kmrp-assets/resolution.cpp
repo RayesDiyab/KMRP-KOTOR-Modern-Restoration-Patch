@@ -25,8 +25,10 @@
 #include "assets.h"
 
 #include <OpenGL/OpenGL.h>
+#include <OpenGL/gl.h>
 #include <cstdint>
 #include <cstdio>
+#include <cstdlib>
 #include <cstring>
 #include <dlfcn.h>
 #include <map>
@@ -34,6 +36,7 @@
 #include <utility>
 #include <vector>
 
+#include "../kmrp-layout/options.h"
 #include "widescreen.h"
 
 namespace kmrp {
@@ -126,6 +129,72 @@ void RefreshMouseScale(int width, int height) {
             width, height, *reinterpret_cast<double*>(window + 0x8), *reinterpret_cast<double*>(window + 0x10));
 }
 
+// Anti-aliasing off while the game draws 3840x2160 pixels or more.
+//
+// The installer has written `Anti Aliasing=0` on a display of that size since 2026-10-09 (the
+// main menu at 4K and 60 Hz: 59 frames a second at 2x, a frame in twenty late, which V-Sync shows
+// as a stutter; 82 with it off). That is the display at the time of install. A size chosen later
+// in the game, another display, a setting put back in the options screen, and a game whose
+// swkotor.ini the installer cannot write were not covered, so since 2026-10-12 the rule is also
+// kept here, by the size the renderer is about to be started with.
+//
+// The engine holds the setting twice: the player's, a byte of CClientOptions (+0x38, which the
+// options screen shows and 0x1002abdee writes to swkotor.ini), and the renderer's sample count
+// (0x1006338e4, set from it by CClientOptions::SetAntiAlias, 0x1002afb9e, through 0x1001bb7fb,
+// and read when the window's context is made). Only the second is changed: the player's choice
+// stays in the options screen and in swkotor.ini, and is what a smaller size is started with
+// again. configs/kmrp.ini, keep-anti-aliasing=1 (the installer's --keep-anti-aliasing) leaves
+// the game alone.
+const auto SetRendererAntiAlias = reinterpret_cast<int (*)(int)>(0x1001bb7fb);
+const long kAntiAliasOffPixels = 3840L * 2160L;
+
+long AntiAliasOffPixels() {   // KMRP_AA_OFF_PIXELS: another count, to see the rule on a smaller display
+    static const long pixels = [] {
+        const char* text = getenv("KMRP_AA_OFF_PIXELS");
+        const long given = text ? atol(text) : 0;
+        return given > 0 ? given : kAntiAliasOffPixels;
+    }();
+    return pixels;
+}
+
+void* ClientOptions() {   // CClientExoApp::GetClientOptions (0x10028bdd6) of the app manager's client
+    void* manager = *reinterpret_cast<void**>(0x100677cf0);
+    void* app = manager ? *reinterpret_cast<void**>(static_cast<char*>(manager) + 8) : nullptr;
+    void* internal = app ? *reinterpret_cast<void**>(static_cast<char*>(app) + 8) : nullptr;
+    return internal ? *reinterpret_cast<void**>(static_cast<char*>(internal) + 8) : nullptr;
+}
+
+bool g_antiAliasOff = false;   // the rule holds the renderer's count at 0
+
+// After the renderer has started: what the context it made has, where the rule acted.
+void LogSamples() {
+    if (!g_antiAliasOff && !kmrp::DebugLogs()) return;
+    GLint buffers = -1, samples = -1;
+    if (CGLGetCurrentContext()) {
+        glGetIntegerv(GL_SAMPLE_BUFFERS, &buffers);
+        glGetIntegerv(GL_SAMPLES, &samples);
+    }
+    fprintf(stderr, "[KMRP] the renderer's surface: %d sample buffers, %d samples\n", buffers, samples);
+}
+
+void ApplyAntiAliasRule(int width, int height) {
+    static const bool keep = kmrp::PatchOption("keep-anti-aliasing", 0) != 0;
+    bool& turnedOff = g_antiAliasOff;
+    void* options = ClientOptions();
+    if (keep || !options) return;
+    const int chosen = *reinterpret_cast<unsigned char*>(static_cast<char*>(options) + 0x38);
+    const bool off = static_cast<long>(width) * height >= AntiAliasOffPixels();
+    if (off && chosen != 0) {
+        if (!turnedOff) fprintf(stderr, "[KMRP] anti-aliasing off at %dx%d (the game's setting is %dx)\n", width, height, chosen);
+        SetRendererAntiAlias(0);
+        turnedOff = true;
+    } else if (!off && turnedOff) {
+        fprintf(stderr, "[KMRP] anti-aliasing back at the game's %dx at %dx%d\n", chosen, width, height);
+        SetRendererAntiAlias(chosen);
+        turnedOff = false;
+    }
+}
+
 }  // namespace
 
 namespace kmrp {
@@ -154,12 +223,27 @@ int KmrpModeSwitch(int width, int height, int depth, int windowed, int flag) {
         kmrp::ApplyLayoutForSize(width, height);
         // Only once the game has registered its own folders (KmrpAddOverrideDirectory): the first
         // switch of a run can come before.
-        if (changed && kmrp::assets::Registered() && kmrp::assets::Register(*kResourceManager, width, height))
+        if (changed && kmrp::assets::Registered() && kmrp::assets::Register(*kResourceManager, width, height)) {
             ReloadFontMetrics();
+            kmrp::assets::ScaleOverrideFonts(true);   // the reload put the override's fonts back at their own size
+        }
     }
+    ApplyAntiAliasRule(width, height);
     ReInitAurora(width, height, depth, windowed, flag);
+    LogSamples();
     SizeSurface(width, height);
     RefreshMouseScale(width, height);
+    return 1;
+}
+
+// Start-up's own start of the renderer (0x10026cf81 in the client's start-up, 0x10026c3f0), which
+// follows its reading of `Anti Aliasing` from swkotor.ini into the options (0x10026ceb3) and is
+// not the mode switch's call: the same rule for the size the game starts at.
+extern "C" __attribute__((visibility("default")))
+int KmrpStartRenderer(int width, int height, int depth, int windowed, int flag) {
+    ApplyAntiAliasRule(width, height);
+    ReInitAurora(width, height, depth, windowed, flag);
+    LogSamples();
     return 1;
 }
 

@@ -18,6 +18,7 @@
 #include <SDL3/SDL.h>
 
 #include <dlfcn.h>
+#include <unistd.h>
 #include <mach-o/dyld.h>
 #include <cmath>
 #include <cstdlib>
@@ -34,7 +35,7 @@ namespace {
     X(SDL_SetJoystickEventsEnabled) X(SDL_UpdateGamepads) X(SDL_GetGamepads) \
     X(SDL_OpenGamepad) X(SDL_CloseGamepad) X(SDL_GamepadConnected) \
     X(SDL_GetGamepadAxis) X(SDL_GetGamepadButton) X(SDL_GetGamepadType) \
-    X(SDL_GetGamepadVendor) X(SDL_GetGamepadName) X(SDL_RumbleGamepad) X(SDL_free) \
+    X(SDL_GetGamepadVendor) X(SDL_GetGamepadProduct) X(SDL_GetGamepadName) X(SDL_RumbleGamepad) X(SDL_free) \
     X(SDL_GetError) X(SDL_GetVersion)
 #define DECLARE(name) decltype(&name) p##name = nullptr;
 SDL_FUNCTIONS(DECLARE)
@@ -62,24 +63,30 @@ double Now() {
     return t.tv_sec + t.tv_nsec / 1e9;
 }
 
-// Resolves the library the module carries itself, since 2026-10-04 (kmrp-assets, which unpacks
-// it to KMRP's cache), else beside this module, else beside the game (KOTOR_Exe), never one from
-// elsewhere. KMRP's installer puts it beside the game: KPM extracts only a patch's module, and
-// its Apply empties patches/, so under KPM's runtime this module's folder has no SDL
-// (K1ControllerBackend.cpp looks in the same two places on Windows).
+// Resolves SDL: beside this module, else the copy the module carries itself, since 2026-10-04
+// (standalone.cpp, which unpacks it to KMRP's cache), else beside the game (KOTOR_Exe), never one
+// from elsewhere. Under KotOR Patch Manager's runtime and KMRP's installer for Steam's game this
+// module's folder has no SDL (KPM extracts only a patch's module, and its Apply empties
+// patches/), so the carried copy is the one used there (K1ControllerBackend.cpp looks in the
+// same places on Windows).
+//
+// Beside the module comes first since 2026-10-12, for the Mac App Store's game: KMRP's app for
+// it has SDL there, because that game is sandboxed and a library it unpacked itself carries
+// the quarantine flag. Loading the unpacked copy there did not fail quietly: the first start
+// stopped at this call (the log's last line the one before it, the game still up 50 s later),
+// as it does while macOS asks about a file it has not checked. So the unpacked copy is not
+// tried at all when the one beside the module loads.
 void Load() {
     Dl_info self;
     if (!dladdr(reinterpret_cast<const void*>(&Load), &self) || !self.dli_fname) return;
     std::string path = self.dli_fname;
-    void* lib = nullptr;
-    if (const char* carried = g_sdlPath ? g_sdlPath() : nullptr) {
-        path = carried;
-        lib = dlopen(path.c_str(), RTLD_NOW | RTLD_LOCAL);
-    }
+    path = path.substr(0, path.rfind('/') + 1) + "kmrp-sdl3.dylib";
+    void* lib = access(path.c_str(), R_OK) == 0 ? dlopen(path.c_str(), RTLD_NOW | RTLD_LOCAL) : nullptr;
     if (!lib) {
-        path = self.dli_fname;
-        path = path.substr(0, path.rfind('/') + 1) + "kmrp-sdl3.dylib";
-        lib = dlopen(path.c_str(), RTLD_NOW | RTLD_LOCAL);
+        if (const char* carried = g_sdlPath ? g_sdlPath() : nullptr) {
+            path = carried;
+            lib = dlopen(path.c_str(), RTLD_NOW | RTLD_LOCAL);
+        }
     }
     if (!lib) {
         char exe[4096];
@@ -168,7 +175,34 @@ bool Activity(const PadState& g, const PadState& prev) {
     return false;
 }
 
+// Nothing held on the pad: no button, no trigger past 30/255, no stick past 8000/32767
+// (K1ControllerBackend.cpp's Idle).
+bool Idle(const PadState& g) {
+    const float kTrigger = 30 / 255.0f, kStick = 8000 / 32767.0f;
+    if (g.buttons || g.lt > kTrigger || g.rt > kTrigger) return false;
+    for (float axis : {g.lx, g.ly, g.rx, g.ry}) if (std::abs(axis) > kStick) return false;
+    return true;
+}
+
+// One pad can be here twice (2026-10-12, as Windows since 1.5.1: K1ControllerBackend.cpp). A
+// translator that leaves the real pad visible does that, and so can Steam Input, which gives the
+// game a pad of its own beside the device. Until then whichever of the two showed new activity
+// became the pad read, at once, and every change blanks the input for a frame, restarts rumble
+// and changes the button pictures: on Windows 77 changes of family in 202 seconds, walking in
+// stutters. So another pad takes over only when the one being read has been at rest, and stays
+// at rest for kTakeOverSeconds after the other moved: the second view of the same pad moves with
+// the first and never qualifies, and a pad really picked up instead waits that long, once. Not
+// measured on the Mac: no such setup was at hand.
+const double kTakeOverSeconds = 0.080;
+int pending = -1;
+double pendingSince = 0.0;
+double heldAt = 0.0;   // when the pad read was last held or moved; 0 before the first time
+
 }  // namespace
+
+// The pad was held within the last second and a half (ControllerHeldRecentlyK1): a pointer that
+// moves meanwhile is not a hand on the mouse (prompts.cpp, MouseIsBeingUsed).
+bool PadHeldRecently() { return heldAt != 0.0 && Now() - heldAt < 1.5; }
 
 bool SdlAvailable() {
     static bool once = (Load(), true);
@@ -200,15 +234,16 @@ bool ReadSdlPad(PadState* out, std::string* name) {
                 devices[empty].id = ids[j];
                 if (devices[empty].pad) {
                     const char* n = pSDL_GetGamepadName(devices[empty].pad);
-                    Log("SDL3: opened %s (type %d, vendor 0x%04x)", n ? n : "?",
+                    Log("SDL3: opened %s (type %d, %04x:%04x)", n ? n : "?",
                         static_cast<int>(pSDL_GetGamepadType(devices[empty].pad)),
-                        pSDL_GetGamepadVendor(devices[empty].pad));
+                        pSDL_GetGamepadVendor(devices[empty].pad), pSDL_GetGamepadProduct(devices[empty].pad));
                 }
             }
         }
         pSDL_free(ids);
     }
-    int chosen = active;
+    int chosen = active, other = -1;
+    bool activeMoved = false;
     for (int i = 0; i < 16; ++i) {
         Device& d = devices[i];
         if (d.pad) {
@@ -221,8 +256,31 @@ bool ReadSdlPad(PadState* out, std::string* name) {
                 d.previous = PadState();
             }
         }
-        if (d.connected && Activity(d.state, d.previous)) chosen = i;
+        if (d.connected && Activity(d.state, d.previous)) {
+            if (i == active) activeMoved = true;
+            else other = i;
+        }
         d.previous = d.connected ? d.state : PadState();
+    }
+    const bool activeHeld = active >= 0 && devices[active].connected && (activeMoved || !Idle(devices[active].state));
+    if (activeHeld) heldAt = now;
+    if (active < 0 || !devices[active].connected) {
+        // Nothing is being read: the pad that moved, else the first one there.
+        pending = -1;
+        chosen = other;
+    } else if (activeHeld) {
+        pending = -1;   // the same pad seen a second time, or a second pad waiting
+    } else if (other >= 0 && pending != other) {
+        pending = other;
+        pendingSince = now;
+    }
+    if (pending >= 0) {
+        if (!devices[pending].connected) pending = -1;
+        else if (now - pendingSince >= kTakeOverSeconds) {
+            chosen = pending;
+            pending = -1;
+            Log("SDL3: another pad moved while the one read was at rest; reading it now");
+        }
     }
     if (chosen < 0 || !devices[chosen].connected) {
         chosen = -1;

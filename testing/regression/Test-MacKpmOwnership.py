@@ -7,6 +7,9 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[2]
 source = (ROOT / 'macos/kmrp-mac.sh').read_text()
 function = source[source.index('kpm_holds_only_kmrp() {'):source.index('\ndo_uninstall()', source.index('kpm_holds_only_kmrp() {'))]
+# The patch ids the function counts as KMRP's own (KMRP_IDS, a global of the script, since the
+# function was written to accept the two patches KMRP requires and its controller patch).
+ids = '\n'.join(next(line for line in source.splitlines() if line.startswith(name)) for name in ('KPATCH_IDS=', 'KMRP_IDS='))
 with tempfile.TemporaryDirectory(prefix='kmrp-kpm-ownership-') as folder:
     mac = Path(folder)
     config = mac / 'patch_config.toml'
@@ -15,7 +18,7 @@ with tempfile.TemporaryDirectory(prefix='kmrp-kpm-ownership-') as folder:
     modules.mkdir()
     (modules / 'kmrp.dylib').write_bytes(b'fixture')
     config.write_text('[[patches]]\nid = "kmrp"\n')
-    script = 'MACOS=$1\n' + function + '\nkpm_holds_only_kmrp\n'
+    script = 'MACOS=$1\n' + ids + '\n' + function + '\nkpm_holds_only_kmrp\n'
     cases = [
         ('legacy absent state', None, True),
         ('only KMRP', json.dumps({'InstalledPatches': ['kmrp']}), True),

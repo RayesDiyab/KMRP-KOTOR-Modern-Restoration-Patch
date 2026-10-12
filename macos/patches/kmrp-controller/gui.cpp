@@ -727,6 +727,40 @@ void FeatsAdd(void* panel) {
     reinterpret_cast<FeatPickedFn>(kFeatsOnFeatPicked)(panel, feat);
 }
 
+// Pazaak: A plays the focused hand card (2026-10-12, as Windows since 1.5.1, issue 42:
+// K1NativeJoystick.cpp, PazaakPlayFocusedCardK1). Reported from play with a pad: A on a card
+// ended the turn and played nothing. The table is CSWGuiPazaakGame (constructor 0x1002204A6,
+// vtable 0x1005A5B80, HandleInputEvent 0x100222B9C); its four hand cards are CSWGuiPazaakCards
+// from +0x3A40, 0x3F0 apart (SetHandEnabled, 0x100222AC4). The constructor gives each card four
+// handlers (0x100220F4E on): for A (0x27) 0x100221B7C, which plays the card only in a "choose a
+// card" mode ([panel+0xAB30] == 1, set by 0x100221E7C) that nothing here enters; for the
+// drag's drop (0x17FEB) 0x100221BD6; and for 0x1F9 0x100221C5A, which plays the card whenever
+// it is the player's turn ([panel+0xAB20] == 3, through 0x100223572). With the focus on a card
+// and no such mode, A is that last one and the engine's own A is not sent. The offsets are read
+// from the executable; the table was not reached in play on the Mac (no save has one).
+const std::uintptr_t kPazaakGame = 0x100222b9cUL, kPazaakClickCard = 0x100221c5aUL;
+const std::size_t kPazaakHandCards = 0x3a40, kPazaakHandStride = 0x3f0, kPazaakCardMode = 0xab30;
+
+void* PazaakFocusedHandCard(void* panel) {
+    if (!panel || Dispatcher(panel) != kPazaakGame || At<int>(panel, kPazaakCardMode) != 0) return nullptr;
+    void* const focused = At<void*>(panel, kPanelActive);
+    for (std::size_t i = 0; i < 4; ++i) {
+        if (focused != static_cast<char*>(panel) + kPazaakHandCards + i * kPazaakHandStride) continue;
+        const std::uint8_t flags = At<std::uint8_t>(focused, kCtlFlags);
+        return (flags & kCtlVisible) && !(flags & kCtlDisabled) ? focused : nullptr;
+    }
+    return nullptr;
+}
+
+bool PazaakHandCardFocused(void* panel) { return PazaakFocusedHandCard(panel) != nullptr; }
+
+void PazaakPlayFocusedCard(void* panel) {
+    void* const card = PazaakFocusedHandCard(panel);
+    if (!card) return;
+    Log("menus: A plays the focused Pazaak card");
+    reinterpret_cast<void (*)(void*, void*)>(kPazaakClickCard)(panel, card);
+}
+
 struct Remap {
     std::uintptr_t panel;   // the dispatcher it applies to, when accepts is null
     int slot;
@@ -736,6 +770,7 @@ struct Remap {
     bool (*accepts)(void* panel);
 };
 const Remap kRemaps[] = {
+    {kPazaakGame, kSlotA, kEventA, "A: play the card (Pazaak)", PazaakPlayFocusedCard, PazaakHandCardFocused},
     {kJournal, kSlotA, kEventY, "A: Active/Completed", nullptr, nullptr},
     {kJournal, kSlotY, kEventBlack, "Y: sort order", nullptr, nullptr},
     {kFeats, kSlotA, kEventX, "A: OK (Feats)", FeatsConfirm, nullptr},
@@ -747,6 +782,13 @@ const Remap kRemaps[] = {
 
 bool RemapApplies(const Remap& r, void* panel) {
     return r.accepts ? r.accepts(panel) : Dispatcher(panel) == r.panel;
+}
+
+// The remaps are the menus'. Which input class the Pazaak table runs in was not measured (nor on
+// Windows), so its row is asked about in the menu class and the mini-game class.
+bool RemapClass(const Remap& r) {
+    const int inputClass = engine::CurrentInputClass();
+    return inputClass == engine::kClassPCGUI || (inputClass == engine::kClassMiniGame && r.panel == kPazaakGame);
 }
 
 // ------------------------------------------------------------------------ frame work
@@ -789,9 +831,9 @@ void PerformRemap() {
     const int slot = g.remapSlot;
     if (!slot) return;
     g.remapSlot = 0;
-    if (NowMs() - g.remapRequested > kRequestWindowMs || engine::CurrentInputClass() != engine::kClassPCGUI) return;
+    if (NowMs() - g.remapRequested > kRequestWindowMs) return;
     for (const Remap& r : kRemaps) {
-        if (r.slot != slot) continue;
+        if (r.slot != slot || !RemapClass(r)) continue;
         void* panel = nullptr;
         if (r.accepts) {
             void* top = TopPanel();
@@ -960,9 +1002,8 @@ bool OwnsDirections(bool vertical) {
 }
 
 int RemappedButtonEvent(int slot) {
-    if (engine::CurrentInputClass() != engine::kClassPCGUI) return 0;
     for (const Remap& r : kRemaps) {
-        if (r.slot != slot) continue;
+        if (r.slot != slot || !RemapClass(r)) continue;
         if (r.action) {
             void* top = TopPanel();
             if (top && RemapApplies(r, top)) return r.event;
