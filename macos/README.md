@@ -51,13 +51,13 @@ each row is measured or marked as not seen.
 | Bundle id, version | `com.aspyr.kotor.steam`, 1.4.0 (176481) | `com.aspyr.kotor`, 1.4.1 (199106) |
 | `KOTOR_Exe` | 6,333,424 bytes, `c1fcb8d3...6d71` | 6,313,504 bytes, `d03315aa...ad7ca` |
 | Where it is | the Steam library, the player's files | `/Applications`, owned by root, sandboxed, with a receipt |
-| How KMRP gets in | installed into the game: KPM's runtime, the modules and `patch_config.toml` in `Contents/MacOS`, one load command added to `KOTOR_Exe`, signed again ad hoc (section 2) | nothing written into the game. An app beside it, `KOTOR with KMRP.app`, holds the runtime, the modules and the hook list, and starts Aspyr's `AppBundleExe` with `loader.dylib` in `DYLD_INSERT_LIBRARIES`; the loader loads KotorPatcher in `KOTOR_Exe` (`macos/appstore/launcher.c`, `loader.c`) |
+| How KMRP gets in | installed into the game: KPM's runtime, the modules and `patch_config.toml` in `Contents/MacOS`, one load command added to `KOTOR_Exe`, signed again ad hoc (section 2) | nothing written into the game. An app beside it, `KOTOR with KMRP.app`, holds the runtime, the modules and the hook list, and starts Aspyr's `AppBundleExe` with `loader.dylib` in `DYLD_INSERT_LIBRARIES`; the loader loads KotorPatcher in `KOTOR_Exe` (`macos/appstore/launcher.c`, `loader.c`, `fullscreen.m`) |
 | How the player starts it | as before, from Steam or the game's icon: the game is KMRP's | with **KOTOR with KMRP**. *Knights of the Old Republic* itself still starts the game without KMRP |
 | Addresses and hooks | written for this build, by hand | translated from Steam's by the build (`macos/tools/appstore/`): the two files matched instruction by instruction, 1,175 addresses and 138 hooks, none failed |
 | Modules in the package | whole, inside each `.kpatch` | as what turns Steam's module into the other (`*.dylib.delta`), put together at install |
 | A game that is not the expected build | the installer refuses it | the installer refuses it; after an update from the App Store the loader finds another SHA-256 and the game runs without KMRP |
 | Resolution at first start | `Width` and `Height` written to `swkotor.ini` by the installer | the display's size: `swkotor.ini` is in the game's container, closed to the installer. Changed in the game as in Steam's |
-| Fullscreen | `DisplayFullScreen` set by the installer in `com.aspyr.kotor.steam.plist`; uninstall puts the old value back | set by the loader inside Aspyr's launcher at the first start, once; uninstall cannot put it back (`docs/macos-app-store.md`, section 7.5) |
+| Fullscreen | `DisplayFullScreen` set by the installer in `com.aspyr.kotor.steam.plist`; uninstall puts the old value back | the launcher is at full screen by itself, and this build opens a window all the same: KMRP's library takes the title bar off the game's window and gives it the display's frame (`macos/appstore/fullscreen.m`; `docs/macos-app-store.md`, section 7.5) |
 | Controller settings file | written by the installer if absent | written by the module on first start, in the container |
 | SDL for the controller | inside the module, unpacked to its cache and loaded from there | beside the module in KMRP's app: the sandboxed game stopped at loading a library it had unpacked itself |
 | Caches | `~/Library/Caches/KMRP`, `KMRP-Controller` | in the game's container, `~/Library/Containers/com.aspyr.kotor/Data/Library/Caches` |
@@ -1295,9 +1295,9 @@ restore that key only while its value still matches KMRP’s 1; later player cha
 are preserved. An originally absent key is deleted, and other preferences remain
 untouched. The installer window itself keeps its normal windowed interface.
 
-This is Steam's game. The Mac App Store game's preferences cannot be written by the
-installer; there KMRP's loader sets the same key from inside the game at the first start
-(`docs/macos-app-store.md`, section 7.5; written 2026-10-12, not seen in the game).
+This is Steam's game. The Mac App Store game's launcher is at full screen without it, and
+that game opens a window all the same; there KMRP makes the window cover the display
+(`docs/macos-app-store.md`, section 7.5).
 
 Validation: `testing/regression/Test-MacFullscreen.py` exercises the actual installer
 functions against a temporary preference file: absent key, prior windowed value,

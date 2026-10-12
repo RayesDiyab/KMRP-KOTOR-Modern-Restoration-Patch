@@ -409,8 +409,8 @@ if [[ -n "$APPSTORE_EXE" && -f "$APPSTORE_EXE" && "$(shasum -a 256 "$APPSTORE_EX
     lipo "$CSRC/kmrp-sdl3.dylib" -thin x86_64 -output "$PKG/appstore/kmrp-sdl3.dylib"
     codesign --force --sign - --identifier org.libsdl.SDL3 "$PKG/appstore/kmrp-sdl3.dylib" 2>/dev/null
     clang -O2 -Wall -Wextra -arch x86_64 -mmacosx-version-min=10.13 -dynamiclib \
-        -DKMRP_APPSTORE_EXE_SHA="\"$APPSTORE_EXE_SHA\"" -framework CoreFoundation \
-        -o "$PKG/appstore/loader.dylib" "$HERE/appstore/loader.c"
+        -DKMRP_APPSTORE_EXE_SHA="\"$APPSTORE_EXE_SHA\"" -fobjc-arc -framework AppKit \
+        -o "$PKG/appstore/loader.dylib" "$HERE/appstore/loader.c" "$HERE/appstore/fullscreen.m"
     clang -O2 -Wall -Wextra -arch x86_64 -arch arm64 -mmacosx-version-min=10.13 \
         -o "$PKG/appstore/kmrp-appstore-launcher" "$HERE/appstore/launcher.c"
     codesign --force --sign - "$PKG/appstore/loader.dylib" "$PKG/appstore/kmrp-appstore-launcher" 2>/dev/null

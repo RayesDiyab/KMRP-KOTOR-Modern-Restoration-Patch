@@ -117,18 +117,24 @@ proxy, and it applies the executable changes above as well.
 
 ## [Unreleased]
 
-- **macOS: the Mac App Store's game starts full screen, and the macOS version is 1.5.1**
-  (2026-10-12; `macos/appstore/loader.c`, `FullscreenOnce`; `docs/macos-app-store.md`,
-  section 7.5). Steam's game is set to full screen by the installer, in Aspyr's preferences.
-  The App Store game's preferences are in its container, closed to the installer, so the game
-  started through **KOTOR with KMRP** came up as Aspyr's launcher was last left. The library
-  KMRP starts the game with now sets `DisplayFullScreen` in the game's own preferences from
-  inside Aspyr's launcher, before it reads them, the first time only (`KMRPFullScreenSet`
-  marks it): windowed mode chosen in the launcher afterwards stays. Uninstall leaves the
-  setting, which it cannot reach. `macos/VERSION` and the three macOS manifests are 1.5.1,
-  so the package is `KMRP-macOS-1.5.1` and holds everything below. **Not seen in the game:**
-  the loader compiles and the key is the one Steam's game and this game's binaries use; the
-  game was not started with it.
+- **macOS: the Mac App Store's game covers the display, and the macOS version is 1.5.1**
+  (2026-10-12; `macos/appstore/fullscreen.m`; `docs/macos-app-store.md`, section 7.5). With
+  "Full screen" chosen in Aspyr's launcher, and full screen in the game's own settings
+  (`Data.json`, `ASL_DisplayFullScreen` true), the App Store's game opened an ordinary window
+  with a title bar: 1024x768 without KMRP, and with KMRP the display's size cut to what fits
+  under the menu bar, the Dock over its foot (the maintainer: "its windowed fullscreen").
+  Steam's game, with the same setting, covers the display. KMRP's library in that game now
+  takes the title bar off the game's window, gives it the display's frame and hides the menu
+  bar and the Dock, when the launcher is set to full screen; "In a window" is left alone. The
+  mouse ratio Aspyr's window object keeps is asked for again afterwards (`KMRP_WindowChanged`,
+  `kmrp-assets/resolution.cpp`): without that the pointer landed 6.6% low. Measured on the
+  built-in display: the window 1512x949 with a title bar before, 1512x982 at 0,0 without one
+  after. Not seen: a change of resolution in the game with the window covered, a second
+  display. `macos/VERSION` and the three macOS manifests are 1.5.1, so the package is
+  `KMRP-macOS-1.5.1` and holds everything below.
+  **Corrected the same day:** a first attempt set the launcher's `DisplayFullScreen`
+  preference from the loader. The launcher had that value already and the game deletes its
+  preferences at every start, so it did nothing, and it is removed.
   **Docs:** that the Mac version supports two games, and how KMRP differs between them, is
   now said where the Mac is described: `macos/README.md` ("The two games", a table row by
   row), `macos/PLAYER-README.md`, `README.md`, `docs/features.md` and

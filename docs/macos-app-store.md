@@ -220,7 +220,8 @@ So KMRP's files are in an app in the folder the game is in.
 | `rewrite_sources.py` | a source tree with every address translated; stops on one it cannot translate outside a comment |
 | `make_runtime.py` | a staged `patch_config.toml` for the other executable: addresses, original bytes read from it, replacement bytes put right |
 | `make_delta.py` | a module as the stretches in which it differs from Steam's |
-| `macos/appstore/loader.c` | inserted into the game; loads KotorPatcher in `KOTOR_Exe` only, and only when that file has the SHA-256 the hooks were made for; in Aspyr's launcher (`AppBundleExe`) it sets `DisplayFullScreen` in the game's preferences, once (section 7.5) |
+| `macos/appstore/loader.c` | inserted into the game; loads KotorPatcher in `KOTOR_Exe` only, and only when that file has the SHA-256 the hooks were made for |
+| `macos/appstore/fullscreen.m` | in the same library: makes the game's window cover the display when Aspyr's launcher is set to full screen (section 7.5) |
 | `macos/appstore/launcher.c`, `Info.plist` | the app **KOTOR with KMRP**: sets `DYLD_INSERT_LIBRARIES` and `KMRP_PATCHER`, opens `~/Library/Logs/KMRP/appstore-game.log` for the game's output, and runs Aspyr's `AppBundleExe` in the game's folder |
 | `macos/build.sh` | with the App Store's `KOTOR_Exe` at hand (`--appstore-exe`, default the game in `/Applications`): the map, the seven source trees, the five patches compiled by the tools that compile Steam's, the four hook lists, the deltas, SDL for the game's architecture, the loader and the launcher, into the package's `appstore/` |
 | `macos/kmrp-mac.sh` | `--app-store`, or `--game` with that game, or no Steam copy: `do_install_app_store`, `do_uninstall_app_store`, `do_status_app_store`; state in `~/Library/Application Support/KMRP/macos-appstore` |
@@ -276,22 +277,58 @@ maintainer reported library errors at the start of that session.
 - KotOR Patch Manager (section 5, item 4): unchanged, it does not know this build.
 - `runpkg.sh` makes `/Applications/KMRP-probe` for its script (the sandboxed game reads nothing of the work folder); it was removed after the runs.
 
-### 7.5 Fullscreen by default (1.5.1)
+### 7.5 Full screen (1.5.1)
 
-For Steam's game the installer sets `DisplayFullScreen` in
-`~/Library/Preferences/com.aspyr.kotor.steam.plist` (`macos/README.md`, "Fullscreen default").
-The App Store game's preferences are in its container, which the installer cannot write, so
-the loader does it from inside the game: in `AppBundleExe`, before `main`, it sets
-`DisplayFullScreen` to true in the application's own preferences
-(`kCFPreferencesCurrentApplication`, which for this bundle is `com.aspyr.kotor`) and
-`KMRPFullScreenSet` beside it, and does nothing when that second key is already there. A
-player who then chooses windowed mode in Aspyr's launcher keeps it. Uninstall does not put
-the setting back: it cannot reach the container. The game's log
-(`~/Library/Logs/KMRP/appstore-game.log`) has the line "fullscreen made the default in
-Aspyr's launcher: saved" on the start that did it.
+**The fault.** With "Full screen" chosen in Aspyr's launcher the App Store's game does not
+cover the display. Measured on 2026-10-12 (macOS 27, the built-in 1512x982 display), the
+window read with `CGWindowListCopyWindowInfo` and seen in a screenshot:
 
-The key is read from the binaries, not measured in this game: `KOTOR_Exe` has the strings
-`DisplayFullScreen` and `ASL_Pref_DisplayFullScreen` and imports `CFPreferencesCopyAppValue`,
-the launcher uses `NSUserDefaults`, and Steam's game, whose launcher is the same program,
-keeps the setting under that key. **Not seen in the game:** written on 2026-10-12 and
-compiled; the game was not started with it.
+| Started | Window |
+| --- | --- |
+| the unmodified game, by its own `AppBundleExe` | 1024x796 with a title bar, centred (1024x768 inside it) |
+| through **KOTOR with KMRP**, before this change | 1512x949 with a title bar, under the menu bar, the Dock over its foot; the game at 1512x982 drawn into the 1512x921 inside it |
+| through **KOTOR with KMRP**, with this change | 1512x982 at 0,0, no title bar, no menu bar, no Dock |
+
+The game's own setting was full screen each time: `Aspyr/Data.json` in the container had
+`"ASL_DisplayFullScreen": true`. Why this build opens a window all the same was not found;
+Steam's 1.4.0, with the same setting, covers the display.
+
+**How the setting travels** (read from Steam's executable; the launcher's code is the App
+Store's own): Aspyr's launcher keeps the choice under `DisplayFullScreen` in the
+application's preferences, sets it to full screen when the key is missing (`0x10000eee3` in
+`AppBundleExe`), and replaces itself with `KOTOR_Exe` (`execv`) with no argument about it. The
+game then moves every key of those preferences into `Data.json` and deletes it from the
+preferences (`0x10000cd23`), and renames `DisplayFullScreen` there to its own name
+(`0x10002bb30`).
+
+**Corrected the same day.** The first attempt (commit `4587552`) set `DisplayFullScreen`
+from the loader inside Aspyr's launcher, "once", with a key `KMRPFullScreenSet` beside it.
+It changed nothing: the launcher had that value already, and the game deleted the marker
+with every other key at each start, so it was set again every time. It is removed.
+
+**What KMRP does.** `macos/appstore/fullscreen.m`, part of `loader.dylib`, started in
+`KOTOR_Exe` after the patcher is loaded:
+
+1. Before `main`, it reads `DisplayFullScreen` from the preferences, where the launcher has
+   just left it. "In a window" there: nothing more is done.
+2. Twice a second on the main thread it looks at the game's window. One with a title bar, or
+   not of the display's frame, is given no title bar (`NSWindowStyleMaskBorderless`) and the
+   display's frame, and the application hides the menu bar and the Dock
+   (`NSApplicationPresentationHideMenuBar`, `HideDock`), which macOS undoes while another
+   app is in front. A window in macOS's own full screen (the green button) is left alone.
+   After eight tries within five seconds of each other it stops.
+3. It tells KMRP's module (`KMRP_WindowChanged` in `kmrp.dylib`, found among the loaded
+   images), which asks Aspyr's window object for its mouse ratio again on the game's thread
+   (`kmrp-assets/resolution.cpp`, `KeepSurface`). Without that the ratio stayed the one for
+   the window with a title bar, 1.066 down: the pointer over Options lit Quit (measured with
+   the devkit's pointer at 921,623).
+
+**Seen:** the third row of the table; the game's log, "full screen: the window 1512x949
+with a title bar now covers the display, 1512x982 (1)"; the main menu drawn over the whole
+display; "mouse scale 1512x982 1.000,1.066 -> 1512x982 1.000,1.000" after it, and a click at
+921,623, where Options is drawn, opening Options (it lit Quit before the ratio was asked for
+again). **Not seen:** a change of resolution in the game with the window covered (the
+window is expected to be sized by the game and covered again half a second later), a
+second display, another app brought in front and back, "In a window" chosen in the
+launcher, the unmodified proportions of a size that is not the display's shape (the picture
+is stretched to the display, as a covered window does).

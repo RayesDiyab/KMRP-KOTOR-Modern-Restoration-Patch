@@ -14,14 +14,10 @@
   KMRP_PATCHER is KotorPatcher.dylib's path; it finds patch_config.toml and patches/ beside
   itself.
 
-  Fullscreen: for Steam's game the installer sets DisplayFullScreen in Aspyr's preferences
-  (kmrp-mac.sh, set_fullscreen). The App Store game's preferences are in its container, closed
-  to the installer, so this library sets the same key from inside the game, before Aspyr's
-  launcher reads it. Once only (KMRPFullScreenSet beside it): windowed mode chosen afterwards in
-  Aspyr's launcher stays.
+  Full screen is fullscreen.m: this game opens a window whatever Aspyr's launcher is set to,
+  so KMRP makes that window cover the display.
 */
 #include <CommonCrypto/CommonDigest.h>
-#include <CoreFoundation/CoreFoundation.h>
 #include <dlfcn.h>
 #include <fcntl.h>
 #include <mach-o/dyld.h>
@@ -49,15 +45,7 @@ static int Sha256Of(const char* path, char hex[65]) {
     return got == 0;
 }
 
-static void FullscreenOnce(void) {
-    const CFStringRef app = kCFPreferencesCurrentApplication;
-    CFPropertyListRef done = CFPreferencesCopyAppValue(CFSTR("KMRPFullScreenSet"), app);
-    if (done) { CFRelease(done); return; }
-    CFPreferencesSetAppValue(CFSTR("DisplayFullScreen"), kCFBooleanTrue, app);
-    CFPreferencesSetAppValue(CFSTR("KMRPFullScreenSet"), kCFBooleanTrue, app);
-    const Boolean saved = CFPreferencesAppSynchronize(app);
-    fprintf(stderr, "[kmrp-loader] fullscreen made the default in Aspyr's launcher: %s\n", saved ? "saved" : "not saved");
-}
+void KmrpAppStoreFullscreenStart(void);
 
 __attribute__((constructor)) static void KmrpAppStoreLoader(void) {
     char path[4096];
@@ -65,7 +53,6 @@ __attribute__((constructor)) static void KmrpAppStoreLoader(void) {
     if (_NSGetExecutablePath(path, &size) != 0) return;
     const char* name = strrchr(path, '/');
     name = name ? name + 1 : path;
-    if (strcmp(name, "AppBundleExe") == 0) { FullscreenOnce(); return; }
     if (strcmp(name, "KOTOR_Exe") != 0) return;
     const char* patcher = getenv("KMRP_PATCHER");
     if (!patcher) return;
@@ -77,4 +64,5 @@ __attribute__((constructor)) static void KmrpAppStoreLoader(void) {
     }
     void* handle = dlopen(patcher, RTLD_NOW | RTLD_GLOBAL);
     fprintf(stderr, "[kmrp-loader] KOTOR_Exe pid %d: %s %s\n", getpid(), patcher, handle ? "loaded" : dlerror());
+    KmrpAppStoreFullscreenStart();
 }

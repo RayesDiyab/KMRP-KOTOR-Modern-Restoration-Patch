@@ -26,6 +26,7 @@
 
 #include <OpenGL/OpenGL.h>
 #include <OpenGL/gl.h>
+#include <atomic>
 #include <cstdint>
 #include <cstdio>
 #include <cstdlib>
@@ -202,8 +203,20 @@ namespace kmrp {
 // game draws at. The switch sizes it too, but start-up's own switch comes before the game has
 // its surface: a game started at the display's pixel size (3024x1964) then drew into a surface
 // of the point size and showed a quarter of itself (measured 2026-10-04).
-void KeepSurface(int width, int height) { SizeSurface(width, height); }
+//
+// And the mouse, when the window was given another size from outside the game: for the Mac App
+// Store's game KMRP's loader makes the window cover the display (appstore/fullscreen.m), after
+// Aspyr's window object worked out its ratio for the window with a title bar (1.066 down at
+// 1512x982: the pointer over Options lit Quit, measured 2026-10-12). The loader says so through
+// KMRP_WindowChanged, and the ratio is asked for again here, on the game's thread.
+std::atomic<bool> g_windowChanged{false};
+void KeepSurface(int width, int height) {
+    SizeSurface(width, height);
+    if (g_windowChanged.exchange(false)) RefreshMouseScale(width, height);
+}
 }  // namespace kmrp
+
+extern "C" __attribute__((visibility("default"))) void KMRP_WindowChanged() { kmrp::g_windowChanged = true; }
 
 extern "C" __attribute__((visibility("default")))
 int KmrpModeSwitch(int width, int height, int depth, int windowed, int flag) {

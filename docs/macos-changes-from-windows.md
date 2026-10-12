@@ -1046,6 +1046,7 @@ place by one runtime with an address table for each. The Mac's two are told apar
 id and SHA-256; Steam's is patched in place, and the App Store's is left as it is and
 started by KMRP's app, with the sources' addresses translated at build time instead of
 looked up at run time. The row-by-row comparison is in `macos/README.md`, "The two games".
-Since the same day that game is also set to full screen, from inside it
-(`docs/macos-app-store.md`, section 7.5), where Steam's is set by the installer.
+Since the same day KMRP also makes that game's window cover the display
+(`docs/macos-app-store.md`, section 7.5): set to full screen it opened a window with a title
+bar, which Steam's game does not.
 

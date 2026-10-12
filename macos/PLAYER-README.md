@@ -151,8 +151,9 @@ start *Knights of the Old Republic* itself and you get the game without it.
 - **Restore Original** deletes *KOTOR with KMRP*. Nothing else was changed.
 - After an update of the game from the App Store, the game runs without KMRP until KMRP is
   updated for the new version.
-- The first start through *KOTOR with KMRP* sets Aspyr's launcher to full screen. Untick it
-  there if you want a window; KMRP does not set it again.
+- With **Full screen** chosen in Aspyr's launcher the game covers the whole display. (The
+  App Store's game by itself opens a window even then; KMRP corrects that.) Choose **In a
+  window** there for a window.
 
 What you get in the game is the same in both versions. What differs is how KMRP is put there:
 
@@ -188,9 +189,8 @@ A file you changed after installing is left alone and listed in the log.
   puts back what was there before, unless you have chosen another resolution in the game
   since, which stays.
 - Aspyr's launcher is set to start the game full screen. Uninstall puts that back too,
-  unless you changed it yourself afterwards. For the Mac App Store's game this is done at
-  the first start through **KOTOR with KMRP**, once: windowed mode chosen in Aspyr's
-  launcher after that stays, and uninstall leaves the setting as it is.
+  unless you changed it yourself afterwards. The Mac App Store's game is not set: its
+  launcher starts at full screen by itself.
 - `kmrp-controller.ini` next to `swkotor.ini`, the controller settings, if you do not have
   one yet.
 - Nothing in `Contents/Assets/override`. The interface, fonts and art are inside KMRP's
