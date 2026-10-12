@@ -275,5 +275,5 @@ not need.
 | Windows, GOG version | Yes |
 | Windows, disc version 1.03 | Yes |
 | macOS, Steam version | Yes, since KMRP 1.5, with a separate installer (`KMRP-macOS-1.5.0.dmg`); tested on Apple Silicon and on Intel Macs. See [macos/PLAYER-README.md](../macos/PLAYER-README.md) and [macos/README.md](../macos/README.md). |
-| Linux with Proton | Tested by the maintainer on Ubuntu, with the stable Proton and with Proton Experimental: it installed and played. Other distributions are untested. See [linux-proton-steam-deck.md](linux-proton-steam-deck.md). |
-| Steam Deck | Not tested on the device. It uses the same Proton, so it is expected to work the same way, and the Deck's controls are among the pads KMRP knows. |
+| Linux with Proton | **SteamOS: tested and working with 1.5.1** (the maintainer, SteamOS 3.8 on a desktop PC with an NVIDIA RTX 3080, Proton 11.0, 2026-10-12: installed, played with a controller, resolution changed in the game, restored). Ubuntu: tested with a development build of 1.5, with the stable Proton and with Proton Experimental. 1.5.0 does not start under Proton. Other distributions are untested. See [linux-proton-steam-deck.md](linux-proton-steam-deck.md). |
+| Steam Deck | Not tested on the device. It runs SteamOS and the same Proton, so it is expected to work the same way, and the Deck's controls are among the pads KMRP knows. |

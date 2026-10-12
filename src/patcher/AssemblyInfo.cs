@@ -40,8 +40,8 @@ using System.Runtime.InteropServices;
 // Numbering: the public release of 2026-09-04, tagged v2.10.0 on GitHub, is KMRP
 // 1.0, and this build is 1.5. The 2.x numbers were development builds; CHANGELOG.md
 // keeps them.
-[assembly: AssemblyVersion("1.5.0.0")]
-[assembly: AssemblyFileVersion("1.5.0.0")]
-[assembly: AssemblyInformationalVersion("1.5.0")]
+[assembly: AssemblyVersion("1.5.1.0")]
+[assembly: AssemblyFileVersion("1.5.1.0")]
+[assembly: AssemblyInformationalVersion("1.5.1")]
 
 [assembly: ComVisible(false)]

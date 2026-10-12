@@ -24,7 +24,8 @@ All notable changes to KMRP are recorded here. The format follows
 > are at the top, so that had the direction backwards.)
 >
 > **Public names.** 2.10.0 is **KMRP 1.0**, and [1.5.0] is **KMRP 1.5**, released
-> on 2026-10-09 for Windows and for macOS. The headings up to 2.10.0 keep the
+> on 2026-10-09 for Windows and for macOS; [1.5.1] is its hotfix of 2026-10-12, for
+> Windows and Linux with Proton. The headings up to 2.10.0 keep the
 > internal `PatchVersion` numbers, because the 2.0.0 hash record uses them; from
 > 1.5.0 on a heading is the public version, which is what the installer reports. The 1.0 release is tagged `v1.0.0` since 2026-09-25,
 > on the same commit. Until then its tag was `v2.10.0`, which remains as a
@@ -115,6 +116,32 @@ Manager's own, built from the submodule and loaded through KPM's `binkw32.dll`
 proxy, and it applies the executable changes above as well.
 
 ## [Unreleased]
+
+## [1.5.1] -- 2026-10-12
+
+**A hotfix for 1.5.0, for Windows and for Linux with Proton. SteamOS is tested and
+working** (the maintainer, SteamOS 3.8 on a desktop PC, Proton 11.0; a Steam Deck
+itself was not tried: `docs/linux-proton-steam-deck.md`). The macOS installer is
+not rebuilt: none of these faults is in it, and 1.5.0 stays the macOS release. What a
+player notices, each with its own entry below:
+
+| | 1.5.0 | 1.5.1 |
+| --- | --- | --- |
+| Linux with Proton, and Windows 7 | the game did not start, or ran unscaled ("Cabinet.dll.40", "ordinal 40 not found") | starts; confirmed on SteamOS, not tried on Windows 7 |
+| The installer under Proton | found the game only from inside its folder; Restore Original could stop at the high-DPI record | finds Steam's game; Restore Original completes |
+| A change of resolution with a save loaded, with a controller | could end the game (seen on SteamOS) | does not |
+| A mod's files in `Override` | ignored wherever KMRP had a file of the same name (load screens, fonts, icons) | always win |
+| A translation's fonts | missing letters or garbled text, then tiny | drawn at the interface's size (Polish tried) |
+| `%TEMP%` with both patches | 177 MB left behind at every start | removed at the next start, old folders too |
+| Pazaak with a controller | A on a card ended the turn | plays the card |
+| A pad behind PadForge, DS4Windows and the like | stuttering movement | steady |
+| An Xbox pad on Bluetooth under Linux | Back flashed the keyboard and mouse HUD | does not |
+| Controller trouble | one counters log | `kmrp-controller-events.log` as well |
+
+Not in this release, and still open: the left stick on a real 2026 Steam Controller
+(issues 32 and 37, whose log shows no fault), module-load crashes with some mods (issue
+15), the black square of issue 39, Modern Driver Compatibility under Linux (issue 44),
+swoop racing and the turret with a controller.
 
 - **Linux and Proton: the game starts again, the installer finds it, and Restore Original
   no longer stops at the high-DPI record** (2026-10-11; issues 30, 31 and 36). Built as
@@ -5263,6 +5290,7 @@ Gold snapshot `swkotor_gold_v14_minimap.exe`
   letterbox.
 - Verified backup and restore for the executable, INI and Override folder.
 
-[Unreleased]: https://github.com/RayesDiyab/KMRP-KOTOR-Modern-Restoration-Patch/compare/v1.5.0...HEAD
+[Unreleased]: https://github.com/RayesDiyab/KMRP-KOTOR-Modern-Restoration-Patch/compare/v1.5.1...HEAD
+[1.5.1]: https://github.com/RayesDiyab/KMRP-KOTOR-Modern-Restoration-Patch/compare/v1.5.0...v1.5.1
 [1.5.0]: https://github.com/RayesDiyab/KMRP-KOTOR-Modern-Restoration-Patch/compare/v1.0.0...v1.5.0
 [2.10.0]: https://github.com/RayesDiyab/KMRP-KOTOR-Modern-Restoration-Patch/releases/tag/v2.10.0

@@ -82,10 +82,12 @@ namespace Kmrp
         private static void Comparison()
         {
             string current = GoldPatch.PatchVersion;
-            Check(current == "1.5.0", "this build is 1.5.0 (update these cases when it changes)");
-            Check(!UpdateCheck.IsNewer("1.0.0", current), "the 1.0.0 release is not offered to 1.5.0");
-            Check(!UpdateCheck.IsNewer("1.5.0", current), "the same version is not offered");
-            Check(UpdateCheck.IsNewer("1.5.1", current), "1.5.1 is offered");
+            Check(current == "1.5.1", "this build is 1.5.1 (update these cases when it changes)");
+            Check(!UpdateCheck.IsNewer("1.0.0", current), "the 1.0.0 release is not offered to 1.5.1");
+            Check(!UpdateCheck.IsNewer("1.5.0", current), "the release before is not offered");
+            Check(!UpdateCheck.IsNewer("1.5.1", current), "the same version is not offered");
+            Check(UpdateCheck.IsNewer("1.5.1", "1.5.0"), "1.5.1 is offered to 1.5.0");
+            Check(UpdateCheck.IsNewer("1.5.2", current), "1.5.2 is offered");
             Check(UpdateCheck.IsNewer("1.6", current), "1.6 is offered");
             Check(!UpdateCheck.IsNewer("1.6", "1.6.0"), "1.6 and 1.6.0 are the same");
             Check(UpdateCheck.IsNewer("1.10.0", "1.9.0"), "numbers, not text: 1.10 is after 1.9");

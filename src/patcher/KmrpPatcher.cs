@@ -183,7 +183,7 @@ namespace Kmrp
         internal const string TargetHash = "9DD81A75F4888FD67242B682BEE0AB4392EA8923CDF4A020CA3EDD2464C05E0A";
         internal const long SourceLength = 4042752;
         internal const long TargetLength = 4087808;
-        internal const string PatchVersion = "1.5.0";
+        internal const string PatchVersion = "1.5.1";
 
         internal static bool IsSupportedSourceFile(string path)
         {

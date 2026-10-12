@@ -37,6 +37,24 @@ released 1.5 installer itself under Proton, any distribution other than Ubuntu,
 and a Steam Deck, which is why the two are named separately wherever KMRP's
 platforms are listed.
 
+**SteamOS: tested and working with 1.5.1 (2026-10-12).** The maintainer's runs on
+SteamOS 3.8.14 on a desktop PC (NVIDIA RTX 3080, driver 615.78.08, Proton 11.0-100,
+3440x1440, an Xbox Elite Series 2 on Bluetooth through Steam Input), with the test
+builds that became 1.5.1:
+
+| What | Result | How it is known |
+| --- | --- | --- |
+| The installer, through `protontricks-launch` | finds the game, installs, exit code 0 | the installer's log of the tenth build (`S:\steamapps\common\swkotor`); his report |
+| The game | starts and is played; no `Cabinet.dll.40` | 28 logged starts of the first build; the patch log of the tenth |
+| A change of resolution with a save loaded | the game stays up | his report of 2026-10-12; it had ended the game four sessions of four |
+| Restore Original | completes, the high-DPI record restored | the installer's log |
+| The controller | one pad, through Steam's virtual one, with KOTOR's layout set to **Gamepad** | `kmrp-controller-events.log`; Steam's own log |
+| Back on the pad | no longer shows the keyboard and mouse HUD | his report, after five of five before |
+
+**Not in that record:** a Steam Deck, any other distribution, AMD or Intel graphics,
+Modern Driver Compatibility (inert without `WINEDLLOVERRIDES="dinput8=n,b"`, issue 44),
+the released 1.5.1 file itself (it is the last test build with the version number).
+
 **Correction, 2026-10-11: released 1.5.0 does not start under Proton.** Its modules
 call Windows' Compression API (`cabinet.dll` ordinal 40, `CreateDecompressor`), which
 no Wine up to 11.0 and neither Valve's `proton_9.0` nor `proton_10.0` branch exports;
@@ -68,7 +86,7 @@ the same installation documentation.
 Run the patcher inside KOTOR's Proton environment:
 
 ```bash
-protontricks-launch --appid 32370 "/absolute/path/to/KMRP-Windows-1.5.0.exe"
+protontricks-launch --appid 32370 "/absolute/path/to/KMRP-Windows-1.5.1.exe"
 ```
 
 In the patcher, select the `swkotor.exe` inside the real Steam KOTOR directory,

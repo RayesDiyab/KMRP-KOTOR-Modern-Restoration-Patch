@@ -189,9 +189,9 @@ version's; what differs on the Mac is at its end.
   game, and the movie fixes.
 
 **Where it works.** Windows: the Steam, GOG and disc 1.03 versions. macOS: the Steam
-version ([Other platforms](#other-platforms)). Linux with Proton: tested by the
-maintainer on Ubuntu, with the stable Proton and Proton Experimental. Steam Deck:
-not tested on the device.
+version ([Other platforms](#other-platforms)). Linux with Proton: **SteamOS is tested
+and working** with 1.5.1 (the maintainer, on a desktop PC with Proton 11); Ubuntu was
+tested with a development build of 1.5. Steam Deck: not tested on the device.
 
 ---
 
@@ -209,10 +209,10 @@ not tested on the device.
 | --- | --- |
 | Game | *Star Wars: Knights of the Old Republic* (2003 PC release) |
 | `swkotor.exe` | One of three builds, and KMRP refuses every other: **Steam's** (`34E6D971…A439F34C88`), **GOG's** (`9C10E045…DEA91435`), or the **4,042,752-byte editable 1.03 build** (`761F9466…C49E9886`). GOG's and the editable build are also accepted with only the standard Large Address Aware bit already set. |
-| OS | Windows with .NET Framework 4.x (shipped with Windows 10/11). Linux with Proton works on Ubuntu, as tested by the maintainer; the Steam Deck is untested. See [Other platforms](#other-platforms). |
+| OS | Windows with .NET Framework 4.x (shipped with Windows 10/11). Linux with Proton: SteamOS is tested and working with 1.5.1; Ubuntu was tested with a development build of 1.5; the Steam Deck itself is untested. 1.5.0 does not start under Proton, use 1.5.1. See [Other platforms](#other-platforms). |
 
 1. Launch KOTOR once so `swkotor.ini` exists.
-2. Download **`KMRP-Windows-1.5.0.exe`** from the [1.5.0 release](https://github.com/RayesDiyab/KMRP-KOTOR-Modern-Restoration-Patch/releases/tag/v1.5.0) and run it. It finds Steam's KOTOR by itself,
+2. Download **`KMRP-Windows-1.5.1.exe`** from the [1.5.1 release](https://github.com/RayesDiyab/KMRP-KOTOR-Modern-Restoration-Patch/releases/tag/v1.5.1) and run it. It finds Steam's KOTOR by itself,
    in any Steam library, and otherwise GOG's; **Browse** picks another `swkotor.exe`.
 3. Choose **Start Patching**. There is no resolution to pick: the game starts at
    your display's current resolution, and every resolution your display supports is
@@ -295,14 +295,17 @@ the Windows files named above on Windows only.
 
 **Linux with Proton.** Launch the installer inside the game's Proton environment
 with `protontricks-launch --appid 32370`, and use the same route for restore.
-Tested by the maintainer on Ubuntu, with the stable Proton and with Proton
-Experimental, on a development build of 1.5 that already worked as the release
-does (nothing in `Override`, the resolution chosen in the game): it installed and
-played. The released build itself has not been run again under Proton, and other
-distributions are untested.
+**SteamOS: tested and working with 1.5.1.** The maintainer ran it on SteamOS 3.8
+on a desktop PC (NVIDIA RTX 3080, Proton 11.0, 3440x1440) on 2026-10-11 and
+2026-10-12: the installer found the game, the game started and was played with a
+controller through Steam Input, the resolution was changed in the game with a save
+loaded, and Restore Original completed. Set KOTOR's controller layout in Steam to
+**Gamepad**; the installer says so. Ubuntu was tested with a development build of 1.5,
+with the stable Proton and with Proton Experimental. **The 1.5.0 release does not
+start under Proton** (issue 30); use 1.5.1. Other distributions are untested.
 
-**Steam Deck.** Not tested on the device. It runs the game through the same
-Proton, so the same steps apply. The commands and the test record for both are in
+**Steam Deck.** Not tested on the device. It runs SteamOS and the same Proton, so
+the same steps apply. The commands and the test record for both are in
 the [Linux, Proton, and Steam Deck guide](docs/linux-proton-steam-deck.md).
 
 ### What the installer touches
@@ -346,7 +349,11 @@ executable for one resolution, which the installer does not install.
 
 The current release is **KMRP 1.5**, published on 2026-10-09 and tagged
 [v1.5.0](https://github.com/RayesDiyab/KMRP-KOTOR-Modern-Restoration-Patch/releases/tag/v1.5.0),
-for Windows and, for the first time, for macOS. Its installers report 1.5.0. The
+for Windows and, for the first time, for macOS. Its installers report 1.5.0.
+**KMRP 1.5.1**, a hotfix for Windows and for Linux with Proton, was published on
+2026-10-12 and tagged
+[v1.5.1](https://github.com/RayesDiyab/KMRP-KOTOR-Modern-Restoration-Patch/releases/tag/v1.5.1);
+its installer reports 1.5.1, and the macOS installer stays 1.5.0. The
 first public release was **KMRP 1.0**, published on 2026-09-04 and tagged
 [v1.0.0](https://github.com/RayesDiyab/KMRP-KOTOR-Modern-Restoration-Patch/releases/tag/v1.0.0).
 Internal development numbers appear in [`CHANGELOG.md`](CHANGELOG.md): 2.0.0 to
