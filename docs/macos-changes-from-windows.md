@@ -1050,3 +1050,21 @@ Since the same day KMRP also makes that game's window cover the display
 (`docs/macos-app-store.md`, section 7.5): set to full screen it opened a window with a title
 bar, which Steam's game does not.
 
+## 52. Xbox-style HUD: Stealth in the action row
+
+**To do on the Mac, 2026-10-13** (issue #50; `src/controller-native/K1XboxHud.cpp`,
+`KmrpXboxHudStealthK1`; `docs/controller-xbox-hud.md`, "Stealth"). On Windows the controller
+patch has one more hook, at the entry of `CSWGuiTargetActionMenu::PopulateMenus`
+(`0x00689410`), which adds a "Stealth" entry to the first personal action list while the Xbox
+layout is shown and the leader can use Stealth. Seen working on Windows by the maintainer the
+same day, after a first build that ended the game on A: `PartyMenuStealth` takes two words
+off the stack, which a decompiler's signature did not show. Check the Mac routine's own
+arguments before calling it.
+
+What the Mac needs: the same routine in its copy of the HUD, hooked where the Mac game calls
+the target menu's `PopulateMenus` from the HUD's, with the Mac addresses of `IsStealthCapable`,
+`PartyMenuStealth`, `GetSWParty`, `GetPlayerCharacter`, the action list's `Allocate`,
+`CExoString`'s assignment and `GetGUIString`, and the entry's layout checked there (on
+Windows `0x38` bytes; the routine at `+0x0C` is called as a member of the character with the
+id and the character on the stack, and takes both off). To check: a character with the skill
+and a stealth field generator shows "Stealth" in the row's second place; A toggles it.

@@ -267,6 +267,21 @@ above) or B, X or Y (a second action). Two halves in
    bytes `8B 49 1C 85 C9` (`mov ecx,[ecx+0x1C]` / `test ecx,ecx`) touch neither
    EAX nor ESP.
 
+   Since 2026-10-13 the same hook also drops **a release handed to a control
+   that would press any of the four events on its panel**. `0x00418750` runs a
+   control's handler whatever the value (a value of 0 skips only the enter and
+   exit calls before the table is walked), and the thunks press with value 1
+   regardless, so a release is a second click. It showed where the press and
+   the release reach different panels: on Party Selection with a forced party,
+   Cancel answers A with the panel's B (`0x006BFA40`: `AddEvent(back_button,
+   0x27, CSWGuiPanel::OnBButtonPressed)`, the thunk `0x00624BB0`), B opens "You
+   cannot cancel from this screen", and that box closes on A's press
+   (`CSWGuiMessageBox::HandleInputEvent`, `0x006250F0`, returns at once for a
+   value of 0). The release then went to Party Selection, to Cancel, and opened
+   the box again (reported by the maintainer, 2026-10-13). A press that raises
+   another event is left alone: that is the button's click. Log line: `-> a
+   release would click the focused button -> inert`. Not yet seen in the game.
+
 Both write to `kmrp-confirm-focus.log` (256 lines at most): `guard panel=<vtable>
 event=<e> value=<v> -> A presses the focused button` or `-> the focused control
 would press it back -> inert`.

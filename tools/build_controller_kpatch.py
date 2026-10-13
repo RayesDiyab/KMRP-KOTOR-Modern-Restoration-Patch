@@ -130,6 +130,16 @@ XBOX_HUD_PAUSE_DONE_HOOK = {
     'skip_original_bytes': False, 'exclude_from_restore': [],
     'parameters': [{'source': 'esi', 'type': 'pointer'}],
 }
+# Its fifth: the entry of CSWGuiTargetActionMenu::PopulateMenus, ecx = the target menu
+# (sub esp, 8 / mov eax, [esp+0x14]; nothing branches into the seven bytes). The HUD
+# calls it once it has filled the action row's personal lists and before it shows the
+# slots by them, which is where Stealth is added to the first (issue #50).
+XBOX_HUD_STEALTH_HOOK = {
+    'address': 0x00689410, 'type': 'detour', 'function': 'KmrpXboxHudStealthK1',
+    'original_bytes': [0x83, 0xEC, 0x08, 0x8B, 0x44, 0x24, 0x14],
+    'skip_original_bytes': False, 'exclude_from_restore': [],
+    'parameters': [{'source': 'ecx', 'type': 'pointer'}],
+}
 # Where a panel is told to the module, in this patch only. KMRP's own patch hooks the
 # entry of CSWGuiPanel::StopLoadFromLayout (0x0040B8F0), which every panel calls as
 # its constructor ends and again from the base destructor. Scaled Kotor 1.3.1, a
@@ -194,6 +204,7 @@ def hooks():
     selected.append(dict(XBOX_HUD_BARS_HOOK))
     selected.append(dict(XBOX_HUD_PAUSE_HOOK))
     selected.append(dict(XBOX_HUD_PAUSE_DONE_HOOK))
+    selected.append(dict(XBOX_HUD_STEALTH_HOOK))
     for index, h in enumerate(selected):
         span = range(h['address'], h['address'] + len(h['original_bytes']))
         if h['type'] != 'detour' or len(span) < 5:

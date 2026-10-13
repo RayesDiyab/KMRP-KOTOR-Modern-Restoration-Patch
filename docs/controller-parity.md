@@ -218,7 +218,10 @@ the pattern L3's flourish uses.
 Since 2026-09-25 the combat half of `CancleCombat` has such a bridge of another
 kind: X presses the HUD's own Disengage button while it is drawn
 (`controller-native-path.md`, "The gameplay HUD action bar"). Stealth has no pad
-button.
+button. Since 2026-10-13 it has a bridge too, of a third kind: with the Xbox-style
+HUD it is an entry of the action row's second place, which calls what the PC's
+Stealth toggle calls ([`controller-xbox-hud.md`](controller-xbox-hud.md),
+"Stealth"). With the option off (`Style=PC`) the pad still has no way to it.
 
 **Untested when written:** every binding in this section was measured from the
 router and compiled, and none of it had been played. Recorded since: the Solo

@@ -1958,6 +1958,106 @@ extern "C" void __cdecl KmrpXboxHudK1(void* hud)
     }
 }
 
+// Stealth in the action row (issue #50). The Xbox game has no button for Stealth: its
+// manual lists every control and none is Stealth (page 5), puts skills in the Action
+// menu's second icon (page 8), and Stealth mode needs the skill and a stealth field
+// generator (page 30). The PC has it only as the HUD's toggle TB_STEALTH, which this
+// layout parks, and as a keyboard key.
+//
+// The row's lists are the engine's, made anew for every draw: CSWGuiMainInterface::
+// PopulateMenus (0x00689D80) empties the six personal lists, fills each from
+// CSWCCreature::GetPersonalActions (0x00619DB0: the first is the character's own Force
+// powers), calls CSWGuiTargetActionMenu::PopulateMenus, and only then shows each slot
+// by what its list holds. So this is hooked at that call's entry (ecx = the target
+// menu), after the lists are filled and before the slots are shown:
+//     00689410  83 EC 08        sub esp, 8
+//     00689413  8B 44 24 14     mov eax, [esp+0x14]
+// and adds one entry to the first personal list, which is this row's second place.
+// Nothing branches into those seven bytes (the routine's jumps were read for it).
+//
+// The entry is what the engine's own are (0x38 bytes, CSWGuiInterfaceAction): a name,
+// an id by which the HUD remembers the chosen entry of a list, a routine the HUD calls
+// as a member of the character with the id (CSWGuiMainInterface::DoPersonalAction,
+// 0x0068AE98: push the character, push the id, call [entry+0x0C], the callee takes the
+// two off), the object acted on, an icon, bit 0 of the flags for "can be used" and a
+// count. The condition and the action are TB_STEALTH's own
+// (CSWGuiMainInterface::OnStealthButtonPressed, 0x00688640):
+// CSWCCreature::IsStealthCapable (the area allows it, the skill can be used, a stealth
+// field generator is on the belt) and CSWCCreature::PartyMenuStealth, which asks about
+// solo mode when the party is together and sends the skill otherwise. Name and icon
+// are the skill's in skills.2da, row 2: dialog.tlk 325 and isk_stealth, which
+// swpc_tex_gui.erf holds.
+//
+// Only while the Xbox layout is the one shown: with mouse or keyboard the list is the
+// game's own, and the game's toggle is there.
+constexpr std::uintptr_t kGetParty = 0x005ED8B0;           // CClientExoApp::GetSWParty()
+constexpr std::uintptr_t kGetPlayerCharacter = 0x00635460; // CSWParty::GetPlayerCharacter()
+constexpr std::uintptr_t kIsStealthCapable = 0x00610AC0;   // CSWCCreature::IsStealthCapable()
+constexpr std::uintptr_t kPartyMenuStealth = 0x0060F4B0;   // CSWCCreature::PartyMenuStealth(int, int)
+constexpr std::uintptr_t kActionsAllocate = 0x004F7920;    // CExoArrayList<CSWGuiInterfaceAction>::Allocate(int)
+constexpr std::uintptr_t kStringAssign = 0x005E5C50;       // CExoString::operator=(const CExoString&)
+constexpr std::ptrdiff_t kObjectId = 0x04;                 // a client object's id
+constexpr std::ptrdiff_t kEntryRoutine = 0x0C;             // and three words of a member pointer's adjustment
+constexpr std::ptrdiff_t kEntryObject = 0x1C;
+constexpr std::ptrdiff_t kEntryFlags = 0x30;
+constexpr std::ptrdiff_t kEntryCount = 0x34;
+constexpr int kStealthName = 325;                          // dialog.tlk: "Stealth"
+constexpr char kStealthIcon[16] = "isk_stealth";
+constexpr int kStealthId = 0x10000002;                     // skill 2; a Force power's id is its number | 0x20000000
+
+bool StealthCapable(void* creature)
+{
+    return creature && reinterpret_cast<int(__thiscall*)(void*)>(kIsStealthCapable)(creature) != 0;
+}
+
+// Called by the HUD as a member of the character (ecx), with the id and the character.
+//
+// PartyMenuStealth takes two words off the stack itself (both its ways out are
+// `ret 8`, 0x0060F4F5 and 0x0060F508) and uses neither; the toggle pushes two zeros
+// for it (0x0068866D). It is the shape of an action row's routine. Called without
+// them on 2026-10-13 it took eight bytes of this routine's frame with it, and the
+// game ended on A (0xC0000005, a return into the character's address): the routine's
+// signature had been taken from a decompiler, which showed no arguments.
+void __fastcall StealthChosen(void*, void*, int, void* creature)
+{
+    if (StealthCapable(creature))
+        reinterpret_cast<void(__thiscall*)(void*, int, int)>(kPartyMenuStealth)(creature, 0, 0);
+}
+
+extern "C" void __cdecl KmrpXboxHudStealthK1(void* menu)
+{
+    if (!menu || !Enabled() || !g_layout.xbox || !IsControllerInputActiveK1()) return;
+    void* hud = At<void*>(menu, kMenuInterface);
+    void* app = *reinterpret_cast<void**>(kAppManager);
+    void* client = app ? At<void*>(app, 4) : nullptr;
+    if (!hud || !client) return;
+    void* party = reinterpret_cast<void*(__thiscall*)(void*)>(kGetParty)(client);
+    void* creature = party ? reinterpret_cast<void*(__thiscall*)(void*)>(kGetPlayerCharacter)(party) : nullptr;
+    if (!StealthCapable(creature)) return;
+
+    void* list = Part(hud, kHudPersonalLists);
+    const int count = At<int>(list, 4);
+    if (count < 0) return;
+    reinterpret_cast<void(__thiscall*)(void*, int)>(kActionsAllocate)(list, count + 1);
+    char* entries = At<char*>(list, 0);
+    if (!entries) return;
+    At<int>(list, 4) = count + 1;
+    void* entry = entries + count * kEntrySize;
+
+    String name;
+    reinterpret_cast<String*(__thiscall*)(void*, String*, int)>(kGetGuiString)(client, &name, kStealthName);
+    reinterpret_cast<String*(__thiscall*)(void*, const String*)>(kStringAssign)(entry, &name);
+    reinterpret_cast<void(__thiscall*)(String*)>(kStringDestroy)(&name);
+    At<int>(entry, kEntryId) = kStealthId;
+    void (__fastcall* const routine)(void*, void*, int, void*) = StealthChosen;
+    std::memset(Part(entry, kEntryRoutine), 0, 16);
+    std::memcpy(Part(entry, kEntryRoutine), &routine, sizeof routine);
+    At<unsigned>(entry, kEntryObject) = At<unsigned>(creature, kObjectId);
+    std::memcpy(Part(entry, kEntryIcon), kStealthIcon, sizeof kStealthIcon);
+    At<unsigned>(entry, kEntryFlags) = (At<unsigned>(entry, kEntryFlags) & ~0x1Eu) | 1u;
+    At<int>(entry, kEntryCount) = 1;
+}
+
 // The pause box while the game lays it out its own way. Found and repaired on the Mac
 // on 2026-10-08 (docs/windows-changes-from-macos.md, item 21), reproduced on Windows by
 // the maintainer the same day, brought here on 2026-10-09.

@@ -117,6 +117,53 @@ proxy, and it applies the executable changes above as well.
 
 ## [Unreleased]
 
+- **Controller: A on a message box no longer clicks the button behind it** (2026-10-13;
+  `src/controller-native/K1NativeJoystick.cpp`, `GuardPanelEchoK1`;
+  `reverse-engineering/retained-xbox-gui-events.md`). Reported by the maintainer on Party
+  Selection with a forced party, Cancel focused: B or Cancel opens "You cannot cancel from
+  this screen at this time", and A on its OK closed the box and opened it again; only B
+  closed it. Read from the executable: the box acts on A's press alone
+  (`CSWGuiMessageBox::HandleInputEvent`, `0x006250F0`) and is gone before the release, so the
+  release goes to the panel behind, which hands it to its focused control
+  (`CSWGuiPanel::HandleInputEvent`, `0x00409E60`); a control runs its handler for a release as
+  for a press (`0x00418750` skips only the enter and exit calls when the value is 0), and
+  Cancel's handler for A is the thunk that presses B on the panel
+  (`CSWGuiPartySelection`'s constructor, `0x006BFA40`: `AddEvent(back_button, 0x27,
+  CSWGuiPanel::OnBButtonPressed)`), with value 1 whatever it was given. So the release was a
+  second click of Cancel. The hand-off of a release to a control whose handler would press an
+  event on its own panel is now made inert, on every screen; a press is handed on as before.
+  No new hook. **Built; the package tests pass. Not yet seen in the game.**
+
+- **Controller, the Xbox-style HUD: Stealth is in the action row** (2026-10-13; issue #50;
+  `src/controller-native/K1XboxHud.cpp`, `KmrpXboxHudStealthK1`;
+  `docs/controller-xbox-hud.md`, "Stealth"). Reported by a player of 1.5.1: Stealth could not
+  be switched on with a pad. The Xbox-style HUD parks the PC's Stealth toggle and the pad had
+  no button for it. The Xbox game has none either: its manual
+  (`docs/reference/kotor-xbox-manual.pdf`) lists every control without it (page 5) and puts
+  skills in the Action menu's second icon (page 8). So "Stealth" is now an entry of the row's
+  second place, with the skill's own name and icon, last in its list after the character's own
+  Force powers, whenever the game's own Stealth button would work: the area allows it, the
+  character can use the skill and wears a stealth field generator. A on it does what that
+  button does, the question about solo mode included. One new hook, at the entry of
+  `CSWGuiTargetActionMenu::PopulateMenus` (`0x00689410`), so the controller patch has 37.
+  Only while the Xbox layout is shown; with mouse or keyboard nothing changes. As before, the
+  second place shows a target's feats while the target has any, so Stealth is reached with no
+  target or with one that has none. **Built; the package test passes (37 guarded sites on the
+  clean executable).**
+
+  **The first build of it ended the game on A** (2026-10-13, the maintainer, Steam's game:
+  `0xC0000005` at `0x28808AA6`, an address inside the character's object; the dump's stack
+  had the return into `CSWGuiMainInterface::OnDefaultActionLeft` at `0x0068B994` and the id
+  `0x10000002` in `esi`). The entry was shown and A reached its routine, so the row's side
+  worked. The routine then called `CSWCCreature::PartyMenuStealth` with no arguments, as the
+  decompiler's signature has it; the routine takes two words off the stack itself (`ret 8` at
+  `0x0060F4F5` and `0x0060F508`; the toggle pushes two zeros for it at `0x0068866D`), so it
+  took eight bytes of the caller's frame and the caller returned into the character's
+  address. Now called with two zeros. Every other engine routine the change calls was then
+  read for what it takes off the stack (`IsStealthCapable`, `GetSWParty`,
+  `GetPlayerCharacter`: none; `Allocate`, `CExoString`'s assignment: one word;
+  `GetGUIString`: two) and matches. **Seen in the game by the maintainer on 2026-10-13 (Steam's game, the corrected build, controller module SHA-256 `E02901ED...`): "stealth works now". Reported as that one sentence; which of the cases in `docs/controller-xbox-hud.md` were tried was not said.**
+
 - **macOS, the Mac App Store's game: work in progress** (2026-10-13; `docs/macos-app-store.md`,
   sections 7.7 and 7.8). Not released: the macOS installer on the 1.5.1 release was taken
   down again the day it was added, and `README.md` and `docs/features.md` say 1.5.0 and

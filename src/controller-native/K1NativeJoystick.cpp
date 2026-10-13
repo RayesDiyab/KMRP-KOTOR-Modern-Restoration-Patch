@@ -3495,7 +3495,26 @@ extern "C" int __cdecl GuardPanelEchoK1(void* panel, int* event, int* value)
         return 0;
     }
     void* const focused = *FieldAt<void*>(panel, K1_PANEL_ACTIVE);
-    if (!focused || RaisedOnPanelK1(focused, panel, *event, false) != *event) {
+    const int raised = focused ? RaisedOnPanelK1(focused, panel, *event, false) : 0;
+    if (raised == 0) {
+        return 0;
+    }
+    if (raised != *event) {
+        // The control presses ANOTHER event on its panel: Party Selection's Cancel
+        // answers A with the panel's B (0x006BFA40: AddEvent(back_button, 0x27,
+        // CSWGuiPanel::OnBButtonPressed)). A press of that is the button's click and
+        // is left alone. A release is not: the thunk presses with value 1 whatever
+        // the value it was given, so the release clicks the button a second time,
+        // and when the press went to a message box that it closed, the release is
+        // the only one of the two this panel gets. Seen 2026-10-13 on a forced
+        // party: A on "You cannot cancel from this screen" closed the box and
+        // opened it again (CSWGuiMessageBox::HandleInputEvent, 0x006250F0, acts on
+        // the press alone; the release went to the panel behind, Cancel focused).
+        if (*value != 0) {
+            return 0;
+        }
+        LogGuardK1("a release would click the focused button -> inert", panel, *event, *value);
+        *event = K1_GUI_EVENT_INERT;
         return 0;
     }
     LogGuardK1("the focused control would press it back -> inert", panel, *event, *value);

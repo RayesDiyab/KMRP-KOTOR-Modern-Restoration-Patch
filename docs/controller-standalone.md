@@ -195,6 +195,15 @@ game's own layout of the pause box (`CSWGuiInGamePause::SetPauseReason`;
 | `0x006C00C0` | `6A FF 64 A1 00 00 00 00` | `KmrpXboxHudPauseReasonK1` | new: the routine's entry, `ecx` the pause panel |
 | `0x006C02A4` | `8B 4C 24 48 5F` | `KmrpXboxHudPauseReasonDoneK1` | new: after the routine's last call, `esi` the pause panel |
 
+**Since 2026-10-13: 37 hooks.** One more for the Xbox-style HUD, Stealth in the action
+row ([`controller-xbox-hud.md`](controller-xbox-hud.md), "Stealth"):
+
+| VA | Original bytes | Function | Change |
+| --- | --- | --- | --- |
+| `0x00689410` | `83 EC 08 8B 44 24 14` | `KmrpXboxHudStealthK1` | new: the entry of `CSWGuiTargetActionMenu::PopulateMenus`, `ecx` the target menu |
+
+Not compared with the other patches of KOTOR Patch Manager 0.7.1.
+
 Neither site is in KMRP's table or in High FPS Fixes' (`Test-InstallerPatch.ps1`
 installs the three together). Not compared again with the other patches of KOTOR
 Patch Manager 0.7.1.

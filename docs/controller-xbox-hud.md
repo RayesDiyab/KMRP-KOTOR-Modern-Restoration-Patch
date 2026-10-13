@@ -30,14 +30,15 @@ the HUD was seen beside KMRP at 3440x1440 on 2026-10-06.
 The PC HUD's row of eight menu buttons and its pause, solo and stealth toggles are
 not shown. A pad does without most of them: Start opens the menus, RT pauses, Back
 toggles solo mode (`tools/build_controller_layout.py`, `LAYOUT`). Stealth has no
-pad button; the keyboard's key still works.
+pad button, as on the Xbox; since 2026-10-13 it is an entry of the second place
+("Stealth", below). Until then only the keyboard's key reached it (issue #50).
 
 ### The six slots
 
 | Place | Without a target | With a target |
 | --- | --- | --- |
 | 1 | "No Action" | the target's default action: "Attack", "Open", "Dialog" |
-| 2 | the character's skills and friendly powers | the target's other actions of that kind (feats, a door's lock); the skills when it has none |
+| 2 | the character's own Force powers, and Stealth when it can be used | the target's other actions of that kind (feats, a door's lock); the character's when it has none |
 | 3 | a dim frame | the target's Force powers |
 | 4 | mines | grenades while the target offers any, mines otherwise |
 | 5 | medical items | the same |
@@ -285,6 +286,73 @@ whole column was 35.
 
 Five of the parked menu buttons hold the textures the hooks swap in and out before
 every draw, so that changing a fill twice a frame never loads or frees one.
+
+## Stealth
+
+Since 2026-10-13 (issue #50). Seen working by the maintainer the same day: see "Tested and not tested".
+
+**What the Xbox game does**, from its manual
+([`reference/kotor-xbox-manual.pdf`](reference/kotor-xbox-manual.pdf)): the list of
+controls on page 5 has no Stealth (X adds an action to the queue, Y takes one off,
+Back toggles solo mode); page 8 says of the Action menu "The second icon shows your
+feats and skills"; page 30 says Stealth mode is for characters with points in the
+skill who are equipped with a stealth field generator. That Stealth is an entry of
+the second icon is read from those three together; the manual has no sentence that
+says so, and it was not checked against the Xbox game running.
+
+**What the PC game has**, read from the executable (GOG 1.03, by the names of a
+Ghidra database kept outside the repository):
+
+| Routine | Address | What it does |
+| --- | --- | --- |
+| `CSWGuiMainInterface::OnStealthButtonPressed` | `0x00688640` | the toggle `TB_STEALTH`: if `IsStealthCapable`, calls `PartyMenuStealth` on the party's leader |
+| `CSWCCreature::IsStealthCapable` | `0x00610AC0` | the area is not restricted, the skill (2) can be used, and the belt or the hide is a base item of type `0x2C` |
+| `CSWCCreature::PartyMenuStealth` | `0x0060F4B0` | with the party together and solo mode off, opens the solo mode question; otherwise sends the skill (`PerformSkill`, `0x0060EE00`). **Takes two words off the stack** (`ret 8` on both ways out) and uses neither; the toggle pushes two zeros (`0x0068866D`) |
+| `CSWGuiMainInterface::PopulateMenus` | `0x00689D80` | every draw: empties the six personal lists, fills each from `CSWCCreature::GetPersonalActions`, calls the target menu's `PopulateMenus`, then shows each slot by its list |
+| `CSWCCreature::GetPersonalActions` | `0x00619DB0` | list 0 is the character's own Force powers (`GetSelfForcePowers`, `0x00616230`), 1, 2 and 3 are items; 4 and 5 are left empty |
+| `CSWGuiMainInterface::DoPersonalAction` | `0x0068AD60` | A on a personal slot: calls the chosen entry's routine as a member of the character, with the entry's id and the character |
+
+No list of the PC row holds a skill of the character's own; the toggle is the only
+way to it, and the Xbox layout parks the toggle.
+
+**What the module does.** One hook, `KmrpXboxHudStealthK1`, at the entry of
+`CSWGuiTargetActionMenu::PopulateMenus` (`0x00689410`, `ecx` = the target menu),
+which is after the personal lists are filled and before the slots are shown:
+
+```
+00689410  83 EC 08        sub esp, 8
+00689413  8B 44 24 14     mov eax, [esp+0x14]
+```
+
+Nothing branches into the seven bytes (every jump of the routine, to its `ret 0xC`
+at `0x00689606`, was read). While the Xbox layout is shown and the leader
+`IsStealthCapable`, it adds one entry to the first personal list, which is the
+row's second place: the list is grown by one with the engine's own
+`CExoArrayList<CSWGuiInterfaceAction>::Allocate` (`0x004F7920`), and the entry
+(`0x38` bytes) is filled as the engine fills its own:
+
+| Offset | Field | Value |
+| --- | --- | --- |
+| `+0x00` | name, a `CExoString` | dialog.tlk 325, "Stealth": the skill's name in `skills.2da`, row 2 |
+| `+0x08` | id, by which the HUD remembers a list's chosen entry | `0x10000002` (a Force power's is its number with `0x20000000`) |
+| `+0x0C` | the routine, and three words of a member pointer | `StealthChosen`, zeros |
+| `+0x1C` | the object acted on | the character |
+| `+0x20` | icon | `isk_stealth`, the skill's in `skills.2da`; in `swpc_tex_gui.erf` |
+| `+0x30` | flags | bit 0 set (can be used), bits 1 to 4 clear (no reason why not) |
+| `+0x34` | count | 1 |
+
+`StealthChosen` asks `IsStealthCapable` again and calls `PartyMenuStealth` with
+two zeros: what the toggle does. (The first build called it with none, from a
+decompiler's signature, and the game ended on A: the routine took eight bytes of
+the caller's frame. Corrected the same day, 2026-10-13.) Because the engine makes the lists anew for every draw, the entry
+is there exactly while the condition holds, and is gone on the first frame with the
+mouse or the keyboard.
+
+**Limits.** The second place shows the target's feats while the target has any
+(`kPlace`), so with an enemy targeted Stealth is not in the row; combat ends
+Stealth in any case. The entry does not show whether Stealth is on. After A on a
+personal slot the engine clears the character's actions when not in combat mode,
+as it does after a Force power; what that does to a queue was not looked at.
 
 ## The pause notice and the target's circle
 
@@ -570,6 +638,17 @@ measured again.
 - macOS: not built. The Mac has no standalone controller patch.
 
 ## Tested and not tested
+
+**Stealth in the row (2026-10-13).** The first build, in Steam's game, played by the
+maintainer: the game ended on A on the entry (the cause is in "Stealth", above), which
+shows that the entry was in the row and that A reached its routine; nothing else of that
+run was reported. The corrected build is built, packaged against the clean executable
+with all 37 sites guarded, and passes `Test-ControllerKpatch.py`. Seen in the game by the maintainer on 2026-10-13 (Steam's game, the corrected build, controller module SHA-256 `E02901ED...`): "stealth works now". Reported as that one sentence; which of the cases below were tried was not said.
+Not reported one by one: a
+character with the skill and a stealth field generator, the entry in the second
+place with its name in the box, A switching Stealth on and off, the solo mode
+question with the party together, the entry gone with the mouse, and a character
+without the skill or the belt showing none.
 
 Run in a scratch copy of the CD 1.03 game, the patch installed by KOTOR Patch
 Manager 0.7.1's own launcher with `Style=Xbox`, driven by a virtual Xbox pad and a
