@@ -1,0 +1,32 @@
+{
+ "24": [
+  [1, "Lightsabers:"],
+  {"add": [700, 143, 60, 17], "t": "ARMOR"},
+  [26, "Light Armor:"],
+  [30, "Medium Armor:"],
+  [33, 0, 1, ""],
+  {"add": [785, 497, 122, 13], "t": "Heavy Armor:"}
+ ],
+ "25": [
+  {"add": [388, 66, 102, 30], "t": "STATES"},
+  {"add": [490, 549, 34, 14], "t": "Fear."},
+  [20, ""]
+ ],
+ "27": [
+  {"add": [285, 64, 340, 28], "t": "HOW TO CONTACT LUCASARTS"},
+  {"add": [228, 222, 82, 12], "t": "Hint Line"},
+  {"add": [213, 242, 34, 13], "t": "U. S."},
+  [13, 1, 2, "$1.25"],
+  [14, 0, 1, ""],
+  [18, ""],
+  {"add": [145, 631, 232, 12], "t": "Where To Find Us Online"},
+  [22, 0, 1, ""],
+  [23, ""],
+  {"add": [145, 760, 167, 12], "t": "Yoda's Help Desk"},
+  [32, "Technical Support Phone Number"],
+  {"add": [696, 292, 214, 12], "t": "Technical Support Fax"},
+  [43, ""],
+  {"add": [697, 442, 330, 12], "t": "Technical Support Mailing Address"},
+  [48, "LucasArts Company Store"]
+ ]
+}

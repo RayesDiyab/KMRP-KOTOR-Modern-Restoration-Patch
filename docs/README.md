@@ -68,6 +68,7 @@ Design and build documentation. Engine analysis lives one level over, in
 | [controller-parity.md](controller-parity.md) | The native path against the legacy keyboard path, button by button. |
 | [controller-playtest-checklist.md](controller-playtest-checklist.md) | The physical-pad checklist, with each dated pass on a real controller. |
 | [controller-planned-work.md](controller-planned-work.md) | What is still open: the Guide button and virtual-pad slot safety. |
+| [reference/kotor-xbox-manual.pdf](reference/kotor-xbox-manual.pdf) | The original Xbox version's printed manual (LucasArts, 2003), a scan of 30 spreads at 150 dpi: the pad's buttons on page 5, the action menu's six icons on page 8, combat and the action queue on pages 28-29, Stealth mode on page 30 (the manual's own page numbers; two to a PDF page). The text layer was added on 2026-10-13 with the recogniser built into Windows, over the untouched scans, and then corrected by hand on all 30 pages: every heading and label in the display fonts typed in, the body text read line by line beside a second recognition pass, the credits and the licence beside enlarged crops, the contents list and the page numbers added. The text follows the reading order (left page, then right; column by column in the credits). Not in the layer: the text inside the screenshots. Where the layer and the printed page differ, the page is right. How it was made and how to rebuild it: [`tools/xbox-manual-ocr/README.md`](../tools/xbox-manual-ocr/README.md). |
 
 ## macOS
 

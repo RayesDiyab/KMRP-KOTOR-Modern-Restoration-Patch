@@ -1,0 +1,52 @@
+{
+ "1": [
+  [0, "XBOX"],
+  [1, "STAR WARS"],
+  {"add": [765, 205, 520, 95], "t": "KNIGHTS OF THE"},
+  [2, "OLD REPUBLIC"],
+  [5, "starwars.com"],
+  [7, "swkotor.com"],
+  {"add": [903, 566, 265, 18], "t": "GALACTIC DATABASE"},
+  [17, "CONTENT RATED BY"],
+  {"add": [716, 1041, 82, 13], "t": "ESRB"},
+  [18, "DEVELOPED BY"],
+  [19, "BIOWARE"]
+ ],
+ "2": [
+  {"add": [315, 70, 290, 32], "t": "SAFETY INFORMATION"},
+  {"add": [820, 66, 135, 30], "t": "CONTENTS"},
+  {"add": [745, 110, 285, 22], "t": "GALACTIC DATABASE"},
+  {"add": [706, 150, 295, 12], "t": "PUBLIC ACCESS AVAILABLE> VERBAL"},
+  [35, ""],
+  {"add": [706, 167, 355, 12], "t": "COMMANDS ENABLED> READY FOR INQUIRY>"},
+  [0, "ABOUT PHOTOSENSITIVE SEIZURES:"],
+  [18, ""],
+  {"add": [146, 560, 325, 18], "t": "AVOID DAMAGE TO YOUR TELEVISION:"},
+  [29, "OTHER IMPORTANT HEALTH AND SAFETY INFORMATION:"]
+ ],
+ "3": [
+  {"add": [298, 68, 310, 30], "t": "CONNECT TO XBOX LIVE"},
+  [1, ""],
+  {"add": [277, 141, 96, 12], "t": "Important!"},
+  [6, ""],
+  {"add": [201, 255, 150, 17], "t": "STEP 1: CONNECT"},
+  {"add": [316, 379, 182, 12], "t": "www.xbox.com/live."},
+  [12, "A. Direct Connection"],
+  [13, "CABLE OR DSL MODEM"],
+  [14, "ETHERNET CABLE (RJ-45)"],
+  [15, ""],
+  {"add": [141, 647, 202, 12], "t": "B. Shared Connection"},
+  [16, "CABLE OR DSL MODEM"],
+  {"add": [617, 711, 20, 13], "t": "PC"},
+  [17, "CABLE/DSL ROUTER"],
+  {"add": [320, 840, 85, 13], "t": "WAN/UPLINK"},
+  [18, "LAN PORTS"],
+  [19, "ETHERNET CABLE (RJ-45)"],
+  [20, "STEP 2: GO LIVE"],
+  {"add": [700, 252, 180, 12], "t": "www.xbox.com/live."},
+  [35, ""],
+  {"add": [700, 555, 306, 17], "t": "STEP 3: CONFIGURE (IF NECESSARY)"},
+  [42, "NEED MORE HELP?"],
+  {"add": [890, 842, 175, 12], "t": "www.xbox.com/live"}
+ ]
+}

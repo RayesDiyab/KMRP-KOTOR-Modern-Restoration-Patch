@@ -1,0 +1,21 @@
+{
+ "1": [
+  [4, "OFFICIAL STAR WARS® WEB SITE"],
+  [8, "LucasArts and the LucasArts logo are registered trademarks of Lucasfilm Ltd."],
+  [9, "BioWare, the BioWare Odyssey Engine and the BioWare logo are registered"],
+  [10, "trademarks of BioWare Corp. © 2003 Lucasfilm Entertainment Company Ltd. or"],
+  [11, "Lucasfilm Ltd. & ® or TM as indicated. All rights reserved. BioWare Odyssey"],
+  [12, "Engine © 2001–2003 BioWare Corp. All rights reserved."],
+  [13, "Microsoft, Xbox and the Xbox logos are either registered trademarks of"],
+  [14, "Microsoft Corporation in the U.S. and/or in other countries and are used under"],
+  [15, "license from Microsoft."]
+ ],
+ "2": [
+  {"add": [183, 297, 452, 14], "t": "shaking of arms or legs, disorientation, confusion, or momentary loss of"}
+ ],
+ "3": [
+  [4, "LiveTM", "Live™"],
+  [4, "Wars@:", "Wars®:"],
+  [5, "RepublicTM.", "Republic™."]
+ ]
+}

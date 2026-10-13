@@ -1,0 +1,61 @@
+{
+ "8": [
+  [6, ""],
+  {"add": [701, 262, 146, 13], "t": "Default Attack:"},
+  {"add": [701, 334, 95, 13], "t": "Grenadier:"},
+  [14, "Jedi Support:"],
+  [17, ""],
+  [18, ""],
+  {"add": [147, 491, 140, 17], "t": "CHARACTER INFO"},
+  [20, "2. Character Class(es) and Current Level"],
+  [21, 0, 2, "3. Vitality Points:"],
+  [23, 0, 3, "4. Force Points:"],
+  {"add": [148, 677, 125, 13], "t": "5. Attributes:"},
+  [27, "6. Experience:"],
+  [29, 0, 4, "7. Light and Dark Side Meter:"],
+  [31, 0, 1, ""],
+  [35, "8. Character States:"]
+ ],
+ "9": [
+  [0, ""], [1, ""], [2, ""], [3, ""], [4, ""],
+  [5, "ABILITIES"],
+  [6, 0, 2, "1. Description Window:"],
+  [9, 0, 1, "2. Skill Rank:"],
+  [11, "3. Bonus:"],
+  [13, "4. Force Powers Menu:"],
+  [17, "5. Feats Menu:"],
+  [20, "6. Related Attribute:"],
+  [23, ""],
+  {"add": [704, 431, 228, 17], "t": "MAP/PARTY MANAGEMENT"},
+  [28, "Party Management:"],
+  [39, 10, 1, "To"],
+  [39, 0, 10, "Returning to the Ebon Hawk or Home Base:"],
+  [43, 3, 1, "party"]
+ ],
+ "10": [
+  [0, ""], [2, ""], [3, ""],
+  [5, "Active Quests:"],
+  [11, "Quest Items:"],
+  [15, ""],
+  {"add": [153, 703, 176, 13], "t": "Completed Quests:"},
+  [18, "MESSAGES"],
+  {"add": [705, 140, 70, 17], "t": "OPTIONS"},
+  [31, ""],
+  {"add": [706, 575, 106, 13], "t": "Load Game:"},
+  [36, "Save Game:"],
+  {"add": [707, 897, 93, 13], "t": "Gameplay:"},
+  [47, 0, 1, "Feedback:"]
+ ],
+ "11": [
+  {"add": [305, 66, 330, 32], "t": "CHARACTER GENERATION"},
+  [0, ""],
+  {"add": [709, 139, 183, 17], "t": "CHARACTER PORTRAIT"},
+  [5, ""],
+  [6, "CHARACTER CLASSES"],
+  {"add": [159, 612, 98, 13], "t": "Scoundrel:"},
+  [16, 0, 1, ""],
+  [18, "Scout:"],
+  [19, 0, 1, ""],
+  [24, "Soldier:"]
+ ]
+}
