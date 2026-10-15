@@ -92,7 +92,7 @@ Skills, Feats and Powers and Random Name on Name; X is Feats' OK and Powers'
 Select. A on those five screens presses the focused button when one is focused
 (`GuardChargenConfirmK1`).
 | **Options sub-screens** | activate | close | — | — | list scroll | list scroll | — | — | — | — | nav | nav | — | — | — |
-| **Dialogue** | **select / skip** | — | — | — | **terminal scroll** | **terminal scroll** | — | — | — | — | **Up/Down = reply** | — | — | camera | — |
+| **Dialogue** | **select / skip** | — | — | — | **terminal scroll** | **terminal scroll** | — | — | — | — | **Up/Down = reply** | **Up/Down = reply** (as the D-pad, since 2026-10-15; see below) | — | camera | — |
 
 Rows in bold were verified live with the virtual pad. The rest are statically
 proven and marked per screen below.
@@ -308,7 +308,7 @@ What holds everywhere, which is what a prompt can safely claim:
 | **LT / RT** | **previous / next tab**, in the in-game menu only | no effect anywhere else, including the main menu and gameplay |
 | **LB / RB** | **scroll the focused list** | only meaningful on the 17–19 panels with a list; silent elsewhere |
 | **D-pad** | **move focus** | on the six native-direction screens the engine moves its own selection instead |
-| **Left stick** | **move** in gameplay, **move focus** in a GUI | never both: gated on input class |
+| **Left stick** | **move** in gameplay, **move focus** in a GUI, **the D-pad's Up/Down in a conversation** | never more than one: gated on input class. In the dialogue class the stick's latched direction is folded into the button word before the D-pad loop, so it sends the same direction codes with the same press, release and hold-repeat; `CSWGuiDialog` keeps the reply index itself and the focus layer has nothing to move there. Played on a ROG Ally X under Proton, 2026-10-15. |
 | **Start** | **open the in-game menu**, from gameplay only | does **not** close it — B does |
 | **Back** | nothing | `JOURNAL` alone implements it |
 | **X** | **per-screen**, no consistent meaning | Inventory filter, Journal sort, Map transit, Character sheet, Save/Load delete |
