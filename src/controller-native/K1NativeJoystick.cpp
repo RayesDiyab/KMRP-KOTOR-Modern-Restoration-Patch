@@ -1461,6 +1461,24 @@ void FillNativeJoystickBufferK1(int deviceIndex, void* outBuffer)
     const bool kmrpVertical = KmrpOwnsDirectionsK1(true);
     const bool kmrpHorizontal = KmrpOwnsDirectionsK1(false);
 
+    // In a conversation the left stick is the D-pad. CSWGuiDialog keeps the
+    // reply index itself and answers only its own previous/next events (0x31,
+    // 0x32), which reach it as the direction codes below, so the focus layer the
+    // stick otherwise drives has nothing to move there. The stick's latched
+    // direction (hysteresis and all) is folded into the button word before the
+    // D-pad loop, so it gets the same press, release and hold-repeat as the pad,
+    // and lastButtons remembers it the same way. The real D-pad wins while held.
+    const std::uint16_t padButtons = buttons;
+    if (InputClassK1() == K1_CLASS_DIALOG &&
+        (buttons & (K1_DPAD[0].xinputMask | K1_DPAD[1].xinputMask)) == 0) {
+        UpdateStickNavigationK1(nx, ny);
+        if (g_stick.stickNavY < 0) {
+            buttons |= K1_DPAD[0].xinputMask;      // Up: previous reply
+        } else if (g_stick.stickNavY > 0) {
+            buttons |= K1_DPAD[1].xinputMask;      // Down: next reply
+        }
+    }
+
     // The direction codes are 0x384, 0x388, 0x38C, 0x390 -- the same values the
     // engine's own POV decoder produces -- reached here through the slot each
     // binding names. Hoisted out of the loop because the repeat below needs them.
@@ -1562,8 +1580,9 @@ void FillNativeJoystickBufferK1(int deviceIndex, void* outBuffer)
                     edge = true;
                 }
             }
-        } else {
-            g_stick.stickNavX = 0;
+        } else if ((padButtons & (K1_DPAD[0].xinputMask | K1_DPAD[1].xinputMask |
+                                  K1_DPAD[2].xinputMask | K1_DPAD[3].xinputMask)) != 0) {
+            g_stick.stickNavX = 0;             // the real D-pad asked; not the fold above
             g_stick.stickNavY = 0;
         }
         RequestNavigationK1(dx, dy, edge, fromDpad);

@@ -117,6 +117,18 @@ proxy, and it applies the executable changes above as well.
 
 ## [Unreleased]
 
+- **Controller: the left stick walks a conversation's replies** (2026-10-15;
+  `src/controller-native/K1NativeJoystick.cpp`, `FillNativeJoystickBufferK1`;
+  `docs/controller-behaviour-matrix.md`, the Dialogue row and the left stick's). Reported from
+  play on a pad-only device: in a conversation the D-pad moved the highlight and the stick did
+  nothing. `CSWGuiDialog` keeps the reply index itself and answers only its previous and next
+  events (`0x31`, `0x32`), which the module sends for the D-pad as the direction codes; the
+  stick's latched direction went to the focus layer, which has nothing to move on that panel.
+  In the dialogue input class the stick's latched up or down is now folded into the button
+  word before the D-pad loop, with the real D-pad taking precedence while held, so it gets the
+  pad's press, release and hold-repeat unchanged; nothing changes in any other class. **Built
+  on Linux and played: the stick walks the replies, the D-pad still does.**
+
 - **Controller: A on a message box no longer clicks the button behind it** (2026-10-13;
   `src/controller-native/K1NativeJoystick.cpp`, `GuardPanelEchoK1`;
   `reverse-engineering/retained-xbox-gui-events.md`). Reported by the maintainer on Party
