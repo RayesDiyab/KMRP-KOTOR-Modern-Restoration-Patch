@@ -1398,13 +1398,19 @@ void FillNativeJoystickBufferK1(int deviceIndex, void* outBuffer)
     g_stick.analogMagnitude = 0.0f;
     g_stick.lastBufferTick = GetTickCount();
     if (magnitude > K1_STICK_DEADZONE) {
+        // The direction is the raw vector's; the length is the rescaled
+        // deflection, clamped so that the corners of a square gate, which a
+        // thumbstick reports at up to sqrt(2), stay on the unit circle. With
+        // the engine's Normalize skipped for the analog path, anything longer
+        // than 1 reaches the character as that much extra speed.
+        const float unitX = nx / magnitude;
+        const float unitY = ny / magnitude;
         if (magnitude > 1.0f) {
-            magnitude = 1.0f;               // the corners of a square gate
+            magnitude = 1.0f;
         }
         const float scaled = (magnitude - K1_STICK_DEADZONE) / (1.0f - K1_STICK_DEADZONE);
-        const float factor = (scaled / magnitude) * K1_AXIS_FULL_SCALE;
-        const std::int32_t ex = static_cast<std::int32_t>(nx * factor);
-        const std::int32_t ey = static_cast<std::int32_t>(ny * factor);
+        const std::int32_t ex = static_cast<std::int32_t>(unitX * scaled * K1_AXIS_FULL_SCALE);
+        const std::int32_t ey = static_cast<std::int32_t>(unitY * scaled * K1_AXIS_FULL_SCALE);
         if (ex != 0) {
             emit(DIJOFS_X_OFFSET, ex);
         }

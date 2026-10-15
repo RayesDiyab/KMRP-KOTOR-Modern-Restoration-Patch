@@ -474,6 +474,20 @@ use is a third threshold, `K1_ACTIVITY_STICK`, 0.35.
 `K1_STICK_DEADZONE` and `K1_CAMERA_DEADZONE` are named constants, tunable
 without touching logic.
 
+The rescaled vector is the stick's **unit vector times the rescaled
+deflection**, so it never exceeds the unit circle. *Corrected 2026-10-15:* until
+then the deflection was clamped to 1 but the direction kept the raw vector's
+length, and a thumbstick reports its corners at up to sqrt(2); with the engine's
+`Vector::Normalize` skipped for the analog path (below), that length reached the
+character as speed. Measured from the engine's own movement fields with
+`debug-logs=2` on a ROG Ally X under Proton: `move ud=-999 lr=999`, a vector of
+1.41, whenever a flick landed in a corner, against 1.00 for a straight push; a
+gradual tilt rarely reaches a corner, which is why the extra speed showed as a
+"quick tilt" fault. Reported together with the character heading the wrong way
+on such a flick; with the vector bounded the speed is constant and the
+reversal has not been seen again, though its mechanism was not read out of the
+engine.
+
 ## The camera
 
 **Working, playtest-confirmed.** The right stick turns the camera through the
