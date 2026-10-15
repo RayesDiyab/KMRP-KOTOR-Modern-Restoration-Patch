@@ -117,6 +117,20 @@ proxy, and it applies the executable changes above as well.
 
 ## [Unreleased]
 
+- **Controller: the stick's movement vector stays inside the unit circle** (2026-10-15;
+  `src/controller-native/K1NativeJoystick.cpp`, `FillNativeJoystickBufferK1`;
+  `docs/controller-native-path.md`, "Deadzone"). Reported from play on a ROG Ally X under
+  Proton: a quick tilt of the left stick, forward then hard right, ran the character faster,
+  and at times the wrong way. Read from the pad log (`debug-logs=2`): the engine's own
+  movement fields reached `ud=-999 lr=999`, a vector of 1.41, whenever the flick landed in a
+  corner of the stick's gate, against 1.00 for a straight push. The buffer's replacement
+  clamped the deflection to 1 but scaled the raw direction, which keeps the corner's length,
+  and the analog path skips `Vector::Normalize`, so that length became speed. It now scales
+  the unit vector, as `ReadNativeStickK1` already did for the diagnostics. **Built on Linux
+  and played: the speed is constant across the flick and the reversal was not seen again in
+  the same test.** The reversal's own mechanism was not read out of the engine; a vector longer
+  than 1 is the only input to its heading code that changed.
+
 - **Controller: A on a message box no longer clicks the button behind it** (2026-10-13;
   `src/controller-native/K1NativeJoystick.cpp`, `GuardPanelEchoK1`;
   `reverse-engineering/retained-xbox-gui-events.md`). Reported by the maintainer on Party
