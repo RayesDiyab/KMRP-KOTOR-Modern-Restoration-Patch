@@ -90,6 +90,21 @@ LAYOUT_SCREEN = (800, 600)
 MAIN_MENU_LOADED = ("mainmenu8x6.gui", "mainmenu10x7.gui", "mainmenu12x9.gui", "mainmenu16x12.gui")
 
 
+def build_swoop_prompt_tga(family: str) -> bytes:
+    """A glyph inside Plane14's measured UV window, without changing the model."""
+    from io import BytesIO
+    from PIL import Image
+
+    # m17mg_camera.mdl Plane14: u=.185497..842288, v=.134816..867799.
+    # The TGA is bottom-up; Pillow's canvas uses the top-left corner.
+    tile = Image.open(BytesIO(build_square_glyph_tga("A", 84, 94, family=family)))
+    canvas = Image.new("RGBA", (128, 128))
+    canvas.paste(tile, (24, 17))
+    canvas = canvas.transpose(Image.Transpose.FLIP_TOP_BOTTOM)
+    header = struct.pack("<BBBHHBHHHHBB", 0, 0, 2, 0, 0, 0, 0, 0, 128, 128, 32, 0x08)
+    return header + canvas.tobytes("raw", "BGRA") + b"\0" * 8 + b"TRUEVISION-XFILE.\0"
+
+
 def extract(game: Path) -> int:
     """Write the game's .gui files to build-inputs/vanilla-gui, from chitin.key."""
     key = (game / "chitin.key").read_bytes()
@@ -234,6 +249,9 @@ def make(work: Path) -> dict:
     art.mkdir()
     common = []
     for family in GLYPH_FAMILIES:
+        swoop = art / f"{family_resref('kmrpp_swoop', family)}.tga"
+        swoop.write_bytes(build_swoop_prompt_tga(family))
+        common.append(swoop)
         cues = [(R3_CUE_FILL, "R3")] + [(fill, glyph) for _, fill, glyph in TAB_CUES] \
             + [(fill, glyph) for _, fill, glyph, _ in COMBAT_CUES] + [(XBOX_HUD_DISENGAGE_FILL, "B")] \
             + [(XBOX_HUD_PAUSE_FILL, "RT_NOTICE")]

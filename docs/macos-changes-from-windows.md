@@ -1068,3 +1068,19 @@ the target menu's `PopulateMenus` from the HUD's, with the Mac addresses of `IsS
 Windows `0x38` bytes; the routine at `+0x0C` is called as a member of the character with the
 id and the character on the stack, and takes both off). To check: a character with the skill
 and a stealth field generator shows "Stealth" in the row's second place; A toggles it.
+
+## 53. Controller: swoop racing and the gun turret
+
+**To do on the Mac, 2026-10-13** (issue #47; `src/controller-native/K1NativeJoystick.cpp`,
+`NativeMiniGameAxisK1`; `docs/controller-native-path.md`, "Swoop racing and the turret"). On
+Windows the pad did nothing in a swoop race or in the turret: the game polls keyboard actions
+there. One new hook at the entry of `CSWMiniGame::UpdateAxis` (`0x00670FB0` on Windows) adds
+the left stick to the polled vector and calls `CSWMiniPlayer::Fire` once for each press of A
+or a trigger (triggers in the turret only). **Update, 2026-10-16:** the maintainer
+confirmed the swoop prompt works and A, LT and RT each fire in Windows Steam's
+turret. Start and the turret's vertical direction remain unreported from play.
+
+What the Mac needs: the same routine at the Mac game's `UpdateAxis`, with the Mac's offsets
+of the game's type and player and the address of `Fire`, each read from the Mac executable
+(what a routine takes off the stack included: item 52). To check: a swoop race steers with
+the stick and A starts and shifts; the turret aims with the stick and a trigger fires.

@@ -696,6 +696,168 @@ class was measured to implement it.
 
 The axes are registered in all six classes; only the buttons are selective.
 
+### Swoop racing and the turret
+
+Since 2026-10-13 (issue #47). Read from the executable; a first build was played once in a
+race by the maintainer and corrected from it (CHANGELOG, [Unreleased]). On
+2026-10-16 the maintainer confirmed the final swoop prompt works and A, LT and RT
+each fire in Steam's turret. They also confirmed A fires in the original Xbox
+game, beyond the manual's documented triggers. Start and overlapping holds were
+not individually reported as tested.
+
+Class 1 is three different things. Pazaak is two GUI panels, and the row above is
+theirs. A swoop race and the gun turret are `CSWMiniGame` (the area's, at
+`CSWCArea+0x264`; type 1 and type 2 at `[game+0x80]`), with no panel at all, and
+the registrations above gave the pad nothing there:
+
+| What | How the game takes it | Where |
+| --- | --- | --- |
+| steering, aiming | `CClientExoAppInternal::ProcessInput` polls actions `0x11B` and `0x11E` (and the vertical pair for the turret), holds the sum to -1..1 and calls `CSWMiniGame::UpdateAxis(vector, seconds)`, once a frame | `0x006241DD` (swoop), `0x00624404` (turret); `UpdateAxis` is `0x00670FB0`, `ret 8` |
+| the actions | `keymap.2da`: `action283` is the two-button axis `MGActionLeft` (A) and `MGActionRight` (D), `action282` `MGActionUp` (W) and `MGActionDown` (S); the first key of a pair is the positive one | the game's `2da.bif` |
+| fire | `MGshoot`, `action217`, Space: its handler calls `CSWMiniPlayer::Fire` on `[game+0x24]` | handler `0x00621CAC`; `Fire` is `0x0066DC50`, no arguments, a plain `ret` |
+
+The stick's own events (`0x3B`, `0x3C`) are polled by nothing on that path, and A's
+`0x27` is not registered in class 1 (Pazaak's panels do not implement it).
+
+`NativeMiniGameAxisK1`, hooked at `UpdateAxis`'s entry (`8B 81 80 00 00 00`, `mov
+eax, [ecx+0x80]`, one instruction with nothing to relocate; `ecx` the game,
+`[esp+4]` the vector):
+
+- adds the left stick to the vector the keys gave, with the gameplay path's radial
+  deadzone, and holds the sum to -1..1: `x` plus the stick's right (played: with it
+  subtracted the bike went the wrong way), and for the turret `z` plus the stick's
+  down (not measured);
+- asks the router for `PauseMinigame` (`0xFD`, `HandleInputEvent`, `0x00621210`)
+  when Start goes down;
+- calls `Fire` once when A goes down, or in the turret either trigger, with
+  independent held bits for A, LT and RT. Holding one does not suppress another's
+  new press; simultaneous presses request one fire for that frame. Held inputs
+  do not repeat. The pause guard (`GetPausedByCombat`, `0x005F2DF0`, as the game's
+  handler asks) blocks firing while paused and consumes those presses. In a race `Fire` runs the
+  track's `OnFire` script, which starts the bike and changes gear and punishes a
+  gear change that comes too early, so a held button must not repeat.
+
+**Correction, 2026-10-16:** the original bridge combined A and the triggers into
+one held flag, so holding LT swallowed subsequent RT pulls (and holding A
+swallowed both). The bridge now detects rising edges per input. The steering,
+Start route, pause guard and hook site are unchanged. To verify in play, hold LT
+and repeatedly pull RT, then swap them; repeat with A held, and confirm that a
+held input alone does not repeat. An MSVC x86 harness compiled the production
+fire block and passed all 512 transitions across previous/current A/LT/RT states,
+swoop/turret, paused/running and present/missing client (2026-10-16). The overlap
+sequence has not been reported from play; the individual A/LT/RT fire inputs
+were confirmed by the maintainer on 2026-10-16. The reproducible source-based
+harness is `python testing/regression/Test-MiniGameFire.py` (MSVC x86, no game files).
+
+Not measured: the direction of the turret's vertical axis with the stick, and the
+game's "Reverse Minigame YAxis" option, which the game applies to the keys' value
+before the hook and which the stick does not get.
+
+#### Swoop shift prompt
+
+Since 2026-10-16, `UpdateSwoopPromptK1` runs from the existing GUI frame
+(the controller package still has 38 hooks). The model's `Plane14` uses `abutton`,
+which the PC GUI texture pack supplies as a 32x32 Space-key image. Its UV window
+is u=0.185497..0.842288, v=0.134816..0.867799. Read with PyKotor from the Steam
+game's `chitin.key` model `m17mg_camera` and `swpc_tex_gui.erf`, 2026-10-16.
+Four private 128x128 TGA textures (`kmrpp_swoop`, `kmrsp_swoop`, `kmrnp_swoop`,
+`kmrdp_swoop`) put the existing family's confirm glyph inside that window; Xbox
+and Steam Deck show A, PlayStation Cross, Switch B by physical position.
+
+The GUI frame follows the live area to its type-1 race, then the player's
+attached `m17mg_camera` instance and its named `Plane14` part. While class 1 is
+active and a connected pad is the active device, that part's material receives
+the glyph reference. Keyboard/mouse, disconnect or leaving class 1 restores the
+retained original while the race still exists. A turret is never targeted, and
+an unloaded race leaves no cached Part or Material pointer to dereference.
+The model, animations, shift timing, control mappings and unrelated materials
+are unchanged. Missing glyph data keeps the original Space reference.
+
+Read from the local disassembly exports and the clean CD 1.03 executable:
+4,042,752 bytes, SHA-256
+`761F9466F456A83909036BAEBB5C43167D722387BE66E54617BA20A8C49E9886`.
+Addresses below are Windows virtual addresses; FILE = VA - 0x400000 for this
+clean file's original sections. These are reads/calls, with no added hook.
+
+| Address / layout | Purpose | Evidence |
+| --- | --- | --- |
+| internal `+0x18` -> module `+0x48` -> area `+0x264` | current live mini-game | `ProcessInput`, `0x006227E0` |
+| mini-game `+0x80`, `+0x24` | type (1 = swoop), player | `ProcessInput`; camera setup `0x00671670` |
+| player `+0x68`, count `+0x6C`; stride 8 | race-owned attached Gob instances | getter `0x0066D260` |
+| Gob `+0x58`; model `+0x08` | model resource name (`m17mg_camera`) | Gob constructor/model layout in local disassembly and Lane reference |
+| Gob vtable `+0x10C` (`0x004402F0`) | named-part accessor, called with `Plane14` | camera setup `0x00671670`; accessor calls `FindPart`, `0x0043FE00` |
+| Part `+0x40`, `+0x44` | owner Gob and material | instance creation `0x004492B0`; material access `0x004434A0` |
+| material `+0x00` | first texture reference | `Material::GetTextureTID`, `0x0047AF00` |
+| vtable `0x0073F0A8`; reference `+0x10` | CTextureRef and its texture object | constructor `0x00422E30`, getter `0x004205C0` |
+| texture `+0x98`, 16 bytes read | resource name | texture lookup `0x00420AC0` |
+| `0x00423A60` | create a named texture reference | cdecl, `(name, optionalAlternateName)` |
+| `0x00447FA0` | retain/replace a tracked reference | thiscall, `(destinationSlot, newReference)` |
+| `0x00420BF0` | ensure glyph loads and obtain its texture id | cdecl, `(textureReference)` |
+
+The retained texture references use the game's ownership list instead of changing
+shared art or editing a model. Each GUI update resolves the live target afresh:
+no global material registry, discovery cursor or weak target cache remains.
+The vanilla ARE player-model lists read from Steam's `tar_m03mg.rim`,
+`tat_m17mg.rim` and `manm26mg.rim` contain four, four and five attachments;
+`m17mg_camera` is at zero-based index 1, 0 and 1 respectively. Consequently the
+code matches the resource name rather than hardcoding one track's array index.
+It accepts at most 64 attachments as a corrupt-count guard, then calls the
+engine's named-part accessor only on the selected camera model. This accessor
+walks that model's part tree: it is a local named lookup, not a global search.
+
+An unchanged cue performs no texture demands, loads, allocations or reference
+assignments. Pointer readability checks and the one model-local part lookup still
+run each callback; this deliberately trades the previous weak cache for safe
+resolution through current ownership, including a rebuilt Part on the same Gob.
+A missing glyph keeps Space and retries after 500 ms. No new hook or race-input
+state flag is needed; the GUI frame also handles paused activity/family changes.
+
+**Direct-target correction, 2026-10-16:** the intermediate cached-registry DLL
+`0FCAAEFD02898E3D6A44F0647B2F479F880916197F2BFF3FDCA8BD2BC1F346ED`
+stopped rescanning once it found the material, but still used global discovery
+and searched for moved registry entries. The maintainer requested the direct
+race/model route instead. The current implementation removes that registry use.
+
+**Performance correction, 2026-10-16:** the first prompt build, controller DLL
+SHA-256 `C4B1804C9535895D0EDC37030195403F959F4C40EF594B872FE3539B40F3A03F`,
+walked every live material and demanded the glyph from both hooks every frame.
+The maintainer reported low FPS in a swoop race. The initial 27 functional checks
+did not test this CPU cost. The intermediate cache and bounded discovery replaced that loop; the direct
+race/model implementation above supersedes the intermediate cache.
+
+Measured with MSVC x86 `/O2` on this Windows host using the production update
+code and real `VirtualQuery`, with synthetic material registries; engine texture
+calls were stubbed. The steady-state comparison calls each updater twice per
+simulated frame, and the cached code used one GUI callback. These are historical measurements
+of the intermediate cache, not timings for the current direct implementation
+and not in-game FPS.
+
+| Materials | Old steady ms/frame | Cached steady ms/frame | Largest new discovery update, ms |
+| --- | --- | --- | --- |
+| 500 | 1.483876 | 0.000024 | 0.101700 |
+| 2,000 | 5.852572 | 0.000022 | 0.092800 |
+| 5,000 | 15.095986 | 0.000022 | 0.150200 |
+
+`python testing/regression/Test-SwoopPrompt.py` compiles the current production
+updater with fake race/model objects and passes 47 checks: every attachment
+position in four/five-model lists, all glyph families, activity/disconnect/class
+changes, missing glyph load/demand with retry throttling, invalid/no race, turret
+exclusion, foreign art, ownership mismatch, and a new Part/material on the same
+Gob. Across 100 unchanged updates per family, it verifies one targeted part lookup
+and at most 22 pointer checks per callback, with zero texture loads/demands or
+assignments. Unrelated material count does not affect those bounds. The previous
+114 registry-cache checks are superseded. It needs MSVC x86, without game files.
+The controller package regression and its 38 guarded hook sites also pass.
+On 2026-10-16 the maintainer reported "perfect it works" after testing the direct
+implementation in Steam (the installed controller DLL was SHA-256
+`6637A3D78A3C78EC2FC61E71D8DCF9D64981854C02058FAC8D00AC10B5EBAC4E`).
+No numerical in-game FPS measurement was taken. The
+other glyph families, device changes while paused and unplug/reconnect were not
+individually reported as tested. To check them: reach the shift point with the
+pad, then use the keyboard or mouse: the cue should switch A/Space in the same
+place; repeat while paused, unplug/reconnect the pad, and return to menus. The
+light's appearance, flashing and disappearance must remain the game's own.
+
 **ICMiniGame is registration on evidence, not on a pressed button.** From the
 retained inventory, `PAZAAK_SETUP` (`0x006816F0`) implements `0x28`/`0x2E`,
 `0x2A`, `0x35` and `0x36`, and `PAZAAK_GAME` (`0x0067E8F0`) implements

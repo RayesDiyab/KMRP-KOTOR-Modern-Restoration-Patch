@@ -85,7 +85,7 @@ def alpha_box(tga: bytes):
 def main() -> int:
     # 1. The package against its sources.
     result = package.validate(PACKAGE)
-    check(result["hooks"] == len(package.hooks()) == 37, f"the package carries {result['hooks']} hooks, all from the sources")
+    check(result["hooks"] == len(package.hooks()) == 38, f"the package carries {result['hooks']} hooks, all from the sources")
     with zipfile.ZipFile(PACKAGE) as z:
         manifest = tomllib.loads(z.read("manifest.toml").decode())["patch"]
         packed = tomllib.loads(z.read(package.HOOKS).decode())["hooks"]
@@ -125,7 +125,7 @@ def main() -> int:
     # stand in for KMRP's hook at StopLoadFromLayout's entry, left to other patches
     own = {package.XBOX_HUD_HOOK["address"], package.XBOX_HUD_BARS_HOOK["address"],
            package.XBOX_HUD_PAUSE_HOOK["address"], package.XBOX_HUD_PAUSE_DONE_HOOK["address"],
-           package.XBOX_HUD_STEALTH_HOOK["address"],
+           package.XBOX_HUD_STEALTH_HOOK["address"], package.MINIGAME_AXIS_HOOK["address"],
            package.PANEL_LOADED_HOOK["address"], package.PANEL_DESTROYED_HOOK["address"],
            package.RESOURCE_OWN_HOOK["address"]}
     check(package.PANEL_SITE not in mine and package.PANEL_SITE in theirs,
@@ -134,7 +134,7 @@ def main() -> int:
             and kmrp_controller.normalised(mine[a]) == kmrp_controller.normalised(theirs[a])]
     check(len(same) == len(mine) - len(stand_ins) - len(own) and stand_ins <= set(theirs) and not (own & set(theirs)),
           f"{len(same)} sites are KMRP's own hooks unchanged, {len(stand_ins)} are the frame sites KMRP holds, "
-          f"and {len(own)} are this patch's own (the Xbox-style HUD's five, the two panel sites and the resource site), "
+          f"and {len(own)} are this patch's own (the Xbox-style HUD's five, the minigames' one, the two panel sites and the resource site), "
           "which KMRP's patch leaves alone")
 
     # 4. The file bank.
@@ -154,6 +154,10 @@ def main() -> int:
     missing = [prompts.family_resref(t.resref, family) for t in targets for family in prompts.GLYPH_FAMILIES
                if prompts.family_resref(t.resref, family) + ".tga" not in names]
     check(not missing, f"all {len(targets)} badges in all {len(prompts.GLYPH_FAMILIES)} families")
+
+    check(all((FILES / (prompts.family_resref("kmrpp_swoop", family) + ".tga")).read_bytes()
+              == assets.build_swoop_prompt_tga(family) for family in prompts.GLYPH_FAMILIES),
+          "the swoop shift cue carries all four confirm glyphs in Plane14's UV window")
 
     # 5. Badge shape, from the layouts the game loads and the textures in the bank.
     worst = 0.0

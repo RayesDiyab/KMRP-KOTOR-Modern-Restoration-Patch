@@ -140,6 +140,16 @@ XBOX_HUD_STEALTH_HOOK = {
     'skip_original_bytes': False, 'exclude_from_restore': [],
     'parameters': [{'source': 'ecx', 'type': 'pointer'}],
 }
+# The minigames: the entry of CSWMiniGame::UpdateAxis, ecx = the game, [esp+4] = the
+# vector the keys gave (mov eax, [ecx+0x80], one instruction, nothing to relocate).
+# The game calls it once a frame in a swoop race and in the turret; the pad's stick
+# is added there and A or a trigger fires (K1NativeJoystick.cpp, issue #47).
+MINIGAME_AXIS_HOOK = {
+    'address': 0x00670FB0, 'type': 'detour', 'function': 'NativeMiniGameAxisK1',
+    'original_bytes': [0x8B, 0x81, 0x80, 0x00, 0x00, 0x00],
+    'skip_original_bytes': False, 'exclude_from_restore': [],
+    'parameters': [{'source': 'ecx', 'type': 'pointer'}, {'source': 'esp+4', 'type': 'pointer'}],
+}
 # Where a panel is told to the module, in this patch only. KMRP's own patch hooks the
 # entry of CSWGuiPanel::StopLoadFromLayout (0x0040B8F0), which every panel calls as
 # its constructor ends and again from the base destructor. Scaled Kotor 1.3.1, a
@@ -205,6 +215,7 @@ def hooks():
     selected.append(dict(XBOX_HUD_PAUSE_HOOK))
     selected.append(dict(XBOX_HUD_PAUSE_DONE_HOOK))
     selected.append(dict(XBOX_HUD_STEALTH_HOOK))
+    selected.append(dict(MINIGAME_AXIS_HOOK))
     for index, h in enumerate(selected):
         span = range(h['address'], h['address'] + len(h['original_bytes']))
         if h['type'] != 'detour' or len(span) < 5:

@@ -715,6 +715,18 @@ classes. **Not bound**: a minigame was not reachable from this save, and the
 description is an analog type whose value semantics for a fire action are
 unverified. **S**
 
+*Since 2026-10-13 this is bound another way (issue #47): the stick is added to the
+vector the game polls from the keys and A or a trigger calls `Fire`, at
+`CSWMiniGame::UpdateAxis`'s entry. The sentence above about the axes was wrong for
+the minigames: the stick's events are registered there, but steering is polled from
+the keyboard's actions `0x11B` and `0x11E`, which the stick does not feed. See
+[`controller-native-path.md`](controller-native-path.md), "Swoop racing and the
+turret". Correction, 2026-10-16: the original paragraph also misidentified
+`0x0C` as fire; the actual keyboard fire action is `0xD9` (Space), alongside mouse
+`0x19`. The maintainer confirmed the swoop prompt works and A, LT and RT each
+fire in Steam's turret. Start, overlapping holds and turret vertical direction
+remain unreported from play.*
+
 **ICMovie (5).** `CClientExoApp::CancelMovie` has exactly one caller,
 `0x00402CF4`, inside the movie player's own loop — **no retained input event
 reaches it**. That is why the legacy path needs its own movie hooks: the normal

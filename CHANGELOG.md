@@ -117,6 +117,79 @@ proxy, and it applies the executable changes above as well.
 
 ## [Unreleased]
 
+- **Controller: target the swoop prompt through the live race model** (2026-10-16;
+  `src/controller-native/K1NativeJoystick.cpp`, `SwoopPromptMaterialK1`). Replaces
+  global material discovery with the live area's race, its attached
+  `m17mg_camera` instance and the engine's named `Plane14` accessor. No weak
+  Part/material pointer survives an update, so a rebuilt or unloaded race is
+  resolved afresh. The GUI hook alone updates the cue; 38 hook sites remain.
+  The focused production-code regression passes 47 checks. Texture work occurs
+  only when the cue changes or a failed load retries. See
+  `docs/controller-native-path.md`, "Swoop shift prompt". The maintainer confirmed the direct prompt works in
+  Steam on 2026-10-16; no numerical in-game FPS measurement was taken.
+
+- **Controller: bounded work for the swoop shift prompt** (2026-10-16;
+  `src/controller-native/K1NativeJoystick.cpp`, `UpdateSwoopPromptK1`). The first
+  A-prompt build scanned every live material and demanded its texture twice per
+  frame; the maintainer reported low race FPS. The intermediate fix cached its live
+  material, discovered at most 64 entries per GUI update, and changed the texture
+  only when needed; the direct model route above supersedes this cache. In a
+  5,000-material synthetic benchmark with real Windows
+  memory queries, updater time fell from 15.096 ms to below 0.001 ms per simulated
+  frame; these are CPU measurements, not game FPS. The source-based regression
+  `testing/regression/Test-SwoopPrompt.py` then passed 114 checks, including zero
+  memory
+  queries or texture demands across unchanged updates. See
+  `docs/controller-native-path.md`, "Swoop shift prompt". In-game retest pending.
+
+- **Controller: the swoop shift prompt follows the active input device** (2026-10-16;
+  `src/controller-native/K1NativeJoystick.cpp`, `UpdateSwoopPromptK1`;
+  `tools/build_controller_assets.py`). At the shift point the model's Space-key
+  image becomes the pad's confirm glyph (A on Xbox/Steam Deck), and returns to
+  Space for keyboard/mouse or disconnect. The game's model animation still
+  controls when it appears. The texture reference is switched through the engine's
+  ownership calls from the existing GUI hook. Four private glyph
+  textures are embedded; no game resource is replaced on disk. See
+  `docs/controller-native-path.md`, "Swoop shift prompt". The maintainer confirmed
+  the swoop cue works in Steam on 2026-10-16; other glyph families remain unplayed.
+
+- **Controller: overlapping turret fire inputs remain independent** (2026-10-16;
+  `src/controller-native/K1NativeJoystick.cpp`, `NativeMiniGameAxisK1`). Holding A
+  or one trigger no longer swallows a new press of another fire input. Each input
+  keeps its own held bit; simultaneous presses request one fire in that frame.
+  Held inputs do not repeat, paused presses are still consumed, and the swoop
+  still fires on A alone. See `docs/controller-native-path.md`, "Swoop racing and
+  the turret". The maintainer confirmed A, LT and RT each fire in Steam on
+  2026-10-16. Overlapping holds remain covered by the 512-transition regression;
+  that exact sequence has not been reported from play.
+
+- **Controller: swoop racing and the gun turret take the pad** (2026-10-13; issue #47;
+  `src/controller-native/K1NativeJoystick.cpp`, `NativeMiniGameAxisK1`;
+  `docs/controller-native-path.md`, "Swoop racing and the turret"). Reported by a player:
+  "swoop racing doesn't have controller support". It had none: the two minigames are not
+  screens but `CSWMiniGame`, which the game drives by polling keyboard actions (`keymap.2da`:
+  `MGActionLeft`/`Right` on A and D, `MGActionUp`/`Down` on W and S, `MGshoot` on Space), and
+  the pad's stick and A have events of their own that nothing there reads. Now the left
+  stick steers the swoop bike and aims the turret, and A does what Space does: starts the
+  bike and changes gear, or shoots (in the turret either trigger shoots too). It is one
+  press, one action, as with the key. Start pauses and continues, through the game's own
+  `PauseMinigame` action. The keys keep working beside it. One new hook, at the entry of
+  `CSWMiniGame::UpdateAxis` (`0x00670FB0`), so the controller patch has 38. The Xbox manual
+  has the same controls (pages 34 and 35). **Built; the package tests pass (38 guarded sites
+  on the clean executable).**
+
+  **Played once by the maintainer** (2026-10-13, a race on Tatooine, Steam's game, 3440x1440,
+  the first build of it): A started the bike and changed gear; left and right were the wrong
+  way round; RT changed gear as well, which he did not expect; Start did not pause (Escape
+  did). Corrected the same day: right is the positive direction (the first build took the
+  first key of the pair, `MGActionLeft`, for the positive one), the triggers fire in the
+  turret only, Start asks the router for action `0xFD`, and nothing fires while the game is
+  paused, as in the game's own handler. **Update, 2026-10-16:** the maintainer
+  confirmed the final swoop prompt works and A, LT and RT each fire in the turret.
+  They also confirmed A fires in the original Xbox game, beyond the manual's
+  documented triggers. Start, overlapping holds and the turret's vertical direction
+  were not individually reported as tested.
+
 - **Controller: the left stick walks a conversation's replies** (2026-10-15;
   `src/controller-native/K1NativeJoystick.cpp`, `FillNativeJoystickBufferK1`;
   `docs/controller-behaviour-matrix.md`, the Dialogue row and the left stick's). Reported from

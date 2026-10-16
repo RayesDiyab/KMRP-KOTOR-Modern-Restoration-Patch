@@ -166,7 +166,7 @@ Do not spend time diagnosing these; they are measured and understood.
 | [ ] | Dialogue | B, X, Y, Back, LT, RT, Start | **nothing** — no handler in the dialogue dispatcher |
 | [ ] | Dialogue | right stick | camera still moves |
 | [ ] | Free look | A, B, D-pad | nothing; only Start works (the game's own event), R3 or LB exits |
-| [ ] | Pazaak / swoop | buttons | only B, Y, LT and RT are registered in class 1, the four events the minigame dispatchers implement; A is not. **Never observed**, please note what responds |
+| [ ] | Pazaak | buttons | only B, Y, LT and RT are registered in class 1, the four events its GUI dispatchers implement; A is not. **Never observed**, please note what responds |
 | [ ] | Cutscenes | buttons | A or Start skips a movie the game allows to be skipped; nothing else does anything (class 5 has no retained event) |
 
 ---
@@ -188,6 +188,23 @@ Do not spend time diagnosing these; they are measured and understood.
 | [ ] | Dialogue | left stick | does **not** navigate replies — should it? | | **FEEL** |
 | [ ] | Computer terminal | LB / RB | scrolls the terminal text | | FUNC |
 | [ ] | Dialogue | highlight visible from the sofa | | | **FEEL** |
+
+## 0c. Swoop and turret controls
+
+On 2026-10-16 the maintainer confirmed the swoop shift cue works and A, LT and RT
+each fire in the turret in Steam's game. They also confirmed A fires in the
+original Xbox game. The more specific scenarios below still need individual
+confirmation; automated coverage is recorded in
+[`controller-native-path.md`](controller-native-path.md), "Swoop racing and the turret".
+
+| | Context | Input | Expected |
+| --- | --- | --- | --- |
+| [ ] | Swoop | left stick, A | steer proportionally; A starts thrusters and shifts; LT/RT do not shift |
+| [ ] | Swoop shift cue | pad, then keyboard/mouse | confirm glyph at the shift point, Space when keyboard/mouse is active |
+| [ ] | Swoop shift cue | controller family change, disconnect/reconnect | matching confirm glyph; Space while disconnected |
+| [ ] | Turret | left stick | reticle moves in the pushed direction; check vertical aim and Reverse Minigame YAxis separately |
+| [ ] | Turret | hold LT, pull RT; swap; repeat while holding A | each new press fires despite another held input |
+| [ ] | Swoop/turret | Start, then Start | pause and resume; fire while paused does not carry into resume |
 
 ## 1. Gameplay — movement and camera
 

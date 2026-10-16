@@ -204,6 +204,17 @@ row ([`controller-xbox-hud.md`](controller-xbox-hud.md), "Stealth"):
 
 Not compared with the other patches of KOTOR Patch Manager 0.7.1.
 
+**Since 2026-10-13 (later the same day): 38 hooks.** One more, for swoop racing and the gun
+turret ([`controller-native-path.md`](controller-native-path.md), "Swoop racing and the
+turret"):
+
+| VA | Original bytes | Function | Change |
+| --- | --- | --- | --- |
+| `0x00670FB0` | `8B 81 80 00 00 00` | `NativeMiniGameAxisK1` | new: the entry of `CSWMiniGame::UpdateAxis`, `ecx` the game, `[esp+4]` the vector |
+
+Not compared with the other patches of KOTOR Patch Manager 0.7.1; `Test-InstallerPatch.ps1`
+installs it beside KMRP's patch and High FPS Fixes.
+
 Neither site is in KMRP's table or in High FPS Fixes' (`Test-InstallerPatch.ps1`
 installs the three together). Not compared again with the other patches of KOTOR
 Patch Manager 0.7.1.

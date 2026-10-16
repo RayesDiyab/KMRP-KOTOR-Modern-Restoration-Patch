@@ -1282,6 +1282,9 @@ void ForgetGuiCuesK1(void* panel);
 void UpdateGuiCuesK1();
 void EnsureRumbleTableK1(void* owner);
 void UpdateStickNavigationK1(float x, float y);
+namespace {
+void UpdateSwoopPromptK1();
+}
 void RequestNavigationK1(int dx, int dy, bool edge, bool fromDpad);
 // ------------------------------------------------- navigation input timing
 //
@@ -5441,6 +5444,7 @@ extern "C" void __cdecl NativeGuiFrameK1(void* guiManager)
 
     // Which controller family the badges show, before they are updated.
     UpdateGlyphFamilyK1();
+    UpdateSwoopPromptK1();
     ControllerLayoutFrameK1(guiManager);
 
     // Keep the badges in step with the screen and with the live input device.
@@ -6240,3 +6244,230 @@ bool ControllerConfirmHeldK1()
            (GetAsyncKeyState(VK_RETURN) & 0x8000) != 0 ||
            (GetAsyncKeyState(VK_SPACE) & 0x8000) != 0;
 }
+
+// Swoop racing and the gun turret (issue #47): the pad steers and fires.
+//
+// Neither is a GUI screen. CSWMiniGame (the area's, at CSWCArea+0x264) is driven
+// from CClientExoAppInternal::ProcessInput (0x006227E0) while there is no player
+// creature, by polling keymap actions, not by events of the pad's:
+//
+//   swoop  (type 1, [game+0x80])   x = action283 (0x11B) + 0x11E, held to -1..1
+//   turret (type 2)                x the same, z = action282 and its pair
+//
+// then CSWMiniGame::UpdateAxis(vector, seconds) (0x00670FB0, `ret 8`) and
+// CSWMiniGame::Control. action283 is the two-button axis MGActionLeft (A) and
+// MGActionRight (D) of keymap.2da, action282 MGActionUp (W) and MGActionDown (S).
+// RIGHT IS THE POSITIVE DIRECTION OF x: played by the maintainer on 2026-10-13 with
+// the stick's right subtracted, the bike went the wrong way ("left and right is
+// flipped in controller"). That first build took the first key of a pair for the
+// positive one; it is the other way round. The
+// pad's stick has events of its own (0x3B, 0x3C), which nothing here polls, and A
+// has none in this class: MGshoot is action217, Space, whose handler (0x00621CAC)
+// calls CSWMiniPlayer::Fire (0x0066DC50, no arguments, a plain `ret`) on the game's
+// player, [game+0x24]. In a swoop race Fire is what starts the bike and changes
+// gear (the track's OnFire script); in the turret it shoots.
+//
+// Hooked at UpdateAxis's entry, which ProcessInput calls once a frame for either
+// kind (0x006241DD, 0x00624404), ecx = the game, [esp+4] = the vector:
+//     00670FB0  8B 81 80 00 00 00    mov eax, [ecx+0x80]
+// one instruction, with nothing to relocate, and no jump of the routine goes into
+// it. The stick is added to what the keys gave, so both work together. A fires
+// once for each press, as a key does: a held button firing every frame would change
+// gear every frame, which the race punishes. In the turret either trigger fires too;
+// in a race the triggers do nothing (the first build fired on them there as well,
+// and the maintainer asked why RT changed gear). Nothing fires while the game is
+// paused, as the game's own handler has it (0x00621CA0).
+//
+// Start pauses and continues: the game's own action for it, PauseMinigame
+// (action253, 0xFD, on Escape), asked of the router as Start's Map is in the world.
+//
+// The Xbox manual, page 35: "Press the A button once to activate thrusters, and
+// move side-to-side using the left thumbstick"; page 34, the turret: aim with the
+// left thumbstick, fire with the triggers.
+//
+// Played by the maintainer on 2026-10-13, a race on Tatooine in Steam's game: A
+// starts the bike and changes gear. On 2026-10-16 the maintainer confirmed the
+// swoop prompt works and A, LT and RT each fire in Steam's turret, and reported
+// A also fires on the original Xbox. Start and the exact overlapping-hold sequence
+// have not been reported from play. Which way the turret's vertical axis runs
+// was not measured (down is taken for positive, as right is); the option
+// "Reverse Minigame YAxis" is applied by the game to the keys' value before this
+// hook and not to the stick's.
+namespace {
+constexpr std::size_t    K1_MINIGAME_TYPE   = 0x80;
+constexpr std::size_t    K1_MINIGAME_PLAYER = 0x24;
+constexpr std::uintptr_t K1_MINIPLAYER_FIRE = 0x0066DC50;
+constexpr std::uintptr_t K1_PAUSED_BY_COMBAT = 0x005F2DF0;   // CClientExoAppInternal::GetPausedByCombat()
+constexpr int            K1_EVENT_PAUSE_MINIGAME = 0xFD;     // action253
+std::uint8_t g_miniGameFireHeld = 0;
+bool g_miniGameStartHeld = false;
+
+float HeldToUnitK1(float value)
+{
+    return value < -1.0f ? -1.0f : value > 1.0f ? 1.0f : value;
+}
+}
+
+extern "C" void __cdecl NativeMiniGameAxisK1(void* game, float** vectorSlot)
+{
+    if (!game || !vectorSlot || !IsReadableK1(game, K1_MINIGAME_TYPE + sizeof(int))) {
+        return;
+    }
+    const int type = *FieldAt<int>(game, K1_MINIGAME_TYPE);
+    if (type != 1 && type != 2) {
+        return;
+    }
+
+    void* const internal = ClientInternalK1();
+    const bool start = (g_stick.lastButtons & XINPUT_START_MASK) != 0;
+    if (start && !g_miniGameStartHeld && internal) {
+        EngineFn<HandleInputEventFn>(K1_HANDLE_INPUT_EVENT)(internal, K1_EVENT_PAUSE_MINIGAME, 1);
+    }
+    g_miniGameStartHeld = start;
+
+    // Track A, LT and RT independently: a new pull must still fire while
+    // another input stays held. Simultaneous presses request one fire this frame.
+    const std::uint8_t held = static_cast<std::uint8_t>(
+        ((g_stick.lastButtons & 0x1000) != 0 ? 1u : 0u) |      // XINPUT_GAMEPAD_A
+        (type == 2 ? (g_stick.lastTriggers & 0x3u) << 1 : 0u));
+    const bool pressed = (held & ~g_miniGameFireHeld) != 0;
+    if (pressed && internal &&
+        reinterpret_cast<int(__thiscall*)(void*)>(K1_PAUSED_BY_COMBAT)(internal) == 0) {
+        void* const player = *FieldAt<void*>(game, K1_MINIGAME_PLAYER);
+        if (LooksLikePointerK1(player)) {
+            reinterpret_cast<void(__thiscall*)(void*)>(K1_MINIPLAYER_FIRE)(player);
+        }
+    }
+    g_miniGameFireHeld = held;
+
+    float* const vector = *vectorSlot;
+    if (!IsReadableK1(vector, 3 * sizeof(float))) {
+        return;
+    }
+    // The stick as the gameplay path has it: right and down positive, a radial
+    // deadzone, and what is left rescaled over the whole range.
+    const float nx = static_cast<float>(g_stick.lastRawX) / K1_AXIS_FULL_SCALE;
+    const float ny = static_cast<float>(g_stick.lastRawY) / K1_AXIS_FULL_SCALE;
+    float magnitude = std::sqrt(nx * nx + ny * ny);
+    if (magnitude <= K1_STICK_DEADZONE) {
+        return;
+    }
+    const float scaled = ((magnitude > 1.0f ? 1.0f : magnitude) - K1_STICK_DEADZONE) /
+                         (1.0f - K1_STICK_DEADZONE);
+    vector[0] = HeldToUnitK1(vector[0] + nx / magnitude * scaled);       // right is positive: played
+    if (type == 2) {
+        vector[2] = HeldToUnitK1(vector[2] + ny / magnitude * scaled);   // not measured
+    }
+}
+
+
+// Resolve the shift cue through the live race, never the global material list.
+// Clean CD 1.03: ProcessInput 0x006227E0 follows internal+0x18 -> module+0x48
+// -> area+0x264 -> mini-game; player+0x68 holds its 8-byte attached-model entries
+// (getter 0x0066D260). The camera setup 0x00671670 uses Gob vtable+0x10C to
+// find a named part. Gob+0x58 is the model, whose name is at +0x08; Plane14's
+// Part+0x44 is its material. Resolve afresh so unload/rebuild leaves no stale
+// model, Part or Material pointer in this module. The only retained objects are
+// texture references, assigned through the engine's tracked-reference helper.
+namespace {
+constexpr std::uintptr_t K1_TEXTURE_REF_VTABLE = 0x0073F0A8;
+constexpr std::uintptr_t K1_LOAD_TEXTURE_REF = 0x00423A60;
+constexpr std::uintptr_t K1_ASSIGN_TEXTURE_REF = 0x00447FA0;
+constexpr std::uintptr_t K1_TEXTURE_REF_ID = 0x00420BF0;
+using LoadTextureRefFn = void*(__cdecl*)(const char*, const char*);
+using AssignTextureRefFn = void*(__thiscall*)(void*, void*);
+using TextureRefIdFn = unsigned long(__cdecl*)(void*);
+using FindSwoopPartFn = void*(__thiscall*)(void*, const char*);
+
+const char* SwoopTextureNameK1(void* ref)
+{
+    if (!IsReadableK1(ref, 0x18) ||
+        *static_cast<std::uintptr_t*>(ref) != K1_TEXTURE_REF_VTABLE) return nullptr;
+    void* const texture = *FieldAt<void*>(ref, 0x10);
+    return IsReadableK1(texture, 0xA8) ? FieldAt<char>(texture, 0x98) : nullptr;
+}
+
+void* SwoopPromptMaterialK1()
+{
+    void* const internal = ClientInternalK1();
+    if (!IsReadableK1(internal, 0x1C)) return nullptr;
+    void* const module = *FieldAt<void*>(internal, 0x18);
+    if (!IsReadableK1(module, 0x4C)) return nullptr;
+    void* const area = *FieldAt<void*>(module, 0x48);
+    if (!IsReadableK1(area, 0x268)) return nullptr;
+    void* const game = *FieldAt<void*>(area, 0x264);
+    if (!IsReadableK1(game, 0x84) || *FieldAt<int>(game, 0x80) != 1) return nullptr;
+    void* const player = *FieldAt<void*>(game, 0x24);
+    if (!IsReadableK1(player, 0x70)) return nullptr;
+    const int count = *FieldAt<int>(player, 0x6C);
+    void* const models = *FieldAt<void*>(player, 0x68);
+    // Vanilla tracks have four or five attachments. Allow modded race lists,
+    // while refusing corrupt counts before computing their readable extent.
+    if (count <= 0 || count > 64 || !IsReadableK1(models, count * 8u)) return nullptr;
+    for (int i = 0; i < count; ++i) {
+        void* const gob = *FieldAt<void*>(models, i * 8u);
+        if (!IsReadableK1(gob, 0x6C)) continue;
+        void* const model = *FieldAt<void*>(gob, 0x58);
+        if (!IsReadableK1(model, 0x18) ||
+            _strnicmp(FieldAt<char>(model, 0x08), "m17mg_camera", 16) != 0) continue;
+        void* const vtable = *static_cast<void**>(gob);
+        if (!IsReadableK1(vtable, 0x110)) return nullptr;
+        const std::uintptr_t findPart = *FieldAt<std::uintptr_t>(vtable, 0x10C);
+        // This is the engine's named-part accessor on this one HUD instance.
+        // Never retain its result across callbacks: a model may be rebuilt.
+        if (!LooksLikePointerK1(reinterpret_cast<void*>(findPart))) return nullptr;
+        void* const part = EngineFn<FindSwoopPartFn>(findPart)(gob, "Plane14");
+        if (!IsReadableK1(part, 0x48) || *FieldAt<void*>(part, 0x40) != gob) return nullptr;
+        void* const material = *FieldAt<void*>(part, 0x44);
+        return IsReadableK1(material, sizeof(void*)) ? material : nullptr;
+    }
+    return nullptr;
+}
+
+void UpdateSwoopPromptK1()
+{
+    static void* original = nullptr;
+    static void* glyphs[4]{};
+    static unsigned long retryAfter[4]{};
+    void* const material = SwoopPromptMaterialK1();
+    if (!material) return;
+    void* const current = *static_cast<void**>(material);
+    bool known = current != nullptr && current == original;
+    for (void* glyph : glyphs) known |= glyph != nullptr && current == glyph;
+    if (!known) {
+        const char* const name = SwoopTextureNameK1(current);
+        if (!name || _strnicmp(name, "abutton", 8) != 0) return;
+        EngineFn<AssignTextureRefFn>(K1_ASSIGN_TEXTURE_REF)(&original, current);
+    }
+    const bool usePad = InputClassK1() == K1_CLASS_MINIGAME &&
+                        g_stick.padPresent && IsControllerInputActiveK1();
+    const int family = g_stick.glyphFamily >= 0 && g_stick.glyphFamily < 4 ? g_stick.glyphFamily : 0;
+    void* wanted = usePad ? glyphs[family] : original;
+    // No texture demand or reference assignment while the selected cue is set.
+    if (wanted && current == wanted) return;
+    if (usePad) {
+        const unsigned long now = GetTickCount();
+        if (retryAfter[family] != 0 && static_cast<long>(now - retryAfter[family]) < 0) {
+            wanted = original;
+        } else {
+            if (!glyphs[family]) {
+                const char letters[] = "psnd";
+                char glyphName[16] = "kmrpp_swoop";
+                glyphName[3] = letters[family];
+                void* const loaded = EngineFn<LoadTextureRefFn>(K1_LOAD_TEXTURE_REF)(glyphName, nullptr);
+                if (loaded) EngineFn<AssignTextureRefFn>(K1_ASSIGN_TEXTURE_REF)(&glyphs[family], loaded);
+            }
+            if (glyphs[family] && EngineFn<TextureRefIdFn>(K1_TEXTURE_REF_ID)(glyphs[family]) != 0) {
+                wanted = glyphs[family];
+                retryAfter[family] = 0;
+            } else {
+                wanted = original;
+                retryAfter[family] = now + 500;
+            }
+        }
+    }
+    if (wanted && wanted != current) {
+        EngineFn<AssignTextureRefFn>(K1_ASSIGN_TEXTURE_REF)(material, wanted);
+    }
+}
+} // namespace
