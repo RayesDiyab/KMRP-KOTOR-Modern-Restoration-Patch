@@ -117,6 +117,20 @@ proxy, and it applies the executable changes above as well.
 
 ## [Unreleased]
 
+- **Controller: the left stick navigates the screens that navigate themselves** (2026-10-16;
+  `src/controller-native/K1NativeJoystick.cpp`, `FillNativeJoystickBufferK1`;
+  `docs/controller-behaviour-matrix.md`, the left stick's row). Reported from play on a
+  pad-only device: in character generation the D-pad moved the selection and the stick did
+  nothing. On a screen the engine navigates itself the D-pad sends the retained direction
+  codes and the focus layer stands down ("the engine routes it itself"); the stick only ever
+  reached the focus layer, so it was dropped there. The dialogue fold now covers the GUI
+  class too, all four directions: the stick's latched direction becomes the D-pad's, with its
+  per-axis choice between the engine's codes and the focus layer, its press, release and
+  hold-repeat. A folded direction is not the D-pad to the gameplay HUD, so a stick push in
+  character generation, where no HUD consumes the request, cannot move the action bar on the
+  first gameplay frame. **Built on Linux and played: the stick moves through every character
+  generation screen as the D-pad does, and the other menus and conversations are as before.**
+
 - **Controller: the left stick walks a conversation's replies** (2026-10-15;
   `src/controller-native/K1NativeJoystick.cpp`, `FillNativeJoystickBufferK1`;
   `docs/controller-behaviour-matrix.md`, the Dialogue row and the left stick's). Reported from
