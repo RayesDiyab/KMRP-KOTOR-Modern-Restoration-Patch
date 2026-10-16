@@ -115,7 +115,7 @@ what the current build does.
 | 2026-09-25 | **X disengages and Y removes the last queued action, in combat.** They press the HUD's own `BTN_CLEARALL` and `BTN_CLEARONE` through the engine's click handlers, only while that button is on screen, and a badge beside each shows only then. Outside combat the two gameplay cells are still "—". Their GUI events still go out. **Untested in game** | `PressHudButtonK1`, `NativeActionBarK1`; see `reverse-engineering/custom-gui-controls.md` |
 | 2026-09-25 | **The status summary ignores the D-pad.** Focusing its OK made A recurse between the box and OK until the stack overflowed (`0xC00000FD`); A closes the box without focus. See [`../reverse-engineering/custom-gui-controls.md`](../reverse-engineering/custom-gui-controls.md) | `K1_NO_PAD_FOCUS_PANELS` |
 | 2026-09-26 | **The Character screen ignores the D-pad; A levels up and Y auto-levels.** With Level Up focused, one A opened the level-up screen twice and froze the game: the screen answers A and Y itself and then passes them to the focused button, whose click raises them again. Every action there has its own button, so the pad moves no focus. The granted-feats notice is covered the same way. **Seen in game** 2026-09-26: A opened one level-up; four level-ups on the pad followed on 2026-09-28 | `K1_NO_PAD_FOCUS_PANELS` |
-| -- | **Minigames and movies.** Class 1 (Pazaak, swoop, turret) has B, Y, LT and RT, the four events its dispatchers implement; none observed in a minigame. A movie the game allows to be skipped is skipped with A or Start, from inside the movie loop. Sections 7 and 8 below still say classes 1 and 5 are unbound | `miniGameEvents`, `K1_MOVIE_SKIP_MASK`, `NativeMovieFrameK1`; [`controller-native-path.md`](controller-native-path.md), "Input classes" and "Movies" |
+| -- | **Minigames and movies.** Class 1 (Pazaak, swoop, turret) has B, Y, LT and RT, the four events Pazaak's dispatchers implement; none observed in a minigame. The swoop and the turret take no event and are driven by `NativeMiniGameInputK1`: left stick, A in the swoop, the triggers on the turret. A movie the game allows to be skipped is skipped with A or Start, from inside the movie loop. Sections 7 and 8 below still say classes 1 and 5 are unbound | `miniGameEvents`, `K1_MOVIE_SKIP_MASK`, `NativeMovieFrameK1`; [`controller-native-path.md`](controller-native-path.md), "Input classes" and "Movies" |
 | 2026-09-28 | **A with a button focused presses that button once, on every screen.** 62 buttons on 39 panels do nothing but press A, B, X or Y on their own panel; with one focused, A made the panel act and then the button press again (a loop, or A plus Cancel). Now A presses the focused button alone, as a click does, and a panel never hands an event to a control that would press it back. **Seen in game** 2026-09-28 on Gameplay, in-game Options and level-up Skills; see [`../reverse-engineering/retained-xbox-gui-events.md`](../reverse-engineering/retained-xbox-gui-events.md) | `PressFocusedRaiseButtonK1`, `GuardPanelEchoK1` (hook `0x00409E60`) |
 | 2026-10-05 | **The Xbox-style HUD, an option, off by default until 2026-10-08 and on since.** While it is on and the pad is in use, the HUD's row is six places with the first standing for "no slot": A there does the default action, the D-pad walks the row as drawn, B returns to the first place and from there disengages, as X does. With the mouse or keyboard the game's own HUD is back | `K1XboxHud.cpp`, `MoveFocus`; [`controller-xbox-hud.md`](controller-xbox-hud.md) |
 | 2026-10-05 | **All of this is the controller patch's behaviour**, `KOTOR 1 Native Controller Mod + Xbox HUD.kpatch`, on the game's own interface, a widescreen patch's or KMRP's. KMRP's own patch installs no controller hook since that day | `tools/build_controller_kpatch.py`; [`controller-standalone.md`](controller-standalone.md) |
@@ -467,14 +467,16 @@ D-pad binding calls `addEvent(..., K1_CLASS_PCGUI)` and
 | Class | Name | Where | Buttons work? |
 | --- | --- | --- | --- |
 | 0 | `ICPC` | gameplay | **yes** |
-| 1 | `ICMiniGame` | Pazaak, swoop | **no** — untested, predicted |
+| 1 | `ICMiniGame` | Pazaak, swoop, turret | Pazaak untested; the swoop and the turret by hook, not by event |
 | 2 | `ICPCGUI` | menus | **yes** |
 | 3 | `ICDialog` | conversations | **yes, for five events** — see section 8 |
 | 4 | `ICFreeLook` | free look | **no — measured**, except Start and R3's own exit event `0x06`, registered in class 4 on purpose |
 | 5 | `ICMovie` | cutscenes | **no** — untested, predicted |
 
-Classes 1 and 5 are marked predicted, not measured. They follow from the same
-registration and should be confirmed before being relied on.
+Classes 1 and 5 are marked predicted, not measured, and should be confirmed
+before being relied on. In class 1 only Pazaak follows from registration; the
+swoop and the turret are driven by `NativeMiniGameInputK1` (section "Classes 1
+and 5").
 
 ## Dialogue — superseded
 
@@ -703,17 +705,19 @@ facing away, so a targetless state could not be produced. **Needs human QA.**
 default click. It remains a mapping decision — the bridge is one call and moving
 it is one edit.
 
-## Classes 1 and 5 — audited, deliberately not bound
+## Classes 1 and 5 — audited
 
-**ICMiniGame (1).** `CSWMiniPlayer::Fire` is reached from the handler for events
-`0x0C`/`0x19`, and **`0x0C` already carries the game's own joystick
-description** — type 3, device 2, slot `0x71` = `DIJOFS_SLIDER(0)`. The same
-shape as Start: a control code the module would only have to emit. Steering does
-not come from an input event at all; `CSWMiniPlayer::Control` is called from
-`CSWMiniGame::Control`, and the movement axes are already registered in all six
-classes. **Not bound**: a minigame was not reachable from this save, and the
-description is an analog type whose value semantics for a fire action are
-unverified. **S**
+**ICMiniGame (1).** The minigame player's fire (`0x0066DC50`) is reached from
+the action router (`0x00621210`) for events `0x19` and `0xD9` only; `0x0C`
+falls to its default case. `0x19` is the left mouse button (device 1, slot 0)
+and `0xD9` is `keymap.2da`'s `MGshoot` (Space), both registered in class 1
+alone. Steering is the keyboard's class-1 axis events `0x11A`, `0x11B`, `0x11D`
+and `0x11E`, polled by `ProcessInput` and handed to `CSWMiniGame`'s input step
+(`0x00670FB0`); the module's own axes reach class 1 but nothing there polls
+them. Every one of those ids holds another device's description, so the swoop
+and the turret are driven by a hook on that input step,
+`NativeMiniGameInputK1`, rather than by registration. See
+[`controller-native-path.md`](controller-native-path.md), "Input classes". **S**
 
 **ICMovie (5).** `CClientExoApp::CancelMovie` has exactly one caller,
 `0x00402CF4`, inside the movie player's own loop — **no retained input event

@@ -117,6 +117,21 @@ proxy, and it applies the executable changes above as well.
 
 ## [Unreleased]
 
+- **Controller: the swoop race and the Ebon Hawk's turret take the pad** (2026-10-15;
+  `src/controller-native/K1NativeJoystick.cpp`, `NativeMiniGameInputK1`;
+  `src/controller-native/kotor1.hooks.toml`, `0x00670FB0`; `docs/controller-native-path.md`,
+  "Input classes"). Reported from play on a pad-only device: swoop racing did not respond to
+  the pad at all. `ProcessInput` builds the minigames' control vector from the keyboard's
+  class-1 axis events alone (`0x11A`, `0x11B`, `0x11D`, `0x11E`), and fire is `0xD9` (Space)
+  and `0x19` (the left mouse button); every one of those ids holds another device's
+  description, so none can be bound, and the module's own axes reach class 1 with nothing
+  there to poll them. A hook on `CSWMiniGame`'s input step now gives the left stick to an
+  axis the keyboard leaves at zero, and fires as the Xbox manual has it: A in the swoop (the
+  thrusters, then each gear shift), either trigger on the turret. The keyboard and the mouse
+  are unchanged. **Built on Linux and played in a swoop race: the stick steers the way it is
+  pushed, and A starts the thrusters and shifts.** The turret, and the keyboard steering while
+  the pad is connected, have not been played yet.
+
 - **Controller: the left stick walks a conversation's replies** (2026-10-15;
   `src/controller-native/K1NativeJoystick.cpp`, `FillNativeJoystickBufferK1`;
   `docs/controller-behaviour-matrix.md`, the Dialogue row and the left stick's). Reported from

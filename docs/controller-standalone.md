@@ -161,6 +161,7 @@ executables: equal at every site.
 | `0x0063C4F0` | `51 8B 49 68 85 C9` | `NativeParryK1` |
 | `0x00646BA0` | `A1 FC 39 7A 00 56` | `NativeSaberPowerK1` |
 | `0x00679940` | `D9 05 64 D7 73 00` | `NativeJoystickMovementK1` |
+| `0x00670FB0` | `8B 81 80 00 00 00` | `NativeMiniGameInputK1` |
 | `0x00679B71` | `E8 BA 15 E3 FF` | `NativeJoystickSkipNormalizeK1` |
 | `0x00686BA0` | `53 56 57 8B F1` | `NativeActionBarK1` |
 | `0x0068B170` | `6A FF 68 B0 F7 72 00` | `ClearActionBarControlsK1` |

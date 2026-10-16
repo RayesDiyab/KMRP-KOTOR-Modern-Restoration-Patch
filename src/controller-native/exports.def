@@ -27,6 +27,7 @@ EXPORTS
     NativeJoystickBufferK1
     NativeJoystickMovementK1
     NativeJoystickSkipNormalizeK1
+    NativeMiniGameInputK1
     NativeGuiFrameK1
     NativeCameraFrameK1
     NativeMovieFrameK1

@@ -1222,7 +1222,9 @@ void EnsureNativeJoystickK1(void* exoInputInternal)
     //
     // so B, Y and the two bumpers have somewhere to go and A does not: neither
     // minigame dispatcher implements 0x27, and adding it would send a press into
-    // a default case. The analog axes are already registered in all six classes.
+    // a default case. These are Pazaak's. The swoop and the turret take no
+    // event the pad can reach -- not even the axes above, which no class-1 code
+    // polls -- and are driven from NativeMiniGameInputK1 instead.
     //
     // NOT VERIFIED IN PLAY. Pazaak, swoop and the turret cannot be reached from
     // the save the harness loads, so this is registration on measured evidence
@@ -6053,6 +6055,137 @@ extern "C" int __cdecl NativeJoystickSkipNormalizeK1(void* vector)
         EngineFn<NormalizeFn>(K1_VECTOR_NORMALIZE)(vector);
     }
     return 1;
+}
+
+// ------------------------------------------------------------- the minigames
+//
+// The swoop race and the Ebon Hawk's turret take nothing from an input event the
+// pad can reach. ProcessInput (0x00623F48) reads the minigame at
+// module+0x264 and, per frame, builds its control vector from the keyboard's
+// class-1 axis events alone:
+//
+//   swoop  (type 1)  ( clamp(0x11E + 0x11B), 0, 0 )                 0x00624404
+//   turret (type 2)  ( clamp(0x11E + 0x11B), 0, clamp(0x11D + 0x11A) ) 0x006241DD
+//
+// and hands it to CSWMiniGame's input step at 0x00670FB0. Those four ids hold
+// keyboard descriptions, and a description is one per event id, so the stick
+// cannot be bound to them; and the engine's own joystick axes (0x07/0x08) are
+// added to classes 0 and 4 only. Fire -- the swoop's thrusters and gear shift,
+// the turret's cannons -- is events 0xD9 (Space) and 0x19 (the left mouse
+// button), which reach CSWMiniPlayer's fire at 0x0066DC50 through the action
+// router (0x00621CCE); both ids are likewise taken by their own devices.
+//
+// So the pad is given to the minigame here, at the one call both paths share,
+// with the Xbox controls from the console manual: in the swoop the left stick
+// steers and A starts the thrusters and shifts; on the turret the left stick
+// aims and either trigger fires. The keyboard keeps precedence on an axis it
+// is driving, and the mouse's own path (0x17/0x18 after this call) is
+// untouched.
+constexpr int K1_MINIGAME_SWOOP  = 1;
+constexpr int K1_MINIGAME_TURRET = 2;
+constexpr std::size_t K1_MINIGAME_TYPE   = 0x80;
+constexpr std::size_t K1_MINIGAME_PLAYER = 0x24;
+constexpr std::uintptr_t K1_MINI_PLAYER_FIRE = 0x0066DC50;   // __thiscall, the player
+// The guard the action router applies before firing (0x00621CA0).
+constexpr std::uintptr_t K1_FIRE_BLOCKED = 0x005F2DF0;
+
+// The stick's sign against the keyboard pair's, which keymap.2da's axis rows
+// decide rather than anything in the code. The steering sign was confirmed in a
+// swoop race; the turret's pitch sign has not been played, and the debug log
+// prints the keyboard's value beside the stick's to settle it.
+constexpr float K1_MINIGAME_STEER_SIGN = 1.0f;
+constexpr float K1_MINIGAME_PITCH_SIGN = 1.0f;
+
+using MiniPlayerFireFn  = void(__thiscall*)(void*);
+using FireBlockedFn     = int(__cdecl*)();
+
+// The left stick through the movement deadzone, rescaled so the first motion
+// past it starts from zero. Read from the raw XInput position the buffer
+// filler stored this frame, because the engine-side poll ReadNativeStickK1
+// uses is a class-0 read and the minigames run in class 1.
+void MiniGameStickK1(float& x, float& y)
+{
+    x = 0.0f;
+    y = 0.0f;
+    const float nx = static_cast<float>(g_stick.lastRawX) / K1_AXIS_FULL_SCALE;
+    const float ny = static_cast<float>(g_stick.lastRawY) / K1_AXIS_FULL_SCALE;
+    const float magnitude = std::sqrt(nx * nx + ny * ny);
+    if (magnitude <= K1_STICK_DEADZONE) {
+        return;
+    }
+    float scaled = (magnitude - K1_STICK_DEADZONE) / (1.0f - K1_STICK_DEADZONE);
+    if (scaled > 1.0f) {
+        scaled = 1.0f;
+    }
+    x = nx / magnitude * scaled;
+    y = ny / magnitude * scaled;
+}
+
+// CSWMiniGame's input step entry, ecx = the minigame; vectorArg is the stack
+// slot [esp+4], which holds the address of its control vector. Runs the
+// original afterwards.
+extern "C" void __cdecl NativeMiniGameInputK1(void* miniGame, float** vectorArg)
+{
+    static bool fireWas = false;
+    if (!miniGame || !IsReadableK1(vectorArg, sizeof(float*)) || !g_stick.registered) {
+        return;
+    }
+    float* const vector = *vectorArg;
+    if (!IsReadableK1(vector, 3 * sizeof(float)) ||
+        !IsReadableK1(FieldAt<int>(miniGame, K1_MINIGAME_TYPE), sizeof(int))) {
+        return;
+    }
+    const int type = *FieldAt<int>(miniGame, K1_MINIGAME_TYPE);
+    if (type != K1_MINIGAME_SWOOP && type != K1_MINIGAME_TURRET) {
+        return;
+    }
+
+    float stickX = 0.0f;
+    float stickY = 0.0f;
+    MiniGameStickK1(stickX, stickY);
+    const float keyboardX = vector[0];
+    const float keyboardZ = vector[2];
+    if (keyboardX == 0.0f) {
+        vector[0] = stickX * K1_MINIGAME_STEER_SIGN;
+    }
+    if (type == K1_MINIGAME_TURRET && keyboardZ == 0.0f) {
+        vector[2] = stickY * K1_MINIGAME_PITCH_SIGN;
+    }
+
+    // Edge-triggered, as a key press is: one shift per press of A, one shot
+    // per pull of a trigger.
+    const bool fireNow = type == K1_MINIGAME_SWOOP
+        ? (g_stick.lastButtons & 0x1000) != 0          // XINPUT_GAMEPAD_A
+        : (g_stick.lastTriggers & 0x3) != 0;           // LT or RT past threshold
+    const bool pressed = fireNow && !fireWas;
+    fireWas = fireNow;
+    bool fired = false;
+    if (pressed && EngineFn<FireBlockedFn>(K1_FIRE_BLOCKED)() == 0) {
+        void* const player = *FieldAt<void*>(miniGame, K1_MINIGAME_PLAYER);
+        if (LooksLikePointerK1(player)) {
+            EngineFn<MiniPlayerFireFn>(K1_MINI_PLAYER_FIRE)(player);
+            fired = true;
+        }
+    }
+
+    if (KmrpDebugLevel() >= 2) {
+        static int lastKx = 0, lastKz = 0, lastSx = 0, lastSy = 0;
+        const int kx = static_cast<int>(keyboardX * 1000.0f);
+        const int kz = static_cast<int>(keyboardZ * 1000.0f);
+        const int sx = static_cast<int>(stickX * 1000.0f);
+        const int sy = static_cast<int>(stickY * 1000.0f);
+        if (pressed || kx != lastKx || kz != lastKz ||
+            sx - lastSx > 50 || lastSx - sx > 50 || sy - lastSy > 50 || lastSy - sy > 50) {
+            lastKx = kx;
+            lastKz = kz;
+            lastSx = sx;
+            lastSy = sy;
+            char line[128];
+            wsprintfA(line, "minigame type %d key x=%d z=%d stick x=%d y=%d%s", type, kx, kz, sx, sy,
+                      pressed ? (fired ? " fire" : " fire-blocked") : "");
+            ControllerLogK1(line);
+        }
+    }
 }
 
 // Diagnostic dump. Written from the movement hook a few times a second, so a

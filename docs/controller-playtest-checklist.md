@@ -166,7 +166,9 @@ Do not spend time diagnosing these; they are measured and understood.
 | [ ] | Dialogue | B, X, Y, Back, LT, RT, Start | **nothing** — no handler in the dialogue dispatcher |
 | [ ] | Dialogue | right stick | camera still moves |
 | [ ] | Free look | A, B, D-pad | nothing; only Start works (the game's own event), R3 or LB exits |
-| [ ] | Pazaak / swoop | buttons | only B, Y, LT and RT are registered in class 1, the four events the minigame dispatchers implement; A is not. **Never observed**, please note what responds |
+| [ ] | Pazaak | buttons | only B, Y, LT and RT are registered in class 1, the four events Pazaak's dispatchers implement; A is not. **Never observed**, please note what responds |
+| [ ] | Swoop race | left stick, A | the stick steers the way it is pushed, proportionally; A starts the thrusters, and again shifts each time the speed indicator tops out; A/D and the arrows still steer |
+| [ ] | Ebon Hawk turret | left stick, LT, RT | the stick moves the reticle the way it is pushed; either trigger fires one shot per pull; the mouse still aims and fires |
 | [ ] | Cutscenes | buttons | A or Start skips a movie the game allows to be skipped; nothing else does anything (class 5 has no retained event) |
 
 ---

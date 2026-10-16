@@ -567,6 +567,29 @@ exclude_from_restore = ["eax"]
 source = "ecx"
 type = "pointer"
 
+# CSWMiniGame's per-frame input step, called by ProcessInput for the swoop
+# (0x00624404) and the turret (0x006241DD) with the vector it built from the
+# keyboard's class-1 axes. The handler adds the left stick where the keyboard is
+# idle and performs the fire the pad cannot reach as an event: A in the swoop,
+# either trigger on the turret, as on Xbox. The original runs afterwards.
+#
+# The stolen bytes are mov eax, [ecx+0x80] -- six bytes, position-independent.
+[[hooks]]
+address = 0x00670FB0
+type = "detour"
+function = "NativeMiniGameInputK1"
+original_bytes = [0x8B, 0x81, 0x80, 0x00, 0x00, 0x00]
+skip_original_bytes = false
+exclude_from_restore = []
+
+[[hooks.parameters]]
+source = "ecx"
+type = "pointer"
+
+[[hooks.parameters]]
+source = "esp+4"
+type = "pointer"
+
 # The GUI's own per-frame update, where KMRP's focus navigation performs its
 # moves. It has to be here rather than in the input hook: CSWGuiPanel::
 # SetActiveControl changes focus, plays a sound and lets controls redraw, and

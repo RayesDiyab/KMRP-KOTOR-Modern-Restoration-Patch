@@ -42,6 +42,7 @@ The first four:
 | `NativeJoystickBufferK1` | `0x005E30F6` | replaces `GetJoystickBuffer`, emits records from XInput |
 | `NativeJoystickMovementK1` | `0x00679940` | gameplay heartbeat only; writes nothing |
 | `NativeJoystickSkipNormalizeK1` | `0x00679B71` | always reproduces vanilla; exists because the stolen bytes are a relative call |
+| `NativeMiniGameInputK1` | `0x00670FB0` | the swoop's and the turret's control vector and fire, which no event reaches -- see "Input classes" |
 
 ## The mapping
 
@@ -688,15 +689,32 @@ class was measured to implement it.
 | class | what it is | bound |
 | --- | --- | --- |
 | 0 ICPC | gameplay | both sticks, all face buttons, D-pad, Start; the bumpers, Back and the triggers carry the gameplay verbs (`K1_GAMEPLAY_ACTIONS`) rather than their GUI events; A also bridges to the world action `0xEF` |
-| 1 ICMiniGame | Pazaak, swoop, turret | both sticks, plus B / Y / LT / RT -- the four events the minigame dispatchers implement |
+| 1 ICMiniGame | Pazaak, swoop, turret | B / Y / LT / RT, the four events Pazaak's dispatchers implement; the swoop and the turret through `NativeMiniGameInputK1` |
 | 2 ICPCGUI | menus | both sticks, all face buttons, bumpers, triggers, D-pad, Start |
 | 3 ICDialog | conversation | A, D-pad up/down, LB, RB -- the five events the dialogue dispatchers implement |
 | 4 ICFreeLook | free look | the right stick, and LB to leave (`0x06` on its slot); R3's press here is bridged to the same exit |
 | 5 ICMovie | pre-rendered movies | **nothing, and nothing can be** -- see below |
 
-The axes are registered in all six classes; only the buttons are selective.
+The module's own axes (`0x3B`/`0x3C`) are registered in all six classes; only
+the buttons are selective. Registration is not delivery, though: no class-1
+code polls those axes.
 
-**ICMiniGame is registration on evidence, not on a pressed button.** From the
+**The swoop and the turret take nothing from an event.** `ProcessInput`
+(`0x00623F48`) builds their control vector from the keyboard's class-1 axis
+events alone -- `(0x11E + 0x11B, 0, 0)` for the swoop, `(0x11E + 0x11B, 0,
+0x11D + 0x11A)` for the turret, each clamped to +/-1 -- and passes it to
+`CSWMiniGame`'s input step at `0x00670FB0`. Fire is events `0xD9` (Space) and
+`0x19` (the left mouse button), routed to `CSWMiniPlayer`'s fire at
+`0x0066DC50`. All six ids hold keyboard or mouse descriptions, a description is
+one per event id, and the engine's own joystick axes (`0x07`/`0x08`) are added
+to classes 0 and 4 only, so none of this can be bound. `NativeMiniGameInputK1`
+hooks the input step instead: the left stick fills an axis the keyboard leaves
+at zero, A fires in the swoop (thrusters, then each gear shift) and either
+trigger fires on the turret, as the Xbox manual gives them. Read from the
+executable decrypted in memory. Played in a swoop race, steering and A; the
+turret's aim and fire have not been played.
+
+**Pazaak's buttons are registration on evidence, not on a pressed button.** From the
 retained inventory, `PAZAAK_SETUP` (`0x006816F0`) implements `0x28`/`0x2E`,
 `0x2A`, `0x35` and `0x36`, and `PAZAAK_GAME` (`0x0067E8F0`) implements
 `0x28`/`0x2E`. Neither implements `0x27`, so A is deliberately left out rather
