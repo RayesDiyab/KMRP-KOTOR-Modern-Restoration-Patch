@@ -5,6 +5,7 @@
 #include <windows.h>
 
 #include "K1XboxControlsXInput.h"
+#include "../K1PartyRosterState.h"
 
 bool ControllerHeldRecentlyK1();    // K1ControllerBackend.cpp
 bool ControllerTypesByItselfK1();
@@ -781,7 +782,24 @@ struct ControllerPromptBinding {
     // the highlight one.
     const char* restore;
     const char* restoreHilight;
+    const char* controlTag; // named bindings on the extensible party screen
 };
+
+void* ResolveK1PromptControl(void* panel,const ControllerPromptBinding& binding)
+{
+    if(binding.controlTag && panel) {
+        const auto found=KmrpPartyBindingsK1().find(panel);
+        if(found!=KmrpPartyBindingsK1().end()) {
+            for(unsigned i=0;i<5;++i)if(!std::strcmp(binding.controlTag,KmrpPartyTagK1(i)))
+                return KmrpPartyControlK1(panel,i);
+            return nullptr;
+        }
+        // A roster constructor that has not bound its controls yet must never
+        // fall back to the stock embedded offsets.
+        if(KmrpPartyRoster32ActiveK1()) return nullptr;
+    }
+    return panel?static_cast<unsigned char*>(panel)+binding.controlOffset:nullptr;
+}
 
 // The inventory filter button. Its caption is "Show " followed by the filter it
 // will switch to, and the engine picks that from a six-entry STRREF table at
@@ -880,8 +898,7 @@ bool K1OtherBadgedControlFocused(void* panel,
         }
         // Direct arithmetic rather than OffsetPointer, which is defined
         // further down this file.
-        void* const other = static_cast<unsigned char*>(panel)
-            + prompts[i].controlOffset;
+        void* const other = ResolveK1PromptControl(panel,prompts[i]);
         if (other == active) {
             return true;
         }
@@ -1006,9 +1023,9 @@ constexpr ControllerPromptBinding K1_SCRIPT_SELECT_PROMPTS[] = {
 // branch at 0x006BECD0 pushes 38455 or 38456 -- so both are declared and the
 // badge is placed against the wider, "Remove".
 constexpr ControllerPromptBinding K1_PARTY_SELECT_PROMPTS[] = {
-    {0x38B8, "kmrpa_ptyadd",  PromptVariantK1::FocusFallback},
-    {0x28B0, "kmrpa_ptyok",   PromptVariantK1::FocusOnly},
-    {0x36F4, "kmrpb_ptyback", PromptVariantK1::None},
+    {0x38B8, "kmrpa_ptyadd",  PromptVariantK1::FocusFallback, nullptr, nullptr, "BTN_ACCEPT"},
+    {0x28B0, "kmrpa_ptyok",   PromptVariantK1::FocusOnly, nullptr, nullptr, "BTN_DONE"},
+    {0x36F4, "kmrpb_ptyback", PromptVariantK1::None, nullptr, nullptr, "BTN_BACK"},
 };
 
 constexpr ControllerPromptBinding K1_QUESTITEM_PROMPTS[] = {
@@ -2900,6 +2917,9 @@ void UpdateK1ControllerPrompts()
             }
         }
     }
+    // Runs even in mouse mode and before the prompt-cache early return.
+    KmrpMirrorPartyPageFocusK1(panel);
+    KmrpPartyPortraitsK1(panel);
     // Show prompts while the pad is what the player is actually using, and drop
     // them the moment they touch mouse or keyboard. This was previously tied to
     // mere connection because the mouse hook could not tell KOTOR's own cursor
@@ -2948,7 +2968,7 @@ void UpdateK1ControllerPrompts()
         const ControllerPromptBinding* prompts =
             GetK1ControllerPrompts(panel, &count);
         for (int i = 0; i < count; ++i) {
-            void* control = OffsetPointer(panel, prompts[i].controlOffset);
+            void* control = ResolveK1PromptControl(panel,prompts[i]);
             const char* shown = controllerMode
                 ? K1PromptResref(prompts[i], panel, control, prompts, count, nullptr)
                 : nullptr;
@@ -4606,6 +4626,9 @@ extern "C" void __cdecl CaptureActionBarInputK1(
             return;
         }
         if (isPartySelect) {
+            // Its 4x4 pages have their own MOVETO links; the stock 3x3 repair
+            // would override those links and use assumptions from the 3x3 panel.
+            if (KmrpPartyPagesBoundK1(panel)) return;
             if (HasK1BlockingModal(manager, panel)) {
                 return;
             }
@@ -5549,6 +5572,7 @@ extern "C" void __cdecl DispatchMenuInputK1(void* clientApp)
         return;
     }
     if (isPartySelect) {
+        if (KmrpPartyPagesBoundK1(panel)) return;
         void* target = nullptr;
         if ((pending & PENDING_K1_PARTY_BUTTON_ROW) != 0) {
             target = OffsetPointer(

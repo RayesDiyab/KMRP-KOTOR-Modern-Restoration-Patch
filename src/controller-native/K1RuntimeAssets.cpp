@@ -12,6 +12,8 @@
 #include "NativeAssets.generated.h"
 #include "KmrpOptions.h"
 #include "K1Xpress.h"
+#include "K1PartyRosterGui.h"
+#include "K1PartyRosterState.h"
 #include <windows.h>
 #include <bcrypt.h>
 #include <array>
@@ -19,6 +21,7 @@
 #include <vector>
 #include <string>
 #include <cstring>
+#include <cstdint>
 #include <cstdlib>
 #include <cmath>
 #include <cstdio>
@@ -43,6 +46,8 @@ std::map<std::wstring, Key> written;
 int currentWidth = 0, currentHeight = 0;
 bool registered = false;
 std::string directoryAlias;
+// True only after adapting the supplied roster GUI successfully for this size.
+bool managedPartyRoster = false;
 
 bool Sha(const unsigned char* data, unsigned size, Key& result)
 {
@@ -355,6 +360,38 @@ float FontHeightOf(const std::vector<unsigned char>& txi)
     return 0.0f;
 }
 
+bool AdaptPartyRosterK1()
+{
+    managedPartyRoster = false;
+    if (!KmrpPartyRoster32ActiveK1()) return false;
+    wchar_t game[MAX_PATH];
+    const DWORD length=GetModuleFileNameW(nullptr,game,MAX_PATH);
+    wchar_t* slash=length && length<MAX_PATH?wcsrchr(game,L'\\'):nullptr;
+    if (!slash) return false;
+    *slash=0;
+    const std::wstring source=std::wstring(game)+L"\\override\\partyselection.gui";
+    std::vector<unsigned char> roster,layout,adapted;
+    if (!Read(cache+L"\\partyselection.gui",layout)) return false;
+    WIN32_FILE_ATTRIBUTE_DATA info{};
+    const bool supplied=GetFileAttributesExW(source.c_str(),GetFileExInfoStandard,&info)!=0;
+    std::string reason;
+    bool built=false;
+    if(supplied) {
+        // Preserve mod-specific captions/IDs/navigation and refuse malformed
+        // input rather than masking it with the generated fallback.
+        if(info.nFileSizeHigh || info.nFileSizeLow>(2u<<20) || !Read(source,roster))return false;
+        built=KmrpBuildPartyRosterGui(roster,layout,adapted,reason);
+    } else built=KmrpGeneratePartyRosterGui(layout,adapted,reason);
+    if(!built) {
+        KmrpRuntimeLog(("[KMRP] party roster: original layout retained; "+reason).c_str());
+        return false;
+    }
+    if (!Write("partyselection.gui",adapted)) return false;
+    managedPartyRoster = true;
+    KmrpRuntimeLog("[KMRP] party roster: runtime layout ready for this resolution; source files unchanged");
+    return true;
+}
+
 unsigned YieldToOverride()
 {
     static bool listed = false;
@@ -393,6 +430,9 @@ unsigned YieldToOverride()
         // Not resources of the game: the controller library, which is loaded from
         // here, and the blend helper's table.
         if (extension == L".dll" || extension == L".bin") continue;
+        // The only managed exception: this is a validated, adapted copy of the
+        // same supplied roster GUI, not a replacement for an arbitrary mod.
+        if (managedPartyRoster && name == L"partyselection.gui") continue;
         const bool texture = extension == L".tga" || extension == L".tpc" || extension == L".txi";
         if (!names.count(name) && !(texture && textures.count(name.substr(0, dot)))) continue;
         const std::wstring path = cache + L"\\" + found.cFileName;
@@ -601,6 +641,7 @@ bool KmrpRuntimeAssetsDimensions(int width, int height)
     }
     const ULONGLONG filesTime = GetTickCount64() - started;
     GameArt(*selected, height);
+    AdaptPartyRosterK1();
     if (const unsigned yielded = YieldToOverride()) {
         char line[160];
         sprintf_s(line, "[KMRP] %u of KMRP's interface files left out for %dx%d: the Override folder has its own", yielded, width, height);

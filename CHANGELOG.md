@@ -117,6 +117,34 @@ proxy, and it applies the executable changes above as well.
 
 ## [Unreleased]
 
+- **Expanded party roster compatibility** (2026-10-17; issue #38): generate
+  the 32-slot party GUI at runtime from the current KMRP layout when the active
+  roster patch has no supplied GUI. This covers the missing file in official
+  KPM 0.7.3. A supplied valid roster GUI keeps its IDs, navigation, captions and
+  portrait fills while receiving KMRP geometry/style; its source stays unchanged.
+  Rebuild on a resolution change. Resolve action buttons and page arrows by their
+  native tag bindings and live control IDs, supporting separately allocated and
+  embedded controls. Controller prompts use those bindings and leave the roster's
+  4x4 navigation intact. Lookup handles the release's compact/reordered list;
+  IDs are not list positions. Empty portrait labels use the native creature
+  portrait getter, working around the released mod's base-object getter, and
+  unused extra-slot frames are hidden. Portrait brightness follows native
+  selectability instead of selection: available choices stay bright, blocked
+  choices stay dim, and missing crew keep their original silhouettes without
+  the release's extra white frames. Arrows have square hit targets and copy OK's native
+  focus policy; mouse entry/exit remain the engine's.
+  **Corrections:** the first fixture used a rebuilt backend; it did not prove
+  compatibility with the released implementation. Earlier hover cleanup crashed
+  on a null hover, then disturbed portrait focus. The custom hover handlers and
+  relocated button offsets have been removed. The user confirmed the previous
+  native-policy fix in the rebuilt fixture. Released-backend play-testing exposed
+  the empty portrait names, then the separate selection-based dimming error;
+  the user confirmed the installed brightness correction looks correct. Automated checks cover generated/supplied
+  layouts at 71 sizes, native control lookup with arbitrary IDs, cache rebuilds,
+  absent/partial activation and malformed fallback. Official KPM reinstall/start
+  succeeds without an Override GUI; live cache contains the generated layout.
+  See [roster compatibility](reverse-engineering/party-roster-compatibility.md).
+
 - **Controller: the left stick navigates the screens that navigate themselves** (2026-10-16;
   `src/controller-native/K1NativeJoystick.cpp`, `FillNativeJoystickBufferK1`;
   `docs/controller-behaviour-matrix.md`, the left stick's row). Reported from play on a

@@ -2,6 +2,7 @@
 // Text, event bindings, focus, list selection and control ownership remain native.
 #include "K1RuntimeLayout.h"
 #include "K1RuntimeAssets.h"
+#include "K1PartyRosterState.h"
 #include <windows.h>
 #include <map>
 #include <vector>
@@ -324,7 +325,10 @@ void PlaceLists(void* manager, int width, int height)
 {
     for (auto& item : panels) {
         Panel& panel = item.second;
-        if (panel.rowsPlaced || Field<void*>(item.first, kPanelManager) != manager) continue;
+        if (Field<void*>(item.first, kPanelManager) != manager) continue;
+        KmrpMirrorPartyPageFocusK1(item.first);
+        KmrpPartyPortraitsK1(item.first);
+        if (panel.rowsPlaced) continue;
         panel.rowsPlaced = true;
         for (auto& entry : panel.controls) {
             Control& tracked = entry.second;

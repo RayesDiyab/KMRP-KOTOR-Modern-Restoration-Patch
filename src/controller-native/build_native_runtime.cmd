@@ -31,7 +31,7 @@ if errorlevel 1 exit /b %errorlevel%
 cl /nologo /Brepro /std:c++17 /O2 /fp:strict /EHsc /MT /LD /DKMRP_NATIVE_RUNTIME ^
   /Ibuild\native-runtime /Isrc\controller-native /Ibuild\deps\SDL3-3.4.16\include ^
   src\controller-native\K1RuntimeResolution.cpp src\controller-native\K1RuntimeEngine.cpp ^
-  src\controller-native\K1RuntimeAssets.cpp src\controller-native\K1Xpress.cpp ^
+  src\controller-native\K1RuntimeAssets.cpp src\controller-native\K1PartyRosterGui.cpp src\controller-native\K1Xpress.cpp ^
   src\controller-native\K1RuntimeLayout.cpp ^
   src\controller-native\K1RuntimeNvidia.cpp ^
   src\controller-native\K1NativeJoystick.cpp src\controller-native\K1ControllerBackend.cpp ^

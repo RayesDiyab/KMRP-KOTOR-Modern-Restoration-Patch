@@ -21,6 +21,7 @@
 #include "K1ControllerLayout.h"
 #include "K1Rumble.h"
 #include "KmrpOptions.h"
+#include "K1PartyRosterState.h"
 #ifdef KMRP_NATIVE_RUNTIME
 #include "K1RuntimeResolution.h"
 #include "K1RuntimeLayout.h"
@@ -48,6 +49,8 @@ bool IsControllerInputActiveK1();
 // Defined in vendor/K1XboxControls.cpp beside the panel vtables and control
 // offsets it reads. Declared here for the same linkage reason as above.
 bool MessageBoxCancelHasFocusK1(void* panel);
+
+void CapturePartyRosterBindingsK1(void* panel);
 
 namespace {
 
@@ -2680,6 +2683,7 @@ extern "C" void __cdecl NativeFreeSaveBufferK1(void* buffer)
 // against. Panels that are not party screens are left alone.
 extern "C" void __cdecl NativePanelReleaseGffK1(void* panel)
 {
+    CapturePartyRosterBindingsK1(panel);
     ControllerLayoutReleaseGffK1(panel);
 #ifdef KMRP_CONTROLLER_STANDALONE
     KmrpXboxHudForgetK1(panel);
@@ -4082,6 +4086,96 @@ void ForgetGuiCuesK1(void* panel)
             reinterpret_cast<DeletingDtorFn>(vtable[0])(cue.control, 1);
         }
         cue = GuiCueK1{};
+    }
+}
+
+// Resolve the roster's action controls by tag once, while the native GUI GFF
+// still exists. The ID array owns the live instances, including KPM's external
+// view buttons. Construction order/parent allocation size do not matter.
+void CapturePartyRosterBindingsK1(void* panel)
+{
+    if(!panel)return;
+    if(*FieldAt<std::uintptr_t>(panel,0)==K1_BASE_PANEL_VTABLE) {
+        KmrpPartyBindingsK1().erase(panel);return;
+    }
+    if(*FieldAt<std::uintptr_t>(panel,0)!=0x00756D28 ||
+       !*FieldAt<void*>(panel,K1_PANEL_GFF) || !KmrpPartyRoster32ActiveK1())return;
+    const int count=*FieldAt<int>(panel,K1_PANEL_CONTROL_COUNT);
+    auto before=*FieldAt<void**>(panel,K1_PANEL_CONTROL_ARRAY);
+    if(!before || count<=0 || count>512)return;
+    void* held[512];std::memcpy(held,before,count*sizeof(void*));
+    KmrpPartyIdsK1 ids{{-1,-1,-1,-1,-1}};
+    for(unsigned i=0;i<5;++i) {
+        void* probe=EngineFn<OperatorNewFn>(K1_OPERATOR_NEW)(K1_GUI_LABEL_SIZE);
+        if(!probe)return;
+        EngineFn<GuiLabelCtorFn>(K1_GUI_LABEL_CTOR)(probe);
+        *FieldAt<int>(probe,K1_CONTROL_ID)=-1;
+        void* name[2]={};
+        EngineFn<ExoStringCtorFn>(K1_EXOSTRING_CTOR)(&name,KmrpPartyTagK1(i));
+        EngineFn<BindControlFn>(K1_GUI_PANEL_BIND_CONTROL)(panel,probe,&name,0);
+        EngineFn<ExoStringDtorFn>(K1_EXOSTRING_DTOR)(&name);
+        const int id=*FieldAt<int>(probe,K1_CONTROL_ID);
+        auto after=*FieldAt<void**>(panel,K1_PANEL_CONTROL_ARRAY);
+        if(after==before && *FieldAt<int>(panel,K1_PANEL_CONTROL_COUNT)==count && id>=0 && id<512) {
+            for(int j=0;j<count;++j) {
+                if(after[j]==probe)after[j]=held[j];
+                if(held[j] && *FieldAt<int>(held[j],K1_CONTROL_ID)==id &&
+                   *FieldAt<void*>(held[j],0x34)==panel)ids[i]=id;
+            }
+        }
+        using Dtor=void*(__thiscall*)(void*,unsigned);
+        reinterpret_cast<Dtor>((*FieldAt<void**>(probe,0))[0])(probe,1);
+    }
+    for(int id:ids)if(id<0)return;
+    KmrpPartyBindingsK1()[panel]=ids;
+}
+
+// UI repair for the released external roster's empty portrait labels. Query
+// object IDs through its exported API (no mod-state offsets), then use the
+// creature's native portrait getter rather than the base object's empty field.
+void KmrpPartyPortraitsK1(void* panel)
+{
+    if(!KmrpPartyPagesBoundK1(panel))return;
+    HMODULE roster=GetModuleHandleW(L"party-roster-limit-32-k1.dll");
+    if(!roster)return;
+    using NpcObject=DWORD(__cdecl*)(void*,const int*,const int*,const int*);
+    auto objectId=reinterpret_cast<NpcObject>(GetProcAddress(roster,"GetNPCObject32"));
+    using Selectability=int(__cdecl*)(void*,const int*);
+    auto selectable=reinterpret_cast<Selectability>(GetProcAddress(roster,"GetNPCSelectability32"));
+    if(!objectId || !selectable)return;
+    // These are the supported K1 native getters, not addresses inside the mod.
+    constexpr unsigned char creatureGetter[]={0x8B,0x81,0x74,0x0A,0x00,0x00};
+    if(std::memcmp(reinterpret_cast<const void*>(0x004F8370),creatureGetter,sizeof creatureGetter))return;
+    void* app=*reinterpret_cast<void**>(0x007A39FC);
+    if(!IsReadableK1(app,12))return;
+    void* server=*FieldAt<void*>(app,8);
+    if(!IsReadableK1(server,8))return;
+    using Party=void*(__thiscall*)(void*);
+    void* party=EngineFn<Party>(0x004AEE70)(server);
+    void** controls=*FieldAt<void**>(panel,K1_PANEL_CONTROL_ARRAY);
+    const int count=*FieldAt<int>(panel,K1_PANEL_CONTROL_COUNT);
+    if(!controls || count<=0 || count>512)return;
+    for(int i=0;i<count;++i) {
+        void* record=controls[i];
+        if(!IsReadableK1(record,4) || *FieldAt<std::uintptr_t>(record,0)!=0x00756BB8 ||
+           !IsReadableK1(record,0x454))continue;
+        KmrpPresentPartyRecordK1(panel,record,
+            [&](int slot) { return selectable(party,&slot)!=0; },
+            [&](int slot,char (&portrait)[16]) {
+                const int no=0;
+                const DWORD id=objectId(party,&slot,&no,&no); // never create/recover a creature
+                if(id==0x7F000000u)return false;
+                using Creature=void*(__thiscall*)(void*,DWORD);
+                void* creature=EngineFn<Creature>(0x004AE770)(server,id);
+                if(!creature)return false;
+                using Portrait=void*(__thiscall*)(void*,void*);
+                EngineFn<Portrait>(0x004F8370)(creature,portrait);
+                return portrait[0]!=0;
+            },
+            [](void* label,const char* portrait) {
+                using Fill=void(__thiscall*)(void*,const void*,int);
+                EngineFn<Fill>(0x00414C00)(static_cast<unsigned char*>(label)+0x70,portrait,0);
+            });
     }
 }
 
