@@ -40,7 +40,7 @@ cl /nologo /Brepro /std:c++17 /O2 /fp:strict /EHsc /MT /LD /DKMRP_NATIVE_RUNTIME
   src\controller-native\K1RuntimeAssets.cpp src\controller-native\K1PartyRosterGui.cpp src\controller-native\K1Xpress.cpp ^
   src\controller-native\K1RuntimeLayout.cpp ^
   src\controller-native\K1TextLayout.cpp src\controller-native\K1TextRows.cpp ^
-  src\controller-native\K1TextOptions.cpp ^
+  src\controller-native\K1TextOptions.cpp src\controller-native\K1HudOptions.cpp src\controller-native\K1PcHud.cpp ^
   src\controller-native\K1RuntimeNvidia.cpp ^
   src\controller-native\K1NativeJoystick.cpp src\controller-native\K1ControllerBackend.cpp ^
   src\controller-native\K1ControllerLayout.cpp src\controller-native\K1Rumble.cpp ^

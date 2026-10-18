@@ -4,6 +4,7 @@
 #include "K1RuntimeAssets.h"
 #include "K1PartyRosterState.h"
 #include "K1TextOptions.h"
+#include "K1HudOptions.h"
 #include "K1TextLayout.h"
 #include <windows.h>
 #include <map>
@@ -85,6 +86,17 @@ struct Gff {
             !field(child, "WIDTH", 5, width) || !field(child, "HEIGHT", 5, height)) return false;
         result = {static_cast<int>(left), static_cast<int>(top), static_cast<int>(width), static_cast<int>(height)};
         return result.width >= 0 && result.height >= 0 && result.width <= 32767 && result.height <= 32767;
+    }
+    // A ResRef (type 11): its field data is a length byte and that many characters.
+    bool resref(unsigned object, const char* name, char (&result)[17]) const {
+        unsigned offset, size = 0;
+        result[0] = 0;
+        if (!field(object, name, 11, offset) || !range(values + offset, 1, 1)) return false;
+        size = data[values + offset];
+        if (size > 16 || !range(values + offset + 1, size, 1)) return false;
+        std::memcpy(result, data.data() + values + offset + 1, size);
+        result[size] = 0;
+        return true;
     }
     bool tag(unsigned object, std::string& result) const {
         unsigned offset, size;
@@ -564,6 +576,8 @@ extern "C" void __cdecl KmrpPanelControlK1(void* panel, void** controlSlot, void
 extern "C" void __cdecl KmrpPanelDestroyedK1(void* panel)
 {
     KmrpTextOptionsDestroyedK1(panel);
+    KmrpHudOptionsDestroyedK1(panel);
+    KmrpPcHudForgetK1(panel);
     KmrpTextLayoutForgetPanelK1(panel);
     const auto found = panels.find(panel);
     if (found == panels.end()) return;
@@ -580,6 +594,39 @@ void* KmrpRuntimeControlByTagK1(void* panel, const char* tag)
     if (p == panels.end()) return nullptr;
     const auto c = p->second.controls.find(tag);
     return c == p->second.controls.end() ? nullptr : c->second.pointer;
+}
+
+bool KmrpRuntimeGuiPiecesK1(const char* resource, std::vector<KmrpGuiPiece>& pieces)
+{
+    pieces.clear();
+    if (!resource) return false;
+    const std::string name(resource, strnlen_s(resource, 16));
+    if (name.empty() || name.find_first_of("/\\:") != std::string::npos) return false;
+    Gff gff;
+    if (!gff.load(KmrpRuntimeAssetDirectory() + L"\\" + std::wstring(name.begin(), name.end()) + L".gui")) return false;
+    unsigned offset, count;
+    if (!gff.field(0, "CONTROLS", 15, offset) || !gff.integer(gff.lists + offset, count) || count > 512 ||
+        !gff.range(gff.lists + offset + 4, count, 4)) return false;
+    for (unsigned i = 0; i < count; ++i) {
+        unsigned object, border;
+        std::string tag;
+        Extent extent;
+        if (!gff.integer(gff.lists + offset + 4 + i * 4, object) || !gff.tag(object, tag) ||
+            !gff.extent(object, extent) || tag.size() >= sizeof(KmrpGuiPiece{}.tag)) continue;
+        KmrpGuiPiece piece{};
+        std::memcpy(piece.tag, tag.data(), tag.size());
+        piece.left = extent.left; piece.top = extent.top; piece.width = extent.width; piece.height = extent.height;
+        if (gff.field(object, "BORDER", 14, border)) gff.resref(border, "FILL", piece.fill);
+        pieces.push_back(piece);
+    }
+    return true;
+}
+
+std::vector<void*> KmrpRuntimeAllPanelsK1()
+{
+    std::vector<void*> result;
+    for (const auto& p : panels) result.push_back(p.first);
+    return result;
 }
 
 std::vector<void*> KmrpRuntimePanelsK1(const char* resource)

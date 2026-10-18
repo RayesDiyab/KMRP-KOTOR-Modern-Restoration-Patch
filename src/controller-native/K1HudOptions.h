@@ -1,0 +1,12 @@
+#pragma once
+
+// The HUD Size page in Graphics Options (K1HudOptions.cpp).
+// Every GUI frame: the page's entry button, the page itself, its saving and preview.
+void KmrpHudOptionsFrameK1(void* manager);
+void KmrpHudOptionsDestroyedK1(void* panel);
+// The size chosen for an element (KmrpHudOptions::Element), in percent; 50 is today's.
+int KmrpHudSizePercentK1(int element);
+// The mouse and keyboard HUD placed from KMRP's table and sized (K1PcHud.cpp): every
+// GUI frame, and as a panel is destroyed.
+void KmrpPcHudFrameK1(void* manager);
+void KmrpPcHudForgetK1(void* panel);

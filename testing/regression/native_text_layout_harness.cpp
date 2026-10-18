@@ -16,6 +16,8 @@ void KmrpTextRowsForgetK1(void*) {}
 void KmrpTextRowsViewportK1(int) {}
 #endif
 void KmrpGrantedPopupFrameK1() {}  // K1GrantedPopup.cpp: the popup is not part of these mocks
+int hudTextSize=50;  // K1TextOptions.cpp's size for a font; 50 is the original size
+int KmrpTextSizeForFontK1(const char*) {return hudTextSize;}
 namespace Mock {
 struct Bytes {
     alignas(8) unsigned char data[1024]{};
@@ -232,8 +234,12 @@ int main() {
     }
     {
         Mock::Text reason("Combat paused",280,60),press("Press SPACE to resume",280,30);
-        Mock::Bytes panel,hud,manager,r,p,b,menu[8];
-        Mock::Control(panel,{100,80,300,110});Mock::Control(hud,{0,0,1920,1080});
+        // The HUD is a CSWGuiMainInterface: large enough for its action description
+        // label at +0xA1D4, which the frame reads (KmrpTextIdealHeightK1).
+        struct Hud { alignas(8) unsigned char data[0xA400]{}; operator void*() {return data;} };
+        static Hud hud;
+        Mock::Bytes panel,manager,r,p,b,menu[8];
+        Mock::Control(panel,{100,80,300,110});At<Rect>(hud,4)={0,0,1920,1080};
         Mock::Control(r,{10,8,280,60});Mock::Control(p,{10,70,280,30});Mock::Control(b,{10,8,280,92});
         reason.Attach(r);press.Attach(p);At<unsigned>(p,0x44)=2;
         At<void*>(panel,0x18)=manager;At<void*>(hud,0x18)=manager;
@@ -265,6 +271,22 @@ int main() {
         At<Rect>(menu[0],4).left=-1000;
         Mock::Control(panel,{10,10,200,100});KmrpTextLayoutFrameK1(manager);
         assert(Same(At<Rect>(panel,4),Rect{10,10,200,100}));
+        // The HUD's action description is measured at the original text size (50%),
+        // so the action box the game sizes from it keeps that size: at 100% its height
+        // is asked at half the requested scale; at 50% at the requested one.
+        {
+            char* const label=static_cast<char*>(static_cast<void*>(hud))+0xA1D4;
+            Mock::Text description("Adrenal Stamina (Self)",354,64);
+            std::memcpy(label+0xD0,description.wrapper.data,0x18);
+            std::memcpy(label+0xD0+0x24,"dialogfont10x10b",17);
+            hudTextSize=100;KmrpTextLayoutFrameK1(manager);
+            KmrpTextIdealHeightK1(description.object);
+            assert(description.Size()==0.5f);
+            hudTextSize=50;KmrpTextLayoutFrameK1(manager);
+            KmrpTextIdealHeightK1(description.object);
+            assert(description.Size()==1.0f);
+            std::memset(label+0xD0,0,0x40);KmrpTextLayoutFrameK1(manager);
+        }
         KmrpTextLayoutForgetPanelK1(panel);KmrpTextLayoutForgetPanelK1(hud);
         assert(panels.empty() && pauses.empty());
     }

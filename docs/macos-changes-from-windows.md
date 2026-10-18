@@ -1056,7 +1056,8 @@ bar, which Steam's game does not.
 `KmrpXboxHudStealthK1`; `docs/controller-xbox-hud.md`, "Stealth"). On Windows the controller
 patch has one more hook, at the entry of `CSWGuiTargetActionMenu::PopulateMenus`
 (`0x00689410`), which adds a "Stealth" entry to the first personal action list while the Xbox
-layout is shown and the leader can use Stealth. Seen working on Windows by the maintainer the
+layout is shown and the leader can use Stealth (superseded on 2026-10-18 by item 58: one hook
+later in the same routine, Stealth with the feats and skills). Seen working on Windows by the maintainer the
 same day, after a first build that ended the game on A: `PartyMenuStealth` takes two words
 off the stack, which a decompiler's signature did not show. Check the Mac routine's own
 arguments before calling it.
@@ -1177,3 +1178,46 @@ its `LBL_MESSAGE` and its `LB_REPLIES` grow every GUI frame down to the screen's
 less the gap between the bottom bar's top and the panel's top (`Dialogue`,
 `K1TextLayout.cpp`); the bars keep the letterbox recipe's height. Not checked on the
 Mac: whether its letterbox port also leaves the panel 100 tall while a line is spoken.
+
+## 58. Xbox-style HUD: the action row as the Xbox manual's six places (issues #55, #50)
+
+**To do on the Mac, 2026-10-18.** On Windows the controller HUD's row now follows the
+Xbox manual (page 8): default action, feats and skills, offensive Force powers, grenades
+or mines, the character's own Force powers, medpacs and the other usable items together.
+One hook reshapes the lists the game has just made (`KmrpXboxHudListsK1`, Windows
+`0x0068947A` in `CSWGuiTargetActionMenu::PopulateMenus`, after the three target lists
+are filled and before any slot is shown, `ebp` the menu):
+
+- the third personal list (other items, `GetUsableItems(4)`) is joined to the end of
+  the second (medical), then emptied with `CSWGuiInterfaceAction::Clear` (Windows
+  `0x0063C000`) on each entry;
+- that emptied list holds Stealth while the leader `IsStealthCapable`, and Stealth is
+  also joined to the end of the target's feats (target list 0) when it has any.
+
+This replaces item 52's hook at the routine's entry: Stealth is no longer added to the
+character's own Force powers. `kPlace` is `{1, 2, 3, 4, 5, 1, 3}` (the feats and the
+skills share the second place, grenades and mines the fourth), the pad's order in
+`MoveFocus` `{-1, 0, 5, 1, 2, 6, 3, 4}`, and every place with no slot shown is drawn as
+a dim frame. The Mac's `macos/patches/kmrp-controller/xbox_hud.cpp` needs its own
+addresses for the site, `Clear` and the routines of item 52; see
+`docs/controller-xbox-hud.md`, "The six places". Played on Windows by the maintainer on
+2026-10-18: "works". Only while the Xbox layout is shown: mouse and keyboard keep the
+game's own lists.
+
+## 59. HUD Size page; the mouse and keyboard HUD placed at run time
+
+**To do on the Mac, 2026-10-18** (`docs/hud-size-options.md`). On Windows, Graphics Options
+has a HUD Size page (`K1HudOptions.cpp`) with a slider for each part of each HUD, saved in
+`swkotor.ini`, `[KMRP HUD Size]`; 50% is today's size, 100% two and a half times it
+(`K1HudOptionsPolicy.h`, `Factor`). KMRP's module now places the PC HUD itself from a table
+(`K1PcHudLayout.inc`, written by `tools/build_pc_hud.py`; the placing in `K1PcHudLayout.h`
+is plain C++ and can be shared as it is) and applies it from its GUI frame (`K1PcHud.cpp`),
+finding controls by tag and setting the HUD's own fields: Windows `+0x6080` (map window),
+`+0xA454` (description edge), the target menu at `+0xBC` (`+0x15B4` width, `+0x15BC` clamp,
+`+0x1AE8`/`+0x1AE9` gaps), each `CSWGuiMainInterfaceChar`'s home at `+0xE98`, and
+`LBL_ARROW_MARGIN`. The Mac needs its own offsets for these fields; the tags are the same.
+The Xbox-style HUD scales each part in `ApplyXbox` and reads the ini itself; it now keeps
+the PC HUD anew each time it takes it (`Keep` before `ApplyXbox` when the layout is not
+up). Two exports connect the modules: `KmrpXboxHudOwnsK1` (controller) and
+`KmrpHudAppliedSizeK1` (KMRP). To check: at 50% the HUD is as before; each slider sizes its
+part about its corner; the target's name stays centred over its circle.

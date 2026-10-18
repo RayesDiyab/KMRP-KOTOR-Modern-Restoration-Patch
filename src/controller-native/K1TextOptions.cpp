@@ -165,21 +165,50 @@ void* Bind(void* panel,const char* tag,unsigned size,unsigned ctor) {
 void Close() {
     if(current)At<unsigned>(current,0x44)=(At<unsigned>(current,0x44)&~0x700u)|0x400u;
 }
+// A bound control selectable as its live counterpart on the graphics screen is. The
+// pad moves only to a control CSWGuiControl::GetIsSelectable (0x004189D0) accepts: bit
+// 8 of its flags (+0x44) and its class's own test. Bound from the template
+// (InitControl, its last argument 0) a control lacks the bit, so the sliders could not
+// be reached with the pad (the maintainer, 2026-10-18). As CloneButton copies them for
+// the entry button; visibility (bit 2) is left as it is.
+void SelectableAs(void* control,void* owner,const char* tag) {
+    void* original=KmrpRuntimeControlByTagK1(owner,tag);
+    if(!control || !original)return;
+    At<unsigned>(control,0x44)=(At<unsigned>(control,0x44)&~0x2Cu)|(At<unsigned>(original,0x44)&0x2Cu);
+}
 void __fastcall Back(void*,void*,void*) {if(Armed())Close();}
 void __fastcall OnB(void*,void*,int value) {if(value)Close();}
 void __fastcall Open(void* owner,void*,void*) {
     if(!current && !pending && !blockReopen)pending=owner;
 }
 void Dirty() {dirty=requestedSizing.values!=sizing.values || requestedSizing.linked!=sizing.linked || requestedStyle!=style;}
-void Choose(int value) {if(Armed()){requestedStyle=Style(value);Dirty();}}
+// A click is acted on once: the pad's A reaches a handler as it goes down and again as
+// it comes up (the mouse only as it comes up), so a toggle flipped twice (the
+// maintainer, 2026-10-18, on the HUD Size page). Each handler disarms the page, armed
+// again once the confirm button has been up for two frames (Armed).
+void Choose(int value) {if(Armed()){requestedStyle=Style(value);Dirty();releasedFrames=0;}}
 void __fastcall ToggleLink(void*,void*,void*) {
-    if(Armed()){requestedSizing.Link(!requestedSizing.linked);Dirty();}
+    if(Armed()){requestedSizing.Link(!requestedSizing.linked);Dirty();releasedFrames=0;}
 }
 void __fastcall SelectOriginal(void*,void*,void*) {Choose(Original);}
 void __fastcall SelectSharpened(void*,void*,void*) {Choose(OriginalSharpened);}
 void __fastcall SelectHd(void*,void*,void*) {Choose(NewHd);}
 void __fastcall Defaults(void*,void*,void*) {
-    if(Armed()){requestedSizing=Sizes{};requestedStyle=NewHd;Dirty();}
+    if(Armed()){requestedSizing=Sizes{};requestedStyle=NewHd;Dirty();releasedFrames=0;}
+}
+// A slider's events, as the graphics screen gives Brightness its own
+// (CSWGuiOptionsGraphics's constructor, 0x006E2E70, through CSWGuiControl::AddEvent):
+// entering and leaving (0x00, 0x01), its four movement events (0x2F, 0x30, 0x3F, 0x40),
+// a click (0x27) and the Default command (0x2A). The controller patch takes a control
+// with no events for decoration (the Main Menu's wallpaper rule, K1NativeJoystick.cpp),
+// so the pad could not reach the sliders (the maintainer, 2026-10-18). The game's
+// shape: the panel in ecx, one word on the stack, `ret 4`, as OnMoveGammaSlider
+// (0x006DED30) is. The value is read every frame, so moving needs nothing more here.
+void __fastcall SliderEvent(void*,void*,void*) {}
+void SliderEvents(void* slider,void* panel) {
+    for(const int event:{0x00,0x01,0x2F,0x30,0x3F,0x40,0x27})
+        Fn<Event>(0x41AB20)(slider,event,panel,reinterpret_cast<void*>(&SliderEvent));
+    Fn<Event>(0x41AB20)(slider,0x2A,panel,reinterpret_cast<void*>(&Defaults));
 }
 void __fastcall Input(void* self,void*,int event,int value) {
     if(value && event==0x28){Close();return;}
@@ -266,6 +295,14 @@ void MakeScreen(void* manager,void* owner) {
     if(!complete) {
         Destroy(p,nullptr,1);return;
     }
+    // The sliders get the selectable bit outright (Brightness itself lacks it; the
+    // controller patch reaches it through the graphics screen's own table) and
+    // Brightness's events.
+    for(void* slider:sliders){SelectableAs(slider,owner,"SLI_GAMMA");At<unsigned>(slider,0x44)|=8u;SliderEvents(slider,p);}
+    SelectableAs(linkSizes,owner,"CB_SHADOWS");
+    for(void* choice:fontChoices)SelectableAs(choice,owner,"CB_SHADOWS");
+    SelectableAs(defaults,owner,"BTN_DEFAULT");
+    SelectableAs(back,owner,"BTN_BACK");
     Extent(p,At<Rect>(owner,4));
     const auto rect=[owner](const char* tag){return At<Rect>(KmrpRuntimeControlByTagK1(owner,tag),4);};
     Extent(title,rect("LBL_TITLE"));
@@ -371,6 +408,10 @@ void ReloadFonts(bool images) {
 }
 }
 
+void* KmrpTextOptionsEntryK1(void* owner){
+    const auto found=entries.find(owner);
+    return found==entries.end()?nullptr:found->second.button;
+}
 int KmrpTextSizePercentK1(){Initialize();return sizing.values[Menus];}
 int KmrpTextSizeForFontK1(const char* font){Initialize();return sizing.values[FontGroup(font)];}
 int KmrpTextFontStyleK1(){Initialize();return style;}

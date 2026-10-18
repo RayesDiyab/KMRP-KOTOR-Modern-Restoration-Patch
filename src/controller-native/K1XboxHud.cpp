@@ -52,6 +52,8 @@
 #include <cstdio>
 
 #include "KmrpOptions.h"
+#include "K1HudOptionsPolicy.h"
+#include <array>
 
 // K1XboxControls.cpp: which of the seven slots has the focus (0-2 the target's,
 // 3-6 personal), or -1.
@@ -167,13 +169,47 @@ constexpr int kLarge[3][2] = {{64, 64}, {32, 32}, {14, 56}};
 // file and stands for "no slot has the focus"; the target's first slot is kept off
 // its first entry and shown in the second place when it has more than that entry,
 // and the character's skills are there otherwise.
-constexpr int kPlace[kSlots] = {1, 2, 3, 1, 4, 5, 3};
+//
+// Corrected 2026-10-18 (issues #55 and #50), from the Xbox manual's own words (page 8,
+// docs/reference/kotor-xbox-manual.pdf): "The icon on the far left is always the
+// default action for the target ... The second icon shows your feats and skills. The
+// third icon shows offensive Force powers like Choke and Force Lightning. The fourth
+// icon is for offensive items like grenades; the fifth shows defensive Force powers
+// like Heal and the icon on the far right shows defensive items like medpacs." The
+// maintainer's frame of the Xbox game agrees: sword, Master Flurry, an offensive power,
+// a grenade, Heal, a medpac.
+//
+// The "skills" above were the first personal list, and that list is the character's
+// own Force powers: CSWCCreature::GetPersonalActions (0x00619DB0) fills it from
+// GetSelfForcePowers (0x00616230), and the PC has no list of skills. So the
+// character's own powers stood in the feats' place, and while the target had feats
+// (an enemy, in combat) they were not in the row: Heal and Burst of Speed could not be
+// chosen with the pad in a fight (#55). Stealth (#50), a skill, had been added to that
+// same list, so it stood among the Force powers. (A first repair the same day joined
+// the character's own powers to the end of the target's Force list; the manual gives
+// them a place of their own, and that join was taken out.)
+//
+// So, with the PC's seven lists in the Xbox's six places:
+//   place 1  the target's feats (its first list after the default action), with the
+//            character's skills at the end; with no target, the skills alone, in the
+//            third personal list, which the medical items' join below leaves free
+//   place 2  the target's Force powers (offensive)
+//   place 3  the target's grenades while it offers any, the character's mines otherwise
+//   place 4  the character's own Force powers (defensive: Heal, Burst of Speed)
+//   place 5  the medical items (the second personal list) with the other usable items
+//            (the third) joined to its end: the Xbox has one place for defensive items
+// The joins and Stealth are made in the game's own lists (KmrpXboxHudListsK1, below).
+// A place with no slot to show is drawn as a dim frame, as the Xbox draws one (a mine
+// selected with no medical item: the sixth place a dim frame).
+constexpr int kPlace[kSlots] = {1, 2, 3, 4, 5, 1, 3};
 constexpr int kSharedTarget = 2;      // the grenade slot, of the seven
 constexpr int kSharedPersonal = 6;    // the mines' slot
 constexpr int kFeatsSlot = 0;         // the target's first slot
-constexpr int kSkillsSlot = 3;        // the first personal slot
-constexpr int kFirstPersonalPlace = 1;
-constexpr int kForcePlace = 2;
+constexpr int kSkillsSlot = 5;        // the third personal slot, holding the skills (KmrpXboxHudListsK1)
+constexpr int kRowPlaces = 5;         // the places after the first, which this file draws
+// Where K1XboxHudLayout.inc puts the first two personal slots (BTN_ACTION0, 1): the
+// row's geometry is read from them (ReadRow), whatever kPlace shows there now.
+constexpr int kTablePlaces[2] = {1, 4};
 // The target's lists (CExoArrayList<CSWGuiInterfaceAction>, three, at the menu's
 // start), an entry's fields, and where the menu remembers which entry of each list
 // is the chosen one: four kinds of target by three lists
@@ -508,9 +544,11 @@ void CombatMessage(void* hud, void* client, int width)
 
 // The first place, as KmrpXboxHudK1 decided it and KmrpXboxHudBarsK1 draws it.
 struct FirstPlace {
-    bool draw = false, selected = false, dimForce = false;
+    bool draw = false, selected = false;
     char icon[16] = {};
-    Extent frame{}, picture{}, force{};
+    Extent frame{}, picture{};
+    int empties = 0;
+    Extent empty[kRowPlaces]{};      // the places with no slot shown: a dim frame each
     int width = 0, height = 0;
 } g_first;
 
@@ -687,6 +725,74 @@ void SetFont(void* label, const char* name)
     reinterpret_cast<void(__thiscall*)(void*, const char*)>(kSetBaseFont)(Part(label, kLabelTextParams), padded);
 }
 
+// ---- The sizes of this HUD's parts, from the HUD Size page in KMRP's Graphics Options
+// (K1HudOptions.cpp, since 2026-10-18): the action menu, the party, the minimap, the
+// target's bar at the top left and the Disengage button, each made larger or smaller
+// about its corner of the screen, 50% being the HUD as it was. The page is KMRP's, and
+// this patch works without KMRP, so it reads the page's section of swkotor.ini itself:
+// once, and again whenever the file has been written since (looked at twice a second
+// at most, which costs a file's attributes), so a slider moved on the page shows on
+// the HUD when the game is back. Without KMRP the section is not there and every part
+// is at 50%.
+using KmrpHudOptions::ElementCount;
+using HudSizes = std::array<int, ElementCount>;
+const HudSizes& Sizes()
+{
+    static HudSizes sizes = [] { HudSizes all; all.fill(KmrpHudOptions::Default); return all; }();
+    static FILETIME written{};
+    static DWORD looked = 0;
+    static bool once = false;
+    const DWORD now = GetTickCount();
+    if (once && now - looked < 500) return sizes;
+    once = true;
+    looked = now;
+    wchar_t path[MAX_PATH];
+    const DWORD n = GetModuleFileNameW(nullptr, path, MAX_PATH);
+    wchar_t* slash = n && n < MAX_PATH ? wcsrchr(path, L'\\') : nullptr;
+    if (!slash || wcscpy_s(slash + 1, MAX_PATH - (slash + 1 - path), L"swkotor.ini")) return sizes;
+    WIN32_FILE_ATTRIBUTE_DATA data{};
+    if (!GetFileAttributesExW(path, GetFileExInfoStandard, &data) || !CompareFileTime(&data.ftLastWriteTime, &written))
+        return sizes;
+    written = data.ftLastWriteTime;
+    for (int e = KmrpHudOptions::XboxActions; e < ElementCount; ++e)
+        sizes[e] = KmrpHudOptions::Percent(static_cast<int>(
+            GetPrivateProfileIntW(KmrpHudOptions::IniSection, KmrpHudOptions::IniKeys[e], KmrpHudOptions::Default, path)));
+    return sizes;
+}
+
+// Each part's box as the table places it on this screen, before its size, and the size
+// it was placed at: what Sized and SizedHeight work from (ApplyXbox sets them).
+KmrpHudOptions::Rect g_parts[ElementCount]{};
+HudSizes g_placedSizes{};
+
+KmrpHudOptions::Rect AsRect(const Extent& e) { return {e.left, e.top, e.width, e.height}; }
+Extent AsExtent(const KmrpHudOptions::Rect& r) { return {r.left, r.top, r.width, r.height}; }
+// A rectangle of a part, at the part's size, about the part's corner.
+Extent Sized(int element, const Extent& at)
+{
+    return AsExtent(KmrpHudOptions::ScaleAbout(AsRect(at), g_parts[element], KmrpHudOptions::CornerOf(element),
+                                               g_placedSizes[element]));
+}
+// The screen height a part's lengths are drawn for: the screen's, at the part's size.
+// Scale(value, SizedHeight(part, height)) is a length of that part at its size.
+int SizedHeight(int element, int height)
+{
+    return KmrpHudOptions::Round(height * KmrpHudOptions::Factor(g_placedSizes[element]));
+}
+
+// The size the mouse and keyboard HUD's minimap is shown at by KMRP (K1PcHud.cpp), or
+// 50 without KMRP: the minimap here is the game's own HUD's size (ApplyXbox), and that
+// is taken as it would be at 50% so that each HUD's slider sizes only its own.
+int PcMinimapSize()
+{
+    using Applied = int(__cdecl*)(int);
+    static Applied applied = [] {
+        HMODULE kmrp = GetModuleHandleW(L"kmrp.dll");
+        return kmrp ? reinterpret_cast<Applied>(GetProcAddress(kmrp, "KmrpHudAppliedSizeK1")) : nullptr;
+    }();
+    return applied ? KmrpHudOptions::Percent(applied(KmrpHudOptions::PcMinimap)) : KmrpHudOptions::Default;
+}
+
 struct Kept { Extent extent; char art[3][16]; char font[20]; };
 struct Layout {
     void* hud = nullptr;
@@ -702,6 +808,7 @@ struct Layout {
     Extent arrowMargin{};      // LBL_ARROW_MARGIN's rectangle as the layout has it
     bool arrowMarginKept = false;
     float spareAlpha = 1.0f;           // of LBL_MENUBG's fill, which the hooks draw with
+    HudSizes sizes{};                  // the parts' sizes the Xbox layout was applied at
 } g_layout;
 
 const char* Piece::* const kArt[3] = {&Piece::fill, &Piece::hilight, &Piece::progress};
@@ -833,12 +940,54 @@ void FramePortraits(void* hud)
     }
 }
 
+// The part of the HUD a piece belongs to (K1HudOptionsPolicy.h), or -1.
+int ElementOf(const Piece& piece)
+{
+    if (piece.flags & kHide) return -1;
+    return KmrpHudOptions::XboxElementOf(piece.offset, (piece.flags & kParty) != 0, (piece.flags & kRow) != 0,
+                                         piece.side == kLeft && piece.edge == kBottom);
+}
+
 void ApplyXbox(void* hud, int width, int height)
 {
+    // Each piece where the table puts it, then at its part's size about the part's
+    // corner (since 2026-10-18). A part's box is all its pieces on the screen; the
+    // portraits' combat-effect arrows, which the engine keeps relative to their
+    // portrait, are sized from their own origin.
+    HudSizes sizes = Sizes();
+    Extent placed[kPieceCount];
+    bool seen[ElementCount] = {};
+    for (int i = 0; i < kPieceCount; ++i) {
+        const Piece& piece = kPieces[i];
+        placed[i] = Placed(piece, g_layout.kept[i], width, height);
+        const int element = ElementOf(piece);
+        if (element < 0 || piece.side == kRelative) continue;
+        const KmrpHudOptions::Rect r = AsRect(placed[i]);
+        if (!seen[element]) { g_parts[element] = r; seen[element] = true; continue; }
+        KmrpHudOptions::Rect& box = g_parts[element];
+        const int right = (std::max)(box.left + box.width, r.left + r.width), bottom = (std::max)(box.top + box.height, r.top + r.height);
+        box.left = (std::min)(box.left, r.left);
+        box.top = (std::min)(box.top, r.top);
+        box.width = right - box.left;
+        box.height = bottom - box.top;
+    }
+    // Each part at its size, or as large as the screen holds it (FittingSize).
+    for (int e = KmrpHudOptions::XboxActions; e < ElementCount; ++e)
+        if (seen[e]) sizes[e] = KmrpHudOptions::FittingSize(g_parts[e], KmrpHudOptions::CornerOf(e), sizes[e], width, height);
+    g_placedSizes = sizes;
     for (int i = 0; i < kPieceCount; ++i) {
         const Piece& piece = kPieces[i];
         void* control = Part(hud, piece.offset);
-        SetExtent(control, Placed(piece, g_layout.kept[i], width, height));
+        const int element = ElementOf(piece);
+        Extent at = placed[i];
+        if (element >= 0 && piece.side == kRelative) {
+            const double f = KmrpHudOptions::Factor(sizes[element]);
+            at = {KmrpHudOptions::Round(at.left * f), KmrpHudOptions::Round(at.top * f),
+                  (std::max)(1, KmrpHudOptions::Round(at.width * f)), (std::max)(1, KmrpHudOptions::Round(at.height * f))};
+        } else if (element >= 0) {
+            at = Sized(element, at);
+        }
+        SetExtent(control, at);
         for (int which = 0; which < 3; ++which) {
             const char* name = piece.*kArt[which];
             void* params = Dress(control, piece.kind, which);
@@ -854,7 +1003,13 @@ void ApplyXbox(void* hud, int width, int height)
         box.height = At<Extent>(Part(upper, 2 * kLabelSize), kControlExtent).top + kSeamOverlap - box.top;
         SetExtent(upper, box);
     }
-    At<int>(hud, kHudDescriptionBottom) = height - Scale(kLayoutHeight - kDescriptionBottom - kOutY, height);
+    {
+        // The action description's bottom edge, which the box grows up from, with the
+        // action menu at its size.
+        const int bottom = height - Scale(kLayoutHeight - kDescriptionBottom - kOutY, height);
+        const Extent edge = Sized(KmrpHudOptions::XboxActions, {0, bottom, 1, 1});
+        At<int>(hud, kHudDescriptionBottom) = edge.top;
+    }
     // The minimap is the size the game's own HUD has it, so that it does not change
     // size with the device (the maintainer's direction, 2026-10-05; the Xbox layout's
     // is smaller, 109 px against 120 at 1024x768). Its frame keeps the Xbox frame's
@@ -876,7 +1031,12 @@ void ApplyXbox(void* hud, int width, int height)
         // frame on two sides; the maintainer saw it, 2026-10-05). The map's edges go on
         // the inner edge of the line, 4 of the art's 64 in, and the whole keeps the
         // Xbox frame's top right corner.
-        const int mapWidth = g_layout.mapWindow[2], mapHeight = g_layout.mapWindow[3];
+        // The game's own HUD's map, as at 50% on KMRP's page, then at this HUD's
+        // minimap size (since 2026-10-18), its button with it.
+        const double mapScale = KmrpHudOptions::Factor(sizes[KmrpHudOptions::XboxMinimap]) /
+                                KmrpHudOptions::Factor(PcMinimapSize());
+        const int mapWidth = (std::max)(1, KmrpHudOptions::Round(g_layout.mapWindow[2] * mapScale));
+        const int mapHeight = (std::max)(1, KmrpHudOptions::Round(g_layout.mapWindow[3] * mapScale));
         Extent frame{};
         frame.width = static_cast<int>(mapWidth * 64.0 / (64.0 - 2 * kMapFrameLine) + 0.5);
         frame.height = static_cast<int>(mapHeight * 64.0 / (64.0 - 2 * kMapFrameLine) + 0.5);
@@ -884,8 +1044,10 @@ void ApplyXbox(void* hud, int width, int height)
         frame.top = top;
         const int mapLeft = frame.left + (frame.width - mapWidth) / 2, mapTop = frame.top + (frame.height - mapHeight) / 2;
         SetExtent(border, frame);
-        SetExtent(button, {mapLeft + wasButton.left - g_layout.mapWindow[0], mapTop + wasButton.top - g_layout.mapWindow[1],
-                           wasButton.width, wasButton.height});
+        SetExtent(button, {mapLeft + KmrpHudOptions::Round((wasButton.left - g_layout.mapWindow[0]) * mapScale),
+                           mapTop + KmrpHudOptions::Round((wasButton.top - g_layout.mapWindow[1]) * mapScale),
+                           (std::max)(1, KmrpHudOptions::Round(wasButton.width * mapScale)),
+                           (std::max)(1, KmrpHudOptions::Round(wasButton.height * mapScale))});
         int* map = &At<int>(hud, kHudMapWindow);
         map[0] = mapLeft;
         map[1] = mapTop;
@@ -904,9 +1066,10 @@ void ApplyXbox(void* hud, int width, int height)
         if (messageCue) std::memcpy(g_layout.cueFill, &At<char>(messageCue, kLabelBorderParams + kParamsFill), 16);
     }
     if (queueCue)
-        SetExtent(queueCue, {width / 2 - Scale(kLayoutWidth / 2 - kQueueCue[0], height),
-                             height - Scale(kLayoutHeight - kQueueCue[1] - kOutY, height),
-                             Scale(kQueueCue[2], height), Scale(kQueueCue[3], height)});
+        SetExtent(queueCue, Sized(KmrpHudOptions::XboxDisengage,
+                                  {width / 2 - Scale(kLayoutWidth / 2 - kQueueCue[0], height),
+                                   height - Scale(kLayoutHeight - kQueueCue[1] - kOutY, height),
+                                   Scale(kQueueCue[2], height), Scale(kQueueCue[3], height)}));
     if (messageCue) SetFill(Part(messageCue, kLabelBorderParams), kDisengageFill);
     // The speech box: from just left of the target's bar, right under it.
     if (int* bubble = BarkBubble()) {
@@ -914,13 +1077,17 @@ void ApplyXbox(void* hud, int width, int height)
             g_layout.bubbleKept = true;
             std::memcpy(g_layout.bubble, bubble, sizeof g_layout.bubble);
         }
-        bubble[0] = Scale(kBark[0] - kOutX, height);
-        bubble[1] = Scale(kBark[1], height);
-        bubble[2] = Scale(kBark[2], height);
+        // With the target's bar at its size: the box stays under it.
+        const Extent box = Sized(KmrpHudOptions::XboxTargetBar,
+                                 {Scale(kBark[0] - kOutX, height), Scale(kBark[1], height), Scale(kBark[2], height), 1});
+        bubble[0] = box.left;
+        bubble[1] = box.top;
+        bubble[2] = box.width;
     }
     g_layout.xbox = true;
     g_layout.width = width;
     g_layout.height = height;
+    g_layout.sizes = Sizes();          // as asked, to see a change; g_placedSizes holds them as drawn
     ReadRow(hud, height);
 }
 
@@ -943,15 +1110,16 @@ void ReadRow(void* hud, int height)
     void* first = Part(hud, kHudPersonalActions);
     void* second = Part(first, kActionSize);
     for (int p = 0; p < 4; ++p) g_row.part[p] = At<Extent>(Part(first, kActionParts[p]), kControlExtent);
-    // The first two personal slots are kPlace[3] and kPlace[4]: three places apart.
-    g_row.pitch = (At<Extent>(second, kControlExtent).left - g_row.part[0].left) / (kPlace[4] - kPlace[3]);
+    // The table puts the first two personal slots three places apart (kTablePlaces).
+    g_row.pitch = (At<Extent>(second, kControlExtent).left - g_row.part[0].left) / (kTablePlaces[1] - kTablePlaces[0]);
     g_row.nameTop = At<Extent>(Part(Part(hud, kHudTargetMenu), kMenuNameLabel), kControlExtent).top;
     g_row.mapBorderTop = At<Extent>(Part(hud, kHudMapBorder), kControlExtent).top;
     g_row.mapButtonTop = At<Extent>(Part(hud, kHudMapButton), kControlExtent).top;
     g_row.mapWindowTop = At<int>(hud, kHudMapWindowTop);
     // The Xbox layout has the frame at its scaled 41 px and a positive pitch. Anything
     // else is not that layout (the file was replaced, or failed to load): leave it be.
-    g_row.usable = g_row.pitch > 0 && g_row.part[0].width == Scale(kSmall[0][0], height) &&
+    const int frame = Scale(kSmall[0][0], SizedHeight(KmrpHudOptions::XboxActions, height));
+    g_row.usable = g_row.pitch > 0 && g_row.part[0].width >= frame - 1 && g_row.part[0].width <= frame + 1 &&
                    g_row.part[0].left >= 0 && g_row.part[0].top >= 0;
 }
 
@@ -974,14 +1142,25 @@ constexpr char kMapFrame[16] = "kmrx_minimap";
 // itself: which slots it parked, the frames the engine last gave the target's slots,
 // and the arrows it hid.
 bool g_parked[7] = {};
-// Whether a parked slot's button was visible when it was parked, so that it comes
-// back as it was. The engine shows some slots while they are empty (the dim frame is
-// part of the HUD) and sets the flag only when a slot's contents change; brought back
-// by its contents alone, such a slot stayed invisible after one round of parking and
-// a place in the action row was missing. Found and repaired on the Mac on 2026-10-07
-// (docs/windows-changes-from-macos.md, item 20), reproduced on Windows by the
-// maintainer on 2026-10-08, brought here on 2026-10-09.
-bool g_shownWhenParked[7] = {};
+// Until 2026-10-18 a parked slot's visibility was kept here (g_shownWhenParked) so
+// that it came back as it was: the engine shows some slots while they are empty, their
+// empty frame standing for the place, and a slot brought back by its contents alone
+// stayed invisible and a place in the row went missing (found on the Mac on
+// 2026-10-07, docs/windows-changes-from-macos.md, item 20; brought here 2026-10-09).
+// It also brought back as visible a slot whose list had emptied meanwhile, which the
+// pad could then choose (the maintainer, 2026-10-18). Since this file draws a dim
+// frame in every place with no slot shown (issue #55), an empty slot is now never
+// visible: a slot is shown exactly while its list has entries. What the PC HUD had is
+// kept for RestorePc alone: whether a slot was visible when this layout hid it, so the
+// mouse and keyboard HUD gets its empty frames back as the engine left them.
+bool g_pcShown[7] = {};
+bool g_hidden[7] = {};
+void HideSlot(int slot, void* action)
+{
+    int& flags = At<int>(action, kControlFlags);
+    if (!g_hidden[slot]) { g_pcShown[slot] = (flags & kControlVisible) != 0; g_hidden[slot] = true; }
+    flags &= ~kControlVisible;
+}
 char g_engineFrame[3][2][16] = {};
 bool g_arrowsHidden = false;
 
@@ -1030,7 +1209,13 @@ void RestorePc(void* hud, void* seen)
         }
         const int count = slot < 3 ? At<int>(menu, kMenuActionLists + slot * 0xC + 4)
                                    : At<int>(hud, kHudPersonalLists + (slot - 3) * 0xC + 4);
-        if (g_parked[slot] && (g_shownWhenParked[slot] || count > 0)) At<int>(action, kControlFlags) |= kControlVisible;
+        // A slot this layout hid comes back as the PC HUD had it: shown if its list has
+        // entries, and an empty one as the engine left it (some it shows empty).
+        if (g_hidden[slot]) {
+            if (count > 0 || g_pcShown[slot]) At<int>(action, kControlFlags) |= kControlVisible;
+            else At<int>(action, kControlFlags) &= ~kControlVisible;
+            g_hidden[slot] = false;
+        }
         g_parked[slot] = false;
         if (slot == 0 && g_arrowsHidden && count > 1) {
             At<int>(Part(action, kActionParts[2]), kControlFlags) |= kControlVisible;
@@ -1090,6 +1275,13 @@ bool Enabled()
 }  // namespace
 
 bool KmrpXboxHudEnabledK1() { return Enabled(); }
+
+// Whether this layout has the HUD, or takes it at its next draw: KMRP's module, which
+// places the game's own HUD (K1PcHud.cpp), leaves the HUD alone while it does.
+extern "C" int __cdecl KmrpXboxHudOwnsK1()
+{
+    return Enabled() && (g_layout.xbox || IsControllerInputActiveK1()) ? 1 : 0;
+}
 
 // K1NativeJoystick.cpp calls this as a panel is built and as it is destroyed
 // (NativePanelReleaseGffK1): a HUD object at an address seen before is a new HUD.
@@ -1165,11 +1357,13 @@ extern "C" void __cdecl KmrpXboxHudBarsK1(void* menu)
                     SetExtent(label, mapFrame);
                     draw(label);
                 }
-                if (first.dimForce) {
+                if (first.empties > 0) {
                     SetFill(frame, kSlotFrame);
                     At<float>(frame, kParamsAlpha) = 0.5f;
-                    SetExtent(label, first.force);
-                    draw(label);
+                    for (int i = 0; i < first.empties && i < kRowPlaces; ++i) {
+                        SetExtent(label, first.empty[i]);
+                        draw(label);
+                    }
                     At<float>(frame, kParamsAlpha) = 1.0f;
                 }
                 SetFill(frame, first.selected ? kSlotFrameSelected : kSlotFrame);
@@ -1609,7 +1803,13 @@ extern "C" void __cdecl KmrpXboxHudK1(void* hud)
         }
         return;
     }
-    if (!g_layout.xbox || g_layout.width != width || g_layout.height != height) ApplyXbox(hud, width, height);
+    // The game's own HUD is kept anew each time this layout takes it, not only at its
+    // first sight: KMRP places that HUD itself since 2026-10-18 (K1PcHud.cpp) and places
+    // it again when its sizes change, so what was kept at first sight could be out of
+    // date by the time this layout gave it back.
+    if (!g_layout.xbox) Keep(hud);
+    if (!g_layout.xbox || g_layout.width != width || g_layout.height != height || g_layout.sizes != Sizes())
+        ApplyXbox(hud, width, height);
     // Where the target's circle may stand (kHudArrowMargin, above). Every frame: the
     // name frame stands lower in combat mode and the action box grows with its text.
     {
@@ -1754,6 +1954,7 @@ extern "C" void __cdecl KmrpXboxHudK1(void* hud)
     // the height the engine gave it.
     // The strip is there while the engine shows the combat-mode message's label,
     // which it does in combat mode.
+    const int actionHeight = SizedHeight(KmrpHudOptions::XboxActions, height);   // the action menu's lengths at its size
     const bool strip = (At<int>(Part(hud, kHudMessage), kControlFlags) & kControlVisible) != 0;
     const int lower = strip ? Scale(kStripShift, height) : 0;
     if (strip) {
@@ -1799,14 +2000,15 @@ extern "C" void __cdecl KmrpXboxHudK1(void* hud)
 
     void* nameLabel = Part(menu, kMenuNameLabel);
     Extent name = At<Extent>(nameLabel, kControlExtent);
-    if (name.height < Scale(kNameHeight, height) || name.top != g_row.nameTop + lower) {
-        if (name.height < Scale(kNameHeight, height)) name.height = Scale(kNameHeight, height);
+    const int barHeight = SizedHeight(KmrpHudOptions::XboxTargetBar, height);
+    if (name.height < Scale(kNameHeight, barHeight) || name.top != g_row.nameTop + lower) {
+        if (name.height < Scale(kNameHeight, barHeight)) name.height = Scale(kNameHeight, barHeight);
         name.top = g_row.nameTop + lower;
         SetExtent(nameLabel, name);
     }
     auto fromName = [&](const int box[4]) {
-        return Extent{name.left + Scale(box[0], height), name.top + Scale(box[1], height),
-                      Scale(box[2], height), Scale(box[3], height)};
+        return Extent{name.left + Scale(box[0], barHeight), name.top + Scale(box[1], barHeight),
+                      Scale(box[2], barHeight), Scale(box[3], barHeight)};
     };
     SetExtent(Part(menu, kMenuNameBackground), fromName(kNameFrame));
     // Red around a hostile target's name, as the Xbox game had it (seen in the
@@ -1830,14 +2032,21 @@ extern "C" void __cdecl KmrpXboxHudK1(void* hud)
     const bool grenades = (At<unsigned>(menu, kMenuFlags) & 1) != 0 &&
         At<int>(menu, kMenuActionLists + kSharedTarget * 0xC + 4) != 0;
 
-    // The action box, as tall as the description needs.
+    // The action box, as tall as the description needs. With no description it keeps
+    // the height it last had with one (2026-10-18): KMRP's module measures the
+    // description at the original text size, so a one-line description came out
+    // shorter than the fixed empty line and choosing an empty slot made the box taller
+    // (the maintainer). kBoxEmptyLine stays for a box that has never had text.
     {
+        static int lastTextHeight = -1, lastHeight = 0;
         void* box = Part(hud, kHudMouldings);
         const Extent text = At<Extent>(Part(hud, kHudDescription), kControlExtent);
         Extent wanted = At<Extent>(box, kControlExtent);
         const int bottom = wanted.top + wanted.height;
-        const int textTop = text.height > 0 ? text.top : text.top - Scale(kBoxEmptyLine, height);
-        wanted.top = textTop - Scale(kBoxAboveText, height);
+        if (text.height > 0) { lastTextHeight = text.height; lastHeight = height; }
+        const int line = lastTextHeight > 0 && lastHeight == height ? lastTextHeight : Scale(kBoxEmptyLine, actionHeight);
+        const int textTop = text.height > 0 ? text.top : text.top - line;
+        wanted.top = textTop - Scale(kBoxAboveText, actionHeight);
         wanted.height = bottom - wanted.top;
         if (wanted.height > 0 && wanted.top >= 0) SetExtent(box, wanted);
     }
@@ -1865,30 +2074,31 @@ extern "C" void __cdecl KmrpXboxHudK1(void* hud)
     g_first = FirstPlace{};
     g_first.draw = true;
     g_first.selected = focused < 0;
-    g_first.dimForce = !target;
     g_first.width = width;
     g_first.height = height;
     std::memcpy(g_first.icon, usualEntry ? usualEntry + kEntryIcon : kNoActionIcon, 16);
     g_first.frame = g_row.part[0];
     g_first.picture = g_row.part[1];
-    g_first.force = g_row.part[0];
-    g_first.frame.left -= kFirstPersonalPlace * g_row.pitch;
-    g_first.picture.left -= kFirstPersonalPlace * g_row.pitch;
-    g_first.force.left += (kForcePlace - kFirstPersonalPlace) * g_row.pitch;
+    g_first.frame.left -= kTablePlaces[0] * g_row.pitch;
+    g_first.picture.left -= kTablePlaces[0] * g_row.pitch;
     if (g_first.selected) {
         const Extent frame = g_first.frame;
-        g_first.frame = Centred(frame, Scale(kLarge[0][0], height), Scale(kLarge[0][1], height));
-        g_first.picture = OnBox(g_first.frame, Scale(kLarge[1][0], height), Scale(kLarge[1][1], height));
+        g_first.frame = Centred(frame, Scale(kLarge[0][0], actionHeight), Scale(kLarge[0][1], actionHeight));
+        g_first.picture = OnBox(g_first.frame, Scale(kLarge[1][0], actionHeight), Scale(kLarge[1][1], actionHeight));
     } else {
         g_first.picture = OnBox(g_first.frame, g_first.picture.width, g_first.picture.height);
     }
 
-    // The slots: each at its place in the row, the focused one large.
+    // The slots: each at its place in the row, the focused one large. Two pairs share a
+    // place (kPlace): the grenades and the mines (grenades while the target offers any),
+    // and the target's feats and the character's skills (the feats, with the skills
+    // joined to their end, while the target has any; the skills alone otherwise).
+    bool occupied[kRowPlaces + 1] = {};
     for (int slot = 0; slot < kSlots; ++slot) {
         void* action = slot < kTargetSlots
             ? Part(Part(menu, kMenuActions), slot * kActionSize)
             : Part(Part(hud, kHudPersonalActions), (slot - kTargetSlots) * kActionSize);
-        const int shift = (kPlace[slot] - kFirstPersonalPlace) * g_row.pitch;
+        const int shift = (kPlace[slot] - kTablePlaces[0]) * g_row.pitch;
         Extent part[4];
         for (int p = 0; p < 4; ++p) {
             part[p] = g_row.part[p];
@@ -1905,28 +2115,28 @@ extern "C" void __cdecl KmrpXboxHudK1(void* hud)
                 part[p].left = part[p].top = kParked;
                 SetExtent(Part(action, kActionParts[p]), part[p]);
             }
-            if (!parked[slot]) g_shownWhenParked[slot] = (At<int>(action, kControlFlags) & kControlVisible) != 0;
-            At<int>(action, kControlFlags) &= ~kControlVisible;
+            HideSlot(slot, action);
             parked[slot] = true;
             continue;
         }
-        if (parked[slot]) {
-            // Back, and able to take the focus again if it has anything to offer: the
-            // engine leaves an empty slot's button invisible (seen 2026-10-05: the
-            // focus on an empty mines slot after a fight, a large yellow frame around
-            // nothing).
-            const int count = slot < kTargetSlots
-                ? At<int>(menu, kMenuActionLists + slot * 0xC + 4)
-                : At<int>(hud, kHudPersonalLists + (slot - kTargetSlots) * 0xC + 4);
-            if (g_shownWhenParked[slot] || count > 0) At<int>(action, kControlFlags) |= kControlVisible;
-            parked[slot] = false;
-        }
+        // Shown exactly while its list has entries, whether it was parked or not (see
+        // g_parked): the pad cannot choose an empty slot (seen 2026-10-05, a large
+        // yellow frame around an empty mines slot after a fight; and 2026-10-18, the
+        // mines' slot with Trask targeted), and its place gets the dim frame below.
+        const int count = slot < kTargetSlots
+            ? At<int>(menu, kMenuActionLists + slot * 0xC + 4)
+            : At<int>(hud, kHudPersonalLists + (slot - kTargetSlots) * 0xC + 4);
+        if (count <= 0) HideSlot(slot, action);
+        else if (g_hidden[slot]) { At<int>(action, kControlFlags) |= kControlVisible; g_hidden[slot] = false; }
+        parked[slot] = false;
+        // The engine hides a slot whose list is empty (CSWGuiMainInterfaceAction::Show).
+        if (At<int>(action, kControlFlags) & kControlVisible) occupied[kPlace[slot]] = true;
         const Extent frame = part[0];
         const int (*size)[2] = slot == focused ? kLarge : kSmall;
         if (slot == focused) {
-            part[0] = Centred(frame, Scale(size[0][0], height), Scale(size[0][1], height));
+            part[0] = Centred(frame, Scale(size[0][0], actionHeight), Scale(size[0][1], actionHeight));
             for (int p = 1; p < 3; ++p)
-                part[p] = OnBox(part[0], Scale(size[p][0], height), Scale(size[p][1], height));
+                part[p] = OnBox(part[0], Scale(size[p][0], actionHeight), Scale(size[p][1], actionHeight));
             part[3] = {part[2].left, part[2].top + part[2].height / 2, part[2].width,
                        part[2].height - part[2].height / 2};
         } else {
@@ -1956,51 +2166,79 @@ extern "C" void __cdecl KmrpXboxHudK1(void* hud)
             At<int>(Part(action, kActionParts[3]), kControlFlags) &= ~kControlVisible;
         }
     }
+    // Every place with no slot shown: a dim frame, which KmrpXboxHudBarsK1 draws.
+    g_first.empties = 0;
+    for (int place = 1; place <= kRowPlaces; ++place) {
+        if (occupied[place]) continue;
+        Extent dim = g_row.part[0];
+        dim.left += (place - kTablePlaces[0]) * g_row.pitch;
+        g_first.empty[g_first.empties++] = dim;
+    }
 }
 
-// Stealth in the action row (issue #50). The Xbox game has no button for Stealth: its
-// manual lists every control and none is Stealth (page 5), puts skills in the Action
-// menu's second icon (page 8), and Stealth mode needs the skill and a stealth field
-// generator (page 30). The PC has it only as the HUD's toggle TB_STEALTH, which this
-// layout parks, and as a keyboard key.
+// The row's lists, shaped as the Xbox's six places (kPlace, above; issues #55, #50).
 //
-// The row's lists are the engine's, made anew for every draw: CSWGuiMainInterface::
+// The lists are the engine's, made anew for every draw: CSWGuiMainInterface::
 // PopulateMenus (0x00689D80) empties the six personal lists, fills each from
-// CSWCCreature::GetPersonalActions (0x00619DB0: the first is the character's own Force
-// powers), calls CSWGuiTargetActionMenu::PopulateMenus, and only then shows each slot
-// by what its list holds. So this is hooked at that call's entry (ecx = the target
-// menu), after the lists are filled and before the slots are shown:
-//     00689410  83 EC 08        sub esp, 8
-//     00689413  8B 44 24 14     mov eax, [esp+0x14]
-// and adds one entry to the first personal list, which is this row's second place.
-// Nothing branches into those seven bytes (the routine's jumps were read for it).
+// CSWCCreature::GetPersonalActions (0x00619DB0: the character's own Force powers, then
+// three kinds of usable item, GetUsableItems with 1, 4 and 2), and calls
+// CSWGuiTargetActionMenu::PopulateMenus, which fills the target's three lists and then
+// shows the target's slots by them; the personal slots are shown after it returns.
+// This is hooked in that routine after its loop has filled the target's lists and
+// before it shows any slot (ebp = the menu, since 0x0068941B):
+//     00689478  7C BC                    jl 0x00689436      ; the next list
+//     0068947A  C7 44 24 14 00 00 00 00  mov dword ptr [esp+0x14], 0
+//     00689482  8B DD                    mov ebx, ebp       ; the slots are shown
+// Nothing in the routine jumps into those eight bytes (its jumps were read for it), and
+// they hold no address to relocate. Every list is complete there and none has been read;
+// the routine and the list makers are each called from one place only (0x00689E78,
+// 0x0068946C, 0x00619DC5, read from the executable), so nothing but the HUD's row sees
+// the change. Only while the Xbox layout is the one shown: with mouse or keyboard every
+// list is the game's own, and the PC HUD's slots and Stealth toggle are untouched.
 //
-// The entry is what the engine's own are (0x38 bytes, CSWGuiInterfaceAction): a name,
-// an id by which the HUD remembers the chosen entry of a list, a routine the HUD calls
-// as a member of the character with the id (CSWGuiMainInterface::DoPersonalAction,
-// 0x0068AE98: push the character, push the id, call [entry+0x0C], the callee takes the
-// two off), the object acted on, an icon, bit 0 of the flags for "can be used" and a
-// count. The condition and the action are TB_STEALTH's own
-// (CSWGuiMainInterface::OnStealthButtonPressed, 0x00688640):
-// CSWCCreature::IsStealthCapable (the area allows it, the skill can be used, a stealth
-// field generator is on the belt) and CSWCCreature::PartyMenuStealth, which asks about
-// solo mode when the party is together and sends the skill otherwise. Name and icon
+// Here:
+//   - the other usable items (the third personal list) are joined to the end of the
+//     medical items (the second): the Xbox has one place for defensive items;
+//   - the third personal list, so emptied, holds the skills: Stealth, while it can be
+//     used. With no target it is the second place;
+//   - with a target, Stealth is joined to the end of the target's first list as well,
+//     whose other entries are the feats: the second place is "your feats and skills".
+// Until 2026-10-18 Stealth was added to the first personal list, the character's own
+// Force powers, at the routine's entry (0x00689410, a hook of its own): among the Force
+// powers, where the manual has none of it. And the character's own Force powers were
+// joined to the target's, which left the fifth place empty.
+//
+// An entry carries its own routine, and the game calls it the same way from any list:
+// CSWGuiTargetActionMenu::DoTargetAction (0x00689798) and
+// CSWGuiMainInterface::DoPersonalAction (0x0068AEA2) push the character and the entry's
+// id and call [entry+0x0C] with ecx the object the entry names plus its adjustment
+// (+0x10). So a copied entry is used as from its own slot. An entry whose id the list
+// already has is left out, so a chosen id names one entry.
+//
+// Stealth: the Xbox game has no button for it (manual, page 5); skills are in the
+// second icon (page 8), and Stealth mode needs the skill and a stealth field generator
+// (page 30). The PC has it only as the HUD's toggle TB_STEALTH, which this layout
+// parks, and as a keyboard key. The entry is what the engine's own are (0x38 bytes,
+// CSWGuiInterfaceAction): a name, an id by which the HUD remembers the chosen entry, a
+// routine, the object acted on, an icon, bit 0 of the flags for "can be used" and a
+// count. Condition and action are TB_STEALTH's own (OnStealthButtonPressed,
+// 0x00688640): CSWCCreature::IsStealthCapable (the area allows it, the skill can be
+// used, a stealth field generator is on the belt) and PartyMenuStealth. Name and icon
 // are the skill's in skills.2da, row 2: dialog.tlk 325 and isk_stealth, which
 // swpc_tex_gui.erf holds.
-//
-// Only while the Xbox layout is the one shown: with mouse or keyboard the list is the
-// game's own, and the game's toggle is there.
 constexpr std::uintptr_t kGetParty = 0x005ED8B0;           // CClientExoApp::GetSWParty()
 constexpr std::uintptr_t kGetPlayerCharacter = 0x00635460; // CSWParty::GetPlayerCharacter()
 constexpr std::uintptr_t kIsStealthCapable = 0x00610AC0;   // CSWCCreature::IsStealthCapable()
 constexpr std::uintptr_t kPartyMenuStealth = 0x0060F4B0;   // CSWCCreature::PartyMenuStealth(int, int)
 constexpr std::uintptr_t kActionsAllocate = 0x004F7920;    // CExoArrayList<CSWGuiInterfaceAction>::Allocate(int)
+constexpr std::uintptr_t kActionClear = 0x0063C000;        // CSWGuiInterfaceAction::Clear(), thiscall, plain ret
 constexpr std::uintptr_t kStringAssign = 0x005E5C50;       // CExoString::operator=(const CExoString&)
 constexpr std::ptrdiff_t kObjectId = 0x04;                 // a client object's id
 constexpr std::ptrdiff_t kEntryRoutine = 0x0C;             // and three words of a member pointer's adjustment
 constexpr std::ptrdiff_t kEntryObject = 0x1C;
 constexpr std::ptrdiff_t kEntryFlags = 0x30;
 constexpr std::ptrdiff_t kEntryCount = 0x34;
+constexpr int kListLimit = 1024;
 constexpr int kStealthName = 325;                          // dialog.tlk: "Stealth"
 constexpr char kStealthIcon[16] = "isk_stealth";
 constexpr int kStealthId = 0x10000002;                     // skill 2; a Force power's id is its number | 0x20000000
@@ -2024,26 +2262,65 @@ void __fastcall StealthChosen(void*, void*, int, void* creature)
         reinterpret_cast<void(__thiscall*)(void*, int, int)>(kPartyMenuStealth)(creature, 0, 0);
 }
 
-extern "C" void __cdecl KmrpXboxHudStealthK1(void* menu)
+int ListCount(void* list)
 {
-    if (!menu || !Enabled() || !g_layout.xbox || !IsControllerInputActiveK1()) return;
-    void* hud = At<void*>(menu, kMenuInterface);
-    void* app = *reinterpret_cast<void**>(kAppManager);
-    void* client = app ? At<void*>(app, 4) : nullptr;
-    if (!hud || !client) return;
-    void* party = reinterpret_cast<void*(__thiscall*)(void*)>(kGetParty)(client);
-    void* creature = party ? reinterpret_cast<void*(__thiscall*)(void*)>(kGetPlayerCharacter)(party) : nullptr;
-    if (!StealthCapable(creature)) return;
-
-    void* list = Part(hud, kHudPersonalLists);
     const int count = At<int>(list, 4);
-    if (count < 0) return;
-    reinterpret_cast<void(__thiscall*)(void*, int)>(kActionsAllocate)(list, count + 1);
-    char* entries = At<char*>(list, 0);
-    if (!entries) return;
-    At<int>(list, 4) = count + 1;
-    void* entry = entries + count * kEntrySize;
+    return count >= 0 && count <= kListLimit && At<char*>(list, 0) ? count : 0;
+}
 
+bool ListHasId(void* list, int id)
+{
+    char* entries = At<char*>(list, 0);
+    for (int i = 0, count = ListCount(list); i < count; ++i)
+        if (At<int>(entries + i * kEntrySize, kEntryId) == id) return true;
+    return false;
+}
+
+// `count` more entries at a list's end, through the engine's own Allocate; the first
+// of them, or null.
+char* GrowList(void* list, int count)
+{
+    const int had = At<int>(list, 4);
+    if (had < 0 || had + count > kListLimit || count <= 0) return nullptr;
+    reinterpret_cast<void(__thiscall*)(void*, int)>(kActionsAllocate)(list, had + count);
+    char* entries = At<char*>(list, 0);
+    if (!entries) return nullptr;
+    At<int>(list, 4) = had + count;
+    return entries + had * kEntrySize;
+}
+
+// Every entry of `from` whose id `to` lacks, copied to the end of `to`: the name (a
+// CExoString, +0x00) by the engine's own assignment, the rest (id, routine, object,
+// icon, flags, count) as plain data.
+void JoinList(void* to, void* from)
+{
+    char* source = At<char*>(from, 0);
+    const int count = ListCount(from);
+    int take[kListLimit], taking = 0;
+    for (int i = 0; i < count; ++i)
+        if (!ListHasId(to, At<int>(source + i * kEntrySize, kEntryId))) take[taking++] = i;
+    char* entry = GrowList(to, taking);
+    for (int k = 0; entry && k < taking; ++k, entry += kEntrySize) {
+        const char* copied = source + take[k] * kEntrySize;
+        reinterpret_cast<String*(__thiscall*)(void*, const String*)>(kStringAssign)(entry, reinterpret_cast<const String*>(copied));
+        std::memcpy(entry + kEntryId, copied + kEntryId, kEntrySize - kEntryId);
+    }
+}
+
+// A list emptied as PopulateMenus empties one: each entry cleared, the count 0.
+void EmptyList(void* list)
+{
+    char* entries = At<char*>(list, 0);
+    for (int i = 0, count = ListCount(list); i < count; ++i)
+        reinterpret_cast<void(__thiscall*)(void*)>(kActionClear)(entries + i * kEntrySize);
+    At<int>(list, 4) = 0;
+}
+
+void AddStealth(void* list, void* creature, void* client)
+{
+    if (ListHasId(list, kStealthId)) return;
+    char* entry = GrowList(list, 1);
+    if (!entry) return;
     String name;
     reinterpret_cast<String*(__thiscall*)(void*, String*, int)>(kGetGuiString)(client, &name, kStealthName);
     reinterpret_cast<String*(__thiscall*)(void*, const String*)>(kStringAssign)(entry, &name);
@@ -2056,6 +2333,25 @@ extern "C" void __cdecl KmrpXboxHudStealthK1(void* menu)
     std::memcpy(Part(entry, kEntryIcon), kStealthIcon, sizeof kStealthIcon);
     At<unsigned>(entry, kEntryFlags) = (At<unsigned>(entry, kEntryFlags) & ~0x1Eu) | 1u;
     At<int>(entry, kEntryCount) = 1;
+}
+
+extern "C" void __cdecl KmrpXboxHudListsK1(void* menu)
+{
+    if (!menu || !Enabled() || !g_layout.xbox || !IsControllerInputActiveK1()) return;
+    void* hud = At<void*>(menu, kMenuInterface);
+    void* app = *reinterpret_cast<void**>(kAppManager);
+    void* client = app ? At<void*>(app, 4) : nullptr;
+    if (!hud || !client) return;
+    void* medical = Part(hud, kHudPersonalLists + 1 * 0xC);
+    void* skills = Part(hud, kHudPersonalLists + 2 * 0xC);     // the other usable items, until joined
+    JoinList(medical, skills);
+    EmptyList(skills);
+    void* party = reinterpret_cast<void*(__thiscall*)(void*)>(kGetParty)(client);
+    void* creature = party ? reinterpret_cast<void*(__thiscall*)(void*)>(kGetPlayerCharacter)(party) : nullptr;
+    if (!StealthCapable(creature)) return;
+    AddStealth(skills, creature, client);
+    void* feats = Part(menu, kMenuActionLists + kFeatsSlot * 0xC);
+    if (ListCount(feats) > 0) AddStealth(feats, creature, client);
 }
 
 // The pause box while the game lays it out its own way. Found and repaired on the Mac

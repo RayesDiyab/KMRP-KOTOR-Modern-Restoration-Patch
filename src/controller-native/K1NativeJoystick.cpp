@@ -21,6 +21,7 @@
 #include "K1ControllerLayout.h"
 #ifdef KMRP_NATIVE_RUNTIME
 #include "K1TextOptions.h"
+#include "K1HudOptions.h"
 #endif
 #include "K1Rumble.h"
 #include "KmrpOptions.h"
@@ -5517,6 +5518,8 @@ extern "C" void __cdecl KmrpCoreGuiWorkK1(void* guiManager)
 {
     KmrpResolutionObservedK1(guiManager);
     KmrpTextOptionsFrameK1(guiManager);
+    KmrpHudOptionsFrameK1(guiManager);  // the HUD Size page, its button above Text Size's (K1HudOptions.cpp)
+    KmrpPcHudFrameK1(guiManager);       // the mouse and keyboard HUD placed and sized (K1PcHud.cpp)
     KmrpListRowsFrame(guiManager);      // the lists of newly loaded panels (K1RuntimeLayout.cpp, "List rows")
     UpdateCursorConfinementK1();
     StatusSummaryFrameK1(guiManager);

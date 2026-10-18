@@ -4,6 +4,8 @@
 void KmrpTextOptionsFrameK1(void* manager);
 void KmrpTextOptionsDestroyedK1(void* panel);
 
+// The "Text Size and Font" button the page added to a Graphics Options screen, or null.
+void* KmrpTextOptionsEntryK1(void* owner);
 int KmrpTextSizePercentK1();
 int KmrpTextSizeForFontK1(const char* font);
 int KmrpTextFontStyleK1();

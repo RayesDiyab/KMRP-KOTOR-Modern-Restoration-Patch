@@ -130,15 +130,18 @@ XBOX_HUD_PAUSE_DONE_HOOK = {
     'skip_original_bytes': False, 'exclude_from_restore': [],
     'parameters': [{'source': 'esi', 'type': 'pointer'}],
 }
-# Its fifth: the entry of CSWGuiTargetActionMenu::PopulateMenus, ecx = the target menu
-# (sub esp, 8 / mov eax, [esp+0x14]; nothing branches into the seven bytes). The HUD
-# calls it once it has filled the action row's personal lists and before it shows the
-# slots by them, which is where Stealth is added to the first (issue #50).
-XBOX_HUD_STEALTH_HOOK = {
-    'address': 0x00689410, 'type': 'detour', 'function': 'KmrpXboxHudStealthK1',
-    'original_bytes': [0x83, 0xEC, 0x08, 0x8B, 0x44, 0x24, 0x14],
+# Its fifth: CSWGuiTargetActionMenu::PopulateMenus after its loop has filled the
+# target's three lists and before it shows the slots by them (ebp = the menu). The
+# row's lists are shaped there as the Xbox manual's six places: the usable items
+# joined, Stealth with the skills and the feats (K1XboxHud.cpp, KmrpXboxHudListsK1,
+# issues #55 and #50). mov dword ptr [esp+0x14], 0: eight bytes, nothing jumps into
+# them, nothing to relocate. Until 2026-10-18 a sixth hook, at the routine's entry
+# (0x00689410), added Stealth among the character's own Force powers.
+XBOX_HUD_LISTS_HOOK = {
+    'address': 0x0068947A, 'type': 'detour', 'function': 'KmrpXboxHudListsK1',
+    'original_bytes': [0xC7, 0x44, 0x24, 0x14, 0x00, 0x00, 0x00, 0x00],
     'skip_original_bytes': False, 'exclude_from_restore': [],
-    'parameters': [{'source': 'ecx', 'type': 'pointer'}],
+    'parameters': [{'source': 'ebp', 'type': 'pointer'}],
 }
 # The minigames: the entry of CSWMiniGame::UpdateAxis, ecx = the game, [esp+4] = the
 # vector the keys gave (mov eax, [ecx+0x80], one instruction, nothing to relocate).
@@ -214,7 +217,7 @@ def hooks():
     selected.append(dict(XBOX_HUD_BARS_HOOK))
     selected.append(dict(XBOX_HUD_PAUSE_HOOK))
     selected.append(dict(XBOX_HUD_PAUSE_DONE_HOOK))
-    selected.append(dict(XBOX_HUD_STEALTH_HOOK))
+    selected.append(dict(XBOX_HUD_LISTS_HOOK))
     selected.append(dict(MINIGAME_AXIS_HOOK))
     for index, h in enumerate(selected):
         span = range(h['address'], h['address'] + len(h['original_bytes']))
@@ -229,7 +232,9 @@ def hooks():
 
 
 def functions():
-    return {h['function'] for h in hooks()} | {'KmrpControllerConfirmHeldK1'}
+    # And two the modules ask each other: whether a confirm button is held (KMRP's pages)
+    # and whether the Xbox-style HUD has the HUD (KMRP's placing of the game's own, K1PcHud.cpp).
+    return {h['function'] for h in hooks()} | {'KmrpControllerConfirmHeldK1', 'KmrpXboxHudOwnsK1'}
 
 
 def render_manifest(version: str) -> str:

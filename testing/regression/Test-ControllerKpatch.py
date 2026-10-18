@@ -121,11 +121,14 @@ def main() -> int:
                    if h.get("function") in ("NativeGuiFrameK1", "NativeMovieFrameK1")})
     stand_ins = set()
     # the Xbox-style HUD's five (two more since 2026-10-09, on the pause box's own
-    # layout, and Stealth's since 2026-10-13), which KMRP's patch does not have, and the two that
+    # layout, and the row's lists since 2026-10-18, which replaced Stealth's own of
+    # 2026-10-13),
+    # which KMRP's patch does not have, and the two that
     # stand in for KMRP's hook at StopLoadFromLayout's entry, left to other patches
     own = {package.XBOX_HUD_HOOK["address"], package.XBOX_HUD_BARS_HOOK["address"],
            package.XBOX_HUD_PAUSE_HOOK["address"], package.XBOX_HUD_PAUSE_DONE_HOOK["address"],
-           package.XBOX_HUD_STEALTH_HOOK["address"], package.MINIGAME_AXIS_HOOK["address"],
+           package.XBOX_HUD_LISTS_HOOK["address"],
+           package.MINIGAME_AXIS_HOOK["address"],
            package.PANEL_LOADED_HOOK["address"], package.PANEL_DESTROYED_HOOK["address"],
            package.RESOURCE_OWN_HOOK["address"]}
     check(package.PANEL_SITE not in mine and package.PANEL_SITE in theirs,

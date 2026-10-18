@@ -209,7 +209,13 @@ int main(int argc,char** argv) {
         assert(KmrpTextSizeForFontK1("fnt_d16x16b")==45);
         assert(KmrpTextSizeForFontK1("dialogfont10x10b")==50);
         assert(KmrpTextSizeForFontK1("fnt_console")==55);
+        // A click is acted on once: the second call of the same press (the pad's A
+        // reaches the handler going down and coming up) is ignored until the confirm
+        // button has been released for two frames.
+        ToggleLink(current,nullptr,nullptr);KmrpTextOptionsFrameK1(manager);assert(!sizing.linked);
+        Mock::held=false;KmrpTextOptionsFrameK1(manager);KmrpTextOptionsFrameK1(manager);
         ToggleLink(current,nullptr,nullptr);KmrpTextOptionsFrameK1(manager);assert(sizing.linked);
+        Mock::held=true;
         for(int value:sizing.values)assert(value==55);
         At<int>(sliders[Body],0x74)=0;KmrpTextOptionsFrameK1(manager);
         for(int value:sizing.values)assert(value==Minimum);
@@ -225,18 +231,22 @@ int main(int argc,char** argv) {
         At<int>(sliders[Hud],0x74)=SliderMaximum;KmrpTextOptionsFrameK1(manager);
         --At<int>(sliders[Hud],0x74);KmrpTextOptionsFrameK1(manager);
         for(int value:sizing.values)assert(value==Maximum-1);
+        // Between clicks the confirm button is let go for two frames, as a player does:
+        // a click is acted on once (the second call of the same press is ignored).
+        const auto release=[&]{const bool was=Mock::held;Mock::held=false;KmrpTextOptionsFrameK1(manager);KmrpTextOptionsFrameK1(manager);Mock::held=was;};
+        release();
         const int resetBefore=Mock::resets;const int buildBefore=Mock::builds;
         SelectSharpened(current,nullptr,nullptr);KmrpTextOptionsFrameK1(manager);assert(style==OriginalSharpened);
         auto texture=(*static_cast<void***>(Native(0x7A4798)))[0];
         assert(At<unsigned>(texture,0x58)!=0 && At<void*>(texture,0x40)!=nullptr);
         assert(Mock::resets==resetBefore+1 && Mock::builds==buildBefore+1 && Mock::refresh.empty());
         selected(OriginalSharpened);
-        SelectOriginal(current,nullptr,nullptr);KmrpTextOptionsFrameK1(manager);assert(style==Original);selected(Original);
-        const int sameBuild=Mock::builds;
+        release();SelectOriginal(current,nullptr,nullptr);KmrpTextOptionsFrameK1(manager);assert(style==Original);selected(Original);
+        release();const int sameBuild=Mock::builds;
         SelectOriginal(current,nullptr,nullptr);KmrpTextOptionsFrameK1(manager);assert(Mock::builds==sameBuild);selected(Original);
-        SelectHd(current,nullptr,nullptr);KmrpTextOptionsFrameK1(manager);assert(style==NewHd);selected(NewHd);
-        SelectOriginal(current,nullptr,nullptr);KmrpTextOptionsFrameK1(manager);selected(Original);
-        ToggleLink(current,nullptr,nullptr);KmrpTextOptionsFrameK1(manager);assert(!sizing.linked);
+        release();SelectHd(current,nullptr,nullptr);KmrpTextOptionsFrameK1(manager);assert(style==NewHd);selected(NewHd);
+        release();SelectOriginal(current,nullptr,nullptr);KmrpTextOptionsFrameK1(manager);selected(Original);
+        release();ToggleLink(current,nullptr,nullptr);KmrpTextOptionsFrameK1(manager);assert(!sizing.linked);
         At<int>(sliders[Body],0x74)=(80-Minimum)/Step;KmrpTextOptionsFrameK1(manager);assert(sizing.values[Body]==80);
         Mock::held=false;KmrpTextOptionsFrameK1(manager);KmrpTextOptionsFrameK1(manager);
         Mock::held=true;KmrpTextOptionsFrameK1(manager);
@@ -244,9 +254,9 @@ int main(int argc,char** argv) {
         assert(sizing.values[Menus]==Default && style==NewHd && At<int>(sliders[0],0x74)==(Default-Minimum)/Step);selected(NewHd);
         for(int value:sizing.values)assert(value==Default);
         assert(sizing.linked && (At<unsigned>(linkSizes,0x1C8)&1));
-        Mock::fail=true;SelectSharpened(current,nullptr,nullptr);KmrpTextOptionsFrameK1(manager);assert(style==NewHd && requestedStyle==NewHd);selected(NewHd);
+        release();Mock::fail=true;SelectSharpened(current,nullptr,nullptr);KmrpTextOptionsFrameK1(manager);assert(style==NewHd && requestedStyle==NewHd);selected(NewHd);
         // Restoring the entry while A remains held must never reopen the modal.
-        Mock::held=true;Back(current,nullptr,nullptr);
+        release();Mock::held=true;Back(current,nullptr,nullptr);
         assert((At<unsigned>(current,0x44)&0x700)==0x400);
         Destroy(current,nullptr,1);KmrpTextOptionsFrameK1(manager);
         Open(owner,nullptr,nullptr);assert(!pending && !current);

@@ -4310,9 +4310,13 @@ void MoveFocus(
     // (K1XboxHud.cpp, kPlace): left and right follow what is on screen. The grenade
     // and mine slots share a place, and the one not shown is not selectable.
     // The first place is the default action and has no slot: it is "no slot has the
-    // focus", -1 here, and reaching it lets the focus go.
+    // focus", -1 here, and reaching it lets the focus go. Since 2026-10-18 the places
+    // are the Xbox manual's: feats (0) or skills (5), the target's Force powers (1),
+    // grenades (2) or mines (6), the character's own Force powers (3), then the
+    // defensive items (4). It was {-1, 0, 3, 1, 2, 6, 4, 5}, the character's own powers
+    // sharing the feats' place.
     if (KmrpXboxHudEnabledK1() && buttonCount == 7) {
-        static const int order[8] = {-1, 0, 3, 1, 2, 6, 4, 5};
+        static const int order[8] = {-1, 0, 5, 1, 2, 6, 3, 4};
         int at = 0;
         for (int i = 0; i < 8; ++i) {
             if (order[i] == activeIndex) at = i;

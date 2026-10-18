@@ -219,6 +219,19 @@ Neither site is in KMRP's table or in High FPS Fixes' (`Test-InstallerPatch.ps1`
 installs the three together). Not compared again with the other patches of KOTOR
 Patch Manager 0.7.1.
 
+**Since 2026-10-18: still 38 hooks.** Stealth's hook at `0x00689410` is gone; one hook
+later in the same routine shapes the action row's lists as the Xbox manual's six
+places, Stealth with them ([`controller-xbox-hud.md`](controller-xbox-hud.md), "The six
+places" and "Stealth"):
+
+| VA | Original bytes | Function | Change |
+| --- | --- | --- | --- |
+| `0x00689410` | `83 EC 08 8B 44 24 14` | `KmrpXboxHudStealthK1` | removed |
+| `0x0068947A` | `C7 44 24 14 00 00 00 00` | `KmrpXboxHudListsK1` | new: in `CSWGuiTargetActionMenu::PopulateMenus` after the target's lists are filled, `ebp` the target menu |
+
+Packaged against the clean executable with all 38 sites guarded; passes
+`Test-ControllerKpatch.py`. Not compared with the other patches of KOTOR Patch Manager.
+
 Checked against every patch in KOTOR Patch Manager 0.7.1 for an overlapping site:
 four overlaps, all with `expanded-keyboard-control` (`0x0040C1F6`, `0x005E271E`,
 `0x00686BA0`, `0x0068B170`), which the manifest therefore lists as a conflict

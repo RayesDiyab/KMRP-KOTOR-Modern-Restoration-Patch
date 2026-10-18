@@ -117,6 +117,52 @@ proxy, and it applies the executable changes above as well.
 
 ## [Unreleased]
 
+- **HUD Size: each part of each HUD larger or smaller, and the mouse and keyboard HUD
+  placed by KMRP** (2026-10-18; `src/controller-native/K1HudOptions.cpp`, `K1PcHud.cpp`,
+  `K1PcHudLayout.h`, `K1XboxHud.cpp`, `tools/build_pc_hud.py`; `docs/hud-size-options.md`).
+  Graphics Options has a HUD Size button above Text Size and Font. Its page has a slider
+  for each part, the mouse and keyboard HUD's (menu buttons, minimap, action bar,
+  portraits, attack buttons, Disengage) and the controller HUD's (action menu, party
+  switch, minimap, top left bar, Disengage) kept apart, 25% to 100% with 50% today's size
+  and 100% two and a half times it; Link HUD Sizes; and a preview of the chosen HUD on a
+  slate backdrop. Each part grows about its corner and stops at the screen's edge. To make
+  that possible on any HUD file, KMRP now places the mouse and keyboard HUD itself, from a
+  table of its shipped 3440x1440 HUD (all 108 rectangles compared with the file the game
+  loads), as the Xbox-style HUD has been placed since 2026-10-05: another widescreen mod's
+  HUD layout gives the controls and their art, and the places are KMRP's. With the
+  controls it sets the numbers the engine goes on using (the map's window, the
+  description's edge, the target menu's width, gaps and limits, the portraits' homes, the
+  area a target's circle may stand in). The target's buttons stay centred under its name
+  at any size. The controller patch reads the sizes from `swkotor.ini` itself; the two
+  modules tell each other who has the HUD (`KmrpXboxHudOwnsK1`) and the mouse and
+  keyboard HUD's minimap size (`KmrpHudAppliedSizeK1`). No new hooks. **Seen in the test
+  game at 3440x1440 (scripted input, the maintainer reviewing the screenshots: "Looks
+  great") for the mouse and keyboard HUD at 25%, 50% and 100%; the live Xbox-style HUD at
+  other sizes, other screen sizes and another mod's HUD file not seen.** The minimap zooms
+  with its window only from 121 pixels up (KMRP's executable change); below that it shows
+  less of the area.
+
+- **Controller, the Xbox-style HUD: the action row is the Xbox manual's six places**
+  (2026-10-18; issues #55 and #50; `src/controller-native/K1XboxHud.cpp`,
+  `KmrpXboxHudListsK1`; `docs/controller-xbox-hud.md`, "The six places"). With an enemy
+  targeted, the character's own Force powers (Heal, Burst of Speed) could not be chosen
+  with the pad: they shared the feats' place, which showed the enemy's feats. Stealth was
+  among those powers too, so it was also out of reach with an enemy targeted. The row now
+  follows the manual (page 8): default action, feats and skills (Stealth after the
+  target's feats, or alone with no target), offensive Force powers, grenades or mines,
+  the character's own Force powers, then medpacs and the other usable items together.
+  One hook, in `CSWGuiTargetActionMenu::PopulateMenus` (`0x0068947A`, after the lists
+  are filled and before any slot is shown), reshapes the lists the game has just made;
+  each entry keeps its own routine, so it acts as from its own slot. It replaces
+  Stealth's hook at the routine's entry (`0x00689410`), so the controller patch still has
+  38 hooks; every stolen byte checked against the clean executable. A place with nothing
+  to show is a dim frame, as on the Xbox. Only while the Xbox layout is shown; with
+  mouse or keyboard every list, slot and the Stealth toggle are the game's own. A first
+  version the same day joined the character's own powers to the target's Force place
+  instead; it left the fifth place empty and was replaced before any release. **Played by
+  the maintainer on 2026-10-18 in the test game (controller module SHA-256
+  `129C91DE...`): "works".**
+
 - **Text that fits its space at any text size** (2026-10-17): a larger text size
   no longer pushes words out of their boxes. Each piece of the game's text is
   fitted on its own, at the moment the engine wraps and draws it; the shared
@@ -147,7 +193,8 @@ proxy, and it applies the executable changes above as well.
     with the same scale (100 at 50% at 3440x1440, 130 at 65%), so its three cells
     grow with it; the feat icons and the arrows between them, which the game draws
     at their textures' own size, are drawn larger about their centres, an icon never
-    beyond its cell. Unchanged at 50%.
+    beyond its cell. Unchanged at 50%. **Update, 2026-10-18:** the feats and the powers
+    charts confirmed in play by the maintainer.
   - **The computer terminal's reply scrollbar** sits on the track its artwork
     draws for it (`panel01`, 880..941 x 577..804 at 3440x1440), where
     `computer.gui` puts it: the thumb's track on the artwork's bar, the arrows
@@ -162,7 +209,8 @@ proxy, and it applies the executable changes above as well.
     subtitle; while replies are offered the reply list was 192, cutting the
     third reply (3440x1440, 100%). The panel, `LBL_MESSAGE` and `LB_REPLIES`
     now reach that limit and never pass it: a longer subtitle is fitted to its
-    box, more replies scroll (`Dialogue`, `K1TextLayout.cpp`).  - **Scrolling descriptions and text entry** keep the chosen size.
+    box, more replies scroll (`Dialogue`, `K1TextLayout.cpp`).
+  - **Scrolling descriptions and text entry** keep the chosen size.
   - **The pause notice** spans the width of the menu buttons above it and grows
     to fit its text; the Xbox-style HUD keeps its own layout.
   - Five new hooks, on the engine's text object (created, destroyed, wrapped,
@@ -171,6 +219,16 @@ proxy, and it applies the executable changes above as well.
     counters, scrolling and the pause layout. Installed in the separate test game,
     not yet play-tested: the three font styles, translations, other resolutions
     and repeated size changes are all still to be checked in play.
+    **Update, 2026-10-18:** the hooks are six, not five: a sixth, on the engine's
+    request for a text's height (`0x0045B7A0`), lets the engine measure at the
+    chosen size so a fit survives a restart. Confirmed in play by the maintainer
+    at 3440x1440 the same day: the pause notice, the quit box, the inventory,
+    Load Game, store, workbench, skill and power rows, the stack count, the
+    feats chart, the container panel, the granted popup (its 1.5x limit and its
+    original size at 50%), the class name, the computer scrollbar and the
+    conversation text; then, at a resolution other than 3440x1440 (which one
+    was not recorded), the text work as a whole. See
+    [1.6 progress](docs/release-1.6-progress.md).
   See [text layout inventory](docs/text-layout-inventory.md).
 
 - **Text size and font in Graphics Options** (2026-10-17): add a native
@@ -189,6 +247,8 @@ proxy, and it applies the executable changes above as well.
   the previous sizes. Opening, sizing and Default were tested in the earlier
   two-style page; the grouped sliders, fine changes and linking were then tested in the separate
   game. The three-choice font selector awaits its switching/rendering check.
+  **Update, 2026-10-18:** switching between the three fonts confirmed in play
+  by the maintainer.
   See [in-game text options](docs/ingame-text-options.md).
 
 - **Override font wrapping** (2026-10-17; issue #63): size an Override font's
@@ -199,6 +259,7 @@ proxy, and it applies the executable changes above as well.
   the source font, glyph coordinates and chosen font style stay unchanged.
   Native control-flow checks and 11,880 original/translation/size metric cases pass.
   In-game dialogue wrapping with a translation remains unverified.
+  **Update, 2026-10-18:** confirmed in play by the maintainer.
   See [Override font timing](reverse-engineering/override-font-metrics.md).
 
 - **Expanded party roster compatibility** (2026-10-17; issue #38): generate
@@ -287,7 +348,8 @@ proxy, and it applies the executable changes above as well.
   still fires on A alone. See `docs/controller-native-path.md`, "Swoop racing and
   the turret". The maintainer confirmed A, LT and RT each fire in Steam on
   2026-10-16. Overlapping holds remain covered by the 512-transition regression;
-  that exact sequence has not been reported from play.
+  that exact sequence has not been reported from play. **Update, 2026-10-18:** overlapping holds
+  confirmed in play by the maintainer.
 
 - **Controller: swoop racing and the gun turret take the pad** (2026-10-13; issue #47;
   `src/controller-native/K1NativeJoystick.cpp`, `NativeMiniGameAxisK1`;
@@ -314,7 +376,8 @@ proxy, and it applies the executable changes above as well.
   confirmed the final swoop prompt works and A, LT and RT each fire in the turret.
   They also confirmed A fires in the original Xbox game, beyond the manual's
   documented triggers. Start, overlapping holds and the turret's vertical direction
-  were not individually reported as tested.
+  were not individually reported as tested. **Update, 2026-10-18:** Start, overlapping holds and
+  the turret's vertical direction confirmed in play by the maintainer.
 
   **The other half of the report, the HUD** ("its Hud i don't think covered the whole screen
   like everywhere else"; `macos/tools/kmrp-swoophud.c`, `K1RuntimeAssets.cpp`). The game has
@@ -339,6 +402,7 @@ proxy, and it applies the executable changes above as well.
   the same cache; nothing is written to the game's folder. **Built and installed; not yet
   seen in the game.** The helper is plain C beside the Mac's others; the Mac build does not
   call it yet (`docs/macos-changes-from-windows.md`, item 54).
+  **Update, 2026-10-18:** the chevron's absence confirmed in play by the maintainer.
 
   **Still open:** the "PAUSED" box in a race is small and see-through with its text running
   over (same screenshot). Not looked at.
@@ -386,7 +450,8 @@ proxy, and it applies the executable changes above as well.
   event on its own panel is now made inert, on every screen; a press is handed on as before.
   No new hook. **Seen fixed in the game by the maintainer on 2026-10-13** (Steam's game,
   controller module SHA-256 `E02901ED...`): "the popup fix works too". Other screens where a
-  box closes over a focused button were not reported on.
+  box closes over a focused button were not reported on. **Update, 2026-10-18:** other screens
+  confirmed in play by the maintainer.
 
 - **Controller, the Xbox-style HUD: Stealth is in the action row** (2026-10-13; issue #50;
   `src/controller-native/K1XboxHud.cpp`, `KmrpXboxHudStealthK1`;
@@ -402,7 +467,9 @@ proxy, and it applies the executable changes above as well.
   `CSWGuiTargetActionMenu::PopulateMenus` (`0x00689410`), so the controller patch has 37.
   Only while the Xbox layout is shown; with mouse or keyboard nothing changes. As before, the
   second place shows a target's feats while the target has any, so Stealth is reached with no
-  target or with one that has none. **Built; the package test passes (37 guarded sites on the
+  target or with one that has none. **Update, 2026-10-18:** Stealth now follows the target's
+  feats in that place and the hook moved later in the same routine (the entry above, "the
+  action row is the Xbox manual's six places"). **Built; the package test passes (37 guarded sites on the
   clean executable).**
 
   **The first build of it ended the game on A** (2026-10-13, the maintainer, Steam's game:

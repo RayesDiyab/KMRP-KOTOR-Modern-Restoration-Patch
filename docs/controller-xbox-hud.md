@@ -30,19 +30,66 @@ the HUD was seen beside KMRP at 3440x1440 on 2026-10-06.
 The PC HUD's row of eight menu buttons and its pause, solo and stealth toggles are
 not shown. A pad does without most of them: Start opens the menus, RT pauses, Back
 toggles solo mode (`tools/build_controller_layout.py`, `LAYOUT`). Stealth has no
-pad button, as on the Xbox; since 2026-10-13 it is an entry of the second place
-("Stealth", below). Until then only the keyboard's key reached it (issue #50).
+pad button, as on the Xbox; since 2026-10-13 it is an entry of the second place, with
+the feats since 2026-10-18 ("Stealth", below). Until then only the keyboard's key
+reached it (issue #50).
 
-### The six slots
+### The six places
+
+The Xbox manual names them (page 8, [`reference/kotor-xbox-manual.pdf`](reference/kotor-xbox-manual.pdf)):
+the default action, "your feats and skills", offensive Force powers, grenades and
+mines, your own (defensive) Force powers, and medpacs and other defensive items.
 
 | Place | Without a target | With a target |
 | --- | --- | --- |
 | 1 | "No Action" | the target's default action: "Attack", "Open", "Dialog" |
-| 2 | the character's own Force powers, and Stealth when it can be used | the target's other actions of that kind (feats, a door's lock); the character's when it has none |
+| 2 | Stealth when it can be used ("Stealth", below); a dim frame otherwise | the target's other actions of that kind (feats, a door's lock), then Stealth; Stealth alone when the target has none |
 | 3 | a dim frame | the target's Force powers |
 | 4 | mines | grenades while the target offers any, mines otherwise |
-| 5 | medical items | the same |
-| 6 | other items | the same |
+| 5 | the character's own Force powers | the same |
+| 6 | medical items, then the other usable items | the same |
+
+A place with nothing to show is a dim frame, as the Xbox draws one (the maintainer's
+frame of the Xbox game: a mine chosen and no medical item, the fifth place a dim frame).
+
+The PC keeps these lists apart: the target's three in its menu
+(`CSWCCreature::GetTargetActions`) and the character's in the action bar
+(`CSWCCreature::GetPersonalActions`, `0x00619DB0`: the character's own Force powers from
+`GetSelfForcePowers`, `0x00616230`, then medical, other and mine items, with
+`GetUsableItems` 1, 4 and 2). The PC has no list of skills: its Stealth is a toggle.
+So while the Xbox layout is shown, the module reshapes the lists the game has just
+made: `KmrpXboxHudListsK1`, at `0x0068947A` in `CSWGuiTargetActionMenu::PopulateMenus`,
+after it has filled the target's three lists and before it shows any slot.
+
+- The other usable items are joined to the end of the medical items, so place 6 has
+  both, as on the Xbox.
+- The personal list so emptied (the third) holds the skills: Stealth, while it can be
+  used. It is what place 2 shows with no target, or with a target that has no feats.
+- With a target that has feats, Stealth is also joined to the end of the target's
+  feats, so place 2 is "feats and skills".
+
+An entry carries its own routine, and `DoTargetAction` (`0x00689610`) calls it as
+`DoPersonalAction` (`0x0068AD60`) does, with the entry's id and the character, so an
+entry used from another list acts as from its own. An entry whose id the list already
+has is left out. With mouse or keyboard every list is the game's own and the PC HUD's
+slots and Stealth toggle are as they were: the engine makes the lists anew for every
+draw, so nothing of this is left once the pad is put down. The pad's left and right
+follow the places (`vendor/K1XboxControls.cpp`, `MoveFocus`:
+`{-1, 0, 5, 1, 2, 6, 3, 4}`, the PC slot numbers in place order).
+
+Why there: the routine and the list makers are each called from one place only
+(`0x00689E78`, `0x0068946C`, `0x00619DC5`, read from the executable), so the site touches
+nothing but the HUD's row; it is the first instruction at which every list is complete
+(the personal lists were filled before the routine was called), and the last before
+anything reads them.
+
+**Corrected 2026-10-18 (issues #55 and #50).** Until then the character's own Force
+powers stood in place 2, taken for the "skills" the Xbox shows there, and Stealth was
+added to them. With an enemy targeted, place 2 showed the enemy's feats and the
+character's powers were not in the row: Heal and Burst of Speed could not be chosen with
+the pad in a fight. A first correction the same day joined the character's own powers
+to the target's Force powers in place 3; it left place 5 empty and was replaced, before
+any release, by the manual's layout above.
 
 Place 1 is selected whenever no other slot is. A there does the default action. The
 D-pad moves along the row as it is on screen; left from place 2, or B, returns to
@@ -81,6 +128,13 @@ in the game**: the code path is the one `Style=Xbox` took.
 The module reads the manager's recorded option first (`configs\kmrp-controller.ini`,
 `[Patch Options]`, `xbox-hud`) and the settings file only when there is none, once,
 when the game starts. With the option off both hooks return at once.
+
+### Sizes
+
+Since 2026-10-18 each part (action menu, party, minimap, top left bar, Disengage) can be
+made larger or smaller about its corner on KMRP's HUD Size page; this patch reads the
+sizes from `swkotor.ini` itself, so it works without KMRP at 50%. See
+[`hud-size-options.md`](hud-size-options.md).
 
 ## Why it is built this way
 
@@ -315,19 +369,22 @@ Ghidra database kept outside the repository):
 No list of the PC row holds a skill of the character's own; the toggle is the only
 way to it, and the Xbox layout parks the toggle.
 
-**What the module does.** One hook, `KmrpXboxHudStealthK1`, at the entry of
-`CSWGuiTargetActionMenu::PopulateMenus` (`0x00689410`, `ecx` = the target menu),
-which is after the personal lists are filled and before the slots are shown:
+**What the module does.** The hook that shapes the row's lists,
+`KmrpXboxHudListsK1` ("The six places", above), at `0x0068947A` in
+`CSWGuiTargetActionMenu::PopulateMenus`, `ebp` = the target menu, after the target's
+lists are filled and before any slot is shown:
 
 ```
-00689410  83 EC 08        sub esp, 8
-00689413  8B 44 24 14     mov eax, [esp+0x14]
+00689478  7C BC                    jl 0x00689436      ; the next list
+0068947A  C7 44 24 14 00 00 00 00  mov dword ptr [esp+0x14], 0
+00689482  8B DD                    mov ebx, ebp       ; the slots are shown
 ```
 
-Nothing branches into the seven bytes (every jump of the routine, to its `ret 0xC`
-at `0x00689606`, was read). While the Xbox layout is shown and the leader
-`IsStealthCapable`, it adds one entry to the first personal list, which is the
-row's second place: the list is grown by one with the engine's own
+Nothing in the routine jumps into the eight bytes (its jumps were read for it), and
+they hold no address to relocate. While the Xbox layout is shown and the leader
+`IsStealthCapable`, it adds a Stealth entry to the third personal list, which holds
+the skills in this layout, and to the end of the target's feats when the target has
+any: place 2 either way. A list is grown with the engine's own
 `CExoArrayList<CSWGuiInterfaceAction>::Allocate` (`0x004F7920`), and the entry
 (`0x38` bytes) is filled as the engine fills its own:
 
@@ -348,9 +405,12 @@ the caller's frame. Corrected the same day, 2026-10-13.) Because the engine make
 is there exactly while the condition holds, and is gone on the first frame with the
 mouse or the keyboard.
 
-**Limits.** The second place shows the target's feats while the target has any
-(`kPlace`), so with an enemy targeted Stealth is not in the row; combat ends
-Stealth in any case. The entry does not show whether Stealth is on. After A on a
+From 2026-10-13 to 2026-10-18 the entry was added to the first personal list, the
+character's own Force powers, by a hook of its own at the routine's entry
+(`0x00689410`, `KmrpXboxHudStealthK1`). With an enemy targeted that place showed the
+enemy's feats, so Stealth was not in the row; now it follows the feats there.
+
+**Limits.** The entry does not show whether Stealth is on. After A on a
 personal slot the engine clears the character's actions when not in combat mode,
 as it does after a Force power; what that does to a queue was not looked at.
 
@@ -625,8 +685,6 @@ measured again.
   ([`controller-standalone.md`](controller-standalone.md), "What it is"). The
   Xbox HUD itself no longer needs any of them: with another HUD layout loaded it
   lays out the same, without the Y and B cues.
-- **Friendly Force powers and skills are not in the row during a fight** with a
-  target that has feats: the second place holds the feats then, as on the Xbox.
 - **The mouse on the slots** was not tried. The up arrow's button covers the middle
   of an icon, as the Xbox arrow strip does.
 - **KMRP's own patch does not contain it.** KMRP scales the whole interface and
@@ -649,6 +707,12 @@ character with the skill and a stealth field generator, the entry in the second
 place with its name in the box, A switching Stealth on and off, the solo mode
 question with the party together, the entry gone with the mouse, and a character
 without the skill or the belt showing none.
+
+**The six places as the manual's (2026-10-18).** Built, packaged against the clean
+executable with all 38 sites guarded, passes `Test-ControllerKpatch.py`, installed by
+KOTOR Patch Manager 0.7.3 in the test game (CD 1.03, controller module SHA-256
+`129C91DE...`). Played by the maintainer the same day: "works". Reported as that one
+word; which places and targets were tried was not said.
 
 Run in a scratch copy of the CD 1.03 game, the patch installed by KOTOR Patch
 Manager 0.7.1's own launcher with `Style=Xbox`, driven by a virtual Xbox pad and a

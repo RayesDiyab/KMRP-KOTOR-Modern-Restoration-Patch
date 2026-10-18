@@ -221,8 +221,10 @@ def all_hooks():
 
 
 def functions():
-    """Every callback a hook names: what the module exports."""
-    return {h['function'] for h in all_hooks() if h.get('function')}
+    """Every callback a hook names: what the module exports. And one function the
+    controller patch's module asks for: the size the mouse and keyboard HUD's parts are
+    shown at (K1PcHud.cpp), so its Xbox-style HUD keeps its own minimap's size."""
+    return {h['function'] for h in all_hooks() if h.get('function')} | {'KmrpHudAppliedSizeK1'}
 
 
 def render_hooks():
