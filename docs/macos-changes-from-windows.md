@@ -1269,3 +1269,132 @@ the 18 atlases in `assets/hd-fonts` were rebuilt with it. Nothing in code change
 gets the new atlases with its next build of the shared assets. To check: on the Text Size
 page with the New HD Font, the HUD sample reads "HUD: 0123456789" with no lines after the
 colon, and a text with a euro sign, curly quotes or an ellipsis shows them.
+
+## 64. HD Original font, the default; the HD fonts at 6x, fitted at run time
+
+**Build, 2026-10-18; not yet seen in the game** (`docs/hd-original-font.md`,
+`docs/ingame-text-options.md`). What the Mac needs:
+
+- **A third font set.** `assets/hd-original-fonts` (36 files, from
+  `tools/build_hd_original_fonts.py`) is the new style, stored in the bank as
+  `kmrfho00` to `kmrfho17` in place of `kmrfpc` (Original Sharpened, retired;
+  `tools/build_original_fonts.py` no longer writes it). The bank's font version is 4.
+- **The style numbers and default.** `FontStyle` 0 is (Old) HD Font, 1 (New) Original
+  HD Font, 2 Original Font; a missing or invalid value means 1 (it meant 0). The
+  legacy `OriginalFont=0` means Old HD, anything else or nothing HD Original. Labels:
+  "(New) Original HD Font", "(Old) HD Font".
+- **6x atlases, fitted.** Both HD sets are baked at 6x (`assets/hd-fonts` too; it was
+  3x). `ApplyTextPreferences` takes the reference height as Old HD's `fontheight` times
+  3/6 (single precision) and resamples each HD atlas to the drawn size (`FitAtlas`:
+  each new texel the area average of the old ones it covers), setting `texturewidth`
+  to the new width. A port that draws the 6x atlas unfitted gets text sampled down from
+  six times its size.
+- **The bank's caption measurement** (`shared_font_txi`) now models HD Original's TXI
+  at the default size, since that is what the module hands the blend helper by default.
+- **`HD_FONT_BAKE_SCALE` is 6.0** in `tools/prepare_universal_resources.py` (only a
+  resolution with no font scale set of its own uses it).
+- **Old HD's `fnt_d16x16` and `fnt_d10x10b` are Arimo**, baked from the repaired TXI
+  (`stock_txi` in `tools/build_original_fonts.py`) as `fnt_d16x16b`'s twins, in
+  `assets/hd-fonts` and in every font scale set (`tools/build_font_scale_sets.py`).
+  Rebuild the Mac's scale sets for those two names; the runtime then sizes them as
+  `fnt_d16x16b`.
+
+To check: a fresh `swkotor.ini` opens the Text Size page with (New) Original HD Font
+selected; menu text then matches the original's letters and line lengths; at 100%
+text on a large screen it is sharp.
+
+## 65. The action description at the text size; the Xbox action box as tall as the tallest action
+
+**Build, 2026-10-18; not yet seen in the game** (`docs/controller-xbox-hud.md`).
+`KmrpTextIdealHeightK1` (`K1TextLayout.cpp`) no longer measures the HUD's action
+description (`CSWGuiMainInterface +0xA1D4`) at the original text size: the
+`hudDescription` exception and its frame code are gone, so `SetActionDescription`
+sizes the label and its background to the text at the size chosen. In
+`K1XboxHud.cpp`, `TallestDescription` remembers every action name the row has shown
+this session and measures each with the description label (set as its text,
+`CSWGuiText::GetIdealHeight`, the label's text put back); when the label's width or font
+metrics change, all of them are measured again. The box is as tall as the tallest, never
+smaller during a session, and the description is centred in it. A Mac port of either file
+needs both changes together: without the first the box stays at the 50% size, without
+the second the box changes height from action to action. (Until 2026-10-19 this sentence
+stood after item 67, where an insertion had pushed it.)
+
+## 66. From the pad to the mouse at once; HUD Size up to twice; HUD sliders with a pad
+
+**Build, 2026-10-19; not yet seen in the game.**
+
+- **The pointer guard.** `MouseIsBeingUsedK1` (`vendor/K1XboxControls.cpp`) passed over
+  every pointer movement while any pad had been held in the last 1.5 s
+  (`ControllerHeldRecentlyK1`, now removed), so the change from the pad to the mouse
+  waited up to 1.5 s. It now passes over the pointer only while a Steam Controller or
+  Steam Deck (SDL vendor 0x28de, a translator presenting one included) is held, within
+  300 ms (`ControllerTypesByItselfK1`). The Mac has its own copy of the old rule:
+  `PadHeldRecently` in `macos/patches/kmrp-controller/backend_sdl.cpp`, used by
+  `MouseIsBeingUsed` in `prompts.cpp`; it needs the same change (item 45 above names the
+  second and a half).
+- **HUD Size.** `MostFactor` in `K1HudOptionsPolicy.h` is 2.0 (was 2.5): 100% draws a
+  part at twice its normal size. Shared with the Xbox HUD's sizes.
+- **The page's sliders.** `ShowHud` in `K1HudOptions.cpp` gives a slider no left or
+  right neighbour, as the Text Size page does; the engine's left and right then move it
+  and keep the focus on it.
+
+## 67. KMRP's option pages with a pad; the entry buttons' A
+
+**Build, 2026-10-19; not yet seen in the game.** The controller module exports four more
+functions (`tools/build_controller_kpatch.py`, `functions()`): `KmrpPadInUseK1`,
+`KmrpGlyphLetterK1`, `KmrpPadFocusSkipK1` (`K1NativeJoystick.cpp`) and
+`KmrpPaintGraphicsEntryPromptK1` (`vendor/K1XboxControls.cpp`, Advanced Options' A badge
+`kmrpa_optgfxadvn` on KMRP's two entry buttons, which are its size). KMRP's pages find
+them by name (`K1OptionsPad.h`): the Text Size page has Link above the sliders and opens
+on it; the HUD Size page has two tabs, a middle button for the other tab, Link above
+side-by-side rows and the preview alone on the right. Both pages handle B (0x28), Y (0x2A)
+and (HUD Size) X (0x29) in their input handler, keep those buttons off the pad's focus and
+show glyph labels `kmr<family>rm<b|y|x>` beside their captions. A Mac port of the pages
+needs its controller module to answer the same four names.
+
+## 68. The size search finds the largest size that fits
+
+**Build, 2026-10-19; mock tests pass, not yet seen in the game.** `KmrpTextFit::Fit`
+(`src/controller-native/K1TextFitPolicy.h`, shared by both platforms) walks down from
+the chosen size in steps of 1/128 to the first size that fits, then refines between it
+and the step above; halving takes over only below 13% of the chosen size. It used to
+halve until something fitted and bisect below that, which assumes that whatever fits at
+one size fits at every smaller one. Native wrapping breaks that: the line breaker
+(Windows `0x0045A2F0`) sums glyph advances truncated to whole pixels while the fit
+measures the fractional drawn width, so a line the breaker fills may overrun the box by
+a few pixels at one size and fit at a slightly smaller one. At 1440x1080 a subtitle
+that needed four lines was drawn on one line at about a third of the text size (the
+maintainer's capture); with the 2.25 `fnt_d16x16` metrics and a 1368x150 box the old
+search gave 0.46 where 1.34 fits, the new one 1.34, within 3% of a 20,000-step scan in
+every case simulated. The Mac has no text fitting yet (item 57; `macos/` has no copy of
+the search, checked 2026-10-19); building item 57 on the shared header brings this. Test:
+`testing/regression/Test-TextFitPolicy.py` (the islands case fails with the old search).
+
+## 69. Xbox-style HUD: the name bar grows with a long name
+
+**Build, 2026-10-19; not yet seen in the game.** In `K1XboxHud.cpp` (Mac:
+`macos/patches/kmrp-controller/xbox_hud.cpp`, the block that sets `kMenuNameBackground`
+and `kMenuHealthBar` from `fromName`), a name label taller than its row
+(`Scale(kNameHeight, ...)`) makes the frame taller by the difference: the frame label's
+fill is emptied and `KmrpXboxHudBarsK1`, at the start of the target menu's draw, draws
+the top slice `kmrx_miindic1ft` (`et` for an enemy) down to row 32 of the frame's 64,
+`...fm` stretched over the extra height and `...fb` under it with `LBL_MENUBG`, in the
+frame label's colour and alpha, calling `ClampBoundTexture` after each (the engine's
+wrap drew a dark line at both joins without it); the health bar and its background move down by the
+difference; the speech box's top (`+0x1A4`) is set every frame to its layout top plus
+the combat strip's shift plus the difference (`g_layout.bubbleTop`). The six textures
+come from `tools/build_xbox_hud_art.py` (`target_bar_slice`, entries in `DRAWN`), so a
+Mac package built from that table's `NAMES` carries them; one that lists the drawings
+by hand needs the six added.
+
+## 70. Text Size and Font: the right-hand column inside its frame
+
+**Build, 2026-10-19; not yet seen in the game.** `K1TextOptions.cpp` places the font
+choices and the previews from `LB_DESC`: it keeps their left (a 32nd of the list's width
+in) and now ends them as far inside the frame's right line as they start from its left
+one, the frame being 23/86 of the list's scrollbar width (`LB_DESC +0x110`) left of the
+list and ending 13/86 of it short of the scrollbar's strip (the HUD Size page's
+measurement, item 67). Until then they ended a 32nd of the width short of the list's
+right edge, over the strip, and ran past the frame at 1440x1080. With no scrollbar width
+the old rule stands. A Mac port of the page needs the same; `macos/` has no copy of it
+yet (checked 2026-10-19).

@@ -51,7 +51,8 @@ from PIL import Image, ImageDraw, ImageFont
 from pykotor.resource.formats.erf import read_erf
 from pykotor.resource.formats.tpc import read_tpc
 
-from build_scaled_fonts import raw_txi, write_tga
+from build_original_fonts import stock_txi
+from build_scaled_fonts import write_tga
 
 
 HEADER_FIELDS = (
@@ -92,8 +93,9 @@ class Reference:
             if str(resource.resref).lower() != resref.lower():
                 continue
             raw = bytes(resource.data)
-            # Stock TXIs use CRLF; normalise so the field patterns below match.
-            self.txi = raw_txi(raw).replace("\r\n", "\n").replace("\r", "\n")
+            # Stock TXIs use CRLF; normalise so the field patterns below match. Two
+            # stock TXIs describe another packing and are read repaired (stock_txi).
+            self.txi = stock_txi(resref.lower(), raw).replace("\r\n", "\n").replace("\r", "\n")
             self.atlas_size = read_tpc(raw).dimensions()[0]
             break
         else:

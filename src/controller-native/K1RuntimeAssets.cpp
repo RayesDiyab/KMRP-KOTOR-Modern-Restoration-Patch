@@ -26,6 +26,7 @@
 #include <cstdint>
 #include <cstdlib>
 #include <cmath>
+#include <algorithm>
 #include <cstdio>
 #include <sstream>
 #include <iomanip>
@@ -441,16 +442,122 @@ bool FontTxiAtHeight(std::vector<unsigned char>& data, float height)
     data.assign(text.begin(), text.end()); return true;
 }
 
+// A TXI field set to a value, every other line as it was.
+bool SetTxiField(std::vector<unsigned char>& data, const char* key, double value)
+{
+    std::istringstream input(std::string(data.begin(), data.end()));
+    std::ostringstream output;
+    std::string line;
+    bool found = false;
+    while (std::getline(input, line)) {
+        std::istringstream field(line);
+        std::string name;
+        field >> name;
+        if (name == key) {
+            output << key << ' ' << std::fixed << std::setprecision(6) << value << '\n';
+            found = true;
+        } else output << line << '\n';
+    }
+    const std::string text = output.str();
+    data.assign(text.begin(), text.end());
+    return found;
+}
+
+// One axis of an image resampled: each new texel the average of the old ones it
+// covers, weighted by how much of each it covers (shrinking), or the two nearest
+// blended by distance (growing). `stride` is how far apart one line's texels are.
+void ResampleAxis(const std::vector<float>& in, int inLength, int lines, int stride, int lineStride,
+                  std::vector<float>& out, int outLength, int outStride, int outLineStride)
+{
+    const double scale = static_cast<double>(inLength) / outLength;
+    for (int o = 0; o < outLength; ++o) {
+        // The weights for this texel, the same for every line.
+        double start = o * scale, end = (o + 1) * scale;
+        int first, last;
+        double weights[64];
+        if (scale >= 1.0) {
+            first = static_cast<int>(start);
+            last = (std::min)(inLength - 1, static_cast<int>(std::ceil(end)) - 1);
+            if (last - first >= 64) last = first + 63;
+            for (int i = first; i <= last; ++i)
+                weights[i - first] = ((std::min)(end, i + 1.0) - (std::max)(start, static_cast<double>(i))) / scale;
+        } else {
+            const double centre = (o + 0.5) * scale - 0.5;
+            first = (std::max)(0, static_cast<int>(std::floor(centre)));
+            last = (std::min)(inLength - 1, first + 1);
+            const double t = (std::min)(1.0, (std::max)(0.0, centre - first));
+            weights[0] = last == first ? 1.0 : 1.0 - t;
+            if (last != first) weights[1] = t;
+        }
+        for (int line = 0; line < lines; ++line) {
+            double sum = 0.0;
+            for (int i = first; i <= last; ++i) sum += weights[i - first] * in[static_cast<size_t>(line) * lineStride + static_cast<size_t>(i) * stride];
+            out[static_cast<size_t>(line) * outLineStride + static_cast<size_t>(o) * outStride] = static_cast<float>(sum);
+        }
+    }
+}
+
+// An HD style's atlas (an uncompressed 32-bit TGA, white letters in alpha, as
+// tools/build_scaled_fonts.write_tga writes them) made `factor` times its size, so it
+// is drawn one texel to one pixel. Its UVs are fractions of the atlas, so they stay
+// right; the TXI is given the new width. False if the file is not such a TGA.
+bool FitAtlas(std::vector<unsigned char>& tga, float factor, int& newWidth)
+{
+    if (tga.size() < 18 || tga[1] != 0 || tga[2] != 2 || tga[16] != 32) return false;
+    const size_t offset = 18 + tga[0];
+    const int width = tga[12] | (tga[13] << 8), height = tga[14] | (tga[15] << 8);
+    if (width <= 0 || height <= 0 || tga.size() < offset + static_cast<size_t>(width) * height * 4) return false;
+    newWidth = (std::max)(1, static_cast<int>(std::lround(width * factor)));
+    const int newHeight = (std::max)(1, static_cast<int>(std::lround(height * static_cast<double>(newWidth) / width)));
+    if (newWidth == width && newHeight == height) return true;
+    const size_t pixels = static_cast<size_t>(width) * height;
+    // White letters (the baked atlases) need only their alpha resampled; an atlas with
+    // colour in it (fnt_galahad14, the original's own letters with their dark edge) has
+    // every channel resampled.
+    bool white = true;
+    for (size_t i = 0; i < pixels && white; ++i)
+        white = tga[offset + i * 4] == 255 && tga[offset + i * 4 + 1] == 255 && tga[offset + i * 4 + 2] == 255;
+    std::vector<unsigned char> out(tga.begin(), tga.begin() + offset);
+    out[12] = static_cast<unsigned char>(newWidth & 0xFF); out[13] = static_cast<unsigned char>(newWidth >> 8);
+    out[14] = static_cast<unsigned char>(newHeight & 0xFF); out[15] = static_cast<unsigned char>(newHeight >> 8);
+    const size_t newPixels = static_cast<size_t>(newWidth) * newHeight;
+    out.resize(offset + newPixels * 4, 255);
+    std::vector<float> plane(pixels), across(static_cast<size_t>(newWidth) * height), down(newPixels);
+    for (int channel = white ? 3 : 0; channel < 4; ++channel) {
+        for (size_t i = 0; i < pixels; ++i) plane[i] = tga[offset + i * 4 + channel];
+        // Across, then down: each pass reads one plane and writes the next.
+        ResampleAxis(plane, width, height, 1, width, across, newWidth, 1, newWidth);
+        ResampleAxis(across, height, newWidth, newWidth, 1, down, newHeight, newWidth, 1);
+        for (size_t i = 0; i < newPixels; ++i) {
+            const long v = std::lround(down[i]);
+            out[offset + i * 4 + channel] = static_cast<unsigned char>(v < 0 ? 0 : v > 255 ? 255 : v);
+        }
+    }
+    tga.swap(out);
+    return true;
+}
+
+// The two HD styles are baked at six times the original fonts' size
+// (tools/build_font_from_ttf.py for Old HD, tools/build_hd_original_fonts.py for HD
+// Original), the size 100% text is drawn at on a 2160-line screen; each atlas is
+// fitted to its drawn size here, so it is drawn one texel to one pixel and is as sharp
+// at the largest text size as at the smallest (2026-10-18, the maintainer's
+// direction). The sizes text is drawn at are those of the 3x bake they replace.
+constexpr float kHdBakeScale = 6.0f;
+constexpr float kSizeReferenceScale = 3.0f;
+
 bool ApplyTextPreferences(bool preserveOverride)
 {
     const int style = KmrpTextFontStyleK1();
+    const bool fitted = style != KmrpTextOptions::Original;
     const char* prefix = style == KmrpTextOptions::Original ? "kmrfog" :
-                         style == KmrpTextOptions::OriginalSharpened ? "kmrfpc" : "kmrfhd";
+                         style == KmrpTextOptions::HdOriginal ? "kmrfho" : "kmrfhd";
     const Group* common = nullptr;
     for (const auto& g : groups) if (!g.width) { common = &g; break; }
     if (!common) return false;
-    // The same atlas/UVs at every size. Only TXI dimensions change; there is no
-    // rasterizer, glyph generation, or font installation in the game process.
+    // Original keeps its atlas and has only its TXI's dimensions changed; the HD
+    // styles' atlases are resampled to the drawn size (FitAtlas). No glyph is drawn
+    // and no font installed in the game process.
     for (unsigned i = 0; i < 18; ++i) {
         if (preserveOverride && OverrideFont(fontNames[i])) continue;
         char source[32];
@@ -460,24 +567,28 @@ bool ApplyTextPreferences(bool preserveOverride)
             if (!entry || !objects.count(entry->key)) return false;
         }
     }
-    std::vector<unsigned char> data;
+    std::vector<unsigned char> data, txi, tga;
     for (unsigned i = 0; i < 18; ++i) {
         if (preserveOverride && OverrideFont(fontNames[i])) continue;
         char source[32];
         sprintf_s(source, "kmrfhd%02u.txi", i);
         const Entry* baseline = FindEntry(*common, source);
         if (!baseline || !Decode(baseline->key, data)) return false;
-        const float target = FontTargetHeight(FontHeightOf(data), fontHeight);
+        const float target = FontTargetHeight(FontHeightOf(data) * kSizeReferenceScale / kHdBakeScale, fontHeight);
         if (!(target > 0.0f)) return false;
         overrideFontHeights[fontNames[i]] = target;
-        for (const char* extension : {".tga", ".txi"}) {
-            sprintf_s(source, "%s%02u%s", prefix, i, extension);
-            const Entry* entry = FindEntry(*common, source);
-            if (!Decode(entry->key, data)) return false;
-            if (!std::strcmp(extension, ".txi") && !FontTxiAtHeight(data,
-                    target * (static_cast<float>(KmrpTextSizeForFontK1(fontNames[i])) / KmrpTextOptions::Default))) return false;
-            if (!Write(std::string(fontNames[i]) + extension, data)) return false;
+        const float sized = target * (static_cast<float>(KmrpTextSizeForFontK1(fontNames[i])) / KmrpTextOptions::Default);
+        sprintf_s(source, "%s%02u.txi", prefix, i);
+        if (!Decode(FindEntry(*common, source)->key, txi)) return false;
+        const float own = FontHeightOf(txi);
+        sprintf_s(source, "%s%02u.tga", prefix, i);
+        if (!Decode(FindEntry(*common, source)->key, tga)) return false;
+        if (!(own > 0.001f) || !FontTxiAtHeight(txi, sized)) return false;
+        if (fitted) {
+            int newWidth = 0;
+            if (!FitAtlas(tga, sized / own, newWidth) || !SetTxiField(txi, "texturewidth", newWidth / 100.0)) return false;
         }
+        if (!Write(std::string(fontNames[i]) + ".tga", tga) || !Write(std::string(fontNames[i]) + ".txi", txi)) return false;
     }
     return true;
 }

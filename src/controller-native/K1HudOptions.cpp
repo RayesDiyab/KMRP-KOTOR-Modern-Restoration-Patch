@@ -4,14 +4,16 @@
 // (its title, gamma label and slider, shadows checkbox, Default and Back), placed from
 // the live screen's rectangles, so it follows every skin and resolution.
 //
-// Left, at the top, a choice of HUD: "Mouse & Keyboard HUD" (the PC HUD) or
-// "Controller HUD" (the Xbox-style HUD), kept apart (the maintainer, 2026-10-18).
-// Under it one row per element of that HUD, its caption and its slider side by side,
-// 25% to 250% with 50% the HUD as it is today (counted as the text sliders count): the
-// mouse and keyboard HUD's menu buttons, minimap, action bar, portraits, attack buttons
-// and Disengage button; the controller HUD's action menu, party switch, minimap, top
-// left bar and Disengage button (bottom centre). The two HUDs keep separate sizes; "Link HUD Sizes" (on
-// by default) moves the sliders of one HUD together. Right: a preview, the screen in miniature
+// Under the title two tabs, "Mouse & Keyboard" (the PC HUD) and "Controller" (the
+// Xbox-style HUD), kept apart (the maintainer, 2026-10-18; tabs since 2026-10-19, with a
+// button between Default and Close that shows the other tab, X with the pad). Left:
+// "Link HUD Sizes" (on by default; it moves the sliders of one HUD together), and under
+// it one row per element of the tab's HUD, its caption and its slider side by side, 25%
+// to 100% with 50% the HUD as it is today (counted as the text sliders count): the mouse
+// and keyboard HUD's menu buttons, minimap, action bar, portraits, attack buttons and
+// Disengage button; the controller HUD's action menu, party switch, minimap, top left
+// bar and Disengage button (bottom centre). The two HUDs keep separate sizes. Right, and
+// nothing else there: a preview, the screen in miniature
 // inside the description box (less its scrollbar's strip, which the box's art does not
 // cover: the first build drew past the frame at 3440x1440). It shows the mouse and
 // keyboard HUD placed by the code that places it in the game (K1PcHudLayout.h, since
@@ -28,6 +30,7 @@
 // which reads the same section).
 #include "K1HudOptions.h"
 #include "K1HudOptionsPolicy.h"
+#include "K1OptionsPad.h"
 #include "K1PcHudLayout.h"
 #include "K1TextOptions.h"
 #include "K1TextOptionsPolicy.h"
@@ -75,7 +78,7 @@ const wchar_t* const* const keys = IniKeys;
 const char* const captions[ElementCount] = {
     "Menu Buttons", "Minimap", "Action Bar", "Portraits", "Attack Buttons", "Disengage Button",
     "Action Menu", "Party Switch", "Minimap", "Top Left Bar", "Disengage"};
-const char* const hudNames[2] = {"Mouse & Keyboard HUD", "Controller HUD"};
+const char* const hudNames[2] = {"Mouse & Keyboard", "Controller"};
 // The Xbox-style HUD's table, with the types it is written in (as K1XboxHud.cpp
 // declares them) and K1XboxHud.cpp's Placed arithmetic for the pieces the preview draws.
 namespace xbox {
@@ -114,7 +117,7 @@ Rect Placed(const Piece& piece, int width, int height) {
 }
 }  // namespace xbox
 
-struct Entry { void* button = nullptr; };
+struct Entry { void* button = nullptr; int badged = -1; char family = 0; };
 std::map<void*, Entry> entries;
 void *pending = nullptr, *current = nullptr, *parent = nullptr, *returnFocus = nullptr;
 std::uintptr_t table[27]{};
@@ -123,7 +126,27 @@ void* labels[ElementCount]{};
 void* sliders[ElementCount]{};
 void* linkSizes = nullptr;
 void* backdrop = nullptr;   // the preview's screen (kBackdrop)
-void* hudChoices[2]{};   // "Mouse & Keyboard HUD" and "Controller HUD": which HUD's sliders show
+// The tabs under the title, "Mouse & Keyboard" and "Controller": which HUD's sliders
+// and preview show, the one shown with its frame and caption at full strength, the
+// other's dimmed (kTabDimmed). Between Default and Close a button naming the other tab,
+// which X presses (the maintainer, 2026-10-19). Until then two round choices at the top
+// of the right-hand box said which HUD showed, with "Link HUD Sizes" under them; the
+// first tabs had a line under the one shown, which ran into its frame's bottom edge.
+void* tabs[2]{};
+void* otherButton = nullptr;
+float tabColour[3]{}, tabFrame[3]{};   // the buttons' own caption and frame colours
+constexpr float kTabDimmed = 0.4f;
+// A button's normal frame colour: its border's parameters (+0x80) and their colour
+// (+0x10, three floats), as K1ControllerLayout.cpp greys its Save button.
+constexpr unsigned kButtonFrameColour = 0x80 + 0x10;
+// The options checkbox draws its circle (i_checkbox01, 48 x 48 in every set,
+// override-common) at the texture's own size against the control's left edge
+// (measured at 3440x1440, 2026-10-19: 48 px wide at x 323 for a 1290 x 120 control).
+constexpr int kCheckboxCircle = 48;
+// Default, the other tab and Close: the pad presses them itself (Y, X, B), so they and
+// the tabs are off its focus, and the three wear its glyph while it is in use.
+KmrpOptionsPad::Glyph defaultsGlyph, otherGlyph, backGlyph;
+void* NativeRoutine(std::uintptr_t address) { return reinterpret_cast<void*>(address); }
 // A label of the preview: the element it belongs to (-1: drawn for context, never
 // scaled), its rectangle on the screen, and the HUD style it is part of.
 struct Shown { void* label; int element; Rect screen; int style; };
@@ -261,8 +284,13 @@ void SliderEvents(void* slider, void* panel) {
     for (const int event : {0x00, 0x01, 0x2F, 0x30, 0x3F, 0x40, 0x27}) add(event, reinterpret_cast<void*>(&SliderEvent));
     add(0x2A, reinterpret_cast<void*>(&Defaults));
 }
+void __fastcall ToggleHud(void*, void*, void*);
+// B closes, Y restores the defaults and X shows the other tab, wherever the focus is:
+// those buttons are off the pad's focus (the maintainer, 2026-10-19).
 void __fastcall Input(void* self, void*, int event, int value) {
     if (value && event == 0x28) { Close(); return; }
+    if (event == 0x2A) { if (value) Defaults(nullptr, nullptr, nullptr); return; }
+    if (event == 0x29) { if (value) ToggleHud(nullptr, nullptr, nullptr); return; }
     Fn<void(__thiscall*)(void*, int, int)>(0x409E60)(self, event, value);
 }
 void* __fastcall Destroy(void* self, void*, unsigned flags) {
@@ -271,8 +299,10 @@ void* __fastcall Destroy(void* self, void*, unsigned flags) {
     Fn<Focus>(0x40A630)(self, nullptr, 0);
     auto array = At<void**>(self, 0x20);
     for (int i = 0; array && i < At<int>(self, 0x24); ++i) array[i] = nullptr;
+    for (void* c : {tabs[0], tabs[1], otherButton, defaultsGlyph.button, backGlyph.button}) KmrpOptionsPad::SkipFocus(c, false);
     for (void* c : owned) DestroyControl(c);
-    owned.clear(); pieces.clear(); linkSizes = hudChoices[0] = hudChoices[1] = backdrop = nullptr;
+    owned.clear(); pieces.clear(); linkSizes = tabs[0] = tabs[1] = otherButton = backdrop = nullptr;
+    defaultsGlyph = otherGlyph = backGlyph = KmrpOptionsPad::Glyph{};
     for (void*& p : labels) p = nullptr;
     for (void*& p : sliders) p = nullptr;
     Fn<Simple>(0x40CF70)(self);
@@ -288,10 +318,13 @@ void* defaultsButton = nullptr;
 void* backButton = nullptr;
 int screenWidth = 0, screenHeight = 0;
 
-// The chosen HUD's rows shown and the other's hidden, and the focus order rebuilt over
-// what is shown, by column as the page is laid out: on the left the sliders down to
-// Default, on the right the two HUD choices and the link down to Back; left and right
-// cross between the columns.
+// The chosen HUD's rows shown and the other's hidden, its tab at full strength with the
+// line under it and the other dimmed, the middle button naming the other tab, and the
+// pad's focus rebuilt over what is shown: "Link HUD Sizes", then the sliders under it,
+// up and down and round. Left and right move a slider, as on the Text Size page; until
+// 2026-10-19 they led to the HUD choice as well, so with a pad a press moved the slider
+// one step and then the focus went to the choice (the maintainer). The tabs and the
+// three buttons are off the pad's focus (X, Y, B; Input); their links are the keys'.
 void ShowHud(int style) {
     shownStyle = style;
     std::vector<void*> shown;
@@ -303,19 +336,24 @@ void ShowHud(int style) {
         }
         if (visible) shown.push_back(sliders[i]);
     }
-    void* const first = shown.front();
-    void* const choice = hudChoices[style];
+    Navigation(linkSizes, shown.back(), shown.front());
     for (std::size_t i = 0; i < shown.size(); ++i)
-        Navigation(shown[i], i ? shown[i - 1] : backButton, i + 1 < shown.size() ? shown[i + 1] : defaultsButton, choice, choice);
-    Navigation(hudChoices[Pc], backButton, hudChoices[Xbox], first, first);
-    Navigation(hudChoices[Xbox], hudChoices[Pc], linkSizes, first, first);
-    Navigation(linkSizes, hudChoices[Xbox], backButton, first, first);
-    Navigation(defaultsButton, shown.back(), first, backButton, backButton);
-    Navigation(backButton, linkSizes, hudChoices[Pc], defaultsButton, defaultsButton);
-    for (int i = 0; i < 2; ++i) Fn<void(__thiscall*)(void*, unsigned)>(0x685540)(hudChoices[i], i == style);
+        Navigation(shown[i], i ? shown[i - 1] : linkSizes, i + 1 < shown.size() ? shown[i + 1] : linkSizes);
+    Navigation(defaultsButton, shown.back(), linkSizes, backButton, otherButton);
+    Navigation(otherButton, shown.back(), linkSizes, defaultsButton, backButton);
+    Navigation(backButton, shown.back(), linkSizes, otherButton, defaultsButton);
+    for (int i = 0; i < 2; ++i) {
+        const float strength = i == style ? 1.0f : kTabDimmed;
+        float caption[3], frame[3];
+        for (int c = 0; c < 3; ++c) { caption[c] = tabColour[c] * strength; frame[c] = tabFrame[c] * strength; }
+        Fn<void(__thiscall*)(void*, const float*)>(0x414E10)(static_cast<char*>(tabs[i]) + 0x16C, caption);
+        std::memcpy(&At<float>(tabs[i], kButtonFrameColour), frame, sizeof frame);
+    }
+    Text(otherButton, hudNames[style == Pc ? Xbox : Pc], true);
 }
 void __fastcall SelectPc(void*, void*, void*) { if (Armed()) { if (shownStyle != Pc) ShowHud(Pc); releasedFrames = 0; } }
 void __fastcall SelectXbox(void*, void*, void*) { if (Armed()) { if (shownStyle != Xbox) ShowHud(Xbox); releasedFrames = 0; } }
+void __fastcall ToggleHud(void*, void*, void*) { if (Armed()) { ShowHud(shownStyle == Pc ? Xbox : Pc); releasedFrames = 0; } }
 
 // The element whose slider has the focus, or -1.
 int FocusedElement() {
@@ -488,6 +526,7 @@ void MakeScreen(void* manager, void* owner) {
     char resref[16] = "optgraphics";
     Fn<void(__thiscall*)(void*, void*)>(0x40A680)(p, resref);
     void* title = Bind(p, "LBL_TITLE", 0x140, 0x41ACD0);
+    for (void*& tab : tabs) tab = Bind(p, "BTN_DEFAULT", 0x1C4, 0x41C0F0);
     for (int i = 0; i < ElementCount; ++i) {
         labels[i] = Bind(p, "LBL_GAMMA", 0x140, 0x41ACD0);
         sliders[i] = Bind(p, "SLI_GAMMA", 0x1B8, 0x41BAA0);
@@ -495,95 +534,186 @@ void MakeScreen(void* manager, void* owner) {
     }
     linkSizes = Bind(p, "CB_SHADOWS", 0x2B4, 0x6E00D0);
     if (linkSizes) At<int>(linkSizes, 0x1C4) = -1;
-    // The two HUD choices: native round option controls with their own toggling off,
-    // as the text page's font choices are; the page sets the one chosen.
-    for (void*& choice : hudChoices) {
-        choice = Bind(p, "CB_SHADOWS", 0x2B4, 0x6E00D0);
-        if (choice) At<int>(choice, 0x1C4) = -1;
-    }
     const auto rect = [owner](const char* tag) { return At<Rect>(KmrpRuntimeControlByTagK1(owner, tag), 4); };
-    // The right-hand box holds the HUD choice and the preview, as the text page's holds
-    // its font choice and its samples: the two choices stacked at its top, in the font
-    // choices' rows (the box's width less a 32nd each side, a resolution button's
-    // height), the preview below them. The preview leaves out the box's scrollbar strip
-    // on the right (LB_DESC is a list: the bar's width at +0x110), which its frame does
-    // not cover (the first build drew past the frame at 3440x1440).
-    const Rect desc = rect("LB_DESC");
-    const int choiceGap = (std::max)(2, rect("SLI_GAMMA").height / 3);
-    const int margin = (std::max)(2, desc.height / 32);
-    const Rect choiceRow{desc.left + desc.width / 32, desc.top + margin, desc.width - desc.width / 16, rect("BTN_RESOLUTION").height};
-    Rect area = desc;
+    const Rect titleRect = rect("LBL_TITLE"), label = rect("LBL_GAMMA"), track = rect("SLI_GAMMA");
+    const Rect defaultsRect = rect("BTN_DEFAULT"), backRect = rect("BTN_BACK"), desc = rect("LB_DESC");
+    void* const resolution = KmrpRuntimeControlByTagK1(owner, "BTN_RESOLUTION");
+    const int gap = (std::max)(2, track.height / 3);
+    // The screen's own art, which the page cannot move: the title's band ends where the
+    // title does, and the right-hand box's frame stands round the description list, its
+    // top line 19 px above the list and its left 23 px left of it at 3440x1440, for a
+    // scrollbar 86 wide (measured in captures, 2026-10-18 and 2026-10-19). The layout
+    // scales as one, so the insets are kept as shares of the bar's width.
     const int bar = At<int>(KmrpRuntimeControlByTagK1(owner, "LB_DESC"), 0x110);
-    if (bar > 0 && bar < area.width / 2) {
-        // Centred in the frame the player sees, which is the screen's background art and
-        // not the list's own rectangle: at 3440x1440 it runs from 23 px left of the list
-        // to 13 px short of the scrollbar's strip (bar 86 wide; measured in a capture,
-        // 2026-10-18). Centred on the list, the preview stood 18 px right of the
-        // frame's middle (the maintainer: "the left has a wider gap"). The layout scales
-        // as one, so the two insets are kept as shares of the bar's width.
+    const bool barKnown = bar > 0 && bar < desc.width / 2;
+    const int frameTop = desc.top - (barKnown ? Round(bar * 19 / 86.0) : gap);
+    // And the background's bands (lbl_optback, stretched over the panel), measured in the
+    // maintainer's capture at 3440x1440 (2026-10-19), kept as shares of the panel: the
+    // title's band from x 609 to 2828, 59 px tall (y 120 to 179); the tray under the
+    // buttons, its straight bottom line from x 612 to 2912 at y 1311, its ends rising
+    // to y 1221.
+    const Rect panel = At<Rect>(owner, 4);
+    const auto artX = [&](int x) { return panel.left + Round(x * panel.width / 3440.0); };
+    const auto artY = [&](int y) { return panel.top + Round(y * panel.height / 1440.0); };
+    const int rowHeight = resolution ? At<Rect>(resolution, 4).height : label.height;
+    // The tabs, a pair of the buttons' frames side by side, as wide together as the title's
+    // band and as tall as it (the maintainer, 2026-10-19: "as big as that HUD size above
+    // artwork"), a fifth of their height apart, in the gap between the title and the box's
+    // frame. The first tabs were each Default's size and ran into the frame; the second,
+    // three quarters of Default's width, were smaller than the band (the maintainer's
+    // captures, 2026-10-19).
+    const int band = frameTop - (titleRect.top + titleRect.height);
+    const int bandLeft = artX(609), bandRight = artX(2828);
+    const int tabHeight = (std::max)(1, (std::min)(artY(179) - artY(120), band - 2));
+    const int tabGap = (std::max)(2, tabHeight / 5);
+    const int tabWidth = (std::max)(1, (bandRight - bandLeft - tabGap) / 2);
+    const int tabsTop = titleRect.top + titleRect.height + (band - tabHeight) / 2;
+    const Rect tabRects[2] = {{bandLeft, tabsTop, tabWidth, tabHeight},
+                              {bandRight - tabWidth, tabsTop, tabWidth, tabHeight}};
+    // The left column's places (below): seven, each the graphics screen's caption height.
+    int most = 0, count[2]{};
+    for (int i = 0; i < ElementCount; ++i) most = (std::max)(most, ++count[StyleOf(i)]);
+    const int places = most + 1;
+    const int slot = (std::max)(1, (std::min)(label.height, desc.height / places));
+    // The right-hand box is the preview alone (the maintainer, 2026-10-19: "on the right
+    // side it should just be the preview"), inside the frame the player sees. It leaves
+    // out the list's scrollbar strip on the right (the bar's width at +0x110), which the
+    // frame does not cover (the first build drew past the frame at 3440x1440), and is
+    // centred in the frame: centred on the list, the preview stood 18 px right of the
+    // frame's middle (the maintainer, 2026-10-18: "the left has a wider gap"); the frame
+    // runs to 13 px short of the strip.
+    const int margin = (std::max)(2, desc.height / 32);
+    Rect area = desc;
+    if (barKnown) {
         const int left = desc.left - Round(bar * 23 / 86.0);
         const int right = desc.left + desc.width - bar - Round(bar * 13 / 86.0);
         area.left = left;
         area.width = right - left;
     }
-    // Three rows: the two HUD choices, then "Link HUD Sizes" a little apart from them.
-    area.top = choiceRow.top + 3 * (choiceRow.height + choiceGap) + 2 * choiceGap;
+    // A line at the top for its caption, "Preview" (below).
+    area.top = desc.top + margin + slot;
     area.height = desc.top + desc.height - margin - area.top;
     area.left += area.width / 20; area.width -= area.width / 10;
     MakePreview(p, area, At<short>(manager, 0x6C), At<short>(manager, 0x6E));
+    void* previewCaption = Bind(p, "LBL_GAMMA", 0x140, 0x41ACD0);
     void* defaults = Bind(p, "BTN_DEFAULT", 0x1C4, 0x41C0F0);
+    void* other = Bind(p, "BTN_DEFAULT", 0x1C4, 0x41C0F0);
     void* back = Bind(p, "BTN_BACK", 0x1C4, 0x41C0F0);
+    // The pad's Y, X and B beside the three buttons' captions (K1OptionsPad.h).
+    void* marks[3];
+    for (void*& mark : marks) mark = Bind(p, "LBL_GAMMA", 0x140, 0x41ACD0);
     Fn<Simple>(0x40B8F0)(p);
-    bool complete = title && linkSizes && hudChoices[0] && hudChoices[1] && defaults && back;
+    bool complete = title && tabs[0] && tabs[1] && linkSizes && defaults && other && back &&
+                    marks[0] && marks[1] && marks[2] && previewCaption;
     for (int i = 0; i < ElementCount; ++i) complete = complete && labels[i] && sliders[i];
     if (!complete) { Destroy(p, nullptr, 1); return; }
-    defaultsButton = defaults; backButton = back;
+    defaultsButton = defaults; backButton = back; otherButton = other;
     // The sliders get the bit outright: Brightness itself lacks it on the graphics
     // screen, where the controller patch reaches it through that screen's own table,
     // so copying it gave nothing; the slider class's own test (0x00641DB0) says yes.
     for (void* slider : sliders) { SelectableAs(slider, owner, "SLI_GAMMA"); At<unsigned>(slider, 0x44) |= 8u; SliderEvents(slider, p); }
-    for (void* toggle : {linkSizes, hudChoices[0], hudChoices[1]}) SelectableAs(toggle, owner, "CB_SHADOWS");
-    SelectableAs(defaults, owner, "BTN_DEFAULT");
+    SelectableAs(linkSizes, owner, "CB_SHADOWS");
+    for (void* button : {tabs[0], tabs[1], defaults, other}) SelectableAs(button, owner, "BTN_DEFAULT");
     SelectableAs(back, owner, "BTN_BACK");
     Extent(p, At<Rect>(owner, 4));
-    Extent(title, rect("LBL_TITLE"));
-    Extent(defaults, rect("BTN_DEFAULT")); Extent(back, rect("BTN_BACK"));
-    const Rect label = rect("LBL_GAMMA"), track = rect("SLI_GAMMA");
-    const int gap = (std::max)(2, track.height / 3);
-    // The right-hand box: the HUD choices, then "Link HUD Sizes" a little apart (above).
-    // On the left, as on the graphics screen and the text page, each element's caption
-    // above its full-width slider, the chosen HUD's pairs from the top down to Default.
-    // A pair is its caption, at the graphics screen's height while the pitch allows,
-    // directly above its slider; what is left of the pitch goes between pairs. With the
-    // link on the left as well, six pairs left a 36 px caption for a 64 px line at
-    // 3440x1440, hence the link's place in the box. Each HUD's pairs take the same
-    // places, the other HUD's being hidden.
-    for (int i = 0; i < 2; ++i)
-        Extent(hudChoices[i], {choiceRow.left, choiceRow.top + i * (choiceRow.height + choiceGap), choiceRow.width, choiceRow.height});
-    Extent(linkSizes, {choiceRow.left, choiceRow.top + 2 * (choiceRow.height + choiceGap) + choiceGap, choiceRow.width, choiceRow.height});
-    const int bottom = rect("BTN_DEFAULT").top - gap;
-    int most = 0, count[2]{};
-    for (int i = 0; i < ElementCount; ++i) most = (std::max)(most, ++count[StyleOf(i)]);
-    const int pitch = (bottom - label.top) / most;
-    const int caption = (std::max)(track.height / 2, (std::min)(label.height, pitch - track.height));
+    Extent(title, titleRect);
+    for (int i = 0; i < 2; ++i) Extent(tabs[i], tabRects[i]);
+    // Default, the other tab and Close, one width, spread evenly along the tray's bottom
+    // line, two gaps apart, a resolution button's height, in the middle of the tray: as far
+    // below its ends' tops as above its bottom line (the maintainer, 2026-10-19: "same
+    // spacing between the top of the button and the bottom of the button compared to the
+    // artwork behind it"). The first build kept Default and Close where the graphics
+    // screen has them, each 785 wide at 3440x1440, with a third of that width between
+    // them: the frames overlapped, and the buttons stood on the tray's line (the
+    // maintainer's captures). Close keeps the graphics screen's Back as its template.
+    {
+        const int trayLeft = artX(612), trayRight = artX(2912), trayTop = artY(1221), trayBottom = artY(1311);
+        const int buttonGap = 2 * gap;
+        const int buttonWidth = (std::max)(1, (trayRight - trayLeft - 2 * buttonGap) / 3);
+        const int buttonHeight = (std::max)(1, (std::min)((std::min)(defaultsRect.height, backRect.height), rowHeight));
+        const int buttonTop = trayTop + (trayBottom - trayTop - buttonHeight) / 2;
+        void* const row[3] = {defaults, other, back};
+        for (int i = 0; i < 3; ++i)
+            Extent(row[i], {trayLeft + i * (buttonWidth + buttonGap), buttonTop, buttonWidth, buttonHeight});
+    }
+    // The left column, level with the right-hand box: seven places evenly apart, the
+    // first with the link's circle at the frame's top line (the maintainer, 2026-10-19:
+    // the border "as tall as the top of link HUD sizes"), the last ending at the list's
+    // bottom: "Link HUD Sizes", then the six parts of the mouse and keyboard HUD (the
+    // controller HUD's five take the first five). A part's row is its caption on the left
+    // and its slider beside it (the maintainer, 2026-10-19: "make the slider smaller, have
+    // link HUD sizes above them"). Until then the column ran from under the first tabs to
+    // above Default, its link 120 px tall. Each HUD's rows take the same places, the
+    // other HUD's being hidden.
+    const int firstTop = frameTop - (slot - kCheckboxCircle) / 2;
+    const int lastTop = desc.top + desc.height - slot;
+    const auto placeTop = [&](int k) { return firstTop + k * (lastTop - firstTop) / (places - 1); };
+    Extent(linkSizes, {label.left, placeTop(0), label.width, slot});
+    // Its caption read from the left beside its circle, as the parts' captions are; the
+    // checkbox centres it across the whole control otherwise (as Shadows and Grass on the
+    // graphics screen are), which left it floating in the middle of the column.
+    // CSWGuiTextParams::SetAlignment (0x00415F20, 17: left, middle line) and
+    // CSWGuiText::SetExtent (0x00416280) of the checkbox's text (+0x16C, +0x154, as a
+    // button's).
+    Fn<void(__thiscall*)(void*, int)>(0x415F20)(static_cast<char*>(linkSizes) + 0x16C, 17);
+    {
+        const Rect caption{label.left + kCheckboxCircle + gap, placeTop(0), label.width - kCheckboxCircle - gap, slot};
+        Fn<void(__thiscall*)(void*, const Rect*)>(0x416280)(static_cast<char*>(linkSizes) + 0x154, &caption);
+    }
+    // The captions as wide as the widest of them at 100% ("Disengage Button: 100%"), at
+    // the text size in use, and each slider from there to the column's edge. Until
+    // 2026-10-19 the captions had 55% of the column and the sliders stood far from them
+    // (the maintainer: "horizontally longer, so it doesn't have as much dead space").
+    int widest = 0;
+    for (int i = 0; i < ElementCount; ++i) {
+        Extent(labels[i], {label.left, 0, label.width, slot});
+        char probe[64];
+        sprintf_s(probe, "%s: 100%%", captions[i]);
+        Text(labels[i], probe);
+        Rect measured{};
+        Fn<void(__thiscall*)(void*, Rect*)>(0x414F10)(static_cast<char*>(labels[i]) + 0xD0, &measured);
+        widest = (std::max)(widest, measured.width);
+    }
+    const int captionWidth = (std::max)(label.width / 4, (std::min)(label.width / 2, widest + gap));
+    const int sliderLeft = label.left + captionWidth + gap;
+    const int sliderWidth = label.left + label.width - sliderLeft;
+    const int sliderHeight = (std::min)(track.height, slot);
     int row[2]{};
     for (int i = 0; i < ElementCount; ++i) {
-        const int top = label.top + row[StyleOf(i)]++ * pitch;
-        Extent(labels[i], {label.left, top, label.width, caption});
-        Extent(sliders[i], {track.left, top + caption, track.width, track.height});
+        const int top = placeTop(1 + row[StyleOf(i)]++);
+        Extent(labels[i], {label.left, top, captionWidth, slot});
+        // Read from the left, in the middle of its row (CSWGuiTextParams::SetAlignment,
+        // 0x00415F20, `ret 4`; 1 left, 16 the middle line).
+        Fn<void(__thiscall*)(void*, int)>(0x415F20)(static_cast<char*>(labels[i]) + 0xE8, 17);
+        Extent(sliders[i], {sliderLeft, top + (slot - sliderHeight) / 2, sliderWidth, sliderHeight});
         Fn<void(__thiscall*)(void*, int)>(0x417EC0)(sliders[i], SliderMaximum);
     }
+    // "Preview" over the miniature screen, centred on it, in the line kept above it (the
+    // maintainer, 2026-10-19).
+    Extent(previewCaption, {preview.left, preview.top - slot, preview.width, slot});
+    Fn<void(__thiscall*)(void*, int)>(0x415F20)(static_cast<char*>(previewCaption) + 0xE8, 18);
+    Text(previewCaption, "Preview");
     Text(linkSizes, "Link HUD Sizes", true);
-    for (int i = 0; i < 2; ++i) Text(hudChoices[i], hudNames[i], true);
+    for (int i = 0; i < 2; ++i) Text(tabs[i], hudNames[i], true);
     Text(title, "HUD Size");
+    // The tabs' colours at full strength: the buttons' own caption and frame colours.
+    std::memcpy(tabColour, &At<float>(tabs[0], 0x16C + 0x1C), sizeof tabColour);
+    std::memcpy(tabFrame, &At<float>(tabs[0], kButtonFrameColour), sizeof tabFrame);
+    for (void* mark : marks) { Text(mark, ""); At<unsigned>(mark, 0x44) &= ~2u; }
+    defaultsGlyph = KmrpOptionsPad::Glyph{}; defaultsGlyph.label = marks[0]; defaultsGlyph.button = defaults; defaultsGlyph.code = 'y';
+    otherGlyph = KmrpOptionsPad::Glyph{}; otherGlyph.label = marks[1]; otherGlyph.button = other; otherGlyph.code = 'x';
+    backGlyph = KmrpOptionsPad::Glyph{}; backGlyph.label = marks[2]; backGlyph.button = back; backGlyph.code = 'b';
+    for (void* button : {tabs[0], tabs[1], defaults, other, back}) KmrpOptionsPad::SkipFocus(button, true);
     Fn<Event>(0x41AB20)(linkSizes, 0x27, p, reinterpret_cast<void*>(&ToggleLink));
-    Fn<Event>(0x41AB20)(hudChoices[Pc], 0x27, p, reinterpret_cast<void*>(&SelectPc));
-    Fn<Event>(0x41AB20)(hudChoices[Xbox], 0x27, p, reinterpret_cast<void*>(&SelectXbox));
+    Fn<Event>(0x41AB20)(tabs[Pc], 0x27, p, reinterpret_cast<void*>(&SelectPc));
+    Fn<Event>(0x41AB20)(tabs[Xbox], 0x27, p, reinterpret_cast<void*>(&SelectXbox));
+    Fn<Event>(0x41AB20)(other, 0x27, p, reinterpret_cast<void*>(&ToggleHud));
     Fn<Event>(0x41AB20)(defaults, 0x27, p, reinterpret_cast<void*>(&Defaults));
     Fn<Event>(0x41AB20)(back, 0x27, p, reinterpret_cast<void*>(&Back));
     displayed.fill(-1); drawn.fill(-1); displayedLinked = -1; displayedFocus = -2; displayedStyle = -1;
     ShowHud(Pc);
-    Fn<Focus>(0x40A630)(p, sliders[PcMenu], 0);
+    // The page opens on "Link HUD Sizes", as the Text Size page on its link.
+    Fn<Focus>(0x40A630)(p, linkSizes, 0);
     releasedFrames = 0; UpdateCaptions(); UpdatePreview();
     Fn<void(__thiscall*)(void*, void*, int, int)>(0x40BC70)(manager, p, 3, 1);
 }
@@ -609,7 +739,19 @@ void UpdateEntry(void* owner, Entry& e) {
         if (above && above != text && At<void*>(above, 0x64) == text) At<void*>(above, 0x64) = e.button;
     }
 }
+// The entry's A, as Advanced Options' below it has, while the entry has its screen's
+// focus, the pad is in use and neither KMRP page is open over the screen
+// (K1OptionsPad.h; the maintainer, 2026-10-19). Painted only on a change.
+void EntryBadge(void* owner, Entry& e, bool pad, char family) {
+    if (!e.button) return;
+    const bool want = pad && !current && !KmrpTextOptionsOpenK1() && At<void*>(owner, 0x1C) == e.button;
+    if (int(want) == e.badged && (!want || family == e.family)) return;
+    KmrpOptionsPad::EntryBadge(e.button, want);
+    e.badged = want; e.family = family;
+}
 }  // namespace
+
+bool KmrpHudOptionsOpenK1() { return current != nullptr; }
 
 int KmrpHudSizePercentK1(int element) {
     Initialize();
@@ -636,8 +778,13 @@ void KmrpHudOptionsFrameK1(void* manager) {
         else ++releasedFrames;
     }
     if (blockReopen && Armed()) blockReopen = false;
+    const bool pad = KmrpOptionsPad::PadInUse();
+    const char family = KmrpOptionsPad::Family();
     for (void* p : KmrpRuntimePanelsK1("optgraphics"))
-        if (At<std::uintptr_t>(p, 0) == GraphicsTable) UpdateEntry(p, entries[p]);
+        if (At<std::uintptr_t>(p, 0) == GraphicsTable) { UpdateEntry(p, entries[p]); EntryBadge(p, entries[p], pad, family); }
+    if (current)
+        for (KmrpOptionsPad::Glyph* glyph : {&defaultsGlyph, &otherGlyph, &backGlyph})
+            KmrpOptionsPad::Update(*glyph, pad, family, &NativeRoutine);
     if (pending) {
         void* owner = pending; pending = nullptr;
         if (!current && Fn<Exists>(0x40BD70)(manager, owner)) MakeScreen(manager, owner);

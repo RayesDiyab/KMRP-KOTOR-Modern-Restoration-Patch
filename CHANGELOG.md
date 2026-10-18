@@ -117,6 +117,128 @@ proxy, and it applies the executable changes above as well.
 
 ## [Unreleased]
 
+- **Xbox-style HUD: the name bar grows with a long name** (2026-10-19;
+  `src/controller-native/K1XboxHud.cpp`, `tools/build_xbox_hud_art.py`;
+  `docs/controller-xbox-hud.md`). At 1440x1080 "Training Computer" wrapped to a second
+  line that ran over the health bar, inside a frame one line tall (the maintainer's
+  capture). A name taller than its row, on two lines or one at a large text size, now
+  makes the frame taller by the difference; the health bar and the speech box under the
+  bar move down with it. Stretching the whole frame would have thickened its lines and
+  moved the line above the health bar into the name, so the frame is drawn in three
+  slices cut from the same drawing: its top, a plain middle (rows 21 to 38 of 64 are
+  identical; the builder checks this) stretched over the extra height, and its bottom.
+  A name that fits its row keeps the whole frame. The speech box now also moves down
+  with the combat strip, as the name bar always has. **Corrected the same day:** the
+  first build showed a dark line across the frame's sides at both joins (the
+  maintainer's capture): the engine samples GUI textures with wrap, so a slice's edge
+  row was mixed with its own clear opposite edge. The hook now draws all three slices
+  and tells each texture to clamp right after drawing it, as it does for the party
+  bars; the frame label has no art meanwhile. Controller tests pass; the joins after the
+  correction are **not yet seen in the game**.
+- **Text Size and Font: the right-hand column inside its frame** (2026-10-19;
+  `src/controller-native/K1TextOptions.cpp`,
+  `testing/regression/text_options_harness.cpp`). At 1440x1080 "(New) Original HD
+  Font", "Subtitles and descriptions" and "Small text preview" ran past the box's right
+  line (the maintainer's capture). The column ended a 32nd of the description list's
+  width short of the list's right edge, but the frame the player sees ends short of the
+  list's scrollbar strip. It now ends inside the frame, as far from its right line as it
+  starts from its left one, using the frame's edges the HUD Size page measured (23/86 of
+  the scrollbar's width left of the list, 13/86 short of the strip). Longer captions and
+  previews wrap or are fitted inside it. The harness now gives its list a scrollbar and
+  checks the gap on both sides. **Not yet seen in the game.**
+
+- **Text too long for its box keeps the largest size that fits** (2026-10-19;
+  `src/controller-native/K1TextFitPolicy.h`,
+  `testing/regression/text_fit_policy_harness.cpp`). At 1440x1080 a conversation line
+  too long for the bottom bar at the chosen size was sometimes drawn on one tiny line,
+  the next one big again (the maintainer's captures). The size search halved the size
+  until the text fitted and searched only below that, but the game's line breaker
+  rounds each letter's width down while the fit measures the drawn width, so a line can
+  overrun at one size and fit at a smaller one. With the 2.25 `fnt_d16x16` metrics and a
+  1368x150 box the old search drew such a line at 0.46 of the chosen size where 1.34
+  fits in three lines. The search now walks down from the chosen size in steps of 1/128
+  to the first size that fits and refines there; in simulation it lands within 3% of
+  the largest fitting size found by a 20,000-step scan. Applies to every fitted text
+  (labels, buttons, titles, subtitles). Mock tests pass; **not yet seen in the game**.
+
+- **Text Size and HUD Size pages with a pad** (2026-10-19;
+  `src/controller-native/K1TextOptions.cpp`, `K1HudOptions.cpp`, `K1OptionsPad.h`,
+  `K1NativeJoystick.cpp`, `vendor/K1XboxControls.cpp`, `tools/build_controller_kpatch.py`;
+  `docs/ingame-text-options.md`, `docs/hud-size-options.md`). Text Size and Font: "Link
+  Text Sizes" is above the sliders and the page opens on it; right from it reaches the
+  font chosen, without passing every slider. HUD Size: two tabs under the title, "Mouse
+  & Keyboard" and "Controller"; between Default and Close a button naming the other tab;
+  "Link HUD Sizes" above the sliders, each slider shorter and beside its caption; the
+  preview alone on the right. On both pages Y is Default, B Close and (HUD Size) X the
+  other tab wherever the focus is; those buttons show the pad's glyph and are never the
+  pad's focus. On Graphics Options the "Text Size and Font" and "HUD Size" buttons show
+  the A while focused, as Advanced Options does. Native mock tests pass; **not yet seen
+  in the game**.
+
+- **Controller: from the pad to the mouse at once** (2026-10-19;
+  `src/controller-native/vendor/K1XboxControls.cpp`, `K1ControllerBackend.cpp`). Moving
+  the mouse after using the pad took up to a second and a half to change the game over:
+  every pointer movement was passed over while any pad had been held in the last 1.5
+  seconds. That wait was for pads that move the pointer by themselves (a Steam
+  Controller, a Steam Deck, or a translator presenting a pad as one, measured with
+  PadForge on 2026-10-11), and now applies only to them, and only while one is held.
+  With any other pad the mouse takes over at once. Not yet seen in the game.
+
+- **HUD Size: the largest size is twice the normal one** (2026-10-19;
+  `src/controller-native/K1HudOptionsPolicy.h`). 100% on the HUD Size sliders now draws
+  a part at twice its normal size, not two and a half times; 50% is still the normal
+  size. Not yet seen in the game.
+
+- **HUD Size sliders with a pad** (2026-10-19; `src/controller-native/K1HudOptions.cpp`).
+  Left and right on a slider moved it one step and then took the focus to the HUD
+  choice beside it; they now move the slider as on the Text Size page. Not yet seen in
+  the game.
+
+- **The action description grows with the text size** (2026-10-18;
+  `src/controller-native/K1TextLayout.cpp`, `K1XboxHud.cpp`;
+  `docs/controller-xbox-hud.md`). With mouse and keyboard, the action's name in the
+  bottom right corner stayed the same size at any text size: the module measured it
+  at the original size and squeezed larger text into that box. It is now measured at
+  the size chosen, and the game sizes its box and background to it. With a pad, the
+  Xbox-style HUD's action box grows with the text size too, and is as tall as the
+  longest action name seen this session, so it keeps one height while you scroll
+  through them and never gets smaller; it grows only when an action with a longer name
+  appears. The name stands in its middle. Native mock tests pass; **not yet seen
+  in the game**.
+
+- **HD Original font, the new default** (2026-10-18; issue #52;
+  `tools/build_hd_original_fonts.py`, `assets/hd-original-fonts`,
+  `src/controller-native/K1TextOptions.cpp`, `K1TextOptionsPolicy.h`,
+  `K1RuntimeAssets.cpp`, `tools/build_native_assets.py`; `docs/hd-original-font.md`).
+  The game's own fonts redrawn sharp: the menus from Bank Gothic Medium, the body,
+  HUD and light text from Helvetica, each letter at the original's size, spacing and
+  weight, so a line is exactly as long as the original's. Measured from the original
+  atlases to a fraction of a pixel (their edges are anti-aliased; counted in whole
+  pixels the small capitals had come out 5% short). The menu O and o are the
+  original's own ring, a little wider than tall, fitted to its pixels; the ß is a
+  plain sans ß (Arimo's) fitted to the original's. Every character of the original's
+  256 is there, for translations. The Text Size and Font page now offers Original
+  Font, **(New) Original HD Font** (selected by default) and **(Old) HD Font** (the
+  former New HD); it replaces Original Sharpened, which kept its number in
+  `swkotor.ini`. Both HD fonts are baked at six times the original's size and fitted
+  to the size they are drawn at, so they stay sharp up to 100% text on a 4K screen;
+  the sizes text is drawn at are unchanged. fnt_galahad14 has no vector face and is
+  the game's own letters enlarged, so it is not committed: the bank build makes it from
+  the game's files every time (`build_original_fonts.enlarged`; the maintainer,
+  2026-10-19). Native mock tests, the font and bank regression tests pass; **not yet
+  seen in the game**.
+
+- **(Old) HD Font: fnt_d16x16 and fnt_d10x10b repaired** (2026-10-18;
+  `tools/build_original_fonts.py`, `tools/build_font_from_ttf.py`,
+  `tools/build_font_scale_sets.py`, `assets/hd-fonts`). The game's own description of
+  these two fonts belongs to another layout; the Original Font style has used a
+  repaired one since 2026-10-17, but the HD baker read the broken one and drew them as
+  small 10 pixel fonts. Their art is the body font's (`fnt_d16x16b`), so they are now
+  baked as its twins, in `assets/hd-fonts` and in every resolution's font set, and are
+  sized as it is in every style. The layouts name `fnt_d16x16`, for which the engine
+  draws `fnt_d16x16b` (read live in the inventory), and none names `fnt_d10x10`, so
+  little or nothing on screen is expected to change; not checked in the game.
+
 - **Controller remapping on the Controller Layout screen** (2026-10-18;
   `src/controller-native/K1ButtonRemapPolicy.h`, `K1ButtonRemap.cpp`,
   `K1ControllerLayout.cpp`, `K1NativeJoystick.cpp`, `K1XboxHud.cpp`,
@@ -185,7 +307,7 @@ proxy, and it applies the executable changes above as well.
   for each part, the mouse and keyboard HUD's (menu buttons, minimap, action bar,
   portraits, attack buttons, Disengage) and the controller HUD's (action menu, party
   switch, minimap, top left bar, Disengage) kept apart, 25% to 100% with 50% today's size
-  and 100% two and a half times it; Link HUD Sizes; and a preview of the chosen HUD on a
+  and 100% two and a half times it (twice since 2026-10-19); Link HUD Sizes; and a preview of the chosen HUD on a
   slate backdrop. Each part grows about its corner and stops at the screen's edge. To make
   that possible on any HUD file, KMRP now places the mouse and keyboard HUD itself, from a
   table of its shipped 3440x1440 HUD (all 108 rectangles compared with the file the game
@@ -298,7 +420,8 @@ proxy, and it applies the executable changes above as well.
   and replies, subtitles and body text, small text, and HUD text. They move in
   1% increments, keeping the current size at 50%. Link Text Sizes moves all four
   together and is on by default, with mutually exclusive Original Font, Original Sharpened Font and New HD
-  Font choices. Original Font keeps the game artwork at its original resolution
+  Font choices (since 2026-10-18 Original Font, (New) Original HD Font and (Old) HD Font; see
+  "HD Original font, the new default" above). Original Font keeps the game artwork at its original resolution
   and lets the engine enlarge it.
   Settings persist in `swkotor.ini`. The engine scales existing font metrics
   and re-wraps text live; each font style has one shared atlas set rather than

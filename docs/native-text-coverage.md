@@ -144,6 +144,16 @@ this exact cutoff. Fitting needs the draw-compatible fractional bounds or a
 conservative ceiling, plus verification after the engine's rounding steps.
 This is a requirement for the proposed fix, not a fix already applied.
 
+Width has the opposite problem (found 2026-10-19). The line breaker sums each glyph's
+advance truncated to a whole pixel, trunc(advance x scale x 100 + 0.25)
+(`0x0045A2F0`), while the draw advances by the fractional width. A line the breaker
+fills to the box's edge can therefore be drawn a few pixels wider than the box, and
+whether it is depends on the scale's fractions: the fit result is not monotone in the
+scale. A search that halves until something fits and bisects below that can settle far
+under the largest fitting scale; at 1440x1080 a subtitle went to one line at a third of
+its size. `KmrpTextFit::Fit` (`K1TextFitPolicy.h`) walks down from the request in steps
+of 1/128 instead.
+
 ### List layout already has separate native modes
 
 The list's own layout contract also matters. Code at VA `0x0041B1A3` / FILE

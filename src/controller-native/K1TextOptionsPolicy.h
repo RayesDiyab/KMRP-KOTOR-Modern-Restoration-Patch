@@ -6,9 +6,14 @@
 
 namespace KmrpTextOptions {
 constexpr int Minimum = 25, Maximum = 100, Step = 1, Default = 50;
-enum FontStyle { NewHd=0, OriginalSharpened=1, Original=2 };
+// The font choices, by the number swkotor.ini keeps ([KMRP Text] FontStyle). Until
+// 2026-10-18 1 was "Original Sharpened" (the original atlases enlarged and sharpened)
+// and 0 "New HD": the maintainer had HD Original take 1's place, as the default
+// ("(New) Original HD Font"), and 0 renamed "(Old) HD Font", so a saved choice keeps
+// its number.
+enum FontStyle { OldHd=0, HdOriginal=1, Original=2 };
 constexpr int FontStyleCount=3;
-inline int Style(int value) {return value>=0 && value<FontStyleCount?value:NewHd;}
+inline int Style(int value) {return value>=0 && value<FontStyleCount?value:HdOriginal;}
 constexpr int SliderMaximum = (Maximum - Minimum) / Step;
 inline int Percent(int value) {
     value = (std::max)(Minimum, (std::min)(Maximum, value));

@@ -135,6 +135,7 @@ void* KmrpTextOptionsTestAddress(std::uintptr_t address){
     const auto page=address&~std::uintptr_t(65535);return Mock::pages[page].data()+(address-page);
 }
 bool KmrpTextOptionsTestConfirmHeld(){return Mock::held;}
+bool KmrpHudOptionsOpenK1(){return false;}
 
 void* KmrpRuntimeControlByTagK1(void* p,const char* tag){
     const auto at=Mock::controls[p].find(tag);return at==Mock::controls[p].end()?nullptr:at->second;
@@ -158,8 +159,9 @@ int main(int argc,char** argv) {
             void* c=Mock::Allocate(0x300);Mock::Ctor(c,i==8?0x758258:i==1?0x73E9D0:i>=4?ButtonTable:0x73E5B8);
             At<Rect>(c,4)=r;At<int>(c,0x50)=Mock::ids[i];At<void*>(c,0x34)=owner;
             At<void**>(owner,0x20)[Mock::ids[i]]=c;Mock::controls[owner][Mock::tags[i]]=c;
+            if(i==3)At<int>(c,0x110)=(std::max)(1,r.width*86/1381);   // LB_DESC's scrollbar, as at 3440x1440
         }
-        sizing=requestedSizing=Sizes{};style=requestedStyle=NewHd;dirty=false;blockReopen=false;releasedFrames=2;
+        sizing=requestedSizing=Sizes{};style=requestedStyle=HdOriginal;dirty=false;blockReopen=false;releasedFrames=2;
         auto adv=Mock::controls[owner]["BTN_ADVANCED"];auto above=Mock::controls[owner]["BTN_RESOLUTION"];
         At<void*>(adv,0x5C)=above;At<void*>(above,0x64)=adv;At<unsigned>(adv,0x44)|=4;
         KmrpTextOptionsFrameK1(manager);assert(entries[owner].button);
@@ -167,10 +169,24 @@ int main(int argc,char** argv) {
         assert(!std::memcmp(&At<Rect>(entry,4),&expected,sizeof expected));assert(At<int>(owner,0x24)==15);
         assert(At<void*>(adv,0x5C)==entry && At<void*>(above,0x64)==entry);
         At<unsigned>(adv,0x44)&=~4u;KmrpTextOptionsFrameK1(manager);assert(!(At<unsigned>(entry,0x44)&4));
-        Mock::held=true;Open(owner,nullptr,nullptr);KmrpTextOptionsFrameK1(manager);assert(current && sliders[0] && fontChoices[NewHd]);
+        Mock::held=true;Open(owner,nullptr,nullptr);KmrpTextOptionsFrameK1(manager);assert(current && sliders[0] && fontChoices[OldHd]);
+        // The right-hand column inside the frame round the list, as far from it on the
+        // right as on the left, clear of the scrollbar's strip (since 2026-10-19).
+        {
+            void* list=Mock::controls[owner]["LB_DESC"];
+            const Rect at=At<Rect>(list,4);const int bar=At<int>(list,0x110);
+            const int frameLeft=at.left-(bar*23+43)/86, frameRight=at.left+at.width-bar-(bar*13+43)/86;
+            std::vector<void*> column(std::begin(fontChoices),std::end(fontChoices));
+            column.insert(column.end(),std::begin(previews),std::end(previews));
+            for(void* c:column) {
+                const Rect r=At<Rect>(c,4);
+                assert(r.left-frameLeft>0 && r.left-frameLeft==frameRight-(r.left+r.width));
+            }
+        }
         assert(At<int>(sliders[0],0x74)==(Default-Minimum)/Step && At<int>(sliders[0],0x70)==SliderMaximum);
         assert(Mock::captions[static_cast<char*>(sizeLabels[0])+0xE8]=="Menus & Replies: 50%");
-        assert(Mock::captions[static_cast<char*>(fontChoices[NewHd])+0x16C]=="New HD Font");
+        assert(Mock::captions[static_cast<char*>(fontChoices[HdOriginal])+0x16C]=="(New) Original HD Font");
+        assert(Mock::captions[static_cast<char*>(fontChoices[OldHd])+0x16C]=="(Old) HD Font");
         auto selected=[](int wanted){
             int count=0;for(int i=0;i<FontStyleCount;++i){
                 assert(At<int>(fontChoices[i],0x1C4)==-1);
@@ -178,21 +194,45 @@ int main(int argc,char** argv) {
                 assert(on==(i==wanted));count+=on;
             }assert(count==1);
         };
-        selected(NewHd);
-        assert(owned.size()==20);
-        // All left-column slider pairs fit before the linked-size checkbox.
+        selected(HdOriginal);
+        assert(owned.size()==22);   // with the glyphs beside Default's and Close's captions
+        // "Link Text Sizes" at the top of the left column, the slider pairs under it, the
+        // last above Default (since 2026-10-19; the link was under the pairs).
+        {
+            const auto link=At<Rect>(linkSizes,4);
+            assert(link.top==At<Rect>(Mock::controls[owner]["LBL_GAMMA"],4).top);
+            assert(link.top+link.height<=At<Rect>(sizeLabels[0],4).top);
+        }
         for(int i=0;i<TextGroupCount;++i) {
             const auto label=At<Rect>(sizeLabels[i],4), track=At<Rect>(sliders[i],4);
             assert(label.left==track.left && label.width==track.width);
             assert(label.top+label.height<=track.top);
             if(i+1<TextGroupCount)assert(track.top+track.height<=At<Rect>(sizeLabels[i+1],4).top);
-            else assert(track.top+track.height<=At<Rect>(linkSizes,4).top);
+            else assert(track.top+track.height<=At<Rect>(Mock::controls[owner]["BTN_DEFAULT"],4).top);
         }
+        // The page opens on the link; right from it is the font chosen; the sliders lead
+        // nowhere left or right (their own left and right move them); Default and Close are
+        // reached by no pad link from the link, the sliders or the fonts.
+        assert(At<void*>(current,0x1C)==linkSizes);
+        assert(At<void*>(linkSizes,0x68)==fontChoices[HdOriginal] && At<void*>(linkSizes,0x60)==fontChoices[HdOriginal]);
+        assert(At<void*>(linkSizes,0x64)==sliders[0] && At<void*>(linkSizes,0x5C)==sliders[TextGroupCount-1]);
+        for(void* slider:sliders)assert(!At<void*>(slider,0x60) && !At<void*>(slider,0x68));
+        {
+            std::vector<void*> reachable{linkSizes};
+            for(void* c:sliders)reachable.push_back(c);
+            for(void* c:fontChoices)reachable.push_back(c);
+            for(void* c:reachable)for(unsigned at:{0x5Cu,0x60u,0x64u,0x68u}) {
+                void* to=At<void*>(c,at);
+                assert(to==nullptr || std::find(reachable.begin(),reachable.end(),to)!=reachable.end());
+            }
+        }
+        // Y restores the defaults and B closes wherever the focus is (Input).
+        assert(table[15]==reinterpret_cast<std::uintptr_t>(&Input));
         assert((At<unsigned>(linkSizes,0x1C8)&1) && At<int>(linkSizes,0x1C4)==-1);
         std::set<int> ids;
         for(void* c:owned){assert(ids.insert(At<int>(c,0x50)).second);assert(At<void**>(current,0x20)[At<int>(c,0x50)]==c);}
         // Ignore the confirm that opened the page, then accept subsequent presses.
-        SelectSharpened(current,nullptr,nullptr);Back(current,nullptr,nullptr);
+        SelectHd(current,nullptr,nullptr);Back(current,nullptr,nullptr);
         assert(!dirty && !(At<unsigned>(current,0x44)&0x400));
         Mock::held=false;KmrpTextOptionsFrameK1(manager);assert(!Armed());
         KmrpTextOptionsFrameK1(manager);assert(Armed());
@@ -236,25 +276,25 @@ int main(int argc,char** argv) {
         const auto release=[&]{const bool was=Mock::held;Mock::held=false;KmrpTextOptionsFrameK1(manager);KmrpTextOptionsFrameK1(manager);Mock::held=was;};
         release();
         const int resetBefore=Mock::resets;const int buildBefore=Mock::builds;
-        SelectSharpened(current,nullptr,nullptr);KmrpTextOptionsFrameK1(manager);assert(style==OriginalSharpened);
+        SelectHd(current,nullptr,nullptr);KmrpTextOptionsFrameK1(manager);assert(style==OldHd);
         auto texture=(*static_cast<void***>(Native(0x7A4798)))[0];
         assert(At<unsigned>(texture,0x58)!=0 && At<void*>(texture,0x40)!=nullptr);
         assert(Mock::resets==resetBefore+1 && Mock::builds==buildBefore+1 && Mock::refresh.empty());
-        selected(OriginalSharpened);
+        selected(OldHd);
         release();SelectOriginal(current,nullptr,nullptr);KmrpTextOptionsFrameK1(manager);assert(style==Original);selected(Original);
         release();const int sameBuild=Mock::builds;
         SelectOriginal(current,nullptr,nullptr);KmrpTextOptionsFrameK1(manager);assert(Mock::builds==sameBuild);selected(Original);
-        release();SelectHd(current,nullptr,nullptr);KmrpTextOptionsFrameK1(manager);assert(style==NewHd);selected(NewHd);
+        release();SelectHdOriginal(current,nullptr,nullptr);KmrpTextOptionsFrameK1(manager);assert(style==HdOriginal);selected(HdOriginal);
         release();SelectOriginal(current,nullptr,nullptr);KmrpTextOptionsFrameK1(manager);selected(Original);
         release();ToggleLink(current,nullptr,nullptr);KmrpTextOptionsFrameK1(manager);assert(!sizing.linked);
         At<int>(sliders[Body],0x74)=(80-Minimum)/Step;KmrpTextOptionsFrameK1(manager);assert(sizing.values[Body]==80);
         Mock::held=false;KmrpTextOptionsFrameK1(manager);KmrpTextOptionsFrameK1(manager);
         Mock::held=true;KmrpTextOptionsFrameK1(manager);
         Defaults(current,nullptr,nullptr);KmrpTextOptionsFrameK1(manager);
-        assert(sizing.values[Menus]==Default && style==NewHd && At<int>(sliders[0],0x74)==(Default-Minimum)/Step);selected(NewHd);
+        assert(sizing.values[Menus]==Default && style==HdOriginal && At<int>(sliders[0],0x74)==(Default-Minimum)/Step);selected(HdOriginal);
         for(int value:sizing.values)assert(value==Default);
         assert(sizing.linked && (At<unsigned>(linkSizes,0x1C8)&1));
-        release();Mock::fail=true;SelectSharpened(current,nullptr,nullptr);KmrpTextOptionsFrameK1(manager);assert(style==NewHd && requestedStyle==NewHd);selected(NewHd);
+        release();Mock::fail=true;SelectHd(current,nullptr,nullptr);KmrpTextOptionsFrameK1(manager);assert(style==HdOriginal && requestedStyle==HdOriginal);selected(HdOriginal);
         // Restoring the entry while A remains held must never reopen the modal.
         release();Mock::held=true;Back(current,nullptr,nullptr);
         assert((At<unsigned>(current,0x44)&0x700)==0x400);
@@ -276,24 +316,29 @@ int main(int argc,char** argv) {
     assert(cases>=66 && Mock::loads>0 && Mock::images>0 && Mock::reflows>0);
     wchar_t path[MAX_PATH];assert(ConfigPath(path));
     assert(GetPrivateProfileIntW(L"KMRP Text",L"Size",-1,path)==Default);
-    assert(GetPrivateProfileIntW(L"KMRP Text",L"OriginalFont",-1,path)==0);
-    assert(GetPrivateProfileIntW(L"KMRP Text",L"FontStyle",-1,path)==NewHd);
+    assert(GetPrivateProfileIntW(L"KMRP Text",L"OriginalFont",-1,path)==1);
+    assert(GetPrivateProfileIntW(L"KMRP Text",L"FontStyle",-1,path)==HdOriginal);
     // Existing two-style installs migrate, and all three explicit styles persist.
     assert(WritePrivateProfileStringW(L"KMRP Text",L"FontStyle",nullptr,path));
     assert(WritePrivateProfileStringW(L"KMRP Text",L"OriginalFont",L"1",path));
     for(const wchar_t* key:groupKeys)assert(WritePrivateProfileStringW(L"KMRP Text",key,nullptr,path));
     assert(WritePrivateProfileStringW(L"KMRP Text",L"LinkSizes",nullptr,path));
     assert(WritePrivateProfileStringW(L"KMRP Text",L"Size",L"85",path));
-    sizing=Sizes{};initialized=false;assert(KmrpTextFontStyleK1()==OriginalSharpened);
+    sizing=Sizes{};initialized=false;assert(KmrpTextFontStyleK1()==HdOriginal);
+    assert(WritePrivateProfileStringW(L"KMRP Text",L"OriginalFont",L"0",path));
+    initialized=false;assert(KmrpTextFontStyleK1()==OldHd);
+    // Nothing saved: the default, HD Original.
+    assert(WritePrivateProfileStringW(L"KMRP Text",L"OriginalFont",nullptr,path));
+    initialized=false;assert(KmrpTextFontStyleK1()==HdOriginal);
     for(int value:sizing.values)assert(value==85);
     assert(sizing.linked);
     sizing.values={{41,47,53,59}};sizing.linked=false;assert(Save());
     sizing=Sizes{};initialized=false;assert(KmrpTextSizePercentK1()==41);
     assert((!sizing.linked && sizing.values==std::array<int,TextGroupCount>{{41,47,53,59}}));
     sizing=Sizes{};assert(Save());
-    for(int expected:{Original,OriginalSharpened,NewHd}) {
+    for(int expected:{Original,HdOriginal,OldHd}) {
         style=expected;assert(Save());initialized=false;
         assert(KmrpTextFontStyleK1()==expected && KmrpTextSizePercentK1()==Default);
     }
-    std::cout<<"PASS: "<<cases<<" native UI fixtures; cloned geometry/focus policy, unique IDs, navigation, 50% default, four independent/linked sliders, three exclusive fonts, defaults, failed-style rollback and parent/modal cleanup. ABI is mocked; game execution remains a separate check.\n";
+    std::cout<<"PASS: "<<cases<<" native UI fixtures; cloned geometry/focus policy, unique IDs, navigation, 50% default, four independent/linked sliders, three exclusive fonts (HD Original by default), defaults, failed-style rollback and parent/modal cleanup. ABI is mocked; game execution remains a separate check.\n";
 }

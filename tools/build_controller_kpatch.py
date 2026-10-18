@@ -232,9 +232,13 @@ def hooks():
 
 
 def functions():
-    # And two the modules ask each other: whether a confirm button is held (KMRP's pages)
-    # and whether the Xbox-style HUD has the HUD (KMRP's placing of the game's own, K1PcHud.cpp).
-    return {h['function'] for h in hooks()} | {'KmrpControllerConfirmHeldK1', 'KmrpXboxHudOwnsK1'}
+    # And those the modules ask each other: whether a confirm button is held (KMRP's pages)
+    # and whether the Xbox-style HUD has the HUD (KMRP's placing of the game's own, K1PcHud.cpp);
+    # since 2026-10-19 the pad's state, glyph family and focus, and the A on KMRP's buttons on
+    # Graphics Options, for KMRP's own option pages (K1OptionsPad.h).
+    return {h['function'] for h in hooks()} | {'KmrpControllerConfirmHeldK1', 'KmrpXboxHudOwnsK1',
+                                               'KmrpPadInUseK1', 'KmrpGlyphLetterK1', 'KmrpPadFocusSkipK1',
+                                               'KmrpPaintGraphicsEntryPromptK1'}
 
 
 def render_manifest(version: str) -> str:

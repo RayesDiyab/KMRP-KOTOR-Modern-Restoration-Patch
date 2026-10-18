@@ -2,6 +2,8 @@
 // No pre-authored .gui, fixed resolution, or dependency on controller support.
 #include "K1TextOptions.h"
 #include "K1TextOptionsPolicy.h"
+#include "K1HudOptions.h"
+#include "K1OptionsPad.h"
 #include "K1RuntimeAssets.h"
 #include "K1RuntimeLayout.h"
 #include "K1SliderGrip.h"
@@ -48,9 +50,14 @@ using Focus=void(__thiscall*)(void*,void*,int);
 using Exists=int(__thiscall*)(void*,void*);
 using SetExtent=void(__thiscall*)(void*,const Rect*);
 constexpr std::uintptr_t GraphicsTable=0x7586F8, ButtonTable=0x73E658;
-struct Entry { void* button=nullptr; void* advanced=nullptr; };
+struct Entry { void* button=nullptr; void* advanced=nullptr; int badged=-1; char family=0; };
 std::map<void*,Entry> entries;
 void *pending=nullptr, *current=nullptr, *parent=nullptr, *returnFocus=nullptr;
+// Default and Close: the pad presses them itself (Y, B), so they are off its focus and
+// wear its glyph while it is in use (K1OptionsPad.h).
+void *defaultsButton=nullptr, *backButton=nullptr;
+KmrpOptionsPad::Glyph defaultsGlyph, backGlyph;
+void* NativeRoutine(std::uintptr_t address){return Fn<void*>(static_cast<unsigned>(address));}
 std::uintptr_t table[27]{};
 std::vector<void*> owned;
 void* sizeLabels[TextGroupCount]{};
@@ -64,7 +71,7 @@ const char* const previewFonts[]={"dialogfont16x16","fnt_d16x16","dialogfont10x1
 const char* const previewTexts[]={"Menus and reply choices","Subtitles and descriptions","Small text preview","HUD: 0123456789"};
 void* fontChoices[FontStyleCount]{};
 bool initialized=false, dirty=false;
-int style=NewHd, requestedStyle=NewHd;
+int style=HdOriginal, requestedStyle=HdOriginal;
 Sizes sizing, requestedSizing;
 int releasedFrames=2;
 bool blockReopen=false;
@@ -100,7 +107,8 @@ void Initialize() {
             sizing.values[i]=Percent(static_cast<int>(GetPrivateProfileIntW(L"KMRP Text",groupKeys[i],legacySize,path)));
         }
         sizing.Link(GetPrivateProfileIntW(L"KMRP Text",L"LinkSizes",1,path)!=0);
-        const int legacy=GetPrivateProfileIntW(L"KMRP Text",L"OriginalFont",0,path)?OriginalSharpened:NewHd;
+        // OriginalFont, before FontStyle (pre-release builds only): 0 was the HD font.
+        const int legacy=GetPrivateProfileIntW(L"KMRP Text",L"OriginalFont",-1,path)==0?OldHd:HdOriginal;
         style=Style(GetPrivateProfileIntW(L"KMRP Text",L"FontStyle",legacy,path));
     }
     requestedSizing=sizing;requestedStyle=style;
@@ -117,7 +125,7 @@ bool Save() {
     if(!WritePrivateProfileStringW(L"KMRP Text",L"LinkSizes",sizing.linked?L"1":L"0",path))return false;
     swprintf_s(value,L"%d",style);
     return WritePrivateProfileStringW(L"KMRP Text",L"FontStyle",value,path) &&
-        WritePrivateProfileStringW(L"KMRP Text",L"OriginalFont",style==NewHd?L"0":L"1",path);
+        WritePrivateProfileStringW(L"KMRP Text",L"OriginalFont",style==OldHd?L"0":L"1",path);
 }
 void Extent(void* control,const Rect& rect) {
     reinterpret_cast<SetExtent>(Vtable(control)[1])(control,&rect);
@@ -192,10 +200,10 @@ void __fastcall ToggleLink(void*,void*,void*) {
     if(Armed()){requestedSizing.Link(!requestedSizing.linked);Dirty();releasedFrames=0;}
 }
 void __fastcall SelectOriginal(void*,void*,void*) {Choose(Original);}
-void __fastcall SelectSharpened(void*,void*,void*) {Choose(OriginalSharpened);}
-void __fastcall SelectHd(void*,void*,void*) {Choose(NewHd);}
+void __fastcall SelectHdOriginal(void*,void*,void*) {Choose(HdOriginal);}
+void __fastcall SelectHd(void*,void*,void*) {Choose(OldHd);}
 void __fastcall Defaults(void*,void*,void*) {
-    if(Armed()){requestedSizing=Sizes{};requestedStyle=NewHd;Dirty();releasedFrames=0;}
+    if(Armed()){requestedSizing=Sizes{};requestedStyle=HdOriginal;Dirty();releasedFrames=0;}
 }
 // A slider's events, as the graphics screen gives Brightness its own
 // (CSWGuiOptionsGraphics's constructor, 0x006E2E70, through CSWGuiControl::AddEvent):
@@ -211,8 +219,12 @@ void SliderEvents(void* slider,void* panel) {
         Fn<Event>(0x41AB20)(slider,event,panel,reinterpret_cast<void*>(&SliderEvent));
     Fn<Event>(0x41AB20)(slider,0x2A,panel,reinterpret_cast<void*>(&Defaults));
 }
+// B closes and Y restores the defaults wherever the focus is: Close and Default are off
+// the pad's focus (the maintainer, 2026-10-19). Until then Y reached Defaults only from
+// a slider, through the slider's own Default command (SliderEvents).
 void __fastcall Input(void* self,void*,int event,int value) {
     if(value && event==0x28){Close();return;}
+    if(event==0x2A){if(value)Defaults(nullptr,nullptr,nullptr);return;}
     Fn<void(__thiscall*)(void*,int,int)>(0x409E60)(self,event,value);
 }
 void* __fastcall Destroy(void* self,void*,unsigned flags) {
@@ -221,8 +233,10 @@ void* __fastcall Destroy(void* self,void*,unsigned flags) {
     Fn<Focus>(0x40A630)(self,nullptr,0);
     auto array=At<void**>(self,0x20);
     for(int i=0;array && i<At<int>(self,0x24);++i)array[i]=nullptr;
+    KmrpOptionsPad::SkipFocus(defaultsButton,false);KmrpOptionsPad::SkipFocus(backButton,false);
     for(void* c:owned)DestroyControl(c);
-    owned.clear();help=linkSizes=nullptr;
+    owned.clear();help=linkSizes=defaultsButton=backButton=nullptr;
+    defaultsGlyph=backGlyph=KmrpOptionsPad::Glyph{};
     for(void*& p:sizeLabels)p=nullptr;
     for(void*& p:sliders)p=nullptr;
     for(void*& p:previews)p=nullptr;
@@ -256,6 +270,8 @@ void UpdateCaptions() {
         for(int i=0;i<FontStyleCount;++i)
             Fn<void(__thiscall*)(void*,unsigned)>(0x685540)(fontChoices[i],i==requestedStyle);
         displayedStyle=requestedStyle;
+        // Right (or left) from "Link Text Sizes" goes to the font chosen.
+        if(linkSizes)At<void*>(linkSizes,0x60)=At<void*>(linkSizes,0x68)=fontChoices[requestedStyle];
     }
 }
 void MakeScreen(void* manager,void* owner) {
@@ -293,8 +309,12 @@ void MakeScreen(void* manager,void* owner) {
     for(void*& preview:previews)preview=Bind(p,"LBL_GAMMA",0x140,0x41ACD0);
     void* defaults=Bind(p,"BTN_DEFAULT",0x1C4,0x41C0F0);
     void* back=Bind(p,"BTN_BACK",0x1C4,0x41C0F0);
+    // The pad's Y and B beside Default's and Close's captions (K1OptionsPad.h).
+    void* defaultsMark=Bind(p,"LBL_GAMMA",0x140,0x41ACD0);
+    void* backMark=Bind(p,"LBL_GAMMA",0x140,0x41ACD0);
     Fn<Simple>(0x40B8F0)(p);
-    bool complete=title && linkSizes && fontChoices[0] && fontChoices[1] && fontChoices[2] && help && defaults && back;
+    bool complete=title && linkSizes && fontChoices[0] && fontChoices[1] && fontChoices[2] && help && defaults && back &&
+        defaultsMark && backMark;
     for(int i=0;i<TextGroupCount;++i)complete=complete && sizeLabels[i] && sliders[i] && previews[i];
     if(!complete) {
         Destroy(p,nullptr,1);return;
@@ -316,14 +336,42 @@ void MakeScreen(void* manager,void* owner) {
     const Rect advanced=rect("BTN_ADVANCED");
     const int bottom=(std::min)(advanced.top+advanced.height,rect("BTN_DEFAULT").top-gap);
     const int step=(bottom-label.top-checkbox.height-gap)/TextGroupCount;
+    // "Link Text Sizes" at the top of the column and the four pairs under it, so the
+    // page opens on the link and right from it reaches the fonts without passing every
+    // slider, whose own right moves it (the maintainer, 2026-10-19). Until then the
+    // link stood under the pairs.
+    Extent(linkSizes,{label.left,label.top,label.width,checkbox.height});
+    const int first=checkbox.height+gap;
     for(int i=0;i<TextGroupCount;++i) {
-        Rect l=label,t=track;l.top+=i*step;t.top+=i*step;
+        Rect l=label,t=track;l.top+=first+i*step;t.top+=first+i*step;
         Extent(sizeLabels[i],l);Extent(sliders[i],t);
         Fn<void(__thiscall*)(void*,int)>(0x417EC0)(sliders[i],SliderMaximum);
     }
-    Extent(linkSizes,{label.left,label.top+TextGroupCount*step+gap,label.width,checkbox.height});
     Text(linkSizes,"Link Text Sizes",true);
-    Rect desc=rect("LB_DESC");desc.left+=desc.width/32;desc.width-=desc.width/16;
+    for(void* mark:{defaultsMark,backMark}){Text(mark,"");At<unsigned>(mark,0x44)&=~2u;}
+    defaultsButton=defaults;backButton=back;
+    defaultsGlyph=KmrpOptionsPad::Glyph{};defaultsGlyph.label=defaultsMark;defaultsGlyph.button=defaults;defaultsGlyph.code='y';
+    backGlyph=KmrpOptionsPad::Glyph{};backGlyph.label=backMark;backGlyph.button=back;backGlyph.code='b';
+    KmrpOptionsPad::SkipFocus(defaults,true);KmrpOptionsPad::SkipFocus(back,true);
+    // The right-hand column, inside the frame the player sees round the description list:
+    // the frame stands 23/86 of the list's scrollbar width left of the list and ends 13/86
+    // of it short of the scrollbar's strip, which it does not cover (measured at 3440x1440
+    // for the HUD Size page, K1HudOptions.cpp). The column keeps its left, a 32nd of the
+    // list's width in from the list, and stays as far in from the frame on the right.
+    // Until 2026-10-19 it ended a 32nd of the width short of the list's right edge, over
+    // the strip: at 1440x1080 "(New) Original HD Font", "Subtitles and descriptions" and
+    // "Small text preview" ran past the frame (the maintainer's capture).
+    Rect desc=rect("LB_DESC");
+    {
+        const int bar=At<int>(KmrpRuntimeControlByTagK1(owner,"LB_DESC"),0x110);
+        const int inset=desc.width/32;
+        if(bar>0 && bar<desc.width/2) {
+            const int outside=(bar*23+43)/86, shortOfStrip=(bar*13+43)/86;
+            const int frameRight=desc.left+desc.width-bar-shortOfStrip;
+            desc.left+=inset;
+            desc.width=frameRight-(inset+outside)-desc.left;
+        } else {desc.left+=inset;desc.width-=2*inset;}
+    }
     const int margin=(std::max)(2,desc.height/32);
     Rect choiceRect={desc.left,desc.top+margin,desc.width,rect("BTN_RESOLUTION").height};
     for(int i=FontStyleCount-1;i>=0;--i) {
@@ -343,23 +391,28 @@ void MakeScreen(void* manager,void* owner) {
     At<unsigned>(help,0x44)&=~2u;
     Text(title,"Text Size and Font");
     Text(fontChoices[Original],"Original Font",true);
-    Text(fontChoices[OriginalSharpened],"Original Sharpened Font",true);
-    Text(fontChoices[NewHd],"New HD Font",true);
+    Text(fontChoices[HdOriginal],"(New) Original HD Font",true);
+    Text(fontChoices[OldHd],"(Old) HD Font",true);
     Fn<Event>(0x41AB20)(linkSizes,0x27,p,reinterpret_cast<void*>(&ToggleLink));
     Fn<Event>(0x41AB20)(fontChoices[Original],0x27,p,reinterpret_cast<void*>(&SelectOriginal));
-    Fn<Event>(0x41AB20)(fontChoices[OriginalSharpened],0x27,p,reinterpret_cast<void*>(&SelectSharpened));
-    Fn<Event>(0x41AB20)(fontChoices[NewHd],0x27,p,reinterpret_cast<void*>(&SelectHd));
+    Fn<Event>(0x41AB20)(fontChoices[HdOriginal],0x27,p,reinterpret_cast<void*>(&SelectHdOriginal));
+    Fn<Event>(0x41AB20)(fontChoices[OldHd],0x27,p,reinterpret_cast<void*>(&SelectHd));
     Fn<Event>(0x41AB20)(defaults,0x27,p,reinterpret_cast<void*>(&Defaults));
     Fn<Event>(0x41AB20)(back,0x27,p,reinterpret_cast<void*>(&Back));
+    // The pad's focus: the link and the four sliders under it, up and down and round;
+    // the fonts, up and down and round; left and right between the link and the font
+    // chosen (UpdateCaptions), and nothing from a slider, whose left and right move it.
+    // Default and Close are off the pad's focus (Y and B, Input); their links are the
+    // keys'.
+    Navigation(linkSizes,sliders[TextGroupCount-1],sliders[0]);
     for(int i=0;i<TextGroupCount;++i)
-        Navigation(sliders[i],i?sliders[i-1]:back,i+1<TextGroupCount?sliders[i+1]:linkSizes);
-    Navigation(linkSizes,sliders[TextGroupCount-1],fontChoices[Original]);
-    Navigation(fontChoices[Original],linkSizes,fontChoices[OriginalSharpened]);
-    Navigation(fontChoices[OriginalSharpened],fontChoices[Original],fontChoices[NewHd]);
-    Navigation(fontChoices[NewHd],fontChoices[OriginalSharpened],defaults);
-    Navigation(defaults,fontChoices[NewHd],sliders[0],back,back);
-    Navigation(back,fontChoices[NewHd],sliders[0],defaults,defaults);
-    Fn<Focus>(0x40A630)(p,sliders[0],0);
+        Navigation(sliders[i],i?sliders[i-1]:linkSizes,i+1<TextGroupCount?sliders[i+1]:linkSizes);
+    Navigation(fontChoices[Original],fontChoices[OldHd],fontChoices[HdOriginal],linkSizes,linkSizes);
+    Navigation(fontChoices[HdOriginal],fontChoices[Original],fontChoices[OldHd],linkSizes,linkSizes);
+    Navigation(fontChoices[OldHd],fontChoices[HdOriginal],fontChoices[Original],linkSizes,linkSizes);
+    Navigation(defaults,sliders[TextGroupCount-1],linkSizes,back,back);
+    Navigation(back,fontChoices[OldHd],fontChoices[Original],defaults,defaults);
+    Fn<Focus>(0x40A630)(p,linkSizes,0);
     displayedSizes.fill(-1);displayedLinked=displayedStyle=-1;
     releasedFrames=0;UpdateCaptions();
     Fn<void(__thiscall*)(void*,void*,int,int)>(0x40BC70)(manager,p,3,1);
@@ -383,6 +436,16 @@ void UpdateEntry(void* owner,Entry& e) {
         At<void*>(advanced,0x5C)=e.button;
         if(above && above!=advanced && At<void*>(above,0x64)==advanced)At<void*>(above,0x64)=e.button;
     }
+}
+// The entry's A, as Advanced Options' below it has, while the entry has its screen's
+// focus, the pad is in use and neither KMRP page is open over the screen
+// (K1OptionsPad.h; the maintainer, 2026-10-19). Painted only on a change.
+void EntryBadge(void* owner,Entry& e,bool pad,char family) {
+    if(!e.button)return;
+    const bool want=pad && !current && !KmrpHudOptionsOpenK1() && At<void*>(owner,0x1C)==e.button;
+    if(int(want)==e.badged && (!want || family==e.family))return;
+    KmrpOptionsPad::EntryBadge(e.button,want);
+    e.badged=want;e.family=family;
 }
 void Error(const char* message) {
     if(!help)return;
@@ -416,6 +479,7 @@ void* KmrpTextOptionsEntryK1(void* owner){
     const auto found=entries.find(owner);
     return found==entries.end()?nullptr:found->second.button;
 }
+bool KmrpTextOptionsOpenK1(){return current!=nullptr;}
 int KmrpTextSizePercentK1(){Initialize();return sizing.values[Menus];}
 int KmrpTextSizeForFontK1(const char* font){Initialize();return sizing.values[FontGroup(font)];}
 int KmrpTextFontStyleK1(){Initialize();return style;}
@@ -444,8 +508,14 @@ void KmrpTextOptionsFrameK1(void* manager) {
         else ++releasedFrames;
     }
     if(blockReopen && Armed())blockReopen=false;
+    const bool pad=KmrpOptionsPad::PadInUse();
+    const char family=KmrpOptionsPad::Family();
     for(void* p:KmrpRuntimePanelsK1("optgraphics"))
-        if(At<std::uintptr_t>(p,0)==GraphicsTable)UpdateEntry(p,entries[p]);
+        if(At<std::uintptr_t>(p,0)==GraphicsTable){UpdateEntry(p,entries[p]);EntryBadge(p,entries[p],pad,family);}
+    if(current) {
+        KmrpOptionsPad::Update(defaultsGlyph,pad,family,&NativeRoutine);
+        KmrpOptionsPad::Update(backGlyph,pad,family,&NativeRoutine);
+    }
     if(pending) {
         void* owner=pending;pending=nullptr;
         if(!current && Fn<Exists>(0x40BD70)(manager,owner))MakeScreen(manager,owner);

@@ -34,6 +34,8 @@ Design and build documentation. Engine analysis lives one level over, in
 | [features.md](features.md) | **For players:** everything KMRP changes compared with the unmodified game, in plain words. |
 | [features-technical.md](features-technical.md) | The same list with the mechanism, the patch that carries it, the source files and the reference document for each feature, and what has not been seen in the game. |
 | [hud-size-options.md](hud-size-options.md) | The HUD Size page, and the mouse and keyboard HUD placed by KMRP at run time from a table, as the Xbox-style HUD is. |
+| [ingame-text-options.md](ingame-text-options.md) | The Text Size and Font page: its native controls, the three font styles in the bank, how text is sized, and what is saved. |
+| [hd-original-font.md](hd-original-font.md) | The HD Original font, the default: the game's own fonts redrawn, measured from the originals to a fraction of a pixel, and the rules each letter follows. |
 | [release-1.6-progress.md](release-1.6-progress.md) | **1.6 in progress:** every Windows change on `master` since 1.5.1, the issues each answers, and what has been seen in play. |
 
 ## How it is built and installed

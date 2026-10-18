@@ -526,28 +526,19 @@ static void Restore(void* object) {
 // caller that measures without setting the text first would read the fit. Put the
 // request back and lay it out once at that scale; the next draw re-applies the fit.
 //
-// One exception: the HUD's action description (CSWGuiMainInterface +0xA1D4, a label).
-// SetActionDescription sizes the action box to it, so at a larger text size a
-// description that wrapped onto a second line made the HUD's action box taller (seen
-// in the Xbox-style HUD at 100%, 2026-10-18: "Adrenal Stamina (Self)"). The box keeps
-// the size it has at the original text size (50%) and the text is fitted into it (the
-// maintainer: "text should only become as big as the action bar allows it"). So its
-// height is asked at the original size: the requested scale times 50 / its font
-// group's size, laid out once at that scale; the draw then fits the requested text
-// into the box the game made from it.
-static void* hudDescription=nullptr;
-static float hudDescriptionBase=1;
+// The HUD's action description (CSWGuiMainInterface +0xA1D4, a label) is measured so
+// too, at the size asked for. Until 2026-10-18 it alone was measured at the original
+// text size (50%), so that a description wrapping onto a second line at 100% could
+// not make the Xbox-style HUD's action box taller ("text should only become as big as
+// the action bar allows it"); the text was then squeezed into the box, and the mouse
+// and keyboard HUD's description did not grow with the text size at all (the
+// maintainer, the same day). Now SetActionDescription sizes both HUDs' description,
+// and its background, to the text at its size, and the Xbox-style HUD keeps its box
+// as tall as the tallest of its actions' descriptions (K1XboxHud.cpp).
 extern "C" void __cdecl KmrpTextIdealHeightK1(void* object) {
     if(measuring || !object)return;
     const float before=At<float>(object,0x40);
     Restore(object);
-    if(object==hudDescription) {
-        const auto found=strings.find(object);
-        if(found!=strings.end() && Scale(found->second.requested*hudDescriptionBase)) {
-            WriteScale(object,found->second,found->second.requested*hudDescriptionBase);
-            found->second.restored=true;
-        }
-    }
     if(At<float>(object,0x40)!=before)Wrap(object);
 }
 extern "C" void __cdecl KmrpTextStringWrapK1(void* object,int* width) {
@@ -672,17 +663,6 @@ void KmrpTextLayoutFrameK1(void* manager) {
             else if(table==0x73EAC8 || table==0x7575B0)
                 KmrpTextEditableK1(static_cast<char*>(c.first)+0xE0);
         }
-    }
-    // The HUD's action description, measured at the original size (KmrpTextIdealHeightK1):
-    // its label at CSWGuiMainInterface +0xA1D4, the text at +0xD0, the font's name at the
-    // text's +0x24 (read the same way by tools/audit_live_text.py).
-    hudDescription=nullptr;
-    if(hud) {
-        char* const text=static_cast<char*>(hud)+0xA1D4+0xD0;
-        char font[17]{};
-        std::memcpy(font,text+0x24,16);
-        const int size=KmrpTextSizeForFontK1(font);
-        if(size>0) {hudDescription=Internal(text);hudDescriptionBase=50.0f/static_cast<float>(size);}
     }
     if(hud)for(auto& item:panels) {
         if(item.second.resource=="pause" && At<void*>(item.first,0x18)==manager)

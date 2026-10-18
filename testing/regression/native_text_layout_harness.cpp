@@ -271,9 +271,10 @@ int main() {
         At<Rect>(menu[0],4).left=-1000;
         Mock::Control(panel,{10,10,200,100});KmrpTextLayoutFrameK1(manager);
         assert(Same(At<Rect>(panel,4),Rect{10,10,200,100}));
-        // The HUD's action description is measured at the original text size (50%),
-        // so the action box the game sizes from it keeps that size: at 100% its height
-        // is asked at half the requested scale; at 50% at the requested one.
+        // The HUD's action description is measured at the size asked for, as any
+        // text is (until 2026-10-18 it alone was asked at the original 50% size, so it
+        // did not grow with the text size): its height is asked at the requested scale
+        // at 100% and at 50%.
         {
             char* const label=static_cast<char*>(static_cast<void*>(hud))+0xA1D4;
             Mock::Text description("Adrenal Stamina (Self)",354,64);
@@ -281,7 +282,7 @@ int main() {
             std::memcpy(label+0xD0+0x24,"dialogfont10x10b",17);
             hudTextSize=100;KmrpTextLayoutFrameK1(manager);
             KmrpTextIdealHeightK1(description.object);
-            assert(description.Size()==0.5f);
+            assert(description.Size()==1.0f);
             hudTextSize=50;KmrpTextLayoutFrameK1(manager);
             KmrpTextIdealHeightK1(description.object);
             assert(description.Size()==1.0f);

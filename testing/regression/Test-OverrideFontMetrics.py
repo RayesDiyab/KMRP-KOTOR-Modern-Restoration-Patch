@@ -5,7 +5,7 @@ Compiles the production callback and supplies the owner's original font TXIs and
 four current KMRP size sets. No game process, installed files or Override is changed.
 """
 from pathlib import Path
-import hashlib, logging, re, subprocess, sys, tomllib, zipfile
+import hashlib, logging, re, struct, subprocess, sys, tomllib, zipfile
 import capstone
 from pykotor.resource.formats.erf import read_erf
 from pykotor.resource.type import ResourceType
@@ -70,7 +70,10 @@ def main():
                     return float(match[1]) if match else 0.0
                 member=next(n for n in z.namelist() if n.split('/')[-1]==name+'.txi')
                 height=field(z.read(member).decode(),'fontheight')
-                shared=field((ROOT/'assets/hd-fonts'/f'{name}.txi').read_text(),'fontheight')
+                # The runtime's reference height: Old HD's, baked at 6x, at the 3x the text
+                # sizes are reckoned from, in single precision (K1RuntimeAssets.cpp).
+                f32=lambda v:struct.unpack('<f',struct.pack('<f',v))[0]
+                shared=f32(f32(f32(field((ROOT/'assets/hd-fonts'/f'{name}.txi').read_text(),'fontheight'))*3.0)/6.0)
                 lines.append(' '.join([name,str(height),*[str(field(original,key))for key in SCALED_FIELDS],size.split('x')[1],str(shared)]))
     fixture=out/'metrics.txt';fixture.write_text('\n'.join(lines)+'\n')
     vc=re.search(r'^set VC=(.+)$',(ROOT/'src/controller-native/build_native_runtime.cmd').read_text(),re.M)[1].strip()

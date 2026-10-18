@@ -16,6 +16,10 @@ extern "C" int KmrpGameArt(const char*,const char*,unsigned,const char*) {return
 extern "C" int KmrpSwoopHud(const char*,const char*,unsigned,unsigned) {return 1;}
 bool KmrpXpressDecode(const unsigned char*,std::size_t,unsigned char*,std::size_t) {return false;}
 void KmrpRuntimeLog(const char* line) {std::cout<<line<<'\n';}
+// K1RuntimeAssets.cpp sizes and chooses fonts from the text options (K1TextOptions.cpp,
+// not in this harness, since 2026-10-18): the default size and style.
+int KmrpTextSizeForFontK1(const char*) {return 50;}
+int KmrpTextFontStyleK1() {return 1;}
 int wmain(int argc,wchar_t** argv) {
     assert(argc==4); namespace fs=std::filesystem;
     wchar_t module[MAX_PATH];GetModuleFileNameW(nullptr,module,MAX_PATH);

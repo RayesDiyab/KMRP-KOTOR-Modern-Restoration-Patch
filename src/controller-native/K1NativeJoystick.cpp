@@ -4455,6 +4455,19 @@ void KmrpPadFocusExcludeK1(void* control, bool excluded)
     }
 }
 
+// KMRP's own option pages and their entry buttons, built in KMRP's module, ask the pad
+// through these by name (K1OptionsPad.h), with KmrpGlyphLetterK1 below and
+// KmrpPaintGraphicsEntryPromptK1 (vendor/K1XboxControls.cpp). Since 2026-10-19.
+extern "C" int __cdecl KmrpPadInUseK1()
+{
+    return IsControllerInputActiveK1() ? 1 : 0;
+}
+
+extern "C" void __cdecl KmrpPadFocusSkipK1(void* control, int skipped)
+{
+    KmrpPadFocusExcludeK1(control, skipped != 0);
+}
+
 // For the prompt layer in vendor/K1XboxControls.cpp, which names the Xbox art.
 extern "C" char __cdecl KmrpGlyphLetterK1()
 {

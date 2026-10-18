@@ -40,6 +40,7 @@ misplaced map notes.
 | In the original game | With KMRP |
 | --- | --- |
 | Text stays tiny at high resolutions. | Text grows with the resolution and is drawn sharp for it, not enlarged from a small picture. |
+| The game's letters are small pixel drawings; enlarged, they turn soft and blocky. | The game's own font, redrawn sharp: the same letters, sizes and spacing, sharp up to 4K at the largest text size. In Graphics Options, Text Size and Font sets the size of four kinds of text and offers the original font and KMRP's earlier HD font too. |
 | Rows and icons in lists stay tiny too. | Inventory, shop, equipment, quest and other lists have rows and icons sized to match the text, with each row sitting neatly in its box. |
 | Item stack numbers disappear when icons are enlarged. | Stack numbers stay on their icons. |
 | Long descriptions run under the scrollbar, or past the edge of their box. | Descriptions stay inside their box and clear of the scrollbar. |

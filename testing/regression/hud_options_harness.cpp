@@ -9,19 +9,19 @@
 using namespace KmrpHudOptions;
 
 int main() {
-    // 25% to 100%, 50% today's size (as the text sliders count); half at 25%, two and a
-    // half times at 100%, a straight line each side of 50%.
+    // 25% to 100%, 50% today's size (as the text sliders count); half at 25%, twice at
+    // 100% (two and a half times until 2026-10-19), a straight line each side of 50%.
     assert(Percent(10) == 25 && Percent(250) == 100 && Percent(73) == 73 && Default == 50);
-    assert(SliderMaximum == 75 && Factor(50) == 1 && Factor(25) == 0.5 && Factor(100) == 2.5);
-    assert(std::abs(Factor(75) - 1.75) < 1e-12 && std::abs(Factor(51) - 1.03) < 1e-12);
+    assert(SliderMaximum == 75 && Factor(50) == 1 && Factor(25) == 0.5 && Factor(100) == 2.0);
+    assert(std::abs(Factor(75) - 1.5) < 1e-12 && std::abs(Factor(51) - 1.02) < 1e-12);
     for (int s = Minimum; s <= Maximum; ++s) assert(SizeForFactor(Factor(s)) == s);
     // A part kept on the screen: the 3440x1440 menu strip (597 wide, its right edge at
-    // 3441) grows two and a half times about its top right corner and still fits; a
-    // part whose corner is 200 from the far edge and 100 wide grows twice at most (83%,
-    // 1.99 times); at 50% or below nothing changes, whatever the screen.
+    // 3441) grows twice about its top right corner and still fits; a part whose corner
+    // is 150 from the far edge and 100 wide grows one and a half times at most (75%);
+    // at 50% or below nothing changes, whatever the screen.
     assert(FittingSize({2844, 4, 597, 64}, TopRight, 100, 3440, 1440) == 100);
-    assert(FittingSize({100, 2, 100, 32}, TopRight, 100, 1720, 720) == 83);
-    assert(FittingSize({0, 0, 400, 400}, TopLeft, 100, 1000, 600) == 66);
+    assert(FittingSize({50, 2, 100, 32}, TopRight, 100, 1720, 720) == 75);
+    assert(FittingSize({0, 0, 400, 400}, TopLeft, 100, 1000, 600) == 75);
     assert(FittingSize({0, 0, 4000, 400}, TopLeft, 50, 1000, 600) == 50);
     assert(FittingSize({0, 0, 400, 400}, TopLeft, 30, 1000, 600) == 30);
 
@@ -44,21 +44,21 @@ int main() {
     const Rect menu{2844, 4, 597, 64};          // mipc210x7.gui's LBL_MENUBG at 3440x1440
     const Rect bigger = ScaleAbout(menu, menu, CornerOf(PcMenu), 100);
     assert(bigger.left + bigger.width == 2844 + 597 && bigger.top == 4);
-    assert(bigger.width == 1492 && bigger.height == 160);       // two and a half times, at 100%
+    assert(bigger.width == 1194 && bigger.height == 128);       // twice, at 100%
     const Rect map{0, 0, 276, 276};
     const Rect half = ScaleAbout(map, map, CornerOf(PcMinimap), 25);
     assert(half.left == 0 && half.top == 0 && half.width == 138 && half.height == 138);
     const Rect slot{3077, 1318, 74, 120}, bar{3077, 1260, 356, 178};
     const Rect moved = ScaleAbout(slot, bar, CornerOf(PcActions), 75);
     // The bar's bottom right corner (3433, 1438) holds; the slot moves away from it.
-    assert(moved.left == 3433 - 623 && moved.width == 130 && moved.height == 210);   // 1.75 times, at 75%
+    assert(moved.left == 3433 - 534 && moved.width == 111 && moved.height == 180);   // 1.5 times, at 75%
     assert(ScaleAbout(slot, bar, CornerOf(PcActions), 50).left == slot.left);
     // The Disengage button (the combat queue with the button in it) grows from the
     // middle of its bottom edge; the attack buttons from the middle of their top edge.
     assert(CornerOf(PcAttack) == TopCentre);
     const Rect queue{1584, 1258, 262, 180};
     const Rect wide = ScaleAbout(queue, queue, CornerOf(PcDisengage), 100);
-    assert(wide.left == 1388 && wide.width == 655 && wide.top + wide.height == 1438 && wide.height == 450);
+    assert(wide.left == 1453 && wide.width == 524 && wide.top + wide.height == 1438 && wide.height == 360);
 
     // The preview keeps the screen's shape and centres it in its area.
     const Preview p = Preview::Fit({100, 200, 860, 600}, 3440, 1440);
@@ -110,7 +110,7 @@ int main() {
     // On every screen and at every size: each part on the screen, its corner where the
     // 50% part has it, and at 50% no two parts overlapping. Overlaps at other sizes are
     // the player's to choose (a 100% HUD on a 4:3 screen is crowded) and are counted.
-    // Up to 100% (two and a half times), each part as large as the screen holds it
+    // Up to 100% (twice), each part as large as the screen holds it
     // (FittingSize), so on the screen at every size.
     const int screens[][2] = {{800, 600}, {1024, 768}, {1280, 720}, {1280, 960}, {1600, 1200}, {1280, 1024},
                               {1920, 1080}, {1920, 1200}, {2560, 1080}, {2560, 1440}, {3440, 1440}, {3840, 2160}, {5120, 1440}};

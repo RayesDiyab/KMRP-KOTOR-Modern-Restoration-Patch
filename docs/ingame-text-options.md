@@ -1,6 +1,7 @@
 # In-game text size and font: native Windows contract
 
-Reference, 2026-10-17. Follows the [documentation standard](documentation-standard.md).
+Reference, 2026-10-17; font styles updated 2026-10-18. Follows the
+[documentation standard](documentation-standard.md).
 This describes the current source, locally built resource bank and the limited
 separate-game checks below. It does not describe a released installer. The earlier font-timing investigation
 is [Override font metrics before first layout](../reverse-engineering/override-font-metrics.md);
@@ -20,6 +21,12 @@ inspection of its native texture registry found three loaded font objects,
 `fnt_console`, `dialogfont16x16b` and `fnt_d16x16b`, each with a 24-pixel font
 height, matching the 50% default at that size. This verifies startup/loaded
 metrics only; it does not establish the new page's rendered result or interaction.
+
+On 2026-10-18 the second font choice became **(New) Original HD Font**, the default,
+in place of Original Sharpened, and New HD was renamed **(Old) HD Font** (section 5).
+That change is verified by source, native mock tests and the bank test; its font is
+described, with its measurements, in [HD original font](hd-original-font.md). It had
+not been seen in game when this was written.
 
 ## Build and address convention
 
@@ -85,9 +92,12 @@ is unverified.
 | Four text-size sliders | 25% through 100%, in 1-point steps; 76 positions, native maximum index 75 |
 | Link Text Sizes | On by default; moving any slider matches all four; re-enabling matches the last changed slider |
 | Initial/default size | 50%, exactly the previous actual KMRP size |
-| Font choices | `Original Font`, `Original Sharpened Font`, `New HD Font`; exactly one selected |
-| Defaults | All four groups 50%, Link Text Sizes on, New HD Font |
+| Font choices | `Original Font`, `(New) Original HD Font`, `(Old) HD Font`, top to bottom; exactly one selected |
+| Link Text Sizes | Since 2026-10-19 above the four sliders; the page opens on it, and right or left from it reaches the font chosen |
+| With a pad | Y is Default and B is Close wherever the focus is; the two buttons wear the pad's glyph and are never its focus (`K1OptionsPad.h`). Left and right on a slider move it |
+| Defaults | All four groups 50%, Link Text Sizes on, (New) Original HD Font |
 | Previews | One native text sample from each font group |
+| Right-hand column | The font choices and previews run from a 32nd of `LB_DESC`'s width in from its left to as far inside the frame's right line as they are from its left one; the frame ends short of the list's scrollbar strip (since 2026-10-19; until then they ran past the frame at 1440x1080) |
 | Back / native B event | Requests native panel close; previous parent focus is restored if still alive |
 
 The [policy](../src/controller-native/K1TextOptionsPolicy.h) clamps requested sizes
@@ -244,13 +254,30 @@ and actual input timing still require a game play-test.
 
 [build_native_assets.py](../tools/build_native_assets.py) skips all 36 named
 font `.tga`/`.txi` files from the offline resolution/common archives. It stores
-18 font pairs for each of three styles in the common group under private names
-`kmrfhd00..17`, `kmrfpc00..17` and `kmrfog00..17`. **The bank has no per-resolution font atlas
-sets.** Historical offline archives still contain their previous fonts for
-comparison. The runtime uses one shared source per font/style at every size.
+18 font pairs for each of three styles in the common group under private names:
 
-HD art is the existing 3x source in `assets/hd-fonts`.
-That source was re-baked on 2026-10-18 (uncommitted at the time of writing),
+| Names | Style (`FontStyle`) | Source |
+| --- | --- | --- |
+| `kmrfog00..17` | Original Font (2) | the game's own atlases, [build_original_fonts.py](../tools/build_original_fonts.py) |
+| `kmrfho00..17` | (New) Original HD Font (1), the default | `assets/hd-original-fonts`, [build_hd_original_fonts.py](../tools/build_hd_original_fonts.py) |
+| `kmrfhd00..17` | (Old) HD Font (0) | `assets/hd-fonts`, [build_font_from_ttf.py](../tools/build_font_from_ttf.py) |
+
+**The bank has no per-resolution font atlas sets.** Historical offline archives
+still contain their previous fonts for comparison. The runtime uses one shared
+source per font/style at every size. Until 2026-10-18 the second set was
+`kmrfpc00..17`, "Original Sharpened": each original atlas enlarged four times with
+Lanczos and a steepness-7 coverage curve (after `jryantomes/kmdlswap` commit
+`31bd877`). HD Original took its place and its number (section 5).
+
+Both HD sets are baked at six times the original fonts' size, the size 100% text
+is drawn at on a 2160-line screen (3x until 2026-10-18). The runtime fits each HD
+atlas to the size it is drawn at (`FitAtlas` in
+[K1RuntimeAssets.cpp](../src/controller-native/K1RuntimeAssets.cpp): each new texel
+the area average of the 6x texels it covers, alpha only for white atlases) and sets
+`texturewidth` to the fitted width, so the atlas is drawn one texel to one pixel at
+every text size. Original Font keeps its atlas; only its TXI dimensions change.
+
+The Old HD source in `assets/hd-fonts` was re-baked on 2026-10-18 (uncommitted at the time of writing),
 after the converter was found to draw the face's missing-glyph box in slots 0x80
 to 0x9F and in every control-code slot; the latter put two vertical lines after
 "HUD:" on this page. See
@@ -258,15 +285,12 @@ to 0x9F and in every control-code slot; the latter put two vertical lines after
 The bank identity in "Build and address convention" predates the re-bake, so a
 bank built since has different HD font objects and a different hash; the new
 hash was not read for this note, and the fix has not yet been seen in game.
-[build_original_fonts.py](../tools/build_original_fonts.py) creates original-PC
-art at build time from all 18 resources in the supplied GUI texture pack.
-Original Font preserves their RGBA pixels and original atlas dimensions, then
-uses the engine to scale them. Original Sharpened uses
-4x Lanczos alpha enlargement followed by the steepness-7 coverage curve documented
-in the script. RGB is white and coverage is alpha. The upstream comparison is
-identified by the script as `jryantomes/kmdlswap`, commit `31bd877`; that comparison
-is corroboration for the sharpening algorithm, not engine ABI evidence.
-There is no runtime rasterizer, glyph synthesis or font installation.
+[build_original_fonts.py](../tools/build_original_fonts.py) copies the original-PC
+art at build time from all 18 resources in the supplied GUI texture pack (and
+deletes `kmrfpc` files a previous build left). Original Font preserves their RGBA
+pixels and original atlas dimensions, then uses the engine to scale them. The HD
+Original builder reads these copies. There is no runtime rasterizer, glyph
+synthesis or font installation.
 
 Two resource names, `fnt_d10x10b` and `fnt_d16x16`, receive a grid metadata repair.
 Both measured raw resources are identical and share the **single accepted hash**
@@ -275,10 +299,15 @@ For these two names any other hash is rejected, as are unexpected 512x512 source
 atlas dimensions. The repair uses existing 32x19 cells, 16 columns and 256 glyph
 entries, derives advances from alpha bounds, and keeps a positive blank advance.
 It does not invent glyph pixels. This guard is not a general repair for unknown
-font packs, nor a hash check on every other font resource.
+font packs, nor a hash check on every other font resource. Since 2026-10-18 the Old
+HD baker reads the same repaired TXI (`stock_txi`) and bakes the two as
+`fnt_d16x16b`'s twins; it had baked them from the broken one as 10 pixel fonts
+([font atlases](../reverse-engineering/font-atlases.md)).
 
-[K1RuntimeAssets.cpp](../src/controller-native/K1RuntimeAssets.cpp) uses HD metrics
-as the baseline for all three styles. For shared HD `fontheight` H and screen height h:
+[K1RuntimeAssets.cpp](../src/controller-native/K1RuntimeAssets.cpp) uses Old HD's
+metrics as the baseline for all three styles. H is Old HD's `fontheight` times 3/6
+(`kSizeReferenceScale / kHdBakeScale`, in single precision): the 3x height the text
+sizes were defined at, so the 6x re-bake changed no size. For H and screen height h:
 
 ```text
 p = lround(H * 100)
@@ -290,8 +319,8 @@ target = baseline * sizePercent / 50
 The six-decimal scale and half-even pixel rounding preserve the former baker's
 results, including the 1050p rounding case. `fontheight`, `baselineheight`,
 `texturewidth`, `spacingR` and `spacingB` are scaled together. Glyph UVs stay
-unchanged when size changes. Example computed by `shared_font_txi` from
-`fnt_d16x16b` H=0.48:
+unchanged when size changes. Example for `fnt_d16x16b`, Old HD `fontheight` 0.96,
+so H=0.48:
 
 | Screen height | 25% target | 50% baseline | 100% target |
 | --- | --- | --- | --- |
@@ -325,14 +354,17 @@ BodySize=50
 SmallSize=50
 HudSize=50
 LinkSizes=1
-FontStyle=0
-OriginalFont=0
+FontStyle=1
+OriginalFont=1
 ```
 
-`FontStyle=0` selects New HD, `1` Original Sharpened, and `2` Original.
-If the new key is missing, legacy `OriginalFont=0` maps to New HD and nonzero maps
-to Original Sharpened. The legacy key is still written (`0` for HD, `1` for either
-original style). Missing settings use 50/HD; invalid style IDs use HD. `Size` is retained for older builds. Missing group keys inherit it. The four
+`FontStyle=0` selects (Old) HD, `1` (New) Original HD, and `2` Original. Until
+2026-10-18, `1` was Original Sharpened and `0` was called New HD; the numbers were
+kept, so a saved choice keeps its slot. If `FontStyle` is missing, the legacy
+`OriginalFont=0` maps to Old HD, and any other value, or no key, to HD Original. The
+legacy key is still written (`0` for Old HD, `1` otherwise). Missing settings use
+50% and HD Original; invalid style IDs use HD Original. (Until 2026-10-18 the default
+was New HD. The page is new in 1.6, so no released version has saved a style.) `Size` is retained for older builds. Missing group keys inherit it. The four
 group keys are clamped to 25..100 without five-point rounding. `LinkSizes` defaults
 to 1; when loading linked settings, all groups match MenuSize. During the session,
 re-linking matches the most recently changed group. Its anchor is not persisted. Save uses the Windows profile API
@@ -513,6 +545,27 @@ Its real selection/rendering check is pending. The earlier two-style build's
 Default was reported working by the user; that does not establish this new
 selector's runtime behavior.
 
+### HD Original replaces Original Sharpened, as the default, 2026-10-18
+
+At the maintainer's direction the second choice is now **(New) Original HD Font**,
+the default, and New HD is **(Old) HD Font**; Original Font is unchanged. The
+labels are the maintainer's wording. HD Original is the original fonts redrawn from
+vector faces at their measured sizes, spacing and weight
+([HD original font](hd-original-font.md)); Original Sharpened was the original
+atlases enlarged, which stays soft at large sizes. The style numbers in
+`swkotor.ini` were kept (section 4). "(New) Original HD Font" is 22 characters, one
+fewer than "Original Sharpened Font", which the same row held.
+
+The native mock harness now starts each fixture at HD Original, checks both new
+captions, and selects Old HD where it used to select HD Original, so each click it
+makes still changes the style (selecting the current style rebuilds nothing). It
+also checks the migration of `OriginalFont=0`, `OriginalFont=1` and no key.
+`Test-TextOptions.py` checks that all 18 HD Original fonts keep the original's
+glyph count, cell height, baseline and every ASCII cell width at six times, in
+place of its comparison of the sharpened atlases with the upstream script's.
+`Test-NativeAssetsBank.py` checks the three named sets. Rendering in game, and the
+row's fit at 100% text, were not yet checked.
+
 ### Four grouped sliders: separate-game check, 2026-10-17
 
 The user reported that fine adjustments and turning Link Text Sizes off and on
@@ -563,10 +616,12 @@ python testing/regression/Test-NativeAssetsBank.py
 python .github/scripts/check_links.py
 ```
 
-The original-font alpha comparison is conditional on the local upstream fixture
-`build/font-comparison-2026-10-17/original-pc`; check the printed comparison count
-is 16. Without that fixture the test can pass with zero comparisons. The native
-bank test defaults to six sample sets; use `--all` for all-set reconstruction.
+`Test-TextOptions.py` also compares every HD Original TXI with its original's
+(glyph count, cell height, baseline, ASCII cell widths at six times); a font rebuilt
+with different rules fails there. (Until 2026-10-18 it compared the sharpened
+atlases with a local upstream fixture, and passed with zero comparisons when the
+fixture was absent.) The native bank test defaults to six sample sets; use `--all`
+for all-set reconstruction.
 These tests build ignored test artifacts and do not install or launch the game.
 
 For clean-byte verification, check the executable length/hash above, read each
@@ -574,12 +629,14 @@ ABI sample at its FILE offset, and disassemble the loader span
 FILE `0x22AF0..0x22CDB`. Confirm the seven guarded bytes at FILE `0x22CC1`, texture
 ownership in EDI, and replay before return. Read the bank's little-endian counts
 at offset 8 (67 groups, 3,158 objects for the identified artifact) and hash the
-entire bank. Inspect common-group `kmrfhd`/`kmrfpc`/`kmrfog` names and absence of original
+entire bank. Inspect common-group `kmrfog`/`kmrfho`/`kmrfhd` names and absence of original
 font names in every resolution group; the bank regression checks that contract.
 
 The remaining manual check requires an explicitly installed test build: open
 Graphics Options, inspect the new entry and page, use all four sliders, turn Link Text Sizes off and on, and use all three styles,
 restore defaults, reopen, reload resolution, and restart to check persistence.
+Check that a fresh `swkotor.ini` starts on (New) Original HD Font, and that its
+row's caption fits at 100% text.
 Repeat with mouse/keyboard and controller, held confirm through close, modified
 Graphics skins and representative Override fonts. Capture screenshots at named
 resolutions and record the module/bank hashes. Until those observations exist,

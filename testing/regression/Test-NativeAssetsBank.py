@@ -112,16 +112,16 @@ def main() -> int:
         entries = dict(groups.get(size, {}))
         if size == "0x0":
             entries.pop("kmrp-sdl3.dll", None)
+            # The three font styles' sources (K1RuntimeAssets.cpp ApplyTextPreferences):
+            # the original atlases, HD Original and Old HD, under private names.
             original = ROOT / 'build/native-runtime/original-fonts'
-            for path in original.iterdir():
-                if path.suffix in ('.tga', '.txi'):
-                    check(entries.pop(path.name, None) == hashlib.sha256(path.read_bytes()).digest(),
-                          f"original font asset {path.name} has its verified source hash")
             for index, name in enumerate(builder.FONT_RESREFS):
                 for extension in ('.tga', '.txi'):
-                    source = ROOT / 'assets/hd-fonts' / (name + extension)
-                    check(entries.pop(f'kmrfhd{index:02d}{extension}', None) == hashlib.sha256(source.read_bytes()).digest(),
-                          f"shared HD font {name}{extension} stored exactly once")
+                    for prefix, source in (('kmrfog', original / f'kmrfog{index:02d}{extension}'),
+                                           ('kmrfho', builder.hd_original(name, extension)),
+                                           ('kmrfhd', ROOT / 'assets/hd-fonts' / (name + extension))):
+                        check(entries.pop(f'{prefix}{index:02d}{extension}', None) == hashlib.sha256(source.read_bytes()).digest(),
+                              f"{prefix} font {name}{extension} has its source's hash")
         if entries != expected:
             wrong.append(size)
     check(not wrong and set(archives) == set(groups),

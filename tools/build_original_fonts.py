@@ -1,14 +1,16 @@
 #!/usr/bin/env python3
-"""Build untouched and sharpened original-PC font atlases from the user's GUI texture pack.
+"""Copy the original PC font atlases out of the user's GUI texture pack (kmrfogNN).
 
-The 4x Lanczos / steepness-7 coverage curve follows jryantomes/kmdlswap's
-tools/kmrp_pcfont/build.py at 31bd877. Size is finalized by KMRP at LoadTXI,
-so these assets contain no resolution assumptions. Output is ignored build data.
+They are the Original Font style, and what tools/build_hd_original_fonts.py measures.
+Size is finalized by KMRP at LoadTXI, so they contain no resolution assumptions.
+Output is ignored build data. Until 2026-10-18 this also wrote kmrfpcNN, the
+"Original Sharpened" style (each atlas enlarged 4x with Lanczos and a steepness-7
+coverage curve, after jryantomes/kmdlswap's tools/kmrp_pcfont/build.py at 31bd877);
+HD Original replaced it.
 """
 from pathlib import Path
 import argparse
 import hashlib
-import math
 import re
 
 from PIL import Image
@@ -20,15 +22,6 @@ from build_scaled_fonts import FONT_RESREFS, raw_txi, write_tga
 # another packing. Restrict its repair to the measured, identical resources.
 GRID_REPAIR_SHA256 = '9e0c0819c16b2a1bb6170e5973ffc4e58740eaaf741d2a3a5fbb8e70e728375b'
 GRID_NAMES = {'fnt_d10x10b', 'fnt_d16x16'}
-
-
-def sharpen(image):
-    alpha = image.getchannel('A').resize((image.width * 4, image.height * 4), Image.Resampling.LANCZOS)
-    lo, hi = 1 / (1 + math.exp(14)), 1 / (1 + math.exp(-14))
-    curve = [round(max(0., min(1., (1 / (1 + math.exp(-28 * (a / 255 - .5))) - lo) / (hi - lo))) * 255) for a in range(256)]
-    result = Image.new('RGBA', alpha.size, (255, 255, 255, 0))
-    result.putalpha(alpha.point(curve))
-    return result
 
 
 def repair_grid(image, txi):
@@ -54,28 +47,74 @@ def repair_grid(image, txi):
     return head + 'upperleftcoords 256\n' + '\n'.join(upper) + '\nlowerrightcoords 256\n' + '\n'.join(lower) + '\n'
 
 
+def decoded(raw):
+    """A stock font's atlas as a top-down RGBA image."""
+    texture = read_tpc(raw)
+    texture.convert(TPCTextureFormat.RGBA)
+    mip = texture.get(0)
+    return Image.frombytes('RGBA', (mip.width, mip.height), bytes(mip.data)).transpose(Image.Transpose.FLIP_TOP_BOTTOM)
+
+
+def stock_txi(name, raw, image=None):
+    """A stock font's TXI, repaired for the two grid atlases (repair_grid) after
+    checking they are the measured resource. tools/build_font_from_ttf.py reads its
+    reference metrics here too, since 2026-10-18: until then it read the texture pack's
+    TXI, so Old HD's fnt_d10x10b and fnt_d16x16 were baked as 10 pixel fonts."""
+    txi = raw_txi(raw)
+    if name in GRID_NAMES:
+        if hashlib.sha256(raw).hexdigest() != GRID_REPAIR_SHA256:
+            raise ValueError(f'{name}: unrecognized grid atlas; refusing an unverified repair')
+        txi = repair_grid(image if image is not None else decoded(raw), txi)
+    return txi
+
+
 def build(texture_pack, output):
     output.mkdir(parents=True, exist_ok=True)
+    for stale in output.glob('kmrfpc*'):     # the retired Original Sharpened set
+        stale.unlink()
     resources = {str(r.resref).lower(): bytes(r.data) for r in read_erf(texture_pack)
                  if str(r.resref).lower() in FONT_RESREFS}
     if set(resources) != set(FONT_RESREFS):
         raise ValueError('GUI texture pack must contain all 18 original fonts')
     for index, name in enumerate(FONT_RESREFS):
         raw = resources[name]
-        texture = read_tpc(raw)
-        texture.convert(TPCTextureFormat.RGBA)
-        mip = texture.get(0)
-        image = Image.frombytes('RGBA', (mip.width, mip.height), bytes(mip.data)).transpose(Image.Transpose.FLIP_TOP_BOTTOM)
-        txi = raw_txi(raw)
-        if name in GRID_NAMES:
-            if hashlib.sha256(raw).hexdigest() != GRID_REPAIR_SHA256:
-                raise ValueError(f'{name}: unrecognized grid atlas; refusing an unverified repair')
-            txi = repair_grid(image, txi)
-        for prefix, atlas in [('kmrfog', image), ('kmrfpc', sharpen(image))]:
-            stem = f'{prefix}{index:02d}'
-            write_tga(output / f'{stem}.tga', *atlas.size, atlas.tobytes())
-            (output / f'{stem}.txi').write_text(txi, encoding='ascii')
+        image = decoded(raw)
+        txi = stock_txi(name, raw, image)
+        stem = f'kmrfog{index:02d}'
+        write_tga(output / f'{stem}.tga', *image.size, image.tobytes())
+        (output / f'{stem}.txi').write_text(txi, encoding='ascii')
     return len(resources)
+
+
+def enlarged(originals, resref, output, scale):
+    """HD Original's atlas for a font with no vector face (fnt_galahad14): the original's
+    own letters from `originals` (the kmrfogNN above), enlarged with Lanczos and their
+    edges made steeper. Its TXI's sizes are the original's times the scale, its
+    coordinates the same fractions. It is made from the game's files at every build and
+    never committed, because it is the game's own art (the maintainer, 2026-10-19).
+    Until that day it lived in tools/build_hd_original_fonts.py and its output was in
+    assets/hd-original-fonts."""
+    import math
+    index = FONT_RESREFS.index(resref)
+    image = Image.open(originals / f"kmrfog{index:02d}.tga").convert("RGBA")
+    size = (round(image.width * scale), round(image.height * scale))
+    big = image.resize(size, Image.LANCZOS)
+    lo, hi = 1 / (1 + math.exp(14)), 1 / (1 + math.exp(-14))
+    curve = [round(max(0.0, min(1.0, (1 / (1 + math.exp(-28 * (a / 255 - 0.5))) - lo) / (hi - lo))) * 255)
+             for a in range(256)]
+    big.putalpha(big.getchannel("A").point(curve))
+    output.mkdir(parents=True, exist_ok=True)
+    write_tga(output / f"{resref}.tga", size[0], size[1], big.tobytes())
+    lines = []
+    for line in (originals / f"kmrfog{index:02d}.txi").read_text().replace("\r\n", "\n").split("\n"):
+        parts = line.split()
+        if len(parts) == 2 and parts[0] in ("fontheight", "baselineheight", "spacingR", "spacingB"):
+            line = f"{parts[0]} {float(parts[1]) * scale:.6f}"
+        elif len(parts) == 2 and parts[0] == "texturewidth":
+            line = f"texturewidth {size[0] / 100.0:.6f}"
+        lines.append(line)
+    (output / f"{resref}.txi").write_bytes("\n".join(lines).encode("ascii"))
+    return size[0]
 
 
 if __name__ == '__main__':
@@ -83,4 +122,4 @@ if __name__ == '__main__':
     parser.add_argument('--texture-pack', type=Path, required=True)
     parser.add_argument('--output', type=Path, required=True)
     args = parser.parse_args()
-    print(f'Built {build(args.texture_pack, args.output)} sharpened original-PC fonts')
+    print(f'Copied {build(args.texture_pack, args.output)} original-PC fonts')

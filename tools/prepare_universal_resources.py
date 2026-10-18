@@ -60,8 +60,10 @@ FONT_SCALE_OFFSET = 0.0
 # The engine draws one texel per pixel, so an atlas stretched past the size it
 # was rasterised at is simply blurry -- baking at the top of the range and
 # shrinking keeps every resolution crisp. Must match the --scale that
-# tools/build_font_from_ttf.py was run with to produce assets/hd-fonts.
-HD_FONT_BAKE_SCALE = 3.0
+# tools/build_font_from_ttf.py was run with to produce assets/hd-fonts: 6.0 since
+# 2026-10-18 (3.0 before), the size 100% text is drawn at on a 2160-line screen.
+# Only a resolution with no set of its own (--font-scale-sets) falls back to them.
+HD_FONT_BAKE_SCALE = 6.0
 
 # `spacingR` is no wrap margin for a font set baked at its own scale, and such a
 # set gets none (2026-10-05).
@@ -1737,7 +1739,7 @@ def main() -> int:
                 # factor below is exactly 1.0, `texturewidth` stays the atlas's
                 # real width, and one texel lands on one pixel -- no resampling,
                 # which is what made the text ragged at 1080p and 1440p. Without
-                # a set, fall back to the shared 3.0 bake and its rescale.
+                # a set, fall back to the shared bake and its rescale.
                 scale_set = scale_set_for(height)
                 source_atlases = (sorted(scale_set.glob("*.tga")) if scale_set
                                   else hd_font_atlases)

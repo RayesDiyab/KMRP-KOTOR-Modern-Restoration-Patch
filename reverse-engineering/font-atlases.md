@@ -240,6 +240,17 @@ paragraph described the shared bake as what ships everywhere.
 | `fnt_d16x16b` — descriptions + dialogue subtitles | **Arimo Medium** (Apache; Google's metric-compatible Arial substitute) | **2.526316** |
 | the other 17 — menus, item names, buttons | **Old Republic** | 3.0 |
 
+*Updated 2026-10-18:* the shared bake is now 6.0 (5.052632 for Arimo), and
+`fnt_d16x16` and `fnt_d10x10b` moved to Arimo. Their stock atlas is `fnt_d16x16b`'s
+own art (the same 512x512 alpha, read 2026-10-18) under a TXI that describes another
+packing; `tools/build_original_fonts.py` repairs that TXI (`repair_grid`, 19 pixel
+cells, baseline 15) for the Original Font style, but `build_font_from_ttf.py` read
+the texture pack's TXI and baked the two as 10 pixel Old Republic fonts. It now reads
+the repaired one (`stock_txi`), and the two are baked as `fnt_d16x16b`'s twins: every
+drawn character the same as `fnt_d16x16b`'s, only ten blank slots' widths differ (the
+repair's own advances). So: Old Republic for 15 resrefs at 6.0; Arimo Medium for
+`fnt_d16x16b`, `fnt_d16x16` and `fnt_d10x10b` at 5.052632.
+
 > ⚠️ **`fnt_d16x16b`'s bake scale is deliberately not 3.0.** Vanilla sizes it
 > at 19px against the menu fonts' 16px, so it rendered 19% larger than
 > everything around it. `3.0 × 16/19 = 2.526316` cancels that: both bake to

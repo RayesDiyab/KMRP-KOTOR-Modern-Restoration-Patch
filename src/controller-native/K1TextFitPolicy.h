@@ -19,8 +19,20 @@ inline bool Fits(const Measurement& measured, Bounds bounds) {
 // Measure must recompute the native wrap at the supplied absolute local scale.
 // It must not change global font metrics. Invalid measurements abort fitting,
 // so an unsupported native object retains its requested presentation.
-// As font dimensions decrease, native wrapping must have a monotone fit result.
-// The return value is always the request or a verified positive smaller float.
+// The return value is always the request or a verified positive smaller float:
+// the largest scale below the request that fits, to within one step of the walk
+// below, or exactly when nothing between fits.
+//
+// Native wrapping does not fit monotonically. The line breaker sums each glyph's
+// advance truncated to a whole pixel (0x0045A2F0), while the drawn width, which
+// Fits checks, is fractional; a line the breaker fills to the box's edge may then
+// overrun it by a few pixels at one scale and fit at a slightly smaller one. Until
+// 2026-10-19 the search halved the scale until something fitted and bisected below
+// that: at 1440x1080 a Bastila subtitle that needed four lines was drawn on one
+// line at a third of the text size, though three lines fitted at 89% of it (the
+// maintainer's capture; reproduced with the 2.25 fnt_d16x16 metrics). It now walks
+// down from the request in steps of 1/128 and refines below the first scale that
+// fits; halving only takes over far below the request.
 template<class Measure>
 float Fit(float requestedScale, Bounds bounds, Measure measure) {
     if (!std::isfinite(requestedScale) || requestedScale <= 0.0f
@@ -32,9 +44,18 @@ float Fit(float requestedScale, Bounds bounds, Measure measure) {
     float upper = requestedScale;
     float lower = 0.0f;
     // A ratio based on the first line count cannot solve a wrapped string:
-    // reducing scale may remove a whole line. Find a real fitting bracket.
+    // reducing scale may remove a whole line. Find a real fitting bracket, the
+    // first fitting step down from the request (256 steps reach 13% of it).
+    for (int step = 0; step < 256; ++step) {
+        const float candidate = static_cast<float>(static_cast<double>(upper) * 127.0 / 128.0);
+        if (!(candidate > 0.0f) || candidate >= upper) break;
+        current = measure(candidate);
+        if (!Valid(current)) return requestedScale;
+        if (Fits(current, bounds)) { lower = candidate; break; }
+        upper = candidate;
+    }
     const float minimum = (std::numeric_limits<float>::denorm_min)();
-    for (int step = 0; step < 320; ++step) {
+    for (int step = 0; lower <= 0.0f && step < 320; ++step) {
         float candidate = upper * 0.5f;
         if (candidate < minimum) candidate = minimum;
         if (candidate >= upper) return requestedScale;

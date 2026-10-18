@@ -271,10 +271,43 @@ frame:
 - **Sizes the box to its text.** The Xbox file's 90 units are the box for three
   lines; with one line its top edge is at 364.6, not 326 (measured in the reference
   video). The engine keeps the description's bottom fixed and grows it upward, so
-  the box's top is put 6 units above the description's.
+  the box's top is put 6 units above the description's. **Since 2026-10-18** the box
+  is as tall as the tallest description of every action seen this session, at the
+  text size in use, whichever is shown, and never gets smaller during a session (the
+  maintainer: so it "doesn't get smaller or bigger scrolling through them", then
+  "make it never shrink during a session"); the description stands in the middle of
+  that height (`TallestDescription` in `K1XboxHud.cpp`). Every entry of the target's
+  three lists and of the four personal lists the row shows, the default action and
+  "No Action" are remembered, and measured the way `SetActionDescription` measures
+  the one it shows: as the description label's text, `CSWGuiText::GetIdealHeight`
+  (`0x00414EB0`) at the label's width. A name is measured once; when the label's width
+  or its font's metrics change (a text size, a font style, a HUD size), every name
+  seen is measured again. The label's own text is put back after. The longest names
+  are items' ("Advanced Adrenaline Amplifier", "Advanced Bio-Stabilizer Implant", read
+  from the game's templates), with the engine's " (self)" for the character's own use
+  (`"%s (%s)"` with dialog.tlk 38005, at `0x00619446`), and mods add their own, so
+  they are learned from the lists rather than kept in a table. From the first draw
+  the lists hold everything the leader can use; the box grows only when an action
+  with a longer name appears. Before that the box followed each description, and
+  `K1TextLayout.cpp` measured the description at the original text size (50%) so the
+  box would not grow, which squeezed larger text into it. **Not yet seen in the
+  game.**
 - **Dresses the name bar and the party's bars.** The name's frame is
   `lbl_miindic01f`, or `lbl_miindic01e` for a hostile target (the engine's sign is
-  the frame it gives the target's slots). The engine fills the vitality bars with a
+  the frame it gives the target's slots). **A name taller than its row** (two lines, or
+  one at a large text size; since 2026-10-19, after "Training Computer" ran over the
+  health bar at 1440x1080) makes the frame taller by the difference, and the health bar
+  and the speech box move down by it. The frame is then three slices of the same
+  drawing (`kmrx_miindic1ft`, `fm`, `fb`; `e` for an enemy): `KmrpXboxHudBarsK1`, at
+  the start of the target menu's draw, draws the top down to row 32 of 64, the middle
+  stretched over the extra height and the bottom under it, so that the name and the
+  health bar are drawn over them; the frame label has no art meanwhile. Only the plain
+  middle stretches (rows 21 to 38 are identical), so the lines keep their thickness and
+  the line above the health bar stays above it. Each slice's texture is told to clamp
+  right after it is drawn (`ClampBoundTexture`): with the engine's wrap, the first build
+  had a dark line across the frame's sides at both joins, where a slice's edge row was
+  mixed with its clear opposite edge (the maintainer's capture, 2026-10-19). The joins
+  after that correction are **not yet seen in the game**. The engine fills the vitality bars with a
   flat `redfill` (`greenfill` when poisoned) at every update; the hook puts
   `lbl_health` (`lbl_healthp`) back.
 - **Draws the combat strip** before the panel while the engine shows the
@@ -569,6 +602,7 @@ game.
 | `lbl_health2`, `lbl_force2` | `kmrx_health2`, `kmrx_force2` | the two bars empty |
 | `lbl_mitextbox`, `lbl_mitextbox2` | `kmrx_mitextbox`, `kmrx_mitextbox2` | the description box's top and bottom |
 | `lbl_miindic01f`, `lbl_miindic01e` | `kmrx_miindic01f`, `kmrx_miindic01e` | the target's name bar, friend and enemy |
+| (none) | `kmrx_miindic1ft`, `1fm`, `1fb`; `kmrx_miindic1et`, `1em`, `1eb` | the name bar in three slices, top, middle and bottom, for a name taller than its row (2026-10-19) |
 | `lbl_micombat` | `kmrx_micombat` | the combat queue's frame |
 | `lbl_micurve` | `kmrx_micurve` | the curve beside the portraits |
 

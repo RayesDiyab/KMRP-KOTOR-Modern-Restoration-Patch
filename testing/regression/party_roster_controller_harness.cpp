@@ -105,7 +105,6 @@ bool IsControllerGeneratedKeyK1(unsigned) {return false;}
 unsigned long LastInjectedDeadlineK1(unsigned) {return 0;}
 void MarkKeyboardMouseInputK1() {}
 bool ConsumeMovieSkipK1() {return false;}
-bool ControllerHeldRecentlyK1() {return false;}
 bool ControllerTypesByItselfK1() {return false;}
 void ControllerLogK1(const char*) {}
 extern "C" void __cdecl KmrpLogPanelsK1(const char*) {}

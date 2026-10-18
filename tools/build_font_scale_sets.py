@@ -50,18 +50,22 @@ sys.path.insert(0, str(ROOT))
 import prepare_universal_resources as pur
 
 
-# The 17 resrefs rendered from Old Republic, and the one rendered from Arimo.
+# The 15 resrefs rendered from Old Republic, and the three rendered from Arimo.
 # Split because the two faces need different point sizes to land on the same
-# glyph height -- see docs/font-scaling.md for the invocations these mirror.
+# glyph height; see docs/font-scaling.md for the invocations these mirror.
+# fnt_d10x10b and fnt_d16x16 are fnt_d16x16b's own art (the same alpha, the same 19
+# pixel height) under a TXI that describes another packing; read repaired
+# (build_original_fonts.stock_txi) they are its twins, and since 2026-10-18 are baked
+# as it is. Until then they were Old Republic at 10 pixels, from the broken TXI.
 OLD_REPUBLIC_RESREFS = (
     "dialogfont10x10", "dialogfont10x10a", "dialogfont10x10b",
     "dialogfont12x16", "dialogfont16x16", "dialogfont16x16a",
     "dialogfont16x16b", "dialogfont32x32",
     "fnt_console", "fnt_credits", "fnt_creditsa", "fnt_creditsb",
-    "fnt_d10x10b", "fnt_d16x16", "fnt_d16x16a", "fnt_dialog16x16",
+    "fnt_d16x16a", "fnt_dialog16x16",
     "fnt_galahad14",
 )
-ARIMO_RESREFS = ("fnt_d16x16b",)
+ARIMO_RESREFS = ("fnt_d16x16b", "fnt_d10x10b", "fnt_d16x16")
 
 # Arimo's glyphs sit differently in the em, so it was baked at 2.526316 where
 # Old Republic was baked at 3.0. Keeping that ratio keeps the two faces the same

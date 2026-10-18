@@ -4,7 +4,11 @@
 one shared atlas set per font style: HD, sharpened original PC, and original PC
 artwork at its original dimensions. The engine
 scales their metrics; it does not rasterize fonts or load per-resolution atlas
-sets. Graphics Options exposes a native Text Size and Font page, with the old
+sets. **Updated 2026-10-18:** the sharpened set is replaced by **HD Original**,
+the original fonts redrawn ([HD original font](hd-original-font.md)), now the
+default; the HD style is now called Old HD. Both HD sets are baked at 6x and fitted
+to the drawn size at runtime ([The shared atlas is minified
+again](#the-shared-atlas-is-minified-again)). Graphics Options exposes a native Text Size and Font page, with the old
 actual size labeled 50%. Four sliders group shared font families, in 1%
 increments, with Link Text Sizes on by default. Offline resource archives retain their historical
 per-resolution fonts for audit/build comparison. See
@@ -215,12 +219,14 @@ Baking the atlases is a manual step, not run by the build. Two kinds:
   python tools\build_font_scale_sets.py build-inputs\swpc_tex_gui.erf build\fonts
   ```
 
-- **The shared 3.0 bake** in `assets/hd-fonts`, committed, which ships only
-  where no set exists -- 15360x8640:
+- **The shared bake** in `assets/hd-fonts`, committed, which ships only
+  where no set exists (15360x8640). Baked at 6.0 since 2026-10-18 (3.0 and
+  2.526316 before; `HD_FONT_BAKE_SCALE` in `prepare_universal_resources.py` and
+  `kHdBakeScale` in `K1RuntimeAssets.cpp` say the same):
 
   ```powershell
-  python tools\build_font_from_ttf.py assets\fonts\OldRepublic.ttf   build-inputs\swpc_tex_gui.erf assets\hd-fonts --fonts <the 17 menu resrefs> --scale 3.0
-  python tools\build_font_from_ttf.py assets\fonts\Arimo-Medium.ttf build-inputs\swpc_tex_gui.erf assets\hd-fonts --fonts fnt_d16x16b --scale 2.526316
+  python tools\build_font_from_ttf.py assets\fonts\OldRepublic.ttf   build-inputs\swpc_tex_gui.erf assets\hd-fonts --fonts <the 15 Old Republic resrefs> --scale 6.0
+  python tools\build_font_from_ttf.py assets\fonts\Arimo-Medium.ttf build-inputs\swpc_tex_gui.erf assets\hd-fonts --fonts fnt_d16x16b fnt_d16x16 fnt_d10x10b --scale 5.052632
   ```
 
 (The texture pack now lives in `build-inputs/`; these commands used to point
@@ -235,11 +241,23 @@ folder directly) and the runtime uses that one bake at every screen size. The
 sets in `build/fonts` still feed the offline per-resolution archives, whose font
 files the bank skips ([in-game text options](ingame-text-options.md), section 3).
 So the second command is now the one that decides what players see in the HD
-style.
+style (Old HD since 2026-10-18; the default style, HD Original, is baked by
+`tools/build_hd_original_fonts.py`, [HD original font](hd-original-font.md)).
 
-Note the two DIFFERENT scales. `fnt_d16x16b`'s `2.526316` is `3.0 x 16/19`,
+The Old Republic resrefs are the ones `OLD_REPUBLIC_RESREFS` in
+`tools/build_font_scale_sets.py` lists. *Corrected 2026-10-18:* until then the list was
+17 and the first command baked `fnt_d16x16` and `fnt_d10x10b` too, from the texture
+pack's TXI, which describes another packing: they came out as 10 pixel Old Republic
+fonts. Read repaired (`stock_txi` in `tools/build_original_fonts.py`, the repair the
+Original Font style already used) they are `fnt_d16x16b`'s own art, so they are now
+baked with it ([font atlases](../reverse-engineering/font-atlases.md)). Their sizes on
+screen changed with it: the runtime's reference height for them is now
+`fnt_d16x16b`'s (0.32 at 1440 lines and 50% text, from 0.20), in every style.
+
+Note the two DIFFERENT scales. `fnt_d16x16b`'s `5.052632` is `6.0 x 16/19`
+(`2.526316 = 3.0 x 16/19` at the old 3x),
 cancelling vanilla's 19px-vs-16px size difference so descriptions and menus
-match. **Baking it at plain 3.0 silently restores that mismatch.**
+match. **Baking it at plain 6.0 silently restores that mismatch.**
 
 Rendered letter spacing is fixed at bake time, in the glyph cell widths. The
 `spacingR` metric is drawn after every glyph but hardly counted when lines are
@@ -477,7 +495,8 @@ with fontTools from each face's `cmap`: Bank Gothic Medium lacks the soft hyphen
 ### The shared atlas is minified again
 
 Since 2026-10-17 the native runtime ships **one** atlas per font and style, the
-HD one baked at 3x, and changes only TXI sizes per screen height and text size:
+HD one baked at 3x (6x since 2026-10-18, see the end of this section), and changes
+only TXI sizes per screen height and text size:
 `ApplyTextPreferences` and `FontTargetHeight` in
 [K1RuntimeAssets.cpp](../src/controller-native/K1RuntimeAssets.cpp) rewrite
 `fontheight`, `baselineheight`, `texturewidth`, `spacingR` and `spacingB`; glyph
@@ -510,8 +529,21 @@ Options, none built:
   no longer one value per resolution, so this would need a set per drawn size
   or a nearest-set choice (not designed).
 
+**Built 2026-10-18, at the maintainer's choice ("4K at 100% text"):** both HD
+sets are baked at 6x, the size 100% text is drawn at on a 2160-line screen, and
+the runtime fits each atlas to the size it is drawn at (`FitAtlas` in
+[K1RuntimeAssets.cpp](../src/controller-native/K1RuntimeAssets.cpp): each new texel
+the area average of the 6x texels it covers), setting `texturewidth` to the fitted
+width. The atlas is then drawn one texel to one pixel at every screen and text
+size, so the point sampling above has nothing left to drop. The sizes text is
+drawn at did not change: the reference height is Old HD's `fontheight` times 3/6
+([in-game text options](ingame-text-options.md), section 3), and
+`Test-TextOptions.py` still finds all 1,188 previous default heights. Not yet
+checked in game at the time of writing.
+
 **Open, not investigated (reported 2026-10-18):** the Original Sharpened style
-draws `fnt_console` text smeared. Not measured; the cause is unknown.
+draws `fnt_console` text smeared. Not measured; the cause is unknown. The style
+was replaced by HD Original the same day, so this is closed without a cause.
 
 ## Validation status
 

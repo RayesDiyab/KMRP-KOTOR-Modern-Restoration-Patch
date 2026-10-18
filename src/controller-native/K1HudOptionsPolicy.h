@@ -105,11 +105,12 @@ struct Sizes {
 struct Rect { int left, top, width, height; };
 inline int Round(double value) { return static_cast<int>(std::lround(value)); }
 
-// How much larger than today a size draws: half at 25%, today's at 50%, two and a half
-// times at 100%, in a straight line on each side of 50% (0.03 a percent above it). Until
-// the maintainer had seen it in the game, 100% was twice today's; the same day: "the
-// 50% in the slider would be the current 50%, but the 100% should be like the 250%".
-constexpr double MostFactor = 2.5;
+// How much larger than today a size draws: half at 25%, today's at 50%, twice at 100%,
+// in a straight line on each side of 50% (0.02 a percent above it). First twice; then,
+// once the maintainer had seen it in the game (2026-10-18), two and a half times ("the
+// 100% should be like the 250%"); twice again from 2026-10-19 ("make the max it can be
+// 2x what normal is instead of the 2.5x").
+constexpr double MostFactor = 2.0;
 inline double Factor(int size) {
     return size <= Default ? double(size) / Default
                            : 1.0 + (size - Default) * (MostFactor - 1.0) / (Maximum - Default);
@@ -136,7 +137,7 @@ inline Rect ScaleAbout(const Rect& r, const Rect& group, Corner corner, int size
 
 // The size a part is drawn at on a width x height screen: the size asked for, or the
 // largest at which the part, grown about its corner, still ends at the screen's edges
-// (a 100% part is two and a half times today's, more than a small screen may hold).
+// (a 100% part is twice today's, more than a small screen may hold).
 // Never below today's size: at 50% the HUD is as it was, whatever the screen.
 inline int FittingSize(const Rect& group, Corner corner, int size, int width, int height) {
     if (group.width <= 0 || group.height <= 0 || size <= Default) return size;

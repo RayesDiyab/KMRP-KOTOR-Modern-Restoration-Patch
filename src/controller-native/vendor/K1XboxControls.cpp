@@ -7,8 +7,7 @@
 #include "K1XboxControlsXInput.h"
 #include "../K1PartyRosterState.h"
 
-bool ControllerHeldRecentlyK1();    // K1ControllerBackend.cpp
-bool ControllerTypesByItselfK1();
+bool ControllerTypesByItselfK1();   // K1ControllerBackend.cpp
 void ControllerLogK1(const char* text);     // K1NativeJoystick.cpp, the debug log
 extern "C" void __cdecl KmrpLogPanelsK1(const char* what);
 
@@ -5006,6 +5005,16 @@ extern "C" void __cdecl KmrpPaintLayoutEntryPromptK1(void* button, int shown)
     SetK1ControllerPromptFill(button, shown ? "kmrpa_optgamelay" : nullptr);
 }
 
+// The same for KMRP's own buttons on Graphics Options, "Text Size and Font" and "HUD
+// Size" above Advanced Options (K1TextOptions.cpp, K1HudOptions.cpp, in KMRP's module,
+// asked by name through K1OptionsPad.h): each is Advanced Options' size, so it wears
+// Advanced's A, while focused (FocusOnly, as Advanced). Until 2026-10-19 they had none
+// (the maintainer: "there is no glyph showing up like it is ... on advanced settings").
+extern "C" void __cdecl KmrpPaintGraphicsEntryPromptK1(void* button, int shown)
+{
+    SetK1ControllerPromptFill(button, shown ? "kmrpa_optgfxadvn" : nullptr);
+}
+
 // The cursor's half of the same question. Never reachable in native mode until
 // now: UpdateK1CursorState is called from DispatchMenuInputK1 and nothing else,
 // and that is a legacy hook the installer does not emit -- so the parking, the
@@ -5885,13 +5894,20 @@ bool MouseIsBeingUsedK1(int mouseX, int mouseY)
         return false;
     }
 
-    // The pad is in the player's hands: a pointer that moves meanwhile is not a hand
-    // on the mouse. A translator that presents a pad as a Steam Controller also moves
-    // the pointer (its trackpad and gyro), and the game then went back and forth
-    // between the two devices while the player walked. Measured 2026-10-11 with
-    // PadForge: 2,556 times taken for the mouse in 202 seconds, against 0 and 1 in two
-    // sessions with an Xbox pad alone (kmrp-native-joystick.log, dev=).
-    if (ControllerHeldRecentlyK1()) {
+    // A Steam Controller or Steam Deck in the player's hands: a pointer that moves
+    // meanwhile is not a hand on the mouse. Such a pad, and a translator that presents
+    // a pad as one, moves the pointer by itself (its trackpad and gyro), and the game
+    // then went back and forth between the two devices while the player walked.
+    // Measured 2026-10-11 with PadForge: 2,556 times taken for the mouse in 202
+    // seconds, against 0 and 1 in two sessions with an Xbox pad alone
+    // (kmrp-native-joystick.log, dev=).
+    //
+    // Until 2026-10-19 this held for every pad, and for a second and a half after it
+    // was last held (ControllerHeldRecentlyK1): every change from the pad to the mouse
+    // waited up to 1.5 s (the maintainer: "it should swap instantly"). An Xbox pad
+    // does not move the pointer, so with one the mouse is taken at once; only a pad
+    // that moves the pointer by itself, while it is held (300 ms), is passed over.
+    if (ControllerTypesByItselfK1()) {
         g_lastMouseX = mouseX;
         g_lastMouseY = mouseY;
         g_mouseWindowEvents = 0;

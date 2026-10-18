@@ -55,5 +55,13 @@ int main() {
         assert(fit>0 && fit<=1 && single(fit).height<=height);
         assert(height/47.04-fit<0.000001);
     }
-    std::cout<<"PASS: bounded native text fitting, wrap changes, invalid input, float boundaries and restoring preference.\n";
+    // The breaker truncates glyph advances and the draw does not, so a full line may
+    // overrun at one scale and fit at a smaller one. Halving found 0.2 here (2026-10-19).
+    auto islands=[](float s) {
+        const bool fit=s<=0.2f || (s>=0.70f && s<=0.72f);
+        return Measurement{fit?50.0:150.0,10,1,true};
+    };
+    const float island=Fit(1.0f,{100,10},islands);
+    assert(island<=0.72f && 0.72f-island<0.000001);
+    std::cout<<"PASS: bounded native text fitting, wrap changes, invalid input, float boundaries, the largest fitting scale and restoring preference.\n";
 }

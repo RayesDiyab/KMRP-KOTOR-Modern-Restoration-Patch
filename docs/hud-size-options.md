@@ -20,12 +20,30 @@ slider's value from memory during scripted drags) and the preview's Disengage
 
 Graphics Options has a **HUD Size** button above Text Size and Font. Its page:
 
-- **Two HUDs, kept apart.** "Mouse & Keyboard HUD" or "Controller HUD" at the top right
-  chooses which HUD's sliders show (the maintainer, 2026-10-18: "have a clear
-  separation of controller ui and mouse and keyboard UI").
+- **Two HUDs, kept apart, as two tabs.** "Mouse & Keyboard" and "Controller" side by
+  side under the title choose which HUD's sliders and preview show (the maintainer,
+  2026-10-18: "have a clear separation of controller ui and mouse and keyboard UI"). The
+  tab shown has its frame and caption at full strength, the other's at 40%; together the
+  two are as wide and as tall as the title's band in the screen's art (x 609 to 2828, 59
+  px tall at 3440x1440, measured from the maintainer's capture and kept as shares of the
+  screen). The left column is level with the right-hand box: Link HUD Sizes with its
+  circle at the frame's top line and its caption beside the circle, the rows spaced
+  evenly down to the box's bottom, each caption as wide as the widest at 100% and its
+  slider filling the rest of the row. "Preview" stands over the miniature screen. The
+  three bottom buttons share one width, spread along the tray's bottom line in the art,
+  in the middle of the tray (12 px above and below at 3440x1440). Between Default
+  and Close a third button names the other tab and shows it; with a pad X does the same,
+  Y is Default and B is Close, each button wearing its glyph while the pad is in use,
+  and none of the five is the pad's focus (the maintainer, 2026-10-19). **Until
+  2026-10-19** two round choices at the top of the right-hand box chose the HUD, with
+  Link HUD Sizes under them, and each caption stood above a full-width slider.
 - **A slider for each part**, 25% to 100%, 1% steps. 50% is the HUD as it was; 25% is
-  half of it; 100% is two and a half times it (the scale is a straight line on each side
-  of 50%). The mouse and keyboard HUD's parts: menu buttons, minimap, action bar,
+  half of it; 100% is twice it (the scale is a straight line on each side of 50%). From
+  2026-10-18 to 2026-10-19 100% was two and a half times; the maintainer then had the
+  largest size be twice the normal one (`MostFactor` in `K1HudOptionsPolicy.h`). With a
+  pad, left and right move a slider, as on the Text Size page; until 2026-10-19 they
+  also led to the HUD choice, so a press moved the slider one step and then the focus
+  left it. The mouse and keyboard HUD's parts: menu buttons, minimap, action bar,
   portraits, attack buttons (the target's action buttons, shown in combat), Disengage
   button (the combat queue with the button in it). The controller HUD's: action menu,
   party switch, minimap, top left bar (the target's name and health), Disengage (its
@@ -36,8 +54,11 @@ Graphics Options has a **HUD Size** button above Text Size and Font. Its page:
   for the Disengage parts and the middle of the top edge for the attack buttons, so it
   never slides off. A part that would not fit stops growing at the screen's edge
   (`FittingSize`); at 50% or below nothing changes on any screen.
-- **Link HUD Sizes**, on by default, moves one HUD's sliders together.
-- **A preview** on the right: the chosen HUD in miniature, the part whose slider has the
+- **Link HUD Sizes**, on by default, moves one HUD's sliders together. It is the first
+  thing in the left column, above the sliders, and the page opens on it. Each part's
+  row is its caption and, beside it, a slider shorter than the graphics screen's, so
+  the link and six rows fit with every caption at full height.
+- **A preview** on the right, and nothing else there: the chosen HUD in miniature, the part whose slider has the
   focus at full strength and the others at half, on a slate backdrop (`#3A424E`, a grey
   with a little of the GUI's blue), centred in the box's frame. The mouse and keyboard
   HUD's Disengage is drawn as the game draws it in combat

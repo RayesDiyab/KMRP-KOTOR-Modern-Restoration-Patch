@@ -163,7 +163,7 @@ void Apply(void* hud, int width, int height, const std::array<int, ElementCount>
     // the screen less the HUD's thinner band at the top and at the bottom, a little in
     // from the sides. The HUD's parts are in its corners, so a band as deep as the
     // largest of them would hide the circle across the whole width: with the minimap
-    // at two and a half times (690 px at 3440x1440) a target in the upper half of the
+    // at two and a half times (690 px at 3440x1440, 100% until 2026-10-19) a target in the upper half of the
     // screen had an arrow over the character's head instead (seen 2026-10-18). The
     // file's own rectangle was made for one size of each part (at 3440x1440 it is 3,
     // 129, 2554, 501, and a target in the lower half of the screen got the arrow,

@@ -14,7 +14,7 @@ if errorlevel 1 exit /b %errorlevel%
 python tools\build_native_engine.py
 if errorlevel 1 exit /b %errorlevel%
 rem Upgrade an existing bank from before shared font sources / native live scaling.
-if exist build\native-runtime\font-style-assets.version findstr /x "3" build\native-runtime\font-style-assets.version >nul || del build\native-runtime\native-assets.bin build\native-runtime\font-style-assets.version
+if exist build\native-runtime\font-style-assets.version findstr /x "4" build\native-runtime\font-style-assets.version >nul || del build\native-runtime\native-assets.bin build\native-runtime\font-style-assets.version
 if not exist build\native-runtime\font-style-assets.version if exist build\native-runtime\native-assets.bin del build\native-runtime\native-assets.bin
 if not exist build\native-runtime\native-assets.bin python tools\build_native_assets.py
 if errorlevel 1 exit /b %errorlevel%

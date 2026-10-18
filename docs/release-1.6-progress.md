@@ -56,7 +56,7 @@ the action row) and `0x00670FB0` (`NativeMiniGameAxisK1`, swoop racing and the t
 
 | Feature | What the player gets | Commit | Issues | Seen in play |
 | --- | --- | --- | --- | --- |
-| **Text Size and Font page** in Graphics Options | Four sliders (menus and replies, subtitles and body, small text, HUD text), 1% steps, 50% is the game's original size; "Link Text Sizes" moves them together; three fonts: Original, Original Sharpened, New HD. Saved in `swkotor.ini`, applied live. | `8830c6b` | #51, #52 (in part), #63, #65 | Opening, sizing, Default, the grouped sliders and linking: yes, by the maintainer in the test game. Switching between the three fonts: Confirmed in play by the maintainer, 2026-10-18. |
+| **Text Size and Font page** in Graphics Options | Four sliders (menus and replies, subtitles and body, small text, HUD text), 1% steps, 50% is the game's original size; "Link Text Sizes" moves them together; three fonts: Original, Original Sharpened, New HD (since 2026-10-18: Original, (New) Original HD, the default, and (Old) HD; see the HD Original section below). Saved in `swkotor.ini`, applied live. | `8830c6b` | #51, #52 (in part), #63, #65 | Opening, sizing, Default, the grouped sliders and linking: yes, by the maintainer in the test game. Switching between the three fonts: Confirmed in play by the maintainer, 2026-10-18. |
 | **Override fonts wrap at their real size** | A translation or custom font in `Override` is measured at KMRP's size before the game first wraps a line with it. | `8830c6b` | #63 | Confirmed in play by the maintainer, 2026-10-18. Also covered by mock checks (11,880 metric cases). |
 | **Text fits its box** | A label, button or title that is too small for its text at the chosen size draws it at the largest size that fits. The fit is made only at draw time, so it survives a restart (the target's name over a character, the quit box). | `8830c6b` | #51, #65 | The target's name after a restart: yes, by the maintainer, 2026-10-18. The quit box: Confirmed in play by the maintainer, 2026-10-18. |
 | **List rows grow with their text** | Inventory, store, workbench, skills, powers, save/load and option rows get taller instead of cutting a two-line name; scrolling and clicking follow. | `8830c6b` | #51, #65 | Inventory: yes. Load Game, store, workbench, skills and powers: Confirmed in play by the maintainer, 2026-10-18. |
@@ -135,7 +135,7 @@ running over. Not looked at.
 | Issue | Title | What is done |
 | --- | --- | --- |
 | #51 | Adjustable text scaling independent of resolution | The Text Size and Font page and the fitting work |
-| #52 | Original KOTOR-style font in HD | In part: the "Original Sharpened" font choice. A new HD font in the original's style: not done. |
+| #52 | Original KOTOR-style font in HD | Built, uncommitted (2026-10-18): the HD Original font, the default, replacing the "Original Sharpened" choice. Not yet seen in the game. |
 | #63 | Original PC font, and Override fonts wrapping | The font choice and the Override font timing |
 | #65 | Dialog text size | The subtitles slider and the conversation text room |
 | #46 | Analog-stick movement conflicts | Related: the corner speed (`cae4531`). The issue's own cases (Steam Controller, DualSense, both sticks) wait for the reporter's hardware results. |
@@ -149,7 +149,7 @@ row below.)
 | Feature | What the player gets | Issues | Seen in play |
 | --- | --- | --- | --- |
 | **The Xbox HUD's action row as the Xbox manual's six places** | Default action, feats and skills (Stealth after the target's feats, or alone with no target), offensive Force powers, grenades or mines, the character's own Force powers, medpacs and other items together. Empty places are dim frames. One hook replaces Stealth's (`0x0068947A` for `0x00689410`), so still 38. Mouse and keyboard unchanged. | #55, #50 | Yes, by the maintainer, 2026-10-18: "works". |
-| **HUD Size page** in Graphics Options | A slider for each part of each HUD, the mouse and keyboard HUD's and the controller HUD's apart, 25% to 100% (50% today's size, 100% two and a half times), each part grown about its corner and kept on the screen; Link HUD Sizes; a preview on a slate backdrop. [`hud-size-options.md`](hud-size-options.md) | | The page and the mouse and keyboard HUD at 25%, 50%, 100% (twice and 2.5 times): yes, in the test game at 3440x1440 by scripted input, screenshots reviewed by the maintainer: "Looks great". The live Xbox HUD at other sizes: **not seen** (needs a pad). |
+| **HUD Size page** in Graphics Options | A slider for each part of each HUD, the mouse and keyboard HUD's and the controller HUD's apart, 25% to 100% (50% today's size, 100% twice since 2026-10-19, two and a half times before), each part grown about its corner and kept on the screen; Link HUD Sizes; a preview on a slate backdrop. [`hud-size-options.md`](hud-size-options.md) | | The page and the mouse and keyboard HUD at 25%, 50%, 100% (twice and 2.5 times): yes, in the test game at 3440x1440 by scripted input, screenshots reviewed by the maintainer: "Looks great". The live Xbox HUD at other sizes: **not seen** (needs a pad). |
 | **The mouse and keyboard HUD placed at run time** | Placed by KMRP from a table of its 3440x1440 HUD, as the Xbox HUD is, whatever HUD layout file is loaded, so it works beside other widescreen mods. At 3440x1440 and 50% it is exactly the HUD before. The target's circle is allowed over more of the screen. | | As above. Beside another mod's HUD file and at other screen sizes: **not seen**. |
 
 ### Controller remapping, sliders and the HD font (the commit after `e634603`)
@@ -160,6 +160,32 @@ row below.)
 | **Sliders reach 100% with the mouse** | HUD Size and Text Size sliders dragged to the end read 100%, not 99%; the value is the one the thumb is drawn at. | | Yes, in the test game at 1920x1080 by scripted drags with the value read from memory. |
 | **Disengage in the HUD Size preview** | The preview shows the combat queue's frame round Disengage, as the game draws it, with the word centred. | | Yes, at 1920x1080 by scripted input. |
 | **HD font: every character, no stray lines** | The New HD Font shows the euro sign, curly quotes, ellipsis, dashes, the trade mark sign and Œ, Š, Ž as the original font does (they were boxes), and the lines after spaces in the HUD's font are gone. | #52 (the HD font) | The lines: seen before the fix at 1920x1080 and 3440x1440. After the rebuild: **not yet seen in the game**. |
+
+### Fitted text at the largest size (uncommitted, 2026-10-19)
+
+| Feature | What the player gets | Issues | Seen in play |
+| --- | --- | --- | --- |
+| **Xbox HUD name bar grows with a long name** | A target's name on two lines (or one at a large text size) gets a taller frame; the health bar and the speech box move down with it, the frame's lines unchanged. [`controller-xbox-hud.md`](controller-xbox-hud.md) | | The taller frame: seen by the maintainer at 1440x1080, 2026-10-19, with dark lines at the joins; the build that removes them: not yet. |
+| **Text Size page's right column inside its frame** | The font names and previews stay inside the right-hand box's lines at every resolution. [`ingame-text-options.md`](ingame-text-options.md) | | Not yet. The overflow: seen by the maintainer at 1440x1080, 2026-10-19. |
+| **Fitted text keeps the largest size that fits** | A conversation line, label or button too long for its box at the chosen size is drawn at the largest size that fits (within 3%), not at a fraction of it: at 1440x1080 some subtitles were drawn on one tiny line. `K1TextFitPolicy.h`; see the CHANGELOG entry. | #65 | Not yet. The tiny line: seen by the maintainer at 1440x1080, 2026-10-19. |
+
+### Option pages with a pad (uncommitted, 2026-10-19)
+
+| Feature | What the player gets | Issues | Seen in play |
+| --- | --- | --- | --- |
+| **Text Size and HUD Size pages with a pad** | Text Size: Link above the sliders, the page opening on it, right reaching the fonts. HUD Size: tabs for the two HUDs, an X button for the other tab, Link above shorter side-by-side sliders, the preview alone on the right. Y Default, B Close (and X) from anywhere, with their glyphs; those buttons never take the pad's focus. Graphics Options' two KMRP buttons show A when focused. [`hud-size-options.md`](hud-size-options.md) | | Not yet. |
+
+### Action description at the text size (uncommitted, 2026-10-18)
+
+| Feature | What the player gets | Issues | Seen in play |
+| --- | --- | --- | --- |
+| **The action's name grows with the text size** | Mouse and keyboard: the action's name in the bottom right corner is drawn at the chosen text size, its box growing to fit (it stayed at the original size). Pad: the Xbox-style HUD's action box grows with the text size and is as tall as the longest action name seen this session, so it keeps its height while scrolling and never shrinks; the name is centred in it. [`controller-xbox-hud.md`](controller-xbox-hud.md) | | Not yet. |
+
+### HD Original font (uncommitted, 2026-10-18)
+
+| Feature | What the player gets | Issues | Seen in play |
+| --- | --- | --- | --- |
+| **HD Original font, the default** | The game's own fonts redrawn sharp from Bank Gothic Medium and Helvetica at the original's sizes, spacing and weight; the menu O and o the original's own slightly wide ring; every character of the original. Text Size page: Original Font, **(New) Original HD Font** (default), **(Old) HD Font** (the former New HD); Original Sharpened is gone. Both HD fonts sharp up to 100% text at 4K. [`hd-original-font.md`](hd-original-font.md) | #52 | The menu font at 4K, reviewed by the maintainer during the work ("Looks good", before the last changes to the O and the ß); the final sheet was sent, not yet answered. In the game: **not yet seen**. |
 
 ## Keeping this up to date
 

@@ -28,6 +28,14 @@ files left to the module). 45 sets are rebuilt whole, 20 in part (32 to 329 file
 differ and are stored), and 1280x1080 is outside the blend and stored whole.
 testing/regression/Test-NativeAssetsBank.py checks the bank.
 
+The fonts are one set per style, in the common group under private names, and the
+module writes the chosen style's at the drawn size (K1RuntimeAssets.cpp
+ApplyTextPreferences): kmrfogNN the original atlases (tools/build_original_fonts.py),
+kmrfhoNN HD Original (assets/hd-original-fonts, the default since 2026-10-18; its
+fnt_galahad14 is made here from the game's files, see hd_original), kmrfhdNN
+Old HD (assets/hd-fonts). Until 2026-10-18 kmrfpcNN held an "Original Sharpened" set,
+the original atlases enlarged; HD Original replaced it.
+
 Run from src/controller-native/build_native_runtime.cmd, where the x86 compiler is on
 the path; --helper names a helper already built.
 """
@@ -65,19 +73,69 @@ HELPER_INPUTS = ('kmrp_prompts.txt', 'dialogfont16x16.txi')
 FONT_FILES = {name + extension for name in FONT_RESREFS for extension in ('.tga', '.txi')}
 
 
+# The size the HD styles are baked at, and the one the runtime's text sizes are reckoned
+# from (K1RuntimeAssets.cpp, kHdBakeScale and kSizeReferenceScale).
+HD_BAKE_SCALE = 6.0
+SIZE_REFERENCE_SCALE = 3.0
+
+# HD Original's atlases. 17 are drawn from fonts and kept in assets/hd-original-fonts.
+# fnt_galahad14 has no font to draw it from, so it is the game's own letters enlarged
+# (build_original_fonts.enlarged). That is the game's art, so it is never committed:
+# it is made from the game's files at every build, into build/ (the maintainer,
+# 2026-10-19).
+MADE_AT_BUILD = ('fnt_galahad14',)
+ORIGINAL_FONTS = ROOT / 'build/native-runtime/original-fonts'
+HD_ORIGINAL_MADE = ROOT / 'build/native-runtime/hd-original-fonts'
+
+
+def make_hd_original(original_fonts=ORIGINAL_FONTS):
+    for name in MADE_AT_BUILD:
+        build_original_fonts.enlarged(original_fonts, name, HD_ORIGINAL_MADE, HD_BAKE_SCALE)
+
+
+def hd_original(name, extension):
+    """Where HD Original's atlas or TXI for `name` is; made first if it is one of ours
+    and missing."""
+    if name not in MADE_AT_BUILD:
+        return ROOT / 'assets/hd-original-fonts' / (name + extension)
+    path = HD_ORIGINAL_MADE / (name + extension)
+    if not path.is_file():
+        make_hd_original()
+    return path
+
+
+def fontheight(text):
+    return float(re.search(r'(?im)^fontheight\s+([\d.]+)', text)[1])
+
+
 def shared_font_txi(name, height):
-    """The runtime's TXI for its single HD atlas, used by the blend measurement."""
-    text = (ROOT / 'assets/hd-fonts' / (name + '.txi')).read_text()
-    own = float(re.search(r'(?im)^fontheight\s+([\d.]+)', text)[1])
+    """The TXI the module writes for the default style, HD Original, at the default
+    size, which the blend helper measures captions with: K1RuntimeAssets.cpp
+    ApplyTextPreferences (the height from Old HD's TXI, FontTargetHeight; the
+    dimensions scaled to it, FontTxiAtHeight; the atlas fitted to it, FitAtlas), in
+    the same single precision."""
+    f32 = lambda v: struct.unpack('<f', struct.pack('<f', v))[0]
+    reference = f32(f32(f32(fontheight((ROOT / 'assets/hd-fonts' / (name + '.txi')).read_text())) *
+                        SIZE_REFERENCE_SCALE) / HD_BAKE_SCALE)
     scale_micros = (max(720, int(height)) * 1000000 + 360) // 720
-    target = round(round(own * 100) * scale_micros / 3000000) / 100
+    numerator, denominator = int(f32(reference * 100.0) + 0.5) * scale_micros, 3000000
+    rounded, remainder = divmod(numerator, denominator)
+    if remainder * 2 > denominator or (remainder * 2 == denominator and rounded & 1):
+        rounded += 1
+    target = f32(f32(rounded) / f32(100.0))
+    text = hd_original(name, '.txi').read_text()
+    own = f32(fontheight(text))
     factor = target / own
+    atlas = hd_original(name, '.tga').read_bytes()
+    width = atlas[12] | atlas[13] << 8
+    fitted = int(f32(width * f32(target / own)) + 0.5)
     keys = {'fontheight', 'baselineheight', 'texturewidth', 'spacingR', 'spacingB'}
     out = []
     for line in text.splitlines():
         p = line.split()
         if len(p) == 2 and p[0] in keys:
-            value = target if p[0] == 'fontheight' else float(p[1]) * factor
+            value = (target if p[0] == 'fontheight' else fitted / 100.0 if p[0] == 'texturewidth'
+                     else float(p[1]) * factor)
             line = f'{p[0]} {value:.6f}'
         out.append(line)
     return ('\n'.join(out) + '\n').encode('ascii')
@@ -163,6 +221,7 @@ def build(resources, out, helper=None, every_object=False, lzms=False):
     original_fonts = out / 'original-fonts'
     texture_pack = Path(os.environ.get('KMRP_TEXTURE_PACK', str(ROOT / 'build-inputs/swpc_tex_gui.erf')))
     build_original_fonts.build(texture_pack, original_fonts)
+    make_hd_original(original_fonts)
     table_path = resources.parent / 'gui-blend.bin'
     archives = [resources / 'override-common.zip'] + sorted(resources.glob('gui-*.zip'))
     if len(archives) != 67:
@@ -201,23 +260,18 @@ def build(resources, out, helper=None, every_object=False, lzms=False):
                         objects[digest] = (len(data), compressor.compress(data))
                     entries.append((name, digest))
             if number == 0:
-                # Original PC style is resolution independent. Keep its sources
-                # under private names; K1RuntimeAssets selects them at runtime.
-                for path in sorted(original_fonts.iterdir()):
-                    if path.suffix not in ('.tga', '.txi'):
-                        continue
-                    data = path.read_bytes()
-                    digest = hashlib.sha256(data).digest()
-                    if digest not in objects:
-                        objects[digest] = (len(data), compressor.compress(data))
-                    entries.append((path.name, digest))
+                # Each font style is resolution independent: its sources under
+                # private names, which K1RuntimeAssets selects from at runtime.
                 for index, name in enumerate(FONT_RESREFS):
                     for extension in ('.tga', '.txi'):
-                        data = (ROOT / 'assets/hd-fonts' / (name + extension)).read_bytes()
-                        digest = hashlib.sha256(data).digest()
-                        if digest not in objects:
-                            objects[digest] = (len(data), compressor.compress(data))
-                        entries.append((f'kmrfhd{index:02d}{extension}', digest))
+                        for prefix, path in (('kmrfog', original_fonts / f'kmrfog{index:02d}{extension}'),
+                                             ('kmrfho', hd_original(name, extension)),
+                                             ('kmrfhd', ROOT / 'assets/hd-fonts' / (name + extension))):
+                            data = path.read_bytes()
+                            digest = hashlib.sha256(data).digest()
+                            if digest not in objects:
+                                objects[digest] = (len(data), compressor.compress(data))
+                            entries.append((f'{prefix}{index:02d}{extension}', digest))
                 # Hash-pinned by tools/prepare_sdl3.ps1; loaded from the module's
                 # private cache (InitSdl in K1ControllerBackend.cpp).
                 data = (resources.parents[1] / 'deps/kmrp-sdl3.dll').read_bytes()
@@ -246,7 +300,7 @@ def build(resources, out, helper=None, every_object=False, lzms=False):
             raise ValueError('Native asset read-back failed')
         (out / 'NativeAssets.generated.h').write_text(f'#pragma once\n#define KMRP_ASSET_BUILD L"{build_id}"\n')
         (out / 'native-assets.rc').write_text('101 RCDATA "native-assets.bin"\n')
-        (out / 'font-style-assets.version').write_text('3\n')
+        (out / 'font-style-assets.version').write_text('4\n')
         print(f'{len(objects)} objects stored, {len(left_out - set(objects))} left to the module to make, '
               f'{len(blob)} bytes, SHA256 {build_id}', flush=True)
     finally:

@@ -60,6 +60,9 @@ testing/virtual-display/VDD.Control.*.zip
 # but never committed -- these are BioWare's files. See build-inputs/README.md.
 build-inputs/*
 !build-inputs/README.md
+# HD Original's fnt_galahad14 is the game's own letters enlarged, made at build time
+# (tools/build_native_assets.py, hd_original); never committed.
+assets/hd-original-fonts/fnt_galahad14.*
 
 # Machine-specific build settings (build.local.example.ps1 is the template).
 build.local.ps1

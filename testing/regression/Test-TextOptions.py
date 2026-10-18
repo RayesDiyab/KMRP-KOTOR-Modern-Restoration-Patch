@@ -5,7 +5,7 @@ import re
 import subprocess
 import sys
 import zipfile
-from PIL import Image, ImageChops
+from PIL import Image
 from pykotor.resource.formats.gff import read_gff
 from pykotor.resource.formats.erf import read_erf
 from pykotor.resource.formats.tpc import read_tpc, TPCTextureFormat
@@ -50,18 +50,26 @@ def main():
     cmd=out/'build.cmd';cmd.write_text('@echo off\ncall "'+vc+'" x86 >nul\nif errorlevel 1 exit /b %errorlevel%\n'+subprocess.list2cmdline(args)+'\nexit /b %errorlevel%\n',newline='\r\n')
     subprocess.run(['cmd','/d','/c',str(cmd)],cwd=ROOT,check=True)
     subprocess.run([str(exe),str(fixture)],cwd=out,check=True)
-    # Pixel fidelity against the exact linked script output, when the local
-    # comparison fixture exists. The two deliberately repaired grids are separate.
     original=ROOT/'build/native-runtime/original-fonts'
-    upstream=ROOT/'build/font-comparison-2026-10-17/original-pc'
-    compared=0
+    # HD Original keeps the original's layout at six times its size: as many glyphs,
+    # the cell height and baseline, and every ASCII cell's width (letter gaps, word
+    # spaces, line lengths and the HUD's even cells), tools/build_hd_original_fonts.py.
+    def metrics(txi):
+        lines=[l.split() for l in txi.splitlines() if l.strip()]
+        head={l[0]:float(l[1]) for l in lines if len(l)==2 and l[0] in ('numchars','fontheight','baselineheight','texturewidth')}
+        upper=next(i for i,l in enumerate(lines) if l[0]=='upperleftcoords')
+        lower=next(i for i,l in enumerate(lines) if l[0]=='lowerrightcoords')
+        n=int(head['numchars'])
+        widths=[round((float(lines[lower+1+c][0])-float(lines[upper+1+c][0]))*head['texturewidth']*100) for c in range(n)]
+        return head,widths
     for i,name in enumerate(FONT_RESREFS):
-        if name in ('fnt_d10x10b','fnt_d16x16'):continue
-        if (upstream/(name+'.tga')).exists():
-            a=Image.open(original/f'kmrfpc{i:02d}.tga').getchannel('A')
-            b=Image.open(upstream/(name+'.tga')).getchannel('A')
-            assert ImageChops.difference(a,b).getbbox() is None,name
-            compared+=1
+        head,widths=metrics((original/f'kmrfog{i:02d}.txi').read_text())
+        hd,hdw=metrics(bank.hd_original(name,'.txi').read_text())
+        assert hd['numchars']==head['numchars'],name
+        for key in ('fontheight','baselineheight'):
+            assert abs(hd[key]-head[key]*6)<0.011,(name,key,hd[key],head[key])
+        wrong=[chr(c) for c in range(0x20,0x7F) if hdw[c]!=widths[c]*6]
+        assert not wrong,(name,''.join(wrong))
     originals=0
     for resource in read_erf(ROOT/'build-inputs/swpc_tex_gui.erf'):
         name=str(resource.resref).lower()
@@ -73,7 +81,8 @@ def main():
         assert expected.size==actual.size and expected.tobytes()==actual.tobytes(),name
         originals+=1
     assert originals==18
-    print(f'PASS: all 1,188 previous default font heights retained; {compared} sharpened atlases match upstream pixels exactly.')
+    print('PASS: all 1,188 previous default font heights retained; all 18 HD Original fonts keep the original\'s glyphs, '
+          'cell height, baseline and ASCII widths at six times the size.')
     print('PASS: all 18 Original Font atlases preserve the game artwork pixel for pixel, at its original dimensions.')
 
 

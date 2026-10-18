@@ -426,9 +426,6 @@ bool ReadControllerK1(XINPUT_STATE& state)
 }
 
 int ControllerXInputSlotK1() { return active >= 0 && active < 4 ? active : -1; }
-// The pad being read had something pressed or a stick away from the centre, with
-// the game in front, within the last second and a half.
-bool ControllerHeldRecentlyK1() { return heldTick != 0 && GetTickCount() - heldTick < 1500; }
 // A Steam Controller or Steam Deck is among SDL's pads and the pad read is being
 // held right now (300 ms). Those pads also type and move the pointer by themselves
 // ("lizard mode") unless something turns that off; see KmrpNoteKeyboardK1.

@@ -243,6 +243,31 @@ def target_bar(colour):
     return c.image()
 
 
+# ---- the name bar in three slices, for a target's name taller than its row (two lines,
+# or one at a large text size): K1XboxHud.cpp draws the top down to row 32, then the
+# middle slice stretched over the extra height, then the bottom from row 32 down. Rows
+# 21 to 38 are all the same (the sides straight, the inside half opaque, no line across),
+# so the middle (rows 30 to 34) can stretch without changing anything, and the top and
+# bottom meet in that run: with no extra height the two are the whole bar. Added
+# 2026-10-19, when "Training Computer" ran onto the health bar (the maintainer's capture).
+TARGET_BAR_SPLIT = 32
+TARGET_BAR_MIDDLE = (30, 34)
+
+
+def target_bar_slice(colour, part):
+    import numpy as np
+
+    image = target_bar(colour)
+    rows = np.asarray(image)
+    lo, hi = TARGET_BAR_MIDDLE
+    plain = rows[21 * SCALE:39 * SCALE]
+    if not (plain == plain[:1]).all() or not lo * SCALE >= 21 * SCALE or not hi * SCALE <= 39 * SCALE:
+        raise ValueError("the name bar's middle rows are not all the same: its slices would not join")
+    top, bottom = {"top": (0, TARGET_BAR_SPLIT), "middle": TARGET_BAR_MIDDLE,
+                   "bottom": (TARGET_BAR_SPLIT, image.height // SCALE)}[part]
+    return image.crop((0, top * SCALE, image.width, bottom * SCALE))
+
+
 # ---- the combat queue's frame (lbl_micombat): a bar that points, with a chevron, into
 # a barrel-shaped box.
 def combat_frame():
@@ -340,6 +365,11 @@ DRAWN = {
     "lbl_micombat": combat_frame,
     "lbl_micurve": curve,
 }
+# The name bar's slices (target_bar_slice), which no game texture is: named as if they
+# were, so that NAMES gives them their kmrx_ names with the rest.
+for _code, _colour in (("f", (82, 117, 255)), ("e", RED)):
+    for _part in ("top", "middle", "bottom"):
+        DRAWN[f"lbl_miindic1{_code}{_part[0]}"] = (lambda c=_colour, p=_part: target_bar_slice(c, p))
 NAMES = {name: PREFIX + name[len("lbl_"):] for name in DRAWN}
 
 
