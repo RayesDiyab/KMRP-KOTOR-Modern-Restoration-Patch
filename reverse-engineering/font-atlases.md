@@ -147,6 +147,17 @@ name is not a reliable guide to a font's role or style.
    bilinear sampling reaches past a glyph's own rectangle. At 1px padding it
    pulled in the ascenders of the row below, appearing in game as stray dots
    under the text. `GLYPH_PADDING` is 4.
+9. **A slot is a byte of the game's text, in Windows-1252.** The stock atlases
+   draw that code page's characters in slots 0x80 to 0x9F (euro sign, curly
+   quotes, ellipsis, en and em dash, OE, S and Z with caron, trade mark and the
+   rest), not Unicode's C1 control codes. Measured on 2026-10-18 by drawing slots
+   0x80 to 0xFF of the stock and the HD `dialogfont16x16` side by side and
+   checking the Windows-1252 decode of every slot against the stock art. Slot
+   counts differ: `numchars` is 256 in 13 atlases, 255 in four and 127 in
+   `fnt_console` (read from the TXIs in `assets/hd-fonts`). Until that day
+   `build_font_from_ttf.py` read slot N as `chr(N)`, so every HD atlas held the
+   face's missing-glyph box in 0x80 to 0x9F; the defects, the fix and the re-bake
+   are in [font-scaling.md](../docs/font-scaling.md#what-each-slot-holds-and-the-2026-10-18-re-bake).
 
 ## Which resref renders which screen
 
@@ -438,6 +449,19 @@ the mirrored-atlas bug and the clobbered-metrics bug immediately.
   ways: `f w y V` overhang right, and `j w ( Y` start **left of the pen
   origin**. Both are handled, the left case by nudging the glyph right as well
   as widening. Verified 0/94 clipped for both shipped fonts.
+  Since 2026-10-18 it also: decodes each slot as Windows-1252
+  (`SLOT_ENCODING`, `slot_character()`, Format fact 9); leaves control codes
+  (0x00 to 0x1F, 0x7F) and the five bytes Windows-1252 leaves undefined (0x81,
+  0x8D, 0x8F, 0x90, 0x9D) as blank cells at the stock width; draws the soft
+  hyphen (0xAD), which the stock atlases draw as a hyphen; gives 0xA0 its space's
+  width when the face has no no-break space of its own; draws each glyph into an
+  image the size of its own cell and pastes it, so no ink reaches another cell;
+  and stops with an error listing every slot whose character the face lacks.
+  Before that, control codes were drawn as the face's missing-glyph box, which
+  spilled into neighbouring cells (136 px of box ink in `fnt_console`'s space
+  cell, 118 px in `dialogfont32x32`'s, counted in the live atlases from the
+  game's cache). Details in
+  [font-scaling.md](../docs/font-scaling.md#what-each-slot-holds-and-the-2026-10-18-re-bake).
 - **Bake high, scale down.** `assets/hd-fonts` is rendered at `--scale 2.75`,
   the top of the resolution curve (52px glyphs in 1024x1024, 4MB), and
   `prepare_universal_resources.py` divides by `HD_FONT_BAKE_SCALE` so every
@@ -447,6 +471,13 @@ the mirrored-atlas bug and the clobbered-metrics bug immediately.
   2048x2048/16MB atlas that held 19px glyphs. **If the bake scale changes,
   `HD_FONT_BAKE_SCALE` must change with it** or the enlargement is applied
   twice.
+  *Corrected 2026-10-18:* the bake scale is 3.0, not 2.75: `HD_FONT_BAKE_SCALE
+  = 3.0` in `tools/prepare_universal_resources.py` and the commands in
+  `docs/font-scaling.md`. `dialogfont16x16` is 48 px glyphs in 1024x1024 (its
+  TXI: `fontheight 0.48`, `texturewidth 10.24`). Since 2026-10-17 the native
+  runtime draws this one bake at every screen size and scales only its metrics,
+  so below 2160p at the default size it is minified again; see "The shared
+  atlas is minified again" in `docs/font-scaling.md`.
 - `tools/build_wrap_progress_fix.py` — the 16-byte in-place engine fix for the
   word-wrap crash described above.
 - `tools/build_hd_fonts.py` — superseded. AI-upscales the stock bitmaps

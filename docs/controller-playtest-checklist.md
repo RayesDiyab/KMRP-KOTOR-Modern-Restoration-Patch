@@ -152,7 +152,8 @@ because they came later: rumble ([`controller-rumble.md`](controller-rumble.md)
 has its own checklist), the Controller Layout screen
 ([`controller-layout.md`](controller-layout.md), "Manual acceptance test"), the
 Xbox-style HUD ([`controller-xbox-hud.md`](controller-xbox-hud.md), "Tested and
-not tested"), and PlayStation, Switch and Steam Deck pads.
+not tested"), and PlayStation, Switch and Steam Deck pads. Button remapping, added
+on 2026-10-18, has its pad checks in section 9.
 
 Build under test: the controller patch, `KOTOR 1 Native Controller Mod + Xbox
 HUD.kpatch`, alone or installed by KMRP's installer with Controller Support on.
@@ -363,3 +364,68 @@ These are the decisions only you can make. Everything else above is pass/fail.
 | [ ] | How strongly should focus prefer its own row/column? | penalty 6 |
 | [ ] | Is L3 = Flourish worth a stick click? | provisional |
 | [ ] | Physical D-pad orientation | mapping is inferred, not confirmed |
+
+## 9. Button remapping (added 2026-10-18)
+
+The Controller Layout screen (Options, Gameplay, Controller Layout) remaps A, B, X,
+Y, LB, RB, LT, RT and the two stick clicks; how it works is in
+[`controller-layout.md`](controller-layout.md), "Button remapping". On 2026-10-18 it
+was run with mouse and keyboard only (scripted input, at 3440x1440 and 1920x1080).
+**Every row below is untested**: there was no virtual pad on the machine (ViGEmBus is
+not installed). Start each run from the default layout: Remap, Default, Save. Have
+`debug-logs` on and keep `kmrp-layout-lifecycle.log`.
+
+### 9a. On the screen
+
+| | Context | Input | Expected | P/F | Kind |
+| --- | --- | --- | --- | --- | --- |
+| [ ] | Screen just opened (the view) | D-pad, A, Y | nothing: no row takes the focus, A and Y do nothing | | FUNC |
+| [ ] | The view | X | Remap: the footer becomes (Y) Default, (X) Save, (B) Close, and LT's row is focused | | FUNC |
+| [ ] | The view | B | leaves the screen | | FUNC |
+| [ ] | Remapping | D-pad, all four | moves between the ten remappable rows only; never onto Default, Save, Close or a padlocked row | | FUNC |
+| [ ] | Remapping | D-pad | the focused row's action turns yellow and the game's highlight frames the row | | **FEEL** |
+| [ ] | Remapping, pad in use | look at the footer | "(A) Change button" between the hairline and the buttons, and the Y, X and B glyphs of your pad | | FUNC |
+| [ ] | Remapping, a row focused | A | the prompt "Press the new button for ..." opens, blue border, the other rows faded | | FUNC |
+| [ ] | The prompt | the A still held from opening it | does not count; only a new press does | | FUNC |
+| [ ] | The prompt | LB, RB, LT, RT, L3, R3 in turn (one per prompt) | each is accepted: the action moves to that button's row | | FUNC |
+| [ ] | The prompt | B | B is chosen (not cancel) | | FUNC |
+| [ ] | The prompt | Back (View) | cancels; nothing changes | | FUNC |
+| [ ] | The prompt | Start | expected from the code to cancel, like Back: **please note what happens** | | FUNC, unknown |
+| [ ] | The prompt | D-pad | nothing: the focus stays on the row | | FUNC |
+| [ ] | After a choice | keep the chosen button held | nothing else happens until it is released | | FUNC |
+| [ ] | Undo action (Y's row) given RB | look at the rows | Undo action in RB's row with a yellow dot; Next target waits in Y's row, orange, with an orange "?"; the help line names Next target in orange; Save grey | | FUNC |
+| [ ] | The same | X | nothing is saved while an action waits | | FUNC |
+| [ ] | The same, Y's row | A, then Y | Next target on Y; nothing waits; Save works | | FUNC |
+| [ ] | Remapping | Y | Default: the default layout back on screen, not yet saved | | FUNC |
+| [ ] | Remapping, a complete change | X | saved: `kmrp-controller.ini` has `[Controller Remap]` with ten keys | | FUNC |
+| [ ] | Remapping, nothing unsaved | B | back to the view | | FUNC |
+| [ ] | Remapping, a change not saved | B | the "Unsaved Changes" box, (A) Discard and (B) Cancel | | FUNC |
+| [ ] | Unsaved Changes | B | back to remapping, the changes kept | | FUNC |
+| [ ] | Unsaved Changes | A | back to the view, showing the saved layout | | FUNC |
+| [ ] | The view after a saved remap | look | the moved rows carry dots; the padlocks on the sticks, the D-pad, Start and Back | | FUNC |
+| [ ] | Any state | switch between the pad and the mouse | the pad glyphs appear and disappear; nothing else moves | | FUNC |
+| [ ] | PlayStation, Switch or Steam Deck pad | the whole of 9a | that family's glyphs in the footer, the prompt and the box | | FUNC |
+| [ ] | Leaving the screen | `kmrp-layout-lifecycle.log` | no `bind-failed`; `created == destroyed` | | FUNC |
+
+### 9b. In play, with a saved remap
+
+Save a layout with Undo action on RB and Next target on Y, and one with Pause on LB
+and Previous target on RT, then play.
+
+| | Context | Input | Expected | P/F | Kind |
+| --- | --- | --- | --- | --- | --- |
+| [ ] | Combat, an action queued | RB | the last queued action comes off the queue (Undo action) | | FUNC |
+| [ ] | Gameplay | Y | the next target (Next target) | | FUNC |
+| [ ] | Gameplay | LB | pauses, and again to continue | | FUNC |
+| [ ] | Gameplay | RT | the previous target | | FUNC |
+| [ ] | In-game menu | LT, RT | still the previous and next tab: menus keep every button | | FUNC |
+| [ ] | In-game menu | Y, X, A, B | each does what it does on that screen without a remap | | FUNC |
+| [ ] | Dialogue, Pazaak, swoop, turret | the remapped buttons | as without a remap | | FUNC |
+| [ ] | Gameplay | hold RB (Undo action), open a menu with Start, release RB | nothing sticks; the next RB in the menu is RB | | FUNC |
+| [ ] | Combat | look at the HUD | the cue beside the combat buttons shows RB for Undo action, X still for Disengage | | FUNC |
+| [ ] | Combat, Xbox-style HUD | look at the combat-mode message | the button of Release bar (B unless moved) | | FUNC |
+| [ ] | Paused, Xbox-style HUD, Pause on LB | look at the pause notice | "PAUSED. PRESS [LB] TO CONTINUE" | | FUNC |
+| [ ] | Paused, Pause on LB | move the mouse, then back to the pad | the PC's pause box is the game's own, and the Xbox one comes back (a fault found from the code and fixed before it was run: [`controller-layout.md`](controller-layout.md), "Limits") | | FUNC |
+| [ ] | Restart the game | play | the saved layout is still in force | | FUNC |
+| [ ] | A duplicate value written into `[Controller Remap]` by hand | start the game | the default layout, in play and on the screen | | FUNC |
+| [ ] | KMRP's installer | Restore Original, then look at `kmrp-controller.ini` | the file and its `[Controller Remap]` are still there | | FUNC |

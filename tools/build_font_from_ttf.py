@@ -23,6 +23,17 @@ Format, established by measuring all 18 stock atlases:
     proportionally -- 154 distinct u positions across 8 rows -- while others use
     fixed cells. Since this writes its own coordinates it always packs
     proportionally, which fits any font and wastes no space.
+  * **A slot is a byte of the game's text, in Windows-1252** (`SLOT_ENCODING`).
+    The stock atlases draw that code page's characters in slots 0x80-0x9F
+    (EUR, the curly quotes, ellipsis, dashes, OE, S and Z with caron, TM), and
+    translations use the whole range, so every slot gets the character the stock
+    atlas draws there. Until 2026-10-18 the slot was read as a Unicode code
+    point (`chr`), which made 0x80-0x9F control codes: those 32 slots held the
+    face's missing-glyph box instead.
+  * **Each glyph is drawn inside its own cell and nowhere else.** A control code
+    or an unused slot is left blank: until 2026-10-18 they were drawn too, as the
+    face's missing-glyph box, wider than their cells, so the boxes spilled into
+    the next cells (the space after them showed two vertical lines).
 
 Text sizing is thus a property of the atlas, so the output must NOT be run
 through tools/build_scaled_fonts.py afterwards -- that would double-apply it.
@@ -32,8 +43,10 @@ from __future__ import annotations
 
 import argparse
 import re
+import unicodedata
 from pathlib import Path
 
+from fontTools.ttLib import TTFont
 from PIL import Image, ImageDraw, ImageFont
 from pykotor.resource.formats.erf import read_erf
 from pykotor.resource.formats.tpc import read_tpc
@@ -53,6 +66,22 @@ HEADER_FIELDS = (
 # picks up the ascenders of the row underneath, which show up in game as stray
 # dots beneath the text. 4px keeps neighbouring rows out of the filter kernel.
 GLYPH_PADDING = 4
+
+# The code page the game's text is in: the character each slot holds.
+SLOT_ENCODING = "cp1252"
+
+
+def slot_character(index: int) -> str | None:
+    """The character slot `index` holds, or None for a control code or a byte the
+    code page leaves undefined (0x81, 0x8D, 0x8F, 0x90, 0x9D): blank cells. The
+    soft hyphen (0xAD) is a character here: the stock atlases draw it as a hyphen."""
+    try:
+        character = bytes([index]).decode(SLOT_ENCODING) if index < 256 else None
+    except UnicodeDecodeError:
+        return None
+    if character is None or unicodedata.category(character) == "Cc":
+        return None
+    return character
 
 
 class Reference:
@@ -116,7 +145,7 @@ def next_power_of_two(value: int) -> int:
 
 
 def measure(font: ImageFont.FreeTypeFont, numchars: int,
-            fallback: list[int], scale: float) -> tuple[list[int], dict[int, int]]:
+            fallback: list[int], scale: float, cmap: dict[int, str]) -> tuple[list[int], dict[int, int], list[bool]]:
     """Advance width per glyph, in pixels. Never zero -- see below.
 
     A zero-advance glyph crashes the game. `CAurGUIString`'s word-wrap
@@ -139,18 +168,28 @@ def measure(font: ImageFont.FreeTypeFont, numchars: int,
     scratch = ImageDraw.Draw(Image.new("L", (1, 1)))
     widths = []
     offsets: dict[int, int] = {}
+    drawn = []
+    missing = []
     for index in range(numchars):
-        character = chr(index)
-        try:
-            advance = int(round(scratch.textlength(character, font=font)))
-        except Exception:
-            advance = 0
-        if not character.isprintable():
-            advance = 0
+        character = slot_character(index)
+        # A no-break space is a space's width with no ink; a face without one of its
+        # own (many have none) gives it its space's.
+        if character == " " and ord(character) not in cmap:
+            character = " "
+        if character is not None and ord(character) not in cmap:
+            missing.append(f"0x{index:02X} {character!r}")
+            character = None
+        advance = 0
+        if character is not None:
+            try:
+                advance = int(round(scratch.textlength(character, font=font)))
+            except Exception:
+                advance = 0
+        drawn.append(character is not None and character != " ")
         if advance <= 0:
             stock = fallback[index] if index < len(fallback) else 0
             advance = max(1, round(stock * scale))
-        else:
+        if character is not None:
             # In this format a glyph's cell width IS its advance -- there is no
             # side bearing to overhang into, so any ink outside the cell is cut
             # off. Typefaces routinely spill past the advance on both sides:
@@ -168,7 +207,11 @@ def measure(font: ImageFont.FreeTypeFont, numchars: int,
             except Exception:
                 pass
         widths.append(advance)
-    return widths, offsets
+    if missing:
+        # Every character the stock atlas holds must be in the new one: translations
+        # use the whole range. Choose a face that has them rather than ship a gap.
+        raise ValueError("the face has no glyph for: " + ", ".join(missing))
+    return widths, offsets, drawn
 
 
 def pack(widths: list[int], glyph_height: int, atlas_size: int) -> list[tuple[int, int]] | None:
@@ -205,7 +248,8 @@ def render(font_path: Path, reference: Reference, scale: float):
     font = ImageFont.truetype(str(font_path), point)
     ascent, _ = font.getmetrics()
 
-    widths, offsets = measure(font, reference.numchars, reference.stock_widths, scale)
+    cmap = TTFont(str(font_path)).getBestCmap()
+    widths, offsets, drawn = measure(font, reference.numchars, reference.stock_widths, scale, cmap)
     # Never go smaller than the stock atlas. Crashed in game when fnt_d16x16b
     # packed tighter (256px) than its stock size (512px) -- some code path
     # likely assumes/hardcodes the original texture dimension for specific
@@ -222,12 +266,14 @@ def render(font_path: Path, reference: Reference, scale: float):
         atlas_size *= 2
 
     image = Image.new("L", (atlas_size, atlas_size), 0)
-    draw = ImageDraw.Draw(image)
     for index, ((x, y), width) in enumerate(zip(positions, widths)):
-        if width <= 0:
+        if width <= 0 or not drawn[index]:
             continue
-        draw.text((x + offsets.get(index, 0), y + ascent), chr(index),
-                  font=font, fill=255, anchor="ls")
+        # Drawn in a cell of its own and pasted: nothing outside it reaches the atlas.
+        cell = Image.new("L", (width, glyph_height), 0)
+        ImageDraw.Draw(cell).text((offsets.get(index, 0), ascent), slot_character(index),
+                                  font=font, fill=255, anchor="ls")
+        image.paste(cell, (x, y))
 
     rgba = Image.new("RGBA", image.size, (255, 255, 255, 0))
     rgba.putalpha(image)

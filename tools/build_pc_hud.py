@@ -93,9 +93,13 @@ PARTS = [
     (PORTRAITS, CHAR_SPACE, ["LBL_CMBTEFCTINC[1-3]", "LBL_CMBTEFCTRED[1-3]"], False),
     (ATTACK, MENU_SPACE, ["BTN_TARGET[0-2]", "BTN_TARGETUP[0-2]", "BTN_TARGETDOWN[0-2]", "LBL_TARGET[0-2]"], True),
     (NONE, MENU_SPACE, ["LBL_NAME", "LBL_NAMEBG", "PB_HEALTH", "LBL_HEALTHBG"], False),
-    (DISENGAGE, BOTTOM_CENTRE, ["LBL_COMBATBG1", "LBL_QUEUE[0-3]", "BTN_CLEARONE", "BTN_CLEARONE2",
-                                "BTN_CLEARALL"], True),
-    (DISENGAGE, BOTTOM_CENTRE, ["LBL_COMBATBG2", "LBL_COMBATBG3"], False),
+    # The combat queue as the engine shows it (ShowActionQueue, 0x006874C0, sets all of
+    # these visible together): the black backing (LBL_COMBATBG2, lbl_mirightbotb), the
+    # frame round the queue and the Disengage button (LBL_COMBATBG3, lbl_mirightbot),
+    # the ring round the action under way (LBL_COMBATBG1, lbl_micomb), the slots, and
+    # Disengage itself, a word with no picture. The file draws them in that order.
+    (DISENGAGE, BOTTOM_CENTRE, ["LBL_COMBATBG1", "LBL_COMBATBG2", "LBL_COMBATBG3", "LBL_QUEUE[0-3]",
+                                "BTN_CLEARONE", "BTN_CLEARONE2", "BTN_CLEARALL"], True),
     # The combat-mode message, right of the minimap: it keeps its size and moves with
     # the minimap's right edge, so a larger minimap does not cover it.
     (MINIMAP, TOP_LEFT, ["LBL_CMBTMODEMSG", "LBL_CMBTMSGBG"], False),

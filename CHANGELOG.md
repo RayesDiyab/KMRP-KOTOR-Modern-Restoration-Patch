@@ -117,6 +117,67 @@ proxy, and it applies the executable changes above as well.
 
 ## [Unreleased]
 
+- **Controller remapping on the Controller Layout screen** (2026-10-18;
+  `src/controller-native/K1ButtonRemapPolicy.h`, `K1ButtonRemap.cpp`,
+  `K1ControllerLayout.cpp`, `K1NativeJoystick.cpp`, `K1XboxHud.cpp`,
+  `tools/build_controller_layout.py`; `docs/controller-layout.md`). The screen opens
+  as a view of the layout, with (X) Remap and (B) Back, so nothing is changed by
+  accident. Remap makes the rows editable: A on a row, then the new button. The face
+  buttons, both bumpers, both triggers and each stick's click can be given to any
+  action; moving, the camera, the D-pad, Start and Back stay where they are (grey, with
+  a padlock). A button is never swapped: the action that had it is left without one,
+  waiting with an orange "?", and (X) Save works only once every action has a button.
+  (Y) Default puts the default back; (B) Close returns to the view, asking "Unsaved
+  Changes" with (A) Discard and (B) Cancel when something is not saved. Waiting for a
+  button, Back (View), Escape or the box's Cancel button cancels. Menus keep every
+  button where it is; only what a button does in the world follows the remap, decided
+  when it is pressed and kept until it is let go. The HUD's button prompts (Undo,
+  Disengage or Release Bar, the pause notice's trigger) show the button now used.
+  Saved in `kmrp-controller.ini`, `[Controller Remap]`. `testing/regression/Test-ButtonRemap.py`
+  covers the rules. **Seen in the test game at 3440x1440 and 1920x1080 with mouse and
+  keyboard (scripted input): the view, Remap, the prompt, Escape, Cancel, Close, the
+  unsaved popup, Discard and Save. Not tested: everything with a pad (choosing buttons,
+  the D-pad, X, Y, B and Back on the screen), the remap in play and the prompts
+  following it; this machine has no virtual pad.**
+
+- **HUD Size and Text Size sliders reach 100% with the mouse** (2026-10-18;
+  `src/controller-native/K1SliderGrip.h`; `docs/hud-size-options.md`). Dragged with
+  the mouse, a slider stopped at 99%: the game's drag (`0x00419250`) takes its value
+  from the pointer across the whole slider, rounded down, while it draws the thumb
+  short of the end by the thumb's width (`0x00418F20`), so the thumb at the end of the
+  track was one step short, and only a drag carried past the track gave the maximum.
+  KMRP's sliders now have their own copy of the slider's table with its drag replaced:
+  the thumb stays where it was taken under the pointer and the value is the one it is
+  drawn at, to the nearest step. Keys and the pad were not affected and are unchanged.
+  Measured by reading the slider's value during drags in the test game at 1920x1080:
+  99% before; 100% at the end, 0% at the start, kept after the button is let go, after.
+
+- **HUD Size preview: Disengage in its frame** (2026-10-18;
+  `src/controller-native/K1HudOptions.cpp`, `tools/build_pc_hud.py`;
+  `docs/hud-size-options.md`). The preview drew Disengage as a dark box with the word
+  at its left. It now draws what the game shows with the combat queue (all made visible
+  together by `ShowActionQueue`, `0x006874C0`): the black backing, the blue frame round
+  the queue and the Disengage box, the red ring round the action under way, and the word
+  Disengage centred in its box, as the game's file aligns it. Checked on request: the
+  Disengage group keeps vanilla's proportions exactly, at twice the 1024x768 layout;
+  only the red ring's art is about 6.5% shorter than vanilla's. **Seen at 1920x1080.**
+
+- **HD font: every character of the original, and no stray lines** (2026-10-18;
+  `tools/build_font_from_ttf.py`, `assets/hd-fonts`; `docs/font-scaling.md`). The New
+  HD Font showed a box for the euro sign, the curly quotes, the ellipsis, the dashes,
+  the trade mark sign and Œ, Š, Ž, œ, š, ž, Ÿ: the font builder read each of the font's
+  256 places as a Unicode character, but the game's text is Windows-1252, whose
+  characters the original fonts hold in places 0x80 to 0x9F. And the invisible control
+  characters were drawn as boxes wider than their places, spilling into the next one:
+  two vertical lines after every space in the HUD's font (`fnt_console`) and in
+  `dialogfont32x32`, seen on the Text Size page at 1920x1080 and 3440x1440. The builder
+  now reads the places as Windows-1252, leaves control characters blank, keeps each
+  letter inside its own place, and stops with an error if the font lacks a character
+  the original holds, since translations use the whole range. All 18 HD fonts rebuilt:
+  compared place by place with the old ones, only those places changed. **Not yet seen
+  in the game after the rebuild.** The fonts themselves are unchanged (Old Republic and
+  Arimo Medium); Bank Gothic Medium and Helvetica Roman were compared and not taken.
+
 - **HUD Size: each part of each HUD larger or smaller, and the mouse and keyboard HUD
   placed by KMRP** (2026-10-18; `src/controller-native/K1HudOptions.cpp`, `K1PcHud.cpp`,
   `K1PcHudLayout.h`, `K1XboxHud.cpp`, `tools/build_pc_hud.py`; `docs/hud-size-options.md`).

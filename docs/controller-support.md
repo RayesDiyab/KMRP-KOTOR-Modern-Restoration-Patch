@@ -17,8 +17,9 @@ pad into KOTOR's own retained joystick pipeline rather than pressing keys
 ([`controller-native-path.md`](controller-native-path.md)), reads Xbox pads
 through XInput and PlayStation, Switch and Steam Deck controllers through SDL 3
 ([`controller-sdl-backend.md`](controller-sdl-backend.md)), draws button
-prompts in four families, and adds the Controller Layout screen, rumble
-([`controller-rumble.md`](controller-rumble.md)) and an optional HUD laid out
+prompts in four families, and adds the Controller Layout screen (where, since
+2026-10-18, the buttons can be remapped; [`controller-layout.md`](controller-layout.md)),
+rumble ([`controller-rumble.md`](controller-rumble.md)) and an optional HUD laid out
 like the Xbox version's ([`controller-xbox-hud.md`](controller-xbox-hud.md)).
 
 **How it ships, since 2026-10-05 (checked against the code on 2026-10-08).**
@@ -141,7 +142,7 @@ installs for KMRP's own patch ([kpm-edition.md](kpm-edition.md)):
 | the patch's block in `patch_config.toml` | its 36 hooks, after KMRP's |
 | `configs\kmrp-controller.ini` | `[Patch Options]` with `debug-logs` only, so the player's `Style` under `[Hud]` in `kmrp-controller.ini` decides the Xbox-style HUD |
 | `KOTOR 1 Native Controller Mod + Xbox HUD.kpatch` | delivered into KOTOR Patch Manager's patch folder, beside `KMRP.kpatch` |
-| `kmrp-controller.ini` beside the game | the player's rumble settings, written only when absent (with Controller Support off as well) |
+| `kmrp-controller.ini` beside the game | the player's rumble settings, written only when absent (with Controller Support off as well); since 2026-10-18 also the player's button layout, `[Controller Remap]`, which the installer never writes: the Controller Layout screen's Save does |
 
 With Controller Support off none of the first four is installed, and Restore
 Original removes whatever was. Checked by
@@ -403,6 +404,21 @@ bar to stay.) The mechanisms are in
 2026-09-25** at 3440x1440 for A keeping focus ("works perfectly"); B's release was
 not separately reported. `testing/controller/test_hud_release_and_start_map.py`
 checks both against the engine's memory and has not been run on a loaded save.
+
+**Button remapping, on the native path (2026-10-18, uncommitted when written).** The
+Controller Layout screen can move the world actions of A, B, X, Y, LB, RB, LT, RT
+and the two stick clicks onto other buttons among those ten; the sticks' movement, the
+D-pad, Start and Back stay where they are. A button is never swapped: the action
+that had it waits for another, and the layout can be saved only once every action
+has a button. Only the world follows the remap (input classes 0 and 4); menus,
+conversations, minigames and movies keep every button where it is. The pad's
+buttons are translated in `FillNativeJoystickBufferK1` right after the pad is read,
+each press keeping the meaning it had when it went down, so nothing after it changes
+and no hook is added. The layout is `[Controller Remap]` in `kmrp-controller.ini`.
+The mechanism, the screen and what has been run are in
+[`controller-layout.md`](controller-layout.md), "Button remapping". **Seen with mouse
+and keyboard only; nothing with a pad has been run**, the translation in play
+included.
 
 Steam Input is not claimed to work by the upstream author. Since the hybrid
 backend, KMRP reads PlayStation, Switch and Steam Deck controllers itself,
@@ -867,3 +883,6 @@ paragraph said a windowed game had not been exercised either.)
 - Existing external KPM configuration is never merged or overwritten.
 - Keyboard/mouse operation remains the engine's underlying input path, and the
   cursor is visible and usable by default when controller support is enabled.
+- Button remapping (2026-10-18) changes neither `keymap.2da` nor the keyboard's
+  bindings: it translates the pad's buttons inside the module, in the world only
+  ([`controller-layout.md`](controller-layout.md), "Button remapping").

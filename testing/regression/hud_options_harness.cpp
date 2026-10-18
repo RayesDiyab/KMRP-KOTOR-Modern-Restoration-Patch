@@ -1,6 +1,7 @@
 // The HUD Size page's rules (src/controller-native/K1HudOptionsPolicy.h), no game.
 #include "../../src/controller-native/K1HudOptionsPolicy.h"
 #include "../../src/controller-native/K1PcHudLayout.h"
+#include "../../src/controller-native/K1SliderGrip.h"
 #include <cassert>
 #include <cmath>
 #include <cstdlib>
@@ -65,6 +66,25 @@ int main() {
     const Rect mapped = p.Map({3440 - 597, 0, 597, 64});
     assert(mapped.left + mapped.width == 960 && mapped.top == 320 && mapped.width == 149);
     std::cout << "PASS: HUD Size range, linking by style, corner scaling and preview fit\n";
+
+    // A slider dragged by the mouse (K1SliderGrip.h): the ends at the ends, every step
+    // reachable, and the thumb drawn for a value (as the engine lays it out, 0x00418F20)
+    // giving that value back, for every travel at least twice the steps.
+    for (const int steps : {75, 100, 10}) {
+        for (int travel = 2 * steps; travel <= 3000; travel += 7) {
+            assert(KmrpSliderK1::DragValue(0, travel, steps) == 0 && KmrpSliderK1::DragValue(-40, travel, steps) == 0);
+            assert(KmrpSliderK1::DragValue(travel, travel, steps) == steps);
+            assert(KmrpSliderK1::DragValue(travel + 40, travel, steps) == steps);
+            int last = 0;
+            for (int at = 0; at <= travel; ++at) {
+                const int v = KmrpSliderK1::DragValue(at, travel, steps);
+                assert(v == last || v == last + 1);
+                last = v;
+            }
+            for (int v = 0; v <= steps; ++v) assert(KmrpSliderK1::DragValue(travel * v / steps, travel, steps) == v);
+        }
+    }
+    std::cout << "PASS: a dragged slider reaches both ends and every step where its thumb is drawn\n";
 
     // The mouse and keyboard HUD placed from KMRP's table (K1PcHudLayout.h).
     using namespace KmrpPcHud;

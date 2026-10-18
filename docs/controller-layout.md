@@ -22,6 +22,11 @@ focus and closes like any other panel. Until 2026-09-21 the entry sat on the
 Mouse screen instead, which Options does not list, so it was two screens deep
 where nobody found it.
 
+**Since 2026-10-18 the screen is also where the pad's buttons are remapped**
+(uncommitted when written). It opens as a view of the layout, and a Remap button
+makes it editable. Everything about that is in [Button remapping](#button-remapping)
+at the end of this document, including what has and has not been run.
+
 ### The screen
 
 A controller diagram fills the middle of a 760x380 design-unit board, with
@@ -153,6 +158,12 @@ and were wrong for the shipping path — View read "Menu-specific action" and LB
 Plain ASCII, because the menu face has 95 printable-ASCII glyphs and nothing
 else.
 
+**Since 2026-10-18** the ten remappable rows do not show these captions while the
+screen is open: each row's text is set at run time to the action now on that
+button, with what stays with the button beside it in grey (B's row reads "Release
+bar / Back" on the default layout). The file's captions are unchanged and are what
+the screen starts from. See [Button remapping](#button-remapping).
+
 **Correction, 2026-09-20.** The first build of this screen shipped nothing a
 player could read. PyKotor's `get_struct()` returns a *copy* holding its own
 field dictionary, so the authoring tool's extents, captions, fonts and fills
@@ -191,6 +202,14 @@ loads `kmrplayout.gui`, binds 47 controls, makes Back active, and adds the panel
 as a modal. B and Back mark it for normal manager removal on the next update.
 The parent Gameplay panel and its focused control are remembered and restored.
 
+*Changed 2026-10-18:* the update now also makes the remap screen's 55 controls
+from the file's own, before the file is let go, and does not open the screen if
+any of them cannot be made. It no longer makes Back active: the screen opens with
+no control focused (`SetActiveControl(panel, null)`), because it opens as a view
+in which nothing is a place for the pad's focus, and Back is kept off the pad's
+focus altogether (B presses it). The arm rule above still guards Back and every
+button the remap screen adds. See [Button remapping](#button-remapping).
+
 The custom scalar deleting destructor performs explicit ownership cleanup:
 
 1. Clear the active control.
@@ -228,6 +247,15 @@ panels, controls and callbacks. Useful events are:
 | `open-ignored-after-close` | The entry was activated by the press that closed the screen, and ignored |
 | `destroy-begin` / `destroy-end` | Explicit control and panel cleanup completed |
 | `bind-failed` | A required resource tag was absent or collided; the screen did not open |
+| `remap-enter` | Remap pressed: the rows became editable (since 2026-10-18, as are the rows below) |
+| `remap-listen` | A row asked for its new button: the prompt opened |
+| `remap-assigned` | A button was chosen for the row |
+| `remap-saved` | Save wrote the layout to `kmrp-controller.ini` |
+| `remap-unsaved` | Close was pressed with changes not saved: the Unsaved Changes box opened |
+| `remap-exit` | Back to the view, by Close with nothing unsaved or by Discard |
+
+The `opened` line counts the file's 47 controls and, since 2026-10-18, the 55 the
+remap screen makes; all of them are freed by the same destructor.
 
 `controls` and `freed` also count the A label bound into each confirmation box
 (see `updateConfirmBadges`), which lives as long as that box does -- usually
@@ -273,3 +301,443 @@ installed candidate and keep the lifecycle log after the run.
 
 Physical-family switching is conditional on having two independently visible
 devices. A single controller cannot validate that row of the matrix.
+
+*Since 2026-10-18* step 4 cannot be done as written: Back is no longer a place for
+the pad's focus, so the pad closes the screen with B only (and the mouse still
+clicks Back). The remapping checks are in
+[`controller-playtest-checklist.md`](controller-playtest-checklist.md), section 9.
+
+## Button remapping
+
+**Kind: reference.** Written on 2026-10-18 from that day's source, which was not
+yet committed: `src/controller-native/K1ButtonRemapPolicy.h` (the rules),
+`K1ButtonRemap.h` and `K1ButtonRemap.cpp` (the settings and the translation),
+`K1ControllerLayout.cpp` (the screen), `K1NativeJoystick.cpp` (the pad, the focus
+and the HUD cues), `K1XboxHud.cpp` (the pause notice) and
+`tools/build_controller_layout.py` (the textures). The rules are the maintainer's,
+decided on 2026-10-18 from mockups he approved. **Nothing has been run with a pad**:
+what was seen, and how, is under [Tested and not tested](#tested-and-not-tested)
+below.
+
+### The build and the address convention
+
+Engine addresses are preferred-image **VA** in the clean editable CD 1.03
+executable, 4,042,752 bytes, SHA-256
+`761F9466F456A83909036BAEBB5C43167D722387BE66E54617BA20A8C49E9886`
+(`build-inputs\swkotornopatch.exe`, hashed on 2026-10-18). Every address is in the
+original image, so **FILE = VA - 0x400000**; the appended-section rule
+(FILE = VA - 0x492000) does not apply.
+
+Remapping writes no executable byte and adds no hook. The controller patch still has
+38 (neither `src/controller-native/kotor1.hooks.toml` nor
+`tools/build_controller_kpatch.py` is changed by it). It runs from hooks the patch
+already had:
+
+| Part | Runs from |
+| --- | --- |
+| The screen | `ControllerLayoutFrameK1`, called from `NativeGuiFrameK1` at `0x0040CE70` |
+| The translation of the pad's buttons | `FillNativeJoystickBufferK1`, called from `NativeJoystickBufferK1` at `0x005E30F6` |
+| The HUD's Y and X cues | `UpdateGuiCuesK1`, called from `NativeGuiFrameK1` |
+| The pause notice's button | `PlacePause`, from `KmrpXboxHudK1` at `0x0068AB10` and `KmrpXboxHudPauseReasonDoneK1` at `0x006C02A4` |
+
+### What can be remapped
+
+Ten actions on ten buttons. An action is named by its default button, which is also
+the name the rest of the controller code knows it by, so a remap is a translation of
+the pad's buttons into the default ones and nothing downstream changes
+(`K1ButtonRemapPolicy.h`). Read from `kActionNames`, `kFixedAfter` and
+`kFixedBefore` in `K1ControllerLayout.cpp`, `ActionKeys` and `LayoutRow` in
+`K1ButtonRemapPolicy.h`, and `LAYOUT` in `tools/build_controller_layout.py`:
+
+| Action, as the row shows it | Key in `[Controller Remap]` | Default button | Its row (`GLYPH_nn`, `TEXT_nn`) | What stays with the button, in grey |
+| --- | --- | --- | --- | --- |
+| Interact | `Interact` | A | 11 | "/ Select" after it |
+| Release bar | `ReleaseBar` | B | 10 | "/ Back" after it |
+| Disengage | `Disengage` | X | 09 | "/ Menu action" after it |
+| Undo action | `UndoAction` | Y | 08 | "/ Menu action" after it |
+| Previous target | `PreviousTarget` | LB | 01 | nothing |
+| Next target | `NextTarget` | RB | 06 | nothing |
+| Switch ally | `SwitchAlly` | LT | 00 | "/ Prev tab" after it |
+| Pause | `Pause` | RT | 05 | "/ Next tab" after it |
+| Flourish | `Flourish` | L3, the left stick's click | 03, the left stick's row | "Move / Click:" before it |
+| Free look | `FreeLook` | R3, the right stick's click | 12, the right stick's row | "Camera / Click:" before it |
+
+The grey part is what the button keeps whatever action it carries: its meaning in
+menus, which keep every button where it is, or its stick's movement.
+
+**Fixed**, shown grey with a padlock and never a place for the focus: moving (the
+left stick), the camera (the right stick), the D-pad (the action bar and
+navigation; row 04), Start (row 07) and Back, the View button (row 02). The two
+sticks' rows are remappable for the click only, so their padlock stands at the row's
+outer end for the movement.
+
+`Test-ButtonRemap.py` checks that each `LayoutRow` entry names the row `LAYOUT`
+gives that button (a stick click is its stick's row).
+
+### The rules
+
+**No swapping.** Giving a button to an action takes it from the action that had it,
+and that action is left without a button until it is given one. **Rows are
+buttons:** each row's line on the drawing points at one button, so a row always shows
+the action on its button, and an action given another button moves to that button's
+row. The action left without a button waits, in orange with an orange "?" where its
+glyph was, in the row the moving action left. There are as many actions as buttons,
+so every free button always has exactly one action waiting in its row. **Save** works
+only when no action waits; until then it is grey and the help line, in orange, names
+the action with no button.
+
+A worked example, the harness's first (`button_remap_harness.cpp`). On the default
+layout, A on Undo action's row (Y) and then RB:
+
+| Row (button) | Shows | State |
+| --- | --- | --- |
+| RB | Undo action | moved here, with a dot (the button carries an action not its own) |
+| Y | Next target | waiting: orange, `kmrrmask` in place of the Y glyph |
+| help line | `Next target has no button.   Every action needs one before you can save.` | orange; Save grey |
+
+Then A on Y's row and Y: Next target is on Y, nothing waits, Save works. The two
+actions have traded buttons, in two steps. The harness also runs every sequence of
+three assignments over the ten rows and ten buttons (1,000 sequences) and checks
+that the waiting rows always equal the free buttons, and that the layout is complete
+exactly when none waits.
+
+Why rows are buttons rather than actions: so the drawing, whose lines are fixed in
+its texture, never contradicts itself (the reason given in `K1ButtonRemapPolicy.h`).
+No swapping is the maintainer's decision; the source records the decision, not a
+reason for it.
+
+### The screen, state by state
+
+The screen's own buttons are pressed with pad buttons, by position, as every menu
+has them; they are never a place for the pad's focus (`KmrpPadFocusExcludeK1`,
+below). A pad glyph beside a button shows only while a pad is the device in use.
+
+| State | Footer | The pad | Mouse and keyboard |
+| --- | --- | --- | --- |
+| **View**, as the screen opens | (X) Remap, (B) Back; the help line | X: Remap. B leaves the screen. A and Y do nothing. Nothing can be focused | Remap and Back can be clicked; a row ignores a click; Escape leaves the screen |
+| **Remapping** | (Y) Default, (X) Save, (B) Close; "(A) Change button" between the hairline and the buttons, pad only | the D-pad moves between the ten rows; A asks for the focused row's button; Y puts the default layout back (not saved); X saves when every action has a button; B is Close | click a row to ask for its button; Default, Save and Close can be clicked; Escape is Close |
+| **Waiting for a button** | hidden; the prompt in its place | the first remappable button pressed after the prompt opened is the row's new button; Back cancels; every menu event is swallowed | the prompt's Cancel button or Escape cancels; the keyboard cannot choose a button |
+| **Unsaved Changes** | hidden under a dimmed screen | A: Discard. B: Cancel | Discard and Cancel can be clicked; Escape is Cancel |
+
+Remap focuses the row the focus was last on, LT's row the first time after the
+screen opens. Close with
+nothing unsaved, and Discard, put the saved layout back in the editor, return to the
+view and clear the focus. Cancel in the Unsaved Changes box returns to remapping with
+the changes kept.
+
+**The help line.** With every action on a button: `A dot marks a changed button.   A
+lock stays as it is: moving, the camera, the D-pad, Start and Back.`, in the
+captions' colour; with one waiting: the orange line of the example above.
+
+**Colours.** An action's caption is the file's caption colour, yellow
+(236, 226, 38) on the focused row, orange (245, 140, 30) while it waits; the grey
+parts and the fixed rows are (150, 150, 155). The dot is drawn outside the row's
+frame at its outer end, beside a row whose button carries an action other than its
+own; a saved remap therefore shows its dots in the view as well.
+
+**The prompt while a button is awaited** stands in the help line's and the footer's
+place, as wide as the three footer buttons: the title `Press the new button for
+<action>`, the line `If another action has that button, it is left without one`, and
+a Cancel button carrying the View button's glyph (`kmr?lyt02`). Its box is made from
+the screen's Back button, filled black and never selectable, so it keeps that
+button's blue border; yellow is kept for the focused row. While it is up, every other
+row is faded: captions at 40% of their colour, grey parts at 50%, glyphs at 35%
+opacity.
+
+How the button is read: the screen reads the pad itself, every GUI frame, from the
+word `K1NativeJoystick.cpp` keeps before translation (`g_padPhysicalButtons`, read
+through `KmrpPadButtonsK1`), because menus send no event for LB, RB or a stick's
+click, and every one of them may be chosen. Buttons already held as the prompt opens
+do not count. Back cancels there because it can never be chosen. The pad's B arrives
+as the menu's B event (`0x28`) as well as in that word; the screen tells it from the
+keyboard's Escape, which is the same event, by whether the pad's B is down. **Read
+from the code, not run:** Start sends B's event over a menu (the comment on
+`handleBack`), so Start would cancel the wait too.
+
+**The Unsaved Changes box:** the screen dimmed (a copy of `LBL_DIAGRAM` filled black
+at 0.7), a box in the middle with the title `Unsaved Changes`, the lines `You have not
+saved your new controller layout.` and `Discard your changes?`, and (A) Discard and
+(B) Cancel.
+
+**One press, one effect.** After Remap, after Close or Discard, and after a button is
+chosen or the wait cancelled, the screen ignores every event until every pad button,
+Start and Back included, is up and confirm is released (`settle`). B is acted on once
+per frame, because the panel's own B handler and its input routine can both be told
+of one press (`handleBack`).
+
+### What the screen adds at run time
+
+Nothing is added to `kmrplayout.gui`. Every control is made as the screen opens, from
+one of the file's own controls by its tag, and placed from the file's rectangles read
+at that moment, so it follows the file at every resolution and the file stays as
+KMRP's sets have it (`buildRemap`, `layoutRemap`):
+
+| Controls | Count | Made from | What |
+| --- | ---: | --- | --- |
+| Row frames | 10 | `BTN_BACK` | a button with its border images cleared and no text, round the glyph and the caption, a sixth of the glyph's height clear; the focus draws the game's highlight on it; its A runs `rowPressed` |
+| Grey captions | 10 | `TEXT_05` | what stays with the button |
+| Dots | 10 | `GLYPH_BACK` | `kmrrmdot`, 3/10 of the glyph's height |
+| Padlocks | 5 | `GLYPH_BACK` | `kmrrmlock`: moving, the camera, the D-pad, Back, Start |
+| Footer | 6 | `GLYPH_BACK`, `TEXT_05`, `BTN_BACK` | the "(A) Change button" hint's glyph and text; Default and its glyph; Save (Remap in the view) and its glyph |
+| The prompt | 5 | `BTN_BACK`, `LBL_TITLE`, `LBL_HELP`, `GLYPH_BACK`, `BTN_BACK` | box, title, line, Cancel's glyph, Cancel |
+| Unsaved Changes | 9 | `LBL_DIAGRAM`, `BTN_BACK`, `LBL_TITLE`, `LBL_HELP` twice, `BTN_BACK` and `GLYPH_BACK` twice | dim, box, title, two lines, Discard and Cancel with their glyphs |
+| **Total** | **55** | | with the file's 47, 102 controls; `owned[]` holds 192 (`kOwnedSlots`, checked by a `static_assert`) |
+
+The file's own Back button is relabelled Back in the view and Close while remapping,
+and placed in the footer row with the others (Back and Remap as a centred pair in the
+view; Default, Save and Close three across while remapping; centres 1.4 times
+Back's width apart).
+
+**How a control is added** (`bindAppend`). The file's control array has no free slot,
+so a control is constructed, loaded from the tag's struct with the bind's store
+switched off, given the next ID and appended:
+
+1. `operator new` (`0x006FA7E6`), 0x1C4 bytes for a button or 0x140 for a label; the
+   button or label constructor; the ID at `+0x50` set to -1.
+2. `CSWGuiPanel::InitControl` (`0x0040B930`) with its last argument 0: the control is
+   loaded and stored in no array (the store rule is in
+   [custom-gui-controls.md](../reverse-engineering/custom-gui-controls.md)).
+3. The ID set to the panel's count (`+0x24`), then `CSWGuiPanel::AddControl`
+   (`0x0040B9A0`) appends it.
+4. Read back: the count must have grown by one and the array (`+0x20`) must hold the
+   control at that ID. Otherwise the control is destroyed, `bind-failed` is logged,
+   and the screen does not open.
+
+### Textures
+
+Made by `build_art` in `tools/build_controller_layout.py`, which KMRP's resource
+build and the controller patch's both run:
+
+| Resref | Count | Drawn by | Used for |
+| --- | ---: | --- | --- |
+| `kmr?rm<code>`, `?` the family (`p` Xbox, `s` PlayStation, `n` Switch, `d` Steam Deck), `<code>` one of `a b x y lb rb lt rt l3 r3` | 40, ten per family | `REMAP_GLYPHS` through `build_square_glyph_tga`, the function that draws every other cue; a stick's click is the pack's click drawing | the footer's and the boxes' pad glyphs; the HUD's Y and X cues; the pause notice when Pause is not on RT |
+| `kmrrmask` | 1 | `_remap_marks`: an orange ring on the screen's navy with an orange "?" in `KOTOR_UI_Open.ttf` | a waiting row's glyph |
+| `kmrrmlock` | 1 | `_remap_marks`: a grey (150, 156, 168) padlock | the fixed controls |
+| `kmrrmdot` | 1 | `_remap_marks`: a yellow (236, 226, 38) disc | a changed button |
+
+The three marks are one picture for every family. **Counted and compared on
+2026-10-18** in `build\controller-standalone\files` as built at 19:10 that day: all
+43 present, each 65,580 bytes (a 128x128 32-bit TGA). With `cmp`:
+
+| Compared | Equal |
+| --- | --- |
+| `kmr?rmy`, `kmr?rmx`, `kmr?rmb` with the combat cues' own `kmr?y_cmbt`, `kmr?x_cmbt`, `kmr?b_cmbt`, four families | 12 of 12, so on the default layout the HUD's cues are the same pictures as before |
+| `kmr?rm<code>` with the screen's row glyph `kmr?lyt<row>` for the same button, four families | 32 of 40; the 8 that differ are L3 and R3 in every family, where the row shows the bare stick and the remap glyph the stick's click |
+
+### Engine functions it calls
+
+Entry bytes read from the executable above and the first `ret` found disassembling
+from the entry with Capstone, on 2026-10-18. Names are from the code's comments and
+the documents that already list these routines. **Corroboration:**
+[ingame-text-options.md](ingame-text-options.md) gives the same entry bytes for
+`0x0040B9A0`, `0x0041AB20` and `0x0040A630`.
+
+| VA | FILE | Entry bytes | Ends | Routine | Use here | New to this file |
+| --- | --- | --- | --- | --- | --- | --- |
+| `0x006FA7E6` | `0x2FA7E6` | `6A 01 FF 74 24 08` | `ret` | `operator new` | every added control | no |
+| `0x0041C0F0` | `0x01C0F0` | `6A FF 68 31 53 71 00` | `ret` | `CSWGuiButton` constructor | frames, boxes, footer buttons | no |
+| `0x0041ACD0` | `0x01ACD0` | `6A FF 68 63 51 71 00` | `ret` | `CSWGuiLabel` constructor | captions, glyphs, marks | no |
+| `0x005E5A90` | `0x1E5A90` | `56 57 8B 7C 24 0C` | `ret 4` | `CExoString` from text | tags and texts | no |
+| `0x005E5C20` | `0x1E5C20` | `56 8B F1 8B 06` | `ret` | `CExoString` destructor | the same | no |
+| `0x0040B930` | `0x00B930` | `8B 44 24 08 55` | `ret 0xC` | `CSWGuiPanel::InitControl` | load by tag, last argument 0 | no (called with 1 before) |
+| `0x0040B9A0` | `0x00B9A0` | `53 8B 5C 24 08 56` | `ret 4` | `CSWGuiPanel::AddControl` | append to the panel | **yes** |
+| `0x00415E00` | `0x015E00` | `8B 44 24 04 56 50` | `ret 4` | the GUI text setter | text params at `+0xE8` (label) or `+0x16C` (button) | **yes** |
+| `0x00414E10` | `0x014E10` | `8B 54 24 04 56 57` | `ret 4` | `CSWGuiTextParams::SetColor` | caption colours, Save's text | **yes** |
+| `0x00414AE0` | `0x014AE0` | `83 EC 14 53 8B 5C 24 1C` | `ret 8` | `CSWGuiBorderParams::SetCornerImage` | cleared on the row frames | **yes** |
+| `0x00414B70` | `0x014B70` | `83 EC 14 53 8B 5C 24 1C` | `ret 8` | `CSWGuiBorderParams::SetEdgeImage` | the same | **yes** |
+| `0x00414C00` | `0x014C00` | `83 EC 14 53 8B 5C 24 1C` | `ret 8` | `CSWGuiBorderParams::SetFillImage` | every glyph, mark and box fill | no |
+| `0x0041AB20` | `0x01AB20` | `53 56 8B 71 3C` | `ret 0xC` | add an event callback | A (`0x27`) on each row frame and button | no |
+| `0x0040A630` | `0x00A630` | `56 8B 74 24 08` | `ret 8` | `CSWGuiPanel::SetActiveControl` | focus a row; null on opening and on Close | no |
+
+Each `ret N` agrees with the arguments the code passes: the methods are
+`__thiscall`, so N is four bytes per stack argument, and `operator new` is
+`__cdecl`, so its caller removes the argument. Fields the code reads and writes, from the code; the last
+three meanings are taken from what the code does with them and, for the opacity, from
+the faded rows seen on screen:
+
+| Where | What |
+| --- | --- |
+| control `+0x44`, bit 8 | selectable: set on the row frames only while remapping; never on the two boxes |
+| control `+0x50` | the control's ID |
+| panel `+0x1C` | the focused control, read every frame |
+| panel `+0x20`, `+0x24` | the control array and its count |
+| label `+0x70` | its border params: fill resref at `+0x40`; the float at `+0x0C` written 1.0, 0.7 or 0.35 as opacity |
+| label `+0xE8` | its text params: colour, three floats, at `+0x1C` |
+| button `+0x80` | its normal border params: colour, three floats, at `+0x10`, set grey on Save while it cannot save |
+
+### Keeping the screen's buttons off the pad's focus
+
+`KmrpPadFocusExcludeK1(control, excluded)` in `K1NativeJoystick.cpp` keeps a list of
+up to 16 controls that `ControlIsNavigableK1` refuses, so the D-pad never lands on
+them while the mouse still clicks them. The screen registers six as it opens (Back,
+Default, Save, Discard, Cancel and the prompt's Cancel) and takes them back as it
+closes (`forgetRemap`), so no address outlives its control. The selectable bit was
+not used for this because a control that cannot be selected cannot be clicked either
+(the comment on `g_padFocusExcluded`).
+
+### In play: the translation
+
+In `FillNativeJoystickBufferK1`, right after the pad is read and before any event is
+made from it, the pad's button word goes through `KmrpRemapButtonsK1`. Everything
+after it (the engine's slots, the HUD's activate and release, the combat buttons,
+the stick clicks) sees each button as the default button of the action it carries.
+
+| | |
+| --- | --- |
+| The word | XInput's button bits; LT and RT folded into the two bits XInput leaves unused, `0x0400` and `0x0800`, while pulled past 60 of 255 (`K1_TRIGGER_THRESHOLD`) |
+| Remappable bits | A `0x1000`, B `0x2000`, X `0x4000`, Y `0x8000`, LB `0x0100`, RB `0x0200`, LT `0x0400`, RT `0x0800`, L3 `0x0040`, R3 `0x0080` |
+| Passed through untouched | the D-pad (`0x0001` to `0x0008`), Start `0x0010`, Back `0x0020` |
+| In the world | the input class at `CClientExoAppInternal + 0x9C` is 0 (`ICPC`) or 4 (`ICFreeLook`): each pressed button becomes the default button of its action |
+| Everywhere else | menus (class 2), conversations (3), minigames (1) and movies (5): every button is itself |
+| One press, one meaning | decided when the button goes down and kept until it is released, so a press that opens or closes a menu releases the button it pressed |
+| Triggers after | only when the word changed: given back as 255 if their bit is set, else 0, which is all the function reads of them |
+| An incomplete layout | never used: every button stays itself (the saved layout is always complete anyway) |
+
+Example, checked by the harness: with Undo action on RB and Next target on Y, RB in
+the world is Y's event (Undo action), Y in the world is RB's (Next target), RB in a
+menu is RB; RB pressed in the world and still held as a menu opens stays Y until it
+is released, and the next RB in the menu is RB.
+
+### The HUD's cues follow the remap
+
+`ShowActionCueK1` fills a cue with `kmr?rm<code>` for the button its action is on,
+read from the saved layout (`KmrpRemapGlyphK1`), so a cue changes after Save, not
+while the layout is being edited:
+
+| Cue | Names the button of | Before 2026-10-18 |
+| --- | --- | --- |
+| `LBL_KMRPY`, beside `BTN_CLEARONE` | Undo action | the family's `kmr?y_cmbt` |
+| `LBL_KMRPX`, beside `BTN_CLEARALL` | Disengage | the family's `kmr?x_cmbt` |
+| `LBL_KMRPX` with the Xbox-style HUD (controller patch only), in the combat-mode message | Release bar, the Xbox game's "[B] to disengage" | `kmrpb_cmbt` (`kDisengageFill` in `K1XboxHudLayout.inc`), set by `K1XboxHud.cpp` and given the family's letter by `MatchCueFamilyK1`; `K1XboxHud.cpp` no longer sets it |
+| the pause notice's button (Xbox-style HUD) | Pause | unchanged while Pause is on RT: `kmr?rt_pause`, the lighter trigger drawn for that line; otherwise `kmr?rm<code>` |
+
+The other cues (the tab strip's LT and RT, the party cue, the swap-tabs cue) are in
+menus, where buttons do not move, and keep their own art (`MatchCueFamilyK1`).
+
+### The settings file
+
+`kmrp-controller.ini` in the game executable's folder (from
+`GetModuleFileNameA(NULL)`), section `[Controller Remap]`, one key per action, the
+value its button. The default layout, as Save writes it:
+
+```ini
+[Controller Remap]
+Interact=A
+ReleaseBar=B
+Disengage=X
+UndoAction=Y
+PreviousTarget=LB
+NextTarget=RB
+SwitchAlly=LT
+Pause=RT
+Flourish=L3
+FreeLook=R3
+```
+
+It lives there and not in `configs\` because the controller patch works without KMRP,
+as `Style` under `[Hud]` does (the comment at the top of `K1ButtonRemap.cpp`).
+
+- **Read** once, the first time anything asks for the layout. A missing key is its
+  action's default button. Names are compared without case. A value that names no
+  button, or two actions on one button, makes the layout incomplete, and an
+  incomplete layout is not used at all: the default is, and the screen opens on it.
+- **Written** by Save only, all ten keys, with `WritePrivateProfileStringA`, which
+  also makes the file if it is missing. The module takes the new layout only when all
+  ten writes succeed.
+- KMRP's installer writes this file only when it is absent and never overwrites it.
+  By the rule that Restore Original leaves alone a file changed since it was
+  installed ([features-technical.md](features-technical.md), "Restore Original"), a
+  saved layout should survive a restore. **Not tried.**
+
+### Limits
+
+Read from the code on 2026-10-18; none of these has been run.
+
+- **The pause notice with Pause moved off RT: found and fixed the same day.**
+  `PauseCarriesOurs` in `K1XboxHud.cpp` recognised this file's pause box only by the
+  button's fill being `kmr?rt_pause`. With Pause on another button the fill is
+  `kmr?rm<code>`, so the box would not have been recognised as this file's:
+  `PauseNotice` would have taken the box's own, already moved, rectangles as the
+  layout's each frame; `RestorePauseNotice` would have left the Xbox layout and the
+  picture in the PC's box when the mouse or keyboard is used while paused; and
+  `KmrpXboxHudPauseReasonK1` would not have taken the picture off before the game lays
+  the box out again. Found while writing this section, from the code. It now
+  recognises `kmr?rt_pause` and `kmr?rm<code>` for every remappable button, not only
+  the one Pause is on now, since a layout saved while the box is up leaves the old
+  picture in it until `PauseNotice` sets the new one. Built; **not run** (it needs a
+  pad and a remapped Pause).
+- **A hand edit is seen at the next start**, unlike `[Rumble]`, which is read again
+  while playing: the layout is read once.
+- **A Save that fails part way** leaves the keys before the failure written. The file
+  may then read as incomplete at the next start and give the default layout.
+- **The keyboard and mouse cannot choose a button**: the prompt waits for the pad.
+  They can open it, cancel it and use every other part of the screen.
+- **The view with a pad** offers nothing to focus, so the D-pad there does nothing.
+  That is the design (only X and B act), not seen.
+
+### What is deliberately not changed
+
+- Menus, conversations, minigames and movies: every button stays where it is, since
+  only the world is translated.
+- The sticks' movement, the D-pad, Start and Back: not remappable.
+- `kmrplayout.gui`: no control added; its captions are what the screen starts from.
+- `keymap.2da`, the keyboard's bindings and the executable: the remap is a
+  translation inside the module, after the pad is read.
+- The hook list: 38 hooks, as before.
+
+### Tested and not tested
+
+**Seen on 2026-10-18**, in the test game at 3440x1440 and 1920x1080, driven with
+mouse and keyboard by scripted input and checked in ddagrab screenshots:
+
+| What | Result |
+| --- | --- |
+| The screen opens | as the view, with Remap and Back; a click on a row does nothing |
+| Remap | the footer becomes Default, Save and Close |
+| A click on a row | the prompt opens, the other rows faded |
+| Escape | cancels the prompt, then closes remapping, then leaves the screen |
+| The prompt's Cancel button | cancels |
+| Close with nothing changed | back to the view |
+| Close with a change | the Unsaved Changes box |
+| Discard | back to the view, showing the saved layout with its dots |
+| Save | writes `kmrp-controller.ini` |
+
+`python testing\regression\Test-ButtonRemap.py` passes: it compiles and runs
+`button_remap_harness.cpp` (assignment, completeness, the editor's rows, the
+translation in and out of the world and per press, the settings names) and checks
+the header's row and glyph tables against `tools/build_controller_layout.py`. Run
+again on 2026-10-18 while this section was written: it printed its PASS line and both
+table checks.
+
+**Not tested: anything with a pad.** The machine has no virtual pad (ViGEmBus is not
+installed), so none of these has run: the D-pad on the rows; A on a row and then a
+new button, including LB, RB, the triggers and the stick clicks; X, Y and B on the
+screen; Back cancelling the prompt; A and B in the Unsaved Changes box; the pad's
+glyphs on the screen; the translation in play; the HUD's Y and X cues and the pause
+notice following a saved remap; the other families' art; and a saved layout surviving
+Restore Original. They are rows of
+[`controller-playtest-checklist.md`](controller-playtest-checklist.md), section 9.
+
+### Verifying by hand
+
+```powershell
+# the rules, and the tables the header shares with the tools
+python testing\regression\Test-ButtonRemap.py
+```
+
+Then, after building the controller patch
+(`src\controller-native\build_controller_standalone.cmd`):
+
+1. Count the textures: `build\controller-standalone\files` must hold the 40
+   `kmr?rm*.tga` and the three `kmrrm*.tga`, and `cmp` must find each `kmr?rm{y,x,b}`
+   equal to `kmr?{y,x,b}_cmbt`. A count of zero means the build did not run
+   `build_art`, not that the names are wrong: check one name by hand first.
+2. Read the entry bytes and `ret` of the routines above from the clean executable
+   at FILE = VA - 0x400000.
+3. In a scratch game with `debug-logs` on and a pad, open the screen, Remap, change
+   a button, Save, and leave. `kmrp-layout-lifecycle.log` should show `remap-enter`,
+   `remap-listen`, `remap-assigned`, `remap-saved` and `remap-exit` in that order, no
+   `bind-failed`, and `created == destroyed`; `kmrp-controller.ini` should have
+   `[Controller Remap]` with ten keys, no two with the same value.
+4. Put a duplicate value into `[Controller Remap]` by hand and start the game: the
+   screen must open on the default layout.

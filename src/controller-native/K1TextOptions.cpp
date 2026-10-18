@@ -4,6 +4,7 @@
 #include "K1TextOptionsPolicy.h"
 #include "K1RuntimeAssets.h"
 #include "K1RuntimeLayout.h"
+#include "K1SliderGrip.h"
 #include <windows.h>
 #include <algorithm>
 #include <cstdint>
@@ -276,6 +277,9 @@ void MakeScreen(void* manager,void* owner) {
     for(int i=0;i<TextGroupCount;++i) {
         sizeLabels[i]=Bind(p,"LBL_GAMMA",0x140,0x41ACD0);
         sliders[i]=Bind(p,"SLI_GAMMA",0x1B8,0x41BAA0);
+#ifndef KMRP_TEXT_OPTIONS_TEST   // the harness's sliders have no engine table to copy
+        KmrpSliderTakeMouseK1(sliders[i]);   // dragged to the end is the maximum (K1SliderGrip.h)
+#endif
     }
     linkSizes=Bind(p,"CB_SHADOWS",0x2B4,0x6E00D0);
     if(linkSizes)At<int>(linkSizes,0x1C4)=-1;

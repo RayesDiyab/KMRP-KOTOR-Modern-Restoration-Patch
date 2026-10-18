@@ -53,6 +53,7 @@
 
 #include "KmrpOptions.h"
 #include "K1HudOptionsPolicy.h"
+#include "K1ButtonRemap.h"
 #include <array>
 
 // K1XboxControls.cpp: which of the seven slots has the focus (0-2 the target's,
@@ -801,7 +802,6 @@ struct Layout {
     Kept kept[kPieceCount]{};
     int descriptionBottom = 0, mapWindow[4]{}, menu[8]{};
     Extent queueCue{};
-    char cueFill[16]{};
     bool cues = false;
     int bubble[3]{};
     bool bubbleKept = false;
@@ -1063,14 +1063,12 @@ void ApplyXbox(void* hud, int width, int height)
     if (!g_layout.cues) {
         g_layout.cues = true;
         if (queueCue) g_layout.queueCue = At<Extent>(queueCue, kControlExtent);
-        if (messageCue) std::memcpy(g_layout.cueFill, &At<char>(messageCue, kLabelBorderParams + kParamsFill), 16);
     }
     if (queueCue)
         SetExtent(queueCue, Sized(KmrpHudOptions::XboxDisengage,
                                   {width / 2 - Scale(kLayoutWidth / 2 - kQueueCue[0], height),
                                    height - Scale(kLayoutHeight - kQueueCue[1] - kOutY, height),
                                    Scale(kQueueCue[2], height), Scale(kQueueCue[3], height)}));
-    if (messageCue) SetFill(Part(messageCue, kLabelBorderParams), kDisengageFill);
     // The speech box: from just left of the target's bar, right under it.
     if (int* bubble = BarkBubble()) {
         if (!g_layout.bubbleKept) {
@@ -1194,7 +1192,6 @@ void RestorePc(void* hud, void* seen)
     std::memcpy(&At<int>(menu, kMenuOrigin), g_layout.menu, sizeof g_layout.menu);
     if (g_layout.cues) {
         if (void* cue = KmrpGuiCueK1(hud, kHudQueueButton)) SetExtent(cue, g_layout.queueCue);
-        if (void* cue = KmrpGuiCueK1(hud, kHudMessage)) SetFill(Part(cue, kLabelBorderParams), g_layout.cueFill);
     }
     if (g_layout.bubbleKept)
         if (int* bubble = BarkBubble()) std::memcpy(bubble, g_layout.bubble, sizeof g_layout.bubble);
@@ -1466,13 +1463,23 @@ bool g_pauseButtonKept[2] = {};
 float g_pauseButtonColour[2][3] = {};
 unsigned g_pauseButtonFlags[2] = {};
 
-// Whether the box carries this file's line: its button has the trigger's picture,
-// whichever family's (the fourth letter of the name).
+// Whether the box carries this file's line: its button has one of the pictures
+// PauseNotice puts there, whichever family's (the fourth letter of the name): the
+// trigger's own (kmr?rt_pause), or, with Pause remapped, the button it is on
+// (kmr?rm<code>, KmrpRemapGlyphK1). Any button, not only the one Pause is on now: a
+// layout saved while the box is up leaves the old picture in it until PauseNotice
+// sets the new one, and that box is still this file's.
 bool PauseCarriesOurs(void* pause)
 {
     char fill[17] = {};
     std::memcpy(fill, &At<char>(Part(Part(pause, kPauseButton), kButtonBorderParams), kParamsFill), 16);
-    return _strnicmp(fill, kPauseGlyph, 3) == 0 && _stricmp(fill + 4, kPauseGlyph + 4) == 0;
+    if (_strnicmp(fill, kPauseGlyph, 3) != 0 || !fill[3]) return false;
+    const char* const rest = fill + 4;
+    if (_stricmp(rest, kPauseGlyph + 4) == 0) return true;
+    if (_strnicmp(rest, "rm", 2) != 0) return false;
+    for (const char* code : KmrpRemap::GlyphCodes)
+        if (_stricmp(rest + 2, code) == 0) return true;
+    return false;
 }
 
 // The box as the game has it; true when there was something of this file's to undo.
@@ -1593,16 +1600,22 @@ void PauseNotice(void* pause, void* client)
     static char first[160] = {};                    // the words before the picture, as last set
     static const char second[] = "TO CONTINUE";
     static Extent set[4]{};                         // reason, press, button, panel, as last set
-    static char familyShown = 0;
+    static char familyShown[16] = {};               // the picture as last set
     if (g_pauseForget) {
         g_pauseForget = false;
         first[0] = 0;
-        familyShown = 0;
+        familyShown[0] = 0;
         for (Extent& one : set) one = Extent{};
     }
+    // The button that pauses: the right trigger in its lighter drawing, made for this
+    // line, or the button Pause was moved to (controller remapping, K1ButtonRemap.cpp).
     char family[16] = {};
-    std::memcpy(family, kPauseGlyph, sizeof kPauseGlyph);
-    family[3] = KmrpGlyphLetterK1();
+    if (KmrpRemapSavedK1().button[KmrpRemap::RT] == KmrpRemap::RT) {
+        std::memcpy(family, kPauseGlyph, sizeof kPauseGlyph);
+        family[3] = KmrpGlyphLetterK1();
+    } else {
+        KmrpRemapGlyphK1(KmrpRemap::RT, KmrpGlyphLetterK1(), family);
+    }
     const auto same = [](const Extent& x, const Extent& y) {
         return x.left == y.left && x.top == y.top && x.width == y.width && x.height == y.height;
     };
@@ -1611,7 +1624,7 @@ void PauseNotice(void* pause, void* client)
             same(At<Extent>(reason, kControlExtent), set[0]) && same(At<Extent>(press, kControlExtent), set[1]) &&
             same(At<Extent>(button, kControlExtent), set[2]) &&
             panelNow.width == set[3].width && panelNow.height == set[3].height &&
-            (At<int>(press, kControlFlags) & kControlVisible) != 0 && familyShown == family[3] &&
+            (At<int>(press, kControlFlags) & kControlVisible) != 0 && std::memcmp(familyShown, family, sizeof family) == 0 &&
             !g_pauseStripped)
         return;
 
@@ -1739,7 +1752,7 @@ void PauseNotice(void* pause, void* client)
         SetFill(params, family);
     }
     At<int>(button, kControlFlags) |= kControlVisible;
-    familyShown = family[3];
+    std::memcpy(familyShown, family, sizeof family);
     g_pauseStripped = false;        // the picture is on the button again, at its size
 }
 

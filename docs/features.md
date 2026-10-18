@@ -160,6 +160,18 @@ use the mouse or keyboard. You can switch between pad and mouse at any time.
 **Controller Layout screen.** Options, Gameplay has a new screen showing what every
 button does, with the pictures of your pad.
 
+**Choose your own buttons.** New, not yet in a release, and not yet tried with a
+pad. On the Controller Layout screen, Remap lets you put the face buttons, the
+bumpers, the triggers and the stick clicks on whichever of those buttons you like:
+pick an action and press its new button. Giving a button to an action takes it from
+the action that had it, which waits with an orange question mark until you give it
+another, and Save works once every action has a button. Default puts the original
+layout back, and Close asks before throwing away changes you have not saved. The
+sticks, the D-pad, Start and Back stay as they are. Your layout applies while you
+play; the menus keep every button where it always is. The button pictures on the
+HUD and in the pause notice show the buttons you chose. The layout is kept in
+`kmrp-controller.ini` beside the game.
+
 **Rumble.** Three settings: off, the original Xbox version's rumble (grenades, heavy
 footsteps, Force powers and the rumble BioWare made for the PC but never switched
 on), or an enhanced one that adds lightsabers igniting, humming and clashing,

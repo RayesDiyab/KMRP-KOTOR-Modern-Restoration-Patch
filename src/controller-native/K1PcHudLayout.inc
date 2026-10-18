@@ -8,8 +8,8 @@
 constexpr int kPcBaseWidth = 3440, kPcBaseHeight = 1440;
 constexpr PcPiece kPcPieces[] = {
     {"LBL_CMBTMSGBG", 1, kPcTopLeft, {405, 6, 1120, 50}, "", 4},
-    {"LBL_COMBATBG2", 5, kPcBottomCentre, {1584, 1258, 262, 180}, "lbl_mirightbotb", 0},
-    {"LBL_COMBATBG3", 5, kPcBottomCentre, {1584, 1258, 262, 180}, "lbl_mirightbot", 0},
+    {"LBL_COMBATBG2", 5, kPcBottomCentre, {1584, 1258, 262, 180}, "lbl_mirightbotb", 8},
+    {"LBL_COMBATBG3", 5, kPcBottomCentre, {1584, 1258, 262, 180}, "lbl_mirightbot", 8},
     {"LBL_COMBATBG1", 5, kPcBottomCentre, {1584, 1258, 262, 144}, "lbl_micomb", 8},
     {"LBL_CMBTMODEMSG", 1, kPcTopLeft, {405, 6, 1120, 50}, "dialog2", 4},
     {"LBL_BACK3", 3, kPcBottomLeft, {155, 1375, 96, 62}, "lbl_miport1", 8},

@@ -382,6 +382,51 @@ def build_diagram(family: str):
     return board
 
 
+# Controller remapping (src/controller-native/K1ButtonRemapPolicy.h). One picture per
+# remappable button, kmr?rm<code>, in the order of that header's Button
+# (Test-ButtonRemap.py checks the two agree): what a prompt in the world shows for the
+# button an action is on, and what the remap screen shows in its hints. A stick click
+# is the pack's click drawing, not the bare stick.
+REMAP_GLYPHS = (("a", "A"), ("b", "B"), ("x", "X"), ("y", "Y"), ("lb", "LB"), ("rb", "RB"),
+                ("lt", "LT"), ("rt", "RT"), ("l3", "L3"), ("r3", "R3"))
+# The remap screen's own marks, the same for every family (K1ControllerLayout.cpp):
+# the ring with a question mark in an action's row while it waits for a button, the
+# padlock on what stays fixed, and the dot beside an action moved from its default.
+REMAP_ASK, REMAP_LOCK, REMAP_DOT = "kmrrmask", "kmrrmlock", "kmrrmdot"
+ORANGE = (245, 140, 30)
+LOCK_GREY = (150, 156, 168)
+DOT_YELLOW = (236, 226, 38)
+
+
+def _remap_marks():
+    """The ring with a question mark, the padlock and the dot, 128 px, transparent."""
+    from PIL import Image, ImageDraw, ImageFont
+    size = 128
+    marks = {}
+    # The ring: an orange circle, the navy of the screen inside, a question mark.
+    ring = Image.new("RGBA", (size, size), (0, 0, 0, 0))
+    d = ImageDraw.Draw(ring)
+    d.ellipse([6, 6, size - 7, size - 7], fill=(3, 12, 28, 255), outline=ORANGE + (255,), width=9)
+    font = ImageFont.truetype(str(Path(__file__).resolve().parents[1] / "assets" / "fonts" / "KOTOR_UI_Open.ttf"), 76)
+    box = d.textbbox((0, 0), "?", font=font)
+    d.text(((size - (box[0] + box[2])) / 2, (size - (box[1] + box[3])) / 2), "?", font=font, fill=ORANGE + (255,))
+    marks[REMAP_ASK] = ring
+    # The padlock: a shackle over a rounded body.
+    lock = Image.new("RGBA", (size, size), (0, 0, 0, 0))
+    d = ImageDraw.Draw(lock)
+    d.rounded_rectangle([30, 58, 98, 116], radius=10, fill=LOCK_GREY + (255,))
+    d.arc([40, 18, 88, 78], 180, 360, fill=LOCK_GREY + (255,), width=11)
+    d.line([(45, 48), (45, 62)], fill=LOCK_GREY + (255,), width=11)
+    d.line([(83, 48), (83, 62)], fill=LOCK_GREY + (255,), width=11)
+    d.ellipse([58, 76, 70, 88], fill=(3, 12, 28, 255))
+    marks[REMAP_LOCK] = lock
+    # The dot.
+    dot = Image.new("RGBA", (size, size), (0, 0, 0, 0))
+    ImageDraw.Draw(dot).ellipse([24, 24, size - 25, size - 25], fill=DOT_YELLOW + (255,))
+    marks[REMAP_DOT] = dot
+    return marks
+
+
 def build_art(output: Path):
     """Every texture the screen uses, for every family."""
     output.mkdir(parents=True, exist_ok=True)
@@ -402,6 +447,15 @@ def build_art(output: Path):
         # The A that sits beside the focused button of a confirmation box.
         p = output / f"kmr{letter}{CONFIRM_BADGE_STEM}.tga"
         p.write_bytes(build_square_glyph_tga("A", family=family))
+        paths.append(p)
+        # Every remappable button's picture (REMAP_GLYPHS).
+        for code, glyph in REMAP_GLYPHS:
+            p = output / f"kmr{letter}rm{code}.tga"
+            p.write_bytes(build_square_glyph_tga(glyph, family=family))
+            paths.append(p)
+    for name, image in _remap_marks().items():
+        p = output / f"{name}.tga"
+        p.write_bytes(_tga(image))
         paths.append(p)
     # The backdrop and edge art do not change with the controller.
     for name, image in backdrop.build_all().items():

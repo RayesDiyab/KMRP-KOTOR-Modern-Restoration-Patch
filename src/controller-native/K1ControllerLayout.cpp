@@ -2,6 +2,8 @@
 #include "K1ControllerLayout.h"
 #include <windows.h>
 #include "KmrpOptions.h"
+#include "K1ButtonRemap.h"
+#include <algorithm>
 #include <cstdint>
 #include <cstdio>
 #include <cstring>
@@ -10,6 +12,8 @@ extern "C" char __cdecl KmrpGlyphLetterK1();
 extern "C" void __cdecl KmrpPaintLayoutEntryPromptK1(void* button, int shown);
 bool IsControllerInputActiveK1();
 bool ControllerConfirmHeldK1();
+std::uint16_t KmrpPadButtonsK1();     // the pad's buttons as pressed (K1NativeJoystick.cpp)
+void KmrpPadFocusExcludeK1(void* control, bool excluded);   // off the pad's focus (K1NativeJoystick.cpp)
 
 namespace {
 // Rows on the Controller Layout screen: GLYPH_nn and TEXT_nn each. Must equal
@@ -26,7 +30,10 @@ constexpr int K1_LAYOUT_DECOR = 10;
 // ID moves. Its fill and visibility follow the pad in refresh().
 constexpr int K1_LAYOUT_BACK_GLYPH = K1_LAYOUT_FIXED + 2 * K1_LAYOUT_ROWS + K1_LAYOUT_DECOR;
 constexpr int K1_LAYOUT_CONTROLS = K1_LAYOUT_BACK_GLYPH + 1;
-static_assert(K1_LAYOUT_CONTROLS <= 64, "owned[] holds 64 controls");
+// The file's controls, then the remap screen's own (bindAppend): 10 rows of a frame, a
+// grey caption and a dot, five padlocks, the footer's six and the two prompts' fourteen.
+constexpr unsigned kOwnedSlots = 192;
+static_assert(K1_LAYOUT_CONTROLS + 3 * 10 + 5 + 6 + 14 <= kOwnedSlots, "owned[] holds every control");
 
 template<class T> T& at(void* p, unsigned n) { return *reinterpret_cast<T*>(static_cast<char*>(p)+n); }
 template<class T> T fn(unsigned n) { return reinterpret_cast<T>(n); }
@@ -55,7 +62,7 @@ std::uintptr_t table[27] = {};
 unsigned created=0, destroyed=0, controlsCreated=0, controlsDestroyed=0, callbacks=0;
 char family = 0;
 int device = -1;
-void* owned[64] = {};
+void* owned[kOwnedSlots] = {};
 unsigned ownedCount = 0;
 // The press that opens the screen must not also close it. A activates the
 // entry, the screen opens with Back focused, and the same A -- still held, or
@@ -118,20 +125,28 @@ void requestClose() {
         log("close-request");
     }
 }
+void handleBack();
 void __fastcall back(void*,void*,void*) {
     ++callbacks;
     if (!armed()) { log("back-ignored-unarmed"); return; }
-    requestClose();
+    handleBack();
 }
-void __fastcall onB(void*,void*,int value) { if (value) { ++callbacks; requestClose(); } }
+void cancelWaiting();
+// The panel's own B: the keyboard's Escape. The pad's B reaches input() instead, which
+// the remap screen keeps while it waits, since B may be the button chosen; Escape is
+// how the keyboard and mouse leave the wait.
+void __fastcall onB(void*,void*,int value) { if (value) { ++callbacks; cancelWaiting(); handleBack(); } }
 void __fastcall open(void* owner,void*,void*) {
     ++callbacks;
     if (blockReopen) { log("open-ignored-after-close"); return; }
     if (!current && !pending) pending=owner;
     log("open-callback");
 }
+bool remapInput(int event, int value);
+void forgetRemap();
 void __fastcall input(void* self,void*,int event,int value) {
-    if (value && event==0x28) { requestClose(); return; }
+    if (remapInput(event, value)) return;
+    if (value && event==0x28) { handleBack(); return; }
     fn<Input>(0x409E60)(self,event,value);
 }
 void* __fastcall destroy(void* self,void*,unsigned flags) {
@@ -146,6 +161,7 @@ void* __fastcall destroy(void* self,void*,unsigned flags) {
     for (int i=0;i<at<int>(self,0x24);++i) array[i]=nullptr;
     for (unsigned i=0;i<ownedCount;++i) { destroyControl(owned[i]); owned[i]=nullptr; }
     ownedCount=0;
+    forgetRemap();
     fn<Simple>(0x40CF70)(self);
     current=nullptr;
     ++destroyed;
@@ -758,6 +774,613 @@ void updateEntryBadges() {
     }
 }
 
+// ---------------------------------------------------------------- remapping
+//
+// The screen is where the controller is remapped (the maintainer's design,
+// 2026-10-18, from mockups he approved; the rules are K1ButtonRemapPolicy.h, the
+// runtime K1ButtonRemap.cpp). Each row's line on the drawing points at one button,
+// so a row is a BUTTON and shows the action on it; an action given another button
+// moves to that button's row, and the action that button had waits in the row the
+// mover left, orange, with a question mark where its glyph was, until it gets one.
+// What stays with a button is grey beside it: its meaning in menus, which keep every
+// button where it is, or a stick's movement. Moving, the camera, the D-pad, Start and
+// Back cannot be changed and carry a padlock.
+//
+// The pad: the D-pad moves between the rows (the focus layer, K1NativeJoystick.cpp:
+// each changeable row has a frame, a button with no picture of its own, whose focus
+// draws the game's own border), A asks for a row's new button, Y puts back the
+// default, X saves (only once every action has a button), B leaves, asking first when
+// something is not saved. Y, X and B are pad buttons, not places for the focus: their
+// three buttons on the screen cannot be selected, so the D-pad never reaches them,
+// and the mouse still clicks them. While waiting for a button the screen reads the pad
+// itself (KmrpPadButtonsK1): menus send no event for LB, RB or a stick's click, and
+// every one of them may be chosen. Back cancels there, because it can never be chosen.
+//
+// Nothing here is in the layout file: every control is made from one of the file's
+// own as the screen opens (bindAppend), and placed from the file's rows, so it follows
+// the file at every resolution, and the file stays as KMRP's sets have it.
+constexpr int kRemapRows = KmrpRemap::ButtonCount;
+const char* const kActionNames[kRemapRows] = {
+    "Interact", "Release bar", "Disengage", "Undo action", "Previous target",
+    "Next target", "Switch ally", "Pause", "Flourish", "Free look"};
+// What stays with each button: after its action, or before it on the sticks.
+const char* const kFixedAfter[kRemapRows] = {
+    "/ Select", "/ Back", "/ Menu action", "/ Menu action", "", "", "/ Prev tab", "/ Next tab", "", ""};
+const char* const kFixedBefore[kRemapRows] = {
+    "", "", "", "", "", "", "", "", "Move / Click:", "Camera / Click:"};
+constexpr int kRowBack = 2, kRowDpad = 4, kRowStart = 7;      // LAYOUT's fixed rows
+constexpr float kGrey[3] = {150 / 255.0f, 150 / 255.0f, 155 / 255.0f};
+constexpr float kYellow[3] = {236 / 255.0f, 226 / 255.0f, 38 / 255.0f};
+constexpr float kOrange[3] = {245 / 255.0f, 140 / 255.0f, 30 / 255.0f};
+constexpr char kAsk[16] = "kmrrmask", kLock[16] = "kmrrmlock", kDot[16] = "kmrrmdot";
+constexpr char kBlack[16] = "blackfill";
+
+// View: the layout shown, nothing to change; Remap (X) or Back (B). Browse: remapping,
+// a row's A asks for its button; Default (Y), Save (X) or Close (B), which goes back to
+// View. Listen: a button awaited. Unsaved: Close with changes not saved.
+enum class Mode { View, Browse, Listen, Unsaved };
+struct Remap {
+    bool built = false;
+    void* frame[kRemapRows] = {};
+    void* fixed[kRemapRows] = {};
+    void* dot[kRemapRows] = {};
+    void* lockMove = nullptr; void* lockCamera = nullptr; void* lockDpad = nullptr;
+    void* lockBack = nullptr; void* lockStart = nullptr;
+    void* hintGlyph = nullptr; void* hintText = nullptr;
+    void* defaults = nullptr; void* defaultsGlyph = nullptr;
+    void* save = nullptr; void* saveGlyph = nullptr;
+    void* backButton = nullptr;      // the file's BTN_BACK, kept off the pad's focus while open
+    void* listenBox = nullptr; void* listenTitle = nullptr; void* listenLine = nullptr;
+    void* listenGlyph = nullptr; void* listenCancel = nullptr;
+    void* dim = nullptr; void* unsavedBox = nullptr; void* unsavedTitle = nullptr;
+    void* unsavedLine1 = nullptr; void* unsavedLine2 = nullptr;
+    void* discard = nullptr; void* discardGlyph = nullptr; void* cancel = nullptr; void* cancelGlyph = nullptr;
+    float cyan[3] = {};              // the captions' own colour, as the file gives it
+    float saveBorder[3] = {};        // Save's border colour, while it can be pressed
+    int help[4] = {}, back[4] = {}, backGlyph[4] = {};   // the file's, before anything moved
+    int text[K1_LAYOUT_ROWS][4] = {};    // each row's caption box, as the file has it: every layout starts from it
+} rm;
+KmrpRemap::Editor editor;
+Mode mode = Mode::View;
+int listenRow = -1;
+int browseRow = KmrpRemap::LT;  // the row the focus was last on, for its return from a prompt
+std::uint16_t listenSeen = 0;
+bool settle = false;          // after a choice: every event ignored until the pad's buttons are all up
+bool remapDirty = true;
+char remapFamily = 0;
+void* remapFocus = nullptr;
+bool remapPad = false;
+
+void ownControl(void* c) { if (c && ownedCount < kOwnedSlots) owned[ownedCount++] = c; }
+
+// A control made from one of the file's, by its tag, and added after the others
+// (CSWGuiPanel::AddControl, 0x0040B9A0, `ret 4`): the file's array has no free slots.
+void* bindAppend(void* panel, const char* like, bool button) {
+    void* c = fn<New>(0x6FA7E6)(button ? 0x1C4 : 0x140);
+    if (!c) return nullptr;
+    fn<Ctor>(button ? 0x41C0F0 : 0x41ACD0)(c);
+    ++controlsCreated;
+    at<int>(c, 0x50) = -1;
+    void* name[2] = {};
+    fn<StringCtor>(0x5E5A90)(name, like);
+    fn<Bind>(0x40B930)(panel, c, name, 0);
+    fn<Simple>(0x5E5C20)(name);
+    const int count = at<int>(panel, 0x24);
+    if (at<int>(c, 0x50) < 0 || count < 0 || count >= 512) { destroyControl(c); log("bind-failed"); return nullptr; }
+    at<int>(c, 0x50) = count;
+    fn<void(__thiscall*)(void*, void*)>(0x40B9A0)(panel, c);
+    void** const array = at<void**>(panel, 0x20);
+    if (at<int>(panel, 0x24) != count + 1 || !array || array[count] != c) { destroyControl(c); log("bind-failed"); return nullptr; }
+    ownControl(c);
+    return c;
+}
+
+void setText(void* c, const char* text, bool button = false) {
+    void* string[2] = {};
+    fn<StringCtor>(0x5E5A90)(string, text);
+    fn<void(__thiscall*)(void*, void*)>(0x415E00)(static_cast<char*>(c) + (button ? 0x16C : 0xE8), string);
+    fn<Simple>(0x5E5C20)(string);
+}
+// CSWGuiTextParams::SetColor (0x00414E10, `ret 4`): the colour at +0x1C of a label's
+// text parameters (+0xE8), passed on to its text.
+void setColour(void* label, const float* rgb) {
+    const float* now = reinterpret_cast<const float*>(static_cast<char*>(label) + 0xE8 + 0x1C);
+    if (now[0] == rgb[0] && now[1] == rgb[1] && now[2] == rgb[2]) return;
+    fn<void(__thiscall*)(void*, const float*)>(0x414E10)(static_cast<char*>(label) + 0xE8, rgb);
+}
+void setFill(void* params, const char* resref) {
+    char name[16] = {};
+    strncpy_s(name, resref, _TRUNCATE);
+    if (!_strnicmp(static_cast<char*>(params) + 0x40, name, 16)) return;
+    using Fill = void(__thiscall*)(void*, const void*, int);
+    fn<Fill>(0x414C00)(params, name, 1);
+}
+void labelFill(void* label, const char* resref) { setFill(static_cast<char*>(label) + 0x70, resref); }
+// A border with no picture: CSWGuiBorderParams::SetCornerImage (0x00414AE0) and
+// SetEdgeImage (0x00414B70), `ret 8` both, as SetFillImage beside them; an empty name
+// loads nothing.
+void clearBorder(void* params) {
+    const char none[16] = {};
+    using Image = void(__thiscall*)(void*, const void*, int);
+    fn<Image>(0x414AE0)(params, none, 1);
+    fn<Image>(0x414B70)(params, none, 1);
+    fn<Image>(0x414C00)(params, none, 1);
+}
+void selectable(void* c, bool on) { at<unsigned>(c, 0x44) = (at<unsigned>(c, 0x44) & ~8u) | (on ? 8u : 0u); }
+int* rectOf(void* c) { return reinterpret_cast<int*>(static_cast<char*>(c) + 4); }
+void place(void* c, int left, int top, int width, int height) {
+    const int r[4] = {left, top, width > 1 ? width : 1, height > 1 ? height : 1};
+    setExtentIfChanged(c, r);
+}
+int textWidth(void* label) { int lh = 0; return labelTextWidth(label, lh); }
+void* rowGlyph(int row) { return owned[K1_LAYOUT_FIXED + row]; }
+void* rowText(int row) { return owned[K1_LAYOUT_FIXED + K1_LAYOUT_ROWS + row]; }
+void* deco(int i) { return owned[K1_LAYOUT_FIXED + 2 * K1_LAYOUT_ROWS + i]; }
+
+// Which side of the drawing a row's caption is on: LAYOUT's L rows read towards the
+// glyph from the left.
+bool leftSide(int row) { return row <= 4; }
+
+void __fastcall rowPressed(void*, void*, void*);
+void __fastcall defaultsPressed(void*, void*, void*);
+void __fastcall savePressed(void*, void*, void*);
+void __fastcall discardPressed(void*, void*, void*);
+void __fastcall cancelPressed(void*, void*, void*);
+void __fastcall listenCancelPressed(void*, void*, void*);
+
+// Made as the screen opens, before the file is let go (StopLoadFromLayout).
+bool buildRemap(void* p) {
+    rm = Remap{};
+    std::memcpy(rm.cyan, static_cast<char*>(rowText(0)) + 0xE8 + 0x1C, sizeof rm.cyan);
+    void* help = owned[9];
+    void* backButton = owned[1];
+    rm.backButton = backButton;
+    std::memcpy(rm.help, rectOf(help), sizeof rm.help);
+    std::memcpy(rm.back, rectOf(backButton), sizeof rm.back);
+    std::memcpy(rm.backGlyph, rectOf(owned[K1_LAYOUT_BACK_GLYPH]), sizeof rm.backGlyph);
+    for (int row = 0; row < K1_LAYOUT_ROWS; ++row) std::memcpy(rm.text[row], rectOf(rowText(row)), sizeof rm.text[row]);
+    for (int b = 0; b < kRemapRows; ++b) {
+        // The frame: a button with no picture of its own, whose focus draws the game's.
+        void* frame = bindAppend(p, "BTN_BACK", true);
+        if (!frame) return false;
+        clearBorder(static_cast<char*>(frame) + 0x80);
+        setText(frame, "", true);
+        fn<Event>(0x41AB20)(frame, 0x27, p, reinterpret_cast<void*>(&rowPressed));
+        rm.frame[b] = frame;
+        rm.fixed[b] = bindAppend(p, "TEXT_05", false);
+        rm.dot[b] = bindAppend(p, "GLYPH_BACK", false);
+        if (!rm.fixed[b] || !rm.dot[b]) return false;
+        labelFill(rm.dot[b], kDot);
+        setColour(rm.fixed[b], kGrey);
+    }
+    void** locks[] = {&rm.lockMove, &rm.lockCamera, &rm.lockDpad, &rm.lockBack, &rm.lockStart};
+    for (void** lock : locks) {
+        *lock = bindAppend(p, "GLYPH_BACK", false);
+        if (!*lock) return false;
+        labelFill(*lock, kLock);
+    }
+    rm.hintGlyph = bindAppend(p, "GLYPH_BACK", false);
+    rm.hintText = bindAppend(p, "TEXT_05", false);
+    rm.defaults = bindAppend(p, "BTN_BACK", true);
+    rm.defaultsGlyph = bindAppend(p, "GLYPH_BACK", false);
+    rm.save = bindAppend(p, "BTN_BACK", true);
+    rm.saveGlyph = bindAppend(p, "GLYPH_BACK", false);
+    if (!rm.hintGlyph || !rm.hintText || !rm.defaults || !rm.defaultsGlyph || !rm.save || !rm.saveGlyph) return false;
+    setText(rm.hintText, "Change button");
+    setText(rm.defaults, "Default", true);
+    setText(rm.save, "Save", true);
+    std::memcpy(rm.saveBorder, static_cast<char*>(rm.save) + 0x80 + 0x10, sizeof rm.saveBorder);
+    fn<Event>(0x41AB20)(rm.defaults, 0x27, p, reinterpret_cast<void*>(&defaultsPressed));
+    fn<Event>(0x41AB20)(rm.save, 0x27, p, reinterpret_cast<void*>(&savePressed));
+    // The prompt while a button is awaited, in the footer's place.
+    rm.listenBox = bindAppend(p, "BTN_BACK", true);
+    rm.listenTitle = bindAppend(p, "LBL_TITLE", false);
+    rm.listenLine = bindAppend(p, "LBL_HELP", false);
+    rm.listenGlyph = bindAppend(p, "GLYPH_BACK", false);
+    rm.listenCancel = bindAppend(p, "BTN_BACK", true);
+    // Leaving with something not saved: the screen dimmed, a box over it.
+    rm.dim = bindAppend(p, "LBL_DIAGRAM", false);
+    rm.unsavedBox = bindAppend(p, "BTN_BACK", true);
+    rm.unsavedTitle = bindAppend(p, "LBL_TITLE", false);
+    rm.unsavedLine1 = bindAppend(p, "LBL_HELP", false);
+    rm.unsavedLine2 = bindAppend(p, "LBL_HELP", false);
+    rm.discard = bindAppend(p, "BTN_BACK", true);
+    rm.discardGlyph = bindAppend(p, "GLYPH_BACK", false);
+    rm.cancel = bindAppend(p, "BTN_BACK", true);
+    rm.cancelGlyph = bindAppend(p, "GLYPH_BACK", false);
+    void* modal[] = {rm.listenBox, rm.listenTitle, rm.listenLine, rm.listenGlyph, rm.listenCancel, rm.dim,
+                     rm.unsavedBox, rm.unsavedTitle, rm.unsavedLine1, rm.unsavedLine2,
+                     rm.discard, rm.discardGlyph, rm.cancel, rm.cancelGlyph};
+    for (void* c : modal) if (!c) return false;
+    for (void* box : {rm.listenBox, rm.unsavedBox}) {
+        setText(box, "", true);
+        setFill(static_cast<char*>(box) + 0x80, kBlack);
+        selectable(box, false);
+    }
+    setText(rm.listenLine, "If another action has that button, it is left without one");
+    setText(rm.listenCancel, "Cancel", true);
+    fn<Event>(0x41AB20)(rm.listenCancel, 0x27, p, reinterpret_cast<void*>(&listenCancelPressed));
+    labelFill(rm.dim, kBlack);
+    at<float>(rm.dim, 0x70 + 0x0C) = 0.7f;
+    setText(rm.unsavedTitle, "Unsaved Changes");
+    setText(rm.unsavedLine1, "You have not saved your new controller layout.");
+    setText(rm.unsavedLine2, "Discard your changes?");
+    setText(rm.discard, "Discard", true);
+    setText(rm.cancel, "Cancel", true);
+    fn<Event>(0x41AB20)(rm.discard, 0x27, p, reinterpret_cast<void*>(&discardPressed));
+    fn<Event>(0x41AB20)(rm.cancel, 0x27, p, reinterpret_cast<void*>(&cancelPressed));
+    // Pad buttons, not places for the pad's focus; the mouse still clicks them.
+    for (void* c : {backButton, rm.defaults, rm.save, rm.discard, rm.cancel, rm.listenCancel}) KmrpPadFocusExcludeK1(c, true);
+    rm.built = true;
+    return true;
+}
+
+// Where everything goes, and what it says, for the layout being edited and the focus.
+void layoutRemap() {
+    if (!rm.built || !current) return;
+    void* const focus = at<void*>(current, 0x1C);
+    const char family = KmrpGlyphLetterK1();
+    for (int b = 0; b < kRemapRows; ++b) {
+        const int row = KmrpRemap::LayoutRow[b];
+        void* const glyph = rowGlyph(row);
+        void* const action = rowText(row);
+        void* const fixed = rm.fixed[b];
+        const int* g = rectOf(glyph);
+        const int* t = rm.text[row];
+        const int shown_action = editor.ActionInRow(b);
+        const bool waiting = editor.Waiting(b);
+        setText(action, shown_action >= 0 ? kActionNames[shown_action] : "");
+        const char* fixedText = kFixedBefore[b][0] ? kFixedBefore[b] : kFixedAfter[b];
+        setText(fixed, fixedText);
+        showControl(fixed, fixedText[0] != 0);
+        if (waiting) {
+            labelFill(glyph, kAsk);
+        } else {
+            char resref[16] = {};
+            sprintf_s(resref, "kmr%clyt%02d", family, row);
+            labelFill(glyph, resref);
+        }
+        const bool faded = mode == Mode::Listen && b != listenRow;
+        float dim[3], dimGrey[3];
+        for (int i = 0; i < 3; ++i) { dim[i] = rm.cyan[i] * 0.4f; dimGrey[i] = kGrey[i] * 0.5f; }
+        const bool focused = mode != Mode::View && focus == rm.frame[b];
+        setColour(action, faded ? dim : waiting ? kOrange : focused ? kYellow : rm.cyan);
+        setColour(fixed, faded ? dimGrey : kGrey);
+        at<float>(glyph, 0x70 + 0x0C) = faded ? 0.35f : 1.0f;
+        // The pieces of the caption on one line, from the glyph outwards: a measured
+        // width each, so an action of any length sits beside what stays.
+        const int gap = leftSide(row) ? g[0] - (t[0] + t[2]) : t[0] - (g[0] + g[2]);
+        const int space = t[3] / 3;
+        const int aw = textWidth(action) + 4, fw = fixedText[0] ? textWidth(fixed) + 4 : 0;
+        const bool before = kFixedBefore[b][0] != 0;
+        int pieces[2][2];            // left and width of the first and second piece
+        const int total = aw + (fw ? fw + space : 0);
+        const int start = leftSide(row) ? g[0] - gap - total : g[0] + g[2] + gap;
+        void* first = before ? fixed : action;
+        void* second = before ? action : fixed;
+        const int w1 = before ? fw : aw, w2 = before ? aw : fw;
+        pieces[0][0] = start; pieces[0][1] = w1;
+        pieces[1][0] = start + w1 + (w1 && w2 ? space : 0); pieces[1][1] = w2;
+        place(first, pieces[0][0], t[1], pieces[0][1], t[3]);
+        if (w2) place(second, pieces[1][0], t[1], pieces[1][1], t[3]);
+        // The frame round the glyph and the caption, a sixth of the glyph clear.
+        const int pad = g[3] / 6;
+        const int left = (std::min)(g[0], start) - pad, right = (std::max)(g[0] + g[2], start + total) + pad;
+        place(rm.frame[b], left, g[1] - pad, right - left, g[3] + 2 * pad);
+        // A changed button's dot, outside the frame at the row's outer end.
+        const bool changed = shown_action >= 0 && shown_action != b && !waiting;
+        const int dotSize = g[3] * 3 / 10;
+        place(rm.dot[b], leftSide(row) ? left - pad - dotSize : right + pad, g[1] + (g[3] - dotSize) / 2, dotSize, dotSize);
+        showControl(rm.dot[b], changed);
+        // A stick's movement is fixed: its padlock at the row's outer end, beyond the dot.
+        void* lock = b == KmrpRemap::L3 ? rm.lockMove : b == KmrpRemap::R3 ? rm.lockCamera : nullptr;
+        if (lock) {
+            const int size = g[3] * 11 / 20, beyond = changed ? dotSize + pad : 0;
+            place(lock, leftSide(row) ? left - pad - beyond - size : right + pad + beyond, g[1] + (g[3] - size) / 2, size, size);
+        }
+    }
+    // The rows that stay: grey, and padlocked.
+    for (int row : {kRowBack, kRowDpad, kRowStart}) setColour(rowText(row), kGrey);
+    {
+        const int* g = rectOf(rowGlyph(kRowDpad));
+        const int* t = rm.text[kRowDpad];
+        const int size = g[3] * 11 / 20, pad = g[3] / 6;
+        const int textLeft = t[0] + t[2] - textWidth(rowText(kRowDpad));
+        place(rm.lockDpad, textLeft - pad - size, g[1] + (g[3] - size) / 2, size, size);
+    }
+    for (int row : {kRowBack, kRowStart}) {
+        const int* g = rectOf(rowGlyph(row));
+        const int size = g[3] * 9 / 20;
+        place(row == kRowBack ? rm.lockBack : rm.lockStart, g[0] + (g[2] - size) / 2, g[1] + g[3] + g[3] / 10, size, size);
+    }
+    // The footer: what A does, between the line and the buttons, and Default, Save and
+    // Back, each with its pad button. The help line above the line.
+    void* const help = owned[9];
+    void* const line = deco(5);
+    const int* l = rectOf(line);
+    const int helpH = rm.help[3];
+    place(help, rm.help[0], l[1] - helpH - helpH / 4, rm.help[2], helpH);
+    const bool complete = editor.Complete();
+    if (complete) {
+        setText(help, "A dot marks a changed button.   A lock stays as it is: moving, the camera, the D-pad, Start and Back.");
+        setColour(help, rm.cyan);
+    } else {
+        int missing = KmrpRemap::None;
+        for (int b = 0; b < kRemapRows && missing < 0; ++b) if (editor.Waiting(b)) missing = editor.waiting[b];
+        char text[160];
+        sprintf_s(text, "%s has no button.   Every action needs one before you can save.",
+                  missing >= 0 ? kActionNames[missing] : "An action");
+        setText(help, text);
+        setColour(help, kOrange);
+    }
+    const int bw = rm.back[2], bh = rm.back[3], step = bw + bw * 2 / 5;
+    const int middle = rm.back[0] + bw / 2;
+    const int gx = rm.backGlyph[0] - rm.back[0], gy = rm.backGlyph[1] - rm.back[1], gs = rm.backGlyph[2];
+    void* const backButton = owned[1];
+    void* const backGlyph = owned[K1_LAYOUT_BACK_GLYPH];
+    const bool view = mode == Mode::View;
+    setText(rm.save, view ? "Remap" : "Save", true);
+    setText(backButton, view ? "Back" : "Close", true);
+    struct { void* button; void* glyph; int centre; const char* code; } footer[] = {
+        {rm.defaults, rm.defaultsGlyph, middle - step, "y"},
+        {rm.save, rm.saveGlyph, view ? middle - step / 2 : middle, "x"},
+        {backButton, backGlyph, view ? middle + step / 2 : middle + step, nullptr}};
+    for (auto& f : footer) {
+        place(f.button, f.centre - bw / 2, rm.back[1], bw, bh);
+        place(f.glyph, f.centre - bw / 2 + gx, rm.back[1] + gy, gs, gs);
+        if (f.code) {
+            char resref[16] = {};
+            sprintf_s(resref, "kmr%crm%s", family, f.code);
+            labelFill(f.glyph, resref);
+        }
+    }
+    // Save while the layout cannot be saved: grey, its glyph faint. Remap always can.
+    {
+        const bool can = view || complete;
+        float* border = reinterpret_cast<float*>(static_cast<char*>(rm.save) + 0x80 + 0x10);
+        const float* want = can ? rm.saveBorder : kGrey;
+        std::memcpy(border, want, sizeof rm.saveBorder);
+        at<float>(rm.saveGlyph, 0x70 + 0x0C) = can ? 1.0f : 0.35f;
+        fn<void(__thiscall*)(void*, const float*)>(0x414E10)(static_cast<char*>(rm.save) + 0x16C, can ? rm.cyan : kGrey);
+    }
+    {
+        char resref[16] = {};
+        sprintf_s(resref, "kmr%crma", family);
+        labelFill(rm.hintGlyph, resref);
+        const int size = gs, tw = textWidth(rm.hintText) + 4;
+        const int mid = (l[1] + l[3] + rm.back[1]) / 2;
+        const int left = middle - (size + size / 3 + tw) / 2;
+        place(rm.hintGlyph, left, mid - size / 2, size, size);
+        place(rm.hintText, left + size + size / 3, mid - helpH / 2, tw, helpH);
+    }
+    // The prompt, in the help line's and the footer's place, as wide as the three
+    // buttons: what to press, what happens to the button's action, and how to cancel,
+    // one under the other, the box round them.
+    {
+        const int left = middle - step - bw / 2, width = 2 * step + bw;
+        const int titleH = rectOf(owned[0])[3];
+        const int pad = helpH / 2;
+        const int height = pad + titleH + helpH / 4 + helpH + pad + bh + pad;
+        const int bottom = rm.back[1] + bh;
+        const int top = bottom - height;
+        place(rm.listenBox, left, top, width, height);
+        place(rm.listenTitle, left, top + pad, width, titleH);
+        char text[96];
+        const int a = listenRow >= 0 ? editor.ActionInRow(listenRow) : KmrpRemap::None;
+        sprintf_s(text, "Press the new button for %s", a >= 0 ? kActionNames[a] : "this action");
+        setText(rm.listenTitle, text);
+        place(rm.listenLine, left, top + pad + titleH + helpH / 4, width, helpH);
+        char resref[16] = {};
+        sprintf_s(resref, "kmr%clyt%02d", family, kRowBack);
+        labelFill(rm.listenGlyph, resref);
+        const int by = top + height - pad - bh;
+        place(rm.listenCancel, middle - bw / 2, by, bw, bh);
+        place(rm.listenGlyph, middle - bw / 2 + gx, by + gy, gs, gs);
+    }
+    // Unsaved changes: the screen dimmed, a box in its middle.
+    {
+        const int* panel = rectOf(current);
+        place(rm.dim, 0, 0, panel[2], panel[3]);
+        const int titleH = rectOf(owned[0])[3];
+        const int width = 3 * bw + bw / 4, height = titleH * 2 + helpH * 3 + bh + bh / 2;
+        const int left = panel[2] / 2 - width / 2, top = panel[3] / 2 - height / 2;
+        place(rm.unsavedBox, left, top, width, height);
+        place(rm.unsavedTitle, left, top + titleH / 2, width, titleH);
+        place(rm.unsavedLine1, left, top + titleH * 2, width, helpH);
+        place(rm.unsavedLine2, left, top + titleH * 2 + helpH + helpH / 4, width, helpH);
+        const int by = top + height - bh - bh / 2;
+        place(rm.discard, panel[2] / 2 - bw / 4 - bw, by, bw, bh);
+        place(rm.cancel, panel[2] / 2 + bw / 4, by, bw, bh);
+        place(rm.discardGlyph, panel[2] / 2 - bw / 4 - bw + gx, by + gy, gs, gs);
+        place(rm.cancelGlyph, panel[2] / 2 + bw / 4 + gx, by + gy, gs, gs);
+        char resref[16] = {};
+        sprintf_s(resref, "kmr%crma", family);
+        labelFill(rm.discardGlyph, resref);
+        sprintf_s(resref, "kmr%crmb", family);
+        labelFill(rm.cancelGlyph, resref);
+    }
+    // What shows in each state.
+    const bool browse = mode == Mode::Browse, listen = mode == Mode::Listen, unsaved = mode == Mode::Unsaved;
+    const bool pad = IsControllerInputActiveK1();
+    for (void* c : {help, rm.save, backButton}) showControl(c, !listen);
+    showControl(rm.defaults, !listen && !view);
+    for (void* c : {rm.saveGlyph, backGlyph}) showControl(c, !listen && pad);
+    for (void* c : {rm.hintGlyph, rm.hintText, rm.defaultsGlyph}) showControl(c, !listen && !view && pad);
+    showControl(rm.discardGlyph, unsaved && pad);
+    showControl(rm.cancelGlyph, unsaved && pad);
+    for (void* c : {rm.listenBox, rm.listenTitle, rm.listenLine, rm.listenCancel}) showControl(c, listen);
+    showControl(rm.listenGlyph, listen && pad);
+    for (void* c : {rm.dim, rm.unsavedBox, rm.unsavedTitle, rm.unsavedLine1, rm.unsavedLine2, rm.discard, rm.cancel})
+        showControl(c, unsaved);
+    // While a button is awaited the focus stays on its row; the rows are not places to go.
+    for (int b = 0; b < kRemapRows; ++b) selectable(rm.frame[b], browse);
+    for (int b = 0; b < kRemapRows; ++b) if (focus == rm.frame[b]) browseRow = b;
+    if (browse && focus && !(at<unsigned>(focus, 0x44) & 2u)) {
+        fn<SetActive>(0x40A630)(current, rm.frame[browseRow], 0);
+        remapDirty = true;            // laid out again next frame, with the focus on its row
+    }
+    remapFamily = family;
+    remapFocus = focus;
+    remapPad = pad;
+    remapDirty = false;
+}
+
+void startListening(int row) {
+    if (mode != Mode::Browse || row < 0 || row >= kRemapRows) return;
+    mode = Mode::Listen;
+    listenRow = row;
+    listenSeen = KmrpPadButtonsK1();          // what is already held does not count
+    remapDirty = true;
+    log("remap-listen");
+}
+// After a choice, or a cancel: nothing more until every button is up again, so the
+// press that chose cannot also act on the screen.
+void endListening() {
+    mode = Mode::Browse;
+    listenRow = -1;
+    settle = true;
+    remapDirty = true;
+}
+// Remap: the rows become places for the focus, from the row it was last on. The press
+// that chose it is let go before anything else counts.
+void enterRemap() {
+    if (mode != Mode::View || !current) return;
+    editor = KmrpRemap::Editor(KmrpRemapSavedK1());
+    mode = Mode::Browse;
+    settle = true;
+    remapDirty = true;
+    selectable(rm.frame[browseRow], true);
+    fn<SetActive>(0x40A630)(current, rm.frame[browseRow], 0);
+    log("remap-enter");
+}
+// Back to the layout as saved: anything not saved is dropped, and the focus is nowhere,
+// since nothing in View is a place for it.
+void exitRemap() {
+    if (!current) return;
+    editor = KmrpRemap::Editor(KmrpRemapSavedK1());
+    mode = Mode::View;
+    settle = true;
+    remapDirty = true;
+    fn<SetActive>(0x40A630)(current, nullptr, 0);
+    log("remap-exit");
+}
+// Close while remapping: back to View, asking first if something is not saved.
+void leave() {
+    if (editor.mapping != KmrpRemapSavedK1()) { mode = Mode::Unsaved; remapDirty = true; log("remap-unsaved"); return; }
+    exitRemap();
+}
+void defaults() { editor.Reset(); remapDirty = true; }
+void saveLayout() {
+    if (!editor.Complete()) return;
+    if (KmrpRemapSaveK1(editor.mapping)) log("remap-saved");
+    remapDirty = true;
+}
+
+void __fastcall rowPressed(void*, void*, void*) {
+    ++callbacks;
+    if (!armed() || settle || mode != Mode::Browse || !current) return;
+    void* const focus = at<void*>(current, 0x1C);
+    for (int b = 0; b < kRemapRows; ++b) if (rm.frame[b] == focus) startListening(b);
+}
+void __fastcall defaultsPressed(void*, void*, void*) { ++callbacks; if (armed() && !settle && mode == Mode::Browse) defaults(); }
+void __fastcall savePressed(void*, void*, void*) {
+    ++callbacks;
+    if (!armed() || settle) return;
+    if (mode == Mode::View) enterRemap();
+    else if (mode == Mode::Browse) saveLayout();
+}
+void __fastcall discardPressed(void*, void*, void*) { ++callbacks; if (armed() && mode == Mode::Unsaved) exitRemap(); }
+void __fastcall cancelPressed(void*, void*, void*) { ++callbacks; if (armed() && mode == Mode::Unsaved) { mode = Mode::Browse; remapDirty = true; } }
+void __fastcall listenCancelPressed(void*, void*, void*) { ++callbacks; if (armed() && mode == Mode::Listen) endListening(); }
+
+// Every GUI frame while the screen is open: the button awaited, and the layout.
+void remapFrame() {
+    if (!rm.built || !current) return;
+    const std::uint16_t pad = KmrpPadButtonsK1();
+    if (settle && (pad & (KmrpRemap::RemappableBits | 0x0030)) == 0 && !ControllerConfirmHeldK1()) settle = false;
+    if (mode == Mode::Listen) {
+        const std::uint16_t pressed = static_cast<std::uint16_t>(pad & ~listenSeen);
+        listenSeen = pad;
+        if (pressed & 0x0020) {                    // Back: cancel
+            endListening();
+        } else {
+            for (int b = 0; b < kRemapRows; ++b) {
+                if (!(pressed & KmrpRemap::Mask[b])) continue;
+                editor.Assign(listenRow, b);
+                log("remap-assigned");
+                endListening();
+                break;
+            }
+        }
+    }
+    if (remapDirty || at<void*>(current, 0x1C) != remapFocus || KmrpGlyphLetterK1() != remapFamily ||
+        IsControllerInputActiveK1() != remapPad)
+        layoutRemap();
+}
+
+unsigned frameNumber = 0, backFrame = ~0u;
+void cancelWaiting() {
+    if (rm.built && mode == Mode::Listen) {
+        endListening();
+        backFrame = frameNumber;          // this Escape is spent
+    }
+}
+// B, Escape, Start (which sends B over a menu), or Back clicked: once per frame, since
+// the panel's own B and its input can both be told of one press.
+void handleBack() {
+    if (backFrame == frameNumber) return;
+    backFrame = frameNumber;
+    if (!rm.built) { requestClose(); return; }
+    if (settle) return;
+    if (mode == Mode::View) { requestClose(); return; }
+    if (mode == Mode::Unsaved) { mode = Mode::Browse; remapDirty = true; return; }
+    if (mode == Mode::Listen) return;            // Back cancels there, read from the pad
+    leave();
+}
+// The screen's own buttons, by position as every menu has them. View: X remaps, B
+// leaves, nothing else does anything. Remapping: A asks for a row's button (the row's
+// own event), Y puts back the default, X saves, B closes remapping. Waiting for a
+// button and just after a choice, every event is swallowed.
+bool remapInput(int event, int value) {
+    if (!rm.built) return false;
+    if (mode == Mode::Listen) {
+        // B from the keyboard (Escape) cancels; the pad's B may be the button chosen,
+        // and is read from the pad (remapFrame). They are the same event here, so the
+        // pad says which it was: its B is down for its own press.
+        if (event == 0x28 && value && !(KmrpPadButtonsK1() & KmrpRemap::Mask[KmrpRemap::B])) endListening();
+        return true;
+    }
+    if (settle) return true;
+    if (mode == Mode::Unsaved) {
+        if (value && armed()) {
+            if (event == 0x27) exitRemap();
+            else if (event == 0x28) handleBack();
+        }
+        return true;
+    }
+    if (mode == Mode::View) {
+        if (event == 0x28) { if (value) handleBack(); return true; }
+        if (event == 0x29) { if (value && armed()) enterRemap(); return true; }
+        return event == 0x27 || event == 0x2A;
+    }
+    if (event == 0x28) { if (value) handleBack(); return true; }
+    if (event == 0x29) { if (value && armed()) saveLayout(); return true; }
+    if (event == 0x2A) { if (value && armed()) defaults(); return true; }
+    return false;
+}
+void forgetRemap() {
+    // Their addresses, not their controls: called after the controls are freed too.
+    for (void* c : {rm.backButton, rm.defaults, rm.save, rm.discard, rm.cancel, rm.listenCancel})
+        if (c) KmrpPadFocusExcludeK1(c, false);
+    rm = Remap{};
+    mode = Mode::View;
+    listenRow = -1;
+    browseRow = KmrpRemap::LT;
+    settle = false;
+    remapDirty = true;
+    remapFocus = nullptr;
+}
+
 void refresh() {
     char next=KmrpGlyphLetterK1();
     int active=IsControllerInputActiveK1()?1:0;
@@ -792,6 +1415,7 @@ void refresh() {
         sprintf_s(resref,"kmr%clyt%02d",family,i);
         fn<Fill>(0x414C00)(static_cast<char*>(glyph)+0x70,resref,1);
     }
+    remapDirty = true;            // the rows' glyphs and the footer's are the remap screen's again
     log("refresh");
 }
 }
@@ -938,11 +1562,16 @@ void ControllerLayoutFrameK1(void* manager) {
                 owned[ownedCount++]=c;
                 if (i==1) backButton=c;
             }
+            forgetRemap();
+            editor = KmrpRemap::Editor(KmrpRemapSavedK1());
+            if (complete && !buildRemap(p)) complete = false;
             fn<Simple>(0x40B8F0)(p);
             if (!complete) { destroy(p,nullptr,1); return; }
             fn<Event>(0x41AB20)(backButton,0x27,p,reinterpret_cast<void*>(&back));
-            fn<SetActive>(0x40A630)(p,backButton,0);
-            family=0; device=-1; releasedFrames=0; refresh();
+            // Opened in View: nothing there is a place for the focus; the screen's
+            // buttons are pad buttons (Remap X, Back B).
+            fn<SetActive>(0x40A630)(p,nullptr,0);
+            family=0; device=-1; releasedFrames=0; refresh(); layoutRemap();
             fn<Add>(0x40BC70)(manager,p,3,1);
             log("opened");
         }
@@ -956,7 +1585,8 @@ void ControllerLayoutFrameK1(void* manager) {
     if (ControllerConfirmHeldK1()) releasedFrames=0;
     else if (releasedFrames<K1_LAYOUT_ARM_FRAMES) ++releasedFrames;
     if (blockReopen && armed()) blockReopen=false;
-    if (current) refresh();
+    ++frameNumber;
+    if (current) { refresh(); remapFrame(); }
 }
 
 // The status summary's layout alone, for the GUI frame without controller support

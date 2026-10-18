@@ -43,7 +43,7 @@ cl /nologo /Brepro /std:c++17 /O2 /fp:strict /EHsc /MT /LD /DKMRP_NATIVE_RUNTIME
   src\controller-native\K1TextOptions.cpp src\controller-native\K1HudOptions.cpp src\controller-native\K1PcHud.cpp ^
   src\controller-native\K1RuntimeNvidia.cpp ^
   src\controller-native\K1NativeJoystick.cpp src\controller-native\K1ControllerBackend.cpp ^
-  src\controller-native\K1ControllerLayout.cpp src\controller-native\K1Rumble.cpp ^
+  src\controller-native\K1ControllerLayout.cpp src\controller-native\K1Rumble.cpp src\controller-native\K1ButtonRemap.cpp ^
   src\controller-native\K1PopupFit.cpp src\controller-native\K1GrantedPopup.cpp ^
   src\controller-native\K1KeyboardNavigation.cpp ^
   src\controller-native\vendor\K1XboxControls.cpp src\controller-native\vendor\K1XboxControlsXInput.cpp ^

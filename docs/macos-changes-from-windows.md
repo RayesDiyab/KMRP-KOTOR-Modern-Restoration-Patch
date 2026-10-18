@@ -1221,3 +1221,51 @@ the PC HUD anew each time it takes it (`Keep` before `ApplyXbox` when the layout
 up). Two exports connect the modules: `KmrpXboxHudOwnsK1` (controller) and
 `KmrpHudAppliedSizeK1` (KMRP). To check: at 50% the HUD is as before; each slider sizes its
 part about its corner; the target's name stays centred over its circle.
+
+## 60. Controller remapping on the Controller Layout screen
+
+**To do on the Mac, 2026-10-18** (`docs/controller-layout.md`). On Windows the Controller
+Layout screen opens as a view with (X) Remap and (B) Back; Remap makes the rows editable,
+with (Y) Default, (X) Save and (B) Close. The rules are plain C++ and can be shared as they
+are: `src/controller-native/K1ButtonRemapPolicy.h` (what can be remapped, no swapping, the
+editor's rows, the per-press translator), tested by `testing/regression/Test-ButtonRemap.py`.
+The runtime, `K1ButtonRemap.cpp`, reads and writes `kmrp-controller.ini`, `[Controller Remap]`.
+The Mac needs: the translation applied where its controller patch reads the pad (Windows:
+`FillNativeJoystickBufferK1`, after `ReadPadAxes`, in the world input classes only, the
+triggers folded into bits `0x0400` and `0x0800`); the screen's controls and states, which
+`K1ControllerLayout.cpp` builds from the layout file's own controls (`bindAppend`,
+`CSWGuiPanel::AddControl`, Windows `0x0040B9A0`); the pad-focus exclusion for the footer's
+buttons (`KmrpPadFocusExcludeK1`); the HUD cues following the remap (`ShowActionCueK1`, the
+pause notice's `KmrpRemapGlyphK1`); and the new glyph textures, which
+`tools/build_controller_layout.py` already makes for every family (`kmr<family>rm<code>`,
+`kmrrmask`, `kmrrmlock`, `kmrrmdot`). Tested on Windows with mouse and keyboard only; the pad
+flow is untested there too.
+
+## 61. HUD Size and Text Size sliders: the mouse reaches 100%
+
+**To do on the Mac, 2026-10-18** (`docs/hud-size-options.md`). On Windows KMRP's option
+sliders get their own copy of the slider's table (Windows `0x0073E9D0`, 40 entries) with the
+mouse move (entry 4, Windows `0x00419250`) replaced and the button down (entry 6, Windows
+`0x004191D0`) wrapped, so the value is the one the thumb is drawn at
+(`src/controller-native/K1SliderGrip.h`; the arithmetic, `DragValue`, is tested by
+`Test-HudOptions.py`). The Mac needs the same table's address and the addresses the header
+lists (`SetValue`, the thumb's border rect, the panel's pointer position) for its build. To
+check: drag each slider to the end of its track and let go; it reads 100%.
+
+## 62. HUD Size preview: Disengage in its frame
+
+**Build and check, 2026-10-18.** The preview now draws the combat queue's backing and frame
+(`LBL_COMBATBG2`, `LBL_COMBATBG3`; the table's preview flag, `K1PcHudLayout.inc` from
+`tools/build_pc_hud.py`) and the word Disengage centred (`CSWGuiTextParams::SetAlignment`,
+Windows `0x00415F20`, alignment 18). The table is shared; the Mac needs the alignment
+routine's address if its port of `K1HudOptions.cpp` sets it.
+
+## 63. HD font atlases rebuilt: every Windows-1252 character, no stray lines
+
+**Build and check, 2026-10-18** (`docs/font-scaling.md`). `tools/build_font_from_ttf.py`
+now reads each font place as Windows-1252, leaves control characters blank, keeps each
+letter inside its own place and stops if the font lacks a character the original holds;
+the 18 atlases in `assets/hd-fonts` were rebuilt with it. Nothing in code changed; the Mac
+gets the new atlases with its next build of the shared assets. To check: on the Text Size
+page with the New HD Font, the HUD sample reads "HUD: 0123456789" with no lines after the
+colon, and a text with a euro sign, curly quotes or an ellipsis shows them.

@@ -32,6 +32,7 @@
 #include "K1TextOptions.h"
 #include "K1TextOptionsPolicy.h"
 #include "K1RuntimeLayout.h"
+#include "K1SliderGrip.h"
 #include <windows.h>
 #include <cstdint>
 #include <cstdio>
@@ -380,12 +381,15 @@ void Grow(int element, const Rect& r, bool (&seen)[ElementCount]) {
     box.width = right - box.left; box.height = bottom - box.top;
 }
 // A preview label wearing `art`, stretched to whatever size the preview gives it, and
-// carrying `text` where the HUD's control shows words rather than a picture.
+// carrying `text` where the HUD's control shows words; a control with words and no
+// picture (Disengage) is its words alone.
 void AddShown(void* p, const char* art, int element, const Rect& r, int style, const char* text = "") {
-    if (!art || !art[0] || pieces.size() >= 128) return;
+    const bool hasArt = art && art[0], hasText = text && text[0];
+    if ((!hasArt && !hasText) || pieces.size() >= 128) return;
     void* label = Bind(p, "LBL_GAMMA", 0x140, 0x41ACD0);
     if (!label) return;
     Text(label, text);
+    if (!hasArt) { pieces.push_back({label, element, r, style}); return; }
     char fill[16]{};
     std::memcpy(fill, art, (std::min)(std::strlen(art), sizeof fill));
     Fn<void(__thiscall*)(void*, const char*, int)>(0x414C00)(static_cast<char*>(label) + kLabelParams, fill, 1);
@@ -400,7 +404,8 @@ int XboxElement(const xbox::Piece& x) {
 }
 // The PC HUD from its table: every control of its six elements that the table marks
 // for the preview and that has a texture, in the file's order (later ones on top);
-// BTN_CLEARALL, which shows a word and no picture, as a panel with that word. The Xbox-style HUD from its table:
+// BTN_CLEARALL, which shows a word and no picture, as that word over the combat queue's
+// frame, as the game draws it. The Xbox-style HUD from its table:
 // the action box, its slots and description (bottom left), the party, the minimap's
 // frame, the target's bar (top left) and the disengage button and queue (bottom
 // centre); not the combat strip across the top. Under both, the screen in slate
@@ -442,7 +447,15 @@ void MakePreview(void* p, const Rect& area, int width, int height) {
             Rect r = Placed(piece, width, height);
             if (piece.anchor == kPcMenuSpace) { r.left += menuX; r.top += menuY; }
             Grow(piece.element, r, seen);
-            if (!std::strcmp(piece.tag, "BTN_CLEARALL")) AddShown(p, "dialog2", piece.element, r, Pc, "Disengage");
+            if (!std::strcmp(piece.tag, "BTN_CLEARALL")) {
+                // Centred in its box, as the game's file has it (ALIGNMENT 18); the label
+                // it is made from (LBL_GAMMA) reads from the left. CSWGuiTextParams::
+                // SetAlignment, 0x00415F20, `ret 4`.
+                const size_t before = pieces.size();
+                AddShown(p, "", piece.element, r, Pc, "Disengage");
+                if (pieces.size() > before)
+                    Fn<void(__thiscall*)(void*, int)>(0x415F20)(static_cast<char*>(pieces.back().label) + 0xE8, 18);
+            }
             else AddShown(p, piece.fill, piece.element, r, Pc);
         }
     }
@@ -478,6 +491,7 @@ void MakeScreen(void* manager, void* owner) {
     for (int i = 0; i < ElementCount; ++i) {
         labels[i] = Bind(p, "LBL_GAMMA", 0x140, 0x41ACD0);
         sliders[i] = Bind(p, "SLI_GAMMA", 0x1B8, 0x41BAA0);
+        KmrpSliderTakeMouseK1(sliders[i]);   // dragged to the end is the maximum (K1SliderGrip.h)
     }
     linkSizes = Bind(p, "CB_SHADOWS", 0x2B4, 0x6E00D0);
     if (linkSizes) At<int>(linkSizes, 0x1C4) = -1;

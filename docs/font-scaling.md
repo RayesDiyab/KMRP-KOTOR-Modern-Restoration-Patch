@@ -12,6 +12,15 @@ per-resolution fonts for audit/build comparison. See
 preferences, verification and the untested visual boundary. The historical
 atlas-baking sections below describe the previous shipped resource strategy.
 
+**HD atlases re-baked, 2026-10-18 (uncommitted at the time of writing):** the
+converter now reads each atlas slot as a Windows-1252 byte, leaves control codes
+blank and keeps every glyph inside its own cell. All 18 atlases in
+`assets/hd-fonts` were baked again with it. See
+[What each slot holds](#what-each-slot-holds-and-the-2026-10-18-re-bake) for the
+defects, the measurements and what is still unseen in game, and
+[The shared atlas is minified again](#the-shared-atlas-is-minified-again) for why
+the HD style can still look uneven at 1080p and 1440p.
+
 > **Documentation standard.** This document follows
 > [`docs/documentation-standard.md`](documentation-standard.md). Read it before editing
 > this file, and check the result still meets it — measured claims only, every
@@ -217,6 +226,17 @@ Baking the atlases is a manual step, not run by the build. Two kinds:
 (The texture pack now lives in `build-inputs/`; these commands used to point
 at `..\TexturePacks\`.)
 
+*Corrected 2026-10-18:* the two items above say the per-resolution sets ship and
+the shared 3.0 bake ships only at 15360x8640. That describes the installer before
+the native runtime. Since 2026-10-17 the module's resource bank holds no
+per-resolution font set: `tools/build_native_assets.py` stores the 18 pairs in
+`assets/hd-fonts` as the HD style (`kmrfhd00` to `kmrfhd17`, read from that
+folder directly) and the runtime uses that one bake at every screen size. The
+sets in `build/fonts` still feed the offline per-resolution archives, whose font
+files the bank skips ([in-game text options](ingame-text-options.md), section 3).
+So the second command is now the one that decides what players see in the HD
+style.
+
 Note the two DIFFERENT scales. `fnt_d16x16b`'s `2.526316` is `3.0 x 16/19`,
 cancelling vanilla's 19px-vs-16px size difference so descriptions and menus
 match. **Baking it at plain 3.0 silently restores that mismatch.**
@@ -227,6 +247,108 @@ broken, so KMRP's sets carry `spacingR 0`
 (`reverse-engineering/font-atlases.md`, corrected 2026-10-05) and there is no
 spacing table to regenerate. To adjust how tightly letters sit, change the
 padding/advance logic in `build_font_from_ttf.py` and re-bake.
+
+### What each slot holds, and the 2026-10-18 re-bake
+
+An atlas has one slot per byte of text: `numchars` is 256 in 13 of the 18 HD
+atlases, 255 in `dialogfont32x32`, `fnt_creditsa`, `fnt_d16x16a` and
+`fnt_dialog16x16`, and 127 in `fnt_console` (read from the TXIs in
+`assets/hd-fonts`). The game's text is Windows-1252, and the stock atlases draw
+that code page's characters in slots 0x80 to 0x9F: the euro sign, single and
+double low quotes, f with hook, ellipsis, dagger and double dagger, circumflex,
+per mille, S and s with caron, both single angle quotes, OE and oe, Z and z with
+caron, the four curly quotes, bullet, en dash, em dash, small tilde, trade mark
+and Y with diaeresis. Translations use the whole range.
+
+**Two converter defects, both fixed on 2026-10-18 (uncommitted at the time of
+writing).** Both were in every HD atlas baked before that day, including the
+per-resolution sets in `build/fonts`, which use the same converter.
+
+1. **Slots were read as Unicode code points.** `build_font_from_ttf.py` drew
+   slot N as `chr(N)`. In Unicode, 0x80 to 0x9F are C1 control codes, so all 32
+   of those slots held the face's missing-glyph box instead of the character the
+   stock atlas draws there. Measured by drawing slots 0x80 to 0xFF of the stock
+   and the HD `dialogfont16x16` side by side; the Windows-1252 decode of every
+   slot was then checked against the stock art.
+2. **Control codes were drawn, and spilled into the next cell.** Slots 0x00 to
+   0x1F and 0x7F were rendered too, as the missing-glyph box. A cell's width
+   there is the stock atlas's width for the slot, scaled: 1 px for every control
+   code in `fnt_console`, 21 to 57 px in the other atlases (read from the
+   re-baked TXIs, which keep those widths). The whole atlas was one drawing
+   surface, so a box wider than its cell ran into the cells beside it. Measured by counting
+   pixels with alpha above 16 inside each cell that should be blank, in the live
+   atlases taken from the game's cache:
+
+   | atlas | cell | box ink that did not belong there |
+   | --- | --- | --- |
+   | `fnt_console` | 0x20 (space) | 136 px |
+   | `dialogfont32x32` | 0x20 (space) | 118 px |
+   | `dialogfont32x32` | 0xA0 (no-break space) | ink present (count not recorded) |
+
+   In game this was two vertical lines after "HUD:" on the Text Size page, seen
+   at 1920x1080 and at 3440x1440. `fnt_console` is the HUD Text family's font.
+
+**What the converter does now** (`tools/build_font_from_ttf.py`):
+
+| slot | `slot_character()` returns | drawn | cell width |
+| --- | --- | --- | --- |
+| 0x00 to 0x1F, 0x7F | nothing (Unicode category `Cc`) | blank | the stock atlas's own width for that slot, scaled |
+| 0x81, 0x8D, 0x8F, 0x90, 0x9D | nothing (undefined in Windows-1252, decode fails) | blank | the stock width, scaled |
+| 0x80 to 0x9F, the other 27 | the Windows-1252 character | yes | the face's advance, widened to its ink |
+| 0xA0 | no-break space | no ink | the face's own no-break space; a face without one gets its space's |
+| 0xAD | soft hyphen | yes, as the face draws it | the face's advance |
+| every other slot | the Windows-1252 character, which is the same code point as before | yes | unchanged |
+
+- `SLOT_ENCODING = "cp1252"` names the code page in one place.
+- The soft hyphen is kept as a character on purpose: the stock atlases draw it
+  as a hyphen. In the re-baked TXIs its width equals the hyphen's (8, 13 and
+  26 px in `dialogfont10x10`, `dialogfont16x16` and `dialogfont32x32`).
+- Each glyph is drawn into an image the size of its own cell and pasted into the
+  atlas, so no ink can reach another cell whatever the face draws.
+- **Coverage is enforced.** If the face has no glyph for a character a slot
+  holds, the build stops with an error that lists every missing slot rather than
+  shipping a box. The requirement, from the maintainer: the HD font shows
+  everything the original shows.
+- Blank cells keep a non-zero width. The word-wrap crash recorded in
+  [font-atlases.md](../reverse-engineering/font-atlases.md) is why no slot may
+  have zero advance; the stock widths are the fallback, as before.
+
+**Coverage of the two shipped faces.** Read with fontTools from each face's
+`cmap` on 2026-10-18: `assets/fonts/OldRepublic.ttf` and
+`assets/fonts/Arimo-Medium.ttf` each map all 218 characters that Windows-1252
+defines outside the control codes, the no-break space and the soft hyphen
+included. (The fix was first checked as "all 217 printable characters": that
+check left out the no-break space, 0xA0, on purpose. Neither face lacks any of
+the 218.) So the space-width fallback for 0xA0 is not used by either shipped
+face; it is there for another face.
+
+**The re-bake.** All 18 atlases, with the two commands under *Regenerating the
+font assets* above: Old Republic at 3.0 for the 17 menu resrefs, Arimo Medium at
+2.526316 for `fnt_d16x16b`. Measured by comparing the old and new
+`assets/hd-fonts` cell by cell, pixel for pixel:
+
+| what | result |
+| --- | --- |
+| slots 0x00 to 0x1F and 0x7F | changed: box removed, cell blank |
+| slots 0x80 to 0x9F | changed: the Windows-1252 character, or blank for the five undefined bytes |
+| slot 0xA0 | changed: now a space's width (20 px in `dialogfont16x16`), was the stock placeholder box's width |
+| slot 0xAD | changed: the face's soft hyphen |
+| slot 0x20 | changed in `fnt_console` and `dialogfont32x32` only: the spilled ink is gone |
+| every other glyph | pixel identical |
+| TXI metric headers (first 12 lines) | unchanged in all 18; checked again for this note against `HEAD` |
+| `fnt_console.txi` | byte identical; with 127 slots it has none from 0x7F up, so only its pixels changed |
+
+After rebuilding the bank, `Test-NativeAssetsBank.py`,
+`Test-OverrideFontMetrics.py` and `Test-TextOptions.py` pass.
+
+**Untested in game.** The rebuilt module is installed in the separate test game
+but was not launched after the fix. That the vertical lines are gone, and that
+the 0x80 to 0x9F characters now draw, has not been seen on screen. The
+per-resolution sets in `build/fonts` on the maintainer's machine were written
+between 2026-09-20 and 2026-09-30 (file times of all 1,440 files), before the
+fix, so they carry both defects until
+`tools/build_font_scale_sets.py` is run again (they feed only the offline
+archives, see the correction above).
 
 ## Why the text looks pixelated above 720p (issue #16)
 
@@ -342,6 +464,55 @@ letters and digits. It was rejected on looks. So was a hybrid keeping Old
 Republic's letters and substituting vanilla punctuation. Neither ships; the
 shipped face is unchanged.
 
+**Compared and not taken, 2026-10-18.** The maintainer compared Bank Gothic
+Medium and Helvetica Roman as replacements and kept Old Republic and Arimo
+Medium. Two reasons: both candidates are commercial fonts, and each lacks three
+of the Windows-1252 characters the atlases hold, which the converter's coverage
+check now refuses (see
+[What each slot holds](#what-each-slot-holds-and-the-2026-10-18-re-bake)). Read
+with fontTools from each face's `cmap`: Bank Gothic Medium lacks the soft hyphen
+(0xAD), ð (0xF0) and þ (0xFE); Helvetica Roman lacks € (0x80), Ž (0x8E) and ž
+(0x9E). The candidate font files are not in the repository.
+
+### The shared atlas is minified again
+
+Since 2026-10-17 the native runtime ships **one** atlas per font and style, the
+HD one baked at 3x, and changes only TXI sizes per screen height and text size:
+`ApplyTextPreferences` and `FontTargetHeight` in
+[K1RuntimeAssets.cpp](../src/controller-native/K1RuntimeAssets.cpp) rewrite
+`fontheight`, `baselineheight`, `texturewidth`, `spacingR` and `spacingB`; glyph
+coordinates and pixels stay as baked. That brings back the situation the
+per-scale sets above were built to remove. The font TXIs still say `mipmap 0`
+and `filter 0` (read from `assets/hd-fonts`), so the shrink is point sampled, as
+in the issue #16 analysis above: texels are dropped and strokes come out uneven.
+
+Computed from `FontTargetHeight` with the HD `fontheight` 0.48 (the table in
+[in-game text options](ingame-text-options.md), section 3), at the default 50%
+text size:
+
+| screen | drawn `fontheight` | drawn size against the atlas |
+| --- | --- | --- |
+| 1920x1080 | 0.24 | 1/2 |
+| 2560x1440, 3440x1440 | 0.32 | 2/3 |
+| 3840x2160 | 0.48 | 1/1 |
+
+At 100% text size 1080p draws 1/1 and 1440p magnifies by 4/3. These ratios are
+arithmetic from the source; no frame of the native runtime was captured to
+measure them.
+
+Options, none built:
+
+- **Mipmaps** would smooth the shrink, but soften the text, and a mipmap level
+  averages neighbouring texels, so glyphs would need more padding than
+  `GLYPH_PADDING = 4` to keep neighbours out. They do nothing for magnification.
+- **An atlas baked at the drawn size** is the sharpest, which is what the
+  per-scale sets in `build/fonts` are. With the size sliders the drawn size is
+  no longer one value per resolution, so this would need a set per drawn size
+  or a nearest-set choice (not designed).
+
+**Open, not investigated (reported 2026-10-18):** the Original Sharpened style
+draws `fnt_console` text smeared. Not measured; the cause is unknown.
+
 ## Validation status
 
 - **Play-tested on a CLEAN install at 3440x1440** through the gold-v13
@@ -387,3 +558,8 @@ check returned "not exact" and that was chased rather than shrugged at.
   with it. See `reverse-engineering/font-atlases.md`.
 - **Not checked at all**: resolutions other than the spot-checks above;
   `computercamera.gui`'s positioning.
+- **The 2026-10-18 re-bake** (Windows-1252 slots, blank control codes, per-cell
+  drawing): checked by per-cell pixel comparison and the three regressions named
+  in [What each slot holds](#what-each-slot-holds-and-the-2026-10-18-re-bake);
+  **not yet seen in game**. The "18 atlases matched back to the typeface" check
+  above was made before it and was not repeated.

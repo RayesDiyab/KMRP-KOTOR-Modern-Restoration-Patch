@@ -130,9 +130,24 @@ The native input handler was read from the clean executable identified above.
 It subtracts or adds one position and calls the native position setter. Generated
 Graphics, Mouse and Sound templates all have maximum 100: brightness, sensitivity
 and the four volume sliders. The new text controls retain the same native input
-and drag behavior, with 75 intervals representing 25..100%, so one position means
+behavior, with 75 intervals representing 25..100%, so one position means
 one percentage point. The previous source used 15 intervals and mapped each
 position to five percentage points; that mapping caused the reported jumps.
+
+Correction, 2026-10-18: this paragraph said the text sliders also keep the native
+**drag**. They did until that day, and dragged with the mouse they stopped at 99%:
+the native mouse move (VA `0x00419250`) takes `maximum * (x - left) / width`, rounded
+down, from the pointer, while the layout (VA `0x00418F20`) draws the thumb's left
+edge at `left + (width - thumb width) * value / maximum`, so the pointer on a thumb
+drawn at the end of the track gives 74 of 75. Only a drag carried past the track
+reached 100%. Keys and the pad (the decrement and increment below) were not affected.
+Each text slider now gets KMRP's copy of the native slider table (VA `0x0073E9D0`,
+40 entries) with the mouse move (entry 4) replaced and the left button down (entry 6)
+wrapped, so the thumb stays where it was taken and the value is the one it is drawn at,
+to the nearest step ([K1SliderGrip.h](../src/controller-native/K1SliderGrip.h)). The
+HUD Size page shares it; the measurement, the disassembly and the checks are in
+[HUD Size: dragging a slider](hud-size-options.md#dragging-a-slider-with-the-mouse).
+These sites are unchanged in the clean executable identified above.
 
 | Native observation, unchanged engine code | VA | FILE | Measured instruction / value |
 | --- | --- | --- | --- |
@@ -192,7 +207,12 @@ hook already specified in
 It uses existing frame/layout notifications, native callbacks and an allocated
 panel-local vtable. That table copies 27 base-panel slots from VA `0x0073E010`,
 then replaces slots 0 (destructor), 15 (input) and 21 (B action). The loaded
-graphics/button vtable checks are VA `0x007586F8` / `0x0073E658`.
+graphics/button vtable checks are VA `0x007586F8` / `0x0073E658`. Since 2026-10-18
+each of the four sliders also points at a module-owned copy of the native slider
+table, VA `0x0073E9D0`, 40 slots, with slot 4 (mouse move, `0x00419250`) replaced and
+slot 6 (left button down, `0x004191D0`) wrapped; a slider whose table is not
+`0x0073E9D0` is left alone. That is an in-memory pointer, not a hook site
+([HUD Size: dragging a slider](hud-size-options.md#dragging-a-slider-with-the-mouse)).
 
 | In-memory state | Source treatment |
 | --- | --- |
@@ -230,6 +250,14 @@ sets.** Historical offline archives still contain their previous fonts for
 comparison. The runtime uses one shared source per font/style at every size.
 
 HD art is the existing 3x source in `assets/hd-fonts`.
+That source was re-baked on 2026-10-18 (uncommitted at the time of writing),
+after the converter was found to draw the face's missing-glyph box in slots 0x80
+to 0x9F and in every control-code slot; the latter put two vertical lines after
+"HUD:" on this page. See
+[font scaling](font-scaling.md#what-each-slot-holds-and-the-2026-10-18-re-bake).
+The bank identity in "Build and address convention" predates the re-bake, so a
+bank built since has different HD font objects and a different hash; the new
+hash was not read for this note, and the fix has not yet been seen in game.
 [build_original_fonts.py](../tools/build_original_fonts.py) creates original-PC
 art at build time from all 18 resources in the supplied GUI texture pack.
 Original Font preserves their RGBA pixels and original atlas dimensions, then
@@ -325,7 +353,8 @@ The current implementation's integration checks report:
 
 | Check | Coverage and result | What it does not establish |
 | --- | --- | --- |
-| `Test-TextOptions.py` + production-source native mock harness | 70 fixtures: 66 generated Graphics layouts plus four transformed layouts; cloned geometry/focus, IDs, navigation links, 20 controls, default captions, independent/linked changes, all 76 percentage positions, precise saved values, actions, style failure rollback, held-confirm reopen guard and cleanup pass | Native engine ABI execution, rendering, real controller navigation or arbitrary skins |
+| `Test-TextOptions.py` + production-source native mock harness | 70 fixtures: 66 generated Graphics layouts plus four transformed layouts; cloned geometry/focus, IDs, navigation links, 20 controls, default captions, independent/linked changes, all 76 percentage positions, precise saved values, actions, style failure rollback, held-confirm reopen guard and cleanup pass | Native engine ABI execution, rendering, real controller navigation or arbitrary skins. The slider table swap: the harness has no engine table to copy, so the call is compiled out under `KMRP_TEXT_OPTIONS_TEST` |
+| `Test-HudOptions.py` (the shared drag, `DragValue` in `K1SliderGrip.h`) | Maxima 75, 100 and 10, every travel from twice the maximum to 3000 px: both ends, every step, and the value of every drawn thumb position given back. Passed 2026-10-18 | The engine calls in the replaced entries; a drag on this page in the game |
 | Previous default metrics comparison | All 1,188 heights (66 sizes x 18 fonts) equal the historical archive values | Visual identity of every string/layout |
 | Original atlas comparison | Alpha pixels of 16 non-repaired resources exactly match the local upstream comparison fixture | RGB equality, the two intentionally repaired metadata grids, or runtime appearance |
 | `Test-OverrideFontMetrics.py` | 11,880 original/translation-font cases, including 2,376 mixed-group cases; first use, reload, round trip, no compounded scaling, UV/pointer/texture preservation and invalid guards pass | New page execution in the game |
@@ -514,7 +543,10 @@ The settings page adds no executable on-disk writes, hook sites, `.gui` resource
 installer resolution choice, or dependency on the controller patch. It retains
 the actual previous font size at 50%. Override font files and glyph resources
 remain owned by the player/mod that supplied them. Native engine control
-construction, events, focus and wrapping remain the mechanisms used by this page.
+construction, events, focus and wrapping remain the mechanisms used by this page;
+since 2026-10-18 the sliders' mouse drag is KMRP's, and their keys and pad stepping
+stay native. Sliders on other pages (brightness, sensitivity, volumes) keep the
+native drag.
 Other scaling subsystems and macOS behavior are outside this implementation.
 
 ## 7. Verifying by hand
@@ -525,6 +557,7 @@ then run:
 
 ```powershell
 python testing/regression/Test-TextOptions.py
+python testing/regression/Test-HudOptions.py
 python testing/regression/Test-OverrideFontMetrics.py
 python testing/regression/Test-NativeAssetsBank.py
 python .github/scripts/check_links.py

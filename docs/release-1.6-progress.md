@@ -30,7 +30,7 @@ nothing about the game.
 
 | | |
 | --- | --- |
-| Last commit | the HUD Size and action row commit after `8830c6b` (2026-10-18), pushed to `origin/master` |
+| Last commit | the controller remapping, slider and HD font commit after `e634603` (2026-10-18), pushed to `origin/master` |
 | KMRP's own module, hooks | 13 in 1.5.1, **20** now (`src/controller-native/kotor1-native-runtime.hooks.toml`) |
 | Controller patch, hooks | 36 in 1.5.1, **38** now (`tools/build_controller_kpatch.py`; `Test-ControllerKpatch.py` checks 38) |
 | Installer | No 1.6 installer has been built. Testing during this work used module builds swapped into a separate test game (`build/party-roster-kpm-check/game`). |
@@ -151,6 +151,15 @@ row below.)
 | **The Xbox HUD's action row as the Xbox manual's six places** | Default action, feats and skills (Stealth after the target's feats, or alone with no target), offensive Force powers, grenades or mines, the character's own Force powers, medpacs and other items together. Empty places are dim frames. One hook replaces Stealth's (`0x0068947A` for `0x00689410`), so still 38. Mouse and keyboard unchanged. | #55, #50 | Yes, by the maintainer, 2026-10-18: "works". |
 | **HUD Size page** in Graphics Options | A slider for each part of each HUD, the mouse and keyboard HUD's and the controller HUD's apart, 25% to 100% (50% today's size, 100% two and a half times), each part grown about its corner and kept on the screen; Link HUD Sizes; a preview on a slate backdrop. [`hud-size-options.md`](hud-size-options.md) | | The page and the mouse and keyboard HUD at 25%, 50%, 100% (twice and 2.5 times): yes, in the test game at 3440x1440 by scripted input, screenshots reviewed by the maintainer: "Looks great". The live Xbox HUD at other sizes: **not seen** (needs a pad). |
 | **The mouse and keyboard HUD placed at run time** | Placed by KMRP from a table of its 3440x1440 HUD, as the Xbox HUD is, whatever HUD layout file is loaded, so it works beside other widescreen mods. At 3440x1440 and 50% it is exactly the HUD before. The target's circle is allowed over more of the screen. | | As above. Beside another mod's HUD file and at other screen sizes: **not seen**. |
+
+### Controller remapping, sliders and the HD font (the commit after `e634603`)
+
+| Feature | What the player gets | Issues | Seen in play |
+| --- | --- | --- | --- |
+| **Controller remapping** on the Controller Layout screen | The screen opens as a view with (X) Remap and (B) Back. Remap: A on a row, then the new button. Face buttons, bumpers, triggers and stick clicks can be given to any action; moving, the camera, the D-pad, Start and Back stay. No swapping: the action left without a button waits with "?", and Save works once all have one. (Y) Default, (X) Save, (B) Close with an "Unsaved Changes" question. Menus keep their buttons; the world follows the remap. Saved in `kmrp-controller.ini`. [`controller-layout.md`](controller-layout.md) | | The screen with mouse and keyboard: yes, in the test game at 3440x1440 and 1920x1080 by scripted input, screenshots sent to the maintainer. With a pad, and the remap in play: **not tested** (no virtual pad on the test machine). |
+| **Sliders reach 100% with the mouse** | HUD Size and Text Size sliders dragged to the end read 100%, not 99%; the value is the one the thumb is drawn at. | | Yes, in the test game at 1920x1080 by scripted drags with the value read from memory. |
+| **Disengage in the HUD Size preview** | The preview shows the combat queue's frame round Disengage, as the game draws it, with the word centred. | | Yes, at 1920x1080 by scripted input. |
+| **HD font: every character, no stray lines** | The New HD Font shows the euro sign, curly quotes, ellipsis, dashes, the trade mark sign and Œ, Š, Ž as the original font does (they were boxes), and the lines after spaces in the HUD's font are gone. | #52 (the HD font) | The lines: seen before the fix at 1920x1080 and 3440x1440. After the rebuild: **not yet seen in the game**. |
 
 ## Keeping this up to date
 

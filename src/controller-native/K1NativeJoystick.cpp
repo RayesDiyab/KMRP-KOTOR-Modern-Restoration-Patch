@@ -18,6 +18,7 @@
 
 #include "K1NativeJoystick.h"
 #include "K1ControllerBackend.h"
+#include "K1ButtonRemap.h"
 #include "K1ControllerLayout.h"
 #ifdef KMRP_NATIVE_RUNTIME
 #include "K1TextOptions.h"
@@ -869,6 +870,17 @@ struct StickState {
 };
 
 StickState g_stick;
+// The pad's buttons as pressed, before remapping (triggers folded in, KmrpRemap::Mask):
+// the Controller Layout reads them while it waits for the button an action is given,
+// which can be any of them, including the ones a menu sends no event for.
+std::uint16_t g_padPhysicalButtons = 0;
+// Controls a screen keeps for the mouse but takes off the pad's focus: buttons the pad
+// presses with a button of its own, which the D-pad must not land on (the Controller
+// Layout's Default, Save and Back are Y, X and B; the maintainer, 2026-10-18). A
+// control that cannot be selected cannot be clicked either, so the selectable flag is
+// not the way. Registered by the screen as it opens and taken back as it closes, so
+// no address outlives its control (KmrpPadFocusExcludeK1; ControlIsNavigableK1).
+void* g_padFocusExcluded[16] = {};
 
 // Read the pad once per frame. Returns raw axis values in XInput's range.
 bool ReadPadAxes(std::int32_t& x, std::int32_t& y, std::uint16_t& buttons,
@@ -1348,6 +1360,29 @@ void FillNativeJoystickBufferK1(int deviceIndex, void* outBuffer)
         ry = 0;
         lt = 0;
         rt = 0;
+    }
+
+    // Controller remapping (K1ButtonRemap.cpp, since 2026-10-18). In the world each
+    // pad button is seen from here on as the default button of the action it carries,
+    // so everything below -- the engine's slots, the HUD's activate and release, the
+    // combat buttons, the stick clicks -- acts on the action and not on the button.
+    // Menus, conversations and minigames keep every button where it is. The triggers
+    // are folded into the button word for it and taken back out as pulled or not,
+    // which is all this function reads of them. Each press keeps the meaning it had
+    // when it went down, until it is released.
+    {
+        const int remapClass = InputClassK1();
+        const bool world = remapClass == K1_CLASS_PC || remapClass == K1_CLASS_FREELOOK;
+        std::uint16_t word = buttons;
+        if (lt > K1_TRIGGER_THRESHOLD) word |= 0x0400;
+        if (rt > K1_TRIGGER_THRESHOLD) word |= 0x0800;
+        g_padPhysicalButtons = word;     // what the Controller Layout reads while it waits for a button
+        const std::uint16_t seen = KmrpRemapButtonsK1(word, world);
+        if (seen != word) {
+            buttons = static_cast<std::uint16_t>(seen & ~KmrpRemap::TriggerBits);
+            lt = (seen & 0x0400) ? 255 : 0;
+            rt = (seen & 0x0800) ? 255 : 0;
+        }
     }
 
     // Edge-triggered, exactly as the engine's own button loop is: emit only on
@@ -2987,6 +3022,10 @@ struct GuiCueBindingK1 {
     // The control the build placed the cue beside, by tag; null for the HUD's,
     // which the HUD's own code places. See PlaceCueByReferenceK1.
     const char*    reference;
+    // The action whose button the cue shows (KmrpRemap::Button, named by its default
+    // button), for a cue in the world, where buttons follow the remap; None for a
+    // cue in a menu, where every button stays where it is.
+    int            action = KmrpRemap::None;
 };
 
 constexpr GuiCueBindingK1 K1_GUI_CUES[] = {
@@ -3006,8 +3045,8 @@ constexpr GuiCueBindingK1 K1_GUI_CUES[] = {
     {0x00750148, "LBL_KMRPRT", 0, "BTN_OPT"},
     // X and Y beside the HUD's combat buttons, each shown only while its button
     // is: Y by BTN_CLEARONE, X by BTN_CLEARALL (see PressHudButtonK1).
-    {K1_MAIN_INTERFACE_VTABLE, "LBL_KMRPY", K1_HUD_CLEAR_ONE, nullptr},
-    {K1_MAIN_INTERFACE_VTABLE, "LBL_KMRPX", K1_HUD_CLEAR_ALL, nullptr},
+    {K1_MAIN_INTERFACE_VTABLE, "LBL_KMRPY", K1_HUD_CLEAR_ONE, nullptr, KmrpRemap::Y},
+    {K1_MAIN_INTERFACE_VTABLE, "LBL_KMRPX", K1_HUD_CLEAR_ALL, nullptr, KmrpRemap::X},
 };
 constexpr int K1_GUI_CUE_COUNT =
     sizeof(K1_GUI_CUES) / sizeof(K1_GUI_CUES[0]);
@@ -3792,6 +3831,7 @@ struct GuiCueK1 {
     void*       control;
     int         id;
     std::size_t follow;             // GuiCueBindingK1::follow
+    int         action;             // GuiCueBindingK1::action
 };
 GuiCueK1 g_guiCues[16];
 constexpr int K1_GUI_CUE_SLOTS =
@@ -3899,7 +3939,7 @@ void* PlaceCueByReferenceK1(void* panel, void* cue, const char* referenceTag)
 }
 
 // Bind one cue by tag onto a panel that still has its .gui.
-void BindOneCueK1(void* panel, const char* tag, std::size_t follow, const char* reference)
+void BindOneCueK1(void* panel, const char* tag, std::size_t follow, const char* reference, int action)
 {
     void* const control = EngineFn<OperatorNewFn>(K1_OPERATOR_NEW)(
         K1_GUI_LABEL_SIZE);
@@ -4045,6 +4085,7 @@ void BindOneCueK1(void* panel, const char* tag, std::size_t follow, const char* 
                 g_guiCues[i].control = control;
                 g_guiCues[i].id = id;
                 g_guiCues[i].follow = follow;
+                g_guiCues[i].action = action;
                 ++g_stick.guiCuesInstalled;
                 return;
             }
@@ -4198,12 +4239,18 @@ void InstallGuiCuesK1(void* panel)
     for (int i = 0; i < K1_GUI_CUE_COUNT; ++i) {
         if (K1_GUI_CUES[i].panelVtable == vtable) {
             std::size_t follow = K1_GUI_CUES[i].follow;
+            int action = K1_GUI_CUES[i].action;
 #ifdef KMRP_CONTROLLER_STANDALONE
             // With the Xbox-style HUD the X cue is the button in the combat-mode
-            // message (K1XboxHud.cpp), so it is shown while that message is.
-            if (follow == K1_HUD_CLEAR_ALL && KmrpXboxHudEnabledK1()) follow = K1_HUD_COMBAT_MESSAGE;
+            // message (K1XboxHud.cpp), so it is shown while that message is. The Xbox
+            // game's line is "[B] to disengage": B leaves combat there from the first
+            // place (Release Bar, B's action), so the cue names that action's button.
+            if (follow == K1_HUD_CLEAR_ALL && KmrpXboxHudEnabledK1()) {
+                follow = K1_HUD_COMBAT_MESSAGE;
+                action = KmrpRemap::B;
+            }
 #endif
-            BindOneCueK1(panel, K1_GUI_CUES[i].tag, follow, K1_GUI_CUES[i].reference);
+            BindOneCueK1(panel, K1_GUI_CUES[i].tag, follow, K1_GUI_CUES[i].reference, action);
         }
     }
 }
@@ -4384,6 +4431,30 @@ void UpdateGlyphFamilyK1()
     }
 }
 
+std::uint16_t KmrpPadButtonsK1()
+{
+    return g_padPhysicalButtons;
+}
+
+void KmrpPadFocusExcludeK1(void* control, bool excluded)
+{
+    for (void*& c : g_padFocusExcluded) {
+        if (c == control) {
+            if (!excluded) c = nullptr;
+            return;
+        }
+    }
+    if (!excluded || !control) {
+        return;
+    }
+    for (void*& c : g_padFocusExcluded) {
+        if (!c) {
+            c = control;
+            return;
+        }
+    }
+}
+
 // For the prompt layer in vendor/K1XboxControls.cpp, which names the Xbox art.
 extern "C" char __cdecl KmrpGlyphLetterK1()
 {
@@ -4412,6 +4483,20 @@ void MatchCueFamilyK1(void* label)
     }
     resref[3] = wanted;
     EngineFn<SetFillImageFn>(K1_BORDER_SET_FILL_IMAGE)(params, resref, 1);
+}
+
+// A cue in the world: the picture of the button its action is on, in the pad's
+// family (controller remapping, K1ButtonRemap.cpp). The same art as the Controller
+// Layout's rows, so a remapped action shows the button the player chose.
+void ShowActionCueK1(void* label, int action)
+{
+    char* const params = static_cast<char*>(label) + K1_LABEL_BORDER_PARAMS;
+    char wanted[16];
+    KmrpRemapGlyphK1(action, KmrpGlyphLetterK1(), wanted);
+    if (_strnicmp(params + K1_BORDER_PARAMS_FILL, wanted, sizeof(wanted)) == 0) {
+        return;
+    }
+    EngineFn<SetFillImageFn>(K1_BORDER_SET_FILL_IMAGE)(params, wanted, 1);
 }
 
 #ifdef KMRP_CONTROLLER_STANDALONE
@@ -4452,7 +4537,11 @@ void UpdateGuiCuesK1()
             ++g_stick.guiCueToggles;
         }
         if (shown) {
-            MatchCueFamilyK1(g_guiCues[i].control);
+            if (g_guiCues[i].action != KmrpRemap::None) {
+                ShowActionCueK1(g_guiCues[i].control, g_guiCues[i].action);
+            } else {
+                MatchCueFamilyK1(g_guiCues[i].control);
+            }
         }
     }
 }
@@ -4573,9 +4662,19 @@ struct NavContentScopeK1 {
 // Actionable means what the player would call actionable: on screen, not greyed
 // out, selectable, and occupying real space. Labels, borders and background art
 // fail the selectable bit and never receive focus.
+bool PadFocusExcludedK1(const void* control)
+{
+    for (void* const c : g_padFocusExcluded) {
+        if (c && c == control) {
+            return true;
+        }
+    }
+    return false;
+}
+
 bool ControlIsNavigableK1(void* control, RectK1& rect)
 {
-    if (!LooksLikePointerK1(control)) {
+    if (!LooksLikePointerK1(control) || PadFocusExcludedK1(control)) {
         return false;
     }
     const std::uint8_t flags =

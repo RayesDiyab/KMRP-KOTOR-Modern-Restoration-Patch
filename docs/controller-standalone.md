@@ -90,6 +90,16 @@ The module is built by `src\controller-native\build_controller_standalone.cmd` w
 file bank, the module entry point and nothing else. `K1KpmApplier.cpp` and the
 `K1Runtime*.cpp` files are not compiled in, so no engine change can be applied.
 
+*The source list above is the build of 2026-10-05.* Read from
+`build_controller_standalone.cmd` on 2026-10-18, the script also compiles
+`K1Xpress.cpp`, `K1XboxHud.cpp` and, since that day (uncommitted when written),
+`K1ButtonRemap.cpp`: controller remapping's settings and translation
+([`controller-layout.md`](controller-layout.md), "Button remapping"). KMRP's own
+module, `kmrp.dll`, compiles `K1ButtonRemap.cpp` too (`build_native_runtime.cmd`),
+because it compiles `K1NativeJoystick.cpp` and `K1ControllerLayout.cpp`, which call
+it, and would not link without it. KMRP's patch installs no controller hook, so in a
+game the remap runs from this patch's module.
+
 ### The file bank
 
 Made by `tools\build_controller_assets.py` from the game's own layout files
@@ -103,6 +113,12 @@ metrics (`build-inputs\swpc_tex_gui.erf`).
 | 280 | focused-state badge textures, `kmf?...` (section 3) |
 | 10 | Controller Layout backdrop and edge art |
 | 1 | `kmrp-sdl3.dll`, SDL 3.4.16, for non-Xbox pads |
+
+These are the counts of the build above. **Since 2026-10-18** `build_art` adds 43
+textures for controller remapping: `kmr?rm<code>`, ten per family, and the three
+marks `kmrrmask`, `kmrrmlock` and `kmrrmdot`. Counted on 2026-10-18 in
+`build\controller-standalone\files` as built at 19:10 that day, which held 1,060
+files in all; the bank itself was not re-counted.
 
 The layout steps are the ones KMRP's resource build runs on its own sets
 (`tools\prepare_universal_resources.py`), called here on the game's files:
@@ -232,6 +248,10 @@ places" and "Stealth"):
 Packaged against the clean executable with all 38 sites guarded; passes
 `Test-ControllerKpatch.py`. Not compared with the other patches of KOTOR Patch Manager.
 
+Controller remapping, the same day, adds no hook: it runs from `NativeGuiFrameK1`
+and `NativeJoystickBufferK1` above (neither `kotor1.hooks.toml` nor
+`build_controller_kpatch.py` was changed for it).
+
 Checked against every patch in KOTOR Patch Manager 0.7.1 for an overlapping site:
 four overlaps, all with `expanded-keyboard-control` (`0x0040C1F6`, `0x005E271E`,
 `0x00686BA0`, `0x0068B170`), which the manifest therefore lists as a conflict
@@ -327,7 +347,8 @@ leave 12 design units between their words. Off for KMRP's sets, whose
 
 | File | Who writes it | What |
 | --- | --- | --- |
-| `kmrp-controller.ini` beside the game | KMRP's installer, or else the module, once, if it is not there | the rumble settings, with the installer's defaults; both with `[Hud]` and `Style=Xbox` since 2026-10-08 (until then the module's copy had `Style=PC` and the installer's no `[Hud]`). A file already there is never touched |
+| `kmrp-controller.ini` beside the game | KMRP's installer, or else the module, once, if it is not there | the rumble settings, with the installer's defaults; both with `[Hud]` and `Style=Xbox` since 2026-10-08 (until then the module's copy had `Style=PC` and the installer's no `[Hud]`). A file already there is never touched by either |
+| `[Controller Remap]` in the same file | the module, when Save is pressed on the Controller Layout screen (since 2026-10-18) | the button layout, ten keys, `Interact=A` to `FreeLook=R3` on the default; read once per start, and the default used if it is incomplete ([`controller-layout.md`](controller-layout.md), "Button remapping") |
 | `configs\kmrp-controller.ini` | a KOTOR Patch Manager with patch options, or KMRP's installer | `[Patch Options]`: `debug-logs`, and from a manager `xbox-hud`; a missing `debug-logs` means off, a missing `xbox-hud` means the settings file decides. KMRP's installer writes `debug-logs` only, so that `Style` under `[Hud]` still decides the HUD (`ControllerPatchOptions`, `KpmEdition.cs`) |
 | `kmrp-controller-events.log` beside the game | the module, with `debug-logs` on (since 2026-10-12) | one line an event, with the tick: every pad there is and the one read, whenever either changes, and why; each change between the pad and keyboard and mouse, with the key or the pointer that did it; keys dropped while a Steam pad is held; the screens the game has up when Start asks for the Map or Escape is pressed. With `debug-logs=2`, written here by hand, also the pad read each time anything on it changes and what the game's movement was given. `kmrp-native-joystick.log`, the counters twice a second, is as it was |
 | `kmrp-controller.log` beside the game | the module, only on failure | written if the file bank cannot be unpacked; the pad still works without its prompts |
@@ -550,7 +571,10 @@ another control's size (`size_like`) and stay on their buttons.
 - The executable on disk, apart from what KOTOR Patch Manager's own deployment
   does. Every hook is applied in memory.
 - Override, and every file in the game folder except `kmrp-controller.ini` when it
-  is missing.
+  is missing. *Since 2026-10-18* the module also writes that file's
+  `[Controller Remap]` section when the player presses Save on the Controller
+  Layout screen, and makes the file if it is missing then; nothing is written
+  without that press.
 - The movie window: `KpmMoviesOffK1` returns true, so the movie frame only reads
   the pad and KMRP's black bars are not drawn.
 - Keyboard and mouse behaviour. KMRP's keyboard navigation hooks
