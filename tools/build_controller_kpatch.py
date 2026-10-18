@@ -229,7 +229,7 @@ def hooks():
 
 
 def functions():
-    return {h['function'] for h in hooks()}
+    return {h['function'] for h in hooks()} | {'KmrpControllerConfirmHeldK1'}
 
 
 def render_manifest(version: str) -> str:

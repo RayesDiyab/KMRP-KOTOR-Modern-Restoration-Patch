@@ -58,6 +58,12 @@ struct FileLayout {
     std::int32_t list[4], ok[4], panel[4];
 };
 FileLayout g_file;
+// What FitRows left: the base the frame's growth (GrowToRows) is measured from.
+struct Fitted {
+    bool valid;
+    std::int32_t list[4], ok[4], panel[4], inner, row, rows;
+};
+Fitted g_fit;
 char* g_popup;   // the popup whose rows step 1 refits, once it has been filled
 
 bool IsGrantedRow(char* row) {
@@ -104,9 +110,51 @@ void FitRows(char* popup) {
     panel[1] += cut / 2;
     panel[3] -= cut;
     SetExtent(popup, panel);
+    std::memcpy(g_fit.list, extent, sizeof extent);
+    std::memcpy(g_fit.ok, okExtent, sizeof okExtent);
+    std::memcpy(g_fit.panel, panel, sizeof panel);
+    g_fit.inner = At<std::int32_t>(list, kListInner);
+    g_fit.row = row;
+    g_fit.rows = rows;
+    g_fit.valid = true;
 }
 
 }  // namespace
+
+// Every GUI frame (KmrpTextLayoutFrameK1): the rows' height follows the text size
+// since 2026-10-17 (K1TextRows.cpp grows a row to its text and its scaled icon), and
+// does so after the fill above has cut the list to the rows' height at that moment. A
+// grown row then outgrew the list and was cut off ("Critical Strike" at 100%: row 228,
+// list inner 109; measured 2026-10-18). So the list grows with its rows again, OK moves
+// down and the panel grows by the same, keeping its centre; by at most half the popup's
+// own height, so it is never more than 1.5 times its size before this (the maintainer's
+// limit, 2026-10-18; at twice, a full granted popup reached the top of the screen);
+// beyond that the list scrolls. Measured from what the fill left, so it never accumulates.
+void KmrpGrantedPopupFrameK1() {
+    if (!g_popup || !g_fit.valid || At<std::uintptr_t>(g_popup, 0) != kGrantedVtable) return;
+    void* const list = g_popup + kList;
+    const std::int32_t row = At<std::int32_t>(list, kListRow);
+    const std::int32_t count = At<std::int32_t>(list, kListCount);
+    if (row <= 0 || row > 32767 || count <= 0 || count > 64) return;
+    // Only the rows the fill showed, and only by what each has grown since: a popup
+    // with more feats than fit already scrolls, and at the size the fill saw it keeps
+    // the fill's size. Counting every granted row grew such a popup to its cap even
+    // at 50% (seen in play, 2026-10-18).
+    std::int32_t grow = g_fit.rows * (row - g_fit.row);
+    if (grow < 0) grow = 0;
+    if (grow > g_fit.panel[3] / 2) grow = g_fit.panel[3] / 2;
+    std::int32_t extent[4], ok[4], panel[4];
+    std::memcpy(extent, g_fit.list, sizeof extent);
+    std::memcpy(ok, g_fit.ok, sizeof ok);
+    std::memcpy(panel, g_fit.panel, sizeof panel);
+    extent[3] += grow;
+    ok[1] += grow;
+    panel[1] -= grow / 2;
+    panel[3] += grow;
+    if (std::memcmp(&At<std::int32_t>(list, kExtent), extent, sizeof extent) != 0) SetExtent(list, extent);
+    if (std::memcmp(&At<std::int32_t>(g_popup + kOk, kExtent), ok, sizeof ok) != 0) SetExtent(g_popup + kOk, ok);
+    if (std::memcmp(&At<std::int32_t>(g_popup, kExtent), panel, sizeof panel) != 0) SetExtent(g_popup, panel);
+}
 
 // After the fill's AddControls: remember the popup, then fit the list, OK and the panel to
 // its rows. `list` is LB_SKILLS, esi at the hook.

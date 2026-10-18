@@ -117,6 +117,90 @@ proxy, and it applies the executable changes above as well.
 
 ## [Unreleased]
 
+- **Text that fits its space at any text size** (2026-10-17): a larger text size
+  no longer pushes words out of their boxes. Each piece of the game's text is
+  fitted on its own, at the moment the engine wraps and draws it; the shared
+  fonts and the sizes chosen in Text Size and Font never change.
+  - **Fixed boxes** (titles, buttons, the combat banner, short HUD messages):
+    the text is drawn at the chosen size if it fits, otherwise at the largest
+    size that does, found by the engine's own wrapping. Centred and
+    right-aligned lines keep their last letter inside the box.
+  - **List rows** (inventory, store, upgrade, dialogue replies): rows grow with
+    their text and shrink back, and the list's scrolling, selection and click
+    areas follow. An item's stack count is a box the size of its digits at the
+    chosen size, its lower right corner at (52, 54) of the 56 px hex art in
+    proportion to the icon, inside the hex's arrow tips instead of past them
+    (placed with the maintainer in play, 2026-10-18); at most half the icon
+    each way, the digits shrinking to fit beyond that. The game's inventory,
+    store and workbench rows size their frame and text box to the item icon,
+    whatever height the row has (`0x006B5270`, `0x006C2650`), as skill and
+    power rows do (`0x006AB8E0`); those parts are stretched to the row, or a
+    two-line name would still lose its first line (seen in play at 1920x1080:
+    row 103, text box 76, two lines). Save/load rows and option toggles are
+    handled as buttons.
+  - **Item, skill and power icons** grow with the menu text size: the game's own
+    icon art drawn larger (x1.3 at 65%, unchanged at 50% and below), centred in
+    a row that grows to hold it, with the name to its right and the stack count
+    in its lower right. The icon follows the text size, not the row's height, so it cannot
+    push the name onto more lines and enlarge itself again.
+  - **Feat and power charts** (`CSWGuiSkillFlow`, `0x006CCE30`): each row grows
+    with the same scale (100 at 50% at 3440x1440, 130 at 65%), so its three cells
+    grow with it; the feat icons and the arrows between them, which the game draws
+    at their textures' own size, are drawn larger about their centres, an icon never
+    beyond its cell. Unchanged at 50%.
+  - **The computer terminal's reply scrollbar** sits on the track its artwork
+    draws for it (`panel01`, 880..941 x 577..804 at 3440x1440), where
+    `computer.gui` puts it: the thumb's track on the artwork's bar, the arrows
+    beyond its ends. The engine reads only a scrollbar's width from a
+    layout file and drew it at the list's edge, as tall as the list, beside the
+    track; seen once larger text first made the replies scroll (2026-10-18).
+    Put back on every GUI frame, for named lists only (`kFileBars`,
+    `K1RuntimeLayout.cpp`).
+  - **Conversation text in the bottom bar** reaches down to the screen's bottom
+    less the gap above it, the bars and the picture unchanged. While a line is
+    spoken the lower panel was 100 tall in a 240 bar, cutting a two-line
+    subtitle; while replies are offered the reply list was 192, cutting the
+    third reply (3440x1440, 100%). The panel, `LBL_MESSAGE` and `LB_REPLIES`
+    now reach that limit and never pass it: a longer subtitle is fitted to its
+    box, more replies scroll (`Dialogue`, `K1TextLayout.cpp`).  - **Scrolling descriptions and text entry** keep the chosen size.
+  - **The pause notice** spans the width of the menu buttons above it and grows
+    to fit its text; the Xbox-style HUD keeps its own layout.
+  - Five new hooks, on the engine's text object (created, destroyed, wrapped,
+    drawn) and on the list box's draw (`kotor1-native-runtime.hooks.toml`);
+    every stolen byte checked against the game. Native mock tests cover fitting, row growth,
+    counters, scrolling and the pause layout. Installed in the separate test game,
+    not yet play-tested: the three font styles, translations, other resolutions
+    and repeated size changes are all still to be checked in play.
+  See [text layout inventory](docs/text-layout-inventory.md).
+
+- **Text size and font in Graphics Options** (2026-10-17): add a native
+  Text Size and Font page above Advanced Options, using the loaded graphics
+  screen's own controls and positions. Four sliders group shared fonts for menus
+  and replies, subtitles and body text, small text, and HUD text. They move in
+  1% increments, keeping the current size at 50%. Link Text Sizes moves all four
+  together and is on by default, with mutually exclusive Original Font, Original Sharpened Font and New HD
+  Font choices. Original Font keeps the game artwork at its original resolution
+  and lets the engine enlarge it.
+  Settings persist in `swkotor.ini`. The engine scales existing font metrics
+  and re-wraps text live; each font style has one shared atlas set rather than
+  per-resolution artwork. No fonts are rasterized while playing. Override
+  translation fonts retain their artwork, glyphs and priority. Native mock
+  lifecycle checks cover 70 layouts, and all 1,188 default font heights match
+  the previous sizes. Opening, sizing and Default were tested in the earlier
+  two-style page; the grouped sliders, fine changes and linking were then tested in the separate
+  game. The three-choice font selector awaits its switching/rendering check.
+  See [in-game text options](docs/ingame-text-options.md).
+
+- **Override font wrapping** (2026-10-17; issue #63): size an Override font's
+  metrics when the native TXI loader finishes, before any caller can first
+  measure text. This replaces the later GUI-frame/panel-start adjustment that
+  could draw larger letters using line breaks cached at the original size.
+  The same hook handles loose TXI, embedded TPC metadata and resolution reloads;
+  the source font, glyph coordinates and chosen font style stay unchanged.
+  Native control-flow checks and 11,880 original/translation/size metric cases pass.
+  In-game dialogue wrapping with a translation remains unverified.
+  See [Override font timing](reverse-engineering/override-font-metrics.md).
+
 - **Expanded party roster compatibility** (2026-10-17; issue #38): generate
   the 32-slot party GUI at runtime from the current KMRP layout when the active
   roster patch has no supplied GUI. This covers the missing file in official
@@ -232,6 +316,33 @@ proxy, and it applies the executable changes above as well.
   documented triggers. Start, overlapping holds and the turret's vertical direction
   were not individually reported as tested.
 
+  **The other half of the report, the HUD** ("its Hud i don't think covered the whole screen
+  like everywhere else"; `macos/tools/kmrp-swoophud.c`, `K1RuntimeAssets.cpp`). The game has
+  no layout file for that HUD: all 84 `.gui` files in `gui.bif`, the 7 in `patch.erf` and
+  every module were listed, and KMRP scales every one of the 84, so nothing was left out of
+  its set. The dashboard, the timer and the gauges are one model, `m17mg_camera` in
+  `models.bif`, that rides in front of the camera on all three tracks (textures `LMG_HUD01`,
+  `LMG_Numbers`, `LMG_BikeGuiA0` to `A5`). It is drawn in the 3D view, whose height is fixed
+  (65 degrees), so on a wide screen it keeps the width it has at 4:3 and the track shows
+  beside it. That is left as it is: stretching it would distort the art.
+
+  What was wrong in it, seen by the maintainer at 3440x1440: a red chevron at the bottom
+  left, outside the dashboard, for the whole race. It is the ninth segment of the speed
+  gauge (`Plane09`), which the model keeps 1.55 units left of the gauge until the bike is
+  that fast, 2.03 from the middle: outside a 4:3 view (half its width is 1.46 there) and
+  inside a wide one (1.95 at 16:9, 2.62 at 21:9). The tenth segment the artists parked far
+  away (-99.87). KMRP's module now makes a copy of the model from the player's own file with
+  the ninth parked where the tenth is, and the two animations that bring it in (`meter8`,
+  `meter9`) grown by the same distance, so it arrives where it always did: five numbers
+  changed, 20 bytes of 223,752, checked byte for byte against the game's file. Only a model
+  with exactly the game's values is changed. Made where the tutorial icons are made, into
+  the same cache; nothing is written to the game's folder. **Built and installed; not yet
+  seen in the game.** The helper is plain C beside the Mac's others; the Mac build does not
+  call it yet (`docs/macos-changes-from-windows.md`, item 54).
+
+  **Still open:** the "PAUSED" box in a race is small and see-through with its text running
+  over (same screenshot). Not looked at.
+
 - **Controller: the left stick walks a conversation's replies** (2026-10-15;
   `src/controller-native/K1NativeJoystick.cpp`, `FillNativeJoystickBufferK1`;
   `docs/controller-behaviour-matrix.md`, the Dialogue row and the left stick's). Reported from
@@ -273,7 +384,9 @@ proxy, and it applies the executable changes above as well.
   CSWGuiPanel::OnBButtonPressed)`), with value 1 whatever it was given. So the release was a
   second click of Cancel. The hand-off of a release to a control whose handler would press an
   event on its own panel is now made inert, on every screen; a press is handed on as before.
-  No new hook. **Built; the package tests pass. Not yet seen in the game.**
+  No new hook. **Seen fixed in the game by the maintainer on 2026-10-13** (Steam's game,
+  controller module SHA-256 `E02901ED...`): "the popup fix works too". Other screens where a
+  box closes over a focused button were not reported on.
 
 - **Controller, the Xbox-style HUD: Stealth is in the action row** (2026-10-13; issue #50;
   `src/controller-native/K1XboxHud.cpp`, `KmrpXboxHudStealthK1`;

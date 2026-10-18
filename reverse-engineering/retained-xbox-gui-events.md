@@ -280,7 +280,8 @@ above) or B, X or Y (a second action). Two halves in
    value of 0). The release then went to Party Selection, to Cancel, and opened
    the box again (reported by the maintainer, 2026-10-13). A press that raises
    another event is left alone: that is the button's click. Log line: `-> a
-   release would click the focused button -> inert`. Not yet seen in the game.
+   release would click the focused button -> inert`. Seen fixed in the game by the
+   maintainer on 2026-10-13, on that screen, in Steam's game.
 
 Both write to `kmrp-confirm-focus.log` (256 lines at most): `guard panel=<vtable>
 event=<e> value=<v> -> A presses the focused button` or `-> the focused control

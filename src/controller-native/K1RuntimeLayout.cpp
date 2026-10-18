@@ -3,6 +3,8 @@
 #include "K1RuntimeLayout.h"
 #include "K1RuntimeAssets.h"
 #include "K1PartyRosterState.h"
+#include "K1TextOptions.h"
+#include "K1TextLayout.h"
 #include <windows.h>
 #include <map>
 #include <vector>
@@ -27,6 +29,9 @@ struct Control {
 };
 struct Panel {
     std::string resource; std::map<std::string, Control> controls; std::map<std::string, Extent> file;
+    // Scrollbars placed where their layout file puts them (FileBars), by the list's tag:
+    // the bar's left and top less the list's, its width, its height less the list's.
+    std::map<std::string, Extent> bars;
     bool rowsPlaced = false;   // its lists have been made as wide as their rows need (PlaceLists)
     // The size its controls stand for: the one in force when it was loaded, then the
     // one it was last laid out for (KmrpRuntimeLayoutDimensions). 0 where it could not
@@ -130,6 +135,48 @@ void FileLists(const Gff& gff, std::map<std::string, ListFile>& result)
         if (gff.field(object, "SCROLLBAR", 14, bar) && gff.field(bar, "EXTENT", 14, extent) &&
             gff.field(extent, "WIDTH", 5, width) && width <= 4096) list.bar = static_cast<int>(width);
         result[tag] = list;
+    }
+}
+
+/*
+  Scrollbars where their layout file puts them.
+
+  The engine reads only a list's scrollbar's width from its file. CSWGuiListBox::
+  SetScrollBarExtent (0x004181F0), called from the list's Load and every SetExtent
+  (0x0041BF80), puts the bar at the list's left edge (or right, without LEFTSCROLLBAR)
+  and makes it as tall as the list, whatever the file's SCROLLBAR extent says
+  (decompiled 2026-10-18; reverse-engineering/listbox-geometry.md). The computer
+  terminal's artwork (panel01) draws a scrollbar's track left of the replies, at
+  880..941 x 577..804 at 3440x1440, and its file puts the reply list's bar on it, at
+  (878, 575, 64, 230); the engine drew it at the list's edge instead, 10 px right and
+  the list's 315 tall, beside the track (the maintainer, 2026-10-18, at 100% text,
+  when the replies first needed it). So for the lists named here the bar's track is
+  put where the file puts the bar, relative to the list, with its arrows beyond it
+  (PlaceBars), on every GUI frame after the engine has moved it
+  (CSWGuiScrollBar::SetExtent through the bar's vtable, the bar at +0x104).
+  Only lists named here: other files carry scrollbar extents the engine never used,
+  some of them nowhere near their list (the high-resolution menus' computer.gui gives
+  its reply list's bar the message list's place).
+*/
+const char* const kFileBars[] = {"computer.LB_REPLIES"};
+const unsigned kListBar = 0x104, kBarArrow = 0x134;   // the list's scrollbar; the bar's arrow image
+
+void FileBars(const Gff& gff, const std::string& resource, std::map<std::string, Extent>& result)
+{
+    result.clear();
+    unsigned offset, count;
+    if (!gff.field(0, "CONTROLS", 15, offset) || !gff.integer(gff.lists + offset, count) || count > 512 ||
+        !gff.range(gff.lists + offset + 4, count, 4)) return;
+    for (unsigned i = 0; i < count; ++i) {
+        unsigned object, bar;
+        std::string tag;
+        Extent list, extent;
+        if (!gff.integer(gff.lists + offset + 4 + i * 4, object) || !gff.tag(object, tag)) continue;
+        bool named = false;
+        for (const char* name : kFileBars) named = named || resource + "." + tag == name;
+        if (!named || !gff.extent(object, list) || !gff.field(object, "SCROLLBAR", 14, bar) ||
+            !gff.extent(bar, extent) || extent.width <= 0 || extent.height <= 0) continue;
+        result[tag] = {extent.left - list.left, extent.top - list.top, extent.width, extent.height - list.height};
     }
 }
 
@@ -318,6 +365,33 @@ void SetExtent(void* object, const Extent& extent)
     reinterpret_cast<void(__thiscall*)(void*, const Extent*)>(table[1])(object, &extent);
 }
 
+// The named lists' scrollbars back where their file puts them (FileBars), relative to
+// the list as it is now, if the engine has moved them since.
+void PlaceBars(const Panel& panel)
+{
+    for (const auto& entry : panel.bars) {
+        const auto found = panel.controls.find(entry.first);
+        if (found == panel.controls.end()) continue;
+        void* list = found->second.pointer;
+        if (found->second.table != kListTable || Field<std::uintptr_t>(list, 0) != kListTable) continue;
+        const Extent box = Field<Extent>(list, 4);
+        const Extent& file = entry.second;
+        void* bar = static_cast<char*>(list) + kListBar;
+        // The file's rectangle is the track, the artwork's bar; the arrows go beyond
+        // it. CSWGuiScrollBar::SetExtent (0x004193F0) puts them inside the bar's own
+        // extent, an arrow image (+0x134) as tall as its texture (capped at half the
+        // bar) at each end, and the thumb's track between: placed on the file's
+        // rectangle itself the track came out two arrows shorter than the artwork's
+        // (the maintainer, 2026-10-18).
+        const int arrow = Field<int>(bar, kBarArrow + 4 + 12);
+        if (arrow < 0 || arrow > 1024) continue;
+        const Extent want{box.left + file.left, box.top + file.top - arrow, Field<int>(list, kListBarWidth),
+                          box.height + file.height + 2 * arrow};
+        if (want.width <= 0 || want.height <= 0 || want.width > 4096 || want.height > 32767) continue;
+        if (!(Field<Extent>(bar, 4) == want)) SetExtent(bar, want);
+    }
+}
+
 // The lists of the panels that have finished loading since the last frame, made as wide
 // as their rows need. A panel is in `panels` from the start of its loading, which is over
 // before the next frame is drawn.
@@ -328,6 +402,7 @@ void PlaceLists(void* manager, int width, int height)
         if (Field<void*>(item.first, kPanelManager) != manager) continue;
         KmrpMirrorPartyPageFocusK1(item.first);
         KmrpPartyPortraitsK1(item.first);
+        PlaceBars(panel);
         if (panel.rowsPlaced) continue;
         panel.rowsPlaced = true;
         for (auto& entry : panel.controls) {
@@ -410,7 +485,6 @@ extern "C" void __cdecl KmrpListAddRowsK1(void* list, void** slot)
 // Every GUI frame (KmrpCoreGuiWorkK1): the lists of newly loaded panels.
 void KmrpListRowsFrame(void* manager)
 {
-    KmrpScaleOverrideFontsK1(false);
     if (!manager) return;
     const int width = Field<short>(manager, kManagerWidth), height = Field<short>(manager, kManagerHeight);
     if (width > 0 && height > 0) PlaceLists(manager, width, height);
@@ -419,7 +493,6 @@ void KmrpListRowsFrame(void* manager)
 // Stack arguments arrive as the address of their slot (KPM's "esp+N").
 extern "C" void __cdecl KmrpPanelLayoutStartK1(void* panel, const char** slot)
 {
-    KmrpScaleOverrideFontsK1(false);
     const char* resource = slot ? *slot : nullptr;
     if (!panel || !resource) return;
     std::string name(resource, strnlen_s(resource, 16));
@@ -427,6 +500,7 @@ extern "C" void __cdecl KmrpPanelLayoutStartK1(void* panel, const char** slot)
     Panel& entry = panels[panel];
     entry = Panel{};
     entry.resource = name;
+    KmrpTextLayoutTrackPanelK1(panel, name.c_str());
     // The size in force now. While the game makes its own panels again after a change
     // of size (CGuiInGame::ResetInterfaceForSize) that is already the new one.
     if (void* manager = Field<void*>(panel, 0x18)) {
@@ -436,8 +510,10 @@ extern "C" void __cdecl KmrpPanelLayoutStartK1(void* panel, const char** slot)
     // The file the engine is about to load, for the size in force: the baseline
     // each control's later position is compared with.
     Gff gff;
-    if (gff.load(KmrpRuntimeAssetDirectory() + L"\\" + std::wstring(name.begin(), name.end()) + L".gui"))
+    if (gff.load(KmrpRuntimeAssetDirectory() + L"\\" + std::wstring(name.begin(), name.end()) + L".gui")) {
         FileExtents(gff, entry.file);
+        FileBars(gff, name, entry.bars);
+    }
 }
 extern "C" void __cdecl KmrpPanelControlK1(void* panel, void** controlSlot, void** labelSlot, int* filedSlot)
 {
@@ -476,6 +552,7 @@ extern "C" void __cdecl KmrpPanelControlK1(void* panel, void** controlSlot, void
             const auto file = found->second.file.find(tag);
             if (file != found->second.file.end()) { entry.known = true; entry.file = file->second; }
             found->second.controls[tag] = entry;
+            KmrpTextLayoutTrackControlK1(panel, control, tag.c_str());
             // For its rows, if it is one of the measured lists (list rows, above).
             BoundList bound;
             bound.name = found->second.resource + "." + tag;
@@ -486,6 +563,8 @@ extern "C" void __cdecl KmrpPanelControlK1(void* panel, void** controlSlot, void
 }
 extern "C" void __cdecl KmrpPanelDestroyedK1(void* panel)
 {
+    KmrpTextOptionsDestroyedK1(panel);
+    KmrpTextLayoutForgetPanelK1(panel);
     const auto found = panels.find(panel);
     if (found == panels.end()) return;
     for (const auto& item : found->second.controls) {
@@ -494,8 +573,43 @@ extern "C" void __cdecl KmrpPanelDestroyedK1(void* panel)
     }
     panels.erase(found);
 }
+
+void* KmrpRuntimeControlByTagK1(void* panel, const char* tag)
+{
+    const auto p = panels.find(panel);
+    if (p == panels.end()) return nullptr;
+    const auto c = p->second.controls.find(tag);
+    return c == p->second.controls.end() ? nullptr : c->second.pointer;
+}
+
+std::vector<void*> KmrpRuntimePanelsK1(const char* resource)
+{
+    std::vector<void*> result;
+    for (const auto& p : panels) if (p.second.resource == resource) result.push_back(p.first);
+    return result;
+}
+
+void KmrpReflowTextK1()
+{
+    KmrpTextLayoutFontsChangedK1();
+    // ResetFont dispatches recursively to list rows and controls. SetExtent
+    // also re-wraps their existing strings, without changing focus or text.
+    for (auto& item : panels) {
+        void* panel = item.first;
+        reinterpret_cast<void(__thiscall*)(void*)>(0x40A9C0)(panel);
+        void** array = Field<void**>(panel, 0x20);
+        const int count = Field<int>(panel, 0x24);
+        if (!array || count < 0 || count > 4096) continue;
+        for (int i = 0; i < count; ++i) if (void* c = array[i]) {
+            const Extent extent = Field<Extent>(c, 4);
+            auto table = Field<void**>(c, 0);
+            reinterpret_cast<void(__thiscall*)(void*, const Extent*)>(table[1])(c, &extent);
+        }
+    }
+}
 extern "C" void __cdecl KmrpControlDestroyedK1(void* control)
 {
+    KmrpTextLayoutForgetControlK1(control);
     boundLists.erase(control);
     for (auto& panel : panels) for (auto at = panel.second.controls.begin(); at != panel.second.controls.end();) {
         if (at->second.pointer == control) at = panel.second.controls.erase(at); else ++at;
@@ -536,6 +650,7 @@ bool KmrpRuntimeLayoutDimensions(void* manager, int width, int height)
         if (!FileExtents(gff, file)) return false;
         std::map<std::string, ListFile> lists;
         FileLists(gff, lists);
+        FileBars(gff, item.second.resource, item.second.bars);
         for (const auto& entry : file) {
             auto found = item.second.controls.find(entry.first);
             if (found == item.second.controls.end()) continue;

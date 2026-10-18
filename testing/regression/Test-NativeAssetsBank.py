@@ -107,10 +107,21 @@ def main() -> int:
     wrong = []
     for size, archive in archives.items():
         with zipfile.ZipFile(archive) as z:
-            expected = {name: hashlib.sha256(z.read(name)).digest() for name in z.namelist()}
+            expected = {name: hashlib.sha256(z.read(name)).digest() for name in z.namelist()
+                        if name not in builder.FONT_FILES}
         entries = dict(groups.get(size, {}))
         if size == "0x0":
             entries.pop("kmrp-sdl3.dll", None)
+            original = ROOT / 'build/native-runtime/original-fonts'
+            for path in original.iterdir():
+                if path.suffix in ('.tga', '.txi'):
+                    check(entries.pop(path.name, None) == hashlib.sha256(path.read_bytes()).digest(),
+                          f"original font asset {path.name} has its verified source hash")
+            for index, name in enumerate(builder.FONT_RESREFS):
+                for extension in ('.tga', '.txi'):
+                    source = ROOT / 'assets/hd-fonts' / (name + extension)
+                    check(entries.pop(f'kmrfhd{index:02d}{extension}', None) == hashlib.sha256(source.read_bytes()).digest(),
+                          f"shared HD font {name}{extension} stored exactly once")
         if entries != expected:
             wrong.append(size)
     check(not wrong and set(archives) == set(groups),
@@ -136,10 +147,11 @@ def main() -> int:
         if not absent:
             whole.append(size)
         bad += [f"{size} {n}" for n in absent if not helper_made(n) or n in builder.HELPER_INPUTS]
-        bad += [f"{size} lacks {n}" for n in builder.HELPER_INPUTS if n not in entries or entries[n] not in objects]
+        bad += [f"{size} lacks {n}" for n in builder.HELPER_INPUTS
+                if n not in builder.FONT_FILES and (n not in entries or entries[n] not in objects)]
     total = sum(len(v) for v in left_out.values())
     check(not bad, f"{total:,} files are left to the module, every one a layout, a badge, the manifest or the HUD box; "
-                   f"the helper's inputs and every font are stored" + (f": {bad[:6]}" if bad else ""))
+                   f"the helper's non-font inputs are stored, and fonts have shared sources" + (f": {bad[:6]}" if bad else ""))
     check(total > 40000, f"the bank leaves out most of the sets' files ({total:,} of "
                          f"{sum(len(e) for s, e in groups.items() if s != '0x0'):,}; {len(whole)} sets are stored whole: "
                          f"{', '.join(sorted(whole)) or 'none'})")
@@ -174,7 +186,8 @@ def main() -> int:
             inputs, out = tmp / f"in-{size}", tmp / f"out-{size}"
             inputs.mkdir()
             for name in builder.HELPER_INPUTS:
-                (inputs / name).write_bytes(stored(entries[name]))
+                (inputs / name).write_bytes(builder.shared_font_txi(name[:-4], size.split('x')[1])
+                                           if name in builder.FONT_FILES else stored(entries[name]))
             width, height = size.split("x")
             done = subprocess.run([str(helper), native_helpers.arg(table), width, height, native_helpers.arg(out),
                                    native_helpers.arg(inputs)], stdout=subprocess.DEVNULL, stderr=subprocess.PIPE, text=True)

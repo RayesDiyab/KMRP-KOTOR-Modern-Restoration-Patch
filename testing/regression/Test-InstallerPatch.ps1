@@ -247,7 +247,7 @@ try {
         $fpsModuleHash = [BitConverter]::ToString([Security.Cryptography.SHA256]::Create().ComputeHash($moduleStream)).Replace("-", "")
         $moduleStream.Dispose()
     } finally { $zip.Dispose() }
-    Assert ($fpsHooks -eq 36 -and $config.Hooks -eq (28 + 38 + $fpsHooks)) "every hook of the three patches is in the config (28 + 38 + $fpsHooks)"
+    Assert ($fpsHooks -eq 36 -and $config.Hooks -eq ($allHooks + $controllerHooks + $fpsHooks)) "every hook of the three patches is in the config ($allHooks + $controllerHooks + $fpsHooks)"
     $fpsModule = Join-Path $folder "patches\high-fps-fixes.dll"
     Assert ((Test-Path -LiteralPath $fpsModule) -and (Get-FileHash -LiteralPath $fpsModule -Algorithm SHA256).Hash -eq $fpsModuleHash) "patches\high-fps-fixes.dll is the module inside the bundled patch"
     $fpsKpatch = Join-Path $kpmPatches "HighFpsFixes.kpatch"

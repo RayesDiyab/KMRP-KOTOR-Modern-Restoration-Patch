@@ -1,5 +1,17 @@
 # Font and dialogue-layout scaling
 
+**Current native runtime, 2026-10-17:** the shipped resource bank now stores
+one shared atlas set per font style: HD, sharpened original PC, and original PC
+artwork at its original dimensions. The engine
+scales their metrics; it does not rasterize fonts or load per-resolution atlas
+sets. Graphics Options exposes a native Text Size and Font page, with the old
+actual size labeled 50%. Four sliders group shared font families, in 1%
+increments, with Link Text Sizes on by default. Offline resource archives retain their historical
+per-resolution fonts for audit/build comparison. See
+[in-game text options](ingame-text-options.md) for runtime ownership, saved
+preferences, verification and the untested visual boundary. The historical
+atlas-baking sections below describe the previous shipped resource strategy.
+
 > **Documentation standard.** This document follows
 > [`docs/documentation-standard.md`](documentation-standard.md). Read it before editing
 > this file, and check the result still meets it — measured claims only, every
@@ -174,6 +186,11 @@ max(1.0, height/720)` in `prepare_universal_resources.py`, mirrored by
 heights. The `.kfs` section's font-metric constant is permanently 1.0; its
 list-row constant is still live. **Both copies of that formula must change
 together.**
+
+**Override font timing, 2026-10-17:** replacement fonts are now sized at the
+native TXI loader's common return, before the first measurement, rather than in
+a later GUI frame. This retains their artwork and fixes the cold-load wrap-size
+mismatch; see [Override font metrics](../reverse-engineering/override-font-metrics.md).
 
 ### Regenerating the font assets
 

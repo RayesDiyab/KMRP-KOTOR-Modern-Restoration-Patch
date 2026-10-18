@@ -1084,3 +1084,96 @@ What the Mac needs: the same routine at the Mac game's `UpdateAxis`, with the Ma
 of the game's type and player and the address of `Fire`, each read from the Mac executable
 (what a routine takes off the stack included: item 52). To check: a swoop race steers with
 the stick and A starts and shifts; the turret aims with the stick and a trigger fires.
+
+## 54. Swoop race: the speed gauge's parked segment on a wide screen
+
+**To do on the Mac, 2026-10-13** (issue #47; `macos/tools/kmrp-swoophud.c`; CHANGELOG,
+[Unreleased]). On a screen wider than 16:9 a red chevron stands at the bottom left of a swoop
+race, outside the dashboard: the ninth segment of the speed gauge in the HUD's model,
+`m17mg_camera`, parked just outside a 4:3 view. The new helper makes a copy of the model from
+the player's game with that segment parked far away (five floats changed) and writes it with
+its `.mdx`. Windows calls it from `K1RuntimeAssets.cpp` after `KmrpGameArt`, into the same
+cache. Built and installed on Windows; **not yet seen in the game there.**
+
+What the Mac needs: `kmrp-swoophud.c` in the list of helpers linked into the patch
+(`macos/tools/make_kmrp_patch.py`, with `-DKMRP_EMBEDDED`) and a call to
+`KmrpSwoopHud(key, outdir)` where the Mac makes its game art. The file was compiled with
+clang and MSVC on Windows only. To check: a race at a wide size shows no chevron outside the
+dashboard, and the gauge's last two segments still light at top speed.
+
+## 55. Override fonts finalized before the first text layout
+
+**To do on the Mac, 2026-10-17** (issue #63;
+[Windows reference](../reverse-engineering/override-font-metrics.md)). Windows now
+sizes the five existing Override font metrics at the native TXI loader's common
+return, replacing the frame/panel-start walk. This prevents first-use line breaks
+from being measured before enlargement. The same callback finalizes resolution
+reloads, preserving source files, artwork and glyph coordinates. Native control-flow,
+9,504 metric cases and Windows installer/package regressions pass; real dialogue
+wrapping with translation fonts is not yet visually verified.
+
+The Mac still uses `ScaleOverrideFonts` in `assets.cpp`, called from its GUI-frame,
+panel-start and resolution-reload paths. A port must first measure the Mac's own
+font-loader completion path and apply sizing before the first layout consumer.
+No Mac addresses or in-game result are claimed by this Windows change.
+
+## 56. Native text-size and font page, shared font atlases
+
+**To do on the Mac, 2026-10-17.** Windows now clones the live Graphics screen's
+Advanced button for a Text Size and Font entry. Its native page provides four shared-font sliders (menus/replies, subtitles/body,
+small text and HUD), with 1% increments and Link Text Sizes on by default,
+and mutually exclusive Original/Original Sharpened/New HD font choices, with the former actual size labeled
+50%. The module stores one atlas set per style, scales native metrics and reflows
+strings live; it does not rasterize fonts while playing. Override translation
+fonts keep their files and glyphs. Windows source/mock verification is described
+in [in-game text options](ingame-text-options.md); actual game presentation and
+interaction remain unverified. This menu, shared-bank format and saved preferences
+have not been ported to the macOS module.
+
+## 57. Text fitted to its space at any text size
+
+**To do on the Mac, 2026-10-17** (depends on item 56). Windows fits each native
+text string on its own when the engine wraps and draws it
+(`src/controller-native/K1TextLayout.cpp`, `K1TextRows.cpp`, `K1TextFitPolicy.h`):
+fixed boxes draw at the largest size up to the chosen one that fits; list rows grow
+with their text and the list's scroll, selection and click areas follow; scrolling
+descriptions and text entry keep the chosen size; the PC pause notice takes the
+menu-button row's width. Five new hooks sit on `CSWGuiText`'s constructor,
+destructor, wrap and draw and on the list box's draw (Windows addresses in
+`kotor1-native-runtime.hooks.toml`). The size search (`K1TextFitPolicy.h`) is
+platform-independent; the Mac needs its own addresses for those five functions and
+the same object offsets confirmed. The store/inventory and workbench row classes
+pin their button's border, highlight and text to the icon height whatever the row's
+height (Windows `0x006B5270`, `0x006C2650`), so the row adapter also stretches those
+three; check the Mac's copies of both functions do the same. Windows mock tests pass; not yet play-tested on
+Windows either.
+
+An item's stack count (`+0x324` on inventory and store rows, `+0x334` on workbench
+rows) is a box the size of its digits at the chosen text size, its lower right
+corner at (52, 54) of the 56 px hex art in proportion to the live icon, capped at
+half the icon each way with the digits shrunk to fit beyond that. The maintainer
+placed it in play on Windows on 2026-10-18, after trying it centred in the hex's
+lower-right notch, at (52, 53), (56, 56) and (52, 52). The Mac should use the same
+proportions.
+
+Feat and power chart rows (`CSWGuiSkillFlow`, Windows vtable `0x7578A8`, SetExtent
+`0x006CCE30`) grow by the same icon scale (text size / 50, never below 1), and the
+drawn rectangle (`CSWGuiImage` +0x14, the only one `Draw` uses) of each cell's feat
+icon (cells of 0x128 bytes from +0x5C, icon at +0x74 in each) and of the two arrows
+(+0x3D4, +0x428) is scaled about its centre on every list draw, an icon kept inside
+its cell. The Mac needs its own offsets for the same layout.
+
+The computer terminal's reply list (`computer.LB_REPLIES`) has its scrollbar put where
+its `.gui` puts it, relative to the list, on every GUI frame (`PlaceBars`,
+`K1RuntimeLayout.cpp`): the engine's `CSWGuiListBox::SetScrollBarExtent` (Windows
+`0x004181F0`) uses only the file's width and moves the bar to the list's edge at the
+list's height, beside the track `panel01` draws for it. The bar is the list's member at
++0x104 on Windows; the Mac needs its own offset. Its track (not its whole extent) is the
+file's rectangle: the arrows (the bar's image at +0x134, as tall as its texture) go
+beyond each end.
+
+The conversation's lower panel (`CSWGuiDialogCinematic`, Windows vtable `0x755800`),
+its `LBL_MESSAGE` and its `LB_REPLIES` grow every GUI frame down to the screen's bottom
+less the gap between the bottom bar's top and the panel's top (`Dialogue`,
+`K1TextLayout.cpp`); the bars keep the letterbox recipe's height. Not checked on the
+Mac: whether its letterbox port also leaves the panel 100 tall while a line is spoken.

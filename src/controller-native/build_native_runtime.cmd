@@ -13,6 +13,9 @@ pwsh -NoProfile -ExecutionPolicy Bypass -File tools\prepare_sdl3.ps1
 if errorlevel 1 exit /b %errorlevel%
 python tools\build_native_engine.py
 if errorlevel 1 exit /b %errorlevel%
+rem Upgrade an existing bank from before shared font sources / native live scaling.
+if exist build\native-runtime\font-style-assets.version findstr /x "3" build\native-runtime\font-style-assets.version >nul || del build\native-runtime\native-assets.bin build\native-runtime\font-style-assets.version
+if not exist build\native-runtime\font-style-assets.version if exist build\native-runtime\native-assets.bin del build\native-runtime\native-assets.bin
 if not exist build\native-runtime\native-assets.bin python tools\build_native_assets.py
 if errorlevel 1 exit /b %errorlevel%
 python tools\build_native_kpatch.py --write-def build\native-runtime\native-exports.def
@@ -28,11 +31,16 @@ if errorlevel 1 exit /b %errorlevel%
 cl /nologo /O2 /fp:strict /MT /TC /DKMRP_EMBEDDED /D_CRT_SECURE_NO_WARNINGS /c ^
   macos\tools\kmrp-gameart.c /Fobuild\native-runtime\kmrp-gameart.obj
 if errorlevel 1 exit /b %errorlevel%
+cl /nologo /O2 /fp:strict /MT /TC /DKMRP_EMBEDDED /D_CRT_SECURE_NO_WARNINGS /c ^
+  macos\tools\kmrp-swoophud.c /Fobuild\native-runtime\kmrp-swoophud.obj
+if errorlevel 1 exit /b %errorlevel%
 cl /nologo /Brepro /std:c++17 /O2 /fp:strict /EHsc /MT /LD /DKMRP_NATIVE_RUNTIME ^
   /Ibuild\native-runtime /Isrc\controller-native /Ibuild\deps\SDL3-3.4.16\include ^
   src\controller-native\K1RuntimeResolution.cpp src\controller-native\K1RuntimeEngine.cpp ^
   src\controller-native\K1RuntimeAssets.cpp src\controller-native\K1PartyRosterGui.cpp src\controller-native\K1Xpress.cpp ^
   src\controller-native\K1RuntimeLayout.cpp ^
+  src\controller-native\K1TextLayout.cpp src\controller-native\K1TextRows.cpp ^
+  src\controller-native\K1TextOptions.cpp ^
   src\controller-native\K1RuntimeNvidia.cpp ^
   src\controller-native\K1NativeJoystick.cpp src\controller-native\K1ControllerBackend.cpp ^
   src\controller-native\K1ControllerLayout.cpp src\controller-native\K1Rumble.cpp ^
@@ -41,6 +49,7 @@ cl /nologo /Brepro /std:c++17 /O2 /fp:strict /EHsc /MT /LD /DKMRP_NATIVE_RUNTIME
   src\controller-native\vendor\K1XboxControls.cpp src\controller-native\vendor\K1XboxControlsXInput.cpp ^
   build\native-runtime\kmrp-guiblend.obj ^
   build\native-runtime\kmrp-abilityicons.obj build\native-runtime\kmrp-gameart.obj ^
+  build\native-runtime\kmrp-swoophud.obj ^
   build\native-runtime\native-assets.res ^
   /Fobuild\native-runtime\ /Febuild\native-runtime\kmrp-native.dll ^
   /link /Brepro user32.lib gdi32.lib bcrypt.lib crypt32.lib ^

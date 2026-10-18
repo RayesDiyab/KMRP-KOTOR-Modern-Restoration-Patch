@@ -42,6 +42,10 @@ import struct
 import subprocess
 import tempfile
 import zipfile
+import os
+import re
+import build_original_fonts
+from build_scaled_fonts import FONT_RESREFS
 
 ROOT = Path(__file__).resolve().parents[1]
 # The bank's first eight bytes name its compression: the Windows Compression API's
@@ -58,6 +62,25 @@ HELPER_SOURCE = ROOT / 'macos/tools/kmrp-guiblend.c'
 HELPER_FLAGS = ['/nologo', '/O2', '/fp:strict', '/MT', '/TC']
 # What the helper reads from a set (its caption widths and its font's metrics).
 HELPER_INPUTS = ('kmrp_prompts.txt', 'dialogfont16x16.txi')
+FONT_FILES = {name + extension for name in FONT_RESREFS for extension in ('.tga', '.txi')}
+
+
+def shared_font_txi(name, height):
+    """The runtime's TXI for its single HD atlas, used by the blend measurement."""
+    text = (ROOT / 'assets/hd-fonts' / (name + '.txi')).read_text()
+    own = float(re.search(r'(?im)^fontheight\s+([\d.]+)', text)[1])
+    scale_micros = (max(720, int(height)) * 1000000 + 360) // 720
+    target = round(round(own * 100) * scale_micros / 3000000) / 100
+    factor = target / own
+    keys = {'fontheight', 'baselineheight', 'texturewidth', 'spacingR', 'spacingB'}
+    out = []
+    for line in text.splitlines():
+        p = line.split()
+        if len(p) == 2 and p[0] in keys:
+            value = target if p[0] == 'fontheight' else float(p[1]) * factor
+            line = f'{p[0]} {value:.6f}'
+        out.append(line)
+    return ('\n'.join(out) + '\n').encode('ascii')
 
 
 class Compressor:
@@ -111,7 +134,7 @@ def rebuilt_names(helper: Path, table: Path, archive: Path, work: Path) -> tuple
     with zipfile.ZipFile(archive) as source:
         digests = {name: hashlib.sha256(source.read(name)).digest() for name in source.namelist()}
         for name in HELPER_INPUTS:
-            (inputs / name).write_bytes(source.read(name))
+            (inputs / name).write_bytes(shared_font_txi(name[:-4], height) if name in FONT_FILES else source.read(name))
     done = subprocess.run([str(helper), str(table), width, height, str(out), str(inputs)],
                           stdout=subprocess.DEVNULL, stderr=subprocess.PIPE, text=True)
     shutil.rmtree(inputs)
@@ -137,6 +160,9 @@ def build(resources, out, helper=None, every_object=False, lzms=False):
     magic = MAGIC_LZMS if lzms else MAGIC
     objects = {}
     groups = []
+    original_fonts = out / 'original-fonts'
+    texture_pack = Path(os.environ.get('KMRP_TEXTURE_PACK', str(ROOT / 'build-inputs/swpc_tex_gui.erf')))
+    build_original_fonts.build(texture_pack, original_fonts)
     table_path = resources.parent / 'gui-blend.bin'
     archives = [resources / 'override-common.zip'] + sorted(resources.glob('gui-*.zip'))
     if len(archives) != 67:
@@ -162,6 +188,10 @@ def build(resources, out, helper=None, every_object=False, lzms=False):
             made = rebuilt.get(archive.name, set())
             with zipfile.ZipFile(archive) as source:
                 for name in source.namelist():
+                    # Fonts have one shared source per style, below. Live sizing
+                    # changes native font metrics, never rasterizes another atlas.
+                    if name in FONT_FILES:
+                        continue
                     data = source.read(name)
                     digest = hashlib.sha256(data).digest()
                     # A helper input is kept even where the helper writes it back unchanged.
@@ -171,6 +201,23 @@ def build(resources, out, helper=None, every_object=False, lzms=False):
                         objects[digest] = (len(data), compressor.compress(data))
                     entries.append((name, digest))
             if number == 0:
+                # Original PC style is resolution independent. Keep its sources
+                # under private names; K1RuntimeAssets selects them at runtime.
+                for path in sorted(original_fonts.iterdir()):
+                    if path.suffix not in ('.tga', '.txi'):
+                        continue
+                    data = path.read_bytes()
+                    digest = hashlib.sha256(data).digest()
+                    if digest not in objects:
+                        objects[digest] = (len(data), compressor.compress(data))
+                    entries.append((path.name, digest))
+                for index, name in enumerate(FONT_RESREFS):
+                    for extension in ('.tga', '.txi'):
+                        data = (ROOT / 'assets/hd-fonts' / (name + extension)).read_bytes()
+                        digest = hashlib.sha256(data).digest()
+                        if digest not in objects:
+                            objects[digest] = (len(data), compressor.compress(data))
+                        entries.append((f'kmrfhd{index:02d}{extension}', digest))
                 # Hash-pinned by tools/prepare_sdl3.ps1; loaded from the module's
                 # private cache (InitSdl in K1ControllerBackend.cpp).
                 data = (resources.parents[1] / 'deps/kmrp-sdl3.dll').read_bytes()
@@ -199,6 +246,7 @@ def build(resources, out, helper=None, every_object=False, lzms=False):
             raise ValueError('Native asset read-back failed')
         (out / 'NativeAssets.generated.h').write_text(f'#pragma once\n#define KMRP_ASSET_BUILD L"{build_id}"\n')
         (out / 'native-assets.rc').write_text('101 RCDATA "native-assets.bin"\n')
+        (out / 'font-style-assets.version').write_text('3\n')
         print(f'{len(objects)} objects stored, {len(left_out - set(objects))} left to the module to make, '
               f'{len(blob)} bytes, SHA256 {build_id}', flush=True)
     finally:

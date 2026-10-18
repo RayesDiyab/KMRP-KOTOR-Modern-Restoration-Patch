@@ -19,12 +19,16 @@
 #include "K1NativeJoystick.h"
 #include "K1ControllerBackend.h"
 #include "K1ControllerLayout.h"
+#ifdef KMRP_NATIVE_RUNTIME
+#include "K1TextOptions.h"
+#endif
 #include "K1Rumble.h"
 #include "KmrpOptions.h"
 #include "K1PartyRosterState.h"
 #ifdef KMRP_NATIVE_RUNTIME
 #include "K1RuntimeResolution.h"
 #include "K1RuntimeLayout.h"
+#include "K1TextLayout.h"
 #include "K1RuntimeEngine.h"
 extern "C" void __cdecl NativeGuiFrameK1(void* guiManager);
 extern "C" void __cdecl NativeMovieFrameK1(void* moviePlayer);
@@ -5512,9 +5516,11 @@ extern "C" void __cdecl CoreGuiFrameK1(void* guiManager)
 extern "C" void __cdecl KmrpCoreGuiWorkK1(void* guiManager)
 {
     KmrpResolutionObservedK1(guiManager);
+    KmrpTextOptionsFrameK1(guiManager);
     KmrpListRowsFrame(guiManager);      // the lists of newly loaded panels (K1RuntimeLayout.cpp, "List rows")
     UpdateCursorConfinementK1();
     StatusSummaryFrameK1(guiManager);
+    KmrpTextLayoutFrameK1(guiManager);
 }
 
 extern "C" void __cdecl KmrpCoreMovieWorkK1(void* moviePlayer)
@@ -6351,6 +6357,14 @@ bool ControllerConfirmHeldK1()
            (GetAsyncKeyState(VK_RETURN) & 0x8000) != 0 ||
            (GetAsyncKeyState(VK_SPACE) & 0x8000) != 0;
 }
+
+#ifdef KMRP_CONTROLLER_STANDALONE
+// Optional read-only API for KMRP's independent native text settings screen.
+extern "C" int __cdecl KmrpControllerConfirmHeldK1()
+{
+    return ControllerConfirmHeldK1()?1:0;
+}
+#endif
 
 // Swoop racing and the gun turret (issue #47): the pad steers and fires.
 //

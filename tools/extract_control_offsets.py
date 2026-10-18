@@ -80,12 +80,13 @@ a regression of the kind described above fails the run instead of producing
 plausible-looking output.
 """
 import collections
+import os
 import struct
 import sys
 
 import capstone
 
-PATH = r"C:\KMRP - KOTOR Modern Restoration Patch\build-inputs\swkotornopatch.exe"
+PATH = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "build-inputs", "swkotornopatch.exe")
 BINDER = 0x0040B930
 
 # Far enough back to reach a `lea` that happens long before its push -- the

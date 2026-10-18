@@ -98,7 +98,7 @@ void ReloadFontMetrics()
         ++reloaded;
     }
     Log("font-metrics", reloaded, count);
-    KmrpScaleOverrideFontsK1(true);     // the reload put Override's fonts back at their own size
+    // LoadTXI's common-return hook finalizes each Override font before returning.
 }
 #endif
 }

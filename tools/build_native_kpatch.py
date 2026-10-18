@@ -79,6 +79,13 @@ LICENSES = {
 }
 # The module's own callbacks and what each is handed.
 PARAMETERS = {
+    'KmrpTextStringCreatedK1': [('esi', 'pointer')],
+    'KmrpTextStringDestroyedK1': [('ecx', 'pointer')],
+    'KmrpTextStringWrapK1': [('ecx', 'pointer'), ('esp+4', 'pointer')],
+    'KmrpTextStringDrawK1': [('ecx', 'pointer')],
+    'KmrpTextIdealHeightK1': [('ecx', 'pointer')],
+    'KmrpTextListDrawK1': [('ecx', 'pointer')],
+    'KmrpFontMetricsLoadedK1': [('edi', 'pointer')],
     'KmrpAllowRuntimeResolutionK1': [('esp+4', 'pointer'), ('esp+8', 'pointer')],
     'KmrpResolutionRequestedK1': [('ecx', 'pointer'), ('esp+4', 'pointer'), ('esp+8', 'pointer')],
     'KmrpModeSwitchK1': [],

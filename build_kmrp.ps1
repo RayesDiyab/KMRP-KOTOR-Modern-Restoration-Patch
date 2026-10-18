@@ -363,8 +363,14 @@ Invoke-Tool -Exe "cmd.exe" -Label "runtime" -FailureMessage "Building KOTOR Patc
 $nativeDir = Join-Path $projectRoot "build\native-runtime"
 $nativeBank = Join-Path $nativeDir "native-assets.bin"
 if (-not $ReuseResources -and (Test-Path -LiteralPath $nativeBank)) { Remove-Item -LiteralPath $nativeBank -Force }
-Invoke-Tool -Exe "cmd.exe" -Label "module" -FailureMessage "Building KMRP's module failed (src\controller-native\build_native_runtime.cmd)" `
-    -Arguments @("/c", (Join-Path $projectRoot "src\controller-native\build_native_runtime.cmd"))
+$textFontTexturePack = $env:KMRP_TEXTURE_PACK
+try {
+    $env:KMRP_TEXTURE_PACK = $resolvedTexturePack
+    Invoke-Tool -Exe "cmd.exe" -Label "module" -FailureMessage "Building KMRP's module failed (src\controller-native\build_native_runtime.cmd)" `
+        -Arguments @("/c", (Join-Path $projectRoot "src\controller-native\build_native_runtime.cmd"))
+} finally {
+    $env:KMRP_TEXTURE_PACK = $textFontTexturePack
+}
 
 # KMRP's patch, KMRP.kpatch, for players who manage their patches with KOTOR Patch
 # Manager, and the same patch's hooks as the installer writes them into

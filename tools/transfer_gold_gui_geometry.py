@@ -65,6 +65,14 @@ def transfer_struct(before: GFFStruct, after: GFFStruct, target: GFFStruct) -> i
         left = before_fields[field]
         right = after_fields[field]
         destination = target_fields[field]
+        # A text alignment the gold layout changed is a correction too, and has no
+        # resolution in it: copied as it is (classsel.gui LBL_CLASS, top to middle,
+        # 2026-10-18).
+        if field == "ALIGNMENT" and isinstance(left, int) and isinstance(right, int) and isinstance(destination, int):
+            if left != right and destination != right:
+                target.set_int32(field, right)
+                changed += 1
+            continue
         if isinstance(left, GFFStruct) and isinstance(right, GFFStruct) and isinstance(destination, GFFStruct):
             changed += transfer_struct(left, right, destination)
         elif isinstance(left, GFFList) and isinstance(right, GFFList) and isinstance(destination, GFFList):

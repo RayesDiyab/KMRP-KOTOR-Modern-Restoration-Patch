@@ -14,6 +14,8 @@
 #include "K1Xpress.h"
 #include "K1PartyRosterGui.h"
 #include "K1PartyRosterState.h"
+#include "K1TextOptions.h"
+#include "K1TextOptionsPolicy.h"
 #include <windows.h>
 #include <bcrypt.h>
 #include <array>
@@ -25,12 +27,18 @@
 #include <cstdlib>
 #include <cmath>
 #include <cstdio>
+#include <sstream>
+#include <iomanip>
 
 extern "C" int KmrpGuiBlend(const char*, unsigned, unsigned, const char*, const char*);
 extern "C" int KmrpGuiBlendCovers(const char*, unsigned, unsigned);
 // macos/tools/kmrp-abilityicons.c and kmrp-gameart.c, compiled with KMRP_EMBEDDED.
 extern "C" int KmrpAbilityIcons(const char* erf, unsigned height, const char* outdir, const char* reserved);
 extern "C" int KmrpGameArt(const char* erf, const char* key, unsigned height, const char* outdir);
+// macos/tools/kmrp-swoophud.c: the swoop race's HUD model, its parked speed segment moved
+// out of a wide screen's view (issue #47). 0 written, 1 not the game's model (left alone),
+// 3 the screen is not wide enough to need it.
+extern "C" int KmrpSwoopHud(const char* key, const char* outdir, unsigned width, unsigned height);
 void KmrpRuntimeLog(const char* line);       // K1RuntimeEngine.cpp: one line into kmrp-kpm.log
 
 namespace {
@@ -281,7 +289,7 @@ bool RegisterDirectory()
 // times).
 //
 // Not fatal: a game without its texture pack keeps the game's own icons.
-void GameArt(const Group& selected, int height)
+void GameArt(const Group& selected, int width, int height)
 {
     // Whatever the previous size's helpers made. Everything else in this
     // directory is a bank file this process wrote and still owns.
@@ -317,6 +325,13 @@ void GameArt(const Group& selected, int height)
     KmrpAbilityIcons(pack.c_str(), static_cast<unsigned>(height), directory, reserved.c_str());
     DeleteFileA(reserved.c_str());
     KmrpGameArt(pack.c_str(), key.c_str(), static_cast<unsigned>(height), directory);
+    // Not a size's file, but made here because this is where the player's own files
+    // are read and the cache is cleared of what the helpers made before.
+    const int swoop = KmrpSwoopHud(key.c_str(), directory, static_cast<unsigned>(width), static_cast<unsigned>(height));
+    KmrpRuntimeLog(swoop == 0 ? "[KMRP] swoop HUD model: the parked speed segment moved out of this screen's view"
+                 : swoop == 1 ? "[KMRP] swoop HUD model: not the game's own, left as it is"
+                 : swoop == 3 ? "[KMRP] swoop HUD model: the game's own is right for this screen"
+                              : "[KMRP] swoop HUD model: could not be written");
 }
 
 std::wstring Lower(std::wstring text)
@@ -345,7 +360,33 @@ std::wstring Lower(std::wstring text)
 // The glyph height KMRP's own font of each name has at the size in use, for the
 // fonts Override supplies in its place (lower-case names, without extension).
 std::map<std::string, float> overrideFontHeights;
-bool overrideFontsChanged = false;
+const char* const fontNames[] = {
+    "dialogfont10x10", "dialogfont10x10a", "dialogfont10x10b", "dialogfont12x16",
+    "dialogfont16x16", "dialogfont16x16a", "dialogfont16x16b", "dialogfont32x32",
+    "fnt_console", "fnt_credits", "fnt_creditsa", "fnt_creditsb", "fnt_d10x10b",
+    "fnt_d16x16", "fnt_d16x16a", "fnt_d16x16b", "fnt_dialog16x16", "fnt_galahad14"
+};
+int fontHeight = 720;
+
+const Entry* FindEntry(const Group& group, const std::string& name)
+{
+    for (const auto& e : group.entries) if (e.name == name) return &e;
+    return nullptr;
+}
+
+bool OverrideFont(const char* name)
+{
+    wchar_t folder[MAX_PATH];
+    const DWORD n = GetModuleFileNameW(nullptr, folder, MAX_PATH);
+    wchar_t* slash = n && n < MAX_PATH ? wcsrchr(folder, L'\\') : nullptr;
+    if (!slash) return true;
+    *slash = 0;
+    const std::string stem(name);
+    const std::wstring base = std::wstring(folder) + L"\\override\\" + std::wstring(stem.begin(), stem.end());
+    for (const auto* extension : {L".tga", L".tpc", L".txi"})
+        if (GetFileAttributesW((base + extension).c_str()) != INVALID_FILE_ATTRIBUTES) return true;
+    return false;
+}
 
 // `fontheight` out of a .txi's text, or 0.
 float FontHeightOf(const std::vector<unsigned char>& txi)
@@ -358,6 +399,87 @@ float FontHeightOf(const std::vector<unsigned char>& txi)
         if (value > 0.0 && value < 100.0) return static_cast<float>(value);
     }
     return 0.0f;
+}
+
+float FontTargetHeight(float sharedHeight, int screenHeight)
+{
+    // The shared HD sources were baked at 3x. Match the old per-size baker's
+    // half-even rounding using integers, independent of the engine's FPU mode.
+    const std::uint64_t pixels = static_cast<unsigned>(std::lround(sharedHeight * 100.0f));
+    // The old builder rounded its scale to six decimals before baking. Keep
+    // that detail too (12-point text at 1050p otherwise changes by one pixel).
+    const std::uint64_t scaledHeight = screenHeight > 720 ? screenHeight : 720;
+    const std::uint64_t scaleMicros = (scaledHeight * 1000000 + 360) / 720;
+    const std::uint64_t numerator = pixels * scaleMicros;
+    const std::uint64_t denominator = 3000000;
+    std::uint64_t rounded = numerator / denominator;
+    const auto remainder = numerator % denominator;
+    if (remainder * 2 > denominator || (remainder * 2 == denominator && (rounded & 1))) ++rounded;
+    return static_cast<float>(rounded) / 100.0f;
+}
+
+bool FontTxiAtHeight(std::vector<unsigned char>& data, float height)
+{
+    const float own = FontHeightOf(data);
+    if (!(own > 0.001f) || !(height > 0.001f)) return false;
+    const double factor = static_cast<double>(height) / own;
+    std::istringstream input(std::string(data.begin(), data.end()));
+    std::ostringstream output;
+    std::string line;
+    while (std::getline(input, line)) {
+        std::istringstream field(line);
+        std::string key; double value;
+        field >> key;
+        const bool dimension = key == "fontheight" || key == "baselineheight" || key == "texturewidth" ||
+            key == "spacingR" || key == "spacingB";
+        if (dimension && field >> value) {
+            output << key << ' ' << std::fixed << std::setprecision(6)
+                   << (key == "fontheight" ? height : value * factor) << '\n';
+        } else output << line << '\n';
+    }
+    const std::string text = output.str();
+    data.assign(text.begin(), text.end()); return true;
+}
+
+bool ApplyTextPreferences(bool preserveOverride)
+{
+    const int style = KmrpTextFontStyleK1();
+    const char* prefix = style == KmrpTextOptions::Original ? "kmrfog" :
+                         style == KmrpTextOptions::OriginalSharpened ? "kmrfpc" : "kmrfhd";
+    const Group* common = nullptr;
+    for (const auto& g : groups) if (!g.width) { common = &g; break; }
+    if (!common) return false;
+    // The same atlas/UVs at every size. Only TXI dimensions change; there is no
+    // rasterizer, glyph generation, or font installation in the game process.
+    for (unsigned i = 0; i < 18; ++i) {
+        if (preserveOverride && OverrideFont(fontNames[i])) continue;
+        char source[32];
+        for (const char* extension : {".tga", ".txi"}) {
+            sprintf_s(source, "%s%02u%s", prefix, i, extension);
+            const Entry* entry = FindEntry(*common, source);
+            if (!entry || !objects.count(entry->key)) return false;
+        }
+    }
+    std::vector<unsigned char> data;
+    for (unsigned i = 0; i < 18; ++i) {
+        if (preserveOverride && OverrideFont(fontNames[i])) continue;
+        char source[32];
+        sprintf_s(source, "kmrfhd%02u.txi", i);
+        const Entry* baseline = FindEntry(*common, source);
+        if (!baseline || !Decode(baseline->key, data)) return false;
+        const float target = FontTargetHeight(FontHeightOf(data), fontHeight);
+        if (!(target > 0.0f)) return false;
+        overrideFontHeights[fontNames[i]] = target;
+        for (const char* extension : {".tga", ".txi"}) {
+            sprintf_s(source, "%s%02u%s", prefix, i, extension);
+            const Entry* entry = FindEntry(*common, source);
+            if (!Decode(entry->key, data)) return false;
+            if (!std::strcmp(extension, ".txi") && !FontTxiAtHeight(data,
+                    target * (static_cast<float>(KmrpTextSizeForFontK1(fontNames[i])) / KmrpTextOptions::Default))) return false;
+            if (!Write(std::string(fontNames[i]) + extension, data)) return false;
+        }
+    }
+    return true;
 }
 
 bool AdaptPartyRosterK1()
@@ -437,14 +559,15 @@ unsigned YieldToOverride()
         if (!names.count(name) && !(texture && textures.count(name.substr(0, dot)))) continue;
         const std::wstring path = cache + L"\\" + found.cFileName;
         // A font of Override's: what KMRP's own of that name measures here is kept,
-        // for KmrpScaleOverrideFontsK1.
+        // for KmrpFontMetricsLoadedK1.
         if (extension == L".txi" && textures.count(name.substr(0, dot))) {
             std::vector<unsigned char> txi;
             const float height = Read(path, txi) ? FontHeightOf(txi) : 0.0f;
             if (height > 0.0f) {
                 const std::wstring stem = name.substr(0, dot);
-                overrideFontHeights[std::string(stem.begin(), stem.end())] = height;
-                overrideFontsChanged = true;
+                // The baseline is captured before a selected style replaces the
+                // atlas. Never replace it with that style's source metrics.
+                overrideFontHeights.emplace(std::string(stem.begin(), stem.end()), height);
             }
         }
         if (!DeleteFileW(path.c_str())) continue;
@@ -458,57 +581,46 @@ unsigned YieldToOverride()
 
 const std::wstring& KmrpRuntimeAssetDirectory() { return cache; }
 
-// A font from Override is drawn at the size KMRP's own font of that name has.
-//
-// A font is a texture and its metrics, and since 2026-10-11 Override's replaces
-// KMRP's whole (YieldToOverride). A translation's fonts are made for the game's
-// own interface: the Polish one's dialogfont16x16 is 16 pixels high in a 256-pixel
-// texture, where KMRP's at 1440 lines is 32. Its letters were right and half the
-// size the layouts are made for (the maintainer's play of that day, 3440x1440:
-// "the text is tiny").
-//
-// The engine draws a glyph (its width in the texture x texturewidth + spacingR) x
-// 100 pixels wide and fontheight x 100 high (0x0045A2F0, 0x0045A850), from the
-// font information at texture+0x38, which the TXI parser fills (0x00422245 on:
-// fontheight +0x04, baselineheight +0x08, texturewidth +0x0C, spacingR +0x10,
-// spacingB +0x14; the glyphs' places in the texture, +0x18 and +0x24, are
-// fractions and stay). So those five are multiplied by KMRP's height over the
-// font's own: the same letters, enlarged, as sharp as the texture is.
-//
-// A texture's metrics are parsed when it is made and when KMRP reads them again
-// after a change of size (ReloadFontMetrics), so this is asked at every GUI frame,
-// as each panel starts loading and after that reload, and walks the textures only
-// when their number has changed or `again` says the metrics were just read. The
-// first text laid out with a font in the moment it is made is measured small.
-void KmrpScaleOverrideFontsK1(bool again)
+bool KmrpRuntimeApplyTextPreferencesK1()
 {
-    static int walked = -1;
-    if (overrideFontHeights.empty()) return;
-    void** const textures = *reinterpret_cast<void***>(0x007A4798);
-    const int count = *reinterpret_cast<const int*>(0x007A479C);
-    if (!textures || count <= 0 || count > 0x100000) return;
-    if (!again && !overrideFontsChanged && count == walked) return;
-    walked = count;
-    overrideFontsChanged = false;
-    for (int i = 0; i < count; ++i) {
-        char* const texture = static_cast<char*>(textures[i]);
-        float* const info = texture ? *reinterpret_cast<float**>(texture + 0x38) : nullptr;
-        if (!info) continue;
-        char name[20] = {};
-        strncpy_s(name, texture + 0x98, 16);
-        CharLowerBuffA(name, static_cast<DWORD>(std::strlen(name)));
-        const auto found = overrideFontHeights.find(name);
-        if (found == overrideFontHeights.end()) continue;
-        const float own = info[1];
-        if (!(own > 0.001f) || !(own < 100.0f)) continue;
-        const float factor = found->second / own;
-        if (factor > 0.99f && factor < 1.01f) continue;
-        if (!(factor > 0.1f) || !(factor < 16.0f)) continue;
-        for (int field = 1; field <= 5; ++field) info[field] *= factor;
-        char line[160];
-        sprintf_s(line, "[KMRP] Override's font %s drawn %.2f times its size, as KMRP's own is here", name, factor);
-        KmrpRuntimeLog(line);
-    }
+    return ApplyTextPreferences(true);
+}
+
+bool KmrpRuntimeIsFontK1(const char* name)
+{
+    if (!name) return false;
+    for (const char* font : fontNames) if (!_stricmp(name, font)) return true;
+    return false;
+}
+
+// CAurTexture::LoadTXI's common return, before the texture reaches any font
+// layout consumer. EDI is still the texture here (0x00422CC1). Both loose TXI
+// and embedded TPC metadata have finished parsing, including resolution reloads.
+//
+// Scaling in a later GUI frame left the first line measured at the original
+// size and drawn at the new size. Apply the same five dimensional fields here,
+// before any caller can measure; glyph coordinates and the source files stay.
+extern "C" void __cdecl KmrpFontMetricsLoadedK1(void* object)
+{
+    if (!object || overrideFontHeights.empty()) return;
+    char* const texture = static_cast<char*>(object);
+    float* const info = *reinterpret_cast<float**>(texture + 0x38);
+    if (!info) return; // missing TXI and non-font textures have no font info
+    char name[17] = {};
+    std::memcpy(name, texture + 0x98, 16);
+    CharLowerBuffA(name, static_cast<DWORD>(std::strlen(name)));
+    const auto found = overrideFontHeights.find(name);
+    if (found == overrideFontHeights.end()) return;
+    const float own = info[1];
+    if (!(own > 0.001f) || !(own < 100.0f)) return;
+    const float target = found->second * (static_cast<float>(KmrpTextSizeForFontK1(name)) / KmrpTextOptions::Default);
+    const float factor = target / own;
+    if (!(factor > 0.01f) || !(factor < 128.0f) || own == target) return;
+    for (int field = 1; field <= 5; ++field) info[field] *= factor;
+    info[1] = target; // exact target makes repeat notifications idempotent
+    char line[160];
+    sprintf_s(line, "[KMRP] Override's font %s metrics scaled %.2f times before layout", name, factor);
+    KmrpRuntimeLog(line);
 }
 
 extern "C" void __cdecl KmrpPrepareResourcesK1(void* manager)
@@ -593,6 +705,11 @@ bool KmrpRuntimeAssetsDimensions(int width, int height)
             if (!Decode(entry.key, output) || !Write(entry.name, output, &entry.key)) return false;
         }
     }
+    // One source atlas per font/style at every resolution. Materialize its TXI
+    // dimensions before the blend helper measures captions, then yield to mods.
+    fontHeight = height;
+    overrideFontHeights.clear();
+    if (!ApplyTextPreferences(false)) return false;
     // 2. The rest, from the blend helper: the layouts, badges, prompt manifest and
     // HUD box of exactly this size. It reads the set's caption widths and font
     // metrics, which step 1 wrote, and writes into the same directory.
@@ -640,7 +757,7 @@ bool KmrpRuntimeAssetsDimensions(int width, int height)
         }
     }
     const ULONGLONG filesTime = GetTickCount64() - started;
-    GameArt(*selected, height);
+    GameArt(*selected, width, height);
     AdaptPartyRosterK1();
     if (const unsigned yielded = YieldToOverride()) {
         char line[160];

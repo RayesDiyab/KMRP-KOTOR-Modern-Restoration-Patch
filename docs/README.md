@@ -11,6 +11,10 @@ Design and build documentation. Engine analysis lives one level over, in
 
 ## Where to start
 
+- **Auditing text scaling and clipping?** [Text layout inventory](text-layout-inventory.md)
+  records candidate control families, measured failures and the review process for shared fixes.
+  The [native coverage audit](native-text-coverage.md) adds runtime creation paths and live-object checks.
+
 - **Playing, not building?** The [main README](../README.md) installs it, and
   [features.md](features.md) says what it changes.
 - **Want the mechanism behind a feature?** [features-technical.md](features-technical.md)
