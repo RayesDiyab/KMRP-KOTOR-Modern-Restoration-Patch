@@ -1398,3 +1398,38 @@ measurement, item 67). Until then they ended a 32nd of the width short of the li
 right edge, over the strip, and ran past the frame at 1440x1080. With no scrollbar width
 the old rule stands. A Mac port of the page needs the same; `macos/` has no copy of it
 yet (checked 2026-10-19).
+
+## 71. Dated builds and Upgrade in the installer
+
+**Build, 2026-10-19; Windows installer only.** The Windows installer now carries the
+date of the commit it was built from (CEST, from git; `build_kmrp.ps1`, `BuildStamp`
+in `src/patcher/KpmEdition.cs`), records it in the game's manifest, and compares it
+with an installed KMRP's: an older one gets Restore Original and Upgrade side by
+side, which reinstalls with the settings chosen now; a newer one is never replaced.
+If the Mac installer replaces an existing install, it can use the same rule: the
+commit's time is the same on every machine, so a Mac and a Windows build of one
+commit carry one date. Details in [patcher-ui-build.md](patcher-ui-build.md), *Build
+dates*.
+
+## 72. Windows keeps its cache too, and goes two steps further
+
+**Build, 2026-10-19; seen in the Windows test game.** `src/controller-native/K1RuntimeAssets.cpp`
+now follows the Mac's `assets.cpp` design: a cache under `%LOCALAPPDATA%\KMRP\cache\<build>\`
+with `store\`, `sets\<W>x<H>\` (marker beside each, built under a working name and
+renamed), per-run link folders, a run lock, and the stale-cache removal. Two differences
+the Mac may want:
+
+- **The cache's folders are registered as they are** when the player's Override has none
+  of their files (`OverrideHas`), and link folders are made only otherwise. A change of
+  size then costs a registration and nothing else (35 ms on the maintainer's PC, against
+  555 ms for linking a set's 1,271 files). The adapted party roster goes into a small
+  folder of its own registered after the set, so it is searched first.
+- **The blend helper is given the reference metrics** (`ReferenceTxi`: dialogfont16x16 in
+  HD Original at the default text size, the TXI the build gives it,
+  `build_native_assets.shared_font_txi`), so a set is the same at every text size and
+  the helper's files match the build's. The Mac gives the helper whatever fonts the set
+  folder holds.
+
+Windows also keeps fitted fonts (`fonts\`, one file pair per style, font and size) and
+makes the five largest display sizes ahead on a background thread (`Prebuild`); the Mac
+has no runtime font fitting.

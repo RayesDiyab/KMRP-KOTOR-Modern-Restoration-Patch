@@ -9,6 +9,62 @@ using System.Text.RegularExpressions;
 
 namespace Kmrp
 {
+    /// <summary>When the commit this installer was built from was made, in CEST
+    /// (UTC+02:00, all year): build_kmrp.ps1 takes it from git and embeds it as
+    /// Kmrp.build.stamp. Everyone who builds a commit gets the same date and every later
+    /// commit a later one, so an installed KMRP, whose manifest records its date
+    /// ("built"), can be told older or newer than this installer whether or not the
+    /// version was raised (the maintainer, 2026-10-19). Dates are compared as moments,
+    /// so the zone they are written in cannot change the answer.</summary>
+    internal static class BuildStamp
+    {
+        private const string Format = "yyyy-MM-dd'T'HH:mm:sszzz";
+        private static readonly TimeSpan Cest = TimeSpan.FromHours(2);
+        private static bool read;
+        private static DateTimeOffset? own;
+
+        /// <summary>This installer's date; null for a build without one.</summary>
+        internal static DateTimeOffset? Current
+        {
+            get
+            {
+                if (!read)
+                {
+                    read = true;
+                    try
+                    {
+                        using (Stream stream = Assembly.GetExecutingAssembly().GetManifestResourceStream("Kmrp.build.stamp"))
+                        {
+                            DateTimeOffset when;
+                            if (stream != null && TryParse(new StreamReader(stream, Encoding.ASCII).ReadToEnd().Trim(), out when))
+                                own = when;
+                        }
+                    }
+                    catch { }
+                }
+                return own;
+            }
+        }
+
+        internal static bool TryParse(string text, out DateTimeOffset when)
+        {
+            return DateTimeOffset.TryParseExact(text ?? String.Empty, Format, CultureInfo.InvariantCulture,
+                DateTimeStyles.None, out when);
+        }
+
+        /// <summary>As the manifest records it: 2026-10-19T12:52:14+02:00.</summary>
+        internal static string Text(DateTimeOffset when)
+        {
+            return when.ToOffset(Cest).ToString(Format, CultureInfo.InvariantCulture);
+        }
+
+        /// <summary>As the window shows it: 19 Oct 2026, 12:52 CEST.</summary>
+        internal static string Display(DateTimeOffset when)
+        {
+            return when.ToOffset(Cest).ToString("d MMM yyyy, HH:mm", CultureInfo.InvariantCulture) + " CEST";
+        }
+    }
+
     /// <summary>KMRP's install, on KOTOR Patch Manager's runtime.
     ///
     /// KMRP's installer does not rewrite swkotor.exe: the executable changes are
@@ -143,6 +199,45 @@ namespace Kmrp
             catch { return false; }
         }
 
+        /// <summary>The date of the build installed here, as its manifest records it;
+        /// null when nothing is installed or the install is from before builds were
+        /// dated (2026-10-19).</summary>
+        internal static DateTimeOffset? InstalledBuild(string executablePath)
+        {
+            try
+            {
+                foreach (string line in File.ReadAllLines(ManifestPath(executablePath), Encoding.UTF8))
+                {
+                    string[] parts = line.Split('\t');
+                    DateTimeOffset when;
+                    if (parts.Length == 2 && parts[0] == "built" && BuildStamp.TryParse(parts[1], out when))
+                        return when;
+                }
+            }
+            catch { }
+            return null;
+        }
+
+        /// <summary>How the KMRP installed here stands against this installer: -1 older
+        /// (an undated install, and one by the standalone installer, always are), 0 the
+        /// same build, 1 newer; null when nothing is installed or this installer has no
+        /// date.</summary>
+        internal static int? CompareInstalled(string targetPath)
+        {
+            DateTimeOffset? mine = BuildStamp.Current;
+            if (mine == null)
+                return null;
+            if (IsStandaloneInstall(targetPath))
+                return -1;
+            if (!IsInstalled(targetPath))
+                return null;
+            DateTimeOffset? theirs = InstalledBuild(targetPath);
+            if (theirs == null)
+                return -1;
+            int order = theirs.Value.CompareTo(mine.Value);
+            return order < 0 ? -1 : order > 0 ? 1 : 0;
+        }
+
         /// <summary>Steam's swkotor.exe, which only this edition supports.</summary>
         internal static bool IsSteam(string targetPath)
         {
@@ -246,6 +341,15 @@ namespace Kmrp
             if (!standalone && GameExecutable.Identify(targetPath) == null)
                 throw new InvalidDataException("This swkotor.exe is not the Steam, GOG or Editable 1.03 " +
                     "version KMRP supports. No changes were made.");
+            // A newer build than this one is never replaced by it: the window then offers
+            // only Restore Original, and this refuses for the command line (the
+            // maintainer, 2026-10-19).
+            int? age = CompareInstalled(targetPath);
+            if (age == 1)
+                throw new InvalidOperationException("The KMRP installed in this game is a newer build (" +
+                    BuildStamp.Display(InstalledBuild(targetPath).Value) + ") than this installer (" +
+                    BuildStamp.Display(BuildStamp.Current.Value) + "). No changes were made. To go back to " +
+                    "this build, restore the original files first, then install.");
             if (!File.Exists(IniOperations.PathForExecutable(targetPath)))
                 throw new FileNotFoundException(
                     "swkotor.ini was not found beside swkotor.exe. Launch the game once or place the INI in the game folder before installing.",
@@ -274,7 +378,16 @@ namespace Kmrp
             }
             if (IsInstalled(targetPath))
             {
-                SafeReport(report, "Replacing the installed KMRP files.");
+                // Everything the earlier install put here goes, and only what the
+                // settings choose now is installed: a patch turned off since is removed,
+                // one turned on is added (the maintainer, 2026-10-19; Test-InstallerPatch
+                // Case 7).
+                DateTimeOffset? installed = InstalledBuild(targetPath);
+                SafeReport(report, age == 0 ? "Reinstalling this build, with the settings chosen now." :
+                    installed.HasValue && BuildStamp.Current.HasValue
+                        ? "Upgrading KMRP from the build of " + BuildStamp.Display(installed.Value) + " to the build of " +
+                          BuildStamp.Display(BuildStamp.Current.Value) + ", with the settings chosen now."
+                        : "Replacing the installed KMRP files, with the settings chosen now.");
                 // Installing for KPM: a runtime KPM took over stays KPM's, even with
                 // only KMRP's patches in it, since this install puts nothing in its place.
                 Restore(targetPath, report, null, !engine);
@@ -1466,6 +1579,10 @@ namespace Kmrp
         {
             StringBuilder text = new StringBuilder();
             text.Append("version\t").Append(GoldPatch.PatchVersion).Append("\r\n");
+            // The build's date, which a later installer compares with its own
+            // (CompareInstalled). An older installer's ReadRecords skips the line.
+            if (BuildStamp.Current.HasValue)
+                text.Append("built\t").Append(BuildStamp.Text(BuildStamp.Current.Value)).Append("\r\n");
             text.Append("resolution\t").Append(width.ToString(CultureInfo.InvariantCulture)).Append('\t')
                 .Append(height.ToString(CultureInfo.InvariantCulture)).Append("\r\n");
             foreach (string[] record in records)

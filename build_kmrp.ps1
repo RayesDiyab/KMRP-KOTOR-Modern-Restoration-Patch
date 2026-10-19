@@ -182,6 +182,26 @@ $resolvedBundled = @($BundledOverride | ForEach-Object { (Resolve-Path -LiteralP
 Write-Detail ("texture pack {0}  ({1:n0} MB)" -f (Split-Path -Leaf $resolvedTexturePack), ((Get-Item $resolvedTexturePack).Length / 1MB))
 Write-Detail ("python       {0}" -f $Python)
 New-Item -ItemType Directory -Force -Path $buildDir, $distDir | Out-Null
+
+# The build's date: when the commit being built was made, in CEST (UTC+02:00, all year).
+# Taken from git, not from this PC's clock, so everyone who builds a commit gets the
+# same date, and every later commit a later one. The installer writes it into the
+# game's manifest and compares it with an installed KMRP's to tell an older build from
+# a newer one, whether or not the version was raised (KpmEdition.cs, BuildStamp; the
+# maintainer, 2026-10-19). Uncommitted changes do not change it: such a build has its
+# commit's date.
+$commitSeconds = (& git -C $projectRoot log -1 --format=%ct HEAD 2>$null)
+if ($LASTEXITCODE -ne 0 -or -not ($commitSeconds -match '^\d+$')) {
+    throw "The build's date is the commit's, from git, and git could not give it. Build from a git checkout with git on PATH."
+}
+$commitId = (& git -C $projectRoot rev-parse --short HEAD 2>$null)
+$buildStamp = [DateTimeOffset]::FromUnixTimeSeconds([long]$commitSeconds).ToOffset([TimeSpan]::FromHours(2)).ToString(
+    "yyyy-MM-dd'T'HH:mm:sszzz", [Globalization.CultureInfo]::InvariantCulture)
+$buildStampFile = Join-Path $buildDir "build-stamp.txt"
+[IO.File]::WriteAllText($buildStampFile, $buildStamp, [Text.Encoding]::ASCII)
+$uncommitted = @(& git -C $projectRoot status --porcelain --untracked-files=no 2>$null).Count -gt 0
+Write-Detail ("build date   {0} CEST, commit {1}{2}" -f $buildStamp.Substring(0, 16).Replace('T', ' '), $commitId,
+    $(if ($uncommitted) { ", with uncommitted changes" } else { "" }))
 Complete-Step
 
 # ---------------------------------------------------------------- 2. source-built engine patches
@@ -310,6 +330,7 @@ Write-Detail ("embedding {0} of {1} UI icons" -f $iconCount, $iconNames.Count)
 # the same archives), so $layoutPool is still built, for the --derive-gui tooling and
 # the macOS build, but stays out of the installer.
 $compilerArgs += "/resource:$blendResource,Kmrp.guiblend"
+$compilerArgs += "/resource:$buildStampFile,Kmrp.build.stamp"
 
 $compilerArgs += (Join-Path $projectRoot "src\patcher\KmrpPatcher.cs")
 $compilerArgs += (Join-Path $projectRoot "src\patcher\AbilityIconGenerator.cs")
@@ -494,6 +515,8 @@ Write-Host ("  KMRP - KOTOR Modern Restoration Patch    built in {0:mm\:ss}" -f 
 Write-Host ("  output    {0}" -f $outputExe) -ForegroundColor Gray
 Write-Host ("  size      {0:n0} bytes" -f (Get-Item $outputExe).Length) -ForegroundColor Gray
 Write-Host ("  SHA-256   {0}" -f $hashHex) -ForegroundColor Gray
+Write-Host ("  build     {0} CEST, commit {1}{2}" -f $buildStamp.Substring(0, 16).Replace('T', ' '), $commitId,
+    $(if ($uncommitted) { ", with uncommitted changes" } else { "" })) -ForegroundColor Gray
 Write-Host ""
 Write-Host "  KPM patches, inside the installer" -ForegroundColor Green
 foreach ($file in @(Get-ChildItem -LiteralPath $kpmDir -File | Where-Object { $_.Extension -eq ".kpatch" })) {

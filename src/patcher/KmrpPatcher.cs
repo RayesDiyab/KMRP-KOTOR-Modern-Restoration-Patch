@@ -5642,6 +5642,11 @@ namespace Kmrp
         private readonly TextBox pathBox;              // data holder; the path is shown in step 1's subtitle
         private readonly PillButton actionButton;
         private bool actionIsRestore;
+        // Beside Restore Original when this installer is a newer build than the KMRP
+        // installed (LayoutActionRow).
+        private readonly PillButton upgradeButton;
+        private bool upgradeOffered;
+        private Rectangle actionRowDesign;
         private readonly PillButton browseButton;
         private readonly StepRow stepFolder;
         private readonly StepRow stepVerify;
@@ -5869,6 +5874,17 @@ namespace Kmrp
 
             ToolTip settingsTip = new ToolTip();
             settingsTip.SetToolTip(settingsButton, "Advanced Settings");
+
+            // When an older KMRP is installed, the primary's place holds two buttons of
+            // one size, Restore Original and Upgrade, and the settings button keeps its
+            // own (the maintainer, 2026-10-19). Hidden otherwise; LayoutActionRow.
+            upgradeButton = new PillButton();
+            upgradeButton.Primary = true;
+            upgradeButton.Text = "Upgrade";
+            upgradeButton.SetBounds(actionButton.Left, actionButton.Top, actionButton.Width, ActionHeight);
+            upgradeButton.Visible = false;
+            upgradeButton.Click += UpgradeClicked;
+            card.Controls.Add(upgradeButton);
 
             card.Height = actionButton.Bottom + 40;
 
@@ -7198,6 +7214,14 @@ namespace Kmrp
             actionIsRestore = PatchOperations.CanRestore(target);
             actionButton.Text = actionIsRestore ? "Restore Original" : "Start Patching";
             actionButton.Enabled = actionIsRestore || (executableReady && iniExists);
+            // An installed KMRP older than this installer: Restore Original and Upgrade
+            // side by side. The same build, or a newer one, keeps Restore Original alone,
+            // so the window never installs an older build over a newer one (the
+            // maintainer, 2026-10-19).
+            int? age = actionIsRestore ? KpmEditionOperations.CompareInstalled(target) : null;
+            bool upgrade = age == -1 && iniExists;
+            upgradeButton.Enabled = upgrade;
+            LayoutActionRow(upgrade);
 
             UpdateGameStep(state, target, executableReady);
 
@@ -7230,7 +7254,21 @@ namespace Kmrp
                 resolutionState.Text = String.Empty;
             }
 
-            if (state == ExecutableState.Gold)
+            DateTimeOffset? installedBuild = KpmEditionOperations.InstalledBuild(target);
+            if (state == ExecutableState.Gold && upgrade)
+            {
+                SetState(applyState, "Upgrade available", UiTheme.Accent);
+                lastDetail = installedBuild.HasValue
+                    ? "Installed: " + BuildStamp.Display(installedBuild.Value) + ". This build: " +
+                      BuildStamp.Display(BuildStamp.Current.Value) + "."
+                    : "An earlier KMRP is installed. This installer's build is newer.";
+            }
+            else if (state == ExecutableState.Gold && age == 1 && installedBuild.HasValue)
+            {
+                SetState(applyState, "Newer build installed", UiTheme.Warning);
+                lastDetail = "A newer build is installed (" + BuildStamp.Display(installedBuild.Value) + ").";
+            }
+            else if (state == ExecutableState.Gold)
             {
                 SetState(applyState, "Patched successfully", UiTheme.Success);
                 int readyWidth;
@@ -7279,7 +7317,49 @@ namespace Kmrp
                 return;   // still constructing
             for (int i = 0; i < mainViewControls.Count; i++)
                 mainViewControls[i].Visible = !settingsOpen;
+            upgradeButton.Visible = !settingsOpen && upgradeOffered;
             settingsView.Visible = settingsOpen;
+        }
+
+        /// <summary>The action row: one button across the primary's place, or, with
+        /// `split`, Restore Original and Upgrade sharing it at one size, a gap between them
+        /// as wide as the one before the settings button, which does not move. The
+        /// rectangles are set as design rectangles, which every resize scales
+        /// (ApplyUniformScale), and applied at the scale in use.</summary>
+        private void LayoutActionRow(bool split)
+        {
+            if (actionRowDesign.IsEmpty && !designBounds.TryGetValue(actionButton, out actionRowDesign))
+                return;   // still constructing
+            Rectangle settingsDesign;
+            int gap = designBounds.TryGetValue(settingsButton, out settingsDesign)
+                ? settingsDesign.Left - actionRowDesign.Right : 12;
+            Rectangle first = actionRowDesign;
+            Rectangle second = actionRowDesign;
+            if (split)
+            {
+                first.Width = (actionRowDesign.Width - gap) / 2;
+                second.X = first.Right + gap;
+                second.Width = actionRowDesign.Right - second.X;
+            }
+            upgradeOffered = split;
+            actionButton.Primary = !split;
+            actionButton.Invalidate();
+            PlaceDesign(actionButton, first);
+            PlaceDesign(upgradeButton, second);
+            upgradeButton.Visible = split && !settingsOpen;
+        }
+
+        private void PlaceDesign(Control control, Rectangle logical)
+        {
+            designBounds[control] = logical;
+            control.SetBounds((int)Math.Round(logical.X * uiScale), (int)Math.Round(logical.Y * uiScale),
+                Math.Max(1, (int)Math.Round(logical.Width * uiScale)),
+                Math.Max(1, (int)Math.Round(logical.Height * uiScale)));
+        }
+
+        private void UpgradeClicked(object sender, EventArgs e)
+        {
+            PatchClicked(sender, e, "Upgrade");
         }
 
         private void ActionClicked(object sender, EventArgs e)
@@ -7292,6 +7372,14 @@ namespace Kmrp
 
         private void PatchClicked(object sender, EventArgs e)
         {
+            PatchClicked(sender, e, "Patch");
+        }
+
+        /// <summary>An install, "Patch" on a clean game or "Upgrade" over an older KMRP:
+        /// the same operation, which takes the earlier install away and installs with the
+        /// settings chosen now (KpmEditionOperations.Install).</summary>
+        private void PatchClicked(object sender, EventArgs e, string name)
+        {
             // The display's current size, where the game will offer it.
             int[] start = ResolutionSelection.Start();
             if (start == null)
@@ -7300,7 +7388,7 @@ namespace Kmrp
                     MessageBoxButtons.OK, MessageBoxIcon.Warning);
                 return;
             }
-            RunOperation("Patch", delegate(Action<string> report, Action<int, string> progress)
+            RunOperation(name, delegate(Action<string> report, Action<int, string> progress)
             {
                 PatchOperations.ApplyInPlace(pathBox.Text.Trim(), start[0], start[1], report, progress);
             });
@@ -7320,12 +7408,16 @@ namespace Kmrp
                 return;
 
             string target = pathBox.Text.Trim();
+            bool installing = name != "Restore";
+            // The row is one button while anything runs: its progress fills it.
+            LayoutActionRow(false);
             actionButton.ProgressPercent = 0;
-            actionButton.Text = name == "Patch" ? "Preparing patch…   0%" : "Preparing restore…   0%";
+            actionButton.Text = name == "Upgrade" ? "Preparing upgrade…   0%"
+                : installing ? "Preparing patch…   0%" : "Preparing restore…   0%";
             operationRunning = true;
             SetBusyState(true);
-            SetState(applyState, name == "Patch" ? "Patching…" : "Restoring…", UiTheme.Accent);
-            stepApply.SetSubtitle(name == "Patch"
+            SetState(applyState, name == "Upgrade" ? "Upgrading…" : installing ? "Patching…" : "Restoring…", UiTheme.Accent);
+            stepApply.SetSubtitle(installing
                 ? "KMRP is updating your game. Please wait."
                 : "KMRP is restoring your original files. Please wait.");
 
@@ -7373,7 +7465,8 @@ namespace Kmrp
 
                 string result = e.Result as string;
                 RefreshStatus();
-                SetState(applyState, name == "Patch" ? "Patched successfully" : "Restored successfully", UiTheme.Success);
+                SetState(applyState, name == "Upgrade" ? "Upgraded successfully"
+                    : installing ? "Patched successfully" : "Restored successfully", UiTheme.Success);
                 // The step has one line. `result` is the operation's last message, which
                 // for an install is whichever sentence came last, the one about KOTOR
                 // Patch Manager's patch folder with its whole path among them: it ran
@@ -7383,7 +7476,7 @@ namespace Kmrp
                 // RefreshStatus found, "KOTOR is ready to play at W × H."
                 stepApply.SetSubtitle(result == null ? name + " completed."
                     : result.Length <= StepLineLimit ? result : lastDetail);
-                if (name == "Patch")
+                if (installing)
                     OfferSteamLayout(target);
             };
             worker.RunWorkerAsync();
@@ -7420,6 +7513,7 @@ namespace Kmrp
         {
             browseButton.Enabled = !busy;
             actionButton.Enabled = !busy;
+            upgradeButton.Enabled = !busy;
             logLink.Enabled = !busy;
             UseWaitCursor = busy;
         }

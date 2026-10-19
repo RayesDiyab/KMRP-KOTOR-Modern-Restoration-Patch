@@ -291,7 +291,10 @@ over*.
 
 **The manifest,** `KMRP_KPM.manifest`, records every file written (`file`, name,
 SHA-256), the rename (`moved binkw32.dll binkw32Hooked.dll <hash>`), and whether
-it set the flag (`laa set`). Restore removes each file still as written, renames
+it set the flag (`laa set`). Since 2026-10-19 it also records the build's date
+(`built`, the commit's time in CEST), which the next installer compares with its own
+to tell an older install from a newer one ([patcher-ui-build.md](patcher-ui-build.md),
+*Build dates*); restore ignores the line, as older installers do. Restore removes each file still as written, renames
 the game's `binkw32.dll` back -- or, when Steam's file check has already put the
 original back, deletes the now duplicate `binkw32Hooked.dll` -- and clears the flag
 only if it set it and the file is still `CA9D22EA…`. Anything changed since is

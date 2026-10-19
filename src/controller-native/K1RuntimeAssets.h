@@ -4,7 +4,13 @@ bool KmrpRuntimeAssetsDimensions(int width, int height);
 // Whether the finished layout sets reach this size: one of them, or a size the
 // blend derives from the sets around it (4:3 to 32:9, from 640x480 up).
 bool KmrpRuntimeAssetsCovers(int width, int height);
+// This run's folder of the common files (the controller's SDL library among them).
 const std::wstring& KmrpRuntimeAssetDirectory();
+// This run's folder for the size in use: its layouts (.gui) and the rest of its set.
+const std::wstring& KmrpRuntimeLayoutDirectory();
+// A layout file (name with extension) as the game reads it at the size in use: the
+// adapted party roster from its own folder when there is one, else the set's.
+std::wstring KmrpRuntimeLayoutFile(const std::wstring& name);
 // Finalize Override font metrics at native LoadTXI return, before first layout.
 extern "C" void __cdecl KmrpFontMetricsLoadedK1(void* texture);
 // Rewrite only bundled font images for a style switch, preserving Override.

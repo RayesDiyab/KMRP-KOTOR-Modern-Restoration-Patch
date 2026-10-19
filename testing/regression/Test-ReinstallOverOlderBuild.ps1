@@ -25,6 +25,11 @@
     blocked the standalone installer, which would have used it; the new one never
     reads it, so it installs and leaves it alone.
 
+    Cases 6 and 7 (2026-10-19) are the build dates: each build is dated with the
+    time its commit was made and the manifest records it. A newer build installed
+    is refused untouched (the manifest's date set to 2099); an install whose
+    manifest has no date, as every one before that day, is upgraded.
+
     Every check is made on the SHA-256 of the file.
 
     Until 2026-09-29 Case 1 simulated the older build by editing the installed
@@ -257,6 +262,47 @@ try {
     $exitCode = Invoke-Patcher @("--in-place", $exe, $Resolution)
     Assert ($exitCode -eq 0) "the install succeeded (exit $exitCode)"
     Assert ((Get-Sha256 $stray) -eq $strayHash) "the stray backup is left alone"
+    Assert ((Invoke-Patcher @("--restore", $exe)) -eq 0) "restore succeeds"
+    Assert ((Get-Sha256 $exe) -eq $cleanHash) "swkotor.exe is the original"
+
+    # ---------------------------------------------------------------- cases 6 and 7
+    # Since 2026-10-19 each build is dated, with the time its commit was made
+    # (build_kmrp.ps1, build\kmrp\build-stamp.txt), and the manifest records it.
+    # An installed build newer than the installer is not replaced; an install from
+    # before builds were dated counts as older.
+    $stampFile = Join-Path $projectRoot "build\kmrp\build-stamp.txt"
+    $stamp = if (Test-Path -LiteralPath $stampFile) { [System.IO.File]::ReadAllText($stampFile).Trim() } else { "" }
+    function Get-FolderListing([string]$folder) {
+        Get-ChildItem -LiteralPath $folder -Recurse -File | Where-Object { $_.Extension -ne ".log" } |
+            Sort-Object FullName | ForEach-Object { $_.FullName.Substring($folder.Length) + " " + (Get-Sha256 $_.FullName) }
+    }
+    Write-Host ""
+    Write-Host "Case 6  a newer build installed is not replaced by this one"
+    $exe = New-Install "case6"
+    $folder = Split-Path -Parent $exe
+    $manifest = Join-Path $folder "KMRP_KPM.manifest"
+    Assert ((Invoke-Patcher @("--in-place", $exe, $Resolution)) -eq 0) "the install succeeds"
+    $text = [System.IO.File]::ReadAllText($manifest)
+    Assert ($stamp -ne "" -and $text -match ('(?m)^built\t' + [regex]::Escape($stamp) + '\r?$')) "the manifest records this build's date ($stamp)"
+    [System.IO.File]::WriteAllText($manifest, ($text -replace '(?m)^built\t[^\r\n]*', "built`t2099-01-01T00:00:00+02:00"))
+    $before = Get-FolderListing $folder
+    $exitCode = Invoke-Patcher @("--in-place", $exe, $Resolution)
+    Assert ($exitCode -ne 0) "installing over a newer build is refused (exit $exitCode)"
+    Assert (((Get-FolderListing $folder) -join "`n") -eq ($before -join "`n")) "nothing in the game folder changed"
+    Assert ((Invoke-Patcher @("--restore", $exe)) -eq 0) "restore succeeds"
+    Assert ((Get-Sha256 $exe) -eq $cleanHash) "swkotor.exe is the original"
+
+    Write-Host ""
+    Write-Host "Case 7  an install from before builds were dated is upgraded"
+    $exe = New-Install "case7"
+    $folder = Split-Path -Parent $exe
+    $manifest = Join-Path $folder "KMRP_KPM.manifest"
+    Assert ((Invoke-Patcher @("--in-place", $exe, $Resolution)) -eq 0) "the install succeeds"
+    [System.IO.File]::WriteAllText($manifest, ([System.IO.File]::ReadAllText($manifest) -replace '(?m)^built\t[^\r\n]*\r?\n', ""))
+    Assert (-not ([System.IO.File]::ReadAllText($manifest) -match '(?m)^built\t')) "its manifest has no date, as before 2026-10-19"
+    $exitCode = Invoke-Patcher @("--in-place", $exe, $Resolution)
+    Assert ($exitCode -eq 0) "this build installs over it (exit $exitCode)"
+    Assert ([System.IO.File]::ReadAllText($manifest) -match ('(?m)^built\t' + [regex]::Escape($stamp) + '\r?$')) "the manifest now records this build's date"
     Assert ((Invoke-Patcher @("--restore", $exe)) -eq 0) "restore succeeds"
     Assert ((Get-Sha256 $exe) -eq $cleanHash) "swkotor.exe is the original"
 }

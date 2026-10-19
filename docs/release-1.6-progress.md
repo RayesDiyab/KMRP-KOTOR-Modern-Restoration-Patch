@@ -161,6 +161,12 @@ row below.)
 | **Disengage in the HUD Size preview** | The preview shows the combat queue's frame round Disengage, as the game draws it, with the word centred. | | Yes, at 1920x1080 by scripted input. |
 | **HD font: every character, no stray lines** | The New HD Font shows the euro sign, curly quotes, ellipsis, dashes, the trade mark sign and Œ, Š, Ž as the original font does (they were boxes), and the lines after spaces in the HUD's font are gone. | #52 (the HD font) | The lines: seen before the fix at 1920x1080 and 3440x1440. After the rebuild: **not yet seen in the game**. |
 
+### Fast starts and resolution changes (uncommitted, 2026-10-19)
+
+| Feature | What the player gets | Issues | Seen in play |
+| --- | --- | --- | --- |
+| **KMRP's files kept between runs** | A start costs KMRP 35 ms instead of 14 s; a change between prepared sizes about 1.6 s in all instead of 8.5 to 11 s. The five largest display sizes are made ahead on the first start. Layouts no longer depend on the text size. See the CHANGELOG entry. | | Yes, by the maintainer in the test game, 3440x1440 and 2560x1440, 2026-10-19: "It looks right". |
+
 ### Fitted text at the largest size (uncommitted, 2026-10-19)
 
 | Feature | What the player gets | Issues | Seen in play |

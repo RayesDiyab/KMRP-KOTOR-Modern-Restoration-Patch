@@ -522,7 +522,7 @@ extern "C" void __cdecl KmrpPanelLayoutStartK1(void* panel, const char** slot)
     // The file the engine is about to load, for the size in force: the baseline
     // each control's later position is compared with.
     Gff gff;
-    if (gff.load(KmrpRuntimeAssetDirectory() + L"\\" + std::wstring(name.begin(), name.end()) + L".gui")) {
+    if (gff.load(KmrpRuntimeLayoutFile(std::wstring(name.begin(), name.end()) + L".gui"))) {
         FileExtents(gff, entry.file);
         FileBars(gff, name, entry.bars);
     }
@@ -603,7 +603,7 @@ bool KmrpRuntimeGuiPiecesK1(const char* resource, std::vector<KmrpGuiPiece>& pie
     const std::string name(resource, strnlen_s(resource, 16));
     if (name.empty() || name.find_first_of("/\\:") != std::string::npos) return false;
     Gff gff;
-    if (!gff.load(KmrpRuntimeAssetDirectory() + L"\\" + std::wstring(name.begin(), name.end()) + L".gui")) return false;
+    if (!gff.load(KmrpRuntimeLayoutFile(std::wstring(name.begin(), name.end()) + L".gui"))) return false;
     unsigned offset, count;
     if (!gff.field(0, "CONTROLS", 15, offset) || !gff.integer(gff.lists + offset, count) || count > 512 ||
         !gff.range(gff.lists + offset + 4, count, 4)) return false;
@@ -686,7 +686,7 @@ bool KmrpRuntimeLayoutDimensions(void* manager, int width, int height)
         item.second.height = height;
         Gff gff;
         std::wstring name(item.second.resource.begin(), item.second.resource.end());
-        if (!gff.load(KmrpRuntimeAssetDirectory() + L"\\" + name + L".gui")) continue;
+        if (!gff.load(KmrpRuntimeLayoutFile(name + L".gui"))) continue;
         Extent root;
         if (!gff.extent(0, root)) return false;
         const Extent old = Field<Extent>(panel, 4);

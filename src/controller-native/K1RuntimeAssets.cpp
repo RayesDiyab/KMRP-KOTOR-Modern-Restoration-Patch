@@ -1,13 +1,38 @@
-// Embedded resources, materialized into a private process cache and registered
-// through the game's resource manager. Never writes the player's Override.
+// Embedded resources, unpacked into a cache of KMRP's own and registered through the
+// game's resource manager. Never writes the player's Override.
 //
 // The bank (tools/build_native_assets.py, KNAST002) names every file of every
 // resolution's set with its SHA-256, and stores only the objects this module cannot
 // make: the build ran the blend helper below for every set and left out each file
 // the helper writes exactly as the set has it. So a set is produced in three steps
-// (KmrpRuntimeAssetsDimensions): the files the bank holds are written, the helper
-// writes the rest, and every file is held against the set's index. Until
-// 2026-10-05 the bank stored every file (KNAST001, 243 MB of a 249 MB patch).
+// (BuildSet): the files the bank holds are written, the helper writes the rest, and
+// every file is held against the set's index. Until 2026-10-05 the bank stored every
+// file (KNAST001, 243 MB of a 249 MB patch).
+//
+// The cache is kept between runs (2026-10-19, as the Mac's since 2026-10-08,
+// macos/patches/kmrp-assets/assets.cpp, whose design this follows):
+// %LOCALAPPDATA%\KMRP\cache\<build>\, <build> being the first 16 characters of the
+// bank's identity, so a new build starts a new cache and the old ones are removed.
+//
+//     store\            the common files, unpacked once
+//     sets\<W>x<H>\     a size's set, made the first time the size is used: the bank's
+//                       files, the helper's, the bank's again where the helper's differ,
+//                       and what KMRP makes from the player's own game for that height
+//     fonts\            the fonts at each size they have been drawn at, made once each
+//     gui-blend.bin     the blend helper's table, which it reads from a file
+//     art-<pid>\        this run's links to store\, but for what Override has
+//     fonts-<pid>\      this run's fonts at the sizes in use (links to fonts\)
+//     set-<pid>-<n>\    this run's links to a set, one folder for each registration
+//
+// Until then every launch unpacked and checked every common file into a new folder in
+// %TEMP%, and every change of resolution did it again: measured on the maintainer's PC
+// on 2026-10-19, 14.0 s for the files at a start at 3440x1440 and 7.0 to 9.5 s at a
+// change of size, 2.9 s of each change going to common files that never change. A
+// set's layouts are made with the fonts at the default text size, as the build makes
+// them (build_native_assets.shared_font_txi), so a set depends on its size alone; the
+// text size is the fonts' business (the maintainer, 2026-10-19: "these should be
+// independent"). Until then the helper measured captions with the fonts at the text
+// size in use, which made a set's helper-made files differ from the build's.
 #include "K1RuntimeAssets.h"
 #include "NativeAssets.generated.h"
 #include "KmrpOptions.h"
@@ -20,6 +45,7 @@
 #include <bcrypt.h>
 #include <array>
 #include <map>
+#include <set>
 #include <vector>
 #include <string>
 #include <cstring>
@@ -50,19 +76,31 @@ struct Group { unsigned width, height; std::vector<Entry> entries; };
 std::map<Key, Object> objects;
 std::vector<Group> groups;
 Key tableKey{};
-std::wstring cache;
-std::map<std::wstring, Key> written;
+std::wstring root;        // %LOCALAPPDATA%\KMRP\cache\<build>
+std::wstring store;       // root\store
+std::wstring cache;       // root\art-<pid>: this run's common files (KmrpRuntimeAssetDirectory)
+std::wstring fontsView;   // root\fonts-<pid>
+std::wstring setView;     // the newest size's folder as the game is shown it (KmrpRuntimeLayoutDirectory):
+                          // root\sets\<W>x<H>, or root\set-<pid>-<n> of links
+std::wstring rosterView;  // root\roster-<pid>-<n>: the party roster adapted for it, when there is one
+int generation = 0;
 int currentWidth = 0, currentHeight = 0;
-bool registered = false;
-std::string directoryAlias;
+bool registered = false;  // the common files and the fonts given to the game
+// The blend helper and the game-art helpers keep their state in globals, so one size is
+// made at a time, by the game's thread or the one that makes sizes ahead (Prebuild).
+SRWLOCK buildLock = SRWLOCK_INIT;
+struct Locked {
+    Locked() { AcquireSRWLockExclusive(&buildLock); }
+    ~Locked() { ReleaseSRWLockExclusive(&buildLock); }
+};
 // True only after adapting the supplied roster GUI successfully for this size.
 bool managedPartyRoster = false;
 
 bool Sha(const unsigned char* data, unsigned size, Key& result)
 {
-    // Opened once: a set is some 2,100 files, each hashed three times on its way to
-    // the cache, and opening the provider for every one of them was measurable.
-    static BCRYPT_ALG_HANDLE algorithm = nullptr;
+    // Opened once a thread: a set is some 2,100 files, each hashed on its way to the
+    // cache, and opening the provider for every one of them was measurable.
+    static thread_local BCRYPT_ALG_HANDLE algorithm = nullptr;
     BCRYPT_HASH_HANDLE hash = nullptr;
     if (!algorithm && BCryptOpenAlgorithmProvider(&algorithm, BCRYPT_SHA256_ALGORITHM, nullptr, 0) < 0) {
         algorithm = nullptr;
@@ -92,7 +130,98 @@ struct Reader {
 
 const wchar_t kLockSuffix[] = L".lock";
 
-// Remove the caches of games that are no longer running. Each launch makes its
+std::wstring Pid() { return std::to_wstring(GetCurrentProcessId()); }
+
+bool IsDirectory(const std::wstring& path)
+{
+    const DWORD attributes = GetFileAttributesW(path.c_str());
+    return attributes != INVALID_FILE_ATTRIBUTES && (attributes & FILE_ATTRIBUTE_DIRECTORY) &&
+           !(attributes & FILE_ATTRIBUTE_REPARSE_POINT);
+}
+
+// The plain files directly in a folder, or its folders.
+std::vector<std::wstring> Names(const std::wstring& directory, bool folders = false)
+{
+    std::vector<std::wstring> names;
+    WIN32_FIND_DATAW found{};
+    HANDLE search = FindFirstFileW((directory + L"\\*").c_str(), &found);
+    if (search == INVALID_HANDLE_VALUE) return names;
+    do {
+        const bool folder = (found.dwFileAttributes & FILE_ATTRIBUTE_DIRECTORY) != 0;
+        if (folder && (!wcscmp(found.cFileName, L".") || !wcscmp(found.cFileName, L".."))) continue;
+        if (folder == folders && !(found.dwFileAttributes & FILE_ATTRIBUTE_REPARSE_POINT)) names.push_back(found.cFileName);
+    } while (FindNextFileW(search, &found));
+    FindClose(search);
+    return names;
+}
+
+// One of the cache's folders, which hold plain files only, and the folder itself.
+void RemoveFlat(const std::wstring& directory)
+{
+    if (!IsDirectory(directory)) return;
+    for (const auto& name : Names(directory)) {
+        const std::wstring path = directory + L"\\" + name;
+        SetFileAttributesW(path.c_str(), FILE_ATTRIBUTE_NORMAL);
+        DeleteFileW(path.c_str());
+    }
+    RemoveDirectoryW(directory.c_str());
+}
+
+// Whether a game is running that made a folder of the cache: it holds run-<pid>.lock
+// open, delete on close, for its life. A lock that can be deleted is a game's that is
+// gone (and is deleted with that).
+bool Running(const std::wstring& folder, const std::wstring& pid)
+{
+    if (pid == Pid()) return true;
+    const std::wstring lock = folder + L"\\run-" + pid + L".lock";
+    return GetFileAttributesW(lock.c_str()) != INVALID_FILE_ATTRIBUTES && !DeleteFileW(lock.c_str());
+}
+
+// The caches of other builds, once no game of theirs runs, and this cache's folders of
+// games that are no longer running: their links, and a set or font they left half made.
+void RemoveStale(const std::wstring& parent, const std::wstring& build)
+{
+    for (const auto& name : Names(parent, true)) {
+        if (name == build || name.size() != 16 || name.find_first_not_of(L"0123456789abcdef") != std::wstring::npos) continue;
+        const std::wstring old = parent + L"\\" + name;
+        bool busy = false;
+        for (const auto& file : Names(old)) {
+            if (file.compare(0, 4, L"run-") != 0) continue;
+            const std::wstring pid = file.substr(4, file.find(L'.') - 4);
+            if (Running(old, pid)) busy = true;
+        }
+        if (busy) continue;
+        for (const auto& inner : Names(old, true)) {
+            const std::wstring path = old + L"\\" + inner;
+            for (const auto& deeper : Names(path, true)) RemoveFlat(path + L"\\" + deeper);
+            RemoveFlat(path);
+        }
+        RemoveFlat(old);
+    }
+    const std::wstring here = parent + L"\\" + build;
+    for (const auto& name : Names(here, true)) {
+        std::wstring pid;
+        if (!name.compare(0, 4, L"art-")) pid = name.substr(4);
+        else if (!name.compare(0, 6, L"fonts-")) pid = name.substr(6);
+        else if (!name.compare(0, 4, L"set-")) pid = name.substr(4, name.find(L'-', 4) - 4);
+        else if (!name.compare(0, 7, L"roster-")) pid = name.substr(7, name.find(L'-', 7) - 7);
+        else continue;
+        if (!Running(here, pid)) RemoveFlat(here + L"\\" + name);
+    }
+    for (const auto* folder : {L"\\sets", L"\\fonts"}) {
+        const std::wstring path = here + folder;
+        for (const auto& name : Names(path, true)) {
+            const std::size_t at = name.find(L".tmp");
+            if (at != std::wstring::npos && !Running(here, name.substr(at + 4))) RemoveFlat(path + L"\\" + name);
+        }
+        for (const auto& name : Names(path)) {
+            const std::size_t at = name.find(L".tmp");
+            if (at != std::wstring::npos && !Running(here, name.substr(at + 4))) DeleteFileW((path + L"\\" + name).c_str());
+        }
+    }
+}
+
+// The per-launch caches in %TEMP% of builds before 2026-10-19. Each launch made its
 // own directory (about 100 MB), and until 2026-10-04 nothing ever removed one:
 // 63 had collected in %TEMP%, 5.4 GB.
 //
@@ -180,17 +309,32 @@ bool Initialize()
         if (group.width != 0) continue;
         for (const auto& entry : group.entries) if (!bank.count(entry.key)) return false;
     }
-    wchar_t temp[MAX_PATH], reserved[MAX_PATH];
-    if (!GetTempPathW(MAX_PATH, temp)) return false;
-    RemoveStaleCaches(temp);
-    if (!GetTempFileNameW(temp, L"KMR", 0, reserved)) return false;
-    // This is exclusively the empty reservation just created by this process.
-    if (!DeleteFileW(reserved) || !CreateDirectoryW(reserved, nullptr)) return false;
-    cache = reserved;
-    // Held for the life of the process and deleted with it, even on a crash: the
-    // next launch reads a lock it can delete as "that game is gone".
-    CreateFileW((cache + kLockSuffix).c_str(), GENERIC_WRITE, 0, nullptr, CREATE_ALWAYS,
+    wchar_t temp[MAX_PATH]{};
+    if (GetTempPathW(MAX_PATH, temp)) RemoveStaleCaches(temp);
+    // The cache, under %LOCALAPPDATA% (or %TEMP% where that is not set), named after
+    // the bank, so a new build starts a new one (RemoveStale removes the old).
+    wchar_t local[MAX_PATH];
+    const DWORD length = GetEnvironmentVariableW(L"LOCALAPPDATA", local, MAX_PATH);
+    std::wstring parent = length && length < MAX_PATH ? std::wstring(local) : std::wstring(temp);
+    if (parent.empty()) return false;
+    if (parent.back() != L'\\') parent += L'\\';
+    parent += L"KMRP";
+    CreateDirectoryW(parent.c_str(), nullptr);
+    parent += L"\\cache";
+    CreateDirectoryW(parent.c_str(), nullptr);
+    const std::wstring build = std::wstring(KMRP_ASSET_BUILD).substr(0, 16);
+    root = parent + L"\\" + build;
+    if (!IsDirectory(root) && !CreateDirectoryW(root.c_str(), nullptr)) return false;
+    CreateDirectoryW((root + L"\\sets").c_str(), nullptr);
+    CreateDirectoryW((root + L"\\fonts").c_str(), nullptr);
+    // Held for the life of the process and deleted with it, even on a crash: a later
+    // run reads a lock it can delete as "that game is gone" (Running).
+    CreateFileW((root + L"\\run-" + Pid() + kLockSuffix).c_str(), GENERIC_WRITE, 0, nullptr, CREATE_ALWAYS,
                 FILE_ATTRIBUTE_TEMPORARY | FILE_FLAG_DELETE_ON_CLOSE, nullptr);
+    RemoveStale(parent, build);
+    store = root + L"\\store";
+    cache = root + L"\\art-" + Pid();
+    fontsView = root + L"\\fonts-" + Pid();
     objects.swap(bank); groups.swap(parsed);
     return true;
 }
@@ -219,120 +363,108 @@ bool Read(const std::wstring& path, std::vector<unsigned char>& output)
     CloseHandle(file); return ok;
 }
 
-// `known`: the bytes' SHA-256 where the caller has just established it (Decode holds
-// every object against its key), so it is not computed a second time. Hashing is
-// most of what a set costs to write: measured 2026-10-05, 6.4 s for 2,038 files with
-// each hashed three times (decoded, before writing, read back).
-bool Write(const std::string& name, const std::vector<unsigned char>& bytes, const Key* known = nullptr)
+// A new file, never written through an existing one: a folder of links shares its
+// files with the cache, so writing into one would change the cache's. `known`: the
+// bytes' SHA-256, held against what is read back.
+bool WriteNew(const std::wstring& path, const std::vector<unsigned char>& bytes, const Key* known = nullptr)
 {
-    std::wstring path = cache + L"\\" + std::wstring(name.begin(), name.end());
-    Key key;
-    if (known) key = *known;
-    else if (!Sha(bytes.data(), static_cast<unsigned>(bytes.size()), key)) return false;
-    if (GetFileAttributesW(path.c_str()) != INVALID_FILE_ATTRIBUTES) {
-        std::vector<unsigned char> existing; Key measured;
-        if (!Read(path, existing) || !Sha(existing.data(), static_cast<unsigned>(existing.size()), measured)) return false;
-        auto owner = written.find(path);
-        if (owner == written.end() || owner->second != measured) return false;
-        if (measured == key) return true;
-    }
-    HANDLE file = CreateFileW(path.c_str(), GENERIC_WRITE, 0, nullptr,
-        written.count(path) ? TRUNCATE_EXISTING : CREATE_NEW, FILE_ATTRIBUTE_NORMAL, nullptr);
+    SetFileAttributesW(path.c_str(), FILE_ATTRIBUTE_NORMAL);
+    DeleteFileW(path.c_str());
+    HANDLE file = CreateFileW(path.c_str(), GENERIC_WRITE, 0, nullptr, CREATE_NEW, FILE_ATTRIBUTE_NORMAL, nullptr);
     if (file == INVALID_HANDLE_VALUE) return false;
     DWORD size = 0;
-    bool ok = WriteFile(file, bytes.data(), static_cast<DWORD>(bytes.size()), &size, nullptr) && size == bytes.size();
+    const bool ok = WriteFile(file, bytes.data(), static_cast<DWORD>(bytes.size()), &size, nullptr) && size == bytes.size();
     CloseHandle(file);
-    if (!ok) return false;
+    if (!ok || !known) return ok;
     std::vector<unsigned char> actual; Key measured;
-    if (!Read(path, actual) || !Sha(actual.data(), static_cast<unsigned>(actual.size()), measured) || measured != key) return false;
-    written[path] = key; return true;
+    return Read(path, actual) && Sha(actual.data(), static_cast<unsigned>(actual.size()), measured) && measured == *known;
 }
 
-bool RegisterDirectory()
+// A cached file shown in one of this run's folders: a hard link, which costs no copy
+// (NTFS, and Wine on Linux file systems), or a copy where the file system has none.
+bool Link(const std::wstring& from, const std::wstring& to)
+{
+    SetFileAttributesW(to.c_str(), FILE_ATTRIBUTE_NORMAL);
+    DeleteFileW(to.c_str());
+    return CreateHardLinkW(to.c_str(), from.c_str(), nullptr) || CopyFileW(from.c_str(), to.c_str(), TRUE);
+}
+
+// A folder is complete when the marker beside it (never inside: the game lists the
+// folder as resources) holds the text it was finished with. Built under another name
+// and renamed, so a run cut short leaves nothing that looks finished.
+bool Complete(const std::wstring& directory, const std::string& stamp)
+{
+    std::vector<unsigned char> text;
+    return IsDirectory(directory) && Read(directory + L".complete", text) &&
+           std::string(text.begin(), text.end()) == stamp;
+}
+
+template<class Fill>
+bool Build(const std::wstring& directory, const std::string& stamp, Fill fill)
+{
+    if (Complete(directory, stamp)) return true;
+    const std::wstring work = directory + L".tmp" + Pid();
+    DeleteFileW((directory + L".complete").c_str());
+    RemoveFlat(directory);
+    RemoveFlat(work);
+    if (IsDirectory(directory) || !CreateDirectoryW(work.c_str(), nullptr)) return false;
+    if (!fill(work) || !MoveFileExW(work.c_str(), directory.c_str(), 0)) {
+        RemoveFlat(work);
+        return false;
+    }
+    return WriteNew(directory + L".complete", std::vector<unsigned char>(stamp.begin(), stamp.end()));
+}
+
+// A path for the helpers, which take the system's code page; "" when the path has a
+// character it cannot write.
+std::string Narrow(const std::wstring& path)
+{
+    char text[MAX_PATH]; BOOL substituted = FALSE;
+    if (!WideCharToMultiByte(CP_ACP, WC_NO_BEST_FIT_CHARS, path.c_str(), -1, text, MAX_PATH, nullptr, &substituted) ||
+        substituted) return std::string();
+    return text;
+}
+
+// gui-blend.bin, beside the cache's folders: the blend helper reads it from a file.
+bool TablePath(std::string& path)
+{
+    const std::wstring wide = root + L"\\gui-blend.bin";
+    path = Narrow(wide);
+    if (path.empty()) return false;
+    if (GetFileAttributesW(wide.c_str()) != INVALID_FILE_ATTRIBUTES) return true;
+    std::vector<unsigned char> table;
+    const std::wstring work = wide + L".tmp" + Pid();
+    return Decode(tableKey, table) && WriteNew(work, table, &tableKey) && MoveFileExW(work.c_str(), wide.c_str(), 0);
+}
+
+// A folder given to the game under an alias of its own: the resource manager takes
+// "ALIAS:", and CExoAliasList::ResolveFileName reads the text before ':' as an alias,
+// drive letters included, so an absolute Windows path is never passed. `again`: a
+// folder given before whose files changed is listed anew (0x4088E0) instead of added.
+// The game searches the folder given last first (CExoResMan::AddKeyTable, 0x00406E20).
+bool RegisterFolder(const std::wstring& folder, const std::string& alias, bool again)
 {
     void* manager = *reinterpret_cast<void**>(0x7A39E8);
     if (!manager) return false;
-    char path[MAX_PATH]; BOOL substituted = FALSE;
-    if (!WideCharToMultiByte(CP_ACP, WC_NO_BEST_FIT_CHARS, cache.c_str(), -1, path, MAX_PATH, nullptr, &substituted) || substituted) return false;
-    // CExoAliasList::ResolveFileName treats the text before ':' as an alias,
-    // including drive letters. Register a private alias rather than passing an
-    // absolute Windows path to CExoResMan.
-    if (directoryAlias.empty()) {
+    const std::string path = Narrow(folder);
+    if (path.empty()) return false;
+    if (!again) {
         void* base = *reinterpret_cast<void**>(0x7A39E0);
         if (!base) return false;
         void* aliases = *reinterpret_cast<void**>(static_cast<unsigned char*>(base) + 0x0C);
         if (!aliases) return false;
-        std::string alias = "kmrp_" + std::string(path + cache.find_last_of(L"\\") + 1);
         void* aliasName[2]{}; void* aliasPath[2]{};
         reinterpret_cast<void(__thiscall*)(void*, const char*)>(0x5E5A90)(aliasName, alias.c_str());
-        reinterpret_cast<void(__thiscall*)(void*, const char*)>(0x5E5A90)(aliasPath, path);
+        reinterpret_cast<void(__thiscall*)(void*, const char*)>(0x5E5A90)(aliasPath, path.c_str());
         reinterpret_cast<void(__thiscall*)(void*, void*, void*)>(0x5E6880)(aliases, aliasName, aliasPath);
         reinterpret_cast<void(__thiscall*)(void*)>(0x5E5C20)(aliasPath);
         reinterpret_cast<void(__thiscall*)(void*)>(0x5E5C20)(aliasName);
-        directoryAlias = alias + ":";
     }
     void* name[2]{};
-    reinterpret_cast<void(__thiscall*)(void*, const char*)>(0x5E5A90)(name, directoryAlias.c_str());
-    int result = reinterpret_cast<int(__thiscall*)(void*, void*)>(registered ? 0x4088E0 : 0x408800)(manager, name);
+    reinterpret_cast<void(__thiscall*)(void*, const char*)>(0x5E5A90)(name, (alias + ":").c_str());
+    const int result = reinterpret_cast<int(__thiscall*)(void*, void*)>(again ? 0x4088E0 : 0x408800)(manager, name);
     reinterpret_cast<void(__thiscall*)(void*)>(0x5E5C20)(name);
-    if (result) registered = true;
     return result != 0;
-}
-
-// The files KMRP makes from the player's own game, which no release may carry:
-// the tutorial popup's icons and tutorial.2da, the hex row frames, and the feat,
-// power and skill icons at this height's row size. The installer makes them once,
-// for the resolution it installs (GameArtGenerator.cs, AbilityIconGenerator.cs);
-// this module has no installer, so it makes them here, for every size, with the
-// Mac installer's two helpers. Without them the engine draws the game's 32 and 64
-// pixel icons one texel per pixel inside the enlarged boxes, where they tile
-// (play-tested 2026-10-04: the tutorial popup showed its icon four and sixteen
-// times).
-//
-// Not fatal: a game without its texture pack keeps the game's own icons.
-void GameArt(const Group& selected, int width, int height)
-{
-    // Whatever the previous size's helpers made. Everything else in this
-    // directory is a bank file this process wrote and still owns.
-    WIN32_FIND_DATAW found{};
-    HANDLE search = FindFirstFileW((cache + L"\\*").c_str(), &found);
-    if (search != INVALID_HANDLE_VALUE) {
-        do {
-            if (found.dwFileAttributes & FILE_ATTRIBUTE_DIRECTORY) continue;
-            const std::wstring path = cache + L"\\" + found.cFileName;
-            if (!written.count(path)) DeleteFileW(path.c_str());
-        } while (FindNextFileW(search, &found));
-        FindClose(search);
-    }
-    char directory[MAX_PATH], game[MAX_PATH]; BOOL substituted = FALSE;
-    if (!WideCharToMultiByte(CP_ACP, WC_NO_BEST_FIT_CHARS, cache.c_str(), -1, directory, MAX_PATH, nullptr, &substituted) || substituted) return;
-    DWORD size = GetModuleFileNameA(nullptr, game, MAX_PATH);
-    char* slash = size && size < MAX_PATH ? std::strrchr(game, '\\') : nullptr;
-    if (!slash) return;
-    *slash = 0;
-    const std::string pack = std::string(game) + "\\TexturePacks\\swpc_tex_gui.erf";
-    const std::string key = std::string(game) + "\\chitin.key";
-    // The icons this size's bank already supplies are not the helper's to make.
-    // Beside the directory, not in it: the game must not see it as a resource.
-    const std::string reserved = std::string(directory) + ".reserved.txt";
-    FILE* list = nullptr;
-    if (!fopen_s(&list, reserved.c_str(), "w") && list) {
-        for (const auto& group : groups) {
-            if (&group != &selected && group.width != 0) continue;
-            for (const auto& entry : group.entries) fprintf(list, "%s\n", entry.name.c_str());
-        }
-        fclose(list);
-    }
-    KmrpAbilityIcons(pack.c_str(), static_cast<unsigned>(height), directory, reserved.c_str());
-    DeleteFileA(reserved.c_str());
-    KmrpGameArt(pack.c_str(), key.c_str(), static_cast<unsigned>(height), directory);
-    // Not a size's file, but made here because this is where the player's own files
-    // are read and the cache is cleared of what the helpers made before.
-    const int swoop = KmrpSwoopHud(key.c_str(), directory, static_cast<unsigned>(width), static_cast<unsigned>(height));
-    KmrpRuntimeLog(swoop == 0 ? "[KMRP] swoop HUD model: the parked speed segment moved out of this screen's view"
-                 : swoop == 1 ? "[KMRP] swoop HUD model: not the game's own, left as it is"
-                 : swoop == 3 ? "[KMRP] swoop HUD model: the game's own is right for this screen"
-                              : "[KMRP] swoop HUD model: could not be written");
 }
 
 std::wstring Lower(std::wstring text)
@@ -347,17 +479,17 @@ std::wstring Lower(std::wstring text)
 // new table at the head of its list with 0x005E9D70), and this module's is
 // registered after Override, so until then KMRP's file won whenever both had one.
 //
-// The order of the two directories is left as it is, and a file the player has in
-// Override is taken out of this one before the game is shown it: that also covers
-// a texture in the other format, which the order alone would not (the game prefers
-// a .tpc to a .tga wherever each is). A texture is one thing with its .txi: a .tga
-// or .tpc in Override removes KMRP's .tga, .tpc and .txi of that name, so a font
-// from Override is read with its own metrics or the game's, never KMRP's.
+// The order of the directories is left as it is, and a file the player has in
+// Override is left out of the folders the game is shown (OverrideHas, since
+// 2026-10-19 when this run's folders are made; until then it was deleted from the one
+// folder after it was written): that also covers a texture in the other format, which
+// the order alone would not (the game prefers a .tpc to a .tga wherever each is). A
+// texture is one thing with its .txi: a .tga or .tpc in Override leaves out KMRP's
+// .tga, .tpc and .txi of that name, so a font from Override is read with its own
+// metrics or the game's, never KMRP's. The cache itself keeps every file.
 //
 // Override is listed once, as the game lists it once: a file put there while the
-// game runs is not seen by either. What is taken out is forgotten in `written`, so
-// the next size writes it again (the blend helper reads some of these files) and
-// this runs again after it. Returns how many files were left to Override.
+// game runs is not seen by either.
 // The glyph height KMRP's own font of each name has at the size in use, for the
 // fonts Override supplies in its place (lower-case names, without extension).
 std::map<std::string, float> overrideFontHeights;
@@ -546,18 +678,120 @@ bool FitAtlas(std::vector<unsigned char>& tga, float factor, int& newWidth)
 constexpr float kHdBakeScale = 6.0f;
 constexpr float kSizeReferenceScale = 3.0f;
 
+const Group* CommonGroup()
+{
+    for (const auto& g : groups) if (!g.width) return &g;
+    return nullptr;
+}
+
+std::wstring Wide(const std::string& name) { return std::wstring(name.begin(), name.end()); }
+
+// The size a font is drawn at on a screen `height` lines high: `target` at the default
+// text size (also what an Override font of that name is drawn at,
+// KmrpFontMetricsLoadedK1), `sized` at the text size in use.
+bool FontSizes(unsigned i, int height, float& target, float& sized)
+{
+    const Group* common = CommonGroup();
+    if (!common) return false;
+    char source[32];
+    sprintf_s(source, "kmrfhd%02u.txi", i);
+    const Entry* baseline = FindEntry(*common, source);
+    std::vector<unsigned char> data;
+    if (!baseline || !Decode(baseline->key, data)) return false;
+    target = FontTargetHeight(FontHeightOf(data) * kSizeReferenceScale / kHdBakeScale, height);
+    sized = target * (static_cast<float>(KmrpTextSizeForFontK1(fontNames[i])) / KmrpTextOptions::Default);
+    return target > 0.0f;
+}
+
+// One font of a style at one size, in the cache's fonts\ (2026-10-19), made the first
+// time: the style's TXI set to the size and, for an HD style, its atlas fitted to it
+// (FitAtlas). Until then every start and every change of size made all eighteen again,
+// 1.0 to 1.3 s on the maintainer's PC. Called under the build lock.
+bool CachedFont(const char* prefix, unsigned i, float sized, bool fitted, std::wstring& txiPath, std::wstring& tgaPath)
+{
+    unsigned bits;
+    std::memcpy(&bits, &sized, sizeof bits);
+    wchar_t number[24];
+    swprintf_s(number, L"%02u-%08X", i, bits);
+    const std::wstring base = root + L"\\fonts\\" + std::wstring(prefix, prefix + std::strlen(prefix)) + number;
+    txiPath = base + L".txi";
+    tgaPath = base + L".tga";
+    if (GetFileAttributesW(txiPath.c_str()) != INVALID_FILE_ATTRIBUTES &&
+        GetFileAttributesW(tgaPath.c_str()) != INVALID_FILE_ATTRIBUTES) return true;
+    const Group* common = CommonGroup();
+    if (!common) return false;
+    char source[32];
+    std::vector<unsigned char> txi, tga;
+    sprintf_s(source, "%s%02u.txi", prefix, i);
+    const Entry* metrics = FindEntry(*common, source);
+    sprintf_s(source, "%s%02u.tga", prefix, i);
+    const Entry* atlas = FindEntry(*common, source);
+    if (!metrics || !atlas || !Decode(metrics->key, txi) || !Decode(atlas->key, tga)) return false;
+    const float own = FontHeightOf(txi);
+    if (!(own > 0.001f) || !FontTxiAtHeight(txi, sized)) return false;
+    if (fitted) {
+        int newWidth = 0;
+        if (!FitAtlas(tga, sized / own, newWidth) || !SetTxiField(txi, "texturewidth", newWidth / 100.0)) return false;
+    }
+    // Each under a working name, the atlas first: a TXI is never there without it.
+    const std::wstring work = L".tmp" + Pid();
+    if (!WriteNew(tgaPath + work, tga) || !MoveFileExW((tgaPath + work).c_str(), tgaPath.c_str(), MOVEFILE_REPLACE_EXISTING) ||
+        !WriteNew(txiPath + work, txi) || !MoveFileExW((txiPath + work).c_str(), txiPath.c_str(), MOVEFILE_REPLACE_EXISTING)) {
+        DeleteFileW((tgaPath + work).c_str());
+        DeleteFileW((txiPath + work).c_str());
+        return false;
+    }
+    return true;
+}
+
+// The metrics the blend helper measures captions with: dialogfont16x16 in HD Original at
+// the default text size for a screen `height` lines high, the TXI the build gives the
+// helper (build_native_assets.shared_font_txi), made as CachedFont makes that font, in
+// the same single precision, without fitting the atlas. So a set is the same at every
+// text size and font style, and the helper writes the build's files exactly (since
+// 2026-10-19; until then it was given the fonts at the text size in use).
+bool ReferenceTxi(int height, std::vector<unsigned char>& txi)
+{
+    const unsigned i = 4;   // dialogfont16x16
+    const Group* common = CommonGroup();
+    if (!common) return false;
+    float target, sized;
+    if (!FontSizes(i, height, target, sized)) return false;
+    sized = target;         // the default text size
+    // The atlas's width, which FitAtlas scales: read once.
+    static int width = 0;
+    char source[32];
+    std::vector<unsigned char> data;
+    if (!width) {
+        sprintf_s(source, "kmrfho%02u.tga", i);
+        const Entry* atlas = FindEntry(*common, source);
+        if (!atlas || !Decode(atlas->key, data) || data.size() < 18) return false;
+        width = data[12] | (data[13] << 8);
+    }
+    sprintf_s(source, "kmrfho%02u.txi", i);
+    const Entry* metrics = FindEntry(*common, source);
+    if (!metrics || !Decode(metrics->key, txi)) return false;
+    const float own = FontHeightOf(txi);
+    if (!(own > 0.001f) || !FontTxiAtHeight(txi, sized)) return false;
+    const float factor = sized / own;
+    const int newWidth = (std::max)(1, static_cast<int>(std::lround(width * factor)));
+    return SetTxiField(txi, "texturewidth", newWidth / 100.0);
+}
+
+// The style's eighteen fonts at the sizes in use, in this run's fonts folder: links to
+// the cache's (CachedFont). A font the player's Override has is the game's to read from
+// there (OverrideFont): left out, with the size KMRP's own would have noted
+// (overrideFontHeights). `preserveOverride` (a change of style in the game): those keep
+// what was noted at the start.
 bool ApplyTextPreferences(bool preserveOverride)
 {
     const int style = KmrpTextFontStyleK1();
     const bool fitted = style != KmrpTextOptions::Original;
     const char* prefix = style == KmrpTextOptions::Original ? "kmrfog" :
                          style == KmrpTextOptions::HdOriginal ? "kmrfho" : "kmrfhd";
-    const Group* common = nullptr;
-    for (const auto& g : groups) if (!g.width) { common = &g; break; }
-    if (!common) return false;
-    // Original keeps its atlas and has only its TXI's dimensions changed; the HD
-    // styles' atlases are resampled to the drawn size (FitAtlas). No glyph is drawn
-    // and no font installed in the game process.
+    const Group* common = CommonGroup();
+    if (!common || fontsView.empty()) return false;
+    // Every source there before anything changes.
     for (unsigned i = 0; i < 18; ++i) {
         if (preserveOverride && OverrideFont(fontNames[i])) continue;
         char source[32];
@@ -567,33 +801,83 @@ bool ApplyTextPreferences(bool preserveOverride)
             if (!entry || !objects.count(entry->key)) return false;
         }
     }
-    std::vector<unsigned char> data, txi, tga;
+    if (!IsDirectory(fontsView) && !CreateDirectoryW(fontsView.c_str(), nullptr)) return false;
     for (unsigned i = 0; i < 18; ++i) {
-        if (preserveOverride && OverrideFont(fontNames[i])) continue;
-        char source[32];
-        sprintf_s(source, "kmrfhd%02u.txi", i);
-        const Entry* baseline = FindEntry(*common, source);
-        if (!baseline || !Decode(baseline->key, data)) return false;
-        const float target = FontTargetHeight(FontHeightOf(data) * kSizeReferenceScale / kHdBakeScale, fontHeight);
-        if (!(target > 0.0f)) return false;
+        const bool theirs = OverrideFont(fontNames[i]);
+        if (preserveOverride && theirs) continue;
+        float target, sized;
+        if (!FontSizes(i, fontHeight, target, sized)) return false;
         overrideFontHeights[fontNames[i]] = target;
-        const float sized = target * (static_cast<float>(KmrpTextSizeForFontK1(fontNames[i])) / KmrpTextOptions::Default);
-        sprintf_s(source, "%s%02u.txi", prefix, i);
-        if (!Decode(FindEntry(*common, source)->key, txi)) return false;
-        const float own = FontHeightOf(txi);
-        sprintf_s(source, "%s%02u.tga", prefix, i);
-        if (!Decode(FindEntry(*common, source)->key, tga)) return false;
-        if (!(own > 0.001f) || !FontTxiAtHeight(txi, sized)) return false;
-        if (fitted) {
-            int newWidth = 0;
-            if (!FitAtlas(tga, sized / own, newWidth) || !SetTxiField(txi, "texturewidth", newWidth / 100.0)) return false;
+        const std::wstring name = fontsView + L"\\" + Wide(fontNames[i]);
+        if (theirs) {
+            DeleteFileW((name + L".tga").c_str());
+            DeleteFileW((name + L".txi").c_str());
+            continue;
         }
-        if (!Write(std::string(fontNames[i]) + ".tga", tga) || !Write(std::string(fontNames[i]) + ".txi", txi)) return false;
+        std::wstring txi, tga;
+        {
+            Locked lock;
+            if (!CachedFont(prefix, i, sized, fitted, txi, tga)) return false;
+        }
+        if (!Link(tga, name + L".tga") || !Link(txi, name + L".txi")) return false;
     }
     return true;
 }
 
-bool AdaptPartyRosterK1()
+// The fonts of the style in use at a screen height, made ahead (Prebuild).
+void PrefitFonts(int height)
+{
+    const int style = KmrpTextFontStyleK1();
+    const bool fitted = style != KmrpTextOptions::Original;
+    const char* prefix = style == KmrpTextOptions::Original ? "kmrfog" :
+                         style == KmrpTextOptions::HdOriginal ? "kmrfho" : "kmrfhd";
+    for (unsigned i = 0; i < 18; ++i) {
+        float target, sized;
+        if (!FontSizes(i, height, target, sized)) return;
+        std::wstring txi, tga;
+        Locked lock;
+        if (!CachedFont(prefix, i, sized, fitted, txi, tga)) return;
+    }
+}
+
+// Whether the player's Override has a file of this name, or for a texture a .tga or .tpc
+// of its name: the game prefers a .tpc to a .tga wherever each is, and a texture is one
+// thing with its .txi. Override is listed once a run, as the game lists it once. Not
+// resources of the game, so never Override's: the controller library, loaded from the
+// common files' folder.
+bool overrideListed = false;
+std::map<std::wstring, bool> overrideNames, overrideTextures;
+bool OverrideHas(const std::wstring& file)
+{
+    auto& names = overrideNames;
+    auto& textures = overrideTextures;
+    if (!overrideListed) {
+        overrideListed = true;
+        wchar_t folder[MAX_PATH];
+        const DWORD size = GetModuleFileNameW(nullptr, folder, MAX_PATH);
+        wchar_t* slash = size && size < MAX_PATH ? wcsrchr(folder, L'\\') : nullptr;
+        if (!slash) return false;
+        *slash = 0;
+        for (const auto& found : Names(std::wstring(folder) + L"\\override")) {
+            const std::wstring name = Lower(found);
+            names[name] = true;
+            const std::size_t dot = name.find_last_of(L'.');
+            if (dot != std::wstring::npos && (!name.compare(dot, std::wstring::npos, L".tga") ||
+                                              !name.compare(dot, std::wstring::npos, L".tpc")))
+                textures[name.substr(0, dot)] = true;
+        }
+    }
+    const std::wstring name = Lower(file);
+    const std::size_t dot = name.find_last_of(L'.');
+    const std::wstring extension = dot == std::wstring::npos ? std::wstring() : name.substr(dot);
+    if (extension == L".dll" || extension == L".bin") return false;
+    if (names.count(name)) return true;
+    return (extension == L".tga" || extension == L".tpc" || extension == L".txi") && textures.count(name.substr(0, dot));
+}
+
+// The party roster for the size: KMRP's layout (from the set) adapted to the 32-slot
+// roster, written into this run's folder for the size, never into the set.
+bool AdaptPartyRosterK1(const std::wstring& set, const std::wstring& view)
 {
     managedPartyRoster = false;
     if (!KmrpPartyRoster32ActiveK1()) return false;
@@ -604,7 +888,7 @@ bool AdaptPartyRosterK1()
     *slash=0;
     const std::wstring source=std::wstring(game)+L"\\override\\partyselection.gui";
     std::vector<unsigned char> roster,layout,adapted;
-    if (!Read(cache+L"\\partyselection.gui",layout)) return false;
+    if (!Read(set+L"\\partyselection.gui",layout)) return false;
     WIN32_FILE_ATTRIBUTE_DATA info{};
     const bool supplied=GetFileAttributesExW(source.c_str(),GetFileExInfoStandard,&info)!=0;
     std::string reason;
@@ -619,74 +903,205 @@ bool AdaptPartyRosterK1()
         KmrpRuntimeLog(("[KMRP] party roster: original layout retained; "+reason).c_str());
         return false;
     }
-    if (!Write("partyselection.gui",adapted)) return false;
+    if (!WriteNew(view+L"\\partyselection.gui",adapted)) return false;
     managedPartyRoster = true;
     KmrpRuntimeLog("[KMRP] party roster: runtime layout ready for this resolution; source files unchanged");
     return true;
 }
 
-unsigned YieldToOverride()
+// A file of the bundled HD item icons (JackInTheBox's KOTOR 1 HD Icon Pack): among
+// the common files those are the .tpc files named ia_*, ii_* and iw_*, the game's
+// own names for armour, item and weapon icons, 351 of them and nothing else
+// (testing/regression/Test-NativeAssetsBank.py holds the bank to that).
+bool HdIcon(const std::string& name)
 {
-    static bool listed = false;
-    static std::map<std::wstring, bool> names, textures;
-    if (!listed) {
-        listed = true;
-        wchar_t folder[MAX_PATH];
-        const DWORD size = GetModuleFileNameW(nullptr, folder, MAX_PATH);
-        wchar_t* slash = size && size < MAX_PATH ? wcsrchr(folder, L'\\') : nullptr;
-        if (!slash) return 0;
-        *slash = 0;
-        WIN32_FIND_DATAW found{};
-        HANDLE search = FindFirstFileW((std::wstring(folder) + L"\\override\\*").c_str(), &found);
-        if (search == INVALID_HANDLE_VALUE) return 0;
-        do {
-            if (found.dwFileAttributes & FILE_ATTRIBUTE_DIRECTORY) continue;
-            const std::wstring name = Lower(found.cFileName);
-            names[name] = true;
-            const std::size_t dot = name.find_last_of(L'.');
-            if (dot != std::wstring::npos && (!name.compare(dot, std::wstring::npos, L".tga") ||
-                                              !name.compare(dot, std::wstring::npos, L".tpc")))
-                textures[name.substr(0, dot)] = true;
-        } while (FindNextFileW(search, &found));
-        FindClose(search);
-    }
-    if (names.empty()) return 0;
+    if (name.size() < 8 || _stricmp(name.c_str() + name.size() - 4, ".tpc") != 0) return false;
+    const char kind = static_cast<char>(name[1] | 0x20);
+    return (name[0] | 0x20) == 'i' && (kind == 'a' || kind == 'i' || kind == 'w') && name[2] == '_';
+}
+
+// The common files, unpacked once a build: all but the three font styles' sources,
+// which only CachedFont reads, from the bank. Called under the build lock.
+bool BuildStore()
+{
+    return Build(store, "store\n", [](const std::wstring& work) {
+        std::vector<unsigned char> data;
+        const Group* common = CommonGroup();
+        if (!common) return false;
+        for (const auto& entry : common->entries) {
+            if (!entry.name.compare(0, 4, "kmrf")) continue;
+            if (!Decode(entry.key, data) || !WriteNew(work + L"\\" + Wide(entry.name), data, &entry.key)) return false;
+        }
+        return true;
+    });
+}
+
+// This run's common files: links to the store but for what the player's Override has,
+// and the bundled HD item icons only while their option (hd-icons, on by default) is
+// on: left out, the game draws its own icons of the same names. Once a run.
+bool LinkArtwork()
+{
+    RemoveFlat(cache);
+    if (!CreateDirectoryW(cache.c_str(), nullptr)) return false;
+    const bool hdIcons = KmrpPatchOption(L"hd-icons", 1) != 0;
+    const Group* common = CommonGroup();
+    if (!common) return false;
     unsigned yielded = 0;
-    WIN32_FIND_DATAW found{};
-    HANDLE search = FindFirstFileW((cache + L"\\*").c_str(), &found);
-    if (search == INVALID_HANDLE_VALUE) return 0;
-    do {
-        if (found.dwFileAttributes & FILE_ATTRIBUTE_DIRECTORY) continue;
-        const std::wstring name = Lower(found.cFileName);
-        const std::size_t dot = name.find_last_of(L'.');
-        const std::wstring extension = dot == std::wstring::npos ? std::wstring() : name.substr(dot);
-        // Not resources of the game: the controller library, which is loaded from
-        // here, and the blend helper's table.
-        if (extension == L".dll" || extension == L".bin") continue;
-        // The only managed exception: this is a validated, adapted copy of the
-        // same supplied roster GUI, not a replacement for an arbitrary mod.
-        if (managedPartyRoster && name == L"partyselection.gui") continue;
-        const bool texture = extension == L".tga" || extension == L".tpc" || extension == L".txi";
-        if (!names.count(name) && !(texture && textures.count(name.substr(0, dot)))) continue;
-        const std::wstring path = cache + L"\\" + found.cFileName;
-        // A font of Override's: what KMRP's own of that name measures here is kept,
-        // for KmrpFontMetricsLoadedK1.
-        if (extension == L".txi" && textures.count(name.substr(0, dot))) {
-            std::vector<unsigned char> txi;
-            const float height = Read(path, txi) ? FontHeightOf(txi) : 0.0f;
-            if (height > 0.0f) {
-                const std::wstring stem = name.substr(0, dot);
-                // The baseline is captured before a selected style replaces the
-                // atlas. Never replace it with that style's source metrics.
-                overrideFontHeights.emplace(std::string(stem.begin(), stem.end()), height);
+    for (const auto& entry : common->entries) {
+        if (!entry.name.compare(0, 4, "kmrf") || (!hdIcons && HdIcon(entry.name))) continue;
+        const std::wstring name = Wide(entry.name);
+        if (OverrideHas(name)) { ++yielded; continue; }
+        if (!Link(store + L"\\" + name, cache + L"\\" + name)) return false;
+    }
+    if (yielded) {
+        char line[160];
+        sprintf_s(line, "[KMRP] %u of KMRP's common files left out: the Override folder has its own", yielded);
+        KmrpRuntimeLog(line);
+    }
+    return true;
+}
+
+// The set for a size: the listed size's own, or the nearest by height, then by shape
+// (the installer's rule).
+const Group* SetFor(int width, int height, bool& exact)
+{
+    const Group* selected = nullptr;
+    for (const auto& group : groups) {
+        if (!group.width) continue;
+        if (!selected || std::abs(static_cast<int>(group.height) - height) < std::abs(static_cast<int>(selected->height) - height) ||
+            (std::abs(static_cast<int>(group.height) - height) == std::abs(static_cast<int>(selected->height) - height) &&
+             std::abs(double(group.width) / group.height - double(width) / height) <
+             std::abs(double(selected->width) / selected->height - double(width) / height))) selected = &group;
+    }
+    exact = selected && static_cast<int>(selected->width) == width && static_cast<int>(selected->height) == height;
+    return selected;
+}
+
+std::wstring GameFolder()
+{
+    wchar_t game[MAX_PATH];
+    const DWORD size = GetModuleFileNameW(nullptr, game, MAX_PATH);
+    wchar_t* slash = size && size < MAX_PATH ? wcsrchr(game, L'\\') : nullptr;
+    if (!slash) return std::wstring();
+    *slash = 0;
+    return game;
+}
+
+// A file's size and time, for a stamp: what is made from the player's game belongs to
+// the files it was made from.
+std::string FileStamp(const std::wstring& path)
+{
+    WIN32_FILE_ATTRIBUTE_DATA info{};
+    if (!GetFileAttributesExW(path.c_str(), GetFileExInfoStandard, &info)) return "none";
+    char text[64];
+    sprintf_s(text, "%lu.%lu.%lu.%lu", info.nFileSizeHigh, info.nFileSizeLow,
+              info.ftLastWriteTime.dwHighDateTime, info.ftLastWriteTime.dwLowDateTime);
+    return text;
+}
+
+// A size's set in the cache, made the first time the size is used (or ahead, Prebuild):
+// the files the bank holds; for a size the bank has no set for, or whose set it leaves
+// files of to the helper, the blend helper's, given the reference metrics
+// (ReferenceTxi); for a listed size the bank's files again where the helper's differ,
+// every file held against the index; and what KMRP makes from the player's own game for
+// the height (the tutorial popup's icons and tutorial.2da, the hex row frames, the feat,
+// power and skill icons at this height's row size, the swoop race's HUD model), which
+// no release may carry. Not fatal: a game without its texture pack keeps the game's own
+// icons. Called under the build lock.
+bool BuildSet(int width, int height, std::wstring& directory)
+{
+    bool exact = false;
+    const Group* selected = SetFor(width, height, exact);
+    if (!selected) return false;
+    const std::wstring game = GameFolder();
+    if (game.empty()) return false;
+    const std::wstring packPath = game + L"\\TexturePacks\\swpc_tex_gui.erf", keyPath = game + L"\\chitin.key";
+    const std::string stamp = std::to_string(width) + "x" + std::to_string(height) + " pack " + FileStamp(packPath) +
+                              " key " + FileStamp(keyPath) + "\n";
+    directory = root + L"\\sets\\" + std::to_wstring(width) + L"x" + std::to_wstring(height);
+    return Build(directory, stamp, [&](const std::wstring& work) {
+        std::vector<unsigned char> output;
+        unsigned left = 0;
+        for (const auto& entry : selected->entries) {
+            if (!objects.count(entry.key)) { ++left; continue; }
+            if (!Decode(entry.key, output) || !WriteNew(work + L"\\" + Wide(entry.name), output, &entry.key)) return false;
+        }
+        const std::string directoryA = Narrow(work);
+        if (directoryA.empty()) return false;
+        if (!exact || left) {
+            std::string table;
+            if (!TablePath(table) || !ReferenceTxi(height, output) ||
+                !WriteNew(work + L"\\dialogfont16x16.txi", output)) return false;
+            if (KmrpGuiBlend(table.c_str(), width, height, directoryA.c_str(), directoryA.c_str())) return false;
+            // The fonts are the fonts folder's.
+            DeleteFileW((work + L"\\dialogfont16x16.txi").c_str());
+            if (exact) {
+                unsigned differing = 0;
+                for (const auto& entry : selected->entries) {
+                    const std::wstring path = work + L"\\" + Wide(entry.name);
+                    Key measured;
+                    if (Read(path, output) && Sha(output.data(), static_cast<unsigned>(output.size()), measured) &&
+                        measured == entry.key) continue;
+                    if (objects.count(entry.key) && Decode(entry.key, output) && WriteNew(path, output, &entry.key)) continue;
+                    ++differing;
+                }
+                if (differing) {
+                    char line[160];
+                    sprintf_s(line, "[KMRP] warning: %u of %u interface files for %dx%d were made differently than the build made them",
+                              differing, static_cast<unsigned>(selected->entries.size()), width, height);
+                    KmrpRuntimeLog(line);
+                }
             }
         }
-        if (!DeleteFileW(path.c_str())) continue;
-        written.erase(path);
-        ++yielded;
-    } while (FindNextFileW(search, &found));
-    FindClose(search);
-    return yielded;
+        // The icons the bank already supplies are not the helpers' to make. Beside the
+        // folder, not in it: the game must not see it as a resource.
+        const std::string game8 = Narrow(game);
+        if (game8.empty()) return true;
+        const std::string pack = game8 + "\\TexturePacks\\swpc_tex_gui.erf", key = game8 + "\\chitin.key";
+        const std::string reserved = directoryA + ".reserved.txt";
+        FILE* list = nullptr;
+        if (!fopen_s(&list, reserved.c_str(), "w") && list) {
+            for (const auto& group : groups) {
+                if (&group != selected && group.width != 0) continue;
+                for (const auto& entry : group.entries) fprintf(list, "%s\n", entry.name.c_str());
+            }
+            fclose(list);
+        }
+        KmrpAbilityIcons(pack.c_str(), static_cast<unsigned>(height), directoryA.c_str(), reserved.c_str());
+        DeleteFileA(reserved.c_str());
+        KmrpGameArt(pack.c_str(), key.c_str(), static_cast<unsigned>(height), directoryA.c_str());
+        const int swoop = KmrpSwoopHud(key.c_str(), directoryA.c_str(), static_cast<unsigned>(width), static_cast<unsigned>(height));
+        KmrpRuntimeLog(swoop == 0 ? "[KMRP] swoop HUD model: the parked speed segment moved out of this screen's view"
+                     : swoop == 1 ? "[KMRP] swoop HUD model: not the game's own, left as it is"
+                     : swoop == 3 ? "[KMRP] swoop HUD model: the game's own is right for this screen"
+                                  : "[KMRP] swoop HUD model: could not be written");
+        char line[160];
+        sprintf_s(line, "[KMRP] set %dx%d made: %s", width, height,
+                  exact ? (left ? "the bank's, with the helper's" : "the bank's") : "blended from the nearest set");
+        KmrpRuntimeLog(line);
+        return true;
+    });
+}
+
+// This run's folder for a set: links to its files but for what the player's Override
+// has. One folder a registration: a folder already given to the game keeps its place in
+// the game's search, so a size returned to is given again under a new name.
+bool LinkSet(const std::wstring& set, std::wstring& view)
+{
+    view = root + L"\\set-" + Pid() + L"-" + std::to_wstring(++generation);
+    RemoveFlat(view);
+    if (!CreateDirectoryW(view.c_str(), nullptr)) return false;
+    unsigned yielded = 0;
+    for (const auto& name : Names(set)) {
+        if (OverrideHas(name)) { ++yielded; continue; }
+        if (!Link(set + L"\\" + name, view + L"\\" + name)) return false;
+    }
+    if (yielded) {
+        char line[160];
+        sprintf_s(line, "[KMRP] %u of KMRP's interface files left out: the Override folder has its own", yielded);
+        KmrpRuntimeLog(line);
+    }
+    return true;
 }
 }
 
@@ -750,17 +1165,6 @@ extern "C" void __cdecl KmrpPrepareResourcesK1(void* manager)
     busy = false;
 }
 
-// A file of the bundled HD item icons (JackInTheBox's KOTOR 1 HD Icon Pack): among
-// the common files those are the .tpc files named ia_*, ii_* and iw_*, the game's
-// own names for armour, item and weapon icons, 351 of them and nothing else
-// (testing/regression/Test-NativeAssetsBank.py holds the bank to that).
-static bool HdIcon(const std::string& name)
-{
-    if (name.size() < 8 || _stricmp(name.c_str() + name.size() - 4, ".tpc") != 0) return false;
-    const char kind = static_cast<char>(name[1] | 0x20);
-    return (name[0] | 0x20) == 'i' && (kind == 'a' || kind == 'i' || kind == 'w') && name[2] == '_';
-}
-
 // The installer's rule (GuiBlend.Covers), asked of the same table by the same
 // helper. Asked once per size: the game's resolution list asks for every mode the
 // driver offers.
@@ -768,120 +1172,167 @@ bool KmrpRuntimeAssetsCovers(int width, int height)
 {
     static std::map<std::pair<int, int>, bool> known;
     if (width < 640 || height < 480 || width > 32767 || height > 32767) return false;
+    if (!Initialize()) return false;
+    Locked lock;
     const auto size = std::make_pair(width, height);
     const auto found = known.find(size);
     if (found != known.end()) return found->second;
-    if (!Initialize()) return false;
     bool covered = false;
     for (const auto& group : groups)
         if (static_cast<int>(group.width) == width && static_cast<int>(group.height) == height) covered = true;
-    std::vector<unsigned char> output;
-    char directory[MAX_PATH]; BOOL substituted = FALSE;
-    if (!covered && Decode(tableKey, output) && Write("gui-blend.bin", output, &tableKey) &&
-        WideCharToMultiByte(CP_ACP, WC_NO_BEST_FIT_CHARS, cache.c_str(), -1, directory, MAX_PATH, nullptr, &substituted) && !substituted) {
-        const std::string table = std::string(directory) + "\\gui-blend.bin";
+    std::string table;
+    if (!covered && TablePath(table))
         covered = KmrpGuiBlendCovers(table.c_str(), static_cast<unsigned>(width), static_cast<unsigned>(height)) != 0;
-    }
     known[size] = covered;
     return covered;
+}
+
+namespace {
+// The five largest sizes the display offers that KMRP covers, made ahead in the
+// background, sets and fonts, after the first size is in place (the maintainer,
+// 2026-10-19: "Make the 5 highest resolutions be available on disk and the rest need
+// building on first run"). A size made already costs a look at its marker. One size at
+// a time under the build lock, so a change of size in the game waits for one at most.
+DWORD WINAPI Prebuild(void*)
+{
+    SetThreadPriority(GetCurrentThread(), THREAD_MODE_BACKGROUND_BEGIN);
+    std::set<std::pair<DWORD, DWORD>> modes;
+    DEVMODEA mode{};
+    mode.dmSize = sizeof mode;
+    for (DWORD index = 0; EnumDisplaySettingsA(nullptr, index, &mode); ++index)
+        if (mode.dmBitsPerPel == 32) modes.insert({mode.dmPelsWidth, mode.dmPelsHeight});
+    std::vector<std::pair<DWORD, DWORD>> largest(modes.begin(), modes.end());
+    std::sort(largest.begin(), largest.end(), [](const std::pair<DWORD, DWORD>& a, const std::pair<DWORD, DWORD>& b) {
+        return static_cast<unsigned long long>(a.first) * a.second > static_cast<unsigned long long>(b.first) * b.second;
+    });
+    unsigned made = 0;
+    const ULONGLONG started = GetTickCount64();
+    std::string sizes;
+    for (const auto& size : largest) {
+        if (made == 5) break;
+        const int width = static_cast<int>(size.first), height = static_cast<int>(size.second);
+        if (!KmrpRuntimeAssetsCovers(width, height)) continue;
+        ++made;
+        std::wstring set;
+        {
+            Locked lock;
+            if (!BuildSet(width, height, set)) continue;
+        }
+        PrefitFonts(height);
+        sizes += (sizes.empty() ? "" : ", ") + std::to_string(width) + "x" + std::to_string(height);
+    }
+    char line[400];
+    sprintf_s(line, "[KMRP] sizes ready ahead: %s (%llu ms)", sizes.empty() ? "none" : sizes.c_str(),
+              GetTickCount64() - started);
+    KmrpRuntimeLog(line);
+    return 0;
+}
 }
 
 bool KmrpRuntimeAssetsDimensions(int width, int height)
 {
     if (width == currentWidth && height == currentHeight) return true;
     if (!Initialize() || !KmrpRuntimeAssetsCovers(width, height)) return false;
-    const Group* selected = nullptr;
-    for (const auto& group : groups) {
-        if (!group.width) continue;
-        if (!selected || std::abs(static_cast<int>(group.height) - height) < std::abs(static_cast<int>(selected->height) - height) ||
-            (std::abs(static_cast<int>(group.height) - height) == std::abs(static_cast<int>(selected->height) - height) &&
-             std::abs(double(group.width) / group.height - double(width) / height) <
-             std::abs(double(selected->width) / selected->height - double(width) / height))) selected = &group;
-    }
-    if (!selected) return false;
-    const ULONGLONG started = GetTickCount64();
-    ULONGLONG helperTime = 0;
-    // 1. The files the bank holds: the common ones and this set's.
-    const bool exact = static_cast<int>(selected->width) == width && static_cast<int>(selected->height) == height;
-    bool derive = !exact;
-    const bool hdIcons = KmrpPatchOption(L"hd-icons", 1) != 0;
-    std::vector<unsigned char> output;
-    for (const auto& group : groups) {
-        if (&group != selected && group.width != 0) continue;
-        for (const auto& entry : group.entries) {
-            // The HD item icons are an option (hd-icons, on by default): left out,
-            // the game draws its own icons of the same names.
-            if (group.width == 0 && !hdIcons && HdIcon(entry.name)) continue;
-            if (!objects.count(entry.key)) { derive = true; continue; }
-            if (!Decode(entry.key, output) || !Write(entry.name, output, &entry.key)) return false;
+    // Where a size's time goes, for the debug log: milliseconds per part, in the order
+    // they run.
+    LARGE_INTEGER frequency{}, mark{};
+    QueryPerformanceFrequency(&frequency);
+    QueryPerformanceCounter(&mark);
+    double part[6]{};
+    auto lap = [&](int which) {
+        LARGE_INTEGER now{};
+        QueryPerformanceCounter(&now);
+        part[which] += 1000.0 * static_cast<double>(now.QuadPart - mark.QuadPart) / static_cast<double>(frequency.QuadPart);
+        mark = now;
+    };
+    // 1. The common files and the size's set in the cache, each made once.
+    std::wstring set;
+    {
+        Locked lock;
+        if (!BuildStore()) { KmrpRuntimeLog("[KMRP] the common files could not be written to the cache"); return false; }
+        lap(0);
+        if (!BuildSet(width, height, set)) {
+            char line[160];
+            sprintf_s(line, "[KMRP] the interface files for %dx%d could not be made", width, height);
+            KmrpRuntimeLog(line);
+            return false;
         }
+        lap(1);
     }
-    // One source atlas per font/style at every resolution. Materialize its TXI
-    // dimensions before the blend helper measures captions, then yield to mods.
+    // 2. The fonts at the sizes in use for this height.
     fontHeight = height;
     overrideFontHeights.clear();
     if (!ApplyTextPreferences(false)) return false;
-    // 2. The rest, from the blend helper: the layouts, badges, prompt manifest and
-    // HUD box of exactly this size. It reads the set's caption widths and font
-    // metrics, which step 1 wrote, and writes into the same directory.
-    if (derive) {
-        if (!Decode(tableKey, output) || !Write("gui-blend.bin", output, &tableKey)) return false;
-        char directory[MAX_PATH]; BOOL substituted = FALSE;
-        if (!WideCharToMultiByte(CP_ACP, WC_NO_BEST_FIT_CHARS, cache.c_str(), -1, directory, MAX_PATH, nullptr, &substituted) || substituted) return false;
-        std::string table = std::string(directory) + "\\gui-blend.bin";
-        const ULONGLONG helperStarted = GetTickCount64();
-        if (KmrpGuiBlend(table.c_str(), width, height, directory, directory)) return false;
-        helperTime = GetTickCount64() - helperStarted;
-        // Adopt what the helper wrote, over our files and beside them: the next
-        // transition's ownership check, and GameArt's sweep of files that are not
-        // ours, both go by this list. The helper writes a set's files and nothing
-        // else, and every set has the same file names, so the set's names are the
-        // ones to read again; the common files are as step 1 left them. (Until
-        // 2026-10-05 every file written so far was read and hashed again here,
-        // 300 MB of common files included.)
-        for (const auto& entry : selected->entries) {
-            const std::wstring path = cache + L"\\" + std::wstring(entry.name.begin(), entry.name.end());
-            Key measured;
-            if (!Read(path, output) || !Sha(output.data(), static_cast<unsigned>(output.size()), measured)) return false;
-            written[path] = measured;
-        }
-        // 3. A listed size is the build's own set, not a blend. Where the helper
-        // wrote a file differently the bank holds the set's (that is why it was
-        // kept), and it goes back over the helper's; then every file is held
-        // against the index. A difference left after that is the helper computing
-        // differently on this machine than on the build's: the interface is then
-        // the blend's, a pixel off here and there and whole, and the log says so.
-        if (exact) {
-            unsigned differing = 0;
-            for (const auto& entry : selected->entries) {
-                const std::wstring path = cache + L"\\" + std::wstring(entry.name.begin(), entry.name.end());
-                if (written[path] == entry.key) continue;
-                if (objects.count(entry.key) && Decode(entry.key, output) && Write(entry.name, output, &entry.key)) continue;
-                ++differing;
-            }
-            if (differing) {
-                char line[160];
-                sprintf_s(line, "[KMRP] warning: %u of %u interface files for %dx%d were made differently than the build made them",
-                          differing, static_cast<unsigned>(selected->entries.size()), width, height);
-                KmrpRuntimeLog(line);
-            }
+    lap(2);
+    // 3. What the game is shown: the cache's own folders when the player's Override has
+    // none of their files, the usual case; else this run's folders of links, without
+    // Override's files (LinkArtwork, LinkSet), which cost about a second for the common
+    // files and half a second for a set on the maintainer's PC (2026-10-19). The common
+    // files once a run (the store itself only with the HD icons, which it holds, wanted);
+    // the set each time, with the party roster adapted in a folder of its own, searched
+    // before the set, when the set is shown as it is.
+    if (!registered) {
+        bool own = KmrpPatchOption(L"hd-icons", 1) != 0;
+        if (const Group* common = CommonGroup())
+            for (const auto& entry : common->entries)
+                if (own && entry.name.compare(0, 4, "kmrf") && OverrideHas(Wide(entry.name))) own = false;
+        if (own) cache = store;
+        else if (!LinkArtwork()) return false;
+    }
+    bool theirs = false;
+    for (const auto& name : Names(set)) if (OverrideHas(name)) { theirs = true; break; }
+    std::wstring view = set, roster;
+    if (theirs) {
+        if (!LinkSet(set, view)) return false;
+        AdaptPartyRosterK1(set, view);
+    } else {
+        ++generation;
+        roster = root + L"\\roster-" + Pid() + L"-" + std::to_wstring(generation);
+        RemoveFlat(roster);
+        if (!CreateDirectoryW(roster.c_str(), nullptr) || !AdaptPartyRosterK1(set, roster)) {
+            RemoveFlat(roster);
+            roster.clear();
         }
     }
-    const ULONGLONG filesTime = GetTickCount64() - started;
-    GameArt(*selected, width, height);
-    AdaptPartyRosterK1();
-    if (const unsigned yielded = YieldToOverride()) {
-        char line[160];
-        sprintf_s(line, "[KMRP] %u of KMRP's interface files left out for %dx%d: the Override folder has its own", yielded, width, height);
-        KmrpRuntimeLog(line);
+    lap(3);
+    // 4. Given to the game: the common files and the fonts once, the set each time, so
+    // the newest set is searched first (and its roster before it), then the fonts, then
+    // the common files. A set returned to is given again under a new name: a folder
+    // already given keeps its place in the game's search.
+    if (!registered) {
+        if (!RegisterFolder(cache, "kmrpart", false) || !RegisterFolder(fontsView, "kmrpfont", false)) return false;
+        registered = true;
     }
-    if (KmrpDebugLogs()) {
-        char line[160];
-        sprintf_s(line, "[KMRP] interface files for %dx%d: %llu ms, of which the blend helper %llu ms; the game's own art %llu ms",
-                  width, height, filesTime, helperTime, GetTickCount64() - started - filesTime);
-        KmrpRuntimeLog(line);
-    }
-    if (!RegisterDirectory()) return false;
+    if (!RegisterFolder(view, "kmrpset" + std::to_string(generation), false)) return false;
+    if (!roster.empty() && !RegisterFolder(roster, "kmrproster" + std::to_string(generation), false)) return false;
+    lap(4);
+    setView = view;
+    rosterView = roster;
     currentWidth = width; currentHeight = height;
+    if (KmrpDebugLogs()) {
+        char line[300];
+        sprintf_s(line, "[KMRP] timing %dx%d in ms: common files %.0f, the size's set %.0f, fonts %.0f, "
+                  "this run's folders %.0f, registering %.0f",
+                  width, height, part[0], part[1], part[2], part[3], part[4]);
+        KmrpRuntimeLog(line);
+    }
+    static bool ahead = false;
+    if (!ahead) {
+        ahead = true;
+        if (HANDLE thread = CreateThread(nullptr, 0, Prebuild, nullptr, 0, nullptr)) CloseHandle(thread);
+    }
     return true;
+}
+
+const std::wstring& KmrpRuntimeLayoutDirectory() { return setView; }
+
+// A layout as the game reads it at the size in use: the adapted party roster from its
+// own folder when there is one, else the set's.
+std::wstring KmrpRuntimeLayoutFile(const std::wstring& name)
+{
+    if (!rosterView.empty()) {
+        const std::wstring adapted = rosterView + L"\\" + name;
+        if (GetFileAttributesW(adapted.c_str()) != INVALID_FILE_ATTRIBUTES) return adapted;
+    }
+    return setView + L"\\" + name;
 }

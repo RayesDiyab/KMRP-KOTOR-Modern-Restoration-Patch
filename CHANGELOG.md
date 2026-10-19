@@ -117,6 +117,46 @@ proxy, and it applies the executable changes above as well.
 
 ## [Unreleased]
 
+- **Starts and resolution changes in about a second and a half** (2026-10-19;
+  `src/controller-native/K1RuntimeAssets.cpp`, `K1RuntimeAssets.h`, `K1RuntimeLayout.cpp`,
+  `testing/regression/party_roster_runtime_harness.cpp`). KMRP unpacked and checked its
+  files into a new folder in `%TEMP%` at every start, and again at every change of
+  resolution: measured on the maintainer's PC, 14.0 s of KMRP's own work at a start at
+  3440x1440 and 7.0 to 9.5 s at a change of size, 2.9 s of each change going to files that
+  are the same at every size. Now it keeps them, as the Mac has since 2026-10-08, in
+  `%LOCALAPPDATA%\KMRP\cache\<build>\`: the common files unpacked once a build, each
+  size's layouts and art made once and kept, the fonts kept at each size they have been
+  drawn at. The game is shown those folders as they are when the player's Override has
+  none of their files, else folders of links without Override's files (Override always
+  comes first). On the first start the five largest sizes the display offers are made in
+  the background. Measured in the test game: the first start of a build 13.6 s, every
+  later start 35 ms, a change between prepared sizes 35 ms of KMRP's work and about
+  1.6 s in all (the rest is the game re-creating its window and reloading its textures).
+  A size's layouts are now made with the fonts at the default text size, as the build
+  makes them, so they no longer depend on the text size (the maintainer: "these should be
+  independent"); until then they were measured with the text size in use, and a set's
+  helper-made files differed from the build's. Disk: about 350 MiB for the common files
+  and about 116 MiB a size, most of it the controller badges of four pad families. Seen
+  in the test game by the maintainer, 3440x1440 and 2560x1440: "It looks right".
+
+- **Installer: builds are dated, and an older KMRP offers Upgrade** (2026-10-19;
+  `build_kmrp.ps1`, `src/patcher/KpmEdition.cs`, `src/patcher/KmrpPatcher.cs`,
+  `testing/regression/Test-InstallerPatch.ps1`, `Test-ReinstallOverOlderBuild.ps1`;
+  `docs/patcher-ui-build.md`, `docs/kpm-edition.md`). The installer could not tell an
+  older install from a newer one: it never compared versions, and the version had not
+  been raised since 1.5.1. Each build now carries the time its commit was made, in
+  CEST, read from git, so everyone who builds a commit gets the same date and every
+  later commit a later one; the install records it in `KMRP_KPM.manifest`. With an
+  older KMRP installed (or one from before builds were dated), the window shows
+  **Restore Original** and **Upgrade** side by side at one size, the settings button
+  unchanged on their right. Upgrade installs with the settings chosen now: a patch
+  turned off since (the controller patch, High FPS Fixes) is removed, one turned on is
+  added, and the options follow. The same build or a newer one keeps Restore Original
+  alone; `--in-place` refuses a newer install, changing nothing. Installer tests pass,
+  including the new cases (settings changed both ways, a newer install refused, an
+  undated install upgraded). The two buttons were seen in the window over the Steam
+  install, nothing clicked; an upgrade through the window is **not yet run**.
+
 - **Xbox-style HUD: the name bar grows with a long name** (2026-10-19;
   `src/controller-native/K1XboxHud.cpp`, `tools/build_xbox_hud_art.py`;
   `docs/controller-xbox-hud.md`). At 1440x1080 "Training Computer" wrapped to a second

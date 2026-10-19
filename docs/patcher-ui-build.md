@@ -135,6 +135,16 @@ The primary button has one identity at a time:
 - a supported clean executable produces **Start Patching**;
 - a verified patched install with complete backups produces
   **Restore Original**;
+- an installed KMRP older than this installer produces **Restore Original** and
+  **Upgrade** side by side, one size, in the primary's place, the settings button
+  unchanged on their right (since 2026-10-19, the maintainer's design). Step 4 says
+  "Upgrade available" with both builds' dates, or "An earlier KMRP is installed.
+  This installer's build is newer." for an install from before builds were dated.
+  Upgrade takes the earlier install away and installs with the settings chosen now:
+  a patch turned off since is removed, one turned on is added. The same build, or a
+  newer one ("Newer build installed"), keeps Restore Original alone, so the window
+  never puts an older build over a newer one. Which is older is decided by the
+  builds' dates, below;
 - an unresolved executable or game setup keeps the action disabled;
 - while work is running, all mutation controls are disabled and the primary
   button becomes the progress surface: a pale illuminated-blue fill advances
@@ -779,6 +789,22 @@ The final build prints the output path and SHA-256. A build's KMRP hash is not a
 stable project constant because compiler metadata can change; record the hash
 next to a release artifact rather than in source-level architecture docs.
 
+## Build dates
+
+Every installer carries the date of the commit it was built from, in CEST
+(UTC+02:00, all year): `build_kmrp.ps1` reads it from git (`git log -1 --format=%ct`),
+writes it to `build\kmrp\build-stamp.txt` and embeds it as `Kmrp.build.stamp`
+(`BuildStamp` in `KpmEdition.cs`). Everyone who builds a commit gets the same date,
+and every later commit a later one, so builds are ordered whether or not the version
+was raised (the maintainer, 2026-10-19). An install records the date in
+`KMRP_KPM.manifest` (`built<TAB>2026-10-19T12:35:08+02:00`); the next installer
+compares it with its own, as moments (`CompareInstalled`): older, the same, or newer.
+An install whose manifest has no date (every one before 2026-10-19) and one by the
+standalone installer count as older. Uncommitted changes do not change the date: such
+a build has its commit's, and the build says so ("with uncommitted changes"). The
+build stops if git cannot give the date. Tested by `Test-ReinstallOverOlderBuild.ps1`
+Cases 6 and 7 and `Test-InstallerPatch.ps1` Case 7.
+
 ## Command-line modes
 
 The shipped name contains spaces, so quote it on the command line.
@@ -795,7 +821,8 @@ and optional-component transaction (and wrote the Override files until
 2026-10-04); its resolution is the size `swkotor.ini` starts the game at. It preserves Steam's EXE and sets
 only the LAA header bit on the supported editable CD/GOG file. `--restore`
 restores KMRP-owned changes and preserves subsequently modified or foreign
-files. None of
+files. Since 2026-10-19 `--in-place` refuses, changing nothing (exit 1), when the KMRP
+installed is a newer build than the installer. None of
 them checks for updates; that belongs to the window. Omitting
 the resolution in the legacy `--apply` and `--in-place` forms selects
 3440 × 1440.

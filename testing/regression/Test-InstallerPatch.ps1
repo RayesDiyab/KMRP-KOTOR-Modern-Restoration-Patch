@@ -260,6 +260,41 @@ try {
     $after = Get-Listing $folder | Where-Object { $_ -notmatch 'swkotor\.ini\.kotor-ui-backup' }
     Assert (($after -join "`n") -eq ($before -join "`n")) "the folder is as it was, file for file"
     Assert (-not (Test-Path -LiteralPath $fpsKpatch)) "the .kpatch this install created is removed"
+
+    # An install over an install, which is what Upgrade does, follows the settings
+    # chosen now: a patch turned off since is removed, one turned on is added
+    # (the maintainer, 2026-10-19).
+    Write-Host "Case 7  settings changed between two installs"
+    Set-KmrpSettings $true $true "" "" $false
+    $game = New-Fixture "changed"
+    $folder = Split-Path -Parent $game
+    $before = Get-Listing $folder
+    $controllerKpatch = Join-Path $kpmPatches "KOTOR 1 Native Controller Mod + Xbox HUD.kpatch"
+    Assert ((Invoke-Installer @("--in-place", "`"$game`"", "1920x1080")) -eq 0) "the first install succeeds: controller support and map notes on, High FPS Fix off"
+    $stamp = [IO.File]::ReadAllText((Join-Path $projectRoot "build\kmrp\build-stamp.txt")).Trim()
+    Assert ([IO.File]::ReadAllText((Join-Path $folder "KMRP_KPM.manifest")) -match ('(?m)^built\t' + [regex]::Escape($stamp) + '\r?$')) "the manifest records this build's date ($stamp)"
+    Assert (((Get-Config $folder).Ids -join ",") -eq "kmrp,kmrp-controller") "KMRP's patch and the controller patch"
+
+    Set-KmrpSettings $false $false "" "" $true
+    Assert ((Invoke-Installer @("--in-place", "`"$game`"", "1920x1080")) -eq 0) "the second install succeeds: controller support and map notes off, High FPS Fix on"
+    Assert (((Get-Config $folder).Ids -join ",") -eq "kmrp,high-fps-fixes") "patch_config.toml holds KMRP's patch and High FPS Fixes: the controller patch is gone"
+    Assert (-not (Test-Path -LiteralPath (Join-Path $folder "patches\kmrp-controller.dll"))) "the controller patch's module is removed"
+    Assert (-not (Test-Path -LiteralPath $controllerKpatch)) "and its .kpatch from KOTOR Patch Manager's folder"
+    Assert (-not (Test-Path -LiteralPath (Join-Path $folder "configs\kmrp-controller.ini"))) "and its options file"
+    Assert (Test-Path -LiteralPath (Join-Path $folder "patches\high-fps-fixes.dll")) "High FPS Fixes' module is added"
+    Assert ((Get-Options $folder).MapNotes -eq "0") "configs\kmrp.ini says map-notes is off"
+
+    Set-KmrpSettings $true $true "" "" $false
+    Assert ((Invoke-Installer @("--in-place", "`"$game`"", "1920x1080")) -eq 0) "the third install succeeds: the first settings again"
+    Assert (((Get-Config $folder).Ids -join ",") -eq "kmrp,kmrp-controller") "patch_config.toml holds KMRP's patch and the controller patch again"
+    Assert (Test-Path -LiteralPath (Join-Path $folder "patches\kmrp-controller.dll")) "the controller patch's module is back"
+    Assert (Test-Path -LiteralPath $controllerKpatch) "and its .kpatch"
+    Assert (-not (Test-Path -LiteralPath (Join-Path $folder "patches\high-fps-fixes.dll"))) "High FPS Fixes' module is removed"
+    Assert (-not (Test-Path -LiteralPath (Join-Path $kpmPatches "HighFpsFixes.kpatch"))) "and its .kpatch"
+    Assert ((Get-Options $folder).MapNotes -eq "1") "configs\kmrp.ini says map-notes is on"
+    Assert ((Invoke-Installer @("--restore", "`"$game`"")) -eq 0) "the restore succeeds"
+    $after = Get-Listing $folder | Where-Object { $_ -notmatch 'swkotor\.ini\.kotor-ui-backup' }
+    Assert (($after -join "`n") -eq ($before -join "`n")) "the folder is as it was, file for file"
 }
 finally {
     if ($hadKmrp) { Copy-Item -LiteralPath $kmrpCopy -Destination $kmrpSettings -Force }
