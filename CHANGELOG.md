@@ -117,6 +117,63 @@ proxy, and it applies the executable changes above as well.
 
 ## [Unreleased]
 
+- **Movies: inside a 16:9 area, and drawn with GDI** (2026-10-20, issue 48). Not yet
+  seen in the game, and not run on Windows 7 or with a Radeon.
+  - *The 16:9 area* (the maintainer's choice: on 3440x1440 the 2.35:1 story movies filled
+    the screen and looked zoomed in). The fit stub in `.kmv`
+    (`tools/build_movie_aspect_fit.py`, 104 bytes, 81 until now) fits each movie to
+    `min(client width, client height * 16 / 9)` and the game still centres it from the
+    client's edges:
+
+    | screen | 640x272 story movie | 640x360 movie | 640x480 logo |
+    | --- | --- | --- | --- |
+    | 3440x1440 | 2560x1088 (3388x1440 until now) | 2560x1440 | 1920x1440 |
+    | 1920x1080 and narrower | unchanged (1920x816) | unchanged | unchanged |
+
+  - *GDI instead of DirectDraw:* the byte at `0x00405734`, in the `push 0x5D000000`
+    before `BinkBufferOpen`, goes from `00` to `02`, Bink's DIB section, for everyone.
+    Issue 48's startup movies were black with sound on Windows 7 with a Radeon; the most
+    likely cause is Bink's DirectDraw output not being shown over the full-screen OpenGL
+    window, and a DIB section is drawn with GDI. A new site in
+    `src/engine/windows-sites.json`; the engine has 84 guarded sites and 452 proved
+    instructions (83 and 443 before).
+  - *A fallback for anyone it does not fix:* `original-movie-mode=1` in a section of its
+    own, `[Movies]`, of `configs\kmrp.ini` (which an install keeps, where it rewrites
+    `[Patch Options]`) leaves out the four operands that keep the game at its own size
+    for a movie (`0x00403D6C`, `0x00403D78`, `0x005F5B3B`, `0x005F5B43`), so the screen
+    switches to 640x480 for movies, as in the unpatched game, which plays them on the
+    reporter's PC. For that the operands are a feature of their own, bit 8
+    (`tools/build_windows_engine.py`, `K1KpmApplier.cpp`, `WindowsEnginePatch.cs`), and a
+    change of resolution in the game leaves those four alone while it is on
+    (`FieldInForce`, `K1RuntimeEngine.cpp`).
+  - *Tests:* `Test-WindowsEngineSource.py` (69 resolutions, through the installer's own
+    reader of the new bit), `Test-KpatchSource.py`.
+
+- **KMRP's files in one folder, `KMRP`** (2026-10-20; the maintainer: "we shouldnt
+  clutter the folder like this"). Everything of KMRP's own that was loose beside the game
+  is in a folder of its own in the game folder:
+
+  | until now (the game folder) | now |
+  | --- | --- |
+  | `KMRP.log` | `KMRP\logs\install.log` |
+  | `kmrp-kpm.log` and the debug logs (`kmrp-controller*.log`, `kmrp-native-*.log`, `kmrp-layout-lifecycle.log`, `kmrp-confirm-focus.log`, `kmrp-rumble.log`) | `KMRP\logs\` |
+  | `KMRP_KPM.manifest`, `KMRP_DriverCompat.manifest`, `KMRP_DPI.manifest`, `KMRP_NVIDIA.manifest` | `KMRP\kpm.manifest`, `KMRP\driver-compat.manifest`, `KMRP\dpi.manifest`, `KMRP\nvidia.manifest` |
+  | `kmrp-controller.ini` (the remap, the HUD style, rumble) | `KMRP\controller.ini` |
+  | `kmrp-kotor-patch-manager-LICENSE.txt` | `KMRP\kotor-patch-manager-LICENSE.txt` |
+  | `swkotor.ini.kotor-ui-backup` and its `.sha256` | `KMRP\backups\swkotor.ini` and `swkotor.ini.sha256` |
+
+  What the game or KOTOR Patch Manager loads from the game folder stays there: KPM's
+  runtime and `patch_config.toml`, `patches\`, `configs\`, and K1DC's two files. An
+  install or a restore first moves an earlier install's files into place
+  (`KmrpFolder.Migrate`: a log is appended after the older lines; the manifest's rows
+  follow), and the game moves an old `kmrp-controller.ini` itself the first time it reads
+  it. A restore keeps the install log and the `swkotor.ini` backup, as before, and
+  removes the folders it leaves empty. The old standalone installer's own backups
+  (until 2026-09-29) stay where it wrote them, for its restore. *Tests:*
+  `Test-InstallerPatch.ps1` case 1 checks nothing of KMRP's is loose beside the game, and
+  a new case 11 installs over the old layout and restores; not yet run (it borrows the
+  player's settings files for the run). Both modules and the installer build.
+
 - **The controller uses the original Xbox game's layout** (2026-10-19, issue 49). The
   maintainer's decision: "It should be classic everywhere", with no second layout to
   choose. The Xbox's White and Black are LB and RB, as Xbox 360 and One backward

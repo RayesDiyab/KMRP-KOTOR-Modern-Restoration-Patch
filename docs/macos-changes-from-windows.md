@@ -1564,3 +1564,33 @@ What the Mac's `macos/patches/kmrp-controller` needs, by what the shared tools n
 
 **How to check:** each row of the CHANGELOG's table with a pad; the Controller Layout
 screen's captions; a layout saved before opens on the defaults.
+
+## 77. KMRP's files in one folder: the Mac should do the same
+
+**State, 2026-10-20: to do.** The maintainer: "we shouldnt clutter the folder like this".
+On Windows everything of KMRP's own that was loose beside the game is now in a `KMRP`
+folder in the game folder: the logs in `KMRP\logs`, the restore backups in
+`KMRP\backups`, the manifests, the controller's settings (`KMRP\controller.ini`, the
+remap and the HUD style) and KOTOR Patch Manager's licence in `KMRP`. The CHANGELOG's
+entry of that day has the table. The installer moves an earlier install's files there
+(`KmrpFolder` in `src/patcher/KmrpPatcher.cs`); the game modules write their logs there
+and move an old `kmrp-controller.ini` themselves (`KmrpLogPath` and
+`KmrpControllerSettingsPath` in `src/controller-native/KmrpOptions.h`).
+
+What the Mac needs: `kmrp-mac.sh` and the Mac's modules to put their own files in the
+same `KMRP` folder of the game's data folder, with the same names, and to move an
+earlier install's; `macos/patches/kmrp-controller` reads its settings and writes its
+logs there. **How to check:** after an install over an old one, nothing of KMRP's is
+loose beside the game, and the remap and the HUD style survive.
+
+## 78. Movies in a 16:9 area, and Bink with GDI: what applies to the Mac
+
+**State, 2026-10-20: to check.** Windows fits every movie inside a 16:9 area of the
+screen (the `.kmv` fit stub, `tools/build_movie_aspect_fit.py`): at 3440x1440 a 2.35:1
+story movie is 2560x1088 where it filled the screen. The maintainer chose it for
+ultrawide screens; the Mac's movie fit should follow if it fills the height too.
+Windows also makes Bink draw with GDI (`0x00405734`, `00` to `02`) for issue 48, black
+startup movies on Windows 7 with a Radeon, with `original-movie-mode=1` in
+`configs\kmrp.ini` as a fallback. Those two are about Windows' Bink and DirectDraw and
+do not apply to the Aspyr build. **How to check:** a story movie on an ultrawide Mac
+screen has bars on all four sides.

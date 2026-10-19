@@ -30,7 +30,7 @@ An in-place KMRP install manages one named value:
 | Key | `Software\Microsoft\Windows NT\CurrentVersion\AppCompatFlags\Layers` |
 | Value name | Absolute path of the selected `swkotor.exe` |
 | Added token | `HIGHDPIAWARE` |
-| Recovery record | `KMRP_DPI.manifest` beside `swkotor.exe` |
+| Recovery record | `KMRP\dpi.manifest` in the game folder (`KMRP_DPI.manifest` beside `swkotor.exe` until 2026-10-20; an install or restore moves it, and finds it at the old name until then) |
 
 The setting is per user and per executable path. KMRP does not change the global
 display scale and does not need administrator access. It installs the token even
@@ -119,7 +119,7 @@ the optional controller component), on purpose, so the rest of the patch still
 applies.
 Throwing had aborted the whole patch for players with another KPM mod. So the
 DPI value belongs to a completed install, and Restore Original removes it
-through `KMRP_DPI.manifest`, as described above. An install that does throw
+through `KMRP_DPI.manifest` (`KMRP\dpi.manifest` since 2026-10-20), as described above. An install that does throw
 rolls the value back in its `catch` (`DpiCompatibilityOperations.Rollback`).
 
 **The game at another path, since 2026-10-11.** The value is filed under the path

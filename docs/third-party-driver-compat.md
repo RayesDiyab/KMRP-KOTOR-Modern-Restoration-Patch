@@ -155,7 +155,12 @@ paths are therefore completely untouched by it.
 
 `DriverCompatOperations` in `src/patcher/KmrpPatcher.cs` writes both files from
 embedded resources (`Kmrp.drivercompat.dinput8`, `Kmrp.drivercompat.asi`) and records
-their names and SHA-256 in **`KMRP_DriverCompat.manifest`** beside the executable.
+their names and SHA-256 in **`KMRP\driver-compat.manifest`**: `KMRP` is the folder
+beside the executable where KMRP keeps its own files since 2026-10-20 (`KmrpFolder` in
+the same file). Until then it was `KMRP_DriverCompat.manifest` beside the executable; the next
+install or restore moves an earlier install's into place, and finds it at the old
+name until then. The two files themselves stay beside the executable, where the game
+loads `dinput8.dll` from.
 
 * **It never clobbers.** If either filename already exists and its hash is not one we
   recorded — someone's own ASI loader, or K1DC installed by hand — both files are left
@@ -234,6 +239,13 @@ their names and SHA-256 in **`KMRP_DriverCompat.manifest`** beside the executabl
 
   None bears on KOTOR. In the test game, 9.7.0 with the Windows 7 payload above logged
   line for line what Synchro's pair logs. Not run on Windows 7.
+* **Windows 7 support will come from Synchro** (2026-10-20). Synchro told the
+  maintainer that day that they will publish K1DC with Windows 7 support themselves.
+  KMRP's own Windows 7 build of the 2.0.0 payload and the Ultimate ASI Loader 9.7.0
+  pairing, the two bullets above, will therefore not be shipped; they stay here as the
+  record of what was tried. The installer's Windows 7 gate (*Not on Windows 7*, above)
+  stays as it is until Synchro's release, and is then looked at again against the
+  files that release ships.
 * **On Steam's executable too.** K1DC's README lists the GOG, Steam and CD 1.0.3
   releases. Seen on 2026-09-29 in the maintainer's Steam test install, beside
   KMRP's new install: its log gave `hooks installed=8/8`, and the menus drew.
@@ -260,6 +272,15 @@ this build and one with a Windows 7 build of the same source (section 3). Each l
 again at the renderer rebuild after the startup movies (27.5 s), where both builds log
 `gl error site=soft_shadow raised=during errors=INVALID_OPERATION` once. Nothing was
 looked at on screen; gameplay and movies under K1DC 2.0.0 have not been watched.
+
+**Rerun on 2026-10-20** against the working tree of that day, with the second script of
+section 8: the engine recipe has 84 runs, the new one Bink's buffer type at
+`0x00405734` ([`../reverse-engineering/movies.md`](../reverse-engineering/movies.md),
+*KMRP asks for the DIB section*). **0 of the 28 sites collide**, and all 28 hold their
+declared original bytes. The new byte is an operand of the `push` before
+`BinkBufferOpen`, not an import slot, so the 9 slots are as before. What K1DC's
+`BinkCopyToBuffer` hook does with frames copied into a DIB section, which GDI then
+draws, has not been run.
 
 **1.2.0, 2026-09-24:**
 
@@ -352,6 +373,11 @@ all fall back to the default. A settings file is never worth failing a patch ove
   the way this release hooks the game" (the release notes); the standalone build KMRP
   bundles needs nothing but the game.
 * **His hook addresses.** We read `kotor1.hooks.toml`; we never write to those sites.
+* **Where Synchro's files live.** Since 2026-10-20 KMRP keeps its own files in a `KMRP`
+  folder in the game folder; only its record of K1DC, `driver-compat.manifest`, moved
+  there. `dinput8.dll` and the `.asi` stay beside `swkotor.exe`, where the game loads
+  them, and K1DC's own `K1DriverCompat.ini` and `logs\` folder are Synchro's and
+  untouched.
 
 ## 8. Verifying by hand
 
@@ -413,7 +439,7 @@ patcher writes per-resolution values on top of gold, which it stopped doing on
 2026-09-29.)
 
 ```powershell
-Get-Content "C:\Star Wars - KotOR\KMRP_DriverCompat.manifest"
+Get-Content "C:\Star Wars - KotOR\KMRP\driver-compat.manifest"   # KMRP_DriverCompat.manifest until 2026-10-20
 Get-FileHash "C:\Star Wars - KotOR\swkotor.exe"   # unchanged by K1DC: still what KMRP left
 ```
 

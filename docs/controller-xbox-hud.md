@@ -126,11 +126,17 @@ written before that day by the module holds `Style=PC` and keeps the game's own 
 until the line is changed or the file deleted. **The new default has not been seen
 in the game**: the code path is the one `Style=Xbox` took.
 
+*Since 2026-10-20* the settings file is `KMRP\controller.ini` in the game folder;
+until then it was `kmrp-controller.ini` beside the game. The module moves an existing
+`kmrp-controller.ini` there the first time it reads it (`KmrpControllerSettingsPath`,
+`KmrpOptions.h`), and KMRP's installer moves it at its next install, so an older
+file's `Style` line keeps working. Not run in a game.
+
 | Manager | How |
 | --- | --- |
 | A KOTOR Patch Manager with patch options | the patch's **Xbox-style HUD** option (`xbox-hud`, on by default) |
-| KOTOR Patch Manager 0.7.1, which has no options | `kmrp-controller.ini` beside the game: `Style` under `[Hud]`, `Xbox` (the default, also when the line or the file is missing) or `PC` |
-| KMRP's installer | the same line in `kmrp-controller.ini`. The installer has no switch for it and records no `xbox-hud` value, so the file decides (`ControllerPatchOptions`, `src/patcher/KpmEdition.cs`). The file it writes has `[Hud]` with `Style=Xbox` since 2026-10-08 (no `[Hud]` section until then) |
+| KOTOR Patch Manager 0.7.1, which has no options | `KMRP\controller.ini` in the game folder: `Style` under `[Hud]`, `Xbox` (the default, also when the line or the file is missing) or `PC` |
+| KMRP's installer | the same line in `KMRP\controller.ini`. The installer has no switch for it and records no `xbox-hud` value, so the file decides (`ControllerPatchOptions`, `src/patcher/KpmEdition.cs`). The file it writes has `[Hud]` with `Style=Xbox` since 2026-10-08 (no `[Hud]` section until then) |
 
 The module reads the manager's recorded option first (`configs\kmrp-controller.ini`,
 `[Patch Options]`, `xbox-hud`) and the settings file only when there is none, once,

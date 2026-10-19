@@ -140,14 +140,18 @@ installs for KMRP's own patch ([kpm-edition.md](kpm-edition.md)):
 | --- | --- |
 | `patches\kmrp-controller.dll` | the controller patch's module, the one inside its `.kpatch`; SDL and the prompt art are inside it |
 | the patch's block in `patch_config.toml` | its 36 hooks, after KMRP's |
-| `configs\kmrp-controller.ini` | `[Patch Options]` with `debug-logs` only, so the player's `Style` under `[Hud]` in `kmrp-controller.ini` decides the Xbox-style HUD |
+| `configs\kmrp-controller.ini` | `[Patch Options]` with `debug-logs` only, so the player's `Style` under `[Hud]` in `KMRP\controller.ini` decides the Xbox-style HUD |
 | `KOTOR 1 Native Controller Mod + Xbox HUD.kpatch` | delivered into KOTOR Patch Manager's patch folder, beside `KMRP.kpatch` |
-| `kmrp-controller.ini` beside the game | the player's rumble settings, written only when absent (with Controller Support off as well); since 2026-10-18 also the player's button layout, `[Controller Remap]`, which the installer never writes: the Controller Layout screen's Save does |
+| `KMRP\controller.ini` in the game folder (`kmrp-controller.ini` beside the game until 2026-10-20; the next install moves it, and so does the game the first time it reads it) | the player's rumble settings, written only when absent (with Controller Support off as well); since 2026-10-18 also the player's button layout, `[Controller Remap]`, which the installer never writes: the Controller Layout screen's Save does |
 
 With Controller Support off none of the first four is installed, and Restore
 Original removes whatever was. Checked by
 `testing/regression/Test-InstallerPatch.ps1` (both patches in the config in
 order, both modules the ones inside their `.kpatch` files; off: KMRP alone). The
+module's logs, with `debug-logs` on, are in `KMRP\logs` in the game folder since
+2026-10-20 (`KmrpLogPath`, `src/controller-native/KmrpOptions.h`), and were beside the
+game until then; that folder's layout is in
+[kpm-edition.md](kpm-edition.md#kmrps-own-folder-since-2026-10-20). The
 rest of this section is the record of the earlier layouts, newest first.
 
 **From 2026-09-28 the runtime installed on every patch, and this option switched
@@ -439,7 +443,8 @@ has a button. Only the world follows the remap (input classes 0 and 4); menus,
 conversations, minigames and movies keep every button where it is. The pad's
 buttons are translated in `FillNativeJoystickBufferK1` right after the pad is read,
 each press keeping the meaning it had when it went down, so nothing after it changes
-and no hook is added. The layout is `[Controller Remap]` in `kmrp-controller.ini`.
+and no hook is added. The layout is `[Controller Remap]` in `KMRP\controller.ini` in
+the game folder (`kmrp-controller.ini` beside the game until 2026-10-20).
 The mechanism, the screen and what has been run are in
 [`controller-layout.md`](controller-layout.md), "Button remapping". **Seen with mouse
 and keyboard only; nothing with a pad has been run**, the translation in play

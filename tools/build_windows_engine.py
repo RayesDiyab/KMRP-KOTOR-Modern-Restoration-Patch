@@ -32,7 +32,12 @@ import kpm_relocations as reloc
 ROOT = Path(__file__).resolve().parents[1]
 BLOCK_VA = 0x86D000
 BLOCK_SIZE = 0xB000
-CORE, MOVIES = 1, 2
+# Feature bits, as K1KpmApplier.cpp has them: 1 core, 2 the movie changes, 4 map notes
+# (a block edit, below), 8 the movie display mode. The four operands that keep the
+# game at its own size for a movie are a feature of their own since 2026-10-20, so
+# that original-movie-mode=1 in configs\kmrp.ini can leave them out and give back the
+# game's switch to 640x480 (issue 48; K1RuntimeEngine.cpp, OptionalFeatures).
+CORE, MOVIES, MOVIE_MODE = 1, 2, 8
 
 
 def u32(value):
@@ -100,16 +105,18 @@ def assemble():
     sites = json.loads((ROOT / 'src/engine/windows-sites.json').read_text())
     if sites['format'] != 1:
         raise ValueError('unsupported Windows sites format')
-    movie_sites = {0x403D6C, 0x403D78, 0x4057AC, 0x5F5B3B}
+    # 0x405734 is Bink's buffer type, DIB section (GDI) since 2026-10-20 (issue 48).
+    movie_sites = {0x405734: MOVIES, 0x4057AC: MOVIES,
+                   0x403D6C: MOVIE_MODE, 0x403D78: MOVIE_MODE, 0x5F5B3B: MOVIE_MODE}
     for site in sites['sites']:
         va = int(site['va'], 16)
         recipe.site(va, bytes.fromhex(site['original']), bytes.fromhex(site['replacement']),
-                    MOVIES if va in movie_sites else CORE)
+                    movie_sites.get(va, CORE))
 
     # Whole imm32 guards, including bytes unchanged in the old gold delta.
     for va, old, new, feature in [
-        (0x403D6C,640,3440,MOVIES), (0x403D78,480,1440,MOVIES),
-        (0x5F5B3B,640,3440,MOVIES), (0x5F5B43,480,1440,MOVIES),
+        (0x403D6C,640,3440,MOVIE_MODE), (0x403D78,480,1440,MOVIE_MODE),
+        (0x5F5B3B,640,3440,MOVIE_MODE), (0x5F5B43,480,1440,MOVIE_MODE),
         (0x40AA65,640,3440,CORE), (0x40AA85,480,1440,CORE),
         (0x5F0C65,800,3440,CORE), (0x5F0C6F,600,1440,CORE),
         (0x40B6C7,-640,-3440,CORE), (0x40BA6C,-640,-3440,CORE),

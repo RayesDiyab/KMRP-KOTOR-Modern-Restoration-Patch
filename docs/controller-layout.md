@@ -245,7 +245,8 @@ without rebuilding the panel.
 ## Lifecycle trace
 
 The validation build writes transition records to
-`kmrp-layout-lifecycle.log` in the game directory. It does not log per frame.
+`kmrp-layout-lifecycle.log` in `KMRP\logs` in the game directory (the game directory
+itself until 2026-10-20). It does not log per frame.
 Each line contains the live panel and parent addresses plus cumulative counts for
 panels, controls and callbacks. Useful events are:
 
@@ -263,7 +264,7 @@ panels, controls and callbacks. Useful events are:
 | `remap-enter` | Remap pressed: the rows became editable (since 2026-10-18, as are the rows below) |
 | `remap-listen` | A row asked for its new button: the prompt opened |
 | `remap-assigned` | A button was chosen for the row |
-| `remap-saved` | Save wrote the layout to `kmrp-controller.ini` |
+| `remap-saved` | Save wrote the layout to `KMRP\controller.ini` (`kmrp-controller.ini` until 2026-10-20) |
 | `remap-unsaved` | Close was pressed with changes not saved: the Unsaved Changes box opened |
 | `remap-exit` | Back to the view, by Close with nothing unsaved or by Discard |
 
@@ -309,8 +310,9 @@ installed candidate and keep the lifecycle log after the run.
    panel is not duplicated or rebuilt.
 7. Return to gameplay and re-open Options → Gameplay → Controller Layout. Confirm no crash, stale
    focus, duplicate entry or lost input.
-8. Exit normally and inspect `kmrp-layout-lifecycle.log` for balanced panel and
-   control counts and the absence of `bind-failed`.
+8. Exit normally and inspect `KMRP\logs\kmrp-layout-lifecycle.log` (in the game
+   folder itself until 2026-10-20) for balanced panel and control counts and the
+   absence of `bind-failed`.
 
 Physical-family switching is conditional on having two independently visible
 devices. A single controller cannot validate that row of the matrix.
@@ -675,10 +677,14 @@ menus, where buttons do not move, and keep their own art (`MatchCueFamilyK1`).
 
 ### The settings file
 
+`KMRP\controller.ini` in the game folder since 2026-10-20 (`KmrpControllerSettingsPath`
+in `KmrpOptions.h`, read and written with the wide-character profile calls), section
+`[Controller Remap]`, one key per action, the value its button, and since 2026-10-19 a
+`Layout` line naming the defaults the keys were saved against. Until 2026-10-20 it was
 `kmrp-controller.ini` in the game executable's folder (from
-`GetModuleFileNameA(NULL)`), section `[Controller Remap]`, one key per action, the
-value its button, and since 2026-10-19 a `Layout` line naming the defaults the keys
-were saved against. The default layout, as Save writes it (`LayoutKey`,
+`GetModuleFileNameA(NULL)`, with the ANSI calls); the module moves that file into
+`KMRP` the first time it looks for the settings and finds no `KMRP\controller.ini`, so
+a saved layout is kept. Not run in a game. The default layout, as Save writes it (`LayoutKey`,
 `LayoutName` and `ActionKeys` in `K1ButtonRemapPolicy.h`, written in that order by
 `KmrpRemapSaveK1` in `K1ButtonRemap.cpp`):
 
@@ -783,7 +789,7 @@ mouse and keyboard by scripted input and checked in ddagrab screenshots:
 | Close with nothing changed | back to the view |
 | Close with a change | the Unsaved Changes box |
 | Discard | back to the view, showing the saved layout with its dots |
-| Save | writes `kmrp-controller.ini` |
+| Save | writes `KMRP\controller.ini` (`kmrp-controller.ini` until 2026-10-20) |
 
 `python testing\regression\Test-ButtonRemap.py` passes: it compiles and runs
 `button_remap_harness.cpp` (assignment, completeness, the editor's rows, the
@@ -823,9 +829,9 @@ Then, after building the controller patch
 2. Read the entry bytes and `ret` of the routines above from the clean executable
    at FILE = VA - 0x400000.
 3. In a scratch game with `debug-logs` on and a pad, open the screen, Remap, change
-   a button, Save, and leave. `kmrp-layout-lifecycle.log` should show `remap-enter`,
+   a button, Save, and leave. `KMRP\logs\kmrp-layout-lifecycle.log` should show `remap-enter`,
    `remap-listen`, `remap-assigned`, `remap-saved` and `remap-exit` in that order, no
-   `bind-failed`, and `created == destroyed`; `kmrp-controller.ini` should have
+   `bind-failed`, and `created == destroyed`; `KMRP\controller.ini` should have
    `[Controller Remap]` with `Layout=Xbox` and ten keys, no two with the same value.
 4. Put a duplicate value into `[Controller Remap]` by hand and start the game: the
    screen must open on the default layout.

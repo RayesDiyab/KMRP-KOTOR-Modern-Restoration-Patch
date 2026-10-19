@@ -114,7 +114,6 @@ namespace Kmrp
     /// to KPM, where Synchro's K1DC is a .kpatch of its own.</summary>
     internal static class KpmEditionOperations
     {
-        internal const string ManifestName = "KMRP_KPM.manifest";
 
         // KOTOR Patch Manager's runtime, laid out as its proxy deployment lays out a
         // game folder (KPatchCore KProxyInstaller and PatchApplicator): the game loads
@@ -126,7 +125,9 @@ namespace Kmrp
         private const string BinkName = "binkw32.dll";
         private const string BinkMovedName = "binkw32Hooked.dll";
         private const string PatchFolder = "patches";
-        private const string KpmLicenseName = "kmrp-kotor-patch-manager-LICENSE.txt";
+        // In KMRP's folder since 2026-10-20 (KmrpFolder); kmrp-kotor-patch-manager-LICENSE.txt
+        // in the game folder until then.
+        private const string KpmLicenseName = KmrpFolder.KpmLicense;
         // KOTOR Patch Manager's own record of which game an executable was before a
         // patch changed it (KPatchCore InstallStateManager, ManagedInstallState).
         private const string KpmStateName = "kpm_install_state.json";
@@ -205,9 +206,10 @@ namespace Kmrp
             { "kmrp", "kmrp-movies", "kmrp-map-notes", "kmrp-controller", "high-fps-fixes", "k1-marked-empty-containers" };
         // ------------------------------------------------------------ state
 
+        // KMRP\kpm.manifest (KmrpFolder); KMRP_KPM.manifest in the game folder until 2026-10-20.
         internal static string ManifestPath(string executablePath)
         {
-            return Path.Combine(Path.GetDirectoryName(Path.GetFullPath(executablePath)), ManifestName);
+            return KmrpFolder.PathOf(executablePath, KmrpFolder.KpmManifest);
         }
 
         private static string FolderOf(string executablePath)
@@ -409,6 +411,10 @@ namespace Kmrp
                 SafeReport(report, foreign + " is in the game folder: KOTOR Patch Manager manages this " +
                     "game, so KMRP adds its patch there and leaves the game's files to it.");
 
+            // The checks are done: KMRP's own files go into its folder from here on, an
+            // earlier install's with them (KmrpFolder, since 2026-10-20).
+            KmrpFolder.Migrate(targetPath, report);
+
             if (standalone)
             {
                 // The standalone installer's own restore puts back the executable it
@@ -465,9 +471,9 @@ namespace Kmrp
                 SafeProgress(progress, 10, engine ? "Installing KMRP's patch…" : "Preparing the patch for KPM…");
                 // The controller's settings are the player's to edit: written only when
                 // absent, and claimed only then, as the standalone installer does.
-                string settings = Path.Combine(folder, ControllerOperations.SettingsName);
+                string settings = Path.Combine(folder, KmrpFolder.ControllerSettings);
                 if (!File.Exists(settings))
-                    WriteOwned(folder, ControllerOperations.SettingsName,
+                    WriteOwned(folder, KmrpFolder.ControllerSettings,
                         new UTF8Encoding(false).GetBytes(ControllerOperations.DefaultSettings), records);
                 if (engine)
                 {
@@ -569,6 +575,7 @@ namespace Kmrp
                 PatchOperations.RestoreStandalone(targetPath, report, progress);
                 return;
             }
+            KmrpFolder.Migrate(targetPath, report);
             string folder = FolderOf(targetPath);
             List<string[]> records = ReadRecords(targetPath);
             bool engine = records.Exists(r => r[0] == "moved");
@@ -613,6 +620,9 @@ namespace Kmrp
             IniOperations.Restore(targetPath, report);
             try { File.Delete(ManifestPath(targetPath)); }
             catch { }
+            // An install over this one (keepCache) writes into KMRP's folders next.
+            if (!keepCache)
+                KmrpFolder.RemoveEmpty(targetPath);
             if (!keepCache)
                 ArtPreparation.RemoveCache(report);
             SafeProgress(progress, 100, "Restore complete");
@@ -901,7 +911,7 @@ namespace Kmrp
 
         /// <summary>The controller patch's options as this installer sets them: only
         /// debug logs. Its Xbox-style HUD option is left out on purpose: the module takes
-        /// a missing value as "use Style under [Hud] in kmrp-controller.ini", the
+        /// a missing value as "use Style under [Hud] in KMRP\controller.ini", the
         /// player's own setting, and a 0 written here would override it.</summary>
         internal static KeyValuePair<string, bool>[] ControllerPatchOptions()
         {
@@ -1406,7 +1416,9 @@ namespace Kmrp
             if (String.IsNullOrEmpty(name) || name.IndexOf('/') >= 0 || name.IndexOf(':') >= 0)
                 return false;
             string[] parts = name.Split('\\');
-            if (parts.Length == 2 && parts[0] != PatchFolder)
+            // A file in the game folder, in patches\, or in KMRP's own folder (since
+            // 2026-10-20: the controller's settings and KPM's licence, KmrpFolder).
+            if (parts.Length == 2 && parts[0] != PatchFolder && parts[0] != KmrpFolder.Name)
                 return false;
             if (parts.Length > 2)
                 return false;
@@ -1920,7 +1932,7 @@ namespace Kmrp
                 Report(report, failed
                     ? "KMRP's interface was made ahead for " + made.ToString(CultureInfo.InvariantCulture) +
                       " resolutions, but not all; the game makes the rest when it needs them " +
-                      "(kmrp-kpm.log in the game folder says why)."
+                      "(KMRP\\logs\\kmrp-kpm.log in the game folder says why)."
                     : "KMRP's interface is ready for " + made.ToString(CultureInfo.InvariantCulture) +
                       (made == 1 ? " resolution" : " resolutions") + " your display offers (" + seconds + " s, " +
                       count.ToString(CultureInfo.InvariantCulture) + (count == 1 ? " worker)." : " workers)."));

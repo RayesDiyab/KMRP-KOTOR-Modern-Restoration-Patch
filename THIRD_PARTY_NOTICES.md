@@ -235,7 +235,9 @@ linked, and KPM's `binkw32.dll` proxy, KProxy, compiled unmodified from
 `src/KProxy` ([src/kpm-runtime/README.md](src/kpm-runtime/README.md) has the hashes).
 Beside them it installs the submodule's own `LICENSE` as
 `kmrp-kotor-patch-manager-LICENSE.txt`; its text is identical to the copy
-vendored with Saul0097's package (compared 2026-09-29). The runtime is laid out
+vendored with Saul0097's package (compared 2026-09-29). Since 2026-10-20 that copy
+is `KMRP\kotor-patch-manager-LICENSE.txt`, in the folder KMRP keeps its own files in
+inside the game folder; an install moves an earlier one there. The runtime is laid out
 as KPM's own proxy deployment lays out a game folder, which is KPM's design.
 
 **Until 2026-09-29** it was a statically linked build of KOTOR Patch Manager at
@@ -254,7 +256,8 @@ exact runtime design and test boundary are documented in
 **The installer carries the MIT text since 2026-09-25.** It embeds
 `LICENSE-KOTOR-PATCH-MANAGER.txt` as `Kmrp.controller.kpmlicense` and installs it
 beside the game as `kmrp-kotor-patch-manager-LICENSE.txt` (the resource is
-`Kmrp.engine.license` since 2026-09-29). The copy covers the runtime, the module and
+`Kmrp.engine.license` since 2026-09-29; the file is `KMRP\kotor-patch-manager-LICENSE.txt`
+since 2026-10-20). The copy covers the runtime, the module and
 the three memory-safety patches below. `KMRP.kpatch` carries the same text, and
 SDL's, in its `licenses` folder (2026-10-04), so the patch file is complete where
 it travels without the installer. `Test-ControllerSupport.ps1` checked that the

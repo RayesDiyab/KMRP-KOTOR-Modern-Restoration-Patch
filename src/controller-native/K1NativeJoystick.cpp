@@ -2308,7 +2308,7 @@ void LogConfirmK1(const char* panel, int event, int value, const char* why)
     }
     ++logged;
     FILE* f = nullptr;
-    if (!fopen_s(&f, "kmrp-confirm-focus.log", "a") && f) {
+    if ((f = KmrpOpenLog(L"kmrp-confirm-focus.log")) != nullptr) {
         fprintf(f, "%lu %s event=0x%X value=%d -> %s\n",
                 GetTickCount(), panel, event, value, why);
         fclose(f);
@@ -3550,7 +3550,7 @@ void LogGuardK1(const char* what, void* panel, int event, int value)
     }
     ++logged;
     FILE* f = nullptr;
-    if (!fopen_s(&f, "kmrp-confirm-focus.log", "a") && f) {
+    if ((f = KmrpOpenLog(L"kmrp-confirm-focus.log")) != nullptr) {
         const std::uintptr_t vtable = LooksLikePointerK1(panel)
             ? *reinterpret_cast<std::uintptr_t*>(panel) : 0;
         fprintf(f, "%lu guard panel=%08lX event=0x%X value=%d -> %s\n",
@@ -6475,8 +6475,7 @@ void ControllerLogK1(const char* text)
     char bounded[600];
     lstrcpynA(bounded, text, sizeof(bounded));
     const int length = wsprintfA(line, "%lu %s\r\n", GetTickCount(), bounded);
-    HANDLE file = CreateFileA("kmrp-controller-events.log", FILE_APPEND_DATA, FILE_SHARE_READ, nullptr,
-                              OPEN_ALWAYS, FILE_ATTRIBUTE_NORMAL, nullptr);
+    HANDLE file = KmrpAppendLog(L"kmrp-controller-events.log");
     if (file == INVALID_HANDLE_VALUE) {
         return;
     }
@@ -6770,10 +6769,7 @@ extern "C" void __cdecl NativeJoystickDumpK1()
         g_stick.cursorReleases);
 
     // The counters line the controller tests read; with the debug-logs option on.
-    HANDLE file = !KmrpDebugLogs() ? INVALID_HANDLE_VALUE :
-                  CreateFileA("kmrp-native-joystick.log", FILE_APPEND_DATA,
-                              FILE_SHARE_READ, nullptr, OPEN_ALWAYS,
-                              FILE_ATTRIBUTE_NORMAL, nullptr);
+    HANDLE file = !KmrpDebugLogs() ? INVALID_HANDLE_VALUE : KmrpAppendLog(L"kmrp-native-joystick.log");
     if (file != INVALID_HANDLE_VALUE) {
         DWORD done = 0;
         WriteFile(file, line, static_cast<DWORD>(written), &done, nullptr);

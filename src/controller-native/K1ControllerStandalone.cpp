@@ -50,9 +50,7 @@ const wchar_t kLockSuffix[] = L".lock";
 void Report(const char* text)
 {
     wchar_t path[MAX_PATH];
-    const DWORD n = GetModuleFileNameW(nullptr, path, MAX_PATH);
-    wchar_t* slash = n && n < MAX_PATH ? wcsrchr(path, L'\\') : nullptr;
-    if (!slash || wcscpy_s(slash + 1, MAX_PATH - (slash + 1 - path), L"kmrp-controller.log")) return;
+    if (!KmrpLogPath(path, L"kmrp-controller.log")) return;
     HANDLE file = CreateFileW(path, FILE_APPEND_DATA, FILE_SHARE_READ, nullptr, OPEN_ALWAYS,
                               FILE_ATTRIBUTE_NORMAL, nullptr);
     if (file == INVALID_HANDLE_VALUE) return;
@@ -234,7 +232,8 @@ const std::wstring& KmrpRuntimeAssetDirectory()
     return cache;
 }
 
-// The rumble settings, kmrp-controller.ini beside the game (K1Rumble.cpp reads it,
+// The rumble settings, KMRP\controller.ini in the game folder (kmrp-controller.ini
+// beside the game until 2026-10-20; KmrpControllerSettingsPath) (K1Rumble.cpp reads it,
 // and takes these same values when it is missing). KMRP's installer writes this
 // file; with no installer the module does, once, so the player has something to
 // find and edit. A file already there is the player's and is never touched.
@@ -254,7 +253,7 @@ SaberHum=6
 SaberHumPulseMs=100
 SaberHumPeriodMinMs=500
 SaberHumPeriodMaxMs=2000
-; 1 writes every rumble event to kmrp-rumble.log in this folder
+; 1 writes every rumble event to kmrp-rumble.log in the logs folder beside this file
 Debug=0
 
 [Hud]
@@ -267,10 +266,10 @@ Style=Xbox
 
 void WriteDefaultSettings()
 {
+    // KMRP\controller.ini, an earlier kmrp-controller.ini moved there first
+    // (KmrpControllerSettingsPath).
     wchar_t path[MAX_PATH];
-    const DWORD n = GetModuleFileNameW(nullptr, path, MAX_PATH);
-    wchar_t* slash = n && n < MAX_PATH ? wcsrchr(path, L'\\') : nullptr;
-    if (!slash || wcscpy_s(slash + 1, MAX_PATH - (slash + 1 - path), L"kmrp-controller.ini")) return;
+    if (!KmrpControllerSettingsPath(path)) return;
     HANDLE file = CreateFileW(path, GENERIC_WRITE, 0, nullptr, CREATE_NEW, FILE_ATTRIBUTE_NORMAL, nullptr);
     if (file == INVALID_HANDLE_VALUE) return;      // there already, or the folder is read-only
     DWORD written;

@@ -67,7 +67,15 @@ misplaced map notes.
 | In the original game | With KMRP |
 | --- | --- |
 | Starting a movie switches the monitor to 640x480; the game can flicker, minimise or lose focus. | Movies play at the resolution the game is running at. No switch, no flicker. |
-| On wide screens movies are zoomed in and cropped. | The whole picture is shown, with black bars where the movie is narrower than the screen. |
+| On wide screens movies are zoomed in and cropped. | The whole picture is shown, with black bars where the movie is narrower than the screen. On a screen wider than 16:9, such as 3440x1440, movies are shown at the size they would have on a 16:9 screen of the same height, in the middle, with black around them (new, not yet in a release, not yet seen in the game; until then the widest movies filled an ultrawide screen and looked zoomed in). |
+
+Also new, not yet in a release and not yet tried on the PCs it is for: movies are
+drawn with Windows' own drawing (GDI) instead of DirectDraw. This is meant to fix
+movies that stay black while their sound plays, reported on Windows 7 with an AMD
+graphics card (issue 48). If they are still black there, adding the two lines
+`[Movies]` and `original-movie-mode=1` to `configs\kmrp.ini` in the game folder brings
+back the original game's switch to 640x480 for movies. Installing KMRP again keeps
+them.
 
 ## Stability
 
@@ -179,7 +187,8 @@ layout back, and Close asks before throwing away changes you have not saved. The
 sticks, the D-pad, Start and Back stay as they are. Your layout applies while you
 play; the menus keep every button where it always is. The button pictures on the
 HUD and in the pause notice show the buttons you chose. The layout is kept in
-`kmrp-controller.ini` beside the game. A layout saved before 2026-10-19 was made
+`KMRP\controller.ini` in the game folder (`kmrp-controller.ini` beside the game until
+2026-10-20; it is moved there for you). A layout saved before 2026-10-19 was made
 against KMRP's old buttons and is not used: the screen opens on the Xbox layout,
 and you choose yours again.
 
@@ -187,8 +196,8 @@ and you choose yours again.
 footsteps, Force powers and the rumble BioWare made for the PC but never switched
 on), or an enhanced one that adds lightsabers igniting, humming and clashing,
 blaster recoil, hits taken and explosions. It is silent in menus and while the game
-is paused. The setting and the strength are in `kmrp-controller.ini` beside the
-game, and a change there takes effect while you play.
+is paused. The setting and the strength are in `KMRP\controller.ini` in the game
+folder, and a change there takes effect while you play.
 
 **Xbox-style HUD.** While you play with a pad, the in-game display is laid out like
 the original Xbox version's: the action menu at the bottom left, the target at the
@@ -204,7 +213,7 @@ mouse or keyboard and the PC display is back at once.
   leaves it.
 - The marker around your target is sized for the screen.
 - To keep the PC display with a pad as well, set `Style=PC` under `[Hud]` in
-  `kmrp-controller.ini`, or switch the option off in KOTOR Patch Manager.
+  `KMRP\controller.ini`, or switch the option off in KOTOR Patch Manager.
 
 **On its own.** Controller support is a separate patch. It can be installed without
 the rest of KMRP.
@@ -227,6 +236,12 @@ widescreen mods have not been tried.
   replaces no file of another mod. It was tested with the KOTOR 1 Community Patch
   and KOTOR 1 Restoration, and the order you install them in does not matter.
 - **Restore Original** undoes everything KMRP did, file by file.
+- **One folder of its own.** KMRP keeps its own files in a `KMRP` folder in the game
+  folder: your controller settings (`controller.ini`), its logs (`logs`), the copy of
+  `swkotor.ini` that Restore Original puts back (`backups`), and its records of what
+  it installed. Until 2026-10-20 these lay loose beside the game; patching again
+  moves them. Restore Original leaves the installer's log and the `swkotor.ini` copy
+  there, as it left them beside the game before. New, not yet in a release.
 - **Options** (the gear button): controller support, graphics-card compatibility,
   the map note fixes and the HD item icons can each be switched off; the High FPS
   Fix can be switched on or off (it starts on where your display runs above

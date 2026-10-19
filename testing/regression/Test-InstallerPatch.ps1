@@ -36,6 +36,13 @@
     DLL, nothing of it goes into patches\, its .kpatch is the bundled file, and Restore
     Original removes all of it.
 
+    Case 11 (2026-10-20): an install over one made before 2026-10-20, whose files were
+    loose in the game folder (its manifests, settings, KPM's licence, the swkotor.ini
+    backup, KMRP.log): afterwards none is left there, the manifest names the settings in
+    KMRP's folder, the old log is KMRP\logs\install.log with its lines first, and Restore
+    Original leaves the folder as it was. Since the same day case 1 checks that KMRP's own
+    files are in its folder, KMRP, and none is loose beside the game, and every restore
+    is compared without KMRP\backups and KMRP\logs, which it keeps on purpose.
     Since 2026-10-19 case 1 also checks the art pack, patches\kmrp-assets.pack, the
     build's own, and the art the installer makes from it before the game starts: the
     common files and at least one size in the cache. Case 4 checks that Restore
@@ -89,6 +96,10 @@ function New-Fixture([string]$name) {
         "[Graphics Options]`r`nFullScreen=1`r`nWidth=800`r`nHeight=600`r`n", [Text.UTF8Encoding]::new($false))
     return (Join-Path $folder "swkotor.exe")
 }
+# What Restore Original keeps on purpose: the swkotor.ini backup and the install log, in
+# KMRP\backups and KMRP\logs since 2026-10-20 (KmrpFolder in src\patcher\KmrpPatcher.cs),
+# and the backup beside swkotor.ini before that.
+$kept = 'swkotor\.ini\.kotor-ui-backup|^\\KMRP\\(backups|logs)\\'
 function Get-Listing([string]$folder) {
     Get-ChildItem -LiteralPath $folder -Recurse -File | Sort-Object FullName | ForEach-Object {
         $_.FullName.Substring($folder.Length) + " " + (Get-Sha $_.FullName)
@@ -226,10 +237,17 @@ try {
     Assert ($ini -match '(?m)^Width=1920' -and $ini -match '(?m)^Height=1080') "swkotor.ini starts the game at the size asked for"
     Assert ($ini -match '(?m)^AllowHighMonitorFrequency=0' -and $ini -match '(?m)^RefreshRate=60' -and $ini -match '(?m)^V-Sync=1') "without High FPS Fix swkotor.ini holds the game at 60: no higher rates, RefreshRate=60, V-Sync on"
     Assert ((Test-Path -LiteralPath (Join-Path $folder "KotorPatcher.dll")) -and (Test-Path -LiteralPath (Join-Path $folder "binkw32Hooked.dll"))) "KOTOR Patch Manager's runtime and proxy are in place"
+    # KMRP's own files in its folder since 2026-10-20, none loose beside the game.
+    foreach ($name in @("KMRP\kpm.manifest", "KMRP\controller.ini", "KMRP\kotor-patch-manager-LICENSE.txt",
+                        "KMRP\backups\swkotor.ini", "KMRP\backups\swkotor.ini.sha256")) {
+        Assert (Test-Path -LiteralPath (Join-Path $folder $name)) "$name is in KMRP's folder"
+    }
+    $loose = @(Get-ChildItem -LiteralPath $folder -File | Where-Object { $_.Name -match '^(KMRP|kmrp)[-_.]|\.kotor-ui-backup' })
+    Assert ($loose.Count -eq 0) ("nothing of KMRP's is loose in the game folder" + $(if ($loose.Count) { ": " + ($loose.Name -join ", ") } else { "" }))
 
     Write-Host "Case 4  Restore Original"
     Assert ((Invoke-Installer @("--restore", "`"$game`"")) -eq 0) "the restore succeeds"
-    $after = Get-Listing $folder | Where-Object { $_ -notmatch 'swkotor\.ini\.kotor-ui-backup' }
+    $after = Get-Listing $folder | Where-Object { $_ -notmatch $kept }
     Assert (($after -join "`n") -eq ($before -join "`n")) "the folder is as it was, file for file"
     Assert (-not (Test-Path -LiteralPath $kpatch)) "the .kpatch this install created is removed"
     Assert (-not (Test-Path -LiteralPath $controllerKpatch)) "and the controller patch's"
@@ -293,7 +311,7 @@ try {
     $rate = [int][regex]::Match($ini, '(?m)^RefreshRate=(\d+)').Groups[1].Value
     Assert ($ini -match '(?m)^AllowHighMonitorFrequency=1' -and $rate -ge 60 -and $ini -notmatch '(?m)^V-Sync=') "with it swkotor.ini allows the higher rates, starts at the display's highest ($rate Hz here) and leaves V-Sync alone"
     Assert ((Invoke-Installer @("--restore", "`"$game`"")) -eq 0) "the restore succeeds"
-    $after = Get-Listing $folder | Where-Object { $_ -notmatch 'swkotor\.ini\.kotor-ui-backup' }
+    $after = Get-Listing $folder | Where-Object { $_ -notmatch $kept }
     Assert (($after -join "`n") -eq ($before -join "`n")) "the folder is as it was, file for file"
     Assert (-not (Test-Path -LiteralPath $fpsKpatch)) "the .kpatch this install created is removed"
 
@@ -308,7 +326,7 @@ try {
     $controllerKpatch = Join-Path $kpmPatches "KOTOR 1 Native Controller Mod + Xbox HUD.kpatch"
     Assert ((Invoke-Installer @("--in-place", "`"$game`"", "1920x1080")) -eq 0) "the first install succeeds: controller support and map notes on, High FPS Fix off"
     $stamp = [IO.File]::ReadAllText((Join-Path $projectRoot "build\kmrp\build-stamp.txt")).Trim()
-    Assert ([IO.File]::ReadAllText((Join-Path $folder "KMRP_KPM.manifest")) -match ('(?m)^built\t' + [regex]::Escape($stamp) + '\r?$')) "the manifest records this build's date ($stamp)"
+    Assert ([IO.File]::ReadAllText((Join-Path $folder "KMRP\kpm.manifest")) -match ('(?m)^built\t' + [regex]::Escape($stamp) + '\r?$')) "the manifest records this build's date ($stamp)"
     Assert (((Get-Config $folder).Ids -join ",") -eq "kmrp,kmrp-controller") "KMRP's patch and the controller patch"
 
     Set-KmrpSettings $false $false "" "" $true
@@ -329,7 +347,7 @@ try {
     Assert (-not (Test-Path -LiteralPath (Join-Path $kpmPatches "HighFpsFixes.kpatch"))) "and its .kpatch"
     Assert ((Get-Options $folder).MapNotes -eq "1") "configs\kmrp.ini says map-notes is on"
     Assert ((Invoke-Installer @("--restore", "`"$game`"")) -eq 0) "the restore succeeds"
-    $after = Get-Listing $folder | Where-Object { $_ -notmatch 'swkotor\.ini\.kotor-ui-backup' }
+    $after = Get-Listing $folder | Where-Object { $_ -notmatch $kept }
     Assert (($after -join "`n") -eq ($before -join "`n")) "the folder is as it was, file for file"
 
     Write-Host "Case 8  Modern Driver Compatibility on"
@@ -343,10 +361,10 @@ try {
         $installed = Join-Path $folder $name
         Assert ((Test-Path -LiteralPath $installed) -and (Get-Sha $installed) -eq (Get-Sha (Join-Path $vendored $name))) "$name is the vendored K1 Modern Driver Compatibility 2.0.0 file"
     }
-    $manifest = Join-Path $folder "KMRP_DriverCompat.manifest"
-    Assert ((Test-Path -LiteralPath $manifest) -and ([IO.File]::ReadAllText($manifest) -match '(?m)^version\t2\.0\.0\r?$')) "KMRP_DriverCompat.manifest records version 2.0.0"
+    $manifest = Join-Path $folder "KMRP\driver-compat.manifest"
+    Assert ((Test-Path -LiteralPath $manifest) -and ([IO.File]::ReadAllText($manifest) -match '(?m)^version\t2\.0\.0\r?$')) "KMRP\driver-compat.manifest records version 2.0.0"
     Assert ((Invoke-Installer @("--restore", "`"$game`"")) -eq 0) "the restore succeeds"
-    $after = Get-Listing $folder | Where-Object { $_ -notmatch 'swkotor\.ini\.kotor-ui-backup' }
+    $after = Get-Listing $folder | Where-Object { $_ -notmatch $kept }
     Assert (($after -join "`n") -eq ($before -join "`n")) "the folder is as it was, file for file: both files and the manifest are gone"
 
     Write-Host "Case 9  Modern Driver Compatibility on, on a PC that cannot run it"
@@ -360,12 +378,12 @@ try {
     $env:KMRP_TEST_MISSING_IMPORT = "CreateFile2"
     try { Assert ((Invoke-Installer @("--in-place", "`"$game`"", "1920x1080")) -eq 0) "the install succeeds without it" }
     finally { Remove-Item Env:KMRP_TEST_MISSING_IMPORT -ErrorAction SilentlyContinue }
-    foreach ($name in @("dinput8.dll", "k1-modern-driver-compatibility.asi", "KMRP_DriverCompat.manifest")) {
+    foreach ($name in @("dinput8.dll", "k1-modern-driver-compatibility.asi", "KMRP\driver-compat.manifest")) {
         Assert (-not (Test-Path -LiteralPath (Join-Path $folder $name))) "no $name beside the game"
     }
     Assert (((Get-Config $folder).Ids -join ",") -eq "kmrp,kmrp-controller") "KMRP's patch and the controller patch are installed as usual"
     Assert ((Invoke-Installer @("--restore", "`"$game`"")) -eq 0) "the restore succeeds"
-    $after = Get-Listing $folder | Where-Object { $_ -notmatch 'swkotor\.ini\.kotor-ui-backup' }
+    $after = Get-Listing $folder | Where-Object { $_ -notmatch $kept }
     Assert (($after -join "`n") -eq ($before -join "`n")) "the folder is as it was, file for file"
 
     Write-Host "Case 10 Marked Empty Containers on"
@@ -384,9 +402,45 @@ try {
     $emptyKpatch = Join-Path $kpmPatches "K1MarkedEmptyContainers.kpatch"
     Assert ((Test-Path -LiteralPath $emptyKpatch) -and (Get-Sha $emptyKpatch) -eq (Get-Sha $bundled)) "K1MarkedEmptyContainers.kpatch in KOTOR Patch Manager's patch folder is the bundled file, unchanged"
     Assert ((Invoke-Installer @("--restore", "`"$game`"")) -eq 0) "the restore succeeds"
-    $after = Get-Listing $folder | Where-Object { $_ -notmatch 'swkotor\.ini\.kotor-ui-backup' }
+    $after = Get-Listing $folder | Where-Object { $_ -notmatch $kept }
     Assert (($after -join "`n") -eq ($before -join "`n")) "the folder is as it was, file for file"
     Assert (-not (Test-Path -LiteralPath $emptyKpatch)) "the .kpatch this install created is removed"
+
+    Write-Host "Case 11 an install over one made before 2026-10-20, whose files were loose in the game folder"
+    Set-KmrpSettings $true $true
+    $game = New-Fixture "loose-files"
+    $folder = Split-Path -Parent $game
+    $before = Get-Listing $folder
+    Assert ((Invoke-Installer @("--in-place", "`"$game`"", "1920x1080")) -eq 0) "the first install succeeds"
+    # Put the files where a build before 2026-10-20 wrote them, with the manifest's rows
+    # naming them there, and an install log of the time.
+    $legacy = [ordered]@{
+        "KMRP\kpm.manifest" = "KMRP_KPM.manifest"; "KMRP\dpi.manifest" = "KMRP_DPI.manifest"
+        "KMRP\controller.ini" = "kmrp-controller.ini"
+        "KMRP\kotor-patch-manager-LICENSE.txt" = "kmrp-kotor-patch-manager-LICENSE.txt"
+        "KMRP\backups\swkotor.ini" = "swkotor.ini.kotor-ui-backup"
+        "KMRP\backups\swkotor.ini.sha256" = "swkotor.ini.kotor-ui-backup.sha256"
+    }
+    foreach ($name in $legacy.Keys) {
+        $from = Join-Path $folder $name
+        if (Test-Path -LiteralPath $from) { Move-Item -LiteralPath $from -Destination (Join-Path $folder $legacy[$name]) }
+    }
+    $manifest = Join-Path $folder "KMRP_KPM.manifest"
+    $rows = [IO.File]::ReadAllText($manifest).Replace("file`tKMRP\controller.ini`t", "file`tkmrp-controller.ini`t").
+        Replace("file`tKMRP\kotor-patch-manager-LICENSE.txt`t", "file`tkmrp-kotor-patch-manager-LICENSE.txt`t")
+    [IO.File]::WriteAllText($manifest, $rows, [Text.UTF8Encoding]::new($false))
+    Remove-Item -LiteralPath (Join-Path $folder "KMRP") -Recurse -Force
+    [IO.File]::WriteAllText((Join-Path $folder "KMRP.log"), "an earlier install's line`r`n", [Text.UTF8Encoding]::new($false))
+    Assert ((Invoke-Installer @("--in-place", "`"$game`"", "1920x1080")) -eq 0) "the install over it succeeds"
+    $loose = @(Get-ChildItem -LiteralPath $folder -File | Where-Object { $_.Name -match '^(KMRP|kmrp)[-_.]|\.kotor-ui-backup' })
+    Assert ($loose.Count -eq 0) ("nothing of KMRP's is left loose in the game folder" + $(if ($loose.Count) { ": " + ($loose.Name -join ", ") } else { "" }))
+    $rows = [IO.File]::ReadAllText((Join-Path $folder "KMRP\kpm.manifest"))
+    Assert ($rows -match '(?m)^file\tKMRP\\controller\.ini\t' -and $rows -notmatch '(?m)^file\tkmrp-controller\.ini\t') "the manifest names the settings in KMRP's folder"
+    $log = Join-Path $folder "KMRP\logs\install.log"
+    Assert ((Test-Path -LiteralPath $log) -and [IO.File]::ReadAllText($log).StartsWith("an earlier install's line")) "the earlier install log is KMRP\logs\install.log, its lines first"
+    Assert ((Invoke-Installer @("--restore", "`"$game`"")) -eq 0) "the restore succeeds"
+    $after = Get-Listing $folder | Where-Object { $_ -notmatch $kept }
+    Assert (($after -join "`n") -eq ($before -join "`n")) "the folder is as it was, file for file"
 }
 finally {
     $env:LOCALAPPDATA = $playerLocalAppData

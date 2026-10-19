@@ -61,7 +61,9 @@ namespace Kmrp
                 {
                     Site site = new Site { Feature = reader.ReadUInt32(), Va = reader.ReadUInt32() };
                     int size = Count(reader, 4096);
-                    if ((site.Feature != 1 && site.Feature != 2) || size == 0 || site.Va < previousEnd ||
+                    // 1 core, 2 the movie changes, 8 the movie display mode (since 2026-10-20,
+                    // tools/build_windows_engine.py).
+                    if ((site.Feature != 1 && site.Feature != 2 && site.Feature != 8) || size == 0 || site.Va < previousEnd ||
                         site.Va + (long)size > 0x007DB000)
                         throw new InvalidDataException("The Windows engine patch sites are damaged.");
                     site.Original = Read(reader, size);
@@ -192,7 +194,8 @@ namespace Kmrp
             ResolutionPatch.WriteInt32(image, optional + 56, 0x478000);
             ResolutionPatch.WriteInt32(image, optional + 64, 0);
             string[] names = { ".kui", ".klb", ".kfs", ".kwl", ".ksc", ".kgs", ".ktn", ".kmz", ".kfg", ".kmn", ".kmv" };
-            int[] used = { 445, 110, 482, 17, 45, 74, 42, 181, 155, 4094, 81 };
+            // .kmv: 104 since 2026-10-20, the movie fit's 16:9 area (81 until then).
+            int[] used = { 445, 110, 482, 17, 45, 74, 42, 181, 155, 4094, 104 };
             for (int i = 0; i < names.Length; i++)
             {
                 int at = table + (sections + i) * 40;

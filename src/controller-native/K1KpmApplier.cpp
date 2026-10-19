@@ -46,7 +46,9 @@
 //   u32 relocation count, then per field: u32 kind (1 IN, 2 OUT, 3 ABS), u32 VA
 //   u32 FNV-1a of every byte before it
 //
-// Features are bits: 1 core, 2 movies, 4 map notes.
+// Features are bits: 1 core, 2 movies, 4 map notes, 8 the movie display mode (since
+// 2026-10-20: the four operands that keep the game at its own size for a movie, apart
+// from the rest of the movie changes so that they can be left out; issue 48).
 //
 // All or nothing. Every run's original bytes are checked in memory before
 // anything is written, so an executable that is not the one the data was built
@@ -83,14 +85,24 @@ constexpr std::uint32_t kBlockVa = 0x0086D000;
 constexpr std::uint32_t kBlockSize = 0xB000;
 constexpr std::uint32_t kImageLow = 0x00401000;
 constexpr std::uint32_t kKindIn = 1, kKindOut = 2, kKindAbs = 3;
-constexpr std::uint32_t kCore = 1, kMovies = 2, kMapNotes = 4;
+constexpr std::uint32_t kCore = 1, kMovies = 2, kMapNotes = 4, kMovieMode = 8;
 
 wchar_t g_folder[MAX_PATH];
 
 void LogLine(const char* format, va_list args)
 {
+    // KMRP\logs\kmrp-kpm.log in the game folder since 2026-10-20 (KmrpLogPath,
+    // KmrpOptions.h); the game folder itself until then.
     wchar_t path[MAX_PATH];
-    if (swprintf_s(path, L"%s\\kmrp-kpm.log", g_folder) < 0) {
+    if (swprintf_s(path, L"%s\\KMRP", g_folder) < 0) {
+        return;
+    }
+    CreateDirectoryW(path, nullptr);
+    if (wcscat_s(path, L"\\logs")) {
+        return;
+    }
+    CreateDirectoryW(path, nullptr);
+    if (wcscat_s(path, L"\\kmrp-kpm.log")) {
         return;
     }
     FILE* f = nullptr;
@@ -357,7 +369,7 @@ std::uint32_t InstalledFeatures()
         }
         const std::string id = text.substr(open + 1, close - open - 1);
         if (id == "kmrp-movies") {
-            features |= kMovies;
+            features |= kMovies | kMovieMode;
         } else if (id == "kmrp-map-notes") {
             features |= kMapNotes;
         }
@@ -600,7 +612,8 @@ void Apply(std::uint32_t features, const std::vector<std::uint8_t>* embedded = n
 #endif
     Info("applied: KMRP%s%s -- %zu of %zu runs (%u bytes) and KMRP's code at %p "
         "(moved by %+ld), %u relocations.",
-        (features & kMovies) ? " + Movies" : "", (features & kMapNotes) ? " + Map Notes" : "",
+        (features & kMovies) ? ((features & kMovieMode) ? " + Movies" : " + Movies at 640x480") : "",
+        (features & kMapNotes) ? " + Map Notes" : "",
         chosen, runs.size(), bytes, static_cast<void*>(block),
         static_cast<long>(delta), relocCount);
     Info("  %s executable; %.0f ms after the game started, %s its window; %zu other "

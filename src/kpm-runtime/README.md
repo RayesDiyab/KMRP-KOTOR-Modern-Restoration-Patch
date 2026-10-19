@@ -63,5 +63,6 @@ that polls every 15 ms, for up to 30 seconds, until every hook site reads as its
 original bytes (`AllHookSitesReadable`, `DeferredApply`). CD 1.03 is plaintext on
 disk, and there the runtime patches at once, while the proxy is being loaded.
 
-KOTOR Patch Manager is MIT-licensed; the installer writes its licence beside the
-runtime as `kmrp-kotor-patch-manager-LICENSE.txt`.
+KOTOR Patch Manager is MIT-licensed; the installer writes its licence into the game
+folder's KMRP folder as `KMRP\kotor-patch-manager-LICENSE.txt` (beside the runtime as
+`kmrp-kotor-patch-manager-LICENSE.txt` until 2026-10-20).

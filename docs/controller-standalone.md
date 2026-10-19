@@ -348,16 +348,23 @@ leave 12 design units between their words. Off for KMRP's sets, whose
 
 | File | Who writes it | What |
 | --- | --- | --- |
-| `kmrp-controller.ini` beside the game | KMRP's installer, or else the module, once, if it is not there | the rumble settings, with the installer's defaults; both with `[Hud]` and `Style=Xbox` since 2026-10-08 (until then the module's copy had `Style=PC` and the installer's no `[Hud]`). A file already there is never touched by either |
+| `KMRP\controller.ini` in the game folder (`kmrp-controller.ini` beside the game until 2026-10-20) | KMRP's installer, or else the module, once, if it is not there | the rumble settings, with the installer's defaults; both with `[Hud]` and `Style=Xbox` since 2026-10-08 (until then the module's copy had `Style=PC` and the installer's no `[Hud]`). A file already there is never touched by either. The module finds it through `KmrpControllerSettingsPath` (`KmrpOptions.h`), which makes the `KMRP` folder and, the first time, moves a `kmrp-controller.ini` of the game folder there |
 | `[Controller Remap]` in the same file | the module, when Save is pressed on the Controller Layout screen (since 2026-10-18) | the button layout, ten keys, `Interact=A` to `FreeLook=R3` on the default, and since 2026-10-19 a `Layout=Xbox` line, without which the section is not read (a layout saved before that day opens as the original Xbox game's defaults); read once per start, and the default used if it is incomplete ([`controller-layout.md`](controller-layout.md), "Button remapping") |
 | `configs\kmrp-controller.ini` | a KOTOR Patch Manager with patch options, or KMRP's installer | `[Patch Options]`: `debug-logs`, and from a manager `xbox-hud`; a missing `debug-logs` means off, a missing `xbox-hud` means the settings file decides. KMRP's installer writes `debug-logs` only, so that `Style` under `[Hud]` still decides the HUD (`ControllerPatchOptions`, `KpmEdition.cs`) |
-| `kmrp-controller-events.log` beside the game | the module, with `debug-logs` on (since 2026-10-12) | one line an event, with the tick: every pad there is and the one read, whenever either changes, and why; each change between the pad and keyboard and mouse, with the key or the pointer that did it; keys dropped while a Steam pad is held; the screens the game has up when Start asks for the last menu screen (the Map until 2026-10-19) or Escape is pressed. With `debug-logs=2`, written here by hand, also the pad read each time anything on it changes and what the game's movement was given. `kmrp-native-joystick.log`, the counters twice a second, is as it was |
-| `kmrp-controller.log` beside the game | the module, only on failure | written if the file bank cannot be unpacked; the pad still works without its prompts |
+| `kmrp-controller-events.log` in `KMRP\logs` (beside the game until 2026-10-20) | the module, with `debug-logs` on (since 2026-10-12) | one line an event, with the tick: every pad there is and the one read, whenever either changes, and why; each change between the pad and keyboard and mouse, with the key or the pointer that did it; keys dropped while a Steam pad is held; the screens the game has up when Start asks for the last menu screen (the Map until 2026-10-19) or Escape is pressed. With `debug-logs=2`, written here by hand, also the pad read each time anything on it changes and what the game's movement was given. `kmrp-native-joystick.log`, the counters twice a second, is as it was |
+| `kmrp-controller.log` in `KMRP\logs` (beside the game until 2026-10-20) | the module, only on failure | written if the file bank cannot be unpacked; the pad still works without its prompts |
+
+The module's other logs, with `debug-logs` on (`kmrp-native-joystick.log`,
+`kmrp-layout-lifecycle.log`, `kmrp-confirm-focus.log`) and the rumble's (`Debug=1` in
+`[Rumble]`, `kmrp-rumble.log`), are in `KMRP\logs` as well
+since 2026-10-20 (`KmrpLogPath`, `KmrpOptions.h`), which makes the folders when a log
+is first written. Not run in a game.
 
 ### The Xbox-style HUD
 
 Since later on 2026-10-05 the patch has one more option, `xbox-hud`, and one more
-setting, `Style` under `[Hud]` in `kmrp-controller.ini`, both on by default since
+setting, `Style` under `[Hud]` in `KMRP\controller.ini` (`kmrp-controller.ini` until
+2026-10-20), both on by default since
 2026-10-08 (off until then). They
 add two hooks and a button glyph per controller family to the bank (and the patch
 has 34 hooks since it left `StopLoadFromLayout`'s entry to other patches and took two
@@ -575,7 +582,10 @@ another control's size (`size_like`) and stay on their buttons.
   is missing. *Since 2026-10-18* the module also writes that file's
   `[Controller Remap]` section when the player presses Save on the Controller
   Layout screen, and makes the file if it is missing then; nothing is written
-  without that press.
+  without that press. *Since 2026-10-20* that file is `KMRP\controller.ini`: the
+  module makes the `KMRP` folder in the game folder, moves an existing
+  `kmrp-controller.ini` into it once, and writes its logs, when there are any, to
+  `KMRP\logs`.
 - The movie window: `KpmMoviesOffK1` returns true, so the movie frame only reads
   the pad and KMRP's black bars are not drawn.
 - Keyboard and mouse behaviour. KMRP's keyboard navigation hooks

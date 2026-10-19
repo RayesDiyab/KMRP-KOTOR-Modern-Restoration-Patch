@@ -1246,7 +1246,9 @@ both rules and the excluded-register one above.
 
 The aspect-fit patch lives in `CExoMoviePlayerInternal::InitializeMovie+0x3CC`
 and is correct: a 640x272 movie on 3440x1440 was measured at 3388x1440 with
-`bink_buffer_offset_x/y` of 26,0, which is exactly centred.
+`bink_buffer_offset_x/y` of 26,0, which is exactly centred. (*Since 2026-10-20* the
+fit is to a 16:9 area, so the same movie is 2560x1088 at 440,176, computed from the
+source and not measured: [movies](../reverse-engineering/movies.md), *The 16:9 area*.)
 
 But vanilla scaled to the window's full *width* and let the picture overflow
 vertically, so it always overfilled the surface and no part of it was ever left

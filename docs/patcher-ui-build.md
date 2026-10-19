@@ -22,7 +22,7 @@ longer holds (the right-hand column was brought up to 2026-10-08: two patches si
 | "packages the KPM patches", "the four KPM packages", the pool "which the installer embeds" | two packages, `KMRP.kpatch` (`tools/build_native_kpatch.py`) and `KOTOR 1 Native Controller Mod + Xbox HUD.kpatch` (`tools/build_controller_kpatch.py`); the pool is still built, for the module's resource bank and the macOS build, and is not embedded |
 | `--in-place` as the "full runtime, DPI, INI, Override" transaction | runtime, DPI, NVIDIA, INI; no Override |
 | The regression list naming `Test-ControllerSupport.ps1` and `Test-InstalledOverride.ps1` | corrected in place below: `Test-InstallerPatch.ps1`, `Test-KpatchSource.py` and `Test-ControllerKpatch.py` |
-| Advanced Settings with three rows | six since 2026-10-09, in the maintainer's order (Native Controller Support, Modern Driver Compatibility, Area Map Marker Fixes, HD Item Icons, High FPS Fix, Debug Logs), with High FPS Fix (`KmrpSettings.HighFpsFix`, D3M0's patch as a third one, off by default); five since 2026-10-08, with HD Item Icons (`KmrpSettings.HdIcons`, the `hd-icons` option of KMRP's patch, on by default); four before that: Debug Logs, off by default, was the fourth (`KmrpSettings.DebugLogs`, the `debug-logs` option of both patches). Controller Support decides whether the controller patch is installed at all, not an option of KMRP's patch. Since 2026-10-19 there are seven, Marked Empty Containers (`KmrpSettings.MarkedEmptyContainers`, ShaeMyName's patch as a fourth, on by default) after High FPS Fix and Debug Logs on a third row: the tiles keep the size six had, two rows in view, inside a `ScrollViewport` whose `ScrollContent` keeps its scroll through the window's rescaling, with a `KotorScrollBar` in the card's right margin (arrow boxes with cut corners, a hairline rail, a framed thumb with a grip, after KOTOR's list scrollbars), the wheel over the tiles through `MainForm.SettingsWheel`, a message filter, and eased scrolling; the page opens at its first row. Also since 2026-10-19 Modern Driver Compatibility's tile is off and disabled, with "Needs Windows 8" in amber beside its title (`OptionToggle.NoteColor`, `UiTheme.Warning`; a disabled tile draws its switch dim and drops the hand cursor), on a PC that lacks a function K1DC imports, Windows 7 ([third-party-driver-compat.md](third-party-driver-compat.md), section 3) |
+| Advanced Settings with three rows | six since 2026-10-09, in the maintainer's order (Native Controller Support, Modern Driver Compatibility, Area Map Marker Fixes, HD Item Icons, High FPS Fix, Debug Logs), with High FPS Fix (`KmrpSettings.HighFpsFix`, D3M0's patch as a third one, off by default); five since 2026-10-08, with HD Item Icons (`KmrpSettings.HdIcons`, the `hd-icons` option of KMRP's patch, on by default); four before that: Debug Logs, off by default, was the fourth (`KmrpSettings.DebugLogs`, the `debug-logs` option of both patches). Controller Support decides whether the controller patch is installed at all, not an option of KMRP's patch. Since 2026-10-19 there are seven, Marked Empty Containers (`KmrpSettings.MarkedEmptyContainers`, ShaeMyName's patch as a fourth, on by default) after High FPS Fix and Debug Logs on a third row: the tiles keep the size six had, two rows in view, inside a `ScrollViewport` whose `ScrollContent` keeps its scroll through the window's rescaling, with a `KotorScrollBar` in the card's right margin (arrow boxes with cut corners, a hairline rail, a framed thumb with a grip, after KOTOR's list scrollbars), the wheel over the tiles through `MainForm.SettingsWheel`, a message filter, and eased scrolling; the page opens at its first row. Also since 2026-10-19 Modern Driver Compatibility's tile is off and disabled, with "Needs Windows 8" in amber beside its title (`OptionToggle.NoteColor`, `UiTheme.Warning`; a disabled tile draws its switch dim and drops the hand cursor), on a PC that lacks a function K1DC imports, Windows 7 ([third-party-driver-compat.md](third-party-driver-compat.md), section 3). Since 2026-10-20 that stays until Synchro publishes K1DC with Windows 7 support, as they told the maintainer that day they will; KMRP's own Windows 7 build of it will not be shipped |
 | The options written into `patch_config.toml` | written to `configs\kmrp.ini` (`map-notes`, `debug-logs`) and, with the controller patch, `configs\kmrp-controller.ini` (`debug-logs`), section `[Patch Options]` (`WritePatchOptions`); a manifest row `options` records it for restore |
 | `tools/build_kpatch.py`, `tools/check_patcher_hook_table.py`, `src/controller-native/build.cmd` | removed on 2026-10-04; `tools/kpatch_common.py` holds the shared helpers |
 | Any resolution list, dropdown or checklist in the window, wherever the text below names one (the dimmed step 3, the animation measured "while scrolling the resolution dropdown") | there is none since 2026-10-07; those passages are measurements of the builds that had one |
@@ -715,7 +715,15 @@ is KOTOR Patch Manager's runtime, `patch_config.toml`, `patches\kmrp.dll`,
 `patches\kmrp-controller.dll` and `configs\kmrp-controller.ini`
 ([kpm-edition.md](kpm-edition.md), its first two sections). The INI step writes
 the display's current size; since 2026-10-07 nothing else is written for the
-resolution.
+resolution. *Since 2026-10-20* KMRP's own files are in a `KMRP` folder in the game
+folder: the manifests (`kpm.manifest`, `dpi.manifest`, `nvidia.manifest`,
+`driver-compat.manifest`), the controller's settings (`controller.ini`), KPM's licence,
+`logs\install.log` (the installer's log, `KMRP.log` beside the game until then) and
+`backups\swkotor.ini` with its hash. An install, after its refusal checks, and a
+restore first move an earlier install's files there (`KmrpFolder.Migrate`); the table
+and the move are in
+[kpm-edition.md](kpm-edition.md#kmrps-own-folder-since-2026-10-20). The manifest names
+below are the ones of their time.
 
 The in-place patch path is deliberately conservative. In the order
 `PatchOperations.ApplyInPlace` ran it until 2026-09-29:
@@ -834,7 +842,8 @@ writes it to `build\kmrp\build-stamp.txt` and embeds it as `Kmrp.build.stamp`
 (`BuildStamp` in `KpmEdition.cs`). Everyone who builds a commit gets the same date,
 and every later commit a later one, so builds are ordered whether or not the version
 was raised (the maintainer, 2026-10-19). An install records the date in
-`KMRP_KPM.manifest` (`built<TAB>2026-10-19T12:35:08+02:00`); the next installer
+`KMRP\kpm.manifest` (`KMRP_KPM.manifest` until 2026-10-20;
+`built<TAB>2026-10-19T12:35:08+02:00`); the next installer
 compares it with its own, as moments (`CompareInstalled`): older, the same, or newer.
 An install whose manifest has no date (every one before 2026-10-19) and one by the
 standalone installer count as older. Uncommitted changes do not change the date: such

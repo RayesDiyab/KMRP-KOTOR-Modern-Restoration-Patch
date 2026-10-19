@@ -39,8 +39,12 @@ do not load every project document on every task.
 - When installing to the live game:
   - Prefer the patcher's own workflow. Reach past it only for a single file the
     user is play-testing, and say plainly that you have.
-  - Copy the existing file aside first, into the game folder, before writing.
-  - If the file is recorded in a manifest (`KMRP_KPM.manifest` since 2026-10-04;
+  - Copy the existing file aside first, into the game folder's `KMRP\backups`
+    (never as a new folder or loose file beside the game: the maintainer, 2026-10-20,
+    "we shouldnt clutter the folder like this"), before writing, and remove the copy
+    when the test is over.
+  - If the file is recorded in a manifest (`KMRP\kpm.manifest` since 2026-10-20,
+    `KMRP_KPM.manifest` beside the game from 2026-10-04;
     `KOTOR_UI_Override_Backup.manifest` in an install made before, which wrote
     Override files), update its row so ownership stays intact -- otherwise Restore
     Original meets a file it no longer recognizes. A single interface file can no

@@ -12,7 +12,7 @@
 //   * the global profile is only read;
 //   * a profile shared with other applications is left alone;
 //   * a profile with KMRP's name that does not hold this game is not adopted;
-//   * KMRP_NVIDIA.manifest beside the game records the change, in the installer's
+//   * KMRP's manifest (ManifestPath) records the change, in the installer's
 //     format, written before the save and removed again if the save is refused.
 //
 // The driver reads the profile when the game starts, so a change made here applies
@@ -222,10 +222,20 @@ private:
     bool initialized_ = false;
 };
 
+// KMRP\nvidia.manifest in the game folder since 2026-10-20 (KmrpFolder in the
+// installer), its folder made; KMRP_NVIDIA.manifest beside the game until then, still
+// read there until the next install moves it.
 std::wstring ManifestPath(const std::wstring& executablePath)
 {
     const std::size_t slash = executablePath.find_last_of(L"\\/");
-    return (slash == std::wstring::npos ? std::wstring() : executablePath.substr(0, slash + 1)) + L"KMRP_NVIDIA.manifest";
+    const std::wstring folder = slash == std::wstring::npos ? std::wstring() : executablePath.substr(0, slash + 1);
+    const std::wstring legacy = folder + L"KMRP_NVIDIA.manifest";
+    const std::wstring manifest = folder + L"KMRP\\nvidia.manifest";
+    if (GetFileAttributesW(manifest.c_str()) == INVALID_FILE_ATTRIBUTES &&
+            GetFileAttributesW(legacy.c_str()) != INVALID_FILE_ATTRIBUTES)
+        return legacy;
+    CreateDirectoryW((folder + L"KMRP").c_str(), nullptr);
+    return manifest;
 }
 
 // The installer's record, byte for byte: header, the path as base64 of its UTF-8,
@@ -323,7 +333,7 @@ KmrpNvidiaPresent KmrpNvidiaPresentMethod(const wchar_t* executablePath, void (*
             drs.SetDword(profile, kPresentMethod, kPreferNative);
             // The record first: a saved value with no record could never be told
             // from the player's own, while a record whose save failed is removed.
-            if (!WriteManifest(manifest, path, createdProfile)) throw Failure{"KMRP_NVIDIA.manifest could not be written beside the game."};
+            if (!WriteManifest(manifest, path, createdProfile)) throw Failure{"KMRP's NVIDIA manifest could not be written in the game folder."};
             const int saved = drs.Save();
             if (saved != kOk) DeleteFileW(manifest.c_str());
             if (saved == kInvalidUserPrivilege) {
@@ -337,7 +347,7 @@ KmrpNvidiaPresent KmrpNvidiaPresentMethod(const wchar_t* executablePath, void (*
         report((std::string("Done: NVIDIA's present method for swkotor.exe is Prefer native, in the profile \"") +
                 Utf8(profileName) + "\". It applies from the next start of the game. To undo it: NVIDIA Control "
                 "Panel -> Manage 3D settings -> Program Settings -> swkotor.exe -> Vulkan/OpenGL present method -> "
-                "Use global setting. KMRP_NVIDIA.manifest beside the game records the change.").c_str());
+                "Use global setting. nvidia.manifest in the game folder's KMRP folder records the change.").c_str());
         return KmrpNvidiaPresent::Set;
     } catch (const Failure& failure) {
         report((std::string("NVIDIA's present method for swkotor.exe could not be checked or set: ") +

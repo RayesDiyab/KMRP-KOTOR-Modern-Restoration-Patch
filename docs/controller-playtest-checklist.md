@@ -399,7 +399,10 @@ Y, LB, RB, LT, RT and the two stick clicks; how it works is in
 was run with mouse and keyboard only (scripted input, at 3440x1440 and 1920x1080).
 **Every row below is untested**: there was no virtual pad on the machine (ViGEmBus is
 not installed). Start each run from the default layout: Remap, Default, Save. Have
-`debug-logs` on and keep `kmrp-layout-lifecycle.log`.
+`debug-logs` on and keep `kmrp-layout-lifecycle.log` (in `KMRP\logs` in the game
+folder since 2026-10-20; the game folder itself until then). The layout is saved in
+`KMRP\controller.ini` since the same day, `kmrp-controller.ini` beside the game until
+then.
 
 *Since 2026-10-19* the default layout is the original Xbox game's (issue 49): A
 Interact, B Disengage, X Add to queue, Y Undo or flourish, LB Pause, RB Switch ally,
@@ -429,7 +432,7 @@ it says so.
 | [ ] | The same | X | nothing is saved while an action waits | | FUNC |
 | [ ] | The same, Y's row | A, then Y | Switch ally on Y; nothing waits; Save works | | FUNC |
 | [ ] | Remapping | Y | Default: the default layout back on screen, not yet saved | | FUNC |
-| [ ] | Remapping, a complete change | X | saved: `kmrp-controller.ini` has `[Controller Remap]` with `Layout=Xbox` and ten keys (no `Layout` line until 2026-10-19) | | FUNC |
+| [ ] | Remapping, a complete change | X | saved: `KMRP\controller.ini` (`kmrp-controller.ini` until 2026-10-20) has `[Controller Remap]` with `Layout=Xbox` and ten keys (no `Layout` line until 2026-10-19) | | FUNC |
 | [ ] | The screen opened | look at the rows | the captions of the Xbox layout (since 2026-10-19): "Previous target / Prev tab", "Pause", "Next target / Next tab", "Switch ally / Menu action", "Undo or flourish / Menu action", "Add to queue / Menu action", "Disengage / Back", "Last menu / Close menu", none cut short | | FUNC |
 | [ ] | Remapping, nothing unsaved | B | back to the view | | FUNC |
 | [ ] | Remapping, a change not saved | B | the "Unsaved Changes" box, (A) Discard and (B) Cancel | | FUNC |
@@ -438,7 +441,7 @@ it says so.
 | [ ] | The view after a saved remap | look | the moved rows carry dots; the padlocks on the sticks, the D-pad, Start and Back | | FUNC |
 | [ ] | Any state | switch between the pad and the mouse | the pad glyphs appear and disappear; nothing else moves | | FUNC |
 | [ ] | PlayStation, Switch or Steam Deck pad | the whole of 9a | that family's glyphs in the footer, the prompt and the box | | FUNC |
-| [ ] | Leaving the screen | `kmrp-layout-lifecycle.log` | no `bind-failed`; `created == destroyed` | | FUNC |
+| [ ] | Leaving the screen | `KMRP\logs\kmrp-layout-lifecycle.log` | no `bind-failed`; `created == destroyed` | | FUNC |
 
 ### 9b. In play, with a saved remap
 
@@ -464,7 +467,8 @@ two trades on that day's defaults.)
 | [ ] | Restart the game | play | the saved layout is still in force | | FUNC |
 | [ ] | A duplicate value written into `[Controller Remap]` by hand | start the game | the default layout, in play and on the screen | | FUNC |
 | [ ] | A layout saved before 2026-10-19 (no `Layout` line), or the line deleted by hand | start the game | the Xbox defaults, in play and on the screen; a Save then rewrites the whole section | | FUNC |
-| [ ] | KMRP's installer | Restore Original, then look at `kmrp-controller.ini` | the file and its `[Controller Remap]` are still there | | FUNC |
+| [ ] | KMRP's installer | Restore Original, then look at `KMRP\controller.ini` (`kmrp-controller.ini` until 2026-10-20) | the file and its `[Controller Remap]` are still there | | FUNC |
+| [ ] | A `kmrp-controller.ini` with a saved layout beside the game, from a build before 2026-10-20, and no `KMRP\controller.ini` (added 2026-10-20) | start the game | the file is now `KMRP\controller.ini`, none is left beside the game, and the saved layout is in force | | FUNC |
 
 ## 10. Pazaak's table and the menu buttons (added 2026-10-19)
 

@@ -82,12 +82,21 @@ constexpr int K1_LAYOUT_ARM_FRAMES = 2;
 bool armed() { return releasedFrames >= K1_LAYOUT_ARM_FRAMES; }
 bool blockReopen = false;
 
+// The screen's diagnostics, KMRP\logs\kmrp-layout-lifecycle.log (KmrpLogPath; the game
+// folder until 2026-10-20). Null when it cannot be opened.
+FILE* openLog() {
+    wchar_t path[MAX_PATH];
+    FILE* f = nullptr;
+    if (!KmrpLogPath(path, L"kmrp-layout-lifecycle.log") || _wfopen_s(&f, path, L"a")) return nullptr;
+    return f;
+}
+
 void log(const char* event) {
     // Transition-only diagnostics, written with the debug-logs option on. There are
     // no per-frame writes; a session produces only a few short records.
     if (!KmrpDebugLogs()) return;
     FILE* f=nullptr;
-    if (fopen_s(&f, "kmrp-layout-lifecycle.log", "a") || !f) return;
+    if (!(f = openLog())) return;
     fprintf(f,"%lu %s panel=%p parent=%p created=%u destroyed=%u controls=%u freed=%u callbacks=%u family=%c device=%d\n",
         GetTickCount(),event,current,parent,created,destroyed,controlsCreated,controlsDestroyed,callbacks,family?family:'-',device);
     fclose(f);
@@ -384,7 +393,7 @@ void logDialogGeometry(const DialogBadge& b, char* list, void** rows, int count,
     if (!KmrpDebugLogs() || dialogGeometryLogs >= 24) return;   // a session's worth, no more
     ++dialogGeometryLogs;
     FILE* f=nullptr;
-    if (fopen_s(&f, "kmrp-layout-lifecycle.log", "a") || !f) return;
+    if (!(f = openLog())) return;
     const int* panelRect=reinterpret_cast<const int*>(static_cast<char*>(b.panel)+4);
     const int* listRect=reinterpret_cast<const int*>(list+4);
     fprintf(f,"%lu dialog-geometry panel=%p rect=(%d,%d,%d,%d) list=(%d,%d,%d,%d) rows=%d "
@@ -728,7 +737,7 @@ void layoutStatusSummary(void* manager, void* panel) {
     if (KmrpDebugLogs() && summaryLogs<8) {
         ++summaryLogs;
         FILE* f=nullptr;
-        if (!fopen_s(&f,"kmrp-layout-lifecycle.log","a") && f) {
+        if ((f = openLog()) != nullptr) {
             fprintf(f,"%lu status-summary rows=%d lineHeight=%d widest=%d box=(%d,%d,%d,%d) ok=(%d,%d,%d,%d) badge=%d\n",
                 GetTickCount(),count,lineHeight,widest,boxRect[0],boxRect[1],boxRect[2],boxRect[3],
                 okRect[0],okRect[1],okRect[2],okRect[3],badged?1:0);

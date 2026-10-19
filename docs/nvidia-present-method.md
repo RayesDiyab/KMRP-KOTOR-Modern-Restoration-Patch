@@ -29,7 +29,7 @@ RTX HDR. So an in-place KMRP install checks what the driver will do for
 | Profile | whichever profile the driver applies to the installed `swkotor.exe` (by full path) — normally NVIDIA's predefined **"Star Wars: Knights Of The Old Republic"**; if none names it, a new profile **"KMRP - Star Wars: Knights of the Old Republic"** holding `swkotor.exe` |
 | Setting | `OGL_CPL_PREFER_DXPRESENT`, id `0x20D690F8`, "Vulkan/OpenGL present method" |
 | Written value | `0` = `OGL_CPL_PREFER_DXPRESENT_PREFER_DISABLED`, shown as **Prefer native** |
-| Recovery record | `KMRP_NVIDIA.manifest` beside `swkotor.exe` |
+| Recovery record | `KMRP\nvidia.manifest` in the game folder (`KMRP_NVIDIA.manifest` beside `swkotor.exe` until 2026-10-20; an install or restore moves it, and finds it at the old name until then) |
 
 The setting's values, from NVIDIA's `NvApiDriverSettings.h`:
 
@@ -92,10 +92,10 @@ unchanged). Decided by the maintainer on 2026-10-04: "log a warning and then set
 | | Installer | Standalone module |
 | --- | --- | --- |
 | When | once, at install | at the first GUI frame of every run, on a thread of its own |
-| Where it reports | the installer's log | `kmrp-kpm.log` beside the game |
+| Where it reports | the installer's log (`KMRP\logs\install.log` since 2026-10-20, `KMRP.log` until then) | `kmrp-kpm.log`, in `KMRP\logs` since 2026-10-20 (beside the game until then) |
 | Library | `nvapi64.dll` or `nvapi.dll` | `nvapi.dll` (the game is 32-bit), from System32 only |
 | Takes effect | the next start of the game | the next start: the driver has read the profile by the time the module runs |
-| Record | `KMRP_NVIDIA.manifest` | the same file, in the same format |
+| Record | `KMRP\nvidia.manifest` (`KMRP_NVIDIA.manifest` until 2026-10-20) | `KMRP_NVIDIA.manifest` beside the game, in the same format: the module's step was not moved on 2026-10-20 (`ManifestPath` in `K1RuntimeNvidia.cpp`, read that day). The installer's next install or restore moves it to `KMRP\nvidia.manifest` |
 | Undo | Restore | by hand, as the log line says; the installer's Restore also accepts the record (tested below) |
 
 When it is about to write, the log holds two lines: a warning that NVIDIA would
@@ -171,5 +171,7 @@ list began with "a full KMRP install writing a real KOTOR profile". The game's
 2. In-game, list `swkotor.exe`'s modules (`(Get-Process swkotor).Modules`, or
    Process Explorer). `nvwgf2um.dll` or `d3d11.dll` present means the driver is
    on the layered path; absent means native.
-3. `KMRP_NVIDIA.manifest` beside `swkotor.exe` exists only while KMRP owns the
-   value.
+3. `KMRP\nvidia.manifest` in the game folder exists only while KMRP owns the
+   value (`KMRP_NVIDIA.manifest` beside `swkotor.exe` until 2026-10-20, and still
+   that name where the module made the change itself, until the next install or
+   restore moves it).

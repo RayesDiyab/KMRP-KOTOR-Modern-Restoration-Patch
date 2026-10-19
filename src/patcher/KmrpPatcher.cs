@@ -970,9 +970,11 @@ namespace Kmrp
             return Path.Combine(directory, "swkotor.ini");
         }
 
+        // KMRP\backups\swkotor.ini since 2026-10-20 (KmrpFolder); swkotor.ini.kotor-ui-backup
+        // beside the game's until then, and found there until the next install moves it.
         internal static string BackupPath(string executablePath)
         {
-            return PathForExecutable(executablePath) + ".kotor-ui-backup";
+            return KmrpFolder.PathOf(executablePath, KmrpFolder.IniBackup);
         }
 
         private static string BackupHashPath(string executablePath)
@@ -1392,7 +1394,6 @@ namespace Kmrp
         private const string LayersKeyPath = @"Software\Microsoft\Windows NT\CurrentVersion\AppCompatFlags\Layers";
         private const string Token = "HIGHDPIAWARE";
         private const string ManifestHeader = "KMRPDPI1";
-        private const string ManifestName = "KMRP_DPI.manifest";
 
         private sealed class DpiRecord
         {
@@ -1402,9 +1403,10 @@ namespace Kmrp
             internal string InstalledValue;
         }
 
+        // KMRP\dpi.manifest (KmrpFolder); KMRP_DPI.manifest in the game folder until 2026-10-20.
         private static string ManifestPath(string executablePath)
         {
-            return Path.Combine(Path.GetDirectoryName(Path.GetFullPath(executablePath)), ManifestName);
+            return KmrpFolder.PathOf(executablePath, KmrpFolder.DpiManifest);
         }
 
         internal static DpiCompatibilityEditState Install(string executablePath, Action<string> report)
@@ -2031,13 +2033,13 @@ namespace Kmrp
         private const uint PresentAuto = 2;     // OGL_CPL_PREFER_DXPRESENT_AUTO, the default
         internal const string ProfileName = "KMRP - Star Wars: Knights of the Old Republic";
         private const string ManifestHeader = "KMRPNV1";
-        private const string ManifestName = "KMRP_NVIDIA.manifest";
         private const string ManualFix = " To do it by hand: NVIDIA Control Panel -> Manage 3D settings -> " +
             "Program Settings -> swkotor.exe -> Vulkan/OpenGL present method -> Prefer native.";
 
+        // KMRP\nvidia.manifest (KmrpFolder); KMRP_NVIDIA.manifest in the game folder until 2026-10-20.
         private static string ManifestPath(string executablePath)
         {
-            return Path.Combine(Path.GetDirectoryName(Path.GetFullPath(executablePath)), ManifestName);
+            return KmrpFolder.PathOf(executablePath, KmrpFolder.NvidiaManifest);
         }
 
         internal static NvidiaPresentEditState Install(string executablePath, Action<string> report)
@@ -2421,10 +2423,11 @@ namespace Kmrp
             get { return MissingImport == null; }
         }
 
+        // KMRP\driver-compat.manifest (KmrpFolder); KMRP_DriverCompat.manifest in the game
+        // folder until 2026-10-20.
         private static string ManifestPath(string executablePath)
         {
-            return Path.Combine(Path.GetDirectoryName(Path.GetFullPath(executablePath)),
-                                "KMRP_DriverCompat.manifest");
+            return KmrpFolder.PathOf(executablePath, KmrpFolder.DriverCompatManifest);
         }
 
         internal static bool Available
@@ -2608,7 +2611,9 @@ namespace Kmrp
         // K1Rumble.cpp). Unlike every other file here it is the PLAYER'S to edit,
         // so it is written only when absent or still exactly as installed, is
         // never a reason to decline an install, and restore removes it only if it
-        // is unchanged -- the manifest's usual rule.
+        // is unchanged -- the manifest's usual rule. This is the name the standalone
+        // installer's runtime gave it, which its manifest names; since 2026-10-20 it is
+        // KMRP\controller.ini (KmrpFolder.ControllerSettings).
         internal const string SettingsName = "kmrp-controller.ini";
         // Every value here is what the user settled on in the pad tests of
         // 2026-09-25. Debug was 1 in the hardware-test builds, writing every
@@ -2630,7 +2635,7 @@ namespace Kmrp
             "SaberHumPulseMs=100\r\n" +
             "SaberHumPeriodMinMs=500\r\n" +
             "SaberHumPeriodMaxMs=2000\r\n" +
-            "; 1 writes every rumble event to kmrp-rumble.log in this folder\r\n" +
+            "; 1 writes every rumble event to kmrp-rumble.log in the logs folder beside this file\r\n" +
             "Debug=0\r\n" +
             "\r\n" +
             "[Hud]\r\n" +
@@ -2993,6 +2998,168 @@ namespace Kmrp
         }
     }
 
+    /// <summary>KMRP's own files in a game folder, in one folder of their own, KMRP: the
+    /// logs in KMRP\logs and what a restore puts back in KMRP\backups (the maintainer,
+    /// 2026-10-20: "we shouldnt clutter the folder like this"). What the game or KOTOR
+    /// Patch Manager loads from the game folder itself stays there: KPM's runtime,
+    /// patch_config.toml, patches\ and configs\, and K1DC's dinput8.dll and .asi.
+    ///
+    /// Until 2026-10-20 these files were loose in the game folder, under the names in
+    /// Legacy's second column. Migrate moves an earlier install's into place, and PathOf
+    /// finds one that has not been moved yet. The files only the standalone installer
+    /// wrote, until 2026-09-29 (its executable and Override backups and its manifests),
+    /// stay where it wrote them, and its own restore reads them there.</summary>
+    internal static class KmrpFolder
+    {
+        internal const string Name = "KMRP";
+        // Names relative to the game folder, as the KPM manifest's rows name files.
+        internal const string InstallLog = @"KMRP\logs\install.log";
+        internal const string KpmManifest = @"KMRP\kpm.manifest";
+        internal const string DriverCompatManifest = @"KMRP\driver-compat.manifest";
+        internal const string DpiManifest = @"KMRP\dpi.manifest";
+        internal const string NvidiaManifest = @"KMRP\nvidia.manifest";
+        internal const string ControllerSettings = @"KMRP\controller.ini";
+        internal const string KpmLicense = @"KMRP\kotor-patch-manager-LICENSE.txt";
+        internal const string IniBackup = @"KMRP\backups\swkotor.ini";
+        private static readonly string[] Folders = { @"KMRP", @"KMRP\logs", @"KMRP\backups" };
+
+        // Each file's place, and its name in the game folder until 2026-10-20. The logs are
+        // the game modules' as well as the installer's (src/controller-native/KmrpOptions.h,
+        // KmrpLogPath, moves none of them; this does, at the next install).
+        private static readonly string[,] Legacy =
+        {
+            { InstallLog, "KMRP.log" },
+            { KpmManifest, "KMRP_KPM.manifest" },
+            { DriverCompatManifest, "KMRP_DriverCompat.manifest" },
+            { DpiManifest, "KMRP_DPI.manifest" },
+            { NvidiaManifest, "KMRP_NVIDIA.manifest" },
+            { ControllerSettings, "kmrp-controller.ini" },
+            { KpmLicense, "kmrp-kotor-patch-manager-LICENSE.txt" },
+            { IniBackup, "swkotor.ini.kotor-ui-backup" },
+            { IniBackup + ".sha256", "swkotor.ini.kotor-ui-backup.sha256" },
+            { @"KMRP\logs\kmrp-kpm.log", "kmrp-kpm.log" },
+            { @"KMRP\logs\kmrp-controller.log", "kmrp-controller.log" },
+            { @"KMRP\logs\kmrp-controller-events.log", "kmrp-controller-events.log" },
+            { @"KMRP\logs\kmrp-native-joystick.log", "kmrp-native-joystick.log" },
+            { @"KMRP\logs\kmrp-native-preview.log", "kmrp-native-preview.log" },
+            { @"KMRP\logs\kmrp-layout-lifecycle.log", "kmrp-layout-lifecycle.log" },
+            { @"KMRP\logs\kmrp-confirm-focus.log", "kmrp-confirm-focus.log" },
+            { @"KMRP\logs\kmrp-rumble.log", "kmrp-rumble.log" },
+        };
+
+        internal static string GameFolder(string executablePath)
+        {
+            return Path.GetDirectoryName(Path.GetFullPath(executablePath));
+        }
+
+        /// <summary>A file of KMRP's, named relative to the game folder: where it is, or,
+        /// while only an earlier install's copy exists, that copy.</summary>
+        internal static string PathOf(string executablePath, string name)
+        {
+            string folder = GameFolder(executablePath);
+            string path = Path.Combine(folder, name);
+            if (File.Exists(path))
+                return path;
+            for (int i = 0; i < Legacy.GetLength(0); i++)
+            {
+                if (!String.Equals(Legacy[i, 0], name, StringComparison.OrdinalIgnoreCase))
+                    continue;
+                string legacy = Path.Combine(folder, Legacy[i, 1]);
+                if (File.Exists(legacy))
+                    return legacy;
+            }
+            return path;
+        }
+
+        /// <summary>The folders made, and an earlier install's files moved into them: a log
+        /// appended to the one already there, anything else moved only when its place is
+        /// free. The KPM manifest's rows follow the files they name.</summary>
+        internal static void Migrate(string executablePath, Action<string> report)
+        {
+            string folder = GameFolder(executablePath);
+            foreach (string name in Folders)
+                Directory.CreateDirectory(Path.Combine(folder, name));
+            int moved = 0;
+            for (int i = 0; i < Legacy.GetLength(0); i++)
+            {
+                string legacy = Path.Combine(folder, Legacy[i, 1]);
+                string target = Path.Combine(folder, Legacy[i, 0]);
+                if (!File.Exists(legacy))
+                    continue;
+                try
+                {
+                    if (!File.Exists(target))
+                        File.Move(legacy, target);
+                    else if (target.EndsWith(".log", StringComparison.OrdinalIgnoreCase))
+                    {
+                        // The older lines first, as they were written.
+                        byte[] older = File.ReadAllBytes(legacy);
+                        byte[] newer = File.ReadAllBytes(target);
+                        using (FileStream output = new FileStream(target, FileMode.Create, FileAccess.Write))
+                        {
+                            output.Write(older, 0, older.Length);
+                            output.Write(newer, 0, newer.Length);
+                        }
+                        File.Delete(legacy);
+                    }
+                    else
+                        continue;     // both: the one in KMRP is the newer, the other is left alone
+                    moved++;
+                }
+                catch (IOException) { }
+                catch (UnauthorizedAccessException) { }
+            }
+            // Rows naming a file that is now in KMRP's folder, whoever moved it: the game
+            // moves the controller's settings itself (KmrpControllerSettingsPath, KmrpOptions.h).
+            string manifest = Path.Combine(folder, KpmManifest);
+            if (File.Exists(manifest))
+            {
+                string[] lines = File.ReadAllLines(manifest, Encoding.UTF8);
+                bool changed = false;
+                for (int l = 0; l < lines.Length; l++)
+                {
+                    string[] parts = lines[l].Split('\t');
+                    if (parts.Length != 3 || parts[0] != "file")
+                        continue;
+                    for (int i = 0; i < Legacy.GetLength(0); i++)
+                    {
+                        if (String.Equals(parts[1], Legacy[i, 1], StringComparison.OrdinalIgnoreCase) &&
+                            File.Exists(Path.Combine(folder, Legacy[i, 0])) &&
+                            !File.Exists(Path.Combine(folder, Legacy[i, 1])))
+                        {
+                            lines[l] = "file\t" + Legacy[i, 0] + "\t" + parts[2];
+                            changed = true;
+                        }
+                    }
+                }
+                if (changed)
+                    File.WriteAllLines(manifest, lines, new UTF8Encoding(false));
+            }
+            if (moved > 0 && report != null)
+                report("Moved " + moved.ToString(CultureInfo.InvariantCulture) +
+                    " of KMRP's files from the game folder into its KMRP folder.");
+        }
+
+        /// <summary>After a restore: KMRP's folders that are left empty, removed, the KMRP
+        /// folder last. What a restore keeps (the install log, the swkotor.ini backup) keeps
+        /// its folder.</summary>
+        internal static void RemoveEmpty(string executablePath)
+        {
+            string folder = GameFolder(executablePath);
+            for (int i = Folders.Length - 1; i >= 0; i--)
+            {
+                string path = Path.Combine(folder, Folders[i]);
+                try
+                {
+                    if (Directory.Exists(path) && Directory.GetFileSystemEntries(path).Length == 0)
+                        Directory.Delete(path);
+                }
+                catch (IOException) { }
+                catch (UnauthorizedAccessException) { }
+            }
+        }
+    }
+
     internal static class PatchOperations
     {
         internal static string BackupPath(string targetPath)
@@ -3002,8 +3169,7 @@ namespace Kmrp
 
         internal static string LogPath(string targetPath)
         {
-            string directory = Path.GetDirectoryName(Path.GetFullPath(targetPath));
-            return Path.Combine(directory, "KMRP.log");
+            return KmrpFolder.PathOf(targetPath, KmrpFolder.InstallLog);
         }
 
         internal static string ManifestPath(string targetPath)
@@ -3201,7 +3367,9 @@ namespace Kmrp
         internal static void AppendLog(string targetPath, string message)
         {
             string line = DateTime.UtcNow.ToString("o", CultureInfo.InvariantCulture) + "  " + message + Environment.NewLine;
-            File.AppendAllText(LogPath(targetPath), line, new UTF8Encoding(false));
+            string path = LogPath(targetPath);
+            Directory.CreateDirectory(Path.GetDirectoryName(path));
+            File.AppendAllText(path, line, new UTF8Encoding(false));
         }
 
         private static void RequireExistingFile(string path)

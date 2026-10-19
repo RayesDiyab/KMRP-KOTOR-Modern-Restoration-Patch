@@ -15,6 +15,12 @@ reverse-engineering/movies.md.
 said the build no longer used it, which stopped being true when v25 was
 reverted.
 
+*Since 2026-10-20* build_stub fits the movie inside a 16:9 area of the client
+(104 bytes; 81 until then), and the build takes only build_stub from here
+(tools/build_windows_engine.py). main() still writes a whole executable, but it
+is no longer gold v24's, so its output hash is not checked: EXPECTED_OUTPUT_SHA256
+below is v24's, kept for the record.
+
 Original description follows.
 
 Replace KOTOR's width-only Bink scaling with true aspect-fit scaling.
@@ -67,9 +73,26 @@ def build_stub(stub_va: int) -> bytes:
     #   EBP = client bottom, [ESP+0x24] = client top.
     # Save EDI because the original continuation uses it as client right. The
     # saved value shifts the original locals by four bytes while this runs.
+    #
+    # The movie is fitted inside a 16:9 area in the middle of the client, not the
+    # whole client (the maintainer, 2026-10-20: on an ultrawide screen a 2.35:1 story
+    # movie filled it, 3388x1440 at 3440x1440, and looked zoomed in; now 2560x1088).
+    # So the width it is fitted to is min(client width, client height * 16 / 9). The
+    # continuation centres from the client's own edges (EDI and [esp+20] at 0x00405808),
+    # not from this width, so the picture stays in the middle. Nothing changes on a
+    # screen 16:9 or narrower.
     code = bytearray.fromhex(
         "57 "                    # push edi
-        "8B 46 48 "              # mov eax,[esi+48]       ; BINK*
+        "8B C5 "                 # mov eax,ebp
+        "2B 44 24 28 "           # sub eax,[esp+28]       ; client height
+        "C1 E0 04 "              # shl eax,4              ; * 16
+        "99 "                    # cdq
+        "B9 09 00 00 00 "        # mov ecx,9
+        "F7 F9 "                 # idiv ecx               ; / 9: the 16:9 width
+        "3B D8 "                 # cmp ebx,eax
+        "7E 02 "                 # jle fitted             ; the client is no wider
+        "8B D8 "                 # mov ebx,eax            ; fit to the 16:9 width
+        "8B 46 48 "              # fitted: mov eax,[esi+48] ; BINK*
         "8B 08 "                 # mov ecx,[eax]          ; movie width
         "8B 50 04 "              # mov edx,[eax+4]        ; movie height
         "8B FB "                 # mov edi,ebx            ; client width
@@ -188,8 +211,8 @@ def main() -> int:
     if len(data) != EXPECTED_OUTPUT_LENGTH:
         raise AssertionError(f"Unexpected output length {len(data)}")
     output_hash = sha256(data)
-    if EXPECTED_OUTPUT_SHA256 and output_hash != EXPECTED_OUTPUT_SHA256:
-        raise AssertionError(f"Unexpected output SHA-256 {output_hash}")
+    # Not compared with EXPECTED_OUTPUT_SHA256 since 2026-10-20: that is gold v24's,
+    # made with the stub before the 16:9 area (see the header).
 
     args.output.parent.mkdir(parents=True, exist_ok=True)
     args.output.write_bytes(data)

@@ -1,40 +1,46 @@
-// Controller remapping at run time: the layout kept in kmrp-controller.ini beside the
-// game, and the translation of the pad's buttons in the world (K1ButtonRemapPolicy.h).
-// The controller patch works without KMRP, so the layout lives in its own settings
-// file, as [Hud] Style does (K1XboxHud.cpp).
+// Controller remapping at run time: the layout kept in the controller's settings file,
+// KMRP\controller.ini in the game folder (KmrpControllerSettingsPath, KmrpOptions.h; the
+// game folder's kmrp-controller.ini until 2026-10-20), and the translation of the pad's
+// buttons in the world (K1ButtonRemapPolicy.h). The controller patch works without KMRP,
+// so the layout lives in its own settings file, as [Hud] Style does (K1XboxHud.cpp).
 #include "K1ButtonRemap.h"
+#include "KmrpOptions.h"
 #include <windows.h>
 #include <cstdio>
 #include <cwchar>
 
 namespace {
 using namespace KmrpRemap;
-constexpr const char* kSection = "Controller Remap";
+constexpr const wchar_t* kSection = L"Controller Remap";
 Mapping g_saved;
 bool g_loaded = false;
 Translator g_translator;
 
-bool SettingsPath(char (&path)[MAX_PATH])
-{
-    const DWORD n = GetModuleFileNameA(nullptr, path, MAX_PATH);
-    char* slash = n && n < MAX_PATH ? std::strrchr(path, '\\') : nullptr;
-    return slash && !strcpy_s(slash + 1, MAX_PATH - (slash + 1 - path), "kmrp-controller.ini");
-}
+// The names here are ASCII (K1ButtonRemapPolicy.h), so widening is a copy.
+struct Wide {
+    wchar_t text[32] = {};
+    explicit Wide(const char* ascii)
+    {
+        for (int i = 0; ascii && ascii[i] && i < 31; ++i) text[i] = static_cast<wchar_t>(ascii[i]);
+    }
+};
 
 void Load()
 {
     g_loaded = true;
     g_saved = Mapping{};
-    char path[MAX_PATH];
-    if (!SettingsPath(path)) return;
-    char layout[16] = {};
-    GetPrivateProfileStringA(kSection, LayoutKey, "", layout, sizeof layout, path);
-    if (_stricmp(layout, LayoutName) != 0) return;
+    wchar_t path[MAX_PATH];
+    if (!KmrpControllerSettingsPath(path)) return;
+    wchar_t layout[16] = {};
+    GetPrivateProfileStringW(kSection, Wide(LayoutKey).text, L"", layout, 16, path);
+    if (_wcsicmp(layout, Wide(LayoutName).text) != 0) return;
     Mapping read;
     for (int a = 0; a < ButtonCount; ++a) {
-        char value[16] = {};
-        GetPrivateProfileStringA(kSection, ActionKeys[a], ButtonNames[a], value, sizeof value, path);
-        read.button[a] = ButtonByName(value);
+        wchar_t value[16] = {};
+        GetPrivateProfileStringW(kSection, Wide(ActionKeys[a]).text, Wide(ButtonNames[a]).text, value, 16, path);
+        char ascii[16] = {};
+        for (int i = 0; value[i] && i < 15; ++i) ascii[i] = value[i] < 128 ? static_cast<char>(value[i]) : '?';
+        read.button[a] = ButtonByName(ascii);
     }
     // A layout that is not complete (edited by hand, or from another version) is not
     // used: the default is, and the screen opens on it.
@@ -51,13 +57,15 @@ const Mapping& KmrpRemapSavedK1()
 bool KmrpRemapSaveK1(const Mapping& mapping)
 {
     if (!mapping.Complete()) return false;
-    char path[MAX_PATH];
-    if (!SettingsPath(path)) return false;
+    wchar_t path[MAX_PATH];
+    if (!KmrpControllerSettingsPath(path)) return false;
     // The section as a whole, so no key of the old layout's is left behind.
-    WritePrivateProfileStringA(kSection, nullptr, nullptr, path);
-    if (!WritePrivateProfileStringA(kSection, LayoutKey, LayoutName, path)) return false;
+    WritePrivateProfileStringW(kSection, nullptr, nullptr, path);
+    if (!WritePrivateProfileStringW(kSection, Wide(LayoutKey).text, Wide(LayoutName).text, path)) return false;
     for (int a = 0; a < ButtonCount; ++a)
-        if (!WritePrivateProfileStringA(kSection, ActionKeys[a], ButtonNames[mapping.button[a]], path)) return false;
+        if (!WritePrivateProfileStringW(kSection, Wide(ActionKeys[a]).text, Wide(ButtonNames[mapping.button[a]]).text,
+                                        path))
+            return false;
     g_saved = mapping;
     g_loaded = true;
     return true;

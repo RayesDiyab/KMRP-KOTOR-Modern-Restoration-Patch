@@ -24,11 +24,7 @@ void Log(const char* event, int width, int height)
 {
     if (!KmrpDebugLogs()) return;
     wchar_t path[MAX_PATH];
-    DWORD n = GetModuleFileNameW(nullptr, path, MAX_PATH);
-    wchar_t* slash = n && n < MAX_PATH ? wcsrchr(path, L'\\') : nullptr;
-    if (!slash) return;
-    if (wcscpy_s(slash + 1, MAX_PATH - (slash + 1 - path),
-                 L"kmrp-native-preview.log")) return;
+    if (!KmrpLogPath(path, L"kmrp-native-preview.log")) return;
     FILE* file = nullptr;
     if (_wfopen_s(&file, path, L"a") || !file) return;
     fprintf(file, "%lu %s %dx%d\n", GetTickCount(), event, width, height);

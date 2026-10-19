@@ -30,6 +30,7 @@
 #include <cstdio>
 #include <cstring>
 #include "K1Rumble.h"
+#include "KmrpOptions.h"
 
 // Shared with K1NativeJoystick.cpp.
 bool LooksLikePointerK1(const void* p);
@@ -346,12 +347,12 @@ void LoadSettings()
     const DWORD now = GetTickCount();
     if (g_settings.loaded && static_cast<LONG>(now - g_settings.nextCheck) < 0) return;
     g_settings.nextCheck = now + 1000;
+    // KMRP\controller.ini (KmrpControllerSettingsPath), read with the ANSI calls as
+    // before: the path in the ANSI code page, as GetModuleFileNameA gave it until then.
+    wchar_t wide[MAX_PATH];
     char path[MAX_PATH] = {};
-    const DWORD length = GetModuleFileNameA(nullptr, path, MAX_PATH);
-    if (length == 0 || length >= MAX_PATH) return;
-    char* const slash = std::strrchr(path, '\\');
-    if (!slash || (slash - path) + 21 >= MAX_PATH) return;
-    std::strcpy(slash + 1, "kmrp-controller.ini");
+    if (!KmrpControllerSettingsPath(wide) ||
+        !WideCharToMultiByte(CP_ACP, 0, wide, -1, path, MAX_PATH, nullptr, nullptr)) return;
     WIN32_FILE_ATTRIBUTE_DATA info{};
     const bool exists = GetFileAttributesExA(path, GetFileExInfoStandard, &info) != 0;
     if (g_settings.loaded) {
@@ -404,7 +405,7 @@ void LoadSettings()
     g_settings.loaded = true;
     Log("settings mode=%s strength=%d%% saberHum=%d%% pulse=%dms every %d-%dms debug=%d from=%s",
         MODE_NAME[g_settings.mode], strength, hum, pulse, periodMin, periodMax,
-        g_settings.debug ? 1 : 0, exists ? "kmrp-controller.ini" : "defaults");
+        g_settings.debug ? 1 : 0, exists ? "controller.ini" : "defaults");
 }
 
 bool Enhanced() { return g_settings.mode == MODE_ENHANCED; }
@@ -417,7 +418,8 @@ void Log(const char* format, ...)
     if (!g_settings.debug || lines >= 4000) return;
     ++lines;
     FILE* f = nullptr;
-    if (fopen_s(&f, "kmrp-rumble.log", "a") || !f) return;
+    wchar_t path[MAX_PATH];
+    if (!KmrpLogPath(path, L"kmrp-rumble.log") || _wfopen_s(&f, path, L"a") || !f) return;
     va_list args;
     va_start(args, format);
     std::fprintf(f, "%lu [KMRP Rumble] ", GetTickCount());

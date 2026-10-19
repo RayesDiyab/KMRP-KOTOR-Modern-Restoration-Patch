@@ -66,6 +66,26 @@ table was pasted and the check could no longer fail: run against this document
 alone, the old generator passed all 68 runs, the fixed one flags the 58 that
 only §4 names. It now reads tracked files only and skips §4.
 
+### Since 2026-10-20: one more site, and a longer `.kmv`, outside gold
+
+*Note of 2026-10-20, read from the source; not regenerated.* Gold is unchanged, and
+every number and table in this document is still gold v24's. KMRP's source-built
+recipe (`src/engine/windows-sites.json`, `tools/build_windows_engine.py`) moved on
+from it that day in two places:
+- **`0x00405734`** (FILE `0x005734`), one byte, `00` to `02`, feature 2: the low byte
+  of `BinkBufferOpen`'s flags, so that Bink draws movies with GDI
+  ([`movies.md`](movies.md), *KMRP asks for the DIB section*). The recipe has 84
+  guarded runs (83 until then).
+- **`.kmv`** is 104 bytes, not 81: the movie fit is to a 16:9 area
+  ([`movies.md`](movies.md), *The 16:9 area*).
+
+The four movie display-mode operands are feature 8 of the recipe since the same day
+(2 until then); their bytes are unchanged. §4's table is deliberately left as gold's:
+`testing/regression/Test-WindowsEngineSource.py` parses it as the 68 historical runs.
+An `--apply` output of an installer built since then differs from gold at
+`0x00405734` and in `.kmv` as well; no such output was made or inventoried for this
+note.
+
 ## 2. Reproducing it
 
 ```bash
@@ -161,6 +181,10 @@ disappeared from the executable" is otherwise an alarming thing to discover.
 *Corrected 2026-09-24:* this table labelled `.kmz` "minimap fog" and `.kfg`
 "message-popup sizing". The builders that write them say otherwise, and the
 popup is sized entirely by in-place `imm32` operands, with no section at all.
+
+*Since 2026-10-20* the source-built recipe's `.kmv` uses 104 bytes of its page (the
+16:9 area, [`movies.md`](movies.md)); the 81 above is gold v24's (§1, *Since
+2026-10-20*).
 
 **`.kfs` is the one writable section**, `0xE0000020` against `0x60000020` for the
 other ten, because the patcher rewrites the two scale floats at its start per

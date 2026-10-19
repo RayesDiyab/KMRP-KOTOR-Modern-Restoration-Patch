@@ -76,7 +76,8 @@ minutes) and `python testing/regression/Test-Xpress.py` (the modules' own decode
 `K1Xpress.cpp`, against both banks; since 2026-10-11 the modules do not use the
 Compression API, which Wine lacks). To time or compare a module without a whole build: replace
 `patches\kmrp.dll` in a scratch install, set `debug-logs=1` in `configs\kmrp.ini`,
-start the game and read the "interface files" line in `kmrp-kpm.log`; the files are in
+start the game and read the "interface files" line in `kmrp-kpm.log` (in the game
+folder's `KMRP\logs` since 2026-10-20, the game folder itself until then); the files are in
 the newest `%TEMP%\KMR*.tmp`. Only one copy of the game runs at a time: a second one
 exits at once with code -1.
 

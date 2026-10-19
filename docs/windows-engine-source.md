@@ -44,6 +44,13 @@ operands to whole guarded fields, adds the installer-only scaling sites, and
 merges adjacent guards into **81 runs**. Addresses are Windows 1.03 **VA**;
 original-image FILE offsets are `VA - 0x400000`.
 
+*Since 2026-10-20 (counted from `assemble().runs()` that day):* **84 runs** covering
+845 guarded bytes. `windows-sites.json` has 69 records, the 68 and Bink's buffer type
+at `0x00405734` ([movies](../reverse-engineering/movies.md), *KMRP asks for the DIB
+section*). The 81 above was not updated when two guards were added on 2026-10-09
+(commit `da12c81`: the message popup's widening step at `0x006256FC` and the store
+row's stack-count label at `0x006C2704`), which made 83.
+
 [`build_windows_engine.py`](../tools/build_windows_engine.py) invokes the existing
 assembly emitters directly and refuses conflicting source patches. It generates
 the eleven pages below, with their established logical base `0x0086D000`. The
@@ -61,16 +68,24 @@ module allocates them elsewhere and relocates references at runtime.
 | `.kmz` | `0x00874000` | 181 | `build_minimap_zoom_fix` |
 | `.kfg` | `0x00875000` | 155 | `build_minimap_fog_fix` |
 | `.kmn` | `0x00876000` | 4,094 | `build_map_note_table` and Derslok's approved 250-entry table |
-| `.kmv` | `0x00877000` | 81 | `build_movie_aspect_fit` |
+| `.kmv` | `0x00877000` | 104 (81 until 2026-10-20) | `build_movie_aspect_fit`; the fit inside a 16:9 area since 2026-10-20 ([movies](../reverse-engineering/movies.md), *The 16:9 area*) |
 
 Each page occupies 4,096 bytes. Only `.kfs` is writable, because it holds its
 font cache. The source template is **48,012 bytes**, SHA-256
 `BD7865A79C9AA1E59BE65A0A33692B9D782997D57BCB9683D1C769AB7742B0BC`.
 Regenerate this identity if any source patch changes.
 
+*Corrected 2026-10-20:* that identity was not regenerated when the runs of 2026-10-09
+were added. Read from `build()` in memory: at commit `f2435a2` (2026-10-19) the
+template was 48,188 bytes, SHA-256
+`60EA98EBD17A234EA37E982E224310641CC71B839DC242781310CAE2C8169233`; with the changes
+of 2026-10-20 it is **48,202 bytes**, SHA-256
+`B37B1910076438026944FA1968C4701381B8B6264C31A6EE539AADED96EDB102`.
+
 For example, Capstone disassembly of the generated `.kwl` page produces the
 existing 17-byte word-wrap fallback below. Addresses are **logical VA** before
 runtime relocation, not FILE offsets. The 443-instruction relocation check
+(452 since 2026-10-20, the nine instructions of the 16:9 area added to `.kmv`)
 covers the outbound jump along with the other reachable page instructions.
 
 ```asm
@@ -98,6 +113,15 @@ not the number of bytes whose values differ. Feature 1 is the core engine and
 resolution layout; feature 2 is movie playback. The per-site mechanisms are
 recorded in the [historical 68-run inventory](../reverse-engineering/binary-inventory.md#4-the-68-code-and-data-runs).
 
+*Updated 2026-10-20:* the table has the three runs added since it was generated
+(`0x00405734`, `0x006256FC`, `0x006C2704`), so 84 rows covering 845 bytes, and the
+four movie display-mode operands, three runs, are feature 8, "Movie mode", since that
+day (feature 2 until then): `original-movie-mode=1` in `configs\kmrp.ini` leaves them
+out ([movies](../reverse-engineering/movies.md), *The fallback*). The two runs of
+2026-10-09 keep the game's own bytes in the recipe; the installer's
+`ResolutionPatch` and the module rewrite them per size
+([binary-inventory](../reverse-engineering/binary-inventory.md), *Written at install*).
+
 These are original-image **VA** and **FILE** coordinates, with
 `FILE = VA - 0x400000`. The injected pages above use logical runtime addresses;
 if an offline PE reference is generated, their FILE coordinates instead use
@@ -106,8 +130,9 @@ edit to the disk executable.
 
 | VA | FILE | Bytes | Original (hex) | Recipe (hex) | Feature |
 | --- | --- | ---: | --- | --- | --- |
-| `0x00403D6C` | `0x003D6C` | 4 | `80020000` | `700d0000` | Movies |
-| `0x00403D78` | `0x003D78` | 4 | `e0010000` | `a0050000` | Movies |
+| `0x00403D6C` | `0x003D6C` | 4 | `80020000` | `700d0000` | Movie mode (8; Movies until 2026-10-20) |
+| `0x00403D78` | `0x003D78` | 4 | `e0010000` | `a0050000` | Movie mode (8; Movies until 2026-10-20) |
+| `0x00405734` | `0x005734` | 1 | `00` | `02` | Movies (since 2026-10-20) |
 | `0x004057AC` | `0x0057AC` | 7 | `8b4e488b013bd8` | `e94f1847009090` | Movies |
 | `0x0040AA65` | `0x00AA65` | 4 | `80020000` | `700d0000` | Core |
 | `0x0040AA85` | `0x00AA85` | 4 | `e0010000` | `a0050000` | Core |
@@ -135,10 +160,11 @@ edit to the disk executable.
 | `0x004A1770` | `0x0A1770` | 13 | `6aff685c7e710064a100000000` | `e903da3c009090909090909090` | Core |
 | `0x005F0C65` | `0x1F0C65` | 4 | `20030000` | `700d0000` | Core |
 | `0x005F0C6F` | `0x1F0C6F` | 4 | `58020000` | `a0050000` | Core |
-| `0x005F5B3B` | `0x1F5B3B` | 12 | `80020000c7442410e0010000` | `700d0000c7442410a0050000` | Movies |
+| `0x005F5B3B` | `0x1F5B3B` | 12 | `80020000c7442410e0010000` | `700d0000c7442410a0050000` | Movie mode (8; Movies until 2026-10-20) |
 | `0x0062540D` | `0x22540D` | 4 | `20000000` | `80000000` | Core |
 | `0x006256DC` | `0x2256DC` | 11 | `b80100007c0b3d18010000` | `400600007c0b3d84030000` | Core |
 | `0x006256F6` | `0x2256F6` | 4 | `b8010000` | `40060000` | Core |
+| `0x006256FC` | `0x2256FC` | 27 | `83442438288b44242083c128894c242883e8148d4c243089442420` | `83442438288b44242083c128894c242883e8148d4c243089442420` | Core (since 2026-10-09) |
 | `0x00625759` | `0x225759` | 4 | `18010000` | `84030000` | Core |
 | `0x00626F95` | `0x226F95` | 4 | `20000000` | `80000000` | Core |
 | `0x0062B39B` | `0x22B39B` | 5 | `e8b0990600` | `e8901d2400` | Core |
@@ -178,6 +204,7 @@ edit to the disk executable.
 | `0x006B5332` | `0x2B5332` | 36 | `130000004983e11583c1158bc18b4c24202bd0894424288b44242403ca83c025894c2420` | `13000000e9c5bc1b00909090909090909090909090909090909090909090909090909090` | Core |
 | `0x006B55E3` | `0x2B55E3` | 4 | `38000000` | `38000000` | Core |
 | `0x006C265F` | `0x2C265F` | 4 | `38000000` | `38000000` | Core |
+| `0x006C2704` | `0x2C2704` | 49 | `33c983f8020f9ec18bd7897c242c4983e11583c1158bc12bd0894424288b44242003c28d8e340300008d54242089442420` | `33c983f8020f9ec18bd7897c242c4983e11583c1158bc12bd0894424288b44242003c28d8e340300008d54242089442420` | Core (since 2026-10-09) |
 | `0x006C2A23` | `0x2C2A23` | 4 | `38000000` | `38000000` | Core |
 | `0x006CD8D9` | `0x2CD8D9` | 4 | `28000000` | `28000000` | Core |
 | `0x006CDB79` | `0x2CDB79` | 4 | `28000000` | `28000000` | Core |
@@ -221,9 +248,13 @@ runs on a write failure. Steam's instructions are checked after decryption.
 Movies runs retain feature bit 2; map-note corrections retain the single
 feature-bit-4 enable edit. The temporary movie-mode operands now share a
 12-byte guarded run including the unchanged instruction bytes between them.
+*Since 2026-10-20* those operands are feature bit 8 (`kMovieMode` in
+`K1KpmApplier.cpp`, `MOVIE_MODE` in the builder), applied unless
+`original-movie-mode=1` is in `configs\kmrp.ini` (`OptionalFeatures`,
+`K1RuntimeEngine.cpp`), and `WindowsEnginePatch.cs` accepts bit 8 in the template.
 
 The source assembler finds **46 relocation fields** and disassembles **443
-reachable instructions**. It compares byte scanning with decoded block operands
+reachable instructions** (452 since 2026-10-20). It compares byte scanning with decoded block operands
 and proves the instructions and inbound targets after moves by `+0x1F7A3000`
 and `-0x500000`. The regression removes each relocation in turn: every omission
 must fail the proof.
@@ -272,7 +303,8 @@ With the Windows installer and optional editable game fixture available, run
 `Test-KpmEdition.ps1`, removed with the four-patch layout) and
 `testing/regression/Test-ReinstallOverOlderBuild.ps1`, then compare generated
 reference images with `tools/build_binary_inventory.py` and the historical
-gold. Finally launch under Proton and inspect `kmrp-kpm.log`; see the
+gold. Finally launch under Proton and inspect `kmrp-kpm.log` (in `KMRP\logs` in the
+game folder since 2026-10-20, the game folder itself until then); see the
 [Ubuntu test record](linux-proton-steam-deck.md#ubuntu-installer-test-2026-10-01)
 for the measured launch/menu coverage and issue 13's closure.
 

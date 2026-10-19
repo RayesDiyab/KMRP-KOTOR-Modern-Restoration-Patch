@@ -14,6 +14,20 @@
 namespace {
 int g_engineWidth = 0, g_engineHeight = 0;
 std::vector<std::array<std::uint8_t, 4>> g_engineValues;
+std::uint32_t g_engineFeatures = 0;
+
+// The movie display mode's four operands (kMovieMode, tools/build_windows_engine.py)
+// are size fields too. With original-movie-mode they are not KMRP's (their runs are not
+// applied), so a size change neither checks nor writes them; it refused every change
+// until 2026-10-20, found by reading this, not in play.
+bool FieldInForce(const NativeField& field)
+{
+    constexpr std::uint32_t kMovieModeFields[] = {0x00403D6C, 0x00403D78, 0x005F5B3B, 0x005F5B43};
+    if ((g_engineFeatures & kMovieMode) != 0) return true;
+    for (const std::uint32_t va : kMovieModeFields)
+        if (field.va == va) return false;
+    return true;
+}
 
 int RoundEven(double value)
 {
@@ -58,7 +72,22 @@ std::uint32_t FieldAddress(const NativeField& field)
 // notes are options, each on by default; the movie fixes are always in. Anything
 // but an explicit 0 is on, so a manager without options (0.7.1), which writes no
 // file and installs every hook, runs everything.
+//
+// One more setting, not an option of the patch's and written by nobody but a player:
+// original-movie-mode=1 in a section of its own, [Movies], of the same file, leaves out
+// the movie display mode (kMovieMode), so the game switches the screen to 640x480 for
+// movies as it did unpatched, the fit and the black bars still KMRP's. The fallback for
+// issue 48, black movies with sound on Windows 7 with a Radeon, where the unpatched
+// game's movies play (2026-10-20). Its own section because the installer rewrites
+// [Patch Options] at every install and leaves every other section alone.
 bool g_controllerOption = true;
+
+bool OriginalMovieMode()
+{
+    wchar_t path[MAX_PATH];
+    return KmrpGamePath(path, L"configs\\kmrp.ini") &&
+           GetPrivateProfileIntW(L"Movies", L"original-movie-mode", 0, path) != 0;
+}
 
 std::uint32_t OptionalFeatures()
 {
@@ -66,7 +95,8 @@ std::uint32_t OptionalFeatures()
     // of its own, and this module's copy of that code is not run (its hooks are not
     // installed; tools/build_native_kpatch.py).
     g_controllerOption = false;
-    return kMovies | (KmrpPatchOption(L"map-notes", 1) != 0 ? kMapNotes : 0);
+    return kMovies | (OriginalMovieMode() ? 0 : kMovieMode) |
+           (KmrpPatchOption(L"map-notes", 1) != 0 ? kMapNotes : 0);
 }
 
 // Apply the engine for one size: at load, for the size in swkotor.ini, or at the
@@ -84,6 +114,7 @@ void InitializeEngineAt(int width, int height)
     std::memcpy(payload.data() + payload.size() - 4, &checksum, 4);
     const std::uint32_t features = kCore | OptionalFeatures();
     g_moviesOff = (features & kMovies) == 0;   // the movie frame asks before painting its bars
+    g_engineFeatures = features;
     Apply(features, &payload);
     if (g_nativeBlock) {
         g_engineWidth = width; g_engineHeight = height;
@@ -134,6 +165,7 @@ bool KmrpRuntimeEngineDimensions(int width, int height)
     if (!others.Suspend(ranges)) { others.Resume(); return false; }
     // Check ownership for the complete transaction before writing any operand.
     for (std::size_t i = 0; i < std::size(kNativeFields); ++i) {
+        if (!FieldInForce(kNativeFields[i])) continue;
         if (std::memcmp(reinterpret_cast<const void*>(ranges[i].first), g_engineValues[i].data(), ranges[i].second)) {
             others.Resume(); Log("native size transaction refused: field %08X changed", kNativeFields[i].va); return false;
         }
@@ -141,6 +173,7 @@ bool KmrpRuntimeEngineDimensions(int width, int height)
     bool ok = true;
     std::size_t done = 0;
     for (; done < ranges.size(); ++done) {
+        if (!FieldInForce(kNativeFields[done])) continue;
         if (!WriteMemory(ranges[done].first, next[done].data(), ranges[done].second) ||
             std::memcmp(reinterpret_cast<const void*>(ranges[done].first), next[done].data(), ranges[done].second)) {
             ok = false; break;
@@ -149,7 +182,7 @@ bool KmrpRuntimeEngineDimensions(int width, int height)
     if (!ok) {
         // Include the failing field, which may have been written before readback failed.
         for (std::size_t i = 0; i <= done && i < ranges.size(); ++i)
-            WriteMemory(ranges[i].first, g_engineValues[i].data(), ranges[i].second);
+            if (FieldInForce(kNativeFields[i])) WriteMemory(ranges[i].first, g_engineValues[i].data(), ranges[i].second);
     }
     others.Resume();
     if (ok) {

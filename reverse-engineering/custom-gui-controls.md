@@ -421,7 +421,8 @@ are relative to the list or to the panel, and whether `[panel+0x68]` or the
 list's own `+0x2C8` is the highlighted row. The code assumes list-relative
 rects and `[panel+0x68]`. The first time each conversation shows replies, it
 writes a `dialog-geometry` line to `kmrp-layout-lifecycle.log` in the game
-folder, at most 24 per session. The line holds the panel and list rects, the row
+folder's `KMRP\logs` (the game folder itself until 2026-10-20), at most 24 per
+session. The line holds the panel and list rects, the row
 count, both indices, the flags, the placed rect and the first six row rects. One
 conversation in play confirms the placement or says how to correct it.
 

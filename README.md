@@ -73,7 +73,15 @@ version's; what differs on the Mac is at its end.
 - Movies play at the resolution the game is running at: no switch to 640x480, no
   flicker, no minimised game.
 - The whole picture is shown on wide screens, with black bars at the sides, instead
-  of being zoomed in and cropped.
+  of being zoomed in and cropped. On screens wider than 16:9 a movie is shown at the
+  size it has on a 16:9 screen of the same height, in the middle (new, not yet in a
+  release or seen in the game; until then the widest movies filled an ultrawide
+  screen).
+- Movies are drawn with Windows' GDI instead of DirectDraw, meant to fix black movies
+  with sound on Windows 7 with an AMD card (issue 48; new, not yet tried there).
+  Where they stay black, `original-movie-mode=1` under a `[Movies]` section in
+  `configs\kmrp.ini` brings back the original switch to 640x480 for movies; an
+  install keeps it.
 
 **Stability**
 
@@ -150,14 +158,15 @@ version's; what differs on the Mac is at its end.
 - Rumble: off, the original Xbox version's (with the rumble BioWare made for the PC
   and never switched on), or an enhanced one that adds lightsabers igniting, humming
   and clashing, blaster recoil, hits taken and explosions. Silent in menus and while
-  paused. Mode and strength are set in `kmrp-controller.ini` beside the game.
+  paused. Mode and strength are set in `KMRP\controller.ini` in the game folder
+  (`kmrp-controller.ini` beside the game until 2026-10-20).
 - Xbox-style HUD while you play with a pad: the action menu at the bottom left, the
   target at the top left, the party at the bottom right, the minimap at the top
   right, with frames drawn sharp for your resolution, a pause notice that shows the
   button that pauses (LB; the right trigger until 2026-10-19), and a combat-mode
   line across the top. The PC display is back the
   moment you use the mouse or keyboard, and the Xbox layout can be switched off
-  (`Style=PC` in `kmrp-controller.ini`).
+  (`Style=PC` in `KMRP\controller.ini`).
 - Controller support is a patch of its own and installs without the rest of KMRP.
 - It works with other interface and widescreen mods: it puts no file into the
   game's folders, and its button pictures and HUD are placed while the game runs,
@@ -268,7 +277,8 @@ beside Scaled Kotor 1.3.1 at 1920x1080 and 3440x1440).
 It also brings an **Xbox-style HUD**, on by default: the in-game HUD laid out as
 the original Xbox version's while the pad is in use, and the game's own HUD back as
 soon as the mouse or keyboard is used. To keep the game's own HUD with the pad too,
-set `Style=PC` under `[Hud]` in `kmrp-controller.ini` beside the game. See
+set `Style=PC` under `[Hud]` in `KMRP\controller.ini` in the game folder
+(`kmrp-controller.ini` beside the game until 2026-10-20). See
 [docs/controller-standalone.md](docs/controller-standalone.md) and
 [docs/controller-xbox-hud.md](docs/controller-xbox-hud.md). Windows only.
 
@@ -331,16 +341,16 @@ the [Linux, Proton, and Steam Deck guide](docs/linux-proton-steam-deck.md).
 | Beside `swkotor.exe` | KOTOR Patch Manager's runtime, laid out as KPM's own proxy deployment: KPM's `binkw32.dll` proxy in place of the game's (renamed `binkw32Hooked.dll`), `KotorPatcher.dll` and `patch_config.toml`. |
 | `patches\` | `kmrp.dll`, KMRP's module, with the engine changes and every resolution's interface files; `kmrp-controller.dll` while Native Controller Support is on; and `high-fps-fixes.dll` while High FPS Fix is on. |
 | `configs\` | `kmrp.ini` and `kmrp-controller.ini`, the options the patches were installed with. |
-| `kmrp-controller.ini` | Beside the game: rumble and HUD style, yours to edit. Written only when it is not there. |
-| `swkotor.ini` | The starting resolution, and the game's own frame-rate lines: `AllowHighMonitorFrequency` and `RefreshRate` (the display's highest with High FPS Fix; 60 without it, with `V-Sync=1`). Its prior contents are kept in a verified backup. |
+| `KMRP\` | KMRP's own files, in one folder since 2026-10-20 (until then loose beside the game; patching again moves them): `controller.ini`, the rumble, HUD style and button layout, yours to edit and written only when it is not there; `logs\`, the installer's `install.log` and the game's diagnostic logs; `backups\`, the verified copy of `swkotor.ini`; the manifests Restore Original works from; and KOTOR Patch Manager's licence. |
+| `swkotor.ini` | The starting resolution, and the game's own frame-rate lines: `AllowHighMonitorFrequency` and `RefreshRate` (the display's highest with High FPS Fix; 60 without it, with `V-Sync=1`). Its prior contents are kept in a verified backup, `KMRP\backups\swkotor.ini`. |
 | `swkotor.exe` | On GOG's and the editable build, the standard Large Address Aware flag: one bit, with a backup of the unmodified file in KPM's own format. **Steam's is never changed.** |
 | `Override` | Nothing. |
 | Windows | A per-user compatibility value that marks the game DPI-aware ([details](docs/windows-dpi-scaling.md)). |
 | NVIDIA driver | Only where the global present method would show half-drawn frames: **Prefer native** for `swkotor.exe` ([details](docs/nvidia-present-method.md)). |
 | Optional | *Modern Driver Compatibility* adds its loader (`dinput8.dll`) and payload beside the game. |
 
-Every change is recorded with hashes in manifests beside the game, and **Restore
-Original** reverses each from those records. In a game folder where KOTOR Patch
+Every change is recorded with hashes in manifests in the `KMRP` folder (beside the
+game until 2026-10-20), and **Restore Original** reverses each from those records. In a game folder where KOTOR Patch
 Manager's runtime is already installed, the installer installs no runtime and does
 not touch `swkotor.exe`: KPM applies KMRP's patches.
 
@@ -403,7 +413,7 @@ interface is scaled.
 | **HUD notifications oversized at 4K**, and **Feedback option circles on the scrollbar** | Short-lived HUD controls were scaled from screen width instead of the common height rule; the Feedback list drew each circle at the row's very edge, which is where its left scrollbar ends, and now keeps a gutter | [universal resolution math](docs/universal-resolution-math.md#reported-4k-layout-repairs) |
 | **Out-of-memory failures near the 2 GB process ceiling** | The 32-bit executable did not declare that it can use addresses above 2 GB; KMRP now sets the standard PE Large Address Aware bit | [large-address-aware](reverse-engineering/large-address-aware.md) |
 | **Movies trigger a 640×480 mode switch, minimize, or lose focus** | Full-screen Bink playback has two resolution pairs independent of the normal render size; KMRP writes the resolution the game is running at into both | [movies](reverse-engineering/movies.md) |
-| **Movies cropped** on wide screens -- a 640×480 logo drawn 3440×2580 at 3440×1440 | Retail scales a movie by the screen *width* alone; KMRP fits it by whichever of width and height runs out first | [movies](reverse-engineering/movies.md) |
+| **Movies cropped** on wide screens: a 640×480 logo drawn 3440×2580 at 3440×1440 | Retail scales a movie by the screen *width* alone; KMRP fits it by whichever of width and height runs out first, inside a 16:9 area of the screen since 2026-10-20 | [movies](reverse-engineering/movies.md) |
 | **Map marker click offset** from where it is drawn | The hit test centred the map canvas in the window, while the control that crops it is placed by the marker overlay -- 141px out horizontally | [map-markers](reverse-engineering/map-markers.md) |
 | **Unfogged strip** down the right of the area map | The map picture is drawn onto a canvas wider than the overlay the fog grid covers, and nothing cropped the surplus | [area-map-surface](reverse-engineering/area-map-surface.md) |
 | **250 map notes in the wrong place** | A 2003 content bug: the notes' stored world positions do not match their subjects | [map-markers](reverse-engineering/map-markers.md) |
@@ -528,7 +538,8 @@ Fix and Debug Logs are on by default, each can be turned off on its own, and
 FPS Fixes as a third patch beside KMRP's two (timing and animation fixes for play
 above 60 frames per second); it is on by itself where your display runs above
 60 Hz and off on a 60 Hz display, until you set it yourself. *Debug Logs* is off
-by default: it makes KMRP write diagnostic log files beside the game. The choices
+by default: it makes KMRP write diagnostic log files, in `KMRP\logs` in the game
+folder (beside the game until 2026-10-20). The choices
 are remembered in `%LOCALAPPDATA%\KMRP\settings.json`.
 
 **Updates.** When its window opens, the installer asks GitHub whether a newer

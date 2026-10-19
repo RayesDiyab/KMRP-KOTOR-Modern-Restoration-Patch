@@ -64,7 +64,9 @@ details still belong in `docs/` or `reverse-engineering/`.
   Two independent users reported the zoom and confirmed that Compatibility →
   High DPI scaling override → Application fixes it. The corresponding per-user
   AppCompat layer is `HIGHDPIAWARE`. Issue #3's implementation appends that token
-  to the exact executable path, records the prior string in `KMRP_DPI.manifest`,
+  to the exact executable path, records the prior string in `KMRP_DPI.manifest`
+  (`KMRP\dpi.manifest` since 2026-10-20, with KMRP's other files in the game folder's
+  `KMRP` folder: `docs/kpm-edition.md`, "KMRP's own folder since 2026-10-20"),
   and restores only if the live value still equals KMRP's value. The four ownership
   cases pass in `testing/regression/Test-DpiCompatibility.ps1` on Windows 11 build
   26200. In play, the maintainer reported it working at 150% on 2026-09-25, and

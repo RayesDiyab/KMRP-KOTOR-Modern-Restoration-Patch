@@ -37,7 +37,9 @@ line in the debug log says which of the three a rumble is.
 
 ## Settings
 
-`kmrp-controller.ini`, beside `swkotor.exe`. The installer writes it when it is
+`KMRP\controller.ini` in the game folder since 2026-10-20 (`kmrp-controller.ini`
+beside `swkotor.exe` until then; the module moves that file there the first time it
+reads it, and KMRP's installer at its next install). The installer writes it when it is
 absent; where the controller patch is installed without KMRP's installer (by
 KOTOR Patch Manager), its module writes the same defaults once, when the file is
 not there (`WriteDefaultSettings`, `K1ControllerStandalone.cpp`, since
@@ -56,7 +58,7 @@ SaberHumPulseMs=100       ; the hum pulses: on this long (0 is a steady hum)...
 SaberHumPeriodMinMs=500   ; ...then off until the next pulse, a gap drawn at
 SaberHumPeriodMaxMs=2000  ;    random between these two, afresh every pulse;
                           ;    equal values give a fixed rhythm
-Debug=0           ; 1 writes kmrp-rumble.log beside swkotor.exe
+Debug=0           ; 1 writes kmrp-rumble.log in KMRP\logs (beside swkotor.exe until 2026-10-20)
 ```
 
 The module checks the file at most once a second and re-reads it when it
@@ -431,8 +433,9 @@ Heavy is the left motor, light the right.
 
 ## The debug log
 
-With `Debug=1`, `kmrp-rumble.log` in the game folder gets one line per event,
-never one per frame, up to 4000 lines a session:
+With `Debug=1`, `kmrp-rumble.log` in `KMRP\logs` in the game folder (the game folder
+itself until 2026-10-20) gets one line per event, never one per frame, up to 4000
+lines a session:
 
 ```
 event="VFX 3004 at 3.1m" source=Original pattern=BioWare 14 FragGenade distanceScale=0.70 strength=1.00 heavy=0.70 light=0.42 duration=1.00s

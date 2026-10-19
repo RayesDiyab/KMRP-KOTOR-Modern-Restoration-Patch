@@ -18,6 +18,11 @@
       "replacement": "a005"
     },
     {
+      "va": "00405734",
+      "original": "00",
+      "replacement": "02"
+    },
+    {
       "va": "004057AC",
       "original": "8b4e488b013bd8",
       "replacement": "e94f1847009090"

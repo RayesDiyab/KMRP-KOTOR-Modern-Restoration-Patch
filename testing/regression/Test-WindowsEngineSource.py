@@ -33,8 +33,21 @@ def main():
     template, recipe, fields, checked = engine.build()
     assert template == engine.build()[0], 'engine build is not deterministic'
     assert recipe.lengths == {'.kmn':4094,'.kui':445,'.klb':110,'.kfs':482,'.kwl':17,
-                             '.ksc':45,'.kgs':74,'.ktn':42,'.kmz':181,'.kfg':155,'.kmv':81}
-    assert len(fields) == 46 and checked == 443
+                             '.ksc':45,'.kgs':74,'.ktn':42,'.kmz':181,'.kfg':155,'.kmv':104}
+    # 452 since 2026-10-20: the movie fit's 16:9 area adds nine instructions to .kmv
+    # (443 until then).
+    assert len(fields) == 46 and checked == 452
+
+    # The movie display mode's operands, a second copy: the module leaves these size
+    # fields alone when the feature is out (K1RuntimeEngine.cpp, FieldInForce). They must
+    # lie inside the feature-8 runs, and every byte those runs change is one of theirs.
+    source = (ROOT / 'src/controller-native/K1RuntimeEngine.cpp').read_text()
+    listed = {int(v, 16) for v in re.search(r'kMovieModeFields\[\] = \{([^}]*)\}', source)[1].split(',')}
+    listed_bytes = {va + i for va in listed for i in range(4)}
+    mode_runs = [(va, old, new) for feature, va, old, new in recipe.runs() if feature == 8]
+    mode_bytes = {va + i for va, old, _ in mode_runs for i in range(len(old))}
+    changed = {va + i for va, old, new in mode_runs for i, (a, b) in enumerate(zip(old, new)) if a != b}
+    assert listed_bytes <= mode_bytes and changed <= listed_bytes, (sorted(map(hex, listed)), len(mode_bytes))
 
     # Independent historical inventory: all 68 documented original-image edits
     # must remain covered by exact original bytes and the reference replacements.
@@ -99,12 +112,16 @@ def main():
             assert dat['relocs'] == fields
             expected_originals = {va:bytes(old) for _,va,old,_ in recipe.runs()}
             assert {va:old for _,va,old,_ in dat['runs']} == expected_originals
-            movie_bytes = {va+i for va,n in [(0x403D6C,4),(0x403D78,4),(0x5F5B3B,4),
-                                            (0x5F5B43,4),(0x4057AC,7)] for i in range(n)}
+            # 2: the movie changes (the fit's entry, Bink's buffer type); 8: the display
+            # mode's four operands, apart since 2026-10-20 (original-movie-mode).
+            movie_bytes = {2: {va+i for va,n in [(0x405734,1),(0x4057AC,7)] for i in range(n)},
+                           8: {va+i for va,n in [(0x403D6C,4),(0x403D78,4),(0x5F5B3B,4),
+                                                 (0x5F5B43,4)] for i in range(n)}}
             for feature,va,old,new in dat['runs']:
-                if feature == 2:
-                    assert all(va+i in movie_bytes for i,(a,b) in enumerate(zip(old,new)) if a != b)
-            applied, _, block = kpm_data.moved(dat,0,1|2|4)
+                if feature in movie_bytes:
+                    assert all(va+i in movie_bytes[feature] for i,(a,b) in enumerate(zip(old,new)) if a != b)
+            assert any(feature == 8 for feature,_,_,_ in dat['runs'])
+            applied, _, block = kpm_data.moved(dat,0,1|2|4|8)
             values = {va+i:b for va,_,new in applied for i,b in enumerate(new)}
             integer = lambda va: struct.unpack('<i',bytes(values[va+i] for i in range(4)))[0]
             for va in (0x40AA65,0x5F0C65,0x403D6C,0x5F5B3B): assert integer(va) == width
@@ -120,7 +137,7 @@ def main():
             assert struct.unpack_from('<I',block,0x9000)[0] == 1
             assert struct.unpack_from('<I',kpm_data.moved(dat,0,1)[2],0x9000)[0] == 0
             applied_core, left, _ = kpm_data.moved(dat,0,1)
-            assert all(f == 2 for f,va,_,_ in dat['runs'] if any(va == v for v,_ in left))
+            assert all(f in (2, 8) for f,va,_,_ in dat['runs'] if any(va == v for v,_ in left))
             assert len(applied_core) < len(applied)
     print(f'PASS: 68 historical runs, 11 pages, 46 relocations (including omissions), {len(sizes)} resolutions')
 

@@ -429,6 +429,18 @@ names the jump and the moved code. The movie fields are a separate display-mode 
 render dimensions; see
 [`../reverse-engineering/movies.md`](../reverse-engineering/movies.md).
 
+*Since 2026-10-20, read from the source:* the two movie-mode rows are a feature of
+their own in KMRP's recipe (bit 8), so that `original-movie-mode=1` under
+`[Movies]` in `configs\kmrp.ini` can leave them at the clean executable's 640
+and 480; without that key they are `W` and `H` as in the table. The size a movie is
+drawn at is not a field: the `.kmv` stub computes it while the movie opens, from the
+client and the movie, and since that day fits it inside a 16:9 area,
+`min(W, H × 16 / 9)` wide. On a screen 16:9 or narrower in shape (1920×1080,
+3840×2160, 1600×1200 and the like) nothing changes; at 3440×1440 a 640×272 story
+movie is 2560×1088 (3388×1440 until then), and a 640×480 logo is 1920×1440 as before.
+The rule and the full table are in
+[`../reverse-engineering/movies.md`](../reverse-engineering/movies.md), *The 16:9 area*.
+
 **`0x28C4E3` is deliberately not replaced.** It is the last live comparison in
 the HUD minimap selector: gold sets it to 3440, so `mipc210x7.gui` -- the HUD
 hand-corrected for 3440×1440 -- loads there and every other resolution falls

@@ -24,6 +24,11 @@ the first version of this document:
 KMRP fixes both: gold v23 writes the selected resolution into the mode pair, and
 gold v24 replaces the scaling with a true aspect fit (§ Aspect fit).
 
+*Since 2026-10-20, read from the source and not yet seen in the game:* the fit is
+to a 16:9 area in the middle of the screen, not the whole screen (*The 16:9 area*),
+and Bink is asked to draw with GDI instead of DirectDraw (*KMRP asks for the DIB
+section*), KMRP's answer to issue 48.
+
 > **Where these bytes are written (note of 2026-10-08, read from the source).**
 > Until 2026-09-29 KMRP's installer wrote the four operands and the `.kmv`
 > routine into `swkotor.exe`. It no longer does: the module of `KMRP.kpatch`
@@ -39,7 +44,10 @@ gold v24 replaces the scaling with a true aspect fit (§ Aspect fit).
 > "Shipped", `ResolutionPatch` and `Test-MovieResolution.ps1` below describe the
 > installer's `--apply` output, a patched executable written to a new file,
 > which is still the reference ([`docs/kpm-edition.md`](../docs/kpm-edition.md)).
-> The movie fixes are part of KMRP's patch and not an option.
+> The movie fixes are part of KMRP's patch and not an option. *Since 2026-10-20*
+> one key that no installer writes, `original-movie-mode=1` under `[Movies]`
+> in `configs\kmrp.ini`, leaves the four operands out and keeps the rest
+> (*The fallback: `original-movie-mode`*, below).
 
 ### Correction, 2026-09-06
 
@@ -71,6 +79,7 @@ than inferred.
 | reference after this change | `swkotor_gold_v23_movies.exe`, SHA-256 `29BE3C23F53D53F521D98329F996248864834FB3873819DF63CCF1803C65A7E8` |
 | aspect fit | `swkotor_gold_v24_movieaspect.exe`, 4,087,808 bytes, SHA-256 `9DD81A75F4888FD67242B682BEE0AB4392EA8923CDF4A020CA3EDD2464C05E0A` -- the current gold |
 | shipped | the installer of 2026-09-24 (`ECA3DE4B…`), `--apply` at all 48 resolutions: the four operands below carry each resolution, and the `.kmv` stub is byte-identical to gold's in every output |
+| since 2026-10-20 | the source-built recipe (`tools/build_windows_engine.py`), not gold: `.kmv` 104 bytes (*The 16:9 area*), one more site at `0x00405734` (*KMRP asks for the DIB section*), the four operands as feature 8; 84 guarded runs, template 48,202 bytes, SHA-256 `B37B1910076438026944FA1968C4701381B8B6264C31A6EE539AADED96EDB102`, computed in memory from the working tree that day |
 | address convention | image base `0x00400000`; `VA = FILE + 0x00400000` for these original-image sites |
 | method | aligned `llvm-objdump` disassembly, raw-byte search, import inspection, builder read-back, four-resolution output regression |
 
@@ -118,6 +127,17 @@ mode path:
 Changing only the comparison pair leaves the second path requesting 640x480.
 Changing only the initialization pair leaves the entry branch comparing against
 640x480. Both copies are therefore one atomic resolution policy.
+
+**A feature of their own since 2026-10-20.** In the source-built recipe the four
+operands are feature bit 8, the movie display mode (`MOVIE_MODE` in
+`tools/build_windows_engine.py`, `kMovieMode` in `src/controller-native/K1KpmApplier.cpp`);
+until then they were bit 2 with the rest of the movie changes, which keeps the fit's
+jump and, since the same day, Bink's buffer type. They are three guarded runs:
+`0x00403D6C` (4 bytes), `0x00403D78` (4) and `0x005F5B3B` (12: both `mov` operands and
+the four instruction bytes between them). KMRP's module applies bit 8 unless
+`original-movie-mode=1` (*The fallback*, below), so both pairs still change together
+or not at all. `WindowsEnginePatch.cs` accepts bit 8 in the template since the same
+day, and `--apply` writes every feature.
 
 ### What each pair guards, and a third copy (2026-10-19)
 
@@ -177,6 +197,11 @@ aspect-fit scale from the Bink handle's width and height" and concluded that KMR
 retracted, left behind when the rest of the document was fixed.
 
 ## Aspect fit (gold v24)
+
+*Since 2026-10-20 the stub is 104 bytes and fits the movie inside a 16:9 area
+(*The 16:9 area*, below). The listing and the table in this section are gold v24's
+81-byte stub as it shipped until then, kept as the record; the jump into it and the
+retail code it returns to are unchanged.*
 
 `tools/build_movie_aspect_fit.py` replaces the seven bytes at `0x004057AC`, where
 the width-only computation starts, with a jump into `.kmv`, the eleventh appended
@@ -247,6 +272,108 @@ Retail drew the same logo at 3440x2580 on a 3440x1440 screen. Fitting leaves
 bars beside a movie narrower than the screen, and those bars were never painted
 -- the grey flash below, which is why that fix followed this one.
 
+### The 16:9 area (2026-10-20)
+
+**Kind: read from the source and disassembled from `build_stub`; not seen in the
+game.** On 2026-10-20 the maintainer chose to fit every movie inside a 16:9 area in
+the middle of the screen. With the fit above, a 2.35:1 story movie filled a 3440x1440
+screen (3388x1440) and looked zoomed in. It is now 2560x1088, the size it has on a
+16:9 screen of the same height.
+
+The rule, in integers (`idiv` truncates; the sizes are positive):
+
+```
+w16    = min(cw, ch * 16 / 9)          cw, ch: the client's width and height
+if w16 * mh <= ch * mw:  width = w16,            height = mh * w16 / mw
+else:                    width = mw * ch / mh,   height = ch
+x = (cw - width) / 2,  y = (ch - height) / 2   (retail's centring, unchanged)
+```
+
+On a screen 16:9 or narrower `w16` is the client width and nothing changes.
+`build_stub` puts the cap in front of gold v24's code; disassembled with Capstone from
+`build_movie_aspect_fit.build_stub(0x877000)`, the address `tools/build_windows_engine.py`
+gives the page (logical VA; the module moves the block, section 2 of
+[`docs/kpm-edition.md`](../docs/kpm-edition.md)):
+
+```asm
+; entry as before: ESI = CExoMoviePlayerInternal*, EBX = client width,
+;                  EBP = client bottom, [esp+24] = client top
+00877000  57                    push edi
+00877001  8b c5                 mov  eax, ebp
+00877003  2b 44 24 28           sub  eax, [esp+28]     ; ch = bottom - top
+00877007  c1 e0 04              shl  eax, 4            ; ch * 16
+0087700A  99                    cdq
+0087700B  b9 09 00 00 00        mov  ecx, 9
+00877010  f7 f9                 idiv ecx               ; w16 = ch * 16 / 9
+00877012  3b d8                 cmp  ebx, eax
+00877014  7e 02                 jle  0x00877018        ; the client is no wider than 16:9: keep cw
+00877016  8b d8                 mov  ebx, eax          ; else fit to w16 from here on
+00877018  8b 46 48              mov  eax, [esi+48]     ; BINK*: gold v24's code from here
+...                                                    ; each address 0x17 higher than above
+00877052  89 7c 24 14           mov  [esp+14], edi     ; the height the caller centres with
+00877056  8b 46 4c              mov  eax, [esi+4c]
+00877059  57 53 50              push edi / push ebx / push eax
+0087705C  ff 15 84 d4 73 00     call [0x0073D484]      ; BinkBufferSetScale(buffer, width, height)
+00877062  5f                    pop  edi
+00877063  e9 a0 e7 b8 ff        jmp  0x00405808
+```
+
+104 bytes, 23 more than gold v24's. The one relocated field in it is the last jump's
+displacement, now at `0x00877064` (`0x0087704D` in gold v24). **Why the picture stays
+in the middle:** what the stub hands back is the drawn width in EBX and the drawn
+height at `[esp+10]` (written as `[esp+14]` while EDI is pushed), as gold v24's did.
+Retail's centring at `0x00405808`, read from the clean executable, measures from the
+client's own edges, not from `w16`:
+
+```asm
+00405808  8b c7                 mov  eax, edi          ; client right (EDI, restored by the stub's pop)
+0040580A  2b c3                 sub  eax, ebx          ; - drawn width
+0040580C  2b 44 24 20           sub  eax, [esp+20]     ; - client left
+00405810  8b 5c 24 24           mov  ebx, [esp+24]     ; client top
+00405817  d1 f8                 sar  eax, 1            ; x = (cw - width) / 2  (after cdq / sub eax,edx)
+0040581F  8b c5                 mov  eax, ebp          ; client bottom
+00405821  2b 44 24 10           sub  eax, [esp+10]     ; - drawn height
+00405825  2b c3                 sub  eax, ebx          ; - client top
+0040582A  d1 f8                 sar  eax, 1            ; y = (ch - height) / 2
+00405867  ff 15 80 d4 73 00     call [0x0073D480]      ; BinkBufferSetOffset(buffer, x, y)
+```
+
+What it gives, from the rule (offsets in brackets; "was" is gold v24's stub, where it
+differs):
+
+| screen | 640x480 logo | 640x272 movie | 640x360 movie | 1280x720 movie |
+| --- | --- | --- | --- | --- |
+| 800x600 | 800x600 (0,0) | 800x340 (0,130) | 800x450 (0,75) | 800x450 (0,75) |
+| 1920x1080 | 1440x1080 (240,0) | 1920x816 (0,132) | 1920x1080 (0,0) | 1920x1080 (0,0) |
+| 2560x1080 | 1440x1080 (560,0) | 1920x816 (320,132); was 2541x1080 | 1920x1080 (320,0) | 1920x1080 (320,0) |
+| 3440x1440 | 1920x1440 (760,0) | **2560x1088 (440,176); was 3388x1440** | 2560x1440 (440,0) | 2560x1440 (440,0) |
+| 3840x2160 | 2880x2160 (480,0) | 3840x1632 (0,264) | 3840x2160 (0,0) | 3840x2160 (0,0) |
+| 5120x1440 | 1920x1440 (1600,0) | 2560x1088 (1280,176); was 3388x1440 | 2560x1440 (1280,0) | 2560x1440 (1280,0) |
+
+The 640x480 logos and the 640x360 and 1280x720 movies were already narrower than
+16:9 on these screens, so only the 2.35:1 story movies change, and only on screens
+wider than 16:9. Two consequences of the rule, computed and not seen:
+- **A movie made for an ultrawide screen is not shown at full width any more.** A
+  movie whose Bink header says 3440x1440 is drawn 2560x1071 on a 3440x1440 screen
+  (full screen until 2026-10-20). That is the case of a replacement set encoded for
+  the screen, such as the K1 Cutscenes Rescaled set this document mentions under
+  *Compatibility and limits*; the headers of that mod's files were not read.
+- **Truncation can cost a row.** At 3840x1600, `w16` is 2844 (2844.4 truncated) and
+  a 640x360 movie is drawn 2844x1599, not 2844x1600.
+
+Not changed: the jump at `0x004057AC`, retail's centring and `BinkBufferSetOffset`,
+the call to `BinkBufferSetScale` on every movie, the black bars (now on all four sides
+of a 2.35:1 movie on a screen wider than 16:9: they are the movie window's black
+brush, *The grey flash*, below), and everything at 16:9 or narrower. Checked by
+`testing/regression/Test-WindowsEngineSource.py`, which expects `.kmv` at 104 bytes
+and 452 instructions proved after a move (443 until then); it checks bytes, not a
+movie on screen. To read the stub again:
+
+```powershell
+cd tools
+python -B -c "import build_movie_aspect_fit as m; from capstone import *; c=m.build_stub(0x877000); print(len(c)); [print(hex(i.address), i.mnemonic, i.op_str) for i in Cs(CS_ARCH_X86, CS_MODE_32).disasm(c, 0x877000)]"
+```
+
 ## Bink's buffer: DirectDraw or GDI (2026-10-19)
 
 **Kind: static, from the Steam copy's `binkw32Hooked.dll`** (the game's own Bink, which
@@ -269,10 +396,51 @@ the buffer, which `BinkBufferGetDescription` names:
 
 - **Every type but 2 draws through DirectDraw;** the DLL loads `DDRAW.DLL` itself.
 - **Type 2 draws with GDI** (`CreateDIBSection`, `StretchBlt`).
-- **Which type a PC gets has not been measured on any PC.**
+- **Which type a PC gets has not been measured on any PC.** (Since 2026-10-20 KMRP
+  asks for type 2, next subsection; that Bink then opens a DIB section on every PC
+  has not been measured either.)
 - **Retail skips `BinkBufferSetScale` when the window is exactly as wide as the movie**
   (`je 0x00405834`), which at 640x480 is every 640-wide movie. The `.kmv` stub always
   calls it.
+
+### KMRP asks for the DIB section (2026-10-20)
+
+**Kind: one byte, read from the source and checked against the clean executable; not
+seen on any PC.** Since 2026-10-20 KMRP passes type 2 instead of 0, for every player,
+with no option to turn it off. It is aimed at the first hypothesis for issue 48 (last
+section): DirectDraw output that is not shown over the full-screen OpenGL window. A
+DIB section is drawn with GDI into the movie window.
+
+| VA | FILE | size | clean | KMRP | feature | purpose |
+| --- | --- | --- | --- | --- | --- | --- |
+| `0x00405734` | `0x005734` | 1 | `00` | `02` | 2 (movies) | the low byte of `BinkBufferOpen`'s flags: buffer type 2 |
+
+Clean, and with KMRP (`FILE = VA − 0x400000`; disassembled from
+`build-inputs/swkotornopatch.exe`, SHA-256 `761F9466…C49E9886`):
+
+```asm
+00405733  68 00 00 00 5d        push 0x5D000000        ; flags: type 0, Bink's own choice
+00405738  52                    push edx               ; movie height
+00405739  50                    push eax               ; movie width
+0040573A  51                    push ecx               ; the movie window
+0040573B  ff 15 8c d4 73 00     call [0x0073D48C]      ; BinkBufferOpen
+; with KMRP:
+00405733  68 02 00 00 5d        push 0x5D000002        ; flags: type 2, DIB section
+```
+
+The high byte, `0x5D`, is unchanged. Bink's SDK names type 2 `BINKBUFFERDIBSECTION`;
+that header is not in this repository, and the type's meaning here is the table above,
+read from `BinkBufferGetDescription`. The site is in `src/engine/windows-sites.json`,
+and `tools/build_windows_engine.py` makes it feature 2, with the fit's jump: it stays
+in when `original-movie-mode=1` leaves the display mode out. The recipe has 84 guarded
+runs since (83 until then). No hook of KMRP's two patches and none of K1 Modern Driver
+Compatibility 2.0.0's 28 sites lies on it
+([`../docs/third-party-driver-compat.md`](../docs/third-party-driver-compat.md),
+section 4, rerun on 2026-10-20).
+
+**Untested:** Windows 7, AMD cards, and so whether it ends issue 48; how fast GDI
+stretches a frame to 2560x1440 or 3840x2160 compared with DirectDraw, on any PC;
+K1 Modern Driver Compatibility's `BinkCopyToBuffer` hook writing into a DIB section.
 
 The section *The grey flash* below ("none of them is a Bink problem") holds for the
 flash and the bars. Whether the black picture of issue 48 is a Bink problem is open: see
@@ -481,7 +649,9 @@ Vanilla plays them all, and so does the game with Flawless Widescreen.
 - **K1DC cannot take part on Windows 7:** it does not load there
   ([`../docs/third-party-driver-compat.md`](../docs/third-party-driver-compat.md),
   section 3). Elsewhere, its one movie hook, the `BinkCopyToBuffer` import, corrects
-  RGB frames only and touches no window.
+  RGB frames only and touches no window. (On 2026-10-20 Synchro told the maintainer
+  they will publish K1DC with Windows 7 support themselves; until then KMRP's
+  installer leaves it out there, as before.)
 
 **Hypotheses, most likely first:**
 1. **Bink chose a DirectDraw type, and its output is not shown** while the driver
@@ -506,6 +676,64 @@ so the difference is more likely the driver's state than another branch of the g
   or Bink's DIB section forced, the byte at `0x00405734` from `00` to `02` (flags
   `0x5D000002`).
 
+**Built on 2026-10-20, not run on Windows 7 or with an AMD card.** Both changes are in
+KMRP's patch from that day; neither has been run on the reporter's kind of PC, and
+issue 48 stays open until one has.
+- **The DIB section, for everyone, by default** (*KMRP asks for the DIB section*,
+  above): aimed at the first hypothesis. Not a test build with one change: it ships
+  to every player, with the four operands and the 16:9 area as before.
+- **The fallback, `original-movie-mode`**, next subsection: the switch to 640x480
+  back, for a PC where the movies are still black.
+
+### The fallback: `original-movie-mode`
+
+**Kind: read from the source; not run.** A player who still sees black movies can add
+two lines to `configs\kmrp.ini` in the game folder, a section of their own:
+
+```ini
+[Movies]
+original-movie-mode=1
+```
+
+`OptionalFeatures` in `src/controller-native/K1RuntimeEngine.cpp` reads it once, when
+the game starts (`OriginalMovieMode`); a missing key, or 0, is off. (For an hour on
+2026-10-20 it was a key under `[Patch Options]`, which every install rewrites; see
+below.)
+With it on, the module leaves out feature 8, the four operands (*The four operands*,
+above), and they keep the clean executable's 640 and 480. The game then switches the
+screen as it did unpatched:
+- the first window is made at 640x480, the mode the startup movies play in (the
+  second pair, `ReadAndSetVideoMode`); those are the movies that were black on the
+  reporter's PC;
+- before a story movie in full screen the screen goes to 640x480 (the first pair,
+  `ChangeResolutionForMovie`).
+
+What stays KMRP's: the fit and its 16:9 area (which changes nothing at 640x480, where
+`w16` is 853), the movie window's black brush and bars, and the DIB section. With
+`debug-logs=1` the `applied:` line of `KMRP\logs\kmrp-kpm.log` names
+"KMRP + Movies at 640x480" where it otherwise says "KMRP + Movies".
+
+It is not an option of the patch: neither the installer's Advanced Settings nor a
+KOTOR Patch Manager option list offers it, and nothing writes it but the player. It is
+in a section of its own because the installer rewrites `[Patch Options]` with its own
+keys on every install (`WritePatchOptions`, `src/patcher/KpmEdition.cs`) and Restore
+Original takes that section out (`RemovePatchOptions`); both leave every other section
+of the file as it is. *Correction, 2026-10-20:* the first version of that day read the
+key from `[Patch Options]`, where any install removed it; found by reading the
+installer's code, before any build left the machine. Whether a KOTOR Patch Manager with
+patch options keeps another section was not checked.
+
+**A change of resolution in the game.** `KmrpRuntimeEngineDimensions`
+(`K1RuntimeEngine.cpp`) writes a new size only after checking that every size field
+still holds the value it computed at start. The four operands are size fields
+(`resolution_fields` in `tools/build_native_engine.py`), and with the key on they are
+never written. *Correction, 2026-10-20:* the first version checked them anyway, so at
+any start size but 640x480 every change of resolution in the game would have been
+refused ("native size transaction refused: field 00403D6C changed"), found by reading
+the source. Since then the check and the write leave those four out while feature 8
+is (`FieldInForce`), and `Test-WindowsEngineSource.py` holds its list of four against
+the recipe's feature-8 bytes. Not run.
+
 ## Compatibility and limits
 
 The *K1 Cutscenes Rescaled* changelog says version 1.5.1 corrected a 60-fps
@@ -517,7 +745,10 @@ Automated coverage in `testing/regression/Test-MovieResolution.ps1` generates
 800x600, 1920x1080, 3440x1440, and 3840x2160 executables, then reads all four
 movie operands and the four ordinary render-resolution operands back from each.
 The gold builder independently verifies every original value, output length,
-final SHA-256, and written-file SHA-256.
+final SHA-256, and written-file SHA-256. (*Since 2026-10-20*
+`tools/build_movie_aspect_fit.py` no longer compares its output with gold v24's
+SHA-256: its stub is the 104-byte one, so its output is not gold v24 any more. The
+build takes only `build_stub` from it; its header says so.)
 
 **Untested:** actual vanilla BIK playback, and rescaled playback other than
 the 3440x1440 report above; 16:9 and 4K transitions; Alt-Tab (a skip never minimised the game, 2026-09-25); the first title crawl; 30-fps versus
@@ -536,3 +767,14 @@ to this Codex session, so static verification is not presented as a play-test.
 - **The regression tests check bytes only.** `Test-MovieResolution.ps1` checks the
   installer's `--apply` output and `Test-WindowsEngineSource.py` the recipe; neither
   plays a movie.
+
+*Since 2026-10-20*, none of the three changes of that day has been seen in the game
+or run on Windows 7:
+- the 16:9 area, on any screen (*The 16:9 area*);
+- the DIB section, on any PC, its speed included (*KMRP asks for the DIB section*);
+- `original-movie-mode=1` (*The fallback*), and a change of resolution in the game
+  with it on.
+
+`Test-WindowsEngineSource.py` covers the bytes: `.kmv` at 104 bytes, 452 instructions
+proved after a move (443 until then), the new site under feature 2 and the four
+operands under feature 8.

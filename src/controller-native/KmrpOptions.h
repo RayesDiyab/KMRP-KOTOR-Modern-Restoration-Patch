@@ -15,6 +15,7 @@
 // every option at its default; so a missing file, section or key is the default.
 // Each value is read once, the first time it is asked for.
 #include <windows.h>
+#include <cstdio>
 #include <cwchar>
 
 // The game's folder: the running program's, or the one named here when KMRP's installer
@@ -40,6 +41,55 @@ inline bool KmrpGameFolder(wchar_t (&path)[MAX_PATH])
 inline bool KmrpGamePath(wchar_t (&path)[MAX_PATH], const wchar_t* name)
 {
     return KmrpGameFolder(path) && !wcscat_s(path, L"\\") && !wcscat_s(path, name);
+}
+
+// KMRP's own files are in one folder in the game's, KMRP, since 2026-10-20 (the
+// maintainer: "we shouldnt clutter the folder like this"): the logs in KMRP\logs, the
+// controller's settings as KMRP\controller.ini. Until then they were loose in the game's
+// folder; KMRP's installer moves an earlier install's (KmrpFolder in
+// src/patcher/KmrpPatcher.cs), and KmrpControllerSettingsPath moves the settings itself
+// for a controller patch installed without it.
+
+// `path` set to the log `name` in KMRP\logs, the folders made.
+inline bool KmrpLogPath(wchar_t (&path)[MAX_PATH], const wchar_t* name)
+{
+    if (!KmrpGamePath(path, L"KMRP")) return false;
+    CreateDirectoryW(path, nullptr);
+    if (wcscat_s(path, L"\\logs")) return false;
+    CreateDirectoryW(path, nullptr);
+    return !wcscat_s(path, L"\\") && !wcscat_s(path, name);
+}
+
+// The log `name` in KMRP\logs opened to append to, or null.
+inline FILE* KmrpOpenLog(const wchar_t* name)
+{
+    wchar_t path[MAX_PATH];
+    FILE* f = nullptr;
+    if (!KmrpLogPath(path, name) || _wfopen_s(&f, path, L"a")) return nullptr;
+    return f;
+}
+
+// The same as a handle, shared for reading while it is written, or INVALID_HANDLE_VALUE.
+inline HANDLE KmrpAppendLog(const wchar_t* name)
+{
+    wchar_t path[MAX_PATH];
+    if (!KmrpLogPath(path, name)) return INVALID_HANDLE_VALUE;
+    return CreateFileW(path, FILE_APPEND_DATA, FILE_SHARE_READ, nullptr, OPEN_ALWAYS, FILE_ATTRIBUTE_NORMAL, nullptr);
+}
+
+// `path` set to the controller's settings, KMRP\controller.ini. The game folder's
+// kmrp-controller.ini, where they were until 2026-10-20, is moved there the first time.
+inline bool KmrpControllerSettingsPath(wchar_t (&path)[MAX_PATH])
+{
+    wchar_t old[MAX_PATH];
+    if (!KmrpGamePath(path, L"KMRP")) return false;
+    CreateDirectoryW(path, nullptr);
+    if (wcscat_s(path, L"\\controller.ini")) return false;
+    if (GetFileAttributesW(path) == INVALID_FILE_ATTRIBUTES && KmrpGamePath(old, L"kmrp-controller.ini") &&
+            GetFileAttributesW(old) != INVALID_FILE_ATTRIBUTES) {
+        MoveFileExW(old, path, MOVEFILE_COPY_ALLOWED);
+    }
+    return true;
 }
 
 inline int KmrpPatchOption(const wchar_t* option, int fallback)

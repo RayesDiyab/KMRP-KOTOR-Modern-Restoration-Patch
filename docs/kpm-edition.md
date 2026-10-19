@@ -13,6 +13,79 @@ session notes summarised under *Rejected alternatives* below.
 writes that image to a new file with `--apply`, and it remains the reference the
 data file is proved against (section 7); installing it is retired.
 
+## KMRP's own folder since 2026-10-20
+
+**Read from the source on 2026-10-20 (`KmrpFolder` in `src/patcher/KmrpPatcher.cs`,
+`KmrpLogPath` and `KmrpControllerSettingsPath` in `src/controller-native/KmrpOptions.h`);
+not run in a game.** At the maintainer's request ("we shouldnt clutter the folder like
+this") KMRP's own files are in one folder, `KMRP`, in the game folder, with its logs in
+`KMRP\logs` and what a restore puts back in `KMRP\backups`. Names below are relative to
+the game folder; the rest of this document names them as they were.
+
+| until 2026-10-20, in the game folder | since |
+| --- | --- |
+| `KMRP.log`, the installer's log | `KMRP\logs\install.log` |
+| `kmrp-kpm.log`, `kmrp-controller.log`, `kmrp-controller-events.log`, `kmrp-native-joystick.log`, `kmrp-native-preview.log`, `kmrp-layout-lifecycle.log`, `kmrp-confirm-focus.log`, `kmrp-rumble.log`, written by the game's modules | `KMRP\logs\`, the same names |
+| `KMRP_KPM.manifest` | `KMRP\kpm.manifest` |
+| `KMRP_DriverCompat.manifest` | `KMRP\driver-compat.manifest` |
+| `KMRP_DPI.manifest` | `KMRP\dpi.manifest` |
+| `KMRP_NVIDIA.manifest` | `KMRP\nvidia.manifest` |
+| `kmrp-controller.ini`, the controller's settings (rumble, `Style` under `[Hud]`, `[Controller Remap]`) | `KMRP\controller.ini` |
+| `kmrp-kotor-patch-manager-LICENSE.txt` | `KMRP\kotor-patch-manager-LICENSE.txt` |
+| `swkotor.ini.kotor-ui-backup` and its `.sha256` | `KMRP\backups\swkotor.ini` and `swkotor.ini.sha256` |
+
+**Not moved,** because the game or KOTOR Patch Manager loads them from the game folder:
+`KotorPatcher.dll`, `patch_config.toml`, `kpm_install_state.json`, the `binkw32.dll`
+proxy and `binkw32Hooked.dll`, `patches\` (the modules and `kmrp-assets.pack`),
+`configs\` (`kmrp.ini` and `kmrp-controller.ini`, the patch options), and K1DC's
+`dinput8.dll` and `.asi`. K1DC's own `K1DriverCompat.ini` and `logs\` are Synchro's and
+untouched. What only the standalone installer wrote, until 2026-09-29
+(`swkotor.exe.kotor-ui-backup`, `KOTOR_UI_Override_Backup` and its manifest,
+`KMRP_Controller.manifest`, `swkotor.exe.kotor-ui-patch.json`), stays where it wrote it,
+and its own restore reads it there.
+
+**An earlier install's files** are moved by `KmrpFolder.Migrate`, which runs at the
+start of an install, after its refusal checks, and at the start of a restore. It makes
+`KMRP`, `KMRP\logs` and `KMRP\backups` and moves each file to its place: a log is
+appended after the lines already there (the older lines first); anything else moves
+only when its place is free, and otherwise stays where it is. Rows of `kpm.manifest`
+that named a moved file are rewritten to the new name. Until the next install,
+`KmrpFolder.PathOf` finds a file that has not been moved yet at its old name. The game
+moves `kmrp-controller.ini` to `KMRP\controller.ini` itself, the first time it reads it
+(`KmrpControllerSettingsPath`), for a controller patch installed through KOTOR Patch
+Manager alone; modules of a build from that day write their logs to `KMRP\logs` from
+their first start, and logs written at the old place are moved by the next install. A manifest row may name
+a file in `KMRP\` since the same day (`IsOwnedName`, `KpmEdition.cs`).
+
+**Restore Original** removes KMRP's folders that end up empty, `KMRP` last. It keeps
+`KMRP\logs\install.log` and `KMRP\backups\swkotor.ini`, as until then it kept
+`KMRP.log` and the backup beside `swkotor.ini`, so those two folders usually remain.
+
+**Two places that still use an old name (read from the source on 2026-10-20):**
+- the module's own NVIDIA step writes `KMRP_NVIDIA.manifest` beside the game
+  (`K1RuntimeNvidia.cpp`, [NVIDIA present method](nvidia-present-method.md)), which the
+  next install or restore moves;
+- the standalone installer's restore (`ControllerOperations`) looks for
+  `kmrp-controller.ini`, the name its `KMRP_Controller.manifest` records. An install
+  over a standalone one migrates first, so that file is already `KMRP\controller.ini`
+  when the restore runs: the restore leaves it, and the install, finding it there,
+  neither rewrites nor claims it. Until 2026-10-20 the restore removed an unedited copy
+  and the install wrote and claimed a new one.
+
+`Test-InstallerPatch.ps1` checks the layout: case 1 that the files are in `KMRP` and
+none is loose beside the game, case 11 an install over the loose files of an earlier
+one (none left loose, the manifest naming `KMRP\controller.ini`, the old log first in
+`install.log`, and a restore leaving the folder as it was); every restore is compared
+without `KMRP\backups` and `KMRP\logs`. Not run for this document.
+
+**The movie display mode, feature 8, the same day.** The four movie display-mode
+operands are a patch bit of their own, 8, apart from the rest of the movie changes (bit
+2), so that `original-movie-mode=1` in `configs\kmrp.ini`, which only a player writes,
+can leave them out ([movies](../reverse-engineering/movies.md), *The fallback*). The
+recipe gained one run the same day, Bink's buffer type at `0x00405734` (bit 2), and
+`.kmv` is 104 bytes. Sections 3 and 4 below describe the bits and the block as they
+were.
+
 ## Two patches since 2026-10-05
 
 **Read this before the next section.** On 2026-10-05 the maintainer took the
@@ -299,7 +372,10 @@ the game's `binkw32.dll` back -- or, when Steam's file check has already put the
 original back, deletes the now duplicate `binkw32Hooked.dll` -- and clears the flag
 only if it set it and the file is still `CA9D22EA…`. Anything changed since is
 left, and said so. A manifest line that names anything but a file in the game
-folder or its `patches\`, or any rename but that one, is ignored.
+folder or its `patches\`, or any rename but that one, is ignored. (*Since
+2026-10-20* the manifest is `KMRP\kpm.manifest`, and a line may also name a file in
+`KMRP\`: the controller's settings and KPM's licence are there. See *KMRP's own folder
+since 2026-10-20*, above.)
 
 **What it refuses, before changing anything:** with its own runtime, a game
 folder without `binkw32.dll`. A folder where `binkw32Hooked.dll`,
@@ -555,6 +631,13 @@ seventeenth, the branch into `.ktn` at `0x00415E0D`, was missed because Capstone
 it; the sweep now steps over undecodable bytes. That is why neither method is
 trusted alone.
 
+*Since 2026-10-20* (`relocations()` in `tools/build_windows_engine.py`, run in memory
+that day): `.kmv` is 104 bytes, with the 16:9 area in front of the code above
+([movies](../reverse-engineering/movies.md), *The 16:9 area*), so its one OUT field,
+the last jump's displacement, is at `0x00877064` rather than `0x0087704d`, and 452
+instructions are proved after a move, not 443. Still 46 fields; the table above is
+gold's, as it was measured.
+
 ## 4. `kmrp-kpm.dat` and the applier
 
 The KPM installer writes `kmrp-kpm.dat` beside the game. Little-endian:
@@ -569,7 +652,12 @@ The KPM installer writes `kmrp-kpm.dat` beside the game. Little-endian:
 | checksum | FNV-1a of everything before it |
 
 The patch bits are 1 for KMRP itself, 2 for KMRP Movies and 4 for KMRP Map Notes;
-KMRP Controller changes no executable byte. What belongs to the two optional
+KMRP Controller changes no executable byte. (*Since 2026-10-20* there is a fourth,
+8, the movie display mode: the four operands in the first row below. The module of the
+one `kmrp` patch applies it unless `original-movie-mode=1` is in `configs\kmrp.ini`;
+an install of the old `kmrp-movies` patch would still get both 2 and 8
+(`InstalledFeatures`, `K1KpmApplier.cpp`). Bit 2 has gained Bink's buffer type at
+`0x00405734`.) What belongs to the two optional
 patches is decided in `BuildData`, and each run belongs to exactly one:
 
 | patch | what | where |
@@ -611,8 +699,8 @@ The core patch's copy, `patches\kmrp.dll`, then:
    run, writes the chosen runs, putting back any already written if one fails, and
    lets the threads go.
 
-All or nothing: any failure logs the reason to `kmrp-kpm.log` beside the game and
-leaves the game unmodified. Success logs two lines such as `applied: KMRP + Movies
+All or nothing: any failure logs the reason to `kmrp-kpm.log` beside the game
+(`KMRP\logs\kmrp-kpm.log` since 2026-10-20) and leaves the game unmodified. Success logs two lines such as `applied: KMRP + Movies
 + Map Notes -- 91 of 91 runs (577 bytes) and KMRP's code at 02CD0000 (moved by
 +38154240), 46 relocations.` and `Steam executable; 457 ms after the game started,
 after its window; 8 other thread(s) paused while writing.` (measured on Steam at

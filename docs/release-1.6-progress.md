@@ -140,13 +140,13 @@ running over. Not looked at.
 | #65 | Dialog text size | The subtitles slider and the conversation text room |
 | #46 | Analog-stick movement conflicts | Related: the corner speed (`cae4531`). The issue's own cases (Steam Controller, DualSense, both sticks) wait for the reporter's hardware results. |
 | #43 | Bundle Marked Empty Containers | `f0ca54c`. Not yet seen in the game. |
-| #49 | The original Xbox controls as the controller layout | Built, uncommitted (2026-10-19): the Xbox layout everywhere, below. Not yet seen in the game. |
+| #49 | The original Xbox controls as the controller layout | `f2435a2` (2026-10-19): the Xbox layout everywhere, below. Not yet seen in the game. |
+| #48 | Black movies with sound on Windows 7 and AMD | Built, uncommitted (2026-10-20): Bink draws with GDI, and `original-movie-mode=1` as a fallback, below. Not run on Windows 7; the reporter's test is the check. |
 
 **Open and not worked on for 1.6 yet:** #66 (the player's icon on the minimap at different
-resolutions), #57, #56, #54, #48, #45, #44, #15. (Until 2026-10-19 this list also had #49
-and #43, now in the table above, and #48 has an investigation and a plan in
-`reverse-engineering/movies.md`, but no fix yet.) (#55 is answered by the action
-row below.)
+resolutions), #57, #56, #54, #45, #44, #15. (Until 2026-10-19 this list also had #49
+and #43, and until 2026-10-20 #48, now in the table above.) (#55 is answered by the
+action row below.)
 
 ### HUD Size and the action row (the commit after `8830c6b`)
 
@@ -165,7 +165,15 @@ row below.)
 | **Disengage in the HUD Size preview** | The preview shows the combat queue's frame round Disengage, as the game draws it, with the word centred. | | Yes, at 1920x1080 by scripted input. |
 | **HD font: every character, no stray lines** | The New HD Font shows the euro sign, curly quotes, ellipsis, dashes, the trade mark sign and Œ, Š, Ž as the original font does (they were boxes), and the lines after spaces in the HUD's font are gone. | #52 (the HD font) | The lines: seen before the fix at 1920x1080 and 3440x1440. After the rebuild: **not yet seen in the game**. |
 
-### The original Xbox controls (uncommitted, 2026-10-19)
+### Movies and a tidy game folder (uncommitted, 2026-10-20)
+
+| Feature | What the player gets | Issues | Seen in play |
+| --- | --- | --- | --- |
+| **Movies in a 16:9 area** | On a screen wider than 16:9 every movie is fitted inside a 16:9 area in the middle, with black bars round it: at 3440x1440 the story movies are 2560x1088 (they filled the screen before and looked zoomed in). 16:9 and narrower screens are unchanged. | | **Not yet.** |
+| **Movies drawn with GDI** | Bink draws movies with GDI (its DIB section) instead of DirectDraw, for everyone: KMRP's fix for black startup movies with sound on Windows 7 with a Radeon. `original-movie-mode=1` in `configs\kmrp.ini` brings back the game's own switch to 640x480 for movies, as a fallback. | #48 | **Not yet,** and not run on Windows 7 or with AMD. |
+| **One `KMRP` folder** | KMRP's own files are no longer loose beside the game: logs in `KMRP\logs`, the restore backups in `KMRP\backups`, the manifests, the controller's settings and KOTOR Patch Manager's licence in `KMRP`. An earlier install's files move there by themselves. | | **Not yet;** the installer test with an old-layout folder (case 11) has not been run. |
+
+### The original Xbox controls (committed `f2435a2`, 2026-10-19)
 
 | Feature | What the player gets | Issues | Seen in play |
 | --- | --- | --- | --- |
