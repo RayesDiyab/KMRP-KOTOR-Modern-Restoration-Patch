@@ -7,6 +7,11 @@ style, the default since 2026-10-18. How the style is chosen, stored in the bank
 fitted to the drawn size is in [in-game text options](ingame-text-options.md); the
 Old HD atlases are in [font scaling](font-scaling.md).
 
+**Typography research credit:** Thanks to **SithHolocron** of DeadlyStream and Discord for
+providing the initial typeface research and comparisons that identified Bank Gothic and
+Helvetica as the likely basis for KOTOR's fonts. Those references were the starting point
+for KMRP's glyph-by-glyph reconstruction against the original game atlases.
+
 Provenance: every number below was read from the original atlases and from the
 built HD atlases with the tool's own `Stock` class (and `fit_ring`, `fit_donor`), on
 2026-10-18; section 8 repeats each read. The comparison images were drawn by local
