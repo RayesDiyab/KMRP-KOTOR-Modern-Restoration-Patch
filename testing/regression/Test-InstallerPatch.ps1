@@ -26,6 +26,16 @@
          High FPS Fixes is the third patch in patch_config.toml with its 36 hooks,
          its module and its .kpatch are the bundled file's, and restore removes them.
 
+    Case 8 (2026-10-19): Modern Driver Compatibility on, off in every case above: the
+    installer writes Synchro's two files, byte for byte the vendored 2.0.0 standalone
+    build, beside the game with their manifest, and Restore Original removes them.
+
+    Since 2026-10-19 case 1 also checks the art pack, patches\kmrp-assets.pack, the
+    build's own, and the art the installer makes from it before the game starts: the
+    common files and at least one size in the cache. Case 4 checks that Restore
+    Original removes both. The cache is the module's, under %LOCALAPPDATA%, which the
+    run points at a folder of its own, so the player's own cache is never touched.
+
     The installer reads its options from %LOCALAPPDATA%\KMRP\settings.json and
     KOTOR Patch Manager's patch folder from %APPDATA%\KPatchLauncher\settings.json.
     Both are replaced for the run and put back in a finally block, from copies kept
@@ -78,8 +88,10 @@ function Get-Listing([string]$folder) {
         $_.FullName.Substring($folder.Length) + " " + (Get-Sha $_.FullName)
     }
 }
-function Set-KmrpSettings([bool]$controller, [bool]$markers, [string]$off = "", [string]$extra = "", [bool]$highFps = $false) {
-    $text = "{`r`n  `"driverCompatibility`": false,`r`n  `"markerFixes`": " + $markers.ToString().ToLowerInvariant() +
+function Set-KmrpSettings([bool]$controller, [bool]$markers, [string]$off = "", [string]$extra = "", [bool]$highFps = $false,
+                          [bool]$driverCompat = $false) {
+    $text = "{`r`n  `"driverCompatibility`": " + $driverCompat.ToString().ToLowerInvariant() +
+        ",`r`n  `"markerFixes`": " + $markers.ToString().ToLowerInvariant() +
         ",`r`n  `"controllerSupport`": " + $controller.ToString().ToLowerInvariant()
     if ($off) { $text += ",`r`n  `"resolutionsOff`": `"$off`"" }
     if ($extra) { $text += ",`r`n  `"resolutionsExtra`": `"$extra`"" }
@@ -121,8 +133,16 @@ if ($hadKmrp) { Copy-Item -LiteralPath $kmrpSettings -Destination $kmrpCopy }
 if ($hadKpm) { Copy-Item -LiteralPath $kpmSettings -Destination $kpmCopy }
 $kpmPatches = Join-Path $WorkRoot "kpm-patch-folder"
 New-Item -ItemType Directory -Force -Path $kpmPatches | Out-Null
+# The art cache the installer makes (ArtPreparation, KpmEdition.cs), in this run's folder:
+# the installer and the module it loads take %LOCALAPPDATA% from the environment.
+$playerLocalAppData = $env:LOCALAPPDATA
+$testLocalAppData = Join-Path $WorkRoot "localappdata"
+New-Item -ItemType Directory -Force -Path $testLocalAppData | Out-Null
+$artCache = Join-Path $testLocalAppData "KMRP\cache"
+$buildPack = Join-Path $projectRoot "build\native-runtime\kmrp-assets.pack"
 
 try {
+    $env:LOCALAPPDATA = $testLocalAppData
     # KOTOR Patch Manager's patch folder for the run: a folder of this test's own.
     New-Item -ItemType Directory -Force -Path (Split-Path -Parent $kpmSettings) | Out-Null
     [IO.File]::WriteAllText($kpmSettings, "{`r`n  `"GamePath`": `"`",`r`n  `"PatchesPath`": `"" +
@@ -182,7 +202,13 @@ try {
     Assert ($config.Hooks -eq ($allHooks + $controllerHooks)) "every hook of both patches is in the config ($allHooks + $controllerHooks)"
     Assert ((Get-Sha (Join-Path $folder "patches\kmrp.dll")) -eq $moduleHash) "patches\kmrp.dll is the module inside KMRP.kpatch"
     Assert ((Get-Sha (Join-Path $folder "patches\kmrp-controller.dll")) -eq $controllerModuleHash) "patches\kmrp-controller.dll is the module inside the controller patch"
-    Assert (@(Get-ChildItem -LiteralPath (Join-Path $folder "patches")).Count -eq 2) "the patches folder holds those two modules"
+    Assert (@(Get-ChildItem -LiteralPath (Join-Path $folder "patches")).Count -eq 3) "the patches folder holds those two modules and the art pack"
+    $pack = Join-Path $folder "patches\kmrp-assets.pack"
+    Assert ((Test-Path -LiteralPath $pack) -and (-not (Test-Path -LiteralPath $buildPack) -or
+        (Get-Sha $pack) -eq (Get-Sha $buildPack))) "patches\kmrp-assets.pack is the build's art pack"
+    $builds = @(Get-ChildItem -LiteralPath $artCache -Directory -ErrorAction SilentlyContinue)
+    $made = if ($builds.Count -eq 1) { @(Get-ChildItem -LiteralPath (Join-Path $builds[0].FullName "sets") -Filter "*.complete" -File) } else { @() }
+    Assert ($builds.Count -eq 1 -and (Test-Path -LiteralPath (Join-Path $builds[0].FullName "store.complete")) -and $made.Count -ge 1) "the art is made before the game starts: the common files and $($made.Count) sizes, in one build's cache"
     Assert (-not (Test-Path -LiteralPath (Join-Path $folder "Override"))) "nothing is written to Override"
     foreach ($absent in @("kmrp-kpm.dat", "kmrp-sdl3.dll", "kmrp-resolutions.txt")) {
         Assert (-not (Test-Path -LiteralPath (Join-Path $folder $absent))) "no $absent"
@@ -198,6 +224,7 @@ try {
     Assert (($after -join "`n") -eq ($before -join "`n")) "the folder is as it was, file for file"
     Assert (-not (Test-Path -LiteralPath $kpatch)) "the .kpatch this install created is removed"
     Assert (-not (Test-Path -LiteralPath $controllerKpatch)) "and the controller patch's"
+    Assert (-not (Test-Path -LiteralPath $artCache)) "the art cache is removed"
 
     Write-Host "Case 2  controller support and map notes off"
     Set-KmrpSettings $false $false
@@ -208,7 +235,7 @@ try {
     Assert (($config.Ids -join ",") -eq "kmrp") "without controller support the controller patch is not installed"
     Assert ($config.Hooks -eq $allHooks) "KMRP's hooks, the same as beside the controller patch ($allHooks)"
     Assert (-not (Test-Path -LiteralPath (Join-Path $kpmPatches "KOTOR 1 Native Controller Mod + Xbox HUD.kpatch"))) "the controller patch's .kpatch is not delivered"
-    Assert (@(Get-ChildItem -LiteralPath (Join-Path $folder "patches")).Count -eq 1) "the patches folder holds KMRP's module alone"
+    Assert (@(Get-ChildItem -LiteralPath (Join-Path $folder "patches")).Count -eq 2) "the patches folder holds KMRP's module alone, and the art pack"
     Assert (-not (Test-Path -LiteralPath (Join-Path $folder "configs\kmrp-controller.ini"))) "no options file for the controller patch"
     $options = Get-Options $folder
     Assert ($options.Controller -eq "" -and $options.MapNotes -eq "0") "configs\kmrp.ini says map-notes is off"
@@ -295,8 +322,26 @@ try {
     Assert ((Invoke-Installer @("--restore", "`"$game`"")) -eq 0) "the restore succeeds"
     $after = Get-Listing $folder | Where-Object { $_ -notmatch 'swkotor\.ini\.kotor-ui-backup' }
     Assert (($after -join "`n") -eq ($before -join "`n")) "the folder is as it was, file for file"
+
+    Write-Host "Case 8  Modern Driver Compatibility on"
+    Set-KmrpSettings $true $true "" "" $false $true
+    $game = New-Fixture "driver-compat"
+    $folder = Split-Path -Parent $game
+    $before = Get-Listing $folder
+    Assert ((Invoke-Installer @("--in-place", "`"$game`"", "1920x1080")) -eq 0) "the install succeeds"
+    $vendored = Join-Path $projectRoot "third_party\Included\k1-modern-driver-compatibility-2.0.0 by Synchro"
+    foreach ($name in @("dinput8.dll", "k1-modern-driver-compatibility.asi")) {
+        $installed = Join-Path $folder $name
+        Assert ((Test-Path -LiteralPath $installed) -and (Get-Sha $installed) -eq (Get-Sha (Join-Path $vendored $name))) "$name is the vendored K1 Modern Driver Compatibility 2.0.0 file"
+    }
+    $manifest = Join-Path $folder "KMRP_DriverCompat.manifest"
+    Assert ((Test-Path -LiteralPath $manifest) -and ([IO.File]::ReadAllText($manifest) -match '(?m)^version\t2\.0\.0\r?$')) "KMRP_DriverCompat.manifest records version 2.0.0"
+    Assert ((Invoke-Installer @("--restore", "`"$game`"")) -eq 0) "the restore succeeds"
+    $after = Get-Listing $folder | Where-Object { $_ -notmatch 'swkotor\.ini\.kotor-ui-backup' }
+    Assert (($after -join "`n") -eq ($before -join "`n")) "the folder is as it was, file for file: both files and the manifest are gone"
 }
 finally {
+    $env:LOCALAPPDATA = $playerLocalAppData
     if ($hadKmrp) { Copy-Item -LiteralPath $kmrpCopy -Destination $kmrpSettings -Force }
     elseif (Test-Path -LiteralPath $kmrpSettings) { [IO.File]::Delete($kmrpSettings) }
     if ($hadKpm) { Copy-Item -LiteralPath $kpmCopy -Destination $kpmSettings -Force }

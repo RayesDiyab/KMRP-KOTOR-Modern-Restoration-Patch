@@ -17,11 +17,34 @@
 #include <windows.h>
 #include <cwchar>
 
+// The game's folder: the running program's, or the one named here when KMRP's installer
+// loads the module to make its art before the game first starts (KmrpPrepareAssets,
+// K1RuntimeEngine.cpp; the running program is then the installer).
+inline wchar_t* KmrpGameFolderNamed()
+{
+    static wchar_t folder[MAX_PATH];
+    return folder;
+}
+
+inline bool KmrpGameFolder(wchar_t (&path)[MAX_PATH])
+{
+    if (*KmrpGameFolderNamed()) return !wcscpy_s(path, KmrpGameFolderNamed());
+    const DWORD n = GetModuleFileNameW(nullptr, path, MAX_PATH);
+    wchar_t* slash = n && n < MAX_PATH ? std::wcsrchr(path, L'\\') : nullptr;
+    if (!slash) return false;
+    *slash = 0;
+    return true;
+}
+
+// `path` set to the file `name` in the game's folder.
+inline bool KmrpGamePath(wchar_t (&path)[MAX_PATH], const wchar_t* name)
+{
+    return KmrpGameFolder(path) && !wcscat_s(path, L"\\") && !wcscat_s(path, name);
+}
+
 inline int KmrpPatchOption(const wchar_t* option, int fallback)
 {
     wchar_t path[MAX_PATH];
-    const DWORD n = GetModuleFileNameW(nullptr, path, MAX_PATH);
-    wchar_t* slash = n && n < MAX_PATH ? std::wcsrchr(path, L'\\') : nullptr;
     // The standalone controller patch is its own patch, "kmrp-controller", with its
     // own file.
 #ifdef KMRP_CONTROLLER_STANDALONE
@@ -29,7 +52,7 @@ inline int KmrpPatchOption(const wchar_t* option, int fallback)
 #else
     const wchar_t* file = L"configs\\kmrp.ini";
 #endif
-    if (!slash || wcscpy_s(slash + 1, MAX_PATH - (slash + 1 - path), file)) return fallback;
+    if (!KmrpGamePath(path, file)) return fallback;
     return static_cast<int>(GetPrivateProfileIntW(L"Patch Options", option, fallback, path));
 }
 

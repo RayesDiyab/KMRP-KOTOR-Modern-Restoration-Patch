@@ -29,6 +29,10 @@
 *.pdf       binary
 *.zip       binary
 *.kup       binary
+# The LZMA SDK's decoder, byte for byte as Igor Pavlov ships it (CRLF), so its
+# SHA-256s in third_party/lzma-sdk/README.md hold on every checkout.
+third_party/lzma-sdk/*.c -text
+third_party/lzma-sdk/*.h -text
 
 # Keep generated/vendored trees out of language stats and collapsed in diffs.
 third_party/**            linguist-vendored

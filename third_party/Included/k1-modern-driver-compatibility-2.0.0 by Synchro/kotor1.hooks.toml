@@ -1,0 +1,526 @@
+[metadata]
+# GOG, Steam and CD 1.03; one address table covers all three. Also in the manifest.
+target_versions = [
+    "9C10E0450A6EECA417E036E3CDE7474FED1F0A92AAB018446D156944DEA91435",
+    "34E6D971C034222A417995D8E1E8FDD9F8781795C9C289BD86C499A439F34C88",
+    "761F9466F456A83909036BAEBB5C43167D722387BE66E54617BA20A8C49E9886",
+]
+# KOTOR 1 / swkotor.exe
+# ARB fragment path.
+#
+# The detours on calls sit on the call site, not on the called function's entry:
+# skip_original_bytes skips only the stolen bytes, so a hook on an entry still runs the rest
+# of the function. All but the soft shadow one skip the original outright; that one calls it
+# from the handler, because it does setup we want. Every other detour says above it why it
+# sits where it does.
+#
+# Beyond these sites, the install hooks point what the game calls through at the patch's own
+# functions. ARB_InstallFragmentPath takes the shading dispatch pointer, the ATI fragment
+# shader and wgl pbuffer entries in the game's extension table, the import slots for
+# glEnable, glDisable, glFogi, glFinish, glDrawBuffer, wglMakeCurrent and SwapBuffers, and
+# the gamma ramp and movie frame calls the brightness slider handles, and sets the
+# capability bit for render textures where framebuffer objects provide them.
+# ARB_InstallFrameBufferShaders and ARB_InstallSoftShadowShader write the effect shader
+# handles into the globals the effect renderers bind from.
+#
+# The three simple hooks below are CubeMapFix and SoftShadowsFix folded in. Both stand on
+# their own, but this patch supersedes them: it already replaces the fragment
+# implementation those two capabilities feed, and shipping them separately would leave a
+# user to discover the ordering themselves. The manifest conflicts with both.
+
+[[hooks]]
+# GLRender::InitExtensions, the CheckExtension call for "GL_ATI_fragment_shader".
+# We answer instead, yes unless the decline setting is on, so the ATI arm is taken on drivers
+# that never had ATI_fragment_shader. Install checks GL_ARB_fragment_program afterwards. EAX
+# is excluded from restore so the handler's verdict survives the wrapper; the game reads AL
+# two instructions later.
+#   004367CF  68 2C F4 73 00   push "GL_ATI_fragment_shader"
+#   004367D4  E8 A7 91 02 00   call CheckExtension     <- replaced
+#   004367D9  83 C4 08         add  esp, 8             (cdecl, still balances)
+#   004367DC  84 C0            test al, al
+address = 0x004367D4
+type = "detour"
+function = "ARB_FragmentPathAvailable"
+original_bytes = [0xE8, 0xA7, 0x91, 0x02, 0x00]
+skip_original_bytes = true
+exclude_from_restore = ["eax"]
+
+[[hooks]]
+# Tail of the same arm: the InitializeATIFragmentShaders call. By this point
+# InitExtensions has set EnablePixelShaders (0x007A47E0) and the two constant setters
+# (0x007A6820, 0x007A47DC) to the stock ATI functions, so this is where we build our
+# programs and take those pointers over. Skipping the call also stops the stock ATI
+# shader construction, which would otherwise run glGenFragmentShadersATI and friends
+# on a driver that has no such entry points.
+#   004373BD  E8 1E 21 04 00   call InitializeATIFragmentShaders   <- replaced
+#   004373C2  E9 22 01 00 00   jmp  done
+address = 0x004373BD
+type = "detour"
+function = "ARB_InstallFragmentPath"
+original_bytes = [0xE8, 0x1E, 0x21, 0x04, 0x00]
+skip_original_bytes = true
+exclude_from_restore = []
+
+[[hooks]]
+# InitializeFrameBufferModifications, the InitializeFrameBufferModificationFragmentShadersATI
+# call. That function builds eight ATI shaders for the post-processing effects and stores
+# their handles in globals the effect renderers bind later. It never goes through
+# EnablePixelShaders, so taking over the dispatcher left every framebuffer effect dead.
+# We build ARB equivalents and write our own handles into the same globals.
+#   00428859  E8 32 EC FF FF   call InitializeFrameBufferModificationFragmentShadersATI
+#   0042885E  8B 0D D4 D1 78 00  mov ecx, [0x0078D1D4]
+address = 0x00428859
+type = "detour"
+function = "ARB_InstallFrameBufferShaders"
+original_bytes = [0xE8, 0x32, 0xEC, 0xFF, 0xFF]
+skip_original_bytes = true
+exclude_from_restore = []
+
+[[hooks]]
+# Initialize, the InitializeImageSpaceSoftShadows call. That function builds one ATI
+# shader, softShadowShaderATI, which BloomFilter and FrameBufferModificationPixelShaders
+# both bind. Without it the bloom chain composites unshaded and blows the screen out.
+# Our handler runs the original first, for its pbuffer and render texture setup, then
+# replaces the handle.
+#   0044DF8E  E8 2D 8D FD FF   call InitializeImageSpaceSoftShadows
+address = 0x0044DF8E
+type = "detour"
+function = "ARB_InstallSoftShadowShader"
+original_bytes = [0xE8, 0x2D, 0x8D, 0xFD, 0xFF]
+skip_original_bytes = true
+exclude_from_restore = []
+
+# --- folded in from CubeMapFix ---
+# InitExtensions searches the driver's GL_EXTENSIONS for "GL_EXT_texture_cube_map".
+# Intel's Windows driver exposes cube maps only under the ARB name, so the check fails,
+# EXT_TEXTURE_CUBE_MAP_BIT stays clear, AurCubeMapAvailable reports false, and every
+# env-mapped surface drops to GL_SPHERE_MAP texgen. Both names are 23 bytes, the literal
+# has a single xref, and ARB, EXT and core GL 1.3 define identical enums with no entry
+# points, so searching for the ARB spelling is equivalent everywhere it already worked.
+[[hooks]]
+address = 0x00740968
+type = "simple"
+original_bytes = [
+    0x47, 0x4C, 0x5F, 0x45, 0x58, 0x54, 0x5F, 0x74, 0x65, 0x78, 0x74, 0x75,
+    0x72, 0x65, 0x5F, 0x63, 0x75, 0x62, 0x65, 0x5F, 0x6D, 0x61, 0x70,
+]
+replacement_bytes = [
+    0x47, 0x4C, 0x5F, 0x41, 0x52, 0x42, 0x5F, 0x74, 0x65, 0x78, 0x74, 0x75,
+    0x72, 0x65, 0x5F, 0x63, 0x75, 0x62, 0x65, 0x5F, 0x6D, 0x61, 0x70,
+]
+
+# --- folded in from SoftShadowsFix ---
+# AurATISoftShadowsAvailable early-outs on a lock flag at 0x007BB860 that only
+# AurATIUnlockSoftShadowsForHotFix ever sets, and that runs only when the ini carries
+# AllowSoftShadows=1. Removing the early-out lets the real capability test decide, which
+# is the check that was always meant to gate this. Nothing is forced true: hardware
+# without the extensions still reports false.
+#   0045F7E7  75 03   jnz 0x0045F7EC   -> jmp, so the flag test never returns early
+[[hooks]]
+address = 0x0045F7E7
+type = "simple"
+original_bytes = [0x75, 0x03]
+replacement_bytes = [0xEB, 0x03]
+
+# Same flag, second consumer: the ATI branch inside AurCheckSoftShadowsAvailable. The
+# instruction after the patched bytes reloads ECX, so the stale flag value the nops leave
+# in the register is never read.
+#   0045FA6C  74 36   jz 0x0045FAA4    -> nops, so the branch is never skipped
+[[hooks]]
+address = 0x0045FA6C
+type = "simple"
+original_bytes = [0x74, 0x36]
+replacement_bytes = [0x90, 0x90]
+
+# `PartTriMesh::GetRenderPath` returns `6 - getATIFragmentShadersDisabled()` for a mesh that
+# carries a bump map and tangent bases and is not lightmapped. Case 5 is `RenderBumpMapped`,
+# which dispatches mode `0x06`; case 6 is `RenderBumpmapFallback`, which draws the mesh with
+# its texture and no bump lighting. So the fallback is chosen exactly when ATI fragment
+# shaders are available, which this patch guarantees everywhere, and `bumpShinyA` never ran.
+#
+# Only a GeForce ever took case 5, reaching it through `GL_NV_register_combiners`. A Radeon
+# 8500 took the fallback for the same reason a patched machine does. Forcing 5 gives every
+# vendor the bump lighting, which is the same argument as running one fragment path
+# everywhere. Confirmed on the Hutts in the Taris cantinas.
+#   00470EB6  E8 E5 E6 FE FF   call getATIFragmentShadersDisabled
+#   00470EBB  F6 D8            neg al
+#   00470EBD  1B C0            sbb eax, eax
+#   00470EBF  83 C0 06         add eax, 6     -> mov eax, 5 and pad
+#   00470EC2  8B F8            mov edi, eax   (dead, EDI is popped below; EAX is the return)
+[[hooks]]
+address = 0x00470EB6
+type = "simple"
+original_bytes = [0xE8, 0xE5, 0xE6, 0xFE, 0xFF, 0xF6, 0xD8, 0x1B, 0xC0, 0x83, 0xC0, 0x06]
+replacement_bytes = [0xB8, 0x05, 0x00, 0x00, 0x00, 0x90, 0x90, 0x90, 0x90, 0x90, 0x90, 0x90]
+
+# `RenderSkinnedVP` chooses a branch for each skin by asking four questions, and these hooks
+# answer all four through `ARB_SkinBranch`, whose constant says which question it is, as
+# `k1_sys::skin::Question` numbers them. Each replaces a call whose answer the game tests in
+# EAX, so EAX carries the answer back.
+#
+# Two of the branches only the NVIDIA arm took, through `getATIFragmentShadersDisabled`
+# saying yes: the one-pass bump branch, for a bump mapped skin with tangents, and the normal
+# mapped branch, for a skin whose bump map is a normal map once `Material::HasNormalMap`
+# answers. Every other card drew those skins plain, the Hutt and Rancor bodies among them. The
+# handler says yes, giving every card both branches, except while the skin is fading.
+#
+# None of the bump branches can fade, so while a skin is fading the handler turns down the
+# bumpy shiny branch and these two, and answers the fourth question, which chooses between
+# an opaque plain draw and a blended one, as the NVIDIA arm does: blended. The skin then takes
+# the environment mapped or the plain branch, and fades with its body. `k1_sys::skin` has the
+# blend modes that rule the bump branches out.
+
+# The bumpy shiny branch, for a skin with a bump map and a cube environment map.
+#   0048AB8F  E8 EC 4A FD FF   call AurBumpyShinyAvailable          <- replaced
+#   0048AB94  85 C0            test eax, eax
+#   0048AB96  0F 84 B7 01 00 00 jz 0x0048AD53
+[[hooks]]
+address = 0x0048AB8F
+type = "detour"
+function = "ARB_SkinBranch"
+original_bytes = [0xE8, 0xEC, 0x4A, 0xFD, 0xFF]
+skip_original_bytes = true
+exclude_from_restore = ["eax"]
+
+[[hooks.parameters]]
+source = "const:0"
+type = "uint"
+
+# The one-pass bump branch.
+#   0048AD63  E8 38 48 FD FF   call getATIFragmentShadersDisabled   <- replaced
+#   0048AD68  84 C0            test al, al
+#   0048AD6A  0F 84 C4 07 00 00 jz 0x0048B534
+[[hooks]]
+address = 0x0048AD63
+type = "detour"
+function = "ARB_SkinBranch"
+original_bytes = [0xE8, 0x38, 0x48, 0xFD, 0xFF]
+skip_original_bytes = true
+exclude_from_restore = ["eax"]
+
+[[hooks.parameters]]
+source = "const:1"
+type = "uint"
+
+# The normal mapped branch. Its program is adopted repaired at its store, below.
+#   0048B537  E8 14 3D F9 FF   call 0x0041F250 (Material::HasNormalMap, answered)
+#   0048B53C  84 C0            test al, al
+#   0048B53E  0F 84 1C 07 00 00 jz 0x0048BC60
+#   0048B544  E8 57 40 FD FF   call getATIFragmentShadersDisabled   <- replaced
+[[hooks]]
+address = 0x0048B544
+type = "detour"
+function = "ARB_SkinBranch"
+original_bytes = [0xE8, 0x57, 0x40, 0xFD, 0xFF]
+skip_original_bytes = true
+exclude_from_restore = ["eax"]
+
+[[hooks.parameters]]
+source = "const:1"
+type = "uint"
+
+# The plain draw of a bump mapped skin with tangents: blended on a yes, opaque on a no.
+#   0048C59A  E8 01 30 FD FF   call getATIFragmentShadersDisabled   <- replaced
+#   0048C59F  84 C0            test al, al
+#   0048C5A1  75 38            jnz 0x0048C5DB                       (the blended draw)
+[[hooks]]
+address = 0x0048C59A
+type = "detour"
+function = "ARB_SkinBranch"
+original_bytes = [0xE8, 0x01, 0x30, 0xFD, 0xFF]
+skip_original_bytes = true
+exclude_from_restore = ["eax"]
+
+[[hooks.parameters]]
+source = "const:2"
+type = "uint"
+
+# `Material::HasNormalMap` returns false in every build of both games. It gates object-space
+# normal mapping, for a material whose bump map is a normal map (`isbumpmap 2`, 32 bits a
+# texel): tangent space is left unbuilt, and `GetRenderPath` sends a bump mapped mesh without
+# tangents to `RenderNormalMapped`, path 15. Here its three calls land on `0x0041F250`, a
+# `xor al, al; ret` the linker shares with every virtual that returns false, so the calls are
+# replaced and that body is left alone. Each call loads the material into ECX, which the
+# handler reads, and the game tests AL afterwards, so EAX carries the answer back.
+
+# MdlNodeTriMesh::InternalPostProcess, deciding whether to build tangent space.
+#   0043D0F0  8B CD            mov  ecx, ebp
+#   0043D0F2  E8 59 21 FE FF   call 0x0041F250        <- replaced
+#   0043D0F7  84 C0            test al, al
+[[hooks]]
+address = 0x0043D0F2
+type = "detour"
+function = "ARB_MaterialHasNormalMap"
+original_bytes = [0xE8, 0x59, 0x21, 0xFE, 0xFF]
+skip_original_bytes = true
+exclude_from_restore = ["eax"]
+
+[[hooks.parameters]]
+source = "ecx"
+type = "pointer"
+
+# PartTriMesh::GetRenderPath.
+#   00470D4A  8B 4E 44         mov  ecx, [esi + 0x44]
+#   00470D4D  88 44 24 10      mov  [esp + 0x10], al
+#   00470D51  E8 FA E4 FA FF   call 0x0041F250        <- replaced
+#   00470D56  8B 4E 44         mov  ecx, [esi + 0x44]
+[[hooks]]
+address = 0x00470D51
+type = "detour"
+function = "ARB_MaterialHasNormalMap"
+original_bytes = [0xE8, 0xFA, 0xE4, 0xFA, 0xFF]
+skip_original_bytes = true
+exclude_from_restore = ["eax"]
+
+[[hooks.parameters]]
+source = "ecx"
+type = "pointer"
+
+# RenderSkinnedVP.
+#   0048B534  8B 4D 44         mov  ecx, [ebp + 0x44]
+#   0048B537  E8 14 3D F9 FF   call 0x0041F250        <- replaced
+#   0048B53C  84 C0            test al, al
+[[hooks]]
+address = 0x0048B537
+type = "detour"
+function = "ARB_MaterialHasNormalMap"
+original_bytes = [0xE8, 0x14, 0x3D, 0xF9, 0xFF]
+skip_original_bytes = true
+exclude_from_restore = ["eax"]
+
+[[hooks.parameters]]
+source = "ecx"
+type = "pointer"
+
+
+# The lightmapped bump renderers build their vertex programs from NVIDIA-only `!!VP1.0`
+# text. The game appends ARB light code to every lit program and compiles it through
+# `glProgramStringARB`, which no driver accepts for that text, so those surfaces drew
+# nothing. Each hook sits on the store of the program its renderer has just built, before
+# the renderer first enables it, and the handler points the program at our ARB translation.
+# The store runs afterwards, unchanged; it addresses its global absolutely, so it runs the
+# same from the wrapper. The constant says which renderer's program EAX holds, as
+# `k1_sys::vertex::RendererProgram` numbers them.
+
+# RenderLightMappedBumpDiffuse, after `VertexProgram::VertexProgram` returns.
+#   00474FC1  E8 0A D8 02 00   call VertexProgram::VertexProgram
+#   00474FC6  EB 02            jmp  0x00474FCA
+#   00474FC8  33 C0            xor  eax, eax          (the allocation failed)
+#   00474FCA  A3 A8 01 83 00   mov  [renderLightMappedBumpDiffuseBumpMapVP], eax   <- hooked
+[[hooks]]
+address = 0x00474FCA
+type = "detour"
+function = "ARB_AdoptVertexProgram"
+original_bytes = [0xA3, 0xA8, 0x01, 0x83, 0x00]
+skip_original_bytes = false
+exclude_from_restore = []
+
+[[hooks.parameters]]
+source = "eax"
+type = "pointer"
+
+[[hooks.parameters]]
+source = "const:0"
+type = "uint"
+
+# RenderLightMappedBumpSpecular, the same point.
+#   0047559F  E8 2C D2 02 00   call VertexProgram::VertexProgram
+#   004755A4  EB 02            jmp  0x004755A8
+#   004755A6  33 C0            xor  eax, eax          (the allocation failed)
+#   004755A8  A3 B0 01 83 00   mov  [renderLightMappedBumpSpecularBumpMapVP], eax   <- hooked
+[[hooks]]
+address = 0x004755A8
+type = "detour"
+function = "ARB_AdoptVertexProgram"
+original_bytes = [0xA3, 0xB0, 0x01, 0x83, 0x00]
+skip_original_bytes = false
+exclude_from_restore = []
+
+[[hooks.parameters]]
+source = "eax"
+type = "pointer"
+
+[[hooks.parameters]]
+source = "const:1"
+type = "uint"
+
+# RenderSkinnedVP's one-pass bump branch, the same point. Its program is ARB already, but it
+# writes neither the primary colour nor the fog coordinate; see
+# `arbfp_shaders::SKIN_BUMP_LIGHTS`.
+#   0048AE05  E8 C6 79 01 00   call VertexProgram::VertexProgram
+#   0048AE0A  EB 02            jmp  0x0048AE0E
+#   0048AE0C  33 C0            xor  eax, eax          (the allocation failed)
+#   0048AE0E  A3 10 04 83 00   mov  [skinBumpyVP], eax   <- hooked
+[[hooks]]
+address = 0x0048AE0E
+type = "detour"
+function = "ARB_AdoptVertexProgram"
+original_bytes = [0xA3, 0x10, 0x04, 0x83, 0x00]
+skip_original_bytes = false
+exclude_from_restore = []
+
+[[hooks.parameters]]
+source = "eax"
+type = "pointer"
+
+[[hooks.parameters]]
+source = "const:2"
+type = "uint"
+
+# RenderSkinnedVP's normal mapped branch, the same point. Its program is ARB, but wrong as the
+# game ships it; see `arbfp_shaders::SKIN_NORMAL_MAP` for each repair.
+#   0048B5CB  E8 00 72 01 00   call VertexProgram::VertexProgram
+#   0048B5D0  EB 02            jmp  0x0048B5D4
+#   0048B5D2  33 C0            xor  eax, eax          (the allocation failed)
+#   0048B5D4  A3 04 04 83 00   mov  [renderSkinnedVPSkinVP2], eax   <- hooked
+[[hooks]]
+address = 0x0048B5D4
+type = "detour"
+function = "ARB_AdoptVertexProgram"
+original_bytes = [0xA3, 0x04, 0x04, 0x83, 0x00]
+skip_original_bytes = false
+exclude_from_restore = []
+
+[[hooks.parameters]]
+source = "eax"
+type = "pointer"
+
+[[hooks.parameters]]
+source = "const:3"
+type = "uint"
+
+# GetSkinSphereMapVP, the same point, for a skin with a flat environment map. The game has
+# this program only as `!!VP1.0` text, which no driver takes once the light code is appended,
+# so the skin vanished. The replacement is built from the developers' ARB conversion of its
+# cube map sibling; see `arbfp_shaders::SKIN_SPHERE_MAP`.
+#   00487416  E8 B5 B3 01 00   call VertexProgram::VertexProgram
+#   0048741B  A3 98 03 83 00   mov  [skinSphereMapVP], eax   <- hooked
+[[hooks]]
+address = 0x0048741B
+type = "detour"
+function = "ARB_AdoptVertexProgram"
+original_bytes = [0xA3, 0x98, 0x03, 0x83, 0x00]
+skip_original_bytes = false
+exclude_from_restore = []
+
+[[hooks.parameters]]
+source = "eax"
+type = "pointer"
+
+[[hooks.parameters]]
+source = "const:4"
+type = "uint"
+
+# `ConvertHeightFieldAndLoadNormalMapTexture` uploads a normal map as `GL_BGRA`, Z in byte 0,
+# which is how it converts a height map and how `downSampleNormalMap` builds the mips. A
+# 32-bit `isbumpmap 2` TGA skips the conversion and is copied, and the TGA loader has already
+# swapped every texel's first and third byte to make RGB, so each normal uploaded with X and
+# Z exchanged. A TPC never comes here. The handler swaps them back in the copy, before the
+# upload and the mips read it. EBX holds the copy and EAX its length in bytes; the cut runs
+# after, copying the bytes past the last whole dword, of which four bytes a texel leave none.
+#   004260CF  F3 A5            rep movsd
+#   004260D1  8B C8            mov  ecx, eax
+#   004260D3  83 C4 04         add  esp, 4
+#   004260D6  83 E1 03         and  ecx, 3
+#   004260D9  F3 A4            rep movsb               <- cut
+#   004260DB  8B 7C 24 1C      mov  edi, [esp + 0x1c]  <- cut
+#   004260DF  EB 24            jmp  0x00426105
+[[hooks]]
+address = 0x004260D9
+type = "detour"
+function = "ARB_ReorderNormalMap"
+original_bytes = [0xF3, 0xA4, 0x8B, 0x7C, 0x24, 0x1C]
+skip_original_bytes = false
+exclude_from_restore = []
+
+[[hooks.parameters]]
+source = "ebx"
+type = "pointer"
+
+[[hooks.parameters]]
+source = "eax"
+type = "uint"
+
+# `BloomFilter` at 0x0042B810, the blur both the glow and the soft shadows run through, calls
+# `glActiveTextureARB` before each `glMultiTexCoord2fARB` inside its `glBegin`/`glEnd` strip.
+# GL does not allow that call there, so each raises `GL_INVALID_OPERATION` and is ignored. The
+# `glMultiTexCoord2fARB` beside it names its own unit, so the coordinates already land where
+# they should, and the game selects unit 0 again after `glEnd`. These remove the calls so the
+# blur stops raising an error every frame, and an error the patch reports raised before its
+# passes means something new. The push stays, because three of the sites store relative to
+# ESP after it, and `add esp, 4` pops it as the stdcall callee did. The instruction after each
+# site is `test esi, esi`, which sets the flags again. The game's other `BloomFilter`, at
+# 0x0042BF80, makes the same calls, and only the paths this patch turns the game away from
+# reach it.
+#   0042BC1C  68 C0 84 00 00      push 0x84C0
+#   0042BC21  FF 15 0C B8 7B 00   call [glActiveTextureARB]   -> add esp, 4 and pad
+#   0042BC27  85 F6               test esi, esi
+[[hooks]]
+address = 0x0042BC21
+type = "simple"
+original_bytes = [0xFF, 0x15, 0x0C, 0xB8, 0x7B, 0x00]
+replacement_bytes = [0x83, 0xC4, 0x04, 0x90, 0x90, 0x90]
+
+#   0042BCAC  68 C1 84 00 00      push 0x84C1
+#   0042BCB1  89 4C 24 20         mov  [esp + 0x20], ecx
+#   0042BCB5  FF 15 0C B8 7B 00   call [glActiveTextureARB]   -> add esp, 4 and pad
+[[hooks]]
+address = 0x0042BCB5
+type = "simple"
+original_bytes = [0xFF, 0x15, 0x0C, 0xB8, 0x7B, 0x00]
+replacement_bytes = [0x83, 0xC4, 0x04, 0x90, 0x90, 0x90]
+
+#   0042BD36  68 C2 84 00 00      push 0x84C2
+#   0042BD3B  89 44 24 20         mov  [esp + 0x20], eax
+#   0042BD3F  FF 15 0C B8 7B 00   call [glActiveTextureARB]   -> add esp, 4 and pad
+[[hooks]]
+address = 0x0042BD3F
+type = "simple"
+original_bytes = [0xFF, 0x15, 0x0C, 0xB8, 0x7B, 0x00]
+replacement_bytes = [0x83, 0xC4, 0x04, 0x90, 0x90, 0x90]
+
+#   0042BDC7  68 C3 84 00 00      push 0x84C3
+#   0042BDCC  89 54 24 20         mov  [esp + 0x20], edx
+#   0042BDD0  FF 15 0C B8 7B 00   call [glActiveTextureARB]   -> add esp, 4 and pad
+[[hooks]]
+address = 0x0042BDD0
+type = "simple"
+original_bytes = [0xFF, 0x15, 0x0C, 0xB8, 0x7B, 0x00]
+replacement_bytes = [0x83, 0xC4, 0x04, 0x90, 0x90, 0x90]
+
+#   0042BE35  68 C0 84 00 00      push 0x84C0
+#   0042BE3A  FF 15 0C B8 7B 00   call [glActiveTextureARB]   -> add esp, 4 and pad
+[[hooks]]
+address = 0x0042BE3A
+type = "simple"
+original_bytes = [0xFF, 0x15, 0x0C, 0xB8, 0x7B, 0x00]
+replacement_bytes = [0x83, 0xC4, 0x04, 0x90, 0x90, 0x90]
+
+# `InitAttenuationTexture` sets the attenuation texture's `GL_TEXTURE_MAX_ANISOTROPY_EXT` from
+# the anisotropy global, once before its upload and once after. `InitExtensions` builds the
+# texture before the options are applied, so the global still holds its initial 0, and the
+# extension refuses anything under 1.0 with `GL_INVALID_VALUE`. The texture keeps the default
+# of 1.0 either way, and every later bind through `AurTextureBindTID` or `BindTexture` sets the
+# value again from the global, which by then holds the player's setting. These remove both
+# calls with their pushes, so the stack is left as the call left it.
+#   004264A2  50                  push eax                 (anisotropy)
+#   004264A3  68 FE 84 00 00      push 0x84FE              -> nops
+#   004264A8  51                  push ecx                 (GL_TEXTURE_2D)
+#   004264A9  FF D6               call esi                 (glTexParameteri)
+[[hooks]]
+address = 0x004264A2
+type = "simple"
+original_bytes = [0x50, 0x68, 0xFE, 0x84, 0x00, 0x00, 0x51, 0xFF, 0xD6]
+replacement_bytes = [0x90, 0x90, 0x90, 0x90, 0x90, 0x90, 0x90, 0x90, 0x90]
+
+#   00426529  51                  push ecx                 (anisotropy)
+#   0042652A  68 FE 84 00 00      push 0x84FE              -> nops
+#   0042652F  68 E1 0D 00 00      push GL_TEXTURE_2D
+#   00426534  FF D6               call esi                 (glTexParameteri)
+[[hooks]]
+address = 0x00426529
+type = "simple"
+original_bytes = [0x51, 0x68, 0xFE, 0x84, 0x00, 0x00, 0x68, 0xE1, 0x0D, 0x00, 0x00, 0xFF, 0xD6]
+replacement_bytes = [
+    0x90, 0x90, 0x90, 0x90, 0x90, 0x90, 0x90, 0x90, 0x90, 0x90, 0x90, 0x90, 0x90,
+]

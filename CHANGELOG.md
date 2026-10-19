@@ -117,6 +117,77 @@ proxy, and it applies the executable changes above as well.
 
 ## [Unreleased]
 
+- **K1 Modern Driver Compatibility 2.0.0** (2026-10-19, at the maintainer's request;
+  `third_party/Included/k1-modern-driver-compatibility-2.0.0 by Synchro`, `build_kmrp.ps1`,
+  `DriverCompatOperations.Version` in `src/patcher/KmrpPatcher.cs`). The installer
+  carries Synchro's 2.0.0 standalone build instead of 1.2.0: the glow back on NVIDIA
+  cards (missing since 1.3.0), bump lighting on the Hutts' and the Rancor's bodies on
+  every card, the lighting paths the game never drew for mods, and a smaller payload
+  (the `.asi` 596,992 bytes instead of 1,536,631; `dinput8.dll` unchanged). Checked
+  against everything KMRP writes in memory, with High FPS Fixes: none of its 28 sites (8
+  in 1.2.0) or 9 run-time import slots collides, and every site holds the bytes it
+  expects ([third-party-driver-compat.md](docs/third-party-driver-compat.md), section 4).
+  Not yet seen in play beside KMRP.
+
+- **An installer of 72 MiB instead of 126, and every resolution ready before the game
+  starts** (2026-10-19; `tools/kmrp_pack.py`, `tools/build_native_assets.py`,
+  `src/controller-native/K1AssetPack.cpp` and `.h`, `K1RuntimeAssets.cpp` and `.h`,
+  `K1RuntimeEngine.cpp`, `KmrpOptions.h`, `K1TextOptions.cpp`, `build_native_runtime.cmd`,
+  `third_party/lzma-sdk`, `src/patcher/KpmEdition.cs`, `KmrpPatcher.cs`, `build_kmrp.ps1`,
+  tests). KMRP's art was a bank inside the module (XPRESS, 108.8 MB of a 113 MB
+  `kmrp.dll`), and the installer carried it in `KMRP.kpatch`. It is now a file of its
+  own, the art pack `kmrp-assets.pack`, 55.9 MiB: LZMA (the LZMA SDK's decoder in the
+  module, public domain), each image first through a filter that is undone exactly
+  (TGA: green taken from blue and red, then the MED predictor; DXT in a TPC: endpoints
+  and indices regrouped), the small files of each size compressed together. Measured
+  against XPRESS on samples: images 48% instead of 59% with LZMA alone, DXT 59% instead
+  of 62%, a size's small files 3.5 MiB together against 6.9 MiB one stream a file. The
+  module is 0.7 MB, `KMRP.kpatch` 394 KB, the installer 76.6 MB (from 125.6 MiB; 75.7 MB with K1 Modern Driver Compatibility 2.0.0, below, whose payload is smaller). The installer writes the pack into the game's `patches` folder, which KPM
+  leaves alone but for its modules, so KPM can still switch the patch off and on; the
+  patch alone, without the installer, runs without KMRP's interface and says so in
+  `kmrp-kpm.log` (the maintainer's choice for the smaller installer). Then the installer
+  makes the common files and every size the display offers that KMRP covers, with the
+  fonts in use at each height, before the game first starts (the maintainer: "let's
+  actually create all the supported resolutions ... smoother user experience comes
+  priority"), so no size is made in the game. It is a 32-bit program now, to load the
+  module: copies of it, started with `--prepare-art`, each load the module with
+  `KMRP_PREPARE` set, so its `DllMain` leaves them alone, and call `KmrpPrepareAssets`
+  with a share of the sizes; the blend helper keeps its state in globals, so each worker
+  is a process. Half the processor's threads, at most six. Measured on the maintainer's
+  PC, the 19 sizes of a 3440x1440 display and the common files, the game on a hard disk:
+
+  | Cache (`%LOCALAPPDATA%`) on | 1 worker | 2 | 4 | 6 | 8 |
+  | --- | --- | --- | --- | --- | --- |
+  | NVMe SSD | 83 s | | 33 s | 25 s | 24 s |
+  | hard disk | 167 s | 122 s | 94 s | | 98 s |
+
+  While the art is made the installer's button says "7 of 19 resolutions ready…", and
+  from the moment an install or upgrade starts the time left is shown under the
+  button, at its right ("37 s left"), counting down a second at a time and never going
+  up: first from the pace measured for the kind of drive the cache is on, with a margin
+  so it starts high, then from each worker's own (the maintainer's design; `InstallClock`,
+  [patcher-ui-build.md](docs/patcher-ui-build.md)). Tried with a simulated install before
+  it was built in: the first version, counting the resolutions of all workers together,
+  said "almost done" for the whole last round and jumped up at the start of every round;
+  the second followed each worker but let the count rise when a hard disk proved slower
+  (25 s to 58 s). The third, built in, never rises: it holds instead, rarely, since it
+  starts above the truth. The bar gives the art 22 to 99%,
+  since it is nearly all of the time.
+  A set is made with less reading than before: for a listed size the blend helper runs
+  first and the pack's files go in over its output, so only the files left to the helper
+  are held against the index, and nothing is read back after writing (the bytes were
+  checked when unpacked): 178 s became 167 s with one worker on the hard disk, the
+  common files 13 s became 5 s. The game itself now makes any size the display offers
+  that is missing, in the background (until now the five largest), and its notes of what
+  it made are written to `kmrp-kpm.log` only with debug logs on. Restore Original
+  removes the pack and the cache; an install over KMRP keeps the cache. The installer
+  reads HKEY_LOCAL_MACHINE in both of its views, which a 32-bit program otherwise sees
+  only the 32-bit one of. Tests: `Test-NativeAssetsBank.py` reads the pack with the
+  module's own decoder, every stored file against its SHA-256; `Test-AssetPrepare.py`
+  (new) the preparation, alone, again and with three workers, and without the pack;
+  `Test-InstallerPatch.ps1` the pack and the cache in an install and a restore. Not yet
+  seen in play.
+
 - **Starts and resolution changes in about a second and a half** (2026-10-19;
   `src/controller-native/K1RuntimeAssets.cpp`, `K1RuntimeAssets.h`, `K1RuntimeLayout.cpp`,
   `testing/regression/party_roster_runtime_harness.cpp`). KMRP unpacked and checked its

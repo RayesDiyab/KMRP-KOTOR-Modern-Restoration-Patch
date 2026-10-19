@@ -2328,10 +2328,12 @@ namespace Kmrp
     ///
     /// It is two files dropped beside swkotor.exe -- a `dinput8.dll` proxy that Windows
     /// loads at startup, and the `.asi` payload it loads in turn. **The executable is
-    /// never touched.** K1DC patches its eight sites in memory at run time and checks
-    /// only those, which is why it does not care that KMRP has changed bytes
-    /// elsewhere. Verified against gold: all eight sites still hold the exact bytes his
-    /// `kotor1.hooks.toml` declares, and none overlaps anything KMRP writes.
+    /// never touched.** K1DC patches its sites in memory at run time and checks only
+    /// those, which is why it does not care that KMRP changes bytes elsewhere. Version
+    /// 2.0.0 since 2026-10-19 (1.2.0 until then): its 28 sites (8 in 1.2.0) hold the
+    /// exact bytes his `kotor1.hooks.toml` declares in the unmodified 1.03 executable, and
+    /// none overlaps a hook of KMRP's patch or of the controller patch, a byte KMRP's
+    /// engine recipe writes, or a hook of D3M0's High FPS Fixes.
     ///
     /// A separate manifest from the Override one because these files live in the game
     /// folder rather than Override, and because the choice to install them is the user's
@@ -2348,7 +2350,7 @@ namespace Kmrp
         private static readonly string[] ResourceNames = { "Kmrp.drivercompat.dinput8", "Kmrp.drivercompat.asi" };
         private static readonly string[] FileNames = { "dinput8.dll", "k1-modern-driver-compatibility.asi" };
 
-        internal const string Version = "1.2.0";
+        internal const string Version = "2.0.0";
 
         private static string ManifestPath(string executablePath)
         {
@@ -5647,6 +5649,9 @@ namespace Kmrp
         private readonly PillButton upgradeButton;
         private bool upgradeOffered;
         private Rectangle actionRowDesign;
+        // Under the button, at its right, while an install makes KMRP's art: the time left
+        // (ArtPreparation, KpmEdition.cs). Empty and hidden otherwise.
+        private readonly Label timeLeftLabel;
         private readonly PillButton browseButton;
         private readonly StepRow stepFolder;
         private readonly StepRow stepVerify;
@@ -5885,6 +5890,19 @@ namespace Kmrp
             upgradeButton.Visible = false;
             upgradeButton.Click += UpgradeClicked;
             card.Controls.Add(upgradeButton);
+
+            // The time left, out of the button, under its right end (the maintainer,
+            // 2026-10-19: "make the seconds be outside of the button in the bottom right part
+            // below the button"); the button keeps what is being done and the percentage.
+            timeLeftLabel = new Label();
+            timeLeftLabel.Font = new Font("Segoe UI", 13F);
+            timeLeftLabel.ForeColor = UiTheme.TextMuted;
+            timeLeftLabel.BackColor = UiTheme.Card;
+            timeLeftLabel.TextAlign = ContentAlignment.MiddleRight;
+            timeLeftLabel.SetBounds(actionButton.Left, actionButton.Bottom + 4, actionButton.Width, 32);
+            timeLeftLabel.Anchor = AnchorStyles.Top | AnchorStyles.Left | AnchorStyles.Right;
+            timeLeftLabel.Visible = false;
+            card.Controls.Add(timeLeftLabel);
 
             card.Height = actionButton.Bottom + 40;
 
@@ -7443,13 +7461,23 @@ namespace Kmrp
             {
                 int percent = Math.Max(0, Math.Min(100, e.ProgressPercentage));
                 actionButton.ProgressPercent = percent;
-                string message = e.UserState as string;
+                // "what is being done", then after a tab the time left, which is shown under
+                // the button (timeLeftLabel).
+                string message = e.UserState as string ?? String.Empty;
+                int tab = message.IndexOf('\t');
+                string left = tab >= 0 ? message.Substring(tab + 1) : String.Empty;
+                if (tab >= 0)
+                    message = message.Substring(0, tab);
                 actionButton.Text = (String.IsNullOrWhiteSpace(message) ? "Working…" : message) +
                     "   " + percent.ToString(CultureInfo.InvariantCulture) + "%";
+                timeLeftLabel.Text = left;
+                timeLeftLabel.Visible = left.Length > 0;
             };
             worker.RunWorkerCompleted += delegate(object sender, RunWorkerCompletedEventArgs e)
             {
                 actionButton.ProgressPercent = -1;
+                timeLeftLabel.Visible = false;
+                timeLeftLabel.Text = String.Empty;
                 operationRunning = false;
                 SetBusyState(false);
 
@@ -7698,8 +7726,30 @@ namespace Kmrp
             return folders;
         }
 
+        /// <summary>A value of the registry, or null. HKEY_LOCAL_MACHINE in both of its
+        /// views, the 64-bit one first: the installer is a 32-bit program since 2026-10-19
+        /// (ArtPreparation, KpmEdition.cs), which Windows otherwise shows only the 32-bit
+        /// view, and an uninstall entry or a store's record may be in either.</summary>
         private static string ReadValue(RegistryKey hive, string key, string name)
         {
+            if (hive == Registry.LocalMachine && Environment.Is64BitOperatingSystem)
+            {
+                foreach (RegistryView view in new[] { RegistryView.Registry64, RegistryView.Registry32 })
+                {
+                    try
+                    {
+                        using (RegistryKey root = RegistryKey.OpenBaseKey(RegistryHive.LocalMachine, view))
+                        using (RegistryKey opened = root.OpenSubKey(key))
+                        {
+                            string value = opened == null ? null : opened.GetValue(name) as string;
+                            if (value != null)
+                                return value;
+                        }
+                    }
+                    catch { }
+                }
+                return null;
+            }
             try
             {
                 using (RegistryKey opened = hive.OpenSubKey(key))
@@ -7799,6 +7849,12 @@ namespace Kmrp
                         File.WriteAllBytes(Path.Combine(args[4], file.Key), file.Value);
                     return 0;
                 }
+                // The installer's own workers, which make KMRP's art of every size before the
+                // game first starts (ArtPreparation, KpmEdition.cs): the module's copy, the
+                // game's folder, this worker's share and how many there are.
+                if (args.Length == 5 && args[0] == ArtPreparation.WorkerSwitch)
+                    return ArtPreparation.Worker(args[1], args[2],
+                        Int32.Parse(args[3], CultureInfo.InvariantCulture), Int32.Parse(args[4], CultureInfo.InvariantCulture));
                 if (args.Length != 0)
                     return 64;
 

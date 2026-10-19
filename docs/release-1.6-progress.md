@@ -161,7 +161,14 @@ row below.)
 | **Disengage in the HUD Size preview** | The preview shows the combat queue's frame round Disengage, as the game draws it, with the word centred. | | Yes, at 1920x1080 by scripted input. |
 | **HD font: every character, no stray lines** | The New HD Font shows the euro sign, curly quotes, ellipsis, dashes, the trade mark sign and Œ, Š, Ž as the original font does (they were boxes), and the lines after spaces in the HUD's font are gone. | #52 (the HD font) | The lines: seen before the fix at 1920x1080 and 3440x1440. After the rebuild: **not yet seen in the game**. |
 
-### Fast starts and resolution changes (uncommitted, 2026-10-19)
+### Smaller installer, every resolution ready (uncommitted, 2026-10-19)
+
+| Feature | What the player gets | Issues | Seen in play |
+| --- | --- | --- | --- |
+| **A 72 MiB installer** | The installer is 75.7 MB (75,675,648 bytes, the build of 2026-10-19 18:29 with K1DC 2.0.0) instead of 125.6 MiB: KMRP's art is an LZMA pack beside the module (55.9 MiB) instead of a bank inside it. KPM can still switch the patch off and on after the installer has installed it. See the CHANGELOG entry. | | Not yet. |
+| **Every resolution made at install** | The installer makes KMRP's interface for every resolution the display offers before the game first starts, so the game never makes one. Measured on the maintainer's PC, 19 sizes: about 25 s with the cache on an NVMe SSD (six workers; one worker 83 s), about 95 s on a hard disk (94 s with four workers, 98 s with eight; one worker 167 s). The button counts the resolutions ready and the time left is shown under it. | | Not yet. |
+
+### Fast starts and resolution changes (committed `b7c8bfe`, 2026-10-19)
 
 | Feature | What the player gets | Issues | Seen in play |
 | --- | --- | --- | --- |

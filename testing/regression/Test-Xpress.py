@@ -1,12 +1,14 @@
 #!/usr/bin/env python3
 """The modules' own XPRESS-Huffman decoder against Windows' encoder.
 
-Since 2026-10-10 KMRP's module and the controller patch's decode their embedded banks
-with src/controller-native/K1Xpress.cpp instead of the Windows Compression API, which
-Wine and Proton do not provide (issue 30). This builds that decoder as an x86 program
-(Test-Xpress.cmd, MSVC) and gives it:
+Since 2026-10-10 the controller patch's module decodes its embedded bank with
+src/controller-native/K1Xpress.cpp instead of the Windows Compression API, which Wine
+and Proton do not provide (issue 30); KMRP's module did too until 2026-10-19, when its
+bank became the art pack, which is LZMA (tools/kmrp_pack.py, checked by
+Test-NativeAssetsBank.py). This builds that decoder as an x86 program (Test-Xpress.cmd,
+MSVC) and gives it:
 
-  1. every object of the two built banks, build/native-runtime/native-assets.bin and
+  1. every object of the controller patch's built bank,
      build/controller-standalone/controller-assets.bin, each held against the SHA-256
      the bank records for it;
   2. streams made here with the Compression API's Compress(): empty-like and tiny
@@ -34,30 +36,12 @@ sys.path.insert(0, str(ROOT / "tools"))
 
 import build_native_assets as builder   # noqa: E402
 
-NATIVE = ROOT / "build/native-runtime/native-assets.bin"
 CONTROLLER = ROOT / "build/controller-standalone/controller-assets.bin"
 PROGRAM = ROOT / "build/xpress-test/xpress-check.exe"
 
 
-def native_objects(blob: bytes):
-    """(size, stored bytes, key) of each object of KMRP's bank (KNAST002)."""
-    if blob[:8] != builder.MAGIC:
-        raise SystemExit(f"{NATIVE} is {blob[:8]!r}, not the XPRESS bank")
-    group_count, object_count = struct.unpack_from("<II", blob, 8)
-    at = 48
-    for _ in range(group_count):
-        count = struct.unpack_from("<I", blob, at + 8)[0]
-        at += 12
-        for _ in range(count):
-            at += 34 + struct.unpack_from("<H", blob, at)[0]
-    for _ in range(object_count):
-        size, packed = struct.unpack_from("<II", blob, at + 32)
-        yield size, blob[at + 40:at + 40 + packed], blob[at:at + 32]
-        at += 40 + packed
-
-
 def controller_objects(blob: bytes):
-    """The same of the controller patch's bank (KCAST001)."""
+    """(size, stored bytes, key) of each object of the controller patch's bank (KCAST001)."""
     if blob[:8] != b"KCAST001":
         raise SystemExit(f"{CONTROLLER} is {blob[:8]!r}")
     at = 12
@@ -92,7 +76,7 @@ def made_here():
 
 
 def main() -> int:
-    for needed in (NATIVE, CONTROLLER):
+    for needed in (CONTROLLER,):
         if not needed.exists():
             raise SystemExit(f"{needed} is missing: build the modules first")
     subprocess.run(["cmd.exe", "/c", str(ROOT / "testing/regression/Test-Xpress.cmd")], check=True)
@@ -100,7 +84,6 @@ def main() -> int:
     with tempfile.TemporaryDirectory() as tmp:
         compressor = builder.Compressor()
         sets = {
-            "KMRP's bank": native_objects(NATIVE.read_bytes()),
             "the controller patch's bank": controller_objects(CONTROLLER.read_bytes()),
             "streams made here": ((len(data), compressor.compress(data), hashlib.sha256(data).digest())
                                   for data in made_here().values()),

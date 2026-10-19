@@ -159,10 +159,25 @@ bool KmrpRuntimeEngineDimensions(int width, int height)
     return ok;
 }
 
+// KMRP's installer makes the art of every size the display offers before the game first
+// starts, with this module's own code (the maintainer, 2026-10-19: "smoother user
+// experience comes priority"): workers, each a copy of the installer, load the module with
+// KMRP_PREPARE set in their environment, so DllMain below leaves them alone, and call this
+// with the game's folder and their share of the work (KpmEdition.cs, ArtPreparation). The
+// sizes made, or -1.
+extern "C" int __cdecl KmrpPrepareAssets(const wchar_t* game, int share, int shares, KmrpPrepareStep step, void* context)
+{
+    if (!game || !*game || wcscpy_s(g_folder, game) || wcscpy_s(KmrpGameFolderNamed(), MAX_PATH, game)) return -1;
+    return KmrpRuntimeAssetsPrepare(share, shares, step, context);
+}
+
 BOOL WINAPI DllMain(HINSTANCE module, DWORD reason, LPVOID)
 {
     if (reason == DLL_PROCESS_ATTACH) {
         DisableThreadLibraryCalls(module);
+        // Loaded by KMRP's installer to make the art (KmrpPrepareAssets), not by the game:
+        // nothing of the game's is there to change.
+        if (GetEnvironmentVariableW(L"KMRP_PREPARE", nullptr, 0)) return TRUE;
         // The installer opts swkotor.exe out of Windows' DPI virtualization with a
         // per-user AppCompat value (DpiCompatibilityOperations in KmrpPatcher.cs),
         // so a scaled desktop does not zoom an interface KMRP has already sized

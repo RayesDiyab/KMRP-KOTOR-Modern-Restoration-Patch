@@ -14,7 +14,14 @@ extern "C" int KmrpGuiBlendCovers(const char*,unsigned,unsigned) {return 0;}
 extern "C" int KmrpAbilityIcons(const char*,unsigned,const char*,const char*) {return 1;}
 extern "C" int KmrpGameArt(const char*,const char*,unsigned,const char*) {return 1;}
 extern "C" int KmrpSwoopHud(const char*,const char*,unsigned,unsigned) {return 1;}
-bool KmrpXpressDecode(const unsigned char*,std::size_t,unsigned char*,std::size_t) {return false;}
+// The art pack is not read here (K1AssetPack.cpp, not in this harness).
+namespace KmrpPack {
+bool ReadHeader(const unsigned char*,std::size_t,Key&,std::uint32_t&) {return false;}
+bool ReadIndex(const unsigned char*,std::size_t,std::uint64_t,Index&) {return false;}
+bool Unpack(const Block&,const unsigned char*,unsigned char*) {return false;}
+bool Unfilter(unsigned char,unsigned char*,std::size_t) {return false;}
+std::string IdentityText(const Key&) {return std::string();}
+}
 void KmrpRuntimeLog(const char* line) {std::cout<<line<<'\n';}
 // K1RuntimeAssets.cpp sizes and chooses fonts from the text options (K1TextOptions.cpp,
 // not in this harness, since 2026-10-18): the default size and style.

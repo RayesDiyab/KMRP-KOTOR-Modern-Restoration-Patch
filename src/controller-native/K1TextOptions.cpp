@@ -7,6 +7,7 @@
 #include "K1RuntimeAssets.h"
 #include "K1RuntimeLayout.h"
 #include "K1SliderGrip.h"
+#include "KmrpOptions.h"
 #include <windows.h>
 #include <algorithm>
 #include <cstdint>
@@ -92,10 +93,9 @@ bool ConfirmHeld() {
 }
 bool Armed(){return releasedFrames>=2;}
 
+// The game's folder's, or the one KMRP's installer names when it makes the fonts ahead.
 bool ConfigPath(wchar_t (&path)[MAX_PATH]) {
-    const DWORD n=GetModuleFileNameW(nullptr,path,MAX_PATH);
-    wchar_t* slash=n && n<MAX_PATH?std::wcsrchr(path,L'\\'):nullptr;
-    return slash && !wcscpy_s(slash+1,MAX_PATH-(slash+1-path),L"swkotor.ini");
+    return KmrpGamePath(path,L"swkotor.ini");
 }
 void Initialize() {
     if(initialized)return;

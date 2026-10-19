@@ -16,8 +16,14 @@ you start the game as usual.
       The widescreen and high-resolution interface at any resolution your
       display supports, with the 4 GB, texture, grass and save-game memory
       fixes and the movie fixes (movies at your resolution, fitted to
-      their aspect, black around them) built in. Everything it needs is
-      inside the file: nothing goes into Override.
+      their aspect, black around them) built in. Nothing goes into
+      Override.
+
+      Its art is a file of its own, kmrp-assets.pack, which KMRP's
+      installer puts in the game's patches folder and unpacks for every
+      resolution your display offers. Install KMRP with its installer
+      first; after that KPM can switch the patch off and on. Without the
+      pack, KMRP.kpatch runs without KMRP's interface.
 
       Options:
         Map notes       Derslok's area-map marker fixes          (on)
@@ -60,8 +66,10 @@ Requirements
 
 Install
 -------
-1. Put the .kpatch files in KOTOR Patch Manager's patch folder. KMRP's
-   installer does this for you when it finds KPM on the PC.
+1. Run KMRP's installer on the game. It writes the art pack and makes the
+   interface for every resolution your display offers, and puts the
+   .kpatch files in KOTOR Patch Manager's patch folder when it finds KPM
+   on the PC.
 2. Open KPM, tick "KMRP - KOTOR Modern Restoration Patch" and, for a
    controller, "KOTOR 1 Native Controller Mod + Xbox HUD", and press
    Apply. Leave KPM's own 4 GB, texture bucket, grass and save-game memory

@@ -108,7 +108,7 @@ optional components are installed.
 
 ## K1 Modern Driver Compatibility
 
-**K1 Modern Driver Compatibility 1.2.0** by **Synchro** is redistributed inside the
+**K1 Modern Driver Compatibility 2.0.0** (1.2.0 until 2026-10-19) by **Synchro** is redistributed inside the
 patcher, with the author's permission, and installed into the game folder unless the
 user turns it off under *Advanced Settings*.
 
@@ -118,7 +118,7 @@ https://deadlystream.com/files/file/3048-k1-modern-driver-compatibility-patch
 Licensed under the **Mozilla Public License 2.0**. The licence text ships inside the
 patcher and a copy is preserved at:
 
-`third_party/Included/k1-modern-driver-compatibility-1.2.0 by Synchro/LICENSE`
+`third_party/Included/k1-modern-driver-compatibility-2.0.0 by Synchro/LICENSE`
 
 The two shipped binaries -- `dinput8.dll` and `k1-modern-driver-compatibility.asi` --
 are the author's released standalone build, unmodified and byte-for-byte identical to
@@ -537,3 +537,19 @@ freely, subject to the following restrictions:
 2. Altered source versions must be plainly marked as such, and must not be
    misrepresented as being the original software.
 3. This notice may not be removed or altered from any source distribution.
+
+## LZMA SDK
+
+KMRP's Windows module reads its art pack, `kmrp-assets.pack`, with the LZMA decoder of
+the **LZMA SDK 26.04** by Igor Pavlov, from the
+[official SDK](https://www.7-zip.org/sdk.html) (`lzma2604.7z`, SHA-256
+`bd98058d0e12c5da970dd4e5e1d8fa24f2d704914d96e69c28f92ed45421a439`), since 2026-10-19.
+Five of its files are in `third_party/lzma-sdk`, unchanged (`LzmaDec.c`, `LzmaDec.h`,
+`7zTypes.h`, `Precomp.h`, `Compiler.h`; their SHA-256s are in that folder's README), and
+are compiled into the module. The pack itself is written at build time by Python's
+`lzma` module.
+
+The LZMA SDK is in the public domain. From its `DOC/lzma-sdk.txt`: "LZMA SDK is
+written and placed in the public domain by Igor Pavlov." Anyone may copy, change,
+publish, use, compile, sell or distribute it, in source or compiled form, for any
+purpose; no licence text needs to travel with it.

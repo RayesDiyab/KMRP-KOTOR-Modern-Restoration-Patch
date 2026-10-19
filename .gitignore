@@ -106,6 +106,11 @@ third_party/Included/Xelu_Free_Controller&Key_Prompts/*
 !third_party/Included/Xelu_Free_Controller&Key_Prompts/Steam Deck/
 !third_party/Included/Xelu_Free_Controller&Key_Prompts/Readme.txt
 
+# The LZMA SDK's decoder (Igor Pavlov, public domain), five files unchanged: KMRP's
+# module unpacks kmrp-assets.pack with it (src/controller-native/K1AssetPack.cpp).
+# See third_party/lzma-sdk/README.md and THIRD_PARTY_NOTICES.md.
+!third_party/lzma-sdk/
+
 # Aurebesh by SilvinoR (OFL-1.1), a build input only: tools/controller_layout_backdrop.py
 # renders the Controller Layout screen's lettering with it. The font is not shipped.
 # See THIRD_PARTY_NOTICES.md.
@@ -119,7 +124,7 @@ third_party/Included/Xelu_Free_Controller&Key_Prompts/*
 # the patcher with the author's permission. The negations for the binaries are needed
 # because the global *.dll rule above would otherwise drop the proxy DLL from the
 # release we distribute. See docs/third-party-driver-compat.md.
-!third_party/Included/k1-modern-driver-compatibility-1.2.0 by Synchro/
+!third_party/Included/k1-modern-driver-compatibility-2.0.0 by Synchro/
 # High FPS Fixes 1.0.1 (D3M0, MIT), the release's own .kpatch and the repository's
 # licence: the installer carries the file unchanged as an option, off by default
 # (2026-10-09). Its module is inside the .kpatch, so no *.dll negation is needed.

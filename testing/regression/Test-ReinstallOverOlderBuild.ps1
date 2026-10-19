@@ -159,6 +159,12 @@ Write-Host ("resolution " + $Resolution)
 
 # KPM's own settings, parked for the run (Restore-TestNvidiaProfiles.ps1).
 $kpmLauncherSettings = Hide-KpmLauncherSettings $WorkRoot
+# The art cache an install makes and a restore removes (ArtPreparation, KpmEdition.cs),
+# in this run's folder: the installer and the module take %LOCALAPPDATA% from the
+# environment, so the player's own cache is never touched.
+$playerLocalAppData = $env:LOCALAPPDATA
+$env:LOCALAPPDATA = Join-Path $WorkRoot "localappdata"
+New-Item -ItemType Directory -Force -Path $env:LOCALAPPDATA | Out-Null
 try {
     # ---------------------------------------------------------------- case 1
     Write-Host ""
@@ -307,6 +313,7 @@ try {
     Assert ((Get-Sha256 $exe) -eq $cleanHash) "swkotor.exe is the original"
 }
 finally {
+    $env:LOCALAPPDATA = $playerLocalAppData
     Restore-KpmLauncherSettings $kpmLauncherSettings
     foreach ($log in $errorLogs) {
         if ((Test-Path -LiteralPath $log) -and $errorLogsBefore -notcontains $log) { Remove-Item -LiteralPath $log -Force }

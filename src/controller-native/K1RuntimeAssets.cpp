@@ -1,13 +1,20 @@
-// Embedded resources, unpacked into a cache of KMRP's own and registered through the
-// game's resource manager. Never writes the player's Override.
+// KMRP's art, unpacked from its art pack into a cache of KMRP's own and registered
+// through the game's resource manager. Never writes the player's Override.
 //
-// The bank (tools/build_native_assets.py, KNAST002) names every file of every
-// resolution's set with its SHA-256, and stores only the objects this module cannot
-// make: the build ran the blend helper below for every set and left out each file
-// the helper writes exactly as the set has it. So a set is produced in three steps
-// (BuildSet): the files the bank holds are written, the helper writes the rest, and
-// every file is held against the set's index. Until 2026-10-05 the bank stored every
-// file (KNAST001, 243 MB of a 249 MB patch).
+// The pack, kmrp-assets.pack beside this module in the game's patches folder
+// (tools/kmrp_pack.py writes it, K1AssetPack.cpp reads it), names every file of every
+// resolution's set with its SHA-256, and stores only the files this module cannot
+// make: the build ran the blend helper below for every set and left out each file the
+// helper writes exactly as the set has it (tools/build_native_assets.py). So a set is
+// produced in three steps (BuildSet): the files the pack holds are written, the helper
+// writes the rest, and every file is held against the set's index. Until 2026-10-05
+// every file was stored (KNAST001, 243 MB of a 249 MB patch); until 2026-10-19 the
+// stored files were a bank inside this module (KNAST002, XPRESS, 109 MB of 113 MB),
+// which the pack replaced at 56 MB, so the installer that carries it is half the size
+// (the maintainer, 2026-10-19: "have the smallest possible installer"). The installer
+// also has every size the display offers made before the game first starts
+// (KmrpRuntimeAssetsPrepare), and the game does the same for any it has not
+// (Prebuild).
 //
 // The cache is kept between runs (2026-10-19, as the Mac's since 2026-10-08,
 // macos/patches/kmrp-assets/assets.cpp, whose design this follows):
@@ -36,7 +43,7 @@
 #include "K1RuntimeAssets.h"
 #include "NativeAssets.generated.h"
 #include "KmrpOptions.h"
-#include "K1Xpress.h"
+#include "K1AssetPack.h"
 #include "K1PartyRosterGui.h"
 #include "K1PartyRosterState.h"
 #include "K1TextOptions.h"
@@ -44,6 +51,7 @@
 #include <windows.h>
 #include <bcrypt.h>
 #include <array>
+#include <list>
 #include <map>
 #include <set>
 #include <vector>
@@ -69,13 +77,17 @@ extern "C" int KmrpSwoopHud(const char* key, const char* outdir, unsigned width,
 void KmrpRuntimeLog(const char* line);       // K1RuntimeEngine.cpp: one line into kmrp-kpm.log
 
 namespace {
-using Key = std::array<unsigned char, 32>;
-struct Object { const unsigned char* bytes; unsigned size, compressed; };
-struct Entry { std::string name; Key key; };
-struct Group { unsigned width, height; std::vector<Entry> entries; };
-std::map<Key, Object> objects;
+using Key = KmrpPack::Key;
+using Entry = KmrpPack::Entry;
+using Group = KmrpPack::Group;
+// The art pack's index (Initialize), and the pack, open for the run.
+std::map<Key, KmrpPack::Object> objects;
 std::vector<Group> groups;
+std::vector<KmrpPack::Block> blocks;
 Key tableKey{};
+HANDLE packFile = INVALID_HANDLE_VALUE;
+bool packTried = false;                  // looked for once, until ClosePack
+HANDLE runLock = INVALID_HANDLE_VALUE;   // root\run-<pid>.lock (Running)
 std::wstring root;        // %LOCALAPPDATA%\KMRP\cache\<build>
 std::wstring store;       // root\store
 std::wstring cache;       // root\art-<pid>: this run's common files (KmrpRuntimeAssetDirectory)
@@ -112,21 +124,6 @@ bool Sha(const unsigned char* data, unsigned size, Key& result)
     if (hash) BCryptDestroyHash(hash);
     return ok;
 }
-
-struct Reader {
-    const unsigned char* at; const unsigned char* end;
-    bool bytes(void* out, unsigned size) {
-        if (static_cast<std::size_t>(end - at) < size) return false;
-        std::memcpy(out, at, size); at += size; return true;
-    }
-    bool integer(unsigned& value) { return bytes(&value, 4); }
-    bool name(std::string& value) {
-        unsigned short size;
-        if (!bytes(&size, 2) || !size || size > 255 || end - at < size) return false;
-        value.assign(reinterpret_cast<const char*>(at), size); at += size;
-        return value.find_first_of("/\\") == std::string::npos && value.find("..") == std::string::npos;
-    }
-};
 
 const wchar_t kLockSuffix[] = L".lock";
 
@@ -266,57 +263,82 @@ void RemoveStaleCaches(const std::wstring& temp)
     FindClose(search);
 }
 
+// Bytes of the pack from `offset`, as many as `out` holds.
+bool ReadAt(HANDLE file, std::uint32_t offset, std::vector<unsigned char>& out)
+{
+    OVERLAPPED at{};
+    at.Offset = offset;
+    DWORD got = 0;
+    return ReadFile(file, out.data(), static_cast<DWORD>(out.size()), &got, &at) && got == out.size();
+}
+
 bool Initialize()
 {
     if (!groups.empty()) return true;
+    // Looked for once a run: a pack that is missing or another build's stays so.
+    if (packTried) return false;
+    packTried = true;
+    // The art pack beside this module, in the game's patches folder, where the installer
+    // writes it (tools/kmrp_pack.py); or in the game's patches folder when the module is
+    // elsewhere, as the installer's copy is when it prepares the art
+    // (KmrpRuntimeAssetsPrepare). Its index read now, a file's block when the file is
+    // needed (Decode). Held open for the run, shared for deleting: an installer may remove
+    // or replace it while a game runs, and this run keeps the file it opened.
     HMODULE module = nullptr;
+    wchar_t path[MAX_PATH];
     if (!GetModuleHandleExW(GET_MODULE_HANDLE_EX_FLAG_FROM_ADDRESS | GET_MODULE_HANDLE_EX_FLAG_UNCHANGED_REFCOUNT,
             reinterpret_cast<LPCWSTR>(&Initialize), &module)) return false;
-    HRSRC resource = FindResourceW(module, MAKEINTRESOURCEW(101), MAKEINTRESOURCEW(10));
-    if (!resource) return false;
-    unsigned size = SizeofResource(module, resource);
-    auto data = static_cast<const unsigned char*>(LockResource(LoadResource(module, resource)));
-    // The first eight bytes name the compression (tools/build_native_assets.py):
-    // XPRESS with Huffman, the one shipped and the one this module decodes itself
-    // (K1Xpress.cpp). The builder's --lzms bank, KNASL002, needed Windows' own
-    // decoder, which Wine and Proton do not have (issue 30), and is refused.
-    if (!data || size < 48 || std::memcmp(data, "KNAST002", 8)) return false;
-    Reader reader{data + 8, data + size};
-    unsigned groupCount, objectCount;
-    if (!reader.integer(groupCount) || groupCount != 67 || !reader.integer(objectCount) || objectCount > 60000 ||
-        !reader.bytes(tableKey.data(), 32)) return false;
-    std::vector<Group> parsed;
-    for (unsigned i = 0; i < groupCount; ++i) {
-        Group group{}; unsigned count;
-        if (!reader.integer(group.width) || !reader.integer(group.height) || !reader.integer(count) || count > 2000) return false;
-        for (unsigned j = 0; j < count; ++j) {
-            Entry entry;
-            if (!reader.name(entry.name) || !reader.bytes(entry.key.data(), 32)) return false;
-            group.entries.push_back(entry);
-        }
-        parsed.push_back(std::move(group));
+    const DWORD named = GetModuleFileNameW(module, path, MAX_PATH);
+    wchar_t* slash = named && named < MAX_PATH ? wcsrchr(path, L'\\') : nullptr;
+    if (!slash || wcscpy_s(slash + 1, MAX_PATH - (slash + 1 - path), L"kmrp-assets.pack")) return false;
+    HANDLE file = CreateFileW(path, GENERIC_READ, FILE_SHARE_READ | FILE_SHARE_DELETE, nullptr, OPEN_EXISTING,
+                              FILE_FLAG_RANDOM_ACCESS, nullptr);
+    if (file == INVALID_HANDLE_VALUE && KmrpGamePath(path, L"patches\\kmrp-assets.pack"))
+        file = CreateFileW(path, GENERIC_READ, FILE_SHARE_READ | FILE_SHARE_DELETE, nullptr, OPEN_EXISTING,
+                           FILE_FLAG_RANDOM_ACCESS, nullptr);
+    if (file == INVALID_HANDLE_VALUE) {
+        KmrpRuntimeLog("[KMRP] kmrp-assets.pack is not in the patches folder beside kmrp.dll, so KMRP's interface "
+                       "cannot be made: install KMRP with its installer, which writes it");
+        return false;
     }
-    std::map<Key, Object> bank;
-    for (unsigned i = 0; i < objectCount; ++i) {
-        Key key; Object object{};
-        if (!reader.bytes(key.data(), 32) || !reader.integer(object.size) || !reader.integer(object.compressed) ||
-            !object.size || object.size > (256u << 20) || reader.end - reader.at < object.compressed || bank.count(key)) return false;
-        object.bytes = reader.at; reader.at += object.compressed; bank.emplace(key, object);
+    LARGE_INTEGER fileSize{};
+    std::vector<unsigned char> index(KmrpPack::kHeaderSize);
+    Key identity{};
+    std::uint32_t start = 0;
+    KmrpPack::Index parsed;
+    bool ok = GetFileSizeEx(file, &fileSize) && ReadAt(file, 0, index) &&
+              KmrpPack::ReadHeader(index.data(), index.size(), identity, start) && start <= fileSize.QuadPart;
+    if (ok) {
+        // The pack this module was built with, and no other: a module put in by hand beside
+        // an older pack would name files the pack does not have.
+        const std::string text = KmrpPack::IdentityText(identity);
+        ok = std::wstring(text.begin(), text.end()) == KMRP_ASSET_BUILD;
+        if (!ok) KmrpRuntimeLog("[KMRP] kmrp-assets.pack is from another build of KMRP than kmrp.dll: install KMRP again");
     }
-    if (reader.at != reader.end || !bank.count(tableKey)) return false;
+    if (ok) {
+        index.resize(start);
+        ok = ReadAt(file, 0, index) &&
+             KmrpPack::ReadIndex(index.data(), index.size(), static_cast<std::uint64_t>(fileSize.QuadPart), parsed) &&
+             parsed.groups.size() == 67;
+    }
     // The common files are all stored. A set's may be left to the blend helper.
-    for (const auto& group : parsed) {
-        if (group.width != 0) continue;
-        for (const auto& entry : group.entries) if (!bank.count(entry.key)) return false;
+    for (const auto& group : parsed.groups) {
+        if (!ok || group.width != 0) continue;
+        for (const auto& entry : group.entries) if (!parsed.objects.count(entry.key)) ok = false;
+    }
+    if (!ok) {
+        CloseHandle(file);
+        KmrpRuntimeLog("[KMRP] kmrp-assets.pack cannot be read");
+        return false;
     }
     wchar_t temp[MAX_PATH]{};
     if (GetTempPathW(MAX_PATH, temp)) RemoveStaleCaches(temp);
     // The cache, under %LOCALAPPDATA% (or %TEMP% where that is not set), named after
-    // the bank, so a new build starts a new one (RemoveStale removes the old).
+    // the pack, so a new build starts a new one (RemoveStale removes the old).
     wchar_t local[MAX_PATH];
     const DWORD length = GetEnvironmentVariableW(L"LOCALAPPDATA", local, MAX_PATH);
     std::wstring parent = length && length < MAX_PATH ? std::wstring(local) : std::wstring(temp);
-    if (parent.empty()) return false;
+    if (parent.empty()) { CloseHandle(file); return false; }
     if (parent.back() != L'\\') parent += L'\\';
     parent += L"KMRP";
     CreateDirectoryW(parent.c_str(), nullptr);
@@ -324,19 +346,40 @@ bool Initialize()
     CreateDirectoryW(parent.c_str(), nullptr);
     const std::wstring build = std::wstring(KMRP_ASSET_BUILD).substr(0, 16);
     root = parent + L"\\" + build;
-    if (!IsDirectory(root) && !CreateDirectoryW(root.c_str(), nullptr)) return false;
+    if (!IsDirectory(root) && !CreateDirectoryW(root.c_str(), nullptr)) { CloseHandle(file); return false; }
     CreateDirectoryW((root + L"\\sets").c_str(), nullptr);
     CreateDirectoryW((root + L"\\fonts").c_str(), nullptr);
     // Held for the life of the process and deleted with it, even on a crash: a later
     // run reads a lock it can delete as "that game is gone" (Running).
-    CreateFileW((root + L"\\run-" + Pid() + kLockSuffix).c_str(), GENERIC_WRITE, 0, nullptr, CREATE_ALWAYS,
-                FILE_ATTRIBUTE_TEMPORARY | FILE_FLAG_DELETE_ON_CLOSE, nullptr);
+    runLock = CreateFileW((root + L"\\run-" + Pid() + kLockSuffix).c_str(), GENERIC_WRITE, 0, nullptr, CREATE_ALWAYS,
+                          FILE_ATTRIBUTE_TEMPORARY | FILE_FLAG_DELETE_ON_CLOSE, nullptr);
     RemoveStale(parent, build);
     store = root + L"\\store";
     cache = root + L"\\art-" + Pid();
     fontsView = root + L"\\fonts-" + Pid();
-    objects.swap(bank); groups.swap(parsed);
+    objects.swap(parsed.objects);
+    groups.swap(parsed.groups);
+    blocks.swap(parsed.blocks);
+    tableKey = parsed.table;
+    packFile = file;
     return true;
+}
+
+// Blocks that hold several files, kept unpacked while their files are asked for one at a
+// time (a size's set, the common files), newest first, up to kKeepUnpacked bytes; let go
+// once the work is done (ForgetUnpacked). A file that is a block of its own is unpacked
+// straight into the caller's buffer.
+SRWLOCK packLock = SRWLOCK_INIT;
+std::list<std::pair<std::uint32_t, std::vector<unsigned char>>> unpacked;
+std::size_t unpackedBytes = 0;
+const std::size_t kKeepUnpacked = 48u << 20;
+
+bool UnpackBlock(std::uint32_t number, std::vector<unsigned char>& out)
+{
+    const auto& block = blocks[number];
+    std::vector<unsigned char> stored(block.stored);
+    out.resize(block.size);
+    return ReadAt(packFile, block.offset, stored) && KmrpPack::Unpack(block, stored.data(), out.data());
 }
 
 bool Decode(const Key& key, std::vector<unsigned char>& output)
@@ -344,10 +387,61 @@ bool Decode(const Key& key, std::vector<unsigned char>& output)
     auto found = objects.find(key);
     if (found == objects.end()) return false;
     const auto& object = found->second;
-    output.resize(object.size);
-    if (!KmrpXpressDecode(object.bytes, object.compressed, output.data(), output.size())) return false;
+    const auto& block = blocks[object.block];
+    bool ok = false;
+    AcquireSRWLockExclusive(&packLock);
+    if (object.offset == 0 && object.size == block.size) {
+        ok = UnpackBlock(object.block, output);
+    } else {
+        auto kept = std::find_if(unpacked.begin(), unpacked.end(),
+                                 [&](const std::pair<std::uint32_t, std::vector<unsigned char>>& b) { return b.first == object.block; });
+        if (kept != unpacked.end()) {
+            unpacked.splice(unpacked.begin(), unpacked, kept);
+            ok = true;
+        } else {
+            std::vector<unsigned char> data;
+            if (UnpackBlock(object.block, data)) {
+                unpackedBytes += data.size();
+                unpacked.emplace_front(object.block, std::move(data));
+                while (unpackedBytes > kKeepUnpacked && unpacked.size() > 1) {
+                    unpackedBytes -= unpacked.back().second.size();
+                    unpacked.pop_back();
+                }
+                ok = true;
+            }
+        }
+        if (ok) {
+            const auto& data = unpacked.front().second;
+            output.assign(data.begin() + object.offset, data.begin() + object.offset + object.size);
+        }
+    }
+    ReleaseSRWLockExclusive(&packLock);
     Key measured;
-    return Sha(output.data(), static_cast<unsigned>(output.size()), measured) && measured == key;
+    return ok && KmrpPack::Unfilter(object.filter, output.data(), output.size()) &&
+           Sha(output.data(), static_cast<unsigned>(output.size()), measured) && measured == key;
+}
+
+void ForgetUnpacked()
+{
+    AcquireSRWLockExclusive(&packLock);
+    unpacked.clear();
+    unpackedBytes = 0;
+    ReleaseSRWLockExclusive(&packLock);
+}
+
+// The pack and the run's lock let go, when the installer has finished preparing: it may
+// write the pack again in the same session (a reinstall), and the lock would otherwise
+// mark the cache in use until the installer closes. The next Initialize starts afresh.
+void ClosePack()
+{
+    ForgetUnpacked();
+    if (packFile != INVALID_HANDLE_VALUE) CloseHandle(packFile);
+    if (runLock != INVALID_HANDLE_VALUE) CloseHandle(runLock);
+    packFile = runLock = INVALID_HANDLE_VALUE;
+    objects.clear();
+    groups.clear();
+    blocks.clear();
+    packTried = false;
 }
 
 bool Read(const std::wstring& path, std::vector<unsigned char>& output)
@@ -434,7 +528,10 @@ bool TablePath(std::string& path)
     if (GetFileAttributesW(wide.c_str()) != INVALID_FILE_ATTRIBUTES) return true;
     std::vector<unsigned char> table;
     const std::wstring work = wide + L".tmp" + Pid();
-    return Decode(tableKey, table) && WriteNew(work, table, &tableKey) && MoveFileExW(work.c_str(), wide.c_str(), 0);
+    if (Decode(tableKey, table) && WriteNew(work, table, &tableKey) && MoveFileExW(work.c_str(), wide.c_str(), 0)) return true;
+    // Another of the installer's workers (KmrpRuntimeAssetsPrepare) wrote it first.
+    DeleteFileW(work.c_str());
+    return GetFileAttributesW(wide.c_str()) != INVALID_FILE_ATTRIBUTES;
 }
 
 // A folder given to the game under an alias of its own: the resource manager takes
@@ -921,7 +1018,7 @@ bool HdIcon(const std::string& name)
 }
 
 // The common files, unpacked once a build: all but the three font styles' sources,
-// which only CachedFont reads, from the bank. Called under the build lock.
+// which only CachedFont reads, from the pack. Called under the build lock.
 bool BuildStore()
 {
     return Build(store, "store\n", [](const std::wstring& work) {
@@ -930,7 +1027,7 @@ bool BuildStore()
         if (!common) return false;
         for (const auto& entry : common->entries) {
             if (!entry.name.compare(0, 4, "kmrf")) continue;
-            if (!Decode(entry.key, data) || !WriteNew(work + L"\\" + Wide(entry.name), data, &entry.key)) return false;
+            if (!Decode(entry.key, data) || !WriteNew(work + L"\\" + Wide(entry.name), data)) return false;
         }
         return true;
     });
@@ -980,11 +1077,7 @@ const Group* SetFor(int width, int height, bool& exact)
 std::wstring GameFolder()
 {
     wchar_t game[MAX_PATH];
-    const DWORD size = GetModuleFileNameW(nullptr, game, MAX_PATH);
-    wchar_t* slash = size && size < MAX_PATH ? wcsrchr(game, L'\\') : nullptr;
-    if (!slash) return std::wstring();
-    *slash = 0;
-    return game;
+    return KmrpGameFolder(game) ? std::wstring(game) : std::wstring();
 }
 
 // A file's size and time, for a stamp: what is made from the player's game belongs to
@@ -1020,39 +1113,61 @@ bool BuildSet(int width, int height, std::wstring& directory)
                               " key " + FileStamp(keyPath) + "\n";
     directory = root + L"\\sets\\" + std::to_wstring(width) + L"x" + std::to_wstring(height);
     return Build(directory, stamp, [&](const std::wstring& work) {
+        // Where the time goes, for the debug log: the pack's files, the blend helper, the
+        // check against the index, the icons, the game's art, the swoop HUD.
+        ULONGLONG mark = GetTickCount64(), part[6]{};
+        auto lap = [&](int which) { const ULONGLONG now = GetTickCount64(); part[which] += now - mark; mark = now; };
         std::vector<unsigned char> output;
-        unsigned left = 0;
-        for (const auto& entry : selected->entries) {
-            if (!objects.count(entry.key)) { ++left; continue; }
-            if (!Decode(entry.key, output) || !WriteNew(work + L"\\" + Wide(entry.name), output, &entry.key)) return false;
-        }
         const std::string directoryA = Narrow(work);
         if (directoryA.empty()) return false;
-        if (!exact || left) {
+        unsigned left = 0;
+        for (const auto& entry : selected->entries) if (!objects.count(entry.key)) ++left;
+        // The pack's files, written as Decode checked them. For a listed size they go in
+        // after the blend helper has run, over what it wrote, but for the one it reads
+        // (kmrp_prompts.txt; the build's HELPER_INPUTS, with the font metrics below): they
+        // are the files it makes differently from the build or does not make, so only the
+        // files left to it need holding against the index. For any other size the nearest
+        // set's files go in first and the helper writes the size's own over them. Until
+        // 2026-10-19 every file was written first, read back, and read again after the
+        // helper, which cost 3 to 10 s a size once the installer made every size.
+        auto stored = [&](bool helperInputs) {
+            for (const auto& entry : selected->entries) {
+                if (!objects.count(entry.key) || (helperInputs && entry.name != "kmrp_prompts.txt")) continue;
+                if (!Decode(entry.key, output) || !WriteNew(work + L"\\" + Wide(entry.name), output)) return false;
+            }
+            return true;
+        };
+        const bool helper = !exact || left;
+        if (!stored(exact && helper)) return false;
+        lap(0);
+        if (helper) {
             std::string table;
             if (!TablePath(table) || !ReferenceTxi(height, output) ||
                 !WriteNew(work + L"\\dialogfont16x16.txi", output)) return false;
             if (KmrpGuiBlend(table.c_str(), width, height, directoryA.c_str(), directoryA.c_str())) return false;
             // The fonts are the fonts folder's.
             DeleteFileW((work + L"\\dialogfont16x16.txi").c_str());
+            lap(1);
             if (exact) {
+                if (!stored(false)) return false;
+                lap(0);
                 unsigned differing = 0;
                 for (const auto& entry : selected->entries) {
-                    const std::wstring path = work + L"\\" + Wide(entry.name);
+                    if (objects.count(entry.key)) continue;
                     Key measured;
-                    if (Read(path, output) && Sha(output.data(), static_cast<unsigned>(output.size()), measured) &&
-                        measured == entry.key) continue;
-                    if (objects.count(entry.key) && Decode(entry.key, output) && WriteNew(path, output, &entry.key)) continue;
-                    ++differing;
+                    if (!Read(work + L"\\" + Wide(entry.name), output) ||
+                        !Sha(output.data(), static_cast<unsigned>(output.size()), measured) || measured != entry.key)
+                        ++differing;
                 }
                 if (differing) {
-                    char line[160];
-                    sprintf_s(line, "[KMRP] warning: %u of %u interface files for %dx%d were made differently than the build made them",
-                              differing, static_cast<unsigned>(selected->entries.size()), width, height);
+                    char line[200];
+                    sprintf_s(line, "[KMRP] warning: %u of the %u interface files the helper makes for %dx%d were made "
+                              "differently than the build made them", differing, left, width, height);
                     KmrpRuntimeLog(line);
                 }
             }
         }
+        lap(2);
         // The icons the bank already supplies are not the helpers' to make. Beside the
         // folder, not in it: the game must not see it as a resource.
         const std::string game8 = Narrow(game);
@@ -1069,16 +1184,27 @@ bool BuildSet(int width, int height, std::wstring& directory)
         }
         KmrpAbilityIcons(pack.c_str(), static_cast<unsigned>(height), directoryA.c_str(), reserved.c_str());
         DeleteFileA(reserved.c_str());
+        lap(3);
         KmrpGameArt(pack.c_str(), key.c_str(), static_cast<unsigned>(height), directoryA.c_str());
+        lap(4);
         const int swoop = KmrpSwoopHud(key.c_str(), directoryA.c_str(), static_cast<unsigned>(width), static_cast<unsigned>(height));
-        KmrpRuntimeLog(swoop == 0 ? "[KMRP] swoop HUD model: the parked speed segment moved out of this screen's view"
-                     : swoop == 1 ? "[KMRP] swoop HUD model: not the game's own, left as it is"
-                     : swoop == 3 ? "[KMRP] swoop HUD model: the game's own is right for this screen"
-                                  : "[KMRP] swoop HUD model: could not be written");
-        char line[160];
-        sprintf_s(line, "[KMRP] set %dx%d made: %s", width, height,
-                  exact ? (left ? "the bank's, with the helper's" : "the bank's") : "blended from the nearest set");
-        KmrpRuntimeLog(line);
+        lap(5);
+        // What was made is a progress note, for the debug log only (KmrpOptions.h): since
+        // the installer makes every size (2026-10-19) these lines would otherwise leave a
+        // kmrp-kpm.log in every game folder it installs to. A failure is always written.
+        if (swoop != 0 && swoop != 1 && swoop != 3) KmrpRuntimeLog("[KMRP] swoop HUD model: could not be written");
+        else if (KmrpDebugLogs())
+            KmrpRuntimeLog(swoop == 0 ? "[KMRP] swoop HUD model: the parked speed segment moved out of this screen's view"
+                         : swoop == 1 ? "[KMRP] swoop HUD model: not the game's own, left as it is"
+                                      : "[KMRP] swoop HUD model: the game's own is right for this screen");
+        char line[300];
+        const int length = sprintf_s(line, "[KMRP] set %dx%d made: %s", width, height,
+                  exact ? (left ? "the pack's, with the helper's" : "the pack's") : "blended from the nearest set");
+        if (KmrpDebugLogs() && length > 0) {
+            sprintf_s(line + length, sizeof line - length, " (ms: pack %llu, helper %llu, check %llu, icons %llu, "
+                      "game art %llu, swoop %llu)", part[0], part[1], part[2], part[3], part[4], part[5]);
+            KmrpRuntimeLog(line);
+        }
         return true;
     });
 }
@@ -1188,45 +1314,99 @@ bool KmrpRuntimeAssetsCovers(int width, int height)
 }
 
 namespace {
-// The five largest sizes the display offers that KMRP covers, made ahead in the
-// background, sets and fonts, after the first size is in place (the maintainer,
-// 2026-10-19: "Make the 5 highest resolutions be available on disk and the rest need
-// building on first run"). A size made already costs a look at its marker. One size at
-// a time under the build lock, so a change of size in the game waits for one at most.
-DWORD WINAPI Prebuild(void*)
+// Every size the display offers (the game's display, the main one) that KMRP covers,
+// largest first: the sizes the game's resolution list offers.
+std::vector<std::pair<int, int>> DisplaySizes()
 {
-    SetThreadPriority(GetCurrentThread(), THREAD_MODE_BACKGROUND_BEGIN);
     std::set<std::pair<DWORD, DWORD>> modes;
     DEVMODEA mode{};
     mode.dmSize = sizeof mode;
     for (DWORD index = 0; EnumDisplaySettingsA(nullptr, index, &mode); ++index)
         if (mode.dmBitsPerPel == 32) modes.insert({mode.dmPelsWidth, mode.dmPelsHeight});
-    std::vector<std::pair<DWORD, DWORD>> largest(modes.begin(), modes.end());
-    std::sort(largest.begin(), largest.end(), [](const std::pair<DWORD, DWORD>& a, const std::pair<DWORD, DWORD>& b) {
-        return static_cast<unsigned long long>(a.first) * a.second > static_cast<unsigned long long>(b.first) * b.second;
+    std::vector<std::pair<int, int>> sizes;
+    for (const auto& size : modes) {
+        const int width = static_cast<int>(size.first), height = static_cast<int>(size.second);
+        if (KmrpRuntimeAssetsCovers(width, height)) sizes.push_back({width, height});
+    }
+    std::sort(sizes.begin(), sizes.end(), [](const std::pair<int, int>& a, const std::pair<int, int>& b) {
+        return static_cast<long long>(a.first) * a.second > static_cast<long long>(b.first) * b.second;
     });
-    unsigned made = 0;
+    return sizes;
+}
+
+// Every size the display offers that KMRP covers, made ahead in the background, sets
+// and fonts, after the first size is in place: the installer has made them already
+// (KmrpRuntimeAssetsPrepare), so this finds them made, unless the display or the cache
+// has changed since (the maintainer, 2026-10-19: "let's actually create all the
+// supported resolutions"; until then the five largest). A size made already costs a look
+// at its marker. One size at a time under the build lock, so a change of size in the
+// game waits for one at most.
+DWORD WINAPI Prebuild(void*)
+{
+    SetThreadPriority(GetCurrentThread(), THREAD_MODE_BACKGROUND_BEGIN);
     const ULONGLONG started = GetTickCount64();
     std::string sizes;
-    for (const auto& size : largest) {
-        if (made == 5) break;
-        const int width = static_cast<int>(size.first), height = static_cast<int>(size.second);
-        if (!KmrpRuntimeAssetsCovers(width, height)) continue;
-        ++made;
+    for (const auto& size : DisplaySizes()) {
         std::wstring set;
         {
             Locked lock;
-            if (!BuildSet(width, height, set)) continue;
+            if (!BuildSet(size.first, size.second, set)) continue;
         }
-        PrefitFonts(height);
-        sizes += (sizes.empty() ? "" : ", ") + std::to_string(width) + "x" + std::to_string(height);
+        PrefitFonts(size.second);
+        sizes += (sizes.empty() ? "" : ", ") + std::to_string(size.first) + "x" + std::to_string(size.second);
     }
-    char line[400];
-    sprintf_s(line, "[KMRP] sizes ready ahead: %s (%llu ms)", sizes.empty() ? "none" : sizes.c_str(),
-              GetTickCount64() - started);
-    KmrpRuntimeLog(line);
+    ForgetUnpacked();
+    if (KmrpDebugLogs()) {
+        char line[1200];
+        sprintf_s(line, "[KMRP] sizes ready ahead: %.1000s (%llu ms)", sizes.empty() ? "none" : sizes.c_str(),
+                  GetTickCount64() - started);
+        KmrpRuntimeLog(line);
+    }
     return 0;
 }
+}
+
+int KmrpRuntimeAssetsPrepare(int share, int shares, KmrpPrepareStep step, void* context)
+{
+    if (shares < 1 || share < 0 || share >= shares || !Initialize()) return -1;
+    // This worker's share: the common files for the first, and every shares-th size from
+    // its own. The helpers keep their state in globals, so the installer runs a worker a
+    // process (ArtPreparation, KpmEdition.cs).
+    std::vector<std::pair<int, int>> sizes;
+    const std::vector<std::pair<int, int>> all = DisplaySizes();
+    for (std::size_t i = share; i < all.size(); i += shares) sizes.push_back(all[i]);
+    const int total = (share == 0 ? 1 : 0) + static_cast<int>(sizes.size());
+    int done = 0;
+    if (share == 0) {
+        if (step && step(0, total, 0, 0, context)) { ClosePack(); return -1; }
+        Locked lock;
+        if (!BuildStore()) { ClosePack(); return -1; }
+        done = 1;
+    }
+    int made = 0;
+    for (const auto& size : sizes) {
+        if (step && step(done, total, size.first, size.second, context)) break;
+        std::wstring set;
+        bool built;
+        {
+            Locked lock;
+            built = BuildSet(size.first, size.second, set);
+        }
+        if (built) {
+            const ULONGLONG fonts = GetTickCount64();
+            PrefitFonts(size.second);
+            if (KmrpDebugLogs()) {
+                char line[120];
+                sprintf_s(line, "[KMRP] fonts for %d lines ready in %llu ms", size.second, GetTickCount64() - fonts);
+                KmrpRuntimeLog(line);
+            }
+            ++made;
+        }
+        ++done;
+    }
+    ClosePack();
+    if (step) step(total, total, 0, 0, context);
+    return made;
 }
 
 bool KmrpRuntimeAssetsDimensions(int width, int height)
@@ -1306,6 +1486,7 @@ bool KmrpRuntimeAssetsDimensions(int width, int height)
     if (!RegisterFolder(view, "kmrpset" + std::to_string(generation), false)) return false;
     if (!roster.empty() && !RegisterFolder(roster, "kmrproster" + std::to_string(generation), false)) return false;
     lap(4);
+    ForgetUnpacked();
     setView = view;
     rosterView = roster;
     currentWidth = width; currentHeight = height;

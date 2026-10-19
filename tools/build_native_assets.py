@@ -53,17 +53,19 @@ import zipfile
 import os
 import re
 import build_original_fonts
+import kmrp_pack
 from build_scaled_fonts import FONT_RESREFS
 
 ROOT = Path(__file__).resolve().parents[1]
-# The bank's first eight bytes name its compression: the Windows Compression API's
-# XPRESS with Huffman (algorithm 4) or LZMS (5). XPRESS is the one shipped. LZMS,
-# --lzms, makes the bank about a fifth smaller and about four times slower to unpack
-# (measured 2026-10-05 on the common files: 87.7 MB and 0.64 s against 68.3 MB and
-# 2.57 s), and the module unpacks the common files every time the game starts.
+# The art pack (tools/kmrp_pack.py), which the installer writes beside the module.
+PACK = 'kmrp-assets.pack'
+# build_native_runtime.cmd makes the pack again when this differs from the
+# font-style-assets.version it wrote: 5 is the pack (2026-10-19), 4 the last bank.
+ASSETS_VERSION = 5
+# What the bank, KNAST002, used until 2026-10-19 (still the controller patch's,
+# tools/build_controller_assets.py): the Windows Compression API's XPRESS with Huffman.
 MAGIC = b'KNAST002'
-MAGIC_LZMS = b'KNASL002'
-ALGORITHMS = {MAGIC: 4, MAGIC_LZMS: 5}
+ALGORITHMS = {MAGIC: 4}
 HELPER_SOURCE = ROOT / 'macos/tools/kmrp-guiblend.c'
 # The module's own flags for this file (build_native_runtime.cmd), without the
 # define that drops main(): the same code, as a program.
@@ -214,8 +216,7 @@ def rebuilt_names(helper: Path, table: Path, archive: Path, work: Path) -> tuple
     return same, different
 
 
-def build(resources, out, helper=None, every_object=False, lzms=False):
-    magic = MAGIC_LZMS if lzms else MAGIC
+def build(resources, out, helper=None, every_object=False):
     objects = {}
     groups = []
     original_fonts = out / 'original-fonts'
@@ -239,73 +240,61 @@ def build(resources, out, helper=None, every_object=False, lzms=False):
             print(f'{archive.name}: ' + ('outside the blend, every file stored' if different < 0 else
                                          f'the helper rebuilds {len(same)} files, {different} differ'), flush=True)
 
-    compressor = Compressor(ALGORITHMS[magic])
-    try:
-        left_out = set()
-        for number, archive in enumerate(archives):
-            entries = []
-            made = rebuilt.get(archive.name, set())
-            with zipfile.ZipFile(archive) as source:
-                for name in source.namelist():
-                    # Fonts have one shared source per style, below. Live sizing
-                    # changes native font metrics, never rasterizes another atlas.
-                    if name in FONT_FILES:
-                        continue
-                    data = source.read(name)
-                    digest = hashlib.sha256(data).digest()
-                    # A helper input is kept even where the helper writes it back unchanged.
-                    if name in made and name not in HELPER_INPUTS:
-                        left_out.add(digest)
-                    elif digest not in objects:
-                        objects[digest] = (len(data), compressor.compress(data))
-                    entries.append((name, digest))
-            if number == 0:
-                # Each font style is resolution independent: its sources under
-                # private names, which K1RuntimeAssets selects from at runtime.
-                for index, name in enumerate(FONT_RESREFS):
-                    for extension in ('.tga', '.txi'):
-                        for prefix, path in (('kmrfog', original_fonts / f'kmrfog{index:02d}{extension}'),
-                                             ('kmrfho', hd_original(name, extension)),
-                                             ('kmrfhd', ROOT / 'assets/hd-fonts' / (name + extension))):
-                            data = path.read_bytes()
-                            digest = hashlib.sha256(data).digest()
-                            if digest not in objects:
-                                objects[digest] = (len(data), compressor.compress(data))
-                            entries.append((f'{prefix}{index:02d}{extension}', digest))
-                # Hash-pinned by tools/prepare_sdl3.ps1; loaded from the module's
-                # private cache (InitSdl in K1ControllerBackend.cpp).
-                data = (resources.parents[1] / 'deps/kmrp-sdl3.dll').read_bytes()
+    left_out = set()
+    for number, archive in enumerate(archives):
+        entries = []
+        made = rebuilt.get(archive.name, set())
+        with zipfile.ZipFile(archive) as source:
+            for name in source.namelist():
+                # Fonts have one shared source per style, below. Live sizing
+                # changes native font metrics, never rasterizes another atlas.
+                if name in FONT_FILES:
+                    continue
+                data = source.read(name)
                 digest = hashlib.sha256(data).digest()
-                objects[digest] = (len(data), compressor.compress(data))
-                entries.append(('kmrp-sdl3.dll', digest))
-            size = (0, 0) if number == 0 else tuple(map(int, archive.stem[4:].split('x')))
-            groups.append((size, entries))
-            print(f'[{number + 1}/67] {archive.name}: {len(entries)} files', flush=True)
-        table = table_path.read_bytes()
-        digest = hashlib.sha256(table).digest()
-        objects[digest] = (len(table), compressor.compress(table))
-        blob = bytearray(magic + struct.pack('<II', len(groups), len(objects)))
-        blob += digest
-        for (width, height), entries in groups:
-            blob += struct.pack('<III', width, height, len(entries))
-            for name, key in entries:
-                blob += text(name) + key
-        for key, (size, compressed) in objects.items():
-            blob += key + struct.pack('<II', size, len(compressed)) + compressed
-        out.mkdir(parents=True, exist_ok=True)
-        target = out / 'native-assets.bin'
-        target.write_bytes(blob)
-        build_id = hashlib.sha256(blob).hexdigest()
-        if hashlib.sha256(target.read_bytes()).hexdigest() != build_id:
-            raise ValueError('Native asset read-back failed')
-        (out / 'NativeAssets.generated.h').write_text(f'#pragma once\n#define KMRP_ASSET_BUILD L"{build_id}"\n')
-        (out / 'native-assets.rc').write_text('101 RCDATA "native-assets.bin"\n')
-        (out / 'font-style-assets.version').write_text('4\n')
-        print(f'{len(objects)} objects stored, {len(left_out - set(objects))} left to the module to make, '
-              f'{len(blob)} bytes, SHA256 {build_id}', flush=True)
-    finally:
-        compressor.close()
-
+                # A helper input is kept even where the helper writes it back unchanged.
+                if name in made and name not in HELPER_INPUTS:
+                    left_out.add(digest)
+                elif digest not in objects:
+                    objects[digest] = data
+                entries.append((name, digest))
+        if number == 0:
+            # Each font style is resolution independent: its sources under
+            # private names, which K1RuntimeAssets selects from at runtime.
+            for index, name in enumerate(FONT_RESREFS):
+                for extension in ('.tga', '.txi'):
+                    for prefix, path in (('kmrfog', original_fonts / f'kmrfog{index:02d}{extension}'),
+                                         ('kmrfho', hd_original(name, extension)),
+                                         ('kmrfhd', ROOT / 'assets/hd-fonts' / (name + extension))):
+                        data = path.read_bytes()
+                        digest = hashlib.sha256(data).digest()
+                        objects.setdefault(digest, data)
+                        entries.append((f'{prefix}{index:02d}{extension}', digest))
+            # Hash-pinned by tools/prepare_sdl3.ps1; loaded from the module's
+            # private cache (InitSdl in K1ControllerBackend.cpp).
+            data = (resources.parents[1] / 'deps/kmrp-sdl3.dll').read_bytes()
+            digest = hashlib.sha256(data).digest()
+            objects.setdefault(digest, data)
+            entries.append(('kmrp-sdl3.dll', digest))
+        size = (0, 0) if number == 0 else tuple(map(int, archive.stem[4:].split('x')))
+        groups.append((size, entries))
+        print(f'[{number + 1}/67] {archive.name}: {len(entries)} files', flush=True)
+    table = table_path.read_bytes()
+    table_key = hashlib.sha256(table).digest()
+    objects.setdefault(table_key, table)
+    out.mkdir(parents=True, exist_ok=True)
+    target = out / PACK
+    print(f'packing {len(objects)} files, {sum(map(len, objects.values())) / 2**20:.1f} MiB (filters and LZMA, '
+          f'about a minute and a half)', flush=True)
+    build_id = kmrp_pack.write_pack(target, groups, objects, table_key)
+    if kmrp_pack.read_pack(target)[0] != build_id:
+        raise ValueError('Art pack read-back failed')
+    (out / 'NativeAssets.generated.h').write_text(f'#pragma once\n#define KMRP_ASSET_BUILD L"{build_id}"\n')
+    for retired in ('native-assets.bin', 'native-assets.rc', 'native-assets.res'):
+        (out / retired).unlink(missing_ok=True)
+    (out / 'font-style-assets.version').write_text(f'{ASSETS_VERSION}\n')
+    print(f'{len(objects)} objects stored, {len(left_out - set(objects))} left to the module to make, '
+          f'{target.stat().st_size} bytes, SHA256 {build_id}', flush=True)
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
@@ -314,7 +303,5 @@ if __name__ == '__main__':
     parser.add_argument('--helper', type=Path, help='the blend helper, already built (x86, the module\'s flags)')
     parser.add_argument('--every-object', action='store_true',
                         help='store every file of every set, as before 2026-10-05')
-    parser.add_argument('--lzms', action='store_true',
-                        help='LZMS instead of XPRESS-Huffman: a smaller bank, slower to unpack at every start')
     args = parser.parse_args()
-    build(args.resources, args.out, args.helper, args.every_object, args.lzms)
+    build(args.resources, args.out, args.helper, args.every_object)

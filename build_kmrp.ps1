@@ -287,7 +287,9 @@ $compilerArgs = @(
     "/nologo",
     "/optimize+",
     "/target:winexe",
-    "/platform:anycpu",
+    # 32-bit since 2026-10-19: it loads KMRP's module, which is x86, to make the art of
+    # every size before the game first starts (ArtPreparation, KpmEdition.cs).
+    "/platform:x86",
     "/out:$outputExe",
     "/win32icon:$resolvedIcon",
     "/reference:System.dll",
@@ -302,9 +304,9 @@ $compilerArgs = @(
     # The bundled K1 Modern Driver Compatibility standalone build (Synchro, MPL-2.0),
     # written into the game folder when the user leaves that option on. Two files, and
     # neither touches swkotor.exe -- see docs/third-party-driver-compat.md.
-    "/resource:$(Join-Path $projectRoot 'third_party\Included\k1-modern-driver-compatibility-1.2.0 by Synchro\dinput8.dll'),Kmrp.drivercompat.dinput8",
-    "/resource:$(Join-Path $projectRoot 'third_party\Included\k1-modern-driver-compatibility-1.2.0 by Synchro\k1-modern-driver-compatibility.asi'),Kmrp.drivercompat.asi",
-    "/resource:$(Join-Path $projectRoot 'third_party\Included\k1-modern-driver-compatibility-1.2.0 by Synchro\LICENSE'),Kmrp.license.drivercompat"
+    "/resource:$(Join-Path $projectRoot 'third_party\Included\k1-modern-driver-compatibility-2.0.0 by Synchro\dinput8.dll'),Kmrp.drivercompat.dinput8",
+    "/resource:$(Join-Path $projectRoot 'third_party\Included\k1-modern-driver-compatibility-2.0.0 by Synchro\k1-modern-driver-compatibility.asi'),Kmrp.drivercompat.asi",
+    "/resource:$(Join-Path $projectRoot 'third_party\Included\k1-modern-driver-compatibility-2.0.0 by Synchro\LICENSE'),Kmrp.license.drivercompat"
     # KMRP's module, its SDL and its patch are embedded in step 7 as one file, the
     # .kpatch (Kmrp.kpatch): the installer takes the module out of it.
 )
@@ -377,13 +379,14 @@ if (-not (Test-Path -LiteralPath (Join-Path $kpmSubmodule "src\KotorPatcher\src\
 Invoke-Tool -Exe "cmd.exe" -Label "runtime" -FailureMessage "Building KOTOR Patch Manager's runtime failed (src\kpm-runtime\build.cmd)" `
     -Arguments @("/c", (Join-Path $projectRoot "src\kpm-runtime\build.cmd"))
 
-# KMRP's module, with the engine recipe and every resolution's files inside it. Its
-# resource bank is rebuilt whenever the resources were (it is skipped only with
-# -ReuseResources and a bank already there), since build_native_runtime.cmd itself
-# builds one only when none exists.
+# KMRP's module, with the engine recipe inside it, and its art pack, every
+# resolution's files, which the installer carries and writes beside it. The pack is
+# rebuilt whenever the resources were (it is skipped only with -ReuseResources and a
+# pack already there), since build_native_runtime.cmd itself builds one only when none
+# exists. Until 2026-10-19 the art was a bank inside the module (native-assets.bin).
 $nativeDir = Join-Path $projectRoot "build\native-runtime"
-$nativeBank = Join-Path $nativeDir "native-assets.bin"
-if (-not $ReuseResources -and (Test-Path -LiteralPath $nativeBank)) { Remove-Item -LiteralPath $nativeBank -Force }
+$nativePack = Join-Path $nativeDir "kmrp-assets.pack"
+if (-not $ReuseResources -and (Test-Path -LiteralPath $nativePack)) { Remove-Item -LiteralPath $nativePack -Force }
 $textFontTexturePack = $env:KMRP_TEXTURE_PACK
 try {
     $env:KMRP_TEXTURE_PACK = $resolvedTexturePack
@@ -457,6 +460,10 @@ foreach ($optionHooks in (Get-ChildItem -LiteralPath $kpmConfigDir -Filter "kmrp
 $kpatchPath = Join-Path $kpmDir "KMRP.kpatch"
 if (-not (Test-Path -LiteralPath $kpatchPath)) { throw "tools\build_native_kpatch.py did not write $kpatchPath" }
 $engineArgs += "/resource:$kpatchPath,Kmrp.kpatch"
+# The art pack, which the installer writes into the game's patches folder beside the
+# module (KpmEdition.cs, PackResource).
+if (-not (Test-Path -LiteralPath $nativePack)) { throw "build_native_runtime.cmd did not write $nativePack" }
+$engineArgs += "/resource:$nativePack,Kmrp.assets.pack"
 $controllerKpatchPath = Join-Path $kpmDir "KOTOR 1 Native Controller Mod + Xbox HUD.kpatch"
 if (-not (Test-Path -LiteralPath $controllerKpatchPath)) { throw "tools\build_controller_kpatch.py did not write $controllerKpatchPath" }
 $engineArgs += "/resource:$controllerKpatchPath,KmrpController.kpatch"

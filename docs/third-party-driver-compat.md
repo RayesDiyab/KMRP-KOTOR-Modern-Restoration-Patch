@@ -8,8 +8,9 @@
 
 **Kind: reference.**
 
-KMRP ships **K1 Modern Driver Compatibility (K1DC) 1.2.0** by **Synchro**, MPL-2.0,
-with the author's permission. This document records what it is, exactly what it
+KMRP ships **K1 Modern Driver Compatibility (K1DC) 2.0.0** by **Synchro**, MPL-2.0,
+with the author's permission (since 2026-10-19, at the maintainer's request; 1.2.0 until
+then). This document records what it is, exactly what it
 writes, the check that proves it does not collide with anything KMRP writes, and how
 a user turns it off.
 
@@ -30,9 +31,10 @@ See the [dated compatibility record](mod-build-compatibility.md#issue-15-driver-
 
 | | |
 | --- | --- |
-| K1DC | 1.2.0 standalone, `k1-modern-driver-compatibility-v1.2.0-standalone.zip`, 1,631,672 bytes, SHA-256 `E35E7DA022DC859E10A2C5F29FDE101B846F5789B2A14BB5D297FB57777F24A8` |
-| vendored at | `third_party/Included/k1-modern-driver-compatibility-1.2.0 by Synchro/` |
-| KMRP gold | `swkotor_gold_v24_movieaspect.exe`, `9DD81A75F4888FD67242B682BEE0AB4392EA8923CDF4A020CA3EDD2464C05E0A` |
+| K1DC | 2.0.0 standalone, `k1-modern-driver-compatibility-v2.0.0-standalone.zip`, 1,309,453 bytes, SHA-256 `97E2586E89B26EDB4A8EB260F13BDC2ACD5EAAD5E2AFA25372F33FD560FBDCE3`, released 2026-10-11 |
+| its hook list | from the same release's `k1-modern-driver-compatibility-v2.0.0.zip`, 333,926 bytes, SHA-256 `CA088F91684ACD9875BF9E3D36C96A5A580CAED3389F0BADF9A423B78BBFD673` (the `.kpatch` inside, `kotor1.hooks.toml`) |
+| vendored at | `third_party/Included/k1-modern-driver-compatibility-2.0.0 by Synchro/` |
+| until 2026-10-19 | 1.2.0 standalone, `k1-modern-driver-compatibility-v1.2.0-standalone.zip`, 1,631,672 bytes, SHA-256 `E35E7DA022DC859E10A2C5F29FDE101B846F5789B2A14BB5D297FB57777F24A8`; checked against KMRP gold `swkotor_gold_v24_movieaspect.exe`, `9DD81A75F4888FD67242B682BEE0AB4392EA8923CDF4A020CA3EDD2464C05E0A` |
 | source | <https://codeberg.org/Synchro/kotor-modern-driver-compatibility> |
 | release page | <https://deadlystream.com/files/file/3048-k1-modern-driver-compatibility-patch> |
 
@@ -59,9 +61,65 @@ grass tears across the sky **even on NVIDIA**, where the lighting has always wor
 
 ## 2. Every byte K1DC writes
 
-Read out of `third_party/Included/k1-modern-driver-compatibility-1.2.0 by Synchro/kotor1.hooks.toml`,
-which the author publishes for exactly this purpose. Four detours and four in-place
-edits:
+### 2.0.0 (since 2026-10-19)
+
+Read out of `third_party/Included/k1-modern-driver-compatibility-2.0.0 by Synchro/kotor1.hooks.toml`, which the
+author publishes for exactly this purpose: 28 sites, 18 detours and 10 byte patches, the
+eight of 1.2.0 among them. What each does is in the author's comments in that file; the
+new ones carry the release's bump lighting on every card, the lighting paths the game
+never drew (normal maps, bump on lightmapped surfaces, reflective skins), the normal
+map byte order, and the glow and soft shadow fixes.
+
+| VA | FILE | size | kind | function | in 1.2.0 |
+| --- | --- | --- | --- | --- | --- |
+| `0x004367D4` | `0x0367D4` | 5 | detour | `ARB_FragmentPathAvailable` | yes |
+| `0x004373BD` | `0x0373BD` | 5 | detour | `ARB_InstallFragmentPath` | yes |
+| `0x00428859` | `0x028859` | 5 | detour | `ARB_InstallFrameBufferShaders` | yes |
+| `0x0044DF8E` | `0x04DF8E` | 5 | detour | `ARB_InstallSoftShadowShader` | yes |
+| `0x00740968` | `0x340968` | 23 | bytes |  | yes |
+| `0x0045F7E7` | `0x05F7E7` | 2 | bytes |  | yes |
+| `0x0045FA6C` | `0x05FA6C` | 2 | bytes |  | yes |
+| `0x00470EB6` | `0x070EB6` | 12 | bytes |  | yes |
+| `0x0048AB8F` | `0x08AB8F` | 5 | detour | `ARB_SkinBranch` |  |
+| `0x0048AD63` | `0x08AD63` | 5 | detour | `ARB_SkinBranch` |  |
+| `0x0048B544` | `0x08B544` | 5 | detour | `ARB_SkinBranch` |  |
+| `0x0048C59A` | `0x08C59A` | 5 | detour | `ARB_SkinBranch` |  |
+| `0x0043D0F2` | `0x03D0F2` | 5 | detour | `ARB_MaterialHasNormalMap` |  |
+| `0x00470D51` | `0x070D51` | 5 | detour | `ARB_MaterialHasNormalMap` |  |
+| `0x0048B537` | `0x08B537` | 5 | detour | `ARB_MaterialHasNormalMap` |  |
+| `0x00474FCA` | `0x074FCA` | 5 | detour | `ARB_AdoptVertexProgram` |  |
+| `0x004755A8` | `0x0755A8` | 5 | detour | `ARB_AdoptVertexProgram` |  |
+| `0x0048AE0E` | `0x08AE0E` | 5 | detour | `ARB_AdoptVertexProgram` |  |
+| `0x0048B5D4` | `0x08B5D4` | 5 | detour | `ARB_AdoptVertexProgram` |  |
+| `0x0048741B` | `0x08741B` | 5 | detour | `ARB_AdoptVertexProgram` |  |
+| `0x004260D9` | `0x0260D9` | 6 | detour | `ARB_ReorderNormalMap` |  |
+| `0x0042BC21` | `0x02BC21` | 6 | bytes |  |  |
+| `0x0042BCB5` | `0x02BCB5` | 6 | bytes |  |  |
+| `0x0042BD3F` | `0x02BD3F` | 6 | bytes |  |  |
+| `0x0042BDD0` | `0x02BDD0` | 6 | bytes |  |  |
+| `0x0042BE3A` | `0x02BE3A` | 6 | bytes |  |  |
+| `0x004264A2` | `0x0264A2` | 9 | bytes |  |  |
+| `0x00426529` | `0x026529` | 13 | bytes |  |  |
+
+Beyond these sites, 2.0.0 points nine entries of the game's import table at its own
+functions at run time, and calls what was there before (`crates/k1-sys/src/interpose.rs`,
+`Slot::address`, in the release's source):
+
+| VA | import |
+| --- | --- |
+| `0x0073D390` | `glEnable` |
+| `0x0073D22C` | `glDisable` |
+| `0x0073D34C` | `glFogi` |
+| `0x0073D2B0` | `wglMakeCurrent` |
+| `0x0073D254` | `glFinish` |
+| `0x0073D00C` | `SwapBuffers` |
+| `0x0073D304` | `glDrawBuffer` |
+| `0x0073D020` | `SetDeviceGammaRamp` (the brightness slider) |
+| `0x0073D46C` | `BinkCopyToBuffer` (movie frames, for the brightness slider) |
+
+### 1.2.0 (until 2026-10-19)
+
+Four detours and four in-place edits:
 
 | VA | FILE | size | what |
 | --- | --- | --- | --- |
@@ -82,11 +140,15 @@ hashing the executable — which is precisely why it tolerates KMRP.
 
 Two files go beside `swkotor.exe`:
 
-* `dinput8.dll` (2,407,648 bytes) — a proxy DLL. Windows loads it from the game
+* `dinput8.dll` (2,407,648 bytes, the same file in 1.2.0 and 2.0.0, SHA-256
+  `EC2F4824ECA58DD40F425756A4A7CEC77B8E381F21D11D7C846EC4B339B617AB`): a proxy DLL. Windows loads it from the game
   folder ahead of the system one, so it is in the process at startup; it forwards the
   real `dinput8` calls on and acts as a loader.
-* `k1-modern-driver-compatibility.asi` (1,536,631 bytes) — the payload that loader
-  loads. An `.asi` is a renamed DLL.
+* `k1-modern-driver-compatibility.asi` (596,992 bytes in 2.0.0, SHA-256
+  `BB58F426D5C3EC5D52C21D99F089F5979E4C30934C246F7C740AB269C932735E`; 1,536,631 bytes in
+  1.2.0): the payload that loader loads. An `.asi` is a renamed DLL. 2.0.0 keeps its
+  settings in `K1DriverCompat.ini` beside the game under a `[K1DriverCompat]` section
+  (a file from an earlier version still works); KMRP's installer writes no such file.
 
 `swkotor.exe` is never written to. KMRP's own install, backup, sidecar and restore
 paths are therefore completely untouched by it.
@@ -118,6 +180,19 @@ their names and SHA-256 in **`KMRP_DriverCompat.manifest`** beside the executabl
 ## 4. The compatibility check
 
 This is the check Synchro asked for before shipping, and it is reproducible (§8).
+
+**2.0.0, 2026-10-19.** KMRP no longer writes the executable, so the check is against
+what KMRP's modules write in memory: every hook of KMRP's patch (35) and of the
+controller patch (38), every run of KMRP's engine recipe (83), and the four places the
+modules write besides (the `EnumDisplaySettingsA` import slot `0x0073D3E4`, the start
+size at `0x005F0FB2` and `0x005F5B84`, the controller's deadzone at `0x0074D708`), with
+D3M0's High FPS Fixes (36 hooks), which the installer can install beside it. **0 of the
+28 sites collide, and 0 of the 9 import slots.** All 28 sites hold the original bytes
+K1DC declares in the unmodified 1.03 executable. KMRP's movie fixes call through a
+different Bink import (`BinkBufferSetScale`, `0x0073D484`) than the one K1DC takes over.
+Not yet run in a game: K1DC 2.0.0 beside KMRP has not been played, movies included.
+
+**1.2.0, 2026-09-24:**
 
 The KMRP installer changes **742 byte positions inside the original image, in 164
 contiguous runs**, spanning FILE `0x000916`–`0x35578A` -- the union over the
@@ -204,7 +279,9 @@ all fall back to the default. A settings file is never worth failing a patch ove
   off and tick Synchro's own `.kpatch` in KPM (`INSTALLING.md` in his release), and
   in a game folder KPM already manages, KMRP's installer leaves K1DC to KPM
   (`KpmEdition.cs`). K1DC's `.kpatch` beside KMRP's two patches in KPM has not been
-  run here.
+  run here. Since 2.0.0 that `.kpatch` needs KOTOR Patch Manager 0.7.2 or newer, "for
+  the way this release hooks the game" (the release notes); the standalone build KMRP
+  bundles needs nothing but the game.
 * **His hook addresses.** We read `kotor1.hooks.toml`; we never write to those sites.
 
 ## 8. Verifying by hand
@@ -220,7 +297,7 @@ import re, ast
 gold = open("build/kmrp/swkotor_gold_v24_movieaspect.exe", "rb").read()
 clean = open("build-inputs/swkotornopatch.exe", "rb").read()
 changed = {i for i in range(len(clean)) if clean[i] != gold[i]}
-toml = open("third_party/Included/k1-modern-driver-compatibility-1.2.0 by Synchro/kotor1.hooks.toml").read()
+toml = open("third_party/Included/k1-modern-driver-compatibility-1.2.0 by Synchro/kotor1.hooks.toml").read()   # 1.2.0, from git
 for block in toml.split("[[hooks]]")[1:]:
     va = int(re.search(r"address\s*=\s*(0x[0-9A-Fa-f]+)", block).group(1), 16)
     orig = bytes(ast.literal_eval(
@@ -231,13 +308,31 @@ for block in toml.split("[[hooks]]")[1:]:
 PY
 ```
 
-Expected: `collides=False` and `bytes_intact=True` on all eight lines.
+Expected: `collides=False` and `bytes_intact=True` on all eight lines. (That was
+1.2.0's check, against gold. For 2.0.0, against what KMRP writes in memory:)
+
+```python
+import sys, tomllib
+sys.path.insert(0, "tools")
+import build_bundled_kpatch_config as bundled
+spans = bundled.spans_of_kmrp()   # KMRP's patch, the controller patch, the engine recipe
+spans += [(0x0073D3E4, 4, "import slot"), (0x005F0FB2, 12, "start size"), (0x005F5B84, 10, "start size"),
+          (0x0074D708, 4, "deadzone")]
+clean = open("build-inputs/swkotornopatch.exe", "rb").read()
+hooks = tomllib.load(open("third_party/Included/k1-modern-driver-compatibility-2.0.0 by Synchro/kotor1.hooks.toml", "rb"))["hooks"]
+for h in hooks:
+    a, n = h["address"], len(h["original_bytes"])
+    hit = [o for b, m, o in spans if a < b + m and b < a + n]
+    print(f"0x{a:08X} len {n:2}  collides={bool(hit)}  bytes_intact={clean[a - 0x400000:a - 0x400000 + n] == bytes(h['original_bytes'])}")
+```
+
+Expected on 2026-10-19: 28 lines, `collides=False` and `bytes_intact=True` on each.
 
 Confirm the shipped binaries match the author's release:
 
 ```bash
-sha256sum third_party/Included/k1-modern-driver-compatibility-1.2.0 by Synchro/dinput8.dll
-sha256sum third_party/Included/k1-modern-driver-compatibility-1.2.0 by Synchro/k1-modern-driver-compatibility.asi
+sha256sum "third_party/Included/k1-modern-driver-compatibility-2.0.0 by Synchro/dinput8.dll"
+sha256sum "third_party/Included/k1-modern-driver-compatibility-2.0.0 by Synchro/k1-modern-driver-compatibility.asi"
 ```
 
 Confirm an install did what it claims — the manifest lists both files and their
@@ -257,7 +352,7 @@ Get-FileHash "C:\Star Wars - KotOR\swkotor.exe"   # unchanged by K1DC: still wha
 
 K1DC is **MPL-2.0**. The licence text ships inside the patcher
 (`Kmrp.license.drivercompat`) and is vendored at
-`third_party/Included/k1-modern-driver-compatibility-1.2.0 by Synchro/LICENSE`, alongside the
+`third_party/Included/k1-modern-driver-compatibility-2.0.0 by Synchro/LICENSE`, alongside the
 author's `README.md`, `THIRD-PARTY-NOTICES` and `INSTALLING-STANDALONE.md`.
 
 **K1 Modern Driver Compatibility is by Synchro.** Bundled with permission. No KMRP

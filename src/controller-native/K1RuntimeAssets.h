@@ -17,3 +17,12 @@ extern "C" void __cdecl KmrpFontMetricsLoadedK1(void* texture);
 bool KmrpRuntimeApplyTextPreferencesK1();
 // Known GUI font resource names; do not rebuild unrelated texture metadata.
 bool KmrpRuntimeIsFontK1(const char* name);
+// Told before each part of KmrpRuntimeAssetsPrepare: parts done, parts in all, and the
+// size about to be made (0, 0 for the common files and at the end). Nonzero stops.
+typedef int (__stdcall* KmrpPrepareStep)(int done, int total, int width, int height, void* context);
+// The installer's preparation: the common files, then every size the display offers that
+// KMRP covers, largest first, each with the fonts in use at its height, all into the
+// cache; or a share of it, for one of `shares` workers each in a process of its own
+// (`share` 0 makes the common files). The number of sizes made, or -1 when the pack
+// cannot be read or the common files cannot be made.
+int KmrpRuntimeAssetsPrepare(int share, int shares, KmrpPrepareStep step, void* context);

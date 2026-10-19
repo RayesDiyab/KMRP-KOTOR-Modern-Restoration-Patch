@@ -495,7 +495,7 @@ overwrites a mod you installed yourself.
 
 | Component | Author | Licence | Optional |
 | --- | --- | --- | --- |
-| [K1 Modern Driver Compatibility](https://codeberg.org/Synchro/kotor-modern-driver-compatibility) 1.2.0 | Synchro | MPL-2.0 | **Yes** -- Advanced Settings |
+| [K1 Modern Driver Compatibility](https://codeberg.org/Synchro/kotor-modern-driver-compatibility) 2.0.0 | Synchro | MPL-2.0 | **Yes** -- Advanced Settings |
 | Area map marker corrections (250 notes) | Derslok | GPL-3.0 | **Yes** -- Advanced Settings |
 | Controller support, based on [KPM – Xbox Controls for KOTOR 1](https://github.com/scopeking0117-alt/KPM-Xbox-Controls-K1) 1.2 | Saul0097 / KMRP | MIT, inherited from KOTOR Patch Manager, with each author's permission (his own licence file pending); SDL zlib | **Yes, on by default** -- Advanced Settings |
 | Party Portraits | MadDerp | -- | No |

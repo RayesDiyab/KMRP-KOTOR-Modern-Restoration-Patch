@@ -1,39 +1,42 @@
 #!/usr/bin/env python3
-"""Checks on KMRP's resource bank, build/native-runtime/native-assets.bin (KNAST002).
+"""Checks on KMRP's art pack, build/native-runtime/kmrp-assets.pack (KMRPAK01).
 
-Since 2026-10-05 the bank names every file of every resolution's set and stores only
-the objects the module cannot make: tools/build_native_assets.py leaves out each file
-the blend helper writes exactly as the set has it, and the module runs the helper and
-holds the result against the index (src/controller-native/K1RuntimeAssets.cpp). What
-this proves, from the built bank and the sets it was built from (it starts no game):
+The pack (tools/kmrp_pack.py, since 2026-10-19; until then the bank inside the module,
+KNAST002) names every file of every resolution's set and stores only the files the
+module cannot make: tools/build_native_assets.py leaves out each file the blend helper
+writes exactly as the set has it, and the module runs the helper and holds the result
+against the index (src/controller-native/K1RuntimeAssets.cpp). What this proves, from
+the built pack and the sets it was built from (it starts no game):
 
   1. The index is complete: 67 groups, each set's group naming exactly its archive's
-     files with their SHA-256, the common group and SDL included.
+     files with their SHA-256, the common group and SDL included; and the pack is the
+     one the module was built for (KMRP_ASSET_BUILD).
   2. Nothing is missing that the module cannot make: every common file is stored;
      in a set, the two files the helper reads and every font are stored, and a file
      that is not stored is one of the kinds the helper writes.
-  3. Every stored object decompresses to its key.
+  3. Every stored file comes back from its block, through its filter, with its
+     SHA-256: read by the module's own decoder (K1AssetPack.cpp and the LZMA SDK's,
+     testing/regression/asset_pack_harness.cpp, built x86 by Test-AssetPack.cmd).
   4. What was left out can be made: for a sample of sets (every set with --all), the
      helper, built here independently of the build's own, is run on the files the
-     bank stores, and every left-out file it writes has the index's SHA-256. A
+     pack stores, and every left-out file it writes has the index's SHA-256. A
      listed size outside the blend must have every file stored.
 
-Needs a built bank (src/controller-native/build_native_runtime.cmd), the archives in
-build/kmrp/resources, and a C compiler for the helper (clang or MSVC).
+Needs a built pack (src/controller-native/build_native_runtime.cmd), the archives in
+build/kmrp/resources, MSVC for the decoder, and a C compiler for the helper (clang or
+MSVC).
 
 Documentation standard: see `docs/documentation-standard.md`.
 """
 from __future__ import annotations
 
 import argparse
-import ctypes
 import hashlib
-import struct
+import re
 import subprocess
 import sys
 import tempfile
 import zipfile
-from ctypes import wintypes
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[2]
@@ -41,9 +44,12 @@ sys.path.insert(0, str(ROOT / "tools"))
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 
 import build_native_assets as builder   # noqa: E402
+import kmrp_pack                        # noqa: E402
 import native_helpers                   # noqa: E402
 
-BANK = ROOT / "build/native-runtime/native-assets.bin"
+PACK = ROOT / "build/native-runtime/kmrp-assets.pack"
+GENERATED = ROOT / "build/native-runtime/NativeAssets.generated.h"
+CHECKER = ROOT / "build/asset-pack-test/asset-pack-check.exe"
 RESOURCES = ROOT / "build/kmrp/resources"
 # Checked every run: two anchors, the maintainer's own size (a listed size that is not
 # an anchor), the listed size nearest another of its height, the smallest and the largest.
@@ -64,42 +70,19 @@ def helper_made(name: str) -> bool:
         or name in ("kmrp_prompts.txt", "lbl_mileftbot.tga")
 
 
-def decompress(api, handle, data: bytes, size: int) -> bytes:
-    out = ctypes.create_string_buffer(size)
-    got = ctypes.c_size_t()
-    if not api.Decompress(handle, data, len(data), out, size, ctypes.byref(got)):
-        raise ctypes.WinError(ctypes.get_last_error())
-    return out.raw[:got.value]
-
-
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     parser.add_argument("--all", action="store_true", help="rebuild the left-out files of every set, not a sample")
     args = parser.parse_args()
 
-    blob = BANK.read_bytes()
-    check(blob[:8] in builder.ALGORITHMS, f"the bank is {blob[:8].decode('ascii', 'replace')}, {len(blob):,} bytes")
-    group_count, object_count = struct.unpack_from("<II", blob, 8)
-    table_key = blob[16:48]
-    at = 48
-    groups = {}
-    for _ in range(group_count):
-        width, height, count = struct.unpack_from("<III", blob, at)
-        at += 12
-        entries = {}
-        for _ in range(count):
-            n = struct.unpack_from("<H", blob, at)[0]
-            entries[blob[at + 2:at + 2 + n].decode()] = blob[at + 2 + n:at + 34 + n]
-            at += 34 + n
-        groups[f"{width}x{height}"] = entries
-    objects = {}
-    for _ in range(object_count):
-        key = blob[at:at + 32]
-        size, packed = struct.unpack_from("<II", blob, at + 32)
-        objects[key] = (size, at + 40, packed)
-        at += 40 + packed
-    check(at == len(blob) and group_count == 67 and table_key in objects,
-          f"{group_count} groups and {object_count:,} stored objects, read to the last byte, the blend table among them")
+    identity, group_list, objects, blocks, table_key, blob = kmrp_pack.read_pack(PACK)
+    built_for = re.search(r'KMRP_ASSET_BUILD L"([0-9a-f]{64})"', GENERATED.read_text())
+    check(bool(built_for) and built_for[1] == identity,
+          f"the pack is KMRPAK01, {len(blob):,} bytes, the one the module was built for ({identity[:16]})")
+    groups = {f"{width}x{height}": dict(entries) for (width, height), entries in group_list}
+    check(len(group_list) == 67 and table_key in objects,
+          f"{len(group_list)} groups and {len(objects):,} stored files in {len(blocks)} blocks, read to the "
+          f"first block, the blend table among them")
 
     # 1. The index against the archives.
     archives = {"0x0": RESOURCES / "override-common.zip"}
@@ -152,25 +135,42 @@ def main() -> int:
     total = sum(len(v) for v in left_out.values())
     check(not bad, f"{total:,} files are left to the module, every one a layout, a badge, the manifest or the HUD box; "
                    f"the helper's non-font inputs are stored, and fonts have shared sources" + (f": {bad[:6]}" if bad else ""))
-    check(total > 40000, f"the bank leaves out most of the sets' files ({total:,} of "
+    check(total > 40000, f"the pack leaves out most of the sets' files ({total:,} of "
                          f"{sum(len(e) for s, e in groups.items() if s != '0x0'):,}; {len(whole)} sets are stored whole: "
                          f"{', '.join(sorted(whole)) or 'none'})")
 
-    # 3. Every stored object is what its key says.
-    api = ctypes.WinDLL("cabinet", use_last_error=True)
-    api.CreateDecompressor.argtypes = [wintypes.DWORD, ctypes.c_void_p, ctypes.POINTER(ctypes.c_void_p)]
-    api.Decompress.argtypes = [ctypes.c_void_p, ctypes.c_void_p, ctypes.c_size_t, ctypes.c_void_p, ctypes.c_size_t,
-                               ctypes.POINTER(ctypes.c_size_t)]
-    handle = ctypes.c_void_p()
-    if not api.CreateDecompressor(builder.ALGORITHMS.get(blob[:8], 4), None, ctypes.byref(handle)):
-        raise ctypes.WinError(ctypes.get_last_error())
+    # 3. Every stored file is what its key says, as the module reads it.
+    if sys.platform == "win32":
+        subprocess.run(["cmd.exe", "/c", str(ROOT / "testing/regression/Test-AssetPack.cmd")], check=True)
+        checker = CHECKER
+    else:
+        checker = Path(tempfile.mkdtemp()) / "asset-pack-check"
+        subprocess.run(["clang", "-O2", "-c", str(ROOT / "third_party/lzma-sdk/LzmaDec.c"), "-o",
+                        str(checker) + ".o"], check=True)
+        subprocess.run(["clang++", "-O2", "-std=c++17", "-I", str(ROOT / "src/controller-native"), "-I",
+                        str(ROOT / "third_party/lzma-sdk"), str(ROOT / "testing/regression/asset_pack_harness.cpp"),
+                        str(ROOT / "src/controller-native/K1AssetPack.cpp"), str(checker) + ".o", "-o", str(checker)],
+                       check=True)
+    done = subprocess.run([str(checker), str(PACK), identity], capture_output=True, text=True)
+    lines = done.stdout.strip().splitlines()
+    check(done.returncode == 0 and lines[-1:] == ["PASS"],
+          f"the module's decoder gives back every stored file with its SHA-256: {lines[0] if lines else done.returncode}")
+
+    # The files section 4 needs (kmrp_prompts.txt and the blend table, never filtered),
+    # read here with Python's own LZMA.
+    unpacked = {}
 
     def stored(key: bytes) -> bytes:
-        size, start, packed = objects[key]
-        return decompress(api, handle, blob[start:start + packed], size)
-
-    corrupt = sum(1 for key in objects if hashlib.sha256(stored(key)).digest() != key)
-    check(corrupt == 0, f"all {len(objects):,} stored objects decompress to their keys")
+        size, block, offset, filter_id = objects[key]
+        if filter_id != 0:
+            raise ValueError("a filtered file is read by the module's decoder only")
+        if block not in unpacked:
+            start, length, total, properties = blocks[block]
+            unpacked[block] = kmrp_pack._unpack(blob[start:start + length], properties, total)
+        data = unpacked[block][offset:offset + size]
+        if hashlib.sha256(data).digest() != key:
+            raise ValueError("a stored file is not what its key says")
+        return data
 
     # 4. The left-out files, made again.
     sizes = sorted(s for s in groups if s != "0x0") if args.all else list(SAMPLE)

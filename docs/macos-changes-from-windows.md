@@ -1432,4 +1432,66 @@ the Mac may want:
 
 Windows also keeps fitted fonts (`fonts\`, one file pair per style, font and size) and
 makes the five largest display sizes ahead on a background thread (`Prebuild`); the Mac
-has no runtime font fitting.
+has no runtime font fitting. (Since item 73, every size the display offers, not the five
+largest.)
+
+## 73. The art pack, and every size made at install: the Mac does the same
+
+**Build, 2026-10-19; Windows tests pass, not yet seen in play.** The maintainer, the same
+day: "Mac must adapt this new bank and whole process as well." On Windows the art left
+the module: `kmrp.dll` went from 108.8 MB to 0.7 MB, and the art is a file beside it, the
+art pack `kmrp-assets.pack` (55.9 MiB, against 108 MiB as XPRESS), which the installer
+carries and writes into the game's `patches` folder. The installer then makes the common
+files and every size the display offers that KMRP covers, with the fonts in use at each
+height, before the game first starts. What the Mac needs:
+
+- **The format is shared.** `tools/kmrp_pack.py` writes it (`write_pack(path, groups,
+  objects, table_key)`, KMRPAK01, documented at the top of the file): the same groups and
+  objects as the Mac's bank (KMAST002), so `macos/tools/make_kmrp_assets.py` can call it
+  with its own groups, the (0, 1) and (0, 2) groups included. Small files are compressed
+  together, one LZMA stream a size; large ones alone; images first through a filter
+  (TGA: green taken from red and blue, then the MED predictor; DXT in a TPC: endpoints
+  and indices regrouped), each undone exactly.
+- **The decoder is shared.** `src/controller-native/K1AssetPack.cpp` and `.h`, plain C++
+  with no system calls, and the LZMA SDK's `LzmaDec.c` (`third_party/lzma-sdk`, public
+  domain, compiled as C). `assets.cpp` would read the index at start (`ReadHeader`,
+  `ReadIndex`), a block when one of its files is needed (`Unpack`, then `Unfilter`), hold
+  each file against its SHA-256, and keep blocks of several files unpacked while a set is
+  made (Windows keeps up to 48 MiB, `Decode` and `ForgetUnpacked` in
+  `K1RuntimeAssets.cpp`). Its identity, the SHA-256 of everything after its field, is the
+  build's `KMRP_ASSET_BUILD`; the module refuses a pack of another build.
+- **The pack beside the module.** Windows' KPM removes only the modules in `patches`, so
+  the pack outlives KPM switching the patch off and on. The Mac needs a place its KPM
+  equally leaves alone. Without the pack the module makes nothing and says so in its log;
+  the patch alone is no longer the whole of KMRP (the maintainer's choice for the smaller
+  installer, "option 2").
+- **Every size made at install.** The blend helper and the game-art helpers keep their
+  state in globals, so Windows runs workers, each a process: copies of the installer
+  started with `--prepare-art`, each loading the module with `KMRP_PREPARE` in its
+  environment (its `DllMain` then leaves the process alone) and calling its export
+  `KmrpPrepareAssets(game, share, shares, step, context)`; worker 0 also makes the common
+  files. Half the processor's threads, at most six. Measured on the maintainer's PC, 19
+  sizes and the common files, the game on a hard disk: with the cache on the NVMe SSD 83 s
+  with one worker, 33 s with four, 25 s with six, 24 s with eight; with the cache on a hard
+  disk 167, 122 (two), 94 (four) and 98 s (eight). The Mac installer could run its module
+  the same way in a small host program, or the helpers as programs side by side.
+- **A set is made with less reading.** For a listed size the blend helper now runs first
+  and the pack's files are written over its output, so only the files left to the helper
+  are held against the index (`BuildSet`); nothing is read back after writing, the bytes
+  having been checked when unpacked. This cut the common files from 13 to 5 s.
+- **Restore Original removes the pack and the cache** (`%LOCALAPPDATA%\KMRP\cache`). An
+  install over KMRP keeps the cache, so a reinstall of the same build makes nothing again.
+- **What the window shows meanwhile** (the maintainer's design, 2026-10-19): the progress
+  text short ("Unpacking KMRP's art…", then "7 of 19 resolutions ready…"), and the time
+  left on a line of its own under the button, at its right ("37 s left"), from the
+  moment the install starts and counting down a second at a time, never up: first from
+  the pace measured for the kind of drive the cache is on, with a margin, then from each
+  worker's own, the slowest deciding (`InstallClock`). The Mac can ask the same of its
+  drive (solid-state or not). The
+  art has 22 to 99% of the bar. Details in [patcher-ui-build.md](patcher-ui-build.md), *Main-window
+  flow*. The Mac installer would show the same.
+
+Tests: `testing/regression/Test-NativeAssetsBank.py` reads the pack, with
+`asset_pack_harness.cpp` (portable: the test builds it with clang on the Mac);
+`Test-AssetPrepare.py` the preparation (Windows); `Test-InstallerPatch.ps1` the pack and
+the cache in an install and a restore.

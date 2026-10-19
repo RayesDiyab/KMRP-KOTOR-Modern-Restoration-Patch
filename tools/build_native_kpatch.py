@@ -2,9 +2,14 @@
 """Build and check KMRP's patch for KOTOR Patch Manager: one .kpatch, id "kmrp".
 
 One module (src/controller-native/build_native_runtime.cmd) with the engine recipe
-and the resource bank embedded (tools/build_native_engine.py,
-tools/build_native_assets.py). It needs no data file and no Override file, and
-handles any resolution KMRP has a layout for at run time.
+embedded (tools/build_native_engine.py). It needs no Override file, and handles any
+resolution KMRP has a layout for at run time. Its art is not in the patch since
+2026-10-19: it is the art pack, kmrp-assets.pack (tools/build_native_assets.py,
+tools/kmrp_pack.py), which KMRP's installer writes beside the module in the game's
+patches folder. The patch alone, put in by KOTOR Patch Manager without the installer,
+runs without KMRP's interface and says so in kmrp-kpm.log (the maintainer chose this on
+2026-10-19 for the smaller installer: KMRP is installed with its installer, and can be
+switched off and on in KPM after that).
 
   dist/native/KMRP.kpatch                       id "kmrp"
   (build_kmrp.ps1 writes it to build/kmrp/kpm-patches instead, with --out)
@@ -221,10 +226,12 @@ def all_hooks():
 
 
 def functions():
-    """Every callback a hook names: what the module exports. And one function the
-    controller patch's module asks for: the size the mouse and keyboard HUD's parts are
-    shown at (K1PcHud.cpp), so its Xbox-style HUD keeps its own minimap's size."""
-    return {h['function'] for h in all_hooks() if h.get('function')} | {'KmrpHudAppliedSizeK1'}
+    """Every callback a hook names: what the module exports. And two functions no hook
+    names: the size the mouse and keyboard HUD's parts are shown at (K1PcHud.cpp), which
+    the controller patch's module asks for so its Xbox-style HUD keeps its own minimap's
+    size; and KmrpPrepareAssets (K1RuntimeEngine.cpp), which KMRP's installer calls to
+    make the art of every size before the game first starts."""
+    return {h['function'] for h in all_hooks() if h.get('function')} | {'KmrpHudAppliedSizeK1', 'KmrpPrepareAssets'}
 
 
 def render_hooks():
@@ -348,9 +355,7 @@ def build(module: Path, out: Path, version: str, config_dir: Path = None):
                 versions=(kpatch_common.CD_1_03, kpatch_common.GOG),
                 source='the unmodified CD 1.03 and GOG header: the large-address flag.').encode(),
              zipfile.ZIP_DEFLATED),
-            # The module's resource bank is already compressed; deflating it again
-            # costs minutes and saves nothing.
-            (MODULE, module.read_bytes(), zipfile.ZIP_STORED),
+            (MODULE, module.read_bytes(), zipfile.ZIP_DEFLATED),
             *[(name, source.read_bytes(), zipfile.ZIP_DEFLATED) for name, source in LICENSES.items()],
         ]:
             info = zipfile.ZipInfo(name, (2026, 1, 1, 0, 0, 0))

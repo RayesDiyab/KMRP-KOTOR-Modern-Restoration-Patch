@@ -38,9 +38,11 @@ submodule update --init` in a fresh clone), assembles `windows-engine.bin` throu
 `tools/build_windows_engine.py`, and then:
 
 - runs `src\controller-native\build_native_runtime.cmd` (KMRP's module, with the
-  engine recipe and the resource bank; the bank is rebuilt unless
-  `-ReuseResources` finds one) and `tools/build_native_kpatch.py`, which writes
-  `KMRP.kpatch` and the installer's hook files in `build\kmrp\kpm-config\`;
+  engine recipe, and its art pack `build\native-runtime\kmrp-assets.pack`, which the
+  installer embeds and writes beside the module; the pack is rebuilt unless
+  `-ReuseResources` finds one, about 80 s of it LZMA) and
+  `tools/build_native_kpatch.py`, which writes `KMRP.kpatch` and the installer's hook
+  files in `build\kmrp\kpm-config\`;
 - runs `src\controller-native\build_controller_standalone.cmd` (the controller
   patch's assets, then its module; needs `build-inputs\vanilla-gui`) and
   `tools/build_controller_kpatch.py --out ... --config-dir ...`, which writes the

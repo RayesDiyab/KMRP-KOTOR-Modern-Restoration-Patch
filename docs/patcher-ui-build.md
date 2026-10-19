@@ -152,6 +152,43 @@ The primary button has one identity at a time:
   percentage. Step 4 keeps one calm, stable instruction with no percentage or
   file-level detail.
 
+Since 2026-10-19 an install (or an upgrade) ends by making KMRP's art for every
+resolution the display offers (`ArtPreparation`, `KpmEdition.cs`), which is nearly all
+of its time: about 25 s with `%LOCALAPPDATA%` on an NVMe SSD and about 95 s on a hard
+disk on the maintainer's PC. The bar gives the file steps its first fifth and the art
+22 to 99%. The button says "Unpacking KMRP's art…", then "7 of 19 resolutions ready…"
+(short, the maintainer: "make the text shorter during patching but keep it
+informative"), and the time left is a line of its own under the button, at its right
+end, in the muted text colour (`timeLeftLabel`; the maintainer: "make the seconds be
+outside of the button in the bottom right part below the button"): "37 s left",
+"1 min 5 s left", "almost done". It is there from the moment an install or upgrade
+starts, for the whole of it, and counts down a second at a time (the maintainer: "the
+estimate should be from the start", "not only during the art part", "it should count
+down second by second"), and it never goes up (the maintainer: "it shouldn't increase
+again ... it should be fairly smooth ... it should overestimate instead of
+underestimating"). `InstallClock` in `KpmEdition.cs` keeps it. Before the art it is a
+few seconds for the files (six over an earlier install) and the resolutions the display
+offers at the pace measured on the maintainer's PC for the kind of drive the cache is on,
+with a margin (`ArtPreparation.SecondsPerResolution`: a quarter above the NVMe SSD's
+pace, a tenth above the hard disk's); the drive is the one `%LOCALAPPDATA%` is on, asked
+of Windows without administrator rights (`CacheOnSolidState`, its seek penalty), and one
+it says nothing about is taken as a hard disk. On the maintainer's PC: C: solid-state,
+D: a hard disk, E: (a volume over several disks) not said. While the art is made, each
+worker is followed on its own, from its own pace and a tenth more, the slowest deciding.
+What is shown counts down a second a second while the estimate agrees, slower or not at
+all when the estimate says more, and up to three seconds a second when the work is ahead.
+Tried on 2026-10-19 with a simulated install of 19 resolutions and six workers:
+
+| Simulated | Shown at the start | Done at | What it did |
+| --- | --- | --- | --- |
+| SSD (parts of 5.5 s), SSD guess | 42 s | 28.9 s | down without a stop, quickly from 31 to 18 s at about 8 s, "almost done" at 28.3 s |
+| hard disk (parts of 18 s), hard-disk guess | 1 min 54 s | 88.9 s | down, holding twice (8 s at 49 s, 3 s at 37 s), "almost done" at 88.7 s |
+| hard disk taken for an SSD | 42 s | 88.9 s | held at 31 s from 9 to 60 s, then down to "almost done" at 88.7 s |
+
+The earlier tries, counting resolutions all workers together, then letting the count
+rise, are in the CHANGELOG. The progress text carries the time after a tab, which the
+window splits off.
+
 The success state is deliberately idempotent. Refocusing, clicking, or
 reactivating the window calls `RefreshStatus()`, but a gold install is rebuilt
 into the same `Patched successfully` state and the same installed-resolution
@@ -814,6 +851,10 @@ The shipped name contains spaces, so quote it on the command line.
 "KMRP - KOTOR Modern Restoration Patch.exe" --in-place swkotor.exe WIDTHxHEIGHT
 "KMRP - KOTOR Modern Restoration Patch.exe" --restore swkotor.exe
 ```
+
+The installer also starts copies of itself as `--prepare-art MODULE GAME SHARE SHARES`
+while it installs: workers that make a share of KMRP's art and report it on standard
+output (`ArtPreparation.Worker`). They are not meant to be run by hand.
 
 `--apply` creates an offline reference from a supported editable CD/GOG input;
 it does not install KMRP. `--in-place` performs the full runtime, DPI, NVIDIA, INI
