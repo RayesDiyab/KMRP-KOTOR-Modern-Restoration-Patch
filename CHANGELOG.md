@@ -117,6 +117,75 @@ proxy, and it applies the executable changes above as well.
 
 ## [Unreleased]
 
+- **The controller uses the original Xbox game's layout** (2026-10-19, issue 49). The
+  maintainer's decision: "It should be classic everywhere", with no second layout to
+  choose. The Xbox's White and Black are LB and RB, as Xbox 360 and One backward
+  compatibility placed them. Sources: the Xbox lines still in the PC `dialog.tlk`
+  (10283, 10291, 39458, 41874, 42430, 42461, 42475, 42579 and others), original Xbox
+  footage of the prologue and of Pazaak on Taris, the Xbox manual's page 5 and
+  StrategyWiki's controls page. **Not yet seen in play:** both modules build with no
+  warning and `Test-ButtonRemap.py` passes; nothing below has been pressed in the game.
+  - *In the world* (every row can still be remapped on the Controller Layout screen):
+
+    | button | until 2026-10-19 | now |
+    | --- | --- | --- |
+    | A | interact | interact (unchanged) |
+    | X | disengage | add to queue: what A does, because every PC action is queued and the Xbox's "A acts at once" has no PC counterpart |
+    | Y | undo the last queued action | the same, and with nothing to undo, flourish the weapons (the Xbox's Y outside combat; L3 still does too) |
+    | B | let go of the action bar | the same, and with no slot to let go of, disengage, on both HUDs (it did so with the Xbox-style HUD only) |
+    | LB | previous target | pause (White) |
+    | RB | next target | switch ally (Black, the game's event 0x09) |
+    | LT | switch ally | previous target (0x06, which is also the free-look exit: free look is now left with LT natively, and with R3 as before) |
+    | RT | pause | next target (0x05) |
+    | Start | the Map | the menu screen used last, read from `CGuiInGame+0x2C`, which `ShowSWInGameGui` (`0x0062C9B0`) writes at `0x0062CA57` and hiding the menu leaves; opened through that screen's own hotkey event, `0xD1` plus its index, and the Map when the field holds no screen. Start still closes the menu |
+
+    The HUD's badge beside Disengage shows B (`kmrpb_cmbt`; it was X's, `kmrpx_cmbt`;
+    the control keeps its tag, `LBL_KMRPX`), and the Xbox-style HUD's pause notice shows
+    the button Pause is on, LB, in the standard drawing: there is no lighter LB like
+    the RT made for that line (`kmr?rt_pause`), which is still built, because the Mac's
+    patch shows it until it moves too.
+  - *In menus:* RB is Black. On the four screens about a party member it shows the next
+    one, as the Xbox Character screen's "(Black) Change Character" (until now R3 did,
+    and R3 now does nothing in menus); its event, `0x2B`, is the Journal's sort, which
+    was Back's (Back now sends nothing in menus). The party badge on those screens
+    shows RB (`kmrprb_party`; it was `kmrpr3_party`, and the tag stays `LBL_KMRPR3`).
+    The Journal is the game's own again: X quest items, Y active or completed, RB the
+    sort. Until now KMRP moved active or completed to A and the sort to Y; the two rows
+    are gone from `K1_BUTTON_REMAPS`, and the badges say Y and RB (`kmrpy_jrndone`,
+    `kmrprb_jrnsort`). RB's computer-terminal scroll in conversations keeps working
+    through a description of its own.
+  - *Pazaak's table,* the Xbox's "(X) Play Hand Card, (White) Flip Hand Card, (A) End
+    Turn, (Y) Stand", from `CSWGuiPazaakGame`'s constructor (`0x00680FBC` on):
+
+    | button | does | through |
+    | --- | --- | --- |
+    | X | plays the focused hand card | the mouse's click, `0x0067EF80` (A's from 2026-10-11, issue 42) |
+    | A | End Turn, `BTN_XTEXT` at `+0x6C4C` | its click, `HandleContinue` `0x0067EC20` |
+    | Y | Stand, `BTN_YTEXT` at `+0x6E20` | its click, `HandleStand` `0x0067ED00` |
+    | LB | flips the focused hand card | its flip button's click, `0x0067DDA0` (`BTN_FLIP0..3` at `+0x62BC`, `0x1C4` apart) |
+
+    Each acts only while its button is on screen and enabled, and all four are taken
+    whenever the table is in front, so the game's own A never reaches a hand card. The
+    D-pad no longer lands on End Turn, Stand or the flip buttons, only on the hand.
+    End Turn and Stand carry A and Y badges (`kmrpa_pzkend`, `kmrpy_pzkstand`; indices
+    66 and 67 in all 50 of the menu pack's `pazaakgame.gui` files and the game's own).
+    With the pad in use the flip legend's icon is LB, and "X Play Hand Card"
+    (`dialog.tlk` 32330) stands on the row under it: two labels made at run time from
+    the table's own `LBL_FLIPICON` and `LBL_FLIPLEGEND`, freed with the table, no
+    layout file shipped. Where that line stands is a first guess. The side-deck screen
+    is unchanged: its own Y and triggers are already the Xbox's.
+  - *Remapping:* the saved keys follow the actions (`Interact`, `Disengage`,
+    `AddToQueue`, `UndoAction`, `Pause`, `SwitchAlly`, `PreviousTarget`, `NextTarget`,
+    `Flourish`, `FreeLook`), and every save writes `Layout=Xbox`, without which a
+    layout is not read: one saved against the old defaults, since 2026-10-18, opens as
+    the Xbox defaults. A save rewrites the whole section.
+  - *Captions* on the Controller Layout screen: "Previous target / Prev tab", "Pause",
+    "Next target / Next tab", "Switch ally / Menu action", "Last menu / Close menu",
+    "Undo or flourish / Menu action", "Add to queue / Menu action", "Disengage / Back".
+  - *Tests:* the remap harness names the new actions and checks every saved key is its
+    own; the live tests (not run: they need the virtual pad and the game) expect Start
+    to reopen the last screen and RB to send `0x2B`.
+
 - **Marked Empty Containers** (2026-10-19, issue 43; ShaeMyName's K1 Marked Empty
   Containers, with the author's permission). Point at a container or a body with nothing
   left in it and its name ends in "(empty)". On by default, a tile in Advanced Settings.

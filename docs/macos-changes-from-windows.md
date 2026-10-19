@@ -1525,3 +1525,42 @@ The Windows installer's Advanced Settings now scrolls (seven tiles, two rows in 
 scrollbar drawn after KOTOR's list scrollbars, the wheel over the tiles): if the Mac
 installer gains a seventh option it can follow the same look
 ([patcher-ui-build.md](patcher-ui-build.md)).
+
+## 76. The original Xbox controls everywhere: the Mac's controller patch needs the same
+
+**State, 2026-10-19: to do.** Issue 49, the maintainer's decision: "It should be classic
+everywhere", with no second layout. Windows changed the controller module
+(`src/controller-native/K1NativeJoystick.cpp`, `K1ButtonRemapPolicy.h`, `K1ButtonRemap.cpp`,
+`K1ControllerLayout.cpp`, `K1XboxHud.cpp`, `vendor/K1XboxControls.cpp`) and the shared
+tools; the CHANGELOG's entry of the same day has every row. Nothing of it was seen in play
+on Windows yet either.
+
+What the Mac's `macos/patches/kmrp-controller` needs, by what the shared tools now build:
+
+- **The world buttons:** LB pause, RB switch ally (the game's ChangeChar), LT previous
+  target, RT next target, X what A does, Y undo or (nothing to undo) flourish, B let go of
+  the action bar or disengage on both HUDs, Start the menu screen used last
+  (`CGuiInGame+0x2C`, opened with that screen's hotkey event `0xD1` plus the index; the
+  Map when it holds none).
+- **Remap names:** the keys and `Layout=Xbox` in `K1ButtonRemapPolicy.h`; a layout saved
+  without that line is not read. The Mac shares the header if it builds from it.
+- **Cue art:** the build now makes `kmrprb_party` (RB) where it made `kmrpr3_party`, and
+  `LBL_KMRPX` beside Disengage is filled with `kmrpb_cmbt` (B) where it was `kmrpx_cmbt`.
+  `macos/patches/kmrp-controller/cues.cpp` binds both tags and should show RB and B; the
+  Mac's own party switch moves from R3 to RB in menus, and RB's menu event becomes the
+  Journal's sort (`0x2B`), which was Back's.
+- **Badges:** the Journal's `kmrpa_jrndone` and `kmrpy_jrnsort` became `kmrpy_jrndone`
+  and `kmrprb_jrnsort` (`macos/patches/kmrp-controller/prompts.cpp` names the old ones,
+  lines 200 and 201, and the Mac's Journal remaps must go); Pazaak's table has two new
+  ones, `kmrpa_pzkend` and `kmrpy_pzkstand`.
+- **Pazaak's table:** X plays the focused card, A End Turn, Y Stand, LB flips the focused
+  card, End Turn, Stand and the flip buttons off the pad's focus, and the "X Play Hand
+  Card" line made at run time (Windows offsets and addresses in K1NativeJoystick.cpp's
+  Pazaak section; the Mac's are its own).
+- **The pause notice:** Windows shows the button Pause is on (LB) in the standard drawing.
+  The lighter RT, `kmr?rt_pause`, is still built for the Mac's `xbox_hud.cpp`
+  (`kPauseGlyph`); when the Mac moves to LB too, `tools/build_controller_assets.py` can
+  stop making it.
+
+**How to check:** each row of the CHANGELOG's table with a pad; the Controller Layout
+screen's captions; a layout saved before opens on the defaults.

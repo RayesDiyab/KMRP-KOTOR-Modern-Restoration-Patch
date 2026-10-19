@@ -793,19 +793,24 @@ void updateEntryBadges() {
 // something is not saved. Y, X and B are pad buttons, not places for the focus: their
 // three buttons on the screen cannot be selected, so the D-pad never reaches them,
 // and the mouse still clicks them. While waiting for a button the screen reads the pad
-// itself (KmrpPadButtonsK1): menus send no event for LB, RB or a stick's click, and
-// every one of them may be chosen. Back cancels there, because it can never be chosen.
+// itself (KmrpPadButtonsK1): menus send no event for LB or a stick's click, RB's
+// (Black, the Journal's sort) means nothing on this screen, and every one of them may
+// be chosen. Back cancels there, because it can never be chosen.
+//
+// The actions and their defaults are the original Xbox game's (issue 49, 2026-10-19).
 //
 // Nothing here is in the layout file: every control is made from one of the file's
 // own as the screen opens (bindAppend), and placed from the file's rows, so it follows
 // the file at every resolution, and the file stays as KMRP's sets have it.
 constexpr int kRemapRows = KmrpRemap::ButtonCount;
 const char* const kActionNames[kRemapRows] = {
-    "Interact", "Release bar", "Disengage", "Undo action", "Previous target",
-    "Next target", "Switch ally", "Pause", "Flourish", "Free look"};
-// What stays with each button: after its action, or before it on the sticks.
+    "Interact", "Disengage", "Add to queue", "Undo or flourish", "Pause",
+    "Switch ally", "Previous target", "Next target", "Flourish", "Free look"};
+// What stays with each button: after its action, or before it on the sticks. RB's
+// menu action is the Xbox's Black: the next party member on the four screens about
+// one, and the Journal's sort.
 const char* const kFixedAfter[kRemapRows] = {
-    "/ Select", "/ Back", "/ Menu action", "/ Menu action", "", "", "/ Prev tab", "/ Next tab", "", ""};
+    "/ Select", "/ Back", "/ Menu action", "/ Menu action", "", "/ Menu action", "/ Prev tab", "/ Next tab", "", ""};
 const char* const kFixedBefore[kRemapRows] = {
     "", "", "", "", "", "", "", "", "Move / Click:", "Camera / Click:"};
 constexpr int kRowBack = 2, kRowDpad = 4, kRowStart = 7;      // LAYOUT's fixed rows

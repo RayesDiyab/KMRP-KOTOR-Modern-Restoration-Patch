@@ -22,6 +22,12 @@ unbuilt -- neither `XInputGetStateEx` nor any Guide binding is in the source, an
 `virtual_pad_server.py` has no refusal or idle timeout. §3 shipped and §3b and
 §3c are done. Of §4, R3 shipped and LB/RB did not.
 
+**Status on 2026-10-19:** issue 49 (the original Xbox game's layout everywhere, the
+maintainer's decision that day) is done in code and **not yet seen in play**
+(`CHANGELOG.md`, `[Unreleased]`). It changes §4: party cycling moved from R3 to RB,
+the Xbox's Black, so the agreed layout's "LB / RB move between tabs" now conflicts
+with RB's own menu meaning. §1 and §2 are unchanged by it.
+
 **Status on 2026-10-08, searched again in `src/controller-native/` and
 `testing/controller/`:** the same. §1 and §2 are the only open items, and two
 things about them have changed since they were written:
@@ -33,7 +39,9 @@ things about them have changed since they were written:
   `K1NativeJoystick.cpp`. The blocker is unchanged (the Guide bit needs
   `XInputGetStateEx`); the binding would be an engine bridge like Start's Map
   hotkey (`0xD7`; the Inventory hotkey is one of `0xD1` to `0xD8`,
-  [`controller-native-path.md`](controller-native-path.md)), not a key.
+  [`controller-native-path.md`](controller-native-path.md)), not a key. (Since
+  2026-10-19 Start's bridge sends the hotkey of the screen the menu last showed,
+  `0xD1` plus its index, and the Map's only when that cannot be read.)
 - **§2's trap belongs to the legacy `ReadPad`.** Since the hybrid backend of
   2026-09-19 the module samples every connected pad and reads the one used last
   (`K1ControllerBackend.cpp`: a pad with new activity becomes the active one), so
@@ -152,7 +160,8 @@ discriminator** — say so in the warning rather than claiming certainty.
 ## 3. Dynamic hint icons for controls that do not exist in the game's classes  — SHIPPED 2026-09-15
 
 The R3 party-switch cue between the portraits on Abilities, Character, Equipment
-and Inventory, shown only while a controller is in use. Removed from this plan,
+and Inventory, shown only while a controller is in use (an RB cue since 2026-10-19,
+when RB took the party switch; the tag `LBL_KMRPR3` is kept). Removed from this plan,
 as its own rule asks; the finished mechanism is in
 [`../reverse-engineering/custom-gui-controls.md`](../reverse-engineering/custom-gui-controls.md).
 
@@ -322,8 +331,8 @@ the next:
 | input | scope | status |
 | --- | --- | --- |
 | **LT / RT** | move between screens — Map, Inventory, Character… | works; on the native path, events `0x35` / `0x36` |
-| **LB / RB** | move between tabs within a screen | **not built.** On the native path LB and RB carry no menu event; X cycles the Abilities screen's Skills / Powers / Feats tabs instead (event `0x29`), with a cue beside them |
-| **L3 / R3** | change which crew member the screen is about | **R3 shipped 2026-09-15**: event `0xCE` on the four party screens, with a cue between the portraits. L3 was not given a menu role |
+| **LB / RB** | move between tabs within a screen | **not built.** On the native path LB carries no menu event, and RB since 2026-10-19 carries the Xbox's Black (`0x2B`, the Journal's sort) and the party switch; X cycles the Abilities screen's Skills / Powers / Feats tabs instead (event `0x29`), with a cue beside them |
+| **L3 / R3** | change which crew member the screen is about | **R3 shipped 2026-09-15**: event `0xCE` on the four party screens, with a cue between the portraits. L3 was not given a menu role. **Moved to RB on 2026-10-19** (issue 49), as the Xbox Character screen's "(Black) Change Character"; R3 does nothing in menus since. Done in code, not seen in play |
 
 **Correction, kept visible per rule 11.** An earlier version of this plan proposed
 LT / RT for cycling tabs, on the grounds that they were "inert in menus". That was
@@ -336,7 +345,9 @@ with it.
 **Conflicts to resolve when implementing:**
 
 - **RB is `Tab`**, which cycles the displayed party member. Moving tabs onto RB
-  takes that away, which is why party cycling moves to L3 / R3. The on-screen
+  takes that away, which is why party cycling moves to L3 / R3. (*2026-10-19:* on
+  the native path party cycling is RB's again, the original Xbox game's Black,
+  so tabs on RB would now take it from the native path too.) The on-screen
   route survives regardless: `character_left_button` (`0x3BE8`),
   `character_right_button` (`0x3DAC`) and the two portraits are reachable by
   D-pad now that the panel has a strip entry.

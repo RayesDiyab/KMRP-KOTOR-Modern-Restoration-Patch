@@ -125,12 +125,12 @@ The layout steps are the ones KMRP's resource build runs on its own sets
 
 | Step | Files |
 | --- | --- |
-| R3 party cue | `abilities`, `character`, `equip`, `inventory` |
+| Party cue (R3's until 2026-10-19, RB's since; the tag `LBL_KMRPR3` kept) | `abilities`, `character`, `equip`, `inventory` |
 | Swap-tabs cue | `abilities` |
 | LT and RT cues | `top` |
 | Controller Layout entry | `optgameplay` |
 | Travelling A | `confirm`, `dialog` |
-| X and Y beside the combat buttons | the eight `mipc*.gui` |
+| Y and B beside the combat buttons (X and Y until 2026-10-19; the B cue keeps the tag `LBL_KMRPX`) | the eight `mipc*.gui` |
 | Container column fit | `container`: ran, and changed nothing, so the file is not carried |
 
 At run time the bank is unpacked to a `KMC*.tmp` folder in `%TEMP%` (about 166 MB) and
@@ -339,7 +339,8 @@ of the game's own main-menu panel above 640x480. The game centres it on a larger
 screen (seen at 1024x768).
 
 In the game's font, which is wider than KMRP's, the two captions above the diagram
-met ("Solo modeMap / Close menu"). `build_gui`'s `separate_top` moves them apart to
+met ("Solo modeMap / Close menu"; since 2026-10-19 the second caption is "Last menu
+/ Close menu", issue 49, not seen). `build_gui`'s `separate_top` moves them apart to
 leave 12 design units between their words. Off for KMRP's sets, whose
 `kmrplayout.gui` the Mac helper reproduces byte for byte.
 
@@ -348,9 +349,9 @@ leave 12 design units between their words. Off for KMRP's sets, whose
 | File | Who writes it | What |
 | --- | --- | --- |
 | `kmrp-controller.ini` beside the game | KMRP's installer, or else the module, once, if it is not there | the rumble settings, with the installer's defaults; both with `[Hud]` and `Style=Xbox` since 2026-10-08 (until then the module's copy had `Style=PC` and the installer's no `[Hud]`). A file already there is never touched by either |
-| `[Controller Remap]` in the same file | the module, when Save is pressed on the Controller Layout screen (since 2026-10-18) | the button layout, ten keys, `Interact=A` to `FreeLook=R3` on the default; read once per start, and the default used if it is incomplete ([`controller-layout.md`](controller-layout.md), "Button remapping") |
+| `[Controller Remap]` in the same file | the module, when Save is pressed on the Controller Layout screen (since 2026-10-18) | the button layout, ten keys, `Interact=A` to `FreeLook=R3` on the default, and since 2026-10-19 a `Layout=Xbox` line, without which the section is not read (a layout saved before that day opens as the original Xbox game's defaults); read once per start, and the default used if it is incomplete ([`controller-layout.md`](controller-layout.md), "Button remapping") |
 | `configs\kmrp-controller.ini` | a KOTOR Patch Manager with patch options, or KMRP's installer | `[Patch Options]`: `debug-logs`, and from a manager `xbox-hud`; a missing `debug-logs` means off, a missing `xbox-hud` means the settings file decides. KMRP's installer writes `debug-logs` only, so that `Style` under `[Hud]` still decides the HUD (`ControllerPatchOptions`, `KpmEdition.cs`) |
-| `kmrp-controller-events.log` beside the game | the module, with `debug-logs` on (since 2026-10-12) | one line an event, with the tick: every pad there is and the one read, whenever either changes, and why; each change between the pad and keyboard and mouse, with the key or the pointer that did it; keys dropped while a Steam pad is held; the screens the game has up when Start asks for the Map or Escape is pressed. With `debug-logs=2`, written here by hand, also the pad read each time anything on it changes and what the game's movement was given. `kmrp-native-joystick.log`, the counters twice a second, is as it was |
+| `kmrp-controller-events.log` beside the game | the module, with `debug-logs` on (since 2026-10-12) | one line an event, with the tick: every pad there is and the one read, whenever either changes, and why; each change between the pad and keyboard and mouse, with the key or the pointer that did it; keys dropped while a Steam pad is held; the screens the game has up when Start asks for the last menu screen (the Map until 2026-10-19) or Escape is pressed. With `debug-logs=2`, written here by hand, also the pad read each time anything on it changes and what the game's movement was given. `kmrp-native-joystick.log`, the counters twice a second, is as it was |
 | `kmrp-controller.log` beside the game | the module, only on failure | written if the file bank cannot be unpacked; the pad still works without its prompts |
 
 ### The Xbox-style HUD
@@ -607,10 +608,15 @@ window. Badge sizes were measured from screenshots.
 | Switch and Steam Deck glyphs | the art and both layout screens seen, **with the family written into the running game's memory**: no virtual pad of either kind exists, so their detection was not exercised |
 | Debug logs off | no log file beside the game |
 
+These were seen on the layout of the time. Since 2026-10-19 (issue 49) the
+controller uses the original Xbox game's: targets are on LT and RT, not RB, the
+party cue shows RB, not R3, and Start reopens the last menu screen. None of that has
+been run in this package.
+
 **Not tested:** Steam's executable (the hooks are KMRP's, which the maintainer ran
 on Steam on 2026-10-04, but this package was not run there); fullscreen; a real
 controller of any kind, and so rumble; combat, and so the X and Y combat cues on
-screen; a dialogue with replies, and so the dialogue's A; the Container and store
+screen (Y and B since 2026-10-19); a dialogue with replies, and so the dialogue's A; the Container and store
 screens (the store had no badges until 2026-10-06, when the maintainer saw it bare
 beside KMRP; A, X and B were added that day, see the changelog); Pazaak and the other minigames; level-up; another language's game; AMD or
 Intel graphics; Proton.

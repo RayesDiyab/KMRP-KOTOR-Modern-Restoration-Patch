@@ -48,7 +48,12 @@ When this section was written minigames (class 1) and movies (class 5) were
 unbound. Since then class 1 has B, Y, LT and RT, never observed in a minigame, and
 a movie is skipped with A or Start by a bridge (the note above); class 5 itself
 still carries nothing. No prompt is specified or shipped for either, apart from
-Pazaak's wager box ("Settings screens", below).
+Pazaak's wager box ("Settings screens", below) and, since 2026-10-19, Pazaak's table:
+A on End Turn and Y on Stand (`kmrpa_pzkend`, `kmrpy_pzkstand`; `pazaakgame.gui`
+indices 66 and 67), LB on the flip legend's icon and an "X Play Hand Card" line made
+at run time under it, the Xbox game's footer (issue 49;
+[`controller-behaviour-matrix.md`](controller-behaviour-matrix.md), "Changed since
+this measurement"). Not seen in play.
 
 ## Global glyph vocabulary
 
@@ -60,7 +65,7 @@ Pazaak's wager box ("Settings screens", below).
 | Y | **screen-specific label, never generic** | only on the screens listed below |
 | LB / RB | "Scroll" | the focused control is a list box |
 | LT / RT | tab names or arrows (shipped as a cue at each end of the strip; arrows in the strip's style since 2026-10-05) | the in-game 8-tab strip is active **and** no modal is up |
-| Start | "Map" ("Menu" until issue #18, when Start became the Map key; no such prompt is shipped) | gameplay only |
+| Start | "Last menu" since 2026-10-19, when Start began reopening the screen the menu last showed ("Map" from issue #18 until then, "Menu" before; no such prompt is shipped) | gameplay only |
 | L3 | "Flourish" | gameplay only |
 | R3 | "Free Look" | gameplay only |
 | Back/View | — | **never**; it does nothing on 39 of 40 panels |
@@ -73,6 +78,16 @@ computer-terminal scrolling still arrives through those two buttons. A "Scroll"
 prompt on LB / RB would therefore be false; that row describes the earlier
 binding, and none was shipped.
 
+*Checked 2026-10-19 against `K1_BUTTONS` (issue 49):* RB now carries the Xbox's
+Black, `0x2B`, in menus, which only the Journal implements (its sort order), and on
+Abilities, Character, Equipment and Inventory it asks for the next party member. So
+RB has two prompts that ship, both screen-specific: the Journal's sort badge and the
+party cue between the portraits. Back carries no menu event at all since then; the
+one place it still acts in a menu is the Controller Layout screen, which reads the
+pad itself and cancels its button prompt on Back, with the View glyph on that
+prompt's Cancel ([`controller-layout.md`](controller-layout.md), "Button
+remapping").
+
 ## Per-screen
 
 ### Gameplay (class 0)
@@ -80,7 +95,7 @@ binding, and none was shipped.
 | Glyph | Label | Location | Show when | Hide / dim when |
 | --- | --- | --- | --- | --- |
 | A | Talk / Use / Open — context | near the target reticle | a target is selected | `[internal+0x2b4]` is `0x7F000000` |
-| Start | Map | bottom-right cluster | always in gameplay | any GUI screen is up |
+| Start | Last menu (Map until 2026-10-19) | bottom-right cluster | always in gameplay | any GUI screen is up |
 | L3 | Flourish | bottom-right cluster | always in gameplay | in a menu, dialogue or free look |
 | R3 | Free Look | bottom-right cluster | always in gameplay | in a menu or dialogue; **see below** |
 
@@ -92,23 +107,32 @@ all deliver their events and the world ignores every one of them.
 
 | Button | Verb |
 | --- | --- |
-| LB | cycle the target backwards |
-| RB | cycle the target forwards |
+| LB | pause |
+| RB | switch to the next living party member |
 | Back | open the Solo Mode query |
-| LT | switch to the next living party member |
-| RT | pause |
+| LT | cycle the target backwards |
+| RT | cycle the target forwards |
+
+*Changed 2026-10-19 (issue 49):* the verbs are the original Xbox game's, White and
+Black on LB and RB. Until then the table read LB and RB cycling the target, LT
+switching party member and RT pausing.
 
 The D-pad drives the action bar (see above). Whether any of these should earn a
 gameplay prompt is not decided here, and none is shipped.
 
-*Shipped 2026-09-25: X and Y in combat, with prompts.* X presses the HUD's
+*Shipped 2026-09-25: X and Y in combat, with prompts.* X pressed the HUD's
 Disengage button and Y its "clear one" button, which removes the last queued
 action. Each has a badge, placed at build time from the button itself, that
-shows exactly while the button is drawn and the pad is in use:
+shows exactly while the button is drawn and the pad is in use. *Since 2026-10-19*
+B presses Disengage (when no action-bar slot has focus) and X does what A does, so
+the Disengage badge shows B; its control keeps the tag `LBL_KMRPX`, and its file
+fill is `kmrpb_cmbt` (`kmrpx_cmbt` until then). Y with nothing to remove flourishes
+the weapons, which no badge shows. Since 2026-10-18 the run time fills both badges
+with the button their action is on (`kmr?rm<code>`):
 
 | Glyph | Label | Location | Show when | Hide when |
 | --- | --- | --- | --- | --- |
-| X | (the Disengage button beside it) | `LBL_KMRPX`, left of `BTN_CLEARALL` | Disengage is drawn -- in combat | Disengage is hidden, or the mouse or keyboard is the active device |
+| B (X until 2026-10-19) | (the Disengage button beside it) | `LBL_KMRPX`, left of `BTN_CLEARALL` | Disengage is drawn, in combat | Disengage is hidden, or the mouse or keyboard is the active device |
 | Y | (the action queue beside it) | `LBL_KMRPY`, left of `BTN_CLEARONE` | the clear-one button is drawn | it is hidden, or the mouse or keyboard is the active device |
 
 Both are glyph-only: the buttons beside them say what they do. See
@@ -170,6 +194,12 @@ Only these, and only with these labels:
 Every row marked S needs live confirmation before shipping its prompt. Inventory
 is the only one confirmed.
 
+*Since 2026-10-19 (issue 49):* the Journal's three rows above are guesses of
+2026-09-08 that the measurement under *Tab-screen badges* below replaced. Its own
+dispatcher (`0x006456E0`) answers X with Quest Items (`0x29`), Y with Active or
+Completed (`0x2A`) and Black with the sort order (`0x2B`), the Xbox's buttons, and
+since that day the pad sends them as they are: RB is Black, and Back does nothing.
+
 *Corrected 2026-09-26:* the Character rows were wrong. Its X is Scripts, which
 ships, and its Y is Auto Level Up (`0x006B233C`), not Equip; A is Level Up
 (`0x006B2295`). Decoded from the dispatcher, `0x006B2250`; see *Character
@@ -188,6 +218,10 @@ for it.
 Show "Scroll" only on: Equipment, Inventory, Abilities, Journal, Store, Upgrade,
 Upgrade Item Select, and the options sub-screens. Silent everywhere else, so a
 prompt would be a lie.
+
+(Superseded twice: since 2026-09-14 neither bumper scrolls in menus, and since
+2026-10-19 RB is the Xbox's Black, shown on the Journal's Sort button and as the
+party cue on the four party screens. See the note under *Global glyph vocabulary*.)
 
 ### Confirmation boxes
 
@@ -419,7 +453,7 @@ a -/+ row, and Pazaak's wager.
 navigated by KMRP -- see `docs/controller-behaviour-matrix.md`.) The six
 native-direction screens (Abilities, Feats, Powers, Skills, Map, chargen
 Abilities) beyond their A/B/X/Y rows; free look, where only Start works and
-leaving is R3; and gameplay beyond the three listed.
+leaving is R3 (or LT; LB until 2026-10-19); and gameplay beyond the three listed.
 
 
 ## LT / RT on the in-game tab strip: specified here, shipped since
@@ -595,11 +629,20 @@ message box is the Return To Ebon Hawk confirmation, exactly as described.
 | --- | --- |
 | Inventory | `[X] Show New Items`, `[A] Use Item`, `[B] Close` |
 | Messages | `[X] Show Feedback`, `[B] Close` |
-| Journal | `[X] Quest Items`, `[A] Completed Quests`, `[Y] Sort by Name`, `[B] Close` |
+| Journal | `[X] Quest Items`, `[Y] Completed Quests`, `[RB] Sort by Name`, `[B] Close` (`[A] Completed Quests` and `[Y] Sort by Name` until 2026-10-19) |
 | Map | `[A] Party Selection`, `[X] Return To Ebon Hawk`, `[B] Close` |
 
 The offsets, pixel extents and labels were all read from the running game, and
 `tools/build_tab_screen_prompts.py` regenerates the textures from that table.
+
+*Changed 2026-10-19 (issue 49):* the Journal's two middle badges. Until then KMRP
+moved its buttons, A to Active/Completed (`0x2A`) and Y to the sort (`0x2B`), because
+the sort was on Back, which no badge named; the badges followed, `kmrpa_jrndone` and
+`kmrpy_jrnsort`. Since then the pad sends the Journal's own buttons, the Xbox's: Y is
+Active/Completed and RB, the Xbox's Black, the sort. The badges are `kmrpy_jrndone`
+and `kmrprb_jrnsort` (`tools/build_controller_prompt_textures.py`,
+`tools/build_tab_screen_prompts.py`, `K1_JOURNAL_PROMPTS` in
+`vendor/K1XboxControls.cpp`). Not seen in the game.
 
 **Known cosmetic limit.** Map's Party Selection and Return To Ebon Hawk rows are
 39px tall against an 84px Close, so their glyphs are correspondingly smaller.

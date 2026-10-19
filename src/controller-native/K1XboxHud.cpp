@@ -367,7 +367,8 @@ Bar g_bars[3][2];
 // token (it becomes a character the PC fonts leave blank). So while that message is up and the pad is in use, the line is the Xbox's
 // with the pad's own disengage button in the token's place: the text before the
 // token in the message label, right-aligned up to the button; the button, which is
-// the X cue label (K1NativeJoystick.cpp shows it while the message is shown); and
+// the Disengage cue label, LBL_KMRPX, showing B (K1NativeJoystick.cpp shows it while
+// the message is shown; its tag is from when X disengaged, until 2026-10-19); and
 // the text after it in the message's background label, left-aligned from the
 // button. Any other message, and this one with the mouse in use, is the game's.
 //
@@ -715,17 +716,18 @@ void* PausePanel()
 // / Press the Pause key (<Pause> or Pause) to continue" and "MINE SIGHTED! / Press
 // the Pause button to continue" (CSWGuiInGamePause::SetPauseReason, 0x006C00C0).
 //
-// With this HUD the notice is one line, "PAUSED. PRESS [the right trigger] TO
-// CONTINUE", the trigger drawn as the pad in use has it (the maintainer's wording
-// and choice of pictures, 2026-10-06; RT is what pauses on the pad). The picture is
-// the panel's own button, which nothing clicks while the pad is in use
-// (PauseNotice, below). The words are English and are used only where the game's
-// own line is the English one; another language keeps its lines.
+// With this HUD the notice is one line, "PAUSED. PRESS [the button] TO CONTINUE",
+// the button that pauses drawn as the pad in use has it (the maintainer's wording,
+// 2026-10-06). That is LB, the Xbox game's White ("White to continue"), or the
+// button Pause was moved to; until 2026-10-19 it was RT, in a lighter drawing of
+// the trigger made for this line. The picture is the panel's own button, which
+// nothing clicks while the pad is in use (PauseNotice, below). The words are
+// English and are used only where the game's own line is the English one; another
+// language keeps its lines.
 constexpr std::ptrdiff_t kPauseReason = 0x64;          // CSWGuiLabel
 constexpr std::ptrdiff_t kPausePress = 0x1A4;          // CSWGuiLabel
 constexpr std::ptrdiff_t kPauseButton = 0x2E4;         // CSWGuiButton
 constexpr int kPausePressString = 48384;               // dialog.tlk: "PRESS THE PAUSE BUTTON TO CONTINUE"
-constexpr char kPauseGlyph[16] = "kmrprt_pause";       // tools/build_xbox_hud.py, PAUSE_FILL
 
 void* Dress(void* control, Kind kind, int which)     // 0 the fill, 1 the focused fill, 2 a bar's filling
 {
@@ -1537,17 +1539,15 @@ unsigned g_pauseButtonFlags[2] = {};
 
 // Whether the box carries this file's line: its button has one of the pictures
 // PauseNotice puts there, whichever family's (the fourth letter of the name): the
-// trigger's own (kmr?rt_pause), or, with Pause remapped, the button it is on
-// (kmr?rm<code>, KmrpRemapGlyphK1). Any button, not only the one Pause is on now: a
-// layout saved while the box is up leaves the old picture in it until PauseNotice
-// sets the new one, and that box is still this file's.
+// button Pause is on (kmr?rm<code>, KmrpRemapGlyphK1). Any button, not only the one
+// Pause is on now: a layout saved while the box is up leaves the old picture in it
+// until PauseNotice sets the new one, and that box is still this file's.
 bool PauseCarriesOurs(void* pause)
 {
     char fill[17] = {};
     std::memcpy(fill, &At<char>(Part(Part(pause, kPauseButton), kButtonBorderParams), kParamsFill), 16);
-    if (_strnicmp(fill, kPauseGlyph, 3) != 0 || !fill[3]) return false;
+    if (_strnicmp(fill, "kmr", 3) != 0 || !fill[3]) return false;
     const char* const rest = fill + 4;
-    if (_stricmp(rest, kPauseGlyph + 4) == 0) return true;
     if (_strnicmp(rest, "rm", 2) != 0) return false;
     for (const char* code : KmrpRemap::GlyphCodes)
         if (_stricmp(rest + 2, code) == 0) return true;
@@ -1624,7 +1624,7 @@ bool RestorePauseNotice(void* pause)
     return true;
 }
 
-// The pause notice as one line, "PAUSED. PRESS [the right trigger] TO CONTINUE", made
+// The pause notice as one line, "PAUSED. PRESS [the button] TO CONTINUE", made
 // the way the combat-mode message is (CombatMessage, above): the words before the
 // picture in one label, the words after it in the other, the picture between them,
 // each label's rectangle as wide as its words so that where the line stands does not
@@ -1679,15 +1679,10 @@ void PauseNotice(void* pause, void* client)
         familyShown[0] = 0;
         for (Extent& one : set) one = Extent{};
     }
-    // The button that pauses: the right trigger in its lighter drawing, made for this
-    // line, or the button Pause was moved to (controller remapping, K1ButtonRemap.cpp).
+    // The button that pauses: LB, or the button Pause was moved to (controller
+    // remapping, K1ButtonRemap.cpp).
     char family[16] = {};
-    if (KmrpRemapSavedK1().button[KmrpRemap::RT] == KmrpRemap::RT) {
-        std::memcpy(family, kPauseGlyph, sizeof kPauseGlyph);
-        family[3] = KmrpGlyphLetterK1();
-    } else {
-        KmrpRemapGlyphK1(KmrpRemap::RT, KmrpGlyphLetterK1(), family);
-    }
+    KmrpRemapGlyphK1(KmrpRemap::LB, KmrpGlyphLetterK1(), family);
     const auto same = [](const Extent& x, const Extent& y) {
         return x.left == y.left && x.top == y.top && x.width == y.width && x.height == y.height;
     };

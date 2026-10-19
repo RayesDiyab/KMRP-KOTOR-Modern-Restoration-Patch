@@ -13,9 +13,14 @@
 //     only when every action has a button.
 //
 // An action is named by its default button, which is also the button the rest of the
-// controller code knows it by: the HUD's activate is A's, disengaging is X's, and so
+// controller code knows it by: the HUD's activate is A's, disengaging is B's, and so
 // on. So remapping is a translation of the pad's buttons into those default ones, in
 // the world only (Translator, below), and nothing downstream changes.
+//
+// The defaults are the original Xbox game's (issue 49; the maintainer, 2026-10-19:
+// "It should be classic everywhere", with no second layout to choose). The Xbox's
+// White and Black buttons are LB and RB, as Xbox 360 and One backward compatibility
+// placed them.
 #include <array>
 #include <cstdint>
 #include <cstring>
@@ -37,8 +42,14 @@ constexpr std::uint16_t RemappableBits =
 // action's key, and each button's value.
 constexpr const char* ButtonNames[ButtonCount] = {"A", "B", "X", "Y", "LB", "RB", "LT", "RT", "L3", "R3"};
 constexpr const char* ActionKeys[ButtonCount] = {
-    "Interact", "ReleaseBar", "Disengage", "UndoAction", "PreviousTarget",
-    "NextTarget", "SwitchAlly", "Pause", "Flourish", "FreeLook"};
+    "Interact", "Disengage", "AddToQueue", "UndoAction", "Pause",
+    "SwitchAlly", "PreviousTarget", "NextTarget", "Flourish", "FreeLook"};
+// Written with every saved layout and required to read one. Until 2026-10-19 the
+// defaults were KMRP's own (X disengaged, LB and RB cycled targets, LT switched ally,
+// RT paused), saved under partly the same keys; a layout without this line was made
+// against those and is not read, so the screen opens on the Xbox defaults.
+constexpr const char* LayoutKey = "Layout";
+constexpr const char* LayoutName = "Xbox";
 
 inline int ButtonByName(const char* name) {
     for (int b = 0; b < ButtonCount; ++b)

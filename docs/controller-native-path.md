@@ -78,6 +78,16 @@ switches party member on the four party screens (2026-09-15); and Start opens
 the Map (issue #18, below). [`controller-behaviour-matrix.md`](controller-behaviour-matrix.md)
 lists these under *Changed since this measurement*.
 
+**Changed again on 2026-10-19 (issue 49), read from the code, not played:** the
+controller uses the original Xbox game's layout, White and Black on LB and RB. In
+menus RB's slot carries `0x2B` (Black) instead of `0x3A`, Back's carries nothing,
+and LB's `0x39` is registered for conversations only, with RB's `0x3A` given a
+description of its own there; the free-look exit `0x06` is on LT's slot, where
+target cycling backwards now is; R3 does nothing in menus and RB switches party
+member on the four party screens; and Start reopens the screen the menu last showed
+(below). The gameplay verbs are in [`controller-parity.md`](controller-parity.md),
+*What is bound now*.
+
 When first written, all bindings were registered in both input class 0
 (gameplay) and class 2 (GUI); the classes each binding is registered in now are
 under *Input classes, and what is bound in each*.
@@ -144,6 +154,23 @@ The in-game menu's own dispatcher, `CSWGuiInGameMenu::HandleInputEvent`
 panel, so the hotkey handler's own toggle is not reachable with a menu up; that is
 why the close is B's rather than `0xD7`'s. **Play-tested on 2026-09-25 at
 3440x1440: Start opens the Map and closes it again.**
+
+**Since 2026-10-19 (issue 49) Start reopens the last screen, not the Map.** The
+original Xbox game's Start opened "the menu screens you used before" (dialog.tlk
+10283), and the PC executable keeps that screen: `CGuiInGame+0x2C`
+(`K1_IN_GAME_SCREEN_INDEX`), which `ShowSWInGameGui` (`0x0062C9B0`) writes at
+`0x0062CA57` with the screen it opens, which `HideSWInGameGui` (`0x0062CBA0`)
+leaves alone, and which the hotkey handler compares with its own screen
+(`0x00621946`) to close the menu when that screen is showing. So in the world
+`PerformPendingMenuOpenK1` reads it through `CClientExoAppInternal+0x40` and calls
+`HandleInputEvent(0xD1 + index, 1)`, the hotkey of that screen, with every guard the
+handler applies; when the index is not 0 to 7 it sends `0xD7`, the Map, as before.
+The first row of the table above is therefore `0xD1` plus that index since then.
+The route constant is `K1_START_OPENS_MENU` (it was `K1_START_OPENS_MAP`), and the
+diagnostic line's `map=` counter is `mnu=`. The addresses are as the comment on
+`PerformPendingMenuOpenK1` records them, and were not disassembled again for this
+note; **not played**, and `test_hud_release_and_start_map.py`, which now checks it,
+has not been run.
 
 ### R3 is free look, and it is a restoration
 
@@ -264,9 +291,12 @@ about a calling convention is a crash rather than a dead button.
 When this section was written nothing shipped as B: it was the fallback planned
 for Start and turned out to be unnecessary there. **Several bindings are bridges
 now**, each described in its own section of this file: L3's flourish, A's world
-action (`0xEF`), the right stick's `RotateCamera`, Start's Map hotkey (`0xD7`),
-R3's exit from free look, X and Y pressing the HUD's combat buttons, the movie
-skip, and focus navigation itself (`SetActiveControl`).
+action (`0xEF`), the right stick's `RotateCamera`, Start's menu hotkey (`0xD1` plus
+the last screen's index since 2026-10-19; the Map's `0xD7` until then), R3's exit
+from free look, Y and B pressing the HUD's combat buttons (X and Y until
+2026-10-19), Y's flourish when nothing is queued, RB's party switch in menus, the
+buttons of Pazaak's table (since 2026-10-19), the movie skip, and focus navigation
+itself (`SetActiveControl`).
 
 ### C — legacy synthetic input
 
@@ -689,9 +719,9 @@ class was measured to implement it.
 | --- | --- | --- |
 | 0 ICPC | gameplay | both sticks, all face buttons, D-pad, Start; the bumpers, Back and the triggers carry the gameplay verbs (`K1_GAMEPLAY_ACTIONS`) rather than their GUI events; A also bridges to the world action `0xEF` |
 | 1 ICMiniGame | Pazaak, swoop, turret | both sticks, plus B / Y / LT / RT -- the four events the minigame dispatchers implement |
-| 2 ICPCGUI | menus | both sticks, all face buttons, bumpers, triggers, D-pad, Start |
-| 3 ICDialog | conversation | A, D-pad up/down, LB, RB -- the five events the dialogue dispatchers implement |
-| 4 ICFreeLook | free look | the right stick, and LB to leave (`0x06` on its slot); R3's press here is bridged to the same exit |
+| 2 ICPCGUI | menus | both sticks, all face buttons, RB (Black, `0x2B`, since 2026-10-19), triggers, D-pad, Start; LB carries no menu event (since 2026-09-14), nor does Back (since 2026-10-19, when its `0x2B` moved to RB) |
+| 3 ICDialog | conversation | A, D-pad up/down, LB, RB: the five events the dialogue dispatchers implement (RB's `0x3A` through a description of its own on RB's slot since 2026-10-19) |
+| 4 ICFreeLook | free look | the right stick, and LT to leave (`0x06` on its slot; LB's until 2026-10-19); R3's press here is bridged to the same exit |
 | 5 ICMovie | pre-rendered movies | **nothing, and nothing can be** -- see below |
 
 The axes are registered in all six classes; only the buttons are selective.
@@ -867,14 +897,43 @@ from the save the harness loads, so no minigame button has been observed
 working; the suite checks that the four registrations took and marks the
 behaviour itself as human-QA.
 
+**Pazaak's table answers the pad through the module, not through class 1.** Since
+2026-10-11 (issue 42) A played the focused hand card, and since 2026-10-19 (issue
+49) the table takes the Xbox game's buttons, "(X) Play Hand Card, (White) Flip Hand
+Card, (A) End Turn, (Y) Stand": rows of `K1_BUTTON_REMAPS`, asked about in class 2
+and class 1 alike because which of the two the table runs in has not been measured
+(`RemappedButtonEventK1`). The press is suppressed and performed on the GUI frame,
+through the table's own handlers:
+
+| Button | Does | Through |
+| --- | --- | --- |
+| X | plays the focused hand card | the mouse's click on it, `0x0067EF80` (A's from 2026-10-11 to 2026-10-19) |
+| A | End Turn, `BTN_XTEXT` at `+0x6C4C` | `HandleContinue`, `0x0067EC20`, with the button |
+| Y | Stand, `BTN_YTEXT` at `+0x6E20` | `HandleStand`, `0x0067ED00`, with the button |
+| LB | flips the focused hand card | its flip button's click, `0x0067DDA0` (`BTN_FLIP0..3` at `+0x62BC`, `0x1C4` apart) |
+
+Each acts only while its button is on screen and enabled, and all four are taken
+whenever the table is the front panel, so the engine's own A never reaches a hand
+card. `InstallPazaakTableK1` keeps the D-pad off End Turn, Stand and the four flip
+buttons (`KmrpPadFocusExcludeK1`) and makes two labels from the table's own
+`LBL_FLIPICON` and `LBL_FLIPLEGEND` for an "X Play Hand Card" line (dialog.tlk
+32330); `UpdatePazaakTableK1` shows them, and LB on the flip legend's icon, only while
+the pad is in use; `ForgetPazaakTableK1` frees them at the table's end. Offsets and
+handlers are as the code's notes record them from `CSWGuiPazaakGame`'s constructor
+(`0x00680FBC` on), not disassembled again for this note. **Not played**: no save the
+harness loads reaches a table.
+
 **Deliberately unbound.** X (`0x29`) and Black (`0x2B`) in gameplay: the
 `AddEvent` survey found X registered exactly once in the whole executable and
 Black not at all, so there is nothing for them to do that is not invented. The
 mouse-look camera in class 2 has no meaning. Nothing at all is registered in
 class 5. (Since 2026-09-14 Back's slot carries the Solo Mode query in gameplay,
-and since 2026-09-25 X presses the HUD's Disengage button in combat, neither
+and from 2026-09-25 X pressed the HUD's Disengage button in combat, neither
 through these two events: "The gameplay HUD action bar", below, and *Gameplay
-verbs* in [`controller-parity.md`](controller-parity.md).)
+verbs* in [`controller-parity.md`](controller-parity.md). Since 2026-10-19 X in the
+world asks for the world action, as A does, and B disengages; Black is RB's menu
+event, while RB's slot carries `0x09` ChangeChar in gameplay. Neither event has a
+meaning in gameplay still.)
 
 ## Movies
 
@@ -964,10 +1023,11 @@ B asks `KmrpActionBarHeldK1`, any focused slot, so it still lets go of one.
 **Using a slot keeps the bar; B lets go of it (issue #17).** After the
 activate callback -- `CSWGuiMainInterface::OnDefaultActionLeft`, `0x0068B970`,
 which performs the action and does not touch focus -- the slot stays focused, so
-A can be pressed again at once. **B** lets go of the bar and does nothing else:
+A can be pressed again at once. **B** lets go of the bar:
 `KmrpActionBarReleaseK1` clears the focus the way the vendor's Delete path does,
-`setActiveControl(mainInterface, nullptr, 1)` when an action slot holds it. B
-has no other effect in the world (behaviour matrix, gameplay). Left/Right
+`setActiveControl(mainInterface, nullptr, 1)` when an action slot holds it. Until
+2026-10-19 B had no other effect in the world (behaviour matrix, gameplay); since
+then B with no slot to let go of disengages (below). Left/Right
 re-enter through `MoveFocus`'s `activeIndex < 0` seed. `hrel=` in the
 diagnostic line counts the releases. When the HUD takes an A it still clears the
 world consumer's pending request, so one press does exactly one thing.
@@ -994,6 +1054,20 @@ gameplay still ignores them. A badge beside each button, `LBL_KMRPX` and
 `LBL_KMRPY`, shows while that button does (see
 [`reverse-engineering/custom-gui-controls.md`](../reverse-engineering/custom-gui-controls.md)).
 **Untested in game.**
+
+**Changed 2026-10-19 (issue 49): B disengages, X adds to the queue, Y flourishes
+when nothing is queued.** As on the Xbox ("COMBAT MODE engaged. (B) to disengage."):
+- B with no slot to let go of presses `BTN_CLEARALL` (`KmrpActionBarHeldK1` found
+  none), with either HUD; until then only the Xbox-style HUD did this, and X did it
+  with both.
+- X asks for what A asks for, the world action or the focused slot, because on the
+  Xbox X added an action to the queue and on the PC every action is queued.
+- Y presses `BTN_CLEARONE` as before, and when that button is not drawn
+  (`PressHudButtonK1` returns false: not in combat, or nothing to clear) it asks for
+  a flourish instead, the request L3 makes (`PerformPendingStickActionsK1`).
+
+The Disengage badge, `LBL_KMRPX`, shows B (its file fill `kmrpb_cmbt`; the tag is
+kept). **Not played.**
 
 **The D-pad's retained codes are suppressed in gameplay**, for the same reason
 they are in menus: one press, one mechanism. Nothing else in gameplay consumes

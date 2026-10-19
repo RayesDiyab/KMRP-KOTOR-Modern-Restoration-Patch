@@ -51,8 +51,8 @@ TAB_SCREEN_BADGES = (
     # "Quests - By Order Received", which is what the Sort button does. Completed
     # Quests showed no dedicated glyph, so it is focus + A.
     ("kmrpx_jrnitems", "X", "Quest Items", 1107, 81),
-    ("kmrpa_jrndone", "A", "Completed Quests", 1172, 81),
-    ("kmrpy_jrnsort", "Y", "Sort by Name", 1500, 84),
+    ("kmrpy_jrndone", "Y", "Completed Quests", 1172, 81),
+    ("kmrprb_jrnsort", "RB", "Sort by Name", 1500, 84),
     ("kmrpb_jrnclose", "B", "Close", 785, 84),
 
     # Map: A opened CSWGuiPartySelect and X opened a message box, which is the

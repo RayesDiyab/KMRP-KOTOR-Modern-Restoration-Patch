@@ -268,8 +268,10 @@ PROMPT_TARGETS = (
     PromptTarget("messages.gui", "BTN_SHOW", 4, "X", "kmrpx_msgfeed"),
 
     PromptTarget("journal.gui", "BTN_QUESTITEMS", 3, "X", "kmrpx_jrnitems"),
-    PromptTarget("journal.gui", "BTN_SWAPTEXT", 4, "A", "kmrpa_jrndone"),
-    PromptTarget("journal.gui", "BTN_SORT", 5, "Y", "kmrpy_jrnsort"),
+    # Y and Black, the Journal's own (its dispatcher, 0x006456E0), as on the Xbox;
+    # Black is RB. Until 2026-10-19 the module moved them to A and Y here.
+    PromptTarget("journal.gui", "BTN_SWAPTEXT", 4, "Y", "kmrpy_jrndone"),
+    PromptTarget("journal.gui", "BTN_SORT", 5, "RB", "kmrprb_jrnsort"),
     PromptTarget("journal.gui", "BTN_EXIT", 6, "B", "kmrpb_jrnclose"),
 
     PromptTarget("map.gui", "BTN_RETURN", 7, "X", "kmrpx_mapebon"),
@@ -433,6 +435,11 @@ PROMPT_TARGETS = (
     # whatever holds focus, and moves the wager on the D-pad itself.
     PromptTarget("pazaakwager.gui", "BTN_WAGER", 7, "A", "kmrpa_pzkwager"),
     PromptTarget("pazaakwager.gui", "BTN_QUIT", 6, "B", "kmrpb_pzkquit"),
+    # Pazaak's table, the Xbox game's "(A) End Turn, (Y) Stand" (issue 49,
+    # 2026-10-19): the module presses each whatever holds focus, and keeps the
+    # pad's focus off both (K1NativeJoystick.cpp).
+    PromptTarget("pazaakgame.gui", "BTN_XTEXT", 66, "A", "kmrpa_pzkend"),
+    PromptTarget("pazaakgame.gui", "BTN_YTEXT", 67, "Y", "kmrpy_pzkstand"),
 
     # The Character screen's Level Up and Auto Level Up (2026-09-26). The
     # screen levels up on A and auto-levels on Y itself (0x006B2295,
@@ -1104,6 +1111,8 @@ PROMPT_STRREFS = {
     ("optionsingame.gui", "BTN_QUIT"): ((48581,),),
     ("pazaakwager.gui", "BTN_WAGER"): ((42393,),),
     ("pazaakwager.gui", "BTN_QUIT"): ((42172,),),
+    ("pazaakgame.gui", "BTN_XTEXT"): ((32332,),),
+    ("pazaakgame.gui", "BTN_YTEXT"): ((32333,),),
     ("character.gui", "BTN_LEVELUP"): ((1071,),),
     ("character.gui", "BTN_AUTO"): ((36812,),),
     ("skillinfo.gui", "BTN_OK"): ((1580,),),
@@ -1180,6 +1189,8 @@ PROMPT_FALLBACK_STRINGS = {
     1588: "Save Game",
     48581: "Exit Game",
     42393: "Wager",
+    32332: "End Turn",
+    32333: "Stand",
     1071: "Level Up",
     36812: "Auto Level Up",
     # The store, 2026-10-06.

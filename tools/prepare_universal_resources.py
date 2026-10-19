@@ -566,19 +566,24 @@ def write_zip(output: Path, files: list[Path]) -> None:
 
 
 
-# The R3 party-switch cue.
+# The party-switch cue.
 #
-# R3 changes which party member Character, Equipment, Inventory and the
-# Skills/Powers/Feats screen are showing. There is nowhere in those screens to
-# advertise it: the two portrait buttons' BORDER.FILL *is* the portrait, rewritten
-# per character by the panel, and the gap between them holds no control at all.
+# RB changes which party member Character, Equipment, Inventory and the
+# Skills/Powers/Feats screen are showing, as Black did on the Xbox (issue 49). There
+# is nowhere in those screens to advertise it: the two portrait buttons'
+# BORDER.FILL *is* the portrait, rewritten per character by the panel, and the gap
+# between them holds no control at all.
 #
 # So one is added here -- and it only becomes real because the module binds it at
 # runtime. A panel constructs the controls it knows by name and nothing else, so a
 # control added to a .gui alone is never built and never drawn; that was measured
 # by adding one and looking. See reverse-engineering/custom-gui-controls.md.
+#
+# Until 2026-10-19 the button was R3, which the tag and these names still carry:
+# the tag is the control's name in the layout files and in both modules.
 R3_CUE_TAG = "LBL_KMRPR3"
-R3_CUE_FILL = "kmrpr3_party"
+R3_CUE_FILL = "kmrprb_party"
+R3_CUE_GLYPH = "RB"
 R3_CUE_SCREENS = ("abilities.gui", "character.gui", "equip.gui", "inventory.gui")
 # The cue's side as a fraction of the portrait height. Until 2026-09-24 it filled
 # the space between the portraits, the gap or their height, whichever was
@@ -776,13 +781,15 @@ def add_subtab_swap_cue(source: Path, destination: Path) -> bool:
     return True
 
 
-# X and Y in combat. X presses the HUD's Disengage button, BTN_CLEARALL; Y its
-# BTN_CLEARONE, which removes the last queued action -- both through the engine's
-# own click handlers (PressHudButtonK1 in K1NativeJoystick.cpp). A badge beside
-# each says so. The module binds them on CSWGuiMainInterface and shows each only
-# while its button is drawn, so they appear in combat and nowhere else.
+# Y and B in combat. B presses the HUD's Disengage button, BTN_CLEARALL, when no
+# action-bar slot has focus to let go of; Y its BTN_CLEARONE, which removes the
+# last queued action -- both through the engine's own click handlers
+# (PressHudButtonK1 in K1NativeJoystick.cpp). A badge beside each says so. The
+# module binds them on CSWGuiMainInterface and shows each only while its button is
+# drawn, so they appear in combat and nowhere else. Until 2026-10-19 X disengaged
+# (issue 49 made it B, as on the Xbox); the second badge keeps its tag.
 COMBAT_CUES = (("LBL_KMRPY", "kmrpy_cmbt", "Y", "BTN_CLEARONE"),
-               ("LBL_KMRPX", "kmrpx_cmbt", "X", "BTN_CLEARALL"))
+               ("LBL_KMRPX", "kmrpb_cmbt", "B", "BTN_CLEARALL"))
 # A label to clone, rather than a button: these are labels at run time too.
 COMBAT_CUE_TEMPLATE = "LBL_QUEUE1"
 # Square, at this fraction of the Disengage button's height, both the same size.
@@ -1301,7 +1308,7 @@ def main() -> int:
         common_tga_files = compress_menu_backgrounds(common_tga_files,
                                                      Path(icon_staging))
 
-        # The R3 party-switch cue's glyph. Shared rather than per-resolution
+        # The party-switch cue's glyph. Shared rather than per-resolution
         # because the control it fills is square at every resolution, so the art
         # needs no aspect pre-compensation and one texture is correct everywhere
         # -- unlike the caption badges, which are stretched across oblong buttons
@@ -1311,7 +1318,7 @@ def main() -> int:
         # module rewrites the resref's fourth letter to the family it detects.
         for family in GLYPH_FAMILIES:
             cue_art = Path(icon_staging) / f"{family_resref(R3_CUE_FILL, family)}.tga"
-            cue_art.write_bytes(build_square_glyph_tga("R3", family=family))
+            cue_art.write_bytes(build_square_glyph_tga(R3_CUE_GLYPH, family=family))
             common_tga_files = common_tga_files + [cue_art]
 
             # The same, for the two menu-strip cues.
@@ -1320,7 +1327,7 @@ def main() -> int:
                 art.write_bytes(build_square_glyph_tga(glyph, family=family))
                 common_tga_files = common_tga_files + [art]
 
-            # And for X and Y beside the HUD's combat buttons.
+            # And for Y and B beside the HUD's combat buttons.
             for _, fill, glyph, _ in COMBAT_CUES:
                 art = Path(icon_staging) / f"{family_resref(fill, family)}.tga"
                 art.write_bytes(build_square_glyph_tga(glyph, family=family))

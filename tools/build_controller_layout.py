@@ -54,21 +54,27 @@ from build_controller_prompt_textures import (
 # with the HUD badges; the anchor names a point on the silhouette below. Order is
 # the order of the GLYPH_nn / TEXT_nn controls, which the runtime binds by tag.
 LAYOUT = [
-    ("LT",     "Switch ally / Prev tab",    "L", "LT"),
-    ("LB",     "Previous target",           "L", "LB"),
-    ("BACK",   "Solo mode",                 "T", "BACK"),
-    ("LSTICK", "Move / Click: flourish",    "L", "LSTICK"),
-    ("DPAD",   "Action bar / Navigate",     "L", "DPAD"),
-    ("RT",     "Pause / Next tab",          "R", "RT"),
-    ("RB",     "Next target",               "R", "RB"),
-    ("START",  "Map / Close menu",          "T", "START"),
-    # In combat, Y removes the last queued action and X disengages (the HUD's
-    # own clear buttons); in menus each screen gives them its own meaning.
-    ("Y",      "Undo action / Menu action", "R", "Y"),
-    ("X",      "Disengage / Menu action",   "R", "X"),
-    ("B",      "Back / Release bar",        "R", "B"),
-    ("A",      "Interact / Select",         "R", "A"),
-    ("RSTICK", "Camera / Click: free look", "R", "RSTICK"),
+    # The original Xbox game's layout (issue 49, 2026-10-19), its White and Black
+    # on LB and RB. The captions of the rows that can be remapped are the module's
+    # (kActionNames and kFixedAfter in src/controller-native/K1ControllerLayout.cpp),
+    # which it writes as the screen opens; these are the file's, and the fixed rows'
+    # (Back, D-pad, Start) are only these.
+    ("LT",     "Previous target / Prev tab",     "L", "LT"),
+    ("LB",     "Pause",                          "L", "LB"),
+    ("BACK",   "Solo mode",                      "T", "BACK"),
+    ("LSTICK", "Move / Click: flourish",         "L", "LSTICK"),
+    ("DPAD",   "Action bar / Navigate",          "L", "DPAD"),
+    ("RT",     "Next target / Next tab",         "R", "RT"),
+    ("RB",     "Switch ally / Menu action",      "R", "RB"),
+    ("START",  "Last menu / Close menu",         "T", "START"),
+    # In combat, Y removes the last queued action, and with nothing to remove it
+    # flourishes; B lets go of the action bar or disengages (the HUD's own clear
+    # buttons). In menus each screen gives X and Y their own meaning.
+    ("Y",      "Undo or flourish / Menu action", "R", "Y"),
+    ("X",      "Add to queue / Menu action",     "R", "X"),
+    ("B",      "Disengage / Back",               "R", "B"),
+    ("A",      "Interact / Select",              "R", "A"),
+    ("RSTICK", "Camera / Click: free look",      "R", "RSTICK"),
 ]
 
 # Kept under this name: the regression and the prompt builder import it.

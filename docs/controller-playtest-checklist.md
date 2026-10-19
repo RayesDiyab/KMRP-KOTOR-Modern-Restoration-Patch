@@ -38,6 +38,14 @@ covered.
 | In-game Options: Down from Close keeps a focus |
 | Switching to mouse or keyboard clears the badges on every screen, not only the one in front |
 
+**Superseded rows, 2026-10-19 (issue 49).** "Start opens the Map and closes it
+again" above, and "The R3 party-switch cue" in the 2026-09-24 result below, were
+true when they were played. Since 2026-10-19 the controller uses the original Xbox
+game's layout: Start in the world reopens the in-game menu on the screen it last
+showed (it still closes it), RB switches the party member on the four party screens
+and the cue there shows RB. Neither has been played since; the rows that check them
+are in sections 2 and 4.
+
 ## Physical QA result — 2026-09-24
 
 Reported working on a real pad at 3440x1440, from the installer built that day
@@ -155,6 +163,15 @@ Xbox-style HUD ([`controller-xbox-hud.md`](controller-xbox-hud.md), "Tested and
 not tested"), and PlayStation, Switch and Steam Deck pads. Button remapping, added
 on 2026-10-18, has its pad checks in section 9.
 
+**Brought up to issue 49 on 2026-10-19.** Since that day the controller uses the
+original Xbox game's layout, with the Xbox's White and Black on LB and RB
+(`K1_GAMEPLAY_ACTIONS`, `K1_BUTTONS` and `K1_BUTTON_REMAPS` in
+`src/controller-native/K1NativeJoystick.cpp`; [`controller-layout.md`](controller-layout.md)
+and `CHANGELOG.md`, `[Unreleased]`). The rows it changed are corrected in place, each
+saying what it expected until then, and rows were added for what is new; section 10
+holds Pazaak's table and the menu buttons that now do nothing. **None of these rows
+has been played.**
+
 Build under test: the controller patch, `KOTOR 1 Native Controller Mod + Xbox
 HUD.kpatch`, alone or installed by KMRP's installer with Controller Support on.
 
@@ -166,8 +183,8 @@ Do not spend time diagnosing these; they are measured and understood.
 | --- | --- | --- | --- |
 | [ ] | Dialogue | B, X, Y, Back, LT, RT, Start | **nothing** — no handler in the dialogue dispatcher |
 | [ ] | Dialogue | right stick | camera still moves |
-| [ ] | Free look | A, B, D-pad | nothing; only Start works (the game's own event), R3 or LB exits |
-| [ ] | Pazaak | buttons | only B, Y, LT and RT are registered in class 1, the four events its GUI dispatchers implement; A is not. **Never observed**, please note what responds |
+| [ ] | Free look | A, B, D-pad | nothing; only Start works (the game's own event), R3 or LT exits (R3 or LB until 2026-10-19) |
+| [ ] | Pazaak | buttons | only B, Y, LT and RT are registered in class 1, the four events its GUI dispatchers implement; A is not. **Never observed**, please note what responds. At the table itself the module answers X, A, Y and LB since 2026-10-19 (section 10) |
 | [ ] | Cutscenes | buttons | A or Start skips a movie the game allows to be skipped; nothing else does anything (class 5 has no retained event) |
 
 ---
@@ -187,7 +204,7 @@ Do not spend time diagnosing these; they are measured and understood.
 | [ ] | Dialogue | A on a reply | chooses it | | FUNC [auto] |
 | [ ] | Dialogue | A while a line is playing | skips the line | | FUNC |
 | [ ] | Dialogue | left stick | does **not** navigate replies — should it? | | **FEEL** |
-| [ ] | Computer terminal | LB / RB | scrolls the terminal text | | FUNC |
+| [ ] | Computer terminal | LB / RB | scrolls the terminal text (since 2026-10-19 RB's scroll has a description of its own, because RB's menu event is Black) | | FUNC |
 | [ ] | Dialogue | highlight visible from the sofa | | | **FEEL** |
 
 ## 0c. Swoop and turret controls
@@ -228,17 +245,22 @@ confirmation; automated coverage is recorded in
 
 | | Context | Input | Expected | P/F | Kind |
 | --- | --- | --- | --- | --- | --- |
-| [ ] | Gameplay | Start | the Map opens (since issue #18; the in-game menu's Options until then) | | FUNC, played 2026-09-25 |
+| [ ] | Gameplay | Start | the in-game menu opens on the screen it last showed, or the Map when that cannot be read; what it opens on before the menu has been shown once was not looked at (since 2026-10-19, the Xbox's Start; the Map from issue #18 until then, the in-game menu's Options before that) | | FUNC; the Map played 2026-09-25, the last screen not yet |
+| [ ] | In-game menu, moved to another tab with RT | Start, then Start again | closes the menu, then reopens it on that tab | | FUNC |
 | [ ] | In-game menu | Start again | closes the menu, from the Map or any tab | | FUNC, played 2026-09-25 from the Map |
 | [ ] | In-game menu | B | back to the world | | FUNC [auto] |
-| [ ] | Gameplay | LB / RB | previous / next target | | FUNC |
-| [ ] | Gameplay | LT | the next living party member | | FUNC |
-| [ ] | Gameplay | RT | pause, and again to continue | | FUNC |
+| [ ] | Gameplay | LT / RT | previous / next target (LB / RB until 2026-10-19) | | FUNC |
+| [ ] | Gameplay | RB | the next living party member (LT until 2026-10-19) | | FUNC |
+| [ ] | Gameplay | LB | pause, and again to continue (RT until 2026-10-19) | | FUNC |
+| [ ] | Paused, Xbox-style HUD | look at the pause notice | "PAUSED. PRESS [LB] TO CONTINUE", LB in the same drawing as the other cues (until 2026-10-19 RT, in a lighter drawing of the trigger) | | FUNC |
 | [ ] | Gameplay | Back | the Solo Mode question; A on OK turns it on, A on Cancel or B does not | | FUNC, played 2026-09-24 |
 | [ ] | Gameplay | D-pad Left / Right, then Up / Down, then A | walks the action bar's slots, cycles a slot's actions, uses the slot and keeps it; B lets go | | FUNC, A played 2026-09-25 |
-| [ ] | Combat | X, Y | X disengages, Y takes the last action off the queue, each only while its button is drawn | | FUNC |
+| [ ] | Gameplay | X, on a target and then on a focused action-bar slot | the same as A each time: the target's action, then the slot's (since 2026-10-19; until then X disengaged in combat and did nothing else) | | FUNC |
+| [ ] | Combat | B, Y | with no action-bar slot focused B disengages; Y takes the last action off the queue; each only while its button is drawn, with either HUD (until 2026-10-19 X disengaged, and B only with the Xbox-style HUD) | | FUNC |
+| [ ] | Gameplay, not in combat | Y | weapons flourish, as L3 (since 2026-10-19) | | FUNC |
 | [ ] | Gameplay | L3 | weapons flourish | | FUNC [auto] |
 | [ ] | Gameplay | R3 | free look on; R3 again, off | | FUNC [auto] |
+| [ ] | Free look | LT | leaves free look (LB until 2026-10-19) | | FUNC |
 | [ ] | Gameplay | **L3 then R3 immediately** | free look refuses for 4–7s, then works | | FUNC — known |
 | [ ] | Gameplay | L3 with no weapon drawn | nothing bad happens | | FUNC |
 | [ ] | Free look | left stick | does the camera behave sensibly? | | **FEEL** |
@@ -276,17 +298,19 @@ Cycle: Equipment → Inventory → Character → Abilities → Messages → Jour
 | | Tab | Input | Expected | P/F | Kind |
 | --- | --- | --- | --- | --- | --- |
 | [ ] | Inventory | X | item filter changes | | FUNC [auto] |
-| [ ] | Inventory, Equipment | LB / RB | **nothing**: they carry no menu event since 2026-09-14 | | FUNC |
+| [ ] | Inventory, Equipment | LB | **nothing**: it carries no menu event since 2026-09-14 (this row said LB / RB until 2026-10-19; RB is the party row below) | | FUNC |
 | [ ] | Inventory, Equipment | right stick up / down | scrolls the item's description | | FUNC |
 | [ ] | Equipment | D-pad between slots and list | transitions make sense | | **FEEL** |
-| [ ] | Abilities, Character, Equipment, Inventory | R3 | the next party member, with the cue between the portraits | | FUNC, cue played 2026-09-24 |
+| [ ] | Abilities, Character, Equipment, Inventory | RB | the next party member, with an RB cue between the portraits, the Xbox Character screen's "(Black) Change Character" (R3 and an R3 cue until 2026-10-19) | | FUNC; the R3 cue played 2026-09-24, RB not yet |
+| [ ] | Abilities, Character, Equipment, Inventory | R3 | **nothing** since 2026-10-19 | | FUNC |
 | [ ] | Character | X | Scripts | | FUNC |
 | [ ] | Character, a level to take | A, Y | Level Up, Auto Level Up; the D-pad moves no focus on this screen | | FUNC, seen 2026-09-26 and 2026-09-28 |
 | [ ] | Abilities | X | the next of Skills / Powers / Feats | | FUNC |
 | [ ] | Abilities | D-pad | engine's own navigation, not KMRP's | | FUNC |
-| [ ] | Journal | X | sorts | | FUNC |
-| [ ] | Journal | Y | quest selection | | FUNC |
-| [ ] | Journal | Back | the only screen where Back does anything | | FUNC |
+| [ ] | Journal | X | the Quest Items list, its badge X (this row said "sorts" until 2026-10-19; the Journal's `0x29` is Quest Items) | | FUNC |
+| [ ] | Journal | Y | switches between active and completed quests, its badge Y (this row said "quest selection"; until 2026-10-19 KMRP moved this to A) | | FUNC |
+| [ ] | Journal | RB | the sort order, its badge RB, the Xbox's Black (Y until 2026-10-19, which KMRP moved it to from Back) | | FUNC |
+| [ ] | Journal | Back | **nothing** since 2026-10-19 (this row said "the only screen where Back does anything") | | FUNC |
 | [ ] | Map | X | transit | | FUNC |
 | [ ] | Map | D-pad | engine's own map navigation | | FUNC |
 | [ ] | Messages | X | clears | | FUNC |
@@ -297,7 +321,7 @@ Cycle: Equipment → Inventory → Character → Abilities → Messages → Jour
 | | Context | Input | Expected | P/F | Kind |
 | --- | --- | --- | --- | --- | --- |
 | [ ] | Save/Load | D-pad | moves through the save list | | FUNC |
-| [ ] | Save/Load | LB / RB | **nothing** (this row said "list scrolls"; they carry no menu event since 2026-09-14) | | FUNC |
+| [ ] | Save/Load | LB / RB | **nothing** (this row said "list scrolls"; they carry no menu event since 2026-09-14, except RB's Black, `0x2B`, since 2026-10-19, which only the Journal implements) | | FUNC |
 | [ ] | Save/Load | A | loads or saves the highlighted slot | | FUNC |
 | [ ] | Save/Load | **X** | **Delete — confirm the prompt appears before anything is destroyed** | | FUNC |
 | [ ] | Save/Load | B | back | | FUNC |
@@ -324,12 +348,14 @@ Everything here is **static-only**. Please note anything that does not respond.
 | [ ] | Key mappings | D-pad, A, B | |
 | [ ] | Upgrade / workbench | D-pad, A, B, LB/RB | |
 | [ ] | Pazaak setup | D-pad, A, B, Y, LT/RT | |
-| [ ] | Pazaak game | B, Y, LT, RT are registered (class 1); A is not. On the wager, the D-pad lowers and raises it and A wagers | |
+| [ ] | Pazaak game | B, Y, LT, RT are registered (class 1); A is not. On the wager, the D-pad lowers and raises it and A wagers. The table's own buttons since 2026-10-19: section 10 | |
 | [ ] | Solo mode query | B should dismiss it | |
 | [ ] | Any cutscene | A or Start skips it when the game allows; nothing else | |
 
 In this table "LB/RB" was listed for the screens with a list. They carry no menu
-event since 2026-09-14; try the right stick for a description instead. On the
+event since 2026-09-14; try the right stick for a description instead. (Since
+2026-10-19 RB sends the Xbox's Black, `0x2B`, which none of these screens
+implements.) On the
 settings screens Y presses Default, and Left and Right step a row's - and +
 (2026-09-25). The store shows A, X and B on its three buttons since 2026-10-06,
 not yet seen in play.
@@ -375,6 +401,12 @@ was run with mouse and keyboard only (scripted input, at 3440x1440 and 1920x1080
 not installed). Start each run from the default layout: Remap, Default, Save. Have
 `debug-logs` on and keep `kmrp-layout-lifecycle.log`.
 
+*Since 2026-10-19* the default layout is the original Xbox game's (issue 49): A
+Interact, B Disengage, X Add to queue, Y Undo or flourish, LB Pause, RB Switch ally,
+LT Previous target, RT Next target, L3 Flourish, R3 Free look. The rows below are
+written against it; where a row named an action or a button of the earlier defaults
+it says so.
+
 ### 9a. On the screen
 
 | | Context | Input | Expected | P/F | Kind |
@@ -393,11 +425,12 @@ not installed). Start each run from the default layout: Remap, Default, Save. Ha
 | [ ] | The prompt | Start | expected from the code to cancel, like Back: **please note what happens** | | FUNC, unknown |
 | [ ] | The prompt | D-pad | nothing: the focus stays on the row | | FUNC |
 | [ ] | After a choice | keep the chosen button held | nothing else happens until it is released | | FUNC |
-| [ ] | Undo action (Y's row) given RB | look at the rows | Undo action in RB's row with a yellow dot; Next target waits in Y's row, orange, with an orange "?"; the help line names Next target in orange; Save grey | | FUNC |
+| [ ] | Undo or flourish (Y's row) given RB | look at the rows | Undo or flourish in RB's row with a yellow dot; Switch ally waits in Y's row, orange, with an orange "?"; the help line names Switch ally in orange; Save grey (Next target in place of Switch ally until 2026-10-19) | | FUNC |
 | [ ] | The same | X | nothing is saved while an action waits | | FUNC |
-| [ ] | The same, Y's row | A, then Y | Next target on Y; nothing waits; Save works | | FUNC |
+| [ ] | The same, Y's row | A, then Y | Switch ally on Y; nothing waits; Save works | | FUNC |
 | [ ] | Remapping | Y | Default: the default layout back on screen, not yet saved | | FUNC |
-| [ ] | Remapping, a complete change | X | saved: `kmrp-controller.ini` has `[Controller Remap]` with ten keys | | FUNC |
+| [ ] | Remapping, a complete change | X | saved: `kmrp-controller.ini` has `[Controller Remap]` with `Layout=Xbox` and ten keys (no `Layout` line until 2026-10-19) | | FUNC |
+| [ ] | The screen opened | look at the rows | the captions of the Xbox layout (since 2026-10-19): "Previous target / Prev tab", "Pause", "Next target / Next tab", "Switch ally / Menu action", "Undo or flourish / Menu action", "Add to queue / Menu action", "Disengage / Back", "Last menu / Close menu", none cut short | | FUNC |
 | [ ] | Remapping, nothing unsaved | B | back to the view | | FUNC |
 | [ ] | Remapping, a change not saved | B | the "Unsaved Changes" box, (A) Discard and (B) Cancel | | FUNC |
 | [ ] | Unsaved Changes | B | back to remapping, the changes kept | | FUNC |
@@ -409,23 +442,52 @@ not installed). Start each run from the default layout: Remap, Default, Save. Ha
 
 ### 9b. In play, with a saved remap
 
-Save a layout with Undo action on RB and Next target on Y, and one with Pause on LB
-and Previous target on RT, then play.
+Save a layout with Undo or flourish on RB and Switch ally on Y, and one with Pause on
+RT and Next target on LB, then play. (Until 2026-10-19 this read "Undo action on RB
+and Next target on Y, and one with Pause on LB and Previous target on RT": the same
+two trades on that day's defaults.)
 
 | | Context | Input | Expected | P/F | Kind |
 | --- | --- | --- | --- | --- | --- |
-| [ ] | Combat, an action queued | RB | the last queued action comes off the queue (Undo action) | | FUNC |
-| [ ] | Gameplay | Y | the next target (Next target) | | FUNC |
-| [ ] | Gameplay | LB | pauses, and again to continue | | FUNC |
-| [ ] | Gameplay | RT | the previous target | | FUNC |
+| [ ] | Combat, an action queued | RB | the last queued action comes off the queue (Undo or flourish) | | FUNC |
+| [ ] | Gameplay | Y | the next living party member (Switch ally) | | FUNC |
+| [ ] | Gameplay | RT | pauses, and again to continue | | FUNC |
+| [ ] | Gameplay | LB | the next target | | FUNC |
 | [ ] | In-game menu | LT, RT | still the previous and next tab: menus keep every button | | FUNC |
 | [ ] | In-game menu | Y, X, A, B | each does what it does on that screen without a remap | | FUNC |
 | [ ] | Dialogue, Pazaak, swoop, turret | the remapped buttons | as without a remap | | FUNC |
-| [ ] | Gameplay | hold RB (Undo action), open a menu with Start, release RB | nothing sticks; the next RB in the menu is RB | | FUNC |
-| [ ] | Combat | look at the HUD | the cue beside the combat buttons shows RB for Undo action, X still for Disengage | | FUNC |
-| [ ] | Combat, Xbox-style HUD | look at the combat-mode message | the button of Release bar (B unless moved) | | FUNC |
-| [ ] | Paused, Xbox-style HUD, Pause on LB | look at the pause notice | "PAUSED. PRESS [LB] TO CONTINUE" | | FUNC |
-| [ ] | Paused, Pause on LB | move the mouse, then back to the pad | the PC's pause box is the game's own, and the Xbox one comes back (a fault found from the code and fixed before it was run: [`controller-layout.md`](controller-layout.md), "Limits") | | FUNC |
+| [ ] | Gameplay | hold RB (Undo or flourish), open a menu with Start, release RB | nothing sticks; the next RB in the menu is RB | | FUNC |
+| [ ] | Combat | look at the HUD | the cue beside the combat buttons shows RB for Undo or flourish, B still for Disengage (X until 2026-10-19) | | FUNC |
+| [ ] | Combat, Xbox-style HUD | look at the combat-mode message | the button of Disengage, B unless moved (Release bar's until 2026-10-19, also B unless moved) | | FUNC |
+| [ ] | Paused, Xbox-style HUD, Pause on RT | look at the pause notice | "PAUSED. PRESS [RT] TO CONTINUE", RT in the same drawing as the other cues (this row tested Pause on LB until 2026-10-19, when RT was Pause's default) | | FUNC |
+| [ ] | Paused, Pause on RT | move the mouse, then back to the pad | the PC's pause box is the game's own, and the Xbox one comes back (a fault found from the code and fixed before it was run: [`controller-layout.md`](controller-layout.md), "Limits") | | FUNC |
 | [ ] | Restart the game | play | the saved layout is still in force | | FUNC |
 | [ ] | A duplicate value written into `[Controller Remap]` by hand | start the game | the default layout, in play and on the screen | | FUNC |
+| [ ] | A layout saved before 2026-10-19 (no `Layout` line), or the line deleted by hand | start the game | the Xbox defaults, in play and on the screen; a Save then rewrites the whole section | | FUNC |
 | [ ] | KMRP's installer | Restore Original, then look at `kmrp-controller.ini` | the file and its `[Controller Remap]` are still there | | FUNC |
+
+## 10. Pazaak's table and the menu buttons (added 2026-10-19)
+
+Issue 49. Pazaak's table follows the Xbox game's footer, "(X) Play Hand Card, (White)
+Flip Hand Card, (A) End Turn, (Y) Stand", with White on LB (`K1_BUTTON_REMAPS`,
+`InstallPazaakTableK1` and `UpdatePazaakTableK1` in
+`src/controller-native/K1NativeJoystick.cpp`). Read from the executable; no save the
+harness loads reaches a table, and **none of this has been played**. Until
+2026-10-19 A played the focused hand card (since 2026-10-11, issue 42), and End
+Turn, Stand and the four flip buttons were places for the D-pad, pressed with A.
+
+| | Context | Input | Expected | P/F | Kind |
+| --- | --- | --- | --- | --- | --- |
+| [ ] | Pazaak table, your turn, a hand card focused | X | the card is played, as a click on it does | | FUNC |
+| [ ] | The same | A | End Turn, whatever holds focus; A never plays a card | | FUNC |
+| [ ] | The same | Y | Stand | | FUNC |
+| [ ] | A +/- hand card focused | LB | the card's sign flips, as its own flip button does | | FUNC |
+| [ ] | Not your turn, or End Turn or Stand not on screen or disabled | A, Y | nothing | | FUNC |
+| [ ] | The table | D-pad, all four | moves between the hand cards only; never onto End Turn, Stand or the four flip buttons | | FUNC |
+| [ ] | The table, pad in use | look | an A badge on End Turn and a Y badge on Stand; the flip legend's icon is LB; an X and "Play Hand Card" on the row under the flip legend | | FUNC |
+| [ ] | The same | look at the "Play Hand Card" line | does it stand somewhere sensible? Its place is a first guess, the flip legend's own rectangle moved down by its height, and nothing has been seen | | **FEEL** |
+| [ ] | The table | move the mouse | the flip legend's own picture is back, and the "Play Hand Card" line and the badges are gone | | FUNC |
+| [ ] | A second game after leaving the table | the rows above | the same; nothing left over from the first table | | FUNC |
+| [ ] | Pazaak side-deck screen | Y, LT, RT | unchanged: its own Y adds a card, LT and RT switch lists | | FUNC |
+| [ ] | Any menu | R3 | **nothing** (until 2026-10-19 it switched the party member on four screens) | | FUNC |
+| [ ] | Any menu | Back | **nothing** (until 2026-10-19 it sent `0x2B`, which sorted the Journal) | | FUNC |

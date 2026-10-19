@@ -57,9 +57,10 @@ BINDINGS = [
     ("B",     0x28, "cancel"),
     ("X",     0x29, "per-panel"),
     ("Y",     0x2A, "per-panel"),
+    # LB's scroll is registered in conversations only (computer terminals). RB is
+    # Black, the Xbox's, and Back carries no menu event (issue 49, 2026-10-19).
     ("LB",    0x39, "description scroll up"),
-    ("RB",    0x3A, "description scroll down"),
-    ("BACK",  0x2B, "Black"),
+    ("RB",    0x2B, "Black"),
     ("UP",    0x31, "scroll up"),
     ("DOWN",  0x32, "scroll down"),
     ("LEFT",  0x2F, "D-pad left"),

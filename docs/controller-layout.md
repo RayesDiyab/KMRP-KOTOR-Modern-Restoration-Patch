@@ -146,23 +146,36 @@ and were wrong for the shipping path — View read "Menu-specific action" and LB
 
 | Button | Caption |
 | --- | --- |
-| LT / RT | Switch ally / Prev tab · Pause / Next tab |
-| LB / RB | Previous target · Next target |
-| View / Menu | Solo mode · Map / Close menu |
+| LT / RT | Previous target / Prev tab · Next target / Next tab |
+| LB / RB | Pause · Switch ally / Menu action |
+| View / Menu | Solo mode · Last menu / Close menu |
 | Left stick | Move / Click: flourish |
 | Right stick | Camera / Click: free look |
 | D-pad | Action bar / Navigate |
-| A / B | Interact / Select · Back / Release bar |
-| X / Y | Disengage / Menu action · Undo action / Menu action ("Screen action" until 2026-09-25, before X and Y did anything in combat) |
+| A / B | Interact / Select · Disengage / Back |
+| X / Y | Add to queue / Menu action · Undo or flourish / Menu action |
+
+*Changed 2026-10-19 (issue 49):* the controller now uses the original Xbox game's
+layout, with the Xbox's White and Black buttons on LB and RB, and the captions
+follow it (`LAYOUT` in `tools/build_controller_layout.py`; `kActionNames` and
+`kFixedAfter` in `K1ControllerLayout.cpp` for the remappable rows). Until then they
+described KMRP's own layout: LT / RT "Switch ally / Prev tab" and "Pause / Next
+tab", LB / RB "Previous target" and "Next target", Menu "Map / Close menu", B "Back
+/ Release bar", X "Disengage / Menu action" and Y "Undo action / Menu action"
+("Screen action" until 2026-09-25, before X and Y did anything in combat). Whether
+the longer captions, such as "Undo or flourish / Menu action", fit their boxes at
+every size has not been seen on screen, and `Test-ControllerPromptAssets.py`, which
+checks the fit after a resource build, was not run for this note.
 
 Plain ASCII, because the menu face has 95 printable-ASCII glyphs and nothing
 else.
 
 **Since 2026-10-18** the ten remappable rows do not show these captions while the
 screen is open: each row's text is set at run time to the action now on that
-button, with what stays with the button beside it in grey (B's row reads "Release
-bar / Back" on the default layout). The file's captions are unchanged and are what
-the screen starts from. See [Button remapping](#button-remapping).
+button, with what stays with the button beside it in grey (B's row reads
+"Disengage / Back" on the default layout; "Release bar / Back" until 2026-10-19).
+The file's captions are what the screen starts from. See
+[Button remapping](#button-remapping).
 
 **Correction, 2026-09-20.** The first build of this screen shipped nothing a
 player could read. PyKotor's `get_struct()` returns a *copy* holding its own
@@ -315,9 +328,24 @@ yet committed: `src/controller-native/K1ButtonRemapPolicy.h` (the rules),
 `K1ControllerLayout.cpp` (the screen), `K1NativeJoystick.cpp` (the pad, the focus
 and the HUD cues), `K1XboxHud.cpp` (the pause notice) and
 `tools/build_controller_layout.py` (the textures). The rules are the maintainer's,
-decided on 2026-10-18 from mockups he approved. **Nothing has been run with a pad**:
+decided on 2026-10-18 from mockups they approved. **Nothing has been run with a pad**:
 what was seen, and how, is under [Tested and not tested](#tested-and-not-tested)
 below.
+
+**Brought up to issue 49 on 2026-10-19**, from that day's source, also uncommitted
+when written (the same files and `K1XboxHud.cpp`). The maintainer decided that day
+that the controller uses the original Xbox game's layout everywhere ("It should be
+classic everywhere"), with no second layout to choose; the Xbox's White and Black
+are LB and RB, as Xbox 360 and One backward compatibility placed them. That moved
+Disengage, Pause, Switch ally and both target actions to other default buttons;
+replaced Release bar with Add to queue (B's action is Disengage now, which lets go
+of the bar first) and renamed Undo action to Undo or flourish; changed the saved
+keys to match (`AddToQueue` new, `ReleaseBar` gone); and added a `Layout` line to
+the settings file. Interact, Undo, Flourish and Free look kept their buttons. The
+rules, the screen and the translation are unchanged. The sections below say what
+each part was until then. None of it has been run in the game;
+`Test-ButtonRemap.py` was reported passing on that source (CHANGELOG,
+`[Unreleased]`).
 
 ### The build and the address convention
 
@@ -337,7 +365,7 @@ already had:
 | --- | --- |
 | The screen | `ControllerLayoutFrameK1`, called from `NativeGuiFrameK1` at `0x0040CE70` |
 | The translation of the pad's buttons | `FillNativeJoystickBufferK1`, called from `NativeJoystickBufferK1` at `0x005E30F6` |
-| The HUD's Y and X cues | `UpdateGuiCuesK1`, called from `NativeGuiFrameK1` |
+| The HUD's Y and B cues (Y and X until 2026-10-19) | `UpdateGuiCuesK1`, called from `NativeGuiFrameK1` |
 | The pause notice's button | `PlacePause`, from `KmrpXboxHudK1` at `0x0068AB10` and `KmrpXboxHudPauseReasonDoneK1` at `0x006C02A4` |
 
 ### What can be remapped
@@ -352,18 +380,36 @@ the pad's buttons into the default ones and nothing downstream changes
 | Action, as the row shows it | Key in `[Controller Remap]` | Default button | Its row (`GLYPH_nn`, `TEXT_nn`) | What stays with the button, in grey |
 | --- | --- | --- | --- | --- |
 | Interact | `Interact` | A | 11 | "/ Select" after it |
-| Release bar | `ReleaseBar` | B | 10 | "/ Back" after it |
-| Disengage | `Disengage` | X | 09 | "/ Menu action" after it |
-| Undo action | `UndoAction` | Y | 08 | "/ Menu action" after it |
-| Previous target | `PreviousTarget` | LB | 01 | nothing |
-| Next target | `NextTarget` | RB | 06 | nothing |
-| Switch ally | `SwitchAlly` | LT | 00 | "/ Prev tab" after it |
-| Pause | `Pause` | RT | 05 | "/ Next tab" after it |
+| Disengage | `Disengage` | B | 10 | "/ Back" after it |
+| Add to queue | `AddToQueue` | X | 09 | "/ Menu action" after it |
+| Undo or flourish | `UndoAction` | Y | 08 | "/ Menu action" after it |
+| Pause | `Pause` | LB | 01 | nothing |
+| Switch ally | `SwitchAlly` | RB | 06 | "/ Menu action" after it |
+| Previous target | `PreviousTarget` | LT | 00 | "/ Prev tab" after it |
+| Next target | `NextTarget` | RT | 05 | "/ Next tab" after it |
 | Flourish | `Flourish` | L3, the left stick's click | 03, the left stick's row | "Move / Click:" before it |
 | Free look | `FreeLook` | R3, the right stick's click | 12, the right stick's row | "Camera / Click:" before it |
 
 The grey part is what the button keeps whatever action it carries: its meaning in
-menus, which keep every button where it is, or its stick's movement.
+menus, which keep every button where it is, or its stick's movement. RB's "/ Menu
+action" is the Xbox's Black there: the next party member on the four screens about
+one, and the Journal's sort.
+
+What the defaults do in the world, from `K1NativeJoystick.cpp`: Add to queue asks for
+exactly what A does (on the Xbox X added an action to the queue and A acted at once;
+on the PC every action is queued, so the two are one action here); Undo or flourish
+presses the HUD's `BTN_CLEARONE` while it is on screen and otherwise flourishes the
+weapons, as L3 does; Disengage lets go of the action bar when a slot has focus and
+otherwise presses the HUD's Disengage button (`BTN_CLEARALL`) while it is on screen,
+with either HUD; Pause, Switch ally, Previous target and Next target are the game's
+events `0x02`, `0x09`, `0x06` and `0x05` on their default button's slot
+(`K1_GAMEPLAY_ACTIONS`).
+
+*Changed 2026-10-19 (issue 49).* Until then the defaults were KMRP's own, and the
+table read: Interact on A; Release bar (`ReleaseBar`) on B, letting go of the action
+bar only; Disengage on X; Undo action on Y; Previous target on LB; Next target on RB;
+Switch ally on LT; Pause on RT. RB's row then had nothing grey after it. The rows did
+not move: a row is a button, so only the action each button starts with changed.
 
 **Fixed**, shown grey with a padlock and never a place for the focus: moving (the
 left stick), the camera (the right stick), the D-pad (the action bar and
@@ -387,16 +433,17 @@ only when no action waits; until then it is grey and the help line, in orange, n
 the action with no button.
 
 A worked example, the harness's first (`button_remap_harness.cpp`). On the default
-layout, A on Undo action's row (Y) and then RB:
+layout, A on Undo or flourish's row (Y) and then RB:
 
 | Row (button) | Shows | State |
 | --- | --- | --- |
-| RB | Undo action | moved here, with a dot (the button carries an action not its own) |
-| Y | Next target | waiting: orange, `kmrrmask` in place of the Y glyph |
-| help line | `Next target has no button.   Every action needs one before you can save.` | orange; Save grey |
+| RB | Undo or flourish | moved here, with a dot (the button carries an action not its own) |
+| Y | Switch ally | waiting: orange, `kmrrmask` in place of the Y glyph |
+| help line | `Switch ally has no button.   Every action needs one before you can save.` | orange; Save grey |
 
-Then A on Y's row and Y: Next target is on Y, nothing waits, Save works. The two
-actions have traded buttons, in two steps. The harness also runs every sequence of
+Then A on Y's row and Y: Switch ally is on Y, nothing waits, Save works. The two
+actions have traded buttons, in two steps. (Until 2026-10-19 RB's default action was
+Next target, and the example named it where it now names Switch ally.) The harness also runs every sequence of
 three assignments over the ten rows and ten buttons (1,000 sequences) and checks
 that the waiting rows always equal the free buttons, and that the layout is complete
 exactly when none waits.
@@ -446,8 +493,9 @@ opacity.
 
 How the button is read: the screen reads the pad itself, every GUI frame, from the
 word `K1NativeJoystick.cpp` keeps before translation (`g_padPhysicalButtons`, read
-through `KmrpPadButtonsK1`), because menus send no event for LB, RB or a stick's
-click, and every one of them may be chosen. Buttons already held as the prompt opens
+through `KmrpPadButtonsK1`), because menus send no event for LB or a stick's click,
+RB's menu event (`0x2B`, the Xbox's Black, since 2026-10-19; none before) means
+nothing on this screen, and every one of them may be chosen. Buttons already held as the prompt opens
 do not count. Back cancels there because it can never be chosen. The pad's B arrives
 as the menu's B event (`0x28`) as well as in that word; the screen tells it from the
 keyboard's Escape, which is the same event, by whether the pad's B is down. **Read
@@ -510,7 +558,7 @@ build and the controller patch's both run:
 
 | Resref | Count | Drawn by | Used for |
 | --- | ---: | --- | --- |
-| `kmr?rm<code>`, `?` the family (`p` Xbox, `s` PlayStation, `n` Switch, `d` Steam Deck), `<code>` one of `a b x y lb rb lt rt l3 r3` | 40, ten per family | `REMAP_GLYPHS` through `build_square_glyph_tga`, the function that draws every other cue; a stick's click is the pack's click drawing | the footer's and the boxes' pad glyphs; the HUD's Y and X cues; the pause notice when Pause is not on RT |
+| `kmr?rm<code>`, `?` the family (`p` Xbox, `s` PlayStation, `n` Switch, `d` Steam Deck), `<code>` one of `a b x y lb rb lt rt l3 r3` | 40, ten per family | `REMAP_GLYPHS` through `build_square_glyph_tga`, the function that draws every other cue; a stick's click is the pack's click drawing | the footer's and the boxes' pad glyphs; the HUD's Y and B cues (Y and X until 2026-10-19); the pause notice's button, always since 2026-10-19 (`kmr?rmlb` on the default layout), and until then only while Pause was not on RT; on Pazaak's table, the flip legend's LB and the made "Play Hand Card" line's X (since 2026-10-19, `UpdatePazaakTableK1`) |
 | `kmrrmask` | 1 | `_remap_marks`: an orange ring on the screen's navy with an orange "?" in `KOTOR_UI_Open.ttf` | a waiting row's glyph |
 | `kmrrmlock` | 1 | `_remap_marks`: a grey (150, 156, 168) padlock | the fixed controls |
 | `kmrrmdot` | 1 | `_remap_marks`: a yellow (236, 226, 38) disc | a changed button |
@@ -523,6 +571,13 @@ The three marks are one picture for every family. **Counted and compared on
 | --- | --- |
 | `kmr?rmy`, `kmr?rmx`, `kmr?rmb` with the combat cues' own `kmr?y_cmbt`, `kmr?x_cmbt`, `kmr?b_cmbt`, four families | 12 of 12, so on the default layout the HUD's cues are the same pictures as before |
 | `kmr?rm<code>` with the screen's row glyph `kmr?lyt<row>` for the same button, four families | 32 of 40; the 8 that differ are L3 and R3 in every family, where the row shows the bare stick and the remap glyph the stick's click |
+
+*Since 2026-10-19* no `kmr?x_cmbt` is built: the Disengage cue's file fill is the B
+picture, `kmr?b_cmbt` (`COMBAT_CUES` in `tools/prepare_universal_resources.py`; the
+controller patch makes it once for that cue and the Xbox-style HUD's combat-mode
+message, `tools/build_controller_assets.py`). So the X comparison in the first row
+cannot be repeated on a newer build; the Y and B ones can. Not counted again for
+this note.
 
 ### Engine functions it calls
 
@@ -593,10 +648,11 @@ the stick clicks) sees each button as the default button of the action it carrie
 | Triggers after | only when the word changed: given back as 255 if their bit is set, else 0, which is all the function reads of them |
 | An incomplete layout | never used: every button stays itself (the saved layout is always complete anyway) |
 
-Example, checked by the harness: with Undo action on RB and Next target on Y, RB in
-the world is Y's event (Undo action), Y in the world is RB's (Next target), RB in a
+Example, checked by the harness: with Undo or flourish on RB and Switch ally on Y, RB
+in the world is Y's (Undo or flourish), Y in the world is RB's (Switch ally), RB in a
 menu is RB; RB pressed in the world and still held as a menu opens stays Y until it
-is released, and the next RB in the menu is RB.
+is released, and the next RB in the menu is RB. (Until 2026-10-19 the example's
+second action was Next target, RB's default then.)
 
 ### The HUD's cues follow the remap
 
@@ -606,10 +662,13 @@ while the layout is being edited:
 
 | Cue | Names the button of | Before 2026-10-18 |
 | --- | --- | --- |
-| `LBL_KMRPY`, beside `BTN_CLEARONE` | Undo action | the family's `kmr?y_cmbt` |
-| `LBL_KMRPX`, beside `BTN_CLEARALL` | Disengage | the family's `kmr?x_cmbt` |
-| `LBL_KMRPX` with the Xbox-style HUD (controller patch only), in the combat-mode message | Release bar, the Xbox game's "[B] to disengage" | `kmrpb_cmbt` (`kDisengageFill` in `K1XboxHudLayout.inc`), set by `K1XboxHud.cpp` and given the family's letter by `MatchCueFamilyK1`; `K1XboxHud.cpp` no longer sets it |
-| the pause notice's button (Xbox-style HUD) | Pause | unchanged while Pause is on RT: `kmr?rt_pause`, the lighter trigger drawn for that line; otherwise `kmr?rm<code>` |
+| `LBL_KMRPY`, beside `BTN_CLEARONE` | Undo or flourish (named Undo action until 2026-10-19); Y by default | the family's `kmr?y_cmbt` |
+| `LBL_KMRPX`, beside `BTN_CLEARALL` | Disengage; B by default since 2026-10-19, so the cue shows B. Until then Disengage was X's by default and the cue showed X. The tag keeps the old name: it names the control in the layout files, not the button it shows | the family's `kmr?x_cmbt` |
+| `LBL_KMRPX` with the Xbox-style HUD (controller patch only), in the combat-mode message | Disengage too, the Xbox game's "[B] to disengage" (`K1_GUI_CUES` gives both one action since 2026-10-19). From 2026-10-18 to 2026-10-19 it named Release bar, the action then on B, because Disengage was X's | `kmrpb_cmbt` (`kDisengageFill` in `K1XboxHudLayout.inc`), set by `K1XboxHud.cpp` and given the family's letter by `MatchCueFamilyK1`; `K1XboxHud.cpp` no longer sets it |
+| the pause notice's button (Xbox-style HUD) | Pause; LB by default since 2026-10-19, so always `kmr?rm<code>`, `kmr?rmlb` on the default layout. From 2026-10-18 to 2026-10-19 Pause was RT's by default, and while it stayed on RT the notice kept `kmr?rt_pause`, the lighter trigger drawn for that line (`K1XboxHud.cpp`, `PauseNotice`) | `kmr?rt_pause` |
+
+`kmr?rt_pause` is still built (`tools/build_controller_assets.py`): the Mac's patch
+shows it until it moves to LB too. Windows no longer shows it.
 
 The other cues (the tab strip's LT and RT, the party cue, the swap-tabs cue) are in
 menus, where buttons do not move, and keep their own art (`MatchCueFamilyK1`).
@@ -618,32 +677,49 @@ menus, where buttons do not move, and keep their own art (`MatchCueFamilyK1`).
 
 `kmrp-controller.ini` in the game executable's folder (from
 `GetModuleFileNameA(NULL)`), section `[Controller Remap]`, one key per action, the
-value its button. The default layout, as Save writes it:
+value its button, and since 2026-10-19 a `Layout` line naming the defaults the keys
+were saved against. The default layout, as Save writes it (`LayoutKey`,
+`LayoutName` and `ActionKeys` in `K1ButtonRemapPolicy.h`, written in that order by
+`KmrpRemapSaveK1` in `K1ButtonRemap.cpp`):
 
 ```ini
 [Controller Remap]
+Layout=Xbox
 Interact=A
-ReleaseBar=B
-Disengage=X
+Disengage=B
+AddToQueue=X
 UndoAction=Y
-PreviousTarget=LB
-NextTarget=RB
-SwitchAlly=LT
-Pause=RT
+Pause=LB
+SwitchAlly=RB
+PreviousTarget=LT
+NextTarget=RT
 Flourish=L3
 FreeLook=R3
 ```
 
+Until 2026-10-19 there was no `Layout` line and the default read `Interact=A`,
+`ReleaseBar=B`, `Disengage=X`, `UndoAction=Y`, `PreviousTarget=LB`, `NextTarget=RB`,
+`SwitchAlly=LT`, `Pause=RT`, `Flourish=L3`, `FreeLook=R3`. Nine of those keys are
+still keys, five of them (`Disengage`, `PreviousTarget`, `NextTarget`, `SwitchAlly`,
+`Pause`) with other defaults now, so a layout saved then was chosen against defaults
+that no longer exist. That is why a layout without the `Layout` line is not read
+(the comment on `LayoutKey`).
+
 It lives there and not in `configs\` because the controller patch works without KMRP,
 as `Style` under `[Hud]` does (the comment at the top of `K1ButtonRemap.cpp`).
 
-- **Read** once, the first time anything asks for the layout. A missing key is its
-  action's default button. Names are compared without case. A value that names no
-  button, or two actions on one button, makes the layout incomplete, and an
-  incomplete layout is not used at all: the default is, and the screen opens on it.
-- **Written** by Save only, all ten keys, with `WritePrivateProfileStringA`, which
-  also makes the file if it is missing. The module takes the new layout only when all
-  ten writes succeed.
+- **Read** once, the first time anything asks for the layout, and only when the
+  section has `Layout=Xbox` (compared without case). Without that line, as in every
+  layout saved from 2026-10-18 to 2026-10-19, nothing is read: the default is used
+  and the screen opens on it. A missing key is its action's default button. Names
+  are compared without case. A value that names no button, or two actions on one
+  button, makes the layout incomplete, and an incomplete layout is not used at all:
+  the default is, and the screen opens on it.
+- **Written** by Save only, with `WritePrivateProfileStringA`, which also makes the
+  file if it is missing. Since 2026-10-19 Save first deletes the whole section, so no
+  key of the old layout is left behind, then writes the `Layout` line and the ten
+  keys (until then it wrote the ten keys over whatever was there). The module takes
+  the new layout only when the `Layout` line and all ten keys are written.
 - KMRP's installer writes this file only when it is absent and never overwrites it.
   By the rule that Restore Original leaves alone a file changed since it was
   installed ([features-technical.md](features-technical.md), "Restore Original"), a
@@ -665,11 +741,15 @@ Read from the code on 2026-10-18; none of these has been run.
   recognises `kmr?rt_pause` and `kmr?rm<code>` for every remappable button, not only
   the one Pause is on now, since a layout saved while the box is up leaves the old
   picture in it until `PauseNotice` sets the new one. Built; **not run** (it needs a
-  pad and a remapped Pause).
+  pad and a remapped Pause). *Since 2026-10-19* the notice always shows
+  `kmr?rm<code>` (Pause is LB's by default), and `PauseCarriesOurs` recognises that
+  alone; `kmr?rt_pause` is no longer one of its pictures on Windows.
 - **A hand edit is seen at the next start**, unlike `[Rumble]`, which is read again
   while playing: the layout is read once.
 - **A Save that fails part way** leaves the keys before the failure written. The file
-  may then read as incomplete at the next start and give the default layout.
+  may then read as incomplete at the next start and give the default layout. Since
+  2026-10-19 the section is deleted first, so a Save whose `Layout` line fails leaves
+  no layout at all, which also reads as the default.
 - **The keyboard and mouse cannot choose a button**: the prompt waits for the pad.
   They can open it, cancel it and use every other part of the screen.
 - **The view with a pad** offers nothing to focus, so the D-pad there does nothing.
@@ -684,6 +764,9 @@ Read from the code on 2026-10-18; none of these has been run.
 - `keymap.2da`, the keyboard's bindings and the executable: the remap is a
   translation inside the module, after the pad is read.
 - The hook list: 38 hooks, as before.
+- Issue 49 (2026-10-19) moved no row and added no control or texture to this screen:
+  rows are buttons, so only the action each button starts with, two action names
+  and the file's captions changed.
 
 ### Tested and not tested
 
@@ -713,10 +796,14 @@ table checks.
 installed), so none of these has run: the D-pad on the rows; A on a row and then a
 new button, including LB, RB, the triggers and the stick clicks; X, Y and B on the
 screen; Back cancelling the prompt; A and B in the Unsaved Changes box; the pad's
-glyphs on the screen; the translation in play; the HUD's Y and X cues and the pause
-notice following a saved remap; the other families' art; and a saved layout surviving
-Restore Original. They are rows of
+glyphs on the screen; the translation in play; the HUD's Y and B cues (Y and X until
+2026-10-19) and the pause notice following a saved remap; the other families' art;
+and a saved layout surviving Restore Original. They are rows of
 [`controller-playtest-checklist.md`](controller-playtest-checklist.md), section 9.
+
+**Not seen at all, 2026-10-19:** the screen with issue 49's defaults, captions and
+action names; a save writing `Layout=Xbox`; a layout saved before that day opening
+as the Xbox defaults; and any of the new defaults in play.
 
 ### Verifying by hand
 
@@ -729,15 +816,18 @@ Then, after building the controller patch
 (`src\controller-native\build_controller_standalone.cmd`):
 
 1. Count the textures: `build\controller-standalone\files` must hold the 40
-   `kmr?rm*.tga` and the three `kmrrm*.tga`, and `cmp` must find each `kmr?rm{y,x,b}`
-   equal to `kmr?{y,x,b}_cmbt`. A count of zero means the build did not run
-   `build_art`, not that the names are wrong: check one name by hand first.
+   `kmr?rm*.tga` and the three `kmrrm*.tga`, and `cmp` must find each `kmr?rm{y,b}`
+   equal to `kmr?{y,b}_cmbt` (until 2026-10-19 this step also compared `kmr?rmx` with
+   `kmr?x_cmbt`, which is no longer built). A count of zero means the build did not
+   run `build_art`, not that the names are wrong: check one name by hand first.
 2. Read the entry bytes and `ret` of the routines above from the clean executable
    at FILE = VA - 0x400000.
 3. In a scratch game with `debug-logs` on and a pad, open the screen, Remap, change
    a button, Save, and leave. `kmrp-layout-lifecycle.log` should show `remap-enter`,
    `remap-listen`, `remap-assigned`, `remap-saved` and `remap-exit` in that order, no
    `bind-failed`, and `created == destroyed`; `kmrp-controller.ini` should have
-   `[Controller Remap]` with ten keys, no two with the same value.
+   `[Controller Remap]` with `Layout=Xbox` and ten keys, no two with the same value.
 4. Put a duplicate value into `[Controller Remap]` by hand and start the game: the
    screen must open on the default layout.
+5. Delete the `Layout=Xbox` line by hand, leaving the ten keys on a layout that is not
+   the default, and start the game: the screen must open on the default layout.

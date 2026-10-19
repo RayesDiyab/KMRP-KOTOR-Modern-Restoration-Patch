@@ -113,20 +113,25 @@ game and in every menu. It is installed by default and can be left out.
 pictures on screen match the pad you are holding, and they disappear as soon as you
 use the mouse or keyboard. You can switch between pad and mouse at any time.
 
-**Playing.**
+**Playing.** The buttons are the original Xbox game's, with its White and Black
+buttons on LB and RB. This is new, not yet in a release, and not yet tried in play.
+Until 2026-10-19 KMRP had a layout of its own: the shoulder buttons picked targets,
+the left trigger switched party member, the right trigger paused, X disengaged and
+Start opened the map.
 
 - Left stick moves your character, as slowly or quickly as you push it. Right stick
   turns the camera.
-- A does the obvious thing with your target: talk, open, use, attack. Clicking the
-  left stick flourishes your weapon.
-- The shoulder buttons pick the previous or next target. The left trigger switches
-  party member, the right trigger pauses.
+- A does the obvious thing with your target: talk, open, use, attack. X does the
+  same (on the Xbox it added an action to the queue, and on the PC every action is
+  queued). Clicking the left stick flourishes your weapon.
+- The triggers pick the previous or next target. LB pauses, RB switches party
+  member.
 - The D-pad works the action bar: pick an action, press A to use it. The bar keeps
   your place, so A again repeats the action; B lets go of the bar.
-- In a fight, X disengages and Y removes the last queued action. With the
-  Xbox-style HUD, B disengages as well once no action is picked.
-- Start opens the map and closes the menus again, Back asks about Solo Mode, and
-  clicking the right stick switches free look.
+- In a fight, B disengages once no action is picked, and Y removes the last queued
+  action. With nothing to remove, Y flourishes your weapon.
+- Start opens the menus on the screen you used last and closes them again, Back
+  asks about Solo Mode, and clicking the right stick switches free look.
 - The mouse pointer hides while you use the pad and comes back when you move the
   mouse.
 - The game comes to the front when it starts, so the pad can skip the opening
@@ -140,12 +145,15 @@ use the mouse or keyboard. You can switch between pad and mouse at any time.
   (LT and RT, L2 and R2, ZL and ZR), and the right stick scrolls long text.
 - An A picture follows the selection, so you can always see what A will do: down
   the main menu, on Yes or No, and on the reply you are about to give.
-- Clicking the right stick switches the party member on the Character, Equipment,
-  Inventory and Abilities screens. On Abilities, X switches between Skills, Powers
-  and Feats.
+- RB switches the party member on the Character, Equipment, Inventory and
+  Abilities screens (a click of the right stick until 2026-10-19). On Abilities, X
+  switches between Skills, Powers and Feats.
 - On the Character screen A is Level Up and Y is Auto Level Up.
-- In the Journal, A switches between active and completed quests and Y changes
-  the order.
+- In the Journal, X shows the quest items, Y switches between active and completed
+  quests and RB changes the order (until 2026-10-19 A and Y did the last two).
+- At the Pazaak table, X plays the card you picked, LB flips it, A ends the turn
+  and Y stands, as on the Xbox; the D-pad moves between the cards in your hand. New,
+  not yet in a release, and not yet tried in play.
 - In a shop, A buys or sells and X switches between the Buy and Sell lists.
 - On the options screens, D-pad left and right change a setting and Y puts the
   screen back to its defaults. The same two directions raise and lower attributes
@@ -171,7 +179,9 @@ layout back, and Close asks before throwing away changes you have not saved. The
 sticks, the D-pad, Start and Back stay as they are. Your layout applies while you
 play; the menus keep every button where it always is. The button pictures on the
 HUD and in the pause notice show the buttons you chose. The layout is kept in
-`kmrp-controller.ini` beside the game.
+`kmrp-controller.ini` beside the game. A layout saved before 2026-10-19 was made
+against KMRP's old buttons and is not used: the screen opens on the Xbox layout,
+and you choose yours again.
 
 **Rumble.** Three settings: off, the original Xbox version's rumble (grenades, heavy
 footsteps, Force powers and the rumble BioWare made for the PC but never switched
@@ -187,9 +197,9 @@ mouse or keyboard and the PC display is back at once.
 
 - Its frames, bars and boxes are drawn sharp for your resolution; the icons in
   them are the game's own.
-- A paused game says "PAUSED. PRESS [right trigger] TO CONTINUE" beside the
-  minimap, with the trigger of your pad (in the English game; other languages keep
-  the game's own lines).
+- A paused game says "PAUSED. PRESS [LB] TO CONTINUE" beside the minimap, with
+  the button of your pad that pauses (in the English game; other languages keep
+  the game's own lines). Until 2026-10-19 that was the right trigger.
 - In a fight a line across the top says that combat mode is on and which button
   leaves it.
 - The marker around your target is sized for the screen.

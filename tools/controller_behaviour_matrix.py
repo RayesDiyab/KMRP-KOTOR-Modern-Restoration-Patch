@@ -61,9 +61,9 @@ BUTTON_EVENTS = {
     "B":     (0x28, 0x75, 0x31, "KMRP native joystick event"),
     "X":     (0x29, 0x76, 0x32, "KMRP native joystick event"),
     "Y":     (0x2A, 0x77, 0x33, "KMRP native joystick event"),
-    "LB":    (0x39, 0x78, 0x34, "KMRP native joystick event"),
-    "RB":    (0x3A, 0x79, 0x35, "KMRP native joystick event"),
-    "Back":  (0x2B, 0x7A, 0x36, "KMRP native joystick event"),
+    # LB's scroll reaches conversations only, so menus see nothing from it. RB is
+    # the Xbox's Black, and Back has no menu event (issue 49, 2026-10-19).
+    "RB":    (0x2B, 0x79, 0x35, "KMRP native joystick event"),
     "LT":    (0x35, 0x7B, 0x37, "KMRP native joystick event"),
     "RT":    (0x36, 0x7D, 0x39, "KMRP native joystick event"),
     "Start": (0x0B, 0x7C, 0x38, "Native KOTOR retained event"),

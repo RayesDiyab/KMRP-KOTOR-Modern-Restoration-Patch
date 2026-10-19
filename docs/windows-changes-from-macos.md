@@ -822,6 +822,13 @@ looked at.
 and guard the capture of the layout's own places with the same flag; and run the pause notice's
 layout and placing once more at the routine's end.
 
+*Note, 2026-10-19 (issue 49):* on Windows the picture in the pause box is no longer the
+trigger's. Pause is LB's by default since that day, and the box shows the remap glyph of the
+button Pause is on, `kmr?rmlb` on the default layout, in the standard drawing; `PauseCarriesOurs`
+recognises only `kmr?rm<code>` now. The two hooks are unchanged and still strip and restore that
+picture. `kmr?rt_pause` is still built, because the Mac's patch shows it until it moves too
+([`macos-changes-from-windows.md`](macos-changes-from-windows.md)). Not seen in the game.
+
 ## 22. The conversation after a change of resolution in the game
 
 **Reported** by the maintainer on the Mac on 2026-10-08: after changing the resolution in

@@ -106,19 +106,23 @@ what the current build does.
 
 | Since | Change | Where in the code |
 | --- | --- | --- |
-| 2026-09-14 | **Gameplay verbs.** In gameplay (class 0) LB is SelectPrev, which also leaves free look; RB SelectNext; Back PartyActive, the Solo Mode query; LT ChangeChar, the next living party member; RT Pause. So those five gameplay cells are no longer "—" | `K1_GAMEPLAY_ACTIONS` |
+| 2026-09-14 | **Gameplay verbs.** In gameplay (class 0) LB is SelectPrev, which also leaves free look; RB SelectNext; Back PartyActive, the Solo Mode query; LT ChangeChar, the next living party member; RT Pause. So those five gameplay cells are no longer "—". The buttons were moved on 2026-10-19, below | `K1_GAMEPLAY_ACTIONS` |
 | 2026-09-14 | **LB and RB carry no menu event.** The "list scroll" cells above are the right stick now, which scrolls descriptions with its own hold-and-repeat | `GuiEventWantedInMenusK1`, `UpdateDescriptionScrollK1` |
-| 2026-09-15 | **R3 switches party member** on Abilities, Character, Equipment and Inventory: event `0xCE` to the panel's own dispatcher. Those four R3 cells are no longer "—" | `PerformPendingPartySwitchK1`, `K1_PARTY_SWITCH_PANELS` |
-| 2026-09-19 | **Start opens the Map** in gameplay, and closes the in-game menu from any tab; see the note under *Gameplay* | `K1_START_OPENS_MAP`, `K1_START_CLOSES_MENU` |
-| -- | **R3 leaves free look too.** A press in class 4 is bridged to the exit, `0x06`, on the gameplay frame, so R3 toggles and LB also leaves | `PerformPendingFreeLookExitK1` |
+| 2026-09-15 | **R3 switches party member** on Abilities, Character, Equipment and Inventory: event `0xCE` to the panel's own dispatcher. Those four R3 cells are no longer "—". RB's since 2026-10-19, below | `PerformPendingPartySwitchK1`, `K1_PARTY_SWITCH_PANELS` |
+| 2026-09-19 | **Start opens the Map** in gameplay, and closes the in-game menu from any tab; see the note under *Gameplay*. The last menu screen since 2026-10-19, below | `K1_START_OPENS_MAP` (`K1_START_OPENS_MENU` since 2026-10-19), `K1_START_CLOSES_MENU` |
+| -- | **R3 leaves free look too.** A press in class 4 is bridged to the exit, `0x06`, on the gameplay frame, so R3 toggles and LB also leaves (LT since 2026-10-19) | `PerformPendingFreeLookExitK1` |
 | 2026-09-25 | **Settings: Left and Right step a −/+ row, and Y presses Default.** On Difficulty, Texture Quality, Anti-aliasing, Anisotropy and EAX, Left and Right press the row's own − and + and the focus stays on the value; Y presses Default on the nine screens that have one. **Pazaak's wager navigates itself**: its dispatcher moves the wager on all four directions. **Untested in game** | `K1_CYCLE_ROWS`, `PressDefaultK1`, `K1_NATIVE_DIRECTION_PANELS` |
-| 2026-09-25 | **X disengages and Y removes the last queued action, in combat.** They press the HUD's own `BTN_CLEARALL` and `BTN_CLEARONE` through the engine's click handlers, only while that button is on screen, and a badge beside each shows only then. Outside combat the two gameplay cells are still "—". Their GUI events still go out. **Untested in game** | `PressHudButtonK1`, `NativeActionBarK1`; see `reverse-engineering/custom-gui-controls.md` |
+| 2026-09-25 | **X disengages and Y removes the last queued action, in combat.** They press the HUD's own `BTN_CLEARALL` and `BTN_CLEARONE` through the engine's click handlers, only while that button is on screen, and a badge beside each shows only then. Outside combat the two gameplay cells are still "—". Their GUI events still go out. **Untested in game**. Since 2026-10-19 B disengages and X is A's, below | `PressHudButtonK1`, `NativeActionBarK1`; see `reverse-engineering/custom-gui-controls.md` |
 | 2026-09-25 | **The status summary ignores the D-pad.** Focusing its OK made A recurse between the box and OK until the stack overflowed (`0xC00000FD`); A closes the box without focus. See [`../reverse-engineering/custom-gui-controls.md`](../reverse-engineering/custom-gui-controls.md) | `K1_NO_PAD_FOCUS_PANELS` |
 | 2026-09-26 | **The Character screen ignores the D-pad; A levels up and Y auto-levels.** With Level Up focused, one A opened the level-up screen twice and froze the game: the screen answers A and Y itself and then passes them to the focused button, whose click raises them again. Every action there has its own button, so the pad moves no focus. The granted-feats notice is covered the same way. **Seen in game** 2026-09-26: A opened one level-up; four level-ups on the pad followed on 2026-09-28 | `K1_NO_PAD_FOCUS_PANELS` |
 | -- | **Minigames and movies.** Class 1 (Pazaak, swoop, turret) has B, Y, LT and RT, the four events its dispatchers implement; none observed in a minigame. A movie the game allows to be skipped is skipped with A or Start, from inside the movie loop. Sections 7 and 8 below still say classes 1 and 5 are unbound | `miniGameEvents`, `K1_MOVIE_SKIP_MASK`, `NativeMovieFrameK1`; [`controller-native-path.md`](controller-native-path.md), "Input classes" and "Movies" |
 | 2026-09-28 | **A with a button focused presses that button once, on every screen.** 62 buttons on 39 panels do nothing but press A, B, X or Y on their own panel; with one focused, A made the panel act and then the button press again (a loop, or A plus Cancel). Now A presses the focused button alone, as a click does, and a panel never hands an event to a control that would press it back. **Seen in game** 2026-09-28 on Gameplay, in-game Options and level-up Skills; see [`../reverse-engineering/retained-xbox-gui-events.md`](../reverse-engineering/retained-xbox-gui-events.md) | `PressFocusedRaiseButtonK1`, `GuardPanelEchoK1` (hook `0x00409E60`) |
-| 2026-10-05 | **The Xbox-style HUD, an option, off by default until 2026-10-08 and on since.** While it is on and the pad is in use, the HUD's row is six places with the first standing for "no slot": A there does the default action, the D-pad walks the row as drawn, B returns to the first place and from there disengages, as X does. With the mouse or keyboard the game's own HUD is back | `K1XboxHud.cpp`, `MoveFocus`; [`controller-xbox-hud.md`](controller-xbox-hud.md) |
+| 2026-10-05 | **The Xbox-style HUD, an option, off by default until 2026-10-08 and on since.** While it is on and the pad is in use, the HUD's row is six places with the first standing for "no slot": A there does the default action, the D-pad walks the row as drawn, B returns to the first place and from there disengages, as X did until 2026-10-19. With the mouse or keyboard the game's own HUD is back | `K1XboxHud.cpp`, `MoveFocus`; [`controller-xbox-hud.md`](controller-xbox-hud.md) |
 | 2026-10-05 | **All of this is the controller patch's behaviour**, `KOTOR 1 Native Controller Mod + Xbox HUD.kpatch`, on the game's own interface, a widescreen patch's or KMRP's. KMRP's own patch installs no controller hook since that day | `tools/build_controller_kpatch.py`; [`controller-standalone.md`](controller-standalone.md) |
+| 2026-10-11 | **Pazaak's table: A plays the focused hand card** (issue 42), as the mouse's click on it. Superseded on 2026-10-19, below | `K1_BUTTON_REMAPS`, `PazaakPlayFocusedCardK1` |
+| 2026-10-19 | **The original Xbox game's layout in the world (issue 49).** White and Black are LB and RB. In gameplay LB is Pause (`0x02`); RB ChangeChar (`0x09`), the next living party member; LT SelectPrev (`0x06`), which also leaves free look; RT SelectNext (`0x05`); Back PartyActive as before. X asks for what A asks for (the Xbox's "add to queue"); Y presses `BTN_CLEARONE` while it is drawn and otherwise flourishes; B lets go of the action bar or, with no slot focused, presses `BTN_CLEARALL` while it is drawn, with either HUD. Start reopens the in-game menu on the screen it last showed, `0xD1` plus `CGuiInGame+0x2C`, or the Map when that cannot be read; it still closes the menu. Supersedes the 2026-09-14, 2026-09-19 and 2026-09-25 rows' button assignments and the free-look row's LB. **Read from the code, not played** | `K1_GAMEPLAY_ACTIONS`, `NativeActionBarK1`, `PerformPendingMenuOpenK1`; [`controller-parity.md`](controller-parity.md) |
+| 2026-10-19 | **Menus: RB is the Xbox's Black.** RB sends `0x2B`, which only the Journal implements (its sort order), and on Abilities, Character, Equipment and Inventory it asks for the next party member (`0xCE`). R3 and Back send nothing in menus. The Journal's buttons are its own again: X Quest Items, Y Active/Completed, RB the sort (KMRP had moved Active/Completed to A and the sort to Y). Supersedes the 2026-09-15 row's R3 and the Journal's Back cell. **Not played** | `K1_BUTTONS`, `PerformPendingPartySwitchK1`, `K1_BUTTON_REMAPS`, `K1_JOURNAL_PROMPTS` |
+| 2026-10-19 | **Pazaak's table, the Xbox game's buttons.** X plays the focused hand card, A presses End Turn, Y Stand, LB flips the focused hand card through its own flip button, each only while its button is on screen and enabled, and all four whenever the table is in front. The D-pad moves between the hand cards only. Badges: A on End Turn, Y on Stand, LB on the flip legend's icon, and an "X Play Hand Card" line made at run time. The side-deck screen is unchanged. **Read from the code, not played** | `K1_BUTTON_REMAPS`, `InstallPazaakTableK1`, `UpdatePazaakTableK1`; [`controller-native-path.md`](controller-native-path.md), "Swoop racing and the turret" |
 
 **One cell was wrong when written.** Abilities' X is not "use/assign": its `0x29`
 handler at `0x006AE714` cycles the Skills / Powers / Feats sub-tab, a three-state
@@ -167,6 +171,13 @@ its slots has focus (issue #17). A slot used with A let go of it too until
 2026-09-25; since then it keeps focus, so A can be pressed again at once. The rows
 above are the measurements as they were taken; see
 [`controller-native-path.md`](controller-native-path.md).
+
+**Changed 2026-10-19, read from the code, not measured in play (S only):** the
+original Xbox game's layout (issue 49). Start opens the screen the menu last showed
+rather than the Map; B with no action-bar slot to let go of presses Disengage; X
+asks for the world action as A does; Y flourishes when the HUD's clear-one button
+is not drawn; LB pauses, RB changes the party leader, LT and RT cycle targets. The
+list under *Changed since this measurement* has each row.
 
 **R3 is context-dependent.** The enter handler requires a live player creature,
 `[internal+0x2c0] == 0`, and not paused by combat. Measured 10/10 from a clean
@@ -235,7 +246,11 @@ sees one screen for all eight — which an earlier pass of this audit did.
 | Options | — | — | — | — | — | KMRP |
 
 `Journal` is the **only** panel in the entire inventory that implements `0x2B`
-(Back/Black). Everywhere else Back is delivered and ignored.
+(Back/Black). Everywhere else Back is delivered and ignored. *Since 2026-10-19*
+`0x2B` is RB's, the Xbox's Black, and Back sends nothing in menus; the Journal's X,
+Y and Black are its own (Quest Items, Active/Completed, the sort), as on the Xbox.
+From 2026-09-14 (commit `6793e48`) until then KMRP moved Active/Completed to A and
+the sort to Y there.
 
 ## Screens the engine navigates itself
 
@@ -291,6 +306,10 @@ Statically proven only; each needs live or human verification (**S**, needs **V 
 | Solo mode query | **panel-level, ignores focus** | close | — | — | — | KMRP |
 | Key mappings | focused control | close | — | — | — | KMRP |
 
+*Since 2026-10-19* Pazaak's table (the game, not the side-deck setup) takes X, A, Y
+and LB itself, and the D-pad there moves between the hand cards only: see *Changed
+since this measurement*. Not played.
+
 **Dialogue** has its own panels — `CSWGuiDialogCinematic`, `CSWGuiDialogTop`,
 `CSWGuiDialogLetterbox`, `CSWGuiDialogComputer` — and is fully working as of the
 class-3 fix. See section 8.
@@ -316,6 +335,12 @@ What holds everywhere, which is what a prompt can safely claim:
 | **L3** | **flourish weapons**, gameplay only | declines in menus, free look, and with no player |
 | **Right stick** | **camera**, gameplay only | horizontal only; there is no vertical axis in the engine |
 | **R3** | **free look**, gameplay only | blocked for ~4 s after a flourish — section 5 |
+
+This table is the measurement as it stood. Since then LB and RB lost their list
+scroll (2026-09-14), Start closes the menu (issue #18), and since 2026-10-19 RB is
+the Xbox's Black in menus (the Journal's sort, and the next party member on the four
+party screens) while Back and R3 send nothing there; see *Changed since this
+measurement*.
 
 ---
 
@@ -395,6 +420,8 @@ confirmation box, where A and B are self-evident.
    determined. **L V, partially**
 5. **Back is bound but does nothing on 39 of 40 panels.** Only Journal
    implements `0x2B`. A controller with a labelled Back button will look broken.
+   (Since 2026-10-19 Back sends nothing in menus and `0x2B` is RB's, the Xbox's
+   Black, which the Journal's sort badge shows.)
 6. **X and Y have no consistent meaning**, which is inherent to the retained
    design rather than a KMRP decision.
 7. **`SOLO_MODE_QUERY` implements both `0x27` and `0x28`.** A reaches

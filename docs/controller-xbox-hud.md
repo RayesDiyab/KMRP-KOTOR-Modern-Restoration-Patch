@@ -28,8 +28,10 @@ the HUD was seen beside KMRP at 3440x1440 on 2026-10-06.
 | Combat mode | a strip across the top | "COMBAT MODE engaged. (B) to disengage." in red, the pad's B drawn in the line, a thin blue line under the strip; the target bar and minimap stand lower while it is there |
 
 The PC HUD's row of eight menu buttons and its pause, solo and stealth toggles are
-not shown. A pad does without most of them: Start opens the menus, RT pauses, Back
-toggles solo mode (`tools/build_controller_layout.py`, `LAYOUT`). Stealth has no
+not shown. A pad does without most of them: Start opens the menus (on the screen they
+last showed, since 2026-10-19), LB pauses (RT until 2026-10-19, when the controller
+took the original Xbox game's layout, issue 49), Back toggles solo mode
+(`tools/build_controller_layout.py`, `LAYOUT`). Stealth has no
 pad button, as on the Xbox; since 2026-10-13 it is an entry of the second place, with
 the feats since 2026-10-18 ("Stealth", below). Until then only the keyboard's key
 reached it (issue #50).
@@ -94,7 +96,8 @@ any release, by the manual's layout above.
 Place 1 is selected whenever no other slot is. A there does the default action. The
 D-pad moves along the row as it is on screen; left from place 2, or B, returns to
 place 1. Up and down walk a slot's actions. B with place 1 selected disengages from
-combat; X does too.
+combat. Until 2026-10-19 X did too; since then X does what A does (the Xbox game's
+"add to queue"), and B disengages the same way with the game's own HUD.
 
 **It follows the device.** While the pad is what the player is using, the HUD is
 the Xbox one. The moment the mouse or keyboard is used it is the game's own HUD
@@ -109,6 +112,10 @@ they are seventeen drawings the patch carries, `kmrx_*` ("Drawn frames", below).
 The patch carries no Xbox art, no game art, no font and no layout file for this:
 beside the drawings, one small button glyph per controller family for the combat
 line and, since 2026-10-06, one trigger picture per family for the pause notice.
+Since 2026-10-19 the pause notice shows LB in the drawing every other cue uses
+(`kmr?rmlb`), or the button Pause was remapped to, so the trigger pictures are no
+longer shown on Windows; they are still built, because the Mac's patch shows them
+until it moves too.
 
 ## How it is switched on and off
 
@@ -324,9 +331,11 @@ frame:
   the engine turns the token into the character `0x11`, which the PC fonts leave
   blank, so the hook splits the line there, puts the first half in the message
   label, the second in the message's background label, and the pad's B between
-  them (the X cue's label with a B glyph, `kmrpb_cmbt`, made per controller
-  family). Only while the pad is the device in use; with the mouse it is the game's
-  line.
+  them (the Disengage cue's label, `LBL_KMRPX`, with a B glyph, `kmrpb_cmbt`, made
+  per controller family; the tag dates from when X disengaged, until 2026-10-19,
+  and since 2026-10-18 the run time shows the button Disengage is on, B by
+  default). Only while the pad is the device in use; with the mouse it is the
+  game's line.
 
 **`KmrpXboxHudBarsK1`, at the entry of `CSWGuiTargetActionMenu::Draw`
 (`0x00685ED0`), right after the panel is drawn.** It draws the first place (with
@@ -344,8 +353,10 @@ returns, and the second has nothing to draw.
 
 Elsewhere: `MoveFocus` in `vendor/K1XboxControls.cpp` walks the row in its on-screen
 order with the first place as "no slot"; `NativeActionBarK1` in
-`K1NativeJoystick.cpp` makes B disengage when there is no slot to let go of; the X
-cue label follows the combat message instead of the hidden Disengage button.
+`K1NativeJoystick.cpp` makes B disengage when there is no slot to let go of (with
+either HUD since 2026-10-19; with this one only, until then); the Disengage cue's
+label, `LBL_KMRPX`, follows the combat message instead of the hidden Disengage
+button.
 `RestorePc` puts back every fill of every control in the table, not only the ones
 the table changes: the hooks draw with two parked controls, and one of them,
 `LBL_MENUBG`, is the dark backing of the PC HUD's menu buttons (left in the last
@@ -481,17 +492,26 @@ With this HUD:
 - **Where.** Left of the minimap, as the Xbox game has "ENEMY SIGHTED!": level with
   the minimap's frame and as far from it as the frame is from the screen's edge,
   read from the frame on every frame (it stands lower in combat mode).
-- **What it says.** One line, "PAUSED. PRESS [the right trigger] TO CONTINUE", the
-  maintainer's wording; RT is what pauses on the pad. The reason is the game's
+- **What it says.** One line, "PAUSED. PRESS [the button] TO CONTINUE", the
+  maintainer's wording, the button being the one that pauses on the pad: LB since
+  2026-10-19, the original Xbox game's White ("White to continue"), or the button
+  Pause was remapped to. Until 2026-10-19 RT paused and the line read "PRESS [the
+  right trigger] TO CONTINUE". The reason is the game's
   (its first line), so an enemy sighted reads "ENEMY SIGHTED! PRESS ... TO
   CONTINUE". English only: the words are used where the game's own line
   (dialog.tlk 48384) is the English one, and another language keeps its lines.
 - **How.** As the combat-mode message is made: the words before the picture in the
   first label, the words after it in the second, the picture on the panel's own
-  button between them, each label as wide as its words. The picture is
-  `kmr?rt_pause`, one per family: Xelu's `360_RT_ALT` and `PS5_R2_Light`, which the
-  maintainer added to the pack for this, and the pack's `Switch_RT` and
-  `SteamDeck_R2`. The button's two borders are near black in `pause.gui` and draw a
+  button between them, each label as wide as its words. Since 2026-10-19 the
+  picture is the remap glyph of the button Pause is on, `kmr?rm<code>` (`kmr?rmlb`
+  on the default layout, the same LB drawing as every other cue), from
+  `KmrpRemapGlyphK1` in `PauseNotice`; there is no lighter LB like the trigger
+  drawn for this line. Until then it was `kmr?rt_pause`, one per family: Xelu's
+  `360_RT_ALT` and `PS5_R2_Light`, which the maintainer added to the pack for this,
+  and the pack's `Switch_RT` and `SteamDeck_R2` (and from 2026-10-18 `kmr?rm<code>`
+  once Pause was remapped off RT). `kmr?rt_pause` is still built for the Mac's patch,
+  which shows it until it moves too. **The LB line has not been seen in the game.**
+  The button's two borders are near black in `pause.gui` and draw a
   fill at its own size, so while the picture is shown they are white and stretch
   it (the first build drew a black square 128 pixels wide).
 - **Sizes.** All from the line height of the label's font as loaded: the picture
@@ -730,6 +750,11 @@ measured again.
 - macOS: not built. The Mac has no standalone controller patch.
 
 ## Tested and not tested
+
+**The original Xbox layout (2026-10-19, issue 49): not seen in the game.** Read
+from the code only: the pause notice with LB (or a remapped Pause) in the standard
+drawing, X doing what A does in the row, and B disengaging with the game's own HUD
+as it does with this one. Nothing of it has been played or driven.
 
 **Stealth in the row (2026-10-13).** The first build, in Steam's game, played by the
 maintainer: the game ended on A on the entry (the cause is in "Stealth", above), which

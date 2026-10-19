@@ -257,9 +257,10 @@ constexpr std::uint32_t DIJOFS_BUTTON8_OFFSET = 0x38;
 constexpr std::uint16_t XINPUT_START_MASK     = 0x0010;
 
 // Where a Start press goes, chosen on the press (issue #18): the game's own 0x0B
-// here and there, but the Map from the world and a close from the in-game menu.
+// here and there, but the last menu screen from the world and a close from the
+// in-game menu.
 constexpr int K1_START_NATIVE      = 0;
-constexpr int K1_START_OPENS_MAP   = 1;
+constexpr int K1_START_OPENS_MENU  = 1;
 constexpr int K1_START_CLOSES_MENU = 2;
 
 // The face buttons, shoulders and Back. Start is the game's own slot 0x7C, the
@@ -385,14 +386,21 @@ constexpr StickClickBinding K1_STICK_CLICKS[] = {
 constexpr int K1_STICK_CLICK_COUNT =
     sizeof(K1_STICK_CLICKS) / sizeof(K1_STICK_CLICKS[0]);
 
+// The Xbox game's White and Black are LB and RB (issue 49), so RB is Black in menus:
+// the Journal's sort, the one panel that implements 0x2B. LB carries the
+// description scroll up, which only conversations register (computer terminals);
+// RB's scroll down is registered there separately (see ICDialog). Back carries no
+// menu event: on the Xbox it is Solo in the world and nothing else.
+constexpr int K1_EVENT_NONE = 0;
+
 constexpr ButtonBinding K1_BUTTONS[] = {
     { 0x1000, 0x74, K1_EVENT_A,           "A"    },   // confirm
     { 0x2000, 0x75, K1_EVENT_B,           "B"    },   // cancel, 35 panels
     { 0x4000, 0x76, K1_EVENT_X,           "X"    },   // per-panel, 10 panels
     { 0x8000, 0x77, K1_EVENT_Y,           "Y"    },   // per-panel, 8 panels
-    { 0x0100, 0x78, K1_EVENT_DESC_UP,     "LB"   },   // description scroll, 17 panels
-    { 0x0200, 0x79, K1_EVENT_DESC_DOWN,   "RB"   },   // description scroll, 19 panels
-    { 0x0020, 0x7A, K1_EVENT_BLACK,       "Back" },   // Black; the Journal sort
+    { 0x0100, 0x78, K1_EVENT_DESC_UP,     "LB"   },   // White; terminal scroll up in conversations
+    { 0x0200, 0x79, K1_EVENT_BLACK,       "RB"   },   // Black; the Journal sort
+    { 0x0020, 0x7A, K1_EVENT_NONE,        "Back" },   // Solo, in the world only
     // 0x7B and 0x7D carry the triggers; 0x7C is the game's own.
 };
 constexpr int K1_BUTTON_COUNT = sizeof(K1_BUTTONS) / sizeof(K1_BUTTONS[0]);
@@ -414,11 +422,15 @@ constexpr int K1_TRIGGER_COUNT = sizeof(K1_TRIGGERS) / sizeof(K1_TRIGGERS[0]);
 // way on slot 0x7E.
 //
 // The cost is that these five slots stop carrying their GUI event in ICPC. For
-// LB and RB that is a real trade: 0x39 and 0x3A ARE implemented by the gameplay
-// HUD dispatcher, at 0x006E622E and 0x006E6250. Target cycling was judged worth
-// more than HUD feedback scrolling. Back, LT and RT lose nothing -- 0x2B, 0x35
-// and 0x36 are not implemented by that dispatcher at all, which is exactly why
-// those three did nothing in the world before this.
+// LB that is a real trade: 0x39 IS implemented by the gameplay HUD dispatcher, at
+// 0x006E622E, and Pause was judged worth more than HUD feedback scrolling. RB,
+// Back, LT and RT lose nothing -- 0x2B, 0x35 and 0x36 are not implemented by that
+// dispatcher at all, which is exactly why they did nothing in the world before.
+//
+// The verbs are the original Xbox game's (issue 49): White (LB) pauses, Black
+// (RB) switches the party leader, the triggers cycle targets and Back asks for
+// Solo mode. Until 2026-10-19 KMRP had its own: LB and RB cycled targets, LT
+// switched ally and RT paused.
 struct GameplayBinding {
     int         slot;
     int         event;
@@ -427,17 +439,15 @@ struct GameplayBinding {
 };
 
 constexpr GameplayBinding K1_GAMEPLAY_ACTIONS[] = {
-    // LB and RB carry no GUI event in menus. The right stick already scrolls
-    // descriptions there -- UpdateDescriptionScrollK1 dispatches 0x39/0x3A
-    // straight to the screen's own panel, with its own hold-and-repeat -- so
-    // registering the same two events on these slots was a second route to one
-    // behaviour. Their descriptions still exist, because ICDialog uses them for
-    // computer-terminal scrolling and that DOES arrive through these slots.
-    { 0x78, K1_EVENT_SELECT_PREV,  false, "LB"   },   // cycle target backwards
-    { 0x79, K1_EVENT_SELECT_NEXT,  false, "RB"   },   // cycle target forwards
-    { 0x7A, K1_EVENT_PARTY_ACTIVE, true,  "Back" },   // solo mode query
-    { 0x7B, K1_EVENT_CHANGE_CHAR,  true,  "LT"   },   // next living party member
-    { 0x7D, K1_EVENT_PAUSE,        true,  "RT"   },   // pause
+    // LB carries no GUI event in menus: the right stick scrolls descriptions there
+    // (UpdateDescriptionScrollK1 dispatches 0x39/0x3A straight to the screen's own
+    // panel, with its own hold-and-repeat). Its description still exists, because
+    // ICDialog uses it for computer-terminal scrolling. Back has none at all.
+    { 0x78, K1_EVENT_PAUSE,        false, "LB"   },   // White: pause
+    { 0x79, K1_EVENT_CHANGE_CHAR,  true,  "RB"   },   // Black: next living party member
+    { 0x7A, K1_EVENT_PARTY_ACTIVE, false, "Back" },   // solo mode query
+    { 0x7B, K1_EVENT_SELECT_PREV,  true,  "LT"   },   // cycle target backwards
+    { 0x7D, K1_EVENT_SELECT_NEXT,  true,  "RT"   },   // cycle target forwards
 };
 constexpr int K1_GAMEPLAY_ACTION_COUNT =
     sizeof(K1_GAMEPLAY_ACTIONS) / sizeof(K1_GAMEPLAY_ACTIONS[0]);
@@ -452,6 +462,18 @@ inline bool GameplayVerbOwnsSlotK1(int slot)
         }
     }
     return false;
+}
+
+// The slot target cycling backwards is on. Its event, 0x06, is also the free-look
+// exit, so the exit's description is put on the same slot (see the registration).
+inline int SelectPrevSlotK1()
+{
+    for (int i = 0; i < K1_GAMEPLAY_ACTION_COUNT; ++i) {
+        if (K1_GAMEPLAY_ACTIONS[i].event == K1_EVENT_SELECT_PREV) {
+            return K1_GAMEPLAY_ACTIONS[i].slot;
+        }
+    }
+    return 0x7B;
 }
 
 // Should this slot's GUI event still be registered in ICPCGUI? False only where
@@ -588,6 +610,7 @@ constexpr int K1_EVENT_DEFAULT_ACTION = 0xEF;
 // CGuiInGame keeps its screens in (Lane's header: in_game_equip ... in_game_map,
 // in_game_options). So 0xD7 is the Map. Start's own event, 0x0B, passes 7:
 // Options, which is why Start used to open the Escape-style menu.
+constexpr int K1_EVENT_MENU_FIRST = 0xD1;
 constexpr int K1_EVENT_MENU_MAP = 0xD7;
 
 // Start, with the in-game menu in front, sends B's control code instead of its
@@ -753,7 +776,7 @@ struct StickState {
     std::uint16_t lastButtons = 0;
     unsigned long freeLookExitRequested = 0;   // R3 pressed while in free look
     unsigned long freeLookExits = 0;           // bridged exits performed
-    unsigned long partySwitchRequested = 0;    // R3 pressed on a party screen
+    unsigned long partySwitchRequested = 0;    // RB pressed in a menu
     unsigned long partySwitches = 0;           // menu party changes performed
     unsigned long lastGuiFrameTick = 0;        // for our own frame delta
     unsigned long slowFrames = 0;              // frames over K1_SLOW_FRAME_MS
@@ -796,11 +819,10 @@ struct StickState {
     int hudPendingX = 0, hudPendingY = 0;      // the same, for the gameplay HUD
     unsigned long hudActivateRequested = 0;    // A, while a HUD slot has focus
     unsigned long hudReleaseRequested = 0;     // B in gameplay: let go of the HUD
-    unsigned long combatClearRequested = 0;    // Y in gameplay: undo the last queued action
-    unsigned long disengageRequested = 0;      // X in gameplay: the Disengage button
+    unsigned long combatClearRequested = 0;    // Y in gameplay: undo the last queued action, or flourish
     unsigned long hudReleases = 0;             // focus handed back to the world
-    unsigned long mapOpenRequested = 0;        // Start in gameplay
-    unsigned long mapOpens = 0;                // the Map opened by Start
+    unsigned long menuOpenRequested = 0;       // Start in gameplay
+    unsigned long menuOpens = 0;               // the last menu screen opened by Start
     int           cursorConfined = 0;          // is the mouse clipped right now
     unsigned long cursorConfinements = 0;      // times the clip was taken
     unsigned long cursorReleases = 0;          // times it was given back
@@ -1080,6 +1102,9 @@ void EnsureNativeJoystickK1(void* exoInputInternal)
     // independent and the log records which bindings took.
     for (int b = 0; b < K1_BUTTON_COUNT; ++b) {
         const ButtonBinding& binding = K1_BUTTONS[b];
+        if (binding.event == K1_EVENT_NONE) {
+            continue;               // Back: its slot carries a gameplay verb only
+        }
         if (createEvent(exoInputInternal, binding.event, K1_DESC_DIGITAL,
                         K1_DEVICE_JOYSTICK, binding.slot, K1_SLOT_NONE) == 0 &&
             !DescriptionPresentK1(exoInputInternal, binding.event)) {
@@ -1152,7 +1177,12 @@ void EnsureNativeJoystickK1(void* exoInputInternal)
     // So B, X, Y, Back, Left, Right, the triggers and Start are deliberately NOT
     // registered here -- they have no handler in dialogue and adding them would
     // advertise buttons that do nothing.
+    //
+    // RB's menu event is Black, so the scroll down it carries here needs a
+    // description of its own on RB's slot; LB's scroll up is its menu event's.
     {
+        createEvent(exoInputInternal, K1_EVENT_DESC_DOWN, K1_DESC_DIGITAL,
+                    K1_DEVICE_JOYSTICK, 0x79, K1_SLOT_NONE);
         static const int dialogEvents[] = {
             K1_EVENT_A,          // 0x27  select / skip
             0x31,                // D-pad up    -- previous reply
@@ -1184,19 +1214,20 @@ void EnsureNativeJoystickK1(void* exoInputInternal)
             ++g_stick.buttonsBound;
             g_stick.freeLookBound |= 1;
         }
-        // 0x06 lives on LB, not on R3.
+        // 0x06 lives on LT, not on R3.
         //
         // It is free-look exit AND SelectPrev -- one event, and the handler at
         // 0x0062184C decides which by camera mode. It can therefore sit on
-        // exactly one button, and LB is where target cycling was asked for. So
-        // free look is ENTERED with R3 and LEFT with LB.
+        // exactly one button, and that is where target cycling backwards is: LT
+        // since 2026-10-19 (the Xbox's), LB before. So free look is left with LT
+        // natively, and with R3 through PerformPendingFreeLookExitK1.
         //
         // The alternative was a second slot on the same description, keeping the
         // exit on R3 at the cost of R3 in the world firing 0x01 and 0x06
         // together -- entering free look and cycling the target in one press.
         // That was considered and rejected; going back is one slot argument.
         if (createEvent(exoInputInternal, K1_EVENT_FREELOOK_EXIT, K1_DESC_DIGITAL,
-                        K1_DEVICE_JOYSTICK, 0x78, K1_SLOT_NONE) != 0) {
+                        K1_DEVICE_JOYSTICK, SelectPrevSlotK1(), K1_SLOT_NONE) != 0) {
             addEvent(exoInputInternal, K1_EVENT_FREELOOK_EXIT, K1_CLASS_FREELOOK);
             ++g_stick.buttonsBound;
             g_stick.freeLookBound |= 2;
@@ -1279,7 +1310,7 @@ void EnsurePadStateK1();
 int RemappedButtonEventK1(int slot);
 void PerformPendingFreeLookExitK1();
 void PerformPendingPartySwitchK1();
-void PerformPendingMapOpenK1();
+void PerformPendingMenuOpenK1();
 extern "C" void __cdecl KmrpLogPanelsK1(const char* what);
 void* PanelAtK1(int index);
 int PanelCountK1();
@@ -1300,6 +1331,10 @@ constexpr std::uintptr_t K1_ON_CLEAR_ONE          = 0x0068B050;  // CSWGuiMainIn
 constexpr std::uintptr_t K1_ON_CLEAR_ALL          = 0x0068B0A0;  // CSWGuiMainInterface::OnClearAllButtonPressed
 void ForgetGuiCuesK1(void* panel);
 void UpdateGuiCuesK1();
+void InstallPazaakTableK1(void* panel);
+void UpdatePazaakTableK1();
+void ForgetPazaakTableK1(void* panel);
+void* ClientExoAppK1();
 void EnsureRumbleTableK1(void* owner);
 void UpdateStickNavigationK1(float x, float y);
 namespace {
@@ -1482,10 +1517,10 @@ void FillNativeJoystickBufferK1(int deviceIndex, void* outBuffer)
         if (now == was) {
             continue;
         }
-        // A screen may redefine a button -- the Journal's A and Y, whose badges
-        // and whose engine events disagree. The native code is suppressed so the
-        // press means one thing, and the replacement is dispatched on the GUI
-        // frame rather than here, because it rebuilds the list.
+        // A screen may redefine a button -- Feats' A and X, or A on a Pazaak
+        // card. The native code is suppressed so the press means one thing, and
+        // the replacement is dispatched on the GUI frame rather than here, because
+        // it may rebuild the screen.
         //
         // Decided at the PRESS and remembered, like the direction codes: deciding
         // again at the release would let a screen change mid-press leave a
@@ -1670,28 +1705,30 @@ void FillNativeJoystickBufferK1(int deviceIndex, void* outBuffer)
         }
     }
 
-    // Start is a Map toggle (issue #18). In the world it opens the Map: the
-    // engine's own Map hotkey, 0xD7, bridged on the frame because it has no
-    // joystick description and every free slot is spent -- instead of Start's own
-    // 0x0B, which opens Options. With the in-game menu in front it sends B, the
-    // close measured from every tab, so Start shuts the Map or whichever screen
-    // LT/RT moved to. Anywhere else it is still the game's own Start. The route is
-    // chosen on the press and kept for the release, so a press and its release
-    // always go to the same place, and only ever one place.
+    // Start opens and closes the in-game menu (issue #18). In the world it reopens
+    // the screen the menu last showed, as Start did on the Xbox (dialog.tlk 10283:
+    // "the menu screens you used before"): that screen's own hotkey, 0xD1 + its
+    // index, bridged on the frame because it has no joystick description and
+    // every free slot is spent -- instead of Start's own 0x0B, which opens
+    // Options. (Until 2026-10-19 it opened the Map.) With the in-game
+    // menu in front it sends B, the close measured from every tab, so Start shuts
+    // whichever screen LT/RT moved to. Anywhere else it is still the game's own
+    // Start. The route is chosen on the press and kept for the release, so a
+    // press and its release always go to the same place, and only ever one place.
     {
         const bool now = (buttons & XINPUT_START_MASK) != 0;
         const bool was = (g_stick.lastButtons & XINPUT_START_MASK) != 0;
         if (now && !was) {
             const int inputClass = InputClassK1();
-            g_stick.startRoute = inputClass == K1_CLASS_PC ? K1_START_OPENS_MAP
+            g_stick.startRoute = inputClass == K1_CLASS_PC ? K1_START_OPENS_MENU
                 : (inputClass == K1_CLASS_PCGUI && TabBarPanelK1() != nullptr) ? K1_START_CLOSES_MENU
                 : K1_START_NATIVE;
         }
         if (now != was) {
             switch (g_stick.startRoute) {
-            case K1_START_OPENS_MAP:
+            case K1_START_OPENS_MENU:
                 if (now) {
-                    g_stick.mapOpenRequested = GetTickCount();
+                    g_stick.menuOpenRequested = GetTickCount();
                 }
                 break;
             case K1_START_CLOSES_MENU:
@@ -1704,9 +1741,11 @@ void FillNativeJoystickBufferK1(int deviceIndex, void* outBuffer)
         }
     }
 
-    // B lets go of the bottom-right action bar (issue #17). B does nothing else
-    // in the world, so no press is taken from anything; the release is made on
-    // the HUD frame and only when one of its slots has focus.
+    // B lets go of the bottom-right action bar (issue #17), and with no slot to let
+    // go of it disengages, as B does on the Xbox ("COMBAT MODE engaged. B to
+    // disengage", and dialog.tlk 39458 and 42475). Both are made on the HUD frame,
+    // NativeActionBarK1: the release only when one of its slots has focus, the
+    // Disengage button only while it is on screen.
     {
         const bool now = (buttons & 0x2000) != 0;      // XINPUT_GAMEPAD_B
         const bool was = (g_stick.lastButtons & 0x2000) != 0;
@@ -1715,23 +1754,31 @@ void FillNativeJoystickBufferK1(int deviceIndex, void* outBuffer)
         }
     }
 
-    // X and Y press the HUD's combat buttons: Y removes the last queued action
-    // (BTN_CLEARONE), X disengages (BTN_CLEARALL). Only requested here; they are
-    // pressed on the HUD frame, NativeActionBarK1, through the engine's own click
-    // handlers, and only while the button is on screen. Their GUI events 0x29
-    // and 0x2A still go out, and gameplay still ignores them.
+    // RB in a menu is the Xbox's Black, "Change Character" on the four screens
+    // about a party member (the Xbox Character screen's footer). Requested here
+    // and performed on the GUI frame, PerformPendingPartySwitchK1, only with one
+    // of those four in front: the handlers rebuild the screen. Its native code,
+    // Black's 0x2B, still goes out: the Journal sorts on it, and those four do
+    // not implement it.
     {
-        const bool xNow = (buttons & 0x4000) != 0;     // XINPUT_GAMEPAD_X
-        const bool xWas = (g_stick.lastButtons & 0x4000) != 0;
+        const bool now = (buttons & 0x0200) != 0;      // XINPUT_GAMEPAD_RIGHT_SHOULDER
+        const bool was = (g_stick.lastButtons & 0x0200) != 0;
+        if (now && !was && InputClassK1() == K1_CLASS_PCGUI) {
+            g_stick.partySwitchRequested = GetTickCount();
+        }
+    }
+
+    // Y presses the HUD's BTN_CLEARONE, which removes the last queued action, and
+    // with nothing to remove it flourishes the weapons, the Xbox game's Y outside
+    // combat (as L3 does). Only requested here; it is pressed on the HUD frame,
+    // NativeActionBarK1, through the engine's own click handler, and only while
+    // the button is on screen. Its GUI event 0x2A still goes out, and gameplay
+    // still ignores it.
+    {
         const bool yNow = (buttons & 0x8000) != 0;     // XINPUT_GAMEPAD_Y
         const bool yWas = (g_stick.lastButtons & 0x8000) != 0;
-        if (InputClassK1() == K1_CLASS_PC) {
-            if (xNow && !xWas) {
-                g_stick.disengageRequested = GetTickCount();
-            }
-            if (yNow && !yWas) {
-                g_stick.combatClearRequested = GetTickCount();
-            }
+        if (yNow && !yWas && InputClassK1() == K1_CLASS_PC) {
+            g_stick.combatClearRequested = GetTickCount();
         }
     }
 
@@ -1739,6 +1786,12 @@ void FillNativeJoystickBufferK1(int deviceIndex, void* outBuffer)
     // still emitted and still reaches whatever has focus; in gameplay nothing
     // does, which is why A did nothing in the world before this. Only the
     // request is made here -- the call happens on the gameplay frame.
+    //
+    // X asks for the same, because on the Xbox X adds the action to the queue
+    // (dialog.tlk 42430, 42461, 42579), and on the PC every action is queued:
+    // the action bar's slot, or the target's default action. The Xbox's A, which
+    // acted at once instead, has no PC counterpart, so A and X are one action
+    // here.
     //
     // Only while gameplay owns the input, the same gate B uses above. The
     // consumer checks the class too, but it checks it when it runs, and a press
@@ -1748,9 +1801,8 @@ void FillNativeJoystickBufferK1(int deviceIndex, void* outBuffer)
     // Answering "do you wish to turn Solo Mode on?" then started a conversation
     // with whoever was targeted. Reported as issue #21.
     {
-        const bool now = (buttons & 0x1000) != 0;      // XINPUT_GAMEPAD_A
-        const bool was = (g_stick.lastButtons & 0x1000) != 0;
-        if (now && !was && InputClassK1() == K1_CLASS_PC) {
+        const bool pressed = (buttons & ~g_stick.lastButtons & (0x1000 | 0x4000)) != 0;   // A, X
+        if (pressed && InputClassK1() == K1_CLASS_PC) {
             g_stick.interactRequestedTick = GetTickCount();
             // And of the gameplay HUD, which takes it only when a slot has
             // focus.
@@ -1782,18 +1834,11 @@ void FillNativeJoystickBufferK1(int deviceIndex, void* outBuffer)
                 }
                 break;
             }
-            // In a menu R3 means "show me the next party member", on the four
-            // screens that are about a party member. Requested here and
-            // performed on the GUI frame: the handlers rebuild the screen.
-            //
-            // The native code is suppressed rather than sent alongside. It does
-            // nothing in a menu -- free-look enter is registered in ICPC only,
-            // so this slot is not polled in ICPCGUI -- but one press meaning one
-            // thing is the rule everywhere else in this file.
+            // In a menu R3 does nothing. Until 2026-10-19 it showed the next party
+            // member on the four screens about one; RB does that now, as Black did
+            // on the Xbox. The native code is not sent: free-look enter is
+            // registered in ICPC only, so this slot is not polled in ICPCGUI.
             if (InputClassK1() == K1_CLASS_PCGUI) {
-                if (now) {
-                    g_stick.partySwitchRequested = GetTickCount();
-                }
                 break;
             }
             emit(DIJOFS_BUTTON10_OFFSET, now ? 1 : 0);
@@ -2730,7 +2775,9 @@ extern "C" void __cdecl NativePanelReleaseGffK1(void* panel)
     KmrpXboxHudForgetK1(panel);
 #endif
     ForgetGuiCuesK1(panel);
+    ForgetPazaakTableK1(panel);
     InstallGuiCuesK1(panel);
+    InstallPazaakTableK1(panel);
 }
 
 // The standalone controller patch reaches NativePanelReleaseGffK1's two moments from
@@ -2800,16 +2847,12 @@ extern "C" void __cdecl NativeActionBarK1(void* mainInterface)
         backOut = release == 0;
     }
     // Taken now whatever happens below, so a press made in gameplay can never
-    // act later on a different screen.
+    // act later on a different screen. B with no slot to let go of disengages, as
+    // B does on the Xbox ("COMBAT MODE engaged. (B) to disengage."); until
+    // 2026-10-19 that was X's, and B's only with the Xbox-style HUD.
     const bool clearOne = g_stick.combatClearRequested != 0;
-    bool disengage = g_stick.disengageRequested != 0;
-#ifdef KMRP_CONTROLLER_STANDALONE
-    // With the Xbox-style HUD, B with no slot to let go of disengages, as B does on
-    // the Xbox ("COMBAT MODE engaged. (B) to disengage."). X still does.
-    if (backOut && KmrpXboxHudEnabledK1()) disengage = true;
-#endif
+    const bool disengage = backOut;
     g_stick.combatClearRequested = 0;
-    g_stick.disengageRequested = 0;
 
     if (InputClassK1() != K1_CLASS_PC || !LooksLikePointerK1(mainInterface)) {
         // Ask nothing of the interface outside gameplay. KmrpActionBarStateK1
@@ -2821,9 +2864,10 @@ extern "C" void __cdecl NativeActionBarK1(void* mainInterface)
     }
     g_stick.hudInterface = reinterpret_cast<unsigned long>(mainInterface);
     g_stick.hudState = KmrpActionBarStateK1(mainInterface);
-    // Y, then X: undo the last queued action, then disengage altogether.
-    if (clearOne) {
-        PressHudButtonK1(mainInterface, K1_HUD_CLEAR_ONE, K1_ON_CLEAR_ONE);
+    // Y, then B: undo the last queued action, then disengage altogether. Y with
+    // nothing to undo flourishes the weapons (PerformPendingStickActionsK1, L3's).
+    if (clearOne && !PressHudButtonK1(mainInterface, K1_HUD_CLEAR_ONE, K1_ON_CLEAR_ONE)) {
+        g_stick.flourishRequestedTick = GetTickCount();
     }
     if (disengage) {
         PressHudButtonK1(mainInterface, K1_HUD_CLEAR_ALL, K1_ON_CLEAR_ALL);
@@ -2937,10 +2981,11 @@ constexpr unsigned long K1_SLOW_FRAME_MS = 100;
 
 // ------------------------------------------------- the party-switch cue
 //
-// R3 changes which party member the four party screens are showing, and there is
-// no control in any of them to say so. The build adds one -- LBL_KMRPR3, between
-// the two portraits or right of them -- and this binds it, because a panel
-// builds the controls it knows by name and would never build this one.
+// RB changes which party member the four party screens are showing (R3 until
+// 2026-10-19), and there is no control in any of them to say so. The build adds
+// one -- LBL_KMRPR3, its tag from those days, between the two portraits or right
+// of them -- and this binds it, because a panel builds the controls it knows by
+// name and would never build this one.
 //
 // There is exactly one moment when that is possible. Every panel constructor
 // ends by calling CSWGuiPanel::ReleaseGff, which deletes the parsed .gui and
@@ -3030,7 +3075,7 @@ struct GuiCueBindingK1 {
 };
 
 constexpr GuiCueBindingK1 K1_GUI_CUES[] = {
-    // R3 changes the party member these four are about. They are exactly the
+    // RB changes the party member these four are about. They are exactly the
     // four panels that implement 0xCE, and the four that carry the portraits.
     {0x00755E50, "LBL_KMRPR3", 0, "BTN_CHANGE1"},   // ABILITIES -- Skills / Powers / Feats
     // X cycles that screen's sub-tab -- its 0x29 handler (0x006AE714)
@@ -3044,10 +3089,12 @@ constexpr GuiCueBindingK1 K1_GUI_CUES[] = {
     // here relies on.
     {0x00750148, "LBL_KMRPLT", 0, "BTN_EQU"},
     {0x00750148, "LBL_KMRPRT", 0, "BTN_OPT"},
-    // X and Y beside the HUD's combat buttons, each shown only while its button
-    // is: Y by BTN_CLEARONE, X by BTN_CLEARALL (see PressHudButtonK1).
+    // Y and B beside the HUD's combat buttons, each shown only while its button
+    // is: Y by BTN_CLEARONE, B by BTN_CLEARALL (see PressHudButtonK1). The second
+    // keeps its tag from when X disengaged (until 2026-10-19): the tag names the
+    // control in the layout files, not the button it shows.
     {K1_MAIN_INTERFACE_VTABLE, "LBL_KMRPY", K1_HUD_CLEAR_ONE, nullptr, KmrpRemap::Y},
-    {K1_MAIN_INTERFACE_VTABLE, "LBL_KMRPX", K1_HUD_CLEAR_ALL, nullptr, KmrpRemap::X},
+    {K1_MAIN_INTERFACE_VTABLE, "LBL_KMRPX", K1_HUD_CLEAR_ALL, nullptr, KmrpRemap::B},
 };
 constexpr int K1_GUI_CUE_COUNT =
     sizeof(K1_GUI_CUES) / sizeof(K1_GUI_CUES[0]);
@@ -3094,7 +3141,7 @@ constexpr std::uintptr_t K1_NO_PAD_FOCUS_PANELS[] = {
     // measured 2026-09-25.
     0x00625AC0,   // STATUS_SUMMARY
     // The Character screen. A levels up and Y auto-levels (0x006B2295,
-    // 0x006B233C), X opens Scripts, B closes and R3 changes party member, all
+    // 0x006B233C), X opens Scripts, B closes and RB changes party member, all
     // with nothing focused. With Level Up focused, one A opened the level-up
     // screen twice, stacked, and the game froze (2026-09-26); focused Auto Level
     // Up would have run the Y action on top of the A one.
@@ -3323,19 +3370,14 @@ constexpr std::uintptr_t K1_LISTBOX_DISPATCHER = 0x0041CE20;
 //     0x2A  0x006459CE  Active/Completed -- 0x00645610, then a re-sort
 //     0x2B  0x0064573F  the sort order, `inc eax / cmp eax, 4` into [0x00833A90]
 //     0x28  0x00645CAB  close
+//
+// So X, Y and Black, as on the Xbox, and the pad sends them as they are: RB is
+// Black. Until 2026-10-19 KMRP moved Active/Completed to A and the sort to Y here,
+// because the sort was on Back, which no badge mentioned; the badges now say Y and
+// RB (tools/build_controller_prompt_textures.py).
 constexpr std::uintptr_t K1_JOURNAL_DISPATCHER = 0x006456E0;
 
 // Buttons whose meaning changes on one particular screen.
-//
-// The Journal's badges say A for Active/Completed and Y for the sort, and the
-// engine disagrees: 0x2A is what Y sends, and the sort is on 0x2B, which only
-// Back sends and no badge mentions. Reported from play as "the Active Quests
-// button doesn't work, it's actually Y that presses it" and "Sort by doesn't
-// work with any controller button".
-//
-// Remapping rather than relabelling because the labels are the sensible layout
-// -- A confirms the view you want, Y is the odd-job button -- and because the
-// sort is otherwise reachable only from a button nothing advertises.
 struct ButtonRemapK1 {
     std::uintptr_t panel;       // the dispatcher of the panel this applies to
     int            slot;        // the pad slot, as K1_BUTTONS names it
@@ -3659,7 +3701,7 @@ void PressFocusedRaiseButtonK1(void*)
         button, K1_GUI_EVENT_CONFIRM, 1);
 }
 
-// Pazaak's table (CSWGuiPazaakGame, dispatcher 0x0067E8F0): A on a card of the hand.
+// Pazaak's table (CSWGuiPazaakGame, dispatcher 0x0067E8F0): X on a card of the hand.
 //
 // Each of the four hand cards (panel+0x2DE0, 0x31C apart) carries two handlers,
 // registered at 0x006814F2 and 0x00681513:
@@ -3673,9 +3715,11 @@ void PressFocusedRaiseButtonK1(void*)
 // the first handler with the mode at 0: no card was played, and the handler left a
 // mode it was not in, which hands the table back to End Turn. Reported from play as
 // "X ends the turn instead of playing the selected card" (issue 42, a DualSense).
-// So A on a focused hand card is the mouse's click on it, and the engine's own A is
-// not sent. A on anything else at the table is left alone: the flip buttons take
-// 0x27 themselves (0x0067DDA0), and End Turn and Stand are ordinary buttons.
+// So playing a focused hand card is the mouse's click on it, and the engine's own A
+// is never sent at the table. Since 2026-10-19 that is X's, the Xbox game's "(X)
+// Play Hand Card"; A is End Turn, Y Stand and LB (White) flips the focused card
+// (the table's own section, after UpdateGuiCuesK1). From 2026-10-11 to then it was
+// A's.
 //
 // READ FROM THE EXECUTABLE, NOT YET PLAYED. The legacy keyboard layer did the same
 // with Enter (vendor/K1XboxControls.cpp, PENDING_K1_PAZAAK_GAME_PLAY_CARD).
@@ -3703,31 +3747,38 @@ void* PazaakFocusedHandCardK1(void* panel)
     return nullptr;
 }
 
-bool PazaakHandCardFocusedK1(void* panel)
-{
-    return PazaakFocusedHandCardK1(panel) != nullptr;
-}
-
 void PazaakPlayFocusedCardK1(void* panel)
 {
     void* const card = PazaakFocusedHandCardK1(panel);
     if (!card) {
         return;
     }
-    LogGuardK1("A plays the focused Pazaak card", panel, K1_GUI_EVENT_CONFIRM, 1);
+    LogGuardK1("X plays the focused Pazaak card", panel, K1_GUI_EVENT_CONFIRM, 1);
     reinterpret_cast<void(__thiscall*)(void*, void*)>(K1_PAZAAK_CLICK_CARD)(panel, card);
 }
 
+bool PazaakTableInFrontK1(void* panel);
+void PazaakEndTurnK1(void* panel);
+void PazaakStandK1(void* panel);
+void PazaakFlipFocusedCardK1(void* panel);
+
 constexpr ButtonRemapK1 K1_BUTTON_REMAPS[] = {
-    { K1_PAZAAK_GAME_DISPATCHER, 0x74, K1_EVENT_A, "A: play the card (Pazaak)", PazaakPlayFocusedCardK1,
-      PazaakHandCardFocusedK1 },
-    { K1_JOURNAL_DISPATCHER, 0x74, K1_EVENT_Y,     "A: Active/Completed", nullptr },
-    { K1_JOURNAL_DISPATCHER, 0x77, K1_EVENT_BLACK, "Y: sort order",       nullptr },
+    // Pazaak's table, the Xbox game's buttons. Every one applies whenever the table
+    // is in front, and does nothing when its button cannot be pressed, so the
+    // engine's own A never reaches a hand card (see above).
+    { K1_PAZAAK_GAME_DISPATCHER, 0x76, K1_EVENT_X, "X: play the card (Pazaak)", PazaakPlayFocusedCardK1,
+      PazaakTableInFrontK1 },
+    { K1_PAZAAK_GAME_DISPATCHER, 0x74, K1_EVENT_A, "A: End Turn (Pazaak)", PazaakEndTurnK1,
+      PazaakTableInFrontK1 },
+    { K1_PAZAAK_GAME_DISPATCHER, 0x77, K1_EVENT_Y, "Y: Stand (Pazaak)", PazaakStandK1,
+      PazaakTableInFrontK1 },
+    { K1_PAZAAK_GAME_DISPATCHER, 0x78, K1_EVENT_DESC_UP, "LB: flip the card (Pazaak)", PazaakFlipFocusedCardK1,
+      PazaakTableInFrontK1 },
     { K1_FEATS_DISPATCHER,   0x74, K1_EVENT_X,     "A: OK (Feats)",       FeatsConfirmK1 },
     { K1_FEATS_DISPATCHER,   0x76, K1_EVENT_A,     "X: Add Feat (Feats)", FeatsAddK1 },
     { 0,                     0x77, K1_EVENT_Y,     "Y: Default (settings)", PressDefaultK1,
       HasDefaultButtonK1 },
-    // Last, so the Journal's and Feats' own A come first. See the echo guard.
+    // Last, so Pazaak's and Feats' own A come first. See the echo guard.
     { 0,                     0x74, K1_EVENT_A,     "A: the focused button", PressFocusedRaiseButtonK1,
       HasFocusedRaiseButtonK1 },
 };
@@ -4240,18 +4291,16 @@ void InstallGuiCuesK1(void* panel)
     for (int i = 0; i < K1_GUI_CUE_COUNT; ++i) {
         if (K1_GUI_CUES[i].panelVtable == vtable) {
             std::size_t follow = K1_GUI_CUES[i].follow;
-            int action = K1_GUI_CUES[i].action;
 #ifdef KMRP_CONTROLLER_STANDALONE
-            // With the Xbox-style HUD the X cue is the button in the combat-mode
-            // message (K1XboxHud.cpp), so it is shown while that message is. The Xbox
-            // game's line is "[B] to disengage": B leaves combat there from the first
-            // place (Release Bar, B's action), so the cue names that action's button.
+            // With the Xbox-style HUD the Disengage cue is the button in the
+            // combat-mode message (K1XboxHud.cpp, the Xbox game's "[B] to
+            // disengage"), so it is shown while that message is.
             if (follow == K1_HUD_CLEAR_ALL && KmrpXboxHudEnabledK1()) {
                 follow = K1_HUD_COMBAT_MESSAGE;
-                action = KmrpRemap::B;
             }
 #endif
-            BindOneCueK1(panel, K1_GUI_CUES[i].tag, follow, K1_GUI_CUES[i].reference, action);
+            BindOneCueK1(panel, K1_GUI_CUES[i].tag, follow, K1_GUI_CUES[i].reference,
+                         K1_GUI_CUES[i].action);
         }
     }
 }
@@ -4558,6 +4607,259 @@ void UpdateGuiCuesK1()
             }
         }
     }
+}
+
+// ------------------------------------------------- Pazaak's table, the Xbox way
+//
+// The Xbox game's table says "(X) Play Hand Card, (White) Flip Hand Card, (A) End
+// Turn, (Y) Stand" (original footage, issue 49), and the PC executable still has
+// every routine behind those words. The maintainer's design (2026-10-19): the same
+// buttons, White being LB; End Turn and Stand show A and Y and the D-pad never
+// lands on them, nor on the four small flip buttons, so it moves between the hand
+// cards only; and "Play Hand Card", which has no control on the PC, is made here
+// on top of the table's own layout, from its flip legend, with no layout file of
+// KMRP's. The buttons themselves are K1_BUTTON_REMAPS rows; this is their screen.
+//
+// From CSWGuiPazaakGame's constructor (0x00680FBC on, its tags at 0x0075356C on):
+// LBL_FLIPICON at +0x69CC and LBL_FLIPLEGEND (32331 "Flip Hand Card") at +0x6B0C;
+// BTN_XTEXT (32332 "End Turn") at +0x6C4C, its 0x27 on HandleContinue (0x0067EC20);
+// BTN_YTEXT (32333 "Stand") at +0x6E20, its 0x27 on HandleStand (0x0067ED00). Both
+// handlers take the button, `ret 4`, and decline when it is disabled
+// ([button+0x4C]), when the hand is not the player's ([panel+0x86D4] 3 or 4) or
+// while a card is being chosen. BTN_FLIP0..3 at +0x62BC, 0x1C4 apart, each a
+// click on 0x0067DDA0 (the flip button, `ret 4`), which flips hand card
+// [button+0x50] if it is a +/- card. In all 50 of the menu pack's pazaakgame.gui
+// files and the game's own, the five sit at the same indices (66 to 70).
+constexpr std::size_t    K1_PAZAAK_FLIPS           = 0x62BC;
+constexpr std::size_t    K1_PAZAAK_FLIP_STRIDE     = 0x01C4;
+constexpr std::size_t    K1_PAZAAK_FLIP_ICON       = 0x69CC;
+constexpr std::size_t    K1_PAZAAK_FLIP_LEGEND     = 0x6B0C;
+constexpr std::size_t    K1_PAZAAK_END_TURN        = 0x6C4C;
+constexpr std::size_t    K1_PAZAAK_STAND           = 0x6E20;
+constexpr std::uintptr_t K1_PAZAAK_GAME_VTABLE     = 0x00753358;
+constexpr std::uintptr_t K1_PAZAAK_HANDLE_CONTINUE = 0x0067EC20;
+constexpr std::uintptr_t K1_PAZAAK_HANDLE_STAND    = 0x0067ED00;
+constexpr std::uintptr_t K1_PAZAAK_FLIP_CLICK      = 0x0067DDA0;
+constexpr int            K1_PAZAAK_PLAY_STRING     = 32330;         // "Play Hand Card"
+// CSWGuiPanel::AddControl (`ret 4`), CSWGuiText's SetText (`ret 4`, at a label's
+// +0xE8) and CClientExoApp::GetGUIString (the string, then the reference; `ret 8`).
+constexpr std::uintptr_t K1_GUI_PANEL_ADD_CONTROL  = 0x0040B9A0;
+constexpr std::uintptr_t K1_GUI_TEXT_SET_TEXT      = 0x00415E00;
+constexpr std::size_t    K1_LABEL_TEXT             = 0xE8;
+constexpr std::uintptr_t K1_GET_GUI_STRING         = 0x005EDEB0;
+
+struct PazaakTableK1 {
+    void* panel = nullptr;
+    void* playIcon = nullptr;         // KMRP's: the X
+    void* playLegend = nullptr;       // KMRP's: "Play Hand Card"
+    char flipIconFill[16] = {};       // LBL_FLIPICON's own picture, for the mouse
+    bool shown = false;
+} g_pazaakTable;
+
+bool PazaakTableInFrontK1(void* panel)
+{
+    return panel != nullptr && DispatcherOfK1(panel) == K1_PAZAAK_GAME_DISPATCHER;
+}
+
+// A press of one of the table's buttons, exactly as a click on it, and only while it
+// is on screen and enabled, as only then can it be clicked.
+void PressPazaakButtonK1(void* panel, std::size_t member, std::uintptr_t handler, const char* what)
+{
+    void* const button = FieldAt<std::uint8_t>(panel, member);
+    const std::uint32_t flags = *FieldAt<std::uint32_t>(button, K1_CTL_FLAGS);
+    if ((flags & K1_CTL_FLAG_VISIBLE) == 0 || (flags & K1_CTL_FLAG_DISABLED) != 0) {
+        return;
+    }
+    LogGuardK1(what, panel, K1_GUI_EVENT_CONFIRM, 1);
+    reinterpret_cast<void(__thiscall*)(void*, void*)>(handler)(panel, button);
+}
+
+void PazaakEndTurnK1(void* panel)
+{
+    PressPazaakButtonK1(panel, K1_PAZAAK_END_TURN, K1_PAZAAK_HANDLE_CONTINUE, "A ends the Pazaak turn");
+}
+
+void PazaakStandK1(void* panel)
+{
+    PressPazaakButtonK1(panel, K1_PAZAAK_STAND, K1_PAZAAK_HANDLE_STAND, "Y stands at Pazaak");
+}
+
+// LB, the Xbox's White: flip the focused hand card, through its own flip button.
+void PazaakFlipFocusedCardK1(void* panel)
+{
+    void* const card = PazaakFocusedHandCardK1(panel);
+    if (!card) {
+        return;
+    }
+    const std::size_t index = static_cast<std::size_t>(static_cast<char*>(card) - static_cast<char*>(panel) -
+                                                       K1_PAZAAK_HAND_CARDS) / K1_PAZAAK_HAND_STRIDE;
+    PressPazaakButtonK1(panel, K1_PAZAAK_FLIPS + index * K1_PAZAAK_FLIP_STRIDE, K1_PAZAAK_FLIP_CLICK,
+                        "LB flips the focused Pazaak card");
+}
+
+// A label made from one of the panel's own, by its tag, and added after the others:
+// the file's array has no free slots (as K1ControllerLayout.cpp's bindAppend). Null
+// when the panel's layout has no such tag.
+void* AppendLabelLikeK1(void* panel, const char* like)
+{
+    void* const label = EngineFn<OperatorNewFn>(K1_OPERATOR_NEW)(K1_GUI_LABEL_SIZE);
+    if (!label) {
+        return nullptr;
+    }
+    EngineFn<GuiLabelCtorFn>(K1_GUI_LABEL_CTOR)(label);
+    *FieldAt<int>(label, K1_CONTROL_ID) = -1;
+    void* name[2] = { nullptr, nullptr };
+    EngineFn<ExoStringCtorFn>(K1_EXOSTRING_CTOR)(&name, like);
+    EngineFn<BindControlFn>(K1_GUI_PANEL_BIND_CONTROL)(panel, label, &name, 0);
+    EngineFn<ExoStringDtorFn>(K1_EXOSTRING_DTOR)(&name);
+    using DeletingDtorFn = void*(__thiscall*)(void*, unsigned);
+    const int count = *FieldAt<int>(panel, K1_PANEL_CONTROL_COUNT);
+    if (*FieldAt<int>(label, K1_CONTROL_ID) < 0 || count < 0 || count >= 512) {
+        reinterpret_cast<DeletingDtorFn>((*FieldAt<void**>(label, 0))[0])(label, 1);
+        return nullptr;
+    }
+    *FieldAt<int>(label, K1_CONTROL_ID) = count;
+    reinterpret_cast<void(__thiscall*)(void*, void*)>(K1_GUI_PANEL_ADD_CONTROL)(panel, label);
+    void** const controls = *FieldAt<void**>(panel, K1_PANEL_CONTROL_ARRAY);
+    if (*FieldAt<int>(panel, K1_PANEL_CONTROL_COUNT) != count + 1 || !LooksLikePointerK1(controls) ||
+            controls[count] != label) {
+        // In the array or not, it is not where it should be: left alone, as a cue
+        // the binder refused is (BindOneCueK1).
+        return nullptr;
+    }
+    return label;
+}
+
+// The table as it is built, with its layout still loaded: the pad's focus kept off
+// the buttons it presses with buttons of its own, and the Play Hand Card line made,
+// hidden until the pad is in use (UpdatePazaakTableK1).
+void InstallPazaakTableK1(void* panel)
+{
+    if (!LooksLikePointerK1(panel) || *FieldAt<std::uintptr_t>(panel, 0) != K1_PAZAAK_GAME_VTABLE ||
+            !LooksLikePointerK1(*FieldAt<void**>(panel, K1_PANEL_GFF))) {
+        return;
+    }
+    g_pazaakTable = PazaakTableK1{};
+    g_pazaakTable.panel = panel;
+    KmrpPadFocusExcludeK1(FieldAt<std::uint8_t>(panel, K1_PAZAAK_END_TURN), true);
+    KmrpPadFocusExcludeK1(FieldAt<std::uint8_t>(panel, K1_PAZAAK_STAND), true);
+    for (std::size_t i = 0; i < 4; ++i) {
+        KmrpPadFocusExcludeK1(FieldAt<std::uint8_t>(panel, K1_PAZAAK_FLIPS + i * K1_PAZAAK_FLIP_STRIDE), true);
+    }
+    std::memcpy(g_pazaakTable.flipIconFill,
+                FieldAt<std::uint8_t>(panel, K1_PAZAAK_FLIP_ICON + K1_LABEL_BORDER_PARAMS + K1_BORDER_PARAMS_FILL), 16);
+
+    g_pazaakTable.playIcon = AppendLabelLikeK1(panel, "LBL_FLIPICON");
+    g_pazaakTable.playLegend = AppendLabelLikeK1(panel, "LBL_FLIPLEGEND");
+    for (void* const label : {g_pazaakTable.playIcon, g_pazaakTable.playLegend}) {
+        if (label) {
+            *FieldAt<std::uint32_t>(label, K1_CONTROL_FLAGS) &= ~K1_CONTROL_FLAG_DRAWN;
+        }
+    }
+    void* const client = ClientExoAppK1();
+    if (g_pazaakTable.playLegend && client) {
+        void* text[2] = { nullptr, nullptr };          // CExoString
+        reinterpret_cast<void*(__thiscall*)(void*, void*, int)>(K1_GET_GUI_STRING)(client, &text, K1_PAZAAK_PLAY_STRING);
+        reinterpret_cast<void(__thiscall*)(void*, void*)>(K1_GUI_TEXT_SET_TEXT)(
+            FieldAt<std::uint8_t>(g_pazaakTable.playLegend, K1_LABEL_TEXT), &text);
+        EngineFn<ExoStringDtorFn>(K1_EXOSTRING_DTOR)(&text);
+    }
+}
+
+// Every frame the table is up. With the pad in use: the flip legend's picture is LB,
+// and "X Play Hand Card" stands on the row under it, made the same size and moved
+// down by the legend's own height (the only free room: the flip buttons and the hand
+// are above it, End Turn and Stand beside it). Otherwise the table is as the game
+// drew it. Shown only while the flip legend is.
+void UpdatePazaakTableK1()
+{
+    // Forgotten when the table is destroyed (ForgetPazaakTableK1); as GuiCueStillLiveK1,
+    // nothing is read here until IsReadableK1 agrees, in case that was missed.
+    void* const panel = g_pazaakTable.panel;
+    if (!panel || !IsReadableK1(panel, K1_PAZAAK_STAND + K1_GUI_LABEL_SIZE) ||
+            *FieldAt<std::uintptr_t>(panel, 0) != K1_PAZAAK_GAME_VTABLE) {
+        return;
+    }
+    void* const flipIcon = FieldAt<std::uint8_t>(panel, K1_PAZAAK_FLIP_ICON);
+    void* const flipLegend = FieldAt<std::uint8_t>(panel, K1_PAZAAK_FLIP_LEGEND);
+    const bool shown = IsControllerInputActiveK1() &&
+                       (*FieldAt<std::uint32_t>(flipLegend, K1_CONTROL_FLAGS) & K1_CONTROL_FLAG_DRAWN) != 0;
+    char* const iconFill = FieldAt<char>(flipIcon, K1_LABEL_BORDER_PARAMS + K1_BORDER_PARAMS_FILL);
+    char wanted[16] = {};
+    if (shown) {
+        sprintf_s(wanted, "kmr%crmlb", KmrpGlyphLetterK1());
+    } else {
+        std::memcpy(wanted, g_pazaakTable.flipIconFill, sizeof wanted);
+    }
+    if (_strnicmp(iconFill, wanted, sizeof wanted) != 0) {
+        EngineFn<SetFillImageFn>(K1_BORDER_SET_FILL_IMAGE)(FieldAt<std::uint8_t>(flipIcon, K1_LABEL_BORDER_PARAMS),
+                                                         wanted, 1);
+    }
+
+    struct Rect { int left, top, width, height; };
+    using SetExtentFn = void(__thiscall*)(void*, const Rect*);
+    const int drop = FieldAt<Rect>(flipLegend, 4)->height;
+    const struct { void* label; void* like; } pairs[] = {
+        {g_pazaakTable.playIcon, flipIcon}, {g_pazaakTable.playLegend, flipLegend}};
+    for (const auto& pair : pairs) {
+        if (!pair.label) {
+            continue;
+        }
+        std::uint32_t& flags = *FieldAt<std::uint32_t>(pair.label, K1_CONTROL_FLAGS);
+        flags = shown ? (flags | K1_CONTROL_FLAG_DRAWN) : (flags & ~K1_CONTROL_FLAG_DRAWN);
+        if (!shown) {
+            continue;
+        }
+        Rect wantedRect = *FieldAt<Rect>(pair.like, 4);
+        wantedRect.top += drop;
+        const Rect now = *FieldAt<Rect>(pair.label, 4);
+        if (now.left != wantedRect.left || now.top != wantedRect.top ||
+                now.width != wantedRect.width || now.height != wantedRect.height) {
+            reinterpret_cast<SetExtentFn>((*FieldAt<void**>(pair.label, 0))[1])(pair.label, &wantedRect);
+        }
+    }
+    if (g_pazaakTable.playIcon && shown) {
+        char x[16] = {};
+        sprintf_s(x, "kmr%crmx", KmrpGlyphLetterK1());
+        char* const fill = FieldAt<char>(g_pazaakTable.playIcon, K1_LABEL_BORDER_PARAMS + K1_BORDER_PARAMS_FILL);
+        if (_strnicmp(fill, x, sizeof x) != 0) {
+            EngineFn<SetFillImageFn>(K1_BORDER_SET_FILL_IMAGE)(
+                FieldAt<std::uint8_t>(g_pazaakTable.playIcon, K1_LABEL_BORDER_PARAMS), x, 1);
+        }
+    }
+    g_pazaakTable.shown = shown;
+}
+
+// The table's end (the base destructor's ReleaseGff, as ForgetGuiCuesK1): the
+// controls it kept off the pad's focus given back, and the two labels made here
+// freed while the panel still holds them where they were put.
+void ForgetPazaakTableK1(void* panel)
+{
+    if (panel != g_pazaakTable.panel || !IsReadableK1(panel, K1_PANEL_GFF + sizeof(void*)) ||
+            *FieldAt<std::uintptr_t>(panel, 0) != K1_BASE_PANEL_VTABLE ||
+            *FieldAt<void*>(panel, K1_PANEL_GFF) != nullptr) {
+        return;
+    }
+    KmrpPadFocusExcludeK1(FieldAt<std::uint8_t>(panel, K1_PAZAAK_END_TURN), false);
+    KmrpPadFocusExcludeK1(FieldAt<std::uint8_t>(panel, K1_PAZAAK_STAND), false);
+    for (std::size_t i = 0; i < 4; ++i) {
+        KmrpPadFocusExcludeK1(FieldAt<std::uint8_t>(panel, K1_PAZAAK_FLIPS + i * K1_PAZAAK_FLIP_STRIDE), false);
+    }
+    using DeletingDtorFn = void*(__thiscall*)(void*, unsigned);
+    void** const controls = *FieldAt<void**>(panel, K1_PANEL_CONTROL_ARRAY);
+    const int count = *FieldAt<int>(panel, K1_PANEL_CONTROL_COUNT);
+    for (void* const label : {g_pazaakTable.playIcon, g_pazaakTable.playLegend}) {
+        if (!label) {
+            continue;
+        }
+        const int id = *FieldAt<int>(label, K1_CONTROL_ID);
+        // As ForgetGuiCuesK1: a leak is safer than a double free.
+        if (id >= 0 && id < count && IsReadableK1(controls + id, sizeof(void*)) && controls[id] == label) {
+            controls[id] = nullptr;
+            reinterpret_cast<DeletingDtorFn>((*FieldAt<void**>(label, 0))[0])(label, 1);
+        }
+    }
+    g_pazaakTable = PazaakTableK1{};
 }
 
 int RemappedButtonEventK1(int slot)
@@ -5689,11 +5991,12 @@ extern "C" void __cdecl NativeGuiFrameK1(void* guiManager)
     KmrpUpdateCursorK1();
 
     PerformPendingFreeLookExitK1();
-    PerformPendingMapOpenK1();
+    PerformPendingMenuOpenK1();
 
     PerformPendingPartySwitchK1();
 
     UpdateGuiCuesK1();
+    UpdatePazaakTableK1();
 
     // Our own frame delta, measured across this hook. Counting only; the engine
     // is not touched.
@@ -5714,7 +6017,8 @@ extern "C" void __cdecl NativeGuiFrameK1(void* guiManager)
     UpdateDescriptionScrollK1();
 
     // A button this screen redefines. Performed here rather than in the input
-    // hook because the Journal's handlers re-sort and rebuild the list.
+    // hook because the handlers may rebuild the screen (the Journal's did, when
+    // it was remapped).
     if (g_stick.remapRequestedSlot != 0) {
         const int slot = g_stick.remapRequestedSlot;
         g_stick.remapRequestedSlot = 0;
@@ -5843,17 +6147,24 @@ void PerformPendingFreeLookExitK1()
     }
 }
 
-// Start in the world: the Map, through the engine's own hotkey handler, with
-// every guard it applies (a dead player, no party, a modal already up). Checked
+// Start in the world: the screen the in-game menu last showed, through the
+// engine's own hotkey handler, with every guard it applies (a dead player, no
+// party, a modal already up). The Map when that screen cannot be read. Checked
 // again here, because the input class can change between the press and the
 // frame.
-void PerformPendingMapOpenK1()
+//
+// The screen is CGuiInGame's +0x2C (K1_IN_GAME_SCREEN_INDEX). ShowSWInGameGui
+// (0x0062C9B0) writes it at 0x0062CA57 with the screen it opens, HideSWInGameGui
+// (0x0062CBA0) leaves it, and the hotkey handler compares it with its own screen
+// (0x00621946) to close the menu when its screen is the one showing. So it is
+// still the last screen once the menu is closed, which is what Start reopens.
+void PerformPendingMenuOpenK1()
 {
-    if (g_stick.mapOpenRequested == 0) {
+    if (g_stick.menuOpenRequested == 0) {
         return;
     }
-    const unsigned long requested = g_stick.mapOpenRequested;
-    g_stick.mapOpenRequested = 0;
+    const unsigned long requested = g_stick.menuOpenRequested;
+    g_stick.menuOpenRequested = 0;
     if (GetTickCount() - requested > 250ul || InputClassK1() != K1_CLASS_PC) {
         return;
     }
@@ -5861,9 +6172,17 @@ void PerformPendingMapOpenK1()
     if (!internal) {
         return;
     }
-    EngineFn<HandleInputEventFn>(K1_HANDLE_INPUT_EVENT)(internal, K1_EVENT_MENU_MAP, 1);
-    ++g_stick.mapOpens;
-    KmrpLogPanelsK1("Start asked the game for the Map");
+    int event = K1_EVENT_MENU_MAP;
+    void* const guiInGame = *FieldAt<void*>(internal, K1_INTERNAL_GUI_IN_GAME);
+    if (IsReadableK1(guiInGame, K1_IN_GAME_SCREEN_INDEX + sizeof(int))) {
+        const int screen = *FieldAt<int>(guiInGame, K1_IN_GAME_SCREEN_INDEX);
+        if (screen >= 0 && screen < K1_TAB_COUNT) {
+            event = K1_EVENT_MENU_FIRST + screen;
+        }
+    }
+    EngineFn<HandleInputEventFn>(K1_HANDLE_INPUT_EVENT)(internal, event, 1);
+    ++g_stick.menuOpens;
+    KmrpLogPanelsK1("Start asked the game for the last menu screen");
 }
 
 // For the debug log: the screens the game has up, front last, each by its
@@ -5890,7 +6209,7 @@ extern "C" void __cdecl KmrpLogPanelsK1(const char* what)
     ControllerLogK1(line);
 }
 
-// R3 on a screen that is about a party member: show the next one.
+// RB on a screen that is about a party member: show the next one.
 //
 // Dispatched to the PANEL, not to CClientExoAppInternal. The two are different
 // actions that share one name: 0x09 changes who the player controls in the
@@ -5899,8 +6218,8 @@ extern "C" void __cdecl KmrpLogPanelsK1(const char* what)
 // would be a different feature, and a surprising one.
 //
 // Performed here rather than in the input hook because these handlers rebuild
-// the screen around the new character, which is the same reason the Journal's
-// remapped buttons are deferred to this frame.
+// the screen around the new character, which is the same reason remapped
+// buttons are deferred to this frame.
 //
 // The 250 ms window matches the other deferred actions: a press that could not
 // be performed because the screen changed in between is dropped rather than
@@ -6224,7 +6543,7 @@ extern "C" void __cdecl NativeJoystickMovementK1(void* playerControl)
     ReadNativeStickK1(sampleX, sampleY);   // diagnostics only
 
     PerformPendingFreeLookExitK1();
-    PerformPendingMapOpenK1();
+    PerformPendingMenuOpenK1();
     PerformPendingStickActionsK1();
     PerformPendingInteractionK1();
 }
@@ -6364,7 +6683,7 @@ extern "C" void __cdecl NativeJoystickDumpK1()
         // after. cam* are x100.
         "ovr=%d rmag=%ld amag=%ld dz=%ld dcr=%lu cls=%lu/%lu reb=%lu "
         "rx=%ld ry=%ld camrun=%lu camwr=%lu camdz=%lu camapp=%ld camcls=%lu camown=%lu "
-        "nav=%lu/%lu hud=%lu/%lu/%lu/%08lX/%d pad=%lu prm=%lu dsc=%lu gui=%lu tab=%lu tabin=%d mve=%lu/%lu/%lu move=%d->%d dir=%d rum=%lu/%lu/%08lX raw=%08lX/%08lX slot=%d rtab=%lu rmp=%lu fle=%lu drp=%lu psw=%lu cue=%lu/%lu/%lu sbf=%lu map=%lu hrel=%lu gly=%d/%lu frm=%lu/%lu dt=%ld/%ld tex=%ld/%ld/%ld/%ld tid=%ld/%ld dev=%08lX cur=%d/%lu/%lu\r\n",
+        "nav=%lu/%lu hud=%lu/%lu/%lu/%08lX/%d pad=%lu prm=%lu dsc=%lu gui=%lu tab=%lu tabin=%d mve=%lu/%lu/%lu move=%d->%d dir=%d rum=%lu/%lu/%08lX raw=%08lX/%08lX slot=%d rtab=%lu rmp=%lu fle=%lu drp=%lu psw=%lu cue=%lu/%lu/%lu sbf=%lu mnu=%lu hrel=%lu gly=%d/%lu frm=%lu/%lu dt=%ld/%ld tex=%ld/%ld/%ld/%ld tid=%ld/%ld dev=%08lX cur=%d/%lu/%lu\r\n",
         g_stick.registered ? 1 : 0, g_stick.createFailed ? 1 : 0, liveCount,
         g_stick.initCalls, g_stick.bufferCalls, g_stick.recordsEmitted,
         g_stick.movementCalls, g_stick.overrideFrames,
@@ -6420,9 +6739,9 @@ extern "C" void __cdecl NativeJoystickDumpK1()
         g_stick.freeLookExits, g_stick.dpadRepeats, g_stick.partySwitches,
         g_stick.guiCuesInstalled, g_stick.guiCuesRejected,
         g_stick.guiCueToggles, g_stick.saveBuffersFreed,
-        // map: Start opening the Map from the world; hrel: action-bar focus
+        // mnu: Start reopening the last menu screen from the world; hrel: action-bar focus
         // handed back to the world by B.
-        g_stick.mapOpens, g_stick.hudReleases,
+        g_stick.menuOpens, g_stick.hudReleases,
         // gly: the controller family the badges show (0 Xbox, 1 PlayStation,
         // 2 Switch, 3 Steam Deck), and how many times it has changed.
         g_stick.glyphFamily, g_stick.glyphChanges,

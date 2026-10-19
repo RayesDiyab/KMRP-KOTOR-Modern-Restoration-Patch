@@ -366,7 +366,7 @@ it in each context.
 | RB | `Tab` | change party member | change party member |
 | LT / RT | `Q` / `E` | cycle targets | **move between menu screens** — Map, Inventory, Character… |
 | Back | `V` | toggle solo mode | — |
-| Start | native (see below) | opens the **Map** (issue #18) | closes the in-game menu, from the Map or any tab LT/RT reached |
+| Start | native (see below) | reopens the in-game menu on the screen it last showed (since 2026-10-19, issue 49; the **Map** from issue #18 until then) | closes the in-game menu, from the Map or any tab LT/RT reached |
 | L3 / R3 | `X` / `Caps Lock` | flourish, first-person view | nothing |
 | D-pad | arrow keys | action-bar navigation | menu navigation, repeating while held after 400 ms at 120 ms intervals |
 | Left stick | movement keys | move, with a walk/run threshold | — |
@@ -387,23 +387,48 @@ controller-only session.
 
 Planned additions -- the Guide button and tab cycling on the bumpers -- are
 specified in [`controller-planned-work.md`](controller-planned-work.md). Party
-cycling on R3, the third, shipped on 2026-09-15.
+cycling on R3, the third, shipped on 2026-09-15; since 2026-10-19 it is on RB, the
+Xbox's Black, and R3 does nothing in menus.
 
 **Start and the action bar, on the native path (issues #17 and #18).** Start in
-the world opens the Map through the engine's own Map hotkey (event `0xD7`, whose
-handler at `0x006218D5` shows screen `event - 0xD1`), instead of the game's Start
-event `0x0B`, which opens Options. With the in-game menu in front, Start sends B's
-control code, the close measured from every tab. A slot of the bottom-right action
-bar used with A keeps focus, so A can be pressed again straight away -- attack,
-attack, attack. B lets go of it without doing anything else -- B has no other
-effect in the world -- and D-pad Left/Right re-enters the bar as before. (Until
-2026-09-25 a used slot let go of focus too, so the next A acted on the world; in
-combat that meant D-pad Right before every action, and the user asked for the
-bar to stay.) The mechanisms are in
+the world opens the in-game menu through the engine's own menu hotkeys (events
+`0xD1` to `0xD8`, whose handler at `0x006218D5` shows screen `event - 0xD1`),
+instead of the game's Start event `0x0B`, which opens Options. Since 2026-10-19
+(issue 49) it opens the screen the menu last showed, `0xD1` plus the index
+`CGuiInGame+0x2C` holds, as Start did on the Xbox, and the Map (`0xD7`) when that
+cannot be read; until then it always opened the Map. With the in-game menu in
+front, Start sends B's control code, the close measured from every tab. A slot of
+the bottom-right action bar used with A keeps focus, so A can be pressed again
+straight away: attack, attack, attack. B lets go of it, and D-pad Left/Right
+re-enters the bar as before. Until 2026-10-19 B did nothing else in the world; since
+then B with no slot to let go of presses the HUD's Disengage button while it is on
+screen, as on the Xbox. (Until 2026-09-25 a used slot let go of focus too, so the
+next A acted on the world; in combat that meant D-pad Right before every action,
+and the user asked for the bar to stay.) The mechanisms are in
 [`controller-native-path.md`](controller-native-path.md). **Play-tested on
 2026-09-25** at 3440x1440 for A keeping focus ("works perfectly"); B's release was
-not separately reported. `testing/controller/test_hud_release_and_start_map.py`
-checks both against the engine's memory and has not been run on a loaded save.
+not separately reported, and nothing of the 2026-10-19 changes has been played.
+`testing/controller/test_hud_release_and_start_map.py` checks both against the
+engine's memory (since 2026-10-19 that Start reopens the last screen) and has not
+been run on a loaded save.
+
+**The original Xbox layout, on the native path (issue 49, 2026-10-19).** The
+maintainer decided that day that the controller uses the original Xbox game's
+layout everywhere ("It should be classic everywhere"), with the Xbox's White and
+Black on LB and RB. In the world: A interacts, X does what A does (the Xbox's "add
+to queue"), Y removes the last queued action or with nothing to remove flourishes,
+B lets go of the action bar or disengages, LB pauses, RB switches the party leader,
+LT and RT cycle targets, Back asks about Solo mode, L3 flourishes and R3 is free
+look. In menus RB is Black (the Journal's sort, and the next party member on the four
+party screens), the Journal's own X and Y are no longer moved, and Pazaak's table
+takes X, LB, A and Y as the Xbox's footer names them. Until then KMRP had a layout of
+its own: LB and RB cycled targets, LT switched ally, RT paused, X disengaged, Start
+opened the Map, R3 switched the party member in menus, and the Journal's active or
+completed quests were on A and its sort on Y (and Back).
+Every button and its source is in
+[`controller-behaviour-matrix.md`](controller-behaviour-matrix.md), "Changed since
+this measurement", and [`controller-layout.md`](controller-layout.md). **Not seen in
+play.**
 
 **Button remapping, on the native path (2026-10-18, uncommitted when written).** The
 Controller Layout screen can move the world actions of A, B, X, Y, LB, RB, LT, RT
@@ -418,7 +443,9 @@ and no hook is added. The layout is `[Controller Remap]` in `kmrp-controller.ini
 The mechanism, the screen and what has been run are in
 [`controller-layout.md`](controller-layout.md), "Button remapping". **Seen with mouse
 and keyboard only; nothing with a pad has been run**, the translation in play
-included.
+included. Since 2026-10-19 the defaults it starts from are the original Xbox game's
+(above), every save writes `Layout=Xbox`, and a layout saved before then, without
+that line, is not read: the screen opens on the Xbox defaults.
 
 Steam Input is not claimed to work by the upstream author. Since the hybrid
 backend, KMRP reads PlayStation, Switch and Steam Deck controllers itself,
@@ -453,6 +480,9 @@ Blindly selecting the retained Xbox strings was rejected. They describe the
 original console mapping—most importantly white-button pause and console trigger
 semantics—which conflicts with this module's LB pause and PC-oriented mapping.
 That would replace accurate keyboard help with inaccurate controller help.
+*Note, 2026-10-19:* since issue 49 the native path uses the original Xbox game's
+layout, so the mapping half of this reason no longer holds for it. The tutorial
+selection was not revisited for that change; the PC block is still the one selected.
 
 Two rendering experiments were also rejected in the isolated 3440×1440 game
 copy. Literal `<abutton>` text in a `.gui` stayed literal. An Xbox TLK entry

@@ -27,6 +27,9 @@ void Load()
     g_saved = Mapping{};
     char path[MAX_PATH];
     if (!SettingsPath(path)) return;
+    char layout[16] = {};
+    GetPrivateProfileStringA(kSection, LayoutKey, "", layout, sizeof layout, path);
+    if (_stricmp(layout, LayoutName) != 0) return;
     Mapping read;
     for (int a = 0; a < ButtonCount; ++a) {
         char value[16] = {};
@@ -50,6 +53,9 @@ bool KmrpRemapSaveK1(const Mapping& mapping)
     if (!mapping.Complete()) return false;
     char path[MAX_PATH];
     if (!SettingsPath(path)) return false;
+    // The section as a whole, so no key of the old layout's is left behind.
+    WritePrivateProfileStringA(kSection, nullptr, nullptr, path);
+    if (!WritePrivateProfileStringA(kSection, LayoutKey, LayoutName, path)) return false;
     for (int a = 0; a < ButtonCount; ++a)
         if (!WritePrivateProfileStringA(kSection, ActionKeys[a], ButtonNames[mapping.button[a]], path)) return false;
     g_saved = mapping;

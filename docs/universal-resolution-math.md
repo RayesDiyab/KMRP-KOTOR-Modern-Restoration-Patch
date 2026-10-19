@@ -349,7 +349,9 @@ confirmation child stays inside its panel, the HUD file KOTOR actually selects
 contains the exact height-scaled gold extents for all twelve transient
 controls, the five visible main-menu buttons form a complete Up/Down cycle by
 their IDs while the hidden Warp button has no navigation, and the R3
-party-switch cue is sized and placed by its rule. The main-menu check resolves
+party-switch cue is sized and placed by its rule (the same control, `LBL_KMRPR3`,
+shows RB since 2026-10-19, when RB took the party switch; its size and place are
+unchanged). The main-menu check resolves
 IDs per file because `mainmenu.gui` gives Exit ID 12 and Warp ID 13 while the
 four aspect variants reverse those two IDs. On
 2026-09-05 the 3840×2160 package was installed through `--in-place`; the

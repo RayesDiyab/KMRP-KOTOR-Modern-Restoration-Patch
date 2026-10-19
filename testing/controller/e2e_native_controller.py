@@ -68,8 +68,9 @@ NAV_TAP = kmrp_controller.constant("K1_NAV_HOLD_DELAY_MS") / 1000.0 * 0.5
 
 EV_JOY_X, EV_JOY_Y = 0x08, 0x07
 EV_PREV, EV_NEXT = 0x35, 0x36
+# RB is the Xbox's Black and Back has no GUI event since issue 49 (2026-10-19).
 BUTTONS = [("A", 0x27), ("B", 0x28), ("X", 0x29), ("Y", 0x2A),
-           ("LB", 0x39), ("RB", 0x3A), ("BACK", 0x2B)]
+           ("LB", 0x39), ("RB", 0x2B)]
 DPAD = [("UP", 0x31), ("DOWN", 0x32), ("LEFT", 0x2F), ("RIGHT", 0x30)]
 
 # Screen coordinates are for the 3440x1440 display this was written against and
@@ -554,7 +555,7 @@ def test_buttons(game, pad, xinput, report):
         report.add("buttons", f"{name} -> event 0x{event:02X}", ok,
                    f"held={held} released={released}", kind)
     # repeatability, since a stuck edge would only show on the second press
-    for name, event in (("LB", 0x39), ("RB", 0x3A)):
+    for name, event in (("LB", 0x39), ("RB", 0x2B)):
         results = []
         for _ in range(3):
             pad.send(f"press {name}"); time.sleep(0.3)

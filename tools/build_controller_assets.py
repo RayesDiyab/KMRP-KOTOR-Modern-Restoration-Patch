@@ -68,7 +68,7 @@ from build_scaled_fonts import export_font_txis                         # noqa: 
 from build_xbox_hud import DISENGAGE_FILL as XBOX_HUD_DISENGAGE_FILL    # noqa: E402
 from build_xbox_hud import PAUSE_FILL as XBOX_HUD_PAUSE_FILL            # noqa: E402
 from prepare_universal_resources import (COMBAT_CUES, CONTAINER_SCREEN, R3_CUE_FILL,  # noqa: E402
-                                         R3_CUE_SCREENS, SWAP_CUE_ASPECT, SWAP_CUE_FILL,
+                                         R3_CUE_GLYPH, R3_CUE_SCREENS, SWAP_CUE_ASPECT, SWAP_CUE_FILL,
                                          SWAP_CUE_GLYPH, SWAP_CUE_SCREEN, TAB_CUES,
                                          TAB_CUE_SCREEN, add_combat_cues,
                                          add_party_switch_cue, add_subtab_swap_cue,
@@ -252,10 +252,15 @@ def make(work: Path) -> dict:
         swoop = art / f"{family_resref('kmrpp_swoop', family)}.tga"
         swoop.write_bytes(build_swoop_prompt_tga(family))
         common.append(swoop)
-        cues = [(R3_CUE_FILL, "R3")] + [(fill, glyph) for _, fill, glyph in TAB_CUES] \
-            + [(fill, glyph) for _, fill, glyph, _ in COMBAT_CUES] + [(XBOX_HUD_DISENGAGE_FILL, "B")] \
-            + [(XBOX_HUD_PAUSE_FILL, "RT_NOTICE")]
-        for fill, glyph in cues:
+        # The HUD's Disengage badge and the Xbox-style HUD's combat-mode message
+        # show one B picture, so it is made once. The pause notice's lighter RT
+        # is not shown on Windows since Pause moved to LB (issue 49, 2026-10-19);
+        # it is still made for the Mac's patch, which shows it until it moves too
+        # (docs/macos-changes-from-windows.md).
+        cues = dict([(R3_CUE_FILL, R3_CUE_GLYPH)] + [(fill, glyph) for _, fill, glyph in TAB_CUES]
+                    + [(fill, glyph) for _, fill, glyph, _ in COMBAT_CUES]
+                    + [(XBOX_HUD_DISENGAGE_FILL, "B"), (XBOX_HUD_PAUSE_FILL, "RT_NOTICE")])
+        for fill, glyph in cues.items():
             path = art / f"{family_resref(fill, family)}.tga"
             # The tab strip's two cues are arrows in the game's style, not the
             # family's trigger pictures (tools/build_tab_arrows.py; this patch only).

@@ -10,13 +10,13 @@ int main() {
     assert(m.Complete() && m.IsDefault());
     for (int b = 0; b < ButtonCount; ++b) assert(m.ActionOn(b) == b && m.button[b] == b);
 
-    // No swapping: Undo Action (Y's) given RB takes it from Next Target (RB's), which is
+    // No swapping: Undo Action (Y's) given RB takes it from Switch Ally (RB's), which is
     // left with no button; Y is free. Not complete, so not savable.
     Mapping changed;
     assert(changed.Assign(Y, RB) == RB);
     assert(changed.button[Y] == RB && changed.button[RB] == None && changed.ActionOn(Y) == None);
     assert(changed.ActionOn(RB) == Y && !changed.Complete() && !changed.IsDefault());
-    // Next Target given the free Y: complete again.
+    // Switch Ally given the free Y: complete again.
     assert(changed.Assign(RB, Y) == None && changed.Complete());
     // Giving an action the button it already has displaces nobody.
     assert(changed.Assign(A, A) == None && changed.Complete());
@@ -30,7 +30,7 @@ int main() {
 
     // The translator: in the world a pad button becomes its action's default button;
     // elsewhere every button is itself.
-    Mapping swapped;                 // Undo Action on RB, Next Target on Y
+    Mapping swapped;                 // Undo Action on RB, Switch Ally on Y
     swapped.Assign(Y, RB);
     swapped.Assign(RB, Y);
     Translator t;
@@ -56,7 +56,8 @@ int main() {
     assert(t.Apply(0, true, swapped) == 0);
     assert(t.Apply(Mask[Y], true, swapped) == Mask[RB]);
     assert(t.Apply(0, true, swapped) == 0);
-    // The triggers, folded into the word, translate like any button: Pause (RT's) on LB.
+    // The triggers, folded into the word, translate like any button: Next Target (RT's)
+    // on LB, Pause (LB's) on RT.
     Mapping triggers;
     triggers.Assign(RT, LB);
     triggers.Assign(LB, RT);
@@ -69,17 +70,17 @@ int main() {
     assert(v.Apply(Mask[RB], true, changed.Complete() ? Mapping{} : twice) == Mask[RB]);
 
     // The screen's editor: rows are buttons. Undo Action (Y's row) given RB: it moves to
-    // RB's row, and Next Target, which RB had, waits in Y's row, the row Undo Action
+    // RB's row, and Switch Ally, which RB had, waits in Y's row, the row Undo Action
     // left. Not complete.
     Editor e;
     e.Assign(Y, RB);
     assert(e.ActionInRow(RB) == Y && e.ActionInRow(Y) == RB && e.Waiting(Y) && !e.Waiting(RB));
     assert(e.mapping.button[RB] == None && !e.Complete());
-    // Next Target, waiting in Y's row, given Y: complete, nothing waits.
+    // Switch Ally, waiting in Y's row, given Y: complete, nothing waits.
     e.Assign(Y, Y);
     assert(e.Complete() && !e.Waiting(Y) && e.ActionInRow(Y) == RB && e.mapping.button[RB] == Y);
-    // A chain: Interact (A's row) to LB; Previous Target waits in A's row; given B there,
-    // Release Bar waits in A's row instead; given A, complete.
+    // A chain: Interact (A's row) to LB; Pause waits in A's row; given B there,
+    // Disengage waits in A's row instead; given A, complete.
     Editor c;
     c.Assign(A, LB);
     assert(c.Waiting(A) && c.ActionInRow(A) == LB && c.ActionInRow(LB) == A);
@@ -90,10 +91,10 @@ int main() {
     // A waiting action given the button of another waiting row: they trade waiting
     // rows, and the count of waiting rows stays the count of free buttons.
     Editor w;
-    w.Assign(X, Y);               // Disengage to Y; Undo Action waits in X's row
-    w.Assign(A, B);               // Interact to B; Release Bar waits in A's row
+    w.Assign(X, Y);               // Add to Queue to Y; Undo Action waits in X's row
+    w.Assign(A, B);               // Interact to B; Disengage waits in A's row
     assert(w.Waiting(X) && w.Waiting(A));
-    w.Assign(X, A);               // Undo Action (waiting in X's row) given A, where Release Bar waits
+    w.Assign(X, A);               // Undo Action (waiting in X's row) given A, where Disengage waits
     assert(w.mapping.button[Y] == A && w.Waiting(X) && w.ActionInRow(X) == B && !w.Waiting(A));
     int waitingRows = 0, freeButtons = 0;
     for (int b = 0; b < ButtonCount; ++b) {
@@ -120,8 +121,13 @@ int main() {
     e.Reset();
     assert(e.mapping.IsDefault() && e.Complete());
 
-    // Names: what the settings file holds.
+    // Names: what the settings file holds. Every action's key its own, and none the
+    // layout's own line.
     for (int b = 0; b < ButtonCount; ++b) assert(ButtonByName(ButtonNames[b]) == b);
+    for (int a = 0; a < ButtonCount; ++a) {
+        assert(_stricmp(ActionKeys[a], LayoutKey) != 0);
+        for (int other = a + 1; other < ButtonCount; ++other) assert(_stricmp(ActionKeys[a], ActionKeys[other]) != 0);
+    }
     assert(ButtonByName("rb") == RB && ButtonByName("Start") == None && ButtonByName(nullptr) == None);
     std::cout << "PASS: remapping's assignment, completeness, translation (world only, kept per press) and names\n";
 }

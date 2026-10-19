@@ -6,10 +6,13 @@
      must stop being one of the seven action slots. D-pad Right must still
      re-enter. (Until 2026-09-25 A also let go; the user asked for the bar to
      stay focused in combat.)
-#18  Start in the world opens the in-game menu ON THE MAP: the input class goes
-     to 2 (GUI) and CGuiInGame's open screen, +0x2C, reads 6 -- the Map's tab ID
-     in top.gui. Start again closes it: the class returns to 0. The same from
-     another tab reached with RT.
+#18  Start in the world opens the in-game menu ON THE SCREEN IT LAST SHOWED, as
+     Start did on the Xbox (issue 49; until 2026-10-19 it opened the Map, which
+     is where this file's name comes from): the input class goes to 2 (GUI) and
+     CGuiInGame's open screen, +0x2C, reads what it read before the press, or 6,
+     the Map's tab ID in top.gui, when that was not a screen. Start again closes
+     it: the class returns to 0. The same from another tab reached with RT, and
+     Start then reopens on that tab.
 
 Reads memory rather than the module's counters, like probe_action_bar.py, so a
 module that counts what it never delivered cannot pass. Requires the virtual pad
@@ -89,22 +92,30 @@ def main() -> int:
     expect(slot is not None, f"D-pad Right re-enters the bar (slot {slot})")
     tap("B")
 
-    print("-- #18: Start opens the Map")
+    print("-- #18: Start reopens the last screen")
+    last = open_screen(game)
+    wanted = last if last is not None and 0 <= last < 8 else MAP_SCREEN
     tap("START", settle=1.5)
     expect(game.input_class() == CLASS_GUI, "Start opens the in-game menu")
     screen = open_screen(game)
-    expect(screen == MAP_SCREEN, f"on the Map (open screen {screen}, Map is {MAP_SCREEN})")
+    expect(screen == wanted, f"on the last screen (open screen {screen}, last {last})")
     tap("START", settle=1.5)
     expect(game.input_class() == CLASS_WORLD, "Start again closes it")
 
-    print("-- #18: Start closes from another tab too")
+    print("-- #18: Start closes from another tab too, and reopens there")
     tap("START", settle=1.5)
     pull_rt()
-    screen = open_screen(game)
-    expect(game.input_class() == CLASS_GUI and screen != MAP_SCREEN,
-           f"RT moves on from the Map (open screen {screen})")
+    moved = open_screen(game)
+    expect(game.input_class() == CLASS_GUI and moved != wanted,
+           f"RT moves on (open screen {moved})")
     tap("START", settle=1.5)
     expect(game.input_class() == CLASS_WORLD, "Start closes it from there")
+    tap("START", settle=1.5)
+    screen = open_screen(game)
+    expect(game.input_class() == CLASS_GUI and screen == moved,
+           f"Start reopens on that tab (open screen {screen})")
+    tap("START", settle=1.5)
+    expect(game.input_class() == CLASS_WORLD, "and closes it")
 
     time.sleep(0.3)
     print("PASS" if failures == 0 else f"FAIL {failures}")

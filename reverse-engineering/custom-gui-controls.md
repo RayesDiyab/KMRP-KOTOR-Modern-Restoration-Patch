@@ -24,6 +24,20 @@ the game instead, it says so.
 > layout" in the CHANGELOG). "Status: implementation in progress" above is the
 > status of September; [`docs/controller-standalone.md`](../docs/controller-standalone.md)
 > is the present reference for the controller patch.
+>
+> **Two cues show other buttons since 2026-10-19** (issue 49, the original Xbox game's
+> layout), with their tags, places and binding unchanged:
+>
+> | Control | Shows until 2026-10-19 | Shows since | Why |
+> | --- | --- | --- | --- |
+> | `LBL_KMRPR3`, the party cue on the four party screens | R3, fill `kmrpr3_party` | RB, fill `kmrprb_party` (`R3_CUE_FILL` and `R3_CUE_GLYPH` in `tools/prepare_universal_resources.py`) | RB, the Xbox's Black, shows the next party member; R3 does nothing in menus |
+> | `LBL_KMRPX`, beside the HUD's `BTN_CLEARALL` | X, fill `kmrpx_cmbt` | B, fill `kmrpb_cmbt` (`COMBAT_CUES`) | B disengages, as on the Xbox; X does what A does |
+>
+> The sections below were written for R3 and X and say so; read "the R3 cue" as the
+> party cue and "the X cue" as the Disengage cue. Since 2026-10-18 the run time fills
+> the HUD's two cues with the button their action is on (`kmr?rm<code>`), so their
+> file fill is only what the control holds until the module sets it. Not seen in the
+> game.
 
 The motivating case: R3 changes which party member Character, Equipment,
 Inventory and Skills/Powers/Feats are showing, and there is nowhere to put the
@@ -253,7 +267,8 @@ why the allocation must come from the engine's own `operator new`, the one the
 module already calls as `K1_OPERATOR_NEW`.
 
 The glyph art is already selected: `XboxSeriesX_Right_Stick_Click.png`, mapped as
-`R3` in `tools/build_controller_prompt_textures.py`.
+`R3` in `tools/build_controller_prompt_textures.py`. (Since 2026-10-19 the cue is
+drawn from the `RB` glyph instead, `R3_CUE_GLYPH`, and filled `kmrprb_party`.)
 
 ## A second use: LT and RT beside the menu tab strip
 
@@ -490,7 +505,11 @@ play-test can confirm the scale from both sides. **Untested in game.**
 Added 2026-09-25 at the maintainer's request, with the buttons they advertise.
 In combat, X presses the HUD's Disengage button and Y its "clear one" button.
 Both are pressed through the engine's own click handlers
-(`PressHudButtonK1` in `K1NativeJoystick.cpp`).
+(`PressHudButtonK1` in `K1NativeJoystick.cpp`). *Since 2026-10-19* B presses
+Disengage instead of X (when no action-bar slot has focus), so `LBL_KMRPX` shows
+B and its file fill is `kmrpb_cmbt`; the tag is kept because it names the control
+in the layout files. Y with its button not drawn flourishes the weapons; no cue
+shows that.
 
 The buttons, and what the engine does with them, read from the clean
 executable:
@@ -509,7 +528,8 @@ appears as data anywhere in the executable.
 **Build time.** `add_combat_cues` in `tools/prepare_universal_resources.py`
 clones `LBL_QUEUE1` twice into every `mipc*.gui`:
 - `LBL_KMRPY` (fill `kmrpy_cmbt`) left of `BTN_CLEARONE`;
-- `LBL_KMRPX` (fill `kmrpx_cmbt`) left of `BTN_CLEARALL`.
+- `LBL_KMRPX` (fill `kmrpb_cmbt` since 2026-10-19, `kmrpx_cmbt` until then) left of
+  `BTN_CLEARALL`.
 
 Each is square, 0.8 of the Disengage button's height, a quarter of its own size
 off the button, and centred on it vertically. The two buttons share a left edge
@@ -525,9 +545,9 @@ at `0x0068CD86`. The HUD's `Draw` (`0x0068B4A0`) calls the base
 `CSWGuiPanel::Draw` at `0x0068B6A7`, the array walk that draws bound labels.
 These are the first cues that **follow another control**: `GuiCueBindingK1`
 gained a `follow` offset, and `UpdateGuiCuesK1` shows such a cue only while
-the control at that offset in the panel has the visible bit. So X shows
-exactly while Disengage does, and Y while the clear-one button does, whenever
-the pad is the active device. **Untested in game.**
+the control at that offset in the panel has the visible bit. So X (B since
+2026-10-19) shows exactly while Disengage does, and Y while the clear-one button
+does, whenever the pad is the active device. **Untested in game.**
 
 ## Not a new control: the status summary laid out again
 

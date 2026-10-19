@@ -52,17 +52,17 @@ GUI panels, and the gameplay HUD implements only five of them.
 | Input | Legacy sends | Native: menus / gameplay | Parity in gameplay |
 | --- | --- | --- | --- |
 | A | `Return` + `R` = ActionMenuQueue + DefaultAction | event `0x27` / the interaction bridge | equivalent |
-| B | `Delete` = ActionMenuRemoveQ | event `0x28` / `0x28` | equivalent |
-| X | `G` + `End` = STEALTH | event `0x29` / in combat, presses the HUD's Disengage button (since 2026-09-25); otherwise nothing | differs: no stealth on the pad |
-| Y | `F` + `Home` = CancleCombat | event `0x2A` / in combat, removes the last queued action (since 2026-09-25); otherwise nothing | differs: cancelling combat is X's on the native path |
-| LB | `Space` + `Insert` = Pause | nothing / `0x06` SelectPrev, and leaves free look | differs |
-| RB | `Tab` = ChangeChar | nothing / `0x05` SelectNext | differs |
-| LT | `Q` = SelectPrev | `0x35` previous screen / `0x09` ChangeChar | differs |
-| RT | `E` = SelectNext | `0x36` next screen / `0x02` Pause | differs |
-| Back | `V` = PartyActive | `0x2B` Black / `0x0A` PartyActive | equivalent |
-| Start | `Escape` = GUI | in the in-game menu acts as B, closing it; elsewhere `0x0B` / the Map hotkey `0xD7` | **differs by design** (issue #18) |
+| B | `Delete` = ActionMenuRemoveQ | event `0x28` / `0x28`; lets go of the action bar, or with no slot focused presses the HUD's Disengage button (since 2026-10-19) | equivalent |
+| X | `G` + `End` = STEALTH | event `0x29` / the interaction bridge, as A (since 2026-10-19; from 2026-09-25 until then it pressed the HUD's Disengage button in combat) | differs: no stealth on the pad |
+| Y | `F` + `Home` = CancleCombat | event `0x2A` / in combat, removes the last queued action (since 2026-09-25); otherwise flourishes (since 2026-10-19; nothing before) | differs: cancelling combat is B's on the native path (X's until 2026-10-19) |
+| LB | `Space` + `Insert` = Pause | nothing (on Pazaak's table, flips the focused hand card) / `0x02` Pause | equivalent (since 2026-10-19) |
+| RB | `Tab` = ChangeChar | `0x2B` Black, and on the four party screens the next party member / `0x09` ChangeChar | equivalent (since 2026-10-19) |
+| LT | `Q` = SelectPrev | `0x35` previous screen / `0x06` SelectPrev, and leaves free look | equivalent (since 2026-10-19) |
+| RT | `E` = SelectNext | `0x36` next screen / `0x05` SelectNext | equivalent (since 2026-10-19) |
+| Back | `V` = PartyActive | nothing (since 2026-10-19; `0x2B` Black before) / `0x0A` PartyActive | equivalent |
+| Start | `Escape` = GUI | in the in-game menu acts as B, closing it; elsewhere `0x0B` / the hotkey of the screen the in-game menu last showed, `0xD1` plus its index, or the Map's `0xD7` when that cannot be read | **differs by design** (issue #18; the Map's hotkey alone until 2026-10-19) |
 | L3 | `X` = Flourish | nothing / flourish weapons (engine bridge) | equivalent |
-| R3 | `CapsLock` = Freelook | on the four party screens, the next party member / free look, entered with `0x01`; a press in free look leaves it | equivalent |
+| R3 | `CapsLock` = Freelook | nothing (since 2026-10-19; on the four party screens the next party member before) / free look, entered with `0x01`; a press in free look leaves it | equivalent |
 
 *Corrected 2026-09-24:* this table showed LB, RB, LT, RT and Back as sending
 only their GUI events, with nothing in gameplay, and Start as `0x0B` in both.
@@ -72,7 +72,15 @@ look. *Corrected 2026-10-08:* X and Y read "native does nothing in gameplay";
 since 2026-09-25 they press the HUD's own Disengage and clear-one buttons while
 those are drawn (`NativeActionBarK1`, `PressHudButtonK1`). The right stick's row
 named `CSWCModule::AcclTurnCamera`; the module calls `CSWCModule::RotateCamera`
-(`K1_ROTATE_CAMERA`, `0x00640090`).
+(`K1_ROTATE_CAMERA`, `0x00640090`). *Changed 2026-10-19 (issue 49):* the native
+path now uses the original Xbox game's layout, with White and Black on LB and RB.
+Until then the rows read: B `0x28` / `0x28`; X in combat the HUD's Disengage
+button, "differs"; Y nothing outside combat; LB nothing / `0x06` SelectPrev and
+leaving free look, "differs"; RB nothing / `0x05` SelectNext, "differs"; LT `0x35` /
+`0x09` ChangeChar, "differs"; RT `0x36` / `0x02` Pause, "differs"; Back `0x2B` Black
+/ PartyActive; Start the Map's hotkey `0xD7`; R3 the party switch in menus. The
+legacy keys (Pause on LB, ChangeChar on RB, the triggers cycling targets) were the
+Xbox's arrangement already, so the four shoulder rows are now equivalent.
 | D-pad | arrow keys, as repeating taps | codes `0x384`/`0x388`/`0x38C`/`0x390` | see below |
 | Left stick | `W`/`S`/`Z`/`C`, plus a walk modifier on `B` | the movement fields directly, proportional | native is strictly better |
 | Right stick | `A`/`D` taps | `CSWCModule::RotateCamera` | native is strictly better |
@@ -177,36 +185,53 @@ ICPC — the mechanism free look already used on slot `0x7E`.
 
 | Button | slot | ICPC (gameplay) | ICPCGUI (menus) |
 | --- | --- | --- | --- |
-| LB | `0x78` | `0x06` SelectPrev | — (see below) |
-| RB | `0x79` | `0x05` SelectNext | — (see below) |
-| Back | `0x7A` | `0x0A` PartyActive | `0x2B` Black |
-| LT | `0x7B` | `0x09` ChangeChar | `0x35` previous screen |
-| RT | `0x7D` | `0x02` Pause | `0x36` next screen |
+| LB | `0x78` | `0x02` Pause | nothing (see below) |
+| RB | `0x79` | `0x09` ChangeChar | `0x2B` Black |
+| Back | `0x7A` | `0x0A` PartyActive | nothing |
+| LT | `0x7B` | `0x06` SelectPrev | `0x35` previous screen |
+| RT | `0x7D` | `0x05` SelectNext | `0x36` next screen |
 
-Menus are unchanged. **`0x06` is registered on LB, not R3**, because it is one
-event serving both SelectPrev and free-look exit and can sit on only one
-button. The alternative — a second slot on that description, keeping the exit
-on R3 — was rejected because it would make R3 in the world fire `0x01` and
+*Changed 2026-10-19 (issue 49):* the verbs are the original Xbox game's, White (LB)
+pausing and Black (RB) changing the party leader, read from `K1_GAMEPLAY_ACTIONS` and
+`K1_BUTTONS` in `K1NativeJoystick.cpp`. Until then this table read LB `0x06`
+SelectPrev, RB `0x05` SelectNext, LT `0x09` ChangeChar and RT `0x02` Pause in
+gameplay, and Back, not RB, carried `0x2B` Black in menus. Black's `0x2B` is
+implemented by the Journal alone (its sort order), and RB on the four party screens
+also asks for the next party member (`PerformPendingPartySwitchK1`, R3's until that
+day). Not played.
+
+**`0x06` is registered on LT, not R3**, because it is one event serving both
+SelectPrev and free-look exit and can sit on only one button: wherever target
+cycling backwards is, which is LT since 2026-10-19 and was LB before
+(`SelectPrevSlotK1`). The alternative, a second slot on that description keeping
+the exit on R3, was rejected because it would make R3 in the world fire `0x01` and
 `0x06` together, entering free look and cycling the target in one press.
 
 **R3 still leaves free look.** `0x01` is polled only in ICPC, so a press while
 in free look (ICFreeLook) is bridged instead: `PerformPendingFreeLookExitK1`
 calls `HandleInputEvent` with `0x06` on the gameplay frame, and the press is
-suppressed so it means one thing. So R3 toggles, and LB also leaves. (This
-paragraph said "entered with R3 and left with LB" until 2026-09-24.)
+suppressed so it means one thing. So R3 toggles, and LT also leaves (LB until
+2026-10-19). (This paragraph said "entered with R3 and left with LB" until
+2026-09-24.)
 
-**LB and RB carry no GUI event at all now.** The right stick already scrolls
-descriptions in menus: `UpdateDescriptionScrollK1` dispatches `0x39`/`0x3A`
-straight to the screen's own panel, gated to `K1_CLASS_PCGUI`, with its own
-hold-and-repeat. Registering the same two events on these slots was a second
-route to one behaviour, so it was removed. Their *descriptions* remain,
-because ICDialog uses the same events for computer-terminal scrolling and
-that does arrive through these slots.
+**LB carries no GUI event in menus, and neither does Back.** The right stick
+already scrolls descriptions in menus: `UpdateDescriptionScrollK1` dispatches
+`0x39`/`0x3A` straight to the screen's own panel, gated to `K1_CLASS_PCGUI`, with
+its own hold-and-repeat. Registering the same two events on the bumpers was a
+second route to one behaviour, so it was removed on 2026-09-14 (from both bumpers
+then). Their *descriptions* remain, because ICDialog uses the same events for
+computer-terminal scrolling: LB's `0x39` through its slot as before, and since
+2026-10-19 RB's `0x3A` through a description of its own on RB's slot, registered
+with the conversation's events, because RB's menu event is now Black. Back sends
+nothing in menus since 2026-10-19: on the Xbox it is Solo mode in the world and
+nothing else.
 
-**The cost, stated plainly.** LB and RB no longer carry `0x39`/`0x3A` in ICPC
-either, and those *are* implemented by the gameplay HUD dispatcher. Target
-cycling was judged worth more than HUD feedback scrolling. Back, LT and RT
-lose nothing — their GUI events were never implemented there.
+**The cost, stated plainly.** LB no longer carries `0x39` in ICPC either, and that
+*is* implemented by the gameplay HUD dispatcher. Pause was judged worth more than
+HUD feedback scrolling; until 2026-10-19 the verb on LB was target cycling, judged
+the same way. RB, Back, LT and RT lose
+nothing: `0x2B`, `0x35` and `0x36` were never implemented there. (Until 2026-10-19
+RB carried `0x3A` and this paragraph counted it as a second loss.)
 
 ### Still not bound
 
@@ -216,8 +241,10 @@ register and they cannot be bound this way. They would need an engine bridge,
 the pattern L3's flourish uses.
 
 Since 2026-09-25 the combat half of `CancleCombat` has such a bridge of another
-kind: X presses the HUD's own Disengage button while it is drawn
-(`controller-native-path.md`, "The gameplay HUD action bar"). Stealth has no pad
+kind: a pad button presses the HUD's own Disengage button while it is drawn
+(`controller-native-path.md`, "The gameplay HUD action bar"). That button was X
+until 2026-10-19 and is B since, when no action-bar slot has focus, as on the Xbox
+("COMBAT MODE engaged. (B) to disengage."). Stealth has no pad
 button. Since 2026-10-13 it has a bridge too, of a third kind: with the Xbox-style
 HUD it is an entry of the action row's second place, which calls what the PC's
 Stealth toggle calls ([`controller-xbox-hud.md`](controller-xbox-hud.md),
@@ -229,7 +256,10 @@ Mode query that Back opens was play-tested on 2026-09-24 and 2026-09-25
 ([`controller-playtest-checklist.md`](controller-playtest-checklist.md)), and RB's
 targeting was driven with the virtual pad on 2026-10-05
 ([`controller-standalone.md`](controller-standalone.md), section 8). No record
-names LB, LT's party switch or RT's pause as tested one by one.
+names LB, LT's party switch or RT's pause as tested one by one. Since 2026-10-19
+the verbs sit on other buttons (LB pause, RB party switch, LT and RT targets, B
+disengaging, X as A, Y flourishing when nothing is queued), and none of those has
+been played or driven with the virtual pad.
 
 ## What the native path has and the legacy path does not
 
@@ -248,8 +278,9 @@ names LB, LT's party switch or RT's pause as tested one by one.
 | Rumble: BioWare's table and KMRP's haptics | `K1Rumble.cpp`, [`controller-rumble.md`](controller-rumble.md) |
 | PlayStation, Switch and Steam Deck pads read directly, through SDL | `K1ControllerBackend.cpp`, [`controller-sdl-backend.md`](controller-sdl-backend.md) |
 | An optional HUD laid out like the Xbox version's | `K1XboxHud.cpp`, [`controller-xbox-hud.md`](controller-xbox-hud.md) |
-| R3 switches party member on Abilities, Character, Equipment and Inventory, with an on-screen cue | `PerformPendingPartySwitchK1`, `K1_PARTY_SWITCH_PANELS` |
-| Start opens and closes the Map | the `0xD7` bridge, `K1_START_OPENS_MAP` |
+| RB switches party member on Abilities, Character, Equipment and Inventory, with an on-screen cue (R3 until 2026-10-19) | `PerformPendingPartySwitchK1`, `K1_PARTY_SWITCH_PANELS` |
+| Start reopens the in-game menu on the screen it last showed, and closes it (the Map until 2026-10-19) | the `0xD1`-plus-index bridge, `K1_START_OPENS_MENU` and `PerformPendingMenuOpenK1` (`K1_START_OPENS_MAP` and the `0xD7` bridge until then) |
+| Pazaak's table with the Xbox game's buttons: X plays the focused hand card, LB flips it, A ends the turn, Y stands (since 2026-10-19; not played) | `K1_BUTTON_REMAPS`, `InstallPazaakTableK1`, `UpdatePazaakTableK1` |
 | Cues for LT/RT on the menu tab strip and X on the Abilities sub-tabs; an A beside a confirmation box's focused button | `reverse-engineering/custom-gui-controls.md` |
 | The Controller Layout screen, under Options → Gameplay | `K1ControllerLayout.cpp`, [`controller-layout.md`](controller-layout.md) |
 
@@ -259,7 +290,8 @@ The retained events *are* the Xbox build's own controller handling, left in the
 PC executable. Counting distinct event ids across every dispatcher in
 `../reverse-engineering/retained-gui-event-inventory.txt`: **the engine
 implements 25, and KMRP binds 19** -- 18 when this was first counted, plus `0xCE`
-since R3 took it.
+since R3 took it (RB since 2026-10-19, which moved `0x2B` from Back to RB as well and
+left the count as it was; not recounted).
 
 The ones that were unbound at that count, with how many panels implement each:
 
@@ -270,7 +302,7 @@ The ones that were unbound at that count, with how many panels implement each:
 | `0xDF` | 8 | the PC-side id paired with `0x0B` in the action router at `0x006213BC`; Start already drives that pair |
 | `0x3F`, `0x40` | 5 each | **meaning not established** |
 | `0x3D`, `0x3E` | 4 each | `CSWGuiListBox` treats them as aliases of `0x31`/`0x32`, scroll selection up and down — functionally covered by the D-pad |
-| `0xCE` | 4 | change the party member the screen shows. **Bound since 2026-09-15:** R3 sends it to ABILITIES, CHARACTER, EQUIP and INVENTORY, the four panels that implement it (`K1_PARTY_SWITCH_PANELS`). This row said "INVENTORY only; unexamined" |
+| `0xCE` | 4 | change the party member the screen shows. **Bound since 2026-09-15:** R3 sent it to ABILITIES, CHARACTER, EQUIP and INVENTORY, the four panels that implement it (`K1_PARTY_SWITCH_PANELS`), and RB does since 2026-10-19, as Black did on the Xbox. This row said "INVENTORY only; unexamined" |
 | `0x3B`, `0x3C`, `0x00` | 1 each | **meaning not established** |
 
 So of the seven, one is already covered by Start, two are D-pad aliases, and the
@@ -282,7 +314,10 @@ established**". Binding a code whose meaning is unknown is not a feature.
 **The original Xbox pad's White button has no implementation to bind.** The
 dispatch table's column order runs `... Y, Black, 2c, 2d, 2e ...`, so `0x2C` is
 the slot where White sits next to Black at `0x2B`. No panel in the inventory
-implements `0x2C` at all, so there is nothing behind it.
+implements `0x2C` at all, so there is nothing behind it. (Since 2026-10-19 White's
+verbs are on LB by other routes: Pause in the world through the action router's
+`0x02`, and the flip of a hand card at Pazaak's table through the table's own flip
+buttons. `0x2C` is still sent by nothing.)
 
 **The gameplay verbs are the real gap, and they are not retained events.** They
 are keymap actions, reached through the action router rather than the panel

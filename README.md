@@ -115,25 +115,31 @@ version's; what differs on the Mac is at its end.
 - A pad works in the game and in every menu: Xbox, PlayStation and Switch pads and
   the Steam Deck. The button pictures match the pad in your hands and go away when
   you use the mouse or keyboard; the mouse pointer hides while you use the pad.
+- The buttons are the original Xbox game's, its White and Black on LB and RB (new
+  on 2026-10-19 and not yet tried in play; until then the shoulder buttons changed
+  target, the left trigger switched party member, the right trigger paused, X
+  disengaged and Start opened the map).
 - Playing: the left stick moves, as slowly or quickly as you push it, and the right
-  stick turns the camera; A talks, opens, uses or attacks; a click of the left stick
-  flourishes your weapon; the shoulder buttons change target; the left trigger
-  switches party member and the right trigger pauses; Start opens the map and closes
-  the menus, Back asks about Solo Mode, and a click of the right stick switches free
-  look.
+  stick turns the camera; A talks, opens, uses or attacks, and X does the same; a
+  click of the left stick flourishes your weapon; the triggers change target; LB
+  pauses and RB switches party member; Start opens the menus on the screen you used
+  last and closes them, Back asks about Solo Mode, and a click of the right stick
+  switches free look.
 - The action bar: the D-pad picks an action and A uses it; the bar keeps your place,
-  so A again repeats it, and B lets go. In a fight X disengages and Y removes the
-  last queued action.
+  so A again repeats it, and B lets go. In a fight B then disengages and Y removes
+  the last queued action; with nothing to remove, Y flourishes your weapon.
 - Menus: the D-pad or left stick moves through every screen, and holding a direction
   keeps moving; A selects, B goes back; the triggers switch tabs, shown as arrows
   named for your pad; the right stick scrolls long text. An A picture follows the
   selection, down the main menu, on Yes or No and on the reply you are about to give.
-- Screens: a click of the right stick switches the party member on Character,
-  Equipment, Inventory and Abilities; X switches between Skills, Powers and Feats;
-  A is Level Up and Y is Auto Level Up; in the Journal A switches between active and
-  completed quests and Y changes the order; in a shop A buys or sells and X switches
-  between the two lists; on the options screens D-pad left and right change a
-  setting and Y restores the defaults.
+- Screens: RB switches the party member on Character, Equipment, Inventory and
+  Abilities (a click of the right stick until 2026-10-19); X switches between
+  Skills, Powers and Feats; A is Level Up and Y is Auto Level Up; in the Journal X
+  shows the quest items, Y switches between active and completed quests and RB
+  changes the order (A and Y did the last two until 2026-10-19); in a shop A buys or
+  sells and X switches between the two lists; on the options screens D-pad left and
+  right change a setting and Y restores the defaults; at the Pazaak table X plays
+  the card you picked, LB flips it, A ends the turn and Y stands, as on the Xbox.
 - Conversations, character creation, level-up, shops, containers, saving and
   loading, the options and Pazaak's wager need no mouse. In character creation the
   D-pad picks the portrait, D-pad left and right set attributes and skills, and Y is
@@ -147,8 +153,9 @@ version's; what differs on the Mac is at its end.
   paused. Mode and strength are set in `kmrp-controller.ini` beside the game.
 - Xbox-style HUD while you play with a pad: the action menu at the bottom left, the
   target at the top left, the party at the bottom right, the minimap at the top
-  right, with frames drawn sharp for your resolution, a pause notice that shows your
-  pad's trigger, and a combat-mode line across the top. The PC display is back the
+  right, with frames drawn sharp for your resolution, a pause notice that shows the
+  button that pauses (LB; the right trigger until 2026-10-19), and a combat-mode
+  line across the top. The PC display is back the
   moment you use the mouse or keyboard, and the Xbox layout can be switched off
   (`Style=PC` in `kmrp-controller.ini`).
 - Controller support is a patch of its own and installs without the rest of KMRP.

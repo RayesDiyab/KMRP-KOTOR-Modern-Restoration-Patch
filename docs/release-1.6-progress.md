@@ -139,9 +139,13 @@ running over. Not looked at.
 | #63 | Original PC font, and Override fonts wrapping | The font choice and the Override font timing |
 | #65 | Dialog text size | The subtitles slider and the conversation text room |
 | #46 | Analog-stick movement conflicts | Related: the corner speed (`cae4531`). The issue's own cases (Steam Controller, DualSense, both sticks) wait for the reporter's hardware results. |
+| #43 | Bundle Marked Empty Containers | `f0ca54c`. Not yet seen in the game. |
+| #49 | The original Xbox controls as the controller layout | Built, uncommitted (2026-10-19): the Xbox layout everywhere, below. Not yet seen in the game. |
 
 **Open and not worked on for 1.6 yet:** #66 (the player's icon on the minimap at different
-resolutions), #57, #56, #54, #49, #48, #45, #44, #43, #15. (#55 is answered by the action
+resolutions), #57, #56, #54, #48, #45, #44, #15. (Until 2026-10-19 this list also had #49
+and #43, now in the table above, and #48 has an investigation and a plan in
+`reverse-engineering/movies.md`, but no fix yet.) (#55 is answered by the action
 row below.)
 
 ### HUD Size and the action row (the commit after `8830c6b`)
@@ -161,14 +165,21 @@ row below.)
 | **Disengage in the HUD Size preview** | The preview shows the combat queue's frame round Disengage, as the game draws it, with the word centred. | | Yes, at 1920x1080 by scripted input. |
 | **HD font: every character, no stray lines** | The New HD Font shows the euro sign, curly quotes, ellipsis, dashes, the trade mark sign and Œ, Š, Ž as the original font does (they were boxes), and the lines after spaces in the HUD's font are gone. | #52 (the HD font) | The lines: seen before the fix at 1920x1080 and 3440x1440. After the rebuild: **not yet seen in the game**. |
 
-### Marked Empty Containers, and a scrolling Advanced Settings (uncommitted, 2026-10-19)
+### The original Xbox controls (uncommitted, 2026-10-19)
+
+| Feature | What the player gets | Issues | Seen in play |
+| --- | --- | --- | --- |
+| **The Xbox layout, everywhere** | The original Xbox game's buttons, its White and Black on LB and RB, with no second layout to choose (the maintainer: "It should be classic everywhere"). In the world: LB pause, RB switch ally, the triggers cycle targets, X adds to the queue (as A), Y undoes the last action or flourishes with nothing to undo, B lets go of the action bar or disengages (on both HUDs), Start reopens the menu screen used last. In menus: RB changes party member on the four party screens and sorts the Journal, whose X and Y are the game's own again. A remap saved before is not read; the screen opens on the new defaults. [`controller-layout.md`](controller-layout.md) | #49 | **Not yet.** Both modules build; the remap test passes. |
+| **Pazaak the Xbox way** | X plays the focused hand card, A ends the turn, Y stands, LB flips the focused card. End Turn and Stand carry A and Y and the D-pad no longer lands on them or on the flip buttons. With a pad the flip legend shows LB, and an "X Play Hand Card" line is made at run time under it. | #49, follows #42 | **Not yet.** Where the new line stands is a first guess. |
+
+### Marked Empty Containers, and a scrolling Advanced Settings (committed `f0ca54c`, 2026-10-19)
 
 | Feature | What the player gets | Issues | Seen in play |
 | --- | --- | --- | --- |
 | **Marked Empty Containers** | ShaeMyName's patch, with the author's permission, on by default: a container or a body with nothing left in it is named "... (empty)" when pointed at. KOTOR Patch Manager's own released `.kpatch`, unchanged, installed as a further patch with no module. Its one hook and every address it uses checked against the game; it overlaps nothing of KMRP's, the controller patch's, K1DC's or High FPS Fixes'. | #43 | **Not yet.** Wants a look on both HUDs, since KMRP places and fits the same name label. |
 | **Advanced Settings scrolls** | Seven tiles at the size six had, two rows in view; a scrollbar drawn after KOTOR's (arrow boxes, rail, framed thumb) in the card's margin, the mouse wheel over the tiles, eased scrolling. | | **Not yet seen by the maintainer.** |
 
-### Modern Driver Compatibility left out where it cannot run (uncommitted, 2026-10-19)
+### Modern Driver Compatibility left out where it cannot run (committed `f0ca54c`, 2026-10-19)
 
 | Feature | What the player gets | Issues | Seen in play |
 | --- | --- | --- | --- |

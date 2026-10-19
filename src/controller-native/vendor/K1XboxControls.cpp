@@ -1033,8 +1033,8 @@ constexpr ControllerPromptBinding K1_QUESTITEM_PROMPTS[] = {
 
 constexpr ControllerPromptBinding K1_JOURNAL_PROMPTS[] = {
     {K1_JOURNAL_QUESTITEMS_OFFSET, "kmrpx_jrnitems"},
-    {K1_JOURNAL_COMPLETED_OFFSET, "kmrpa_jrndone"},
-    {K1_JOURNAL_SORT_OFFSET, "kmrpy_jrnsort"},
+    {K1_JOURNAL_COMPLETED_OFFSET, "kmrpy_jrndone"},
+    {K1_JOURNAL_SORT_OFFSET, "kmrprb_jrnsort"},
     {K1_JOURNAL_CLOSE_OFFSET, "kmrpb_jrnclose"},
 };
 
@@ -1167,6 +1167,14 @@ constexpr ControllerPromptBinding K1_KEY_MAPPINGS_PROMPTS[] = {
 constexpr ControllerPromptBinding K1_PAZAAK_WAGER_PROMPTS[] = {
     {0x07CC, "kmrpa_pzkwager"},
     {0x0990, "kmrpb_pzkquit"},
+};
+
+// Pazaak's table: A is End Turn (BTN_XTEXT) and Y Stand (BTN_YTEXT) whatever holds
+// focus, as on the Xbox (K1NativeJoystick.cpp, K1_BUTTON_REMAPS; issue 49). The pad
+// never focuses either, so neither follows the focus.
+constexpr ControllerPromptBinding K1_PAZAAK_GAME_PROMPTS[] = {
+    {0x6C4C, "kmrpa_pzkend"},
+    {0x6E20, "kmrpy_pzkstand"},
 };
 
 // The notice Feats opens with in character creation and level-up, "You have
@@ -1719,6 +1727,9 @@ const ControllerPromptBinding* GetK1ControllerPrompts(
     case K1_PAZAAK_WAGER_PANEL_VTABLE:
         *count = sizeof(K1_PAZAAK_WAGER_PROMPTS) / sizeof(K1_PAZAAK_WAGER_PROMPTS[0]);
         return K1_PAZAAK_WAGER_PROMPTS;
+    case K1_PAZAAK_GAME_PANEL_VTABLE:
+        *count = sizeof(K1_PAZAAK_GAME_PROMPTS) / sizeof(K1_PAZAAK_GAME_PROMPTS[0]);
+        return K1_PAZAAK_GAME_PROMPTS;
     case K1_SKILL_INFO_PANEL_VTABLE:
         *count = sizeof(K1_SKILL_INFO_PROMPTS) / sizeof(K1_SKILL_INFO_PROMPTS[0]);
         return K1_SKILL_INFO_PROMPTS;
