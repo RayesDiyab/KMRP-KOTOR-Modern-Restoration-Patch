@@ -19,15 +19,18 @@ Checked before anything is written, since the installer installs the patch besid
 KMRP's two without KPM's own checks:
 
   * the patch declares the three executables KMRP accepts;
-  * its module is where the installer takes it from (binaries/windows_x86.dll) and
-    exports every function a hook names;
+  * its module, if it has one, is where the installer takes it from
+    (binaries/windows_x86.dll) and exports every function a hook names; a patch
+    without a module may only have hooks that name no function (simple, replace),
+    and patch_config.toml gives it `dll = ""`, as KPM's PatchApplicator does;
   * no hook is a static one (those are written to the executable when a patch is
     applied, which this installer does not do);
   * no hook overlaps a hook of KMRP's patch or of the controller patch, or a byte
     the engine recipe writes.
 
-The one patch so far: D3M0's High FPS Fixes (MIT), 2026-10-09, an option of the
-installer that is off by default.
+The patches so far: D3M0's High FPS Fixes (MIT), 2026-10-09, an option of the
+installer that follows the display; ShaeMyName's K1 Marked Empty Containers (in KOTOR
+Patch Manager's repository, MIT), 2026-10-19, on by default, the first without a module.
 
 Documentation standard: see `docs/documentation-standard.md`.
 """
@@ -93,13 +96,14 @@ def spans_of_kmrp():
 
 
 def read(kpatch: Path):
+    """The manifest, the KOTOR 1 hooks table and the module, None for a patch without one."""
     with zipfile.ZipFile(kpatch) as z:
         names = set(z.namelist())
-        if MODULE not in names or KOTOR1_HOOKS not in names or 'manifest.toml' not in names:
-            raise ValueError(f'{kpatch.name}: not a KOTOR 1 patch with a module ({sorted(names)})')
+        if KOTOR1_HOOKS not in names or 'manifest.toml' not in names:
+            raise ValueError(f'{kpatch.name}: not a KOTOR 1 patch ({sorted(names)})')
         manifest = tomllib.loads(z.read('manifest.toml').decode('utf-8'))['patch']
         table = tomllib.loads(z.read(KOTOR1_HOOKS).decode('utf-8'))
-        module = z.read(MODULE)
+        module = z.read(MODULE) if MODULE in names else None
     return manifest, table, module
 
 
@@ -111,10 +115,12 @@ def check(kpatch: Path):
     if not wanted <= declared or not wanted <= targets:
         raise ValueError(f"{kpatch.name}: does not declare the three executables KMRP accepts")
     hooks = table['hooks']
-    exports = kpatch_common.exports_of(module)
+    exports = kpatch_common.exports_of(module) if module is not None else set()
     for hook in hooks:
         if hook['type'] not in ('detour', 'simple', 'replace'):
             raise ValueError(f"hook at {hook['address']:#010x}: type {hook['type']!r} is not one the installer installs")
+        if hook['type'] == 'detour' and module is None:
+            raise ValueError(f"hook at {hook['address']:#010x} is a detour, and the patch has no module")
         if hook['type'] == 'detour' and hook['function'] not in exports:
             raise ValueError(f"the module does not export {hook['function']}")
     overlaps = []
@@ -158,7 +164,7 @@ def main():
     print(json.dumps({
         'file': str(args.kpatch), 'id': manifest['id'], 'name': manifest['name'], 'version': manifest['version'],
         'author': manifest['author'], 'sha256': hashlib.sha256(args.kpatch.read_bytes()).hexdigest().upper(),
-        'module_sha256': hashlib.sha256(module).hexdigest().upper(),
+        'module_sha256': hashlib.sha256(module).hexdigest().upper() if module is not None else None,
         'hooks': len(hooks), 'by_type': {t: sum(1 for h in hooks if h['type'] == t) for t in sorted({h['type'] for h in hooks})},
         'config_file': str(target),
     }, indent=2))

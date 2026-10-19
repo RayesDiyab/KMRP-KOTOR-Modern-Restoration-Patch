@@ -1495,3 +1495,33 @@ Tests: `testing/regression/Test-NativeAssetsBank.py` reads the pack, with
 `asset_pack_harness.cpp` (portable: the test builds it with clang on the Mac);
 `Test-AssetPrepare.py` the preparation (Windows); `Test-InstallerPatch.ps1` the pack and
 the cache in an install and a restore.
+
+## 74. Modern Driver Compatibility left out where it cannot run: not on the Mac
+
+**State, 2026-10-19: n/a.** On Windows the installer now leaves K1DC out on a PC that lacks
+a function its two files import (Windows 7), since there it would keep the game from
+starting, and shows the Advanced Settings tile off and disabled with "Needs Windows 8"
+([third-party-driver-compat.md](third-party-driver-compat.md), section 3). The Mac installs
+no K1DC and no `dinput8.dll`, so there is nothing to take over. If the Mac ever offers an
+option that only some systems can run, the same tile (disabled, an amber note giving the
+reason, the saved choice kept) is the pattern to copy.
+
+## 75. Marked Empty Containers, and Advanced Settings that scrolls: the Mac needs a port
+
+**State, 2026-10-19: not on the Mac.** Windows installs ShaeMyName's K1 Marked Empty
+Containers (issue 43) as a further patch, on by default: KOTOR Patch Manager 0.7.1's own
+`K1MarkedEmptyContainers.kpatch`, unchanged, whose one replace hook at `0x00685E69`
+(in `CSWGuiTargetActionMenu::UpdateNameLabel`, the call to `SetNameLabel`) appends
+" (empty)" to the hovered object's name when it is a placeable with no items. Its 141
+bytes call four functions of the Windows 1.03 executable by address
+(`CSWCObject::GetServerObject`, `CSWSPlaceable::GetItemCount`, `CExoString::operator=`,
+`SetNameLabel`) and read `CSWCPlaceable`'s vtable and the server placeable's `+0x324`,
+which `GetItemCount` itself tests first (read as whether it has an inventory). The Mac game is another binary, so the Mac would need the same
+logic at the Aspyr build's addresses, as it has its own port of High FPS Fixes
+(`macos/patches/high-fps-fixes`). ShaeMyName's permission covers KMRP; a Mac port should
+credit them the same way.
+
+The Windows installer's Advanced Settings now scrolls (seven tiles, two rows in view, a
+scrollbar drawn after KOTOR's list scrollbars, the wheel over the tiles): if the Mac
+installer gains a seventh option it can follow the same look
+([patcher-ui-build.md](patcher-ui-build.md)).

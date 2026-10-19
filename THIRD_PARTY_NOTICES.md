@@ -128,6 +128,31 @@ K1DC, and none of its code is altered. It does not modify `swkotor.exe`.
 What it writes, and the check showing it does not collide with anything KMRP writes,
 is documented in [`docs/third-party-driver-compat.md`](docs/third-party-driver-compat.md).
 
+## K1 Marked Empty Containers
+
+**K1 Marked Empty Containers 1.0.0** by **Shae Condon (ShaeMyName)** is carried inside
+the installer and installed while *Marked Empty Containers* is on under *Advanced
+Settings*, the default (since 2026-10-19, issue 43). ShaeMyName gave KMRP permission
+on Deadly Stream to include it as an optional feature, with credit. It names a
+container or a body with nothing left in it "... (empty)" when the player points at it.
+
+https://deadlystream.com/files/file/3006-k1-marked-empty-containers/
+https://github.com/LaneDibello/Kotor-Patch-Manager/tree/master/Patches/K1MarkedEmptyContainers
+
+KMRP carries the KOTOR Patch Manager patch, which is part of KOTOR Patch Manager's
+repository and so under its **MIT License**, Copyright (c) 2025 Lane Dibello and KotOR
+Patch Manager contributors. The licence text ships inside the installer and a copy is
+preserved at:
+
+`third_party/Included/K1MarkedEmptyContainers-1.0.0 by ShaeMyName/LICENSE`
+
+`K1MarkedEmptyContainers.kpatch` is the file KOTOR Patch Manager 0.7.1's release ships,
+unmodified (2,502 bytes, SHA-256
+`8B1FEAA817B8A6DA4B01A54D6C9EA4426CF8D5AB2B797FD10CCD7A31C2F51F09`); its hooks are
+those of the patch's source at `third_party/Kotor-Patch-Manager`. KMRP changes nothing
+in it: the installer writes its one hook into patch_config.toml as KOTOR Patch Manager
+would, and puts the same file in KOTOR Patch Manager's patch folder.
+
 ## High FPS Fixes
 
 **High FPS Fixes 1.0.1** by **D3M0** is carried inside the installer and installed

@@ -117,6 +117,83 @@ proxy, and it applies the executable changes above as well.
 
 ## [Unreleased]
 
+- **Marked Empty Containers** (2026-10-19, issue 43; ShaeMyName's K1 Marked Empty
+  Containers, with the author's permission). Point at a container or a body with nothing
+  left in it and its name ends in "(empty)". On by default, a tile in Advanced Settings.
+  - *What KMRP carries:* KOTOR Patch Manager 0.7.1's own
+    `K1MarkedEmptyContainers.kpatch`, unchanged (2,502 bytes, `8B1FEAA8...F51F09`), in
+    `third_party/Included/K1MarkedEmptyContainers-1.0.0 by ShaeMyName` with KPM's MIT
+    licence, the repository it is part of. Its hooks are identical to the source in
+    KPM's repository, unchanged since it was added (`663bae4`, 2026-06-29).
+  - *What it changes:* one replace hook at `0x00685E69` in
+    `CSWGuiTargetActionMenu::UpdateNameLabel`, the call that shows the hovered object's
+    name, and 141 bytes of code; no module.
+  - *Checked against the 1.03 executable on 2026-10-19:*
+    - every address it uses is what it says: `CSWCPlaceable`'s vtable,
+      `CSWCObject::GetServerObject`, `CSWSPlaceable::GetItemCount` (its argument 0 counts
+      every item), `CExoString::operator=` and `SetNameLabel`;
+    - the stack is balanced (`ret 0`, `ret 4`, `ret 4`, `ret 4`, one push each);
+    - every jump lands on an instruction;
+    - its 5 bytes are the clean executable's.
+
+    It overlaps none of 233 other sites: KMRP's patch and the controller patch with
+    the engine recipe, K1DC 2.0.0's 28 sites and 9 import slots, and High FPS Fixes' 36
+    hooks.
+  - *How the installer installs it:* as High FPS Fixes, a further patch in
+    `patch_config.toml`, but with `dll = ""`, as KPM's own `PatchApplicator` writes a
+    patch without a module. Nothing goes into `patches\`, and its `.kpatch` goes into
+    KPM's patch folder while the option is on. `tools/build_bundled_kpatch_config.py` now
+    takes a patch without a module (a detour hook still needs one) and checks it at
+    every build; `KpmEdition.cs` writes no module for it and the section without a DLL;
+    `KmrpSettings.MarkedEmptyContainers`, `markedEmptyContainers` in settings.json,
+    written only when off.
+  - *Advanced Settings scrolls.* The seventh tile comes after High FPS Fix; Debug Logs
+    moves to a third row. The tiles keep the size six had, two rows in view, and scroll
+    (the maintainer's choice):
+    - **the scrollbar** sits in the card's right margin and is drawn after KOTOR's
+      list scrollbars: arrow boxes with cut corners at each end, a hairline rail, a
+      framed thumb with a three-line grip, in the installer's blues;
+    - **the controls:** arrows step a row and repeat while held, the rail pages, the
+      thumb drags, the wheel works anywhere over the tiles (a message filter, since
+      the tiles take no focus), and the scroll eases;
+    - **the classes:** `ScrollContent` keeps its scroll through the window's rescaling
+      (which places every control from its design bounds); `ScrollViewport` and
+      `KotorScrollBar` hold the rest;
+    - the page opens at its first row.
+  - *Tests:* `Test-InstallerPatch.ps1` case 10 (on: the third patch in the config with
+    its one hook and no DLL, nothing in `patches\`, the bundled `.kpatch` delivered,
+    the folder as it was after a restore); the other cases now write it off.
+  - *Not checked:*
+    - " (empty)" is English in every game language;
+    - the name is copied into a 256-byte buffer without a length check, which a name
+      over 247 characters would overflow (the game's own names are far shorter);
+    - KMRP's own code places the PC HUD under that label, fits its text and redraws it
+      for the Xbox HUD, so a longer name there wants a look in play.
+
+    **Not yet seen in play,** and the scrolling page not yet seen by the maintainer.
+
+- **Modern Driver Compatibility is left out where it would keep the game from
+  starting** (2026-10-19, found while looking into issue 48; `DriverCompatOperations`
+  in `src/patcher/KmrpPatcher.cs`). K1DC's two files import six functions Windows 7
+  does not have: Ultimate ASI Loader 9.7.4, its `dinput8.dll`, linked with a 2025
+  Microsoft toolset (linker 14.51), imports `CreateFile2` and
+  `GetSystemTimePreciseAsFileTime`; the `.asi`, built with Rust, imports `WaitOnAddress`, `WakeByAddressAll`,
+  `WakeByAddressSingle` and `ProcessPrng`, all four called by Rust's standard library,
+  whose minimum is Windows 10 since Rust 1.78. Windows will not load a DLL whose imports it
+  cannot find, and the game loads `dinput8.dll` as it starts, so a default install on
+  Windows 7 (the option is on by default) would have kept the game from starting. The
+  reporter of issue 41 met this with 1.0. The installer now asks the PC for each of the
+  six, from the system folder only, and leaves K1DC out where one is missing, with a line
+  in its log naming it; the Advanced Settings tile is then off, disabled and marked
+  "Needs Windows 8" in amber, and the player's saved choice is kept for a PC that can run
+  it. Asked of the PC rather than its version number, so Wine and Proton answer for
+  themselves. `testing/regression/Test-DriverCompatImports.py` (new) reads the vendored
+  files' import tables: the list is complete and holds nothing stale, the files are the
+  ones it was read from (a new K1DC fails it until the list is read again), and the
+  installer asks before it writes. `Test-InstallerPatch.ps1` case 9 fakes the missing
+  function (`KMRP_TEST_MISSING_IMPORT`) and checks the install succeeds without K1DC.
+  **Not run on Windows 7.**
+
 - **K1 Modern Driver Compatibility 2.0.0** (2026-10-19, at the maintainer's request;
   `third_party/Included/k1-modern-driver-compatibility-2.0.0 by Synchro`, `build_kmrp.ps1`,
   `DriverCompatOperations.Version` in `src/patcher/KmrpPatcher.cs`). The installer
@@ -127,7 +204,11 @@ proxy, and it applies the executable changes above as well.
   against everything KMRP writes in memory, with High FPS Fixes: none of its 28 sites (8
   in 1.2.0) or 9 run-time import slots collides, and every site holds the bytes it
   expects ([third-party-driver-compat.md](docs/third-party-driver-compat.md), section 4).
-  Not yet seen in play beside KMRP.
+  Started beside KMRP and the controller patch on 2026-10-19, in the test game at 3440x1440,
+  three runs of up to 48 s: all 28 sites installed and every import slot taken, the
+  renderer set up again after the startup movies as the game does, and nothing in
+  the log but one warning, a GL error in the soft-shadow pass at that rebuild. Nothing
+  was looked at on screen, and it was not played further.
 
 - **An installer of 72 MiB instead of 126, and every resolution ready before the game
   starts** (2026-10-19; `tools/kmrp_pack.py`, `tools/build_native_assets.py`,

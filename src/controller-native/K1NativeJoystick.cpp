@@ -2506,10 +2506,11 @@ extern "C" void __cdecl NativeMovieWindowCloseK1(void* player)
 
 // Has this playlist entry's geometry changed since the last frame?
 //
-// PlayMovieList loops over its entries reusing one player object and recomputes
-// the picture size per entry, so this is the only edge that says "a new movie
-// just started" from inside the playback loop. Both the surface clear and the
-// aspect-fit checks hang off it.
+// MoviePlaybackWorker (0x00405B30) loops over its entries reusing one player
+// object, and each entry gets its own InitializeMovie: a new window, buffer and
+// picture size. NativeMovieWindowOpenK1 resets lastW for each, so this repaints
+// on the first frame of every entry, and again only if the size or offsets
+// change (reverse-engineering/movies.md, "How the window is made").
 void PaintMovieWindowK1(void* player)
 {
     const void* const info = *FieldAt<void*>(player, K1_MOVIE_INFO);

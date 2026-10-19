@@ -119,6 +119,44 @@ Changing only the comparison pair leaves the second path requesting 640x480.
 Changing only the initialization pair leaves the entry branch comparing against
 640x480. Both copies are therefore one atomic resolution policy.
 
+### What each pair guards, and a third copy (2026-10-19)
+
+*Correction and extension, read from the clean executable on 2026-10-19 while looking
+into issue 48. The paragraph above is right that the two pairs belong together and wrong
+to treat them as the whole policy: there is a third 640x480, which KMRP does not change.*
+
+| sites | function | what 640x480 decides there | with KMRP |
+| --- | --- | --- | --- |
+| `0x00403D66`-`0x00403D85` (operands `0x00403D6C`, `0x00403D78`) | `ChangeResolutionForMovie`, `0x00403CF0` | before a playlist in full screen: if the mode is not 640x480x32, `ReInitAurora(640, 480, 32, 1, 0, 0)` at `0x00403D9E` | the game's size, so never called |
+| `0x005F5B37`-`0x005F5B4C` (operands `0x005F5B3B`, `0x005F5B43`) | `CClientExoAppInternal::ReadAndSetVideoMode`, `0x005F5AB0`, called for the startup movies | the mode the first window is made in. It also sets `[0x007A3C54] = 1`, which makes the first `ChangeResolutionForMovie` skip its check (`0x00403D45`-`0x00403D64`), and stores the size `swkotor.ini` gives in `0x0078D1D4`/`0x0078D1D8` (`0x005F5C18`) | the game's size |
+| `0x00403EA7`, `0x00403EB3`, `0x00403EBF` (640, 480, 32) | `RestoreResolutionFromMovie`, `0x00403DE0` | after the playlist in full screen: the mode saved at its start is compared with 640x480. Equal calls only `ActivateRenderWindow` (`0x00401E00`); anything else calls `ReInitAurora(saved mode)` at `0x00403F07` | **unchanged** |
+
+So the startup logos depend on the second pair alone, and story movies on the first
+alone.
+
+**`ReInitAurora` (`0x00403800`) is a rebuild of the renderer, not a mode request.** It:
+- hides and disables the taskbar (`FindWindowA("Shell_TrayWnd")`, `EnableWindow`,
+  `ShowWindow(SW_HIDE)`, `0x004038A4`-`0x004038BA`);
+- starts a backdrop thread at time-critical priority (`initCinematicBackdrop`,
+  `0x00401A30`);
+- makes a new OpenGL window (`InitOpenGLWindow`, `0x00403A23`) and destroys the old one
+  (`0x00403B3D`), reloading every texture;
+- calls `ActivateRenderWindow` and `RestartMoviesIfNecessary` (`0x00403C21`);
+- on one path, shows the taskbar again (`0x00403C4D`-`0x00403C59`).
+
+What follows from the table:
+- **With KMRP, no rebuild happens before a story movie.** The movie window opens over
+  the live OpenGL window. Vanilla rebuilt the renderer at 640x480 first.
+- **Every full-screen playlist still ends in a rebuild,** at the size the game is
+  already at, because the third copy still says 640x480. Vanilla at any other size
+  rebuilt at both ends; at 640x480, at neither.
+- **In windowed mode none of the three copies matters.** `ChangeResolutionForMovie`
+  returns before its check when the renderer is not full screen (`0x00403D2C` →
+  `0x00403DC0`, clearing `[0x007A3CBC]`), and `RestoreResolutionFromMovie` tests
+  `[0x007A3CBC]` first. The full-screen query is the virtual at `+4` of the object at
+  `0x007A39F8`, read from its uses in the main window's `WM_ACTIVATEAPP` and in
+  `toggleFullScreen`.
+
 ## Rendering reads the live window
 
 The full-screen playback routine at `0x004053E0` obtains the live client bounds
@@ -189,15 +227,56 @@ So `scale = min(cw / mw, ch / mh)`, in integers, and the retail code from
 `0x00405808` centres the result as before. What it produces for a 640x480 logo and
 a 1280x720 movie, from the formula:
 
-| screen | 640x480 logo | 1280x720 movie |
-| --- | --- | --- |
-| 800x600 | 800x600 (width and height fit together) | 800x450 |
-| 1920x1080 | 1440x1080 | 1920x1080 |
-| 3440x1440 | 1920x1440 | 2560x1440 |
+| screen | 640x480 logo | 640x272 movie | 640x360 movie | 1280x720 movie |
+| --- | --- | --- | --- | --- |
+| 800x600 | 800x600 (width and height fit together) | 800x340 | 800x450 | 800x450 |
+| 1920x1080 | 1440x1080 | 1920x816 | 1920x1080 | 1920x1080 |
+| 3440x1440 | 1920x1440 | 3388x1440 | 2560x1440 | 2560x1440 |
+
+*The two middle columns were added on 2026-10-19.* Steam's movies, read from their Bink
+headers that day:
+- `legal`, `biologo` and `leclogo` are 640x480;
+- `02`, `09`, `31a`, `50` and `56b` are 640x360;
+- every other story movie is 640x272 (2.35:1).
+
+On a 3440x1440 screen (2.39:1) a 640x272 movie fills the height with 26-pixel bars at
+the sides, so it looks full screen without being cropped. Retail drew it 3440x1462 and
+lost 11 rows top and bottom.
 
 Retail drew the same logo at 3440x2580 on a 3440x1440 screen. Fitting leaves
 bars beside a movie narrower than the screen, and those bars were never painted
 -- the grey flash below, which is why that fix followed this one.
+
+## Bink's buffer: DirectDraw or GDI (2026-10-19)
+
+**Kind: static, from the Steam copy's `binkw32Hooked.dll`** (the game's own Bink, which
+KPM's `binkw32.dll` proxy forwards to): version 1.5v, 2003.
+
+`InitializeMovie` opens the buffer with
+`BinkBufferOpen(movie window, movie width, movie height, 0x5D000000)`
+(`0x00405733`-`0x0040573B`). That is buffer type 0, Bink's own choice, with stretch and
+shrink flags in the high byte. Bink reads the type from the low five bits
+(`and esi, 0x1F` at `0x300104DC` in that DLL) and keeps the one it chose at `+0x80` of
+the buffer, which `BinkBufferGetDescription` names:
+
+| `[buffer+0x80]` | type |
+| --- | --- |
+| 1 | DirectDraw primary surface |
+| 2 | DIB Section |
+| 3, 4, 5 | DirectDraw YV12, YUY2, UYVY overlay |
+| 6, 7, 8 | DirectDraw YV12, YUY2, UYVY off-screen surface |
+| 9, 10 | DirectDraw RGB off-screen surface, video and system memory |
+
+- **Every type but 2 draws through DirectDraw;** the DLL loads `DDRAW.DLL` itself.
+- **Type 2 draws with GDI** (`CreateDIBSection`, `StretchBlt`).
+- **Which type a PC gets has not been measured on any PC.**
+- **Retail skips `BinkBufferSetScale` when the window is exactly as wide as the movie**
+  (`je 0x00405834`), which at 640x480 is every 640-wide movie. The `.kmv` stub always
+  calls it.
+
+The section *The grey flash* below ("none of them is a Bink problem") holds for the
+flash and the bars. Whether the black picture of issue 48 is a Bink problem is open: see
+the last section.
 
 ## Rejected community-patcher signature
 
@@ -259,6 +338,73 @@ The main game window does not have the problem. `InitOpenGLWindow` asks for
 `GetStockObject(4)` -- `BLACK_BRUSH` -- at `0x00403779` and stores it in its own
 class. `SWMovieWindow` is the one class that was left without one.
 
+### How the window is made, shown and handled (2026-10-19)
+
+*Extension, read from the clean executable on 2026-10-19.* Movies play on a thread of
+their own. `CExoMoviePlayerInternal::PlayMoviesAsync` wakes `MoviePlaybackWorker`
+(`0x00405B30`), which for each entry of the list calls `InitializeMovie`, then
+`PlayMovieLoop`, then `StopMovie` (and so `ShutDown`). **Every entry gets its own window
+and Bink buffer.**
+
+`InitializeMovie`, in order:
+1. creates the window as above, owned by the main window (`hWndParent` is
+   `[0x007A39D8]`), over the main window's client area (`GetWindowInfo`, `0x004054D8`);
+2. `SetCapture` (`0x00405545`). KMRP's open hook follows here;
+3. `SetWindowLongA(GWL_STYLE, 0x82000000)`, `WS_POPUP | WS_CLIPCHILDREN`, which drops
+   `WS_VISIBLE` from the style (`0x00405561`);
+4. `SetWindowPos(HWND_TOPMOST, ..., SWP_NOSIZE | SWP_FRAMECHANGED | SWP_NOCOPYBITS)`
+   (`0x0040558A`);
+5. `BinkOpen`, `BinkBufferOpen`, the scale and the offset (the sections above);
+6. waits while `[0x007A3C9C]` is 1;
+7. paints the *main* window black with `PatBlt(BLACKNESS)` over the size at
+   `0x0078D1D4`/`0x0078D1D8` (`0x004058B1`);
+8. `ShowWindow(SW_SHOWNA)` (`0x004058CB`).
+
+The window procedure handles more than the paragraph above lists:
+
+| message | what it does | where |
+| --- | --- | --- |
+| `WM_ACTIVATEAPP` (0x1C), deactivated, the movie not shutting down | `PrepareMovieForCancellation(0)`, then `CancelMovie(1, 1)`: the movie stops at once and is kept to be played again | `0x00405255` |
+| `WM_KEYDOWN` (0x100), Escape | `CancelMovie(0, 0)`, which honours whether the movie may be skipped | `0x00405221` |
+| `WM_SYSKEYDOWN` (0x104), Alt+F4 | posts `WM_CLOSE` to `[0x007A39D4]` | `0x004051DE` |
+| `WM_SYSKEYUP` (0x105), Alt+Enter | `PrepareMovieForCancellation(1)`, then `CancelMovie(1, 1)` | `0x00405299` |
+| `WM_LBUTTONUP` (0x202), `WM_RBUTTONUP` (0x205) | `CancelMovie(0, 0)`, one or the other by the client option at `+0x54` | `0x004052E8`, `0x00405342` |
+| the other button messages, 0x201 to 0x206 | swallowed | |
+| 0x407 | `UpdateWindowPosition` (`0x00404F40`): `BinkBufferCheckWinPos` | `0x004053BC` |
+| 0x408 | `RefreshWindowLayout` (`0x00404F80`): `BinkBufferSetOffset`, `MoveWindow` over the main window's client area, `PatBlt` black on the main window, `ShowWindow(SW_SHOWNA)` | `0x0040539B` |
+| anything else | `DefWindowProcA` | |
+
+While a movie plays, the main window posts 0x408 on `WM_WINDOWPOSCHANGED`
+(`0x00402B61`-`0x00402BB7`) and 0x407 from `0x004028F8`. Which message leads to the
+second was not decoded.
+
+### Alt-Tab and focus during a movie (static, 2026-10-19)
+
+**Kind: confirmed static reconstruction; not watched in play.** In full screen:
+
+1. **Leaving the game cancels the movie and keeps it.** The movie window's
+   `WM_ACTIVATEAPP` cancels it with the "play again" flag at `[player+0x1C]`.
+   `MoviePlaybackWorker` keeps that entry and the rest of the list (it clears an entry
+   only when the flag is down, `0x00405C06`) and ends the loop.
+2. **The worker posts `WM_ACTIVATEAPP(0, 0)` to the main window** (`0x00405CCB`). Alt+Enter
+   posts 0x409 instead (`0x00405C97`, `0x00405CB2`). A list that simply ends posts 0x40A
+   (`0x00405CEC`), and the main window then calls `RestoreResolutionFromMovie`
+   (`0x00403316`).
+3. **The main window minimises the game.** Its `WM_ACTIVATEAPP` (`0x00402951`), with no
+   movie playing any more, calls `ShowWindow(main, SW_MINIMIZE)` (`0x004029DB`) and the
+   renderer's virtual at `+0x18` (not decoded; read as leaving full screen).
+4. **On return the interrupted movie plays again from its first frame,** with a new
+   window and a new Bink buffer. Its activation calls the renderer's virtual at `+0x1C`
+   (not decoded; read as entering full screen again). The replay is started by
+   `RestartMoviesIfNecessary`, which the activation handler calls in windowed mode
+   (`0x00402AA2`), and which `ReInitAurora` (`0x00403C21`) and
+   `CClientExoAppInternal::RestartMoviesIfNecessary` (`0x005F9780`, through
+   `ChangeResolutionForMovie`) call too. Which of them runs in full screen was not traced.
+
+So anything that deactivates the movie window, a real Alt-Tab or anything else, stops
+the movie and drops the game to the desktop until the player comes back. That is the
+"back to the desktop between two movies" of issue 48.
+
 ### What KMRP does
 
 Two detours, both in `src/controller-native/kotor1.hooks.toml`. Until
@@ -281,7 +427,7 @@ and can be skipped is unverified there.
 
 | address | function | when |
 | --- | --- | --- |
-| `0x0040554B` | `NativeMovieWindowOpenK1` | just after `CreateWindowExA` returns, ESI = the player |
+| `0x0040554B` | `NativeMovieWindowOpenK1` | just after `CreateWindowExA` returns and the `SetCapture` that follows it (`0x00405545`), ESI = the player |
 | `0x00404BB0` | `NativeMovieWindowCloseK1` | `ShutDown`'s entry, ECX = the player |
 
 Both call `BlackenMovieWindowK1`, which sets the class brush to `BLACK_BRUSH`
@@ -309,6 +455,57 @@ Both are recorded because both looked reasonable and neither was.
 The lesson worth keeping is that the measurement said "unpainted window" from the
 first probe, and two attempts were spent looking for it inside Bink anyway.
 
+## Black picture with sound on Windows 7 and AMD (issue 48, open)
+
+**Kind: what is established comes from others' reports and the code; the mechanism is a
+hypothesis.** Reported on 2026-10-13 with KMRP 1.5.1 on Windows 7 and a Radeon
+6000-series card:
+- the startup movies (the logos, and promotional films Steam's copy lacks) are black
+  while their sound plays;
+- story movies play;
+- Alt-Tab brings the picture back;
+- between two movies the game sometimes drops to the desktop.
+
+Vanilla plays them all, and so does the game with Flawless Widescreen.
+
+**Established:**
+- **The trigger is the removed 640x480 switch.** The same black movies came with the
+  Universal Widescreen Patcher, whose "movies edit 1" and "movies edit 2" are the first
+  two pairs of the table above: signatures `800200007515813DD8D17800E001`, the check at
+  `0x00403D66`, and `80020000C7442410E001`, at `0x005F5B3B`. The fix posted for it is to
+  leave both edits out, after which the movies play small. That patcher has no fit, no
+  black window and no K1DC, so none of those is the cause.
+- **Alt-Tab brings the picture back by replaying the movie** after a minimise and a
+  return to full screen (*Alt-Tab and focus*, above). The drop to the desktop is the
+  same path, started by something that deactivates the movie window.
+- **K1DC cannot take part on Windows 7:** it does not load there
+  ([`../docs/third-party-driver-compat.md`](../docs/third-party-driver-compat.md),
+  section 3). Elsewhere, its one movie hook, the `BinkCopyToBuffer` import, corrects
+  RGB frames only and touches no window.
+
+**Hypotheses, most likely first:**
+1. **Bink chose a DirectDraw type, and its output is not shown** while the driver
+   presents the full-screen OpenGL window directly. The screen keeps the OpenGL window's
+   last frame, which `InitializeMovie` has just painted black. A real mode change, the
+   vanilla rebuild at 640x480 or the minimise of Alt-Tab, resets that state.
+2. **Bink's hardware stretch fails on that driver.** Vanilla never calls
+   `BinkBufferSetScale` at 640x480. Against: story movies are stretched too and play,
+   and the replay after Alt-Tab uses the same scale.
+3. **KMRP's black fill covers a DirectDraw overlay's colour key.** At most a second
+   cause, since the Universal Widescreen Patcher has no fill.
+
+**Unexplained:** why only the startup movies. The path for every story movie is the
+same, and players of the Universal Widescreen Patcher had black story movies instead,
+so the difference is more likely the driver's state than another branch of the game.
+
+**To tell them apart:**
+- **windowed mode** (`FullScreen=0`), which switched no mode even in vanilla;
+- **does a movie replay from its start after Alt-Tab?**
+- **the Bink type,** logged from `[buffer+0x80]` on a movie's first frame;
+- **test builds with one change each:** the first or the second pair back at 640x480,
+  or Bink's DIB section forced, the byte at `0x00405734` from `00` to `02` (flags
+  `0x5D000002`).
+
 ## Compatibility and limits
 
 The *K1 Cutscenes Rescaled* changelog says version 1.5.1 corrected a 60-fps
@@ -326,3 +523,16 @@ final SHA-256, and written-file SHA-256.
 the 3440x1440 report above; 16:9 and 4K transitions; Alt-Tab (a skip never minimised the game, 2026-09-25); the first title crawl; 30-fps versus
 60-fps movie sets; and Windows 10. No native game or x32dbg surface was exposed
 to this Codex session, so static verification is not presented as a play-test.
+
+*Since 2026-10-19:*
+- **What Alt-Tab does during a movie** is read from the code (*Alt-Tab and focus*),
+  still not watched.
+- **Untested as well:**
+  - which Bink buffer type any PC gets;
+  - windowed play;
+  - several playlists one after another;
+  - Windows 7 and AMD cards (issue 48);
+  - K1DC 2.0 beside a movie.
+- **The regression tests check bytes only.** `Test-MovieResolution.ps1` checks the
+  installer's `--apply` output and `Test-WindowsEngineSource.py` the recipe; neither
+  plays a movie.

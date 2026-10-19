@@ -161,7 +161,20 @@ row below.)
 | **Disengage in the HUD Size preview** | The preview shows the combat queue's frame round Disengage, as the game draws it, with the word centred. | | Yes, at 1920x1080 by scripted input. |
 | **HD font: every character, no stray lines** | The New HD Font shows the euro sign, curly quotes, ellipsis, dashes, the trade mark sign and Œ, Š, Ž as the original font does (they were boxes), and the lines after spaces in the HUD's font are gone. | #52 (the HD font) | The lines: seen before the fix at 1920x1080 and 3440x1440. After the rebuild: **not yet seen in the game**. |
 
-### Smaller installer, every resolution ready (uncommitted, 2026-10-19)
+### Marked Empty Containers, and a scrolling Advanced Settings (uncommitted, 2026-10-19)
+
+| Feature | What the player gets | Issues | Seen in play |
+| --- | --- | --- | --- |
+| **Marked Empty Containers** | ShaeMyName's patch, with the author's permission, on by default: a container or a body with nothing left in it is named "... (empty)" when pointed at. KOTOR Patch Manager's own released `.kpatch`, unchanged, installed as a further patch with no module. Its one hook and every address it uses checked against the game; it overlaps nothing of KMRP's, the controller patch's, K1DC's or High FPS Fixes'. | #43 | **Not yet.** Wants a look on both HUDs, since KMRP places and fits the same name label. |
+| **Advanced Settings scrolls** | Seven tiles at the size six had, two rows in view; a scrollbar drawn after KOTOR's (arrow boxes, rail, framed thumb) in the card's margin, the mouse wheel over the tiles, eased scrolling. | | **Not yet seen by the maintainer.** |
+
+### Modern Driver Compatibility left out where it cannot run (uncommitted, 2026-10-19)
+
+| Feature | What the player gets | Issues | Seen in play |
+| --- | --- | --- | --- |
+| **No K1DC on Windows 7** | On a PC without the six Windows 8 functions K1DC's two files import (Windows 7), the installer leaves K1DC out and says why in its log, and the Advanced Settings tile is off and disabled with "Needs Windows 8". Before, a default install there wrote a `dinput8.dll` that would keep the game from starting. [`third-party-driver-compat.md`](third-party-driver-compat.md), section 3. | #41, #48 | Not run on Windows 7. The skip path is tested on Windows 11 by faking the missing function (`Test-InstallerPatch.ps1`, case 9). |
+
+### Smaller installer, every resolution ready (committed `b5cbd6a`, 2026-10-19)
 
 | Feature | What the player gets | Issues | Seen in play |
 | --- | --- | --- | --- |

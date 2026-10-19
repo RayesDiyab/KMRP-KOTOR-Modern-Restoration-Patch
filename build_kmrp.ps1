@@ -440,6 +440,14 @@ $highFpsKpatch = Join-Path $projectRoot "third_party\Included\HighFpsFixes-1.0.1
 Invoke-Tool -Exe $Python -Label "High FPS Fixes" -FailureMessage "The bundled High FPS Fixes patch cannot be installed beside KMRP" -Arguments @(
     (Join-Path $projectRoot "tools\build_bundled_kpatch_config.py"), $highFpsKpatch,
     "--config-dir", $kpmConfigDir, "--id", "high-fps-fixes")
+# ShaeMyName's K1 Marked Empty Containers, the .kpatch as KOTOR Patch Manager 0.7.1's
+# release ships it (KPM's repository, MIT), installed while Marked Empty Containers is
+# on in Advanced Settings, the default (issue 43): one replace hook and no module, held
+# against both of KMRP's patches and the engine recipe like the patch above.
+$emptyContainersKpatch = Join-Path $projectRoot "third_party\Included\K1MarkedEmptyContainers-1.0.0 by ShaeMyName\K1MarkedEmptyContainers.kpatch"
+Invoke-Tool -Exe $Python -Label "Marked Empty Containers" -FailureMessage "The bundled Marked Empty Containers patch cannot be installed beside KMRP" -Arguments @(
+    (Join-Path $projectRoot "tools\build_bundled_kpatch_config.py"), $emptyContainersKpatch,
+    "--config-dir", $kpmConfigDir, "--id", "k1-marked-empty-containers")
 Complete-Step
 
 # ---------------------------------------------------------------- 7. the installer
@@ -471,6 +479,9 @@ $engineArgs += "/resource:$(Join-Path $kpmConfigDir 'kmrp-controller.hooks.toml'
 $engineArgs += "/resource:$highFpsKpatch,KmrpHighFps.kpatch"
 $engineArgs += "/resource:$(Join-Path $kpmConfigDir 'high-fps-fixes.hooks.toml'),KmrpHighFps.engine.hooks"
 $engineArgs += "/resource:$(Join-Path $projectRoot 'third_party\Included\HighFpsFixes-1.0.1 by D3M0\LICENSE'),Kmrp.license.highfps"
+$engineArgs += "/resource:$emptyContainersKpatch,KmrpEmptyContainers.kpatch"
+$engineArgs += "/resource:$(Join-Path $kpmConfigDir 'k1-marked-empty-containers.hooks.toml'),KmrpEmptyContainers.engine.hooks"
+$engineArgs += "/resource:$(Join-Path $projectRoot 'third_party\Included\K1MarkedEmptyContainers-1.0.0 by ShaeMyName\LICENSE'),Kmrp.license.emptycontainers"
 $engineArgs += "/resource:$(Join-Path $projectRoot 'src\patcher\KPM-PATCHES-README.txt'),Kmrp.kpatch.readme"
 Write-Bar -Percent 100 -Label "running the C# compiler"
 Invoke-Tool -Exe $compiler -Arguments ($compilerArgs + $engineArgs) -Label "compile" `

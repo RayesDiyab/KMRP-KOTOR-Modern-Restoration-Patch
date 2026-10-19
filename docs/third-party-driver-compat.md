@@ -172,6 +172,68 @@ their names and SHA-256 in **`KMRP_DriverCompat.manifest`** beside the executabl
   KOTOR Patch Manager's, loaded by KPM's `binkw32.dll` proxy
   ([kpm-edition.md](kpm-edition.md), section 1a), so K1DC's two files install
   together, with the option on, or not at all.
+* **Not on Windows 7** (since 2026-10-19). Both files import functions Windows 7 lacks,
+  read from their import tables; everything else they import is Windows Vista's or 7's:
+
+  | file | imports | from |
+  | --- | --- | --- |
+  | `dinput8.dll`, Ultimate ASI Loader 9.7.4, linker 14.51 | `CreateFile2`, `GetSystemTimePreciseAsFileTime` | `kernel32.dll`, Windows 8 |
+  | `.asi`, Rust (`i686-pc-windows-gnu`) | `WaitOnAddress`, `WakeByAddressAll`, `WakeByAddressSingle` | `api-ms-win-core-synch-l1-2-0.dll`, Windows 8 |
+  | `.asi` | `ProcessPrng` | `bcryptprimitives.dll`, Windows 8 |
+
+  Rust's standard library calls the last four (Rust 1.78 made Windows 10 its minimum);
+  they are not Synchro's own code. Windows will not load a DLL whose imports it
+  cannot find, and the game loads `dinput8.dll` as it starts, so installed on Windows 7
+  K1DC keeps the game from starting (the reporter of issue 41 met this with 1.0). Before
+  it writes anything, `DriverCompatOperations.Install` asks the PC for all six
+  (`MissingImport`: `LoadLibraryEx` from the system folder only, then `GetProcAddress`)
+  and leaves K1DC out where one is missing, naming it in the log. Advanced Settings then
+  shows the tile off and disabled, "Needs Windows 8" in amber, and keeps the player's
+  saved choice. Asked of the PC, not its version number, so Wine and Proton answer for
+  themselves. `testing/regression/Test-DriverCompatImports.py` holds the list against the
+  vendored files' import tables and fails when the files change, so that a new K1DC's
+  imports are read again; `Test-InstallerPatch.ps1` case 9 runs the skip with
+  `KMRP_TEST_MISSING_IMPORT` set. Not run on Windows 7.
+* **A Windows 7 build of the payload, tried on 2026-10-19 and not shipped.** K1DC's own
+  source at the `v2.0.0` tag (`3624ed4`, from Codeberg), unchanged, built with Rust's
+  tier-3 Windows 7 target instead of `i686-pc-windows-gnu`. Rust nightly 1.101.0
+  (2026-10-18) with `rust-src`, and WinLibs GCC 16.2.0 with MinGW-w64 14.0.0, i686,
+  msvcrt (the zip's SHA-256 `805D3E02...8FFA8A`, as published):
+
+  ```
+  cargo +nightly build --release --target i686-win7-windows-gnu -p k1-driver-compat \
+      --features standalone -Z build-std=std,panic_abort
+  ```
+
+  with `CARGO_TARGET_I686_WIN7_WINDOWS_GNU_LINKER` set to WinLibs'
+  `i686-w64-mingw32-gcc.exe`. The DLL is 760,320 bytes (SHA-256 `C1FE463B...902498`;
+  its build stamp makes each build differ). It has the same 10 exports and imports
+  none of the six; in their place, `SystemFunction036` from `advapi32.dll`, SRW locks
+  and fiber storage, all of Windows Vista or older. In the test game it logged line
+  for line what Synchro's build logs (section 4). The payload has not run on Windows 7.
+* **A loader for Windows 7: Ultimate ASI Loader 9.7.0** (found 2026-10-19, not shipped).
+  The loader's Windows 8 imports came with its move to Visual Studio 2026 (its commit
+  `d94eb18`, 2026-03-31). Read from the 32-bit `Ultimate-ASI-Loader.zip` of 17 releases:
+
+  | releases | linker | Windows 8 imports |
+  | --- | --- | --- |
+  | 6.9.0 to 9.7.0 (2024-01-20 to 2026-01-16) | 14.37 to 14.44 (Visual Studio 2022) | none |
+  | 9.7.1 to 9.7.4 (2026-04-03 to 2026-08-16) | 14.50, 14.51 (Visual Studio 2026) | `CreateFile2`, `GetSystemTimePreciseAsFileTime` |
+
+  9.7.0's `dinput8.dll` (2,376,192 bytes, SHA-256 `AD5D8D449CE305CAF62CB17D8698EBF17E94F9120EE993D0DD85211DFE14F8DD`,
+  git `f9f6ccf`) imports what 9.7.4 imports, less those two, plus five functions of Windows
+  XP (`TlsAlloc`, `TlsFree`, `TlsGetValue`, `TlsSetValue`,
+  `InitializeCriticalSectionAndSpinCount`). The 40 commits between the two:
+  - the toolset change;
+  - code signing;
+  - a `dxgi.dll` proxy;
+  - a check for one GTA release;
+  - zip overlays;
+  - "fix iat restoration" (`776f75c`), which restores the loader's own import-table
+    hooks when it unloads at exit and does not touch K1DC's.
+
+  None bears on KOTOR. In the test game, 9.7.0 with the Windows 7 payload above logged
+  line for line what Synchro's pair logs. Not run on Windows 7.
 * **On Steam's executable too.** K1DC's README lists the GOG, Steam and CD 1.0.3
   releases. Seen on 2026-09-29 in the maintainer's Steam test install, beside
   KMRP's new install: its log gave `hooks installed=8/8`, and the menus drew.
@@ -190,7 +252,14 @@ D3M0's High FPS Fixes (36 hooks), which the installer can install beside it. **0
 28 sites collide, and 0 of the 9 import slots.** All 28 sites hold the original bytes
 K1DC declares in the unmodified 1.03 executable. KMRP's movie fixes call through a
 different Bink import (`BinkBufferSetScale`, `0x0073D484`) than the one K1DC takes over.
-Not yet run in a game: K1DC 2.0.0 beside KMRP has not been played, movies included.
+**Run beside KMRP on 2026-10-19** in the test game (`build/party-roster-kpm-check/game`,
+3440x1440, KMRP and the controller patch, NVIDIA): three starts of up to 48 s, two with
+this build and one with a Windows 7 build of the same source (section 3). Each logged
+`hooks installed=28/28`, `install programs=67/67`, every interposed slot `owned`
+(`movie_decode` and `set_gamma_ramp` among them) and the shader installs. They set up
+again at the renderer rebuild after the startup movies (27.5 s), where both builds log
+`gl error site=soft_shadow raised=during errors=INVALID_OPERATION` once. Nothing was
+looked at on screen; gameplay and movies under K1DC 2.0.0 have not been watched.
 
 **1.2.0, 2026-09-24:**
 

@@ -97,6 +97,12 @@ version's; what differs on the Mac is at its end.
   ("3440 x 1440 @ 120 Hz"), including the rates above 85 Hz that the original
   hides. Without High FPS Fix the game is held at 60, as long as V-Sync stays on.
 
+**Empty containers**
+
+- Point at a footlocker or a body with nothing left in it and its name ends in
+  "(empty)", so you can skip it without opening it. ShaeMyName's K1 Marked Empty
+  Containers, on by default, with the author's permission.
+
 **Sharper artwork**
 
 - Party portraits in high quality (MadDerp).
@@ -161,12 +167,13 @@ version's; what differs on the Mac is at its end.
   Tested with the KOTOR 1 Community Patch and KOTOR 1 Restoration, in either order.
 - Restore Original undoes everything KMRP did, file by file.
 - Options behind the gear button: controller support, graphics-card compatibility,
-  the map note fixes, the HD item icons, High FPS Fix and diagnostic logs. Your
-  choices are remembered, and Restore Defaults puts them back.
+  the map note fixes, the HD item icons, High FPS Fix, Marked Empty Containers and
+  diagnostic logs. Your choices are remembered, and Restore Defaults puts them back.
 - An older KMRP is replaced when you patch again, and the installer tells you when a
   newer one is out.
 - KOTOR Patch Manager users get KMRP as two patches that sit beside their others,
-  and D3M0's High FPS Fixes as a third while High FPS Fix is on. Where KOTOR Patch
+  D3M0's High FPS Fixes as a third while High FPS Fix is on, and ShaeMyName's Marked
+  Empty Containers while that is on. Where KOTOR Patch
   Manager already looks after the game, the installer hands the patches to it.
 - Everything the installer does can also be run from the command line.
 - KMRP replaces UniWS and other widescreen patchers, High Resolution Menus, a
@@ -263,11 +270,13 @@ set `Style=PC` under `[Hud]` in `kmrp-controller.ini` beside the game. See
 KMRP is two KPM patches, each working without the other: `KMRP.kpatch` and the
 controller patch above. Both combine with other KPM patches. With High FPS Fix on,
 the installer adds a third beside them, D3M0's `HighFpsFixes.kpatch`, as its author
-released it.
+released it. With Marked Empty Containers on, the default, it adds
+`K1MarkedEmptyContainers.kpatch` as KPM's own release ships it.
 
 - The installer carries both and puts them in KPM's patch folder, the controller
   patch only while Native Controller Support is on, the High FPS Fixes patch only
-  while High FPS Fix is on. If KPM's runtime is already in the game
+  while High FPS Fix is on, Marked Empty Containers only while that is on. If KPM's
+  runtime is already in the game
   folder, the installer leaves the patches to KPM and says where the files are.
 - In KPM, tick `KMRP`, and the controller patch for the pad, then Apply and Launch.
   KMRP includes the 4 GB and memory fixes, so KPM's own ones stay unticked.
@@ -501,11 +510,14 @@ overwrites a mod you installed yourself.
 | Party Portraits | MadDerp | -- | No |
 | KOTOR 1 HD Icon Pack 1.0 | JackInTheBox | -- | **Yes** -- Advanced Settings |
 | [High FPS Fixes](https://github.com/gnw-d3m0/D3M0s-KPatches) 1.0.1 | D3M0 | MIT | **Yes, on where the display runs above 60 Hz** -- Advanced Settings |
+| [K1 Marked Empty Containers](https://deadlystream.com/files/file/3006-k1-marked-empty-containers/) 1.0.0, the KOTOR Patch Manager patch | ShaeMyName | MIT, as part of KOTOR Patch Manager, with the author's permission | **Yes, on by default**, Advanced Settings |
 
-**Advanced Settings**, the button beside *Start Patching*, is six tiles: Native
+**Advanced Settings**, the button beside *Start Patching*, is seven tiles: Native
 Controller Support, Modern Driver Compatibility, Area Map Marker Fixes, HD Item
-Icons, High FPS Fix and Debug Logs. The first four are on by default, each can be
-turned off on its own, and *Restore Defaults* puts every tile back. *High FPS Fix* installs D3M0's High
+Icons, High FPS Fix, Marked Empty Containers and Debug Logs. Two rows are in view;
+the scrollbar beside them or the mouse wheel brings up the third. All but High FPS
+Fix and Debug Logs are on by default, each can be turned off on its own, and
+*Restore Defaults* puts every tile back. *High FPS Fix* installs D3M0's High
 FPS Fixes as a third patch beside KMRP's two (timing and animation fixes for play
 above 60 frames per second); it is on by itself where your display runs above
 60 Hz and off on a 60 Hz display, until you set it yourself. *Debug Logs* is off

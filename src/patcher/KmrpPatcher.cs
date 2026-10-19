@@ -2352,6 +2352,75 @@ namespace Kmrp
 
         internal const string Version = "2.0.0";
 
+        // What K1DC's two files import that Windows 7 does not have, from their import
+        // tables (2.0.0, read 2026-10-19; everything else they import is Windows Vista's or
+        // Windows 7's): dinput8.dll the first two, the .asi the other four. Windows will
+        // not load a DLL whose imports it cannot find, and the game loads dinput8.dll as
+        // it starts, so on such a PC K1DC would keep the game from starting at all. The
+        // reporter of issue 41 met this with 1.0 on Windows 7. Asked of the PC rather than
+        // of its version number, so Wine and Proton answer for themselves.
+        // testing/regression/Test-DriverCompatImports.py fails when the vendored files
+        // change, so that this list is read again then.
+        private static readonly string[,] NewerImports =
+        {
+            { "kernel32.dll", "CreateFile2" },
+            { "kernel32.dll", "GetSystemTimePreciseAsFileTime" },
+            { "api-ms-win-core-synch-l1-2-0.dll", "WaitOnAddress" },
+            { "api-ms-win-core-synch-l1-2-0.dll", "WakeByAddressAll" },
+            { "api-ms-win-core-synch-l1-2-0.dll", "WakeByAddressSingle" },
+            { "bcryptprimitives.dll", "ProcessPrng" },
+        };
+
+        // The installer tests: this function counts as missing, so that the path a
+        // Windows 7 PC takes can be run on any PC.
+        private const string MissingImportVariable = "KMRP_TEST_MISSING_IMPORT";
+
+        private const uint LoadLibrarySearchSystem32 = 0x00000800;
+
+        [DllImport("kernel32.dll", CharSet = CharSet.Unicode, SetLastError = true)]
+        private static extern IntPtr LoadLibraryEx(string name, IntPtr reserved, uint flags);
+
+        [DllImport("kernel32.dll", CharSet = CharSet.Ansi, SetLastError = true)]
+        private static extern IntPtr GetProcAddress(IntPtr module, string name);
+
+        private static bool missingLooked;
+        private static string missing;
+
+        /// <summary>The first function K1DC needs that this PC lacks, as
+        /// "CreateFile2 in kernel32.dll", or null when it has them all.</summary>
+        internal static string MissingImport
+        {
+            get
+            {
+                if (missingLooked)
+                    return missing;
+                missingLooked = true;
+                string pretend = Environment.GetEnvironmentVariable(MissingImportVariable);
+                for (int i = 0; i < NewerImports.GetLength(0); i++)
+                {
+                    string library = NewerImports[i, 0], function = NewerImports[i, 1];
+                    // From the system folder only, never the folder the installer was
+                    // started from. A Windows 7 without update KB2533623 refuses the flag
+                    // itself, which gives the same answer.
+                    IntPtr module = LoadLibraryEx(library, IntPtr.Zero, LoadLibrarySearchSystem32);
+                    if (module == IntPtr.Zero || GetProcAddress(module, function) == IntPtr.Zero ||
+                        String.Equals(pretend, function, StringComparison.Ordinal))
+                    {
+                        missing = function + " in " + library;
+                        break;
+                    }
+                }
+                return missing;
+            }
+        }
+
+        /// <summary>Whether K1DC can run on this PC: Windows 8 or later, or a Wine with
+        /// the same functions.</summary>
+        internal static bool CanRunHere
+        {
+            get { return MissingImport == null; }
+        }
+
         private static string ManifestPath(string executablePath)
         {
             return Path.Combine(Path.GetDirectoryName(Path.GetFullPath(executablePath)),
@@ -2383,6 +2452,12 @@ namespace Kmrp
         {
             if (!Available)
                 return;
+            if (!CanRunHere)
+            {
+                SafeReport(report, "Modern Driver Compatibility was not installed: it needs Windows 8 or " +
+                    "later, and on this PC it would keep the game from starting (" + MissingImport + " is missing).");
+                return;
+            }
             string folder = Path.GetDirectoryName(Path.GetFullPath(executablePath));
             List<InstalledFile> installed = new List<InstalledFile>();
             int count = FileNames.Length;
@@ -4816,6 +4891,9 @@ namespace Kmrp
         // The bundled HD item icons, an option since 2026-10-08 (always installed
         // until then): a player asked on Deadly Stream why they were mandatory.
         private const bool HdIconsDefault = true;
+        // ShaeMyName's Marked Empty Containers, a fourth patch since 2026-10-19 (issue
+        // 43): on by default, at the maintainer's choice.
+        private const bool MarkedEmptyContainersDefault = true;
         // D3M0's High FPS Fixes, a third patch. Off unless asked for, on the morning of
         // 2026-10-09; since that afternoon, at the maintainer's request, on by itself
         // where the display can run above 60 Hz (HighFpsFixAuto), because the game's
@@ -4854,6 +4932,7 @@ namespace Kmrp
         private static bool driverCompatibility = DriverCompatibilityDefault;
         private static bool markerFixes = MarkerFixesDefault;
         private static bool hdIcons = HdIconsDefault;
+        private static bool markedEmptyContainers = MarkedEmptyContainersDefault;
         private static bool highFpsFix;
         private static bool highFpsFixChosen;   // the settings file holds the player's own choice
         private static bool controllerSupport = ControllerSupportDefault;
@@ -4915,6 +4994,20 @@ namespace Kmrp
             }
         }
 
+        /// <summary>Install ShaeMyName's Marked Empty Containers patch beside KMRP's: a
+        /// container or corpse with nothing in it is named "... (empty)" when hovered.</summary>
+        internal static bool MarkedEmptyContainers
+        {
+            get { Load(); return markedEmptyContainers; }
+            set
+            {
+                Load();
+                if (markedEmptyContainers == value)
+                    return;
+                markedEmptyContainers = value;
+                Save();
+            }
+        }
         /// <summary>Install D3M0's High FPS Fixes patch beside KMRP's.</summary>
         internal static bool HighFpsFix
         {
@@ -5031,6 +5124,12 @@ namespace Kmrp
                 if (icons.Success)
                     hdIcons = String.Equals(icons.Groups[1].Value, "true",
                         StringComparison.OrdinalIgnoreCase);
+                Match empty = Regex.Match(json,
+                    "\\\"markedEmptyContainers\\\"\\s*:\\s*(true|false)",
+                    RegexOptions.IgnoreCase | RegexOptions.CultureInvariant);
+                if (empty.Success)
+                    markedEmptyContainers = String.Equals(empty.Groups[1].Value, "true",
+                        StringComparison.OrdinalIgnoreCase);
                 Match fps = Regex.Match(json,
                     "\\\"highFpsFix\\\"\\s*:\\s*(true|false)",
                     RegexOptions.IgnoreCase | RegexOptions.CultureInvariant);
@@ -5077,6 +5176,7 @@ namespace Kmrp
                     "  \"controllerSupport\": " +
                     (controllerSupport ? "true" : "false") +
                     (hdIcons ? "" : ",\r\n  \"hdIcons\": false") +
+                    (markedEmptyContainers ? "" : ",\r\n  \"markedEmptyContainers\": false") +
                     (highFpsFixChosen ? ",\r\n  \"highFpsFix\": " + (highFpsFix ? "true" : "false") : "") +
                     (debugLogs ? ",\r\n  \"debugLogs\": true" : "") +
                     (skippedUpdate.Length > 0
@@ -5401,6 +5501,9 @@ namespace Kmrp
         /// <summary>A short fact about this PC, in green beside the title: "Display
         /// supports 120 Hz" on the High FPS Fix tile. Empty for none.</summary>
         internal string Note = "";
+        /// <summary>The note's colour: green for a fact in the option's favour, amber
+        /// (UiTheme.Warning) for the reason a disabled tile cannot be turned on.</summary>
+        internal Color NoteColor = UiTheme.Success;
         internal event EventHandler CheckedChanged;
 
         internal bool Checked
@@ -5429,6 +5532,14 @@ namespace Kmrp
         protected override void OnMouseEnter(EventArgs e) { hover = true; Invalidate(); base.OnMouseEnter(e); }
         protected override void OnMouseLeave(EventArgs e) { hover = false; Invalidate(); base.OnMouseLeave(e); }
         protected override void OnClick(EventArgs e) { Checked = !Checked; base.OnClick(e); }
+        // Disabled where the option cannot run on this PC (Modern Driver Compatibility on
+        // Windows 7): the switch is drawn dim and the hand cursor goes.
+        protected override void OnEnabledChanged(EventArgs e)
+        {
+            Cursor = Enabled ? Cursors.Hand : Cursors.Default;
+            Invalidate();
+            base.OnEnabledChanged(e);
+        }
 
         protected override void OnPaint(PaintEventArgs e)
         {
@@ -5479,7 +5590,7 @@ namespace Kmrp
                 int titleWidth = textWidth;
                 if (!String.IsNullOrEmpty(Note))
                 {
-                    using (SolidBrush noteInk = new SolidBrush(UiTheme.Success))
+                    using (SolidBrush noteInk = new SolidBrush(NoteColor))
                     using (StringFormat right = new StringFormat())
                     {
                         right.Alignment = StringAlignment.Far;
@@ -5508,11 +5619,12 @@ namespace Kmrp
                         pad, track.Top, Math.Max(1, switchLeft - pad - Math.Max(1, 8 * scale)), switchHeight), credit);
             }
 
+            bool lit = isChecked && Enabled;
             using (GraphicsPath path = UiTheme.RoundedRect(track, switchHeight / 2))
             {
-                using (SolidBrush fill = new SolidBrush(isChecked ? UiTheme.AccentStrong : UiTheme.Disabled))
+                using (SolidBrush fill = new SolidBrush(lit ? UiTheme.AccentStrong : UiTheme.Disabled))
                     g.FillPath(fill, path);
-                using (Pen edge = new Pen(isChecked ? UiTheme.Accent : UiTheme.CardEdge))
+                using (Pen edge = new Pen(lit ? UiTheme.Accent : UiTheme.CardEdge))
                     g.DrawPath(edge, path);
             }
             // The knob is white in both states, as on iOS: the state is carried by the
@@ -5521,8 +5633,381 @@ namespace Kmrp
             int knob = switchHeight - Math.Max(2, (int)Math.Round(8 * scale));
             int knobX = isChecked ? track.Right - knob - (switchHeight - knob) / 2
                                   : track.Left + (switchHeight - knob) / 2;
-            using (SolidBrush knobInk = new SolidBrush(isChecked ? Color.White : UiTheme.TextMuted))
+            using (SolidBrush knobInk = new SolidBrush(!Enabled ? UiTheme.TextFaint : isChecked ? Color.White : UiTheme.TextMuted))
                 g.FillEllipse(knobInk, knobX, track.Y + (switchHeight - knob) / 2, knob, knob);
+        }
+    }
+
+    /// <summary>The scrolled part of a page (Advanced Settings since 2026-10-19, when a
+    /// seventh tile came: the tiles keep the size six had, two rows in view). Its
+    /// children are laid out as if nothing were scrolled; this panel is shifted up by
+    /// the scroll.
+    ///
+    /// The window places every control from its design bounds whenever it is resized
+    /// (MainForm.ApplyControlScale), which would put this back at the top. So the scroll
+    /// is kept as a fraction of the distance there is to scroll, and every placement of
+    /// this panel is shifted by that fraction of the distance at the new size.</summary>
+    internal sealed class ScrollContent : Panel
+    {
+        private float fraction;
+        private int layoutTop;   // where the window's layout puts it, unscrolled
+
+        internal ScrollContent()
+        {
+            SetStyle(ControlStyles.AllPaintingInWmPaint | ControlStyles.OptimizedDoubleBuffer |
+                     ControlStyles.UserPaint, true);
+            BackColor = UiTheme.Card;
+        }
+
+        /// <summary>How far it is scrolled: 0 at the top, 1 at the bottom.</summary>
+        internal float Fraction
+        {
+            get { return fraction; }
+            set
+            {
+                float next = Math.Max(0F, Math.Min(1F, value));
+                if (Math.Abs(next - fraction) < 0.0001F)
+                    return;
+                fraction = next;
+                base.SetBoundsCore(Left, layoutTop - RangeAt(Height), Width, Height, BoundsSpecified.Location);
+            }
+        }
+
+        /// <summary>The distance it can be scrolled, in pixels: its height less the
+        /// viewport's.</summary>
+        internal int Range
+        {
+            get { return Parent == null ? 0 : Math.Max(0, Height - Parent.ClientSize.Height); }
+        }
+
+        private int RangeAt(int height)
+        {
+            int range = Parent == null ? 0 : Math.Max(0, height - Parent.ClientSize.Height);
+            return (int)Math.Round(fraction * range);
+        }
+
+        protected override void SetBoundsCore(int x, int y, int width, int height, BoundsSpecified specified)
+        {
+            if ((specified & BoundsSpecified.Y) != 0)
+                layoutTop = y;
+            base.SetBoundsCore(x, layoutTop - RangeAt(height), width, height, specified | BoundsSpecified.Y);
+        }
+    }
+
+    /// <summary>The window onto a ScrollContent: it clips it and eases it to where the
+    /// scrollbar or the wheel sends it.</summary>
+    internal sealed class ScrollViewport : Panel
+    {
+        internal readonly ScrollContent Content = new ScrollContent();
+        internal float UiScale = 1F;
+        /// <summary>What an arrow press or a wheel notch scrolls, at design size: a row
+        /// of tiles and the gap under it.</summary>
+        internal int DesignStep = 100;
+        internal event EventHandler Scrolled;
+        private readonly Timer ease = new Timer();
+        private float target;
+
+        internal ScrollViewport()
+        {
+            SetStyle(ControlStyles.AllPaintingInWmPaint | ControlStyles.OptimizedDoubleBuffer |
+                     ControlStyles.UserPaint, true);
+            BackColor = UiTheme.Card;
+            Controls.Add(Content);
+            ease.Interval = 15;
+            ease.Tick += delegate { Ease(); };
+        }
+
+        internal float Fraction { get { return Content.Fraction; } }
+        internal int Range { get { return Content.Range; } }
+        internal int StepPixels { get { return Math.Max(1, (int)Math.Round(DesignStep * UiScale)); } }
+
+        /// <summary>How much of the content is in view, 0 to 1.</summary>
+        internal float InView
+        {
+            get
+            {
+                return Content.Height <= 0 ? 1F : Math.Min(1F, ClientSize.Height / (float)Content.Height);
+            }
+        }
+
+        /// <summary>Scrolls to `fraction`: at once, or eased over a few frames.</summary>
+        internal void ScrollTo(float fraction, bool now)
+        {
+            target = Math.Max(0F, Math.Min(1F, fraction));
+            if (now)
+            {
+                ease.Stop();
+                Apply(target);
+            }
+            else if (!ease.Enabled)
+                ease.Start();
+        }
+
+        /// <summary>Scrolls by `pixels` at the current size, from where it is heading.</summary>
+        internal void ScrollBy(int pixels)
+        {
+            int range = Range;
+            if (range > 0)
+                ScrollTo(target + pixels / (float)range, false);
+        }
+
+        /// <summary>A WM_MOUSEWHEEL delta: 120 a notch, positive away from the player.</summary>
+        internal void Wheel(int delta)
+        {
+            ScrollBy(-delta * StepPixels / 120);
+        }
+
+        private void Ease()
+        {
+            float current = Content.Fraction;
+            float next = current + (target - current) * 0.35F;
+            if (Math.Abs(target - next) * Math.Max(1, Range) < 0.5F)
+            {
+                next = target;
+                ease.Stop();
+            }
+            Apply(next);
+        }
+
+        private void Apply(float fraction)
+        {
+            Content.Fraction = fraction;
+            if (Scrolled != null)
+                Scrolled(this, EventArgs.Empty);
+        }
+
+        protected override void Dispose(bool disposing)
+        {
+            if (disposing)
+                ease.Dispose();
+            base.Dispose(disposing);
+        }
+    }
+
+    /// <summary>A ScrollViewport's scrollbar, after KOTOR's own list scrollbars: an arrow
+    /// box at each end, a thin rail between them, and a framed thumb with cut corners and
+    /// a three-line grip, in the installer's blues (2026-10-19, the maintainer: "a
+    /// fitting look inspired by kotor"). The arrows step a row and repeat while held,
+    /// the rail pages, the thumb drags, and the wheel works anywhere over the page
+    /// (MainForm.WheelOverSettings). Draws nothing while everything is in view.</summary>
+    internal sealed class KotorScrollBar : Control
+    {
+        private enum Part { None, Up, Down, Thumb, Above, Below }
+
+        private readonly ScrollViewport viewport;
+        private readonly Timer repeat = new Timer();
+        private Part hover;
+        private Part pressed;
+        private int dragFrom;
+        private float dragFraction;
+
+        internal KotorScrollBar(ScrollViewport viewport)
+        {
+            this.viewport = viewport;
+            SetStyle(ControlStyles.AllPaintingInWmPaint | ControlStyles.OptimizedDoubleBuffer |
+                     ControlStyles.UserPaint | ControlStyles.ResizeRedraw, true);
+            BackColor = UiTheme.Card;
+            TabStop = false;
+            viewport.Scrolled += delegate { Invalidate(); };
+            viewport.Content.SizeChanged += delegate { Invalidate(); };
+            repeat.Tick += delegate
+            {
+                repeat.Interval = 70;
+                Act(pressed);
+            };
+        }
+
+        // The arrow boxes are square, as wide as the bar.
+        private Rectangle UpBox { get { return new Rectangle(0, 0, Width, Width); } }
+        private Rectangle DownBox { get { return new Rectangle(0, Height - Width, Width, Width); } }
+
+        private Rectangle Rail
+        {
+            get
+            {
+                int gap = Math.Max(2, Width / 3);
+                return Rectangle.FromLTRB(0, Width + gap, Width, Math.Max(Width + gap, Height - Width - gap));
+            }
+        }
+
+        private Rectangle Thumb
+        {
+            get
+            {
+                Rectangle rail = Rail;
+                int length = Math.Min(rail.Height, Math.Max(Width * 2, (int)Math.Round(rail.Height * viewport.InView)));
+                int top = rail.Top + (int)Math.Round((rail.Height - length) * viewport.Fraction);
+                return new Rectangle(0, top, Width, length);
+            }
+        }
+
+        private Part HitTest(Point p)
+        {
+            if (viewport.Range <= 0)
+                return Part.None;
+            if (UpBox.Contains(p))
+                return Part.Up;
+            if (DownBox.Contains(p))
+                return Part.Down;
+            Rectangle thumb = Thumb;
+            if (thumb.Contains(p))
+                return Part.Thumb;
+            if (Rail.Contains(p))
+                return p.Y < thumb.Top ? Part.Above : Part.Below;
+            return Part.None;
+        }
+
+        private void Act(Part part)
+        {
+            if (part == Part.Up)
+                viewport.ScrollBy(-viewport.StepPixels);
+            else if (part == Part.Down)
+                viewport.ScrollBy(viewport.StepPixels);
+            else if (part == Part.Above)
+                viewport.ScrollBy(-viewport.ClientSize.Height);
+            else if (part == Part.Below)
+                viewport.ScrollBy(viewport.ClientSize.Height);
+        }
+
+        protected override void OnMouseDown(MouseEventArgs e)
+        {
+            base.OnMouseDown(e);
+            if (e.Button != MouseButtons.Left)
+                return;
+            pressed = HitTest(e.Location);
+            if (pressed == Part.Thumb)
+            {
+                dragFrom = e.Y;
+                dragFraction = viewport.Fraction;
+            }
+            else if (pressed != Part.None)
+            {
+                Act(pressed);
+                repeat.Interval = 400;
+                repeat.Start();
+            }
+            Invalidate();
+        }
+
+        protected override void OnMouseMove(MouseEventArgs e)
+        {
+            base.OnMouseMove(e);
+            if (pressed == Part.Thumb)
+            {
+                int travel = Rail.Height - Thumb.Height;
+                if (travel > 0)
+                    viewport.ScrollTo(dragFraction + (e.Y - dragFrom) / (float)travel, true);
+                return;
+            }
+            Part now = HitTest(e.Location);
+            if (now != hover)
+            {
+                hover = now;
+                Invalidate();
+            }
+        }
+
+        protected override void OnMouseUp(MouseEventArgs e)
+        {
+            base.OnMouseUp(e);
+            pressed = Part.None;
+            repeat.Stop();
+            hover = HitTest(e.Location);
+            Invalidate();
+        }
+
+        protected override void OnMouseLeave(EventArgs e)
+        {
+            base.OnMouseLeave(e);
+            hover = Part.None;
+            Invalidate();
+        }
+
+        /// <summary>A rectangle with its corners cut, as KOTOR frames its buttons.</summary>
+        private static GraphicsPath Chamfered(RectangleF r, float cut)
+        {
+            GraphicsPath path = new GraphicsPath();
+            path.AddLines(new[]
+            {
+                new PointF(r.Left + cut, r.Top), new PointF(r.Right - cut, r.Top),
+                new PointF(r.Right, r.Top + cut), new PointF(r.Right, r.Bottom - cut),
+                new PointF(r.Right - cut, r.Bottom), new PointF(r.Left + cut, r.Bottom),
+                new PointF(r.Left, r.Bottom - cut), new PointF(r.Left, r.Top + cut),
+            });
+            path.CloseFigure();
+            return path;
+        }
+
+        private void DrawArrowBox(Graphics g, Rectangle box, bool up, Part part)
+        {
+            bool down = pressed == part;
+            bool lit = hover == part || down;
+            RectangleF r = new RectangleF(box.X + 0.5F, box.Y + 0.5F, box.Width - 1F, box.Height - 1F);
+            float cut = Math.Max(1.5F, box.Width / 4F);
+            using (GraphicsPath frame = Chamfered(r, cut))
+            using (SolidBrush fill = new SolidBrush(down ? UiTheme.AccentDark : lit ? UiTheme.PanelHover : UiTheme.PanelDeep))
+            using (Pen edge = new Pen(down ? UiTheme.Accent : lit ? UiTheme.AccentStrong : UiTheme.Border))
+            {
+                g.FillPath(fill, frame);
+                g.DrawPath(edge, frame);
+            }
+            float inset = box.Width * 0.3F;
+            float cx = box.X + box.Width / 2F;
+            float topY = box.Y + inset;
+            float bottomY = box.Bottom - inset;
+            PointF[] triangle = up
+                ? new[] { new PointF(cx, topY), new PointF(box.Right - inset, bottomY), new PointF(box.X + inset, bottomY) }
+                : new[] { new PointF(box.X + inset, topY), new PointF(box.Right - inset, topY), new PointF(cx, bottomY) };
+            using (SolidBrush ink = new SolidBrush(down ? Color.White : lit ? UiTheme.Accent : UiTheme.AccentStrong))
+                g.FillPolygon(ink, triangle);
+        }
+
+        protected override void OnPaint(PaintEventArgs e)
+        {
+            Graphics g = e.Graphics;
+            g.Clear(BackColor);
+            if (viewport.Range <= 0)
+                return;
+            g.SmoothingMode = SmoothingMode.AntiAlias;
+
+            // The rail: a hairline down the middle, as KOTOR's lists have.
+            Rectangle rail = Rail;
+            float mid = Width / 2F;
+            using (Pen line = new Pen(UiTheme.Border))
+                g.DrawLine(line, mid, rail.Top, mid, rail.Bottom);
+
+            DrawArrowBox(g, UpBox, true, Part.Up);
+            DrawArrowBox(g, DownBox, false, Part.Down);
+
+            // The thumb: a framed bar with cut corners, and a grip of three short lines.
+            Rectangle thumb = Thumb;
+            bool dragging = pressed == Part.Thumb;
+            bool lit = hover == Part.Thumb || dragging;
+            RectangleF r = new RectangleF(thumb.X + 0.5F, thumb.Y + 0.5F, thumb.Width - 1F, thumb.Height - 1F);
+            using (GraphicsPath frame = Chamfered(r, Math.Max(1.5F, thumb.Width / 4F)))
+            using (SolidBrush fill = new SolidBrush(dragging ? UiTheme.AccentStrong : lit ? UiTheme.AccentDark
+                                                                                    : Color.FromArgb(0, 58, 82)))
+            using (Pen edge = new Pen(lit ? UiTheme.Accent : UiTheme.AccentStrong))
+            {
+                g.FillPath(fill, frame);
+                g.DrawPath(edge, frame);
+            }
+            float spacing = Math.Max(2F, thumb.Width / 4F);
+            if (thumb.Height > spacing * 5)
+            {
+                float cy = thumb.Y + thumb.Height / 2F;
+                float half = thumb.Width * 0.22F;
+                using (Pen grip = new Pen(dragging ? Color.White : UiTheme.Accent))
+                    for (int i = -1; i <= 1; i++)
+                        g.DrawLine(grip, mid - half, cy + i * spacing, mid + half, cy + i * spacing);
+            }
+        }
+
+        protected override void Dispose(bool disposing)
+        {
+            if (disposing)
+                repeat.Dispose();
+            base.Dispose(disposing);
         }
     }
 
@@ -5663,6 +6148,12 @@ namespace Kmrp
         private readonly CardPanel mainCard;
         private readonly PillButton settingsButton;
         private readonly CardPanel settingsView;
+        // Advanced Settings' tiles scroll since 2026-10-19 (a seventh came, Marked Empty
+        // Containers): their viewport, its scrollbar, and the filter that sends the
+        // mouse wheel to them.
+        private readonly ScrollViewport settingsScroll;
+        private readonly KotorScrollBar settingsScrollBar;
+        private readonly SettingsWheel settingsWheel;
         private readonly OptionToggle driverToggle;
         private readonly OptionToggle markerToggle;
         private readonly OptionToggle controllerToggle;
@@ -5943,19 +6434,47 @@ namespace Kmrp
             settingsSubtitle.Anchor = AnchorStyles.Top | AnchorStyles.Left | AnchorStyles.Right;
             settingsView.Controls.Add(settingsSubtitle);
 
-            // Six tiles, three by two, since 2026-10-09 (rows until then: four, then five
-            // on 2026-10-08, then six that morning), in the order the maintainer set
-            // that day, read row by row: controller support first, then the bundled
-            // work of others, debug logs last. They share what the card has between the
-            // title and the buttons.
+            // Tiles three to a row, in the order the maintainer set on 2026-10-09, read row
+            // by row: controller support first, then the bundled work of others, debug
+            // logs last. Six, three by two, filled what the card has between the title and
+            // the buttons from that day (rows until then: four, then five on 2026-10-08,
+            // then six that morning). Since 2026-10-19 there are seven, Marked Empty
+            // Containers after High FPS Fix: the tiles keep the size six had, two rows in
+            // view, and the rows scroll, with a scrollbar after KOTOR's in the card's
+            // right margin (the maintainer's choice over a narrower or shorter grid).
             int optionGap = 10;
             int optionWidth = (card.Width - 72 - 2 * optionGap) / 3;
-            int optionRowHeight =
-                (card.Height - 96 - 8 - (settingsTitle.Bottom + 10) - optionGap) / 2;
             int optionRowTop = settingsTitle.Bottom + 10;
-            int optionSecondTop = optionRowTop + optionRowHeight + optionGap;
-            int optionColumn2 = 36 + optionWidth + optionGap;
+            int optionViewHeight = card.Height - 96 - 8 - optionRowTop;
+            int optionRowHeight = (optionViewHeight - optionGap) / 2;
+            const int optionRows = 3;
+            // Tile positions inside the scrolled panel.
+            int optionFirstTop = 0;
+            int optionSecondTop = optionRowHeight + optionGap;
+            int optionThirdTop = 2 * (optionRowHeight + optionGap);
+            int optionColumn1 = 0;
+            int optionColumn2 = optionWidth + optionGap;
             int optionColumn3 = optionColumn2 + optionWidth + optionGap;
+
+            settingsScroll = new ScrollViewport();
+            settingsScroll.SetBounds(36, optionRowTop, card.Width - 72, optionViewHeight);
+            settingsScroll.Anchor = AnchorStyles.Top | AnchorStyles.Left;
+            settingsScroll.DesignStep = optionRowHeight + optionGap;
+            settingsScroll.Content.SetBounds(0, 0, card.Width - 72,
+                optionRows * optionRowHeight + (optionRows - 1) * optionGap);
+            settingsView.Controls.Add(settingsScroll);
+            ScrollContent optionPanel = settingsScroll.Content;
+
+            // In the middle of the 36-pixel margin, as far from the tiles as from the
+            // card's edge.
+            const int scrollBarWidth = 14;
+            settingsScrollBar = new KotorScrollBar(settingsScroll);
+            settingsScrollBar.SetBounds(card.Width - 36 + (36 - scrollBarWidth) / 2, optionRowTop,
+                                        scrollBarWidth, optionViewHeight);
+            settingsScrollBar.Anchor = AnchorStyles.Top | AnchorStyles.Left;
+            settingsView.Controls.Add(settingsScrollBar);
+            settingsWheel = new SettingsWheel(this);
+            Application.AddMessageFilter(settingsWheel);
 
             controllerToggle = new OptionToggle();
             // What ships now, in one line: KMRP's native controller path with SDL3 beside
@@ -5971,22 +6490,31 @@ namespace Kmrp
             controllerToggle.Detail =
                 "Xbox, PlayStation, Switch and Steam Deck pads: prompts, rumble and the Xbox-style HUD.";
             controllerToggle.Checked = KmrpSettings.ControllerSupport;
-            controllerToggle.SetBounds(36, optionRowTop, optionWidth, optionRowHeight);
+            controllerToggle.SetBounds(optionColumn1, optionFirstTop, optionWidth, optionRowHeight);
             controllerToggle.Anchor = AnchorStyles.Top | AnchorStyles.Left;
             controllerToggle.CheckedChanged += delegate
             {
                 KmrpSettings.ControllerSupport = controllerToggle.Checked;
             };
-            settingsView.Controls.Add(controllerToggle);
+            optionPanel.Controls.Add(controllerToggle);
 
             driverToggle = new OptionToggle();
             driverToggle.Title = "Modern Driver Compatibility";
             driverToggle.Author = "Synchro";
             driverToggle.Detail =
                 "Fixes lighting, fog, reflections, soft shadows and grass on modern graphics cards.";
-            driverToggle.Checked = KmrpSettings.DriverCompatibility;
-            driverToggle.SetBounds(optionColumn2, optionRowTop, optionWidth, optionRowHeight);
+            driverToggle.Checked = KmrpSettings.DriverCompatibility && DriverCompatOperations.CanRunHere;
+            driverToggle.SetBounds(optionColumn2, optionFirstTop, optionWidth, optionRowHeight);
             driverToggle.Anchor = AnchorStyles.Top | AnchorStyles.Left;
+            // Off and disabled where K1DC cannot run (Windows 7): installed there, it
+            // would keep the game from starting. Set before the handler below, so the
+            // player's saved choice is kept for a PC that can run it.
+            if (!DriverCompatOperations.CanRunHere)
+            {
+                driverToggle.Enabled = false;
+                driverToggle.Note = "Needs Windows 8";
+                driverToggle.NoteColor = UiTheme.Warning;
+            }
             // Independent of the controller since 2026-09-24. This option installs
             // K1DC's ASI loader and its .asi together (DriverCompatOperations.Install);
             // KMRP's runtime needs neither since 2026-09-29, when it moved to KOTOR
@@ -5995,7 +6523,7 @@ namespace Kmrp
             {
                 KmrpSettings.DriverCompatibility = driverToggle.Checked;
             };
-            settingsView.Controls.Add(driverToggle);
+            optionPanel.Controls.Add(driverToggle);
 
             markerToggle = new OptionToggle();
             markerToggle.Title = "Area Map Marker Fixes";
@@ -6003,13 +6531,13 @@ namespace Kmrp
             markerToggle.Detail =
                 "Corrects misplaced area-map marker positions across the game.";
             markerToggle.Checked = KmrpSettings.MarkerFixes;
-            markerToggle.SetBounds(optionColumn3, optionRowTop, optionWidth, optionRowHeight);
+            markerToggle.SetBounds(optionColumn3, optionFirstTop, optionWidth, optionRowHeight);
             markerToggle.Anchor = AnchorStyles.Top | AnchorStyles.Left;
             markerToggle.CheckedChanged += delegate
             {
                 KmrpSettings.MarkerFixes = markerToggle.Checked;
             };
-            settingsView.Controls.Add(markerToggle);
+            optionPanel.Controls.Add(markerToggle);
 
             // The patch's hd-icons option, a row since 2026-10-08.
             OptionToggle iconsToggle = new OptionToggle();
@@ -6018,13 +6546,13 @@ namespace Kmrp
             iconsToggle.Detail =
                 "High-resolution item icons. Turn off to keep the game's own icons.";
             iconsToggle.Checked = KmrpSettings.HdIcons;
-            iconsToggle.SetBounds(36, optionSecondTop, optionWidth, optionRowHeight);
+            iconsToggle.SetBounds(optionColumn1, optionSecondTop, optionWidth, optionRowHeight);
             iconsToggle.Anchor = AnchorStyles.Top | AnchorStyles.Left;
             iconsToggle.CheckedChanged += delegate
             {
                 KmrpSettings.HdIcons = iconsToggle.Checked;
             };
-            settingsView.Controls.Add(iconsToggle);
+            optionPanel.Controls.Add(iconsToggle);
 
             // D3M0's High FPS Fixes, a third patch, off unless turned on here: a row
             // since 2026-10-09.
@@ -6047,7 +6575,23 @@ namespace Kmrp
             {
                 KmrpSettings.HighFpsFix = fpsToggle.Checked;
             };
-            settingsView.Controls.Add(fpsToggle);
+            optionPanel.Controls.Add(fpsToggle);
+
+            // ShaeMyName's Marked Empty Containers, a fourth patch, on by default: a tile
+            // since 2026-10-19 (issue 43).
+            OptionToggle emptyToggle = new OptionToggle();
+            emptyToggle.Title = "Marked Empty Containers";
+            emptyToggle.Author = "ShaeMyName";
+            emptyToggle.Detail =
+                "Adds \"(empty)\" to the name of a container or body with nothing left in it.";
+            emptyToggle.Checked = KmrpSettings.MarkedEmptyContainers;
+            emptyToggle.SetBounds(optionColumn3, optionSecondTop, optionWidth, optionRowHeight);
+            emptyToggle.Anchor = AnchorStyles.Top | AnchorStyles.Left;
+            emptyToggle.CheckedChanged += delegate
+            {
+                KmrpSettings.MarkedEmptyContainers = emptyToggle.Checked;
+            };
+            optionPanel.Controls.Add(emptyToggle);
 
             // The patch's debug-logs option: off by default, for a player who was asked
             // for logs with a bug report.
@@ -6057,13 +6601,13 @@ namespace Kmrp
             debugToggle.Detail =
                 "Writes diagnostic log files beside the game. Turn on when reporting a problem.";
             debugToggle.Checked = KmrpSettings.DebugLogs;
-            debugToggle.SetBounds(optionColumn3, optionSecondTop, optionWidth, optionRowHeight);
+            debugToggle.SetBounds(optionColumn1, optionThirdTop, optionWidth, optionRowHeight);
             debugToggle.Anchor = AnchorStyles.Top | AnchorStyles.Left;
             debugToggle.CheckedChanged += delegate
             {
                 KmrpSettings.DebugLogs = debugToggle.Checked;
             };
-            settingsView.Controls.Add(debugToggle);
+            optionPanel.Controls.Add(debugToggle);
 
             // An earlier fourth row, "KOTOR Patch Manager", installed for KPM on request from
             // 2026-09-29 to 2026-09-30. It was removed: KPM's files in the game folder
@@ -6089,9 +6633,10 @@ namespace Kmrp
             {
                 // The documented defaults: the three components on, debug logs off
                 // (KmrpSettings).
-                driverToggle.Checked = true;
+                driverToggle.Checked = DriverCompatOperations.CanRunHere;
                 markerToggle.Checked = true;
                 iconsToggle.Checked = true;
+                emptyToggle.Checked = true;
                 controllerToggle.Checked = true;
                 // High FPS Fix follows the display again: the toggle first, since
                 // setting it records a choice, then the choice forgotten.
@@ -6473,6 +7018,9 @@ namespace Kmrp
                 OptionToggle optionToggle = child as OptionToggle;
                 if (optionToggle != null)
                     optionToggle.UiScale = scale;
+                ScrollViewport scrollViewport = child as ScrollViewport;
+                if (scrollViewport != null)
+                    scrollViewport.UiScale = scale;
 
                 ApplyControlScale(child, scale, updateNativeFonts);
             }
@@ -6733,10 +7281,47 @@ namespace Kmrp
             return Math.Max(1, (int)Math.Round(value * uiScale));
         }
 
+        /// <summary>Windows sends the mouse wheel to the focused control, and on Advanced
+        /// Settings that is none of the tiles (they take no focus), so the window looks at
+        /// every wheel message first and scrolls the tiles while the pointer is over them
+        /// or their scrollbar.</summary>
+        private sealed class SettingsWheel : IMessageFilter
+        {
+            private const int WmMouseWheel = 0x020A;
+            private readonly MainForm form;
+
+            internal SettingsWheel(MainForm form)
+            {
+                this.form = form;
+            }
+
+            public bool PreFilterMessage(ref Message m)
+            {
+                if (m.Msg != WmMouseWheel)
+                    return false;
+                int delta = (short)((m.WParam.ToInt64() >> 16) & 0xFFFF);
+                return form.WheelOverSettings(delta);
+            }
+        }
+
+        private bool WheelOverSettings(int delta)
+        {
+            if (!settingsOpen || !settingsView.Visible || settingsScroll.Range <= 0)
+                return false;
+            Point pointer = Cursor.Position;
+            Rectangle area = Rectangle.Union(settingsScroll.RectangleToScreen(settingsScroll.ClientRectangle),
+                                             settingsScrollBar.RectangleToScreen(settingsScrollBar.ClientRectangle));
+            if (!area.Contains(pointer))
+                return false;
+            settingsScroll.Wheel(delta);
+            return true;
+        }
+
         protected override void Dispose(bool disposing)
         {
             if (disposing)
             {
+                Application.RemoveMessageFilter(settingsWheel);
                 FinishFade();
                 fontRetireTimer.Stop();
                 fontRetireTimer.Dispose();
@@ -6822,6 +7407,9 @@ namespace Kmrp
             if (show == settingsOpen)
                 return;
             settingsOpen = show;
+            // Advanced Settings opens at its first row every time.
+            if (show)
+                settingsScroll.ScrollTo(0F, true);
 
             // Any fade still running is finished instantly rather than cancelled, so the
             // control tree is in a settled state before the next capture.

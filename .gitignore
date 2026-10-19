@@ -129,6 +129,11 @@ third_party/Included/Xelu_Free_Controller&Key_Prompts/*
 # licence: the installer carries the file unchanged as an option, off by default
 # (2026-10-09). Its module is inside the .kpatch, so no *.dll negation is needed.
 !third_party/Included/HighFpsFixes-1.0.1 by D3M0/
+# K1 Marked Empty Containers 1.0.0 (ShaeMyName), the .kpatch as KOTOR Patch Manager
+# 0.7.1's release ships it, with KPM's MIT licence, whose repository the patch is part
+# of: an option of the installer, on by default (2026-10-19, issue 43, with the
+# author's permission). It has no module, only a replace hook.
+!third_party/Included/K1MarkedEmptyContainers-1.0.0 by ShaeMyName/
 # K1 Area Map Fixes (Derslok, GPL-3.0). We redistribute ONE file from it: the 250-entry
 # map-note correction table, which gold bakes into .kmn. Its licence and the author's
 # own technical notes ship with it so the data's provenance travels with the data. His

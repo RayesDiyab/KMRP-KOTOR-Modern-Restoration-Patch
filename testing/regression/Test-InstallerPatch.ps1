@@ -29,6 +29,12 @@
     Case 8 (2026-10-19): Modern Driver Compatibility on, off in every case above: the
     installer writes Synchro's two files, byte for byte the vendored 2.0.0 standalone
     build, beside the game with their manifest, and Restore Original removes them.
+    Case 9 (2026-10-19): the same on a PC that lacks a function K1DC imports (Windows 7,
+    faked with KMRP_TEST_MISSING_IMPORT): the install succeeds and writes neither file.
+    Case 10 (2026-10-19): Marked Empty Containers on, off in every case above (its default
+    is on): ShaeMyName's patch is the third in patch_config.toml with its one hook and no
+    DLL, nothing of it goes into patches\, its .kpatch is the bundled file, and Restore
+    Original removes all of it.
 
     Since 2026-10-19 case 1 also checks the art pack, patches\kmrp-assets.pack, the
     build's own, and the art the installer makes from it before the game starts: the
@@ -89,7 +95,7 @@ function Get-Listing([string]$folder) {
     }
 }
 function Set-KmrpSettings([bool]$controller, [bool]$markers, [string]$off = "", [string]$extra = "", [bool]$highFps = $false,
-                          [bool]$driverCompat = $false) {
+                          [bool]$driverCompat = $false, [bool]$emptyContainers = $false) {
     $text = "{`r`n  `"driverCompatibility`": " + $driverCompat.ToString().ToLowerInvariant() +
         ",`r`n  `"markerFixes`": " + $markers.ToString().ToLowerInvariant() +
         ",`r`n  `"controllerSupport`": " + $controller.ToString().ToLowerInvariant()
@@ -98,6 +104,9 @@ function Set-KmrpSettings([bool]$controller, [bool]$markers, [string]$off = "", 
     # Always written: left out, High FPS Fix follows this PC's display (on above 60 Hz),
     # and the cases would differ from one test machine to the next.
     $text += ",`r`n  `"highFpsFix`": " + $highFps.ToString().ToLowerInvariant()
+    # Always written too: left out, Marked Empty Containers is on, its default since
+    # 2026-10-19. The cases before it were written without it; case 10 turns it on.
+    $text += ",`r`n  `"markedEmptyContainers`": " + $emptyContainers.ToString().ToLowerInvariant()
     New-Item -ItemType Directory -Force -Path (Split-Path -Parent $kmrpSettings) | Out-Null
     [IO.File]::WriteAllText($kmrpSettings, $text + "`r`n}`r`n", [Text.UTF8Encoding]::new($false))
 }
@@ -339,6 +348,45 @@ try {
     Assert ((Invoke-Installer @("--restore", "`"$game`"")) -eq 0) "the restore succeeds"
     $after = Get-Listing $folder | Where-Object { $_ -notmatch 'swkotor\.ini\.kotor-ui-backup' }
     Assert (($after -join "`n") -eq ($before -join "`n")) "the folder is as it was, file for file: both files and the manifest are gone"
+
+    Write-Host "Case 9  Modern Driver Compatibility on, on a PC that cannot run it"
+    # KMRP_TEST_MISSING_IMPORT counts one of K1DC's Windows 8 functions as missing, the
+    # answer Windows 7 gives (DriverCompatOperations.MissingImport). Start-Process passes
+    # the variable to the installer.
+    Set-KmrpSettings $true $true "" "" $false $true
+    $game = New-Fixture "driver-compat-windows7"
+    $folder = Split-Path -Parent $game
+    $before = Get-Listing $folder
+    $env:KMRP_TEST_MISSING_IMPORT = "CreateFile2"
+    try { Assert ((Invoke-Installer @("--in-place", "`"$game`"", "1920x1080")) -eq 0) "the install succeeds without it" }
+    finally { Remove-Item Env:KMRP_TEST_MISSING_IMPORT -ErrorAction SilentlyContinue }
+    foreach ($name in @("dinput8.dll", "k1-modern-driver-compatibility.asi", "KMRP_DriverCompat.manifest")) {
+        Assert (-not (Test-Path -LiteralPath (Join-Path $folder $name))) "no $name beside the game"
+    }
+    Assert (((Get-Config $folder).Ids -join ",") -eq "kmrp,kmrp-controller") "KMRP's patch and the controller patch are installed as usual"
+    Assert ((Invoke-Installer @("--restore", "`"$game`"")) -eq 0) "the restore succeeds"
+    $after = Get-Listing $folder | Where-Object { $_ -notmatch 'swkotor\.ini\.kotor-ui-backup' }
+    Assert (($after -join "`n") -eq ($before -join "`n")) "the folder is as it was, file for file"
+
+    Write-Host "Case 10 Marked Empty Containers on"
+    Set-KmrpSettings $true $true "" "" $false $false $true
+    $game = New-Fixture "empty-containers"
+    $folder = Split-Path -Parent $game
+    $before = Get-Listing $folder
+    Assert ((Invoke-Installer @("--in-place", "`"$game`"", "1920x1080")) -eq 0) "the install succeeds"
+    $config = Get-Config $folder
+    Assert (($config.Ids -join ",") -eq "kmrp,kmrp-controller,k1-marked-empty-containers") "patch_config.toml holds KMRP's patch, the controller patch and Marked Empty Containers, in that order"
+    $section = [regex]::Match($config.Text, '(?s)id = "k1-marked-empty-containers"\r?\ndll = "([^"]*)"\r?\n(.*)$')
+    Assert ($section.Success -and $section.Groups[1].Value -eq "") "its section names no DLL, as KOTOR Patch Manager writes a patch without a module"
+    Assert ($section.Groups[2].Value -match '(?m)^address = 0x00685E69$' -and $config.Hooks -eq ($allHooks + $controllerHooks + 1)) "its one hook, at 0x00685E69, is in the config ($allHooks + $controllerHooks + 1)"
+    Assert (-not (Test-Path -LiteralPath (Join-Path $folder "patches\k1-marked-empty-containers.dll"))) "nothing of it in patches\"
+    $bundled = Join-Path $projectRoot "third_party\Included\K1MarkedEmptyContainers-1.0.0 by ShaeMyName\K1MarkedEmptyContainers.kpatch"
+    $emptyKpatch = Join-Path $kpmPatches "K1MarkedEmptyContainers.kpatch"
+    Assert ((Test-Path -LiteralPath $emptyKpatch) -and (Get-Sha $emptyKpatch) -eq (Get-Sha $bundled)) "K1MarkedEmptyContainers.kpatch in KOTOR Patch Manager's patch folder is the bundled file, unchanged"
+    Assert ((Invoke-Installer @("--restore", "`"$game`"")) -eq 0) "the restore succeeds"
+    $after = Get-Listing $folder | Where-Object { $_ -notmatch 'swkotor\.ini\.kotor-ui-backup' }
+    Assert (($after -join "`n") -eq ($before -join "`n")) "the folder is as it was, file for file"
+    Assert (-not (Test-Path -LiteralPath $emptyKpatch)) "the .kpatch this install created is removed"
 }
 finally {
     $env:LOCALAPPDATA = $playerLocalAppData

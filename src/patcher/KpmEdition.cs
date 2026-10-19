@@ -166,6 +166,15 @@ namespace Kmrp
         // KMRP's patches for overlaps.
         private const string HighFpsPatchId = "high-fps-fixes";
         private const string HighFpsKpatchResource = "KmrpHighFps.kpatch";
+        // ShaeMyName's K1 Marked Empty Containers (in KOTOR Patch Manager's repository,
+        // MIT), a fourth patch since 2026-10-19 (issue 43), installed while Marked Empty
+        // Containers is on in Advanced Settings, the default. The .kpatch as KPM 0.7.1's
+        // release ships it (third_party/Included/K1MarkedEmptyContainers-1.0.0 by
+        // ShaeMyName): one replace hook and no module, so its patch_config.toml section
+        // names no DLL, as KPM's own PatchApplicator writes it, and nothing of it goes
+        // into patches\.
+        private const string EmptyContainersPatchId = "k1-marked-empty-containers";
+        private const string EmptyContainersKpatchResource = "KmrpEmptyContainers.kpatch";
         private const string KpatchModuleEntry = "binaries/windows_x86.dll";
         // KMRP's art pack (tools/kmrp_pack.py), embedded as Kmrp.assets.pack and written
         // into patches\ beside the module, which reads it there. KOTOR Patch Manager
@@ -181,6 +190,8 @@ namespace Kmrp
             { "KOTOR 1 Native Controller Mod + Xbox HUD.kpatch", ControllerPatchId, ControllerKpatchResource,
               "KmrpController.engine.hooks" },
             { "HighFpsFixes.kpatch", HighFpsPatchId, HighFpsKpatchResource, "KmrpHighFps.engine.hooks" },
+            { "K1MarkedEmptyContainers.kpatch", EmptyContainersPatchId, EmptyContainersKpatchResource,
+              "KmrpEmptyContainers.engine.hooks" },
         };
         private static readonly string[] RetiredKpatchNames =
             { "KMRP Controller.kpatch", "KMRP Movies.kpatch", "KMRP Map Notes.kpatch" };
@@ -191,7 +202,7 @@ namespace Kmrp
         // an install made before 2026-10-04 has. Restore recognises an install that
         // KOTOR Patch Manager took over by these (KpmHoldsOnlyKmrp, RemoveKpmRuntime).
         private static readonly string[] EnginePatches =
-            { "kmrp", "kmrp-movies", "kmrp-map-notes", "kmrp-controller", "high-fps-fixes" };
+            { "kmrp", "kmrp-movies", "kmrp-map-notes", "kmrp-controller", "high-fps-fixes", "k1-marked-empty-containers" };
         // ------------------------------------------------------------ state
 
         internal static string ManifestPath(string executablePath)
@@ -858,8 +869,9 @@ namespace Kmrp
                 "Files, Verify integrity) and try again.", Path.Combine(folder, BinkName));
         }
 
-        /// <summary>The patches this install puts in: KMRP's, and the controller patch
-        /// unless Controller Support is off. KMRP's options are chosen separately
+        /// <summary>The patches this install puts in: KMRP's, the controller patch
+        /// unless Controller Support is off, High FPS Fixes while High FPS Fix is on, and
+        /// Marked Empty Containers while that is on. KMRP's options are chosen separately
         /// (PatchOptions).</summary>
         private static List<string> ChosenPatches()
         {
@@ -868,6 +880,8 @@ namespace Kmrp
                 patches.Add(ControllerPatchId);
             if (KmrpSettings.HighFpsFix)
                 patches.Add(HighFpsPatchId);
+            if (KmrpSettings.MarkedEmptyContainers)
+                patches.Add(EmptyContainersPatchId);
             return patches;
         }
 
@@ -911,9 +925,21 @@ namespace Kmrp
         /// under (Kpatches).</summary>
         internal static string PatchConfigSection(string id, string hooksResource, KeyValuePair<string, bool>[] options)
         {
+            return PatchConfigSection(id, hooksResource, options, true);
+        }
+
+        /// <summary>The same, for a patch with or without a module: one without names no
+        /// DLL (`dll = ""`), as KPM's PatchApplicator writes it, and KPM's runtime then
+        /// loads nothing for it (Marked Empty Containers, whose one hook is a replace
+        /// hook).</summary>
+        internal static string PatchConfigSection(string id, string hooksResource, KeyValuePair<string, bool>[] options,
+                                                  bool hasModule)
+        {
             StringBuilder section = new StringBuilder();
-            section.Append("[[patches]]\nid = \"").Append(id).Append("\"\ndll = \"")
-                .Append(PatchFolder).Append('/').Append(id).Append(".dll\"\n");
+            section.Append("[[patches]]\nid = \"").Append(id).Append("\"\ndll = \"");
+            if (hasModule)
+                section.Append(PatchFolder).Append('/').Append(id).Append(".dll");
+            section.Append("\"\n");
             section.Append(Encoding.UTF8.GetString(ReadResource(hooksResource)));
             foreach (KeyValuePair<string, bool> option in options)
             {
@@ -1027,16 +1053,21 @@ namespace Kmrp
             string config = "target_version_sha = \"" + exe.Hash + "\"\n";
             bool controller = patches.Contains(ControllerPatchId);
             bool highFps = patches.Contains(HighFpsPatchId);
-            // The High FPS Fixes patch has no options.
+            bool emptyContainers = patches.Contains(EmptyContainersPatchId);
+            // The bundled patches of others have no options.
             KeyValuePair<string, bool>[] none = new KeyValuePair<string, bool>[0];
             for (int i = 0; i < Kpatches.GetLength(0); i++)
             {
                 bool own = Kpatches[i, 1] == PatchId;
                 if (!patches.Contains(Kpatches[i, 1]))
                     continue;
-                WriteOwned(folder, PatchFolder + "\\" + Kpatches[i, 1] + ".dll", PatchModule(Kpatches[i, 2]), records);
+                // A patch without a module (Marked Empty Containers, the only one allowed
+                // to have none) puts nothing in patches\.
+                byte[] module = PatchModule(Kpatches[i, 2], Kpatches[i, 1] != EmptyContainersPatchId);
+                if (module != null)
+                    WriteOwned(folder, PatchFolder + "\\" + Kpatches[i, 1] + ".dll", module, records);
                 config += "\n" + PatchConfigSection(Kpatches[i, 1], Kpatches[i, 3],
-                    own ? options : Kpatches[i, 1] == ControllerPatchId ? controllerOptions : none);
+                    own ? options : Kpatches[i, 1] == ControllerPatchId ? controllerOptions : none, module != null);
             }
             WriteOwned(folder, ConfigName, new UTF8Encoding(false).GetBytes(config), records);
             WritePatchOptions(folder, OptionsName, options, records);
@@ -1059,6 +1090,7 @@ namespace Kmrp
             SafeReport(report, "Installed KOTOR Patch Manager's runtime with KMRP's patch" +
                 (controller ? " and the controller patch" : ", without controller support") +
                 (highFps ? ", and D3M0's High FPS Fixes" : "") +
+                (emptyContainers ? ", and ShaeMyName's Marked Empty Containers" : "") +
                 (off.Count == 0 ? ", every option on." : ", without: " + String.Join(", ", off.ToArray()) + "."));
         }
 
@@ -1292,8 +1324,10 @@ namespace Kmrp
 
         /// <summary>The patch's module, out of the embedded .kpatch: the installer carries
         /// it once, not twice. (Stored uncompressed while it held the art, 189 MB at most;
-        /// deflated since 2026-10-19, when the art became the pack and the module 0.7 MB.)</summary>
-        private static byte[] PatchModule(string resource)
+        /// deflated since 2026-10-19, when the art became the pack and the module 0.7 MB.)
+        /// Null for a patch without a module where `required` is false (Marked Empty
+        /// Containers); the .kpatch itself must be in this build either way.</summary>
+        private static byte[] PatchModule(string resource, bool required)
         {
             using (Stream stream = Assembly.GetExecutingAssembly().GetManifestResourceStream(resource))
             {
@@ -1302,6 +1336,8 @@ namespace Kmrp
                 using (ZipArchive zip = new ZipArchive(stream, ZipArchiveMode.Read, false))
                 {
                     ZipArchiveEntry entry = zip.GetEntry(KpatchModuleEntry);
+                    if (entry == null && !required)
+                        return null;
                     if (entry == null)
                         throw new InvalidDataException(resource + " carries no module.");
                     using (Stream module = entry.Open())
@@ -1444,17 +1480,21 @@ namespace Kmrp
         {
             for (int i = 0; i < Kpatches.GetLength(0); i++)
             {
-                // The controller patch's file only with Controller Support on, and the
-                // High FPS Fixes patch's only with High FPS Fix on.
+                // The controller patch's file only with Controller Support on, the High
+                // FPS Fixes patch's only with High FPS Fix on, and Marked Empty
+                // Containers' only with that on.
                 if (Kpatches[i, 1] == ControllerPatchId && !KmrpSettings.ControllerSupport)
                     continue;
                 if (Kpatches[i, 1] == HighFpsPatchId && !KmrpSettings.HighFpsFix)
                     continue;
-                // A copy of KMRP's own patches is brought up to this version. The High
-                // FPS Fixes patch is its author's: a file of that name already in the
-                // folder is the player's and is left as it is (no id to match).
+                if (Kpatches[i, 1] == EmptyContainersPatchId && !KmrpSettings.MarkedEmptyContainers)
+                    continue;
+                // A copy of KMRP's own patches is brought up to this version. The other
+                // two are their authors': a file of that name already in the folder is
+                // the player's and is left as it is (no id to match).
+                bool theirs = Kpatches[i, 1] == HighFpsPatchId || Kpatches[i, 1] == EmptyContainersPatchId;
                 WriteKpatch(Path.Combine(folder, Kpatches[i, 0]), ReadResource(Kpatches[i, 2]),
-                    Kpatches[i, 1] == HighFpsPatchId ? null : Kpatches[i, 1], records, report);
+                    theirs ? null : Kpatches[i, 1], records, report);
             }
             if (!withReadme)
                 return;
