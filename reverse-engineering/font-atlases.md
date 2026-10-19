@@ -57,7 +57,7 @@ font atlas — no others exist anywhere in the game.
 | `dialogfont16x16` | 256x256 | 16px | **Hardcoded engine default** — see below |
 | `dialogfont16x16a` | 256x256 | 10px | |
 | `dialogfont16x16b` | 256x256 | 16px | |
-| `dialogfont32x32` | 512x512 | 32px | |
+| `dialogfont32x32` | 512x512 | 32px | **Not used by the PC game** (searched 2026-10-19, below). Its letters are coloured blue in the atlas itself; every other menu atlas is white |
 | `fnt_console` | 128x128 | 16px | Hardcoded string ref (debug console, unconfirmed) |
 | `fnt_credits` | 512x512 | 19px | Hardcoded string ref (credits screen, confirmed prior session via `"fnt_credits"` @ 0x0068FB16) |
 | `fnt_creditsa` | 256x256 | 14px | |
@@ -72,6 +72,26 @@ font atlas — no others exist anywhere in the game.
 `fnt_galahad14` is legacy Aurora-engine naming; the real "Galahad" typeface is
 a calligraphic serif, nothing like what's actually in the atlas. The resref
 name is not a reliable guide to a font's role or style.
+
+**`dialogfont32x32` is never named, so never drawn** (searched 2026-10-19, static
+only). A font is loaded by name, from a layout file's `FONT` field or a name in the
+executable. Searched, each against `dialogfont16x16` as a known positive:
+
+| Where | Naming `dialogfont16x16` | Naming `dialogfont32x32` |
+| --- | ---: | ---: |
+| `swkotor.exe` (1.03, and the Steam build) | 1 string, at file `0x33E3DC` | 0 |
+| `data/gui.bif` (every vanilla layout) | 345 | 0 |
+| every other `data/*.bif`, `modules/*`, `rims/*`, `patch.erf`, `dialog.tlk` | 0 | 0 |
+| KMRP's layouts, all 134 resolution and common archives (10,956 `.gui`) | 10,164 | 0 |
+| the controller module's 17 `.gui` | | 0 |
+
+The executable's only font names are `dialogfont16x16`, `fnt_console`, `fnt_d16x16`
+and `fnt_credits`; it holds no `32x32` and no `%dx%d`, so it does not build the name
+either. The one hit in the game's files is the atlas itself, in
+`TexturePacks/swpc_tex_gui.erf`. So the atlas's own blue colour, which the HD styles'
+white letters do not have, shows only if a mod's layout names this font. A run-time
+check (the texture loaded after visiting every screen) was not done. Why the atlas
+ships is not known.
 
 ## Format facts (established by measurement)
 
