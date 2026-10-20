@@ -117,6 +117,39 @@ proxy, and it applies the executable changes above as well.
 
 ## [Unreleased]
 
+- **A Default button on the Controller Layout screen as it opens** (2026-10-20, at the
+  maintainer's request; `src/controller-native/K1ControllerLayout.cpp`). The view, before
+  Remap, now has (Y) Default beside (X) Remap and (B) Back, three across as while
+  remapping. It replaces a saved layout, so it asks first, in the box Unsaved Changes
+  uses: "Default Layout", "Every action goes back to its Xbox button.", "Replace your
+  saved layout?", (A) Default and (B) Cancel; Default saves the original Xbox layout as
+  Save would. Default is greyed, and does nothing, while there is nothing to put back:
+  in the view while the saved layout is the default, while remapping while the layout
+  being changed is (until now remapping's Default was never greyed). The log gains
+  `remap-default-ask` and `remap-default-saved`. Both modules build with no warning;
+  `Test-ButtonRemap.py`, `Test-KpatchSource.py`, `Test-ControllerKpatch.py` and
+  `Test-GeneratedGuiGeometry.py` pass. **Not seen in the game.**
+  The maintainer also asked that the first install of 1.6 start on the classic
+  layout and later installs keep what is saved. That needs no change and none was
+  made: no release saved a layout (`v1.5.1` has no `[Controller Remap]`), a layout
+  saved before 2026-10-19 has no `Layout=Xbox` and is not read, and Restore Original,
+  Upgrade and the install leave a saved layout's `KMRP\controller.ini` alone
+  ([controller-layout.md](docs/controller-layout.md), "The settings file"). Read from the code,
+  not run.
+  The maintainer's screenshot of the screen on 2026-10-21, at 3440x1440, showed Back's
+  caption "Solo mode" drawn into Start's "Last menu / Close menu", which issue 49
+  made longer (it was "Map / Close menu"). The screen now moves the two apart as it
+  lays itself out, measured in its own font: Start's only as far as RT's glyph
+  allows, Back's the rest ([controller-layout.md](docs/controller-layout.md),
+  "Captions"). Built, the same tests pass; not seen in the game.
+  The layout was checked the same day against issue 49's list, the Xbox manual's
+  controls page (page 5, read from archive.org's text of the manual the issue links)
+  and the Xbox tutorial lines in `dialog.tlk` (10283, 10291, 41874, 42430, 42461,
+  42462, 42475): every button matches but one detail. The issue says X also
+  flourishes outside combat; the build flourishes with Y when there is nothing to
+  undo, and with L3. The manual names no flourish button at all, and the PC's
+  keyboard has Flourish on its X key. The maintainer: "keep it as is".
+
 - **No screen-mode change after a movie** (2026-10-20, after `4a1cd73`). Not yet seen in
   the game. After every full-screen movie, the start-up movies and every story cutscene,
   the game rebuilt its renderer and set the display mode again (`ReInitAurora` at

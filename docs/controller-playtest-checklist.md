@@ -432,6 +432,12 @@ it says so.
 | [ ] | The same | X | nothing is saved while an action waits | | FUNC |
 | [ ] | The same, Y's row | A, then Y | Switch ally on Y; nothing waits; Save works | | FUNC |
 | [ ] | Remapping | Y | Default: the default layout back on screen, not yet saved | | FUNC |
+| [ ] | The view, a saved layout that is not the default (since 2026-10-20) | look | (Y) Default, (X) Remap and (B) Back three across; Default not grey | | FUNC |
+| [ ] | The same | Y | the "Default Layout" box: "Every action goes back to its Xbox button.", "Replace your saved layout?", (A) Default and (B) Cancel | | FUNC |
+| [ ] | Default Layout | B | back to the view; the saved layout and its dots unchanged | | FUNC |
+| [ ] | Default Layout | A | back to the view, no dots; `KMRP\controller.ini` holds the default layout with `Layout=Xbox`; Default now grey | | FUNC |
+| [ ] | The view, the default layout | Y | nothing: Default is grey | | FUNC |
+| [ ] | Remapping, the default layout | look | Default grey until something is changed | | FUNC |
 | [ ] | Remapping, a complete change | X | saved: `KMRP\controller.ini` (`kmrp-controller.ini` until 2026-10-20) has `[Controller Remap]` with `Layout=Xbox` and ten keys (no `Layout` line until 2026-10-19) | | FUNC |
 | [ ] | The screen opened | look at the rows | the captions of the Xbox layout (since 2026-10-19): "Previous target / Prev tab", "Pause", "Next target / Next tab", "Switch ally / Menu action", "Undo or flourish / Menu action", "Add to queue / Menu action", "Disengage / Back", "Last menu / Close menu", none cut short | | FUNC |
 | [ ] | Remapping, nothing unsaved | B | back to the view | | FUNC |

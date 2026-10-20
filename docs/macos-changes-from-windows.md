@@ -1597,3 +1597,30 @@ and screen-mode change after every movie (`RestoreResolutionFromMovie`'s 640x480
 the game's size, and the start-up anti-aliasing rebuild taken before the movies): if the
 Aspyr build rebuilds its renderer after a movie too, the Mac should do the same. **How to check:** a story movie on an ultrawide Mac
 screen has bars on all four sides.
+
+## 79. A Default button on the Controller Layout screen as it opens
+
+**State, 2026-10-20: to do** (item 60's screen; `docs/controller-layout.md`, "The screen,
+state by state"). The maintainer asked for a Default button on the Controller Layout
+screen. On Windows the view, before Remap, now has (Y) Default, (X) Remap and (B) Back,
+three across as while remapping. Default there asks first, in the box Unsaved Changes
+uses, with the title "Default Layout", the lines "Every action goes back to its Xbox
+button." and "Replace your saved layout?", and (A) Default and (B) Cancel; Default saves
+the default layout as Save does (`Layout=Xbox` and the ten keys) and goes back to the
+view. Default is grey and does nothing while there is nothing to put back, in the view
+and while remapping. Nothing in `K1ButtonRemapPolicy.h` changed (`Mapping::IsDefault` was
+already there); the change is the screen's (`K1ControllerLayout.cpp`: `Mode::Default`,
+`canDefault`, `askDefault`, `useDefault`).
+
+The same day the maintainer asked that the first install of 1.6 start on the classic
+layout and later installs keep what is saved. Windows needed no change for it (the
+CHANGELOG's entry says why); the Mac holds if its installer, like Windows', writes the
+controller's settings file only when it is absent and its restore keeps a changed one.
+
+On 2026-10-21 Back's caption "Solo mode" was seen drawn into Start's "Last menu / Close
+menu" at 3440x1440; the Windows screen now moves the two apart as it lays itself out
+(`layoutRemap`: Start's only as far as RT's glyph allows, Back's the rest). If the
+Mac's screen centres both over their glyphs too, it needs the same.
+**How to check:** with a saved layout, Default and then Default in the box gives the
+Xbox layout and a grey Default; Cancel changes nothing; the two captions above the
+diagram do not touch.

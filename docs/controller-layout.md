@@ -24,7 +24,8 @@ where nobody found it.
 
 **Since 2026-10-18 the screen is also where the pad's buttons are remapped**
 (uncommitted when written). It opens as a view of the layout, and a Remap button
-makes it editable. Everything about that is in [Button remapping](#button-remapping)
+makes it editable; since 2026-10-20 the view's Default button puts the original
+layout back after asking. Everything about that is in [Button remapping](#button-remapping)
 at the end of this document, including what has and has not been run.
 
 ### The screen
@@ -167,6 +168,30 @@ the longer captions, such as "Undo or flourish / Menu action", fit their boxes a
 every size has not been seen on screen, and `Test-ControllerPromptAssets.py`, which
 checks the fit after a resource build, was not run for this note.
 
+**Checked again, 2026-10-21**, against issue 49's own list and the Xbox manual's
+controls page (page 5, archive.org's text of the manual the issue links): White
+"Combat pause", Black "Cycle through characters", both triggers "Cycle through targets
+or cycle through menus", X "Add action to Action queue", Y "Delete action from Action
+queue", Back "Toggle Solo mode", Start "Access in-game menus", the right stick "Click
+for free look", A "Default action", B "Cancel", the D-pad "cycle through the Action
+menu". Every button matches. The one difference is the issue's "X also flourishes the
+weapon outside combat": the screen's layout flourishes with Y when nothing is queued,
+and with L3. The manual places flourish on no button, and the PC's keyboard has
+Flourish on its X key, which may be where the issue's line came from. The maintainer
+kept the layout as it is.
+
+**Back's and Start's captions met, 2026-10-21.** The maintainer's screenshot at
+3440x1440 showed "Solo mode" drawn into "Last menu / Close menu": each is centred
+over its glyph above the diagram, and Start's caption grew from "Map / Close menu"
+with issue 49, which the note above left unseen. `build_gui` can move the two apart
+(`separate_top`), but only the standalone patch's sets use it, because KMRP's sets
+are reproduced at install by a helper that does `build_gui`'s arithmetic without it.
+So the screen moves them apart as it lays itself out (`layoutRemap`), measured in the
+screen's own font: where the words would come closer than `TOP_CAPTION_GAP`, Start's
+caption moves right only as far as RT's glyph allows, and Back's moves left by the
+rest, as far as LT's glyph allows. A file whose captions are apart already, as the
+standalone's are, moves nothing. Built; **not seen in the game.**
+
 Plain ASCII, because the menu face has 95 printable-ASCII glyphs and nothing
 else.
 
@@ -267,6 +292,8 @@ panels, controls and callbacks. Useful events are:
 | `remap-saved` | Save wrote the layout to `KMRP\controller.ini` (`kmrp-controller.ini` until 2026-10-20) |
 | `remap-unsaved` | Close was pressed with changes not saved: the Unsaved Changes box opened |
 | `remap-exit` | Back to the view, by Close with nothing unsaved or by Discard |
+| `remap-default-ask` | Default pressed in the view: the Default Layout box opened (since 2026-10-20, as is the row below) |
+| `remap-default-saved` | Default in that box wrote the default layout to `KMRP\controller.ini` |
 
 The `opened` line counts the file's 47 controls and, since 2026-10-18, the 55 the
 remap screen makes; all of them are freed by the same destructor.
@@ -463,10 +490,17 @@ below). A pad glyph beside a button shows only while a pad is the device in use.
 
 | State | Footer | The pad | Mouse and keyboard |
 | --- | --- | --- | --- |
-| **View**, as the screen opens | (X) Remap, (B) Back; the help line | X: Remap. B leaves the screen. A and Y do nothing. Nothing can be focused | Remap and Back can be clicked; a row ignores a click; Escape leaves the screen |
+| **View**, as the screen opens | (Y) Default, (X) Remap, (B) Back; the help line | Y: Default, which asks first (the Default Layout box). X: Remap. B leaves the screen. A does nothing. Nothing can be focused | Default, Remap and Back can be clicked; a row ignores a click; Escape leaves the screen |
 | **Remapping** | (Y) Default, (X) Save, (B) Close; "(A) Change button" between the hairline and the buttons, pad only | the D-pad moves between the ten rows; A asks for the focused row's button; Y puts the default layout back (not saved); X saves when every action has a button; B is Close | click a row to ask for its button; Default, Save and Close can be clicked; Escape is Close |
 | **Waiting for a button** | hidden; the prompt in its place | the first remappable button pressed after the prompt opened is the row's new button; Back cancels; every menu event is swallowed | the prompt's Cancel button or Escape cancels; the keyboard cannot choose a button |
 | **Unsaved Changes** | hidden under a dimmed screen | A: Discard. B: Cancel | Discard and Cancel can be clicked; Escape is Cancel |
+| **Default Layout**, from the view's Default | hidden under a dimmed screen | A: Default, saved at once, back to the view. B: Cancel, back to the view | Default and Cancel can be clicked; Escape is Cancel |
+
+Default is greyed, as Save is while it cannot save, while there is nothing to put back:
+in the view (and its box) while the saved layout is the default, while remapping while
+the layout being changed is. A greyed Default does nothing. Until 2026-10-20 the view
+had only (X) Remap and (B) Back, Y did nothing there, and Default was never greyed; the
+maintainer asked that day for a Default button on the screen.
 
 Remap focuses the row the focus was last on, LT's row the first time after the
 screen opens. Close with
@@ -509,6 +543,13 @@ at 0.7), a box in the middle with the title `Unsaved Changes`, the lines `You ha
 saved your new controller layout.` and `Discard your changes?`, and (A) Discard and
 (B) Cancel.
 
+**The Default Layout box** (since 2026-10-20) is the same box, controls and places,
+with other words: the title `Default Layout`, the lines `Every action goes back to its
+Xbox button.` and `Replace your saved layout?`, and (A) Default and (B) Cancel. The
+words are set each time the box is laid out (`layoutRemap`), from the state. Default
+saves the default layout as Save would (`KmrpRemapSaveK1`: the section deleted, then
+`Layout=Xbox` and the ten keys) and returns to the view, which then shows no dots.
+
 **One press, one effect.** After Remap, after Close or Discard, and after a button is
 chosen or the wait cancelled, the screen ignores every event until every pad button,
 Start and Back included, is up and confirm is released (`settle`). B is acted on once
@@ -534,9 +575,9 @@ KMRP's sets have it (`buildRemap`, `layoutRemap`):
 | **Total** | **55** | | with the file's 47, 102 controls; `owned[]` holds 192 (`kOwnedSlots`, checked by a `static_assert`) |
 
 The file's own Back button is relabelled Back in the view and Close while remapping,
-and placed in the footer row with the others (Back and Remap as a centred pair in the
-view; Default, Save and Close three across while remapping; centres 1.4 times
-Back's width apart).
+and placed in the footer row with the others, three across with centres 1.4 times
+Back's width apart: Default, Remap and Back in the view, Default, Save and Close while
+remapping. Until 2026-10-20 the view had Back and Remap as a centred pair.
 
 **How a control is added** (`bindAppend`). The file's control array has no free slot,
 so a control is constructed, loaded from the tag's struct with the bind's store
@@ -721,8 +762,10 @@ as `Style` under `[Hud]` does (the comment at the top of `K1ButtonRemap.cpp`).
   are compared without case. A value that names no button, or two actions on one
   button, makes the layout incomplete, and an incomplete layout is not used at all:
   the default is, and the screen opens on it.
-- **Written** by Save only, with `WritePrivateProfileStringA`, which also makes the
-  file if it is missing. Since 2026-10-19 Save first deletes the whole section, so no
+- **Written** by Save, and since 2026-10-20 by the view's Default, which writes the
+  default layout the same way. The call is `WritePrivateProfileStringW` (this line said
+  `WritePrivateProfileStringA` until 2026-10-20, the call until that day's move into
+  `KMRP`), which also makes the file if it is missing. Since 2026-10-19 Save first deletes the whole section, so no
   key of the old layout is left behind, then writes the `Layout` line and the ten
   keys (until then it wrote the ten keys over whatever was there). The module takes
   the new layout only when the `Layout` line and all ten keys are written.
@@ -730,6 +773,15 @@ as `Style` under `[Hud]` does (the comment at the top of `K1ButtonRemap.cpp`).
   By the rule that Restore Original leaves alone a file changed since it was
   installed ([features-technical.md](features-technical.md), "Restore Original"), a
   saved layout should survive a restore. **Not tried.**
+- **The first install of 1.6 starts on the Xbox layout; after that, what is saved is
+  kept.** The maintainer asked for exactly this on 2026-10-20, and it needs nothing of
+  its own: no release saved a layout (remapping arrived on 2026-10-18 in `c2b0fac`;
+  the source of `v1.5.1`, 2026-10-12, has no `[Controller Remap]`), a layout saved by a 1.6 build
+  before 2026-10-19 has no `Layout` line and is not read (above), and a saved layout
+  changes the file, so Restore Original and Upgrade (a restore, then an install) leave
+  it, and the install, finding it there, does not write it (`KpmEditionOperations`:
+  `RemoveOwned` keeps a changed file; the install writes `KMRP\controller.ini` only
+  when it is absent). Read from the code; **not run.**
 
 ### Limits
 
@@ -759,7 +811,7 @@ Read from the code on 2026-10-18; none of these has been run.
 - **The keyboard and mouse cannot choose a button**: the prompt waits for the pad.
   They can open it, cancel it and use every other part of the screen.
 - **The view with a pad** offers nothing to focus, so the D-pad there does nothing.
-  That is the design (only X and B act), not seen.
+  That is the design (only Y, X and B act; X and B until 2026-10-20), not seen.
 
 ### What is deliberately not changed
 
@@ -781,7 +833,7 @@ mouse and keyboard by scripted input and checked in ddagrab screenshots:
 
 | What | Result |
 | --- | --- |
-| The screen opens | as the view, with Remap and Back; a click on a row does nothing |
+| The screen opens | as the view, with Remap and Back (Default joined them on 2026-10-20, after this test); a click on a row does nothing |
 | Remap | the footer becomes Default, Save and Close |
 | A click on a row | the prompt opens, the other rows faded |
 | Escape | cancels the prompt, then closes remapping, then leaves the screen |
@@ -811,6 +863,11 @@ and a saved layout surviving Restore Original. They are rows of
 action names; a save writing `Layout=Xbox`; a layout saved before that day opening
 as the Xbox defaults; and any of the new defaults in play.
 
+**Not seen at all, 2026-10-20:** the view's Default, its box, either Default greyed,
+and the three buttons across in the view. Both modules build with no warning, and
+`Test-ButtonRemap.py`, `Test-KpatchSource.py`, `Test-ControllerKpatch.py` and
+`Test-GeneratedGuiGeometry.py` pass; none of them runs the screen.
+
 ### Verifying by hand
 
 ```powershell
@@ -837,3 +894,7 @@ Then, after building the controller patch
    screen must open on the default layout.
 5. Delete the `Layout=Xbox` line by hand, leaving the ten keys on a layout that is not
    the default, and start the game: the screen must open on the default layout.
+6. With a saved layout that is not the default, press Default in the view, then
+   Default in its box: the log shows `remap-default-ask` and `remap-default-saved`, the
+   file holds the default layout above, the view shows no dots, and Default is greyed.
+   Cancel instead must leave the file as it was.

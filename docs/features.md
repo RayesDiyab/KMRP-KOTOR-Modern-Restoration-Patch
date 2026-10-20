@@ -183,7 +183,9 @@ bumpers, the triggers and the stick clicks on whichever of those buttons you lik
 pick an action and press its new button. Giving a button to an action takes it from
 the action that had it, which waits with an orange question mark until you give it
 another, and Save works once every action has a button. Default puts the original
-layout back, and Close asks before throwing away changes you have not saved. The
+layout back, and Close asks before throwing away changes you have not saved. Default
+is also on the screen as it opens, before Remap: it asks, then saves the original
+layout straight away. The
 sticks, the D-pad, Start and Back stay as they are. Your layout applies while you
 play; the menus keep every button where it always is. The button pictures on the
 HUD and in the pause notice show the buttons you chose. The layout is kept in

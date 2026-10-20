@@ -806,6 +806,9 @@ void updateEntryBadges() {
 // (Black, the Journal's sort) means nothing on this screen, and every one of them may
 // be chosen. Back cancels there, because it can never be chosen.
 //
+// Before Remap, in the view, Y is Default too (2026-10-20): it asks first, then saves
+// the default layout; greyed while the saved layout is already the default.
+//
 // The actions and their defaults are the original Xbox game's (issue 49, 2026-10-19).
 //
 // Nothing here is in the layout file: every control is made from one of the file's
@@ -829,10 +832,12 @@ constexpr float kOrange[3] = {245 / 255.0f, 140 / 255.0f, 30 / 255.0f};
 constexpr char kAsk[16] = "kmrrmask", kLock[16] = "kmrrmlock", kDot[16] = "kmrrmdot";
 constexpr char kBlack[16] = "blackfill";
 
-// View: the layout shown, nothing to change; Remap (X) or Back (B). Browse: remapping,
-// a row's A asks for its button; Default (Y), Save (X) or Close (B), which goes back to
-// View. Listen: a button awaited. Unsaved: Close with changes not saved.
-enum class Mode { View, Browse, Listen, Unsaved };
+// View: the layout shown, nothing to change; Default (Y), Remap (X) or Back (B). Browse:
+// remapping, a row's A asks for its button; Default (Y), Save (X) or Close (B), which
+// goes back to View. Listen: a button awaited. Unsaved: Close with changes not saved.
+// Default: the view's Default asking before it replaces the saved layout (the
+// maintainer, 2026-10-20: "add a default button to the controller layout").
+enum class Mode { View, Browse, Listen, Unsaved, Default };
 struct Remap {
     bool built = false;
     void* frame[kRemapRows] = {};
@@ -850,7 +855,7 @@ struct Remap {
     void* unsavedLine1 = nullptr; void* unsavedLine2 = nullptr;
     void* discard = nullptr; void* discardGlyph = nullptr; void* cancel = nullptr; void* cancelGlyph = nullptr;
     float cyan[3] = {};              // the captions' own colour, as the file gives it
-    float saveBorder[3] = {};        // Save's border colour, while it can be pressed
+    float saveBorder[3] = {};        // Save's and Default's border colour, while they can be pressed
     int help[4] = {}, back[4] = {}, backGlyph[4] = {};   // the file's, before anything moved
     int text[K1_LAYOUT_ROWS][4] = {};    // each row's caption box, as the file has it: every layout starts from it
 } rm;
@@ -942,6 +947,13 @@ void __fastcall discardPressed(void*, void*, void*);
 void __fastcall cancelPressed(void*, void*, void*);
 void __fastcall listenCancelPressed(void*, void*, void*);
 
+// Whether Default would change anything: the saved layout in the view (and in its box),
+// the layout being changed while remapping.
+bool canDefault() {
+    const bool view = mode == Mode::View || mode == Mode::Default;
+    return !(view ? KmrpRemapSavedK1() : editor.mapping).IsDefault();
+}
+
 // Made as the screen opens, before the file is let go (StopLoadFromLayout).
 bool buildRemap(void* p) {
     rm = Remap{};
@@ -1016,10 +1028,8 @@ bool buildRemap(void* p) {
     fn<Event>(0x41AB20)(rm.listenCancel, 0x27, p, reinterpret_cast<void*>(&listenCancelPressed));
     labelFill(rm.dim, kBlack);
     at<float>(rm.dim, 0x70 + 0x0C) = 0.7f;
-    setText(rm.unsavedTitle, "Unsaved Changes");
-    setText(rm.unsavedLine1, "You have not saved your new controller layout.");
-    setText(rm.unsavedLine2, "Discard your changes?");
-    setText(rm.discard, "Discard", true);
+    // The box's title, lines and first button are set as it is laid out (layoutRemap):
+    // it asks one of two things.
     setText(rm.cancel, "Cancel", true);
     fn<Event>(0x41AB20)(rm.discard, 0x27, p, reinterpret_cast<void*>(&discardPressed));
     fn<Event>(0x41AB20)(rm.cancel, 0x27, p, reinterpret_cast<void*>(&cancelPressed));
@@ -1107,8 +1117,37 @@ void layoutRemap() {
         const int size = g[3] * 9 / 20;
         place(row == kRowBack ? rm.lockBack : rm.lockStart, g[0] + (g[2] - size) / 2, g[1] + g[3] + g[3] / 10, size, size);
     }
-    // The footer: what A does, between the line and the buttons, and Default, Save and
-    // Back, each with its pad button. The help line above the line.
+    // Back's and Start's captions, each centred over its glyph above the diagram. Since
+    // Start's became "Last menu / Close menu" (issue 49) their words meet: "Solo mode"
+    // ran into "Last menu" at 3440x1440 (the maintainer's screenshot, 2026-10-21). They
+    // are moved apart here, measured in the screen's own font: Start's only as far as
+    // RT's glyph allows, Back's the rest, towards LT's. build_gui's separate_top does the
+    // same in the file for the standalone patch's sets, whose boxes are then apart
+    // already and do not move.
+    {
+        void* const backText = rowText(kRowBack);
+        void* const startText = rowText(kRowStart);
+        const int* bt = rm.text[kRowBack];
+        const int* st = rm.text[kRowStart];
+        const int bw = textWidth(backText), sw = textWidth(startText);
+        const int bc = bt[0] + bt[2] / 2, sc = st[0] + st[2] / 2;
+        const int gap = bt[3] * 12 / 26;           // TOP_CAPTION_GAP in TOP_CAPTION_H
+        const int shortBy = (bw + sw) / 2 + gap - (sc - bc);
+        int moveBack = 0, moveStart = 0;
+        if (shortBy > 0) {
+            const int* lt = rectOf(rowGlyph(KmrpRemap::LayoutRow[KmrpRemap::LT]));
+            const int* rt = rectOf(rowGlyph(KmrpRemap::LayoutRow[KmrpRemap::RT]));
+            const int roomLeft = (std::max)(0, bc - bw / 2 - (lt[0] + lt[2] + gap));
+            const int roomRight = (std::max)(0, rt[0] - gap - (sc + sw / 2));
+            moveStart = (std::min)(roomRight, shortBy / 2);
+            moveBack = (std::min)(roomLeft, shortBy - moveStart);
+            moveStart = (std::min)(roomRight, shortBy - moveBack);
+        }
+        place(backText, bt[0] - moveBack, bt[1], bt[2], bt[3]);
+        place(startText, st[0] + moveStart, st[1], st[2], st[3]);
+    }
+    // The footer: what A does, between the line and the buttons, and Default, Save (Remap
+    // in the view) and Back, each with its pad button. The help line above the line.
     void* const help = owned[9];
     void* const line = deco(5);
     const int* l = rectOf(line);
@@ -1132,13 +1171,14 @@ void layoutRemap() {
     const int gx = rm.backGlyph[0] - rm.back[0], gy = rm.backGlyph[1] - rm.back[1], gs = rm.backGlyph[2];
     void* const backButton = owned[1];
     void* const backGlyph = owned[K1_LAYOUT_BACK_GLYPH];
-    const bool view = mode == Mode::View;
+    // Default's box is the view's: the footer under it keeps the view's buttons.
+    const bool view = mode == Mode::View || mode == Mode::Default;
     setText(rm.save, view ? "Remap" : "Save", true);
     setText(backButton, view ? "Back" : "Close", true);
     struct { void* button; void* glyph; int centre; const char* code; } footer[] = {
         {rm.defaults, rm.defaultsGlyph, middle - step, "y"},
-        {rm.save, rm.saveGlyph, view ? middle - step / 2 : middle, "x"},
-        {backButton, backGlyph, view ? middle + step / 2 : middle + step, nullptr}};
+        {rm.save, rm.saveGlyph, middle, "x"},
+        {backButton, backGlyph, middle + step, nullptr}};
     for (auto& f : footer) {
         place(f.button, f.centre - bw / 2, rm.back[1], bw, bh);
         place(f.glyph, f.centre - bw / 2 + gx, rm.back[1] + gy, gs, gs);
@@ -1148,14 +1188,19 @@ void layoutRemap() {
             labelFill(f.glyph, resref);
         }
     }
-    // Save while the layout cannot be saved: grey, its glyph faint. Remap always can.
+    // Save while the layout cannot be saved, and Default while the layout already is the
+    // default: grey, the glyph faint. Remap always can.
     {
-        const bool can = view || complete;
-        float* border = reinterpret_cast<float*>(static_cast<char*>(rm.save) + 0x80 + 0x10);
-        const float* want = can ? rm.saveBorder : kGrey;
-        std::memcpy(border, want, sizeof rm.saveBorder);
-        at<float>(rm.saveGlyph, 0x70 + 0x0C) = can ? 1.0f : 0.35f;
-        fn<void(__thiscall*)(void*, const float*)>(0x414E10)(static_cast<char*>(rm.save) + 0x16C, can ? rm.cyan : kGrey);
+        const bool can[2] = {view || complete, canDefault()};
+        void* const button[2] = {rm.save, rm.defaults};
+        void* const glyph[2] = {rm.saveGlyph, rm.defaultsGlyph};
+        for (int i = 0; i < 2; ++i) {
+            float* border = reinterpret_cast<float*>(static_cast<char*>(button[i]) + 0x80 + 0x10);
+            std::memcpy(border, can[i] ? rm.saveBorder : kGrey, sizeof rm.saveBorder);
+            at<float>(glyph[i], 0x70 + 0x0C) = can[i] ? 1.0f : 0.35f;
+            fn<void(__thiscall*)(void*, const float*)>(0x414E10)(static_cast<char*>(button[i]) + 0x16C,
+                                                                 can[i] ? rm.cyan : kGrey);
+        }
     }
     {
         char resref[16] = {};
@@ -1212,14 +1257,21 @@ void layoutRemap() {
         labelFill(rm.discardGlyph, resref);
         sprintf_s(resref, "kmr%crmb", family);
         labelFill(rm.cancelGlyph, resref);
+        // The same box asks before the view's Default replaces the saved layout.
+        const bool asking = mode == Mode::Default;
+        setText(rm.unsavedTitle, asking ? "Default Layout" : "Unsaved Changes");
+        setText(rm.unsavedLine1, asking ? "Every action goes back to its Xbox button."
+                                        : "You have not saved your new controller layout.");
+        setText(rm.unsavedLine2, asking ? "Replace your saved layout?" : "Discard your changes?");
+        setText(rm.discard, asking ? "Default" : "Discard", true);
     }
-    // What shows in each state.
-    const bool browse = mode == Mode::Browse, listen = mode == Mode::Listen, unsaved = mode == Mode::Unsaved;
+    // What shows in each state. The box is up for Unsaved and for Default.
+    const bool browse = mode == Mode::Browse, listen = mode == Mode::Listen;
+    const bool unsaved = mode == Mode::Unsaved || mode == Mode::Default;
     const bool pad = IsControllerInputActiveK1();
-    for (void* c : {help, rm.save, backButton}) showControl(c, !listen);
-    showControl(rm.defaults, !listen && !view);
-    for (void* c : {rm.saveGlyph, backGlyph}) showControl(c, !listen && pad);
-    for (void* c : {rm.hintGlyph, rm.hintText, rm.defaultsGlyph}) showControl(c, !listen && !view && pad);
+    for (void* c : {help, rm.save, backButton, rm.defaults}) showControl(c, !listen);
+    for (void* c : {rm.saveGlyph, backGlyph, rm.defaultsGlyph}) showControl(c, !listen && pad);
+    for (void* c : {rm.hintGlyph, rm.hintText}) showControl(c, !listen && !view && pad);
     showControl(rm.discardGlyph, unsaved && pad);
     showControl(rm.cancelGlyph, unsaved && pad);
     for (void* c : {rm.listenBox, rm.listenTitle, rm.listenLine, rm.listenCancel}) showControl(c, listen);
@@ -1284,6 +1336,21 @@ void leave() {
     exitRemap();
 }
 void defaults() { editor.Reset(); remapDirty = true; }
+// The view's Default: it replaces the saved layout, so the box asks first.
+void askDefault() {
+    if (mode != Mode::View || !canDefault()) return;
+    mode = Mode::Default;
+    remapDirty = true;
+    log("remap-default-ask");
+}
+void useDefault() {
+    if (mode != Mode::Default) return;
+    if (KmrpRemapSaveK1(KmrpRemap::Mapping{})) log("remap-default-saved");
+    editor = KmrpRemap::Editor(KmrpRemapSavedK1());
+    mode = Mode::View;
+    settle = true;
+    remapDirty = true;
+}
 void saveLayout() {
     if (!editor.Complete()) return;
     if (KmrpRemapSaveK1(editor.mapping)) log("remap-saved");
@@ -1296,15 +1363,30 @@ void __fastcall rowPressed(void*, void*, void*) {
     void* const focus = at<void*>(current, 0x1C);
     for (int b = 0; b < kRemapRows; ++b) if (rm.frame[b] == focus) startListening(b);
 }
-void __fastcall defaultsPressed(void*, void*, void*) { ++callbacks; if (armed() && !settle && mode == Mode::Browse) defaults(); }
+void __fastcall defaultsPressed(void*, void*, void*) {
+    ++callbacks;
+    if (!armed() || settle) return;
+    if (mode == Mode::Browse) defaults();
+    else if (mode == Mode::View) askDefault();
+}
 void __fastcall savePressed(void*, void*, void*) {
     ++callbacks;
     if (!armed() || settle) return;
     if (mode == Mode::View) enterRemap();
     else if (mode == Mode::Browse) saveLayout();
 }
-void __fastcall discardPressed(void*, void*, void*) { ++callbacks; if (armed() && mode == Mode::Unsaved) exitRemap(); }
-void __fastcall cancelPressed(void*, void*, void*) { ++callbacks; if (armed() && mode == Mode::Unsaved) { mode = Mode::Browse; remapDirty = true; } }
+void __fastcall discardPressed(void*, void*, void*) {
+    ++callbacks;
+    if (!armed()) return;
+    if (mode == Mode::Unsaved) exitRemap();
+    else if (mode == Mode::Default) useDefault();
+}
+void __fastcall cancelPressed(void*, void*, void*) {
+    ++callbacks;
+    if (!armed()) return;
+    if (mode == Mode::Unsaved) { mode = Mode::Browse; remapDirty = true; }
+    else if (mode == Mode::Default) { mode = Mode::View; remapDirty = true; }
+}
 void __fastcall listenCancelPressed(void*, void*, void*) { ++callbacks; if (armed() && mode == Mode::Listen) endListening(); }
 
 // Every GUI frame while the screen is open: the button awaited, and the layout.
@@ -1348,13 +1430,15 @@ void handleBack() {
     if (settle) return;
     if (mode == Mode::View) { requestClose(); return; }
     if (mode == Mode::Unsaved) { mode = Mode::Browse; remapDirty = true; return; }
+    if (mode == Mode::Default) { mode = Mode::View; remapDirty = true; return; }
     if (mode == Mode::Listen) return;            // Back cancels there, read from the pad
     leave();
 }
-// The screen's own buttons, by position as every menu has them. View: X remaps, B
-// leaves, nothing else does anything. Remapping: A asks for a row's button (the row's
-// own event), Y puts back the default, X saves, B closes remapping. Waiting for a
-// button and just after a choice, every event is swallowed.
+// The screen's own buttons, by position as every menu has them. View: Y asks to put
+// back the default, X remaps, B leaves; A does nothing. Remapping: A asks for a row's
+// button (the row's own event), Y puts back the default, X saves, B closes remapping.
+// Either box: A for its first button, B to cancel. Waiting for a button and just after
+// a choice, every event is swallowed.
 bool remapInput(int event, int value) {
     if (!rm.built) return false;
     if (mode == Mode::Listen) {
@@ -1365,17 +1449,22 @@ bool remapInput(int event, int value) {
         return true;
     }
     if (settle) return true;
-    if (mode == Mode::Unsaved) {
+    if (mode == Mode::Unsaved || mode == Mode::Default) {
         if (value && armed()) {
-            if (event == 0x27) exitRemap();
-            else if (event == 0x28) handleBack();
+            if (event == 0x27) {
+                if (mode == Mode::Unsaved) exitRemap();
+                else useDefault();
+            } else if (event == 0x28) {
+                handleBack();
+            }
         }
         return true;
     }
     if (mode == Mode::View) {
         if (event == 0x28) { if (value) handleBack(); return true; }
         if (event == 0x29) { if (value && armed()) enterRemap(); return true; }
-        return event == 0x27 || event == 0x2A;
+        if (event == 0x2A) { if (value && armed()) askDefault(); return true; }
+        return event == 0x27;
     }
     if (event == 0x28) { if (value) handleBack(); return true; }
     if (event == 0x29) { if (value && armed()) saveLayout(); return true; }
@@ -1583,7 +1672,7 @@ void ControllerLayoutFrameK1(void* manager) {
             if (!complete) { destroy(p,nullptr,1); return; }
             fn<Event>(0x41AB20)(backButton,0x27,p,reinterpret_cast<void*>(&back));
             // Opened in View: nothing there is a place for the focus; the screen's
-            // buttons are pad buttons (Remap X, Back B).
+            // buttons are pad buttons (Default Y, Remap X, Back B).
             fn<SetActive>(0x40A630)(p,nullptr,0);
             family=0; device=-1; releasedFrames=0; refresh(); layoutRemap();
             fn<Add>(0x40BC70)(manager,p,3,1);
