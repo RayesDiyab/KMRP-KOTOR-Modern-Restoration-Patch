@@ -33,10 +33,11 @@ def main():
     template, recipe, fields, checked = engine.build()
     assert template == engine.build()[0], 'engine build is not deterministic'
     assert recipe.lengths == {'.kmn':4094,'.kui':445,'.klb':110,'.kfs':482,'.kwl':17,
-                             '.ksc':45,'.kgs':74,'.ktn':42,'.kmz':181,'.kfg':155,'.kmv':104}
-    # 452 since 2026-10-20: the movie fit's 16:9 area adds nine instructions to .kmv
-    # (443 until then).
-    assert len(fields) == 46 and checked == 452
+                             '.ksc':45,'.kgs':74,'.ktn':42,'.kmz':181,'.kfg':155,'.kmv':116}
+    # 457 since 2026-10-20: the movie fit's 16:9 area adds nine instructions to .kmv
+    # and its exception for a movie as large as the screen five more (443 until then;
+    # 452 in 4a1cd73, without the exception).
+    assert len(fields) == 46 and checked == 457
 
     # The movie display mode's operands, a second copy: the module leaves these size
     # fields alone when the feature is out (K1RuntimeEngine.cpp, FieldInForce). They must
@@ -47,7 +48,8 @@ def main():
     mode_runs = [(va, old, new) for feature, va, old, new in recipe.runs() if feature == 8]
     mode_bytes = {va + i for va, old, _ in mode_runs for i in range(len(old))}
     changed = {va + i for va, old, new in mode_runs for i, (a, b) in enumerate(zip(old, new)) if a != b}
-    assert listed_bytes <= mode_bytes and changed <= listed_bytes, (sorted(map(hex, listed)), len(mode_bytes))
+    # Besides the size fields, feature 8 has the start-up anti-aliasing branch, 0x5F92A8.
+    assert listed_bytes <= mode_bytes and changed <= listed_bytes | {0x5F92A8, 0x5F92A9}, (sorted(map(hex, listed)), len(mode_bytes))
 
     # Independent historical inventory: all 68 documented original-image edits
     # must remain covered by exact original bytes and the reference replacements.
@@ -116,7 +118,7 @@ def main():
             # mode's four operands, apart since 2026-10-20 (original-movie-mode).
             movie_bytes = {2: {va+i for va,n in [(0x405734,1),(0x4057AC,7)] for i in range(n)},
                            8: {va+i for va,n in [(0x403D6C,4),(0x403D78,4),(0x5F5B3B,4),
-                                                 (0x5F5B43,4)] for i in range(n)}}
+                                                 (0x5F5B43,4),(0x403EAD,4),(0x403EB9,4),(0x5F92A8,2)] for i in range(n)}}
             for feature,va,old,new in dat['runs']:
                 if feature in movie_bytes:
                     assert all(va+i in movie_bytes[feature] for i,(a,b) in enumerate(zip(old,new)) if a != b)
@@ -124,8 +126,8 @@ def main():
             applied, _, block = kpm_data.moved(dat,0,1|2|4|8)
             values = {va+i:b for va,_,new in applied for i,b in enumerate(new)}
             integer = lambda va: struct.unpack('<i',bytes(values[va+i] for i in range(4)))[0]
-            for va in (0x40AA65,0x5F0C65,0x403D6C,0x5F5B3B): assert integer(va) == width
-            for va in (0x40AA85,0x5F0C6F,0x403D78,0x5F5B43): assert integer(va) == height
+            for va in (0x40AA65,0x5F0C65,0x403D6C,0x5F5B3B,0x403EAD): assert integer(va) == width
+            for va in (0x40AA85,0x5F0C6F,0x403D78,0x5F5B43,0x403EB9): assert integer(va) == height
             assert integer(0x40B6C7) == integer(0x40BA6C) == -width
             assert integer(0x40B6DA) == integer(0x40BA83) == -height
             assert integer(0x695082) == width // 2

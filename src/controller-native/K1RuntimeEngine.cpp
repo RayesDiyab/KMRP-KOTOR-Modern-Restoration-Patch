@@ -16,13 +16,15 @@ int g_engineWidth = 0, g_engineHeight = 0;
 std::vector<std::array<std::uint8_t, 4>> g_engineValues;
 std::uint32_t g_engineFeatures = 0;
 
-// The movie display mode's four operands (kMovieMode, tools/build_windows_engine.py)
-// are size fields too. With original-movie-mode they are not KMRP's (their runs are not
-// applied), so a size change neither checks nor writes them; it refused every change
-// until 2026-10-20, found by reading this, not in play.
+// The movie display mode's six operands (kMovieMode, tools/build_windows_engine.py; four
+// until RestoreResolutionFromMovie's pair joined them, 2026-10-20) are size fields too.
+// With original-movie-mode they are not KMRP's (their runs are not applied), so a size
+// change neither checks nor writes them; it refused every change until 2026-10-20,
+// found by reading this, not in play.
 bool FieldInForce(const NativeField& field)
 {
-    constexpr std::uint32_t kMovieModeFields[] = {0x00403D6C, 0x00403D78, 0x005F5B3B, 0x005F5B43};
+    constexpr std::uint32_t kMovieModeFields[] = {0x00403D6C, 0x00403D78, 0x005F5B3B, 0x005F5B43,
+                                                  0x00403EAD, 0x00403EB9};
     if ((g_engineFeatures & kMovieMode) != 0) return true;
     for (const std::uint32_t va : kMovieModeFields)
         if (field.va == va) return false;

@@ -117,25 +117,47 @@ proxy, and it applies the executable changes above as well.
 
 ## [Unreleased]
 
+- **No screen-mode change after a movie** (2026-10-20, after `4a1cd73`). Not yet seen in
+  the game. After every full-screen movie, the start-up movies and every story cutscene,
+  the game rebuilt its renderer and set the display mode again (`ReInitAurora` at
+  `0x00403F07`), because `RestoreResolutionFromMovie` compares the mode it saved with
+  640x480 (`0x00403EA7`, `0x00403EB3`), which KMRP's size never is; `movies.md` had
+  recorded it and left it for later. Two reports the same day fit it: a player's 240 Hz
+  monitor lost its signal for half a second on quitting the game, until they added
+  KOTOR Patch Manager's own Movie Patch (by J, which never rebuilds after a movie), and
+  the maintainer's screen going black for a moment while playing. That pair now holds
+  the game's size, like the other two, written per resolution, so after a movie the
+  game only reactivates its window. The unpatched game left applying the anti-aliasing
+  setting to that rebuild after the start-up movies, so the branch that skips it at
+  start-up (`0x005F92A8`, `jne`) is now two NOPs and the setting is applied before the
+  movies, as KPM's Movie Patch does too. Both are part of the movie display mode
+  (feature 8), so `original-movie-mode=1` keeps the unpatched behaviour. The engine has
+  87 guarded sites; `Test-WindowsEngineSource.py` passes at 69 resolutions and checks the
+  new pair's values at each; K1DC's 28 hooks touch none of it. Also the same evening: a
+  movie at least as wide or as tall as the screen, a replacement made for it, fills the
+  screen again instead of the 16:9 area (`.kmv` 116 bytes).
+
 - **Movies: inside a 16:9 area, and drawn with GDI** (2026-10-20, issue 48). Not yet
   seen in the game, and not run on Windows 7 or with a Radeon.
   - *The 16:9 area* (the maintainer's choice: on 3440x1440 the 2.35:1 story movies filled
     the screen and looked zoomed in). The fit stub in `.kmv`
-    (`tools/build_movie_aspect_fit.py`, 104 bytes, 81 until now) fits each movie to
-    `min(client width, client height * 16 / 9)` and the game still centres it from the
-    client's edges:
+    (`tools/build_movie_aspect_fit.py`, 116 bytes, 81 until now) fits a movie smaller than
+    the screen both ways to `min(client width, client height * 16 / 9)`, and the game still
+    centres it from the client's edges. A movie at least as wide or as tall as the screen,
+    a replacement made for it, still fills it (in `4a1cd73` it was drawn in the area too,
+    2560x1071 for a 3440x1440 movie; the stub was 104 bytes):
 
-    | screen | 640x272 story movie | 640x360 movie | 640x480 logo |
-    | --- | --- | --- | --- |
-    | 3440x1440 | 2560x1088 (3388x1440 until now) | 2560x1440 | 1920x1440 |
-    | 1920x1080 and narrower | unchanged (1920x816) | unchanged | unchanged |
+    | screen | 640x272 story movie | 640x360 movie | 640x480 logo | a 3440x1440 replacement |
+    | --- | --- | --- | --- | --- |
+    | 3440x1440 | 2560x1088 (3388x1440 until now) | 2560x1440 | 1920x1440 | 3440x1440, unchanged |
+    | 1920x1080 and narrower | unchanged (1920x816) | unchanged | unchanged | unchanged |
 
   - *GDI instead of DirectDraw:* the byte at `0x00405734`, in the `push 0x5D000000`
     before `BinkBufferOpen`, goes from `00` to `02`, Bink's DIB section, for everyone.
     Issue 48's startup movies were black with sound on Windows 7 with a Radeon; the most
     likely cause is Bink's DirectDraw output not being shown over the full-screen OpenGL
     window, and a DIB section is drawn with GDI. A new site in
-    `src/engine/windows-sites.json`; the engine has 84 guarded sites and 452 proved
+    `src/engine/windows-sites.json`; the engine has 84 guarded sites and 457 proved
     instructions (83 and 443 before).
   - *A fallback for anyone it does not fix:* `original-movie-mode=1` in a section of its
     own, `[Movies]`, of `configs\kmrp.ini` (which an install keeps, where it rewrites

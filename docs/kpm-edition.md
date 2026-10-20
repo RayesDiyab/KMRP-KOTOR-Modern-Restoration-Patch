@@ -83,8 +83,14 @@ operands are a patch bit of their own, 8, apart from the rest of the movie chang
 2), so that `original-movie-mode=1` in `configs\kmrp.ini`, which only a player writes,
 can leave them out ([movies](../reverse-engineering/movies.md), *The fallback*). The
 recipe gained one run the same day, Bink's buffer type at `0x00405734` (bit 2), and
-`.kmv` is 104 bytes. Sections 3 and 4 below describe the bits and the block as they
-were.
+`.kmv` is 116 bytes (104 in `4a1cd73`). Sections 3 and 4 below describe the bits and the block as they
+were. Later that day (after `4a1cd73`) bit 8 grew to six runs: the third pair of movie
+operands, `0x00403EAD` and `0x00403EB9` (`RestoreResolutionFromMovie`'s comparison
+with 640x480, so that the game no longer rebuilds its renderer and sets the display mode
+again after every full-screen movie), and the branch at `0x005F92A8`, NOPed so that the
+anti-aliasing setting is applied at start-up rather than in that rebuild
+([movies](../reverse-engineering/movies.md), *The third pair*). The recipe has 87
+guarded runs (84 in `4a1cd73`).
 
 ## Two patches since 2026-10-05
 
@@ -632,9 +638,9 @@ it; the sweep now steps over undecodable bytes. That is why neither method is
 trusted alone.
 
 *Since 2026-10-20* (`relocations()` in `tools/build_windows_engine.py`, run in memory
-that day): `.kmv` is 104 bytes, with the 16:9 area in front of the code above
+that day): `.kmv` is 116 bytes (104 in `4a1cd73`), with the 16:9 area and its exception for a movie as large as the screen in front of the code above
 ([movies](../reverse-engineering/movies.md), *The 16:9 area*), so its one OUT field,
-the last jump's displacement, is at `0x00877064` rather than `0x0087704d`, and 452
+the last jump's displacement, is at `0x00877070` (`0x00877064` in `4a1cd73`) rather than `0x0087704d`, and 457
 instructions are proved after a move, not 443. Still 46 fields; the table above is
 gold's, as it was measured.
 
@@ -657,7 +663,8 @@ KMRP Controller changes no executable byte. (*Since 2026-10-20* there is a fourt
 one `kmrp` patch applies it unless `original-movie-mode=1` is in `configs\kmrp.ini`;
 an install of the old `kmrp-movies` patch would still get both 2 and 8
 (`InstalledFeatures`, `K1KpmApplier.cpp`). Bit 2 has gained Bink's buffer type at
-`0x00405734`.) What belongs to the two optional
+`0x00405734`. Later the same day bit 8 gained the third pair, `0x00403EAD` and
+`0x00403EB9`, and the branch at `0x005F92A8`; the table below is as it was.) What belongs to the two optional
 patches is decided in `BuildData`, and each run belongs to exactly one:
 
 | patch | what | where |

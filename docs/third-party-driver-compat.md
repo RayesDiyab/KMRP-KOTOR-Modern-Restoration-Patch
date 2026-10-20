@@ -282,6 +282,17 @@ declared original bytes. The new byte is an operand of the `push` before
 `BinkCopyToBuffer` hook does with frames copied into a DIB section, which GDI then
 draws, has not been run.
 
+**Rerun later on 2026-10-20** (after `4a1cd73`), the same script against the working
+tree: the engine recipe has 87 runs, the three new ones `0x00403EAD` and `0x00403EB9`
+(4 bytes each) and `0x005F92A8` (2 bytes), all in the movie display mode
+([`../reverse-engineering/movies.md`](../reverse-engineering/movies.md), *The third
+pair*). **0 of the 28 sites collide**, and all 28 hold their declared original bytes;
+none of the three is an import slot. One consequence for the run of 2026-10-19 above:
+with these changes there is no renderer rebuild after the startup movies any more, the
+rebuild at which K1DC's log showed it setting up again (27.5 s); the game makes one at
+start-up instead, before the movies, when `Anti Aliasing` in `swkotor.ini` is above 0.
+K1DC beside that has not been run.
+
 **1.2.0, 2026-09-24:**
 
 The KMRP installer changes **742 byte positions inside the original image, in 164

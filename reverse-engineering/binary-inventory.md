@@ -76,7 +76,7 @@ from it that day in two places:
   of `BinkBufferOpen`'s flags, so that Bink draws movies with GDI
   ([`movies.md`](movies.md), *KMRP asks for the DIB section*). The recipe has 84
   guarded runs (83 until then).
-- **`.kmv`** is 104 bytes, not 81: the movie fit is to a 16:9 area
+- **`.kmv`** is 116 bytes, not 81 (104 in `4a1cd73`): the movie fit is to a 16:9 area, unless the movie is as large as the screen
   ([`movies.md`](movies.md), *The 16:9 area*).
 
 The four movie display-mode operands are feature 8 of the recipe since the same day
@@ -85,6 +85,22 @@ The four movie display-mode operands are feature 8 of the recipe since the same 
 An `--apply` output of an installer built since then differs from gold at
 `0x00405734` and in `.kmv` as well; no such output was made or inventoried for this
 note.
+
+*Later on 2026-10-20 (after `4a1cd73`), read from the source; not regenerated:* three
+more runs outside gold, all feature 8 ([`movies.md`](movies.md), *The third pair* and
+*The anti-aliasing rebuild at start-up*):
+- **`0x00403EAD`** (FILE `0x003EAD`) and **`0x00403EB9`** (FILE `0x003EB9`), 4 bytes
+  each: the imm32 operands of `RestoreResolutionFromMovie`'s comparison with 640x480,
+  written with the size the game runs at like the other movie operands. Gold keeps
+  640 and 480 there;
+- **`0x005F92A8`** (FILE `0x1F92A8`), 2 bytes, `75 37` to `90 90`: the start-up
+  anti-aliasing rebuild is no longer skipped in full screen with start-up movies.
+  Gold keeps the `jne`.
+
+The recipe has 87 guarded runs, 855 bytes (84 and 845 until then), and
+`windows-sites.json` 70 records; the gold-era counts and §4's 68-run table above are
+unchanged. An `--apply` output made since differs from gold at these three runs too;
+none was made or inventoried for this note.
 
 ## 2. Reproducing it
 
@@ -182,7 +198,7 @@ disappeared from the executable" is otherwise an alarming thing to discover.
 "message-popup sizing". The builders that write them say otherwise, and the
 popup is sized entirely by in-place `imm32` operands, with no section at all.
 
-*Since 2026-10-20* the source-built recipe's `.kmv` uses 104 bytes of its page (the
+*Since 2026-10-20* the source-built recipe's `.kmv` uses 116 bytes of its page (104 in `4a1cd73`) (the
 16:9 area, [`movies.md`](movies.md)); the 81 above is gold v24's (§1, *Since
 2026-10-20*).
 

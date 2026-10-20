@@ -16,7 +16,8 @@ said the build no longer used it, which stopped being true when v25 was
 reverted.
 
 *Since 2026-10-20* build_stub fits the movie inside a 16:9 area of the client
-(104 bytes; 81 until then), and the build takes only build_stub from here
+(116 bytes; 81 until then, 104 in 4a1cd73 before a movie as large as the
+screen was exempted), and the build takes only build_stub from here
 (tools/build_windows_engine.py). main() still writes a whole executable, but it
 is no longer gold v24's, so its output hash is not checked: EXPECTED_OUTPUT_SHA256
 below is v24's, kept for the record.
@@ -81,10 +82,20 @@ def build_stub(stub_va: int) -> bytes:
     # continuation centres from the client's own edges (EDI and [esp+20] at 0x00405808),
     # not from this width, so the picture stays in the middle. Nothing changes on a
     # screen 16:9 or narrower.
+    #
+    # Except a movie at least as wide or as tall as the client, which is fitted to the
+    # whole client as before (the maintainer, 2026-10-20): a replacement made for the
+    # screen, 3440x1440 on a 3440x1440 screen, fills it rather than standing 2560x1071
+    # in the 16:9 area. The game's own movies, 640 wide, always get the area.
     code = bytearray.fromhex(
         "57 "                    # push edi
+        "8B 4E 48 "              # mov ecx,[esi+48]       ; BINK*
+        "39 19 "                 # cmp [ecx],ebx          ; movie width : client width
+        "7D 1C "                 # jge fitted             ; at least as wide: the whole client
         "8B C5 "                 # mov eax,ebp
         "2B 44 24 28 "           # sub eax,[esp+28]       ; client height
+        "39 41 04 "              # cmp [ecx+4],eax        ; movie height : client height
+        "7D 11 "                 # jge fitted             ; at least as tall: the whole client
         "C1 E0 04 "              # shl eax,4              ; * 16
         "99 "                    # cdq
         "B9 09 00 00 00 "        # mov ecx,9

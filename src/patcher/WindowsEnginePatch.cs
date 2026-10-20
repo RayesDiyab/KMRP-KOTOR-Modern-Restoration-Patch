@@ -194,8 +194,9 @@ namespace Kmrp
             ResolutionPatch.WriteInt32(image, optional + 56, 0x478000);
             ResolutionPatch.WriteInt32(image, optional + 64, 0);
             string[] names = { ".kui", ".klb", ".kfs", ".kwl", ".ksc", ".kgs", ".ktn", ".kmz", ".kfg", ".kmn", ".kmv" };
-            // .kmv: 104 since 2026-10-20, the movie fit's 16:9 area (81 until then).
-            int[] used = { 445, 110, 482, 17, 45, 74, 42, 181, 155, 4094, 104 };
+            // .kmv: 116 since 2026-10-20, the movie fit's 16:9 area and its exception for a
+            // movie as large as the screen (81 until then; 104 in 4a1cd73, without the exception).
+            int[] used = { 445, 110, 482, 17, 45, 74, 42, 181, 155, 4094, 116 };
             for (int i = 0; i < names.Length; i++)
             {
                 int at = table + (sections + i) * 40;

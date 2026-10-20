@@ -1587,10 +1587,13 @@ loose beside the game, and the remap and the HUD style survive.
 
 **State, 2026-10-20: to check.** Windows fits every movie inside a 16:9 area of the
 screen (the `.kmv` fit stub, `tools/build_movie_aspect_fit.py`): at 3440x1440 a 2.35:1
-story movie is 2560x1088 where it filled the screen. The maintainer chose it for
-ultrawide screens; the Mac's movie fit should follow if it fills the height too.
+story movie is 2560x1088 where it filled the screen; a movie at least as wide or as tall
+as the screen still fills it. The maintainer chose it for ultrawide screens; the Mac's movie fit should follow if it fills the height too.
 Windows also makes Bink draw with GDI (`0x00405734`, `00` to `02`) for issue 48, black
 startup movies on Windows 7 with a Radeon, with `original-movie-mode=1` in
 `configs\kmrp.ini` as a fallback. Those two are about Windows' Bink and DirectDraw and
-do not apply to the Aspyr build. **How to check:** a story movie on an ultrawide Mac
+do not apply to the Aspyr build. The same evening Windows stopped the renderer rebuild
+and screen-mode change after every movie (`RestoreResolutionFromMovie`'s 640x480 pair at
+the game's size, and the start-up anti-aliasing rebuild taken before the movies): if the
+Aspyr build rebuilds its renderer after a movie too, the Mac should do the same. **How to check:** a story movie on an ultrawide Mac
 screen has bars on all four sides.

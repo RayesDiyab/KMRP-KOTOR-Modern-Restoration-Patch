@@ -271,7 +271,12 @@ Movies have a pair of their own: `ChangeResolutionForMovie` (`0x00403CF0`) calls
 `ReInitAurora(640, 480, 32, fullscreen, 0)` unless the game is at that size, and
 `RestoreResolutionFromMovie` (`0x00403DE0`) calls it again with the size it saved.
 KMRP writes the running size into the first, so nothing changes
-([movies.md](movies.md)).
+([movies.md](movies.md)). *Corrected 2026-10-20:* that held for the first call only.
+`RestoreResolutionFromMovie` compares the saved size with a 640x480 of its own, so
+after every full-screen playlist it called `ReInitAurora` at the running size. Since
+that day (after commit `4a1cd73`) KMRP writes the running size into that comparison
+too (`0x00403EAD`, `0x00403EB9`), so neither call is made
+([movies.md](movies.md), *The third pair*).
 
 ## 10. Open
 

@@ -169,8 +169,9 @@ action row below.)
 
 | Feature | What the player gets | Issues | Seen in play |
 | --- | --- | --- | --- |
-| **Movies in a 16:9 area** | On a screen wider than 16:9 every movie is fitted inside a 16:9 area in the middle, with black bars round it: at 3440x1440 the story movies are 2560x1088 (they filled the screen before and looked zoomed in). 16:9 and narrower screens are unchanged. | | **Not yet.** |
+| **Movies in a 16:9 area** | On a screen wider than 16:9 every movie is fitted inside a 16:9 area in the middle, with black bars round it: at 3440x1440 the story movies are 2560x1088 (they filled the screen before and looked zoomed in). A movie mod made for the screen (as large as it) still fills it. 16:9 and narrower screens are unchanged. | | **Not yet.** |
 | **Movies drawn with GDI** | Bink draws movies with GDI (its DIB section) instead of DirectDraw, for everyone: KMRP's fix for black startup movies with sound on Windows 7 with a Radeon. `original-movie-mode=1` in `configs\kmrp.ini` brings back the game's own switch to 640x480 for movies, as a fallback. | #48 | **Not yet,** and not run on Windows 7 or with AMD. |
+| **No screen-mode change after a movie** | After a movie the game no longer rebuilds its renderer and sets the screen mode again; it only goes back to its window. Meant to end the moment of black screen after cutscenes and a monitor losing its signal on quitting (two reports, 2026-10-20); anti-aliasing is applied at start-up instead. | | **Not yet** (uncommitted). |
 | **One `KMRP` folder** | KMRP's own files are no longer loose beside the game: logs in `KMRP\logs`, the restore backups in `KMRP\backups`, the manifests, the controller's settings and KOTOR Patch Manager's licence in `KMRP`. An earlier install's files move there by themselves. | | **Not yet;** the installer test with an old-layout folder (case 11) has not been run. |
 
 ### The original Xbox controls (committed `f2435a2`, 2026-10-19)

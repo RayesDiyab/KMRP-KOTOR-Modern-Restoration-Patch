@@ -66,7 +66,7 @@ misplaced map notes.
 
 | In the original game | With KMRP |
 | --- | --- |
-| Starting a movie switches the monitor to 640x480; the game can flicker, minimise or lose focus. | Movies play at the resolution the game is running at. No switch, no flicker. |
+| Starting a movie switches the monitor to 640x480; the game can flicker, minimise or lose focus. | Movies play at the resolution the game is running at. No switch, no flicker. The game also no longer resets the screen after each movie, which may be what made the screen go black for a moment on some PCs (new, not yet in a release, not yet seen in the game). |
 | On wide screens movies are zoomed in and cropped. | The whole picture is shown, with black bars where the movie is narrower than the screen. On a screen wider than 16:9, such as 3440x1440, movies are shown at the size they would have on a 16:9 screen of the same height, in the middle, with black around them (new, not yet in a release, not yet seen in the game; until then the widest movies filled an ultrawide screen and looked zoomed in). |
 
 Also new, not yet in a release and not yet tried on the PCs it is for: movies are

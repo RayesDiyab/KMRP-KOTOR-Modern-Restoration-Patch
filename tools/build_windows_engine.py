@@ -106,8 +106,13 @@ def assemble():
     if sites['format'] != 1:
         raise ValueError('unsupported Windows sites format')
     # 0x405734 is Bink's buffer type, DIB section (GDI) since 2026-10-20 (issue 48).
+    # 0x5F92A8, the same day: the jne that leaves the anti-aliasing rebuild at start-up
+    # (ReInitAurora at 0x5F92D9) to the one after the start-up movies, NOPed, since with
+    # RestoreResolutionFromMovie's pair at the game's size there is no rebuild after them
+    # (KOTOR Patch Manager's Movie Patch does the same at 0x5F929A).
     movie_sites = {0x405734: MOVIES, 0x4057AC: MOVIES,
-                   0x403D6C: MOVIE_MODE, 0x403D78: MOVIE_MODE, 0x5F5B3B: MOVIE_MODE}
+                   0x403D6C: MOVIE_MODE, 0x403D78: MOVIE_MODE, 0x5F5B3B: MOVIE_MODE,
+                   0x5F92A8: MOVIE_MODE}
     for site in sites['sites']:
         va = int(site['va'], 16)
         recipe.site(va, bytes.fromhex(site['original']), bytes.fromhex(site['replacement']),
@@ -117,6 +122,11 @@ def assemble():
     for va, old, new, feature in [
         (0x403D6C,640,3440,MOVIE_MODE), (0x403D78,480,1440,MOVIE_MODE),
         (0x5F5B3B,640,3440,MOVIE_MODE), (0x5F5B43,480,1440,MOVIE_MODE),
+        # The third 640x480, RestoreResolutionFromMovie's (cmp at 0x403EA7 and 0x403EB3,
+        # imm32 at +6): the game's size since 2026-10-20, so that after a movie the game
+        # only reactivates its window (0x00401E00) instead of rebuilding the renderer and
+        # setting the display mode again (ReInitAurora, 0x00403F07).
+        (0x403EAD,640,3440,MOVIE_MODE), (0x403EB9,480,1440,MOVIE_MODE),
         (0x40AA65,640,3440,CORE), (0x40AA85,480,1440,CORE),
         (0x5F0C65,800,3440,CORE), (0x5F0C6F,600,1440,CORE),
         (0x40B6C7,-640,-3440,CORE), (0x40BA6C,-640,-3440,CORE),

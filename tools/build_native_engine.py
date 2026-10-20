@@ -36,8 +36,8 @@ def resolution_fields():
     fields = []
     def add(kind, base, addresses, size=4):
         fields.extend((va, size, kind, base) for va in addresses)
-    add(1, 0, [0x40AA65, 0x403D6C, 0x5F5B3B, 0x6928B3])
-    add(2, 0, [0x40AA85, 0x403D78, 0x5F5B43, 0x6928C3])
+    add(1, 0, [0x40AA65, 0x403D6C, 0x5F5B3B, 0x403EAD, 0x6928B3])
+    add(2, 0, [0x40AA85, 0x403D78, 0x5F5B43, 0x403EB9, 0x6928C3])
     add(4, 0, [0x40B6C7, 0x40BA6C])
     add(5, 0, [0x40B6DA, 0x40BA83])
     add(6, 0, [0x69505C])

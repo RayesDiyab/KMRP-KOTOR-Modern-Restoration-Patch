@@ -51,6 +51,14 @@ section*). The 81 above was not updated when two guards were added on 2026-10-09
 (commit `da12c81`: the message popup's widening step at `0x006256FC` and the store
 row's stack-count label at `0x006C2704`), which made 83.
 
+*Later on 2026-10-20 (after `4a1cd73`; counted from `build()` in memory):* **87 runs**
+covering **855** guarded bytes, and `windows-sites.json` has 70 records. The three new
+runs are feature 8: the third pair of movie display-mode operands, `0x00403EAD` and
+`0x00403EB9` (integer fields of the builder, 4 bytes each), and the start-up
+anti-aliasing branch at `0x005F92A8` (a site record, 2 bytes)
+([movies](../reverse-engineering/movies.md), *The third pair* and *The anti-aliasing
+rebuild at start-up*).
+
 [`build_windows_engine.py`](../tools/build_windows_engine.py) invokes the existing
 assembly emitters directly and refuses conflicting source patches. It generates
 the eleven pages below, with their established logical base `0x0086D000`. The
@@ -68,7 +76,7 @@ module allocates them elsewhere and relocates references at runtime.
 | `.kmz` | `0x00874000` | 181 | `build_minimap_zoom_fix` |
 | `.kfg` | `0x00875000` | 155 | `build_minimap_fog_fix` |
 | `.kmn` | `0x00876000` | 4,094 | `build_map_note_table` and Derslok's approved 250-entry table |
-| `.kmv` | `0x00877000` | 104 (81 until 2026-10-20) | `build_movie_aspect_fit`; the fit inside a 16:9 area since 2026-10-20 ([movies](../reverse-engineering/movies.md), *The 16:9 area*) |
+| `.kmv` | `0x00877000` | 116 (81 until 2026-10-20; 104 in `4a1cd73`) | `build_movie_aspect_fit`; the fit inside a 16:9 area since 2026-10-20, unless the movie is as large as the screen ([movies](../reverse-engineering/movies.md), *The 16:9 area*) |
 
 Each page occupies 4,096 bytes. Only `.kfs` is writable, because it holds its
 font cache. The source template is **48,012 bytes**, SHA-256
@@ -80,12 +88,18 @@ were added. Read from `build()` in memory: at commit `f2435a2` (2026-10-19) the
 template was 48,188 bytes, SHA-256
 `60EA98EBD17A234EA37E982E224310641CC71B839DC242781310CAE2C8169233`; with the changes
 of 2026-10-20 it is **48,202 bytes**, SHA-256
-`B37B1910076438026944FA1968C4701381B8B6264C31A6EE539AADED96EDB102`.
+`3B3D95211DA1392E667DF2FBBF5E5E525A903CD0522F9FEA853A6D45926AF1F7` (`B37B1910076438026944FA1968C4701381B8B6264C31A6EE539AADED96EDB102`
+in `4a1cd73`, before the stub's exception for a movie as large as the screen).
+*Later the same day*, with the three feature-8 runs above, it is **48,258 bytes**,
+SHA-256 `CAE9C59577FF5B7ED2FA7D3D7BC5CD6B3D4E4017C8C6E59F0BC5BD6FC63BA336`, read from
+`build()` in memory from the working tree. To read it again, from the repository root:
+`python -c "import sys,hashlib; sys.path.insert(0,'tools'); import build_windows_engine as e; t,r,f,c=e.build(); print(len(t), hashlib.sha256(t).hexdigest().upper(), len(r.runs()), c)"`,
+which prints `48258 CAE9C595… 87 457`.
 
 For example, Capstone disassembly of the generated `.kwl` page produces the
 existing 17-byte word-wrap fallback below. Addresses are **logical VA** before
 runtime relocation, not FILE offsets. The 443-instruction relocation check
-(452 since 2026-10-20, the nine instructions of the 16:9 area added to `.kmv`)
+(457 since 2026-10-20, the fourteen instructions of the 16:9 area and its exception added to `.kmv`; 452 in `4a1cd73`)
 covers the outbound jump along with the other reachable page instructions.
 
 ```asm
@@ -122,6 +136,14 @@ out ([movies](../reverse-engineering/movies.md), *The fallback*). The two runs o
 `ResolutionPatch` and the module rewrite them per size
 ([binary-inventory](../reverse-engineering/binary-inventory.md), *Written at install*).
 
+*Updated again later on 2026-10-20 (after `4a1cd73`):* three more rows, so 87 covering
+855 bytes. Feature 8 is now six runs, 30 bytes: the four operands' three runs, the
+third pair's two (`0x00403EAD`, `0x00403EB9`: `RestoreResolutionFromMovie`'s
+comparison, the game's size so that no full-screen movie ends in a rebuild of the
+renderer) and the branch at `0x005F92A8` (the anti-aliasing rebuild at start-up, which
+the game otherwise leaves to that rebuild). `original-movie-mode=1` leaves all six out
+([movies](../reverse-engineering/movies.md), *The third pair*).
+
 These are original-image **VA** and **FILE** coordinates, with
 `FILE = VA - 0x400000`. The injected pages above use logical runtime addresses;
 if an offline PE reference is generated, their FILE coordinates instead use
@@ -132,6 +154,8 @@ edit to the disk executable.
 | --- | --- | ---: | --- | --- | --- |
 | `0x00403D6C` | `0x003D6C` | 4 | `80020000` | `700d0000` | Movie mode (8; Movies until 2026-10-20) |
 | `0x00403D78` | `0x003D78` | 4 | `e0010000` | `a0050000` | Movie mode (8; Movies until 2026-10-20) |
+| `0x00403EAD` | `0x003EAD` | 4 | `80020000` | `700d0000` | Movie mode (8; since 2026-10-20, after `4a1cd73`) |
+| `0x00403EB9` | `0x003EB9` | 4 | `e0010000` | `a0050000` | Movie mode (8; since 2026-10-20, after `4a1cd73`) |
 | `0x00405734` | `0x005734` | 1 | `00` | `02` | Movies (since 2026-10-20) |
 | `0x004057AC` | `0x0057AC` | 7 | `8b4e488b013bd8` | `e94f1847009090` | Movies |
 | `0x0040AA65` | `0x00AA65` | 4 | `80020000` | `700d0000` | Core |
@@ -161,6 +185,7 @@ edit to the disk executable.
 | `0x005F0C65` | `0x1F0C65` | 4 | `20030000` | `700d0000` | Core |
 | `0x005F0C6F` | `0x1F0C6F` | 4 | `58020000` | `a0050000` | Core |
 | `0x005F5B3B` | `0x1F5B3B` | 12 | `80020000c7442410e0010000` | `700d0000c7442410a0050000` | Movie mode (8; Movies until 2026-10-20) |
+| `0x005F92A8` | `0x1F92A8` | 2 | `7537` | `9090` | Movie mode (8; since 2026-10-20, after `4a1cd73`) |
 | `0x0062540D` | `0x22540D` | 4 | `20000000` | `80000000` | Core |
 | `0x006256DC` | `0x2256DC` | 11 | `b80100007c0b3d18010000` | `400600007c0b3d84030000` | Core |
 | `0x006256F6` | `0x2256F6` | 4 | `b8010000` | `40060000` | Core |
@@ -252,9 +277,13 @@ feature-bit-4 enable edit. The temporary movie-mode operands now share a
 `K1KpmApplier.cpp`, `MOVIE_MODE` in the builder), applied unless
 `original-movie-mode=1` is in `configs\kmrp.ini` (`OptionalFeatures`,
 `K1RuntimeEngine.cpp`), and `WindowsEnginePatch.cs` accepts bit 8 in the template.
+Later that day bit 8 gained the third pair, two more size fields (`MovieWidthOffsets`
+and `MovieHeightOffsets` in `KmrpPatcher.cs`, `resolution_fields` kinds 1 and 2,
+`kMovieModeFields` in `K1RuntimeEngine.cpp`), and the fixed two-byte run at
+`0x005F92A8`.
 
 The source assembler finds **46 relocation fields** and disassembles **443
-reachable instructions** (452 since 2026-10-20). It compares byte scanning with decoded block operands
+reachable instructions** (457 since 2026-10-20; 452 in `4a1cd73`). It compares byte scanning with decoded block operands
 and proves the instructions and inbound targets after moves by `+0x1F7A3000`
 and `-0x500000`. The regression removes each relocation in turn: every omission
 must fail the proof.

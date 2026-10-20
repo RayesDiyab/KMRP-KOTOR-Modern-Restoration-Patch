@@ -71,7 +71,8 @@ version's; what differs on the Mac is at its end.
 **Movies**
 
 - Movies play at the resolution the game is running at: no switch to 640x480, no
-  flicker, no minimised game.
+  flicker, no minimised game. The game also no longer resets the screen after each
+  movie (new, not yet in a release or seen in the game).
 - The whole picture is shown on wide screens, with black bars at the sides, instead
   of being zoomed in and cropped. On screens wider than 16:9 a movie is shown at the
   size it has on a 16:9 screen of the same height, in the middle (new, not yet in a
@@ -412,8 +413,8 @@ interface is scaled.
 | **Message popups clipped** mid-word | An auto-fit loop widens the popup only while it is narrower than a cap authored for 640×480 | [message-popup](reverse-engineering/message-popup.md) |
 | **HUD notifications oversized at 4K**, and **Feedback option circles on the scrollbar** | Short-lived HUD controls were scaled from screen width instead of the common height rule; the Feedback list drew each circle at the row's very edge, which is where its left scrollbar ends, and now keeps a gutter | [universal resolution math](docs/universal-resolution-math.md#reported-4k-layout-repairs) |
 | **Out-of-memory failures near the 2 GB process ceiling** | The 32-bit executable did not declare that it can use addresses above 2 GB; KMRP now sets the standard PE Large Address Aware bit | [large-address-aware](reverse-engineering/large-address-aware.md) |
-| **Movies trigger a 640×480 mode switch, minimize, or lose focus** | Full-screen Bink playback has two resolution pairs independent of the normal render size; KMRP writes the resolution the game is running at into both | [movies](reverse-engineering/movies.md) |
-| **Movies cropped** on wide screens: a 640×480 logo drawn 3440×2580 at 3440×1440 | Retail scales a movie by the screen *width* alone; KMRP fits it by whichever of width and height runs out first, inside a 16:9 area of the screen since 2026-10-20 | [movies](reverse-engineering/movies.md) |
+| **Movies trigger a 640×480 mode switch, minimize, or lose focus** | Full-screen Bink playback has two resolution pairs independent of the normal render size; KMRP writes the resolution the game is running at into both, and since 2026-10-20 into a third, the check after a movie, so the game no longer rebuilds its renderer and sets the display mode after every movie | [movies](reverse-engineering/movies.md) |
+| **Movies cropped** on wide screens: a 640×480 logo drawn 3440×2580 at 3440×1440 | Retail scales a movie by the screen *width* alone; KMRP fits it by whichever of width and height runs out first, inside a 16:9 area of the screen since 2026-10-20 (a movie as large as the screen still fills it) | [movies](reverse-engineering/movies.md) |
 | **Map marker click offset** from where it is drawn | The hit test centred the map canvas in the window, while the control that crops it is placed by the marker overlay -- 141px out horizontally | [map-markers](reverse-engineering/map-markers.md) |
 | **Unfogged strip** down the right of the area map | The map picture is drawn onto a canvas wider than the overlay the fog grid covers, and nothing cropped the surplus | [area-map-surface](reverse-engineering/area-map-surface.md) |
 | **250 map notes in the wrong place** | A 2003 content bug: the notes' stored world positions do not match their subjects | [map-markers](reverse-engineering/map-markers.md) |

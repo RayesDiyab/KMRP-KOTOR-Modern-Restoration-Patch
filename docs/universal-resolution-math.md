@@ -383,8 +383,8 @@ back from the installer's own output** (`--apply`, installer `ECA3DE4B…`,
 | --- | --- | ---: | --- | ---: | ---: | ---: | ---: | ---: |
 | Screen width | `0xAA65`, `0x1F0C65` | 3440 | `W` | 800 | 1920 | 3440 | 3840 | 15360 |
 | Screen height | `0xAA85`, `0x1F0C6F` | 1440 | `H` | 600 | 1080 | 1440 | 2160 | 8640 |
-| Movie-mode width | `0x3D6C`, `0x1F5B3B` | 3440 | `W` | 800 | 1920 | 3440 | 3840 | 15360 |
-| Movie-mode height | `0x3D78`, `0x1F5B43` | 1440 | `H` | 600 | 1080 | 1440 | 2160 | 8640 |
+| Movie-mode width | `0x3D6C`, `0x1F5B3B` (and `0x3EAD` since 2026-10-20, below) | 3440 | `W` | 800 | 1920 | 3440 | 3840 | 15360 |
+| Movie-mode height | `0x3D78`, `0x1F5B43` (and `0x3EB9` since 2026-10-20, below) | 1440 | `H` | 600 | 1080 | 1440 | 2160 | 8640 |
 | Recentring width reference | `0xB6C7`, `0xBA6C` | -3440 | `-W` | -800 | -1920 | -3440 | -3840 | -15360 |
 | Recentring height reference | `0xB6DA`, `0xBA83` | -1440 | `-H` | -600 | -1080 | -1440 | -2160 | -8640 |
 | List-row scale (`.kfs` float) | `0x3DD004` | 1.75 | `s` | 1.0 | 1.5 | 2.0 | 3.0 | 12.0 |
@@ -437,9 +437,21 @@ drawn at is not a field: the `.kmv` stub computes it while the movie opens, from
 client and the movie, and since that day fits it inside a 16:9 area,
 `min(W, H × 16 / 9)` wide. On a screen 16:9 or narrower in shape (1920×1080,
 3840×2160, 1600×1200 and the like) nothing changes; at 3440×1440 a 640×272 story
-movie is 2560×1088 (3388×1440 until then), and a 640×480 logo is 1920×1440 as before.
+movie is 2560×1088 (3388×1440 until then), and a 640×480 logo is 1920×1440 as before. A
+movie at least as wide or as tall as the screen is fitted to the whole screen, as before.
 The rule and the full table are in
 [`../reverse-engineering/movies.md`](../reverse-engineering/movies.md), *The 16:9 area*.
+
+*Later on 2026-10-20 (after `4a1cd73`), read from the source:* the movie-mode rows have
+a third offset each, FILE `0x3EAD` (width) and `0x3EB9` (height), the imm32 operands of
+`RestoreResolutionFromMovie`'s comparison with 640x480 (VA `0x00403EA7`, `0x00403EB3`).
+They are `W` and `H` by the same rule, in bit 8 with the other four, so that a
+full-screen movie no longer ends in a rebuild of the renderer
+([`../reverse-engineering/movies.md`](../reverse-engineering/movies.md), *The third
+pair*). Unlike the rest of the table they were not read back from an `--apply` output:
+gold and installer `ECA3DE4B…` keep 640 and 480 there, the source-built template holds
+3440 and 1440 for `ResolutionPatch` to replace, and `Test-WindowsEngineSource.py`
+checks the values the module data carries at its 69 resolutions.
 
 **`0x28C4E3` is deliberately not replaced.** It is the last live comparison in
 the HUD minimap selector: gold sets it to 3440, so `mipc210x7.gui` -- the HUD

@@ -27,7 +27,12 @@ gold v24 replaces the scaling with a true aspect fit (§ Aspect fit).
 *Since 2026-10-20, read from the source and not yet seen in the game:* the fit is
 to a 16:9 area in the middle of the screen, not the whole screen (*The 16:9 area*),
 and Bink is asked to draw with GDI instead of DirectDraw (*KMRP asks for the DIB
-section*), KMRP's answer to issue 48.
+section*), KMRP's answer to issue 48. Later the same day (after commit `4a1cd73`) the
+third 640x480, the check after a playlist, gets the game's size too, so a full-screen
+movie no longer ends in a rebuild of the renderer and a second display-mode change
+(*The third pair*), and the anti-aliasing rebuild the game held back at start-up in
+full screen until after the start-up movies is made before them (*The anti-aliasing
+rebuild at start-up*).
 
 > **Where these bytes are written (note of 2026-10-08, read from the source).**
 > Until 2026-09-29 KMRP's installer wrote the four operands and the `.kmv`
@@ -47,7 +52,9 @@ section*), KMRP's answer to issue 48.
 > The movie fixes are part of KMRP's patch and not an option. *Since 2026-10-20*
 > one key that no installer writes, `original-movie-mode=1` under `[Movies]`
 > in `configs\kmrp.ini`, leaves the four operands out and keeps the rest
-> (*The fallback: `original-movie-mode`*, below).
+> (*The fallback: `original-movie-mode`*, below). *Later on 2026-10-20* the operands
+> are six, the third pair having joined them, and the key leaves out all six and the
+> branch at `0x005F92A8` with them (*The third pair*).
 
 ### Correction, 2026-09-06
 
@@ -79,7 +86,7 @@ than inferred.
 | reference after this change | `swkotor_gold_v23_movies.exe`, SHA-256 `29BE3C23F53D53F521D98329F996248864834FB3873819DF63CCF1803C65A7E8` |
 | aspect fit | `swkotor_gold_v24_movieaspect.exe`, 4,087,808 bytes, SHA-256 `9DD81A75F4888FD67242B682BEE0AB4392EA8923CDF4A020CA3EDD2464C05E0A` -- the current gold |
 | shipped | the installer of 2026-09-24 (`ECA3DE4B…`), `--apply` at all 48 resolutions: the four operands below carry each resolution, and the `.kmv` stub is byte-identical to gold's in every output |
-| since 2026-10-20 | the source-built recipe (`tools/build_windows_engine.py`), not gold: `.kmv` 104 bytes (*The 16:9 area*), one more site at `0x00405734` (*KMRP asks for the DIB section*), the four operands as feature 8; 84 guarded runs, template 48,202 bytes, SHA-256 `B37B1910076438026944FA1968C4701381B8B6264C31A6EE539AADED96EDB102`, computed in memory from the working tree that day |
+| since 2026-10-20 | the source-built recipe (`tools/build_windows_engine.py`), not gold: `.kmv` 116 bytes (*The 16:9 area*; 104 in `4a1cd73`), one more site at `0x00405734` (*KMRP asks for the DIB section*), the four operands as feature 8; 84 guarded runs, template 48,202 bytes, SHA-256 `B37B1910076438026944FA1968C4701381B8B6264C31A6EE539AADED96EDB102`, computed in memory from the working tree that day. That was `4a1cd73`'s recipe. Later the same day, with the third pair and the branch at `0x005F92A8` in feature 8 (*The third pair*): 87 guarded runs, 855 bytes, template 48,258 bytes, SHA-256 `CAE9C59577FF5B7ED2FA7D3D7BC5CD6B3D4E4017C8C6E59F0BC5BD6FC63BA336`, read from `build()` in memory |
 | address convention | image base `0x00400000`; `VA = FILE + 0x00400000` for these original-image sites |
 | method | aligned `llvm-objdump` disassembly, raw-byte search, import inspection, builder read-back, four-resolution output regression |
 
@@ -137,19 +144,23 @@ jump and, since the same day, Bink's buffer type. They are three guarded runs:
 the four instruction bytes between them). KMRP's module applies bit 8 unless
 `original-movie-mode=1` (*The fallback*, below), so both pairs still change together
 or not at all. `WindowsEnginePatch.cs` accepts bit 8 in the template since the same
-day, and `--apply` writes every feature.
+day, and `--apply` writes every feature. (*Later on 2026-10-20* bit 8 is six runs: these
+three, the third pair's two operands and the branch at `0x005F92A8`, *The third pair*
+and *The anti-aliasing rebuild at start-up*, below.)
 
 ### What each pair guards, and a third copy (2026-10-19)
 
 *Correction and extension, read from the clean executable on 2026-10-19 while looking
 into issue 48. The paragraph above is right that the two pairs belong together and wrong
 to treat them as the whole policy: there is a third 640x480, which KMRP does not change.*
+(Since 2026-10-20, after `4a1cd73`, it does: *The third pair*, below. This subsection
+and its table are kept as they were written on 2026-10-19, with the changes marked.)
 
 | sites | function | what 640x480 decides there | with KMRP |
 | --- | --- | --- | --- |
 | `0x00403D66`-`0x00403D85` (operands `0x00403D6C`, `0x00403D78`) | `ChangeResolutionForMovie`, `0x00403CF0` | before a playlist in full screen: if the mode is not 640x480x32, `ReInitAurora(640, 480, 32, 1, 0, 0)` at `0x00403D9E` | the game's size, so never called |
 | `0x005F5B37`-`0x005F5B4C` (operands `0x005F5B3B`, `0x005F5B43`) | `CClientExoAppInternal::ReadAndSetVideoMode`, `0x005F5AB0`, called for the startup movies | the mode the first window is made in. It also sets `[0x007A3C54] = 1`, which makes the first `ChangeResolutionForMovie` skip its check (`0x00403D45`-`0x00403D64`), and stores the size `swkotor.ini` gives in `0x0078D1D4`/`0x0078D1D8` (`0x005F5C18`) | the game's size |
-| `0x00403EA7`, `0x00403EB3`, `0x00403EBF` (640, 480, 32) | `RestoreResolutionFromMovie`, `0x00403DE0` | after the playlist in full screen: the mode saved at its start is compared with 640x480. Equal calls only `ActivateRenderWindow` (`0x00401E00`); anything else calls `ReInitAurora(saved mode)` at `0x00403F07` | **unchanged** |
+| `0x00403EA7`, `0x00403EB3`, `0x00403EBF` (640, 480, 32) | `RestoreResolutionFromMovie`, `0x00403DE0` | after the playlist in full screen: the mode saved at its start is compared with 640x480. Equal calls only `ActivateRenderWindow` (`0x00401E00`); anything else calls `ReInitAurora(saved mode)` at `0x00403F07` | **unchanged** until 2026-10-20; the game's size since (operands `0x00403EAD`, `0x00403EB9`), so only `ActivateRenderWindow` is called |
 
 So the startup logos depend on the second pair alone, and story movies on the first
 alone.
@@ -169,13 +180,168 @@ What follows from the table:
   the live OpenGL window. Vanilla rebuilt the renderer at 640x480 first.
 - **Every full-screen playlist still ends in a rebuild,** at the size the game is
   already at, because the third copy still says 640x480. Vanilla at any other size
-  rebuilt at both ends; at 640x480, at neither.
+  rebuilt at both ends; at 640x480, at neither. *Changed 2026-10-20, after `4a1cd73`:*
+  that was true of KMRP until then, the start-up movies and every story cutscene
+  included. Since then, with KMRP's display mode on (feature 8), a playlist ends in
+  `ActivateRenderWindow` alone, as vanilla's did at 640x480: no rebuild at either end
+  (*The third pair*).
 - **In windowed mode none of the three copies matters.** `ChangeResolutionForMovie`
   returns before its check when the renderer is not full screen (`0x00403D2C` →
   `0x00403DC0`, clearing `[0x007A3CBC]`), and `RestoreResolutionFromMovie` tests
   `[0x007A3CBC]` first. The full-screen query is the virtual at `+4` of the object at
   `0x007A39F8`, read from its uses in the main window's `WM_ACTIVATEAPP` and in
   `toggleFullScreen`.
+
+### The third pair: the game's size since 2026-10-20
+
+**Kind: read from the source and disassembled from the clean executable with Capstone;
+not seen in the game.** Since 2026-10-20, after commit `4a1cd73`, KMRP writes the size
+the game runs at into the third copy too, per resolution, like the other four operands
+(`FILE = VA − 0x400000`):
+
+| VA | FILE | size | clean | recipe (3440x1440) | written | feature | purpose |
+| --- | --- | --- | --- | --- | --- | --- | --- |
+| `0x00403EAD` | `0x003EAD` | 4 | 640, `80020000` | 3440, `700d0000` | `W` | 8 | imm32 of `cmp dword ptr [0x0078D1F0], 640` at `0x00403EA7`: the saved width |
+| `0x00403EB9` | `0x003EB9` | 4 | 480, `e0010000` | 1440, `a0050000` | `H` | 8 | imm32 of `cmp dword ptr [0x0078D1F4], 480` at `0x00403EB3`: the saved height |
+
+Not changed: the colour depth, imm8 `0x20` at `0x00403EC5` in the `cmp byte ptr
+[0x0078D1F8], 32` at `0x00403EBF`. The values are written where the other movie
+operands are: `tools/build_windows_engine.py` (the integer fields, `MOVIE_MODE`),
+`resolution_fields` in `tools/build_native_engine.py` (kinds 1 and 2, so a change of
+resolution in the game writes them again), `MovieWidthOffsets` and
+`MovieHeightOffsets` in `src/patcher/KmrpPatcher.cs` (FILE `0x00003EAD`, `0x00003EB9`,
+for `--apply`), and `kMovieModeFields` in `src/controller-native/K1RuntimeEngine.cpp`
+(`FieldInForce`, six fields now), which leaves them alone while
+`original-movie-mode=1` is set.
+
+From `build-inputs/swkotornopatch.exe` (SHA-256 `761F9466…C49E9886`), trimmed:
+
+```asm
+; ChangeResolutionForMovie, 0x00403CF0: the mode is saved before every playlist
+00403CF6  mov  ecx, [0x0078D1D8]              ; the game's height
+00403CFC  mov  eax, [0x0078D1D4]              ; the game's width
+00403D08  mov  dl,  [0x0078D1E0]              ; its colour depth
+00403D0E  mov  [0x0078D1F4], ecx              ; saved height
+00403D1A  mov  [0x0078D1F0], eax              ; saved width
+00403D1F  mov  [0x0078D1F8], dl               ; saved depth
+; RestoreResolutionFromMovie, 0x00403DE0: after the playlist
+00403E95  cmp  dword ptr [0x007A3CBC], 1      ; did the playlist start in full screen?
+00403E9C  jne  0x00403F0F                     ; no: return
+00403E9E  ...                                 ; and returns unless [0x007A3CC0] is 0 (not decoded)
+00403EA7  cmp  dword ptr [0x0078D1F0], 0x280  ; saved width : 640 (KMRP: W)
+00403EB1  jne  0x00403ED1
+00403EB3  cmp  dword ptr [0x0078D1F4], 0x1E0  ; saved height : 480 (KMRP: H)
+00403EBD  jne  0x00403ED1
+00403EBF  cmp  byte ptr  [0x0078D1F8], 0x20   ; saved depth : 32 (unchanged)
+00403EC6  jne  0x00403ED1
+00403ECC  jmp  0x00401E00                     ; all equal: ActivateRenderWindow, and nothing else
+00403ED1  ...                                 ; otherwise:
+00403EDE  movzx ecx, byte ptr [eax+0x44]      ;   the anti-aliasing setting
+00403EE3  call 0x0044F2F0                     ;   applied again
+00403F07  call 0x00403800                     ;   ReInitAurora(saved width, height, depth, [0x007A3CBC], 0)
+```
+
+With the game at its own size and 32-bit colour, the mode saved before the playlist
+is the mode the game is in, and KMRP never changes it for a movie, so all three
+compare equal: the game calls `ActivateRenderWindow` and makes no rebuild. That removes
+these, after every full-screen playlist (the start-up movies and every story cutscene):
+- a new OpenGL window and the old one destroyed, with every texture reloaded;
+- the taskbar hidden, and on one path shown again (*What each pair guards*, above);
+- the calls to `ChangeDisplaySettingsA` that `ReInitAurora` makes through the
+  renderer object at `[0x007A39F8]` (vtable `0x00741518`): its virtuals at `+0x0C`
+  (`CAurInternal::GetValidMode`, `0x0044D6E0`, in
+  [`resolution-switch.md`](resolution-switch.md); called at `0x00403A57`), `+0x08`
+  (`0x00403A86`) and `+0x20` (`0x00403923`) call it,
+  at `0x0044D81C`, `0x0044DBA0`/`0x0044DBCD` and `0x0044EC18`. Which mode each call sets
+  was not decoded;
+- the anti-aliasing setting applied again at `0x00403EE3`. Without that rebuild the
+  game's start-up rebuild has to apply it (next subsection).
+
+Limits of the reading:
+- **Another colour depth still rebuilds.** A saved depth other than 32 fails the third
+  test. Whether the game can be set to one was not checked.
+- **One path replaces the saved mode.** At `0x00403E63`, while `[0x0078D1FC]` is set,
+  `0x005F0CE0`, which reads `Width` under `[Graphics Options]` of `swkotor.ini`, writes
+  the saved mode again. No instruction in the image names `0x0078D1FC` but that read
+  and its clear at `0x00403E6E`, so the path was not followed.
+- **Windowed play is unchanged:** the return at `0x00403E9C`.
+
+**Why, and what is not known.** Two reports on 2026-10-20:
+- a player (StellarExile, a 240 Hz monitor) saw the monitor's signal break up for
+  about half a second on quitting the game with KMRP. They did not see it with Scaled
+  Kotor, and stopped seeing it once they had added KOTOR Patch Manager's own Movie Patch;
+- the maintainer has seen the screen go black for a moment while playing.
+
+Both fit the extra display-mode change after every playlist. Neither is confirmed in
+play, and the change has not been run on either PC. KMRP's own patch lists the Movie
+Patch among its conflicts (`OTHERS` in `tools/build_native_kpatch.py`; both hook
+`0x00404D06`), so which patches were installed together on that PC was not established.
+
+**Corroboration, not evidence: KOTOR Patch Manager's Movie Patch**
+(`better-movie-playback-v1` 1.5.3 by J; its `hooks.toml` is read from
+`build/research/kpm-0.7.1/src/Kotor-Patch-Manager-0.7.1/Patches/Movie Patch/`, and the
+copy under `third_party/Kotor-Patch-Manager/Patches/Movie Patch/` differs only in line
+endings) avoids the same rebuild another way. Its first hook, at
+`0x00403D2C`, turns `je 0x00403DC0` (`0F 84 8E 00 00 00`) into `jmp 0x00403DC0`
+(`E9 8F 00 00 00 90`), so `ChangeResolutionForMovie` always takes its windowed path,
+which clears `[0x007A3CBC]`. `RestoreResolutionFromMovie` then returns at `0x00403E9C`,
+with no rebuild and no `ActivateRenderWindow` either; that patch carries a detour of
+its own at `0x00404C10` (`postMovieCleanup`), which by its comment gives the game window
+its input back. KMRP's change keeps the game's own `ActivateRenderWindow`, the path
+vanilla took after a playlist at 640x480.
+
+### The anti-aliasing rebuild at start-up (2026-10-20)
+
+**Kind: one branch, read from the source and disassembled from the clean executable;
+not seen in the game.** The start-up routine that reads `swkotor.ini` (it calls
+`ReadAndSetVideoMode` at `0x005F905F`) ends its graphics settings with a rebuild that
+applies the anti-aliasing setting. The unpatched game skips it in full screen when
+start-up movies are to play:
+
+```asm
+005F9032  mov  [esp+18], edi        ; 1 when "Disable Movies" ([Game Options]) is 0
+005F9253  test edi, edi             ; "Anti Aliasing" found under [Graphics Options]?
+005F9255  je   0x005F92E1           ; no: no rebuild
+005F9288  call 0x0061D710           ; store the setting at [options+0x44], apply it (0x0044F2F0)
+005F9291  call 0x005E5630           ; the setting as a number
+005F9298  jle  0x005F92E1           ; 0 or less: no rebuild
+005F929A  mov  eax, [esp+18]
+005F929E  test eax, eax
+005F92A0  je   0x005F92AA           ; no start-up movies: rebuild now
+005F92A2  mov  eax, [esp+10]        ; FullScreen ([Graphics Options])
+005F92A6  test eax, eax
+005F92A8  jne  0x005F92E1           ; full screen: no rebuild here (KMRP: 90 90)
+005F92AA  ...
+005F92D9  call 0x00403800           ; ReInitAurora(width, height, depth, bit 3 of [options], 1)
+```
+
+So the unpatched game left the rebuild with the setting to the one after the start-up
+movies, `RestoreResolutionFromMovie`'s, which applies it at `0x00403EE3` (previous
+subsection). With the third pair at the game's size that rebuild is gone, and KMRP NOPs
+the branch instead, so the setting is applied at start-up, as it already was in
+windowed mode or with `Disable Movies` set:
+
+| VA | FILE | size | clean | KMRP | feature | purpose |
+| --- | --- | --- | --- | --- | --- | --- |
+| `0x005F92A8` | `0x1F92A8` | 2 | `75 37`, `jne 0x005F92E1` | `90 90` | 8 | the anti-aliasing rebuild at start-up in full screen with start-up movies |
+
+- **Only with anti-aliasing on.** With `Anti Aliasing` missing, or at 0 or less, there
+  is no rebuild here, patched or not (`0x005F9255`, `0x005F9298`).
+- **Before the start-up movies.** That this code runs before them is read from the skip
+  itself, which exists only when start-up movies are to play, and from the Movie Patch's
+  comment on its own copy of the change; the call chain from here to the start-up movies
+  was not traced.
+- **Corroboration:** the Movie Patch makes the same change with a 16-byte hook at
+  `0x005F929A`, `E9 0B 00 00 00` (a jump to `0x005F92AA` over both tests) and eleven
+  `nop`s. KMRP NOPs only the last branch; the two loads it leaves only read the stack.
+- **Bit 3 of `[options]`,** the fourth argument, was not decoded; the Movie Patch's
+  comment calls the step full-screen anti-aliasing.
+
+Both this branch and the third pair are feature 8, so `original-movie-mode=1` leaves
+them out with the other four operands, and the game rebuilds after every full-screen
+playlist and applies anti-aliasing there, as unpatched (*The fallback*, below). With
+them the recipe has 87 guarded runs, 855 bytes (84 and 845 in `4a1cd73`); feature 8 is
+six runs, 30 bytes; the 46 relocation fields and 457 proved instructions are unchanged.
 
 ## Rendering reads the live window
 
@@ -198,8 +364,8 @@ retracted, left behind when the rest of the document was fixed.
 
 ## Aspect fit (gold v24)
 
-*Since 2026-10-20 the stub is 104 bytes and fits the movie inside a 16:9 area
-(*The 16:9 area*, below). The listing and the table in this section are gold v24's
+*Since 2026-10-20 the stub is 116 bytes and fits a movie smaller than the screen inside
+a 16:9 area (*The 16:9 area*, below). The listing and the table in this section are gold v24's
 81-byte stub as it shipped until then, kept as the record; the jump into it and the
 retail code it returns to are unchanged.*
 
@@ -283,14 +449,20 @@ screen (3388x1440) and looked zoomed in. It is now 2560x1088, the size it has on
 The rule, in integers (`idiv` truncates; the sizes are positive):
 
 ```
-w16    = min(cw, ch * 16 / 9)          cw, ch: the client's width and height
+w16    = cw                    if mw >= cw or mh >= ch   (a movie as large as the screen)
+       = min(cw, ch * 16 / 9)  otherwise                 cw, ch: the client's width and height
 if w16 * mh <= ch * mw:  width = w16,            height = mh * w16 / mw
 else:                    width = mw * ch / mh,   height = ch
 x = (cw - width) / 2,  y = (ch - height) / 2   (retail's centring, unchanged)
 ```
 
-On a screen 16:9 or narrower `w16` is the client width and nothing changes.
-`build_stub` puts the cap in front of gold v24's code; disassembled with Capstone from
+On a screen 16:9 or narrower `w16` is the client width and nothing changes. A movie at
+least as wide or as tall as the client is fitted to the whole client, as before: the
+maintainer's choice the same evening, so that a replacement made for the screen fills
+it (a 3440x1440 movie on a 3440x1440 screen). In `4a1cd73` it did not, and was drawn
+2560x1071 inside the area; the stub was 104 bytes then. The game's own movies are 640
+wide and always get the area. `build_stub` puts the exception and the cap in front of
+gold v24's code; disassembled with Capstone from
 `build_movie_aspect_fit.build_stub(0x877000)`, the address `tools/build_windows_engine.py`
 gives the page (logical VA; the module moves the block, section 2 of
 [`docs/kpm-edition.md`](../docs/kpm-edition.md)):
@@ -299,27 +471,33 @@ gives the page (logical VA; the module moves the block, section 2 of
 ; entry as before: ESI = CExoMoviePlayerInternal*, EBX = client width,
 ;                  EBP = client bottom, [esp+24] = client top
 00877000  57                    push edi
-00877001  8b c5                 mov  eax, ebp
-00877003  2b 44 24 28           sub  eax, [esp+28]     ; ch = bottom - top
-00877007  c1 e0 04              shl  eax, 4            ; ch * 16
-0087700A  99                    cdq
-0087700B  b9 09 00 00 00        mov  ecx, 9
-00877010  f7 f9                 idiv ecx               ; w16 = ch * 16 / 9
-00877012  3b d8                 cmp  ebx, eax
-00877014  7e 02                 jle  0x00877018        ; the client is no wider than 16:9: keep cw
-00877016  8b d8                 mov  ebx, eax          ; else fit to w16 from here on
-00877018  8b 46 48              mov  eax, [esi+48]     ; BINK*: gold v24's code from here
-...                                                    ; each address 0x17 higher than above
-00877052  89 7c 24 14           mov  [esp+14], edi     ; the height the caller centres with
-00877056  8b 46 4c              mov  eax, [esi+4c]
-00877059  57 53 50              push edi / push ebx / push eax
-0087705C  ff 15 84 d4 73 00     call [0x0073D484]      ; BinkBufferSetScale(buffer, width, height)
-00877062  5f                    pop  edi
-00877063  e9 a0 e7 b8 ff        jmp  0x00405808
+00877001  8b 4e 48              mov  ecx, [esi+48]     ; BINK*
+00877004  39 19                 cmp  [ecx], ebx        ; movie width : cw
+00877006  7d 1c                 jge  0x00877024        ; at least as wide: keep cw
+00877008  8b c5                 mov  eax, ebp
+0087700A  2b 44 24 28           sub  eax, [esp+28]     ; ch = bottom - top
+0087700E  39 41 04              cmp  [ecx+4], eax      ; movie height : ch
+00877011  7d 11                 jge  0x00877024        ; at least as tall: keep cw
+00877013  c1 e0 04              shl  eax, 4            ; ch * 16
+00877016  99                    cdq
+00877017  b9 09 00 00 00        mov  ecx, 9
+0087701C  f7 f9                 idiv ecx               ; w16 = ch * 16 / 9
+0087701E  3b d8                 cmp  ebx, eax
+00877020  7e 02                 jle  0x00877024        ; the client is no wider than 16:9: keep cw
+00877022  8b d8                 mov  ebx, eax          ; else fit to w16 from here on
+00877024  8b 46 48              mov  eax, [esi+48]     ; BINK*: gold v24's code from here
+...                                                    ; each address 0x23 higher than above
+0087705E  89 7c 24 14           mov  [esp+14], edi     ; the height the caller centres with
+00877062  8b 46 4c              mov  eax, [esi+4c]
+00877065  57 53 50              push edi / push ebx / push eax
+00877068  ff 15 84 d4 73 00     call [0x0073D484]      ; BinkBufferSetScale(buffer, width, height)
+0087706E  5f                    pop  edi
+0087706F  e9 94 e7 b8 ff        jmp  0x00405808
 ```
 
-104 bytes, 23 more than gold v24's. The one relocated field in it is the last jump's
-displacement, now at `0x00877064` (`0x0087704D` in gold v24). **Why the picture stays
+116 bytes, 35 more than gold v24's. The one relocated field in it is the last jump's
+displacement, now at `0x00877070` (`0x0087704D` in gold v24, `0x00877064` in
+`4a1cd73`). **Why the picture stays
 in the middle:** what the stub hands back is the drawn width in EBX and the drawn
 height at `[esp+10]` (written as `[esp+14]` while EDI is pushed), as gold v24's did.
 Retail's centring at `0x00405808`, read from the clean executable, measures from the
@@ -352,12 +530,15 @@ differs):
 
 The 640x480 logos and the 640x360 and 1280x720 movies were already narrower than
 16:9 on these screens, so only the 2.35:1 story movies change, and only on screens
-wider than 16:9. Two consequences of the rule, computed and not seen:
-- **A movie made for an ultrawide screen is not shown at full width any more.** A
-  movie whose Bink header says 3440x1440 is drawn 2560x1071 on a 3440x1440 screen
-  (full screen until 2026-10-20). That is the case of a replacement set encoded for
-  the screen, such as the K1 Cutscenes Rescaled set this document mentions under
-  *Compatibility and limits*; the headers of that mod's files were not read.
+wider than 16:9. Consequences of the rule, computed and not seen:
+- **A movie made for the screen still fills it.** A movie whose Bink header says
+  3440x1440 is drawn 3440x1440 on a 3440x1440 screen, as before. *Correction,
+  2026-10-20:* in `4a1cd73` it was drawn 2560x1071 inside the area; the doc review of
+  that commit found it, and the maintainer chose the exception the same evening. A
+  movie smaller than the screen both ways still gets the area, a 1920x816 upscale
+  included (2560x1088 on 3440x1440), and a 2560x1080 movie on a 3440x1440 screen is
+  drawn 2560x1080. Whether the K1 Cutscenes Rescaled set this document mentions under
+  *Compatibility and limits* is encoded at a screen's size was not read.
 - **Truncation can cost a row.** At 3840x1600, `w16` is 2844 (2844.4 truncated) and
   a 640x360 movie is drawn 2844x1599, not 2844x1600.
 
@@ -365,8 +546,8 @@ Not changed: the jump at `0x004057AC`, retail's centring and `BinkBufferSetOffse
 the call to `BinkBufferSetScale` on every movie, the black bars (now on all four sides
 of a 2.35:1 movie on a screen wider than 16:9: they are the movie window's black
 brush, *The grey flash*, below), and everything at 16:9 or narrower. Checked by
-`testing/regression/Test-WindowsEngineSource.py`, which expects `.kmv` at 104 bytes
-and 452 instructions proved after a move (443 until then); it checks bytes, not a
+`testing/regression/Test-WindowsEngineSource.py`, which expects `.kmv` at 116 bytes
+and 457 instructions proved after a move (443 until then; 104 and 452 in `4a1cd73`); it checks bytes, not a
 movie on screen. To read the stub again:
 
 ```powershell
@@ -668,6 +849,24 @@ Vanilla plays them all, and so does the game with Flawless Widescreen.
 same, and players of the Universal Widescreen Patcher had black story movies instead,
 so the difference is more likely the driver's state than another branch of the game.
 
+*Added 2026-10-20, after `4a1cd73`; reasoning from the code, not tested.* One difference
+between the two kinds of movie with KMRP as the reporter had it (1.5.1, the same in
+`4a1cd73`): in full screen the startup movies were the only ones before any rebuild of
+the renderer. The game skipped its anti-aliasing rebuild at start-up (*The
+anti-aliasing rebuild at start-up*), and the first rebuild came at the end of the
+startup playlist (*The third pair*); every story movie came after it. That fits the
+first hypothesis, in which a real mode change resets the state. With the changes of
+that evening:
+- **with `Anti Aliasing` above 0 in `swkotor.ini`,** the rebuild is made at start-up,
+  so the startup movies, too, come after one;
+- **with it at 0 or missing,** a full-screen session now has no rebuild at all, so the
+  story movies, which came after one until then, do not either. If the first
+  hypothesis holds, they could be black as well on such a PC; the DIB section
+  (*KMRP asks for the DIB section*) is meant to make that state not matter.
+
+Which `Anti Aliasing` value the reporter's `swkotor.ini` has is not known, and neither
+case has been run there.
+
 **To tell them apart:**
 - **windowed mode** (`FullScreen=0`), which switched no mode even in vanilla;
 - **does a movie replay from its start after Alt-Tab?**
@@ -684,6 +883,10 @@ issue 48 stays open until one has.
   to every player, with the four operands and the 16:9 area as before.
 - **The fallback, `original-movie-mode`**, next subsection: the switch to 640x480
   back, for a PC where the movies are still black.
+- *Later the same day,* **no rebuild after a playlist, and the anti-aliasing rebuild at
+  start-up** (*The third pair*, *The anti-aliasing rebuild at start-up*): made for the
+  reports of a blank screen, not for issue 48, but they change which movies follow a
+  rebuild (the note above).
 
 ### The fallback: `original-movie-mode`
 
@@ -707,6 +910,10 @@ screen as it did unpatched:
   reporter's PC;
 - before a story movie in full screen the screen goes to 640x480 (the first pair,
   `ChangeResolutionForMovie`).
+- *Since later on 2026-10-20,* when feature 8 is six operands and the branch at
+  `0x005F92A8`: after every full-screen playlist the renderer is rebuilt at the
+  game's size (the third pair), and the anti-aliasing rebuild at start-up is left to
+  that rebuild, both as unpatched.
 
 What stays KMRP's: the fit and its 16:9 area (which changes nothing at 640x480, where
 `w16` is 853), the movie window's black brush and bars, and the DIB section. With
@@ -732,7 +939,9 @@ any start size but 640x480 every change of resolution in the game would have bee
 refused ("native size transaction refused: field 00403D6C changed"), found by reading
 the source. Since then the check and the write leave those four out while feature 8
 is (`FieldInForce`), and `Test-WindowsEngineSource.py` holds its list of four against
-the recipe's feature-8 bytes. Not run.
+the recipe's feature-8 bytes. Not run. (*Later on 2026-10-20* the list is six, with
+the third pair, `0x00403EAD` and `0x00403EB9`; the test allows the branch at
+`0x005F92A8` as the one feature-8 change outside it.)
 
 ## Compatibility and limits
 
@@ -744,11 +953,15 @@ KMRP neither distributes nor modifies those BIK files.
 Automated coverage in `testing/regression/Test-MovieResolution.ps1` generates
 800x600, 1920x1080, 3440x1440, and 3840x2160 executables, then reads all four
 movie operands and the four ordinary render-resolution operands back from each.
+(*Since 2026-10-20* it still reads only those four, not the third pair; the third
+pair's values are checked by `Test-WindowsEngineSource.py` at its 69 resolutions.)
 The gold builder independently verifies every original value, output length,
 final SHA-256, and written-file SHA-256. (*Since 2026-10-20*
 `tools/build_movie_aspect_fit.py` no longer compares its output with gold v24's
 SHA-256: its stub is the 104-byte one, so its output is not gold v24 any more. The
-build takes only `build_stub` from it; its header says so.)
+build takes only `build_stub` from it; its header says so. *Corrected later the same
+day:* the stub is 116 bytes since the exception for a movie as large as the screen,
+*The 16:9 area*; this sentence still said 104.)
 
 **Untested:** actual vanilla BIK playback, and rescaled playback other than
 the 3440x1440 report above; 16:9 and 4K transitions; Alt-Tab (a skip never minimised the game, 2026-09-25); the first title crawl; 30-fps versus
@@ -775,6 +988,24 @@ or run on Windows 7:
 - `original-movie-mode=1` (*The fallback*), and a change of resolution in the game
   with it on.
 
-`Test-WindowsEngineSource.py` covers the bytes: `.kmv` at 104 bytes, 452 instructions
+*Since later on 2026-10-20*, the third pair and the start-up anti-aliasing rebuild have
+not been seen in the game or run on any PC either:
+- whether the half-second loss of signal on quitting and the black moments go
+  (*The third pair*);
+- whether anti-aliasing is in effect after the startup movies, and a session with
+  `Anti Aliasing` at 0 (*The anti-aliasing rebuild at start-up*);
+- Alt-Tab during a movie, and a playlist interrupted by it, with no rebuild after it;
+- a change of resolution in the game since the third pair is a size field.
+
+`Test-WindowsEngineSource.py` covers the bytes: `.kmv` at 116 bytes, 457 instructions
 proved after a move (443 until then), the new site under feature 2 and the four
-operands under feature 8.
+operands under feature 8. Since later that day it also checks the third pair's two
+values at each of its 69 resolutions and allows the branch at `0x005F92A8` under
+feature 8. The K1 Modern Driver Compatibility 2.0.0 check
+([`../docs/third-party-driver-compat.md`](../docs/third-party-driver-compat.md),
+section 8), run again on the working tree that evening, finds none of its 28 sites on
+the three new runs. To read the three sites in the clean executable again:
+
+```powershell
+python -B -c "from capstone import *; d=open('build-inputs/swkotornopatch.exe','rb').read(); md=Cs(CS_ARCH_X86, CS_MODE_32); [print(hex(i.address), i.bytes.hex(), i.mnemonic, i.op_str) for a,b in ((0x403EA7,0x403ED1),(0x5F929A,0x5F92AA)) for i in md.disasm(d[a-0x400000:b-0x400000], a)]"
+```

@@ -428,8 +428,11 @@ namespace Kmrp
         // from aligned disassembly of the verified source and are guarded by exact
         // gold-reference values on every application. See reverse-engineering/movies.md.
         // Internal: the KPM edition tags these as KMRP Movies' (KpmEdition.cs).
-        internal static readonly long[] MovieWidthOffsets = { 0x00003D6C, 0x001F5B3B };
-        internal static readonly long[] MovieHeightOffsets = { 0x00003D78, 0x001F5B43 };
+        // Since 2026-10-20 also the third pair, RestoreResolutionFromMovie's comparison
+        // (VA 0x00403EA7 and 0x00403EB3): at 640x480 the game rebuilt its renderer and set
+        // the display mode again after every full-screen movie (tools/build_windows_engine.py).
+        internal static readonly long[] MovieWidthOffsets = { 0x00003D6C, 0x001F5B3B, 0x00003EAD };
+        internal static readonly long[] MovieHeightOffsets = { 0x00003D78, 0x001F5B43, 0x00003EB9 };
 
         // 0x0028C4E3 (VA 0x0068C4E3) is a THIRD width comparison, deliberately NOT included
         // above. It's the last live branch of the HUD minimap-variant (mipc*.gui) selector:
