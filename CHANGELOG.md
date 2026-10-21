@@ -117,6 +117,20 @@ proxy, and it applies the executable changes above as well.
 
 ## [Unreleased]
 
+- **Shops: the item list no longer runs off the screen (issue 61)** (2026-10-22;
+  `src/controller-native/K1RuntimeLayout.cpp` and `macos/patches/kmrp-assets/layout.cpp`,
+  `ListWider`). Reported on a MacBook Pro at 2336x1460: in some shops, at times, the rows of
+  the buy list reached far past the right edge of the screen and the item names were not in
+  view. When a shop's panel has loaded, KMRP widens its list by what its usual row's artwork
+  needs (List rows, 2026-10-04), and took that row's height from the list's own row-height
+  field. The game writes that field only once rows are organised (`OrganizeUnequal`,
+  `0x00419F37` on Windows, its one writer; the list's constructor leaves it), so at load it
+  held whatever the memory held, and a large value made the list, and its rows, as much
+  wider. The height is now the one the shop's rows are built with, 56 at the size's scale.
+  Windows read the same field and had not shown the fault. **Checked by the maintainer on
+  Windows** (Steam, 3440x1440): the shop's rows inside their box and every name shown,
+  opened several times. The Mac change is the same code and has not been built or run.
+
 - **Controller: one place of the Xbox-style action row lit at a time (issue 56)**
   (2026-10-21; `src/controller-native/K1XboxHud.cpp`, `vendor/K1XboxControls.cpp`,
   `KmrpHeldActionSlotK1`). After a fight or a bash that gives experience, the status

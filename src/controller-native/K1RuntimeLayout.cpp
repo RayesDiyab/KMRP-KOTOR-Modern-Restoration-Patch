@@ -247,7 +247,7 @@ void FileBars(const Gff& gff, const std::string& resource, std::map<std::string,
 // CSWGuiListBox (reverse-engineering/listbox-geometry.md): the scrollbar's width, which
 // SetExtent (0x0041BF80) reads; the content's width; the rows' height; the flags, of which
 // 0x10 is the scrollbar on the left; PADDING, a byte.
-const unsigned kListBarWidth = 0x110, kListContentWidth = 0x294, kListRowHeight = 0x2B4, kListFlags = 0x2BC, kListPadding = 0x2C0;
+const unsigned kListBarWidth = 0x110, kListContentWidth = 0x294, kListFlags = 0x2BC, kListPadding = 0x2C0;
 const std::uintptr_t kListTable = 0x0073E840;          // CSWGuiListBox's vtable
 // CSWGuiInGameMap: its vtable, its CSWGuiMapHider and its canvas (KmrpRuntimeLayoutDimensions).
 const std::uintptr_t kMapPanelTable = 0x00754830;
@@ -363,11 +363,19 @@ bool SizeOf(void* list, int& width, int& height)
 }
 
 // How much wider a list is to be at a size: what its usual row would have to move right.
+// The usual row's height is the one its maker gives it, 56 at the size's scale (the item and
+// store rows' constant, which KMRP scales), not the list's own row height at +0x2B4: that
+// field is written only once rows are organised (OrganizeUnequal, 0x00419F37, is its one
+// writer), so when a panel has just loaded it holds whatever the memory held. On the Mac a
+// large value made the store's list, and its rows, far wider than the screen, with the names
+// centred off it (issue 61); Windows read the same field and was lucky in what it found.
 int ListWider(int measured, void* list, int width, int height)
 {
+    (void)list;
     double offset;
     if (!MeasuredOffset(measured, width, height, offset)) return 0;
-    const double total = offset + RowInset(kUsualRow[measured], Scale(height), Field<int>(list, kListRowHeight));
+    const int usualHeight = static_cast<int>(std::lround(56 * Scale(height)));
+    const double total = offset + RowInset(kUsualRow[measured], Scale(height), usualHeight);
     return total < 0 ? static_cast<int>(std::lround(-total)) : 0;
 }
 

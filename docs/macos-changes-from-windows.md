@@ -1709,3 +1709,14 @@ check:** press R3, push the right stick up: the view tilts up and stays there wh
   from "the slot with the input's focus" lit the first place as well as the engine's
   slot. **How to check:** focus a slot during a fight; when "Experience Points Received"
   comes up, only that slot is lit.
+
+## 86. A shop's list widened by its rows' real height (issue 61)
+
+**State, 2026-10-22: changed in `macos/patches/kmrp-assets/layout.cpp`, not built or run.**
+`ListWider` took the usual row's height from the list's row-height field (`+0x368` on the
+Mac), which the game writes only once rows are organised, so when a panel had just loaded it
+held leftover memory: a large value made the store's list and rows far wider than the screen
+(issue 61, reported on a MacBook Pro at 2336x1460). It now uses 56 at the size's scale, the
+height the store's rows are built with, as Windows does since the same day. **How to check:**
+build the Mac patch, open a shop (Dantooine, by the Ebon Hawk) several times: every row
+inside its box with its name in view.

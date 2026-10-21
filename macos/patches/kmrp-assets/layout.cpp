@@ -248,7 +248,6 @@ void FileLists(const Gff& gff, std::map<std::string, ListFile>& result) {
 #include "list_rows.inc"
 
 const std::size_t kListPadding = 0x373, kListFlags = 0x370, kListContentWidth = 0x340, kListObject = 0x390;
-const std::size_t kListRowHeight = 0x368;
 const std::size_t kListBarWidth = 0x168;   // the scrollbar's extent is at +0x158's +0x08; CSWGuiListBox::SetExtent reads this
 
 // The row's kind, by its vtable, and how much further in its artwork begins on the left than it
@@ -354,10 +353,18 @@ void SizeNow(int& width, int& height) {
 }
 
 // How much wider a list is to be at a size: what its usual row would have to move right.
+// The usual row's height is the one its maker gives it, 56 at the size's scale (the item and
+// store rows' constant, scaled by the layout patch), not the list's own row height: that field
+// is written only once rows are organised (Windows' OrganizeUnequal, 0x00419F37, is its one
+// writer), so when a panel has just loaded it holds whatever the memory held. A large value
+// made the store's list, and its rows, far wider than the screen, with the names centred off
+// it (issue 61, a MacBook Pro at 2336x1460; "sometimes the shops load fine").
 int ListWider(int measured, void* list, int width, int height) {
+    (void)list;
     double offset;
     if (!MeasuredOffset(measured, width, height, offset)) return 0;
-    const double total = offset + RowInset(kUsualRow[measured], Scale(height), Field<int>(list, kListRowHeight));
+    const int usualHeight = static_cast<int>(std::lround(56 * Scale(height)));
+    const double total = offset + RowInset(kUsualRow[measured], Scale(height), usualHeight);
     return total < 0 ? static_cast<int>(std::lround(-total)) : 0;
 }
 
