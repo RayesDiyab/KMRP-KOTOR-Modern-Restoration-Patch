@@ -15,6 +15,8 @@ widths and its baseline are the game's.
   * A letter's advance is its cell's width plus the font's spacingR, as the game sets
     text.
   * Each slot's character is the game's (build_font_from_ttf.slot_character, Windows-1252).
+  * The letters alone: the black outline the game draws round the HUD font's letters is
+    not in its file; the KMRP Font Converter adds it to whatever font makes the HUD's.
   * One file per different font: the game keeps the same letters under several names
     (the small menu font as dialogfont10x10, 10x10a and 16x16a; the light one three
     times; the dialogue one also as fnt_d10x10b), and those are made once, under the
@@ -27,7 +29,10 @@ The fonts are built from the faces' letters, so they stay in build/ and are not
 committed, as the faces are not.
 
 Usage:
-    python tools/build_hd_original_otf.py [OUT_DIR]      (default build/hd-original-otf)
+    python tools/build_hd_original_otf.py [OUT_DIR]      (default build/fonts/KMRP-OriginalHD-OTF)
+
+The fonts and a README.txt of which file is for which text go into OUT_DIR, and both into
+a zip beside it (build/fonts/KMRP-OriginalHD-OTF.zip).
 """
 
 from __future__ import annotations
@@ -36,6 +41,7 @@ import argparse
 import hashlib
 import re
 import sys
+import zipfile
 from pathlib import Path
 
 import numpy as np
@@ -123,18 +129,27 @@ def trace(cov: np.ndarray, baseline: int, pen):
 
 def build(resref: str, out: Path) -> Path:
     head, cells = read_txi(ATLASES / f"{resref}.txi")
-    atlas = np.asarray(Image.open(ATLASES / f"{resref}.tga").convert("RGBA"), dtype=np.float64)[..., 3] / 255.0
+    # The letters' own coverage, their brightness times opacity: the HUD font's atlas has
+    # a black outline round each letter (2026-10-21), which is the game's drawing of it,
+    # not part of the letter. In every other atlas the letters are white, so this is
+    # their opacity.
+    rgba = np.asarray(Image.open(ATLASES / f"{resref}.tga").convert("RGBA"), dtype=np.float64) / 255.0
+    atlas = rgba[..., :3].mean(axis=2) * rgba[..., 3]
+    # The letters only: the HUD's black ring is the game's drawing of them, which the KMRP
+    # Font Converter adds when it makes the game's HUD font (the maintainer, 2026-10-21).
     H, W = atlas.shape
     stock = Stock(ORIGINALS, resref)
     cell_h = round(head["fontheight"] * 100)
     baseline = round(stock.baseline * SCALE)
     spacing = head.get("spacingR", 0.0) * 100
     names, glyphs, widths, cmap = [".notdef", "space"], {}, {}, {0x20: "space"}
-    empty = T2CharStringPen(0, None)
-    glyphs[".notdef"], widths[".notdef"] = empty.getCharString(), (round(cell_h * UNITS / 2), 0)
+    # Each empty glyph's charstring carries its advance too, as the letters' do: browsers
+    # read it there, and a zero closed up every word space (found 2026-10-21).
+    notdef_w = round(cell_h * UNITS / 2)
+    glyphs[".notdef"], widths[".notdef"] = T2CharStringPen(notdef_w, None).getCharString(), (notdef_w, 0)
     space_w = cells[0x20][2] - cells[0x20][0] if len(cells) > 0x20 else 0.3
-    glyphs["space"], widths["space"] = T2CharStringPen(0, None).getCharString(), (
-        round((space_w * W + spacing) * UNITS), 0)
+    space_adv = round((space_w * W + spacing) * UNITS)
+    glyphs["space"], widths["space"] = T2CharStringPen(space_adv, None).getCharString(), (space_adv, 0)
     for c, (x0, y0, x1, y1) in enumerate(cells):
         ch = slot_character(c)
         if ch is None or ch in (" ", " ") or ord(ch) in cmap:
@@ -172,9 +187,46 @@ def build(resref: str, out: Path) -> Path:
     return path
 
 
+# What each file is for in the game, for README.txt: the text it draws, and the game's
+# fonts that hold the same letters.
+USES = {
+    "Menu": ("Screen titles and menu buttons", "dialogfont16x16, dialogfont16x16b"),
+    "MenuSmall": ("Option lists and small labels in menus", "dialogfont10x10, dialogfont10x10a, dialogfont16x16a"),
+    "MenuSmallB": ("Tabs and small bold labels in menus", "dialogfont10x10b"),
+    "MenuMedium": ("Save and load lists, mid-size menu text", "dialogfont12x16"),
+    "MenuLarge": ("The largest headings", "dialogfont32x32"),
+    "Dialogue": ("What people say in conversations, and subtitles", "fnt_d16x16, fnt_d10x10b"),
+    "Descriptions": ("Your reply choices, and item, skill and power descriptions", "fnt_d16x16b"),
+    "Light": ("The journal and other longer reading", "fnt_d16x16a, fnt_creditsa, fnt_dialog16x16"),
+    "Console": ("The HUD: credits, level and XP numbers in play", "fnt_console"),
+    "Credits": ("Job titles in the end credits", "fnt_credits"),
+    "CreditsBold": ("Names in the end credits", "fnt_creditsb"),
+}
+
+
+def readme(out: Path) -> Path:
+    """README.txt beside the fonts: which file is for which text."""
+    lines = ["KMRP 1.6, (New) Original HD Font, as OTF files", "",
+             "KOTOR's own fonts redrawn in high resolution for KMRP, traced from the files the game",
+             "draws. One file for each different font the game uses:", ""]
+    width = max(len(f"KMRP-OriginalHD-{k}.otf") for k in USES)
+    for key, (use, games) in USES.items():
+        lines.append(f"  {f'KMRP-OriginalHD-{key}.otf'.ljust(width)}  {use}")
+        lines.append(f"  {''.ljust(width)}  (in the game: {games})")
+    lines += ["",
+              "The game draws the HUD's numbers with a black outline. That outline is not in these",
+              "files: the KMRP Font Converter adds it when it turns a font into the game's HUD font.", "",
+              "Letter widths, spacing and the baseline are the game's, so text set in these fonts lines",
+              "up as it does in KOTOR.", "",
+              "https://github.com/RayesDiyab/KMRP-KOTOR-Modern-Restoration-Patch", ""]
+    path = out / "README.txt"
+    path.write_text("\n".join(lines), encoding="utf-8", newline="\r\n")
+    return path
+
+
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__.splitlines()[0])
-    parser.add_argument("out", type=Path, nargs="?", default=ROOT / "build/hd-original-otf")
+    parser.add_argument("out", type=Path, nargs="?", default=ROOT / "build/fonts/KMRP-OriginalHD-OTF")
     parser.add_argument("--fonts", nargs="*", default=list(ORDER))
     args = parser.parse_args()
     assert set(ORDER) == set(FACES)
@@ -187,6 +239,14 @@ def main() -> int:
         made[key] = resref
         path = build(resref, args.out)
         print(f"{resref}: {path.name}, {path.stat().st_size:,} bytes")
+    # The fonts and their README in one zip beside the folder.
+    notes = readme(args.out)
+    archive = args.out.parent / f"{args.out.name}.zip"
+    with zipfile.ZipFile(archive, "w", zipfile.ZIP_DEFLATED) as zf:
+        zf.write(notes, notes.name)
+        for font in sorted(args.out.glob("*.otf")):
+            zf.write(font, font.name)
+    print(f"{archive}: {archive.stat().st_size:,} bytes")
     return 0
 
 

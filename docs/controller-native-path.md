@@ -518,6 +518,49 @@ on such a flick; with the vector bounded the speed is constant and the
 reversal has not been seen again, though its mechanism was not read out of the
 engine.
 
+**Why a length over 1 turns the character the wrong way** (read 2026-10-21, checked
+against the maintainer's own reverse engineering of KOTOR). `Control` turns the
+character's facing toward the stick's direction at a rate it takes from the speed,
+at `0x00679D54`..`0x00679D80`:
+
+    r    = |velocity (+0x5C)| / maximum speed (0x00679510)
+    rate = turnMin (+0x38) + (turnMax (+0x3C) - turnMin) * (1 - r)
+
+The player's control has `turnMin` 150 and `turnMax` 1500, so the rate falls to
+zero at r = 1.11 and is negative past it: the step is taken away from the stick,
+the gap grows, and the character keeps turning. A keyboard is normalised to r = 1
+and never gets there. Reproduced in the test game with a diagonal of length 1.19
+(the engine's own dead zone at `0x0074D708` set negative, in memory only): running
+on one diagonal and switching to the other without letting go swung the facing
+97, 147, 110, 55, 7 degrees, away from the -172 asked for, and the character ran
+off that way; with a length of 1 the same switch turned straight to -172. Issue
+46's two logs (KMRP 1.5.1, before the buffer fix) show diagonals of 1.13 to 1.24,
+which is the circling and the drift reported there.
+
+So `NativeJoystickSkipNormalizeK1`, which skips `Vector::Normalize` for the
+stick, now scales a vector longer than 1 back to 1 instead. The buffer already
+bounds the stick; this bounds anything else that can add to it, such as the
+accumulator's sum over a frame the engine did not poll. The call is reached only
+when both parts are non-zero (`0x00679B4F`..`0x00679B6B`), which is every
+diagonal; a single axis is clamped to 1 by `ScaledValue`. With that guard and the
+same overlong input, the speed stayed at 5.40, the run maximum, and the switch
+from one diagonal to the other turned straight across, both ways.
+
+Ruled out on the way, measured the same day in the test game:
+
+* **The chase camera does not follow the character.** Strafing with the keyboard
+  for six seconds kept one heading; mode 3's camera holds its yaw unless input or
+  a script turns it. A sideways stick therefore runs straight, not in a circle.
+* **The cursor at a screen edge turns the camera nonstop** (`UpdateCamera`,
+  `0x005F5F7A`..`0x005F607E`), and since the heading is taken from the camera every
+  frame, a run would bend. In pad mode the parked cursor prevents it: with the
+  mouse left at the left edge, the first stick movement moved the cursor to the
+  top centre (1720, 16 at 3440x1440) and the camera stopped.
+* **Turning the camera while moving (issue 46's third report)** kept up with the
+  stick: switching from forward to right while the right stick turned changed the
+  heading in the next sample. Not reproduced with an Xbox pad; the report used a
+  DualSense presented as an Xbox 360 pad.
+
 ## The camera
 
 **Working, playtest-confirmed.** The right stick turns the camera through the

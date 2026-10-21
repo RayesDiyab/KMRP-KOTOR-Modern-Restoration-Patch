@@ -6610,6 +6610,26 @@ extern "C" int __cdecl NativeJoystickSkipNormalizeK1(void* vector)
     // re-executed from the trampoline.
     if (!g_stick.overrideActive && vector) {
         EngineFn<NormalizeFn>(K1_VECTOR_NORMALIZE)(vector);
+    } else if (vector) {
+        // The analog vector is never longer than 1 when it reaches the engine.
+        //
+        // Control sets the turn rate as turnMin + (turnMax - turnMin) * (1 - r), r
+        // being the character's speed over its maximum (0x00679D54..0x00679D80; 150
+        // and 1500 on the player), so past r = 1.11 the rate is negative and the
+        // character turns AWAY from the stick, then keeps turning: the circling and
+        // the drift of issue 46, and the "wrong way" of the corner flick fixed in the
+        // buffer on 2026-10-15. Reproduced in the test game on 2026-10-21 with a
+        // diagonal of length 1.19: switching from one diagonal to the other while
+        // running swung the facing 97 -> 147 -> 55 -> 7 degrees, away from -172,
+        // where a length of 1 turned straight there. The buffer already bounds the
+        // stick; this bounds whatever else could add to it, such as the accumulator's
+        // sum over frames the engine did not poll, or a value that is not ours.
+        float* const v = static_cast<float*>(vector);
+        const float length = std::sqrt(v[0] * v[0] + v[1] * v[1]);
+        if (length > 1.0f) {
+            v[0] /= length;
+            v[1] /= length;
+        }
     }
     return 1;
 }

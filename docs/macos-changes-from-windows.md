@@ -1672,3 +1672,16 @@ art pack. The letters themselves are now drawn from geometry
 (`tools/hud_font_geometry.py`, the same day): the Mac takes the same atlas. **How to
 check:** the HUD's credits over a bright part of a map have a black outline, and the 4
 is open at the top.
+
+## 83. The stick's vector never longer than 1 at the engine
+
+**State, 2026-10-21: to do** (`docs/controller-native-path.md`, "Deadzone"; issue 46).
+The engine turns the character at `turnMin + (turnMax - turnMin) * (1 - r)`, r being
+speed over maximum, which is negative past r = 1.11: a stick vector longer than that
+turns the character away from the stick and keeps it turning (the circling and drift of
+issue 46). Windows' hook that skips `Vector::Normalize` for the stick
+(`NativeJoystickSkipNormalizeK1`) now scales a vector longer than 1 back to 1. The Mac's
+stick path needs the same bound wherever its vector reaches the engine's `Control`
+unnormalised, besides the unit-circle buffer fix of 2026-10-15. **How to check:** run on
+one diagonal and switch to the other without letting go; the character turns straight
+across, never the long way round.

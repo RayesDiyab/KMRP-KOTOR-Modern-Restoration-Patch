@@ -117,6 +117,21 @@ proxy, and it applies the executable changes above as well.
 
 ## [Unreleased]
 
+- **Controller: the character no longer turns the wrong way or runs in circles
+  (issue 46)** (2026-10-21; `src/controller-native/K1NativeJoystick.cpp`,
+  `NativeJoystickSkipNormalizeK1`; [controller-native-path.md](docs/controller-native-path.md),
+  "Deadzone"). The cause, read from the engine and checked against the maintainer's own
+  reverse engineering of KOTOR: the turn rate is `150 + 1350 * (1 - speed / maximum)`,
+  negative once the stick's vector is longer than 1.11, so the character turned away from
+  the stick and kept turning. Issue 46's logs (1.5.1) show diagonals of 1.13 to 1.24; the
+  buffer fix of 2026-10-15 below already keeps the stick within 1, and the hook that skips
+  `Vector::Normalize` now scales anything longer back to 1 as well. **Reproduced and
+  checked in the test game with a virtual pad**: a diagonal of 1.19 swung the facing 97,
+  147, 55, 7 degrees away from the -172 asked for; with the guard it turned straight
+  there. Not played by hand, and not tried with a Steam Controller or a DualSense. Also
+  measured and ruled out the same day: the chase camera following the character, and the
+  cursor at a screen edge (it turns the camera, but the pad parks it at once).
+
 - **The HUD font's black outline is back** (2026-10-21, after a player's report: "This
   font could really benefit from keeping the black border"). The original `fnt_console`
   draws its white letters in a one-pixel black ring; the Original HD Font now does too,
@@ -161,10 +176,16 @@ proxy, and it applies the executable changes above as well.
   are rebuilt (the menu fonts' o, the fitted ring, is unchanged), and the art pack's
   version is 6 so the module build makes it again (`build_native_assets.py`,
   `build_native_runtime.cmd`). New: `tools/build_hd_original_otf.py` traces the 17
-  atlases into OTF files in `build/hd-original-otf` ("KMRP Original HD Dialogue" and so
-  on), letter shapes, widths and baseline the game's: the dialogue line from the OTF
-  and from the atlas, at the atlas's size, differ by 1% of coverage on average over the
-  ink. They are made from the faces' letters and stay in `build/`, not committed;
+  atlases into OTF files in `build/fonts/KMRP-OriginalHD-OTF` ("KMRP Original HD
+  Dialogue" and so on; `build/hd-original-otf` until 2026-10-21), one file for each of
+  the 11 different fonts, with a README.txt of which file is for which text, and both in
+  `build/fonts/KMRP-OriginalHD-OTF.zip`; letter shapes, widths and baseline the game's:
+  the dialogue line from the OTF and from the atlas, at the atlas's size, differ by 1%
+  of coverage on average over the ink. The HUD font's file has its letters only (the
+  game's black ring is added by the KMRP Font Converter to the game file it writes), and
+  every file's word space has its width in its charstring too, which browsers read (it
+  was 0 there until 2026-10-21, and words ran together). They are made from the faces'
+  letters and stay in `build/`, not committed;
   `fnt_galahad14` is game art and is not made. The pack and module are in the
   maintainer's Steam game; not seen in the game.
   The same day, from the maintainer's comparison picture: the small menu fonts drawn
