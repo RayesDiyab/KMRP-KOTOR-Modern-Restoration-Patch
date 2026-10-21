@@ -4486,6 +4486,14 @@ std::uint16_t KmrpPadButtonsK1()
     return g_padPhysicalButtons;
 }
 
+// Whether a pad answered the last read (ReadPadAxes). The Controller Layout screen
+// offers Remap only while one does (the maintainer, 2026-10-21: "we can only enter
+// remap screen if a controller is connected").
+bool KmrpPadPresentK1()
+{
+    return g_stick.padPresent;
+}
+
 void KmrpPadFocusExcludeK1(void* control, bool excluded)
 {
     for (void*& c : g_padFocusExcluded) {

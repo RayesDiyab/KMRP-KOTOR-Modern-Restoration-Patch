@@ -77,6 +77,7 @@ from PIL import Image, ImageChops, ImageDraw, ImageFont
 
 from build_font_from_ttf import GLYPH_PADDING, next_power_of_two, pack, slot_character
 from build_scaled_fonts import FONT_RESREFS, write_tga
+import hud_font_geometry
 
 ROOT = Path(__file__).resolve().parents[1]
 SCALE = 6.0
@@ -93,6 +94,9 @@ EURO_DONOR = ROOT / "assets/fonts/Arimo-Medium.ttf"
 # 4.4, Arial Bold 4.8, Helvetica Bold 7.7). Arimo, Arial's open twin, is in the repository.
 SZLIG_DONOR = ROOT / "assets/fonts/Arimo-Medium.ttf"
 ROUND_CANDIDATES = "OoQq0ÒÓÔÕÖØòóôõöø"
+# The superellipse exponent of the whole-pixel menu fonts' o (round_letter): 2 is an
+# ellipse, larger is squarer.
+WHOLE_PIXEL_O_SQUARENESS = 3.0
 OVERSAMPLE = 4      # shapes drawn at four times the atlas's size, then reduced
 # The originals have a faint halo around every letter (6 to 10 percent of full coverage
 # on the row or column beside it); coverage up to this much beside a letter is not ink.
@@ -227,7 +231,10 @@ class Stock:
         if not row:
             return False
         inset = min(row[0] - b[0], b[2] - 1 - row[-1])
-        return inset >= max(1, w / 5)
+        # A fifth of the width in whole pixels: the 10 pixel menu fonts' o is 6 wide with
+        # one pixel off each corner, round as the original draws it at that size, and
+        # was taken for square (w / 5 = 1.2) until the maintainer saw it on 2026-10-21.
+        return inset >= max(1, w // 5)
 
     def small_cap(self):
         b = self.box(ord("x")) or self.box(ord("o"))   # x: o is a round letter
@@ -286,8 +293,10 @@ def _spread(im: Image.Image, pixels: int, horizontal: bool) -> Image.Image:
     return out
 
 
-def glyph_ink(font: ImageFont.FreeTypeFont, ch: str, xscale: float):
-    """The face's letter as an L image (its ink box only) and the baseline's row in it."""
+def glyph_ink(font: ImageFont.FreeTypeFont, ch: str, xscale: float, thin: float = 0.0):
+    """The face's letter as an L image (its ink box only) and the baseline's row in it.
+    `thin` takes that many pixels (at the atlas's size) off its vertical strokes after it
+    is made heavier (the round o, round_o_letter)."""
     big = ImageFont.truetype(font.path, max(1, round(font.size * OVERSAMPLE)))
     l, t, r, b = big.getbbox(ch, anchor="ls")
     if r <= l or b <= t:
@@ -298,7 +307,7 @@ def glyph_ink(font: ImageFont.FreeTypeFont, ch: str, xscale: float):
     baseline_row = pad - t
     if abs(xscale - 1.0) > 1e-3:
         im = im.resize((max(1, round(im.width * xscale)), im.height), Image.LANCZOS)
-    gx, gy = round(GROW[0] * OVERSAMPLE), round(GROW[1] * OVERSAMPLE)
+    gx, gy = round((GROW[0] - thin) * OVERSAMPLE), round(GROW[1] * OVERSAMPLE)
     if gx:
         im = _spread(im, gx, True)
     if gy:
@@ -354,6 +363,90 @@ def face_strokes(font: ImageFont.FreeTypeFont, xscale: float):
     x = (bh[0] + bh[2]) // 2
     bar = sum(1 for yy in range(bh[1], bh[3]) if h.getpixel((x, yy)))
     return stem / OVERSAMPLE, bar / OVERSAMPLE
+
+
+def ink_span(prof) -> tuple[float, float] | None:
+    """Where a coverage profile's ink starts and ends, to a fraction of a pixel (the rule
+    Stock.span reads the originals by)."""
+    inked = np.nonzero(prof > HALO)[0]
+    if not len(inked):
+        return None
+    first, last = int(inked[0]), int(inked[-1])
+    before = prof[first - 1] if first > 0 else 0.0
+    after = prof[last + 1] if last + 1 < len(prof) else 0.0
+    return first + 1 - (prof[first] + before), last + prof[last] + after
+
+
+def ink_box(img: Image.Image):
+    """An L image's ink width and height, to a fraction of a pixel, and its middle row's
+    left half's coverage (an o's side stroke)."""
+    cov = np.asarray(img, dtype=np.float64) / 255.0
+    x0, x1 = ink_span(cov.max(axis=0))
+    y0, y1 = ink_span(cov.max(axis=1))
+    mid = cov[int((y0 + y1) / 2), : int((x0 + x1) / 2)]
+    return x1 - x0, y1 - y0, float(mid[mid > HALO].sum())
+
+
+# The lower-case o and its accented forms, in the body and light designs. The face's o,
+# narrowed by the font's one factor, is taller than wide there (the 16 pixel bold one
+# 49.99 x 53.53 at six times), where the bold original's is round (8.51 x 8.59). The
+# maintainer, on 2026-10-21: "this specific letter should be wider so its new width
+# equals the already present height"; the bold designs (BODY), not the light ones.
+O_FAMILY = "oòóôõöø"
+# The least room a round o leaves at either side of its cell, in original pixels; the
+# cell is widened where the o would come closer (the light fonts' 6 pixel cells).
+O_MIN_GAP = 1 / 6
+
+
+class RoundO:
+    """How the round o is drawn for one font: the face's o widened by `factor` beyond the
+    font's own and its vertical strokes made `thin` pixels lighter again, so it is as wide
+    as it is tall and its sides as heavy as every other letter's.
+
+    Widened by k, the o is k times its width w and its side stroke s is k s; taking the
+    extra stroke off again leaves k w - (k - 1) s, which is its height h when
+    k = (h - s) / (w - s). Settled on the drawn letter by the secant method, since the
+    drawing rounds to the oversampled grid."""
+
+    def __init__(self, font, xscale):
+        img, _ = glyph_ink(font, "o", xscale)
+        w, self.height, s = ink_box(img)
+        self.before = w
+        k = (self.height - s) / (w - s) if self.height > w else 1.0
+        self.factor, self.thin = k, (k - 1.0) * s
+
+        def width(kk):
+            im, _ = glyph_ink(font, "o", xscale * kk, (kk - 1.0) * s)
+            return ink_box(im)[0]
+        if k > 1.0:
+            k0, w0 = 1.0, w
+            k1, w1 = k, width(k)
+            for _ in range(4):
+                if abs(w1 - self.height) < 0.05 or w1 == w0:
+                    break
+                k0, w0, k1 = k1, w1, k1 + (self.height - w1) * (k1 - k0) / (w1 - w0)
+                w1 = width(k1)
+            self.factor, self.thin = k1, (k1 - 1.0) * s
+        self.width = width(self.factor) if self.factor > 1.0 else w
+
+
+def round_o_letter(ch, font, xscale, shape: RoundO):
+    """The round o (RoundO), and an accented one: the face's accent, from its accented
+    letter less its plain o, centred over the round o, as round_letter puts the face's
+    accents on the menu fonts' rings. ø is widened whole, its bar with it."""
+    if ch in "oø":
+        return glyph_ink(font, ch, xscale * shape.factor, shape.thin)
+    body, bbase = glyph_ink(font, "o", xscale * shape.factor, shape.thin)
+    acc, ab = glyph_ink(font, ch, xscale)
+    pla, pbase = glyph_ink(font, "o", xscale)
+    rise = max(0, ab - pbase)                       # rows of the accent above the o's top
+    out = Image.new("L", (max(body.width, acc.width), max(body.height + rise, acc.height)), 0)
+    out.paste(body, ((out.width - body.width) // 2, rise))
+    plain_canvas = Image.new("L", acc.size, 0)
+    plain_canvas.paste(pla, ((acc.width - pla.width) // 2, rise))
+    extra = Image.composite(Image.new("L", acc.size, 0), acc, plain_canvas)
+    out.paste(255, ((out.width - acc.width) // 2, 0), extra)
+    return out, bbase + rise
 
 
 def ring_coverage(columns, rows, ring, over):
@@ -614,6 +707,13 @@ def build(erf: Path, resref: str, fonts_dir: Path, output: Path, scale: float, r
     glyph_height = round(stock.height * scale)
     baseline = round(stock.baseline * scale)
     fit_cache = {}
+    round_o = None
+    # The bold designs only. The light fonts had it for a day; the maintainer saw it too
+    # wide there ("It's supposed to be less wide ... light text only", 2026-10-21): their
+    # original o is 5 by 6 pixels, and Helvetica's own o, narrowed, is as near as that.
+    if resref in BODY and ord("o") in cmap:
+        round_o = RoundO(*lower.use())
+        caps.use()
 
     def is_round(c):
         """The original draws this O-shape round. In an anti-aliased font a plain O, o or 0
@@ -628,11 +728,26 @@ def build(erf: Path, resref: str, fonts_dir: Path, output: Path, scale: float, r
         if c not in fit_cache:
             fit_cache[c] = fit_ring(stock, c)
         return fit_cache[c][4] <= 3.0
-    cells, widths, report = [], [], {"round": [], "composed": [], "placeholder": [], "missing": [], "fitted": [], "clipped": []}
+    cells, widths, report = [], [], {"round": [], "composed": [], "placeholder": [], "missing": [], "fitted": [], "clipped": [], "widened": []}
     for c in range(stock.numchars):
         ch = slot_character(c)
         width = max(1, round(stock.width(c) * scale))
         cell = Image.new("L", (width, glyph_height), 0)
+        if resref in GEOMETRIC:
+            # Drawn from geometry on the original's own grid (tools/hud_font_geometry.py),
+            # each letter's cell the original's at `scale` times, and wider on the right
+            # by the outline's width: the original's letters reach their cell's last
+            # column (the 4's bar, M, N, W, m, w), which left their ring no room there.
+            # The spacing after each letter is that much less (below), so every letter
+            # still stands where the original's does (the maintainer, 2026-10-21).
+            if resref in OUTLINED:
+                width += round(OUTLINED[resref] * scale)
+                cell = Image.new("L", (width, glyph_height), 0)
+            if ch is not None and ch in hud_font_geometry.GLYPHS:
+                cell.paste(hud_font_geometry.mask(ch, scale).crop((0, 0, width, glyph_height)), (0, 0))
+            cells.append(cell)
+            widths.append(width)
+            continue
         if ch is not None and ch != " " and ch != " ":
             placeholder = stock.placeholder(c)
             caps.use()                 # every letter starts from the capitals' pen
@@ -672,6 +787,10 @@ def build(erf: Path, resref: str, fonts_dir: Path, output: Path, scale: float, r
                 pen_font, pen_xscale = lower.use()
                 img, base_row = glyph_ink(pen_font, {"ð": "Ð", "þ": "Þ"}[ch], pen_xscale)
                 report["composed"].append(f"{c:02X}")
+            elif round_o is not None and ch in O_FAMILY and ord(ch) in cmap:
+                pen_font, pen_xscale = lower.use()
+                img, base_row = round_o_letter(ch, pen_font, pen_xscale, round_o)
+                report["widened"].append(f"{c:02X}")
             elif ord(ch) in cmap:
                 pen_font, pen_xscale = (lower if ch.islower() else caps).use()
                 img, base_row = glyph_ink(pen_font, ch, pen_xscale)
@@ -723,6 +842,37 @@ def build(erf: Path, resref: str, fonts_dir: Path, output: Path, scale: float, r
                     img = img.resize((img.width, max(1, round(img.height * g))), Image.LANCZOS)
                     base_row = round(base_row * g)
                     f = 0.999
+                if resref in MENU and not stock.antialiased and ob and not placeholder:
+                    # The whole-pixel menu fonts (dialogfont10x10, 10x10a, 16x16a): every
+                    # original letter ends one pixel before its cell does, so letters stand
+                    # six atlas pixels apart. Bank Gothic's are wider than the original's at
+                    # the font's one factor (M 46.5 against 42, W 58.8 against 54), which ate
+                    # that gap ("M" and "o" 0.6 apart); a letter is narrowed to the
+                    # original's ink width (the maintainer, 2026-10-21: "the same like in the
+                    # original").
+                    cov = np.asarray(img, dtype=np.float64) / 255.0
+                    across = ink_span(cov.max(axis=0))
+                    limit = (ob[2] - ob[0]) * scale
+                    if across and across[1] - across[0] > limit:
+                        img = img.resize((max(1, round(img.width * limit / (across[1] - across[0]))), img.height),
+                                         Image.LANCZOS)
+                        f = min(f, 0.999)
+                if round_o is not None and ch in O_FAMILY and resref != "fnt_console":
+                    # The round o about the original's centre, moved in from a side it would
+                    # come closer to than O_MIN_GAP, and its cell widened only where it cannot
+                    # fit so (the light fonts'). fnt_console's cells are all one width, and
+                    # its o fits.
+                    cx = centre if centre is not None else width / 2
+                    m = O_MIN_GAP * scale
+                    half = round_o.width / 2
+                    if round_o.width + 2 * m > width:
+                        # Widened by as much as the o grew, so it keeps the room it had on
+                        # both sides: the light fonts' cells, 36 to 43 at six times.
+                        left = cx - round_o.before / 2
+                        width = math.ceil(width + round_o.width - round_o.before)
+                        cell = Image.new("L", (width, glyph_height), 0)
+                        cx = left + half
+                    centre = min(max(cx, m + half), width - m - half)
                 if img.width > width:
                     img = img.resize((width, img.height), Image.LANCZOS)
                     f = min(f, 0.999)
@@ -747,6 +897,8 @@ def build(erf: Path, resref: str, fonts_dir: Path, output: Path, scale: float, r
         atlas.paste(cell, (x, y))
     rgba = Image.new("RGBA", atlas.size, (255, 255, 255, 0))
     rgba.putalpha(atlas)
+    if resref in OUTLINED:
+        rgba = outlined(cells, positions, atlas_size, OUTLINED[resref] * scale, report)
     output.mkdir(parents=True, exist_ok=True)
     write_tga(output / f"{resref}.tga", atlas_size, atlas_size, rgba.tobytes())
 
@@ -760,6 +912,9 @@ def build(erf: Path, resref: str, fonts_dir: Path, output: Path, scale: float, r
     for key in ("baselineheight", "spacingR", "spacingB"):
         if key in header:
             header[key] = f"{float(header[key]) * scale:.6f}"
+    if resref in GEOMETRIC and resref in OUTLINED and "spacingR" in header:
+        # The cells grew by the outline's width on the right; the spacing gives it back.
+        header["spacingR"] = f"{float(header['spacingR']) - round(OUTLINED[resref] * scale) / 100.0:.6f}"
     order = ("mipmap", "filter", "compresstexture", "downsamplemax", "downsamplemin", "numchars", "fontheight",
              "baselineheight", "texturewidth", "spacingR", "spacingB", "caretindent")
     lines = [f"{k} {header[k]}" for k in order if k in header]
@@ -769,11 +924,69 @@ def build(erf: Path, resref: str, fonts_dir: Path, output: Path, scale: float, r
     lines += [f"{(x + w) / atlas_size:.6f} {1.0 - (y + glyph_height) / atlas_size:.6f} 0"
               for (x, y), w in zip(positions, widths)]
     (output / f"{resref}.txi").write_bytes(("\n".join(lines) + "\n").encode("ascii"))
+    if round_o is not None:
+        report["round_o"] = (f"{round_o.before:.2f} -> {round_o.width:.2f} x {round_o.height:.2f}, "
+                             f"x{round_o.factor:.3f}, sides -{round_o.thin:.2f} px")
     report.update(face=FACES[resref], xscale=round(xscale, 3), cap=stock.cap, atlas=atlas_size,
                   grow=(round(GROW[0], 2), round(GROW[1], 2)),
                   rings={chr(k): f"{2 * r[2]:.2f}x{2 * r[3]:.2f} n {r[4]:.2f} strokes {r[5]:.2f}/{r[6]:.2f}"
                          for k, r in fit_cache.items()})
     return report
+
+
+# Fonts the original draws with a black outline round every letter, and its width in the
+# original's pixels. Measured from the stock atlases: fnt_console's white strokes, two
+# pixels wide, stand in a one-pixel black ring that fills the corners too (black, alpha
+# 204 to 255); 70% of its ink is that ring. No other text font has one (fnt_galahad14 is
+# game art). The HD Original font had none until 2026-10-21, when a player pointed out
+# the HUD's numbers need it to read over any map ("This font could really benefit from
+# keeping the black border"; the maintainer agreed).
+OUTLINED = {"fnt_console": 1.0}
+
+# Fonts whose letters are drawn from geometry rather than a typeface: fnt_console, whose
+# original design (an 8 by 16 console font: slab-footed l, i, I and 1, an open 4) no
+# typeface has. Helvetica Bold drew it until 2026-10-21 (the maintainer: the 4 and the
+# small l did not match the original).
+GEOMETRIC = ("fnt_console",)
+
+
+def outlined(cells, positions, atlas_size, radius, report) -> Image.Image:
+    """The atlas with each letter in a black ring `radius` pixels wide: white letters over
+    their outline, the outline the letter's coverage spread by a disc with a soft edge.
+    Kept inside each letter's own cell, like the original's; how often the ring reaches
+    the cell's edge is reported as "outline_clipped"."""
+    letters = np.zeros((atlas_size, atlas_size), dtype=np.float64)
+    ring = np.zeros((atlas_size, atlas_size), dtype=np.float64)
+    reach = int(math.ceil(radius + 1))
+    offsets = [(dx, dy, min(1.0, max(0.0, radius + 0.5 - math.hypot(dx, dy))))
+               for dy in range(-reach, reach + 1) for dx in range(-reach, reach + 1)]
+    offsets = [o for o in offsets if o[2] > 0]
+    clipped = 0
+    for (x, y), cell in zip(positions, cells):
+        cov = np.asarray(cell, dtype=np.float64) / 255.0
+        h, w = cov.shape
+        if not cov.any():
+            continue
+        spread = np.zeros_like(cov)
+        for dx, dy, weight in offsets:
+            shifted = np.zeros_like(cov)
+            sx0, sx1 = max(0, dx), min(w, w + dx)
+            sy0, sy1 = max(0, dy), min(h, h + dy)
+            shifted[sy0:sy1, sx0:sx1] = cov[sy0 - dy:sy1 - dy, sx0 - dx:sx1 - dx]
+            np.maximum(spread, shifted * weight, out=spread)
+        ink = cov > 0.02
+        if ink[:, :reach].any() or ink[:, -reach:].any() or ink[:reach].any() or ink[-reach:].any():
+            clipped += 1
+        letters[y:y + h, x:x + w] = cov
+        ring[y:y + h, x:x + w] = spread
+    alpha = letters + ring * (1.0 - letters)
+    white = np.divide(letters, alpha, out=np.zeros_like(alpha), where=alpha > 0)
+    rgba = np.zeros((atlas_size, atlas_size, 4), dtype=np.uint8)
+    rgba[..., 0] = rgba[..., 1] = rgba[..., 2] = np.round(white * 255).astype(np.uint8)
+    rgba[..., 3] = np.round(alpha * 255).astype(np.uint8)
+    report["outline"] = f"{radius:.1f} px"
+    report["outline_clipped"] = clipped
+    return Image.fromarray(rgba, "RGBA")
 
 
 def round_letter(stock, c, ch, font, cmap, xscale, scale, fit_cache):
@@ -793,6 +1006,11 @@ def round_letter(stock, c, ch, font, cmap, xscale, scale, fit_cache):
     if pc not in fit_cache:
         fit_cache[pc] = fit_ring(stock, pc)
     ring = fit_cache[pc]
+    if small and not stock.antialiased:
+        # The whole-pixel menu fonts' o (dialogfont10x10, 10x10a, 16x16a): 6 by 5 with a
+        # pixel off each corner. Neither the circle that fits it nor Bank Gothic's box,
+        # but a box with rounder corners, outside and inside (the maintainer, 2026-10-21).
+        ring = ring[:4] + (WHOLE_PIXEL_O_SQUARENESS,) + ring[5:]
     # An accented letter's body is the plain one's, where its box starts.
     pb, cb = stock.box(pc), stock.box(c)
     ring = (ring[0] + cb[0] - pb[0],) + ring[1:]
@@ -843,7 +1061,8 @@ def main() -> int:
               f"round {' '.join(r['round']) or '-'} (rings {r['rings'] or '-'}); "
               f"strokes +{r['grow'][0]}/+{r['grow'][1]} px; composed {' '.join(r['composed']) or '-'}; "
               f"placeholders {len(r['placeholder'])}; missing {' '.join(r['missing']) or '-'}; "
-              f"fitted {len(r['fitted'])}; off the baseline {' '.join(r['clipped']) or '-'}")
+              f"fitted {len(r['fitted'])}; off the baseline {' '.join(r['clipped']) or '-'}; "
+              f"round o {r.get('round_o', '-')} ({' '.join(r['widened']) or '-'})")
     return 0
 
 

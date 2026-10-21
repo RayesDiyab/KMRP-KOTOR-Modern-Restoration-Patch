@@ -180,7 +180,8 @@ button does, with the pictures of your pad.
 **Choose your own buttons.** New, not yet in a release, and not yet tried with a
 pad. On the Controller Layout screen, Remap lets you put the face buttons, the
 bumpers, the triggers and the stick clicks on whichever of those buttons you like:
-pick an action and press its new button. Giving a button to an action takes it from
+pick an action and press its new button. Remapping happens in a table, one row per
+action with its button, the controls that cannot change listed underneath in grey. Giving a button to an action takes it from
 the action that had it, which waits with an orange question mark until you give it
 another, and Save works once every action has a button. Default puts the original
 layout back, and Close asks before throwing away changes you have not saved. Default

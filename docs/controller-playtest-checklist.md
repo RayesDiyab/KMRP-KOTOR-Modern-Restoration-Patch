@@ -414,12 +414,16 @@ it says so.
 
 | | Context | Input | Expected | P/F | Kind |
 | --- | --- | --- | --- | --- | --- |
-| [ ] | Screen just opened (the view) | D-pad, A, Y | nothing: no row takes the focus, A and Y do nothing | | FUNC |
-| [ ] | The view | X | Remap: the footer becomes (Y) Default, (X) Save, (B) Close, and LT's row is focused | | FUNC |
+| [ ] | Screen just opened (the view) | D-pad, A | nothing: no row takes the focus, A does nothing (Y is Default since 2026-10-20) | | FUNC |
+| [ ] | The view | X | Remap: the drawing gives way to the table (since 2026-10-21): heads Action and Button, the ten actions, a line, the five that stay grey with padlocks; the footer becomes (Y) Default, (X) Save, (B) Close; Interact's row is focused (LT's row of the drawing until 2026-10-21) | | FUNC |
+| [ ] | The table, at your resolution | look | inside the screen between the heading's line and the help line, centred, nothing cut off or overlapping; note the resolution | | **FEEL** |
 | [ ] | The view | B | leaves the screen | | FUNC |
-| [ ] | Remapping | D-pad, all four | moves between the ten remappable rows only; never onto Default, Save, Close or a padlocked row | | FUNC |
+| [ ] | Remapping | D-pad, all four | moves between the ten action rows only; never onto Default, Save, Close or a grey row | | FUNC |
 | [ ] | Remapping | D-pad | the focused row's action turns yellow and the game's highlight frames the row | | **FEEL** |
-| [ ] | Remapping, pad in use | look at the footer | "(A) Change button" between the hairline and the buttons, and the Y, X and B glyphs of your pad | | FUNC |
+| [ ] | Remapping, pad in use | look at the footer | four buttons of one size, (A) Change, (Y) Default, (X) Save, (B) Close, with your pad's glyphs, the labels clear of the glyphs (since 2026-10-21; the "(A) Change button" hint and three buttons before) | | FUNC |
+| [ ] | Remapping | click Change | the prompt for the focused row, as A does | | FUNC |
+| [ ] | The view, no controller connected (since 2026-10-21) | look; click Remap | Remap grey; the help line reads "Connect a controller to remap its buttons." in orange; the click does nothing | | FUNC |
+| [ ] | The same | connect the pad | Remap turns normal within a moment and the help line goes back | | FUNC |
 | [ ] | Remapping, a row focused | A | the prompt "Press the new button for ..." opens, blue border, the other rows faded | | FUNC |
 | [ ] | The prompt | the A still held from opening it | does not count; only a new press does | | FUNC |
 | [ ] | The prompt | LB, RB, LT, RT, L3, R3 in turn (one per prompt) | each is accepted: the action moves to that button's row | | FUNC |
@@ -428,9 +432,9 @@ it says so.
 | [ ] | The prompt | Start | expected from the code to cancel, like Back: **please note what happens** | | FUNC, unknown |
 | [ ] | The prompt | D-pad | nothing: the focus stays on the row | | FUNC |
 | [ ] | After a choice | keep the chosen button held | nothing else happens until it is released | | FUNC |
-| [ ] | Undo or flourish (Y's row) given RB | look at the rows | Undo or flourish in RB's row with a yellow dot; Switch ally waits in Y's row, orange, with an orange "?"; the help line names Switch ally in orange; Save grey (Next target in place of Switch ally until 2026-10-19) | | FUNC |
+| [ ] | Undo or flourish given RB | look at the rows | Undo or flourish's row shows RB with a dot; Switch ally's row shows an orange "?" and its name orange; the help line names Switch ally in orange; Save grey (on the drawing until 2026-10-21 Undo or flourish moved to RB's row and Switch ally waited in Y's) | | FUNC |
 | [ ] | The same | X | nothing is saved while an action waits | | FUNC |
-| [ ] | The same, Y's row | A, then Y | Switch ally on Y; nothing waits; Save works | | FUNC |
+| [ ] | The same, Switch ally's row | A, then Y | Switch ally on Y; no "?" left; Save works | | FUNC |
 | [ ] | Remapping | Y | Default: the default layout back on screen, not yet saved | | FUNC |
 | [ ] | The view, a saved layout that is not the default (since 2026-10-20) | look | (Y) Default, (X) Remap and (B) Back three across; Default not grey | | FUNC |
 | [ ] | The same | Y | the "Default Layout" box: "Every action goes back to its Xbox button.", "Replace your saved layout?", (A) Default and (B) Cancel | | FUNC |

@@ -52,15 +52,18 @@ def main():
     subprocess.run([str(exe),str(fixture)],cwd=out,check=True)
     original=ROOT/'build/native-runtime/original-fonts'
     # HD Original keeps the original's layout at six times its size: as many glyphs,
-    # the cell height and baseline, and every ASCII cell's width (letter gaps, word
-    # spaces, line lengths and the HUD's even cells), tools/build_hd_original_fonts.py.
+    # the cell height and baseline, and every ASCII letter's step, its cell's width and
+    # the spacing after it (letter gaps, word spaces, line lengths and the HUD's even
+    # cells), tools/build_hd_original_fonts.py. The step, not the cell alone: the HUD
+    # font's cells are an outline wider and its spacing that much less (2026-10-21).
     def metrics(txi):
         lines=[l.split() for l in txi.splitlines() if l.strip()]
-        head={l[0]:float(l[1]) for l in lines if len(l)==2 and l[0] in ('numchars','fontheight','baselineheight','texturewidth')}
+        head={l[0]:float(l[1]) for l in lines if len(l)==2 and l[0] in ('numchars','fontheight','baselineheight','texturewidth','spacingR')}
         upper=next(i for i,l in enumerate(lines) if l[0]=='upperleftcoords')
         lower=next(i for i,l in enumerate(lines) if l[0]=='lowerrightcoords')
         n=int(head['numchars'])
-        widths=[round((float(lines[lower+1+c][0])-float(lines[upper+1+c][0]))*head['texturewidth']*100) for c in range(n)]
+        widths=[round((float(lines[lower+1+c][0])-float(lines[upper+1+c][0]))*head['texturewidth']*100
+                      +head.get('spacingR',0)*100) for c in range(n)]
         return head,widths
     for i,name in enumerate(FONT_RESREFS):
         head,widths=metrics((original/f'kmrfog{i:02d}.txi').read_text())
@@ -82,7 +85,7 @@ def main():
         originals+=1
     assert originals==18
     print('PASS: all 1,188 previous default font heights retained; all 18 HD Original fonts keep the original\'s glyphs, '
-          'cell height, baseline and ASCII widths at six times the size.')
+          'cell height, baseline and ASCII letter steps at six times the size.')
     print('PASS: all 18 Original Font atlases preserve the game artwork pixel for pixel, at its original dimensions.')
 
 

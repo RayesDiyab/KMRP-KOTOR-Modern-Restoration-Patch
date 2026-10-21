@@ -1624,3 +1624,51 @@ Mac's screen centres both over their glyphs too, it needs the same.
 **How to check:** with a saved layout, Default and then Default in the box gives the
 Xbox layout and a grey Default; Cancel changes nothing; the two captions above the
 diagram do not touch.
+
+## 80. Remapping in a table
+
+**State, 2026-10-21: to do** (items 60 and 79; `docs/controller-layout.md`, "The
+table"). The maintainer: "make it a table thats easier for the user to understand".
+On Windows the Controller Layout screen still opens on the drawing, and Remap swaps it
+for a table: heads Action and Button; one row per action, in `kActionNames` order, its
+name and its button's prompt picture (`kmr?rm<code>`), a dot when the button is not
+the action's own, an orange "?" and an orange name when it has none; under a line the
+five that stay, Move, Camera, Action bar, Menus and Solo mode, grey, with the
+drawing's own picture of each control and a padlock. Rows are actions, so a row is
+given a button through `Mapping::Assign` in `K1ButtonRemapPolicy.h` (shared, already
+tested); `Editor`'s waiting rows are the drawing's rule and are no longer used. The
+table's size comes from the room between the heading's hairline and the help line
+and from the names measured in the screen's font. **How to check:** Remap shows the
+table in the drawing's place; A on Undo or flourish then RB gives RB on that row and
+an orange "?" on Switch ally's; Close shows the drawing again.
+
+The same day, after the maintainer's screenshot of the table: Remap opens only while a
+pad answers (Windows: `KmrpPadPresentK1`, the flag the pad read sets), with Remap grey
+and the help line "Connect a controller to remap its buttons." in orange otherwise; and
+the "(A) Change button" hint is a footer button, first of four, (A) Change, (Y) Default,
+(X) Save, (B) Close, all one size from the longest label (the view's three the same
+size). **How to check:** with the pad unplugged Remap is grey and says why; while
+remapping the footer shows four buttons whose labels clear their glyphs.
+
+## 81. A round o in the Original HD Font
+
+**State, 2026-10-21: to do** (`docs/hd-original-font.md`, "The body and light fonts'
+o"). Windows' HD Original atlases now draw the o, ò ó ô õ ö and ø of the bold text and
+console fonts as wide as they are tall (`tools/build_hd_original_fonts.py`, `RoundO`);
+the light fonts keep their narrow o (they had the round one for a few hours). The small
+menu fonts' o is a box with round corners and their letters keep the original's gaps. The atlases are in
+`assets/hd-original-fonts` and the art pack is version 6: the Mac takes the same files
+and pack. **How to check:** "before" in a conversation has a round o.
+
+## 82. The HUD font's black outline
+
+**State, 2026-10-21: to do** (`docs/hd-original-font.md`, "The HUD font's black
+outline"). The HD Original `fnt_console` atlas now has a black ring round every letter,
+as the original has: white letters over black, so it is the first HD atlas whose colour
+is not all white. The Mac's font fitting must resample every channel of an atlas with
+colour in it, as Windows' `FitAtlas` does for `fnt_galahad14`, not alpha alone, or the
+ring comes out white. Same files: `assets/hd-original-fonts/fnt_console.tga` and the
+art pack. The letters themselves are now drawn from geometry
+(`tools/hud_font_geometry.py`, the same day): the Mac takes the same atlas. **How to
+check:** the HUD's credits over a bright part of a map have a black outline, and the 4
+is open at the top.

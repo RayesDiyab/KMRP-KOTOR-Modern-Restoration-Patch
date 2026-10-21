@@ -295,8 +295,9 @@ panels, controls and callbacks. Useful events are:
 | `remap-default-ask` | Default pressed in the view: the Default Layout box opened (since 2026-10-20, as is the row below) |
 | `remap-default-saved` | Default in that box wrote the default layout to `KMRP\controller.ini` |
 
-The `opened` line counts the file's 47 controls and, since 2026-10-18, the 55 the
-remap screen makes; all of them are freed by the same destructor.
+The `opened` line counts the file's 47 controls and, since 2026-10-18, the ones the
+remap screen makes (55; 89 since the table, 2026-10-21); all of them are freed by the
+same destructor.
 
 `controls` and `freed` also count the A label bound into each confirmation box
 (see `updateConfirmBadges`), which lives as long as that box does -- usually
@@ -376,6 +377,15 @@ each part was until then. None of it has been run in the game;
 `Test-ButtonRemap.py` was reported passing on that source (CHANGELOG,
 `[Unreleased]`).
 
+**Remapping in a table since 2026-10-21.** The maintainer asked that day to "make it a
+table thats easier for the user to understand", and chose from mockups: the screen
+still opens on the drawing, and Remap swaps the drawing for a table; one row per
+action, Action and Button; the five controls that stay listed at the end, grey with a
+padlock; no column for what a button does in menus. The rules did not change, only
+where they are shown: see [The table](#the-table) below. Until that day remapping
+happened on the drawing, whose rows are buttons, as the sections below still describe
+where they say so.
+
 ### The build and the address convention
 
 Engine addresses are preferred-image **VA** in the clean editable CD 1.03
@@ -452,17 +462,22 @@ gives that button (a stick click is its stick's row).
 ### The rules
 
 **No swapping.** Giving a button to an action takes it from the action that had it,
-and that action is left without a button until it is given one. **Rows are
-buttons:** each row's line on the drawing points at one button, so a row always shows
+and that action is left without a button until it is given one. **Save** works only
+when every action has a button; until then it is grey and the help line, in orange,
+names the action with none. *Since 2026-10-21* this happens in the table, where a row
+is an action ([The table](#the-table)); the rest of this section is how it happened on
+the drawing until then, and is what `Editor` in `K1ButtonRemapPolicy.h` still
+implements and the harness still tests.
+
+**Rows were buttons:** each row's line on the drawing points at one button, so a row always shows
 the action on its button, and an action given another button moves to that button's
 row. The action left without a button waits, in orange with an orange "?" where its
 glyph was, in the row the moving action left. There are as many actions as buttons,
-so every free button always has exactly one action waiting in its row. **Save** works
-only when no action waits; until then it is grey and the help line, in orange, names
-the action with no button.
+so every free button always has exactly one action waiting in its row, and the layout
+was complete exactly when none waited.
 
-A worked example, the harness's first (`button_remap_harness.cpp`). On the default
-layout, A on Undo or flourish's row (Y) and then RB:
+A worked example on the drawing, as it was until 2026-10-21 (`button_remap_harness.cpp`,
+its `Editor` case). On the default layout, A on Undo or flourish's row (Y) and then RB:
 
 | Row (button) | Shows | State |
 | --- | --- | --- |
@@ -477,10 +492,59 @@ three assignments over the ten rows and ten buttons (1,000 sequences) and checks
 that the waiting rows always equal the free buttons, and that the layout is complete
 exactly when none waits.
 
-Why rows are buttons rather than actions: so the drawing, whose lines are fixed in
+Why rows were buttons rather than actions: so the drawing, whose lines are fixed in
 its texture, never contradicts itself (the reason given in `K1ButtonRemapPolicy.h`).
-No swapping is the maintainer's decision; the source records the decision, not a
-reason for it.
+The table has no lines, so its rows are actions. No swapping is the maintainer's
+decision; the source records the decision, not a reason for it.
+
+### The table
+
+Since 2026-10-21 (`layoutTable` in `K1ControllerLayout.cpp`). Remap hides the drawing:
+`LBL_DIAGRAM` (the pad and its lines), the thirteen rows' glyphs and captions and the
+grey parts; the corner brackets, the hairlines, the readouts and the two margin
+illustrations stay. The table stands where the drawing was:
+
+| Row | Action column | Button column |
+| --- | --- | --- |
+| heads | `Action`, grey | `Button`, grey; a hairline under both |
+| ten actions, in `kActionNames` order | Interact, Disengage, Add to queue, Undo or flourish, Pause, Switch ally, Previous target, Next target, Flourish, Free look; the captions' cyan, yellow on the focused row, orange with no button | the button's prompt picture, `kmr?rm<code>` (`GlyphCodes`: a stick click is the click drawing), or `kmrrmask`, the orange "?", with none; a dot after it when the button is not the action's own |
+| a hairline, half a row down | | |
+| five that stay | Move, Camera, Action bar, Menus, Solo mode, grey | the drawing's own picture of the control, `kmr?lyt<row>` (the plain stick, the D-pad, Start, Back), and a padlock after it |
+
+Each action row has its frame (the drawing's ten, placed again), as wide as the
+table, so the focus draws the game's border round the whole row and a click anywhere
+on it asks for the row's button. The rows that stay have none and are never a place for
+the focus. **A row is an action:** giving it a button is `Mapping::Assign`, which
+takes that button from the action that had it; that action's row then shows the
+orange "?" and its name in orange until it gets one. Nothing moves between rows.
+
+**Sizes, measured as it lays itself out.** Between the heading's hairline (`DECO_04`)
+and the help line, with half a help line's height clear at each end. A row is as tall
+as a one-line caption box (`TOP_CAPTION_H`, read from Back's caption) where that fits,
+else the room divided by sixteen and a half rows. Pictures are square, four fifths of a
+row (the textures are 128x128); the dot is 3/10 of a picture and the padlock 11/20, as
+on the drawing. The action column is as wide as the widest name in the screen's own
+font, then two rows' heights to the button column; half a row of margin inside each
+end. Centred on the screen, as the footer is. **Not seen**; how it looks at 4:3 and at
+the short 576-line screens is the first thing to check.
+
+The worked example in the table, on the default layout: A on Undo or flourish's row,
+then RB.
+
+| Row (action) | Button column | Name |
+| --- | --- | --- |
+| Undo or flourish | RB's picture, with a dot | cyan (yellow while focused) |
+| Switch ally | `kmrrmask`, the orange "?" | orange |
+| help line | | `Switch ally has no button.   Every action needs one before you can save.`, orange; Save grey |
+
+Then A on Switch ally's row and Y: Switch ally is on Y, nothing is missing, Save works.
+The harness's first case checks exactly these two assignments through
+`Mapping::Assign` (`button_remap_harness.cpp`, `changed.Assign(Y, RB) == RB`, then
+`Assign(RB, Y)` complete).
+
+**The help line** while the table is up, with every action on a button: `A dot marks a
+changed button.   The grey rows stay as they are, and menus keep every button.`; in the
+view it keeps the drawing's line below.
 
 ### The screen, state by state
 
@@ -490,8 +554,8 @@ below). A pad glyph beside a button shows only while a pad is the device in use.
 
 | State | Footer | The pad | Mouse and keyboard |
 | --- | --- | --- | --- |
-| **View**, as the screen opens | (Y) Default, (X) Remap, (B) Back; the help line | Y: Default, which asks first (the Default Layout box). X: Remap. B leaves the screen. A does nothing. Nothing can be focused | Default, Remap and Back can be clicked; a row ignores a click; Escape leaves the screen |
-| **Remapping** | (Y) Default, (X) Save, (B) Close; "(A) Change button" between the hairline and the buttons, pad only | the D-pad moves between the ten rows; A asks for the focused row's button; Y puts the default layout back (not saved); X saves when every action has a button; B is Close | click a row to ask for its button; Default, Save and Close can be clicked; Escape is Close |
+| **View**, as the screen opens | (Y) Default, (X) Remap, (B) Back; the help line | Y: Default, which asks first (the Default Layout box). X: Remap, only while a pad answers (since 2026-10-21; with none Remap is grey and the help line reads `Connect a controller to remap its buttons.` in orange). B leaves the screen. A does nothing. Nothing can be focused | Default, Remap and Back can be clicked; a row ignores a click; Escape leaves the screen |
+| **Remapping**, the table in the drawing's place (since 2026-10-21; on the drawing until then) | (A) Change, (Y) Default, (X) Save, (B) Close (since 2026-10-21; until then three, and "(A) Change button" between the hairline and the buttons, pad only); Change does what A on the focused row does, and can be clicked | the D-pad moves between the ten action rows; A asks for the focused row's button; Y puts the default layout back (not saved); X saves when every action has a button; B is Close | click a row to ask for its button; Default, Save and Close can be clicked; Escape is Close |
 | **Waiting for a button** | hidden; the prompt in its place | the first remappable button pressed after the prompt opened is the row's new button; Back cancels; every menu event is swallowed | the prompt's Cancel button or Escape cancels; the keyboard cannot choose a button |
 | **Unsaved Changes** | hidden under a dimmed screen | A: Discard. B: Cancel | Discard and Cancel can be clicked; Escape is Cancel |
 | **Default Layout**, from the view's Default | hidden under a dimmed screen | A: Default, saved at once, back to the view. B: Cancel, back to the view | Default and Cancel can be clicked; Escape is Cancel |
@@ -502,8 +566,8 @@ the layout being changed is. A greyed Default does nothing. Until 2026-10-20 the
 had only (X) Remap and (B) Back, Y did nothing there, and Default was never greyed; the
 maintainer asked that day for a Default button on the screen.
 
-Remap focuses the row the focus was last on, LT's row the first time after the
-screen opens. Close with
+Remap focuses the table row the focus was last on, Interact's the first time after
+the screen opens (LT's row of the drawing until 2026-10-21). Close with
 nothing unsaved, and Discard, put the saved layout back in the editor, return to the
 view and clear the focus. Cancel in the Unsaved Changes box returns to remapping with
 the changes kept.
@@ -565,19 +629,27 @@ KMRP's sets have it (`buildRemap`, `layoutRemap`):
 
 | Controls | Count | Made from | What |
 | --- | ---: | --- | --- |
-| Row frames | 10 | `BTN_BACK` | a button with its border images cleared and no text, round the glyph and the caption, a sixth of the glyph's height clear; the focus draws the game's highlight on it; its A runs `rowPressed` |
+| Row frames | 10 | `BTN_BACK` | a button with its border images cleared and no text, round the glyph and the caption, a sixth of the glyph's height clear (since 2026-10-21 round a whole table row while remapping); the focus draws the game's highlight on it; its A runs `rowPressed` |
 | Grey captions | 10 | `TEXT_05` | what stays with the button |
 | Dots | 10 | `GLYPH_BACK` | `kmrrmdot`, 3/10 of the glyph's height |
 | Padlocks | 5 | `GLYPH_BACK` | `kmrrmlock`: moving, the camera, the D-pad, Back, Start |
-| Footer | 6 | `GLYPH_BACK`, `TEXT_05`, `BTN_BACK` | the "(A) Change button" hint's glyph and text; Default and its glyph; Save (Remap in the view) and its glyph |
+| Footer | 6 | `BTN_BACK`, `GLYPH_BACK` | Change and its glyph (until 2026-10-21 the "(A) Change button" hint, a `GLYPH_BACK` and a `TEXT_05`); Default and its glyph; Save (Remap in the view) and its glyph |
 | The prompt | 5 | `BTN_BACK`, `LBL_TITLE`, `LBL_HELP`, `GLYPH_BACK`, `BTN_BACK` | box, title, line, Cancel's glyph, Cancel |
 | Unsaved Changes | 9 | `LBL_DIAGRAM`, `BTN_BACK`, `LBL_TITLE`, `LBL_HELP` twice, `BTN_BACK` and `GLYPH_BACK` twice | dim, box, title, two lines, Discard and Cancel with their glyphs |
-| **Total** | **55** | | with the file's 47, 102 controls; `owned[]` holds 192 (`kOwnedSlots`, checked by a `static_assert`) |
+| The table (since 2026-10-21) | 34 | `TEXT_05`, `DECO_04`, `GLYPH_BACK` | the two heads and the two hairlines; each action's name and button picture; each staying control's name and picture. Made before the prompts, so the dimmed box covers it |
+| **Total** | **89** | | with the file's 47, 136 controls (55 and 102 until 2026-10-21); `owned[]` holds 192 (`kOwnedSlots`, checked by a `static_assert`) |
 
 The file's own Back button is relabelled Back in the view and Close while remapping,
-and placed in the footer row with the others, three across with centres 1.4 times
-Back's width apart: Default, Remap and Back in the view, Default, Save and Close while
-remapping. Until 2026-10-20 the view had Back and Remap as a centred pair.
+and placed in the footer row with the others. Since 2026-10-21 the footer's buttons are
+all one size in both states: as wide as the longest label (measured in the button's
+own font, its text at `+0x154`) centred clear of the glyph, that is the label plus
+twice the glyph's margin, the glyph and half a glyph; never wider than the file's
+Back; a quarter of a button between them; narrower again where four would not fit
+across the screen. Four while remapping, Change, Default, Save and Close; three in the
+view, Default, Remap and Back; each row centred where the file's Back was. The prompt
+awaiting a button is as wide as the four. Until 2026-10-21 every footer button was
+Back's width, three across with centres 1.4 widths apart, and until 2026-10-20 the
+view had Back and Remap as a centred pair.
 
 **How a control is added** (`bindAppend`). The file's control array has no free slot,
 so a control is constructed, loaded from the tag's struct with the bind's store
@@ -809,7 +881,10 @@ Read from the code on 2026-10-18; none of these has been run.
   2026-10-19 the section is deleted first, so a Save whose `Layout` line fails leaves
   no layout at all, which also reads as the default.
 - **The keyboard and mouse cannot choose a button**: the prompt waits for the pad.
-  They can open it, cancel it and use every other part of the screen.
+  They can open it, cancel it and use every other part of the screen. Since
+  2026-10-21 Remap opens only while a pad answers (`KmrpPadPresentK1`, the flag
+  `ReadPadAxes` sets each read), at the maintainer's request; a pad that goes away
+  after Remap leaves the table as it is, and Escape, Cancel and Close still work.
 - **The view with a pad** offers nothing to focus, so the D-pad there does nothing.
   That is the design (only Y, X and B act; X and B until 2026-10-20), not seen.
 
@@ -867,6 +942,8 @@ as the Xbox defaults; and any of the new defaults in play.
 and the three buttons across in the view. Both modules build with no warning, and
 `Test-ButtonRemap.py`, `Test-KpatchSource.py`, `Test-ControllerKpatch.py` and
 `Test-GeneratedGuiGeometry.py` pass; none of them runs the screen.
+
+**Not seen at all, 2026-10-21:** the table. Both modules build with no warning and the same four tests pass; none of them draws the screen. To look at first: the table's size and place at 3440x1440, at 4:3 and on a short 576-line screen; the focus border round a whole row; the orange "?" after an assignment; and the drawing coming back on Close.
 
 ### Verifying by hand
 

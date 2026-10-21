@@ -102,6 +102,13 @@ struct Mapping {
 // there is somewhere to show it: the row the moving action left. There are as many
 // actions as buttons, so every free button always has exactly one action waiting in
 // its row, and the layout is complete again when none waits.
+//
+// Since 2026-10-21 the screen remaps in a table whose rows are ACTIONS (the
+// maintainer: "make it a table thats easier for the user to understand"): a row's
+// action is given a button through Mapping::Assign, and an action with none shows a
+// question mark in its own row, so nothing waits and `waiting` stays empty. The screen
+// still keeps the layout being changed here (`mapping`, `Reset`); Assign and the
+// waiting rows below are the drawing's rules, kept and tested.
 struct Editor {
     Mapping mapping;
     std::array<int, ButtonCount> waiting{};   // per button, the action waiting in its row, or None

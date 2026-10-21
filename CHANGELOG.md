@@ -117,6 +117,92 @@ proxy, and it applies the executable changes above as well.
 
 ## [Unreleased]
 
+- **The HUD font's black outline is back** (2026-10-21, after a player's report: "This
+  font could really benefit from keeping the black border"). The original `fnt_console`
+  draws its white letters in a one-pixel black ring; the Original HD Font now does too,
+  6 pixels at six times ([hd-original-font.md](docs/hd-original-font.md), "The HUD
+  font's black outline"). The same day its letters were rebuilt from geometry on the
+  original's own grid (`tools/hud_font_geometry.py`), because Helvetica Bold's 4 and l
+  did not match the original's open 4 and slab-footed l, i, I and 1 (the maintainer):
+  each letter one or two strokes of a pen the shape of the original's strokes, with true
+  curves and straight diagonals, no stairs, and M, N, W, m, w drawn as ordinary
+  letters ("The HUD font drawn from geometry"). Its cells are one original pixel wider
+  on the right, so the outline is never cut, and its letter spacing that much less, so
+  HUD text is exactly as long as before. The KMRP Font Converter gives a HUD font the
+  same ring. Art pack rebuilt: 58,721,196 bytes, SHA-256
+  `94CC21F2BA75176B23D38EDAC5FAAD8F23A664BD1DA21ED599000E9A1F167708`; the 9's tail is one
+  straight stroke, g, j, p, q, y and _ end a pixel above the cell's foot so their outline
+  fits under them, and the r's arm is an arch that grows out of its stem, as wide as the original's. **Not seen in the game.**
+- **KMRP Font Converter** (2026-10-21, at the maintainer's request: "a tool from kmrp
+  that just converts otfs to game files easily. Independent from kmrp in architecture.
+  But has the branding"). A separate program, `dist\KMRP Font Converter.exe` (727,552
+  bytes, .NET Framework 4, one file), built by `src\font-converter\build.ps1`. Eleven
+  tiles, one per distinct letter set of the game's 17 text fonts, in four groups; each
+  shows its text in the Original HD Font until a font is picked (TTF, OTF, TTC/OTC,
+  WOFF, WOFF2; a collection or variable font opens a picker), then lights orange, and
+  green once converted; the Convert button then reads "Converted" until a font, a tile or
+  the folder changes. Clear, left of Convert, sets every tile back. Convert writes the atlases at the Original HD Font's 6x size and
+  metrics, into the game's Override when the game is found. A pop-up at every start says
+  the fonts need KMRP, with DeadlyStream and GitHub Releases buttons carrying their marks
+  in the installer's icon blue (`src/font-converter/logos.html`). Measured on the maintainer's PC: window in 0.2 s,
+  17 atlases in 0.47 s. [font-converter.md](docs/font-converter.md). **Not yet seen in the
+  game, nor run under Proton.**
+- **A round o in the Original HD Font, and the font as OTF files** (2026-10-21, at the
+  maintainer's request: "this specific letter should be wider so its new width equals
+  the already present height"). In the bold Helvetica fonts, the text fonts and the
+  HUD's console font, the o and ò ó ô õ ö ø are as
+  wide as they are tall, their sides as heavy as the other letters'
+  (`tools/build_hd_original_fonts.py`, `RoundO`; [hd-original-font.md](docs/hd-original-font.md),
+  "The body and light fonts' o"): the bold o was 49.99 x 53.53 pixels at six times and
+  is 53.24 x 53.51, as round as the original's (8.51 x 8.59). The cells are unchanged.
+  The three light fonts had it too for a few hours, their o cell widened from 36 to 44;
+  the maintainer saw that o as too wide (its original is 5 by 6 pixels), and they are
+  back as they were. The six atlases in `assets/hd-original-fonts`
+  are rebuilt (the menu fonts' o, the fitted ring, is unchanged), and the art pack's
+  version is 6 so the module build makes it again (`build_native_assets.py`,
+  `build_native_runtime.cmd`). New: `tools/build_hd_original_otf.py` traces the 17
+  atlases into OTF files in `build/hd-original-otf` ("KMRP Original HD Dialogue" and so
+  on), letter shapes, widths and baseline the game's: the dialogue line from the OTF
+  and from the atlas, at the atlas's size, differ by 1% of coverage on average over the
+  ink. They are made from the faces' letters and stay in `build/`, not committed;
+  `fnt_galahad14` is game art and is not made. The pack and module are in the
+  maintainer's Steam game; not seen in the game.
+  The same day, from the maintainer's comparison picture: the small menu fonts drawn
+  in whole pixels (`dialogfont10x10`, `10x10a`, `16x16a`) had a square o where the
+  original's is round, because the corner test asked for 1.2 pixels off a 6 pixel o
+  (now whole pixels). They now draw it as a box with round corners (superellipse
+  exponent 3, the maintainer's choice of four), and no letter of those fonts is wider
+  than the original's, so letters stand the original's 6 atlas pixels apart again (M
+  and o were 0.6 apart; [hd-original-font.md](docs/hd-original-font.md)). The OTFs were
+  not made again, at the maintainer's request.
+
+- **Remapping in a table** (2026-10-21, the maintainer: "make it a table thats easier
+  for the user to understand"; `src/controller-native/K1ControllerLayout.cpp`,
+  `layoutTable`). The Controller Layout screen still opens on the drawing; Remap now
+  swaps the drawing for a table, as the maintainer chose from mockups: one row per
+  action (Interact, Disengage, Add to queue, Undo or flourish, Pause, Switch ally,
+  Previous target, Next target, Flourish, Free look), its name and its button's
+  picture, a dot after a button that is not the action's own; then, under a line, the
+  five that stay (Move, Camera, Action bar, Menus, Solo mode), grey with a padlock; no
+  column for menus. Giving an action a button takes it from the action that had it,
+  whose row then shows an orange "?" until it gets another (`Mapping::Assign`, the rule
+  the harness already tests); on the drawing that action used to wait in another
+  button's row. Close or Discard brings the drawing back. The table is 34 controls made
+  at run time from the layout file's own, sized from the room between the heading's
+  hairline and the help line and from the names measured in the screen's font. Both
+  modules build with no warning; `Test-ButtonRemap.py`, `Test-KpatchSource.py`,
+  `Test-ControllerKpatch.py` and `Test-GeneratedGuiGeometry.py` pass. Both modules
+  are in the maintainer's Steam game. **Not seen in the game.**
+  After the maintainer's screenshot of the table the same day: Remap opens only while
+  a pad answers (`KmrpPadPresentK1`, new in `K1NativeJoystick.cpp`, the flag the pad
+  read sets); without one Remap is grey and the help line reads "Connect a controller
+  to remap its buttons." in orange. And "(A) Change button", a hint between the
+  hairline and the buttons, is a button now, first of four: (A) Change, (Y) Default,
+  (X) Save, (B) Close, all one size, as wide as the longest label clear of its glyph
+  and narrower than before so four fit; the view's three take the same size. Change
+  does what A on the focused row does, and can be clicked. Built, the same tests pass,
+  both modules in the Steam game; not seen.
+
 - **A Default button on the Controller Layout screen as it opens** (2026-10-20, at the
   maintainer's request; `src/controller-native/K1ControllerLayout.cpp`). The view, before
   Remap, now has (Y) Default beside (X) Remap and (B) Back, three across as while

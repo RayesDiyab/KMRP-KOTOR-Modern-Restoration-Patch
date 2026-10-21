@@ -59,6 +59,8 @@ DEFAULT_FONT = Path(r"C:\Windows\Fonts\georgia.ttf")
 
 CAP = 150                     # cap height of the rendered wordmark, in output pixels
 TRACKING_RATIO = 0.297        # measured: 17.2px tracking at 58px cap
+WHOLE_CREST = False           # --whole-crest: room above for all of it, as the KMRP wordmark has (2026-10-21)
+TRACKING = TRACKING_RATIO     # --tracking: the KMRP wordmark is set tighter (0.12, 2026-10-21)
 CREST_WIDTH_RATIO = 3.43      # 2.45 is the measured reference width (142px at 58px cap);
                               # 3.43 is that +40%. Height follows, since the aspect is fixed,
                               # and the crest grows upward because it is anchored by its wing
@@ -179,7 +181,7 @@ def draw_wordmark(canvas_size, size_px: int, cap: int, baseline_y: int,
     font = ImageFont.truetype(str(font_path), size_px)
     measure = ImageDraw.Draw(Image.new("L", (8, 8)))
     widths = [measure.textlength(ch, font=font) for ch in text]
-    tracking = TRACKING_RATIO * cap
+    tracking = TRACKING * cap
     total = sum(widths) + tracking * (len(text) - 1)
     mask = Image.new("L", canvas_size, 0)
     draw = ImageDraw.Draw(mask)
@@ -190,30 +192,36 @@ def draw_wordmark(canvas_size, size_px: int, cap: int, baseline_y: int,
     return mask, total
 
 
-def build(crest_path: Path, out: Path, font_path: Path) -> None:
+def build(crest_path: Path | None, out: Path, font_path: Path, text: str = "KOTOR") -> None:
     cap = CAP * SUPERSAMPLE
     size_px = solve_size(font_path, cap)
 
     # Lay the canvas out from the measurements: the crest is 2.45 caps wide and
     # reaches ~1.9 caps above the cap line before it is cut off in the reference,
     # so give it that much room and let the fade do the rest.
-    probe, span = draw_wordmark((cap * 12, cap * 6), size_px, cap, cap * 4, font_path)
+    probe, span = draw_wordmark((cap * 12, cap * 6), size_px, cap, cap * 4, font_path, text)
     width = int(span + cap * 1.6)
     height = int(cap * 4.2)
     baseline_y = int(height - cap * 0.9)
 
-    letters, _ = draw_wordmark((width, height), size_px, cap, baseline_y, font_path)
+    letters, _ = draw_wordmark((width, height), size_px, cap, baseline_y, font_path, text)
     lbox = letters.getbbox()
     cap_top, baseline = lbox[1], lbox[3]
     canvas = Image.new("RGBA", (width, height), (0, 0, 0, 0))
 
     # --- crest, behind the letters ---------------------------------------
+    # Without one (--no-crest), the letters alone: the Font Converter's KMRP wordmark
+    # is put under the crest cut from the finished brand.png (2026-10-21).
+    if crest_path is None:
+        return finish(canvas, letters, cap, cap_top, baseline, width, height, size_px, out)
     crest = Image.open(crest_path).convert("RGBA")
     px = crest.load()
+    floor = 6 if WHOLE_CREST else 0     # the artwork's black is a few levels above black: no glow below that
     for y in range(crest.height):
         for x in range(crest.width):
             r, g, b, _ = px[x, y]
-            px[x, y] = (r, g, b, max(r, g, b))
+            m = max(r, g, b)
+            px[x, y] = (r, g, b, max(0, int((m - floor) * 255 / (255 - floor))))
     crest = crest.crop(crest.getbbox())
     crest_w = int(CREST_WIDTH_RATIO * cap)
     crest_h = int(crest.height * crest_w / crest.width)
@@ -253,11 +261,22 @@ def build(crest_path: Path, out: Path, font_path: Path) -> None:
     crest = Image.composite(crest, Image.new("RGBA", crest.size, (0, 0, 0, 0)), veil)
 
     paste_y = crest_top
+    if paste_y < 0 and WHOLE_CREST:                        # all of it: grow the canvas upward instead
+        grow = -paste_y
+        def taller(im):
+            big = Image.new(im.mode, (im.width, im.height + grow), 0)
+            big.paste(im, (0, grow))
+            return big
+        canvas, letters = taller(canvas), taller(letters)
+        cap_top, baseline, height, paste_y = cap_top + grow, baseline + grow, height + grow, 0
     if paste_y < 0:                                        # crest runs off the top: keep the part we have
         crest = crest.crop((0, -paste_y, crest_w, crest_h))
         paste_y = 0
     canvas.alpha_composite(crest, ((width - crest_w) // 2, paste_y))
+    finish(canvas, letters, cap, cap_top, baseline, width, height, size_px, out)
 
+
+def finish(canvas, letters, cap, cap_top, baseline, width, height, size_px, out):
     # --- the wordmark ------------------------------------------------------
     glyph_h = baseline - cap_top
 
@@ -332,15 +351,24 @@ def build(crest_path: Path, out: Path, font_path: Path) -> None:
 
 def main() -> int:
     parser = argparse.ArgumentParser()
-    parser.add_argument("--crest", type=Path, required=True,
+    parser.add_argument("--crest", type=Path,
                         help="the crest artwork; not committed, see the note in this file")
+    parser.add_argument("--no-crest", action="store_true", help="the letters alone")
+    parser.add_argument("--whole-crest", action="store_true", help="room above for all of the crest")
+    parser.add_argument("--tracking", type=float, default=TRACKING_RATIO,
+                        help="space between letters, in cap heights (0.297 measured off the KOTOR logo)")
+    parser.add_argument("--text", default="KOTOR", help="the wordmark (KOTOR; KMRP for the Font Converter)")
     parser.add_argument("--font", type=Path, default=DEFAULT_FONT)
     parser.add_argument("--out", type=Path, default=Path("src/patcher/brand.png"))
     args = parser.parse_args()
-    for path in (args.crest, args.font):
+    global TRACKING, WHOLE_CREST
+    TRACKING, WHOLE_CREST = args.tracking, args.whole_crest
+    if args.crest is None and not args.no_crest:
+        raise SystemExit("--crest is required (or --no-crest for the letters alone)")
+    for path in ([args.crest] if args.crest else []) + [args.font]:
         if not path.exists():
             raise SystemExit(f"Not found: {path}")
-    build(args.crest, args.out, args.font)
+    build(None if args.no_crest else args.crest, args.out, args.font, args.text)
     return 0
 
 

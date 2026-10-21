@@ -157,6 +157,104 @@ the original's O is a little wider than it is tall and had that copied. The fitt
 ring also stands exactly on the capital lines: the originals' O has no overshoot
 (top 4.89, bottom 13.98, against H's 5.00 and 14.00).
 
+### The body and light fonts' o (2026-10-21)
+
+The maintainer, from a 4K comparison: in "before", the o of the new font "is taller than
+the width ... this specific letter should be wider so its new width equals the already
+present height", and for every font of the Helvetica designs (the bold body fonts, the
+three light ones and the HUD's `fnt_console`). The face's o, narrowed by the font's one
+factor, was taller than wide; the bold original's o is round:
+
+| Font, at six times | o before | o now | Its cell |
+| --- | --- | --- | --- |
+| bold (`fnt_d16x16`, `d16x16b`, `d10x10b`, `credits`, `creditsb`) | 49.99 x 53.53 | 53.24 x 53.51 | 60, as the original's 10 x 6 |
+| light (`fnt_d16x16a`, `creditsa`, `dialog16x16`) | 29.88 x 37.00 | 29.88 x 37.00 again (37.00 x 37.00 for a day) | 36, as the original's (44 for a day) |
+| `fnt_console` | 33.85 x 42.00 | 41.74 x 41.96 | 48, its cells all one width |
+| the bold original, at one time | 8.51 x 8.59 | | 10 |
+
+(Ink measured by coverage, `Stock.span`'s rule.) How (`RoundO`, `round_o_letter` in
+`tools/build_hd_original_fonts.py`): the face's own o is drawn wider by one more factor
+k, then its vertical strokes are made lighter again by (k - 1) times its side stroke,
+with the same operation that makes strokes heavier (`_spread`), so its sides are as
+heavy as every other letter's; k = (h - s) / (w - s), settled on the drawn letter by the
+secant method. A stretch of the inside only was tried first in thought and not built:
+it would have put a kink in the curve where the stretch begins. The accented ò ó ô õ ö
+are the round o with the face's accent (its accented letter less its plain o) centred
+on it; ø is widened whole, its bar with it. The o keeps the original's centre, moved in
+from a side it would come closer to than a sixth of an original pixel; only where it
+cannot fit so is its cell widened, by as much as the o grew, so it keeps its room (the
+light fonts: a line with o in it grew by about 1.3 original pixels per o; in the bold
+fonts nothing moves). **Correction, the same day:** the maintainer saw the light text's
+o as too wide ("It's supposed to be less wide ... light text only"): its original is 5
+by 6 pixels, narrower than tall. The round o is now the bold designs' only (`BODY`); the
+light fonts are as they were before that day, byte for byte, their o Helvetica's own at
+0.81 of its height, and `Test-TextOptions.py` again allows no width but the original's.
+**Not seen in the game.**
+
+### The whole-pixel menu fonts' o, and their gaps (2026-10-21)
+
+`dialogfont10x10`, `10x10a` and `16x16a` are drawn in whole pixels; their o is 6 by 5
+with one pixel off each corner. The corner test (`Stock.round`) wanted a fifth of the
+width, 1.2 pixels, so it took that o for square and Bank Gothic's box was drawn; it
+counts in whole pixels now (`w // 5`). The maintainer, shown the circle that fits it,
+wanted Bank Gothic's box with rounder corners outside and inside, and chose a
+superellipse of exponent 3 (`WHOLE_PIXEL_O_SQUARENESS`) from 3, 4, 5 and 7, its size and
+strokes the fitted ring's. Then: "the space between M and O ... should be the same like
+in the original". Every letter of these originals ends a pixel before its cell does, 6
+atlas pixels; Bank Gothic's letters at the font's one factor were wider than the
+original's (M 46.5 against 42, W 58.8 against 54; about 50 letters), which ate the gap
+(M to o 0.6). A letter wider than the original's ink is now narrowed to it (by up to
+about 12 percent, its strokes with it): M to o is 5.55, every gap 5.3 to 6.5. The five
+anti-aliased menu fonts are unchanged. **Not seen in the game.**
+
+### The HUD font's black outline (2026-10-21)
+
+The original `fnt_console`, the HUD's credits, level and XP, draws each white letter in a
+black ring one pixel wide that fills the corners too (black, alpha 204 to 255); 70 percent
+of its ink is that ring, and no other text font has one. The HD font had dropped it, and a
+player saw that the numbers need it to read over every map ("This font could really
+benefit from keeping the black border"). `OUTLINED` in `tools/build_hd_original_fonts.py`
+now gives it back: a black ring 6 pixels wide at six times (one original pixel), the
+letter's coverage spread by a disc with a soft edge, inside each letter's cell, and the
+letter white over it. The atlas is the first HD one with colour in it; KMRP fits it as it
+fits `fnt_galahad14` (`FitAtlas`, every channel). The original's letters reach their
+cell's last column (the 4's bar, M, N, W, m, w), which cut their ring on the right, in
+the original too; the maintainer asked for "one more pixel of black border" there. So
+the HUD font's cells are one original pixel (6 at six times) wider on the right, 54 in
+place of 48, and its `spacingR` that much less, 0.06 in place of 0.12: every letter's
+step, cell and spacing together, is the original's, and a line of HUD text is exactly
+as long (2,402 pixels both for the same line at 96). `Test-TextOptions.py` compares
+those steps now, not the cells alone. **Not seen in the game.**
+
+### The HUD font drawn from geometry (2026-10-21)
+
+The same day the maintainer saw that the HUD font's 4 and small l "don't match the
+original": Helvetica Bold, which drew it, has a closed 4, a plain l and I, and no feet on
+i and 1, while the original is an 8 by 16 console font with an open 4 and slab-footed l,
+i, I and 1. No installed typeface has all of that (Consolas and Ubuntu Mono have the
+feet but a closed 4), and tracing the pixels either keeps their stairs (traced enlarged)
+or turns the one pixel bars into wedges (traced at the original's size). So every letter
+is now written as geometry on the original's own grid, `tools/hud_font_geometry.py`.
+A first version joined rectangles, rings and bands; where two met a little apart they
+left notches and bumps, and the maintainer saw letters that looked "fused together" (the
+s, the 2, the 4). So each letter is now one or two strokes along a centre line, drawn
+with a pen the shape of the original's strokes (two pixels wide, one tall, its corners
+rounded by 0.35 so a turn's outside is rounder than its inside, as an offset curve's is),
+each turn rounded (radius 1.3) where the original cuts a corner and straight where it
+steps; a stroke is one piece, so its joins are clean. The thin middle strokes of M, W,
+the rings of % use a one pixel pen, as the original does. M, N, W, m and w are not the
+pixel font's (a one pixel middle stroke, a staircase that turns down, right and down
+again): the maintainer asked for "a normal kind of M" and a W that goes "down and then
+one continuous slash", so they are stems with straight diagonals, an M's meeting in the
+middle, a W's rising from the foot of each stem, drawn with a slightly narrower pen
+(1.7) so three strokes fit the cell. `GEOMETRIC` in `build_hd_original_fonts.py` draws
+`fnt_console` from it at six times, in the original's cells, and `OUTLINED` rings it.
+Drawn back at the original's size, 32 of the 94 letters match it pixel for pixel and 74
+are within 4 pixels; the rest differ where a step became a line or a curve, and W (16)
+and w (11) by design. The check is
+`python tools/hud_font_geometry.py OUT` (a report and a sheet of each original letter
+beside the new one). **Not seen in the game.**
+
 ## 5. The ß
 
 Bank Gothic Medium has no real ß (its ß is drawn "SS"). The originals' ß is a plain

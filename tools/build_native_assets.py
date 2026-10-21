@@ -60,8 +60,9 @@ ROOT = Path(__file__).resolve().parents[1]
 # The art pack (tools/kmrp_pack.py), which the installer writes beside the module.
 PACK = 'kmrp-assets.pack'
 # build_native_runtime.cmd makes the pack again when this differs from the
-# font-style-assets.version it wrote: 5 is the pack (2026-10-19), 4 the last bank.
-ASSETS_VERSION = 5
+# font-style-assets.version it wrote: 6 the round o in HD Original's body and light fonts
+# (2026-10-21), 5 the pack (2026-10-19), 4 the last bank.
+ASSETS_VERSION = 6
 # What the bank, KNAST002, used until 2026-10-19 (still the controller patch's,
 # tools/build_controller_assets.py): the Windows Compression API's XPRESS with Huffman.
 MAGIC = b'KNAST002'
