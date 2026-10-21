@@ -5152,6 +5152,23 @@ int KmrpFocusedActionSlotK1(void* mainInterface)
     return mainInterface ? FocusedActionButton(K1_CONFIG, mainInterface) : -1;
 }
 
+// The slot the HUD itself holds as its active control, whether or not another screen
+// is in front of it. What the row is drawn from: with the status summary up after a
+// fight or a bash ("Experience Points Received"), FocusedActionButton answers -1
+// because the HUD does not have the input, and the Xbox-style row lit its first place
+// for that while the engine went on lighting the slot it still held, so two places
+// looked selected (issue 56, reproduced 2026-10-21). The pad's presses still go to the
+// summary until its OK, as they should.
+int KmrpHeldActionSlotK1(void* mainInterface)
+{
+    if (!mainInterface) {
+        return -1;
+    }
+    ActionButtons buttons = GetActionButtons(K1_CONFIG, mainInterface);
+    return FindButton(K1_CONFIG, buttons,
+                      ReadPointer(mainInterface, K1_CONFIG.panelActiveControlOffset));
+}
+
 extern "C" int __cdecl KmrpActionBarFocusedK1(void* mainInterface)
 {
     // No fallback to g_mainInterface. That global keeps pointing at an

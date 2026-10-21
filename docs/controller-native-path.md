@@ -636,8 +636,21 @@ absolute addressing only.
 keyboard turn. That is the neutral choice, not a tuned one. `K1_CAMERA_DEADZONE`
 is 0.12.
 
-**There is no vertical camera axis to drive.** `ScrollCamera` and `ZoomCamera`
-take computed values, not input, and the tilt path is mode-gated.
+**Up and down: free look only** (issue 45, 2026-10-21). The chase camera has no
+vertical input to drive: `ScrollCamera` and `ZoomCamera` take computed values, not
+input, and the tilt path is mode-gated. Free look has one. With the camera in mode 5,
+`ProcessInput` polls the joystick's Y (event 7, or the keyboard's `0x118` when that is
+zero) and passes it to `CSWCModule` at `0x0063FDB0` (`0x00623E5B`..`0x00623F05`), which
+writes its negation to the free-look camera's pitch rate (`+0x24` of behaviour
+`0x106E`, `CSWCameraFreeLook`). That camera's `Control` adds the rate to its pitch
+(`+0x20`) and clears it every frame (`0x00639EAB`..`0x00639EE8`). So the bridge, in
+class 4 only, also hands `0x0063FDB0` the right stick's Y every frame it is past the
+deadzone, scaled like the turn and negated, because the engine's joystick Y runs
+opposite to XInput's. The receiver is the same `[CClientExoAppInternal+0x18]`
+`RotateCamera` uses, which is what the engine's own call reaches through
+`0x005ED530`/`0x00644760`. Checked in the test game with the virtual pad: in free
+look, a second of the right stick up tilted the view to the ceiling and two seconds
+down to the floor, the view stayed where it was left, and right still turned it.
 
 **Not yet honoured:** the engine's camera-invert option at `0x00832920`, which
 `UpdateCamera` folds in and the bridge does not. Untested against the stick.

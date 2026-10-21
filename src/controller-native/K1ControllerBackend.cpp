@@ -317,6 +317,21 @@ bool ReadControllerK1(XINPUT_STATE& state)
         if (sdlReady) {
             int count = 0;
             SDL_JoystickID* ids = pSDL_GetGamepads(&count);
+            // debug-logs=2: what SDL lists, each time the list changes, so a pad that
+            // comes back and is not seen (issue 54) shows which side missed it.
+            if (KmrpDebugLevel() >= 2) {
+                static int lastCount = -1;
+                static SDL_JoystickID lastFirst = 0;
+                const SDL_JoystickID first = ids && count > 0 ? ids[0] : 0;
+                if (count != lastCount || first != lastFirst) {
+                    lastCount = count;
+                    lastFirst = first;
+                    char line[96];
+                    wsprintfA(line, "SDL lists %d gamepad(s), first id %lu", count,
+                              static_cast<unsigned long>(first));
+                    ControllerLogK1(line);
+                }
+            }
             for (int j=0; ids && j<count; ++j) {
                 int empty = -1;
                 bool found = false;
@@ -327,6 +342,13 @@ bool ReadControllerK1(XINPUT_STATE& state)
                 if (!found && empty >= 0) {
                     devices[empty].pad = pSDL_OpenGamepad(ids[j]);
                     devices[empty].id = ids[j];
+                    if (KmrpDebugLevel() >= 2) {
+                        char line[96];
+                        wsprintfA(line, "SDL gamepad id %lu opened in slot %d: %s",
+                                  static_cast<unsigned long>(ids[j]), empty,
+                                  devices[empty].pad ? "yes" : "FAILED");
+                        ControllerLogK1(line);
+                    }
                 }
             }
             pSDL_free(ids);

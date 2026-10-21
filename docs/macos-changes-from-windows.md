@@ -1685,3 +1685,27 @@ stick path needs the same bound wherever its vector reaches the engine's `Contro
 unnormalised, besides the unit-circle buffer fix of 2026-10-15. **How to check:** run on
 one diagonal and switch to the other without letting go; the character turns straight
 across, never the long way round.
+
+## 84. Free look looks up and down
+
+**State, 2026-10-21: to do** (`docs/controller-native-path.md`, "The camera"; issue 45).
+In free look (input class 4, camera mode 5) the right stick's Y now drives the free-look
+camera's pitch rate through the engine's own `CSWCModule` routine (Windows `0x0063FDB0`,
+negated; the camera clears the rate every frame, so it is set every frame the stick is
+held). The Mac's camera bridge needs the same call at its build's address. **How to
+check:** press R3, push the right stick up: the view tilts up and stays there when let go.
+
+## 85. The galaxy map navigates itself, and the action row has one lit place
+
+**State, 2026-10-21: to do** (issues 57 and 56).
+- The galaxy map (`CSWGuiInGameGalaxyMap`, dispatcher `0x00695980` on Windows) answers
+  Left/Up and Right/Down itself with `PrevPlanet`/`NextPlanet`, which fill the planet's
+  description. Windows now lets the D-pad's codes through on it (the list of screens that
+  navigate themselves); the Mac's focus layer must stand down on it the same way.
+  **How to check:** on the Ebon Hawk's galaxy map, D-pad right changes the planet's name
+  and description together.
+- The Xbox-style action row is drawn from the slot the HUD holds as its active control,
+  even while another screen (the status summary after a fight) has the input. Drawing it
+  from "the slot with the input's focus" lit the first place as well as the engine's
+  slot. **How to check:** focus a slot during a fight; when "Experience Points Received"
+  comes up, only that slot is lit.

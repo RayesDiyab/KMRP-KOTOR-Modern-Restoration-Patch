@@ -117,6 +117,44 @@ proxy, and it applies the executable changes above as well.
 
 ## [Unreleased]
 
+- **Controller: one place of the Xbox-style action row lit at a time (issue 56)**
+  (2026-10-21; `src/controller-native/K1XboxHud.cpp`, `vendor/K1XboxControls.cpp`,
+  `KmrpHeldActionSlotK1`). After a fight or a bash that gives experience, the status
+  summary ("Experience Points Received") comes up and takes the pad's input. The row was
+  drawn from the slot that has the input's focus, which is none while the summary is in
+  front, so it lit its first place, while the engine went on lighting the slot it still
+  held: two places looked selected, and the D-pad, which the summary has until its OK,
+  seemed stuck. The row is now drawn from the slot the HUD holds whatever is in front.
+  **Reproduced in the test game and checked by the maintainer with a DualSense**: one
+  place lit while the summary is up; A closes it and the D-pad moves the focus again.
+  `debug-logs=2` also writes the row's state to `kmrp-controller-events.log` whenever it
+  changes.
+- **Controller: the galaxy map's description follows the pad (issue 57)** (2026-10-21;
+  `src/controller-native/K1NativeJoystick.cpp`, `K1_NATIVE_DIRECTION_PANELS`). The map
+  moves between planets itself on Left, Up, Right and Down (`PrevPlanet` `0x00694CA0`,
+  `NextPlanet` `0x00694BF0`, which also fill the description through `DisplayPlanet`),
+  but KMRP's focus layer took the D-pad and only lit the planets' buttons, so the
+  description kept the planet the map opened on. The map is now one of the screens that
+  navigate themselves. **Checked in the test game with a virtual pad**: Dantooine,
+  Tatooine, Kashyyyk and back, each with its own description, by D-pad and stick.
+  A stick tilt held for 0.3 s once went two planets; 0.25 s and the D-pad went one.
+- **Controller: the pad log says what SDL lists (issue 54)** (2026-10-21;
+  `src/controller-native/K1ControllerBackend.cpp`). With `debug-logs=2`,
+  `kmrp-controller-events.log` records the gamepads SDL lists each time the list changes
+  and whether a pad that appears could be opened. Issue 54 (a DualSense on Bluetooth not
+  seen again after it switched off) did not happen on the maintainer's DualSense, with
+  or without Steam running: the pad came back under a new id and was opened each time.
+
+- **Controller: free look looks up and down with the right stick (issue 45)** (2026-10-21;
+  `src/controller-native/K1NativeJoystick.cpp`, `FeedNativeCameraK1`;
+  [controller-native-path.md](docs/controller-native-path.md), "The camera"). Until now the
+  right stick only turned free look left and right. The engine's free-look camera has a
+  pitch rate that its own joystick and keyboard code set each frame (`0x0063FDB0`, read
+  from the engine); the bridge now sets it from the right stick's Y as well, in free look
+  only. **Checked in the test game with a virtual pad**: up looks up, down looks down,
+  the view stays where it is left, and left and right turn it as before. Not played by
+  hand; the engine's camera-invert option is not applied to it, as it is not to the turn.
+
 - **Controller: the character no longer turns the wrong way or runs in circles
   (issue 46)** (2026-10-21; `src/controller-native/K1NativeJoystick.cpp`,
   `NativeJoystickSkipNormalizeK1`; [controller-native-path.md](docs/controller-native-path.md),

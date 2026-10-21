@@ -584,6 +584,9 @@ constexpr std::size_t K1_MOVIE_OFFSET_Y        = 0x88;
 constexpr std::uint16_t K1_MOVIE_SKIP_MASK = 0x1000 | 0x0010;   // A | START
 
 constexpr std::uintptr_t K1_ROTATE_CAMERA       = 0x00640090;  // CSWCModule::RotateCamera
+constexpr std::uintptr_t K1_PITCH_CAMERA        = 0x0063FDB0;  // CSWCModule, free look's pitch rate
+// The stick's up is +1 here (XInput); the engine's joystick Y runs the other way.
+constexpr float          K1_FREELOOK_PITCH_SIGN = -1.0f;
 constexpr std::uintptr_t K1_CAMERA_FRAME_DELTA  = 0x0078E574;  // what UpdateCamera is passed
 constexpr std::size_t    K1_INTERNAL_CAMERA_OWNER = 0x18;      // CClientExoAppInternal+0x18
 
@@ -633,6 +636,7 @@ using FreeFn           = void(__cdecl*)(void*);
 using OperatorDeleteFn = void(__cdecl*)(void*);
 using NormalizeFn      = void(__thiscall*)(void*);
 using RotateCameraFn   = void(__thiscall*)(void*, float, float);
+using PitchCameraFn    = void(__thiscall*)(void*, float);
 using CancelMovieFn    = void(__thiscall*)(void*, int, int);
 
 
@@ -2003,6 +2007,20 @@ void FeedNativeCameraK1(void* clientInternal)
     const float delta = *reinterpret_cast<const float*>(K1_CAMERA_FRAME_DELTA);
     EngineFn<RotateCameraFn>(K1_ROTATE_CAMERA)(owner, amount, delta);
 
+    // Up and down, in free look only (issue 45). The engine has a pitch input for
+    // free look and nothing else: ProcessInput, with the camera in mode 5, polls the
+    // joystick's Y (event 7, or the keyboard's 0x118 when that is zero) and hands it
+    // to CSWCModule at 0x0063FDB0 (0x00623E5B..0x00623F05), which writes its negation
+    // to the free-look camera's pitch rate (+0x24, behaviour 0x106E). The camera's
+    // Control adds the rate to its pitch and clears it every frame (0x00639EAB..
+    // 0x00639EE8), so it is given again on each frame the stick is held, as the keys
+    // do. Called here, after ProcessInput, so the right stick wins over the left.
+    // The chase camera has no pitch to drive; 0x0063FDB0 does nothing useful there.
+    if (inputClass == K1_CLASS_FREELOOK) {
+        const float pitch = ny * ((scaled > 1.0f ? 1.0f : scaled) / magnitude) * K1_CAMERA_SPEED;
+        EngineFn<PitchCameraFn>(K1_PITCH_CAMERA)(owner, K1_FREELOOK_PITCH_SIGN * pitch);
+    }
+
     g_stick.cameraApplied = amount;
     ++g_stick.cameraWrites;
 }
@@ -3163,6 +3181,13 @@ constexpr std::uintptr_t K1_NATIVE_DIRECTION_PANELS[] = {
     // missing because the retained-event inventory never listed the panel, so
     // the pad moved the focus between its buttons and the wager never changed.
     0x0067E150,   // PAZAAK_WAGER
+    // The galaxy map, added 2026-10-21 (issue 57): its
+    // dispatcher sends Left, Up and the bumpers' 0x3D/0x3F to PrevPlanet
+    // (0x00694CA0) and Right, Down and 0x3E/0x40 to NextPlanet (0x00694BF0), which
+    // select the planet AND fill the description (DisplayPlanet, 0x006933A0). The
+    // pad's own focus moves only lit the planets' buttons, so the description kept
+    // the planet it opened on.
+    0x00695980,   // GALAXYMAP
     // ABILITIES_CHARGEN (0x006F8880) and SKILLS (0x006F6A10) were here until
     // 2026-09-25; KMRP now navigates them itself -- see K1_POINTS_SCREENS.
 };

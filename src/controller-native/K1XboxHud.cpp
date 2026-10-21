@@ -64,10 +64,13 @@
 // K1XboxControls.cpp: which of the seven slots has the focus (0-2 the target's,
 // 3-6 personal), or -1.
 int KmrpFocusedActionSlotK1(void* mainInterface);
+// The same, whether or not another screen is in front of the HUD.
+int KmrpHeldActionSlotK1(void* mainInterface);
 // K1XboxControlsXInput.cpp: the pad is the device in use. K1NativeJoystick.cpp: the
 // cue label on a panel that follows the control at an offset.
 bool IsControllerInputActiveK1();
 void* KmrpGuiCueK1(void* panel, std::size_t follow);
+void ControllerLogK1(const char* text);     // K1NativeJoystick.cpp, the debug log
 
 extern "C" char __cdecl KmrpGlyphLetterK1();   // the pad family's letter in a texture's name (K1NativeJoystick.cpp)
 
@@ -2099,7 +2102,21 @@ extern "C" void __cdecl KmrpXboxHudK1(void* hud)
     // The texts. The Xbox names the selected action in the box and keeps the
     // target's name in the name bar; the PC puts a target slot's action in the name
     // bar and nothing in the box (CSWGuiTargetActionMenu::UpdateNameLabel).
-    const int focused = KmrpFocusedActionSlotK1(hud);
+    // The slot the HUD holds, even while another screen has the input (issue 56).
+    const int focused = KmrpHeldActionSlotK1(hud);
+    // debug-logs=2: the row's state each time it changes (issue 56, two places lit and
+    // the selection stuck while bashing).
+    if (KmrpDebugLevel() >= 2) {
+        static char last[160];
+        char line[160];
+        wsprintfA(line, "xbox row: focused %d, kind %d, target %d, first list %d, default at %d, feats %d, chosen %d",
+                  focused, kind, target ? 1 : 0, firstCount, usual, feats ? 1 : 0,
+                  kind >= 0 && kind < 4 ? At<int>(menu, kMenuChosen + kind * 3 * 4) : -1);
+        if (std::strcmp(line, last) != 0) {
+            std::strcpy(last, line);
+            ControllerLogK1(line);
+        }
+    }
     {
         using Describe = void(__thiscall*)(void*, void*);
         const Describe describe = reinterpret_cast<Describe>(kSetDescription);
