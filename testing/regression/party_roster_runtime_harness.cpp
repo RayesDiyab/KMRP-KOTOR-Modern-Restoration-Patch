@@ -14,6 +14,7 @@ extern "C" int KmrpGuiBlendCovers(const char*,unsigned,unsigned) {return 0;}
 extern "C" int KmrpAbilityIcons(const char*,unsigned,const char*,const char*) {return 1;}
 extern "C" int KmrpGameArt(const char*,const char*,unsigned,const char*) {return 1;}
 extern "C" int KmrpSwoopHud(const char*,const char*,unsigned,unsigned) {return 1;}
+extern "C" int KmrpGalaxyMap(const char*,const char*,const char*,const char*) {return 1;}
 // The art pack is not read here (K1AssetPack.cpp, not in this harness).
 namespace KmrpPack {
 bool ReadHeader(const unsigned char*,std::size_t,Key&,std::uint32_t&) {return false;}

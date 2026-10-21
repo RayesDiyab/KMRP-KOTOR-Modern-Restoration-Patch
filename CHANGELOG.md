@@ -117,6 +117,35 @@ proxy, and it applies the executable changes above as well.
 
 ## [Unreleased]
 
+- **The galaxy map's planets where the game has them, and mods' destinations kept
+  (issue 67)** (2026-10-22; `macos/tools/kmrp-galaxymap.c`, `AdaptGalaxyMapK1` in
+  `src/controller-native/K1RuntimeAssets.cpp`;
+  [mod-build-compatibility.md](docs/mod-build-compatibility.md)).
+  - *The planets.* Every size's `galaxymap.gui` came from High Resolution Menus' sets,
+    whose planets and Live slots were placed by hand in another arrangement than the
+    game's (Tatooine below the core, Korriban right of it); the maintainer: the placement
+    should be exactly the game's. Each time a size's set is given to the game, KMRP now
+    writes the map again with every `LBL_Planet_*` and `LBL_Live*` label where the game's
+    own 640x480 layout has it, read from the player's `chitin.key`, into the folder the
+    game searches before the set and Override (the party roster's). Only those labels'
+    rectangles change.
+  - *The rule, measured.* The galaxy is drawn at the height of `3D_PlanetDisplay`, about
+    its middle, the same scale both ways: the game's 640x480 map against KMRP's at
+    1920x1200 on the maintainer's PC fitted 2.47 both ways with no offset (correlation
+    0.973), against 528 / 214 = 2.47 from the two rectangles. A label's centre moves from
+    the middle by its distance in the game's rectangle times (this rectangle's height /
+    214), and its size by the same factor: 24-pixel planets are 71 at 3440x1440.
+  - *Mods.* A mod that adds a destination by moving a Live slot ships the game's 640x480
+    `galaxymap.gui` in Override, which KMRP had left to the game: the map drew 640x480 in
+    the middle of the screen. Such a file now supplies the places instead, at any size.
+    A `galaxymap.gui` of another size is left to the game, as before.
+  - **Checked by the maintainer on Steam at 3440x1440**: the map against the vanilla game
+    "matches perfectly"; with a test file in Override (Yavin moved beside Korriban, Live04
+    beside Yavin's old place) the map stayed KMRP's, Yavin stood beside Korriban, and the
+    log said so. Not yet with a real mod, and not run on the Mac, which does not call the
+    helper yet. The unselected planets look larger against their labels than in the game
+    (about 57% against 36%); not looked into.
+
 - **Shops: the item list no longer runs off the screen (issue 61)** (2026-10-22;
   `src/controller-native/K1RuntimeLayout.cpp` and `macos/patches/kmrp-assets/layout.cpp`,
   `ListWider`). Reported on a MacBook Pro at 2336x1460: in some shops, at times, the rows of

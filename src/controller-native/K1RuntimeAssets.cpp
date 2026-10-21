@@ -74,6 +74,11 @@ extern "C" int KmrpGameArt(const char* erf, const char* key, unsigned height, co
 // out of a wide screen's view (issue #47). 0 written, 1 not the game's model (left alone),
 // 3 the screen is not wide enough to need it.
 extern "C" int KmrpSwoopHud(const char* key, const char* outdir, unsigned width, unsigned height);
+// macos/tools/kmrp-galaxymap.c: the galaxy map's planets and Live slots where the game's
+// 640x480 layout (or a mod's, in Override) has them, on this size's map (issue 67). 0
+// written, 1 a layout could not be read, 2 could not write, 3 the mod's file is not
+// 640x480 (left to the game).
+extern "C" int KmrpGalaxyMap(const char* key, const char* setGui, const char* outGui, const char* sourceGui);
 void KmrpRuntimeLog(const char* line);       // K1RuntimeEngine.cpp: one line into kmrp-kpm.log
 
 namespace {
@@ -1006,6 +1011,43 @@ bool AdaptPartyRosterK1(const std::wstring& set, const std::wstring& view)
     return true;
 }
 
+// The galaxy map for the size: KMRP's map with every planet and Live slot where the game's
+// own 640x480 layout puts it on the galaxy, or where a mod's 640x480 galaxymap.gui in
+// Override puts it (issue 67), written into `folder`, which the game searches before the
+// set and Override. Every size's set came with High Resolution Menus' hand-placed planets,
+// another arrangement than the game's; and a mod's file at the game's size, left to the
+// game, drew the map 640x480 in the middle of the screen. A mod's file of any other size is
+// left to the game, as before. The folder may hold a link into the set under this name
+// (LinkSet), so the file is written beside it and moved over it, never written through it.
+std::wstring GameFolder();
+bool AdaptGalaxyMapK1(const std::wstring& set, const std::wstring& folder)
+{
+    const std::wstring game = GameFolder();
+    if (game.empty()) return false;
+    const bool theirs = OverrideHas(L"galaxymap.gui");
+    const std::wstring target = folder + L"\\galaxymap.gui", work = target + L".tmp" + Pid();
+    const std::string key = Narrow(game + L"\\chitin.key"), layout = Narrow(set + L"\\galaxymap.gui");
+    const std::string out = Narrow(work), source = theirs ? Narrow(game + L"\\override\\galaxymap.gui") : std::string();
+    if (key.empty() || layout.empty() || out.empty() || (theirs && source.empty())) return false;
+    const int result = KmrpGalaxyMap(key.c_str(), layout.c_str(), out.c_str(), theirs ? source.c_str() : nullptr);
+    if (result != 0) {
+        DeleteFileW(work.c_str());
+        if (result == 3) KmrpRuntimeLog("[KMRP] galaxy map: the Override folder's galaxymap.gui is not the game's "
+                                        "640x480 layout; it is left to the game");
+        else KmrpRuntimeLog("[KMRP] galaxy map: could not be placed; KMRP's map is used as it is");
+        return false;
+    }
+    SetFileAttributesW(target.c_str(), FILE_ATTRIBUTE_NORMAL);
+    if (!MoveFileExW(work.c_str(), target.c_str(), MOVEFILE_REPLACE_EXISTING)) {
+        DeleteFileW(work.c_str());
+        return false;
+    }
+    if (KmrpDebugLogs() || theirs)
+        KmrpRuntimeLog(theirs ? "[KMRP] galaxy map: the destinations of the Override folder's galaxymap.gui placed on KMRP's map"
+                              : "[KMRP] galaxy map: the planets placed where the game's own layout has them");
+    return true;
+}
+
 // A file of the bundled HD item icons (JackInTheBox's KOTOR 1 HD Icon Pack): among
 // the common files those are the .tpc files named ia_*, ii_* and iw_*, the game's
 // own names for armour, item and weapon icons, 351 of them and nothing else
@@ -1462,14 +1504,22 @@ bool KmrpRuntimeAssetsDimensions(int width, int height)
     bool theirs = false;
     for (const auto& name : Names(set)) if (OverrideHas(name)) { theirs = true; break; }
     std::wstring view = set, roster;
+    // The galaxy map (AdaptGalaxyMapK1) is adapted the same way, beside the roster.
     if (theirs) {
         if (!LinkSet(set, view)) return false;
         AdaptPartyRosterK1(set, view);
+        AdaptGalaxyMapK1(set, view);
     } else {
         ++generation;
         roster = root + L"\\roster-" + Pid() + L"-" + std::to_wstring(generation);
         RemoveFlat(roster);
-        if (!CreateDirectoryW(roster.c_str(), nullptr) || !AdaptPartyRosterK1(set, roster)) {
+        bool adapted = CreateDirectoryW(roster.c_str(), nullptr) != 0;
+        if (adapted) {
+            const bool party = AdaptPartyRosterK1(set, roster);
+            const bool galaxy = AdaptGalaxyMapK1(set, roster);
+            adapted = party || galaxy;
+        }
+        if (!adapted) {
             RemoveFlat(roster);
             roster.clear();
         }

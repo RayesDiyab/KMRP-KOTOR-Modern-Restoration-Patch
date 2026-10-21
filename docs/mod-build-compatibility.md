@@ -25,6 +25,15 @@ its own copy out. So the order matters again in one way: a `.gui` from another
 interface mod in `Override` replaces KMRP's layout of that screen. Built that day and
 not yet run in a game; see `CHANGELOG.md`.
 
+**Two exceptions, both adapted rather than replaced:** the party roster
+(`partyselection.gui`, issue 38) and, since 2026-10-22, the galaxy map
+(`galaxymap.gui`, issue 67). A mod that adds a destination by moving one of the map's
+Xbox Live slots (`LBL_Live01`..`05`) ships the game's 640x480 `galaxymap.gui`; KMRP keeps
+its own map for the screen in use and takes the planets' and slots' places from that file,
+on the same spot of the galaxy (`macos/tools/kmrp-galaxymap.c`). A `galaxymap.gui` of any
+other size is left to replace KMRP's, as above. Run on the maintainer's Steam game at
+3440x1440 with a test file (Yavin moved beside Korriban): not yet with a real mod.
+
 ## Executable boundary
 
 KMRP accepts three builds of the PC 1.03 executable, two of them also with the

@@ -39,6 +39,9 @@ if errorlevel 1 exit /b %errorlevel%
 cl /nologo /O2 /fp:strict /MT /TC /DKMRP_EMBEDDED /D_CRT_SECURE_NO_WARNINGS /c ^
   macos\tools\kmrp-swoophud.c /Fobuild\native-runtime\kmrp-swoophud.obj
 if errorlevel 1 exit /b %errorlevel%
+cl /nologo /O2 /fp:strict /MT /TC /DKMRP_EMBEDDED /D_CRT_SECURE_NO_WARNINGS /c ^
+  macos\tools\kmrp-galaxymap.c /Fobuild\native-runtime\kmrp-galaxymap.obj
+if errorlevel 1 exit /b %errorlevel%
 cl /nologo /Brepro /std:c++17 /O2 /fp:strict /EHsc /MT /LD /DKMRP_NATIVE_RUNTIME ^
   /Ibuild\native-runtime /Isrc\controller-native /Ithird_party\lzma-sdk /Ibuild\deps\SDL3-3.4.16\include ^
   src\controller-native\K1RuntimeResolution.cpp src\controller-native\K1RuntimeEngine.cpp ^
@@ -54,7 +57,7 @@ cl /nologo /Brepro /std:c++17 /O2 /fp:strict /EHsc /MT /LD /DKMRP_NATIVE_RUNTIME
   src\controller-native\vendor\K1XboxControls.cpp src\controller-native\vendor\K1XboxControlsXInput.cpp ^
   build\native-runtime\kmrp-guiblend.obj ^
   build\native-runtime\kmrp-abilityicons.obj build\native-runtime\kmrp-gameart.obj ^
-  build\native-runtime\kmrp-swoophud.obj build\native-runtime\LzmaDec.obj ^
+  build\native-runtime\kmrp-swoophud.obj build\native-runtime\kmrp-galaxymap.obj build\native-runtime\LzmaDec.obj ^
   /Fobuild\native-runtime\ /Febuild\native-runtime\kmrp-native.dll ^
   /link /Brepro user32.lib gdi32.lib bcrypt.lib crypt32.lib ^
   /DEF:build\native-runtime\native-exports.def /INCREMENTAL:NO ^

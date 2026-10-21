@@ -1720,3 +1720,17 @@ held leftover memory: a large value made the store's list and rows far wider tha
 height the store's rows are built with, as Windows does since the same day. **How to check:**
 build the Mac patch, open a shop (Dantooine, by the Ebon Hawk) several times: every row
 inside its box with its name in view.
+
+## 87. The galaxy map from the game's own places (issue 67)
+
+**State, 2026-10-22: to do.** Windows writes the galaxy map again each time a size's set
+is given to the game (`AdaptGalaxyMapK1`, `src/controller-native/K1RuntimeAssets.cpp`),
+with every planet and Live slot where the game's 640x480 `galaxymap.gui` has it (read
+through `chitin.key`), or where a mod's 640x480 `galaxymap.gui` in Override has it, on the
+same spot of the galaxy. The helper, `macos/tools/kmrp-galaxymap.c`, is plain C like the
+swoop helper, so the Mac can call it the same way from `assets.cpp` into a folder searched
+before the set and the player's override (the Mac's `PlayerHas` leaves the player's file to
+the game today). The Mac game's own `galaxymap.gui` is read from its resources instead of
+`chitin.key`. **How to check:** the map's planets in the game's arrangement (Dantooine
+above the core, Taris to its upper right); with a 640x480 `galaxymap.gui` in override, the
+map still fills its frame.
