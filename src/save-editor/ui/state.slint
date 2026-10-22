@@ -3,9 +3,10 @@
 
 export struct SaveRow { name: string, area: string, time: string, date: string, tag: string, shot: image, has-shot: bool }
 export struct Member { name: string, sub: string, portrait: image, has-portrait: bool, changed: bool }
-export struct Stat { label: string, note: string, value: int, minimum: int, maximum: int, mod: string, changed: bool }
-export struct Named { id: int, name: string, note: string }
-export struct ItemRow { name: string, kind: string, stack: int, max-stack: int, tag: string, changed: bool }
+export struct Stat { label: string, note: string, value: int, minimum: int, maximum: int, mod: string, changed: bool, icon: image, has-icon: bool }
+// A list row; header rows name a group, owned rows are what the character has.
+export struct Named { id: int, name: string, note: string, icon: image, has-icon: bool, header: bool, owned: bool, changed: bool }
+export struct ItemRow { index: int, name: string, kind: string, stack: int, max-stack: int, tag: string, changed: bool, icon: image, has-icon: bool }
 export struct NpcRow {
     index: int, name: string, portrait: image, has-portrait: bool, has-creature: bool,
     recruited: bool, selectable: bool, in-party: bool, influence: int, has-influence: bool, changed: bool
@@ -44,6 +45,8 @@ export global App {
     callback show-folder();
     callback open-saves-folder();
     callback add-save-folder();
+    in property <string> game-folder;
+    callback choose-game-folder();
 
     // ---- the editor ----
     in property <int> tab: 0;
@@ -97,10 +100,10 @@ export global App {
     in property <[Stat]> skills;
     in property <[Named]> feats;
     in property <[Named]> powers;
+    in property <int> feat-count;
+    in property <int> power-count;
     in property <string> power-note;
     in property <bool> can-powers;
-    in property <[Named]> feat-results;
-    in property <[Named]> power-results;
     callback set-skill(int, int);
     callback search-feats(string);
     callback add-feat(int);
@@ -118,7 +121,6 @@ export global App {
     in property <int> chemicals;
     in property <bool> chemicals-changed;
     in property <[ItemRow]> items;
-    in property <[ItemRow]> equipped;
     in property <string> inventory-note;
     callback set-credits(int);
     callback set-components(int);
@@ -126,6 +128,8 @@ export global App {
     callback set-stack(int, int);
     callback remove-item(int);
     callback open-add-item();
+    in property <int> inventory-tab;
+    callback select-inventory-tab(int);
 
     // Party
     in property <[NpcRow]> npcs;
@@ -188,6 +192,11 @@ export global App {
     in property <string> overlay-title;
     in property <string> overlay-note;
     in property <[Named]> picker;
+    in property <[string]> picker-tabs;
+    in property <[string]> picker-tabs-a;
+    in property <[string]> picker-tabs-b;
+    in property <int> picker-tab;
+    callback select-picker-tab(int);
     in property <[PortraitRow]> looks;
     in property <[SaveRow]> other-saves;
     in property <string> message-title;

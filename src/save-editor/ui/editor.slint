@@ -4,7 +4,7 @@
 
 import { Theme } from "theme.slint";
 import { App, Stat, Named, ItemRow, NpcRow, GlobalRow, DoorRow, BoxRow, Toggle } from "state.slint";
-import { Button, Stepper, Field, Switch, Label, Note, Scroller, Cross, Sign } from "widgets.slint";
+import { Button, Stepper, Field, Switch, Label, Note, Scroller, Cross, Sign, BackArrow } from "widgets.slint";
 
 component Line inherits Rectangle {
     height: 56px;
@@ -18,6 +18,17 @@ component StatLine inherits Line {
     height: stat.note != "" ? 60px : 52px;
     HorizontalLayout {
         spacing: 12px;
+        if stat.has-icon: VerticalLayout {
+            alignment: center;
+            Rectangle {
+                width: 34px;
+                height: 34px;
+                border-radius: 4px;
+                background: Theme.field;
+                clip: true;
+                Image { source: stat.icon; width: parent.width; height: parent.height; }
+            }
+        }
         VerticalLayout {
             alignment: center;
             Text { text: stat.label; font-family: Theme.list-font; font-size: label-size; color: Theme.text; overflow: elide; }
@@ -46,26 +57,28 @@ component StatLine inherits Line {
     }
 }
 
-// A list of names with a remove cross, and a search box above that adds.
-component PickList inherits Rectangle {
+// Every feat or power the game has, in its groups, with its icon. What the character
+// has is lit, with a cross to remove it; the rest have a plus. Typing narrows the list.
+component AbilityList inherits Rectangle {
     in property <string> title;
     in property <string> hint;
     in property <string> placeholder;
     in property <[Named]> rows;
-    in property <[Named]> results;
     in property <bool> enabled: true;
     callback search(string);
     callback add(int);
     callback remove(int);
     in-out property <string> query;
     HorizontalLayout {
-        x: 0; y: 0;
+        x: 0;
+        y: 0;
         height: 24px;
         Label { text: title; }
         Note { text: hint; horizontal-alignment: right; vertical-alignment: center; }
     }
-    search-box := Field {
-        x: 0; y: 34px;
+    Field {
+        x: 0;
+        y: 34px;
         height: 40px;
         text <=> query;
         placeholder: root.placeholder;
@@ -74,31 +87,55 @@ component PickList inherits Rectangle {
         read-only: !enabled;
         edited(t) => { root.search(t); }
     }
-    property <bool> searching: query != "";
     Scroller {
-        x: 0; y: 84px;
+        x: 0;
+        y: 84px;
         height: parent.height - 84px;
-        content-height: (searching ? results.length : rows.length) * 44px;
+        content-height: rows.length * 50px;
         VerticalLayout {
-            for r in (searching ? results : rows): Rectangle {
-                height: 44px;
-                Rectangle { x: 0; y: parent.height - 1px; height: 1px; background: Theme.row-line; }
-                HorizontalLayout {
-                    spacing: 8px;
+            for r in rows: Rectangle {
+                height: 50px;
+                background: r.owned ? Theme.selected : transparent;
+                border-radius: 5px;
+                if r.header: Label { x: 4px; y: 22px; text: r.name; font-size: 13px; color: Theme.soft; }
+                if !r.header: Rectangle { x: 0; y: parent.height - 1px; height: 1px; background: Theme.row-line; }
+                if !r.header: HorizontalLayout {
+                    padding-left: 6px;
+                    spacing: 10px;
+                    Rectangle {
+                        width: 38px;
+                        VerticalLayout {
+                            alignment: center;
+                            Rectangle {
+                                height: 38px;
+                                border-radius: 4px;
+                                background: Theme.field;
+                                border-width: 1px;
+                                border-color: r.owned ? Theme.accent : Theme.edge;
+                                clip: true;
+                                if r.has-icon: Image { source: r.icon; width: parent.width; height: parent.height; }
+                            }
+                        }
+                    }
                     VerticalLayout {
                         alignment: center;
-                        Text { text: r.name; font-family: Theme.list-font; font-size: 17px; color: Theme.text; overflow: elide; }
+                        Text {
+                            text: r.name;
+                            font-family: Theme.list-font;
+                            font-size: 16px;
+                            color: r.changed ? Theme.changed : r.owned ? Theme.gold : Theme.text;
+                            overflow: elide;
+                        }
                         if r.note != "": Text { text: r.note; font-family: Theme.body-font; font-size: 12px; color: Theme.faint; overflow: elide; }
                     }
                     Rectangle {
                         width: 40px;
-                        if searching: Sign { plus: true; colour: Theme.accent; }
-                        if !searching: Cross { colour: act.has-hover ? Theme.danger : Theme.faint; }
+                        if !r.owned && root.enabled: Sign { plus: true; colour: act.has-hover ? Theme.text : Theme.accent; }
+                        if r.owned: Cross { colour: act.has-hover ? Theme.danger : Theme.faint; }
                         act := TouchArea {
+                            enabled: root.enabled || r.owned;
                             mouse-cursor: pointer;
-                            clicked => {
-                                if (searching) { root.add(r.id); query = ""; } else { root.remove(r.id); }
-                            }
+                            clicked => { if (r.owned) { root.remove(r.id); } else { root.add(r.id); } }
                         }
                     }
                 }
@@ -298,30 +335,28 @@ component AbilitiesTab inherits Rectangle {
         VerticalLayout {
             x: 0; y: 32px;
             height: self.preferred-height;
-            for s[i] in App.skills: StatLine { stat: s; label-size: 17px; height: 50px; set(v) => { App.set-skill(i, v); } }
+            for s[i] in App.skills: StatLine { stat: s; label-size: 15px; height: 50px; set(v) => { App.set-skill(i, v); } }
         }
         Note { x: 0; y: 32px + App.skills.length * 50px + 10px; width: parent.width; text: "Ranks the character has bought. Items and attributes add on top in the game."; }
     }
-    PickList {
+    AbilityList {
         x: colw * 0.92 + 34px;
         width: pick-w;
-        title: "FEATS · " + App.feats.length;
-        placeholder: "Type to find any feat the game has, then +";
+        title: "FEATS · " + App.feat-count;
+        placeholder: "Type to narrow the list";
         rows: App.feats;
-        results: App.feat-results;
         search(t) => { App.search-feats(t); }
         add(id) => { App.add-feat(id); }
         remove(id) => { App.remove-feat(id); }
     }
-    PickList {
+    AbilityList {
         x: colw * 0.92 + 34px + pick-w + 34px;
         width: pick-w;
-        title: "FORCE POWERS · " + App.powers.length;
+        title: "FORCE POWERS · " + App.power-count;
         hint: App.power-note;
         enabled: App.can-powers;
-        placeholder: App.can-powers ? "Type to find any power, then +" : "Only a Jedi class learns Force powers";
+        placeholder: App.can-powers ? "Type to narrow the list" : "Only a Jedi class learns Force powers";
         rows: App.powers;
-        results: App.power-results;
         search(t) => { App.search-powers(t); }
         add(id) => { App.add-power(id); }
         remove(id) => { App.remove-power(id); }
@@ -337,6 +372,19 @@ component ItemLine inherits Rectangle {
     Rectangle { x: 0; y: parent.height - 1px; height: 1px; background: Theme.row-line; }
     HorizontalLayout {
         spacing: 12px;
+        VerticalLayout {
+            alignment: center;
+            Rectangle {
+                width: 40px;
+                height: 40px;
+                border-radius: 4px;
+                border-width: 1px;
+                border-color: Theme.edge;
+                background: Theme.field;
+                clip: true;
+                if item.has-icon: Image { source: item.icon; width: parent.width; height: parent.height; }
+            }
+        }
         VerticalLayout {
             alignment: center;
             Text { text: item.name; font-family: Theme.list-font; font-size: 17px; color: item.changed ? Theme.changed : Theme.text; overflow: elide; }
@@ -378,13 +426,65 @@ component Money inherits Line {
         }
         VerticalLayout {
             alignment: center;
-            Field { width: 170px; text: value; changed: changed; accepted(t) => { root.set(t.to-float()); } }
+            Field { width: min(170px, root.width - 150px); text: value; changed: changed; accepted(t) => { root.set(t.to-float()); } }
+        }
+    }
+}
+
+// The kinds of item as a row of tabs; on two rows when the row would not fit.
+component KindTab inherits Rectangle {
+    in property <string> text;
+    in property <bool> on;
+    callback chosen;
+    width: kt.preferred-width + 20px;
+    height: 34px;
+    border-radius: 5px;
+    border-width: 1px;
+    border-color: on ? Theme.accent : Theme.edge;
+    background: on ? Theme.selected : kta.has-hover ? Theme.hover : Theme.field;
+    kt := Text { text: root.text; font-family: Theme.list-font; font-size: 14px; color: on ? Theme.text : Theme.soft; }
+    kta := TouchArea { mouse-cursor: pointer; clicked => { root.chosen(); } }
+}
+
+component KindTabs inherits Rectangle {
+    in property <int> selected;
+    callback chosen(int);
+    // One row when the whole row fits, measured from a hidden copy of it.
+    property <bool> one-row: root.width >= probe.preferred-width;
+    probe := HorizontalLayout {
+        y: 0;
+        height: 34px;
+        spacing: 6px;
+        opacity: 0;
+        for t in App.picker-tabs: KindTab { text: t; }
+    }
+    height: one-row ? 34px : 74px;
+    HorizontalLayout {
+        y: 0;
+        height: 34px;
+        spacing: 6px;
+        alignment: start;
+        for t[i] in (one-row ? App.picker-tabs : App.picker-tabs-a): KindTab {
+            text: t;
+            on: i == root.selected;
+            chosen => { root.chosen(i); }
+        }
+    }
+    if !one-row: HorizontalLayout {
+        y: 40px;
+        height: 34px;
+        spacing: 6px;
+        alignment: start;
+        for t[i] in App.picker-tabs-b: KindTab {
+            text: t;
+            on: i + App.picker-tabs-a.length == root.selected;
+            chosen => { root.chosen(i + App.picker-tabs-a.length); }
         }
     }
 }
 
 component InventoryTab inherits Rectangle {
-    property <length> side: min(380px, self.width * 0.32);
+    property <length> side: 300px;
     Rectangle {
         x: 0;
         width: side;
@@ -397,40 +497,46 @@ component InventoryTab inherits Rectangle {
             if App.has-crafting: Money { label: "Chemicals"; note: "For the lab station"; value: App.chemicals; changed: App.chemicals-changed; set(v) => { App.set-chemicals(v); } }
         }
         Note { x: 0; y: App.has-crafting ? 220px : 108px; width: parent.width; text: "Type a number and press Enter."; }
-        Label { x: 0; y: App.has-crafting ? 270px : 158px; text: "WORN BY " + App.name; }
-        Scroller {
-            x: 0; y: (App.has-crafting ? 270px : 158px) + 34px;
-            height: parent.height - self.y;
-            content-height: App.equipped.length * 50px;
-            VerticalLayout { for r in App.equipped: ItemLine { item: r; editable: false; } }
-        }
     }
     Rectangle {
         x: side + 34px;
         width: parent.width - self.x;
-        HorizontalLayout {
-            x: 0; y: 0;
-            height: 24px;
-            Label { text: "INVENTORY · " + App.items.length; }
-            Note { text: App.inventory-note; horizontal-alignment: right; vertical-alignment: center; }
-        }
-        HorizontalLayout {
-            x: 0; y: 32px;
-            height: 38px;
-            alignment: start;
-            Button { kind: 3; text: "Add an Item"; clicked => { App.open-add-item(); } }
+        Label { x: 0; y: 0; text: "INVENTORY · " + App.items.length; }
+        kinds := KindTabs {
+            x: 0;
+            y: 32px;
+            width: parent.width;
+            selected: App.inventory-tab;
+            chosen(i) => { App.select-inventory-tab(i); }
         }
         Scroller {
-            x: 0; y: 84px;
-            height: parent.height - 84px;
+            x: 0; y: 32px + kinds.height + 14px;
+            height: parent.height - self.y - 54px;
             content-height: App.items.length * 50px;
             VerticalLayout {
                 for r[i] in App.items: ItemLine {
                     item: r;
-                    stack(v) => { App.set-stack(i, v); }
-                    remove => { App.remove-item(i); }
+                    stack(v) => { App.set-stack(r.index, v); }
+                    remove => { App.remove-item(r.index); }
                 }
             }
+        }
+        // Add Item: a full-width bar under the list, so it never covers a row.
+        Rectangle {
+            x: 0;
+            y: parent.height - 44px;
+            height: 44px;
+            border-radius: 5px;
+            border-width: 1px;
+            border-color: fb.has-hover ? Theme.accent : Theme.edge;
+            background: fb.has-hover ? Theme.hover : Theme.field;
+            HorizontalLayout {
+                alignment: center;
+                spacing: 10px;
+                VerticalLayout { alignment: center; Sign { plus: true; colour: Theme.accent; } }
+                Text { text: "Add Item"; vertical-alignment: center; font-family: Theme.list-font; font-size: 17px; color: Theme.accent; }
+            }
+            fb := TouchArea { mouse-cursor: pointer; clicked => { App.open-add-item(); } }
         }
     }
 }
@@ -795,13 +901,11 @@ component StoryTab inherits Rectangle {
 }
 
 export component EditorPage inherits Rectangle {
-    // Back to the list
-    HorizontalLayout {
-        x: parent.width - 60px - 170px;
-        y: 66px;
-        width: 170px;
-        height: 50px;
-        Button { text: "All Saves"; font-size: 18px; clicked => { App.back(); } }
+    // Back to the saves, top left before the crest.
+    BackArrow {
+        x: 50px;
+        y: 67px;
+        clicked => { App.back(); }
     }
     // Tabs
     Rectangle {

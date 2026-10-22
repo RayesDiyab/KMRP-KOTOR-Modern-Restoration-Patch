@@ -148,6 +148,9 @@ fn game_running(game: Game) -> bool {
 #[derive(Default)]
 struct Settings {
     added: Vec<PathBuf>,
+    /// The install to use for each game, when the player picked one.
+    k1_dir: Option<PathBuf>,
+    k2_dir: Option<PathBuf>,
     k2: bool,
     light: bool,
 }
@@ -163,6 +166,10 @@ impl Settings {
             for line in text.lines() {
                 if let Some(p) = line.strip_prefix("added=") {
                     s.added.push(PathBuf::from(p));
+                } else if let Some(p) = line.strip_prefix("k1dir=") {
+                    s.k1_dir = Some(PathBuf::from(p));
+                } else if let Some(p) = line.strip_prefix("k2dir=") {
+                    s.k2_dir = Some(PathBuf::from(p));
                 } else if line == "game=k2" {
                     s.k2 = true;
                 } else if line == "theme=light" {
@@ -177,6 +184,11 @@ impl Settings {
         let mut text = String::new();
         for a in &self.added {
             text.push_str(&format!("added={}\n", a.display()));
+        }
+        for (key, dir) in [("k1dir", &self.k1_dir), ("k2dir", &self.k2_dir)] {
+            if let Some(d) = dir {
+                text.push_str(&format!("{}={}\n", key, d.display()));
+            }
         }
         text.push_str(if self.k2 { "game=k2\n" } else { "game=k1\n" });
         text.push_str(if self.light { "theme=light\n" } else { "theme=dark\n" });
@@ -196,10 +208,19 @@ enum Target {
     ImportNpc(usize),
 }
 
+/// A game's tables, names and (when asked) item list. Made in the background at start
+/// for the game not on screen, so switching to it is instant.
+fn build_game(game: Game, path: &Path, with_items: bool) -> Game_ {
+    let data = Arc::new(GameData::open(game, path));
+    let catalog = Arc::new(Catalog::build(&data));
+    let items = with_items.then(|| Arc::new(catalog::item_templates(&data)));
+    Game_ { data, catalog, items }
+}
+
 struct Game_ {
-    data: Rc<GameData>,
-    catalog: Rc<Catalog>,
-    items: Option<Rc<Vec<ItemTemplate>>>,
+    data: Arc<GameData>,
+    catalog: Arc<Catalog>,
+    items: Option<Arc<Vec<ItemTemplate>>>,
 }
 
 struct State {
@@ -207,6 +228,10 @@ struct State {
     installs: Vec<Install>,
     game: Game,
     games: HashMap<Game, Game_>,
+    ready: Arc<Mutex<HashMap<Game, Game_>>>,
+    ready_items: Arc<Mutex<HashMap<Game, Arc<Vec<ItemTemplate>>>>>,
+    picker_tab: usize,
+    inventory_tab: usize,
     saves: Vec<(SaveFolder, Summary)>,
     shots: Arc<Mutex<HashMap<PathBuf, Option<Arc<tga::Image>>>>>,
     portraits: HashMap<String, Option<Image>>,
@@ -237,11 +262,11 @@ impl State {
         self.games.get(&self.game)
     }
 
-    fn data(&self) -> Option<Rc<GameData>> {
+    fn data(&self) -> Option<Arc<GameData>> {
         self.current().map(|g| g.data.clone())
     }
 
-    fn catalog(&self) -> Option<Rc<Catalog>> {
+    fn catalog(&self) -> Option<Arc<Catalog>> {
         self.current().map(|g| g.catalog.clone())
     }
 
@@ -249,10 +274,12 @@ impl State {
         if self.games.contains_key(&game) {
             return;
         }
+        if let Some(ready) = self.ready.lock().unwrap().remove(&game) {
+            self.games.insert(game, ready);
+            return;
+        }
         if let Some(install) = self.installs.iter().find(|i| i.game == game) {
-            let data = Rc::new(GameData::open(game, &install.path));
-            let catalog = Rc::new(Catalog::build(&data));
-            self.games.insert(game, Game_ { data, catalog, items: None });
+            self.games.insert(game, build_game(game, &install.path, false));
         }
     }
 
@@ -274,6 +301,18 @@ impl State {
         let img = img.map(|i| image(&i));
         self.portraits.insert(key, img.clone());
         img
+    }
+
+    /// An icon texture, or the fallback when the game has no such texture.
+    fn icon(&mut self, name: &str, fallback: &str) -> Option<Image> {
+        self.portrait(name).or_else(|| self.portrait(fallback))
+    }
+
+    fn item_icon(&mut self, item: &Struct) -> Option<Image> {
+        let base = self.data()?.table("baseitems");
+        let row = item.int("BaseItem").unwrap_or(0) as usize;
+        let (name, fallback) = catalog::item_icon(&base, row, item.int("ModelVariation").unwrap_or(1));
+        self.icon(&name, &fallback)
     }
 
     fn portrait_of(&mut self, c: &Struct) -> Option<Image> {
@@ -313,15 +352,16 @@ impl State {
         self.whos.get(self.who).copied().unwrap_or(Who::Player)
     }
 
-    fn item_templates(&mut self) -> Rc<Vec<ItemTemplate>> {
+    fn item_templates(&mut self) -> Arc<Vec<ItemTemplate>> {
         let game = self.game;
         if let Some(g) = self.games.get_mut(&game) {
             if g.items.is_none() {
-                g.items = Some(Rc::new(catalog::item_templates(&g.data)));
+                let ready = self.ready_items.lock().unwrap().remove(&game);
+                g.items = Some(ready.unwrap_or_else(|| Arc::new(catalog::item_templates(&g.data))));
             }
             return g.items.clone().unwrap();
         }
-        Rc::new(Vec::new())
+        Arc::new(Vec::new())
     }
 
     fn item_name(&self, item: &Struct) -> String {
@@ -346,6 +386,23 @@ impl State {
     }
 }
 
+/// Every install found, with the one the player picked for each game first.
+fn installs_for(settings: &Settings) -> Vec<Install> {
+    let mut extra = settings.added.clone();
+    extra.extend(settings.k1_dir.iter().cloned());
+    extra.extend(settings.k2_dir.iter().cloned());
+    let mut installs = games::find_installs(&extra);
+    let picked = |i: &Install| {
+        let want = match i.game {
+            Game::K1 => &settings.k1_dir,
+            Game::K2 => &settings.k2_dir,
+        };
+        want.as_ref().map_or(false, |w| games::clean(w) == i.path)
+    };
+    installs.sort_by_key(|i| !picked(i));
+    installs
+}
+
 // ---- filling the screens ----
 
 fn fill_saves(ui: &AppWindow, st: &mut State) {
@@ -356,6 +413,12 @@ fn fill_saves(ui: &AppWindow, st: &mut State) {
     app.set_has_k2(st.installs.iter().any(|i| i.game == Game::K2));
     app.set_showing_k2(st.game == Game::K2);
     st.ensure_game(st.game);
+    app.set_game_folder(s(st
+        .installs
+        .iter()
+        .find(|i| i.game == st.game)
+        .map(|i| format!("{}: {}", i.source, i.path.display()))
+        .unwrap_or_default()));
 
     let folders = games::find_saves(&st.installs, st.game, &st.settings.added);
     let mut saves: Vec<(SaveFolder, Summary)> =
@@ -668,6 +731,7 @@ fn fill_character(ui: &AppWindow, st: &mut State) {
                 maximum: 100,
                 r#mod: s(if m >= 0 { format!("+{}", m) } else { m.to_string() }),
                 changed: v != creature::attribute(&o, label),
+                ..Default::default()
             }
         })
         .collect();
@@ -703,8 +767,47 @@ fn fill_character(ui: &AppWindow, st: &mut State) {
     app.set_position_changed(p != po);
 }
 
+fn row(id: i64, name: impl AsRef<str>, note: impl AsRef<str>) -> Named {
+    Named { id: id as i32, name: s(name), note: s(note), ..Default::default() }
+}
+
 fn named(rows: impl Iterator<Item = (i64, String, String)>) -> ModelRc<Named> {
-    model(rows.map(|(id, name, note)| Named { id: id as i32, name: s(name), note: s(note) }).collect())
+    model(rows.map(|(id, name, note)| row(id, name, note)).collect())
+}
+
+/// Every entry of a catalogue list, under its group's heading, with its icon: what the
+/// creature has is lit. Entries it has that the game's list lacks (a removed mod) come
+/// last, so they can still be removed.
+fn ability_rows(st: &mut State, list: &[kse_core::catalog::Entry], have: &[i64], before: &[i64], query: &str, fallback_name: &str) -> Vec<Named> {
+    let q = query.trim().to_lowercase();
+    let mut out = Vec::new();
+    let mut group = String::new();
+    for e in list {
+        if !q.is_empty() && !e.name.to_lowercase().contains(&q) {
+            continue;
+        }
+        if e.group != group {
+            group = e.group.clone();
+            out.push(Named { header: true, ..row(-1, group.to_uppercase(), "") });
+        }
+        let owned = have.contains(&e.id);
+        let icon = st.portrait(&e.icon);
+        out.push(Named {
+            owned,
+            changed: owned != before.contains(&e.id),
+            has_icon: icon.is_some(),
+            icon: icon.unwrap_or_default(),
+            ..row(e.id, &e.name, short(&e.description))
+        });
+    }
+    let unknown: Vec<i64> = have.iter().copied().filter(|id| !list.iter().any(|e| e.id == *id)).collect();
+    if !unknown.is_empty() && q.is_empty() {
+        out.push(Named { header: true, ..row(-1, "NOT IN THE GAME'S LIST", "") });
+        for id in unknown {
+            out.push(Named { owned: true, ..row(id, format!("{} {}", fallback_name, id), "From a mod that is no longer installed, or hidden") });
+        }
+    }
+    out
 }
 
 fn short(text: &str) -> String {
@@ -722,13 +825,17 @@ fn fill_abilities(ui: &AppWindow, st: &mut State) {
     let Some(c) = st.save.as_ref().and_then(|s| s.creature(who)).cloned() else { return };
     let o = st.original.as_ref().and_then(|s| s.creature(who)).cloned().unwrap_or_else(|| c.clone());
     let Some(cat) = st.catalog() else { return };
+    let skill_icons: Vec<Option<Image>> = cat.skills.iter().map(|sk| st.portrait(&sk.icon)).collect();
     let skills: Vec<Stat> = cat
         .skills
         .iter()
         .enumerate()
         .map(|(i, sk)| {
             let v = creature::skill(&c, i);
+            let icon = skill_icons[i].clone();
             Stat {
+                has_icon: icon.is_some(),
+                icon: icon.unwrap_or_default(),
                 label: s(&sk.name),
                 note: s(""),
                 value: v as i32,
@@ -740,24 +847,15 @@ fn fill_abilities(ui: &AppWindow, st: &mut State) {
         })
         .collect();
     app.set_skills(model(skills));
-    let mut feats: Vec<(i64, String, String)> = creature::feats(&c)
-        .into_iter()
-        .map(|f| {
-            let note = if creature::feats(&o).contains(&f) { "" } else { "Added" };
-            (f, cat.feat_name(f), note.to_string())
-        })
-        .collect();
-    feats.sort_by(|a, b| a.1.to_lowercase().cmp(&b.1.to_lowercase()));
-    app.set_feats(named(feats.into_iter()));
-    let mut powers: Vec<(i64, String, String)> = creature::powers(&c)
-        .into_iter()
-        .map(|p| {
-            let note = if creature::powers(&o).contains(&p) { "" } else { "Added" };
-            (p, cat.power_name(p), note.to_string())
-        })
-        .collect();
-    powers.sort_by(|a, b| a.1.to_lowercase().cmp(&b.1.to_lowercase()));
-    app.set_powers(named(powers.into_iter()));
+    let (feats_now, feats_before) = (creature::feats(&c), creature::feats(&o));
+    let (powers_now, powers_before) = (creature::powers(&c), creature::powers(&o));
+    let (fq, pq) = (st.feat_query.clone(), st.power_query.clone());
+    let feat_rows = ability_rows(st, &cat.feats, &feats_now, &feats_before, &fq, "Feat");
+    let power_rows = ability_rows(st, &cat.powers, &powers_now, &powers_before, &pq, "Power");
+    app.set_feats(model(feat_rows));
+    app.set_powers(model(power_rows));
+    app.set_feat_count(feats_now.len() as i32);
+    app.set_power_count(powers_now.len() as i32);
     let force = |id: i64| cat.is_force_class(id);
     let can = creature::can_have_powers(&c, &force);
     app.set_can_powers(can);
@@ -767,56 +865,27 @@ fn fill_abilities(ui: &AppWindow, st: &mut State) {
         .map(|(id, _)| cat.class_name(*id))
         .collect();
     app.set_power_note(s(jedi.join(", ")));
-    search_feats(ui, st);
-    search_powers(ui, st);
 }
 
-fn matches(name: &str, query: &str) -> bool {
-    let q = query.trim().to_lowercase();
-    !q.is_empty() && name.to_lowercase().contains(&q)
-}
-
-fn search_feats(ui: &AppWindow, st: &State) {
-    let app = ui.global::<App>();
-    let Some(cat) = st.catalog() else { return };
-    let have = st.save.as_ref().and_then(|s| s.creature(st.who())).map(creature::feats).unwrap_or_default();
-    let rows = cat
-        .feats
-        .iter()
-        .filter(|f| !have.contains(&f.id) && matches(&f.name, &st.feat_query))
-        .take(80)
-        .map(|f| (f.id, f.name.clone(), short(&f.description)));
-    app.set_feat_results(named(rows));
-}
-
-fn search_powers(ui: &AppWindow, st: &State) {
-    let app = ui.global::<App>();
-    let Some(cat) = st.catalog() else { return };
-    let have = st.save.as_ref().and_then(|s| s.creature(st.who())).map(creature::powers).unwrap_or_default();
-    let rows = cat
-        .powers
-        .iter()
-        .filter(|f| !have.contains(&f.id) && matches(&f.name, &st.power_query))
-        .take(80)
-        .map(|f| (f.id, f.name.clone(), short(&f.description)));
-    app.set_power_results(named(rows));
-}
-
-fn item_rows(st: &State, items: &[Struct], original: &[Struct]) -> Vec<ItemRow> {
+fn item_rows(st: &mut State, items: &[Struct], original: &[Struct]) -> Vec<ItemRow> {
     items
         .iter()
         .enumerate()
         .map(|(i, it)| {
+            let icon = st.item_icon(it);
             let (kind, max) = st.item_kind(it);
             let stack = it.int("StackSize").unwrap_or(1);
             let changed = original.get(i).map_or(true, |o| o != it);
             ItemRow {
+                index: i as i32,
                 name: s(st.item_name(it)),
                 kind: s(kind),
                 stack: stack as i32,
                 max_stack: max.max(stack) as i32,
                 tag: s(it.string("Tag").unwrap_or_default()),
                 changed,
+                has_icon: icon.is_some(),
+                icon: icon.unwrap_or_default(),
             }
         })
         .collect()
@@ -840,12 +909,18 @@ fn fill_inventory(ui: &AppWindow, st: &mut State) {
     app.set_chemicals_changed(orig.map_or(false, |o| get(o, "PT_ITEM_CHEMICAL") != chem));
     let items = save.inventory();
     let original = orig.map(|o| o.inventory()).unwrap_or_default();
-    let rows = item_rows(st, &items, &original);
+    let base = st.data().map(|d| d.table("baseitems"));
+    let tab = st.inventory_tab;
+    let shown = |it: &Struct| {
+        tab == 0
+            || base.as_ref().map_or(true, |b| catalog::item_category(b, it.int("BaseItem").unwrap_or(0) as usize).unwrap_or(7) == tab)
+    };
+    let rows: Vec<ItemRow> = item_rows(st, &items, &original).into_iter().filter(|r| shown(&items[r.index as usize])).collect();
+    app.set_inventory_tab(tab as i32);
+    app.set_picker_tabs(model(catalog::ITEM_CATEGORIES.iter().map(|c| s(c)).collect()));
+    app.set_picker_tabs_a(model(catalog::ITEM_CATEGORIES[..4].iter().map(|c| s(c)).collect()));
+    app.set_picker_tabs_b(model(catalog::ITEM_CATEGORIES[4..].iter().map(|c| s(c)).collect()));
     app.set_items(model(rows));
-    let who = st.who();
-    let worn: Vec<Struct> = save.creature(who).map(|c| creature::equipped(c).into_iter().cloned().collect()).unwrap_or_default();
-    let worn_rows = item_rows(st, &worn, &worn);
-    app.set_equipped(model(worn_rows));
     app.set_inventory_note(s("A stack can be as large as the game allows for that kind of item."));
 }
 
@@ -1030,9 +1105,9 @@ fn fill_area(ui: &AppWindow, st: &mut State) {
         .and_then(|(l, i)| st.original.as_ref().and_then(|o| o.area_git()).and_then(|g| area::container(&g.root, l, i).cloned()))
         .and_then(|c| c.list("ItemList").cloned())
         .unwrap_or_default();
+    let module = save.nfo.root.string("AREANAME").unwrap_or_default();
     let item_rows = item_rows(st, &items, &orig_items);
     app.set_box_items(model(item_rows));
-    let module = save.nfo.root.string("AREANAME").unwrap_or_default();
     app.set_area_note(s(format!(
         "{}: what the game finds when the save loads. Story scripts may lock a door again.",
         module
@@ -1182,6 +1257,9 @@ fn open_items_picker(ui: &AppWindow, st: &mut State, target: Target, title: &str
         "Every item the game has, mods included. Type to narrow the list; click an item to add one.",
     ));
     app.set_overlay(1);
+    st.picker_tab = 0;
+    app.set_picker_tab(0);
+    app.set_picker_tabs(model(catalog::ITEM_CATEGORIES.iter().map(|c| s(c)).collect()));
     let _ = st.item_templates();
     search_items(ui, st);
 }
@@ -1191,18 +1269,29 @@ fn search_items(ui: &AppWindow, st: &mut State) {
     let q = st.picker_query.trim().to_lowercase();
     let mut ids = Vec::new();
     let mut rows = Vec::new();
+    let tab = st.picker_tab;
     for (i, t) in templates.iter().enumerate() {
+        if tab != 0 && t.category != tab {
+            continue;
+        }
         if !q.is_empty() && !t.name.to_lowercase().contains(&q) && !t.resref.contains(&q) && !t.kind.to_lowercase().contains(&q) {
             continue;
         }
         ids.push(i);
-        rows.push((i as i64, t.name.clone(), format!("{} · {}", t.kind, t.resref)));
-        if rows.len() >= 150 {
+        let base = st.data().map(|d| d.table("baseitems"));
+        let fallback = base.as_ref().map(|b| catalog::item_icon(b, t.base_item as usize, 1).1).unwrap_or_default();
+        let icon = st.icon(&t.icon, &fallback);
+        rows.push(Named {
+            has_icon: icon.is_some(),
+            icon: icon.unwrap_or_default(),
+            ..row(i as i64, &t.name, format!("{} · {}", t.kind, t.resref))
+        });
+        if rows.len() >= 200 {
             break;
         }
     }
     st.picker_ids = ids;
-    ui.global::<App>().set_picker(named(rows.into_iter()));
+    ui.global::<App>().set_picker(model(rows));
 }
 
 fn new_item(st: &mut State, index: usize, like: Option<&Struct>) -> Option<Struct> {
@@ -1257,7 +1346,7 @@ fn open_save_picker(ui: &AppWindow, st: &mut State, target: Target, title: &str,
 fn main() {
     let ui = AppWindow::new().expect("the window could not be made");
     let settings = Settings::load();
-    let installs = games::find_installs(&settings.added);
+    let installs = installs_for(&settings);
     let k2_only = installs.iter().all(|i| i.game == Game::K2) && !installs.is_empty();
     let k1_only = installs.iter().all(|i| i.game == Game::K1) && !installs.is_empty();
     let game = if k2_only || (settings.k2 && !k1_only) { Game::K2 } else { Game::K1 };
@@ -1267,6 +1356,10 @@ fn main() {
         installs,
         game,
         games: HashMap::new(),
+        ready: Arc::new(Mutex::new(HashMap::new())),
+        ready_items: Arc::new(Mutex::new(HashMap::new())),
+        picker_tab: 0,
+        inventory_tab: 0,
         saves: Vec::new(),
         shots: Arc::new(Mutex::new(HashMap::new())),
         portraits: HashMap::new(),
@@ -1290,6 +1383,27 @@ fn main() {
         status: (String::new(), false),
     }));
     fill_saves(&ui, &mut state.borrow_mut());
+    {
+        // The other game's data and both games' item lists, made while the player looks
+        // at the list; the first switch and the first Add an Item then cost nothing.
+        let st = state.borrow();
+        let (ready, ready_items, current) = (st.ready.clone(), st.ready_items.clone(), st.game);
+        let jobs: Vec<(Game, PathBuf)> = [Game::K1, Game::K2]
+            .iter()
+            .filter_map(|g| st.installs.iter().find(|i| i.game == *g).map(|i| (*g, i.path.clone())))
+            .collect();
+        std::thread::spawn(move || {
+            for (game, path) in jobs {
+                if game == current {
+                    let data = GameData::open(game, &path);
+                    ready_items.lock().unwrap().insert(game, Arc::new(catalog::item_templates(&data)));
+                } else {
+                    let built = build_game(game, &path, true);
+                    ready.lock().unwrap().insert(game, built);
+                }
+            }
+        });
+    }
 
     // ---- the save list ----
     on!(ui, state, on_switch_game, |u, st, k2: bool| {
@@ -1324,11 +1438,33 @@ fn main() {
                 st.settings.added.push(folder.clone());
                 st.settings.store();
             }
-            st.installs = games::find_installs(&st.settings.added);
+            st.installs = installs_for(&st.settings);
             if let Some(g) = games::identify(&folder).or_else(|| save::peek_game(&folder)) {
                 st.game = g;
             }
             fill_saves(&u, st);
+        }
+    });
+
+    on!(ui, state, on_choose_game_folder, |u, st| {
+        let Some(folder) = rfd::FileDialog::new().set_title("Pick the game's folder (the one with chitin.key)").pick_folder() else { return };
+        match games::identify(&folder) {
+            Some(game) => {
+                match game {
+                    Game::K1 => st.settings.k1_dir = Some(folder),
+                    Game::K2 => st.settings.k2_dir = Some(folder),
+                }
+                st.settings.store();
+                st.installs = installs_for(&st.settings);
+                st.games.remove(&game);
+                st.ready.lock().unwrap().remove(&game);
+                st.ready_items.lock().unwrap().remove(&game);
+                st.portraits.clear();
+                st.game = game;
+                st.selected = 0;
+                fill_saves(&u, st);
+            }
+            None => message(&u, "That is not a KotOR folder", "Pick the folder that holds chitin.key and the game's program."),
         }
     });
 
@@ -1481,11 +1617,11 @@ fn main() {
     });
     on!(ui, state, on_search_feats, |u, st, q: SharedString| {
         st.feat_query = q.to_string();
-        search_feats(&u, st);
+        fill_abilities(&u, st);
     });
     on!(ui, state, on_search_powers, |u, st, q: SharedString| {
         st.power_query = q.to_string();
-        search_powers(&u, st);
+        fill_abilities(&u, st);
     });
     on!(ui, state, on_add_feat, |u, st, id: i32| {
         st.feat_query.clear();
@@ -1551,6 +1687,10 @@ fn main() {
             });
         }
         refresh_after_edit(&u, st);
+    });
+    on!(ui, state, on_select_inventory_tab, |u, st, i: i32| {
+        st.inventory_tab = i.max(0) as usize;
+        fill_inventory(&u, st);
     });
     on!(ui, state, on_open_add_item, |u, st| {
         open_items_picker(&u, st, Target::Inventory, "Add an Item");
@@ -1821,6 +1961,11 @@ fn main() {
     on!(ui, state, on_close_overlay, |u, st| {
         st.target = Target::None;
         u.global::<App>().set_overlay(0);
+    });
+    on!(ui, state, on_select_picker_tab, |u, st, i: i32| {
+        st.picker_tab = i.max(0) as usize;
+        u.global::<App>().set_picker_tab(i);
+        search_items(&u, st);
     });
     on!(ui, state, on_search_picker, |u, st, q: SharedString| {
         st.picker_query = q.to_string();

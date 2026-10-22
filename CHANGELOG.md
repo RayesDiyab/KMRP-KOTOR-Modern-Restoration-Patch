@@ -138,6 +138,14 @@ proxy, and it applies the executable changes above as well.
   edited KotOR 1 save and an edited KotOR 2 save loaded in the games with the changes on
   their character screens. **Not yet**: Linux and macOS builds, GOG and disc installs,
   phone and Switch saves; original Xbox saves are read only (re-signing not built).
+  Later the same day, after the maintainer's first look: every feat and Force power is
+  listed (not only after a search), in the game's groups with its icon, what the character
+  has lit; items show their icons in the inventory and container lists, and the inventory
+  and Add an Item have a tab per kind of item (two rows when narrow), with Add Item as a
+  bar under the list; the read-only list of equipped items was removed; a back arrow at the top left returns to the saves;
+  Choose Game Folder picks which install of a game is used; the other game's data is read
+  in the background at start, so the first switch to KotOR II is instant (measured: the
+  list is shown within 0.4 s of the click).
 
 - **Main menu: each button's caption in the middle of its bar** (2026-10-22;
   `KmrpMainMenuBars` in `macos/tools/kmrp-guiadapt.c`, renamed from `kmrp-galaxymap.c`;

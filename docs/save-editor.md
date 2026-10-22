@@ -84,6 +84,7 @@ modded game shows its mods.
 | Character | Position (player) | `XPosition`, `YPosition`, `ZPosition` | numbers only |
 | Character | Heal Everyone Fully | `CurrentHitPoints = HitPoints`, `CurrentForce = ForcePoints` for every creature | |
 | Abilities | Skills | `SkillList[i].Rank` | 0 to 99 |
+| Abilities | (how they are shown) | every feat and Force power the game has is listed, each with its icon (feat.2da `icon`, spells.2da `iconresref`), in groups: feats by `toolscategories` (Jedi, Combat, Weapons and armour, Class abilities, Skills and general, Droid and other), powers by `goodevil` (Universal, Light side, Dark side), a chain's links together in order; what the creature has is lit | names, icons and groups come from the game and Override, so modded feats and powers appear with their own icons |
 | Abilities | Feats | `FeatList`: add one entry, or remove one and the same feat from every `LvlStatList[].FeatList` | a new entry is a copy of an entry already there |
 | Abilities | Force powers | `ClassList[j].KnownList0` of the class that has powers (else the first Force class): add one, or remove one and the same power from every `LvlStatList[].KnownList0` | only a creature with a Force class; powers are `spells.2da` rows with `usertype` 1 |
 | Inventory | Credits | `PT_GOLD` | at least 0 |
@@ -91,6 +92,7 @@ modded game shows its mods.
 | Inventory | Stack | `StackSize` | 1 to `baseitems.2da` `stacking` |
 | Inventory | Remove | the `ItemList` entry of `INVENTORY` | |
 | Inventory | Add an Item | a new `ItemList` entry built from the item's `.uti` (template-only fields dropped, save-only fields shaped like an item already in the save) | every `.uti` in the game and Override |
+| Inventory | (icons, kinds, Add Item) | an item's icon is `i` + its base item's `itemclass` + `_` + its `ModelVariation` in three digits (iw_lghtsbr_001), else the base item's `defaulticon`; the inventory and Add an Item have a tab per kind (two rows of tabs when the window is too narrow for one), and Add Item is a full-width bar under the list, chosen by the maintainer from four rendered placements so it never covers a row; (Weapons, Grenades, Armour, Gear, Usable, Upgrades, Other) from baseitems.2da `equipableslots`, `itemclass` and `defaulticon`; creature-only items are left out | the rule matched all 40 items checked in the GalaxyMap save; Override textures (TPC or TGA) come first, so modded icons show |
 | Party | Recruited | `PT_AVAIL_NPCS[n].PT_NPC_AVAIL` | only when the save holds `AVAILNPCn` |
 | Party | Can be picked | `PT_AVAIL_NPCS[n].PT_NPC_SELECT` | |
 | Party | Influence (KotOR 2) | `PT_INFLUENCE[n].PT_NPC_INFLUENCE` | 0 to 100; hidden for someone not met (-1) |
@@ -162,7 +164,8 @@ From KSE's issue tracker and the forums ([sources](save-editor-format.md#6-save-
 * `MaxHitPoints`, `MaxForcePoints`, saving throws, `ArmorClass`, item `Cost`, `CombatInfo`:
   recomputed by the game (section 1).
 * `EffectList`: equipment bonuses are effects created by the items; changing one without the
-  other would leave the stats out of step. Equipped items are shown, not changed.
+  other would leave the stats out of step. Equipment is not listed or changed; the game
+  equips (an earlier build listed it read only; the maintainer asked why, and it went).
 * The active party (`PT_MEMBERS`, `PT_NUM_MEMBERS`): who stands with the player is the
   game's to arrange; Recruited and Can be picked decide who can be chosen.
 * Removing a class, lowering a level: no reliable way to undo what the level-ups granted.

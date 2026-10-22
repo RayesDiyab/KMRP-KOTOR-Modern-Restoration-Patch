@@ -12,7 +12,25 @@ pub struct Entry {
     pub id: i64,
     pub name: String,
     pub description: String,
+    /// The icon's texture name (feat.2da `icon`, spells.2da `iconresref`).
+    pub icon: String,
+    /// The group it is listed under, and that group's place in the list.
+    pub group: String,
+    pub group_order: usize,
 }
+
+/// Feat groups, by feat.2da `toolscategories`.
+const FEAT_GROUPS: [(i64, &str); 6] = [
+    (3, "Jedi"),
+    (2, "Combat"),
+    (1, "Weapons and armour"),
+    (5, "Class abilities"),
+    (6, "Skills and general"),
+    (4, "Droid and other"),
+];
+
+/// Force power groups, by spells.2da `goodevil`.
+const POWER_GROUPS: [(&str, &str); 3] = [("-", "Universal"), ("G", "Light side"), ("E", "Dark side")];
 
 #[derive(Clone, Debug)]
 pub struct Class {
@@ -38,6 +56,67 @@ pub struct ItemTemplate {
     pub name: String,
     pub base_item: i64,
     pub kind: String,
+    pub icon: String,
+    pub category: usize,
+}
+
+/// The kinds of item the Add an Item list is split into.
+pub const ITEM_CATEGORIES: [&str; 8] =
+    ["All", "Weapons", "Grenades", "Armour", "Gear", "Usable", "Upgrades", "Other"];
+
+/// An item's kind from its base item row: worn slots, then its class name.
+/// Creature-only items (claws, hides) return None: no player uses them.
+pub fn item_category(base: &crate::formats::tables::TwoDa, row: usize) -> Option<usize> {
+    let slots = base.int(row, "equipableslots").unwrap_or(0);
+    if slots & 0x3C000 != 0 {
+        return None;
+    }
+    let class = base.cell(row, "itemclass").unwrap_or("").to_ascii_lowercase();
+    let icon = base.cell(row, "defaulticon").unwrap_or("").to_ascii_lowercase();
+    Some(if class.contains("upgrade") || class.contains("sbrcrstl") || icon.contains("crystal") {
+        6
+    } else if slots & 0x30 != 0 {
+        1
+    } else if icon.contains("grenade") || icon.contains("rocket") {
+        2
+    } else if slots & 0x2 != 0 {
+        3
+    } else if slots != 0 {
+        4
+    } else if class.starts_with("i_") && !class.contains("credits") && !class.contains("pazcard") && !class.contains("datapad") {
+        5
+    } else {
+        7
+    })
+}
+
+/// An item's inventory icon, as the game names it: "i" + the base item's class +
+/// "_" + the model variation (iw_lghtsbr_001, ia_jedirobe_001), or the base item's
+/// default icon when the game has no such texture.
+pub fn item_icon(base: &crate::formats::tables::TwoDa, row: usize, variation: i64) -> (String, String) {
+    let class = base.cell(row, "itemclass").unwrap_or("").to_ascii_lowercase();
+    let fallback = base.cell(row, "defaulticon").unwrap_or("").to_ascii_lowercase();
+    (format!("i{}_{:03}", class, variation.max(1)), fallback)
+}
+
+/// Orders entries so a chain stands together, first link first (Flurry, Improved
+/// Flurry, Master Flurry): by group, then the chain's first entry's name, then depth.
+fn chain_sort(entries: &mut Vec<Entry>, parent: &dyn Fn(i64) -> Option<i64>) {
+    let names: std::collections::HashMap<i64, String> =
+        entries.iter().map(|e| (e.id, e.name.to_lowercase())).collect();
+    let key = |e: &Entry| {
+        let mut root = e.id;
+        let mut depth = 0;
+        while let Some(p) = parent(root) {
+            if depth > 10 || !names.contains_key(&p) {
+                break;
+            }
+            root = p;
+            depth += 1;
+        }
+        (e.group_order, names.get(&root).cloned().unwrap_or_default(), depth, e.name.to_lowercase())
+    };
+    entries.sort_by_cached_key(key);
 }
 
 pub struct Catalog {
@@ -87,21 +166,48 @@ impl Catalog {
                         id: r as i64,
                         name: clean(name),
                         description: data.row_description(table, r, desc).unwrap_or_default(),
+                        icon: String::new(),
+                        group: String::new(),
+                        group_order: 0,
                     })
                 })
                 .collect();
             out.sort_by(|a, b| a.name.to_lowercase().cmp(&b.name.to_lowercase()));
             out
         };
-        let feats = named("feat", "description", &|_| true);
+        let feat_t = data.table("feat");
+        let mut feats = named("feat", "description", &|_| true);
+        for f in feats.iter_mut() {
+            let r = f.id as usize;
+            f.icon = feat_t.cell(r, "icon").unwrap_or("").to_ascii_lowercase();
+            let tc = feat_t.int(r, "toolscategories").unwrap_or(6);
+            let g = FEAT_GROUPS.iter().position(|(c, _)| *c == tc).unwrap_or(FEAT_GROUPS.len() - 1);
+            f.group_order = g;
+            f.group = FEAT_GROUPS[g].1.to_string();
+        }
+        chain_sort(&mut feats, &|id| feat_t.int(id as usize, "prereqfeat1"));
         let spells = data.table("spells");
-        let powers = named("spells", "spelldesc", &|r| spells.int(r, "usertype") == Some(1));
+        let mut powers = named("spells", "spelldesc", &|r| spells.int(r, "usertype") == Some(1));
+        for p in powers.iter_mut() {
+            let r = p.id as usize;
+            p.icon = spells.cell(r, "iconresref").unwrap_or("").to_ascii_lowercase();
+            let ge = spells.cell(r, "goodevil").unwrap_or("-").to_ascii_uppercase();
+            let g = POWER_GROUPS.iter().position(|(c, _)| *c == ge).unwrap_or(0);
+            p.group_order = g;
+            p.group = POWER_GROUPS[g].1.to_string();
+        }
+        chain_sort(&mut powers, &|id| {
+            spells.cell(id as usize, "prerequisites").and_then(|v| v.split('_').next()?.parse().ok())
+        });
         let skills_t = data.table("skills");
         let skills = (0..skills_t.rows.len())
             .map(|r| Entry {
                 id: r as i64,
                 name: data.row_name("skills", r).map(clean).unwrap_or_else(|| format!("Skill {}", r)),
                 description: data.row_description("skills", r, "description").unwrap_or_default(),
+                icon: skills_t.cell(r, "icon").unwrap_or("").to_ascii_lowercase(),
+                group: String::new(),
+                group_order: 0,
             })
             .collect();
 
@@ -198,11 +304,13 @@ pub fn item_templates(data: &GameData) -> Vec<ItemTemplate> {
             continue;
         }
         let base_item = g.root.int("BaseItem").unwrap_or(0);
+        let Some(category) = item_category(&base, base_item as usize) else { continue };
         let kind = base
             .int(base_item as usize, "name")
             .and_then(|s| data.string(s as u32))
             .unwrap_or_default();
-        out.push(ItemTemplate { resref, name, base_item, kind: clean(kind) });
+        let (icon, _) = item_icon(&base, base_item as usize, g.root.int("ModelVariation").unwrap_or(1));
+        out.push(ItemTemplate { resref, name, base_item, kind: clean(kind), icon, category });
     }
     out.sort_by(|a, b| a.name.to_lowercase().cmp(&b.name.to_lowercase()).then(a.resref.cmp(&b.resref)));
     out

@@ -67,7 +67,7 @@ export component AppWindow inherits Window {
     }
     Rectangle { y: 140px; height: 80px; background: @linear-gradient(180deg, transparent 0%, Theme.window 100%); }
 
-    Brand { x: 60px; y: 44px; height: 110px; }
+    Brand { x: App.page == 1 ? 140px : 60px; y: 44px; height: 110px; }
 
     if App.page == 0: SavesPage { }
     if App.page == 1: EditorPage { }
@@ -85,6 +85,9 @@ export component AppWindow inherits Window {
         if App.page == 0: Link { text: "Open Saves Folder"; vertical-alignment: center; clicked => { App.open-saves-folder(); } }
         if App.page == 0: Text { text: "·"; vertical-alignment: center; font-size: 15px; color: Theme.faint; }
         if App.page == 0: Link { text: "Add a Save Folder"; vertical-alignment: center; clicked => { App.add-save-folder(); } }
+        if App.page == 0: Text { text: "·"; vertical-alignment: center; font-size: 15px; color: Theme.faint; }
+        if App.page == 0: Link { text: "Choose Game Folder"; vertical-alignment: center; clicked => { App.choose-game-folder(); } }
+        if App.page == 0 && App.game-folder != "": Text { text: App.game-folder; vertical-alignment: center; font-size: 13px; color: Theme.faint; overflow: elide; }
         if App.page == 1: Link { text: "Open Backups Folder"; vertical-alignment: center; clicked => { App.open-backups(); } }
     }
     Text {
@@ -99,12 +102,27 @@ export component AppWindow inherits Window {
 
     // ---- pop-ups ----
     if App.overlay == 1 || App.overlay == 5: Overlay {
-        panel-height: 680px;
+        panel-width: 900px;
+        panel-height: 720px;
         property <string> query;
         VerticalLayout {
             spacing: 10px;
             Text { text: App.overlay-title; font-family: Theme.title-font; font-size: 30px; color: Theme.text; }
             Note { text: App.overlay-note; font-size: 15px; }
+            if App.overlay == 1: HorizontalLayout {
+                spacing: 6px;
+                alignment: start;
+                for t[i] in App.picker-tabs: Rectangle {
+                    height: 34px;
+                    width: tt.preferred-width + 24px;
+                    border-radius: 5px;
+                    border-width: 1px;
+                    border-color: i == App.picker-tab ? Theme.accent : Theme.edge;
+                    background: i == App.picker-tab ? Theme.selected : pt2.has-hover ? Theme.hover : Theme.field;
+                    tt := Text { text: t; font-family: Theme.list-font; font-size: 15px; color: i == App.picker-tab ? Theme.text : Theme.soft; }
+                    pt2 := TouchArea { mouse-cursor: pointer; clicked => { App.select-picker-tab(i); } }
+                }
+            }
             if App.overlay == 1: Field {
                 text <=> query;
                 placeholder: "Type part of a name: medpac, lightsaber, g_w_ ...";
@@ -125,6 +143,19 @@ export component AppWindow inherits Window {
                             padding-left: 10px;
                             padding-right: 10px;
                             spacing: 10px;
+                            if r.has-icon: VerticalLayout {
+                                alignment: center;
+                                Rectangle {
+                                    width: 40px;
+                                    height: 40px;
+                                    border-radius: 4px;
+                                    border-width: 1px;
+                                    border-color: Theme.edge;
+                                    background: Theme.field;
+                                    clip: true;
+                                    Image { source: r.icon; width: parent.width; height: parent.height; }
+                                }
+                            }
                             VerticalLayout {
                                 alignment: center;
                                 Text { text: r.name; font-family: Theme.list-font; font-size: 17px; color: Theme.text; overflow: elide; }

@@ -268,3 +268,28 @@ export component Cross inherits Path {
     stroke-width: 2px;
     commands: "M 1 1 L 11 11 M 11 1 L 1 11";
 }
+
+// A large arrow pointing left: back to the list of saves.
+export component BackArrow inherits Rectangle {
+    callback clicked;
+    width: 64px;
+    height: 64px;
+    border-radius: 32px;
+    border-width: 2px;
+    border-color: touch.has-hover ? Theme.accent : Theme.edge;
+    background: touch.has-hover ? Theme.hover : Theme.field;
+    Path {
+        width: 28px;
+        height: 28px;
+        viewbox-width: 28;
+        viewbox-height: 28;
+        stroke: touch.has-hover ? Theme.text : Theme.accent;
+        stroke-width: 3px;
+        commands: "M 25 14 L 4 14 M 13 4 L 3 14 L 13 24";
+    }
+    touch := TouchArea {
+        mouse-cursor: pointer;
+        clicked => { root.clicked(); }
+    }
+}
+
