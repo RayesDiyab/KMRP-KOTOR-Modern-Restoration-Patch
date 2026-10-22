@@ -1,0 +1,220 @@
+// The first screen: the saves of the game in use, listed like the game's own Load
+// screen with the selected save's picture and party beside them. With both games
+// installed, one button switches to the other game's saves (and its colours).
+
+import { Theme } from "theme.slint";
+import { App, SaveRow } from "state.slint";
+import { Button, Label, Note, Scroller } from "widgets.slint";
+
+component SaveLine inherits Rectangle {
+    in property <SaveRow> save;
+    in property <bool> on;
+    callback chosen();
+    callback opened();
+    height: 92px;
+    border-radius: 7px;
+    border-width: 1px;
+    border-color: on ? Theme.accent : transparent;
+    background: on ? Theme.selected : touch.has-hover ? Theme.hover : transparent;
+    touch := TouchArea {
+        mouse-cursor: pointer;
+        clicked => { root.chosen(); }
+        double-clicked => { root.opened(); }
+    }
+    HorizontalLayout {
+        padding: 10px;
+        spacing: 16px;
+        Rectangle {
+            width: 96px;
+            border-radius: 3px;
+            border-width: 1px;
+            border-color: Theme.edge;
+            background: Theme.field;
+            clip: true;
+            if save.has-shot: Image { source: save.shot; width: parent.width; height: parent.height; image-fit: fill; }
+        }
+        VerticalLayout {
+            alignment: center;
+            spacing: 4px;
+            HorizontalLayout {
+                spacing: 10px;
+                alignment: start;
+                Text {
+                    text: save.name;
+                    font-family: Theme.list-font;
+                    font-size: 21px;
+                    color: on ? Theme.gold : Theme.text;
+                    overflow: elide;
+                }
+                if save.tag != "": Rectangle {
+                    border-width: 1px;
+                    border-color: Theme.edge;
+                    border-radius: 3px;
+                    width: tag.preferred-width + 12px;
+                    height: 18px;
+                    y: 3px;
+                    tag := Text { text: save.tag; font-family: Theme.label-font; font-size: 11px; letter-spacing: 2px; color: Theme.accent; }
+                }
+            }
+            Text { text: save.area; font-family: Theme.body-font; font-size: 14.5px; color: Theme.muted; overflow: elide; }
+        }
+        VerticalLayout {
+            alignment: center;
+            spacing: 4px;
+            Text { text: save.time; horizontal-alignment: right; font-family: Theme.body-font; font-size: 13.5px; color: Theme.faint; }
+            Text { text: save.date; horizontal-alignment: right; font-family: Theme.body-font; font-size: 13.5px; color: Theme.faint; }
+        }
+    }
+}
+
+export component SavesPage inherits Rectangle {
+    // The game switch, when both games are installed.
+    if App.has-k1 && App.has-k2: Rectangle {
+        x: parent.width - 60px - self.width;
+        y: 52px;
+        width: 290px;
+        height: 50px;
+        border-radius: 6px;
+        border-width: 1px;
+        border-color: Theme.edge;
+        clip: true;
+        HorizontalLayout {
+            for game[i] in ["KotOR", "KotOR II"]: Rectangle {
+                property <bool> on: (i == 1) == App.showing-k2;
+                background: on ? @linear-gradient(180deg, Theme.fill-top 0%, Theme.fill-bottom 100%) : Theme.field;
+                Text { text: game; font-family: Theme.list-font; font-size: 19px; color: on ? Theme.ink : Theme.soft; }
+                TouchArea { mouse-cursor: pointer; clicked => { App.switch-game(i == 1); } }
+            }
+        }
+    }
+
+    property <length> list-width: (self.width - 120px - 24px) * 0.47;
+
+    // The list.
+    Rectangle {
+        x: 60px;
+        y: 200px;
+        width: list-width;
+        height: parent.height - 200px - 86px;
+        background: Theme.panel;
+        border-width: 1px;
+        border-color: Theme.panel-edge;
+        border-radius: 10px;
+        HorizontalLayout {
+            x: 24px;
+            y: 18px;
+            height: 24px;
+            spacing: 16px;
+            alignment: start;
+            Label { text: App.showing-k2 ? "KOTOR II SAVES" : "KOTOR SAVES"; vertical-alignment: center; }
+            Note { text: App.saves-note; vertical-alignment: center; }
+        }
+        list := Scroller {
+            x: 14px;
+            y: 56px;
+            width: parent.width - 20px;
+            height: parent.height - 70px;
+            content-height: App.saves.length * 96px;
+            VerticalLayout {
+                spacing: 4px;
+                for row[i] in App.saves: SaveLine {
+                    save: row;
+                    on: i == App.selected-save;
+                    chosen => { App.select-save(i); }
+                    opened => { App.select-save(i); App.open-save(); }
+                }
+            }
+        }
+        if App.saves.length == 0: VerticalLayout {
+            x: 40px;
+            y: 90px;
+            width: parent.width - 80px;
+            spacing: 10px;
+            Text { text: App.empty-title; font-family: Theme.title-font; font-size: 24px; color: Theme.text; wrap: word-wrap; }
+            Note { text: App.empty-note; font-size: 15px; }
+        }
+    }
+
+    // The selected save.
+    Rectangle {
+        x: 60px + list-width + 24px;
+        y: 200px;
+        width: parent.width - self.x - 60px;
+        height: parent.height - 200px - 86px;
+        background: Theme.panel;
+        border-width: 1px;
+        border-color: Theme.panel-edge;
+        border-radius: 10px;
+        visible: App.saves.length > 0;
+        property <length> inner: self.width - 44px;
+        shot := Rectangle {
+            x: 22px;
+            y: 22px;
+            width: inner;
+            height: min(inner * 0.5, parent.height - 300px);
+            border-radius: 6px;
+            border-width: 1px;
+            border-color: Theme.edge;
+            background: Theme.field;
+            clip: true;
+            if App.preview-has-shot: Image { source: App.preview-shot; width: parent.width; height: parent.height; image-fit: fill; }
+        }
+        HorizontalLayout {
+            x: 22px;
+            y: shot.y + shot.height + 18px;
+            width: inner;
+            VerticalLayout {
+                spacing: 4px;
+                alignment: start;
+                Text { text: App.preview-name; font-family: Theme.title-font; font-size: 30px; color: Theme.text; overflow: elide; }
+                Text { text: App.preview-area; font-family: Theme.body-font; font-size: 16px; color: Theme.muted; overflow: elide; }
+            }
+            VerticalLayout {
+                spacing: 5px;
+                alignment: start;
+                for f in [["Character", App.preview-pc], ["Time played", App.preview-time], ["Saved", App.preview-date]]: HorizontalLayout {
+                    spacing: 18px;
+                    alignment: end;
+                    Text { text: f[0]; horizontal-alignment: right; font-family: Theme.body-font; font-size: 14.5px; color: Theme.muted; }
+                    Text { width: 170px; text: f[1]; horizontal-alignment: right; font-family: Theme.body-font; font-size: 14.5px; color: Theme.text; }
+                }
+            }
+        }
+        HorizontalLayout {
+            x: 22px;
+            y: shot.y + shot.height + 100px;
+            spacing: 10px;
+            alignment: start;
+            for p[i] in App.preview-party: Rectangle {
+                width: 64px;
+                height: 64px;
+                border-radius: 5px;
+                border-width: 1px;
+                border-color: i == 0 ? Theme.gold : Theme.edge;
+                clip: true;
+                Image { source: p; width: parent.width; height: parent.height; }
+            }
+        }
+        if App.preview-warning != "": Note {
+            x: 22px + App.preview-party.length * 74px + 12px;
+            y: shot.y + shot.height + 100px;
+            width: inner - App.preview-party.length * 74px - 12px;
+            text: App.preview-warning;
+            color: Theme.changed;
+        }
+        HorizontalLayout {
+            x: 22px;
+            y: parent.height - 22px - 56px;
+            width: inner;
+            height: 56px;
+            spacing: 12px;
+            Button { text: "Show in Folder"; kind: 1; horizontal-stretch: 1; clicked => { App.show-folder(); } }
+            Button {
+                text: App.preview-read-only ? "Open to Look" : "Open This Save";
+                kind: 0;
+                horizontal-stretch: 2;
+                clicked => { App.open-save(); }
+            }
+        }
+    }
+}

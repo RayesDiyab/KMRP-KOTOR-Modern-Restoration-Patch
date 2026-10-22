@@ -117,6 +117,28 @@ proxy, and it applies the executable changes above as well.
 
 ## [Unreleased]
 
+- **New tool: the KMRP Save Editor, for KotOR 1 and KotOR 2** (2026-10-22;
+  `src/save-editor`, [save-editor.md](docs/save-editor.md),
+  [save-editor-format.md](docs/save-editor-format.md)). A separate program, not part of
+  the installer, for Windows, Linux and macOS (Rust and Slint), in the Font Converter's
+  look with KMRP's own fonts, dark and light mode, and KotOR II in its own colours. It
+  finds saves without setup (every Steam library, KotOR II's Steam Cloud folder, GOG and
+  disc installs, VirtualStore, the Aspyr ports) and lists them like the game's Load screen.
+  It edits the character (name, XP, a second class, alignment, attributes, look,
+  position, healing), skills, feats and Force powers one at a time, credits, components,
+  items, the party (recruited, selectable, influence, bringing a member from another save),
+  global variables with a comparison against another save, doors, containers and stores,
+  the journal, the galaxy map, Pazaak cards, the cheat mark and the save's name. It fixes
+  what KSE players reported: one power removed removes one power, levels come through XP
+  and the game's own level-up rather than a level box (KSE's Vitality bug), Max HP and FP
+  are not offered because the game recomputes them. Every write copies the save to a
+  backup folder first, writes only changed files and refuses while the game runs.
+  **Checked**: all 14 saves on the maintainer's PC (10 KotOR 1, 4 KotOR 2) read, written
+  and read back unchanged, and edited copies of each read back with every change; an
+  edited KotOR 1 save and an edited KotOR 2 save loaded in the games with the changes on
+  their character screens. **Not yet**: Linux and macOS builds, GOG and disc installs,
+  phone and Switch saves; original Xbox saves are read only (re-signing not built).
+
 - **Main menu: each button's caption in the middle of its bar** (2026-10-22;
   `KmrpMainMenuBars` in `macos/tools/kmrp-guiadapt.c`, renamed from `kmrp-galaxymap.c`;
   `AdaptMainMenuK1` in `src/controller-native/K1RuntimeAssets.cpp`). The maintainer: "make

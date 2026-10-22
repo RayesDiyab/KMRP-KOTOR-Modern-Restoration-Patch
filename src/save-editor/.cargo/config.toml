@@ -1,0 +1,3 @@
+# Build output stays in the repository's ignored build folder, not beside the sources.
+[build]
+target-dir = "../../build/save-editor-target"

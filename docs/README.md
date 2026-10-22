@@ -60,6 +60,13 @@ Design and build documentation. Engine analysis lives one level over, in
 | [nvidia-present-method.md](nvidia-present-method.md) | The NVIDIA present method set for `swkotor.exe` when the driver would otherwise show half-drawn frames: when it is written, when the player's choice is left alone, restore. |
 | [linux-proton-steam-deck.md](linux-proton-steam-deck.md) | Linux and Proton procedure, the measured Ubuntu run of 2026-10-01, and what is unverified since. |
 
+## Tools beside KMRP
+
+| Document | What it covers |
+| --- | --- |
+| [save-editor.md](save-editor.md) | The **KMRP Save Editor** for KotOR 1 and 2: where it finds saves, every field it writes and under which rule, the bugs of older editors it avoids, how a write stays safe, and what was tested in both games. |
+| [save-editor-format.md](save-editor-format.md) | The save format of both games, file by file and field by field, each fact tagged with how it was measured. |
+
 ## Controller support
 
 | Document | What it covers |
