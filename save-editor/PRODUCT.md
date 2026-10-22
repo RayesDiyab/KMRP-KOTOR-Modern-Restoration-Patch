@@ -65,8 +65,10 @@ KSE is inspiration for what to offer, never a source of code or architecture.
 
 - Real KotOR 1 saves in the maintainer's Steam game (`swkotor\saves`), read only for tests.
 - Four KotOR 2 saves (Steam Cloud); no Switch, Android or Xbox saves on hand.
-- The Save Editor's mark: a holocron with a datapad in front (`save-editor/assets/icon`, 2026-10-22);
-  `save-editor-icon.png` for the window and the header, `save-editor.ico` for the program file.
+- KMRP logo in the header: `save-editor/assets/kmrp-logo.png` (a copy of the converter's).
+- The program's icon: a holocron with a datapad in front (`save-editor/assets/icon`, 2026-10-22);
+  `save-editor-icon.png` for the window, `save-editor.ico` for the program file. The header keeps
+  the KMRP logo (the maintainer, 2026-10-22).
 
 ## Product Principles
 

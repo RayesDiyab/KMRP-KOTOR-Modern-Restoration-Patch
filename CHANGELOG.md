@@ -140,11 +140,11 @@ proxy, and it applies the executable changes above as well.
   Bahnschrift and Segoe UI drawn without grid fitting, soft beside the Save Editor; they
   are now KMRP Original HD Menu and Descriptions, carried in the program, drawn
   grid-fitted. Its example pictures are made again from the redrawn HD atlases.
-- **The Save Editor has its own icon and logo** (2026-10-22;
+- **The Save Editor has its own icon** (2026-10-22;
   [save-editor/assets/icon](save-editor/assets/icon/README.md)): a holocron with a
   KOTOR-style datapad in front, in the holocron's obsidian and blue, with Aurebesh on the
-  datapad's screen. It is the window's icon, the program file's (16 to 256 px) and the
-  header's mark in place of the KMRP crest.
+  datapad's screen. It is the window's icon and the program file's (16 to 256 px); the
+  header keeps the KMRP crest.
 - **New tool: the KMRP Save Editor, for KotOR 1 and KotOR 2** (2026-10-22;
   `save-editor`, [save-editor.md](save-editor/docs/save-editor.md),
   [save-editor-format.md](save-editor/docs/save-editor-format.md)). A separate program, not part of

@@ -228,14 +228,14 @@ export component ThemeToggle inherits Rectangle {
     }
 }
 
-// The Save Editor's own mark (a holocron and a datapad, assets/icon) and its name.
+// The KMRP crest and the program's name, as on the Font Converter.
 export component Brand inherits HorizontalLayout {
-    spacing: 26px;
+    spacing: 30px;
     alignment: start;
     Image {
-        source: @image-url("../assets/save-editor-icon.png");
-        height: 120px;
-        width: 120px;
+        source: @image-url("../assets/kmrp-logo.png");
+        height: 110px;
+        width: self.height * 1.52;
         image-fit: contain;
     }
     Text {
