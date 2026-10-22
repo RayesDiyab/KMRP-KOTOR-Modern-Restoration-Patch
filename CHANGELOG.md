@@ -117,6 +117,21 @@ proxy, and it applies the executable changes above as well.
 
 ## [Unreleased]
 
+- **Main menu: each button's caption in the middle of its bar** (2026-10-22;
+  `KmrpMainMenuBars` in `macos/tools/kmrp-guiadapt.c`, renamed from `kmrp-galaxymap.c`;
+  `AdaptMainMenuK1` in `src/controller-native/K1RuntimeAssets.cpp`). The maintainer: "make
+  sure the main menu buttons are centered in the art; I feel like they arent vertically
+  especially." The five bars of `lbl_mmenubut` are 25 rows apart in its 128 (rows 3 to 25,
+  28 to 50, 53 to 75, 78 to 100, 103 to 124), and the sets' buttons 24 apart, so the
+  captions drifted from 6 pixels low on New Game to 3 high on Options at 3440x1440. Each
+  time a size's set is given to the game, the five main menu layouts are written again
+  with every button on its bar's rows, by `LBL_MENUBG`'s rectangle, lifted by one row of
+  the art because the engine draws a caption's letters below its button's middle. Only the
+  buttons' top and height change; a main menu layout in Override is left to the game.
+  **Measured on Steam at 3440x1440**, caption middle against bar middle: before 6, 3, 0,
+  -3 and 5 pixels; on the bars exactly 2.5, 2.5, 2.5, 2.5 and 4.5; lifted -0.5, -0.5,
+  -0.5, -0.5 and 1.5 (Quit's Q has a tail). Not looked at at other sizes.
+
 - **Controller: the buttons a pad button presses are hints, never in the D-pad's way**
   (2026-10-22; `KmrpPadHintControlK1` in `src/controller-native/vendor/K1XboxControls.cpp`,
   `ControlIsNavigableK1` in `K1NativeJoystick.cpp`). The maintainer: "they should be
@@ -130,11 +145,12 @@ proxy, and it applies the executable changes above as well.
   Size, Controller Layout) and Pazaak already worked this way. **Checked in the test game
   with a virtual pad**: Options (Down from Exit Game wraps to the top), Character (X still
   opens Scripts), Inventory and Graphics Options; the bottom buttons never took the
-  focus. Not tried on the other screens. Found on the way, not caused by it: the Scripts
-  list's selection does not move with the D-pad, with the build before this one too.
+  focus. Not tried on the other screens. (Corrected the same day: the Scripts list does
+  move with the D-pad; a test of three presses on its three wrapping entries had ended
+  where it began.)
 
 - **The galaxy map's planets where the game has them, and mods' destinations kept
-  (issue 67)** (2026-10-22; `macos/tools/kmrp-galaxymap.c`, `AdaptGalaxyMapK1` in
+  (issue 67)** (2026-10-22; `macos/tools/kmrp-guiadapt.c`, `AdaptGalaxyMapK1` in
   `src/controller-native/K1RuntimeAssets.cpp`;
   [mod-build-compatibility.md](docs/mod-build-compatibility.md)).
   - *The planets.* Every size's `galaxymap.gui` came from High Resolution Menus' sets,

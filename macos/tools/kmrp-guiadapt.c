@@ -1,7 +1,14 @@
-/* kmrp-galaxymap: the galaxy map's planets where the game's own layout has them, on this
- * size's KMRP map. Made from the player's own game; no release carries the positions.
+/* kmrp-guiadapt: layouts KMRP adapts for the size in use, at run time.
  *
- *   kmrp-galaxymap KEY SET_GUI OUT_GUI [SOURCE_GUI]
+ *   kmrp-guiadapt galaxy KEY SET_GUI OUT_GUI [SOURCE_GUI]
+ *   kmrp-guiadapt mainmenu SET_GUI OUT_GUI
+ *
+ * Two things, sharing the reading and writing of a layout's EXTENTs: the galaxy map's
+ * planets (KmrpGalaxyMap, below) and the main menu's buttons on the bars of their art
+ * (KmrpMainMenuBars, at the end).
+ *
+ * The galaxy map: the planets where the game's own layout has them, on this
+ * size's KMRP map. Made from the player's own game; no release carries the positions.
  *
  * KEY is the game's chitin.key. SET_GUI is KMRP's galaxymap.gui for the size in use, OUT_GUI
  * the file written. SOURCE_GUI, when given, is a galaxymap.gui of the player's (a mod's, in
@@ -274,14 +281,78 @@ int KmrpGalaxyMap(const char *key_path, const char *set_gui, const char *out_gui
     return result;
 }
 
+/* The main menu's five buttons on the five bars of their art. The menu's art, LBL_MENUBG
+ * (lbl_mmenubut, 128 rows), has its bars on rows 3-25, 28-50, 53-75, 78-100 and 103-124,
+ * 25 apart, measured on the maintainer's PC at 3440x1440 (2026-10-22), where the art is drawn
+ * at three times: bars at 663, 738, 813, 888 and 963 on the screen, 75 apart. The game's own
+ * layout puts the buttons 24 apart (BTN_NEWGAME 222, LOADGAME 246, MOVIES 270, OPTIONS 294,
+ * EXIT 318 at 640x480, the art at 218), so each caption drifts a row further from its bar,
+ * which a pixel hides at 640x480 and six do not at three times (the captions were 6, 3, 0, -3
+ * and 5 pixels off their bars' middles; the maintainer: "I feel like they arent [centered]
+ * vertically"). Each button is given its bar's rows, by the art's rectangle in this file; its
+ * left and width stay. The engine draws a caption's letters about a row of the art below the
+ * middle of its button (its line has room under the letters): with the buttons on the bars
+ * exactly, the captions stood 2.5 to 3 pixels low at three times, so each button is lifted
+ * by LIFT rows. 0: written. 1: not a main menu this knows (no art or a button missing);
+ * nothing written. 2: could not write. */
+#define LIFT 1.0
+static const struct { const char *tag; int top, bottom; } BARS[5] = {
+    { "BTN_NEWGAME", 3, 25 }, { "BTN_LOADGAME", 28, 50 }, { "BTN_MOVIES", 53, 75 },
+    { "BTN_OPTIONS", 78, 100 }, { "BTN_EXIT", 103, 124 },
+};
+int KmrpMainMenuBars(const char *set_gui, const char *out_gui) {
+    Buffer mine = read_file(set_gui);
+    int result = 1;
+    Gff g;
+    Extent art;
+    long a;
+    if (mine.data && gff_open(&g, mine.data, mine.size) && (a = control(&g, "LBL_MENUBG")) >= 0 &&
+        extent_of(&g, (uint32_t)a, &art) && ev(&art, 3) > 0) {
+        Extent button[5];
+        int found = 1;
+        for (int i = 0; i < 5 && found; i++) {
+            long b = control(&g, BARS[i].tag);
+            found = b >= 0 && extent_of(&g, (uint32_t)b, &button[i]);
+        }
+        if (found) {
+            const double top = ev(&art, 1), scale = ev(&art, 3) / 128.0;
+            for (int i = 0; i < 5; i++) {
+                const int y = (int)lround(top + (BARS[i].top - LIFT) * scale);
+                const int bottom = (int)lround(top + (BARS[i].bottom - LIFT) * scale);
+                put_u32(button[i].v[1], (uint32_t)(int32_t)y);
+                put_u32(button[i].v[3], (uint32_t)(bottom - y));
+            }
+            FILE *f = fopen(out_gui, "wb");
+            result = 2;
+            if (f) {
+                int ok = fwrite(mine.data, 1, mine.size, f) == mine.size;
+                if (fclose(f) == 0 && ok) result = 0;
+            }
+        }
+    }
+    free(mine.data);
+    return result;
+}
+
 #ifndef KMRP_EMBEDDED
 int main(int argc, char **argv) {
-    if (argc != 4 && argc != 5) { fprintf(stderr, "usage: kmrp-galaxymap KEY SET_GUI OUT_GUI [SOURCE_GUI]\n"); return 2; }
-    int result = KmrpGalaxyMap(argv[1], argv[2], argv[3], argc == 5 ? argv[4] : NULL);
-    if (result == 0) printf("%s written: the planets where %s has them\n", argv[3], argc == 5 ? argv[4] : "the game");
-    if (result == 1) fprintf(stderr, "kmrp-galaxymap: a layout could not be read; nothing written\n");
-    if (result == 2) fprintf(stderr, "kmrp-galaxymap: %s: %s\n", argv[3], strerror(errno));
-    if (result == 3) printf("%s is not the game's 640x480 layout; nothing written\n", argv[4]);
+    if (argc >= 4 && strcmp(argv[1], "mainmenu") == 0) {
+        int result = KmrpMainMenuBars(argv[2], argv[3]);
+        if (result == 0) printf("%s written: the buttons on their bars\n", argv[3]);
+        if (result == 1) fprintf(stderr, "kmrp-guiadapt: %s is not a main menu this knows; nothing written\n", argv[2]);
+        if (result == 2) fprintf(stderr, "kmrp-guiadapt: %s: %s\n", argv[3], strerror(errno));
+        return result;
+    }
+    if (argc < 5 || argc > 6 || strcmp(argv[1], "galaxy") != 0) {
+        fprintf(stderr, "usage: kmrp-guiadapt galaxy KEY SET_GUI OUT_GUI [SOURCE_GUI]\n"
+                        "       kmrp-guiadapt mainmenu SET_GUI OUT_GUI\n");
+        return 2;
+    }
+    int result = KmrpGalaxyMap(argv[2], argv[3], argv[4], argc == 6 ? argv[5] : NULL);
+    if (result == 0) printf("%s written: the planets where %s has them\n", argv[4], argc == 6 ? argv[5] : "the game");
+    if (result == 1) fprintf(stderr, "kmrp-guiadapt: a layout could not be read; nothing written\n");
+    if (result == 2) fprintf(stderr, "kmrp-guiadapt: %s: %s\n", argv[4], strerror(errno));
+    if (result == 3) printf("%s is not the game's 640x480 layout; nothing written\n", argv[5]);
     return result == 3 ? 0 : result;
 }
 #endif

@@ -78,6 +78,7 @@ keeps the table of every Windows change and its state on the Mac.
 | 93 | The run-time asset notes only with debug logs |
 | 94 | The stick's vector inside the unit circle, in the buffer |
 | 95 | Glyph buttons are hints: the D-pad never lands on them |
+| 96 | Main menu captions in the middle of their bars |
 
 Items 46 and 47 are in the 1.5.1 group below (46: the controller events log; 47: a Linux
 pad's own key, Windows and Wine only).
@@ -895,7 +896,7 @@ inside its box with its name in view.
 is given to the game (`AdaptGalaxyMapK1`, `src/controller-native/K1RuntimeAssets.cpp`),
 with every planet and Live slot where the game's 640x480 `galaxymap.gui` has it (read
 through `chitin.key`), or where a mod's 640x480 `galaxymap.gui` in Override has it, on the
-same spot of the galaxy. The helper, `macos/tools/kmrp-galaxymap.c`, is plain C like the
+same spot of the galaxy. The helper, `macos/tools/kmrp-guiadapt.c` (`KmrpGalaxyMap`), is plain C like the
 swoop helper, so the Mac can call it the same way from `assets.cpp` into a folder searched
 before the set and the player's override (the Mac's `PlayerHas` leaves the player's file to
 the game today). The Mac game's own `galaxymap.gui` is read from its resources instead of
@@ -979,6 +980,19 @@ Mac's controller patch has the same tables (`prompts.cpp`) and focus layer (`gui
 maintainer: "they should be non-focusable with a controller. They should be visual hints."
 **How to check:** on Options, Down from Exit Game wraps to the top and never lands on B
 Close; on Character, X still opens Scripts while the D-pad never reaches it.
+
+## 96. Main menu captions in the middle of their bars
+
+**To do on the Mac** (2026-10-22; `KmrpMainMenuBars` in `macos/tools/kmrp-guiadapt.c`,
+`AdaptMainMenuK1` in `src/controller-native/K1RuntimeAssets.cpp`). The main menu's five
+bars in `lbl_mmenubut` are 25 rows apart and the sets' buttons 24, so the captions drifted
+up and down the bars. Each time a size's set is given to the game, Windows writes the five
+`mainmenu*.gui` again with each button on its bar's rows (by `LBL_MENUBG`'s rectangle),
+lifted one row of the art for the engine's low captions, into the same folder as item 87's
+galaxy map; a main menu layout in the player's override is left alone. The helper is the
+same plain C file as item 87, so the Mac calls it from `assets.cpp` the same way. The
+maintainer: "make sure the main menu buttons are centered in the art." **How to check:**
+every caption sits in the middle of its bar, New Game to Quit, within a pixel or so.
 
 ## Windows-only changes from 1.5 to 1.6 (nothing for the Mac)
 

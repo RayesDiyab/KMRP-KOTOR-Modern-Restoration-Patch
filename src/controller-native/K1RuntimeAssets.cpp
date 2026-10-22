@@ -74,11 +74,13 @@ extern "C" int KmrpGameArt(const char* erf, const char* key, unsigned height, co
 // out of a wide screen's view (issue #47). 0 written, 1 not the game's model (left alone),
 // 3 the screen is not wide enough to need it.
 extern "C" int KmrpSwoopHud(const char* key, const char* outdir, unsigned width, unsigned height);
-// macos/tools/kmrp-galaxymap.c: the galaxy map's planets and Live slots where the game's
+// macos/tools/kmrp-guiadapt.c: the galaxy map's planets and Live slots where the game's
 // 640x480 layout (or a mod's, in Override) has them, on this size's map (issue 67). 0
 // written, 1 a layout could not be read, 2 could not write, 3 the mod's file is not
 // 640x480 (left to the game).
 extern "C" int KmrpGalaxyMap(const char* key, const char* setGui, const char* outGui, const char* sourceGui);
+// The same file: the main menu's buttons on the bars of their art. 0 written.
+extern "C" int KmrpMainMenuBars(const char* setGui, const char* outGui);
 void KmrpRuntimeLog(const char* line);       // K1RuntimeEngine.cpp: one line into kmrp-kpm.log
 
 namespace {
@@ -1048,6 +1050,34 @@ bool AdaptGalaxyMapK1(const std::wstring& set, const std::wstring& folder)
     return true;
 }
 
+// The main menu's buttons on the bars of their art, in each of the size's main-menu
+// layouts (the game picks one by the screen), written into `folder` as the galaxy map is.
+// The game's layout spaces the buttons 24 apart and the art's bars 25, which a caption
+// drifting six pixels off its bar shows at three times (macos/tools/kmrp-guiadapt.c,
+// KmrpMainMenuBars; the maintainer, 2026-10-22). A layout the player's Override has is left
+// to the game.
+bool AdaptMainMenuK1(const std::wstring& set, const std::wstring& folder)
+{
+    bool any = false;
+    for (const wchar_t* name : {L"mainmenu.gui", L"mainmenu8x6.gui", L"mainmenu10x7.gui", L"mainmenu12x9.gui",
+                                L"mainmenu16x12.gui"}) {
+        if (OverrideHas(name)) continue;
+        const std::wstring target = folder + L"\\" + name, work = target + L".tmp" + Pid();
+        const std::string layout = Narrow(set + L"\\" + name), out = Narrow(work);
+        if (layout.empty() || out.empty() || KmrpMainMenuBars(layout.c_str(), out.c_str()) != 0) {
+            DeleteFileW(work.c_str());
+            continue;
+        }
+        SetFileAttributesW(target.c_str(), FILE_ATTRIBUTE_NORMAL);
+        if (!MoveFileExW(work.c_str(), target.c_str(), MOVEFILE_REPLACE_EXISTING)) {
+            DeleteFileW(work.c_str());
+            continue;
+        }
+        any = true;
+    }
+    return any;
+}
+
 // A file of the bundled HD item icons (JackInTheBox's KOTOR 1 HD Icon Pack): among
 // the common files those are the .tpc files named ia_*, ii_* and iw_*, the game's
 // own names for armour, item and weapon icons, 351 of them and nothing else
@@ -1504,11 +1534,13 @@ bool KmrpRuntimeAssetsDimensions(int width, int height)
     bool theirs = false;
     for (const auto& name : Names(set)) if (OverrideHas(name)) { theirs = true; break; }
     std::wstring view = set, roster;
-    // The galaxy map (AdaptGalaxyMapK1) is adapted the same way, beside the roster.
+    // The galaxy map (AdaptGalaxyMapK1) and the main menu (AdaptMainMenuK1) are adapted the
+    // same way, beside the roster.
     if (theirs) {
         if (!LinkSet(set, view)) return false;
         AdaptPartyRosterK1(set, view);
         AdaptGalaxyMapK1(set, view);
+        AdaptMainMenuK1(set, view);
     } else {
         ++generation;
         roster = root + L"\\roster-" + Pid() + L"-" + std::to_wstring(generation);
@@ -1517,7 +1549,8 @@ bool KmrpRuntimeAssetsDimensions(int width, int height)
         if (adapted) {
             const bool party = AdaptPartyRosterK1(set, roster);
             const bool galaxy = AdaptGalaxyMapK1(set, roster);
-            adapted = party || galaxy;
+            const bool menu = AdaptMainMenuK1(set, roster);
+            adapted = party || galaxy || menu;
         }
         if (!adapted) {
             RemoveFlat(roster);

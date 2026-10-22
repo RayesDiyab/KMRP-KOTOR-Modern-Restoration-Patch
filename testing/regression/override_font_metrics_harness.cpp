@@ -16,6 +16,7 @@ extern "C" int KmrpAbilityIcons(const char*,unsigned,const char*,const char*) {r
 extern "C" int KmrpGameArt(const char*,const char*,unsigned,const char*) {return 1;}
 extern "C" int KmrpSwoopHud(const char*,const char*,unsigned,unsigned) {return 1;}
 extern "C" int KmrpGalaxyMap(const char*,const char*,const char*,const char*) {return 1;}
+extern "C" int KmrpMainMenuBars(const char*,const char*) {return 1;}
 bool KmrpXpressDecode(const unsigned char*,std::size_t,unsigned char*,std::size_t) {return false;}
 void KmrpRuntimeLog(const char*) {}
 int testTextPercent=50;

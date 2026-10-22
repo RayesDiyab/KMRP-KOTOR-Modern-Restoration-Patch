@@ -30,7 +30,7 @@ not yet run in a game; see `CHANGELOG.md`.
 (`galaxymap.gui`, issue 67). A mod that adds a destination by moving one of the map's
 Xbox Live slots (`LBL_Live01`..`05`) ships the game's 640x480 `galaxymap.gui`; KMRP keeps
 its own map for the screen in use and takes the planets' and slots' places from that file,
-on the same spot of the galaxy (`macos/tools/kmrp-galaxymap.c`). A `galaxymap.gui` of any
+on the same spot of the galaxy (`macos/tools/kmrp-guiadapt.c`). A `galaxymap.gui` of any
 other size is left to replace KMRP's, as above. Run on the maintainer's Steam game at
 3440x1440 with a test file (Yavin moved beside Korriban): not yet with a real mod.
 
