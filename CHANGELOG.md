@@ -117,6 +117,22 @@ proxy, and it applies the executable changes above as well.
 
 ## [Unreleased]
 
+- **Controller: the buttons a pad button presses are hints, never in the D-pad's way**
+  (2026-10-22; `KmrpPadHintControlK1` in `src/controller-native/vendor/K1XboxControls.cpp`,
+  `ControlIsNavigableK1` in `K1NativeJoystick.cpp`). The maintainer: "they should be
+  non-focusable with a controller. They should be visual hints." On every screen with a
+  glyph table (35 of the game's screens), a button whose glyph is always shown ("X
+  Scripts", "B Close", "A Use Item", "Y Default", Pazaak's "A End Turn") works by its pad
+  button whatever has the focus, so the D-pad no longer lands on it; the control's panel
+  is read at `+0x34`. A glyph that travels with the focus (`FocusOnly`: the main menu's
+  entries, Options' entries, Level Up's classes, character generation's choices, Party
+  Selection's OK) marks what A presses, and those stay. KMRP's own pages (HUD Size, Text
+  Size, Controller Layout) and Pazaak already worked this way. **Checked in the test game
+  with a virtual pad**: Options (Down from Exit Game wraps to the top), Character (X still
+  opens Scripts), Inventory and Graphics Options; the bottom buttons never took the
+  focus. Not tried on the other screens. Found on the way, not caused by it: the Scripts
+  list's selection does not move with the D-pad, with the build before this one too.
+
 - **The galaxy map's planets where the game has them, and mods' destinations kept
   (issue 67)** (2026-10-22; `macos/tools/kmrp-galaxymap.c`, `AdaptGalaxyMapK1` in
   `src/controller-native/K1RuntimeAssets.cpp`;

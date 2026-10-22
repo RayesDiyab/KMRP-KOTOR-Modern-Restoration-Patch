@@ -4504,6 +4504,31 @@ void ClearActionBarKeyboardFocus(
 
 } // namespace
 
+// Is this control one of its panel's pad hints: a button whose glyph is always shown
+// (or shown while the focus is elsewhere, FocusFallback), so its pad button works
+// whatever has the focus? Those are off the pad's focus on every screen: the D-pad
+// moves among what the screen is about, and the bottom row only says which button does
+// what (the maintainer, 2026-10-22: "they should be non-focusable with a controller.
+// They should be visual hints"). A FocusOnly glyph travels with the focus, so its
+// buttons are what A presses (the main menu's entries, Options' entries) and stay.
+extern "C" int __cdecl KmrpPadHintControlK1(void* panel, void* control)
+{
+    if (!panel || !control) {
+        return 0;
+    }
+    int count = 0;
+    const ControllerPromptBinding* const prompts = GetK1ControllerPrompts(panel, &count);
+    for (int i = 0; prompts && i < count; ++i) {
+        if (prompts[i].variant == PromptVariantK1::FocusOnly) {
+            continue;
+        }
+        if (ResolveK1PromptControl(panel, prompts[i]) == control) {
+            return 1;
+        }
+    }
+    return 0;
+}
+
 #ifdef KMRP_CONTROLLER_STANDALONE
 void KmrpForgetBadgeOverlaysK1(void* panel) { ForgetK1BadgeOverlays(panel); }
 #endif

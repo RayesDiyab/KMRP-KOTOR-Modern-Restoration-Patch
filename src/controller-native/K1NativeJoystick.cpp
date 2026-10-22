@@ -142,6 +142,9 @@ extern "C" void __cdecl KmrpActionBarReleaseK1(void* mainInterface);
 // every badge texture in the patch sat there unused.
 extern "C" void __cdecl KmrpUpdatePromptsK1();
 extern "C" void* __cdecl KmrpDescriptionPaneK1(void* panel);
+// vendor/K1XboxControls.cpp: a button whose glyph is always shown on its panel, a hint
+// the pad presses by its own button and never lands on.
+extern "C" int __cdecl KmrpPadHintControlK1(void* panel, void* control);
 extern "C" void __cdecl KmrpUpdateCursorK1();
 extern "C" void __cdecl KmrpNoteMouseK1(int mouseX, int mouseY);
 extern "C" void __cdecl KmrpMarkControllerActiveK1();
@@ -3129,6 +3132,7 @@ constexpr std::size_t K1_CTL_H     = 0x10;
 constexpr std::size_t K1_CTL_FLAGS = 0x44;
 constexpr std::size_t K1_CTL_EVENT_TABLE = 0x38;   // CSWGuiControl::AddEvent's table
 constexpr std::size_t K1_CTL_EVENT_COUNT = 0x3C;
+constexpr std::size_t K1_CTL_PANEL = 0x34;         // the panel the control belongs to
 
 constexpr std::size_t K1_VTABLE_HANDLE_INPUT = 0x3C;
 
@@ -5024,6 +5028,14 @@ bool PadFocusExcludedK1(const void* control)
 bool ControlIsNavigableK1(void* control, RectK1& rect)
 {
     if (!LooksLikePointerK1(control) || PadFocusExcludedK1(control)) {
+        return false;
+    }
+    // A button that says which pad button does it ("X Scripts", "B Close", Pazaak's
+    // "A End Turn"): its pad button works whatever has the focus, so it is a hint and
+    // the D-pad never lands on it, on every screen with a glyph table (2026-10-22).
+    // The control's panel is at +0x34 (CSWGuiControl, as K1RuntimeLayout.cpp reads it).
+    void* const owner = *FieldAt<void*>(control, K1_CTL_PANEL);
+    if (LooksLikePointerK1(owner) && KmrpPadHintControlK1(owner, control)) {
         return false;
     }
     const std::uint8_t flags =
