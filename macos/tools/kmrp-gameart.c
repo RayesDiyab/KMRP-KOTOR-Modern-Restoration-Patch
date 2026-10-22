@@ -287,7 +287,14 @@ static Buffer keyed_resource(const char *key_path, const char *resref, int type)
         if (name_length >= sizeof relative) break;
         memcpy(relative, key.data + name_offset, name_length);
         for (char *p = relative; *p; p++) if (*p == '\\') *p = '/';
+        /* Either separator: on Windows the module passes C:\...\chitin.key, and with '/'
+           alone the BIF was looked for in the current folder, which is the game's only
+           when the game itself runs this. The installer's prebuild of every size
+           (2026-10-19) runs elsewhere, so tutorial.2da was never read and nothing was
+           made (2026-10-23; kmrp-guiadapt.c and kmrp-swoophud.c had this fix already). */
         const char *slash = strrchr(key_path, '/');
+        const char *other = strrchr(key_path, '\\');
+        if (other && (!slash || other > slash)) slash = other;
         int dir_length = slash ? (int)(slash - key_path) : 1;
         snprintf(bif_path, sizeof bif_path, "%.*s/%s", dir_length, slash ? key_path : ".", relative);
         Buffer bif = read_file(bif_path);

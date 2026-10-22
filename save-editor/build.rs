@@ -29,6 +29,22 @@ fn main() {
     println!("cargo:rerun-if-changed=fonts");
     println!("cargo:rerun-if-env-changed=KMRP_FONTS");
 
+    // The quest databases in data/quests (k1-*.json, k2-*.json), compiled in; questdb.rs
+    // includes the list written here.
+    println!("cargo:rerun-if-changed=data/quests");
+    let mut files: Vec<PathBuf> = std::fs::read_dir(here.join("data").join("quests"))
+        .map(|d| d.filter_map(|e| e.ok()).map(|e| e.path()).filter(|p| p.extension().map_or(false, |x| x == "json")).collect())
+        .unwrap_or_default();
+    files.sort();
+    let mut list = String::from("&[\n");
+    for f in &files {
+        let name = f.file_name().unwrap().to_string_lossy().to_lowercase();
+        let game = if name.starts_with("k2") { "Game::K2" } else { "Game::K1" };
+        list.push_str(&format!("    ({}, include_str!({:?})),\n", game, f.display().to_string()));
+    }
+    list.push_str("]\n");
+    std::fs::write(out.join("quest_files.rs"), list).unwrap();
+
     let mut slint = String::from("// Written by build.rs.\n");
     match fonts_dir(&here) {
         Some(dir) => {

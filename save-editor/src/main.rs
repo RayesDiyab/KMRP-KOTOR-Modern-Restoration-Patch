@@ -256,6 +256,9 @@ struct State {
     /// The quest tracker: its tab (0 active, 1 completed, 2 not started) and the quest shown.
     quest_tab: usize,
     quest_pick: Option<String>,
+    /// Branch steps of the picked quest's chain (questdb::path's choices, all endings in
+    /// order) and whether each is chosen for "as if played".
+    chain_choices: Vec<bool>,
     /// The area shown on the Map tab, and what is picked on it.
     map: Option<kse_core::map::Area>,
     map_pick: Option<MapPick>,
@@ -284,6 +287,15 @@ struct State {
     spawn_at: Option<([f32; 3], f32)>,
     /// The slot picked on the equip grid, whose fitting items the inventory list shows.
     equip_slot: Option<u32>,
+    /// Where each module can be arrived at (map::arrivals), read on first use, by game; and
+    /// the ways into the area on the map, as Travel Here lists them.
+    arrivals: HashMap<Game, Arc<HashMap<String, Vec<(String, String)>>>>,
+    travel_ways: Vec<(String, String)>,
+    /// Every module's display name ("Dantooine - Jedi Enclave"), read once a game: opening
+    /// each module's files for ~150 names made every map refresh take seconds.
+    module_titles: HashMap<Game, HashMap<String, String>>,
+    /// The planets open in the Areas list.
+    open_planets: std::collections::HashSet<String>,
     status: (String, bool),
 }
 
@@ -1097,9 +1109,95 @@ fn fill_party(ui: &AppWindow, st: &mut State) {
     app.set_party_xp_changed(st.original.as_ref().map_or(false, |o| o.party_int("PT_XP_POOL").unwrap_or(0) != xp));
 }
 
+/// A chapter Skip Ahead offers, in story order.
+struct Chapter {
+    index: i32,
+    order: i64,
+    planet: String,
+    title: String,
+    summary: String,
+    played: bool,
+}
+
+/// The game's chapters the editor has mapped (questdb::milestones), in story order, each
+/// with what skipping to its end does and whether this save has played it (its journal
+/// entries reached).
+fn skip_chapters(st: &State) -> Vec<Chapter> {
+    let Some(save) = st.save.as_ref() else { return Vec::new() };
+    let quests = save.quests();
+    let titles = st.module_titles.get(&st.game);
+    let mut out: Vec<Chapter> = kse_core::questdb::milestones(st.game)
+        .iter()
+        .enumerate()
+        .map(|(i, (planet, m))| {
+            let order = m.get("order").and_then(|v| v.as_i64()).unwrap_or(if planet.eq_ignore_ascii_case("Endar Spire") { 1 } else { 99 });
+            let played = m.get("journal").and_then(|j| j.as_array()).map_or(false, |j| {
+                !j.is_empty()
+                    && j.iter().all(|e| {
+                        let tag = e.get("tag").and_then(|v| v.as_str()).unwrap_or_default();
+                        let stage = e.get("stage").and_then(|v| v.as_i64()).unwrap_or(0);
+                        quests.iter().any(|(t, v)| t.eq_ignore_ascii_case(tag) && *v >= stage)
+                    })
+            });
+            let next = m.get("next_chapter").and_then(|n| n.get("module")).and_then(|v| v.as_str()).unwrap_or_default().to_string();
+            let place = titles
+                .and_then(|t| t.get(&next))
+                .cloned()
+                .or_else(|| st.data().map(|d| kse_core::map::module_title(&d, &next)))
+                .unwrap_or(next);
+            let rewards = kse_core::questdb::rewards_of(st.game, planet);
+            let xp = rewards.as_ref().and_then(|r| r.get("xp_at_end")).and_then(|v| v.as_i64());
+            let items = rewards.as_ref().map_or(0, |r| {
+                r.get("drops").and_then(|d| d.as_array()).map_or(0, |d| d.len())
+                    + r.get("containers").and_then(|c| c.as_array()).map_or(0, |c| c.len())
+            });
+            let title = m
+                .get("chapter_title")
+                .and_then(|v| v.as_str())
+                .map(|t| t.to_string())
+                .unwrap_or_else(|| format!("The end of the {}", planet));
+            let mut parts = vec!["its quests finished".to_string()];
+            if let Some(x) = xp {
+                parts.push(format!("{} XP in all", x));
+            }
+            if items > 0 {
+                parts.push("the loot of a full run".to_string());
+            }
+            let summary = format!(
+                "The save becomes as if {} was played to its end: {}. Then, when the save loads, the game takes you on to {} the way the story does, with its cutscenes.",
+                planet,
+                parts.join(", "),
+                place
+            );
+            Chapter { index: i as i32, order, planet: planet.clone(), title, summary, played }
+        })
+        .collect();
+    out.sort_by_key(|c| c.order);
+    out
+}
+
+fn fill_skip(ui: &AppWindow, st: &State) {
+    let chapters = skip_chapters(st);
+    let next = chapters.iter().position(|c| !c.played);
+    let rows: Vec<SkipRow> = chapters
+        .iter()
+        .enumerate()
+        .map(|(k, c)| SkipRow {
+            index: c.index,
+            order: (k + 1) as i32,
+            planet: s(c.planet.to_uppercase()),
+            title: s(&c.title),
+            note: s(c.summary.split(':').nth(1).map(|x| x.split('.').next().unwrap_or("").trim().to_string()).unwrap_or_default()),
+            state: if c.played { 0 } else if Some(k) == next { 1 } else { 2 },
+        })
+        .collect();
+    ui.global::<App>().set_skip_rows(model(rows));
+}
+
 fn fill_story(ui: &AppWindow, st: &mut State) {
     let app = ui.global::<App>();
     app.set_story_section(st.story);
+    fill_skip(ui, st);
     fill_globals(ui, st);
     fill_area(ui, st);
     fill_more(ui, st);
@@ -1529,8 +1627,8 @@ fn badge(cache: &mut HashMap<String, Option<Image>>, data: &GameData, names: &[&
 fn load_map(st: &mut State, module: Option<String>) {
     let Some(save) = st.save.as_ref() else { return };
     let module = module.unwrap_or_else(|| save.module_name().to_string());
-    let Some(git) = save.module_git(&module) else { return };
     let Some(data) = st.data() else { return };
+    let Some(git) = save.module_git(&module).or_else(|| kse_core::map::game_git(&data, &module)) else { return };
     let namer = |c: &Struct| -> String {
         let n = creature::name(c);
         if !n.is_empty() {
@@ -1636,49 +1734,145 @@ fn fill_map(ui: &AppWindow, st: &mut State) {
     app.set_map_icons(model(icons.into_iter().map(|i| i.unwrap_or_default()).collect()));
     app.set_map_marks(model(marks));
     app.set_map_title(s(&area.name));
+    let been = save.visited_modules().contains(&viewing);
     app.set_map_note(s(if here {
         "Where the save leaves you. Click a marker to see it, or the floor to pick a spot."
+    } else if been {
+        "An area this save has been to, as it was left. Travel Here takes you there."
     } else {
-        "An area this save has been to. Moving here makes the save resume in it."
+        "Not been here yet: shown as the game first builds it. Travel Here takes you there."
     }));
 
     // Areas: this one, where the viewed area's ways out lead, then the rest visited.
+    let game = st.game;
+    if !st.module_titles.contains_key(&game) {
+        let root = st.installs.iter().find(|i| i.game == game).map(|i| i.path.clone());
+        let titles: HashMap<String, String> = root
+            .map(|r| kse_core::map::game_modules(&r))
+            .unwrap_or_default()
+            .into_iter()
+            .map(|m| {
+                let t = kse_core::map::module_title(&data, &m);
+                (m, t)
+            })
+            .collect();
+        st.module_titles.insert(game, titles);
+    }
+    let titles = st.module_titles.get(&game).cloned().unwrap_or_default();
+    let save = st.save.as_ref().unwrap();
     let visited = save.visited_modules();
-    let mut rows = Vec::new();
-    let mut seen = std::collections::HashSet::new();
-    let mut push = |module: &str, note: &str, rows: &mut Vec<AreaRow>| {
-        let m = module.to_ascii_lowercase();
-        if !seen.insert(m.clone()) {
-            return;
+    // The doors and transitions of every area, read once: they tell real places from the
+    // game's cutscene stages, and which of two areas with one name the game leads into.
+    if !st.arrivals.contains_key(&game) {
+        st.arrivals.insert(game, Arc::new(kse_core::map::arrivals(&data)));
+    }
+    let arrivals = st.arrivals.get(&game).cloned().unwrap_or_default();
+    // Planets, each a group that opens and closes (the current planet open at first), with
+    // its areas under it: the ones visited, led into by a door, or with a name of their own.
+    // Cutscene stages (stunt_ modules, the game's movie sets) and nameless modules are not
+    // places to go; of two areas with one name the visited one, else the one a door leads
+    // into, stays.
+    let split = |m: &str| -> (String, String) {
+        let t = titles.get(m).cloned().unwrap_or_else(|| m.to_string());
+        match t.rsplit_once(" - ") {
+            Some((planet, place)) => (planet.trim().to_string(), place.trim().to_string()),
+            None => (t.trim().to_string(), t.trim().to_string()),
         }
-        // "Citadel Station - Residential 082 East": the place first, the planet in the note.
-        let title = kse_core::map::module_title(&data, &m);
-        let (name, note) = match title.rsplit_once(" - ") {
-            Some((planet, place)) => (place.to_string(), format!("{} · {}", planet, note)),
-            None => (title, note.to_string()),
-        };
-        rows.push(AreaRow {
-            module: s(&m),
-            name: s(name),
-            note: s(note),
-            current: m == current,
-            viewing: m == viewing,
-            visited: visited.contains(&m),
-        });
     };
-    push(&current, "You are here", &mut rows);
-    if !here {
-        push(&viewing, "Looking at", &mut rows);
+    let mut groups: std::collections::BTreeMap<String, Vec<(String, String)>> = std::collections::BTreeMap::new();
+    for m in titles.keys() {
+        let (planet, place) = split(m);
+        let real = visited.contains(m) || *m == current || arrivals.contains_key(m);
+        if m.starts_with("stunt_") || place.eq_ignore_ascii_case(m) || !real {
+            continue;
+        }
+        let list = groups.entry(planet).or_default();
+        let rank = |x: &str| (visited.contains(&x.to_string()) as u8 + (x == current) as u8 * 2, arrivals.get(x).map_or(0, |a| a.len()));
+        match list.iter().position(|(_, p)| p.eq_ignore_ascii_case(&place)) {
+            Some(k) if rank(m) > rank(&list[k].0) => list[k] = (m.clone(), place),
+            Some(_) => {}
+            None => list.push((m.clone(), place)),
+        }
     }
-    let exits: Vec<String> = area.objects.iter().filter(|o| !o.leads_to.is_empty()).map(|o| o.leads_to.clone()).collect();
-    for e in &exits {
-        let note = if visited.contains(e) { "A way out leads here" } else { "A way out leads here, not visited yet" };
-        push(e, note, &mut rows);
+    let (here_planet, _) = split(&current);
+    if st.open_planets.is_empty() {
+        st.open_planets.insert(here_planet.clone());
     }
-    for v in &visited {
-        push(v, "Been here", &mut rows);
+    let mut order: Vec<String> = groups.keys().cloned().collect();
+    order.sort_by_key(|p| (*p != here_planet, p.clone()));
+    let mut rows = Vec::new();
+    for planet in order {
+        let mut areas = groups.remove(&planet).unwrap_or_default();
+        areas.sort_by(|x, y| x.1.cmp(&y.1));
+        let open = st.open_planets.contains(&planet);
+        let been = areas.iter().filter(|(m, _)| visited.contains(m)).count();
+        rows.push(AreaRow {
+            module: s(""),
+            name: s(&planet),
+            note: s(format!("{} areas · {} visited", areas.len(), been)),
+            current: planet == here_planet,
+            viewing: false,
+            visited: true,
+            header: true,
+            open,
+            planet: s(&planet),
+        });
+        if !open {
+            continue;
+        }
+        for (m, place) in areas {
+            let note = if m == current { "You are here" } else if m == viewing { "Looking at" } else if visited.contains(&m) { "Been here" } else { "Not been here" };
+            rows.push(AreaRow {
+                module: s(&m),
+                name: s(place),
+                note: s(note),
+                current: m == current,
+                viewing: m == viewing,
+                visited: visited.contains(&m),
+                header: false,
+                open: true,
+                planet: s(&planet),
+            });
+        }
     }
     app.set_map_areas(model(rows));
+
+    // Travel Here: the ways the game leads into the area on the map.
+    st.travel_ways.clear();
+    if !here {
+        let ways = st.arrivals.get(&game).and_then(|a| a.get(&viewing)).cloned().unwrap_or_default();
+        st.travel_ways = ways;
+        if st.travel_ways.is_empty() {
+            if let Some(w) = kse_core::map::any_waypoint(&data, &viewing) {
+                st.travel_ways.push((w, String::new()));
+            }
+        }
+    }
+    let ways: Vec<Named> = st
+        .travel_ways
+        .iter()
+        .enumerate()
+        .map(|(i, (tag, from))| {
+            let place = if from.is_empty() {
+                "At the area's own marker".to_string()
+            } else {
+                let t = st.module_titles.get(&st.game).and_then(|t| t.get(from)).cloned().unwrap_or_else(|| from.clone());
+                format!("From {}", t.rsplit_once(" - ").map(|(_, p)| p.to_string()).unwrap_or(t))
+            };
+            row(i as i64, place, tag)
+        })
+        .collect();
+    // Two doors from the same place are numbered.
+    let mut ways = ways;
+    for i in 0..ways.len() {
+        let same: Vec<usize> = (0..ways.len()).filter(|&k| ways[k].name == ways[i].name).collect();
+        if same.len() > 1 && same[0] == i {
+            for (n, &k) in same.iter().enumerate() {
+                ways[k].name = s(format!("{} ({})", ways[k].name, n + 1));
+            }
+        }
+    }
+    app.set_travel_ways(model(ways));
 
     // The pick.
     app.set_pick_can_move(false);
@@ -1689,6 +1883,11 @@ fn fill_map(ui: &AppWindow, st: &mut State) {
     app.set_pick_can_remove(false);
     app.set_map_here(here);
     match st.map_pick.clone() {
+        // Another area: what is offered first is going there.
+        None if !here => {
+            app.set_pick_title(s(format!("Go to {}", area.name)));
+            app.set_pick_note(s("Pick where to arrive below, or a marker or spot on the map."));
+        }
         None => {
             app.set_pick_title(s("Nothing yet"));
             app.set_pick_note(s("Click a marker on the map, or any spot on the floor."));
@@ -1696,7 +1895,8 @@ fn fill_map(ui: &AppWindow, st: &mut State) {
         Some(MapPick::Floor(_)) => {
             app.set_pick_title(s("A spot on the floor"));
             app.set_pick_note(s("Checked: walkable floor with room around it."));
-            app.set_pick_can_move(true);
+            // Straight to a spot needs the area's saved copy; elsewhere Travel Here goes.
+            app.set_pick_can_move(here || been);
             app.set_pick_move_label(s(if here { "Move Here" } else { "Move to This Area, Here" }));
             app.set_pick_can_spawn(here);
         }
@@ -1724,7 +1924,7 @@ fn fill_map(ui: &AppWindow, st: &mut State) {
             }
             app.set_pick_note(s(note));
             let door = matches!(o.kind, Door | Exit) && o.spots.len() == 2;
-            app.set_pick_can_move(!o.spots.is_empty());
+            app.set_pick_can_move(!o.spots.is_empty() && (here || been));
             app.set_pick_has_second(door);
             app.set_pick_move_label(s(if door { "Move to This Side" } else if here { "Move Next to It" } else { "Move to This Area, Next to It" }));
             app.set_pick_second_label(s("Move to the Other Side"));
@@ -2158,6 +2358,7 @@ fn main() {
         quest_tags: Vec::new(),
         quest_tab: 0,
         quest_pick: None,
+        chain_choices: Vec::new(),
         map: None,
         map_pick: None,
         saves: Vec::new(),
@@ -2183,6 +2384,10 @@ fn main() {
         spawnable: Vec::new(),
         spawn_at: None,
         equip_slot: None,
+        arrivals: HashMap::new(),
+        travel_ways: Vec::new(),
+        module_titles: HashMap::new(),
+        open_planets: std::collections::HashSet::new(),
         status: (String::new(), false),
     }));
     fill_saves(&ui, &mut state.borrow_mut());
@@ -2736,14 +2941,106 @@ fn main() {
     });
     on!(ui, state, on_finish_quest, |u, st, id: i32| {
         let Some(tag) = st.quest_pick.clone() else { return };
+        // As if played: every step on the way to this ending first, then the ending itself.
+        let mut skipped = Vec::new();
+        if u.global::<App>().get_quest_as_played() {
+            if let (Some((q, _)), Some(data)) = (kse_core::questdb::quest(st.game, &tag), st.data()) {
+                // The choices are numbered over every ending in order; find this ending's.
+                let mut first = 0;
+                for e in q.stages.iter().filter(|x| x.end).map(|x| x.stage) {
+                    let (_, c) = kse_core::questdb::path(&q, e);
+                    if e == id as i64 {
+                        break;
+                    }
+                    first += c.iter().filter(|x| x.does.iter().any(|d| !kse_core::questdb::describe(d, &data).is_empty())).count();
+                }
+                let (sure, choices) = kse_core::questdb::path(&q, id as i64);
+                let mut chosen = Vec::new();
+                let mut n = first;
+                for c in choices {
+                    if c.does.iter().all(|d| kse_core::questdb::describe(d, &data).is_empty()) {
+                        continue;
+                    }
+                    if st.chain_choices.get(n).copied().unwrap_or(false) {
+                        chosen.push(c);
+                    }
+                    n += 1;
+                }
+                if let Some(save) = st.save.as_mut() {
+                    for (k, step) in sure.iter().chain(chosen.iter()).enumerate() {
+                        skipped.extend(kse_core::questdb::apply(save, &data, step, &format!("chain.{}.{}", tag, k)));
+                    }
+                }
+            }
+        }
         set_quest_stage(st, &tag, id as i64);
         u.global::<App>().set_overlay(0);
         // The quest moves to Completed; the tracker follows it there.
         st.quest_tab = 1;
         refresh_after_edit(&u, st);
+        if !skipped.is_empty() {
+            skipped.dedup();
+            message(&u, "Finished, with some steps left to the game", &skipped.join("\n"));
+        }
     });
-    on!(ui, state, on_open_finish_quest, |u, _st| {
-        u.global::<App>().set_overlay(8);
+    on!(ui, state, on_open_finish_quest, |u, st| {
+        // The quest database's steps to each ending, in plain words.
+        let app = u.global::<App>();
+        let (Some(tag), Some(data)) = (st.quest_pick.clone(), st.data()) else { return };
+        let mut lines = Vec::new();
+        st.chain_choices.clear();
+        match kse_core::questdb::quest(st.game, &tag) {
+            Some((q, checked)) => {
+                let endings: Vec<i64> = q.stages.iter().filter(|x| x.end).map(|x| x.stage).collect();
+                for e in endings {
+                    let (sure, choices) = kse_core::questdb::path(&q, e);
+                    for step in &sure {
+                        for d in &step.does {
+                            let text = kse_core::questdb::describe(d, &data);
+                            if !text.is_empty() {
+                                lines.push(ChainLine { ending: e as i32, text: s(text), can: kse_core::questdb::can_apply(d), branch: s(""), choice: -1, on: true });
+                            }
+                        }
+                    }
+                    for step in &choices {
+                        let text: Vec<String> = step.does.iter().map(|d| kse_core::questdb::describe(d, &data)).filter(|t| !t.is_empty()).collect();
+                        if text.is_empty() {
+                            continue;
+                        }
+                        lines.push(ChainLine {
+                            ending: e as i32,
+                            text: s(text.join("; ")),
+                            can: step.does.iter().any(kse_core::questdb::can_apply),
+                            branch: s(step.branch.clone().unwrap_or_default()),
+                            choice: st.chain_choices.len() as i32,
+                            on: false,
+                        });
+                        st.chain_choices.push(false);
+                    }
+                }
+                app.set_quest_has_chain(true);
+                app.set_quest_chain_checked(checked);
+            }
+            None => {
+                app.set_quest_has_chain(false);
+                app.set_quest_chain_checked(false);
+            }
+        }
+        app.set_quest_chain(model(lines));
+        app.set_overlay(8);
+    });
+    on!(ui, state, on_toggle_chain_choice, |u, st, i: i32, on: bool| {
+        if let Some(c) = st.chain_choices.get_mut(i.max(0) as usize) {
+            *c = on;
+        }
+        let app = u.global::<App>();
+        let rows: Vec<ChainLine> = app.get_quest_chain().iter().map(|mut r| {
+            if r.choice == i {
+                r.on = on;
+            }
+            r
+        }).collect();
+        app.set_quest_chain(model(rows));
     });
     on!(ui, state, on_remove_quest, |u, st| {
         let Some(tag) = st.quest_pick.clone() else { return };
@@ -2913,6 +3210,13 @@ fn main() {
         refresh_after_edit(&u, st);
     });
 
+    on!(ui, state, on_toggle_planet, |u, st, planet: SharedString| {
+        let p = planet.to_string();
+        if !st.open_planets.remove(&p) {
+            st.open_planets.insert(p);
+        }
+        fill_map(&u, st);
+    });
     on!(ui, state, on_view_area, |u, st, module: SharedString| {
         load_map(st, Some(module.to_string()));
         fill_map(&u, st);
@@ -3009,6 +3313,54 @@ fn main() {
         let app = u.global::<App>();
         app.set_pick_title(s(format!("{} removed", o.name)));
         app.set_pick_note(s("Save Changes to keep it out of the save; Revert brings it back."));
+    });
+    on!(ui, state, on_ask_skip, |u, st, i: i32| {
+        let chapters = skip_chapters(st);
+        let Some(c) = chapters.iter().find(|c| c.index == i) else { return };
+        let app = u.global::<App>();
+        app.set_skip_asked(i);
+        app.set_skip_title(s(format!("Skip to: {}", c.title)));
+        app.set_skip_summary(s(&c.summary));
+        app.set_overlay(10);
+    });
+    on!(ui, state, on_do_skip, |u, st| {
+        let i = u.global::<App>().get_skip_asked();
+        let Some((planet, m)) = kse_core::questdb::milestones(st.game).into_iter().nth(i.max(0) as usize) else { return };
+        let Some(data) = st.data() else { return };
+        u.global::<App>().set_overlay(0);
+        let result = match st.save.as_mut() {
+            Some(save) => kse_core::questdb::skip_to(save, &data, &m),
+            None => return,
+        };
+        refresh_after_edit(&u, st);
+        match result {
+            Ok(notes) => {
+                let mut body = String::from("Save Changes, then load this save in the game: it plays the way on from there.");
+                if !notes.is_empty() {
+                    body.push_str("\n\nWorth knowing:\n");
+                    body.push_str(&notes.join("\n"));
+                }
+                message(&u, &format!("Skipped: {}", planet), &body);
+            }
+            Err(e) => message(&u, "Could not skip ahead", &e),
+        }
+    });
+    on!(ui, state, on_travel, |u, st, i: i32| {
+        let Some((tag, _)) = st.travel_ways.get(i.max(0) as usize).cloned() else { return };
+        let Some(area) = st.map.as_ref() else { return };
+        let (module, name) = (area.module.clone(), area.name.clone());
+        let Some(save) = st.save.as_mut() else { return };
+        match save.queue_transition(&module, &tag, &[]) {
+            Ok(()) => {
+                refresh_after_edit(&u, st);
+                message(
+                    &u,
+                    &format!("Travel to {}", name),
+                    "Save Changes, then load this save in the game: the first thing it does is take you there, as if you had walked in. The area's arrival scripts run and your party comes with you.",
+                );
+            }
+            Err(e) => message(&u, "The trip could not be set up", &e),
+        }
     });
     on!(ui, state, on_unlock_pick, |u, st| {
         let Some(MapPick::Object(i)) = st.map_pick.clone() else { return };

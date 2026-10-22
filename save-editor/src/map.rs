@@ -501,3 +501,85 @@ impl Area {
         self.calibration.as_ref().map(|c| c.to_map(x, y))
     }
 }
+
+/// Every module of the game, by name: the modules folder's .rim (not _s.rim) and .mod files.
+pub fn game_modules(root: &Path) -> Vec<String> {
+    let Some(dir) = find_case_insensitive(root, "modules") else { return Vec::new() };
+    let mut out: Vec<String> = std::fs::read_dir(dir)
+        .map(|d| {
+            d.filter_map(|e| e.ok())
+                .filter_map(|e| {
+                    let name = e.file_name().to_string_lossy().to_ascii_lowercase();
+                    let stem = name.strip_suffix(".rim").or_else(|| name.strip_suffix(".mod"))?.to_string();
+                    (!stem.ends_with("_s") && !stem.ends_with("_dlg")).then_some(stem)
+                })
+                .collect()
+        })
+        .unwrap_or_default();
+    out.sort();
+    out.dedup();
+    out
+}
+
+/// A module's objects as the game ships them, for an area the save has not been to. The
+/// shipped .git holds only template references (TemplateResRef and a position); each entry
+/// takes its template's fields (name, portrait, lock...) where it has none, from the module's
+/// own files first, then Override and the game's archives, as the game looks them up.
+fn shipped_git(files: &ModuleFiles) -> Option<Gff> {
+    let area = files.area_name()?;
+    Gff::read(&files.read(&area, crate::formats::erf::RES_TYPE_GIT)?).ok()
+}
+
+pub fn game_git(data: &GameData, module: &str) -> Option<Gff> {
+    let files = ModuleFiles::open(&data.root, module);
+    let mut git = shipped_git(&files)?;
+    // .utc creatures, .utd doors, .utp placeables, .utm stores.
+    for (list, ext, kind) in [("Creature List", "utc", 2027u16), ("Door List", "utd", 2042), ("Placeable List", "utp", 2044), ("StoreList", "utm", 2051)] {
+        let Some(entries) = git.root.list_mut(list) else { continue };
+        for e in entries.iter_mut() {
+            let Some(resref) = e.string("TemplateResRef").filter(|r| !r.is_empty()) else { continue };
+            let template = files
+                .read(&resref, kind)
+                .and_then(|d| Gff::read(&d).ok())
+                .or_else(|| data.gff(&resref, ext, kind));
+            let Some(t) = template else { continue };
+            for (label, value) in t.root.fields {
+                if e.get(&label).is_none() {
+                    e.fields.push((label, value));
+                }
+            }
+        }
+    }
+    Some(git)
+}
+
+/// Where each module can be arrived at, as the game's own doors and transitions lead there:
+/// module -> (waypoint tag, the module the way in comes from). Read from every module's
+/// shipped .git (Door List and TriggerList, LinkedToModule and LinkedTo).
+pub fn arrivals(data: &GameData) -> std::collections::HashMap<String, Vec<(String, String)>> {
+    let mut out: std::collections::HashMap<String, Vec<(String, String)>> = std::collections::HashMap::new();
+    for module in game_modules(&data.root) {
+        // The doors and triggers as shipped; their templates are not needed here.
+        let Some(git) = shipped_git(&ModuleFiles::open(&data.root, &module)) else { continue };
+        for list in ["Door List", "TriggerList"] {
+            for o in git.root.list(list).map(|l| l.as_slice()).unwrap_or(&[]) {
+                let (Some(to), Some(tag)) = (o.string("LinkedToModule"), o.string("LinkedTo")) else { continue };
+                let (to, tag) = (to.to_ascii_lowercase(), tag.trim().to_string());
+                if to.is_empty() || tag.is_empty() || to == module {
+                    continue;
+                }
+                let entry = out.entry(to).or_default();
+                if !entry.iter().any(|(t, f)| t.eq_ignore_ascii_case(&tag) && *f == module) {
+                    entry.push((tag, module.clone()));
+                }
+            }
+        }
+    }
+    out
+}
+
+/// A waypoint of the module's own, for a module no door leads into (the first in its list).
+pub fn any_waypoint(data: &GameData, module: &str) -> Option<String> {
+    let git = shipped_git(&ModuleFiles::open(&data.root, module))?;
+    git.root.list("WaypointList")?.iter().find_map(|w| w.string("Tag").filter(|t| !t.is_empty()))
+}

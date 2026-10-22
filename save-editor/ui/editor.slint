@@ -1250,38 +1250,147 @@ component JournalSection inherits Rectangle {
 }
 
 
+// Skip Ahead: the chapters of the story in order, by planet; each says whether this save
+// has played it, and one button makes the save as if it had, then travels on.
+component SkipSection inherits Rectangle {
+    VerticalLayout {
+        spacing: 6px;
+        HorizontalLayout {
+            spacing: 12px;
+            Text { text: "Skip Ahead"; font-family: Theme.title-font; font-size: 24px * Theme.ts; color: Theme.text; vertical-alignment: center; }
+        }
+        Note {
+            font-size: 13.5px * Theme.ts;
+            text: "Make the save as if a chapter was played: its quests finished, the XP a full run earns (every fight worked out by the game's own rule), the loot, the companions. Then the game takes you on, cutscenes and all, when the save loads.";
+        }
+        Rectangle { height: 8px; }
+        Scroller {
+            vertical-stretch: 1;
+            content-height: App.skip-rows.length * 84px;
+            VerticalLayout {
+                spacing: 6px;
+                for r in App.skip-rows: Rectangle {
+                    height: 78px;
+                    border-radius: 8px;
+                    border-width: 1px;
+                    border-color: r.state == 1 ? Theme.accent : Theme.panel-edge;
+                    background: r.state == 1 ? Theme.selected : Theme.field;
+                    HorizontalLayout {
+                        padding-left: 18px;
+                        padding-right: 14px;
+                        spacing: 16px;
+                        // The chapter's place in the story: a number in a ring, filled when played.
+                        VerticalLayout {
+                            alignment: center;
+                            Rectangle {
+                                width: 34px;
+                                height: 34px;
+                                border-radius: 17px;
+                                border-width: 2px;
+                                border-color: r.state == 0 ? Theme.good : r.state == 1 ? Theme.accent : Theme.edge;
+                                background: r.state == 0 ? Theme.good.with-alpha(0.18) : transparent;
+                                Text { text: r.order; font-family: Theme.title-font; font-size: 15px * Theme.ts; color: r.state == 0 ? Theme.good : r.state == 1 ? Theme.accent : Theme.soft; }
+                            }
+                        }
+                        VerticalLayout {
+                            alignment: center;
+                            spacing: 3px;
+                            horizontal-stretch: 1;
+                            HorizontalLayout {
+                                spacing: 10px;
+                                alignment: start;
+                                Text { text: r.planet; font-family: Theme.label-font; font-size: 12px * Theme.ts; letter-spacing: 2px; color: Theme.accent; vertical-alignment: center; }
+                                Text {
+                                    text: r.state == 0 ? "PLAYED" : r.state == 1 ? "NEXT" : "";
+                                    font-family: Theme.label-font;
+                                    font-size: 10.5px * Theme.ts;
+                                    letter-spacing: 2px;
+                                    color: r.state == 0 ? Theme.good : Theme.gold;
+                                    vertical-alignment: center;
+                                }
+                            }
+                            Text { text: r.title; font-family: Theme.list-font; font-size: 17px * Theme.ts; color: r.state == 2 ? Theme.muted : Theme.text; overflow: elide; }
+                            Text { text: r.note; font-family: Theme.body-font; font-size: 12.5px * Theme.ts; color: Theme.faint; overflow: elide; }
+                        }
+                        VerticalLayout {
+                            alignment: center;
+                            Button {
+                                kind: r.state == 1 ? 0 : 3;
+                                compact: true;
+                                enabled: r.state != 0;
+                                text: r.state == 0 ? "Played" : "Skip to Here";
+                                font-size: 15px * Theme.ts;
+                                clicked => { App.ask-skip(r.index); }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+        if App.skip-rows.length == 0: Note { text: "The editor has no chapters of this game mapped yet."; }
+    }
+}
+
+// Story: what a player opens it for first (the quests, skipping ahead), then the world, then
+// the raw data modders want, each group under its own heading in a rail on the left
+// (2026-10-23, the maintainer: "related things should be together"). The section numbers
+// stay as main.rs knows them (0 globals, 1 area, 2 creatures, 3 quests, 4 more, 5 skip).
 component StoryTab inherits Rectangle {
-    HorizontalLayout {
+    property <length> rail: 230px * Theme.ts;
+    VerticalLayout {
         x: 0; y: 0;
-        height: 38px;
-        spacing: 10px;
-        alignment: start;
-        // Quests first: what a player opens Story for. The section numbers stay as main.rs
-        // knows them (0 globals, 1 area, 2 creatures, 3 quests, 4 more).
-        for s[k] in [
+        width: rail;
+        height: self.preferred-height;
+        spacing: 4px;
+        for s in [
+            { name: "STORY", section: -1 },
             { name: "Quests", section: 3 },
-            { name: "Galaxy Map, Pazaak and More", section: 4 },
-            { name: "Global Variables", section: 0 },
-            { name: "Area", section: 1 },
+            { name: "Skip Ahead", section: 5 },
+            { name: "WORLD", section: -1 },
+            { name: "Galaxy Map, Pazaak", section: 4 },
+            { name: "FOR MODDERS", section: -1 },
+            { name: "Story Values", section: 0 },
+            { name: "Area Objects", section: 1 },
             { name: "Creatures", section: 2 },
         ]: Rectangle {
-            width: t.preferred-width + 30px;
-            border-radius: 5px;
-            border-width: 1px;
-            border-color: s.section == App.story-section ? Theme.accent : Theme.edge;
-            background: s.section == App.story-section ? Theme.selected : st.has-hover ? Theme.hover : Theme.field;
-            t := Text { text: s.name; font-family: Theme.list-font; font-size: 16px * Theme.ts; color: s.section == App.story-section ? Theme.text : Theme.soft; }
-            st := TouchArea { mouse-cursor: pointer; clicked => { App.select-story(s.section); } }
+            height: s.section < 0 ? 34px : 42px;
+            border-radius: 6px;
+            border-width: s.section == App.story-section ? 1px : 0px;
+            border-color: Theme.accent;
+            background: s.section == App.story-section ? Theme.selected : st.has-hover && s.section >= 0 ? Theme.hover : transparent;
+            if s.section < 0: Text {
+                x: 4px;
+                y: parent.height - self.height - 4px;
+                text: s.name;
+                font-family: Theme.label-font;
+                font-size: 11px * Theme.ts;
+                letter-spacing: 3px;
+                color: Theme.faint;
+            }
+            if s.section >= 0: Text {
+                x: 14px;
+                text: s.name;
+                vertical-alignment: center;
+                height: parent.height;
+                font-family: Theme.list-font;
+                font-size: 15px * Theme.ts;
+                color: s.section == App.story-section ? Theme.text : Theme.soft;
+                overflow: elide;
+                width: parent.width - 20px;
+            }
+            st := TouchArea { enabled: s.section >= 0; mouse-cursor: s.section >= 0 ? pointer : default; clicked => { App.select-story(s.section); } }
         }
     }
+    Rectangle { x: rail + 16px; y: 0; width: 1px; background: Theme.row-line; }
     Rectangle {
-        x: 0; y: 58px;
-        height: parent.height - 58px;
+        x: rail + 34px;
+        width: parent.width - self.x;
         if App.story-section == 0: GlobalsSection { }
         if App.story-section == 1: AreaSection { }
         if App.story-section == 2: CreaturesSection { }
         if App.story-section == 3: JournalSection { }
         if App.story-section == 4: MoreSection { }
+        if App.story-section == 5: SkipSection { }
     }
 }
 
@@ -1567,26 +1676,57 @@ component MapTab inherits Rectangle {
             if App.pick-can-remove: Button { kind: 4; compact: true; text: "Remove " + App.pick-title; font-size: 15px * Theme.ts; clicked => { App.remove-pick(); } }
             if App.pick-can-remove: Note { font-size: 12.5px * Theme.ts; text: "Added with this editor, so it can be taken out again. The area's own creatures stay."; }
             if App.pick-is-exit: Button { kind: 3; text: "Show Where It Leads"; clicked => { App.follow-exit(); } }
+            // Another area: go there the way the game does, arriving at one of its ways in.
+            if !App.map-here && App.travel-ways.length > 0: Rectangle { height: 6px; }
+            if !App.map-here && App.travel-ways.length > 0: Label { text: "TRAVEL HERE"; }
+            if !App.map-here && App.travel-ways.length > 0: Note { font-size: 12.5px * Theme.ts; text: "The game takes you there right after the save loads, as if you walked in."; }
+            for w[i] in (App.map-here ? [] : App.travel-ways): Button { kind: 3; text: w.name; clicked => { App.travel(w.id); } }
             if App.pick-can-unlock: Button { kind: 3; text: "Unlock"; clicked => { App.unlock-pick(); } }
         }
         if pane == 1: Scroller {
             vertical-stretch: 1;
-            content-height: App.map-areas.length * 56px;
+            content-height: App.map-areas.length * 52px;
             VerticalLayout {
                 for a in App.map-areas: Rectangle {
-                    height: 54px;
+                    height: a.header ? 46px : 50px;
                     border-radius: 5px;
                     border-width: a.viewing ? 1px : 0px;
                     border-color: Theme.accent;
-                    background: a.viewing ? Theme.selected : at.has-hover && a.visited ? Theme.hover : transparent;
-                    VerticalLayout {
-                        padding-left: 10px;
+                    background: a.viewing ? Theme.selected : at.has-hover ? Theme.hover : transparent;
+                    // A planet: a chevron, its name, how many areas; a click opens or closes it.
+                    if a.header: HorizontalLayout {
+                        padding-left: 6px;
+                        padding-right: 6px;
+                        spacing: 8px;
+                        Path {
+                            width: 12px;
+                            height: 12px;
+                            y: (parent.height - self.height) / 2;
+                            viewbox-width: 12;
+                            viewbox-height: 12;
+                            stroke: Theme.accent;
+                            stroke-width: 2px;
+                            commands: a.open ? "M 2 4 L 6 8 L 10 4" : "M 4 2 L 8 6 L 4 10";
+                        }
+                        VerticalLayout {
+                            alignment: center;
+                            Text { text: a.name; font-family: Theme.label-font; font-size: 13px * Theme.ts; letter-spacing: 2px; color: a.current ? Theme.gold : Theme.text; overflow: elide; }
+                            Text { text: a.note; font-family: Theme.body-font; font-size: 11px * Theme.ts; color: Theme.faint; overflow: elide; }
+                        }
+                    }
+                    if !a.header: VerticalLayout {
+                        padding-left: 28px;
                         padding-right: 6px;
                         alignment: center;
-                        Text { text: a.name; font-family: Theme.list-font; font-size: 15px * Theme.ts; color: a.current ? Theme.gold : a.visited ? Theme.text : Theme.faint; overflow: elide; }
+                        Text { text: a.name; font-family: Theme.list-font; font-size: 15px * Theme.ts; color: a.current ? Theme.gold : a.visited ? Theme.text : Theme.soft; overflow: elide; }
                         Text { text: a.note; font-family: Theme.body-font; font-size: 11.5px * Theme.ts; color: Theme.faint; overflow: elide; }
                     }
-                    at := TouchArea { enabled: a.visited; mouse-cursor: a.visited ? pointer : default; clicked => { App.view-area(a.module); } }
+                    at := TouchArea {
+                        mouse-cursor: pointer;
+                        clicked => {
+                            if (a.header) { App.toggle-planet(a.planet); } else { App.view-area(a.module); }
+                        }
+                    }
                 }
             }
         }

@@ -18,10 +18,16 @@ export struct PortraitRow { id: int, image: image, female: bool, current: bool }
 export struct ClassRow { index: int, name: string, level: int, maximum: int, can-remove: bool }
 // A quest's stage: 0 behind where the quest is, 1 where it is, 2 ahead.
 export struct StageRow { id: int, text: string, xp: int, end: bool, place: int }
+// One effect of finishing a quest as if played: for which ending, in plain words, whether
+// the editor can write it, and (for a branch) its choice index and whether it is chosen.
+export struct ChainLine { ending: int, text: string, can: bool, branch: string, choice: int, on: bool }
+// A chapter for Skip Ahead: 0 played in this save, 1 next, 2 later.
+export struct SkipRow { index: int, order: int, planet: string, title: string, note: string, state: int }
 export struct SlotRow { slot: int, name: string, item: string, icon: image, has-icon: bool, empty: bool, changed: bool, art: image, has-art: bool }
 export struct CreatureRow { index: int, name: string, note: string, hp: int, max-hp: int }
 export struct MapMark { index: int, x: float, y: float, kind: int, name: string, selected: bool, face: image, has-face: bool }
-export struct AreaRow { module: string, name: string, note: string, current: bool, viewing: bool, visited: bool }
+// A planet (header: opens and closes its areas) or one of its areas.
+export struct AreaRow { module: string, name: string, note: string, current: bool, viewing: bool, visited: bool, header: bool, open: bool, planet: string }
 export struct Toggle { index: int, name: string, on: bool, value: int, changed: bool }
 
 export global App {
@@ -244,6 +250,12 @@ export global App {
     callback set-quest-stage(int);
     callback finish-quest(int);
     callback open-finish-quest();
+    // "As if played": the quest database has this quest's steps.
+    in property <bool> quest-has-chain;
+    in property <bool> quest-chain-checked;
+    in-out property <bool> quest-as-played: true;
+    in property <[ChainLine]> quest-chain;
+    callback toggle-chain-choice(int, bool);
     callback remove-quest();
     callback remove-creature(int);
     callback set-played(string, string);
@@ -279,6 +291,17 @@ export global App {
     callback remove-pick();
     // The map shows the area the save resumes in (spawning works there only).
     in property <bool> map-here;
+    // Another area: the ways the game leads into it, for Travel Here.
+    in property <[Named]> travel-ways;
+    callback travel(int);
+    callback toggle-planet(string);
+    in property <[SkipRow]> skip-rows;
+    // The chapter asked about, before skipping (the confirm pop-up, overlay 10).
+    in property <int> skip-asked;
+    in property <string> skip-title;
+    in property <string> skip-summary;
+    callback ask-skip(int);
+    callback do-skip();
     callback spawn-here();
     in property <bool> pick-is-exit;
     callback view-area(string);

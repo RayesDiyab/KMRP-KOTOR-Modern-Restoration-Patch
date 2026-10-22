@@ -10,6 +10,7 @@ pub mod formats;
 pub mod gamedata;
 pub mod map;
 pub mod quests;
+pub mod questdb;
 pub mod games;
 pub mod save;
 pub mod text;

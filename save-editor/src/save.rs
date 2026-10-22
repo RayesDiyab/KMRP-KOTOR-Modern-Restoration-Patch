@@ -751,6 +751,88 @@ impl Save {
         id
     }
 
+    /// Sends the player to `module` the way a door between areas does: an area-transition
+    /// event (EVENT_AREA_TRANSITION, 26) queued in the current module, which the game runs
+    /// right after the save loads. The game then makes the trip itself: it stores this area,
+    /// loads the target fresh from its own files when the save has not been there (as on a
+    /// first arrival, with the area's arrival scripts), and puts the player and the party at
+    /// `waypoint`. The event's layout is the game's (struct 0xABCD holding a script event,
+    /// 0xEEEE, whose eight strings are the module, the waypoint and six movies); from the
+    /// maintainer's own reverse engineering of KotOR 1 (area event handler 0x0050D6C0).
+    /// `movies` (up to six) play before the area loads, as a script's StartNewModule plays
+    /// them (the escape pod's 01c before the vision, for one).
+    pub fn queue_transition(&mut self, module: &str, waypoint: &str, movies: &[&str]) -> Result<()> {
+        let ifo = self.ifo.as_mut().ok_or("this save has no module file")?;
+        let day = ifo.root.int("Mod_PauseDay").unwrap_or(0);
+        let time = ifo.root.int("Mod_PauseTime").unwrap_or(0);
+        let area = ifo.root.list("Mod_Area_list").and_then(|l| l.first()).and_then(|a| a.int("ObjectId")).unwrap_or(1);
+        let text = |t: &str| {
+            let mut p = Struct::new(0x69);
+            p.set("Parameter", Value::String(t.as_bytes().to_vec()));
+            p
+        };
+        let mut data = Struct::new(0xEEEE);
+        data.set("EventType", Value::Word(0));
+        data.set("IntList", Value::List(Vec::new()));
+        data.set("FloatList", Value::List(Vec::new()));
+        let mut strings = vec![text(module), text(waypoint)];
+        strings.extend((0..6).map(|i| text(movies.get(i).copied().unwrap_or(""))));
+        data.set("StringList", Value::List(strings));
+        data.set("ObjectList", Value::List(Vec::new()));
+        let mut event = Struct::new(0xABCD);
+        event.set("Day", Value::Dword(day as u32));
+        // Due at the moment the save was made, so it runs as soon as the game does (a second
+        // later waited, on the Endar Spire, until the player first did something).
+        event.set("Time", Value::Dword(time as u32));
+        event.set("ObjectId", Value::Dword(area as u32));
+        event.set("CallerId", Value::Dword(area as u32));
+        event.set("EventId", Value::Dword(26));
+        event.set("EventData", Value::Struct(data));
+        if ifo.root.list("EventQueue").is_none() {
+            ifo.root.set("EventQueue", Value::List(Vec::new()));
+        }
+        // First in the queue: the game looks at its queue in order, and behind the save's own
+        // delayed events (Trask's opening, on the Endar Spire) the trip waited until those
+        // ran or the player did something (the maintainer's test, 2026-10-23).
+        ifo.root.list_mut("EventQueue").unwrap().insert(0, event);
+        self.dirty.insert("ifo");
+        self.changed(format!("travel.{}", module.to_ascii_lowercase()));
+        Ok(())
+    }
+
+    /// Changes the saved objects (.git) of `module`: the current area, or another area this
+    /// save has been to. Returns false when the save has not been there (the game then
+    /// builds that area fresh from its own files when the player arrives).
+    pub fn edit_module_git(&mut self, module: &str, key: &str, f: impl FnOnce(&mut Struct)) -> bool {
+        if module.eq_ignore_ascii_case(&self.module_name) {
+            if self.git.is_none() {
+                return false;
+            }
+            self.edit_area(key, f);
+            return true;
+        }
+        let Some(name) = self
+            .archive
+            .resources
+            .iter()
+            .find(|r| r.kind == RES_TYPE_SAV && r.name.eq_ignore_ascii_case(module))
+            .map(|r| r.name.clone())
+        else {
+            return false;
+        };
+        let data = self.archive.find(&name, RES_TYPE_SAV).unwrap().data.clone();
+        let Ok(mut erf) = Erf::read(&data) else { return false };
+        let Some(res) = erf.resources.iter_mut().find(|r| r.kind == RES_TYPE_GIT) else { return false };
+        let Ok(mut git) = Gff::read(&res.data) else { return false };
+        f(&mut git.root);
+        res.data = git.write();
+        let bytes = erf.write();
+        self.archive.find_mut(&name, RES_TYPE_SAV).unwrap().data = bytes;
+        self.archive_dirty = true;
+        self.changed(format!("{}.{}", module.to_ascii_lowercase(), key));
+        true
+    }
+
     pub fn edit_nfo(&mut self, f: impl FnOnce(&mut Struct)) {
         f(&mut self.nfo.root);
         self.dirty.insert("nfo");

@@ -117,6 +117,18 @@ proxy, and it applies the executable changes above as well.
 
 ## [Unreleased]
 
+- **Fixed: the tutorial popup's icon tiled again on Windows installs since 2026-10-19**
+  (2026-10-23; reported by the maintainer in the Steam game with K1CP). Since the installer
+  makes every screen size's set ahead (b5cbd6a), `macos/tools/kmrp-gameart.c` ran outside
+  the game folder, and it found `chitin.key`'s BIFs by the last `/` in the key's path:
+  Windows paths have `\`, so it read `.\data\2da.bif` from the installer's folder, could
+  not read `tutorial.2da`, and made none of its 18 files (all or nothing, and silent). The
+  game then tiled the original 64-pixel icon. It now takes either separator, as
+  `kmrp-guiadapt.c` and `kmrp-swoophud.c` already did; a failure is written to the log;
+  and each set's stamp carries "art 2", so sets made without the files are made again.
+  Checked: run from outside the game folder it makes the same 18 files, byte for byte,
+  as from inside it; `Test-GameArt.py` on the Steam game and `Test-NativeAssetsBank.py`
+  pass. Installed in the maintainer's Steam game; **not yet seen in the game.**
 - **The HD Original font is now KMRP's own, free under the SIL Open Font License 1.1**
   (2026-10-22; [fonts/README.md](fonts/README.md)). The 11 KMRP Original HD fonts in
   `fonts/otf` were redrawn from the HD atlases as straight lines, sharp corners and arcs:
@@ -159,6 +171,15 @@ proxy, and it applies the executable changes above as well.
   moved to a narrow rail on the right with a switch between them. Revert and Save Changes
   moved to the top right beside the settings button; the bottom bar's backup folder went into
   Settings, so every tab is taller.
+- **The Save Editor travels anywhere and skips ahead in the story** (2026-10-23;
+  [save-editor.md](save-editor/docs/save-editor.md)). The Map tab lists every area of the
+  game by planet; Travel Here makes the game itself take the player there right after the
+  save loads, an area never visited included, with its arrival scripts and the party, by an
+  area-transition event queued in the save. Skip Ahead makes a chapter as if played: its
+  quests, story values, items, the XP of a full run (kills by the engine's own rule, worked
+  out enemy by enemy) and its loot, then the game's own route on, movies and all. Played by
+  the maintainer from a new KotOR 1 save: the Endar Spire skip ended in the Taris apartment
+  after the escape pod movie and the vision, at level 3 with a real run's items.
 - **The Save Editor's Story tab opens on a quest tracker** (2026-10-22;
   [save-editor.md](save-editor/docs/save-editor.md)): active, completed and not started
   quests on the left; the picked quest's journal entry and every stage as a timeline on the

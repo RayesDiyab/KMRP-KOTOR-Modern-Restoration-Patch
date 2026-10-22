@@ -2177,6 +2177,8 @@ name = "kmrp-save-editor"
 version = "1.0.0"
 dependencies = [
  "rfd",
+ "serde",
+ "serde_json",
  "slint",
  "slint-build",
  "winreg",

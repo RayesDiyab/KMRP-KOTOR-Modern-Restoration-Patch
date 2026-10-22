@@ -1181,8 +1181,11 @@ bool BuildSet(int width, int height, std::wstring& directory)
     const std::wstring game = GameFolder();
     if (game.empty()) return false;
     const std::wstring packPath = game + L"\\TexturePacks\\swpc_tex_gui.erf", keyPath = game + L"\\chitin.key";
+    // "art 2": sets made before 2026-10-23 by the installer's prebuild have no tutorial
+    // icons, tutorial.2da or row frames (kmrp-gameart read the key's BIF from the current
+    // folder), so they are made again.
     const std::string stamp = std::to_string(width) + "x" + std::to_string(height) + " pack " + FileStamp(packPath) +
-                              " key " + FileStamp(keyPath) + "\n";
+                              " key " + FileStamp(keyPath) + " art 2\n";
     directory = root + L"\\sets\\" + std::to_wstring(width) + L"x" + std::to_wstring(height);
     return Build(directory, stamp, [&](const std::wstring& work) {
         // Where the time goes, for the debug log: the pack's files, the blend helper, the
@@ -1257,7 +1260,14 @@ bool BuildSet(int width, int height, std::wstring& directory)
         KmrpAbilityIcons(pack.c_str(), static_cast<unsigned>(height), directoryA.c_str(), reserved.c_str());
         DeleteFileA(reserved.c_str());
         lap(3);
-        KmrpGameArt(pack.c_str(), key.c_str(), static_cast<unsigned>(height), directoryA.c_str());
+        // All or nothing: without its files the tutorial popup tiles the game's small icon,
+        // so a failure is always written (it was silent until 2026-10-23).
+        if (KmrpGameArt(pack.c_str(), key.c_str(), static_cast<unsigned>(height), directoryA.c_str()) != 0) {
+            char line[200];
+            sprintf_s(line, "[KMRP] warning: the tutorial popup's icons, tutorial.2da and the row frames for %dx%d "
+                      "could not be made from the game's files", width, height);
+            KmrpRuntimeLog(line);
+        }
         lap(4);
         const int swoop = KmrpSwoopHud(key.c_str(), directoryA.c_str(), static_cast<unsigned>(width), static_cast<unsigned>(height));
         lap(5);

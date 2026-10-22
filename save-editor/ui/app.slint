@@ -17,7 +17,7 @@
 
 import { Theme } from "theme.slint";
 import { App, SaveRow, Member, Stat, Named, ItemRow, NpcRow, GlobalRow, DoorRow, BoxRow, PortraitRow, Toggle } from "state.slint";
-import { Button, Field, Note, Scroller, Brand, Link, Sign, Stepper, Label, Choice, SettingsButton } from "widgets.slint";
+import { Button, Field, Note, Scroller, Brand, Link, Sign, Stepper, Label, Choice, SettingsButton, Switch } from "widgets.slint";
 import { SavesPage } from "saves.slint";
 import { EditorPage } from "editor.slint";
 
@@ -310,10 +310,27 @@ export component AppWindow inherits Window {
         }
     }
 
+    // Skip Ahead: what will change, then confirm.
+    if App.overlay == 10: Overlay {
+        panel-width: 720px;
+        panel-height: 420px;
+        VerticalLayout {
+            spacing: 14px;
+            Text { text: App.skip-title; font-family: Theme.title-font; font-size: 28px * Theme.ts; color: Theme.text; wrap: word-wrap; }
+            Note { text: App.skip-summary; font-size: 14px * Theme.ts; color: Theme.muted; vertical-stretch: 1; }
+            Note { font-size: 13px * Theme.ts; text: "Nothing is written until Save Changes, and a backup of the save is made first."; }
+            HorizontalLayout {
+                spacing: 14px;
+                alignment: end;
+                Button { width: 170px; text: "Cancel"; clicked => { App.close-overlay(); } }
+                Button { width: 240px; kind: 0; text: "Skip Ahead"; clicked => { App.do-skip(); } }
+            }
+        }
+    }
     // Finish Quest: which ending, with its experience, then confirm.
     if App.overlay == 8: Overlay {
         panel-width: 760px;
-        panel-height: 250px + min(App.quest-endings.length, 4) * 96px;
+        panel-height: 250px + min(App.quest-endings.length, 4) * 96px + (App.quest-has-chain ? (App.quest-as-played ? 260px : 50px) : 0px);
         property <int> chosen: 0;
         VerticalLayout {
             spacing: 12px;
@@ -324,7 +341,54 @@ export component AppWindow inherits Window {
                     ? "This quest has more than one ending. Pick how it ends; the journal shows that ending and you and the party get its experience, as in the game."
                     : "The journal shows the quest's ending and you and the party get its experience, as in the game.";
             }
-            Note { font-size: 13px * Theme.ts; text: "What the story's scripts would also have done (items, people, doors) does not happen."; }
+            if !App.quest-has-chain: Note { font-size: 13px * Theme.ts; text: "What the story's scripts would also have done (items, people, doors) does not happen: the editor has no record of this quest's steps yet."; }
+            // As if played: the steps the game takes on the way to this ending.
+            if App.quest-has-chain: HorizontalLayout {
+                spacing: 12px;
+                Switch { on: App.quest-as-played; toggled(v) => { App.quest-as-played = v; } }
+                Text {
+                    text: "As if played: also do what the game does on the way to this ending" + (App.quest-chain-checked ? "" : " (not yet checked in the game)");
+                    vertical-alignment: center;
+                    wrap: word-wrap;
+                    font-family: Theme.body-font;
+                    font-size: 13.5px * Theme.ts;
+                    color: Theme.text;
+                    horizontal-stretch: 1;
+                }
+            }
+            if App.quest-has-chain && App.quest-as-played: Rectangle {
+                height: min(200px, chain-list.preferred-height + 16px);
+                border-radius: 6px;
+                border-width: 1px;
+                border-color: Theme.edge;
+                background: Theme.field;
+                Flickable {
+                    x: 12px;
+                    y: 8px;
+                    width: parent.width - 24px;
+                    height: parent.height - 16px;
+                    content-height: chain-list.preferred-height;
+                    chain-list := VerticalLayout {
+                        spacing: 4px;
+                        for c in App.quest-chain: HorizontalLayout {
+                            // Only the lines of the ending picked above.
+                            visible: App.quest-endings.length > chosen && c.ending == App.quest-endings[chosen].id;
+                            height: self.visible ? max(22px, line.preferred-height) : 0px;
+                            spacing: 8px;
+                            if c.choice >= 0: Switch { on: c.on; toggled(v) => { App.toggle-chain-choice(c.choice, v); } }
+                            line := Text {
+                                text: (c.branch != "" ? c.branch + ": " : "") + c.text + (c.can ? "" : " (cannot be written into a save)");
+                                wrap: word-wrap;
+                                vertical-alignment: center;
+                                font-family: Theme.body-font;
+                                font-size: 12.5px * Theme.ts;
+                                color: c.can ? Theme.muted : Theme.faint;
+                                horizontal-stretch: 1;
+                            }
+                        }
+                    }
+                }
+            }
             Scroller {
                 vertical-stretch: 1;
                 content-height: App.quest-endings.length * 96px;

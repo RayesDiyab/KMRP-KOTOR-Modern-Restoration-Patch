@@ -147,6 +147,20 @@ remove cross.
 | Spawn a Creature Here | on a picked floor spot in the area the save resumes in: a copy of a creature standing there, or any creature template the game has (its templates and Override, and the area's own module templates), in tabs In This Area, Hostile, Friendly, Other (by `FactionID` in repute.2da); it faces the player; a new one runs its own spawn script when the save loads ([save-editor-format.md](save-editor-format.md), section 5.2) |
 | Finish Quest | the quest's stages with `End` 1 in global.jrl; XP = plot.2da `xp` x the stage's `XP_Percentage`, added to `Experience` and `PT_XP_POOL` when the stage is new |
 
+**Travel and Skip Ahead** (2026-10-23; played by the maintainer in KotOR 1):
+
+| What | How |
+| --- | --- |
+| Any area | The Map tab's Areas list holds every area of the game, by planet (cutscene stages, `stunt_` modules, and nameless modules left out; of two areas with one name the visited one, else the one a door leads into). An area not visited shows the game's own .git with each object's template fields filled in (names, portraits) |
+| Travel Here | The ways the game's doors and transitions lead into the area (each module's shipped .git, `LinkedToModule` and `LinkedTo`). Picking one queues an area-transition event (`EVENT_AREA_TRANSITION`, 26) first in the current module's `EventQueue`, due at the saved moment: the game makes the trip right after the save loads, loads an unvisited area fresh from its files with its arrival scripts, and brings the party (`Save::queue_transition`; the event's layout from the maintainer's own reverse engineering, handler 0x0050D6C0). *Corrected 2026-10-23:* queued last and a second later, it waited behind the save's own delayed events until the player did something |
+| Skip Ahead | Story, Skip Ahead: a chapter as if played (`questdb::skip_to`). The chapter's milestone (`data/quests/*-milestone.json`): journal, the story values the rest of the game reads, items; its rewards (`*-rewards.json`, `tools/questdb/rewards.py`): the XP of a full run (kills by the engine's rule, plot XP, script XP, SetXP floors, `tools/xp/calc.py`), the enemies' Dropable items and the containers' loot (class gear by the game's own tests); then the trip by the game's own first hop with its movies, so the story plays on (from the Endar Spire: escape pod movie 01c, the vision, then the Taris apartment) |
+| Kill XP | The engine on every death (`ApplyDeathExperience` 0x004FB1E0): xptable.2da row (player level from XP) column trunc(CR), for a creature whose faction's reputation toward the player is 10 or below; the player all of it, party members 80%, the pool all of it. Checked against two Endar Spire saves (150 and 450 XP at the same points) |
+
+Seen in the game: the Endar Spire skip from a fresh save gave 3,085 XP, the level-ups, the
+loot, the escape pod movie and the vision, and the Taris apartment with Carth's opening.
+**Not known:** random treasure rolled by scripts at death (left out); chapters after the
+Endar Spire (Taris is drafted, without a milestone yet); KotOR 2.
+
 **The quest tracker** (Story, Quests; 2026-10-22, the maintainer: "what a person wants when
 he enters the story mode ... is a quest tracker"): Story opens on Quests, listed first before
 the modder sections, and the party list steps aside. Left: the quests in three tabs, Active,
