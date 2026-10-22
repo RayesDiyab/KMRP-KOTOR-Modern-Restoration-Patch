@@ -1,0 +1,281 @@
+// Everything the screens show and every action they can take. Rust fills the
+// properties and answers the callbacks (src/main.rs); the screens only read and call.
+
+export struct SaveRow { name: string, area: string, time: string, date: string, tag: string, shot: image, has-shot: bool }
+export struct Member { name: string, sub: string, portrait: image, has-portrait: bool, changed: bool }
+export struct Stat { label: string, note: string, value: int, minimum: int, maximum: int, mod: string, changed: bool, icon: image, has-icon: bool }
+// A list row; header rows name a group, owned rows are what the character has.
+export struct Named { id: int, name: string, note: string, icon: image, has-icon: bool, header: bool, owned: bool, changed: bool }
+export struct ItemRow { index: int, name: string, kind: string, stack: int, max-stack: int, tag: string, changed: bool, icon: image, has-icon: bool }
+export struct NpcRow {
+    index: int, name: string, portrait: image, has-portrait: bool, has-creature: bool,
+    recruited: bool, selectable: bool, in-party: bool, influence: int, has-influence: bool, changed: bool
+}
+export struct GlobalRow { index: int, name: string, kind: int, on: bool, number: int, text: string, changed: bool, other: string }
+export struct DoorRow { index: int, tag: string, note: string, locked: bool, open: bool, changed: bool }
+export struct BoxRow { index: int, name: string, note: string }
+export struct PortraitRow { id: int, image: image, female: bool, current: bool }
+export struct ClassRow { index: int, name: string, level: int, maximum: int, can-remove: bool }
+export struct SlotRow { slot: int, name: string, item: string, icon: image, has-icon: bool, empty: bool, changed: bool }
+export struct CreatureRow { index: int, name: string, note: string, hp: int, max-hp: int }
+export struct MapMark { index: int, x: float, y: float, kind: int, name: string, selected: bool, face: image, has-face: bool }
+export struct AreaRow { module: string, name: string, note: string, current: bool, viewing: bool, visited: bool }
+export struct Toggle { index: int, name: string, on: bool, value: int, changed: bool }
+
+export global App {
+    // ---- the save list ----
+    in property <int> page: 0;
+    in property <bool> has-k1;
+    in property <bool> has-k2;
+    in property <bool> showing-k2;
+    in property <[SaveRow]> saves;
+    in property <int> selected-save: 0;
+    in property <string> saves-note;
+    in property <string> empty-title;
+    in property <string> empty-note;
+    in property <image> preview-shot;
+    in property <bool> preview-has-shot;
+    in property <string> preview-name;
+    in property <string> preview-area;
+    in property <string> preview-pc;
+    in property <string> preview-time;
+    in property <string> preview-date;
+    in property <string> preview-tag;
+    in property <[image]> preview-party;
+    in property <bool> preview-read-only;
+    in property <string> preview-warning;
+    callback switch-game(bool);
+    callback select-save(int);
+    callback open-save();
+    callback show-folder();
+    callback open-saves-folder();
+    callback add-save-folder();
+    callback refresh-saves();
+    in property <string> game-folder;
+    callback choose-game-folder();
+
+    // ---- the editor ----
+    in property <int> tab: 0;
+    in property <[bool]> tab-changed;
+    in property <string> max-level;
+    in property <[Member]> members;
+    in property <int> who: 0;
+    in property <string> context-line;
+    in property <bool> is-player: true;
+    callback back();
+    callback select-who(int);
+    callback select-tab(int);
+
+    // Character
+    in property <string> name;
+    in property <bool> name-changed;
+    in property <string> classes;
+    in property <int> xp;
+    in property <int> max-xp;
+    in property <bool> xp-changed;
+    in property <string> level-note;
+    in property <int> alignment;
+    in property <bool> alignment-changed;
+    in property <[Stat]> attributes;
+    in property <string> health;
+    in property <string> health-note;
+    in property <string> force;
+    in property <string> force-note;
+    in property <image> portrait;
+    in property <bool> has-portrait;
+    in property <string> look-note;
+    in property <bool> look-changed;
+    in property <string> body-name;
+    in property <string> voice-name;
+    in property <string> gender-name;
+    in property <int> hp-current;
+    in property <int> hp-max;
+    in property <int> fp-current;
+    in property <int> fp-max;
+    in property <bool> hp-changed;
+    in property <bool> fp-changed;
+    in property <bool> min1hp;
+    in property <bool> min1hp-changed;
+    in property <[ClassRow]> class-rows;
+    in property <bool> can-add-class;
+    in property <string> position-x;
+    in property <string> position-y;
+    in property <string> position-z;
+    in property <bool> position-changed;
+    callback set-name(string);
+    callback set-xp(int);
+    callback xp-to-next();
+    callback xp-to-max();
+    callback set-alignment(int);
+    callback set-attribute(int, int);
+    callback heal-all();
+    callback open-look();
+    callback pick-look(int);
+    callback open-add-class();
+    callback set-position(string, string, string);
+    callback open-body();
+    callback open-voice();
+    callback open-gender();
+    callback set-hp(int, int);
+    callback set-fp(int, int);
+    callback set-min1hp(bool);
+    callback open-classes();
+    callback set-class-level(int, int);
+    callback change-class(int);
+    callback remove-class(int);
+
+    // Abilities
+    in property <[Stat]> skills;
+    in property <[Named]> feats;
+    in property <[Named]> powers;
+    in property <int> feat-count;
+    in property <int> power-count;
+    in property <string> power-note;
+    in property <bool> can-powers;
+    callback set-skill(int, int);
+    callback search-feats(string);
+    callback add-feat(int);
+    callback remove-feat(int);
+    callback search-powers(string);
+    callback add-power(int);
+    callback remove-power(int);
+
+    // Inventory
+    in property <int> credits;
+    in property <bool> credits-changed;
+    in property <bool> has-crafting;
+    in property <int> components;
+    in property <bool> components-changed;
+    in property <int> chemicals;
+    in property <bool> chemicals-changed;
+    in property <[ItemRow]> items;
+    in property <string> inventory-note;
+    callback set-credits(int);
+    callback set-components(int);
+    callback set-chemicals(int);
+    callback set-stack(int, int);
+    callback remove-item(int);
+    callback open-add-item();
+    in property <[SlotRow]> slots;
+    callback open-slot(int);
+    callback copy-inventory();
+    in property <int> inventory-tab;
+    callback select-inventory-tab(int);
+
+    // Party
+    in property <[NpcRow]> npcs;
+    in property <int> party-xp;
+    in property <bool> party-xp-changed;
+    callback set-recruited(int, bool);
+    callback set-in-party(int, bool);
+    in property <int> party-size;
+    callback set-selectable(int, bool);
+    callback set-influence(int, int);
+    callback import-npc(int);
+    callback set-party-xp(int);
+
+    // Story
+    in property <int> story-section: 0;
+    in property <[GlobalRow]> variables;
+    in property <string> globals-note;
+    in property <string> compare-name;
+    in property <[DoorRow]> doors;
+    in property <[BoxRow]> boxes;
+    in property <int> selected-box: -1;
+    in property <[ItemRow]> box-items;
+    in property <string> area-note;
+    in property <[Toggle]> planets;
+    in property <bool> cheat-used;
+    in property <bool> cheat-changed;
+    in property <[Toggle]> pazaak;
+    in property <[Named]> journal;
+    in property <[CreatureRow]> creatures;
+    in property <string> played-hours;
+    in property <string> played-minutes;
+    in property <bool> played-changed;
+    in property <string> journal-note;
+    in property <string> save-name;
+    in property <bool> save-name-changed;
+    callback select-story(int);
+    callback filter-globals(string, bool);
+    callback set-global-bool(int, bool);
+    callback set-global-number(int, int);
+    callback set-global-text(int, string);
+    callback open-compare();
+    callback use-other(int);
+    callback use-all-other();
+    callback set-door-locked(int, bool);
+    callback set-door-open(int, bool);
+    callback select-box(int);
+    callback remove-box-item(int);
+    callback add-box-item();
+    callback set-planet(int, bool);
+    callback set-cheat(bool);
+    callback set-pazaak(int, int);
+    callback remove-journal(int);
+    callback open-quest(int);
+    callback remove-creature(int);
+    callback set-played(string, string);
+    callback set-save-name(string);
+
+    // Map: kind 0 door, 1 exit, 2 container, 3 thing to use, 4 person, 5 map note, 6 the player, 7 a picked spot
+    in property <image> map-picture;
+    in property <bool> has-map;
+    in property <float> map-aspect: 1.72;
+    in property <float> map-clip: 0.859;
+    in property <[MapMark]> map-marks;
+    // The round game icon of each marker kind 0 to 5, for the key.
+    in property <[image]> map-icons;
+    in property <bool> map-you;
+    in property <float> map-you-x;
+    in property <float> map-you-y;
+    in property <float> map-you-angle;
+    in property <image> map-arrow;
+    in property <bool> has-arrow;
+    in property <[AreaRow]> map-areas;
+    in property <string> map-title;
+    in property <string> map-note;
+    in property <string> pick-title;
+    in property <string> pick-note;
+    in property <bool> pick-can-move;
+    in property <bool> pick-has-second;
+    in property <string> pick-move-label;
+    in property <string> pick-second-label;
+    in property <bool> pick-can-unlock;
+    in property <bool> pick-is-exit;
+    callback view-area(string);
+    callback pick-mark(int);
+    callback map-click(float, float);
+    callback move-here(int);
+    callback unlock-pick();
+    callback follow-exit();
+    callback open-all-doors();
+
+    // ---- the bottom bar ----
+    in property <int> change-count;
+    in property <string> backup-path;
+    in property <string> status;
+    in property <bool> status-bad;
+    callback save-changes();
+    callback revert();
+    callback open-backups();
+
+    // ---- pop-ups: 0 none, 1 items and lists, 2 look, 3 another save, 4 message, 5 class, 6 classes ----
+    in property <int> overlay: 0;
+    in property <string> overlay-title;
+    in property <string> overlay-note;
+    in property <[Named]> picker;
+    in property <[string]> picker-tabs;
+    in property <[string]> picker-tabs-a;
+    in property <[string]> picker-tabs-b;
+    in property <int> picker-tab;
+    callback select-picker-tab(int);
+    in property <[PortraitRow]> looks;
+    in property <[SaveRow]> other-saves;
+    in property <string> message-title;
+    in property <string> message-body;
+    callback close-overlay();
+    callback search-picker(string);
+    callback pick(int);
+    callback pick-save(int);
+}

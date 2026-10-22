@@ -1,0 +1,54 @@
+tile menu
+  line
+    piece menu-0-0 dialogfont16x16 24 236 214 64 Options
+  line
+    piece menu-1-0 dialogfont16x16 18 52 172 236 Gameplay
+    piece menu-1-1 dialogfont16x16 18 52 172 236 Close
+tile menusmall
+  line
+    piece menusmall-0-0 dialogfont10x10 17 52 172 236 Combat Movement
+  line
+    piece menusmall-1-0 dialogfont10x10 17 52 172 236 Auto Level Up
+tile menusmallb
+  line
+    piece menusmallb-0-0 dialogfont10x10b 16 52 172 236 Feats
+    piece menusmallb-0-1 dialogfont10x10b 16 52 172 236 Skills
+    piece menusmallb-0-2 dialogfont10x10b 16 52 172 236 Powers
+tile menumedium
+  line
+    piece menumedium-0-0 dialogfont12x16 18 52 172 236 Taris: Upper City
+  line
+    piece menumedium-1-0 dialogfont12x16 18 52 172 236 Endar Spire
+tile menularge
+  line
+    piece menularge-0-0 dialogfont32x32 36 236 214 64 Character
+tile dialogue
+  line
+    piece dialogue-0-0 fnt_d16x16 19 200 226 250 Carth: We need a ship
+  line
+    piece dialogue-1-0 fnt_d16x16 19 200 226 250 before the Sith find us.
+tile descriptions
+  line
+    piece descriptions-0-0 fnt_d16x16b 21 52 172 236 1. Who are you?
+  line
+    piece descriptions-1-0 fnt_d16x16b 21 52 172 236 2. I have to go.
+tile light
+  line
+    piece light-0-0 fnt_d16x16a 19 200 226 250 Find Bastila, then
+  line
+    piece light-1-0 fnt_d16x16a 19 200 226 250 a way off Taris.
+tile console
+  line
+    piece console-0-0 fnt_console 24 52 172 236 1,250
+  line
+    piece console-1-0 fnt_console 24 52 172 236 XP 4,500
+tile credits
+  line
+    piece credits-0-0 fnt_credits 21 200 226 250 Lead Designer
+  line
+    piece credits-1-0 fnt_credits 21 200 226 250 Art Director
+tile creditsb
+  line
+    piece creditsb-0-0 fnt_creditsb 21 200 226 250 BioWare Corp.
+  line
+    piece creditsb-1-0 fnt_creditsb 21 200 226 250 LucasArts

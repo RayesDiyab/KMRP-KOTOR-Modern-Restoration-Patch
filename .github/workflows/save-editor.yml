@@ -10,9 +10,9 @@ name: Save Editor
 on:
   push:
     branches: [master]
-    paths: ["src/save-editor/**", ".github/workflows/save-editor.yml"]
+    paths: ["save-editor/**", ".github/workflows/save-editor.yml"]
   pull_request:
-    paths: ["src/save-editor/**", ".github/workflows/save-editor.yml"]
+    paths: ["save-editor/**", ".github/workflows/save-editor.yml"]
   workflow_dispatch:
 
 permissions:
@@ -28,7 +28,7 @@ jobs:
     runs-on: ${{ matrix.os }}
     defaults:
       run:
-        working-directory: src/save-editor
+        working-directory: save-editor
     steps:
       - uses: actions/checkout@v7
       - name: Linux window libraries
@@ -42,6 +42,6 @@ jobs:
         with:
           name: kmrp-save-editor-${{ runner.os }}
           path: |
-            build/save-editor-target/release/kmrp-save-editor
-            build/save-editor-target/release/kmrp-save-editor.exe
+            save-editor/build/target/release/kmrp-save-editor
+            save-editor/build/target/release/kmrp-save-editor.exe
           if-no-files-found: ignore

@@ -64,8 +64,8 @@ Design and build documentation. Engine analysis lives one level over, in
 
 | Document | What it covers |
 | --- | --- |
-| [save-editor.md](save-editor.md) | The **KMRP Save Editor** for KotOR 1 and 2: where it finds saves, every field it writes and under which rule, the bugs of older editors it avoids, how a write stays safe, and what was tested in both games. |
-| [save-editor-format.md](save-editor-format.md) | The save format of both games, file by file and field by field, each fact tagged with how it was measured. |
+| [save-editor.md](../save-editor/docs/save-editor.md) | The **KMRP Save Editor** for KotOR 1 and 2: where it finds saves, every field it writes and under which rule, the bugs of older editors it avoids, how a write stays safe, and what was tested in both games. |
+| [save-editor-format.md](../save-editor/docs/save-editor-format.md) | The save format of both games, file by file and field by field, each fact tagged with how it was measured. |
 
 ## Controller support
 

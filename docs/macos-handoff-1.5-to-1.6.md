@@ -1004,7 +1004,7 @@ every caption sits in the middle of its bar, New Game to Quit, within a pixel or
 | K1 Modern Driver Compatibility 2.0.0; left out on Windows 7 | b5cbd6a, f0ca54c | the Mac ships no K1DC or `dinput8.dll` |
 | Bink drawn with GDI (`0x00405734`), the `[Movies]` 640x480 mode, feature bit 8 | 4a1cd73, 3ab7a87 | Windows' Bink and DirectDraw (item 78 says what applies) |
 | The NVIDIA profile's manifest path, the installer's two registry views, the installer's scrolling Advanced Settings page | b5cbd6a, f0ca54c | Windows installer and drivers |
-| The KMRP Font Converter (`src/font-converter`) | 34dfabb | a Windows program |
+| The KMRP Font Converter (`font-converter`) | 34dfabb | a Windows program |
 | OTF fonts of the HD Original font (`tools/build_hd_original_otf.py`) | 34dfabb, 2a76531 | written to `build/`, not shipped |
 | 1.5.1's version and update-check self-test | 7999a0c | Windows installer |
 | The Xbox manual, typography credits, `dialogfont32x32` note | 489c4d0, 57b2aa1, 7024b9c | documents only |

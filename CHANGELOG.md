@@ -118,8 +118,8 @@ proxy, and it applies the executable changes above as well.
 ## [Unreleased]
 
 - **New tool: the KMRP Save Editor, for KotOR 1 and KotOR 2** (2026-10-22;
-  `src/save-editor`, [save-editor.md](docs/save-editor.md),
-  [save-editor-format.md](docs/save-editor-format.md)). A separate program, not part of
+  `save-editor`, [save-editor.md](save-editor/docs/save-editor.md),
+  [save-editor-format.md](save-editor/docs/save-editor-format.md)). A separate program, not part of
   the installer, for Windows, Linux and macOS (Rust and Slint), in the Font Converter's
   look with KMRP's own fonts, dark and light mode, and KotOR II in its own colours. It
   finds saves without setup (every Steam library, KotOR II's Steam Cloud folder, GOG and
@@ -160,6 +160,27 @@ proxy, and it applies the executable changes above as well.
   game stands every member around the ship whatever the party says (an area copy taken
   out there went missing, so the editor leaves the area alone). Not yet confirmed:
   whether a newly equipped item's bonuses apply after loading.
+  Then a **Map tab and a Stuck? helper**, which KSE never had (`save-editor/src/map.rs`,
+  `src/quests.rs`): the area drawn as the game's own map (the .are's calibration,
+  NorthAxis included, from reverse-engineering/map-scaling.md), with every door, way out,
+  container, thing to use, person and map note, and the player as the game's own arrow
+  (`mm_barrow`) turned the way they face. Every marker is a round badge of the game's
+  own art: a person's portrait, else the action icon the game shows for it (KotOR 2's
+  walking figure for a way out; KotOR 1 has none, so its door cursor). The map zooms with
+  + and - beside it or the mouse wheel, and is dragged when zoomed. The areas a way out leads to and the areas the
+  save has been to are listed beside it. Clicking a marker or the floor offers Move Here:
+  a spot is offered only on walkable floor (the rooms' walkmeshes, surfacemat.2da `walk`)
+  with room around it, in front of a thing to use, on either side of a door. Moving into
+  another visited area makes the save resume there, with the player given that module's
+  object id and its carried items new ones (the first build kept the old ids and the game
+  crashed loading it). Finish Quest: a quest's endings from global.jrl with the XP each
+  gives (plot.2da `xp` times the stage's `XP_Percentage`), given to the player and the
+  party pool. **Checked in KotOR 1**: a player moved within Tatooine stood in front of the
+  door facing it; one moved from Tatooine into the Jedi Enclave loaded there by the exit
+  with the party; the map arrow pointed as the game's did on a normal map (90 degrees) and
+  a rotated one (NorthAxis 3, 180 degrees). Not in the game yet: KotOR 2 moves, Finish
+  Quest. What a quest's scripts would also do (items, people, story switches) is not in a
+  save; Compare with Another Save copies the switches.
 
 - **Main menu: each button's caption in the middle of its bar** (2026-10-22;
   `KmrpMainMenuBars` in `macos/tools/kmrp-guiadapt.c`, renamed from `kmrp-galaxymap.c`;
@@ -308,7 +329,7 @@ proxy, and it applies the executable changes above as well.
 - **KMRP Font Converter** (2026-10-21, at the maintainer's request: "a tool from kmrp
   that just converts otfs to game files easily. Independent from kmrp in architecture.
   But has the branding"). A separate program, `dist\KMRP Font Converter.exe` (727,552
-  bytes, .NET Framework 4, one file), built by `src\font-converter\build.ps1`. Eleven
+  bytes, .NET Framework 4, one file), built by `font-converter\build.ps1`. Eleven
   tiles, one per distinct letter set of the game's 17 text fonts, in four groups; each
   shows its text in the Original HD Font until a font is picked (TTF, OTF, TTC/OTC,
   WOFF, WOFF2; a collection or variable font opens a picker), then lights orange, and
@@ -316,8 +337,8 @@ proxy, and it applies the executable changes above as well.
   the folder changes. Clear, left of Convert, sets every tile back. Convert writes the atlases at the Original HD Font's 6x size and
   metrics, into the game's Override when the game is found. A pop-up at every start says
   the fonts need KMRP, with DeadlyStream and GitHub Releases buttons carrying their marks
-  in the installer's icon blue (`src/font-converter/logos.html`). Measured on the maintainer's PC: window in 0.2 s,
-  17 atlases in 0.47 s. [font-converter.md](docs/font-converter.md). **Not yet seen in the
+  in the installer's icon blue (`font-converter/logos.html`). Measured on the maintainer's PC: window in 0.2 s,
+  17 atlases in 0.47 s. [font-converter.md](font-converter/docs/font-converter.md). **Not yet seen in the
   game, nor run under Proton.**
 - **A round o in the Original HD Font, and the font as OTF files** (2026-10-21, at the
   maintainer's request: "this specific letter should be wider so its new width equals
