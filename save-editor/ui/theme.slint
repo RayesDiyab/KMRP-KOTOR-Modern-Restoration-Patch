@@ -10,6 +10,9 @@ import { KmrpFonts } from "kmrp-fonts.slint";
 export global Theme {
     in-out property <bool> dark: true;
     in-out property <bool> k2: false;
+    // Text size, from Settings: 0 Small (the first release's sizes), 1 Medium, 2 Large.
+    in-out property <int> text-size: 1;
+    out property <float> ts: text-size == 0 ? 1.0 : text-size == 1 ? 1.1 : 1.2;
 
     out property <string> title-font: "KMRP Original HD Menu";
     out property <string> list-font: "KMRP Original HD Menu Medium";
@@ -19,9 +22,10 @@ export global Theme {
     out property <color> window: dark ? (k2 ? #08130f : #0a1220) : (k2 ? #e9f2ee : #e8eef5);
     out property <color> glow: dark ? (k2 ? #123128 : #16243a) : (k2 ? #d4e7de : #d3e0ee);
     out property <color> panel: dark ? (k2 ? #0b1a15 : #0d1626) : (k2 ? #f8fcfa : #f8fafd);
-    out property <color> panel-edge: dark ? (k2 ? #1a3a30 : #1c2b42) : (k2 ? #c3d9cf : #c6d3e1);
+    out property <color> panel-edge: dark ? (k2 ? #26503f : #2a3d5c) : (k2 ? #a9c4b8 : #b0c0d2);
     out property <color> field: dark ? (k2 ? #050d0a : #060b14) : (k2 ? #ffffff : #ffffff);
-    out property <color> edge: dark ? (k2 ? #2a5446 : #2a3b55) : (k2 ? #9fbfb2 : #a7b8cb);
+    // Edges about 3:1 against a field (2026-10-22; at 1.8:1 the buttons' edges were nearly invisible).
+    out property <color> edge: dark ? (k2 ? #376a58 : #44608a) : (k2 ? #7f9f92 : #8497ad);
     out property <color> row-line: dark ? (k2 ? #143027 : #16233a) : (k2 ? #dcebe4 : #dde5ee);
     out property <color> selected: dark ? (k2 ? #0b2a20 : #0b1c2c) : (k2 ? #ddf3ea : #dcecf8);
     out property <color> hover: dark ? (k2 ? #0f2620 : #111f33) : (k2 ? #edf7f2 : #edf3f9);

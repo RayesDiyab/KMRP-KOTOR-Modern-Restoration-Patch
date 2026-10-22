@@ -114,7 +114,7 @@ fn edits_survive_a_write() {
             assert_eq!(creature::attribute(p, "Dex"), creature::attribute(before.player().unwrap(), "Dex"));
             assert_eq!(after.party_int("PT_PLAYEDSECONDS"), before.party_int("PT_PLAYEDSECONDS"));
             // The backup is the save as it was.
-            let backup = fs::read_dir(backups.join(game.title()).join(work.file_name().unwrap())).unwrap().next().unwrap().unwrap().path();
+            let backup = fs::read_dir(backups.join(work.file_name().unwrap())).unwrap().next().unwrap().unwrap().path();
             let old = Save::open(&backup).unwrap();
             assert_eq!(creature::attribute(old.player().unwrap(), "Str"), creature::attribute(before.player().unwrap(), "Str"));
             println!("{:?} {}: every change read back", game, name);
@@ -206,4 +206,64 @@ fn kse_features_survive_a_write() {
             assert!(after.quests().contains(&("kmrp_test_quest".to_string(), 10)), "{}", name);
         }
     }
+}
+
+/// Spawning: a creature from a game template and a copy of one already in the area go into
+/// copies of every save; written and read back, both are there with ids nothing else uses,
+/// the template one with its spawn script still to run, and Module.ifo's counter past them.
+#[test]
+fn spawned_creatures_survive_a_write() {
+    use kse_core::area;
+    use kse_core::formats::erf::RES_TYPE_UTC;
+    let installs = find_installs(&[]);
+    let mut checked = 0;
+    for game in [Game::K1, Game::K2] {
+        let Some(install) = installs.iter().find(|i| i.game == game) else { continue };
+        let data = GameData::open(game, &install.path);
+        let resref = data.resource_names("utc", RES_TYPE_UTC).into_iter().next().expect("no creature templates");
+        let utc = data.gff(&resref, "utc", RES_TYPE_UTC).unwrap();
+        for folder in find_saves(&installs, game, &[]).into_iter().take(4) {
+            let name = folder.path.file_name().unwrap().to_string_lossy().to_string();
+            let work = scratch(&format!("spawn-{:?}-{}", game, name));
+            copy_dir(&folder.path, &work);
+            let backups = scratch(&format!("spawn-{:?}-{}-backups", game, name));
+            let mut save = Save::open(&work).unwrap();
+            let Some(git) = save.area_git() else { continue };
+            let list = git.root.list(area::CREATURES).cloned().unwrap_or_default();
+            let Some(donor) = list.first().cloned() else { continue };
+            let count = list.len();
+
+            let mut fresh = area::creature_from_template(&utc.root, Some(&donor));
+            area::place_creature(&mut fresh, area::position(&donor), 0.5);
+            let id_a = save.spawn_creature(fresh);
+            let id_b = save.spawn_creature(area::copy_creature(&donor));
+            save.write(&backups).unwrap();
+
+            let again = Save::open(&work).unwrap();
+            let creatures = again.area_git().unwrap().root.list(area::CREATURES).cloned().unwrap();
+            assert_eq!(creatures.len(), count + 2, "{}: two creatures added", name);
+            let a = creatures.iter().find(|c| c.int("ObjectId") == Some(id_a as i64)).expect("template creature");
+            assert_eq!(a.int("CreatnScrptFird"), Some(0), "{}: spawn script still to run", name);
+            assert!(a.get("TemplateResRef").is_none());
+            let b = creatures.iter().find(|c| c.int("ObjectId") == Some(id_b as i64)).expect("copied creature");
+            assert_eq!(b.string("Tag"), donor.string("Tag"));
+            // Every creature's own id, and its items' ids, once only (perception lists name
+            // other creatures by id; those are references, not owners).
+            let mut all = Vec::new();
+            for c in &creatures {
+                all.extend(c.int("ObjectId"));
+                for list in ["Equip_ItemList", "ItemList"] {
+                    for item in c.list(list).cloned().unwrap_or_default() {
+                        all.extend(item.int("ObjectId"));
+                    }
+                }
+            }
+            let n = all.len();
+            all.sort();
+            all.dedup();
+            assert_eq!(all.len(), n, "{}: an object id owned twice among the creatures", name);
+            checked += 1;
+        }
+    }
+    eprintln!("spawned into {} saves", checked);
 }

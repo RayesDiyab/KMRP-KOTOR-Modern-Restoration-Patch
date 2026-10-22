@@ -42,7 +42,7 @@ component SaveLine inherits Rectangle {
                 Text {
                     text: save.name;
                     font-family: Theme.list-font;
-                    font-size: 21px;
+                    font-size: 21px * Theme.ts;
                     color: on ? Theme.gold : Theme.text;
                     overflow: elide;
                 }
@@ -53,24 +53,24 @@ component SaveLine inherits Rectangle {
                     width: tag.preferred-width + 12px;
                     height: 18px;
                     y: 3px;
-                    tag := Text { text: save.tag; font-family: Theme.label-font; font-size: 11px; letter-spacing: 2px; color: Theme.accent; }
+                    tag := Text { text: save.tag; font-family: Theme.label-font; font-size: 11px * Theme.ts; letter-spacing: 2px; color: Theme.accent; }
                 }
             }
-            Text { text: save.area; font-family: Theme.body-font; font-size: 14.5px; color: Theme.muted; overflow: elide; }
+            Text { text: save.area; font-family: Theme.body-font; font-size: 14.5px * Theme.ts; color: Theme.muted; overflow: elide; }
         }
         VerticalLayout {
             alignment: center;
             spacing: 4px;
-            Text { text: save.time; horizontal-alignment: right; font-family: Theme.body-font; font-size: 13.5px; color: Theme.faint; }
-            Text { text: save.date; horizontal-alignment: right; font-family: Theme.body-font; font-size: 13.5px; color: Theme.faint; }
+            Text { text: save.time; horizontal-alignment: right; font-family: Theme.body-font; font-size: 13.5px * Theme.ts; color: Theme.faint; }
+            Text { text: save.date; horizontal-alignment: right; font-family: Theme.body-font; font-size: 13.5px * Theme.ts; color: Theme.faint; }
         }
     }
 }
 
 export component SavesPage inherits Rectangle {
-    // The game switch, when both games are installed.
+    // The game switch, when both games are installed, left of the settings button.
     if App.has-k1 && App.has-k2: Rectangle {
-        x: parent.width - 60px - self.width;
+        x: parent.width - 60px - 50px - 14px - self.width;
         y: 52px;
         width: 290px;
         height: 50px;
@@ -82,7 +82,7 @@ export component SavesPage inherits Rectangle {
             for game[i] in ["KotOR", "KotOR II"]: Rectangle {
                 property <bool> on: (i == 1) == App.showing-k2;
                 background: on ? @linear-gradient(180deg, Theme.fill-top 0%, Theme.fill-bottom 100%) : Theme.field;
-                Text { text: game; font-family: Theme.list-font; font-size: 19px; color: on ? Theme.ink : Theme.soft; }
+                Text { text: game; font-family: Theme.list-font; font-size: 19px * Theme.ts; color: on ? Theme.ink : Theme.soft; }
                 TouchArea { mouse-cursor: pointer; clicked => { App.switch-game(i == 1); } }
             }
         }
@@ -95,7 +95,7 @@ export component SavesPage inherits Rectangle {
         x: 60px;
         y: 200px;
         width: list-width;
-        height: parent.height - 200px - 86px;
+        height: parent.height - 200px - 66px;
         background: Theme.panel;
         border-width: 1px;
         border-color: Theme.panel-edge;
@@ -130,8 +130,8 @@ export component SavesPage inherits Rectangle {
             y: 90px;
             width: parent.width - 80px;
             spacing: 10px;
-            Text { text: App.empty-title; font-family: Theme.title-font; font-size: 24px; color: Theme.text; wrap: word-wrap; }
-            Note { text: App.empty-note; font-size: 15px; }
+            Text { text: App.empty-title; font-family: Theme.title-font; font-size: 24px * Theme.ts; color: Theme.text; wrap: word-wrap; }
+            Note { text: App.empty-note; font-size: 15px * Theme.ts; }
         }
     }
 
@@ -140,7 +140,7 @@ export component SavesPage inherits Rectangle {
         x: 60px + list-width + 24px;
         y: 200px;
         width: parent.width - self.x - 60px;
-        height: parent.height - 200px - 86px;
+        height: parent.height - 200px - 66px;
         background: Theme.panel;
         border-width: 1px;
         border-color: Theme.panel-edge;
@@ -166,8 +166,8 @@ export component SavesPage inherits Rectangle {
             VerticalLayout {
                 spacing: 4px;
                 alignment: start;
-                Text { text: App.preview-name; font-family: Theme.title-font; font-size: 30px; color: Theme.text; overflow: elide; }
-                Text { text: App.preview-area; font-family: Theme.body-font; font-size: 16px; color: Theme.muted; overflow: elide; }
+                Text { text: App.preview-name; font-family: Theme.title-font; font-size: 30px * Theme.ts; color: Theme.text; overflow: elide; }
+                Text { text: App.preview-area; font-family: Theme.body-font; font-size: 16px * Theme.ts; color: Theme.muted; overflow: elide; }
             }
             VerticalLayout {
                 spacing: 5px;
@@ -175,8 +175,8 @@ export component SavesPage inherits Rectangle {
                 for f in [["Character", App.preview-pc], ["Time played", App.preview-time], ["Saved", App.preview-date]]: HorizontalLayout {
                     spacing: 18px;
                     alignment: end;
-                    Text { text: f[0]; horizontal-alignment: right; font-family: Theme.body-font; font-size: 14.5px; color: Theme.muted; }
-                    Text { width: 170px; text: f[1]; horizontal-alignment: right; font-family: Theme.body-font; font-size: 14.5px; color: Theme.text; }
+                    Text { text: f[0]; horizontal-alignment: right; font-family: Theme.body-font; font-size: 14.5px * Theme.ts; color: Theme.muted; }
+                    Text { width: 170px; text: f[1]; horizontal-alignment: right; font-family: Theme.body-font; font-size: 14.5px * Theme.ts; color: Theme.text; }
                 }
             }
         }

@@ -46,7 +46,7 @@ GalaxyMap save holds all seven recruited members twice, with identical stats).
 ## 2. Where saves are found
 
 Nothing is configured. On every start the editor looks in every place below and lists what
-is there; Add a Save Folder adds any other folder (a save, a folder of saves, or a game
+is there; Add a Save Folder in Settings adds any other folder (a save, a folder of saves, or a game
 folder) and remembers it.
 
 | Where | Path | Tested here? |
@@ -144,7 +144,55 @@ remove cross.
 | Spots | things to use and containers: in front (their `Bearing`), then round the sides, 1.1 to 2.4 m out; people who talk: 1.3 m out; doors: 1.2 to 2.6 m out on each side; ways out without a door: the trigger's middle; a clicked point: the nearest spot within 1.5 m |
 | Moving within the area | `XPosition`/`YPosition`/`ZPosition` of every player copy, facing the object |
 | Moving to another area | only areas in SAVEGAME.sav; the player goes into that module's `Mod_PlayerList` with that module's player `ObjectId` and `AreaId`, its items new ids from `Mod_NextObjId0`, effects re-pointed; savenfo `LASTMODULE` and `AREANAME` |
+| Spawn a Creature Here | on a picked floor spot in the area the save resumes in: a copy of a creature standing there, or any creature template the game has (its templates and Override, and the area's own module templates), in tabs In This Area, Hostile, Friendly, Other (by `FactionID` in repute.2da); it faces the player; a new one runs its own spawn script when the save loads ([save-editor-format.md](save-editor-format.md), section 5.2) |
 | Finish Quest | the quest's stages with `End` 1 in global.jrl; XP = plot.2da `xp` x the stage's `XP_Percentage`, added to `Experience` and `PT_XP_POOL` when the stage is new |
+
+**The quest tracker** (Story, Quests; 2026-10-22, the maintainer: "what a person wants when
+he enters the story mode ... is a quest tracker"): Story opens on Quests, listed first before
+the modder sections, and the party list steps aside. Left: the quests in three tabs, Active,
+Completed (the journal entry is one of the quest's endings) and Not Started, each with where it
+stands. Right: the picked quest, its current journal entry in full, and every stage as a
+timeline (earlier stages filled, the current one a gold ring, later ones empty, endings
+tagged, each with its XP); clicking a stage puts the quest there. Finish Quest opens a pop-up
+listing the endings with their XP; the chosen one is set and its XP given to the player and
+the party pool, once. The journal keeps only a quest's current stage, so "earlier" means a
+lower stage number, not a stage the player is known to have seen.
+
+**Removing what was spawned** (2026-10-22): a creature the editor spawned, picked on the map,
+offers Remove This Creature; the area's own creatures do not (Story, Creatures still lists
+every creature for modders). The editor records each spawn in `spawned.txt` beside its
+settings as game, module, `ObjectId` and `Tag`; the game keeps a creature's id when it saves,
+so the record finds it in later saves of the same playthrough. Creatures spawned before this
+record existed (the first test Gamorrean) are not in it. Checked in the editor: a spawned copy
+offered Remove, the area's own creatures did not.
+
+**Spawning, tested** (2026-10-22): a template creature and a copy went into copies of four
+KotOR and four KotOR II saves (`tests/edits.rs`), were written and read back: both there, the
+new one with `CreatnScrptFird` 0, every creature and item id owned once. **Seen in the game**
+(KotOR 1, 2026-10-22, by the maintainer): a Gamorrean spawned on the Ebon Hawk stood there
+when the save loaded. **Untested in the game**: KotOR 2, whether the spawn script visibly runs, a template made for another module (its
+conversation and scripts may be missing there), copies of story characters (scripts find
+creatures by tag).
+
+**The layout** (2026-10-22, the maintainer: "make the map the biggest thing"): on the Map tab
+the party list steps aside and the map's frame fills the panel, the picture as large as fits;
+a narrow rail on the right holds the area's name and a switch between Picked, Areas and Stuck?.
+Picking anything on the map shows Picked; Spawn a Creature is always there, greyed until a
+floor spot is picked. Over the map the pointer is a crosshair the editor draws in the accent
+colour with a dark edge (the system crosshair is drawn inverted, so it looked see-through).
+
+**Equipped** (Inventory tab, 2026-10-22): the game's equip screen, its slots three across in
+the order of equip.gui (Implant, Head, Hands; Left arm, Body, Right arm; Left weapon, Belt,
+Right weapon; KotOR II's second weapon set as a fourth row, equip_p.gui), each drawn as the
+shape of the game's slot frames (lbl_top, lbl_mid, lbl_bot) so the rows interlock as in the
+game. An empty slot shows the game's own picture of what goes there (`iimplant`, `ihead`,
+`ihands`, `iforearm_l`, `iarmor`, `iforearm_r`, `iweap_l`, `ibelt`, `iweap_r` from the GUI
+texture pack) on a faint accent fill; a worn item sits on the plain frame. Clicking a slot turns the list beside it into the party's items that fit (baseitems.2da
+`equipableslots` and `droidorhuman`), each with Equip, and shows what is worn there with Take
+It Off. In the editor, Revert and Save Changes sit at the top
+right beside the settings button, with a line under them saying what is changed or what the
+last save did; the backups folder, the version and the credit moved into Settings, so the tabs
+reach the bottom of the window.
 
 Not done, on purpose: walking through walls. A save only holds where things are; letting the
 player pass through doors and walls would be a change to the running game (a KMRP patch),
@@ -176,9 +224,13 @@ From KSE's issue tracker and the forums ([sources](save-editor-format.md#6-save-
 2. **The game must be closed.** Save Changes checks for `swkotor.exe` / `swkotor2.exe`
    (`tasklist`; `pgrep` elsewhere) and refuses while it runs.
 3. **A backup first.** The whole save folder is copied to
-   `<data>/KMRP/Save Editor/backups/<KotOR|KotOR II>/<save folder>/<date time>/` before
-   anything is written (`%LOCALAPPDATA%` on Windows, `~/Library/Application Support` on
-   macOS, `$XDG_DATA_HOME` or `~/.local/share` on Linux), never into the game folder.
+   `Save Editor Backup/<save folder>/<date time>/` in the folder that holds the save (the
+   game's `saves` folder) before anything is written; a KotOR 2 Steam Cloud save's backup
+   goes to the game's local `saves/Save Editor Backup` instead, so Steam does not upload it.
+   After a save the editor says "Saved! Backup of the unedited save is in" and the folder.
+   *Corrected 2026-10-22:* backups were kept in `<data>/KMRP/Save Editor/backups/` until the
+   maintainer asked for them beside the saves. **Untested**: whether the game's Load screen
+   ignores the `Save Editor Backup` folder (it holds no `savenfo.res` of its own).
 4. **Only the changed files**, each written in full to `<name>.kmrp-new` first; only when
    every new file is written are they moved over the old ones.
 5. **Lossless files.** GFF and ERF are read into a tree that keeps every field, its type,
@@ -247,7 +299,25 @@ never written):
   Tester", Strength 24, Charisma 16.
 
 The interface was checked at 1600x900 in dark and light mode, KotOR and KotOR II colours,
-every tab and the pop-ups, by screenshots. **Untested**: other window sizes than 1600x900
+every tab and the pop-ups, by screenshots.
+
+**Settings** (2026-10-22): the gear at the top right, on the list of saves and in the editor,
+opens one pop-up, kept in `settings.txt` in `<data>/KMRP/Save Editor` (`%LOCALAPPDATA%` on
+Windows, `~/Library/Application Support` on macOS, `$XDG_DATA_HOME` or `~/.local/share` on Linux):
+
+| Setting | What it does |
+| --- | --- |
+| Text Size | Small (the first release's sizes), Medium (1.1 times, the default), Large (1.2 times); every text grows, the boxes around names and labels with it |
+| Appearance | Dark or Light; it replaced the round moon and sun button at the bottom right, which took a footer's height |
+| Game Folders | the KotOR and KotOR II folders in use, each with Change (as KSE's `kse.ini` keeps `K1_Path` and `K2_Path`) |
+| Save Folders | the folders added by hand, each with Remove, and Add a Save Folder (KSE's `K1_SavePath`, `K2_SavePath`, `K2_SavePathCloud`; the editor finds the usual ones itself) |
+
+Folders change only from the list of saves: a new game folder can switch the game under an
+open save. Edges of buttons and fields were raised to about 3:1 against the field they sit on
+(they were about 1.8:1 and hard to see). Checked by screenshots at all three sizes, every tab
+at Large. *Corrected 2026-10-22:* Large was first 1.3 times; at that size the Character
+tab's labels, the attribute names and the Inventory headings ran into each other, so the
+steps are 1.0, 1.1 and 1.2. **Untested**: other window sizes than 1600x900
 (the minimum is 1280x780), Linux and macOS, every place in section 2 marked untested,
 importing a party member and comparing globals in the game itself, containers and stores in
 the game.

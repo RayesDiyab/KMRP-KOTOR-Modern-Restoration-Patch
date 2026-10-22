@@ -9,7 +9,7 @@ slint::include_modules!();
 use kse_core::area;
 use kse_core::catalog::{self, Catalog, ItemTemplate};
 use kse_core::creature;
-use kse_core::formats::erf::RES_TYPE_UTI;
+use kse_core::formats::erf::{RES_TYPE_UTC, RES_TYPE_UTI};
 use kse_core::formats::gff::{Struct, Value};
 use kse_core::formats::{tga, tpc};
 use kse_core::gamedata::GameData;
@@ -153,6 +153,8 @@ struct Settings {
     k2_dir: Option<PathBuf>,
     k2: bool,
     light: bool,
+    /// 0 Small, 1 Medium (the default since 2026-10-22), 2 Large.
+    text_size: i32,
 }
 
 impl Settings {
@@ -161,7 +163,7 @@ impl Settings {
     }
 
     fn load() -> Settings {
-        let mut s = Settings::default();
+        let mut s = Settings { text_size: 1, ..Settings::default() };
         if let Ok(text) = std::fs::read_to_string(Self::path()) {
             for line in text.lines() {
                 if let Some(p) = line.strip_prefix("added=") {
@@ -174,6 +176,8 @@ impl Settings {
                     s.k2 = true;
                 } else if line == "theme=light" {
                     s.light = true;
+                } else if let Some(n) = line.strip_prefix("textsize=") {
+                    s.text_size = n.parse::<i32>().unwrap_or(1).clamp(0, 2);
                 }
             }
         }
@@ -192,6 +196,7 @@ impl Settings {
         }
         text.push_str(if self.k2 { "game=k2\n" } else { "game=k1\n" });
         text.push_str(if self.light { "theme=light\n" } else { "theme=dark\n" });
+        text.push_str(&format!("textsize={}\n", self.text_size));
         let _ = std::fs::create_dir_all(games::data_dir());
         let _ = std::fs::write(Self::path(), text);
     }
@@ -211,8 +216,7 @@ enum Target {
     Soundset,
     Gender,
     ChangeClass(usize),
-    Equip(u32),
-    Quest(usize),
+    Spawn,
 }
 
 /// A game's tables, names and (when asked) item list. Made in the background at start
@@ -249,6 +253,9 @@ struct State {
     picker_all: Vec<Named>,
     /// Quest tags in the order the Quests list shows them.
     quest_tags: Vec<String>,
+    /// The quest tracker: its tab (0 active, 1 completed, 2 not started) and the quest shown.
+    quest_tab: usize,
+    quest_pick: Option<String>,
     /// The area shown on the Map tab, and what is picked on it.
     map: Option<kse_core::map::Area>,
     map_pick: Option<MapPick>,
@@ -272,6 +279,11 @@ struct State {
     compare: Option<(String, Vec<Global>)>,
     global_filter: (String, bool),
     selected_box: Option<(&'static str, usize)>,
+    /// What can be spawned at the picked spot, and where it goes and which way it faces.
+    spawnable: Vec<Spawnable>,
+    spawn_at: Option<([f32; 3], f32)>,
+    /// The slot picked on the equip grid, whose fitting items the inventory list shows.
+    equip_slot: Option<u32>,
     status: (String, bool),
 }
 
@@ -425,6 +437,22 @@ fn installs_for(settings: &Settings) -> Vec<Install> {
 
 // ---- filling the screens ----
 
+/// The folders shown in Settings: each game's install as found or picked, and the
+/// save folders the player added.
+fn fill_settings(ui: &AppWindow, st: &State) {
+    let app = ui.global::<App>();
+    let folder = |game: Game| {
+        st.installs
+            .iter()
+            .find(|i| i.game == game)
+            .map(|i| format!("{}: {}", i.source, i.path.display()))
+            .unwrap_or_default()
+    };
+    app.set_k1_folder(s(folder(Game::K1)));
+    app.set_k2_folder(s(folder(Game::K2)));
+    app.set_added_folders(model(st.settings.added.iter().map(|p| s(p.display().to_string())).collect()));
+}
+
 fn fill_saves(ui: &AppWindow, st: &mut State) {
     let app = ui.global::<App>();
     let theme = ui.global::<Theme>();
@@ -433,12 +461,7 @@ fn fill_saves(ui: &AppWindow, st: &mut State) {
     app.set_has_k2(st.installs.iter().any(|i| i.game == Game::K2));
     app.set_showing_k2(st.game == Game::K2);
     st.ensure_game(st.game);
-    app.set_game_folder(s(st
-        .installs
-        .iter()
-        .find(|i| i.game == st.game)
-        .map(|i| format!("{}: {}", i.source, i.path.display()))
-        .unwrap_or_default()));
+    fill_settings(ui, st);
 
     let folders = games::find_saves(&st.installs, st.game, &st.settings.added);
     let mut saves: Vec<(SaveFolder, Summary)> =
@@ -574,7 +597,7 @@ fn open_selected(ui: &AppWindow, st: &mut State) {
             st.original = Some(orig);
             st.who = 0;
             st.tab = 0;
-            st.story = 0;
+            st.story = 3;
             st.compare = None;
             st.selected_box = None;
             st.status = (String::new(), false);
@@ -611,9 +634,7 @@ fn fill_editor(ui: &AppWindow, st: &mut State) {
         nfo.string("AREANAME").unwrap_or_default(),
         save.game.title()
     )));
-    let backups = games::data_dir().join("backups").join(save.game.title()).join(
-        save.folder.file_name().map(|n| n.to_string_lossy().to_string()).unwrap_or_default(),
-    );
+    let backups = backups_of(st).join(save.folder.file_name().map(|n| n.to_string_lossy().to_string()).unwrap_or_default());
     app.set_backup_path(s(backups.display().to_string()));
 
     let cat = st.catalog();
@@ -974,10 +995,32 @@ fn fill_inventory(ui: &AppWindow, st: &mut State) {
     let worn_before = st.original.as_ref().and_then(|s| s.creature(who)).cloned();
     let k2 = st.game == Game::K2;
     let mut slot_rows = Vec::new();
-    for (slot, name) in creature::SLOTS {
-        if !k2 && slot >= 0x40000 {
+    // In the order of the game's equip screen (equip.gui, equip_p.gui): three across, KotOR
+    // II's second weapon set as a fourth row; 0 is the gap in that row.
+    let grid: &[u32] = if k2 {
+        &[0x200, 0x1, 0x8, 0x80, 0x2, 0x100, 0x20, 0x400, 0x10, 0x80000, 0, 0x40000]
+    } else {
+        &[0x200, 0x1, 0x8, 0x80, 0x2, 0x100, 0x20, 0x400, 0x10]
+    };
+    for &slot in grid {
+        if slot == 0 {
+            slot_rows.push(SlotRow::default());
             continue;
         }
+        let name = creature::SLOTS.iter().find(|(s, _)| *s == slot).map(|(_, n)| *n).unwrap_or("Slot");
+        // The picture the game shows in an empty slot (swpc_tex_gui).
+        let art_name = match slot {
+            0x200 => "iimplant",
+            0x1 => "ihead",
+            0x8 => "ihands",
+            0x80 => "iforearm_l",
+            0x2 => "iarmor",
+            0x100 => "iforearm_r",
+            0x20 | 0x80000 => "iweap_l",
+            0x400 => "ibelt",
+            _ => "iweap_r",
+        };
+        let art = st.icon(art_name, "");
         let item = worn.as_ref().and_then(|c| creature::in_slot(c, slot)).cloned();
         let before = worn_before.as_ref().and_then(|c| creature::in_slot(c, slot)).map(|i| i.string("Tag"));
         let icon = item.as_ref().and_then(|i| st.item_icon(i));
@@ -989,9 +1032,28 @@ fn fill_inventory(ui: &AppWindow, st: &mut State) {
             icon: icon.unwrap_or_default(),
             empty: item.is_none(),
             changed: before != item.as_ref().map(|i| i.string("Tag")),
+            has_art: art.is_some(),
+            art: art.unwrap_or_default(),
         });
     }
     app.set_slots(model(slot_rows));
+
+    // A picked slot: the list on the right shows what fits it, as in the game.
+    match st.equip_slot {
+        Some(slot) => {
+            let rows = slot_items(st, slot);
+            let worn = st.save.as_ref().and_then(|s| s.creature(who)).and_then(|c| creature::in_slot(c, slot)).cloned();
+            let name = creature::SLOTS.iter().find(|(s, _)| *s == slot).map(|(_, n)| *n).unwrap_or("Slot");
+            app.set_equip_slot(slot as i32);
+            app.set_equip_slot_name(s(name));
+            app.set_equip_slot_item(s(worn.as_ref().map(|i| st.item_name(i)).unwrap_or_default()));
+            app.set_slot_items(model(rows));
+        }
+        None => {
+            app.set_equip_slot(0);
+            app.set_slot_items(model(Vec::new()));
+        }
+    }
     app.set_picker_tabs(model(catalog::ITEM_CATEGORIES.iter().map(|c| s(c)).collect()));
     app.set_picker_tabs_a(model(catalog::ITEM_CATEGORIES[..4].iter().map(|c| s(c)).collect()));
     app.set_picker_tabs_b(model(catalog::ITEM_CATEGORIES[4..].iter().map(|c| s(c)).collect()));
@@ -1269,53 +1331,103 @@ fn fill_more(ui: &AppWindow, st: &mut State) {
 fn fill_journal(ui: &AppWindow, st: &mut State) {
     let app = ui.global::<App>();
     let Some(save) = st.save.as_ref() else { return };
-    let data = st.data();
-    let jrl = data.as_ref().and_then(|d| d.gff("global", "jrl", 2056));
+    let Some(data) = st.data() else { return };
+    let all = kse_core::quests::all(&data);
     let have = save.quests();
     let before = st.original.as_ref().map(|o| o.quests()).unwrap_or_default();
-    let loc = |s: &Struct, label: &str| -> String {
-        match (s.get(label), &data) {
-            (Some(Value::LocString(l)), Some(d)) => d.loc(l),
-            _ => String::new(),
-        }
+    let stage_of = |tag: &str| have.iter().find(|(t, _)| t.eq_ignore_ascii_case(tag)).map(|(_, v)| *v);
+    // A quest is done when its journal entry is one of its endings.
+    let status = |q: &kse_core::quests::Quest| match stage_of(&q.tag) {
+        Some(v) if q.stage(v).map_or(false, |x| x.end) => 1,
+        Some(_) => 0,
+        None => 2,
     };
-    let categories: Vec<Struct> = jrl.as_ref().and_then(|j| j.root.list("Categories").cloned()).unwrap_or_default();
-    let quest_name = |tag: &str| -> String {
-        categories
-            .iter()
-            .find(|c| c.string("Tag").map_or(false, |t| t.eq_ignore_ascii_case(tag)))
-            .map(|c| loc(c, "Name"))
-            .filter(|n| !n.trim().is_empty())
-            .unwrap_or_else(|| tag.to_string())
-    };
-    let stage_text = |tag: &str, stage: i64| -> String {
-        categories
-            .iter()
-            .find(|c| c.string("Tag").map_or(false, |t| t.eq_ignore_ascii_case(tag)))
-            .and_then(|c| c.list("EntryList"))
-            .and_then(|l| l.iter().find(|x| x.int("ID") == Some(stage)))
-            .map(|x| short(&loc(x, "Text")))
-            .unwrap_or_else(|| format!("Stage {}", stage))
-    };
+    let counts = [0, 1, 2].map(|k| all.iter().filter(|q| status(q) == k).count() as i32);
+    app.set_quest_counts(model(counts.to_vec()));
+    app.set_quest_tab(st.quest_tab as i32);
     let mut tags = Vec::new();
-    let mut rows = vec![Named { header: true, ..row(-1, "IN THE JOURNAL", "") }];
-    for (tag, stage) in &have {
-        let changed = !before.contains(&(tag.clone(), *stage));
-        rows.push(Named { owned: true, changed, ..row(tags.len() as i64, quest_name(tag), stage_text(tag, *stage)) });
-        tags.push(tag.clone());
+    let mut rows = Vec::new();
+    for q in all.iter().filter(|q| status(q) == st.quest_tab as i32) {
+        let note = match stage_of(&q.tag) {
+            Some(v) => q.stage(v).map(|x| short(&x.text)).unwrap_or_else(|| format!("Stage {}", v)),
+            None => "Not started".to_string(),
+        };
+        let changed = stage_of(&q.tag) != before.iter().find(|(t, _)| t.eq_ignore_ascii_case(&q.tag)).map(|(_, v)| *v);
+        let picked = st.quest_pick.as_deref().map_or(false, |t| t.eq_ignore_ascii_case(&q.tag));
+        rows.push(Named { owned: picked, changed, ..row(tags.len() as i64, &q.name, note) });
+        tags.push(q.tag.clone());
     }
-    rows.push(Named { header: true, ..row(-1, "NOT IN THE JOURNAL", "") });
-    for c in &categories {
-        let tag = c.string("Tag").unwrap_or_default();
-        if tag.is_empty() || have.iter().any(|(t, _)| t.eq_ignore_ascii_case(&tag)) {
-            continue;
+    // The first quest of the tab is shown until another is picked.
+    if st.quest_pick.as_ref().map_or(true, |t| !tags.iter().any(|x| x.eq_ignore_ascii_case(t))) {
+        st.quest_pick = tags.first().cloned();
+        if let Some(r) = rows.first_mut() {
+            r.owned = true;
         }
-        rows.push(row(tags.len() as i64, quest_name(&tag), "Not started"));
-        tags.push(tag);
     }
     st.quest_tags = tags;
     app.set_journal(model(rows));
-    app.set_journal_note(s("Pick a quest to set its stage. Taking one out only hides it; the story switches stay."));
+
+    // The quest shown: where it stands and every stage.
+    let picked = st.quest_pick.clone().and_then(|t| all.iter().find(|q| q.tag.eq_ignore_ascii_case(&t)).cloned());
+    match picked {
+        Some(q) => {
+            let current = stage_of(&q.tag);
+            let state = status(&q);
+            app.set_quest_title(s(&q.name));
+            app.set_quest_state(state);
+            app.set_quest_text(s(current.and_then(|v| q.stage(v)).map(|x| x.text.trim().to_string()).unwrap_or_else(|| {
+                "This quest is not in the journal yet. Start it, or put it at any stage below.".to_string()
+            })));
+            let stages: Vec<StageRow> = q
+                .stages
+                .iter()
+                .map(|x| StageRow {
+                    id: x.id as i32,
+                    text: s(short(&x.text)),
+                    xp: x.xp as i32,
+                    end: x.end,
+                    // 0 behind, 1 where the quest is, 2 ahead (the journal keeps only the
+                    // current stage; an earlier number is taken as passed).
+                    place: match current {
+                        Some(c) if x.id == c => 1,
+                        Some(c) if x.id < c && !x.end => 0,
+                        _ => 2,
+                    },
+                })
+                .collect();
+            app.set_quest_stages(model(stages));
+            let endings: Vec<StageRow> = q
+                .endings()
+                .iter()
+                .map(|x| StageRow { id: x.id as i32, text: s(x.text.trim()), xp: x.xp as i32, end: true, place: 2 })
+                .collect();
+            app.set_quest_endings(model(endings));
+            app.set_quest_shown(true);
+        }
+        None => app.set_quest_shown(false),
+    }
+}
+
+/// Puts a quest at a stage, giving that stage's experience as the game does when the journal
+/// reaches it (to the player and the party pool), once.
+fn set_quest_stage(st: &mut State, tag: &str, id: i64) {
+    let xp = st
+        .data()
+        .and_then(|d| kse_core::quests::all(&d).into_iter().find(|q| q.tag.eq_ignore_ascii_case(tag)))
+        .and_then(|q| q.stage(id).map(|x| x.xp))
+        .unwrap_or(0);
+    let before = st.save.as_ref().and_then(|s| s.quests().into_iter().find(|(t, _)| t.eq_ignore_ascii_case(tag)).map(|(_, v)| v));
+    if let Some(save) = st.save.as_mut() {
+        save.set_quest(tag, id);
+        if xp > 0 && before != Some(id) {
+            save.edit(Who::Player, "questxp", |c| {
+                let now = creature::experience(c);
+                creature::set_experience(c, now + xp);
+            });
+            let pool = save.party_int("PT_XP_POOL").unwrap_or(0);
+            save.set_party_int("PT_XP_POOL", pool + xp);
+        }
+    }
 }
 
 // ---- the map ----
@@ -1573,6 +1685,9 @@ fn fill_map(ui: &AppWindow, st: &mut State) {
     app.set_pick_has_second(false);
     app.set_pick_can_unlock(false);
     app.set_pick_is_exit(false);
+    app.set_pick_can_spawn(false);
+    app.set_pick_can_remove(false);
+    app.set_map_here(here);
     match st.map_pick.clone() {
         None => {
             app.set_pick_title(s("Nothing yet"));
@@ -1583,6 +1698,7 @@ fn fill_map(ui: &AppWindow, st: &mut State) {
             app.set_pick_note(s("Checked: walkable floor with room around it."));
             app.set_pick_can_move(true);
             app.set_pick_move_label(s(if here { "Move Here" } else { "Move to This Area, Here" }));
+            app.set_pick_can_spawn(here);
         }
         Some(MapPick::Object(i)) => {
             let o = &area.objects[i];
@@ -1613,7 +1729,222 @@ fn fill_map(ui: &AppWindow, st: &mut State) {
             app.set_pick_move_label(s(if door { "Move to This Side" } else if here { "Move Next to It" } else { "Move to This Area, Next to It" }));
             app.set_pick_second_label(s("Move to the Other Side"));
             app.set_pick_can_unlock(o.locked && matches!(o.kind, Door | Exit | Container) && here);
+            // Only a creature the editor added can be taken out here; the area's own stay.
+            let added = here
+                && o.list == area::CREATURES
+                && save.area_git().and_then(|g| g.root.list(area::CREATURES)).and_then(|l| l.get(o.index)).map_or(false, |c| was_spawned(st.game, &current, c));
+            app.set_pick_can_remove(added);
             app.set_pick_is_exit(!o.leads_to.is_empty() && visited.contains(&o.leads_to));
+        }
+    }
+}
+
+/// Items in the party inventory the picked member can wear in `slot` (baseitems.2da
+/// `equipableslots`, and `droidorhuman`: 1 people only, 2 droids only).
+fn slot_items(st: &mut State, slot: u32) -> Vec<Named> {
+    let Some(data) = st.data() else { return Vec::new() };
+    let base = data.table("baseitems");
+    let items = st.save.as_ref().map(|s| s.inventory()).unwrap_or_default();
+    let droid = match (st.catalog(), st.save.as_ref().and_then(|s| s.creature(st.who()))) {
+        (Some(cat), Some(c)) => creature::classes(c).iter().any(|(id, _)| cat.class(*id).map_or(false, |k| k.droid)),
+        _ => false,
+    };
+    let mut rows = Vec::new();
+    for (i, it) in items.iter().enumerate() {
+        let b = it.int("BaseItem").unwrap_or(0) as usize;
+        let fits = base.int(b, "equipableslots").map_or(false, |m| (m as u32) & slot != 0);
+        let user = base.int(b, "droidorhuman").unwrap_or(0);
+        if !fits || (user == 1 && droid) || (user == 2 && !droid) {
+            continue;
+        }
+        let icon = st.item_icon(it);
+        let (kind, _) = st.item_kind(it);
+        rows.push(Named { has_icon: icon.is_some(), icon: icon.unwrap_or_default(), ..row(i as i64, st.item_name(it), kind) });
+    }
+    rows
+}
+
+/// The creatures the editor spawned, so the map offers to remove those and only those:
+/// one line per creature, "game|module|object id|tag", in spawned.txt beside the settings.
+/// The game keeps a creature's object id when it saves, so the record still finds it in
+/// later saves of the same game.
+fn spawned_path() -> PathBuf {
+    games::data_dir().join("spawned.txt")
+}
+
+fn spawned_key(game: Game, module: &str, id: u32, tag: &str) -> String {
+    format!("{}|{}|{}|{}", game.title(), module.to_ascii_lowercase(), id, tag.to_ascii_lowercase())
+}
+
+fn was_spawned(game: Game, module: &str, c: &Struct) -> bool {
+    let (Some(id), tag) = (c.int("ObjectId"), c.string("Tag").unwrap_or_default()) else { return false };
+    let key = spawned_key(game, module, id as u32, &tag);
+    std::fs::read_to_string(spawned_path()).map_or(false, |t| t.lines().any(|l| l == key))
+}
+
+fn record_spawned(game: Game, module: &str, id: u32, tag: &str) {
+    use std::io::Write;
+    let _ = std::fs::create_dir_all(games::data_dir());
+    if let Ok(mut f) = std::fs::OpenOptions::new().create(true).append(true).open(spawned_path()) {
+        let _ = writeln!(f, "{}", spawned_key(game, module, id, tag));
+    }
+}
+
+/// The open save's backups folder (save::backup_root).
+fn backups_of(st: &State) -> PathBuf {
+    let root = st.installs.iter().find(|i| i.game == st.game).map(|i| i.path.clone());
+    match st.save.as_ref() {
+        Some(save) => save::backup_root(&save.folder, root.as_deref()),
+        None => games::data_dir().join("backups"),
+    }
+}
+
+// ---- spawning ----
+
+/// Where a creature to spawn comes from: one standing in the area (copied), a template
+/// any area can use (the game's templates and Override), or one of this module's own.
+#[derive(Clone)]
+enum SpawnSource {
+    Area(usize),
+    Template(String),
+    Module(String),
+}
+
+#[derive(Clone)]
+struct Spawnable {
+    source: SpawnSource,
+    name: String,
+    note: String,
+    /// The picker tab it belongs to besides All: 1 in this area, 2 hostile, 3 friendly, 4 other.
+    group: usize,
+    portrait: Option<String>,
+}
+
+const SPAWN_TABS: [&str; 5] = ["All", "In This Area", "Hostile", "Friendly", "Other"];
+
+/// Hostile, Friendly or Other, from the faction's label in repute.2da.
+fn faction_group(data: &GameData, faction: i64) -> (usize, String) {
+    let label = data.table("repute").cell(faction.max(0) as usize, "label").map(|l| l.to_string()).unwrap_or_default();
+    let lower = label.to_ascii_lowercase();
+    let group = if lower.contains("hostile") { 2 } else if lower.contains("friendly") { 3 } else { 4 };
+    let shown = if label.is_empty() { format!("faction {}", faction) } else { label.replace('_', " ") };
+    (group, shown)
+}
+
+fn creature_label(data: &GameData, c: &Struct) -> String {
+    let mut parts = Vec::new();
+    for l in ["FirstName", "LastName"] {
+        if let Some(Value::LocString(x)) = c.get(l) {
+            let t = kse_core::text::strip_codes(&data.loc(x)).trim().to_string();
+            if !t.is_empty() && t != "Bad StrRef" {
+                parts.push(t);
+            }
+        }
+    }
+    parts.join(" ")
+}
+
+fn spawn_portrait(data: &GameData, c: &Struct) -> Option<String> {
+    let id = c.int("PortraitId").filter(|p| *p > 0 && *p != 0xFFFF)?;
+    data.table("portraits").cell(id as usize, "baseresref").map(|r| r.to_string())
+}
+
+/// Everything that can be spawned in the save's current area.
+fn spawnables(st: &State) -> Vec<Spawnable> {
+    let Some(data) = st.data() else { return Vec::new() };
+    let Some(save) = st.save.as_ref() else { return Vec::new() };
+    let mut out = Vec::new();
+    if let Some(git) = save.area_git() {
+        for (i, c) in git.root.list(area::CREATURES).map(|l| l.iter().collect::<Vec<_>>()).unwrap_or_default().into_iter().enumerate() {
+            let name = creature_label(&data, c);
+            let tag = c.string("Tag").unwrap_or_default();
+            let (_, faction) = faction_group(&data, c.int("FactionID").unwrap_or(0));
+            out.push(Spawnable {
+                source: SpawnSource::Area(i),
+                name: if name.is_empty() { tag.clone() } else { name },
+                note: format!("Copy of one in this area · {} · {}", faction, tag),
+                group: 1,
+                portrait: spawn_portrait(&data, c),
+            });
+        }
+    }
+    let mut add = |source: SpawnSource, resref: &str, utc: &Struct, from: &str| {
+        let name = creature_label(&data, utc);
+        let (group, faction) = faction_group(&data, utc.int("FactionID").unwrap_or(0));
+        out.push(Spawnable {
+            source,
+            name: if name.is_empty() { resref.to_string() } else { name },
+            note: format!("{} · {} · {}", faction, from, resref),
+            group,
+            portrait: spawn_portrait(&data, utc),
+        });
+    };
+    let root = st.installs.iter().find(|i| i.game == st.game).map(|i| i.path.clone());
+    let mut module_names = Vec::new();
+    if let Some(root) = root.as_ref() {
+        let files = kse_core::map::ModuleFiles::open(root, save.module_name());
+        for resref in files.names(RES_TYPE_UTC) {
+            let Some(utc) = files.read(&resref, RES_TYPE_UTC).and_then(|d| kse_core::formats::gff::Gff::read(&d).ok()) else { continue };
+            add(SpawnSource::Module(resref.clone()), &resref, &utc.root, "this area's own");
+            module_names.push(resref);
+        }
+    }
+    for resref in data.resource_names("utc", RES_TYPE_UTC) {
+        if module_names.contains(&resref) {
+            continue;
+        }
+        let Some(utc) = data.gff(&resref, "utc", RES_TYPE_UTC) else { continue };
+        add(SpawnSource::Template(resref.clone()), &resref, &utc.root, "any area");
+    }
+    out
+}
+
+fn search_spawn(ui: &AppWindow, st: &mut State) {
+    let q = st.picker_query.trim().to_lowercase();
+    let tab = st.picker_tab;
+    let data = st.data();
+    let mut rows = Vec::new();
+    for (i, sp) in st.spawnable.iter().enumerate() {
+        if tab != 0 && sp.group != tab {
+            continue;
+        }
+        if !q.is_empty() && !sp.name.to_lowercase().contains(&q) && !sp.note.to_lowercase().contains(&q) {
+            continue;
+        }
+        rows.push((i, sp.clone()));
+        if rows.len() >= 200 {
+            break;
+        }
+    }
+    let rows: Vec<Named> = rows
+        .into_iter()
+        .map(|(i, sp)| {
+            let icon = match (sp.portrait.as_deref(), data.as_ref()) {
+                (Some(p), Some(d)) => badge(&mut st.portraits, d, &[p], true),
+                _ => None,
+            };
+            Named { has_icon: icon.is_some(), icon: icon.unwrap_or_default(), ..row(i as i64, &sp.name, &sp.note) }
+        })
+        .collect();
+    ui.global::<App>().set_picker(model(rows));
+}
+
+/// The creature for a pick in the spawn list, as the area will hold it.
+fn spawn_creature_of(st: &State, sp: &Spawnable) -> Option<Struct> {
+    let save = st.save.as_ref()?;
+    let git = save.area_git()?;
+    let like = git.root.list(area::CREATURES).and_then(|l| l.first()).cloned();
+    match &sp.source {
+        SpawnSource::Area(i) => git.root.list(area::CREATURES)?.get(*i).map(area::copy_creature),
+        SpawnSource::Template(resref) => {
+            let utc = st.data()?.gff(resref, "utc", RES_TYPE_UTC)?;
+            Some(area::creature_from_template(&utc.root, like.as_ref()))
+        }
+        SpawnSource::Module(resref) => {
+            let root = st.installs.iter().find(|i| i.game == st.game)?.path.clone();
+            let files = kse_core::map::ModuleFiles::open(&root, save.module_name());
+            let utc = kse_core::formats::gff::Gff::read(&files.read(resref, RES_TYPE_UTC)?).ok()?;
+            Some(area::creature_from_template(&utc.root, like.as_ref()))
         }
     }
 }
@@ -1668,6 +1999,7 @@ fn open_items_picker(ui: &AppWindow, st: &mut State, target: Target, title: &str
     st.target = target;
     st.picker_query.clear();
     let app = ui.global::<App>();
+    app.set_picker_placeholder(s("Type part of a name: medpac, lightsaber, g_w_ ..."));
     app.set_overlay_title(s(title));
     app.set_overlay_note(s(
         "Every item the game has, mods included. Type to narrow the list; click an item to add one.",
@@ -1717,6 +2049,7 @@ fn open_list(ui: &AppWindow, st: &mut State, target: Target, title: &str, note: 
     st.picker_all = rows.clone();
     let app = ui.global::<App>();
     app.set_picker_tabs(model(Vec::new()));
+    app.set_picker_placeholder(s("Type part of a name"));
     app.set_overlay_title(s(title));
     app.set_overlay_note(s(note));
     app.set_picker(model(rows));
@@ -1791,12 +2124,27 @@ fn open_save_picker(ui: &AppWindow, st: &mut State, target: Target, title: &str,
 
 fn main() {
     let ui = AppWindow::new().expect("the window could not be made");
+    {
+        // A mouse press anywhere first takes the focus out of a text box, so a number typed
+        // and then left counts as entered (the boxes treat losing focus as Enter).
+        use slint::winit_030::{winit::event::{ElementState, WindowEvent}, EventResult, WinitWindowAccessor};
+        let weak = ui.as_weak();
+        ui.window().on_winit_window_event(move |_, event| {
+            if let WindowEvent::MouseInput { state: ElementState::Pressed, .. } = event {
+                if let Some(ui) = weak.upgrade() {
+                    ui.invoke_drop_focus();
+                }
+            }
+            EventResult::Propagate
+        });
+    }
     let settings = Settings::load();
     let installs = installs_for(&settings);
     let k2_only = installs.iter().all(|i| i.game == Game::K2) && !installs.is_empty();
     let k1_only = installs.iter().all(|i| i.game == Game::K1) && !installs.is_empty();
     let game = if k2_only || (settings.k2 && !k1_only) { Game::K2 } else { Game::K1 };
     ui.global::<Theme>().set_dark(!settings.light);
+    ui.global::<Theme>().set_text_size(settings.text_size);
     let state: Shared = Rc::new(RefCell::new(State {
         settings,
         installs,
@@ -1808,6 +2156,8 @@ fn main() {
         inventory_tab: 0,
         picker_all: Vec::new(),
         quest_tags: Vec::new(),
+        quest_tab: 0,
+        quest_pick: None,
         map: None,
         map_pick: None,
         saves: Vec::new(),
@@ -1820,7 +2170,7 @@ fn main() {
         whos: Vec::new(),
         who: 0,
         tab: 0,
-        story: 0,
+        story: 3,
         feat_query: String::new(),
         power_query: String::new(),
         picker_query: String::new(),
@@ -1830,6 +2180,9 @@ fn main() {
         compare: None,
         global_filter: (String::new(), false),
         selected_box: None,
+        spawnable: Vec::new(),
+        spawn_at: None,
+        equip_slot: None,
         status: (String::new(), false),
     }));
     fill_saves(&ui, &mut state.borrow_mut());
@@ -1915,6 +2268,27 @@ fn main() {
                 fill_saves(&u, st);
             }
             None => message(&u, "That is not a KotOR folder", "Pick the folder that holds chitin.key and the game's program."),
+        }
+    });
+
+    // ---- settings ----
+    on!(ui, state, on_open_settings, |u, st| {
+        fill_settings(&u, st);
+        u.global::<App>().set_overlay(7);
+    });
+    on!(ui, state, on_settings_changed, |u, st| {
+        let theme = u.global::<Theme>();
+        st.settings.light = !theme.get_dark();
+        st.settings.text_size = theme.get_text_size();
+        st.settings.store();
+    });
+    on!(ui, state, on_remove_save_folder, |u, st, i: i32| {
+        if (i as usize) < st.settings.added.len() {
+            st.settings.added.remove(i as usize);
+            st.settings.store();
+            st.installs = installs_for(&st.settings);
+            st.selected = 0;
+            fill_saves(&u, st);
         }
     });
 
@@ -2345,44 +2719,38 @@ fn main() {
         refresh_after_edit(&u, st);
     });
 
-    on!(ui, state, on_remove_journal, |u, st, i: i32| {
-        let Some(tag) = st.quest_tags.get(i.max(0) as usize).cloned() else { return };
+    // ---- the quest tracker ----
+    on!(ui, state, on_select_quest_tab, |u, st, i: i32| {
+        st.quest_tab = i.clamp(0, 2) as usize;
+        st.quest_pick = None;
+        fill_journal(&u, st);
+    });
+    on!(ui, state, on_pick_quest, |u, st, i: i32| {
+        st.quest_pick = st.quest_tags.get(i.max(0) as usize).cloned();
+        fill_journal(&u, st);
+    });
+    on!(ui, state, on_set_quest_stage, |u, st, id: i32| {
+        let Some(tag) = st.quest_pick.clone() else { return };
+        set_quest_stage(st, &tag, id as i64);
+        refresh_after_edit(&u, st);
+    });
+    on!(ui, state, on_finish_quest, |u, st, id: i32| {
+        let Some(tag) = st.quest_pick.clone() else { return };
+        set_quest_stage(st, &tag, id as i64);
+        u.global::<App>().set_overlay(0);
+        // The quest moves to Completed; the tracker follows it there.
+        st.quest_tab = 1;
+        refresh_after_edit(&u, st);
+    });
+    on!(ui, state, on_open_finish_quest, |u, _st| {
+        u.global::<App>().set_overlay(8);
+    });
+    on!(ui, state, on_remove_quest, |u, st| {
+        let Some(tag) = st.quest_pick.clone() else { return };
         if let Some(save) = st.save.as_mut() {
             save.remove_quest(&tag);
         }
         refresh_after_edit(&u, st);
-    });
-    on!(ui, state, on_open_quest, |u, st, i: i32| {
-        let Some(tag) = st.quest_tags.get(i.max(0) as usize).cloned() else { return };
-        let Some(data) = st.data() else { return };
-        let Some(q) = kse_core::quests::all(&data).into_iter().find(|q| q.tag.eq_ignore_ascii_case(&tag)) else { return };
-        let current = st.save.as_ref().and_then(|s| s.quests().into_iter().find(|(t, _)| t.eq_ignore_ascii_case(&tag)).map(|(_, v)| v));
-        let mut rows = Vec::new();
-        let endings = q.endings();
-        if !endings.is_empty() {
-            rows.push(Named { header: true, ..row(-1, "FINISH THE QUEST", "") });
-            for e in &endings {
-                rows.push(Named {
-                    owned: Some(e.id) == current,
-                    ..row(e.id, format!("Finish: {}", if e.xp > 0 { format!("+{} XP", e.xp) } else { "no XP".into() }), short(&e.text))
-                });
-            }
-        }
-        rows.push(Named { header: true, ..row(-1, "ANY STAGE", "") });
-        for st_ in q.stages.iter().filter(|x| !x.end) {
-            rows.push(Named {
-                owned: Some(st_.id) == current,
-                ..row(st_.id, format!("Stage {}{}", st_.id, if st_.xp > 0 { format!(", +{} XP", st_.xp) } else { String::new() }), short(&st_.text))
-            });
-        }
-        open_list(
-            &u,
-            st,
-            Target::Quest(i.max(0) as usize),
-            &q.name,
-            "Putting the quest at a stage gives that stage's experience to you and the party, as the game does when the journal reaches it. What the story scripts would also have done (items, people, story switches) is not in the save: Story, Global Variables, Compare with Another Save can copy those from a later save.",
-            rows,
-        );
     });
     on!(ui, state, on_set_save_name, |u, st, t: SharedString| {
         if t.trim().is_empty() {
@@ -2473,34 +2841,25 @@ fn main() {
         fill_editor(&u, st);
         u.global::<App>().set_overlay(6);
     });
+    // A slot picked on the equip grid; picked again, the list shows everything.
     on!(ui, state, on_open_slot, |u, st, slot: i32| {
         let slot = slot as u32;
-        let Some(data) = st.data() else { return };
-        let base = data.table("baseitems");
-        let worn = st.save.as_ref().and_then(|s| s.creature(st.who())).and_then(|c| creature::in_slot(c, slot)).cloned();
-        let mut rows = Vec::new();
-        if worn.is_some() {
-            rows.push(row(-1, "Take It Off", "Back into the party inventory"));
+        st.equip_slot = if st.equip_slot == Some(slot) || slot == 0 { None } else { Some(slot) };
+        fill_inventory(&u, st);
+    });
+    on!(ui, state, on_equip_item, |u, st, index: i32| {
+        let (Some(slot), who) = (st.equip_slot, st.who()) else { return };
+        if let Some(save) = st.save.as_mut() {
+            save.equip(who, slot, index.max(0) as usize);
         }
-        let items = st.save.as_ref().map(|s| s.inventory()).unwrap_or_default();
-        // baseitems.2da droidorhuman: 1 people only, 2 droids only.
-        let droid = match (st.catalog(), st.save.as_ref().and_then(|s| s.creature(st.who()))) {
-            (Some(cat), Some(c)) => creature::classes(c).iter().any(|(id, _)| cat.class(*id).map_or(false, |k| k.droid)),
-            _ => false,
-        };
-        for (i, it) in items.iter().enumerate() {
-            let b = it.int("BaseItem").unwrap_or(0) as usize;
-            let fits = base.int(b, "equipableslots").map_or(false, |m| (m as u32) & slot != 0);
-            let user = base.int(b, "droidorhuman").unwrap_or(0);
-            if !fits || (user == 1 && droid) || (user == 2 && !droid) {
-                continue;
-            }
-            let icon = st.item_icon(it);
-            let (kind, _) = st.item_kind(it);
-            rows.push(Named { has_icon: icon.is_some(), icon: icon.unwrap_or_default(), ..row(i as i64, st.item_name(it), kind) });
+        refresh_after_edit(&u, st);
+    });
+    on!(ui, state, on_unequip_slot, |u, st| {
+        let (Some(slot), who) = (st.equip_slot, st.who()) else { return };
+        if let Some(save) = st.save.as_mut() {
+            save.unequip(who, slot);
         }
-        let name = creature::SLOTS.iter().find(|(s, _)| *s == slot).map(|(_, n)| *n).unwrap_or("Slot");
-        open_list(&u, st, Target::Equip(slot), name, "Items from the party inventory that fit here. What was worn goes back into the inventory. The character must be able to use the item, or the game takes it off when the save loads.", rows);
+        refresh_after_edit(&u, st);
     });
     on!(ui, state, on_copy_inventory, |u, st| {
         open_save_picker(&u, st, Target::CopyInventory, "Copy Inventory from Another Save", "The party inventory of the save you pick replaces this one's. Equipped items stay as they are.");
@@ -2613,6 +2972,44 @@ fn main() {
         u.global::<App>().set_tab(5);
         fill_map(&u, st);
     });
+    on!(ui, state, on_spawn_here, |u, st| {
+        let Some(MapPick::Floor(spot)) = st.map_pick.clone() else { return };
+        // Facing the player, so the new arrival is seen at once.
+        let player = st.save.as_ref().and_then(|s| s.player()).map(area::position).unwrap_or(spot);
+        let facing = (player[1] - spot[1]).atan2(player[0] - spot[0]);
+        st.spawn_at = Some((spot, facing));
+        st.spawnable = spawnables(st);
+        st.target = Target::Spawn;
+        st.picker_query.clear();
+        st.picker_tab = 0;
+        let app = u.global::<App>();
+        app.set_overlay_title(s("Spawn a Creature Here"));
+        app.set_overlay_note(s(
+            "A copy of someone in this area, or any creature the game has. A new one runs its own spawn script when the save loads, as if the area had just made it. A copy keeps its tag, so a copy of a story character can confuse that story's scripts; creatures made for another planet may lack their conversation here.",
+        ));
+        app.set_picker_tab(0);
+        app.set_picker_tabs(model(SPAWN_TABS.iter().map(|t| s(t)).collect()));
+        app.set_picker_placeholder(s("Type part of a name or tag: rakghoul, sith, dan13_ ..."));
+        app.set_overlay(1);
+        search_spawn(&u, st);
+    });
+    on!(ui, state, on_remove_pick, |u, st| {
+        let Some(MapPick::Object(i)) = st.map_pick.clone() else { return };
+        let Some(o) = st.map.as_ref().map(|a| a.objects[i].clone()) else { return };
+        if o.list != area::CREATURES {
+            return;
+        }
+        if let Some(save) = st.save.as_mut() {
+            save.edit_area(&format!("creature{}", o.index), |git| area::remove_creature(git, o.index));
+        }
+        st.map = None;
+        load_map(st, None);
+        st.map_pick = None;
+        refresh_after_edit(&u, st);
+        let app = u.global::<App>();
+        app.set_pick_title(s(format!("{} removed", o.name)));
+        app.set_pick_note(s("Save Changes to keep it out of the save; Revert brings it back."));
+    });
     on!(ui, state, on_unlock_pick, |u, st| {
         let Some(MapPick::Object(i)) = st.map_pick.clone() else { return };
         let Some(o) = st.map.as_ref().map(|a| a.objects[i].clone()) else { return };
@@ -2666,7 +3063,7 @@ fn main() {
             );
             return;
         }
-        let backups = games::data_dir().join("backups");
+        let backups = backups_of(st);
         let result = st.save.as_mut().unwrap().write(&backups);
         match result {
             Ok(backup) => {
@@ -2676,7 +3073,7 @@ fn main() {
                     st.save = Some(fresh);
                 }
                 st.shots.lock().unwrap().remove(&folder);
-                st.status = (format!("Saved. The save as it was is kept in {}", backup.display()), false);
+                st.status = (format!("Saved! Backup of the unedited save is in {}", backup.display()), false);
             }
             Err(e) => st.status = (format!("Nothing was changed: {}", e), true),
         }
@@ -2691,7 +3088,7 @@ fn main() {
         }
     });
     on!(ui, state, on_open_backups, |_u, st| {
-        let dir = games::data_dir().join("backups").join(st.game.title());
+        let dir = backups_of(st);
         let _ = std::fs::create_dir_all(&dir);
         open_path(&dir);
     });
@@ -2704,17 +3101,51 @@ fn main() {
     on!(ui, state, on_select_picker_tab, |u, st, i: i32| {
         st.picker_tab = i.max(0) as usize;
         u.global::<App>().set_picker_tab(i);
-        search_items(&u, st);
+        if st.target == Target::Spawn {
+            search_spawn(&u, st);
+        } else {
+            search_items(&u, st);
+        }
     });
     on!(ui, state, on_search_picker, |u, st, q: SharedString| {
         st.picker_query = q.to_string();
         match st.target {
             Target::Inventory | Target::Container => search_items(&u, st),
+            Target::Spawn => search_spawn(&u, st),
             _ => search_list(&u, st),
         }
     });
     on!(ui, state, on_pick, |u, st, id: i32| {
         match st.target {
+            Target::Spawn => {
+                let Some(sp) = st.spawnable.get(id.max(0) as usize).cloned() else { return };
+                let Some((spot, facing)) = st.spawn_at else { return };
+                let Some(mut c) = spawn_creature_of(st, &sp) else {
+                    message(&u, "That creature could not be read", "Its template is missing or damaged.");
+                    return;
+                };
+                area::place_creature(&mut c, spot, facing);
+                let tag = c.string("Tag").unwrap_or_default();
+                let game = st.game;
+                if let Some(save) = st.save.as_mut() {
+                    let id = save.spawn_creature(c);
+                    record_spawned(game, save.module_name(), id, &tag);
+                }
+                st.target = Target::None;
+                u.global::<App>().set_overlay(0);
+                st.map = None;
+                load_map(st, None);
+                st.map_pick = None;
+                fill_editor(&u, st);
+                st.tab = 5;
+                u.global::<App>().set_tab(5);
+                fill_map(&u, st);
+                let app = u.global::<App>();
+                app.set_pick_title(s(format!("{} spawned", sp.name)));
+                app.set_pick_note(s(
+                    "It stands on the map now. Save Changes to keep it; Story, Creatures lists it and can remove it again.",
+                ));
+            }
             Target::Class => {
                 let Some(cat) = st.catalog() else { return };
                 let Some(class) = cat.class(id as i64).cloned() else { return };
@@ -2790,45 +3221,6 @@ fn main() {
                 edit_who(&u, st, &format!("class{}", index), move |c| creature::change_class(c, index, &old, &new));
                 fill_editor(&u, st);
                 u.global::<App>().set_overlay(6);
-            }
-            Target::Equip(slot) => {
-                let who = st.who();
-                if let Some(save) = st.save.as_mut() {
-                    if id < 0 {
-                        save.unequip(who, slot);
-                    } else {
-                        save.equip(who, slot, id as usize);
-                    }
-                }
-                u.global::<App>().set_overlay(0);
-                st.target = Target::None;
-                refresh_after_edit(&u, st);
-            }
-            Target::Quest(index) => {
-                if id < 0 {
-                    return;
-                }
-                let Some(tag) = st.quest_tags.get(index).cloned() else { return };
-                let xp = st
-                    .data()
-                    .and_then(|d| kse_core::quests::all(&d).into_iter().find(|q| q.tag.eq_ignore_ascii_case(&tag)))
-                    .and_then(|q| q.stage(id as i64).map(|x| x.xp))
-                    .unwrap_or(0);
-                let before = st.save.as_ref().and_then(|s| s.quests().into_iter().find(|(t, _)| t.eq_ignore_ascii_case(&tag)).map(|(_, v)| v));
-                if let Some(save) = st.save.as_mut() {
-                    save.set_quest(&tag, id as i64);
-                    if xp > 0 && before != Some(id as i64) {
-                        save.edit(Who::Player, "questxp", |c| {
-                            let now = creature::experience(c);
-                            creature::set_experience(c, now + xp);
-                        });
-                        let pool = save.party_int("PT_XP_POOL").unwrap_or(0);
-                        save.set_party_int("PT_XP_POOL", pool + xp);
-                    }
-                }
-                u.global::<App>().set_overlay(0);
-                st.target = Target::None;
-                refresh_after_edit(&u, st);
             }
             _ => {}
         }

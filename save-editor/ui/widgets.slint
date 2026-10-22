@@ -3,14 +3,17 @@
 
 import { Theme } from "theme.slint";
 
-// kind: 0 cyan fill (the main action), 1 outline, 2 grey fill (Revert), 3 small outline
+// kind: 0 cyan fill (the main action), 1 outline, 2 grey fill (Revert), 3 small outline,
+// 4 red fill (taking something out of the save)
 export component Button inherits Rectangle {
     in property <string> text;
     in property <int> kind: 1;
     in property <bool> enabled: true;
-    in property <length> font-size: 20px;
+    in property <length> font-size: 20px * Theme.ts;
+    // A row-sized button of any kind (the map's rail).
+    in property <bool> compact;
     callback clicked;
-    min-height: kind == 3 ? 38px : 50px;
+    min-height: kind == 3 || compact ? 38px : 50px;
     min-width: label.preferred-width + (kind == 3 ? 32px : 48px);
     border-radius: 5px;
     border-width: kind == 1 || kind == 3 ? 1px : 0px;
@@ -18,12 +21,13 @@ export component Button inherits Rectangle {
     background: !enabled ? (kind == 0 ? Theme.selected : Theme.field)
         : kind == 0 ? @linear-gradient(180deg, touch.has-hover ? Theme.fill-hover : Theme.fill-top 0%, Theme.fill-bottom 100%)
         : kind == 2 ? @linear-gradient(180deg, Theme.grey-top 0%, Theme.grey-bottom 100%)
+        : kind == 4 ? (touch.has-hover ? Theme.danger.brighter(0.15) : Theme.danger)
         : (touch.has-hover ? Theme.hover : Theme.field);
     label := Text {
         text: root.text;
         font-family: Theme.list-font;
-        font-size: kind == 3 ? 16px : root.font-size;
-        color: !enabled ? Theme.faint : kind == 0 ? Theme.ink : Theme.text;
+        font-size: kind == 3 ? 16px * Theme.ts : root.font-size;
+        color: !enabled ? Theme.faint : kind == 0 ? Theme.ink : kind == 4 ? #ffffff : Theme.text;
         horizontal-alignment: center;
         vertical-alignment: center;
     }
@@ -53,10 +57,10 @@ export component Stepper inherits Rectangle {
     in property <int> minimum: 0;
     in property <int> maximum: 255;
     in property <bool> changed;
-    in property <length> font-size: 20px;
+    in property <length> font-size: 20px * Theme.ts;
     callback set(int);
     height: 40px;
-    min-width: 140px;
+    min-width: 110px;
     border-radius: 5px;
     border-width: 1px;
     border-color: changed ? Theme.changed : Theme.edge;
@@ -80,6 +84,12 @@ export component Stepper inherits Rectangle {
                     root.set(Math.clamp(self.text.to-float(), minimum, maximum));
                     self.clear-focus();
                 }
+                // Clicking anywhere else is Enter too (main.rs takes the focus away).
+                changed has-focus => {
+                    if !self.has-focus && self.text.to-float() != root.value {
+                        root.set(Math.clamp(self.text.to-float(), minimum, maximum));
+                    }
+                }
             }
         }
         Rectangle {
@@ -97,9 +107,11 @@ export component Field inherits Rectangle {
     in property <bool> changed;
     in property <bool> read-only;
     in property <string> font: Theme.list-font;
-    in property <length> font-size: 18px;
+    in property <length> font-size: 18px * Theme.ts;
     callback edited(string);
     callback accepted(string);
+    // The text when the box was entered, so leaving it unchanged does nothing.
+    property <string> at-focus;
     height: 40px;
     border-radius: 5px;
     border-width: 1px;
@@ -112,7 +124,7 @@ export component Field inherits Rectangle {
         text: placeholder;
         color: Theme.faint;
         font-family: Theme.body-font;
-        font-size: 14px;
+        font-size: 14px * Theme.ts;
         vertical-alignment: center;
         height: parent.height;
     }
@@ -128,7 +140,19 @@ export component Field inherits Rectangle {
         vertical-alignment: center;
         single-line: true;
         edited => { root.edited(self.text); }
-        accepted => { root.accepted(self.text); }
+        accepted => {
+            root.at-focus = self.text;
+            root.accepted(self.text);
+        }
+        // Clicking anywhere else is Enter too, when the text changed since the box was entered.
+        changed has-focus => {
+            if self.has-focus {
+                root.at-focus = self.text;
+            } else if self.text != root.at-focus {
+                root.at-focus = self.text;
+                root.accepted(self.text);
+            }
+        }
     }
 }
 
@@ -162,14 +186,15 @@ export component Switch inherits Rectangle {
 // The spaced capital labels over each section ("ATTRIBUTES").
 export component Label inherits Text {
     font-family: Theme.label-font;
-    font-size: 15px;
+    font-size: 15px * Theme.ts;
     letter-spacing: 4px;
     color: Theme.accent;
+    overflow: elide;
 }
 
 export component Note inherits Text {
     font-family: Theme.body-font;
-    font-size: 13.5px;
+    font-size: 13.5px * Theme.ts;
     color: Theme.faint;
     wrap: word-wrap;
 }
@@ -196,35 +221,77 @@ export component Scroller inherits Rectangle {
     }
 }
 
-// The light and dark switch: a crescent moon in dark mode, a sun in light mode.
-export component ThemeToggle inherits Rectangle {
-    width: 44px;
-    height: 44px;
-    border-radius: 22px;
+// The moon and the sun of the Appearance choice in Settings.
+export component Moon inherits Path {
+    in property <color> colour;
+    width: 20px;
+    height: 20px;
+    viewbox-width: 24;
+    viewbox-height: 24;
+    fill: colour;
+    commands: "M 15.5 3 A 9.5 9.5 0 1 0 21 17.5 A 7.5 7.5 0 1 1 15.5 3 Z";
+}
+
+export component Sun inherits Path {
+    in property <color> colour;
+    width: 22px;
+    height: 22px;
+    viewbox-width: 24;
+    viewbox-height: 24;
+    stroke: colour;
+    stroke-width: 2px;
+    fill: colour;
+    commands: "M 12 7.5 A 4.5 4.5 0 1 0 12 16.5 A 4.5 4.5 0 1 0 12 7.5 Z M 12 1.5 L 12 4 M 12 20 L 12 22.5 M 1.5 12 L 4 12 M 20 12 L 22.5 12 M 4.6 4.6 L 6.4 6.4 M 17.6 17.6 L 19.4 19.4 M 4.6 19.4 L 6.4 17.6 M 17.6 6.4 L 19.4 4.6";
+}
+
+// The settings button: the KMRP installer's gear (src/patcher/icons/Settings.png, cropped
+// and made white in assets/settings.png, 64 px), square, the game switch's height.
+export component SettingsButton inherits Rectangle {
+    callback clicked;
+    width: 50px;
+    height: 50px;
+    border-radius: 6px;
     border-width: 1px;
     border-color: touch.has-hover ? Theme.accent : Theme.edge;
     background: touch.has-hover ? Theme.hover : Theme.field;
-    if Theme.dark: Path {
-        width: 22px;
-        height: 22px;
-        viewbox-width: 24;
-        viewbox-height: 24;
-        fill: Theme.gold;
-        commands: "M 15.5 3 A 9.5 9.5 0 1 0 21 17.5 A 7.5 7.5 0 1 1 15.5 3 Z";
+    Image {
+        // 64 px art drawn at 32: an even halving keeps the thin gear lines whole.
+        source: @image-url("../assets/settings.png");
+        width: 32px;
+        height: 32px;
+        colorize: touch.has-hover ? Theme.accent : Theme.soft;
     }
-    if !Theme.dark: Path {
-        width: 24px;
-        height: 24px;
-        viewbox-width: 24;
-        viewbox-height: 24;
-        stroke: Theme.gold;
-        stroke-width: 2px;
-        fill: Theme.gold;
-        commands: "M 12 7.5 A 4.5 4.5 0 1 0 12 16.5 A 4.5 4.5 0 1 0 12 7.5 Z M 12 1.5 L 12 4 M 12 20 L 12 22.5 M 1.5 12 L 4 12 M 20 12 L 22.5 12 M 4.6 4.6 L 6.4 6.4 M 17.6 17.6 L 19.4 19.4 M 4.6 19.4 L 6.4 17.6 M 17.6 6.4 L 19.4 4.6";
-    }
-    touch := TouchArea {
-        mouse-cursor: pointer;
-        clicked => { Theme.dark = !Theme.dark; }
+    touch := TouchArea { mouse-cursor: pointer; clicked => { root.clicked(); } }
+}
+
+// A few choices side by side, the picked one filled: the game switch's look.
+// icons: 1 puts the moon before the first choice and the sun before the second.
+export component Choice inherits Rectangle {
+    in property <[string]> options;
+    in property <int> current;
+    in property <int> icons: 0;
+    in property <length> font-size: 18px * Theme.ts;
+    callback picked(int);
+    height: 46px;
+    border-radius: 6px;
+    border-width: 1px;
+    border-color: Theme.edge;
+    clip: true;
+    HorizontalLayout {
+        for o[i] in options: Rectangle {
+            property <bool> on: i == current;
+            width: root.width / options.length;
+            background: on ? @linear-gradient(180deg, Theme.fill-top 0%, Theme.fill-bottom 100%) : ct.has-hover ? Theme.hover : Theme.field;
+            if i > 0: Rectangle { x: 0; width: 1px; background: Theme.edge; }
+            HorizontalLayout {
+                alignment: center;
+                spacing: 10px;
+                if icons == 1 && i == 0: VerticalLayout { alignment: center; Moon { colour: on ? Theme.ink : Theme.gold; } }
+                if icons == 1 && i == 1: VerticalLayout { alignment: center; Sun { colour: on ? Theme.ink : Theme.gold; } }
+                Text { text: o; vertical-alignment: center; font-family: Theme.list-font; font-size: root.font-size; color: on ? Theme.ink : Theme.soft; }
+            }
+            ct := TouchArea { mouse-cursor: pointer; clicked => { root.picked(i); } }
+        }
     }
 }
 
@@ -252,7 +319,7 @@ export component Brand inherits HorizontalLayout {
 export component Link inherits Text {
     callback clicked;
     font-family: Theme.body-font;
-    font-size: 15px;
+    font-size: 15px * Theme.ts;
     color: touch.has-hover ? Theme.text : Theme.accent;
     touch := TouchArea { mouse-cursor: pointer; clicked => { root.clicked(); } }
 }

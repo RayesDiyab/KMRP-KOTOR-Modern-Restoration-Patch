@@ -22,6 +22,7 @@ its fonts are made for KMRP (section 4). **Not yet seen in the game, nor run und
 | `font-converter/kmrp-logo.png` | The logo, `tools/build_brand_image.py --text KMRP --tracking 0.12 --whole-crest`, 400x300 |
 | `font-converter/make_data.py`, `font-converter/data/` | Makes `data/`: `references.txt`, `examples.txt` and the example PNGs, from KMRP's `assets/hd-original-fonts`; committed, so the converter builds without the rest of KMRP |
 | `font-converter/favicon.ico` | The window icon, a copy of `src/patcher/favicon.ico` |
+| `font-converter/settings.png` | The Settings button's gear: the installer's `src/patcher/icons/Settings.png` cropped to its ink and made 512 px, drawn in one colour from its alpha |
 | `font-converter/fonts/` | The window's text: KMRP Original HD Menu (titles) and Descriptions (text), TrueType copies from `fonts/KMRP-OriginalHD.ttc`'s build (GDI+ cannot load the OTF files' CFF outlines), SIL OFL 1.1; compiled in and loaded from memory, drawn grid-fitted. *Corrected 2026-10-22:* until then the window used Bahnschrift and Segoe UI, drawn without grid fitting, which looked soft beside the Save Editor |
 
 ## 2. What it writes
@@ -71,6 +72,8 @@ is dragged and sharp again when it is let go. Measured on 2026-10-21 by sending 
 `WM_SIZING`: every edge and corner gave a 16:9 inside (1484x835, 2064x1161, 1984x1116,
 1384x778), and `--size=1000x560` opened at the minimum, 1200x675.
 
+**Settings** (2026-10-22). The gear at the header's top right opens a pop-up with Text Size (Small, Medium, Large: the window's text at 1, 1.15 and 1.3 times the first release's size; Medium is the default) and Appearance (Dark, Light). Both apply at once and are kept in `%APPDATA%\KMRP Font Converter\settings.txt` (`textsize=`, `theme=`) beside the output folder. Light mode uses the Save Editor's light colours; the example boxes keep their dark backing in both, because they show the game's own coloured text. Boxes follow the text: a tile's use line wraps to two lines where it does not fit, its example shrinks to the room left, and Convert, Clear and Change are as wide as their longest label. Every edge was raised to at least 1.8:1 against the fill it sits on (WCAG contrast, measured): in dark mode the old ones measured 1.24 (example boxes), 1.30 (groups), 1.37 (tiles) and 1.74 (fields), now 1.95, 1.94, 2.41 and 3.08; light mode 1.81 to 3.04. Checked on 2026-10-22 by screenshots at 1600x900 in both modes at Medium and Large, with Settings and the face picker open: no text clipped or overlapping.
+
 DirectWrite reads TrueType and OpenType (both outline kinds) and collections; WOFF2 is
 unpacked by `IDWriteFactory5::UnpackFontFile` (Windows 10 1703 and later), a variable
 font's named instances come from its `fvar` table and are made with
@@ -106,6 +109,6 @@ atlas when it draws (about 3 times at 1440 lines and the default text size) with
 
 ## 5. Command line
 
-For screenshots and checks: `--no-intro`, `key=path[#face name]` (a tile's font, keys
+For screenshots and checks: `--no-intro`, `--settings` (opens Settings), `key=path[#face name]` (a tile's font, keys
 as in `Tiles.All`), `--pick key=path`, `--done`, `--out=folder`, `--convert`,
 `--no-done`.

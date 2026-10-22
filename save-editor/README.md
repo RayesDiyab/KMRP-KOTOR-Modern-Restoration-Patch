@@ -5,10 +5,10 @@ For Windows, Linux and macOS; works with or without KMRP installed.
 
 * **Finds your saves by itself**: Steam (any library), Steam Cloud saves of KotOR II, GOG and
   disc installs, the Aspyr Mac and Linux ports. Saves from anywhere else (a phone, a Switch,
-  another PC) can be added once with Add a Save Folder.
+  another PC) can be added once in Settings, with Add a Save Folder.
 * **Looks like the game**: the save list is the game's Load screen, with each save's picture
   and party; the editor is the in-game menu's tabs. KotOR II in its own colours; dark and
-  light mode with the moon and sun button.
+  light mode and three text sizes in Settings (the gear, top right).
 * **Character**: name, experience (the game then offers the level-up itself), a second
   class, alignment, attributes, Health and Force, portrait and body, position.
 * **Abilities**: skills, and feats and Force powers added or removed one at a time.

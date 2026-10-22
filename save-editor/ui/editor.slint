@@ -3,8 +3,8 @@
 // until it is saved.
 
 import { Theme } from "theme.slint";
-import { App, Stat, Named, ItemRow, NpcRow, GlobalRow, DoorRow, BoxRow, Toggle, MapMark, AreaRow } from "state.slint";
-import { Button, Stepper, Field, Switch, Label, Note, Scroller, Cross, Sign, BackArrow } from "widgets.slint";
+import { App, Stat, Named, ItemRow, NpcRow, GlobalRow, DoorRow, BoxRow, Toggle, MapMark, AreaRow, SlotRow } from "state.slint";
+import { Button, Stepper, Field, Switch, Label, Note, Scroller, Cross, Sign, BackArrow, Choice, Link } from "widgets.slint";
 
 component Line inherits Rectangle {
     height: 56px;
@@ -31,13 +31,13 @@ component StatLine inherits Line {
         }
         VerticalLayout {
             alignment: center;
-            Text { text: stat.label; font-family: Theme.list-font; font-size: label-size; color: Theme.text; overflow: elide; }
-            if stat.note != "": Text { text: stat.note; font-family: Theme.body-font; font-size: 12.5px; color: Theme.faint; overflow: elide; }
+            Text { text: stat.label; font-family: Theme.list-font; font-size: label-size * Theme.ts; color: Theme.text; overflow: elide; }
+            if stat.note != "": Text { text: stat.note; font-family: Theme.body-font; font-size: 12.5px * Theme.ts; color: Theme.faint; overflow: elide; }
         }
         VerticalLayout {
             alignment: center;
             Stepper {
-                width: 140px;
+                width: 116px;
                 value: stat.value;
                 minimum: stat.minimum;
                 maximum: stat.maximum;
@@ -46,12 +46,12 @@ component StatLine inherits Line {
             }
         }
         if stat.mod != "": Text {
-            width: 40px;
+            width: 34px;
             text: stat.mod;
             horizontal-alignment: right;
             vertical-alignment: center;
             font-family: Theme.list-font;
-            font-size: 17px;
+            font-size: 17px * Theme.ts;
             color: Theme.muted;
         }
     }
@@ -83,7 +83,7 @@ component AbilityList inherits Rectangle {
         text <=> query;
         placeholder: root.placeholder;
         font: Theme.body-font;
-        font-size: 15px;
+        font-size: 15px * Theme.ts;
         read-only: !enabled;
         edited(t) => { root.search(t); }
     }
@@ -97,7 +97,7 @@ component AbilityList inherits Rectangle {
                 height: 50px;
                 background: r.owned ? Theme.selected : transparent;
                 border-radius: 5px;
-                if r.header: Label { x: 4px; y: 22px; text: r.name; font-size: 13px; color: Theme.soft; }
+                if r.header: Label { x: 4px; y: 22px; text: r.name; font-size: 13px * Theme.ts; color: Theme.soft; }
                 if !r.header: Rectangle { x: 0; y: parent.height - 1px; height: 1px; background: Theme.row-line; }
                 if !r.header: HorizontalLayout {
                     padding-left: 6px;
@@ -122,11 +122,11 @@ component AbilityList inherits Rectangle {
                         Text {
                             text: r.name;
                             font-family: Theme.list-font;
-                            font-size: 16px;
+                            font-size: 16px * Theme.ts;
                             color: r.changed ? Theme.changed : r.owned ? Theme.gold : Theme.text;
                             overflow: elide;
                         }
-                        if r.note != "": Text { text: r.note; font-family: Theme.body-font; font-size: 12px; color: Theme.faint; overflow: elide; }
+                        if r.note != "": Text { text: r.note; font-family: Theme.body-font; font-size: 12px * Theme.ts; color: Theme.faint; overflow: elide; }
                     }
                     Rectangle {
                         width: 40px;
@@ -158,7 +158,7 @@ component CharacterTab inherits Rectangle {
             Line {
                 HorizontalLayout {
                     spacing: 12px;
-                    Text { width: 130px; text: "Name"; vertical-alignment: center; font-family: Theme.list-font; font-size: 19px; color: Theme.text; }
+                    Text { width: 130px * Theme.ts; text: "Name"; vertical-alignment: center; font-family: Theme.list-font; font-size: 19px * Theme.ts; color: Theme.text; }
                     VerticalLayout {
                         alignment: center;
                         Field {
@@ -173,15 +173,15 @@ component CharacterTab inherits Rectangle {
             Line {
                 HorizontalLayout {
                     spacing: 12px;
-                    Text { width: 130px; text: "Classes"; vertical-alignment: center; font-family: Theme.list-font; font-size: 19px; color: Theme.text; }
-                    VerticalLayout { alignment: center; Field { text: App.classes; read-only: true; font: Theme.body-font; font-size: 14px; } }
+                    Text { width: 130px * Theme.ts; text: "Classes"; vertical-alignment: center; font-family: Theme.list-font; font-size: 19px * Theme.ts; color: Theme.text; }
+                    VerticalLayout { alignment: center; Field { text: App.classes; read-only: true; font: Theme.body-font; font-size: 14px * Theme.ts; } }
                     VerticalLayout { alignment: center; Button { kind: 3; text: "Edit"; clicked => { App.open-classes(); } } }
                 }
             }
             Line {
                 HorizontalLayout {
                     spacing: 12px;
-                    Text { width: 130px; text: "Experience"; vertical-alignment: center; font-family: Theme.list-font; font-size: 19px; color: Theme.text; }
+                    Text { width: 130px * Theme.ts; text: "Experience"; vertical-alignment: center; font-family: Theme.list-font; font-size: 19px * Theme.ts; color: Theme.text; }
                     VerticalLayout {
                         alignment: center;
                         Field {
@@ -234,7 +234,7 @@ component CharacterTab inherits Rectangle {
                 text: App.alignment;
                 horizontal-alignment: center;
                 font-family: Theme.body-font;
-                font-size: 14px;
+                font-size: 14px * Theme.ts;
                 color: App.alignment-changed ? Theme.changed : Theme.text;
             }
             Note { text: "Light side"; horizontal-alignment: right; }
@@ -269,8 +269,8 @@ component CharacterTab inherits Rectangle {
                     spacing: 8px;
                     VerticalLayout {
                         alignment: center;
-                        Text { text: "Health"; font-family: Theme.list-font; font-size: 19px; color: Theme.text; }
-                        Text { text: App.health-note; font-family: Theme.body-font; font-size: 12.5px; color: Theme.faint; overflow: elide; }
+                        Text { text: "Health"; font-family: Theme.list-font; font-size: 19px * Theme.ts; color: Theme.text; }
+                        Text { text: App.health-note; font-family: Theme.body-font; font-size: 12.5px * Theme.ts; color: Theme.faint; overflow: elide; }
                     }
                     VerticalLayout { alignment: center; hn := Field { width: 72px; text: App.hp-current; changed: App.hp-changed; accepted(t) => { App.set-hp(hn.text.to-float(), hm.text.to-float()); } } }
                     VerticalLayout { alignment: center; hm := Field { width: 72px; text: App.hp-max; changed: App.hp-changed; accepted(t) => { App.set-hp(hn.text.to-float(), hm.text.to-float()); } } }
@@ -281,8 +281,8 @@ component CharacterTab inherits Rectangle {
                     spacing: 8px;
                     VerticalLayout {
                         alignment: center;
-                        Text { text: "Force"; font-family: Theme.list-font; font-size: 19px; color: Theme.text; }
-                        Text { text: App.force-note; font-family: Theme.body-font; font-size: 12.5px; color: Theme.faint; overflow: elide; }
+                        Text { text: "Force"; font-family: Theme.list-font; font-size: 19px * Theme.ts; color: Theme.text; }
+                        Text { text: App.force-note; font-family: Theme.body-font; font-size: 12.5px * Theme.ts; color: Theme.faint; overflow: elide; }
                     }
                     VerticalLayout { alignment: center; fn := Field { width: 72px; text: App.fp-current; changed: App.fp-changed; accepted(t) => { App.set-fp(fn.text.to-float(), fm.text.to-float()); } } }
                     VerticalLayout { alignment: center; fm := Field { width: 72px; text: App.fp-max; changed: App.fp-changed; accepted(t) => { App.set-fp(fn.text.to-float(), fm.text.to-float()); } } }
@@ -296,7 +296,7 @@ component CharacterTab inherits Rectangle {
             alignment: start;
             Button { kind: 3; text: "Heal Everyone"; clicked => { App.heal-all(); } }
             VerticalLayout { alignment: center; Switch { on: App.min1hp; changed: App.min1hp-changed; toggled(v) => { App.set-min1hp(v); } } }
-            Text { text: "Cannot die"; vertical-alignment: center; font-family: Theme.body-font; font-size: 14px; color: Theme.muted; }
+            Text { text: "Cannot die"; vertical-alignment: center; font-family: Theme.body-font; font-size: 14px * Theme.ts; color: Theme.muted; }
         }
         Label { x: 0; y: 214px; text: "LOOK AND VOICE"; }
         Rectangle {
@@ -325,8 +325,8 @@ component CharacterTab inherits Rectangle {
                 Rectangle { x: 0; y: parent.height - 1px; height: 1px; background: Theme.row-line; }
                 HorizontalLayout {
                     spacing: 8px;
-                    Text { width: 64px; text: f.label; vertical-alignment: center; font-family: Theme.body-font; font-size: 13px; color: Theme.faint; }
-                    Text { text: f.value; vertical-alignment: center; font-family: Theme.list-font; font-size: 15px; color: lk.has-hover ? Theme.accent : Theme.text; overflow: elide; }
+                    Text { width: 64px; text: f.label; vertical-alignment: center; font-family: Theme.body-font; font-size: 13px * Theme.ts; color: Theme.faint; }
+                    Text { text: f.value; vertical-alignment: center; font-family: Theme.list-font; font-size: 15px * Theme.ts; color: lk.has-hover ? Theme.accent : Theme.text; overflow: elide; }
                 }
                 lk := TouchArea {
                     mouse-cursor: pointer;
@@ -404,12 +404,12 @@ component ItemLine inherits Rectangle {
         }
         VerticalLayout {
             alignment: center;
-            Text { text: item.name; font-family: Theme.list-font; font-size: 17px; color: item.changed ? Theme.changed : Theme.text; overflow: elide; }
-            Text { text: item.kind; font-family: Theme.body-font; font-size: 12px; color: Theme.faint; overflow: elide; }
+            Text { text: item.name; font-family: Theme.list-font; font-size: 17px * Theme.ts; color: item.changed ? Theme.changed : Theme.text; overflow: elide; }
+            Text { text: item.kind; font-family: Theme.body-font; font-size: 12px * Theme.ts; color: Theme.faint; overflow: elide; }
         }
         if editable && item.max-stack > 1: VerticalLayout {
             alignment: center;
-            Stepper { width: 130px; height: 34px; value: item.stack; minimum: 1; maximum: item.max-stack; changed: item.changed; font-size: 17px; set(v) => { root.stack(v); } }
+            Stepper { width: 130px; height: 34px; value: item.stack; minimum: 1; maximum: item.max-stack; changed: item.changed; font-size: 17px * Theme.ts; set(v) => { root.stack(v); } }
         }
         if !editable || item.max-stack <= 1: Text {
             width: 130px;
@@ -417,7 +417,7 @@ component ItemLine inherits Rectangle {
             horizontal-alignment: center;
             vertical-alignment: center;
             font-family: Theme.list-font;
-            font-size: 16px;
+            font-size: 16px * Theme.ts;
             color: Theme.muted;
         }
         if editable: Rectangle {
@@ -438,8 +438,8 @@ component Money inherits Line {
         spacing: 12px;
         VerticalLayout {
             alignment: center;
-            Text { text: label; font-family: Theme.list-font; font-size: 19px; color: Theme.text; }
-            if note != "": Text { text: note; font-family: Theme.body-font; font-size: 12.5px; color: Theme.faint; }
+            Text { text: label; font-family: Theme.list-font; font-size: 19px * Theme.ts; color: Theme.text; }
+            if note != "": Text { text: note; font-family: Theme.body-font; font-size: 12.5px * Theme.ts; color: Theme.faint; }
         }
         VerticalLayout {
             alignment: center;
@@ -459,53 +459,118 @@ component KindTab inherits Rectangle {
     border-width: 1px;
     border-color: on ? Theme.accent : Theme.edge;
     background: on ? Theme.selected : kta.has-hover ? Theme.hover : Theme.field;
-    kt := Text { text: root.text; font-family: Theme.list-font; font-size: 14px; color: on ? Theme.text : Theme.soft; }
+    kt := Text { text: root.text; font-family: Theme.list-font; font-size: 14px * Theme.ts; color: on ? Theme.text : Theme.soft; }
     kta := TouchArea { mouse-cursor: pointer; clicked => { root.chosen(); } }
+}
+
+// A run of the kind tabs, from `from` up to (not including) `to`, each with its gap after it.
+component TabRow inherits HorizontalLayout {
+    in property <int> from;
+    in property <int> to;
+    in property <int> selected: -1;
+    callback chosen(int);
+    height: 34px;
+    spacing: 0;
+    alignment: start;
+    for t[i] in App.picker-tabs: Rectangle {
+        width: i >= root.from && i < root.to ? tab.width + 6px : 0px;
+        visible: i >= root.from && i < root.to;
+        tab := KindTab { x: 0; text: t; on: i == root.selected; chosen => { root.chosen(i); } }
+    }
 }
 
 component KindTabs inherits Rectangle {
     in property <int> selected;
     callback chosen(int);
-    // One row when the whole row fits, measured from a hidden copy of it.
-    property <bool> one-row: root.width >= probe.preferred-width;
-    probe := HorizontalLayout {
-        y: 0;
-        height: 34px;
-        spacing: 6px;
-        opacity: 0;
-        for t in App.picker-tabs: KindTab { text: t; }
+    // As many tabs as fit in the first row, the rest in a second: hidden runs of the first
+    // 1 to 8 tabs are measured and the longest that fits is used.
+    p1 := TabRow { y: 0; opacity: 0; from: 0; to: 1; }
+    p2 := TabRow { y: 0; opacity: 0; from: 0; to: 2; }
+    p3 := TabRow { y: 0; opacity: 0; from: 0; to: 3; }
+    p4 := TabRow { y: 0; opacity: 0; from: 0; to: 4; }
+    p5 := TabRow { y: 0; opacity: 0; from: 0; to: 5; }
+    p6 := TabRow { y: 0; opacity: 0; from: 0; to: 6; }
+    p7 := TabRow { y: 0; opacity: 0; from: 0; to: 7; }
+    p8 := TabRow { y: 0; opacity: 0; from: 0; to: 8; }
+    property <int> fit: min(App.picker-tabs.length, p8.preferred-width <= root.width + 6px ? 8 : p7.preferred-width <= root.width + 6px ? 7 : p6.preferred-width <= root.width + 6px ? 6 : p5.preferred-width <= root.width + 6px ? 5 : p4.preferred-width <= root.width + 6px ? 4 : p3.preferred-width <= root.width + 6px ? 3 : p2.preferred-width <= root.width + 6px ? 2 : p1.preferred-width <= root.width + 6px ? 1 : 1);
+    height: fit < App.picker-tabs.length ? 74px : 34px;
+    TabRow { y: 0; from: 0; to: fit; selected: root.selected; chosen(i) => { root.chosen(i); } }
+    if fit < App.picker-tabs.length: TabRow { y: 40px; from: fit; to: App.picker-tabs.length; selected: root.selected; chosen(i) => { root.chosen(i); } }
+}
+
+// One slot of the game's equip screen, drawn from the shapes of its frames (lbl_top,
+// lbl_mid, lbl_bot; measured from KMRP's 192-pixel redraws of them): the top row rounded
+// above, the middle rows with a tab that sits in the notch above, the bottom row rounded
+// below. Each frame stands in a square of the game's 64 units; rows and columns step 50,
+// so the tabs and notches interlock as they do in the game.
+component EquipSlot inherits Rectangle {
+    in property <SlotRow> slot;
+    // 0 top row, 1 a middle row, 2 the bottom row.
+    in property <int> shape;
+    in property <bool> picked;
+    callback clicked;
+    // An empty slot's picture is the whole tile, as in the game (drawn in the same 64-unit
+    // square as the frame); the frame goes over it.
+    if slot.empty && slot.has-art: Image {
+        width: parent.width;
+        height: parent.height;
+        source: slot.art;
     }
-    height: one-row ? 34px : 74px;
-    HorizontalLayout {
-        y: 0;
-        height: 34px;
-        spacing: 6px;
-        alignment: start;
-        for t[i] in (one-row ? App.picker-tabs : App.picker-tabs-a): KindTab {
-            text: t;
-            on: i == root.selected;
-            chosen => { root.chosen(i); }
-        }
+    Path {
+        width: parent.width;
+        height: parent.height;
+        viewbox-width: 192;
+        viewbox-height: 192;
+        stroke-width: (picked ? 4px : 2.5px) * parent.width / 120px;
+        stroke: picked ? Theme.gold : slot.changed ? Theme.changed : touch.has-hover ? Theme.text : Theme.accent;
+        // An empty slot glows faintly in the accent, as the game's empty slots do; a worn
+        // item sits on the plain frame.
+        fill: slot.empty && slot.has-art ? transparent : picked ? Theme.selected : touch.has-hover ? Theme.hover : Theme.field;
+        commands: shape == 0
+            ? "M 27.5 33 Q 94 3 160.5 33 L 160.5 170.5 L 133.5 170.5 L 118.5 155.5 L 69.5 155.5 L 54.5 170.5 L 27.5 170.5 Z"
+            : shape == 1
+            ? "M 27.5 35.5 L 58 35.5 L 76 17.5 L 112 17.5 L 130 35.5 L 160.5 35.5 L 160.5 170.5 L 133.5 170.5 L 118.5 155.5 L 69.5 155.5 L 54.5 170.5 L 27.5 170.5 Z"
+            : "M 27.5 35.5 L 58 35.5 L 76 17.5 L 112 17.5 L 130 35.5 L 160.5 35.5 L 160.5 152 Q 94 186 27.5 152 Z";
     }
-    if !one-row: HorizontalLayout {
-        y: 40px;
-        height: 34px;
-        spacing: 6px;
-        alignment: start;
-        for t[i] in App.picker-tabs-b: KindTab {
-            text: t;
-            on: i + App.picker-tabs-a.length == root.selected;
-            chosen => { root.chosen(i + App.picker-tabs-a.length); }
-        }
+    if slot.has-icon: Image {
+        x: parent.width * 0.22;
+        y: parent.height * 0.25;
+        width: parent.width * 0.54;
+        height: parent.height * 0.54;
+        source: slot.icon;
+    }
+    // Without the game's picture, the slot's name.
+    if slot.empty && !slot.has-art: Text {
+        x: parent.width * 0.17;
+        width: parent.width * 0.66;
+        horizontal-alignment: center;
+        vertical-alignment: center;
+        wrap: word-wrap;
+        text: slot.name;
+        font-family: Theme.body-font;
+        font-size: max(10px, parent.width * 0.1);
+        color: Theme.faint;
+    }
+    touch := TouchArea {
+        x: parent.width * 0.14;
+        width: parent.width * 0.72;
+        mouse-cursor: pointer;
+        clicked => { root.clicked(); }
     }
 }
 
 component InventoryTab inherits Rectangle {
-    property <length> side: 300px;
+    // The left side is as wide as the slots, which are as large as the height under the
+    // money allows (and never so wide that the list loses its room).
+    property <length> equip-y: (App.has-crafting ? 250px : 138px);
+    property <int> rows: Math.ceil(App.slots.length / 3);
+    property <length> cell: min(170px, (self.width * 0.55) / (2 * 50 / 64 + 1), (self.height - equip-y - 40px) / ((rows - 1) * 50 / 64 + 1));
+    property <length> step: cell * 50 / 64;
+    property <length> side: max(300px * Theme.ts, 2 * step + cell);
     Rectangle {
         x: 0;
         width: side;
-        Label { x: 0; y: 0; text: "SHARED BY THE PARTY"; }
+        Label { x: 0; y: 0; width: parent.width; text: "SHARED BY THE PARTY"; }
         VerticalLayout {
             x: 0; y: 32px;
             height: self.preferred-height;
@@ -514,25 +579,90 @@ component InventoryTab inherits Rectangle {
             if App.has-crafting: Money { label: "Chemicals"; note: "For the lab station"; value: App.chemicals; changed: App.chemicals-changed; set(v) => { App.set-chemicals(v); } }
         }
         Note { x: 0; y: App.has-crafting ? 214px : 102px; width: parent.width; text: "Type a number and press Enter."; }
-        Label { x: 0; y: App.has-crafting ? 250px : 138px; text: "EQUIPPED BY " + App.name; }
-        Scroller {
-            x: 0; y: (App.has-crafting ? 250px : 138px) + 30px;
-            height: parent.height - self.y - 46px;
-            content-height: App.slots.length * 46px;
+        Label { x: 0; y: equip-y; width: parent.width; text: "EQUIPPED BY " + (App.members.length > App.who ? App.members[App.who].name : App.name); }
+        // The slots, under the label.
+        Rectangle {
+            x: 0;
+            y: equip-y + 34px;
+            width: 2 * step + cell;
+            height: (rows - 1) * step + cell;
+            for r[i] in App.slots: EquipSlot {
+                x: Math.mod(i, 3) * step;
+                y: Math.floor(i / 3) * step;
+                width: cell;
+                height: cell;
+                visible: r.slot != 0;
+                slot: r;
+                shape: Math.floor(i / 3) == 0 ? 0 : Math.floor(i / 3) == rows - 1 ? 2 : 1;
+                picked: r.slot != 0 && r.slot == App.equip-slot;
+                clicked => { App.open-slot(r.slot); }
+            }
+        }
+    }
+    Rectangle {
+        x: side + 34px;
+        width: parent.width - self.x;
+        HorizontalLayout {
+            x: 0; y: 0;
+            height: 24px;
+            Label {
+                text: App.equip-slot != 0 ? "FITS " + App.equip-slot-name + " · " + App.slot-items.length : "INVENTORY · " + App.items.length;
+                horizontal-stretch: 1;
+            }
+            if App.equip-slot != 0: Link { text: "Show Everything"; vertical-alignment: center; clicked => { App.open-slot(0); } }
+        }
+        if App.equip-slot == 0: VerticalLayout {
+            x: 0;
+            y: 32px;
+            height: parent.height - 32px - 54px;
+            spacing: 14px;
+            KindTabs {
+                selected: App.inventory-tab;
+                chosen(i) => { App.select-inventory-tab(i); }
+            }
+            Scroller {
+            vertical-stretch: 1;
+            content-height: App.items.length * 50px;
             VerticalLayout {
-                for r in App.slots: Rectangle {
-                    height: 46px;
-                    border-radius: 5px;
-                    background: st.has-hover ? Theme.hover : transparent;
+                for r[i] in App.items: ItemLine {
+                    item: r;
+                    stack(v) => { App.set-stack(r.index, v); }
+                    remove => { App.remove-item(r.index); }
+                }
+            }
+            }
+        }
+        // A slot picked: the party's items that fit it, each with Equip.
+        if App.equip-slot != 0: HorizontalLayout {
+            x: 0; y: 34px;
+            height: 38px;
+            spacing: 12px;
+            Text {
+                text: App.equip-slot-item != "" ? "Worn now: " + App.equip-slot-item : "Nothing worn here now.";
+                vertical-alignment: center;
+                font-family: Theme.body-font;
+                font-size: 14px * Theme.ts;
+                color: Theme.muted;
+                overflow: elide;
+                horizontal-stretch: 1;
+            }
+            if App.equip-slot-item != "": Button { kind: 3; text: "Take It Off"; clicked => { App.unequip-slot(); } }
+        }
+        if App.equip-slot != 0: Scroller {
+            x: 0; y: 82px;
+            height: parent.height - self.y - 54px;
+            content-height: App.slot-items.length * 50px;
+            VerticalLayout {
+                for r in App.slot-items: Rectangle {
+                    height: 50px;
                     Rectangle { x: 0; y: parent.height - 1px; height: 1px; background: Theme.row-line; }
                     HorizontalLayout {
-                        padding-left: 4px;
-                        spacing: 10px;
+                        spacing: 12px;
                         VerticalLayout {
                             alignment: center;
                             Rectangle {
-                                width: 36px;
-                                height: 36px;
+                                width: 40px;
+                                height: 40px;
                                 border-radius: 4px;
                                 border-width: 1px;
                                 border-color: Theme.edge;
@@ -543,60 +673,41 @@ component InventoryTab inherits Rectangle {
                         }
                         VerticalLayout {
                             alignment: center;
-                            Text { text: r.empty ? "Empty" : r.item; font-family: Theme.list-font; font-size: 15px; color: r.changed ? Theme.changed : r.empty ? Theme.faint : Theme.text; overflow: elide; }
-                            Text { text: r.name; font-family: Theme.body-font; font-size: 11.5px; color: Theme.faint; overflow: elide; }
+                            horizontal-stretch: 1;
+                            Text { text: r.name; font-family: Theme.list-font; font-size: 17px * Theme.ts; color: Theme.text; overflow: elide; }
+                            Text { text: r.note; font-family: Theme.body-font; font-size: 12px * Theme.ts; color: Theme.faint; overflow: elide; }
                         }
+                        VerticalLayout { alignment: center; Button { kind: 3; text: "Equip"; clicked => { App.equip-item(r.id); } } }
                     }
-                    st := TouchArea { mouse-cursor: pointer; clicked => { App.open-slot(r.slot); } }
                 }
             }
         }
-        HorizontalLayout {
-            x: 0; y: parent.height - 38px;
-            height: 38px;
-            alignment: start;
-            Button { kind: 3; text: "Copy from Another Save"; clicked => { App.copy-inventory(); } }
-        }
-    }
-    Rectangle {
-        x: side + 34px;
-        width: parent.width - self.x;
-        Label { x: 0; y: 0; text: "INVENTORY · " + App.items.length; }
-        kinds := KindTabs {
-            x: 0;
-            y: 32px;
+        if App.equip-slot != 0 && App.slot-items.length == 0: Note {
+            x: 0; y: 90px;
             width: parent.width;
-            selected: App.inventory-tab;
-            chosen(i) => { App.select-inventory-tab(i); }
+            text: "Nothing in the party inventory fits here. Add Item finds any item the game has.";
         }
-        Scroller {
-            x: 0; y: 32px + kinds.height + 14px;
-            height: parent.height - self.y - 54px;
-            content-height: App.items.length * 50px;
-            VerticalLayout {
-                for r[i] in App.items: ItemLine {
-                    item: r;
-                    stack(v) => { App.set-stack(r.index, v); }
-                    remove => { App.remove-item(r.index); }
-                }
-            }
-        }
-        // Add Item: a full-width bar under the list, so it never covers a row.
-        Rectangle {
+        // Add Item, and Copy from Another Save beside it, under the list.
+        HorizontalLayout {
             x: 0;
             y: parent.height - 44px;
             height: 44px;
-            border-radius: 5px;
-            border-width: 1px;
-            border-color: fb.has-hover ? Theme.accent : Theme.edge;
-            background: fb.has-hover ? Theme.hover : Theme.field;
-            HorizontalLayout {
-                alignment: center;
-                spacing: 10px;
-                VerticalLayout { alignment: center; Sign { plus: true; colour: Theme.accent; } }
-                Text { text: "Add Item"; vertical-alignment: center; font-family: Theme.list-font; font-size: 17px; color: Theme.accent; }
+            spacing: 12px;
+            Rectangle {
+                horizontal-stretch: 1;
+                border-radius: 5px;
+                border-width: 1px;
+                border-color: fb.has-hover ? Theme.accent : Theme.edge;
+                background: fb.has-hover ? Theme.hover : Theme.field;
+                HorizontalLayout {
+                    alignment: center;
+                    spacing: 10px;
+                    VerticalLayout { alignment: center; Sign { plus: true; colour: Theme.accent; } }
+                    Text { text: "Add Item"; vertical-alignment: center; font-family: Theme.list-font; font-size: 17px * Theme.ts; color: Theme.accent; }
+                }
+                fb := TouchArea { mouse-cursor: pointer; clicked => { App.open-add-item(); } }
             }
-            fb := TouchArea { mouse-cursor: pointer; clicked => { App.open-add-item(); } }
+            Button { kind: 3; text: "Copy from Another Save"; clicked => { App.copy-inventory(); } }
         }
     }
 }
@@ -632,10 +743,10 @@ component PartyTab inherits Rectangle {
                     VerticalLayout {
                         alignment: center;
                         width: 160px;
-                        Text { text: n.name; font-family: Theme.list-font; font-size: 19px; color: n.changed ? Theme.changed : Theme.text; }
+                        Text { text: n.name; font-family: Theme.list-font; font-size: 19px * Theme.ts; color: n.changed ? Theme.changed : Theme.text; }
                         Text {
                             text: n.in-party ? "In the party" : n.has-creature ? (n.recruited ? "Recruited" : "Not recruited") : "Not met in this save";
-                            font-family: Theme.body-font; font-size: 12.5px; color: Theme.faint;
+                            font-family: Theme.body-font; font-size: 12.5px * Theme.ts; color: Theme.faint;
                         }
                     }
                     HorizontalLayout {
@@ -643,7 +754,7 @@ component PartyTab inherits Rectangle {
                         alignment: start;
                         width: 140px;
                         VerticalLayout { alignment: center; Switch { on: n.recruited; enabled: n.has-creature; toggled(v) => { App.set-recruited(n.index, v); } } }
-                        Text { text: "Recruited"; vertical-alignment: center; font-family: Theme.body-font; font-size: 14px; color: n.has-creature ? Theme.muted : Theme.faint; }
+                        Text { text: "Recruited"; vertical-alignment: center; font-family: Theme.body-font; font-size: 14px * Theme.ts; color: n.has-creature ? Theme.muted : Theme.faint; }
                     }
                     HorizontalLayout {
                         spacing: 10px;
@@ -657,22 +768,22 @@ component PartyTab inherits Rectangle {
                                 toggled(v) => { App.set-in-party(n.index, v); }
                             }
                         }
-                        Text { text: "With you"; vertical-alignment: center; font-family: Theme.body-font; font-size: 14px; color: n.has-creature ? Theme.muted : Theme.faint; }
+                        Text { text: "With you"; vertical-alignment: center; font-family: Theme.body-font; font-size: 14px * Theme.ts; color: n.has-creature ? Theme.muted : Theme.faint; }
                     }
                     HorizontalLayout {
                         spacing: 10px;
                         alignment: start;
                         width: 160px;
                         VerticalLayout { alignment: center; Switch { on: n.selectable; toggled(v) => { App.set-selectable(n.index, v); } } }
-                        Text { text: "Can be picked"; vertical-alignment: center; font-family: Theme.body-font; font-size: 14px; color: Theme.muted; }
+                        Text { text: "Can be picked"; vertical-alignment: center; font-family: Theme.body-font; font-size: 14px * Theme.ts; color: Theme.muted; }
                     }
                     if n.has-influence: HorizontalLayout {
                         spacing: 10px;
                         width: 210px;
-                        Text { text: "Influence"; vertical-alignment: center; font-family: Theme.body-font; font-size: 14px; color: Theme.muted; }
+                        Text { text: "Influence"; vertical-alignment: center; font-family: Theme.body-font; font-size: 14px * Theme.ts; color: Theme.muted; }
                         VerticalLayout {
                             alignment: center;
-                            Stepper { width: 140px; height: 36px; value: n.influence; minimum: 0; maximum: 100; font-size: 17px; set(v) => { App.set-influence(n.index, v); } }
+                            Stepper { width: 140px; height: 36px; value: n.influence; minimum: 0; maximum: 100; font-size: 17px * Theme.ts; set(v) => { App.set-influence(n.index, v); } }
                         }
                     }
                     Rectangle { horizontal-stretch: 1; }
@@ -690,7 +801,7 @@ component PartyTab inherits Rectangle {
         spacing: 14px;
         VerticalLayout {
             alignment: center;
-            Text { text: "Party experience"; font-family: Theme.list-font; font-size: 19px; color: Theme.text; }
+            Text { text: "Party experience"; font-family: Theme.list-font; font-size: 19px * Theme.ts; color: Theme.text; }
             Note { text: "Members who join later catch up to their share of it."; }
         }
         VerticalLayout {
@@ -712,14 +823,14 @@ component GlobalsSection inherits Rectangle {
             text <=> query;
             placeholder: "Type part of a name, for example tar_ or k_swg";
             font: Theme.body-font;
-            font-size: 15px;
+            font-size: 15px * Theme.ts;
             edited(t) => { App.filter-globals(t, changed-only); }
         }
         HorizontalLayout {
             width: 230px;
             spacing: 10px;
             VerticalLayout { alignment: center; Switch { on: changed-only; toggled(v) => { changed-only = v; App.filter-globals(query, v); } } }
-            Text { text: App.compare-name != "" ? "Only the differences" : "Only what I changed"; vertical-alignment: center; font-family: Theme.body-font; font-size: 14px; color: Theme.muted; }
+            Text { text: App.compare-name != "" ? "Only the differences" : "Only what I changed"; vertical-alignment: center; font-family: Theme.body-font; font-size: 14px * Theme.ts; color: Theme.muted; }
         }
         Button { kind: 3; text: App.compare-name != "" ? "Compare Another" : "Compare with Another Save"; clicked => { App.open-compare(); } }
         if App.compare-name != "": Button { kind: 3; text: "Take All Theirs"; clicked => { App.use-all-other(); } }
@@ -735,18 +846,18 @@ component GlobalsSection inherits Rectangle {
                 Rectangle { x: 0; y: parent.height - 1px; height: 1px; background: Theme.row-line; }
                 HorizontalLayout {
                     spacing: 14px;
-                    Text { text: g.name; vertical-alignment: center; font-family: Theme.list-font; font-size: 16px; color: g.changed ? Theme.changed : Theme.text; overflow: elide; }
-                    Text { width: 90px; text: g.kind == 0 ? "switch" : g.kind == 1 ? "number" : "text"; vertical-alignment: center; font-family: Theme.body-font; font-size: 12.5px; color: Theme.faint; }
+                    Text { text: g.name; vertical-alignment: center; font-family: Theme.list-font; font-size: 16px * Theme.ts; color: g.changed ? Theme.changed : Theme.text; overflow: elide; }
+                    Text { width: 90px; text: g.kind == 0 ? "switch" : g.kind == 1 ? "number" : "text"; vertical-alignment: center; font-family: Theme.body-font; font-size: 12.5px * Theme.ts; color: Theme.faint; }
                     Rectangle {
                         width: 170px;
                         if g.kind == 0: Switch { x: 0; y: (parent.height - self.height) / 2; on: g.on; changed: g.changed; toggled(v) => { App.set-global-bool(g.index, v); } }
-                        if g.kind == 1: Stepper { x: 0; y: 4px; width: 150px; height: 36px; value: g.number; minimum: -128; maximum: 127; changed: g.changed; font-size: 16px; set(v) => { App.set-global-number(g.index, v); } }
-                        if g.kind == 2: Field { y: 4px; height: 36px; text: g.text; changed: g.changed; font-size: 15px; accepted(t) => { App.set-global-text(g.index, t); } }
+                        if g.kind == 1: Stepper { x: 0; y: 4px; width: 150px; height: 36px; value: g.number; minimum: -128; maximum: 127; changed: g.changed; font-size: 16px * Theme.ts; set(v) => { App.set-global-number(g.index, v); } }
+                        if g.kind == 2: Field { y: 4px; height: 36px; text: g.text; changed: g.changed; font-size: 15px * Theme.ts; accepted(t) => { App.set-global-text(g.index, t); } }
                     }
                     if App.compare-name != "": HorizontalLayout {
                         width: 230px;
                         spacing: 8px;
-                        Text { text: g.other; vertical-alignment: center; horizontal-alignment: right; font-family: Theme.body-font; font-size: 14px; color: Theme.gold; overflow: elide; }
+                        Text { text: g.other; vertical-alignment: center; horizontal-alignment: right; font-family: Theme.body-font; font-size: 14px * Theme.ts; color: Theme.gold; overflow: elide; }
                         VerticalLayout { alignment: center; Button { kind: 3; text: "Take"; clicked => { App.use-other(g.index); } } }
                     }
                 }
@@ -774,13 +885,13 @@ component AreaSection inherits Rectangle {
                         spacing: 10px;
                         VerticalLayout {
                             alignment: center;
-                            Text { text: d.tag; font-family: Theme.list-font; font-size: 16px; color: d.changed ? Theme.changed : Theme.text; overflow: elide; }
-                            Text { text: d.note; font-family: Theme.body-font; font-size: 12px; color: Theme.faint; overflow: elide; }
+                            Text { text: d.tag; font-family: Theme.list-font; font-size: 16px * Theme.ts; color: d.changed ? Theme.changed : Theme.text; overflow: elide; }
+                            Text { text: d.note; font-family: Theme.body-font; font-size: 12px * Theme.ts; color: Theme.faint; overflow: elide; }
                         }
                         VerticalLayout { alignment: center; Switch { on: d.locked; changed: d.changed; toggled(v) => { App.set-door-locked(d.index, v); } } }
-                        Text { width: 60px; text: "Locked"; vertical-alignment: center; font-family: Theme.body-font; font-size: 13px; color: Theme.muted; }
+                        Text { width: 60px; text: "Locked"; vertical-alignment: center; font-family: Theme.body-font; font-size: 13px * Theme.ts; color: Theme.muted; }
                         VerticalLayout { alignment: center; Switch { on: d.open; changed: d.changed; toggled(v) => { App.set-door-open(d.index, v); } } }
-                        Text { width: 46px; text: "Open"; vertical-alignment: center; font-family: Theme.body-font; font-size: 13px; color: Theme.muted; }
+                        Text { width: 46px; text: "Open"; vertical-alignment: center; font-family: Theme.body-font; font-size: 13px * Theme.ts; color: Theme.muted; }
                     }
                 }
             }
@@ -794,9 +905,9 @@ component AreaSection inherits Rectangle {
             x: 0; y: 30px;
             height: 40px;
             spacing: 8px;
-            px := Field { text: App.position-x; changed: App.position-changed; font-size: 15px; accepted(t) => { App.set-position(px.text, py.text, pz.text); } }
-            py := Field { text: App.position-y; changed: App.position-changed; font-size: 15px; accepted(t) => { App.set-position(px.text, py.text, pz.text); } }
-            pz := Field { text: App.position-z; changed: App.position-changed; font-size: 15px; accepted(t) => { App.set-position(px.text, py.text, pz.text); } }
+            px := Field { text: App.position-x; changed: App.position-changed; font-size: 15px * Theme.ts; accepted(t) => { App.set-position(px.text, py.text, pz.text); } }
+            py := Field { text: App.position-y; changed: App.position-changed; font-size: 15px * Theme.ts; accepted(t) => { App.set-position(px.text, py.text, pz.text); } }
+            pz := Field { text: App.position-z; changed: App.position-changed; font-size: 15px * Theme.ts; accepted(t) => { App.set-position(px.text, py.text, pz.text); } }
         }
         Label { x: 0; y: 92px; text: "CONTAINERS AND STORES"; }
         Scroller {
@@ -813,8 +924,8 @@ component AreaSection inherits Rectangle {
                     HorizontalLayout {
                         padding-left: 8px;
                         padding-right: 8px;
-                        Text { text: b.name; vertical-alignment: center; font-family: Theme.list-font; font-size: 16px; color: Theme.text; overflow: elide; }
-                        Text { text: b.note; vertical-alignment: center; horizontal-alignment: right; font-family: Theme.body-font; font-size: 12.5px; color: Theme.faint; }
+                        Text { text: b.name; vertical-alignment: center; font-family: Theme.list-font; font-size: 16px * Theme.ts; color: Theme.text; overflow: elide; }
+                        Text { text: b.note; vertical-alignment: center; horizontal-alignment: right; font-family: Theme.body-font; font-size: 12.5px * Theme.ts; color: Theme.faint; }
                     }
                     bt := TouchArea { mouse-cursor: pointer; clicked => { App.select-box(i); } }
                 }
@@ -857,7 +968,7 @@ component MoreSection inherits Rectangle {
                     height: 44px;
                     Rectangle { x: 0; y: parent.height - 1px; height: 1px; background: Theme.row-line; }
                     HorizontalLayout {
-                        Text { text: p.name; horizontal-stretch: 1; vertical-alignment: center; overflow: elide; font-family: Theme.list-font; font-size: 16px; color: p.changed ? Theme.changed : Theme.text; }
+                        Text { text: p.name; horizontal-stretch: 1; vertical-alignment: center; overflow: elide; font-family: Theme.list-font; font-size: 16px * Theme.ts; color: p.changed ? Theme.changed : Theme.text; }
                         VerticalLayout { alignment: center; Switch { on: p.on; changed: p.changed; toggled(v) => { App.set-planet(p.index, v); } } }
                     }
                 }
@@ -878,10 +989,10 @@ component MoreSection inherits Rectangle {
                     height: 46px;
                     Rectangle { x: 0; y: parent.height - 1px; height: 1px; background: Theme.row-line; }
                     HorizontalLayout {
-                        Text { text: c.name; vertical-alignment: center; font-family: Theme.list-font; font-size: 16px; color: c.changed ? Theme.changed : Theme.text; }
+                        Text { text: c.name; vertical-alignment: center; font-family: Theme.list-font; font-size: 16px * Theme.ts; color: c.changed ? Theme.changed : Theme.text; }
                         VerticalLayout {
                             alignment: center;
-                            Stepper { width: 130px; height: 34px; value: c.value; minimum: 0; maximum: 9; changed: c.changed; font-size: 16px; set(v) => { App.set-pazaak(c.index, v); } }
+                            Stepper { width: 130px; height: 34px; value: c.value; minimum: 0; maximum: 9; changed: c.changed; font-size: 16px * Theme.ts; set(v) => { App.set-pazaak(c.index, v); } }
                         }
                     }
                 }
@@ -897,7 +1008,7 @@ component MoreSection inherits Rectangle {
             height: 40px;
             spacing: 12px;
             VerticalLayout { alignment: center; Switch { on: App.cheat-used; changed: App.cheat-changed; toggled(v) => { App.set-cheat(v); } } }
-            Text { text: "Marked as cheated"; vertical-alignment: center; font-family: Theme.list-font; font-size: 17px; color: Theme.text; }
+            Text { text: "Marked as cheated"; vertical-alignment: center; font-family: Theme.list-font; font-size: 17px * Theme.ts; color: Theme.text; }
         }
         Note { x: 0; y: 84px; width: parent.width; text: "The game sets this when the console's cheats are used. Turning it off clears the mark from the save."; }
         Label { x: 0; y: 286px; text: "TIME PLAYED"; }
@@ -942,10 +1053,10 @@ component CreaturesSection inherits Rectangle {
                     spacing: 12px;
                     VerticalLayout {
                         alignment: center;
-                        Text { text: c.name; font-family: Theme.list-font; font-size: 16px; color: Theme.text; overflow: elide; }
-                        Text { text: c.note; font-family: Theme.body-font; font-size: 12px; color: Theme.faint; overflow: elide; }
+                        Text { text: c.name; font-family: Theme.list-font; font-size: 16px * Theme.ts; color: Theme.text; overflow: elide; }
+                        Text { text: c.note; font-family: Theme.body-font; font-size: 12px * Theme.ts; color: Theme.faint; overflow: elide; }
                     }
-                    Text { width: 120px; text: "Health " + c.hp + " / " + c.max-hp; vertical-alignment: center; font-family: Theme.body-font; font-size: 13px; color: Theme.muted; }
+                    Text { width: 120px; text: "Health " + c.hp + " / " + c.max-hp; vertical-alignment: center; font-family: Theme.body-font; font-size: 13px * Theme.ts; color: Theme.muted; }
                     Rectangle {
                         width: 36px;
                         Cross { colour: cr.has-hover ? Theme.danger : Theme.faint; }
@@ -957,47 +1068,187 @@ component CreaturesSection inherits Rectangle {
     }
 }
 
+// The quest tracker: the quests on the left in three tabs (Active first, as a player
+// looks for them), the picked quest on the right with its journal entry and every stage
+// as a timeline. Finish Quest asks which ending, then puts the quest there.
 component JournalSection inherits Rectangle {
-    HorizontalLayout {
+    property <length> list-w: min(500px * Theme.ts, self.width * 0.42);
+    // The list.
+    Choice {
         x: 0; y: 0;
-        height: 24px;
-        Label { text: "QUESTS"; }
-        Note { text: App.journal-note; horizontal-alignment: right; vertical-alignment: center; }
+        width: list-w;
+        height: 38px;
+        font-size: 13px * Theme.ts;
+        options: [
+            "Active · " + (App.quest-counts.length > 0 ? App.quest-counts[0] : 0),
+            "Completed · " + (App.quest-counts.length > 1 ? App.quest-counts[1] : 0),
+            "Not Started · " + (App.quest-counts.length > 2 ? App.quest-counts[2] : 0),
+        ];
+        current: App.quest-tab;
+        picked(i) => { App.select-quest-tab(i); }
     }
     Scroller {
-        x: 0; y: 36px;
-        height: parent.height - 36px;
-        content-height: App.journal.length * 54px;
+        x: 0; y: 52px;
+        width: list-w;
+        height: parent.height - 52px;
+        content-height: App.journal.length * 62px;
         VerticalLayout {
+            spacing: 4px;
             for j[i] in App.journal: Rectangle {
-                height: 54px;
-                border-radius: 5px;
-                background: j.owned ? Theme.selected : jq.has-hover && !j.header ? Theme.hover : transparent;
-                if j.header: Label { x: 4px; y: 26px; text: j.name; font-size: 13px; color: Theme.soft; }
-                if !j.header: Rectangle { x: 0; y: parent.height - 1px; height: 1px; background: Theme.row-line; }
-                jq := TouchArea { enabled: !j.header; mouse-cursor: pointer; clicked => { App.open-quest(j.id); } }
-                if !j.header: HorizontalLayout {
-                    padding-left: 8px;
-                    spacing: 12px;
-                    VerticalLayout {
-                        alignment: center;
-                        Text { text: j.name; font-family: Theme.list-font; font-size: 16px; color: j.changed ? Theme.changed : j.owned ? Theme.gold : Theme.text; overflow: elide; }
-                        Text { text: j.note; font-family: Theme.body-font; font-size: 12.5px; color: Theme.faint; overflow: elide; }
-                    }
+                height: 58px;
+                border-radius: 6px;
+                border-width: j.owned ? 1px : 0px;
+                border-color: Theme.accent;
+                background: j.owned ? Theme.selected : jq.has-hover ? Theme.hover : transparent;
+                VerticalLayout {
+                    padding-left: 12px;
+                    padding-right: 12px;
+                    alignment: center;
+                    spacing: 2px;
+                    Text { text: j.name; font-family: Theme.list-font; font-size: 16px * Theme.ts; color: j.changed ? Theme.changed : j.owned ? Theme.gold : Theme.text; overflow: elide; }
+                    Text { text: j.note; font-family: Theme.body-font; font-size: 12.5px * Theme.ts; color: Theme.faint; overflow: elide; }
+                }
+                jq := TouchArea { mouse-cursor: pointer; clicked => { App.pick-quest(j.id); } }
+            }
+        }
+    }
+    if App.journal.length == 0: Note {
+        x: 0; y: 64px;
+        width: list-w;
+        text: App.quest-tab == 0 ? "No quest is under way in this save." : App.quest-tab == 1 ? "No quest is finished yet." : "Every quest has been started.";
+    }
+
+    // The quest.
+    if App.quest-shown: Rectangle {
+        x: list-w + 34px;
+        width: parent.width - self.x;
+        VerticalLayout {
+            spacing: 12px;
+            HorizontalLayout {
+                spacing: 14px;
+                Text { text: App.quest-title; font-family: Theme.title-font; font-size: 24px * Theme.ts; color: Theme.text; overflow: elide; vertical-alignment: center; horizontal-stretch: 1; }
+                // Where it stands, as a small tag.
+                VerticalLayout {
+                    alignment: center;
                     Rectangle {
-                        width: 40px;
-                        if j.owned: Cross { colour: jr.has-hover ? Theme.danger : Theme.faint; }
-                        if !j.owned: Sign { plus: true; colour: Theme.accent; }
-                        jr := TouchArea {
-                            mouse-cursor: pointer;
-                            clicked => { if (j.owned) { App.remove-journal(j.id); } else { App.open-quest(j.id); } }
+                        height: 26px;
+                        width: tag.preferred-width + 22px;
+                        border-radius: 13px;
+                        border-width: 1px;
+                        border-color: App.quest-state == 0 ? Theme.accent : App.quest-state == 1 ? Theme.good : Theme.edge;
+                        tag := Text {
+                            text: App.quest-state == 0 ? "ACTIVE" : App.quest-state == 1 ? "COMPLETED" : "NOT STARTED";
+                            font-family: Theme.label-font;
+                            font-size: 11px * Theme.ts;
+                            letter-spacing: 2px;
+                            color: App.quest-state == 0 ? Theme.accent : App.quest-state == 1 ? Theme.good : Theme.faint;
                         }
                     }
+                }
+            }
+            // The journal entry where the quest stands, in full.
+            Rectangle {
+                border-radius: 8px;
+                border-width: 1px;
+                border-color: Theme.edge;
+                background: Theme.field;
+                height: entry.preferred-height + 28px;
+                entry := Text {
+                    x: 16px;
+                    width: parent.width - 32px;
+                    text: App.quest-text;
+                    wrap: word-wrap;
+                    font-family: Theme.body-font;
+                    font-size: 14.5px * Theme.ts;
+                    color: Theme.muted;
+                }
+            }
+            HorizontalLayout {
+                Label { text: "STAGES"; vertical-alignment: center; horizontal-stretch: 1; }
+                Note { text: "Click a stage to put the quest there."; vertical-alignment: center; horizontal-alignment: right; }
+            }
+            // Every stage, as a timeline.
+            Scroller {
+                vertical-stretch: 1;
+                content-height: App.quest-stages.length * 52px;
+                VerticalLayout {
+                    for g[i] in App.quest-stages: Rectangle {
+                        height: 52px;
+                        border-radius: 6px;
+                        background: sq.has-hover && g.place != 1 ? Theme.hover : transparent;
+                        // The line joining the stages.
+                        if i > 0: Rectangle { x: 22px; y: 0; width: 2px; height: parent.height / 2 - 8px; background: g.place == 0 || g.place == 1 ? Theme.accent : Theme.edge; }
+                        if i < App.quest-stages.length - 1: Rectangle { x: 22px; y: parent.height / 2 + 8px; width: 2px; height: parent.height / 2 - 8px; background: g.place == 0 ? Theme.accent : Theme.edge; }
+                        // Behind: filled; here: a gold ring; ahead: an empty ring.
+                        Rectangle {
+                            x: 23px - self.width / 2;
+                            y: (parent.height - self.height) / 2;
+                            width: g.place == 1 ? 18px : 12px;
+                            height: self.width;
+                            border-radius: self.width / 2;
+                            border-width: g.place == 1 ? 3px : 2px;
+                            border-color: g.place == 1 ? Theme.gold : g.place == 0 ? Theme.accent : Theme.edge;
+                            background: g.place == 0 ? Theme.accent : g.place == 1 ? Theme.field : Theme.panel;
+                        }
+                        HorizontalLayout {
+                            x: 46px;
+                            width: parent.width - 54px;
+                            spacing: 12px;
+                            Text {
+                                text: g.text != "" ? g.text : "Stage " + g.id;
+                                vertical-alignment: center;
+                                font-family: Theme.body-font;
+                                font-size: 14px * Theme.ts;
+                                color: g.place == 1 ? Theme.text : g.place == 0 ? Theme.muted : Theme.soft;
+                                overflow: elide;
+                                horizontal-stretch: 1;
+                            }
+                            if g.end: VerticalLayout {
+                                alignment: center;
+                                Rectangle {
+                                    height: 22px;
+                                    width: et.preferred-width + 16px;
+                                    border-radius: 11px;
+                                    border-width: 1px;
+                                    border-color: Theme.good;
+                                    et := Text { text: "ENDING"; font-family: Theme.label-font; font-size: 10px * Theme.ts; letter-spacing: 2px; color: Theme.good; }
+                                }
+                            }
+                            if g.xp > 0: Text { text: "+" + g.xp + " XP"; vertical-alignment: center; font-family: Theme.body-font; font-size: 13px * Theme.ts; color: Theme.gold; }
+                        }
+                        sq := TouchArea {
+                            enabled: g.place != 1;
+                            mouse-cursor: self.enabled ? pointer : default;
+                            clicked => { App.set-quest-stage(g.id); }
+                        }
+                    }
+                }
+            }
+            // What to do with it.
+            HorizontalLayout {
+                spacing: 14px;
+                alignment: start;
+                if App.quest-state != 1 && App.quest-endings.length > 0: Button {
+                    width: 240px;
+                    kind: 0;
+                    text: "Finish Quest";
+                    clicked => { App.open-finish-quest(); }
+                }
+                if App.quest-state == 2 && App.quest-stages.length > 0: Button {
+                    kind: 1;
+                    text: "Start Quest";
+                    clicked => { App.set-quest-stage(App.quest-stages[0].id); }
+                }
+                Rectangle { horizontal-stretch: 1; }
+                if App.quest-state != 2: VerticalLayout {
+                    alignment: center;
+                    Link { text: "Take Out of the Journal"; clicked => { App.remove-quest(); } }
                 }
             }
         }
     }
 }
+
 
 component StoryTab inherits Rectangle {
     HorizontalLayout {
@@ -1005,14 +1256,22 @@ component StoryTab inherits Rectangle {
         height: 38px;
         spacing: 10px;
         alignment: start;
-        for s[i] in ["Global Variables", "Area", "Creatures", "Quests", "Galaxy Map, Pazaak and More"]: Rectangle {
+        // Quests first: what a player opens Story for. The section numbers stay as main.rs
+        // knows them (0 globals, 1 area, 2 creatures, 3 quests, 4 more).
+        for s[k] in [
+            { name: "Quests", section: 3 },
+            { name: "Galaxy Map, Pazaak and More", section: 4 },
+            { name: "Global Variables", section: 0 },
+            { name: "Area", section: 1 },
+            { name: "Creatures", section: 2 },
+        ]: Rectangle {
             width: t.preferred-width + 30px;
             border-radius: 5px;
             border-width: 1px;
-            border-color: i == App.story-section ? Theme.accent : Theme.edge;
-            background: i == App.story-section ? Theme.selected : st.has-hover ? Theme.hover : Theme.field;
-            t := Text { text: s; font-family: Theme.list-font; font-size: 16px; color: i == App.story-section ? Theme.text : Theme.soft; }
-            st := TouchArea { mouse-cursor: pointer; clicked => { App.select-story(i); } }
+            border-color: s.section == App.story-section ? Theme.accent : Theme.edge;
+            background: s.section == App.story-section ? Theme.selected : st.has-hover ? Theme.hover : Theme.field;
+            t := Text { text: s.name; font-family: Theme.list-font; font-size: 16px * Theme.ts; color: s.section == App.story-section ? Theme.text : Theme.soft; }
+            st := TouchArea { mouse-cursor: pointer; clicked => { App.select-story(s.section); } }
         }
     }
     Rectangle {
@@ -1030,34 +1289,16 @@ component StoryTab inherits Rectangle {
 // containers, things to use, people and map notes. A pick shows what it is and where the
 // player can stand next to it; Move Here puts the player there.
 component MapTab inherits Rectangle {
-    property <length> side: 230px;
-    property <length> info: 270px;
-    // Areas: this one, where its exits lead, and others the save has been to.
-    Label { x: 0; y: 0; text: "AREAS"; }
-    Scroller {
-        x: 0;
-        y: 30px;
-        width: side;
-        height: parent.height - 30px;
-        content-height: App.map-areas.length * 56px;
-        VerticalLayout {
-            for a in App.map-areas: Rectangle {
-                height: 54px;
-                border-radius: 5px;
-                border-width: a.viewing ? 1px : 0px;
-                border-color: Theme.accent;
-                background: a.viewing ? Theme.selected : at.has-hover && a.visited ? Theme.hover : transparent;
-                VerticalLayout {
-                    padding-left: 10px;
-                    padding-right: 6px;
-                    alignment: center;
-                    Text { text: a.name; font-family: Theme.list-font; font-size: 15px; color: a.current ? Theme.gold : a.visited ? Theme.text : Theme.faint; overflow: elide; }
-                    Text { text: a.note; font-family: Theme.body-font; font-size: 11.5px; color: Theme.faint; overflow: elide; }
-                }
-                at := TouchArea { enabled: a.visited; mouse-cursor: a.visited ? pointer : default; clicked => { App.view-area(a.module); } }
-            }
-        }
-    }
+    // The map leads: it takes everything but the rail on the right, which holds the
+    // area's name and one of three panes (2026-10-22, the maintainer: "make the map the
+    // biggest thing ... the rest of the menus on the right side").
+    // The map takes everything but the rail: its frame fills the room left of the zoom
+    // buttons and above the key, the picture as large as fits inside.
+    property <length> rail: 300px * Theme.ts;
+    // 0 what is picked, 1 the areas, 2 help when stuck.
+    property <int> pane: 0;
+    changed pick-title => { pane = 0; }
+    property <string> pick-title: App.pick-title;
     // The view: how far in (1 is the whole map) and the map point (0 to 1) at its middle.
     property <float> zoom: 1;
     property <float> cx: 0.5;
@@ -1082,23 +1323,20 @@ component MapTab inherits Rectangle {
     }
     // The map.
     Rectangle {
-        x: side + 20px;
-        width: parent.width - side - info - 40px;
-        Text { x: 0; y: 0; text: App.map-title; font-family: Theme.title-font; font-size: 22px; color: Theme.text; overflow: elide; width: parent.width; }
-        Note { x: 0; y: 30px; width: parent.width; text: App.map-note; }
+        x: 0;
+        width: parent.width - rail - 20px;
         frame := Rectangle {
-            property <length> room-h: parent.height - 64px;
-            // Room for the zoom buttons beside it.
-            property <length> w: min(parent.width - 48px, room-h * App.map-aspect);
-            // The whole map at this zoom, and where its corner is in the view.
-            property <length> cw: self.width * zoom;
-            property <length> ch: self.height * zoom;
-            property <length> ox: self.width * (0.5 - cx * zoom);
-            property <length> oy: self.height * (0.5 - cy * zoom);
-            x: (parent.width - 48px - self.w) / 2;
-            y: 58px;
-            width: self.w;
-            height: self.w / App.map-aspect;
+            // The whole map at zoom 1, as large as fits; at this zoom; and where its corner is.
+            property <length> base-w: min(self.width, self.height * App.map-aspect);
+            property <length> cw: self.base-w * zoom;
+            property <length> ch: self.cw / App.map-aspect;
+            property <length> ox: self.width / 2 - cx * self.cw;
+            property <length> oy: self.height / 2 - cy * self.ch;
+            x: 0;
+            y: 0;
+            // Room for the key below it; the zoom buttons sit inside, on its right.
+            width: parent.width;
+            height: parent.height - 34px;
             border-radius: 6px;
             border-width: 1px;
             border-color: Theme.edge;
@@ -1116,13 +1354,15 @@ component MapTab inherits Rectangle {
                 source-clip-height: App.map-picture.height;
                 image-fit: fill;
             }
-            if !App.has-map: Text { text: "This area has no map picture"; color: Theme.faint; font-family: Theme.body-font; font-size: 14px; }
+            if !App.has-map: Text { text: "This area has no map picture"; color: Theme.faint; font-family: Theme.body-font; font-size: 14px * Theme.ts; }
             // A click picks a floor spot; zoomed in, a drag moves the view; the wheel zooms.
-            TouchArea {
+            aim := TouchArea {
                 property <bool> dragged;
                 property <float> from-x;
                 property <float> from-y;
-                mouse-cursor: self.dragged && self.pressed ? MouseCursor.grabbing : MouseCursor.crosshair;
+                // The system crosshair is drawn inverted (see-through on the map); the map
+                // draws its own, in the accent colour (below).
+                mouse-cursor: self.dragged && self.pressed ? MouseCursor.grabbing : MouseCursor.none;
                 pointer-event(e) => {
                     if e.kind == PointerEventKind.down {
                         self.dragged = false;
@@ -1146,7 +1386,7 @@ component MapTab inherits Rectangle {
                 }
                 scroll-event(e) => {
                     if e.delta-y != 0 {
-                        zoom-by(e.delta-y > 0 ? 1.25 : 0.8, self.mouse-x / self.width, self.mouse-y / self.height);
+                        zoom-by(e.delta-y > 0 ? 1.25 : 0.8, 0.5 + (self.mouse-x - frame.width / 2) / frame.base-w, 0.5 + (self.mouse-y - frame.height / 2) / (frame.base-w / App.map-aspect));
                         return accept;
                     }
                     return reject;
@@ -1193,7 +1433,7 @@ component MapTab inherits Rectangle {
                         height: 24px;
                         border-radius: 4px;
                         background: #000000d8;
-                        tip := Text { text: m.name; color: #ffffff; font-family: Theme.body-font; font-size: 12.5px; }
+                        tip := Text { text: m.name; color: #ffffff; font-family: Theme.body-font; font-size: 12.5px * Theme.ts; }
                     }
                 }
                 // You: the game's own map arrow, turned the way the player faces.
@@ -1215,10 +1455,22 @@ component MapTab inherits Rectangle {
                 }
             }
         }
-        // Zoom: + and - beside the map, never over a marker.
+        // The pointer over the map: a solid crosshair, a dark edge round the accent so it
+        // reads on light and dark parts of the picture.
+        if aim.has-hover && !(aim.dragged && aim.pressed): Rectangle {
+            x: frame.x + aim.mouse-x - 12px;
+            y: frame.y + aim.mouse-y - 12px;
+            width: 24px;
+            height: 24px;
+            Rectangle { x: 10px; y: 0; width: 4px; height: 24px; background: #000000a0; }
+            Rectangle { x: 0; y: 10px; width: 24px; height: 4px; background: #000000a0; }
+            Rectangle { x: 11px; y: 1px; width: 2px; height: 22px; background: Theme.accent; }
+            Rectangle { x: 1px; y: 11px; width: 22px; height: 2px; background: Theme.accent; }
+        }
+        // Zoom: + and - inside the map on its right, in the dark beside the picture.
         Rectangle {
             property <length> half: 40px;
-            x: frame.x + frame.width + 10px;
+            x: frame.x + frame.width - self.width - 12px;
             y: frame.y + (frame.height - self.height) / 2;
             width: 38px;
             height: self.half * 2;
@@ -1272,47 +1524,79 @@ component MapTab inherits Rectangle {
             x: frame.x;
             y: frame.y + frame.height + 8px;
             height: 20px;
-            spacing: 14px;
+            spacing: 18px;
+            alignment: start;
             HorizontalLayout {
                 spacing: 5px;
                 Image { width: 18px; height: 18px; source: App.map-arrow; image-fit: contain; }
-                Text { text: "You"; vertical-alignment: center; font-family: Theme.body-font; font-size: 12px; color: Theme.muted; }
+                Text { text: "You"; vertical-alignment: center; font-family: Theme.body-font; font-size: 12px * Theme.ts; color: Theme.muted; }
             }
             for k[i] in ["Door", "Way out", "Container", "To use", "Person", "Map note"]: HorizontalLayout {
                 spacing: 5px;
                 Image { width: 18px; height: 18px; source: App.map-icons[i]; }
-                Text { text: k; vertical-alignment: center; font-family: Theme.body-font; font-size: 12px; color: Theme.muted; }
+                Text { text: k; vertical-alignment: center; font-family: Theme.body-font; font-size: 12px * Theme.ts; color: Theme.muted; }
             }
         }
     }
-    // What is picked.
-    Rectangle {
-        x: parent.width - info;
-        width: info;
-        Label { x: 0; y: 0; text: "PICKED"; }
-        VerticalLayout {
-            x: 0;
-            y: 30px;
-            width: parent.width;
+    // The rail: the area's name, a switch, and the pane it picks.
+    VerticalLayout {
+        x: parent.width - rail;
+        width: rail;
+        spacing: 8px;
+        Text { text: App.map-title; font-family: Theme.title-font; font-size: 19px * Theme.ts; color: Theme.text; overflow: elide; }
+        Note { text: App.map-note; font-size: 12.5px * Theme.ts; }
+        Choice {
+            height: 34px;
+            font-size: 14px * Theme.ts;
+            options: ["Picked", "Areas", "Stuck?"];
+            current: pane;
+            picked(i) => { pane = i; }
+        }
+        Rectangle { height: 6px; }
+        if pane == 0: VerticalLayout {
+            vertical-stretch: 1;
             spacing: 10px;
-            height: self.preferred-height;
-            Text { text: App.pick-title; font-family: Theme.title-font; font-size: 20px; color: Theme.text; wrap: word-wrap; }
-            Note { text: App.pick-note; font-size: 13.5px; }
-            if App.pick-can-move: Button { kind: 0; text: App.pick-move-label; font-size: 16px; clicked => { App.move-here(0); } }
-            if App.pick-has-second: Button { kind: 1; text: App.pick-second-label; font-size: 16px; clicked => { App.move-here(1); } }
+            alignment: start;
+            Text { text: App.pick-title; font-family: Theme.title-font; font-size: 16px * Theme.ts; color: Theme.text; wrap: word-wrap; }
+            Note { text: App.pick-note; font-size: 12.5px * Theme.ts; }
+            Rectangle { height: 2px; }
+            if App.pick-can-move: Button { kind: 0; compact: true; text: App.pick-move-label; font-size: 15px * Theme.ts; clicked => { App.move-here(0); } }
+            if App.pick-has-second: Button { kind: 1; compact: true; text: App.pick-second-label; font-size: 15px * Theme.ts; clicked => { App.move-here(1); } }
+            if App.map-here: Button { kind: 1; compact: true; enabled: App.pick-can-spawn; text: "Spawn a Creature"; font-size: 15px * Theme.ts; clicked => { App.spawn-here(); } }
+            if App.map-here && !App.pick-can-spawn: Note { font-size: 12.5px * Theme.ts; text: "Click a spot on the floor of the map to choose where a creature appears."; }
+            if App.pick-can-remove: Button { kind: 4; compact: true; text: "Remove " + App.pick-title; font-size: 15px * Theme.ts; clicked => { App.remove-pick(); } }
+            if App.pick-can-remove: Note { font-size: 12.5px * Theme.ts; text: "Added with this editor, so it can be taken out again. The area's own creatures stay."; }
             if App.pick-is-exit: Button { kind: 3; text: "Show Where It Leads"; clicked => { App.follow-exit(); } }
             if App.pick-can-unlock: Button { kind: 3; text: "Unlock"; clicked => { App.unlock-pick(); } }
         }
-        VerticalLayout {
-            x: 0;
-            y: parent.height - self.preferred-height;
-            width: parent.width;
-            spacing: 8px;
-            height: self.preferred-height;
-            Label { text: "STUCK?"; }
-            Note { text: "Move to any marked place, or click the floor. Every spot is checked to be walkable floor with room around it, out of the walls."; }
+        if pane == 1: Scroller {
+            vertical-stretch: 1;
+            content-height: App.map-areas.length * 56px;
+            VerticalLayout {
+                for a in App.map-areas: Rectangle {
+                    height: 54px;
+                    border-radius: 5px;
+                    border-width: a.viewing ? 1px : 0px;
+                    border-color: Theme.accent;
+                    background: a.viewing ? Theme.selected : at.has-hover && a.visited ? Theme.hover : transparent;
+                    VerticalLayout {
+                        padding-left: 10px;
+                        padding-right: 6px;
+                        alignment: center;
+                        Text { text: a.name; font-family: Theme.list-font; font-size: 15px * Theme.ts; color: a.current ? Theme.gold : a.visited ? Theme.text : Theme.faint; overflow: elide; }
+                        Text { text: a.note; font-family: Theme.body-font; font-size: 11.5px * Theme.ts; color: Theme.faint; overflow: elide; }
+                    }
+                    at := TouchArea { enabled: a.visited; mouse-cursor: a.visited ? pointer : default; clicked => { App.view-area(a.module); } }
+                }
+            }
+        }
+        if pane == 2: VerticalLayout {
+            vertical-stretch: 1;
+            spacing: 10px;
+            alignment: start;
+            Note { font-size: 12.5px * Theme.ts; text: "Move to any marked place, or click the floor. Every spot is checked to be walkable floor with room around it, out of the walls."; }
             Button { kind: 3; text: "Open Every Door Here"; clicked => { App.open-all-doors(); } }
-            Note { text: "A quest that will not move on: Story, Quests, pick it and choose its ending."; }
+            Note { font-size: 12.5px * Theme.ts; text: "A quest that will not move on: Story, Quests, pick it and choose its ending."; }
         }
     }
 }
@@ -1335,7 +1619,7 @@ export component EditorPage inherits Rectangle {
             alignment: start;
             for t[i] in ["Character", "Abilities", "Inventory", "Party", "Story", "Map"]: Rectangle {
                 width: tt.preferred-width + 60px;
-                tt := Text { y: 10px; text: t; font-family: Theme.list-font; font-size: 20px; color: i == App.tab ? Theme.text : ta.has-hover ? Theme.muted : Theme.soft; }
+                tt := Text { y: 10px; text: t; font-family: Theme.list-font; font-size: 20px * Theme.ts; color: i == App.tab ? Theme.text : ta.has-hover ? Theme.muted : Theme.soft; }
                 if App.tab-changed[i]: Rectangle {
                     x: tt.x + tt.width + 6px;
                     y: 12px;
@@ -1353,16 +1637,16 @@ export component EditorPage inherits Rectangle {
             y: 16px;
             text: App.context-line;
             font-family: Theme.body-font;
-            font-size: 14px;
+            font-size: 14px * Theme.ts;
             color: Theme.faint;
         }
     }
-    // The party
-    Scroller {
+    // The party (not on the map or the story, which take its room)
+    if App.tab != 5 && App.tab != 4: Scroller {
         x: 60px;
         y: 240px;
         width: 262px;
-        height: parent.height - 240px - 160px;
+        height: parent.height - 240px - 36px;
         content-height: App.members.length * 72px;
         VerticalLayout {
             spacing: 6px;
@@ -1386,8 +1670,8 @@ export component EditorPage inherits Rectangle {
                     }
                     VerticalLayout {
                         alignment: center;
-                        Text { text: m.name; font-family: Theme.list-font; font-size: 18px; color: m.changed ? Theme.changed : i == App.who ? Theme.gold : Theme.muted; overflow: elide; }
-                        Text { text: m.sub; font-family: Theme.body-font; font-size: 12.5px; color: Theme.faint; overflow: elide; }
+                        Text { text: m.name; font-family: Theme.list-font; font-size: 18px * Theme.ts; color: m.changed ? Theme.changed : i == App.who ? Theme.gold : Theme.muted; overflow: elide; }
+                        Text { text: m.sub; font-family: Theme.body-font; font-size: 12.5px * Theme.ts; color: Theme.faint; overflow: elide; }
                     }
                 }
                 mt := TouchArea { mouse-cursor: pointer; clicked => { App.select-who(i); } }
@@ -1396,10 +1680,10 @@ export component EditorPage inherits Rectangle {
     }
     // The tab
     Rectangle {
-        x: 342px;
+        x: App.tab == 5 || App.tab == 4 ? 60px : 342px;
         y: 240px;
         width: parent.width - self.x - 60px;
-        height: parent.height - 240px - 160px;
+        height: parent.height - 240px - 36px;
         background: Theme.panel;
         border-width: 1px;
         border-color: Theme.panel-edge;
@@ -1417,59 +1701,29 @@ export component EditorPage inherits Rectangle {
             if App.tab == 5: MapTab { }
         }
     }
-    // Save, revert, the backup
+    // Revert and Save Changes, top right beside the settings button (2026-10-22, the
+    // maintainer: the bottom bar's place goes to the tabs; the backup moved to Settings).
     HorizontalLayout {
-        x: 60px;
-        y: parent.height - 136px;
-        width: parent.width - 120px;
-        height: 64px;
-        spacing: 14px;
-        HorizontalLayout {
-            width: 250px;
-            spacing: 10px;
-            alignment: start;
-            if App.change-count > 0: Text {
-                text: App.change-count;
-                vertical-alignment: center;
-                font-family: Theme.title-font;
-                font-size: 24px;
-                color: Theme.changed;
-            }
-            Text {
-                text: App.change-count == 0 ? "No changes" : App.change-count == 1 ? "change" : "changes";
-                vertical-alignment: center;
-                font-family: Theme.title-font;
-                font-size: 24px;
-                color: Theme.text;
-            }
-        }
-        Rectangle {
-            border-width: 1px;
-            border-color: App.status-bad ? Theme.danger : Theme.edge;
-            border-radius: 6px;
-            background: Theme.field;
-            VerticalLayout {
-                padding-left: 16px;
-                padding-right: 16px;
-                alignment: center;
-                spacing: 4px;
-                Text {
-                    text: App.status != "" ? (App.status-bad ? "COULD NOT SAVE" : "SAVED") : "A BACKUP IS MADE BEFORE SAVING";
-                    font-family: Theme.label-font;
-                    font-size: 11px;
-                    letter-spacing: 2px;
-                    color: App.status-bad ? Theme.danger : App.status != "" ? Theme.good : Theme.faint;
-                }
-                Text {
-                    text: App.status != "" ? App.status : App.backup-path;
-                    font-family: Theme.body-font;
-                    font-size: 14px;
-                    color: Theme.muted;
-                    overflow: elide;
-                }
-            }
-        }
-        Button { width: 170px; text: "Revert"; kind: 2; enabled: App.change-count > 0; clicked => { App.revert(); } }
-        Button { width: 330px; text: "Save Changes"; kind: 0; enabled: App.change-count > 0; clicked => { App.save-changes(); } }
+        x: parent.width - 60px - 50px - 14px - self.width;
+        y: 52px;
+        width: 150px + 12px + 260px;
+        height: 50px;
+        spacing: 12px;
+        Button { width: 150px; text: "Revert"; kind: 2; enabled: App.change-count > 0; clicked => { App.revert(); } }
+        Button { width: 260px; text: "Save Changes"; kind: 0; enabled: App.change-count > 0; clicked => { App.save-changes(); } }
+    }
+    // What is changed, or what the last save did, under the buttons.
+    Text {
+        x: parent.width - 60px - self.width;
+        y: 112px;
+        width: min(self.preferred-width, 640px);
+        horizontal-alignment: right;
+        overflow: elide;
+        text: App.status != "" ? App.status
+            : App.change-count == 0 ? "No changes"
+            : App.change-count == 1 ? "1 change, not saved yet" : App.change-count + " changes, not saved yet";
+        font-family: Theme.body-font;
+        font-size: 14px * Theme.ts;
+        color: App.status != "" ? (App.status-bad ? Theme.danger : Theme.good) : App.change-count > 0 ? Theme.changed : Theme.faint;
     }
 }

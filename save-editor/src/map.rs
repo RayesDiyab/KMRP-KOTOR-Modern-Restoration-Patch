@@ -275,6 +275,17 @@ impl ModuleFiles {
         self.rims.iter().find_map(|r| r.read(name, kind))
     }
 
+    /// Every resource of a kind the module carries.
+    pub fn names(&self, kind: u16) -> Vec<String> {
+        let mut out: Vec<String> = self.rims.iter().flat_map(|r| r.names(kind)).collect();
+        if let Some(e) = self.erf.as_ref() {
+            out.extend(e.resources.iter().filter(|r| r.kind == kind).map(|r| r.name.to_ascii_lowercase()));
+        }
+        out.sort();
+        out.dedup();
+        out
+    }
+
     /// The module's area: the .are named in its Module.ifo.
     pub fn area_name(&self) -> Option<String> {
         let ifo = Gff::read(&self.read("module", crate::formats::erf::RES_TYPE_IFO)?).ok()?;

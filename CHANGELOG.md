@@ -140,6 +140,40 @@ proxy, and it applies the executable changes above as well.
   Bahnschrift and Segoe UI drawn without grid fitting, soft beside the Save Editor; they
   are now KMRP Original HD Menu and Descriptions, carried in the program, drawn
   grid-fitted. Its example pictures are made again from the redrawn HD atlases.
+- **The Save Editor spawns creatures** (2026-10-22;
+  [save-editor.md](save-editor/docs/save-editor.md), section 3b;
+  [save-editor-format.md](save-editor/docs/save-editor-format.md), section 5.2). On the Map tab,
+  a picked floor spot offers Spawn a Creature Here: a copy of someone in the area, or any
+  creature the game has, enemy or friendly. A saved creature whose "spawn script fired" flag
+  is 0 gets its spawn script run by the game itself on its first update, and ids come from
+  the module's own counter, so no script engine is needed in the editor. Written and read
+  back in copies of eight saves, and seen in KotOR 1 by the maintainer: a Gamorrean spawned
+  on the Ebon Hawk stood there when the save loaded (KotOR 2 not yet tried). A spawned
+  creature picked on the map can be removed again; the area's own creatures cannot be removed
+  there. Backups now go
+  beside the saves, in `Save Editor Backup` in the saves folder, and the editor says where
+  after each save. The Equipped section is the game's equip screen: the portrait and the
+  slots three across; a picked slot turns the inventory list into what fits it, each with
+  Equip. The Map tab was laid out
+  again around the map: it fills the panel, and the areas, the picked spot and the help
+  moved to a narrow rail on the right with a switch between them. Revert and Save Changes
+  moved to the top right beside the settings button; the bottom bar's backup folder went into
+  Settings, so every tab is taller.
+- **The Save Editor's Story tab opens on a quest tracker** (2026-10-22;
+  [save-editor.md](save-editor/docs/save-editor.md)): active, completed and not started
+  quests on the left; the picked quest's journal entry and every stage as a timeline on the
+  right, a click putting the quest at a stage; Finish Quest asks which ending (with its XP) in
+  a pop-up. A number typed anywhere is taken when the box is left, as if Enter were pressed.
+- **Settings in the Save Editor and the Font Converter, and bigger text** (2026-10-22;
+  [save-editor.md](save-editor/docs/save-editor.md),
+  [font-converter.md](font-converter/docs/font-converter.md)). Both have the installer's
+  gear at the top right; it opens a Settings pop-up with Text Size (Small, the old sizes;
+  Medium, the new default; Large) and Appearance (Dark or Light). The Font Converter gained a
+  light mode. The Save Editor's Settings also hold what KSE keeps in `kse.ini`: the KotOR and
+  KotOR II folders in use, and the save folders added by hand, each removable. Its moon and
+  sun button left the bottom right, so the lists and the editor are taller. Edges of
+  buttons, fields and tiles in both were nearly invisible; they now stand at least 1.8:1
+  against what they sit on (the Save Editor's about 3:1), measured in each document.
 - **The Save Editor has its own icon** (2026-10-22;
   [save-editor/assets/icon](save-editor/assets/icon/README.md)): a holocron with a
   KOTOR-style datapad in front, in the holocron's obsidian and blue, with Aurebesh on the

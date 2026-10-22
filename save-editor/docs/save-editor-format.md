@@ -813,6 +813,32 @@ time fields (`Mod_StartYear`... `Mod_PauseDay`, `Mod_PauseTime`),
 `ObjectId`), `Mod_Tokens`, `VarTable`, `SWVarTable` (module-level locals),
 `EventQueue`, `Mod_PlayerList` (struct id 48813). `Mod_ID` is a 32-byte VOID.
 
+### 5.2 Spawning: how a saved area's creatures load [RE][file]
+
+From the maintainer's own private reverse engineering of KotOR 1 1.0.3 (addresses below),
+checked on real saves of both games on 2026-10-22. KotOR 2's code was **not** read; its
+saves have the same fields and its program the same field names, so the same logic is
+assumed.
+
+| Fact | Evidence |
+| --- | --- |
+| A saved `.git` has no `UseTemplates`; the shipped module's does (1), with creatures as `TemplateResRef` plus position only | K1 Game87 against `tar_m03af.rim` |
+| The GIT loader `0x0050DD80` reads `UseTemplates` (default 0) and calls the creature loader `0x00504A70`: with templates, a new creature from `TemplateResRef` (`0x005026D0`); without, `ObjectId` (default `0x7F000000`) and the full saved creature (`0x00500350`). Both then read the position, find the nearest walkable point within 20 m (`0x004BE860`, a guess from its arguments) and add it to the area | decompile |
+| `Module.ifo` is loaded first (`0x004C9050`) and sets the object counter from `Mod_NextObjId0`; in every save read it is the highest id used plus 1 (K1 Game26 301, K2 Game3 939) | decompile, three saves |
+| An `ObjectId` of `0x7F000000` (or none) gets a fresh id from the counter; any other is kept and the counter moves past it. An id already in use moves the *existing* object to a new id, so an id must never be reused | `0x004CFCB0`, `0x004D80E0`, `0x004D7E90` |
+| Saved and template creatures go through the same stats reader (`0x005AFCE0`); it fails only for a bad race or perception lookup or a missing or empty `ClassList`. Every save-only field (perception, actions, effects, combat round, local variables) is optional | decompile |
+| `CreatnScrptFird` is the "spawn script fired" flag (creature +0x34C). Absent on a save load means fired. At 0, the creature's first AI update runs its `ScriptSpawn` in the game's own script VM, then a heartbeat and a perception pass, and sets it to 1 (`0x004EB6E0`). Nothing runs OnSpawn at load, not even for template creatures or script `CreateObject` | assembly `0x00500525` to `0x00500552`, `0x004EB6E0` |
+| Items: a full item struct with no `ObjectId` gets a fresh one; one whose id belongs to another object is dropped; `EquippedRes` / `InventoryRes` entries load their .uti | `0x004FFDA0`, `0x00560970` |
+
+What the editor writes (`src/area.rs`, `Save::spawn_creature`): a new creature is the .utc's
+fields without `TemplateResRef`, `Comment`, `PaletteID` and `TemplateList`, struct id 4, with
+`CreatnScrptFird` 0, `CreatureSize` 0 (the game takes it from appearance.2da), the defaults
+above for the other save-only fields, `AreaId` and the kinds of the fields from a creature
+already in the area, and empty perception, action, effect and expression lists. A copy is
+the area's creature with those lists empty and `FollowInfo`, `CombatRoundData` and
+`CombatInfo` removed; its spawn script has already run, so it keeps its state. Each gets an
+`ObjectId` from `Mod_NextObjId0`, as does each full item it carries.
+
 ---
 
 ## 6. Save locations by platform

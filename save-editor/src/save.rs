@@ -737,6 +737,20 @@ impl Save {
         }
     }
 
+    /// Adds a creature to the current area with ids nothing else uses: its own from the
+    /// module's counter, and one for every full item it carries. Returns its id.
+    pub fn spawn_creature(&mut self, mut c: Struct) -> u32 {
+        let id = self.new_object_id();
+        c.set("ObjectId", Value::Dword(id));
+        let items = crate::area::creature_items_mut(&mut c).len();
+        let ids: Vec<u32> = (0..items).map(|_| self.new_object_id()).collect();
+        for (item, new) in crate::area::creature_items_mut(&mut c).into_iter().zip(ids) {
+            item.set("ObjectId", Value::Dword(new));
+        }
+        self.edit_area(&format!("spawn{}", id), move |git| crate::area::add_creature(git, c));
+        id
+    }
+
     pub fn edit_nfo(&mut self, f: impl FnOnce(&mut Struct)) {
         f(&mut self.nfo.root);
         self.dirty.insert("nfo");
@@ -821,16 +835,29 @@ impl Save {
     }
 }
 
-fn backup_folder(backups: &Path, game: Game, folder: &Path) -> PathBuf {
+fn backup_folder(backups: &Path, _game: Game, folder: &Path) -> PathBuf {
     let name = folder.file_name().map(|n| n.to_string_lossy().to_string()).unwrap_or_else(|| "save".into());
     let stamp = timestamp();
-    let mut path = backups.join(game.title()).join(&name).join(&stamp);
+    let mut path = backups.join(&name).join(&stamp);
     let mut n = 2;
     while path.exists() {
-        path = backups.join(game.title()).join(&name).join(format!("{} ({})", stamp, n));
+        path = backups.join(&name).join(format!("{} ({})", stamp, n));
         n += 1;
     }
     path
+}
+
+/// Where a save's backups go: "Save Editor Backup" in the folder that holds the save (the
+/// game's saves folder), as the maintainer asked on 2026-10-22. A Steam Cloud save of
+/// KotOR 2 keeps its backups in the game's local saves folder instead, so Steam does not
+/// upload them.
+pub fn backup_root(folder: &Path, game_root: Option<&Path>) -> PathBuf {
+    let parent = folder.parent().unwrap_or(folder);
+    let cloud = folder.ancestors().any(|a| a.file_name().map_or(false, |n| n.eq_ignore_ascii_case("cloudsaves")));
+    match (cloud, game_root) {
+        (true, Some(root)) => root.join("saves").join("Save Editor Backup"),
+        _ => parent.join("Save Editor Backup"),
+    }
 }
 
 /// "2026-10-22 14-05-09", in UTC (no time zone database needed).

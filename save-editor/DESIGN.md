@@ -220,7 +220,7 @@ Deep navy (or deep green-black for KotOR II) with a single holo accent, gold for
 
 ## Layout
 
-A fixed desktop canvas: preferred 1600 by 900, minimum 1280 by 780. Everything hangs from a 60px page margin on left and right. The crest header occupies the top 170px (crest 110px tall at 60px from the left, 44px from the top); a top-right slot holds the game switch on the saves screen and All Saves in the editor. A footer line sits 50px above the bottom edge: version, dot-separated links on the left, credit and the round theme toggle on the right.
+A fixed desktop canvas: preferred 1600 by 900, minimum 1280 by 780. Everything hangs from a 60px page margin on left and right. The crest header occupies the top 170px (crest 110px tall at 60px from the left, 44px from the top); a top-right slot holds the game switch on the saves screen, Revert and Save Changes in the editor (with a status line under them), and the square settings button (the KMRP installer's gear) at the top right of both screens. A footer line sits 46px above the bottom edge on the saves screen only: version and dot-separated links on the left, the credit on the right; in the editor the tabs reach the bottom and the backups, version and credit are in Settings. Dark or light and the text size are in Settings (2026-10-22); the round theme toggle is gone.
 
 Saves screen: two panels from y 200px, the list taking 47% of the width, a 24px gutter, the preview taking the rest. The preview stacks the screenshot (half its width tall), name and details, party portraits, and an action row pinned 22px from the bottom.
 

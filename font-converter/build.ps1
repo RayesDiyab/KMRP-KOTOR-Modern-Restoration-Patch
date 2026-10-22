@@ -26,7 +26,10 @@ New-Item -ItemType Directory -Force -Path $dist | Out-Null
 $resources = @(
     "/resource:$data\references.txt,references.txt",
     "/resource:$data\examples.txt,examples.txt",
-    "/resource:$here\kmrp-logo.png,kmrp-logo.png"
+    "/resource:$here\kmrp-logo.png,kmrp-logo.png",
+    # The installer's settings gear (src/patcher/icons/Settings.png, cropped to its ink and
+    # made 512 px), line art drawn tinted.
+    "/resource:$here\settings.png,settings.png"
 )
 # KMRP's own fonts for the window's text (SIL OFL 1.1, fonts\OFL.txt), TrueType: GDI+
 # cannot load the CFF outlines of the OTF files.
