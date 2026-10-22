@@ -150,3 +150,60 @@ fn a_new_class_brings_its_level_record() {
         return;
     }
 }
+
+#[test]
+fn kse_features_survive_a_write() {
+    let installs = find_installs(&[]);
+    for game in [Game::K1, Game::K2] {
+        let Some(install) = installs.iter().find(|i| i.game == game) else { continue };
+        let data = GameData::open(game, &install.path);
+        let cat = Catalog::build(&data);
+        for folder in find_saves(&installs, game, &[]) {
+            let name = folder.path.file_name().unwrap().to_string_lossy().to_string();
+            let work = scratch(&format!("kse-{:?}-{}", game, name));
+            copy_dir(&folder.path, &work);
+            let backups = scratch(&format!("kse-{:?}-{}-backups", game, name));
+            let mut save = Save::open(&work).unwrap();
+            let p = save.player().unwrap().clone();
+            // Body armour off and on again: the same item, a new object id.
+            let body = creature::in_slot(&p, 0x2).and_then(|i| i.string("Tag"));
+            let items = save.inventory().len();
+            if body.is_some() {
+                assert!(save.unequip(Who::Player, 0x2));
+                assert_eq!(save.inventory().len(), items + 1);
+                assert!(save.equip(Who::Player, 0x2, items));
+                assert_eq!(save.inventory().len(), items);
+            }
+            // A level down and up again in the last class.
+            let classes = creature::classes(&p);
+            let index = classes.len() - 1;
+            let (id, lv) = classes[index];
+            let class = cat.class(id).unwrap().clone();
+            let xp = |l: i64| cat.xp_for(l);
+            if lv > 1 {
+                save.edit(Who::Player, "down", |c| creature::set_class_level(c, index, lv - 1, &class, &xp));
+                save.edit(Who::Player, "up", |c| creature::set_class_level(c, index, lv, &class, &xp));
+            }
+            // The party and a quest.
+            let members: Vec<usize> = save.npcs().into_iter().filter(|n| save.recruited(*n)).take(2).collect();
+            save.set_party_members(&members).unwrap();
+            save.set_quest("kmrp_test_quest", 10);
+            save.write(&backups).unwrap();
+
+            let after = Save::open(&work).unwrap();
+            let q = after.player().unwrap();
+            assert_eq!(creature::in_slot(q, 0x2).and_then(|i| i.string("Tag")), body, "{}", name);
+            assert_eq!(creature::classes(q)[index].1, lv, "{}", name);
+            // As many level records as before (a save edited by another tool may not have
+            // one per level to begin with; Game22 here has 41 for 40 levels).
+            assert_eq!(
+                q.list("LvlStatList").map(|l| l.len()),
+                p.list("LvlStatList").map(|l| l.len()),
+                "{}: level records",
+                name
+            );
+            assert_eq!(after.party_members(), members, "{}", name);
+            assert!(after.quests().contains(&("kmrp_test_quest".to_string(), 10)), "{}", name);
+        }
+    }
+}

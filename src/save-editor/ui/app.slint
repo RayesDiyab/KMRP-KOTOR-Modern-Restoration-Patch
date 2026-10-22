@@ -17,7 +17,7 @@
 
 import { Theme } from "theme.slint";
 import { App, SaveRow, Member, Stat, Named, ItemRow, NpcRow, GlobalRow, DoorRow, BoxRow, PortraitRow, Toggle } from "state.slint";
-import { Button, Field, Note, Scroller, ThemeToggle, Brand, Link, Sign } from "widgets.slint";
+import { Button, Field, Note, Scroller, ThemeToggle, Brand, Link, Sign, Stepper } from "widgets.slint";
 import { SavesPage } from "saves.slint";
 import { EditorPage } from "editor.slint";
 
@@ -84,6 +84,8 @@ export component AppWindow inherits Window {
         Text { text: "·"; vertical-alignment: center; font-size: 15px; color: Theme.faint; }
         if App.page == 0: Link { text: "Open Saves Folder"; vertical-alignment: center; clicked => { App.open-saves-folder(); } }
         if App.page == 0: Text { text: "·"; vertical-alignment: center; font-size: 15px; color: Theme.faint; }
+        if App.page == 0: Link { text: "Refresh"; vertical-alignment: center; clicked => { App.refresh-saves(); } }
+        if App.page == 0: Text { text: "·"; vertical-alignment: center; font-size: 15px; color: Theme.faint; }
         if App.page == 0: Link { text: "Add a Save Folder"; vertical-alignment: center; clicked => { App.add-save-folder(); } }
         if App.page == 0: Text { text: "·"; vertical-alignment: center; font-size: 15px; color: Theme.faint; }
         if App.page == 0: Link { text: "Choose Game Folder"; vertical-alignment: center; clicked => { App.choose-game-folder(); } }
@@ -109,7 +111,7 @@ export component AppWindow inherits Window {
             spacing: 10px;
             Text { text: App.overlay-title; font-family: Theme.title-font; font-size: 30px; color: Theme.text; }
             Note { text: App.overlay-note; font-size: 15px; }
-            if App.overlay == 1: HorizontalLayout {
+            if App.overlay == 1 && App.picker-tabs.length > 0: HorizontalLayout {
                 spacing: 6px;
                 alignment: start;
                 for t[i] in App.picker-tabs: Rectangle {
@@ -247,6 +249,41 @@ export component AppWindow inherits Window {
             HorizontalLayout {
                 alignment: end;
                 Button { width: 170px; text: "Cancel"; clicked => { App.close-overlay(); } }
+            }
+        }
+    }
+    if App.overlay == 6: Overlay {
+        panel-width: 760px;
+        panel-height: 250px + App.class-rows.length * 72px;
+        VerticalLayout {
+            spacing: 12px;
+            Text { text: "Classes"; font-family: Theme.title-font; font-size: 30px; color: Theme.text; }
+            Note {
+                font-size: 15px;
+                text: "A level up adds the class's Health and Force; a level down takes back what that level gave (feats, powers, skill ranks). Experience follows the new level. The game knows two classes at most.";
+            }
+            for c in App.class-rows: Rectangle {
+                height: 60px;
+                Rectangle { y: parent.height - 1px; height: 1px; background: Theme.row-line; }
+                HorizontalLayout {
+                    spacing: 14px;
+                    Text { text: c.name; vertical-alignment: center; font-family: Theme.list-font; font-size: 20px; color: Theme.text; overflow: elide; }
+                    VerticalLayout {
+                        alignment: center;
+                        Stepper { width: 150px; value: c.level; minimum: 1; maximum: c.maximum; set(v) => { App.set-class-level(c.index, v); } }
+                    }
+                    VerticalLayout { alignment: center; Button { kind: 3; text: "Change"; clicked => { App.change-class(c.index); } } }
+                    if c.can-remove: VerticalLayout { alignment: center; Button { kind: 3; text: "Remove"; clicked => { App.remove-class(c.index); } } }
+                }
+            }
+            if App.can-add-class: HorizontalLayout {
+                alignment: start;
+                Button { kind: 3; text: "Add a Second Class"; clicked => { App.open-add-class(); } }
+            }
+            Rectangle { vertical-stretch: 1; }
+            HorizontalLayout {
+                alignment: end;
+                Button { width: 170px; kind: 0; text: "Done"; clicked => { App.close-overlay(); } }
             }
         }
     }

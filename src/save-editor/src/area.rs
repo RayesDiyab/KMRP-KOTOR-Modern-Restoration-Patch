@@ -136,3 +136,39 @@ pub fn set_position(c: &mut Struct, p: [f32; 3]) {
     c.set_float("YPosition", p[1]);
     c.set_float("ZPosition", p[2]);
 }
+
+#[derive(Clone, Debug)]
+pub struct Creature {
+    pub index: usize,
+    pub tag: String,
+    pub name: String,
+    pub hp: i64,
+    pub max_hp: i64,
+}
+
+/// The creatures standing in the area as the save left them.
+pub fn creatures(git: &Struct, name: &dyn Fn(&Struct) -> String) -> Vec<Creature> {
+    git.list(CREATURES)
+        .map(|l| {
+            l.iter()
+                .enumerate()
+                .map(|(index, c)| {
+                    let (hp, max_hp) = crate::creature::health(c);
+                    Creature { index, tag: c.string("Tag").unwrap_or_default(), name: name(c), hp, max_hp }
+                })
+                .collect()
+        })
+        .unwrap_or_default()
+}
+
+pub fn creature_mut<'a>(git: &'a mut Struct, index: usize) -> Option<&'a mut Struct> {
+    git.list_mut(CREATURES)?.get_mut(index)
+}
+
+pub fn remove_creature(git: &mut Struct, index: usize) {
+    if let Some(l) = git.list_mut(CREATURES) {
+        if index < l.len() {
+            l.remove(index);
+        }
+    }
+}

@@ -146,6 +146,20 @@ proxy, and it applies the executable changes above as well.
   Choose Game Folder picks which install of a game is used; the other game's data is read
   in the background at start, so the first switch to KotOR II is instant (measured: the
   list is shown within 0.4 s of the click).
+  Then everything KSE edits that the editor lacked (from KSE 3.3.7's own feature list,
+  not its code): equipment for the player and party (an item taken off loses the effects
+  it gave; a new one gets the module's next object id; droid parts only for droids), the
+  active party ("With you", two at most, with the Load screen's party pictures), class
+  levels up and down (a level down takes back that level's feats, powers, skill ranks and
+  attribute point), changing and removing a class, current and most Health and Force,
+  Min1HP ("Cannot die"), body, voice and gender on their own, names for party members,
+  every portrait, quest stages from the game's journal, the area's creatures, time
+  played, copying another save's inventory, and Refresh. **Checked in KotOR 1** on an
+  edited copy of a Tatooine save: Jedi Guardian 10 to 11 with the XP following, Bastila
+  and Canderous in the party, the new mask worn and the gloves off. On the Ebon Hawk the
+  game stands every member around the ship whatever the party says (an area copy taken
+  out there went missing, so the editor leaves the area alone). Not yet confirmed:
+  whether a newly equipped item's bonuses apply after loading.
 
 - **Main menu: each button's caption in the middle of its bar** (2026-10-22;
   `KmrpMainMenuBars` in `macos/tools/kmrp-guiadapt.c`, renamed from `kmrp-galaxymap.c`;

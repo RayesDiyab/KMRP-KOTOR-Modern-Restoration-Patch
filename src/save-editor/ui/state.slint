@@ -15,6 +15,9 @@ export struct GlobalRow { index: int, name: string, kind: int, on: bool, number:
 export struct DoorRow { index: int, tag: string, note: string, locked: bool, open: bool, changed: bool }
 export struct BoxRow { index: int, name: string, note: string }
 export struct PortraitRow { id: int, image: image, female: bool, current: bool }
+export struct ClassRow { index: int, name: string, level: int, maximum: int, can-remove: bool }
+export struct SlotRow { slot: int, name: string, item: string, icon: image, has-icon: bool, empty: bool, changed: bool }
+export struct CreatureRow { index: int, name: string, note: string, hp: int, max-hp: int }
 export struct Toggle { index: int, name: string, on: bool, value: int, changed: bool }
 
 export global App {
@@ -45,6 +48,7 @@ export global App {
     callback show-folder();
     callback open-saves-folder();
     callback add-save-folder();
+    callback refresh-saves();
     in property <string> game-folder;
     callback choose-game-folder();
 
@@ -79,6 +83,18 @@ export global App {
     in property <bool> has-portrait;
     in property <string> look-note;
     in property <bool> look-changed;
+    in property <string> body-name;
+    in property <string> voice-name;
+    in property <string> gender-name;
+    in property <int> hp-current;
+    in property <int> hp-max;
+    in property <int> fp-current;
+    in property <int> fp-max;
+    in property <bool> hp-changed;
+    in property <bool> fp-changed;
+    in property <bool> min1hp;
+    in property <bool> min1hp-changed;
+    in property <[ClassRow]> class-rows;
     in property <bool> can-add-class;
     in property <string> position-x;
     in property <string> position-y;
@@ -95,6 +111,16 @@ export global App {
     callback pick-look(int);
     callback open-add-class();
     callback set-position(string, string, string);
+    callback open-body();
+    callback open-voice();
+    callback open-gender();
+    callback set-hp(int, int);
+    callback set-fp(int, int);
+    callback set-min1hp(bool);
+    callback open-classes();
+    callback set-class-level(int, int);
+    callback change-class(int);
+    callback remove-class(int);
 
     // Abilities
     in property <[Stat]> skills;
@@ -128,6 +154,9 @@ export global App {
     callback set-stack(int, int);
     callback remove-item(int);
     callback open-add-item();
+    in property <[SlotRow]> slots;
+    callback open-slot(int);
+    callback copy-inventory();
     in property <int> inventory-tab;
     callback select-inventory-tab(int);
 
@@ -136,6 +165,8 @@ export global App {
     in property <int> party-xp;
     in property <bool> party-xp-changed;
     callback set-recruited(int, bool);
+    callback set-in-party(int, bool);
+    in property <int> party-size;
     callback set-selectable(int, bool);
     callback set-influence(int, int);
     callback import-npc(int);
@@ -156,6 +187,10 @@ export global App {
     in property <bool> cheat-changed;
     in property <[Toggle]> pazaak;
     in property <[Named]> journal;
+    in property <[CreatureRow]> creatures;
+    in property <string> played-hours;
+    in property <string> played-minutes;
+    in property <bool> played-changed;
     in property <string> journal-note;
     in property <string> save-name;
     in property <bool> save-name-changed;
@@ -176,6 +211,9 @@ export global App {
     callback set-cheat(bool);
     callback set-pazaak(int, int);
     callback remove-journal(int);
+    callback open-quest(int);
+    callback remove-creature(int);
+    callback set-played(string, string);
     callback set-save-name(string);
 
     // ---- the bottom bar ----
@@ -187,7 +225,7 @@ export global App {
     callback revert();
     callback open-backups();
 
-    // ---- pop-ups: 0 none, 1 items, 2 look, 3 another save, 4 message, 5 class ----
+    // ---- pop-ups: 0 none, 1 items and lists, 2 look, 3 another save, 4 message, 5 class, 6 classes ----
     in property <int> overlay: 0;
     in property <string> overlay-title;
     in property <string> overlay-note;

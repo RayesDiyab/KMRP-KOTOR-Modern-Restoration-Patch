@@ -412,6 +412,170 @@ impl Save {
         }
     }
 
+    // ---- equipment ----
+
+    /// A new object id from the module's counter (Mod_NextObjId0), which then moves on;
+    /// the area's highest id + 1 when the module has no counter.
+    fn new_object_id(&mut self) -> u32 {
+        if let Some(ifo) = self.ifo.as_mut() {
+            if let Some(next) = ifo.root.int("Mod_NextObjId0") {
+                ifo.root.set_int("Mod_NextObjId0", next + 1, Value::Dword(0));
+                self.dirty.insert("ifo");
+                return next as u32;
+            }
+        }
+        self.git.as_ref().map(|(_, g)| crate::area::next_object_id(&g.root)).unwrap_or(0x10000)
+    }
+
+    /// Equips one of inventory item `index` in `slot`, on every copy of the creature; what
+    /// was in the slot goes back to the party inventory.
+    pub fn equip(&mut self, who: Who, slot: u32, index: usize) -> bool {
+        let inventory = self.inventory();
+        let Some(mut item) = inventory.get(index).cloned() else { return false };
+        let stack = item.int("StackSize").unwrap_or(1);
+        item.set_int("StackSize", 1, Value::Word(1));
+        let old = self.creature(who).and_then(|c| crate::creature::in_slot(c, slot)).cloned();
+        let id = self.new_object_id();
+        self.edit(who, &format!("equip{}", slot), |c| {
+            crate::creature::unequip(c, slot);
+            crate::creature::equip(c, slot, item.clone(), id);
+        });
+        self.edit_inventory(&format!("equip{}", slot), |items| {
+            if stack > 1 {
+                items[index].set_int("StackSize", stack - 1, Value::Word(1));
+            } else {
+                items.remove(index);
+            }
+            if let Some(mut o) = old {
+                o.id = 0;
+                o.fields.retain(|(l, _)| l != "ObjectId");
+                items.push(o);
+            }
+        });
+        true
+    }
+
+    /// Takes the item out of `slot` on every copy and puts it in the party inventory.
+    pub fn unequip(&mut self, who: Who, slot: u32) -> bool {
+        let Some(mut item) = self.creature(who).and_then(|c| crate::creature::in_slot(c, slot)).cloned() else { return false };
+        self.edit(who, &format!("equip{}", slot), |c| {
+            crate::creature::unequip(c, slot);
+        });
+        item.id = 0;
+        item.fields.retain(|(l, _)| l != "ObjectId");
+        self.edit_inventory(&format!("unequip{}", slot), |items| items.push(item));
+        true
+    }
+
+    /// The party inventory replaced by another save's of the same game.
+    pub fn copy_inventory(&mut self, other: &Save) -> Result<()> {
+        if other.game != self.game {
+            return Err("that save is from the other game".into());
+        }
+        let items = other.inventory();
+        self.edit_inventory("copied", |list| *list = items);
+        Ok(())
+    }
+
+    // ---- the active party ----
+
+    pub fn party_members(&self) -> Vec<usize> {
+        self.party
+            .root
+            .list("PT_MEMBERS")
+            .map(|l| l.iter().filter_map(|m| m.int("PT_MEMBER_ID")).map(|i| i as usize).collect())
+            .unwrap_or_default()
+    }
+
+    /// Who travels with the player: two at most, each recruited and held in the save. The
+    /// area is left alone: on the Ebon Hawk the game stands every member around the ship
+    /// itself (a member taken out of the Hawk's area went missing in a test, 2026-10-22).
+    pub fn set_party_members(&mut self, members: &[usize]) -> Result<()> {
+        if members.len() > 2 {
+            return Err("two party members at most".into());
+        }
+        for &m in members {
+            if self.creature(Who::Npc(m)).is_none() {
+                return Err("that member is not in this save".into());
+            }
+        }
+        let shape = self.party.root.list("PT_MEMBERS").and_then(|l| l.first().cloned()).unwrap_or_else(|| {
+            let mut s = Struct::new(0);
+            s.set("PT_MEMBER_ID", Value::Int(0));
+            s.set("PT_IS_LEADER", Value::Byte(0));
+            s
+        });
+        let before = self.party_members();
+        let list: Vec<Struct> = members
+            .iter()
+            .map(|&m| {
+                let mut e = shape.clone();
+                e.set_int("PT_MEMBER_ID", m as i64, Value::Int(0));
+                e.set_int("PT_IS_LEADER", 0, Value::Byte(0));
+                e
+            })
+            .collect();
+        let controlled = self.party.root.int("PT_CONTROLLED_NP").unwrap_or(-1);
+        self.edit_party_table("members", |p| {
+            p.set("PT_MEMBERS", Value::List(list));
+            p.set_int("PT_NUM_MEMBERS", members.len() as i64, Value::Byte(0));
+            if controlled >= 0 && !members.contains(&(controlled as usize)) {
+                p.set_int("PT_CONTROLLED_NP", -1, Value::Int(0));
+            }
+        });
+        for &m in members.iter().filter(|m| !before.contains(m)) {
+            self.set_recruited(m, true);
+        }
+        Ok(())
+    }
+
+    // ---- quests ----
+
+    /// The journal entries as (quest tag, stage).
+    pub fn quests(&self) -> Vec<(String, i64)> {
+        self.party
+            .root
+            .list("JNL_Entries")
+            .map(|l| l.iter().map(|e| (e.string("JNL_PlotID").unwrap_or_default(), e.int("JNL_State").unwrap_or(0))).collect())
+            .unwrap_or_default()
+    }
+
+    /// Puts quest `tag` at `stage`, adding it to the journal when it is not there yet;
+    /// a new entry takes the date and time of the newest entry already written.
+    pub fn set_quest(&mut self, tag: &str, stage: i64) {
+        let tag = tag.to_string();
+        self.edit_party_table(&format!("quest.{}", tag), |p| {
+            if p.list("JNL_Entries").is_none() {
+                p.set("JNL_Entries", Value::List(Vec::new()));
+            }
+            let list = p.list_mut("JNL_Entries").unwrap();
+            if let Some(e) = list.iter_mut().find(|e| e.string("JNL_PlotID").map_or(false, |t| t.eq_ignore_ascii_case(&tag))) {
+                e.set_int("JNL_State", stage, Value::Int(0));
+                return;
+            }
+            let mut e = list.last().cloned().unwrap_or_else(|| {
+                let mut s = Struct::new(0);
+                s.set("JNL_PlotID", Value::String(Vec::new()));
+                s.set("JNL_State", Value::Int(0));
+                s.set("JNL_Date", Value::Dword(0));
+                s.set("JNL_Time", Value::Dword(0));
+                s
+            });
+            e.set("JNL_PlotID", Value::String(crate::text::encode(&tag)));
+            e.set_int("JNL_State", stage, Value::Int(0));
+            list.push(e);
+        });
+    }
+
+    pub fn remove_quest(&mut self, tag: &str) {
+        let tag = tag.to_string();
+        self.edit_party_table(&format!("quest.{}", tag), |p| {
+            if let Some(list) = p.list_mut("JNL_Entries") {
+                list.retain(|e| !e.string("JNL_PlotID").map_or(false, |t| t.eq_ignore_ascii_case(&tag)));
+            }
+        });
+    }
+
     // ---- globals ----
 
     pub fn edit_globals(&mut self, key: &str, f: impl FnOnce(&mut Struct)) {

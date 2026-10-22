@@ -48,6 +48,8 @@ pub struct Portrait {
     pub female: bool,
     /// Bodies for the three builds character creation offers: small, medium, large.
     pub bodies: [i64; 3],
+    /// Offered at character creation (party members' portraits are not).
+    pub for_pc: bool,
 }
 
 #[derive(Clone, Debug)]
@@ -127,6 +129,10 @@ pub struct Catalog {
     pub skills: Vec<Entry>,
     pub portraits: Vec<Portrait>,
     pub npc_names: Vec<String>,
+    /// Bodies (appearance.2da), voices (soundset.2da) and genders (gender.2da).
+    pub appearances: Vec<Entry>,
+    pub soundsets: Vec<Entry>,
+    pub genders: Vec<Entry>,
     /// XP needed for each level, from exptable.2da: index 0 is level 1.
     pub xp_table: Vec<i64>,
 }
@@ -215,15 +221,13 @@ impl Catalog {
         let portraits = (0..p.rows.len())
             .filter_map(|r| {
                 let resref = p.cell(r, "baseresref")?.to_string();
-                if p.int(r, "forpc") != Some(1) {
-                    return None;
-                }
-                let mid = p.int(r, "appearancenumber")?;
+                let mid = p.int(r, "appearancenumber").unwrap_or(0);
                 Some(Portrait {
                     id: r as i64,
                     resref,
                     female: p.int(r, "sex") == Some(1),
                     bodies: [p.int(r, "appearance_s").unwrap_or(mid), mid, p.int(r, "appearance_l").unwrap_or(mid)],
+                    for_pc: p.int(r, "forpc") == Some(1),
                 })
             })
             .collect();
@@ -242,12 +246,40 @@ impl Catalog {
             .collect(),
         };
 
+        let labelled = |table: &str, strref: &str| -> Vec<Entry> {
+            let t = data.table(table);
+            (0..t.rows.len())
+                .filter_map(|r| {
+                    let label = t.cell(r, "label")?.to_string();
+                    let name = t
+                        .int(r, strref)
+                        .and_then(|s| data.string(s as u32))
+                        .filter(|n| !n.trim().is_empty() && n != "Bad StrRef")
+                        .unwrap_or_else(|| label.replace('_', " "));
+                    Some(Entry { id: r as i64, name: clean(name), description: label, icon: String::new(), group: String::new(), group_order: 0 })
+                })
+                .collect()
+        };
+        let appearances = labelled("appearance", "string_ref");
+        let soundsets = labelled("soundset", "strref");
+        let g = data.table("gender");
+        let genders = (0..g.rows.len())
+            .map(|r| Entry {
+                id: r as i64,
+                name: g.int(r, "name").and_then(|s| data.string(s as u32)).map(clean).unwrap_or_else(|| format!("Gender {}", r)),
+                description: g.cell(r, "constant").unwrap_or("").to_string(),
+                icon: String::new(),
+                group: String::new(),
+                group_order: 0,
+            })
+            .collect();
+
         let x = data.table("exptable");
         let xp_table: Vec<i64> = (0..x.rows.len())
             .filter_map(|r| x.int(r, "xp").filter(|&v| v >= 0 && v < u32::MAX as i64))
             .collect();
 
-        Catalog { game: data.game, classes, feats, powers, skills, portraits, npc_names, xp_table }
+        Catalog { game: data.game, classes, feats, powers, skills, portraits, npc_names, appearances, soundsets, genders, xp_table }
     }
 
     pub fn class(&self, id: i64) -> Option<&Class> {

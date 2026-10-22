@@ -164,7 +164,6 @@ component CharacterTab inherits Rectangle {
                         Field {
                             text: App.name;
                             changed: App.name-changed;
-                            read-only: !App.is-player;
                             accepted(t) => { App.set-name(t); }
                             edited(t) => { App.set-name(t); }
                         }
@@ -176,6 +175,7 @@ component CharacterTab inherits Rectangle {
                     spacing: 12px;
                     Text { width: 130px; text: "Classes"; vertical-alignment: center; font-family: Theme.list-font; font-size: 19px; color: Theme.text; }
                     VerticalLayout { alignment: center; Field { text: App.classes; read-only: true; font: Theme.body-font; font-size: 14px; } }
+                    VerticalLayout { alignment: center; Button { kind: 3; text: "Edit"; clicked => { App.open-classes(); } } }
                 }
             }
             Line {
@@ -201,12 +201,6 @@ component CharacterTab inherits Rectangle {
             alignment: start;
             Button { kind: 3; text: "To Next Level"; clicked => { App.xp-to-next(); } }
             Button { kind: 3; text: "To Level " + App.max-level; clicked => { App.xp-to-max(); } }
-        }
-        if App.can-add-class: HorizontalLayout {
-            x: 0; y: 312px;
-            height: 38px;
-            alignment: start;
-            Button { kind: 3; text: "Add a Second Class"; clicked => { App.open-add-class(); } }
         }
         Label { x: 0; y: 370px; text: "ALIGNMENT"; }
         Rectangle {
@@ -272,54 +266,77 @@ component CharacterTab inherits Rectangle {
             height: self.preferred-height;
             Line {
                 HorizontalLayout {
-                    spacing: 12px;
+                    spacing: 8px;
                     VerticalLayout {
                         alignment: center;
                         Text { text: "Health"; font-family: Theme.list-font; font-size: 19px; color: Theme.text; }
                         Text { text: App.health-note; font-family: Theme.body-font; font-size: 12.5px; color: Theme.faint; overflow: elide; }
                     }
-                    VerticalLayout { alignment: center; Field { width: 130px; text: App.health; read-only: true; } }
+                    VerticalLayout { alignment: center; hn := Field { width: 72px; text: App.hp-current; changed: App.hp-changed; accepted(t) => { App.set-hp(hn.text.to-float(), hm.text.to-float()); } } }
+                    VerticalLayout { alignment: center; hm := Field { width: 72px; text: App.hp-max; changed: App.hp-changed; accepted(t) => { App.set-hp(hn.text.to-float(), hm.text.to-float()); } } }
                 }
             }
             Line {
                 HorizontalLayout {
-                    spacing: 12px;
+                    spacing: 8px;
                     VerticalLayout {
                         alignment: center;
                         Text { text: "Force"; font-family: Theme.list-font; font-size: 19px; color: Theme.text; }
                         Text { text: App.force-note; font-family: Theme.body-font; font-size: 12.5px; color: Theme.faint; overflow: elide; }
                     }
-                    VerticalLayout { alignment: center; Field { width: 130px; text: App.force; read-only: true; } }
+                    VerticalLayout { alignment: center; fn := Field { width: 72px; text: App.fp-current; changed: App.fp-changed; accepted(t) => { App.set-fp(fn.text.to-float(), fm.text.to-float()); } } }
+                    VerticalLayout { alignment: center; fm := Field { width: 72px; text: App.fp-max; changed: App.fp-changed; accepted(t) => { App.set-fp(fn.text.to-float(), fm.text.to-float()); } } }
                 }
             }
         }
         HorizontalLayout {
-            x: 0; y: 160px;
+            x: 0; y: 152px;
             height: 38px;
-            alignment: start;
-            Button { kind: 3; text: "Heal Everyone Fully"; clicked => { App.heal-all(); } }
-        }
-        Label { x: 0; y: 214px; text: "LOOK"; }
-        HorizontalLayout {
-            x: 0; y: 248px;
-            height: 96px;
             spacing: 14px;
-            Rectangle {
-                width: 84px;
-                height: 84px;
-                border-radius: 5px;
-                border-width: App.look-changed ? 2px : 1px;
-                border-color: App.look-changed ? Theme.changed : Theme.edge;
-                background: Theme.field;
-                clip: true;
-                if App.has-portrait: Image { source: App.portrait; width: parent.width; height: parent.height; }
-            }
-            VerticalLayout {
-                spacing: 6px;
-                alignment: start;
-                Text { text: "Portrait and body"; font-family: Theme.list-font; font-size: 18px; color: Theme.text; }
-                Note { text: App.look-note; }
-                HorizontalLayout { alignment: start; Button { kind: 3; text: "Change Look"; clicked => { App.open-look(); } } }
+            alignment: start;
+            Button { kind: 3; text: "Heal Everyone"; clicked => { App.heal-all(); } }
+            VerticalLayout { alignment: center; Switch { on: App.min1hp; changed: App.min1hp-changed; toggled(v) => { App.set-min1hp(v); } } }
+            Text { text: "Cannot die"; vertical-alignment: center; font-family: Theme.body-font; font-size: 14px; color: Theme.muted; }
+        }
+        Label { x: 0; y: 214px; text: "LOOK AND VOICE"; }
+        Rectangle {
+            x: 0; y: 246px;
+            width: 84px;
+            height: 84px;
+            border-radius: 5px;
+            border-width: App.look-changed ? 2px : 1px;
+            border-color: App.look-changed ? Theme.changed : Theme.edge;
+            background: Theme.field;
+            clip: true;
+            if App.has-portrait: Image { source: App.portrait; width: parent.width; height: parent.height; }
+            TouchArea { mouse-cursor: pointer; clicked => { App.open-look(); } }
+        }
+        VerticalLayout {
+            x: 98px; y: 240px;
+            width: parent.width - 98px;
+            height: self.preferred-height;
+            for f in [
+                { label: "Portrait", value: "Change", which: 0 },
+                { label: "Body", value: App.body-name, which: 1 },
+                { label: "Voice", value: App.voice-name, which: 2 },
+                { label: "Gender", value: App.gender-name, which: 3 },
+            ]: Rectangle {
+                height: 34px;
+                Rectangle { x: 0; y: parent.height - 1px; height: 1px; background: Theme.row-line; }
+                HorizontalLayout {
+                    spacing: 8px;
+                    Text { width: 64px; text: f.label; vertical-alignment: center; font-family: Theme.body-font; font-size: 13px; color: Theme.faint; }
+                    Text { text: f.value; vertical-alignment: center; font-family: Theme.list-font; font-size: 15px; color: lk.has-hover ? Theme.accent : Theme.text; overflow: elide; }
+                }
+                lk := TouchArea {
+                    mouse-cursor: pointer;
+                    clicked => {
+                        if (f.which == 0) { App.open-look(); }
+                        if (f.which == 1) { App.open-body(); }
+                        if (f.which == 2) { App.open-voice(); }
+                        if (f.which == 3) { App.open-gender(); }
+                    }
+                }
             }
         }
     }
@@ -496,7 +513,50 @@ component InventoryTab inherits Rectangle {
             if App.has-crafting: Money { label: "Components"; note: "For the workbench"; value: App.components; changed: App.components-changed; set(v) => { App.set-components(v); } }
             if App.has-crafting: Money { label: "Chemicals"; note: "For the lab station"; value: App.chemicals; changed: App.chemicals-changed; set(v) => { App.set-chemicals(v); } }
         }
-        Note { x: 0; y: App.has-crafting ? 220px : 108px; width: parent.width; text: "Type a number and press Enter."; }
+        Note { x: 0; y: App.has-crafting ? 214px : 102px; width: parent.width; text: "Type a number and press Enter."; }
+        Label { x: 0; y: App.has-crafting ? 250px : 138px; text: "EQUIPPED BY " + App.name; }
+        Scroller {
+            x: 0; y: (App.has-crafting ? 250px : 138px) + 30px;
+            height: parent.height - self.y - 46px;
+            content-height: App.slots.length * 46px;
+            VerticalLayout {
+                for r in App.slots: Rectangle {
+                    height: 46px;
+                    border-radius: 5px;
+                    background: st.has-hover ? Theme.hover : transparent;
+                    Rectangle { x: 0; y: parent.height - 1px; height: 1px; background: Theme.row-line; }
+                    HorizontalLayout {
+                        padding-left: 4px;
+                        spacing: 10px;
+                        VerticalLayout {
+                            alignment: center;
+                            Rectangle {
+                                width: 36px;
+                                height: 36px;
+                                border-radius: 4px;
+                                border-width: 1px;
+                                border-color: Theme.edge;
+                                background: Theme.field;
+                                clip: true;
+                                if r.has-icon: Image { source: r.icon; width: parent.width; height: parent.height; }
+                            }
+                        }
+                        VerticalLayout {
+                            alignment: center;
+                            Text { text: r.empty ? "Empty" : r.item; font-family: Theme.list-font; font-size: 15px; color: r.changed ? Theme.changed : r.empty ? Theme.faint : Theme.text; overflow: elide; }
+                            Text { text: r.name; font-family: Theme.body-font; font-size: 11.5px; color: Theme.faint; overflow: elide; }
+                        }
+                    }
+                    st := TouchArea { mouse-cursor: pointer; clicked => { App.open-slot(r.slot); } }
+                }
+            }
+        }
+        HorizontalLayout {
+            x: 0; y: parent.height - 38px;
+            height: 38px;
+            alignment: start;
+            Button { kind: 3; text: "Copy from Another Save"; clicked => { App.copy-inventory(); } }
+        }
     }
     Rectangle {
         x: side + 34px;
@@ -546,7 +606,7 @@ component PartyTab inherits Rectangle {
         x: 0; y: 0;
         height: 24px;
         Label { text: "PARTY MEMBERS"; }
-        Note { text: "Recruited: listed in the party screen.  Can be picked: not held back by the story."; horizontal-alignment: right; vertical-alignment: center; }
+        Note { text: "With you: in the active party (two at most).  Recruited: in the party screen.  Can be picked: not held back by the story."; horizontal-alignment: right; vertical-alignment: center; }
     }
     Scroller {
         x: 0; y: 36px;
@@ -571,7 +631,7 @@ component PartyTab inherits Rectangle {
                     }
                     VerticalLayout {
                         alignment: center;
-                        width: 190px;
+                        width: 160px;
                         Text { text: n.name; font-family: Theme.list-font; font-size: 19px; color: n.changed ? Theme.changed : Theme.text; }
                         Text {
                             text: n.in-party ? "In the party" : n.has-creature ? (n.recruited ? "Recruited" : "Not recruited") : "Not met in this save";
@@ -581,20 +641,34 @@ component PartyTab inherits Rectangle {
                     HorizontalLayout {
                         spacing: 10px;
                         alignment: start;
-                        width: 150px;
+                        width: 140px;
                         VerticalLayout { alignment: center; Switch { on: n.recruited; enabled: n.has-creature; toggled(v) => { App.set-recruited(n.index, v); } } }
                         Text { text: "Recruited"; vertical-alignment: center; font-family: Theme.body-font; font-size: 14px; color: n.has-creature ? Theme.muted : Theme.faint; }
                     }
                     HorizontalLayout {
                         spacing: 10px;
                         alignment: start;
-                        width: 170px;
+                        width: 130px;
+                        VerticalLayout {
+                            alignment: center;
+                            Switch {
+                                on: n.in-party;
+                                enabled: n.has-creature && (n.in-party || App.party-size < 2);
+                                toggled(v) => { App.set-in-party(n.index, v); }
+                            }
+                        }
+                        Text { text: "With you"; vertical-alignment: center; font-family: Theme.body-font; font-size: 14px; color: n.has-creature ? Theme.muted : Theme.faint; }
+                    }
+                    HorizontalLayout {
+                        spacing: 10px;
+                        alignment: start;
+                        width: 160px;
                         VerticalLayout { alignment: center; Switch { on: n.selectable; toggled(v) => { App.set-selectable(n.index, v); } } }
                         Text { text: "Can be picked"; vertical-alignment: center; font-family: Theme.body-font; font-size: 14px; color: Theme.muted; }
                     }
                     if n.has-influence: HorizontalLayout {
                         spacing: 10px;
-                        width: 230px;
+                        width: 210px;
                         Text { text: "Influence"; vertical-alignment: center; font-family: Theme.body-font; font-size: 14px; color: Theme.muted; }
                         VerticalLayout {
                             alignment: center;
@@ -826,6 +900,16 @@ component MoreSection inherits Rectangle {
             Text { text: "Marked as cheated"; vertical-alignment: center; font-family: Theme.list-font; font-size: 17px; color: Theme.text; }
         }
         Note { x: 0; y: 84px; width: parent.width; text: "The game sets this when the console's cheats are used. Turning it off clears the mark from the save."; }
+        Label { x: 0; y: 286px; text: "TIME PLAYED"; }
+        Note { x: 0; y: 362px; text: "Hours and minutes. Press Enter to keep a change."; }
+        HorizontalLayout {
+            x: 0; y: 318px;
+            height: 40px;
+            spacing: 8px;
+            ph := Field { width: 90px; text: App.played-hours; changed: App.played-changed; accepted(t) => { App.set-played(ph.text, pm.text); } }
+            pm := Field { width: 70px; text: App.played-minutes; changed: App.played-changed; accepted(t) => { App.set-played(ph.text, pm.text); } }
+            Rectangle { }
+        }
         Label { x: 0; y: 160px; text: "SAVE NAME"; }
         Field {
             x: 0;
@@ -839,34 +923,75 @@ component MoreSection inherits Rectangle {
     }
 }
 
-component JournalSection inherits Rectangle {
+component CreaturesSection inherits Rectangle {
     HorizontalLayout {
-        x: 0;
-        y: 0;
+        x: 0; y: 0;
         height: 24px;
-        Label { text: "JOURNAL · " + App.journal.length; }
-        Note { text: App.journal-note; horizontal-alignment: right; vertical-alignment: center; }
+        Label { text: "CREATURES IN THE AREA · " + App.creatures.length; }
+        Note { text: "Taking one out of the area removes it from the save; a creature a quest needs can leave the quest stuck."; horizontal-alignment: right; vertical-alignment: center; }
     }
     Scroller {
-        x: 0;
-        y: 36px;
+        x: 0; y: 36px;
         height: parent.height - 36px;
-        content-height: App.journal.length * 58px;
+        content-height: App.creatures.length * 48px;
         VerticalLayout {
-            for j[i] in App.journal: Rectangle {
-                height: 58px;
-                Rectangle { y: parent.height - 1px; height: 1px; background: Theme.row-line; }
+            for c in App.creatures: Rectangle {
+                height: 48px;
+                Rectangle { x: 0; y: parent.height - 1px; height: 1px; background: Theme.row-line; }
                 HorizontalLayout {
                     spacing: 12px;
                     VerticalLayout {
                         alignment: center;
-                        Text { text: j.name; font-family: Theme.list-font; font-size: 17px; color: Theme.text; overflow: elide; }
-                        Text { text: j.note; font-family: Theme.body-font; font-size: 13px; color: Theme.faint; overflow: elide; }
+                        Text { text: c.name; font-family: Theme.list-font; font-size: 16px; color: Theme.text; overflow: elide; }
+                        Text { text: c.note; font-family: Theme.body-font; font-size: 12px; color: Theme.faint; overflow: elide; }
                     }
+                    Text { width: 120px; text: "Health " + c.hp + " / " + c.max-hp; vertical-alignment: center; font-family: Theme.body-font; font-size: 13px; color: Theme.muted; }
                     Rectangle {
                         width: 36px;
-                        Cross { colour: jr.has-hover ? Theme.danger : Theme.faint; }
-                        jr := TouchArea { mouse-cursor: pointer; clicked => { App.remove-journal(i); } }
+                        Cross { colour: cr.has-hover ? Theme.danger : Theme.faint; }
+                        cr := TouchArea { mouse-cursor: pointer; clicked => { App.remove-creature(c.index); } }
+                    }
+                }
+            }
+        }
+    }
+}
+
+component JournalSection inherits Rectangle {
+    HorizontalLayout {
+        x: 0; y: 0;
+        height: 24px;
+        Label { text: "QUESTS"; }
+        Note { text: App.journal-note; horizontal-alignment: right; vertical-alignment: center; }
+    }
+    Scroller {
+        x: 0; y: 36px;
+        height: parent.height - 36px;
+        content-height: App.journal.length * 54px;
+        VerticalLayout {
+            for j[i] in App.journal: Rectangle {
+                height: 54px;
+                border-radius: 5px;
+                background: j.owned ? Theme.selected : jq.has-hover && !j.header ? Theme.hover : transparent;
+                if j.header: Label { x: 4px; y: 26px; text: j.name; font-size: 13px; color: Theme.soft; }
+                if !j.header: Rectangle { x: 0; y: parent.height - 1px; height: 1px; background: Theme.row-line; }
+                jq := TouchArea { enabled: !j.header; mouse-cursor: pointer; clicked => { App.open-quest(j.id); } }
+                if !j.header: HorizontalLayout {
+                    padding-left: 8px;
+                    spacing: 12px;
+                    VerticalLayout {
+                        alignment: center;
+                        Text { text: j.name; font-family: Theme.list-font; font-size: 16px; color: j.changed ? Theme.changed : j.owned ? Theme.gold : Theme.text; overflow: elide; }
+                        Text { text: j.note; font-family: Theme.body-font; font-size: 12.5px; color: Theme.faint; overflow: elide; }
+                    }
+                    Rectangle {
+                        width: 40px;
+                        if j.owned: Cross { colour: jr.has-hover ? Theme.danger : Theme.faint; }
+                        if !j.owned: Sign { plus: true; colour: Theme.accent; }
+                        jr := TouchArea {
+                            mouse-cursor: pointer;
+                            clicked => { if (j.owned) { App.remove-journal(j.id); } else { App.open-quest(j.id); } }
+                        }
                     }
                 }
             }
@@ -880,7 +1005,7 @@ component StoryTab inherits Rectangle {
         height: 38px;
         spacing: 10px;
         alignment: start;
-        for s[i] in ["Global Variables", "Area", "Journal", "Galaxy Map, Pazaak and More"]: Rectangle {
+        for s[i] in ["Global Variables", "Area", "Creatures", "Quests", "Galaxy Map, Pazaak and More"]: Rectangle {
             width: t.preferred-width + 30px;
             border-radius: 5px;
             border-width: 1px;
@@ -895,8 +1020,9 @@ component StoryTab inherits Rectangle {
         height: parent.height - 58px;
         if App.story-section == 0: GlobalsSection { }
         if App.story-section == 1: AreaSection { }
-        if App.story-section == 2: JournalSection { }
-        if App.story-section == 3: MoreSection { }
+        if App.story-section == 2: CreaturesSection { }
+        if App.story-section == 3: JournalSection { }
+        if App.story-section == 4: MoreSection { }
     }
 }
 

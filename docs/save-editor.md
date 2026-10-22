@@ -111,6 +111,26 @@ modded game shows its mods.
 When `PARTYTABLE.res` changes, savenfo's `TIMEPLAYED`, `CHEATUSED` and (KotOR 2) `PCNAME`
 are written from it again, so the Load screen agrees with the save.
 
+## 3a. What KSE edits, and where it is here
+
+Taken from KSE 3.3.7's readme (its list of editable fields), not from its code.
+
+| KSE | Here | Rule |
+| --- | --- | --- |
+| Equipment (player and party) | Inventory, Equipped by | an item taken off goes to the party inventory and the effects whose `CreatorId` is its `ObjectId` go with it; an item put on gets `Mod_NextObjId0` of the module's `Module.ifo` as its object id, which then moves on; only items whose `equipableslots` has the slot and whose `droidorhuman` (1 people, 2 droids) fits |
+| Current Party | Party, With you | `PT_MEMBERS`, `PT_NUM_MEMBERS`, savenfo `PORTRAIT1`/`PORTRAIT2`; the area is left alone |
+| Levels, Class add/remove/change | Character, Classes, Edit | `set_class_level`, `change_class`, `remove_class` in `src/creature.rs`; one level record per level for the player |
+| Hit Points, Force Points (current and max) | Character | the current value as the game shows it is stored relative to the base; the maximum moves the base (and the player's last level record) |
+| Min1HP | Character, Cannot die | `Min1HP` |
+| Appearance, Gender, Soundset, Portrait, NPC name | Character, Look and voice | `Appearance_Type`, `Gender`, `SoundSetFile`, `PortraitId`, `FirstName` |
+| Time played | Story, More | `PT_PLAYEDSECONDS` (savenfo follows) |
+| Quests | Story, Quests | `JNL_Entries`: a quest at a stage of global.jrl |
+| Copy inventory between saves | Inventory, Copy from Another Save | the other save's `INVENTORY` item list |
+| Xbox .sig files | not done | see section 6 |
+
+Area creatures (in the fork the maintainer showed) are listed in Story, Creatures, with a
+remove cross.
+
 ## 4. The bugs other editors had, and what this one does
 
 From KSE's issue tracker and the forums ([sources](save-editor-format.md#6-save-locations-by-platform)):
