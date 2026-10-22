@@ -22,6 +22,7 @@ its fonts are made for KMRP (section 4). **Not yet seen in the game, nor run und
 | `font-converter/kmrp-logo.png` | The logo, `tools/build_brand_image.py --text KMRP --tracking 0.12 --whole-crest`, 400x300 |
 | `font-converter/make_data.py`, `font-converter/data/` | Makes `data/`: `references.txt`, `examples.txt` and the example PNGs, from KMRP's `assets/hd-original-fonts`; committed, so the converter builds without the rest of KMRP |
 | `font-converter/favicon.ico` | The window icon, a copy of `src/patcher/favicon.ico` |
+| `font-converter/fonts/` | The window's text: KMRP Original HD Menu (titles) and Descriptions (text), TrueType copies from `fonts/KMRP-OriginalHD.ttc`'s build (GDI+ cannot load the OTF files' CFF outlines), SIL OFL 1.1; compiled in and loaded from memory, drawn grid-fitted. *Corrected 2026-10-22:* until then the window used Bahnschrift and Segoe UI, drawn without grid fitting, which looked soft beside the Save Editor |
 
 ## 2. What it writes
 

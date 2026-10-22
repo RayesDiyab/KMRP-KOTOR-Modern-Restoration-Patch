@@ -51,7 +51,7 @@ fn main() {
     #[cfg(windows)]
     {
         let mut res = winresource::WindowsResource::new();
-        res.set_icon("assets/favicon.ico");
+        res.set_icon("assets/save-editor.ico");
         res.set("ProductName", "KMRP Save Editor");
         res.set("FileDescription", "KMRP Save Editor");
         res.set("CompanyName", "RaymanGT");

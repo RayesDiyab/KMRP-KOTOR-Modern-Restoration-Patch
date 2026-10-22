@@ -135,6 +135,16 @@ proxy, and it applies the executable changes above as well.
   pack's version is 7, which makes `build_native_runtime.cmd` build it again. The KMRP Save
   Editor carries the four it uses in `save-editor/fonts`, so it builds with them anywhere.
   **Not yet seen in the game.**
+- **The Font Converter's window is set in KMRP's own fonts, sharp** (2026-10-22;
+  [font-converter.md](font-converter/docs/font-converter.md)). Its titles and text used
+  Bahnschrift and Segoe UI drawn without grid fitting, soft beside the Save Editor; they
+  are now KMRP Original HD Menu and Descriptions, carried in the program, drawn
+  grid-fitted. Its example pictures are made again from the redrawn HD atlases.
+- **The Save Editor has its own icon and logo** (2026-10-22;
+  [save-editor/assets/icon](save-editor/assets/icon/README.md)): a holocron with a
+  KOTOR-style datapad in front, in the holocron's obsidian and blue, with Aurebesh on the
+  datapad's screen. It is the window's icon, the program file's (16 to 256 px) and the
+  header's mark in place of the KMRP crest.
 - **New tool: the KMRP Save Editor, for KotOR 1 and KotOR 2** (2026-10-22;
   `save-editor`, [save-editor.md](save-editor/docs/save-editor.md),
   [save-editor-format.md](save-editor/docs/save-editor-format.md)). A separate program, not part of

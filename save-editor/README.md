@@ -39,4 +39,6 @@ copies of KMRP's [fonts/](../fonts/README.md), under the SIL Open Font License 1
 ([fonts/OFL.txt](fonts/OFL.txt)). A folder named by `KMRP_FONTS` is used instead when it
 holds all four.
 
+The icon, a holocron with a datapad, and how to remake it: [assets/icon](assets/icon/README.md).
+
 GPL-3.0-or-later, like KMRP; the fonts OFL-1.1. Created by RaymanGT.

@@ -121,13 +121,62 @@ namespace KmrpFontConverter
             return FontFamily.GenericSansSerif.Name;
         }
 
-        public static Font Display(float px) { return Get(display ?? (display = Family("Bahnschrift SemiCondensed", "Bahnschrift", "Segoe UI Semibold", "Tahoma", "Arial")), px, FontStyle.Bold); }
-        public static Font Body(float px, bool bold = false) { return Get(body ?? (body = Family("Segoe UI", "Tahoma", "Arial")), px, bold ? FontStyle.Bold : FontStyle.Regular); }
+        // KMRP's own fonts, carried in the program (fonts/*.ttf, SIL OFL 1.1): Menu for titles,
+        // Descriptions for text, as the Save Editor. Loaded from memory, so nothing is
+        // installed; the system's faces stand in if they cannot be loaded.
+        private static readonly PrivateFontCollection kmrp = new PrivateFontCollection();
+        private static bool kmrpLoaded;
+
+        private static FontFamily Kmrp(string name)
+        {
+            if (!kmrpLoaded)
+            {
+                kmrpLoaded = true;
+                Assembly asm = Assembly.GetExecutingAssembly();
+                foreach (string res in asm.GetManifestResourceNames())
+                {
+                    if (!res.StartsWith("fonts.") || !res.EndsWith(".ttf")) continue;
+                    using (Stream s = asm.GetManifestResourceStream(res))
+                    {
+                        var data = new byte[s.Length];
+                        s.Read(data, 0, data.Length);
+                        // GDI+ reads the font from this memory for as long as the program runs.
+                        IntPtr p = Marshal.AllocCoTaskMem(data.Length);
+                        Marshal.Copy(data, 0, p, data.Length);
+                        try { kmrp.AddMemoryFont(p, data.Length); } catch (Exception) { }
+                    }
+                }
+            }
+            return kmrp.Families.FirstOrDefault(f => f.Name == name);
+        }
+
+        public static Font Display(float px)
+        {
+            FontFamily f = Kmrp("KMRP Original HD Menu");
+            if (f != null) return Get(f, px, FontStyle.Regular);
+            return Get(display ?? (display = Family("Bahnschrift SemiCondensed", "Bahnschrift", "Segoe UI Semibold", "Tahoma", "Arial")), px, FontStyle.Bold);
+        }
+
+        public static Font Body(float px, bool bold = false)
+        {
+            // Descriptions is the game's bold body face already; one weight serves both.
+            FontFamily f = Kmrp("KMRP Original HD Descriptions");
+            if (f != null) return Get(f, px, FontStyle.Regular);
+            return Get(body ?? (body = Family("Segoe UI", "Tahoma", "Arial")), px, bold ? FontStyle.Bold : FontStyle.Regular);
+        }
         public static Font Mono(float px) { return Get(Family("Consolas", "Courier New"), px, FontStyle.Regular); }
 
         private static Font Get(string family, float px, FontStyle style)
         {
             string key = family + "|" + px + "|" + style;
+            Font font;
+            if (!fonts.TryGetValue(key, out font)) fonts[key] = font = new Font(family, px, style, GraphicsUnit.Pixel);
+            return font;
+        }
+
+        private static Font Get(FontFamily family, float px, FontStyle style)
+        {
+            string key = "kmrp:" + family.Name + "|" + px + "|" + style;
             Font font;
             if (!fonts.TryGetValue(key, out font)) fonts[key] = font = new Font(family, px, style, GraphicsUnit.Pixel);
             return font;
@@ -503,7 +552,9 @@ namespace KmrpFontConverter
             offsetY = (ClientSize.Height - CanvasH * scale) / 2;
             g.Clear(Theme.Window);
             g.SmoothingMode = SmoothingMode.AntiAlias;
-            g.TextRenderingHint = TextRenderingHint.AntiAlias;
+            // Grid-fitted: the fonts' hints put stems on whole pixels (plain AntiAlias ignored
+            // them and left the text soft).
+            g.TextRenderingHint = TextRenderingHint.AntiAliasGridFit;
             g.PixelOffsetMode = PixelOffsetMode.HighQuality;
             g.InterpolationMode = InterpolationMode.HighQualityBicubic;
             g.TranslateTransform(offsetX, offsetY);
@@ -575,7 +626,11 @@ namespace KmrpFontConverter
                     float w = Theme.Width(g, word, font);
                     if (x + w > r.Right + 0.5f && x > r.X) { x = r.X; y += line; }
                     using (var b = new SolidBrush(bold ? strong : colour)) g.DrawString(word, font, b, x, y, StringFormat.GenericTypographic);
-                    x += Theme.Width(g, word.Replace(" ", "\u00A0"), font);
+                    // The word, then its space measured on its own: GDI+ leaves trailing
+                    // spaces out of a width, and a no-break space too when the font draws it
+                    // with the space's glyph (as KMRP's fonts do).
+                    x += Theme.Width(g, word.TrimEnd(' '), font);
+                    if (word.EndsWith(" ")) x += Theme.Width(g, "a a", font) - Theme.Width(g, "aa", font);
                 }
             }
         }
@@ -1367,7 +1422,8 @@ namespace KmrpFontConverter
                 string a = "Pick the one to use for ", c = ". Each is shown in its own letters.";
                 float x = r.X + 28;
                 using (var ink = new SolidBrush(Theme.Muted)) g.DrawString(a, plain, ink, x, y, StringFormat.GenericTypographic);
-                x += Theme.Width(g, a.Replace(' ', '\u00A0'), plain);
+                // The trailing space measured on its own (see Rich).
+                x += Theme.Width(g, a.TrimEnd(' '), plain) + Theme.Width(g, "a a", plain) - Theme.Width(g, "aa", plain);
                 using (var ink = new SolidBrush(Theme.Text)) g.DrawString(Tile.Def.Name, strong, ink, x, y, StringFormat.GenericTypographic);
                 x += Theme.Width(g, Tile.Def.Name, strong);
                 using (var ink = new SolidBrush(Theme.Muted)) g.DrawString(c, plain, ink, x, y, StringFormat.GenericTypographic);

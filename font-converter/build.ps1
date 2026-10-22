@@ -28,6 +28,11 @@ $resources = @(
     "/resource:$data\examples.txt,examples.txt",
     "/resource:$here\kmrp-logo.png,kmrp-logo.png"
 )
+# KMRP's own fonts for the window's text (SIL OFL 1.1, fonts\OFL.txt), TrueType: GDI+
+# cannot load the CFF outlines of the OTF files.
+foreach ($ttf in Get-ChildItem -LiteralPath (Join-Path $here "fonts") -Filter *.ttf) {
+    $resources += "/resource:$($ttf.FullName),fonts.$($ttf.Name)"
+}
 foreach ($logo in "logo-deadlystream.png", "logo-github.png") {
     $path = Join-Path $here $logo
     if (Test-Path -LiteralPath $path) { $resources += "/resource:$path,$logo" }
