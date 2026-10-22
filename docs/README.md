@@ -85,9 +85,10 @@ Design and build documentation. Engine analysis lives one level over, in
 | [macos/README.md](../macos/README.md) | The macOS build. |
 | [macos/PLAYER-README.md](../macos/PLAYER-README.md) | The players' instructions, shipped in the Mac package as `README.md`. |
 | [macos/WINDOWS-PARITY.md](../macos/WINDOWS-PARITY.md) | Every Windows engine site and its state on the Mac. |
-| [macos-changes-from-windows.md](macos-changes-from-windows.md) | Changes made on Windows first that the macOS build still needs or has to check. |
+| [macos-handoff-1.5-to-1.6.md](macos-handoff-1.5-to-1.6.md) | **The Mac's handoff from 1.5 to 1.6, 2026-10-22:** Mac players have 1.5.0 only (1.5.1 never reached them), so every change since that the macOS build needs, 1.5.1's repairs included, with what to do and how to check it. Read it first. |
+| [macos-changes-from-windows.md](macos-changes-from-windows.md) | Retired 2026-10-22 for the file above; points to the old tracker in git history. |
 | [windows-changes-from-macos.md](windows-changes-from-macos.md) | The other direction: changes the macOS build made first. |
-| [macos-handoff-2026-10-09.md](macos-handoff-2026-10-09.md) | **Handoff to the Mac side, 2026-10-09:** the area map and the grown buttons after a change of resolution, the Xbox-style HUD on by default, HD icons and High FPS Fixes as options, frame rates through the game's own list, and what each asks of the Mac. The newest; read it first. |
+| [macos-handoff-2026-10-09.md](macos-handoff-2026-10-09.md) | **Handoff to the Mac side, 2026-10-09:** the area map and the grown buttons after a change of resolution, the Xbox-style HUD on by default, HD icons and High FPS Fixes as options, frame rates through the game's own list, and what each asks of the Mac. Older than the 1.5 to 1.6 handoff above. |
 | [macos-two-patches-handoff.md](macos-two-patches-handoff.md) | Handoff to the Mac side, 2026-10-06: KMRP and the controller as two patches. |
 | [macos-standalone-kpatch-handoff.md](macos-standalone-kpatch-handoff.md) | Handoff to the Mac side, 2026-10-04: the self-contained patch and its options format. |
 | [ftd-macos-upstream-audit.md](ftd-macos-upstream-audit.md) | Audit of FTD's upstream macOS patches against KMRP's. |
